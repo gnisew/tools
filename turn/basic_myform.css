@@ -1,0 +1,69 @@
+h3{
+margin-top: 20px;
+cursor: pointer;
+transition: color 0.3s; /* 添加過渡效果 */
+color: black; /* 初始文字顏色 */
+}
+
+
+h3:hover {
+color: blue; /* 滑過後的文字顏色 */
+}
+
+
+h3, #wrong{
+text-align: center;
+vertical-align: middle
+}
+
+/*
+body {
+    background-color: #fafafa;  使用淡灰色作為背景顏色
+}
+ */
+.myfont {
+    font-size: 16px; /* 設置字體大小 */
+    line-height: 1.5; /* 設置行高 */
+}
+
+textarea {
+    width: 80%; /* 設置textarea寬度為80% */
+    margin: 0 auto; /* 將textarea置中 */
+    display: block; /* 讓textarea顯示為塊級元素 */
+    box-sizing: border-box; /* 設置框模型為邊框盒 */
+    padding: 8px; /* 設置內邊距 */
+    border-radius: 4px; /* 設置邊框半徑 */
+    border: 1px solid #ccc; /* 設置邊框顏色和寬度 */
+    resize: vertical; /* 允許垂直調整textarea大小 */
+}
+
+textarea:focus {
+    outline-color: #999; /* 淡色作為 focus 時的外框顏色 */
+}
+
+.button-container {
+    text-align: center; /* 將按鈕置中 */
+    margin-top: 5px; /* 添加上邊距 */
+}
+
+input[type="button"] {
+    margin: 0 2px; /* 添加左右間距 */
+    padding: 4px 8px; /* 設置按鈕內邊距 */
+    border-radius: 4px; /* 設置按鈕邊框半徑 */
+    border: none; /* 移除按鈕邊框 */
+    background-color: #28a745; /* 設置按鈕背景顏色為綠色 */
+    color: #fff; /* 設置按鈕文字顏色為白色 */
+    cursor: pointer; /* 設置滑鼠樣式為手指 */
+    transition: background-color 0.3s; /* 添加背景顏色過渡效果 */
+}
+
+input[type="button"]:hover {
+    background-color: #218838; /* 滑鼠懸停時更改按鈕背景顏色 */
+}
+
+@media (max-width: 768px) {
+    /* 在螢幕寬度小於768px時應用的CSS */
+    textarea {
+        width: calc(100% - 32px); /* 計算寬度，考慮內邊距 */
+    }
+}

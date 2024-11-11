@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><text y=%2214%22 font-size=%2214%22>🥷</text></svg>">
+
+    <title>烏衣行計時</title>
+    <style>
+
+body, html {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: #000;
+    color: #fff;
+    overflow-y: auto;
+}
+
+#timer {
+    font-size: 15vw;
+    text-align: center;
+    margin: 60px 0 20px;
+    flex-shrink: 0;
+}
+
+#recordList {
+    overflow-y: auto;
+    max-height: 50vh;
+    width: 80%;
+}
+
+#controls {
+    text-align: center;
+}
+
+button, select {
+    font-size: 1.2em;
+    margin: 5px;
+    padding: 10px 15px;
+    cursor: pointer;
+}
+
+input {
+    font-size: 15vw;
+    width: 2ch;
+    background: transparent;
+    border: none;
+    color: #fff;
+    text-align: center;
+}
+
+input:focus {
+    outline: none;
+    border-bottom: 2px solid #fff;
+}
+
+#soundToggle, #repeatToggle {
+    display: none;
+}
+
+#modeInfo {
+    margin-top: 20px;
+    font-size: 1.2em;
+}
+
+#recordList, #presetButtons, #pomodoroSettings, #classroomSettings, #hourlySettings {
+    margin-top: 20px;
+    font-size: 1em;
+}
+
+#recordList div {
+    margin: 5px 0;
+}
+
+#presetButtons button, #pomodoroSettings button, #classroomSettings button, #hourlySettings button {
+    font-size: 1em;
+    margin: 5px;
+    padding: 5px 10px;
+}
+
+input[type="number"], input[type="time"] {
+    font-size: 1em;
+    width: 60px;
+}
+
+.time-point {
+    display: flex;
+    align-items: center;
+    margin: 5px;
+}
+
+.time-point input[type="time"] {
+    width: 140px;
+    font-size: 1.4em;
+}
+
+.time-point button {
+    margin-left: 10px;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 20px;
+    margin-left: 10px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 4px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+}
+
+input:checked + .slider {
+    background-color: #2196F3;
+}
+
+input:checked + .slider:before {
+    transform: translateX(18px);
+}
+
+.slider.round {
+    border-radius: 34px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
+}
+
+.label {
+    position: absolute;
+    left: 5px;
+    top: 30px;
+    transform: translateY(-50%);
+    white-space: nowrap;
+}
+
+    </style>
+</head>
+<body>
+
+
+
+<div id="toggles" style="position: absolute; top: 10px; right: 40px;">
+    <label class="switch">
+        <input type="checkbox" id="soundToggle">
+        <span class="slider round"></span>
+        <span class="label">聲音</span>
+    </label>
+    <label class="switch">
+        <input type="checkbox" id="repeatToggle">
+        <span class="slider round"></span>
+        <span class="label">重複</span>
+    </label>
+</div>
+
+
+<div id="timer">
+    <input type="text" id="hours" maxlength="2" value="00">:
+    <input type="text" id="minutes" maxlength="2" value="00">:
+    <input type="text" id="seconds" maxlength="2" value="00">
+</div>
+<div id="controls">
+    <select id="modeSelect">
+        <option value="countdown">⌛沙漏</option>
+        <option value="stopwatch">⏱️碼表</option>
+        <option value="pomodoro">🍅番茄</option>
+        <option value="classroom">⏰鐘聲</option>
+        <option value="hourly">⌚報時</option>
+    </select>
+    <button id="startStop">開始</button>
+    <button id="reset">重置</button>
+    <button id="record" style="display:none;">紀錄</button>
+    <button id="clearRecord" style="display:none;">清除</button>
+</div>
+
+<div id="modeInfo"></div>
+<div id="recordList" style="display:none;"></div>
+<div id="presetButtons" style="display:none;"></div>
+<div id="pomodoroSettings" style="display:none;">
+    工作時間：<input type="number" id="workTime" value="25" min="1" max="60">分鐘
+    休息時間：<input type="number" id="breakTime" value="5" min="1" max="60">分鐘
+    <button id="applyPomodoro">確定</button>
+</div>
+<div id="classroomSettings" style="display:none;">
+    <div id="classTimePoints"></div>
+    <button id="addClassTimePoint">+ 新增時間點</button>
+    <button id="applyClassroom">確定</button>
+</div>
+<div id="hourlySettings" style="display:none;">
+    <div id="hourlyTimePoints"></div>
+    <button id="addHourlyTimePoint">+ 新增報時點</button>
+    <button id="applyHourly">確定</button>
+</div>
+
+
+
+<script>
+
+
+const MODES = {
+    COUNTDOWN: 'countdown',
+    STOPWATCH: 'stopwatch',
+    POMODORO: 'pomodoro',
+    CLASSROOM: 'classroom',
+    HOURLY: 'hourly'
+};
+
+const modeIcons = {
+    [MODES.COUNTDOWN]: '⌛',
+    [MODES.STOPWATCH]: '⏱️',
+    [MODES.POMODORO]: '🍅',
+    [MODES.CLASSROOM]: '⏰',
+    [MODES.HOURLY]: '⌚'
+};
+
+let timer;
+let isRunning = false;
+let time = 0;
+let originalTime = 0;
+let currentMode = MODES.COUNTDOWN;
+let isSoundOn = false;
+let isRepeatOn = false;
+let records = [];
+let defaultCountdownTime = 3 * 60;
+let pomodoroWorkTime = 25 * 60;
+let pomodoroBreakTime = 5 * 60;
+let classTimePoints = [];
+let hourlyTimePoints = [];
+let isShowingCurrentTime = false;
+
+const elements = {
+    hoursInput: document.getElementById('hours'),
+    minutesInput: document.getElementById('minutes'),
+    secondsInput: document.getElementById('seconds'),
+    startStopButton: document.getElementById('startStop'),
+    resetButton: document.getElementById('reset'),
+    modeSelect: document.getElementById('modeSelect'),
+    modeInfo: document.getElementById('modeInfo'),
+    recordButton: document.getElementById('record'),
+    clearRecordButton: document.getElementById('clearRecord'),
+    recordList: document.getElementById('recordList'),
+    presetButtons: document.getElementById('presetButtons'),
+    pomodoroSettings: document.getElementById('pomodoroSettings'),
+    classroomSettings: document.getElementById('classroomSettings'),
+    hourlySettings: document.getElementById('hourlySettings'),
+    soundToggle: document.getElementById('soundToggle'),
+    repeatToggle: document.getElementById('repeatToggle'),
+    toggles: document.getElementById('toggles')
+};
+
+function getUrlParameter(name) {
+    name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+    var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+    var results = regex.exec(location.search);
+    return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+}
+
+function padZero(num) {
+    return num.toString().padStart(2, '0');
+}
+
+function formatTime(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${padZero(h)}:${padZero(m)}:${padZero(s)}`;
+}
+
+function updateDisplay() {
+    if (isShowingCurrentTime) {
+        const now = new Date();
+        const taiwanTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
+        elements.hoursInput.value = padZero(taiwanTime.getHours());
+        elements.minutesInput.value = padZero(taiwanTime.getMinutes());
+        elements.secondsInput.value = padZero(taiwanTime.getSeconds());
+    } else {
+        const { hours, minutes, seconds } = getTimeComponents(time);
+        elements.hoursInput.value = padZero(hours);
+        elements.minutesInput.value = padZero(minutes);
+        elements.secondsInput.value = padZero(seconds);
+    }
+    
+    updateButtonStates();
+    updateTitle();
+}
+
+
+
+
+
+function updateTitle() {
+    const icon = modeIcons[currentMode] || '';
+    let timeString;
+    
+    if (isShowingCurrentTime) {
+        const now = new Date();
+        const taiwanTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
+        timeString = formatTime(taiwanTime.getHours() * 3600 + taiwanTime.getMinutes() * 60 + taiwanTime.getSeconds());
+    } else {
+        if ([MODES.COUNTDOWN, MODES.STOPWATCH, MODES.POMODORO].includes(currentMode)) {
+            const { hours, minutes, seconds } = getTimeComponents(time);
+            if (hours === 0) {
+                timeString = `${padZero(minutes)}:${padZero(seconds)}`;
+            } else {
+                timeString = formatTime(time);
+            }
+        } else {
+            timeString = formatTime(time);
+        }
+    }
+    
+    document.title = `${icon} ${timeString} 烏衣行計時`;
+}
+
+function updateButtonStates() {
+    const isZeroTime = time === 0;
+    const hasRecords = records.length > 0;
+
+    if (![MODES.CLASSROOM, MODES.HOURLY, MODES.COUNTDOWN].includes(currentMode)) {
+        elements.resetButton.disabled = isRunning || (isZeroTime && currentMode === MODES.STOPWATCH);
+    }
+
+    elements.recordButton.disabled = !isRunning || isZeroTime;
+    elements.clearRecordButton.disabled = !hasRecords;
+}
+
+function getTimeComponents(totalSeconds) {
+    return {
+        hours: Math.floor(totalSeconds / 3600),
+        minutes: Math.floor((totalSeconds % 3600) / 60),
+        seconds: totalSeconds % 60
+    };
+}
+
+function getTimeFromInputs() {
+    const hours = parseInt(elements.hoursInput.value) || 0;
+    const minutes = parseInt(elements.minutesInput.value) || 0;
+    const seconds = parseInt(elements.secondsInput.value) || 0;
+    return hours * 3600 + minutes * 60 + seconds;
+}
+
+function startStop() {
+    if (isRunning) {
+        clearInterval(timer);
+        elements.startStopButton.textContent = '開始';
+        enableInputs(true);
+    } else {
+        time = getTimeFromInputs();
+        if (currentMode === MODES.COUNTDOWN) {
+            originalTime = time;
+            localStorage.setItem('countdownTime', time.toString());
+        }
+        if (currentMode !== MODES.STOPWATCH) {
+            originalTime = time;
+            saveSettings();
+        }
+        timer = setInterval(() => {
+            if (currentMode === MODES.STOPWATCH) {
+                time++;
+            } else {
+                if (time > 0) time--;
+                if (time === 0) {
+                    if (isSoundOn) {
+                        playSound();
+                    }
+                    if (isRepeatOn && [MODES.COUNTDOWN, MODES.POMODORO].includes(currentMode)) {
+                        time = currentMode === MODES.POMODORO ? 
+                            (time === pomodoroWorkTime ? pomodoroBreakTime : pomodoroWorkTime) : 
+                            originalTime;
+                    } else {
+                        clearInterval(timer);
+                        elements.startStopButton.textContent = '開始';
+                        isRunning = false;
+                        enableInputs(true);
+                    }
+                }
+            }
+            updateDisplay();
+        }, 1000);
+        elements.startStopButton.textContent = '暫停';
+        enableInputs(false);
+    }
+    isRunning = !isRunning;
+    updateButtonStates();
+    updateTitle();
+}
+
+function reset() {
+    clearInterval(timer);
+    time = currentMode === MODES.COUNTDOWN ? 
+        (parseInt(localStorage.getItem('countdownTime')) || defaultCountdownTime) :
+        (currentMode === MODES.STOPWATCH ? 0 : originalTime);
+    updateDisplay();
+    elements.startStopButton.textContent = '開始';
+    isRunning = false;
+    enableInputs(true);
+    updateButtonStates();
+}
+
+function setupStopwatchMode() {
+    elements.recordButton.style.display = 'inline-block';
+    elements.clearRecordButton.style.display = 'inline-block';
+    elements.recordList.style.display = 'block';
+    updateButtonStates();
+}
+
+function changeMode(modeValue) {
+    let newMode;
+    let urlParam;
+    switch(modeValue) {
+        case '1': newMode = MODES.COUNTDOWN; urlParam = '1'; break;
+        case '2': newMode = MODES.STOPWATCH; urlParam = '2'; break;
+        case '3': newMode = MODES.POMODORO; urlParam = '3'; break;
+        case '4': newMode = MODES.CLASSROOM; urlParam = '4'; break;
+        case '5': newMode = MODES.HOURLY; urlParam = '5'; break;
+        default:
+            newMode = elements.modeSelect.value;
+            urlParam = Object.keys(MODES).find(key => MODES[key] === newMode);
+            urlParam = Object.values(MODES).indexOf(newMode) + 1;
+    }
+    
+    currentMode = newMode;
+    elements.modeSelect.value = currentMode;
+
+    const url = new URL(window.location);
+    url.searchParams.set('m', urlParam);
+    window.history.pushState({}, '', url);
+
+    updateModeInfo();
+    reset();
+
+    [elements.presetButtons, elements.pomodoroSettings, elements.classroomSettings, elements.hourlySettings].forEach(el => el.style.display = 'none');
+    elements.recordButton.style.display = 'none';
+    elements.clearRecordButton.style.display = 'none';
+    elements.recordList.style.display = 'none';
+
+    elements.resetButton.style.display = [MODES.CLASSROOM, MODES.HOURLY, MODES.COUNTDOWN].includes(currentMode) ? 'none' : 'inline-block';
+    elements.soundToggle.style.display = currentMode !== MODES.STOPWATCH ? 'inline-block' : 'none';
+    elements.repeatToggle.style.display = [MODES.COUNTDOWN, MODES.POMODORO].includes(currentMode) ? 'inline-block' : 'none';
+
+    isShowingCurrentTime = [MODES.CLASSROOM, MODES.HOURLY].includes(currentMode);
+
+    switch (currentMode) {
+        case MODES.STOPWATCH:
+            setupStopwatchMode();
+            break;
+        case MODES.COUNTDOWN:
+            elements.presetButtons.style.display = 'block';
+            setupCountdownMode();
+            break;
+        case MODES.POMODORO:
+            elements.pomodoroSettings.style.display = 'block';
+            setupPomodoroMode();
+            break;
+        case MODES.CLASSROOM:
+            elements.classroomSettings.style.display = 'block';
+            setupClassroomMode();
+            break;
+        case MODES.HOURLY:
+            elements.hourlySettings.style.display = 'block';
+            setupHourlyMode();
+            break;
+    }
+    loadSettings();
+    updateDisplay();
+    updateToggleVisibility();
+}
+
+function updateModeInfo() {
+    const modeInfoText = {
+        [MODES.STOPWATCH]: "碼表模式：計時從零開始向上計數。可以記錄時間點。",
+        [MODES.COUNTDOWN]: "倒數計時模式：從設定時間開始倒數。預設為3分鐘。",
+        [MODES.POMODORO]: `番茄時鐘模式：${Math.floor(pomodoroWorkTime / 60)}分鐘工作，${Math.floor(pomodoroBreakTime / 60)}分鐘休息。`,
+        [MODES.CLASSROOM]: "課堂鐘聲模式：根據設定的時間點播放鐘聲。",
+        [MODES.HOURLY]: "時鐘報時模式：根據設定的時間點報時。"
+    };
+    elements.modeInfo.textContent = modeInfoText[currentMode];
+}
+
+function toggleSound() {
+    isSoundOn = elements.soundToggle.checked;
+    saveSettings();
+}
+
+function toggleRepeat() {
+    isRepeatOn = elements.repeatToggle.checked;
+    saveSettings();
+}
+
+function enableInputs(enable) {
+    elements.hoursInput.disabled = !enable;
+    elements.minutesInput.disabled = !enable;
+    elements.secondsInput.disabled = !enable;
+}
+
+
+function playSound() {
+    const text = currentMode === MODES.HOURLY ? 
+        `現在時間是${new Date().getHours()}點${new Date().getMinutes()}分` : 
+        '時間到';
+
+    if ('speechSynthesis' in window) {
+        // 取消任何正在進行的語音
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'zh-TW'; 
+        utterance.rate = 1.0;  // 語速
+        utterance.pitch = 1.0; // 音調
+
+        // 獲取可用的語音
+        let voices = window.speechSynthesis.getVoices();
+        
+        // 如果語音列表為空，等待它加載
+        if (voices.length === 0) {
+            window.speechSynthesis.onvoiceschanged = () => {
+                voices = window.speechSynthesis.getVoices();
+                setVoice();
+            };
+        } else {
+            setVoice();
+        }
+
+        function setVoice() {
+            // 嘗試找到中文（台灣）的語音
+            const chineseVoice = voices.find(voice => voice.lang === 'zh-TW' || voice.lang === 'zh-CN');
+            if (chineseVoice) {
+                utterance.voice = chineseVoice;
+            }
+            
+            // 播放語音
+            window.speechSynthesis.speak(utterance);
+        }
+    } else {
+        console.log('瀏覽器不支持 Web Speech API');
+        // 如果瀏覽器不支持 Web Speech API，可以考慮使用原來的方法作為後備
+        const encodedText = encodeURIComponent(text);
+        const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=zh-TW&client=tw-ob&q=${encodedText}`;
+        new Audio(audioUrl).play().catch(error => console.error('播放音頻失敗:', error));
+    }
+}
+
+
+function record() {
+    records.push(time);
+    updateRecordList();
+}
+
+function clearRecord() {
+    records = [];
+    updateRecordList();
+}
+
+function formatTimeRecordList(time) {
+    const minutes = Math.floor(time / 60000);
+    const seconds = Math.floor((time % 60000) / 1000);
+    const milliseconds = time % 1000;
+
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}.${milliseconds}`;
+}
+
+function updateRecordList() {
+    elements.recordList.innerHTML = records.map((record, index) => 
+        `<div>紀錄 ${index + 1}: ${formatTimeRecordList(record)}</div>`
+    ).join('');
+    updateButtonStates();
+}
+
+function setupPresetButtons() {
+    const presets = [
+        { name: '1分鐘', time: 60 },
+        { name: '100秒', time: 100 },
+        { name: '2分鐘', time: 120 },
+        { name: '3分鐘', time: 180 },
+        { name: '5分鐘', time: 300 },
+        { name: '10分鐘', time: 600 },
+        { name: '15分鐘', time: 900 },
+        { name: '50分鐘', time: 3000 },
+        { name: '1小時', time: 3600 }
+    ];
+
+    elements.presetButtons.innerHTML = presets.map(preset => 
+        `<button onclick="setPresetTime(${preset.time})">${preset.name}</button>`
+    ).join('');
+}
+
+function setPresetTime(presetTime) {
+    time = presetTime;
+    originalTime = time;
+    localStorage.setItem('countdownTime', time.toString());
+    updateDisplay();
+}
+
+function setupCountdownMode() {
+    const savedTime = localStorage.getItem('countdownTime');
+    time = savedTime ? parseInt(savedTime) : defaultCountdownTime;
+    originalTime = time;
+    elements.repeatToggle.checked = isRepeatOn = false;
+    elements.soundToggle.checked = isSoundOn = true;
+    updateDisplay();
+}
+
+function setupPomodoroMode() {
+    document.getElementById('workTime').value = Math.floor(pomodoroWorkTime / 60);
+    document.getElementById('breakTime').value = Math.floor(pomodoroBreakTime / 60);
+    document.getElementById('applyPomodoro').onclick = applyPomodoroSettings;
+    time = pomodoroWorkTime;
+    originalTime = time;
+    elements.repeatToggle.checked = isRepeatOn = true;
+    elements.soundToggle.checked = isSoundOn = true;
+    updateDisplay();
+    updateToggleVisibility();
+    saveSettings();
+}
+
+function applyPomodoroSettings() {
+    pomodoroWorkTime = parseInt(document.getElementById('workTime').value) * 60;
+    pomodoroBreakTime = parseInt(document.getElementById('breakTime').value) * 60;
+    time = pomodoroWorkTime;
+    originalTime = time;
+    updateDisplay();
+    updateModeInfo();
+    saveSettings();
+}
+
+function setupClassroomMode() {
+    classTimePoints = JSON.parse(localStorage.getItem('classTimePoints')) || [{ start: '07:30', end: '08:00' }];
+    renderClassTimePoints();
+    elements.soundToggle.checked = isSoundOn = true;
+    elements.resetButton.style.display = 'none';
+    updateCurrentTime();
+    setInterval(updateCurrentTime, 1000);
+}
+
+function renderClassTimePoints() {
+    const container = document.getElementById('classTimePoints');
+    container.innerHTML = classTimePoints.map((point, index) => `
+        <div class="time-point">
+            <button onclick="removeClassTimePoint(${index})">-</button>
+            <input type="time" value="${point.start}"> ～　 
+            <input type="time" value="${point.end}">
+            <button onclick="addClassTimePoint(${index})">+</button>
+            <input type="number" class="interval" value="${point.interval || 10}" min="1" max="120">
+        </div>
+    `).join('');
+}
+
+function addClassTimePoint(index) {
+    const newPoint = {};
+    if (index !== undefined && index < classTimePoints.length) {
+        const prevPoint = classTimePoints[index];
+        const interval = parseInt(document.querySelectorAll('#classTimePoints .interval')[index].value);
+        newPoint.start = prevPoint.end;
+        newPoint.end = addMinutes(prevPoint.end, interval);
+        newPoint.interval = interval;
+        classTimePoints.splice(index + 1, 0, newPoint);
+    } else {
+        const lastPoint = classTimePoints[classTimePoints.length - 1];
+        const interval = lastPoint ? parseInt(document.querySelectorAll('#classTimePoints .interval')[classTimePoints.length - 1].value) : 10;
+        newPoint.start = lastPoint ? lastPoint.end : '07:30';
+        newPoint.end = addMinutes(newPoint.start, interval);
+        newPoint.interval = interval;
+        classTimePoints.push(newPoint);
+    }
+    renderClassTimePoints();
+}
+
+function addMinutes(time, minutes) {
+    const [hours, mins] = time.split(':').map(Number);
+    const date = new Date(2000, 0, 1, hours, mins + minutes);
+    return `${padZero(date.getHours())}:${padZero(date.getMinutes())}`;
+}
+
+function removeClassTimePoint(index) {
+    classTimePoints.splice(index, 1);
+    renderClassTimePoints();
+}
+
+function saveClassroomSettings() {
+    classTimePoints = Array.from(document.querySelectorAll('#classTimePoints .time-point')).map(point => {
+        const inputs = point.querySelectorAll('input[type="time"]');
+        const interval = point.querySelector('.interval').value;
+        return {
+            start: inputs[0].value,
+            end: inputs[1].value,
+            interval: parseInt(interval)
+        };
+    });
+    saveSettings();
+}
+
+function setupHourlyMode() {
+    hourlyTimePoints = JSON.parse(localStorage.getItem('hourlyTimePoints')) || [{ time: '07:30', interval: 60 }];
+    renderHourlyTimePoints();
+    elements.soundToggle.checked = isSoundOn = true;
+    elements.resetButton.style.display = 'none';
+    updateCurrentTime();
+    setInterval(updateCurrentTime, 1000);
+}
+
+function renderHourlyTimePoints() {
+    const container = document.getElementById('hourlyTimePoints');
+    container.innerHTML = hourlyTimePoints.map((point, index) => `
+        <div class="time-point">
+            <button onclick="removeHourlyTimePoint(${index})">-</button>
+            <input type="time" value="${point.time}">
+            <button onclick="addHourlyTimePoint(${index})">+</button>
+            <input type="number" class="interval" value="${point.interval || 60}" min="1" max="1440">
+        </div>
+    `).join('');
+}
+
+function addHourlyTimePoint(index) {
+    const newPoint = {};
+    if (index !== undefined && index < hourlyTimePoints.length) {
+        const prevPoint = hourlyTimePoints[index];
+        const interval = parseInt(document.querySelectorAll('#hourlyTimePoints .interval')[index].value);
+        newPoint.time = addMinutes(prevPoint.time, interval);
+        newPoint.interval = interval;
+        hourlyTimePoints.splice(index + 1, 0, newPoint);
+    } else {
+        const lastPoint = hourlyTimePoints[hourlyTimePoints.length - 1];
+        const interval = lastPoint ? parseInt(document.querySelectorAll('#hourlyTimePoints .interval')[hourlyTimePoints.length - 1].value) : 60;
+        newPoint.time = lastPoint ? addMinutes(lastPoint.time, interval) : '07:30';
+        newPoint.interval = interval;
+        hourlyTimePoints.push(newPoint);
+    }
+    renderHourlyTimePoints();
+}
+
+function removeHourlyTimePoint(index) {
+    hourlyTimePoints.splice(index, 1);
+    renderHourlyTimePoints();
+}
+
+function saveHourlySettings() {
+    hourlyTimePoints = Array.from(document.querySelectorAll('#hourlyTimePoints .time-point')).map(point => {
+        const input = point.querySelector('input[type="time"]');
+        const interval = point.querySelector('.interval').value;
+        return {
+            time: input.value,
+            interval: parseInt(interval)
+        };
+    });
+    saveSettings();
+}
+
+// HERE
+function updateCurrentTime() {
+    if (isShowingCurrentTime) {
+        const now = new Date();
+        const taiwanTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
+        const hours = padZero(taiwanTime.getHours());
+        const minutes = padZero(taiwanTime.getMinutes());
+        const seconds = padZero(taiwanTime.getSeconds());
+
+        elements.hoursInput.value = hours;
+        elements.minutesInput.value = minutes;
+        elements.secondsInput.value = seconds;
+
+        updateTitle();
+
+        const currentTimeString = `${hours}:${minutes}`;
+        if (currentMode === MODES.HOURLY) {
+            hourlyTimePoints.forEach(point => {
+                if (point.time === currentTimeString && seconds === "00" && isSoundOn) {
+                    playSound();
+                }
+            });
+        } else if (currentMode === MODES.CLASSROOM) {
+            const fullTimeString = `${hours}:${minutes}:${seconds}`;
+            classTimePoints.forEach(point => {
+                if ((point.start === fullTimeString || point.end === fullTimeString) && isSoundOn) {
+                    playSound();
+                }
+            });
+        }
+    }
+}
+
+function saveSettings() {
+    const settings = {
+        pomodoroWorkTime,
+        pomodoroBreakTime,
+        classTimePoints,
+        hourlyTimePoints,
+        isSoundOn,
+        isRepeatOn,
+        countdownTime: originalTime
+    };
+    localStorage.setItem('timerSettings', JSON.stringify(settings));
+}
+
+function loadSettings() {
+    const settings = JSON.parse(localStorage.getItem('timerSettings'));
+    if (settings) {
+        pomodoroWorkTime = settings.pomodoroWorkTime;
+        pomodoroBreakTime = settings.pomodoroBreakTime;
+        classTimePoints = settings.classTimePoints;
+        hourlyTimePoints = settings.hourlyTimePoints;
+        isSoundOn = settings.isSoundOn;
+        isRepeatOn = settings.isRepeatOn;
+        if (settings.countdownTime) {
+            originalTime = settings.countdownTime;
+        }
+
+        if (currentMode === MODES.POMODORO) {
+            document.getElementById('workTime').value = Math.floor(pomodoroWorkTime / 60);
+            document.getElementById('breakTime').value = Math.floor(pomodoroBreakTime / 60);
+        } else if (currentMode === MODES.CLASSROOM) {
+            renderClassTimePoints();
+        } else if (currentMode === MODES.HOURLY) {
+            renderHourlyTimePoints();
+        }
+        elements.soundToggle.checked = isSoundOn;
+        elements.repeatToggle.checked = isRepeatOn;
+    }
+    updateToggleVisibility();
+}
+
+function updateToggleVisibility() {
+    elements.toggles.style.display = currentMode === MODES.STOPWATCH ? 'none' : 'block';
+    elements.soundToggle.parentElement.style.display = currentMode !== MODES.STOPWATCH ? 'inline-block' : 'none';
+    elements.repeatToggle.parentElement.style.display = [MODES.COUNTDOWN, MODES.POMODORO].includes(currentMode) ? 'inline-block' : 'none';
+}
+
+// Event Listeners
+elements.startStopButton.addEventListener('click', startStop);
+elements.resetButton.addEventListener('click', reset);
+elements.modeSelect.addEventListener('change', () => changeMode(elements.modeSelect.value));
+elements.soundToggle.addEventListener('change', toggleSound);
+elements.repeatToggle.addEventListener('change', toggleRepeat);
+elements.recordButton.addEventListener('click', record);
+elements.clearRecordButton.addEventListener('click', clearRecord);
+document.getElementById('addClassTimePoint').addEventListener('click', addClassTimePoint);
+document.getElementById('addHourlyTimePoint').addEventListener('click', addHourlyTimePoint);
+document.getElementById('applyClassroom').addEventListener('click', saveClassroomSettings);
+document.getElementById('applyHourly').addEventListener('click', saveHourlySettings);
+
+[elements.hoursInput, elements.minutesInput, elements.secondsInput].forEach(input => {
+    input.addEventListener('input', function() {
+        this.value = this.value.replace(/[^0-9]/g, '');
+        if (this.value.length === 2) {
+            this.blur();
+        }
+    });
+    input.addEventListener('focus', function() {
+        this.select();
+    });
+    input.addEventListener('blur', function() {
+        this.value = padZero(parseInt(this.value) || 0);
+    });
+});
+
+// Initialization
+updateModeInfo();
+updateDisplay();
+setupStopwatchMode();
+
+const modeParam = getUrlParameter('m');
+if (modeParam) {
+    changeMode(modeParam);
+} else {
+    changeMode('1');
+}
+
+loadSettings();
+setupPresetButtons();
+
+const observer = new MutationObserver((mutationsList) => {
+  for (const mutation of mutationsList) {
+    if (mutation.type === 'childList') {
+      let ghostWatermark = document.querySelector('a[href="https://yay.boo/"]');
+      if (ghostWatermark) {
+        ghostWatermark.style.display = 'none';
+        observer.disconnect(); // 找到並隱藏後停止監聽
+      }
+    }
+  }
+});
+
+// 監視整個 body 的變化
+observer.observe(document.body, { childList: true, subtree: true });
+
+    </script>
+</body>
+</html>

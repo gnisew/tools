@@ -1,0 +1,509 @@
+body {
+	margin: 0;
+	padding: 0;
+	height: 100vh;
+	background-color: #f0f8ff;
+
+	height: 100vh;
+
+
+	user-select: none;
+}
+
+#container {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: 100%;
+}
+
+#game {
+	position: relative;
+	width: 100%;
+	max-width: 800px;
+	height: 100vh;
+	border: 2px solid #eee;
+	overflow: hidden;
+	background-color: #87ceeb;
+
+	background-size: cover;
+	background-position: center;
+	background-repeat: no-repeat;
+}
+
+
+.game-title {
+	position: absolute;
+	top: 20px;
+	left: 50%;
+	transform: translateX(-50%);
+	font-size: 32px;
+	font-weight: bold;
+}
+
+#word-word {
+	position: absolute;
+	top: 20px;
+	left: 50%;
+	transform: translateX(-50%);
+	font-size: 32px;
+}
+
+
+#word-word,
+.game-title,
+#timer,
+#score,
+#settingsButton {
+	text-shadow: 1px 1px 0 white,
+		-1px -1px 0 white,
+		-1px 1px 0 white,
+		1px -1px 0 white;
+	/* 文字的白色背景效果 */
+}
+
+#monkey {
+	position: absolute;
+	bottom: -5px;
+		left: 50%;
+
+	/* 設定最大高度 	left: 50%;*/
+	transform: translateX(-50%);
+}
+
+#monkeyImage {
+	height: 100px;
+	object-fit: contain;
+	/* 確保圖片在容器內保持比例 */
+}
+
+
+.word {
+	position: absolute;
+	top: 0;
+	width: 100px;
+	height: 30px;
+	background-color: yellow;
+	text-align: center;
+	line-height: 30px;
+	border: 1px solid #000;
+}
+
+#score {
+	position: absolute;
+	top: 30px;
+	right: 10px;
+	font-size: 18px;
+	display: none;
+}
+
+#timer {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	font-size: 18px;
+}
+
+
+#startButton {
+	padding: 10px 20px;
+	font-size: 24px;
+	background-color: #4CAF50;
+	color: white;
+	border: none;
+	border-radius: 5px;
+	cursor: pointer;
+	position: absolute;
+}
+
+#startButton:focus {
+	outline: none;
+}
+
+@keyframes hitEffect {
+	0% {
+		transform: scale(1);
+		opacity: 1;
+	}
+
+	100% {
+		transform: scale(1.5);
+		opacity: 0;
+	}
+}
+
+@keyframes hitEffectWrong {
+	0% {
+		background-color: green;
+		transform: scale(1);
+		opacity: 1;
+	}
+
+	100% {
+		background-color: green;
+		transform: scale(1.5);
+		opacity: 0;
+	}
+}
+
+@keyframes scoreUpdate {
+	0% {
+		transform: scale(1);
+	}
+
+	50% {
+		transform: scale(1.2);
+	}
+
+	100% {
+		transform: scale(1);
+	}
+}
+
+
+@keyframes blink {
+
+	0%,
+	50%,
+	100% {
+		opacity: 1;
+	}
+
+	25%,
+	75% {
+		opacity: 0;
+	}
+}
+
+.blink {
+	animation: blink 0.5s linear;
+}
+
+#resultWindow {
+	display: none;
+	/* 初始狀態隱藏 */
+	position: fixed;
+	/* 使用 fixed 定位,可以確保顯示在最上層 */
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	/* 這個屬性可以將元素置中 */
+	padding: 30px 20px 10px 20px;
+	background-color: #fff;
+	border: 2px solid #999;
+	z-index: 9999;
+	/* 設定一個很高的 z-index 值,確保顯示在最上層 */
+	text-align: center;
+	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+	border-radius: 8px;
+}
+
+#resultWindow p {
+	margin: 10px 0;
+	font-size: 18px;
+}
+
+.restartButton {
+	padding: 10px 20px;
+	font-size: 16px;
+	margin-top: 10px;
+	cursor: pointer;
+	background-color: #4CAF50;
+	color: white;
+	border: none;
+	border-radius: 5px;
+}
+
+.restartButton:focus {
+	outline: none;
+}
+
+
+.sparkle,
+.sparkleX {
+	position: absolute;
+	top: -5px;
+	left: 50%;
+	transform: translateX(-50%);
+	font-size: 16px;
+	z-index: 2;
+	text-shadow: -2px -2px 0 #ff,
+		2px -2px 0 #fff,
+		-2px 2px 0 #eee,
+		2px 2px 0 #eee;
+}
+
+.sparkle {
+	color: blue;
+}
+
+.sparkleX {
+	color: #ff3333;
+}
+
+
+.red-border {
+	color: 2px solid red;
+}
+
+
+#settingsButton {
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	font-size: 24px;
+	cursor: pointer;
+	z-index: 10;
+}
+
+#settingsPage {
+	position: absolute;
+	top: 0;
+	left: -300px;
+	width: 300px;
+	height: 100%;
+	overflow-y: auto;
+	background-color: #f0f0f0;
+	box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+	padding: 20px;
+	transition: left 0.3s;
+	z-index: 5;
+	scrollbar-width: thin;
+	scrollbar-color: rgba(192, 192, 192, 0.5) rgba(192, 192, 192, 0.1);
+	/* 使用淺淺灰色的滾動條 */
+}
+
+
+#settingsPage h2 {
+	margin-bottom: 20px;
+	font-size: 24px;
+	text-align: center;
+}
+
+#settingsPage label {
+	display: block;
+	margin-bottom: 10px;
+}
+
+#settingsPage select,
+#settingsPage input,
+#settingsPage textarea {
+	padding: 5px;
+	margin-bottom: 5px;
+	border: 0.5px solid #ccc;
+	border-radius: 3px;
+	font-size: 16px;
+}
+
+#settingsPage textarea {
+	resize: vertical;
+	/* 允許垂直調整文本區域的大小 */
+}
+
+#settingsPage button {
+	padding: 5px 10px;
+	margin-right: 10px;
+	font-size: 16px;
+	cursor: pointer;
+	background-color: #4CAF50;
+	color: white;
+	border: none;
+	border-radius: 3px;
+}
+
+#settingsPage button:focus {
+	outline: none;
+}
+
+
+#resetButton,
+#resetButton,
+#editWordPairsButton {
+	background-color: #008CBA;
+}
+
+
+#resetButton,
+#editWordPairsButton {
+	margin-bottom: 5px;
+	/* 距離底部的距離 */
+}
+
+
+#applyButton {
+	margin-bottom: 30px;
+	/* 距離底部的距離 */
+}
+
+
+#closeSettingsButton {
+	background: none;
+	border: none;
+	font-size: 24px;
+	cursor: pointer;
+	color: #000;
+	position: absolute;
+	top: 10px;
+	right: 10px;
+}
+
+#closeSettingsButton::before {
+	content: 'close';
+	/* 使用 Google Material Icons 中的 close 图标 */
+	font-family: 'Material Icons';
+	/* 指定 Google Material Icons 字体 */
+}
+
+#closeResultButton {
+	background: none;
+	border: none;
+	font-size: 24px;
+	cursor: pointer;
+	color: #000;
+	position: absolute;
+	top: 10px;
+	right: 10px;
+}
+
+#closeResultButton::before {
+	content: 'close';
+	/* 使用 Google Material Icons 中的 close 图标 */
+	font-family: 'Material Icons';
+	/* 指定 Google Material Icons 字体 */
+}
+
+
+#settingsPage .input-group {
+	display: flex;
+	align-items: center;
+	margin-bottom: 5px;
+	/* 設置 input-group 之間的垂直間距 */
+}
+
+#settingsPage .input-group label {
+	flex: 0 0 auto;
+	margin-right: 10px;
+	/* 設置標籤與選項之間的水平間距 */
+}
+
+#settingsPage .input-group select,
+#settingsPage .input-group input {
+	flex: 1 1 auto;
+	width: auto;
+	/* 讓選項填滿剩餘空間 */
+}
+
+
+#wordPairsStringInput {
+	scrollbar-width: thin;
+	width: 287px;
+	height: 202px;
+	resize: none;
+
+}
+
+#wordTableContainer {
+	margin-bottom: 10px;
+	/* 上方間距 */
+	height: 250px;
+	overflow-x: auto;
+	overflow-y: auto;
+	scrollbar-width: thin;
+}
+
+
+.word-table {
+	width: 100%;
+	border-collapse: collapse;
+	margin-top: 10px;
+}
+
+.word-table th,
+.word-table td {
+	border: 1px solid #ddd;
+	padding: 8px;
+	text-align: left;
+}
+
+.word-table tr:nth-child(even) {
+	background-color: #f2f2f2;
+}
+
+.word-table tr:hover {
+	background-color: #ddd;
+}
+
+.word-table th {
+	padding-top: 12px;
+	padding-bottom: 12px;
+	background-color: #999;
+	color: white;
+}
+
+
+/* 新增進度條的樣式 */
+#progressBarContainer {
+	width: 100%;
+	background-color: #87ceeb;
+	border: 0px solid #87ceeb;
+	border-radius: 0px;
+	overflow: hidden;
+	margin-bottom: 10px;
+}
+
+#progressBar {
+	height: 5px;
+	background-color: #4caf50;
+	width: 0%;
+	text-align: center;
+	line-height: 5px;
+	color: white;
+	transition: width 0.5s;
+}
+
+#wesing,
+.game-title {
+	cursor: pointer;
+}
+
+
+#starRating {
+	font-size: 24px;
+	/* 星號大小 */
+	color: gold;
+	/* 星號顏色 */
+}
+
+.material-icons.star {
+	color: gold;
+	/* 星號顏色 */
+}
+
+.material-icons.star.white {
+	color: #bbb;
+	/* 未亮的星號顏色 */
+}
+
+
+.input-container {
+	position: relative;
+	display: inline-block;
+}
+
+.tooltip {
+	z-index: 10;
+	display: none;
+	position: absolute;
+	left: 0;
+	bottom: -20px;
+	/* Adjust based on the input height and desired distance */
+	background-color: #333;
+	color: #fff;
+	padding: 5px;
+	border-radius: 3px;
+	font-size: 12px;
+}
+
+.input-container input:focus+.tooltip {
+	display: block;
+}

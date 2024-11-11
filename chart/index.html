@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>烏衣行長條圖 WeSingChart</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1 contenteditable="true">烏衣行長條圖</h1>
+        
+        <button id="toggle-editor">編輯資料</button>
+        <div id="editor" style="display: none;">
+            <textarea id="data-editor" rows="10" style="width: 100%; box-sizing: border-box;" placeholder="　第一行是標題，前三個篩選，第四是項目"></textarea>
+
+            <div class="button-container">
+                <button id="reset-editor">清除</button>
+                <button id="cancel-editor">取消</button>
+                <button id="apply-editor">套用</button>
+            </div>
+        </div>
+        
+        <div id="selectors-container"></div>
+        <canvas id="myChart"></canvas>
+
+    <footer>
+        <p><a href="https://sites.google.com/view/oikasu" target="_blank">烏衣行 WeSing</a></p>
+    </footer>
+    </div>
+
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,174 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start; /* 改為flex-start，使內容從頂部開始排列 */
+    height: 100vh;
+    margin: 0;
+    padding: 10px;
+    box-sizing: border-box;
+    overflow-y: auto; /* 允許垂直滾動 */
+}
+
+.container {
+    width: 100%;
+    max-width: 900px;
+    background: #fff;
+    padding: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    box-sizing: border-box;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 10px;
+    font-size: 32px; /* 更改字體大小 */
+    color: #333; /* 更改字體顏色 */
+    font-weight: bold; /* 設定字體粗細 */
+    cursor: text; /* 當鼠標懸停在標題上時顯示文本光標 */
+    outline: none; /* 移除默認的外框 */
+}
+
+
+
+.selector {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+    box-sizing: border-box;
+}
+
+.selector:nth-of-type(odd) {
+    background-color: #e3f2fd;
+}
+
+.selector:nth-of-type(even) {
+    background-color: rgba(255, 99, 132, 0.2);
+}
+
+.selector label, .selector select {
+    flex: 1;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+}
+
+.selector label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0;
+    font-weight: bold;
+}
+
+.selector select {
+    padding: 5px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #f9f9f9;
+    box-sizing: border-box;
+    text-align: center;
+}
+
+/* 手機小版面時的樣式 */
+@media (max-width: 600px) {
+    .selector {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .selector label, .selector select {
+        width: 100%;
+        margin-bottom: 5px;
+    }
+
+    .selector label {
+        margin-bottom: 5px;
+        justify-content: flex-start;
+        padding-left: 10px;
+    }
+
+    .selector select {
+        padding: 10px;
+    }
+}
+
+.selector select:focus {
+    outline: none; /* 移除默認的外框 */
+    border-color: #aaa; /* 設定外框顏色為灰色 */
+    box-shadow: 0 0 5px rgba(128, 128, 128, 0.5); /* 可選，增加陰影效果 */
+}
+
+.button-container {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.button-container button {
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    background-color: #007bff;
+    color: white;
+}
+
+.button-container button:hover {
+    background-color: #0056b3;
+}
+
+#toggle-editor {
+    margin-bottom: 10px;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    background-color: #28a745;
+    color: white;
+}
+
+#toggle-editor:hover {
+    background-color: #218838;
+}
+
+.selector {
+    margin: 10px 0;
+}
+
+.display-type {
+    margin: 20px 0;
+}
+
+label {
+    margin-right: 10px;
+}
+
+footer {
+            margin-top: 50px;
+            text-align: center;
+			font-size: 12px;
+        }
+        footer p {
+            margin: 0;
+        }
+        footer a {
+            color: #ccc;
+            text-decoration: none;
+            font-weight: bold;
+            transition: color 0.3s ease, text-shadow 0.3s ease;
+        }
+        footer a:hover {
+            color: #555;
+        }

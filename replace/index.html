@@ -1,0 +1,4015 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>烏衣行統計工具</title>
+    <style>
+        body {
+          font-family: Arial, sans-serif;
+          background-color: #f5f5f5;
+          margin: 0;
+          padding: 20px;
+          display: flex;
+          justify-content: center;
+          align-items: flex-start;
+          min-height: 100vh;
+          overflow: auto;
+          user-select: none;
+        }
+
+        .container {
+          background-color: #fff;
+          border-radius: 8px;
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+          padding: 20px 20px;
+          width: 100%;
+          max-width: 800px;
+          box-sizing: border-box;
+          position: relative;
+          margin-top: auto;
+          margin-bottom: auto;
+          overflow: auto;
+        }
+
+        h1 {
+          color: #333;
+          text-align: center;
+          margin-bottom: 10px;
+          font-size: 32px;
+        }
+
+        h2 {
+          color: #555;
+          margin-bottom: 5px;
+          font-size: 24px;
+        }
+
+
+
+        textarea {
+          display: block;
+          margin-bottom: 10px;
+          padding: 10px;
+          width: 100%;
+          height: 100px;
+          border: 1px solid #ccc;
+          border-radius: 5px;
+          box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.1);
+          font-size: 14px;
+          resize: vertical;
+          box-sizing: border-box;
+        }
+
+        textarea:focus {
+          outline: none;
+          border-color: #aaa;
+          box-shadow: 0 0 4px rgba(153, 153, 153, 0.5);
+        }
+
+        .section {
+          margin-bottom: 10px;
+          position: relative;
+        }
+
+        .result-container {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: space-between;
+        }
+
+        .result-wrapper {
+          width: 100%;
+          margin-bottom: 20px;
+        }
+
+        .result-wrapper:nth-child(2) {
+          margin-bottom: 0;
+        }
+
+        .button-container select {
+          margin-right: 5px;
+          margin-bottom: 0px;
+          padding: 5px 8px;
+          font-size: 14px;
+          color: #fff;
+          background-color: #999;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+          box-shadow: 2px 2px 5px rgba(50, 50, 50, 0.1);
+          transition: background-color 0.3s ease;
+        }
+
+
+
+
+
+        button {
+          margin-right: 5px;
+          margin-bottom: 0px;
+          padding: 5px 8px;
+          font-size: 14px;
+          color: #fff;
+          background-color: #999;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+          box-shadow: 2px 2px 5px rgba(50, 50, 50, 0.1);
+          transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+          background-color: #555;
+        }
+
+        button:disabled {
+          background-color: #ccc;
+          cursor: not-allowed;
+        }
+
+        .button-container {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          margin-bottom: 10px;
+        }
+
+        .clear-button-All,
+        .clear-button-A,
+        .clear-button-B,
+        .clear-button-C,
+        .copy-button-A,
+        .copy-button-B,
+        .copy-button-C,
+        .sort-bigN-button-B,
+        .sort-smallN-button-B,
+        .sort-bigN-button-C,
+        .sort-smallN-button-C {
+          width: 20px;
+          height: 20px;
+          background-color: #ccc;
+          color: white;
+          border: none;
+          border-radius: 50%;
+          cursor: pointer;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          font-size: 12px;
+          line-height: 25px;
+        }
+
+        .sort-bigN-button-B:hover,
+        .sort-bigN-button-C:hover {
+          background-color: #5cc;
+        }
+
+        .sort-smallN-button-B:hover,
+        .sort-smallN-button-C:hover {
+          background-color: #ca0;
+        }
+
+        .clear-button-All:hover,
+        .clear-button-A:hover,
+        .clear-button-B:hover,
+        .clear-button-C:hover {
+          background-color: #a55;
+        }
+
+        .copy-button-A:hover,
+        .copy-button-B:hover,
+        .copy-button-C:hover {
+          background-color: #55c;
+        }
+
+        .small-button-container-All {
+          position: absolute;
+          top: 30px;
+          left: 20px;
+          display: flex;
+          gap: 3px;
+        }
+
+        .small-button-container-A,
+        .small-button-container-BC {
+          display: flex;
+          gap: 3px;
+        }
+
+        .small-button-container-A {
+          top: 10px;
+          right: 10px;
+          position: absolute;
+        }
+
+        .small-button-container-BC {
+          top: 30px;
+          right: 10px;
+          position: absolute;
+        }
+
+        .dropdown-container {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          margin-bottom: 10px;
+        }
+
+
+        .dropdown {
+          display: block;
+          flex: 1 1 calc(50% - 10px);
+          /* 設置每個下拉選單的寬度為容器寬度的一半，並留出間隔 */
+          margin: 5px;
+          /* 設置下拉選單的間隔 */
+        }
+
+        .dropdown select {
+          width: 100%;
+          padding: 10px;
+          font-size: 14px;
+          border: 1px solid #ccc;
+          border-radius: 5px;
+          box-sizing: border-box;
+        }
+
+
+        select:focus {
+          outline: none;
+          border-color: #555;
+        }
+
+        @media (min-width: 600px) {
+          .result-wrapper {
+            width: 48%;
+          }
+
+          .result-wrapper:nth-child(2) {
+            margin-bottom: 20px;
+          }
+
+          .dropdown-container {
+            display: none;
+          }
+        }
+
+        @media (max-width: 599px) {
+          .button-container {
+            display: none;
+          }
+
+          .dropdown {
+            display: block;
+          }
+        }
+
+
+        /* Modal styles */
+        .modal {
+          display: none;
+          position: fixed;
+          z-index: 1;
+          left: auto;
+          top: 50%;
+        }
+
+        .modal-content-container {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          text-align: center;
+        }
+
+        .modal-content {
+          background-color: #fefefe;
+          border-radius: 10px;
+          padding: 20px 20px 20px 20px;
+          border: 1px solid #888;
+          max-width: 350px;
+          min-width: 350px;
+          cursor: move;
+        }
+
+        .close {
+          color: #aaa;
+          float: right;
+          font-size: 30px;
+          font-weight: bold;
+        }
+
+
+        .close:hover,
+        .close:focus {
+          color: black;
+          text-decoration: none;
+          cursor: pointer;
+        }
+
+        /* Flex container for input groups */
+        .input-group {
+          display: flex;
+          align-items: center;
+          margin-bottom: 10px;
+          font-size: 16px;
+        }
+
+        .input-group label {
+          min-width: 100px;
+          /* Adjust label width to align text fields */
+          text-align: right;
+          /* Align text to the right */
+          margin-right: 10px;
+          /* Space between label and input */
+        }
+
+        .input-group input[type="text"],
+        .input-group select {
+          flex: 1;
+          border-radius: 5px;
+        }
+
+        .input-group input[type="checkbox"] {
+          margin-right: 10px;
+          /* Space between checkbox and label */
+        }
+
+        .input-group select {
+          margin-left: 10px;
+          min-width: 150px;
+        }
+
+
+        #confirmButton {
+          background-color: #c55;
+        }
+
+
+        /* Styles for visible and hidden states */
+        .show {
+          display: block;
+        }
+
+        .hide {
+          display: none;
+        }
+
+        .regexChars {
+          padding: 0px 0px 0px 10px;
+        }
+
+        .hidden {
+          display: none;
+        }
+
+
+        .toast {
+          visibility: hidden;
+          min-width: 250px;
+          margin-left: -125px;
+          background-color: #888;
+          color: #fff;
+          text-align: center;
+          border-radius: 5px;
+          padding: 16px;
+          position: fixed;
+          z-index: 1;
+          left: 50%;
+          top: 30px;
+          font-size: 17px;
+          transition: visibility 0.5s, opacity 0.5s ease-in-out;
+          opacity: 0;
+        }
+
+        .toast.show {
+          visibility: visible;
+          opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="small-button-container-All">
+    <span class="copy-button-A" id="undoButton" title="還原">⭠</span>
+    <span class="copy-button-A" id="redoButton" title="重做">⭢</span>
+    <span class="copy-button-A" id="replaceButton2" title="取代">取</span>
+    <span class="clear-button-All" onclick="clearAllData()"
+      title="全部清除">X</span>
+  </div>
+
+  <h1>統計工具</h1>
+  <div class="section">
+    <h2>輸入</h2>
+    <textarea id="id_A" placeholder="輸入文字..."></textarea>
+    <div class="small-button-container-A">
+      <span class="copy-button-A" onclick="swapLeftAndRightIdA()"
+        title="左右交換">⇄</span>
+      <span class="copy-button-A" onclick="sortDataA('big')"
+        title="大到小排序">▼</span>
+      <span class="copy-button-A" onclick="sortDataA('small')"
+        title="小到大排序">▲</span>
+      <span class="copy-button-A" id="replaceButton" title="原地取代">代</span>
+      <span class="copy-button-A" onclick="removeDuplicateLines('id_A')"
+        title="原地去除重複">U</span>
+      <span class="copy-button-A" onclick="copyData('id_A')" title="複製">C</span>
+      <span class="clear-button-A" onclick="clearData('id_A')"
+        title="清除">X</span>
+    </div>
+  </div>
+
+  <div class="button-container">
+
+    <select onchange="handleDropdownChange(this)" onfocus="showOptions(this)"
+      onblur="resetOptions(this)">
+      <option value="" disabled selected>字數頻率</option>
+      <option value="countTextStatistics" title="a1">總字數</option>
+      <option value="countSentenceLengths" title="a1">句字數</option>
+      <option value="countLineLengths" title="a1">行字數</option>
+      <option value="" disabled></option>
+      <option value="countWords" title="a1">總詞頻</option>
+      <option value="countChineseCharacters" title="a1">漢字頻</option>
+      <option value="countChineseWords" title="a1">漢詞頻</option>
+      <option value="countPinyin" title="a1">拼音頻</option>
+      <option value="countMultiSyllables" title="a1">多音節頻</option>
+    </select>
+
+    <select onchange="handleDropdownChange(this)" onfocus="showOptions(this)"
+      onblur="resetOptions(this)">
+      <option value="" disabled selected>字音整併</option>
+      <option value="combineCharacter" title="Excel左欄漢字右欄拼音，輸出：詔\zhiox 安\onv 客\kaz 事\su">併單音節</option>
+      <option value="combineHyphen" title="Excel左欄漢字右欄拼音，輸出：詔安\zhiox-onv 客事\kaz-su">併多音節</option>
+      <option value="combineWords" title="左欄漢字要分詞，右欄拼音，輸出：詔安\zhiox onv_客事\kaz su">詞音合併</option>
+      <option value="combineWordsPinyin" title="左欄漢字要分詞，右欄拼音，輸出：詔\zhiox 安\onv_客\kaz 事\su">詞音交錯</option>
+      <option value="arrangeText" title="文a 字b => 文字\a b">字音詞音</option>
+	  <option value="reverseArrangeText" title="文字\a b => 文a 字b">詞音字音</option>
+	  <option value="" disabled></option>
+      <option value="examText" title="Excel「數字 漢字 拼音」">字音字形</option>
+      <option value="rubyText" title="Ruby注音標示">&#123;漢字/標音&#125;</option>
+    </select>
+
+    <select onchange="handleDropdownChange(this)" onfocus="showOptions(this)"
+      onblur="resetOptions(this)">
+      <option value="" disabled selected>詔安音轉</option>
+      <option value="kasuToneOriginalChange" title="詔安本調kaz-su轉本變調kazc-su">安轉本變
+      </option>
+      <option value="zxvToneToOriginal" title="詔安本變調轉本調">詔安留本</option>
+      <option value="zxvToneToChange" title="詔安本變調轉變調">詔安留變</option>
+      <option value="zxvToneToChangeOral" title="詔安本變調轉合口語變調">安變合音</option>
+      <option value="zxvToneToChangeOralOld" title="詔安本變調舊合音轉新">舊轉新合</option>
+      <option value="toneToZxv" title="客語聲調轉字母調">ˊ轉z</option>
+      <option value="zxvToTone" title="客語聲調轉字母調">z轉ˊ</option>
+      <option value="rovToRHOOBB" title="詔安簡拼轉教拼">簡拼轉教拼</option>
+      <option value="rhoobbToROV" title="詔安教拼轉簡拼">教拼轉簡拼</option>
+      <option value="kasuime">詔安輸入法</option>
+      <option value="importData">載入txt</option>
+    </select>
+
+    <select onchange="handleDropdownChange(this)" onfocus="showOptions(this)"
+      onblur="resetOptions(this)">
+      <option value="" disabled selected>台灣台語</option>
+      <option value="holoNumberToRoman">台a2轉á</option>
+      <option value="holoRomanToNumber">台á轉a2</option>
+      <option value="pojToTailuo">教羅轉台</option>
+      <option value="anyZvsToRoma">az 轉 á</option>
+      <option value="anyRomaToZvs">á 轉 az</option>
+    </select>
+
+
+    <select onchange="handleDropdownChange(this)" onfocus="showOptions(this)"
+      onblur="resetOptions(this)">
+      <option value="" disabled selected>其他</option>
+      <option value="importData">載入txt</option>
+      <option value="matchText" title="詞 詞彙、詞條、語詞">詞符合的</option>
+      <option value="replaceFn">自訂取代</option>
+      <option value="removeDuplicateLinesIdB">去除重複</option>
+      <option value="convertToFullMark">全形標點</option>
+      <option value="convertToHalfMark">半形標點</option>
+      <option value="spaceToUnderline">空隔為_</option>
+      <option value="splitTextByPunctuation">標點斷行</option>
+      <option value="connectText">斷行接回</option>
+      <option value="spaceToNewline">\s_換行</option>
+
+      <option value="wordWrongToRight">校正異字</option>
+      <option value="generateText" title="一你生成語詞">生成語詞</option>
+    </select>
+
+
+  </div>
+
+  <div class="dropdown-container"></div>
+
+
+  <div class="result-container">
+    <div class="section result-wrapper">
+      <h2 id="toggle-textarea-c">( 累加 / 查詞 )</h2>
+      <textarea id="id_C" placeholder="次數　文字..."></textarea>
+      <div class="small-button-container-BC" id="smallButtonContainer_C">
+        <span class="copy-button-A" onclick="swapLeftAndRightIdC()"
+          title="左右交換">⇄</span>
+        <span class="sort-bigN-button-C"
+          onclick="toggleSort('id_C', 'left', this)" sort-big="true"
+          title="左排序">◤</span>
+        <span class="sort-bigN-button-C"
+          onclick="toggleSort('id_C', 'right', this)" sort-big="true"
+          title="右排序">◥</span>
+        <span class="copy-button-B" onclick="copyDataTo('id_C','id_A')"
+          title="移到到輸入">𖤂</span>
+        <span class="copy-button-C" onclick="copyData('id_C')"
+          title="複製">C</span>
+        <span class="clear-button-C" onclick="clearData('id_C')"
+          title="清除">X</span>
+      </div>
+    </div>
+    <div class="section result-wrapper">
+      <h2>輸出</h2>
+      <textarea id="id_B" readonly placeholder="統計結果..."></textarea>
+      <div class="small-button-container-BC">
+        <span class="copy-button-A" onclick="swapLeftAndRightIdB()"
+          title="左右交換">⇄</span>
+        <span class="sort-bigN-button-C"
+          onclick="toggleSort('id_B', 'left', this)" sort-big="true"
+          title="左排序">◤</span>
+        <span class="sort-bigN-button-C"
+          onclick="toggleSort('id_B', 'right', this)" sort-big="true"
+          title="右排序">◥</span>
+        <span class="copy-button-B" onclick="copyDataTo('id_B','id_A')"
+          title="移到到輸入">𖤂</span>
+        <span class="copy-button-B" onclick="copyDataB()" title="複製123">C</span>
+        <span class="clear-button-B" onclick="clearData('id_B')"
+          title="清除">X</span>
+      </div>
+    </div>
+  </div>
+  <div class="section">
+    <h2>顯示</h2>
+    <div id="id_D" placeholder="輸入文字..."></div>
+  </div>
+</div>
+
+
+
+
+
+
+
+<div id="replaceModal" class="modal">
+
+  <div class="modal-content-container">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2 id="replaceTitle">取代文本</h2>
+      <div class="input-group">
+        <label for="replace">取　代：</label>
+        <input type="text" id="replace" name="replace">
+      </div>
+      <div class="input-group">
+        <label for="replaceWith">取代為：</label>
+        <input type="text" id="replaceWith" name="replaceWith">
+      </div>
+      <div class="input-group">
+        <label for="useRegex">正　則：</label>
+        <input type="checkbox" id="useRegex" name="useRegex" checked>
+        <select id="regexCharsReplace" class="regexChars">
+          <option value="">正則字元</option>
+          <option value="^">^ 開頭、否定</option>
+          <option value="$">$ 結尾、指定$1</option>
+          <option value="*">* 零或多次</option>
+          <option value="+">+ 一或多次</option>
+          <option value="?">? 零或一次</option>
+          <option value=".">. 任一字元</option>
+          <option value="(">( 左圓</option>
+          <option value=")">) 右圓</option>
+          <option value="()">() 集合(含) (pattern)</option>
+          <option value="(?:)">(?:) 集合(不含) x(?:pattern) 配x</option>
+          <option value="(?=)">(?=) 其後為 x(?=y) 配x</option>
+          <option value="(?!)">(?!) 其後非 x(?!y) 配x</option>
+          <option value="(?<=)">(?<=) 其前為 (?<=y)x 配x</option>
+          <option value="(?&lt;!)">(?&lt;!) 其前非 (?&lt;!y)x 配x</option>
+          <option value="|">| 或 x|y</option>
+          <option value="{}">{ } 次數</option>
+          <option value="{,}">{,} 至少至多</option>
+          <option value="[-]">[-] 範圍內</option>
+          <option value="[^-]">[^-] 範圍外</option>
+          <option value="\d">\d 數字 [0-9]</option>
+          <option value="\D">\D 非數字 [^0-9]</option>
+          <option value="\w">\w 單詞 [A-Za-z0-9_]</option>
+          <option value="\W">\W 非單詞 [^A-Za-z0-9_]</option>
+          <option value="\s">\s 空白字元</option>
+          <option value="\S">\S 非空白字元</option>
+          <option value="\n">\n 換行字元</option>
+          <option value="\t">\t 製表符TAB</option>
+          <option value="\b">\b 邊界</option>
+          <option value="\">\ 反斜線</option>
+          <option value="\1">\1 引用</option>
+          <option value="\2">\2 引用</option>
+          <option value="\3">\3 引用</option>
+          <option value="&lt;">&lt; 左尖</option>
+          <option value="&gt;">&gt; 右尖</option>
+          <option value="{h}">{h} 漢字</option>
+          <option value="{H}">{H} 非漢字</option>
+          <option value="{b}">{b} 全形標點</option>
+          <option value="{B}">{B} 非全形標點</option>
+          <option value="{bb}">{bb} 半形標點</option>
+          <option value="{BB}">{BB} 非半形標點</option>
+          <option value="{s}">{s} 空格與Tab</option>
+          <option value="{S}">{S} 非空格與Tab</option>
+          <option value="{BPM}">{BPM} 注音大</option>
+          <option value="{bpm}">{bpm} 注音小橫</option>
+          <option value="{bpm2}">{bpm2} 注音小直</option>
+        </select>
+        <select id="regexCharsReplaceWith" class="regexChars hide">
+          <option value="">正則字元</option>
+          <option value="\n">\n 換行字元</option>
+          <option value="\t">\t 製表符TAB</option>
+          <option value="$1">$1 指定</option>
+          <option value="$2">$2 指定</option>
+          <option value="$3">$3 指定</option>
+          <option value="$4">$4 指定</option>
+          <option value="$5">$5 指定</option>
+          <option value="$">$ 指定</option>
+          <option value="(">( 左圓</option>
+          <option value=")">) 右圓</option>
+          <option value="[">[ 左方</option>
+          <option value="]">] 右方</option>
+          <option value="{">{ 左花</option>
+          <option value="}">} 右花</option>
+          <option value="&lt;">&lt; 左尖</option>
+          <option value="&gt;">&gt; 右尖</option>
+        </select>
+      </div>
+      <button id="cancelButton">取消</button>
+      <button id="findPreButton">找前一個</button>
+      <button id="findNextButton">找下一個</button>
+      <button id="confirmButton">全部取代</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let endData;
+let replaceWhere = ''; //取代位置
+
+let currentMatchIndex = -1;
+let matches = [];
+
+dragElement(document.getElementById("replaceModal"));
+
+function dragElement(element) {
+  let pos1 = 0,
+    pos2 = 0,
+    pos3 = 0,
+    pos4 = 0;
+  if (document.getElementById("replaceTitle")) {
+    document.getElementById("replaceTitle").onmousedown = dragMouseDown;
+  } else {
+    element.onmousedown = dragMouseDown;
+  }
+
+  function dragMouseDown(e) {
+    e = e || window.event;
+    e.preventDefault();
+    pos3 = e.clientX;
+    pos4 = e.clientY;
+    document.onmouseup = closeDragElement;
+    document.onmousemove = elementDrag;
+  }
+
+  function elementDrag(e) {
+    e = e || window.event;
+    e.preventDefault();
+    pos1 = pos3 - e.clientX;
+    pos2 = pos4 - e.clientY;
+    pos3 = e.clientX;
+    pos4 = e.clientY;
+    element.style.top = (element.offsetTop - pos2) + "px";
+    element.style.left = (element.offsetLeft - pos1) + "px";
+  }
+
+  function closeDragElement() {
+    document.onmouseup = null;
+    document.onmousemove = null;
+  }
+}
+
+
+
+
+
+
+
+function performSearch() {
+  let textArea = document.getElementById('id_A');
+  let searchText = document.getElementById('replace').value;
+  let text = textArea.value;
+
+  // 重置搜索狀態
+  currentMatchIndex = -1;
+  matches = [];
+
+  if (searchText && text) {
+    const regex = new RegExp(searchText, 'gi');
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      matches.push(match.index);
+    }
+  }
+
+  highlightMatch();
+}
+
+
+document.getElementById('findPreButton').addEventListener('click', function() {
+  if (matches.length > 0) {
+    currentMatchIndex = (currentMatchIndex - 1 + matches.length) % matches
+      .length;
+    highlightMatch();
+  }
+});
+
+document.getElementById('findNextButton').addEventListener('click', function() {
+  if (matches.length > 0) {
+    currentMatchIndex = (currentMatchIndex + 1) % matches.length;
+    highlightMatch();
+  }
+});
+
+document.getElementById('replace').addEventListener('input', performSearch);
+
+function highlightMatch() {
+  const textArea = document.getElementById('id_A');
+  const searchText = document.getElementById('replace').value;
+
+  if (currentMatchIndex >= 0 && currentMatchIndex < matches.length) {
+    const start = matches[currentMatchIndex];
+    const end = start + searchText.length;
+    textArea.focus();
+    textArea.setSelectionRange(start, end);
+    textArea.scrollTop = textArea.scrollHeight * (start / textArea.value
+      .length) - textArea.clientHeight / 2;
+  }
+}
+
+// 通用的函數來計算文本長度，處理 Unicode 字符
+function getLength(txt) {
+    return Array.from(txt).length;
+}
+
+// 通用的函數來統計字符頻率
+function countFrequency(text, regex) {
+    const matches = text.match(regex) || [];
+    const frequencyMap = {};
+
+    matches.forEach(match => {
+        if (frequencyMap[match]) {
+            frequencyMap[match]++;
+        } else {
+            frequencyMap[match] = 1;
+        }
+    });
+
+    return frequencyMap;
+}
+
+// 通用的函數來排序和格式化頻率統計結果
+function formatFrequency(frequencyMap) {
+    const sortedEntries = Object.entries(frequencyMap)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+    //let result = `次數\t${label}\n`;
+	let result = ``;
+
+    sortedEntries.forEach(([item, count]) => {
+        result += `${count}\t${item}\n`;
+    });
+
+    return result;
+}
+
+// 通用的函數來累加結果
+function accumulateResults(newResults) {
+    const accumulatedText = document.getElementById('id_C').value;
+    if (!accumulatedText.trim()) return newResults.map(([char, count]) => `${count}\t${char}`).join('\n');
+
+    const accumulatedLines = accumulatedText.split('\n').map(line => line.split('\t'));
+    const accumulatedMap = new Map(accumulatedLines.map(([count, char]) => [char, parseInt(count)]));
+
+    newResults.forEach(([char, count]) => {
+        if (accumulatedMap.has(char)) {
+            accumulatedMap.set(char, accumulatedMap.get(char) + count);
+        } else {
+            accumulatedMap.set(char, count);
+        }
+    });
+
+    const accumulatedEntries = Array.from(accumulatedMap.entries())
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+    return accumulatedEntries.map(([char, count]) => `${count}\t${char}`).join('\n');
+}
+
+
+function countCharacters(reg) {
+    let text = document.getElementById('id_A').value;
+
+	if (text.startsWith("載入的資料共")) {
+		text = allText;
+	}
+
+	if ( text.trim() === ''){
+		return;
+	}
+    const chineseRegex = reg;
+    const frequencyMap = countFrequency(text, chineseRegex);
+    const newResults = Object.entries(frequencyMap);
+
+    let result = formatFrequency(frequencyMap);
+    result = accumulateResults(newResults);
+    document.getElementById('id_B').value = result;
+}
+
+//空格詞頻 here
+function countWords() {
+	let reg =/[\S]+/g;	
+	countCharacters(reg);
+}
+
+// 統計漢字
+function countChineseCharacters() {
+	let reg = /[\u3007\u3400-\u4DB5\u4E00-\u9FCB\uE815-\uE864\uD840-\uD87F][\uDC00-\uDFFF]?/g;
+	countCharacters(reg);
+}
+
+// 統計拼音 here 若遇到聲調字母會算錯
+function countPinyin() {
+	let reg = /[\p{L}\p{M}]+([0-9]|[ˊˇˋˆ⁺+^])*/gu;
+	//正則表達式中的 [\p{L}\p{M}] 會匹配所有字母 (\p{L}) 和所有組合字符（例如重音符號，\p{M}），+ 表示匹配一個或多個這樣的字符。u 標誌啟用了 Unicode 模式。
+	countCharacters(reg);
+}
+
+// 統計多音節拼音 here 若遇到聲調字母會算錯
+function countMultiSyllables() {
+    //let reg = /[a-zA-Z]+([0-9]|[ˊˇˋˆ⁺+^])*(?:-+|=|[a-zA-Z]+)*([0-9]|[ˊˇˋˆ⁺+^])*/g;
+	let reg = /[\p{L}\p{M}]+([0-9]|[ˊˇˋˆ⁺+^])*(?:-+|=|[\p{L}\p{M}]+)*([0-9]|[ˊˇˋˆ⁺+^])*/gu;
+	//正則表達式中的 [\p{L}\p{M}] 會匹配所有字母 (\p{L}) 和所有組合字符（例如重音符號，\p{M}），+ 表示匹配一個或多個這樣的字符。u 標誌啟用了 Unicode 模式。
+    countCharacters(reg);
+}
+
+
+
+// 統計漢字詞
+function countChineseWords() {
+    let reg = /[\u3007\u3400-\u4DB5\u4E00-\u9FCB\uE815-\uE864\uD840-\uD87F\uDC00-\uDFFF]+/g;
+    countCharacters(reg);
+}
+
+// 統計每行字數
+function countLineLengths() {
+	let text = document.getElementById('id_A').value;
+	if (text.startsWith("載入的資料共")) {
+		text = allText;
+	}
+
+	if ( text.trim() === ''){
+		return;
+	}
+    const lines = text.split('\n');
+    const newResults = lines.map(line => [line, getLength(line)]);
+
+    //let result = '字數\t原行文字\n';
+	let result = '';
+    newResults.forEach(([line, length]) => {
+        result += `${length}\t${line}\n`;
+    });
+    result = accumulateResults(newResults);
+    document.getElementById('id_B').value = result;
+}
+
+// 統計字數（總字數、漢字數、拼音數、標點數、數字數、段落數）
+function countTextStatistics() {
+    let text = document.getElementById('id_A').value;
+	if (text.startsWith("載入的資料共")) {
+		text = allText;
+	}
+
+	if ( text.trim() === ''){
+		return;
+	}
+
+    const chineseRegex = /[\u3007\u3400-\u4DB5\u4E00-\u9FCB\uE815-\uE864\uD840-\uD87F][\uDC00-\uDFFF]?/gu;
+    const pinyinRegex = /\b[a-zA-Z]+\d?\b/g;
+    const punctuationRegex = /[\p{P}\p{S}]/gu;
+    const numberRegex = /\d/g;
+    const paragraphRegex = /\n+/g;
+
+    const chineseCount = (text.match(chineseRegex) || []).reduce((acc, char) => acc + getLength(char), 0);
+    const pinyinCount = (text.match(pinyinRegex) || []).length;
+    const punctuationCount = (text.match(punctuationRegex) || []).length;
+    const numberCount = (text.match(numberRegex) || []).length;
+    const paragraphCount = text.split(paragraphRegex).length;
+    const totalCount = chineseCount + pinyinCount + punctuationCount + numberCount;
+
+    //let result = '統計項目\t數值\n';
+	let result = '';
+    result += `總字數\t${totalCount}\n`;
+    result += `漢字數\t${chineseCount}\n`;
+    result += `拼音數\t${pinyinCount}\n`;
+    result += `標點數\t${punctuationCount}\n`;
+    result += `數字數\t${numberCount}\n`;
+    result += `段落數\t${paragraphCount}\n`;
+
+    document.getElementById('id_B').value = result;
+}
+
+// 統計句子長度
+function countSentenceLengths() {
+    let text = document.getElementById('id_A').value;
+	if (text.startsWith("載入的資料共")) {
+		text = allText;
+	}
+
+	if ( text.trim() === ''){
+		return;
+	}
+    // 使用正則表達式根據標點符號來斷行
+    const sentences = text.split(/[\p{P}]/u).map(line => line.trim());
+
+    // 過濾空行
+    const filteredSentences = sentences.filter(sentence => sentence.length > 0);
+
+    // 計算每個句子的字數
+    const sentenceLengths = filteredSentences.map(sentence => [getLength(sentence), sentence]);
+
+    // 按字數降序排序
+    sentenceLengths.sort((a, b) => b[0] - a[0] || a[1].localeCompare(b[1]));
+
+    // 構建結果字符串
+    let result = '';
+    sentenceLengths.forEach(([length, sentence]) => {
+        result += `${length}\t${sentence}\n`;
+    });
+
+    // 將結果輸出到 id_B
+    document.getElementById('id_B').value = result;
+}
+
+function showOptions(selectElement) {
+    const otherOption = selectElement.querySelector('option[value=""]');
+    if (otherOption) {
+        otherOption.classList.add('hidden');
+    }
+}
+
+function resetOptions(selectElement) {
+    const otherOption = selectElement.querySelector('option[value=""]');
+    if (otherOption) {
+        otherOption.classList.remove('hidden');
+    }
+    selectElement.value = "";
+}
+
+function handleDropdownChange(select) {
+    const action = select.value;
+    if (action && typeof window[action] === 'function') {
+        window[action]();
+        setTimeout(() => {
+            select.value = ""; // 將 select 元素的值重設為空選項
+        }, 500); // 假設處理需要0.5秒，您可以根據實際情況調整這個時間
+    }
+}
+
+
+function clearAllData() {
+    const textareas = document.querySelectorAll('textarea');
+    textareas.forEach(textarea => {
+        textarea.value = '';
+    });
+}
+
+function clearData(id) {
+    document.getElementById(id).value = '';
+}
+
+function copyData(id) {
+    const dataToCopy = document.getElementById(id);
+    dataToCopy.select();
+    document.execCommand('copy');
+}
+
+function copyDataB() {
+    const dataToCopy = document.getElementById('id_B');
+    let t = dataToCopy.value;
+	if (t.startsWith("載入的資料共") || t.startsWith("僅顯示前100行")) {
+		let data = resultLines.join('\n');	
+		copyToClipboard(data);	
+	}else{
+		dataToCopy.select();
+		document.execCommand('copy');	
+	}
+}
+
+
+function copyToClipboard(data) {
+    // 檢查瀏覽器是否支持 Clipboard API
+    if (navigator.clipboard && window.isSecureContext) {
+        // 使用 Clipboard API 複製文字到剪貼簿
+        navigator.clipboard.writeText(data).then(() => {
+            showToast('複製完成', true, 1500);
+        }).catch((err) => {
+            showToast('錯誤！請重新複製', true, 2000);
+        });
+    } else {
+        // 如果 Clipboard API 不可用，則使用 fallback 方法
+        fallbackCopyToClipboard(data);
+    }
+}
+
+
+function showToast(message, autoDismiss = true, dismissTime = 3000) {
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerText = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => toast.classList.add('show'), 100);
+
+    if (autoDismiss) {
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => document.body.removeChild(toast), 500);
+        }, dismissTime);
+    }
+}
+
+
+function copyDataTo(from_id, to_id) {
+    const fromId = document.getElementById(from_id);
+	const toId = document.getElementById(to_id);
+	toId.value = fromId.value;
+	fromId.value = "";
+}
+
+function toggleSort(id, direction, e) {
+    const isBig = e.getAttribute('sort-big') === 'true';
+    sortData(id, direction, isBig ? 'big' : 'small');
+    e.setAttribute('sort-big', !isBig);
+}
+
+function sortData(id, at, how) {
+    const textarea = document.getElementById(id);
+    const lines = textarea.value.trim().split('\n');
+
+    // 將每行拆分成數字和文字
+    const data = lines.map(line => {
+        const [number, text] = line.split('\t');
+        return { number: parseFloat(number), text };
+    });
+
+    // 根據 at 參數排序
+    data.sort((a, b) => {
+        let comparison = 0;
+        if (at === 'left') {
+            comparison = a.number - b.number;
+        } else if (at === 'right') {
+            comparison = a.text.localeCompare(b.text, 'zh-Hant'); // 使用中文比較
+        } else {
+            console.error(`Invalid sort attribute: ${at}`);
+            return;
+        }
+
+        // 根據 how 參數調整排序順序
+        return how === 'big' ? -comparison : comparison;
+    });
+
+    // 將排序結果重新組合成文本並設置到 textarea
+    const sortedLines = data.map(item => `${item.number}\t${item.text}`);
+    textarea.value = sortedLines.join('\n');
+}
+
+
+function sortData(id, at, how) {
+    const textarea = document.getElementById(id);
+    if (!textarea) {
+        console.error(`Textarea with id ${id} not found.`);
+        return;
+    }
+
+    // 獲取 textarea 的值並拆分成行
+    const lines = textarea.value.trim().split('\n');
+
+    // 將每行拆分成左邊文字和右邊文字
+    let leftNumbers = true;
+    let rightNumbers = true;
+    const data = lines.map(line => {
+        const [leftText, rightText] = line.split('\t');
+        const parsedLeftNumber = parseFloat(leftText);
+        const parsedRightNumber = parseFloat(rightText);
+
+        if (isNaN(parsedLeftNumber)) {
+            leftNumbers = false;
+        }
+        if (isNaN(parsedRightNumber)) {
+            rightNumbers = false;
+        }
+
+        return {
+            leftValue: isNaN(parsedLeftNumber) ? leftText : parsedLeftNumber,
+            rightValue: isNaN(parsedRightNumber) ? rightText : parsedRightNumber,
+            leftText,
+            rightText
+        };
+    });
+
+    // 根據 at 參數排序
+    data.sort((a, b) => {
+        let comparison = 0;
+        if (at === 'left') {
+            if (leftNumbers) {
+                comparison = a.leftValue - b.leftValue;
+            } else {
+                comparison = a.leftText.localeCompare(b.leftText, 'zh-Hant'); // 使用中文比較
+            }
+        } else if (at === 'right') {
+            if (rightNumbers) {
+                comparison = a.rightValue - b.rightValue;
+            } else {
+                comparison = a.rightText.localeCompare(b.rightText, 'zh-Hant'); // 使用中文比較
+            }
+        } else {
+            console.error(`Invalid sort attribute: ${at}`);
+            return;
+        }
+
+        // 根據 how 參數調整排序順序
+        return how === 'big' ? -comparison : comparison;
+    });
+
+    // 將排序結果重新組合成文本並設置到 textarea
+    const sortedLines = data.map(item => `${item.leftText}\t${item.rightText}`);
+    textarea.value = sortedLines.join('\n');
+}
+
+
+
+
+
+
+
+
+
+function sortDataA(how) {
+    // 獲取 id_A 中的文本
+    const textarea = document.getElementById('id_A');
+    const text = textarea.value;
+
+    // 分割成行，去除每行的行首行尾空格，並移除空行
+    const lines = text.split('\n')
+        .map(line => line.trim())
+        .filter(line => line !== '');
+
+    // 排序行
+    lines.sort((a, b) => {
+        if (how === 'small') {
+            return a.localeCompare(b, 'zh-Hant'); // 升序
+        } else if (how === 'big') {
+            return b.localeCompare(a, 'zh-Hant'); // 降序
+        } else {
+            console.error(`Invalid sort order: ${how}`);
+            return 0;
+        }
+    });
+
+    // 將排序後的文本輸出到原地 id_A
+    textarea.value = lines.join('\n');
+}
+
+
+function splitTextByPunctuation() {
+    let txt = document.getElementById('id_A').value;
+	if (txt.startsWith("載入的資料共")) {
+		txt = allText;
+	}
+
+	if ( txt.trim() === ''){
+		return;
+	}
+
+	txt = "\n" + txt + "\n";
+	txt = txt.replace(/(\n)([	 　]){1,}/g, "\n");
+	txt = txt.replace(/([	 　]){1,}(\n)/g, "\n");
+
+	txt = txt.replace(/(\n)/g, "######\n");
+
+	txt = txt.replace(/([。，、；：！？「」『』（）《》〈〉〔〕【】〖〗︵︶︹︺︿﹀︽︾﹁﹂﹃﹄｡｡｡\u3002\uff0c\uff1b\uff1a\uff01\uff1f\u201c\u201d\u300a\u300b\u300e\u300f\u3010\u3011\u2018\u2019\u3014\u3015\uff08\uff09.,;:!?\"\']+)/g, "$1\n");
+
+	txt = txt.replace(/(\d)(\.)(\n)(\d)/g, '$1$2$4');
+	txt = txt.replace(/([^\n])(######)/g, "$1\n$2");
+	txt = txt.trim();
+
+	id_B.value = txt;
+}
+
+function connectText() {
+    let txt = document.getElementById('id_A').value;
+	if (txt.startsWith("載入的資料共")) {
+		txt = allText;
+	}
+
+	if ( txt.trim() === ''){
+		return;
+	}
+	   txt = txt.replace(/(\n)/g, "");
+	   txt = txt.replace(/#{6}/g, "\n");
+	   txt = txt.trim();
+	   document.getElementById('id_B').value = txt;
+}
+
+
+function removeDuplicateLines(to_id) {
+    let text = document.getElementById('id_A').value;
+	if (text.startsWith("載入的資料共")) {
+		text = allText;
+	}
+
+	if ( text.trim() === ''){
+		return;
+	}
+    // 分割成行，去除每行的行首行尾空格，並移除空行
+    const lines = text.split('\n')
+        .map(line => line.trim())
+        .filter(line => line !== '');
+
+    // 使用 Set 去除重複行
+    const uniqueLines = Array.from(new Set(lines));
+
+	let out = uniqueLines.join('\n');
+
+    document.getElementById(to_id).value = out;
+}
+
+function removeDuplicateLinesIdB(){
+	removeDuplicateLines('id_B');
+}
+
+function convertToFullMark() {
+
+    const halfWidthToFullWidthMap = {
+        '!': '！',
+        '(': '（',
+        ')': '）',
+        ',': '，',
+        '.': '。',
+        ':': '：',
+        ';': '；',
+        '?': '？',
+        '~': '～'
+    };
+
+    const simpleQuoteToTraditionalMap = {
+        '“': '「',
+        '”': '」',
+        '‘': '『',
+        '’': '』'
+    };
+
+    let text = document.getElementById('id_A').value;
+	if (text.startsWith("載入的資料共")) {
+		text = allText;
+	}
+
+	if ( text.trim() === ''){
+		return;
+	}
+
+    const output = text.replace(/[\u0021\u0028\u0029\u002C\u002E\u003A\u003B\u003F\u007E]/g, (match, offset) => {
+        const prevChar = text[offset - 1] || '';
+        const nextChar = text[offset + 1] || '';
+        if (isChinese(prevChar) || isChinese(nextChar)) {
+            return halfWidthToFullWidthMap[match];
+        }
+        return match;
+    }).replace(/["“”‘’]/g, match => simpleQuoteToTraditionalMap[match]);
+
+    document.getElementById('id_B').value = output;
+
+    function isChinese(char) {
+        return /[\u3007\u3400-\u4DB5\u4E00-\u9FCB\uE815-\uE864\uD840-\uD87F][\uDC00-\uDFFF]?/.test(char);
+    }
+}
+
+//空格與底線換行
+function spaceToNewline() {
+            // 獲取 id_A 元素的值
+            let text = document.getElementById('id_A').value;
+			if (text.startsWith("載入的資料共")) {
+				text = allText;
+			}
+            // 將空格和底線替換成換行符號
+            const replacedText = text.replace(/[\s_]/g, '\n');
+            // 將結果輸出到 id_B 元素的值中
+            document.getElementById('id_B').value = replacedText;
+}
+
+
+function spaceToUnderline() {
+    let txt = document.getElementById('id_A').value;
+	if (txt.startsWith("載入的資料共")) {
+		txt = allText;
+	}
+
+    if (txt.trim() === '') {
+        return;
+    }
+
+    txt = txt.replace(/([。，、；：！？「」『』（）《》〈〉〔〕【】〖〗︵︶︹︺︿﹀︽︾﹁﹂﹃﹄｡｡｡\u3002\uff0c\uff1b\uff1a\uff01\uff1f\u201c\u201d\u300a\u300b\u300e\u300f\u3010\u3011\u2018\u2019\u3014\u3015\uff08\uff09.,;:!?\"\']+)/g, " $1 ");
+
+    // 將連續的半形空格和全形空格替換為底線
+    txt = txt.replace(/[\u0020\u3000]+/g, "_");
+
+    txt = txt.replace(/(\n)(_)+/g, "\n");
+    txt = txt.replace(/(_)+(\n)/g, "\n");
+
+    const lines = txt.split('\n')
+        .map(line => "_" + line + "_");
+
+    let out = lines.join('\n');
+	txt = out.replace(/(__)(\n)/g, "\n");
+	txt = txt.replace(/(\n)(__)/g, "\n");
+    txt = txt.trim();
+
+    document.getElementById('id_B').value = txt;
+}
+
+
+
+//取代標點
+function replacePunctuation() {
+    // 取得輸入框的文字
+    let text = document.getElementById('id_A').value;
+	if (text.startsWith("載入的資料共")) {
+		text = allText;
+	}
+    // 顯示提示視窗，讓使用者輸入要替換的文字
+    const replacementText = prompt("請輸入要替換的文字：");
+
+    // 替換所有標點符號
+    const newText = text.replace(/([。，、；：！？「」『』（）《》〈〉〔〕【】〖〗︵︶︹︺︿﹀︽︾﹁﹂﹃﹄｡｡｡\u3002\uff0c\uff1b\uff1a\uff01\uff1f\u201c\u201d\u300a\u300b\u300e\u300f\u3010\u3011\u2018\u2019\u3014\u3015\uff08\uff09.,;:!?\"\'])/g, replacementText);
+
+    // 將替換後的文字設置到另一個輸入框
+    document.getElementById('id_B').value = newText;
+}
+
+	const replaceButton2 = document.getElementById("replaceButton2");
+    const replaceButton = document.getElementById("replaceButton");
+    const replaceModal = document.getElementById("replaceModal");
+    const closeModal = document.getElementsByClassName("close")[0];
+    const confirmButton = document.getElementById("confirmButton");
+    const cancelButton = document.getElementById("cancelButton");
+    const undoButton = document.getElementById("undoButton");
+    const redoButton = document.getElementById("redoButton");
+    const textAreaA = document.getElementById("id_A");
+    const regexCharsReplace = document.getElementById("regexCharsReplace");
+    const regexCharsReplaceWith = document.getElementById("regexCharsReplaceWith");
+    const useRegex = document.getElementById("useRegex");
+    const replaceInput = document.getElementById("replace");
+    const replaceWithInput = document.getElementById("replaceWith");
+
+    let history = [];
+    let redoStack = [];
+
+    function saveHistory() {
+        history.push(textAreaA.value);
+        if (history.length > 100) {
+            history.shift();
+        }
+        redoStack = [];
+    }
+
+    textAreaA.addEventListener('input', saveHistory);
+    textAreaA.addEventListener('cut', saveHistory);
+    textAreaA.addEventListener('paste', saveHistory);
+    textAreaA.addEventListener('keydown', function(event) {
+        if (event.key === 'Backspace' || event.key === 'Delete') {
+            saveHistory();
+        }
+    });
+
+	replaceButton.addEventListener('click', () => {
+		replaceWhere = 'id_A'; 
+		document.getElementById("replaceTitle").innerText = "輸入原地取代";
+		toggleModal(true);
+	});
+	replaceButton2.addEventListener('click', () => {
+		replaceWhere = 'id_B'; 
+		document.getElementById("replaceTitle").innerText = "取代文字";
+		toggleModal(true);
+	});
+
+	function replaceFn() {
+		replaceWhere = 'id_B'; 
+		document.getElementById("replaceTitle").innerText = "取代文字";
+		toggleModal(true);
+	}
+
+    closeModal.addEventListener('click', () => toggleModal(false));
+    cancelButton.addEventListener('click', () => toggleModal(false));
+
+
+
+	function toggleModal(show) {
+		replaceModal.classList.toggle('show', show);
+		replaceModal.classList.toggle('hide', !show);
+		
+		if (show) {
+			// 當模態框打開時執行搜索
+			performSearch();
+		} else {
+			// 當模態框關閉時重置搜索狀態
+			currentMatchIndex = -1;
+			matches = [];
+		}
+	}
+
+    confirmButton.addEventListener('click', function (event) {
+        event.preventDefault();
+        const textAreaB = document.getElementById("id_B");
+        let replaceText = replaceInput.value;
+        let replaceWithText = replaceWithInput.value;
+        const useRegexChecked = useRegex.checked;
+
+        let textA = textAreaA.value;
+        let textB;
+
+	replaceText = replaceText.replace(/{h}/g,"[\u3007\u3400-\u4DB5\u4E00-\u9FCB\uE815-\uE864\uD840-\uD87F][\uDC00-\uDFFF]?"); //中文漢字;
+	replaceText = replaceText.replace(/\{\^h}|{H}/g,"([!-㏕]|[︰-￭])"); // 非中文漢字;
+
+	replaceText = replaceText.replace(/{mail}/g,"([^@ \t\r\n]+@[^@ \t\r\n]+\\.[^@ \t\r\n]+)");  //e-mail信箱 [^@ \t\r\n]+@[^@ \t\r\n]+\.[^@ \t\r\n]+;
+	replaceText = replaceText.replace(/{url}/g,"(((https|http|ftp|rtsp|mms)?:\/\/)([^\\s]+))"); //網址 ((https|http|ftp|rtsp|mms)?:\/\/)([^\s]+);
+	replaceText = replaceText.replace(/{html}/g,"(<\\s*(\\S+)(\\s[^>]*)?>)"); //HTML <標記> <\s*(\S+)(\s[^>]*)?>;
+	replaceText = replaceText.replace(/{htmlall}/g,"(<\\s*(\\S+)(\\s[^>]*)?>[\\s\\S]*<\\s*\/\\1\\s*>)"); //HTML <標記>...</標記> <\s*(\S+)(\s[^>]*)?>[\s\S]*<\s*\/\1\s*>;
+
+	replaceText = replaceText.replace(/{y}/g,"([A-u]+)");
+	replaceText = replaceText.replace(/{~}/g,"([A-u]+[1-9])");
+	replaceText = replaceText.replace(/{v}/g,"([aeiou])");
+	replaceText = replaceText.replace(/{V}/g,"([^aeiou])");
+
+	replaceText = replaceText.replace(/{Az}/g,"([A-Za-z])");
+	replaceText = replaceText.replace(/{A9}/g,"([A-Za-z0-9])");
+	replaceText = replaceText.replace(/{a9}/g,"([a-z0-9])");
+	replaceText = replaceText.replace(/{AZ}/g,"([A-Z])");
+	replaceText = replaceText.replace(/{az}/g,"([a-z])");
+
+	replaceText = replaceText.replace(/{\^Az}/g,"([^A-Za-z])");
+	replaceText = replaceText.replace(/{\^A9}/g,"([^A-Za-z0-9])");
+	replaceText = replaceText.replace(/{\^a9}/g,"([^a-z0-9])");
+	replaceText = replaceText.replace(/{\^AZ}/g,"([^A-Z])");
+	replaceText = replaceText.replace(/{\^az}/g,"([^a-z])");
+
+	replaceText = replaceText.replace(/{ss}/g,"([ 　\\t\\r\\n\\v\\f])");  // 所有空白字元;
+	replaceText = replaceText.replace(/{s}/g,"([ 　\\t\\v])");  // 空格、製表字元;
+	replaceText = replaceText.replace(/{\^ss}|{SS}/g,"([^ 　\\t\\r\\n\\v\\f])");  // 非所有空白字元;
+	replaceText = replaceText.replace(/{\^s}|{S}/g,"([ 　\\t\\v])");  // 非空格、製表字元;
+
+	replaceText = replaceText.replace(/{biaodian}|{b}/g,"([。，、；：！？「」『』（）《》〈〉〔〕【】〖〗︵︶︹︺︿﹀︽︾﹁﹂﹃﹄｡─…．～﹗﹙﹚﹐﹑﹒︰﹕﹔])");  //標點;
+	replaceText = replaceText.replace(/{^biaodian}|{^b}|{B}/g,"([^。，、；：！？「」『』（）《》〈〉〔〕【】〖〗︵︶︹︺︿﹀︽︾﹁﹂﹃﹄｡─…．～﹗﹙﹚﹐﹑﹒︰﹕﹔])");  //非標點;
+
+	replaceText = replaceText.replace(/{bb}/g,"([,.?!\"\':;])");  //標點半形;
+	replaceText = replaceText.replace(/{\^bb}|{BB}/g,"([^,.?!\"\':;])");  //非標點半形;
+
+	replaceText = replaceText.replace(/{BPM}/g,"([ㄅ-ㆷˊˇˋ˙])");  // 注音大;
+	replaceText = replaceText.replace(/{bpm}/g,"([-])");  // 注音小橫;
+	replaceText = replaceText.replace(/{bpm2}/g,"([-])");  // 注音小直;
+
+
+		// Get selected text
+		const start = textAreaA.selectionStart;
+		const end = textAreaA.selectionEnd;
+		const selectedText = textA.substring(start, end);
+
+		if (selectedText.length > 0) {
+			// If there is selected text, replace only within the selection
+			if (useRegexChecked) {
+				const regex = new RegExp(replaceText, 'g');
+				replaceWithText = replaceWithText.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+				textB = textA.substring(0, start) + selectedText.replace(regex, replaceWithText) + textA.substring(end);
+			} else {
+				textB = textA.substring(0, start) + selectedText.split(replaceText).join(replaceWithText) + textA.substring(end);
+			}
+		} else {
+			// If there is no selected text, replace in the whole text
+			if (useRegexChecked) {
+				const regex = new RegExp(replaceText, 'g');
+				replaceWithText = replaceWithText.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+				textB = textA.replace(regex, replaceWithText);
+			} else {
+				textB = textA.split(replaceText).join(replaceWithText);
+			}
+		}
+
+		if (replaceWhere == 'id_A') {
+			textAreaA.value = textB;
+		} else if (replaceWhere == 'id_B') {
+			textAreaB.value = textB;
+		}
+		//performSearch();
+	});
+
+    undoButton.addEventListener('click', () => {
+        if (history.length > 0) {
+            redoStack.push(textAreaA.value);
+            textAreaA.value = history.pop();
+        }
+    });
+
+    redoButton.addEventListener('click', () => {
+        if (redoStack.length > 0) {
+            history.push(textAreaA.value);
+            textAreaA.value = redoStack.pop();
+        }
+    });
+
+    function insertAtCursor(input, text) {
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        input.value = input.value.slice(0, start) + text + input.value.slice(end);
+        input.selectionStart = input.selectionEnd = start + text.length;
+        input.focus();
+    }
+
+    replaceInput.addEventListener('focus', function() {
+        regexCharsReplace.classList.remove('hide');
+        regexCharsReplaceWith.classList.add('hide');
+    });
+
+    replaceWithInput.addEventListener('focus', function() {
+        regexCharsReplaceWith.classList.remove('hide');
+        regexCharsReplace.classList.add('hide');
+    });
+
+    useRegex.addEventListener('change', function() {
+        const isChecked = useRegex.checked;
+        regexCharsReplace.disabled = !isChecked;
+        regexCharsReplaceWith.disabled = !isChecked;
+    });
+
+    regexCharsReplace.addEventListener('change', function() {
+        insertAtCursor(replaceInput, regexCharsReplace.value);
+        regexCharsReplace.value = '';
+    });
+
+    regexCharsReplaceWith.addEventListener('change', function() {
+        insertAtCursor(replaceWithInput, regexCharsReplaceWith.value);
+        regexCharsReplaceWith.value = '';
+    });
+
+
+function swapLeftAndRightIdA(){
+	swapLeftAndRight('id_A', 'id_A');
+}
+
+function swapLeftAndRightIdB(){
+	swapLeftAndRight('id_B', 'id_B');
+}
+
+function swapLeftAndRightIdC(){
+	swapLeftAndRight('id_C', 'id_C');
+}
+
+function swapLeftAndRight(dataId, resultId) {
+    // 取得 textarea 的值
+    const textA = document.getElementById(dataId).value;
+
+    // 將值分割成行
+    const lines = textA.split('\n');
+
+    // 從後往前找到第一個非空行的索引
+    let lastIndex = lines.length - 1;
+    while (lastIndex >= 0 && lines[lastIndex].trim() === '') {
+        lastIndex--;
+    }
+
+    // 切割掉最後面的空行
+    const filteredLines = lines.slice(0, lastIndex + 1);
+
+    // 初始化一個空陣列來存儲轉換後的行
+    const swappedLines = filteredLines.map(line => {
+        // 檢查每行是否包含 \t
+        if (!line.includes('\t')) {
+            alert("每行必須包含制表符 (\\t)");
+            throw new Error("每行必須包含制表符 (\\t)");
+        }
+
+        // 將每行的內容用 \t 分割
+        const [textA, textB] = line.split('\t');
+        // 交換位置並加入到新的陣列中
+        return `${textB}\t${textA}`;
+    });
+
+    // 將轉換後的行合併成一個字符串
+    const textB = swappedLines.join('\n');
+
+    // 將轉換後的字符串輸出到 textarea id_B
+    document.getElementById(resultId).value = textB;
+}
+
+
+
+
+loadCssJs('https://fonts.googleapis.com/icon?family=Material+Icons');
+
+function loadCssJs(url) {
+    const extension = url.split('.').pop().toLowerCase();
+    if (extension === 'js') {
+        const scriptElement = document.createElement('script');
+        scriptElement.src = url;
+        document.body.appendChild(scriptElement);
+    } else if (extension === 'css' || url.includes('fonts.googleapis.com')) {
+        const linkElement = document.createElement('link');
+        linkElement.rel = 'stylesheet';
+        linkElement.href = url;
+        document.head.appendChild(linkElement);
+    } else {
+        console.error('Unsupported file type or URL.');
+    }
+}
+
+
+function rubyText() {
+    let text = document.getElementById('id_A').value;
+	if (text.startsWith("載入的資料共")) {
+		text = allText;
+	}
+
+    let myAll = text;
+    let pattern;
+	
+	// 檢查訊息中是否包含 {漢字/拼音}，並轉換成 Ruby 
+    //pattern = /\{\s*([^\/}]+)\s*\/\s*([^\/}]+)\s*\}/g; // 匹配 {漢字/拼音} 格式的正則表達式
+	pattern = /\{\s*(?:ruby\s*:)?\s*([^\/}]+)\s*\/\s*([^\/}]+)\s*\}/g;
+
+    if (myAll.match(pattern)) {
+        myAll = myAll.replace(pattern, function(match, p1, p2) {
+
+            var chineseCharacters = Array.from(p1.trim()); // 移除逗號並轉為陣列
+            var pinyinWithSpaces = p2.replace(/,/g, ' , '); // 在逗號前後加空格
+
+			 //pinyinWithSpaces = replaceArr12(pinyinWithSpaces, kasuPinyinBpmArr);
+			// here 
+			// kasuPinyinToBpm(w)
+            var pinyinArray = pinyinWithSpaces.trim().split(/\s+/);
+            let rubyText = '';
+            let chineseIndex = 0;
+            for (let i = 0; i < pinyinArray.length; i++) {
+                // 如果 pinyin 是 - 或 -- ，則跳過，不處理
+                if (pinyinArray[i] === '-' || pinyinArray[i] === '--' || pinyinArray[i] === '=') continue;
+                const chinesePart = chineseCharacters.slice(chineseIndex, chineseIndex + pinyinArray[i].split(/[-]+/).length);
+                rubyText += `<ruby>${chinesePart.join('')}<rt>${pinyinArray[i]}</rt></ruby>`;
+                chineseIndex += chinesePart.length;
+            }
+            return rubyText;
+        });
+    }
+
+    document.getElementById('id_B').value = myAll;
+	document.getElementById('id_D').innerHTML = myAll;
+ }
+
+document.getElementById('toggle-textarea-c').onclick = function() {
+    document.getElementById('id_C').classList.toggle('hidden');
+	document.getElementById('smallButtonContainer_C').classList.toggle('hidden');
+};
+
+
+
+		
+function combineCharacter() {
+	// 大\tai 家\gav 好hox 來\lois 尞\leeu
+	// 以\t左邊漢字一字一字與拼音相併
+    let input = document.getElementById('id_A').value;
+	if (input.startsWith("載入的資料共")) {
+		text = allText;
+	}
+
+    const lines = input.split('\n');
+    let output = '';
+	let chineseLength = 0;
+	let pinyinLength = 0;
+	let exactLength = "";
+
+    lines.forEach(line => {
+        if (line.trim() === '' || line.trim() === '\t') {
+            output += line + '\n'; // 保留空行和空的tab行
+            return;
+        }
+        const [chinese, pinyin] = line.split('\t');
+        if (!chinese && !pinyin) {
+            output += line + '\n'; // 保留 \t 行
+            return;
+        }
+		let pinyinProcessed = pinyin.replace(/([。，、；：【】「」『』（）─？！…﹏《 》〈 〉＿．—～~／\(\)\[\]{}\/,.?;:!"'“”‘’·])/g, ' $1 ')
+                                          .replace(/\s+/g, ' ').trim();
+
+
+
+
+		pinyinProcessed = pinyinProcessed.replace(/(=)/g, ' =').replace(/(-+)/g, ' $1').replace(/( )+/g, ' ').trim(); 
+        const chineseChars = Array.from(chinese.replace(/[\s|_]+/g, ''));
+        const pinyinParts = pinyinProcessed.split(' ');
+
+        let pinyinIndex = 0;
+        chineseChars.forEach(char => {
+            if (char.trim() !== '') {
+                output += char + '\\' + (pinyinParts[pinyinIndex] || '') + ' ';
+                pinyinIndex++;
+            }
+        });
+		chineseLength = chineseChars.length;
+		pinyinLength = pinyinParts.length;
+		if(chineseLength == pinyinLength){
+			exactLength = "";		
+		}else{
+			exactLength = chineseLength + '\\' + pinyinLength;			
+		}
+
+        output += '\t' + exactLength + '\n';
+    });
+
+    document.getElementById('id_B').textContent = output.trim();
+}
+
+
+function combineWords() {
+	// 大家好\tai gav hox_來\lois_尞\leeu
+	// 以\t左邊漢字詞分組，但以詞與拼音相併
+    let input = document.getElementById('id_A').value;
+	if (input.startsWith("載入的資料共")) {
+		input = allText;
+	}
+
+    const lines = input.split('\n');
+    let output = '';
+	let chineseLength = 0;
+	let pinyinLength = 0;
+	let exactLength = "";
+
+    lines.forEach(line => {
+        if (line.trim() === '' || line.trim() === '\t') {
+            output += line + '\n'; // 保留空行和空的tab行
+            return;
+        }
+
+        // 分離漢字和拼音部分
+        const [chinesePart, pinyinPart] = line.split('\t');
+        if (!chinesePart && !pinyinPart) {
+            output += line + '\n'; // 保留 \t 行
+            return;
+        }
+
+        // 處理漢字部分，將多個空格替換為一個
+        const chineseProcessed = chinesePart.replace(/[\s|_]+/g, ' ').trim();
+		chineseLength = Array.from(chineseProcessed.replace(/[\s|_]+/g, '')).length;
+
+        // 處理拼音部分，將多個空格替換為一個，並在標點符號前後加上空格
+        let pinyinProcessed = pinyinPart.replace(/([。，、；：【】「」『』（）─？！…﹏《 》〈 〉＿．—～~／\(\)\[\]{}\/,.?;:!"'“”‘’·])/g, ' $1 ').replace(/([-=]+)/g, ' $1').replace(/\s+/g, ' ').trim();
+
+		pinyinLength = pinyinProcessed.split(' ').length;
+
+		const chineseGroups = chineseProcessed.split(' ');
+        const pinyinGroups = pinyinProcessed.split(' ');
+
+        // 構建最終輸出
+        let pinyinIndex = 0;
+        chineseGroups.forEach(group => {
+            let pinyinGroup = '';
+			let groupLength= Array.from(group).length;
+            for (let i = 0; i < groupLength; i++) {
+                // 添加對應的拼音，並加上 ` ` 連接
+                if (pinyinIndex < pinyinGroups.length) {
+                    pinyinGroup += (i > 0 ? ' ' : '') + pinyinGroups[pinyinIndex++];
+                }
+            }
+            output += group + '\\' + pinyinGroup + '_';
+        });
+
+		if(chineseLength == pinyinLength){
+			exactLength = "";		
+		}else{
+			exactLength = chineseLength + '\\' + pinyinLength;			
+		}
+        output += '\t' + exactLength + '\n';
+    });
+	let result = output.trim().split('\n').map(line => "_" + line).join('\n');
+    document.getElementById('id_B').textContent = result;
+}
+
+
+function combineWordsPinyin() {
+	// 大\tai 家\gav 好hox_來\lois_尞\leeu
+	// 以\t左邊漢字詞分組，但以詞內字音字音相併
+    let input = document.getElementById('id_A').value;
+	if (input.startsWith("載入的資料共")) {
+		input = allText;
+	}
+
+    const lines = input.split('\n');
+    let output = '';
+	let chineseLength = 0;
+	let pinyinLength = 0;
+	let exactLength = "";
+
+    lines.forEach(line => {
+        if (line.trim() === '' || line.trim() === '\t') {
+            output += line + '\n'; // 保留空行和空的tab行
+            return;
+        }
+
+        // 分離漢字和拼音部分
+        const [chinesePart, pinyinPart] = line.split('\t');
+        if (!chinesePart && !pinyinPart) {
+            output += line + '\n'; // 保留 \t 行
+            return;
+        }
+
+        // 處理漢字部分，將多個空格替換為一個
+        const chineseProcessed = chinesePart.replace(/\s+/g, ' ').trim();
+        // 處理拼音部分，將多個空格替換為一個，並在標點符號前後加上空格
+        const pinyinProcessed = pinyinPart.replace(/([。，、；：【】「」『』（）─？！…﹏《 》〈 〉＿．—～~／\(\)\[\]{}\/,.?;:!"'“”‘’·])/g, ' $1 ').replace(/([-=]+)/g, ' $1').replace(/\s+/g, ' ').trim();
+
+		chineseLength = Array.from(chineseProcessed.replace(/[\s|_]+/g, '')).length;
+		pinyinLength = pinyinProcessed.split(' ').length;
+
+        const chineseGroups = chineseProcessed.split(' ');
+        const pinyinGroups = pinyinProcessed.split(' ');
+
+        // 構建最終輸出
+        let pinyinIndex = 0;
+        chineseGroups.forEach((group, groupIndex) => {
+            if (groupIndex > 0) output += '_'; // 組間用 _ 隔開
+
+            Array.from(group).forEach((char, charIndex) => {
+                if (charIndex > 0) output += ' '; // 字間用空格隔開
+
+                // 添加對應的拼音
+                output += char + '\\' + (pinyinGroups[pinyinIndex] || '');
+                pinyinIndex++;
+            });
+        });
+
+		if(chineseLength == pinyinLength){
+			exactLength = "";		
+		}else{
+			exactLength = chineseLength + '\\' + pinyinLength;			
+		}
+
+        output += ' ' + '\t' + exactLength + '\n';
+    });
+
+    document.getElementById('id_B').textContent = output.trim();
+}
+
+
+
+function combineHyphen() {
+	// 大家好\tai-gav-hox 來\lois 尞\leeu
+	// 以\t右邊多音節分組，詞與多音節拼音相併
+    let input = document.getElementById('id_A').value;
+    if (input.startsWith("載入的資料共")) {
+        input = allText;
+    }
+    const lines = input.split('\n');
+    let output = '';
+
+    // 定義標點符號正則表達式
+    const punctuationRegex = /[。，、；：【】「」『』（）─？！…﹏《》〈〉＿．—～~／\(\)\[\]{}\/,.?;:!"'""''·]/;
+
+    lines.forEach(line => {
+        if (line.trim() === '' || line.trim() === '\t') {
+            output += line + '\n';
+            return;
+        }
+
+        const [chinese, pinyin] = line.split('\t').map(part => part.trim());
+        if (!chinese || !pinyin) {
+            output += line + '\n';
+            return;
+        }
+
+        let currentOutput = '';
+        
+        // 分別處理漢字和拼音
+        const chineseChars = Array.from(chinese);
+        // 先處理拼音中的標點符號，確保前後有空格
+        let processedPinyin = pinyin;
+        // 在標點符號前後添加空格，並處理可能出現的多餘空格
+        processedPinyin = processedPinyin.replace(/([。，、；：【】「」『』（）─？！…﹏《》〈〉＿．—～~／\(\)\[\]{}\/,.?;:!"'""''·])/g, ' $1 ');
+        const pinyinGroups = processedPinyin.split(' ').filter(g => g.length > 0);
+        
+        let chineseIndex = 0;
+        let pinyinIndex = 0;
+        
+        // 追蹤實際計數
+        let chineseCount = 0;
+        let pinyinCount = 0;
+        
+        while (chineseIndex < chineseChars.length || pinyinIndex < pinyinGroups.length) {
+            // 處理漢字部分的標點符號
+            while (chineseIndex < chineseChars.length && 
+                   punctuationRegex.test(chineseChars[chineseIndex])) {
+                currentOutput += chineseChars[chineseIndex] + ' ';
+                chineseIndex++;
+                chineseCount++;
+            }
+            
+            // 處理拼音部分的標點符號
+            while (pinyinIndex < pinyinGroups.length && 
+                   punctuationRegex.test(pinyinGroups[pinyinIndex])) {
+                // 確保標點符號前後有空格
+                currentOutput += ` ${pinyinGroups[pinyinIndex]} `;
+                pinyinIndex++;
+                pinyinCount++;
+            }
+            
+            // 處理正常的漢字和拼音配對
+            if (chineseIndex < chineseChars.length && pinyinIndex < pinyinGroups.length) {
+                const currentPinyin = pinyinGroups[pinyinIndex];
+                
+                if (!punctuationRegex.test(currentPinyin)) {
+                    if (currentPinyin.includes('-')) {
+                        // 處理帶連字符的拼音組
+                        const charCount = currentPinyin.split('-').length;
+                        const relevantChars = chineseChars.slice(chineseIndex, chineseIndex + charCount)
+                            .filter(char => !punctuationRegex.test(char))
+                            .join('');
+                        
+                        currentOutput += `${relevantChars}\\${currentPinyin} `;
+                        chineseIndex += charCount;
+                        chineseCount++;
+                    } else {
+                        // 處理單個漢字和拼音
+                        currentOutput += `${chineseChars[chineseIndex]}\\${currentPinyin} `;
+                        chineseIndex++;
+                        chineseCount++;
+                    }
+                    pinyinIndex++;
+                    pinyinCount++;
+                } else {
+                    // 處理標點符號
+                    currentOutput += ` ${currentPinyin} `;
+                    pinyinIndex++;
+                    pinyinCount++;
+                }
+            }
+            // 處理剩餘的漢字
+            else if (chineseIndex < chineseChars.length) {
+                const currentChar = chineseChars[chineseIndex];
+                if (!punctuationRegex.test(currentChar)) {
+                    currentOutput += `${currentChar}\\${currentChar} `;
+                    chineseCount++;
+                } else {
+                    currentOutput += currentChar + ' ';
+                }
+                chineseIndex++;
+            }
+            // 處理剩餘的拼音
+            else if (pinyinIndex < pinyinGroups.length) {
+                const currentPinyin = pinyinGroups[pinyinIndex];
+                if (!punctuationRegex.test(currentPinyin)) {
+                    currentOutput += `${currentPinyin}\\${currentPinyin} `;
+                    pinyinCount++;
+                } else {
+                    currentOutput += ` ${currentPinyin} `;
+                }
+                pinyinIndex++;
+            }
+        }
+        
+        // 清理多餘的空格，但保留標點符號前後的單個空格
+        currentOutput = currentOutput.replace(/\s+/g, ' ').trim();
+        
+        // 添加計數信息
+        const lengthInfo = `${chineseCount}\\${pinyinCount}`;
+        output += currentOutput + ' ' + lengthInfo + '\n';
+    });
+
+    document.getElementById('id_B').textContent = output.trim();
+}
+
+
+function holoNumberToRoman() {
+	// 閩數字 轉 羅馬字
+	let t = document.getElementById('id_A').value;
+	if (t.startsWith("載入的資料共")) {
+		t = allText;
+	}
+
+	t = holoNumberToZvs(t);
+	t = zvsToRoma(t);
+	document.getElementById('id_B').value = t;
+}
+
+function holoRomanToNumber() {	
+	// 閩羅馬字 轉 數字
+	let t = document.getElementById('id_A').value;
+	if (t.startsWith("載入的資料共")) {
+		t = allText;
+	}
+	t = romaToZxv(t);
+	t = holoZvsToNumber(t);
+	document.getElementById('id_B').value = t;
+}
+
+
+function anyZvsToRoma(){
+	// 任何zvs字母調語言 轉 羅馬字;
+	let t = document.getElementById('id_A').value;
+	if (t.startsWith("載入的資料共")) {
+		t = allText;
+	}
+
+	t = zvsToRoma(t);
+	document.getElementById('id_B').value = t;
+}
+
+function anyRomaToZvs(){
+	// 任何語言羅馬字 轉 zvs字母調
+	let t = document.getElementById('id_A').value;
+	if (t.startsWith("載入的資料共")) {
+		t = allText;
+	}
+
+	t = romaToZxv(t);
+	document.getElementById('id_B').value = t;
+}
+
+
+
+function holoNumberToZvs(t) {
+	t = t.replace(/([aeiourmn]|nn|ng)(9)/gi, '$1zz')
+	t = t.replace(/([aeiourmn]|nn|ng)(1)/gi, '$1')
+	t = t.replace(/([aeiourmn]|nn|ng)(2)/gi, '$1z')
+	t = t.replace(/([aeiourmn]|nn|ng)(3)/gi, '$1s')
+	t = t.replace(/([aeiourmn]|nn|ng)([ptkh])(4)/gi, '$1$2')
+	t = t.replace(/([aeiourmn]|nn|ng)(5)/gi, '$1x')
+	t = t.replace(/([aeiourmn]|nn|ng)(7)/gi, '$1f')
+	t = t.replace(/([aeiourmn]|nn|ng)([ptkh])(8)/gi, '$1$2l')	
+	return t;
+}
+
+function holoZvsToNumber(t) {
+	t = t.replace(/([aeiourmn]|nn|ng)(zz)/gi, '$19')
+	t = t.replace(/([aeiourmn]|nn|ng)\b/gi, '$11')
+	t = t.replace(/([aeiourmn]|nn|ng)(z)/gi, '$12')
+	t = t.replace(/([aeiourmn]|nn|ng)(s)/gi, '$13')
+	t = t.replace(/([aeiourmn]|nn|ng)([ptkh])\b/gi, '$1$24')
+	t = t.replace(/([aeiourmn]|nn|ng)(x)/gi, '$15')
+	t = t.replace(/([aeiourmn]|nn|ng)(f)/gi, '$17')
+	t = t.replace(/([aeiourmn]|nn|ng)([ptkh])(l)/gi, '$1$28')	
+	return t;
+}
+
+function zvsToRoma(t) {
+    // 字母調轉羅馬字    
+t=t.replace(/([MNmn])(n)(g|gh)(zz)\b/g, '$1n̋$3');
+t=t.replace(/([MNmn])(n)(g|gh)(z)\b/g, '$1ń$3');
+t=t.replace(/([MNmn])(n)(g|gh)(s)\b/g, '$1ǹ$3');
+t=t.replace(/([MNmn])(n)(g|gh)(x)\b/g, '$1n̂$3');
+t=t.replace(/([MNmn])(n)(g|gh)(v)\b/g, '$1ň$3');
+t=t.replace(/([MNmn])(n)(g|gh)(f)\b/g, '$1n̄$3');
+t=t.replace(/([MNmn])(n)(g|gh)(l)\b/g, '$1n̍$3');
+
+t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(zz)\b/g, 'Ő$2');
+t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'Ó$2');
+t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'Ò$2');
+t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'Ô$2');
+t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'Ǒ$2');
+t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'Ō$2');
+t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(l)\b/g, 'O̍$2');
+t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(zz)\b/g, 'ő$2');
+t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'ó$2');
+t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'ò$2');
+t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'ô$2');
+t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'ǒ$2');
+t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'ō$2');
+t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(l)\b/g, 'o̍$2');
+t=t.replace(/(Yu)((?:n|ng)?)(f)\b/g, 'Ǖ$2');
+t=t.replace(/(Yu)((?:n|ng)?)(z)\b/g, 'Ǘ$2');
+t=t.replace(/(Yu)((?:n|ng)?)(v)\b/g, 'Ǚ$2');
+t=t.replace(/(Yu)((?:n|ng)?)(s)\b/g, 'Ǜ$2');
+t=t.replace(/(yu)((?:n|ng)?)(f)\b/g, 'ǖ$2');
+t=t.replace(/(yu)((?:n|ng)?)(z)\b/g, 'ǘ$2');
+t=t.replace(/(yu)((?:n|ng)?)(v)\b/g, 'ǚ$2');
+t=t.replace(/(yu)((?:n|ng)?)(s)\b/g, 'ǜ$2');
+t=t.replace(/(Y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'Ȳ$2');
+t=t.replace(/(Y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'Y̌$2');
+t=t.replace(/(Y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'Ý$2');
+t=t.replace(/(Y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'Ỳ$2');
+t=t.replace(/(Y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'Ŷ$2');
+t=t.replace(/(y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'ȳ$2');
+t=t.replace(/(y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'y̌$2');
+t=t.replace(/(y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'ý$2');
+t=t.replace(/(y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'ỳ$2');
+t=t.replace(/(y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'ŷ$2');
+t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(zz)\b/g, 'A̋$2');
+t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'Á$2');
+t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'À$2');
+t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'Â$2');
+t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'Ǎ$2');
+t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'Ā$2');
+t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(l)\b/g, 'A̍$2');
+t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(zz)\b/g, 'a̋$2');
+t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'á$2');
+t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'à$2');
+t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'â$2');
+t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'ǎ$2');
+t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'ā$2');
+t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(l)\b/g, 'a̍$2');
+
+
+t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(zz)\b/g, 'E̋$2');
+t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'É$2');
+t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'È$2');
+t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'Ê$2');
+t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'Ě$2');
+t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'Ē$2');
+t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(l)\b/g, 'E̍$2');
+t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(zz)\b/g, 'e̋$2');
+t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'é$2');
+t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'è$2');
+t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'ê$2');
+t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'ě$2');
+t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'ē$2');
+t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(l)\b/g, 'e̍$2');
+t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(zz)\b/g, 'Ű$2');
+t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'Ú$2');
+t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'Ù$2');
+t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'Û$2');
+t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'Ǔ$2');
+t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'Ū$2');
+t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(l)\b/g, 'U̍$2');
+t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(zz)\b/g, 'ű$2');
+t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'ú$2');
+t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'ù$2');
+t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'û$2');
+t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'ǔ$2');
+t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'ū$2');
+t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(l)\b/g, 'u̍$2');
+t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhrr]|nnh|ng|nn)?)(zz)\b/g, 'I̋$2');
+t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(z)\b/g, 'Í$2');
+t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(s)\b/g, 'Ì$2');
+t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(x)\b/g, 'Î$2');
+t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(v)\b/g, 'Ǐ$2');
+t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(f)\b/g, 'Ī$2');
+t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(l)\b/g, 'I̍$2');
+t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(zz)\b/g, 'i̋$2');
+t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(z)\b/g, 'í$2');
+t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(s)\b/g, 'ì$2');
+t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(x)\b/g, 'î$2');
+t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(v)\b/g, 'ǐ$2');
+t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(f)\b/g, 'ī$2');
+t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(l)\b/g, 'i̍$2');
+t=t.replace(/(M)((?:h)?)(zz)\b/g, 'M̋$2');
+t=t.replace(/(M)((?:h)?)(z)\b/g, 'Ḿ$2');
+t=t.replace(/(M)((?:h)?)(s)\b/g, 'M̀$2');
+t=t.replace(/(M)((?:h)?)(x)\b/g, 'M̂$2');
+t=t.replace(/(M)((?:h)?)(v)\b/g, 'M̌$2');
+t=t.replace(/(M)((?:h)?)(f)\b/g, 'M̄$2');
+t=t.replace(/(M)((?:h)?)(l)\b/g, 'M̍$2');
+t=t.replace(/(m)((?:h)?)(zz)\b/g, 'm̋$2');
+t=t.replace(/(m)((?:h)?)(z)\b/g, 'ḿ$2');
+t=t.replace(/(m)((?:h)?)(s)\b/g, 'm̀$2');
+t=t.replace(/(m)((?:h)?)(x)\b/g, 'm̂$2');
+t=t.replace(/(m)((?:h)?)(v)\b/g, 'm̌$2');
+t=t.replace(/(m)((?:h)?)(f)\b/g, 'm̄$2');
+t=t.replace(/(m)((?:h)?)(l)\b/g, 'm̍$2');
+
+t=t.replace(/(N)((g|gh)?)(zz)\b/g, 'N̋$2');
+t=t.replace(/(N)((g|gh)?)(z)\b/g, 'Ń$2');
+t=t.replace(/(N)((g|gh)?)(s)\b/g, 'Ǹ$2');
+t=t.replace(/(N)((g|gh)?)(x)\b/g, 'N̂$2');
+t=t.replace(/(N)((g|gh)?)(v)\b/g, 'Ň$2');
+t=t.replace(/(N)((g|gh)?)(f)\b/g, 'N̄$2');
+t=t.replace(/(N)((g|gh)?)(l)\b/g, 'N̍$2');
+
+t=t.replace(/(n)((g|gh)?)(zz)\b/g, 'n̋$2');
+t=t.replace(/(n)((g|gh)?)(z)\b/g, 'ń$2');
+t=t.replace(/(n)((g|gh)?)(s)\b/g, 'ǹ$2');
+t=t.replace(/(n)((g|gh)?)(x)\b/g, 'n̂$2');
+t=t.replace(/(n)((g|gh)?)(v)\b/g, 'ň$2');
+t=t.replace(/(n)((g|gh)?)(f)\b/g, 'n̄$2');
+t=t.replace(/(n)((g|gh)?)(l)\b/g, 'n̍$2');
+
+return t;
+}
+
+
+
+function romaToZxv(t) {
+    // 羅馬字轉字母調
+t=t.replace(/Ő([aeioumngptkhbd]{0,5})/g, "O$1zz");
+t=t.replace(/Ó([aeioumngptkhbd]{0,5})/g, "O$1z");
+t=t.replace(/Ò([aeioumngptkhbd]{0,5})/g, "O$1s");
+t=t.replace(/Ô([aeioumngptkhbd]{0,5})/g, "O$1x");
+t=t.replace(/Ǒ([aeioumngptkhbd]{0,5})/g, "O$1v");
+t=t.replace(/Ō([aeioumngptkhbd]{0,5})/g, "O$1f");
+t=t.replace(/O̍([aeioumngptkhbd]{0,5})/g, "O$1l");
+t=t.replace(/ő([aeioumngptkhbd]{0,5})/g, "o$1zz");
+t=t.replace(/ó([aeioumngptkhbd]{0,5})/g, "o$1z");
+t=t.replace(/ò([aeioumngptkhbd]{0,5})/g, "o$1s");
+t=t.replace(/ô([aeioumngptkhbd]{0,5})/g, "o$1x");
+t=t.replace(/ǒ([aeioumngptkhbd]{0,5})/g, "o$1v");
+t=t.replace(/ō([aeioumngptkhbd]{0,5})/g, "o$1f");
+t=t.replace(/o̍([aeioumngptkhbd]{0,5})/g, "o$1l");
+t=t.replace(/Ǖ([aeioumngptkhbd]{0,5})/g, "Yu$1f");
+t=t.replace(/Ǘ([aeioumngptkhbd]{0,5})/g, "Yu$1z");
+t=t.replace(/Ǚ([aeioumngptkhbd]{0,5})/g, "Yu$1v");
+t=t.replace(/Ǜ([aeioumngptkhbd]{0,5})/g, "Yu$1s");
+t=t.replace(/ǖ([aeioumngptkhbd]{0,5})/g, "yu$1f");
+t=t.replace(/ǘ([aeioumngptkhbd]{0,5})/g, "yu$1z");
+t=t.replace(/ǚ([aeioumngptkhbd]{0,5})/g, "yu$1v");
+t=t.replace(/ǜ([aeioumngptkhbd]{0,5})/g, "yu$1s");
+t=t.replace(/Ȳ([aeioumngptkhbd]{0,5})/g, "Y$1f");
+t=t.replace(/Y̌([aeioumngptkhbd]{0,5})/g, "Y$1v");
+t=t.replace(/Ý([aeioumngptkhbd]{0,5})/g, "Y$1z");
+t=t.replace(/Ỳ([aeioumngptkhbd]{0,5})/g, "Y$1s");
+t=t.replace(/Ŷ([aeioumngptkhbd]{0,5})/g, "Y$1x");
+t=t.replace(/ȳ([aeioumngptkhbd]{0,5})/g, "y$1f");
+t=t.replace(/y̌([aeioumngptkhbd]{0,5})/g, "y$1v");
+t=t.replace(/ý([aeioumngptkhbd]{0,5})/g, "y$1z");
+t=t.replace(/ỳ([aeioumngptkhbd]{0,5})/g, "y$1s");
+t=t.replace(/ŷ([aeioumngptkhbd]{0,5})/g, "y$1x");
+t=t.replace(/A̋([aeioumngptkhbd]{0,5})/g, "A$1zz");
+t=t.replace(/Á([aeioumngptkhbd]{0,5})/g, "A$1z");
+t=t.replace(/À([aeioumngptkhbd]{0,5})/g, "A$1s");
+t=t.replace(/Â([aeioumngptkhbd]{0,5})/g, "A$1x");
+t=t.replace(/Ǎ([aeioumngptkhbd]{0,5})/g, "A$1v");
+t=t.replace(/Ā([aeioumngptkhbd]{0,5})/g, "A$1f");
+t=t.replace(/A̍([aeioumngptkhbd]{0,5})/g, "A$1l");
+t=t.replace(/a̋([aeioumngptkhbd]{0,5})/g, "a$1zz");
+t=t.replace(/á([aeioumngptkhbd]{0,5})/g, "a$1z");
+t=t.replace(/à([aeioumngptkhbd]{0,5})/g, "a$1s");
+t=t.replace(/â([aeioumngptkhbd]{0,5})/g, "a$1x");
+t=t.replace(/ǎ([aeioumngptkhbd]{0,5})/g, "a$1v");
+t=t.replace(/ā([aeioumngptkhbd]{0,5})/g, "a$1f");
+t=t.replace(/a̍([aeioumngptkhbd]{0,5})/g, "a$1l");
+t=t.replace(/E̋([aeioumngptkhbdr]{0,5})/g, "E$1zz");
+t=t.replace(/É([aeioumngptkhbdr]{0,5})/g, "E$1z");
+t=t.replace(/È([aeioumngptkhbdr]{0,5})/g, "E$1s");
+t=t.replace(/Ê([aeioumngptkhbdr]{0,5})/g, "E$1x");
+t=t.replace(/Ě([aeioumngptkhbdr]{0,5})/g, "E$1v");
+t=t.replace(/Ē([aeioumngptkhbdr]{0,5})/g, "E$1f");
+t=t.replace(/E̍([aeioumngptkhbdr]{0,5})/g, "E$1l");
+t=t.replace(/e̋([aeioumngptkhbdr]{0,5})/g, "e$1zz");
+t=t.replace(/é([aeioumngptkhbdr]{0,5})/g, "e$1z");
+t=t.replace(/è([aeioumngptkhbdr]{0,5})/g, "e$1s");
+t=t.replace(/ê([aeioumngptkhbdr]{0,5})/g, "e$1x");
+t=t.replace(/ě([aeioumngptkhbdr]{0,5})/g, "e$1v");
+t=t.replace(/ē([aeioumngptkhbdr]{0,5})/g, "e$1f");
+t=t.replace(/e̍([aeioumngptkhbdr]{0,5})/g, "e$1l");
+t=t.replace(/Ű([aeioumngptkhbd]{0,5})/g, "U$1zz");
+t=t.replace(/Ú([aeioumngptkhbd]{0,5})/g, "U$1z");
+t=t.replace(/Ù([aeioumngptkhbd]{0,5})/g, "U$1s");
+t=t.replace(/Û([aeioumngptkhbd]{0,5})/g, "U$1x");
+t=t.replace(/Ǔ([aeioumngptkhbd]{0,5})/g, "U$1v");
+t=t.replace(/Ū([aeioumngptkhbd]{0,5})/g, "U$1f");
+t=t.replace(/U̍([aeioumngptkhbd]{0,5})/g, "U$1l");
+t=t.replace(/ű([aeioumngptkhbd]{0,5})/g, "u$1zz");
+t=t.replace(/ú([aeioumngptkhbd]{0,5})/g, "u$1z");
+t=t.replace(/ù([aeioumngptkhbd]{0,5})/g, "u$1s");
+t=t.replace(/û([aeioumngptkhbd]{0,5})/g, "u$1x");
+t=t.replace(/ǔ([aeioumngptkhbd]{0,5})/g, "u$1v");
+t=t.replace(/ū([aeioumngptkhbd]{0,5})/g, "u$1f");
+t=t.replace(/u̍([aeioumngptkhbd]{0,5})/g, "u$1l");
+t=t.replace(/I̋([aeioumngptkhbdr]{0,5})/g, "I$1zz");
+t=t.replace(/Í([aeioumngptkhbdr]{0,5})/g, "I$1z");
+t=t.replace(/Ì([aeioumngptkhbdr]{0,5})/g, "I$1s");
+t=t.replace(/Î([aeioumngptkhbdr]{0,5})/g, "I$1x");
+t=t.replace(/Ǐ([aeioumngptkhbdr]{0,5})/g, "I$1v");
+t=t.replace(/Ī([aeioumngptkhbdr]{0,5})/g, "I$1f");
+t=t.replace(/I̍([aeioumngptkhbdr]{0,5})/g, "I$1l");
+t=t.replace(/i̋([aeioumngptkhbdr]{0,5})/g, "i$1zz");
+t=t.replace(/í([aeioumngptkhbdr]{0,5})/g, "i$1z");
+t=t.replace(/ì([aeioumngptkhbdr]{0,5})/g, "i$1s");
+t=t.replace(/î([aeioumngptkhbdr]{0,5})/g, "i$1x");
+t=t.replace(/ǐ([aeioumngptkhbdr]{0,5})/g, "i$1v");
+t=t.replace(/ī([aeioumngptkhbdr]{0,5})/g, "i$1f");
+t=t.replace(/i̍([aeioumngptkhbdr]{0,5})/g, "i$1l");
+t=t.replace(/M̋([aeioumngptkhbd]{0,5})/g, "M$1zz");
+t=t.replace(/Ḿ([aeioumngptkhbd]{0,5})/g, "M$1z");
+t=t.replace(/M̀([aeioumngptkhbd]{0,5})/g, "M$1s");
+t=t.replace(/M̂([aeioumngptkhbd]{0,5})/g, "M$1x");
+t=t.replace(/M̌([aeioumngptkhbd]{0,5})/g, "M$1v");
+t=t.replace(/M̄([aeioumngptkhbd]{0,5})/g, "M$1f");
+t=t.replace(/M̍([aeioumngptkhbd]{0,5})/g, "M$1l");
+t=t.replace(/m̋([aeioumngptkhbd]{0,5})/g, "m$1zz");
+t=t.replace(/ḿ([aeioumngptkhbd]{0,5})/g, "m$1z");
+t=t.replace(/m̀([aeioumngptkhbd]{0,5})/g, "m$1s");
+t=t.replace(/m̂([aeioumngptkhbd]{0,5})/g, "m$1x");
+t=t.replace(/m̌([aeioumngptkhbd]{0,5})/g, "m$1v");
+t=t.replace(/m̄([aeioumngptkhbd]{0,5})/g, "m$1f");
+t=t.replace(/m̍([aeioumngptkhbd]{0,5})/g, "m$1l");
+t=t.replace(/N̋([aeioumngptkhbd]{0,5})/g, "N$1zz");
+t=t.replace(/Ń([aeioumngptkhbd]{0,5})/g, "N$1z");
+t=t.replace(/Ǹ([aeioumngptkhbd]{0,5})/g, "N$1s");
+t=t.replace(/N̂([aeioumngptkhbd]{0,5})/g, "N$1x");
+t=t.replace(/Ň([aeioumngptkhbd]{0,5})/g, "N$1v");
+t=t.replace(/N̄([aeioumngptkhbd]{0,5})/g, "N$1f");
+t=t.replace(/N̍([aeioumngptkhbd]{0,5})/g, "N$1l");
+t=t.replace(/n̋([aeioumngptkhbd]{0,5})/g, "n$1zz");
+t=t.replace(/ń([aeioumngptkhbd]{0,5})/g, "n$1z");
+t=t.replace(/ǹ([aeioumngptkhbd]{0,5})/g, "n$1s");
+t=t.replace(/n̂([aeioumngptkhbd]{0,5})/g, "n$1x");
+t=t.replace(/ň([aeioumngptkhbd]{0,5})/g, "n$1v");
+t=t.replace(/n̄([aeioumngptkhbd]{0,5})/g, "n$1f");
+t=t.replace(/n̍([aeioumngptkhbd]{0,5})/g, "n$1l");
+return t;
+}
+
+
+
+
+function rovToRHOOBB() {
+//詔安簡拼轉教拼
+    let t = document.getElementById('id_A').value;
+	if (t.startsWith("載入的資料共")) {
+		t = allText;
+	}
+
+	t = t.replace(/\b(oo)([czvsxf]\b|[ˇˋˊ⁺ˆ^]|\b)/g, 'ȫ$2');
+	t = t.replace(/\b(o)([czvsxf]\b|[ˇˋˊ⁺ˆ^]|\b)/g, 'oo$2');
+	t = t.replace(/ȫ/g, 'o');
+	t = t.replace(/(rh)([aeiou])/g, 'r$2');
+	t = t.replace(/(bb)([aeiou])/g, 'v$2');
+	t = t.replace(/(v)([aeiou])/g, 'bb$2');
+	t = t.replace(/(r)([aeiou])/g, 'rh$2');
+	t = t.replace(/\b([bpfdtlgkhzcs]|bb|zh|ch|sh|rh)(o)([czvsxf]\b|[ˇˋˊ⁺ˆ^]|\b)/g, '$1oo$3');
+	document.getElementById('id_B').value = t;
+}
+
+
+
+
+function rhoobbToROV() {
+//詔安教拼轉簡拼
+    let t = document.getElementById('id_A').value;
+	if (t.startsWith("載入的資料共")) {
+		t = allText;
+	}
+
+	t = t.replace(/\b([bpfdtlgkhzcs]|bb|zh|ch|sh|rh)(oo)([czvsxf]\b|[ˇˋˊ⁺ˆ^]|\b)/g, '$1o$3');
+    t = t.replace(/(\b)(bb)([aeiou])/gi, '$1v$3');
+	t = t.replace(/(\b)(rh)([aeiou])/gi, '$1r$3');
+	t = t.replace(/(\b)(o)([czvsxf]\b|[ˇˋˊ⁺ˆ^]|\b)/g, '$1ȫ$3');
+	t = t.replace(/(\b)(oo)([czvsxf]\b|[ˇˋˊ⁺ˆ^]|\b)/g, '$1o$3');
+	t = t.replace(/ȫ/g, 'oo');
+	document.getElementById('id_B').value = t;
+}
+
+// 將 「爆bau 發fads」轉成「爆發\bau fads」
+// 將 「爆\bau 發\fads」轉成「爆發\bau fads」
+// 將 「大\tai 家\gav、爆\bau 發\fads」轉成「大家\tai gav、爆發\bau fads」
+function arrangeText() {
+            const inputText = document.getElementById('id_A').value;
+    
+    // 將輸入文本按行分割，然後處理每一行
+    const result = inputText.split(/\r?\n/).map(line => {
+        // 如果是空行，直接返回空字符串
+        if (!line.trim()) return '';
+        
+        // 用標點符號分割文本並處理每個段落
+        return line.split(/([；、，：。！])/g).map(segment => {
+            // 如果是空字符串或標點符號，直接返回
+            if (!segment.trim() || /^[；、，：。！]$/.test(segment)) return segment;
+            
+            // 處理包含漢字和拼音的段落
+            const pairs = segment.trim().split(/\s+/);
+            if (!pairs[0]) return '';
+            
+            const characters = [];
+            const pronunciations = [];
+            
+            // 處理每一對漢字和拼音
+            pairs.forEach(pair => {
+                // 處理單個配對
+                let char, pron;
+                
+                // 檢查是否包含反斜線
+                if (pair.includes('\\')) {
+                    [char, pron] = pair.split('\\');
+                } else {
+                    // 如果沒有反斜線，尋找第一個拼音字母的位置
+                    const pinyinStart = pair.search(/[a-zA-Z]/);
+                    if (pinyinStart !== -1) {
+                        char = pair.slice(0, pinyinStart);
+                        pron = pair.slice(pinyinStart);
+                    }
+                }
+                
+                if (char && pron) {
+                    characters.push(char);
+                    pronunciations.push(pron);
+                }
+            });
+            
+            // 如果有有效的字符和拼音，返回組合後的結果
+            return characters.length > 0 ? 
+                `${characters.join('')}\\${pronunciations.join(' ')}` : '';
+        }).join('');
+    }).join('\n');
+    
+            document.getElementById('id_B').value = result;
+}
+
+
+// 將「爆發\bau fads」 轉成「爆bau 發fads」
+// 將「爆發\bau fads」 轉成「爆\bau 發\fads」
+// 將「大家\tai gav、爆發\bau fads」 轉成「大\tai 家\gav、爆\bau 發\fads」
+function reverseArrangeText() {
+    // 1. 先用行分割
+    const lines = document.getElementById('id_A').value.split(/\r?\n/);
+    
+    const result = lines.map(line => {
+        if (!line.trim()) return '';
+        
+        // 2. 同行用標點分割
+        const segments = line.split(/([；、，：」])/);
+        
+        return segments.map(segment => {
+            if (/^[；、，：」]$/.test(segment)) return segment;
+            if (!segment.trim()) return '';
+            
+            // 檢查是否包含反斜線
+            if (!segment.includes('\\')) {
+                // 使用正則表達式匹配漢字
+                const hanziRegex = /[\u3007\u3400-\u4DB5\u4E00-\u9FCB\uE815-\uE864\uD840-\uD87F][\uDC00-\uDFFF]?/g;
+                const hanziMatches = segment.match(hanziRegex) || [];
+                
+                // 移除漢字，剩下的就是拼音
+                let remainingText = segment;
+                hanziMatches.forEach(hanzi => {
+                    remainingText = remainingText.replace(hanzi, '');
+                });
+                
+                // 清理拼音字串（移除多餘空格）
+                const prons = remainingText.trim().split(/\s+/);
+                
+                // 如果漢字和拼音數量相同，加入反斜線
+                if (hanziMatches.length === prons.length) {
+                    segment = hanziMatches.join('') + '\\' + prons.join(' ');
+                }
+            }
+            
+            // 3. 用反斜線分割單一段落
+            let [chars, prons] = segment.trim().split('\\');
+            if (!prons) return segment;
+            
+            // 4. 漢字用 Array.from 分割
+            const charArray = Array.from(chars);
+            // 5. 拼音用空格分割
+            const pronArray = prons.split(/\s+/);
+            
+            // 6. 組合起來
+            if (charArray.length === pronArray.length) {
+                return charArray.map((char, i) => `${char}\\${pronArray[i]}`).join(' ');
+            }
+            return segment;
+        }).join('');
+    }).join('\n');
+    
+    document.getElementById('id_B').value = result;
+}
+
+// 查符合的詞
+// 在 id_A 匯入文字，一行一字詞；在id_C 放要查的詞，最終輸出在id_B
+function matchText() {
+    let myData = [];
+    let t = document.getElementById('id_A').value;
+    if (t.startsWith('載入的資料共')) {
+        t = allData.join("\n");
+    }
+    myData = t.trim().split(/\r\n|\r|\n/);
+    
+    // 獲取輸入文本
+    const inputText = document.getElementById('id_C').value.trim();
+    
+    // 將輸入文本按行分割
+    const inputLines = inputText.split('\n');
+    
+    // 存儲結果的陣列
+    const results = [];
+    
+    // 遍歷每一行輸入
+    inputLines.forEach(line => {
+        // 尋找符合前綴的數據項
+        const matchedItems = myData.filter(dataItem => {
+            return dataItem.startsWith(line);
+        });
+        
+        // 如果找到匹配項
+        if (matchedItems.length > 0) {
+            // 將原始輸入與匹配的項目組合成單行字串
+            results.push(`${line}\t${matchedItems.join('、')}`);
+        } else {
+            results.push(line);
+        }
+    });
+    
+    // 將結果顯示在輸出區，確保是單行輸出
+    document.getElementById('id_B').value = results.join('\n');
+}
+
+
+
+
+
+
+function zxvToTone() {
+    let t = document.getElementById('id_A').value;
+	if (t.startsWith("載入的資料共")) {
+		t = allText;
+	}
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(z)/gi, '$1$2ˊ');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(x)/gi, '$1$2ˆ');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(v)/gi, '$1$2ˇ');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(s)/gi, '$1$2ˋ');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(f)/gi, '$1$2⁺');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(c)/gi, '$1$2');
+	document.getElementById('id_B').value = t;
+}
+
+function zxvToneToOriginal() {
+    let t = document.getElementById('id_A').value;
+	if (t.startsWith("載入的資料共")) {
+		t = allText;
+	}
+
+	t = t.replace(/([aeioumngbdzvsxfc])(=)([a-z])/gi, '$1-$3');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])([zvsxc])([zvsxfc])/gi, '$1$2$3');
+	t = t.replace(/([a-z]{0,4})([mngbdgaeiou])([cf])/gi, '$1$2');	
+	document.getElementById('id_B').value = t;
+}
+
+function zxvToneToChange() {
+    let t = document.getElementById('id_A').value;
+	if (t.startsWith("載入的資料共")) {
+		t = allText;
+	}
+
+	t = t.replace(/([aeioumngbdzvsxfc])(=)([a-z])/gi, '$1-$3');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])([zvsxc])([zvsxfc])/gi, '$1$2$4');
+	t = t.replace(/([a-z]{0,4})([mngbdgaeiou])([c])/gi, '$1$2');
+	document.getElementById('id_B').value = t;
+}
+
+
+function zxvToneToChangeOral() {
+    // 詔安本變音轉合音，合口語但不合字數
+    let t = document.getElementById('id_A').value;
+	if (t.startsWith("載入的資料共")) {
+		t = allText;
+	}
+
+	t = zxvToneToChangeOralFn(t);
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])([zvsxc])([zvsxfc])/gi, '$1$2$4');
+	t = t.replace(/([a-z]{0,4})([mngbdgaeiou])([c])/gi, '$1$2');
+    // 將結果寫入到輸出框
+    document.getElementById('id_B').value = t;
+}
+
+function zxvToneToChangeOralFn(t) {
+    // 詔安本變音轉合音，合口語但不合字數
+    // 建立原音到合音的對應映射
+let kasuOral = `
+taif-ciensf=haf-ngidzc	taif-cia-ngid
+fanxv=heemsf-viens	fanv-teemf-viens
+cinv=gav-miv-gungv	ciangv-miv-gungv
+ciensf=haf-ngidzc	cia-ngid
+cidzc=censf-teebz	ciens-teebz
+cinv=gav-miv-pos	ciangv-miv-pos
+cinv=gav-miv-mas	ciangv-miv-mas
+losf-vuzc=zongv	lof-vud-zongv
+fixv=pienf-teus	fenv-teus
+chav=lienxv-pun	chienv-pun
+zoxv=ridzc=ha	zua
+lizv-ziazc=vi	liv-zi
+gazv-ziazc=vi	gav-zi
+zoxv=ridz-ha	zoz-ha
+nif-ziazc=vi	nif-zi
+duzc=hmzc-fe	dung-fe
+dedzc=nginsz	dinz
+dedzc=nginsf	dinf
+dedzc=ngaisz	daiz
+dedzc=ngaisf	daif
+cinv=gav-miv	ciangv-miv
+dedzc=guisz	duiz
+zamxv=rensf	zamv-menf
+loisf=kuixf	luif
+dedzc=ngins	dins
+dedzc=ngais	dais
+dedzc=hensz	denz
+dedzc=hensf	denf
+zamxv=rensf	zamv-menf
+dedzc=guisf	duif
+loisf=kuix	luix
+hef-mv=hef	hef-mv-mef
+dedzc=hens	dens
+dedzc=guis	duis
+he-mv=hecv	he-mev
+shixc=dux	shid-dux
+shixc=dux	shid-dux
+rinv=vuiv	vinv-vuiv
+libzc=pos	li-pos
+gixc=dovf	giof
+guanv=hev	guanv-tev
+he-mv=he	he-mv-me
+gixc=dov	gid-dov
+fusf=lis	fuif-lis
+fusf=kis	fuif-kis
+buzc=cis	bud-cis
+cinv=gav	ciangv
+buzc=cis	bud-cis
+gixv=haf	giaf
+ziv=gav	ziav
+mv=voif	mv-moif
+mf=hoxv	mf-mov
+m=hoxc	mf-mo
+mv=voi	mv-moi
+mv=hef	mv-mef
+mf=hox	mf-mox
+mv=he	mv-me
+`;
+    
+    let mappings = kasuOral.trim().split('\n').map(line => {
+        let parts = line.split('\t');
+        return [parts[0].trim(), parts[1].trim()];
+    });
+
+    // 逐一替換原音為合音
+    for (let [original, replacement] of mappings) {
+        let regex = new RegExp(original, 'g');
+        t = t.replace(regex, replacement);
+    }
+	return t;
+}
+
+
+function zxvToneToChangeOralOld() {
+    // 詔安本變音轉合音舊轉新
+    let t = document.getElementById('id_A').value;
+	if (t.startsWith("載入的資料共")) {
+		t = allText;
+	}
+
+    // 建立原音到合音的對應映射
+let kasuOral = `
+taif-ciensfy-haf-ngidzc	taif-ciensf=haf-ngidzc
+fanxv-hteemsf-viens	fanxv=heemsf-viens
+cinvy-gav-miv-gungv	cinv=gav-miv-gungv
+ciensfy-haf-ngidzc	ciensf=haf-ngidzc
+cidzcy-censf-teebz	cidzc=censf-teebz
+cinvy-gav-miv-pos	cinv=gav-miv-pos
+cinvy-gav-miv-mas	cinv=gav-miv-mas
+losf-vuzcd-zongv	losf-vuzc=zongv
+fixvy-pienf-teus	fixv=pienf-teus
+chavy-lienxv-pun	chav=lienxv-pun
+zoxvy-ridzcy-ha	zoxv=ridzc=ha
+lizv-ziazcy-vi	lizv-ziazc=vi
+gazv-ziazcy-vi	gazv-ziazc=vi
+zoxvy-ridzc-ha	zoxv=ridz-ha
+nif-ziazcy-vi	nif-ziazc=vi
+duzcy-hmzc-fe	duzc=hmzc-fe
+dedzcy-nginsz	dedzc=nginsz
+dedzcy-nginsf	dedzc=nginsf
+dedzcy-ngaisz	dedzc=ngaisz
+dedzcy-ngaisf	dedzc=ngaisf
+cinvy-gav-miv	cinv=gav-miv
+dedzcy-guisfz	dedzc=guisz
+zamxv-rmensf	zamxv=rensf
+loisfy-kuixf	loisf=kuixf
+dedzcy-ngins	dedzc=ngins
+dedzcy-ngais	dedzc=ngais
+dedzcy-hensz	dedzc=hensz
+dedzcy-hensf	dedzc=hensf
+zamxv-rmens	zamxv=rensf
+dedzcy-guif	dedzc=guisf
+loisfy-kuix	loisf=kuix
+hef-mv-hmef	hef-mv=hef
+dedzcy-hens	dedzc=hens
+dedzcy-guis	dedzc=guis
+he-mv-hmev	he-mv=hecv
+shixcd-duxv	shixc=dux
+shixcd-dux	shixc=dux
+rvinv-vuiv	rinv=vuiv
+libizc-pos	libzc=pos
+gixcy-dovf	gixc=dovf
+guanv-hev	guanv=hev
+hef-mv-hme	he-mv=he
+gixcy-dovf	gixc=dov
+fuuisf-lis	fusf=lis
+fuuisf-kis	fusf=kis
+buzcd-cisf	buzc=cis
+gixvy-haf	gixv=haf
+cinvy-gav	cinv=gav
+buzcd-cis	buzc=cis
+zivy-gav	ziv=gav
+mv-vmoif	mv=voif
+mf-hmoxv	mf=hoxv
+mf-hmoxc	m=hoxc
+mv-vmoi	mv=voi
+mv-hmef	mv=hef
+mf-hmox	mf=hox
+mv-hme	mv=he
+`;
+    
+    let mappings = kasuOral.trim().split('\n').map(line => {
+        let parts = line.split('\t');
+        return [parts[0].trim(), parts[1].trim()];
+    });
+
+    // 逐一替換原音為合音
+    for (let [original, replacement] of mappings) {
+        let regex = new RegExp(original, 'g');
+        t = t.replace(regex, replacement);
+    }
+
+    // 將結果寫入到輸出框
+    document.getElementById('id_B').value = t;
+}
+
+
+function toneToZxv() {
+    let t = document.getElementById('id_A').value;
+	if (t.startsWith("載入的資料共")) {
+		t = allText;
+	}
+
+	//聲調統一轉為字母調;
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(ˊ)/gi, '$1$2z');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(\ˆ)/gi, '$1$2x');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(ˇ)/gi, '$1$2v');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(ˋ)/gi, '$1$2s');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(\+)/gi, '$1$2f');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(ˉ)/gi, '$1$2c');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(⁺)/gi, '$1$2f');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(\^)/gi, '$1$2x');
+
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])( ́)/gi, '$1$2z');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])( ̂)/gi, '$1$2x');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])( ̌)/gi, '$1$2v');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])( ̀)/gi, '$1$2s');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])( ̄)/gi, '$1$2c');
+
+	document.getElementById('id_B').value = t;
+}
+
+
+
+function kasuToneOriginalChange() {
+	// 詔安客語聲調本調轉本變調
+    let t = document.getElementById('id_A').value;
+	if (t.startsWith("載入的資料共")) {
+		t = allText;
+	}
+
+	//聲調統一轉為字母調;
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(ˊ)/gi, '$1$2z');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(\ˆ)/gi, '$1$2x');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(ˇ)/gi, '$1$2v');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(ˋ)/gi, '$1$2s');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(\+)/gi, '$1$2f');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(ˉ)/gi, '$1$2c');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(⁺)/gi, '$1$2f');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(\^)/gi, '$1$2x');
+
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])( ́)/gi, '$1$2z');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])( ̂)/gi, '$1$2x');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])( ̌)/gi, '$1$2v');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])( ̀)/gi, '$1$2s');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])( ̄)/gi, '$1$2c');
+
+	const lines = t.split('\n');
+
+    const transformedLines = lines.map(line => {
+        const words = line.trim().split(/\s+/);
+
+        // 三個拼音都相同的情況
+        if (words.length === 3 && words[0] === words[1] && words[1] === words[2]) {
+            if (words[0].endsWith('v')) {
+                words[0] = words[0].slice(0, -1) + 'vc';
+            } else if (/[aeioumng]$/.test(words[0])) {
+                words[1] += 'f';
+            } else if (/[z]$/.test(words[0]) || /[s]$/.test(words[0]) || /[x]$/.test(words[0])) {
+                words[0] += 'c';
+                words[1] += 'f';
+            }
+            // 第二和第三個拼音相同，但與第一個拼音不同的情況
+        } else if (words.length === 3 && words[1] === words[2] && words[0] !== words[1]) {
+            // 按照只有兩個拼音的規則處理第二個拼音
+            if (/[zvsx]$/.test(words[1])) {
+                words[1] += 'c';
+            } else if (/[mngaeiou]$/.test(words[1])) {
+                // 不變
+            } else {
+                words[1] += 'f';
+            }
+            // 按照基本規則處理第一個拼音
+            words[0] = words[0].replace(/(\b\w*[s]\b)\s/g, '$1f ')
+                .replace(/(\b\w*[z]\b)\s/g, '$1c ')
+                .replace(/(\b\w*[x]\b)\s/g, '$1v ')
+                .replace(/(\b\w*[mngaeiou]\b)\s/g, '$1f ');
+            // 三個拼音都以x結尾的情況
+        } else if (words.length === 3 && words.every(word => word.endsWith('x'))) {
+            words[0] = words[0].slice(0, -1) + 'xv';
+            words[1] = words[1].slice(0, -1) + 'xc';
+            // 只有兩個拼音且都以x結尾的情況
+        } else if (words.length === 2 && words[0].endsWith('x') && words[1].endsWith('x')) {
+            words[0] = words[0].slice(0, -1) + 'xc';
+            // 只有兩個拼音且相同的情況
+        } else if (words.length === 2 && words[0] === words[1]) {
+            if (/[zvsx]$/.test(words[0])) {
+                words[0] += 'c';
+            }
+            // 其他情況
+        } else {
+            return words.join(' ')
+                .replace(/(\b\w*[s]\b)\s/g, '$1f ')
+                .replace(/(\b\w*[z]\b)\s/g, '$1c ')
+                .replace(/(\b\w*[x]\b)\s/g, '$1v ')
+                .replace(/(\b\w*[mngaeiou]\b)\s/g, '$1f ');
+        }
+        return words.join(' ');
+    });
+    document.getElementById('id_B').value = transformedLines.join('\n');
+}
+
+function getRandomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+
+function examText() {
+    let idA = document.getElementById('id_A').value.trim().split('\n').filter(line => line.trim() !== '');
+    let output = '';
+    let errors = '';
+    let selectedCharsSet = new Set();
+    let duplicatedCharsSet = new Set();
+    let allLines = [];
+    let isTwoColumnFormat = false;
+
+    // 檢查是否是兩欄格式
+    if (idA.length > 0 && idA[0].split('\t').length === 2) {
+        isTwoColumnFormat = true;
+    }
+
+    idA.forEach(line => {
+        let num, chars, pinyin;
+        if (isTwoColumnFormat) {
+            [chars, pinyin] = line.split('\t');
+            num = 0;
+        } else {
+            [num, chars, pinyin] = line.split('\t');
+        }
+		chars = chars.replace(/\s+/g, '')
+
+		pinyin = pinyin.replace(/([\s-=])+/g, '_$1')
+
+
+        let numInt = parseInt(num);
+        const charLength = getLength(chars);
+        const pinyinArray = pinyin.split('_');
+        const pinyinLength = pinyinArray.length;
+
+        if (isTwoColumnFormat || !num || numInt === 0) {
+            numInt = getRandomInt(1, charLength);
+        }
+
+        if (numInt > charLength) {
+            errors += `數字太大\n${line}\n`;
+        } else if (charLength !== pinyinLength) {
+            errors += `字數不符\n${line}\n`;
+        } else {
+            const selectedCharIndex = numInt - 1;
+            const selectedChar = Array.from(chars)[selectedCharIndex];
+            let selectedPinyin = pinyinArray[selectedCharIndex];
+
+            // 檢查是否有相同的漢字
+            if (selectedCharsSet.has(selectedChar)) {
+                duplicatedCharsSet.add(line);
+                // 將先前出現過該漢字的行也加入錯誤集合
+                allLines.forEach(prevLine => {
+                    let prevNum, prevChars, prevPinyin;
+                    if (isTwoColumnFormat) {
+                        [prevChars, prevPinyin] = prevLine.split('\t');
+                        prevNum = 0;
+                    } else {
+                        [prevNum, prevChars, prevPinyin] = prevLine.split('\t');
+                    }
+                    let prevSelectedChar = Array.from(prevChars)[parseInt(prevNum) - 1];
+                    if (prevSelectedChar === selectedChar) {
+                        duplicatedCharsSet.add(prevLine);
+                    }
+                });
+            } else {
+                selectedCharsSet.add(selectedChar);
+
+                // 選擇第 numInt 個漢字
+                const newChars = Array.from(chars).map((c, index) =>
+                    index === selectedCharIndex ? `「${c}」` : c
+                ).join('');
+
+                // 選擇第 numInt 個拼音
+                let pinyinParts = pinyinArray.map((part, index) =>
+                    index === selectedCharIndex ? `「${part}」` : part
+                ).join('');
+
+				
+				pinyinParts = pinyinParts.replace(/(「)(-+)/g, '$2$1');
+				pinyinParts = pinyinParts.replace(/( )(「)/g, '$2');
+				pinyinParts = pinyinParts.replace(/(」)( )/g, '$1');
+				selectedPinyin = selectedPinyin.replace(/-+/g, '');
+				
+
+                // 準備新的輸出格式
+                output += `${numInt}\t${newChars}\t${selectedPinyin.trim()}\t${pinyinParts}\t${selectedChar}\n`;
+            }
+            allLines.push(line);
+        }
+    });
+
+    // 將有相同漢字的行添加到錯誤輸出中
+    if (duplicatedCharsSet.size > 0) {
+        errors += `漢字重複\n`;
+        duplicatedCharsSet.forEach(line => {
+            errors += `${line}\n`;
+        });
+    }
+
+    document.getElementById('id_B').value = output.trim();
+    document.getElementById('id_C').value = errors.trim();
+}
+
+
+
+
+
+function kasuime() {
+            let idAValue = document.getElementById('id_A').value.trim();
+			let idALines = [];
+			if (idAValue.startsWith('載入的資料共')) {
+               idAValue = allData.join("\n");
+            }
+
+			idAValue = idAValue.replace(/\r\n|\r/g, '\n');
+			idALines = idAValue.split('\n').filter(line => line.trim() !== '');
+
+			const punctuationRegex = /[。，、；：！？「」『』（）《》〈〉〔〕【】〖〗︵︶︹︺︿﹀︽︾﹁﹂﹃﹄｡─…．～﹗﹙﹚﹐﹑﹒︰﹕﹔]/;
+			idALines = idALines.filter(line => !punctuationRegex.test(line));
+			// 排除有標點的行
+
+			let idALinesNew = idALines.map(line => {
+			    const [count, hanzi, pinyin] = line.split('\t');
+				let hanziLength = getLength(hanzi);				
+				return [count, hanzi, pinyin, hanziLength].join('\t');
+			});
+
+
+			const dataLines = idALinesNew.filter(line => {
+			    const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+				return hanziLength && hanziLength <= 7;
+			});
+
+            const linesSingBata = dataLines.map(line => {
+                // 本調成拼;
+                const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+                let y = pinyin || '';
+                y = y.replace(/oo/g, 'o');
+                y = y.replace(/(rh)([aeiou])/gi, 'r$2');
+                y = y.replace(/(bb)([aeiou])/gi, 'v$2');
+                y = y.replace(/([aeiouyrmngptkbd])([zvsxc])([zvsxfc])/g, '$1$2');
+                y = y.replace(/([aeiouyrmngptkbd])(c|f)/g, '$1');
+                y = y.replace(/(\p{P})/gu, ' ');
+                y = y.replace(/( +|-+|=)/g, ' ');
+                return [count, hanzi, y, hanziLength].join('\t');
+            });
+
+            const linesSingConbineBata = dataLines.filter(line => {
+                // 成拼合音字
+                const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+                return pinyin && pinyin.includes('=');
+            }).map(line => {
+                const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+                let y = pinyin || '';
+				y = zxvToneToChangeOralFn(y);
+                y = y.replace(/oo/g, 'o');
+                y = y.replace(/(rh)([aeiou])/gi, 'r$2');
+                y = y.replace(/(bb)([aeiou])/gi, 'v$2');
+                y = y.replace(/([aeiouyrmngptkbd])([zvsxc])([zvsxfc])/g, '$1$2');
+                y = y.replace(/([aeiouyrmngptkbd])(c|f)/g, '$1');
+                y = y.replace(/(\p{P})/gu, ' ');
+                y = y.replace(/( +|-+|=)/g, ' ');
+                return [count, hanzi, y, hanziLength].join('\t');
+            });
+
+
+            const linesSingJqxBata = dataLines.map(line => {
+                // 本調成拼JQX;
+                const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+                let y = pinyin || '';
+                y = y.replace(/oo/g, 'o');
+                y = y.replace(/(rh)([aeiou])/gi, 'r$2');
+                y = y.replace(/(bb)([aeiou])/gi, 'v$2');
+                y = y.replace(/([aeiouyrmngptkbd])([zvsxc])([zvsxfc])/g, '$1$2');
+                y = y.replace(/([aeiouyrmngptkbd])(c|f)/g, '$1');
+                y = y.replace(/(\p{P})/gu, ' ');
+                y = y.replace(/( +|-+|=)/g, ' ');
+				y = y.replace(/(z)(i)/g, 'ji');
+				y = y.replace(/(c)(i)/g, 'qi');
+				y = y.replace(/(s)(i)/g, 'xi');
+                return [count, hanzi, y, hanziLength].join('\t');
+            });
+
+
+
+            const linesEduBata = dataLines.map(line => {
+                // 本調教拼;
+                const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+                let y = pinyin || '';
+                y = y.replace(/([aeiouyrmngptkbd])([zvsxc])([zvsxfc])/g, '$1$2');
+                y = y.replace(/([aeiouyrmngptkbd])(c|f)/g, '$1');
+                y = y.replace(/(\p{P})/gu, ' ');
+                y = y.replace(/( +|-+|=)/g, ' ');
+                y = y.replace(/(oo)(([zvsx])?)\b/g, 'ȫ$2');
+                y = y.replace(/\b(o)(([zvsxf])?)\b/g, 'oo$2');
+                y = y.replace(/ȫ/g, 'o');
+                y = y.replace(/(rh)([aeiou])/gi, 'r$2');
+                y = y.replace(/(bb)([aeiou])/gi, 'v$2');
+                y = y.replace(/(r)([aeiou])/gi, 'rh$2');
+                y = y.replace(/(v)([aeiou])/gi, 'bb$2');
+                y = y.replace(/\b([bpfdtlgkhzcs]|bb|zh|ch|sh|rh)(o)([zvsx]?)\b/g, '$1oo$3');
+                return [count, hanzi, y, hanziLength].join('\t');
+            });
+
+            const linesEduConbineBata = dataLines.filter(line => {
+                // 教拼合音字
+                const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+                return pinyin && pinyin.includes('=');
+            }).map(line => {
+                const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+                let y = pinyin || '';
+                y = y.replace(/([aeiouyrmngptkbd])([zvsxc])([zvsxfc])/g, '$1$2');
+                y = y.replace(/([aeiouyrmngptkbd])(c|f)/g, '$1');
+                y = y.replace(/(\p{P})/gu, ' ');
+                y = y.replace(/( +|-+|=)/g, ' ');
+                y = y.replace(/(oo)(([zvsx])?)\b/g, 'ȫ$2');
+                y = y.replace(/\b(o)(([zvsxf])?)\b/g, 'oo$2');
+                y = y.replace(/ȫ/g, 'o');
+                y = y.replace(/(rh)([aeiou])/gi, 'r$2');
+                y = y.replace(/(bb)([aeiou])/gi, 'v$2');
+                y = y.replace(/(r)([aeiou])/gi, 'rh$2');
+                y = y.replace(/(v)([aeiou])/gi, 'bb$2');
+                y = y.replace(/\b([bpfdtlgkhzcs]|bb|zh|ch|sh|rh)(o)([zvsx]?)\b/g, '$1oo$3');
+                return [count, hanzi, y, hanziLength].join('\t');
+            });
+
+            const linesEduJqxBata = dataLines.map(line => {
+                // 本調教拼JQX;
+                const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+                let y = pinyin || '';
+                y = y.replace(/([aeiouyrmngptkbd])([zvsxc])([zvsxfc])/g, '$1$2');
+                y = y.replace(/([aeiouyrmngptkbd])(c|f)/g, '$1');
+                y = y.replace(/(\p{P})/gu, ' ');
+                y = y.replace(/( +|-+|=)/g, ' ');
+                y = y.replace(/(oo)(([zvsx])?)\b/g, 'ȫ$2');
+                y = y.replace(/\b(o)(([zvsxf])?)\b/g, 'oo$2');
+                y = y.replace(/ȫ/g, 'o');
+                y = y.replace(/(rh)([aeiou])/gi, 'r$2');
+                y = y.replace(/(bb)([aeiou])/gi, 'v$2');
+                y = y.replace(/(r)([aeiou])/gi, 'rh$2');
+                y = y.replace(/(v)([aeiou])/gi, 'bb$2');
+                y = y.replace(/\b([bpfdtlgkhzcs]|bb|zh|ch|sh|rh)(o)([zvsx]?)\b/g, '$1oo$3');
+				y = y.replace(/(z)(i)/g, 'ji');
+				y = y.replace(/(c)(i)/g, 'qi');
+				y = y.replace(/(s)(i)/g, 'xi');
+                return [count, hanzi, y, hanziLength].join('\t');
+            });
+
+
+			const linesSing = Array.from(new Set([...linesSingBata, ...linesSingConbineBata, ...linesSingJqxBata]));           
+			const linesEdu = Array.from(new Set([...linesEduBata, ...linesEduConbineBata, ...linesEduJqxBata]));
+
+//=================================
+
+            const linesSa = linesSing.map(line => {
+                // 成拼本調要聲調
+                const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+                let y = pinyin || '';
+                y = y.replace(/ /g, '');
+                return [count, hanzi, y, hanziLength].join('\t');
+            });
+
+            const linesSb = linesSing.filter(line => {
+                // 成拼二字以上免聲調
+                const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+                return hanziLength && hanziLength >= 2;
+            }).map(line => {
+                const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+                let y = pinyin || '';
+                y = y.replace(/([aeiouyrmngptkbd])([zvsx])/g, '$1');
+                y = y.replace(/ /g, '');
+                return [count, hanzi, y, hanziLength].join('\t');
+            });
+
+            let linesSc = linesSing.filter(line => {
+                const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+                return hanziLength && hanziLength >= 2;
+            }).map(line => {
+                const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+                let y = pinyin || '';
+                y = y.split(' ').map(x => {
+                    if (x.startsWith('tsh')) {
+                        return x.slice(0, 3);
+                    } else if (x.startsWith('rh') || x.startsWith('zh') || x.startsWith('ch') || x.startsWith('sh') || x.startsWith('ng') || x.startsWith('ts') || x.startsWith('ph') || x.startsWith('th') || x.startsWith('kh') || x.startsWith('bb')) {
+                        return x.slice(0, 2);
+                    } else {
+                        return x.charAt(0);
+                    }
+                }).join('');
+                return [count, hanzi, y, hanziLength].join('\t');
+            });
+
+
+/*
+			let linesSd = linesSc.reduce((acc, line) => {
+				const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+				if (hanziLength == 2) {
+					if (!acc[pinyin]) {
+						acc[pinyin] = [];
+					}
+					acc[pinyin].push({ count: parseInt(count), hanzi, line });
+				}
+				return acc;
+			}, {});
+
+			linesSd = Object.values(linesSd).flatMap(group => 
+				group.sort((a, b) => b.count - a.count).slice(0, 5).map(item => item.line)
+				//2字簡碼取前5個;
+			);
+*/
+
+			linesSc = linesSc.reduce((acc, line) => {
+				const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+				if (hanziLength == 2) {
+					if (!acc[pinyin]) {
+						acc[pinyin] = [];
+					}
+					acc[pinyin].push({ count: parseInt(count), hanzi, line });
+				} else if (hanziLength > 2) {
+					// 保留所有 hanziLength > 2 的行
+					if (!acc['>2']) {
+						acc['>2'] = [];
+					}
+					acc['>2'].push({ count: parseInt(count), hanzi, line });
+				}
+				return acc;
+			}, {});
+
+			const linesSc2 = Object.values(linesSc)
+				.flatMap(group => 
+					group
+					.filter(item => item.hanzi.length == 2)
+					.sort((a, b) => b.count - a.count)
+					.slice(0, 5)
+					.map(item => item.line)
+				);
+
+			const linesScMoreThan2 = (linesSc['>2'] || []).map(item => item.line);
+
+			linesSc = [...linesSc2, ...linesScMoreThan2];
+
+
+
+
+
+
+
+//=================================
+
+            const linesEa = linesEdu.map(line => {
+                // 教拼本調要聲調
+                const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+                let y = pinyin || '';
+                y = y.replace(/ /g, '');
+                return [count, hanzi, y, hanziLength].join('\t');
+            });
+
+            const linesEb = linesEdu.filter(line => {
+                // 教拼二字以上免聲調
+                const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+                return hanziLength && hanziLength >= 2;
+            }).map(line => {
+                const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+                let y = pinyin || '';
+                y = y.replace(/([aeiouyrmngptkbd])([zvsx])/g, '$1');
+                y = y.replace(/ /g, '');
+                return [count, hanzi, y, hanziLength].join('\t');
+            });
+
+            let linesEc = linesEdu.filter(line => {
+                const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+                return hanziLength && hanziLength >= 2;
+            }).map(line => {
+                const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+                let y = pinyin || '';
+                y = y.split(' ').map(x => {
+                    if (x.startsWith('tsh')) {
+                        return x.slice(0, 3);
+                    } else if (x.startsWith('rh') || x.startsWith('zh') || x.startsWith('ch') || x.startsWith('sh') || x.startsWith('ng') || x.startsWith('ts') || x.startsWith('ph') || x.startsWith('th') || x.startsWith('kh') || x.startsWith('bb')) {
+                        return x.slice(0, 2);
+                    } else {
+                        return x.charAt(0);
+                    }
+                }).join('');
+                return [count, hanzi, y, hanziLength].join('\t');
+            });
+
+
+
+/*
+			let linesEd = linesEc.reduce((acc, line) => {
+				const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+				if (hanziLength == 2) {
+					if (!acc[pinyin]) {
+						acc[pinyin] = [];
+					}
+					acc[pinyin].push({ count: parseInt(count), hanzi, line });
+				}
+				return acc;
+			}, {});
+
+			linesEd = Object.values(linesEd).flatMap(group => 
+				group.sort((a, b) => b.count - a.count).slice(0, 5).map(item => item.line)
+				//2字簡碼取前5個;
+			);
+*/
+
+
+			linesEc = linesEc.reduce((acc, line) => {
+				const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+				if (hanziLength == 2) {
+					if (!acc[pinyin]) {
+						acc[pinyin] = [];
+					}
+					acc[pinyin].push({ count: parseInt(count), hanzi, line });
+				} else if (hanziLength > 2) {
+					// 保留所有 hanziLength > 2 的行
+					if (!acc['>2']) {
+						acc['>2'] = [];
+					}
+					acc['>2'].push({ count: parseInt(count), hanzi, line });
+				}
+				return acc;
+			}, {});
+
+			const linesEc2 = Object.values(linesEc)
+				.flatMap(group => 
+					group
+					.filter(item => item.hanzi.length == 2)
+					.sort((a, b) => b.count - a.count)
+					.slice(0, 5)
+					.map(item => item.line)
+				);
+
+			const linesEcMoreThan2 = (linesEc['>2'] || []).map(item => item.line);
+
+			linesEc = [...linesEc2, ...linesEcMoreThan2];
+
+//=================================
+
+            // 合併資料並去重
+            let allLines = Array.from(new Set([...linesSa, ...linesSb, ...linesSc, ...linesEa, ...linesEb, ...linesEc]));
+
+
+
+
+            // allLines排序：hanziALength 由小到大，其次count由大到小，第三再排拼音
+
+            allLines.sort((a, b) => {
+                let [countA, hanziA, pinyinA, hanziALength] = a.split('\t');
+                let [countB, hanziB, pinyinB, hanziBLength] = b.split('\t');
+                countA = parseInt(countA)
+                countB = parseInt(countB)
+                hanziALength = parseInt(hanziALength);
+                hanziBLength = parseInt(hanziBLength);
+
+                if (hanziALength !== hanziBLength) {
+                    return hanziALength - hanziBLength;
+                }
+                if (countA !== countB) {
+                    return countB - countA;
+                }
+                return pinyinA.localeCompare(pinyinB);
+            });
+
+
+
+
+
+			let endLines = allLines.map(line => {
+				const [count, hanzi, pinyin, hanziLength] = line.split('\t');
+				return [pinyin, hanzi].join(' ');
+				});
+		
+			resultLines = endLines;	
+			
+			if(endLines.length > 5){
+				// 只顯示最後100行
+				const displayLines = endLines.slice(0, 100);
+				document.getElementById('id_B').value = "僅顯示前100行，但可複製全部 (共 " + endLines.length + " 行)：\n" + displayLines.join('\n');				
+			}else{
+				document.getElementById('id_B').value = endLines.join('\n');			
+			}
+}
+
+
+
+function generateText() {
+    const text = document.getElementById('id_A').value.trim();
+	let outputText = "";
+
+    const chineseNumbers = "一,二,兩,三,四,五,六,七,八,九,十,十一,十二,十三,十四,十五,十六,十七,十八,十九,二十,三十,四十,五十,六十,七十,八十,九十,一百,兩百,二百,三百,四百,五百,六百,七百,八百,九百,一千,兩千,二千,三千,四千,五千,六千,七千,八千,九千,一萬,兩萬,二萬,三萬,四萬,五萬,六萬,七萬,八萬,九萬,十萬,二十萬,三十萬,四十萬,五十萬,六十萬,七十萬,八十萬,九十萬,一百萬,兩百萬,二百萬,三百萬,四百萬,五百萬,六百萬,七百萬,八百萬,九百萬,一千萬,兩千萬,二千萬,三千萬,四千萬,五千萬,六千萬,七千萬,八千萬,九千萬".split(",");
+
+    const KasuPeople = "你,𠊎,佢,,你人,𠊎人,佢人,人,大家,逐儕,哪儕,哪個,哪位,哪裡,阿怙,阿依,阿叔,阿嬸,阿伯,阿㜷,阿爸,阿公,阿媽,外公,外媽".split(",");
+    // 確定要替換的字
+    let replaceList = [];
+    if (text.includes('一')) {
+        replaceList = chineseNumbers;
+    } else if (text.includes('你')) {
+        replaceList = KasuPeople;
+    }
+
+    // 生成詞語
+    for (let i = 0; i < replaceList.length; i++) {
+        let newText = text;
+        if (replaceList === chineseNumbers) {
+            newText = newText.replace('一', replaceList[i]);
+        } else if (replaceList === KasuPeople) {
+            newText = newText.replace('你', replaceList[i]);
+        }
+        outputText += `${newText}\n`;
+    }
+
+    document.getElementById('id_B').value = outputText;
+}
+
+function pojToTailuo(text) {
+    let t = document.getElementById('id_A').value;
+	if (t.startsWith("載入的資料共")) {
+		t = allText;
+	}
+	t = pojToTailuoFn(t);
+	document.getElementById('id_B').value = t;
+}
+
+
+function pojToTailuoFn(text) {
+    const replacements = [
+        [/oe/g, 'ue'],
+        [/őe/g, 'űe'],
+        [/óe/g, 'ué'],
+        [/òe/g, 'uè'],
+        [/ôe/g, 'uê'],
+        [/ǒe/g, 'uě'],
+        [/ōe/g, 'uē'],
+        [/o̍e/g, 'u̍e'],
+        [/oa/g, 'ua'],
+        [/őa/g, 'űa'],
+        [/óa/g, 'uá'],
+        [/òa/g, 'uà'],
+        [/ôa/g, 'uâ'],
+        [/ǒa/g, 'uǎ'],
+        [/ōa/g, 'uā'],
+        [/o̍a/g, 'u̍a'],
+        [/oá/g, 'uá'],
+        [/oà/g, 'uà'],
+        [/oâ/g, 'uâ'],
+        [/oǎ/g, 'uǎ'],
+        [/oā/g, 'uā'],
+        [/o̍a/g, 'u̍a'],
+        [/oa̋/g, 'ua̋'],
+        [/ek\b/g, 'ik'],
+        [/e̋k\b/g, 'i̋k'],
+        [/ék\b/g, 'ík'],
+        [/èk\b/g, 'ìk'],
+        [/êk\b/g, 'îk'],
+        [/ěk\b/g, 'ǐk'],
+        [/ēk\b/g, 'īk'],
+        [/e̍k\b/g, 'i̍k'],
+        [/eng\b/g, 'ing'],
+        [/e̋ng\b/g, 'i̋ng'],
+        [/éng\b/g, 'íng'],
+        [/èng\b/g, 'ìng'],
+        [/êng\b/g, 'îng'],
+        [/ěng\b/g, 'ǐng'],
+        [/ēng\b/g, 'īng'],
+        [/e̍ng\b/g, 'i̍ng'],
+        [/Oe/g, 'Ue'],
+        [/Őe/g, 'Űe'],
+        [/Óe/g, 'Ué'],
+        [/Òe/g, 'Uè'],
+        [/Ôe/g, 'Uê'],
+        [/Ǒe/g, 'Uě'],
+        [/Ōe/g, 'Uē'],
+        [/O̍e/g, 'U̍e'],
+        [/Oa/g, 'Ua'],
+        [/Őa/g, 'Űa'],
+        [/Óa/g, 'Uá'],
+        [/Òa/g, 'Uà'],
+        [/Ôa/g, 'Uâ'],
+        [/Ǒa/g, 'Uǎ'],
+        [/Ōa/g, 'Uā'],
+        [/O̍a/g, 'U̍a'],
+        [/Oá/g, 'Uá'],
+        [/Oà/g, 'Uà'],
+        [/Oâ/g, 'Uâ'],
+        [/Oǎ/g, 'Uǎ'],
+        [/Oā/g, 'Uā'],
+        [/O̍a/g, 'U̍a'],
+        [/Oa̋/g, 'Ua̋'],
+        [/Ek\b/g, 'I̍k'],
+        [/E̋k\b/g, 'I̋k'],
+        [/Ék\b/g, 'Ík'],
+        [/Èk\b/g, 'Ìk'],
+        [/Êk\b/g, 'Îk'],
+        [/Ěk\b/g, 'Ǐk'],
+        [/Ēk\b/g, 'Īk'],
+        [/E̍k\b/g, 'I̍k'],
+        [/Eng\b/g, 'I̍ng'],
+        [/E̋ng\b/g, 'I̋ng'],
+        [/Éng\b/g, 'Íng'],
+        [/Èng\b/g, 'Ìng'],
+        [/Êng\b/g, 'Îng'],
+        [/Ěng\b/g, 'Ǐng'],
+        [/Ēng\b/g, 'Īng'],
+        [/E̍ng\b/g, 'I̍ng'],
+        [/o\u0358/g, 'oo'],
+        [/ő\u0358/g, 'őo'],
+        [/ó\u0358/g, 'óo'],
+        [/ò\u0358/g, 'òo'],
+        [/ô\u0358/g, 'ôo'],
+        [/ǒ\u0358/g, 'ǒo'],
+        [/ō\u0358/g, 'ōo'],
+        [/o̍\u0358/g, 'o̍o'],
+        [/\bCh([aeiounőóòôǒōo̍a̋áàâǎāa̍e̋éèêěēe̍űúùûǔūu̍i̋íìîǐīi̍n̋ńǹn̂ňn̄n̍])/g, 'Ts$1'],
+        [/\bChh([aeiounőóòôǒōo̍a̋áàâǎāa̍e̋éèêěēe̍űúùûǔūu̍i̋íìîǐīi̍n̋ńǹn̂ňn̄n̍])/g, 'Tsh$1'],
+        [/\bch([aeiounőóòôǒōo̍a̋áàâǎāa̍e̋éèêěēe̍űúùûǔūu̍i̋íìîǐīi̍n̋ńǹn̂ňn̄n̍])/g, 'ts$1'],
+        [/\bchh([aeiounőóòôǒōo̍a̋áàâǎāa̍e̋éèêěēe̍űúùûǔūu̍i̋íìîǐīi̍n̋ńǹn̂ňn̄n̍])/g, 'tsh$1'],
+        [/ⁿ/g, 'nn'],
+    ];
+    for (const [pattern, replacement] of replacements) {
+        text = text.replace(pattern, replacement);
+    }
+    return text;
+}
+
+
+
+
+function wordWrongToRight() {
+    // 異體字轉正字
+    let t = document.getElementById('id_A').value;
+	if (t.startsWith("載入的資料共")) {
+		t = allText;
+	}
+    // 建立對應映射
+let kasuOral = `
+﹗	！
+﹙	（
+﹚	）
+﹐	，
+﹑	、
+﹒	。
+︰	：
+﹕	：
+﹔	；
+﹖	？
+了	了
+力	力
+兀	兀
+女	女
+不	不
+丹	丹
+什	什
+六	六
+切	切
+令	令
+北	北
+句	句
+立	立
+列	列
+劣	劣
+吏	吏
+宅	宅
+年	年
+羽	羽
+老	老
+肋	肋
+行	行
+串	串
+冷	冷
+利	利
+卵	卵
+吝	吝
+呂	呂
+尿	尿
+弄	弄
+更	更
+李	李
+沈	沈
+牢	牢
+良	良
+見	見
+車	車
+辰	辰
+里	里
+阮	阮
+例	例
+來	來
+兩	兩
+刺	刺
+奈	奈
+念	念
+拉	拉
+拓	拓
+易	易
+林	林
+泌	泌
+泥	泥
+炙	炙
+狀	狀
+金	金
+囹	囹
+拏	孥
+怜	怜
+杻	杻
+亮	亮
+便	便
+咽	咽
+契	契
+度	度
+律	律
+怒	怒
+拾	拾
+柳	柳
+流	流
+洞	洞
+洛	洛
+玲	玲
+省	省
+若	若
+郎	郎
+陋	陋
+降	降
+倫	倫
+料	料
+旅	旅
+朗	朗
+栗	栗
+浪	浪
+烙	烙
+烈	烈
+狼	狼
+琉	琉
+珞	珞
+留	留
+益	益
+神	神
+索	索
+紐	紐
+茶	茶
+豈	豈
+勒	勒
+匿	匿
+參	參
+﨑	崎
+崙	崙
+掠	掠
+捻	捻
+梁	梁
+梨	梨
+殺	殺
+凉	涼
+淋	淋
+淚	淚
+淪	淪
+率	率
+理	理
+略	略
+異	異
+硫	硫
+祥	祥
+笠	笠
+粒	粒
+累	累
+羚	羚
+聆	聆
+連	連
+都	都
+陵	陵
+陸	陸
+鹿	鹿
+勞	勞
+喇	喇
+嵐	嵐
+廊	廊
+復	復
+惡	惡
+晴	晴
+痢	痢
+菱	菱
+裂	裂
+逸	逸
+量	量
+隆	隆
+飯	飯
+菉	菉
+亂	亂
+塞	塞
+塚	塚
+廉	廉
+慄	慄
+暈	暈
+溺	溺
+滑	滑
+溜	溜
+煉	煉
+碌	碌
+祿	祿
+稜	稜
+落	落
+葉	葉
+虜	虜
+裡	裡
+賈	賈
+賂	賂
+路	路
+酪	酪
+鈴	鈴
+雷	雷
+零	零
+靖	靖
+飼	飼
+嗀	嗀
+裏	裏
+僚	僚
+寧	寧
+屢	屢
+廓	廓
+漏	漏
+漣	漣
+福	福
+精	精
+綾	綾
+綠	綠
+裸	裸
+說	說
+領	領
+凜	凜
+劉	劉
+寮	寮
+履	履
+憐	憐
+戮	戮
+撚	撚
+數	數
+暴	暴
+樓	樓
+樂	樂
+瑩	瑩
+磊	磊
+練	練
+蓮	蓮
+諒	諒
+諸	諸
+論	論
+輦	輦
+輪	輪
+﨨	鋅
+閭	閭
+魯	魯
+黎	黎
+璉	璉
+蓼	蓼
+擄	擄
+曆	曆
+歷	歷
+燐	燐
+燎	燎
+璘	璘
+盧	盧
+糖	糖
+罹	罹
+諾	諾
+癩	賴
+輻	輻
+遼	遼
+錄	錄
+館	館
+駱	駱
+龍	龍
+龜	龜
+凞	凞
+勵	勵
+嶺	嶺
+殮	殮
+濫	濫
+療	療
+縷	縷
+聯	聯
+臨	臨
+螺	螺
+鍊	鍊
+隸	隸
+磻	磻
+壘	壘
+濾	濾
+獵	獵
+禮	禮
+糧	糧
+藍	藍
+離	離
+壟	壟
+廬	廬
+懶	懶
+櫓	櫓
+簾	簾
+羅	羅
+臘	臘
+識	識
+類	類
+麗	麗
+爐	爐
+礪	礪
+藺	藺
+蘆	蘆
+襤	襤
+醴	醴
+欄	欄
+爛	爛
+蘭	蘭
+蠟	蠟
+露	露
+鶴	鶴
+籠	籠
+聾	聾
+讀	讀
+轢	轢
+戀	戀
+蘿	蘿
+邏	邏
+鱗	鱗
+麟	麟
+靈	靈
+鷺	鷺
+驪	驪
+鸞	鸞
+猪	猪
+礼	礼
+秊	秊
+隣	隣
+胐	朏
+濕	溼
+	
+	𪜶
+	𬦰
+	𫝞
+	𫝛
+	𫝏
+	𫝺
+	𫝻
+	󿗧
+	𫟂
+	𫝙
+	𫟊
+	
+	𫝞
+	𫝛
+	𫝏
+	𫝺
+	𫝻
+	󿗧
+	𫟂
+	𫝙
+	𫟊
+敎	教
+靓	靚
+温	溫
+戆	戇
+郞	郎
+随	隨
+脚	腳
+喞	唧
+	𪹚
+	𫝘
+	𫝾
+	𫞭
+	𫞻
+	𫞼
+	𫟧
+	𫠛
+	𫣆
+	𬑎
+	𬖐
+	󸾯
+	�
+－－	──
+	𰹬
+	𬠖
+	𰣻
+	𱱿
+󿗧	𰣻
+󿕅	𱱿
+󸾯	𰹬
+岀	出
+没	沒
+秃	禿
+劵	券
+刴	剁
+抝	拗
+殁	歿
+畁	畀
+爲	為
+娱	娛
+挟	挾
+眞	真
+欵	欸
+浄	淨
+衆	眾
+歳	歲
+輰	暢
+𧗊	盡
+麽	麼
+奬	獎
+縆	緪
+駡	罵
+腟	膣
+𤖠	牆
+𦉛	罅
+隷	隸
+鲫	鯽
+櫉	櫥
+赢	贏
+讉	譴
+鼹	鼴
+𤒿	㸐
+廰	廳
+鑚	鑽
+戅	戇
+朏	胐
+`;
+    
+    let mappings = kasuOral.trim().split('\n').map(line => {
+        let parts = line.split('\t');
+        return [parts[0].trim(), parts[1].trim()];
+    });
+
+    for (let [original, replacement] of mappings) {
+        let regex = new RegExp(original, 'g');
+        t = t.replace(regex, replacement);
+    }
+
+    // 將結果寫入到輸出框
+    document.getElementById('id_B').value = t;
+}
+
+
+let allData = [];
+let allText = '';
+function importData() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.txt';
+
+    input.onchange = async (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            const text = await file.text();	
+            allData = text.split('\n').filter(line => line.trim() !== '');			
+            const displayLines = allData.slice(0, 100);
+            document.getElementById('id_A').value = "載入的資料共" + allData.length + "行 (僅顯示前 100 行)：\n" + displayLines.join('\n');
+        }
+    };
+
+    input.click();
+}
+
+
+
+
+
+// 模擬的選項配置
+const myOption = `
+a1=總字數=countTextStatistics=說明1
+a2=句字數=countSentenceLengths=說明2
+a3=行字數=countLineLengths=說明3
+`;
+
+// 解析選項配置為對象
+const optionsConfig = myOption.trim().split('\n').reduce((acc, line) => {
+    const [code, name, func, desc] = line.split('=');
+    acc[code] = {
+        name: name.trim(),
+        func: func.trim(),
+        desc: desc.trim()
+    };
+    return acc;
+}, {});
+
+
+
+// 在網頁加載時執行的函數
+function addOptionsIfParameterExists() {
+    // 獲取 URL 參數
+    const urlParams = new URLSearchParams(window.location.search);
+    const fnParam = urlParams.get('fn');
+
+    // 檢查是否有指定的參數
+    if (fnParam) {
+        // 創建 select 元素
+        const select = document.createElement('select');
+        select.setAttribute('onchange', 'handleDropdownChange(this)');
+        select.setAttribute('onfocus', 'showOptions(this)');
+        select.setAttribute('onblur', 'resetOptions(this)');
+
+        // 添加第一個禁用選項
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.disabled = true;
+        defaultOption.selected = true;
+        defaultOption.innerText = '自訂';
+        select.appendChild(defaultOption);
+
+        // 解析 fn 參數並生成對應的選項
+        const fnCodes = fnParam.split(',');
+        fnCodes.forEach(code => {
+            if (optionsConfig[code]) {
+                const option = document.createElement('option');
+                option.value = optionsConfig[code].func;
+                option.title = optionsConfig[code].desc;
+                option.innerText = optionsConfig[code].name;
+                select.appendChild(option);
+            }
+        });
+
+		// 獲取目標容器並添加 select
+		const buttonContainer = document.querySelector('.button-container');
+		if (buttonContainer) {
+			buttonContainer.insertBefore(select, buttonContainer.firstChild);
+		}
+    }
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  // 取得 button-container 和 dropdown-container
+  const buttonSelects = document.querySelectorAll('.button-container select');
+  const dropdownContainer = document.querySelector('.dropdown-container');
+  
+  // 清空原有的 dropdown-container
+  dropdownContainer.innerHTML = '';
+
+  // 遍歷 button-container 中的每個 select
+  buttonSelects.forEach(buttonSelect => {
+    // 為每個 select 生成對應的 dropdown
+    const dropdownDiv = document.createElement('div');
+    dropdownDiv.classList.add('dropdown');
+    
+    const dropdownSelect = document.createElement('select');
+    dropdownSelect.setAttribute('onchange', 'handleDropdownChange(this)');
+    dropdownSelect.setAttribute('onfocus', 'showOptions(this)');
+    dropdownSelect.setAttribute('onblur', 'resetOptions(this)');
+
+    // 將 button select 的所有選項複製到新的 dropdown select
+    buttonSelect.querySelectorAll('option').forEach(option => {
+      const newOption = document.createElement('option');
+      newOption.value = option.value;
+      newOption.textContent = option.textContent;
+      newOption.title = option.title || ''; // 保留 title 屬性
+      dropdownSelect.appendChild(newOption);
+    });
+
+    // 將新的 dropdown select 加入到 dropdownDiv，然後加入到 dropdown-container
+    dropdownDiv.appendChild(dropdownSelect);
+    dropdownContainer.appendChild(dropdownDiv);
+  });
+});
+
+
+// 當網頁加載完畢後執行上述函數
+window.onload = addOptionsIfParameterExists;
+
+
+
+</script>
+<script src="script.js"></script>
+
+</body>
+</html>
+
