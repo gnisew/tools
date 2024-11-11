@@ -1,0 +1,241 @@
+body {
+    background-color: #f0f0f0; /* 設置背景色為淺灰色 */
+}
+
+.container {
+    max-width: 400px;
+    margin: 20px auto 0 auto; /* 將左右 margin 設為 auto，使其水平置中 */
+    padding: 0; /* 將 padding 設為 0 */
+    box-sizing: border-box; /* 重設 box-sizing */
+}
+
+.chat-panel {
+    max-width: 400px;
+    margin: 0 auto 0 auto; /* 將左右 margin 設為 auto，使其水平置中 */
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-bottom: 0;
+    border-radius: 10px 10px 0 0;
+    background-color: #fff; /* 將聊天面板背景色設為白色 */
+    overflow-y: auto;
+    height: calc(100vh - 120px);
+    position: relative;
+    width: 100%;
+    box-sizing: border-box;
+	line-height: 1.6;
+}
+
+.input-panel {
+    position: relative;
+    background-color: #fff; /* 將輸入框背景色設為白色 */
+    padding: 0;
+    width: 100%;
+    margin: auto; /* 將左右 margin 設為 auto，使其水平置中 */
+    max-width: 400px; /* 為了保持最大寬度為 400px，同時讓其在大型螢幕上保持置中 */
+    box-sizing: border-box; /* 新增這行 */
+}
+
+.chat-panel::-webkit-scrollbar {
+    width: 0px; /* 滾動條寬度 */
+}
+
+.chat-panel::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0); /* 滾動條顏色透明 */
+}
+
+.chat-panel::-webkit-scrollbar-track {
+     background-color: transparent;  /*滾動條背景透明 */
+}
+
+
+.input-panel {
+    position: relative;
+    padding: 0;
+    width: 100%;
+    margin: auto; /* 將左右 margin 設為 auto，使其水平置中 */
+    max-width: 400px; /* 為了保持最大寬度為 400px，同時讓其在大型螢幕上保持置中 */
+    box-sizing: border-box; /* 新增這行 */
+	background-color: #f0f0f0; /* 設置背景色為淺灰色 */
+}
+
+.input-panel input[type="text"] {
+    width: calc(100% - 40px); /* 減去送出按鈕的寬度 */
+    border: 1px solid #ccc;
+	border-right: 0;
+    padding: 15px 5px 15px 15px;
+    border-radius: 0 0 0 10px;
+    outline: none;
+    box-sizing: border-box; /* 新增這行 */
+	font-size: 1em;
+}
+
+.input-panel input[type="text"]:focus {
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.input-panel button {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 40px; /* 送出按鈕的寬度 */
+    background-color: #fff; /* 自行設定按鈕的背景色 */
+    border: 1px solid #ccc;
+	border-left: 0;
+	border-radius: 0 0 10px 0;
+
+    cursor: pointer; /* 讓滑鼠移動到按鈕上時變成手型 */
+    /* 其他樣式自行設定 */
+}
+
+.message {
+    border-radius:  10px;
+    margin-bottom: 10px;
+    padding: 10px;    
+    clear: both;
+}
+
+.bot-message {
+    background-color: #DCF8C6;
+    color: #000;
+    text-align: left; /* 將左邊的文字靠左對齊 */
+}
+
+.user-message {
+    background-color: #E5E5EA;
+    color: #000;
+    text-align: right; /* 將右邊的文字靠右對齊 */
+}
+
+
+.question-bubble,
+.answer-bubble {
+    display: inline-block;
+    max-width: 70%;
+    word-wrap: break-word;
+    padding: 10px 8px 6px 8px;
+    margin-bottom: 20px;
+}
+
+.question-bubble {
+    border-radius: 5px 10px 10px 10px;
+    background-color: #DCF8C6;
+    color: #000;
+    text-align: left; /* 將左邊的文字靠左對齊 */
+}
+
+.answer-bubble {
+    border-radius: 10px 5px 10px 10px;
+    background-color: #E5E5EA;
+    color: #000;
+    text-align: left; /* 將內部文字靠左對齊 */
+    float: right; /* 將回答的文字靠右浮動 */
+}
+
+
+.restart-button {
+    padding: 10px 20px;
+	margin-bottom: 20px; 
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.restart-button:hover {
+    background-color: #45a049; 
+}
+
+.time-stamp {
+    font-size: 0.5em; /* 設定較小的字體大小 */
+    color: #999; /* 設定灰色字體顏色 */
+}
+
+.message-image {
+    max-width: 90%;
+    height: auto;
+    display: block;
+    margin: 10px auto; /* 讓圖片置中 */
+}
+
+.message audio {
+    width: 90%;
+	height: 36px;
+	display: block;
+	margin: 10px auto;
+}
+
+.message a {
+    font-size: 0.8em;
+    display: inline-block; /* 讓超連結以區塊元素呈現 */
+    padding: 3px 6px; /* 添加內邊距 */
+    border-radius: 25px; /* 圓角外框 */
+    background-color: #f0f0f0; /* 超連結背景色 */
+    color: #007bff; /* 超連結文字顏色 */
+    text-decoration: none; /* 移除底線 */
+    transition: background-color 0.3s; /* 添加過渡效果 */
+}
+
+.message a:hover {
+    background-color: #d8d8d8; /* 鼠標懸停時的背景色 */
+}
+
+.message a:active {
+    background-color: #c0c0c0; /* 點擊時的背景色 */
+}
+
+k{
+	cursor: pointer;
+}
+
+hr{
+    margin: 60px auto;
+    border-style: dashed; /* 設置為虛線樣式 */
+    border-width: 1px; /* 分隔線寬度 */
+    border-color: #ccc; /* 分隔線顏色 */
+}
+
+
+.option-button {
+    display: block;
+    width: 100%;
+    padding: 4px 8px;
+    margin-top: 2px;
+    background-color: #45a049; 
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    text-align: center;
+    transition: background-color 0.3s;
+}
+
+.option-button:hover {
+    background-color: #4CAF50;
+}
+
+ruby {
+    padding: 10px 2px 2px 2px;
+	line-height: 2.4;
+}
+
+
+
+
+
+
+@media only screen and (min-width: 768px) {
+    /* 在螢幕寬度超過 768px 時，調整容器的最大寬度 */
+    .container {
+        max-width: 768px;
+    }
+}
+
+@media only screen and (min-width: 1024px) {
+    /* 在螢幕寬度超過 1024px 時，進一步調整容器的最大寬度 */
+    .container {
+        max-width: 1024px;
+    }
+}

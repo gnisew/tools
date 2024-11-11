@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>烏衣行揣閩南語 WeSing Query Holo</title>
+    <style>
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+      }
+
+      form {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-bottom: 1rem;
+      }
+
+.form-group {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  margin: 0.5rem;
+  flex: 0 0 100%;
+}
+
+      .checkbox-group {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        order: 1;
+      }
+
+      .checkbox-group label {
+        margin: 0 0.3rem;
+      }
+
+      .search-group {
+        order: 2;
+      }
+
+      .checkbox-group,
+      input,
+      button {
+        font-size: 18px;
+        /* 設置字體大小為 18 像素 */
+      }
+
+      input {
+        border: 2px solid #ccc;
+        padding: 5px;	
+      }
+      .inputBox {
+		width: 250px;
+      }
+
+      button {
+        width: 65px;
+        height: 35px;
+        background-color: #ccc;
+        border: none;
+        border-radius: 0px 5px 5px 0px;
+        cursor: pointer;
+		user-select: none;
+      }
+
+      #button1 {
+	    color: #fff;
+        background-color: #B6174B;
+      }
+
+      #button2 {
+	    color: #fff;
+        background-color: #0E7C7B;
+      }
+	  #change1{
+	  	color: #fff;
+        background-color: #EC407A;
+		border-radius: 5px 5px 5px 5px;
+		font-size: 14px;
+		width: 80px;
+        height: 24px;
+      }
+
+.header {
+  background-color: #0E7C7B;
+  color: white;
+  text-align: center;
+  padding: 20px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 999;
+}
+
+.header a {
+  color: white;
+  text-decoration: none;
+}
+
+
+
+.explanation {
+  margin-top: 40px; /* 增加頂部外邊距 */
+  background-color: #f9f9f9;
+  padding: 20px;
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.explanation h3:first-child {
+  margin-top: 0; /* 讓第一個 h3 頂部無外邊距 */
+}
+
+.explanation h3 {
+  margin-top: 30px; /* 其他 h3 與上方元素間距為 30px */
+  color: #0E7C7B;
+}
+
+.explanation ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.explanation li {
+  margin-bottom: 10px;
+}
+
+.explanation li strong {
+  font-weight: bold;
+  color: #0E7C7B;
+}
+#mytop {
+  margin-top: 20px;
+}
+
+h1 {
+  margin-top: 140px;
+}
+
+.myli a {
+  color: #0E7C7B;
+  text-decoration: none;
+}
+
+
+
+    </style>
+
+
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>閩</text></svg>">
+
+  </head>
+  <body>
+
+  <div class="header">
+    <a href="https://sites.google.com/view/oikasu/holo" target="_blank">詔安客語教學資源中心「和樂 HOLO」</a>
+  </div>
+
+    <h1>烏衣行揣閩南語</h1>
+    <form>
+      <div class="form-group" id="mytop">
+        <div class="search-group">
+          <label for="search1"></label>
+          <input class="inputBox" type="text" id="search1" name="search1" placeholder="閩南語漢字或拼音" onkeydown="if(event.keyCode === 13) searchTai(this.value)"><button type="button" id="button1" onclick="searchTai(document.getElementById('search1').value)">1 查閩</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="checkbox-group">
+		<button type="button" id="change1">:羅轉漢字</button>
+          <label>
+            <input type="checkbox" id="exactSearch" name="exactSearch" onclick="selectOption(this, 'exactSearch')">^精確$ </label>
+          <label>
+            <input type="checkbox" id="exactSearchA" name="exactSearch" onclick="selectOption(this, 'exactSearch')">^開頭 </label>
+          <label>
+            <input type="checkbox" id="exactSearchB" name="exactSearch" onclick="selectOption(this, 'exactSearch')">結尾$ </label>
+        </div>
+      </div>
+    </form>
+
+    <form>
+      <label for="search2"></label>
+      <input class="inputBox" type="text" id="search2" name="search3" placeholder="華語用例" onkeydown="if(event.keyCode === 13) searchHua(this.value)">
+      <button type="button" id="button2" onclick="searchHua(document.getElementById('search2').value)">2 查華</button>
+    </form>
+    <form>
+      <label for="search3"></label>
+      <input class="inputBox" type="text" id="search3" name="search3" placeholder="閩南語用例" onkeydown="if(event.keyCode === 13) searchTai2(this.value)">
+      <button type="button" onclick="searchTai2(document.getElementById('search3').value)">3 閩例</button>
+    </form>
+    <form>
+      <label for="search4"></label>
+      <input class="inputBox" type="text" id="search4" name="search4" placeholder="華語全文" onkeydown="if(event.keyCode === 13) searchHua2(this.value)">
+      <button type="button" onclick="searchHua2(document.getElementById('search4').value)">4 華文</button>
+    </form>
+
+
+<div class="explanation">
+  <h3>一、符號說明(1)</h3>
+  <ul>
+    <li><strong>.</strong>：一個符號，包含漢字、字母、數字。</li>
+    <li><strong>x</strong>：一個漢字，[^0-z]。</li>
+    <li><strong>y</strong>：任意長度字母，[A-u]+。</li>
+    <li><strong>0</strong>：任意聲調，[1-9]。</li>
+	<li><strong>.*</strong>：*表示前符號0次~任意次數。</li>
+	<li><strong>.+</strong>：+表示前符號1次~任意次數。</li>
+	<li><strong>.?</strong>：?表示前符號0~1次。</li>
+	<li><strong>天|地</strong>：|表或者，詞彙中有天或地。</li>
+    <li><strong>天#地</strong>：#表而且，詞彙中有天也有地。</li>
+    <li><strong>~</strong>：一個拼音音節，等同y0，[A-u]+[1-9]。</li>
+	<li><strong>~<</strong>：純聲母，[phmbtnlkgsj]+。</li>
+	<li><strong>~></strong>：帶聲調的韻母，[aeiou]+[a-u]+[1-9]。</li>
+	<li><strong>%</strong>：補足8個聲調，(p|t|k|h)?[1-9]。</li>	
+	<li><strong>@</strong>：找同韻字，[1-9]$。</li>
+	<li><strong>zsxfl</strong>：也可用字母2zˊ 3sˋ 5xˆ 7f⁺ 8lˈ來表示聲調</li>
+  </ul>
+
+
+  <h3>一、符號說明(2)</h3>
+  <ul>
+    <li><strong>v</strong>：母音，[aeiou]。</li>
+    <li><strong>V</strong>：非母音，[^aeiou]。</li>
+	<li><strong>_m</strong>：以鼻聲母m,n,ng,nn結尾。</li>
+	<li><strong>_p</strong>：以入聲母p,t,k,h結尾。</li>
+	<li><strong>p_</strong>：以p,ph,m,b開頭的音。</li>
+	<li><strong>t_</strong>：以t,th,n,l開頭的音。</li>
+	<li><strong>k_</strong>：以k,kh,ng,g,h開頭的音。</li>
+	<li><strong>ts_</strong>：以ts,tsh,s,j開頭的音。</li>
+	<li><strong>ph_</strong>：以ph,th,kh,tsh開頭的音。</li>
+	<li><strong>m_</strong>：以m,n,ng開頭的音。</li>
+  </ul>
+
+  <h3>二、漢字範例</h3>
+  <ul>
+    <li><strong>^xx$</strong>：精確查詢兩個漢字。</li>
+	<li><strong>^xxxxx$</strong>：精確查詢五個漢字。</li>
+    <li><strong>^天</strong>：以天開頭的任意詞。</li>
+    <li><strong>天$</strong>：以天結尾的任意詞。</li>
+    <li><strong>^天..$</strong>：以天開頭的三字詞，也可^天xx$。</li>
+    <li><strong>^...天$</strong>：以天結尾的四字詞，也可^xxx天$。</li>
+	<li><strong>^..無.$</strong>：第三字為「無」的四字詞，也可^xx無x$。</li>
+  </ul>
+
+  <h3>三、拼音範例</h3>
+  <ul>
+    <li><strong>注意</strong>：以下範例可勾「^精確$」。</li>
+    <li><strong>y0</strong>：一個任意聲調的拼音。</li>
+    <li><strong>y3</strong>：一個第3調的拼音。</li>
+    <li><strong>y2 y5</strong>：第3調與第5調的二個拼音。</li>
+    <li><strong>yng0</strong>：一個以ng結尾的拼音。</li>
+    <li><strong>tua7 y0 y0</strong>：三字詞且以tua7開頭。</li>
+	<li><strong>ya0</strong>：認意字母+a的拼音，如pa3、gua2、hia1。</li>
+	<li><strong>v0</strong>：一個母音而任意聲調的拼音。</li>
+    <li><strong>Va0</strong>：聲母+a的拼音，如pa3、ka1、ha5。</li>
+    <li><strong>ym0</strong>：鼻聲母m結尾拼音，如kam2、sim1、tim5。</li>
+	<li><strong>yp0</strong>：入聲母p結尾拼音，如tsap8、sap4、kip4。</li>
+    <li><strong>y~m0</strong>：鼻聲母結尾拼音，如kam2、sin1、ting7、tsinn5。</li>
+	<li><strong>y~p0</strong>：入聲母結尾拼音，如tsap8、sat4、bak8、tioh8。</li>
+	<li><strong>hu?e1</strong>：表示u可有可無，可查到 he1 跟 hue1。</li>
+	<li><strong>si%</strong>：可查si1, si2, si3, sih4, sip4, si5, si7, sit8。</li>
+	<li><strong>~ ~ ~</strong>：三個音節的詞，如「ài-jîn-á」。</li>
+	<li><strong>s~ b~ h~</strong>：三個音節，且以s b h開頭的詞，如「sat-ba̍k-hî」。</li>
+	<li><strong>~ bak8 ~</strong>：三個音節，且中間為 bak8，如「sái-ba̍k-bué」。</li>
+	<li><strong>~&lt;a1</strong>：可查帶聲母開頭的音，如ha1, pa1, sa1。</li>
+	<li><strong>ph~></strong>：可查ph開頭的所有韻。</li>
+	<li><strong>ai@</strong>：找同押ai韻的字詞，同ai0$。</li>
+  </ul>
+    
+
+  <h3>四、疊字模式(ABC組合)</h3>
+  <ul>
+    <li><strong>注意</strong>：以下範例建議勾「^精確$」。</li>
+    <li><strong>AA</strong>：如「譀譀」。</li>
+	<li><strong>花AA</strong>：如「花貓貓」。</li>
+    <li><strong>ABB</strong>：如「紅記記、閒仙仙」。</li>
+    <li><strong>AABB</strong>：如「風風雨雨」。</li>
+    <li><strong>AABC</strong>：如「寬寬仔是」。</li>
+    <li><strong>ABCC</strong>：如「無閒𩑾𩑾」。</li>
+	<li><strong>ABAC</strong>：如「想空想縫」。</li>
+  </ul>
+
+  <h3>五、正規表示式</h3>
+  <ul>
+    <li class="myli"><a href="https://zh.wikipedia.org/zh-tw/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F" target="_blank">維基百科</a></li>
+    <li class="myli"><a href="https://sutian.moe.edu.tw/zh-hant/tshautsok/tshasun-hongsik-suatbing/" target="_blank">閩南語辭典查詢說明</a></li>
+  </ul>
+
+  <h3>六、羅馬字轉漢字</h3>
+  <ul>
+    <li>拼音前加「:」或「;」如「:in1」或「;gau5」。</li>
+	<li>按下「:羅轉漢字」即轉成「𪜶」或「𠢕」。</li>
+    <li>以上僅支援華語罕用字或鍵盤難打的字。</li>
+  </ul>
+</div>
+
+
+    <script>
+      function clearInput() {
+        document.getElementById("search1").value = "";
+        document.querySelector(".clear-btn").style.display = "none";
+      }
+      document.getElementById("search1").addEventListener("input", function() {
+        var clearBtn = document.querySelector(".clear-btn");
+        if (this.value.trim() !== "") {
+          clearBtn.style.display = "inline";
+        } else {
+          clearBtn.style.display = "none";
+        }
+      });
+
+
+      function searchTai(query) {
+        if (query) {
+          // 去除多餘的^和$符號
+          query = query.replace(/^\^+/, '^').replace(/\$+$/, '$');
+          // 將 y 送出搜尋後,取代為 
+		  query = query.replace(/~</gi, '[phmbtnlkgsj]+');
+		  query = query.replace(/~>/gi, '[aeiou]+[a-u]+[1-9]');
+		  query = query.replace(/([aeiou])%/gi, '$1([ptkh])?[1-9]');
+		  query = query.replace(/~([a-u]+~)/gi, '[A-u]+$1[a-u]+[1-9]');
+		  query = query.replace(/~([a-u]+)/gi, '[A-u]+$1');
+		  query = query.replace(/([A-u])~/gi, '$1[a-u]+[1-9]');
+		  query = query.replace(/~/gi, '[A-u]+[1-9]');
+		  query = query.replace(/([aeiourmngptkh])@/gi, '$1[1-9]$');
+
+		  query = query.replace(/\+/gi, '%2B');
+          query = query.replace(/y/gi, '[A-u]%2B');
+          query = query.replace(/0/g, '[1-9]');
+		  query = query.replace(/X/g, '[1-u]%2B');
+          query = query.replace(/v/g, '[aeiou]');
+          query = query.replace(/V/g, '[^aeiou]%2B');
+		  query = query.replace(/ph_/g, '(ph|th|kh|tsh)');
+          query = query.replace(/p_/g, '(p|ph|m|b)');
+		  query = query.replace(/ts_/g, '(ts|tsh|s|j)');
+          query = query.replace(/t_/g, '(t|th|n|l)');
+          query = query.replace(/k_/g, '(k|kh|g|ng|h)');          
+          query = query.replace(/_m/g, '(m|n|ng|nn|nnh)');
+          query = query.replace(/_p/g, '(p|t|k|h)');
+          query = query.replace(/m_/g, '(m|n|ng)');
+          query = query.replace(/nl_/g, '(n|l)');
+          query = query.replace(/b_/g, '(b|g|l)');
+          query = query.replace(/48/g, '(4|8)');
+		  query = query.replace(/([aeioumngptkh])(z)/g, '$12');
+		  query = query.replace(/([aeioumngptkh])(s)/g, '$13');
+		  query = query.replace(/([aeioumngptkh])(x)/g, '$15');
+		  query = query.replace(/([aeioumngptkh])(v)/g, '$16');
+		  query = query.replace(/([aeioumngptkh])(f)/g, '$17');
+		  query = query.replace(/([aeioumngptkh])(l)/g, '$18');
+          query = query.replace(/(.*)#(.*)/g, '$1.*$2|$2.*$1');
+          let encodedQuery = query.replace(/(x+)/g, (match, p1) => {
+            if (/x{2,}(?!x)/.test(match)) {
+              return match.replace(/(x+)/g, (m, p2) => {
+                if (p2.length === 1) {
+                  return '\[^0-z\]';
+                } else {
+                  return `[^0-z]{${p2.length}}`;
+                }
+              });
+            } else {
+              if (p1.length === 1) {
+                return '\[^0-z\]';
+              } else {
+                return `[^0-z]{${p1.length}}`;
+              }
+            }
+          });
+          // 新增的處理字母的邏輯
+          encodedQuery = encodedQuery.replace(/AABB/gi, '(\[^0-z\])\\1(\[^0-z\])\\2');
+          encodedQuery = encodedQuery.replace(/ABAB/gi, '(\[^0-z\])(\[^0-z\])\\1\\2');
+          encodedQuery = encodedQuery.replace(/ABCB/gi, '(\[^0-z\])(\[^0-z\])(\[^0-z\])\\2');
+          encodedQuery = encodedQuery.replace(/ABCA/gi, '(\[^0-z\])(\[^0-z\])(\[^0-z\])\\1');
+          encodedQuery = encodedQuery.replace(/ABAC/gi, '(\[^0-z\])(\[^0-z\])\\1(\[^0-z\])');
+          encodedQuery = encodedQuery.replace(/AABC/gi, '(\[^0-z\])\\1(\[^0-z\])(\[^0-z\])');
+		  encodedQuery = encodedQuery.replace(/ABBC/gi, '(\[^0-z\])(\[^0-z\])\\2(\[^0-z\])');
+		  encodedQuery = encodedQuery.replace(/ABBA/gi, '(\[^0-z\])(\[^0-z\])\\2\\1');
+          encodedQuery = encodedQuery.replace(/ABCC/gi, '(\[^0-z\])(\[^0-z\])(\[^0-z\])\\3');
+          encodedQuery = encodedQuery.replace(/AAAA/gi, '(\[^0-z\])\\1\\1\\1');
+          encodedQuery = encodedQuery.replace(/ABB/gi, '(\[^0-z\])(\[^0-z\])\\2');
+          encodedQuery = encodedQuery.replace(/AAB/gi, '(\[^0-z\])\\1(\[^0-z\])');
+          encodedQuery = encodedQuery.replace(/AAA/gi, '(\[^0-z\])\\1\\1');
+          encodedQuery = encodedQuery.replace(/AA/gi, '(\[^0-z\])\\1');
+          if (document.getElementById('exactSearch').checked) {
+            encodedQuery = `^${encodedQuery}$`;
+            // 去除多餘的^和$符號
+            encodedQuery = encodedQuery.replace(/^\^+/, '^').replace(/\$+$/, '$');
+          }
+          if (document.getElementById('exactSearchA').checked) {
+            encodedQuery = `^${encodedQuery}`;
+            // 去除多餘的^和$符號
+            encodedQuery = encodedQuery.replace(/^\^+/, '^').replace(/\$+$/, '$');
+          }
+          if (document.getElementById('exactSearchB').checked) {
+            encodedQuery = `${encodedQuery}$`;
+            // 去除多餘的^和$符號
+            encodedQuery = encodedQuery.replace(/^\^+/, '^').replace(/\$+$/, '$');
+          }
+          window.open(`https://sutian.moe.edu.tw/zh-hant/tshiau/?lui=tai\_su&tsha=${encodedQuery}`, '_blank');
+        }
+      }
+
+      function searchHua(query) {
+        if (query) {
+          window.open(`https://sutian.moe.edu.tw/zh-hant/tshiau/?lui=hua\_ku&tsha=${query}`, '_blank');
+        }
+      }
+
+      function searchTai2(query) {
+        if (query) {
+          window.open(`https://sutian.moe.edu.tw/zh-hant/tshiau/?lui=tai_ku&tsha=${query}`, '_blank');
+        }
+      }
+
+      function searchHua2(query) {
+        if (query) {
+          window.open(`https://sutian.moe.edu.tw/zh-hant/tshiau/?lui=hua\_su&tsha=${query}`, '_blank');
+        }
+      }
+      let previousChecked = null;
+
+      function selectOption(currentBox, name) {
+        const boxes = document.getElementsByName(name);
+        if (currentBox.checked) {
+          if (previousChecked && previousChecked !== currentBox) {
+            previousChecked.checked = false;
+          }
+          previousChecked = currentBox;
+        } else {
+          previousChecked = null;
+        }
+      }
+
+
+
+
+
+
+
+let luozi = ["mi2","乜","e5","个","su7","巳","tsi7","巳","phann3","冇","kiu1","勼","ping5","爿","tom5","丼","kang7","仝","tshian1","仟","ting7","𠕇橂","gia5","夯","kha1","尻","phok4","扑","thin7","伨","tainn2","刐","kiann2","囝","gin2","囡","huann7","扞","tshuann1","扦","lut4","甪","phenn1","伻","ti7","佇","to2","佗","Sia5","佘","phut4","刜怫","thai5","刣","tshng2","吮","ki1","吱","khng3","囥","bue5","囮","thun7","坉","kim7","妗","pi2","妣","ang1","尪","khip8","扱","gim7","扲","keh8","扴","io2","扷","ik8","扼","tim3","抌掂","la7","抐","put4","抔柫","khit8","杙煡","tsiann2","汫","thua7","汰豸","bit8","沕","tshioh4","沢","ting1","疔","phi2","疕","kiong1","芎","tshit4","𨑨","tong3","侗","khap4","匼","ti1","呧","phui3","呸","tann3","呾","khuh4","呿","tsap8","咂","phih8","咇","hai1","咍奒","khann1","坩","ing1","坱癰","khu1","坵","phann7","奅","bai1","屄","siu7","岫","tiat8","帙","khoo3","怐","hoo3","戽","phiann1","抨骿","khioh4","抾","hu2","拊","khinn5","拑","au2","拗","ho7","昊","phue3","杮","pang1","枋","tap8","沓","bi7","沬","tsuah4","泏","am2","泔","tshua7","𤆬","kan1","矸","hang3","肨胮","san1","芟","khiam3","芡","khian3","芡","khiu5","虯","sat4","虱","tho5","迌","hann7","迒","thiann7","侹","lang7","俍","tsho3","剉","meh4","咩","hiu1","咻","lo2","咾","ni5","哖","iu7","宥","ba7","峇擸","sun2","恂","tiam7","恬","hiap8","拹","kui3","挂劌","tih8","挃","keh4","挌","tha3","挓","hiannh4","挔","hinn3","挕","ah8","曷","iau1","枵","se3","洒","kho2","洘","tshio7","炤","pu5","炰垺匏","te1","炱嗲秪","ke3","疥","tuh4","盹","huah4","砉","gim5","砛","luan2","耎","kian7","胘","jiam5","苒","thu2","苧","te7","苧","tsu7","苴","Hu5","苻","ka1","虼","pai1","俳","an2","俺","kuann1","倌","tshiann3","倩","e1","倭","song5","倯","tshin3","凊","khiang1","勍","pu1","哹","sun5","唇","tun5","唇","tsim1","唚","kak4","埆桷鵤","luah8","埒","lin2","恁","kheh8","挈","ju5","挐","thuah4","挩","long3","挵","ip4","挹","jue5","挼","giap8","挾","phang5","捀","luah4","捋","bat4","捌","sa1","捎","sak4","捒","kak8","捔","poo5","捗裒痡酺","tsun7","捘","tshia1","捙","tshih8","揤蠘","kap4","敆","sing7","晟","tshiann5","晟","hap4","欱","tshiok8","浞","phu7","浡","phuh8","浡","sue3","涗","hu1","烌麩","pha7","疱","tshuah4","疶礤","than2","疸","ku1","痀跔呴","khah4","盍籗","hin5","眩","tiam1","砧","tsa3","祚","tsut8","秫","tai1","秮鮘","gim2","笒","koo1","罟鮕","koh4","胳","tang5","胴","kuai1","胿","kui1","胿䲅","tsinn7","舐","pan2","舨","tsinn2","茈","sio5","荍","lam2","荏","lap8","衲","be7","袂","suan7","訕","thang3","迵","ainn7","偝","siann5","唌","lim1","啉","lun1","圇","pue5","培","so3","埽","in5","寅","khia7","徛","khong1","悾","khiat4","戛","sut4","捽","kuann7","捾","tuah4","掇","ia7","掖","tsiann7","掙","tau1","掜","tok4","㧻","tang3","㨂","poo1","晡蜅","pue1","桮","kenn3","桱","hia1","桸","suh4","欶","kiu5","毬","phu5","烰","u3","焐","kok8","焗","kun5","𤉙","ji5","猊","bi5","眯","tshuh4","眵焠","loo2","硓櫓","ko5","笱","phoh4","粕","thinn7","紩","thiu1","紬","sua3","紲","khong2","紺","kenn2","耞","pha1","脬葩","tau7","脰","hian5","舷","sui1","荽嗺𦉎","ngeh4","莢","tshi1","蛆癡","phuah8","袚","sinn7","豉","u1","趺","kue2","跂","tshuan1","釧","kainn1","喈","thih8","喋","tsiuh4","喌","iaunn1","喓","sannh4","喢","liang1","喨","sui2","媠","sim7","愖","khian1","掔","tshiat4","掣","hong1","揈","sai1","揌","iap4","揜","tshue7","揣","tuh8","揬","tiap8","揲","phainn7","揹","ui1","揻","piann3","摒","khi1","敧","thau2","敨","tse3","晬","pai5","棑","tshue5","棰","phong3","椪","phu2","殕","gian7","殗","te3","渧","thuann3","湠","iann7","焱","thenn3","牚","kang2","犅","gin7","猌","ba5","猫媌","he1","痚","siau1","痟","sua1","痧","khok8","硞柝","khok4","硞觳","teh4","硩","tshing2","筅熗","tsng1","粧","lau2","粩","an5","絚","hip4","翕","tsui1","脽","a1","腌","tshi3","莿","pat8","菝","the7","䖳","bih4","覕","le2","詈嬭","ji7","貳","hing7","貺","khu5","跍","liam1","跕","tshu7","跙呲澍","giang1","鈃婸","jun7","閏","ui3","飫","tsong5","傱","nua7","僆","thuann2","剷","leh8","剺","li3","剺","khau1","剾薅鬮","khiang3","勥","sa3","嗄","phngh4","嗙","pong3","嗙","ting2","戥","tshiu5","揫","tiuh4","搐","jiok8","搙","khiu2","搝","hian2","搟","tsinn3","搢糋","me1","搣","iah4","搤","lak8","搦磟","kiat4","搩","tng7","搪","un3","搵","hmh4","摁","kong3","摃","king7","楗","lian7","楝","hun3","楦","kham2","歁","him1","歆","tshi5","溡","tian1","滇","ko7","滒","piak4","煏","sah8","煠","ue1","煨","ui2","瑋","pi3","痹","kainn5","睚","gin5","睨","tsiu1","睭","tiann7","碇","tui3","碓","lun2","碖","phe7","稗","tham7","窞","sut8","窣","un5","筠","le5","腡","kiap4","裌","li2","裏","se1","裟","khue1","詼","ho5","貉","tio5","趒","tsuainn7","跩","at4","遏楬","koo2","鈷𥑮","to5","鉈","sian1","鉎","bong5","雺","Kin3","靳","khun1","髡","oh4","僫","lian5","嗹鰱𦟪","tsak8","嗾","hau1","嘐","gok8","嘓","kinn5","墘","mua1","幔","phoo7","廍","im3","廕","tso1","慒","kian1","慳","tsang2","摠","khaunnh8","摳","tshik8","摵踔","tsham3","摻","tshe3","摖粞𤺅","khainn2","敱","uat4","斡","tsin1","榛","ka3","漖","au1","漚","siunn5","𣻸","hannh4","熁","ho1","熇","kho3","犒","iong5","瘍","tak8","碡","thng7","碭","pin2","箅","khoo1","箍","sui5","箠","ham1","䈄𦜆","tuat4","綴","liu2","綹","liam2","膁","ke5","膎","Tsong1","臧","o1","蒿","khi5","蜞疧","theh4","裼","so5","趖","seh8","踅","tshing3","銃熗","khing1","銎","phiann2","鉼","iong2","鞅","tam3","頕","kai2","骱","thoh4","魠","hiau5","嬈","kan2","𡢃","siap4","屧","tong5","幢","tsheh4","慼","giau5","憢","pih4","撆湢馝","nua2","撋","jim5","撏","tsun2","撙","kiau7","撟","giah4","撠","tshiau5","撨","liong5","樑","niu5","樑","mia5","樠","sam3","毿鬖","siau5","潲","thang1","熥","tsik4","稷","hah8","箬","tsi5","糍","thong7","緟","tsi1","膣","phoo3","舖","thong1","蓪","lian1","蔫","bin7","蝒","bui1","蝛","ian5","蝝芫","pe3","褙","pue3","褙","tiam3","踮","lo3","躼","lian2","輦","giap4","鋏","me5","鋩","lang3","閬","hai5","頦","but4","魩粅","puann2","魬","hang1","魴","thim1","鴆","phoo1","麩","gam7","儑𩸶","hun1","勳","jue7","叡","kiau3","噭","hmh8","噷","kat4","墼","khio3","徼","ham2","撼","tiak8","擉","phiak8","擗","iat8","擛","lok4","橐","kueh8","橛","siann7","𣛮","pun5","歕","hiann5","燃","tim7","燖","thng3","燙","bong3","甍","lui3","瘰","mooh8","瘼","inn2","穎","tiau3","窵","si1","窸","si7","窸","sih8","窸","tshuan3","篡","lui7","縋","tsuah8","縒蚻","ha5","縖","kui7","膭","gio7","蕎","gio5","蕘","pi1","螕豍","bing5","螟","pi1","觱螕","pian2","諞","tshun1","賰","phin5","蹁","lam3","𨂾","nua3","躽","ut8","遹","tiap4","霎","kam1","魽","ling7","鴒","hioh8","鴞","phang2","麭","thun5","黗","tshiak8","嚓","tioh4","擢","kiann5","檠","suainn7","檨","haunnh8","澩","hong5","癀","lo5","癆","tan1","癉","le7","篱鱺","sam2","糝","tsan1","罾齻","liam5","臁","tso5","艚","ing3","蕹","o3","薁","hiam1","薟","tsiunn1","螿","tsioh4","襀","tshiang2","蹌","tshiah4","鍤","tsiam1","鍼","thiau5","鮡","bun3","鼢濆","khong3","壙","ngiau1","擽","lu1","攄","tshat4","檫","nah4","爁","phiah8","甓","phiah4","癖","lui5","癗","tio7","癜","hak8","礐","sik4","穡","ue3","穢","sng3","繏","phun2","翸","phio5","薸","hiauh4","藃","la5","蟧","king2","襇","hooh4","謼","tsam3","蹔","tua3","蹛","nng1","軁","bian2","鮸愍","sam5","儳","lik8","壢","lu7","瀘","than1","蟶","phe2","襞","ham3","譀","pak8","贌","liau5","蹽","tsok8","鏃","tshiong1","鏘","tsam7","鏨","siunn2","鯗","tshiunn1","鯧","honn1","齁","inn1","嚶","tshiam2","攕","lang1","櫳","long5","櫳","tshinn5","瀳","tse5","蠐","bang2","蠓魍","lam5","襤","phih4","躄","lau5","鐃","jiu5","鰇","hoo5","鰗","tshiu1","鶖","uang1","嚾","giah8","攑","tsinn1","櫼","tsang5","灇","thai2","癩","lang5","礱","tsin7","贐","liu1","鰡","un1","鰮蝹","khe3","齧","tshuan5","攢","sian2","癬","tik8","糴","tiah8","糴","pio7","鰾","thi1","麶黐","tsak4","齪","tsa1","臢","liong3","躘","lu3","鑢","jiau5","鱙","hau7","鱟","ang3","齆","giang3","齴","ak4","齷","thiau3","糶","thio3","糶","phan3","襻","lah8","鱲","kuan3","顴","loo5","鸕","gong7","戇","lan5","㔂","ge5","㤉","mau1","㧌","khe5","㧎","hiat4","㧒","tu1","㧣","tsang1","㨑鯮","liu5","㨨","tsann7","㨻","bau7","㴘","tshap8","㴙","tsau1","㷮蹧","sim3","㽎","khiap4","㾀","siam1","䀐","bai2","䆀","the1","䖙","kah4","䘥柙","ng2","䘼捥鈗","tshe5","䠡","tshiang7","䢢","phue2","䫌","tsui5","𠞩","lio5","𠞭","gau5","𠢕","tsip8","𠯗","lan7","𡳞","but8","𢪱","mooh4","𢯾","loo7","𢲸蕗","pa1","𢼌羓","khat4","𣁳","khut8","𣮈","kheh4","𤲍","thiau7","𤶃祧","sian7","𤺪蟮","nih4","𥍉","phiat4","𥐵","phin2","𥰔","kam2","𥴊","ling5","𦊓","tai5","𧉟","am1","𧌄罨闇","tshoh4","𧮙","thun2","𧿬","phut8","𧿳","uainn2","𨂿","tshih4","𩑾","khiu7","𩚨","kauh4","𩛩","ngoo2","𩵱","tai7","𩸙","tshio1","𪁎","too3","𪐞","in1","𪜶","gan3","𫝏","siang7","𫝛","hiu3","𫝺","hue5","𫝻","tshai7","𫞼","han5","𫟂","peh4","𬦰","ko1","𰣻","lam1","籠","siunn3","相","siong1","相","siong3","相","loh4","落","lau3","落","ann3","向","hiann3","向","hiong3","向","ng3","向","tiong5","重","tiong7","重","om1","掩","iam2","掩","san3","散","suann2","散","kiu2","九","tua7","大","ji2","子","mng5","毛","mauh4","卯","ling1","奶","ne1","奶","nai1","奶","piann5","平","bo2","母","senn1","生","pik8","白","phi5","皮","kiong7","共","hap8","合","lian5","年","niu2","兩","liong2","兩","pong5","房","hue1","花","tiunn2","長","tiong2","長","thian2","展","tsha1","差","khih4","缺","khueh4","缺","khian5","乾","Boh8","莫","mai3","莫","tun1","鈍","tun3","鈍","tsiann1","精","sueh4","說","phok8","噗","king5","窮","khing5","窮","tsia1","遮","jia1","遮","hing5","還","tuan3","斷","tsuan2","轉","tsuan7","轉","tng2","轉","tsit8","一","pat4","八","lat8","力","sip8","十","sam1","三","huan7","凡","lu2","女","siau2","小","sio2","小","suann1","山","lue7","內","pun1","分","ping2","反","huan2","反","thian1","天","guat8","月","gueh8","月","ga5","牙","puan3","半","khah4","卡","kha2","巧","khiau2","巧","pe1","扒","bue7","未","tsiann3","正","ing7","用","iong7","用","tshan5","田","Tian5","田","jim7","任","ho2","好","honn3","好","tsiu2","守","siu2","守","u7","有","si2","死","ni2","耳","bah4","肉","ngai7","艾","hiann7","艾","hueh4","血","tshng3","串","Put8","佛","tsok4","作","tsoh4","作","tue7","兌","piat8","別","kam5","含","kann5","含","khngh4","吭","tshe7","坐","Song3","宋","tshng5","床","sng5","床","jim2","忍","gua2","我","ngiu2","扭","lau2","扭","phoo5","扶","tshiang5","沖","kinn3","見","kian3","見","guan2","阮","ping7","並","phing7","並","--nih4","呢","--neh4","呢","hoo1","呼","mia7","命","ham7","和","khia1","奇","tse2","姊","senn3","姓","hit4","彼","ong2","往","kuai3","怪","ni1","拈","phau1","拋","phah4","拍","kuainn7","拐","pueh8","拔","tsiau1","招","tsio1","招","pang3","放","hong3","放","tong1","東","pa5","爸","mih8","物","--e5","的","khang1","空","piau2","表","mng5","門","u2","雨","tsian5","前","teh4","咧","--leh4","咧","khak8","咯","khue3","架","ni2","染","jiam2","染","tok8","毒","thau7","毒","tsuann5","泉","tsuann3","炸","khan3","看","khuann3","看","tshing7","穿","kang3","降","an7","限","bian7","面","tsiah8","食","to3","倒","tat8","值","--lih4","哩","mai1","哩","hainn1","哼","--hngh4","哼","nia5","娘","sun1","孫","uann3","晏","su1","書","khui3","氣","phua3","破","bang5","茫","tsho2","草","tshau2","草","tin7","陣","ke2","假","phian1","偏","tshiang3","唱","tshiunn3","唱","tsiong3","將","tai3","帶","tit4","得","tsiong5","從","liam3","捻","tshia5","斜","tshuah8","斜","Mui5","梅","thiam1","添","bing2","猛","me2","猛","hian7","現","ap8","盒","tsah4","紮","thut8","脫","thuat4","脫","pi7","被","phue7","被","huan3","販","jiok4","逐","tshong3","創","--eh4","喂","--ueh4","喂","hiam3","喊","kuann5","寒","to7","就","tsiu7","就","the5","提","theh8","提","tshap4","插","tshah4","插","kann2","敢","khuan2","款","khuann2","款","bo5","無","puh4","發","tuan2","短","tan2","等","tseh8","絕","tsuat8","絕","tioh8","著","lih8","裂","liah4","裂","mai2","買","khai1","開","khui1","開","hiong5","雄","thng5","傳","thap4","塌","lap4","塌","siunn7","想","siong2","想","sian3","搧","tsian1","煎","tsuann1","煎","tsiau3","照","tsio3","照","ta3","罩","Iap8","葉","--li2","裡","hiah4","遐","--mah4","嘛","tsat8","實","siang3","摔","siak4","摔","kha3","敲","mua2","滿","buan2","滿","gi2","語","gu2","語","uan2","遠","hng7","遠","tsiau5","齊","tsan3","層","tsan5","層","siau3","數","piau1","標","phun1","潘","Phuann1","潘","jiat8","熱","juah8","熱","me7","罵","tshiann2","請","lun5","輪","oh8","學","inn3","燕","bua5","磨","hing1","興","hing3","興","tsing7","靜","tsenn7","靜","hann2","嚇","heh4","嚇","phang7","縫","siann1","聲","tam2","膽","lim2","臨","Pok8","薄","Tsia7","謝","thut4","黜","konn5","鼾","huann5","鼾","ngiauh8","蟯","thang5","蟲","thiong5","蟲","hiah8","額","sang1","鬆","long2","攏","li5","簾","kian2","繭","phiang7","龐","khuan3","勸","lo7","囉","--looh4","囉","long1","囊","thah8","疊","thiap8","疊","thing3","聽","thak8","讀","thok8","讀","pinn3","變","hiann2","顯","liau2","了","jip8","入","ku2","久","khit4","乞","ia7","也","khau2","口","tshun3","寸","thiu2","丑","tsenn2","井","hiong1","凶","phit4","匹","thai3","太","tsio2","少","jiap8","廿","sim1","心","tshiu2","手","tau2","斗","jit8","日","phainn2","歹","m7","毋","hue2","火","jiau2","爪","phinn3","片","tsann3","乍","--honnh4","乎","hat8","乏","a2","仔","hiann1","兄","tsiam3","占","ku3","句","lo1","叨","kio3","叫","kho2","可","gua7","外","iang1","央","iu3","幼","tuann3","旦","pun2","本","kue1","瓜","hia7","瓦","hiat8","穴","lip8","立","kiann7","件","hong2","仿","huah8","伐","tsai7","在","theh8","宅","tsa2","早","pah4","百","phuann7","伴","ke7","低","U5","余","tsoo7","助","thun1","吞","pui7","吠","Ngoo5","吳","tsha2","吵","khip4","吸","hau2","吼","tun2","囤","khenn1","坑","miau7","妙","hau3","孝","bue2","尾","jio7","尿","tsi3","志","bong7","忘","khuai3","快","tshe2","扯","pian1","扳","tsau7","找","pe2","把","iah8","抑","jiau3","抓","tau5","投","tshun1","村","siah8","杓","mui2","每","Ong1","汪","tim5","沉","bak4","沐","oo7","芋","gian5","言","tsau2","走","khu7","具","tsut4","卒","tshan1","呻","mue7","妹","tshiap4","妾","m2","姆","phe3","帕","tshian5","延","thiam2","忝","koo7","怙","soo2","所","phi1","披","buah4","抹","thiu1","抽","tu2","拄","thiah4","拆","puann7","拌","thua1","拖","ong7","旺","phueh8","沫","tsam1","沾","iam7","炎","tsha2","炒","tsenn1","爭","Tiok4","竺","tsia2","者","pui5","肥","khing2","肯","ngia5","迎","kin7","近","Sio7","邵","Hau5","侯","thi3","剃","khiok4","卻","kau7","厚","ai1","哀","ha1","哈","--aih4","哎","i7","奕","Iau5","姚","Khiong1","姜","i5","姨","thai7","待","lut8","律","au7","後","uan3","怨","pinn2","扁","pai3","拜","thio1","挑","oo2","挖","penn3","柄","boo2","某","uai1","歪","tin1","津","siap8","洩","uah8","活","phai3","派","kui2","癸","phun5","盆","sing2","省","ging2","研","kho1","科","iok4","約","nai7","耐","Biau5","苗","kho5","苛","om7","茂","khing7","虹","tshuann3","閂","hiunn1","香","ua2","倚","kiam1","兼","thak4","剔","uan5","員","--hannh4","唅","haih4","唉","--ioh4","唷","tiann5","埕","tho3","套","ban1","屘","kham3","崁","sinn3","扇","thann2","挺","ban2","挽","thong2","捅","khun2","捆","huann2","晃","tsim3","浸","tia1","爹","eh8","狹","long5","狼","pan1","班","thik4","畜","thiann3","疼","penn7","病","tsoo2","祖","tshio3","笑","hun2","粉","tsua2","紙","soh4","索","hing1","胸","meh8","脈","tshau3","臭","sue1","衰","tho2","討","be5","迷","piang3","迸","tsiu2","酒","siam2","閃","inn7","院","kut4","骨","gua7","偌","tso3","做","thing5","停","thau1","偷","tsian2","剪","tsham1","參","mng7","問","siann2","啥","--lah4","啦","po5","婆","kia3","寄","bat8","密","tsuan1","專","kia7","崎","Siong5","常","sua2","徙","sioh4","惜","so1","挲","phong2","捧","tsiap8","捷","hian1","掀","liah8","掠","tham3","探","khang3","控","khainn1","掮","pai7","敗","thang2","桶","sau1","梢","beh4","欲","--eh4","欸","sioh8","液","liang5","涼","tshian2","淺","song2","爽","tshai1","猜","pan5","瓶","hui5","瓷","tinn1","甜","gan2","眼","phio3","票","pun7","笨","tshiu1","羞","o5","蚵","tsua5","蛇","siat4","設","tham1","貪","lan1","趼","nng2","軟","thau3","透","thing2","逞","ia2","野","tio3","釣","nia7","陵","ham7","陷","tsiau2","鳥","thi5","啼","khennh8","喀","nauh4","喃","--ooh4","喔","tshuan2","喘","Kiau5","喬","tuann1","單","kham1","堪","po3","報","tiunn5","場","pu3","富","tsun1","尊","siam5","尋","Phenn5","彭","ok4","惡","gang7","愣","tui5","捶","pue2","掰","bok4","揍","bio5","描","ne5","晾","kiam2","減","oo5","湖","kau5","猴","iau2","猶","khun3","睏","nge7","硬","Thiann5","程","jiong5","絨","sin7","腎","khiunn1","腔","kiok4","菊","tshai3","菜","phing5","評","bau7","貿","uat8","越","phau2","跑","pai2","跛","gan7","雁","im2","飲","luan7","亂","tsau5","剿","hng5","園","inn5","圓","thah4","塔","thiong2","塚","thiam7","填","hiam5","嫌","hainn3","幌","jia2","惹","i3","意","ai3","愛","tshiau1","搜","puann1","搬","thin5","斟","am3","暗","Tshoo2","楚","gong5","楞","hioh4","歇","sip4","溼","biat8","滅","tai2","滓","tsuann2","盞","e2","矮","uann2","碗","kim3","禁","tsue7","罪","gi7","義","siann3","聖","phing3","聘","tshenn3","腥","nau2","腦","Tang2","董","tsong3","葬","hiu5","裘","tshat8","賊","jiah4","跡","gu7","遇","to7","道","tsah8","閘","phauh8","雹","tian7","電","pa2","飽","tiann2","鼎","tshi2","鼠","hiau1","僥","ueh8","劃","ia3","厭","--tsheh4","嘖","tuat8","奪","pu7","孵","kua2","寡","tshim2","寢","tsham2","慘","tiah4","摘","bong1","摸","thiong3","暢","tshing5","榕","siam3","滲","tih4","滴","kun2","滾","han3","漢","suan7","漩","gi5","疑","kann1","監","tsang3","粽","kin2","緊","huat8","罰","thui2","腿","hak4","蓄","tshioh8","蓆","jin7","認","sia1","賒","kuann2","趕","khin1","輕","liu3","遛","kann3","酵","khiah4","隙","hong7","鳳","phinn7","鼻","khiam7","儉","kiam3","劍","--heh4","嘿","phun3","噴","sia2","寫","bio7","廟","hui3","廢","iann2","影","iu1","憂","the1","撐","ngiau2","撓","poo3","播","tsiam7","暫","iunn7","樣","phuah4","潑","puann5","盤","khap8","磕","tiu7","稻","koo5","糊","uan7","緩","pa7","罷","phong7","蓬","tsia3","蔗","Tshua3","蔡","tshang1","蔥","po1","褒","tsui5","誰","tsenn3","諍","lun7","論","tsian7","賤","tah8","踏","lin5","鄰","tsui3","醉","tshoo3","醋","uann1","鞍","go7","餓","tu7","駐","nau7","鬧","ging5","凝","aih4","噯","tong3","噸","piah4","壁","pin5","憑","tsian3","戰","tshiu7","樹","huainn5","橫","bun7","燜","khue5","瘸","pin3","篦","thng5","糖","kuan7","縣","tshin1","親","--hioh4","諾","gioh8","謔","niau1","貓","suan2","選","tshenn2","醒","tshann7","錚","iam1","閹","hiam2","險","siu3","鞘","thau5","頭","am7","頷","ann7","餡","Pau7","鮑","tshing3","擤","tong2","檔","lam7","濫","khuan5","環","gam5","癌","lio2","瞭","sui7","穗","bih8","篾","pun3","糞","tsong2","總","penn1","繃","ioh4","臆","lau1","蹓","lian3","輾","tshinn1","鮮","tiam2","點","ge3","嚙","tsim2","嬸","tan3","擲","pai2","擺","tsuann7","濺","siu3","繡","khiau3","翹","tsim5","蟳","tsiunn3","醬","tin3","鎮","siang1","雙","li7","離","liu7","餾","khia5","騎","Gui7","魏","phan1","攀","phak8","曝","ban7","瓣","gai7","礙","pua3","簸","ge7","藝","tin5","藤","ioh8","藥","phoo2","譜","kio7","轎","kiann3","鏡","guan7","願","phian3","騙","jiang2","嚷","kuan5","懸","ann5","攔","le3","礪","Lin7","藺","tak4","觸","pinn7","辮","kiam5","鹹","mi7","麵","tong2","黨","liap4","攝","nua5","欄","tinn5","纏","bueh8","襪","hiang2","響","hoh8","鶴","khuan5","權","nng5","瓤","gian3","癮","giam7","驗","kiann1","驚","tshue2","髓","the2","體","kinn1","鹼","iam5","鹽","neh4","躡","tshim5","鑱","sai5","饞","tsan2","讚","tsng3","鑽","tshak8","鑿"];
+
+
+
+// 取得輸入框和按鈕元素
+const search1 = document.getElementById('search1');
+const search3 = document.getElementById('search3');
+const change1 = document.getElementById('change1');
+
+
+// 替換字串函數
+function replaceString(str, arr) {
+  let newStr = '';
+  for (let i = 0; i < arr.length; i++) {
+      re = new RegExp("[:;：；]" + arr[i], "g");
+	  str = str.replace(re, arr[i+1]);
+	  i = i+1;
+  }
+  newStr = str;
+  return newStr;
+}
+
+// 按鈕點擊事件處理函數
+change1.addEventListener('click', () => {
+  // 替換輸入框內容
+  const newValue1 = replaceString(search1.value, luozi);
+  const newValue3 = replaceString(search3.value, luozi);
+  search1.value = newValue1;
+  search3.value = newValue3;
+
+
+});
+
+    </script>
+<script src="https://oikasu.com/file/code/wesingjs.js"></script>
+  </body>
+</html>
