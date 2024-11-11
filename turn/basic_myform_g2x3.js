@@ -116,7 +116,7 @@ myVar += " <link href=\"basic_myform_g2x3.css\" rel=\"stylesheet\"> ";
 document.write(myVar);
 
 
-const targetKeywords = ['code', 'wp'];
+const targetKeywords = ['code', 'wp', 'gnisew'];
 const currentURL = window.location.href;
 if (!targetKeywords.some(keyword => currentURL.includes(keyword))) {
     const btnsDiv = document.getElementById('btns');
