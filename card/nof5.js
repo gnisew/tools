@@ -1,4 +1,91 @@
+
+// === 防止下拉更新的處理 ===
+document.addEventListener('DOMContentLoaded', function() {
     var isTouchDevice = 'ontouchstart' in window || navigator.msMaxTouchPoints;
+    
+    if (isTouchDevice) {
+        let startY = 0;
+        let startX = 0;
+        
+        // 新增：設定 CSS 防止下拉
+        document.body.style.overscrollBehavior = 'none';
+        document.documentElement.style.overscrollBehavior = 'none';
+        
+        // 處理觸控開始
+        document.addEventListener('touchstart', function(e) {
+            startY = e.touches[0].pageY;
+            startX = e.touches[0].pageX;
+        }, { passive: false });
+
+        // 處理觸控移動
+        document.addEventListener('touchmove', function(e) {
+            // 確保有觸控點
+            if (e.touches.length > 0) {
+                // 計算移動距離
+                const deltaY = e.touches[0].pageY - startY;
+                const deltaX = e.touches[0].pageX - startX;
+                
+                // 如果是垂直滑動且在頁面頂部
+                if (Math.abs(deltaY) > Math.abs(deltaX)) {
+                    // 在頁面頂部且想要下拉
+                    if (window.scrollY <= 0 && deltaY > 0) {
+                        e.preventDefault();
+                    }
+                    
+                    // 在頁面底部且想要上拉
+                    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight && deltaY < 0) {
+                        e.preventDefault();
+                    }
+                }
+            }
+        }, { passive: false });
+
+        // 新增：防止 iOS 橡皮筋效果
+        document.addEventListener('touchmove', function(e) {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
+        // 新增：處理特定容器的觸控事件
+        const container = document.getElementById('canvas-container');
+        if (container) {
+            container.addEventListener('touchmove', function(e) {
+                e.preventDefault();
+            }, { passive: false });
+        }
+    }
+    
+    // 新增：CSS 樣式
+    const style = document.createElement('style');
+    style.textContent = `
+        html, body {
+            overscroll-behavior: none;
+            overflow-x: hidden;
+            height: 100%;
+            position: fixed;
+            width: 100%;
+        }
+        #canvas-container {
+            touch-action: none;
+            -webkit-overflow-scrolling: none;
+            overflow: hidden;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+    `;
+    document.head.appendChild(style);
+});
+
+// 新增：確保視窗大小改變時重新計算
+window.addEventListener('resize', function() {
+    // 強制重新計算視窗高度（解決 iOS Safari 工具列問題）
+    let vh = window.innerHeight * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+});
+/*
+	var isTouchDevice = 'ontouchstart' in window || navigator.msMaxTouchPoints;
 
     if (isTouchDevice) {
       var lastTouchY = 0;
@@ -21,6 +108,8 @@
         }
       }, { passive: false });
     }
+*/
+
 
 
 

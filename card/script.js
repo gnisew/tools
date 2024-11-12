@@ -9,12 +9,81 @@ let panY = 0;
 const canvas = document.getElementById('infinite-canvas');
 const container = document.getElementById('canvas-container');
 
+let touchStartX = 0;
+let touchStartY = 0;
+let lastTouchX = 0;
+let lastTouchY = 0;
 
+document.addEventListener('touchstart', function(e) {
+    if (selectMode) {
+        if (e.target.classList.contains('wordCard') ||
+            e.target.closest('.inputContainer') ||
+            e.target.closest('#ox2')) {
+            return;
+        }
+        isSelecting = true;
+        const touch = e.touches[0];
+        startX = touch.clientX;
+        startY = touch.clientY;
+        selectBox.style.left = startX + 'px';
+        selectBox.style.top = startY + 'px';
+        selectBox.style.width = '0';
+        selectBox.style.height = '0';
+        selectBox.style.display = 'block';
+        e.preventDefault();
+    }
+});
+
+document.addEventListener('touchmove', function(e) {
+    if (!isSelecting) return;
+    const touch = e.touches[0];
+    const width = Math.abs(touch.clientX - startX);
+    const height = Math.abs(touch.clientY - startY);
+    const left = Math.min(touch.clientX, startX);
+    const top = Math.min(touch.clientY, startY);
+
+    selectBox.style.width = width + 'px';
+    selectBox.style.height = height + 'px';
+    selectBox.style.left = left + 'px';
+    selectBox.style.top = top + 'px';
+
+    const cards = document.querySelectorAll('.wordCard');
+    const selectRect = selectBox.getBoundingClientRect();
+    cards.forEach(card => {
+        const cardRect = card.getBoundingClientRect();
+        const overlap = !(
+            selectRect.right < cardRect.left ||
+            selectRect.left > cardRect.right ||
+            selectRect.bottom < cardRect.top ||
+            selectRect.top > cardRect.bottom
+        );
+        if (overlap) {
+            card.classList.add('selected');
+        }
+    });
+    e.preventDefault(); // 防止頁面滾動
+});
+
+document.addEventListener('touchend', function() {
+    if (isSelecting) {
+        isSelecting = false;
+        selectBox.style.display = 'none';
+    }
+});
 
 // 縮放功能
 function setTransform() {
-  canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    requestAnimationFrame(() => {
+        canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    });
 }
+
+// 防止整個頁面的預設觸控行為
+document.body.addEventListener('touchmove', (e) => {
+    if (isDragging || isTouching) {
+        e.preventDefault();
+    }
+}, { passive: false });
 
 function zoomIn() {
   scale *= 1.2;
@@ -53,11 +122,11 @@ container.addEventListener('wheel', (e) => {
 // 平移功能
 let isDragging = false;
 let lastX, lastY;
+let isTouching = false;
 
 
 container.addEventListener('mousedown', (e) => {
-    if (selectMode) return; // 如果是選取模式，直接返回，不執行拖曳
-    
+    if (selectMode) return;
     if (e.target === container || e.target === canvas) {
         isDragging = true;
         lastX = e.clientX;
@@ -67,18 +136,62 @@ container.addEventListener('mousedown', (e) => {
 });
 
 container.addEventListener('mousemove', (e) => {
-    if (selectMode) return; // 如果是選取模式，直接返回，不執行拖曳
-    
-    if (isDragging) {
-        const dx = (e.clientX - lastX) / scale;
-        const dy = (e.clientY - lastY) / scale;
-        panX += dx;
-        panY += dy;
-        lastX = e.clientX;
-        lastY = e.clientY;
-        setTransform();
-        container.style.cursor = 'grabbing';
+    if (selectMode || !isDragging) return;
+    const dx = (e.clientX - lastX) / scale;
+    const dy = (e.clientY - lastY) / scale;
+    panX += dx;
+    panY += dy;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    setTransform();
+    container.style.cursor = 'grabbing';
+});
+
+
+container.addEventListener('touchstart', (e) => {
+    if (selectMode) return;
+    if (e.target === container || e.target === canvas) {
+        isTouching = true;
+        isDragging = true;
+        lastX = e.touches[0].clientX;
+        lastY = e.touches[0].clientY;
+        e.preventDefault(); // 防止其他觸控行為
     }
+}, { passive: false }); // 明確設定為非被動事件
+
+container.addEventListener('touchmove', (e) => {
+    if (selectMode || !isDragging || !isTouching) return;
+    const touch = e.touches[0];
+    const dx = (touch.clientX - lastX) / scale;
+    const dy = (touch.clientY - lastY) / scale;
+    panX += dx;
+    panY += dy;
+    lastX = touch.clientX;
+    lastY = touch.clientY;
+    setTransform();
+    e.preventDefault(); // 防止頁面滾動
+}, { passive: false }); // 明確設定為非被動事件
+
+container.addEventListener('touchend', (e) => {
+    isDragging = false;
+    isTouching = false;
+    e.preventDefault();
+}, { passive: false });
+
+// 防止觸控縮放
+container.addEventListener('gesturestart', (e) => {
+    e.preventDefault();
+}, { passive: false });
+
+// 確保拖曳結束時重置狀態
+document.addEventListener('mouseup', () => {
+    isDragging = false;
+    container.style.cursor = 'default';
+});
+
+document.addEventListener('mouseleave', () => {
+    isDragging = false;
+    container.style.cursor = 'default';
 });
 
 container.addEventListener('mouseup', () => {
@@ -251,7 +364,7 @@ function createWordCard(txt) {
                     this.addEventListener('contextmenu', showContextMenu);
                 }.bind(this), 500); // 長按觸發時間設定為 500 毫秒;
             });
-            document.getElementById('infinite-canvas').appendChild(wordCard);
+            canvas.appendChild(wordCard);
         });
     }
     // 如果語詞卡超出視窗寬度，排到下一行;
@@ -445,7 +558,7 @@ function restoreWordCard() {
         //wordCard.style.zIndex = deletedWordCard.zIndex; //here;
         wordCard.setAttribute('menuAgain', 'o');
         // 可以顯示選單;
-        document.getElementById('infinite-canvas').appendChild(wordCard);
+        canvas.appendChild(wordCard);
         // 將語詞卡重新加入網頁
         preloadAudios()
         // 預載音檔;
@@ -624,6 +737,7 @@ function showContextMenu(event) {
     };
     menu.appendChild(zoomOutItem);
 
+
     // 修改 showContextMenu 函式中的編輯選項程式碼
 var editItem = document.createElement('div');
 editItem.textContent = '✏️ 編輯';
@@ -795,7 +909,8 @@ menu.appendChild(editItem);
         cloneCard.addEventListener('contextmenu', showContextMenu);
         cloneCard.setAttribute('menuAgain', 'o');
 
-        document.body.appendChild(cloneCard);
+        canvas.appendChild(cloneCard); //here
+
 
         card.setAttribute('menuAgain', 'o');
         document.removeEventListener('click', hideContextMenu);
@@ -1205,7 +1320,7 @@ function restoreWordCardsFromURL() {
             wordCard.style.left = cardData.left + 'px';
 
             makeDraggable(wordCard);
-            document.getElementById('infinite-canvas').appendChild(wordCard);
+            canvas.appendChild(wordCard);
         });
     }
     if (txtData) {
@@ -1243,7 +1358,7 @@ function restoreWordCardsFromURL() {
             wordCard.style.position = 'absolute';
             makeDraggable(wordCard);
             wordCard.addEventListener('contextmenu', showContextMenu);
-            document.getElementById('infinite-canvas').appendChild(wordCard);
+            canvas.appendChild(wordCard);
         }
     }
     if (newData) {
