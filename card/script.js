@@ -1109,8 +1109,17 @@ function deleteWordCardsByColor() {
     });
 }
 
-
-
+// 壓縮相同字串，aaaa = aₓ4 ;
+function compressString(str) {
+    return str.replace(/(.)\1{3,}/g, (match, char) => {
+        return `${char}ₓ${match.length}`;
+    });
+}
+function decompressString(str) {
+    return str.replace(/(.)\ₓ(\d+)/g, (match, char, count) => {
+        return char.repeat(parseInt(count));
+    });
+}
 
 // 分享目前網址內的語詞卡;
 function shareWordCards(how) {
@@ -1176,9 +1185,9 @@ function shareWordCards(how) {
             wordCard.offsetLeft + "," +
             wordCard.getAttribute('draggable') + "," +
             wordCard.style.zIndex + "," +
-            (parseFloat(wordCard.style.fontSize) || "n") +
-            // 字體大小 || 若無值則為n ;
-            transformTxt + ";"; // ,轉動與,翻轉;
+            (parseFloat(wordCard.style.fontSize) || "") +
+            // 字體大小 || 或無值 ;
+            transformTxt + "¡"; // ,轉動與,翻轉;
         //----------;
         let wordCardHtml = selectOptionToTxt(wordCard.innerHTML); //下拉選單轉{{}};
         wordCardHtml = rubyToText(wordCardHtml); // 注音標示;			
@@ -1186,7 +1195,7 @@ function shareWordCards(how) {
         wordCardHtml = iframeToVocaroo(wordCardHtml);
         wordCardHtml = iframeToYoutube(wordCardHtml);
 
-        shareTxtB = shareTxtB + wordCardHtml + "|";
+        shareTxtB = shareTxtB + wordCardHtml + "¦";
         shareHtml.push(wordCard.innerHTML);
         shareText.push(wordCard.textContent);
         //id,色彩,top,left,zIndex,可否移動;字體|文字;
@@ -1215,9 +1224,14 @@ function shareWordCards(how) {
     shareTxtB = shareTxtB.replace(/&amp;/g, '＆');
     shareTxtB = shareTxtB.replace(/\#/g, '＃');
     shareTxtB = shareTxtB.replace(/\+/g, '＋');
+    shareTxtB = shareTxtB.replace(/&lt;/g, '＜');
+    shareTxtB = shareTxtB.replace(/&gt;/g, '＞');
 
-    //params.set('txtCards', shareTxt + "|" + encodeURIComponent(shareTxtB));
-    params.set('txtCards', shareTxt + "|" + shareTxtB);
+	shareTxtB = compressString(shareTxtB);
+
+
+    //params.set('txtCards', shareTxt + "¦" + encodeURIComponent(shareTxtB));
+    params.set('txtCards', shareTxt + "¦" + shareTxtB);
 
     var urlWithoutParams = new URL(location.href);
     urlWithoutParams.search = '';
@@ -1296,7 +1310,7 @@ function redirectToUrl() {
 restoreWordCardsFromURL();
 // 函式：解析分享網址並恢復語詞卡;
 function restoreWordCardsFromURL() {
-    var params = new URLSearchParams(location.search);
+    var params = new URLSearchParams(location.search);	
     var sharedData = params.get('wordCards');
     var txtData = params.get('txtCards');
     var newData = params.get('new');
@@ -1318,15 +1332,18 @@ function restoreWordCardsFromURL() {
         });
     }
     if (txtData) {
+		txtData = decompressString(txtData);
         txtData = txtData.replace(/　/g, " ");
         txtData = txtData.replace(/＆/g, "&");
         txtData = txtData.replace(/＃/g, "#");
         txtData = txtData.replace(/＋/g, "+");
+        txtData = txtData.replace(/＜/g, "<");
+        txtData = txtData.replace(/＞/g, ">");
 
 
-        var data = txtData.split(";|").filter(Boolean);
-        let arrA = data[0].split(";").filter(Boolean);
-        let arrB = data[1].split("|").filter(Boolean);
+        var data = txtData.split("¡¦").filter(Boolean);
+        let arrA = data[0].split("¡").filter(Boolean);
+        let arrB = data[1].split("¦").filter(Boolean);
         let len = arrA.length;
         //id,色彩,top,left|文字︴;
         for (let i = 0; i < len; i++) {
