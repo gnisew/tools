@@ -61,7 +61,7 @@ rt {
 
 #wordInput {
     padding: 10px 0px 10px 30px;
-	border: 1px solid #ccc;
+    border: 1px solid #ccc;
 }
 
 .inputContainer {
@@ -127,27 +127,35 @@ select {
 .cardColor-1 {
     background-color: lightcoral;
 }
+
 .cardColor-2 {
     background-color: lightsalmon;
 }
+
 .cardColor-3 {
     background-color: lightgoldenrodyellow;
 }
+
 .cardColor-4 {
     background-color: lightgreen;
 }
+
 .cardColor-5 {
     background-color: lightblue;
 }
+
 .cardColor-6 {
     background-color: lavender;
 }
+
 .cardColor-7 {
     background-color: lightgray;
 }
+
 .cardColor-8 {
     background-color: white;
 }
+
 .cardColor-9 {
     background-color: transparent;
 }
@@ -172,52 +180,63 @@ select {
 
 
 #canvas-container {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
 }
 
 #infinite-canvas {
-  position: absolute;
-  transform-origin: 0 0;
-  width: 100000px;  /* 設置較大的初始寬度 */
-  height: 100000px; /* 設置較大的初始高度 */
-  z-index: 1;
+    position: absolute;
+    transform-origin: 0 0;
+    width: 100000px;
+    /* 設置較大的初始寬度 */
+    height: 100000px;
+    /* 設置較大的初始高度 */
+    z-index: 1;
 }
 
 .tool-controls {
-  position: fixed;
-  top: 10px;
-  left: 10px;
-  z-index: 999;
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    z-index: 999;
 }
 
 .zoom-controls {
-  position: fixed;
-  right: 20px;
-  bottom: 20px;
-  z-index: 999;
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 999;
 }
 
 .zoom-controls button {
-  width: 40px;
-  height: 40px;
-  margin: 5px;
-  font-size: 20px;
-  cursor: pointer;
-  border-radius: 50%;
-  background: white;
-  border: 1px solid #ccc;
+    width: 40px;
+    height: 40px;
+    margin: 2px;
+    font-size: 20px;
+    cursor: pointer;
+    border-radius: 50%;
+    background: white;
+    border: 1px solid #ccc;
+    /* display: flex;  */
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 1;
 }
 
+.zoom-controls button:hover {
+    background: #f5f5f5;
+}
 
 .wordCard.selected {
     border: 2px solid #4CAF50;
     box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
 }
+
 /*
 #selectBox {
     position: absolute;
@@ -241,52 +260,49 @@ body.selecting {
 
 
 button {
-  padding: 8px 16px;
-  font-size: 14px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  background-color: #fff;
-  cursor: pointer;
-  user-select: none;
-  transition: all 0.3s ease;
+    padding: 8px 16px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #fff;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.3s ease;
 }
 
 button:hover {
-  background-color: #f2f2f2;
+    background-color: #f2f2f2;
 }
 
 button:active {
-  transform: translateY(1px);
+    transform: translateY(1px);
 }
-
 
 
 
 
 #clearButton {
-  position: absolute;
-  top: 50%;
-  right: 5px;
-  transform: translateY(-50%);
-  font-size: 16px;
-  cursor: pointer;
+    position: absolute;
+    top: 50%;
+    right: 5px;
+    transform: translateY(-50%);
+    font-size: 16px;
+    cursor: pointer;
 }
 
 #trashCan {
-  width: 32px;
-  height: 32px;
-  background-image: url('trash-icon.png');
-  background-size: cover;
+    width: 32px;
+    height: 32px;
+    background-image: url('trash-icon.png');
+    background-size: cover;
 }
 
 #selectModeButton.active {
-  background-color: #4CAF50;
-  color: #fff;
-  border-color: #45a049;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    background-color: #4CAF50;
+    color: #fff;
+    border-color: #45a049;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
-
-
 
 
 
@@ -300,47 +316,51 @@ button:active {
 
 
 
-
 <div id="canvas-container">
-  <div id="infinite-canvas"></div>
+    <div id="infinite-canvas"></div>
 </div>
 
 <div class="tool-controls">
-<button id="ox" onclick="document.getElementById('ox2').classList.toggle('hide')">☰</button>
-<span id="ox2">
-    <button id="updateFiles" onclick="redirectToUrl()" ondblclick="updateFiles()" style="display: none;">📄新</button>
-    <div class="inputContainer">
-        <input type="text" id="wordInput" placeholder="✒️文字 ([分割符號])">
-        <select id="colorSelect">
-            <option value="" disabled>底</option>
-            <option value="0" selected>彩</option>
-            <option value="1">紅</option>
-            <option value="2">橘</option>
-            <option value="3">黃</option>
-            <option value="4">綠</option>
-            <option value="5">藍</option>
-            <option value="6">紫</option>
-            <option value="7">灰</option>
-            <option value="8">白</option>
-            <option value="9">無</option>
-        </select>
-    <span id="clearButton" class="clearInput">x</span>
-    </div><button onclick="createWordCard()">建立</button>
-    <button id="shareButton" onclick="shareWordCards()">分享</button>
-    <button id="selectModeButton">選取</button>
-    <div id="trashCan" onclick="restoreWordCard()" style="display: none;"></div>
-    <!--<button onclick="deleteWordCardsByColor()">刪色</button>-->
-    <!--<button id="moveButton">移動模式</button>-->
-</span>
+    <button id="ox" onclick="document.getElementById('ox2').classList.toggle('hide')">☰</button>
+    <span id="ox2">
+        <button id="updateFiles" onclick="redirectToUrl()" ondblclick="updateFiles()" style="display: none;">📄新</button>
+        <div class="inputContainer">
+            <input type="text" id="wordInput" placeholder="✒️文字 ([分割符號])">
+            <select id="colorSelect">
+                <option value="" disabled>底</option>
+                <option value="0" selected>彩</option>
+                <option value="1">紅</option>
+                <option value="2">橘</option>
+                <option value="3">黃</option>
+                <option value="4">綠</option>
+                <option value="5">藍</option>
+                <option value="6">紫</option>
+                <option value="7">灰</option>
+                <option value="8">白</option>
+                <option value="9">無</option>
+            </select>
+            <span id="clearButton" class="clearInput">x</span>
+        </div><button onclick="createWordCard()">建立</button>
+
+        <button id="selectModeButton">選取</button>
+        <div id="trashCan" onclick="restoreWordCard()" style="display: none;"></div>
+        <!--<button onclick="deleteWordCardsByColor()">刪色</button>-->
+        <!--<button id="moveButton">移動模式</button>-->
+    </span>
 </div>
 
 <div class="zoom-controls">
-  <button onclick="zoomIn()">+</button>
-  <button onclick="zoomOut()">-</button>
+    <button id="shareButton" onclick="shareWordCards()" title="分享">➦</button>
+    <button onclick="resetZoom()" title="原比例">↺</button>
+    <button onclick="zoomIn()" title="拉近">+</button>
+    <button onclick="zoomOut()" title="退遠">-</button>
+
+
 </div>
 
 <script src="script.js?v=Sing01"></script>
 <script src="nof5.js?v=740"></script>
+
 
 </body>
 </html>

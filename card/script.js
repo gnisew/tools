@@ -9,124 +9,62 @@ let panY = 0;
 const canvas = document.getElementById('infinite-canvas');
 const container = document.getElementById('canvas-container');
 
-let touchStartX = 0;
-let touchStartY = 0;
-let lastTouchX = 0;
-let lastTouchY = 0;
 
-document.addEventListener('touchstart', function(e) {
-    if (selectMode) {
-        if (e.target.classList.contains('wordCard') ||
-            e.target.closest('.inputContainer') ||
-            e.target.closest('#ox2')) {
-            return;
-        }
-        isSelecting = true;
-        const touch = e.touches[0];
-        startX = touch.clientX;
-        startY = touch.clientY;
-        selectBox.style.left = startX + 'px';
-        selectBox.style.top = startY + 'px';
-        selectBox.style.width = '0';
-        selectBox.style.height = '0';
-        selectBox.style.display = 'block';
-        e.preventDefault();
-    }
-});
-
-document.addEventListener('touchmove', function(e) {
-    if (!isSelecting) return;
-    const touch = e.touches[0];
-    const width = Math.abs(touch.clientX - startX);
-    const height = Math.abs(touch.clientY - startY);
-    const left = Math.min(touch.clientX, startX);
-    const top = Math.min(touch.clientY, startY);
-
-    selectBox.style.width = width + 'px';
-    selectBox.style.height = height + 'px';
-    selectBox.style.left = left + 'px';
-    selectBox.style.top = top + 'px';
-
-    const cards = document.querySelectorAll('.wordCard');
-    const selectRect = selectBox.getBoundingClientRect();
-    cards.forEach(card => {
-        const cardRect = card.getBoundingClientRect();
-        const overlap = !(
-            selectRect.right < cardRect.left ||
-            selectRect.left > cardRect.right ||
-            selectRect.bottom < cardRect.top ||
-            selectRect.top > cardRect.bottom
-        );
-        if (overlap) {
-            card.classList.add('selected');
-        }
-    });
-    e.preventDefault(); // 防止頁面滾動
-});
-
-document.addEventListener('touchend', function() {
-    if (isSelecting) {
-        isSelecting = false;
-        selectBox.style.display = 'none';
-    }
-});
 
 // 縮放功能
 function setTransform() {
-    requestAnimationFrame(() => {
-        canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
-    });
+    canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
 }
 
-// 防止整個頁面的預設觸控行為
-document.body.addEventListener('touchmove', (e) => {
-    if (isDragging || isTouching) {
-        e.preventDefault();
-    }
-}, { passive: false });
-
 function zoomIn() {
-  scale *= 1.2;
-  if (scale > 5) scale = 5; // 最大縮放限制
-  setTransform();
+    scale *= 1.2;
+    if (scale > 5) scale = 5; // 最大縮放限制
+    setTransform();
 }
 
 function zoomOut() {
-  scale /= 1.2;
-  if (scale < 0.2) scale = 0.2; // 最小縮放限制
-  setTransform();
+    scale /= 1.2;
+    if (scale < 0.2) scale = 0.2; // 最小縮放限制
+    setTransform();
+}
+
+function resetZoom() {
+    scale = 1;
+    panX = 0;
+    panY = 0;
+    setTransform();
 }
 
 // 滾輪縮放
 container.addEventListener('wheel', (e) => {
-  e.preventDefault();
-  const delta = e.deltaY;
-  
-  // 計算滑鼠相對於畫布的位置
-  const rect = canvas.getBoundingClientRect();
-  const mouseX = e.clientX - rect.left;
-  const mouseY = e.clientY - rect.top;
-  
-  // 縮放
-  if (delta > 0) {
-    scale /= 1.1;
-    if (scale < 0.2) scale = 0.2;
-  } else {
-    scale *= 1.1;
-    if (scale > 5) scale = 5;
-  }
-  
-  setTransform();
+    e.preventDefault();
+    const delta = e.deltaY;
+
+    // 計算滑鼠相對於畫布的位置
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // 縮放
+    if (delta > 0) {
+        scale /= 1.1;
+        if (scale < 0.2) scale = 0.2;
+    } else {
+        scale *= 1.1;
+        if (scale > 5) scale = 5;
+    }
+
+    setTransform();
 });
 
 // 平移功能
 let isDragging = false;
 let lastX, lastY;
-let isTouching = false;
 
 
 container.addEventListener('mousedown', (e) => {
-    if (selectMode) return;
+    if (selectMode) return; // 如果是選取模式，直接返回，不執行拖曳
+
     if (e.target === container || e.target === canvas) {
         isDragging = true;
         lastX = e.clientX;
@@ -136,62 +74,18 @@ container.addEventListener('mousedown', (e) => {
 });
 
 container.addEventListener('mousemove', (e) => {
-    if (selectMode || !isDragging) return;
-    const dx = (e.clientX - lastX) / scale;
-    const dy = (e.clientY - lastY) / scale;
-    panX += dx;
-    panY += dy;
-    lastX = e.clientX;
-    lastY = e.clientY;
-    setTransform();
-    container.style.cursor = 'grabbing';
-});
+    if (selectMode) return; // 如果是選取模式，直接返回，不執行拖曳
 
-
-container.addEventListener('touchstart', (e) => {
-    if (selectMode) return;
-    if (e.target === container || e.target === canvas) {
-        isTouching = true;
-        isDragging = true;
-        lastX = e.touches[0].clientX;
-        lastY = e.touches[0].clientY;
-        e.preventDefault(); // 防止其他觸控行為
+    if (isDragging) {
+        const dx = (e.clientX - lastX) / scale;
+        const dy = (e.clientY - lastY) / scale;
+        panX += dx;
+        panY += dy;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        setTransform();
+        container.style.cursor = 'grabbing';
     }
-}, { passive: false }); // 明確設定為非被動事件
-
-container.addEventListener('touchmove', (e) => {
-    if (selectMode || !isDragging || !isTouching) return;
-    const touch = e.touches[0];
-    const dx = (touch.clientX - lastX) / scale;
-    const dy = (touch.clientY - lastY) / scale;
-    panX += dx;
-    panY += dy;
-    lastX = touch.clientX;
-    lastY = touch.clientY;
-    setTransform();
-    e.preventDefault(); // 防止頁面滾動
-}, { passive: false }); // 明確設定為非被動事件
-
-container.addEventListener('touchend', (e) => {
-    isDragging = false;
-    isTouching = false;
-    e.preventDefault();
-}, { passive: false });
-
-// 防止觸控縮放
-container.addEventListener('gesturestart', (e) => {
-    e.preventDefault();
-}, { passive: false });
-
-// 確保拖曳結束時重置狀態
-document.addEventListener('mouseup', () => {
-    isDragging = false;
-    container.style.cursor = 'default';
-});
-
-document.addEventListener('mouseleave', () => {
-    isDragging = false;
-    container.style.cursor = 'default';
 });
 
 container.addEventListener('mouseup', () => {
@@ -204,6 +98,101 @@ container.addEventListener('mouseleave', () => {
     isDragging = false;
     container.style.cursor = 'default';
 });
+
+
+// 新增：觸控事件相關變數
+let lastTouchX = 0;
+let lastTouchY = 0;
+let touchStartX = 0;
+let touchStartY = 0;
+let isTouchDragging = false;
+let isTouchSelecting = false;
+
+// 修改：增加觸控事件支援
+container.addEventListener('touchstart', (e) => {
+    if (selectMode) {
+        // 如果點擊的是語詞卡或控制元件，不啟動框選
+        if (e.target.classList.contains('wordCard') ||
+            e.target.closest('.inputContainer') ||
+            e.target.closest('#ox2')) {
+            return;
+        }
+        isTouchSelecting = true;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        selectBox.style.left = touchStartX + 'px';
+        selectBox.style.top = touchStartY + 'px';
+        selectBox.style.width = '0';
+        selectBox.style.height = '0';
+        selectBox.style.display = 'block';
+    } else if (e.target === container || e.target === canvas) {
+        isTouchDragging = true;
+        lastTouchX = e.touches[0].clientX;
+        lastTouchY = e.touches[0].clientY;
+    }
+});
+
+container.addEventListener('touchmove', (e) => {
+    e.preventDefault(); // 防止畫面滾動
+    if (isTouchSelecting) {
+        // 框選邏輯
+        const touch = e.touches[0];
+        const width = Math.abs(touch.clientX - touchStartX);
+        const height = Math.abs(touch.clientY - touchStartY);
+        const left = Math.min(touch.clientX, touchStartX);
+        const top = Math.min(touch.clientY, touchStartY);
+
+        selectBox.style.width = width + 'px';
+        selectBox.style.height = height + 'px';
+        selectBox.style.left = left + 'px';
+        selectBox.style.top = top + 'px';
+
+        // 檢查語詞卡是否在選擇框內
+        const cards = document.querySelectorAll('.wordCard');
+        const selectRect = selectBox.getBoundingClientRect();
+        cards.forEach(card => {
+            const cardRect = card.getBoundingClientRect();
+            const overlap = !(
+                selectRect.right < cardRect.left ||
+                selectRect.left > cardRect.right ||
+                selectRect.bottom < cardRect.top ||
+                selectRect.top > cardRect.bottom
+            );
+            if (overlap) {
+                card.classList.add('selected');
+            }
+        });
+    } else if (isTouchDragging) {
+        // 拖曳畫布邏輯
+        const touch = e.touches[0];
+        const dx = (touch.clientX - lastTouchX) / scale;
+        const dy = (touch.clientY - lastTouchY) / scale;
+        panX += dx;
+        panY += dy;
+        lastTouchX = touch.clientX;
+        lastTouchY = touch.clientY;
+        setTransform();
+    }
+});
+
+container.addEventListener('touchend', () => {
+    if (isTouchSelecting) {
+        isTouchSelecting = false;
+        selectBox.style.display = 'none';
+    }
+    isTouchDragging = false;
+});
+
+container.addEventListener('touchcancel', () => {
+    if (isTouchSelecting) {
+        isTouchSelecting = false;
+        selectBox.style.display = 'none';
+    }
+    isTouchDragging = false;
+});
+
+
+
 
 //J01 建立語詞卡;
 function createWordCard(txt) {
@@ -416,12 +405,15 @@ let startDragY = 0;
 
 // 使元素可拖曳;
 function makeDraggable(element) {
-    var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+    var pos1 = 0,
+        pos2 = 0,
+        pos3 = 0,
+        pos4 = 0;
     let isDragging = false;
-    
+
     // 增加：儲存所有選取卡片的初始位置差值
     let selectedCardsOffsets = [];
-    
+
     element.addEventListener('mousedown', dragMouseDown);
     element.addEventListener('touchstart', dragMouseDown);
 
@@ -430,7 +422,7 @@ function makeDraggable(element) {
         if (e.type === 'mousedown') {
             e.preventDefault();
         }
-        
+
         var isDraggable = element.getAttribute('draggable');
         if (isDraggable == "x") return;
 
@@ -451,7 +443,7 @@ function makeDraggable(element) {
 
         pos3 = e.clientX || e.touches[0].clientX;
         pos4 = e.clientY || e.touches[0].clientY;
-        
+
         document.addEventListener('mousemove', elementDrag);
         document.addEventListener('mouseup', closeDragElement);
         document.addEventListener('touchmove', elementDrag);
@@ -463,15 +455,15 @@ function makeDraggable(element) {
         if (e.type === 'mousemove') {
             e.preventDefault();
         }
-        
+
         isDragging = true;
-        
+
         const currentX = e.clientX || e.touches[0].clientX;
         const currentY = e.clientY || e.touches[0].clientY;
-        
+
         // 計算移動距離
         moveDistance = Math.sqrt(
-            Math.pow(currentX - startDragX, 2) + 
+            Math.pow(currentX - startDragX, 2) +
             Math.pow(currentY - startDragY, 2)
         );
 
@@ -487,7 +479,11 @@ function makeDraggable(element) {
         // 修改：如果是選取模式且當前卡片被選取
         if (selectMode && element.classList.contains('selected')) {
             // 移動所有選取的卡片
-            selectedCardsOffsets.forEach(({ card, offsetX, offsetY }) => {
+            selectedCardsOffsets.forEach(({
+                card,
+                offsetX,
+                offsetY
+            }) => {
                 card.style.left = (newLeft + offsetX) + "px";
                 card.style.top = (newTop + offsetY) + "px";
             });
@@ -503,12 +499,12 @@ function makeDraggable(element) {
         document.removeEventListener('mouseup', closeDragElement);
         document.removeEventListener('touchmove', elementDrag);
         document.removeEventListener('touchend', closeDragElement);
-        
+
         // 修改：只在非拖曳時切換選取狀態
         if (selectMode && moveDistance < 5) {
             element.classList.toggle('selected');
         }
-        
+
         isDragging = false;
         moveDistance = 0;
         selectedCardsOffsets = []; // 清空暫存的位置差值
@@ -737,89 +733,88 @@ function showContextMenu(event) {
     };
     menu.appendChild(zoomOutItem);
 
-
     // 修改 showContextMenu 函式中的編輯選項程式碼
-var editItem = document.createElement('div');
-editItem.textContent = '✏️ 編輯';
-editItem.onclick = function() {
-    // 設定卡片為編輯模式
-    card.setAttribute('contenteditable', 'true');
-    card.setAttribute('draggable', 'x'); // 禁止拖曳
-    card.style.cursor = 'text'; // 改變游標樣式
-    
-    // 儲存原始內容
-    card.setAttribute('data-original-content', card.innerHTML);
-    
-    // 關閉右鍵選單
-    card.setAttribute('menuAgain', 'o');
-    document.removeEventListener('click', hideContextMenu);
-    menu.parentNode.removeChild(menu);
-    cardContextMenu = 0;
-    
-    // 等待下一個事件循環再設置焦點，確保編輯模式已完全啟用
-    setTimeout(() => {
-        card.focus();
-        
-        // 新增：處理點擊事件，確保可以正確定位游標
-        function handleCardClick(e) {
-            // 停止事件傳播，確保只處理當前點擊
-            e.stopPropagation();
-            
-            // 不要立即結束編輯模式
-            e.preventDefault();
-            
-            // 使用 getSelection 和 range 來設置游標位置
-            const selection = window.getSelection();
-            const range = document.createRange();
-            
-            // 嘗試使用點擊的確切位置
-            try {
-                if (document.caretPositionFromPoint) {
-                    const position = document.caretPositionFromPoint(e.clientX, e.clientY);
-                    if (position) {
-                        range.setStart(position.offsetNode, position.offset);
+    var editItem = document.createElement('div');
+    editItem.textContent = '✏️ 編輯';
+    editItem.onclick = function() {
+        // 設定卡片為編輯模式
+        card.setAttribute('contenteditable', 'true');
+        card.setAttribute('draggable', 'x'); // 禁止拖曳
+        card.style.cursor = 'text'; // 改變游標樣式
+
+        // 儲存原始內容
+        card.setAttribute('data-original-content', card.innerHTML);
+
+        // 關閉右鍵選單
+        card.setAttribute('menuAgain', 'o');
+        document.removeEventListener('click', hideContextMenu);
+        menu.parentNode.removeChild(menu);
+        cardContextMenu = 0;
+
+        // 等待下一個事件循環再設置焦點，確保編輯模式已完全啟用
+        setTimeout(() => {
+            card.focus();
+
+            // 新增：處理點擊事件，確保可以正確定位游標
+            function handleCardClick(e) {
+                // 停止事件傳播，確保只處理當前點擊
+                e.stopPropagation();
+
+                // 不要立即結束編輯模式
+                e.preventDefault();
+
+                // 使用 getSelection 和 range 來設置游標位置
+                const selection = window.getSelection();
+                const range = document.createRange();
+
+                // 嘗試使用點擊的確切位置
+                try {
+                    if (document.caretPositionFromPoint) {
+                        const position = document.caretPositionFromPoint(e.clientX, e.clientY);
+                        if (position) {
+                            range.setStart(position.offsetNode, position.offset);
+                            range.collapse(true);
+                        }
+                    } else if (document.caretRangeFromPoint) {
+                        range.setStart(document.caretRangeFromPoint(e.clientX, e.clientY).startContainer,
+                            document.caretRangeFromPoint(e.clientX, e.clientY).startOffset);
                         range.collapse(true);
                     }
-                } else if (document.caretRangeFromPoint) {
-                    range.setStart(document.caretRangeFromPoint(e.clientX, e.clientY).startContainer,
-                                 document.caretRangeFromPoint(e.clientX, e.clientY).startOffset);
-                    range.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                } catch (err) {
+                    console.log('游標位置設定失敗，使用預設行為');
                 }
-                selection.removeAllRanges();
-                selection.addRange(range);
-            } catch (err) {
-                console.log('游標位置設定失敗，使用預設行為');
             }
-        }
-        
-        // 新增點擊事件監聽器
-        card.addEventListener('mousedown', handleCardClick);
-        
-        // 點擊其他地方時結束編輯
-        function finishEditing(e) {
-            if (!card.contains(e.target)) {
-                card.setAttribute('contenteditable', 'false');
-                card.setAttribute('draggable', 'o'); // 恢復拖曳
-                card.style.cursor = ''; // 恢復預設游標
-                
-                // 如果內容為空，恢復原始內容
-                if (card.innerText.trim() === '') {
-                    card.innerHTML = card.getAttribute('data-original-content');
+
+            // 新增點擊事件監聽器
+            card.addEventListener('mousedown', handleCardClick);
+
+            // 點擊其他地方時結束編輯
+            function finishEditing(e) {
+                if (!card.contains(e.target)) {
+                    card.setAttribute('contenteditable', 'false');
+                    card.setAttribute('draggable', 'o'); // 恢復拖曳
+                    card.style.cursor = ''; // 恢復預設游標
+
+                    // 如果內容為空，恢復原始內容
+                    if (card.innerText.trim() === '') {
+                        card.innerHTML = card.getAttribute('data-original-content');
+                    }
+
+                    // 移除所有相關的事件監聽器
+                    document.removeEventListener('mousedown', finishEditing);
+                    card.removeEventListener('mousedown', handleCardClick);
                 }
-                
-                // 移除所有相關的事件監聽器
-                document.removeEventListener('mousedown', finishEditing);
-                card.removeEventListener('mousedown', handleCardClick);
             }
-        }
-        
-        // 延遲添加點擊監聽，避免立即觸發
-        setTimeout(() => {
-            document.addEventListener('mousedown', finishEditing);
-        }, 100);
-    }, 0);
-};
-menu.appendChild(editItem);
+
+            // 延遲添加點擊監聽，避免立即觸發
+            setTimeout(() => {
+                document.addEventListener('mousedown', finishEditing);
+            }, 100);
+        }, 0);
+    };
+    menu.appendChild(editItem);
 
 
 
@@ -909,8 +904,7 @@ menu.appendChild(editItem);
         cloneCard.addEventListener('contextmenu', showContextMenu);
         cloneCard.setAttribute('menuAgain', 'o');
 
-        canvas.appendChild(cloneCard); //here
-
+        canvas.appendChild(cloneCard);
 
         card.setAttribute('menuAgain', 'o');
         document.removeEventListener('click', hideContextMenu);
@@ -2197,7 +2191,7 @@ document.getElementById('selectModeButton').addEventListener('click', function()
     selectMode = !selectMode;
     this.classList.toggle('active');
     document.body.classList.toggle('selecting', selectMode);
-    
+
     // 新增：當關閉選取模式時，清除所有已選取的語詞卡
     if (!selectMode) {
         const selectedCards = document.querySelectorAll('.wordCard.selected');
