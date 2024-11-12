@@ -624,47 +624,88 @@ function showContextMenu(event) {
     };
     menu.appendChild(zoomOutItem);
 
-
     // 修改 showContextMenu 函式中的編輯選項程式碼
-    var editItem = document.createElement('div');
-    editItem.textContent = '✏️ 編輯';
-    editItem.onclick = function() {
-        // 設定卡片為編輯模式
-        card.setAttribute('contenteditable', 'true');
-        card.setAttribute('draggable', 'x'); // 禁止拖曳
-        card.style.cursor = 'text'; // 改變游標樣式
-
-        // 儲存原始內容
-        card.setAttribute('data-original-content', card.innerHTML);
-
-        // 關閉右鍵選單
-        card.setAttribute('menuAgain', 'o');
-        document.removeEventListener('click', hideContextMenu);
-        menu.parentNode.removeChild(menu);
-        cardContextMenu = 0;
-
+var editItem = document.createElement('div');
+editItem.textContent = '✏️ 編輯';
+editItem.onclick = function() {
+    // 設定卡片為編輯模式
+    card.setAttribute('contenteditable', 'true');
+    card.setAttribute('draggable', 'x'); // 禁止拖曳
+    card.style.cursor = 'text'; // 改變游標樣式
+    
+    // 儲存原始內容
+    card.setAttribute('data-original-content', card.innerHTML);
+    
+    // 關閉右鍵選單
+    card.setAttribute('menuAgain', 'o');
+    document.removeEventListener('click', hideContextMenu);
+    menu.parentNode.removeChild(menu);
+    cardContextMenu = 0;
+    
+    // 等待下一個事件循環再設置焦點，確保編輯模式已完全啟用
+    setTimeout(() => {
+        card.focus();
+        
+        // 新增：處理點擊事件，確保可以正確定位游標
+        function handleCardClick(e) {
+            // 停止事件傳播，確保只處理當前點擊
+            e.stopPropagation();
+            
+            // 不要立即結束編輯模式
+            e.preventDefault();
+            
+            // 使用 getSelection 和 range 來設置游標位置
+            const selection = window.getSelection();
+            const range = document.createRange();
+            
+            // 嘗試使用點擊的確切位置
+            try {
+                if (document.caretPositionFromPoint) {
+                    const position = document.caretPositionFromPoint(e.clientX, e.clientY);
+                    if (position) {
+                        range.setStart(position.offsetNode, position.offset);
+                        range.collapse(true);
+                    }
+                } else if (document.caretRangeFromPoint) {
+                    range.setStart(document.caretRangeFromPoint(e.clientX, e.clientY).startContainer,
+                                 document.caretRangeFromPoint(e.clientX, e.clientY).startOffset);
+                    range.collapse(true);
+                }
+                selection.removeAllRanges();
+                selection.addRange(range);
+            } catch (err) {
+                console.log('游標位置設定失敗，使用預設行為');
+            }
+        }
+        
+        // 新增點擊事件監聽器
+        card.addEventListener('mousedown', handleCardClick);
+        
         // 點擊其他地方時結束編輯
         function finishEditing(e) {
             if (!card.contains(e.target)) {
                 card.setAttribute('contenteditable', 'false');
                 card.setAttribute('draggable', 'o'); // 恢復拖曳
                 card.style.cursor = ''; // 恢復預設游標
-
+                
                 // 如果內容為空，恢復原始內容
                 if (card.innerText.trim() === '') {
                     card.innerHTML = card.getAttribute('data-original-content');
                 }
-
-                document.removeEventListener('click', finishEditing);
+                
+                // 移除所有相關的事件監聽器
+                document.removeEventListener('mousedown', finishEditing);
+                card.removeEventListener('mousedown', handleCardClick);
             }
         }
-
+        
         // 延遲添加點擊監聽，避免立即觸發
         setTimeout(() => {
-            document.addEventListener('click', finishEditing);
+            document.addEventListener('mousedown', finishEditing);
         }, 100);
-    };
-    menu.appendChild(editItem);
+    }, 0);
+};
+menu.appendChild(editItem);
 
 
 
