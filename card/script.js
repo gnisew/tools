@@ -1,4 +1,4 @@
-﻿var selectMode = false; // 選取模式的狀態
+var selectMode = false; // 選取模式的狀態
 var deletedWordCards = []; // 儲存已刪除的語詞卡及其原始位置;
 var lastClickTime = 0; // 在手機上連點兩下的時間計算;
 var pressTimer; // 手機上長按的時間計算;
@@ -77,8 +77,8 @@ container.addEventListener('mousemove', (e) => {
     if (selectMode) return; // 如果是選取模式，直接返回，不執行拖曳
 
     if (isDragging) {
-        const dx = (e.clientX - lastX) / scale;
-        const dy = (e.clientY - lastY) / scale;
+        const dx = (e.clientX - lastX);
+        const dy = (e.clientY - lastY);
         panX += dx;
         panY += dy;
         lastX = e.clientX;
@@ -451,48 +451,43 @@ function makeDraggable(element) {
     }
 
     function elementDrag(e) {
-        e = e || window.event;
-        if (e.type === 'mousemove') {
-            e.preventDefault();
-        }
-
-        isDragging = true;
-
-        const currentX = e.clientX || e.touches[0].clientX;
-        const currentY = e.clientY || e.touches[0].clientY;
-
-        // 計算移動距離
-        moveDistance = Math.sqrt(
-            Math.pow(currentX - startDragX, 2) +
-            Math.pow(currentY - startDragY, 2)
-        );
-
-        pos1 = pos3 - currentX;
-        pos2 = pos4 - currentY;
-        pos3 = currentX;
-        pos4 = currentY;
-
-        // 修改：計算新位置
-        const newLeft = element.offsetLeft - pos1;
-        const newTop = element.offsetTop - pos2;
-
-        // 修改：如果是選取模式且當前卡片被選取
-        if (selectMode && element.classList.contains('selected')) {
-            // 移動所有選取的卡片
-            selectedCardsOffsets.forEach(({
-                card,
-                offsetX,
-                offsetY
-            }) => {
-                card.style.left = (newLeft + offsetX) + "px";
-                card.style.top = (newTop + offsetY) + "px";
-            });
-        } else {
-            // 單獨移動當前卡片
-            element.style.left = newLeft + "px";
-            element.style.top = newTop + "px";
-        }
+    e = e || window.event;
+    if (e.type === 'mousemove') {
+        e.preventDefault();
     }
+    isDragging = true;
+    const currentX = e.clientX || e.touches[0].clientX;
+    const currentY = e.clientY || e.touches[0].clientY;
+    
+    // 計算移動距離
+    moveDistance = Math.sqrt(
+        Math.pow(currentX - startDragX, 2) +
+        Math.pow(currentY - startDragY, 2)
+    );
+    
+    // 考慮縮放比例調整位移量
+    pos1 = (pos3 - currentX) / scale;
+    pos2 = (pos4 - currentY) / scale;
+    pos3 = currentX;
+    pos4 = currentY;
+    
+    // 修改：計算新位置
+    const newLeft = element.offsetLeft - pos1;
+    const newTop = element.offsetTop - pos2;
+    
+    // 修改：如果是選取模式且當前卡片被選取
+    if (selectMode && element.classList.contains('selected')) {
+        // 移動所有選取的卡片
+        selectedCardsOffsets.forEach(({card, offsetX, offsetY}) => {
+            card.style.left = (newLeft + offsetX) + "px";
+            card.style.top = (newTop + offsetY) + "px";
+        });
+    } else {
+        // 單獨移動當前卡片
+        element.style.left = newLeft + "px";
+        element.style.top = newTop + "px";
+    }
+}
 
     function closeDragElement() {
         document.removeEventListener('mousemove', elementDrag);
