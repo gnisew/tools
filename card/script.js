@@ -1,7 +1,9 @@
 ﻿var selectMode = false; // 選取模式的狀態
+var viewMode = false; // 檢視模式的狀態
 var deletedWordCards = []; // 儲存已刪除的語詞卡及其原始位置;
 var lastClickTime = 0; // 在手機上連點兩下的時間計算;
 var pressTimer; // 手機上長按的時間計算;
+
 
 let scale = 1;
 let panX = 0;
@@ -18,7 +20,7 @@ function setTransform() {
 
 function zoomIn() {
     scale *= 1.2;
-    if (scale > 5) scale = 5; // 最大縮放限制
+    if (scale > 20) scale = 20; // 最大縮放限制
     setTransform();
 }
 
@@ -45,26 +47,47 @@ container.addEventListener('wheel', (e) => {
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
+    // 儲存舊的縮放值
+    const oldScale = scale;
+
     // 縮放
     if (delta > 0) {
         scale /= 1.1;
         if (scale < 0.2) scale = 0.2;
     } else {
         scale *= 1.1;
-        if (scale > 5) scale = 5;
+        if (scale > 20) scale = 20;
     }
+
+    // 計算縮放後的位置補償
+    // 這是關鍵修改：確保滑鼠指標位置在縮放前後保持不變
+    panX += mouseX * (1 - scale / oldScale);
+    panY += mouseY * (1 - scale / oldScale);
 
     setTransform();
 });
 
+// 檢查畫布是否有語詞卡的函數
+function hasWordCards() {
+    return document.querySelectorAll('.wordCard').length > 0;
+}
 // 平移功能
 let isDragging = false;
 let lastX, lastY;
 
 
 container.addEventListener('mousedown', (e) => {
-    if (selectMode) return; // 如果是選取模式，直接返回，不執行拖曳
+    if (viewMode) {
+        // 在檢視模式下，任何位置都可以拖曳整個畫布
+        isDragging = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        container.style.cursor = 'grab';
+        return;
+    }
 
+    if (selectMode) return;
+    if (!hasWordCards()) return;
     if (e.target === container || e.target === canvas) {
         isDragging = true;
         lastX = e.clientX;
@@ -75,10 +98,11 @@ container.addEventListener('mousedown', (e) => {
 
 container.addEventListener('mousemove', (e) => {
     if (selectMode) return; // 如果是選取模式，直接返回，不執行拖曳
+    if (!hasWordCards()) return; // 如果沒有語詞卡，直接返回
 
     if (isDragging) {
-        const dx = (e.clientX - lastX) / scale;
-        const dy = (e.clientY - lastY) / scale;
+        const dx = (e.clientX - lastX);
+        const dy = (e.clientY - lastY);
         panX += dx;
         panY += dy;
         lastX = e.clientX;
@@ -108,7 +132,7 @@ let touchStartY = 0;
 let isTouchDragging = false;
 let isTouchSelecting = false;
 
-// 修改：增加觸控事件支援
+// 觸控事件支援
 container.addEventListener('touchstart', (e) => {
     if (selectMode) {
         // 如果點擊的是語詞卡或控制元件，不啟動框選
@@ -125,7 +149,7 @@ container.addEventListener('touchstart', (e) => {
         selectBox.style.width = '0';
         selectBox.style.height = '0';
         selectBox.style.display = 'block';
-    } else if (e.target === container || e.target === canvas) {
+    } else if ((e.target === container || e.target === canvas) && hasWordCards()) { // 加入檢查
         isTouchDragging = true;
         lastTouchX = e.touches[0].clientX;
         lastTouchY = e.touches[0].clientY;
@@ -134,6 +158,8 @@ container.addEventListener('touchstart', (e) => {
 
 container.addEventListener('touchmove', (e) => {
     e.preventDefault(); // 防止畫面滾動
+    if (!hasWordCards() && !isTouchSelecting) return; // 如果沒有語詞卡且不是選取模式，直接返回
+
     if (isTouchSelecting) {
         // 框選邏輯
         const touch = e.touches[0];
@@ -278,8 +304,6 @@ function createWordCard(txt) {
         w = w.replace(/<([a-zA-Z]*):([^>]*)>/g, "<k onclick=\"p(this, '<$1:$2>')\">🔊</k>");
         w = w.replace(/<([a-zA-Z]*);([^>]*)>/g, "<k onclick=\"p(this, '<$1;$2>')\">🔊</k>$2");
 
-
-
         w = w.replace(/([A-Za-z0-9\-_]+)\.holo/g, "https://oikasu.com/file/mp3holo/$1.mp3");
         w = w.replace(/([A-Za-z0-9\-_]+)\.kasu/g, "https://oikasu.com/file/mp3/$1.mp3");
         w = w.replace(/([A-Za-z0-9\-_]+)\.ka/g, function(match, p1) {
@@ -290,7 +314,6 @@ function createWordCard(txt) {
                 .replace(/([a-z])s\b/g, "$1ˋ");
             return "https://oikasu.com/file/mp3/" + p1 + ".mp3" + x + " ";
         });
-
 
         w = w.replace(/(https?:\/\/[\w\-\.\/]+\.(mp3|wav))/g, "<k onclick=\"p(this, '$1')\">🔊</k>"); //here;
 
@@ -329,24 +352,77 @@ function createWordCard(txt) {
             wordCard.innerHTML = word;
 
             makeDraggable(wordCard);
-            wordCard.setAttribute('draggable', "o"); // 拖曳屬性預設 o 可以;   
+            wordCard.setAttribute('draggable', "o"); // 拖曳屬性預設 o 可以;  
+
+            // 雙擊事件處理器
+            wordCard.addEventListener('dblclick', function(e) {
+                // 設定卡片為編輯模式
+                this.setAttribute('contenteditable', 'true');
+                this.setAttribute('draggable', 'x'); // 禁止拖曳
+                this.style.cursor = 'text'; // 改變游標樣式
+                // 儲存原始內容
+                this.setAttribute('data-original-content', this.innerHTML);
+
+                // 設置焦點
+                setTimeout(() => {
+                    this.focus();
+
+                    // 處理卡片點擊，設置游標位置
+                    const handleCardClick = (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+
+                        const selection = window.getSelection();
+                        const range = document.createRange();
+
+                        try {
+                            if (document.caretPositionFromPoint) {
+                                const position = document.caretPositionFromPoint(e.clientX, e.clientY);
+                                if (position) {
+                                    range.setStart(position.offsetNode, position.offset);
+                                    range.collapse(true);
+                                }
+                            } else if (document.caretRangeFromPoint) {
+                                range.setStart(document.caretRangeFromPoint(e.clientX, e.clientY).startContainer,
+                                    document.caretRangeFromPoint(e.clientX, e.clientY).startOffset);
+                                range.collapse(true);
+                            }
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                        } catch (err) {
+                            console.log('游標位置設定失敗，使用預設行為');
+                        }
+                    };
+
+                    this.addEventListener('mousedown', handleCardClick);
+
+                    // 點擊其他地方時結束編輯
+                    const finishEditing = (e) => {
+                        if (!this.contains(e.target)) {
+                            this.setAttribute('contenteditable', 'false');
+                            this.setAttribute('draggable', 'o'); // 恢復拖曳
+                            this.style.cursor = ''; // 恢復預設游標
+
+                            // 如果內容為空，恢復原始內容
+                            if (this.innerText.trim() === '') {
+                                this.innerHTML = this.getAttribute('data-original-content');
+                            }
+
+                            // 移除相關的事件監聽器
+                            document.removeEventListener('mousedown', finishEditing);
+                            this.removeEventListener('mousedown', handleCardClick);
+                        }
+                    };
+
+                    // 延遲添加點擊監聽，避免立即觸發
+                    setTimeout(() => {
+                        document.addEventListener('mousedown', finishEditing);
+                    }, 100);
+                }, 0);
+            });
+
+
             wordCard.addEventListener('contextmenu', showContextMenu);
-
-
-            if (txt !== undefined) {
-                // 為了解決 ?new= 無法取得selectMode;
-                let selectMode = false; // 選取模式的狀態
-                wordCard.addEventListener('click', () => {
-
-                });
-            } else {
-                wordCard.addEventListener('click', () => {
-
-                });
-            }
-
-
-
 
             wordCard.addEventListener('touchstart', function(e) {
                 pressTimer = setTimeout(function() {
@@ -383,25 +459,11 @@ document.getElementById('wordInput').addEventListener('keypress', function(e) {
     }
 });
 
-// 事件：監聽 input 輸入框的雙擊事件
-var inputDoubleClickCount = 0; // 計數器，用於記錄連續點擊次數
-var inputDoubleClickTimeout; // 計時器，用於清除計數器
-document.getElementById('wordInput').addEventListener('dblclick', function() {
-    inputDoubleClickCount++;
-    if (inputDoubleClickCount == 1) {
-        clearInput();
-        inputDoubleClickCount = 0;
-    } else {
-        clearTimeout(inputDoubleClickTimeout);
-        inputDoubleClickTimeout = setTimeout(function() {
-            inputDoubleClickCount = 0;
-        }, 300);
-    }
-});
 
 let moveDistance = 0;
 let startDragX = 0;
 let startDragY = 0;
+let isRightClick = false; // 新增：標記是否為右鍵點擊
 
 // 使元素可拖曳;
 function makeDraggable(element) {
@@ -411,17 +473,22 @@ function makeDraggable(element) {
         pos4 = 0;
     let isDragging = false;
 
+
     // 增加：儲存所有選取卡片的初始位置差值
     let selectedCardsOffsets = [];
 
     element.addEventListener('mousedown', dragMouseDown);
     element.addEventListener('touchstart', dragMouseDown);
 
+
     function dragMouseDown(e) {
+		if (viewMode) return; 
+
         e = e || window.event;
         if (e.type === 'mousedown') {
             e.preventDefault();
         }
+		isRightClick = e.button === 2;
 
         var isDraggable = element.getAttribute('draggable');
         if (isDraggable == "x") return;
@@ -455,9 +522,7 @@ function makeDraggable(element) {
         if (e.type === 'mousemove') {
             e.preventDefault();
         }
-
         isDragging = true;
-
         const currentX = e.clientX || e.touches[0].clientX;
         const currentY = e.clientY || e.touches[0].clientY;
 
@@ -467,8 +532,9 @@ function makeDraggable(element) {
             Math.pow(currentY - startDragY, 2)
         );
 
-        pos1 = pos3 - currentX;
-        pos2 = pos4 - currentY;
+        // 考慮縮放比例調整位移量
+        pos1 = (pos3 - currentX) / scale;
+        pos2 = (pos4 - currentY) / scale;
         pos3 = currentX;
         pos4 = currentY;
 
@@ -501,7 +567,7 @@ function makeDraggable(element) {
         document.removeEventListener('touchend', closeDragElement);
 
         // 修改：只在非拖曳時切換選取狀態
-        if (selectMode && moveDistance < 5) {
+        if (selectMode && moveDistance < 5 && !isRightClick) {
             element.classList.toggle('selected');
         }
 
@@ -509,8 +575,36 @@ function makeDraggable(element) {
         moveDistance = 0;
         selectedCardsOffsets = []; // 清空暫存的位置差值
     }
+    // 右鍵選單事件
+    element.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        if (selectMode) {
+            // 在選取模式下只顯示選單，不切換選取狀態
+            showContextMenu.call(this, e);
+        } else {
+            showContextMenu.call(this, e);
+        }
+    });
 }
 
+// 檢視模式
+document.getElementById('viewModeButton').addEventListener('click', function() {
+    viewMode = !viewMode; // 切換檢視模式
+    this.classList.toggle('active');
+    
+    // 更新所有語詞卡的狀態
+    const cards = document.querySelectorAll('.wordCard');
+    cards.forEach(card => {
+        if (viewMode) {
+            card.style.pointerEvents = 'none'; // 檢視模式下禁用語詞卡的互動
+        } else {
+            card.style.pointerEvents = 'auto'; // 恢復正常模式
+        }
+    });
+    
+    // 更新游標樣式
+    container.style.cursor = viewMode ? 'grab' : 'default';
+});
 function touch(idA, idB) {
     // 判斷是否碰觸到位置;
     var e = document.getElementById(idA);
@@ -690,38 +784,72 @@ function showContextMenu(event) {
         event.preventDefault();
     });
 
-    // 建立下拉選單：底色;
-    var colorSelect = document.createElement('select');
-    colorSelect.style.width = '100%';
-    colorSelect.id = 'colorSelectMenu';
-    colorSelect.onchange = function() {
-        let selectedColor = this.value;
-        if (selectedColor == 0) {
-            selectedColor = mathRandom(1, 6)
-        }
-        card.className = card.className.replace(/cardColor-\d+/, "cardColor-" + selectedColor);
-    };
 
-    // 建立選單項目
-    var defaultOption = document.createElement('option');
-    defaultOption.value = '';
-    defaultOption.textContent = '底色';
-    colorSelect.appendChild(defaultOption);
+	// 獲取所有被選中的語詞卡
+	function getSelectedCards(card) {
+		if (selectMode && document.querySelectorAll('.wordCard.selected').length > 0) {
+			return document.querySelectorAll('.wordCard.selected');
+		}
+		return [card];
+	}
 
-    var colorOptions = document.getElementById('colorSelect').options;
-    for (var i = 1; i < colorOptions.length; i++) {
-        var option = document.createElement('option');
-        option.value = colorOptions[i].value;
-        option.textContent = colorOptions[i].textContent;
-        colorSelect.appendChild(option);
-    }
-    menu.appendChild(colorSelect);
+	// 建立下拉選單：底色
+	var colorSelect = document.createElement('select');
+	colorSelect.style.width = '100%';
+	colorSelect.id = 'colorSelectMenu';
+
+	// 處理點擊選單的事件
+	colorSelect.addEventListener('mousedown', function(event) {
+		event.stopPropagation();
+	});
+
+	colorSelect.addEventListener('click', function(event) {
+		event.stopPropagation();
+	});
+
+	// 處理選單展開的事件
+	colorSelect.addEventListener('focus', function(event) {
+		event.stopPropagation();
+	});
+
+	colorSelect.onchange = function(event) {
+		event.stopPropagation();
+		let selectedColor = this.value;
+		getSelectedCards(card).forEach(selectedCard => {
+			if (selectedColor == 0) {
+				selectedColor = mathRandom(1, 6);
+			}
+			selectedCard.className = selectedCard.className.replace(/cardColor-\d+/, "cardColor-" + selectedColor);
+		});
+	};
+
+	// 確保下拉選單在 selectMode 時可以操作
+	colorSelect.style.pointerEvents = 'auto';
+
+	// 建立選單項目
+	var defaultOption = document.createElement('option');
+	defaultOption.value = '';
+	defaultOption.textContent = '底色';
+	colorSelect.appendChild(defaultOption);
+
+	var colorOptions = document.getElementById('colorSelect').options;
+	for (var i = 1; i < colorOptions.length; i++) {
+		var option = document.createElement('option');
+		option.value = colorOptions[i].value;
+		option.textContent = colorOptions[i].textContent;
+		option.style.pointerEvents = 'auto';
+		colorSelect.appendChild(option);
+	}
+	menu.appendChild(colorSelect);
+
 
     // 建立選單項目：放大
     var zoomInItem = document.createElement('div');
     zoomInItem.textContent = '➕ 加大';
     zoomInItem.onclick = function() {
-        zoom(1.2, card);
+        getSelectedCards(card).forEach(selectedCard => {
+            zoom(1.2, selectedCard);
+        });
     };
     menu.appendChild(zoomInItem);
 
@@ -729,7 +857,9 @@ function showContextMenu(event) {
     var zoomOutItem = document.createElement('div');
     zoomOutItem.textContent = '➖ 縮小';
     zoomOutItem.onclick = function() {
-        zoom(0.8, card);
+        getSelectedCards(card).forEach(selectedCard => {
+            zoom(0.8, selectedCard);
+        });
     };
     menu.appendChild(zoomOutItem);
 
@@ -822,7 +952,9 @@ function showContextMenu(event) {
     var dragItem = document.createElement('div');
     dragItem.textContent = (card.getAttribute('draggable') == 'o') ? '📌 釘住' : '📌 不釘';
     dragItem.onclick = function() {
-        toggleDraggable(card);
+        getSelectedCards(card).forEach(selectedCard => {
+            toggleDraggable(selectedCard);
+        });
         card.setAttribute('menuAgain', 'o');
         document.removeEventListener('click', hideContextMenu);
         menu.parentNode.removeChild(menu);
@@ -834,7 +966,10 @@ function showContextMenu(event) {
     var copyOutItem = document.createElement('div');
     copyOutItem.textContent = '📋 取字';
     copyOutItem.onclick = function() {
-        copyThat(card.innerHTML);
+        let textToCopy = Array.from(getSelectedCards(card))
+            .map(selectedCard => selectedCard.innerHTML)
+            .join('\n');
+        copyThat(textToCopy);
         card.setAttribute('menuAgain', 'o');
         document.removeEventListener('click', hideContextMenu);
         menu.parentNode.removeChild(menu);
@@ -846,7 +981,9 @@ function showContextMenu(event) {
     var hideItem = document.createElement('div');
     hideItem.textContent = '👻 隱藏';
     hideItem.onclick = function() {
-        card.style.display = 'none';
+        getSelectedCards(card).forEach(selectedCard => {
+            selectedCard.style.display = 'none';
+        });
         card.setAttribute('menuAgain', 'o');
         document.removeEventListener('click', hideContextMenu);
         menu.parentNode.removeChild(menu);
@@ -860,15 +997,15 @@ function showContextMenu(event) {
     deleteItem.textContent = '🗑️ 刪除';
     deleteItem.onclick = function() {
         // 刪除被點擊的語詞卡
-        card.classList.remove('selected'); //刪除語詞卡的 .selected 屬性;
-
-        deletedWordCards.push({
-            element: card,
-            top: card.offsetTop,
-            left: card.offsetLeft
-        }); // 將語詞卡及其原始位置加入已刪除的語詞卡陣列
-
-        card.parentNode.removeChild(card);
+        getSelectedCards(card).forEach(selectedCard => {
+            selectedCard.classList.remove('selected');
+            deletedWordCards.push({
+                element: selectedCard,
+                top: selectedCard.offsetTop,
+                left: selectedCard.offsetLeft
+            });
+            selectedCard.parentNode.removeChild(selectedCard);
+        });
         document.removeEventListener('click', hideContextMenu);
         menu.parentNode.removeChild(menu);
         cardContextMenu = 0;
@@ -877,90 +1014,133 @@ function showContextMenu(event) {
 
 
 
-    // 建立選單項目：克隆; 
-    var cloneOutItem = document.createElement('div');
-    cloneOutItem.textContent = '👀 克隆';
-    cloneOutItem.onclick = function() {
-        // 複製被點擊的語詞卡;
-        var cloneCard = card.cloneNode(true);
+	// 建立選單項目：克隆
+	var cloneOutItem = document.createElement('div');
+	cloneOutItem.textContent = '👀 克隆';
+	cloneOutItem.onclick = function() {
+		getSelectedCards(card).forEach(selectedCard => {
+			var cloneCard = selectedCard.cloneNode(true);
+			var wordCards = document.querySelectorAll('.wordCard');
+			var idNumber = wordCards.length + deletedWordCards.length + 1;
+			cloneCard.id = 'wordCard-' + idNumber;
+			
+			// 新增：重新綁定雙擊編輯事件
+			cloneCard.addEventListener('dblclick', function(e) {
+				// 設定卡片為編輯模式
+				this.setAttribute('contenteditable', 'true');
+				this.setAttribute('draggable', 'x');
+				this.style.cursor = 'text';
+				this.setAttribute('data-original-content', this.innerHTML);
+				
+				setTimeout(() => {
+					this.focus();
+					const handleCardClick = (e) => {
+						e.stopPropagation();
+						e.preventDefault();
+						const selection = window.getSelection();
+						const range = document.createRange();
+						try {
+							if (document.caretPositionFromPoint) {
+								const position = document.caretPositionFromPoint(e.clientX, e.clientY);
+								if (position) {
+									range.setStart(position.offsetNode, position.offset);
+									range.collapse(true);
+								}
+							} else if (document.caretRangeFromPoint) {
+								range.setStart(document.caretRangeFromPoint(e.clientX, e.clientY).startContainer,
+									document.caretRangeFromPoint(e.clientX, e.clientY).startOffset);
+								range.collapse(true);
+							}
+							selection.removeAllRanges();
+							selection.addRange(range);
+						} catch (err) {
+							console.log('游標位置設定失敗，使用預設行為');
+						}
+					};
 
-        var wordCards = document.querySelectorAll('.wordCard');
+					this.addEventListener('mousedown', handleCardClick);
 
-        var idNumber = wordCards.length + deletedWordCards.length + 1;
-        //計數器，用於 id 初始值;
-        cloneCard.id = 'wordCard-' + idNumber;
-        cloneCard.addEventListener('click', () => {
-            if (selectMode) {
-                cloneCard.classList.toggle('selected'); // 切換語詞卡的 .selected 屬性;
-            }
-        });
-        // 位置微調;
-        var offsetX = 10; // X軸微調;
-        var offsetY = 10; // Y軸微調;
-        cloneCard.style.left = (parseInt(cloneCard.style.left) + offsetX) + 'px';
-        cloneCard.style.top = (parseInt(cloneCard.style.top) + offsetY) + 'px';
+					const finishEditing = (e) => {
+						if (!this.contains(e.target)) {
+							this.setAttribute('contenteditable', 'false');
+							this.setAttribute('draggable', 'o');
+							this.style.cursor = '';
+							if (this.innerText.trim() === '') {
+								this.innerHTML = this.getAttribute('data-original-content');
+							}
+							document.removeEventListener('mousedown', finishEditing);
+							this.removeEventListener('mousedown', handleCardClick);
+						}
+					};
 
-        makeDraggable(cloneCard);
-        cloneCard.addEventListener('contextmenu', showContextMenu);
-        cloneCard.setAttribute('menuAgain', 'o');
+					setTimeout(() => {
+						document.addEventListener('mousedown', finishEditing);
+					}, 100);
+				}, 0);
+			});
 
-        canvas.appendChild(cloneCard);
-
-        card.setAttribute('menuAgain', 'o');
-        document.removeEventListener('click', hideContextMenu);
-        menu.parentNode.removeChild(menu);
-        cardContextMenu = 0;
-    };
+			var offsetX = 20;
+			var offsetY = 20;
+			cloneCard.style.left = (parseInt(selectedCard.style.left) + offsetX) + 'px';
+			cloneCard.style.top = (parseInt(selectedCard.style.top) + offsetY) + 'px';
+			makeDraggable(cloneCard);
+			cloneCard.addEventListener('contextmenu', showContextMenu);
+			cloneCard.setAttribute('menuAgain', 'o');
+			canvas.appendChild(cloneCard);
+		});
+		
+		card.setAttribute('menuAgain', 'o');
+		document.removeEventListener('click', hideContextMenu);
+		menu.parentNode.removeChild(menu);
+		cardContextMenu = 0;
+	};
     menu.appendChild(cloneOutItem);
 
 
 
 
-    // 新增項目: 將語詞卡索引往上一層
+    // 置頂選項
     var moveUpItem = document.createElement('div');
     moveUpItem.className = 'contextMenuItem';
     moveUpItem.innerHTML = '☁️ 置頂';
     moveUpItem.addEventListener('click', function() {
-
         var c = document.getElementsByClassName("wordCard");
-        // 將語詞卡元素轉為陣列
         var arr = Array.from(c);
         var len = arr.length;
         for (var i = 0; i < len; i++) {
             let x = arr[i].style.zIndex;
             arr[i].style.zIndex = x - 1;
         }
-        card.style.zIndex = len; // 設置z-index;
+        getSelectedCards(card).forEach(selectedCard => {
+            selectedCard.style.zIndex = len;
+        });
     });
     menu.appendChild(moveUpItem);
 
 
-    // 新增項目: 將語詞卡索引置底
+    // 置底選項
     var moveDownItem = document.createElement('div');
     moveDownItem.className = 'contextMenuItem';
     moveDownItem.innerHTML = '🕳️ 置底';
     moveDownItem.addEventListener('click', function() {
-
         var c = document.getElementsByClassName("wordCard");
         var arr = Array.from(c);
         var len = arr.length;
-
-        // 將陣列中的數字排序
         arr.sort(function(a, b) {
             return a.style.zIndex - b.style.zIndex;
         });
-        // 將數字重新改為連續的數字
         for (var i = 0; i < len; i++) {
             arr[i].style.zIndex = i + 1;
         }
-
-        card.style.zIndex = -1;
-
+        getSelectedCards(card).forEach(selectedCard => {
+            selectedCard.style.zIndex = -1;
+        });
     });
     menu.appendChild(moveDownItem);
 
 
 
+    // 旋轉相關選項
     var rotateItem = document.createElement('div');
     rotateItem.textContent = '旋轉方式▾';
     rotateItem.onclick = function() {
@@ -969,42 +1149,49 @@ function showContextMenu(event) {
     };
     menu.appendChild(rotateItem);
 
-
     var rotateContainer = document.createElement('div');
     rotateContainer.id = 'rotateContainer';
     rotateContainer.className = 'menuContainer';
-    rotateContainer.style.display = 'none'; // 預設隱藏
+    rotateContainer.style.display = 'none';
     menu.appendChild(rotateContainer);
 
-    // 顯示右轉選項
+    // 右轉15度選項
     var rotateRightItem = document.createElement('div');
     rotateRightItem.textContent = '右轉15';
     rotateRightItem.onclick = function() {
-        rotateSelectedCard([card], 15);
+        getSelectedCards(card).forEach(selectedCard => {
+            rotateSelectedCard([selectedCard], 15);
+        });
     };
     rotateContainer.appendChild(rotateRightItem);
 
-    // 顯示左轉選項
+    // 左轉15度選項
     var rotateLeftItem = document.createElement('div');
     rotateLeftItem.textContent = '左轉15';
     rotateLeftItem.onclick = function() {
-        rotateSelectedCard([card], -15);
+        getSelectedCards(card).forEach(selectedCard => {
+            rotateSelectedCard([selectedCard], -15);
+        });
     };
     rotateContainer.appendChild(rotateLeftItem);
 
-    // 顯示右轉90選項
+    // 右轉90度選項
     var rotateRight90Item = document.createElement('div');
     rotateRight90Item.textContent = '右轉90';
     rotateRight90Item.onclick = function() {
-        rotateSelectedCard([card], 90);
+        getSelectedCards(card).forEach(selectedCard => {
+            rotateSelectedCard([selectedCard], 90);
+        });
     };
     rotateContainer.appendChild(rotateRight90Item);
 
-    // 顯示水平翻轉選項
+    // 水平翻轉選項
     var flipHorizontalItem = document.createElement('div');
     flipHorizontalItem.textContent = '水平翻轉';
     flipHorizontalItem.onclick = function() {
-        flipSelectedCardHorizontal([card]);
+        getSelectedCards(card).forEach(selectedCard => {
+            flipSelectedCardHorizontal([selectedCard]);
+        });
     };
     rotateContainer.appendChild(flipHorizontalItem);
 
@@ -1115,6 +1302,7 @@ function compressString(str) {
         return `${char}ₓ${match.length}`;
     });
 }
+
 function decompressString(str) {
     return str.replace(/(.)\ₓ(\d+)/g, (match, char, count) => {
         return char.repeat(parseInt(count));
@@ -1227,7 +1415,7 @@ function shareWordCards(how) {
     shareTxtB = shareTxtB.replace(/&lt;/g, '＜');
     shareTxtB = shareTxtB.replace(/&gt;/g, '＞');
 
-	shareTxtB = compressString(shareTxtB);
+    shareTxtB = compressString(shareTxtB);
 
 
     //params.set('txtCards', shareTxt + "¦" + encodeURIComponent(shareTxtB));
@@ -1310,7 +1498,7 @@ function redirectToUrl() {
 restoreWordCardsFromURL();
 // 函式：解析分享網址並恢復語詞卡;
 function restoreWordCardsFromURL() {
-    var params = new URLSearchParams(location.search);	
+    var params = new URLSearchParams(location.search);
     var sharedData = params.get('wordCards');
     var txtData = params.get('txtCards');
     var newData = params.get('new');
@@ -1332,7 +1520,7 @@ function restoreWordCardsFromURL() {
         });
     }
     if (txtData) {
-		txtData = decompressString(txtData);
+        txtData = decompressString(txtData);
         txtData = txtData.replace(/　/g, " ");
         txtData = txtData.replace(/＆/g, "&");
         txtData = txtData.replace(/＃/g, "#");
@@ -1576,6 +1764,7 @@ function findElementsWithOnClickAndURL() {
 var documentContextMenu = 0;
 // 顯示選單，桌面選單
 document.addEventListener('contextmenu', function(event) {
+	if (viewMode) return; // 檢視模式下不顯示選單
 
     // 設定對象是全部語詞卡，或是被選取的語詞卡;
     var wordCards;
@@ -2717,3 +2906,9 @@ function moveGhostCardsGame() {
     // 使用定時器每隔一段時間移動語詞卡（例如每隔 10 毫秒）
     ghostCardsTimer = setInterval(moveGhostCards, 20);
 }
+
+
+
+
+
+

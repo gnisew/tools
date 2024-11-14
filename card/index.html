@@ -10,9 +10,6 @@
 
 
 
-
-
-
 .show {
     display: block !important;
 }
@@ -58,56 +55,115 @@ rt {
     font-size: 125%;
 }
 
-
-#wordInput {
-    padding: 10px 0px 10px 30px;
-    border: 1px solid #ccc;
-}
-
 .inputContainer {
     position: relative;
-    display: inline-block;
-    border: 1px solid #222;
-    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    width: 300px;
+    padding: 8px 15px;
+    border-radius: 24px;
     background-color: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border: 1px solid transparent;
+    transition: border-color 0.3s, box-shadow 0.3s;
 }
+
+.inputContainer:hover {
+    box-shadow: 0 1px 6px rgba(32,33,36,.28);
+    border-color: rgba(223,225,229,0);
+}
+
 
 .clearInput {
     position: absolute;
-    top: 52%;
-    right: 200px;
-    transform: translateY(-50%);
-    display: none;
+    left: 12px;
     cursor: pointer;
-    background-color: white;
+	color: #dfe1e5;
+    font-size: 16px;
+    opacity: 0.7;
+    display: none;
+    z-index: 1;
+    padding: 4px;
 }
+
+
+.clearInput:hover {
+     color: #70757a;
+    opacity: 1;         /* hover 時透明度回復 */
+}
+
+.separator {
+    color: #dfe1e5;
+    position: absolute;
+    right: 60px;
+    margin: 0;
+    height: 20px;
+    width: 1px;
+    background-color: #dfe1e5;
+    opacity: 0.6;
+}
+
+
+#wordInput {
+    flex: 1;
+    min-width: 0; 
+    padding: 0 0 0 35px;
+    margin: 0;
+    border: none;
+    font-size: 16px;
+    outline: none;
+    color: #202124;
+}
+
+#wordInput::placeholder {
+    color: #9AA0A6;     /* Google 風格的預設文字顏色 */
+    opacity: 1;
+}
+
 
 #colorSelect {
-    position: absolute;
-    top: -0%;
-    left: 5px;
-    transform: translateY(-50%);
-    display: none;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: #5F6368;
+    padding: 5px 8px;
+    margin: 0 0px;
     cursor: pointer;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
 }
 
+.submit-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: #4285f4;
+    cursor: pointer;
+    padding: 0 8px;
+    font-size: 20px;
+    opacity: 0.9;
+    min-width: 30px;
+    height: 100%;
+}
+
+.submit-btn:hover {
+    opacity: 1;
+}
+
+.inputContainer > * {
+    flex-shrink: 0;
+}
 
 [draggable="o"] {
-    cursor: move;
+    cursor: pointer;
 }
 
 [draggable="x"] {
     cursor: not-allowed;
 }
-
-#wordInput {
-    width: 120px;
-    margin-top: 0px;
-    margin: 0px 60px 0px 5px;
-    border: none;
-    outline: none;
-}
-
 
 select {
     border: none;
@@ -115,9 +171,6 @@ select {
     background: transparent;
 }
 
-#colorSelect {
-    margin-top: 20px;
-}
 
 #colorSelectMenu {
     margin-top: 2px;
@@ -205,6 +258,9 @@ select {
     z-index: 999;
 }
 
+
+
+
 .zoom-controls {
     position: fixed;
     right: 20px;
@@ -221,7 +277,7 @@ select {
     border-radius: 50%;
     background: white;
     border: 1px solid #ccc;
-    /* display: flex;  */
+    display: flex;
     align-items: center;
     justify-content: center;
     padding: 0;
@@ -282,10 +338,7 @@ button:active {
 
 
 #clearButton {
-    position: absolute;
-    top: 50%;
-    right: 5px;
-    transform: translateY(-50%);
+    margin-top: 5px;
     font-size: 16px;
     cursor: pointer;
 }
@@ -305,7 +358,10 @@ button:active {
 }
 
 
-
+#viewModeButton.active {
+    background-color: #4CAF50;
+    color: white;
+}
 
 
 </style>
@@ -321,14 +377,13 @@ button:active {
 </div>
 
 <div class="tool-controls">
-    <button id="ox" onclick="document.getElementById('ox2').classList.toggle('hide')">☰</button>
-    <span id="ox2">
-        <button id="updateFiles" onclick="redirectToUrl()" ondblclick="updateFiles()" style="display: none;">📄新</button>
-        <div class="inputContainer">
-            <input type="text" id="wordInput" placeholder="✒️文字 ([分割符號])">
-            <select id="colorSelect">
-                <option value="" disabled>底</option>
-                <option value="0" selected>彩</option>
+<span id="clearButton" class="clearInput">✕</span>	
+		<div class="inputContainer">	
+		
+			<input type="text" id="wordInput" placeholder="...">				
+			<select id="colorSelect">
+				<option value="" disabled>底色</option>
+				<option value="0" selected>彩</option>
                 <option value="1">紅</option>
                 <option value="2">橘</option>
                 <option value="3">黃</option>
@@ -338,24 +393,22 @@ button:active {
                 <option value="7">灰</option>
                 <option value="8">白</option>
                 <option value="9">無</option>
-            </select>
-            <span id="clearButton" class="clearInput">x</span>
-        </div><button onclick="createWordCard()">建立</button>
-
-        <button id="selectModeButton">選取</button>
-        <div id="trashCan" onclick="restoreWordCard()" style="display: none;"></div>
-        <!--<button onclick="deleteWordCardsByColor()">刪色</button>-->
-        <!--<button id="moveButton">移動模式</button>-->
-    </span>
+			</select>				
+			<div class="separator">|</div>	
+			<button class="submit-btn" onclick="createWordCard()">✚</button>
+		</div>		
 </div>
 
+
+
 <div class="zoom-controls">
-    <button id="shareButton" onclick="shareWordCards()" title="分享">➦</button>
+    <button id="updateFiles" onclick="redirectToUrl()" ondblclick="updateFiles()" style="display: none;" title="新檔">新</button>
+    <button id="shareButton" onclick="shareWordCards()" title="分享">分</button>
+    <button id="selectModeButton" title="選取">選</button>
+	<button id="viewModeButton" title="檢視">▶︎</button>
     <button onclick="resetZoom()" title="原比例">↺</button>
     <button onclick="zoomIn()" title="拉近">+</button>
-    <button onclick="zoomOut()" title="退遠">-</button>
-
-
+    <button onclick="zoomOut()" title="退遠">-</button>	
 </div>
 
 <script src="script.js?v=Sing01"></script>
