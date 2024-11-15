@@ -3,7 +3,7 @@ var viewMode = false; // 檢視模式的狀態
 var deletedWordCards = []; // 儲存已刪除的語詞卡及其原始位置;
 var lastClickTime = 0; // 在手機上連點兩下的時間計算;
 var pressTimer; // 手機上長按的時間計算;
-
+let tempInput = null; // 用於追蹤臨時輸入框
 
 let scale = 1;
 let panX = 0;
@@ -22,12 +22,14 @@ function zoomIn() {
     scale *= 1.2;
     if (scale > 20) scale = 20; // 最大縮放限制
     setTransform();
+	updateTempInputPosition();
 }
 
 function zoomOut() {
     scale /= 1.2;
     if (scale < 0.2) scale = 0.2; // 最小縮放限制
     setTransform();
+	updateTempInputPosition();
 }
 
 function resetZoom() {
@@ -35,6 +37,7 @@ function resetZoom() {
     panX = 0;
     panY = 0;
     setTransform();
+	updateTempInputPosition();
 }
 
 // 滾輪縮放
@@ -65,7 +68,59 @@ container.addEventListener('wheel', (e) => {
     panY += mouseY * (1 - scale / oldScale);
 
     setTransform();
+	updateTempInputPosition();
 });
+
+// 為 infinite-canvas 添加雙擊事件監聽
+document.getElementById('infinite-canvas').addEventListener('dblclick', function(e) {
+    if (e.target.id === 'infinite-canvas') {
+        // 直接使用滑鼠點擊位置
+        createTempInput(e.clientX, e.clientY);
+    }
+});
+
+
+// 創建臨時輸入框的函式
+function createTempInput(x, y) {
+    if (tempInput) {
+        tempInput.remove();
+    }
+
+    tempInput = document.createElement('input');
+    tempInput.type = 'text';
+    tempInput.style.position = 'fixed'; // 改用 fixed 定位
+    tempInput.style.left = x + 'px';
+    tempInput.style.top = y + 'px';
+    tempInput.style.zIndex = '1000';
+    tempInput.style.padding = '4px';
+    tempInput.style.border = '1px solid #dfe1e5';
+    tempInput.style.borderRadius = '4px';
+    tempInput.style.fontSize = '16px';
+    tempInput.style.minWidth = '100px';
+
+    document.body.appendChild(tempInput); // 改為加到 body
+    tempInput.focus();
+
+    // Enter 事件處理
+    tempInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (this.value.trim()) {
+                // 在相同位置創建語詞卡
+                createWordCard(this.value, x, y);
+                //this.remove();
+                tempInput = null;
+            }
+        }
+    });
+
+    tempInput.addEventListener('blur', function() {
+        this.remove();
+        tempInput = null;
+    });
+}
+
+
 
 // 檢查畫布是否有語詞卡的函數
 function hasWordCards() {
@@ -94,6 +149,7 @@ container.addEventListener('mousedown', (e) => {
         lastY = e.clientY;
         container.style.cursor = 'grab';
     }
+	updateTempInputPosition();
 });
 
 container.addEventListener('mousemove', (e) => {
@@ -110,11 +166,13 @@ container.addEventListener('mousemove', (e) => {
         setTransform();
         container.style.cursor = 'grabbing';
     }
+	updateTempInputPosition();
 });
 
 container.addEventListener('mouseup', () => {
     isDragging = false;
     container.style.cursor = 'default';
+	updateTempInputPosition();
 });
 
 // 防止拖曳超出範圍
@@ -154,6 +212,7 @@ container.addEventListener('touchstart', (e) => {
         lastTouchX = e.touches[0].clientX;
         lastTouchY = e.touches[0].clientY;
     }
+	updateTempInputPosition();
 });
 
 container.addEventListener('touchmove', (e) => {
@@ -199,6 +258,7 @@ container.addEventListener('touchmove', (e) => {
         lastTouchY = touch.clientY;
         setTransform();
     }
+	updateTempInputPosition();
 });
 
 container.addEventListener('touchend', () => {
@@ -207,6 +267,7 @@ container.addEventListener('touchend', () => {
         selectBox.style.display = 'none';
     }
     isTouchDragging = false;
+	updateTempInputPosition();
 });
 
 container.addEventListener('touchcancel', () => {
@@ -215,17 +276,17 @@ container.addEventListener('touchcancel', () => {
         selectBox.style.display = 'none';
     }
     isTouchDragging = false;
+	updateTempInputPosition();
 });
 
 
 
 
 //J01 建立語詞卡;
-function createWordCard(txt) {
+function createWordCard(txt, posX, posY) {
     var inputValue;
     inputValue = txt ?? document.getElementById('wordInput').value;
-    //如果 txt 不是空值 undefined 或 null，則設為 txt 的值，否則設為 ('wordInput').value的值。;
-
+    
     if (inputValue.trim() == '') {
         document.getElementById('wordInput').value = "";
         return;
@@ -233,8 +294,6 @@ function createWordCard(txt) {
 
     var colorSelect = document.getElementById('colorSelect');
     var selectedColor = colorSelect.value;
-
-
 
     try {
         inputValue = decodeURIComponent(inputValue);
@@ -341,85 +400,24 @@ function createWordCard(txt) {
             var wordCard = document.createElement('div');
             wordCard.className = 'wordCard';
             wordCard.classList.add('cardAdd');
+
             if (selectedColor == 0) {
                 let c = mathRandom(1, 6);
                 wordCard.classList.add('cardColor-' + c);
             } else if (selectedColor) {
                 wordCard.classList.add('cardColor-' + selectedColor);
             }
+
             wordCard.id = 'wordCard-' + idNumber;
             word = word.replace(/&nbsp;/g, ' '); // 取代空格「&nbsp;」代號;
             wordCard.innerHTML = word;
-
             makeDraggable(wordCard);
             wordCard.setAttribute('draggable', "o"); // 拖曳屬性預設 o 可以;  
 
             // 雙擊事件處理器
-            wordCard.addEventListener('dblclick', function(e) {
-                // 設定卡片為編輯模式
-                this.setAttribute('contenteditable', 'true');
-                this.setAttribute('draggable', 'x'); // 禁止拖曳
-                this.style.cursor = 'text'; // 改變游標樣式
-                // 儲存原始內容
-                this.setAttribute('data-original-content', this.innerHTML);
-
-                // 設置焦點
-                setTimeout(() => {
-                    this.focus();
-
-                    // 處理卡片點擊，設置游標位置
-                    const handleCardClick = (e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-
-                        const selection = window.getSelection();
-                        const range = document.createRange();
-
-                        try {
-                            if (document.caretPositionFromPoint) {
-                                const position = document.caretPositionFromPoint(e.clientX, e.clientY);
-                                if (position) {
-                                    range.setStart(position.offsetNode, position.offset);
-                                    range.collapse(true);
-                                }
-                            } else if (document.caretRangeFromPoint) {
-                                range.setStart(document.caretRangeFromPoint(e.clientX, e.clientY).startContainer,
-                                    document.caretRangeFromPoint(e.clientX, e.clientY).startOffset);
-                                range.collapse(true);
-                            }
-                            selection.removeAllRanges();
-                            selection.addRange(range);
-                        } catch (err) {
-                            console.log('游標位置設定失敗，使用預設行為');
-                        }
-                    };
-
-                    this.addEventListener('mousedown', handleCardClick);
-
-                    // 點擊其他地方時結束編輯
-                    const finishEditing = (e) => {
-                        if (!this.contains(e.target)) {
-                            this.setAttribute('contenteditable', 'false');
-                            this.setAttribute('draggable', 'o'); // 恢復拖曳
-                            this.style.cursor = ''; // 恢復預設游標
-
-                            // 如果內容為空，恢復原始內容
-                            if (this.innerText.trim() === '') {
-                                this.innerHTML = this.getAttribute('data-original-content');
-                            }
-
-                            // 移除相關的事件監聽器
-                            document.removeEventListener('mousedown', finishEditing);
-                            this.removeEventListener('mousedown', handleCardClick);
-                        }
-                    };
-
-                    // 延遲添加點擊監聽，避免立即觸發
-                    setTimeout(() => {
-                        document.addEventListener('mousedown', finishEditing);
-                    }, 100);
-                }, 0);
-            });
+			wordCard.addEventListener('dblclick', function(e) {
+				makeCardEditable(this);
+			});
 
 
             wordCard.addEventListener('contextmenu', showContextMenu);
@@ -429,9 +427,24 @@ function createWordCard(txt) {
                     this.addEventListener('contextmenu', showContextMenu);
                 }.bind(this), 500); // 長按觸發時間設定為 500 毫秒;
             });
+
+            // 如果有指定位置，就使用指定位置
+            if (posX !== undefined && posY !== undefined) {
+                wordCard.style.position = 'absolute';
+                wordCard.style.left = posX + 'px';
+                wordCard.style.top = posY + 'px';
+            }
+
+
             canvas.appendChild(wordCard);
         });
     }
+
+        // 只在沒有指定位置時執行重排
+        if (posX === undefined || posY === undefined) {
+            rearrangeWordCards("top", ".cardAdd");
+        }
+
     // 如果語詞卡超出視窗寬度，排到下一行;
     rearrangeWordCards("top", ".cardAdd");
     // 重排新建的語詞卡;
@@ -445,20 +458,85 @@ function createWordCard(txt) {
 }
 
 
+// 監聽縮放和平移事件以更新臨時輸入框 ===
+function updateTempInputPosition() {
+    if (tempInput) {
+        const currentLeft = parseFloat(tempInput.style.left);
+        const currentTop = parseFloat(tempInput.style.top);
+        tempInput.style.transform = `scale(${scale})`;
+    }
+}
+
+function handleSubmitClick() {
+  const container = document.querySelector('.inputContainer');
+  const input = document.getElementById('wordInput');
+  
+  if (!container.classList.contains('expanded')) {
+    // 如果輸入框未展開，則展開並聚焦
+    container.classList.add('expanded');
+    input.focus();
+    return;
+  }
+  
+  // 如果已展開且有輸入內容，則創建單字卡
+  if (input.value.trim()) {
+    createWordCard();
+    //input.value = '';
+    container.classList.remove('expanded');
+  }
+}
+
+
 // 函式：清空輸入框文字
 function clearInput() {
     document.getElementById('wordInput').value = '';
 }
 
-// 監聽輸入框的按鍵事件
-document.getElementById('wordInput').addEventListener('keypress', function(e) {
-    // 如果按下 Enter 鍵 (keyCode 13)
-    if (e.key === 'Enter') {
-        e.preventDefault(); // 防止預設的 enter 行為
-        createWordCard(); // 呼叫建立卡片函式
-    }
+// 新的事件監聽設置
+document.getElementById('submitBtn').addEventListener('click', function() {
+  const container = document.querySelector('.inputContainer');
+  const input = document.getElementById('wordInput');
+  
+  if (!container.classList.contains('expanded')) {
+    // 如果輸入框未展開，則展開並聚焦
+    container.classList.add('expanded');
+    input.focus();
+    return;
+  }
+  
+  // 如果已展開且有輸入內容，則創建單字卡
+  if (input.value.trim()) {
+    createWordCard();
+    input.value = '';
+	input.focus();
+    //container.classList.remove('expanded');
+  }
 });
 
+document.getElementById('wordInput').addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const input = this;
+    
+    if (input.value.trim()) {
+      createWordCard();
+      input.value = '';
+      //document.querySelector('.inputContainer').classList.remove('expanded');
+    }
+  }
+});
+
+// 點擊外部時收合輸入框
+document.addEventListener('click', function(e) {
+  const container = document.querySelector('.inputContainer');
+  const input = document.getElementById('wordInput');
+  
+  if (!container.contains(e.target)) {  // 如果點擊的不是輸入框區域
+    if (!input.value.trim()) {  // 如果輸入框內容為空
+      container.classList.remove('expanded');  // 收合輸入框
+    }
+  }
+});
 
 let moveDistance = 0;
 let startDragX = 0;
@@ -866,84 +944,14 @@ function showContextMenu(event) {
     // 修改 showContextMenu 函式中的編輯選項程式碼
     var editItem = document.createElement('div');
     editItem.textContent = '✏️ 編輯';
-    editItem.onclick = function() {
-        // 設定卡片為編輯模式
-        card.setAttribute('contenteditable', 'true');
-        card.setAttribute('draggable', 'x'); // 禁止拖曳
-        card.style.cursor = 'text'; // 改變游標樣式
-
-        // 儲存原始內容
-        card.setAttribute('data-original-content', card.innerHTML);
-
-        // 關閉右鍵選單
-        card.setAttribute('menuAgain', 'o');
-        document.removeEventListener('click', hideContextMenu);
-        menu.parentNode.removeChild(menu);
-        cardContextMenu = 0;
-
-        // 等待下一個事件循環再設置焦點，確保編輯模式已完全啟用
-        setTimeout(() => {
-            card.focus();
-
-            // 新增：處理點擊事件，確保可以正確定位游標
-            function handleCardClick(e) {
-                // 停止事件傳播，確保只處理當前點擊
-                e.stopPropagation();
-
-                // 不要立即結束編輯模式
-                e.preventDefault();
-
-                // 使用 getSelection 和 range 來設置游標位置
-                const selection = window.getSelection();
-                const range = document.createRange();
-
-                // 嘗試使用點擊的確切位置
-                try {
-                    if (document.caretPositionFromPoint) {
-                        const position = document.caretPositionFromPoint(e.clientX, e.clientY);
-                        if (position) {
-                            range.setStart(position.offsetNode, position.offset);
-                            range.collapse(true);
-                        }
-                    } else if (document.caretRangeFromPoint) {
-                        range.setStart(document.caretRangeFromPoint(e.clientX, e.clientY).startContainer,
-                            document.caretRangeFromPoint(e.clientX, e.clientY).startOffset);
-                        range.collapse(true);
-                    }
-                    selection.removeAllRanges();
-                    selection.addRange(range);
-                } catch (err) {
-                    console.log('游標位置設定失敗，使用預設行為');
-                }
-            }
-
-            // 新增點擊事件監聽器
-            card.addEventListener('mousedown', handleCardClick);
-
-            // 點擊其他地方時結束編輯
-            function finishEditing(e) {
-                if (!card.contains(e.target)) {
-                    card.setAttribute('contenteditable', 'false');
-                    card.setAttribute('draggable', 'o'); // 恢復拖曳
-                    card.style.cursor = ''; // 恢復預設游標
-
-                    // 如果內容為空，恢復原始內容
-                    if (card.innerText.trim() === '') {
-                        card.innerHTML = card.getAttribute('data-original-content');
-                    }
-
-                    // 移除所有相關的事件監聽器
-                    document.removeEventListener('mousedown', finishEditing);
-                    card.removeEventListener('mousedown', handleCardClick);
-                }
-            }
-
-            // 延遲添加點擊監聽，避免立即觸發
-            setTimeout(() => {
-                document.addEventListener('mousedown', finishEditing);
-            }, 100);
-        }, 0);
-    };
+	editItem.onclick = function() {
+		makeCardEditable(card);
+		// 關閉右鍵選單
+		card.setAttribute('menuAgain', 'o');
+		document.removeEventListener('click', hideContextMenu);
+		menu.parentNode.removeChild(menu);
+		cardContextMenu = 0;
+	};
     menu.appendChild(editItem);
 
 
@@ -1024,59 +1032,9 @@ function showContextMenu(event) {
 			var idNumber = wordCards.length + deletedWordCards.length + 1;
 			cloneCard.id = 'wordCard-' + idNumber;
 			
-			// 新增：重新綁定雙擊編輯事件
+			// 重新綁定雙擊編輯事件
 			cloneCard.addEventListener('dblclick', function(e) {
-				// 設定卡片為編輯模式
-				this.setAttribute('contenteditable', 'true');
-				this.setAttribute('draggable', 'x');
-				this.style.cursor = 'text';
-				this.setAttribute('data-original-content', this.innerHTML);
-				
-				setTimeout(() => {
-					this.focus();
-					const handleCardClick = (e) => {
-						e.stopPropagation();
-						e.preventDefault();
-						const selection = window.getSelection();
-						const range = document.createRange();
-						try {
-							if (document.caretPositionFromPoint) {
-								const position = document.caretPositionFromPoint(e.clientX, e.clientY);
-								if (position) {
-									range.setStart(position.offsetNode, position.offset);
-									range.collapse(true);
-								}
-							} else if (document.caretRangeFromPoint) {
-								range.setStart(document.caretRangeFromPoint(e.clientX, e.clientY).startContainer,
-									document.caretRangeFromPoint(e.clientX, e.clientY).startOffset);
-								range.collapse(true);
-							}
-							selection.removeAllRanges();
-							selection.addRange(range);
-						} catch (err) {
-							console.log('游標位置設定失敗，使用預設行為');
-						}
-					};
-
-					this.addEventListener('mousedown', handleCardClick);
-
-					const finishEditing = (e) => {
-						if (!this.contains(e.target)) {
-							this.setAttribute('contenteditable', 'false');
-							this.setAttribute('draggable', 'o');
-							this.style.cursor = '';
-							if (this.innerText.trim() === '') {
-								this.innerHTML = this.getAttribute('data-original-content');
-							}
-							document.removeEventListener('mousedown', finishEditing);
-							this.removeEventListener('mousedown', handleCardClick);
-						}
-					};
-
-					setTimeout(() => {
-						document.addEventListener('mousedown', finishEditing);
-					}, 100);
-				}, 0);
+				makeCardEditable(this);
 			});
 
 			var offsetX = 20;
@@ -1216,24 +1174,90 @@ function showContextMenu(event) {
 }
 
 
+
+// 共用函數：處理語詞卡編輯功能
+function makeCardEditable(card) {
+    // 設定卡片為編輯模式
+    card.setAttribute('contenteditable', 'true');
+    card.setAttribute('draggable', 'x'); // 禁止拖曳
+    card.style.cursor = 'text'; // 改變游標樣式
+    
+    // 儲存原始內容
+    card.setAttribute('data-original-content', card.innerHTML);
+    
+    // 設置焦點並處理游標位置
+    setTimeout(() => {
+        card.focus();
+        
+        // 處理卡片點擊，設置游標位置
+        const handleCardClick = (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const selection = window.getSelection();
+            const range = document.createRange();
+            
+            try {
+                if (document.caretPositionFromPoint) {
+                    const position = document.caretPositionFromPoint(e.clientX, e.clientY);
+                    if (position) {
+                        range.setStart(position.offsetNode, position.offset);
+                        range.collapse(true);
+                    }
+                } else if (document.caretRangeFromPoint) {
+                    range.setStart(document.caretRangeFromPoint(e.clientX, e.clientY).startContainer,
+                        document.caretRangeFromPoint(e.clientX, e.clientY).startOffset);
+                    range.collapse(true);
+                }
+                selection.removeAllRanges();
+                selection.addRange(range);
+            } catch (err) {
+                console.log('游標位置設定失敗，使用預設行為');
+            }
+        };
+        
+        // 添加點擊事件監聽器
+        card.addEventListener('mousedown', handleCardClick);
+        
+        // 點擊其他地方時結束編輯
+        const finishEditing = (e) => {
+            if (!card.contains(e.target)) {
+                card.setAttribute('contenteditable', 'false');
+                card.setAttribute('draggable', 'o'); // 恢復拖曳
+                card.style.cursor = ''; // 恢復預設游標
+                
+                // 如果內容為空，恢復原始內容
+                if (card.innerText.trim() === '') {
+                    card.innerHTML = card.getAttribute('data-original-content');
+                }
+                
+                // 移除相關的事件監聽器
+                document.removeEventListener('mousedown', finishEditing);
+                card.removeEventListener('mousedown', handleCardClick);
+            }
+        };
+        
+        // 延遲添加點擊監聽，避免立即觸發
+        setTimeout(() => {
+            document.addEventListener('mousedown', finishEditing);
+        }, 100);
+    }, 0);
+}
+
+
+
+
+
+
 const wordInput = document.getElementById('wordInput');
-const clearButton = document.getElementById('clearButton');
+
 const colorSelect = document.getElementById('colorSelect');
 
 wordInput.addEventListener('input', function() {
     if (wordInput.value !== '') {
-        clearButton.style.display = 'block';
         colorSelect.style.display = 'block';
     } else {
-        clearButton.style.display = 'none';
         colorSelect.style.display = 'none';
     }
-});
-
-clearButton.addEventListener('click', function() {
-    wordInput.value = '';
-    clearButton.style.display = 'none';
-    //colorSelect.style.display = 'none';
 });
 
 
@@ -1505,7 +1529,6 @@ function restoreWordCardsFromURL() {
 
     if (sharedData) {
         var parsedData = JSON.parse(sharedData);
-
         parsedData.forEach(function(cardData) {
             var wordCard = document.createElement('div');
             wordCard.id = cardData.id;
@@ -1514,8 +1537,10 @@ function restoreWordCardsFromURL() {
             wordCard.style.position = 'absolute';
             wordCard.style.top = cardData.top + 'px';
             wordCard.style.left = cardData.left + 'px';
-
             makeDraggable(wordCard);
+            wordCard.addEventListener('dblclick', function(e) {
+                makeCardEditable(this);
+            });
             canvas.appendChild(wordCard);
         });
     }
@@ -1557,6 +1582,9 @@ function restoreWordCardsFromURL() {
             wordCard.style.position = 'absolute';
             makeDraggable(wordCard);
             wordCard.addEventListener('contextmenu', showContextMenu);
+            wordCard.addEventListener('dblclick', function(e) {
+                makeCardEditable(this);
+            });
             canvas.appendChild(wordCard);
         }
     }
