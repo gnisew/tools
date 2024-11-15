@@ -108,9 +108,9 @@ function createTempInput(x, y) {
             if (this.value.trim()) {
                 // 在相同位置創建語詞卡
                 createWordCard(this.value, x, y);
-                //this.remove();
-                tempInput = null;
+				this.blur();
             }
+			
         }
     });
 
@@ -419,7 +419,6 @@ function createWordCard(txt, posX, posY) {
 				makeCardEditable(this);
 			});
 
-
             wordCard.addEventListener('contextmenu', showContextMenu);
 
             wordCard.addEventListener('touchstart', function(e) {
@@ -430,12 +429,11 @@ function createWordCard(txt, posX, posY) {
 
             // 如果有指定位置，就使用指定位置
             if (posX !== undefined && posY !== undefined) {
-                wordCard.style.position = 'absolute';
+				console.log("AAA")
+                wordCard.style.position = 'fixed';
                 wordCard.style.left = posX + 'px';
                 wordCard.style.top = posY + 'px';
             }
-
-
             canvas.appendChild(wordCard);
         });
     }
@@ -445,8 +443,6 @@ function createWordCard(txt, posX, posY) {
             rearrangeWordCards("top", ".cardAdd");
         }
 
-    // 如果語詞卡超出視窗寬度，排到下一行;
-    rearrangeWordCards("top", ".cardAdd");
     // 重排新建的語詞卡;
     var cardAdd = document.querySelectorAll('.cardAdd');
     cardAdd.forEach(function(card) {
