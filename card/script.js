@@ -16,20 +16,21 @@ const container = document.getElementById('canvas-container');
 // 縮放功能
 function setTransform() {
     canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    updateTempInputPosition();
 }
 
 function zoomIn() {
     scale *= 1.2;
     if (scale > 20) scale = 20; // 最大縮放限制
     setTransform();
-	updateTempInputPosition();
+
 }
 
 function zoomOut() {
     scale /= 1.2;
     if (scale < 0.2) scale = 0.2; // 最小縮放限制
     setTransform();
-	updateTempInputPosition();
+
 }
 
 function resetZoom() {
@@ -37,7 +38,6 @@ function resetZoom() {
     panX = 0;
     panY = 0;
     setTransform();
-	updateTempInputPosition();
 }
 
 // 滾輪縮放
@@ -71,56 +71,68 @@ container.addEventListener('wheel', (e) => {
 	updateTempInputPosition();
 });
 
+
+
 // 為 infinite-canvas 添加雙擊事件監聽
-document.getElementById('infinite-canvas').addEventListener('dblclick', function(e) {
-    if (e.target.id === 'infinite-canvas') {
-        // 直接使用滑鼠點擊位置
-        createTempInput(e.clientX, e.clientY);
-    }
+// 修改事件監聽器，直接使用客戶端座標
+container.addEventListener('dblclick', function(e) {
+    // 計算相對於容器的位置
+    const containerRect = container.getBoundingClientRect();
+    // 計算實際位置，考慮平移和縮放效果
+    const actualX = (e.clientX - containerRect.left - panX) / scale;
+    const actualY = (e.clientY - containerRect.top - panY) / scale;
+
+    // 使用滑鼠點擊的實際螢幕位置
+    createTempInput(e.clientX, e.clientY, actualX, actualY);
 });
 
+// 修改臨時輸入框的建立函數
 
-// 創建臨時輸入框的函式
-function createTempInput(x, y) {
+function createTempInput(screenX, screenY, actualX, actualY) {
     if (tempInput) {
         tempInput.remove();
     }
-
+    
     tempInput = document.createElement('input');
     tempInput.type = 'text';
-    tempInput.style.position = 'fixed'; // 改用 fixed 定位
-    tempInput.style.left = x + 'px';
-    tempInput.style.top = y + 'px';
+    tempInput.style.position = 'fixed';
+    
+    // 儲存原始位置
+    tempInput.setAttribute('data-original-x', screenX);
+    tempInput.setAttribute('data-original-y', screenY);
+    
+    // 設置位置
+    tempInput.style.left = `${screenX}px`;
+    tempInput.style.top = `${screenY}px`;
+    
+    tempInput.style.transformOrigin = 'center';
     tempInput.style.zIndex = '1000';
     tempInput.style.padding = '4px';
     tempInput.style.border = '1px solid #dfe1e5';
     tempInput.style.borderRadius = '4px';
     tempInput.style.fontSize = '16px';
     tempInput.style.minWidth = '100px';
-
-    document.body.appendChild(tempInput); // 改為加到 body
+    
+    // 改為加到 body 中
+    document.body.appendChild(tempInput);
+    
     tempInput.focus();
-
-    // Enter 事件處理
+    
     tempInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
             if (this.value.trim()) {
-                // 在相同位置創建語詞卡
-                createWordCard(this.value, x, y);
-				this.blur();
+                createWordCard(this.value, actualX, actualY);
+                this.blur();
             }
-			
         }
     });
-
+    
     tempInput.addEventListener('blur', function() {
         this.remove();
         tempInput = null;
     });
 }
-
-
 
 // 檢查畫布是否有語詞卡的函數
 function hasWordCards() {
@@ -149,7 +161,6 @@ container.addEventListener('mousedown', (e) => {
         lastY = e.clientY;
         container.style.cursor = 'grab';
     }
-	updateTempInputPosition();
 });
 
 container.addEventListener('mousemove', (e) => {
@@ -166,7 +177,6 @@ container.addEventListener('mousemove', (e) => {
         setTransform();
         container.style.cursor = 'grabbing';
     }
-	updateTempInputPosition();
 });
 
 container.addEventListener('mouseup', () => {
@@ -179,6 +189,7 @@ container.addEventListener('mouseup', () => {
 container.addEventListener('mouseleave', () => {
     isDragging = false;
     container.style.cursor = 'default';
+	updateTempInputPosition();
 });
 
 
@@ -212,7 +223,6 @@ container.addEventListener('touchstart', (e) => {
         lastTouchX = e.touches[0].clientX;
         lastTouchY = e.touches[0].clientY;
     }
-	updateTempInputPosition();
 });
 
 container.addEventListener('touchmove', (e) => {
@@ -258,7 +268,6 @@ container.addEventListener('touchmove', (e) => {
         lastTouchY = touch.clientY;
         setTransform();
     }
-	updateTempInputPosition();
 });
 
 container.addEventListener('touchend', () => {
@@ -276,7 +285,6 @@ container.addEventListener('touchcancel', () => {
         selectBox.style.display = 'none';
     }
     isTouchDragging = false;
-	updateTempInputPosition();
 });
 
 
@@ -284,6 +292,7 @@ container.addEventListener('touchcancel', () => {
 
 //J01 建立語詞卡;
 function createWordCard(txt, posX, posY) {
+	
     var inputValue;
     inputValue = txt ?? document.getElementById('wordInput').value;
     
@@ -358,13 +367,18 @@ function createWordCard(txt, posX, posY) {
         }
         // 替換輸入的字串================;
         let w = words.join("	");
+		w = urlConverter(w);	
         //w = w.replace(/([A-Za-z0-9\-_]+)(.)(holo|ka|kasu)/g, "<k onclick=\"p(this, '<$1$3>')\">🔊</k>");
         w = w.replace(/([A-Za-z0-9\-_]+)(;|:)(ho|holo|kasu|ka|minnan|min)/g, "<k onclick=\"p(this, '$1:$3')\">🔊</k>$1");
+
         w = w.replace(/<([a-zA-Z]*):([^>]*)>/g, "<k onclick=\"p(this, '<$1:$2>')\">🔊</k>");
+
         w = w.replace(/<([a-zA-Z]*);([^>]*)>/g, "<k onclick=\"p(this, '<$1;$2>')\">🔊</k>$2");
 
         w = w.replace(/([A-Za-z0-9\-_]+)\.holo/g, "https://oikasu.com/file/mp3holo/$1.mp3");
+		
         w = w.replace(/([A-Za-z0-9\-_]+)\.kasu/g, "https://oikasu.com/file/mp3/$1.mp3");
+		
         w = w.replace(/([A-Za-z0-9\-_]+)\.ka/g, function(match, p1) {
             let x = p1.replace(/([a-z])z\b/g, "$1ˊ")
                 .replace(/([a-z])v\b/g, "$1ˇ")
@@ -379,6 +393,9 @@ function createWordCard(txt, posX, posY) {
         w = imageToHTML(w);
         w = vocarooToIframe(w);
         w = youtubeToIframe(w);
+
+		
+		
 
         w = w.replace(/\\n/g, "<br />");
         //==============================;
@@ -428,12 +445,11 @@ function createWordCard(txt, posX, posY) {
             });
 
             // 如果有指定位置，就使用指定位置
-            if (posX !== undefined && posY !== undefined) {
-				console.log("AAA")
-                wordCard.style.position = 'fixed';
-                wordCard.style.left = posX + 'px';
-                wordCard.style.top = posY + 'px';
-            }
+        if (posX !== undefined && posY !== undefined) {
+            wordCard.style.position = 'absolute';  // 改為absolute定位
+            wordCard.style.left = posX + 'px';
+            wordCard.style.top = posY + 'px';
+        }
             canvas.appendChild(wordCard);
         });
     }
@@ -456,12 +472,18 @@ function createWordCard(txt, posX, posY) {
 
 // 監聽縮放和平移事件以更新臨時輸入框 ===
 function updateTempInputPosition() {
-    if (tempInput) {
-        const currentLeft = parseFloat(tempInput.style.left);
-        const currentTop = parseFloat(tempInput.style.top);
-        tempInput.style.transform = `scale(${scale})`;
-    }
+    // 如果沒有臨時輸入框，直接返回
+    if (!tempInput) return;
+
+    // 獲取臨時輸入框的原始位置數據
+    const left = parseFloat(tempInput.getAttribute('data-original-x') || 0);
+    const top = parseFloat(tempInput.getAttribute('data-original-y') || 0);
+
+    // 計算新的位置
+    tempInput.style.left = `${left}px`;
+    tempInput.style.top = `${top}px`;
 }
+
 
 function handleSubmitClick() {
   const container = document.querySelector('.inputContainer');
@@ -739,6 +761,69 @@ var selectedPosition; // 所選取的位置;
 var positionSelect;
 // 重新排序語詞卡;
 function rearrangeWordCards(x, who) {
+    var wordCards = Array.from(document.querySelectorAll(who));
+    var windowWidth = window.innerWidth;
+    var windowHeight = window.innerHeight;
+    var rowWidth = 0;
+    var rowHeight = 0;
+    var maxHeight = 0;
+    
+    // 修改：計算可視區域的相對位置
+    var containerRect = container.getBoundingClientRect();
+    var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    
+    // 修改：計算初始左邊距離，考慮平移和縮放
+    var currentLeft = (20 - panX) / scale;
+    
+    // 修改：根據不同位置計算初始頂部距離
+    var currentTop;
+    if (x === 'top') {
+        // 修改：改為可視區域頂部位置加上一個固定偏移
+        currentTop = (scrollTop + 80 - panY) / scale;
+    } else if (x === 'middle') {
+        // 修改：改為可視區域中間位置
+        currentTop = (scrollTop + (windowHeight / 2) - panY) / scale;
+    } else if (x === 'bottom') {
+        // 修改：改為可視區域底部位置減去固定偏移
+        currentTop = (scrollTop + windowHeight - 100 - panY) / scale;
+    }
+
+    // 其餘排序邏輯保持不變
+    wordCards.sort(function(a, b) {
+        var idA = parseInt(a.id.replace('wordCard-', ''));
+        var idB = parseInt(b.id.replace('wordCard-', ''));
+        return idA - idB;
+    });
+
+    if (x === 'lines-left') {
+        // 左側垂直排列的邏輯...（保持不變）
+    } else {
+        wordCards.forEach(function(wordCard) {
+            var cardWidth = wordCard.offsetWidth;
+            var cardHeight = wordCard.offsetHeight;
+
+            // 修改：考慮縮放比例進行寬度計算
+            if (rowWidth + (cardWidth / scale) > (windowWidth - 100) / scale) {
+                currentTop += maxHeight + 2;
+                currentLeft = (60 - panX) / scale;
+                rowWidth = 0;
+                rowHeight = 0;
+                maxHeight = 0;
+            }
+
+            // 修改：設置位置時考慮縮放和平移
+            wordCard.style.top = currentTop + 'px';
+            wordCard.style.left = currentLeft + 'px';
+
+            rowWidth += (cardWidth + 2) / scale;
+            rowHeight = Math.max(rowHeight, cardHeight / scale);
+            maxHeight = Math.max(maxHeight, cardHeight / scale);
+            currentLeft += (cardWidth + 2) / scale;
+        });
+    }
+}
+/*
+function rearrangeWordCards(x, who) {
     //用 who 限定對象，如新建的或是全部;    
     //var positionSelect = document.getElementById('positionSelect');
     //var selectedPosition = positionSelect.value;
@@ -811,7 +896,7 @@ function rearrangeWordCards(x, who) {
         });
     }
 }
-
+*/
 
 var cardContextMenu = 0;
 var menu = null; // 新增變數 menu 來儲存選單;
@@ -1460,18 +1545,18 @@ function shareWordCards(how) {
                 console.log("縮短後的網址:", shortenedUrl);
                 // 在這裡處理縮短後的網址
                 copyThat(shortenedUrl);
-                alert('已複製 短網址 到剪貼簿');
+                alert('🥷已複製 短網址 到剪貼簿');
             })
             .catch((error) => {
                 copyThat(longURL);
-                alert('已複製 長網址 到剪貼簿');
+                alert('🥷已複製 長網址 到剪貼簿');
                 console.error("無法縮短網址:", error);
             });
     } else {
         // 如果不是以http開頭的離線檔，則不縮短網址;
         //copyThat(longURL);
         copyThat(decodeURIComponent(longURL));
-        alert('已複製 長網址2 到剪貼簿');
+        alert('🥷已複製 長網址 到剪貼簿');
     }
 }
 
@@ -1487,7 +1572,7 @@ async function shortenUrl(originalUrl) {
         const shortenedUrl = await response.text();
         return shortenedUrl;
     } catch (error) {
-        console.error("無法縮短網址:", error);
+        console.error("🥷無法縮短網址:", error);
         return originalUrl;
     }
 }
@@ -1504,7 +1589,7 @@ function copyThat(x) {
 
 // 返回無參數的原始網址;
 function redirectToUrl() {
-    var result = confirm("這將會清除，並無法復原。\n確定要一切重來，建立新檔嗎？");
+    var result = confirm("🥷這將會清除，並無法復原。\n確定要一切重來，建立新檔嗎？");
     if (result) {
         var urlWithoutParams = new URL(location.href);
         urlWithoutParams.search = '';
@@ -2772,6 +2857,162 @@ function htmlToAudio(inputStr) {
     return outputStr;
 }
 
+function urlConverter(inputStr) {
+    // 匹配不同格式的正則表達式
+    const patterns = [
+        // 格式3: <網址 連結名稱 title文字>
+        {
+            pattern: /^<(https?:\/\/[^>\s]+)\s+([^>\s]+)\s+([^>]+)>$/g,
+            replacement: '$2 <a href="$1" title="$3">🔗</a>'
+        },
+        // 格式2: <網址 連結名稱>
+        {
+            pattern: /^<(https?:\/\/[^>\s]+)\s+([^>]+)>$/g,
+            replacement: '$2 <a href="$1">🔗</a>'
+        },
+        // 格式1: <網址>
+        {
+            pattern: /^<(https?:\/\/[^>\s]+)>$/g,
+            replacement: '⋮⋮<a href="$1">🔗</a>'
+        },
+        // 格式4: [連結名稱](網址 "title文字")
+        {
+            pattern: /^\[([^\]]+)\]\((https?:\/\/[^\s)"]+)(?:\s+"([^"]+)")?\)$/g,
+            replacement: (match, text, url, title) => 
+                title 
+                    ? `${text} <a href="${url}" title="${title}">🔗</a>`
+                    : `${text} <a href="${url}">🔗</a>`
+        },
+        // 格式5: 網址 連結名稱
+        {
+            pattern: /^(https?:\/\/[^>\s]+)\s+([^>\s]+)(?:\s+([^\s]+))?$/g,
+            replacement: (match, url, text, title) =>
+                title
+                    ? `${text} <a href="${url}" title="${title}">🔗</a>`
+                    : `${text} <a href="${url}">🔗</a>`
+        },
+        // 格式6: 純網址（以 http:// 或 https:// 開頭且後面無空格）
+        {
+            pattern: /^(https?:\/\/[^\s]+)$/g,
+            replacement: '⋮⋮<a href="$1">🔗</a>'
+        }
+    ];
+    
+    // 移除首尾空白
+    let outputStr = String(inputStr).trim();
+    
+    // 尋找匹配的格式並轉換
+    for (const { pattern, replacement } of patterns) {
+        if (pattern.test(outputStr)) {
+            // 重置 lastIndex，因為我們使用了 g 標誌
+            pattern.lastIndex = 0;
+            return outputStr.replace(pattern, replacement);
+        }
+    }
+    return outputStr;
+}
+
+function urlConverter(inputStr) {
+    // 匹配不同格式的正則表達式
+    const patterns = [
+        // 格式3: <網址 連結名稱 title文字>
+        {
+            pattern: /^<(https?:\/\/[^>\s]+)\s+([^>\s]+)\s+([^>]+)>$/g,
+            replacement: '$2 <a href="$1" title="$3">🔗</a>'
+        },
+        // 格式2: <網址 連結名稱>
+        {
+            pattern: /^<(https?:\/\/[^>\s]+)\s+([^>]+)>$/g,
+            replacement: '$2 <a href="$1">🔗</a>'
+        },
+        // 格式1: <網址>
+        {
+            pattern: /^<(https?:\/\/[^>\s]+)>$/g,
+            replacement: ':::<a href="$1">🔗</a>'
+        },
+        // 格式4: [連結名稱](網址 "title文字")
+        {
+            pattern: /^\[([^\]]+)\]\((https?:\/\/[^\s)"]+)(?:\s+"([^"]+)")?\)$/g,
+            replacement: (match, text, url, title) => 
+                title 
+                    ? `${text} <a href="${url}" title="${title}">🔗</a>`
+                    : `${text} <a href="${url}">🔗</a>`
+        },
+        // 格式5: 網址 連結名稱 [可選的title文字]
+        {
+            pattern: /^(https?:\/\/[^>\s]+)\s+([^>\s]+)(?:\s+([^\s]+))?$/g,
+            replacement: (match, url, text, title) =>
+                title
+                    ? `${text} <a href="${url}"  title="${title}">🔗</a>`
+                    : `${text} <a href="${url}" >🔗</a>`
+        },
+        // 格式6: 純網址
+        {
+            pattern: /^(https?:\/\/[^\s]+)$/g,
+            replacement: ':::<a href="$1">🔗</a>'
+        }
+    ];
+    
+    // 移除首尾空白
+    let outputStr = String(inputStr).trim();
+    
+    // 尋找匹配的格式並轉換
+    for (const { pattern, replacement } of patterns) {
+        if (pattern.test(outputStr)) {
+            pattern.lastIndex = 0;
+            return outputStr.replace(pattern, replacement);
+        }
+    }
+    return outputStr;
+}
+
+function urlConverterReverse(htmlStr) {
+    // 移除首尾空白
+    let inputStr = String(htmlStr).trim();
+    
+    // 匹配不同的 HTML 格式並還原
+    const patterns = [
+        // 帶有 title 的鏈接
+        {
+            pattern: /^([^<]+)\s+<a href="(https?:\/\/[^"]+)" target="_blank" title="([^"]+)">🔗<\/a>$/,
+            getOriginal: (match, text, url, title) => {
+                // 如果文字和 URL 完全相同，返回純 URL 格式
+                if (text === url) {
+                    return url;
+                }
+                // 否則返回 URL + 文字 + title 格式
+                return `${url} ${text} ${title}`;
+            }
+        },
+        // 不帶 title 的鏈接
+        {
+            pattern: /^([^<]+)\s+<a href="(https?:\/\/[^"]+)" target="_blank">🔗<\/a>$/,
+            getOriginal: (match, text, url) => {
+                // 如果文字和 URL 完全相同，返回純 URL 格式
+                if (text === url) {
+                    return url;
+                }
+                // 否則返回 URL + 文字格式
+                return `${url} ${text}`;
+            }
+        },
+        // 純 URL 鏈接
+        {
+            pattern: /^<a href="(https?:\/\/[^"]+)" target="_blank">🔗<\/a>$/,
+            getOriginal: (match, url) => url
+        }
+    ];
+    
+    // 尋找匹配的格式並還原
+    for (const { pattern, getOriginal } of patterns) {
+        const match = inputStr.match(pattern);
+        if (match) {
+            return getOriginal(...match);
+        }
+    }
+    
+    return inputStr;
+}
 
 // 尋找所有含有 {{}} 的元素，並進行取代
 //const elementsWithBrackets = document.querySelectorAll(':contains("{{")');
