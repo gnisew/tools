@@ -923,46 +923,46 @@ function rearrangeWordCards(x, who) {
     }
 }
 */
+// 全域變數，追蹤目前開啟的選單
+let currentMenu = null;
+
+// 關閉選單的函數
+function closeMenu() {
+    if (currentMenu) {
+        currentMenu.remove();
+        currentMenu = null;
+    }
+}
+
 
 var cardContextMenu = 0;
 var menu = null; // 新增變數 menu 來儲存選單;
 
 // 顯示選單，語詞卡選單
 function showContextMenu(event) {
-    //event.preventDefault(); // 阻止預設的右鍵選單彈出
-    var card = this;
-    cardContextMenu = cardContextMenu + 1;
-
-    let menuOld = document.getElementById("contextMenu");
-    if (menuOld) {
-        menuOld.parentNode.removeChild(menuOld); // 刪除前一個選單
-        card.setAttribute('menuAgain', 'o');
-        cardContextMenu = 1;
-    }
-
-    if (cardContextMenu > 1) {
-        cardContextMenu = 1;
-        return;
-    }
-
-    // 如果已經有選單開啟，則不執行任何操作
-    if (card.getAttribute('menuAgain') === 'x') {
-        return;
-    }
-    card.setAttribute('menuAgain', 'x');
+    if (viewMode) return;  // 檢視模式不顯示選單
+    
+    event.preventDefault();  // 阻止預設右鍵選單
+    
+    // 如果有選單已開啟，先關閉它
+    closeMenu();
+    
+    const card = this;
 
     // 建立自訂的選單
     var menu = document.createElement('div');
     menu.id = 'contextMenu';
     menu.style.position = 'absolute';
 
-    menu.style.left = event.clientX + 'px';
-    menu.style.top = event.clientY + 'px';
+    const pos = calculateMenuPosition(event.clientX, event.clientY);
+    menu.style.left = pos.x + 'px';
+    menu.style.top = pos.y + 'px';
+    
     menu.style.backgroundColor = 'white';
     menu.style.border = '0.8px solid gray';
     menu.style.padding = '8px';
     menu.style.cursor = 'pointer';
-    menu.style.userSelect = 'none'; // 禁止文字選取
+    menu.style.userSelect = 'none';
 
     // 綁定 contextmenu 事件並阻止預設行為
     menu.addEventListener('contextmenu', function(event) {
@@ -1261,27 +1261,30 @@ function showContextMenu(event) {
     rotateContainer.appendChild(flipHorizontalItem);
 
 
-
-
     // 將選單加入到頁面中
     document.body.appendChild(menu);
-
-    // 點擊其他區域時隱藏選單
-    var hideContextMenu = function(event) {
-        if (!menu.contains(event.target)) {
-            card.setAttribute('menuAgain', 'o');
-            document.removeEventListener('click', hideContextMenu);
-            if (menu && menu.parentNode) {
-                menu.parentNode.removeChild(menu);
-            }
-            cardContextMenu = 0;
-        }
-    };
-    document.addEventListener('click', hideContextMenu);
+	currentMenu = menu;
 }
-
-
-
+function calculateMenuPosition(x, y) {
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    const menuWidth = 120;  // 選單寬度
+    const menuHeight = 300; // 選單高度
+    const windowCenterY = windowHeight / 2;  // 視窗垂直中心點
+    
+    // 如果點擊位置太靠右，選單往左開
+    if (x > windowWidth - menuWidth) {
+        x = x - menuWidth;
+    }
+    
+    // 根據點擊位置是否高於視窗中心來決定選單開啟方向
+    if (y > windowCenterY) {
+        y = y - menuHeight;  // 低於中心，選單往上開
+    }
+    // 高於中心，選單往下開，y 維持原值（選單頂部對齊滑鼠位置）
+    
+    return { x, y };
+}
 // 共用函數：處理語詞卡編輯功能
 function makeCardEditable(card) {
     // 設定卡片為編輯模式
@@ -1758,32 +1761,24 @@ function zoom(scaleFactor, card) {
 var documentContextMenu = 0;
 // 顯示選單，桌面選單
 document.addEventListener('contextmenu', function(event) {
-	if (viewMode) return; // 檢視模式下不顯示選單
-
-    // 設定對象是全部語詞卡，或是被選取的語詞卡;
-    var wordCards;
-    wordCards = document.querySelectorAll('.selected')
-    if (wordCards.length < 1) {
-        wordCards = document.querySelectorAll('.wordCard');
-    }
-
-    event.preventDefault(); // 阻止預設的右鍵選單彈出
-
-    if (cardContextMenu == 1) {
-        return;
-    }
-    if (documentContextMenu == 1) {
-        return;
-    }
-    documentContextMenu = 1;
+    // 如果點擊的是語詞卡或其子元素，不顯示桌面選單
+    if (event.target.closest('.wordCard')) return;
+    
+    if (viewMode) return;  // 檢視模式不顯示選單
+    
+    event.preventDefault();  // 阻止預設右鍵選單
+    
+    // 如果有選單已開啟，先關閉它
+    closeMenu();
 
     // 建立自訂的選單
 	var menu = document.createElement('div');
 	menu.id = 'contextMenu';
 
 	// 只保留需要動態設定的位置屬性
-	menu.style.left = event.clientX + 'px';
-	menu.style.top = event.clientY + 'px';
+    const pos = calculateMenuPosition(event.clientX, event.clientY);
+    menu.style.left = pos.x + 'px';
+    menu.style.top = pos.y + 'px';
 
     // 綁定 contextmenu 事件並阻止預設行為
     menu.addEventListener('contextmenu', function(event) {
@@ -2242,20 +2237,16 @@ document.addEventListener('contextmenu', function(event) {
         toggleFullScreen();
     };
     menu.appendChild(fullScreenItem);
-
-    // 點擊其他區域時隱藏選單
-    var hideContextMenu = function(event) {
-        if (!menu.contains(event.target)) {
-            document.removeEventListener('click', hideContextMenu);
-            if (menu && menu.parentNode) {
-                menu.parentNode.removeChild(menu);
-            }
-            documentContextMenu = 0;
-        }
-    };
-    document.addEventListener('click', hideContextMenu);
+	document.body.appendChild(menu);
+	currentMenu = menu;
 });
 
+// 點擊其他區域時關閉選單
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('#contextMenu')) {
+        closeMenu();
+    }
+});
 // 切換所有語詞卡的顯示狀態;
 function toggleAllCards(wordCards, how) {
     if (how == "none" || how == 0) {
@@ -3188,7 +3179,7 @@ document.addEventListener('DOMContentLoaded', function() {
             bgColorMenu.classList.remove('show');
             
             // 更新文字顏色
-            canvasContainer.style.color = (color === 'rgb(30,30,30)') ? 'white' : 'black';
+            //canvasContainer.style.color = (color === 'rgb(30,30,30)') ? 'white' : 'black';
             
             localStorage.setItem('canvasBackgroundColor', color);
         }
