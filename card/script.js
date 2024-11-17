@@ -1,5 +1,6 @@
 ﻿var selectMode = false;
 var viewMode = false;
+var isAltViewMode = false;  // 追蹤是否為 Alt 觸發的檢視模式
 var deletedWordCards = []; // 儲存已刪除的語詞卡及其原始位置;
 var lastClickTime = 0; // 在手機上連點兩下的時間計算;
 var pressTimer; // 手機上長按的時間計算;
@@ -11,7 +12,27 @@ let panY = 0;
 const canvas = document.getElementById('infinite-canvas');
 const container = document.getElementById('canvas-container');
 
-
+// 監聽 Alt 鍵
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Alt') {
+        // 只有在非按鈕觸發的檢視模式下才允許 Alt 切換
+        if (!document.getElementById('viewModeButton').classList.contains('active')) {
+            isAltViewMode = true;
+            viewMode = true;
+            updateViewMode();
+        }
+    }
+});
+document.addEventListener('keyup', function(e) {
+    if (e.key === 'Alt') {
+        // 只有在 Alt 觸發的檢視模式下才允許退出
+        if (isAltViewMode) {
+            isAltViewMode = false;
+            viewMode = false;
+            updateViewMode();
+        }
+    }
+});
 
 // 縮放功能
 function setTransform() {
@@ -34,7 +55,7 @@ function zoomOut() {
 }
 
 function resetZoom() {
-    scale = 1;
+    scale = nowScale;
     panX = nowX;
     panY = nowY;
     setTransform();
@@ -74,7 +95,6 @@ container.addEventListener('wheel', (e) => {
 
 
 // 為 infinite-canvas 添加雙擊事件監聽
-// 修改事件監聽器，直接使用客戶端座標
 container.addEventListener('dblclick', function(e) {
     // 計算相對於容器的位置
     const containerRect = container.getBoundingClientRect();
@@ -94,7 +114,7 @@ function createTempInput(screenX, screenY, actualX, actualY) {
     
     tempInput = document.createElement('input');
     tempInput.type = 'text';
-    tempInput.style.position = 'fixed';
+    tempInput.className = 'temp-input';
     
     // 儲存原始位置
     tempInput.setAttribute('data-original-x', screenX);
@@ -104,14 +124,7 @@ function createTempInput(screenX, screenY, actualX, actualY) {
     tempInput.style.left = `${screenX}px`;
     tempInput.style.top = `${screenY}px`;
     
-    tempInput.style.transformOrigin = 'center';
-    tempInput.style.zIndex = '1000';
-    tempInput.style.padding = '4px';
-    tempInput.style.border = '1px solid #dfe1e5';
-    tempInput.style.borderRadius = '4px';
-    tempInput.style.fontSize = '16px';
-    tempInput.style.minWidth = '100px';
-    
+   
     document.body.appendChild(tempInput);
     
     tempInput.focus();
@@ -483,6 +496,7 @@ function updateTempInputPosition() {
 }
 
 
+
 function handleSubmitClick() {
   const container = document.querySelector('.inputContainer');
   const input = document.getElementById('wordInput');
@@ -503,11 +517,6 @@ function handleSubmitClick() {
 }
 
 
-// 函式：清空輸入框文字
-function clearInput() {
-    document.getElementById('wordInput').value = '';
-}
-
 // 新的事件監聽設置
 document.getElementById('submitBtn').addEventListener('click', function() {
   const container = document.querySelector('.inputContainer');
@@ -525,7 +534,6 @@ document.getElementById('submitBtn').addEventListener('click', function() {
     createWordCard();
     input.value = '';
 	input.focus();
-    //container.classList.remove('expanded');
   }
 });
 
@@ -537,7 +545,6 @@ document.getElementById('wordInput').addEventListener('keypress', function(e) {
     if (input.value.trim()) {
       createWordCard();
       input.value = '';
-      //document.querySelector('.inputContainer').classList.remove('expanded');
     }
   }
 });
@@ -669,106 +676,57 @@ function makeDraggable(element) {
         selectedCardsOffsets = []; // 清空暫存的位置差值
     }
 
-    // 新增：Alt 鍵和觸控狀態追踪
-    let isAltPressed = false;
-    let touchCount = 0;
-    let previousViewMode = false; // 儲存先前的檢視模式狀態
-
-    // 新增：監聽 Alt 鍵事件
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Alt') {
-            isAltPressed = true;
-            if (!viewMode) {
-                previousViewMode = viewMode;
-                enterViewMode();
-            }
-        }
+    // 右鍵選單事件
+    element.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        showContextMenu.call(this, e);
     });
 
-    document.addEventListener('keyup', function(e) {
-        if (e.key === 'Alt') {
-            isAltPressed = false;
-            if (!previousViewMode) {
-                exitViewMode();
-            }
-        }
+    // 長按事件處理
+    let pressTimer;
+    element.addEventListener('touchstart', function(e) {
+        pressTimer = setTimeout(() => {
+            showContextMenu.call(this, e);
+        }, 500);
     });
-
-    // 修改：觸控事件處理
-    container.addEventListener('touchstart', function(e) {
-        touchCount = e.touches.length;
-        if (touchCount === 2 && !viewMode) {
-            previousViewMode = viewMode;
-            enterViewMode();
-        }
+    element.addEventListener('touchend', function() {
+        clearTimeout(pressTimer);
     });
-
-    container.addEventListener('touchend', function(e) {
-        touchCount = e.touches.length;
-        if (touchCount < 2 && !previousViewMode) {
-            exitViewMode();
-        }
-    });
-
-    container.addEventListener('touchcancel', function(e) {
-        touchCount = e.touches.length;
-        if (touchCount < 2 && !previousViewMode) {
-            exitViewMode();
-        }
-    });
-
-    // 新增：進入檢視模式的函數
-    function enterViewMode() {
-        viewMode = true;
-        document.getElementById('viewModeButton').classList.add('active');
-        updateViewModeState();
-    }
-
-    // 新增：退出檢視模式的函數
-    function exitViewMode() {
-        viewMode = false;
-        document.getElementById('viewModeButton').classList.remove('active');
-        updateViewModeState();
-    }
-
-    // 新增：更新檢視模式狀態的函數
-    function updateViewModeState() {
-        const cards = document.querySelectorAll('.wordCard');
-        cards.forEach(card => {
-            card.style.pointerEvents = viewMode ? 'none' : 'auto';
-        });
-        container.style.cursor = viewMode ? 'grab' : 'default';
-    }
-
-    // 修改：檢視模式按鈕事件監聽器
-    document.getElementById('viewModeButton').addEventListener('click', function() {
-        previousViewMode = !viewMode;
-        if (viewMode) {
-            exitViewMode();
-        } else {
-            enterViewMode();
-        }
+    element.addEventListener('touchmove', function() {
+        clearTimeout(pressTimer);
     });
 }
 
-// 檢視模式
+
+// 檢視模式按鈕的事件處理器
 document.getElementById('viewModeButton').addEventListener('click', function() {
-    viewMode = !viewMode; // 切換檢視模式
+    isAltViewMode = false;  // 重設 Alt 觸發標記
+    viewMode = !viewMode;
     this.classList.toggle('active');
-    
-    // 更新所有語詞卡的狀態
+    updateViewMode();
+});
+// 統一處理檢視模式更新的函數
+function updateViewMode() {
     const cards = document.querySelectorAll('.wordCard');
     cards.forEach(card => {
         if (viewMode) {
-            card.style.pointerEvents = 'none'; // 檢視模式下禁用語詞卡的互動
+            card.style.pointerEvents = 'none';
         } else {
-            card.style.pointerEvents = 'auto'; // 恢復正常模式
+            card.style.pointerEvents = 'auto';
         }
     });
     
-    // 更新游標樣式
     container.style.cursor = viewMode ? 'grab' : 'default';
-});
+    
+    // 更新按鈕狀態
+    const viewModeButton = document.getElementById('viewModeButton');
+    if (viewMode && !isAltViewMode) {
+        viewModeButton.classList.add('active');
+    } else if (!viewMode) {
+        viewModeButton.classList.remove('active');
+    }
+}
+
 function touch(idA, idB) {
     // 判斷是否碰觸到位置;
     var e = document.getElementById(idA);
@@ -1443,6 +1401,7 @@ function decompressString(str) {
 
 let nowX = 0;
 let nowY = 0;
+let nowScale = 1;
 
 // 分享目前網址內的語詞卡;
 function shareWordCards(how) {
@@ -1455,6 +1414,7 @@ function shareWordCards(how) {
     var shareText = [];
 	nowX = panX;
 	nowY = panY;
+	nowScale = scale;
 
     // 刪除所有語詞卡的 .selected 屬性
     wordCards.forEach(card => card.classList.remove('selected'));
@@ -1551,7 +1511,12 @@ function shareWordCards(how) {
 
 
     //params.set('txtCards', shareTxt + "¦" + encodeURIComponent(shareTxtB));
-    params.set('txtCards', shareTxt + "¦" + shareTxtB);
+    //params.set('txtCards', shareTxt + "¦" + shareTxtB);
+	params.set('txtCards', shareTxt + "¦" + shareTxtB + "¡¦" + 
+		Number(Number(nowX).toFixed(2)) + "," + 
+		Number(Number(nowY).toFixed(2)) + "," + 
+		Number(Number(nowScale).toFixed(2))
+	);
 
     var urlWithoutParams = new URL(location.href);
     urlWithoutParams.search = '';
@@ -1665,6 +1630,18 @@ function restoreWordCardsFromURL() {
         var data = txtData.split("¡¦").filter(Boolean);
         let arrA = data[0].split("¡").filter(Boolean);
         let arrB = data[1].split("¦").filter(Boolean);
+
+
+       if (data.length >= 3) {
+            let positionData = data[2].split(",");
+            nowX = parseFloat(positionData[0]);
+            nowY = parseFloat(positionData[1]);
+            nowScale = parseFloat(positionData[2]);
+            
+            // 立即套用位置和縮放
+            resetZoom();
+        }
+
         let len = arrA.length;
         //id,色彩,top,left|文字︴;
         for (let i = 0; i < len; i++) {
@@ -1801,17 +1778,12 @@ document.addEventListener('contextmenu', function(event) {
     documentContextMenu = 1;
 
     // 建立自訂的選單
-    var menu = document.createElement('div');
-    menu.id = 'contextMenu';
-    menu.style.position = 'absolute';
-    menu.style.left = event.clientX + 'px';
-    menu.style.top = event.clientY + 'px';
-    menu.style.backgroundColor = 'white';
-    menu.style.border = '0.8px solid gray';
-    menu.style.padding = '8px';
-    menu.style.lineHeight = "20px";
-    menu.style.cursor = 'pointer';
-    menu.style.userSelect = 'none'; // 禁止文字選取
+	var menu = document.createElement('div');
+	menu.id = 'contextMenu';
+
+	// 只保留需要動態設定的位置屬性
+	menu.style.left = event.clientX + 'px';
+	menu.style.top = event.clientY + 'px';
 
     // 綁定 contextmenu 事件並阻止預設行為
     menu.addEventListener('contextmenu', function(event) {
@@ -2413,12 +2385,6 @@ const selectBox = document.getElementById('selectBox') || createSelectBox();
 function createSelectBox() {
     const box = document.createElement('div');
     box.id = 'selectBox';
-    box.style.position = 'fixed';
-    box.style.border = '1px dashed #000';
-    box.style.background = 'rgba(0, 123, 255, 0.1)';
-    box.style.display = 'none';
-    box.style.pointerEvents = 'none';
-    box.style.zIndex = '1000';
     document.body.appendChild(box);
     return box;
 }
@@ -3192,5 +3158,46 @@ function moveGhostCardsGame() {
 */
 
 
+document.addEventListener('DOMContentLoaded', function() {
+    const currentColorBtn = document.querySelector('.current-color');
+    const bgColorMenu = document.getElementById('bgColorMenu');
+    const canvasContainer = document.getElementById('canvas-container');
 
+    // 設定初始背景色
+    const initialColor = localStorage.getItem('canvasBackgroundColor') || 'white';
+    canvasContainer.style.backgroundColor = initialColor;
+    currentColorBtn.style.backgroundColor = initialColor;
 
+    // 修改：點擊目前色彩按鈕時切換選單顯示狀態
+    currentColorBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        bgColorMenu.classList.toggle('show');  // 改用 show 類別
+    });
+
+    // 修改：點擊色彩圈圈時更改背景色
+    bgColorMenu.addEventListener('click', function(e) {
+        const colorCircle = e.target.closest('.color-circle');
+        if (colorCircle && colorCircle.hasAttribute('data-color')) {
+            const color = colorCircle.getAttribute('data-color');
+            
+            // 更新背景色和目前色彩按鈕
+            canvasContainer.style.backgroundColor = color;
+            currentColorBtn.style.backgroundColor = color;
+            
+            // 收合選單
+            bgColorMenu.classList.remove('show');
+            
+            // 更新文字顏色
+            canvasContainer.style.color = (color === 'rgb(30,30,30)') ? 'white' : 'black';
+            
+            localStorage.setItem('canvasBackgroundColor', color);
+        }
+    });
+
+    // 修改：點擊其他地方時關閉選單
+    document.addEventListener('click', function(e) {
+        if (!currentColorBtn.contains(e.target) && !bgColorMenu.contains(e.target)) {
+            bgColorMenu.classList.remove('show');
+        }
+    });
+});

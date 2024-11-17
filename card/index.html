@@ -6,6 +6,14 @@
     <title>語詞卡網頁</title>
 <style>
 
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
 .show {
     display: block !important;
 }
@@ -93,9 +101,11 @@ rt {
 }
 
 @media screen and (max-width: 768px) {
-  .tool-controls {
-    padding: 10px;
-  } 
+    .tool-controls {
+        width: 90%;  /* 設定寬度為視窗的 90% */
+        left: 50%;   /* 水平置中 */
+        transform: translate(-50%, -50%);  /* 水平垂直置中 */
+    }
 
 }
 
@@ -246,19 +256,30 @@ select {
 }
 
 #contextMenu {
-    z-index: 999;
+    position: absolute;
+    background-color: white;
+    border: 0.8px solid gray;
+    padding: 8px;
+    line-height: 20px;
+    cursor: pointer;
+	font-size: 14px;
+    user-select: none;
+	z-index: 999;
 }
-
 #contextMenu div:hover {
     background-color: lightgray;
 }
 
-#contextMenu {
-    font-size: 14px;
-}
-
 .selected {
     border: 2px solid blue;
+}
+#selectBox {
+    position: fixed;
+    border: 1px dashed #000;
+    background: rgba(0, 123, 255, 0.1);
+    display: none;
+    pointer-events: none;
+    z-index: 1000;
 }
 
 #canvas-container {
@@ -378,6 +399,71 @@ button:active {
 a {
     text-decoration: none;
 }
+.temp-input {
+    position: fixed;
+    transform-origin: center;
+    z-index: 1000;
+    padding: 4px;
+    border: 1px solid #dfe1e5;
+    border-radius: 4px;
+    font-size: 16px;
+    min-width: 100px;
+}
+
+
+.bg-controls {
+    position: fixed;
+    left: 20px;
+    bottom: 20px;
+    z-index: 999;
+}
+
+.current-color {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid #ddd;
+    background-color: white;
+    transition: transform 0.2s;
+}
+
+.current-color:hover {
+    transform: scale(1.1);
+}
+
+.color-circle {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid #ddd;
+    transition: transform 0.2s;
+}
+
+.color-circle:hover {
+    transform: scale(1.1);
+}
+
+.color-circle[data-color="white"] {
+    border-color: #ccc;
+}
+
+#bgColorMenu {
+  position: absolute;
+  bottom: 30px;
+  left: 0;
+  background: transparent; 
+  display: flex;
+  gap: 8px;
+  visibility: hidden;
+
+}
+#bgColorMenu.show {
+  opacity: 1;
+  visibility: visible;
+}
+
 </style>
 <base target="_blank">
 </head>
@@ -410,6 +496,20 @@ a {
 <div class="separator"></div>		
 			  <button id="submitBtn" class="submit-btn">✚</button>
 		</div>		
+</div>
+
+<div class="bg-controls">
+    <div class="color-circle current-color" title="背景色"></div>
+	<div id="bgColorMenu"> 
+		<div class="color-circle" data-color="rgb(198,208,188)" style="background-color: rgb(198,208,188);"></div>
+		<div class="color-circle" data-color="rgb(168,178,158)" style="background-color: rgb(168,178,158);"></div>
+        <div class="color-circle" data-color="rgb(240,240,240)" style="background-color: rgb(240,240,240);"></div>
+        <div class="color-circle" data-color="rgb(200,200,200)" style="background-color: rgb(200,200,200);"></div>
+        <div class="color-circle" data-color="rgb(120,120,120)" style="background-color: rgb(120,120,120);"></div>
+        <div class="color-circle" data-color="rgb(50,50,50)" style="background-color: rgb(50,50,50);"></div>
+		<div class="color-circle" data-color="white" style="background-color: white;"></div>	
+	</div>
+
 </div>
 
 <div class="zoom-controls">
