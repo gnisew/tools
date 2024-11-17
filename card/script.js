@@ -1,9 +1,9 @@
-﻿var selectMode = false; // 選取模式的狀態
-var viewMode = false; // 檢視模式的狀態
+﻿var selectMode = false;
+var viewMode = false;
 var deletedWordCards = []; // 儲存已刪除的語詞卡及其原始位置;
 var lastClickTime = 0; // 在手機上連點兩下的時間計算;
 var pressTimer; // 手機上長按的時間計算;
-let tempInput = null; // 用於追蹤臨時輸入框
+let tempInput = null;
 
 let scale = 1;
 let panX = 0;
@@ -35,8 +35,8 @@ function zoomOut() {
 
 function resetZoom() {
     scale = 1;
-    panX = 0;
-    panY = 0;
+    panX = nowX;
+    panY = nowY;
     setTransform();
 }
 
@@ -87,7 +87,6 @@ container.addEventListener('dblclick', function(e) {
 });
 
 // 修改臨時輸入框的建立函數
-
 function createTempInput(screenX, screenY, actualX, actualY) {
     if (tempInput) {
         tempInput.remove();
@@ -113,7 +112,6 @@ function createTempInput(screenX, screenY, actualX, actualY) {
     tempInput.style.fontSize = '16px';
     tempInput.style.minWidth = '100px';
     
-    // 改為加到 body 中
     document.body.appendChild(tempInput);
     
     tempInput.focus();
@@ -141,7 +139,6 @@ function hasWordCards() {
 // 平移功能
 let isDragging = false;
 let lastX, lastY;
-
 
 container.addEventListener('mousedown', (e) => {
     if (viewMode) {
@@ -177,6 +174,7 @@ container.addEventListener('mousemove', (e) => {
         setTransform();
         container.style.cursor = 'grabbing';
     }
+
 });
 
 container.addEventListener('mouseup', () => {
@@ -569,13 +567,11 @@ function makeDraggable(element) {
         pos4 = 0;
     let isDragging = false;
 
-
-    // 增加：儲存所有選取卡片的初始位置差值
+    // 儲存所有選取卡片的初始位置差值
     let selectedCardsOffsets = [];
 
     element.addEventListener('mousedown', dragMouseDown);
     element.addEventListener('touchstart', dragMouseDown);
-
 
     function dragMouseDown(e) {
 		if (viewMode) return; 
@@ -594,7 +590,7 @@ function makeDraggable(element) {
         startDragY = e.clientY || e.touches[0].clientY;
         moveDistance = 0;
 
-        // 修改：如果是選取模式，計算所有選取卡片與當前拖曳卡片的位置差值
+        // 如果是選取模式，計算所有選取卡片與當前拖曳卡片的位置差值
         if (selectMode && element.classList.contains('selected')) {
             const selectedCards = document.querySelectorAll('.wordCard.selected');
             selectedCardsOffsets = Array.from(selectedCards).map(card => ({
@@ -634,11 +630,11 @@ function makeDraggable(element) {
         pos3 = currentX;
         pos4 = currentY;
 
-        // 修改：計算新位置
+        // 計算新位置
         const newLeft = element.offsetLeft - pos1;
         const newTop = element.offsetTop - pos2;
 
-        // 修改：如果是選取模式且當前卡片被選取
+        // 如果是選取模式且當前卡片被選取
         if (selectMode && element.classList.contains('selected')) {
             // 移動所有選取的卡片
             selectedCardsOffsets.forEach(({
@@ -661,8 +657,9 @@ function makeDraggable(element) {
         document.removeEventListener('mouseup', closeDragElement);
         document.removeEventListener('touchmove', elementDrag);
         document.removeEventListener('touchend', closeDragElement);
+		
 
-        // 修改：只在非拖曳時切換選取狀態
+        // 只在非拖曳時切換選取狀態
         if (selectMode && moveDistance < 5 && !isRightClick) {
             element.classList.toggle('selected');
         }
@@ -671,14 +668,85 @@ function makeDraggable(element) {
         moveDistance = 0;
         selectedCardsOffsets = []; // 清空暫存的位置差值
     }
-    // 右鍵選單事件
-    element.addEventListener('contextmenu', function(e) {
-        e.preventDefault();
-        if (selectMode) {
-            // 在選取模式下只顯示選單，不切換選取狀態
-            showContextMenu.call(this, e);
+
+    // 新增：Alt 鍵和觸控狀態追踪
+    let isAltPressed = false;
+    let touchCount = 0;
+    let previousViewMode = false; // 儲存先前的檢視模式狀態
+
+    // 新增：監聽 Alt 鍵事件
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Alt') {
+            isAltPressed = true;
+            if (!viewMode) {
+                previousViewMode = viewMode;
+                enterViewMode();
+            }
+        }
+    });
+
+    document.addEventListener('keyup', function(e) {
+        if (e.key === 'Alt') {
+            isAltPressed = false;
+            if (!previousViewMode) {
+                exitViewMode();
+            }
+        }
+    });
+
+    // 修改：觸控事件處理
+    container.addEventListener('touchstart', function(e) {
+        touchCount = e.touches.length;
+        if (touchCount === 2 && !viewMode) {
+            previousViewMode = viewMode;
+            enterViewMode();
+        }
+    });
+
+    container.addEventListener('touchend', function(e) {
+        touchCount = e.touches.length;
+        if (touchCount < 2 && !previousViewMode) {
+            exitViewMode();
+        }
+    });
+
+    container.addEventListener('touchcancel', function(e) {
+        touchCount = e.touches.length;
+        if (touchCount < 2 && !previousViewMode) {
+            exitViewMode();
+        }
+    });
+
+    // 新增：進入檢視模式的函數
+    function enterViewMode() {
+        viewMode = true;
+        document.getElementById('viewModeButton').classList.add('active');
+        updateViewModeState();
+    }
+
+    // 新增：退出檢視模式的函數
+    function exitViewMode() {
+        viewMode = false;
+        document.getElementById('viewModeButton').classList.remove('active');
+        updateViewModeState();
+    }
+
+    // 新增：更新檢視模式狀態的函數
+    function updateViewModeState() {
+        const cards = document.querySelectorAll('.wordCard');
+        cards.forEach(card => {
+            card.style.pointerEvents = viewMode ? 'none' : 'auto';
+        });
+        container.style.cursor = viewMode ? 'grab' : 'default';
+    }
+
+    // 修改：檢視模式按鈕事件監聽器
+    document.getElementById('viewModeButton').addEventListener('click', function() {
+        previousViewMode = !viewMode;
+        if (viewMode) {
+            exitViewMode();
         } else {
-            showContextMenu.call(this, e);
+            enterViewMode();
         }
     });
 }
@@ -1341,48 +1409,6 @@ wordInput.addEventListener('input', function() {
     }
 });
 
-
-
-
-// 全螢幕切換;
-function toggleFullScreen() {
-    if (document.fullscreenElement) {
-        exitFullscreen();
-    } else {
-        enterFullscreen();
-    }
-}
-
-// 全螢幕進入;
-function enterFullscreen() {
-    var element = document.documentElement;
-    if (element.requestFullscreen) {
-        element.requestFullscreen();
-    } else if (element.mozRequestFullScreen) {
-        element.mozRequestFullScreen();
-    } else if (element.webkitRequestFullscreen) {
-        element.webkitRequestFullscreen();
-    } else if (element.msRequestFullscreen) {
-        element.msRequestFullscreen();
-    }
-}
-
-// 全螢幕退出;
-function exitFullscreen() {
-    if (document.exitFullscreen) {
-        document.exitFullscreen();
-    } else if (document.mozCancelFullScreen) {
-        document.mozCancelFullScreen();
-    } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-    } else if (document.msExitFullscreen) {
-        document.msExitFullscreen();
-    }
-}
-
-
-
-
 // 函式：刪除特定顏色的語詞卡
 function deleteWordCardsByColor() {
     var colorSelect = document.getElementById('colorSelect');
@@ -1414,6 +1440,10 @@ function decompressString(str) {
     });
 }
 
+
+let nowX = 0;
+let nowY = 0;
+
 // 分享目前網址內的語詞卡;
 function shareWordCards(how) {
     // 若 how = line 則輸出文字;
@@ -1423,11 +1453,12 @@ function shareWordCards(how) {
     var shareTxtB = "";
     var shareHtml = [];
     var shareText = [];
+	nowX = panX;
+	nowY = panY;
 
     // 刪除所有語詞卡的 .selected 屬性
     wordCards.forEach(card => card.classList.remove('selected'));
     selectMode = false; // 取消選取模式;
-
 
     wordCards.forEach(function(wordCard) {
         var cardData = {
@@ -1438,8 +1469,6 @@ function shareWordCards(how) {
             left: wordCard.offsetLeft
         };
         sharedData.push(cardData);
-
-
 
         // 獲取 style.transform 字串
         function transformValue(obj) {
@@ -1469,8 +1498,6 @@ function shareWordCards(how) {
         }
         let transformTxt = transformValue(wordCard);
         //-------------------;
-
-
 
         shareTxt = shareTxt + wordCard.id.split("-")[1] + "," +
             wordCard.className.split("-")[1] + "," +
@@ -1601,7 +1628,7 @@ function redirectToUrl() {
 }
 
 restoreWordCardsFromURL();
-// 函式：解析分享網址並恢復語詞卡;
+// 解析分享網址並恢復語詞卡;
 function restoreWordCardsFromURL() {
     var params = new URLSearchParams(location.search);
     var sharedData = params.get('wordCards');
@@ -1725,8 +1752,6 @@ function renameWordCardIds() {
     }
 }
 
-
-
 // 縮放;
 function zoom(scaleFactor, card) {
     //var card = document.getElementById(id);
@@ -1752,123 +1777,6 @@ function zoom(scaleFactor, card) {
     });
     card.style.fontSize = newSize;
 }
-
-
-
-
-var currentElement = null;
-var currentAudio = null;
-
-function p(e, url) {
-    toggleAudio(e, url);
-}
-// 播放音訊;
-function toggleAudio(element, audioUrl) {
-    var buttonText = element.textContent.trim();
-
-    audioUrl = audioUrl.replace(/\<(zh)(;|:)(.*?)\>/, (match, p1, p2, p3) => {
-        return `https://translate.google.com/translate_tts?ie=UTF-8&tl=zh_tw&client=tw-ob&ttsspeed=1&q=${encodeURIComponent(p3)}`;
-    });
-
-    audioUrl = audioUrl.replace(/<([a-zA-Z]*)(:|;)([^>]*)>/g, (match, p1, p2, p3) => {
-        return `https://translate.google.com/translate_tts?ie=UTF-8&tl=${p1}&client=tw-ob&ttsspeed=0.3&q=${encodeURIComponent(p3)}`;
-    });
-
-    audioUrl = audioUrl.replace(/([A-Za-z0-9\-_]+)(;|:)(holo|ho|minnan|min)/g, (match, p1) => {
-        return `https://oikasu.com/file/mp3holo/${p1}.mp3`;
-    });
-    audioUrl = audioUrl.replace(/([A-Za-z0-9\-_]+)(;|:)(kasu|ka)/g, (match, p1) => {
-        return `https://oikasu.com/file/mp3/${p1}.mp3`;
-    });
-    console.log(audioUrl)
-    /*
-            w = w.replace(/([A-Za-z0-9\-_]+)\.holo/g, "https://oikasu.com/file/mp3holo/$1.mp3");
-            w = w.replace(/([A-Za-z0-9\-_]+)\.kasu/g, "https://oikasu.com/file/mp3/$1.mp3");
-            w = w.replace(/([A-Za-z0-9\-_]+)\.ka/g, function(match, p1) {
-                let x = p1.replace(/([a-z])z\b/g, "$1ˊ")
-                    .replace(/([a-z])v\b/g, "$1ˇ")
-                    .replace(/([a-z])x\b/g, "$1ˆ")
-                    .replace(/([a-z])f\b/g, "$1⁺")
-                    .replace(/([a-z])s\b/g, "$1ˋ");
-                return "https://oikasu.com/file/mp3/" + p1 + ".mp3" + x + " ";
-            });
-    */
-
-
-
-
-    if (currentElement === element && currentAudio && !currentAudio.paused) {
-        currentAudio.pause();
-        currentAudio.currentTime = 0;
-        element.textContent = "🔊";
-    } else {
-        if (currentAudio) {
-            currentAudio.pause();
-            currentAudio.currentTime = 0;
-            currentElement.textContent = "🔊";
-        }
-        currentAudio = new Audio(audioUrl);
-        currentAudio.play();
-        currentElement = element;
-        element.textContent = "🔉";
-
-        currentAudio.addEventListener('ended', function() {
-            // 如果已經播完了;
-            element.textContent = "🔊";
-        });
-    }
-}
-
-
-/*
-var currentElement = null;
-var currentAudio = null;
-// 播放音訊;
-function p(e, url) {
-	toggleAudio(e, url);
-}
-// 播放音訊;
-function toggleAudio(element, audioUrl) {
-  if (currentElement === element && currentAudio && !currentAudio.paused) {
-    currentAudio.pause();
-    currentAudio.currentTime = 0;
-  } else {
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio.currentTime = 0;
-    }
-    currentAudio = new Audio(audioUrl);
-    currentAudio.play();
-    currentElement = element;
-  }
-}
-*/
-
-
-// 預載音訊;
-function preloadAudios() {
-    var audioUrls = findElementsWithOnClickAndURL();
-    audioUrls.forEach(function(url) {
-        var audio = new Audio();
-        audio.src = url;
-    });
-}
-
-function findElementsWithOnClickAndURL() {
-    var selector = "[onclick]";
-    var matchedElements = document.querySelectorAll(selector);
-    var audioUrls = [];
-
-    matchedElements.forEach(function(element) {
-        var onclickValue = element.getAttribute("onclick");
-        var urls = onclickValue.match(/http.*\.(?:mp3|wav)/g);
-        if (urls) {
-            audioUrls = audioUrls.concat(urls);
-        }
-    });
-    return audioUrls;
-}
-
 
 var documentContextMenu = 0;
 // 顯示選單，桌面選單
@@ -2033,8 +1941,6 @@ document.addEventListener('contextmenu', function(event) {
     menu.appendChild(rearrangeButton);
 
 
-
-
     // 建立選單項目：放大
     var zoomInItem = document.createElement('div');
     zoomInItem.textContent = '➕ 加大';
@@ -2054,8 +1960,6 @@ document.addEventListener('contextmenu', function(event) {
         });
     };
     menu.appendChild(zoomOutItem);
-
-
 
 
     var alignItem = document.createElement('div');
@@ -2123,7 +2027,6 @@ document.addEventListener('contextmenu', function(event) {
     alignContainer.appendChild(newItem);
 
 
-
     var shareTypeItem = document.createElement('div');
     shareTypeItem.textContent = '分享方式▾';
     shareTypeItem.onclick = function() {
@@ -2172,8 +2075,6 @@ document.addEventListener('contextmenu', function(event) {
     };
     shareTypeContainer.appendChild(shareTextItem);
 
-
-
     var pinPinItem = document.createElement('div');
     pinPinItem.textContent = '釘住選項▾';
     pinPinItem.onclick = function() {
@@ -2188,8 +2089,6 @@ document.addEventListener('contextmenu', function(event) {
     pinPinContainer.className = 'menuContainer';
     pinPinContainer.style.display = 'none'; // 預設隱藏
     menu.appendChild(pinPinContainer);
-
-
 
 
     // 建立選單項目：全部釘住;
@@ -2232,8 +2131,6 @@ document.addEventListener('contextmenu', function(event) {
     pinPinContainer.appendChild(toggleDraggableWordCardsItem);
 
 
-
-
     var showHideItem = document.createElement('div');
     showHideItem.textContent = '顯隱選項▾';
     showHideItem.onclick = function() {
@@ -2248,8 +2145,6 @@ document.addEventListener('contextmenu', function(event) {
     showHideContainer.className = 'menuContainer';
     showHideContainer.style.display = 'none'; // 預設隱藏
     menu.appendChild(showHideContainer);
-
-
 
     // 顯示所有語詞卡;
     var showAllCardsItem = document.createElement('div');
@@ -2276,8 +2171,6 @@ document.addEventListener('contextmenu', function(event) {
     showHideContainer.appendChild(toggleAllCardsItem);
 
 
-
-
     var rotateItem = document.createElement('div');
     rotateItem.textContent = '旋轉方式▾';
     rotateItem.onclick = function() {
@@ -2292,8 +2185,6 @@ document.addEventListener('contextmenu', function(event) {
     rotateContainer.className = 'menuContainer';
     rotateContainer.style.display = 'none'; // 預設隱藏
     menu.appendChild(rotateContainer);
-
-
 
     // 顯示右轉選項
     var rotateRightItem = document.createElement('div');
@@ -2329,9 +2220,6 @@ document.addEventListener('contextmenu', function(event) {
         flipSelectedCardHorizontal(wordCards);
     };
     rotateContainer.appendChild(flipHorizontalItem);
-
-
-
 
     // 建立選單項目：全部清除;
     var clearWordCardsItem = document.createElement('div');
@@ -2375,8 +2263,6 @@ document.addEventListener('contextmenu', function(event) {
     };
     menu.appendChild(clearWordCardsItem);
 
-
-
     // 建立選單項目：全螢幕;
     var fullScreenItem = document.createElement('div');
     fullScreenItem.textContent = '全螢幕';
@@ -2397,23 +2283,6 @@ document.addEventListener('contextmenu', function(event) {
     };
     document.addEventListener('click', hideContextMenu);
 });
-
-
-
-// 檢查網址參數並顯示按鈕;
-checkUrlParams();
-
-function checkUrlParams() {
-    var urlParams = new URLSearchParams(window.location.search);
-    var hasTxtCards = urlParams.has('txtCards');
-    var hasNew = urlParams.has('new');
-    var hasWordCards = urlParams.has('wordCards');
-
-    if (hasTxtCards || hasNew || hasWordCards) {
-        document.getElementById('updateFiles').style.display = 'inline';
-    }
-}
-
 
 // 切換所有語詞卡的顯示狀態;
 function toggleAllCards(wordCards, how) {
@@ -2476,7 +2345,6 @@ function rotateSelectedCard(wordCards, deg) {
     });
 }
 
-
 // 翻轉;
 function flipSelectedCardHorizontal(wordCards) {
     wordCards.forEach(function(wordCard) {
@@ -2500,6 +2368,19 @@ function flipSelectedCardHorizontal(wordCards) {
     });
 }
 
+// 檢查網址參數並顯示按鈕;
+checkUrlParams();
+
+function checkUrlParams() {
+    var urlParams = new URLSearchParams(window.location.search);
+    var hasTxtCards = urlParams.has('txtCards');
+    var hasNew = urlParams.has('new');
+    var hasWordCards = urlParams.has('wordCards');
+
+    if (hasTxtCards || hasNew || hasWordCards) {
+        document.getElementById('updateFiles').style.display = 'inline';
+    }
+}
 //================================;
 // 獲取按鈕和所有語詞卡
 document.getElementById('selectModeButton').addEventListener('click', function() {
@@ -2617,10 +2498,8 @@ document.addEventListener('mouseleave', function() {
     }
 });
 
-
 function alignWordCards(wordCards, direction) {
     // 取得所有語詞卡的元素集合
-    //var wordCards = document.getElementsByClassName("wordCard");
     var len = wordCards.length;
 
     // 初始化變數，用於記錄對齊的位置
@@ -2728,9 +2607,6 @@ function alignWordCards(wordCards, direction) {
     }
 }
 
-
-
-
 function txtToSelectOption(txt) {
     const pattern = /{{(.*?)}}/g;
     const hasMatches = txt.match(pattern); // 檢查是否有符合的模式;
@@ -2749,7 +2625,6 @@ function txtToSelectOption(txt) {
         return txt; // 沒有符合的模式，直接返回原始的 txt;
     }
 }
-
 
 function selectOptionToTxt(inputStr) {
     const pattern = /<select>(.*?)<\/select>/g;
@@ -2770,7 +2645,6 @@ function selectOptionToTxt(inputStr) {
         return inputStr; // 沒有符合的模式，直接返回原始的 inputStr
     }
 }
-
 
 function textToRuby(inputStr) {
     const pattern = /\[\s*([^[\]]+)\s*\\\s*([^[\]]+)\s*\]/g;
@@ -2803,22 +2677,17 @@ function rubyToText(inputStr) {
     }
 }
 
-
-
 function youtubeToIframe(inputStr) {
     const pattern = /https:\/\/(www\.)?youtu\.be\/([\w-]+)(\?[^?&]+)?(&[^?&]+)*|https:\/\/(www\.)?youtube\.com\/watch\?v=([\w-]+)(\&[^?&]+)*(.)*|https:\/\/(www\.)?youtube\.com\/shorts\/([\w-]+)(\&[^?&]+)*(.)*/g;
     const outputStr = inputStr.replace(pattern, '<iframe width="300" src="https://www.youtube.com/embed/$2$6$10" allowfullscreen></iframe>');
     return outputStr;
 }
 
-
 function iframeToYoutube(inputStr) {
     const pattern = /<iframe[^>]*src=["']https:\/\/www\.youtube\.com\/embed\/([\w-]+)[^>]*>[^<]*<\/iframe>/g;
     const outputStr = String(inputStr).replace(pattern, 'https://youtu.be/$1');
     return outputStr;
 }
-
-
 
 function vocarooToIframe(inputStr) {
     const pattern = /https:\/\/voc(aroo.com|a.ro)\/([\w-]+)/g;
@@ -2843,7 +2712,6 @@ function htmlToImage(inputStr) {
     const outputStr = String(inputStr).replace(pattern, '$1');
     return outputStr;
 }
-
 
 function audioToHTML(inputStr) {
     const pattern = /(https?:\/\/[\w\-\.\/]+\.(mp3|wav))/g;
@@ -3014,6 +2882,154 @@ function urlConverterReverse(htmlStr) {
     return inputStr;
 }
 
+
+// 全螢幕切換;
+function toggleFullScreen() {
+    if (document.fullscreenElement) {
+        exitFullscreen();
+    } else {
+        enterFullscreen();
+    }
+}
+
+// 全螢幕進入;
+function enterFullscreen() {
+    var element = document.documentElement;
+    if (element.requestFullscreen) {
+        element.requestFullscreen();
+    } else if (element.mozRequestFullScreen) {
+        element.mozRequestFullScreen();
+    } else if (element.webkitRequestFullscreen) {
+        element.webkitRequestFullscreen();
+    } else if (element.msRequestFullscreen) {
+        element.msRequestFullscreen();
+    }
+}
+
+// 全螢幕退出;
+function exitFullscreen() {
+    if (document.exitFullscreen) {
+        document.exitFullscreen();
+    } else if (document.mozCancelFullScreen) {
+        document.mozCancelFullScreen();
+    } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+    } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+    }
+}
+
+
+var currentElement = null;
+var currentAudio = null;
+
+function p(e, url) {
+    toggleAudio(e, url);
+}
+// 播放音訊;
+function toggleAudio(element, audioUrl) {
+    var buttonText = element.textContent.trim();
+
+    audioUrl = audioUrl.replace(/\<(zh)(;|:)(.*?)\>/, (match, p1, p2, p3) => {
+        return `https://translate.google.com/translate_tts?ie=UTF-8&tl=zh_tw&client=tw-ob&ttsspeed=1&q=${encodeURIComponent(p3)}`;
+    });
+
+    audioUrl = audioUrl.replace(/<([a-zA-Z]*)(:|;)([^>]*)>/g, (match, p1, p2, p3) => {
+        return `https://translate.google.com/translate_tts?ie=UTF-8&tl=${p1}&client=tw-ob&ttsspeed=0.3&q=${encodeURIComponent(p3)}`;
+    });
+
+    audioUrl = audioUrl.replace(/([A-Za-z0-9\-_]+)(;|:)(holo|ho|minnan|min)/g, (match, p1) => {
+        return `https://oikasu.com/file/mp3holo/${p1}.mp3`;
+    });
+    audioUrl = audioUrl.replace(/([A-Za-z0-9\-_]+)(;|:)(kasu|ka)/g, (match, p1) => {
+        return `https://oikasu.com/file/mp3/${p1}.mp3`;
+    });
+    console.log(audioUrl)
+    /*
+            w = w.replace(/([A-Za-z0-9\-_]+)\.holo/g, "https://oikasu.com/file/mp3holo/$1.mp3");
+            w = w.replace(/([A-Za-z0-9\-_]+)\.kasu/g, "https://oikasu.com/file/mp3/$1.mp3");
+            w = w.replace(/([A-Za-z0-9\-_]+)\.ka/g, function(match, p1) {
+                let x = p1.replace(/([a-z])z\b/g, "$1ˊ")
+                    .replace(/([a-z])v\b/g, "$1ˇ")
+                    .replace(/([a-z])x\b/g, "$1ˆ")
+                    .replace(/([a-z])f\b/g, "$1⁺")
+                    .replace(/([a-z])s\b/g, "$1ˋ");
+                return "https://oikasu.com/file/mp3/" + p1 + ".mp3" + x + " ";
+            });
+    */
+
+    if (currentElement === element && currentAudio && !currentAudio.paused) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        element.textContent = "🔊";
+    } else {
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio.currentTime = 0;
+            currentElement.textContent = "🔊";
+        }
+        currentAudio = new Audio(audioUrl);
+        currentAudio.play();
+        currentElement = element;
+        element.textContent = "🔉";
+
+        currentAudio.addEventListener('ended', function() {
+            // 如果已經播完了;
+            element.textContent = "🔊";
+        });
+    }
+}
+
+
+/*
+var currentElement = null;
+var currentAudio = null;
+// 播放音訊;
+function p(e, url) {
+	toggleAudio(e, url);
+}
+// 播放音訊;
+function toggleAudio(element, audioUrl) {
+  if (currentElement === element && currentAudio && !currentAudio.paused) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+  } else {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+    }
+    currentAudio = new Audio(audioUrl);
+    currentAudio.play();
+    currentElement = element;
+  }
+}
+*/
+
+
+// 預載音訊;
+function preloadAudios() {
+    var audioUrls = findElementsWithOnClickAndURL();
+    audioUrls.forEach(function(url) {
+        var audio = new Audio();
+        audio.src = url;
+    });
+}
+
+function findElementsWithOnClickAndURL() {
+    var selector = "[onclick]";
+    var matchedElements = document.querySelectorAll(selector);
+    var audioUrls = [];
+
+    matchedElements.forEach(function(element) {
+        var onclickValue = element.getAttribute("onclick");
+        var urls = onclickValue.match(/http.*\.(?:mp3|wav)/g);
+        if (urls) {
+            audioUrls = audioUrls.concat(urls);
+        }
+    });
+    return audioUrls;
+}
+
 // 尋找所有含有 {{}} 的元素，並進行取代
 //const elementsWithBrackets = document.querySelectorAll(':contains("{{")');
 //elementsWithBrackets.forEach(element => replaceWithSelect(element));
@@ -3054,7 +3070,7 @@ function moveButtonClick() {
 }
 */
 
-
+/*
 // 鍵盤事件處理函式
 function handleKeyPress(event) {
     if (!isMovingMode) return; // 如果不在移動模式，則不處理鍵盤事件
@@ -3085,6 +3101,7 @@ function handleKeyPress(event) {
             break;
     }
 }
+
 
 // 移動語詞卡的函式
 function moveWordCards(wordCards, dx, dy) {
@@ -3172,7 +3189,7 @@ function moveGhostCardsGame() {
     ghostCardsTimer = setInterval(moveGhostCards, 20);
 }
 
-
+*/
 
 
 
