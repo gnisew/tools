@@ -140,6 +140,9 @@ function createTempInput(screenX, screenY, actualX, actualY) {
     });
     
     tempInput.addEventListener('blur', function() {
+		            if (this.value.trim()) {
+                createWordCard(this.value, actualX, actualY);
+				}
         this.remove();
         tempInput = null;
     });
