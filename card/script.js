@@ -1532,8 +1532,21 @@ function shareWordCards(how) {
     //var longURL = urlWithoutParams.href + '?' + decodeURIComponent(params.toString());
 
 
+    if (longURL.startsWith("http")) {
+        // 偵測是否以http開頭;
+        const originalUrl = longURL;
 
+                copyThat(longURL);
+                alert('🥷已複製 長網址 到剪貼簿');
 
+    } else {
+        // 如果不是以http開頭的離線檔，則不縮短網址;
+        //copyThat(longURL);
+        copyThat(decodeURIComponent(longURL));
+        alert('🥷已複製 長網址 到剪貼簿');
+    }
+
+/*
     if (longURL.startsWith("http")) {
         // 偵測是否以http開頭;
         const originalUrl = longURL;
@@ -1556,6 +1569,7 @@ function shareWordCards(how) {
         copyThat(decodeURIComponent(longURL));
         alert('🥷已複製 長網址 到剪貼簿');
     }
+*/
 }
 
 
@@ -3196,7 +3210,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-
+/*
         // 當頁面載入完成時執行
         window.onload = function() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -3223,3 +3237,4 @@ document.addEventListener('DOMContentLoaded', function() {
                 return false;
             }
         }
+		*/
