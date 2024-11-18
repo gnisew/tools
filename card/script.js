@@ -1,4 +1,4 @@
-﻿var selectMode = false;
+var selectMode = false;
 var viewMode = false;
 var isAltViewMode = false;  // 追蹤是否為 Alt 觸發的檢視模式
 var deletedWordCards = []; // 儲存已刪除的語詞卡及其原始位置;
@@ -3195,3 +3195,31 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+
+        // 當頁面載入完成時執行
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const encodedUrl = urlParams.get('txtCards');
+            if (encodedUrl) {
+                decodeAndNavigate(encodedUrl);
+            }
+        };
+        function decodeAndNavigate(encodedUrl) {
+            try {
+                const decodedUrl = decodeURIComponent(encodedUrl);
+                if (isValidUrl(decodedUrl)) {
+                    window.location.href = decodedUrl;
+                }
+            } catch (error) {
+                console.error('解碼錯誤:', error);
+            }
+        }
+        function isValidUrl(url) {
+            try {
+                new URL(url);
+                return true;
+            } catch {
+                return false;
+            }
+        }
