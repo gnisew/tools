@@ -589,44 +589,41 @@ function makeDraggable(element) {
     element.addEventListener('mousedown', dragMouseDown);
     element.addEventListener('touchstart', dragMouseDown);
 
-
-
-	function dragMouseDown(e) {
+    function dragMouseDown(e) {
 		if (viewMode) return; 
-		e = e || window.event;
-		if (e.type === 'mousedown') {
-			e.preventDefault();
-		}
+
+        e = e || window.event;
+        if (e.type === 'mousedown') {
+            e.preventDefault();
+        }
 		isRightClick = e.button === 2;
-		var isDraggable = element.getAttribute('draggable');
-		if (isDraggable == "x") return;
 
-		// 記錄起始位置
-		startDragX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
-		startDragY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
-		moveDistance = 0;
+        var isDraggable = element.getAttribute('draggable');
+        if (isDraggable == "x") return;
 
-		// 如果是選取模式，計算所有選取卡片與當前拖曳卡片的位置差值
-		if (selectMode && element.classList.contains('selected')) {
-			const selectedCards = document.querySelectorAll('.wordCard.selected');
-			selectedCardsOffsets = Array.from(selectedCards).map(card => ({
-				card: card,
-				offsetX: card.offsetLeft - element.offsetLeft,
-				offsetY: card.offsetTop - element.offsetTop
-			}));
-		}
+        // 記錄起始位置
+        startDragX = e.clientX || e.touches[0].clientX;
+        startDragY = e.clientY || e.touches[0].clientY;
+        moveDistance = 0;
 
-		pos3 = startDragX;
-		pos4 = startDragY;
+        // 如果是選取模式，計算所有選取卡片與當前拖曳卡片的位置差值
+        if (selectMode && element.classList.contains('selected')) {
+            const selectedCards = document.querySelectorAll('.wordCard.selected');
+            selectedCardsOffsets = Array.from(selectedCards).map(card => ({
+                card: card,
+                offsetX: card.offsetLeft - element.offsetLeft,
+                offsetY: card.offsetTop - element.offsetTop
+            }));
+        }
 
-		if (e.type === 'touchstart') {
-			document.addEventListener('touchmove', elementDrag, { passive: false });
-			document.addEventListener('touchend', closeDragElement);
-		} else {
-			document.addEventListener('mousemove', elementDrag);
-			document.addEventListener('mouseup', closeDragElement);
-		}
-	}
+        pos3 = e.clientX || e.touches[0].clientX;
+        pos4 = e.clientY || e.touches[0].clientY;
+
+        document.addEventListener('mousemove', elementDrag);
+        document.addEventListener('mouseup', closeDragElement);
+        document.addEventListener('touchmove', elementDrag);
+        document.addEventListener('touchend', closeDragElement);
+    }
 
     function elementDrag(e) {
         e = e || window.event;
@@ -671,25 +668,22 @@ function makeDraggable(element) {
         }
     }
 
+    function closeDragElement() {
+        document.removeEventListener('mousemove', elementDrag);
+        document.removeEventListener('mouseup', closeDragElement);
+        document.removeEventListener('touchmove', elementDrag);
+        document.removeEventListener('touchend', closeDragElement);
+		
 
-	function closeDragElement(e) {
-		document.removeEventListener('mousemove', elementDrag);
-		document.removeEventListener('mouseup', closeDragElement);
-		document.removeEventListener('touchmove', elementDrag);
-		document.removeEventListener('touchend', closeDragElement);
+        // 只在非拖曳時切換選取狀態
+        if (selectMode && moveDistance < 5 && !isRightClick) {
+            element.classList.toggle('selected');
+        }
 
-		// 只在非拖曳時切換選取狀態
-		if (selectMode && moveDistance < 5) {
-			// 檢查是否為右鍵點擊
-			if (!isRightClick) {
-				element.classList.toggle('selected');
-			}
-		}
-
-		isDragging = false;
-		moveDistance = 0;
-		selectedCardsOffsets = []; 
-	}
+        isDragging = false;
+        moveDistance = 0;
+        selectedCardsOffsets = []; // 清空暫存的位置差值
+    }
 
     // 右鍵選單事件
     element.addEventListener('contextmenu', function(e) {
@@ -697,24 +691,49 @@ function makeDraggable(element) {
         showContextMenu.call(this, e);
     });
 
+    let touchStartTime;
+    let longPressTimer;
+    let isTouchMoved = false;
+    let isLongPress = false;
+
     // 長按事件處理
     let pressTimer;
-	element.addEventListener('touchstart', function(e) {
-		if (selectMode) {
-			// 在選取模式下，防止長按選單出現
-			e.preventDefault();
-		} else {
-			// 非選取模式下，保持原有的長按行為
-			pressTimer = setTimeout(() => {
-				showContextMenu.call(this, e);
-			}, 500);
-		}
-	});
-    element.addEventListener('touchend', function() {
-        clearTimeout(pressTimer);
+    element.addEventListener('touchstart', function(e) {
+        if (viewMode) return;
+        
+        touchStartTime = Date.now();
+        isTouchMoved = false;
+        isLongPress = false;  // 重設長按狀態
+
+        // 設置長按計時器
+        longPressTimer = setTimeout(() => {
+            if (!isTouchMoved) {
+                isLongPress = true;  // 標記為長按
+            }
+        }, 1000);
+
+        // 如果是選取模式，執行 dragMouseDown
+        if (selectMode) {
+            dragMouseDown(e);
+        }
     });
+
+    // 觸控移動事件處理
     element.addEventListener('touchmove', function() {
-        clearTimeout(pressTimer);
+        isTouchMoved = true;
+        clearTimeout(longPressTimer);
+    });
+
+    // 觸控結束事件處理
+    element.addEventListener('touchend', function(e) {
+        clearTimeout(longPressTimer);
+        
+        // 只有在短按且沒有移動，且不是長按的情況下才切換選取狀態
+        if (!isTouchMoved && !isLongPress) {
+            if (selectMode) {
+                element.classList.toggle('selected');
+            }
+        }
     });
 }
 
@@ -1548,6 +1567,9 @@ function shareWordCards(how) {
     var longURL = urlWithoutParams.href + '?' + params.toString();
 
     //var longURL = urlWithoutParams.href + '?' + decodeURIComponent(params.toString());
+
+
+
 
     if (longURL.startsWith("http")) {
         // 偵測是否以http開頭;
@@ -3210,32 +3232,3 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
-
-/*
-        // 當頁面載入完成時執行
-        window.onload = function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const encodedUrl = urlParams.get('txtCards');
-            if (encodedUrl) {
-                decodeAndNavigate(encodedUrl);
-            }
-        };
-        function decodeAndNavigate(encodedUrl) {
-            try {
-                const decodedUrl = decodeURIComponent(encodedUrl);
-                if (isValidUrl(decodedUrl)) {
-                    window.location.href = decodedUrl;
-                }
-            } catch (error) {
-                console.error('解碼錯誤:', error);
-            }
-        }
-        function isValidUrl(url) {
-            try {
-                new URL(url);
-                return true;
-            } catch {
-                return false;
-            }
-        }
-		*/
