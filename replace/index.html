@@ -2480,7 +2480,7 @@ function reverseArrangeText() {
 
 // 查符合的詞
 // 在 id_A 匯入文字，一行一字詞；在id_C 放要查的詞，最終輸出在id_B
-function matchText() {
+function matchText2() {
     let myData = [];
     let t = document.getElementById('id_A').value;
     if (t.startsWith('載入的資料共')) {
@@ -2517,7 +2517,35 @@ function matchText() {
     document.getElementById('id_B').value = results.join('\n');
 }
 
+function matchText() {
+	let myData = [];
+      // 取得輸入的內容並分行
+      const dataInput = document.getElementById('id_A').value.trim().split('\n');
+      const queryIds = document.getElementById('id_C').value.trim().split('\n');
 
+      // 建立資料映射
+      const dataMap = {};
+      dataInput.forEach(line => {
+        const [id, value] = line.split(/\s+/);
+        if (id && value) {
+          if (!dataMap[id]) {
+            dataMap[id] = [];
+          }
+          dataMap[id].push(value);
+        }
+      });
+
+      // 查詢資料並顯示結果
+      let result = '';
+      queryIds.forEach(id => {
+        if (dataMap[id]) {
+          result += `${id}\t${dataMap[id].join('、')}\n`;
+        }
+      });
+
+      // 將結果顯示在 idB
+      document.getElementById('id_B').textContent = result || '查無符合的資料';
+}
 
 
 
