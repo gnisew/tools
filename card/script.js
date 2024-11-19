@@ -124,25 +124,31 @@ function createTempInput(screenX, screenY, actualX, actualY) {
     tempInput.style.left = `${screenX}px`;
     tempInput.style.top = `${screenY}px`;
     
-   
     document.body.appendChild(tempInput);
     
     tempInput.focus();
     
+    // 用來追蹤是否已經建立卡片
+    let cardCreated = false;
+    
+    // 建立卡片的函數
+    const createCard = () => {
+        if (!cardCreated && tempInput.value.trim()) {
+            createWordCard(tempInput.value, actualX, actualY);
+            cardCreated = true;
+        }
+    };
+    
     tempInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
-            if (this.value.trim()) {
-                createWordCard(this.value, actualX, actualY);
-                this.blur();
-            }
+            createCard();
+            this.blur();
         }
     });
     
     tempInput.addEventListener('blur', function() {
-		            if (this.value.trim()) {
-                createWordCard(this.value, actualX, actualY);
-				}
+        createCard();
         this.remove();
         tempInput = null;
     });
@@ -584,6 +590,7 @@ function makeDraggable(element) {
     element.addEventListener('touchstart', dragMouseDown);
 
 
+
 	function dragMouseDown(e) {
 		if (viewMode) return; 
 		e = e || window.event;
@@ -595,8 +602,8 @@ function makeDraggable(element) {
 		if (isDraggable == "x") return;
 
 		// 記錄起始位置
-		startDragX = e.clientX || e.touches[0].clientX;
-		startDragY = e.clientY || e.touches[0].clientY;
+		startDragX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+		startDragY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
 		moveDistance = 0;
 
 		// 如果是選取模式，計算所有選取卡片與當前拖曳卡片的位置差值
@@ -609,10 +616,9 @@ function makeDraggable(element) {
 			}));
 		}
 
-		pos3 = e.clientX || e.touches[0].clientX;
-		pos4 = e.clientY || e.touches[0].clientY;
+		pos3 = startDragX;
+		pos4 = startDragY;
 
-		// 新增：觸控事件的處理
 		if (e.type === 'touchstart') {
 			document.addEventListener('touchmove', elementDrag, { passive: false });
 			document.addEventListener('touchend', closeDragElement);
@@ -674,15 +680,15 @@ function makeDraggable(element) {
 
 		// 只在非拖曳時切換選取狀態
 		if (selectMode && moveDistance < 5) {
-			// 新增：同時處理滑鼠和觸控事件
-			if (!isRightClick && (e.type === 'mouseup' || e.type === 'touchend')) {
+			// 檢查是否為右鍵點擊
+			if (!isRightClick) {
 				element.classList.toggle('selected');
 			}
 		}
 
 		isDragging = false;
 		moveDistance = 0;
-		selectedCardsOffsets = []; // 清空暫存的位置差值
+		selectedCardsOffsets = []; 
 	}
 
     // 右鍵選單事件
@@ -693,11 +699,17 @@ function makeDraggable(element) {
 
     // 長按事件處理
     let pressTimer;
-    element.addEventListener('touchstart', function(e) {
-        pressTimer = setTimeout(() => {
-            showContextMenu.call(this, e);
-        }, 500);
-    });
+	element.addEventListener('touchstart', function(e) {
+		if (selectMode) {
+			// 在選取模式下，防止長按選單出現
+			e.preventDefault();
+		} else {
+			// 非選取模式下，保持原有的長按行為
+			pressTimer = setTimeout(() => {
+				showContextMenu.call(this, e);
+			}, 500);
+		}
+	});
     element.addEventListener('touchend', function() {
         clearTimeout(pressTimer);
     });
@@ -1537,22 +1549,6 @@ function shareWordCards(how) {
 
     //var longURL = urlWithoutParams.href + '?' + decodeURIComponent(params.toString());
 
-
-    if (longURL.startsWith("http")) {
-        // 偵測是否以http開頭;
-        const originalUrl = longURL;
-
-                copyThat(longURL);
-                alert('🥷已複製 長網址 到剪貼簿');
-
-    } else {
-        // 如果不是以http開頭的離線檔，則不縮短網址;
-        //copyThat(longURL);
-        copyThat(decodeURIComponent(longURL));
-        alert('🥷已複製 長網址 到剪貼簿');
-    }
-
-/*
     if (longURL.startsWith("http")) {
         // 偵測是否以http開頭;
         const originalUrl = longURL;
@@ -1575,7 +1571,6 @@ function shareWordCards(how) {
         copyThat(decodeURIComponent(longURL));
         alert('🥷已複製 長網址 到剪貼簿');
     }
-*/
 }
 
 
