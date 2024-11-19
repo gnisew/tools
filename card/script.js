@@ -583,41 +583,44 @@ function makeDraggable(element) {
     element.addEventListener('mousedown', dragMouseDown);
     element.addEventListener('touchstart', dragMouseDown);
 
-    function dragMouseDown(e) {
+
+	function dragMouseDown(e) {
 		if (viewMode) return; 
-
-        e = e || window.event;
-        if (e.type === 'mousedown') {
-            e.preventDefault();
-        }
+		e = e || window.event;
+		if (e.type === 'mousedown') {
+			e.preventDefault();
+		}
 		isRightClick = e.button === 2;
+		var isDraggable = element.getAttribute('draggable');
+		if (isDraggable == "x") return;
 
-        var isDraggable = element.getAttribute('draggable');
-        if (isDraggable == "x") return;
+		// 記錄起始位置
+		startDragX = e.clientX || e.touches[0].clientX;
+		startDragY = e.clientY || e.touches[0].clientY;
+		moveDistance = 0;
 
-        // 記錄起始位置
-        startDragX = e.clientX || e.touches[0].clientX;
-        startDragY = e.clientY || e.touches[0].clientY;
-        moveDistance = 0;
+		// 如果是選取模式，計算所有選取卡片與當前拖曳卡片的位置差值
+		if (selectMode && element.classList.contains('selected')) {
+			const selectedCards = document.querySelectorAll('.wordCard.selected');
+			selectedCardsOffsets = Array.from(selectedCards).map(card => ({
+				card: card,
+				offsetX: card.offsetLeft - element.offsetLeft,
+				offsetY: card.offsetTop - element.offsetTop
+			}));
+		}
 
-        // 如果是選取模式，計算所有選取卡片與當前拖曳卡片的位置差值
-        if (selectMode && element.classList.contains('selected')) {
-            const selectedCards = document.querySelectorAll('.wordCard.selected');
-            selectedCardsOffsets = Array.from(selectedCards).map(card => ({
-                card: card,
-                offsetX: card.offsetLeft - element.offsetLeft,
-                offsetY: card.offsetTop - element.offsetTop
-            }));
-        }
+		pos3 = e.clientX || e.touches[0].clientX;
+		pos4 = e.clientY || e.touches[0].clientY;
 
-        pos3 = e.clientX || e.touches[0].clientX;
-        pos4 = e.clientY || e.touches[0].clientY;
-
-        document.addEventListener('mousemove', elementDrag);
-        document.addEventListener('mouseup', closeDragElement);
-        document.addEventListener('touchmove', elementDrag);
-        document.addEventListener('touchend', closeDragElement);
-    }
+		// 新增：觸控事件的處理
+		if (e.type === 'touchstart') {
+			document.addEventListener('touchmove', elementDrag, { passive: false });
+			document.addEventListener('touchend', closeDragElement);
+		} else {
+			document.addEventListener('mousemove', elementDrag);
+			document.addEventListener('mouseup', closeDragElement);
+		}
+	}
 
     function elementDrag(e) {
         e = e || window.event;
@@ -662,22 +665,25 @@ function makeDraggable(element) {
         }
     }
 
-    function closeDragElement() {
-        document.removeEventListener('mousemove', elementDrag);
-        document.removeEventListener('mouseup', closeDragElement);
-        document.removeEventListener('touchmove', elementDrag);
-        document.removeEventListener('touchend', closeDragElement);
-		
 
-        // 只在非拖曳時切換選取狀態
-        if (selectMode && moveDistance < 5 && !isRightClick) {
-            element.classList.toggle('selected');
-        }
+	function closeDragElement(e) {
+		document.removeEventListener('mousemove', elementDrag);
+		document.removeEventListener('mouseup', closeDragElement);
+		document.removeEventListener('touchmove', elementDrag);
+		document.removeEventListener('touchend', closeDragElement);
 
-        isDragging = false;
-        moveDistance = 0;
-        selectedCardsOffsets = []; // 清空暫存的位置差值
-    }
+		// 只在非拖曳時切換選取狀態
+		if (selectMode && moveDistance < 5) {
+			// 新增：同時處理滑鼠和觸控事件
+			if (!isRightClick && (e.type === 'mouseup' || e.type === 'touchend')) {
+				element.classList.toggle('selected');
+			}
+		}
+
+		isDragging = false;
+		moveDistance = 0;
+		selectedCardsOffsets = []; // 清空暫存的位置差值
+	}
 
     // 右鍵選單事件
     element.addEventListener('contextmenu', function(e) {
