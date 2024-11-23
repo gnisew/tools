@@ -480,7 +480,8 @@
       onblur="resetOptions(this)">
       <option value="" disabled selected>其他</option>
       <option value="importData">載入txt</option>
-      <option value="matchText" title="詞 詞彙、詞條、語詞">詞符合的</option>
+      <option value="matchText" title="詞 詞彙、詞條、語詞">該詞有字</option>
+      <option value="matchData" title="詞彙 解釋；查詞">詞解查查</option>
       <option value="replaceFn">自訂取代</option>
       <option value="removeDuplicateLinesIdB">去除重複</option>
       <option value="convertToFullMark">全形標點</option>
@@ -2480,7 +2481,7 @@ function reverseArrangeText() {
 
 // 查符合的詞
 // 在 id_A 匯入文字，一行一字詞；在id_C 放要查的詞，最終輸出在id_B
-function matchText2() {
+function matchText() {
     let myData = [];
     let t = document.getElementById('id_A').value;
     if (t.startsWith('載入的資料共')) {
@@ -2517,34 +2518,34 @@ function matchText2() {
     document.getElementById('id_B').value = results.join('\n');
 }
 
-function matchText() {
-	let myData = [];
-      // 取得輸入的內容並分行
-      const dataInput = document.getElementById('id_A').value.trim().split('\n');
-      const queryIds = document.getElementById('id_C').value.trim().split('\n');
+function matchData() {
+            // 取得輸入值
+            const dataA = document.getElementById('id_A').value;
+            const dataC = document.getElementById('id_C').value;
+            
+            // 將資料A轉換成映射表
+            const mappingData = {};
+            dataA.split('\n').forEach(line => {
+                if (line.trim()) {
+                    const [key, value] = line.split('\t');
+                    if (!mappingData[key]) {
+                        mappingData[key] = [];
+                    }
+                    mappingData[key].push(value);
+                }
+            });
 
-      // 建立資料映射
-      const dataMap = {};
-      dataInput.forEach(line => {
-        const [id, value] = line.split(/\s+/);
-        if (id && value) {
-          if (!dataMap[id]) {
-            dataMap[id] = [];
-          }
-          dataMap[id].push(value);
-        }
-      });
+            // 處理查詢清單
+            const result = [];
+            dataC.split('\n').forEach(item => {
+                item = item.trim();
+                if (item && mappingData[item]) {
+                    result.push(`${item}\t${mappingData[item].join('、')}`);
+                }
+            });
 
-      // 查詢資料並顯示結果
-      let result = '';
-      queryIds.forEach(id => {
-        if (dataMap[id]) {
-          result += `${id}\t${dataMap[id].join('、')}\n`;
-        }
-      });
-
-      // 將結果顯示在 idB
-      document.getElementById('id_B').textContent = result || '查無符合的資料';
+            // 顯示結果
+            document.getElementById('id_B').value = result.join('\n');
 }
 
 
