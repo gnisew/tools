@@ -152,12 +152,12 @@ h3 {
 
 /* 表格容器 */
 .table-container {
-  width: 90%; /* 響應式寬度 */
+  width: 100%; /* 響應式寬度 */
   max-width: 800px; /* 最大寬度 */
-  margin: 20px auto; /* 水平置中並添加上下間距 */
+  margin: 0px auto 20px auto; /* 水平置中並添加上下間距 */
   overflow-x: auto; /* 當內容過多時允許橫向滾動 */
   background: #fff; /* 白色背景 */
-  padding: 10px;
+  padding: 10px 10px;
   border-radius: 8px; /* 圓角 */
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* 添加陰影 */
 }
