@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🥷烏衣行條碼產生器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "微軟正黑體", sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #333;
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #555;
+        }
+
+        input {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        button {
+            flex: 1;
+            padding: 0.8rem;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s;
+        }
+
+        .generate-btn {
+            background-color: #4CAF50;
+        }
+
+        .generate-btn:hover {
+            background-color: #45a049;
+        }
+
+        .download-btn {
+            background-color: #2196F3;
+        }
+
+        .download-btn:hover {
+            background-color: #1976D2;
+        }
+
+        .download-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        #barcode {
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        #barcode svg {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .error {
+            color: #ff0000;
+            margin-top: 0.5rem;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🥷烏衣行條碼產生器</h1>
+        <div class="input-group">
+            <label for="text-input">請輸入文字或數字：</label>
+            <input type="text" id="text-input" placeholder="請輸入要轉換的內容">
+            <div class="error" id="error-message">請輸入有效的文字或數字</div>
+        </div>
+        <div class="button-group">
+            <button class="generate-btn" onclick="generateBarcode()">產生條碼</button>
+            <button class="download-btn" id="download-btn" onclick="downloadBarcode()" disabled>下載條碼</button>
+        </div>
+        <div id="barcode"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+    <script>
+        function generateBarcode() {
+            const text = document.getElementById('text-input').value;
+            const errorMessage = document.getElementById('error-message');
+            const barcodeDiv = document.getElementById('barcode');
+            const downloadBtn = document.getElementById('download-btn');
+
+            if (!text) {
+                errorMessage.style.display = 'block';
+                barcodeDiv.innerHTML = '';
+                downloadBtn.disabled = true;
+                return;
+            }
+
+            errorMessage.style.display = 'none';
+            
+            try {
+                barcodeDiv.innerHTML = '<svg id="barcode-svg"></svg>';
+                
+                JsBarcode("#barcode-svg", text, {
+                    format: "CODE128",
+                    width: 2,
+                    height: 100,
+                    displayValue: true,
+                    fontSize: 20,
+                    margin: 10,
+                    background: "#ffffff"
+                });
+
+                downloadBtn.disabled = false;
+            } catch (error) {
+                errorMessage.style.display = 'block';
+                barcodeDiv.innerHTML = '';
+                downloadBtn.disabled = true;
+            }
+        }
+
+        function downloadBarcode() {
+            const svg = document.getElementById('barcode-svg');
+            const text = document.getElementById('text-input').value;
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            img.onload = function() {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+                
+                const a = document.createElement('a');
+                a.href = canvas.toDataURL('image/png');
+                a.download = `barcode-${text}.png`;
+                a.click();
+            };
+            
+            img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+        }
+
+        document.getElementById('text-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                generateBarcode();
+            }
+        });
+    </script>
+</body>
+</html>
