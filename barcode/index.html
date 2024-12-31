@@ -238,7 +238,7 @@
             try {
                 const lines = text.trim().split('\n');
                 lines.forEach((line, index) => {
-                    const [barcode, title] = line.split('\t');
+                    const [barcode, title] = line.split(/\t| /);
                     if (barcode) {
                         const itemDiv = document.createElement('div');
                         itemDiv.className = 'barcode-item';
