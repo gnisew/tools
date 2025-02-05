@@ -473,6 +473,7 @@
       <option value="pojToTailuo">教羅轉台</option>
       <option value="anyZvsToRoma">az 轉 á</option>
       <option value="anyRomaToZvs">á 轉 az</option>
+	  <option value="holoNumberToKp">台a2轉Kp</option>
     </select>
 
 
@@ -1441,7 +1442,9 @@ function replacePunctuation() {
         let textA = textAreaA.value;
         let textB;
 
+
 	replaceText = replaceText.replace(/{h}/g,"[\u3007\u3400-\u4DB5\u4E00-\u9FCB\uE815-\uE864\uD840-\uD87F][\uDC00-\uDFFF]?"); //中文漢字;
+	//漢字還有「𰣻」
 	replaceText = replaceText.replace(/\{\^h}|{H}/g,"([!-㏕]|[︰-￭])"); // 非中文漢字;
 
 	replaceText = replaceText.replace(/{mail}/g,"([^@ \t\r\n]+@[^@ \t\r\n]+\\.[^@ \t\r\n]+)");  //e-mail信箱 [^@ \t\r\n]+@[^@ \t\r\n]+\.[^@ \t\r\n]+;
@@ -1933,11 +1936,10 @@ function combineHyphen() {
             // 處理正常的漢字和拼音配對
             if (chineseIndex < chineseChars.length && pinyinIndex < pinyinGroups.length) {
                 const currentPinyin = pinyinGroups[pinyinIndex];
-                
                 if (!punctuationRegex.test(currentPinyin)) {
                     if (currentPinyin.includes('-')) {
                         // 處理帶連字符的拼音組
-                        const charCount = currentPinyin.split('-').length;
+						const charCount = currentPinyin.split(/-+/).length;
                         const relevantChars = chineseChars.slice(chineseIndex, chineseIndex + charCount)
                             .filter(char => !punctuationRegex.test(char))
                             .join('');
@@ -1989,7 +1991,7 @@ function combineHyphen() {
         
         // 添加計數信息
         const lengthInfo = `${chineseCount}\\${pinyinCount}`;
-        output += currentOutput + ' ' + lengthInfo + '\n';
+        output += currentOutput + '	' + lengthInfo + '\n';
     });
 
     document.getElementById('id_B').textContent = output.trim();
@@ -2325,6 +2327,47 @@ t=t.replace(/n̍([aeioumngptkhbd]{0,5})/g, "n$1l");
 return t;
 }
 
+
+function holoNumberToKp() {
+//閩南語台羅123轉客語拼音zvs，g用w;
+    let t = document.getElementById('id_A').value;
+	if (t.startsWith("載入的資料共")) {
+		t = allText;
+	}
+
+	t = t.toLowerCase();
+
+	t = t.replace(/\b(p)([aeioun])/g, 'pp$2');
+	t = t.replace(/\b(t)([aeioun])/g, 'tt$2');
+	t = t.replace(/\b(k)([aeioun])/g, 'kk$2');
+	t = t.replace(/\b(g)([aeioun])/g, 'w$2');
+	t = t.replace(/\b(j)([aeioun])/g, 'r$2');
+	t = t.replace(/\b(b)([aeioun])/g, 'v$2');
+	t = t.replace(/\b(tsh)([aeioun])/g, 'c$2');
+	t = t.replace(/\b(ts)([aeioun])/g, 'z$2');
+	t = t.replace(/\b(ph)([aeioun])/g, 'p$2');
+	t = t.replace(/\b(th)([aeioun])/g, 't$2');
+	t = t.replace(/\b(kh)([aeioun])/g, 'k$2');
+	t = t.replace(/\b(pp)([aeioun])/g, 'b$2');
+	t = t.replace(/\b(tt)([aeioun])/g, 'd$2');
+	t = t.replace(/\b(kk)([aeioun])/g, 'g$2');
+
+	t = t.replace(/([aeiounr])(p)/g, '$1b');
+	t = t.replace(/([aeiounr])(t)/g, '$1d');
+	t = t.replace(/([aeiounr])(k)/g, '$1g');
+
+	t = t.replace(/([aeiounrmgbdh])(1)/g, '$1');
+	t = t.replace(/([aeiounrmgbdh])(2)/g, '$1s');
+	t = t.replace(/([aeiounrmgbdh])(3)/g, '$1v');
+	t = t.replace(/([aeiounrmgbdh])(4)/g, '$1x');
+	t = t.replace(/([aeiounrmgbdh])(5)/g, '$1z');
+	t = t.replace(/([aeiounrmgbdh])(6)/g, '$1ss');
+	t = t.replace(/([aeiounrmgbdh])(7)/g, '$1f');
+	t = t.replace(/([aeiounrmgbdh])(8)/g, '$1');
+	t = t.replace(/([aeiounrmgbdh])(9)/g, '$1zz');
+
+	document.getElementById('id_B').value = t;
+}
 
 
 
@@ -4016,6 +4059,43 @@ let kasuOral = `
 鑚	鑽
 戅	戇
 朏	胐
+⻑	長
+⼀	一
+⼆	二
+⼈	人
+⼒	力
+⼜	又
+⼤	大
+⼦	子
+⼩	小
+⼰	己
+⼼	心
+⼿	手
+⽅	方
+⽇	日
+⽉	月
+⽐	比
+⽣	生
+⽤	用
+⽩	白
+⽼	老
+⽿	耳
+⾃	自
+⾊	色
+⾏	行
+⾒	見
+⾓	角
+⾖	豆
+⾛	走
+⾞	車
+⾯	面
+⾵	風
+⾺	馬
+⾼	高
+⿅	鹿
+⿊	黑
+⿐	鼻
+⿔	龜
 `;
     
     let mappings = kasuOral.trim().split('\n').map(line => {
