@@ -15,7 +15,7 @@ document.head.appendChild(style);
 
 let htmlSettingsPage = `
 <div id="settingsPage">
-    <h2>🥷客事100排排排</h2>
+    <h2>🥷客事拼音排排排</h2>
     <div>
         <label for="lessonSelect">分類：</label>
         <select id="lessonSelect"></select>
