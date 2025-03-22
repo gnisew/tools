@@ -1,0 +1,428 @@
+/* 1. 全局樣式 */
+body {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  min-height: 100vh;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+  user-select: none;
+    overflow-x: hidden;
+}
+
+#gameHeader {
+    top: 0;
+    width: 100%;
+    z-index: 1000;
+    padding: 10px 0;
+}
+
+/* 2. 設定頁樣式 */
+#settingsPage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.95);
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+    max-width: 95%;
+    width: 350px;
+    margin: 20px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+#settingsPage h2 {
+  text-align: center;
+  color: #2d3748;
+  font-size: 1.8rem;
+  margin-bottom: 1.2rem;
+}
+
+#settingsPage div {
+  margin-bottom: 0.5rem;
+}
+
+#settingsPage label {
+  display: inline-block;
+  width: 60px;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+#settingsPage select {
+    width: 200px;
+    min-width: 150px;
+    max-width: calc(100% - 80px);
+    padding: 5px 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    background-color: white;
+    color: #2d3748;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+
+#settingsPage select:focus {
+  border-color: #4299e1;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.2);
+}
+
+#startButton {
+  background: linear-gradient(45deg, #4CAF50, #45a049);
+  color: white;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  font-size: 1.1rem;
+  font-weight: 600;
+  transition: transform 0.2s ease;
+  width: 70%;
+}
+
+#startButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+}
+
+/* 6. 響應式設計補充 */
+@media (max-width: 767px) {
+  #settingsPage {
+    padding: 1rem 1.5rem;
+  }
+  #gameContainer {
+    width: 100%;
+	 padding: 1rem;
+  }
+	#sentenceArea {
+		padding: 0px
+	}
+	#sentence-text{
+	margin-left: -10px;
+	}
+  .word, .selected-word {
+    padding: 8px 16px;
+    font-size: 1.2rem;
+  }  
+  #gameStats {
+    font-size: 0.9rem;
+  }
+
+}
+
+@media (min-width: 768px) {
+  #gameContainer {
+    padding: 1rem;
+  }  
+  #wordBank {
+    gap: 10px;
+  }
+#sentenceArea {
+    padding: 20px
+}
+}
+@media (orientation: landscape) {
+    #settingsPage {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    #settingsPage>div {
+        width: 100%;
+        max-width: 300px;
+    }
+}
+
+
+/* 3. 按鈕樣式 */
+#closeButton {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    z-index: 1000;
+    width: 30px;
+    height: 30px;
+    background-color: rgba(255, 255, 255, 0.7);
+    border: none;
+    border-radius: 50%;
+    font-size: 18px;
+    color: #888;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: Arial, sans-serif;
+}
+#closeButton:hover {
+    background-color: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    transform: scale(1.1);
+}
+#closeButton:active {
+    transform: scale(0.95);
+}
+
+
+
+/* 5. 遊戲卡片樣式 */
+#gameContainer {
+  background-color: rgba(255, 255, 255, 0.6);
+  border-radius: 10px;
+
+  max-width: 600px;
+  width: 90%;
+  margin: 0px auto;
+}
+
+#sentenceArea {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+	text-align: center;
+}
+
+#targetSentence {
+    font-size: 1.5em;
+    padding: 15px 15px 15px 20px;
+	background-color: rgba(255, 255, 255, 0.4);
+    border-radius: 8px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+#emoji {
+    font-size: 3em;
+    line-height: 1;
+    display: block;
+}
+#emoji:hover {
+	transform: scale(1.1);
+	cursor: pointer;
+}
+.bounce-emoji {
+    animation: bounce 0.5s ease 2;
+}
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+
+
+#wordBank {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 20px 0;
+  justify-content: center;
+}
+
+.word {
+  font-size: 1.2em;
+  background: linear-gradient(145deg, #f3f4f6, #ffffff);
+  padding: 10px 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+.word:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+.word.selected {
+  opacity: 0.3;
+}
+
+
+#answerArea {
+  min-height: 40px;
+  border: 2px dashed #90cdf4;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 20px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+	  justify-content: center;
+  background-color: rgba(235, 248, 255, 0.5);
+}
+
+.selected-word {
+  font-size: 1.2em;
+  background: linear-gradient(145deg, #5b93d9, #3b82f6);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 8px;
+  margin: 0px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#checkButton{
+  background: linear-gradient(145deg, #5b93d9, #3b82f6);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 10px;
+  border: none;
+  font-size: 1rem;
+  font-weight: 500;
+  width: 50%;
+    margin: 10px auto;
+    transition: all 0.2s ease;
+    display: block;
+}
+#checkButton:disabled {
+  background: linear-gradient(45deg, #d1d5db, #a1a1aa);
+  cursor: not-allowed;
+}
+
+
+
+
+
+/* 8. 遊戲統計資訊樣式 */
+#gameStats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 0 15px;
+}
+#timeDisplay,
+#scoreDisplay {
+	color: #888;
+	font-size: 0.9 em;
+    margin-right: auto;
+}
+#heartsDisplay {
+    margin-left: auto;
+	margin-right: 15px;
+}
+#timeDisplay {
+    margin-right: 15px;
+}
+#gameStats span {
+    white-space: nowrap;
+}
+
+
+
+/* 4. 模態框樣式 */
+.modal {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.4);
+}
+.modal-content {
+    background-color: #fefefe;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 90%;
+    max-width: 280px;
+    border-radius: 10px;
+	font-size: 1.2em;
+    text-align: center;
+    position: relative;
+    transform: translate(-50%, -50%);
+    top: 50%;
+    left: 50%;
+}
+.modal-buttons button{
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1.1em;
+}
+#returnButton {
+    background-color: #f44336;
+    color: white;
+}
+#continueButton {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.modal-buttons button:focus {
+    outline: 3px solid #007bff;
+}
+.end-emoji {
+    font-size: 3em;
+    display: block;
+    animation: popIn 0.5s ease-out;
+}
+
+
+
+
+/* 9. 動畫效果 */
+.time-warning {
+    color: red;
+    animation: blink 1s infinite;
+}
+@keyframes blink {
+    50% {
+        opacity: 0.3;
+    }
+}
+@keyframes matchedAnimation {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+@keyframes jumpAnimation {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-5px);
+    }
+}
+@keyframes shakeAnimation {
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+    25% {
+        transform: translateX(-3px);
+    }
+    75% {
+        transform: translateX(3px);
+    }
+}
+.jump {
+    animation: jumpAnimation 0.3s ease;
+}
+.shake {
+    animation: shakeAnimation 0.3s ease;
+}
+@keyframes popIn {
+    0% {
+        transform: scale(0);
+    }
+    70% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+    }
+}

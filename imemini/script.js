@@ -93,6 +93,8 @@ inputBox.onkeyup = (e)=>{
 		userData = e.target.value; //user enetered data;	
 	}
 	userData = userData.replace(/[^a-z]| /g,"")
+	userData = userData.toLowerCase();
+
     let emptyArray = [];
 	if(myL == "z" && userData.match(/bb|oo|rh/g)){
 		userData = userData.replace(/bb/g, "v");
