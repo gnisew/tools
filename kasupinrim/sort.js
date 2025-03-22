@@ -228,6 +228,164 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 
+
+// Function to save settings to localStorage
+function saveSettings() {
+  // Get the title from h2 element to use as a unique key
+  const titleElement = document.querySelector("#settingsPage h2")
+  if (!titleElement) return
+
+  const storageKey = `gameSettings_${titleElement.textContent}`
+
+  // Collect current settings
+  const settings = {
+    category: lessonSelect.value,
+    questionType: questionSelect.value,
+    answerType: answerSelect.value,
+    orderType: orderSelect.value,
+    winCondition: winConditionSelect.value,
+    timeCondition: timeConditionSelect.value,
+    sentencesCondition: sentencesConditionSelect.value,
+    playbackTimes: playbackTimesSelect.value,
+  }
+
+  // Save to localStorage
+  localStorage.setItem(storageKey, JSON.stringify(settings))
+}
+
+// Function to load settings from localStorage
+function loadSettings() {
+  // Get the title from h2 element to use as a unique key
+  const titleElement = document.querySelector("#settingsPage h2")
+  if (!titleElement) return
+
+  const storageKey = `gameSettings_${titleElement.textContent}`
+
+  // Try to get saved settings
+  const savedSettings = localStorage.getItem(storageKey)
+  if (!savedSettings) return
+
+  try {
+    const settings = JSON.parse(savedSettings)
+
+    // Apply saved settings
+    if (settings.category) {
+      Array.from(lessonSelect.options).forEach((option, index) => {
+        if (option.value === settings.category) {
+          lessonSelect.selectedIndex = index
+        }
+      })
+    }
+
+    if (settings.questionType) {
+      Array.from(questionSelect.options).forEach((option, index) => {
+        if (option.value === settings.questionType) {
+          questionSelect.selectedIndex = index
+        }
+      })
+    }
+
+    // Update answer select based on question type
+    updateAnswerSelect(headers.filter((header) => !["分類", "音檔"].includes(header)))
+
+    if (settings.answerType) {
+      Array.from(answerSelect.options).forEach((option, index) => {
+        if (option.value === settings.answerType) {
+          answerSelect.selectedIndex = index
+        }
+      })
+    }
+
+    if (settings.orderType) {
+      Array.from(orderSelect.options).forEach((option, index) => {
+        if (option.value === settings.orderType) {
+          orderSelect.selectedIndex = index
+        }
+      })
+    }
+
+    if (settings.winCondition) {
+      Array.from(winConditionSelect.options).forEach((option, index) => {
+        if (option.value === settings.winCondition) {
+          winConditionSelect.selectedIndex = index
+          // Trigger change event to show/hide relevant condition divs
+          winConditionSelect.dispatchEvent(new Event("change"))
+        }
+      })
+    }
+
+    if (settings.timeCondition) {
+      Array.from(timeConditionSelect.options).forEach((option, index) => {
+        if (option.value === settings.timeCondition) {
+          timeConditionSelect.selectedIndex = index
+        }
+      })
+    }
+
+    if (settings.sentencesCondition) {
+      Array.from(sentencesConditionSelect.options).forEach((option, index) => {
+        if (option.value === settings.sentencesCondition) {
+          sentencesConditionSelect.selectedIndex = index
+        }
+      })
+    }
+
+    if (settings.playbackTimes) {
+      Array.from(playbackTimesSelect.options).forEach((option, index) => {
+        if (option.value === settings.playbackTimes) {
+          playbackTimesSelect.selectedIndex = index
+        }
+      })
+    }
+  } catch (error) {
+    console.error("Error loading settings:", error)
+  }
+}
+
+// Add event listeners to save settings when they change
+function addSettingsSaveListeners() {
+  const settingsElements = [
+    lessonSelect,
+    questionSelect,
+    answerSelect,
+    orderSelect,
+    winConditionSelect,
+    timeConditionSelect,
+    sentencesConditionSelect,
+    playbackTimesSelect,
+  ]
+
+  settingsElements.forEach((element) => {
+    element.addEventListener("change", saveSettings)
+  })
+}
+
+// Modify the DOMContentLoaded event listener to load settings
+document.addEventListener("DOMContentLoaded", () => {
+  // Initialize language options
+  initializeLanguageSelects()
+
+  // Get menu elements
+  const winConditionSelect = document.getElementById("winConditionSelect")
+  const timeConditionDiv = document.getElementById("timeConditionDiv")
+  const sentencesConditionDiv = document.getElementById("sentencesConditionDiv")
+
+  // Show condition options based on default value
+  const selectedCondition = winConditionSelect.value
+  timeConditionDiv.style.display = selectedCondition === "time" ? "block" : "none"
+  sentencesConditionDiv.style.display = selectedCondition === "sentences" ? "block" : "none"
+  gameState.winCondition = selectedCondition
+
+  // Load saved settings
+  loadSettings()
+
+  // Add listeners to save settings when changed
+  addSettingsSaveListeners()
+})
+
+
+
+
 // 修改開始按鈕事件處理
 startButton.addEventListener('click', () => {
     // 準備遊戲資料
@@ -1236,6 +1394,8 @@ function playSingleAudio(audioFileInfo) {
 function getAudioUrl(audioFileInfo) {
     if (audioFileInfo.endsWith('.k100')) {
         return `https://oikasu1.github.io/kasu100/${audioFileInfo.replace('.k100', '.mp3')}`;
+    } else if (audioFileInfo.endsWith('.kasupinyin')) {
+        return `https://oikasu1.github.io/snd/kasupinyin/${audioFileInfo.replace('.kasupinyin', '.mp3')}`;
     } else if (audioFileInfo.endsWith('.kasu')) {
         return `https://oikasu1.github.io/snd/mp3kasu/${audioFileInfo.replace('.kasu', '.mp3')}`;
     } else if (audioFileInfo.endsWith('.holo')) {
