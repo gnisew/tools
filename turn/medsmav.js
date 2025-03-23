@@ -81,6 +81,5 @@ document.getElementById('loginForm').addEventListener('submit', function(e) {
 
 
 let medsmav = `
-jan	5@	4520
-uio	0@	6606
+jan	5@	520
 `;
