@@ -34,7 +34,7 @@ function validateCredentials(email, password) {
     }
   }
   let medsmav = `
-jan	5@	520
+ja	5@	520
 `;
   let isEmailValid = false;
   
