@@ -142,193 +142,193 @@ const myData = `
 9. 複元音1	寫字	siaˇ cu	k140.kasupinyin
 9. 複元音1	這是我寫的字	liaˊ he ngaiˋ siaˆ e⁺ cu	k141.kasupinyin
 9. 複元音1	那隻馬是活的	gaˇ zha⁺ maˇ he⁺ ua e	k142.kasupinyin
-9. 複元音1	ㄨㄞ	uai	k143.kasupinyin
-9. 複元音1	丨ㄠ	iau	k144.kasupinyin
-9. 複元音1	怪怪	guai guaiˆ	k145.kasupinyin
-9. 複元音1	餓餓	iau iauˇ	k146.kasupinyin
-9. 複元音1	丨ㄜ	io	k147.kasupinyin
-9. 複元音1	丨ㄨ	iu	k148.kasupinyin
-9. 複元音1	腳	gioˊ	k149.kasupinyin
-9. 複元音1	九	giuˆ	k150.kasupinyin
-9. 複元音1	手	shiuˆ	k151.kasupinyin
-9. 複元音1	臭臭	chiu chiuˆ	k152.kasupinyin
-9. 複元音1	手錶	shiu bioˆ	k153.kasupinyin
-9. 複元音1	打球	daˇ kiuˋ	k154.kasupinyin
-9. 複元音1	這是我的手錶	liaˊ he⁺ ngaiˋ e⁺ shiu bioˆ	k155.kasupinyin
-9. 複元音1	我好餓喔	ngaiˋ ziu iauˇ eˇ	k156.kasupinyin
-9. 複元音1	腳好臭喔	gioˊ ziu chiuˆ eˇ	k157.kasupinyin
-10. 複元音2	ㄨㄝ	ue	k158.kasupinyin
-10. 複元音2	ㄨ丨	ui	k159.kasupinyin
-10. 複元音2	回	fueˋ	k160.kasupinyin
-10. 複元音2	會	bbue	k161.kasupinyin
-10. 複元音2	飛	bui	k162.kasupinyin
-10. 複元音2	他	guiˋ	k163.kasupinyin
-10. 複元音2	鬼	guiˆ	k164.kasupinyin
-10. 複元音2	背書	pue⁺ shiˇ	k165.kasupinyin
-10. 複元音2	第二回	ti⁺ ngi⁺ fueˋ	k166.kasupinyin
-10. 複元音2	我會背書	ngaiˋ bbue⁺ pue⁺ shiˇ	k167.kasupinyin
-10. 複元音2	ㄛ丨	oi	k168.kasupinyin
-10. 複元音2	ㄝㄨ	eu	k169.kasupinyin
-10. 複元音2	愛	oiˆ	k170.kasupinyin
-10. 複元音2	害	hoi	k171.kasupinyin
-10. 複元音2	來	loiˋ	k172.kasupinyin
-10. 複元音2	妹妹	aˇ moiˆ	k173.kasupinyin
-10. 複元音2	頭	teuˋ	k174.kasupinyin
-10. 複元音2	狗	geuˆ	k175.kasupinyin
-10. 複元音2	厲害	li⁺ hoi	k176.kasupinyin
-10. 複元音2	來來去去	loi⁺ loi⁺ kui kuiˆ	k177.kasupinyin
-10. 複元音2	開車必須小心	suˇ chaˇ oiˇ seˇ ngi	k178.kasupinyin
-10. 複元音2	那隻狗最厲害	gaˇ zha⁺ geuˆ teu⁺ li⁺ hoi	k179.kasupinyin
-10. 複元音2	弟弟愛哭又愛笑	aˇ teˇ oi bbooˆ goo oi sioˆ	k180.kasupinyin
-10. 複元音2	乜	ee	k181.kasupinyin
-10. 複元音2	大聲講	dee	k182.kasupinyin
-10. 複元音2	大聲講不停	dee⁺ dee⁺ buiˆ	k183.kasupinyin
-10. 複元音2	乜ㄨ	eeu	k184.kasupinyin
-10. 複元音2	玩	leeu	k185.kasupinyin
-10. 複元音2	跳	teeuˆ	k186.kasupinyin
-10. 複元音2	鳥	deeuˆ	k187.kasupinyin
-10. 複元音2	去麥寮玩	kuiˇ ma⁺ leeuˋ leeu	k188.kasupinyin
-10. 複元音2	鳥會飛	deeuˆ bbue⁺ bui	k189.kasupinyin
-10. 複元音2	那隻狗跳最高	gaˇ zha⁺ geuˆ teeuˇ teu⁺ gooˇ	k190.kasupinyin
-11. 閉唇m b	ㄚㄇ	am	k191.kasupinyin
-11. 閉唇m b	丨ㄇ	im	k192.kasupinyin
-11. 閉唇m b	ㄚㄅ	ab	k193.kasupinyin
-11. 閉唇m b	丨ㄅ	ib	k194.kasupinyin
-11. 閉唇m b	暗暗	am amˆ	k195.kasupinyin
-11. 閉唇m b	和	ham	k196.kasupinyin
-11. 閉唇m b	金金	gim gimˇ	k197.kasupinyin
-11. 閉唇m b	母鴨	ab maˋ	k198.kasupinyin
-11. 閉唇m b	垃圾	liˇ sabˊ	k199.kasupinyin
-11. 閉唇m b	急急	gib gibˊ	k200.kasupinyin
-11. 閉唇m b	十	shibˋ	k201.kasupinyin
-11. 閉唇m b	衣褲	samˇ kuˆ	k202.kasupinyin
-11. 閉唇m b	喝茶	limˇ caˋ	k203.kasupinyin
-11. 閉唇m b	晚上	amˇ rhia	k204.kasupinyin
-11. 閉唇m b	他和我去打球	guiˋ ham⁺ ngaiˋ kuiˇ daˇ kiuˋ	k205.kasupinyin
-11. 閉唇m b	他喝十杯茶	guiˋ limˇ shib⁺ bueˇ caˋ	k206.kasupinyin
-11. 閉唇m b	ㄝㄇ	em	k207.kasupinyin
-11. 閉唇m b	蓋被子	emˇ piˇ	k208.kasupinyin
-11. 閉唇m b	乜ㄇ	eem	k209.kasupinyin
-11. 閉唇m b	鹹鹹	heem heemˋ	k210.kasupinyin
-11. 閉唇m b	丨ㄚㄇ	iam	k211.kasupinyin
-11. 閉唇m b	累累	tiam tiamˆ	k212.kasupinyin
-11. 閉唇m b	鹽	rhiamˋ	k213.kasupinyin
-11. 閉唇m b	鹽鹹鹹	rhiamˋ heem heemˋ	k214.kasupinyin
-11. 閉唇m b	玩到很累	leeu⁺ dooˇ tiam tiamˆ	k215.kasupinyin
-11. 閉唇m b	ㄝㄅ	eb	k216.kasupinyin
-11. 閉唇m b	撮	zebˊ	k217.kasupinyin
-11. 閉唇m b	乜ㄅ	eeb	k218.kasupinyin
-11. 閉唇m b	窄窄的	heeb heebˋ	k219.kasupinyin
-11. 閉唇m b	丨ㄚㄅ	iab	k220.kasupinyin
-11. 閉唇m b	粒	liabˋ	k221.kasupinyin
-11. 閉唇m b	黏黏的	giab giabˊ	k222.kasupinyin
-11. 閉唇m b	房子窄窄的	bbu haˇ heeb heebˋ	k223.kasupinyin
-11. 閉唇m b	妹妹的手黏黏的	aˇ moiˆ e⁺ shiuˆ giab giabˊ	k224.kasupinyin
-12. 舌尖n l	ㄢ	an	k225.kasupinyin
-12. 舌尖n l	丨ㄣ	in	k226.kasupinyin
-12. 舌尖n l	ㄚㄉ	ad	k227.kasupinyin
-12. 舌尖n l	丨ㄉ	id	k228.kasupinyin
-12. 舌尖n l	這樣	anˊ	k229.kasupinyin
-12. 舌尖n l	快快	gin ginˆ	k230.kasupinyin
-12. 舌尖n l	結束	sadˊ	k231.kasupinyin
-12. 舌尖n l	七	cidˊ	k232.kasupinyin
-12. 舌尖n l	丟	gidˋ	k233.kasupinyin
-12. 舌尖n l	一	rhidˊ	k234.kasupinyin
-12. 舌尖n l	這樣沒錯	anˊ mo⁺ m⁺ choo	k235.kasupinyin
-12. 舌尖n l	叔叔車開很快	aˇ shuˊ chaˇ suˇ zhinˇ ginˆ	k236.kasupinyin
-12. 舌尖n l	妹妹畫七朵花	aˇ moiˆ fa⁺ cid luiˇ faˇ	k237.kasupinyin
-12. 舌尖n l	這齣戲做完了	liˇ chid hiˆ zooˇ sadˊ a⁺	k238.kasupinyin
-12. 舌尖n l	垃圾拿去丟	liˇ sabˊ te⁺ kuiˇ gidˋ	k239.kasupinyin
-12. 舌尖n l	一撮鹽	rhid zeb rhiamˋ	k240.kasupinyin
-12. 舌尖n l	一粒球	rhid liab⁺ kiuˋ	k241.kasupinyin
-12. 舌尖n l	ㄨㄣ	un	k242.kasupinyin
-12. 舌尖n l	ㄝㄣ	en	k243.kasupinyin
-12. 舌尖n l	乜ㄣ	een	k244.kasupinyin
-12. 舌尖n l	近近	kun kunˇ	k245.kasupinyin
-12. 舌尖n l	你	henˋ	k246.kasupinyin
-12. 舌尖n l	跟隨	tenˋ	k247.kasupinyin
-12. 舌尖n l	田	teenˋ	k248.kasupinyin
-12. 舌尖n l	遠遠那裡	un gaˊ	k249.kasupinyin
-12. 舌尖n l	便宜	pen⁺ ngiˋ	k250.kasupinyin
-12. 舌尖n l	我跟著你去田裡	ngaiˋ ten⁺ henˋ kuiˇ teenˋ	k251.kasupinyin
-12. 舌尖n l	學校在那裡	hoo⁺ hau da un gaˊ	k252.kasupinyin
-12. 舌尖n l	ㄨㄉ	ud	k253.kasupinyin
-12. 舌尖n l	ㄝㄉ	ed	k254.kasupinyin
-12. 舌尖n l	乜ㄉ	eed	k255.kasupinyin
-12. 舌尖n l	骨	gudˊ	k256.kasupinyin
-12. 舌尖n l	色	sedˊ	k257.kasupinyin
-12. 舌尖n l	八	beedˊ	k258.kasupinyin
-12. 舌尖n l	眼睛	mud zhiˇ	k259.kasupinyin
-12. 舌尖n l	八百八十	beed ba beed shibˋ	k260.kasupinyin
-12. 舌尖n l	這是金色	liaˊ he⁺ gimˇ sedˊ	k261.kasupinyin
-12. 舌尖n l	小孩很活潑	se zuˆ zhinˇ ua⁺ gudˊ	k262.kasupinyin
-12. 舌尖n l	ㄛㄣ	on	k263.kasupinyin
-12. 舌尖n l	丨ㄝㄣ	ien	k264.kasupinyin
-12. 舌尖n l	ㄛㄉ	od	k265.kasupinyin
-12. 舌尖n l	丨ㄝㄉ	ied	k266.kasupinyin
-12. 舌尖n l	寒冷	hon honˋ	k267.kasupinyin
-12. 舌尖n l	錢	cienˋ	k268.kasupinyin
-12. 舌尖n l	渴	kodˊ	k269.kasupinyin
-12. 舌尖n l	吃	shiedˋ	k270.kasupinyin
-12. 舌尖n l	流汗	lau⁺ hon	k271.kasupinyin
-12. 舌尖n l	口渴	zheˆ kodˊ	k272.kasupinyin
-12. 舌尖n l	好吃	hooˇ shiedˋ	k273.kasupinyin
-12. 舌尖n l	物件	mi⁺ kien	k274.kasupinyin
-12. 舌尖n l	老師	sienˇ senˇ	k275.kasupinyin
-12. 舌尖n l	老師錢很多	sienˇ senˇ cienˋ zhinˇ dooˇ	k276.kasupinyin
-12. 舌尖n l	東西很好吃	mi⁺ kien zhinˇ hooˇ shiedˋ	k277.kasupinyin
-12. 舌尖n l	ㄨㄝㄣ	uen	k278.kasupinyin
-12. 舌尖n l	ㄨㄢ	uan	k279.kasupinyin
-12. 舌尖n l	ㄨㄚㄉ	uad	k280.kasupinyin
-12. 舌尖n l	勸	kuenˆ	k281.kasupinyin
-12. 舌尖n l	專心	zhuanˇ simˇ	k282.kasupinyin
-12. 舌尖n l	決定	guad ten	k283.kasupinyin
-12. 舌尖n l	寬闊	kuad kuadˊ	k284.kasupinyin
-12. 舌尖n l	他的房子很寬闊	guiˋ e⁺ bbu haˇ kuad kuadˊ	k285.kasupinyin
-12. 舌尖n l	ㄚ ̊	ann	k286.kasupinyin
-12. 舌尖n l	丨 ̊	inn	k287.kasupinyin
-12. 舌尖n l	餡料	annˇ	k288.kasupinyin
-12. 舌尖n l	鼻	pinn	k289.kasupinyin
-12. 舌尖n l	包餡料	bauˇ annˇ	k290.kasupinyin
-12. 舌尖n l	流鼻涕	lau⁺ pinn	k291.kasupinyin
-12. 舌尖n l	ㄞ ̊	ainn	k292.kasupinyin
-12. 舌尖n l	丨ㄠ ̊	iaunn	k293.kasupinyin
-12. 舌尖n l	ㄨㄞ ̊	uainn	k294.kasupinyin
-12. 舌尖n l	壞	painnˆ	k295.kasupinyin
-12. 舌尖n l	不好吃	painnˇ shiedˋ	k296.kasupinyin
-12. 舌尖n l	小鴨子	ab iaunn	k297.kasupinyin
-12. 舌尖n l	歪歪	uainn uainnˇ	k298.kasupinyin
-12. 舌尖n l	字寫得歪歪的	cu siaˇ dooˇ uainn uainnˇ	k299.kasupinyin
-13. 舌根ng	ㄤ	ang	k300.kasupinyin
-13. 舌根ng	丨ㄥ	ing	k301.kasupinyin
-13. 舌根ng	走	hangˋ	k302.kasupinyin
-13. 舌根ng	堅硬	ding dingˇ	k303.kasupinyin
-13. 舌根ng	ㄨㄥ	ung	k304.kasupinyin
-13. 舌根ng	ㄛㄥ	ong	k305.kasupinyin
-13. 舌根ng	腫	zhungˆ	k306.kasupinyin
-13. 舌根ng	放置	kongˆ	k307.kasupinyin
-13. 舌根ng	講話	gongˇ su	k308.kasupinyin
-13. 舌根ng	都好	lung hooˆ	k309.kasupinyin
-13. 舌根ng	桌上	zoo dungˆ	k310.kasupinyin
-13. 舌根ng	走很快	hang⁺ gin ginˆ	k311.kasupinyin
-13. 舌根ng	他的頭硬硬	guiˋ e⁺ teu⁺ naˋ ding dingˇ	k312.kasupinyin
-13. 舌根ng	你的眼睛腫腫	henˋ e⁺ mud zhiˇ zhung zhungˆ	k313.kasupinyin
-13. 舌根ng	東西放在桌上	mi⁺ kien kongˇ da zoo dungˆ	k314.kasupinyin
-13. 舌根ng	丨ㄤ	iang	k315.kasupinyin
-13. 舌根ng	ㄨㄤ	uang	k316.kasupinyin
-13. 舌根ng	漂亮	ziang ziangˇ	k317.kasupinyin
-13. 舌根ng	梗	guangˆ	k318.kasupinyin
-13. 舌根ng	怕怕	giang giangˇ	k319.kasupinyin
-13. 舌根ng	丨ㄛㄥ	iong	k320.kasupinyin
-13. 舌根ng	丨ㄨㄥ	iung	k321.kasupinyin
-13. 舌根ng	放	biongˆ	k322.kasupinyin
-13. 舌根ng	長長	chong chongˋ	k323.kasupinyin
-13. 舌根ng	養	giungˇ	k324.kasupinyin
-13. 舌根ng	高雄	gooˇ hiungˋ	k325.kasupinyin
-13. 舌根ng	他會怕鬼	guiˋ bbue⁺ giangˇ guiˆ	k326.kasupinyin
-13. 舌根ng	你的衣褲很漂亮	henˋ e⁺ samˇ kuˆ zhinˇ ziangˇ	k327.kasupinyin
-13. 舌根ng	放風箏	biongˇ fungˇ cheˇ	k328.kasupinyin
-13. 舌根ng	阿婆在養雞	aˇ pooˋ da giungˇ geˇ	k329.kasupinyin
-13. 舌根ng	我家在高雄	ngai⁺ bbu haˇ da gooˇ hiungˋ	k330.kasupinyin
-13. 舌根ng	你的腳很長	henˋ e⁺ gioˊ zhinˇ chongˋ	k331.kasupinyin
+10. 複元音2	ㄨㄞ	uai	k143.kasupinyin
+10. 複元音2	丨ㄠ	iau	k144.kasupinyin
+10. 複元音2	怪怪	guai guaiˆ	k145.kasupinyin
+10. 複元音2	餓餓	iau iauˇ	k146.kasupinyin
+10. 複元音2	丨ㄜ	io	k147.kasupinyin
+10. 複元音2	丨ㄨ	iu	k148.kasupinyin
+10. 複元音2	腳	gioˊ	k149.kasupinyin
+10. 複元音2	九	giuˆ	k150.kasupinyin
+10. 複元音2	手	shiuˆ	k151.kasupinyin
+10. 複元音2	臭臭	chiu chiuˆ	k152.kasupinyin
+10. 複元音2	手錶	shiu bioˆ	k153.kasupinyin
+10. 複元音2	打球	daˇ kiuˋ	k154.kasupinyin
+10. 複元音2	這是我的手錶	liaˊ he⁺ ngaiˋ e⁺ shiu bioˆ	k155.kasupinyin
+10. 複元音2	我好餓喔	ngaiˋ ziu iauˇ eˇ	k156.kasupinyin
+10. 複元音2	腳好臭喔	gioˊ ziu chiuˆ eˇ	k157.kasupinyin
+11. 複元音3	ㄨㄝ	ue	k158.kasupinyin
+11. 複元音3	ㄨ丨	ui	k159.kasupinyin
+11. 複元音3	回	fueˋ	k160.kasupinyin
+11. 複元音3	會	bbue	k161.kasupinyin
+11. 複元音3	飛	bui	k162.kasupinyin
+11. 複元音3	他	guiˋ	k163.kasupinyin
+11. 複元音3	鬼	guiˆ	k164.kasupinyin
+11. 複元音3	背書	pue⁺ shiˇ	k165.kasupinyin
+11. 複元音3	第二回	ti⁺ ngi⁺ fueˋ	k166.kasupinyin
+11. 複元音3	我會背書	ngaiˋ bbue⁺ pue⁺ shiˇ	k167.kasupinyin
+11. 複元音3	ㄛ丨	oi	k168.kasupinyin
+11. 複元音3	ㄝㄨ	eu	k169.kasupinyin
+11. 複元音3	愛	oiˆ	k170.kasupinyin
+11. 複元音3	害	hoi	k171.kasupinyin
+11. 複元音3	來	loiˋ	k172.kasupinyin
+11. 複元音3	妹妹	aˇ moiˆ	k173.kasupinyin
+11. 複元音3	頭	teuˋ	k174.kasupinyin
+11. 複元音3	狗	geuˆ	k175.kasupinyin
+11. 複元音3	厲害	li⁺ hoi	k176.kasupinyin
+11. 複元音3	來來去去	loi⁺ loi⁺ kui kuiˆ	k177.kasupinyin
+11. 複元音3	開車必須小心	suˇ chaˇ oiˇ seˇ ngi	k178.kasupinyin
+11. 複元音3	那隻狗最厲害	gaˇ zha⁺ geuˆ teu⁺ li⁺ hoi	k179.kasupinyin
+11. 複元音3	弟弟愛哭又愛笑	aˇ teˇ oi bbooˆ goo oi sioˆ	k180.kasupinyin
+12. 複元音4 ee	乜	ee	k181.kasupinyin
+12. 複元音4 ee	大聲講	dee	k182.kasupinyin
+12. 複元音4 ee	大聲講不停	dee⁺ dee⁺ buiˆ	k183.kasupinyin
+12. 複元音4 ee	乜ㄨ	eeu	k184.kasupinyin
+12. 複元音4 ee	玩	leeu	k185.kasupinyin
+12. 複元音4 ee	跳	teeuˆ	k186.kasupinyin
+12. 複元音4 ee	鳥	deeuˆ	k187.kasupinyin
+12. 複元音4 ee	去麥寮玩	kuiˇ ma⁺ leeuˋ leeu	k188.kasupinyin
+12. 複元音4 ee	鳥會飛	deeuˆ bbue⁺ bui	k189.kasupinyin
+12. 複元音4 ee	那隻狗跳最高	gaˇ zha⁺ geuˆ teeuˇ teu⁺ gooˇ	k190.kasupinyin
+13. 閉唇1 m b	ㄚㄇ	am	k191.kasupinyin
+13. 閉唇1 m b	丨ㄇ	im	k192.kasupinyin
+13. 閉唇1 m b	ㄚㄅ	ab	k193.kasupinyin
+13. 閉唇1 m b	丨ㄅ	ib	k194.kasupinyin
+13. 閉唇1 m b	暗暗	am amˆ	k195.kasupinyin
+13. 閉唇1 m b	和	ham	k196.kasupinyin
+13. 閉唇1 m b	金金	gim gimˇ	k197.kasupinyin
+13. 閉唇1 m b	母鴨	ab maˋ	k198.kasupinyin
+13. 閉唇1 m b	垃圾	liˇ sabˊ	k199.kasupinyin
+13. 閉唇1 m b	急急	gib gibˊ	k200.kasupinyin
+13. 閉唇1 m b	十	shibˋ	k201.kasupinyin
+13. 閉唇1 m b	衣褲	samˇ kuˆ	k202.kasupinyin
+13. 閉唇1 m b	喝茶	limˇ caˋ	k203.kasupinyin
+13. 閉唇1 m b	晚上	amˇ rhia	k204.kasupinyin
+13. 閉唇1 m b	他和我去打球	guiˋ ham⁺ ngaiˋ kuiˇ daˇ kiuˋ	k205.kasupinyin
+13. 閉唇1 m b	他喝十杯茶	guiˋ limˇ shib⁺ bueˇ caˋ	k206.kasupinyin
+14. 閉唇2 m b	ㄝㄇ	em	k207.kasupinyin
+14. 閉唇2 m b	蓋被子	emˇ piˇ	k208.kasupinyin
+14. 閉唇2 m b	乜ㄇ	eem	k209.kasupinyin
+14. 閉唇2 m b	鹹鹹	heem heemˋ	k210.kasupinyin
+14. 閉唇2 m b	丨ㄚㄇ	iam	k211.kasupinyin
+14. 閉唇2 m b	累累	tiam tiamˆ	k212.kasupinyin
+14. 閉唇2 m b	鹽	rhiamˋ	k213.kasupinyin
+14. 閉唇2 m b	鹽鹹鹹	rhiamˋ heem heemˋ	k214.kasupinyin
+14. 閉唇2 m b	玩到很累	leeu⁺ dooˇ tiam tiamˆ	k215.kasupinyin
+14. 閉唇2 m b	ㄝㄅ	eb	k216.kasupinyin
+14. 閉唇2 m b	撮	zebˊ	k217.kasupinyin
+14. 閉唇2 m b	乜ㄅ	eeb	k218.kasupinyin
+14. 閉唇2 m b	窄窄的	heeb heebˋ	k219.kasupinyin
+14. 閉唇2 m b	丨ㄚㄅ	iab	k220.kasupinyin
+14. 閉唇2 m b	粒	liabˋ	k221.kasupinyin
+14. 閉唇2 m b	黏黏的	giab giabˊ	k222.kasupinyin
+14. 閉唇2 m b	房子窄窄的	bbu haˇ heeb heebˋ	k223.kasupinyin
+14. 閉唇2 m b	妹妹的手黏黏的	aˇ moiˆ e⁺ shiuˆ giab giabˊ	k224.kasupinyin
+15. 舌尖1 n l	ㄢ	an	k225.kasupinyin
+15. 舌尖1 n l	丨ㄣ	in	k226.kasupinyin
+15. 舌尖1 n l	ㄚㄉ	ad	k227.kasupinyin
+15. 舌尖1 n l	丨ㄉ	id	k228.kasupinyin
+15. 舌尖1 n l	這樣	anˊ	k229.kasupinyin
+15. 舌尖1 n l	快快	gin ginˆ	k230.kasupinyin
+15. 舌尖1 n l	結束	sadˊ	k231.kasupinyin
+15. 舌尖1 n l	七	cidˊ	k232.kasupinyin
+15. 舌尖1 n l	丟	gidˋ	k233.kasupinyin
+15. 舌尖1 n l	一	rhidˊ	k234.kasupinyin
+15. 舌尖1 n l	這樣沒錯	anˊ mo⁺ m⁺ choo	k235.kasupinyin
+15. 舌尖1 n l	叔叔車開很快	aˇ shuˊ chaˇ suˇ zhinˇ ginˆ	k236.kasupinyin
+15. 舌尖1 n l	妹妹畫七朵花	aˇ moiˆ fa⁺ cid luiˇ faˇ	k237.kasupinyin
+15. 舌尖1 n l	這齣戲做完了	liˇ chid hiˆ zooˇ sadˊ a⁺	k238.kasupinyin
+15. 舌尖1 n l	垃圾拿去丟	liˇ sabˊ te⁺ kuiˇ gidˋ	k239.kasupinyin
+16. 舌尖2 n l	一撮鹽	rhid zeb rhiamˋ	k240.kasupinyin
+16. 舌尖2 n l	一粒球	rhid liab⁺ kiuˋ	k241.kasupinyin
+16. 舌尖2 n l	ㄨㄣ	un	k242.kasupinyin
+16. 舌尖2 n l	ㄝㄣ	en	k243.kasupinyin
+16. 舌尖2 n l	乜ㄣ	een	k244.kasupinyin
+16. 舌尖2 n l	近近	kun kunˇ	k245.kasupinyin
+16. 舌尖2 n l	你	henˋ	k246.kasupinyin
+16. 舌尖2 n l	跟隨	tenˋ	k247.kasupinyin
+16. 舌尖2 n l	田	teenˋ	k248.kasupinyin
+16. 舌尖2 n l	遠遠那裡	un gaˊ	k249.kasupinyin
+16. 舌尖2 n l	便宜	pen⁺ ngiˋ	k250.kasupinyin
+16. 舌尖2 n l	我跟著你去田裡	ngaiˋ ten⁺ henˋ kuiˇ teenˋ	k251.kasupinyin
+16. 舌尖2 n l	學校在那裡	hoo⁺ hau da un gaˊ	k252.kasupinyin
+17. 舌尖3 n l	ㄨㄉ	ud	k253.kasupinyin
+17. 舌尖3 n l	ㄝㄉ	ed	k254.kasupinyin
+17. 舌尖3 n l	乜ㄉ	eed	k255.kasupinyin
+17. 舌尖3 n l	骨	gudˊ	k256.kasupinyin
+17. 舌尖3 n l	色	sedˊ	k257.kasupinyin
+17. 舌尖3 n l	八	beedˊ	k258.kasupinyin
+17. 舌尖3 n l	眼睛	mud zhiˇ	k259.kasupinyin
+17. 舌尖3 n l	八百八十	beed ba beed shibˋ	k260.kasupinyin
+17. 舌尖3 n l	這是金色	liaˊ he⁺ gimˇ sedˊ	k261.kasupinyin
+17. 舌尖3 n l	小孩很活潑	se zuˆ zhinˇ ua⁺ gudˊ	k262.kasupinyin
+18. 舌尖4 n l	ㄛㄣ	on	k263.kasupinyin
+18. 舌尖4 n l	丨ㄝㄣ	ien	k264.kasupinyin
+18. 舌尖4 n l	ㄛㄉ	od	k265.kasupinyin
+18. 舌尖4 n l	丨ㄝㄉ	ied	k266.kasupinyin
+18. 舌尖4 n l	寒冷	hon honˋ	k267.kasupinyin
+18. 舌尖4 n l	錢	cienˋ	k268.kasupinyin
+18. 舌尖4 n l	渴	kodˊ	k269.kasupinyin
+18. 舌尖4 n l	吃	shiedˋ	k270.kasupinyin
+18. 舌尖4 n l	流汗	lau⁺ hon	k271.kasupinyin
+18. 舌尖4 n l	口渴	zheˆ kodˊ	k272.kasupinyin
+18. 舌尖4 n l	好吃	hooˇ shiedˋ	k273.kasupinyin
+18. 舌尖4 n l	物件	mi⁺ kien	k274.kasupinyin
+18. 舌尖4 n l	老師	sienˇ senˇ	k275.kasupinyin
+18. 舌尖4 n l	老師錢很多	sienˇ senˇ cienˋ zhinˇ dooˇ	k276.kasupinyin
+18. 舌尖4 n l	東西很好吃	mi⁺ kien zhinˇ hooˇ shiedˋ	k277.kasupinyin
+19. 舌尖5 n l	ㄨㄝㄣ	uen	k278.kasupinyin
+19. 舌尖5 n l	ㄨㄢ	uan	k279.kasupinyin
+19. 舌尖5 n l	ㄨㄚㄉ	uad	k280.kasupinyin
+19. 舌尖5 n l	勸	kuenˆ	k281.kasupinyin
+19. 舌尖5 n l	專心	zhuanˇ simˇ	k282.kasupinyin
+19. 舌尖5 n l	決定	guad ten	k283.kasupinyin
+19. 舌尖5 n l	寬闊	kuad kuadˊ	k284.kasupinyin
+19. 舌尖5 n l	他的房子很寬闊	guiˋ e⁺ bbu haˇ kuad kuadˊ	k285.kasupinyin
+20. 鼻化nn	ㄚ ̊	ann	k286.kasupinyin
+20. 鼻化nn	丨 ̊	inn	k287.kasupinyin
+20. 鼻化nn	餡料	annˇ	k288.kasupinyin
+20. 鼻化nn	鼻	pinn	k289.kasupinyin
+20. 鼻化nn	包餡料	bauˇ annˇ	k290.kasupinyin
+20. 鼻化nn	流鼻涕	lau⁺ pinn	k291.kasupinyin
+20. 鼻化nn	ㄞ ̊	ainn	k292.kasupinyin
+20. 鼻化nn	丨ㄠ ̊	iaunn	k293.kasupinyin
+20. 鼻化nn	ㄨㄞ ̊	uainn	k294.kasupinyin
+20. 鼻化nn	壞	painnˆ	k295.kasupinyin
+20. 鼻化nn	不好吃	painnˇ shiedˋ	k296.kasupinyin
+20. 鼻化nn	小鴨子	ab iaunn	k297.kasupinyin
+20. 鼻化nn	歪歪	uainn uainnˇ	k298.kasupinyin
+20. 鼻化nn	字寫得歪歪的	cu siaˇ dooˇ uainn uainnˇ	k299.kasupinyin
+21. 舌根1 ng	ㄤ	ang	k300.kasupinyin
+21. 舌根1 ng	丨ㄥ	ing	k301.kasupinyin
+21. 舌根1 ng	走	hangˋ	k302.kasupinyin
+21. 舌根1 ng	堅硬	ding dingˇ	k303.kasupinyin
+21. 舌根1 ng	ㄨㄥ	ung	k304.kasupinyin
+21. 舌根1 ng	ㄛㄥ	ong	k305.kasupinyin
+21. 舌根1 ng	腫	zhungˆ	k306.kasupinyin
+21. 舌根1 ng	放置	kongˆ	k307.kasupinyin
+21. 舌根1 ng	講話	gongˇ su	k308.kasupinyin
+21. 舌根1 ng	都好	lung hooˆ	k309.kasupinyin
+21. 舌根1 ng	桌上	zoo dungˆ	k310.kasupinyin
+21. 舌根1 ng	走很快	hang⁺ gin ginˆ	k311.kasupinyin
+21. 舌根1 ng	他的頭硬硬	guiˋ e⁺ teu⁺ naˋ ding dingˇ	k312.kasupinyin
+21. 舌根1 ng	你的眼睛腫腫	henˋ e⁺ mud zhiˇ zhung zhungˆ	k313.kasupinyin
+21. 舌根1 ng	東西放在桌上	mi⁺ kien kongˇ da zoo dungˆ	k314.kasupinyin
+22. 舌根2 ng	丨ㄤ	iang	k315.kasupinyin
+22. 舌根2 ng	ㄨㄤ	uang	k316.kasupinyin
+22. 舌根2 ng	漂亮	ziang ziangˇ	k317.kasupinyin
+22. 舌根2 ng	梗	guangˆ	k318.kasupinyin
+22. 舌根2 ng	怕怕	giang giangˇ	k319.kasupinyin
+22. 舌根2 ng	丨ㄛㄥ	iong	k320.kasupinyin
+22. 舌根2 ng	丨ㄨㄥ	iung	k321.kasupinyin
+22. 舌根2 ng	放	biongˆ	k322.kasupinyin
+22. 舌根2 ng	長長	chong chongˋ	k323.kasupinyin
+22. 舌根2 ng	養	giungˇ	k324.kasupinyin
+22. 舌根2 ng	高雄	gooˇ hiungˋ	k325.kasupinyin
+22. 舌根2 ng	他會怕鬼	guiˋ bbue⁺ giangˇ guiˆ	k326.kasupinyin
+22. 舌根2 ng	你的衣褲很漂亮	henˋ e⁺ samˇ kuˆ zhinˇ ziangˇ	k327.kasupinyin
+22. 舌根2 ng	放風箏	biongˇ fungˇ cheˇ	k328.kasupinyin
+22. 舌根2 ng	阿婆在養雞	aˇ pooˋ da giungˇ geˇ	k329.kasupinyin
+22. 舌根2 ng	我家在高雄	ngai⁺ bbu haˇ da gooˇ hiungˋ	k330.kasupinyin
+22. 舌根2 ng	你的腳很長	henˋ e⁺ gioˊ zhinˇ chongˋ	k331.kasupinyin
 `;
