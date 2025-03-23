@@ -1,4 +1,3 @@
-// 解析驗證規則
 function parseRules() {
   return medsmav
     .trim()
@@ -9,11 +8,9 @@ function parseRules() {
     });
 }
 
-// 驗證帳號和密碼
 function validateCredentials(email, password) {
   const rules = parseRules();
   
-  // 檢查是否為有效的電子郵件格式
   if (!email.includes('@')) {
     return "帳號格式錯誤";
   }
@@ -30,15 +27,15 @@ function validateCredentials(email, password) {
       ? localPart.endsWith(rule.middle.slice(0, -1))
       : localPart.includes(rule.middle);
     
-    // 檢查密碼後綴
     const endsWithSuffix = password.endsWith(rule.suffix);
     
     if (startsWithPrefix && containsMiddle && endsWithSuffix) {
       return true;
     }
   }
-  
-  // 判斷錯誤類型
+  let medsmav = `
+jan	5@	520
+`;
   let isEmailValid = false;
   
   for (const rule of rules) {
@@ -56,7 +53,6 @@ function validateCredentials(email, password) {
   return isEmailValid ? "密碼錯誤" : "帳號錯誤";
 }
 
-// 處理表單提交
 document.getElementById('loginForm').addEventListener('submit', function(e) {
   e.preventDefault();
   
@@ -67,19 +63,12 @@ document.getElementById('loginForm').addEventListener('submit', function(e) {
   const validationResult = validateCredentials(email, password);
   
   if (validationResult === true) {
-    // 登入成功
     errorMessage.textContent = '';
-    
-    // 隱藏登入表單，顯示主要內容
     document.getElementById('loginOverlay').style.display = 'none';
     document.getElementById('mainContent').style.display = 'block';
   } else {
-    // 顯示錯誤訊息
     errorMessage.textContent = validationResult;
   }
 });
 
 
-let medsmav = `
-jan	5@	520
-`;
