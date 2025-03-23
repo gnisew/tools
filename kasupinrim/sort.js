@@ -30,9 +30,9 @@ let htmlSettingsPage = `
     </div>
     <div>
         <label for="orderSelect">次序：</label>
-        <select id="orderSelect">
-            <option value="random">隨機</option>
-            <option value="sequential">依序</option>
+        <select id="orderSelect">            
+            <option value="sequential">依序 (學習)</option>
+			<option value="random">隨機 (練習)</option>
         </select>
     </div>
     <div>
@@ -40,17 +40,17 @@ let htmlSettingsPage = `
             <label for="winConditionSelect">過關：</label>
             <select id="winConditionSelect">
                 <option value="none">鼓勵</option>
-				<option value="heart">五顆心</option>
-                <option value="time" selected>限定時間</option>
+				<option value="heart" selected>五顆心</option>
+                <option value="time">限定時間</option>
                 <option value="sentences">答對句數</option>
             </select>
         </div>
         <div id="timeConditionDiv">
             <label for="timeConditionSelect">限時：</label>
             <select id="timeConditionSelect">
-                <option value="60" selected>60秒</option>
+                <option value="60">60秒</option>
                 <option value="90">90秒</option>
-                <option value="120">120秒</option>
+                <option value="120" selected>120秒</option>
                 <option value="180">180秒</option>
             </select>
         </div>
