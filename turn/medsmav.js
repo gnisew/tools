@@ -33,9 +33,7 @@ function validateCredentials(email, password) {
       return true;
     }
   }
-  let medsmav = `
-ja	5@	520
-`;
+
   let isEmailValid = false;
   
   for (const rule of rules) {
@@ -52,7 +50,9 @@ ja	5@	520
   
   return isEmailValid ? "密碼錯誤" : "帳號錯誤";
 }
-
+  let medsmav = `
+ja	5@	520
+`;
 document.getElementById('loginForm').addEventListener('submit', function(e) {
   e.preventDefault();
   
