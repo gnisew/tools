@@ -228,161 +228,95 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 
+// 定義所有設定元素的映射關係
+const settingsConfig = [
+  { key: 'category', element: () => lessonSelect },
+  { key: 'questionType', element: () => questionSelect },
+  { key: 'answerType', element: () => answerSelect },
+  { key: 'orderType', element: () => orderSelect },
+  { key: 'winCondition', element: () => winConditionSelect, triggerChange: true },
+  { key: 'timeCondition', element: () => timeConditionSelect },
+  { key: 'sentencesCondition', element: () => sentencesConditionSelect },
+  { key: 'playbackTimes', element: () => playbackTimesSelect }
+];
 
-// Function to save settings to localStorage
+// 儲存設定到 localStorage
 function saveSettings() {
-  // Get the title from h2 element to use as a unique key
-  const titleElement = document.querySelector("#settingsPage h2")
-  if (!titleElement) return
+  const titleElement = document.querySelector("#settingsPage h2");
+  if (!titleElement) return;
 
-  const storageKey = `gameSettings_${titleElement.textContent}`
+  const storageKey = `gameSettings_${titleElement.textContent}`;
+  
+  // 收集所有設定值
+  const settings = {};
+  settingsConfig.forEach(config => {
+    settings[config.key] = config.element().value;
+  });
 
-  // Collect current settings
-  const settings = {
-    category: lessonSelect.value,
-    questionType: questionSelect.value,
-    answerType: answerSelect.value,
-    orderType: orderSelect.value,
-    winCondition: winConditionSelect.value,
-    timeCondition: timeConditionSelect.value,
-    sentencesCondition: sentencesConditionSelect.value,
-    playbackTimes: playbackTimesSelect.value,
-  }
-
-  // Save to localStorage
-  localStorage.setItem(storageKey, JSON.stringify(settings))
+  localStorage.setItem(storageKey, JSON.stringify(settings));
 }
 
-// Function to load settings from localStorage
+// 從 localStorage 載入設定
 function loadSettings() {
-  // Get the title from h2 element to use as a unique key
-  const titleElement = document.querySelector("#settingsPage h2")
-  if (!titleElement) return
+  const titleElement = document.querySelector("#settingsPage h2");
+  if (!titleElement) return;
 
-  const storageKey = `gameSettings_${titleElement.textContent}`
-
-  // Try to get saved settings
-  const savedSettings = localStorage.getItem(storageKey)
-  if (!savedSettings) return
+  const storageKey = `gameSettings_${titleElement.textContent}`;
+  const savedSettings = localStorage.getItem(storageKey);
+  if (!savedSettings) return;
 
   try {
-    const settings = JSON.parse(savedSettings)
+    const settings = JSON.parse(savedSettings);
+    
+    // 套用所有設定
+    settingsConfig.forEach(({ key, element, triggerChange }) => {
+      if (settings[key]) {
+        setSelectValue(element(), settings[key]);
+        if (triggerChange) element().dispatchEvent(new Event("change"));
+      }
+    });
 
-    // Apply saved settings
-    if (settings.category) {
-      Array.from(lessonSelect.options).forEach((option, index) => {
-        if (option.value === settings.category) {
-          lessonSelect.selectedIndex = index
-        }
-      })
-    }
-
-    if (settings.questionType) {
-      Array.from(questionSelect.options).forEach((option, index) => {
-        if (option.value === settings.questionType) {
-          questionSelect.selectedIndex = index
-        }
-      })
-    }
-
-    // Update answer select based on question type
-    updateAnswerSelect(headers.filter((header) => !["分類", "音檔"].includes(header)))
-
-    if (settings.answerType) {
-      Array.from(answerSelect.options).forEach((option, index) => {
-        if (option.value === settings.answerType) {
-          answerSelect.selectedIndex = index
-        }
-      })
-    }
-
-    if (settings.orderType) {
-      Array.from(orderSelect.options).forEach((option, index) => {
-        if (option.value === settings.orderType) {
-          orderSelect.selectedIndex = index
-        }
-      })
-    }
-
-    if (settings.winCondition) {
-      Array.from(winConditionSelect.options).forEach((option, index) => {
-        if (option.value === settings.winCondition) {
-          winConditionSelect.selectedIndex = index
-          // Trigger change event to show/hide relevant condition divs
-          winConditionSelect.dispatchEvent(new Event("change"))
-        }
-      })
-    }
-
-    if (settings.timeCondition) {
-      Array.from(timeConditionSelect.options).forEach((option, index) => {
-        if (option.value === settings.timeCondition) {
-          timeConditionSelect.selectedIndex = index
-        }
-      })
-    }
-
-    if (settings.sentencesCondition) {
-      Array.from(sentencesConditionSelect.options).forEach((option, index) => {
-        if (option.value === settings.sentencesCondition) {
-          sentencesConditionSelect.selectedIndex = index
-        }
-      })
-    }
-
-    if (settings.playbackTimes) {
-      Array.from(playbackTimesSelect.options).forEach((option, index) => {
-        if (option.value === settings.playbackTimes) {
-          playbackTimesSelect.selectedIndex = index
-        }
-      })
-    }
+    // 更新問題類型對應的答案選項
+    updateAnswerSelect(headers.filter(header => !["分類", "音檔"].includes(header)));
   } catch (error) {
-    console.error("Error loading settings:", error)
+    console.error("載入設定時發生錯誤:", error);
   }
 }
 
-// Add event listeners to save settings when they change
-function addSettingsSaveListeners() {
-  const settingsElements = [
-    lessonSelect,
-    questionSelect,
-    answerSelect,
-    orderSelect,
-    winConditionSelect,
-    timeConditionSelect,
-    sentencesConditionSelect,
-    playbackTimesSelect,
-  ]
-
-  settingsElements.forEach((element) => {
-    element.addEventListener("change", saveSettings)
-  })
+// 設定下拉選單值的輔助函數
+function setSelectValue(selectElement, value) {
+  const optionIndex = Array.from(selectElement.options).findIndex(option => option.value === value);
+  if (optionIndex >= 0) selectElement.selectedIndex = optionIndex;
 }
 
-// Modify the DOMContentLoaded event listener to load settings
+// 為所有設定元素添加變更事件監聽器
+function addSettingsSaveListeners() {
+  // 為每個元素添加事件監聽器
+  settingsConfig.forEach(config => {
+    config.element().addEventListener("change", saveSettings);
+  });
+}
+
+// DOM 載入完成後初始化
 document.addEventListener("DOMContentLoaded", () => {
-  // Initialize language options
-  initializeLanguageSelects()
+  // 初始化語言選項
+  initializeLanguageSelects();
+  
+  // 設定勝利條件相關UI元素的顯示狀態
+  const winConditionSelect = document.getElementById("winConditionSelect");
+  const timeConditionDiv = document.getElementById("timeConditionDiv");
+  const sentencesConditionDiv = document.getElementById("sentencesConditionDiv");
+  
+  // 根據預設值顯示對應的條件選項
+  const selectedCondition = winConditionSelect.value;
+  timeConditionDiv.style.display = selectedCondition === "time" ? "block" : "none";
+  sentencesConditionDiv.style.display = selectedCondition === "sentences" ? "block" : "none";
+  gameState.winCondition = selectedCondition;
 
-  // Get menu elements
-  const winConditionSelect = document.getElementById("winConditionSelect")
-  const timeConditionDiv = document.getElementById("timeConditionDiv")
-  const sentencesConditionDiv = document.getElementById("sentencesConditionDiv")
-
-  // Show condition options based on default value
-  const selectedCondition = winConditionSelect.value
-  timeConditionDiv.style.display = selectedCondition === "time" ? "block" : "none"
-  sentencesConditionDiv.style.display = selectedCondition === "sentences" ? "block" : "none"
-  gameState.winCondition = selectedCondition
-
-  // Load saved settings
-  loadSettings()
-
-  // Add listeners to save settings when changed
-  addSettingsSaveListeners()
-})
-
+  // 載入已儲存的設定並添加事件監聽器
+  loadSettings();
+  addSettingsSaveListeners();
+});
 
 
 
