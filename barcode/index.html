@@ -57,6 +57,7 @@
 
         .input-group {
             margin-bottom: 1rem;
+            position: relative;
         }
 
         label {
@@ -170,12 +171,12 @@
 
         .modal-content {
             background-color: white;
-            margin: 10% auto;
-            padding: 2rem;
+            margin: 5% auto; /* 從 10% 改為 5%，使視窗更居中 */
+            padding: 1.5rem; /* 從 2rem 減小到 1.5rem */
             border-radius: 10px;
-            width: 80%;
-            max-width: 600px;
-            max-height: 80vh;
+            width: 90%; /* 從 80% 增加到 90% */
+            max-width: 700px; /* 從 600px 增加到 700px */
+            max-height: 85vh; /* 從 80vh 增加到 85vh */
             overflow-y: auto;
 }
 
@@ -446,6 +447,126 @@
             font-size: 0.9rem;
             cursor: pointer;
         }
+
+        .export-selected-btn {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        .export-selected-btn:hover {
+            background-color: #1976D2;
+        }
+
+        .export-selected-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .export-result {
+            margin-top: 15px;
+            display: none;
+            position: relative;
+        }
+
+        .export-result textarea {
+            width: 100%;
+            height: 200px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: monospace;
+            margin-top: 5px;
+        }
+
+        /* 輸入框操作按鈕樣式 */
+        .input-actions {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            display: flex;
+            gap: 5px;
+        }
+
+        .textarea-actions {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            display: flex;
+            gap: 5px;
+        }
+
+        /* 修改圖示按鈕樣式，使用 emoji 替代 SVG */
+        .icon-btn {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 16px; /* 增加 emoji 字體大小 */
+        }
+
+        .icon-btn:hover {
+            background-color: #e0e0e0;
+        }
+
+        /* 移除 SVG 相關樣式 */
+        .icon-btn svg {
+            display: none;
+        }
+
+        .copy-btn {
+            color: #2196F3;
+        }
+
+        .clear-btn {
+            color: #F44336;
+        }
+
+        /* 調整輸入框內邊距，避免與按鈕重疊 */
+        #text-input {
+            padding-right: 80px;
+        }
+
+        #batch-input {
+            padding-right: 80px;
+        }
+
+        #export-data {
+            padding-right: 80px;
+        }
+
+        /* 複製成功提示 */
+        .copy-tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            top: -30px;
+            right: 0;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .copy-tooltip.show {
+            opacity: 1;
+        }
+
+        /* 調整匯出結果區域的按鈕位置 */
+        .export-result .textarea-actions {
+            position: absolute;
+            right: 20px;
+            top: 15px;
+            display: flex;
+            gap: 5px;
+        }
     </style>
 </head>
 <body>
@@ -458,6 +579,16 @@
         <div id="single-mode">
             <div class="input-group">
                 <input type="text" id="text-input" placeholder="請輸入要轉換的內容">
+                <div class="input-actions">
+                    <!-- 修改複製按鈕，使用 emoji 替代 SVG -->
+                    <button class="icon-btn copy-btn" onclick="copyText('text-input')" title="複製">
+                        📋
+                        <span class="copy-tooltip">已複製!</span>
+                    </button>
+                    <button class="icon-btn clear-btn" onclick="clearText('text-input')" title="清除">
+                        🗑️
+                    </button>
+                </div>
                 <div class="error" id="error-message">請輸入有效的文字或數字</div>
             </div>
             <div class="button-group">
@@ -469,6 +600,16 @@
         <div id="batch-mode" style="display: none;">
             <div class="input-group">
                 <textarea id="batch-input" placeholder="123oikasu&#9;名字A(選填)&#10;taigoho456&#9;名字B(選填)"></textarea>
+                <div class="textarea-actions">
+                    <!-- 修改批次輸入框的按鈕 -->
+                    <button class="icon-btn copy-btn" onclick="copyText('batch-input')" title="複製">
+                        📋
+                        <span class="copy-tooltip">已複製!</span>
+                    </button>
+                    <button class="icon-btn clear-btn" onclick="clearText('batch-input')" title="清除">
+                        🗑️
+                    </button>
+                </div>
                 <div class="error" id="batch-error-message">請輸入有效的批次資料</div>
             </div>
             <div class="button-group">
@@ -498,8 +639,17 @@
             </div>
             <div class="control-bar">
                 <div class="control-group">
+            <div id="select-all-container" class="select-all-container" style="display: none;">
+                <input type="checkbox" id="select-all-checkbox" class="item-checkbox" onchange="toggleSelectAll()">
+                <label for="select-all-checkbox" class="select-all-label">全選</label>
+            </div>
+
+
+
+
                     <button id="select-mode-btn" class="control-btn select-btn" onclick="toggleSelectMode()">選取</button>
                     <button id="delete-selected-btn" class="control-btn delete-selected-btn" style="display: none;" onclick="deleteSelectedItems()" disabled>刪除</button>
+                    <button id="export-selected-btn" class="control-btn export-selected-btn" style="display: none;" onclick="exportSelectedItems()" disabled>匯出</button>
                 </div>
                 <div class="control-group">
                     <button id="sort-by-time" class="control-btn active" onclick="toggleSort('time')">
@@ -510,9 +660,19 @@
                     </button>
                 </div>
             </div>
-            <div id="select-all-container" class="select-all-container" style="display: none;">
-                <input type="checkbox" id="select-all-checkbox" class="item-checkbox" onchange="toggleSelectAll()">
-                <label for="select-all-checkbox" class="select-all-label">全選</label>
+
+            <div id="export-result" class="export-result">
+                <textarea id="export-data"></textarea>
+                <div class="textarea-actions">
+                    <!-- 修改匯出結果區域的按鈕 -->
+                    <button class="icon-btn copy-btn" onclick="copyText('export-data')" title="複製">
+                        📋
+                        <span class="copy-tooltip">已複製!</span>
+                    </button>
+                    <button class="icon-btn clear-btn" onclick="clearText('export-data')" title="清除">
+                        🗑️
+                    </button>
+                </div>
             </div>
             <div id="saved-data-list"></div>
         </div>
@@ -533,6 +693,41 @@
         // 當前正在編輯的標題 ID
         let currentEditingId = null;
 
+        // 切換頁籤
+        function switchTab(mode) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelector(`[onclick="switchTab('${mode}')"]`).classList.add('active');
+            document.getElementById('single-mode').style.display = mode === 'single' ? 'block' : 'none';
+            document.getElementById('batch-mode').style.display = mode === 'batch' ? 'block' : 'none';
+            
+            // 隱藏儲存對話框
+            document.getElementById('save-dialog').style.display = 'none';
+        }
+
+        // 複製文字
+        function copyText(elementId) {
+            const element = document.getElementById(elementId);
+            element.select();
+            document.execCommand('copy');
+            
+            // 顯示複製成功提示
+            const button = event.currentTarget;
+            const tooltip = button.querySelector('.copy-tooltip');
+            tooltip.classList.add('show');
+            
+            // 2秒後隱藏提示
+            setTimeout(() => {
+                tooltip.classList.remove('show');
+            }, 2000);
+        }
+
+        // 清除文字
+        function clearText(elementId) {
+            const element = document.getElementById(elementId);
+            element.value = '';
+            element.focus();
+        }
+
         // 格式化日期為 "年月日 時:分" 格式
         function formatDate(dateString) {
             const date = new Date(dateString);
@@ -543,6 +738,27 @@
             const minutes = String(date.getMinutes()).padStart(2, '0');
             
             return `${year}${month}${day} ${hours}:${minutes}`;
+        }
+
+        // 解析日期時間字串為 Date 物件
+        function parseCustomDate(dateStr) {
+            // 檢查是否符合 "YYYYMMDD HH:MM" 格式
+            const regex = /^(\d{8})\s+(\d{1,2}):(\d{1,2})$/;
+            const match = dateStr.match(regex);
+            
+            if (match) {
+                const dateText = match[1];
+                const hours = parseInt(match[2], 10);
+                const minutes = parseInt(match[3], 10);
+                
+                const year = parseInt(dateText.substring(0, 4), 10);
+                const month = parseInt(dateText.substring(4, 6), 10) - 1; // 月份從 0 開始
+                const day = parseInt(dateText.substring(6, 8), 10);
+                
+                return new Date(year, month, day, hours, minutes);
+            }
+            
+            return null;
         }
 
         // 切換排序方式
@@ -598,21 +814,29 @@
             selectMode = !selectMode;
             const selectBtn = document.getElementById('select-mode-btn');
             const deleteSelectedBtn = document.getElementById('delete-selected-btn');
+            const exportSelectedBtn = document.getElementById('export-selected-btn');
             const selectAllContainer = document.getElementById('select-all-container');
+            const exportResult = document.getElementById('export-result');
             
             if (selectMode) {
                 // 進入選取模式
                 selectBtn.textContent = '取消';
                 deleteSelectedBtn.style.display = 'block';
+                exportSelectedBtn.style.display = 'block';
                 selectAllContainer.style.display = 'flex';
                 selectedItems = [];
                 updateDeleteButtonState();
+                // 隱藏匯出結果區域
+                exportResult.style.display = 'none';
             } else {
                 // 退出選取模式
                 selectBtn.textContent = '選取';
                 deleteSelectedBtn.style.display = 'none';
+                exportSelectedBtn.style.display = 'none';
                 selectAllContainer.style.display = 'none';
                 document.getElementById('select-all-checkbox').checked = false;
+                // 隱藏匯出結果區域
+                exportResult.style.display = 'none';
             }
             
             // 重新載入資料列表以更新 UI
@@ -669,7 +893,9 @@
         // 更新刪除按鈕狀態
         function updateDeleteButtonState() {
             const deleteBtn = document.getElementById('delete-selected-btn');
+            const exportBtn = document.getElementById('export-selected-btn');
             deleteBtn.disabled = selectedItems.length === 0;
+            exportBtn.disabled = selectedItems.length === 0;
         }
 
         // 刪除選取的項目
@@ -691,6 +917,43 @@
             
             // 重新載入資料列表
             loadSavedDataList();
+        }
+
+        // 匯出選取的項目
+        function exportSelectedItems() {
+            if (selectedItems.length === 0) return;
+            
+            let savedData = JSON.parse(localStorage.getItem('barcodeData')) || [];
+            let exportText = '';
+            
+            // 篩選出已選取的項目
+            const selectedData = savedData.filter(item => selectedItems.includes(item.id));
+            
+            // 按照指定格式組織匯出內容
+            selectedData.forEach(item => {
+                const formattedDate = formatDate(item.date);
+                exportText += `####${item.title}####${formattedDate}\n`;
+                
+                // 添加條碼資料
+                const lines = item.data.split('\n');
+                lines.forEach(line => {
+                    // 只取條碼部分，不包含名稱
+                    const barcode = line.split(/\t| /)[0];
+                    if (barcode) {
+                        exportText += `${barcode}\n`;
+                    }
+                });
+            });
+            
+            // 顯示匯出結果
+            const exportResult = document.getElementById('export-result');
+            const exportData = document.getElementById('export-data');
+            exportData.value = exportText;
+            exportResult.style.display = 'block';
+            
+            // 自動選取文字以便複製
+            exportData.focus();
+            exportData.select();
         }
 
         // 初始化 localStorage
@@ -770,6 +1033,11 @@
             try {
                 const lines = text.trim().split('\n');
                 lines.forEach((line, index) => {
+                    // 跳過標題行（以 #### 開頭的行）
+                    if (line.startsWith('####')) {
+                        return;
+                    }
+                    
                     const [barcode, title] = line.split(/\t| /);
                     if (barcode) {
                         const itemDiv = document.createElement('div');
@@ -842,6 +1110,80 @@
             img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
         }
 
+        // 解析批次輸入中的特殊格式
+        function parseBatchFormat(text) {
+            if (!text.includes('####')) {
+                return null; // 不是特殊格式
+            }
+            
+            const sections = [];
+            let currentSection = null;
+            let currentContent = [];
+            
+            const lines = text.trim().split('\n');
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                
+                // 檢查是否為標題行
+                if (line.startsWith('####')) {
+                    // 如果已經有一個區段，先保存它
+                    if (currentSection) {
+                        currentSection.content = currentContent.join('\n');
+                        sections.push(currentSection);
+                        currentContent = [];
+                    }
+                    
+                    // 解析標題行
+                    let title, dateStr;
+                    
+                    // 檢查是否有完整的 ####Title#### 或 ####Title####Time 格式
+                    const fullMatch = line.match(/^####(.+?)####(.*)$/);
+                    if (fullMatch) {
+                        title = fullMatch[1].trim();
+                        dateStr = fullMatch[2].trim();
+                    } else {
+                        // 檢查是否只有 ####Title 格式
+                        const partialMatch = line.match(/^####(.+)$/);
+                        if (partialMatch) {
+                            title = partialMatch[1].trim();
+                            dateStr = '';
+                        }
+                    }
+                    
+                    // 創建新的區段
+                    currentSection = {
+                        title: title,
+                        date: dateStr ? parseCustomDate(dateStr) : new Date()
+                    };
+                } else if (currentSection && line) {
+                    // 如果不是標題行且不是空行，添加到當前內容
+                    currentContent.push(line);
+                }
+            }
+            
+            // 保存最後一個區段
+            if (currentSection) {
+                currentSection.content = currentContent.join('\n');
+                sections.push(currentSection);
+            }
+            
+            return sections.length > 0 ? sections : null;
+        }
+
+        // 生成不重複的標題
+        function generateUniqueTitle(title, savedData) {
+            let newTitle = title;
+            let counter = 1;
+            
+            while (savedData.some(item => item.title === newTitle)) {
+                newTitle = `${title}(${counter})`;
+                counter++;
+            }
+            
+            return newTitle;
+        }
+
         // 顯示儲存對話框
         function showSaveDialog() {
             const batchInput = document.getElementById('batch-input').value;
@@ -849,8 +1191,63 @@
                 alert('請先輸入批次資料再儲存');
                 return;
             }
+            
+            // 檢查是否為特殊格式
+            const sections = parseBatchFormat(batchInput);
+            if (sections) {
+                // 如果是特殊格式，直接儲存
+                saveParsedBatchData(sections);
+                return;
+            }
+            
+            // 如果不是特殊格式，顯示標準儲存對話框
             document.getElementById('save-dialog').style.display = 'block';
             document.getElementById('save-title').focus();
+        }
+
+        // 儲存解析後的批次資料
+        function saveParsedBatchData(sections) {
+            // 從 localStorage 取得現有資料
+            const savedData = JSON.parse(localStorage.getItem('barcodeData')) || [];
+            
+            // 儲存每個區段
+            let savedCount = 0;
+            
+            sections.forEach(section => {
+                // 檢查標題是否為空
+                if (!section.title) {
+                    return;
+                }
+                
+                // 檢查內容是否為空
+                if (!section.content) {
+                    return;
+                }
+                
+                // 生成不重複的標題
+                const uniqueTitle = generateUniqueTitle(section.title, savedData);
+                
+                // 新增資料
+                const newData = {
+                    id: Date.now().toString() + savedCount,
+                    title: uniqueTitle,
+                    data: section.content,
+                    lines: section.content.split('\n').length,
+                    date: section.date.toISOString() // 儲存為 ISO 格式以便排序
+                };
+                
+                savedData.push(newData);
+                savedCount++;
+            });
+            
+            // 儲存回 localStorage
+            localStorage.setItem('barcodeData', JSON.stringify(savedData));
+            
+            if (savedCount > 0) {
+                alert(`已成功儲存 ${savedCount} 個批次資料`);
+            } else {
+                alert('沒有可儲存的有效批次資料');
+            }
         }
 
         // 取消儲存
@@ -921,6 +1318,7 @@
             selectedItems = [];
             document.getElementById('select-mode-btn').textContent = '選取';
             document.getElementById('delete-selected-btn').style.display = 'none';
+            document.getElementById('export-selected-btn').style.display = 'none';
             document.getElementById('select-all-container').style.display = 'none';
             
             // 重置編輯狀態
@@ -934,6 +1332,10 @@
         function closeManageModal() {
             const modal = document.getElementById('manage-modal');
             modal.style.display = 'none';
+            
+            // 隱藏匯出結果區域
+            const exportResult = document.getElementById('export-result');
+            exportResult.style.display = 'none';
         }
 
         // 修改 startEditTitle 函數，隱藏其他元素
