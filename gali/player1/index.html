@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>音樂播放器</title>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="player-container">
+    <div class="main-player">
+            <div class="current-track" id="currentTrack">🎵 音樂播放器</div>
+    
+        <!-- 聲波圖容器 -->
+        <div class="waveform-container">
+            <div class="waveform-controls">
+                <span class="waveform-title">聲波圖</span>
+                <button class="waveform-btn" id="viewModeBtn" title="切換檢視模式">
+                    <span class="material-icons">graphic_eq</span>
+                </button>
+                <button class="waveform-btn" id="zoomInBtn" title="放大">
+                    <span class="material-icons">zoom_in</span>
+                </button>
+                <button class="waveform-btn" id="zoomOutBtn" title="縮小">
+                    <span class="material-icons">zoom_out</span>
+                </button>
+                <button class="waveform-btn" id="resetZoomBtn" title="還原">
+                    <span class="material-icons">refresh</span>
+                </button>
+            </div>
+            <canvas id="waveformCanvas" class="waveform-canvas"></canvas>
+            <div id="waveformLoading" class="waveform-loading" style="display: none;">載入中...</div>
+        </div>
+        
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="time-display">
+            <span id="currentTime">00:00</span>
+            <span id="duration">00:00</span>
+        </div>
+        <div class="controls-section">
+            <div class="controls-row">
+                <button class="btn" id="settingsBtn" title="設定">
+                    <span class="material-icons">settings</span>
+                </button>
+                <button class="btn" id="playPauseBtn" title="播放 / 暫停">
+                    <span class="material-icons" id="playPauseIcon">play_arrow</span>
+                </button>
+                <button class="btn" id="stopBtn" title="停止">
+                    <span class="material-icons">stop</span>
+                </button>
+                <button class="btn" id="prevBtn" title="上一首">
+                    <span class="material-icons">skip_previous</span>
+                </button>
+                <button class="btn" id="nextBtn" title="下一首">
+                    <span class="material-icons">skip_next</span>
+                </button>
+                <button class="btn btn-mode" id="loopBtn" title="循環">
+                    <span class="material-icons">repeat</span>
+                </button>
+                <button class="btn btn-mode" id="shuffleBtn" title="隨機">
+                    <span class="material-icons">shuffle</span>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="playlist">
+        <!-- 播放清單調整按鈕 -->
+        <button class="playlist-resize" id="playlistResizeBtn">
+            <span class="material-icons">chevron_right</span>
+        </button>
+        
+        <!-- 折疊時顯示的垂直文字 -->
+        <div class="playlist-collapsed-title">播放清單</div>
+
+        <div class="settings-panel" id="settingsPanel">
+            <div class="settings-header">
+                <button class="close-settings" id="closeSettings">
+                    <span class="material-icons">close</span>
+                </button>
+                <h2>設定</h2>
+            </div>
+            <div class="settings-content">
+                <div class="settings-section">
+                    <div class="settings-item">
+                        <div class="settings-item-header">
+                            <span class="material-icons">play_arrow</span>
+                            <span>接續播放</span>
+                        </div>
+                        <div class="settings-item-control">
+                            <label class="switch">
+                                <input type="checkbox" id="autoNextSetting" checked>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="settings-item">
+                        <div class="settings-item-header">
+                            <span class="material-icons">speed</span>
+                            <span>播放速度</span>
+                        </div>
+                        <div class="settings-item-control">
+                            <select id="speedSetting" class="settings-select">
+                                <option value="0.5">0.50x</option>
+                                <option value="0.70">0.70x</option>
+                                <option value="0.8">0.80x</option>
+                                <option value="0.9">0.90x</option>
+                                <option value="1" selected>1.00x</option>
+                                <option value="1.25">1.25x</option>
+                                <option value="1.5">1.50x</option>
+                                <option value="1.75">1.75x</option>
+                                <option value="2">2.00x</option>
+                                <option value="2.25">2.25x</option>
+                                <option value="2.5">2.50x</option>
+                                <option value="2.75">2.75x</option>
+                                <option value="3">3.00x</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="settings-item">
+                        <div class="settings-item-header">
+                            <span class="material-icons">repeat</span>
+                            <span>重複次數</span>
+                        </div>
+                        <div class="settings-item-control">
+                            <select id="repeatSetting" class="settings-select">
+                                <option value="1" selected>1次</option>
+                                <option value="2">2次</option>
+                                <option value="3">3次</option>
+                                <option value="4">4次</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="settings-item">
+                        <div class="settings-item-header">
+                            <span class="material-icons">volume_up</span>
+                            <span>音量</span>
+                        </div>
+                        <div class="settings-item-control volume-control">
+                            <input type="range" id="volumeSetting" min="0" max="100" value="100">
+                            <span id="volumeSettingValue">100%</span>
+                        </div>
+                    </div>
+                    
+                    <!-- 聲波圖設定 -->
+                    <div class="settings-item">
+                        <div class="settings-item-header">
+                            <span class="material-icons">graphic_eq</span>
+                            <span>聲波圖檢視</span>
+                        </div>
+                        <div class="settings-item-control">
+                            <select id="waveformViewSetting" class="settings-select">
+                                <option value="waveform" selected>聲波</option>
+                                <option value="line">線段</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 在播放清單標題後添加工具列切換按鈕 -->
+        <div class="playlist-header">
+          <span>播放清單</span>
+          <button class="tool-toggle-btn" id="toolToggleBtn" title="顯示/隱藏工具列">
+            <span class="material-icons">expand_more</span>
+          </button>
+        </div>
+
+        <div class="playlist-tools">
+            <button class="tool-btn" id="checkAllBtn" title="切換全選">
+                <span class="material-icons">check_box</span>
+            </button>
+            <button class="tool-btn" id="sortBtn" title="勾選項目排序">
+                <span class="material-icons">sort</span>
+            </button>
+            <button class="tool-btn" id="sortAllBtn" title="全部排序">
+                <span class="material-icons">sort_by_alpha</span>
+            </button>
+            <button class="tool-btn" id="clearPlaylistBtn" title="清空播放清單">
+                <span class="material-icons">delete</span>
+            </button>
+            <button class="tool-btn" id="exportBtn" title="匯出清單">
+                <span class="material-icons">content_copy</span>
+            </button>
+            <button class="tool-btn" id="toggleNameDisplayBtn" title="切換檔名顯示模式">
+                <span class="material-icons">wrap_text</span>
+            </button>
+        </div>
+        
+        <div class="playlist-content" id="playlistContainer"></div>
+        
+        <!-- 新增按鈕移至此處 -->
+        <button class="add-music-btn dynamic-position" id="addMusicBtn">
+          <span class="material-icons">add</span>
+        </button>
+    </div>
+</div>
+
+<div class="modal" id="addMusicModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">添加音樂</h3>
+            <button class="close-modal" id="closeModal">&times;</button>
+        </div>
+        <div class="tab-container">
+            <div class="tab-buttons">
+                <button class="tab-button active" data-tab="file">載入檔案</button>
+                <button class="tab-button" data-tab="url">載入網址</button>
+            </div>
+
+            <div class="tab-content active" data-tab="file">
+                <div class="input-group">
+                    <input type="file" id="audioFile" accept="audio/*" multiple>
+                </div>
+                <div class="file-info" id="fileInfo" style="display: none;">
+                    <div class="file-count">已選擇檔案數：<span id="fileCount">0</span></div>
+                    <div class="file-list" id="fileList"></div>
+                </div>
+                <div class="input-group" id="basePathGroup">
+                    <input type="text" id="basePath" class="base-path-input" 
+                           placeholder="上層路徑（選填）例如：D:\桌面\歌曲">
+                </div>
+                <div class="file-actions">
+                    <button id="clearFiles" class="clear-btn">清除選擇</button>
+                    <button id="confirmFiles" class="url-confirm-btn">確認添加</button>        
+                </div>
+            </div>
+            <div class="tab-content" data-tab="url">
+                <div class="input-group">
+                    <label>輸入音樂網址（每行一個）</label>
+                    <textarea id="audioUrls" class="url-textarea" placeholder="https://example.com/music1.mp3&#10;https://example.com/music2.mp3"></textarea>
+                    <div class="file-actions">
+                        <button id="clearUrls" class="clear-btn">清除輸入</button>
+                        <button id="confirmUrls" class="url-confirm-btn">確認添加</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
