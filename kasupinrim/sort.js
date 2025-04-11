@@ -31,7 +31,7 @@ let htmlSettingsPage = `
     <div>
         <label for="orderSelect">次序：</label>
         <select id="orderSelect">            
-            <option value="sequential">依序 (學習)</option>
+            <option value="sequential" selected>依序 (學習)</option>
 			<option value="random">隨機 (練習)</option>
         </select>
     </div>
