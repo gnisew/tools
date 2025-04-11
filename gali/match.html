@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>華語閩南語配對遊戲</title>
+    <link href="https://tauhu.tw/tauhu-oo.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: tauhu-oo, '微軟正黑體', Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f0f8ff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            flex-wrap: wrap;
+        }
+
+        .info-item {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            padding: 5px;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .game-board.vertical {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .card {
+            height: 120px;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+            transform-style: preserve-3d;
+            perspective: 1000px;
+        }
+
+        .card:hover {
+            transform: scale(1.03);
+        }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .card-front {
+            background-color: #3498db;
+            color: #fff;
+        }
+
+        .card-back {
+            background-color: #fff;
+            color: #2c3e50;
+            transform: rotateY(180deg);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card.matched .card-back {
+            background-color: #2ecc71;
+            animation: pulse 1s;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1) rotateY(180deg); }
+            50% { transform: scale(1.1) rotateY(180deg); }
+            100% { transform: scale(1) rotateY(180deg); }
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background-color: #3498db;
+            color: white;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        #restart-btn {
+            background-color: #e74c3c;
+        }
+
+        #restart-btn:hover {
+            background-color: #c0392b;
+        }
+
+        .settings {
+            margin-top: 15px;
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .setting-row {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .setting-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin: 5px;
+        }
+
+        select {
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+            font-family: tauhu-oo, '微軟正黑體', Arial, sans-serif;
+        }
+
+        .layout-toggle {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+            justify-content: center;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 30px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: #3498db;
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(30px);
+        }
+
+        .game-complete {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .complete-message {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .complete-message h2 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .complete-message p {
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+
+        @media (max-width: 768px) {
+            .game-board:not(.vertical) {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .card {
+                height: 100px;
+            }
+            
+            .card-face {
+                font-size: 16px;
+            }
+            
+            .setting-row {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .game-info {
+                justify-content: center;
+            }
+            
+            .info-item {
+                margin: 0 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .game-board:not(.vertical) {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .card {
+                height: 90px;
+            }
+            
+            .card-face {
+                font-size: 14px;
+                padding: 5px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .info-item {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>華語閩南語配對遊戲</h1>
+        <p>翻開卡片，找到配對項目！</p>
+
+        <div class="settings">
+            <div class="setting-row">
+                <div class="setting-item">
+                    <label for="category">選擇分類：</label>
+                    <select id="category">
+                        <option value="all">全部</option>
+                        <option value="昆蟲類">昆蟲類</option>
+                        <option value="花草樹木">花草樹木</option>
+                    </select>
+                </div>
+                
+                <div class="setting-item">
+                    <label for="pairs-count">配對數量：</label>
+                    <select id="pairs-count">
+                        <option value="2">2 組</option>
+                        <option value="3">3 組</option>
+                        <option value="4">4 組</option>
+                        <option value="5">5 組</option>
+                        <option value="6">6 組</option>
+                        <option value="7">7 組</option>
+                        <option value="8" selected>8 組</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="setting-row">
+                <div class="setting-item">
+                    <label for="first-type">第一項：</label>
+                    <select id="first-type">
+                        <option value="華語">華語</option>
+                        <option value="閩南語">閩南語</option>
+                        <option value="台羅拼音">台羅拼音</option>
+                    </select>
+                </div>
+                
+                <div class="setting-item">
+                    <label for="second-type">第二項：</label>
+                    <select id="second-type">
+                        <option value="華語">華語</option>
+                        <option value="閩南語" selected>閩南語</option>
+                        <option value="台羅拼音">台羅拼音</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="layout-toggle">
+                <span>橫式</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="layout-toggle">
+                    <span class="toggle-slider"></span>
+                </label>
+                <span>直式</span>
+            </div>
+        </div>
+
+        <div class="game-info">
+            <div class="info-item">配對數：<span id="matches">0</span>/<span id="total-pairs">0</span></div>
+            <div class="info-item">嘗試次數：<span id="attempts">0</span></div>
+            <div class="info-item">時間：<span id="timer">00:00</span></div>
+        </div>
+
+        <div class="game-board" id="game-board"></div>
+
+        <div class="controls">
+            <button id="start-btn">開始遊戲</button>
+            <button id="restart-btn">重新開始</button>
+        </div>
+    </div>
+
+    <div class="game-complete" id="game-complete">
+        <div class="complete-message">
+            <h2>遊戲完成！</h2>
+            <p>你找到了所有的配對！</p>
+            <p>總嘗試次數：<span id="final-attempts">0</span></p>
+            <p>完成時間：<span id="final-time">00:00</span></p>
+            <button id="play-again-btn">再玩一次</button>
+        </div>
+    </div>
+
+    <script>
+        // 詞彙庫 - 解析提供的資料
+        const myData =`
+分類 華語 閩南語 台羅拼音
+昆蟲類 螢火蟲 火金蛄 hué-kim-koo
+昆蟲類 蜻蜓 田嬰 tshân-enn
+昆蟲類 白蟻 白蟻 pe̍h-hiā
+昆蟲類 米象 米龜 bí-ku
+昆蟲類 蝴蝶 尾蝶 bué-ia̍h
+昆蟲類 土狗 杜伯仔 tōo-peh-á
+昆蟲類 蟋蟀 杜猴 tōo-kâu
+昆蟲類 毛毛蟲 刺毛蟲 tshì-môo-thâng
+花草樹木 布袋蓮 水芋仔 tsuí-ōo-á
+花草樹木 夜來香 月來香 gue̍h-lâi-hiong
+花草樹木 木麻黃 木麻黃 bo̍k-muâ-hông
+花草樹木 牛筋草 牛頓草 gû-tùn-tsháu
+花草樹木 向日葵 日頭花 ji̍t-thâu-hue
+花草樹木 含羞草 見笑草 kiàn-siàu-tsháu
+花草樹木 桑樹 娘仔樹 niû-á-tshiū
+花草樹木 牛筋草 草霸王 tsháu-pà-ông
+`;
+
+        // 解析資料並建立詞彙庫
+        const wordList = [];
+        const lines = myData.trim().split('\n');
+        
+        // 取得標題行
+        const headers = lines[0].split(' ');
+        
+        // 從第二行開始解析（跳過標題行）
+        for (let i = 1; i < lines.length; i++) {
+            const parts = lines[i].split(' ');
+            if (parts.length >= 3) {
+                const item = {};
+                // 動態設置屬性
+                for (let j = 0; j < headers.length && j < parts.length; j++) {
+                    // 若是最後一個欄位（台羅拼音），可能包含空格，需要特別處理
+                    if (j === headers.length - 1 && j < parts.length - 1) {
+                        item[headers[j]] = parts.slice(j).join(' ');
+                    } else {
+                        item[headers[j]] = parts[j];
+                    }
+                }
+                wordList.push(item);
+            }
+        }
+
+        // 遊戲變數
+        let cards = [];
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let attempts = 0;
+        let totalPairs = 0;
+        let isPlaying = false;
+        let timerInterval = null;
+        let gameStartTime = null;
+        let currentCategory = "all";
+        let pairsCount = 8;
+        let firstType = "華語";
+        let secondType = "閩南語";
+        let isVerticalLayout = false;
+
+        // DOM 元素
+        const gameBoard = document.getElementById("game-board");
+        const matchesDisplay = document.getElementById("matches");
+        const totalPairsDisplay = document.getElementById("total-pairs");
+        const attemptsDisplay = document.getElementById("attempts");
+        const timerDisplay = document.getElementById("timer");
+        const startBtn = document.getElementById("start-btn");
+        const restartBtn = document.getElementById("restart-btn");
+        const categorySelector = document.getElementById("category");
+        const pairsCountSelector = document.getElementById("pairs-count");
+        const firstTypeSelector = document.getElementById("first-type");
+        const secondTypeSelector = document.getElementById("second-type");
+        const layoutToggle = document.getElementById("layout-toggle");
+        const gameCompleteModal = document.getElementById("game-complete");
+        const finalAttemptsDisplay = document.getElementById("final-attempts");
+        const finalTimeDisplay = document.getElementById("final-time");
+        const playAgainBtn = document.getElementById("play-again-btn");
+
+        // 初始化選擇器
+        function initSelectors() {
+            // 初始更新第二選擇器選項
+            updateSecondTypeOptions();
+        }
+
+        // 更新第二選擇器的選項，剔除已在第一選擇器中選擇的項目
+        function updateSecondTypeOptions() {
+            const selectedFirstType = firstTypeSelector.value;
+            const currentSecondType = secondTypeSelector.value;
+            
+            // 保存當前選中值
+            let hasCurrentOption = false;
+            
+            // 清空選項
+            secondTypeSelector.innerHTML = "";
+            
+            // 添加未被選中的選項
+            const availableTypes = ["華語", "閩南語", "台羅拼音"];
+            availableTypes.forEach(type => {
+                if (type !== selectedFirstType) {
+                    const option = document.createElement("option");
+                    option.value = type;
+                    option.textContent = type;
+                    
+                    // 檢查是否為當前選中的選項
+                    if (type === currentSecondType) {
+                        option.selected = true;
+                        hasCurrentOption = true;
+                    }
+                    
+                    secondTypeSelector.appendChild(option);
+                }
+            });
+            
+            // 如果當前選中的選項被移除了，選擇第一個可用選項
+            if (!hasCurrentOption && secondTypeSelector.options.length > 0) {
+                secondTypeSelector.selectedIndex = 0;
+                secondType = secondTypeSelector.value;
+            }
+        }
+
+        // 更新佈局
+        function updateLayout() {
+            isVerticalLayout = layoutToggle.checked;
+            
+            // 更新遊戲板佈局
+            if (isVerticalLayout) {
+                gameBoard.classList.add('vertical');
+            } else {
+                gameBoard.classList.remove('vertical');
+            }
+            
+            // 如果遊戲正在進行，重新排列卡片
+            if (isPlaying) {
+                adjustCardLayout();
+            }
+        }
+
+        // 調整卡片佈局
+        function adjustCardLayout() {
+            // 根據卡片數量和佈局方向調整遊戲板
+            if (isVerticalLayout) {
+                // 直式佈局
+                gameBoard.style.gridTemplateColumns = "repeat(2, 1fr)";
+            } else {
+                // 橫式佈局
+                if (window.innerWidth <= 480) {
+                    // 手機屏幕
+                    gameBoard.style.gridTemplateColumns = "repeat(2, 1fr)";
+                } else if (window.innerWidth <= 768) {
+                    // 平板屏幕
+                    gameBoard.style.gridTemplateColumns = "repeat(3, 1fr)";
+                } else {
+                    // 大屏幕
+                    if (totalPairs <= 4) {
+                        gameBoard.style.gridTemplateColumns = "repeat(4, 1fr)";
+                    } else if (totalPairs <= 8) {
+                        gameBoard.style.gridTemplateColumns = "repeat(4, 1fr)";
+                    } else {
+                        gameBoard.style.gridTemplateColumns = "repeat(5, 1fr)";
+                    }
+                }
+            }
+        }
+
+        // 初始化遊戲
+        function initGame() {
+            // 檢查配對項目是否相同
+            if (firstType === secondType) {
+                alert("請選擇不同的配對項目！");
+                return;
+            }
+            
+            // 清除遊戲板
+            gameBoard.innerHTML = "";
+            cards = [];
+            flippedCards = [];
+            matchedPairs = 0;
+            attempts = 0;
+            isPlaying = true;
+
+            // 取得當前分類的詞彙
+            currentCategory = categorySelector.value;
+            
+            // 取得配對數量
+            pairsCount = parseInt(pairsCountSelector.value);
+            
+            // 取得配對類型
+            firstType = firstTypeSelector.value;
+            secondType = secondTypeSelector.value;
+            
+            let selectedWords = [];
+            
+            if (currentCategory === "all") {
+                // 從所有詞彙中選擇
+                selectedWords = [...wordList];
+            } else {
+                // 選取特定分類的詞彙
+                selectedWords = wordList.filter(word => word["分類"] === currentCategory);
+            }
+            
+            // 確保不會超出可用詞彙數量
+            const maxPairs = Math.min(pairsCount, selectedWords.length);
+            totalPairs = maxPairs;
+            
+            // 更新顯示總配對數
+            totalPairsDisplay.textContent = totalPairs;
+            matchesDisplay.textContent = "0";
+            attemptsDisplay.textContent = "0";
+            
+            // 隨機選擇詞彙
+            const shuffledWords = [...selectedWords].sort(() => 0.5 - Math.random()).slice(0, maxPairs);
+            
+            // 根據佈局設置遊戲板樣式
+            adjustCardLayout();
+            
+            // 創建卡片
+            const cardData = [];
+            shuffledWords.forEach(word => {
+                // 根據選擇的配對類型添加卡片
+                cardData.push({ 
+                    text: word[firstType], 
+                    type: firstType, 
+                    matchId: word[secondType] 
+                });
+                cardData.push({ 
+                    text: word[secondType], 
+                    type: secondType, 
+                    matchId: word[firstType] 
+                });
+            });
+            
+            // 隨機排序卡片
+            const shuffledCards = [...cardData].sort(() => 0.5 - Math.random());
+            
+            // 創建卡片元素
+            shuffledCards.forEach((card, index) => {
+                const cardElement = document.createElement("div");
+                cardElement.className = "card";
+                cardElement.dataset.index = index;
+                cardElement.dataset.type = card.type;
+                cardElement.dataset.matchId = card.matchId;
+                cardElement.dataset.text = card.text;
+                cardElement.onclick = handleCardClick;
+                
+                // 前面 (藍色背景)
+                const cardFront = document.createElement("div");
+                cardFront.className = "card-face card-front";
+                
+                // 背面 (顯示文字)
+                const cardBack = document.createElement("div");
+                cardBack.className = "card-face card-back";
+                cardBack.textContent = card.text;
+                
+                cardElement.appendChild(cardFront);
+                cardElement.appendChild(cardBack);
+                
+                gameBoard.appendChild(cardElement);
+                cards.push(cardElement);
+            });
+
+            // 開始計時
+            resetTimer();
+            startTimer();
+
+            // 更新按鈕狀態
+            startBtn.disabled = true;
+            categorySelector.disabled = true;
+            pairsCountSelector.disabled = true;
+            firstTypeSelector.disabled = true;
+            secondTypeSelector.disabled = true;
+            layoutToggle.disabled = true;
+        }
+
+        // 處理卡片點擊
+        function handleCardClick(event) {
+            const clickedCard = event.currentTarget;
+            
+            // 檢查有效性
+            if (!isPlaying || flippedCards.includes(clickedCard) || clickedCard.classList.contains("matched")) {
+                return;
+            }
+            
+            // 翻開卡片
+            flipCard(clickedCard);
+            flippedCards.push(clickedCard);
+            
+            // 檢查是否已翻開兩張卡片
+            if (flippedCards.length === 2) {
+                attempts++;
+                attemptsDisplay.textContent = attempts;
+                
+                const card1 = flippedCards[0];
+                const card2 = flippedCards[1];
+                
+                // 檢查是否配對
+                if ((card1.dataset.type === firstType && card2.dataset.type === secondType && 
+                     card1.dataset.text === card2.dataset.matchId) ||
+                    (card1.dataset.type === secondType && card2.dataset.type === firstType && 
+                     card1.dataset.text === card2.dataset.matchId)) {
+                    
+                    // 配對成功
+                    setTimeout(() => {
+                        card1.classList.add("matched");
+                        card2.classList.add("matched");
+                        flippedCards = [];
+                        matchedPairs++;
+                        matchesDisplay.textContent = matchedPairs;
+                        
+                        // 檢查遊戲是否結束
+                        if (matchedPairs === totalPairs) {
+                            endGame();
+                        }
+                    }, 500);
+                } else {
+                    // 配對失敗，翻回卡片
+                    setTimeout(() => {
+                        flipCard(card1, false);
+                        flipCard(card2, false);
+                        flippedCards = [];
+                    }, 1000);
+                }
+            }
+        }
+
+        // 翻轉卡片
+        function flipCard(card, flip = true) {
+            if (flip) {
+                card.classList.add("flipped");
+            } else {
+                card.classList.remove("flipped");
+            }
+        }
+
+        // 重置計時器
+        function resetTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            timerDisplay.textContent = "00:00";
+            gameStartTime = new Date();
+        }
+
+        // 開始計時
+        function startTimer() {
+            // 確保只有一個計時器在運行
+            if (timerInterval) return;
+            
+            gameStartTime = new Date();
+            timerInterval = setInterval(() => {
+                const elapsedTime = Math.floor((new Date() - gameStartTime) / 1000);
+                const minutes = Math.floor(elapsedTime / 60).toString().padStart(2, '0');
+                const seconds = (elapsedTime % 60).toString().padStart(2, '0');
+                timerDisplay.textContent = `${minutes}:${seconds}`;
+            }, 1000);
+        }
+
+        // 停止計時
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        // 結束遊戲
+        function endGame() {
+            isPlaying = false;
+            // 停止計時
+            stopTimer();
+            
+            // 顯示完成畫面
+            finalAttemptsDisplay.textContent = attempts;
+            finalTimeDisplay.textContent = timerDisplay.textContent;
+            gameCompleteModal.style.display = "flex";
+            
+            // 重置按鈕狀態
+            startBtn.disabled = false;
+            categorySelector.disabled = false;
+            pairsCountSelector.disabled = false;
+            firstTypeSelector.disabled = false;
+            secondTypeSelector.disabled = false;
+            layoutToggle.disabled = false;
+        }
+
+        // 重置遊戲
+        function restartGame() {
+            // 停止計時
+            stopTimer();
+            timerDisplay.textContent = "00:00";
+            
+            gameBoard.innerHTML = "";
+            cards = [];
+            flippedCards = [];
+            matchedPairs = 0;
+            attempts = 0;
+            matchesDisplay.textContent = "0";
+            attemptsDisplay.textContent = "0";
+            
+            startBtn.disabled = false;
+            categorySelector.disabled = false;
+            pairsCountSelector.disabled = false;
+            firstTypeSelector.disabled = false;
+            secondTypeSelector.disabled = false;
+            layoutToggle.disabled = false;
+            isPlaying = false;
+            gameCompleteModal.style.display = "none";
+        }
+
+        // 響應視窗大小變化
+        function handleResize() {
+            if (isPlaying) {
+                adjustCardLayout();
+            }
+        }
+
+        // 事件監聽器
+        startBtn.addEventListener("click", initGame);
+        restartBtn.addEventListener("click", restartGame);
+        playAgainBtn.addEventListener("click", () => {
+            gameCompleteModal.style.display = "none";
+            initGame();
+        });
+        
+        layoutToggle.addEventListener("change", updateLayout);
+        
+        categorySelector.addEventListener("change", () => {
+            if (!isPlaying) {
+                currentCategory = categorySelector.value;
+            }
+        });
+        
+        pairsCountSelector.addEventListener("change", () => {
+            if (!isPlaying) {
+                pairsCount = parseInt(pairsCountSelector.value);
+            }
+        });
+        
+        firstTypeSelector.addEventListener("change", () => {
+            if (!isPlaying) {
+                firstType = firstTypeSelector.value;
+                updateSecondTypeOptions();
+            }
+        });
+        
+        secondTypeSelector.addEventListener("change", () => {
+            if (!isPlaying) {
+                secondType = secondTypeSelector.value;
+            }
+        });
+        
+        // 監聽視窗大小變化
+        window.addEventListener("resize", handleResize);
+        
+        // 頁面載入時初始化選擇器
+        window.addEventListener("load", () => {
+            initSelectors();
+            updateLayout(); // 初始化佈局
+        });
+    </script>
+</body>
+</html>
