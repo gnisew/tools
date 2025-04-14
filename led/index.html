@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🥷烏衣行跑馬燈</title>
+    <link href="https://tauhu.tw/tauhu-oo.css" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 預覽區域 -->
+        <div class="marquee-container" id="marqueeContainer">
+            <div class="led-text font-digital static-mode" id="ledText">歡迎使用🥷烏衣行跑馬燈</div>
+        </div>
+        
+        <!-- 退出全螢幕按鈕 -->
+        <button class="exit-fullscreen" id="exitFullscreenBtn">×</button>
+        
+        <!-- 全螢幕控制按鈕 -->
+        <div class="fullscreen-controls" id="fullscreenControls">
+            <button class="fullscreen-btn" id="fsToggleRunningBtn">❚❚</button>
+        </div>
+
+        <!-- 全螢幕速度控制按鈕 -->
+        <div class="speed-controls" id="fsSpeedControls">
+            <button class="control-btn" id="fsDecreaseSpeedBtn">−</button>
+            <div class="speed-value" id="fsSpeedValue">5</div>
+            <button class="control-btn" id="fsIncreaseSpeedBtn">+</button>
+        </div>
+
+        <!-- 字體大小調整按鈕 -->
+        <div class="font-size-controls" id="fontSizeControls">
+            <button class="control-btn" id="decreaseFontBtn">−</button>
+            <button class="control-btn" id="increaseFontBtn">+</button>
+        </div>
+        
+        <!-- 全螢幕文字切換按鈕 -->
+        <div class="text-nav-controls" id="textNavControls">
+            <button class="control-btn" id="prevTextBtn">＜</button>
+            <button class="text-select-btn" id="selectTextBtn">文字</button>
+            <button class="control-btn" id="nextTextBtn">＞</button>
+        </div>
+        
+        <!-- 全螢幕文字選擇面板 -->
+        <div class="text-selection-panel" id="textSelectionPanel">
+            <div class="panel-header">
+                <h3>選擇文字</h3>
+                <button class="close-panel-btn" id="closeTextPanelBtn">×</button>
+            </div>
+            <div class="panel-content" id="textSelectionContent">
+                <!-- 這裡會動態填入儲存的文字 -->
+            </div>
+        </div>
+
+        <!-- 基本設定區塊 -->
+        <div class="quick-settings">
+            <div class="basic-controls">
+                <div class="control-row">
+                    <div class="input-with-button">
+                        <input type="text" id="textInput" value="歡迎使用🥷跑馬燈" placeholder="🥷請輸入文字內容">
+                        <button id="saveTextBtn" class="inline-action-btn" title="新增文字">+</button>
+                    </div>
+                </div>
+
+                <div class="button-row">
+                    <button id="toggleRunningBtn">預覽</button>
+                    <button id="fullscreenBtn">全螢幕顯示</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 頁籤式設定區塊 -->
+        <div class="tabbed-settings">
+            <!-- 頁籤導航 -->
+            <div class="tabs-nav">
+                <button class="tab-btn active" data-tab="appearance">外觀設定</button>
+                <button class="tab-btn" data-tab="style">文字樣式</button>
+                <button class="tab-btn" data-tab="saved">已存文字</button>
+            </div>
+
+            <!-- 頁籤內容 -->
+            <div class="tab-content">
+                <!-- 外觀設定頁籤 -->
+                <div class="tab-pane active" id="appearance-tab">
+                    <div class="control-row">
+                        <label>速度:</label>
+                        <div class="speed-control-row">
+                            <button class="speed-btn" id="decreaseSpeedBtn">−</button>
+                            <div class="speed-display" id="speedDisplay">5</div>
+                            <button class="speed-btn" id="increaseSpeedBtn">+</button>
+                        </div>
+                    </div>
+
+                    <div class="control-row">
+                        <label for="directionSelect">方向:</label>
+                        <select id="directionSelect">
+                            <option value="left">由右向左</option>
+                            <option value="right">由左向右</option>
+                        </select>
+                    </div>
+
+                    <div class="control-row">
+                        <label>顏色:</label>
+                        <input type="color" id="colorPicker" value="#ffff00">
+                        
+                        <div class="color-options">
+                            <div class="color-option active" style="background-color: #ffff00;" data-color="#ffff00"></div>
+                            <div class="color-option" style="background-color: #ff0000;" data-color="#ff0000"></div>
+                            <div class="color-option" style="background-color: #00ff00;" data-color="#00ff00"></div>
+                            <div class="color-option" style="background-color: #00ffff;" data-color="#00ffff"></div>
+                            <div class="color-option" style="background-color: #ff00ff;" data-color="#ff00ff"></div>
+                            <div class="color-option" style="background-color: #ffffff;" data-color="#ffffff"></div>
+                        </div>
+                    </div>
+
+                    <div class="control-row">
+                        <label>底色:</label>
+                        <input type="color" id="bgColorPicker" value="#000000">
+                    </div>
+                </div>
+
+                <!-- 文字樣式頁籤 -->
+                <div class="tab-pane" id="style-tab">
+                    <div class="settings-title">文字樣式</div>
+                    <div class="style-options" id="fontStyles">
+                        <div class="style-option active" data-style="font-digital">數位</div>
+                        <div class="style-option" data-style="font-neon">霓虹</div>
+                        <div class="style-option" data-style="font-bubble">泡泡</div>
+                        <div class="style-option" data-style="font-retro">復古</div>
+                        <div class="style-option" data-style="font-elegant">優雅</div>
+                    </div>
+
+                    <div class="settings-title" style="margin-top: 15px;">特殊效果</div>
+                    <div class="effect-options">
+                        <div class="effect-option">
+                            <input type="checkbox" id="effectBlink">
+                            <label for="effectBlink">閃爍</label>
+                        </div>
+                        <div class="effect-option">
+                            <input type="checkbox" id="effectShadow">
+                            <label for="effectShadow">陰影</label>
+                        </div>
+                        <div class="effect-option">
+                            <input type="checkbox" id="effectOutline">
+                            <label for="effectOutline">外框</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 已儲存文字頁籤 -->
+                <div class="tab-pane" id="saved-tab">
+                    <div class="saved-texts-header">
+                        <h3>已存文字</h3>
+                        <div class="edit-controls">
+                            <button id="editTextsBtn" class="edit-texts-btn" title="編輯文字清單">✏️</button>
+                            <div class="edit-action-buttons" style="display: none;">
+                                <button id="cancelEditBtn" class="small-action-btn">取消</button>
+                                <button id="saveEditsBtn" class="small-action-btn save-btn">儲存變更</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 檢視模式 -->
+                    <div id="viewMode" class="saved-texts-view-mode">
+                        <div class="saved-texts-list" id="savedTextsList">
+                            <!-- 這裡會動態填入儲存的文字 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 編輯模式 -->
+                    <div id="editMode" class="saved-texts-edit-mode" style="display: none;">
+                        <textarea id="textsEditor" placeholder="每行一個文字，可新增、修改或刪除"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
