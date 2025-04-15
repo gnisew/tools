@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>迷宮語文學習遊戲</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 遊戲選單 -->
+    <div id="game-menu">
+        <div class="menu-header">
+            <h2>遊戲設定</h2>
+            <button id="close-menu">✕</button>
+        </div>
+        
+        <!-- 修改主角選擇區域，添加小圖示展開按鈕 -->
+        <div class="menu-section">
+            <div class="section-header">
+                <h3 id="expand-player-h3">選擇主角</h3>
+                <button class="expand-button" id="expand-player">▼</button>
+            </div>
+            <div class="character-grid" id="player-selection">
+                <div class="character-item selected" data-char="😺">😺</div>
+                <div class="character-item" data-char="🐸">🐸</div>
+                <div class="character-item" data-char="🦉">🦉</div>
+                <div class="character-item" data-char="🐧">🐧</div>
+            </div>
+            <div class="expand-section">
+                <div class="expanded-content" id="expanded-player-content">
+                    <div class="character-grid">
+                        <div class="character-item" data-char="🐼">🐼</div>
+                        <div class="character-item" data-char="🐨">🐨</div>
+                        <div class="character-item" data-char="🐻‍❄️">🐻‍❄️</div>
+                        <div class="character-item" data-char="🐻">🐻</div>
+                        <div class="character-item" data-char="🐷">🐷</div>
+                        <div class="character-item" data-char="🐭">🐭</div>
+                        <div class="character-item" data-char="🐹">🐹</div>
+                        <div class="character-item" data-char="🐰">🐰</div>
+                        <div class="character-item" data-char="🦊">🦊</div>
+                        <div class="character-item" data-char="🐶">🐶</div>
+                        <div class="character-item" data-char="🐵">🐵</div>
+                        <div class="character-item" data-char="😀">😀</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 修改鬼魂選擇區域，添加小圖示展開按鈕 -->
+        <div class="menu-section">
+            <div class="section-header">
+                <h3 id="expand-ghost-h3">選擇鬼魂</h3>
+                <button class="expand-button" id="expand-ghost">▼</button>
+            </div>
+            <div class="character-grid" id="ghost-selection">
+                <div class="character-item selected" data-char="👻">👻</div>
+                <div class="character-item" data-char="😈">😈</div>
+                <div class="character-item" data-char="☠️">☠️</div>
+                <div class="character-item" data-char="💩">💩</div>
+            </div>
+            <div class="expand-section">
+                <div class="expanded-content" id="expanded-ghost-content">
+                    <div class="character-grid">
+                        <div class="character-item" data-char="👹">👹</div>
+                        <div class="character-item" data-char="👺">👺</div>
+                        <div class="character-item" data-char="👽">👽</div>
+                        <div class="character-item" data-char="👾">👾</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="menu-section">
+            <h3>難度設定</h3>
+            <div class="radio-group" id="difficulty-selection">
+                <label class="radio-item">
+                    <input type="radio" name="difficulty" value="default" checked>
+                    <span class="radio-label">預設</span>
+                    <span class="radio-desc">沒有鬼，適合初學者</span>
+                </label>
+                <label class="radio-item">
+                    <input type="radio" name="difficulty" value="try">
+                    <span class="radio-label">嘗試</span>
+                    <span class="radio-desc">一隻鬼，隨機移動</span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="menu-section">
+            <h3>選項數量</h3>
+            <div class="radio-group" id="options-selection">
+                <label class="radio-item">
+                    <input type="radio" name="options" value="2" checked>
+                    <span class="radio-label">2 個選項</span>
+                </label>
+                <label class="radio-item">
+                    <input type="radio" name="options" value="3">
+                    <span class="radio-label">3 個選項</span>
+                </label>
+                <label class="radio-item">
+                    <input type="radio" name="options" value="4">
+                    <span class="radio-label">4 個選項</span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="apply-button-container">
+            <button id="apply-settings">套用設定</button>
+        </div>
+    </div>
+    <div id="game-container">
+        <div id="game-board">
+            <div id="maze"></div>
+            <div id="player" class="player">😺</div>
+            <div id="question">找出「蘋果」的英文</div>
+            <div id="lives">
+                <div class="life">❤</div>
+                <div class="life">❤</div>
+                <div class="life">❤</div>
+            </div>
+            <!-- 設定按鈕 - 已移至遊戲底邊條左下角 -->
+            <div id="menu-button">
+                <div class="menu-icon">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+            <div id="timer">
+                <span id="timer-icon">⏱</span>
+                <span id="timer-value">00:00</span>
+                <span id="level-display">第 1 關</span>
+            </div>
+            <div id="level-complete">
+                <h2>恭喜過關！</h2>
+                <div id="level-stats">
+                    完成時間：<span id="complete-time">00:00</span><br>
+                    剩餘生命：<span id="remaining-lives">3</span>
+                </div>
+                <div class="key-hint">按任意鍵繼續</div>
+                <button id="next-level-btn">下一關</button>
+            </div>
+            <div id="game-over">
+                <h2>遊戲結束</h2>
+                <div id="game-over-stats">
+                    遊戲時間：<span id="game-over-time">00:00</span><br>
+                    達到關卡：<span id="reached-level">1</span>
+                </div>
+                <div class="key-hint">按任意鍵重新開始</div>
+                <button id="restart-btn">重新開始</button>
+            </div>
+            <!-- 新增：行動裝置控制按鈕 -->
+            <div id="mobile-controls">
+                <div id="control-up" class="control-btn">↑</div>
+                <div id="control-row">
+                    <div id="control-left" class="control-btn">←</div>
+                    <div id="control-right" class="control-btn">→</div>
+                </div>
+                <div id="control-down" class="control-btn">↓</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
