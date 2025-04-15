@@ -389,9 +389,9 @@ body {
 /* 選單樣式 */
 #game-menu {
   position: fixed;
-  left: -80%;
+  left: -300px;
   top: 0;
-  width: 80%; /* 在行動裝置上佔據更多空間 */
+  width: 300px; /* 預設寬度 */
   height: 100vh;
   background-color: white;
   box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
@@ -404,6 +404,30 @@ body {
 
 #game-menu.open {
   left: 0;
+}
+
+/* 在小螢幕上增加選單寬度 */
+@media (max-width: 480px) {
+  #game-menu {
+    width: 80%;
+    left: -80%;
+  }
+}
+
+/* 在橫屏模式下限制選單寬度 */
+@media (orientation: landscape) {
+  #game-menu {
+    width: 300px;
+    left: -300px;
+  }
+}
+
+/* 在電腦版上限制選單寬度 */
+@media (min-width: 769px) {
+  #game-menu {
+    width: 300px;
+    left: -300px;
+  }
 }
 
 .menu-header {

@@ -39,6 +39,9 @@ let canPlaceBombTime = false
 // 添加一個變量來控制過關後的延遲
 let canProceedToNextLevel = false
 
+// 添加一個變量來追蹤是否已經開始計時
+let timerStarted = false
+
 // 語詞資料庫
 const wordPairs = [
   { chinese: "蘋果", english: "apple" },
@@ -131,6 +134,7 @@ function initGame() {
   collisionCooldown = false
   canPlaceBombTime = false
   canProceedToNextLevel = false
+  timerStarted = false // 重設計時器開始標誌
 
   // 更新關卡顯示
   updateLevelDisplay()
@@ -156,7 +160,8 @@ function initGame() {
   // 重設計時器
   clearInterval(timerInterval)
   timerElement.textContent = "00:00"
-  startTimer()
+  // 不在這裡啟動計時器，而是在第一次移動時啟動
+  // startTimer()
 
   // 生成迷宮
   generateMaze()
@@ -191,6 +196,9 @@ function updateLevelDisplay() {
 
 // 開始計時器
 function startTimer() {
+  if (timerStarted) return // 如果已經開始計時，則不重複啟動
+  
+  timerStarted = true // 標記已開始計時
   timerInterval = setInterval(() => {
     if (gameRunning) {
       gameTime++
@@ -945,6 +953,11 @@ function playEffect(effectType) {
 // 移動玩家
 function movePlayer(direction) {
   if (!gameRunning) return
+
+  // 如果計時器還沒開始，則開始計時
+  if (!timerStarted) {
+    startTimer()
+  }
 
   // 移除移動延遲，使主角移動更快
   let newRow = player.row
