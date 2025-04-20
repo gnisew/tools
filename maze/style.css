@@ -569,15 +569,15 @@ body {
 }
 
 .control-btn {
-  width: 60px;
-  height: 60px;
+  width: 70px;
+  height: 70px;
   background-color: rgba(255, 255, 255, 0.2);
   color: white;
   border-radius: 50%;
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 30px;
+  font-size: 36px;
   margin: 5px;
   user-select: none;
   -webkit-user-select: none;
@@ -731,6 +731,7 @@ body {
     margin: 0;
     padding: 0;
     height: 100vh;
+    justify-content: space-between; /* 讓元素分布在容器的兩端 */
   }
 
   #game-board {
@@ -750,7 +751,7 @@ body {
     max-width: 100%;
     margin: 0;
     border-radius: 0;
-    padding: 10px 0 20px;
+    padding: 20px 0 30px; /* 增加上下間距 */
     background-color: #333;
     z-index: 50;
   }
@@ -765,9 +766,13 @@ body {
   }
 
   .control-btn {
-    width: 50px;
-    height: 50px;
-    font-size: 24px;
+    width: 65px; /* 增大按鈕尺寸 */
+    height: 65px; /* 增大按鈕尺寸 */
+    font-size: 30px; /* 增大箭頭字體 */
+  }
+
+  #control-row {
+    gap: 50px; /* 增加左右按鈕之間的間距 */
   }
 
   .character-grid {
