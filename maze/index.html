@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>迷宮語文學習遊戲</title>
+    <title>迷宮問答遊戲</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -83,23 +83,29 @@
                     <span class="radio-label">嘗試</span>
                     <span class="radio-desc">一隻鬼，隨機移動</span>
                 </label>
+                <label class="radio-item">
+                    <input type="radio" name="difficulty" value="challenge">
+                    <span class="radio-label">挑戰</span>
+                    <span class="radio-desc">兩隻鬼，隨機移動</span>
+                </label>
             </div>
         </div>
         
+        <!-- 添加選項數量設定 -->
         <div class="menu-section">
-            <h3>選項數量</h3>
+            <h3>星星數量</h3>
             <div class="radio-group" id="options-selection">
                 <label class="radio-item">
-                    <input type="radio" name="options" value="2" checked>
-                    <span class="radio-label">2 個選項</span>
+                    <input type="radio" name="options" value="2">
+                    <span class="radio-label">2 個星星</span>
                 </label>
                 <label class="radio-item">
                     <input type="radio" name="options" value="3">
-                    <span class="radio-label">3 個選項</span>
+                    <span class="radio-label">3 個星星</span>
                 </label>
                 <label class="radio-item">
-                    <input type="radio" name="options" value="4">
-                    <span class="radio-label">4 個選項</span>
+                    <input type="radio" name="options" value="4" checked>
+                    <span class="radio-label">4 個星星</span>
                 </label>
             </div>
         </div>
@@ -112,7 +118,6 @@
         <div id="game-board">
             <div id="maze"></div>
             <div id="player" class="player">😺</div>
-            <div id="question">找出「蘋果」的英文</div>
             <div id="lives">
                 <div class="life">❤</div>
                 <div class="life">❤</div>
@@ -130,25 +135,40 @@
                 <span id="timer-icon">⏱</span>
                 <span id="timer-value">00:00</span>
                 <span id="level-display">第 1 關</span>
+                <span id="stars-display">⭐ 0</span>
             </div>
-            <div id="level-complete">
-                <h2>恭喜過關！</h2>
-                <div id="level-stats">
-                    完成時間：<span id="complete-time">00:00</span><br>
-                    剩餘生命：<span id="remaining-lives">3</span>
+            
+            <!-- 問答選單 -->
+            <div id="quiz-modal">
+                <div id="quiz-container">
+                    <div id="quiz-timer">
+                        <div id="quiz-timer-bar"></div>
+                    </div>
+                    <div id="quiz-question">「蘋果」的英文是什麼？</div>
+                    <div id="quiz-options">
+                        <!-- 選項將由JavaScript動態生成 -->
+                    </div>
+                    <div id="quiz-result"></div>
                 </div>
-                <div class="key-hint">按任意鍵繼續</div>
-                <button id="next-level-btn">下一關</button>
             </div>
-            <div id="game-over">
-                <h2>遊戲結束</h2>
-                <div id="game-over-stats">
-                    遊戲時間：<span id="game-over-time">00:00</span><br>
-                    達到關卡：<span id="reached-level">1</span>
-                </div>
-                <div class="key-hint">按任意鍵重新開始</div>
-                <button id="restart-btn">重新開始</button>
-            </div>
+            
+			<div class="level-complete" id="level-complete">
+			  <h2>恭喜過關！</h2>
+			  <p>剩餘時間：<span id="complete-time">00:00</span></p>
+			  <p>剩餘生命：<span id="remaining-lives">3</span></p>
+			  <p>收集星星：<span id="collected-stars">0</span></p>
+			  <button id="next-level-btn">下一關</button>
+			  <p class="key-hint">或按任意鍵繼續</p>
+			</div>
+
+			<div class="game-over" id="game-over">
+			  <h2>遊戲結束</h2>
+			  <p>剩餘時間：<span id="game-over-time">00:00</span></p>
+			  <p>達到關卡：<span id="reached-level">1</span></p>
+			  <p>收集星星：<span id="final-stars">0</span></p>
+			  <button id="restart-btn">重新開始</button>
+			  <p class="key-hint">或按任意鍵重新開始</p>
+			</div>
         </div>
         <!-- 行動裝置控制按鈕移到遊戲板外面 -->
         <div id="mobile-controls">

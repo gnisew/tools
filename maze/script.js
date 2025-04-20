@@ -1,46 +1,67 @@
-// 遊戲設定
-const GRID_SIZE = 11 // 減少網格大小，使每格更大
-let CELL_SIZE = 500 / GRID_SIZE // 每個格子的大小
-
-// 角色設定
-let playerChar = "😺"
-let ghostChar = "👻"
-let difficulty = "default" // default, try
-let optionsCount = 2 // 2, 3, 4
+// 遊戲常數
+const GRID_SIZE = 11
+const CELL_SIZE = 500 / GRID_SIZE
+const QUIZ_TIME_LIMIT = 20
+const PLAYER_MOVE_INTERVAL = 300
+const GHOST_MOVE_INTERVAL = 300
+const COLLISION_COOLDOWN = 2000
+const EFFECT_DURATION = 500
+const COLLISION_CHECK_INTERVAL = 300 // 與移動間隔同步
+const COUNTDOWN_TIME = 120 // 添加倒數時間常數，每關120秒
 
 // 遊戲狀態
-let maze = []
-// 在遊戲狀態部分添加初始位置變量
-const player = { row: 0, col: 0 }
-const initialPlayerPosition = { row: 0, col: 0 } // 保存初始位置
-let ghosts = []
-let words = []
-let targetWord = null
-let lives = 3
-let level = 1
-let gameRunning = true
-const isMoving = false // 防止連續按鍵
-let gameTime = 0 // 遊戲時間（秒）
-let timerInterval = null
-let gameState = "running" // 遊戲狀態: "running", "complete", "over"
-// 在遊戲狀態部分添加一個變量來保存當前背景顏色
-let currentBackgroundColor = ""
-// 添加一個變量來防止特效重疊
-let isEffectPlaying = false
-// 添加一個變量來防止重複碰撞檢測
-let collisionCooldown = false
-// 添加一個變量來追蹤炸彈
-let activeBombs = []
+const state = {
+  maze: [],
+  player: { row: 0, col: 0 },
+  initialPlayerPosition: { row: 0, col: 0 },
+  ghosts: [],
+  stars: [],
+  lives: 3,
+  level: 1,
+  gameRunning: true,
+  isPaused: false,
+  remainingTime: COUNTDOWN_TIME, // 修改為剩餘時間
+  gameState: "running",
+  currentBackgroundColor: "",
+  isEffectPlaying: false,
+  collisionCooldown: false,
+  canProceedToNextLevel: false,
+  collectedStars: 0,
+  currentQuizOptionIndex: 0,
+  quizTimeRemaining: QUIZ_TIME_LIMIT,
+  currentDirection: null,
+  isGhostCollisionChecking: false,
+  autoMoveInterval: null,
+  isPlayerMoving: false,
+  lastCollisionTime: 0, // 新增：記錄上次碰撞時間
 
-// 在遊戲狀態部分添加一個變量來追蹤炸彈放置時間
-let bombPlacementTimer = null
-let canPlaceBombTime = false
+  settings: {
+    playerChar: "😺",
+    ghostChar: "👻",
+    difficulty: "default",
+    optionsCount: 4,
+  },
+}
 
-// 添加一個變量來控制過關後的延遲
-let canProceedToNextLevel = false
+// 計時器管理
+const timers = {}
 
-// 添加一個變量來追蹤是否已經開始計時
-let timerStarted = false
+function startTimer(name, callback, interval) {
+  stopTimer(name)
+  timers[name] = setInterval(callback, interval)
+  return timers[name]
+}
+
+function stopTimer(name) {
+  if (timers[name]) {
+    clearInterval(timers[name])
+    delete timers[name]
+  }
+}
+
+function stopAllTimers() {
+  Object.keys(timers).forEach(stopTimer)
+}
 
 // 語詞資料庫
 const wordPairs = [
@@ -54,262 +75,301 @@ const wordPairs = [
   { chinese: "學校", english: "school" },
   { chinese: "電腦", english: "computer" },
   { chinese: "朋友", english: "friend" },
+  { chinese: "水", english: "water" },
+  { chinese: "麵包", english: "bread" },
+  { chinese: "鳥", english: "bird" },
+  { chinese: "魚", english: "fish" },
+  { chinese: "花", english: "flower" },
+  { chinese: "樹", english: "tree" },
+  { chinese: "太陽", english: "sun" },
+  { chinese: "月亮", english: "moon" },
+  { chinese: "星星", english: "star" },
+  { chinese: "天空", english: "sky" },
 ]
 
 // 遊戲元素
-const gameBoard = document.getElementById("game-board")
-const mazeElement = document.getElementById("maze")
-const playerElement = document.getElementById("player")
-const questionElement = document.getElementById("question")
-const livesElement = document.getElementById("lives").getElementsByClassName("life")
-const timerElement = document.getElementById("timer-value")
-const levelDisplayElement = document.getElementById("level-display")
-const levelCompleteElement = document.getElementById("level-complete")
-const completeTimeElement = document.getElementById("complete-time")
-const remainingLivesElement = document.getElementById("remaining-lives")
-const nextLevelBtn = document.getElementById("next-level-btn")
-const gameOverElement = document.getElementById("game-over")
-const gameOverTimeElement = document.getElementById("game-over-time")
-const reachedLevelElement = document.getElementById("reached-level")
-const restartBtn = document.getElementById("restart-btn")
-
-// 行動裝置控制按鈕
-const controlUp = document.getElementById("control-up")
-const controlDown = document.getElementById("control-down")
-const controlLeft = document.getElementById("control-left")
-const controlRight = document.getElementById("control-right")
-
-// 設定遊戲板大小
-function resizeGameBoard() {
-  const boardWidth = gameBoard.clientWidth
-  CELL_SIZE = boardWidth / GRID_SIZE
-
-  // 更新玩家位置
-  if (player) {
-    updatePlayerPosition()
-  }
-
-  // 更新鬼魂位置
-  ghosts.forEach((ghost) => {
-    if (ghost.element) {
-      ghost.element.style.left = ghost.col * CELL_SIZE + (CELL_SIZE - 35) / 2 + "px"
-      ghost.element.style.top = ghost.row * CELL_SIZE + (CELL_SIZE - 35) / 2 + "px"
-    }
-  })
-
-  // 更新語詞位置
-  words.forEach((word) => {
-    if (word.element) {
-      word.element.style.left = word.col * CELL_SIZE + "px"
-      word.element.style.top = word.row * CELL_SIZE + "px"
-    }
-  })
-
-  // 更新炸彈位置
-  activeBombs.forEach((bomb) => {
-    if (bomb.element) {
-      bomb.element.style.left = bomb.col * CELL_SIZE + (CELL_SIZE - 24) / 2 + "px"
-      bomb.element.style.top = bomb.row * CELL_SIZE + (CELL_SIZE - 24) / 2 + "px"
-    }
-  })
-
-  // 重新渲染迷宮
-  if (maze.length > 0) {
-    renderMaze(true)
-  }
+const elements = {
+  gameBoard: document.getElementById("game-board"),
+  mazeElement: document.getElementById("maze"),
+  playerElement: document.getElementById("player"),
+  livesElement: document.getElementById("lives").getElementsByClassName("life"),
+  timerElement: document.getElementById("timer-value"),
+  levelDisplayElement: document.getElementById("level-display"),
+  starsDisplayElement: document.getElementById("stars-display"),
+  levelCompleteElement: document.getElementById("level-complete"),
+  completeTimeElement: document.getElementById("complete-time"),
+  remainingLivesElement: document.getElementById("remaining-lives"),
+  collectedStarsElement: document.getElementById("collected-stars"),
+  nextLevelBtn: document.getElementById("next-level-btn"),
+  gameOverElement: document.getElementById("game-over"),
+  gameOverTimeElement: document.getElementById("game-over-time"),
+  reachedLevelElement: document.getElementById("reached-level"),
+  finalStarsElement: document.getElementById("final-stars"),
+  restartBtn: document.getElementById("restart-btn"),
+  quizModal: document.getElementById("quiz-modal"),
+  quizQuestion: document.getElementById("quiz-question"),
+  quizOptions: document.getElementById("quiz-options"),
+  quizResult: document.getElementById("quiz-result"),
+  controlUp: document.getElementById("control-up"),
+  controlDown: document.getElementById("control-down"),
+  controlLeft: document.getElementById("control-left"),
+  controlRight: document.getElementById("control-right"),
 }
 
-// 初始化遊戲
-function initGame() {
-  // 重設遊戲狀態
-  maze = []
-  ghosts = []
-  words = []
-  activeBombs = []
-  lives = 3
-  gameRunning = true
-  gameTime = 0
-  gameState = "running"
-  isEffectPlaying = false
-  collisionCooldown = false
-  canPlaceBombTime = false
-  canProceedToNextLevel = false
-  timerStarted = false // 重設計時器開始標誌
-
-  // 更新關卡顯示
-  updateLevelDisplay()
-
-  // 清除之前的炸彈放置計時器
-  if (bombPlacementTimer) {
-    clearTimeout(bombPlacementTimer)
-  }
-
-  // 設置炸彈放置時間窗口
-  bombPlacementTimer = setTimeout(() => {
-    canPlaceBombTime = true
-
-    // 30秒後關閉炸彈放置時間窗口
-    setTimeout(() => {
-      canPlaceBombTime = false
-    }, 25000) // 30秒 - 5秒 = 25秒
-  }, 5000) // 5秒後開始允許放置炸彈
-
-  // 更新生命顯示
-  updateLives()
-
-  // 重設計時器
-  clearInterval(timerInterval)
-  timerElement.textContent = "00:00"
-  // 不在這裡啟動計時器，而是在第一次移動時啟動
-  // startTimer()
-
-  // 生成迷宮
-  generateMaze()
-
-  // 放置玩家
-  placePlayer()
-
-  // 生成鬼魂
-  generateGhosts()
-
-  // 生成語詞
-  generateWords()
-
-  // 設定問題
-  setQuestion()
-
-  // 隱藏遊戲結束和過關畫面
-  levelCompleteElement.style.display = "none"
-  gameOverElement.style.display = "none"
-
-  // 更新玩家角色顯示
-  playerElement.innerHTML = playerChar
-
-  // 調整遊戲板大小
-  resizeGameBoard()
-}
-
-// 更新關卡顯示
+// UI 更新函數
 function updateLevelDisplay() {
-  levelDisplayElement.textContent = `第 ${level} 關`
+  elements.levelDisplayElement.textContent = `第 ${state.level} 關`
 }
 
-// 開始計時器
-function startTimer() {
-  if (timerStarted) return // 如果已經開始計時，則不重複啟動
-  
-  timerStarted = true // 標記已開始計時
-  timerInterval = setInterval(() => {
-    if (gameRunning) {
-      gameTime++
-      updateTimerDisplay()
-    }
+function updateStarsDisplay() {
+  elements.starsDisplayElement.textContent = `⭐ ${state.collectedStars}`
+}
+
+function updateTimerDisplay() {
+  const minutes = Math.floor(state.remainingTime / 60)
+  const seconds = state.remainingTime % 60
+  elements.timerElement.textContent = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+}
+
+function updateLives() {
+  for (let i = 0; i < elements.livesElement.length; i++) {
+    elements.livesElement[i].style.display = i < state.lives ? "inline-block" : "none"
+  }
+}
+
+function updatePlayerPosition() {
+  const cellSize = elements.gameBoard.clientWidth / GRID_SIZE
+  elements.playerElement.style.transition = "left 0.28s linear, top 0.28s linear"
+  elements.playerElement.style.left = state.player.col * cellSize + (cellSize - 35) / 2 + "px"
+  elements.playerElement.style.top = state.player.row * cellSize + (cellSize - 35) / 2 + "px"
+}
+
+// 確保 levelComplete 函數顯示正確的星星總數
+function showLevelComplete(currentLevelStars) {
+  elements.completeTimeElement.textContent = elements.timerElement.textContent
+  elements.remainingLivesElement.textContent = state.lives
+  elements.collectedStarsElement.textContent = `${currentLevelStars} (總計: ${state.collectedStars})`
+  elements.levelCompleteElement.style.display = "flex"
+}
+
+function showGameOver() {
+  elements.gameOverTimeElement.textContent = elements.timerElement.textContent
+  elements.reachedLevelElement.textContent = state.level
+  elements.finalStarsElement.textContent = state.collectedStars
+  elements.gameOverElement.style.display = "flex"
+}
+
+function hideEndScreens() {
+  elements.levelCompleteElement.style.display = "none"
+  elements.gameOverElement.style.display = "none"
+}
+
+function updateKeyHint() {
+  const keyHint = elements.levelCompleteElement.querySelector(".key-hint")
+  if (keyHint) keyHint.style.color = "#fff"
+}
+
+function playEffect(effectType) {
+  if (state.isEffectPlaying) return
+
+  state.isEffectPlaying = true
+  elements.playerElement.classList.remove("shake-effect", "rotate-effect", "flash-effect")
+  elements.playerElement.classList.add(`${effectType}-effect`)
+
+  setTimeout(() => {
+    elements.playerElement.classList.remove(`${effectType}-effect`)
+    state.isEffectPlaying = false
+  }, EFFECT_DURATION)
+}
+
+// 遊戲狀態管理
+function resetGameState(keepLevelAndStars = false) {
+  const currentLevel = keepLevelAndStars ? state.level : 1
+  const currentStars = keepLevelAndStars ? state.collectedStars : 0
+  const currentLives = keepLevelAndStars ? state.lives : 3
+
+  state.maze = []
+  state.ghosts = []
+  state.stars = []
+  state.heart = null
+  state.gameRunning = true
+  state.isPaused = false
+  state.remainingTime = COUNTDOWN_TIME // 重置倒數時間為120秒
+  state.gameState = "running"
+  state.isEffectPlaying = false
+  state.collisionCooldown = false
+  state.canProceedToNextLevel = false
+  state.isGhostCollisionChecking = false
+  state.isPlayerMoving = false
+  state.lastCollisionTime = 0 // 重置上次碰撞時間
+
+  state.level = currentLevel
+  state.collectedStars = currentStars
+  state.lives = currentLives
+
+  updateLevelDisplay()
+  updateLives()
+  updateStarsDisplay()
+  updateTimerDisplay() // 更新計時器顯示
+}
+
+function pauseGame() {
+  state.isPaused = true
+}
+
+function resumeGame() {
+  state.isPaused = false
+}
+
+function gameOver() {
+  state.gameRunning = false
+  state.gameState = "over"
+  stopAllTimers()
+  showGameOver()
+}
+
+function levelComplete() {
+  state.gameRunning = false
+  state.gameState = "complete"
+  stopAllTimers()
+
+  const currentLevelStars = state.stars.filter((s) => s.collected).length
+  showLevelComplete(currentLevelStars)
+
+  setTimeout(() => {
+    state.canProceedToNextLevel = true
+    updateKeyHint()
   }, 1000)
 }
 
-// 更新計時器顯示
-function updateTimerDisplay() {
-  const minutes = Math.floor(gameTime / 60)
-  const seconds = gameTime % 60
-  timerElement.textContent = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+function nextLevel() {
+  if (state.canProceedToNextLevel) {
+    state.level++
+    initGame(true)
+  }
 }
 
-// 生成迷宮 (使用簡化的迷宮生成算法)
-function generateMaze() {
-  // 清空迷宮元素
-  mazeElement.innerHTML = ""
-  mazeElement.style.gridTemplateColumns = `repeat(${GRID_SIZE}, 1fr)`
-  mazeElement.style.gridTemplateRows = `repeat(${GRID_SIZE}, 1fr)`
+function restart() {
+  state.level = 1
+  state.collectedStars = 0
+  state.lives = 3
+  initGame(false)
+}
 
-  // 初始化迷宮網格 (全部設為牆)
+function loseLife() {
+  state.lives--
+  updateLives()
+  if (state.lives <= 0) gameOver()
+}
+
+// 計時器函數
+function startGameTimer() {
+  startTimer(
+    "gameTimer",
+    () => {
+      if (state.gameRunning && !state.isPaused) {
+        state.remainingTime--
+        updateTimerDisplay()
+
+        // 當時間歸零時結束遊戲
+        if (state.remainingTime <= 0) {
+          gameOver()
+        }
+      }
+    },
+    1000,
+  )
+}
+
+function startQuizTimer(star) {
+  const timerBar = document.getElementById("quiz-timer-bar")
+  state.quizTimeRemaining = QUIZ_TIME_LIMIT
+  timerBar.style.width = "100%"
+  timerBar.classList.remove("warning", "danger")
+
+  startTimer(
+    "quizTimer",
+    () => {
+      state.quizTimeRemaining -= 0.1
+      const percentRemaining = (state.quizTimeRemaining / QUIZ_TIME_LIMIT) * 100
+      timerBar.style.width = `${percentRemaining}%`
+
+      if (percentRemaining <= 30 && percentRemaining > 15) {
+        timerBar.classList.add("warning")
+        timerBar.classList.remove("danger")
+      } else if (percentRemaining <= 15) {
+        timerBar.classList.remove("warning")
+        timerBar.classList.add("danger")
+      }
+
+      if (state.quizTimeRemaining <= 0) {
+        stopTimer("quizTimer")
+        const correctAnswer = star.english
+        const options = document.querySelectorAll(".quiz-option")
+        let incorrectOption = null
+
+        for (const option of options) {
+          if (option.dataset.value !== correctAnswer) {
+            incorrectOption = option.dataset.value
+            break
+          }
+        }
+
+        handleOptionSelection(incorrectOption, correctAnswer, star)
+      }
+    },
+    100,
+  )
+}
+
+// 迷宮生成與渲染
+function generateMaze() {
+  elements.mazeElement.innerHTML = ""
+  elements.mazeElement.style.gridTemplateColumns = `repeat(${GRID_SIZE}, 1fr)`
+  elements.mazeElement.style.gridTemplateRows = `repeat(${GRID_SIZE}, 1fr)`
+
   for (let row = 0; row < GRID_SIZE; row++) {
-    maze[row] = []
+    state.maze[row] = []
     for (let col = 0; col < GRID_SIZE; col++) {
-      maze[row][col] = 1 // 1 表示牆
+      state.maze[row][col] = 1
     }
   }
 
-  // 使用改進的迷宮生成算法
   generateSimpleMaze()
 
-  // 確保迷宮邊緣是牆
   for (let i = 0; i < GRID_SIZE; i++) {
-    maze[0][i] = 1
-    maze[GRID_SIZE - 1][i] = 1
-    maze[i][0] = 1
-    maze[i][GRID_SIZE - 1] = 1
+    state.maze[0][i] = 1
+    state.maze[GRID_SIZE - 1][i] = 1
+    state.maze[i][0] = 1
+    state.maze[i][GRID_SIZE - 1] = 1
   }
 
-  // 渲染迷宮
   renderMaze()
 }
 
-// 渲染迷宮
-function renderMaze(keepColor = false) {
-  // 清空迷宮元素
-  mazeElement.innerHTML = ""
-
-  // 渲染迷宮
-  for (let row = 0; row < GRID_SIZE; row++) {
-    for (let col = 0; col < GRID_SIZE; col++) {
-      const cell = document.createElement("div")
-      cell.className = maze[row][col] === 1 ? "cell wall" : "cell path"
-      cell.style.gridRow = row + 1
-      cell.style.gridColumn = col + 1
-      cell.dataset.row = row
-      cell.dataset.col = col
-      mazeElement.appendChild(cell)
-    }
-  }
-
-  // 設定迷宮背景顏色 (保持原色或隨機)
-  if (!keepColor) {
-    const colors = ["#8A2BE2", "#4169E1", "#00BFFF", "#32CD32", "#FF6347"]
-    currentBackgroundColor = colors[Math.floor(Math.random() * colors.length)]
-  }
-
-  gameBoard.style.backgroundColor = currentBackgroundColor
-
-  // 為路徑單元格添加淺色背景
-  const pathCells = document.querySelectorAll(".path")
-  pathCells.forEach((cell) => {
-    cell.style.backgroundColor = currentBackgroundColor
-  })
-}
-
-// 生成簡化的迷宮
 function generateSimpleMaze() {
-  // 從中心開始
   const startRow = Math.floor(GRID_SIZE / 2)
   const startCol = Math.floor(GRID_SIZE / 2)
-  maze[startRow][startCol] = 0 // 0 表示路
+  state.maze[startRow][startCol] = 0
 
-  // 使用改進的迷宮生成算法
   const stack = [{ row: startRow, col: startCol }]
   const visited = new Set()
   visited.add(`${startRow},${startCol}`)
 
   while (stack.length > 0) {
     const current = stack[stack.length - 1]
-
-    // 四個方向: 上、右、下、左
     const directions = [
       [-2, 0],
       [0, 2],
       [2, 0],
       [0, -2],
-    ]
-
-    // 隨機排序方向
-    directions.sort(() => Math.random() - 0.5)
-
+    ].sort(() => Math.random() - 0.5)
     let foundNext = false
 
     for (const [dr, dc] of directions) {
       const newRow = current.row + dr
       const newCol = current.col + dc
 
-      // 檢查是否在邊界內且未訪問過
       if (
         newRow > 0 &&
         newRow < GRID_SIZE - 1 &&
@@ -317,653 +377,123 @@ function generateSimpleMaze() {
         newCol < GRID_SIZE - 1 &&
         !visited.has(`${newRow},${newCol}`)
       ) {
-        // 打通牆壁
-        maze[current.row + dr / 2][current.col + dc / 2] = 0
-        maze[newRow][newCol] = 0
-
-        // 標記為已訪問
+        state.maze[current.row + dr / 2][current.col + dc / 2] = 0
+        state.maze[newRow][newCol] = 0
         visited.add(`${newRow},${newCol}`)
-
-        // 添加到堆疊
         stack.push({ row: newRow, col: newCol })
         foundNext = true
         break
       }
     }
 
-    if (!foundNext) {
-      stack.pop()
-    }
+    if (!foundNext) stack.pop()
   }
 
-  // 添加一些隨機的開口，使迷宮更簡單
-  const openings = 3 + Math.floor(level / 2)
+  const openings = 3 + Math.floor(state.level / 2)
   for (let i = 0; i < openings; i++) {
     const row = 1 + Math.floor(Math.random() * (GRID_SIZE - 2))
     const col = 1 + Math.floor(Math.random() * (GRID_SIZE - 2))
-
-    if (maze[row][col] === 1) {
-      maze[row][col] = 0
-    }
+    if (state.maze[row][col] === 1) state.maze[row][col] = 0
   }
 }
 
-// 放置玩家
+function renderMaze(keepColor = false) {
+  const fragment = document.createDocumentFragment()
+
+  for (let row = 0; row < GRID_SIZE; row++) {
+    for (let col = 0; col < GRID_SIZE; col++) {
+      const cell = document.createElement("div")
+      cell.className = state.maze[row][col] === 1 ? "cell wall" : "cell path"
+      cell.style.gridRow = row + 1
+      cell.style.gridColumn = col + 1
+      cell.dataset.row = row
+      cell.dataset.col = col
+      fragment.appendChild(cell)
+    }
+  }
+
+  elements.mazeElement.innerHTML = ""
+  elements.mazeElement.appendChild(fragment)
+
+  if (!keepColor) {
+    const colors = ["#8A2BE2", "#4169E1", "#00BFFF", "#32CD32", "#FF6347"]
+    state.currentBackgroundColor = colors[Math.floor(Math.random() * colors.length)]
+  }
+
+  elements.gameBoard.style.backgroundColor = state.currentBackgroundColor
+  document.querySelectorAll(".path").forEach((cell) => {
+    cell.style.backgroundColor = state.currentBackgroundColor
+  })
+}
+
+// 玩家相關函數
 function placePlayer() {
-  // 尋找空位
   let placed = false
   while (!placed) {
     const row = Math.floor(Math.random() * (GRID_SIZE - 2)) + 1
     const col = Math.floor(Math.random() * (GRID_SIZE - 2)) + 1
 
-    if (maze[row][col] === 0) {
-      player.row = row
-      player.col = col
-      // 保存初始位置
-      initialPlayerPosition.row = row
-      initialPlayerPosition.col = col
+    if (state.maze[row][col] === 0) {
+      state.player.row = row
+      state.player.col = col
+      state.initialPlayerPosition.row = row
+      state.initialPlayerPosition.col = col
       updatePlayerPosition()
       placed = true
     }
   }
 }
 
-// 更新玩家位置
-function updatePlayerPosition() {
-  playerElement.style.left = player.col * CELL_SIZE + (CELL_SIZE - 35) / 2 + "px"
-  playerElement.style.top = player.row * CELL_SIZE + (CELL_SIZE - 35) / 2 + "px"
-}
-
-// 生成鬼魂
-function generateGhosts() {
-  // 移除現有鬼魂
-  const existingGhosts = document.querySelectorAll(".ghost")
-  existingGhosts.forEach((ghost) => ghost.remove())
-
-  // 移除現有炸彈
-  const existingBombs = document.querySelectorAll(".bomb")
-  existingBombs.forEach((bomb) => bomb.remove())
-
-  ghosts = []
-  activeBombs = []
-
-  // 根據難度決定鬼魂數量
-  let ghostCount = 0 // 預設沒有鬼
-
-  if (difficulty === "try") {
-    ghostCount = 1 // 嘗試模式有一隻鬼
-  }
-
-  // 如果沒有鬼魂，直接返回
-  if (ghostCount === 0) {
-    return
-  }
-
-  // 生成新鬼魂
-  for (let i = 0; i < ghostCount; i++) {
-    let placed = false
-    let ghostRow, ghostCol
-
-    // 確保鬼魂不會太靠近玩家
-    while (!placed) {
-      ghostRow = Math.floor(Math.random() * (GRID_SIZE - 2)) + 1
-      ghostCol = Math.floor(Math.random() * (GRID_SIZE - 2)) + 1
-
-      const distance = Math.sqrt(Math.pow(ghostRow - player.row, 2) + Math.pow(ghostCol - player.col, 2))
-
-      if (maze[ghostRow][ghostCol] === 0 && distance > 4) {
-        placed = true
-      }
-    }
-
-    // 創建鬼魂元素
-    const ghost = document.createElement("div")
-    ghost.className = "ghost"
-    ghost.innerHTML = ghostChar
-    ghost.style.left = ghostCol * CELL_SIZE + (CELL_SIZE - 35) / 2 + "px"
-    ghost.style.top = ghostRow * CELL_SIZE + (CELL_SIZE - 35) / 2 + "px"
-    gameBoard.appendChild(ghost)
-
-    // 添加到鬼魂陣列
-    ghosts.push({
-      element: ghost,
-      row: ghostRow,
-      col: ghostCol,
-      direction: Math.floor(Math.random() * 4), // 0: 上, 1: 右, 2: 下, 3: 左
-      moveTimer: null,
-      canPlaceBomb: true, // 每關可以放一次炸彈
-      bombPlaced: false, // 是否已經放置炸彈
-      bombTimer: null,
-    })
-
-    // 設定鬼魂移動
-    startGhostMovement(ghosts[ghosts.length - 1])
-  }
-}
-
-// 開始鬼魂移動
-function startGhostMovement(ghost) {
-  ghost.moveTimer = setInterval(() => {
-    if (!gameRunning) return
-
-    // 先移動鬼魂
-    moveGhost(ghost)
-
-    // 然後檢查碰撞 - 使用嚴格的網格位置比較
-    if (ghost.row === player.row && ghost.col === player.col && !collisionCooldown) {
-      // 碰到鬼魂扣除生命值並回到初始位置
-      handleGhostCollision()
-    }
-  }, 400) // 每400毫秒移動一次
-}
-
-// 添加鬼魂碰撞處理函數
-function handleGhostCollision() {
-  // 如果已經在播放特效或冷卻中，則不重複播放
-  if (isEffectPlaying || collisionCooldown) return
-
-  // 設置碰撞冷卻，防止短時間內多次碰撞
-  collisionCooldown = true
-
-  // 播放震動特效
-  playEffect("shake")
-
-  // 扣除一點生命值
-  loseLife()
-
-  // 如果還有生命，將玩家送回初始位置
-  if (lives > 0) {
-    player.row = initialPlayerPosition.row
-    player.col = initialPlayerPosition.col
-    updatePlayerPosition()
-  }
-
-  // 1秒後解除碰撞冷卻
-  setTimeout(() => {
-    collisionCooldown = false
-  }, 1000)
-}
-
-// 移動鬼魂
-function moveGhost(ghost) {
-  // 方向: 0: 上, 1: 右, 2: 下, 3: 左
-  const directions = [
-    [-1, 0],
-    [0, 1],
-    [1, 0],
-    [0, -1],
-  ]
-
-  // 檢查是否可以放炸彈
-  if (ghost.canPlaceBomb && !ghost.bombPlaced && canPlaceBombTime) {
-    // 隨機決定是否放炸彈 (5%機率)
-    if (Math.random() < 0.05) {
-      placeBomb(ghost)
-      return // 放炸彈後不移動
-    }
-  }
-
-  // 嘗試繼續當前方向
-  const newRow = ghost.row + directions[ghost.direction][0]
-  const newCol = ghost.col + directions[ghost.direction][1]
-
-  // 檢查是否可以繼續當前方向
-  if (newRow > 0 && newRow < GRID_SIZE - 1 && newCol > 0 && newCol < GRID_SIZE - 1 && maze[newRow][newCol] === 0) {
-    // 繼續當前方向
-    ghost.row = newRow
-    ghost.col = newCol
-  } else {
-    // 碰到牆，需要改變方向
-
-    // 獲取可行方向
-    const validDirections = []
-    for (let i = 0; i < 4; i++) {
-      const [dr, dc] = directions[i]
-      const checkRow = ghost.row + dr
-      const checkCol = ghost.col + dc
-
-      if (
-        checkRow > 0 &&
-        checkRow < GRID_SIZE - 1 &&
-        checkCol > 0 &&
-        checkCol < GRID_SIZE - 1 &&
-        maze[checkRow][checkCol] === 0
-      ) {
-        validDirections.push(i)
-      }
-    }
-
-    if (validDirections.length > 0) {
-      // 95%的機率不會選擇相反方向（除非沒有其他選擇）
-      const oppositeDirection = (ghost.direction + 2) % 4
-      const nonOppositeDirections = validDirections.filter((dir) => dir !== oppositeDirection)
-
-      if (nonOppositeDirections.length > 0 && Math.random() < 0.95) {
-        ghost.direction = nonOppositeDirections[Math.floor(Math.random() * nonOppositeDirections.length)]
-      } else {
-        ghost.direction = validDirections[Math.floor(Math.random() * validDirections.length)]
-      }
-
-      // 移動到新方向
-      const [dr, dc] = directions[ghost.direction]
-      ghost.row += dr
-      ghost.col += dc
-    }
-  }
-
-  // 偶爾隨機改變方向 (2%機率)
-  if (Math.random() < 0.02) {
-    const validDirections = []
-    for (let i = 0; i < 4; i++) {
-      const [dr, dc] = directions[i]
-      const checkRow = ghost.row + dr
-      const checkCol = ghost.col + dc
-
-      if (
-        checkRow > 0 &&
-        checkRow < GRID_SIZE - 1 &&
-        checkCol > 0 &&
-        checkCol < GRID_SIZE - 1 &&
-        maze[checkRow][checkCol] === 0
-      ) {
-        validDirections.push(i)
-      }
-    }
-
-    if (validDirections.length > 0) {
-      ghost.direction = validDirections[Math.floor(Math.random() * validDirections.length)]
-    }
-  }
-
-  // 更新鬼魂位置
-  ghost.element.style.left = ghost.col * CELL_SIZE + (CELL_SIZE - 35) / 2 + "px"
-  ghost.element.style.top = ghost.row * CELL_SIZE + (CELL_SIZE - 35) / 2 + "px"
-}
-
-// 放置炸彈
-function placeBomb(ghost) {
-  // 標記鬼魂已放置炸彈
-  ghost.bombPlaced = true
-  ghost.canPlaceBomb = false
-
-  // 尋找附近的內部牆壁
-  const directions = [
-    [-1, 0],
-    [0, 1],
-    [1, 0],
-    [0, -1],
-  ]
-
-  // 過濾出可以炸的內部牆壁
-  const wallDirections = []
-
-  for (const [dr, dc] of directions) {
-    const checkRow = ghost.row + dr
-    const checkCol = ghost.col + dc
-
-    // 確保不是邊界牆
-    if (
-      checkRow > 0 &&
-      checkRow < GRID_SIZE - 1 &&
-      checkCol > 0 &&
-      checkCol < GRID_SIZE - 1 &&
-      maze[checkRow][checkCol] === 1
-    ) {
-      wallDirections.push([dr, dc])
-    }
-  }
-
-  // 如果沒有可炸的內部牆，就不放炸彈
-  if (wallDirections.length === 0) {
-    ghost.bombPlaced = false
-    ghost.canPlaceBomb = true
-    return
-  }
-
-  // 隨機選擇一個方向的內部牆
-  const [dr, dc] = wallDirections[Math.floor(Math.random() * wallDirections.length)]
-  const wallRow = ghost.row + dr
-  const wallCol = ghost.col + dc
-
-  // 創建炸彈元素 - 放在鬼魂位置
-  const bomb = document.createElement("div")
-  bomb.className = "bomb"
-  bomb.innerHTML = "💣"
-  bomb.style.left = ghost.col * CELL_SIZE + (CELL_SIZE - 24) / 2 + "px"
-  bomb.style.top = ghost.row * CELL_SIZE + (CELL_SIZE - 24) / 2 + "px"
-  gameBoard.appendChild(bomb)
-
-  // 添加炸彈到活動炸彈列表
-  const bombInfo = {
-    element: bomb,
-    row: ghost.row,
-    col: ghost.col,
-    targetRow: wallRow,
-    targetCol: wallCol,
-  }
-  activeBombs.push(bombInfo)
-
-  // 檢查玩家是否在炸彈位置 - 使用嚴格的網格位置比較
-  if (player.row === ghost.row && player.col === ghost.col && !collisionCooldown) {
-    // 如果玩家在炸彈位置，播放旋轉特效
-    playEffect("rotate")
-
-    // 設置碰撞冷卻，防止短時間內多次碰撞
-    collisionCooldown = true
-
-    // 扣除一點生命值
-    loseLife()
-
-    // 如果還有生命，將玩家送回初始位置
-    if (lives > 0) {
-      player.row = initialPlayerPosition.row
-      player.col = initialPlayerPosition.col
-      updatePlayerPosition()
-    }
-
-    // 1秒後解除碰撞冷卻
-    setTimeout(() => {
-      collisionCooldown = false
-    }, 1000)
-  }
-
-  // 2秒後引爆炸彈
-  ghost.bombTimer = setTimeout(() => {
-    // 移除炸彈
-    bomb.remove()
-
-    // 從活動炸彈列表中移除
-    const bombIndex = activeBombs.findIndex((b) => b.element === bomb)
-    if (bombIndex !== -1) {
-      activeBombs.splice(bombIndex, 1)
-    }
-
-    // 創建爆炸效果
-    const explosion = document.createElement("div")
-    explosion.className = "explosion"
-    explosion.style.left = wallCol * CELL_SIZE + (CELL_SIZE - 40) / 2 + "px"
-    explosion.style.top = wallRow * CELL_SIZE + (CELL_SIZE - 40) / 2 + "px"
-    gameBoard.appendChild(explosion)
-
-    // 炸開牆壁
-    maze[wallRow][wallCol] = 0
-
-    // 更新迷宮顯示，保持背景顏色不變
-    renderMaze(true)
-
-    // 移除檢查玩家是否在炸彈爆炸範圍內的邏輯，只有直接碰到炸彈才會受傷
-
-    // 0.5秒後移除爆炸效果
-    setTimeout(() => {
-      explosion.remove()
-    }, 500)
-  }, 2000)
-}
-
-// 生成語詞
-function generateWords() {
-  // 移除現有語詞
-  const existingWords = document.querySelectorAll(".word")
-  existingWords.forEach((word) => word.remove())
-
-  words = []
-
-  // 隨機選擇目標語詞
-  const targetIndex = Math.floor(Math.random() * wordPairs.length)
-  const targetPair = wordPairs[targetIndex]
-
-  // 放置目標語詞
-  let placed = false
-  let wordRow, wordCol
-
-  while (!placed) {
-    wordRow = Math.floor(Math.random() * (GRID_SIZE - 2)) + 1
-    wordCol = Math.floor(Math.random() * (GRID_SIZE - 2)) + 1
-
-    if (maze[wordRow][wordCol] === 0 && (wordRow !== player.row || wordCol !== player.col)) {
-      placed = true
-    }
-  }
-
-  // 創建目標語詞元素
-  const targetWordElement = document.createElement("div")
-  targetWordElement.className = "word"
-  targetWordElement.style.left = wordCol * CELL_SIZE + "px"
-  targetWordElement.style.top = wordRow * CELL_SIZE + "px"
-
-  const targetIconElement = document.createElement("div")
-  targetIconElement.className = "word-icon"
-
-  const targetTextElement = document.createElement("div")
-  targetTextElement.className = "word-text"
-  targetTextElement.textContent = targetPair.english
-
-  targetWordElement.appendChild(targetIconElement)
-  targetWordElement.appendChild(targetTextElement)
-  gameBoard.appendChild(targetWordElement)
-
-  // 添加到語詞陣列
-  targetWord = {
-    element: targetWordElement,
-    row: wordRow,
-    col: wordCol,
-    text: targetPair.english,
-    isTarget: true,
-  }
-
-  words.push(targetWord)
-
-  // 生成錯誤語詞
-  const wrongCount = optionsCount - 1 // 根據選項數量設定錯誤選項數量
-  const usedIndices = [targetIndex]
-
-  for (let i = 0; i < wrongCount; i++) {
-    let wrongIndex
-    do {
-      wrongIndex = Math.floor(Math.random() * wordPairs.length)
-    } while (usedIndices.includes(wrongIndex))
-
-    usedIndices.push(wrongIndex)
-    const wrongPair = wordPairs[wrongIndex]
-
-    // 放置錯誤語詞
-    placed = false
-
-    while (!placed) {
-      wordRow = Math.floor(Math.random() * (GRID_SIZE - 2)) + 1
-      wordCol = Math.floor(Math.random() * (GRID_SIZE - 2)) + 1
-
-      if (maze[wordRow][wordCol] === 0 && (wordRow !== player.row || wordCol !== player.col)) {
-        // 確保與其他語詞不重疊
-        let tooClose = false
-        for (const word of words) {
-          if (Math.abs(wordRow - word.row) <= 1 && Math.abs(wordCol - word.col) <= 1) {
-            tooClose = true
-            break
-          }
-        }
-
-        if (!tooClose) {
-          placed = true
-        }
-      }
-    }
-
-    // 創建錯誤語詞元素
-    const wrongWordElement = document.createElement("div")
-    wrongWordElement.className = "word"
-    wrongWordElement.style.left = wordCol * CELL_SIZE + "px"
-    wrongWordElement.style.top = wordRow * CELL_SIZE + "px"
-
-    const wrongIconElement = document.createElement("div")
-    wrongIconElement.className = "word-icon"
-
-    const wrongTextElement = document.createElement("div")
-    wrongTextElement.className = "word-text"
-    wrongTextElement.textContent = wrongPair.english
-
-    wrongWordElement.appendChild(wrongIconElement)
-    wrongWordElement.appendChild(wrongTextElement)
-    gameBoard.appendChild(wrongWordElement)
-
-    // 添加到語詞陣列
-    words.push({
-      element: wrongWordElement,
-      row: wordRow,
-      col: wordCol,
-      text: wrongPair.english,
-      isTarget: false,
-    })
-  }
-
-  // 調整語詞位置以確保完全可見
-  words.forEach((word) => {
-    const rect = word.element.getBoundingClientRect()
-    const width = rect.width
-    const height = rect.height
-
-    // 確保語詞不會超出邊界
-    if (word.col * CELL_SIZE + width > gameBoard.clientWidth) {
-      word.element.style.left = word.col * CELL_SIZE - (width - CELL_SIZE) + "px"
-    }
-
-    if (word.row * CELL_SIZE + height > gameBoard.clientHeight) {
-      word.element.style.top = word.row * CELL_SIZE - (height - CELL_SIZE) + "px"
-    }
-  })
-}
-
-// 設定問題
-function setQuestion() {
-  const targetPair = wordPairs.find((pair) => pair.english === targetWord.text)
-  questionElement.textContent = `找出「${targetPair.chinese}」的英文`
-}
-
-// 更新生命顯示
-function updateLives() {
-  for (let i = 0; i < livesElement.length; i++) {
-    livesElement[i].style.visibility = i < lives ? "visible" : "hidden"
-  }
-}
-
-// 檢查語詞碰撞
-function checkWordCollision() {
-  for (let i = 0; i < words.length; i++) {
-    const word = words[i]
-
-    // 使用嚴格的網格位置比較
-    if (player.row === word.row && player.col === word.col) {
-      if (word.isTarget) {
-        // 找到目標語詞，過關
-        levelComplete()
-      } else if (!collisionCooldown) {
-        // 如果已經在播放特效或冷卻中，則不重複播放
-        if (isEffectPlaying) return true
-
-        // 設置碰撞冷卻，防止短時間內多次碰撞
-        collisionCooldown = true
-
-        // 碰到錯誤語詞，播放閃爍特效
-        playEffect("flash")
-
-        // 碰到錯誤語詞，扣生命
-        loseLife()
-
-        // 移除該語詞
-        word.element.remove()
-        words.splice(i, 1)
-        i--
-
-        // 1秒後解除碰撞冷卻
-        setTimeout(() => {
-          collisionCooldown = false
-        }, 1000)
-      }
-      return true
-    }
-  }
-  return false
-}
-
-// 檢查鬼魂碰撞
-function checkGhostCollision() {
-  for (const ghost of ghosts) {
-    // 使用嚴格的網格位置比較
-    if (player.row === ghost.row && player.col === ghost.col && !collisionCooldown) {
-      // 碰到鬼魂扣除生命值並回到初始位置
-      handleGhostCollision()
-      return true
-    }
-  }
-
-  // 檢查炸彈碰撞
-  for (const bomb of activeBombs) {
-    // 使用嚴格的網格位置比較
-    if (player.row === bomb.row && player.col === bomb.col && !collisionCooldown) {
-      // 如果已經在播放特效或冷卻中，則不重複播放
-      if (isEffectPlaying) return true
-
-      // 設置碰撞冷卻，防止短時間內多次碰撞
-      collisionCooldown = true
-
-      // 碰到炸彈，播放旋轉特效
-      playEffect("rotate")
-
-      // 碰到炸彈，扣生命
-      loseLife()
-
-      // 如果還有生命，將玩家送回初始位置
-      if (lives > 0) {
-        player.row = initialPlayerPosition.row
-        player.col = initialPlayerPosition.col
-        updatePlayerPosition()
-      }
-
-      // 1秒後解除碰撞冷卻
-      setTimeout(() => {
-        collisionCooldown = false
-      }, 1000)
-
-      return true
-    }
-  }
-
-  return false
-}
-
-// 播放特效
-function playEffect(effectType) {
-  if (isEffectPlaying) return
-
-  isEffectPlaying = true
-
-  // 移除所有特效類
-  playerElement.classList.remove("shake-effect", "rotate-effect", "flash-effect")
-
-  // 添加指定特效類
-  playerElement.classList.add(`${effectType}-effect`)
-
-  // 特效結束後移除類
-  setTimeout(() => {
-    playerElement.classList.remove(`${effectType}-effect`)
-    isEffectPlaying = false
-  }, 500)
-}
-
-// 移動玩家
 function movePlayer(direction) {
-  if (!gameRunning) return
+  if (!state.gameRunning || state.isPaused) return
 
-  // 如果計時器還沒開始，則開始計時
-  if (!timerStarted) {
-    startTimer()
+  if (state.currentDirection === direction && state.autoMoveInterval) return
+
+  if (
+    (state.currentDirection === "up" && direction === "down") ||
+    (state.currentDirection === "down" && direction === "up") ||
+    (state.currentDirection === "left" && direction === "right") ||
+    (state.currentDirection === "right" && direction === "left")
+  ) {
+    if (state.autoMoveInterval) {
+      clearInterval(state.autoMoveInterval)
+      state.autoMoveInterval = null
+    }
   }
 
-  // 移除移動延遲，使主角移動更快
-  let newRow = player.row
-  let newCol = player.col
+  state.currentDirection = direction
+  startAutoMove()
+}
 
-  switch (direction) {
+function startAutoMove() {
+  if (!timers.gameTimer || state.remainingTime === COUNTDOWN_TIME) {
+    startGameTimer()
+  }
+
+  const canMove = performMove()
+
+  if (!canMove && state.autoMoveInterval) {
+    return
+  }
+
+  if (state.autoMoveInterval) {
+    clearInterval(state.autoMoveInterval)
+  }
+
+  state.autoMoveInterval = setInterval(() => {
+    if (!state.isPlayerMoving) {
+      performMove()
+    }
+  }, PLAYER_MOVE_INTERVAL)
+}
+
+function performMove() {
+  if (!state.gameRunning || !state.currentDirection || state.isPaused || state.isPlayerMoving) return false
+
+  let newRow = state.player.row
+  let newCol = state.player.col
+
+  switch (state.currentDirection) {
     case "up":
       newRow--
       break
@@ -978,308 +508,1018 @@ function movePlayer(direction) {
       break
   }
 
-  // 檢查是否可以移動
-  if (newRow >= 0 && newRow < GRID_SIZE && newCol >= 0 && newCol < GRID_SIZE && maze[newRow][newCol] === 0) {
-    player.row = newRow
-    player.col = newCol
+  if (newRow >= 0 && newRow < GRID_SIZE && newCol >= 0 && newCol < GRID_SIZE && state.maze[newRow][newCol] === 0) {
+    state.isPlayerMoving = true
+
+    state.player.row = newRow
+    state.player.col = newCol
     updatePlayerPosition()
 
-    // 檢查碰撞
-    checkWordCollision()
-    checkGhostCollision()
+    setTimeout(() => {
+      const starCollision = checkStarCollision()
+      const heartCollision = checkHeartCollision()
+
+      if (!starCollision && !heartCollision) {
+        checkGhostCollision()
+      }
+
+      state.isPlayerMoving = false
+    }, 280)
+
+    return true
+  }
+  return false
+}
+
+function resetPlayerPosition() {
+  state.player.row = state.initialPlayerPosition.row
+  state.player.col = state.initialPlayerPosition.col
+  updatePlayerPosition()
+}
+
+// 鬼魂相關函數
+function generateGhosts() {
+  document.querySelectorAll(".ghost").forEach((ghost) => ghost.remove())
+
+  state.ghosts.forEach((ghost) => {
+    if (ghost.moveTimer) clearInterval(ghost.moveTimer)
+  })
+
+  state.ghosts = []
+
+  let ghostCount = 0
+  if (state.settings.difficulty === "try") ghostCount = 1
+  else if (state.settings.difficulty === "challenge") ghostCount = 2
+
+  if (ghostCount === 0) return
+
+  const quadrants = [
+    { name: "左上", minRow: 1, maxRow: Math.floor(GRID_SIZE / 2), minCol: 1, maxCol: Math.floor(GRID_SIZE / 2) },
+    {
+      name: "右上",
+      minRow: 1,
+      maxRow: Math.floor(GRID_SIZE / 2),
+      minCol: Math.floor(GRID_SIZE / 2) + 1,
+      maxCol: GRID_SIZE - 2,
+    },
+    {
+      name: "左下",
+      minRow: Math.floor(GRID_SIZE / 2) + 1,
+      maxRow: GRID_SIZE - 2,
+      minCol: 1,
+      maxCol: Math.floor(GRID_SIZE / 2),
+    },
+    {
+      name: "右下",
+      minRow: Math.floor(GRID_SIZE / 2) + 1,
+      maxRow: GRID_SIZE - 2,
+      minCol: Math.floor(GRID_SIZE / 2) + 1,
+      maxCol: GRID_SIZE - 2,
+    },
+  ]
+
+  let playerQuadrant = "未知"
+  for (const quadrant of quadrants) {
+    if (
+      state.player.row >= quadrant.minRow &&
+      state.player.row <= quadrant.maxRow &&
+      state.player.col >= quadrant.minCol &&
+      state.player.col <= quadrant.maxCol
+    ) {
+      playerQuadrant = quadrant.name
+      break
+    }
+  }
+
+  const shuffledQuadrants = [...quadrants].sort(() => Math.random() - 0.5)
+
+  for (let i = 0; i < ghostCount; i++) {
+    let placed = false
+    let ghostRow, ghostCol, ghostQuadrant
+
+    let selectedQuadrant = null
+    for (const quadrant of shuffledQuadrants) {
+      if (quadrant.name !== playerQuadrant) {
+        selectedQuadrant = quadrant
+        break
+      }
+    }
+
+    if (!selectedQuadrant) selectedQuadrant = shuffledQuadrants[0]
+
+    while (!placed) {
+      ghostRow =
+        Math.floor(Math.random() * (selectedQuadrant.maxRow - selectedQuadrant.minRow + 1)) + selectedQuadrant.minRow
+      ghostCol =
+        Math.floor(Math.random() * (selectedQuadrant.maxCol - selectedQuadrant.minCol + 1)) + selectedQuadrant.minCol
+
+      if (state.maze[ghostRow][ghostCol] === 0) {
+        placed = true
+        ghostQuadrant = selectedQuadrant.name
+      }
+    }
+
+    const ghost = document.createElement("div")
+    ghost.className = "ghost"
+    ghost.innerHTML = state.settings.ghostChar
+    ghost.style.transition = "left 0.28s linear, top 0.28s linear"
+    const cellSize = elements.gameBoard.clientWidth / GRID_SIZE
+    ghost.style.left = ghostCol * cellSize + (cellSize - 35) / 2 + "px"
+    ghost.style.top = ghostRow * cellSize + (cellSize - 35) / 2 + "px"
+    elements.gameBoard.appendChild(ghost)
+
+    state.ghosts.push({
+      element: ghost,
+      row: ghostRow,
+      col: ghostCol,
+      quadrant: ghostQuadrant,
+      direction: Math.floor(Math.random() * 4),
+      moveTimer: null,
+      isMoving: false,
+      nextDirection: null,
+    })
+
+    startGhostMovement(state.ghosts[state.ghosts.length - 1], i)
+
+    if (i < ghostCount - 1) {
+      const index = shuffledQuadrants.indexOf(selectedQuadrant)
+      if (index > -1) shuffledQuadrants.splice(index, 1)
+    }
   }
 }
 
-// 扣除生命
-function loseLife() {
-  lives--
+function startGhostMovement(ghost, ghostIndex) {
+  if (ghost.moveTimer) clearInterval(ghost.moveTimer)
+
+  moveGhost(ghost)
+
+  ghost.moveTimer = setInterval(() => {
+    if (!state.gameRunning || state.isPaused) return
+
+    if (!ghost.isMoving) {
+      moveGhost(ghost)
+    }
+  }, GHOST_MOVE_INTERVAL)
+}
+
+function moveGhost(ghost) {
+  if (state.isPaused) return
+
+  ghost.isMoving = true
+
+  const directions = [
+    [-1, 0],
+    [0, 1],
+    [1, 0],
+    [0, -1],
+  ]
+  const prevRow = ghost.row
+  const prevCol = ghost.col
+
+  const validDirections = []
+  for (let i = 0; i < 4; i++) {
+    const [dr, dc] = directions[i]
+    const checkRow = ghost.row + dr
+    const checkCol = ghost.col + dc
+
+    if (
+      checkRow > 0 &&
+      checkRow < GRID_SIZE - 1 &&
+      checkCol > 0 &&
+      checkCol < GRID_SIZE - 1 &&
+      state.maze[checkRow][checkCol] === 0
+    ) {
+      validDirections.push(i)
+    }
+  }
+
+  if (validDirections.length > 1 && Math.random() < 0.15) {
+    ghost.direction = validDirections[Math.floor(Math.random() * validDirections.length)]
+  }
+
+  const newRow = ghost.row + directions[ghost.direction][0]
+  const newCol = ghost.col + directions[ghost.direction][1]
+
+  if (
+    newRow > 0 &&
+    newRow < GRID_SIZE - 1 &&
+    newCol > 0 &&
+    newCol < GRID_SIZE - 1 &&
+    state.maze[newRow][newCol] === 0
+  ) {
+    ghost.row = newRow
+    ghost.col = newCol
+  } else {
+    if (validDirections.length > 0) {
+      const oppositeDirection = (ghost.direction + 2) % 4
+      const nonOppositeDirections = validDirections.filter((dir) => dir !== oppositeDirection)
+
+      if (nonOppositeDirections.length > 0 && Math.random() < 0.95) {
+        ghost.direction = nonOppositeDirections[Math.floor(Math.random() * nonOppositeDirections.length)]
+      } else {
+        ghost.direction = validDirections[Math.floor(Math.random() * validDirections.length)]
+      }
+
+      const [dr, dc] = directions[ghost.direction]
+      const nextRow = ghost.row + dr
+      const nextCol = ghost.col + dc
+
+      if (
+        nextRow > 0 &&
+        nextRow < GRID_SIZE - 1 &&
+        nextCol > 0 &&
+        nextCol < GRID_SIZE - 1 &&
+        state.maze[nextRow][nextCol] === 0
+      ) {
+        ghost.row = nextRow
+        ghost.col = nextCol
+      }
+    }
+  }
+
+  const cellSize = elements.gameBoard.clientWidth / GRID_SIZE
+  ghost.element.style.left = ghost.col * cellSize + (cellSize - 35) / 2 + "px"
+  ghost.element.style.top = ghost.row * cellSize + (cellSize - 35) / 2 + "px"
+
+  setTimeout(() => {
+    ghost.isMoving = false
+    // 移動完成後檢查碰撞
+    if (!state.isPaused) {
+      checkGhostCollision()
+    }
+  }, 280)
+}
+
+// 星星相關函數
+function generateStars() {
+  document.querySelectorAll(".star").forEach((star) => star.remove())
+  state.stars = []
+
+  const starCount = state.settings.optionsCount
+
+  const quadrants = [
+    { name: "左上", minRow: 1, maxRow: Math.floor(GRID_SIZE / 2), minCol: 1, maxCol: Math.floor(GRID_SIZE / 2) },
+    {
+      name: "右上",
+      minRow: 1,
+      maxRow: Math.floor(GRID_SIZE / 2),
+      minCol: Math.floor(GRID_SIZE / 2) + 1,
+      maxCol: GRID_SIZE - 2,
+    },
+    {
+      name: "左下",
+      minRow: Math.floor(GRID_SIZE / 2) + 1,
+      maxRow: GRID_SIZE - 2,
+      minCol: 1,
+      maxCol: Math.floor(GRID_SIZE / 2),
+    },
+    {
+      name: "右下",
+      minRow: Math.floor(GRID_SIZE / 2) + 1,
+      maxRow: GRID_SIZE - 2,
+      minCol: Math.floor(GRID_SIZE / 2) + 1,
+      maxCol: GRID_SIZE - 2,
+    },
+  ]
+
+  const shuffledQuadrants = [...quadrants].sort(() => Math.random() - 0.5)
+  const shuffledWordPairs = [...wordPairs].sort(() => Math.random() - 0.5)
+  const selectedWordPairs = shuffledWordPairs.slice(0, starCount)
+
+  for (let i = 0; i < starCount; i++) {
+    let placed = false
+    let starRow, starCol
+
+    const selectedQuadrant = shuffledQuadrants[i % shuffledQuadrants.length]
+
+    while (!placed) {
+      starRow =
+        Math.floor(Math.random() * (selectedQuadrant.maxRow - selectedQuadrant.minRow + 1)) + selectedQuadrant.minRow
+      starCol =
+        Math.floor(Math.random() * (selectedQuadrant.maxCol - selectedQuadrant.minCol + 1)) + selectedQuadrant.minCol
+
+      if (state.maze[starRow][starCol] === 0 && !state.stars.some((s) => s.row === starRow && s.col === starCol)) {
+        placed = true
+      }
+    }
+
+    const star = document.createElement("div")
+    star.className = "star"
+    star.innerHTML = "⭐"
+    const cellSize = elements.gameBoard.clientWidth / GRID_SIZE
+    star.style.left = starCol * cellSize + (cellSize - 30) / 2 + "px"
+    star.style.top = starRow * cellSize + (cellSize - 30) / 2 + "px"
+    elements.gameBoard.appendChild(star)
+
+    state.stars.push({
+      element: star,
+      row: starRow,
+      col: starCol,
+      chinese: selectedWordPairs[i].chinese,
+      english: selectedWordPairs[i].english,
+      collected: false,
+    })
+  }
+}
+
+function generateHeart() {
+  // 如果玩家生命值已滿（等於3），不生成心
+  if (state.lives >= 3) return
+
+  // 移除任何現有的心
+  document.querySelectorAll(".heart-item").forEach((heart) => heart.remove())
+
+  // 如果已經有心在狀態中，先清除
+  if (state.heart && state.heart.element) {
+    state.heart.element.remove()
+    state.heart = null
+  }
+
+  // 尋找適合放置心的位置
+  const placed = false
+  let heartRow, heartCol
+  const attempts = 0
+  const maxAttempts = 100 // 防止無限循環
+
+  // 收集所有可用的路徑位置
+  const availablePaths = []
+  for (let row = 1; row < GRID_SIZE - 1; row++) {
+    for (let col = 1; col < GRID_SIZE - 1; col++) {
+      // 確保位置是路徑且不是玩家起始位置，且不與星星重疊
+      if (
+        state.maze[row][col] === 0 &&
+        !(row === state.initialPlayerPosition.row && col === state.initialPlayerPosition.col) &&
+        !state.stars.some((s) => s.row === row && s.col === col)
+      ) {
+        availablePaths.push({ row, col })
+      }
+    }
+  }
+
+  // 如果沒有可用路徑，則退出
+  if (availablePaths.length === 0) {
+    console.log("沒有可用的路徑來放置心形道具")
+    return
+  }
+
+  // 從可用路徑中隨機選擇一個位置
+  const randomIndex = Math.floor(Math.random() * availablePaths.length)
+  const selectedPath = availablePaths[randomIndex]
+  heartRow = selectedPath.row
+  heartCol = selectedPath.col
+
+  // 創建心元素
+  const heart = document.createElement("div")
+  heart.className = "heart-item"
+  heart.innerHTML = "❤️"
+  heart.style.position = "absolute"
+  heart.style.width = "30px"
+  heart.style.height = "30px"
+  heart.style.fontSize = "24px"
+  heart.style.display = "flex"
+  heart.style.justifyContent = "center"
+  heart.style.alignItems = "center"
+  heart.style.zIndex = "3"
+  heart.style.animation = "pulse 1.5s infinite alternate"
+
+  const cellSize = elements.gameBoard.clientWidth / GRID_SIZE
+  heart.style.left = heartCol * cellSize + (cellSize - 30) / 2 + "px"
+  heart.style.top = heartRow * cellSize + (cellSize - 30) / 2 + "px"
+  elements.gameBoard.appendChild(heart)
+
+  // 將心的位置儲存在狀態中
+  state.heart = {
+    element: heart,
+    row: heartRow,
+    col: heartCol,
+    collected: false,
+  }
+
+  console.log("心形道具已生成在路徑上，位置：", heartRow, heartCol)
+}
+
+function collectStar(star) {
+  star.collected = true
+  if (star.element) star.element.remove()
+
+  state.collectedStars++
+  updateStarsDisplay()
+
+  if (state.stars.every((s) => s.collected)) {
+    levelComplete()
+  }
+}
+
+// 碰撞檢測函數
+function checkStarCollision() {
+  for (const star of state.stars) {
+    if (star.collected) continue
+
+    if (state.player.row === star.row && state.player.col === star.col) {
+      showQuizModal(star)
+      return true
+    }
+  }
+  return false
+}
+
+function checkHeartCollision() {
+  if (!state.heart || state.heart.collected) return false
+
+  if (state.player.row === state.heart.row && state.player.col === state.heart.col) {
+    collectHeart()
+    return true
+  }
+  return false
+}
+
+function collectHeart() {
+  if (!state.heart || state.heart.collected) return
+
+  state.heart.collected = true
+  if (state.heart.element) state.heart.element.remove()
+
+  // 增加生命值
+  state.lives++
   updateLives()
 
-  if (lives <= 0) {
-    gameOver()
-  }
-}
+  // 播放效果
+  playEffect("rotate")
 
-// 過關
-function levelComplete() {
-  gameRunning = false
-  gameState = "complete"
+  // 顯示提示訊息（可選）
+  const message = document.createElement("div")
+  message.textContent = "+1 生命值"
+  message.style.position = "absolute"
+  message.style.color = "red"
+  message.style.fontWeight = "bold"
+  message.style.fontSize = "18px"
+  message.style.top = "10px"
+  message.style.left = "50%"
+  message.style.transform = "translateX(-50%)"
+  message.style.zIndex = "100"
+  message.style.backgroundColor = "rgba(255, 255, 255, 0.7)"
+  message.style.padding = "5px 10px"
+  message.style.borderRadius = "5px"
+  elements.gameBoard.appendChild(message)
 
-  // 清除炸彈放置計時器
-  if (bombPlacementTimer) {
-    clearTimeout(bombPlacementTimer)
-    bombPlacementTimer = null
-  }
-
-  // 停止所有鬼魂移動和炸彈計時器
-  ghosts.forEach((ghost) => {
-    clearInterval(ghost.moveTimer)
-    if (ghost.bombTimer) {
-      clearTimeout(ghost.bombTimer)
-    }
-  })
-
-  // 移除所有炸彈
-  const bombs = document.querySelectorAll(".bomb")
-  bombs.forEach((bomb) => bomb.remove())
-
-  // 停止計時器
-  clearInterval(timerInterval)
-
-  // 更新過關統計
-  completeTimeElement.textContent = timerElement.textContent
-  remainingLivesElement.textContent = lives
-
-  // 顯示過關畫面
-  levelCompleteElement.style.display = "flex"
-
-  // 1秒後才允許進入下一關
   setTimeout(() => {
-    canProceedToNextLevel = true
-    // 更新提示文字，表示可以按任意鍵繼續
-    const keyHint = levelCompleteElement.querySelector(".key-hint")
-    if (keyHint) {
-      keyHint.style.color = "#fff" // 將提示文字變亮
-    }
-  }, 1000)
+    message.remove()
+  }, 1500)
 }
 
-// 遊戲結束
-function gameOver() {
-  gameRunning = false
-  gameState = "over"
+function checkGhostCollision() {
+  // 如果在冷卻期間或遊戲暫停，不檢查碰撞
+  if (state.isPaused) return false
 
-  // 清除炸彈放置計時器
-  if (bombPlacementTimer) {
-    clearTimeout(bombPlacementTimer)
-    bombPlacementTimer = null
+  // 檢查冷卻時間
+  const currentTime = Date.now()
+  if (currentTime - state.lastCollisionTime < COLLISION_COOLDOWN) {
+    return false
   }
 
-  // 停止所有鬼魂移動和炸彈計時器
-  ghosts.forEach((ghost) => {
-    clearInterval(ghost.moveTimer)
-    if (ghost.bombTimer) {
-      clearTimeout(ghost.bombTimer)
+  // 檢查所有鬼魂是否與玩家碰撞
+  for (const ghost of state.ghosts) {
+    if (isGhostCollidingWithPlayer(ghost)) {
+      return true
     }
-  })
-
-  // 移除所有炸彈
-  const bombs = document.querySelectorAll(".bomb")
-  bombs.forEach((bomb) => bomb.remove())
-
-  // 停止計時器
-  clearInterval(timerInterval)
-
-  // 更新遊戲結束統計
-  gameOverTimeElement.textContent = timerElement.textContent
-  reachedLevelElement.textContent = level
-
-  gameOverElement.style.display = "flex"
-}
-
-// 下一關
-function nextLevel() {
-  // 只有在允許進入下一關時才能繼續
-  if (!canProceedToNextLevel && gameState === "complete") return
-
-  level++
-  initGame()
-}
-
-// 重新開始
-function restart() {
-  level = 1
-  initGame()
-}
-
-// 鍵盤事件監聽
-document.addEventListener("keydown", (event) => {
-  if (gameState === "running") {
-    switch (event.key) {
-      case "ArrowUp":
-        movePlayer("up")
-        break
-      case "ArrowDown":
-        movePlayer("down")
-        break
-      case "ArrowLeft":
-        movePlayer("left")
-        break
-      case "ArrowRight":
-        movePlayer("right")
-        break
-    }
-  } else if (gameState === "complete") {
-    // 過關時按任意鍵繼續下一關，但需要等待1秒
-    if (canProceedToNextLevel) {
-      nextLevel()
-    }
-  } else if (gameState === "over") {
-    // 遊戲結束時按任意鍵重新開始
-    restart()
   }
-})
+  return false
+}
 
-// 行動裝置控制按鈕事件
-controlUp.addEventListener("touchstart", (e) => {
-  e.preventDefault()
-  movePlayer("up")
-})
+function isGhostCollidingWithPlayer(ghost) {
+  // 確保玩家和鬼魂在同一格子
+  if (state.player.row === ghost.row && state.player.col === ghost.col) {
+    // 記錄碰撞時間並處理碰撞
+    state.lastCollisionTime = Date.now()
+    handleGhostCollision()
+    return true
+  }
+  return false
+}
 
-controlDown.addEventListener("touchstart", (e) => {
-  e.preventDefault()
-  movePlayer("down")
-})
+function handleGhostCollision() {
+  // 停止自動移動
+  if (state.autoMoveInterval) {
+    clearInterval(state.autoMoveInterval)
+    state.autoMoveInterval = null
+    state.currentDirection = null
+  }
 
-controlLeft.addEventListener("touchstart", (e) => {
-  e.preventDefault()
-  movePlayer("left")
-})
+  // 播放碰撞效果並扣除生命值
+  playEffect("shake")
+  loseLife()
 
-controlRight.addEventListener("touchstart", (e) => {
-  e.preventDefault()
-  movePlayer("right")
-})
+  // 如果還有生命，重置玩家位置
+  if (state.lives > 0) {
+    resetPlayerPosition()
+  }
+}
 
-// 防止行動裝置上的雙擊縮放
-document.addEventListener(
-  "touchstart",
-  (e) => {
-    if (e.touches.length > 1) {
-      e.preventDefault()
-    }
-  },
-  { passive: false },
-)
+function startGlobalCollisionCheck() {
+  stopTimer("globalCollisionCheck")
 
-// 按鈕事件監聽
-nextLevelBtn.addEventListener("click", nextLevel)
-restartBtn.addEventListener("click", restart)
-
-// 選單功能
-const menuButton = document.getElementById("menu-button")
-const gameMenu = document.getElementById("game-menu")
-const closeMenuButton = document.getElementById("close-menu")
-const applySettingsButton = document.getElementById("apply-settings")
-const difficultyOptions = document.querySelectorAll('input[name="difficulty"]')
-const optionsCountOptions = document.querySelectorAll('input[name="options"]')
-
-// 展開按鈕
-const expandPlayerButton = document.getElementById("expand-player")
-const expandGhostButton = document.getElementById("expand-ghost")
-const expandedPlayerContent = document.getElementById("expanded-player-content")
-const expandedGhostContent = document.getElementById("expanded-ghost-content")
-
-const expandPlayerH3 = document.getElementById("expand-player-h3")
-const expandGhostH3 = document.getElementById("expand-ghost-h3")
-
-// 展開/收合主角選項
-expandPlayerButton.addEventListener("click", () => {
-  expandedPlayerContent.classList.toggle("show")
-  expandPlayerButton.textContent = expandedPlayerContent.classList.contains("show") ? "▲" : "▼"
-})
-
-// 展開/收合主角選項
-expandPlayerH3.addEventListener("click", () => {
-  expandedPlayerContent.classList.toggle("show")
-  expandPlayerButton.textContent = expandedPlayerContent.classList.contains("show") ? "▲" : "▼"
-})
-
-// 展開/收合鬼魂選項
-expandGhostButton.addEventListener("click", () => {
-  expandedGhostContent.classList.toggle("show")
-  expandGhostButton.textContent = expandedGhostContent.classList.contains("show") ? "▲" : "▼"
-})
-
-expandGhostH3.addEventListener("click", () => {
-  expandedGhostContent.classList.toggle("show")
-  expandGhostButton.textContent = expandedGhostContent.classList.contains("show") ? "▲" : "▼"
-})
-
-// 打開選單
-menuButton.addEventListener("click", () => {
-  gameMenu.classList.toggle("open")
-})
-
-// 關閉選單
-closeMenuButton.addEventListener("click", () => {
-  gameMenu.classList.remove("open")
-})
-
-// 選擇主角（包括展開區域）
-document
-  .querySelectorAll("#player-selection .character-item, #expanded-player-content .character-item")
-  .forEach((item) => {
-    item.addEventListener("click", () => {
-      // 移除所有選項的選中狀態
-      document
-        .querySelectorAll("#player-selection .character-item, #expanded-player-content .character-item")
-        .forEach((i) => i.classList.remove("selected"))
-      // 添加當前選項的選中狀態
-      item.classList.add("selected")
-    })
-  })
-
-// 選擇鬼魂（包括展開區域）
-document
-  .querySelectorAll("#ghost-selection .character-item, #expanded-ghost-content .character-item")
-  .forEach((item) => {
-    item.addEventListener("click", () => {
-      // 移除所有選項的選中狀態
-      document
-        .querySelectorAll("#ghost-selection .character-item, #expanded-ghost-content .character-item")
-        .forEach((i) => i.classList.remove("selected"))
-      // 添加當前選項的選中狀態
-      item.classList.add("selected")
-    })
-  })
-
-// 套用設定
-applySettingsButton.addEventListener("click", () => {
-  // 獲取選中的主角
-  const selectedPlayerItem = document.querySelector(
-    "#player-selection .character-item.selected, #expanded-player-content .character-item.selected",
+  startTimer(
+    "globalCollisionCheck",
+    () => {
+      if (state.gameRunning && !state.isPaused) {
+        checkGhostCollision()
+      }
+    },
+    COLLISION_CHECK_INTERVAL,
   )
-  if (selectedPlayerItem) {
-    playerChar = selectedPlayerItem.getAttribute("data-char")
+}
+
+// 遊戲初始化
+function initGame(keepLevelAndStars = false) {
+  resetGameState(keepLevelAndStars)
+
+  if (state.autoMoveInterval) {
+    clearInterval(state.autoMoveInterval)
+    state.autoMoveInterval = null
+    state.currentDirection = null
   }
 
-  // 獲取選中的鬼魂
-  const selectedGhostItem = document.querySelector(
-    "#ghost-selection .character-item.selected, #expanded-ghost-content .character-item.selected",
+  stopAllTimers() // 確保所有計時器被清除
+  elements.timerElement.textContent = "02:00" // 顯示初始時間 2 分鐘
+
+  generateMaze()
+  placePlayer()
+  generateGhosts()
+  generateStars()
+  generateHeart()
+
+  hideQuizModal()
+  hideEndScreens()
+
+  elements.playerElement.innerHTML = state.settings.playerChar
+
+  resizeGameBoard()
+  startGlobalCollisionCheck()
+}
+
+// 問答相關函數
+// 修改 showQuizModal 函數，讓問答介面占滿整個視窗
+function showQuizModal(star) {
+  state.currentQuizOptionIndex = 0
+  pauseGame()
+
+  // 設定問題文字
+  elements.quizQuestion.textContent = `「${star.chinese}」的英文是什麼？`
+  elements.quizOptions.innerHTML = ""
+
+  const correctAnswer = star.english
+  const allOptions = [correctAnswer]
+
+  const otherWords = wordPairs.filter((word) => word.english !== correctAnswer)
+  const shuffledOtherWords = [...otherWords].sort(() => Math.random() - 0.5)
+
+  for (let i = 0; i < 3; i++) {
+    if (shuffledOtherWords[i]) {
+      allOptions.push(shuffledOtherWords[i].english)
+    }
+  }
+
+  const shuffledOptions = [...allOptions].sort(() => Math.random() - 0.5)
+  const numberEmojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣"]
+
+  shuffledOptions.forEach((option, index) => {
+    const optionButton = document.createElement("button")
+    optionButton.className = "quiz-option"
+    optionButton.innerHTML = `<span class="option-number">${numberEmojis[index]}</span> ${option}`
+    optionButton.dataset.value = option
+    optionButton.dataset.index = index
+
+    optionButton.addEventListener("click", () => {
+      handleOptionSelection(option, correctAnswer, star)
+    })
+
+    elements.quizOptions.appendChild(optionButton)
+  })
+
+  updateSelectedOption()
+
+  // 修改問答介面樣式，使其占滿整個視窗
+  elements.quizModal.style.display = "flex"
+  elements.quizModal.style.position = "fixed" // 改為固定定位
+  elements.quizModal.style.top = "0"
+  elements.quizModal.style.left = "0"
+  elements.quizModal.style.width = "100vw" // 使用視窗寬度
+  elements.quizModal.style.height = "100vh" // 使用視窗高度
+  elements.quizModal.style.zIndex = "1000" // 確保在最上層
+
+  // 調整問答容器的大小
+  elements.quizContainer = document.getElementById("quiz-container")
+  elements.quizContainer.style.maxWidth = "90vw" // 在行動裝置上使用更大的寬度
+  elements.quizContainer.style.width = "500px" // 在桌面版上限制最大寬度
+  elements.quizContainer.style.padding = "30px" // 增加內部間距
+
+  // 增加問題和選項的字體大小
+  elements.quizQuestion.style.fontSize = "24px" // 增加問題字體大小
+  elements.quizQuestion.style.marginBottom = "30px" // 增加問題下方間距
+
+  // 調整選項樣式
+  document.querySelectorAll(".quiz-option").forEach((option) => {
+    option.style.fontSize = "20px" // 增加選項字體大小
+    option.style.padding = "15px 15px 15px 60px" // 增加選項內部間距
+  })
+
+  document.querySelectorAll(".option-number").forEach((number) => {
+    number.style.fontSize = "22px" // 增加選項編號字體大小
+  })
+
+  elements.quizResult.textContent = ""
+  elements.quizResult.className = "quiz-result"
+  elements.quizResult.style.fontSize = "22px" // 增加結果字體大小
+  elements.quizResult.style.marginTop = "20px" // 增加結果上方間距
+
+  document.addEventListener("keydown", handleQuizKeydown)
+  startQuizTimer(star)
+}
+
+// 修改 hideQuizModal 函數，重置問答介面樣式
+function hideQuizModal() {
+  elements.quizModal.style.display = "none"
+
+  // 重置問答介面樣式
+  elements.quizModal.style.position = ""
+  elements.quizModal.style.top = ""
+  elements.quizModal.style.left = ""
+  elements.quizModal.style.width = ""
+  elements.quizModal.style.height = ""
+
+  document.removeEventListener("keydown", handleQuizKeydown)
+  stopTimer("quizTimer")
+}
+
+function handleOptionSelection(selectedOption, correctAnswer, star) {
+  stopTimer("quizTimer")
+
+  document.querySelectorAll(".quiz-option").forEach((btn) => {
+    const btnValue = btn.dataset.value
+    if (btnValue === correctAnswer) {
+      btn.classList.add("correct-option")
+    } else if (btnValue === selectedOption && selectedOption !== correctAnswer) {
+      btn.classList.add("incorrect-option")
+    }
+  })
+
+  if (selectedOption === correctAnswer) {
+    elements.quizResult.textContent = "答對了！"
+    elements.quizResult.className = "quiz-result correct"
+
+    collectStar(star)
+
+    setTimeout(() => {
+      hideQuizModal()
+      resumeGame()
+    }, 800)
+  } else {
+    elements.quizResult.textContent = "答錯了！正確答案是：" + correctAnswer
+    elements.quizResult.className = "quiz-result incorrect"
+
+    loseLife()
+
+    setTimeout(() => {
+      hideQuizModal()
+      resumeGame()
+
+      if (state.lives > 0) {
+        resetPlayerPosition()
+      }
+    }, 1500)
+  }
+
+  document.querySelectorAll(".quiz-option").forEach((btn) => {
+    btn.disabled = true
+  })
+
+  document.removeEventListener("keydown", handleQuizKeydown)
+}
+
+function handleQuizKeydown(event) {
+  if (!state.isPaused || elements.quizModal.style.display !== "flex") return
+
+  const options = document.querySelectorAll(".quiz-option")
+  if (options.length === 0) return
+
+  switch (event.key) {
+    case "ArrowUp":
+      state.currentQuizOptionIndex = (state.currentQuizOptionIndex - 1 + options.length) % options.length
+      updateSelectedOption()
+      event.preventDefault()
+      break
+    case "ArrowDown":
+      state.currentQuizOptionIndex = (state.currentQuizOptionIndex + 1) % options.length
+      updateSelectedOption()
+      event.preventDefault()
+      break
+    case "Enter":
+      if (!options[state.currentQuizOptionIndex].disabled) {
+        const selectedOption = options[state.currentQuizOptionIndex].dataset.value
+        const star = state.stars.find((s) => !s.collected && state.player.row === s.row && state.player.col === s.col)
+        if (star) {
+          handleOptionSelection(selectedOption, star.english, star)
+        }
+      }
+      event.preventDefault()
+      break
+    case "1":
+    case "2":
+    case "3":
+    case "4":
+      const numIndex = Number.parseInt(event.key) - 1
+      if (numIndex >= 0 && numIndex < options.length && !options[numIndex].disabled) {
+        state.currentQuizOptionIndex = numIndex
+        updateSelectedOption()
+
+        setTimeout(() => {
+          const selectedOption = options[numIndex].dataset.value
+          const star = state.stars.find((s) => !s.collected && state.player.row === s.row && state.player.col === s.col)
+          if (star) {
+            handleOptionSelection(selectedOption, star.english, star)
+          }
+        }, 100)
+      }
+      event.preventDefault()
+      break
+  }
+}
+
+function updateSelectedOption() {
+  const options = document.querySelectorAll(".quiz-option")
+  options.forEach((option, index) => {
+    if (index === state.currentQuizOptionIndex) {
+      option.classList.add("selected-option")
+    } else {
+      option.classList.remove("selected-option")
+    }
+  })
+}
+
+// 設定相關函數
+function loadSettings() {
+  try {
+    const savedSettings = localStorage.getItem("mazeGameSettings")
+    if (savedSettings) {
+      const settings = JSON.parse(savedSettings)
+
+      if (settings.playerChar) {
+        state.settings.playerChar = settings.playerChar
+        updateCharacterSelection(
+          "#player-selection .character-item, #expanded-player-content .character-item",
+          settings.playerChar,
+        )
+      }
+
+      if (settings.ghostChar) {
+        state.settings.ghostChar = settings.ghostChar
+        updateCharacterSelection(
+          "#ghost-selection .character-item, #expanded-ghost-content .character-item",
+          settings.ghostChar,
+        )
+      }
+
+      if (settings.difficulty) {
+        state.settings.difficulty = settings.difficulty
+        updateRadioSelection('input[name="difficulty"]', settings.difficulty)
+      }
+
+      if (settings.optionsCount) {
+        state.settings.optionsCount = settings.optionsCount
+        updateRadioSelection('input[name="options"]', settings.optionsCount.toString())
+      }
+
+      console.log("設定已從 localStorage 加載")
+    }
+  } catch (error) {
+    console.error("加載設定時出錯:", error)
+  }
+}
+
+function updateCharacterSelection(selector, value) {
+  document.querySelectorAll(selector).forEach((item) => {
+    if (item.getAttribute("data-char") === value) {
+      item.classList.add("selected")
+    } else {
+      item.classList.remove("selected")
+    }
+  })
+}
+
+function updateRadioSelection(selector, value) {
+  document.querySelectorAll(selector).forEach((radio) => {
+    if (radio.value === value) {
+      radio.checked = true
+    }
+  })
+}
+
+function saveSettings() {
+  try {
+    localStorage.setItem("mazeGameSettings", JSON.stringify(state.settings))
+    console.log("設定已保存到 localStorage")
+  } catch (error) {
+    console.error("保存設定時出錯:", error)
+  }
+}
+
+// 遊戲調整大小
+function resizeGameBoard() {
+  const boardWidth = elements.gameBoard.clientWidth
+  const cellSize = boardWidth / GRID_SIZE
+
+  elements.playerElement.style.transition = "left 0.28s linear, top 0.28s linear"
+  elements.playerElement.style.left = state.player.col * cellSize + (cellSize - 35) / 2 + "px"
+  elements.playerElement.style.top = state.player.row * cellSize + (cellSize - 35) / 2 + "px"
+
+  state.ghosts.forEach((ghost) => {
+    if (ghost.element) {
+      ghost.element.style.transition = "left 0.28s linear, top 0.28s linear"
+      ghost.element.style.left = ghost.col * cellSize + (cellSize - 35) / 2 + "px"
+      ghost.element.style.top = ghost.row * cellSize + (cellSize - 35) / 2 + "px"
+    }
+  })
+
+  state.stars.forEach((star) => {
+    if (star.element) {
+      star.element.style.left = star.col * cellSize + (cellSize - 30) / 2 + "px"
+      star.element.style.top = star.row * cellSize + (cellSize - 30) / 2 + "px"
+    }
+  })
+
+  if (state.heart && state.heart.element) {
+    state.heart.element.style.left = state.heart.col * cellSize + (cellSize - 30) / 2 + "px"
+    state.heart.element.style.top = state.heart.row * cellSize + (cellSize - 30) / 2 + "px"
+  }
+
+  if (state.maze.length > 0) {
+    renderMaze(true)
+  }
+
+  // 重新啟動碰撞檢測計時器，確保正確同步
+  startGlobalCollisionCheck()
+}
+
+// 初始化事件監聽
+function initEventListeners() {
+  document.addEventListener("keydown", (event) => {
+    if (state.gameState === "running" && !state.isPaused) {
+      switch (event.key) {
+        case "ArrowUp":
+          movePlayer("up")
+          break
+        case "ArrowDown":
+          movePlayer("down")
+          break
+        case "ArrowLeft":
+          movePlayer("left")
+          break
+        case "ArrowRight":
+          movePlayer("right")
+          break
+      }
+    } else if (state.gameState === "complete") {
+      if (state.canProceedToNextLevel) nextLevel()
+    } else if (state.gameState === "over") {
+      restart()
+    }
+  })
+
+  elements.controlUp.addEventListener("touchstart", (e) => {
+    e.preventDefault()
+    if (!state.isPaused) movePlayer("up")
+  })
+
+  elements.controlDown.addEventListener("touchstart", (e) => {
+    e.preventDefault()
+    if (!state.isPaused) movePlayer("down")
+  })
+
+  elements.controlLeft.addEventListener("touchstart", (e) => {
+    e.preventDefault()
+    if (!state.isPaused) movePlayer("left")
+  })
+
+  elements.controlRight.addEventListener("touchstart", (e) => {
+    e.preventDefault()
+    if (!state.isPaused) movePlayer("right")
+  })
+
+  document.addEventListener(
+    "touchstart",
+    (e) => {
+      if (e.touches.length > 1) e.preventDefault()
+    },
+    { passive: false },
   )
-  if (selectedGhostItem) {
-    ghostChar = selectedGhostItem.getAttribute("data-char")
-  }
 
-  // 獲取選中的難度
-  const selectedDifficulty = document.querySelector('input[name="difficulty"]:checked')
-  if (selectedDifficulty) {
-    difficulty = selectedDifficulty.value
-  }
+  elements.nextLevelBtn.addEventListener("click", nextLevel)
+  elements.restartBtn.addEventListener("click", restart)
 
-  // 獲取選中的選項數量
-  const selectedOptionsCount = document.querySelector('input[name="options"]:checked')
-  if (selectedOptionsCount) {
-    optionsCount = Number.parseInt(selectedOptionsCount.value)
-  }
+  const menuButton = document.getElementById("menu-button")
+  const gameMenu = document.getElementById("game-menu")
+  const closeMenuButton = document.getElementById("close-menu")
+  const applySettingsButton = document.getElementById("apply-settings")
 
-  // 關閉選單
-  gameMenu.classList.remove("open")
+  const expandPlayerButton = document.getElementById("expand-player")
+  const expandGhostButton = document.getElementById("expand-ghost")
+  const expandedPlayerContent = document.getElementById("expanded-player-content")
+  const expandedGhostContent = document.getElementById("expanded-ghost-content")
+  const expandPlayerH3 = document.getElementById("expand-player-h3")
+  const expandGhostH3 = document.getElementById("expand-ghost-h3")
 
-  // 重新開始遊戲以套用設定
-  restart()
-})
+  expandPlayerButton.addEventListener("click", () => {
+    expandedPlayerContent.classList.toggle("show")
+    expandPlayerButton.textContent = expandedPlayerContent.classList.contains("show") ? "▲" : "▼"
+  })
 
-// 點擊遊戲區域外的地方關閉選單
-document.addEventListener("click", (event) => {
-  if (!gameMenu.contains(event.target) && !menuButton.contains(event.target) && gameMenu.classList.contains("open")) {
+  expandPlayerH3.addEventListener("click", () => {
+    expandedPlayerContent.classList.toggle("show")
+    expandPlayerButton.textContent = expandedPlayerContent.classList.contains("show") ? "▲" : "▼"
+  })
+
+  expandGhostButton.addEventListener("click", () => {
+    expandedGhostContent.classList.toggle("show")
+    expandGhostButton.textContent = expandedGhostContent.classList.contains("show") ? "▲" : "▼"
+  })
+
+  expandGhostH3.addEventListener("click", () => {
+    expandedGhostContent.classList.toggle("show")
+    expandGhostButton.textContent = expandedGhostContent.classList.contains("show") ? "▲" : "▼"
+  })
+
+  menuButton.addEventListener("click", () => {
+    gameMenu.classList.toggle("open")
+  })
+
+  closeMenuButton.addEventListener("click", () => {
     gameMenu.classList.remove("open")
-  }
+  })
+
+  document
+    .querySelectorAll("#player-selection .character-item, #expanded-player-content .character-item")
+    .forEach((item) => {
+      item.addEventListener("click", () => {
+        document
+          .querySelectorAll("#player-selection .character-item, #expanded-player-content .character-item")
+          .forEach((i) => i.classList.remove("selected"))
+        item.classList.add("selected")
+      })
+    })
+
+  document
+    .querySelectorAll("#ghost-selection .character-item, #expanded-ghost-content .character-item")
+    .forEach((item) => {
+      item.addEventListener("click", () => {
+        document
+          .querySelectorAll("#ghost-selection .character-item, #expanded-ghost-content .character-item")
+          .forEach((i) => i.classList.remove("selected"))
+        item.classList.add("selected")
+      })
+    })
+
+  applySettingsButton.addEventListener("click", () => {
+    const selectedPlayerItem = document.querySelector(
+      "#player-selection .character-item.selected, #expanded-player-content .character-item.selected",
+    )
+    if (selectedPlayerItem) {
+      state.settings.playerChar = selectedPlayerItem.getAttribute("data-char")
+    }
+
+    const selectedGhostItem = document.querySelector(
+      "#ghost-selection .character-item.selected, #expanded-ghost-content .character-item.selected",
+    )
+    if (selectedGhostItem) {
+      state.settings.ghostChar = selectedGhostItem.getAttribute("data-char")
+    }
+
+    const selectedDifficulty = document.querySelector('input[name="difficulty"]:checked')
+    if (selectedDifficulty) {
+      state.settings.difficulty = selectedDifficulty.value
+    }
+
+    const selectedOptionsCount = document.querySelector('input[name="options"]:checked')
+    if (selectedOptionsCount) {
+      state.settings.optionsCount = Number.parseInt(selectedOptionsCount.value)
+    }
+
+    saveSettings()
+    gameMenu.classList.remove("open")
+    restart()
+  })
+
+  document.addEventListener("click", (event) => {
+    if (!gameMenu.contains(event.target) && !menuButton.contains(event.target) && gameMenu.classList.contains("open")) {
+      gameMenu.classList.remove("open")
+    }
+  })
+
+  window.addEventListener("resize", resizeGameBoard)
+}
+
+// 啟動遊戲
+window.addEventListener("DOMContentLoaded", () => {
+  loadSettings()
+  initEventListeners()
+  initGame()
 })
-
-// 監聽視窗大小變化，調整遊戲板大小
-window.addEventListener("resize", resizeGameBoard)
-
-// 初始化遊戲
-initGame()
