@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注音測驗選擇題</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Microsoft JhengHei', '微軟正黑體', Arial, sans-serif;
+        }
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .quiz-container {
+            max-width: 800px;
+            width: 100%;
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .controls-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .tabs {
+            display: flex;
+        }
+        .tab {
+            padding: 10px 20px;
+            background-color: #e0e0e0;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 6px 6px 0 0;
+            margin-right: 5px;
+        }
+        .tab.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .quiz-settings {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #question-count {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .apply-settings-btn {
+            background-color: #2196F3;
+            color: white;
+            padding: 8px 15px;
+        }
+        .apply-settings-btn:hover {
+            background-color: #1976D2;
+        }
+        .question-container {
+            margin-bottom: 20px;
+        }
+        .question {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-align: center;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 8px;
+        }
+        .question-text {
+            font-size: 32px;
+        }
+        .options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .option {
+            padding: 15px;
+            background-color: #f0f0f0;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 20px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .option:hover {
+            background-color: #e0e0e0;
+            transform: translateY(-2px);
+        }
+        .option.selected {
+            background-color: #a5d6a7;
+            border-color: #4CAF50;
+        }
+        .option.correct {
+            background-color: #a5d6a7;
+            border-color: #4CAF50;
+        }
+        .option.incorrect {
+            background-color: #ef9a9a;
+            border-color: #f44336;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        .btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .next-btn {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .next-btn:hover {
+            background-color: #388E3C;
+        }
+        .check-btn {
+            background-color: #2196F3;
+            color: white;
+        }
+        .check-btn:hover {
+            background-color: #1976D2;
+        }
+        .prev-btn {
+            background-color: #9E9E9E;
+            color: white;
+        }
+        .prev-btn:hover {
+            background-color: #757575;
+        }
+        .progress {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .progress-bar {
+            flex-grow: 1;
+            height: 10px;
+            background-color: #e0e0e0;
+            border-radius: 5px;
+            margin: 0 10px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #4CAF50;
+            transition: width 0.3s;
+        }
+        .score-container {
+            text-align: center;
+            font-size: 18px;
+            margin-top: 10px;
+        }
+        .hidden {
+            display: none;
+        }
+        .result-container {
+            text-align: center;
+            font-size: 24px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>注音測驗選擇題</h1>
+    
+    <div class="controls-top">
+        <div class="tabs">
+            <button class="tab active" data-type="group1">字詞測驗注音</button>
+            <button class="tab" data-type="group2">注音測驗字詞</button>
+        </div>
+        <div class="quiz-settings">
+            <label for="question-count">題目數量: </label>
+            <select id="question-count">
+                <option value="all">全部</option>
+                <option value="5">5題</option>
+                <option value="10" selected>10題</option>
+                <option value="15">15題</option>
+                <option value="20">20題</option>
+            </select>
+            <button class="btn apply-settings-btn">套用設定</button>
+        </div>
+    </div>
+    
+    <div class="quiz-container">
+        <div class="progress">
+            <span class="question-number">問題 1/10</span>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 10%"></div>
+            </div>
+            <span class="question-total">進度: 10%</span>
+        </div>
+        
+        <div class="question-container">
+            <div class="question">
+                <div class="question-text"></div>
+            </div>
+            <div class="options">
+                <div class="option" data-index="0"></div>
+                <div class="option" data-index="1"></div>
+                <div class="option" data-index="2"></div>
+                <div class="option" data-index="3"></div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn prev-btn">上一題</button>
+            <div class="score-container">得分: <span class="score">0</span></div>
+            <button class="btn next-btn">下一題</button>
+        </div>
+        
+        <div class="result-container hidden">
+            <h2>測驗結果</h2>
+            <p>總得分: <span class="final-score">0</span> / <span class="total-questions">10</span></p>
+            <button class="btn restart-btn">重新開始</button>
+            <button class="btn switch-group-btn">切換測驗組</button>
+        </div>
+    </div>
+    
+    <script>
+        // 資料
+        const mydata1 = `
+「遒」健	ㄑㄧㄡˊ
+神明「庇」佑	ㄅㄧˋ
+驚鴻一「警」	ㄆㄧㄝ
+程「邈」	ㄇㄧㄠˇ
+「緬」懷過去	ㄇㄧㄢˇ
+遭車子「輾」斃	ㄋㄧㄢˇ
+黔「婁」	ㄌㄡˊ
+「琉」球群島	ㄌㄧㄡˊ
+雕「刻」	ㄎㄜˋ
+「酣」觴賦詩	ㄏㄢ
+晨興理荒「穢」	ㄏㄨㄟˋ
+「汲」取	ㄐㄧˊ
+「靖」節先生	ㄐㄧㄥˋ
+鑲「嵌」寶石	ㄑㄧㄢ
+「潛」心研究	ㄑㄧㄢˊ
+「黔」驢技窮	ㄑㄧㄢˊ
+「閑」靜少言	ㄒㄧㄢˊ
+「潯」陽	ㄒㄩㄣˊ
+「扎」口	ㄓㄚ
+「駐」足圍觀	ㄓㄨˋ
+折「衷」	ㄓㄨㄥ
+「諡」號	ㄕˋ
+「麝」香貓	ㄕㄜˋ
+數量「銳」減	ㄖㄨㄟˋ
+心「臟」	ㄗㄤˋ
+「熬」製	ㄠˊ
+「亞」熱帶	ㄧㄚˋ
+「妮」娓道來	ㄨㄟˇ
+林木「蓊」鬱	ㄨㄥˇ
+`;
+
+        const mydata2 = `
+「ㄅㄨˇ」辭	ト
+環境優「ㄌㄧㄝˋ」	劣
+不「ㄌㄧㄣˋ」去留	吝
+「ㄓㄣˇ」頭	枕
+「ㄑㄧˋ」機	契
+「ㄊㄧㄢˊ」淡自得	恬
+不求「ㄕㄣˋ」解	甚
+自負「ㄧㄣˊ」虧	盈
+堆「ㄑㄧˋ」	砌
+繁「ㄧㄢˇ」後代	衍
+「ㄐㄧㄠ」區	郊
+花裡胡「ㄕㄠˋ」	哨
+「ㄅㄨˇ」乳動物	哺
+「ㄕㄢˋ」笑	訕
+一「ㄉㄨˇ」牆	堵
+不「ㄑㄧ」ㄑㄧ於貧賤	戚
+語「ㄧㄢ」不詳	焉
+「ㄕㄨㄞˋ」真	率
+一百公「ㄑㄧㄥˇ」	頃
+「ㄑㄧㄝˋ」意	愜
+有「ㄓㄠ」一日	朝
+「ㄑㄧ」身之處	棲
+「ㄙㄨ」餅	酥
+興趣「ㄕˋ」好	嗜
+「ㄎㄨㄟˋ」不敢當	愧
+破「ㄙㄨㄣˇ」	損
+「ㄔㄡˊ」黏	稠
+名聞「ㄒㄧㄚˊ」邇	遐
+鐘「ㄉㄧㄥˇ」文	鼎
+直「ㄐㄧㄝˊ」了當	截
+點「ㄓㄨㄟˋ」	綴
+政治「ㄈㄨˇ」敗	腐
+造飲「ㄓㄜˊ」盡	輒
+殷「ㄒㄩ」文字	墟
+不「ㄇㄨˋ」榮利	慕
+「ㄇㄛˊ」登	摩
+光明「ㄘㄨㄟˇ」璨	璀
+小「ㄓㄨㄢˋ」	篆
+高「ㄨㄟˇ」度地區	緯
+短「ㄏㄜˊ」穿結	褐
+「ㄅㄠ」貶不一	褒
+貴遠「ㄐㄧㄢˋ」近	賤
+「ㄔㄨˊ」頭	鋤
+茲若人之「ㄔㄡˊ」乎	儔
+開「ㄎㄣˇ」荒地	墾
+簞食「ㄆㄧㄠˊ」飲	瓢
+王「ㄒㄧ」之	羲
+細「ㄋㄧˋ」	膩
+和「ㄒㄧㄝˊ」	諧
+內「ㄒㄧㄢˋ」	餡
+「ㄍㄨㄟ」甲	龜
+「ㄌㄢˋ」情	濫
+「ㄏㄨㄢˊ」境	環
+洗「ㄌㄧㄢˋ」	鍊
+開「ㄎㄨㄛˋ」	闊
+「ㄌㄧˋ」書	隸
+嚴「ㄐㄧㄣˇ」	謹
+深「ㄙㄨㄟˋ」	邃
+「ㄅーㄣ」臨絕種	瀕
+「ㄗㄢˋ」助	贊
+「ㄧㄢˋ」品	贗
+「ㄒㄧㄢ」維	纖
+筆畫「ㄒㄧㄢ」細	纖
+「ㄗㄨㄢˋ」石	鑽
+`;
+
+        // 解析資料
+        function parseData(data) {
+            const lines = data.trim().split('\n');
+            const pairs = [];
+            
+            lines.forEach(line => {
+                if (line.trim()) {
+                    const [question, answer] = line.split('\t').map(item => item.trim());
+                    pairs.push({ question, answer });
+                }
+            });
+            
+            return pairs;
+        }
+
+        // 解析兩組資料
+        const group1Data = parseData(mydata1);
+        const group2Data = parseData(mydata2);
+
+        // 初始化應用程式
+        let currentGroupData = group1Data;
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let selectedAnswer = null;
+        let isAnswerChecked = false;
+        let questionsPerRound = 10;
+        let currentType = 'group1'; // 當前題目類型
+        let allQuestions = []; // 儲存當前測驗的所有問題
+
+        // 取得元素
+        const questionText = document.querySelector('.question-text');
+        const options = document.querySelectorAll('.option');
+        const prevBtn = document.querySelector('.prev-btn');
+        const nextBtn = document.querySelector('.next-btn');
+        const scoreElement = document.querySelector('.score');
+        const tabs = document.querySelectorAll('.tab');
+        const questionNumber = document.querySelector('.question-number');
+        const questionTotal = document.querySelector('.question-total');
+        const progressFill = document.querySelector('.progress-fill');
+        const resultContainer = document.querySelector('.result-container');
+        const questionContainer = document.querySelector('.question-container');
+        const controlsContainer = document.querySelector('.controls');
+        const finalScore = document.querySelector('.final-score');
+        const totalQuestions = document.querySelector('.total-questions');
+        const restartBtn = document.querySelector('.restart-btn');
+        const switchGroupBtn = document.querySelector('.switch-group-btn');
+        const questionCountSelect = document.getElementById('question-count');
+        const applySettingsBtn = document.querySelector('.apply-settings-btn');
+
+        // 初始化測驗
+        function initQuiz() {
+            // 決定題目數量
+            const countValue = questionCountSelect.value;
+            if (countValue === 'all') {
+                questionsPerRound = currentGroupData.length;
+            } else {
+                questionsPerRound = Math.min(parseInt(countValue), currentGroupData.length);
+            }
+            
+            totalQuestions.textContent = questionsPerRound;
+            
+            // 重設得分和索引
+            score = 0;
+            currentQuestionIndex = 0;
+            scoreElement.textContent = score;
+            
+            // 顯示問題區域，隱藏結果區域
+            questionContainer.classList.remove('hidden');
+            controlsContainer.classList.remove('hidden');
+            resultContainer.classList.add('hidden');
+            
+            // 創建題目集
+            allQuestions = [...currentGroupData]; // 複製原始數據
+            shuffleArray(allQuestions); // 洗牌所有問題
+            
+            // 如果不是全部題目，則只取所需數量
+            if (countValue !== 'all') {
+                allQuestions = allQuestions.slice(0, questionsPerRound);
+            }
+            
+            // 載入第一個問題
+            loadQuestion();
+        }
+
+        // 載入問題
+        function loadQuestion() {
+            // 更新進度
+            const progress = ((currentQuestionIndex + 1) / questionsPerRound) * 100;
+            questionNumber.textContent = `問題 ${currentQuestionIndex + 1}/${questionsPerRound}`;
+            questionTotal.textContent = `進度: ${progress.toFixed(0)}%`;
+            progressFill.style.width = `${progress}%`;
+            
+            // 重設選項狀態
+            resetOptions();
+            
+            // 取得當前問題和答案
+            const { question, answer } = allQuestions[currentQuestionIndex];
+            
+            // 設置問題文字
+            questionText.textContent = question;
+            
+            // 準備選項 (正確答案 + 3個錯誤答案)
+            const optionsList = [answer];
+            
+            // 從其他問題中取得不同的答案作為錯誤選項
+            while (optionsList.length < 4) {
+                const randomIndex = Math.floor(Math.random() * currentGroupData.length);
+                const randomAnswer = currentGroupData[randomIndex].answer;
+                
+                if (!optionsList.includes(randomAnswer)) {
+                    optionsList.push(randomAnswer);
+                }
+            }
+            
+            // 洗牌選項
+            shuffleArray(optionsList);
+            
+            // 更新選項文字
+            options.forEach((option, index) => {
+                option.textContent = optionsList[index];
+                option.classList.remove('selected', 'correct', 'incorrect');
+            });
+            
+            // 更新按鈕狀態
+            updateButtonStates();
+        }
+
+        // 重設選項狀態
+        function resetOptions() {
+            options.forEach(option => {
+                option.classList.remove('selected', 'correct', 'incorrect');
+            });
+            selectedAnswer = null;
+            isAnswerChecked = false;
+        }
+
+        // 更新按鈕狀態
+        function updateButtonStates() {
+            prevBtn.disabled = currentQuestionIndex === 0;
+            nextBtn.disabled = !isAnswerChecked;
+            
+            // 視覺反饋
+            prevBtn.style.opacity = prevBtn.disabled ? '0.5' : '1';
+            nextBtn.style.opacity = nextBtn.disabled ? '0.5' : '1';
+        }
+
+        // 選項點擊事件
+        options.forEach(option => {
+            option.addEventListener('click', () => {
+                if (isAnswerChecked) return;
+                
+                // 直接檢查答案
+                isAnswerChecked = true;
+                const correctAnswer = allQuestions[currentQuestionIndex].answer;
+                
+                // 標記正確和錯誤的選項
+                options.forEach(opt => {
+                    if (opt.textContent === correctAnswer) {
+                        opt.classList.add('correct');
+                    }
+                });
+                
+                // 選中的選項
+                option.classList.add('selected');
+                selectedAnswer = option.textContent;
+                
+                // 如果答案不正確，標記為錯誤
+                if (selectedAnswer !== correctAnswer) {
+                    option.classList.add('incorrect');
+                } else {
+                    // 如果答案正確，增加分數
+                    score++;
+                    scoreElement.textContent = score;
+                }
+                
+                // 更新按鈕狀態
+                updateButtonStates();
+            });
+        });
+
+        // 下一題按鈕
+        nextBtn.addEventListener('click', () => {
+            if (!isAnswerChecked) return;
+            
+            currentQuestionIndex++;
+            
+            // 如果已經是最後一個問題，顯示結果
+            if (currentQuestionIndex >= allQuestions.length) {
+                showResult();
+                return;
+            }
+            
+            loadQuestion();
+        });
+
+        // 上一題按鈕
+        prevBtn.addEventListener('click', () => {
+            if (currentQuestionIndex > 0) {
+                currentQuestionIndex--;
+                loadQuestion();
+            }
+        });
+
+        // 顯示結果
+        function showResult() {
+            questionContainer.classList.add('hidden');
+            controlsContainer.classList.add('hidden');
+            resultContainer.classList.remove('hidden');
+            
+            finalScore.textContent = score;
+        }
+
+        // 重新開始按鈕
+        restartBtn.addEventListener('click', () => {
+            initQuiz();
+        });
+
+        // 切換測驗組按鈕
+        switchGroupBtn.addEventListener('click', () => {
+            // 切換測驗類型
+            if (currentType === 'group1') {
+                currentType = 'group2';
+                currentGroupData = group2Data;
+                tabs[0].classList.remove('active');
+                tabs[1].classList.add('active');
+            } else {
+                currentType = 'group1';
+                currentGroupData = group1Data;
+                tabs[0].classList.add('active');
+                tabs[1].classList.remove('active');
+            }
+            
+            initQuiz();
+        });
+
+        // 標籤點擊事件
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const type = tab.getAttribute('data-type');
+                
+                // 已經是當前類型，不需要切換
+                if (type === currentType) return;
+                
+                // 更新標籤樣式
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // 切換測驗類型
+                currentType = type;
+                currentGroupData = type === 'group1' ? group1Data : group2Data;
+                
+                initQuiz();
+            });
+        });
+
+        // 洗牌陣列函數 (Fisher-Yates 算法)
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        // 初始化測驗
+        initQuiz();
+    </script>
+</body>
+</html>
