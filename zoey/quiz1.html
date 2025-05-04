@@ -340,6 +340,7 @@
 「ㄗㄨㄢˋ」石	鑽
 `;
 
+
         // 解析資料
         function parseData(data) {
             const lines = data.trim().split('\n');
@@ -593,6 +594,12 @@
                 
                 initQuiz();
             });
+        });
+
+        // 套用設定按鈕事件
+        applySettingsBtn.addEventListener('click', () => {
+            // 重新初始化測驗，會套用新的題目數量設定
+            initQuiz();
         });
 
         // 洗牌陣列函數 (Fisher-Yates 算法)
