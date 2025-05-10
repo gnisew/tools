@@ -558,8 +558,8 @@
 }
 
 .ime-key-btn {
-  min-width: 9.8%;
-  height: 60px; /* 增加高度以容納垂直排列 */
+  min-width: 9.8%; /* 增加按鍵寬度 */
+  height: 52px; /* 增加按鍵高度 */
   margin: 0 1px;
   border-radius: 6px;
   background-color: #ffffff;
@@ -572,7 +572,6 @@
   user-select: none;
   position: relative;
 }
-
 
 .ime-key-btn:active {
   background-color: #e8eaed;
@@ -610,18 +609,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  display: block;
-  text-align: center;
-  margin-top: 5px;
-}
-
-.ime-key-hint {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  font-size: 10px;
-  color: #5f6368;
-  display: block;
+  font-size: 20px; /* 縮小字體大小以適應多個字元 */
 }
 
 /* 語言切換按鈕 (地球圖示) */
@@ -975,7 +963,7 @@ textarea[readonly].editor-ime-active {
 
 .ime-preview-key {
   min-width: 32px;
-  height: 50px; /* 增加高度 */
+  height: 40px;
   margin: 0 2px;
   border-radius: 6px;
   background-color: #ffffff;
@@ -988,7 +976,6 @@ textarea[readonly].editor-ime-active {
   user-select: none;
   position: relative;
 }
-
 
 .ime-preview-key:hover {
   background-color: #f1f3f4;
@@ -1012,9 +999,6 @@ textarea[readonly].editor-ime-active {
 
 .ime-preview-key-display {
   font-size: 16px;
-  display: block;
-  text-align: center;
-  margin-top: 5px;
 }
 
 .ime-preview-key-hint {
@@ -1024,7 +1008,6 @@ textarea[readonly].editor-ime-active {
   font-size: 10px;
   color: #5f6368;
 }
-
 
 .ime-editor-help {
   margin-bottom: 16px;

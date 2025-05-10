@@ -61,7 +61,7 @@ class IMEManager {
           ㄘ: { display: "ㄘ", hint: "h", code: "ㄘ", mapping: "h" },
           ㄙ: { display: "ㄙ", hint: "n", code: "ㄙ", mapping: "n" },
           ㄧ: { display: "ㄧ", hint: "u", code: "ㄧ", mapping: "u" },
-          ㄨ: { display: "ㄨ", hint: "j", code: "ㄨ", mapping: "u" },
+          ㄨ: { display: "ㄨ", hint: "j", code: "ㄨ", mapping: "j" },
           ㄩ: { display: "ㄩ", hint: "m", code: "ㄩ", mapping: "m" },
           ㄚ: { display: "ㄚ", hint: "8", code: "ㄚ", mapping: "8" },
           ㄛ: { display: "ㄛ", hint: "i", code: "ㄛ", mapping: "i" },
@@ -1074,11 +1074,10 @@ class IMEManager {
           // 檢查是否有自訂按鍵映射
           if (layout.keyMapping && layout.keyMapping[key]) {
             const keyMapping = layout.keyMapping[key]
-            // 修改為垂直排列
             btn.innerHTML = `
-        <span class="ime-key-hint">${keyMapping.hint}</span>
-        <span class="ime-key-display">${keyMapping.display}</span>
-      `
+              <span class="ime-key-display">${keyMapping.display}</span>
+              <span class="ime-key-hint">${keyMapping.hint}</span>
+            `
             btn.dataset.key = keyMapping.mapping
             btn.dataset.display = keyMapping.display
             btn.dataset.hint = keyMapping.hint
@@ -1471,129 +1470,9 @@ class IMEManager {
         return
       }
 
-      // 檢查是否按下了修飾鍵 (Ctrl, Shift, Alt)
-      if (e.ctrlKey || e.altKey) {
-        // 如果按下了修飾鍵，不處理這個按鍵事件，讓瀏覽器使用預設行為
-        return
-      }
-
       // 處理鍵盤輸入
-      // 如果正在輸入中文且候選字區域顯示中
-      if (this.composingText.length > 0 && this.candidateArea.style.display === "block") {
-        // 處理特殊鍵
-        switch (e.key) {
-          case "Escape":
-            e.preventDefault()
-            this.composingText = ""
-            this.hideCandidates()
-            return
-          case "Backspace":
-            e.preventDefault()
-            this.composingText = this.composingText.slice(0, -1)
-            if (this.composingText.length === 0) {
-              this.hideCandidates()
-            } else {
-              this.updateCandidates()
-            }
-            return
-          case "Enter":
-            e.preventDefault()
-            // 直接輸出當前編碼
-            this.insertText(this.composingText)
-            this.composingText = ""
-            this.hideCandidates()
-            return
-          case "ArrowRight":
-            e.preventDefault()
-            this.navigateCandidates("next")
-            return
-          case "ArrowLeft":
-            e.preventDefault()
-            this.navigateCandidates("prev")
-            return
-          case " ":
-            e.preventDefault()
-            // 檢查當前輸入法是否包含數字編碼
-            const currentIMEData = imeData[this.currentLang]
-            const hasNumericCodes = Object.keys(currentIMEData.data).some((key) => /\d/.test(key))
-
-            // 如果有編碼但沒有候選字，按空白鍵清空編碼
-            if (this.candidates.length === 0) {
-              this.composingText = ""
-              this.hideCandidates()
-              return
-            }
-
-            if (hasNumericCodes) {
-              // 如果包含數字編碼
-              if (this.composingText.endsWith(" ")) {
-                // 已經有空格作為編碼截止鍵，現在用空格選擇第一個候選字
-                if (this.candidates.length > 0) {
-                  this.selectCandidate(0)
-                }
-              } else {
-                // 第一次按空格，作為編碼截止鍵
-                this.composingText += " "
-                // 如果添加空格後沒有候選字，但之前有前綴匹配的候選字，保留這些候選字
-                const prevCandidates = [...this.candidates]
-                this.updateCandidates()
-
-                // 如果更新後沒有候選字但之前有，則恢復之前的候選字
-                if (this.candidates.length === 0 && prevCandidates.length > 0) {
-                  this.candidates = prevCandidates
-                  this.showCandidates()
-                }
-              }
-            } else {
-              // 不包含數字編碼，直接選擇第一個候選字
-              if (this.candidates.length > 0) {
-                this.selectCandidate(0)
-              }
-            }
-            return
-          case ",":
-            e.preventDefault()
-            this.navigateCandidates("prev")
-            return
-          case ".":
-            e.preventDefault()
-            this.navigateCandidates("next")
-            return
-        }
-
-        // 處理數字鍵選擇候選字
-        if (e.key >= "1" && e.key <= "9") {
-          const index = Number.parseInt(e.key) - 1
-          const currentIMEData = imeData[this.currentLang]
-
-          // 檢查當前輸入法是否包含數字編碼
-          const hasNumericCodes = Object.keys(currentIMEData.data).some((key) => /\d/.test(key))
-
-          if (hasNumericCodes) {
-            // 如果包含數字編碼，需要按空格後才能用數字選字
-            if (this.composingText.endsWith(" ")) {
-              e.preventDefault()
-              this.selectCandidate(index)
-              return
-            }
-          } else {
-            // 如果不包含數字編碼，可以直接用數字選字
-            if (index < this.candidates.length) {
-              e.preventDefault()
-              this.selectCandidate(index)
-              return
-            }
-          }
-        }
-      }
-
-      // 如果是字母或數字，加入到輸入中
-      if (/^[a-z0-9]$/i.test(e.key)) {
-        e.preventDefault()
-        this.composingText += e.key.toLowerCase()
-        this.updateCandidates()
-      }
-    }
+      this.handleKeyDown(e)
+    })
 
     // 編輯器點擊事件
     this.editor.addEventListener("click", () => {
@@ -1835,7 +1714,7 @@ class IMEManager {
           // 如果有編碼但沒有候選字，按空白鍵清空編碼
           if (this.candidates.length === 0) {
             this.composingText = ""
-            this.hideCandidates()\
+            this.hideCandidates()
             return
           }
 
@@ -2955,21 +2834,9 @@ class IMEManager {
     nameInput.type = "text"
     nameInput.className = "ime-editor-input"
     nameInput.placeholder = "請輸入配置名稱"
-    // 確保輸入框可以接收輸入
-    nameInput.addEventListener("click", (e) => {
-      e.stopPropagation();
-    });
     nameContainer.appendChild(nameInput)
 
     editor.appendChild(nameContainer)
-
-    // 防止事件冒泡到父元素
-    editor.addEventListener("click", (e) => {
-      // 只有當點擊的不是輸入框時才阻止冒泡
-      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
-        e.stopPropagation();
-      }
-    });
 
     // 添加基於現有配置的選擇
     const baseContainer = document.createElement("div")
@@ -3111,6 +2978,113 @@ class IMEManager {
 
     document.body.appendChild(editor)
 
+    // 暫時禁用IME，確保可以正常輸入
+    const wasIMEActive = this.imeActive;
+    if (this.imeActive) {
+      this.imeActive = false;
+      this.imeButton.classList.remove("active");
+      this.editor.classList.remove("editor-ime-active");
+    }
+
+    // 确保输入栏位可以正常工作
+    const inputs = editor.querySelectorAll('input');
+    inputs.forEach(input => {
+      input.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+      
+      input.addEventListener('focus', (e) => {
+        e.stopPropagation();
+      });
+    });
+
+    // 關閉編輯器時恢復IME狀態
+    const restoreIME = () => {
+      if (wasIMEActive) {
+        this.imeActive = true;
+        this.imeButton.classList.add("active");
+        this.editor.classList.add("editor-ime-active");
+      }
+    };
+
+    // 修改取消按鈕事件
+    cancelBtn.addEventListener("click", () => {
+      document.body.removeChild(editor);
+      restoreIME();
+    });
+
+    // 修改保存按鈕事件
+    saveBtn.removeEventListener("click", saveBtn.onclick);
+    saveBtn.addEventListener("click", () => {
+      const name = nameInput.value.trim();
+      if (!name) {
+        alert("請輸入配置名稱");
+        return;
+      }
+
+      // 獲取基於的配置
+      const baseLayoutId = baseSelect.value;
+      let baseLayout;
+
+      if (this.customLayouts[baseLayoutId]) {
+        baseLayout = JSON.parse(JSON.stringify(this.customLayouts[baseLayoutId]));
+      } else {
+        baseLayout = JSON.parse(JSON.stringify(this.keyboardLayouts[baseLayoutId]));
+      }
+
+      // 獲取自訂的按鍵
+      const customKeys = {};
+      const keyMapping = {};
+
+      previewArea.querySelectorAll(".ime-preview-key").forEach((keyElement) => {
+        if (keyElement.dataset.original && keyElement.dataset.custom) {
+          customKeys[keyElement.dataset.original] = keyElement.dataset.custom;
+
+          // 獲取按鍵映射
+          if (
+            keyElement.dataset.display &&
+            keyElement.dataset.hint &&
+            keyElement.dataset.code &&
+            keyElement.dataset.mapping
+          ) {
+            keyMapping[keyElement.dataset.custom] = {
+              display: keyElement.dataset.display,
+              hint: keyElement.dataset.hint,
+              code: keyElement.dataset.code,
+              mapping: keyElement.dataset.mapping,
+            };
+          }
+        }
+      });
+
+      // 創建新的自訂配置
+      const layoutId = `custom_${Date.now()}`;
+      this.customLayouts[layoutId] = {
+        name: name,
+        baseLayout: baseLayoutId,
+        customKeys: customKeys,
+        keyMapping: keyMapping,
+        rows: baseLayout.rows.map((row) => {
+          return row.map((key) => {
+            if (typeof key === "string" && customKeys[key]) {
+              return customKeys[key];
+            }
+            return key;
+          });
+        }),
+      };
+
+      // 儲存自訂配置
+      localStorage.setItem("imeCustomLayouts", JSON.stringify(this.customLayouts));
+
+      // 切換到新配置
+      this.switchKeyboardLayout(layoutId);
+
+      // 關閉編輯器
+      document.body.removeChild(editor);
+      restoreIME();
+    });
+
     // 更新預覽
     const updatePreview = () => {
       previewArea.innerHTML = ""
@@ -3185,21 +3159,16 @@ class IMEManager {
 
               document.body.appendChild(keyEditor)
 
-              // 在 keyEditor 創建後添加以下代碼
-              const displayInput = keyEditor.querySelector(".ime-key-display-input");
-              const hintInput = keyEditor.querySelector(".ime-key-hint-input");
-              const codeInput = keyEditor.querySelector(".ime-key-code-input");
-              const mappingInput = keyEditor.querySelector(".ime-key-mapping-input");
-
-              // 確保輸入框可以接收輸入
-              displayInput.addEventListener("click", (e) => e.stopPropagation());
-              hintInput.addEventListener("click", (e) => e.stopPropagation());
-              codeInput.addEventListener("click", (e) => e.stopPropagation());
-              mappingInput.addEventListener("click", (e) => e.stopPropagation());
-
-              // 防止事件冒泡到父元素
-              keyEditor.addEventListener("click", (e) => {
-                e.stopPropagation();
+              // 确保输入栏位可以正常工作
+              const keyEditorInputs = keyEditor.querySelectorAll('input');
+              keyEditorInputs.forEach(input => {
+                input.addEventListener('click', (e) => {
+                  e.stopPropagation();
+                });
+                
+                input.addEventListener('focus', (e) => {
+                  e.stopPropagation();
+                });
               });
 
               // 設定按鈕事件
@@ -3207,7 +3176,7 @@ class IMEManager {
               const saveBtn = keyEditor.querySelector(".ime-key-editor-save")
 
               cancelBtn.addEventListener("click", () => {
-                document.body.removeChild(keyEditor)
+                document.body.removeChild(keyEditor);
               })
 
               saveBtn.addEventListener("click", () => {
@@ -3226,10 +3195,10 @@ class IMEManager {
                   return
                 }
 
-                // 更新按鍵顯示，修改為垂直排列
+                // 更新按鍵顯示
                 keyElement.innerHTML = `
-                  <span class="ime-preview-key-hint">${hint}</span>
                   <span class="ime-preview-key-display">${display}</span>
+                  <span class="ime-preview-key-hint">${hint}</span>
                 `
                 keyElement.dataset.custom = display
                 keyElement.dataset.display = display
@@ -3317,21 +3286,436 @@ class IMEManager {
     nameInput.type = "text"
     nameInput.className = "ime-editor-input"
     nameInput.value = layout.name
-    // 確保輸入框可以接收輸入
-    nameInput.addEventListener("click", (e) => {
-      e.stopPropagation();
-    });
     nameContainer.appendChild(nameInput)
 
     editor.appendChild(nameContainer)
 
-    // 防止事件冒泡到父元素
-    editor.addEventListener("click", (e) => {
-      // 只有當點擊的不是輸入框時才阻止冒泡
-      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
-        e.stopPropagation();
+    // 添加鍵盤預覽區域
+    const previewContainer = document.createElement("div")
+    previewContainer.className = "ime-editor-preview-container"
+
+    const previewLabel = document.createElement("div")
+    previewLabel.className = "ime-editor-preview-label"
+    previewLabel.textContent = "鍵盤預覽："
+    previewContainer.appendChild(previewLabel)
+
+    const previewArea = document.createElement("div")
+    previewArea.className = "ime-editor-preview"
+    previewContainer.appendChild(previewArea)
+
+    editor.appendChild(previewContainer)
+
+    // 添加說明
+    const helpText = document.createElement("div")
+    helpText.className = "ime-editor-help"
+    helpText.textContent = "點擊按鍵可編輯對應的字元"
+    editor.appendChild(helpText)
+
+    // 添加按鈕區域
+    const buttonContainer = document.createElement("div")
+    buttonContainer.className = "ime-editor-buttons"
+
+    const cancelBtn = document.createElement("button")
+    cancelBtn.className = "ime-editor-btn ime-editor-cancel"
+    cancelBtn.textContent = "取消"
+    cancelBtn.addEventListener("click", () => {
+      document.body.removeChild(editor)
+    })
+    buttonContainer.appendChild(cancelBtn)
+
+    const saveBtn = document.createElement("button")
+    saveBtn.className = "ime-editor-btn ime-editor-save"
+    saveBtn.textContent = "儲存"
+    saveBtn.addEventListener("click", () => {
+      const name = nameInput.value.trim()
+      if (!name) {
+        alert("請輸入配置名稱")
+        return
       }
+
+      // 獲取自訂的按鍵
+      const customKeys = {}
+      const keyMapping = {}
+
+      previewArea.querySelectorAll(".ime-preview-key").forEach((keyElement) => {
+        if (keyElement.dataset.original && keyElement.dataset.custom) {
+          customKeys[keyElement.dataset.original] = keyElement.dataset.custom
+
+          // 獲取按鍵映射
+          if (
+            keyElement.dataset.display &&
+            keyElement.dataset.hint &&
+            keyElement.dataset.code &&
+            keyElement.dataset.mapping
+          ) {
+            keyMapping[keyElement.dataset.custom] = {
+              display: keyElement.dataset.display,
+              hint: keyElement.dataset.hint,
+              code: keyElement.dataset.code,
+              mapping: keyElement.dataset.mapping,
+            }
+          }
+        }
+      })
+
+      // 更新自訂配置
+      this.customLayouts[layoutId].name = name
+      this.customLayouts[layoutId].customKeys = customKeys
+      this.customLayouts[layoutId].keyMapping = keyMapping
+
+      // 更新行
+      const baseLayoutId = layout.baseLayout
+      let baseLayout
+
+      if (this.customLayouts[baseLayoutId]) {
+        baseLayout = JSON.parse(JSON.stringify(this.customLayouts[baseLayoutId]))
+      } else {
+        baseLayout = JSON.parse(JSON.stringify(this.keyboardLayouts[baseLayoutId]))
+      }
+
+      this.customLayouts[layoutId].rows = baseLayout.rows.map((row) => {
+        return row.map((key) => {
+          if (typeof key === "string" && customKeys[key]) {
+            return customKeys[key]
+          }
+          return key
+        })
+      })
+
+      // 儲存自訂配置
+      localStorage.setItem("imeCustomLayouts", JSON.stringify(this.customLayouts))
+
+      // 如果當前正在使用此配置，重新載入鍵盤
+      if (this.currentKeyboardLayout === layoutId) {
+        this.switchKeyboardLayout(layoutId)
+      }
+
+      // 關閉編輯器
+      document.body.removeChild(editor)
+    })
+    buttonContainer.appendChild(saveBtn)
+
+    editor.appendChild(buttonContainer)
+
+    document.body.appendChild(editor)
+
+    // 暫時禁用IME，確保可以正常輸入
+    const wasIMEActive = this.imeActive;
+    if (this.imeActive) {
+      this.imeActive = false;
+      this.imeButton.classList.remove("active");
+      this.editor.classList.remove("editor-ime-active");
+    }
+
+    // 确保输入栏位可以正常工作
+    const inputs = editor.querySelectorAll('input');
+    inputs.forEach(input => {
+      input.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+      
+      input.addEventListener('focus', (e) => {
+        e.stopPropagation();
+      });
     });
+
+    // 關閉編輯器時恢復IME狀態
+    const restoreIME = () => {
+      if (wasIMEActive) {
+        this.imeActive = true;
+        this.imeButton.classList.add("active");
+        this.editor.classList.add("editor-ime-active");
+      }
+    };
+
+    // 修改取消按鈕事件
+    cancelBtn.addEventListener("click", () => {
+      document.body.removeChild(editor);
+      restoreIME();
+    });
+
+    // 修改保存按鈕事件
+    saveBtn.removeEventListener("click", saveBtn.onclick);
+    saveBtn.addEventListener("click", () => {
+      const name = nameInput.value.trim();
+      if (!name) {
+        alert("請輸入配置名稱");
+        return;
+      }
+
+      // 獲取自訂的按鍵
+      const customKeys = {};
+      const keyMapping = {};
+
+      previewArea.querySelectorAll(".ime-preview-key").forEach((keyElement) => {
+        if (keyElement.dataset.original && keyElement.dataset.custom) {
+          customKeys[keyElement.dataset.original] = keyElement.dataset.custom;
+
+          // 獲取按鍵映射
+          if (
+            keyElement.dataset.display &&
+            keyElement.dataset.hint &&
+            keyElement.dataset.code &&
+            keyElement.dataset.mapping
+          ) {
+            keyMapping[keyElement.dataset.custom] = {
+              display: keyElement.dataset.display,
+              hint: keyElement.dataset.hint,
+              code: keyElement.dataset.code,
+              mapping: keyElement.dataset.mapping,
+            };
+          }
+        }
+      });
+
+      // 更新自訂配置
+      this.customLayouts[layoutId].name = name;
+      this.customLayouts[layoutId].customKeys = customKeys;
+      this.customLayouts[layoutId].keyMapping = keyMapping;
+
+      // 更新行
+      const baseLayoutId = layout.baseLayout;
+      let baseLayout;
+
+      if (this.customLayouts[baseLayoutId]) {
+        baseLayout = JSON.parse(JSON.stringify(this.customLayouts[baseLayoutId]));
+      } else {
+        baseLayout = JSON.parse(JSON.stringify(this.keyboardLayouts[baseLayoutId]));
+      }
+
+      this.customLayouts[layoutId].rows = baseLayout.rows.map((row) => {
+        return row.map((key) => {
+          if (typeof key === "string" && customKeys[key]) {
+            return customKeys[key];
+          }
+          return key;
+        });
+      });
+
+      // 儲存自訂配置
+      localStorage.setItem("imeCustomLayouts", JSON.stringify(this.customLayouts));
+
+      // 如果當前正在使用此配置，重新載入鍵盤
+      if (this.currentKeyboardLayout === layoutId) {
+        this.switchKeyboardLayout(layoutId);
+      }
+
+      // 關閉編輯器
+      document.body.removeChild(editor);
+      restoreIME();
+    });
+
+    // 更新預覽
+    const updatePreview = () => {
+      previewArea.innerHTML = ""
+
+      // 建立預覽鍵盤
+      layout.rows.forEach((row) => {
+        const rowElement = document.createElement("div")
+        rowElement.className = "ime-preview-row"
+
+        row.forEach((key) => {
+          const keyElement = document.createElement("div")
+          keyElement.className = "ime-preview-key"
+
+          // 找出原始按鍵
+          let originalKey = key
+          for (const [orig, custom] of Object.entries(layout.customKeys || {})) {
+            if (custom === key) {
+              originalKey = orig
+              break
+            }
+          }
+
+          if (
+            typeof key === "string" &&
+            !["shift", "backspace", "mode", "globe", "space", "enter", "settings"].includes(key)
+          ) {
+            // 檢查是否有按鍵映射
+            if (layout.keyMapping && layout.keyMapping[key]) {
+              const keyMapping = layout.keyMapping[key]
+              keyElement.innerHTML = `
+                <span class="ime-preview-key-display">${keyMapping.display}</span>
+                <span class="ime-preview-key-hint">${keyMapping.hint}</span>
+              `
+              keyElement.dataset.original = originalKey
+              keyElement.dataset.custom = key
+              keyElement.dataset.display = keyMapping.display
+              keyElement.dataset.hint = keyMapping.hint
+              keyElement.dataset.code = keyMapping.code
+              keyElement.dataset.mapping = keyMapping.mapping
+              keyElement.classList.add("ime-preview-key-custom")
+            } else {
+              keyElement.textContent = key
+              keyElement.dataset.original = originalKey
+
+              if (originalKey !== key) {
+                keyElement.dataset.custom = key
+                keyElement.classList.add("ime-preview-key-custom")
+              }
+            }
+
+            // 添加點擊事件
+            keyElement.addEventListener("click", () => {
+              // 創建編輯對話框
+              const keyEditor = document.createElement("div")
+              keyEditor.className = "ime-key-editor"
+              keyEditor.innerHTML = `
+                <div class="ime-key-editor-title">編輯按鍵</div>
+                <div class="ime-key-editor-field">
+                  <label>顯示符號：</label>
+                  <input type="text" class="ime-key-display-input" value="${keyElement.dataset.display || key}" maxlength="1">
+                </div>
+                <div class="ime-key-editor-field">
+                  <label>右上角提示符號：</label>
+                  <input type="text" class="ime-key-hint-input" value="${keyElement.dataset.hint || key}">
+                </div>
+                <div class="ime-key-editor-field">
+                  <label>編碼顯示符號：</label>
+                  <input type="text" class="ime-key-code-input" value="${keyElement.dataset.code || key}">
+                </div>
+                <div class="ime-key-editor-field">
+                  <label>實際對應符號：</label>
+                  <input type="text" class="ime-key-mapping-input" value="${keyElement.dataset.mapping || key}">
+                </div>
+                <div class="ime-key-editor-buttons">
+                  <button class="ime-key-editor-cancel">取消</button>
+                  <button class="ime-key-editor-save">儲存</button>
+                </div>
+              `
+
+              document.body.appendChild(keyEditor)
+
+              // 确保输入栏位可以正常工作
+              const keyEditorInputs = keyEditor.querySelectorAll('input');
+              keyEditorInputs.forEach(input => {
+                input.addEventListener('click', (e) => {
+                  e.stopPropagation();
+                });
+                
+                input.addEventListener('focus', (e) => {
+                  e.stopPropagation();
+                });
+              });
+
+              // 設定按鈕事件
+              const cancelBtn = keyEditor.querySelector(".ime-key-editor-cancel")
+              const saveBtn = keyEditor.querySelector(".ime-key-editor-save")
+
+              cancelBtn.addEventListener("click", () => {
+                document.body.removeChild(keyEditor);
+              })
+
+              saveBtn.addEventListener("click", () => {
+                const displayInput = keyEditor.querySelector(".ime-key-display-input")
+                const hintInput = keyEditor.querySelector(".ime-key-hint-input")
+                const codeInput = keyEditor.querySelector(".ime-key-code-input")
+                const mappingInput = keyEditor.querySelector(".ime-key-mapping-input")
+
+                const display = displayInput.value.trim()
+                const hint = hintInput.value.trim()
+                const code = codeInput.value.trim()
+                const mapping = mappingInput.value.trim()
+
+                if (!display || !hint || !code || !mapping) {
+                  alert("所有欄位都必須填寫")
+                  return
+                }
+
+                // 更新按鍵顯示
+                keyElement.innerHTML = `
+                  <span class="ime-preview-key-display">${display}</span>
+                  <span class="ime-preview-key-hint">${hint}</span>
+                `
+                keyElement.dataset.custom = display
+                keyElement.dataset.display = display
+                keyElement.dataset.hint = hint
+                keyElement.dataset.code = code
+                keyElement.dataset.mapping = mapping
+                keyElement.classList.add("ime-preview-key-custom")
+
+                document.body.removeChild(keyEditor)
+              })
+            })
+          } else {
+            // 特殊按鍵
+            switch (key) {
+              case "shift":
+                keyElement.innerHTML = "⇧"
+                keyElement.className += " ime-preview-key-special"
+                break
+              case "backspace":
+                keyElement.innerHTML = "⌫"
+                keyElement.className += " ime-preview-key-special"
+                break
+              case "mode":
+                keyElement.innerHTML = "中/英"
+                keyElement.className += " ime-preview-key-special"
+                break
+              case "globe":
+                keyElement.innerHTML = "🌐"
+                keyElement.className += " ime-preview-key-special"
+                break
+              case "space":
+                keyElement.innerHTML = "空白"
+                keyElement.className += " ime-preview-key-space"
+                break
+              case "enter":
+                keyElement.innerHTML = "⏎"
+                keyElement.className += " ime-preview-key-special"
+                break
+              case "settings":
+                keyElement.innerHTML = "⚙️"
+                keyElement.className += " ime-preview-key-special"
+                break
+              default:
+                keyElement.textContent = key
+            }
+          }
+
+          rowElement.appendChild(keyElement)
+        })
+
+        previewArea.appendChild(rowElement)
+      })
+    }
+
+    // 初始更新預覽
+    updatePreview()
+
+    // 當基於配置變更時更新預覽
+    baseSelect.addEventListener("change", updatePreview)
+  }
+
+  editCustomLayout(layoutId) {
+    const layout = this.customLayouts[layoutId]
+    if (!layout) return
+
+    // 建立自訂鍵盤配置編輯器
+    const editor = document.createElement("div")
+    editor.className = "ime-custom-layout-editor"
+
+    // 添加標題
+    const editorTitle = document.createElement("div")
+    editorTitle.className = "ime-editor-title"
+    editorTitle.textContent = "編輯自訂鍵盤配置"
+    editor.appendChild(editorTitle)
+
+    // 添加配置名稱輸入
+    const nameContainer = document.createElement("div")
+    nameContainer.className = "ime-editor-field"
+
+    const nameLabel = document.createElement("label")
+    nameLabel.textContent = "配置名稱："
+    nameContainer.appendChild(nameLabel)
+
+    const nameInput = document.createElement("input")
+    nameInput.type = "text"
+    nameInput.className = "ime-editor-input"
+    nameInput.value = layout.name
+    nameContainer.appendChild(nameInput)
+
+    editor.appendChild(nameContainer)
 
     // 添加鍵盤預覽區域
     const previewContainer = document.createElement("div")
@@ -3523,23 +3907,6 @@ class IMEManager {
 
               document.body.appendChild(keyEditor)
 
-              // 在 keyEditor 創建後添加以下代碼
-              const displayInput = keyEditor.querySelector(".ime-key-display-input");
-              const hintInput = keyEditor.querySelector(".ime-key-hint-input");
-              const codeInput = keyEditor.querySelector(".ime-key-code-input");
-              const mappingInput = keyEditor.querySelector(".ime-key-mapping-input");
-
-              // 確保輸入框可以接收輸入
-              displayInput.addEventListener("click", (e) => e.stopPropagation());
-              hintInput.addEventListener("click", (e) => e.stopPropagation());
-              codeInput.addEventListener("click", (e) => e.stopPropagation());
-              mappingInput.addEventListener("click", (e) => e.stopPropagation());
-
-              // 防止事件冒泡到父元素
-              keyEditor.addEventListener("click", (e) => {
-                e.stopPropagation();
-              });
-
               // 設定按鈕事件
               const cancelBtn = keyEditor.querySelector(".ime-key-editor-cancel")
               const saveBtn = keyEditor.querySelector(".ime-key-editor-save")
@@ -3564,14 +3931,174 @@ class IMEManager {
                   return
                 }
 
-                // 更新按鍵顯示，修改為垂直排列
+                // 更新按鍵顯示
                 keyElement.innerHTML = `
-                  <span class="ime-preview-key-hint">${hint}</span>
                   <span class="ime-preview-key-display">${display}</span>
+                  <span class="ime-preview-key-hint">${hint}</span>
                 `
                 keyElement.dataset.custom = display
                 keyElement.dataset.display = display
                 keyElement.dataset.hint = hint
                 keyElement.dataset.code = code
                 keyElement.dataset.mapping = mapping
-                keyElement.classList.add("
+                keyElement.classList.add("ime-preview-key-custom")
+
+                document.body.removeChild(keyEditor)
+              })
+            })
+          } else {
+            // 特殊按鍵
+            switch (key) {
+              case "shift":
+                keyElement.innerHTML = "⇧"
+                keyElement.className += " ime-preview-key-special"
+                break
+              case "backspace":
+                keyElement.innerHTML = "⌫"
+                keyElement.className += " ime-preview-key-special"
+                break
+              case "mode":
+                keyElement.innerHTML = "中/英"
+                keyElement.className += " ime-preview-key-special"
+                break
+              case "globe":
+                keyElement.innerHTML = "🌐"
+                keyElement.className += " ime-preview-key-special"
+                break
+              case "space":
+                keyElement.innerHTML = "空白"
+                keyElement.className += " ime-preview-key-space"
+                break
+              case "enter":
+                keyElement.innerHTML = "⏎"
+                keyElement.className += " ime-preview-key-special"
+                break
+              case "settings":
+                keyElement.innerHTML = "⚙️"
+                keyElement.className += " ime-preview-key-special"
+                break
+              default:
+                keyElement.textContent = key
+            }
+          }
+
+          rowElement.appendChild(keyElement)
+        })
+
+        previewArea.appendChild(rowElement)
+      })
+    }
+
+    // 初始更新預覽
+    updatePreview()
+  }
+
+  deleteCustomLayout(layoutId) {
+    if (!confirm("確定要刪除此鍵盤配置嗎？")) return
+
+    // 刪除自訂配置
+    delete this.customLayouts[layoutId]
+
+    // 儲存自訂配置
+    localStorage.setItem("imeCustomLayouts", JSON.stringify(this.customLayouts))
+
+    // 如果當前正在使用此配置，切換到預設配置
+    if (this.currentKeyboardLayout === layoutId) {
+      this.switchKeyboardLayout("qwerty")
+    }
+  }
+
+  updateShiftButton() {
+    if (this.shiftBtn) {
+      if (this.isShiftActive) {
+        this.shiftBtn.classList.add("ime-active")
+      } else {
+        this.shiftBtn.classList.remove("ime-active")
+      }
+      this.updateKeyboardCase()
+    }
+  }
+
+  deleteChar() {
+    // 沒有編碼時，刪除編輯器中的文字
+    const start = this.cursorPosition.start
+    const end = this.cursorPosition.end
+
+    if (start === end && start > 0) {
+      // 刪除光標前的一個字符
+      const newValue = this.editor.value.slice(0, start - 1) + this.editor.value.slice(end)
+      this.editor.value = newValue
+
+      // 更新光標位置
+      const newPosition = start - 1
+      this.cursorPosition = {
+        start: newPosition,
+        end: newPosition,
+      }
+
+      // 設置編輯器的選擇範圍，使系統游標顯示在正確位置
+      this.editor.setSelectionRange(newPosition, newPosition)
+    } else if (start !== end) {
+      // 刪除選中的文字
+      const newValue = this.editor.value.slice(0, start) + this.editor.value.slice(end)
+      this.editor.value = newValue
+
+      // 更新光標位置
+      this.cursorPosition = {
+        start: start,
+        end: start,
+      }
+
+      // 設置編輯器的選擇範圍，使系統游標顯示在正確位置
+      this.editor.setSelectionRange(start, start)
+    }
+
+    // 觸發 input 事件
+    const event = new Event("input", { bubbles: true })
+    this.editor.dispatchEvent(event)
+
+    // 更新視覺光標
+    this.updateCursorIndicator()
+  }
+
+  insertEnter() {
+    // Insert newline
+    const start = this.cursorPosition.start
+    const end = this.cursorPosition.end
+
+    const newValue = this.editor.value.slice(0, start) + "\n" + this.editor.value.slice(end)
+    this.editor.value = newValue
+
+    // Update cursor position
+    this.cursorPosition = {
+      start: start + 1,
+      end: start + 1,
+    }
+
+    // Trigger input event
+    const event = new Event("input", { bubbles: true })
+    this.editor.dispatchEvent(event)
+
+    // Ensure the editor is not readonly
+    this.editor.removeAttribute("readonly")
+
+    // Set selection range to update the cursor position
+    this.editor.setSelectionRange(this.cursorPosition.start, this.cursorPosition.end)
+
+    // Force focus to ensure the cursor is visible
+    this.editor.focus()
+
+    // Update visual cursor
+    this.updateCursorIndicator()
+  }
+}
+
+// 初始化 IME 管理器
+document.addEventListener("DOMContentLoaded", () => {
+  // 確保編輯器已載入
+  if (document.getElementById("editor")) {
+    window.imeManager = new IMEManager()
+  } else {
+    console.error("編輯器元素未找到，無法初始化輸入法")
+  }
+})
