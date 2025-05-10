@@ -1,0 +1,1128 @@
+/* IME 基本樣式 */
+.ime-button {
+  position: relative;
+}
+
+.ime-button.active {
+  color: #1a73e8;
+  background-color: #e8f0fe;
+}
+
+.ime-indicator {
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #1a73e8;
+  display: none;
+}
+
+.ime-button.active .ime-indicator {
+  display: block;
+}
+
+/* 語言選擇器樣式更新 */
+.ime-lang-btn {
+  display: block; /* 修改為始終顯示 */
+  margin-left: 4px;
+  position: relative;
+  padding-right: 18px;
+}
+
+.ime-lang-btn::after {
+  content: "";
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 4px solid currentColor;
+}
+
+.ime-lang-menu {
+  min-width: 120px;
+  width: 120px;
+}
+
+.ime-lang-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* 移除語言選單中的勾勾 */
+.ime-lang-item.active::after {
+  content: "";
+  margin-left: 0;
+}
+
+.ime-lang-item.active {
+  background-color: #e8f0fe;
+  color: #1a73e8;
+}
+
+/* IME 工具條 */
+.ime-toolbar {
+  position: fixed;
+  background-color: #ffffff;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(60, 64, 67, 0.2);
+  padding: 4px;
+  z-index: 1000;
+  display: none;
+  user-select: none;
+  cursor: move;
+}
+
+.ime-toolbar-buttons {
+  display: flex;
+  gap: 2px;
+}
+
+.ime-toolbar-btn {
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: #5f6368;
+}
+
+.ime-toolbar-btn:hover {
+  background-color: #f1f3f4;
+}
+
+.ime-toolbar-btn.active {
+  color: #1a73e8;
+  background-color: #e8f0fe;
+}
+
+/* 候選字區域 */
+.ime-candidate-area {
+  position: fixed;
+  background-color: #ffffff;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(60, 64, 67, 0.3);
+  padding: 8px;
+  z-index: 1000;
+  display: none;
+  min-width: 200px; /* 添加最小寬度 */
+  max-width: 80vw; /* 限制最大寬度為視窗寬度的80% */
+  overflow-x: hidden; /* 改為隱藏溢出內容 */
+  cursor: move;
+  resize: none; /* Disable default resize */
+  min-height: 50px; /* Add minimum height */
+}
+
+.ime-composing-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+/* 輸入編碼樣式更新 */
+.ime-composing-text {
+  font-size: 18px;
+  color: #5f6368;
+  font-family: monospace;
+  cursor: pointer;
+}
+
+.ime-composing-text:hover {
+  text-decoration: none;
+  color: #1a73e8;
+}
+
+/* 修改候选字区域样式 */
+.ime-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ime-pagination {
+  display: flex;
+  gap: 4px;
+}
+
+.ime-page-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  background-color: #f1f3f4;
+  color: #5f6368;
+}
+
+.ime-settings-btn {
+  width: 20px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  background-color: transparent;
+  color: #9aa0a6;
+}
+
+.ime-settings-btn:hover {
+  background-color: #e8eaed;
+}
+
+/* 设置面板样式 */
+.ime-settings-panel {
+  position: fixed;
+  background-color: #ffffff;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(60, 64, 67, 0.3);
+  padding: 0;
+  z-index: 1001;
+  display: none;
+  width: 220px;
+  overflow: hidden;
+}
+
+.ime-settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e8eaed;
+}
+
+.ime-settings-title {
+  font-weight: 500;
+  color: #202124;
+}
+
+.ime-settings-close {
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ime-settings-close:hover {
+  background-color: #f1f3f4;
+}
+
+.ime-settings-content {
+  padding: 12px;
+}
+
+.ime-settings-item {
+  margin-bottom: 12px;
+}
+
+.ime-settings-item:last-child {
+  margin-bottom: 0;
+}
+
+.ime-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ime-settings-label {
+  font-size: 14px;
+  color: #5f6368;
+  flex: 0 0 auto;
+  margin-right: 8px;
+  margin-bottom: 0;
+}
+
+.ime-settings-options {
+  display: flex;
+  gap: 8px;
+}
+
+.ime-settings-option {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background-color: #f1f3f4;
+  color: #202124;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.ime-settings-select {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #dadce0;
+  background-color: #f1f3f4;
+  color: #202124;
+  font-size: 14px;
+  min-width: 100px;
+}
+
+.ime-page-btn:hover {
+  background-color: #e8eaed;
+}
+
+.ime-page-btn.disabled {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+.ime-candidate-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+/* 候选字布局样式 */
+.ime-candidate-list.ime-layout-single {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+/* Modify the ime-layout-double class to be more compact */
+.ime-candidate-list.ime-layout-double {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0px;
+  width: auto;
+}
+
+/* Adjust the candidate item spacing */
+.ime-candidate-item {
+  padding: 1px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: 0px;
+  margin-right: 0px;
+}
+
+/* Add styles for vertical candidate display */
+.ime-candidate-list.ime-layout-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+  width: 200px;
+}
+
+.ime-candidate-list.ime-layout-vertical .ime-candidate-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin-right: 0;
+  margin-bottom: 0px;
+  padding: 1px 6px;
+}
+
+.ime-candidate-list.ime-layout-vertical .ime-candidate-item .ime-key {
+  margin-right: 8px;
+  min-width: 12px;
+}
+
+/* Add max-width and text-overflow for vertical layout */
+.ime-candidate-list.ime-layout-vertical .ime-candidate-item .ime-char {
+  max-width: calc(100% - 20px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Make the number closer to the character in horizontal mode */
+.ime-candidate-item .ime-key {
+  color: #1a73e8;
+  font-size: 0.7em;
+  vertical-align: super;
+  margin-right: 0px;
+  padding-right: 0px;
+  display: inline-block; /* 確保編號不換行 */
+}
+
+/* 候選字項目樣式更新 */
+.ime-candidate-item .ime-char {
+  font-weight: 500;
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: top; /* 確保與編號在同一行 */
+}
+
+/* Limit width for candidates in horizontal mode   */
+.ime-candidate-list.ime-layout-double .ime-candidate-item .ime-char {
+  font-weight: 500;
+  /*max-width: 80px;*/
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 添加沒有候選字時的樣式 */
+.ime-no-candidates {
+  padding: 4px 8px;
+  color: #5f6368;
+  font-size: 14px;
+  width: 100%;
+  text-align: center;
+}
+
+/* 候选字字体大小样式 */
+.ime-candidate-area.ime-font-small .ime-candidate-item {
+  font-size: 14px;
+}
+
+.ime-candidate-area.ime-font-medium .ime-candidate-item {
+  font-size: 16px;
+}
+
+.ime-candidate-area.ime-font-large .ime-candidate-item {
+  font-size: 18px;
+}
+
+.ime-candidate-area.ime-font-huge .ime-candidate-item {
+  font-size: 22px;
+}
+
+.ime-candidate-area.ime-font-extreme .ime-candidate-item {
+  font-size: 28px;
+}
+
+.ime-candidate-area.ime-font-default .ime-candidate-item {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.ime-candidate-area.ime-font-kaiti .ime-candidate-item {
+  font-family: "標楷體", "DFKai-SB", "BiauKai", kaiti, "楷体", "楷体_GB2312", serif;
+}
+
+.ime-candidate-area.ime-font-songti .ime-candidate-item {
+  font-family: "新細明體", "PMingLiU", "MingLiU", "細明體", songti, "宋体", "SimSun", serif;
+}
+
+.ime-candidate-area.ime-font-heiti .ime-candidate-item {
+  font-family: "微軟正黑體", "Microsoft JhengHei", "黑體", heiti, "黑体", "SimHei", sans-serif;
+}
+
+/* 行動裝置候選字區域 */
+.ime-mobile-candidate-area {
+  width: 100%;
+  background-color: #ffffff;
+  border-bottom: 1px solid #dadce0;
+  padding: 4px 4px;
+  overflow-x: auto;
+  white-space: nowrap;
+  display: none;
+  position: relative;
+  height: 44px; /* 縮小固定高度 */
+  box-sizing: border-box;
+  margin: 0;
+}
+
+.ime-mobile-candidate-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  padding: 0 4px;
+}
+
+.ime-mobile-candidate-container.with-button {
+  padding-left: 40px; /* 為隱藏鍵盤按鈕留出空間 */
+}
+
+.ime-hide-keyboard-btn {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  border-radius: 50%;
+  z-index: 10;
+}
+
+.ime-hide-keyboard-btn.hidden {
+  display: none;
+}
+
+.ime-hide-keyboard-btn:active {
+  background-color: #f1f3f4;
+}
+
+.ime-mobile-composing-text {
+  display: inline-block;
+  padding: 6px 10px;
+  margin-right: 2px;
+  border-radius: 16px;
+  background-color: #e8eaed;
+  color: #202124;
+  font-size: 16px;
+  font-family: monospace;
+  cursor: pointer;
+  max-width: fit-content;
+  flex-shrink: 0;
+}
+
+.ime-mobile-composing-text:active {
+  background-color: #dadce0;
+}
+
+.ime-mobile-candidate-list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+  flex: 1;
+}
+
+.ime-mobile-candidate-list::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+}
+
+.ime-mobile-candidate-item {
+  padding: 4px 10px;
+  border-radius: 16px;
+  background-color: #f1f3f4;
+  color: #202124;
+  font-size: 22px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ime-mobile-candidate-item:active {
+  background-color: #e8eaed;
+}
+
+.ime-mobile-pagination {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 8px;
+}
+
+.ime-mobile-page-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: #f1f3f4;
+  color: #5f6368;
+}
+
+.ime-mobile-page-btn.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* 行動裝置鍵盤 */
+.ime-keyboard {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background-color: #f1f3f4;
+  box-shadow: 0 -2px 10px rgba(60, 64, 67, 0.2);
+  z-index: 1001;
+  display: block;
+  padding: 2px 4px 0; /* 減少與候選字區域的間距 */
+  user-select: none;
+}
+
+.ime-keyboard-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 3px; /* 減少行間距 */
+}
+
+.ime-key-btn {
+  min-width: 9.8%; /* 增加按鍵寬度 */
+  height: 52px; /* 增加按鍵高度 */
+  margin: 0 1px;
+  border-radius: 6px;
+  background-color: #ffffff;
+  border: 1px solid #dadce0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.ime-key-btn:active {
+  background-color: #e8eaed;
+}
+
+.ime-key-btn.ime-special {
+  background-color: #e8eaed;
+}
+
+.ime-key-btn.ime-space {
+  min-width: 40%;
+}
+
+.ime-key-btn.ime-backspace,
+.ime-key-btn.ime-return,
+.ime-key-btn.ime-shift {
+  min-width: 15%;
+}
+
+.ime-key-btn.ime-mode,
+.ime-key-btn.ime-globe,
+.ime-key-btn.ime-settings {
+  min-width: 10%;
+}
+
+.ime-key-btn.ime-active {
+  background-color: #e8f0fe;
+  border-color: #1a73e8;
+}
+
+/* 按鍵顯示與提示符號 */
+.ime-key-display {
+  font-size: 26px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 20px; /* 縮小字體大小以適應多個字元 */
+}
+
+/* 語言切換按鈕 (地球圖示) */
+.ime-globe {
+  position: relative;
+}
+
+/* 行動裝置語言選單 */
+.ime-mobile-lang-menu {
+  position: fixed;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(60, 64, 67, 0.3);
+  padding: 8px 0;
+  z-index: 1002;
+  display: none;
+}
+
+.ime-mobile-lang-item {
+  padding: 12px 16px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.ime-mobile-lang-item:active,
+.ime-mobile-lang-item.active {
+  background-color: #e8f0fe;
+  color: #1a73e8;
+}
+
+/* 鍵盤展開按鈕 */
+.ime-keyboard-expand {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  width: 48px;
+  height: 48px;
+  border-radius: 24px;
+  background-color: #1a73e8;
+  color: white;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  z-index: 1000;
+}
+
+/* 修改編輯器在IME模式下的樣式，確保顯示系統游標 */
+.editor-ime-active {
+  caret-color: auto !important; /* 使用系統默認游標顏色 */
+  -webkit-user-select: text !important; /* 允許在iOS上選擇文本 */
+  user-select: text !important;
+  cursor: text !important;
+  outline: none !important; /* Remove outline that might hide cursor */
+}
+
+/* 確保即使在只讀模式下也能顯示光標 */
+textarea[readonly].editor-ime-active {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  cursor: text !important;
+}
+
+.ime-cursor-indicator {
+  position: absolute;
+  width: 2px;
+  background-color: #1a73e8;
+  z-index: 999;
+  display: none; /* 默認隱藏，只在需要時顯示 */
+}
+
+.ime-cursor-indicator.blink {
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* 響應式設計 */
+@media (max-width: 600px) {
+  .ime-key-btn {
+    min-width: 9.8%;
+    height: 46px;
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 400px) {
+  .ime-key-btn {
+    min-width: 9.8%;
+    height: 42px;
+    font-size: 22px;
+    margin: 0 1px;
+  }
+}
+
+/* Highlight active settings option */
+.ime-settings-option.active {
+  background-color: #e8f0fe;
+  color: #1a73e8;
+  font-weight: 500;
+}
+
+/* Make mode and space button text smaller */
+.ime-key-btn.ime-mode,
+.ime-key-btn.ime-space {
+  font-size: 20px; /* Smaller font for mode and space buttons */
+}
+
+/* Add these styles for the resize handle */
+.ime-resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 50%, #9aa0a6 50%, #9aa0a6 60%, transparent 60%);
+  border-radius: 0 0 4px 0;
+  z-index: 10;
+}
+
+/* 修改水平模式下的候選字項目樣式 */
+.ime-candidate-list.ime-layout-single .ime-candidate-item,
+.ime-candidate-list.ime-layout-double .ime-candidate-item {
+  display: inline-flex; /* 使用 inline-flex 確保內容不換行 */
+  align-items: flex-start; /* 頂部對齊 */
+  white-space: nowrap; /* 防止換行 */
+  flex-shrink: 1; /* 允許縮小 */
+  flex-grow: 1; /* 允許增長 */
+  overflow: hidden; /* 隱藏溢出內容 */
+}
+
+/* 修改水平模式下的候選字容器樣式 */
+.ime-candidate-list.ime-layout-single,
+.ime-candidate-list.ime-layout-double {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%; /* 使用全寬 */
+}
+
+/* 修改水平模式下的候選字網格佈局 */
+.ime-candidate-list.ime-layout-double {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* 三列等寬 */
+  width: 100%; /* 使用全寬 */
+}
+
+/* 限制水平模式下候選字的寬度 */
+.ime-candidate-list.ime-layout-single .ime-candidate-item .ime-char,
+.ime-candidate-list.ime-layout-double .ime-candidate-item .ime-char {
+  max-width: calc(100% - 15px); /* 減去編號的寬度 */
+}
+
+.ime-keyboard-settings-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  border-radius: 50%;
+  z-index: 10;
+  cursor: pointer;
+}
+
+.ime-keyboard-settings-btn:active {
+  background-color: #f1f3f4;
+}
+
+.ime-keyboard-layout-menu {
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(60, 64, 67, 0.3);
+  padding: 12px 0;
+  z-index: 1002;
+  display: none;
+  width: 280px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.ime-menu-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #202124;
+  padding: 0 16px 8px;
+  border-bottom: 1px solid #e8eaed;
+  margin-bottom: 8px;
+}
+
+.ime-menu-section {
+  margin-bottom: 12px;
+}
+
+.ime-section-title {
+  font-size: 14px;
+  color: #5f6368;
+  padding: 0 16px 4px;
+}
+
+.ime-layout-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  font-size: 16px;
+  cursor: pointer;
+  position: relative;
+}
+
+.ime-layout-item.active {
+  background-color: #e8f0fe;
+  color: #1a73e8;
+}
+
+.ime-layout-item:active {
+  background-color: #e8f0fe;
+}
+
+.ime-layout-edit,
+.ime-layout-delete {
+  display: none;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  position: absolute;
+  right: 16px;
+}
+
+.ime-layout-edit {
+  right: 48px;
+}
+
+.ime-layout-item:hover .ime-layout-edit,
+.ime-layout-item:hover .ime-layout-delete {
+  display: flex;
+}
+
+.ime-layout-edit:hover,
+.ime-layout-delete:hover {
+  background-color: #f1f3f4;
+}
+
+.ime-no-custom-layout {
+  padding: 8px 16px;
+  color: #5f6368;
+  font-style: italic;
+}
+
+.ime-add-custom-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: 16px;
+  color: #1a73e8;
+  cursor: pointer;
+  border-top: 1px solid #e8eaed;
+  margin-top: 8px;
+}
+
+.ime-add-custom-btn:active {
+  background-color: #e8f0fe;
+}
+
+/* 自訂鍵盤配置編輯器 */
+.ime-custom-layout-editor {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(60, 64, 67, 0.3);
+  padding: 16px;
+  z-index: 1003;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.ime-editor-title {
+  font-size: 18px;
+  font-weight: 500;
+  color: #202124;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.ime-editor-field {
+  margin-bottom: 16px;
+}
+
+.ime-editor-field label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #5f6368;
+}
+
+.ime-editor-input,
+.ime-editor-select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  font-size: 16px;
+  color: #202124;
+}
+
+.ime-editor-preview-container {
+  margin-bottom: 16px;
+}
+
+.ime-editor-preview-label {
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #5f6368;
+}
+
+.ime-editor-preview {
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  padding: 12px;
+  background-color: #f8f9fa;
+}
+
+.ime-preview-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.ime-preview-row:last-child {
+  margin-bottom: 0;
+}
+
+.ime-preview-key {
+  min-width: 32px;
+  height: 40px;
+  margin: 0 2px;
+  border-radius: 6px;
+  background-color: #ffffff;
+  border: 1px solid #dadce0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.ime-preview-key:hover {
+  background-color: #f1f3f4;
+}
+
+.ime-preview-key-special {
+  background-color: #e8eaed;
+  font-size: 14px;
+}
+
+.ime-preview-key-space {
+  min-width: 120px;
+  font-size: 14px;
+}
+
+.ime-preview-key-custom {
+  background-color: #e8f0fe;
+  border-color: #1a73e8;
+  color: #1a73e8;
+}
+
+.ime-preview-key-display {
+  font-size: 16px;
+}
+
+.ime-preview-key-hint {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 10px;
+  color: #5f6368;
+}
+
+.ime-editor-help {
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #5f6368;
+  text-align: center;
+  font-style: italic;
+}
+
+.ime-editor-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.ime-editor-btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+}
+
+.ime-editor-cancel {
+  background-color: #f1f3f4;
+  color: #5f6368;
+}
+
+.ime-editor-save {
+  background-color: #1a73e8;
+  color: #ffffff;
+}
+
+.ime-editor-cancel:hover {
+  background-color: #e8eaed;
+}
+
+.ime-editor-save:hover {
+  background-color: #1557b0;
+}
+
+/* 按鍵編輯對話框 */
+.ime-key-editor {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(60, 64, 67, 0.3);
+  padding: 16px;
+  z-index: 1004;
+  width: 90%;
+  max-width: 320px;
+}
+
+.ime-key-editor-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #202124;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.ime-key-editor-field {
+  margin-bottom: 12px;
+}
+
+.ime-key-editor-field label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+  color: #5f6368;
+}
+
+.ime-key-editor-field input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  font-size: 16px;
+  color: #202124;
+}
+
+.ime-key-editor-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.ime-key-editor-cancel,
+.ime-key-editor-save {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+}
+
+.ime-key-editor-cancel {
+  background-color: #f1f3f4;
+  color: #5f6368;
+}
+
+.ime-key-editor-save {
+  background-color: #1a73e8;
+  color: #ffffff;
+}
+
+.ime-key-editor-cancel:hover {
+  background-color: #e8eaed;
+}
+
+.ime-key-editor-save:hover {
+  background-color: #1557b0;
+}
+

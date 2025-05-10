@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>烏衣行編輯器</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="ime-styles.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- 或使用Material Icons Round版本 -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+</head>
+<body>
+<div class="container compact-width">
+
+    <div class="editor-container">
+        <header class="editor-header">
+            <div class="editor-title" title="烏衣行編輯器">🥷</div>
+<div class="toolbar">
+  <!-- 儲存 -->
+  <button id="saveBtn" class="tool-btn always-show" title="儲存">
+    <span class="material-icons">save</span>
+  </button>
+  
+  <!-- 複製 -->
+  <button id="copyBtn" class="tool-btn always-show" title="複製">
+    <span class="material-icons">content_copy</span>
+  </button>
+  
+  <!-- 清除 -->
+  <button id="clearBtn" class="tool-btn always-show" title="清除">
+    <span class="material-icons">delete</span>
+  </button>
+  
+  <!-- 還原 -->
+  <button id="undoBtn" class="tool-btn always-show" title="還原">
+    <span class="material-icons">undo</span>
+  </button>
+  
+  <!-- 重做 -->
+  <button id="redoBtn" class="tool-btn priority-medium" title="重做">
+    <span class="material-icons">redo</span>
+  </button>
+  
+  <!-- 字體大小 -->
+  <div class="dropdown priority-medium">
+    <button id="fontSizeBtn" class="tool-btn" title="字體大小">
+      <span class="material-icons">format_size</span>
+    </button>
+				<div id="fontSizeMenu" class="dropdown-menu font-size-menu">
+				  <div id="fontThin" class="dropdown-item" data-size="thin">
+					細 (12px)
+				  </div>
+				  <div id="fontSmall" class="dropdown-item" data-size="small">
+					小 (14px)
+				  </div>
+				  <div id="fontFit" class="dropdown-item active" data-size="fit">
+					適 (16px)
+				  </div>
+				  <div id="fontMedium" class="dropdown-item" data-size="medium">
+					中 (18px)
+				  </div>
+				  <div id="fontLarge" class="dropdown-item" data-size="large">
+					大 (24px)
+				  </div>
+				  <div id="fontHuge" class="dropdown-item" data-size="huge">
+					巨 (32px)
+				  </div>
+				  <div id="fontGiant" class="dropdown-item" data-size="giant">
+					洪 (40px)
+				  </div>
+				  <div id="fontExtreme" class="dropdown-item" data-size="extreme">
+					極 (56px)
+				  </div>
+				  <div id="fontMassive" class="dropdown-item" data-size="massive">
+					狂 (64px)
+				  </div>
+				</div>
+
+  </div>
+  
+  <!-- 尋找與取代 -->
+  <button id="searchBtn" class="tool-btn priority-medium" title="尋找與取代">
+    <span class="material-icons">search</span>
+  </button>
+  
+  <!-- 換行 -->
+  <button id="wrapBtn" class="tool-btn priority-medium" title="換行">
+    <span class="material-icons">wrap_text</span>
+  </button>
+  
+  <!-- 寬度切換 -->
+  <button id="widthToggleBtn" class="tool-btn priority-medium desktop-only" title="切換寬度">
+    <span class="material-icons">aspect_ratio</span>
+  </button>
+  
+  <!-- 更多選項 -->
+  <div class="dropdown">
+    <button id="moreBtn" class="tool-btn" title="更多選項">
+      <span class="material-icons">more_horiz</span>
+    </button>
+    <div id="moreMenu" class="dropdown-menu">
+      <!-- 這裡的內容會由 JavaScript 動態生成 -->
+    </div>
+  </div>
+</div>
+        </header>
+
+        <main class="editor-main">
+            <textarea id="editor" placeholder="電腦版切換到英數開始輸入..."></textarea>
+        </main>
+
+        <div id="searchDialog" class="dialog search-dialog">
+            <div class="dialog-header">
+                <div id="dialogTitle" class="dialog-title">尋找與取代</div>
+                <button id="closeSearchDialog" class="close-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="dialog-content">
+                <div class="search-input-group">
+                    <input type="text" id="searchInput" placeholder="尋找...">
+                    <div class="search-controls">
+                        <button id="prevMatchBtn" class="nav-btn" title="上一個">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                        </button>
+                        <button id="nextMatchBtn" class="nav-btn" title="下一個">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </button>
+                        <button id="regexToggleBtn" class="nav-btn" title="使用正則表達式">正</button>
+                    </div>
+                </div>
+                <div class="replace-input-group">
+                    <input type="text" id="replaceInput" placeholder="取代...">
+                    <div class="replace-buttons">
+                        <button id="replaceBtn" class="replace-btn">取代</button>
+                        <button id="replaceAllBtn" class="replace-btn">全取代</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="toast" class="toast"></div>
+    </div>
+
+    <script src="script.js"></script>
+    <script src="ime-data.js"></script>
+    <script src="ime-script.js"></script>
+</div>
+</body>
+</html>
+
