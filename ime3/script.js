@@ -645,3 +645,121 @@ document.addEventListener("DOMContentLoaded", () => {
 
 })
 
+
+// 說明視窗功能
+const myHelp = `
+標題	🥷烏衣行線上輸入法
+標題連結	https://sites.google.com/view/oikasu
+說明1	電腦請切換到英數模式
+說明2	帶數字的輸入法，請打完拼音後，加空格，再選字。
+說明3	選字時，空格可選第一個候選字詞。
+說明4	候選太多使用 < > 翻頁。
+說明5	可在候選視窗更改橫式直式候選。
+`;
+
+// 創建說明視窗
+function createHelpModal() {
+  // 檢查是否已存在說明視窗
+  if (document.getElementById('helpModal')) {
+    return document.getElementById('helpModal');
+  }
+  
+  // 創建模態視窗容器
+  const modal = document.createElement('div');
+  modal.id = 'helpModal';
+  modal.className = 'help-modal';
+  
+  // 創建模態視窗內容
+  const modalContent = document.createElement('div');
+  modalContent.className = 'help-modal-content';
+  
+  // 創建關閉按鈕
+  const closeBtn = document.createElement('span');
+  closeBtn.className = 'help-modal-close';
+  closeBtn.innerHTML = '&times;';
+  closeBtn.onclick = function() {
+    modal.style.display = 'none';
+  };
+  
+  // 解析並格式化幫助內容
+  const helpLines = myHelp.trim().split('\n');
+  const helpContent = document.createElement('div');
+  helpContent.className = 'help-content';
+  
+  helpLines.forEach(line => {
+    if (line.trim() === '') return;
+    
+    const parts = line.split('\t');
+    const row = document.createElement('div');
+    row.className = 'help-row';
+    
+    if (parts.length >= 2) {
+      // 處理標題和標題連結
+      if (parts[0].trim() === '標題') {
+        const title = document.createElement('h2');
+        title.textContent = parts[1];
+        helpContent.appendChild(title);
+        return;
+      }
+      
+      if (parts[0].trim() === '標題連結') {
+        const link = document.createElement('a');
+        link.href = parts[1];
+        link.textContent = parts[1];
+        link.target = '_blank';
+        link.className = 'help-link';
+        helpContent.appendChild(link);
+        // 添加分隔線
+        const hr = document.createElement('hr');
+        helpContent.appendChild(hr);
+        return;
+      }
+      
+      // 處理說明項目
+      const label = document.createElement('div');
+      label.className = 'help-label';
+      label.textContent = parts[0];
+      
+      const value = document.createElement('div');
+      value.className = 'help-value';
+      value.textContent = parts[1];
+      
+      row.appendChild(label);
+      row.appendChild(value);
+      helpContent.appendChild(row);
+    }
+  });
+  
+  // 組裝模態視窗
+  modalContent.appendChild(closeBtn);
+  modalContent.appendChild(helpContent);
+  modal.appendChild(modalContent);
+  
+  // 點擊模態視窗外部關閉
+  window.onclick = function(event) {
+    if (event.target === modal) {
+      modal.style.display = 'none';
+    }
+  };
+  
+  // 添加到文檔
+  document.body.appendChild(modal);
+  return modal;
+}
+
+// 初始化說明視窗功能
+function initHelpModal() {
+  const editorTitle = document.querySelector('.editor-title');
+  if (editorTitle) {
+    editorTitle.style.cursor = 'pointer';
+    editorTitle.addEventListener('click', function() {
+      const modal = createHelpModal();
+      modal.style.display = 'block';
+    });
+  }
+}
+
+// 在文檔加載完成後初始化
+document.addEventListener('DOMContentLoaded', initHelpModal);
+
+

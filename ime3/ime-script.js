@@ -1,5 +1,6 @@
 // IME 主要功能
 
+
 class IMEManager {
   constructor() {
     // 元素參考
@@ -2416,6 +2417,9 @@ class IMEManager {
       this.insertText(candidate)
       this.composingText = ""
       this.hideCandidates()
+
+      // 移除候選字後，重置候選字列表，避免重複累加
+      this.candidates = []
 
       // In mobile version, show punctuation marks after selecting a candidate
       if (this.isMobile) {
