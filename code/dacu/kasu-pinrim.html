@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>詔安基礎拼音烏衣行-打字比賽</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="stylesheet" href="style.css" />
+    
+	<link href="https://euz9zbmgucueafefgqmlaa.on.drv.tw/wesingkasu/code/css/style.css" rel="stylesheet">
+	
+  </head>
+  <body>
+    <p id="xie"></p>
+    <div id="setting" class="setting">
+
+      <form action="" id="setting-form">
+        <div class="">
+          <label for="difficulty"></label>
+          <select name="" id="difficulty" style="width: 70px">
+            <option value="easy">輕鬆速度</option>
+            <option value="average">中等速度</option>
+            <option value="hard">挑戰速度</option>
+          </select>  
+        </div>
+      </form>
+	   <form action="" id="setting-form2" style="padding-left:20px">
+        <div class="">
+		  <label for="wordArr">題目 </label>
+		  <select name="" id="wordArr" style="width:100px">
+            <option value="word1">003 阿依</option>
+            <option value="word2">045 遐</option>
+            <option value="word3">067 捉</option>
+			<option value="word4">105 牙</option>
+			<option value="word5">131 拜拜</option>
+			<option value="word6">160 回</option>
+			<option value="word7">195 暗暗</option>
+			<option value="word8">217 撮</option>
+			<option value="word9">256 骨</option>
+			<option value="word10">288 餡</option>
+          </select>
+		  </div>
+      </form>  
+  
+	  <button id="start" onclick="startGame()">開始</button>	 
+
+    </div>
+	
+
+    <div id="container" class="container">
+
+
+
+      <h2 id="setting-btn">詔安基礎拼音烏衣行-打字比賽</h2>
+	   
+	 
+
+      <small id="small">打這個字</small>
+      <h1 id="word"></h1>
+	 	  
+      <input
+        type="text"
+        id="text"
+        autocomplete="off"
+        placeholder="在這打字，並按 Enter！"
+      />
+	  
+	  
+      <p class="time-container">時間：<span id="time"> 秒</span></p>
+      <p id="score-container" class="score-container">
+        得分：<span id="score">0</span>
+      </p>
+      <div id="end-game-container" class="end-game-container"></div>	  
+    </div>
+	
+    <script src="kasu-pinrim.js?v=iizosos"></script>
+	<!-- <script src="script.js" async defer></script> -->
+  </body>
+</html>

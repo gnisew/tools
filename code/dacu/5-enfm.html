@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>烏衣行-打字比賽</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="style.css" />
+	<link href="https://euz9zbmgucueafefgqmlaa.on.drv.tw/wesingkasu/code/css/style.css" rel="stylesheet">
+  </head>
+  <body>
+    <p id="xie"></p>
+    <div id="setting" class="setting">
+
+      <form action="" id="setting-form">
+        <div style="display:none">
+          <label for="difficulty"></label>
+          <select name="" id="difficulty" style="width: 70px">
+            <option value="easy"></option>
+            <option value="average"></option>
+            <option value="hard"></option>
+          </select> 
+		  
+        </div>
+      </form>
+	   <form action="" id="setting-form2" style="padding-left:20px">
+        <div class="">
+		  <label for="wordArr" style="display:none">題目 </label>
+		  <select name="" id="wordArr" style="width:100px">
+
+          </select>
+		  </div>
+      </form>  
+  
+	  <button id="start" onclick="startGame()">開始</button>	 
+
+    </div>
+	
+
+    <div id="container" class="container">
+
+
+
+      <h2 id="setting-btn">烏衣行-打字比賽：康軒FM英五</h2>
+
+      <small id="small">食指放在 F 跟 J，選按開始！</small>
+      <h1 id="word"></h1>
+	 	  
+      <input
+        type="text"
+        id="text"
+        autocomplete="off"
+        placeholder="在這打字，並按 Enter 或 空白鍵！"
+      /> 
+	  
+      <p class="time-container">時間：<span id="time"> 秒</span></p>
+	  
+      <p id="score-container" class="score-container">
+        得分：<span id="score">0</span>
+      </p>
+	  <p id="myMuteCheckbox">
+	  <input type="checkbox" id="muteCheckbox">靜音
+	  </p>
+      <div id="end-game-container" class="end-game-container"></div>	  
+    </div>
+
+    <script>
+	  let timeLimit = 120;//時間限制的秒數;
+	  let wordOX = ""; //題目預設隱藏填hide，答錯時才顯示；不隱藏填show;
+	  let hideSome = "";//題目隨機隱藏一個字元，填yes;
+	  let playAudio = "en";//要顯示播放音檔，填yes;
+	  let rpLang = "";//題庫data資料取代，詔安v>bb, r>rh, o>oo 填kasu。客語聲調 字母zvsxf > ˊˇˋˆ⁺ 客語填hakka，閩南數字轉調號填holo，馬祖數字轉調號填matsu;
+	  let rpInput = "";//聲調取代，客語填hakka，閩南語填 holo，馬祖填 matsu;
+	</script>
+	<script src="5-enfm-data.js?v=iizosos"></script>	
+    <script src="script.js?v=iizosos"></script>
+	<script>
+	  //listenKey(32);//可以用 空白鍵 來送出;
+	  //listenKeyDelete(87);//可以用 w = 87來清空;
+	  listenKeyDelete(27);//可以用 esc = 87來清空;
+	</script>
+	<!-- <script src="script.js" async defer></script> -->
+  </body>
+</html>

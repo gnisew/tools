@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>烏衣行-打字比賽</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="style.css" />
+	<link href="https://euz9zbmgucueafefgqmlaa.on.drv.tw/wesingkasu/code/css/style.css" rel="stylesheet">
+  </head>
+  <body>
+    <p id="xie"></p>
+    <div id="setting" class="setting">
+
+      <form action="" id="setting-form">
+        <div style="display:none">
+          <label for="difficulty"></label>
+          <select name="" id="difficulty" style="width: 70px">
+            <option value="easy"></option>
+            <option value="average"></option>
+            <option value="hard"></option>
+          </select> 
+		  
+        </div>
+      </form>
+	   <form action="" id="setting-form2" style="padding-left:20px">
+        <div class="">
+		  <label for="wordArr" style="display:none">題目 </label>
+		  <select name="" id="wordArr" style="width:100px">
+
+          </select>
+		  </div>
+      </form>  
+  
+	  <button id="start" onclick="startGame()">開始</button>	 
+
+    </div>
+	
+
+    <div id="container" class="container">
+
+
+
+      <h2 id="setting-btn">烏衣行-打字比賽</h2>
+
+      <small id="small">打這個字</small>
+      <h1 id="word"></h1>
+	 	  
+      <input
+        type="text"
+        id="text"
+        autocomplete="off"
+        placeholder="在這打字，並按 Enter！"
+      />
+	  
+	  
+      <p class="time-container">時間：<span id="time"> 秒</span></p>
+      <p id="score-container" class="score-container">
+        得分：<span id="score">0</span>
+      </p>
+      <div id="end-game-container" class="end-game-container"></div>	  
+    </div>
+
+	<script src="data.js?v=iizosos"></script>
+	
+    <script src="script.js?v=iizosos"></script>
+	<!-- <script src="script.js" async defer></script> -->
+  </body>
+</html>
