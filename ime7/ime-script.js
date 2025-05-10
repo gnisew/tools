@@ -1,6 +1,5 @@
 // IME 主要功能
 
-
 class IMEManager {
   constructor() {
     // 元素參考
@@ -1835,45 +1834,7 @@ class IMEManager {
           }
         } else {
           // 沒有編碼時，刪除編輯器中的文字
-          // 使用保存的光標位置
-          const start = this.cursorPosition.start
-          const end = this.cursorPosition.end
-
-          if (start === end && start > 0) {
-            // 刪除光標前的一個字符
-            const newValue = this.editor.value.slice(0, start - 1) + this.editor.value.slice(end)
-            this.editor.value = newValue
-
-            // 更新光標位置
-            const newPosition = start - 1
-            this.cursorPosition = {
-              start: newPosition,
-              end: newPosition,
-            }
-
-            // 設置編輯器的選擇範圍，使系統游標顯示在正確位置
-            this.editor.setSelectionRange(newPosition, newPosition)
-          } else if (start !== end) {
-            // 刪除選中的文字
-            const newValue = this.editor.value.slice(0, start) + this.editor.value.slice(end)
-            this.editor.value = newValue
-
-            // 更新光標位置
-            this.cursorPosition = {
-              start: start,
-              end: start,
-            }
-
-            // 設置編輯器的選擇範圍，使系統游標顯示在正確位置
-            this.editor.setSelectionRange(start, start)
-          }
-
-          // 觸發 input 事件
-          const event = new Event("input", { bubbles: true })
-          this.editor.dispatchEvent(event)
-
-          // 更新視覺光標
-          this.updateCursorIndicator()
+          this.deleteChar()
         }
         return
 
@@ -1891,34 +1852,7 @@ class IMEManager {
           this.updateHideKeyboardButton()
         } else {
           // Insert newline
-          // Use saved cursor position
-          const start = this.cursorPosition.start
-          const end = this.cursorPosition.end
-
-          const newValue = this.editor.value.slice(0, start) + "\n" + this.editor.value.slice(end)
-          this.editor.value = newValue
-
-          // Update cursor position
-          this.cursorPosition = {
-            start: start + 1,
-            end: start + 1,
-          }
-
-          // Trigger input event
-          const event = new Event("input", { bubbles: true })
-          this.editor.dispatchEvent(event)
-
-          // Ensure the editor is not readonly
-          this.editor.removeAttribute("readonly")
-
-          // Set selection range to update the cursor position
-          this.editor.setSelectionRange(this.cursorPosition.start, this.cursorPosition.end)
-
-          // Force focus to ensure the cursor is visible
-          this.editor.focus()
-
-          // Update visual cursor
-          this.updateCursorIndicator()
+          this.insertEnter()
         }
         return
     }
