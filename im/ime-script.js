@@ -1,6 +1,5 @@
 // IME 主要功能
 
-
 class IMEManager {
   constructor() {
     // 元素參考
