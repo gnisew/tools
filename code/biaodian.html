@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html>
+ <head>
+  <title>oikasu.com 詔安客語教學資源中心</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<style>
+body {
+    background-color: #f5f5f5;
+}
+textarea { 
+width: 90%;
+height: 45%;
+margin: 10px;
+    padding: 10px;
+    background-color: #ffffff;
+    color: #000000;
+    border-radius: 5px;
+    border: 1px solid #a0b3d6;
+    overflow: auto;
+
+}
+
+
+
+
+
+#all{
+margin-top: 20px;
+text-align: center;
+vertical-align: middle
+
+}
+#id_select{
+font-size: 1.5em;
+}
+.test {
+    height: 100px;
+    padding: 5px;
+	border-radius: 5px;
+    border: 1px solid #a0b3d6;
+    overflow: auto;   
+}
+
+
+.test:focus {
+    box-shadow: 0 0 5px blue;    
+}
+.read-only {
+    -webkit-user-modify: read-only;
+}
+.read-write-html {
+    -webkit-user-modify: read-write;;
+}
+.read-write-text {
+    -webkit-user-modify: read-write-plaintext-only;
+}
+
+button {
+    background-color: #ffffff;
+    color: #000000;
+    border-radius: 5px;
+    border: 0.5px solid #228855;
+	padding: 5px 2px 5px 2px;
+}
+
+button:hover {
+    background-color: #228855;
+    color: #ffffff;
+}
+</style>
+ </head>
+ <body>
+
+<div id="all">
+<div id="id_selects">
+	<select id="id_select">
+	  <option value="0">烏衣行文本整理</option>
+	  <option value="1">1. 字數等統計</option>
+	  <option value="2">2. Excel左右欄字音整理</option>
+	  <option value="3">3. 文本整理</option>
+	  <option value="4">4. 標點整理</option>
+	  <option value="5">5. 超級取代</option>
+	</select>
+</div>
+
+<div id="id_qudai_div">
+	  取代：<input type="text" name="myText1" id="id_qudaiA">
+	  取代為：<input type="text" name="myText2" id="id_qudaiB">
+	  <button id="id_qudai">↓取代</button>
+<button id="btn_fuYuan" onclick="fuYuan()">←還原</button>
+<button id="btn_chongZuo" onclick="chongZuo()">重做→</button>
+</div>
+    <div><textarea rows="8" id="id_A"></textarea></div>
+    <div>
+	<button id="btn_QA" onclick="QingA()">↑清除</button>
+	<button id="btn_CA" onclick="CopyA()">↑複製</button>
+	<button id="btn_cjktw" onclick="cjktw()">↓校字</button>
+	
+	<button id="btn_YX" onclick="XY(3)">↓標點整理/半轉全</button>
+	<button id="btn_XY1" onclick="XY(1)">↓標點斷行</button>	
+	<button id="btn_YX2" onclick="XY(2)">↓斷行接成段</button>
+	<button id="btn_YX4" onclick="XY(4)">↓字數</button>
+	<button id="btn_YX5" onclick="XY(5)">↓每句字數</button>	
+	
+	<button id="btn_ZP" onclick="ZP()">↓漢字頻</button>
+	<button id="btn_tongji" onclick="tongji('id_A')">↓空格分詞頻</button>
+	<button id="btn_excel_hebing" onclick="excel_hebing()">↓Excel左右欄字音合併</button>
+	<button id="btn_kaoZi" onclick="kaoZi()">2考「字」</button>
+	<button id="btn_arr6" onclick="XY(6)">刪重複行</button>
+	<button id="btn_arr7" onclick="XY(7)">增排序行</button>
+	<button id="btn_arr8" onclick="XY(8)">減排序行</button>
+	<button id="btn_arr9" onclick="XY(9)">字數排行</button>
+	<button id="btn_arr10" onclick="XY(10)">空格換行</button>
+	<button onclick="countChineseCharacters()">統計漢字</button>
+	<button id="btn_ime">轉線上輸入法</button>
+	
+	
+	</div>
+
+    <div><textarea rows="10"  id="id_B"></textarea></div>
+	
+	<div id="id_B_div">
+	<button id="btn_Q" onclick="Qing(1)">↑全刪</button>
+	<button id="btn_C" onclick="Copy()">↑複製</button>
+	<button id="btn_Q2" onclick="Qing(2)">↑刪標點</button>
+	<button id="btn_Q3" onclick="Qing(3)">↑刪非漢字</button>
+	<button id="btn_Q6" onclick="Qing(6)">↑刪漢字</button>
+	<button id="btn_Q4" onclick="Qing(4)">↑漢字旁|</button>
+	<button id="btn_Q5" onclick="Qing(5)">↑刪空格</button>
+	<button id="btn_Q7" onclick="Qing(7)">↑標點旁_</button>
+	<button onclick="showAll()"> + </button>
+</div>
+
+<script>
+
+
+var m = ["－－","﹗","﹙","﹚","﹐","﹑","﹒","﹕","﹔","﹖","︰","了","力","女","不","丹","什","六","令","北","句","立","列","劣","吏","年","老","肋","串","冷","利","卵","吝","呂","尿","弄","更","李","沈","牢","良","車","辰","里","阮","來","例","兩","刺","囹","奈","念","怜","拉","易","杻","林","泌","泥","炙","狀","秊","金","亮","便","咽","契","律","怒","拏","拾","柳","洛","流","玲","省","胐","若","郎","陋","倫","凉","料","旅","朗","栗","浪","烈","烙","狼","珞","琉","留","紐","索","茶","豈","郞","勒","匿","參","崙","捻","掠","敎","梁","梨","殺","淋","淚","淪","率","理","略","異","硫","笠","粒","累","羚","聆","脚","連","陵","陸","鹿","勞","喇","喞","嵐","廊","復","惡","温","痢","菉","菱","裂","量","隆","靓","亂","塞","廉","慄","暈","溜","溺","滑","煉","碌","祿","稜","落","葉","虜","裏","裡","賂","賈","路","酪","鈴","随","零","雷","僚","寧","屢","漏","漣","綠","綾","裸","說","領","凜","劉","寮","履","憐","戮","撚","數","樂","樓","瑩","璉","磊","練","蓮","蓼","諒","論","輦","輪","閭","隣","魯","黎","擄","曆","歷","燎","燐","璘","盧","罹","諾","遼","錄","駱","龍","龜","勵","嶺","殮","濕","濫","療","磻","縷","聯","臨","螺","鍊","隸","壘","濾","獵","禮","糧","藍","離","壟","廬","懶","櫓","簾","羅","臘","識","類","麗","爐","礪","藺","蘆","襤","醴","欄","爛","癩","蘭","蠟","露","籠","聾","讀","轢","戀","蘿","邏","鱗","麟","靈","鷺","戆","驪","鸞","兀","凞","切","嗀","塚","宅","度","﨨","廓","拓","晴","暴","洞","猪","益","礼","神","祥","福","精","糖","羽","﨑","行","見","諸","輻","逸","都","降","靖","飯","飼","館","鶴","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","","󿗧","󿕅","󸾯","","岀","没","秃","劵","刴","抝","殁","畁","爲","娱","挟","眞","欵","浄","衆","歳","輰","𧗊","麽","奬","縆","駡","腟","𤖠","𦉛","隷","鲫","櫉","赢","讉","鼹","𤒿","廰","鑚","戅","朏"];
+var n = ["──","！","（","）","，","、","。","：","；","？","：","了","力","女","不","丹","什","六","令","北","句","立","列","劣","吏","年","老","肋","串","冷","利","卵","吝","呂","尿","弄","更","李","沈","牢","良","車","辰","里","阮","來","例","兩","刺","囹","奈","念","怜","拉","易","杻","林","泌","泥","炙","狀","秊","金","亮","便","咽","契","律","怒","孥","拾","柳","洛","流","玲","省","朏","若","郎","陋","倫","涼","料","旅","朗","栗","浪","烈","烙","狼","珞","琉","留","紐","索","茶","豈","郎","勒","匿","參","崙","捻","掠","教","梁","梨","殺","淋","淚","淪","率","理","略","異","硫","笠","粒","累","羚","聆","腳","連","陵","陸","鹿","勞","喇","唧","嵐","廊","復","惡","溫","痢","菉","菱","裂","量","隆","靚","亂","塞","廉","慄","暈","溜","溺","滑","煉","碌","祿","稜","落","葉","虜","裏","裡","賂","賈","路","酪","鈴","隨","零","雷","僚","寧","屢","漏","漣","綠","綾","裸","說","領","凜","劉","寮","履","憐","戮","撚","數","樂","樓","瑩","璉","磊","練","蓮","蓼","諒","論","輦","輪","閭","隣","魯","黎","擄","曆","歷","燎","燐","璘","盧","罹","諾","遼","錄","駱","龍","龜","勵","嶺","殮","溼","濫","療","磻","縷","聯","臨","螺","鍊","隸","壘","濾","獵","禮","糧","藍","離","壟","廬","懶","櫓","簾","羅","臘","識","類","麗","爐","礪","藺","蘆","襤","醴","欄","爛","賴","蘭","蠟","露","籠","聾","讀","轢","戀","蘿","邏","鱗","麟","靈","鷺","戇","驪","鸞","兀","凞","切","嗀","塚","宅","度","鋅","廓","拓","晴","暴","洞","猪","益","礼","神","祥","福","精","糖","羽","崎","行","見","諸","輻","逸","都","降","靖","飯","飼","館","鶴","𫝞","𫝛","𫝏","𫝺","𫝻","𫟂","𫝙","𫟊","𪜶","𬦰","𪹚","𫝘","𫝾","𫞭","𫞻","𫞼","𫟧","𫠛","𫣆","𬑎","𬖐","𰹬","𬠖","𫝞","𫝛","𫝏","𫝺","𫝻","𰣻","𫟂","𫝙","𫟊","𱱿","𰣻","𱱿","𰹬","","出","沒","禿","券","剁","拗","歿","畀","為","娛","挾","真","欸","淨","眾","歲","暢","盡","麼","獎","緪","罵","膣","牆","罅","隸","鯽","櫥","贏","譴","鼴","㸐","廳","鑽","戇","胐"];
+
+
+
+
+// let regW=["\\^","\\?","\\+","\\[","\\]","\\*","\\.","\\(","\\)","\\$"]; /*阻擋正則字元*/
+
+
+
+
+
+let myUrl = new URL(location.href);
+let myQ = myUrl.searchParams.get('q');
+if( myQ == 1){
+	// 字詞統計;
+	showhide("hide", "btn_CA, btn_QA, btn_XY1, btn_YX, btn_YX2, btn_YX4, btn_ZP, btn_excel_hebing, btn_kaoZi, btn_tongji, id_qudaiA, id_qudaiB, id_qudai, btn_fuYuan, btn_chongZuo, id_qudai_div, btn_YX5");
+	showhide("hide", "btn_Q, btn_Q2, btn_Q3, btn_Q6, btn_Q4, btn_Q5");
+	showhide("show", "btn_QA, btn_YX4, btn_ZP, btn_tongji, btn_CA, btn_YX5");
+	}else if( myQ == 2){
+	// Excel左右欄位整理;
+	showhide("hide", "btn_CA, btn_QA, btn_XY1, btn_YX, btn_YX2, btn_YX4, btn_ZP, btn_excel_hebing, btn_kaoZi, btn_tongji, id_qudaiA, id_qudaiB, id_qudai, btn_fuYuan, btn_chongZuo, id_qudai_div, btn_YX5");
+	showhide("show", "btn_CA, btn_QA, btn_tongji, btn_excel_hebing, btn_kaoZi");
+	}else if( myQ == 3){
+	// Excel左右欄位整理;
+	showhide("hide", "btn_CA, btn_QA, btn_XY1, btn_YX, btn_YX2, btn_YX4, btn_ZP, btn_excel_hebing, btn_kaoZi, btn_tongji, id_qudaiA, id_qudaiB, id_qudai, btn_fuYuan, btn_chongZuo, id_qudai_div, btn_YX5");
+	showhide("show", "btn_YX, btn_CA, btn_QA, btn_XY1, btn_YX2");
+	}else if( myQ == 4){
+	// 標點整理;
+	showhide("hide", "btn_CA, btn_QA, btn_XY1, btn_YX, btn_YX2, btn_YX4, btn_ZP, btn_excel_hebing, btn_kaoZi, btn_tongji, id_qudaiA, id_qudaiB, id_qudai, btn_fuYuan, btn_chongZuo, id_qudai_div, btn_Q2, btn_Q2, btn_Q3, btn_Q4, btn_Q5, btn_Q6, btn_YX5");
+	showhide("show", "btn_QA, btn_CA, id_qudaiA, id_qudaiB, id_qudai, btn_fuYuan, btn_chongZuo, btn_YX");
+	}else if( myQ == 5){
+	// 超級取代;
+	showhide("hide", "btn_CA, btn_QA, btn_XY1, btn_YX, btn_YX2, btn_YX4, btn_ZP, btn_excel_hebing, btn_kaoZi, btn_tongji, id_qudaiA, id_qudaiB, id_qudai, btn_fuYuan, btn_chongZuo, id_B, btn_Q, btn_C, btn_Q2, btn_Q2, btn_Q3, btn_Q4, btn_Q5, btn_Q6, btn_YX5");
+	showhide("show", "btn_QA, btn_CA, id_qudaiA, id_qudaiB, id_qudai, btn_fuYuan, btn_chongZuo");
+	document.getElementById("id_A").rows = "20";
+	}else{
+}
+
+
+
+function fuYuan(){
+	if(b==1){
+	}else{
+	let idA = document.getElementById("id_A");
+	idA.value = backArr[b-2];  
+	console.log(backArr);
+	b = b -1;
+	console.log(b);
+	}
+}
+
+function chongZuo(){
+	if(b==backArr.length){
+	}else{
+	let idA = document.getElementById("id_A");
+		
+	idA.value = backArr[b];
+	b = b +1;
+	
+	console.log(backArr);
+	console.log(b);
+	}
+	
+}
+
+function showAll(){
+	showhide("show", "btn_CA, btn_QA, btn_XY1, btn_YX, btn_YX2, btn_YX4, btn_ZP, btn_excel_hebing, btn_kaoZi, btn_tongji, id_qudaiA, id_qudaiB, id_qudai, btn_fuYuan, btn_chongZuo, id_B, btn_Q, btn_C, btn_Q2, btn_Q2, btn_Q3, btn_Q4, btn_Q5, btn_Q6,id_qudaiA, id_qudaiB, id_qudai, btn_fuYuan, btn_chongZuo, id_qudai_div, btn_YX5");
+}
+
+listenId("id_qudai","click", qudaiFn);
+
+let backArr = [""]; //儲存取代復原陣列;
+let b = 1;  // 儲存取代操作次數;
+
+function qudaiFn(){
+	let idA = document.getElementById("id_A");
+	let idB = document.getElementById("id_B");
+	let idqudaiA = document.getElementById("id_qudaiA").value;
+	let idqudaiB = document.getElementById("id_qudaiB").value;
+
+	idqudaiA = idqudaiA.replace(/{h}/g,"([\u3007\u3400-\u4DB5\u4E00-\u9FCB\uE815-\uE864]|[\uD840-\uD87F][\uDC00-\uDFFF])"); //中文漢字;
+	idqudaiA = idqudaiA.replace(/\{\^h}/g,"([!-㏕]|[︰-￭])"); // 非中文漢字;
+
+	idqudaiA = idqudaiA.replace(/{mail}/g,"([^@ \t\r\n]+@[^@ \t\r\n]+\\.[^@ \t\r\n]+)");  //e-mail信箱 [^@ \t\r\n]+@[^@ \t\r\n]+\.[^@ \t\r\n]+;
+	idqudaiA = idqudaiA.replace(/{url}/g,"(((https|http|ftp|rtsp|mms)?:\/\/)([^\\s]+))"); //網址 ((https|http|ftp|rtsp|mms)?:\/\/)([^\s]+);
+	idqudaiA = idqudaiA.replace(/{html}/g,"(<\\s*(\\S+)(\\s[^>]*)?>)"); //HTML <標記> <\s*(\S+)(\s[^>]*)?>;
+	idqudaiA = idqudaiA.replace(/{htmlall}/g,"(<\\s*(\\S+)(\\s[^>]*)?>[\\s\\S]*<\\s*\/\\1\\s*>)"); //HTML <標記>...</標記> <\s*(\S+)(\s[^>]*)?>[\s\S]*<\s*\/\1\s*>;
+
+	idqudaiA = idqudaiA.replace(/{Az}/g,"([A-Za-z])");
+	idqudaiA = idqudaiA.replace(/{A9}/g,"([A-Za-z0-9])");
+	idqudaiA = idqudaiA.replace(/{a9}/g,"([a-z0-9])");
+	idqudaiA = idqudaiA.replace(/{AZ}/g,"([A-Z])");
+	idqudaiA = idqudaiA.replace(/{az}/g,"([a-z])");
+
+	idqudaiA = idqudaiA.replace(/{\^Az}/g,"([^A-Za-z])");
+	idqudaiA = idqudaiA.replace(/{\^A9}/g,"([^A-Za-z0-9])");
+	idqudaiA = idqudaiA.replace(/{\^a9}/g,"([^a-z0-9])");
+	idqudaiA = idqudaiA.replace(/{\^AZ}/g,"([^A-Z])");
+	idqudaiA = idqudaiA.replace(/{\^az}/g,"([^a-z])");
+
+	idqudaiA = idqudaiA.replace(/{ss}/g,"([ \\t\\r\\n\\v\\f])");  // 所有空白字元;
+	idqudaiA = idqudaiA.replace(/{s}/g,"([ \\t\\v])");  // 空格、製表字元;
+	idqudaiA = idqudaiA.replace(/{\^ss}/g,"([^ \\t\\r\\n\\v\\f])");  // 非所有空白字元;
+	idqudaiA = idqudaiA.replace(/{\^s}/g,"([ \\t\\v])");  // 非空格、製表字元;
+
+	idqudaiA = idqudaiA.replace(/{biaodian}|{b}/g,"([，。、；：？！「」『』〔〕【】─…《》〈〉）．～﹗﹙﹚﹐﹑﹒︰﹕﹔？])");  //標點;
+	idqudaiA = idqudaiA.replace(/{^biaodian}|{^b}/g,"([，。、；：？！「」『』〔〕【】─…《》〈〉）．～﹗﹙﹚﹐﹑﹒︰﹕﹔？])");  //非標點;
+
+	idqudaiA = idqudaiA.replace(/{bb}/g,"([,.?!\"\':;])");  //標點半形;
+	idqudaiA = idqudaiA.replace(/{\^bb}/g,"([^,.?!\"\':;])");  //標點半形;
+
+	let myReA = new RegExp (idqudaiA, ["g"]);
+
+	backArr = backArr.slice(0, b);
+
+	let txt = idA.value;
+	if( backArr.length == 1){
+	  backArr.push(txt);	
+	  b = b+1;
+	}
+	
+	idqudaiB = idqudaiB.replace(/\\n|\^p/g,"\n");
+	//讓取代為，能使用換行;
+	txt = txt.replace(myReA, idqudaiB);
+
+	idA.value = txt;
+	backArr.push(txt);
+	b = b+1;
+	//console.log(backArr);
+}
+
+
+listenId("id_select","change", fn_userFace);
+
+function listenId(id,how,fn){
+// listen("myid","change", myFunction);
+// how："change", 
+document.getElementById(id).addEventListener(how, fn);
+}
+
+function fn_userFace(){
+	let v = id_select.value
+	localStorage.setItem('userFace', v);
+	location.href = location.protocol + "//" + location.hostname + location.pathname + "?q=" + v;
+}
+
+
+
+
+function showhide(how, who) {
+// 例：showhide("show", "ida, idb, idc, ide");
+// 例：showhide("動作", "id群");
+	let txt = who.replace(/(\s)+/g, "");
+	let arr = txt.split(",");
+	let len = arr.length;
+    if(how == "show"){
+		for(let i = 0; i < len; i++){
+			set_id_show(arr[i]);
+		}
+	}else if(how == "hide"){
+		for(let i = 0; i < len; i++){
+			set_id_hide(arr[i]);
+		}
+	}
+}
+/* 批次設定顯現隱藏 By id; */
+
+function set_id_show(id) {
+    return document.getElementById(id).style.display = "";
+}
+/* 設定顯現 By id; */
+
+function set_id_hide(id) {
+    return document.getElementById(id).style.display = "none";
+}
+/* 設定隱藏 By id; */
+
+
+
+
+
+function QingA() {
+    document.getElementById("id_A").value = "";
+}
+
+function Qing(e) {
+	let idA = document.getElementById("id_A");
+	let idB = document.getElementById("id_B");
+
+	if( e == 1){
+		idA.value = "";
+		idB.value = "";
+	}else if ( e == 2)	{
+		let txt = idB.value;
+		txt = txt.replace(/[，。、；：？！「」『』〔〕【】─…《》〈〉）．～]/g, "")
+		idB.value = txt;		
+	}else if ( e == 3)	{
+		let txt = idB.value;		
+		txt = txt.replace(/[!-㏕]|[︰-￭]/g, " ");
+		txt = txt.replace(/([	 　]{1,})/g, " ");
+		txt = txt.replace(/(\n )/g, "\n");
+		txt = txt.replace(/( \n)/g, "\n");
+		idB.value = txt;		
+	}else if ( e == 4)	{
+	//漢字旁加 | ;
+		let txt = idB.value;		
+		txt = txt.replace(/([\u3007\u3400-\u4DB5\u4E00-\u9FCB\uE815-\uE864]|[\uD840-\uD87F][\uDC00-\uDFFF])/g, "$1|");
+		idB.value = txt;		
+	}else if ( e == 5)	{
+	//刪空格;
+		let txt = idB.value;		
+		txt = txt.replace(/([ 	])/g, "");
+		idB.value = txt;		
+	}else if ( e == 6)	{
+		let txt = idB.value;		
+		txt = txt.replace(/([\u3007\u3400-\u4DB5\u4E00-\u9FCB\uE815-\uE864]|[\uD840-\uD87F][\uDC00-\uDFFF])/g, " ");
+		txt = txt.replace(/([	 　]{1,})/g, " ");
+		txt = txt.replace(/(\n )/g, "\n");
+		txt = txt.replace(/( \n)/g, "\n");
+		idB.value = txt;		
+	}else if ( e == 7)	{
+	//標點旁加 _ ;
+		let txt = idB.value;
+		txt = txt.replace(/([，。、；：？！「」『』〔〕【】─…《》〈〉）．～﹗﹙﹚﹐﹑﹒︰﹕﹔？])(_+)/g, "$1");
+		txt = txt.replace(/(_+)([，。、；：？！「」『』〔〕【】─…《》〈〉）．～﹗﹙﹚﹐﹑﹒︰﹕﹔？])/g, "$2");
+		txt = txt.replace(/([，。、；：？！「」『』〔〕【】─…《》〈〉）．～﹗﹙﹚﹐﹑﹒︰﹕﹔？])/g, "_$1_");
+		txt = txt.replace(/([，。、；：？！「」『』〔〕【】─…《》〈〉）．～﹗﹙﹚﹐﹑﹒︰﹕﹔？])(__)([，。、；：？！「」『』〔〕【】─…《》〈〉）．～﹗﹙﹚﹐﹑﹒︰﹕﹔？])/g, "$1$3");
+		idB.value = txt;		
+	}
+}
+
+function CopyA() {
+    document.getElementById("id_A").focus();
+    document.getElementById("id_A").select();
+    document.execCommand("Copy");
+}
+function Copy() {
+    document.getElementById("id_B").focus();
+    document.getElementById("id_B").select();
+    document.execCommand("Copy");
+}
+
+let banArr = ["\\.\\.\\.",",","\\.","\\?","!","\\(","\\)",":"];
+let quanArr = ["…","，","。","？","！","（","）","："];
+let myArr = ["，","。","；","：","、","？","！","「","」","『","』","〔","〕","【","】","─","…","《"," ","》","〈"," ","〉","．","～"];
+let myBrr = [];
+
+function cjktw() {
+	//校字;
+	let id_A = document.getElementById("id_A");
+	let id_B = document.getElementById("id_B");
+	let txt = id_A.value
+	txt = txt.replace(/(\n+)$/, "");
+	txt = txt.replace(/^(\n+)/, "");
+     
+	id_B.value = cjk2tw(txt);	
+	txt = null;
+}
+
+function XY(e) {	
+	let id_A = document.getElementById("id_A");
+	let id_B = document.getElementById("id_B");
+	let txt = id_A.value
+	txt = txt.replace(/(\n+)$/, "");
+	txt = txt.replace(/^(\n+)/, "");
+	
+    txt = cjk2tw(txt); 
+
+	if(e==1){
+	//<button id="btn_XY1" onclick="XY(1)">↓標點斷行</button>;
+	txt = "\n" + txt + "\n";
+
+	for (i = 0; i < banArr.length; i++) {   
+		let myRE = new RegExp (banArr[i], ["g"]);
+	    txt = txt.replace(myRE, quanArr[i]);
+	    }   
+
+	txt = txt.replace(/(\n)([	 　]){1,}/g, "\n");
+	txt = txt.replace(/(	 　]){1,}(\n)/g, "\n");
+
+	txt = txt.replace(/(\n)/g, "######\n");
+	//（【
+	// txt = txt.replace(/([，。、；：？！「」『』〔〕【】─…《》〈〉）．～]{1,})([}|｝])/g, "$2$1");
+	// txt = txt.replace(/([，。、；：？！「」『』〔〕【】─…《》〈〉）．～]{1,})/g, "$1\n");
+	txt = txt.replace(/([，。、；：？！「」『』【】─…《》〈〉）．～]{1,})([}|｝])/g, "$2$1");
+	txt = txt.replace(/([，。、；：？！「」『』【】─…《》〈〉）．～]{1,})/g, "$1\n");
+
+	txt = txt.replace(/([^\n])(######)/g, "$1\n$2");
+
+	const Regex = new RegExp('({{)(.*)(\n)(?=.*}})', 'g');
+
+	do {
+	  txt = txt.replace(/({{)(.*)(\n)(?!.*}})/g, "$1$2");
+	} while (Regex.test(txt));
+
+	txt = txt.replace(/({{)(.*)(\n)(?=.*}})/g, "$1$2");
+
+	txt = txt.replace(/(\n)(}.*)/g, "$2");
+
+
+
+	id_B.value = txt;
+/*
+	let myRE;
+	for (i = 0; i < myArr.length; i++) {   
+		myRE = new RegExp (myArr[i], ["g"]);
+	    txt = txt.replace(myRE, myArr[i]+"\n");
+	    }   
+*/
+   }else if(e==2){
+	//<button id="btn_YX2" onclick="XY(2)">↓斷行接成段</button>;
+	   txt = txt.replace(/(\n){1,}/g, "");
+	   txt = txt.replace(/(#){1,}/g, "\n");
+	   txt = txt.replace(/^(\n+)/, "");
+	   txt = txt.replace(/(\n+)$/, "");
+	   id_B.value = txt;
+   }else if(e==3){
+	//<button id="btn_YX" onclick="XY(3)">↓標點整理/半轉全</button>;
+		for (i = 0; i < banArr.length; i++) {   
+			let myRE = new RegExp (banArr[i], ["g"]);
+			txt = txt.replace(myRE, quanArr[i]);
+			}   
+		txt = txt.replace(/(\n)([	 　]){1,}/g, "\n");
+		txt = txt.replace(/(	 　]){1,}(\n)/g, "\n");
+		txt = txt.replace(/(\n){1,}/g, "\n");
+		txt = txt.replace(/([，。、；：？！「」『』〔〕【】─…《》〈〉）．～])( |	){1,}/g, "$1");
+		txt = txt.replace(/( |	){1,}([，。、；：？！「」『』〔〕【】─…《》〈〉）．～])/g, "$2");
+	   id_B.value = txt;
+
+   }else if(e==4){
+	//<button id="btn_YX4" onclick="XY(4)">↓字數</button>
+	txt = txt.replace(/亻恩/g, "字");
+	txt = txt.replace(/亻厓/g, "字");
+	txt = txt.replace(/亻因/g, "字");
+	txt = txt.replace(/皮卜/g, "字");
+
+	let lineArr = txt.split("\n")
+	let lineLen = lineArr.length;
+	let lineX = 0;
+
+	for (let i = 0; i < lineLen; i++ ){
+	  let x = getLength(lineArr[i]);
+	  if (x > 0 && x < 5) {
+	    lineX = lineX + 1;
+	  }
+	  if (lineX > 100) {
+	    break;
+	  }
+	}
+	//console.log(lineX);
+	//console.log(lineArr.indexOf("kasu"));
+
+
+	if( txt == ""){lineLen=0;};
+
+	txt = txt.replace(/\n/g, " ");
+	//let hanzi = txt.replace(/[^\u3007\u4E00-\u9FCB\uE815-\uE864]/g, ""); //CJK 
+	// hanzi = txt.replace(/![\u3007\u3400-\u4DB5\u4E00-\u9FCB\uE815-\uE864]/g, ""); //CJK + CJK-A;
+	// let hanzi = txt.replace(/[(?![\u3007\u3400-\u4DB5\u4E00-\u9FCB\uE815-\uE864]|[\uD840-\uD87F][\uDC00-\uDFFF])/g, "");  //CJK + CJK-ABC;
+	let shuzi = txt.replace(/[^0-9]/g, "");
+	let shuziLen = shuzi.length;
+	let hanzi = txt.replace(/ |[!-㏕]|[︰-￭]/g, "");
+	let hanziLen =getLength(hanzi);
+	let biaodian = txt.replace(/[^，。；、？！「」『』〔〕【】─…《》〈〉．～]/g, "");
+	let biaodianLen =getLength(biaodian);
+
+	let luoma; 
+	let luomaLen;
+
+	let parent = /[A-Za-z]/;
+	if(parent.test(txt)){
+		let txtS = " " + txt + " ";
+		luoma = txtS.replace(/[^A-Za-z]/g, " ");
+		luoma = luoma.replace(/(\s)+/g, " ");
+		luomaLen = luoma.split(" ").length;
+		luomaLen = luomaLen - 2;
+	}else{
+		luomaLen = 0;
+	}	
+	
+	let hanziBiaodianLen = hanziLen + biaodianLen;
+	let hanBiaoLuoLen = hanziLen + biaodianLen + luomaLen;
+	let allLen = hanziLen + biaodianLen + luomaLen + shuziLen;
+
+	   id_B.value = "【漢字】" + hanziLen+"\n" + 
+	   "【中文標點】" + biaodianLen + "\n" +
+	   "【英詞】" + luomaLen + "\n" + 
+	   "【數字】" + shuziLen + "\n" + 	   
+	   "【漢+標】" + hanziBiaodianLen + "\n" + 
+	   "【漢+標+英】" + hanBiaoLuoLen + "\n" + 
+	   "【漢+標+英+數】" + allLen + "\n" + 
+	   "【行段】" + lineLen;	 
+	   
+   }else if(e==5){
+	//<button id="btn_YX5" onclick="XY(5)">↓每句字數</button>	;
+   let limit = prompt("1.每句都計算，直接點確定。\n2.要抓超出多少字的句子，請填數字。", "");
+   limit = limit.trim();
+
+	txt = txt.replace(/(\n)([	 　]){1,}/g, "\n");
+	txt = txt.replace(/(	 　]){1,}(\n)/g, "\n");
+	txt = txt.replace(/^(\n+)/, "");
+	txt = txt.replace(/(\n+)$/, "");
+
+	txt = txt.replace(/([，。、；：？！「」『』〔〕】─…《》〈〉）．～]{1,})(?!\n)/g, "$1\n");
+	txt = txt.replace(/(\n+)$/, "");
+
+	let arr = txt.split("\n");
+	let len = arr.length;
+	let out = "";
+
+
+	for (let i = 0; i < len; i++)	{
+		let x = "";
+		x = arr[i].replace(/[0-9]+/g, "字");
+		x = x.replace(/[A-Za-z]+/g, "字");
+		x = x.replace(/\s+/g, "");
+		x = x.replace(/[!-㏕]|[︰-￭]/g, "");
+		let n = getLength(x);
+		if (limit >=1 ){
+			if( n > limit){
+				out = out + n + "\t" + arr[i] + "\n";
+			}
+		}else{
+			out = out + n + "\t" + arr[i] + "\n";
+		}
+	}
+
+	id_B.value = out;
+
+   }else if(e==6){
+   //刪除重複與空值行;
+     let txtArr = txt.split("\n");
+	 txtArr = [...new Set(txtArr)];
+	 txtArr = txtArr.filter(el => el); 	 
+	 id_B.value = txtArr.join("\n");
+   }else if(e==7){
+   //增排序行;
+     let txtArr = txt.split("\n");
+	 txtArr = txtArr.filter(el => el);
+	 sortZh(txtArr);
+	 id_B.value = txtArr.join("\n");
+   }else if(e==8){
+   //減排序行;
+     let txtArr = txt.split("\n");
+	 txtArr = txtArr.filter(el => el);
+     sortZh(txtArr);
+	 txtArr = txtArr.reverse();
+	 id_B.value = txtArr.join("\n");
+   }else if(e==9){
+   //行照字數排序;
+     let txtArr = txt.split("\n");
+	 txtArr = txtArr.filter(el => el);
+     txtArr = txtArr.sort(function(a, b) {
+	   return getLength(a) - getLength(b);
+     });
+	 id_B.value = txtArr.join("\n");
+   }else if(e==10){
+   //空字元換行;
+     let myRE = new RegExp (/\n+|\s+/, ["g"]);
+     let txtArr = txt.split(myRE);
+	 id_B.value = txtArr.join("\n");
+   }
+	
+	txt = null;
+}
+
+
+
+
+
+
+
+
+function excel_hebing() {
+    let idA = document.getElementById("id_A");
+    let idB = document.getElementById("id_B");
+	let idAV = idA.value;
+	idAV = idAV.replace(/^(\n+)/, "");
+	idAV = idAV.replace(/(\n+)$/, "");
+
+    let myArr = idAV.split("\n");
+    myArrLen = myArr.length;
+    let txt = "原序\t漢字\t拼音\t合併\t比對\n";
+    let myArrTabArr = [];
+
+	let n = 1;
+
+    for (let i = 0; i < myArrLen; i++) {
+	n = i+1;
+        if (myArr[i] == "") {
+            txt =  txt + n + "\t" + "\n";
+        } else {
+            myArrTabArr = myArr[i].split("\t");
+            let hanTxt = myArrTabArr[0].replace(/([\u3007\u3400-\u4DB5\u4E00-\u9FCB\uE815-\uE864]|[\uD840-\uD87F][\uDC00-\uDFFF])/g, "$1 ");
+            hanTxt = hanTxt.replace(/(\s)+/g, " ");
+            hanTxt = hanTxt.trim();
+            let hanArr = hanTxt.split(" ");
+            let yinTxt = myArrTabArr[1];
+            yinTxt = yinTxt.replace(/([a-z])([ˇˋˆˊ⁺+\^])([a-z])/g, "$1$2 $3");
+			yinTxt = yinTxt.replace(/([a-z])( )([ˇˋˆˊ⁺+\^])/g, "$1$3");
+            yinTxt = yinTxt.replace(/(\s)+/g, " ");
+            // str = str.replace(/^ +/gm, '');
+            yinTxt = yinTxt.trim();
+            let yinArr = yinTxt.split(" ");
+            let hanArrLen = hanArr.length;
+            let yinArrLen = yinArr.length;
+            let hanyin = "";
+            if (hanArrLen != yinArrLen) {
+                for (let j = 0; j < hanArrLen; j++) {
+                    hanyin = hanyin + hanArr[j] + yinArr[j] + " ";
+                }
+                hanyin = hanyin.trim();
+                //txt = txt + n + "\t" + hanyin + "\t" + myArr[i] + "\t" + hanArrLen + "_" + yinArrLen + "\n";
+				txt = txt + n + "\t" + myArr[i] + "\t" + hanyin + "\t" + hanArrLen + "_" + yinArrLen + "\n";
+            } else {
+                for (let j = 0; j < hanArrLen; j++) {
+                    hanyin = hanyin + hanArr[j] + yinArr[j] + " ";
+                }
+                hanyin = hanyin.trim();
+                //txt = txt + n + "\t" + hanyin + "\t" + myArr[i] + "\n";
+				txt = txt + n + "\t" + myArr[i] + "\t" + hanyin + "\n";
+            }
+        }
+
+    }
+    idB.value = txt;
+}
+
+
+
+function getLength(txt) {
+    return Array.from(txt).length;
+}
+
+
+function ZP(){
+let idA = document.getElementById("id_A");
+let idB = document.getElementById("id_B");
+let t = replace_NotHan(idA.value, " ");
+t = replace_Han(t, "$1 ");
+t = t.replace(/(\s)+/g, " ");
+idB.value = t;
+tongji("id_B");
+}
+
+
+function replace_Han(who, out){
+	// 取代漢字為out;
+	let t = who.replace(/([\u3007\u3400-\u4DB5\u4E00-\u9FCB\uE815-\uE864]|[\uD840-\uD87F][\uDC00-\uDFFF])/g, out);
+	return t;
+}
+
+function replace_NotHan(who, out){
+	// 取代非漢字為out;
+	let t = who.replace(/[!-㏕]|[︰-￭]/g, out);
+	return t;
+}
+
+function replace_Space(who, out){
+	// 取代多餘空格為out;
+	let t = who.replace(/((\s)+)/g, out);
+	t = t.trim();
+	return t;
+}
+
+
+
+
+
+
+
+function tongji(id_X) {
+	let idB = document.getElementById("id_B");
+    let idX = document.getElementById(id_X);
+    let txt = "";
+    let arrSplit = [];
+    txt = idX.value;
+    txt = txt.replace(/(\n)+/g, " ");
+    txt = txt.trim();
+    arrSplit = txt.split(/\s+/);
+
+
+
+    let arrSplitLen = arrSplit.length;
+    let obj = {};
+    let objArr = [];
+
+    for (let i = 0; i < arrSplitLen; i++) {
+        let key = arrSplit[i];
+        if (obj[key]) {
+            obj[key]++;
+        } else {
+            obj[key] = 1;
+        }
+    }
+
+    for (key in obj) {
+        let item = {
+            label: key,
+            value: obj[key]
+        };
+        objArr.push(item);
+    }
+
+
+
+    let outTxt = "";
+
+
+    for (let i = 0; i < objArr.length; i++) {
+        let n = arrSplit.indexOf(objArr[i].label);
+        if (n >= 0) {
+            outTxt = outTxt + objArr[i].value + "\t" + arrSplit[n] + "\n";
+        }
+    }
+    idB.value = outTxt;
+
+}
+
+
+function cjk2tw(x){
+
+	let len = m.length;
+	for (let i = 0; i < len; i++) {   
+		let myRE = new RegExp (m[i], ["g"]);
+	    x = x.replace(myRE, n[i]);
+	}
+	return x;
+}
+
+
+//=======================================================;
+
+
+function sortZh(arr){
+     arr.sort(function(a, b) {
+       return a.localeCompare(b, "zh-hant");
+     });
+}
+
+
+
+
+function kaoZi() {
+    let idA = document.getElementById("id_A");
+    let idB = document.getElementById("id_B");
+	let idAV = idA.value;
+	idAV = idAV.replace(/^(\n+)/, "");
+	idAV = idAV.replace(/(\n+)$/, "");
+    let myArr = idAV.split("\n");
+    myArrLen = myArr.length;
+	let outArr = [];
+
+	for (let i = 0; i < myArrLen; i++){
+		
+		let arr = myArr[i].split("\t");
+		let n = arr[0]-1;
+		let t = arr[1];
+		let tArr = "";
+
+		if(t.match(/[a-z]/g)){
+			tArr = t.split(/[\s-]+/);
+		    tArr[n] = "「" + tArr[n] + "」";
+		    let r = tArr.join(" ");
+			r = r.replace(/( ?)(「)( ?)/g, "「");
+			r = r.replace(/( ?)(」)( ?)/g, "」");
+		    outArr.push(r);
+		}else{
+			tArr = Array.from(t);//用這樣切割;
+			//tArr = t.split(""); 不要用split，擴充漢字會被算兩個來切割;
+		    tArr[n] = "「" + tArr[n] + "」";
+		    let r = tArr.join("");
+		    outArr.push(r);
+		}
+
+	}
+	idB.value = outArr.join("\n");
+}
+
+
+
+//=======================================================;
+
+function transformData(data) {
+    // 將資料用\n分割成行
+    let lines = data.split("\n");
+
+    // 去除前後行的空值或空格
+    lines = lines.filter(line => line.trim() !== "");
+
+    // 處理每一行資料
+    lines = lines.map(line => {
+        // 用tab分割資料
+        let [count, stringA, stringB] = line.split("\t");
+
+        // 如果字串A值為空，則刪除整行
+        if (!stringA) return null;
+
+        // 當次數的數字等於0，則移除該數字，但保留該行
+        if (count === "0") {
+            count = "";
+        }
+
+        // 當字串B等於字串A，則刪除該B的文字，但保留該行
+        if (stringB === stringA) {
+            stringB = "";
+        }
+
+        // 在這裡執行 replaceChars(stringA, txtAA, txtBB)
+		stringA = replaceChars(stringA, txtAA, txtEE);
+		stringB = replaceChars(stringB, txtAA, txtEE);
+        stringA = replaceChars(stringA, txtKK, txtAA);
+		stringB = replaceChars(stringB, txtGG, txtAA);
+        // 返回處理後的行
+        return `${count}=${stringA}=${stringB}`;
+    });
+
+    // 去除空行
+    lines = lines.filter(line => line !== null);
+
+    // 在第一行的資料增加 let ww = "
+    lines[0] = `let ww = "${lines[0]}`;
+
+    // 在最後一行增加 ";
+    lines[lines.length - 1] = `${lines[lines.length - 1]}";`;
+
+    // 將處理後的行拼接成字符串
+    let result = lines.join("	");
+
+    return result;
+}
+
+
+
+
+//統計漢字字頻
+function countChineseCharacters() {
+    const id_A = document.getElementById('id_A');
+    const id_B = document.getElementById('id_B');
+
+    // 取得文字內容
+    const text = id_A.value;
+
+    // 漢字的正則表達式
+    const chineseRegex = /[\u3007\u3400-\u4DB5\u4E00-\u9FCB\uE815-\uE864\uD840-\uD87F][\uDC00-\uDFFF]?/g;
+
+    // 匹配所有漢字
+    const chineseCharacters = text.match(chineseRegex) || [];
+
+    // 統計漢字出現次數
+    const frequencyMap = {};
+    chineseCharacters.forEach(char => {
+        if (frequencyMap[char]) {
+            frequencyMap[char]++;
+        } else {
+            frequencyMap[char] = 1;
+        }
+    });
+
+    // 將結果轉換為數組並排序
+    const sortedCharacters = Object.entries(frequencyMap)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+    // 構建輸出字串
+    //let result = '次數\t漢字\n';
+	let result = '';
+    sortedCharacters.forEach(([char, count]) => {
+        result += `${count}\t${char}\n`;
+    });
+
+    // 輸出結果到 id_B
+    id_B.value = result;
+}
+
+let btn_ime = document.getElementById('btn_ime');
+btn_ime.addEventListener('click', function() {
+	let id_A = document.getElementById('id_A');
+  var inputText = id_A.value.trim();
+  var lines = inputText.split("\n");
+  var output = {};
+
+  lines.forEach(function(line) {
+    var parts = line.trim().split(/\s+/);
+    var key = parts[0];
+    var value = parts[1];
+    if (output[key]) {
+      output[key].push(value);
+    } else {
+      output[key] = [value];
+    }
+  });
+
+  var result = "";
+  for (var key in output) {
+    if (output.hasOwnProperty(key)) {
+      result += key + ":" + output[key].join(",") + "\n";
+    }
+  }
+
+  id_B.innerHTML = result;
+});
+
+
+
+
+
+
+
+
+</script>
+
+
+<script src="wesingjs.js?v=iizosos"></script>
+<script>testfont();</script>
+
+ </body>
+</html>

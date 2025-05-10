@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+ <head>
+  <title>oikasu.com 詔安客語教學資源中心</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3pro.css">
+
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  	<link href="https://tauhu.tw/tauhu-oo.css" rel="stylesheet">
+	<style>
+	* {	font-family: "台灣楷體", "台灣黑體",tauhu-oo, PingFangTC-Regular, "Microsoft JhengHei", sans-serif;}
+	 table {width:95%; border-collapse:collapse;} 
+	 td {border:#337DA8 1px solid;}
+	 textarea{width:95%;height:90%;overflow-y:auto;}
+	</style>
+  <link rel="stylesheet" href="medsmav.css">
+ </head>
+ <body>
+
+<div id="loginOverlay" class="login-overlay">
+  <div class="login-card" id="loginCard">
+    <div class="login-header">
+      <h1 class="login-title">🥷烏衣行</h1>
+      <p class="login-description">用途：限教學、非商業、非計畫案</p>
+    </div>
+    <div class="login-content">
+      <form id="loginForm">
+        <div class="form-group">
+          <input 
+            id="email" 
+            type="email" 
+            placeholder="請輸入信箱"
+            required
+          >
+        </div>
+        <div class="form-group">
+          <input 
+            id="password" 
+            type="password"
+            placeholder="請輸入密碼"
+            required
+          >
+        </div>
+        <div class="error-message" id="errorMessage"></div>
+        <button type="submit" class="login-button">登入</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="mainContent" style="display: none;">
+
+<h3>烏衣行四縣客語漢字轉拼音</h3>
+<script src="h2p_sixian.js?v=iimommi"></script>
+<script src="basic_goix_h2p.js?v=iimobok"></script>
+<script src="basic_myform.js?v=iimobok"></script>
+<script src="wesingjs.js?v=iimommi"></script>
+</div>
+<script src="medsmav.js"></script>
+ </body>
+</html>

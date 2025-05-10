@@ -1,0 +1,334 @@
+/* 設定整體頁面樣式 */
+body {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* 水平置中 */
+  justify-content: center; /* 垂直置中 */
+  min-height: 100vh; /* 頁面填滿視窗 */
+  background-color: #f9f9f9; /* 柔和背景色 */
+}
+
+/* 標題樣式 */
+h3 {
+  font-size: 2em;
+  color: #3e8e41; /* Google風格的綠色 */
+  text-align: center;
+  margin-bottom: 20px;
+  font-weight: bold;
+}
+
+/* 搜尋區塊樣式 */
+.search {
+  width: 90%; /* 響應式寬度 */
+  max-width: 600px; /* 最大寬度 */
+  text-align: center;
+}
+
+
+.gaz {
+  color:#8B0000;
+  }
+
+#myWordOX {
+  border: none;
+  background: transparent;
+  color: #888;
+  font-size: 1.5em;
+  cursor: pointer;
+}
+
+.myWord button{
+  background-color: #fff;
+  border: 1px solid #eee; 
+  font-size: 1em;
+  width: 20px; 
+  color: #666; 
+  padding: 1px 1px; 
+  cursor: pointer;
+}
+
+.myWord span{
+  background-color: #bbb;
+  border: 1px solid #eee; 
+  display: inline-block;
+  font-size: 0.9em;
+  text-align: center;
+  width: 16px; 
+  color: #fff; 
+  padding: 1px 1px; 
+}
+
+.myWord button:not(:last-child) {
+  border-right: none; /* Prevent double borders */
+}
+
+.btn-group {
+  display: flex;
+}
+
+/* 通用按鈕樣式 */
+/* 通用按鈕樣式 */
+.btn-group button {
+  background-color: #4CAF50;
+  border: 1px solid #3B9E40;
+  color: white;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 1em;
+  outline: none;
+}
+
+/* #btnK 左右均為直角 */
+#btnK {
+  border-radius: 0; /* 無圓角 */
+}
+
+/* #btnG 左邊為直角，右邊為圓角 */
+#btnG {
+  border-radius: 0 24px 24px 0; /* 右上和右下圓角，左側直角 */
+}
+
+/* 按鈕懸停效果 */
+.btn-group button:hover {
+  background-color: #3e8e41;
+}
+
+
+/* 按鈕懸停效果 */
+.btn-group button:hover {
+  background-color: #3e8e41; /* 深色綠背景 */
+}
+
+
+
+
+
+
+
+
+
+
+
+#toTop {
+  display: none;
+  position: fixed;
+  bottom: 20px;
+  right: 30px;
+  z-index: 99;
+  font-size: 16px;
+  border: none;
+  outline: none;
+  background-color: #4CAF50;
+  color: white;
+  cursor: pointer;
+  padding: 15px;
+  border-radius: 4px;
+}
+
+#toTop:hover {
+  background-color: #3e8e41;
+}
+
+
+
+
+
+
+
+
+
+
+
+#AAA {
+  background-image: url('searchicon.png');
+  background-size: 8% auto;
+  background-position: 5px 5px;
+  background-repeat: no-repeat;
+  padding: 5px 5px 5px 25px;
+  border: 1px solid #ccc;
+  width:50%;
+}
+
+/* 表格容器 */
+.table-container {
+  width: 100%; /* 響應式寬度 */
+  max-width: 800px; /* 最大寬度 */
+  margin: 0px auto 20px auto; /* 水平置中並添加上下間距 */
+  overflow-x: auto; /* 當內容過多時允許橫向滾動 */
+  background: #fff; /* 白色背景 */
+  padding: 10px 10px;
+  border-radius: 8px; /* 圓角 */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* 添加陰影 */
+}
+
+/* 表格樣式 */
+.myTable {
+  width: 100%; /* 撐滿容器 */
+  border-collapse: collapse; /* 合併邊框 */
+  border: 1px solid #ddd; /* 表格邊框 */
+  font-size: 1em; /* 字體大小 */
+  text-align: left; /* 文字靠左 */
+  background-color: #f9f9f9; /* 表格背景色 */
+}
+
+/* 表頭樣式 */
+.myTable th {
+  background-color: #4CAF50; /* 綠色背景 */
+  color: white; /* 白色文字 */
+  padding: 12px; /* 添加內距 */
+  text-align: center; /* 表頭文字置中 */
+  font-weight: bold; /* 加粗字體 */
+  border: 1px solid #ddd; /* 分隔線 */
+}
+
+/* 表格內容樣式 */
+.myTable td {
+  padding: 10px; /* 添加內距 */
+  border: 1px solid #ddd; /* 表格內邊框 */
+  color: #333; /* 字體顏色 */
+}
+
+.myTable tr:nth-child(even) {
+  background-color: #f2f2f2; /* 偶數行的背景色 */
+}
+
+.myTable tr:nth-child(odd) {
+  background-color: #fff; /* 奇數行的背景色 */
+}
+
+.myTable tr:hover {
+  background-color: #e9f7e9; /* 滑鼠懸停的背景色 */
+}
+
+
+
+.myTable tr {
+  border-bottom: 1px solid #eee;
+}
+
+.myTable tr.header, .myTable tr:hover {
+  background-color: #fef;
+}
+
+ td {
+  padding:5px;
+  }
+
+tr:nth-child(even) {
+    background-color: #fff;
+}
+tr:nth-child(odd) {
+    background-color: #eee;
+}
+
+table, td, th {
+  border:1px solid #bbb;
+  }
+
+.tp {
+  position: relative;
+  display: inline-block;
+}
+
+.tp .tptxt {
+  visibility: hidden;
+  width: 200px;
+  background-color: #444;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px 0;
+  position: absolute;
+  z-index: 1;
+  bottom: 130%;
+  left: 50%;
+  margin-left: -100px;
+}
+
+.tp .tptxt::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #444 transparent transparent transparent;  border-color: #444 transparent transparent transparent;
+}
+
+.tp:hover .tptxt {
+  visibility: visible;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+.mySearch {
+  flex: 1; /* 撐滿可用空間 */
+  border: none;
+  outline: none;
+  font-size: 1.2em;
+  padding: 10px 15px;
+  border-radius: 24px 0 0 24px;
+}
+
+.mySearch::placeholder {
+  color: #999;
+}
+
+
+
+
+
+
+.autocomplete {
+  display: flex;
+  justify-content: center; /* 搜尋欄置中 */
+  align-items: center;
+  position: relative;
+  background: #fff; /* 白色背景 */
+  border: 1px solid #ddd; /* 輕微的邊框 */
+  border-radius: 24px; /* 圓角 */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* 淡陰影 */
+  padding: 5px;
+  width: 100%; /* 響應式 */
+}
+
+
+/* 自動完成項目樣式 */
+.autocomplete-items {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 99;
+  border: 1px solid #d4d4d4;
+  background-color: #fff;
+}
+
+.autocomplete-items div {
+  padding: 10px;
+  cursor: pointer;
+  background-color: #fff;
+  border-bottom: 1px solid #d4d4d4;
+}
+
+.autocomplete-items div:hover {
+  background-color: #f1f1f1;
+}
+
+.autocomplete-active {
+  background-color: #4CAF50 !important;
+  color: white;
+}
+

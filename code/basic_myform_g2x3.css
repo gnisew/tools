@@ -1,0 +1,127 @@
+body {
+  background-color: #f2f2f2; /* 灰色 */
+}
+
+h3{
+margin-top: 20px;
+cursor: pointer;
+transition: color 0.3s; /* 添加過渡效果 */
+color: black; /* 初始文字顏色 */
+}
+
+
+h3:hover {
+color: blue; /* 滑過後的文字顏色 */
+}
+
+
+h3, #wrong{
+text-align: center;
+vertical-align: middle
+}
+
+textarea {
+max-width: 800px;
+height: 150px;
+padding: 10px;
+border-radius: 5px;
+border: 1px solid #ccc;
+}
+
+textarea::placeholder {
+        white-space: pre-line; /* 這個 CSS 屬性會將換行符號轉換為換行 */
+    }
+
+
+input[type="button"] {
+background-color: #3498db;
+border: none;
+color: white;
+padding: 2px 4px;
+text-align: center;
+text-decoration: none;
+display: inline-block;
+margin: 4px 1px;
+cursor: pointer;
+border-radius: 3px;
+}
+
+input[type="button"]:hover {
+background-color: #2980b9;
+}
+
+input[type="button"]:focus {
+outline: none;
+}
+
+#btn_GoixKG, #btn_TonvK, #btn_KG, #btn_KGP, #btn_GoixKG2, #btn_newK, #btn_GoixCaK, #btn_KNG {
+background-color: #7ebc59;
+}
+#btn_GoixKG:hover, #btn_TonvK:hover, #btn_KG:hover, #btn_KGP:hover, #btn_GoixKG2:hover, #btn_newK:hover, #btn_GoixCaK:hover, #btn_KNG:hover {
+background-color: #3D9970;
+}
+
+
+#btn_Other{
+padding: 2px 8px;
+}
+
+#btn_myX {
+background-color: #e42c64;
+}
+#btn_myX:hover {
+background-color: #c50d66;
+}
+
+
+#btn_Other {
+background-color: #996699;
+}
+#btn_Other:hover {
+background-color: #5c196b;
+}
+
+
+
+#btn_DeleteSpare {
+background-color: #F06D06;
+}
+#btn_DeleteSpare:hover {
+background-color: #F03D03;
+}
+
+
+#btn_Copy {
+background-color: #24a8ac;
+}
+#btn_Copy:hover {
+background-color: #416d85;
+}
+
+
+textarea:focus {
+  outline: none;
+  border: 1px solid #2980b9;
+}
+
+
+
+
+
+
+
+h3::after {
+    content: "";
+    display: inline-block;
+    margin-left: 5px;
+}
+
+h3::after:hover {
+    content: "https://sites.google.com/view/oikasu";
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+h3::after:active {
+    transform: scale(0.9);
+}

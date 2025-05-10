@@ -1,0 +1,1 @@
+document.write(`<link href="https://oikasu.com/file/code2/css/style.css" rel="stylesheet">`);

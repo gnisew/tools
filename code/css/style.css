@@ -1,0 +1,117 @@
+/* 內嵌字體 */
+
+@font-face{
+    font-family: 'twhei-s';
+	src: local("twhei-s-Regular"),
+	 url( 'twhei-s.woff2' ) format("woff2"),
+	 url( 'twhei-s.woff' ) format("woff"),
+	 url( 'twhei-s.otf' ) format("opentype");
+}
+
+@font-face{
+    font-family: 'TWHEI';
+	src: local("TWHEI"),
+		local("台灣黑體"),
+	 url( 'TWHEI.woff2' ) format("woff2"),
+	 url( 'TWHEI.woff' ) format("woff"),
+	 url( 'TWHEI.otf' ) format("opentype");
+  font-display: swap;
+}
+	* {	font-family:  twhei-s,TWHEI, "台灣黑體", tauhu-oo, PingFangTC-Regular, "Microsoft JhengHei", sans-serif;}
+
+
+
+
+/* 樣式設定 */
+
+*{
+	box-sizing: border-box;
+}
+
+
+ul.menu {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #666;
+}
+ul.menu li {
+  float: left;
+}
+ul.menu a {
+  display: inline-block;
+  color: white;
+  text-align: center;
+  padding: 10px 16px;
+  text-decoration: none;
+}
+ul.menu a:hover {
+  background-color: red;
+  text-shadow: 0 0 3px #999, 0px 0px 15px #fff;
+}
+ul.menu li:first-child {
+  background-color: #f35;
+  
+}
+
+.clearfix::after {
+  content: "";
+  clear: both;
+  display: table;
+  overflow: auto;
+}
+
+.center {
+  /*用於子元素，父元素還要設定 position:relative; height:200px ;*/
+  margin: 0;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.center-flex {
+  /*用於父元素，子元素不必再設定*/
+  display: flex;
+  justify-content: center;
+  align-items: center;  
+  border: 3px solid green; 
+  height: 200px;
+}
+
+/* 導航欄-1 */  
+.menubar ul {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: #333;
+}
+.menubar li {
+  float: left;
+}
+.menubar li:last-child {
+  border-right: none;
+}
+.menubar li a {
+  display: block;
+  color: white;
+  text-align: center;
+  padding: 14px 16px;
+  text-decoration: none;
+}
+.menubar li a:hover:not(.active) {
+  background-color: #111;
+}
+.menubar .active {
+  background-color: #04AA6D;
+}
+.menubar li:last-child{
+  float:right;
+}
+.menubar ul {
+  position: fixed;
+  top: 0;
+  width: 100%;
+}

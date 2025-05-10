@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+ <head>
+  <title>oikasu.com 詔安客語教學資源中心</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3pro.css">
+
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  	<link href="https://tauhu.tw/tauhu-oo.css" rel="stylesheet">
+	<style>
+	* {	font-family: "台灣楷體", "台灣黑體",tauhu-oo, PingFangTC-Regular, "Microsoft JhengHei", sans-serif;}
+	 table {width:95%; border-collapse:collapse;} 
+	 td {border:#337DA8 1px solid;}
+	 textarea{width:95%;height:90%;overflow-y:auto;}
+	</style>
+  <link href="https://tauhu.tw/tauhu-oo.css" rel="stylesheet">
+ </head>
+ <body>
+
+
+<script>
+
+function Qing() {
+    document.getElementById("id_A").value = "";
+	document.getElementById("id_B").value = "";
+}
+
+function Copy() {
+    document.getElementById("id_B").focus();
+    document.getElementById("id_B").select();
+    document.execCommand("Copy");
+}
+
+function urlGo(myV) {
+
+	var id_A = document.getElementById("id_A");
+	var id_B = document.getElementById("id_B");
+    var id_S = document.getElementById("id_S");
+	var txt;
+	var txt2;
+	var urlA = '<audio controls src="https://docs.google.com/uc?export=download&id='
+	var urlB = '"></audio>'
+	var re = /(\/d\/)(.*)(\/view)/gi;
+
+
+	txt = id_A.value;
+
+	if (myV == "1")		{
+		txt2 = txt.match(re);
+		txt2 = "https://docs.google.com/uc?export=download&id=" + txt2 ;
+		txt2 = txt2.replace(/(\/d\/)(.*)(\/view)/gi, "$2");
+
+	} else if (myV == "2")	{
+		txt2 = txt.match(re);
+		txt2 = urlA + txt2 + urlB;
+		txt2 = txt2.replace(/(\/d\/)(.*)(\/view)/gi, "$2");
+	}
+
+	id_B.value = txt2;
+    document.getElementById("id_B").focus();
+    document.getElementById("id_B").select();
+    document.execCommand("Copy");
+	txt = null;
+}
+
+
+</script>
+
+
+
+<div>
+
+    <div>烏衣行Google雲端硬碟取得連結網址，轉為：</div>
+	<div><textarea rows="4" id="id_A"></textarea></div>
+
+    <div><button onclick="urlGo('1')">下載</button><button onclick="urlGo('2')">內嵌聲音</button></div>
+
+    <div><textarea rows="4" id="id_B"></textarea></div>
+	<div><button id="btn_Q" onclick="Qing()">清除</button><button id="btn_C" onclick="Copy()">複製</button></div>
+
+</div>
+
+<script src="wesingjs.js?v=iizosos"></script>
+<script>testfont();</script>
+ </body>
+</html>

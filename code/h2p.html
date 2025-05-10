@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>烏衣行h2p漢字拼音資料庫</title>
+    <style>
+        :root {
+            --bg-color: #f0f8ff;
+            --text-color: #333;
+            --container-bg-color: #fff;
+            --highlight-color: #41729F;
+            --highlight-hover-color: #5885AF;
+            --border-color: #ddd;
+            --textarea-bg-color: #fff;
+            --textarea-text-color: #000;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            transition: background-color 0.3s, color 0.3s;
+			user-select: none;
+        }
+        .container {
+            max-width: 700px;
+            width: 100%;
+            background: var(--container-bg-color);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+        .theme-selector {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+        }
+        h2, h3 {
+            color: var(--highlight-color);
+            text-align: center;
+        }
+        .flex-container {
+            display: flex;
+            justify-content: space-between;
+        }
+        .flex-item {
+            width: 48%;
+			margin-bottom: 5px;
+        }
+        textarea {
+            width: calc(100% - 22px);
+            height: 80px;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-family: 'Courier New', Courier, monospace;
+            background-color: var(--textarea-bg-color);
+            color: var(--textarea-text-color);
+            transition: border-color 0.3s, box-shadow 0.3s, background-color 0.3s, color 0.3s;
+        }
+        textarea:focus {
+            border-color: var(--highlight-color);
+            box-shadow: 0 0 5px rgba(30, 144, 255, 0.5);
+            outline: none;
+        }
+        button, select {
+            width: 100%;
+            padding: 10px 0;
+            background-color: var(--highlight-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+			text-align: center;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: var(--highlight-hover-color);
+        }
+        .result-container {
+            margin-top: 20px;
+        }
+        @media (max-width: 600px) {
+            body {
+                margin: 10px;
+            }
+            .container {
+                padding: 15px;
+            }
+            .theme-selector {
+                top: 10px;
+                right: 10px;
+            }
+            .flex-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .flex-item {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+            button {
+                font-size: 14px;
+            }
+            textarea {
+                height: 80px;
+            }
+            .result-container {
+                margin-top: 15px;
+            }
+        }
+
+    .clear-button {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        width: 20px;
+        height: 20px;
+        background-color: var(--highlight-color);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 12px;
+        line-height: 25px;
+    }
+    .clear-button:hover {
+        background-color: var(--highlight-hover-color);
+    }
+
+
+        .flex-item {
+            margin-right: 2px; /* 每個元素之間的間距 */
+        }
+
+
+.toast {
+    visibility: hidden;
+    min-width: 250px;
+    margin-left: -125px;
+    background-color: #888;
+    color: #fff;
+    text-align: center;
+    border-radius: 5px;
+    padding: 16px;
+    position: fixed;
+    z-index: 1;
+    left: 50%;
+    top: 30px;
+    font-size: 17px;
+    transition: visibility 0.5s, opacity 0.5s ease-in-out;
+    opacity: 0;
+}
+
+.toast.show {
+    visibility: visible;
+    opacity: 1;
+}
+
+    </style>
+
+</head>
+<body>
+
+<div class="container">
+ <div class="theme-selector">
+   <select id="themeSelect" onchange="changeTheme()">
+     <option value="light">亮色系</option>
+     <option value="dark">暗色系</option>
+   </select>
+ </div>
+ <button class="clear-button" onclick="clearAllData()">X</button>
+ <h2>H2P漢字拼音資料庫</h2>
+ <div class="flex-container">
+   <div class="flex-item">
+     <h3>1.原資料庫</h3>
+     <textarea id="originalData" placeholder="次數 客語 拼音本變"></textarea>
+     <div class="flex-container">
+       <button onclick="importData()" class="flex-item">載入 txt</button>
+	   <button onclick="clearData('originalData')" class="flex-item">清除</button>
+     </div>
+   </div>
+   <div class="flex-item">
+     <h3>2.添加資料</h3>
+     <textarea id="newData" placeholder="(次數) 客語 拼音本變"></textarea>
+     <div class="flex-container">
+       <button onclick="arrangeData()" class="flex-item">↺ 統計</button>
+       <button onclick="queryData('Kasu')" class="flex-item">以字查音</button>
+       <button onclick="queryData('Chinese')" class="flex-item">以音查字</button>
+	   <button onclick="clearData('newData')" class="flex-item">清除</button>
+     </div>
+   </div>
+ </div>
+ <button onclick="mergeData()">整併</button>
+ <div class="result-container flex-container">
+   <div class="flex-item">
+     <h3>3.新增資料</h3>
+     <textarea id="addData" placeholder="新增加的資料" readonly></textarea>
+     <div class="flex-container">
+       <button onclick="copyData('addData')" class="flex-item">複製</button>
+       <button onclick="clearData('addData')" class="flex-item">清除</button>
+     </div>
+   </div>
+   <div class="flex-item">
+     <h3>4.新資料庫</h3>
+     <textarea id="resultData" placeholder="合併出新資料庫" readonly></textarea>
+     <button onclick="copyExportData()" class="flex-item">複製</button>
+     <button onclick="exportData()" class="flex-item">匯出 h2p.js</button>
+   </div>
+ </div>
+</div>
+
+
+
+<script>
+
+
+let allData = [];
+let resultLines = [];
+
+
+function importData() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.txt';
+
+    input.onchange = async (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            const text = await file.text();
+            allData = text.split('\n').filter(line => line.trim() !== '');			
+            const displayLines = allData.slice(0, 100);
+            document.getElementById('originalData').value = "載入的資料(僅顯示前 100 行)：\n" + displayLines.join('\n');
+        }
+    };
+
+    input.click();
+}
+
+
+function importDataJs() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.js';
+
+            input.onchange = async (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const fileContent = e.target.result;
+                        processFileContent(fileContent);
+                    };
+                    reader.readAsText(file);
+                }
+            };
+
+            input.click();
+        }
+
+
+
+function loadSelectedFile() {
+    const selectedFile = document.getElementById('fileSelect').value;
+    if (selectedFile) {
+        fetch(selectedFile)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Network response was not ok " + response.statusText);
+                }
+                return response.text();
+            })
+            .then(fileContent => processFileContent(fileContent))
+            .catch(error => console.error("無法加載文件：", error));
+    }
+}
+
+function processFileContent(fileContent) {
+    // 假設檔案內容是用某種方式定義的字串（例如 let ww = "..."）
+    // 我們可以用正則表達式提取這個字串
+    const wwMatch = fileContent.match(/let ww\s*=\s*"([^"]*)"/);
+    if (wwMatch) {
+        const xx = wwMatch[1];
+
+        let w = xx.split("\t");
+
+        allData = w.map(function(item) {
+            let [count, stringA, stringB] = item.split('=');
+            count = count ? parseInt(count) : 0;
+            stringB = stringB ? stringB : stringA;
+
+            stringA = replaceChars(stringA, txtAA, txtKK);
+            stringB = replaceChars(stringB, txtAA, txtGG);
+            stringA = replaceChars(stringA, txtEE, txtAA);
+            stringB = replaceChars(stringB, txtEE, txtAA);
+
+            return count + "\t" + stringA + "\t" + stringB;
+        });
+
+        const displayLines = allData.slice(0, 100);
+        document.getElementById('originalData').value = "載入的資料(僅顯示前 100 行)：\n" + displayLines.join('\n');
+    } else {
+        console.error("未能找到變數 'ww' 的定義。");
+    }
+}
+
+
+  function importDataJsFromUrl() {
+            const url = document.getElementById('fileUrl').value;
+            if (url) {
+                fetch(url)
+                    .then(response => response.text())
+                    .then(fileContent => processFileContent(fileContent))
+                    .catch(error => console.error("無法加載文件：", error));
+            } else {
+                console.error("請輸入有效的 URL");
+            }
+  }
+
+function kasuToneOriginal(t) {
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])([zvsxc])([zvsxfc])/gi, '$1$2$3');
+	t = t.replace(/([a-z]{0,4})([mngbdgaeiou])([cf])/gi, '$1$2');
+	t = t.replace(/(-+)/gi, ' ');
+    return t;
+}
+
+function toneToZxv(t) {
+	//聲調統一轉為字母調;
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(ˊ)/gi, '$1$2z');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(\ˆ)/gi, '$1$2x');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(ˇ)/gi, '$1$2v');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(ˋ)/gi, '$1$2s');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(\+)/gi, '$1$2f');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(ˉ)/gi, '$1$2c');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(⁺)/gi, '$1$2f');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])(\^)/gi, '$1$2x');
+
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])( ́)/gi, '$1$2z');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])( ̂)/gi, '$1$2x');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])( ̌)/gi, '$1$2v');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])( ̀)/gi, '$1$2s');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])( ̄)/gi, '$1$2c');
+
+	return t;
+}
+
+function queryData(criteria) {
+    // 獲取原始資料
+	let originalData = document.getElementById('originalData').value.trim();
+	
+	if (allData.length > 0)	{
+		originalData = allData.join("\n");
+	}
+
+	originalData = originalData.replace(/\r\n|\r/g, '\n');
+    const newData = document.getElementById('newData').value.trim();
+
+    // 將資料按行分割
+    const originalLines = originalData.split('\n').filter(line => line.trim() !== '');
+    const newLines = newData.split('\n').filter(line => line.trim() !== '');
+
+    // 將每行資料進行解析並存入數組
+    const originalParsedData = originalLines.map(line => {
+        const [count, kasu, chinese] = line.split('\t');
+        return {
+            count: parseInt(count, 10),
+            kasu: kasu,
+            chinese: chinese
+        };
+    });
+
+	const originalParsedData2 = originalLines.map(line => {
+		const [count, kasu, chinese] = line.split('\t');
+		return {
+			count: parseInt(count, 10),
+			kasu: kasu,
+			chinese: kasuToneOriginal(chinese)
+		};
+	});
+
+    // 將newData解析成對應格式
+    const newParsedData = newLines.map(line => {
+        const parts = line.split('\t');
+        let count, value;
+        if (parts.length === 2) {
+            count = parseInt(parts[0], 10);
+            value = parts[1];
+        } else {
+            count = 0;
+            value = parts[0];
+        }
+        return {
+            count: count,
+            value: toneToZxv(value)
+        };
+    });
+
+    // 創建結果數組
+    const resultData = [];
+
+    // 根據 criteria 進行查詢和匹配
+    if (criteria === 'Kasu') {
+        newParsedData.forEach(newItem => {
+            const matches = originalParsedData.filter(originalItem => originalItem.kasu === newItem.value);
+            if (matches.length > 0) {
+                matches.sort((a, b) => b.count - a.count);
+                resultData.push({ count: newItem.count, kasu: newItem.value, chinese: matches[0].chinese });
+            } else {
+                resultData.push({ count: newItem.count, kasu: newItem.value, chinese: '' });
+            }
+        });
+        // 按照 Chinese 空的排前面，再按照次數大的先排，再按照 Kasu 排序
+        resultData.sort((a, b) => {
+            if (a.chinese === '' && b.chinese !== '') return -1;
+            if (a.chinese !== '' && b.chinese === '') return 1;
+            if (a.chinese !== b.chinese) return a.chinese.localeCompare(b.chinese);
+            if (a.count !== b.count) return b.count - a.count;
+            return a.kasu.localeCompare(b.kasu);
+        });
+    } else if (criteria === 'Chinese') {
+        newParsedData.forEach(newItem => {
+            const matches = originalParsedData2.filter(originalItem => originalItem.chinese === newItem.value);
+            if (matches.length > 0) {
+                matches.sort((a, b) => b.count - a.count);
+                resultData.push({ count: newItem.count, kasu: matches[0].kasu, chinese: newItem.value });
+            } else {
+                resultData.push({ count: newItem.count, kasu: '', chinese: newItem.value });
+            }
+        });
+        // 按照 Kasu 空的排前面，再按照次數大的先排，再按照 Chinese 排序
+        resultData.sort((a, b) => {
+            if (a.kasu === '' && b.kasu !== '') return -1;
+            if (a.kasu !== '' && b.kasu === '') return 1;
+            if (a.kasu !== b.kasu) return a.kasu.localeCompare(b.kasu);
+            if (a.count !== b.count) return b.count - a.count;
+            return a.chinese.localeCompare(b.chinese);
+        });
+    }
+
+    // 將結果顯示於 addData 文本框中
+    const formattedResultData = resultData.map(item => `${item.count}\t${item.kasu}\t${item.chinese}`);
+    document.getElementById('addData').value = formattedResultData.join('\n');
+	document.getElementById('resultData').value = '';
+}
+
+
+
+
+ function arrangeData() {
+     const input = document.getElementById('newData').value;
+     // 移除標點符號
+     const cleanedInput = input.replace(/[\p{P}\p{S}]/gu, '');
+     const wordsArray = cleanedInput.split(/[\s_]+/);
+     const wordCount = {};
+
+     wordsArray.forEach(word => {
+         if (word) {
+             wordCount[word] = (wordCount[word] || 0) + 1;
+         }
+     });
+
+     const sortedWords = Object.entries(wordCount).sort((a, b) => b[1] - a[1]);
+
+     const output = sortedWords.map(([word, count]) => `${count}\t${word}`).join('\n');
+
+     document.getElementById('addData').value = output;
+ }
+
+
+
+
+
+
+
+function clearData(id) {
+    document.getElementById(id).value = '';
+}
+
+function clearAllData() {
+    document.getElementById('originalData').value = '';
+    document.getElementById('newData').value = '';
+    document.getElementById('addData').value = '';
+    document.getElementById('resultData').value = '';
+	allData = [];
+}
+
+function mergeData() {
+    let originalData = document.getElementById('originalData').value.trim();
+    
+    if (allData.length > 0) {
+        originalData = allData.join("\n");
+    }
+
+    const newData = document.getElementById('newData').value.trim();
+
+    // 解析原始資料和新資料
+    let originalParsed = parseData(originalData);
+    let newParsed = parseData(newData);
+
+    let combinedData = { ...originalParsed };
+
+    const addedLines = [];
+    const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+    let dayTxt = today.toString().slice(-6);
+
+    // 合併新資料到原始資料中
+    for (const key in newParsed) {
+        if (!combinedData.hasOwnProperty(key)) {
+            addedLines.push(`${dayTxt}\t${key}`);
+        }
+        combinedData[key] = (combinedData[key] || 0) + newParsed[key];
+    }
+
+    // 格式化輸出結果
+    resultLines = Object.entries(combinedData)
+        .map(([key, count]) => `${count}\t${key}`);
+
+    // 只顯示最後100行
+    const displayLines = resultLines.slice(0, 100);
+
+    // 更新結果顯示區域
+    document.getElementById('resultData').value = "僅顯示前100行，但可複製全部 (共 " + resultLines.length + " 行)：\n" + displayLines.join('\n');
+    document.getElementById('addData').value = addedLines.join('\n');
+}
+
+function parseData(data) {
+    // 統一行結束符號
+    data = data.replace(/\r\n|\r/g, '\n');
+
+    // 分割成行並去除空行
+    const lines = data.split('\n').filter(line => line.trim() !== '');
+
+    // 解析每一行
+    const result = lines.map(line => {
+        // 用tab分割資料
+        const parts = line.split('\t');
+        let count, kasu, chinese;
+
+        if (parts.length === 3) {
+            [count, kasu, chinese] = parts;
+            count = parseInt(count, 10);
+			kasu = kasu.trim();
+			chinese = chinese.trim();
+			chinese = chinese.replace(/ +/g, ' ');
+            // 移除格式為 數字\t(空)\t(空) 的行
+            if (isNaN(count) || kasu === '' && chinese === '') {
+                return null;
+            }
+        } else if (parts.length === 2) {
+            [kasu, chinese] = parts;
+			kasu = kasu.trim();
+			chinese = chinese.trim();
+			chinese = chinese.replace(/ +/g, ' ');
+            count = 1;
+        } else {
+            return null; // 跳過無效行
+        }
+
+        // 合成鍵值
+        const key = `${kasu}\t${chinese}`;
+
+        return { key, count };
+    }).filter(item => item !== null)
+      .reduce((acc, item) => {
+        acc[item.key] = (acc[item.key] || 0) + item.count;
+        return acc;
+    }, {});
+
+    return result;
+}
+
+
+
+
+function changeTheme() {
+    const theme = document.getElementById('themeSelect').value;
+    const darkTheme = {
+        '--bg-color': '#2e2e2e',
+        '--text-color': '#dcdcdc',
+        '--container-bg-color': '#3c3c3c',
+        '--highlight-color': '#5885AF',
+        '--highlight-hover-color': '#41729F',
+        '--border-color': '#555',
+        '--textarea-bg-color': '#555',
+        '--textarea-text-color': '#fff'
+    };
+    const lightTheme = {
+        '--bg-color': '#f0f8ff',
+        '--text-color': '#333',
+        '--container-bg-color': '#fff',
+        '--highlight-color': '#5885AF',
+        '--highlight-hover-color': '#41729F',
+        '--border-color': '#ddd',
+        '--textarea-bg-color': '#fff',
+        '--textarea-text-color': '#000'
+    };
+    const styles = theme === 'dark' ? darkTheme : lightTheme;
+    
+    Object.entries(styles).forEach(([property, value]) => {
+        document.documentElement.style.setProperty(property, value);
+    });
+}
+
+function copyData(id) {
+    const dataToCopy = document.getElementById(id);
+    dataToCopy.select();
+    dataToCopy.setSelectionRange(0, 99999); // 選擇範圍，適用於行動裝置
+    document.execCommand('copy');
+}
+
+
+function copyToClipboard(data) {
+    // 檢查瀏覽器是否支持 Clipboard API
+    if (navigator.clipboard && window.isSecureContext) {
+        // 使用 Clipboard API 複製文字到剪貼簿
+        navigator.clipboard.writeText(data).then(() => {
+            showToast('複製完成', true, 1500);
+        }).catch((err) => {
+            showToast('錯誤！請重新複製', true, 2000);
+        });
+    } else {
+        // 如果 Clipboard API 不可用，則使用 fallback 方法
+        fallbackCopyToClipboard(data);
+    }
+}
+
+function fallbackCopyToClipboard(data) {
+    // 建立一個臨時的 textarea 元素
+    const textArea = document.createElement('textarea');
+    textArea.value = data;
+
+    // 防止屏幕抖動
+    textArea.style.position = 'fixed';
+    textArea.style.top = '0';
+    textArea.style.left = '0';
+    textArea.style.width = '2em';
+    textArea.style.height = '2em';
+    textArea.style.padding = '0';
+    textArea.style.border = 'none';
+    textArea.style.outline = 'none';
+    textArea.style.boxShadow = 'none';
+    textArea.style.background = 'transparent';
+
+    // 將 textarea 添加到文檔
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+        // 執行複製命令
+        const successful = document.execCommand('copy');
+        showToast('複製完成', true, 1500);
+    } catch (err) {
+        showToast('錯誤！請重新複製', true, 2000);
+    }
+
+    // 移除臨時的 textarea
+    document.body.removeChild(textArea);
+}
+
+
+
+function exportData() {
+    // 獲取輸入資料
+    let data = resultLines.join('\n');
+
+    // 轉換資料
+    let transformedData = transformData(data);
+
+    // 建立 Blob 物件
+    let blob = new Blob([transformedData], { type: 'text/plain' });
+
+    // 建立 a 標籤
+    let a = document.createElement('a');
+    a.download = 'h2p.js';
+    a.href = window.URL.createObjectURL(blob);
+    a.textContent = 'Download h2p.js';
+
+    // 將 a 標籤附加到文件中並觸發點擊事件
+    document.body.appendChild(a);
+    a.click();
+
+    // 移除 a 標籤
+    document.body.removeChild(a);
+}
+
+
+function copyExportData(){
+	let data = resultLines.join('\n');
+	copyToClipboard(data);	
+}
+
+
+function showToast(message, autoDismiss = true, dismissTime = 3000) {
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerText = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => toast.classList.add('show'), 100);
+
+    if (autoDismiss) {
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => document.body.removeChild(toast), 500);
+        }, dismissTime);
+    }
+}
+
+
+
+
+
+
+
+
+
+
+function getLength(txt) {
+    return Array.from(txt).length;
+}
+
+function transformData(data) {
+    // 將資料用\n分割成行
+    let lines = data.split("\n");
+
+    // 去除前後行的空值或空格
+    lines = lines.filter(line => line.trim() !== "");
+
+    // 先依照 stringA 的字數由大排到小，再依照 count 的數字由大排到小
+    lines.sort((a, b) => {
+        let [countA, stringAA, stringBA] = a.split("\t");
+        let [countB, stringAB, stringBB] = b.split("\t");
+        
+        let lengthA = getLength(stringAA);
+        let lengthB = getLength(stringAB);
+        
+        if (lengthA === lengthB) {
+            return parseInt(countB) - parseInt(countA);
+        }
+        return lengthB - lengthA;
+    });
+
+    // 用於儲存 stringA 和 stringB 的陣列
+    let stringAArray = [];
+    let stringBArray = [];
+
+    // 處理每一行資料
+    lines = lines.map(line => {
+        // 用tab分割資料
+        let [count, stringA, stringB] = line.split("\t");
+
+        // 如果字串A值為空，則刪除整行
+        if (!stringA) return null;
+
+        stringA = replaceChars(stringA, txtAA, txtEE);
+        stringA = replaceChars(stringA, txtKK, txtAA);
+
+        // 將 stringA 和 stringB 加入陣列
+        stringAArray.push(stringA);
+        stringBArray.push(stringB);
+
+        return `${stringA}=${stringB}`;
+    });
+
+    // 去除空行
+    lines = lines.filter(line => line !== null);
+
+    // 將 stringA 陣列用 "_" 連接成字串
+    let stringAJoined = stringAArray.join("_");
+    let stringBJoined = stringBArray.join("_");
+
+    // 返回兩個資料
+    let resultA = `let c;let ccc="${stringAJoined}";`;
+    let resultB = `let d;let ddd="${stringBJoined}";`;
+
+    return resultA + resultB;
+}
+
+/*
+function transformData(data) {
+    // 將資料用\n分割成行
+    let lines = data.split("\n");
+
+    // 去除前後行的空值或空格
+    lines = lines.filter(line => line.trim() !== "");
+
+    // 處理每一行資料
+    lines = lines.map(line => {
+        // 用tab分割資料
+        let [count, stringA, stringB] = line.split("\t");
+
+        // 如果字串A值為空，則刪除整行
+        if (!stringA) return null;
+
+        // 當次數的數字等於0，則移除該數字，但保留該行
+        if (count === "0") {
+            count = "";
+        }
+
+        // 在這裡執行 replaceChars(stringA, txtAA, txtBB)
+		stringA = replaceChars(stringA, txtAA, txtEE);
+		//stringB = replaceChars(stringB, txtAA, txtEE);
+        stringA = replaceChars(stringA, txtKK, txtAA);
+		//stringB = replaceChars(stringB, txtGG, txtAA);
+        return `${stringA}=${stringB}`;
+    });
+
+    // 去除空行
+    lines = lines.filter(line => line !== null);
+
+    // 在第一行的資料增加 let ww = "
+    lines[0] = `let ww = "${lines[0]}`;
+
+    // 在最後一行增加 ";
+    lines[lines.length - 1] = `${lines[lines.length - 1]}";`;
+
+    // 將處理後的行拼接成字符串
+    let result = lines.join("	");
+
+    return result;
+}
+*/
+
+
+
+function replaceChars(ww, txtAA, txtBB) {
+    let charMap = {};
+    let lenAA = txtAA.length;
+    let lenWW = ww.length;
+    for (let i = 0; i < lenAA; i++) {
+        charMap[txtAA[i]] = txtBB[i];
+    }
+
+    let result = '';
+    let char = ww;
+    for (let i = 0; i < lenWW; i++) {
+        result += charMap[char[i]] || char[i];
+    }
+
+    return result;
+}
+
+let txtAA = ["a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","0","1","2","3","4","5","6","7","8","9"];
+let txtKK = ["一","人","大","不","無","好","來","會","子","有","頭","个","的","到","下","著","得","毋","去","了","這","真","水","心","家","過","做","出","事","上","生","在","天","很","多","個","小","時","要","講","麼","你","起","地","食","用","面","開","三","沒","手","打","愛","日","較","氣","行","年","學","公","想","啊"];
+let txtGG = ["一","人","大","不","無","好","來","會","子","有","頭","个","的","到","下","著","得","毋","去","了","這","真","水","心","家","過","做","出","事","上","生","在","天","很","多","個","小","時","要","講","麼","你","起","地","食","用","面","開","三","沒","手","打","愛","日","較","氣","行","年","學","公","想","啊"];
+let txtEE = ["ⓐ","ⓑ","ⓒ","ⓓ","ⓔ","ⓕ","ⓖ","ⓗ","ⓘ","ⓙ","ⓚ","ⓛ","ⓜ","ⓝ","ⓞ","ⓟ","ⓠ","ⓡ","ⓢ","ⓣ","ⓤ","ⓥ","ⓦ","ⓧ","ⓨ","ⓩ","Ⓐ","Ⓑ","Ⓒ","Ⓓ","Ⓔ","Ⓕ","Ⓖ","Ⓗ","Ⓘ","Ⓙ","Ⓚ","Ⓛ","Ⓜ","Ⓝ","Ⓞ","Ⓟ","Ⓠ","Ⓡ","Ⓢ","Ⓣ","Ⓤ","Ⓥ","Ⓦ","Ⓧ","Ⓨ","Ⓩ","⓪","①","②","③","④","⑤","⑥","⑦","⑧","⑨"];
+
+
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1083 @@
+<!-- <!doctype html public "-//W3C//DTD HTML 4.01 Transitional//EN"> -->
+<!DOCTYPE html>
+<html>
+ <head>
+  <title> new document </title>
+	<meta http-equiv="content-type" content="text/html; charset=utf-8">
+	<meta http-equiv="imagetoolbar" content="no">
+	<link rel="stylesheet" type="text/css" href="wss.css" />
+	<!-- <script src="my.js?v=iizosos"></script> -->
+ </head>
+ <body>
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Sofia|Lobster|Allerta+Stencil&effect=fire|neon|outline|emboss|shadow-multiple">
+
+<div class="w-c">
+  <h1 class="f-sofia">WSS</h1>
+</div>
+
+<div class="d-sticky">
+  <div class="bar-x w-black">
+    <i class="bar-i-btn w-hide-l j-E divBody divBody2 d-h" onclick="show('bar-side1')"></i>
+	<i class="bar-i-btn w-hide-l j-E divBody divBody1 " onclick="show('bar-side2')"></i>
+	<i class="bar-i-btn w-hide-l j-E divBody divBody3 d-h" onclick="show('bar-side3')"></i>
+    <i class="bar-i-btn material-icons">home</i>
+    <i class="barBody bar-i-btn w-teal" onclick="myTab('divBody', 'divBody1', 'barBody', this, 'w-teal')">樣貌</i>
+    <i class="barBody bar-i-btn" onclick="myTab('divBody', 'divBody2', 'barBody', this, 'w-teal')">實體</i>
+    <i class="barBody bar-i-btn" onclick="myTab('divBody', 'divBody3', 'barBody', this, 'w-teal')">空間</i>
+    <i class="bar-i-btn material-icons w-right w-hide-s">search</i>
+    <i class="bar-i-btn material-icons w-right w-hide-s">public</i>
+    <i class="bar-i-btn material-icons w-right w-hide-s">person</i>
+    <i class="bar-i-btn material-icons w-right w-hide-s">arrow_forward</i>
+    <i class="bar-i-btn material-icons w-right w-hide-s">arrow_back</i>
+  </div>
+</div>
+
+<div class="divBody divBody2 d-h">
+  <div id="bar-side1" class="bar-side w-side w-light-grey w-shadow">
+    <i class="bar-i-btn w-teal w-hide-l" onclick="hide('bar-side1')">關閉<i class="w-right j-x"></i></i>
+    <a class="bar-i-btn" href="#w-color">色彩 w-color</a>
+    <a class="bar-i-btn" href="#w-border">邊框 w-border</a>
+    <a class="bar-i-btn" href="#w-round">圓角 w-round</a>
+    <a class="bar-i-btn" href="#w-shadow">陰影 w-shadow</a>
+    <a class="bar-i-btn" href="#w-padding">內填 w-padding</a>
+    <a class="bar-i-btn" href="#w-margin">外距 w-margin</a>
+    <a class="bar-i-btn" href="#w-width">寬度 w-width</a>
+    <a class="bar-i-btn" href="#w-display">位置 w-display</a>
+    <a class="bar-i-btn" href="#w-container">包箱 w-container</a>
+    <a class="bar-i-btn" href="#w-size">尺寸 w-size</a>
+    <a class="bar-i-btn" href="#w-act">動態 w-act</a>
+    <a class="bar-i-btn" href="#w-font">字符 w-font</a>
+    <a class="bar-i-btn" href="#w-show">顯隱 w-show</a>
+    <a class="bar-i-btn" href="#w-mobile">響應 w-mobile</a>
+  </div>
+
+
+
+  <div class="w-light-grey w-main m-left-200 p-l">
+    <h1 class="t-center">樣貌</h1>
+
+    <div id="w-color" class="w-white m-all p-xl r-l">
+      <h1>色彩 w-color</h1>
+      <div class="w-p">
+        <h3>色名 color</h3>
+        <div class="w-cell m-tb">
+          <div class="cell-i w-pale-red p-n cell-center d-25">
+            <p>淺紅 w-pale-red</p>
+          </div>
+          <div class="cell-i w-pale-blue p-n cell-center d-25">淺藍 w-pale-blue</div>
+          <div class="cell-i w-pale-yellow p-n cell-center d-25">淺黃 w-pale-yellow</div>
+          <div class="cell-i w-pale-green p-n cell-center d-25">淺綠 w-pale-green</div>
+        </div>
+        <div class="w-cell m-tb">
+          <div class="cell-i w-pink p-n cell-center d-25">粉紅 w-pink</div>
+          <div class="cell-i w-red p-n cell-center d-25">
+            <p>紅 w-red</p>
+          </div>
+          <div class="cell-i w-deep-orange p-n cell-center d-25">深橘 w-deep-orange</div>
+          <div class="cell-i w-orange p-n cell-center d-25">橘 w-orange</div>
+        </div>
+        <div class="w-cell m-tb">
+          <div class="cell-i w-sand p-n cell-center d-25">
+            <p>沙黃 w-sand</p>
+          </div>
+          <div class="cell-i w-khaki p-n cell-center d-25">卡其黃 w-khaki</div>
+          <div class="cell-i w-yellow p-n cell-center d-25">黃 w-yellow</div>
+          <div class="cell-i w-amber p-n cell-center d-25">琥珀黃 w-amber</div>
+        </div>
+        <div class="w-cell m-tb">
+          <div class="cell-i w-lime p-n cell-center d-25">
+            <p>萊姆綠 w-lime</p>
+          </div>
+          <div class="cell-i w-light-green p-n cell-center d-25">淡綠 w-light-green</div>
+          <div class="cell-i w-green p-n cell-center d-25">綠 w-green</div>
+          <div class="cell-i w-teal p-n cell-center d-25">藍綠 w-teal</div>
+        </div>
+        <div class="w-cell m-tb">
+          <div class="cell-i w-light-blue p-n cell-center d-25">
+            <p>淡藍 w-light-blue</p>
+          </div>
+          <div class="cell-i w-cyan p-n cell-center d-25">青 w-cyan</div>
+          <div class="cell-i w-blue p-n cell-center d-25">藍 w-blue</div>
+          <div class="cell-i w-indigo p-n cell-center d-25">靛青 w-indigo</div>
+        </div>
+        <div class="w-cell m-tb">
+          <div class="cell-i w-purple p-n cell-center">
+            <p>紫 w-purple</p>
+          </div>
+          <div class="cell-i w-deep-purple p-n cell-center">深紫 w-deep-purple</div>
+          <div class="cell-i w-brown p-n cell-center">
+            <p>咖啡 w-brown</p>
+          </div>
+        </div>
+        <div class="w-cell m-tb">
+          <div class="cell-i w-white p-n cell-center">白 w-white</div>
+          <div class="cell-i w-light-grey p-n cell-center">
+            <p>淡灰 w-light-grey</p>
+          </div>
+          <div class="cell-i w-grey p-n cell-center">灰 w-grey</div>
+          <div class="cell-i w-blue-grey p-n cell-center">藍灰 w-blue-grey</div>
+          <div class="cell-i w-dark-grey p-n cell-center">深灰 w-dark-grey</div>
+          <div class="cell-i w-black p-n cell-center">黑 w-black</div>
+        </div>
+
+        <div class="w-c">
+          <i class="tag-red w-mobile">w-red-eu</i>
+          <i class="tag-orange w-mobile">w-orange-eu</i>
+          <i class="tag-yellow w-mobile">w-yellow-eu</i>
+          <i class="tag-green w-mobile">w-green-eu</i>
+          <i class="tag-blue w-mobile">w-blue-eu</i>
+          <i class="tag-purple w-mobile">w-purple-eu</i>
+          <i class="tag-white w-mobile">w-red-white</i>
+          <i class="tag-grey w-mobile">w-grey-eu</i>
+          <i class="tag-black w-mobile">w-black-eu</i>
+        </div>
+
+        <div class="w-p">
+          <h3>底色 w-color</h3>
+          <i class="w-pale-red p-s">w-pale-red</i> <i class="w-pale-green p-s">w-pale-green</i>
+          <h3>字色 t-color</h3>
+          <i class="t-red">t-red</i> <i class="t-green">t-green</i>
+          <h3>框色 b-color</h3>
+          <i class="b-red b-n p-s">b-red</i>
+          <i class="b-green b-n p-s">b-green</i>
+        </div>
+
+        <div class="w-p">
+          <h3>移上底色 h-color</h3>
+          <i class="h-red p-s">h-red</i> <i class="h-green p-s">h-green</i>
+          <h3>移上字色 h-color</h3>
+          <i class="t-h-red p-s">t-h-red</i> <i class="t-h-green p-s">t-h-green</i>
+          <h3>移上框色 h-color</h3>
+          <i class="b-h-red p-s b-n">b-h-red</i> <i class="b-h-green p-s b-n">b-h-green</i>
+        </div>
+
+      </div>
+    </div>
+
+    <div id="w-border" class="w-white m-all p-xl r-l">
+      <h1>邊框 w-border</h1>
+      <p><i class="b-top">b-top</i> <i class="b-right">b-right</i> <i class="b-bottom">b-bottom</i> <i class="b-left">b-left</i></p>
+      <p><i class="b-n p-s">b-n</i> <i class="b-top b-bottom p-s">b-top b-bottom</i> <i class="b-right b-left p-s">b-right b-left</i></p>
+      <p><i class="b-top2 b-red">b-top2</i> <i class="b-right2 b-amber">b-right2</i> <i class="b-bottom2 b-blue">b-bottom2</i> <i class="b-left2 b-teal">b-left2</i></p>
+      <div class="d-50 p-n b-dotted w-p b-n">b-dotted</div>
+      <div class="d-50 p-n b-dashed w-p b-n">b-dashed</div>
+    </div>
+
+    <div id="w-round" class="w-white m-all p-xl r-l">
+      <h1>圓角 w-round</h1>
+      <span class="w-btn w-green r-r">圓角按鈕 r-r</span>
+      <span class="w-pink r-n p-s">圓角一般 r-n</span>
+      <span class="w-pink r-m p-s">圓角中等 r-m</span>
+      <span class="w-pink r-l p-s">圓角稍大 r-l</span>
+      <span class="w-pink r-xl p-s">圓角很大 r-xl</span>
+      <span class="w-pink r-xxl p-s">圓角最大 r-xxl</span>
+      <span class="w-pink r-r p-s">圓角最大 r-r</span>
+    </div>
+
+    <div id="w-shadow" class="w-white m-all p-xl r-l">
+      <h1>陰影 w-shadow</h1>
+      <h3>背景陰影 w-shadow</h3>
+      <div class="w-pale-yellow w-shadow w-200px t-center p-n m-tb">小影 w-shadow</div>
+      <div class="w-pale-yellow w-shadow2 w-200px t-center p-n m-tb">大影 w-shadow2</div>
+      <div class="w-pale-blue h-shadow w-200px t-center p-n m-tb">上移小影 h-shadow</div>
+      <div class="w-pale-blue h-shadow2 w-200px t-center p-n m-tb">上移大影 h-shadow2</div>
+      <h3 class="">文字陰影 t-shadow</h3>
+      <i class="t-shadow t-green">文字陰影 t-shadow</i>
+      <i class="t-h-shadow t-purple">文字上移陰影 t-h-shadow</i>
+    </div>
+
+    <div id="w-padding" class="w-white m-all p-xl r-l">
+      <h1>內填 w-padding</h1>
+      <div class="w-row">
+        <div class="row-31">
+          <div class="w-pale-green t-center p-s m-tb">內填小 p-s</div>
+          <div class="w-pale-green t-center p-n m-tb">內填一般 p-n</div>
+          <div class="w-pale-green t-center p-m m-tb">內填中等 p-m</div>
+          <div class="w-pale-green t-center p-l m-tb">內填稍大 p-l</div>
+          <div class="w-pale-green t-center p-xl m-tb">內填很大 p-xl </div>
+        </div>
+        <div class="row-31">
+          <div class="w-pale-red p-left1 m-tb">內填左 p-left1</div>
+          <div class="w-pale-red p-left m-tb">內填左 p-left2 = p-left</div>
+          <div class="w-pale-red p-left3 m-tb">內填左 p-left3</div>
+          <div class="w-pale-red p-left4 m-tb">內填左 p-left4</div>
+          <div class="w-pale-red p-left5 m-tb">內填左 p-left5</div>
+          <div class="w-pale-red p-left6 m-tb">內填左 p-left6</div>
+        </div>
+        <div class="row-31">
+          <div class="w-pale-yellow p-top3 p-right4 p-bottom1 p-left5  m-tb">內填四方 p-top3 p-right4 p-bottom1 p-left5</div>
+
+        </div>
+      </div>
+    </div>
+
+    <div id="w-margin" class="w-white m-all p-xl r-l">
+      <h1>外距 w-margin</h1>
+      <div class="w-pale-blue w-200px m-tb">
+        <div class="w-pale-yellow m-left1 p-s">外距左 m-left1</div>
+      </div>
+      <div class="w-pale-blue w-200px m-tb">
+        <div class="w-pale-yellow m-left2 p-s">外距左 m-left2 = m-left</div>
+      </div>
+      <div class="w-pale-blue w-200px m-tb">
+        <div class="w-pale-yellow m-left3 p-s">外距左 m-left3</div>
+      </div>
+      <div class="w-pale-blue w-200px m-tb">
+        <div class="w-pale-yellow m-left4 p-s">外距左 m-left4</div>
+      </div>
+      <div class="w-pale-blue w-200px m-tb">
+        <div class="w-pale-yellow m-left5 p-s">外距左 m-left5</div>
+      </div>
+      <div class="w-pale-blue m-tb">
+        <div class="w-pale-yellow m-left6 m-right6 p-s">外距左 m-left6</div>
+      </div>
+
+      <div class="w-pale-blue m-tb">...<p class="w-pale-yellow m-tb p-s">外距上下 m-tb</p>...</div>
+      <div class="w-pale-blue m-tb">
+        <p class="w-pale-yellow m-lr p-s">外距左右 m-lr</p>
+      </div>
+
+      <div class="w-pale-blue w-200px m-tb">
+        <div class="w-pale-yellow m-n">m-n</div>
+      </div>
+      <div class="w-pale-blue w-200px m-tb">
+        <div class="w-pale-yellow m-all">m-all4</div>
+      </div>
+    </div>
+
+    <div id="w-width" class="w-white m-all p-xl r-l">
+      <h1>寬度 w-width</h1>
+      <span class="w-purple d-100 m-tb p-s">塊狀寬度占比 d-100</span>
+      <span class="w-purple d-80 m-tb p-s">塊狀寬度占比 d-80</span>
+      <span class="w-purple d-50 m-tb p-s">塊狀寬度占比 d-50</span>
+      <div class="w-blue w-35 m-tb p-s">非塊狀寬度無法占比，也無法占寬高，所以 w-10~100 無效</div>
+      <div class="w-amber w-100px m-tb p-s">指定寬度 w-100px</div>
+      <div class="w-amber w-200px m-tb p-s">指定寬度 w-200px</div>
+      <div class="w-teal h-100px m-tb p-s w-c d-c">
+        <div class="d-middle">指定高度h-100px</div>
+      </div>
+    </div>
+
+    <div id="w-display" class="w-white m-all p-xl r-l">
+      <h1>位置 w-display</h1>
+
+      <div class="w-cell">
+        <div class="w-c d-c w-pale-yellow cell-i d-50 w-mobile" style="height:350px">
+          <h3 class="t-center">空間位置 d-c</h3>
+          <div class="d-c d-90 h-70 w-pale-blue r-xl d-middle b-1 b-white">
+            <i class="d-tl m-n">上左 d-tl</i>
+            <i class="d-left m-n">中左 d-left</i>
+            <i class="d-bl m-n">下左 d-bl</i>
+            <i class="d-tm m-n">上中 d-tm</i>
+            <i class="d-middle">中中 d-middle</i>
+            <i class="d-bm m-n">下中 d-bm</i>
+            <i class="d-tr m-n">上右 d-tr</i>
+            <i class="d-right m-n">中右 d-right</i>
+            <i class="d-br m-n">下右 d-br</i>
+          </div>
+        </div>
+
+        <div class="w-c cell-i d-50 w-mobile">
+          <h3 class="t-center">文字位置 t-display</h3>
+          <div class="w-c t-left w-lime p-n">t-left</div>
+          <div class="w-c t-center w-light-blue p-n h-50px">t-center</div>
+          <div class="w-c t-right w-light-green p-n">t-right</div>
+          <div class="w-c t-justify w-khaki p-n">邊緣對齊 <i class="w-tag">t-justify</i>，所以邊緣不會因為英語詞彙長短而有不整齊的現象。sux rix beenv fins mv voi rinv vuiv cus fui chongs donx sax mv voi ces. </div>
+		  <div class="w-c t-justify w-khaki p-n "><p class="t-indent">首行縮排，<i class="w-tag">t-indent</i>，文字要用 < p>才會有效果，使用 < div> 就沒有。t-indent = t-indent2 預設縮排兩個字元，t-indent1則縮排1個字元。</p></div>
+		  <div class="w-c t-justify w-khaki p-n "><p class="t-indent-1 p-indent-1">☺首行凸排，<i class="w-tag">t-indent-1</i>，文字要用 < p>才會有效果，使用 < div> 就沒有。t-indent-1 凸排一個字元，t-indent-2凸排兩個字元。適合用在以符號突出標示，搭配<i class="w-tag">p-indent-1</i>填充左右。</p></div>
+        </div>
+
+      </div>
+    </div>
+
+    <div id="w-container" class="w-white m-all p-xl r-l">
+      <h1>包箱 w-container</h1>
+      <div class="w-c w-teal">左右填充包箱 w-c</div>
+      <div class="d-c w-pale-green h-100px">
+        <div class="d-middle">浮動包箱 d-c</div>
+      </div>
+      <div class="w-p w-yellow">左右填充+前後相距包箱 w-p</div>
+    </div>
+
+    <div id="w-size" class="w-white m-all p-xl r-l">
+      <h1>尺寸 w-size</h1>
+      <i class="s-ss">s-ss</i> <i class="s-s">s-s</i> <i class="s-m">s-m</i>
+      <i class="s-l">s-l</i> <i class="s-xl">s-xl</i> <i class="s-xl">s-xxl</i> <i class="s-xxxl">s-xxxl</i>
+    </div>
+
+    <div id="w-act" class="w-white m-all p-xl r-l">
+      <h1>動態 w-act</h1>
+      <i class="act-top w-tag w-yellow">act-top</i>
+      <i class="act-left w-tag w-yellow">act-left</i>
+      <i class="act-zoom w-tag w-yellow s-xxxl">act-zoom</i>
+      <i class="act-right w-tag w-yellow">act-right</i>
+      <i class="act-bottom w-tag w-yellow">act-bottom</i>
+      <i class="act-fade w-tag w-pink">act-fade</i>
+      <i class="act-fading w-tag w-pink">act-fading</i>
+      <i class="act-spin1 w-tag w-blue">act-spin1</i>
+      <i class="act-spin w-tag w-blue">act-spin</i>
+      <i class="act-jump w-tag w-green">act-jump</i>
+      <i class="act-shake w-tag w-green">act-shake</i>
+      <i class="act-shaking w-tag w-green">act-shaking</i>
+
+    </div>
+
+    <div id="w-font" class="w-white m-all p-xl r-l">
+      <h1>字符 w-font</h1>
+      <div class="w-p w-ul w-sand">
+        <h3>Google 字體</h3>
+        <li >
+          < link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Sofia|Lobster|Allerta+Stencil&effect=fire|neon|outline|emboss|shadow-multiple">
+        </li>
+        <li><i class="w-tag w-teal">類型</i>
+          < link rel="stylesheet">
+        </li>
+        <li><i class="w-tag w-teal">來源</i>
+          < href="https://fonts.googleapis.com/css ></li>
+	<li><i class=" w-tag w-teal">字體 ?family= ( 字體用 | 分開，空格要用+ )</i>
+            < href="https://fonts.googleapis.com/css<i class=" w-pale-blue">?family=Sofia|Lobster|Allerta+Stencil</i>" >
+        </li>
+        <li><i class="w-tag w-teal">效果 &effect=</i>
+          < family=Sofia|Lobster|Allerta+Stencil<i class="w-pale-blue">&effect=fire|neon|outline|emboss|shadow-multiple</i> >
+        </li>
+        <li class=""><i class="f-sofia s-xl">f-sofia</i> f-sofia</li>
+        <li class=""><i class="f-lobster s-xl">f-lobster</i> f-lobster</li>
+        <li class=""><i class="f-allertaStencil s-xl">f-wood</i> f-allertaStencil = f-wood</li>
+        <li class=""><i class="font-effect-fire s-xl">fire</i> 火 font-effect-fire</li>
+        <li class=""><i class="font-effect-neon s-xl">neon</i> 霓虹 font-effect-neon</li>
+        <li class=""><i class="font-effect-outline s-xl">outline</i> 外框 font-effect-outline</li>
+        <li class=""><i class="font-effect-emboss s-xl">emboss</i> 內嵌 font-effect-emboss</li>
+        <li class=""><i class="font-effect-shadow-multiple s-xl">shadow-multiple</i> 疊影 font-effect-shadow-multiple</li>
+      </div>
+
+      <div class="w-p w-ul w-light-grey m-tb">
+        <h3>Google 符號 Material+Icons</h3>
+        <li>
+          < link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+        </li>
+        <li><i class="w-tag w-teal">類型</i>
+          < link rel="stylesheet">
+        </li>
+        <li><i class="w-tag w-teal">來源</i>
+          < href="https://fonts.googleapis.com/icon">
+        </li>
+        <li><i class="w-tag w-teal">字體 ?family= ( Material+Icons )</i>
+          < href="https://fonts.googleapis.com/icon?family=Material+Icons">
+        </li>
+        <li class=""><i class="material-icons">home</i>
+          < i class="<i class=" w-tag">material-icons</i>"><i class="w-tag">home</i>
+            < /i>
+        </li>
+        <li class=""><i class="material-icons">search</i>
+          < i class="material-icons">search< /i>
+        </li>
+        <li class=""><i class="material-icons">public</i>
+          < i class="material-icons">public< /i>
+        </li>
+        <li class=""><i class="material-icons">person</i>
+          < i class="material-icons">person< /i>
+        </li>
+        <li class=""><i class="material-icons">arrow_forward</i>
+          < i class="material-icons">arrow_forward< /i>
+        </li>
+        <li class=""><i class="material-icons">arrow_back</i>
+          < i class="material-icons">arrow_back< /i>
+        </li>
+      </div>
+
+      <div class="w-p w-ul w-pale-green m-tb">
+        <h3>Unicode 符號 i-icon</h3>
+        <li>後加 <i class="j-x"></i>
+          < i class="<i class=" w-tag w-white">j-x</i>">< /i>
+        </li>
+        <li>後加 <i class="j-E"></i>
+          < i class="<i class=" w-tag w-white">j-E</i>">< /i>
+        </li>
+        <li>後加 <i class="j-v"></i> <i class="w-tag w-white">j-v</i></li>
+        <li>後加 <i class="j-X"></i> <i class="w-tag w-white">j-X</i></li>
+
+        <li>前加 <i class="i-dp-down"></i> <i class="w-tag w-white">i-dp-down</i></li>
+        <li>前加 <i class="i-dp-up"></i> <i class="w-tag w-white">i-dp-up</i></li>
+        <li>前加 <i class="i-jiandao"></i> <i class="w-tag w-white">i-jiandao</i></li>
+        <li>前加 <i class="i-shangyinhao"></i> <i class="w-tag w-white">i-shangyinhao</i> 前加 <i class="i-xiayinhao"></i> <i class="w-tag w-white">i-xiayinhao</i></li>
+        <li>前加 <i class="i-v-left"></i> <i class="w-tag w-white">i-v-left</i> 前加 <i class="i-v-right"></i> <i class="w-tag w-white">i-v-right</i></li>
+        <li>前加 <i class="i-v-up"></i> <i class="w-tag w-white">i-v-up</i> 前加 <i class="i-v-down"></i> <i class="w-tag w-white">i-v-down</i></li>
+        <li>前加 <i class="i-v-up2"></i> <i class="w-tag w-white">i-v-up2</i> 前加 <i class="i-v-down2"></i> <i class="w-tag w-white">i-v-down2</i></li>
+
+      </div>
+
+    </div>
+
+    <div id="w-show" class="w-white m-all p-xl r-l w-ul">
+	<div class="w-p">
+      <h1>顯隱 w-show</h1>
+      <li>隱藏，並消除空間 w-hide</li>
+      <li>顯示，並佔塊空間 w-show</li>
+      <li>不可見，保留空間 w-hidden = w-invisible</li>
+      <li>可見，保留空間 w-visable</li>
+
+      <li class="w-pale-red">大螢幕隱藏 ( <i class="w-hide-l w-tag">可見於手機、平板</i> ) w-hide-l</li>
+      <li class="w-pale-yellow">中螢幕隱藏 ( <i class="w-hide-m w-tag">可見於手機、電腦</i> ) w-hide-m</li>
+      <li class="w-pale-blue">小螢幕隱藏 ( <i class="w-hide-s w-tag">可見於平板、電腦</i> ) w-hide-s</li>
+	  </div>
+	  <div class="w-p">
+	  <p class="d-c">文字外層 d-c ，上移時：<i class="d-h">內層 d-h 顯現</i></p>
+
+	  </div>
+    </div>
+
+    <div id="w-mobile" class="w-white m-all p-xl r-l">
+      <h1>響應 w-mobile</h1>
+      <i class="w-mobile w-brown p-n">w-mobile (手機螢幕時轉為塊狀)</i>
+      <div class="w-tag">w-rp？</div>
+    </div>
+
+  </div>
+</div>
+
+
+
+
+
+<div id="divBody1" class="divBody divBody1">
+  <div id="bar-side2" class="bar-side w-side w-light-grey w-shadow">
+    <i class="bar-i-btn w-teal w-hide-l" onclick="hide('bar-side2')">關閉<i class="w-right j-x"></i></i>
+    <a class="bar-i-btn" href="#w-tag">標籤 w-tag</a>
+    <a class="bar-i-btn" href="#w-table">表格 w-table</a>
+    <a class="bar-i-btn" href="#w-list">清單 w-list</a>
+    <a class="bar-i-btn" href="#w-acc">開合 w-acc</a>
+    <a class="bar-i-btn" href="#w-form">表單 w-form</a>
+    <a class="bar-i-btn" href="#w-button">按鈕 w-button</a>
+	<a class="bar-i-btn" href="#w-drop">下拉 w-drop</a>
+    <a class="bar-i-btn" href="#w-bar">導覽列 w-bar</a>   
+    <a class="bar-i-btn" href="#w-tip">提示 w-tip</a>
+    <a class="bar-i-btn" href="#w-slide">輪播 w-slide</a>
+    <a class="bar-i-btn" href="#w-modal">燈箱 w-modal</a>
+    <a class="bar-i-btn" href="#w-tab">頁籤 w-tab</a>
+  </div>
+
+
+  <div class="w-light-grey w-main m-left-200 p-l">
+    <h1 class="t-center">實體</h1>
+
+    <div id="w-tag" class="w-white m-all p-xl r-l">
+      <h1>標籤 w-tag</h1>
+      <div class="w-p">
+        <div class="w-c">
+          <i class="w-tag">w-tag</i>
+          <i class="tag-red">tag-red</i>
+          <i class="tag-orange">tag-orange</i>
+          <i class="tag-yellow">tag-yellow</i>
+          <i class="tag-green">tag-green</i>
+          <i class="tag-blue">tag-blue</i>
+          <i class="tag-purple">tag-purple</i>
+          <i class="tag-white">tag-white</i>
+          <i class="tag-grey">tag-grey</i>
+          <i class="tag-black">tag-black</i>
+        </div>
+	  </div>
+    </div>
+
+    <div id="w-table" class="w-white m-all p-xl r-l">
+      <h1>表格 w-table</h1>
+      <div class="w-p w-rp">
+	  <h3>完整表格 table-all</h3>
+	  <div class="w-rp">
+	  <table class="table-all h-all">
+	  <tr>
+	   <th>< tr>橫欄</th>
+	   <th>< th>內格標題</th>
+	   <th>< th>內格標題</th>
+	  </tr>
+	  <tr>
+	   <td>< tr>橫欄</td>
+	   <td>< td>內格</td>
+	   <td>< td>內格</td>
+	  </tr>
+	  <tr>
+	   <td><i class="w-tag">table-all</i></td>
+	   <td><i class="w-tag">h-all</i></td>
+	   <td>內格</td>
+	  </tr>
+	  <tr>
+	   <td>表格各項設定</td>
+	   <td>上移全部底色</td>
+	   <td>內格</td>
+	  </tr>
+	  </table>
+	  </div>
+	  </div>
+
+      <div class="w-p">
+	  <h3>基本表格-1 w-table</h3>	  
+	  <table class="w-table w-zebra">
+	  <tr class="w-orange-eu">
+	   <th><i class="w-tag">w-table</i> </th>
+	   <th><i class="w-tag">w-zebra</i> </th>
+	   <th> < tr>橫欄底色</th>
+	  </tr>
+	  <tr>
+	   <td>表格基本款</td>
+	   <td>條紋色彩</td>
+	   <td class="w-yellow-eu">w-yellow-eu</td>	   
+	  </tr>
+	  <tr>
+	   <td>< tr>橫欄</td>
+	   <td>< td>內格</td>
+	   <td>單格底色</td>
+	  </tr>
+	  </table>
+	  </div>
+
+      <div class="w-p w-rp">
+	  <h3>基本表格-2 w-table</h3>	  
+	  <table class="w-table b-bottom-all w-shadow t-centers">
+	  <tr class="w-light-green">
+	   <th>w-table</i> </th>
+	   <th>b-bottom-all</i> </th>
+	   <th><i class="w-tag">w-rp</i></th>
+	   <th><i class="w-tag">t-centers</i></th>
+	   <th class="t-right"><i class="w-tag">t-right</i></th>
+	   <th class="t-left"><i class="w-tag">t-left</i></th>
+	  </tr>
+	  <tr>
+	   <td>表格基本款</td>
+	   <td>表格都底線</td>
+	   <td>表格外層加w-rp</td>
+	   <td>表格字都置中</td>
+	   <td>單格靠右</td>
+	   <td>單格靠左</td>
+	  </tr>
+	  <tr>
+	   <td>< tr>橫欄</td>
+	   <td>< td>內格</td>
+	   <td>橫向捲動條</td>
+	   <td>內格</td>
+	   <td>內格</td>
+	   <td>內格</td>
+	  </tr>
+	  </table>
+	  </div>
+
+
+    </div>
+
+    <div id="w-list" class="w-white m-all p-xl r-l">
+      <h1>清單 w-list</h1>
+      <div class="w-ul h-all">
+	    <li>清單上層加 <i class="w-tag">w-ul</i></li>
+		<li>清單內部 < li>...< /li></li>		
+		<li class="w-pale-blue">單層固定底色 <i class="w-tag">w-[color]</i></li>
+		<li class="h-yellow">單層上移底色<i class="w-tag">h-[color]</i></li>
+		<li>清單全部上移有底色，在上層加 <i class="w-tag">h-all</i></li>			
+		<li>清單預設有底線，最後一項無底線。</li>
+	  </div>
+
+      <div class="w-ul b-n w-shadow m-tb">
+		<li>清單外層 w-ul b-n w-shadow</li>
+		<li>清單組 w-ul</li>
+		<li>邊框 b-n</li>
+		<li>陰影 w-shadow</li>
+	  </div>
+    </div>
+
+    <div id="w-acc" class="w-white m-all p-xl r-l">
+      <h1>開合 w-acc</h1>
+      <div class="w-p">
+	    <button class="w-acc i-plus b-bottom b-white" onclick="w_acc(this, 'w-teal')"> 展開收合元素</button>
+		<div class="w-light-grey acc-i act-acc">
+			<div class="w-ul">
+			  <li>上：< button class="<i class="tag-blue">w-acc</i> <i class="tag-blue">i-plus</i>" onclick="w_acc(this, 'w-blue')"> 展開收合< /button></li>
+			  <li>下：< div class="<i class="w-tag">acc-i"</i>></li>
+			</div>
+		</div>
+	    <button class="w-acc i-plus" onclick="w_acc(this, 'w-teal')"> 展開收合JS</button>
+		<div class="w-light-grey acc-i act-acc">
+			<div>
+			<pre>
+function w_acc(me, color = "w-red") {
+  var x = me.nextElementSibling;
+
+  if (me.className.indexOf("i-minus") == -1) {
+    me.className += " i-minus";
+    me.className = me.className.replace("i-plus", "");
+  } else {
+    me.className = me.className.replace("i-minus", "");
+    me.className += " i-plus";
+  }
+
+  if (x.className.indexOf("w-show") == -1) {
+    x.className += " w-show";
+    me.className += " " + color;
+  } else {
+    x.className = x.className.replace("w-show", "");
+    me.className = me.className.replace(color, "");
+  }
+}
+			</pre>
+			</div>
+		</div>
+	  </div>
+    </div>
+
+
+
+
+
+
+
+    <div id="w-form" class="w-white m-all p-xl r-l">
+      <h1>表單 (w-form)</h1>
+      <div class="w-p">
+	    <form class="r-l w-light-grey w-c w-shadow-2 p-l">
+		  <h3 class="b-left2 b-blue p-left">表單標題</h3>
+		  <p>
+		  <lable>標籤文字< lable>。下面：< input type="text" class="w-input"></lable>
+		  <input type="text" class="w-input">
+		  <p>
+		  </p>
+		  <input type="text" class="w-input">
+		  <lable>標籤在< input>下面</lable>
+		  </p>
+		  </p>
+		  <input type="text" class="w-input act-input w-100px">
+		  <lable>寬度動畫 act-input</lable>
+		  </p>
+		  </p>
+		  <input type="checkbox" class="w-check">
+		  <lable>勾選 w-check；< input type="checkbox" class="w-check"></lable>
+		  </p>
+		  <p>
+		  <input type="radio" class="w-radio">
+		  <lable>圈選 w-radio；< input type="radio" class="w-radio"></lable>
+		  </p>
+		  <input type="checkbox" class="w-check" disabled>
+		  <lable>禁止選取 < input ... disabled></lable>
+		  </p>
+		  <p>
+		  <lable>下拉選單 w-select；< select class="w-select"></lable>
+		  <select class="w-select">
+			<option disabled selected>禁止選取 < option disabled selected>，可當標題</option>
+			<option value="1">選項1 < option value="1"></option></option>
+		  </select>
+		  </p>
+		  <button class="w-btn w-blue w-right">確定</button>
+		</form>
+	  </div>
+    </div>
+
+
+    <div id="w-button" class="w-white m-all p-xl r-l">
+      <h1>按鈕 w-(button)</h1>
+      <div class="w-p">
+	    <button class="w-btn b-n r-n"><i class="w-tag">w-btn</i> 預設上移灰底</button>
+		<button class="w-but b-n r-n"><i class="w-tag">w-but</i> 預設上移灰影</button>
+	  </div>
+      <div class="w-p">
+	  <button class="w-btn d-block w-light-blue m-tb">塊狀按鈕，欲設置中<i class="w-tag">w-btn d-block</i>/button>
+	  <button class="w-btn d-block w-light-blue m-tb t-left">塊狀按鈕，文字靠左<i class="w-tag">w-btn d-block t-left</i>/button>
+	  <button class="w-btn d-block w-light-blue m-tb d-50">塊狀按鈕，只佔50%寬<i class="w-tag">w-btn d-block d-50</i>/button>
+	  <button class="w-btn w-blue m-tb r-r">圓滾按鈕<i class="w-tag">w-btn r-r</i>/button>
+	  <button class="w-btn w-blue m-tb r-r h-indigo">移上換色<i class="w-tag">w-btn h-indigo</i>/button>
+	    <button class="w-btn b-n r-n w-disabled">禁止按鈕<i class="w-tag">w-disabled</i></button>
+	  </div>
+      <div class="w-p">
+	  <p>預設有間隙按鈕組</p>
+	    <button class="w-btn w-pink">w-btn</button>
+		<button class="w-btn w-blue">w-btn</button>
+		<button class="w-btn w-green">w-btn</button>
+		<button class="w-btn w-orange">w-btn</button>
+	  </div>
+      <div class="w-p bar-x">
+	  <p>無間隙按鈕組 bar-x</p>
+	    <button class="bar-i-btn w-pink">外層 <i class="w-tag">bar-x</i></button>
+		<button class="bar-i-btn w-blue">按鈕 <i class="w-tag">bar-i-btn</i></button>
+		<button class="bar-i-btn w-green">bar-i-btn</button>
+		<button class="bar-i-btn w-orange">bar-i-btn</button>
+	  </div>
+	  <div class="w-p t-center">
+      <div class="w-p bar-x">
+	    <button class="bar-i-btn w-yellow">最外層 <i class="w-tag">t-center</i> 置中</button>
+	    <button class="bar-i-btn w-pink">外層 bar-x</button>
+		<button class="bar-i-btn w-blue">按鈕 bar-i-btn</button>
+		<button class="bar-i-btn w-green">bar-i-btn</button>		
+	  </div>
+	  </div>
+
+	  <div class="d-line">
+	    <button class="w-btn w-blue">A組按鈕</button>
+		<button class="w-btn w-blue">最外層 <i class="w-tag">d-line</i></button>
+		<button class="w-btn w-blue">小螢幕時</button>
+		<button class="w-btn w-blue">自動分行</button>
+	  </div>
+	  <div class="d-line">
+	    <button class="w-btn w-green">B組按鈕</button>
+		<button class="w-btn w-green">最外層 <i class="w-tag">d-line</i></button>
+		<button class="w-btn w-green">w-btn</button>
+		<button class="w-btn w-green">w-btn</button>
+	  </div>
+    </div>
+
+
+
+
+
+    <div id="w-drop" class="w-white m-all p-xl r-l">
+      <h1>下拉 w-(drop)</h1>
+      <div class="dp-h">
+		  <button class="w-btn">上移下拉按鈕(原始)</button>
+		  <div class="dp-i">
+		    <button class="w-btn">w-btn</button>
+			<button class="w-btn">w-btn</button>
+			<button class="w-btn">w-btn</button>
+			<button class="w-btn">w-btn</button>
+		  </div>		  
+	  </div>
+
+      <div class="dp-h">
+		  <button class="w-btn">上移下拉按鈕(垂直)</button>
+		  <div class="dp-y">
+		    <button class="bar-i-btn">bar-i-btn</button>
+			<button class="bar-i-btn">bar-i-btn</button>
+			<button class="bar-i-btn">bar-i-btn</button>
+			<button class="bar-i-btn">bar-i-btn</button>
+		  </div>		  
+	  </div>
+
+	  <div class="w-p">
+	    <button class="w-acc i-plus" onclick="w_acc(this, 'w-teal')"> 語法內容</button>
+		<div class="acc-i w-light-gray">
+		<pre class="w-rp">
+< div class="<i class="tag-blue">dp-h</i>">
+  < button class="w-btn">上移下拉按鈕(原始)< /button>
+  < div class="<i class="tag-yellow">dp-i</i>">
+    < button class="w-btn">w-btn< /button>
+    < button class="w-btn">w-btn< /button>
+  < /div>		  
+< /div>
+
+< div class="<i class="tag-blue">dp-h</i>">
+  < button class="w-btn">上移下拉按鈕(垂直)< /button>
+  < div class="<i class="tag-yellow">dp-i bar-y</i>">
+    < button class="bar-i-btn">bar-i-btn< /button>
+    < button class="bar-i-btn">bar-i-btn< /button>
+  < /div>		  
+< /div>
+	  </pre>
+		</div>
+	  </div>
+
+      <div class="dp-k">
+		  <button class="w-btn" onclick="dp_k(this)">點擊下拉按鈕(垂直)</button>
+		  <div class="dp-y">
+		    <button class="bar-i-btn">bar-i-btn</button>
+			<button class="bar-i-btn">bar-i-btn</button>
+			<button class="bar-i-btn">bar-i-btn</button>
+			<button class="bar-i-btn">bar-i-btn</button>
+		  </div>		  
+	  </div>
+
+    </div>
+
+    <div id="w-bar" class="w-white m-all p-xl r-l">
+      <h1>導覽列 w-(bar)</h1>
+      <div class="bar-x w-teal">
+	    <button class="bar-i-btn">外 bar-x</button>
+	    <button class="bar-i-btn">內 bar-i-btn</button>
+	    <button class="bar-i-btn w-right">w-right bar-i-btn</button>
+	  </div>
+
+      <div class="bar-x w-teal m-tb">
+	  <button class="bar-i-btn">外 bar-x</button>
+	  <div class="dp-h">
+	    <button class="w-btn j-v-down">上移</button>
+		<div class="dp-i bar-y w-light-gray">
+		  <button class="bar-i-btn">bar-i-btn</button>
+		  <button class="bar-i-btn">bar-i-btn</button>
+		  <button class="bar-i-btn">bar-i-btn</button>
+		</div>
+	  </div>
+
+      <div class="dp-k">
+		  <button class="w-btn j-v-down" onclick="dp_k(this)">點擊</button>
+		  <div class="dp-y w-light-gray">
+		    <button class="bar-i-btn">bar-i-btn</button>
+			<button class="bar-i-btn w-acc j-v-down" onclick="w_acc(this)">bar-i-btn</button>
+			<div class="acc-i m-0 m-left">
+			<button class="bar-i-btn">bar-i-btn</button>
+			<button class="bar-i-btn">bar-i-btn</button>
+			</div>
+			<button class="bar-i-btn">bar-i-btn</button>
+		  </div>		  
+	  </div>
+	  <button class="bar-i-btn w-right">w-right bar-i-btn</button>
+	  </div>
+
+    </div>
+
+     <div id="w-tip" class="w-white m-all p-xl r-l">
+      <h1>提示 w-tip</h1>
+      <div class="w-p">
+	  </div>
+    </div>
+
+
+
+
+     <div id="w-slide" class="w-white m-all p-xl r-l">
+      <h1>輪播 w-slide</h1>
+
+
+		<div class="w-slide w-500px d-c">
+		<img class="slide-i w-show" src="https://www.w3schools.com/w3css/img_lights.jpg">
+		<img class="slide-i" src="https://www.w3schools.com/w3css/img_mountains.jpg">
+		<img class="slide-i" src="https://www.w3schools.com/w3css/img_forest.jpg">
+			<div class="t-center">
+			  <button class="w-btn w-black d-left" onclick="w_slide_pre(this)">&#10094;</button>
+			  <button id="xx" class="w-btn w-black d-right" onclick="w_slide_next(this)">&#10095;</button>
+			</div>
+		</div>
+
+
+
+<button class="w-acc i-plus m-top" onclick="w_acc(this)"> 手動Silde</button>
+<div class="acc-i w-light-gray">
+<pre class="w-rp">
+< div class="<i class="w-tag">w-slide</i> w-500px <i class="w-tag">d-c</i>">
+< img class="<i class="w-tag">slide-i w-show</i>" src="https://www.w3schools.com/w3css/img_lights.jpg">
+< img class="<i class="w-tag">slide-i</i>" src="https://www.w3schools.com/w3css/img_mountains.jpg">
+< img class="<i class="w-tag">slide-i</i>" src="https://www.w3schools.com/w3css/img_forest.jpg">
+  < div class="t-center">
+    < button class="w-btn w-black d-left" onclick="<i class="w-tag">w_slide_pre(this)</i>">&#10094;< /button>
+    < button class="w-btn w-black d-right" onclick="<i class="w-tag">w_slide_next(this)</i>">&#10095;< /button>
+  < /div>
+< /div>
+</pre>
+</div>
+
+
+
+		<div class="w-slide w-500px d-c">
+		<img class="slide-i w-show" src="https://www.w3schools.com/w3css/img_lights.jpg">		
+		<img class="slide-i" src="https://www.w3schools.com/w3css/img_forest.jpg">
+		<img class="slide-i" src="https://www.w3schools.com/w3css/img_mountains.jpg">
+			<div class="t-center">
+			  <button class="w-btn w-black d-left" onclick="w_slide_pre(this)">&#10094;</button>
+			  <button id="qq" class="w-btn w-black d-right" onclick="w_slide_next(this)">&#10095;</button>
+			</div>
+		</div>
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+     <div id="w-modal" class="w-white m-all p-xl r-l">
+      <h1>燈箱 w-modal</h1>
+	  <button class="w-btn w-teal" onclick="w_modal(this)">w-btn</button>
+	  <div class="w-modal">
+      <div class="modal-i w-p">
+		<span onclick="w_modal_close(this)" class="w-btn d-tr j-x w-teal"></span>
+		<p>1. 上面一個按鈕，動作是w_modal(this)</p>
+		<p>2. 下面一個 div w-modal</p>
+		<p>3. w-modal 裡面一個 div modal-i</p>
+		<p>4. modal-i 裡面一個關閉按鈕，動作是 w_modal_close(this) </p>
+		<p>5. 其他任意元素。</p>
+	  </div>
+	  </div>
+
+	  <div>
+	    <p class="w-p w-pale-blue p-n">w-btn 按鈕</p>
+		<div class="w-p w-pale-green">
+		  <p>div w-modal</p>
+		    <div class="w-p w-pale-yellow">
+			  <p>div modal-i</p>
+			    <div class="w-p w-pale-red">
+				  <p>內容</p>
+				</div>
+
+			</div>
+	    </div>
+	  </div>
+    </div>
+
+     <div id="w-tab" class="w-white m-all p-xl r-l">
+      <h1>頁籤 w-tab</h1>
+      <div class="w-p">
+	  </div>
+    </div>
+
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+<div id="divBody3" class="divBody divBody3 d-h">
+  <p>主要文字3  <i class="material-icons t-red">volume</i> <i class="material-icons i-v-left t-red"></i>要文<i class="material-icons">chevron_right</i></p>
+</div>
+
+
+<script>
+var myTimer = setInterval(w_slide_auto, 1000, "xx");
+var myTimer2 = setInterval(w_slide_auto, 2000, "qq");
+//w_slide_auto("qq");
+//w_slide_auto("xx");
+function w_slide_auto(id) {
+  w_slide(document.getElementById(id));
+  //setTimeout(w_slide_auto, 5000, id);
+}
+
+
+
+function w_slide_pre(me){
+  w_slide(me, "pre");
+}
+function w_slide_next(me){
+  w_slide(me, "next");
+}
+function w_slide(me, how="next"){
+	var x = me.parentElement.querySelectorAll(".slide-i");
+	if( x.length == 0){ x = me.parentElement.parentElement.querySelectorAll(".slide-i");}
+	if( x.length == 0){ x = me.parentElement.parentElement.parentElement.querySelectorAll(".slide-i");}
+	var len = x.length;
+	var j;
+
+	for (let i = 0; i < len; i++){
+		if ( how == "next" || how == "1"){
+		  if( i == len-1){
+			j = 0;
+		  }else{
+			j = i + 1;
+		  }
+		}else{
+		  if( i == 0){
+			j = len -1;
+		  }else{
+			j = i - 1;
+		  }
+		}
+
+	  if (x[i].className.indexOf("w-show") >= 0) {
+		x[i].className = x[i].className.replace("w-show", "");
+		x[j].className += " w-show";
+		break;
+	  }
+	}
+}
+
+
+
+function myTab(divClass, divId, barClass, me, barColor = "w-red") {
+  var x = document.getElementsByClassName(divClass);
+  for (let i = 0; i < x.length; i++) {
+    x[i].style.display = "none";
+  }
+
+  var d = document.getElementsByClassName(divId);
+  for (let i = 0; i < d.length; i++) {
+    d[i].style.display = "block";
+  }
+
+  var y = document.getElementsByClassName(barClass);
+  for (i = 0; i < y.length; i++) {
+    y[i].className = y[i].className.replace(" " + barColor, "");
+  }
+  me.className += " " + barColor;
+}
+
+function show(id) {
+  document.getElementById(id).style.display = "block";
+}
+
+function hide(id) {
+  document.getElementById(id).style.display = "none";
+}
+
+function w_acc(me, color = "w-red") {
+  var x = me.nextElementSibling;
+
+if(me.className.indexOf("i-minus") >= 0 || me.className.indexOf("i-plus") >= 0){
+  if (me.className.indexOf("i-minus") == -1) {
+    me.className += " i-minus";
+    me.className = me.className.replace("i-plus", "");
+  } else {
+    me.className = me.className.replace("i-minus", "");
+    me.className += " i-plus";
+  }
+}
+
+  if (x.className.indexOf("w-show") == -1) {
+    x.className += " w-show";
+    me.className += " " + color;
+  } else {
+    x.className = x.className.replace("w-show", "");
+    me.className = me.className.replace(color, "");
+  }
+}
+
+
+function dp_k(me, color = "w-red") {
+  var x = me.nextElementSibling;
+  if (x.className.indexOf("w-show") == -1) {
+    x.className += " w-show";
+	me.className += " " + color;
+  } else {
+    x.className = x.className.replace(" w-show", "");
+	me.className = me.className.replace(color, "");
+  }
+}
+
+
+
+
+
+
+
+function w_modal(me) {
+  me.nextElementSibling.style.display = "block";
+}
+
+function moda_i(me) {
+  me.parentElement.parentElement.style.display = "none";
+}
+
+
+function w_modal_close(me){
+  w_close(me, "w-modal");
+}
+function w_close(me, target){
+  //var x = me.parentElement;
+  var x = me;
+  for(let i = 0; i < 10; i++){  
+   		if (x.className.indexOf(target) >= 0) {
+		x.style.display = "none";
+			break;
+		}else{
+		  x = x.parentElement;
+		}
+         if (x.parentElement.tagName == "BODY") {
+			break;
+		}
+  }
+}
+
+
+
+</script>
+ </body>
+</html>

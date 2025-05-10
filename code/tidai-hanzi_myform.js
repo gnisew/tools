@@ -1,0 +1,16 @@
+var myVar="";
+myVar += "<form class=\"myfont\" name=\"myform\">";
+myVar += "<center>";
+myVar += "<textarea class=\"myfont\" id=\"myidKiu\" name=\"myidKiu\" rows=\"8\"><\/textarea><br \/>";
+myVar += "<input name=\"button1\" id=\"button1\" onclick=\"Qing(this.form)\" type=\"button\" value=\"↑ 清除\" \/>";
+myVar += "<input name=\"button2\" id=\"button2\" onclick=\"Goix1(this.form)\" type=\"button\" value=\"字轉字(替代)↓\" \/>";
+myVar += "<input name=\"button3\" id=\"button3\" onclick=\"Goix2(this.form)\" type=\"button\" value=\"字(替代)轉字 ↓\" \/>";
+myVar += "<input name=\"button4\" id=\"button4\" onclick=\"Goix3(this.form)\" type=\"button\" value=\"字轉替代 ↓\" \/>";
+myVar += "<input name=\"button5\" id=\"button5\" onclick=\"Goix4(this.form)\" type=\"button\" value=\"替代轉字 ↓\" \/>";
+myVar += "<input name=\"button6\" id=\"button6\" onclick=\"GoCode(this.form)\" style=\"display:none\" type=\"button\" value=\"顯示 ↓\" \/>";
+myVar += "<input name=\"button7\" id=\"button7\" onclick=\"GetCode(this.form)\" style=\"display:none\" type=\"button\" value=\"原始碼 ↓\" \/><br \/>";
+myVar += "<textarea style=\"display:none\" class=\"myfont\" id=\"myidXin\" name=\"myidXin\" rows=\"8\"><\/textarea>";
+myVar += "<div style=\"display:none\" class=\"myfont\" id=\"myidGoCode\" name=\"myidGoCode\" rows=\"8\"><\/div>";
+myVar += "<\/center>";
+myVar += "<\/form>";
+document.write(myVar);

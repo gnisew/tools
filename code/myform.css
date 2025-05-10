@@ -1,0 +1,24 @@
+﻿
+ table {width:95%; border-collapse:collapse;} 
+ td {border:#337DA8 1px solid;}
+ textarea{width:95%;height:90%;overflow-y:auto;}
+ .ipa {font-size: 20px;}
+ .myfont {font-size: 20px;}
+
+	.myrt {font-size:10pt;}
+	.myrb {font-size:14pt;}
+	.preInnerHtml {text-align:left;}  
+	.divInnerHtml {text-align:left;}
+
+.h2pic{
+text-align:left;
+border-right: 2px inset; 
+padding: 2px;
+border: 2px inset;
+overflow-y: scroll;
+margin: 0px;
+width: 95%;
+word-break: break-all; 
+height: 200px;
+word-wrap: break-word;}
+

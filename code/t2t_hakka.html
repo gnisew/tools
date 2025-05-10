@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+ <head>
+  <title>oikasu.com 詔安客語教學資源中心</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3pro.css">
+
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <link rel="stylesheet" type="text/css" href="myform.css" />
+<style>
+body {
+  line-height: 1.5;
+  margin: 0;
+  padding: 0;
+  background-color: #f5f5f5;
+}
+#all{
+margin-top: 20px;
+text-align: center;
+vertical-align: middle
+}
+h3 {
+  font-size: 28px;
+  font-weight: bold;
+  text-align: center;
+  margin: 10px 0;
+}
+
+select, textarea {
+  padding: 5px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  margin: 10px 0;
+  width: 100%;
+  max-width: 800px;
+
+}
+
+button {
+  padding: 5px 5px;
+  border-radius: 5px;
+  border: none;
+  background-color: #4285f4;
+  color: #fff;
+  cursor: pointer;
+  margin: 5px 5px;
+}
+
+button:hover {
+  background-color: #3367d6;
+}
+
+#id_A, #id_B {
+  height: 150px;
+}
+
+#btn_Q, #btn_C {
+  background-color: #ccc;
+  color: #000;
+}
+
+#btn_Q:hover, #btn_C:hover {
+  background-color: #bbb;
+}
+
+p {
+  text-align: center;
+  margin-top: 30px;
+}
+</style>
+ </head>
+ <body>
+
+<div id="all">
+<h3>烏衣行-客語調型與調值-互轉</h3>
+
+<div>
+    <div>
+        <select id="id_S">
+            <option value="no">選客語</option>
+            <option value="s">四縣</option>
+            <option value="h">海陸</option>
+			<option value="d">大埔</option>
+			<option value="p">饒平</option>
+			<option value="a">詔安</option>
+        </select>
+    </div>
+
+    <div><textarea rows="4" id="id_A"></textarea></div>
+
+    <div><button id="btn_XZ" onclick="Xing_Zhi()">調型ˊ轉調值²⁴</button> <button id="btn_ZX" onclick="Zhi_Xing()">調值²⁴轉調型ˊ</button></div>
+
+    <div><textarea rows="4" id="id_B"></textarea></div>
+	<div><button id="btn_Q" onclick="Qing()">清除</button><button id="btn_C" onclick="Copy()">複製</button></div>
+
+</div>
+
+<p>Ps. 調型轉調值時，調型也可以用字母 <a href="https://oikasu.com/wp/?p=1117" target="_blank" rel="noreferrer noopener">zvsxf 代替 ˊˇˋˆ⁺</a>。<br>下載：《臺灣客家語常用詞辭典》文字內容資料 <a rel="noreferrer noopener" href="https://tinyl.io/4Zxw" target="_blank">https://tinyl.io/4Zxw</a>、<a rel="noreferrer noopener" href="https://tinyl.io/4Zy1" target="_blank">https://tinyl.io/4Zy1</a></p>
+
+</div>
+
+
+<script>
+
+function Qing() {
+    document.getElementById("id_A").value = "";
+	document.getElementById("id_B").value = "";
+}
+
+function Copy() {
+    document.getElementById("id_B").focus();
+    document.getElementById("id_B").select();
+    document.execCommand("Copy");
+}
+
+function Xing_Zhi() {
+
+	var id_A = document.getElementById("id_A");
+	var id_B = document.getElementById("id_B");
+    var id_S = document.getElementById("id_S");
+	var txt;
+
+	txt = id_A.value;
+
+	if (id_S.value == "s")		{
+		//四縣 調型轉調值;
+		txt = txt.replace(/([aeioumn])(ˊ|z)/gi, '$124');
+		txt = txt.replace(/(ng)(ˊ|z)/gi, '$124');
+		txt = txt.replace(/([aeioumn])(ˇ|v)/gi, '$111');
+		txt = txt.replace(/(ng)(ˇ|v)/gi, '$111');
+		txt = txt.replace(/([aeioumn])(ˋ|s)/gi, '$131');
+		txt = txt.replace(/(ng)(ˋ|s)/gi, '$131');
+		txt = txt.replace(/([aeiou])([bdg])(ˋ|s)/gi, '$1$22');
+		txt = txt.replace(/([aeiou])([bdg])(\b)/gi, '$1$2$35');
+		txt = txt.replace(/([aeioumn])(\b)/gi, '$1$255');
+		txt = txt.replace(/(ng)(\b)/gi, '$1$255');
+	} else if (id_S.value == "h")	{
+		//海陸 調型轉調值;
+		txt = txt.replace(/([aeioumnr])(ˋ|s)/gi, '$153');
+		txt = txt.replace(/(ng)(ˋ|s)/gi, '$153');
+		txt = txt.replace(/([aeioumnr])(ˊ|z)/gi, '$124');
+		txt = txt.replace(/(ng)(ˊ|z)/gi, '$124');
+		txt = txt.replace(/([aeioumnr])(ˇ|v)/gi, '$111');
+		txt = txt.replace(/(ng)(ˇ|v)/gi, '$111');
+		txt = txt.replace(/([aeioumnr])(\+|⁺|f)/gi, '$133');
+		txt = txt.replace(/(ng)(\+|⁺|f)/gi, '$133');
+		txt = txt.replace(/([aeiou])([bdg])(ˋ|s)/gi, '$1$22');
+		txt = txt.replace(/([aeiou])([bdg])(\b)/gi, '$1$2$35');
+		txt = txt.replace(/([aeioumnr])(\b)/gi, '$1$255');
+		txt = txt.replace(/(ng)(\b)/gi, '$1$255');
+
+	} else if (id_S.value == "d")	{
+		//大埔 調型轉調值;
+		txt = txt.replace(/([aeioumnr])(ˇ|v)/gi, '$1113');
+		txt = txt.replace(/(ng)(ˇ|v)/gi, '$1113');
+		txt = txt.replace(/([aeioumnr])(\+|⁺|f)/gi, '$133');
+		txt = txt.replace(/(ng)(\+|⁺|f)/gi, '$133');
+		txt = txt.replace(/([aeioumnr])(\^|ˆ|x)/gi, '$131');
+		txt = txt.replace(/(ng)(\^|ˆ|x)/gi, '$131');
+		txt = txt.replace(/([aeioumnr])(ˋ|s)/gi, '$153');
+		txt = txt.replace(/(ng)(ˋ|s)/gi, '$153');
+		txt = txt.replace(/([aeiou])([bdg])(\^|ˆ|x)/gi, '$1$221');
+		txt = txt.replace(/([aeiou])([bdg])(ˋ|s)/gi, '$1$254');
+	} else if (id_S.value == "p")	{
+		//饒平 調型轉調值;
+		txt = txt.replace(/([aeioumnr])(ˇ|v)/gi, '$111');
+		txt = txt.replace(/(ng)(ˇ|v)/gi, '$111');
+		txt = txt.replace(/([aeioumnr])(ˋ|s)/gi, '$153');
+		txt = txt.replace(/(ng)(ˋ|s)/gi, '$153');
+		txt = txt.replace(/([aeioumnr])(ˊ|z)/gi, '$124');
+		txt = txt.replace(/(ng)(ˊ|z)/gi, '$124');
+		txt = txt.replace(/([aeioumnr])(\^|ˆ|x)/gi, '$131');
+		txt = txt.replace(/(ng)(\^|ˆ|x)/gi, '$131');
+		txt = txt.replace(/([aeiou])([bdg])(ˋ|s)/gi, '$1$22');
+		txt = txt.replace(/([aeiou])([bdg])(\b)/gi, '$1$2$35');
+		txt = txt.replace(/([aeioumnr])(\b)/gi, '$1$255');
+		txt = txt.replace(/(ng)(\b)/gi, '$1$255');
+	} else if (id_S.value == "a") 	{
+		//詔安 調型轉調值;
+		txt = txt.replace(/([aeioumnbdg])(ˇ|v)/gi, '$111');
+		txt = txt.replace(/([aeioumn])(ˋ|s)/gi, '$153');
+		txt = txt.replace(/(ng)(ˋ|s)/gi, '$153');
+		txt = txt.replace(/([aeioumnbdg])(\^|ˆ|x)/gi, '$131');
+		txt = txt.replace(/([aeioumngbd])(ˊ|z)/gi, '$124');
+		txt = txt.replace(/([aeiou])([bdg])(ˋ|s)/gi, '$1$243');
+		txt = txt.replace(/(nnd)(ˋ|s)/gi, '$143');
+		txt = txt.replace(/([aeioumn])(\+|⁺|f)/gi, '$133');
+		txt = txt.replace(/(ng)(\+|⁺|f)/gi, '$133');
+		txt = txt.replace(/([aeiou])([bdg])(\+|⁺|f)/gi, '$1$23');
+		txt = txt.replace(/(nnd)(\+|⁺|f)/gi, '$13');
+		txt = txt.replace(/([aeioumn])(\b)/gi, '$1$255');
+		txt = txt.replace(/(ng)(\b)/gi, '$1$255');
+	} else {
+		txt ="(請先選客語)";
+	}
+
+	id_B.value = txt;
+	txt = null;
+}
+
+
+function Zhi_Xing() {
+
+	var id_A = document.getElementById("id_A");
+	var id_B = document.getElementById("id_B");
+    var id_S = document.getElementById("id_S");
+	var txt;
+
+	txt = id_A.value;
+
+	if (id_S.value == "s")		{
+		//四縣 調型轉調值;
+		txt = txt.replace(/([aeioumn])(24)/gi, '$1ˊ');
+		txt = txt.replace(/(ng)(24)/gi, '$1ˊ');
+		txt = txt.replace(/([aeioumn])(11)/gi, '$1ˇ');
+		txt = txt.replace(/(ng)(11)/gi, '$1ˇ');
+		txt = txt.replace(/([aeioumn])(31)/gi, '$1ˋ');
+		txt = txt.replace(/(ng)(31)/gi, '$1ˋ');
+		txt = txt.replace(/([aeiou])([bdg])(2)/gi, '$1$2ˋ');
+		txt = txt.replace(/([aeiou])([bdg])(5)/gi, '$1$2');
+		txt = txt.replace(/([aeioumn])(55)/gi, '$1');
+		txt = txt.replace(/(ng)(55)/gi, '$1');
+	} else if (id_S.value == "h")	{
+		//海陸 調型轉調值;
+		txt = txt.replace(/([aeioumnr])(53)/gi, '$1ˋ');
+		txt = txt.replace(/(ng)(53)/gi, '$1ˋ');
+		txt = txt.replace(/([aeioumnr])(24)/gi, '$1ˊ');
+		txt = txt.replace(/(ng)(24)/gi, '$1ˊ');
+		txt = txt.replace(/([aeioumnr])(11)/gi, '$1ˇ');
+		txt = txt.replace(/(ng)(11)/gi, '$1ˇ');
+		txt = txt.replace(/([aeioumnr])(33)/gi, '$1⁺');
+		txt = txt.replace(/(ng)(33)/gi, '$1⁺');
+		txt = txt.replace(/([aeiou])([bdg])(2)/gi, '$1$2ˋ');
+		txt = txt.replace(/([aeiou])([bdg])(5)/gi, '$1$2');
+		txt = txt.replace(/([aeioumnr])(55)/gi, '$1');
+		txt = txt.replace(/(ng)(55)/gi, '$1');
+
+	} else if (id_S.value == "d")	{
+		//大埔 調型轉調值;
+		txt = txt.replace(/(ng)(113)/gi, '$1ˇ');
+		txt = txt.replace(/([aeioumnr])(31)/gi, '$1ˆ');
+		txt = txt.replace(/([aeioumnr])(33)/gi, '$1⁺');
+		txt = txt.replace(/(ng)(33)/gi, '$1⁺');
+		txt = txt.replace(/([aeioumnr])(113)/gi, '$1ˇ');
+		txt = txt.replace(/(ng)(31)/gi, '$1ˆ');
+		txt = txt.replace(/([aeioumnr])(53)/gi, '$1ˋ');
+		txt = txt.replace(/(ng)(53)/gi, '$1ˋ');
+		txt = txt.replace(/([aeiou])([bdg])(21)/gi, '$1$2ˆ');
+		txt = txt.replace(/([aeiou])([bdg])(54)/gi, '$1$2ˋ');
+	} else if (id_S.value == "p")	{
+		//饒平 調型轉調值;
+		txt = txt.replace(/([aeioumnr])(11)/gi, '$1ˇ');
+		txt = txt.replace(/(ng)(11)/gi, '$1ˇ');
+		txt = txt.replace(/([aeioumnr])(53)/gi, '$1ˋ');
+		txt = txt.replace(/(ng)(53)/gi, '$1ˋ');
+		txt = txt.replace(/([aeioumnr])(31)/gi, '$1ˆ');
+		txt = txt.replace(/(ng)(31)/gi, '$1ˆ');
+		txt = txt.replace(/([aeioumnr])(24)/gi, '$1ˊ');
+		txt = txt.replace(/(ng)(24)/gi, '$1ˊ');
+		txt = txt.replace(/([aeiou])([bdg])(2)/gi, '$1$2ˋ');
+		txt = txt.replace(/([aeiou])([bdg])(5)/gi, '$1$2');
+		txt = txt.replace(/([aeioumnr])(55)/gi, '$1');
+		txt = txt.replace(/(ng)(55)/gi, '$1');
+	} else if (id_S.value == "a") 	{
+		//詔安 調型轉調值;
+		txt = txt.replace(/([aeioumnbdg])(11)/gi, '$1ˇ');
+		txt = txt.replace(/([aeioumn]|ng)(53)/gi, '$1ˋ');
+		txt = txt.replace(/([aeioumnbdg])(31)/gi, '$1ˆ');
+		txt = txt.replace(/([aeioumngbd])(24)/gi, '$1ˊ');
+		txt = txt.replace(/([aeiou])([bdg])(53|43)/gi, '$1$2ˋ');
+		txt = txt.replace(/(nnd)(53|43)/gi, '$1ˋ');
+		txt = txt.replace(/([aeioumn]|ng)(55)/gi, '$1');
+		txt = txt.replace(/([aeioumn]|ng)(33)/gi, '$1⁺');
+		txt = txt.replace(/([aeiou])([bdg])(3)/gi, '$1$2⁺');
+		txt = txt.replace(/(nnd)(3)/gi, '$1⁺');
+	}else {
+		txt ="(請先選客語)";
+	}
+
+	id_B.value = txt;
+	txt = null;
+}
+
+</script>
+
+
+
+
+<script src="wesingjs.js?v=iizosos"></script>
+<script>testfont();</script>
+
+
+
+
+
+
+ </body>
+</html>

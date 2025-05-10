@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html>
+ <head>
+  <title>oikasu.com 詔安客語教學資源中心</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3pro.css">
+
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <link rel="stylesheet" type="text/css" href="myform.css" />
+
+  <style>
+
+#all{
+margin-top: 20px;
+text-align: center;
+vertical-align: middle
+
+}
+
+    body {
+      /*font-family: Arial, sans-serif; */
+      background-color: #f5f5f5;
+      color: #333;
+      margin: 0;
+      padding: 0;
+    }
+    
+    h3 {
+      font-size: 24px;
+      font-weight: bold;
+      margin-top: 20px;
+      margin-bottom: 10px;
+    }
+    
+    button {
+      padding: 2px 5px;
+    background-color: #ffffff;
+    color: #000000;
+    border-radius: 5px;
+    border: 0.5px solid #228855;
+      font-size: 16px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+
+button:hover {
+    background-color: #33a955;
+    color: #ffffff;
+}
+    
+    textarea {
+	  margin: 0 auto;
+  width: 100%;
+  max-width: 800px;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      resize: vertical;
+      font-size: 16px;
+
+    }
+    
+    div {
+      margin-bottom: 10px;
+    }
+    
+    div:first-child {
+      margin-top: 20px;
+    }
+    
+    .note {
+      font-style: italic;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    
+    .clear {
+      clear: both;
+    }
+  </style>
+ </head>
+ <body>
+<div id="all">
+<h3>烏衣行七個字母搞定聲調符號</h3>
+<p>用七個字母「czvsxfl」即可替代「ˉ ˊ ˇ ˋ ˆ ⁺ ˈ」。</p>
+<div>
+
+    <div><textarea rows="4" id="id_A"></textarea></div>
+
+    <div><button id="btn_XZ" onclick="Xing_Zhi()">av轉ˇ</button><button id="btn_ZX" onclick="Zhi_Xing()">ˇ轉v</button><button id="btn_ZXK" onclick="Zhi_XingK()">客av轉aˇ</button><button id="btn_ZXK2" onclick="Zhi_XingK2()">客語ˇ轉v</button></div>
+
+    <div><textarea rows="4" id="id_B"></textarea></div>
+	<div><button id="btn_Q" onclick="Qing()">清除</button><button id="btn_C" onclick="Copy()">複製</button></div>
+	<br>
+	<div>( 漢語拼音 ǖǘǚǜ 用 yu 表示，如 lyus nyuv 為 lǜ nǚ )</div>
+
+</div>
+</div>
+
+<script>
+
+function Qing() {
+    document.getElementById("id_A").value = "";
+	document.getElementById("id_B").value = "";
+}
+
+function Copy() {
+    document.getElementById("id_B").focus();
+    document.getElementById("id_B").select();
+    document.execCommand("Copy");
+}
+
+function Xing_Zhi() {
+
+	var id_A = document.getElementById("id_A");
+	var id_B = document.getElementById("id_B");
+    var id_S = document.getElementById("id_S");
+	var txt;
+
+	txt = id_A.value;
+
+		txt = txt.replace(/(Er|er)(e)(zz)/g, '$1e̋');
+		txt = txt.replace(/(Er|er)(e)(z)/g, '$1é');
+		txt = txt.replace(/(Er|er)(e)(s)/g, '$1è');
+		txt = txt.replace(/(Er|er)(e)(x)/g, '$1ê');
+		txt = txt.replace(/(Er|er)(e)(v)/g, '$1ě');
+		txt = txt.replace(/(Er|er)(e)(f)/g, '$1ē');
+		txt = txt.replace(/(E)(re)([ptkh])(l)/g, 'E̍$2$3');
+		txt = txt.replace(/(e)(re)([ptkh])(l)/g, 'e̍$2$3');
+
+
+txt = txt.replace(/(l|n|L|N)(yu)(1|f)(\b)/g, '$1ǖ');
+txt = txt.replace(/(l|n|L|N)(yu)(2|z)(\b)/g, '$1ǘ');
+txt = txt.replace(/(l|n|L|N)(yu)(3|v)(\b)/g, '$1ǚ');
+txt = txt.replace(/(l|n|L|N)(yu)(4|s)(\b)/g, '$1ǜ');
+
+
+txt = txt.replace(/(A)([eioumngr]{0,4})([ptkhbdg]{0,1})(zz)/g, 'A̋$2$3');
+txt = txt.replace(/(A)([eioumngr]{0,4})([ptkhbdg]{0,1})(z)/g, 'Á$2$3');
+txt = txt.replace(/(A)([eioumngr]{0,4})([ptkhbdg]{0,1})(s)/g, 'À$2$3');
+txt = txt.replace(/(A)([eioumngr]{0,4})([ptkhbdg]{0,1})(x)/g, 'Â$2$3');
+txt = txt.replace(/(A)([eioumngr]{0,4})([ptkhbdg]{0,1})(v)/g, 'Ǎ$2$3');
+txt = txt.replace(/(A)([eioumngr]{0,4})([ptkhbdg]{0,1})(f)/g, 'Ā$2$3');
+txt = txt.replace(/(A)([eioumngr]{0,4})([ptkhbdg]{0,1})(l)/g, 'A̍$2$3');
+		txt = txt.replace(/(a)([eioumngr]{0,4})([ptkhbdg]{0,1})(zz)/g, 'a̋$2$3');
+		txt = txt.replace(/(a)([eioumngr]{0,4})([ptkhbdg]{0,1})(z)/g, 'á$2$3');
+		txt = txt.replace(/(a)([eioumngr]{0,4})([ptkhbdg]{0,1})(s)/g, 'à$2$3');
+		txt = txt.replace(/(a)([eioumngr]{0,4})([ptkhbdg]{0,1})(x)/g, 'â$2$3');
+		txt = txt.replace(/(a)([eioumngr]{0,4})([ptkhbdg]{0,1})(v)/g, 'ǎ$2$3');
+		txt = txt.replace(/(a)([eioumngr]{0,4})([ptkhbdg]{0,1})(f)/g, 'ā$2$3');
+		txt = txt.replace(/(a)([eioumngr]{0,4})([ptkhbdg]{0,1})(l)/g, 'a̍$2$3');
+
+txt = txt.replace(/(O)(e)(y{0,1})(ng{0,1}|[ptkh]{0,1})(zz)/g, '$1e̋$3$4');
+txt = txt.replace(/(O)(e)(y{0,1})(ng{0,1}|[ptkh]{0,1})(z)/g, '$1é$3$4');
+txt = txt.replace(/(O)(e)(y{0,1})(ng{0,1}|[ptkh]{0,1})(s)/g, '$1è$3$4');
+txt = txt.replace(/(O)(e)(y{0,1})(ng{0,1}|[ptkh]{0,1})(x)/g, '$1ê$3$4');
+txt = txt.replace(/(O)(e)(y{0,1})(ng{0,1}|[ptkh]{0,1})(v)/g, '$1ě$3$4');
+txt = txt.replace(/(O)(e)(y{0,1})(ng{0,1}|[ptkh]{0,1})(f)/g, '$1ē$3$4');
+txt = txt.replace(/(O)(e)(y{0,1})(ng{0,1}|[ptkh]{0,1})(l)/g, '$1e̍$3$4');
+		txt = txt.replace(/(o)(e)(y{0,1})(ng{0,1}|[ptkh]{0,1})(zz)/g, '$1e̋$3$4');
+		txt = txt.replace(/(o)(e)(y{0,1})(ng{0,1}|[ptkh]{0,1})(z)/g, '$1é$3$4');
+		txt = txt.replace(/(o)(e)(y{0,1})(ng{0,1}|[ptkh]{0,1})(s)/g, '$1è$3$4');
+		txt = txt.replace(/(o)(e)(y{0,1})(ng{0,1}|[ptkh]{0,1})(x)/g, '$1ê$3$4');
+		txt = txt.replace(/(o)(e)(y{0,1})(ng{0,1}|[ptkh]{0,1})(v)/g, '$1ě$3$4');
+		txt = txt.replace(/(o)(e)(y{0,1})(ng{0,1}|[ptkh]{0,1})(f)/g, '$1ē$3$4');
+		txt = txt.replace(/(o)(e)(y{0,1})(ng{0,1}|[ptkh]{0,1})(l)/g, '$1e̍$3$4');
+
+txt = txt.replace(/(O)([eioumngry]{0,4})([ptkhbdg]{0,1})(zz)/g, 'Ő$2$3');
+txt = txt.replace(/(O)([eioumngry]{0,4})([ptkhbdg]{0,1})(z)/g, 'Ó$2$3');
+txt = txt.replace(/(O)([eioumngry]{0,4})([ptkhbdg]{0,1})(s)/g, 'Ò$2$3');
+txt = txt.replace(/(O)([eioumngry]{0,4})([ptkhbdg]{0,1})(x)/g, 'Ô$2$3');
+txt = txt.replace(/(O)([eioumngry]{0,4})([ptkhbdg]{0,1})(v)/g, 'Ǒ$2$3');
+txt = txt.replace(/(O)([eioumngry]{0,4})([ptkhbdg]{0,1})(f)/g, 'Ō$2$3');
+txt = txt.replace(/(O)([eioumngry]{0,4})([ptkhbdg]{0,1})(l)/g, 'O̍$2$3');
+		txt = txt.replace(/(o)([eioumngry]{0,4})([ptkhbdg]{0,1})(zz)/g, 'ő$2$3');
+		txt = txt.replace(/(o)([eioumngry]{0,4})([ptkhbdg]{0,1})(z)/g, 'ó$2$3');
+		txt = txt.replace(/(o)([eioumngry]{0,4})([ptkhbdg]{0,1})(s)/g, 'ò$2$3');
+		txt = txt.replace(/(o)([eioumngry]{0,4})([ptkhbdg]{0,1})(x)/g, 'ô$2$3');
+		txt = txt.replace(/(o)([eioumngry]{0,4})([ptkhbdg]{0,1})(v)/g, 'ǒ$2$3');
+		txt = txt.replace(/(o)([eioumngry]{0,4})([ptkhbdg]{0,1})(f)/g, 'ō$2$3');
+		txt = txt.replace(/(o)([eioumngry]{0,4})([ptkhbdg]{0,1})(l)/g, 'o̍$2$3');
+
+
+txt = txt.replace(/(E)(eu)(zz)/g, 'E̋$2');
+txt = txt.replace(/(E)(eu)(z)/g, 'É$2');
+txt = txt.replace(/(E)(eu)(s)/g, 'È$2');
+txt = txt.replace(/(E)(eu)(x)/g, 'Ê$2');
+txt = txt.replace(/(E)(eu)(v)/g, 'Ě$2');
+txt = txt.replace(/(E)(eu)(f)/g, 'Ē$2');
+txt = txt.replace(/(E)(eu)(l)/g, 'E̍$2');
+		txt = txt.replace(/(e)(eu)(zz)/g, 'e̋$2');
+		txt = txt.replace(/(e)(eu)(z)/g, 'é$2');
+		txt = txt.replace(/(e)(eu)(s)/g, 'è$2');
+		txt = txt.replace(/(e)(eu)(x)/g, 'ê$2');
+		txt = txt.replace(/(e)(eu)(v)/g, 'ě$2');
+		txt = txt.replace(/(e)(eu)(f)/g, 'ē$2');
+		txt = txt.replace(/(e)(eu)(l)/g, 'e̍$2');
+
+txt = txt.replace(/(E)([iumngr]{0,4})([ptkhbdg]{0,1})(zz)/g, 'E̋$2$3');
+txt = txt.replace(/(E)([iumngr]{0,4})([ptkhbdg]{0,1})(z)/g, 'É$2$3');
+txt = txt.replace(/(E)([iumngr]{0,4})([ptkhbdg]{0,1})(s)/g, 'È$2$3');
+txt = txt.replace(/(E)([iumngr]{0,4})([ptkhbdg]{0,1})(x)/g, 'Ê$2$3');
+txt = txt.replace(/(E)([iumngr]{0,4})([ptkhbdg]{0,1})(v)/g, 'Ě$2$3');
+txt = txt.replace(/(E)([iumngr]{0,4})([ptkhbdg]{0,1})(f)/g, 'Ē$2$3');
+txt = txt.replace(/(E)([iumngr]{0,4})([ptkhbdg]{0,1})(l)/g, 'E̍$2$3');
+		txt = txt.replace(/(e)([iumngr]{0,4})([ptkhbdg]{0,1})(zz)/g, 'e̋$2$3');
+		txt = txt.replace(/(e)([iumngr]{0,4})([ptkhbdg]{0,1})(z)/g, 'é$2$3');
+		txt = txt.replace(/(e)([iumngr]{0,4})([ptkhbdg]{0,1})(s)/g, 'è$2$3');
+		txt = txt.replace(/(e)([iumngr]{0,4})([ptkhbdg]{0,1})(x)/g, 'ê$2$3');
+		txt = txt.replace(/(e)([iumngr]{0,4})([ptkhbdg]{0,1})(v)/g, 'ě$2$3');
+		txt = txt.replace(/(e)([iumngr]{0,4})([ptkhbdg]{0,1})(f)/g, 'ē$2$3');
+		txt = txt.replace(/(e)([iumngr]{0,4})([ptkhbdg]{0,1})(l)/g, 'e̍$2$3');
+
+txt = txt.replace(/(U)([mngr]{0,4})([ptkhbdg]{0,1})(zz)/g, 'Ű$2$3');
+txt = txt.replace(/(U)([mngr]{0,4})([ptkhbdg]{0,1})(z)/g, 'Ú$2$3');
+txt = txt.replace(/(U)([mngr]{0,4})([ptkhbdg]{0,1})(s)/g, 'Ù$2$3');
+txt = txt.replace(/(U)([mngr]{0,4})([ptkhbdg]{0,1})(x)/g, 'Û$2$3');
+txt = txt.replace(/(U)([mngr]{0,4})([ptkhbdg]{0,1})(v)/g, 'Ǔ$2$3');
+txt = txt.replace(/(U)([mngr]{0,4})([ptkhbdg]{0,1})(f)/g, 'Ū$2$3');
+txt = txt.replace(/(U)([mngr]{0,4})([ptkhbdg]{0,1})(l)/g, 'U̍$2$3');
+		txt = txt.replace(/(u)([mngr]{0,4})([ptkhbdg]{0,1})(zz)/g, 'ű$2$3');
+		txt = txt.replace(/(u)([mngr]{0,4})([ptkhbdg]{0,1})(z)/g, 'ú$2$3');
+		txt = txt.replace(/(u)([mngr]{0,4})([ptkhbdg]{0,1})(s)/g, 'ù$2$3');
+		txt = txt.replace(/(u)([mngr]{0,4})([ptkhbdg]{0,1})(x)/g, 'û$2$3');
+		txt = txt.replace(/(u)([mngr]{0,4})([ptkhbdg]{0,1})(v)/g, 'ǔ$2$3');
+		txt = txt.replace(/(u)([mngr]{0,4})([ptkhbdg]{0,1})(f)/g, 'ū$2$3');
+		txt = txt.replace(/(u)([mngr]{0,4})([ptkhbdg]{0,1})(l)/g, 'u̍$2$3');
+
+txt = txt.replace(/(I)([mngr]{0,4})([ptkhbdg]{0,1})(zz)/g, 'I̋$2$3');
+txt = txt.replace(/(I)([mngr]{0,4})([ptkhbdg]{0,1})(z)/g, 'Í$2$3');
+txt = txt.replace(/(I)([mngr]{0,4})([ptkhbdg]{0,1})(s)/g, 'Ì$2$3');
+txt = txt.replace(/(I)([mngr]{0,4})([ptkhbdg]{0,1})(x)/g, 'Î$2$3');
+txt = txt.replace(/(I)([mngr]{0,4})([ptkhbdg]{0,1})(v)/g, 'Ǐ$2$3');
+txt = txt.replace(/(I)([mngr]{0,4})([ptkhbdg]{0,1})(f)/g, 'Ī$2$3');
+txt = txt.replace(/(I)([mngr]{0,4})([ptkhbdg]{0,1})(l)/g, 'I̍$2$3');
+		txt = txt.replace(/(i)([mngr]{0,4})([ptkhbdg]{0,1})(zz)/g, 'i̋$2$3');
+		txt = txt.replace(/(i)([mngr]{0,4})([ptkhbdg]{0,1})(z)/g, 'í$2$3');
+		txt = txt.replace(/(i)([mngr]{0,4})([ptkhbdg]{0,1})(s)/g, 'ì$2$3');
+		txt = txt.replace(/(i)([mngr]{0,4})([ptkhbdg]{0,1})(x)/g, 'î$2$3');
+		txt = txt.replace(/(i)([mngr]{0,4})([ptkhbdg]{0,1})(v)/g, 'ǐ$2$3');
+		txt = txt.replace(/(i)([mngr]{0,4})([ptkhbdg]{0,1})(f)/g, 'ī$2$3');
+		txt = txt.replace(/(i)([mngr]{0,4})([ptkhbdg]{0,1})(l)/g, 'i̍$2$3');
+
+txt = txt.replace(/(Y)(ng{0,1}|[mnptkhbdg]{0,1})(zz)/g, 'Y̋$2');
+txt = txt.replace(/(Y)(ng{0,1}|[mnptkhbdg]{0,1})(z)/g, 'Ý$2');
+txt = txt.replace(/(Y)(ng{0,1}|[mnptkhbdg]{0,1})(s)/g, 'Ỳ$2');
+txt = txt.replace(/(Y)(ng{0,1}|[mnptkhbdg]{0,1})(x)/g, 'Ŷ$2');
+txt = txt.replace(/(Y)(ng{0,1}|[mnptkhbdg]{0,1})(v)/g, 'Y̌$2');
+txt = txt.replace(/(Y)(ng{0,1}|[mnptkhbdg]{0,1})(f)/g, 'Ȳ$2');
+txt = txt.replace(/(Y)(ng{0,1}|[mnptkhbdg]{0,1})(l)/g, 'Y̍$2');
+		txt = txt.replace(/(y)(ng{0,1}|[mnptkhbdg]{0,1})(zz)/g, 'y̋$2');
+		txt = txt.replace(/(y)(ng{0,1}|[mnptkhbdg]{0,1})(z)/g, 'ý$2');
+		txt = txt.replace(/(y)(ng{0,1}|[mnptkhbdg]{0,1})(s)/g, 'ỳ$2');
+		txt = txt.replace(/(y)(ng{0,1}|[mnptkhbdg]{0,1})(x)/g, 'ŷ$2');
+		txt = txt.replace(/(y)(ng{0,1}|[mnptkhbdg]{0,1})(v)/g, 'y̌$2');
+		txt = txt.replace(/(y)(ng{0,1}|[mnptkhbdg]{0,1})(f)/g, 'ȳ$2');
+		txt = txt.replace(/(y)(ng{0,1}|[mnptkhbdg]{0,1})(l)/g, 'y̍$2');
+
+txt = txt.replace(/(M)(zz)/g, 'M̋');
+txt = txt.replace(/(M)(z)/g, 'Ḿ');
+txt = txt.replace(/(M)(s)/g, 'M̀');
+txt = txt.replace(/(M)(x)/g, 'M̂');
+txt = txt.replace(/(M)(v)/g, 'M̌');
+txt = txt.replace(/(M)(f)/g, 'M̄');
+txt = txt.replace(/(M)(h{0,1})(l)/g, 'M̍$2');
+		txt = txt.replace(/(m)(zz)/g, 'm̋');
+		txt = txt.replace(/(m)(z)/g, 'ḿ');
+		txt = txt.replace(/(m)(s)/g, 'm̀');
+		txt = txt.replace(/(m)(x)/g, 'm̂');
+		txt = txt.replace(/(m)(v)/g, 'm̌');
+		txt = txt.replace(/(m)(f)/g, 'm̄');
+		txt = txt.replace(/(m)(h{0,1})(l)/g, 'm̍$2');
+
+txt = txt.replace(/(N)(g{0,1})(zz)/g, 'N̋$2');
+txt = txt.replace(/(N)(g{0,1})(z)/g, 'Ń$2');
+txt = txt.replace(/(N)(g{0,1})(s)/g, 'Ǹ$2');
+txt = txt.replace(/(N)(g{0,1})(x)/g, 'N̂$2');
+txt = txt.replace(/(N)(g{0,1})(v)/g, 'Ň$2');
+txt = txt.replace(/(N)(g{0,1})(f)/g, 'N̄$2');
+txt = txt.replace(/(N)(g{0,1})(h{0,1})(l)/g, 'N̍$2$3');
+		txt = txt.replace(/(n)(g{0,1})(zz)/g, 'n̋$2');
+		txt = txt.replace(/(n)(g{0,1})(z)/g, 'ń$2');
+		txt = txt.replace(/(n)(g{0,1})(s)/g, 'ǹ$2');
+		txt = txt.replace(/(n)(g{0,1})(x)/g, 'n̂$2');
+		txt = txt.replace(/(n)(g{0,1})(v)/g, 'ň$2');
+		txt = txt.replace(/(n)(g{0,1})(f)/g, 'n̄$2');
+		txt = txt.replace(/(n)(g{0,1})(h{0,1})(l)/g, 'n̍$2$3');
+
+	id_B.value = txt;
+	txt = null;
+}
+
+
+function Zhi_Xing() {
+
+	var id_A = document.getElementById("id_A");
+	var id_B = document.getElementById("id_B");
+    var id_S = document.getElementById("id_S");
+	var txt;
+
+	txt = id_A.value;
+
+txt = txt.replace(/űn/g, 'unzz');
+txt = txt.replace(/Űn/g, 'Unzz');
+txt = txt.replace(/ű/g, 'uzz');
+txt = txt.replace(/Ű/g, 'Uzz');
+
+txt = txt.replace(/(A̍)([aeioumngptkhry]{0,5})/g, 'A$2l');
+txt = txt.replace(/(a̍)([aeioumngptkhry]{0,5})/g, 'a$2l');
+txt = txt.replace(/(Á)([aeioumngptkhry]{0,5})/g, 'A$2z');
+txt = txt.replace(/(á)([aeioumngptkhry]{0,5})/g, 'a$2z');
+txt = txt.replace(/(À)([aeioumngptkhry]{0,5})/g, 'A$2s');
+txt = txt.replace(/(à)([aeioumngptkhry]{0,5})/g, 'a$2s');
+txt = txt.replace(/(Â)([aeioumngptkhry]{0,5})/g, 'A$2x');
+txt = txt.replace(/(â)([aeioumngptkhry]{0,5})/g, 'a$2x');
+txt = txt.replace(/(Ǎ)([aeioumngptkhry]{0,5})/g, 'A$2v');
+txt = txt.replace(/(ǎ)([aeioumngptkhry]{0,5})/g, 'a$2v');
+txt = txt.replace(/(Ā)([aeioumngptkhry]{0,5})/g, 'A$2f');
+txt = txt.replace(/(ā)([aeioumngptkhry]{0,5})/g, 'a$2f');
+txt = txt.replace(/(A̋)([aeioumngptkhry]{0,5})/g, 'A$2zz');
+txt = txt.replace(/(a̋)([aeioumngptkhry]{0,5})/g, 'a$2zz');
+
+txt = txt.replace(/(O̍)([aeioumngptkhry]{0,5})/g, 'O$2l');
+txt = txt.replace(/(o̍)([aeioumngptkhry]{0,5})/g, 'o$2l');
+txt = txt.replace(/(Ó)([aeioumngptkhry]{0,5})/g, 'O$2z');
+txt = txt.replace(/(ó)([aeioumngptkhry]{0,5})/g, 'o$2z');
+txt = txt.replace(/(Ò)([aeioumngptkhry]{0,5})/g, 'O$2s');
+txt = txt.replace(/(ò)([aeioumngptkhry]{0,5})/g, 'o$2s');
+txt = txt.replace(/(Ô)([aeioumngptkhry]{0,5})/g, 'O$2x');
+txt = txt.replace(/(ô)([aeioumngptkhry]{0,5})/g, 'o$2x');
+txt = txt.replace(/(Ǒ)([aeioumngptkhry]{0,5})/g, 'O$2v');
+txt = txt.replace(/(ǒ)([aeioumngptkhry]{0,5})/g, 'o$2v');
+txt = txt.replace(/(Ō)([aeioumngptkhry]{0,5})/g, 'O$2f');
+txt = txt.replace(/(ō)([aeioumngptkhry]{0,5})/g, 'o$2f');
+txt = txt.replace(/(Ő)([aeioumngptkhry]{0,5})/g, 'O$2zz');
+txt = txt.replace(/(ő)([aeioumngptkhry]{0,5})/g, 'o$2zz');
+
+txt = txt.replace(/(E̍)([aeioumngptkhry]{0,5})/g, 'E$2l');
+txt = txt.replace(/(e̍)([aeioumngptkhry]{0,5})/g, 'e$2l');
+txt = txt.replace(/(é)([aeioumngptkhry]{0,5})/g, 'e$2z');
+txt = txt.replace(/(É)([aeioumngptkhry]{0,5})/g, 'E$2z');
+txt = txt.replace(/(é)([aeioumngptkhry]{0,5})/g, 'e$2z');
+txt = txt.replace(/(è)([aeioumngptkhry]{0,5})/g, 'e$2s');
+txt = txt.replace(/(È)([aeioumngptkhry]{0,5})/g, 'E$2s');
+txt = txt.replace(/(ê)([aeioumngptkhry]{0,5})/g, 'e$2x');
+txt = txt.replace(/(Ê)([aeioumngptkhry]{0,5})/g, 'E$2x');
+txt = txt.replace(/(ê)([aeioumngptkhry]{0,5})/g, 'e$2x');
+txt = txt.replace(/(ě)([aeioumngptkhry]{0,5})/g, 'e$2v');
+txt = txt.replace(/(Ě)([aeioumngptkhry]{0,5})/g, 'E$2v');
+txt = txt.replace(/(ě)([aeioumngptkhry]{0,5})/g, 'e$2v');
+txt = txt.replace(/(ē)([aeioumngptkhry]{0,5})/g, 'e$2f');
+txt = txt.replace(/(Ē)([aeioumngptkhry]{0,5})/g, 'E$2f');
+txt = txt.replace(/(ē)([aeioumngptkhry]{0,5})/g, 'e$2f');
+txt = txt.replace(/(e̋)([aeioumngptkhry]{0,5})/g, 'e$2zz');
+txt = txt.replace(/(E̋)([aeioumngptkhry]{0,5})/g, 'E$2zz');
+txt = txt.replace(/(e̋)([aeioumngptkhry]{0,5})/g, 'e$2zz');
+
+txt = txt.replace(/(U̍)([aeioumngptkhr]{0,5})/g, 'U$2l');
+txt = txt.replace(/(u̍)([aeioumngptkhr]{0,5})/g, 'u$2l');
+txt = txt.replace(/(Ú)([aeioumngptkhr]{0,5})/g, 'U$2z');
+txt = txt.replace(/(ú)([aeioumngptkhr]{0,5})/g, 'u$2z');
+txt = txt.replace(/(Ù)([aeioumngptkhr]{0,5})/g, 'U$2s');
+txt = txt.replace(/(ù)([aeioumngptkhr]{0,5})/g, 'u$2s');
+txt = txt.replace(/(Û)([aeioumngptkhr]{0,5})/g, 'U$2x');
+txt = txt.replace(/(û)([aeioumngptkhr]{0,5})/g, 'u$2x');
+txt = txt.replace(/(Ǔ)([aeioumngptkhr]{0,5})/g, 'U$2v');
+txt = txt.replace(/(ǔ)([aeioumngptkhr]{0,5})/g, 'u$2v');
+txt = txt.replace(/(Ū)([aeioumngptkhr]{0,5})/g, 'U$2f');
+txt = txt.replace(/(ū)([aeioumngptkhr]{0,5})/g, 'u$2f');
+txt = txt.replace(/(Ű)([aeioumngptkhr]{0,5})/g, 'U$2zz');
+txt = txt.replace(/(ű)([aeioumngptkhr]{0,5})/g, 'u$2zz');
+
+txt = txt.replace(/(I̍)([aeioumngptkhr]{0,5})/g, 'I$2l');
+txt = txt.replace(/(i̍)([aeioumngptkhr]{0,5})/g, 'i$2l');
+txt = txt.replace(/(Í)([aeioumngptkhr]{0,5})/g, 'I$2z');
+txt = txt.replace(/(í)([aeioumngptkhr]{0,5})/g, 'i$2z');
+txt = txt.replace(/(Ì)([aeioumngptkhr]{0,5})/g, 'I$2s');
+txt = txt.replace(/(ì)([aeioumngptkhr]{0,5})/g, 'i$2s');
+txt = txt.replace(/(Î)([aeioumngptkhr]{0,5})/g, 'I$2x');
+txt = txt.replace(/(î)([aeioumngptkhr]{0,5})/g, 'i$2x');
+txt = txt.replace(/(Ǐ)([aeioumngptkhr]{0,5})/g, 'I$2v');
+txt = txt.replace(/(ǐ)([aeioumngptkhr]{0,5})/g, 'i$2v');
+txt = txt.replace(/(Ī)([aeioumngptkhr]{0,5})/g, 'I$2f');
+txt = txt.replace(/(ī)([aeioumngptkhr]{0,5})/g, 'i$2f');
+txt = txt.replace(/(I̋)([aeioumngptkhr]{0,5})/g, 'I$2zz');
+txt = txt.replace(/(i̋)([aeioumngptkhr]{0,5})/g, 'i$2zz');
+
+txt = txt.replace(/(M̍)([aeioumngptkhr]{0,5})/g, 'M$2l');
+txt = txt.replace(/(m̍)([aeioumngptkhr]{0,5})/g, 'm$2l');
+txt = txt.replace(/(M̋)([aeioumngptkhr]{0,5})/g, 'M$2zz');
+txt = txt.replace(/(m̋)([aeioumngptkhr]{0,5})/g, 'm$2zz');
+txt = txt.replace(/(Ḿ)([aeioumngptkhr]{0,5})/g, 'M$2z');
+txt = txt.replace(/(ḿ)([aeioumngptkhr]{0,5})/g, 'm$2z');
+txt = txt.replace(/(M̀)([aeioumngptkhr]{0,5})/g, 'M$2s');
+txt = txt.replace(/(m̀)([aeioumngptkhr]{0,5})/g, 'm$2s');
+txt = txt.replace(/(M̂)([aeioumngptkhr]{0,5})/g, 'M$2x');
+txt = txt.replace(/(m̂)([aeioumngptkhr]{0,5})/g, 'm$2x');
+txt = txt.replace(/(M̌)([aeioumngptkhr]{0,5})/g, 'M$2v');
+txt = txt.replace(/(m̌)([aeioumngptkhr]{0,5})/g, 'm$2v');
+txt = txt.replace(/(M̄)([aeioumngptkhr]{0,5})/g, 'M$2f');
+txt = txt.replace(/(m̄)([aeioumngptkhr]{0,5})/g, 'm$2f');
+txt = txt.replace(/(N̍)([aeioumngptkhr]{0,5})/g, 'N$2l');
+txt = txt.replace(/(n̍)([aeioumngptkhr]{0,5})/g, 'n$2l');
+txt = txt.replace(/(N̂)([aeioumngptkhr]{0,5})/g, 'N$2x');
+txt = txt.replace(/(n̂)([aeioumngptkhr]{0,5})/g, 'n$2x');
+txt = txt.replace(/(Ň)([aeioumngptkhr]{0,5})/g, 'N$2v');
+txt = txt.replace(/(ň)([aeioumngptkhr]{0,5})/g, 'n$2v');
+txt = txt.replace(/(N̄)([aeioumngptkhr]{0,5})/g, 'N$2f');
+txt = txt.replace(/(n̄)([aeioumngptkhr]{0,5})/g, 'n$2f');
+txt = txt.replace(/(N̋)([aeioumngptkhr]{0,5})/g, 'N$2zz');
+txt = txt.replace(/(n̋)([aeioumngptkhr]{0,5})/g, 'n$2zz');
+txt = txt.replace(/(Ń)([aeioumngptkhr]{0,5})/g, 'N$2z');
+txt = txt.replace(/(ń)([aeioumngptkhr]{0,5})/g, 'n$2z');
+txt = txt.replace(/(Ǹ)([aeioumngptkhr]{0,5})/g, 'N$2s');
+txt = txt.replace(/(ǹ)([aeioumngptkhr]{0,5})/g, 'n$2s');
+
+txt = txt.replace(/(y̋)([aeioumngptkhr]{0,5})/g, 'y$2zz');
+txt = txt.replace(/(ý)([aeioumngptkhr]{0,5})/g, 'y$2z');
+txt = txt.replace(/(y̌)([aeioumngptkhr]{0,5})/g, 'y$2v');
+txt = txt.replace(/(ỳ)([aeioumngptkhr]{0,5})/g, 'y$2s');
+txt = txt.replace(/(ŷ)([aeioumngptkhr]{0,5})/g, 'y$2x');
+txt = txt.replace(/(ȳ)([aeioumngptkhr]{0,5})/g, 'y$2f');
+txt = txt.replace(/(y̍)([aeioumngptkhr]{0,5})/g, 'y$2l');
+
+txt = txt.replace(/(Y̋)([aeioumngptkhr]{0,5})/g, 'y$2zz');
+txt = txt.replace(/(Ý)([aeioumngptkhr]{0,5})/g, 'y$2z');
+txt = txt.replace(/(Y̌)([aeioumngptkhr]{0,5})/g, 'y$2v');
+txt = txt.replace(/(Ỳ)([aeioumngptkhr]{0,5})/g, 'y$2s');
+txt = txt.replace(/(Ŷ)([aeioumngptkhr]{0,5})/g, 'y$2x');
+txt = txt.replace(/(Ȳ)([aeioumngptkhr]{0,5})/g, 'y$2f');
+txt = txt.replace(/(Y̍)([aeioumngptkhr]{0,5})/g, 'y$2l');
+
+txt = txt.replace(/(l|n|L|N)(ǖ)/g, '$1yuf');
+txt = txt.replace(/(l|n|L|N)(ǘ)/g, '$1yuz');
+txt = txt.replace(/(l|n|L|N)(ǚ)/g, '$1yuv');
+txt = txt.replace(/(l|n|L|N)(ǜ)/g, '$1yus');
+
+	id_B.value = txt;
+	txt = null;
+}
+
+
+function Zhi_XingK() {
+
+	var id_A = document.getElementById("id_A");
+	var id_B = document.getElementById("id_B");
+    var id_S = document.getElementById("id_S");
+	var txt;
+
+	txt = id_A.value;
+
+txt = txt.replace(/([aeioumngrbd])(z)(\b)/gi, '$1ˊ');
+txt = txt.replace(/([aeioumngrbd])(v)(\b)/gi, '$1ˇ');
+txt = txt.replace(/([aeioumngrbd])(s)(\b)/gi, '$1ˋ');
+txt = txt.replace(/([aeioumngrbd])(x)(\b)/gi, '$1ˆ');
+txt = txt.replace(/([aeioumngrbd])(f)(\b)/gi, '$1⁺');
+
+	id_B.value = txt;
+	txt = null;
+}
+
+function Zhi_XingK2() {
+
+	var id_A = document.getElementById("id_A");
+	var id_B = document.getElementById("id_B");
+    var id_S = document.getElementById("id_S");
+	var txt;
+
+	txt = id_A.value;
+
+txt = txt.replace(/([aeioumnrgbd])(ˊ)/gi, '$1z');
+txt = txt.replace(/([aeioumnrgbd])(ˇ)/gi, '$1v');
+txt = txt.replace(/([aeioumnrgbd])(ˋ)/gi, '$1s');
+txt = txt.replace(/([aeioumnrgbd])(ˆ)/gi, '$1x');
+txt = txt.replace(/([aeioumnrgbd])(\^)/gi, '$1x');
+txt = txt.replace(/([aeioumnrgbd])(⁺)/gi, '$1f');
+txt = txt.replace(/([aeioumnrgbd])(\+)/gi, '$1f');
+
+	id_B.value = txt;
+	txt = null;
+}
+
+
+</script>
+
+
+
+
+ </body>
+</html>

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISBN條碼掃描器</title>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        #qr-reader {
+            width: 300px;
+        }
+        #result {
+            font-size: 16px;
+            padding: 10px;
+            width: 80%;
+            max-width: 300px;
+            margin-top: 20px;
+        }
+        #scanButton {
+            font-size: 18px;
+            padding: 10px 20px;
+            margin: 20px 0;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="qr-reader"></div>   
+    <button id="scanButton">掃描 ISBN</button>	 
+	<input class='w3-input w3-border' id="keyword" name='keyword' type='text' placeholder='請輸入書名（部分即可）或ISBN作為搜尋關鍵詞'>
+
+    <script>
+        const html5QrCode = new Html5Qrcode("qr-reader");
+        const qrConfig = { fps: 10, qrbox: { width: 250, height: 250 } };
+        let scanning = false;
+        function onScanSuccess(decodedText, decodedResult) {
+            document.getElementById('keyword').value = decodedText;
+        }
+        function onScanFailure(error) {
+            // 我們可以忽略錯誤,因為它可能只是暫時沒有檢測到二維碼
+            // console.warn(`掃描錯誤: ${error}`);
+        }
+        document.getElementById('scanButton').addEventListener('click', () => {
+            if (!scanning) {
+                html5QrCode.start(
+                    { facingMode: "environment" },
+                    qrConfig,
+                    onScanSuccess,
+                    onScanFailure
+                ).then(() => {
+                    scanning = true;
+                    document.getElementById('scanButton').textContent = '停止掃描';
+                }).catch((err) => {
+                    console.error(`無法啟動掃描: ${err}`);
+                });
+            } else {
+                html5QrCode.stop().then(() => {
+                    scanning = false;
+                    document.getElementById('scanButton').textContent = '開始掃描';
+                }).catch((err) => {
+                    console.error(`無法停止掃描: ${err}`);
+                });
+            }
+        });
+    </script>
+
+
+
+
+
+
+</body>
+</html>

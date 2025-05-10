@@ -1,0 +1,47 @@
+﻿==內嵌文件===================
+<iframe src="http://docs.google.com/gview?url=檔案網址&embedded=true" style="width:640px; height:400px;" style="border: none;"></iframe>
+
+==內嵌swf===================
+<embed base="." height="400" loop="true" menu="true" play="true" src="你的.swf" type="application/x-shockwave-flash" width="550" wmode="transparent"></embed>
+
+==內嵌文件===================
+http://docs.google.com/gview?url=檔案網址
+
+==CSS只抓照片某個範圍=====clip:rect(上 右 下 左)===
+div { position:absolute; width:60px; height:60px; clip:rect(100 200 200 100); }
+<div style ="height:200px; width:200px; overflow:hidden; border-color:#fff; border-style:solid; border-width:5px;">
+<div style="margin: -400px 0 0 -300;">
+<img src="http://163.27.202.132/html/uploads/tadgallery/2010_09_17/135_image007.jpg" width="900" />
+</div></div>
+
+
+
+
+==內嵌Youtube===================
+<iframe src="//www.youtube-nocookie.com/embed/oExa7YctrK0?rel=0" height="360" width="640" allowfullscreen="" frameborder="0"></iframe>
+
+
+
+
+==網頁範本===================
+<!-- <!doctype html public "-//W3C//DTD HTML 4.01 Transitional//EN"> -->
+<!DOCTYPE html>
+<html>
+ <head>
+  <title> new document </title>
+	<meta http-equiv="content-type" content="text/html; charset=utf-8">
+	<meta http-equiv="imagetoolbar" content="no">
+	<!-- <link rel="stylesheet" type="text/css" href="files/default.css" /> -->
+	<!-- <script src="my.js"type="text/javascript"></script> -->
+ </head>
+ <body>
+
+
+ </body>
+</html>
+
+
+
+
+
+
