@@ -1,6 +1,5 @@
 // IME 主要功能
 
-
 class IMEManager {
   constructor() {
     // 元素參考
@@ -1656,138 +1655,138 @@ class IMEManager {
     }
   }
 
-	handleKeyDown(e) {
-	  if (!this.imeActive) return;
+  handleKeyDown(e) {
+    if (!this.imeActive) return
 
-	  // 如果是行動裝置，阻止預設輸入法
-	  if (this.isMobile) {
-		e.preventDefault();
-		return;
-	  }
+    // 如果是行動裝置，阻止預設輸入法
+    if (this.isMobile) {
+      e.preventDefault()
+      return
+    }
 
-	  // 檢查是否按下了修飾鍵 (Ctrl, Shift, Alt)
-	  if (e.ctrlKey || e.altKey) {
-		// 如果按下了修飾鍵，不處理這個按鍵事件，讓瀏覽器使用預設行為
-		return;
-	  }
+    // 檢查是否按下了修飾鍵 (Ctrl, Shift, Alt)
+    if (e.ctrlKey || e.altKey) {
+      // 如果按下了修飾鍵，不處理這個按鍵事件，讓瀏覽器使用預設行為
+      return
+    }
 
-	  // 處理鍵盤輸入
-	  // 如果正在輸入中文且候選字區域顯示中
-	  if (this.composingText.length > 0 && this.candidateArea.style.display === "block") {
-		// 處理特殊鍵
-		switch (e.key) {
-		  case "Escape":
-			e.preventDefault();
-			this.composingText = "";
-			this.hideCandidates();
-			return;
-		  case "Backspace":
-			e.preventDefault();
-			this.composingText = this.composingText.slice(0, -1);
-			if (this.composingText.length === 0) {
-			  this.hideCandidates();
-			} else {
-			  this.updateCandidates();
-			}
-			return;
-		  case "Enter":
-			e.preventDefault();
-			// 直接輸出當前編碼
-			this.insertText(this.composingText);
-			this.composingText = "";
-			this.hideCandidates();
-			return;
-		  case "ArrowRight":
-			e.preventDefault();
-			this.navigateCandidates("next");
-			return;
-		  case "ArrowLeft":
-			e.preventDefault();
-			this.navigateCandidates("prev");
-			return;
-		  case " ":
-			e.preventDefault();
-			// 檢查當前輸入法是否包含數字編碼
-			const currentIMEData = imeData[this.currentLang];
-			const hasNumericCodes = Object.keys(currentIMEData.data).some((key) => /\d/.test(key));
+    // 處理鍵盤輸入
+    // 如果正在輸入中文且候選字區域顯示中
+    if (this.composingText.length > 0 && this.candidateArea.style.display === "block") {
+      // 處理特殊鍵
+      switch (e.key) {
+        case "Escape":
+          e.preventDefault()
+          this.composingText = ""
+          this.hideCandidates()
+          return
+        case "Backspace":
+          e.preventDefault()
+          this.composingText = this.composingText.slice(0, -1)
+          if (this.composingText.length === 0) {
+            this.hideCandidates()
+          } else {
+            this.updateCandidates()
+          }
+          return
+        case "Enter":
+          e.preventDefault()
+          // 直接輸出當前編碼
+          this.insertText(this.composingText)
+          this.composingText = ""
+          this.hideCandidates()
+          return
+        case "ArrowRight":
+          e.preventDefault()
+          this.navigateCandidates("next")
+          return
+        case "ArrowLeft":
+          e.preventDefault()
+          this.navigateCandidates("prev")
+          return
+        case " ":
+          e.preventDefault()
+          // 檢查當前輸入法是否包含數字編碼
+          const currentIMEData = imeData[this.currentLang]
+          const hasNumericCodes = Object.keys(currentIMEData.data).some((key) => /\d/.test(key))
 
-			// 如果有編碼但沒有候選字，按空白鍵清空編碼
-			if (this.candidates.length === 0) {
-			  this.composingText = "";
-			  this.hideCandidates();
-			  return;
-			}
+          // 如果有編碼但沒有候選字，按空白鍵清空編碼
+          if (this.candidates.length === 0) {
+            this.composingText = ""
+            this.hideCandidates()
+            return
+          }
 
-			if (hasNumericCodes) {
-			  // 如果包含數字編碼
-			  if (this.composingText.endsWith(" ")) {
-				// 已經有空格作為編碼截止鍵，現在用空格選擇第一個候選字
-				if (this.candidates.length > 0) {
-				  this.selectCandidate(0);
-				}
-			  } else {
-				// 第一次按空格，作為編碼截止鍵
-				this.composingText += " ";
-				// 如果添加空格後沒有候選字，但之前有前綴匹配的候選字，保留這些候選字
-				const prevCandidates = [...this.candidates];
-				this.updateCandidates();
+          if (hasNumericCodes) {
+            // 如果包含數字編碼
+            if (this.composingText.endsWith(" ")) {
+              // 已經有空格作為編碼截止鍵，現在用空格選擇第一個候選字
+              if (this.candidates.length > 0) {
+                this.selectCandidate(0)
+              }
+            } else {
+              // 第一次按空格，作為編碼截止鍵
+              this.composingText += " "
+              // 如果添加空格後沒有候選字，但之前有前綴匹配的候選字，保留這些候選字
+              const prevCandidates = [...this.candidates]
+              this.updateCandidates()
 
-				// 如果更新後沒有候選字但之前有，則恢復之前的候選字
-				if (this.candidates.length === 0 && prevCandidates.length > 0) {
-				  this.candidates = prevCandidates;
-				  this.showCandidates();
-				}
-			  }
-			} else {
-			  // 不包含數字編碼，直接選擇第一個候選字
-			  if (this.candidates.length > 0) {
-				this.selectCandidate(0);
-			  }
-			}
-			return;
-		  case ",":
-			e.preventDefault();
-			this.navigateCandidates("prev");
-			return;
-		  case ".":
-			e.preventDefault();
-			this.navigateCandidates("next");
-			return;
-		}
+              // 如果更新後沒有候選字但之前有，則恢復之前的候選字
+              if (this.candidates.length === 0 && prevCandidates.length > 0) {
+                this.candidates = prevCandidates
+                this.showCandidates()
+              }
+            }
+          } else {
+            // 不包含數字編碼，直接選擇第一個候選字
+            if (this.candidates.length > 0) {
+              this.selectCandidate(0)
+            }
+          }
+          return
+        case ",":
+          e.preventDefault()
+          this.navigateCandidates("prev")
+          return
+        case ".":
+          e.preventDefault()
+          this.navigateCandidates("next")
+          return
+      }
 
-		// 處理數字鍵選擇候選字
-		if (e.key >= "1" && e.key <= "9") {
-		  const index = Number.parseInt(e.key) - 1;
-		  const currentIMEData = imeData[this.currentLang];
+      // 處理數字鍵選擇候選字
+      if (e.key >= "1" && e.key <= "9") {
+        const index = Number.parseInt(e.key) - 1
+        const currentIMEData = imeData[this.currentLang]
 
-		  // 檢查當前輸入法是否包含數字編碼
-		  const hasNumericCodes = Object.keys(currentIMEData.data).some((key) => /\d/.test(key));
+        // 檢查當前輸入法是否包含數字編碼
+        const hasNumericCodes = Object.keys(currentIMEData.data).some((key) => /\d/.test(key))
 
-		  if (hasNumericCodes) {
-			// 如果包含數字編碼，需要按空格後才能用數字選字
-			if (this.composingText.endsWith(" ")) {
-			  e.preventDefault();
-			  this.selectCandidate(index);
-			  return;
-			}
-		  } else {
-			// 如果不包含數字編碼，可以直接用數字選字
-			if (index < this.candidates.length) {
-			  e.preventDefault();
-			  this.selectCandidate(index);
-			  return;
-			}
-		  }
-		}
-	  }
+        if (hasNumericCodes) {
+          // 如果包含數字編碼，需要按空格後才能用數字選字
+          if (this.composingText.endsWith(" ")) {
+            e.preventDefault()
+            this.selectCandidate(index)
+            return
+          }
+        } else {
+          // 如果不包含數字編碼，可以直接用數字選字
+          if (index < this.candidates.length) {
+            e.preventDefault()
+            this.selectCandidate(index)
+            return
+          }
+        }
+      }
+    }
 
-	  // 如果是字母或數字，加入到輸入中
-	  if (/^[a-z0-9]$/i.test(e.key)) {
-		e.preventDefault();
-		this.composingText += e.key.toLowerCase();
-		this.updateCandidates();
-	  }
-	}
+    // 如果是字母或數字，加入到輸入中
+    if (/^[a-z0-9]$/i.test(e.key)) {
+      e.preventDefault()
+      this.composingText += e.key.toLowerCase()
+      this.updateCandidates()
+    }
+  }
 
   handleMobileKeyPress(key) {
     if (!this.imeActive) return
@@ -2421,11 +2420,16 @@ class IMEManager {
       // In mobile version, show punctuation marks after selecting a candidate
       if (this.isMobile) {
         this.hideMobileCandidates()
-        this.showPunctuationCandidates()
-        // Update space button text
-        this.updateSpaceButtonText()
-        // Update hide keyboard button status
-        this.updateHideKeyboardButton()
+
+        // 只顯示標點符號，但不自動選擇
+        // 延遲顯示標點符號，避免誤觸
+        setTimeout(() => {
+          this.showPunctuationCandidates()
+          // Update space button text
+          this.updateSpaceButtonText()
+          // Update hide keyboard button status
+          this.updateHideKeyboardButton()
+        }, 100)
 
         // Ensure the cursor is visible after text insertion
         setTimeout(() => {
@@ -2514,7 +2518,7 @@ class IMEManager {
     temp.style.padding = window.getComputedStyle(this.editor).padding
     temp.style.width = window.getComputedStyle(this.editor).width
 
-    // 複���編輯器內容到光標位置
+    // 複編輯器內容到光標位置
     const content = this.editor.value.substring(0, this.cursorPosition.start)
     temp.textContent = content
 
@@ -3548,4 +3552,3 @@ document.addEventListener("DOMContentLoaded", () => {
     console.error("編輯器元素未找到，無法初始化輸入法")
   }
 })
-
