@@ -290,7 +290,7 @@ class IMEManager {
     // 預設啟用輸入法
     this.activateIME()
 
-    // 確保 IME 按鈕���示為啟用狀態
+    // 確保 IME 按鈕顯示為啟用狀態
     this.imeButton.classList.add("active")
     this.editor.classList.add("editor-ime-active")
 
@@ -1224,6 +1224,7 @@ class IMEManager {
     builtInSection.className = "ime-menu-section"
 
     const builtInTitle = document.createElement("div")
+    builtInTitle.className = "ime-section-title"
     builtInTitle.className = "ime-section-title"
     builtInTitle.textContent = "內建配置"
     builtInSection.appendChild(builtInTitle)
