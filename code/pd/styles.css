@@ -1,0 +1,455 @@
+body {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: #f0f8ff; /* 淺藍色背景 */
+  background-image: url('bg01.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  color: #333; /* 主要文字色 */
+  user-select: none;
+}
+
+.game-title {
+  position: fixed;
+  top: 20px;
+  cursor: pointer;
+  font-size: 1.5em; /* 標題字體大小 */
+  font-weight: bold; /* 粗體字 */
+  text-align: center; /* 文字置中 */
+  margin-bottom: 20px; /* 與下方元素間距 */
+  text-shadow: -2px -2px 0 white,
+                2px -2px 0 white,
+               -2px  2px 0 white,
+                2px  2px 0 white; /* 添加外陰影，模擬白色外邊框 */
+}
+
+.game-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 70px 10px 30px 10px;
+  transform-origin: center;
+}
+
+.card {
+  z-index: 1;
+  width: 140px;
+  height: 90px;
+  background-color: #fff;
+  border: 5px solid #eee;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;  
+  cursor: pointer;
+  font-size: 20px;
+  position: relative;
+  border-radius: 10px;
+  padding: 0px 5px 0px 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  line-height: 1;
+}
+
+.card:hover {
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2); /* 在:hover時增加陰影效果 */
+}
+
+.card.pair-right {
+  color: #5555FF;
+}
+
+.card.selected {
+  border: 5px solid #669cff;
+  cursor: default;  
+}
+
+.matched {
+  background-color: #ddffff;
+  border: 5px solid #fefefe;
+  cursor: default;
+  animation: shakeY 0.4s ease 1;
+}
+
+@keyframes shakeY {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  25%, 75% {
+    transform: translateY(-2px);
+  }
+  50% {
+    transform: translateY(2px);
+  }
+}
+
+.card.not-match {
+  cursor: default;
+  animation: shakeX 0.4s ease 1;
+}
+
+@keyframes shakeX {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25%, 75% {
+    transform: translateX(-2px);
+  }
+  50% {
+    transform: translateX(2px);
+  }
+}
+
+.result {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 5px;
+  font-size: 3em;
+  padding: 10px;
+  display: none;
+}
+
+.alert {
+  position: absolute;
+  top: 50px;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  color: #fff;
+  background-color: #4CAF50;
+  border-radius: 5px;
+  font-size: 1.2em;
+  padding: 10px;
+}
+
+
+.start-button {
+  z-index: 2;
+  position: fixed;
+  top: 50%;
+
+  font-size: 18px;
+  background-color: #ff6666;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  outline: none;
+  border-radius: 5px;
+  padding: 10px 20px;
+}
+
+
+.timer {
+  z-index: 2;
+  font-size: 1em;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  text-shadow: -2px -2px 0 white,
+                2px -2px 0 white,
+               -2px  2px 0 white,
+                2px  2px 0 white;
+}
+
+.score {
+  font-size: 1em;
+  position: fixed;
+  top: 20px;
+  left: 20px;
+}
+
+.sparkle, .sparkleX {
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 16px;
+  z-index: 2;
+  text-shadow: -2px -2px 0 #ff,
+                2px -2px 0 #fff,
+               -2px  2px 0 #eee,
+                2px  2px 0 #eee;
+}
+
+.sparkle {
+  color: blue;
+}
+
+.sparkleX {
+  color: #ff3333;
+}
+
+
+
+
+
+
+
+
+.input-container {
+  z-index: 10;
+  display: none;
+  position: fixed;
+  box-shadow: 0px 0px 2px rgba(100, 100, 100, 0.3);
+  bottom: 30%;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+
+.button-container2 {
+  position: relative; /* 確保子元素能相對定位 */
+  background-color: #eee;
+  width: 360px;
+  height: 80px; /* 設置文本框的高度 */
+  padding: 10px 10px 10px 10px;
+  border: 0.8px solid #ddd;
+  border-bottom: none;
+  border-radius: 10px 10px 0px 0px;
+}
+
+
+
+#titleInput {
+display: block;
+  width: 275px;
+  padding: 5px 10px 5px 10px;
+  font-size: 1em;
+  border: 0px solid #ccc;
+  border-radius: 3px;
+}
+
+#titleInput:focus {
+  outline: 1.5px solid #ccc;
+}
+
+#numberSetting {
+  padding: 10px 10px 10px 10px;
+}
+
+
+#titleInput::placeholder {
+  color: #bbb;
+}
+
+
+#pairsNumberSelect, #passConditionSelect, #settingSelect {
+  padding-left: 10px;
+  font-size: 1em;
+  border: 0px solid #ccc;
+  border-radius: 3px;
+}
+
+#pairsNumberSelect:focus, #passConditionSelect:focus, #settingSelect:focus {
+  outline-color: #eee;
+}
+
+
+#passConditionLabel, #settingSelect  {
+  margin-left: 20px; 
+}
+
+#pairsNumberLabel, #passConditionLabel{
+  color: #777;
+}
+
+
+
+.button-container {
+  position: fixed;
+  margin-top: -4px;
+  background-color: #fff;
+  width: 360px;
+  height: 40px; /* 設置文本框的高度 */
+  padding: 0px 10px 0px 10px;
+  border: 0.8px solid #ddd;
+  border-top: none;
+  border-radius: 0px 0px 5px 5px;
+}
+
+.concel-input-button {
+  position: absolute;
+  right: 0px; /* 距離右邊界的距離，可以依需求調整 */
+  top: 0px; /* 距離下邊界的距離，可以依需求調整 */
+  font-size: 12px;
+  font-weight: bold;
+  border: none;
+  padding: 8px;
+  border-radius: 0px 10px 0px 0px;
+  color: #555;
+  cursor: pointer;
+}
+
+
+.show-input-button, .wesing{
+  padding: 8px;
+  font-size: 12px;
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  background-color: #669eff;
+}
+
+
+.show-input-button {
+  background-color: #ff6666;
+}
+
+
+.wesing {
+  background-color: #9420aa;
+  }
+
+
+.concel-input-button:hover{
+  background-color: #ff6666;
+  color: #fff;
+ }
+
+
+
+.wesing:hover, .show-input-button:hover{
+  transform: translateY(-3px); /* 在:hover時上移5px */
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2); /* 在:hover時增加陰影效果 */
+}
+
+
+
+
+
+.card-image {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.audio-player {
+    width: 100px;
+    height: 50px;
+}
+
+.audio-player::-webkit-media-controls-current-time-display,
+.audio-player::-webkit-media-controls-time-remaining-display,
+.audio-player::-webkit-media-controls-timeline,
+.audio-player::-webkit-media-controls-volume-slider,
+
+.audio-player::-webkit-media-controls-seek-back-button,
+.audio-player::-webkit-media-controls-seek-forward-button,
+.audio-player::-webkit-media-controls-fullscreen-button {
+    display: none !important;
+}
+
+.audio-player::-webkit-media-controls-play-button {
+    display: block !important;
+    margin: 0 auto;
+}
+
+
+.dock {
+    z-index: 999;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: #eee;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease-in-out, height 0.3s ease-in-out;
+    height: 50px;
+    transform: translateY(100%);
+}
+
+.dock.open {
+    transform: translateY(0);
+    /*height: 100px; */ /* Expanded height */
+}
+
+.dock-toggle {
+    background-color: #eee;
+    color: #555;
+    padding: 5px 10px 5px 10px;
+    cursor: pointer;
+    border: none;
+    outline: none;
+    position: absolute;
+    top: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+	box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+	border-radius: 50px 50px 0px 0px;
+}
+
+.dock-content {
+    display: none;
+    align-items: center;
+}
+
+.dock.open .dock-content {
+    display: flex;
+}
+
+.dock-content button {
+    margin: 5px;
+}
+
+
+:root {
+  --grid-columns: repeat(4, 1fr); /* 默認值 */
+}
+
+@media screen and (min-width: 700px) {
+  .game-container {
+    display: grid;
+    grid-template-columns: var(--grid-columns);
+    gap: 10px;
+  }
+}
+
+@media (max-width: 768px) {
+    .game-container {
+        height: auto; /* 調整高度自適應 */
+        overflow-y: scroll; /* 允許滾動 */
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+ruby {
+    padding: 10px 2px 2px 2px;
+	line-height: 1.2;
+}
+
+rt {
+    font-size: 0.7em;
+}
+
+.k-audio-big {
+    font-size: 3em; /* 根據需要調整大小 */
+}
+
+.k-audio-small {
+    font-size: 1.2em;
+	display: block;
+}
+
