@@ -1272,6 +1272,7 @@ class IMEManager {
         // 添加編輯按鈕
         const editBtn = document.createElement("span")
         editBtn.className = "ime-layout-edit"
+        editBtn.style.display = "flex" // 始終顯示編輯按鈕
         editBtn.innerHTML = `
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -1288,6 +1289,7 @@ class IMEManager {
         // 添加刪除按鈕
         const deleteBtn = document.createElement("span")
         deleteBtn.className = "ime-layout-delete"
+        deleteBtn.style.display = "flex" // 始終顯示刪除按鈕
         deleteBtn.innerHTML = `
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="3 6 5 6 21 6"></polyline>
@@ -3203,6 +3205,21 @@ class IMEManager {
       document.body.removeChild(editor)
     })
     buttonContainer.appendChild(cancelBtn)
+
+    // 添加刪除按鈕
+    const deleteBtn = document.createElement("button")
+    deleteBtn.className = "ime-editor-btn ime-editor-delete"
+    deleteBtn.textContent = "刪除"
+    deleteBtn.style.backgroundColor = "#d93025"
+    deleteBtn.style.color = "#ffffff"
+    deleteBtn.style.marginRight = "auto" // 將刪除按鈕推到左側
+    deleteBtn.addEventListener("click", () => {
+      if (confirm("確定要刪除此鍵盤配置嗎？")) {
+        this.deleteCustomLayout(layoutId)
+        document.body.removeChild(editor)
+      }
+    })
+    buttonContainer.appendChild(deleteBtn)
 
     const saveBtn = document.createElement("button")
     saveBtn.className = "ime-editor-btn ime-editor-save"
