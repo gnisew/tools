@@ -1,0 +1,628 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: tauhu-oo, sans-serif;
+}
+
+body {
+  background-color: #f5f5f5;
+  padding: 0px;
+  line-height: 1.6;
+}
+
+.container {
+  margin: 0 auto;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.converter-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.input-section,
+.output-section {
+  flex: 1;
+  min-width: 300px;
+}
+
+.section-title {
+  font-size: 1.2rem;
+  margin-bottom: 8px;
+  color: #444;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px;
+  border-radius: 4px;
+}
+
+.title-text {
+  font-weight: bold;
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.title-text:hover {
+  background-color: #f0f7ff;
+}
+
+.section-title span:first-child {
+  font-weight: bold; /* 加粗標題文字 */
+}
+
+.font-size-control {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+}
+
+.font-size-control select {
+  padding: 2px 5px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+}
+
+/* 文本區域容器，用於定位按鈕 */
+.textarea-container {
+  position: relative;
+  width: 100%;
+}
+
+/* 右上角按鈕容器 */
+.corner-buttons {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: flex;
+  gap: 5px;
+  z-index: 10;
+}
+
+/* 圖示按鈕樣式 */
+.icon-button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #4c8bf5;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.icon-button:hover {
+  background-color: #4c8bf5;
+  color: white;
+}
+
+textarea {
+  width: 100%;
+  height: 300px;
+  padding: 24px 24px 12px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  resize: vertical;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.output-area {
+  width: 100%;
+  height: 300px;
+  padding: 24px 24px 12px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow-y: auto;
+  font-size: 20px; /* 默認中等字體大小 */
+  line-height: 1.5;
+  background-color: #fff;
+  position: relative;
+  cursor: default;
+}
+
+/* 在 styles.css 中添加拼音編輯按鈕和輸入框的樣式 */
+
+.edit-pinyin-button {
+  background-color: #e0edff;
+  border: 1px solid #b3d4fc;
+  color: #4c8bf5;
+  font-size: 0.9em;
+}
+
+.edit-pinyin-button:hover {
+  background-color: #d0e3ff;
+}
+
+.pinyin-edit-input {
+  width: 100%;
+  padding: 5px 10px;
+  background-color: #fff;
+  border: 1px solid #4c8bf5;
+  border-radius: 3px;
+}
+
+.pinyin-edit-input span {
+  width: 100%;
+  min-height: 20px;
+}
+
+textarea:focus,
+.output-area:focus {
+  outline: none;
+  border-color: #4c8bf5;
+  box-shadow: 0 0 0 2px rgba(76, 139, 245, 0.2);
+}
+
+.button-group {
+  margin: 10px 0;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+button {
+  padding: 4px 16px;
+  background-color: #4c8bf5;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+button:hover {
+  background-color: #3a7be0;
+}
+
+button:disabled {
+  background-color: #aaa;
+  cursor: not-allowed;
+}
+
+.settings-panel {
+  width: 100%;
+  min-height: 80px; /* 與候選字面板高度一致 */
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  border: 1px solid #eee;
+  padding: 12px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+}
+
+.settings-title {
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: #555;
+}
+
+.settings-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  width: 100%;
+}
+
+.settings-option {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.settings-option select {
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+}
+
+/* 收合狀態的輸入區域 */
+.input-section.collapsed {
+  display: none;
+}
+
+/* 輸出區域在輸入區域收合時的樣式 */
+.output-section.expanded {
+  flex: 1;
+  width: 100%;
+}
+
+/* 固定候選字面板樣式 */
+.fixed-candidate-panel {
+  width: 100%;
+  min-height: 80px; /* 增加高度 */
+  background-color: #f0f7ff;
+  border: 1px solid #d0e3ff;
+  border-radius: 4px;
+  padding: 12px; /* 增加內邊距 */
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+}
+
+.candidate-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0px; /* 增加間距 */
+  width: 100%;
+}
+
+/* 新增浮動提示樣式 */
+.floating-notification {
+  position: fixed;
+  top: 10%;
+  right: 10%;
+  padding: 10px 15px;
+  background-color: #4c8bf5;
+  color: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  font-size: 14px;
+  z-index: 1000;
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: opacity 0.3s, transform 0.3s;
+  pointer-events: none;
+  max-width: 300px;
+  text-align: center;
+}
+
+.floating-notification.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.dictionary-panel {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  border: 1px solid #eee;
+}
+
+.dictionary-input {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+
+.dictionary-input input {
+  flex: 1;
+  min-width: 150px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.dictionary-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  padding: 5px;
+  background-color: #fff;
+  border-radius: 3px;
+}
+
+.dictionary-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.dictionary-action {
+  padding: 2px 5px;
+  background-color: #eee;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.dictionary-action:hover {
+  background-color: #ddd;
+}
+
+.delete-word {
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
+.delete-word:hover {
+  background-color: #ffcdd2;
+}
+
+.toggle-dictionary-btn {
+  margin-top: 20px;
+  background-color: #f5f5f5;
+  color: #333;
+  border: 1px solid #ddd;
+}
+
+.toggle-dictionary-btn:hover {
+  background-color: #e0e0e0;
+}
+
+.tooltip {
+  position: relative;
+  display: inline-block;
+  margin-left: 5px;
+  width: 16px;
+  height: 16px;
+  z-index: 999;
+  background-color: #eee;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 16px;
+  font-size: 12px;
+  color: #666;
+}
+
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 200px;
+  background-color: #555;
+  color: #fff;
+  text-align: center;
+  border-radius: 4px;
+  padding: 5px;
+  position: absolute;
+  z-index: 999;
+  bottom: 125%;
+  left: 50%;
+  margin-left: -100px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  font-size: 12px;
+}
+
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+  opacity: 1;
+}
+
+.char-hover {
+  position: relative;
+  display: inline-block;
+  cursor: default;
+  user-select: text;
+}
+
+.char-hover::selection,
+.char-hover *::selection {
+  background-color: #b3d4fc; /* 自定義選取顏色 */
+  color: inherit;
+}
+
+.output-area::selection,
+.output-area *::selection {
+  background-color: #b3d4fc; /* 確保整個輸出區域的選取顏色一致 */
+  color: inherit;
+}
+
+.char-hover .pinyin-hint {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #333;
+  color: white;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.char-hover:hover .pinyin-hint {
+  opacity: 1;
+}
+
+/* Ruby 標注樣式 */
+ruby {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  vertical-align: baseline;
+  line-height: 1.2;
+  margin: 0 2px;
+  cursor: default;
+}
+
+ruby.ruby-top {
+  flex-direction: column-reverse;
+  vertical-align: bottom;
+}
+
+ruby.ruby-bottom {
+  flex-direction: column;
+}
+
+rt {
+  font-size: 0.6em;
+  text-align: center;
+  color: #666;
+  line-height: 1;
+}
+
+.status-flash {
+  color: #4c8bf5;
+  font-weight: bold;
+  animation: flash-message 2s ease-in-out;
+}
+
+@keyframes flash-message {
+  0% {
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 候選項編號樣式 */
+.candidate-index {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  font-size: 10px;
+  color: #666;
+  line-height: 1;
+}
+
+/* 修改候選字樣式，使其支持編號定位 */
+.candidate-word {
+  position: relative;
+  display: inline-block;
+  margin: 2px;
+  padding: 5px 10px;
+  padding-left: 12px;
+  padding-top: 7px;
+  background-color: #f0f7ff;
+  border: 1px solid #d0e3ff;
+  border-radius: 3px;
+  cursor: default;
+  font-size: 18px;
+}
+
+.candidate-word:hover {
+  background-color: #e0edff;
+}
+
+.char-selected {
+  background-color: #b3d4fc;
+  border-radius: 2px;
+}
+
+.ruby-container.char-selected ruby {
+  background-color: #b3d4fc;
+  border-radius: 2px;
+}
+
+/* 多選模式下的樣式 */
+.char-multiselect {
+  background-color: #ffcdd2;
+  border-radius: 2px;
+}
+
+.ruby-container.char-multiselect ruby {
+  background-color: #ffcdd2;
+  border-radius: 2px;
+}
+
+/* 修改手機版樣式 */
+@media (max-width: 768px) {
+  body {
+    padding: 10px;
+    /* 啟用平滑滾動，讓整頁滾動更流暢 */
+    scroll-behavior: smooth;
+    /* 設定滾動貼齊，讓滾動停在區塊邊界 */
+    scroll-snap-type: y proximity;
+  }
+
+  .container {
+    padding: 15px;
+    /* 確保容器可以滿足滾動貼齊 */
+    scroll-snap-align: start;
+  }
+
+  .converter-wrapper {
+    flex-direction: column;
+    /* 增加間距，讓區塊更分明 */
+    gap: 30px;
+  }
+
+  .input-section,
+  .output-section {
+    width: 100%;
+    /* 設定滾動貼齊，讓滾動停在區塊邊界 */
+    scroll-snap-align: start;
+    /* 增加底部間距，讓區塊更分明 */
+    padding-bottom: 20px;
+  }
+
+  /* 增加輸入區域高度 */
+  textarea {
+    height: 450px;
+  }
+
+  /* 增加輸出區域高度 */
+  .output-area {
+    height: 450px;
+  }
+
+  /* 收合時的輸出區域高度更大 */
+  .output-section.expanded .output-area {
+    height: 500px;
+  }
+
+  /* 未收合時的輸入區域也要有足夠高度 */
+  .input-section:not(.collapsed) textarea {
+    height: 350px;
+  }
+
+  .settings-options {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .dictionary-input {
+    flex-direction: column;
+  }
+
+  .button-group {
+    justify-content: center;
+  }
+
+  .section-title {
+    padding: 10px;
+    font-size: 16px;
+    background-color: #f5f5f5;
+    border-radius: 6px;
+    margin-bottom: 12px;
+  }
+
+  .fixed-candidate-panel {
+    min-height: 100px;
+  }
+
+  .font-size-control {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  /* 調整手機版浮動提示位置 */
+  .floating-notification {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: calc(100% - 20px);
+  }
+}
