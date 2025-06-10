@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>英語動詞三態學習 📚</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .mode-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .tab-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+            backdrop-filter: blur(10px);
+        }
+
+        .tab-btn.active {
+            background: white;
+            color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .content-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .verb-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .verb-card {
+            background: #f8f9ff;
+            border-radius: 15px;
+            padding: 20px;
+            border-left: 5px solid #667eea;
+            transition: transform 0.3s;
+        }
+
+        .verb-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .verb-forms {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .verb-form {
+            text-align: center;
+            flex: 1;
+        }
+
+        .verb-form h4 {
+            color: #667eea;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .verb-word {
+            background: #667eea;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .verb-word:hover {
+            background: #5a6fd8;
+            transform: scale(1.05);
+        }
+
+        .chinese-meaning {
+            color: #666;
+            font-size: 14px;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        .single-verb-view {
+            text-align: center;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .single-verb-card {
+            background: #f8f9ff;
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+
+        .verb-navigation {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .nav-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .nav-btn:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+
+        .verb-counter {
+            color: #667eea;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .examples {
+            margin-top: 30px;
+            text-align: left;
+        }
+
+        .example-item {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .example-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .example-en {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .example-zh {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .auto-play-btn {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 20px 0;
+            transition: all 0.3s;
+        }
+
+        .auto-play-btn:hover {
+            background: #ff5252;
+            transform: scale(1.05);
+        }
+
+        .quiz-section {
+            text-align: center;
+        }
+
+        .quiz-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .quiz-card {
+            background: #f8f9ff;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .quiz-question {
+            font-size: 18px;
+            margin-bottom: 30px;
+            color: #333;
+        }
+
+        .quiz-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .quiz-option {
+            background: white;
+            border: 2px solid #ddd;
+            padding: 15px;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .quiz-option:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .quiz-option.correct {
+            background: #4caf50;
+            color: white;
+            border-color: #4caf50;
+        }
+
+        .quiz-option.wrong {
+            background: #f44336;
+            color: white;
+            border-color: #f44336;
+        }
+
+        .quiz-result {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .score {
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            font-size: 18px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .verb-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .quiz-options {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>英語動詞三態學習 📚✨</h1>
+            <p>學習英文動詞變化，輕鬆掌握時態！🎯</p>
+        </div>
+
+        <div class="mode-tabs">
+            <button class="tab-btn active" onclick="showMode('all')">📖 全部動詞</button>
+            <button class="tab-btn" onclick="showMode('single')">🎯 單個學習</button>
+            <button class="tab-btn" onclick="showMode('quiz')">🧩 測驗模式</button>
+        </div>
+
+        <!-- 全部動詞模式 -->
+        <div id="all-mode" class="content-section">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #667eea;">🌟 所有動詞三態</h2>
+            <div class="verb-grid" id="verb-grid"></div>
+        </div>
+
+        <!-- 單個動詞模式 -->
+        <div id="single-mode" class="content-section hidden">
+            <div class="single-verb-view">
+                <div class="verb-navigation">
+                    <button class="nav-btn" onclick="previousVerb()">⬅️ 上一個</button>
+                    <span class="verb-counter" id="verb-counter">1 / 77</span>
+                    <button class="nav-btn" onclick="nextVerb()">下一個 ➡️</button>
+                </div>
+                
+                <div class="single-verb-card" id="single-verb-card"></div>
+                
+                <button class="auto-play-btn" onclick="autoPlay()">🔊 自動播放全部</button>
+            </div>
+        </div>
+
+        <!-- 測驗模式 -->
+        <div id="quiz-mode" class="content-section hidden">
+            <div class="quiz-section">
+                <h2 style="text-align: center; margin-bottom: 20px; color: #667eea;">🧠 動詞測驗</h2>
+                
+                <div class="quiz-controls">
+                    <button class="nav-btn" onclick="setQuizMode('sequential')">📝 依序測驗</button>
+                    <button class="nav-btn" onclick="setQuizMode('random')">🎲 隨機測驗</button>
+                    <button class="nav-btn" onclick="resetQuiz()">🔄 重新開始</button>
+                </div>
+                
+                <div class="score" id="quiz-score">得分: 0 / 0 🌟</div>
+                
+                <div class="quiz-card" id="quiz-card">
+                    <div class="quiz-question" id="quiz-question">點擊上方按鈕開始測驗！</div>
+                    <div class="quiz-options" id="quiz-options"></div>
+                    <div class="quiz-result" id="quiz-result"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 動詞資料
+        const verbs = [
+            {chinese: "傷害", present: "hurt", past: "hurt", pastParticiple: "hurt"},
+            {chinese: "切割", present: "cut", past: "cut", pastParticiple: "cut"},
+            {chinese: "花費", present: "cost", past: "cost", pastParticiple: "cost"},
+            {chinese: "放置", present: "put", past: "put", pastParticiple: "put"},
+            {chinese: "讓", present: "let", past: "let", pastParticiple: "let"},
+            {chinese: "碰撞", present: "hit", past: "hit", pastParticiple: "hit"},
+            {chinese: "閱讀", present: "read", past: "read", pastParticiple: "read"},
+            {chinese: "關閉", present: "shut", past: "shut", pastParticiple: "shut"},
+            {chinese: "說", present: "say", past: "said", pastParticiple: "said"},
+            {chinese: "付費", present: "pay", past: "paid", pastParticiple: "paid"},
+            {chinese: "賣", present: "sell", past: "sold", pastParticiple: "sold"},
+            {chinese: "告訴", present: "tell", past: "told", pastParticiple: "told"},
+            {chinese: "趕上；接住", present: "catch", past: "caught", pastParticiple: "caught"},
+            {chinese: "教導", present: "teach", past: "taught", pastParticiple: "taught"},
+            {chinese: "打架", present: "fight", past: "fought", pastParticiple: "fought"},
+            {chinese: "買", present: "buy", past: "bought", pastParticiple: "bought"},
+            {chinese: "帶來", present: "bring", past: "brought", pastParticiple: "brought"},
+            {chinese: "思考；想", present: "think", past: "thought", pastParticiple: "thought"},
+            {chinese: "有；吃", present: "have", past: "had", pastParticiple: "had"},
+            {chinese: "聽到", present: "hear", past: "heard", pastParticiple: "heard"},
+            {chinese: "製造；做", present: "make", past: "made", pastParticiple: "made"},
+            {chinese: "建築；建造", present: "build", past: "built", pastParticiple: "built"},
+            {chinese: "借出", present: "lend", past: "lent", pastParticiple: "lent"},
+            {chinese: "寄", present: "send", past: "sent", pastParticiple: "sent"},
+            {chinese: "花費", present: "spend", past: "spent", pastParticiple: "spent"},
+            {chinese: "挖", present: "dig", past: "dug", pastParticiple: "dug"},
+            {chinese: "坐", present: "sit", past: "sat", pastParticiple: "sat"},
+            {chinese: "得到", present: "get", past: "got", pastParticiple: "got/gotten"},
+            {chinese: "忘記", present: "forget", past: "forgot", pastParticiple: "forgot/forgotten"},
+            {chinese: "投射；開槍", present: "shoot", past: "shot", pastParticiple: "shot"},
+            {chinese: "輸掉", present: "lose", past: "lost", pastParticiple: "lost"},
+            {chinese: "贏", present: "win", past: "won", pastParticiple: "won"},
+            {chinese: "抓住；保持", present: "hold", past: "held", pastParticiple: "held"},
+            {chinese: "感覺", present: "feel", past: "felt", pastParticiple: "felt"},
+            {chinese: "保留", present: "keep", past: "kept", pastParticiple: "kept"},
+            {chinese: "睡覺", present: "sleep", past: "slept", pastParticiple: "slept"},
+            {chinese: "掃", present: "sweep", past: "swept", pastParticiple: "swept"},
+            {chinese: "離開；留下", present: "leave", past: "left", pastParticiple: "left"},
+            {chinese: "意指", present: "mean", past: "meant", pastParticiple: "meant"},
+            {chinese: "遇見", present: "meet", past: "met", pastParticiple: "met"},
+            {chinese: "餵養", present: "feed", past: "fed", pastParticiple: "fed"},
+            {chinese: "懸掛", present: "hang", past: "hung", pastParticiple: "hung"},
+            {chinese: "站立", present: "stand", past: "stood", pastParticiple: "stood"},
+            {chinese: "找到", present: "find", past: "found", pastParticiple: "found"},
+            {chinese: "擊；敲打", present: "beat", past: "beat", pastParticiple: "beaten"},
+            {chinese: "跑步", present: "run", past: "ran", pastParticiple: "run"},
+            {chinese: "來", present: "come", past: "came", pastParticiple: "come"},
+            {chinese: "變成", present: "become", past: "became", pastParticiple: "become"},
+            {chinese: "be 動詞", present: "be", past: "was/were", pastParticiple: "been"},
+            {chinese: "去", present: "go", past: "went", pastParticiple: "gone"},
+            {chinese: "做", present: "do", past: "did", pastParticiple: "done"},
+            {chinese: "唱歌", present: "sing", past: "sang", pastParticiple: "sung"},
+            {chinese: "鈴響", present: "ring", past: "rang", pastParticiple: "rung"},
+            {chinese: "喝", present: "drink", past: "drank", pastParticiple: "drunk"},
+            {chinese: "開始", present: "begin", past: "began", pastParticiple: "begun"},
+            {chinese: "游泳", present: "swim", past: "swam", pastParticiple: "swum"},
+            {chinese: "說", present: "speak", past: "spoke", pastParticiple: "spoken"},
+            {chinese: "醒", present: "wake", past: "woke", pastParticiple: "woken"},
+            {chinese: "偷", present: "steal", past: "stole", pastParticiple: "stolen"},
+            {chinese: "打破", present: "break", past: "broke", pastParticiple: "broken"},
+            {chinese: "選擇", present: "choose", past: "chose", pastParticiple: "chosen"},
+            {chinese: "穿", present: "wear", past: "wore", pastParticiple: "worn"},
+            {chinese: "撕裂", present: "tear", past: "tore", pastParticiple: "torn"},
+            {chinese: "忍受；生", present: "bear", past: "bore", pastParticiple: "born"},
+            {chinese: "開車", present: "drive", past: "drove", pastParticiple: "driven"},
+            {chinese: "掉落", present: "fall", past: "fell", pastParticiple: "fallen"},
+            {chinese: "騎", present: "ride", past: "rode", pastParticiple: "ridden"},
+            {chinese: "寫", present: "write", past: "wrote", pastParticiple: "written"},
+            {chinese: "咬", present: "bite", past: "bit", pastParticiple: "bitten"},
+            {chinese: "躲藏", present: "hide", past: "hid", pastParticiple: "hidden"},
+            {chinese: "認識；知道", present: "know", past: "knew", pastParticiple: "known"},
+            {chinese: "成長；種植", present: "grow", past: "grew", pastParticiple: "grown"},
+            {chinese: "吹", present: "blow", past: "blew", pastParticiple: "blown"},
+            {chinese: "投；擲", present: "throw", past: "threw", pastParticiple: "thrown"},
+            {chinese: "飛", present: "fly", past: "flew", pastParticiple: "flown"},
+            {chinese: "展現", present: "show", past: "showed", pastParticiple: "shown"},
+            {chinese: "畫；繪製", present: "draw", past: "drew", pastParticiple: "drawn"}
+        ];
+
+        let currentVerbIndex = 0;
+        let quizMode = 'sequential';
+        let quizIndex = 0;
+        let quizScore = 0;
+        let quizTotal = 0;
+        let isAnswered = false;
+
+        // 生成例句
+        function generateExamples(verb) {
+            return [
+                {
+                    en: `I ${verb.present} every day.`,
+                    zh: `我每天${verb.chinese}。`,
+                    tense: 'present'
+                },
+                {
+                    en: `I ${verb.past} yesterday.`,
+                    zh: `我昨天${verb.chinese}了。`,
+                    tense: 'past'
+                },
+                {
+                    en: `I have ${verb.pastParticiple}.`,
+                    zh: `我已經${verb.chinese}了。`,
+                    tense: 'perfect'
+                }
+            ];
+        }
+
+        // 語音播放
+        function playSound(text) {
+            const audio = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=en&client=tw-ob`);
+            audio.play().catch(e => console.log('語音播放失敗:', e));
+        }
+
+        // 初始化全部動詞視圖
+        function initAllVerbsView() {
+            const grid = document.getElementById('verb-grid');
+            grid.innerHTML = '';
+            
+            verbs.forEach(verb => {
+                const card = document.createElement('div');
+                card.className = 'verb-card';
+                card.innerHTML = `
+                    <div class="verb-forms">
+                        <div class="verb-form">
+                            <h4>現在式</h4>
+                            <div class="verb-word" onclick="playSound('${verb.present}')">${verb.present}</div>
+                        </div>
+                        <div class="verb-form">
+                            <h4>過去式</h4>
+                            <div class="verb-word" onclick="playSound('${verb.past}')">${verb.past}</div>
+                        </div>
+                        <div class="verb-form">
+                            <h4>過去分詞</h4>
+                            <div class="verb-word" onclick="playSound('${verb.pastParticiple}')">${verb.pastParticiple}</div>
+                        </div>
+                    </div>
+                    <div class="chinese-meaning">🇹🇼 ${verb.chinese}</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // 更新單個動詞視圖
+        function updateSingleVerbView() {
+            const verb = verbs[currentVerbIndex];
+            const examples = generateExamples(verb);
+            
+            document.getElementById('verb-counter').textContent = `${currentVerbIndex + 1} / ${verbs.length}`;
+            
+            const card = document.getElementById('single-verb-card');
+            card.innerHTML = `
+                <h3 style="color: #667eea; margin-bottom: 20px;">🇹🇼 ${verb.chinese}</h3>
+                <div class="verb-forms">
+                    <div class="verb-form">
+                        <h4>現在式</h4>
+                        <div class="verb-word" onclick="playSound('${verb.present}')">${verb.present}</div>
+                    </div>
+                    <div class="verb-form">
+                        <h4>過去式</h4>
+                        <div class="verb-word" onclick="playSound('${verb.past}')">${verb.past}</div>
+                    </div>
+                    <div class="verb-form">
+                        <h4>過去分詞</h4>
+                        <div class="verb-word" onclick="playSound('${verb.pastParticiple}')">${verb.pastParticiple}</div>
+                    </div>
+                </div>
+                <div class="examples">
+                    <h4 style="color: #667eea; margin-bottom: 15px;">📝 例句</h4>
+                    ${examples.map(ex => `
+                        <div class="example-item" onclick="playSound('${ex.en}')">
+                            <div class="example-en">🔊 ${ex.en}</div>
+                            <div class="example-zh">${ex.zh}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // 自動播放
+        async function autoPlay() {
+            const verb = verbs[currentVerbIndex];
+            const examples = generateExamples(verb);
+            
+            const items = [
+                verb.present,
+                verb.past,
+                verb.pastParticiple,
+                ...examples.map(ex => ex.en)
+            ];
+            
+            for (let i = 0; i < items.length; i++) {
+                playSound(items[i]);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+        }
+
+        // 導航功能
+        function previousVerb() {
+            currentVerbIndex = currentVerbIndex > 0 ? currentVerbIndex - 1 : verbs.length - 1;
+            updateSingleVerbView();
+        }
+
+        function nextVerb() {
+            currentVerbIndex = currentVerbIndex < verbs.length - 1 ? currentVerbIndex + 1 : 0;
+            updateSingleVerbView();
+        }
+
+        // 模式切換
+        function showMode(mode) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.content-section').forEach(section => section.classList.add('hidden'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`${mode}-mode`).classList.remove('hidden');
+            
+            if (mode === 'single') {
+                updateSingleVerbView();
+            }
+        }
+
+        // 測驗功能
+        function setQuizMode(mode) {
+            quizMode = mode;
+            quizIndex = 0;
+            quizScore = 0;
+            quizTotal = 0;
+            isAnswered = false;
+            updateQuizScore();
+            generateQuizQuestion();
+        }
+
+        function resetQuiz() {
+            quizIndex = 0;
+            quizScore = 0;
+            quizTotal = 0;
+            isAnswered = false;
+            updateQuizScore();
+            document.getElementById('quiz-question').textContent = '點擊上方按鈕開始測驗！';
+            document.getElementById('quiz-options').innerHTML = '';
+            document.getElementById('quiz-result').innerHTML = '';
+        }
+
+        function generateQuizQuestion() {
+            if (quizIndex >= verbs.length && quizMode === 'sequential') {
+                showQuizComplete();
+                return;
+            }
+            
+            const verbIndex = quizMode === 'random' ? Math.floor(Math.random() * verbs.length) : quizIndex;
+            const verb = verbs[verbIndex];
+            const examples = generateExamples(verb);
+            const selectedExample = examples[Math.floor(Math.random() * examples.length)];
+            
+            // 隨機選擇要測驗的動詞形式
+            const forms = ['present', 'past', 'pastParticiple'];
+            const targetForm = forms[Math.floor(Math.random() * forms.length)];
+            const correctAnswer = verb[targetForm];
+            
+            // 生成干擾選項
+            const allAnswers = verbs.map(v => v[targetForm]).filter(answer => answer !== correctAnswer);
+            const wrongAnswers = [];
+            while (wrongAnswers.length < 3 && allAnswers.length > 0) {
+                const randomAnswer = allAnswers[Math.floor(Math.random() * allAnswers.length)];
+                if (!wrongAnswers.includes(randomAnswer)) {
+                    wrongAnswers.push(randomAnswer);
+                }
+                allAnswers.splice(allAnswers.indexOf(randomAnswer), 1);
+            }
+            
+            const options = [correctAnswer, ...wrongAnswers].sort(() => Math.random() - 0.5);
+            
+            // 建立題目，將動詞用括號標示
+            const questionText = selectedExample.en.replace(
+                new RegExp(`\\b${selectedExample.en.split(' ').find(word => 
+                    verb.present === word.toLowerCase() || 
+                    verb.past === word.toLowerCase() || 
+                    verb.pastParticiple === word.toLowerCase().replace(/[^a-z]/g, '')
+                )}\\b`, 'i'), 
+                '( __ )'
+            );
+            
+            document.getElementById('quiz-question').innerHTML = `
+                <div onclick="playSound('${selectedExample.en}')" style="cursor: pointer;">
+                    🔊 ${questionText}
+                </div>
+                <div style="font-size: 14px; color: #666; margin-top: 10px;">
+                    ${selectedExample.zh}
+                </div>
+                <div style="font-size: 14px; color: #667eea; margin-top: 10px;">
+                    請選擇正確的${targetForm === 'present' ? '現在式' : targetForm === 'past' ? '過去式' : '過去分詞'}動詞
+                </div>
+            `;
+            
+            const optionsDiv = document.getElementById('quiz-options');
+            optionsDiv.innerHTML = '';
+            
+            options.forEach(option => {
+                const optionBtn = document.createElement('div');
+                optionBtn.className = 'quiz-option';
+                optionBtn.textContent = option;
+                optionBtn.onclick = () => selectQuizAnswer(option, correctAnswer, optionBtn);
+                optionsDiv.appendChild(optionBtn);
+            });
+            
+            document.getElementById('quiz-result').innerHTML = '';
+            isAnswered = false;
+            
+            if (quizMode === 'sequential') {
+                quizIndex++;
+            }
+        }
+
+        function selectQuizAnswer(selected, correct, buttonElement) {
+            if (isAnswered) return;
+            
+            isAnswered = true;
+            quizTotal++;
+            
+            const options = document.querySelectorAll('.quiz-option');
+            options.forEach(option => {
+                if (option.textContent === correct) {
+                    option.classList.add('correct');
+                } else if (option === buttonElement && selected !== correct) {
+                    option.classList.add('wrong');
+                }
+                option.style.pointerEvents = 'none';
+            });
+            
+            if (selected === correct) {
+                quizScore++;
+                document.getElementById('quiz-result').innerHTML = '✅ 正確！';
+                playSound(correct);
+            } else {
+                document.getElementById('quiz-result').innerHTML = `❌ 錯誤！正確答案是：${correct}`;
+                playSound(correct);
+            }
+            
+            updateQuizScore();
+            
+            setTimeout(() => {
+                if (quizMode === 'random' || quizIndex < verbs.length) {
+                    generateQuizQuestion();
+                }
+            }, 2000);
+        }
+
+        function updateQuizScore() {
+            document.getElementById('quiz-score').textContent = `得分: ${quizScore} / ${quizTotal} 🌟`;
+        }
+
+        function showQuizComplete() {
+            const percentage = Math.round((quizScore / quizTotal) * 100);
+            let emoji = '🎉';
+            let message = '';
+            
+            if (percentage >= 90) {
+                emoji = '🏆';
+                message = '太棒了！你是動詞高手！';
+            } else if (percentage >= 70) {
+                emoji = '👏';
+                message = '做得很好！繼續加油！';
+            } else if (percentage >= 50) {
+                emoji = '💪';
+                message = '不錯喔！多練習會更好！';
+            } else {
+                emoji = '📚';
+                message = '需要多練習，加油！';
+            }
+            
+            document.getElementById('quiz-question').innerHTML = `
+                <div style="font-size: 24px; margin-bottom: 20px;">${emoji}</div>
+                <div style="font-size: 20px; color: #667eea; margin-bottom: 10px;">測驗完成！</div>
+                <div style="font-size: 16px; color: #666;">${message}</div>
+                <div style="font-size: 18px; margin-top: 20px; color: #333;">
+                    最終得分: ${quizScore} / ${quizTotal} (${percentage}%)
+                </div>
+            `;
+            document.getElementById('quiz-options').innerHTML = '';
+            document.getElementById('quiz-result').innerHTML = '';
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initAllVerbsView();
+            updateSingleVerbView();
+        });
+    </script>
+</body>
+</html>
