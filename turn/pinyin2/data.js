@@ -46,7 +46,7 @@ const matsuPinyinToBpm = (function() {
     const consonantKeys = Array.from(consonantMap.keys()).sort((a, b) => b.length - a.length);
     
     // 韻母匹配正則（按長度從長到短）
-    const vowelRegex = new RegExp(`\\b(tsh|ph|th|kh|ts|[pmtnlkhjsb])?(${vowelKeys.join('|')})([fvzsx1234578]?)\\b`, 'gi');
+    const vowelRegex = new RegExp(`\\b(tsh|ph|th|kh|ts|ng|[pmtnlkhjsb])?(${vowelKeys.join('|')})([fvzsx1234578]?)\\b`, 'gi');
     
     // 聲母匹配正則
     const consonantRegex = new RegExp(`\\b(${consonantKeys.join('|')})(?=[廿ㄞㄠㄟㄧㄡㄛㄨㄩㄤㄚㄢㄝ兀])`, 'gi');
@@ -121,7 +121,7 @@ const matsuZvsToTone = (function() {
     const toneMap = { f: '⁺', v: 'ˇ', z: 'ˊ', s: 'ˋ', x: 'ˆ' };
     
     // 基本模式
-    const basePattern = `\\b(tsh|ph|th|kh|ts|[pmtnlkhjsb])?([aeiouy]{1,3})`;    
+    const basePattern = `\\b(tsh|ph|th|kh|ts|ng|[pmtnlkhjsb])?([aeiouy]{1,3})`;    
     // 鼻音結尾正則
     const nasalRegex = new RegExp(`${basePattern}(ng|[mn]?)([fvzsx]?)\\b`, 'gi');    
     // 塞音結尾正則
@@ -156,7 +156,7 @@ const matsuZvsToNumber = (function() {
     const toneMap = { f: '2', v: '3', z: '4', s: '5', x: '7' };
     
     // 基本模式
-    const basePattern = `\\b(tsh|ph|th|kh|ts|[pmtnlkhjsb])?([aeiouy]{1,3})`;    
+    const basePattern = `\\b(tsh|ph|th|kh|ts|ng|[pmtnlkhjsb])?([aeiouy]{1,3})`;    
     // 鼻音結尾正則
     const nasalRegex = new RegExp(`${basePattern}(ng|[mn]?)([fvzsx]?)\\b`, 'gi');    
     // 塞音結尾正則
@@ -193,7 +193,7 @@ const matsuNumberToZvs = (function() {
     // 1 和 8 會被刪除 (對應到空字串)
     
     // 基本模式
-    const basePattern = `\\b(tsh|ph|th|kh|ts|[pmtnlkhjsb])?([aeiouy]{1,3})`;
+    const basePattern = `\\b(tsh|ph|th|kh|ts|ng|[pmtnlkhjsb])?([aeiouy]{1,3})`;
     
     // 鼻音結尾 + 數字
     const nasalRegex = new RegExp(`${basePattern}(ng|[mn]?)([1234578])\\b`, 'gi');
@@ -233,7 +233,7 @@ const matsuNumberToTone = (function() {
     // 1 和 8 會被刪除 (對應到空字串)
     
     // 基本模式
-    const basePattern = `\\b(tsh|ph|th|kh|ts|[pmtnlkhjsb])?([aeiouy]{1,3})`;
+    const basePattern = `\\b(tsh|ph|th|kh|ts|ng|[pmtnlkhjsb])?([aeiouy]{1,3})`;
     
     // 鼻音結尾 + 數字
     const nasalRegex = new RegExp(`${basePattern}(ng|[mn]?)([1234578])\\b`, 'gi');
@@ -281,7 +281,7 @@ const matsuToneToZvs = (function() {
     };
     
     // 完整模式：字元邊界 + 聲母 + 韻母 + 韻尾 + 尾調形（後面不能接字母）
-    const completeRegex = new RegExp(`\\b(tsh|ph|th|kh|ts|[pmtnlkhjsb])?([aeiouy]{1,3})(ng|[mnptkh])?([⁺ˇˊˋˆ+^])(?![a-zA-Z])`, 'gi');
+    const completeRegex = new RegExp(`\\b(tsh|ph|th|kh|ts|ng|[pmtnlkhjsb])?([aeiouy]{1,3})(ng|[mnptkh])?([⁺ˇˊˋˆ+^])(?![a-zA-Z])`, 'gi');
     
     return function(text) {
         if (!text || typeof text !== 'string') {
@@ -313,7 +313,7 @@ const matsuToneToNumber = (function() {
     };
     
     // 基本模式
-    const basePattern = `\\b(tsh|ph|th|kh|ts|[pmtnlkhjsb])?([aeiouy]{1,3})`;
+    const basePattern = `\\b(tsh|ph|th|kh|ts|ng|[pmtnlkhjsb])?([aeiouy]{1,3})`;
     // 有調號的音節（調號必須在音節最後）
     const withToneRegex = new RegExp(`${basePattern}(ng|[mnptkh])?([⁺ˇˊˋˆ+^])(?![a-zA-Z])`, 'gi');
     // 無調號但有韻尾的音節（加 8 調）- 確保後面沒有數字
@@ -389,32 +389,21 @@ const matsuToneToNumber = (function() {
 
 
 	//變調
-    t=t.replace(/([aeiouymg])([vxz]{0,1})(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([s]{0,1})(\b)/gi,'$1f$3$4$5$6$7');
-    t=t.replace(/(h)([vxz]{0,1})(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([s]{0,1})(\b)/gi,'f$3$4$5$6$7');
+    t=t.replace(/([aeiouymg])([vx]{0,1})(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([s]{0,1})(\b)/gi,'$1f$3$4$5$6$7');
+    t=t.replace(/(h)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([s]{0,1})(\b)/gi,'f$2$3$4$5$6');
+    t=t.replace(/([aeiouymg])([vx]{0,1})(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([fvzx]{0,1})(\b)/gi,'$1s$3$4$5$6$7');
+    t=t.replace(/(h)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([fvzx]{0,1})(\b)/gi,'s$2$3$4$5$6');
 
-    t=t.replace(/([aeiouymgh])([vxz]{0,1})(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([fvxz])(\b)/gi,'$1s$3$4$5$6$7');
-    t=t.replace(/(h)([vxz]{0,1})(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([fvxz])(\b)/gi,'s$3$4$5$6$7');
+    t=t.replace(/([aeiouymg])(f)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([s]{0,1})(\b)/gi,'$1v$3$4$5$6$7');
+    t=t.replace(/(h)(z)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([s]{0,1})(\b)/gi,'v$3$4$5$6$7');
+    t=t.replace(/([aeiouymg])(f)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([vzx)(\b)/gi,'$1$3$4$5$6$7');
+    t=t.replace(/(h)(z)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([vzx])(\b)/gi,'$3$4$5$6$7');
+    t=t.replace(/([aeiouymg])(f)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([f])(\b)/gi,'$1z$3$4$5$6$7');
+    t=t.replace(/(h)(z)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([f])(\b)/gi,'z$3$4$5$6$7');
 
-    t=t.replace(/([aeiouymg])([f])(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([s]{0,1})(\b)/gi,'$1v$3$4$5$6$7');
-
-    t=t.replace(/([aeiouymg])([f])(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouyng]{1,5})(f)(\b)/gi,'$1z$3$4$5$6$7');
-
-    t=t.replace(/([aeiouymg])([f])(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([vxz])(\b)/gi,'$1$3$4$5$6$7');
-
-    t=t.replace(/(k)([z])(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([s]{0,1})(\b)/gi,'hv$3$4$5$6$7');
-
-    t=t.replace(/(k)([z])(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})(f)(\b)/gi,'hz$3$4$5$6$7');
-
-    t=t.replace(/(k)([z])(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([vxz])(\b)/gi,'h$3$4$5$6$7');
-
-    t=t.replace(/(k)()(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([s]{0,1})(\b)/gi,'hf$3$4$5$6$7');
-    t=t.replace(/(h)()(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([s]{0,1})(\b)/gi,'f$3$4$5$6$7');
-
-    t=t.replace(/(h)()(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([fvxz])(\b)/gi,'s$3$4$5$6$7');
-
-    t=t.replace(/(k)()(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([fvxz])(\b)/gi,'h$3$4$5$6$7');
-
-
+    t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouyng]{1,5})(\b)/gi,'$1f$3$4$5$6$7');
+    t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouyng]{1,5})([fvzsx])(\b)/gi,'$1v$3$4$5$6$7');
+    t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouyng]{1,5})([hk])(\b)/gi,'$1v$3$4$5$6$7');
 
 
     t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouyng]{1,5})()(\b)/gi,'$1f$3$4$5$6$7');
