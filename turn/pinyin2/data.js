@@ -79,7 +79,7 @@ const matsuPinyinToBpm = (function() {
 
 // 馬祖注音轉拼音
 const matsuBpmToPinyin = (function() {
-	const bpmData =`ㄘ	tsh_ㄑ	tsh_ㄆ	ph_ㄊ	th_ㄎ	kh_ㄗ	ts_ㄐ	ts_ㄅ	p_ㄇ	m_ㄉ	t_ㄋ	n_ㄌ	l_ㄍ	k_ㄏ	h_ㄖ	j_ㄙ	s_ㄒ	s_勺	b_廿	oe_ㄞ	ai_ㄠ	au_ㄟ	ei_ㄧ	i_ㄡ	ou_ㄛ	o_ㄨ	u_ㄩ	y_ㄤ	ang_ㄚ	a_ㄢ	an_ㄝ	e_兀	ng_`;
+	const bpmData =`ㄘ	tsh_ㄑ	tsh_ㄆ	ph_ㄊ	th_ㄎ	kh_ㄗ	ts_ㄐ	ts_ㄅ	p_ㄇ	m_ㄉ	t_ㄋ	n_ㄌ	l_ㄍ	k_ㄏ	h_ㄖ	j_ㄙ	s_ㄒ	s_勺	b_廿	oe_ㄞ	ai_ㄠ	au_ㄟ	ei_ㄧ	i_ㄡ	ou_ㄛ	o_ㄨ	u_ㄩ	y_ㄤ	ang_ㄚ	a_ㄢ	an_ㄝ	e_兀	ng_ㄥ	ng_`;
 
     
     // 解析資料成 Map
