@@ -3,10 +3,547 @@
 const regexLetter = /Ű|ű|A̋|A̍|E̋|E̍|I̋|I̍|M̀|M̂|M̄|M̋|M̌|M̍|N̂|N̄|N̋|N̍|O̍|U̍|Y̋|Y̌|Y̍|a̋|a̍|e̋|e̍|i̋|i̍|m̀|m̂|m̄|m̋|m̌|m̍|n̂|n̄|n̋|n̍|o̍|u̍|y̋|y̌|y̍|[ỲÝŶȲŇỳýŷȳňÀÁÂÈÉÊÌÍÎÒÓÔÙÚÛàáâèéêìíîòóôùúûĀāĒēĚěĪīŃńŌōŐőŪūǍǎǏǐǑǒǓǔǸǹḾḿ]/i;
 
 //字尾調檢測
-const regexTone = /(?<!\w)(tsh|chh|ts|ch|zh|sh|rh|ng|bb|gg|[bpmfvdtnlgkhzcsjqxry])?(?:ng|[aeioumy]){1,3}(?:ng|nn|[mnbdgptkhr])?([ˊˋˇˆ⁺\^\+])(?!\w)/i;
+const regexTone = /(?<!\w)(tsh|chh|th|ph|kh|ts|ch|zh|sh|rh|ng|bb|gg|[bpmfvdtnlgkhzcsjqxry])?(?:ng|[aeioumy]){1,3}(?:ng|nn|[mnbdgptkhr])?([ˊˋˇˆ⁺\^\+])(?!\w)/i;
 
 //數字調檢測
-const regexNumber = /(?<!\w)(tsh|chh|ts|ch|zh|sh|rh|ng|bb|gg|[bpmfvdtnlgkhzcsjqxry])?(?:ng|[aeioumy]){1,3}(?:ng|nn|[mnbdgptkhr])?([123456789])(?!\w)/i;
+const regexNumber = /(?<!\w)(tsh|chh|th|ph|kh|ts|ch|zh|sh|rh|ng|bb|gg|[bpmfvdtnlgkhzcsjqxry])?(?:ng|[aeioumy]){1,3}(?:ng|nn|[mnbdgptkhr])?([123456789])(?!\w)/i;
+
+//數字調檢測
+const regexZvs = /(?<!\w)(tsh|chh|th|ph|kh|ts|ch|zh|sh|rh|ng|bb|gg|[bpmfvdtnlgkhzcsjqxry])?(?:ng|[aeioumy]){1,3}(?:ng|nn|[mnbdgptkhr])?([zvsxfl])(?!\w)/i;
+
+
+// 和樂字母調轉數字調
+const holoZvsToNumber = (function() {
+    const toneMap = { zz: '9', z: '2', s: '3', x: '5', v: '6', f: '7', l: '8' };
+    
+    // 基本模式
+    const basePattern = `\\b(tsh|ph|th|kh|ts|ng|[pmtnlkhjsbg])?([aeiour]{1,3})`;    
+    // 鼻音結尾正則
+    const nasalRegex = new RegExp(`${basePattern}(ng|nn|[mn]?)(zz|[zsxvf])?\\b`, 'gi');    
+    // 塞音結尾正則
+    const stopRegex = new RegExp(`${basePattern}([ptkh])([l]?)\\b`, 'gi');
+    
+    return function(text) {
+        if (!text || typeof text !== 'string') {
+            return '';
+        }
+        
+        let result = text;
+        
+        // 處理鼻音結尾
+        result = result.replace(nasalRegex, (match, initial, vowel, nasal, tone) => {
+            const base = `${initial || ''}${vowel}${nasal}`;
+            return base + (toneMap[tone] || '1');
+        });
+        
+        // 處理塞音結尾
+        result = result.replace(stopRegex, (match, initial, vowel, stop, tone) => {
+            const base = `${initial || ''}${vowel}${stop}`;
+            return base + (toneMap[tone] || '4');
+        });
+        
+        return result;
+    };
+})();
+
+// 和樂數字調轉字母調
+const holoNumberToZvs = (function() {
+
+    const numberToToneMap = { '9': 'zz', '2': 'z', '3': 's', '5': 'x', '6': 'v', '7': 'f', '8': 'l' };
+    // 1 和 4 會被刪除 (對應到空字串)
+    
+    // 基本模式
+	const basePattern = `\\b(tsh|ph|th|kh|ts|ng|[pmtnlkhjsbg])?([aeiour]{1,3})`;   
+    
+    // 鼻音結尾 + 數字
+    const nasalRegex = new RegExp(`${basePattern}(ng|nn|[mn]?)([1235679])\\b`, 'gi');
+    
+    // 塞音結尾 + 數字
+    const stopRegex = new RegExp(`${basePattern}([ptkh])([48])\\b`, 'gi');
+    
+    return function(text) {
+        if (!text || typeof text !== 'string') {
+            return '';
+        }
+        
+        let result = text;
+        
+        // 處理鼻音結尾
+        result = result.replace(nasalRegex, (match, initial, vowel, nasal, number) => {
+            const base = `${initial || ''}${vowel}${nasal}`;
+            const tone = numberToToneMap[number] || ''; // 1和4會變成空字串(被刪除)
+            return base + tone;
+        });
+        
+        // 處理塞音結尾
+        result = result.replace(stopRegex, (match, initial, vowel, stop, number) => {
+            const base = `${initial || ''}${vowel}${stop}`;
+            const tone = numberToToneMap[number] || ''; // 1和4會變成空字串(被刪除)
+            return base + tone;
+        });
+        
+        return result;
+    };
+})();
+
+// 和樂教羅轉台羅 
+const holoPojToTailo = (function() {
+  function holoPojToTailo(text) {
+    const replacements = [
+		[/oe/g, "ue"],
+		[/őe/g, "űe"],
+		[/óe/g, "ué"],
+		[/òe/g, "uè"],
+		[/ôe/g, "uê"],
+		[/ǒe/g, "uě"],
+		[/ōe/g, "uē"],
+		[/o̍e/g, "ue̍"],
+		[/oé/g, "ué"],
+		[/oè/g, "uè"],
+		[/oê/g, "uê"],
+		[/oě/g, "uě"],
+		[/oē/g, "uē"],
+		[/oe̍/g, "ue̍"],
+		[/Oé/g, "Ué"],
+		[/Oè/g, "Uè"],
+		[/Oê/g, "Uê"],
+		[/O/g, "Uě"],
+		[/Oē/g, "Uē"],
+		[/Oe̍/g, "Ue̍"],
+		[/oa/g, "ua"],
+		[/őa/g, "űa"],
+		[/óa/g, "uá"],
+		[/òa/g, "uà"],
+		[/ôa/g, "uâ"],
+		[/ǒa/g, "uǎ"],
+		[/ōa/g, "uā"],
+		[/o̍a/g, "u̍a"],
+		[/oá/g, "uá"],
+		[/oà/g, "uà"],
+		[/oâ/g, "uâ"],
+		[/oǎ/g, "uǎ"],
+		[/oā/g, "uā"],
+		[/oa̍/g, "ua̍"],
+		[/oa̋/g, "ua̋"],
+		[/ek\b/g, "ik"],
+		[/e̋k\b/g, "i̋k"],
+		[/ék\b/g, "ík"],
+		[/èk\b/g, "ìk"],
+		[/êk\b/g, "îk"],
+		[/ěk\b/g, "ǐk"],
+		[/ēk\b/g, "īk"],
+		[/e̍k\b/g, "i̍k"],
+		[/eng\b/g, "ing"],
+		[/e̋ng\b/g, "i̋ng"],
+		[/éng\b/g, "íng"],
+		[/èng\b/g, "ìng"],
+		[/êng\b/g, "îng"],
+		[/ěng\b/g, "ǐng"],
+		[/ēng\b/g, "īng"],
+		[/e̍ng\b/g, "i̍ng"],
+		[/Oe/g, "Ue"],
+		[/Őe/g, "Űe"],
+		[/Óe/g, "Ué"],
+		[/Òe/g, "Uè"],
+		[/Ôe/g, "Uê"],
+		[/Ǒe/g, "Uě"],
+		[/Ōe/g, "Uē"],
+		[/O̍e/g, "U̍e"],
+		[/Oa/g, "Ua"],
+		[/Őa/g, "Űa"],
+		[/Óa/g, "Uá"],
+		[/Òa/g, "Uà"],
+		[/Ôa/g, "Uâ"],
+		[/Ǒa/g, "Uǎ"],
+		[/Ōa/g, "Uā"],
+		[/O̍a/g, "U̍a"],
+		[/Oá/g, "Uá"],
+		[/Oà/g, "Uà"],
+		[/Oâ/g, "Uâ"],
+		[/Oǎ/g, "Uǎ"],
+		[/Oā/g, "Uā"],
+		[/Oa̍/g, "Ua̍"],
+		[/Oa̋/g, "Ua̋"],
+		[/Ek\b/g, "I̍k"],
+		[/E̋k\b/g, "I̋k"],
+		[/Ék\b/g, "Ík"],
+		[/Èk\b/g, "Ìk"],
+		[/Êk\b/g, "Îk"],
+		[/Ěk\b/g, "Ǐk"],
+		[/Ēk\b/g, "Īk"],
+		[/E̍k\b/g, "I̍k"],
+		[/Eng\b/g, "I̍ng"],
+		[/E̋ng\b/g, "I̋ng"],
+		[/Éng\b/g, "Íng"],
+		[/Èng\b/g, "Ìng"],
+		[/Êng\b/g, "Îng"],
+		[/Ěng\b/g, "Ǐng"],
+		[/Ēng\b/g, "Īng"],
+		[/E̍ng\b/g, "I̍ng"],
+		[/Ő\u0358/g, "Őo"],
+		[/Ó\u0358/g, "Óo"],
+		[/Ò\u0358/g, "Òo"],
+		[/Ô\u0358/g, "Ôo"],
+		[/Ǒ\u0358/g, "Ǒo"],
+		[/Ō\u0358/g, "Ōo"],
+		[/O̍\u0358/g, "O̍o"],
+		[/Ő\u00B7/g, "Őo"],
+		[/Ó\u00B7/g, "Óo"],
+		[/Ò\u00B7/g, "Òo"],
+		[/Ô\u00B7/g, "Ôo"],
+		[/Ǒ\u00B7/g, "Ǒo"],
+		[/Ō\u00B7/g, "Ōo"],
+		[/O̍\u00B7/g, "O̍o"],
+		[/o\u0358/g, "oo"],
+		[/ő\u0358/g, "őo"],
+		[/ó\u0358/g, "óo"],
+		[/ò\u0358/g, "òo"],
+		[/ô\u0358/g, "ôo"],
+		[/ǒ\u0358/g, "ǒo"],
+		[/ō\u0358/g, "ōo"],
+		[/o̍\u0358/g, "o̍o"],
+		[/o\u00B7/g, "oo"],
+		[/ő\u00B7/g, "őo"],
+		[/ó\u00B7/g, "óo"],
+		[/ò\u00B7/g, "òo"],
+		[/ô\u00B7/g, "ôo"],
+		[/ǒ\u00B7/g, "ǒo"],
+		[/ō\u00B7/g, "ōo"],
+		[/o̍\u00B7/g, "o̍o"],
+		[/ⁿ/g, "nn"],
+    ]
+    for (const [pattern, replacement] of replacements) {
+      text = text.replace(pattern, replacement)
+    }
+    return text
+  }
+  
+  return holoPojToTailo
+})()
+
+// 和樂數字調轉字中調   
+const holoNumberToTone = (function() {
+    return function(t) {     
+		t = t.replace(/([aeiourmn]|nn|ng)(1)/gi, '$1')
+		t = t.replace(/([aeiourmn]|nn|ng)([ptkh])(4)/gi, '$1$2')
+
+		t=t.replace(/([MNmn])(n)(g|gh)(9)\b/g, '$1n̋$3');
+		t=t.replace(/([MNmn])(n)(g|gh)(2)\b/g, '$1ń$3');
+		t=t.replace(/([MNmn])(n)(g|gh)(3)\b/g, '$1ǹ$3');
+		t=t.replace(/([MNmn])(n)(g|gh)(5)\b/g, '$1n̂$3');
+		t=t.replace(/([MNmn])(n)(g|gh)(6)\b/g, '$1ň$3');
+		t=t.replace(/([MNmn])(n)(g|gh)(7)\b/g, '$1n̄$3');
+		t=t.replace(/([MNmn])(n)(g|gh)(8)\b/g, '$1n̍$3');
+
+		t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(9)\b/g, 'Ő$2');
+		t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(2)\b/g, 'Ó$2');
+		t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(3)\b/g, 'Ò$2');
+		t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(5)\b/g, 'Ô$2');
+		t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(6)\b/g, 'Ǒ$2');
+		t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(7)\b/g, 'Ō$2');
+		t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(8)\b/g, 'O̍$2');
+		t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(9)\b/g, 'ő$2');
+		t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(2)\b/g, 'ó$2');
+		t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(3)\b/g, 'ò$2');
+		t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(5)\b/g, 'ô$2');
+		t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(6)\b/g, 'ǒ$2');
+		t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(7)\b/g, 'ō$2');
+		t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(8)\b/g, 'o̍$2');
+		t=t.replace(/(Yu)((?:n|ng)?)(7)\b/g, 'Ǖ$2');
+		t=t.replace(/(Yu)((?:n|ng)?)(2)\b/g, 'Ǘ$2');
+		t=t.replace(/(Yu)((?:n|ng)?)(6)\b/g, 'Ǚ$2');
+		t=t.replace(/(Yu)((?:n|ng)?)(3)\b/g, 'Ǜ$2');
+		t=t.replace(/(yu)((?:n|ng)?)(7)\b/g, 'ǖ$2');
+		t=t.replace(/(yu)((?:n|ng)?)(2)\b/g, 'ǘ$2');
+		t=t.replace(/(yu)((?:n|ng)?)(6)\b/g, 'ǚ$2');
+		t=t.replace(/(yu)((?:n|ng)?)(3)\b/g, 'ǜ$2');
+		t=t.replace(/(Y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(7)\b/g, 'Ȳ$2');
+		t=t.replace(/(Y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(6)\b/g, 'Y̌$2');
+		t=t.replace(/(Y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(2)\b/g, 'Ý$2');
+		t=t.replace(/(Y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(3)\b/g, 'Ỳ$2');
+		t=t.replace(/(Y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(5)\b/g, 'Ŷ$2');
+		t=t.replace(/(y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(7)\b/g, 'ȳ$2');
+		t=t.replace(/(y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(6)\b/g, 'y̌$2');
+		t=t.replace(/(y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(2)\b/g, 'ý$2');
+		t=t.replace(/(y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(3)\b/g, 'ỳ$2');
+		t=t.replace(/(y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(5)\b/g, 'ŷ$2');
+		t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(9)\b/g, 'A̋$2');
+		t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(2)\b/g, 'Á$2');
+		t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(3)\b/g, 'À$2');
+		t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(5)\b/g, 'Â$2');
+		t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(6)\b/g, 'Ǎ$2');
+		t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(7)\b/g, 'Ā$2');
+		t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(8)\b/g, 'A̍$2');
+		t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(9)\b/g, 'a̋$2');
+		t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(2)\b/g, 'á$2');
+		t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(3)\b/g, 'à$2');
+		t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(5)\b/g, 'â$2');
+		t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(6)\b/g, 'ǎ$2');
+		t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(7)\b/g, 'ā$2');
+		t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(8)\b/g, 'a̍$2');
+
+
+		t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(9)\b/g, 'E̋$2');
+		t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(2)\b/g, 'É$2');
+		t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(3)\b/g, 'È$2');
+		t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(5)\b/g, 'Ê$2');
+		t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(6)\b/g, 'Ě$2');
+		t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(7)\b/g, 'Ē$2');
+		t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(8)\b/g, 'E̍$2');
+		t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(9)\b/g, 'e̋$2');
+		t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(2)\b/g, 'é$2');
+		t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(3)\b/g, 'è$2');
+		t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(5)\b/g, 'ê$2');
+		t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(6)\b/g, 'ě$2');
+		t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(7)\b/g, 'ē$2');
+		t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(8)\b/g, 'e̍$2');
+		t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(9)\b/g, 'Ű$2');
+		t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(2)\b/g, 'Ú$2');
+		t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(3)\b/g, 'Ù$2');
+		t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(5)\b/g, 'Û$2');
+		t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(6)\b/g, 'Ǔ$2');
+		t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(7)\b/g, 'Ū$2');
+		t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(8)\b/g, 'U̍$2');
+		t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(9)\b/g, 'ű$2');
+		t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(2)\b/g, 'ú$2');
+		t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(3)\b/g, 'ù$2');
+		t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(5)\b/g, 'û$2');
+		t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(6)\b/g, 'ǔ$2');
+		t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(7)\b/g, 'ū$2');
+		t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(8)\b/g, 'u̍$2');
+		t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhrr]|nnh|ng|nn)?)(9)\b/g, 'I̋$2');
+		t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(2)\b/g, 'Í$2');
+		t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(3)\b/g, 'Ì$2');
+		t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(5)\b/g, 'Î$2');
+		t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(6)\b/g, 'Ǐ$2');
+		t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(7)\b/g, 'Ī$2');
+		t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(8)\b/g, 'I̍$2');
+		t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(9)\b/g, 'i̋$2');
+		t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(2)\b/g, 'í$2');
+		t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(3)\b/g, 'ì$2');
+		t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(5)\b/g, 'î$2');
+		t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(6)\b/g, 'ǐ$2');
+		t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(7)\b/g, 'ī$2');
+		t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(8)\b/g, 'i̍$2');
+		t=t.replace(/(M)((?:h)?)(9)\b/g, 'M̋$2');
+		t=t.replace(/(M)((?:h)?)(2)\b/g, 'Ḿ$2');
+		t=t.replace(/(M)((?:h)?)(3)\b/g, 'M̀$2');
+		t=t.replace(/(M)((?:h)?)(5)\b/g, 'M̂$2');
+		t=t.replace(/(M)((?:h)?)(6)\b/g, 'M̌$2');
+		t=t.replace(/(M)((?:h)?)(7)\b/g, 'M̄$2');
+		t=t.replace(/(M)((?:h)?)(8)\b/g, 'M̍$2');
+		t=t.replace(/(m)((?:h)?)(9)\b/g, 'm̋$2');
+		t=t.replace(/(m)((?:h)?)(2)\b/g, 'ḿ$2');
+		t=t.replace(/(m)((?:h)?)(3)\b/g, 'm̀$2');
+		t=t.replace(/(m)((?:h)?)(5)\b/g, 'm̂$2');
+		t=t.replace(/(m)((?:h)?)(6)\b/g, 'm̌$2');
+		t=t.replace(/(m)((?:h)?)(7)\b/g, 'm̄$2');
+		t=t.replace(/(m)((?:h)?)(8)\b/g, 'm̍$2');
+
+		t=t.replace(/(N)((g|gh)?)(9)\b/g, 'N̋$2');
+		t=t.replace(/(N)((g|gh)?)(2)\b/g, 'Ń$2');
+		t=t.replace(/(N)((g|gh)?)(3)\b/g, 'Ǹ$2');
+		t=t.replace(/(N)((g|gh)?)(5)\b/g, 'N̂$2');
+		t=t.replace(/(N)((g|gh)?)(6)\b/g, 'Ň$2');
+		t=t.replace(/(N)((g|gh)?)(7)\b/g, 'N̄$2');
+		t=t.replace(/(N)((g|gh)?)(8)\b/g, 'N̍$2');
+
+		t=t.replace(/(n)((g|gh)?)(9)\b/g, 'n̋$2');
+		t=t.replace(/(n)((g|gh)?)(2)\b/g, 'ń$2');
+		t=t.replace(/(n)((g|gh)?)(3)\b/g, 'ǹ$2');
+		t=t.replace(/(n)((g|gh)?)(5)\b/g, 'n̂$2');
+		t=t.replace(/(n)((g|gh)?)(6)\b/g, 'ň$2');
+		t=t.replace(/(n)((g|gh)?)(7)\b/g, 'n̄$2');
+		t=t.replace(/(n)((g|gh)?)(8)\b/g, 'n̍$2');
+
+        return t;
+    };
+})();
+
+
+// 和樂字母調轉字中調   
+const holoZvsToTone = (function() {
+    return function(t) {
+		t=t.replace(/([MNmn])(n)(g|gh)(zz)\b/g, '$1n̋$3');
+		t=t.replace(/([MNmn])(n)(g|gh)(z)\b/g, '$1ń$3');
+		t=t.replace(/([MNmn])(n)(g|gh)(s)\b/g, '$1ǹ$3');
+		t=t.replace(/([MNmn])(n)(g|gh)(x)\b/g, '$1n̂$3');
+		t=t.replace(/([MNmn])(n)(g|gh)(v)\b/g, '$1ň$3');
+		t=t.replace(/([MNmn])(n)(g|gh)(f)\b/g, '$1n̄$3');
+		t=t.replace(/([MNmn])(n)(g|gh)(l)\b/g, '$1n̍$3');
+
+		t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(zz)\b/g, 'Ő$2');
+		t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'Ó$2');
+		t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'Ò$2');
+		t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'Ô$2');
+		t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'Ǒ$2');
+		t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'Ō$2');
+		t=t.replace(/(O)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(l)\b/g, 'O̍$2');
+		t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(zz)\b/g, 'ő$2');
+		t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'ó$2');
+		t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'ò$2');
+		t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'ô$2');
+		t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'ǒ$2');
+		t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'ō$2');
+		t=t.replace(/(o)([eiouy]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(l)\b/g, 'o̍$2');
+		t=t.replace(/(Yu)((?:n|ng)?)(f)\b/g, 'Ǖ$2');
+		t=t.replace(/(Yu)((?:n|ng)?)(z)\b/g, 'Ǘ$2');
+		t=t.replace(/(Yu)((?:n|ng)?)(v)\b/g, 'Ǚ$2');
+		t=t.replace(/(Yu)((?:n|ng)?)(s)\b/g, 'Ǜ$2');
+		t=t.replace(/(yu)((?:n|ng)?)(f)\b/g, 'ǖ$2');
+		t=t.replace(/(yu)((?:n|ng)?)(z)\b/g, 'ǘ$2');
+		t=t.replace(/(yu)((?:n|ng)?)(v)\b/g, 'ǚ$2');
+		t=t.replace(/(yu)((?:n|ng)?)(s)\b/g, 'ǜ$2');
+		t=t.replace(/(Y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'Ȳ$2');
+		t=t.replace(/(Y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'Y̌$2');
+		t=t.replace(/(Y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'Ý$2');
+		t=t.replace(/(Y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'Ỳ$2');
+		t=t.replace(/(Y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'Ŷ$2');
+		t=t.replace(/(y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'ȳ$2');
+		t=t.replace(/(y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'y̌$2');
+		t=t.replace(/(y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'ý$2');
+		t=t.replace(/(y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'ỳ$2');
+		t=t.replace(/(y)([iu]{0,1}(?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'ŷ$2');
+		t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(zz)\b/g, 'A̋$2');
+		t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'Á$2');
+		t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'À$2');
+		t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'Â$2');
+		t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'Ǎ$2');
+		t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'Ā$2');
+		t=t.replace(/(A)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(l)\b/g, 'A̍$2');
+		t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(zz)\b/g, 'a̋$2');
+		t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'á$2');
+		t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'à$2');
+		t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'â$2');
+		t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'ǎ$2');
+		t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'ā$2');
+		t=t.replace(/(a)([eiou]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(l)\b/g, 'a̍$2');
+
+
+		t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(zz)\b/g, 'E̋$2');
+		t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'É$2');
+		t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'È$2');
+		t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'Ê$2');
+		t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'Ě$2');
+		t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'Ē$2');
+		t=t.replace(/(E)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(l)\b/g, 'E̍$2');
+		t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(zz)\b/g, 'e̋$2');
+		t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'é$2');
+		t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'è$2');
+		t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'ê$2');
+		t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'ě$2');
+		t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'ē$2');
+		t=t.replace(/(e)([eiur]{0,2}(?:[mngbdptkh]|nnh|ng|nn)?)(l)\b/g, 'e̍$2');
+		t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(zz)\b/g, 'Ű$2');
+		t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'Ú$2');
+		t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'Ù$2');
+		t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'Û$2');
+		t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'Ǔ$2');
+		t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'Ū$2');
+		t=t.replace(/(U)((?:[mngbdptkh]|nnh|ng|nn)?)(l)\b/g, 'U̍$2');
+		t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(zz)\b/g, 'ű$2');
+		t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(z)\b/g, 'ú$2');
+		t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(s)\b/g, 'ù$2');
+		t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(x)\b/g, 'û$2');
+		t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(v)\b/g, 'ǔ$2');
+		t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(f)\b/g, 'ū$2');
+		t=t.replace(/(u)((?:[mngbdptkh]|nnh|ng|nn)?)(l)\b/g, 'u̍$2');
+		t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhrr]|nnh|ng|nn)?)(zz)\b/g, 'I̋$2');
+		t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(z)\b/g, 'Í$2');
+		t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(s)\b/g, 'Ì$2');
+		t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(x)\b/g, 'Î$2');
+		t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(v)\b/g, 'Ǐ$2');
+		t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(f)\b/g, 'Ī$2');
+		t=t.replace(/(I)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(l)\b/g, 'I̍$2');
+		t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(zz)\b/g, 'i̋$2');
+		t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(z)\b/g, 'í$2');
+		t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(s)\b/g, 'ì$2');
+		t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(x)\b/g, 'î$2');
+		t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(v)\b/g, 'ǐ$2');
+		t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(f)\b/g, 'ī$2');
+		t=t.replace(/(i)([i]{0,1}(?:[mngbdptkhr]|nnh|ng|nn)?)(l)\b/g, 'i̍$2');
+		t=t.replace(/(M)((?:h)?)(zz)\b/g, 'M̋$2');
+		t=t.replace(/(M)((?:h)?)(z)\b/g, 'Ḿ$2');
+		t=t.replace(/(M)((?:h)?)(s)\b/g, 'M̀$2');
+		t=t.replace(/(M)((?:h)?)(x)\b/g, 'M̂$2');
+		t=t.replace(/(M)((?:h)?)(v)\b/g, 'M̌$2');
+		t=t.replace(/(M)((?:h)?)(f)\b/g, 'M̄$2');
+		t=t.replace(/(M)((?:h)?)(l)\b/g, 'M̍$2');
+		t=t.replace(/(m)((?:h)?)(zz)\b/g, 'm̋$2');
+		t=t.replace(/(m)((?:h)?)(z)\b/g, 'ḿ$2');
+		t=t.replace(/(m)((?:h)?)(s)\b/g, 'm̀$2');
+		t=t.replace(/(m)((?:h)?)(x)\b/g, 'm̂$2');
+		t=t.replace(/(m)((?:h)?)(v)\b/g, 'm̌$2');
+		t=t.replace(/(m)((?:h)?)(f)\b/g, 'm̄$2');
+		t=t.replace(/(m)((?:h)?)(l)\b/g, 'm̍$2');
+
+		t=t.replace(/(N)((g|gh)?)(zz)\b/g, 'N̋$2');
+		t=t.replace(/(N)((g|gh)?)(z)\b/g, 'Ń$2');
+		t=t.replace(/(N)((g|gh)?)(s)\b/g, 'Ǹ$2');
+		t=t.replace(/(N)((g|gh)?)(x)\b/g, 'N̂$2');
+		t=t.replace(/(N)((g|gh)?)(v)\b/g, 'Ň$2');
+		t=t.replace(/(N)((g|gh)?)(f)\b/g, 'N̄$2');
+		t=t.replace(/(N)((g|gh)?)(l)\b/g, 'N̍$2');
+
+		t=t.replace(/(n)((g|gh)?)(zz)\b/g, 'n̋$2');
+		t=t.replace(/(n)((g|gh)?)(z)\b/g, 'ń$2');
+		t=t.replace(/(n)((g|gh)?)(s)\b/g, 'ǹ$2');
+		t=t.replace(/(n)((g|gh)?)(x)\b/g, 'n̂$2');
+		t=t.replace(/(n)((g|gh)?)(v)\b/g, 'ň$2');
+		t=t.replace(/(n)((g|gh)?)(f)\b/g, 'n̄$2');
+		t=t.replace(/(n)((g|gh)?)(l)\b/g, 'n̍$2');
+
+        return t;
+    };
+})();
+
+
+function convertToFullMark(t) {
+  // 標點符號轉換對照（含可能的後續空格）
+  t = t.replace(/!( )?/g, "！");
+  t = t.replace(/\(( )?/g, "（");
+  t = t.replace(/\)( )?/g, "）");
+  t = t.replace(/,( )?/g, "，");
+  t = t.replace(/\.( )?/g, "。");
+  t = t.replace(/:( )?/g, "：");
+  t = t.replace(/;( )?/g, "；");
+  t = t.replace(/\?( )?/g, "？");
+  t = t.replace(/~( )?/g, "～");
+  t = t.replace(/"( )?/g, "「");
+  t = t.replace(/"( )?/g, "」");
+  t = t.replace(/'( )?/g, "『");
+  t = t.replace(/'( )?/g, "』");
+
+  t = t.replace(/“( )?/g, "「");
+  t = t.replace(/”( )?/g, "」");
+  t = t.replace(/‘( )?/g, "『");
+  t = t.replace(/’( )?/g, "』");
+
+  return t;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

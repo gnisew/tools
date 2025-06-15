@@ -37,6 +37,55 @@ const langKasu = `
 聲調標上(ǒ)	聲調字尾	fnE_zhaoan	A02\\nǒ	B02\\nov
 `;
 
+
+
+
+
+
+// 和樂語言配置
+const langHolo = `
+左邊選單	右邊選單	執行函數	左邊範例	右邊範例
+拼音	台羅	holoPinyinLetter	Tsiau3-an1 Kheh4-ue7 ti7 Lun7-pue3	Tsiàu-an Kheh-uē tī Lūn-puè
+拼音	數字調	holoPinyinNumber	Tsiau3-an1 Kheh4-ue7 ti7 Lun7-pue3	Tsiau3-an1 Kheh4-ue7 ti7 Lun7-pue3
+拼音	字母調	holoPinyinZvs	Tsiau3-an1 Kheh4-ue7 ti7 Lun7-pue3	Tsiaus-an Kheh-uef tif Lunf-pues
+台羅	數字調	holoToneNumber	Tsiàu-an Kheh-uē tī Lūn-puè	Tsiau3-an1 Kheh4-ue7 ti7 Lun7-pue3
+台羅	字母調	holoToneZvs	Tsiàu-an Kheh-uē tī Lūn-puè	Tsiaus-an Kheh-uef tif Lunf-pues
+數字調	台羅	holoNumberTone	Tsiau3-an1 Kheh4-ue7 ti7 Lun7-pue3	Tsiàu-an Kheh-uē tī Lūn-puè
+數字調	字母調	holoNumberZvs	Tsiau3-an1 Kheh4-ue7 ti7 Lun7-pue3	Tsiaus-an Kheh-uef tif Lunf-pues
+字母調	台羅	holoZvsTone	Tsiaus-an Kheh-uef tif Lunf-pues	Tsiàu-an Kheh-uē tī Lūn-puè
+字母調	數字調	holoZvsNumber	Tsiaus-an Kheh-uef tif Lunf-pues	Tsiau3-an1 Kheh4-ue7 ti7 Lun7-pue3
+教羅	台羅	holoPojTailo	Chiàu-an Kheh-oē tī Lūn-poè	Tsiàu-an Kheh-uē tī Lūn-puè
+`;
+
+function holoPinyinLetter(t){
+	if (regexNumber.test(t)) {t = holoNumberToTone(t) }
+	if (regexZvs.test(t)) {t = holoZvsToTone(t) }
+	return t;
+}
+
+function holoPinyinNumber(t){
+	if (regexLetter.test(t)) {t = letterToZvs(t) }
+	return holoZvsToNumber(t);
+}
+
+function holoPinyinZvs(t){ 
+	if (regexLetter.test(t)) {t = letterToZvs(t) }
+	if (regexNumber.test(t)) {t = holoNumberToZvs(t) }
+	return t;
+}
+
+
+function holoToneNumber(t){ 
+	t = letterToZvs(t)
+	return holoZvsToNumber(t); }
+function holoToneZvs(t){ return letterToZvs(t); }
+function holoNumberTone(t){ return holoNumberToTone(t); }
+function holoNumberZvs(t){ return holoNumberToZvs(t); }
+function holoZvsTone(t){ return holoZvsToTone(t); }
+function holoZvsNumber(t){ return holoZvsToNumber(t); }
+function holoPojTailo(t){ return holoPojToTailo(t); }
+
+
 // 馬祖語言配置
 const langMatsu = `
 左邊選單	右邊選單	執行函數	左邊範例	右邊範例
@@ -149,25 +198,21 @@ function matsuNumberLetter(t){
 	return zvsToLetter(t);
 }
 
-const languageConfigs = {
-    'matsu': { name: '馬祖', config: langMatsu, param: 'matsu', url: 'https://sites.google.com/view/oikasu/matsu' }
-};
 
 // 語言配置映射
-/*
 const languageConfigs = {
     'sixian': { name: '四縣', config: langSixian, param: 'sixian', url: 'https://sites.google.com/view/oikasu/hoka' },
     'hailu': { name: '海陸', config: langHailu, param: 'hailu', url: 'https://sites.google.com/view/oikasu/hoka' },
-    'zhaoan': { name: '詔安', config: langKasu, param: 'zhaoan', url: 'https://sites.google.com/view/oikasu/holo' },
+    'holo': { name: '和樂', config: langHolo, param: 'holo', url: 'https://sites.google.com/view/oikasu/holo' },
     'matsu': { name: '馬祖', config: langMatsu, param: 'matsu', url: 'https://sites.google.com/view/oikasu/matsu' }
 };
-*/
-let currentLanguage = 'matsu'; // 預設語言
-let currentLanguageConfig = langMatsu; // 當前語言配置
+
+let currentLanguage = 'sixian'; // 預設語言
+let currentLanguageConfig = langSixian; // 當前語言配置
 
 
 // 初始化語言設定
-const firstLine = langMatsu.trim().split('\n')[1];
+const firstLine = langSixian.trim().split('\n')[1];
 const [defaultLeftLang, defaultRightLang] = firstLine.split('\t').map(s => s.trim());
 
 
