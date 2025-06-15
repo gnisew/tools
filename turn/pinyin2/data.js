@@ -3,13 +3,13 @@
 const regexLetter = /Ű|ű|A̋|A̍|E̋|E̍|I̋|I̍|M̀|M̂|M̄|M̋|M̌|M̍|N̂|N̄|N̋|N̍|O̍|U̍|Y̋|Y̌|Y̍|a̋|a̍|e̋|e̍|i̋|i̍|m̀|m̂|m̄|m̋|m̌|m̍|n̂|n̄|n̋|n̍|o̍|u̍|y̋|y̌|y̍|[ỲÝŶȲŇỳýŷȳňÀÁÂÈÉÊÌÍÎÒÓÔÙÚÛàáâèéêìíîòóôùúûĀāĒēĚěĪīŃńŌōŐőŪūǍǎǏǐǑǒǓǔǸǹḾḿ]/i;
 
 //字尾調檢測
-const regexTone = /(?<!\w)(tsh|chh|th|ph|kh|ts|ch|zh|sh|rh|ng|bb|gg|[bpmfvdtnlgkhzcsjqxry])?(?:ng|[aeioumy]){1,3}(?:ng|nn|[mnbdgptkhr])?([ˊˋˇˆ⁺\^\+])(?!\w)/i;
+const regexTone = /(?<!\w)(tsh|chh|th|ph|kh|ts|ch|zh|sh|rh|ng|bb|gg|[bpmfvdtnlgkhzcsjqxry])?(?:ng|[aeioumy]){1,3}(?:nnh|nnd|ng|nn|[mnbdgptkhr])?([ˊˋˇˆ⁺\^\+])(?!\w)/i;
 
 //數字調檢測
-const regexNumber = /(?<!\w)(tsh|chh|th|ph|kh|ts|ch|zh|sh|rh|ng|bb|gg|[bpmfvdtnlgkhzcsjqxry])?(?:ng|[aeioumy]){1,3}(?:ng|nn|[mnbdgptkhr])?([123456789])(?!\w)/i;
+const regexNumber = /(?<!\w)(tsh|chh|th|ph|kh|ts|ch|zh|sh|rh|ng|bb|gg|[bpmfvdtnlgkhzcsjqxry])?(?:ng|[aeioumy]){1,3}(?:nnh|nnd|ng|nn|[mnbdgptkhr])?([123456789])(?!\w)/i;
 
-//數字調檢測
-const regexZvs = /(?<!\w)(tsh|chh|th|ph|kh|ts|ch|zh|sh|rh|ng|bb|gg|[bpmfvdtnlgkhzcsjqxry])?(?:ng|[aeioumy]){1,3}(?:ng|nn|[mnbdgptkhr])?([zvsxfl])(?!\w)/i;
+//字母調檢測
+const regexZvs = /(?<!\w)(tsh|chh|th|ph|kh|ts|ch|zh|sh|rh|ng|bb|gg|[bpmfvdtnlgkhzcsjqxry])?(?:ng|[aeioumy]){1,3}(?:nnh|nnd|ng|nn|[mnbdgptkhr])?([zvsxfl])(?!\w)/i;
 
 
 // 和樂字母調轉數字調
@@ -215,6 +215,30 @@ const holoPojToTailo = (function() {
     for (const [pattern, replacement] of replacements) {
       text = text.replace(pattern, replacement)
     }
+
+
+	const vowelsAndDiacritics = 'Ű|ű|A̋|A̍|E̋|E̍|I̋|I̍|M̀|M̂|M̄|M̋|M̌|M̍|N̂|N̄|N̋|N̍|O̍|U̍|a̋|a̍|e̋|e̍|i̋|i̍|m̀|m̂|m̄|m̋|m̌|m̍|n̂|n̄|n̋|n̍|o̍|u̍|[ŇňÀÁÂÈÉÊÌÍÎÒÓÔÙÚÛàáâèéêìíîòóôùúûĀāĒēĚěĪīŃńŌōŐőŪūǍǎǏǐǑǒǓǔǸǹḾḿaeioumnrAEIOUMNR]{1,3}';
+	const consonants = 'NG|NN|ng|nn|[ptkhgPTKHG]';
+	const numbers = '[123456789]?';
+
+	const replacementsCh = [
+		{ from: 'CHH', to: 'TSH' },
+		{ from: 'CH', to: 'TS' },
+		{ from: 'Chh', to: 'Tsh' },
+		{ from: 'Ch', to: 'Ts' },
+		{ from: 'chh', to: 'tsh' },
+		{ from: 'ch', to: 'ts' }
+	];
+
+	// 執行替換
+	replacementsCh.forEach(rule => {
+		const pattern = new RegExp(
+			`\\b${rule.from}(${vowelsAndDiacritics})(${consonants})?(${numbers})(?!\\w)`,
+			'g'
+		);
+		text = text.replace(pattern, `${rule.to}$1$2$3`);
+	});
+
     return text
   }
   
@@ -496,6 +520,177 @@ const holoZvsToTone = (function() {
         return t;
     };
 })();
+
+// 和樂國際音標轉台羅數字
+const holoIpaToNumber = (function() {
+    const ipaToTailoMap = {
+        'iauʔ': 'iauh',
+        'uãiʔ': 'uainnh',
+        'ãuʔ': 'aunnh',
+        'ɔ̃ʔ': 'onnh',
+        'iaʔ': 'iah',
+        'iãʔ': 'iannh',
+        'iɔʔ': 'iooh',
+        'iɣʔ': 'iorh',
+        'ioʔ': 'ioh',
+        'iuʔ': 'iuh',
+        'tsʰ': 'tsh',
+        'uaʔ': 'uah',
+        'ueʔ': 'ueh',
+        'uiʔ': 'uih',
+        'æʔ': 'ereh',
+        'aiʔ': 'aih',
+        'auʔ': 'auh',
+        'ngʔ': 'ngh',
+        'ãi': 'ainn',
+        'ãu': 'aunn',
+        'aʔ': 'ah',
+        'ãʔ': 'annh',
+        'ɔ̃': 'onn',
+        'ɔk': 'ok',
+        'ɔŋ': 'ong',
+        'ɔp': 'op',
+        'ɔʔ': 'ooh',
+        'dz': 'j',
+        'eʔ': 'eh',
+        'ẽʔ': 'ennh',
+        'əʔ': 'erh',
+        'ɣʔ': 'orh',
+        'iʔ': 'ih',
+        'ĩʔ': 'innh',
+        'ɨʔ': 'irh',
+        'kʰ': 'kh',
+        'mʔ': 'mh',
+        'oʔ': 'oh',
+        'pʰ': 'ph',
+        'tʰ': 'th',
+        'uʔ': 'uh',
+        'ã': 'ann',
+        'æ': 'ere',
+        'ɔ': 'oo',
+        'ʣ': 'j',
+        'ẽ': 'enn',
+        'ɛ': 'ee',
+        'ə': 'er',
+        'ɣ': 'or',
+        'ĩ': 'inn',
+        'ɨ': 'ir',
+        'ŋ': 'ng',
+        'ʦ': 'ts',
+        'ũ': 'unn'
+    };
+
+    // 創建按長度排序的鍵值陣列，確保長的音標先被匹配
+    const sortedKeys = Object.keys(ipaToTailoMap).sort((a, b) => b.length - a.length);
+
+    return function(ipaText) {
+        if (!ipaText || typeof ipaText !== 'string') {
+            return '';
+        }
+
+        let result = ipaText.toLowerCase();
+        
+        // 依序替換每個國際音標
+        sortedKeys.forEach(ipaSymbol => {
+            const tailoSymbol = ipaToTailoMap[ipaSymbol];
+            // 使用全域替換
+            result = result.replace(new RegExp(escapeRegExp(ipaSymbol), 'gi'), tailoSymbol);
+        });
+
+        return result;
+    };
+
+    // 輔助函數：轉義正則表達式特殊字符
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+})();
+
+// 和樂台羅轉國際音標
+const holoTailoToIpa = (function() {
+    const tailoToIPAMap = {
+        'uainnh': 'uãiʔ',
+        'iannh': 'iãʔ',
+        'ereh': 'æʔ',
+        'iauh': 'iauʔ',
+        'aunnh': 'ãuʔ',
+        'onnh': 'ɔ̃ʔ',
+        'iooh': 'iɔʔ',
+        'iorh': 'iɣʔ',
+        'ennh': 'ẽʔ',
+        'innh': 'ĩʔ',
+        'annh': 'ãʔ',
+        'ainn': 'ãi',
+        'aunn': 'ãu',
+        'tsh': 'tsʰ',
+        'iah': 'iaʔ',
+        'ioh': 'ioʔ',
+        'iuh': 'iuʔ',
+        'uah': 'uaʔ',
+        'ueh': 'ueʔ',
+        'uih': 'uiʔ',
+        'aih': 'aiʔ',
+        'auh': 'auʔ',
+        'ngh': 'ngʔ',
+        'ooh': 'ɔʔ',
+        'erh': 'əʔ',
+        'orh': 'ɣʔ',
+        'irh': 'ɨʔ',
+        'ann': 'ã',
+        'enn': 'ẽ',
+        'inn': 'ĩ',
+        'unn': 'ũ',
+        'onn': 'ɔ̃',
+        'ere': 'æ',
+        'kh': 'kʰ',
+        'ph': 'pʰ',
+        'th': 'tʰ',
+        'ah': 'aʔ',
+        'eh': 'eʔ',
+        'ih': 'iʔ',
+        'oh': 'oʔ',
+        'uh': 'uʔ',
+        'mh': 'mʔ',
+        'ok': 'ɔk',
+        'ong': 'ɔŋ',
+        'op': 'ɔp',
+        'oo': 'ɔ',
+        'ee': 'ɛ',
+        'er': 'ə',
+        'or': 'ɣ',
+        'ir': 'ɨ',
+        'ng': 'ŋ',
+        'ts': 'ʦ',
+        'j': 'ʣ'
+    };
+
+    // 創建按長度排序的鍵值陣列，確保長的音標先被匹配
+    const sortedKeys = Object.keys(tailoToIPAMap).sort((a, b) => b.length - a.length);
+
+    return function(tailoText) {
+        if (!tailoText || typeof tailoText !== 'string') {
+            return '';
+        }
+
+        let result = tailoText.toLowerCase();
+        
+        // 依序替換每個台羅拼音
+        sortedKeys.forEach(tailoSymbol => {
+            const ipaSymbol = tailoToIPAMap[tailoSymbol];
+            // 使用全域替換
+            result = result.replace(new RegExp(escapeRegExp(tailoSymbol), 'gi'), ipaSymbol);
+        });
+
+        return result;
+    };
+
+    // 輔助函數：轉義正則表達式特殊字符
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+})();
+
+
 
 
 function convertToFullMark(t) {
@@ -888,9 +1083,16 @@ const matsuToneToNumber = (function() {
 })();
 
 
-
-
-
+// 馬祖調號中平低降轉正確符號
+const mstsuToneToFX = (text) => {
+   const toneMap = {'+':'⁺', '^':'ˆ'};
+   
+   return text?.replace(/(?<!\w)(?:tsh|ph|th|kh|ts|ng|[pmtnlkhjsb])?[aeiouy]{1,3}(?:ng|[mnptkh])?([ˆ+^])(?!\w)/gi, 
+       (match, tone) => {
+           const toneSymbol = toneMap[tone];
+           return match.replace(new RegExp(tone.replace(/[+^]/g, '\\$&') + '$'), toneSymbol);
+       }) || '';
+};
 
 
 
@@ -1287,3 +1489,1040 @@ function letterToZvs(t) {
 }
 
 
+
+
+
+
+
+
+
+
+
+//================================;
+
+// 四縣羅馬字韻母轉教育部
+const sixianPojVowelToEdu = (function() {
+    // 轉換對照表
+const vowelData =`
+正	拼	客	調
+n̂g	n̂g	ng	z
+N̂g	N̂g	Ng	z
+ǹg	ǹg	ng	v
+Ǹg	Ǹg	Ng	v
+ńg	ńg	ng	s
+Ńg	Ńg	Ng	s
+â	â	a	z
+ê	ê	e	z
+î	î	i	z
+ô	ô	o	z
+û	û	u	z
+ṳ̂	ṳ̂	ii	z
+Â	Â	A	z
+Ê	Ê	E	z
+Î	Î	I	z
+Ô	Ô	O	z
+Û	Û	U	z
+Ṳ̂	Ṳ̂	Ii	z
+ṳ̂	ṳ̂	ii	z
+Ṳ̂	Ṳ̂	Ii	z
+à	à	a	v
+è	è	e	v
+ì	ì	i	v
+ò	ò	o	v
+ù	ù	u	v
+ṳ̀	ṳ̀	ii	v
+À	À	A	v
+È	È	E	v
+Ì	Ì	I	v
+Ò	Ò	O	v
+Ù	Ù	U	v
+Ṳ̀	Ṳ̀	Ii	v
+ṳ̀	ṳ̀	ii	v
+Ṳ̀	Ṳ̀	Ii	v
+á	á	a	s
+é	é	e	s
+í	í	i	s
+ó	ó	o	s
+ú	ú	u	s
+ṳ́	ṳ́	ii	s
+Á	Á	A	s
+É	É	E	s
+Í	Í	I	s
+Ó	Ó	O	s
+Ú	Ú	U	s
+Ṳ́	Ṳ́	Ii	s
+ṳ́	ṳ́	ii	s
+Ṳ́	Ṳ́	Ii	s
+a̍	a̍	a	l
+e̍	e̍	e	l
+i̍	i̍	i	l
+o̍	o̍	o	l
+u̍	u̍	u	l
+ṳ̍	ṳ̍	ii	l
+A̍	A̍	A	l
+E̍	E̍	E	l
+I̍	I̍	I	l
+O̍	O̍	O	l
+U̍	U̍	U	l
+Ṳ̍	Ṳ̍	Ii	l
+ṳ̍	ṳ̍	ii	l
+Ṳ̍	Ṳ̍	Ii	l
+ṳ	ṳ	ii	
+Ṳ	Ṳ	Ii	
+ṳ	ṳ	ii	
+Ṳ	Ṳ	Ii	
+n̂	n̂	n	z
+N̂	N̂	N	z
+m̂	m̂	m	z
+M̂	M̂	M	z
+ǹ	ǹ	n	v
+Ǹ	Ǹ	N	v
+m̀	m̀	m	v
+M̀	M̀	M	v
+ń	ń	n	s
+Ń	Ń	N	s
+ḿ	ḿ	m	s
+Ḿ	Ḿ	M	s
+`;
+
+    // 預建立分離的轉換映射表（客、調分開儲存）
+    const conversionMap = new Map();
+    
+    // 預編譯正則表達式
+    let compiledRegex;
+    
+    // 初始化預編譯
+    (function initialize() {
+        const lines = vowelData.trim().split('\n');
+		const len = lines.length;
+        
+        // 收集所有轉換字符並按長度排序（長的優先）
+        const conversionChars = [];
+        
+        // 處理資料行
+        for (let i = 1; i < len; i++) {
+            const parts = lines[i].split('\t');
+            if (parts.length >= 3) { // 至少要有「正」「拼」「客」三欄
+                const [zheng, pin, ke, diao = ''] = parts; // diao 預設為空字串
+                
+                // 跳過重複的轉換規則（相同「正」「拼」對應相同「客」「調」）
+                if (conversionMap.has(zheng)) {
+                    const existing = conversionMap.get(zheng);
+                    if (existing.ke === ke && existing.diao === diao) {
+                        continue; // 跳過重複項目
+                    }
+                }
+                
+                // 分離儲存「客」和「調」
+                conversionMap.set(zheng, { ke, diao });
+                conversionMap.set(pin, { ke, diao });
+                
+                // 收集字符用於正則表達式
+                conversionChars.push(zheng, pin);
+            }
+        }
+        
+        // 預編譯正則表達式，單一正則完成所有匹配
+        const pattern = `(${conversionChars.join('|')})([aeiou]{0,2}(?:ng|[mnptk])?)`;
+        compiledRegex = new RegExp(pattern, 'g');
+    })();
+    
+    // 返回轉換函數
+    return function(inputText) {
+        // 輸入驗證
+        if (typeof inputText !== 'string' || !inputText.trim()) {
+            return '';
+        }
+        
+        // 單次 replace() 呼叫完成轉換
+        return inputText.replace(compiledRegex, function(match, p1, p2) {
+            const conversion = conversionMap.get(p1);
+            if (!conversion) return match;
+            
+            // 分離取得「客」和「調」
+            const { ke: keChar, diao: diaoChar } = conversion;
+            return keChar + p2 + diaoChar;
+        });
+    };
+})();
+
+
+
+
+// 四縣羅馬字聲母轉教育部
+const sixianPojConsonantToEdu = (function() {
+    // 聲母轉換對照表
+    const initialMap = new Map([
+        ['chh', 'c'],
+        ['tsh', 'c'],
+        ['ts', 'z'],
+        ['ch', 'z'],
+        ['ph', 'p'],
+        ['th', 't'],  
+        ['kh', 'k'],
+        ['p', 'b'],
+        ['t', 'd'],
+        ['k', 'g']
+    ]);
+    
+    // 預編譯所有正則表達式
+    let compiledRegexes;
+    
+    // 初始化預編譯
+    (function initialize() {
+        // 按長度排序的聲母列表（長的優先，避免匹配衝突）
+        const sortedInitials = Array.from(initialMap.keys())
+            .sort((a, b) => b.length - a.length)
+            .map(initial => initial.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+        
+        const initialsPattern = sortedInitials.join('|');
+        
+        compiledRegexes = {
+            // 規則1: 基本聲母轉換
+            // 詞彙邊界，「羅」後面接[aeiou]1-3次，之後ng|[mnptk]可有可無，後面再接[zvsl]可有可無
+            basicInitials: new RegExp(
+                `\\b(${initialsPattern})([aeiou]{1,3})(?:ng|[mnptk])?[zvsl]?\\b`, 
+                'gi'
+            ),
+            
+            // 規則2: chhi -> qi
+            // 詞彙邊界，chh接i但不是ii，後面接[aeou]0-2次，之後ng|[mnptk]可有可無，後面再接[zvsl]可有可無
+            chhiRule: new RegExp(
+                '\\bchhi(?!i)([aeou]{0,2})(?:ng|[mnptk])?[zvsl]?\\b', 
+                'gi'
+            ),
+            // 規則2: chhi -> qi
+            // 詞彙邊界，chh接i但不是ii，後面接[aeou]0-2次，之後ng|[mnptk]可有可無，後面再接[zvsl]可有可無
+            chhiRule: new RegExp(
+                '\\btshi(?!i)([aeou]{0,2})(?:ng|[mnptk])?[zvsl]?\\b', 
+                'gi'
+            ),
+			
+
+            // 規則3: chi -> ji  
+            // 詞彙邊界，ch接i但不是ii，後面接[aeou]0-2次，之後ng|[mnptk]可有可無，後面再接[zvsl]可有可無
+            chiRule: new RegExp(
+                '\\bchi(?!i)([aeou]{0,2})(?:ng|[mnptk])?[zvsl]?\\b', 
+                'gi'
+            ),
+            // 規則3: chi -> ji  
+            // 詞彙邊界，ch接i但不是ii，後面接[aeou]0-2次，之後ng|[mnptk]可有可無，後面再接[zvsl]可有可無
+            chiRule: new RegExp(
+                '\\btsi(?!i)([aeou]{0,2})(?:ng|[mnptk])?[zvsl]?\\b', 
+                'gi'
+            ),
+        
+            // 規則4: si -> xi
+            // 詞彙邊界，s接i但不是ii，後面接[aeou]0-2次，之後ng|[mnptk]可有可無，後面再接[zvsl]可有可無
+            siRule: new RegExp(
+                '\\bsi(?!i)([aeou]{0,2})(?:ng|[mnptk])?[zvsl]?\\b', 
+                'gi'
+            ),
+            
+            // 規則5: yi -> i (獨立處理)
+            // 詞彙邊界，yi之後接ng|[mnptk]可有可無，後面再接[zvsl]可有可無
+            yiRule: new RegExp(
+                '\\byi((?:ng|[mnptk])?[zvsl]?)\\b', 
+                'gi'
+            ),
+            
+            // 規則6: y -> i (獨立處理)
+            // 詞彙邊界，y後面接[aeou]0-2次，之後ng|[mnptk]可有可無，後面再接[zvsl]可有可無
+            yRule: new RegExp(
+                '\\by([aeou]{0,2}(?:ng|[mnptk])?[zvsl]?)\\b', 
+                'gi'
+            ),
+            
+            // 規則7: p -> b (韻尾轉換)
+            // 詞彙邊界，(ng|[bpmfdtnlgkhzcsjqxv])0-1次，後面接[aeiou]0-3次，之後接p，後面再接l可有可無
+            pToBRule: new RegExp(
+                '\\b(?:ng|[bpmfdtnlgkhzcsjqxv])?[aeiou]{0,3}(p)l?\\b', 
+                'gi'
+            ),
+            
+            // 規則8: t -> d (韻尾轉換)
+            // 詞彙邊界，(ng|[bpmfdtnlgkhzcsjqxv])0-1次，後面接[aeiou]0-3次，之後接t，後面再接l可有可無
+            tToDRule: new RegExp(
+                '\\b(?:ng|[bpmfdtnlgkhzcsjqxv])?[aeiou]{0,3}(t)l?\\b', 
+                'gi'
+            ),
+            
+            // 規則9: k -> g (韻尾轉換)
+            // 詞彙邊界，(ng|[bpmfdtnlgkhzcsjqxv])0-1次，後面接[aeiou]0-3次，之後接k，後面再接l可有可無
+            kToGRule: new RegExp(
+                '\\b(?:ng|[bpmfdtnlgkhzcsjqxv])?[aeiou]{0,3}(k)l?\\b', 
+                'gi'
+            ),
+            
+            // 規則10: 在 [bdg] 後加 s
+            // 詞彙邊界，(ng|[bpmfdtnlgkhzcsjqxv])0-1次，後面接[aeiou]1-3次，之後接[bdg]
+            addSRule: new RegExp(
+                '\\b(?:ng|[bpmfdtnlgkhzcsjqxv])?[aeiou]{1,3}([bdg])\\b',
+                'gi'
+            ),
+            
+            // 規則11: 刪除 [bdg] 後的 l
+            // 詞彙邊界，(ng|[bpmfdtnlgkhzcsjqxv])0-1次，後面接[aeiou]1-3次，之後接[bdg]，之後接l
+            removeLRule: new RegExp(
+                '\\b(?:ng|[bpmfdtnlgkhzcsjqxv])?[aeiou]{1,3}[bdg](l)\\b',
+                'gi'
+            )
+        };
+    })();
+    
+    // 保持大小寫格式的輔助函數
+    function preserveCase(original, converted) {
+        if (original === original.toUpperCase()) {
+            // 全大寫
+            return converted.toUpperCase();
+        } else if (original[0] === original[0].toUpperCase()) {
+            // 首字母大寫
+            return converted[0].toUpperCase() + converted.slice(1).toLowerCase();
+        } else {
+            // 全小寫
+            return converted.toLowerCase();
+        }
+    }
+    
+    // 返回轉換函數
+    return function(inputText) {
+        // 輸入驗證
+        if (typeof inputText !== 'string' || !inputText.trim()) {
+            return '';
+        }
+        
+        let result = inputText;
+        
+        // 按順序應用轉換規則（優先級由高到低）
+        
+        // 1. 特殊規則優先：chhi -> qi
+        result = result.replace(compiledRegexes.chhiRule, function(match) {
+            return match.replace(/^chh/, 'q');
+        });
+        
+        // 2. 特殊規則：chi -> ji
+        result = result.replace(compiledRegexes.chiRule, function(match) {
+            return match.replace(/^ch/, 'j');
+        });
+        
+        // 3. 特殊規則：si -> xi
+        result = result.replace(compiledRegexes.siRule, function(match) {
+            return match.replace(/^s/, 'x');
+        });
+        
+        // 4. yi -> i 規則（需在 y -> i 之前）
+        result = result.replace(compiledRegexes.yiRule, function(match, suffix) {
+            const yi = match.slice(0, 2);  // 取得 yi 部分
+            const convertedYi = preserveCase(yi, 'i');
+            return convertedYi + suffix;
+        });
+        
+        // 5. y -> i 規則（獨立處理）
+        result = result.replace(compiledRegexes.yRule, function(match, suffix) {
+            const y = match.slice(0, 1);   // 取得 y 部分
+            const convertedY = preserveCase(y, 'i');
+            return convertedY + suffix;
+        });
+        
+        // 6. 基本聲母轉換（現在不包含 y）
+        result = result.replace(compiledRegexes.basicInitials, function(match, initial, vowels) {
+            const converted = initialMap.get(initial.toLowerCase());
+            if (converted) {
+                // 保持原始大小寫格式
+                const convertedWithCase = preserveCase(initial, converted);
+                return match.replace(initial, convertedWithCase);
+            }
+            return match;
+        });
+        
+        // 7. 韻尾轉換：p -> b
+        result = result.replace(compiledRegexes.pToBRule, function(match, p1) {
+            return match.replace(p1, 'b');
+        });
+        
+        // 8. 韻尾轉換：t -> d  
+        result = result.replace(compiledRegexes.tToDRule, function(match, t1) {
+            return match.replace(t1, 'd');
+        });
+        
+        // 9. 韻尾轉換：k -> g
+        result = result.replace(compiledRegexes.kToGRule, function(match, k1) {
+            return match.replace(k1, 'g');
+        });
+        
+        // 10. 在 [bdg] 後加 s
+        result = result.replace(compiledRegexes.addSRule, function(match, bdg) {
+            return match + 's';
+        });
+        
+        // 11. 刪除 [bdg] 後的 l
+        result = result.replace(compiledRegexes.removeLRule, function(match, l) {
+            return match.replace(l, '');
+        });
+        
+        return result;
+    };
+})();
+
+// 客語聲調字母轉調號
+const hakkaZvsToTone = (text) => {
+   const toneMap = {z:'ˊ', v:'ˇ', s:'ˋ', f:'⁺', x:'ˆ'};
+   
+   return text?.replace(/\b(?:ng|zh|ch|sh|gg|bb|[bpmfdtnlgkhzcsjqxv])?[aeiou]{0,3}(?:nnd|ng|nn|[mnbdgr])?([zvsfx])\b/gi, 
+       (match, tone) => {
+           const toneSymbol = toneMap[tone.toLowerCase()];
+           return match.replace(new RegExp(tone + '$', 'i'), toneSymbol);
+       }) || '';
+};
+
+
+// 客語調號轉聲調字母
+const hakkaToneToZvs = (text) => {
+   const toneMap = {'ˊ':'z', 'ˇ':'v', 'ˋ':'s', '⁺':'f', 'ˆ':'x', '+':'f', '^':'x'};
+   
+   return text?.replace(/(?<!\w)(?:ng|zh|ch|sh|gg|bb|[bpmfdtnlgkhzcsjqxv])?[aeiou]{0,3}(?:nnd|ng|nn|[mnbdgr])?([ˊˇˋ⁺ˆ+^])(?!\w)/gi, 
+       (match, tone) => {
+           const toneSymbol = toneMap[tone];
+           return match.replace(new RegExp(tone.replace(/[+^]/g, '\\$&') + '$'), toneSymbol);
+       }) || '';
+};
+
+
+// 客語調號中平低降轉正確符號
+const hakkaToneToFX = (text) => {
+   const toneMap = {'+':'⁺', '^':'ˆ'};
+   
+   return text?.replace(/(?<!\w)(?:ng|zh|ch|sh|gg|bb|[bpmfdtnlgkhzcsjqxv])?[aeiou]{0,3}(?:nnd|ng|nn|[mnbdgr])?([+^])(?!\w)/gi, 
+       (match, tone) => {
+           const toneSymbol = toneMap[tone];
+           return match.replace(new RegExp(tone.replace(/[+^]/g, '\\$&') + '$'), toneSymbol);
+       }) || '';
+};
+
+
+
+// 客語聲調字母轉上面
+const hakkaZvsToLetter = (function() {
+// 將拼音尾的[zvs]標示在字母上
+    // 建立三個分離的聲調對應表
+    const toneZMap = new Map([
+        // 二聲 z
+        ['a', 'á'], ['e', 'é'], ['i', 'í'], ['o', 'ó'], ['u', 'ú'], ['n', 'ń'], ['m', 'ḿ'],
+        ['A', 'Á'], ['E', 'É'], ['I', 'Í'], ['O', 'Ó'], ['U', 'Ú'], ['N', 'Ń'], ['M', 'Ḿ']
+    ]);
+    
+    const toneVMap = new Map([
+        // 三聲 v
+        ['a', 'ǎ'], ['e', 'ě'], ['i', 'ǐ'], ['o', 'ǒ'], ['u', 'ǔ'], ['n', 'ň'], ['m', 'm̌'],
+        ['A', 'Ǎ'], ['E', 'Ě'], ['I', 'Ǐ'], ['O', 'Ǒ'], ['U', 'Ǔ'], ['N', 'Ň'], ['M', 'M̌']
+    ]);
+    
+    const toneSMap = new Map([
+        // 四聲 s
+        ['a', 'à'], ['e', 'è'], ['i', 'ì'], ['o', 'ò'], ['u', 'ù'], ['n', 'ǹ'], ['m', 'm̀'],
+        ['A', 'À'], ['E', 'È'], ['I', 'Ì'], ['O', 'Ò'], ['U', 'Ù'], ['N', 'Ǹ'], ['M', 'M̀']
+    ]);
+    
+    const toneFMap = new Map([
+        ['a', 'ā'], ['e', 'ē'], ['i', 'ī'], ['o', 'ō'], ['u', 'ū'], ['n', 'n̄'], ['m', 'm̄'],
+        ['A', 'Ā'], ['E', 'Ē'], ['I', 'Ī'], ['O', 'Ō'], ['U', 'Ū'], ['N', 'N̄'], ['M', 'M̄']
+    ]);
+
+    const toneXMap = new Map([
+        ['a', 'â'], ['e', 'ê'], ['i', 'î'], ['o', 'ô'], ['u', 'û'], ['n', 'n̂'], ['m', 'm̂'],
+        ['A', 'Â'], ['E', 'Ê'], ['I', 'Î'], ['O', 'Ô'], ['U', 'Û'], ['N', 'N̂'], ['M', 'M̂']
+    ]);
+
+    // 韻母優先順序
+    const vowelPriority = [
+        'iau', 'uai', 'iai', 'au', 'ai', 'ua', 'ia',  'ee',  'eeu', 
+        'iui', 'ioi', 'iei', 'io', 'oi', 'eu', 'ue', 'ie', 'iu', 'ui', 'oo', 'er', 'ii'
+    ];
+    
+    // 找到應該標調的字母位置
+    function findTonePosition(vowels) {
+        const lowerVowels = vowels.toLowerCase();
+        
+        // 按優先順序檢查
+        for (const pattern of vowelPriority) {
+            if (lowerVowels.includes(pattern)) {
+                const index = lowerVowels.indexOf(pattern);
+                // 返回標調字母在pattern中的位置
+                if (pattern === 'iau' || pattern === 'uai' || pattern === 'iai' || 
+                    pattern === 'au' || pattern === 'ai' || pattern === 'ua' || pattern === 'ia') {
+                    return index + pattern.indexOf('a');
+                } else if (pattern === 'iui' || pattern === 'iu') {
+                    return index + pattern.indexOf('u');
+                } else if (pattern === 'ui' || pattern === 'ii') {
+                    return index + pattern.indexOf('i');
+                } else if (pattern === 'ee') {
+                    return index + pattern.indexOf('e');
+                } else if (pattern === 'ioo' || pattern === 'oo') {
+                    return index + pattern.indexOf('o');
+                } else if (pattern === 'ioi' || pattern === 'io' || pattern === 'oi') {
+                    return index + pattern.indexOf('o');
+                } else if (pattern === 'eu' || pattern === 'ue' || pattern === 'iei' || pattern === 'ie' || pattern === 'er') {
+                    return index + pattern.indexOf('e');
+                }
+            }
+        }
+        
+        // 如果沒有匹配到優先規則，標在第一個元音
+        return 0;
+    }
+    
+    // 應用聲調符號 - 保持大小寫
+    function applyTone(char, tone) {
+        let toneMapToUse;
+        switch (tone.toLowerCase()) {
+            case 'z': toneMapToUse = toneZMap; break;
+            case 'v': toneMapToUse = toneVMap; break;
+            case 's': toneMapToUse = toneSMap; break;
+            case 'f': toneMapToUse = toneFMap; break;
+            case 'x': toneMapToUse = toneXMap; break;
+            default: return char;
+        }
+        return toneMapToUse.get(char) || char;
+    }
+    
+    // 主要轉換正則表達式
+    const mainRegex = /\b(ng|zh|ch|sh|gg|bb|[bpmfdtnlgkhzcsjqxv])?([aeiou]{0,3})(nnd|ng|nn|[mnbdgr])?([zvsfx])\b/gi;
+    
+    // 特殊情況：ng + 聲調
+    const ngToneRegex = /\bng([zvsfx])\b/gi;
+    
+    // 特殊情況：m + 聲調
+    const mToneRegex = /\bm([zvsfx])\b/gi;
+
+    // 特殊情況：n + 聲調
+    const nToneRegex = /\bn([zvsfx])\b/gi;
+
+    return function(inputText) {
+        if (typeof inputText !== 'string' || !inputText.trim()) {
+            return '';
+        }
+        
+        let result = inputText;
+        
+        // 處理特殊情況：ng + 聲調
+        result = result.replace(ngToneRegex, function(match, tone) {
+            const isUpperCase = match[0] === match[0].toUpperCase();
+            const baseChar = isUpperCase ? 'N' : 'n';
+            return applyTone(baseChar, tone) + 'g';
+        });
+        
+        // 處理特殊情況：m + 聲調
+        result = result.replace(mToneRegex, function(match, tone) {
+            const isUpperCase = match[0] === match[0].toUpperCase();
+            const baseChar = isUpperCase ? 'M' : 'm';
+            return applyTone(baseChar, tone);
+        });
+
+        // 處理特殊情況：n + 聲調
+        result = result.replace(nToneRegex, function(match, tone) {
+            const isUpperCase = match[0] === match[0].toUpperCase();
+            const baseChar = isUpperCase ? 'N' : 'n';
+            return applyTone(baseChar, tone);
+        });
+
+        // 處理一般情況
+        result = result.replace(mainRegex, function(match, initial, vowels, final, tone) {
+            if (!vowels) return match; // 沒有元音則不處理
+            
+            const initialPart = initial || '';
+            const finalPart = final || '';
+            
+            // 找到應該標調的位置
+            const tonePosition = findTonePosition(vowels);
+            
+            // 將聲調標在指定位置的字母上
+            let modifiedVowels = '';
+			let len = vowels.length
+
+            for (let i = 0; i < len; i++) {
+                if (i === tonePosition) {
+                    modifiedVowels += applyTone(vowels[i], tone);
+                } else {
+                    modifiedVowels += vowels[i];
+                }
+            }
+            
+            return initialPart + modifiedVowels + finalPart;
+        });
+        
+        return result;
+    };
+})();
+
+
+
+
+
+
+// 四縣變調
+const sixianPinyinToChange = (function() {
+    return function(t) {  
+	// 四字變調;
+	//用分隔成x-xx-x;
+	t=t.replace(/([a-z])(-|_| )([a-z])(-|_| )([a-z])(-|_| )([a-z])(\b)/gi,'$1$2$3$4$5$6$7$8');
+
+	// 三疊字z不變調;
+	t=t.replace(/([a-z]{1,6})(z)(-|_| )(\1)(z)(-|_| )(\1)(z)(\b)/gi,'$1ˊ$3$4ˊ$6$7ˊ$9');
+	// 三疊字v變調;
+	t=t.replace(/([a-z]{1,6})(v)(-|_| )(\1)(v)(-|_| )(\1)(v)(\b)/gi,'$1ˊ$3$4$5$6$7$8$9');
+	// z二字變調;
+	t=t.replace(/([aeiouymng])(z)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeioumngbd]{1,5})([z]{0,1})(\b)/gi,'$1ˇ$3$4$5$6$7');
+
+	// e變調;
+	t=t.replace(/([aeiouymngbd])(s)(-|_| )()(e)(s)(\b)/gi,'$1$2$3$4$5ˇ$7');
+        return t;
+    };
+})();
+
+// 海陸變調
+const hailuPinyinToChange = (function() {
+    return function(t) { 	
+	// 四字變調;
+	//用分隔成x-xx-x;
+	t=t.replace(/([a-z])(-|_| )([a-z])(-|_| )([a-z])(-|_| )([a-z])(\b)/gi,'$1$2$3$4$5$6$7$8');
+
+	// 三疊字z不變調;
+	t=t.replace(/([a-z]{1,6})(z)(-|_| )(\1)(z)(-|_| )(\1)(z)(\b)/gi,'$1ˊ$3$4ˊ$6$7ˊ$9');
+	// 三疊字vsfc變調;
+	t=t.replace(/([a-z]{1,6})([vsf]{0,1})(-|_| )(\1)(\2)(-|_| )(\1)(\2)(\b)/gi,'$1ˊ$3$4$5$6$7$8$9');
+
+
+	// 二字變調;
+	t=t.replace(/([aeiouymng])(z)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeioumngbdr]{1,5})([zvsf]{0,1})(\b)/gi,'$1$3$4$5$6$7');
+	t=t.replace(/([aeiou])([bdg])(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeioumngbdr]{1,5})([zvsf]{0,1})(\b)/gi,'$1$2ˋ$3$4$5$6$7');
+
+	// 移除;
+	t=t.replace(//gi,'');
+        return t;
+    };
+})();
+
+// 大埔變調
+const dapuPinyinToChange = (function() {
+    return function(t) {  
+	// 四字變調;
+	//用分隔成x-xx-x;
+	t=t.replace(/([a-z])(-|_| )([a-z])(-|_| )([a-z])(-|_| )([a-z])(\b)/gi,'$1$2$3$4$5$6$7$8');
+
+	// 三疊字vsfc變調;
+	t=t.replace(/([a-z]{1,6})([vxsf])(-|_| )(\1)([fs])(-|_| )(\1)(\2)(\b)/gi,'$1ˊ$3$4ˇ$6$7$8$9');
+	t=t.replace(/([a-z]{1,6})([vxsf])(-|_| )(\1)([v])(-|_| )(\1)(\2)(\b)/gi,'$1ˊ$3$4⁺$6$7$8$9');
+
+	// 二字變調;
+	t=t.replace(/([aeiouymng])(f)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeioumngbdr]{1,5})([vx])(\b)/gi,'$1ˊ$3$4$5$6$7');
+	t=t.replace(/([aeiouymng])(v)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeioumngr]{1,5})([v])(\b)/gi,'$1⁺$3$4$5$6$7');
+	t=t.replace(/([aeiouymng])(s)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeioumngbdr]{1,5})([xs])(\b)/gi,'$1$3$4$5$6$7');
+
+	// 移除;
+	t=t.replace(//gi,'');
+        return t;
+    };
+})();
+
+// 饒平變調
+const raopingPinyinToChange = (function() {
+    return function(t) {  
+	// 四字變調;
+	//用分隔成x-xx-x;
+	t=t.replace(/([a-z])(-|_| )([a-z])(-|_| )([a-z])(-|_| )([a-z])(\b)/gi,'$1$2$3$4$5$6$7$8');
+
+
+	// 二字變調;
+	t=t.replace(/([aeiouymng])()(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeioumngbdr]{1,5})([vs])(\b)/gi,'$1ˋ$3$4$5$6$7');
+	t=t.replace(/([aeiouymng])()(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeioumngbdr]{1,5})([z]{0,1})(\b)/gi,'$1⁺$3$4$5$6$7');
+
+	t=t.replace(/([aeiouymng])(s)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})(ng|a|e|i|o|u|m|n|r{1,5})([vs])(\b)/gi,'$1⁺$3$4$5$6$7');
+	t=t.replace(/([aeiouymng])(s)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeioumngbdrr]{1,5})([zs]{0,1})(\b)/gi,'$1ˇ$3$4$5$6$7');
+
+	t=t.replace(/([aeiouymng])(z)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeioumngbdr]{1,5})([zvs]{0,1})(\b)/gi,'$1⁺$3$4$5$6$7');
+
+	t=t.replace(/(ag|eg|ig|og|ug|b|d)(s)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeioumngbdr]{1,5})([zvs]{0,1})(\b)/gi,'$1$3$4$5$6$7');
+
+	// 移除;
+	t=t.replace(//gi,'');
+        return t;
+    };
+})();
+
+// 詔安變調
+const kasuPinyinToChange = (function() {
+    return function(t) {  
+	// 四字變調;
+	//x-x-x-x 用分隔成x-xx-x;
+	t=t.replace(/([aeiouymng])(x)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeiouymng]{1,5})(x)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeiouymng]{1,5})(x)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeiouymng]{1,5})(x)(\b)/gi,'$1$2$3$4$5$6$7$8$9$10$11$12$13$14$15');
+	//w-x-x-x 用分隔成w-xx-x;
+	t=t.replace(/([aeiouymng])([zvs]{0,1})(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeiouymng]{1,5})(x)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeiouymng]{1,5})(x)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeiouymng]{1,5})(x)(\b)/gi,'$1$2$3$4$5$6$7$8$9$10$11$12$13$14$15');
+	//x-x-x-w 用分隔成x-xx-w;
+	t=t.replace(/([aeiouymng])(x)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeiouymng]{1,5})(x)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeiouymng]{1,5})(x)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeiouymng]{1,5})([zvs]{0,1})(\b)/gi,'$1$2$3$4$5$6$7$8$9$10$11$12$13$14$15');
+
+	//w-x-x-w 用分隔成w-xx-w;
+	t=t.replace(/([aeiouymng])([zvs]{0,1})(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeiouymng]{1,5})(x)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeiouymng]{1,5})(x)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeiouymng]{1,5})([zvs]{0,1})(\b)/gi,'$1$2$3$4$5$6$7$8$9$10$11$12$13$14$15');
+
+	// 三疊字vsfc變調;
+	t=t.replace(/([a-z]{1,6})([zvsx])(-|_| )(\1)(\2)(-|_| )(\1)(\2)(\b)/gi,'$1$3$4⁺$6$7$8$9');
+	t=t.replace(/([a-z]{1,6})()(-|_| )(\1)(\2)(-|_| )(\1)(\2)(\b)/gi,'$1$3$4⁺$6$7$8$9');
+
+	// 三字變調 x-x-x;
+	//x-x-x;
+	t=t.replace(/([aeiouymng])(x)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeiouymng]{1,5})(x)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeiouymng]{1,5})(x)(\b)/gi,'$1ˇ$3$4$5$7$8$9$10$11');
+
+	// 再處理輕聲;
+	t=t.replace(/([aeiouymng])([zvsx]{0,1})(--|-|_| )(go)(x)(-|_| )(loi)(s)(\b)/gi,'$1$2$3$4ˆ$6$7ˇ$9');
+	t=t.replace(/([aeiouymng])([zvsx]{0,1})(--|-|_| )(go)(x)(-|_| )(kui)(x)(\b)/gi,'$1$2$3$4ˆ$6$7ˇ$9');
+
+	t=t.replace(/([aeiouymng])([zvsx]{0,1})(--|-|_| )(ki)(x)(-|_| )(loi)(s)(\b)/gi,'$1$2$3$4ˆ$6$7ˇ$9');
+	t=t.replace(/([aeiouymng])([zvsx]{0,1})(--|-|_| )(ki)(x)(-|_| )(kui)(x)(\b)/gi,'$1$2$3$4ˆ$6$7ˇ$9');
+
+	t=t.replace(/([aeiouymng])([zvsx]{0,1})(--|-|_| )(ngib)(s)(-|_| )(loi)(s)(\b)/gi,'$1$2$3$4⁺$6$7ˇ$9');
+	t=t.replace(/([aeiouymng])([zvsx]{0,1})(--|-|_| )(ngib)(s)(-|_| )(kui)(x)(\b)/gi,'$1$2$3$4⁺$6$7ˇ$9');
+
+	t=t.replace(/([aeiouymng])([zvsx]{0,1})(--|-|_| )(chid)(z)(-|_| )(loi)(s)(\b)/gi,'$1$2$3$4ˊ$6$7ˇ$9');
+	t=t.replace(/([aeiouymng])([zvsx]{0,1})(--|-|_| )(chid)(z)(-|_| )(kui)(x)(\b)/gi,'$1$2$3$4ˊ$6$7ˇ$9');
+
+	t=t.replace(/([aeiouymng])([zvsx]{0,1})(--|-|_| )(loo|lo)()(-|_| )(loi)(s)(\b)/gi,'$1$2$3$4⁺$6$7ˇ$9');
+	t=t.replace(/([aeiouymng])([zvsx]{0,1})(--|-|_| )(loo|lo)()(-|_| )(kui)(x)(\b)/gi,'$1$2$3$4⁺$6$7ˇ$9');
+
+	t=t.replace(/([aeiouymng])([zvsx]{0,1})(--|-|_| )(rhid|rid)(z)(-|_| )(ha)()(\b)/gi,'$1$2$3$4⁺$6$7⁺$9');
+	t=t.replace(/([aeiouymng])([zvsx]{0,1})(--|-|_| )(rhid|rid)(z)(-|_| )(baix)()(\b)/gi,'$1$2$3$4⁺$6$7$8$9');
+	t=t.replace(/([aeiouymng])([zvsx]{0,1})(--|-|_| )(rhid|rid)(z)(-|_| )(fue)(s)(\b)/gi,'$1$2$3$4⁺$6$7ˆ$9');
+
+
+	// 二字輕聲--;
+	t=t.replace(/([aeiouymng])([zvsx]{0,1})(--)(loo|lo)()(\b)/gi,'$1$2$3$4⁺$6');
+	t=t.replace(/([aeiouymng])([zvsx]{0,1})(--)(choo|cho)()(\b)/gi,'$1$2$3$4⁺$6');
+	t=t.replace(/([aeiouymng])([zvsx]{0,1})(--)(loi)(s)(\b)/gi,'$1$2$3$4ˇ$6');
+	t=t.replace(/([aeiouymng])([zvsx]{0,1})(--)(ngib)(s)(\b)/gi,'$1$2$3$4⁺$6');
+	t=t.replace(/([aeiouymng])([zvsx]{0,1})(--)(kui)(x)(\b)/gi,'$1$2$3$4ˇ$6');
+	// 人變調
+	t=t.replace(/(ngai|hen|gui)(s)(--|-| )(ngin)(s)(\b)/gi,'$1$2$3$4⁺$6');
+	t=t.replace(/(een)(v)(--|-| )(ngin)(s)(\b)/gi,'$1$2$3$4⁺$6');
+
+	// 月份變調;
+	//c-zvsx;
+	t=t.replace(/(zhangx|beedz|samv|rhidz|liuz|cidz|qidz|giux|shibs|ridz|xix|ngi|six|mx)(--|-|_| )(ngied)(s)(\b)/gi,'$1$2$3ˇ$5');
+
+	// 二疊字變調;
+	t=t.replace(/([a-z]{1,6})([zvsx])(-|_| )(\1)(\2)(\b)/gi,'$1$3$4$5$6');
+	t=t.replace(/([a-z]{1,6})()(-|_| )(\1)(\2)(\b)/gi,'$1$3$4$5$6');
+
+	// 二字變調;
+	//c-zvsx;
+	t=t.replace(/([aeiouymng])()(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeiouymng]{1,5})([zvxs]{0,1})(\b)/gi,'$1⁺$3$4$5$6$7');
+	//x-zvs;
+	t=t.replace(/([aeiouymng])(x)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeiouymngbd]{1,5})([zvs]{0,1})(\b)/gi,'$1ˇ$3$4$5$6$7');
+	//x-x;
+	t=t.replace(/([aeiouymng])(x)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeiouymng]{1,5})(x)(\b)/gi,'$1$3$4$5$6$7');
+	//z-zvsx;
+	t=t.replace(/([aeiouymngbd])(z)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeiouymng]{1,5})([zvxs]{0,1})(\b)/gi,'$1$3$4$5$6$7');   
+	//s-zvsx;
+	t=t.replace(/([aeiouymngbd])(s)(-|_| )(zh|ch|sh|rh|ng|b|p|m|f|v|d|t|n|l|g|k|h|z|c|s|j|q|x|r{0,1})([aeiouymng]{1,5})([zvxs]{0,1})(\b)/gi,'$1⁺$3$4$5$6$7');   
+
+
+	// 移除;
+	t=t.replace(//gi,'');
+        return t;
+    };
+})();
+
+
+
+//四縣 調型轉調值;
+const sixianToneToNumbers = (function() {
+    return function(t) {  
+		t = t.replace(/([aeioumn])(ˊ|z)/gi, '$124');
+		t = t.replace(/(ng)(ˊ|z)/gi, '$124');
+		t = t.replace(/([aeioumn])(ˇ|v)/gi, '$111');
+		t = t.replace(/(ng)(ˇ|v)/gi, '$111');
+		t = t.replace(/([aeioumn])(ˋ|s)/gi, '$131');
+		t = t.replace(/(ng)(ˋ|s)/gi, '$131');
+		t = t.replace(/([aeiou])([bdg])(ˋ|s)/gi, '$1$22');
+		t = t.replace(/([aeiou])([bdg])(\b)/gi, '$1$2$35');
+		t = t.replace(/([aeioumn])(\b)/gi, '$1$255');
+		t = t.replace(/(ng)(\b)/gi, '$1$255');
+        return t;
+    };
+})();
+
+//海陸 調型轉調值;
+const hailuToneToNumbers = (function() {
+    return function(t) {  		
+		t = t.replace(/([aeioumnr])(ˋ|s)/gi, '$153');
+		t = t.replace(/(ng)(ˋ|s)/gi, '$153');
+		t = t.replace(/([aeioumnr])(ˊ|z)/gi, '$124');
+		t = t.replace(/(ng)(ˊ|z)/gi, '$124');
+		t = t.replace(/([aeioumnr])(ˇ|v)/gi, '$111');
+		t = t.replace(/(ng)(ˇ|v)/gi, '$111');
+		t = t.replace(/([aeioumnr])(\+|⁺|f)/gi, '$133');
+		t = t.replace(/(ng)(\+|⁺|f)/gi, '$133');
+		t = t.replace(/([aeiou])([bdg])(ˋ|s)/gi, '$1$22');
+		t = t.replace(/([aeiou])([bdg])(\b)/gi, '$1$2$35');
+		t = t.replace(/([aeioumnr])(\b)/gi, '$1$255');
+		t = t.replace(/(ng)(\b)/gi, '$1$255');
+        return t;
+    };
+})();
+
+//大埔 調型轉調值;
+const dapuToneToNumbers = (function() {
+    return function(t) {  		
+		t = t.replace(/([aeioumnr])(ˇ|v)/gi, '$1113');
+		t = t.replace(/(ng)(ˇ|v)/gi, '$1113');
+		t = t.replace(/([aeioumnr])(\+|⁺|f)/gi, '$133');
+		t = t.replace(/(ng)(\+|⁺|f)/gi, '$133');
+		t = t.replace(/([aeioumnr])(\^|ˆ|x)/gi, '$131');
+		t = t.replace(/(ng)(\^|ˆ|x)/gi, '$131');
+		t = t.replace(/([aeioumnr])(ˋ|s)/gi, '$153');
+		t = t.replace(/(ng)(ˋ|s)/gi, '$153');
+		t = t.replace(/([aeiou])([bdg])(\^|ˆ|x)/gi, '$1$221');
+		t = t.replace(/([aeiou])([bdg])(ˋ|s)/gi, '$1$254');
+        return t;
+    };
+})();
+
+//饒平 調型轉調值;
+const raopingToneToNumbers = (function() {
+    return function(t) { 		
+		t = t.replace(/([aeioumnr])(ˇ|v)/gi, '$111');
+		t = t.replace(/(ng)(ˇ|v)/gi, '$111');
+		t = t.replace(/([aeioumnr])(ˋ|s)/gi, '$153');
+		t = t.replace(/(ng)(ˋ|s)/gi, '$153');
+		t = t.replace(/([aeioumnr])(ˊ|z)/gi, '$124');
+		t = t.replace(/(ng)(ˊ|z)/gi, '$124');
+		t = t.replace(/([aeioumnr])(\^|ˆ|x)/gi, '$131');
+		t = t.replace(/(ng)(\^|ˆ|x)/gi, '$131');
+		t = t.replace(/([aeiou])([bdg])(ˋ|s)/gi, '$1$22');
+		t = t.replace(/([aeiou])([bdg])(\b)/gi, '$1$2$35');
+		t = t.replace(/([aeioumnr])(\b)/gi, '$1$255');
+		t = t.replace(/(ng)(\b)/gi, '$1$255');
+        return t;
+    };
+})();
+
+//詔安 調型轉調值;
+const kasuToneToNumbers = (function() {
+    return function(t) { 		
+		t = t.replace(/([aeioumnbdg])(ˇ|v)/gi, '$111');
+		t = t.replace(/([aeioumn])(ˋ|s)/gi, '$153');
+		t = t.replace(/(ng)(ˋ|s)/gi, '$153');
+		t = t.replace(/([aeioumnbdg])(\^|ˆ|x)/gi, '$131');
+		t = t.replace(/([aeioumngbd])(ˊ|z)/gi, '$124');
+		t = t.replace(/([aeiou])([bdg])(ˋ|s)/gi, '$1$243');
+		t = t.replace(/(nnd)(ˋ|s)/gi, '$143');
+		t = t.replace(/([aeioumn])(\+|⁺|f)/gi, '$133');
+		t = t.replace(/(ng)(\+|⁺|f)/gi, '$133');
+		t = t.replace(/([aeiou])([bdg])(\+|⁺|f)/gi, '$1$23');
+		t = t.replace(/(nnd)(\+|⁺|f)/gi, '$13');
+		t = t.replace(/([aeioumn])(\b)/gi, '$1$255');
+		t = t.replace(/(ng)(\b)/gi, '$1$255');
+        return t;
+    };
+})();
+
+
+
+
+
+
+//四縣 調值轉調型;
+const sixianNumbersToTone = (function() {
+    return function(t) {  		
+		t = t.replace(/([aeioumn])(24)/gi, '$1ˊ');
+		t = t.replace(/(ng)(24)/gi, '$1ˊ');
+		t = t.replace(/([aeioumn])(11)/gi, '$1ˇ');
+		t = t.replace(/(ng)(11)/gi, '$1ˇ');
+		t = t.replace(/([aeioumn])(31)/gi, '$1ˋ');
+		t = t.replace(/(ng)(31)/gi, '$1ˋ');
+		t = t.replace(/([aeiou])([bdg])(2)/gi, '$1$2ˋ');
+		t = t.replace(/([aeiou])([bdg])(5)/gi, '$1$2');
+		t = t.replace(/([aeioumn])(55)/gi, '$1');
+		t = t.replace(/(ng)(55)/gi, '$1');
+        return t;
+    };
+})();
+
+//海陸 調值轉調型;
+const hailuNumbersToTone = (function() {
+    return function(t) {  		
+		t = t.replace(/([aeioumnr])(53)/gi, '$1ˋ');
+		t = t.replace(/(ng)(53)/gi, '$1ˋ');
+		t = t.replace(/([aeioumnr])(24)/gi, '$1ˊ');
+		t = t.replace(/(ng)(24)/gi, '$1ˊ');
+		t = t.replace(/([aeioumnr])(11)/gi, '$1ˇ');
+		t = t.replace(/(ng)(11)/gi, '$1ˇ');
+		t = t.replace(/([aeioumnr])(33)/gi, '$1⁺');
+		t = t.replace(/(ng)(33)/gi, '$1⁺');
+		t = t.replace(/([aeiou])([bdg])(2)/gi, '$1$2ˋ');
+		t = t.replace(/([aeiou])([bdg])(5)/gi, '$1$2');
+		t = t.replace(/([aeioumnr])(55)/gi, '$1');
+		t = t.replace(/(ng)(55)/gi, '$1');
+        return t;
+    };
+})();
+
+
+//大埔 調值轉調型;
+const dapuNumbersToTone = (function() {
+    return function(t) { 		
+		t = t.replace(/(ng)(113)/gi, '$1ˇ');
+		t = t.replace(/([aeioumnr])(31)/gi, '$1ˆ');
+		t = t.replace(/([aeioumnr])(33)/gi, '$1⁺');
+		t = t.replace(/(ng)(33)/gi, '$1⁺');
+		t = t.replace(/([aeioumnr])(113)/gi, '$1ˇ');
+		t = t.replace(/(ng)(31)/gi, '$1ˆ');
+		t = t.replace(/([aeioumnr])(53)/gi, '$1ˋ');
+		t = t.replace(/(ng)(53)/gi, '$1ˋ');
+		t = t.replace(/([aeiou])([bdg])(21)/gi, '$1$2ˆ');
+		t = t.replace(/([aeiou])([bdg])(54)/gi, '$1$2ˋ');
+        return t;
+    };
+})();
+
+//饒平 調值轉調型;
+const raopingNumbersToTone = (function() {
+    return function(t) { 		
+		t = t.replace(/([aeioumnr])(11)/gi, '$1ˇ');
+		t = t.replace(/(ng)(11)/gi, '$1ˇ');
+		t = t.replace(/([aeioumnr])(53)/gi, '$1ˋ');
+		t = t.replace(/(ng)(53)/gi, '$1ˋ');
+		t = t.replace(/([aeioumnr])(31)/gi, '$1ˆ');
+		t = t.replace(/(ng)(31)/gi, '$1ˆ');
+		t = t.replace(/([aeioumnr])(24)/gi, '$1ˊ');
+		t = t.replace(/(ng)(24)/gi, '$1ˊ');
+		t = t.replace(/([aeiou])([bdg])(2)/gi, '$1$2ˋ');
+		t = t.replace(/([aeiou])([bdg])(5)/gi, '$1$2');
+		t = t.replace(/([aeioumnr])(55)/gi, '$1');
+		t = t.replace(/(ng)(55)/gi, '$1');
+        return t;
+    };
+})();
+
+//詔安 調值轉調型;
+const kasuNumbersToTone = (function() {
+    return function(t) {  		
+		t = t.replace(/([aeioumnbdg])(11)/gi, '$1ˇ');
+		t = t.replace(/([aeioumn]|ng)(53)/gi, '$1ˋ');
+		t = t.replace(/([aeioumnbdg])(31)/gi, '$1ˆ');
+		t = t.replace(/([aeioumngbd])(24)/gi, '$1ˊ');
+		t = t.replace(/([aeiou])([bdg])(53|43)/gi, '$1$2ˋ');
+		t = t.replace(/(nnd)(53|43)/gi, '$1ˋ');
+		t = t.replace(/([aeioumn]|ng)(55)/gi, '$1');
+		t = t.replace(/([aeioumn]|ng)(33)/gi, '$1⁺');
+		t = t.replace(/([aeiou])([bdg])(3)/gi, '$1$2⁺');
+		t = t.replace(/(nnd)(3)/gi, '$1⁺');
+        return t;
+    };
+})();
+
+
+
+
+
+
+
+
+// 客語拼音轉注音
+const hakkaPinyinToBpm = (function() {
+    const consonantData = `bb	万_ng	兀_rh	ㄖ_r	ㄖ_zh	ㄓ_ch	ㄔ_sh	ㄕ_b	ㄅ_p	ㄆ_m	ㄇ_f	ㄈ_d	ㄉ_t	ㄊ_n	ㄋ_l	ㄌ_g	ㄍ_k	ㄎ_h	ㄏ_j	ㄐ_q	ㄑ_x	ㄒ_z	ㄗ_c	ㄘ_s	ㄙ_v	万`;
+    const vowelData = `iang	ㄧㄤ_iong	ㄧㄛㄥ_iung	ㄧㄨㄥ_uang	ㄨㄤ_ang	ㄤ_iag	ㄧㄚㄍ_ied	ㄧㄝㄉ_ien	ㄧㄝㄣ_ong	ㄛㄥ_ung	ㄨㄥ_iid	ㄉ_iim	ㄇ_iin	ㄣ_iab	ㄧㄚㄅ_iam	ㄧㄚㄇ_iau	ㄧㄠ_iog	ㄧㄛㄍ_ieb	ㄧㄝㄅ_iem	ㄧㄝㄇ_ieu	ㄧㄝㄨ_iug	ㄧㄨㄍ_iun	ㄧㄨㄣ_uad	ㄨㄚㄉ_uai	ㄨㄞ_uan	ㄨㄢ_ued	ㄨㄝㄉ_uen	ㄨㄝㄣ_iui	ㄧㄨㄧ_ioi	ㄧㄛㄧ_iud	ㄧㄨㄉ_ion	ㄧㄛㄣ_iib	ㄅ_ab	ㄚㄅ_ad	ㄚㄉ_ag	ㄚㄍ_ai	ㄞ_am	ㄚㄇ_an	ㄢ_au	ㄠ_ed	ㄝㄉ_en	ㄝㄣ_eu	ㄝㄨ_er	ㄜ_id	ㄧㄉ_in	ㄧㄣ_iu	ㄧㄨ_od	ㄛㄉ_og	ㄛㄍ_oi	ㄛㄧ_ud	ㄨㄉ_ug	ㄨㄍ_un	ㄨㄣ_em	ㄝㄇ_ii	_on	ㄛㄣ_ui	ㄨㄧ_eb	ㄝㄅ_io	ㄧㄛ_ia	ㄧㄚ_ib	ㄧㄅ_ie	ㄧㄝ_im	ㄧㄇ_ua	ㄨㄚ_ng	ㄥ_a	ㄚ_e	ㄝ_i	ㄧ_o	ㄛ_u	ㄨ_inn	ㆳ_uannd	ㄨㆩㄉ_ann	ㆩ_ainn	ㆮ_uainn	ㄨㆮ_ee	乜_eem	乜ㄇ`;
+
+    // 聲調對應表
+    const toneData = `f	⁺_v	ˇ_z	ˊ_s	ˋ_x	ˆ`;
+
+    // 解析資料成 Map
+    function parseData(dataString) {
+        const map = new Map();
+        dataString.trim().split('_').forEach(line => {
+            if (line.trim()) {
+                const [key, value] = line.split('\t');
+                if (key) {
+                    map.set(key.trim(), value ? value.trim() : '');
+                }
+            }
+        });
+        return map;
+    }
+
+    const consonantMap = parseData(consonantData);
+    const vowelMap = parseData(vowelData);
+    const toneMap = parseData(toneData);
+
+
+    // 預編譯正則表達式以提高效率
+    const vowelKeys = Array.from(vowelMap.keys()).sort((a, b) => b.length - a.length);
+    const consonantKeys = Array.from(consonantMap.keys()).sort((a, b) => b.length - a.length);
+    
+    // 韻母匹配正則（按長度從長到短）
+    const vowelRegex = new RegExp(`\\b(zh|ch|sh|rh|bb|gg|ng|[bpmfdtnlgkhzcsjqx])?(${vowelKeys.join('|')})([fvzsx]?)\\b`, 'gi');
+    
+    // 聲母匹配正則
+    const consonantRegex = new RegExp(`\\b(${consonantKeys.join('|')})(?=[ㄧㄨㄚㄛㄜㄝㄞㄠㄡㄢㄣㄤㄥㄇㄋ兀ㄅㄉㄍㆮㆳㆬㆲㆰ])`, 'gi');
+
+    return function(text) {
+        if (!text || typeof text !== 'string') {
+            return '';
+        }
+
+        let result = text;
+
+        // 第一步：轉換韻母和聲調
+        result = result.replace(vowelRegex, (match, consonant, vowel, tone) => {
+            const zhuyin_vowel = vowelMap.get(vowel.toLowerCase()) || vowel;
+            const zhuyin_tone = tone ? toneMap.get(tone) : '';
+
+		// 保留聲母部分，稍後處理
+            const consonantPart = consonant ? consonant : '';
+            return consonantPart + zhuyin_vowel + zhuyin_tone;
+        });
+
+        // 第二步：轉換聲母
+        result = result.replace(consonantRegex, (match, consonant) => {
+            return consonantMap.get(consonant.toLowerCase()) || consonant;
+        });
+
+        return result;
+    };
+})();
+
+// 客語注音轉拼音
+const hakkaBpmToPinyin = (function() {
+	const bpmData =`ㄧㄛㄥ	iong_ㄧㄨㄥ	iung_ㄧㄚㄍ	iag_ㄧㄝㄉ	ied_ㄧㄝㄣ	ien_ㄧㄚㄅ	iab_ㄧㄚㄇ	iam_ㄧㄛㄍ	iog_ㄧㄝㄅ	ieb_ㄧㄝㄇ	iem_ㄧㄝㄨ	ieu_ㄧㄨㄍ	iug_ㄧㄨㄣ	iun_ㄨㄚㄉ	uad_ㄨㄝㄉ	ued_ㄨㄝㄣ	uen_ㄧㄨㄧ	iui_ㄧㄛㄧ	ioi_ㄧㄨㄉ	iud_ㄧㄛㄣ	ion_ㄧㄤ	iang_ㄨㄤ	uang_ㄛㄥ	ong_ㄨㄥ	ung_ㄧㄠ	iau_ㄨㄞ	uai_ㄨㄢ	uan_ㄚㄅ	ab_ㄚㄉ	ad_ㄚㄍ	ag_ㄚㄇ	am_ㄝㄉ	ed_ㄝㄣ	en_ㄝㄨ	eu_ㄧㄉ	id_ㄧㄣ	in_ㄧㄨ	iu_ㄛㄉ	od_ㄛㄍ	og_ㄛㄧ	oi_ㄨㄉ	ud_ㄨㄍ	ug_ㄨㄣ	un_ㄝㄇ	em_ㄛㄣ	on_ㄝㄅ	eb_ㄧㄛ	io_ㄧㄚ	ia_ㄧㄅ	ib_ㄧㄝ	ie_ㄧㄇ	im_ㄨㄚ	ua_ㄨㄧ	ui_ㄘㄉ	ciid_ㄘㄇ	ciim_ㄘㄣ	ciin_ㄙㄅ	siib_ㄙㄉ	siid_ㄙㄇ	siim_ㄙㄣ	siin_ㄗㄅ	ziib_ㄗㄉ	ziid_ㄗㄇ	ziim_ㄗㄣ	ziin_ㄤ	ang_ㄞ	ai_ㄢ	an_ㄠ	au_ㄜ	er_ㄚ	a_ㄝ	e_ㄧ	i_ㄛ	o_ㄨ	u_兀	ng_ㄖ	rh_ㄓ	zh_ㄔ	ch_ㄕ	sh_ㄅ	b_ㄆ	p_ㄇ	m_ㄈ	f_ㄉ	d_ㄊ	t_ㄋ	n_ㄌ	l_ㄍ	g_ㄎ	k_ㄏ	h_ㄐ	j_ㄑ	q_ㄒ	x_万	v_ㄘ	cii_ㄙ	sii_ㄗ	zii_乜	ee_乜ㄇ	eem_ㄨㆮ	uainn_ㆮ	ainn_ㆩ	ann_ㄨㆩㄉ	uannd_ㆳ	inn_ㆲ	ong`;
+
+    
+    // 解析資料成 Map
+    function parseData(dataString) {
+        const map = new Map();
+        dataString.trim().split('_').forEach(line => {
+            if (line.trim()) {
+                const [key, value] = line.split('\t');
+                if (key !== undefined) {
+                    map.set(key ? key.trim() : '', value ? value.trim() : '');
+                }
+            }
+        });
+        return map;
+    }
+    
+    const bpmMap = parseData(bpmData);
+    
+    // 預編譯正則表達式以提高效率
+    const bpmKeys = Array.from(bpmMap.keys()).sort((a, b) => b.length - a.length);
+    
+    // 注音轉拼音正則
+    const zhuyinRegex = new RegExp(`(${bpmKeys.join('|')})`, 'g');
+    
+    return function(text) {
+        if (!text || typeof text !== 'string') {
+            return '';
+        }
+        
+        // 轉換注音為拼音
+        return text.replace(zhuyinRegex, (match, bpm) => {
+            return bpmMap.get(bpm) || bpm;
+        });
+    };
+})();
