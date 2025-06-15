@@ -201,14 +201,12 @@ function matsuNumberLetter(t){
 
 // 語言配置映射
 const languageConfigs = {
-    'sixian': { name: '四縣', config: langSixian, param: 'sixian', url: 'https://sites.google.com/view/oikasu/hoka' },
-    'hailu': { name: '海陸', config: langHailu, param: 'hailu', url: 'https://sites.google.com/view/oikasu/hoka' },
     'holo': { name: '和樂', config: langHolo, param: 'holo', url: 'https://sites.google.com/view/oikasu/holo' },
     'matsu': { name: '馬祖', config: langMatsu, param: 'matsu', url: 'https://sites.google.com/view/oikasu/matsu' }
 };
 
-let currentLanguage = 'sixian'; // 預設語言
-let currentLanguageConfig = langSixian; // 當前語言配置
+let currentLanguage = 'matsu'; // 預設語言
+let currentLanguageConfig = langMatsu; // 當前語言配置
 
 
 // 初始化語言設定
