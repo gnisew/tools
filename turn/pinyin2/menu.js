@@ -27,11 +27,20 @@ const langSixian = `
 `;
 
 
+
+	
+	
+	
 // 客語拼音轉注音
 function hakkaPinyinBpm(t){ 
+	console.log(t)
 	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneZvs(t) }	
-	return hakkaPinyinToBpm(t);
+	console.log(t)
+	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }	
+	console.log(t)
+		t = hakkaPinyinToBpm(t)
+		console.log(t)
+	return t;
 }
 
 // 客語注音轉拼音字尾調
@@ -58,7 +67,7 @@ function hakkaPinyinLetter(t){
 // 客語拼音轉字母調
 function hakkaPinyinZvs(t){ 
 	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneZvs(t) }
+	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
 	return t;
 }
 
@@ -80,6 +89,7 @@ function hakkaLetterTone(t){
 }
 // 客語字尾調轉字母調
 function hakkaToneZvs(t){ return hakkaToneToZvs(t);}
+
 // 客語字尾調轉字中調
 function hakkaToneLetter(t){ 
 	t = hakkaToneToZvs(t);
@@ -114,7 +124,7 @@ function sixianPojEduZvs(t){
 // 四縣拼音轉變調
 function sixianPinyinChange(t){ 
 	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneZvs(t) }
+	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
 	t = sixianPinyinToChange(t);
 	t = hakkaZvsToTone(t)
 	return t;
@@ -124,7 +134,7 @@ function sixianPinyinChange(t){
 // 四縣聲調轉調值
 function sixianToneNumbers(t){ 
 	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneZvs(t) }
+	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
 	t = sixianToneToNumbers(t);
 	return t;
 }
@@ -156,7 +166,7 @@ const langHailu = `
 // 海陸拼音轉變調
 function hailuPinyinChange(t){ 
 	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneZvs(t) }
+	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
 	t = hailuPinyinToChange(t);
 	t = hakkaZvsToTone(t)
 	return t;
@@ -165,7 +175,7 @@ function hailuPinyinChange(t){
 // 海陸聲調轉調值
 function hailuToneNumbers(t){ 
 	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneZvs(t) }
+	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
 	t = hailuToneToNumbers(t);
 	return t;
 }
@@ -195,7 +205,7 @@ const langDapu = `
 // 大埔拼音轉變調
 function dapuPinyinChange(t){ 
 	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneZvs(t) }
+	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
 	t = dapuPinyinToChange(t);
 	t = hakkaZvsToTone(t)
 	return t;
@@ -204,7 +214,7 @@ function dapuPinyinChange(t){
 // 大埔聲調轉調值
 function dapuToneNumbers(t){ 
 	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneZvs(t) }
+	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
 	t = dapuToneToNumbers(t);
 	return t;
 }
@@ -233,7 +243,7 @@ const langRaoping = `
 // 饒平拼音轉變調
 function raopingPinyinChange(t){ 
 	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneZvs(t) }
+	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
 	t = raopingPinyinToChange(t);
 	t = hakkaZvsToTone(t)
 	return t;
@@ -242,7 +252,7 @@ function raopingPinyinChange(t){
 // 饒平聲調轉調值
 function raopingToneNumbers(t){ 
 	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneZvs(t) }
+	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
 	t = raopingToneToNumbers(t);
 	return t;
 }
@@ -269,7 +279,7 @@ const langKasu = `
 // 詔安拼音轉變調
 function kasuPinyinChange(t){ 
 	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneZvs(t) }
+if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
 	t = kasuPinyinToChange(t);
 	t = hakkaZvsToTone(t)
 	return t;
@@ -278,7 +288,7 @@ function kasuPinyinChange(t){
 // 詔安聲調轉調值
 function kasuToneNumbers(t){ 
 	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneZvs(t) }
+	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
 	t = kasuToneToNumbers(t);
 	return t;
 }
