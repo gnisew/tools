@@ -1,7 +1,11 @@
 // textSelectionDictionary.js
 const myQuery = `
-查詢國語	https://dict.revised.moe.edu.tw/search.jsp?md=1&word=
-查詢台語	https://sutian.moe.edu.tw/zh-hant/tshiau/?lui=tai_su&tsha=
+查華語	https://dict.revised.moe.edu.tw/search.jsp?md=1&word=
+看四縣	https://gnisew.github.io/tools/dict/sixian.html?cas=
+找海陸	https://gnisew.github.io/tools/dict/hailu.html?cas=
+尋詔安	https://gnisew.github.io/tools/dict/index.html?cas=
+覓南四縣	https://gnisew.github.io/tools/dict/sixiannan.html?cas=
+查臺台語	https://sutian.moe.edu.tw/zh-hant/tshiau/?lui=tai_su&tsha=
 `;
 
 (function() {
