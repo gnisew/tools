@@ -2,6 +2,7 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>烏衣行統計工具</title>
     <style>
         body {
@@ -14,7 +15,6 @@
           align-items: flex-start;
           min-height: 100vh;
           overflow: auto;
-          user-select: none;
         }
 
         .container {
@@ -473,9 +473,8 @@
       <option value="pojToTailuo">教羅轉台</option>
       <option value="anyZvsToRoma">az 轉 á</option>
       <option value="anyRomaToZvs">á 轉 az</option>
-	  <option value="holoNumberToKp">台a2轉Kp</option>
+	  <option value="holoNumberToKp" title="台羅轉客羅g用w">台a2轉Kp</option>
     </select>
-
 
     <select onchange="handleDropdownChange(this)" onfocus="showOptions(this)"
       onblur="resetOptions(this)">
@@ -1638,7 +1637,7 @@ function loadCssJs(url) {
 }
 
 
-function rubyText() {
+function rubyText2() {
     let text = document.getElementById('id_A').value;
 	if (text.startsWith("載入的資料共")) {
 		text = allText;
@@ -1678,12 +1677,58 @@ function rubyText() {
 	document.getElementById('id_D').innerHTML = myAll;
  }
 
-document.getElementById('toggle-textarea-c').onclick = function() {
+	document.getElementById('toggle-textarea-c').onclick = function() {
     document.getElementById('id_C').classList.toggle('hidden');
 	document.getElementById('smallButtonContainer_C').classList.toggle('hidden');
 };
 
+function rubyText() {
+    let text = document.getElementById('id_A').value;
+    if (text.startsWith("載入的資料共")) {
+        text = allText;
+    }
+    let myAll = text;
+    let pattern;
+    
+    // 檢查訊息中是否包含 {漢字/拼音}，並轉換成 Ruby 
+    pattern = /\{\s*(?:ruby\s*:)?\s*([^\/}]+)\s*\/\s*([^\/}]+)\s*\}/g;
+    if (myAll.match(pattern)) {
+        myAll = myAll.replace(pattern, function(match, p1, p2) {
+            var chineseCharacters = Array.from(p1.trim()); // 移除逗號並轉為陣列
+            var pinyinWithSpaces = p2.replace(/,/g, ' , '); // 在逗號前後加空格
+            var pinyinArray = pinyinWithSpaces.trim().split(/\s+/);
+            let rubyText = '';
+            let chineseIndex = 0;
+            for (let i = 0; i < pinyinArray.length; i++) {
+                // 如果 pinyin 是 - 或 -- ，則跳過，不處理
+                if (pinyinArray[i] === '-' || pinyinArray[i] === '--' || pinyinArray[i] === '=') continue;
+                const chinesePart = chineseCharacters.slice(chineseIndex, chineseIndex + pinyinArray[i].split(/[-]+/).length);
+                rubyText += `<ruby>${chinesePart.join('')}<rt>${pinyinArray[i]}</rt></ruby>`;
+                chineseIndex += chinesePart.length;
+            }
+            return rubyText;
+        });
+    }
+    
+    // 新增：支援第一種格式 - 文字(拼音)文字(拼音)，文字(拼音)
+    pattern = /([^\(\s]+)\(([^\)]+)\)/g;
+    if (myAll.match(pattern)) {
+        myAll = myAll.replace(pattern, function(match, chinese, pinyin) {
+            return `<ruby>${chinese}<rt>${pinyin}</rt></ruby>`;
+        });
+    }
+    
+    // 新增：支援第二種格式 - 文字(拼音) 文字(拼音)，文字(拼音)  文字(拼音)
+    // 這種格式實際上與第一種格式的處理方式相同，因為正則表達式會自動處理空格
+    
+    document.getElementById('id_B').value = myAll;
+    document.getElementById('id_D').innerHTML = myAll;
+}
 
+	document.getElementById('toggle-textarea-c').onclick = function() {
+    document.getElementById('id_C').classList.toggle('hidden');
+    document.getElementById('smallButtonContainer_C').classList.toggle('hidden');
+};
 
 		
 function combineCharacter() {
@@ -1884,7 +1929,7 @@ function combineHyphen() {
     let output = '';
 
     // 定義標點符號正則表達式
-    const punctuationRegex = /[。，、；：【】「」『』（）─？！…﹏《》〈〉＿．—～~／\(\)\[\]{}\/,.?;:!"'""''·]/;
+    const punctuationRegex = /[。，、；：【】「」『』（）─？！…﹏《》〈〉＿．—～~／\“\”\(\)\[\]{}\/,.?;:!"'""''·]/;
 
     lines.forEach(line => {
         if (line.trim() === '' || line.trim() === '\t') {
@@ -1899,13 +1944,21 @@ function combineHyphen() {
         }
 
         let currentOutput = '';
-        
+
+		function splitChineseWithDigits(text) {
+		  const chars = Array.from(text);
+		  let joinedText = chars.join('ˉ');
+		  joinedText = joinedText.replace(/\d(ˉ\d)+/g, match => match.replace(/ˉ/g, ''));
+		  const result = joinedText.split('ˉ');
+		  return result;
+		}
+
         // 分別處理漢字和拼音
-        const chineseChars = Array.from(chinese);
+        const chineseChars = splitChineseWithDigits(chinese);
         // 先處理拼音中的標點符號，確保前後有空格
         let processedPinyin = pinyin;
         // 在標點符號前後添加空格，並處理可能出現的多餘空格
-        processedPinyin = processedPinyin.replace(/([。，、；：【】「」『』（）─？！…﹏《》〈〉＿．—～~／\(\)\[\]{}\/,.?;:!"'""''·])/g, ' $1 ');
+        processedPinyin = processedPinyin.replace(/([。，、；：【】「」『』（）─？！…﹏《》〈〉＿．—～~／\“\”\(\)\[\]{}\/,.?;:!"'""''·])/g, ' $1 ');
         const pinyinGroups = processedPinyin.split(' ').filter(g => g.length > 0);
         
         let chineseIndex = 0;
@@ -1989,13 +2042,31 @@ function combineHyphen() {
         // 清理多餘的空格，但保留標點符號前後的單個空格
         currentOutput = currentOutput.replace(/\s+/g, ' ').trim();
         
-        // 添加計數信息
-        const lengthInfo = `${chineseCount}\\${pinyinCount}`;
-        output += currentOutput + '	' + lengthInfo + '\n';
+		// 添加計數信息和比較結果標記
+		let compareMarker = '';
+		if (chineseCount > pinyinCount) {
+			compareMarker = 'X';
+		} else if (chineseCount === pinyinCount) {
+			compareMarker = 'O';
+		} else {
+			compareMarker = 'Y';
+		}
+
+		const lengthInfo = `${chineseCount}\\${pinyinCount}`;
+		output += currentOutput + '\t' + lengthInfo + '\t' + compareMarker + '\n';
     });
 
     document.getElementById('id_B').textContent = output.trim();
 }
+
+
+
+
+
+
+
+
+
 
 
 function holoNumberToRoman() {
@@ -3645,6 +3716,20 @@ function pojToTailuoFn(text) {
         [/Ěng\b/g, 'Ǐng'],
         [/Ēng\b/g, 'Īng'],
         [/E̍ng\b/g, 'I̍ng'],
+        [/Ő\u0358/g, 'Őo'],
+        [/Ó\u0358/g, 'Óo'],
+        [/Ò\u0358/g, 'Òo'],
+        [/Ô\u0358/g, 'Ôo'],
+        [/Ǒ\u0358/g, 'Ǒo'],
+        [/Ō\u0358/g, 'Ōo'],
+        [/O̍\u0358/g, 'O̍o'],
+        [/Ő\u00B7/g, 'Őo'],
+        [/Ó\u00B7/g, 'Óo'],
+        [/Ò\u00B7/g, 'Òo'],
+        [/Ô\u00B7/g, 'Ôo'],
+        [/Ǒ\u00B7/g, 'Ǒo'],
+        [/Ō\u00B7/g, 'Ōo'],
+        [/O̍\u00B7/g, 'O̍o'],
         [/o\u0358/g, 'oo'],
         [/ő\u0358/g, 'őo'],
         [/ó\u0358/g, 'óo'],
@@ -3653,11 +3738,19 @@ function pojToTailuoFn(text) {
         [/ǒ\u0358/g, 'ǒo'],
         [/ō\u0358/g, 'ōo'],
         [/o̍\u0358/g, 'o̍o'],
-        [/\bCh([aeiounőóòôǒōo̍a̋áàâǎāa̍e̋éèêěēe̍űúùûǔūu̍i̋íìîǐīi̍n̋ńǹn̂ňn̄n̍])/g, 'Ts$1'],
-        [/\bChh([aeiounőóòôǒōo̍a̋áàâǎāa̍e̋éèêěēe̍űúùûǔūu̍i̋íìîǐīi̍n̋ńǹn̂ňn̄n̍])/g, 'Tsh$1'],
-        [/\bch([aeiounőóòôǒōo̍a̋áàâǎāa̍e̋éèêěēe̍űúùûǔūu̍i̋íìîǐīi̍n̋ńǹn̂ňn̄n̍])/g, 'ts$1'],
-        [/\bchh([aeiounőóòôǒōo̍a̋áàâǎāa̍e̋éèêěēe̍űúùûǔūu̍i̋íìîǐīi̍n̋ńǹn̂ňn̄n̍])/g, 'tsh$1'],
-        [/ⁿ/g, 'nn'],
+        [/o\u00B7/g, 'oo'],
+        [/ő\u00B7/g, 'őo'],
+        [/ó\u00B7/g, 'óo'],
+        [/ò\u00B7/g, 'òo'],
+        [/ô\u00B7/g, 'ôo'],
+        [/ǒ\u00B7/g, 'ǒo'],
+        [/ō\u00B7/g, 'ōo'],
+        [/o̍\u00B7/g, 'o̍o'],
+		[/ⁿ/g, 'nn'],
+        [/\bCh([aeiounőóòôǒōo̍a̋áàâǎāa̍e̋éèêěēe̍űúùûǔūu̍i̋íìîǐīi̍n̋ńǹn̂ňn̄n̍])([aeioumngptkhbd]{0,5})(?!\w)/g, 'Ts$1$2'],
+        [/\bChh([aeiounőóòôǒōo̍a̋áàâǎāa̍e̋éèêěēe̍űúùûǔūu̍i̋íìîǐīi̍n̋ńǹn̂ňn̄n̍])([aeioumngptkhbd]{0,5})(?!\w)/g, 'Tsh$1$2'],
+        [/\bch([aeiounőóòôǒōo̍a̋áàâǎāa̍e̋éèêěēe̍űúùûǔūu̍i̋íìîǐīi̍n̋ńǹn̂ňn̄n̍])([aeioumngptkhbd]{0,5})(?!\w)/g, 'ts$1$2'],
+        [/\bchh([aeiounőóòôǒōo̍a̋áàâǎāa̍e̋éèêěēe̍űúùûǔūu̍i̋íìîǐīi̍n̋ńǹn̂ňn̄n̍])([aeioumngptkhbd]{0,5})(?!\w)/g, 'tsh$1$2'],     
     ];
     for (const [pattern, replacement] of replacements) {
         text = text.replace(pattern, replacement);
