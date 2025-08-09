@@ -1459,8 +1459,11 @@ function letterToZvs(t) {
 	t = t.replace(/(n̍)([aeioumngptkhr]{0,5})(?!\w)/g, 'n$2l');
 	t = t.replace(/(N̂)([aeioumngptkhr]{0,5})(?!\w)/g, 'N$2x');
 	t = t.replace(/(n̂)([aeioumngptkhr]{0,5})(?!\w)/g, 'n$2x');
+	t = t.replace(/(Ň)([aeioumngptkhr]{0,5})(?!\w)/g, 'N$2v');
+	t = t.replace(/(ň)([aeioumngptkhr]{0,5})(?!\w)/g, 'n$2v');
 	t = t.replace(/(Ň)([aeioumngptkhr]{0,5})(?!\w)/g, 'N$2v');
 	t = t.replace(/(ň)([aeioumngptkhr]{0,5})(?!\w)/g, 'n$2v');
+
 	t = t.replace(/(N̄)([aeioumngptkhr]{0,5})(?!\w)/g, 'N$2f');
 	t = t.replace(/(n̄)([aeioumngptkhr]{0,5})(?!\w)/g, 'n$2f');
 	t = t.replace(/(N̋)([aeioumngptkhr]{0,5})(?!\w)/g, 'N$2zz');
