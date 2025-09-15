@@ -1,0 +1,482 @@
+
+
+:root {
+    --brand: #5b8def;
+    --ink-2: #334155;
+    --warn: #ea580c;
+    --warn-500: #f59e0b;
+    --rt-scale: 0.68;
+}
+
+body {
+    background: radial-gradient(1200px 600px at 15% 0%, #e7f0ff 0%, #f0f7ff 30%, #f7fbff 55%, #f8fbff 100%);
+    min-height: 100vh;
+}
+
+.elevated {
+    box-shadow: 0 10px 30px rgba(16, 24, 40, 0.08), 0 2px 8px rgba(16, 24, 40, 0.06);
+}
+
+/* 置中對齊，縮短拼音與漢字距離 */
+ruby {
+    ruby-position: over;
+    text-align: center;
+}
+
+rb {
+    display: block;
+    text-align: center;
+    line-height: 1.05;
+}
+
+rt {
+    font-size: calc(var(--rt-scale) * 1em);
+    color: var(--ink-2);
+    letter-spacing: 0.02em;
+    line-height: 1;
+    white-space: nowrap;
+    text-align: center;
+    display: block;
+    margin-bottom: 0.02em;
+    /* 靠近漢字 */
+}
+
+.glyph {
+    display: inline-block;
+    padding: 0.18rem 0.16rem;
+    margin: 0.06rem 0.03rem;
+    border-radius: 0.5rem;
+    transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease, outline-color 120ms ease;
+}
+
+.glyph.punct {
+    padding: 0.18rem 0.08rem;
+    color: var(--ink-2);
+}
+
+.glyph.missing {
+    background: #fff2f2;
+    outline: 1px dashed #fecaca;
+}
+
+.glyph.extra {
+    background: #fff7ed;
+    outline: 1px dashed #fed7aa;
+}
+
+.clause {
+    display: inline-block;
+    padding: 0.06rem 0.12rem;
+    border-radius: 0.45rem;
+    position: relative;
+    margin-right: 0.08rem;
+    scroll-margin: 96px;
+}
+
+.clause-warn {
+    background: #fff7ed;
+    outline: 2px solid #f59e0b;
+    box-shadow: 0 0 0 2px #fde68a inset;
+}
+
+/* 未選取的錯誤：淡化邊框 */
+.clause-warn.dimmed {
+    background: #fffaf2;
+    outline-color: #fbbf24;
+    box-shadow: 0 0 0 2px #fde68a1a inset;
+    opacity: 0.7;
+}
+
+/* 片段編輯按鈕（僅編輯模式顯示） */
+.edit-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 26px;
+    height: 26px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(16, 24, 40, .12);
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity .15s ease, transform .15s ease;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.clause:hover .edit-btn {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.edit-btn:hover {
+    background: #f8fafc;
+}
+
+/* 片段內嵌編輯器（僅編輯模式使用） */
+.inline-editor {
+    margin-top: 8px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 8px;
+    box-shadow: 0 10px 30px rgba(16, 24, 40, 0.12), 0 2px 8px rgba(16, 24, 40, 0.08);
+}
+
+.inline-editor input {
+    width: 100%;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    outline: none;
+}
+
+.inline-editor .actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.inline-editor .btn {
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.inline-editor .btn.save {
+    background: #2563eb;
+    color: white;
+}
+
+.inline-editor .btn.cancel {
+    background: #f1f5f9;
+    color: #334155;
+}
+
+.scroll-area {
+    min-height: 380px;
+    max-height: 60vh;
+    overflow: auto;
+    scroll-behavior: smooth;
+    background: white;
+    border-radius: 0.75rem;
+    flex: 1 1 auto;
+}
+
+.line-wrap {
+    display: block;
+    margin: 0.35rem 0;
+    line-height: 2.1;
+    word-break: keep-all;
+    white-space: normal;
+}
+
+/* 問題跳轉時的短暫強調 */
+.focus-ring {
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.6);
+    transition: box-shadow .25s ease;
+}
+
+/* 檢視/編輯切換 */
+.seg {
+    background: #f1f5f9;
+    border-radius: 999px;
+    padding: 2px;
+    display: inline-flex;
+    gap: 4px;
+}
+
+.seg button {
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    color: #475569;
+}
+
+.seg button.active {
+    background: #fff;
+    color: #0f172a;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.1);
+}
+
+/* 檢視模式：移除 hover/底色/邊框/陰影，避免貼到 Word 出現邊框 */
+.mode-view .glyph,
+.mode-view .clause,
+.mode-view ruby,
+.mode-view .glyph.missing,
+.mode-view .glyph.extra {
+    background: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+.mode-view .glyph:hover {
+    background: transparent !important;
+}
+
+/* 檢視模式下，強制讓警告區塊與一般區塊無異 */
+.mode-view .clause-warn {
+    background: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
+    color: inherit !important; 
+    opacity: 1 !important;
+}
+
+/* 字級調整面板與「往上展開」狀態 */
+.popover {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 8px;
+    z-index: 50;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(16, 24, 40, 0.12), 0 2px 8px rgba(16, 24, 40, 0.08);
+    width: 240px;
+    padding: 10px;
+}
+
+.popover.drop-up {
+    top: auto;
+    bottom: 100%;
+    margin-top: 0;
+    margin-bottom: 8px;
+}
+
+.number-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    gap: 8px;
+    align-items: center;
+}
+
+.btn-ghost {
+    background: #f3f4f6;
+    border-radius: 10px;
+    padding: 6px 10px;
+}
+
+.btn-ghost:hover {
+    background: #e5e7eb;
+}
+
+
+/* --- 單詞編輯器樣式 --- */
+.word-editor {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 10px 30px rgba(16, 24, 40, 0.12), 0 2px 8px rgba(16, 24, 40, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.word-editor input {
+    width: 120px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 8px 10px;
+    outline: none;
+    font-size: 14px;
+}
+
+.word-editor .actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.word-editor .btn {
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+    border: none;
+    cursor: pointer;
+}
+
+.word-editor .btn.save {
+    background: #2563eb;
+    color: white;
+}
+
+.word-editor .btn.cancel {
+    background: #f1f5f9;
+    color: #334155;
+}
+
+/* 編輯模式下，滑鼠移到可編輯單詞上時的樣式 */
+.mode-edit .glyph:not(.punct):hover {
+    background: #eef2ff;
+}
+
+/* --- START: 編輯器內的拼音輸入行樣式 --- */
+.pinyin-editor-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.pinyin-editor-row input {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.pinyin-editor-row .btn-tone-toggle {
+    flex-shrink: 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 12px;
+    background: #f8fafc;
+    color: #475569;
+    cursor: pointer;
+}
+.pinyin-editor-row .btn-tone-toggle:hover {
+    background: #f1f5f9;
+    border-color: #d1d5db;
+}
+
+.tone-converter-menu-editor {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 4px;
+    width: 120px;
+    padding: 4px;
+    z-index: 20;
+}
+
+.tone-converter-menu-editor button {
+    width: 100%;
+    text-align: left;
+    font-size: 12px;
+    padding: 6px 8px;
+    border-radius: 6px;
+}
+.tone-converter-menu-editor button:hover {
+    background: #f1f5f9;
+}
+
+/* 單詞編輯器中，按鈕文字較短，微調樣式 */
+.word-editor .pinyin-editor-row input {
+    width: 80px;
+    flex-grow: 0;
+}
+.word-editor .pinyin-editor-row .btn-tone-toggle {
+    padding: 6px;
+}
+/* --- END: 編輯器樣式 --- */
+
+/* --- START: 聲調說明視窗表格樣式 --- */
+#toneHelpModal table,
+#toneHelpModal th,
+#toneHelpModal td {
+    border: 1px solid #e5e7eb;
+}
+#toneHelpModal code {
+    background-color: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    color: #475569;
+}
+/* --- END: 聲調說明視窗樣式 --- */
+
+/* --- START: 編輯器內新增按鈕的樣式 --- */
+.inline-editor .actions,
+.word-editor .actions {
+    /* 確保 .actions 是 flex 容器 */
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.actions .relative.mr-auto {
+    margin-right: auto;
+}
+
+.btn-tone-toggle-editor {
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+    border: none;
+    cursor: pointer;
+    background: #f1f5f9;
+    color: #334155;
+}
+.btn-tone-toggle-editor:hover {
+    background: #e2e8f0;
+}
+
+/* 確保編輯器內的選單能向上彈出 */
+.tone-converter-menu-editor.drop-up {
+    top: auto;
+    bottom: 100%;
+    margin-top: 0;
+    margin-bottom: 8px;
+    padding: 4px;
+    width: 120px;
+    z-index: 20;
+}
+
+.tone-converter-menu-editor button {
+    width: 100%;
+    text-align: left;
+    font-size: 12px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.tone-converter-menu-editor button:hover {
+    background: #f1f5f9;
+}
+/* --- END: 編輯器內新增按鈕的樣式 --- */
+
+
+/* --- START: 可收合面板樣式 (新增) --- */
+#mainGrid, #inputSection, #resultSection {
+    /* 主要的過渡動畫效果 */
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.collapsible-content {
+    /* 內容區塊的過渡動畫 */
+    transition: opacity 0.3s ease, max-height 0.5s ease, transform 0.4s ease, margin 0.5s ease;
+    overflow: hidden;
+    max-height: 2000px; /* 預設展開時的最大高度，給一個足夠大的值 */
+    transform-origin: top;
+}
+
+/* 當 section.is-collapsed 時，其內部的內容區塊樣式 */
+section.is-collapsed .collapsible-content {
+    max-height: 0;
+    opacity: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* 當 section.is-collapsed 時，其內部的標題文字 */
+section.is-collapsed .title-text {
+    display: none;
+}
+
+/* 在大螢幕 (lg) 且收合時，讓圖示旁邊的操作按鈕也消失 */
+@media (min-width: 1024px) {
+    section.is-collapsed .flex.items-center.gap-3 {
+        display: none;
+    }
+}
+/* --- END: 可收合面板樣式 --- */
