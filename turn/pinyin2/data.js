@@ -53,13 +53,13 @@ const holoNumberToZvs = (function() {
     // 1 和 4 會被刪除 (對應到空字串)
     
     // 基本模式
-	const basePattern = `\\b(tsh|ph|th|kh|ts|ng|[pmtnlkhjsbg])?([aeiour]{1,3})`;   
+	const basePattern = `\\b(tsh|ph|th|kh|ts|ng|[pmtnlkhjsbg])?([aeiour]{0,3})`;   
     
     // 鼻音結尾 + 數字
     const nasalRegex = new RegExp(`${basePattern}(ng|nn|[mn]?)([1235679])\\b`, 'gi');
     
     // 塞音結尾 + 數字
-    const stopRegex = new RegExp(`${basePattern}([ptkh])([48])\\b`, 'gi');
+    const stopRegex = new RegExp(`${basePattern}([ptkh]|nnh|ngh|mh)([48])\\b`, 'gi');
     
     return function(text) {
         if (!text || typeof text !== 'string') {
@@ -85,6 +85,8 @@ const holoNumberToZvs = (function() {
         return result;
     };
 })();
+
+
 
 // 和樂教羅轉台羅 
 const holoPojToTailo = (function() {
