@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>烏衣行 漢字 × 拼音 標註</title>
+  <title>烏衣行 漢字 × 拼音</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@300..700" rel="stylesheet" />
   <link href="style.css" rel="stylesheet">
   <link href="https://oikasu1.github.io/kasuexam/kasu/fonts/twhei.css" rel="stylesheet">
+  <script src="https://oikasu1.github.io/snd/app.js"></script>
 
 
 </head>
@@ -16,7 +17,16 @@
   <header class="px-5 sm:px-8 pt-6 pb-2">
     <div class="max-w-6xl mx-auto flex items-center gap-3">
       <span aria-hidden="true" class="text-3xl leading-none">🥷</span>
-      <h1 class="text-xl sm:text-2xl font-semibold tracking-tight">烏衣行 漢字 × 拼音 標註</h1>
+      <h1 id="mainTitle" class="text-xl sm:text-2xl font-semibold tracking-tight">烏衣行 漢字 × 拼音</h1>
+      <div id="languageSwitcher" class="ml-auto relative">
+        <button id="btnLanguage" class="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full px-4 py-2">
+          <span class="material-symbols-outlined text-[18px]">language</span>
+          <span id="currentLanguageName" class="text-sm font-medium">詔安</span>
+          <span class="material-symbols-outlined text-[18px]">arrow_drop_down</span>
+        </button>
+        <div id="languageMenu" class="popover hidden" style="width: 140px; padding: 6px; right: 0;">
+          </div>
+      </div>
     </div>
   </header>
 
@@ -32,46 +42,54 @@
 
         <div class="collapsible-content">
           <div class="space-y-4 flex-1">
-            <label class="block">
+            <div class="block">
               <div class="flex items-center justify-between mb-2">
                 <span class="text-sm font-medium text-slate-700 flex items-center gap-1.5">
                   <span class="material-symbols-outlined text-[18px] text-blue-600">text_fields</span>
                   客語漢字
                 </span>
-                <button id="btnSample" class="hidden text-xs text-blue-700 hover:text-blue-900 flex items-center gap-1">
+                <button id="btnSample" class="text-xs text-blue-700 hover:text-blue-900 flex items-center gap-1">
                   <span class="material-symbols-outlined text-[18px]">dataset</span> 塞入範例
                 </button>
               </div>
               <textarea id="hanziInput" class="w-full rounded-xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-400 px-4 py-3 min-h-[160px] leading-relaxed" placeholder="在這裡貼上客語漢字…"></textarea>
-            </label>
+            </div>
 
-            <label class="block">
+            <div class="block">
               <div class="flex items-center justify-between mb-2">
                 <span class="text-sm font-medium text-slate-700 flex items-center gap-1.5">
                   <span class="material-symbols-outlined text-[18px] text-blue-600">record_voice_over</span>
                   客語拼音
                 </span>
                 <div class="flex items-center gap-2">
-                  <div class="relative">
-                    <button id="btnToggleToneConverter" class="text-xs text-blue-700 hover:text-blue-900 flex items-center gap-1">
-                      <span class="material-symbols-outlined text-[18px]">auto_fix</span> 轉調號
-                    </button>
-                    <div id="toneConverterMenu" class="popover hidden" style="width: 150px; padding: 6px; right: 0; top: 100%; margin-top: 8px;">
-                      <button id="btnConvertLetterTone" class="w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50">字母 > 調號</button>
-                      <button id="btnConvertNumberTone" class="w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50">數字 > 調號</button>
-					  <button id="btnToneHelp" title="聲調轉換說明" class="w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50">
-						<span class="material-symbols-outlined text-[18px]">help_outline</span> 說明
-					  </button>
-                    </div>
-                  </div>
-                  <button id="btnToneConvert" class="hidden text-xs text-slate-600 hover:text-blue-900 flex items-center gap-1">
-                    <span class="material-symbols-outlined text-[18px]">imagesearch_roller</span>
-                    轉寫結果區
-                  </button>
+				  <button id="btnHanziToPinyin" class="text-xs text-blue-700 hover:text-blue-900 flex items-center gap-1">
+					<span class="material-symbols-outlined text-[18px]">translate</span>
+					漢字轉拼音
+				  </button>
+					<div class="relative">
+						<div class="inline-flex rounded-md shadow-sm">
+							<button id="btnConvertDefaultTone" title="預設轉換" class="btn-convert-default-tone inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 rounded-l-md px-3 py-1.5 text-xs hover:bg-slate-200 transition-colors focus:outline-none">
+
+								<span class="default-tone-action-text">zˊ</span>
+							</button>
+							<button id="btnToggleToneConverter" title="變更預設模式" class="btn-toggle-tone-converter inline-flex items-center bg-slate-100 text-slate-700 rounded-r-md px-1.5 py-1.5 border-l border-slate-300 hover:bg-slate-200 transition-colors focus:outline-none">
+								<span class="material-symbols-outlined text-[18px]">auto_fix</span>
+							</button>
+						</div>
+						<div id="toneConverterMenu" class="tone-converter-menu popover hidden" style="right: 0; top: 100%; margin-top: 8px;">
+							<button data-type="letter" class="btn-set-tone-default w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50">zˊ</button>
+							<button data-type="number" class="btn-set-tone-default w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50">2ˊ</button>
+							<hr class="my-1 border-slate-100">
+							<button id="btnToneHelp" title="聲調轉換說明" class="w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50 flex items-center gap-2">
+								<span class="material-symbols-outlined text-[18px]">help_outline</span> 說明
+							</button>
+						</div>
+					</div>
+
                 </div>
               </div>
               <textarea id="pinyinInput" class="w-full rounded-xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-400 px-4 py-3 min-h-[160px] leading-relaxed" placeholder="在這裡貼上對應拼音…"></textarea>
-            </label>
+            </div>
 
             <div class="tool-row flex items-center gap-2 pt-1">
               <button id="btnClear" class="inline-flex items-center gap-2 bg-slate-100 text-slate-700 rounded-full px-4 py-2.5 hover:bg-slate-200 transition-colors">
@@ -86,27 +104,45 @@
         </div>
       </section>
 
-      <section id="resultSection" class="relative bg-white/90 backdrop-blur rounded-2xl p-4 sm:p-6 elevated flex flex-col">
+      <section id="resultSection" class="@container relative bg-white/90 backdrop-blur rounded-2xl p-4 sm:p-6 elevated flex flex-col">
         <div class="flex items-center justify-between mb-3">
           <h2  id="resultHeader" class="font-semibold text-lg flex items-center gap-2 cursor-pointer">
             <span class="material-symbols-outlined text-[22px] text-blue-600">stylus_note</span>
             <span class="title-text">標註結果</span>
           </h2>
+			<div class="flex items-center gap-3">
+				<div id="phoneticsContainer" class="relative hidden">
+					<button id="btnPhonetics" class="inline-flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full p-2 @[380px]:px-3 @[380px]:py-1.5">
+						<span class="material-symbols-outlined text-[18px]">translate</span>
+						<span class="text-sm hidden @[380px]:inline">標音</span>
+					</button>
+					<div id="phoneticsMenu" class="popover hidden" style="width: 160px; padding: 6px; right: 0;">
+						<button id="actWordTones" class="w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50 flex items-center gap-2">
+							<span class="material-symbols-outlined text-[18px]">imagesearch_roller</span> Word聲調
+						</button>
+						<hr class="my-1 border-slate-100">
+						<button id="actShowPinyin" data-type="pinyin" class="phonetic-choice w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50">顯示拼音</button>
+						<button id="actShowZhuyin" data-type="zhuyin" class="phonetic-choice w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50">顯示注音</button>
+					</div>
+				</div>
+						<div id="issueBar" class="hidden items-center text-amber-700">
+						  <button id="btnPrev" class="px-1.5 py-1 rounded hover:text-amber-800" title="上一句">〈</button>
+						  <span id="issueIndex" class="mx-1.5 text-sm select-none">0/0</span>
+						  <button id="btnNext" class="px-1.5 py-1 rounded hover:text-amber-800" title="下一句">〉</button>
+						</div>
 
-          <div class="flex items-center gap-3">
-            <button id="issueHint" title="有錯誤，點此修正" class="hidden shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-500 text-white shadow hover:bg-amber-600 focus:outline-none" aria-label="有錯誤">
-              <span class="material-symbols-outlined text-[20px]">error</span>
-            </button>
-            <div id="issueBar" class="hidden items-center text-amber-700">
-              <button id="btnPrev" class="px-1.5 py-1 rounded hover:text-amber-800" title="上一句">〈</button>
-              <span id="issueIndex" class="mx-1.5 text-sm select-none">0/0</span>
-              <button id="btnNext" class="px-1.5 py-1 rounded hover:text-amber-800" title="下一句">〉</button>
-            </div>
-            <div class="seg">
-              <button id="btnModeView" class="active">檢視</button>
-              <button id="btnModeEdit">編輯</button>
-            </div>
-          </div>
+				<button id="btnPlayAudio" class="hidden items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full p-2 @[380px]:px-3 @[380px]:py-1.5">
+					<span class="material-symbols-outlined text-[18px]">volume_up</span>
+					<span class="text-sm hidden @[380px]:inline">點播</span>
+				</button>
+				<div id="charWordToggleContainer" class="seg bg-slate-100">
+					<button id="btnModeChar" class="active">字</button>
+					<button id="btnModeWord">詞</button>
+				</div>
+				<div id="modeToggleContainer" class="seg bg-slate-100"> <button id="btnModeView" class="active">檢視</button>
+					<button id="btnModeEdit">編輯</button>
+				</div>
+			</div>
         </div>
 
         <div class="collapsible-content">
@@ -138,22 +174,38 @@
                   </div>
                 </div>
               </div>
+              
               <div class="relative">
-                <button id="btnPrimary" class="inline-flex items-center gap-2 bg-emerald-600 text-white rounded-full px-4 py-2.5 shadow hover:bg-emerald-700 transition-colors">
-                  <span class="material-symbols-outlined text-[20px]">content_copy</span> 複製標註
-                  <span class="material-symbols-outlined text-[18px] ml-1">arrow_drop_down</span>
+                <button id="btnFontFamily" class="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full px-3 py-1.5">
+                  <span class="material-symbols-outlined text-[18px]">font_download</span>
+                  <span class="text-sm">字體</span>
                 </button>
-                <div id="menuMore" class="absolute mt-2 w-52 bg-white border border-slate-200 rounded-lg shadow hidden z-10">
-                  <button id="actCopyAnnotated" class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[18px]">content_copy</span> 複製標註
-                  </button>
-                  <button id="actCopy" class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[18px]">code</span> 複製HTML
-                  </button>
-                  <button id="actDownload" class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2">
-                    <span class="material-symbols-outlined text-[18px]">download</span> 下載 HTML
-                  </button>
+                <div id="fontFamilyPopover" class="popover hidden" style="width: 120px; padding: 6px;">
+                    <button data-font="hei" class="font-choice active w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50">黑體</button>
+                    <button data-font="kai" class="font-choice w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50">楷體</button>
                 </div>
+              </div>
+              <div class="relative">
+                  <div id="btnPrimaryContainer" class="inline-flex rounded-full shadow">
+                      <button id="btnPrimary" class="inline-flex items-center gap-2 bg-emerald-600 text-white rounded-l-full pl-4 pr-3 py-2.5 hover:bg-emerald-700 transition-colors focus:outline-none">
+                          <span class="material-symbols-outlined text-[20px]">content_copy</span>
+                          複製標註
+                      </button>
+                      <button id="btnPrimaryToggle" class="inline-flex items-center bg-emerald-600 text-white rounded-r-full px-2 py-2.5 border-l border-emerald-500 hover:bg-emerald-700 transition-colors focus:outline-none">
+                          <span class="material-symbols-outlined text-[18px]">arrow_drop_down</span>
+                      </button>
+                  </div>
+                  <div id="menuMore" class="absolute mt-2 w-52 bg-white border border-slate-200 rounded-lg shadow hidden z-10" style="right: 0;">
+                    <button id="actCopyAnnotated" class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2">
+                      <span class="material-symbols-outlined text-[18px]">content_copy</span> 複製標註
+                    </button>
+                    <button id="actCopy" class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2">
+                      <span class="material-symbols-outlined text-[18px]">code</span> 複製HTML
+                    </button>
+                    <button id="actDownload" class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2">
+                      <span class="material-symbols-outlined text-[18px]">download</span> 下載 HTML
+                    </button>
+                  </div>
               </div>
             </div>
         </div>
@@ -173,7 +225,7 @@
     <div class="p-6 space-y-4 text-slate-700">
       <p class="text-sm">本工具可將音節尾端的「字母」或「數字」轉換為對應的聲調符號。轉換僅在音節的末端生效。</p>
       <div>
-        <h4 class="font-medium mb-2">字母 > 調號</h4>
+        <h4 class="font-medium mb-2">zˊ</h4>
         <table class="w-full text-sm border-collapse">
           <thead><tr class="bg-slate-50"><th class="border p-2">字母</th><th class="border p-2">調號</th><th class="border p-2">範例</th></tr></thead>
           <tbody>
@@ -186,7 +238,7 @@
         </table>
       </div>
       <div>
-        <h4 class="font-medium mb-2">數字 > 調號</h4>
+        <h4 class="font-medium mb-2">2ˊ</h4>
         <table class="w-full text-sm border-collapse">
           <thead><tr class="bg-slate-50"><th class="border p-2">數字</th><th class="border p-2">調號</th><th class="border p-2">範例</th></tr></thead>
           <tbody>
@@ -202,6 +254,8 @@
   </div>
 </div>
 
-  <script src=script.js></script>
+  <script>let c, d, ccc, ddd;</script>
+  <script src="hanzitopinyin.js"></script>
+  <script src="script.js"></script>
 
 </html>

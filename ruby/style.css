@@ -18,35 +18,49 @@ body {
 }
 
 /* 置中對齊，縮短拼音與漢字距離 */
+
 ruby {
     ruby-position: over;
     text-align: center;
+    /* 使用 flexbox 進行排版，垂直對齊更穩定 */
+    display: inline-flex;
+    flex-direction: column-reverse; /* 讓 rb 在 rt 下方 */
+    vertical-align: middle; /* 確保與旁邊的文字對齊 */
+    margin: 0 0.05em;
 }
 
 rb {
-    display: block;
+    display: inline;
+    line-height: 1.1;
     text-align: center;
-    line-height: 1.05;
 }
 
 rt {
     font-size: calc(var(--rt-scale) * 1em);
     color: var(--ink-2);
-    letter-spacing: 0.02em;
     line-height: 1;
     white-space: nowrap;
     text-align: center;
     display: block;
-    margin-bottom: 0.02em;
-    /* 靠近漢字 */
+    margin-bottom: -0.5em;
 }
+
+rt:empty::before {
+    content: '\00a0'; 
+    visibility: hidden; 
+}
+
 
 .glyph {
     display: inline-block;
+	vertical-align: middle;
     padding: 0.18rem 0.16rem;
     margin: 0.06rem 0.03rem;
     border-radius: 0.5rem;
     transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease, outline-color 120ms ease;
+}
+.glyph-word {
+    padding: 0.18rem 0.12rem;
 }
 
 .glyph.punct {
@@ -184,7 +198,6 @@ rt {
 
 /* 檢視/編輯切換 */
 .seg {
-    background: #f1f5f9;
     border-radius: 999px;
     padding: 2px;
     display: inline-flex;
@@ -375,6 +388,13 @@ rt {
 .word-editor .pinyin-editor-row .btn-tone-toggle {
     padding: 6px;
 }
+
+/* 修正：針對轉調號選單，使其寬度自適應，避免過寬 */
+.tone-converter-menu {
+    width: auto;      /* 讓寬度由內容決定 */
+    min-width: 80px; /* 設定一個最小寬度以維持版面整齊 */
+    padding: 6px;     /* 統一內邊距 */
+}
 /* --- END: 編輯器樣式 --- */
 
 /* --- START: 聲調說明視窗表格樣式 --- */
@@ -392,10 +412,9 @@ rt {
 }
 /* --- END: 聲調說明視窗樣式 --- */
 
-/* --- START: 編輯器內新增按鈕的樣式 --- */
+
 .inline-editor .actions,
 .word-editor .actions {
-    /* 確保 .actions 是 flex 容器 */
     display: flex;
     gap: 8px;
     justify-content: flex-end;
@@ -443,20 +462,16 @@ rt {
 .tone-converter-menu-editor button:hover {
     background: #f1f5f9;
 }
-/* --- END: 編輯器內新增按鈕的樣式 --- */
 
 
-/* --- START: 可收合面板樣式 (新增) --- */
+
 #mainGrid, #inputSection, #resultSection {
     /* 主要的過渡動畫效果 */
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .collapsible-content {
-    /* 內容區塊的過渡動畫 */
     transition: opacity 0.3s ease, max-height 0.5s ease, transform 0.4s ease, margin 0.5s ease;
-    overflow: hidden;
-    max-height: 2000px; /* 預設展開時的最大高度，給一個足夠大的值 */
     transform-origin: top;
 }
 
@@ -480,3 +495,97 @@ section.is-collapsed .title-text {
     }
 }
 /* --- END: 可收合面板樣式 --- */
+/* --- START: 點播功能樣式 (新增) --- */
+#btnPlayAudio.active {
+    background: #cffafe; /* light-cyan-200 */
+    color: #0891b2; /* cyan-600 */
+}
+
+/* 啟用點播模式時，滑鼠移到可點擊的字詞上時的樣式 */
+.mode-audio ruby.glyph {
+    cursor: pointer;
+    border-radius: 0.5rem; /* 確保圓角效果 */
+    transition: background-color 120ms ease;
+}
+
+.mode-audio ruby.glyph:hover {
+    background-color: #f0f9ff !important; /* light-blue-50, 使用 !important 覆蓋檢視模式的樣式 */
+}
+/* --- END: 點播功能樣式 --- */
+
+/* --- START: 轉調號選單高亮樣式--- */
+.tone-converter-menu .btn-set-tone-default.active {
+    background-color: #eef2ff; /* 淺藍色背景 */
+    color: #4338ca; /* 深藍色文字 */
+    font-weight: 600; /* 文字加粗 */
+}
+/* --- END: 轉調號選單高亮樣式 --- */
+.phonetic-choice.active {
+    background-color: #eef2ff; /* 淺藍色背景 */
+    color: #4338ca; /* 深藍色文字 */
+    font-weight: 600; /* 文字加粗 */
+}
+
+/* --- START: 字體選擇樣式 (新增) --- */
+.font-choice.active {
+    background-color: #eef2ff; /* 淺藍色背景 */
+    color: #4338ca; /* 深藍色文字 */
+    font-weight: 600; /* 文字加粗 */
+}
+
+/* 當 resultArea 套用 .font-kai 時，改變其內部字體 */
+#resultArea.font-kai,
+#resultArea.font-kai ruby,
+#resultArea.font-kai rb,
+#resultArea.font-kai rt {
+    font-family: "台灣楷體", twkai;
+}
+/* --- END: 字體選擇樣式 --- */
+
+
+/* --- START: 語言選擇樣式 --- */
+.lang-choice.active {
+    background-color: #eef2ff; /* 淺藍色背景 */
+    color: #4338ca; /* 深藍色文字 */
+    font-weight: 600; /* 文字加粗 */
+}
+/* --- END: 語言選擇樣式 --- */
+
+
+
+
+/* 詞彙模式下的 ruby 標籤 */
+.word-unit .glyph-word {
+    padding: 0.1rem 0.12rem;
+}
+
+/* 編輯模式下，滑鼠移到可編輯詞彙上時的樣式 */
+.mode-edit .word-unit:hover {
+    background: #eef2ff;
+}
+/* --- END: 詞彙標註樣式 --- */
+
+
+@media (max-width: 768px) {
+  */
+  .clause {
+    padding-right: 32px; /* 增加右側內邊距 */
+  }
+
+  .edit-btn {
+    top: -4px;
+    right: -4px;
+    
+    /* 在編輯模式下，讓按鈕永遠可見，而不是 hover 才顯示 */
+    opacity: 1; 
+    transform: translateY(0);
+    
+    /* 確保按鈕在捲動時不會有不自然的晃動 */
+    transition: none;
+  }
+
+  .clause:hover .edit-btn {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
