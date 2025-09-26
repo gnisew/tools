@@ -2050,6 +2050,12 @@ function switchLanguage(newLangKey) {
 
     currentLanguageKey = newLangKey;
     saveSetting(AppConfig.storageKeys.SELECTED_LANGUAGE, newLangKey);
+    
+    // 建立新的 URL，包含 ?lang=... 參數
+    const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?lang=${newLangKey}`;
+    // 使用 history.pushState 來更新網址，這樣不會觸發頁面重整
+    window.history.pushState({path: newUrl}, '', newUrl);
+
     updateLanguageUI();
     updateTitles();
     loadLanguageDatabase(newLangKey); 
@@ -2065,6 +2071,21 @@ function switchLanguage(newLangKey) {
 
 
 (function init() {
+
+    // --- START: 網站啟動邏輯修改 ---
+    // 優先從 URL 參數讀取語言設定
+    const urlParams = new URLSearchParams(window.location.search);
+    const langFromUrl = urlParams.get('lang');
+
+    // 決定起始語言的優先順序: 1. URL 參數 > 2. 本地儲存 > 3. 預設值
+    if (langFromUrl && LANGUAGES[langFromUrl]) {
+        // 如果 URL 參數存在且有效，就使用它
+        currentLanguageKey = langFromUrl;
+    } else {
+        // 否則，沿用原本的邏輯，從 localStorage 或預設值載入
+        currentLanguageKey = loadSetting(AppConfig.storageKeys.SELECTED_LANGUAGE, 'kasu');
+    }
+    // --- END: 網站啟動邏輯修改 ---
 
     updateLanguageUI();
 	updateTitles();
