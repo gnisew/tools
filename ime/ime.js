@@ -1,10 +1,19 @@
+        document.addEventListener('DOMContentLoaded', () => {
+            WebIME.init({
+                defaultMode: 'sixian',      // 預設開啟四縣腔
+                candidatesPerPage: 5,       // 一頁顯示 7 個候選字
+                longPhrase: false,          // 預設關閉連打模式
+                maxCompositionLength: 30    // 將此範例頁面的編碼長度限制為 30
+            });
+        });
+
 (function() {
 
     if (window.WebIME) {
         return;
     }
 
-const WebIME = {
+    const WebIME = {
     activeElement: null,
     imeContainer: null,
     candidatesList: null,
@@ -19,6 +28,7 @@ const WebIME = {
     nextPageBtn: null,
 	toneModeToggleBtn: null,
 
+    // --- NEW START ---
     // 設定集中管理
     // 外部呼叫 init() 時可以傳入客製化設定來覆寫它們
     config: {
@@ -28,6 +38,12 @@ const WebIME = {
         maxCompositionLength: 30,   // 編碼區最大字元數
         storagePrefix: 'webime_',   // 用於 localStorage 的前綴
     },
+    
+    isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
+    isCommittingText: false, // 用於防止 input 事件的遞迴觸發
+    lastInputValue: '',      // 用於在行動裝置上比對輸入差異
+    // --- NEW END ---
+
 
     isEnabled: true,
     isLongPhraseEnabled: true,
@@ -215,7 +231,13 @@ createUI() {
     this.imeContainer.id = "web-ime-container";
     this.topBar = document.createElement("div");
     this.topBar.id = "web-ime-top-bar";
+    
+    // --- MODIFIED START ---
+    // 同時監聽滑鼠和觸控的起始事件
     this.topBar.addEventListener('mousedown', this.boundInitDrag);
+    this.topBar.addEventListener('touchstart', this.boundInitDrag, { passive: true }); // 使用 passive 以提升捲動效能
+    // --- MODIFIED END ---
+
     const logo = document.createElement("span");
     logo.className = "ime-logo";
     logo.textContent = "🥷";
@@ -332,16 +354,14 @@ createUI() {
     pagination.appendChild(this.nextPageBtn);
     this.topBar.appendChild(pagination);
 
-    // --- 建立釘選按鈕 (調整了 Emoji 並確保它最後被加入) ---
     this.pinToggleBtn = document.createElement("button");
     this.pinToggleBtn.id = "web-ime-pin-toggle";
     this.pinToggleBtn.type = "button";
     this.pinToggleBtn.className = "ime-page-button"; 
-    this.pinToggleBtn.innerHTML = "📌"; // 您也可以嘗試 '📍'
+    this.pinToggleBtn.innerHTML = "📌";
     this.pinToggleBtn.title = "釘選/取消釘選視窗";
     this.pinToggleBtn.addEventListener('click', () => this.togglePinMode());
     this.topBar.appendChild(this.pinToggleBtn);
-    // --- 釘選按鈕建立結束 ---
 
     this.candidatesList = document.createElement("ul");
     this.candidatesList.id = "web-ime-candidates";
@@ -386,15 +406,24 @@ activate(element) {
         this.deactivate();
     }
     this.activeElement = element;
+    
+    // --- NEW: 儲存初始狀態以供行動裝置比對 ---
+    this.lastInputValue = this.activeElement.isContentEditable ? this.activeElement.textContent : this.activeElement.value;
+
     this.show();
     setTimeout(() => this.reposition(), 0);
     this.activeElement.addEventListener('click', this.boundReposition);
     this.activeElement.addEventListener('keyup', this.boundReposition);
     this.activeElement.addEventListener('mouseup', this.boundReposition);
+    
     if (this.isEnabled) {
         this.imeContainer.classList.remove('disabled');
-        this.activeElement.addEventListener('keydown', this.boundHandleKeyDown);
-        this.activeElement.addEventListener('input', this.boundHandleInput);
+        // --- NEW: 根據裝置類型綁定不同的核心事件 ---
+        this.activeElement.addEventListener('keydown', this.boundHandleKeyDown); // keydown 對所有裝置都有效，用於功能鍵
+        if (this.isMobile) {
+            // 行動裝置主要依賴 input 事件
+            this.activeElement.addEventListener('input', this.boundHandleInput);
+        }
     } else {
         this.imeContainer.classList.add('disabled');
     }
@@ -408,7 +437,9 @@ deactivate() {
         this.compositionCursorPos = 0;
     }
     this.activeElement.removeEventListener('keydown', this.boundHandleKeyDown);
-    this.activeElement.removeEventListener('input', this.boundHandleInput);
+    if (this.isMobile) {
+        this.activeElement.removeEventListener('input', this.boundHandleInput);
+    }
     this.activeElement.removeEventListener('click', this.boundReposition);
     this.activeElement.removeEventListener('keyup', this.boundReposition);
     this.activeElement.removeEventListener('mouseup', this.boundReposition);
@@ -416,10 +447,86 @@ deactivate() {
     this.clearCandidates();
 },
 
-handleInput() {
-    if (this.compositionBuffer) {
-        this.compositionBuffer = '';
+handleInput(e) {
+    // 如果是我們自己觸發的 input 事件，就直接忽略
+    if (this.isCommittingText) {
+        return;
+    }
+    
+    // 如果不是行動裝置，此函數不作用 (桌機邏輯在 keydown 中)
+    // 但保留一個例外：當編碼區有內容時，若用戶用滑鼠等方式修改輸入框，則清空編碼區
+    if (!this.isMobile) {
+        if (this.compositionBuffer) {
+            this.compositionBuffer = '';
+            this.updateCandidates();
+        }
+        return;
+    }
+
+    // --- 以下為行動裝置專用的核心邏輯 ---
+    const target = e.target;
+    const currentVal = target.isContentEditable ? target.textContent : target.value;
+    
+    // 偵測輸入
+    if (currentVal.length > this.lastInputValue.length) {
+        let diff = currentVal.substring(this.lastInputValue.length);
+        
+        // --- MODIFICATION START ---
+        // 檢查是否處於數字聲調模式，若是，則將輸入的數字轉換為對應的聲調字母
+        const currentToneMode = this.getCurrentToneMode();
+        const langProps = imeLanguageProperties[this.currentMode] || {};
+        const isNumericToneMode = currentToneMode === 'numeric' && langProps.numericToneMap;
+
+        // 如果是數字聲調模式，且輸入的字元是單一數字
+        if (isNumericToneMode && diff.match(/^[0-9]$/)) {
+            const mappedChar = langProps.numericToneMap[diff];
+            // 如果在對應表中找到該數字，就替換它
+            if (mappedChar) {
+                diff = mappedChar; 
+            }
+        }
+        // --- MODIFICATION END ---
+        
+        // 將新輸入的字元加入編碼緩衝區
+        this.compositionBuffer += diff;
+        this.compositionCursorPos += diff.length;
+        
+        // 關鍵：將輸入框的內容還原，移除剛剛輸入的原始字元
+        const restoreVal = this.lastInputValue;
+        if (target.isContentEditable) {
+            target.textContent = restoreVal;
+             // 恢復游標位置到最後
+            const range = document.createRange();
+            const sel = window.getSelection();
+            if (target.childNodes.length > 0) {
+                range.setStart(target.childNodes[0], restoreVal.length);
+            } else {
+                range.setStart(target, 0);
+            }
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+        } else {
+            const originalSelectionStart = target.selectionStart;
+            target.value = restoreVal;
+            // 恢復游標位置
+            target.setSelectionRange(originalSelectionStart - diff.length, originalSelectionStart - diff.length);
+        }
+        
+        this.lastInputValue = restoreVal;
         this.updateCandidates();
+    }
+    // 偵測倒退鍵 (Backspace)
+    else if (currentVal.length < this.lastInputValue.length) {
+         if (this.compositionBuffer) {
+            // 如果編碼區有內容，則模擬倒退鍵刪除編碼
+            this.compositionBuffer = this.compositionBuffer.slice(0, -1);
+            this.compositionCursorPos = this.compositionBuffer.length;
+            this.updateCandidates();
+        }
+        this.lastInputValue = currentVal;
+    } else {
+        this.lastInputValue = currentVal;
     }
 },
 
@@ -473,6 +580,12 @@ findPhraseCandidates(buffer) {
 handleKeyDown(e) {
     if (e.isComposing || e.keyCode === 229) return;
     if (e.ctrlKey || e.altKey || e.metaKey) return;
+    
+    // --- NEW: 在行動裝置上，忽略所有單一字元的輸入，交給 handleInput 處理 ---
+    if (this.isMobile && e.key && e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key)) {
+        return;
+    }
+    // --- END NEW ---
 
     const currentToneMode = this.getCurrentToneMode();
     const langProps = imeLanguageProperties[this.currentMode] || {};
@@ -500,30 +613,21 @@ handleKeyDown(e) {
         return;
     }
 
-    // --- 為空白鍵新增的修正邏輯 ---
-    // 統一處理空白鍵的行為
     if (e.key === ' ') {
-        // 只有在編碼區存在文字時，才攔截空白鍵的預設行為
         if (this.compositionBuffer) {
-            e.preventDefault(); // 阻止輸入框打出空格
-            
+            e.preventDefault(); 
             if (this.allCandidates.length > 0) {
-                // 情境一：有候選字 -> 選取高亮的候選字
                 this.selectCandidate(this.highlightedIndex);
             } else {
-                // 情境二：無候選字 -> 清除編碼區
                 this.compositionBuffer = '';
                 this.compositionCursorPos = 0;
                 this.updateCandidates();
             }
-            return; // 完成空白鍵的處理
+            return; 
         }
-        // 如果編碼區是空的，則不進行任何處理，讓瀏覽器輸入一個正常的空格
     }
-    // --- 修正邏輯結束 ---
 
     if (this.compositionBuffer && this.allCandidates.length > 0) {
-        // 直接按數字選字：僅在目前的「聲調模式」為字母模式 (alphabetic) 時啟用
         if (currentToneMode === 'alphabetic' && e.key >= '1' && e.key <= '9') {
             const index = parseInt(e.key, 10) - 1;
             if (index < this.candidatesList.children.length) {
@@ -533,7 +637,6 @@ handleKeyDown(e) {
             }
         }
 
-        // 按 Shift + 數字選字：允許在「所有模式」下使用
         if (e.shiftKey && e.code.startsWith('Digit')) {
             const num = e.code.slice(5);
             if (num >= '1' && num <= '9') {
@@ -556,7 +659,6 @@ handleKeyDown(e) {
             }
         }
 
-        // 注意：原有的 if (e.key === ' ') ... 邏輯已被移至上方統一處理
         if (e.key === 'ArrowUp'|| e.key === ',') { e.preventDefault(); this.navigateCandidates(-1); return; }
         if (e.key === 'ArrowDown'|| e.key === '.') { e.preventDefault(); this.navigateCandidates(1); return; }
         if (e.key === 'PageDown' || e.key === ']') { e.preventDefault(); this.changePage(1); return; }
@@ -567,19 +669,15 @@ handleKeyDown(e) {
 
     if (e.key === 'w') {
         const langProps = imeLanguageProperties[this.currentMode] || {};
-        // 檢查目前模式是否啟用了聲調轉換功能 (預設為啟用)
         const isTransformEnabled = langProps.enableToneTransform !== false;
 
-        // 僅在功能啟用且編碼區有內容時才執行
         if (isTransformEnabled && this.compositionBuffer) {
             e.preventDefault();
             let transformedText = this.compositionBuffer;
             
-            // 優先檢查是否有專屬的轉換函式 (例如 holo)
             if (window.imeToneTransformFunctions && typeof window.imeToneTransformFunctions[this.currentMode] === 'function') {
                 transformedText = window.imeToneTransformFunctions[this.currentMode](transformedText);
             } 
-            // 如果沒有，則退回使用舊的 rule-based 系統 (例如 hakka)
             else {
                 let rules = (window.imeToneTransformRules || {})[this.currentMode];
                 if (rules && rules.length > 0) {
@@ -595,8 +693,6 @@ handleKeyDown(e) {
             this.compositionCursorPos = 0;
             this.updateCandidates();
         }
-        // 如果轉換功能是啟用的，無論有無編碼，都結束本次按鍵處理，避免 'w' 字元被輸入
-        // 如果轉換功能是禁用的 (如倉頡)，則會跳過這裡，讓 'w' 成為正常的輸入字元
         if (isTransformEnabled) {
             return;
         }
@@ -615,7 +711,7 @@ handleKeyDown(e) {
 
     if (e.key === 'Escape' || e.key === ';') {
         if (this.compositionBuffer) {
-			e.preventDefault(); //阻止瀏覽器的預設行為
+			e.preventDefault(); 
             this.compositionBuffer = '';
             this.compositionCursorPos = 0;
             this.updateCandidates();
@@ -623,21 +719,17 @@ handleKeyDown(e) {
         return;
     }
 
-
-    if (e.key.length === 1) {
+    // --- MODIFIED: 這個區塊現在只對非行動裝置有效 ---
+    if (!this.isMobile && e.key.length === 1) {
         const isLetter = e.key.match(/^[a-zA-Z]$/);
         const isNumber = e.key.match(/^[0-9]$/);
 
-        // 處理英文字母輸入
         if (isLetter) {
             e.preventDefault();
-            // 檢查編碼是否已達上限
             if (this.compositionBuffer.length >= this.config.maxCompositionLength) {
-                // 若已達上限，則用新字元取代整個編碼區
                 this.compositionBuffer = e.key;
                 this.compositionCursorPos = 1;
             } else {
-                // 若未達上限，則正常插入字元
                 const buffer = this.compositionBuffer;
                 const pos = this.compositionCursorPos;
                 this.compositionBuffer = buffer.substring(0, pos) + e.key + buffer.substring(pos);
@@ -647,18 +739,14 @@ handleKeyDown(e) {
             return;
         }
 
-        // 處理數字輸入 (主要用於拼音等模式)
         if (isNumber) {
             const toneType = (imeLanguageProperties[this.currentMode] || {}).toneType;
             if (toneType === 'numeric') {
                 e.preventDefault();
-                // 同樣檢查編碼是否已達上限
                 if (this.compositionBuffer.length >= this.config.maxCompositionLength) {
-                    // 若已達上限，則用新字元取代整個編碼區
                     this.compositionBuffer = e.key;
                     this.compositionCursorPos = 1;
                 } else {
-                    // 若未達上限，則正常插入字元
                     const buffer = this.compositionBuffer;
                     const pos = this.compositionCursorPos;
                     this.compositionBuffer = buffer.substring(0, pos) + e.key + buffer.substring(pos);
@@ -669,6 +757,7 @@ handleKeyDown(e) {
             }
         }
     }
+    // --- END MODIFICATION ---
 
     if (e.key === 'Backspace') {
         if (this.compositionBuffer && this.compositionCursorPos > 0) {
@@ -681,7 +770,6 @@ handleKeyDown(e) {
         }
     }
 },
-
 
 
 
@@ -863,6 +951,10 @@ clearCandidates() {
 
 commitText(text) {
      if (!this.activeElement) return;
+
+     // --- NEW: 設定旗標，通知 input listener 這是程式觸發的更動 ---
+     this.isCommittingText = true;
+
      if (this.activeElement.isContentEditable) {
          const sel = window.getSelection();
          if (sel.rangeCount > 0) {
@@ -882,7 +974,13 @@ commitText(text) {
          const newCursorPos = start + text.length;
          this.activeElement.selectionStart = this.activeElement.selectionEnd = newCursorPos;
      }
+     
+     this.lastInputValue = this.activeElement.isContentEditable ? this.activeElement.textContent : this.activeElement.value;
      this.activeElement.dispatchEvent(new Event('input', { bubbles: true }));
+
+     setTimeout(() => {
+         this.isCommittingText = false;
+     }, 0);
 },
 
 selectCandidate(indexOnPage) {
@@ -1106,32 +1204,112 @@ getCaretCoordinates(element, position) {
     return { top, left };
 },
 
-// --- MODIFIED START: 重寫 reposition 函數 ---
-// 優化了定位邏輯，確保輸入法視窗總是完整顯示在畫面中
+
 reposition() {
     if (this.isPinned) {
         return; // 釘選模式下不自動重新定位
     }
     if (!this.activeElement) return;
 
-    let caretRect;
-    const elementRect = this.activeElement.getBoundingClientRect();
+    const MOBILE_BREAKPOINT = 768; // 定義行動裝置的寬度斷點
+    const isSmallScreen = window.innerWidth < MOBILE_BREAKPOINT;
 
-    if (this.activeElement.isContentEditable) {
+    const imeContainer = this.imeContainer;
+    const activeElement = this.activeElement;
+
+    // --- 行動裝置/小螢幕的特殊定位邏輯 ---
+    if (this.isMobile || isSmallScreen) {
+        const elementRect = activeElement.getBoundingClientRect();
+        const imeHeight = imeContainer.offsetHeight;
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+        const margin = 10;
+
+        let finalTop;
+        
+        // 對於單行輸入框，工具列固定在輸入框下方或上方
+        if (activeElement.tagName === 'INPUT') {
+            finalTop = elementRect.bottom + window.scrollY + margin;
+            // 如果下方空間不足，則移到上方
+            if (finalTop - window.scrollY + imeHeight > viewportHeight) {
+                finalTop = elementRect.top + window.scrollY - imeHeight - margin;
+            }
+        } 
+        // 對於多行文本域，工具列跟隨游標所在行
+        else {
+            let caretRect;
+            if (activeElement.isContentEditable) {
+                const selection = window.getSelection();
+                if (selection && selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+                    const rects = range.getClientRects();
+                    if (rects.length > 0) {
+                        caretRect = rects[rects.length - 1]; // 使用游標所在行的最後一個矩形
+                    } else {
+                        let parent = range.startContainer.parentElement;
+                        if (parent) caretRect = parent.getBoundingClientRect();
+                    }
+                }
+                if (!caretRect) caretRect = elementRect; // Fallback
+            } else { // TEXTAREA
+                const coords = this.getCaretCoordinates(activeElement, activeElement.selectionStart);
+                const computedStyle = window.getComputedStyle(activeElement);
+                const lineHeight = parseInt(computedStyle.lineHeight, 10) || (parseInt(computedStyle.fontSize, 10) * 1.4);
+                caretRect = { 
+                    top: coords.top, 
+                    bottom: coords.top + lineHeight,
+                };
+            }
+
+            // BUG FIX: 將未定義的 'verticalMargin' 修正為 'margin'
+            finalTop = caretRect.bottom + window.scrollY + margin;
+            // 如果游標下方空間不足，則移到游標上方
+            if ((finalTop - window.scrollY) + imeHeight > viewportHeight) {
+                 // BUG FIX: 將未定義的 'verticalMargin' 修正為 'margin'
+                 if ((caretRect.top - window.scrollY) - imeHeight - margin > 0) {
+                    // BUG FIX: 將未定義的 'verticalMargin' 修正為 'margin'
+                    finalTop = caretRect.top + window.scrollY - imeHeight - margin;
+                 } else {
+                    // BUG FIX: 將未定義的 'verticalMargin' 修正為 'margin'
+                    finalTop = window.scrollY + viewportHeight - imeHeight - margin;
+                 }
+            }
+        }
+        
+        // 在行動裝置上，水平方向固定，不跟隨游標左右移動
+        const finalLeft = window.scrollX + margin;
+        const finalWidth = viewportWidth - (margin * 2);
+
+        imeContainer.style.left = `${finalLeft}px`;
+        imeContainer.style.top = `${finalTop}px`;
+        imeContainer.style.width = `${finalWidth}px`;
+        imeContainer.style.maxWidth = `${finalWidth}px`;
+        
+        return; // 行動裝置邏輯結束
+    }
+
+    // --- 桌面/大螢幕的原始定位邏輯 ---
+    imeContainer.style.width = '';
+    imeContainer.style.maxWidth = '100vw'; 
+
+    let caretRect;
+    const elementRect = activeElement.getBoundingClientRect();
+
+    if (activeElement.isContentEditable) {
         const selection = window.getSelection();
         if (selection && selection.rangeCount > 0) {
             const range = selection.getRangeAt(0);
             const rects = range.getClientRects();
             if (rects.length > 0) {
-                caretRect = rects[rects.length - 1]; // 使用最後一個 rect，對應游標位置
+                caretRect = rects[rects.length - 1];
             }
         }
         if (!caretRect || (caretRect.width === 0 && caretRect.height === 0)) {
-            caretRect = elementRect; // Fallback
+            caretRect = elementRect; 
         }
-    } else if (this.activeElement.tagName === 'TEXTAREA' || this.activeElement.tagName === 'INPUT') {
-        const coords = this.getCaretCoordinates(this.activeElement, this.activeElement.selectionStart);
-        const computedStyle = window.getComputedStyle(this.activeElement);
+    } else if (activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'INPUT') {
+        const coords = this.getCaretCoordinates(activeElement, activeElement.selectionStart);
+        const computedStyle = window.getComputedStyle(activeElement);
         const lineHeight = parseInt(computedStyle.lineHeight) || (parseInt(computedStyle.fontSize) * 1.4);
         caretRect = { 
             top: coords.top, 
@@ -1145,47 +1323,36 @@ reposition() {
         caretRect = elementRect;
     }
 
-    const imeHeight = this.imeContainer.offsetHeight;
-    const imeWidth = this.imeContainer.offsetWidth;
+    const imeHeight = imeContainer.offsetHeight;
+    const imeWidth = imeContainer.offsetWidth;
     const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
-    const margin = 5; // 與視窗邊緣的間距
+    const margin = 10;
 
-    // 垂直定位 (處理游標在底部邊緣的問題)
     let finalTop = caretRect.bottom + window.scrollY + margin;
-    // 檢查下方空間是否足夠，不足則嘗試放到上方
     if (finalTop - window.scrollY + imeHeight > viewportHeight) {
         if (caretRect.top - imeHeight - margin > 0) {
-            // 上方空間足夠
             finalTop = caretRect.top + window.scrollY - imeHeight - margin;
         } else {
-            // 上方空間也不夠，則貼齊視窗底部
             finalTop = window.scrollY + viewportHeight - imeHeight - margin;
         }
     }
 
-    // 水平定位
     let finalLeft = caretRect.left + window.scrollX;
-    
-    // 確保不會超出右邊邊緣
     if (finalLeft - window.scrollX + imeWidth > viewportWidth) {
         finalLeft = window.scrollX + viewportWidth - imeWidth - margin;
     }
-    
-    // 確保不會超出左邊邊緣
     if (finalLeft < window.scrollX + margin) {
         finalLeft = window.scrollX + margin;
     }
     
-    // 最後再次確保頂部不會超出
     if (finalTop < window.scrollY + margin) {
         finalTop = window.scrollY + margin;
     }
 
-    this.imeContainer.style.top = `${finalTop}px`;
-    this.imeContainer.style.left = `${finalLeft}px`;
+    imeContainer.style.top = `${finalTop}px`;
+    imeContainer.style.left = `${finalLeft}px`;
 },
-// --- MODIFIED END ---
 
 show() {
     this.imeContainer.style.display = 'block';
@@ -1197,41 +1364,69 @@ getModeDisplayName(mode) {
 },
 
 initDrag(e) {
-    if (e.button !== 0 || e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON') return;
+    // 檢查是否點擊在可互動元素上，或是滑鼠右鍵
+    if (e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON') return;
+    if (e.type === 'mousedown' && e.button !== 0) return;
+
     this.isDragging = true;
-    this.offsetX = e.clientX - this.imeContainer.offsetLeft;
-    this.offsetY = e.clientY - this.imeContainer.offsetTop;
+
+    const touch = e.touches ? e.touches[0] : null;
+    const clientX = touch ? touch.clientX : e.clientX;
+    const clientY = touch ? touch.clientY : e.clientY;
+
+    this.offsetX = clientX - this.imeContainer.offsetLeft;
+    this.offsetY = clientY - this.imeContainer.offsetTop;
+
+    // 對 touchmove 使用 { passive: false } 來允許 preventDefault()，防止頁面滾動
     window.addEventListener('mousemove', this.boundDragMove);
+    window.addEventListener('touchmove', this.boundDragMove, { passive: false });
     window.addEventListener('mouseup', this.boundDragEnd);
-    e.preventDefault();
+    window.addEventListener('touchend', this.boundDragEnd);
+    
+    // 在觸控模式下，如果事件是可取消的，則阻止預設行為(如文字選取)
+    if (e.cancelable) {
+        e.preventDefault();
+    }
 },
 
 
-// 當處於釘選模式時，限制拖曳範圍，避免視窗被拖出畫面外
-dragMove(e) { 
-    if (!this.isDragging) return; 
-    
-    let newLeft = e.clientX - this.offsetX;
-    let newTop = e.clientY - this.offsetY;
+dragMove(e) {
+    if (!this.isDragging) return;
 
-    // 如果是釘選模式，則限制拖曳範圍在視窗內
+    // 阻止觸控拖曳時的頁面滾動行為
+    if (e.type === 'touchmove') {
+        e.preventDefault();
+    }
+
+    // 統一處理滑鼠和觸控事件的座標
+    const touch = e.touches ? e.touches[0] : null;
+    const clientX = touch ? touch.clientX : e.clientX;
+    const clientY = touch ? touch.clientY : e.clientY;
+
+    let newLeft = clientX - this.offsetX;
+    let newTop = clientY - this.offsetY;
+
+    // --- 修改核心：拖曳範圍限制 ---
+    // 無論是否釘選，都將拖曳範圍限制在視窗內，並保留一個小的邊界
+    const margin = 10; // 可視為與視窗邊緣的最小距離
+    const imeWidth = this.imeContainer.offsetWidth;
+    const imeHeight = this.imeContainer.offsetHeight;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    // 確保工具條不會被拖到視窗外部
+    // 限制左邊界
+    newLeft = Math.max(margin, newLeft);
+    // 限制右邊界
+    newLeft = Math.min(newLeft, viewportWidth - imeWidth - margin);
+    // 限制上邊界
+    newTop = Math.max(margin, newTop);
+    // 限制下邊界
+    newTop = Math.min(newTop, viewportHeight - imeHeight - margin);
+    // --- 限制邏輯結束 ---
+
+    // 如果是釘選狀態，則更新並儲存釘選位置
     if (this.isPinned) {
-        const margin = 40; // 與視窗邊緣保持的距離
-        const imeWidth = this.imeContainer.offsetWidth;
-        const imeHeight = this.imeContainer.offsetHeight;
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
-
-        // 限制左邊界
-        newLeft = Math.max(margin, newLeft);
-        // 限制右邊界
-        newLeft = Math.min(newLeft, viewportWidth - imeWidth - margin);
-        // 限制上邊界
-        newTop = Math.max(margin, newTop);
-        // 限制下邊界
-        newTop = Math.min(newTop, viewportHeight - imeHeight - margin);
-        
-        // 如果處於釘選模式，則同步更新並儲存釘選位置
         this.pinnedTop = `${newTop}px`;
         this.pinnedLeft = `${newLeft}px`;
         localStorage.setItem(this.config.storagePrefix + 'pinnedTop', this.pinnedTop);
@@ -1241,9 +1436,18 @@ dragMove(e) {
     this.imeContainer.style.left = `${newLeft}px`;
     this.imeContainer.style.top = `${newTop}px`;
 },
-// --- MODIFIED END ---
 
-dragEnd() { this.isDragging = false; window.removeEventListener('mousemove', this.boundDragMove); window.removeEventListener('mouseup', this.boundDragEnd); },
+dragEnd() { 
+    this.isDragging = false; 
+    
+    // --- NEW: 移除所有滑鼠和觸控事件的監聽器 ---
+    window.removeEventListener('mousemove', this.boundDragMove); 
+    window.removeEventListener('touchmove', this.boundDragMove);
+    window.removeEventListener('mouseup', this.boundDragEnd); 
+    window.removeEventListener('touchend', this.boundDragEnd);
+},
+
+
 };
 
 window.WebIME = WebIME;
