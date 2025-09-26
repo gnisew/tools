@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>烏衣行🥷 拼音轉漢字</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://tauhu.tw/tauhu-oo.css" rel="stylesheet">
+    <!-- 添加 Font Awesome 圖示庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1>烏衣行🥷 拼音轉漢字</h1>
+
+        <div class="converter-wrapper">
+            <div class="input-section" id="inputSection">
+                <div class="section-title">
+                    <span id="inputTitle" class="title-text">« 輸入拼音</span>
+                </div>
+                
+                <!-- 轉換設定面板 -->
+                <div class="settings-panel">
+                    <div class="settings-options">
+                        <div class="settings-option">
+							<select id="inputMode">
+								<option value="pinyin">拼音</option>
+								<option value="hanzi-pinyin">字(音)</option>
+								<option value="hanzi-slash-pinyin">字\音</option>
+								<option value="hanzi-tab-pinyin">字 音</option>
+							</select>
+							<div class="button-group">
+								<button id="convertBtn">轉換</button>
+								<button id="pasteExampleBtn">示例</button>
+							</div>
+                            <input type="checkbox" id="realTimeConversion" checked>
+                            <label for="realTimeConversion">即時轉換</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="textarea-container">
+                    <textarea id="inputText" placeholder="請輸入數字標調拼音，例如：ni3 hao3 zhong1 guo2"></textarea>
+                    <div class="corner-buttons">
+                        <button id="clearInputBtn" class="icon-button" title="清空"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="output-section" id="outputSection">
+                <div class="section-title">
+                    <span id="outputTitle" class="title-text">« 漢字</span>
+                    <div class="font-size-control">
+						<div class="settings-option">
+							<select id="pinyinMode">
+								<option value="number">數字</option>
+								<option value="tailo" selected>台羅</option>
+							</select>
+						</div>
+                        <div class="settings-option">
+                            <select id="pinyinHintType">
+                                <option value="none">純字</option>
+                                <option value="hover">提示</option>
+                                <option value="ruby-top" selected>上音</option>
+                                <option value="ruby-bottom">下音</option>
+                            </select>
+                        </div>
+                        <select id="fontSize">
+                            <option value="16">小</option>
+                            <option value="20" selected>中</option>
+                            <option value="24">大</option>
+                            <option value="28">巨</option>
+                        </select>
+                        <select id="lineHeight">
+                            <option value="1.2">密</option>
+                            <option value="1.5" selected>行</option>
+                            <option value="2.0">鬆</option>
+                            <option value="2.5">寬</option>
+                            <option value="2.5">闊</option>
+                        </select>
+                        <!-- 新增切換按鈕 -->
+                        <select id="displayMode">
+                            <option value="char">字</option>
+                            <option value="word" selected>詞</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 固定佔位的候選字面板 -->
+                <div id="candidatePanel" class="fixed-candidate-panel">
+                    <div id="candidateList" class="candidate-list"></div>
+                </div>
+
+                <div class="textarea-container">
+                    <div id="outputArea" class="output-area"></div>
+                    <div class="corner-buttons">
+						<button id="copyRubyBtn" class="icon-button" title="複製Ruby"><i class="fas fa-copy"></i></button>   
+                        <button id="copyOutputBtn" class="icon-button" title="複製"><i class="fas fa-copy"></i></button>               
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <button id="toggleDictionaryBtn" class="toggle-dictionary-btn">管理自定詞庫</button>
+
+        <div id="dictionaryPanel" class="dictionary-panel" style="display: none;">
+            <div class="settings-title">自定詞庫</div>
+            <div class="dictionary-input">
+                <input type="text" id="newWordPinyin" placeholder="拼音（空格分隔）">
+                <input type="text" id="newWordHanzi" placeholder="對應漢字">
+                <button id="addWordBtn">添加詞彙</button>
+            </div>
+            <div id="dictionaryList" class="dictionary-list"></div>
+        </div>
+    </div>
+
+    <!-- 浮動提示元素 -->
+    <div id="floatingNotification" class="floating-notification"></div>
+
+    <script src="pinyin-data.js"></script>
+	<script src="script-holo.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
