@@ -454,7 +454,6 @@ handleInput(e) {
     }
     
     // 如果不是行動裝置，此函數不作用 (桌機邏輯在 keydown 中)
-    // 但保留一個例外：當編碼區有內容時，若用戶用滑鼠等方式修改輸入框，則清空編碼區
     if (!this.isMobile) {
         if (this.compositionBuffer) {
             this.compositionBuffer = '';
@@ -470,32 +469,138 @@ handleInput(e) {
     // 偵測輸入
     if (currentVal.length > this.lastInputValue.length) {
         let diff = currentVal.substring(this.lastInputValue.length);
-        
-        // --- MODIFICATION START ---
-        // 檢查是否處於數字聲調模式，若是，則將輸入的數字轉換為對應的聲調字母
+
+        // 【主要修改點】
+        // 當輸入的是空白鍵時，進行特別處理
+        if (diff === ' ') {
+            const hasBuffer = this.compositionBuffer.length > 0;
+            const hasCandidates = this.allCandidates.length > 0;
+
+            // 情況 3: 如果編碼區是空的，這就是一個普通的空白字元。
+            // 我們只需更新 lastInputValue，然後結束函數，讓空白留在編輯器中。
+            if (!hasBuffer) {
+                this.lastInputValue = currentVal;
+                return;
+            }
+
+            // 如果程式執行到這裡，代表編碼區不是空的，
+            // 所以空白鍵是一個「指令」，必須先從編輯區移除。
+            const restoreVal = this.lastInputValue;
+            if (target.isContentEditable) {
+                target.textContent = restoreVal;
+                const range = document.createRange();
+                const sel = window.getSelection();
+                if (target.childNodes.length > 0) {
+                    range.setStart(target.childNodes[0], restoreVal.length);
+                } else {
+                    range.setStart(target, 0);
+                }
+                range.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            } else {
+                const originalSelectionStart = target.selectionStart;
+                target.value = restoreVal;
+                target.setSelectionRange(originalSelectionStart - diff.length, originalSelectionStart - diff.length);
+            }
+            this.lastInputValue = restoreVal;
+
+            // 現在根據情況執行對應的「指令」
+            // 情況 1: 有候選字，執行「選字」
+            if (hasCandidates) {
+                this.selectCandidate(this.highlightedIndex);
+            } 
+            // 情況 2: 有編碼但無候選字，執行「清除編碼」
+            else {
+                this.compositionBuffer = '';
+                this.compositionCursorPos = 0;
+                this.updateCandidates(); // 更新UI以清空編碼區
+            }
+            
+            // 處理完畢，直接返回
+            return;
+        }
+
+
+        const hasComposition = this.compositionBuffer && this.allCandidates.length > 0;
         const currentToneMode = this.getCurrentToneMode();
+        const isNumberSelect = currentToneMode === 'alphabetic' && diff.match(/^[1-9]$/) && hasComposition;
+        const isWTransform = diff.toLowerCase() === 'w' && this.compositionBuffer;
+
+        // 如果觸發了任何其他特殊功能（數字選字、w 轉換）
+        if (isNumberSelect || isWTransform) {
+            
+            // 步驟 1: 立刻還原輸入框的內容，吃掉剛剛輸入的特殊字元
+            const restoreVal = this.lastInputValue;
+            if (target.isContentEditable) {
+                target.textContent = restoreVal;
+                const range = document.createRange();
+                const sel = window.getSelection();
+                if (target.childNodes.length > 0) {
+                    range.setStart(target.childNodes[0], restoreVal.length);
+                } else {
+                    range.setStart(target, 0);
+                }
+                range.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            } else {
+                const originalSelectionStart = target.selectionStart;
+                target.value = restoreVal;
+                target.setSelectionRange(originalSelectionStart - diff.length, originalSelectionStart - diff.length);
+            }
+            this.lastInputValue = restoreVal; // 同步 lastInputValue
+
+            // 步驟 2: 在乾淨的狀態下，執行對應的功能
+            if (isNumberSelect) {
+                const index = parseInt(diff, 10) - 1;
+                if (index < this.candidatesList.children.length) {
+                    this.selectCandidate(index);
+                }
+            } 
+            else if (isWTransform) {
+                const langProps = imeLanguageProperties[this.currentMode] || {};
+                const isTransformEnabled = langProps.enableToneTransform !== false;
+
+                if (isTransformEnabled) {
+                    let transformedText = this.compositionBuffer;
+                    if (window.imeToneTransformFunctions && typeof window.imeToneTransformFunctions[this.currentMode] === 'function') {
+                        transformedText = window.imeToneTransformFunctions[this.currentMode](transformedText);
+                    } else {
+                        let rules = (window.imeToneTransformRules || {})[this.currentMode];
+                        if (rules && rules.length > 0) {
+                            for (const rule of rules) {
+                                const regex = new RegExp(rule[0][0], rule[0][1]);
+                                transformedText = transformedText.replace(regex, rule[1]);
+                            }
+                        }
+                    }
+                    this.commitText(transformedText);
+                    this.compositionBuffer = '';
+                    this.compositionCursorPos = 0;
+                    this.updateCandidates();
+                }
+            }
+            return; // 任務完成，結束函數
+        }
+        
+        // (如果不是特殊功能鍵，則執行正常的編碼輸入邏輯)
         const langProps = imeLanguageProperties[this.currentMode] || {};
         const isNumericToneMode = currentToneMode === 'numeric' && langProps.numericToneMap;
 
-        // 如果是數字聲調模式，且輸入的字元是單一數字
         if (isNumericToneMode && diff.match(/^[0-9]$/)) {
             const mappedChar = langProps.numericToneMap[diff];
-            // 如果在對應表中找到該數字，就替換它
             if (mappedChar) {
                 diff = mappedChar; 
             }
         }
-        // --- MODIFICATION END ---
         
-        // 將新輸入的字元加入編碼緩衝區
         this.compositionBuffer += diff;
         this.compositionCursorPos += diff.length;
         
-        // 關鍵：將輸入框的內容還原，移除剛剛輸入的原始字元
         const restoreVal = this.lastInputValue;
         if (target.isContentEditable) {
             target.textContent = restoreVal;
-             // 恢復游標位置到最後
             const range = document.createRange();
             const sel = window.getSelection();
             if (target.childNodes.length > 0) {
@@ -509,17 +614,14 @@ handleInput(e) {
         } else {
             const originalSelectionStart = target.selectionStart;
             target.value = restoreVal;
-            // 恢復游標位置
             target.setSelectionRange(originalSelectionStart - diff.length, originalSelectionStart - diff.length);
         }
         
         this.lastInputValue = restoreVal;
         this.updateCandidates();
     }
-    // 偵測倒退鍵 (Backspace)
     else if (currentVal.length < this.lastInputValue.length) {
          if (this.compositionBuffer) {
-            // 如果編碼區有內容，則模擬倒退鍵刪除編碼
             this.compositionBuffer = this.compositionBuffer.slice(0, -1);
             this.compositionCursorPos = this.compositionBuffer.length;
             this.updateCandidates();
@@ -1219,73 +1321,78 @@ reposition() {
 
     // --- 行動裝置/小螢幕的特殊定位邏輯 ---
     if (this.isMobile || isSmallScreen) {
-        const elementRect = activeElement.getBoundingClientRect();
-        const imeHeight = imeContainer.offsetHeight;
-        const viewportHeight = window.innerHeight;
-        const viewportWidth = window.innerWidth;
-        const margin = 10;
-
-        let finalTop;
         
-        // 對於單行輸入框，工具列固定在輸入框下方或上方
-        if (activeElement.tagName === 'INPUT') {
-            finalTop = elementRect.bottom + window.scrollY + margin;
-            // 如果下方空間不足，則移到上方
-            if (finalTop - window.scrollY + imeHeight > viewportHeight) {
-                finalTop = elementRect.top + window.scrollY - imeHeight - margin;
-            }
-        } 
-        // 對於多行文本域，工具列跟隨游標所在行
-        else {
-            let caretRect;
-            if (activeElement.isContentEditable) {
-                const selection = window.getSelection();
-                if (selection && selection.rangeCount > 0) {
-                    const range = selection.getRangeAt(0);
-                    const rects = range.getClientRects();
-                    if (rects.length > 0) {
-                        caretRect = rects[rects.length - 1]; // 使用游標所在行的最後一個矩形
-                    } else {
-                        let parent = range.startContainer.parentElement;
-                        if (parent) caretRect = parent.getBoundingClientRect();
-                    }
+        // --- BUG FIX START ---
+        // 只有在輸入法「啟用」時，才強制設定寬度為接近滿版
+        if (this.isEnabled) {
+            const elementRect = activeElement.getBoundingClientRect();
+            const imeHeight = imeContainer.offsetHeight;
+            const viewportHeight = window.innerHeight;
+            const viewportWidth = window.innerWidth;
+            const margin = 10;
+
+            let finalTop;
+            
+            if (activeElement.tagName === 'INPUT') {
+                finalTop = elementRect.bottom + window.scrollY + margin;
+                if (finalTop - window.scrollY + imeHeight > viewportHeight) {
+                    finalTop = elementRect.top + window.scrollY - imeHeight - margin;
                 }
-                if (!caretRect) caretRect = elementRect; // Fallback
-            } else { // TEXTAREA
-                const coords = this.getCaretCoordinates(activeElement, activeElement.selectionStart);
-                const computedStyle = window.getComputedStyle(activeElement);
-                const lineHeight = parseInt(computedStyle.lineHeight, 10) || (parseInt(computedStyle.fontSize, 10) * 1.4);
-                caretRect = { 
-                    top: coords.top, 
-                    bottom: coords.top + lineHeight,
-                };
-            }
+            } 
+            else {
+                let caretRect;
+                if (activeElement.isContentEditable) {
+                    const selection = window.getSelection();
+                    if (selection && selection.rangeCount > 0) {
+                        const range = selection.getRangeAt(0);
+                        const rects = range.getClientRects();
+                        if (rects.length > 0) {
+                            caretRect = rects[rects.length - 1]; 
+                        } else {
+                            let parent = range.startContainer.parentElement;
+                            if (parent) caretRect = parent.getBoundingClientRect();
+                        }
+                    }
+                    if (!caretRect) caretRect = elementRect; 
+                } else { 
+                    const coords = this.getCaretCoordinates(activeElement, activeElement.selectionStart);
+                    const computedStyle = window.getComputedStyle(activeElement);
+                    const lineHeight = parseInt(computedStyle.lineHeight, 10) || (parseInt(computedStyle.fontSize, 10) * 1.4);
+                    caretRect = { 
+                        top: coords.top, 
+                        bottom: coords.top + lineHeight,
+                    };
+                }
 
-            // BUG FIX: 將未定義的 'verticalMargin' 修正為 'margin'
-            finalTop = caretRect.bottom + window.scrollY + margin;
-            // 如果游標下方空間不足，則移到游標上方
-            if ((finalTop - window.scrollY) + imeHeight > viewportHeight) {
-                 // BUG FIX: 將未定義的 'verticalMargin' 修正為 'margin'
-                 if ((caretRect.top - window.scrollY) - imeHeight - margin > 0) {
-                    // BUG FIX: 將未定義的 'verticalMargin' 修正為 'margin'
-                    finalTop = caretRect.top + window.scrollY - imeHeight - margin;
-                 } else {
-                    // BUG FIX: 將未定義的 'verticalMargin' 修正為 'margin'
-                    finalTop = window.scrollY + viewportHeight - imeHeight - margin;
-                 }
+                finalTop = caretRect.bottom + window.scrollY + margin;
+                if ((finalTop - window.scrollY) + imeHeight > viewportHeight) {
+                     if ((caretRect.top - window.scrollY) - imeHeight - margin > 0) {
+                        finalTop = caretRect.top + window.scrollY - imeHeight - margin;
+                     } else {
+                        finalTop = window.scrollY + viewportHeight - imeHeight - margin;
+                     }
+                }
             }
+            
+            const finalLeft = window.scrollX + margin;
+            const finalWidth = viewportWidth - (margin * 2);
+
+            imeContainer.style.left = `${finalLeft}px`;
+            imeContainer.style.top = `${finalTop}px`;
+            imeContainer.style.width = `${finalWidth}px`;
+            imeContainer.style.maxWidth = `${finalWidth}px`;
+        } else {
+            // 在「停用」狀態下，清除寬度設定，讓 CSS 來控制其自動縮小
+            imeContainer.style.width = '';
+            imeContainer.style.maxWidth = ''; 
+            // 停用時，位置簡單跟隨輸入框即可，避免位置錯亂
+            const elementRect = activeElement.getBoundingClientRect();
+            imeContainer.style.top = `${elementRect.bottom + window.scrollY + 5}px`;
+            imeContainer.style.left = `${elementRect.left + window.scrollX}px`;
         }
+        // --- BUG FIX END ---
         
-        // 在行動裝置上，水平方向固定，不跟隨游標左右移動
-        const finalLeft = window.scrollX + margin;
-        const finalWidth = viewportWidth - (margin * 2);
-
-        imeContainer.style.left = `${finalLeft}px`;
-        imeContainer.style.top = `${finalTop}px`;
-        imeContainer.style.width = `${finalWidth}px`;
-        imeContainer.style.maxWidth = `${finalWidth}px`;
-        
-        return; // 行動裝置邏輯結束
+        return; 
     }
 
     // --- 桌面/大螢幕的原始定位邏輯 ---

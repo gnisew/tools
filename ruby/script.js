@@ -641,7 +641,7 @@ function preprocessAndSplitInput() {
         return; // 完成模式一，退出
     }
 
-    // --- 解析模式二：處理「拼音\n漢字」交錯格式 (您要求的新功能) ---
+    // --- 解析模式二：處理「拼音\n漢字」交錯格式 ---
     if (normalizedHanzi.includes('\n')) {
         const lines = normalizedHanzi.split('\n')
                                     .map(line => line.trim())
@@ -816,7 +816,6 @@ btnModeWord.addEventListener('click', () => {
 function attachEditHandlers() {
     // 功能1：編輯整個子句 (邏輯不變)
     resultArea.querySelectorAll('.clause .edit-btn').forEach(btn => {
-        // ... (這部分的程式碼與您現有的版本相同，無需更改) ...
          btn.addEventListener('click', (e) => {
             if (mode !== 'edit') return;
             e.stopPropagation();
@@ -1448,7 +1447,7 @@ actCopyAnnotated.addEventListener('click', async () => {
     menuMore.classList.add('hidden');
 });
 
-// 複製HTML（永遠以檢視模式渲染出的內容）
+// 複製HTML
 actCopy.addEventListener('click', async () => {
     const {
         node
@@ -1456,7 +1455,8 @@ actCopy.addEventListener('click', async () => {
         hanzi: hanziInput.value,
         pinyin: pinyinInput.value,
         showWarnings: false,
-        allowEdit: false
+        allowEdit: false,
+        annotationMode: annotationMode
     });
     const wrap = document.createElement('div');
     wrap.appendChild(node);
@@ -1476,13 +1476,14 @@ actDownload.addEventListener('click', () => {
         hanzi: hanziInput.value,
         pinyin: pinyinInput.value,
         fontSize: '14pt',
-        rtScale: getComputedStyle(resultArea).getPropertyValue('--rt-scale') || '0.68'
+        rtScale: getComputedStyle(resultArea).getPropertyValue('--rt-scale') || '0.68',
+        annotationMode: annotationMode
     });
     fallbackDownload('hakka-annotated.html', exportHtml);
     menuMore.classList.add('hidden');
 });
 
-// 功能：複製標註（永遠以檢視模式的內容為基準）
+// 複製標註
 async function copyAnnotated() {
     // 以重新渲染的檢視模式內容為輸出來源
     const hanzi = hanziInput.value;
@@ -1493,7 +1494,8 @@ async function copyAnnotated() {
         hanzi,
         pinyin,
         showWarnings: false,
-        allowEdit: false
+        allowEdit: false,
+        annotationMode: annotationMode // <<< 這裏是新增的關鍵程式碼
     });
     const tempWrap = document.createElement('div');
     tempWrap.appendChild(node);
@@ -1536,10 +1538,11 @@ body{font-size:14pt;line-height:1.95;font-family:"台灣楷體", twkai;}
     }
 }
 
-function buildExportHtml({ hanzi, pinyin, fontSize, rtScale }) {
+function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode }) {
     // 為了安全地將字串嵌入到 JavaScript 模板字面值中，進行轉義
     const escapedHanzi = hanzi.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
     const escapedPinyin = pinyin.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
+    const escapedAnnotationMode = annotationMode;
 
     // 返回一個包含完整邏輯的 HTML 字串
     return `<!DOCTYPE html>
@@ -1649,6 +1652,7 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale }) {
     // --- 步驟 1: 資料定義 ---
     const hanzi = \`${escapedHanzi}\`;
     const pinyin = \`${escapedPinyin}\`;
+    const annotationMode = \`${escapedAnnotationMode}\`;
 
     // --- 步驟 2: 標註工具的核心函式 (從原工具複製而來) ---
     const PUNCTS = new Set(['，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '—', '…', '－', '‧', '·', '﹑', ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…']);
@@ -1694,7 +1698,7 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale }) {
     function tokenizeSyls(raw) {
         const syls = []; let token = '';
         for (const ch of toCharArray(raw || '')) {
-            if (isLineBreak(ch) || isWhitespace(ch) || isPunct(ch)) {
+            if (isLineBreak(ch) || isWhitespace(ch) || (isPunct(ch) && ch !== '-')) {
                 if (token.trim()) { syls.push(token.trim()); token = ''; }
                 continue;
             }
@@ -1706,7 +1710,7 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale }) {
     
     function tokenizeHanziWithAlphanum(text) {
         if (!text) return [];
-        const regex = /([a-zA-Z0-9]+|.)/g;
+        const regex = /([a-zA-Z0-9]+|.)/gu;
         return text.match(regex) || [];
     }
     
@@ -1715,46 +1719,91 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale }) {
         const contentDiv = document.getElementById('content');
         if (!contentDiv) return;
 
-        let html = '';
-        const hSegs = segmentHanziByClauses(hanzi || '');
-        const pSegRaws = segmentPinyinRawByClauses(pinyin || '');
-        const hanziClauseCount = hSegs.filter(s => s.type === 'seg').length;
-        const pinyinClauseCount = pSegRaws.filter(s => s.type === 'seg').length;
-        
-        const buildHtmlFromTokens = (hTokens, pSegSyls) => {
+        const processClause = (hTokens, pSegSyls) => {
             let clauseHtml = '';
-            let si = 0;
-            for (const token of hTokens) {
-                if (token.length === 1 && (isWhitespace(token) || isPunct(token))) {
-                    clauseHtml += \`<span class="punct">\${token}</span>\`;
+            let h_idx = 0;
+            let p_idx = 0;
+
+            while (h_idx < hTokens.length) {
+                const hToken = hTokens[h_idx];
+
+                if (hToken.length === 1 && (isWhitespace(hToken) || isPunct(hToken))) {
+                    clauseHtml += \`<span class="punct">\${hToken}</span>\`;
+                    h_idx++;
                     continue;
                 }
-                const py = si < pSegSyls.length ? pSegSyls[si] : '&nbsp;';
-                if (token === py && /[a-zA-Z0-9]/.test(token)) {
-                    clauseHtml += \`<span class="alphanum">\${token}</span>\`;
-                } else {
-                    clauseHtml += \`<ruby><rb>\${token}</rb><rt>\${py}</rt></ruby>\`;
+
+                if (p_idx >= pSegSyls.length) {
+                    clauseHtml += \`<ruby><rb>\${hToken}</rb><rt>&nbsp;</rt></ruby>\`;
+                    h_idx++;
+                    continue;
                 }
-                if (si < pSegSyls.length) si++;
+
+                const pToken = pSegSyls[p_idx];
+                const pSubSyls = pToken.split(/--?|=/);
+
+                if (pSubSyls.length > 1) {
+                    const wordLen = pSubSyls.length;
+                    const hWordTokens = hTokens.slice(h_idx, h_idx + wordLen);
+                    const hWord = hWordTokens.join('');
+
+                    if (hWordTokens.length === wordLen) {
+                        if (annotationMode === 'word') {
+                            clauseHtml += \`<ruby><rb>\${hWord}</rb><rt>\${pToken}</rt></ruby>\`;
+                        } else {
+                            for (let i = 0; i < wordLen; i++) {
+                                clauseHtml += \`<ruby><rb>\${hTokens[h_idx + i]}</rb><rt>\${pSubSyls[i]}</rt></ruby>\`;
+                            }
+                        }
+                        h_idx += wordLen;
+                        p_idx++;
+                    } else {
+                        clauseHtml += \`<ruby><rb>\${hToken}</rb><rt>\${pToken}</rt></ruby>\`;
+                        h_idx++;
+                        p_idx++;
+                    }
+                } else {
+                    if (hToken === pToken && /[a-zA-Z0-9]/.test(hToken)) {
+                       clauseHtml += \`<span class="alphanum">\${hToken}</span>\`;
+                    } else {
+                       clauseHtml += \`<ruby><rb>\${hToken}</rb><rt>\${pToken || '&nbsp;'}</rt></ruby>\`;
+                    }
+                    h_idx++;
+                    p_idx++;
+                }
             }
-            if (si < pSegSyls.length) {
-                const extraPinyin = pSegSyls.slice(si).join(' ');
+
+            if (p_idx < pSegSyls.length) {
+                const extraPinyin = pSegSyls.slice(p_idx).join(' ');
                 clauseHtml += \`<ruby><rb>&nbsp;</rb><rt>\${extraPinyin}</rt></ruby>\`;
             }
             return clauseHtml;
         };
+        
+        let html = '';
+        const hSegs = segmentHanziByClauses(hanzi || '');
+        const pSegRaws = segmentPinyinRawByClauses(pinyin || '');
+        
+        let hSegIndex = 0;
+        let pSegIndex = 0;
+        while (hSegIndex < hSegs.length || pSegIndex < pSegRaws.length) {
+            const hSeg = hSegs[hSegIndex];
+            const pSeg = pSegRaws[pSegIndex];
 
-        if (hanziClauseCount > 0 && hanziClauseCount === pinyinClauseCount) {
-            let prj = 0;
-            for (const hSeg of hSegs) {
-                if (hSeg.type === 'br') { html += '<br>'; continue; }
-                while (prj < pSegRaws.length && pSegRaws[prj].type === 'br') { prj++; }
-                const pRawSeg = (prj < pSegRaws.length) ? pSegRaws[prj] : { text: '' };
-                html += buildHtmlFromTokens(tokenizeHanziWithAlphanum(hSeg.text), tokenizeSyls(pRawSeg.text));
-                prj++;
+            if (hSeg && hSeg.type === 'br') {
+                html += '<br>';
+                hSegIndex++;
+                if (pSeg && pSeg.type === 'br') pSegIndex++;
+                continue;
             }
-        } else {
-            html = buildHtmlFromTokens(tokenizeHanziWithAlphanum(hanzi.replace(/\\n|\\r/g, '')), tokenizeSyls(pinyin));
+
+            const currentHSegText = hSeg?.text || '';
+            const currentPSegText = pSeg?.text || '';
+
+            html += processClause(tokenizeHanziWithAlphanum(currentHSegText), tokenizeSyls(currentPSegText));
+
+            hSegIndex++;
+            pSegIndex++;
         }
 
         contentDiv.innerHTML = html;
@@ -1779,6 +1828,7 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale }) {
 </body>
 </html>`;
 }
+
 
 function fallbackDownload(filename, content) {
     const blob = new Blob([content], {
@@ -2028,8 +2078,8 @@ function updateTitles() {
     if (!LANGUAGES[currentLanguageKey] || !mainTitle) return;
 
     const langName = LANGUAGES[currentLanguageKey].name;
-    const newPageTitle = `烏衣行 ${langName}漢字 × 拼音`;
-    const newMainTitle = `烏衣行 ${langName}漢字 × 拼音`;
+    const newPageTitle = `烏衣行 ${langName} × 拼音`;
+    const newMainTitle = `烏衣行 ${langName} × 拼音`;
 
     // 更新瀏覽器分頁的標題
     document.title = newPageTitle;
