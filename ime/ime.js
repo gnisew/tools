@@ -1,11 +1,32 @@
-        document.addEventListener('DOMContentLoaded', () => {
-            WebIME.init({
-                defaultMode: 'sixian',      // 預設開啟四縣腔
-                candidatesPerPage: 5,       // 一頁顯示 7 個候選字
-                longPhrase: false,          // 預設關閉連打模式
-                maxCompositionLength: 30    // 將此範例頁面的編碼長度限制為 30
-            });
-        });
+/**
+ * 檢查頁面是否已載入 Google Material Icons，若無則動態載入。
+ */
+function checkAndLoadMaterialIcons() {
+    // 檢查字體是否已經被瀏覽器載入 (更可靠的方法)
+    if (document.fonts && document.fonts.check('1em "Material Icons"')) {
+        console.log('Material Icons font already loaded.');
+        return;
+    }
+
+    // 備用檢查：遍歷樣式表連結
+    const links = document.getElementsByTagName('link');
+    let isLoaded = false;
+    for (let i = 0; i < links.length; i++) {
+        if (links[i].href.includes('fonts.googleapis.com/icon?family=Material+Icons')) {
+            isLoaded = true;
+            break;
+        }
+    }
+
+    // 如果沒有找到，就建立一個 <link> 標籤並插入到 <head>
+    if (!isLoaded) {
+        console.log('Material Icons not found, loading dynamically...');
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://fonts.googleapis.com/icon?family=Material+Icons';
+        document.head.appendChild(link);
+    }
+}
 
 (function() {
 
@@ -14,8 +35,14 @@
     }
 
     const WebIME = {
+	isInitialized: false,
+	boundGlobalKeyDownHandler: null, 
+    defaultKeyMap: window.defaultKeyMap || {},
     activeElement: null,
-    imeContainer: null,
+    boundFocusInHandler: null,
+    boundFocusOutHandler: null,
+    toolbarContainer: null, 
+    candidatesContainer: null, 
     candidatesList: null,
     topBar: null,
 
@@ -32,8 +59,8 @@
     // 設定集中管理
     // 外部呼叫 init() 時可以傳入客製化設定來覆寫它們
     config: {
-        defaultMode: 'pinyin',      // 預設輸入法
-        longPhrase: true,           // 預設是否啟用連打模式
+        defaultMode: 'sixian',      // 預設輸入法
+        longPhrase: false,           // 預設是否啟用連打模式
         candidatesPerPage: 5,       // 每頁顯示的候選字數量
         maxCompositionLength: 30,   // 編碼區最大字元數
         storagePrefix: 'webime_',   // 用於 localStorage 的前綴
@@ -76,7 +103,16 @@
     offsetX: 0,
     offsetY: 0,
     preprocessedDicts: {},
-
+    isFullWidthMode: true,
+    punctuationModeToggleBtn: null,
+    isQueryMode: false,
+	isPositionRight: false,
+    queriedWord: '',
+    originalState: null,
+    reverseDicts: {
+        cangjie: {},
+        xiami: {}
+    },
 
 /**
  * 預處理所有字典，以優化搜尋效能。
@@ -115,93 +151,171 @@ preprocessDictionaries() {
 },
 
 
+
+/**
+ * 建立反向字典 (字 -> 碼)，用於反查功能。
+ */
+createReverseDictionaries() {
+    console.log("Creating reverse dictionaries for query feature...");
+    
+    const modesToProcess = Object.keys(dictionaries);
+
+    modesToProcess.forEach(mode => {
+        const dictionary = dictionaries[mode];
+        if (!dictionary) return;
+
+        // 為每種語言在 reverseDicts 中建立一個空物件
+        if (!this.reverseDicts[mode]) {
+            this.reverseDicts[mode] = {};
+        }
+
+        for (const code in dictionary) {
+            if (Object.hasOwnProperty.call(dictionary, code)) {
+                const words = dictionary[code].split(' ');
+                words.forEach(word => {
+                    // 使用 Array.from 來正確處理擴充字元 (Surrogate Pairs)
+                    if (Array.from(word).length === 1) {
+                        if (!this.reverseDicts[mode][word]) {
+                            this.reverseDicts[mode][word] = [];
+                        }
+                        // 避免重複加入相同的碼
+                        if (!this.reverseDicts[mode][word].includes(code)) {
+                            this.reverseDicts[mode][word].push(code);
+                        }
+                    }
+                });
+            }
+        }
+    });
+    console.log("Reverse dictionaries created.");
+},
     /**
      * 初始化函數接受客製化設定
      * @param {object} userConfig - 使用者傳入的設定物件，可覆寫預設值
      */
-    init(userConfig = {}) {
-		// 呼叫預處理函數
-		this.preprocessDictionaries();
 
-		// 合併使用者設定與預設設定
-        this.config = { ...this.config, ...userConfig };
+init(userConfig = {}) {
+    // 防止重複初始化
+    if (this.isInitialized) {
+        console.warn("WebIME is already initialized.");
+        return;
+    }
 
-        // 儲存全域設定的編碼長度，以便在不同輸入法間切換時還原
-        this.config.globalMaxCompositionLength = this.config.maxCompositionLength;
+    this.preprocessDictionaries();
+    this.createReverseDictionaries();
+    this.config = { ...this.config, ...userConfig };
+    this.config.globalMaxCompositionLength = this.config.maxCompositionLength;
 
-        // --- 從 Local Storage 載入設定 ---
-        const savedMode = localStorage.getItem(this.config.storagePrefix + 'mode');
-        if (savedMode && dictionaries[savedMode]) {
-            this.currentMode = savedMode;
-        } else {
-            this.currentMode = this.config.defaultMode; // 使用設定的預設模式
+    const savedMode = localStorage.getItem(this.config.storagePrefix + 'mode');
+    this.currentMode = (savedMode && dictionaries[savedMode]) ? savedMode : this.config.defaultMode;
+
+    const savedLongPhrase = localStorage.getItem(this.config.storagePrefix + 'longPhrase');
+    this.isLongPhraseEnabled = (savedLongPhrase !== null) ? (savedLongPhrase === 'true') : this.config.longPhrase;
+
+    const savedToneModes = localStorage.getItem(this.config.storagePrefix + 'toneModes');
+    if (savedToneModes) {
+        try { this.toneModes = JSON.parse(savedToneModes); } catch (e) { this.toneModes = {}; }
+    }
+    
+    const savedFullWidth = localStorage.getItem(this.config.storagePrefix + 'fullWidth');
+    this.isFullWidthMode = (savedFullWidth !== null) ? (savedFullWidth === 'true') : true;
+    
+    const savedPosition = localStorage.getItem(this.config.storagePrefix + 'position');
+    this.isPositionRight = savedPosition === 'right';
+
+    this.boundReposition = this.reposition.bind(this);
+    this.boundHandleInput = this.handleInput.bind(this);
+    this.boundHandleKeyDown = this.handleKeyDown.bind(this);
+
+    this.loadKeyMapSettings();
+    this.loadToolbarSettings();
+
+    this.createUI();
+    this.loadQuerySettings();
+    
+    this.updateToolbarPosition();
+    this.updateToolbarButtonsVisibility();
+
+    const initialLangProps = imeLanguageProperties[this.currentMode] || {};
+    this.config.maxCompositionLength = initialLangProps.maxLength || this.config.globalMaxCompositionLength;
+    this.longPhraseToggleBtn.style.display = initialLangProps.allowLongPhraseToggle === false ? 'none' : '';
+    if (initialLangProps.allowLongPhraseToggle === false) {
+        this.isLongPhraseEnabled = initialLangProps.longPhraseMode === true;
+    }
+    this.longPhraseToggleBtn.classList.toggle('active', this.isLongPhraseEnabled);
+
+    if (initialLangProps.layoutType === 'narrow') {
+        this.candidatesContainer.classList.add('ime-narrow');
+    } else {
+        this.candidatesContainer.classList.remove('ime-narrow');
+    }
+    
+    this.updatePunctuationButtonUI();
+
+    this.attachEventListeners();
+
+    this.boundGlobalKeyDownHandler = (e) => {
+        if (e.ctrlKey && e.key === '/') {
+            e.preventDefault();
+            this.toggleIsEnabled();
         }
+    };
+    document.addEventListener('keydown', this.boundGlobalKeyDownHandler);
 
-        const savedLongPhrase = localStorage.getItem(this.config.storagePrefix + 'longPhrase');
-        if (savedLongPhrase !== null) {
-            this.isLongPhraseEnabled = savedLongPhrase === 'true';
-        } else {
-            this.isLongPhraseEnabled = this.config.longPhrase; // 使用設定的預設值
-        }
-        
-        // 載入釘選狀態
-        const savedIsPinned = localStorage.getItem(this.config.storagePrefix + 'isPinned');
-        this.isPinned = savedIsPinned === 'true';
-        if (this.isPinned) {
-            this.pinnedTop = localStorage.getItem(this.config.storagePrefix + 'pinnedTop') || '50px';
-            this.pinnedLeft = localStorage.getItem(this.config.storagePrefix + 'pinnedLeft') || '50px';
-        }
+    this.isInitialized = true;
+    console.log("WebIME initialized.");
+},
 
 
-        const savedToneModes = localStorage.getItem(this.config.storagePrefix + 'toneModes');
-        if (savedToneModes) {
-            try {
-                this.toneModes = JSON.parse(savedToneModes);
-            } catch (e) {
-                this.toneModes = {};
-            }
-        }
+/**
+ * 徹底銷毀 WebIME 實例，移除所有 UI 和事件監聽。
+ */
+destroy() {
+    if (!this.isInitialized) {
+        return; // 如果尚未初始化，則不執行任何操作
+    }
 
-        this.boundReposition = this.reposition.bind(this);
-        this.boundHandleInput = this.handleInput.bind(this);
-        this.boundHandleKeyDown = this.handleKeyDown.bind(this);
-        this.boundInitDrag = this.initDrag.bind(this);
-        this.boundDragMove = this.dragMove.bind(this);
-        this.boundDragEnd = this.dragEnd.bind(this);
+    // 1. 停用目前作用中的輸入框
+    this.deactivate();
 
-        this.createUI();
-        
-        // --- 新增：在初始化時，套用目前模式的專屬設定 ---
-        const initialLangProps = imeLanguageProperties[this.currentMode] || {};
+    // 2. 移除全域事件監聽器
+    if (this.boundFocusInHandler) {
+        document.removeEventListener("focusin", this.boundFocusInHandler);
+    }
+    if (this.boundFocusOutHandler) {
+        document.removeEventListener("focusout", this.boundFocusOutHandler);
+    }
 
-        // 1. 根據初始模式設定 maxLength
-        this.config.maxCompositionLength = initialLangProps.maxLength || this.config.globalMaxCompositionLength;
+    // 3. 從 DOM 中移除 UI 元素
+    if (this.toolbarContainer) {
+        this.toolbarContainer.remove();
+        this.toolbarContainer = null;
+    }
+    if (this.candidatesContainer) {
+        this.candidatesContainer.remove();
+        this.candidatesContainer = null;
+    }
+    if (this.settingsModal) {
+        this.settingsModal.remove();
+        this.settingsModal = null;
+    }
 
-        // 2. 根據初始模式設定連打按鈕狀態
-        if (initialLangProps.allowLongPhraseToggle === false) {
-            this.longPhraseToggleBtn.style.display = 'none';
-            this.isLongPhraseEnabled = initialLangProps.longPhraseMode === true;
-        } else {
-            this.longPhraseToggleBtn.style.display = '';
-            // isLongPhraseEnabled 的值已在前面從 localStorage 載入
-        }
-        this.longPhraseToggleBtn.classList.toggle('active', this.isLongPhraseEnabled);
-        // --- 新增邏輯結束 ---
+    // 4. 重設內部狀態
+    this.compositionBuffer = '';
+    this.compositionCursorPos = 0;
+    this.allCandidates = [];
+    this.activeElement = null;
 
-        // 在 UI 建立後，立即套用釘選狀態
-        if (this.isPinned) {
-            this.imeContainer.classList.add('pinned');
-            this.pinToggleBtn.classList.add('active');
-            this.imeContainer.style.top = this.pinnedTop;
-            this.imeContainer.style.left = this.pinnedLeft;
-        }
-
-        this.attachEventListeners();
-    },
+    // 5. 將初始化旗標設為 false
+    this.isInitialized = false;
+    console.log("WebIME has been destroyed.");
+},
 
 // 輔助函數，用於根據聲母表獲取單詞的首字
 getInitial(word, mode) {
-    const initials = imeInitialConsonants[mode];
+    const langProps = imeLanguageProperties[mode] || {};
+    const initials = langProps.initialConsonants;
+
     if (!initials) {
         return word[0] || '';
     }
@@ -226,22 +340,27 @@ simplifyKey(key, mode) {
 },
 
 
+
 createUI() {
-    this.imeContainer = document.createElement("div");
-    this.imeContainer.id = "web-ime-container";
+    // --- 建立工具列容器 (Toolbar) ---
+    this.toolbarContainer = document.createElement("div");
+    this.toolbarContainer.id = "web-ime-toolbar-container";
+    this.toolbarContainer.className = "web-ime-base";
+    this.toolbarContainer.style.position = 'fixed';
+    this.toolbarContainer.style.bottom = '10px';
+    // 預設位置由 updateToolbarPosition() 控制
+    // this.toolbarContainer.style.left = '10px';
+    // this.toolbarContainer.style.right = 'auto';
+    this.toolbarContainer.style.top = 'auto';
+
     this.topBar = document.createElement("div");
     this.topBar.id = "web-ime-top-bar";
-    
-    // --- MODIFIED START ---
-    // 同時監聽滑鼠和觸控的起始事件
-    this.topBar.addEventListener('mousedown', this.boundInitDrag);
-    this.topBar.addEventListener('touchstart', this.boundInitDrag, { passive: true }); // 使用 passive 以提升捲動效能
-    // --- MODIFIED END ---
 
     const logo = document.createElement("span");
     logo.className = "ime-logo";
     logo.textContent = "🥷";
     this.topBar.appendChild(logo);
+
     const modeContainer = document.createElement("div");
     modeContainer.className = "ime-mode-container";
     this.modeDisplayButton = document.createElement("button");
@@ -252,44 +371,45 @@ createUI() {
     this.modeDisplayText.textContent = this.getModeDisplayName(this.currentMode);
     this.modeDisplayButton.appendChild(this.modeDisplayText);
 
-	this.modeDisplayButton.addEventListener('click', (e) => {
-		const rect = this.modeDisplayButton.getBoundingClientRect();
-		const clickX = e.clientX;
-		const arrowClickAreaStart = rect.right - 30;
+    this.modeDisplayButton.addEventListener('click', (e) => {
+        const rect = this.modeDisplayButton.getBoundingClientRect();
+        const clickX = e.clientX;
+        const arrowClickAreaStart = rect.right - 30;
 
-		if (clickX > arrowClickAreaStart) {
-			if (this.isModeMenuVisible) {
-				modeContainer.classList.remove('open');
-				this.isModeMenuVisible = false;
-			} else {
-				this.modeMenu.style.visibility = 'hidden';
-				modeContainer.classList.add('open');
-				const menuWidth = this.modeMenu.offsetWidth;
-				const menuHeight = this.modeMenu.offsetHeight;
-				const viewportWidth = window.innerWidth;
-				const viewportHeight = window.innerHeight;
-				if (rect.left + menuWidth > viewportWidth) {
-					this.modeMenu.style.left = 'auto';
-					this.modeMenu.style.right = '0';
-				} else {
-					this.modeMenu.style.left = '0';
-					this.modeMenu.style.right = 'auto';
-				}
-				if (rect.bottom + menuHeight > viewportHeight) {
-					this.modeMenu.style.top = 'auto';
-					this.modeMenu.style.bottom = '105%';
-				} else {
-					this.modeMenu.style.top = '105%';
-					this.modeMenu.style.bottom = 'auto';
-				}
-				this.modeMenu.style.visibility = 'visible';
-				this.isModeMenuVisible = true;
-			}
-		} else {
-			this.toggleIsEnabled();
-		}
-	});
+        if (clickX > arrowClickAreaStart) {
+            if (this.isModeMenuVisible) {
+                modeContainer.classList.remove('open');
+                this.isModeMenuVisible = false;
+            } else {
+                this.modeMenu.style.visibility = 'hidden';
+                modeContainer.classList.add('open');
+                const menuWidth = this.modeMenu.offsetWidth;
+                const menuHeight = this.modeMenu.offsetHeight;
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+                if (rect.left + menuWidth > viewportWidth) {
+                    this.modeMenu.style.left = 'auto';
+                    this.modeMenu.style.right = '0';
+                } else {
+                    this.modeMenu.style.left = '0';
+                    this.modeMenu.style.right = 'auto';
+                }
+                if (rect.bottom + menuHeight > viewportHeight) {
+                    this.modeMenu.style.top = 'auto';
+                    this.modeMenu.style.bottom = '105%';
+                } else {
+                    this.modeMenu.style.top = '105%';
+                    this.modeMenu.style.bottom = 'auto';
+                }
+                this.modeMenu.style.visibility = 'visible';
+                this.isModeMenuVisible = true;
+            }
+        } else {
+            this.toggleIsEnabled();
+        }
+    });
     modeContainer.appendChild(this.modeDisplayButton);
+
     this.modeMenu = document.createElement("ul");
     this.modeMenu.className = "ime-mode-menu";
     Object.keys(dictionaries).forEach(mode => {
@@ -305,87 +425,504 @@ createUI() {
     });
     modeContainer.appendChild(this.modeMenu);
     this.topBar.appendChild(modeContainer);
+
     document.addEventListener('click', (e) => {
         if (this.isModeMenuVisible && !modeContainer.contains(e.target)) {
             modeContainer.classList.remove('open');
             this.isModeMenuVisible = false;
         }
     });
-    this.compositionDisplay = document.createElement("div");
-    this.compositionDisplay.id = "web-ime-composition";
-    this.topBar.appendChild(this.compositionDisplay);
 
     const settingsContainer = document.createElement("div");
     settingsContainer.className = "ime-settings-container";
-
     this.toneModeToggleBtn = document.createElement("button");
     this.toneModeToggleBtn.type = "button";
     this.toneModeToggleBtn.className = "ime-settings-button";
     this.toneModeToggleBtn.title = "字母/數字";
     this.toneModeToggleBtn.addEventListener('click', () => this.toggleToneMode());
     settingsContainer.appendChild(this.toneModeToggleBtn);
-
     this.longPhraseToggleBtn = document.createElement("button");
     this.longPhraseToggleBtn.type = "button";
     this.longPhraseToggleBtn.className = "ime-settings-button";
-    this.longPhraseToggleBtn.textContent = "連";
+    this.longPhraseToggleBtn.innerHTML = '<span class="material-icons" style="font-size: 18px;">add_box</span>';
     this.longPhraseToggleBtn.title = "長詞連打/音首縮打";
     this.longPhraseToggleBtn.addEventListener('click', () => this.toggleLongPhraseMode());
     if (this.isLongPhraseEnabled) {
         this.longPhraseToggleBtn.classList.add('active');
     }
     settingsContainer.appendChild(this.longPhraseToggleBtn);
+    this.punctuationModeToggleBtn = document.createElement("button");
+    this.punctuationModeToggleBtn.type = "button";
+    this.punctuationModeToggleBtn.className = "ime-settings-button";
+    this.punctuationModeToggleBtn.title = "全形/半形標點";
+    this.punctuationModeToggleBtn.addEventListener('click', () => this.togglePunctuationMode());
+    settingsContainer.appendChild(this.punctuationModeToggleBtn);
     this.topBar.appendChild(settingsContainer);
-    
+
+    // 建立「切換位置」
+    this.positionToggleButton = document.createElement("button");
+    this.positionToggleButton.type = "button";
+    this.positionToggleButton.className = "ime-settings-button";
+    this.positionToggleButton.title = "切換位置";
+    this.positionToggleButton.innerHTML = '<span class="material-icons" style="font-size: 18px;">swap_horiz</span>';
+    this.positionToggleButton.addEventListener('click', () => this.togglePosition());
+    settingsContainer.appendChild(this.positionToggleButton); // 將其加入設定按鈕群組
+
+    this.toolbarContainer.appendChild(this.topBar);
+    document.body.appendChild(this.toolbarContainer);
+
+    // --- 建立候選字容器 (Candidates) ---
+    this.candidatesContainer = document.createElement("div");
+    this.candidatesContainer.id = "web-ime-candidates-container";
+    this.candidatesContainer.className = "web-ime-base";
+    this.candidatesContainer.style.display = 'none';
+
+    const compositionBar = document.createElement("div");
+    compositionBar.id = "web-ime-composition-bar";
+
+    this.compositionDisplay = document.createElement("div");
+    this.compositionDisplay.id = "web-ime-composition";
+    this.compositionDisplay.addEventListener('click', () => {
+        if (!this.compositionBuffer) return;
+
+        const langProps = imeLanguageProperties[this.currentMode] || {};
+        const isTransformEnabled = langProps.enableToneTransform !== false;
+        if (isTransformEnabled) {
+            let transformedText = this.compositionBuffer;
+            if (window.imeToneTransformFunctions && typeof window.imeToneTransformFunctions[this.currentMode] === 'function') {
+                transformedText = window.imeToneTransformFunctions[this.currentMode](transformedText);
+            } else { 
+                let rules = (window.imeToneTransformRules || {})[this.currentMode];
+                if (rules && rules.length > 0) {
+                    for (const rule of rules) {
+                        const regex = new RegExp(rule[0][0], rule[0][1]);
+                        transformedText = transformedText.replace(regex, rule[1]);
+                    }
+                }
+            }
+            this.commitText(transformedText);
+            this.compositionBuffer = '';
+            this.compositionCursorPos = 0;
+            this.updateCandidates();
+        }
+    });
+    compositionBar.appendChild(this.compositionDisplay);
+
+    this.queryBtn = document.createElement("button");
+    this.queryBtn.type = "button";
+    this.queryBtn.className = "ime-page-button";
+    this.queryBtn.title = "字根反查 (/)";
+    this.queryBtn.innerHTML = '<span class="material-icons" style="font-size: 20px;">search</span>';
+    this.queryBtn.addEventListener("click", () => {
+         if (this.isQueryMode) {
+            this.exitQueryMode(false);
+        } else if (this.allCandidates.length > 0) {
+            this.enterQueryMode();
+        }
+    });
+    compositionBar.appendChild(this.queryBtn);
+
     const pagination = document.createElement("div");
     pagination.className = "ime-pagination";
-    
     this.prevPageBtn = document.createElement("button");
     this.prevPageBtn.className = "ime-page-button";
-    this.prevPageBtn.innerHTML = "&lt;";
+    this.prevPageBtn.innerHTML = '<span class="material-icons">chevron_left</span>';
     this.prevPageBtn.addEventListener("click", () => this.changePage(-1));
-    
     this.nextPageBtn = document.createElement("button");
     this.nextPageBtn.className = "ime-page-button";
-    this.nextPageBtn.innerHTML = "&gt;";
+    this.nextPageBtn.innerHTML = '<span class="material-icons">chevron_right</span>';
     this.nextPageBtn.addEventListener("click", () => this.changePage(1));
-    
     pagination.appendChild(this.prevPageBtn);
     pagination.appendChild(this.nextPageBtn);
-    this.topBar.appendChild(pagination);
+    compositionBar.appendChild(pagination);
 
-    this.pinToggleBtn = document.createElement("button");
-    this.pinToggleBtn.id = "web-ime-pin-toggle";
-    this.pinToggleBtn.type = "button";
-    this.pinToggleBtn.className = "ime-page-button"; 
-    this.pinToggleBtn.innerHTML = "📌";
-    this.pinToggleBtn.title = "釘選/取消釘選視窗";
-    this.pinToggleBtn.addEventListener('click', () => this.togglePinMode());
-    this.topBar.appendChild(this.pinToggleBtn);
+    this.candidatesContainer.appendChild(compositionBar);
 
     this.candidatesList = document.createElement("ul");
     this.candidatesList.id = "web-ime-candidates";
-    this.imeContainer.appendChild(this.topBar);
-    this.imeContainer.appendChild(this.candidatesList);
-    document.body.appendChild(this.imeContainer);
+    this.candidatesContainer.appendChild(this.candidatesList);
+
+    const settingsBtn = document.createElement("button");
+    settingsBtn.type = "button";
+    settingsBtn.className = "ime-settings-button";
+    settingsBtn.title = "設定";
+    settingsBtn.innerHTML = '<span class="material-icons" style="font-size: 16px;">settings</span>';
+    settingsBtn.addEventListener('click', () => {
+        if (this.settingsModal) this.settingsModal.style.display = 'flex';
+    });
+    settingsContainer.appendChild(settingsBtn);
+
+    this.createSettingsModal();
+
+    document.body.appendChild(this.candidatesContainer);
+
     this.updateUIState();
     this.updateToneModeButtonUI();
 },
 
 
-attachEventListeners() {
-    this.imeContainer.addEventListener('mousedown', () => {
-        this.isClickingInside = true;
+createSettingsModal() {
+    // --- 建立設定視窗 ---
+    this.settingsModal = document.createElement('div');
+    this.settingsModal.id = 'web-ime-settings-modal';
+    this.settingsModal.style.display = 'none';
+
+    // 點擊背景遮罩時關閉視窗
+    this.settingsModal.addEventListener('click', (e) => {
+        if (e.target === this.settingsModal) {
+            this.settingsModal.style.display = 'none';
+        }
     });
-    document.addEventListener("focusin", e => {
+
+    const modalContent = document.createElement('div');
+    modalContent.className = 'modal-content';
+
+    // --- 視窗標題與關閉按鈕 ---
+    const modalHeader = document.createElement('div');
+    modalHeader.className = 'modal-header';
+    modalHeader.innerHTML = '<h3>輸入法設定</h3>';
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'close-button';
+    closeBtn.innerHTML = '&times;';
+    closeBtn.onclick = () => { this.settingsModal.style.display = 'none'; };
+    modalHeader.appendChild(closeBtn);
+    modalContent.appendChild(modalHeader);
+
+    const modalBody = document.createElement('div');
+    modalBody.className = 'modal-body';
+
+    const toolbarSettingsSection = document.createElement('div');
+    toolbarSettingsSection.className = 'settings-section';
+    toolbarSettingsSection.innerHTML = '<h4>工具列按鈕顯示</h4>';
+    const buttonsContainer = document.createElement('div');
+    buttonsContainer.className = 'query-options-container'; 
+    const buttonOptions = { 'toneMode': '字母/數字', 'longPhrase': '連打/拼音首', 'punctuation': '全形/半形', 'position': '切換位置' };
+    for (const key in buttonOptions) {
+        const labelText = buttonOptions[key];
+        const label = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.id = `toggle-btn-${key}`;
+        checkbox.dataset.key = key; 
+        checkbox.checked = this.config.toolbarButtons[key]; 
+        checkbox.onchange = () => this.saveToolbarSettings();
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(` ${labelText}`));
+        buttonsContainer.appendChild(label);
+    }
+    toolbarSettingsSection.appendChild(buttonsContainer);
+    modalBody.appendChild(toolbarSettingsSection);
+    
+    const keyMapSettingsSection = document.createElement('div');
+    keyMapSettingsSection.className = 'settings-section';
+    keyMapSettingsSection.innerHTML = '<h4>快速鍵設定</h4>';
+    const keyMapContainer = document.createElement('div');
+    keyMapContainer.className = 'keymap-settings-container';
+
+    const configurableKeys = {
+        'transformTone': '輸出轉換拼音',
+        'clearComposition': '清除輸入編碼',
+        'backspaceWithCandidates': '刪除(有編碼時)',
+        'reverseLookup': '字根反查'
+    };
+    
+    const finalKeyMap = { ...defaultKeyMap, ...this.config.userKeyMap };
+
+    // *** 這是主要的修改區域 ***
+    for (const action in configurableKeys) {
+        const labelText = configurableKeys[action];
+        
+        // 建立一個容器 div 來取代原本的 label
+        const settingRow = document.createElement('div');
+        settingRow.className = 'keymap-setting-row'; // 給予新 class 以便設定樣式
+
+        // 建立 checkbox
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = true; // 預設勾選
+        // checkbox.disabled = true; // 如果只是顯示用，可以禁用它
+
+        // 建立文字標籤 (使用 span)
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'keymap-label-text';
+        labelSpan.textContent = `${labelText}：`;
+        
+        // 建立設定按鍵的 input 格子
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.id = `key-${action}`;
+        input.dataset.action = action;
+        const currentKey = finalKeyMap[action] ? finalKeyMap[action][0] : '';
+        input.value = this.getKeyDisplayName(currentKey);
+        input.dataset.key = currentKey;
+        input.readOnly = true;
+        
+        // 將新的元件組合起來
+        settingRow.appendChild(checkbox);
+        settingRow.appendChild(labelSpan);
+        settingRow.appendChild(input);
+        
+        keyMapContainer.appendChild(settingRow);
+    }
+    keyMapSettingsSection.appendChild(keyMapContainer);
+    modalBody.appendChild(keyMapSettingsSection);
+
+    const querySettingsSection = document.createElement('div');
+    querySettingsSection.className = 'settings-section';
+    querySettingsSection.innerHTML = '<h4>字根反查</h4>';
+    const optionsContainer = document.createElement('div');
+    optionsContainer.className = 'query-options-container';
+    for (const mode in dictionaries) {
+        if (this.reverseDicts[mode] && Object.keys(this.reverseDicts[mode]).length > 0) {
+            const displayName = this.getModeDisplayName(mode);
+            const label = document.createElement('label');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = `query-${mode}`;
+            checkbox.value = mode;
+            checkbox.onchange = () => this.saveQuerySettings();
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(` ${displayName}`));
+            optionsContainer.appendChild(label);
+        }
+    }
+    querySettingsSection.appendChild(optionsContainer);
+    modalBody.appendChild(querySettingsSection);
+
+    const helpSection = document.createElement('div');
+    helpSection.className = 'settings-section';
+    helpSection.innerHTML = '<h4>使用說明</h4>';
+    const helpContent = document.createElement('div');
+    helpContent.className = 'settings-help-content';
+    helpContent.innerText = `聲調可用字母zˊ vˇ sˋ xˆ f⁺ lˈ，也可切換為數字。
+「連」打可以連打拼音。
+x 是標點。
+空白鍵選第一個候選字。
+也可用 ,< .> 左右移動加空白鍵。
+也可以用數字或 shift+數字來選候選字。
+輸入編碼 + w 可輸出拼音。
+Ctrl+/ 可快速啟用/停用輸入法。`;
+    helpSection.appendChild(helpContent);
+    modalBody.appendChild(helpSection);
+
+    const resetSection = document.createElement('div');
+    resetSection.className = 'settings-section';
+    const resetButton = document.createElement('button');
+    resetButton.id = 'web-ime-reset-button';
+    resetButton.textContent = '重設所有設定';
+    resetSection.appendChild(resetButton);
+    modalBody.appendChild(resetSection);
+    
+    modalContent.appendChild(modalBody);
+    this.settingsModal.appendChild(modalContent);
+    document.body.appendChild(this.settingsModal);
+
+    const keyMapInputs = this.settingsModal.querySelectorAll('input[id^="key-"]');
+    keyMapInputs.forEach(input => {
+        input.addEventListener('focus', () => {
+            input.value = '請按一個鍵...';
+        });
+        input.addEventListener('blur', () => {
+            input.value = this.getKeyDisplayName(input.dataset.key || '');
+        });
+        input.addEventListener('keydown', (e) => {
+            e.preventDefault();
+            const newKey = e.key;
+            input.dataset.key = newKey;
+            input.value = this.getKeyDisplayName(newKey);
+            this.saveKeyMapSettings();
+            input.blur();
+        });
+    });
+
+    resetButton.addEventListener('click', () => {
+        if (confirm('確定要重設所有設定嗎？此操作將會清除所有自訂選項並重新載入頁面。')) {
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith(this.config.storagePrefix)) {
+                    localStorage.removeItem(key);
+                }
+            });
+            alert('設定已重設，頁面將會重新載入。');
+            location.reload();
+        }
+    });
+},
+
+
+
+saveQuerySettings() {
+    const enabled = {};
+    const checkboxes = this.settingsModal.querySelectorAll('.settings-section input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+        enabled[cb.value] = cb.checked;
+    });
+    // 將設定儲存到 WebIME 物件和 localStorage
+    this.config.querySettings = enabled;
+    localStorage.setItem(this.config.storagePrefix + 'querySettings', JSON.stringify(enabled));
+},
+
+loadQuerySettings() {
+    let settings;
+    try {
+        settings = JSON.parse(localStorage.getItem(this.config.storagePrefix + 'querySettings'));
+    } catch (e) {
+        settings = null;
+    }
+
+    // 如果沒有儲存的設定，則使用預設值 (全部不啟用)
+    if (!settings) {
+        // << 修改點：將預設值改為空物件 {} >>
+        settings = {}; 
+    }
+    this.config.querySettings = settings;
+
+    // 更新設定視窗中的勾選狀態以符合載入的設定
+    if (this.settingsModal) {
+        for (const lang in dictionaries) { // 遍歷所有字典確保所有選項都被更新
+            const checkbox = this.settingsModal.querySelector(`#query-${lang}`);
+            if (checkbox) {
+                // 如果 settings[lang] 是 true，就勾選；否則 (是 false 或 undefined) 就不勾選
+                checkbox.checked = !!settings[lang];
+            }
+        }
+    }
+},
+
+
+/**
+ * 儲存工具列按鈕的顯示設定
+ */
+saveToolbarSettings() {
+    const checkboxes = this.settingsModal.querySelectorAll('input[id^="toggle-btn-"]');
+    checkboxes.forEach(cb => {
+        const key = cb.dataset.key;
+        if (key) {
+            this.config.toolbarButtons[key] = cb.checked;
+        }
+    });
+    localStorage.setItem(this.config.storagePrefix + 'toolbarSettings', JSON.stringify(this.config.toolbarButtons));
+    // 立即套用變更
+    this.updateToolbarButtonsVisibility();
+},
+
+/**
+ * 從 localStorage 載入工具列按鈕的顯示設定
+ */
+loadToolbarSettings() {
+    let settings;
+    try {
+        settings = JSON.parse(localStorage.getItem(this.config.storagePrefix + 'toolbarSettings'));
+    } catch (e) {
+        settings = null;
+    }
+
+    // 定義預設值
+    const defaults = {
+        toneMode: true,
+        longPhrase: true,
+        punctuation: true,
+        position: false
+    };
+
+    // 如果沒有儲存的設定，則使用預設值；否則，用預設值補全可能缺少的項目
+    this.config.toolbarButtons = { ...defaults, ...settings };
+},
+
+/**
+ * 從 localStorage 載入使用者自訂的快速鍵設定
+ */
+loadKeyMapSettings() {
+    let settings;
+    try {
+        settings = JSON.parse(localStorage.getItem(this.config.storagePrefix + 'userKeyMap'));
+    } catch (e) {
+        settings = null;
+    }
+    // 如果沒有儲存的設定，則使用空物件
+    this.config.userKeyMap = settings || {};
+},
+
+/**
+ * 儲存使用者自訂的快速鍵設定到 localStorage
+ */
+saveKeyMapSettings() {
+    const keyMapInputs = this.settingsModal.querySelectorAll('input[id^="key-"]');
+    const newKeyMap = {};
+    keyMapInputs.forEach(input => {
+        const action = input.dataset.action;
+        const key = input.dataset.key; 
+        if (action && key) {
+            newKeyMap[action] = [key];
+        }
+    });
+    this.config.userKeyMap = newKeyMap;
+    localStorage.setItem(this.config.storagePrefix + 'userKeyMap', JSON.stringify(newKeyMap));
+},
+
+/**
+ * 將 KeyboardEvent 的 key 或 code 轉換為更易讀的顯示名稱
+
+getKeyDisplayName(key) {
+    const keyMap = {
+        ' ': 'Space',
+        "'": "Quote",
+        ';': 'Semicolon',
+        'Escape': 'Esc'
+    };
+    return keyMap[key] || key;
+},
+ */
+getKeyDisplayName(key) {
+    if (key === ' ') {
+        return 'Space'; // 空白鍵特殊處理，顯示名稱
+    }
+    // 其他所有按鍵，直接返回按鍵的字元本身
+    return key;
+},
+
+/**
+ * 根據設定更新工具列上按鈕的顯示/隱藏
+ */
+updateToolbarButtonsVisibility() {
+    if (!this.toolbarContainer) return;
+
+    // 將按鈕的 key 和對應的 DOM 元素關聯起來
+    const buttonMap = {
+        toneMode: this.toneModeToggleBtn,
+        longPhrase: this.longPhraseToggleBtn,
+        punctuation: this.punctuationModeToggleBtn,
+        position: this.positionToggleButton
+    };
+
+    for (const key in buttonMap) {
+        const buttonElement = buttonMap[key];
+        if (buttonElement) {
+            // 根據設定值來決定 display 樣式
+            buttonElement.style.display = this.config.toolbarButtons[key] ? '' : 'none';
+        }
+    }
+},
+
+attachEventListeners() {
+    const onImeInteractionStart = () => { this.isClickingInside = true; };
+    this.toolbarContainer.addEventListener('mousedown', onImeInteractionStart);
+    this.toolbarContainer.addEventListener('touchstart', onImeInteractionStart, { passive: true });
+    this.candidatesContainer.addEventListener('mousedown', onImeInteractionStart);
+    this.candidatesContainer.addEventListener('touchstart', onImeInteractionStart, { passive: true });
+
+    // << 修改重點：將事件處理邏輯包裝成獨立函數，並儲存綁定後的版本
+    this.handleFocusIn = (e) => {
         if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) {
             this.activate(e.target);
         }
-    });
-    document.addEventListener("focusout", (e) => {
+    };
+
+    this.handleFocusOut = (e) => {
         if (this.isClickingInside) {
             this.isClickingInside = false;
-            if (this.activeElement) this.activeElement.focus();
+            if (this.activeElement && !this.isMobile) {
+                this.activeElement.focus();
+            }
             return;
         }
         const nextFocusTarget = e.relatedTarget;
@@ -395,19 +932,24 @@ attachEventListeners() {
         }
         this.deactivate();
         this.hide();
-    });
+    };
+
+    this.boundFocusInHandler = this.handleFocusIn.bind(this);
+    this.boundFocusOutHandler = this.handleFocusOut.bind(this);
+
+    document.addEventListener("focusin", this.boundFocusInHandler);
+    document.addEventListener("focusout", this.boundFocusOutHandler);
 },
 
+
 activate(element) {
-    if (this.activeElement === element && this.imeContainer.style.display === 'block') {
+    if (this.activeElement === element && this.toolbarContainer.style.display === 'block') {
         return;
     }
     if (this.activeElement && this.activeElement !== element) {
         this.deactivate();
     }
     this.activeElement = element;
-    
-    // --- NEW: 儲存初始狀態以供行動裝置比對 ---
     this.lastInputValue = this.activeElement.isContentEditable ? this.activeElement.textContent : this.activeElement.value;
 
     this.show();
@@ -417,15 +959,13 @@ activate(element) {
     this.activeElement.addEventListener('mouseup', this.boundReposition);
     
     if (this.isEnabled) {
-        this.imeContainer.classList.remove('disabled');
-        // --- NEW: 根據裝置類型綁定不同的核心事件 ---
-        this.activeElement.addEventListener('keydown', this.boundHandleKeyDown); // keydown 對所有裝置都有效，用於功能鍵
+        this.toolbarContainer.classList.remove('disabled');
+        this.activeElement.addEventListener('keydown', this.boundHandleKeyDown);
         if (this.isMobile) {
-            // 行動裝置主要依賴 input 事件
             this.activeElement.addEventListener('input', this.boundHandleInput);
         }
     } else {
-        this.imeContainer.classList.add('disabled');
+        this.toolbarContainer.classList.add('disabled');
     }
 },
 
@@ -682,54 +1222,172 @@ findPhraseCandidates(buffer) {
 handleKeyDown(e) {
     if (e.isComposing || e.keyCode === 229) return;
     if (e.ctrlKey || e.altKey || e.metaKey) return;
-    
-    // --- NEW: 在行動裝置上，忽略所有單一字元的輸入，交給 handleInput 處理 ---
+
     if (this.isMobile && e.key && e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key)) {
         return;
     }
-    // --- END NEW ---
 
-    const currentToneMode = this.getCurrentToneMode();
+    const hasComposition = this.compositionBuffer.length > 0;
+    const hasCandidates = this.allCandidates.length > 0;
+
     const langProps = imeLanguageProperties[this.currentMode] || {};
-    const isNumericToneMode = currentToneMode === 'numeric' && langProps.numericToneMap;
+    
+    let keyMap = { ...defaultKeyMap };
+    if (langProps.keyMap) {
+        keyMap = { ...keyMap, ...langProps.keyMap };
+    }
+    if (this.config.userKeyMap) {
+        for (const action in this.config.userKeyMap) {
+            if (this.config.userKeyMap[action] && this.config.userKeyMap[action].length > 0) {
+                keyMap[action] = this.config.userKeyMap[action];
+            }
+        }
+    }
 
-    if (isNumericToneMode && e.key.match(/^[0-9]$/)) {
-        const mappedChar = langProps.numericToneMap[e.key];
-        if (mappedChar) {
+    const reverseKeyMap = {};
+    for (const action in keyMap) {
+        keyMap[action].forEach(key => {
+            reverseKeyMap[key] = action;
+        });
+    }
+
+    const action = reverseKeyMap[e.key];
+
+    // --- 【修改核心】---
+    // 只有在 action 存在時才進行處理
+    if (action) {
+        // 如果是 Enter 鍵 (commitComposition)，但沒有任何輸入編碼，
+        // 則直接 return，不做任何事，讓瀏覽器執行預設的換行行為。
+        if (action === 'commitComposition' && !hasComposition) {
+            return;
+        }
+
+        // 對於其他情況，或 Enter 鍵在有輸入編碼時，才阻止預設行為。
+        // 特殊情況：backspaceWithCandidates 在沒有編碼時不阻止
+        if (action === 'backspaceWithCandidates' && !hasComposition) {
+            // 不做任何事，讓按鍵事件繼續
+        } else {
             e.preventDefault();
-            const buffer = this.compositionBuffer;
-            const pos = this.compositionCursorPos;
-            this.compositionBuffer = buffer.substring(0, pos) + mappedChar + buffer.substring(pos);
-            this.compositionCursorPos++;
-            this.updateCandidates();
+        }
+
+        switch (action) {
+            case 'selectCandidate':
+                if (hasCandidates) {
+                    this.selectCandidate(this.highlightedIndex);
+                } else if (hasComposition) {
+                    const actionOnNoCandidates = langProps.spaceActionOnNoCandidates || 'commit';
+                    if (actionOnNoCandidates === 'clear') {
+                        this.compositionBuffer = '';
+                        this.compositionCursorPos = 0;
+                        this.updateCandidates();
+                    } else {
+                        this.commitText(this.compositionBuffer);
+                        this.compositionBuffer = '';
+                        this.compositionCursorPos = 0;
+                        this.updateCandidates();
+                    }
+                }
+                return;
+            
+            case 'commitComposition':
+                 // 由於上面的檢查，這裡的 hasComposition 必定為 true
+                 this.commitText(this.compositionBuffer);
+                 this.compositionBuffer = '';
+                 this.compositionCursorPos = 0;
+                 this.updateCandidates();
+                 return;
+
+            case 'clearComposition':
+                if (hasComposition) {
+                    this.compositionBuffer = '';
+                    this.compositionCursorPos = 0;
+                    this.updateCandidates();
+                }
+                return;
+            
+            case 'backspaceWithCandidates':
+                if (hasComposition) {
+                     if (this.compositionCursorPos > 0) {
+                        const buffer = this.compositionBuffer;
+                        const pos = this.compositionCursorPos;
+                        this.compositionBuffer = buffer.substring(0, pos - 1) + buffer.substring(pos);
+                        this.compositionCursorPos--;
+                        this.updateCandidates();
+                    }
+                }
+                return;
+            
+            case 'reverseLookup':
+                if (this.isQueryMode) {
+                    this.exitQueryMode(false);
+                } else if (hasCandidates && !['cangjie', 'xiami'].includes(this.currentMode)) {
+                    this.enterQueryMode();
+                }
+                return;
+
+            case 'nextCandidate':
+                if (hasCandidates) this.navigateCandidates(1);
+                return;
+            case 'prevCandidate':
+                if (hasCandidates) this.navigateCandidates(-1);
+                return;
+            case 'nextPage':
+                if (hasCandidates) this.changePage(1);
+                return;
+            case 'prevPage':
+                if (hasCandidates) this.changePage(-1);
+                return;
+            case 'moveCursorLeft':
+                 if (hasComposition && this.compositionCursorPos > 0) this.compositionCursorPos--;
+                 this.updateCompositionDisplay();
+                 return;
+            case 'moveCursorRight':
+                 if (hasComposition && this.compositionCursorPos < this.compositionBuffer.length) this.compositionCursorPos++;
+                 this.updateCompositionDisplay();
+                 return;
+            case 'toggleLongPhrase':
+                this.toggleLongPhraseMode();
+                return;
+            case 'transformTone':
+                const isTransformEnabled = langProps.enableToneTransform !== false;
+                if (hasComposition && isTransformEnabled) {
+                    let transformedText = this.compositionBuffer;
+                    if (window.imeToneTransformFunctions && typeof window.imeToneTransformFunctions[this.currentMode] === 'function') {
+                        transformedText = window.imeToneTransformFunctions[this.currentMode](transformedText);
+                    } else {
+                        let rules = (window.imeToneTransformRules || {})[this.currentMode];
+                        if (rules && rules.length > 0) {
+                            for (const rule of rules) {
+                                const regex = new RegExp(rule[0][0], rule[0][1]);
+                                transformedText = transformedText.replace(regex, rule[1]);
+                            }
+                        }
+                    }
+                    this.commitText(transformedText);
+                    this.compositionBuffer = '';
+                    this.compositionCursorPos = 0;
+                    this.updateCandidates();
+                }
+                return;
+        }
+    }
+    
+    // --- 【修改說明】---
+    // 以下的標點符號與輸入邏輯維持不變
+    if (this.isFullWidthMode && !hasComposition) {
+        const fullWidthPunctuation = {
+            ',': '，', '.': '。', '?': '？', ';': '；', ':': '：', "'": '、', '[': '「', ']': '」', '{': '『', '}': '』', '!': '！', '-': '─', '(': '（', ')': '）', '~': '～', '/': '？', '<': '〈', '>': '〉', '_': '＿', '"': '…', '\\': '【】', '|': '《》'
+        };
+        const fullWidthChar = fullWidthPunctuation[e.key];
+        if (fullWidthChar) {
+            e.preventDefault();
+            this.commitText(fullWidthChar);
             return;
         }
     }
 
-    if (e.key === 'Enter' && this.compositionBuffer) {
-        e.preventDefault();
-        this.commitText(this.compositionBuffer);
-        this.compositionBuffer = '';
-        this.compositionCursorPos = 0;
-        this.updateCandidates();
-        return;
-    }
-
-    if (e.key === ' ') {
-        if (this.compositionBuffer) {
-            e.preventDefault(); 
-            if (this.allCandidates.length > 0) {
-                this.selectCandidate(this.highlightedIndex);
-            } else {
-                this.compositionBuffer = '';
-                this.compositionCursorPos = 0;
-                this.updateCandidates();
-            }
-            return; 
-        }
-    }
-
-    if (this.compositionBuffer && this.allCandidates.length > 0) {
+    if (hasComposition && hasCandidates) {
+        const currentToneMode = this.getCurrentToneMode();
         if (currentToneMode === 'alphabetic' && e.key >= '1' && e.key <= '9') {
             const index = parseInt(e.key, 10) - 1;
             if (index < this.candidatesList.children.length) {
@@ -738,7 +1396,6 @@ handleKeyDown(e) {
                 return;
             }
         }
-
         if (e.shiftKey && e.code.startsWith('Digit')) {
             const num = e.code.slice(5);
             if (num >= '1' && num <= '9') {
@@ -750,124 +1407,35 @@ handleKeyDown(e) {
                 }
             }
         }
-        
-        const keyMap = { 'F': 1, "D": 2, 'S': 3, 'A': 4 };
-        if (keyMap[e.key] !== undefined) {
-            const index = keyMap[e.key];
-            if (index < this.candidatesList.children.length) {
-                e.preventDefault();
-                this.selectCandidate(index);
-                return;
-            }
-        }
-
-        if (e.key === 'ArrowUp'|| e.key === ',') { e.preventDefault(); this.navigateCandidates(-1); return; }
-        if (e.key === 'ArrowDown'|| e.key === '.') { e.preventDefault(); this.navigateCandidates(1); return; }
-        if (e.key === 'PageDown' || e.key === ']') { e.preventDefault(); this.changePage(1); return; }
-        if (e.key === 'PageUp'|| e.key === '[') { e.preventDefault(); this.changePage(-1); return; }
-        if (e.key === '=') { e.preventDefault(); this.toggleLongPhraseMode(); return; }
     }
-
-
-    if (e.key === 'w') {
-        const langProps = imeLanguageProperties[this.currentMode] || {};
-        const isTransformEnabled = langProps.enableToneTransform !== false;
-
-        if (isTransformEnabled && this.compositionBuffer) {
-            e.preventDefault();
-            let transformedText = this.compositionBuffer;
-            
-            if (window.imeToneTransformFunctions && typeof window.imeToneTransformFunctions[this.currentMode] === 'function') {
-                transformedText = window.imeToneTransformFunctions[this.currentMode](transformedText);
-            } 
-            else {
-                let rules = (window.imeToneTransformRules || {})[this.currentMode];
-                if (rules && rules.length > 0) {
-                    for (const rule of rules) {
-                        const regex = new RegExp(rule[0][0], rule[0][1]);
-                        transformedText = transformedText.replace(regex, rule[1]);
-                    }
-                }
-            }
-
-            this.commitText(transformedText);
-            this.compositionBuffer = '';
-            this.compositionCursorPos = 0;
-            this.updateCandidates();
-        }
-        if (isTransformEnabled) {
-            return;
-        }
-    }
-
-    if (this.compositionBuffer) {
-        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight'|| e.key === '>'|| e.key === '<') {
-             e.preventDefault();
-             if ((e.key === 'ArrowLeft'|| e.key === '<') && this.compositionCursorPos > 0) this.compositionCursorPos--;
-             if ((e.key === 'ArrowRight'|| e.key === '>') && this.compositionCursorPos < this.compositionBuffer.length) this.compositionCursorPos++;
-             this.updateCompositionDisplay();
-             this.updateCandidates();
-             return;
-        }
-    }
-
-    if (e.key === 'Escape' || e.key === ';') {
-        if (this.compositionBuffer) {
-			e.preventDefault(); 
-            this.compositionBuffer = '';
-            this.compositionCursorPos = 0;
-            this.updateCandidates();
-        }
-        return;
-    }
-
-    // --- MODIFIED: 這個區塊現在只對非行動裝置有效 ---
-    if (!this.isMobile && e.key.length === 1) {
-        const isLetter = e.key.match(/^[a-zA-Z]$/);
-        const isNumber = e.key.match(/^[0-9]$/);
-
-        if (isLetter) {
-            e.preventDefault();
-            if (this.compositionBuffer.length >= this.config.maxCompositionLength) {
-                this.compositionBuffer = e.key;
-                this.compositionCursorPos = 1;
-            } else {
-                const buffer = this.compositionBuffer;
-                const pos = this.compositionCursorPos;
-                this.compositionBuffer = buffer.substring(0, pos) + e.key + buffer.substring(pos);
-                this.compositionCursorPos++;
-            }
-            this.updateCandidates();
-            return;
-        }
-
-        if (isNumber) {
-            const toneType = (imeLanguageProperties[this.currentMode] || {}).toneType;
-            if (toneType === 'numeric') {
-                e.preventDefault();
-                if (this.compositionBuffer.length >= this.config.maxCompositionLength) {
-                    this.compositionBuffer = e.key;
-                    this.compositionCursorPos = 1;
-                } else {
-                    const buffer = this.compositionBuffer;
-                    const pos = this.compositionCursorPos;
-                    this.compositionBuffer = buffer.substring(0, pos) + e.key + buffer.substring(pos);
-                    this.compositionCursorPos++;
-                }
-                this.updateCandidates();
-                return;
-            }
-        }
-    }
-    // --- END MODIFICATION ---
 
     if (e.key === 'Backspace') {
-        if (this.compositionBuffer && this.compositionCursorPos > 0) {
+        if (hasComposition && this.compositionCursorPos > 0) {
             e.preventDefault();
             const buffer = this.compositionBuffer;
             const pos = this.compositionCursorPos;
             this.compositionBuffer = buffer.substring(0, pos - 1) + buffer.substring(pos);
             this.compositionCursorPos--;
+            this.updateCandidates();
+        }
+        return;
+    }
+    
+    if (!this.isMobile && e.key.length === 1 && !reverseKeyMap[e.key]) {
+        let character = e.key;
+        const currentToneMode = this.getCurrentToneMode();
+        const isNumericToneMode = currentToneMode === 'numeric' && langProps.numericToneMap;
+        
+        if (isNumericToneMode && character.match(/^[0-9]$/)) {
+            character = langProps.numericToneMap[character] || character;
+        }
+
+        e.preventDefault();
+        if (this.compositionBuffer.length < this.config.maxCompositionLength) {
+            const buffer = this.compositionBuffer;
+            const pos = this.compositionCursorPos;
+            this.compositionBuffer = buffer.substring(0, pos) + character + buffer.substring(pos);
+            this.compositionCursorPos++;
             this.updateCandidates();
         }
     }
@@ -877,7 +1445,7 @@ handleKeyDown(e) {
 
 getCurrentToneMode() {
     const langProps = imeLanguageProperties[this.currentMode] || {};
-    const defaultToneMode = (langProps.toneModes && langProps.toneModes[0]) || 'alphabetic';
+    const defaultToneMode = langProps.toneType || (langProps.toneModes && langProps.toneModes[0]) || 'alphabetic';
     return this.toneModes[this.currentMode] || defaultToneMode;
 },
 
@@ -912,6 +1480,7 @@ toggleToneMode() {
     if (this.activeElement) this.activeElement.focus();
 },
 
+// 請用此新版函數完整取代舊的 updateCandidates 函數
 updateCandidates() {
     const activeBuffer = this.compositionBuffer.substring(0, this.compositionCursorPos).toLowerCase();
 
@@ -924,26 +1493,66 @@ updateCandidates() {
     }
 
     const dictionary = dictionaries[this.currentMode];
-    let exactMatchCandidates = [];
-    let otherCandidates = [];
+    let candidates = [];
 
+    // --- 核心邏輯 ---
+
+    // 1. 尋找完全符合當前完整編碼 (activeBuffer) 的候選字
     const exactResult = dictionary[activeBuffer];
     if (exactResult) {
-        exactMatchCandidates.push(...exactResult.split(' '));
+        exactResult.split(' ').forEach(word => {
+            candidates.push({ word: word, consumed: activeBuffer });
+        });
     }
 
+    // 2. 根據模式尋找其他候選字 (例如：連打、簡拼、前綴)
     if (this.isLongPhraseEnabled) {
-        otherCandidates.push(...this.findPhraseCandidates(activeBuffer));
-        otherCandidates.push(...this.findSimplePrefixCandidates(activeBuffer));
-
+        this.findPhraseCandidates(activeBuffer).forEach(word => {
+            candidates.push({ word: word, consumed: activeBuffer });
+        });
+        this.findSimplePrefixCandidates(activeBuffer).forEach(word => {
+            candidates.push({ word: word, consumed: activeBuffer });
+        });
     } else {
-        // 將這兩行的順序對調，讓拼音前綴的結果優先於拼音首
-        otherCandidates.push(...this.findSimplePrefixCandidates(activeBuffer));
-        otherCandidates.push(...this.findAbbreviationCandidates(activeBuffer));
+        this.findSimplePrefixCandidates(activeBuffer).forEach(word => {
+            candidates.push({ word: word, consumed: activeBuffer });
+        });
+        this.findAbbreviationCandidates(activeBuffer).forEach(word => {
+            candidates.push({ word: word, consumed: activeBuffer });
+        });
     }
 
-    let combined = [...exactMatchCandidates, ...otherCandidates];
-    this.allCandidates = [...new Set(combined)];
+    // 3. 在長詞模式下，尋找最長有效前綴的候選字作為「後備選項」
+    if (this.isLongPhraseEnabled && activeBuffer.length > 1) {
+        for (let i = activeBuffer.length - 1; i > 0; i--) {
+            const prefix = activeBuffer.substring(0, i);
+            // 檢查這個前綴本身是否是一個有效的編碼 (存在於字典中)
+            if (dictionary[prefix]) {
+                // 【修正點】
+                // 直接從字典取用該前綴的候選字，確保精確匹配
+                // 而不是使用會包含其他開頭相同編碼的 findSimplePrefixCandidates
+                const prefixCandidates = dictionary[prefix].split(' ');
+                
+                prefixCandidates.forEach(word => {
+                    // 標記這些候選字只消耗了前綴的部分
+                    candidates.push({ word: word, consumed: prefix });
+                });
+                
+                // 找到最長的前綴後就停止，避免產生過多不相關的結果
+                break;
+            }
+        }
+    }
+
+    // 4. 移除重複的候選字 (以 word 為基準)，並保留最先出現的
+    const uniqueCandidates = new Map();
+    candidates.forEach(c => {
+        if (!uniqueCandidates.has(c.word)) {
+            uniqueCandidates.set(c.word, c);
+        }
+    });
+
+    this.allCandidates = Array.from(uniqueCandidates.values());
 
     this.currentPage = 0;
     this.highlightedIndex = 0;
@@ -958,7 +1567,7 @@ updateCandidates() {
  */
 findSimplePrefixCandidates(buffer) {
     // 當輸入長度小於 2 時，不進行搜尋，避免返回過多無用結果並提升效能
-    if (buffer.length < 2) {
+    if (buffer.length < 1) {
         return [];
     }
 
@@ -1006,7 +1615,6 @@ findAbbreviationCandidates(buffer) {
     const candidates = [];
     // 只遍歷相關的分組
     for (const entry of relevantEntries) {
-        // 只處理包含多個音節的詞彙 (有空白)
         if (entry.originalKey.includes(' ')) {
             const abbreviation = entry.originalKey
                 .split(' ')
@@ -1022,23 +1630,24 @@ findAbbreviationCandidates(buffer) {
     return candidates;
 },
 
+
 renderCandidates() {
     this.candidatesList.innerHTML = '';
     this.updatePaginationButtons();
-    if (this.allCandidates.length === 0) return;
 
     const startIndex = this.currentPage * this.config.candidatesPerPage;
     const pageCandidates = this.allCandidates.slice(startIndex, startIndex + this.config.candidatesPerPage);
 
-    pageCandidates.forEach((word, index) => {
+    pageCandidates.forEach((candidateObj, index) => {
         const li = document.createElement('li');
         if (index === this.highlightedIndex) li.classList.add('highlighted');
         const indexSpan = document.createElement('span');
         indexSpan.className = 'candidate-index';
-        indexSpan.innerHTML = `<sup>${index + 1}</sup>`; 
+        indexSpan.innerHTML = `<sup>${index + 1}</sup>`;
         const textSpan = document.createElement('span');
         textSpan.className = 'candidate-text';
-        textSpan.textContent = word;
+        // 從物件中讀取 word 屬性來顯示
+        textSpan.textContent = candidateObj.word;
         li.appendChild(indexSpan); li.appendChild(textSpan);
         li.addEventListener('mousedown', (e) => { e.preventDefault(); this.selectCandidate(index); });
         this.candidatesList.appendChild(li);
@@ -1085,18 +1694,36 @@ commitText(text) {
      }, 0);
 },
 
+
 selectCandidate(indexOnPage) {
-    const selectedWord = this.allCandidates[this.currentPage * this.config.candidatesPerPage + indexOnPage];
-    if (!selectedWord) return;
-    const consumedBufferLength = this.compositionCursorPos;
-    const remainingBuffer = this.compositionBuffer.substring(consumedBufferLength);
+    const wasInQueryMode = this.isQueryMode;
+    const selectedCandidate = this.allCandidates[this.currentPage * this.config.candidatesPerPage + indexOnPage];
+    if (!selectedCandidate) return;
+
+    // 從候選物件中取得要上屏的文字和消耗的編碼
+    const selectedWord = selectedCandidate.word;
+    const consumedBuffer = selectedCandidate.consumed;
+
     this.commitText(selectedWord);
-    this.compositionBuffer = remainingBuffer;
-    this.compositionCursorPos = remainingBuffer.length;
-    if (this.activeElement && this.activeElement.isContentEditable) {
-        setTimeout(() => this.updateCandidates(), 0);
-    } else {
+
+    if (wasInQueryMode) {
+        this.isQueryMode = false;
+        this.queriedWord = '';
+        this.originalState = null;
+        this.compositionBuffer = '';
+        this.compositionCursorPos = 0;
         this.updateCandidates();
+    } else {
+        // 使用 consumedBuffer 的長度來計算剩餘的編碼
+        const remainingBuffer = this.compositionBuffer.substring(consumedBuffer.length);
+        this.compositionBuffer = remainingBuffer;
+        this.compositionCursorPos = remainingBuffer.length;
+
+        if (this.activeElement && this.activeElement.isContentEditable) {
+            setTimeout(() => this.updateCandidates(), 0);
+        } else {
+            this.updateCandidates();
+        }
     }
 },
 
@@ -1121,44 +1748,183 @@ updateCompositionDisplay() {
     }
 },
 
+
 updateUIState() {
-     if (this.compositionBuffer) {
-        this.imeContainer.classList.add('composing');
-     } else {
-        this.imeContainer.classList.remove('composing');
-     }
+    // 如果編碼區有內容，則顯示整個候選字容器
+    if (this.compositionBuffer) {
+        this.candidatesContainer.style.display = 'flex';
+        if (this.compositionDisplay) {
+            this.compositionDisplay.style.display = 'block';
+        }
+        // 【新邏輯】控制查詢按鈕的顯示
+        // 只有當有候選字且不支援倉頡、蝦米反查時才顯示
+        const showQueryButton = this.allCandidates.length > 0 && !['cangjie', 'xiami'].includes(this.currentMode);
+        this.queryBtn.style.display = showQueryButton ? 'flex' : 'none';
+
+    } 
+    // 如果編碼區是空的，則隱藏整個候選字容器
+    else {
+        this.candidatesContainer.style.display = 'none';
+        if (this.compositionDisplay) {
+            this.compositionDisplay.style.display = 'none';
+        }
+        // 同時隱藏查詢按鈕
+        this.queryBtn.style.display = 'none';
+    }
 },
 
+/**
+ * 根據語言規則轉換查詢到的字根編碼
+ * @param {string} code - 原始編碼
+ * @param {string} lang - 語言模式
+ * @returns {string} - 轉換後的編碼
+ */
+transformQueryCode(code, lang) {
+    // 倉頡與蝦米轉為大寫
+    if (lang === 'cangjie' || lang === 'xiami') {
+        return code.toUpperCase();
+    }
+
+    // 取得該語言的聲調轉換規則
+    const rules = (window.imeToneTransformRules || {})[lang];
+
+    // 如果有轉換規則，則套用
+    if (rules && rules.length > 0) {
+        let transformedCode = code;
+        for (const rule of rules) {
+            // 規則格式: [ [正則表達式字串, 旗標], 替換字串]
+            // 例如: [['([aeiou])(z)$', 'g'], '$1ˊ']
+            try {
+                const regex = new RegExp(rule[0][0], rule[0][1]);
+                // 使用 replace 來處理，但因為可能有多條規則，我們只替換一次
+                // 如果需要連續替換，需要調整邏輯，但目前聲調規則通常是單一的
+                if (regex.test(transformedCode)) {
+                    transformedCode = transformedCode.replace(regex, rule[1]);
+                }
+            } catch (e) {
+                console.error(`Error applying regex rule for lang "${lang}":`, rule, e);
+            }
+        }
+        return transformedCode;
+    }
+
+    // 如果沒有任何規則匹配，回傳原編碼
+    return code;
+},
+
+/**
+ * 進入編碼查詢模式
+ */
+enterQueryMode() {
+    // 從候選物件中取得 .word 屬性
+    const candidate = this.allCandidates[this.currentPage * this.config.candidatesPerPage + this.highlightedIndex];
+    if (!candidate) return;
+    const candidateWord = candidate.word;
+
+    // 儲存當前狀態
+    this.isQueryMode = true;
+    this.queriedWord = candidateWord;
+    this.originalState = {
+        allCandidates: [...this.allCandidates],
+        currentPage: this.currentPage,
+        highlightedIndex: this.highlightedIndex
+    };
+
+    // 此處建立的空陣列可確保每次查詢都是全新的結果
+    const queryResults = [];
+    const chars = [...candidateWord]; // 處理 Unicode 字元
+
+    // --- 修改核心：根據設定來產生查詢結果 ---
+    const enabledLangs = this.config.querySettings || {};
+
+    chars.forEach(char => {
+        for (const lang in enabledLangs) {
+            // 如果該語言在設定中是啟用的，並且反查字典存在
+            if (enabledLangs[lang] && this.reverseDicts[lang]) {
+                const codes = this.reverseDicts[lang][char] || ['']; // 查無
+                
+                // 【主要修改點】對查詢到的每個編碼進行轉換
+                const transformedCodes = codes.map(code => this.transformQueryCode(code, lang));
+
+                const displayName = this.getModeDisplayName(lang).charAt(0);
+                queryResults.push(`[${displayName}] ${char} ${transformedCodes.join(' / ')}`); // 列出字根
+            }
+        }
+    });
+    
+    // 如果沒有任何啟用的查詢語言，或查無結果，給予提示
+    if (queryResults.length === 0) {
+        const hasAnyLangEnabled = Object.values(enabledLangs).some(v => v === true);
+        if (hasAnyLangEnabled) {
+            queryResults.push(`「${this.queriedWord}」查無`);
+        } else {
+            queryResults.push('未設定反查');
+        }
+    }
+
+    // 用查詢結果更新候選列表 (此處仍使用字串，因為反查結果是純資訊)
+    this.allCandidates = queryResults.map(item => ({ word: item, consumed: this.queriedWord }));
+    this.currentPage = 0;
+    this.highlightedIndex = 0;
+    this.renderCandidates();
+},
+
+/**
+ * 離開編碼查詢模式
+ */
+exitQueryMode(commitText = false) {
+    if (!this.isQueryMode) return;
+
+    if (commitText) {
+        this.commitText(this.queriedWord);
+        this.compositionBuffer = '';
+        this.compositionCursorPos = 0;
+        this.updateCandidates();
+    } else {
+        // 還原狀態
+        this.allCandidates = this.originalState.allCandidates;
+        this.currentPage = this.originalState.currentPage;
+        this.highlightedIndex = this.originalState.highlightedIndex;
+        this.renderCandidates();
+    }
+    
+    this.isQueryMode = false;
+    this.queriedWord = '';
+    this.originalState = null;
+},
 
 
 togglePinMode() {
     this.isPinned = !this.isPinned;
     localStorage.setItem(this.config.storagePrefix + 'isPinned', this.isPinned);
+    this.pinToggleBtn.classList.toggle('active', this.isPinned);
 
     if (this.isPinned) {
-        // --- 進入釘選模式 ---
-        // 獲取當前工具條的絕對位置，並將其作為釘選的初始位置
-        const rect = this.imeContainer.getBoundingClientRect();
+        // --- 進入釘選模式（可自由拖曳）---
+        // 獲取目前工具列的位置作為釘選的初始位置
+        const rect = this.toolbarContainer.getBoundingClientRect();
         this.pinnedTop = `${rect.top}px`;
         this.pinnedLeft = `${rect.left}px`;
 
-        // 更新樣式與儲存位置
-        this.imeContainer.classList.add('pinned');
-        this.pinToggleBtn.classList.add('active');
-        this.imeContainer.style.top = this.pinnedTop;
-        this.imeContainer.style.left = this.pinnedLeft;
+        this.toolbarContainer.style.top = this.pinnedTop;
+        this.toolbarContainer.style.left = this.pinnedLeft;
+        this.toolbarContainer.style.bottom = 'auto'; // 改為 top/left 定位，必須清除 bottom
+        this.toolbarContainer.style.right = 'auto';  // 清除 right
+
         localStorage.setItem(this.config.storagePrefix + 'pinnedTop', this.pinnedTop);
         localStorage.setItem(this.config.storagePrefix + 'pinnedLeft', this.pinnedLeft);
-        
     } else {
-        // --- 取消釘選模式 ---
-        this.imeContainer.classList.remove('pinned');
-        this.pinToggleBtn.classList.remove('active');
-        // 取消釘選後，立即重新定位到目前輸入框旁
-        this.reposition();
+        // --- 取消釘選模式（吸附回角落）---
+        this.toolbarContainer.style.top = 'auto';
+        this.toolbarContainer.style.left = '10px';
+        this.toolbarContainer.style.bottom = '10px';
+        this.toolbarContainer.style.right = 'auto';
+
+        // 清除已儲存的釘選位置
+        localStorage.removeItem(this.config.storagePrefix + 'pinnedTop');
+        localStorage.removeItem(this.config.storagePrefix + 'pinnedLeft');
     }
     
-    // 將焦點還給輸入框，以改善使用者體驗
     if (this.activeElement) {
         this.activeElement.focus();
     }
@@ -1166,25 +1932,51 @@ togglePinMode() {
 
 
 
+
+
 toggleIsEnabled() {
     this.isEnabled = !this.isEnabled;
+    
+    if (this.toolbarContainer) {
+        this.toolbarContainer.classList.toggle('disabled', !this.isEnabled);
+    }
+
     if (this.activeElement) {
+        this.activeElement.removeEventListener('keydown', this.boundHandleKeyDown);
+        this.activeElement.removeEventListener('input', this.boundHandleInput);
         if (this.isEnabled) {
-            this.imeContainer.classList.remove('disabled');
             this.activeElement.addEventListener('keydown', this.boundHandleKeyDown);
-            this.activeElement.addEventListener('input', this.boundHandleInput);
-        } else {
-            this.imeContainer.classList.add('disabled');
-            this.activeElement.removeEventListener('keydown', this.boundHandleKeyDown);
-            this.activeElement.removeEventListener('input', this.boundHandleInput);
-        }
-    } else {
-        if (this.isEnabled) {
-            this.imeContainer.classList.remove('disabled');
-        } else {
-            this.imeContainer.classList.add('disabled');
+            if (this.isMobile) {
+                this.activeElement.addEventListener('input', this.boundHandleInput);
+            }
         }
     }
+    
+    // *** 新增的修改點 ***
+    // 如果是切換為「停用」狀態，則清除候選字並隱藏候選字容器
+    if (!this.isEnabled) {
+        this.clearCandidates(); // 這會自動隱藏候選字容器
+    }
+
+
+    const status = this.isEnabled ? "已啟用" : "已停用";
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+        position: fixed; 
+        top: 50%; 
+        left: 50%; 
+        transform: translate(-50%, -50%); 
+        background: rgba(0,0,0,0.75); 
+        color: white; 
+        padding: 12px 24px; 
+        border-radius: 8px; 
+        z-index: 10001; 
+        font-size: 16px;
+        pointer-events: none;
+    `;
+    toast.textContent = `輸入法 ${status}`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 1200);
 },
 
 toggleLongPhraseMode() {
@@ -1194,6 +1986,35 @@ toggleLongPhraseMode() {
     this.updateCandidates();
     if (this.activeElement) this.activeElement.focus();
 },
+
+toggleLongPhraseMode() {
+    this.isLongPhraseEnabled = !this.isLongPhraseEnabled;
+    localStorage.setItem(this.config.storagePrefix + 'longPhrase', this.isLongPhraseEnabled);
+    this.longPhraseToggleBtn.classList.toggle('active', this.isLongPhraseEnabled);
+    this.updateCandidates();
+    if (this.activeElement) this.activeElement.focus();
+},
+
+
+togglePunctuationMode() {
+    this.isFullWidthMode = !this.isFullWidthMode;
+    localStorage.setItem(this.config.storagePrefix + 'fullWidth', this.isFullWidthMode);
+    this.updatePunctuationButtonUI();
+    if (this.activeElement) this.activeElement.focus();
+},
+
+
+
+updatePunctuationButtonUI() {
+    if (this.punctuationModeToggleBtn) {
+        this.punctuationModeToggleBtn.innerHTML = this.isFullWidthMode 
+            ? '<span class="material-icons" style="font-size: 16px;">radio_button_unchecked</span>' 
+            : '<span class="material-icons" style="font-size: 16px;">tonality</span>';
+        
+        this.punctuationModeToggleBtn.classList.toggle('active', this.isFullWidthMode);
+    }
+},
+
 
 navigateCandidates(direction) {
     const itemsOnPage = this.candidatesList.children.length;
@@ -1231,22 +2052,22 @@ switchMode(mode) {
     this.currentMode = mode;
     localStorage.setItem(this.config.storagePrefix + 'mode', mode);
 
-    // --- 根據當前輸入法模式，套用專屬設定 ---
     const langProps = imeLanguageProperties[this.currentMode] || {};
 
-    // 1. 設定編碼長度限制
-    // 優先使用語言專屬設定(langProps.maxLength)，若無則還原為全域設定
+    // 根據寬度類型，切換 class
+    if (langProps.layoutType === 'narrow') {
+        this.candidatesContainer.classList.add('ime-narrow');
+    } else {
+        this.candidatesContainer.classList.remove('ime-narrow');
+    }
+
     this.config.maxCompositionLength = langProps.maxLength || this.config.globalMaxCompositionLength;
 
-    // 2. 設定連打模式及「連」按鈕的可見性
-    // 檢查是否允許切換連打模式
     if (langProps.allowLongPhraseToggle === false) {
-        this.longPhraseToggleBtn.style.display = 'none'; // 不允許，則隱藏按鈕
-        // 並根據語言設定強制決定連打狀態
+        this.longPhraseToggleBtn.style.display = 'none';
         this.isLongPhraseEnabled = langProps.longPhraseMode === true;
     } else {
-        this.longPhraseToggleBtn.style.display = ''; // 允許，則顯示按鈕
-        // 並從 localStorage 或全域設定中讀取使用者的偏好
+        this.longPhraseToggleBtn.style.display = '';
         const savedLongPhrase = localStorage.getItem(this.config.storagePrefix + 'longPhrase');
         if (savedLongPhrase !== null) {
             this.isLongPhraseEnabled = savedLongPhrase === 'true';
@@ -1254,11 +2075,8 @@ switchMode(mode) {
             this.isLongPhraseEnabled = this.config.longPhrase;
         }
     }
-    // 最後，根據連打狀態更新按鈕樣式
     this.longPhraseToggleBtn.classList.toggle('active', this.isLongPhraseEnabled);
-    // --- 設定套用結束 ---
 
-    // 更新 UI 顯示
     this.modeDisplayText.textContent = this.getModeDisplayName(mode);
     this.modeMenu.querySelectorAll('li').forEach(item => {
         item.classList.toggle('active', item.dataset.mode === mode);
@@ -1268,7 +2086,6 @@ switchMode(mode) {
         this.isModeMenuVisible = false;
     }
 
-    // 重設狀態並更新候選字
     this.compositionBuffer = '';
     this.compositionCursorPos = 0;
     this.updateCandidates();
@@ -1308,96 +2125,10 @@ getCaretCoordinates(element, position) {
 
 
 reposition() {
-    if (this.isPinned) {
-        return; // 釘選模式下不自動重新定位
-    }
-    if (!this.activeElement) return;
+    if (this.candidatesContainer.style.display === 'none' || !this.activeElement) return;
 
-    const MOBILE_BREAKPOINT = 768; // 定義行動裝置的寬度斷點
-    const isSmallScreen = window.innerWidth < MOBILE_BREAKPOINT;
-
-    const imeContainer = this.imeContainer;
+    const candidatesContainer = this.candidatesContainer;
     const activeElement = this.activeElement;
-
-    // --- 行動裝置/小螢幕的特殊定位邏輯 ---
-    if (this.isMobile || isSmallScreen) {
-        
-        // --- BUG FIX START ---
-        // 只有在輸入法「啟用」時，才強制設定寬度為接近滿版
-        if (this.isEnabled) {
-            const elementRect = activeElement.getBoundingClientRect();
-            const imeHeight = imeContainer.offsetHeight;
-            const viewportHeight = window.innerHeight;
-            const viewportWidth = window.innerWidth;
-            const margin = 10;
-
-            let finalTop;
-            
-            if (activeElement.tagName === 'INPUT') {
-                finalTop = elementRect.bottom + window.scrollY + margin;
-                if (finalTop - window.scrollY + imeHeight > viewportHeight) {
-                    finalTop = elementRect.top + window.scrollY - imeHeight - margin;
-                }
-            } 
-            else {
-                let caretRect;
-                if (activeElement.isContentEditable) {
-                    const selection = window.getSelection();
-                    if (selection && selection.rangeCount > 0) {
-                        const range = selection.getRangeAt(0);
-                        const rects = range.getClientRects();
-                        if (rects.length > 0) {
-                            caretRect = rects[rects.length - 1]; 
-                        } else {
-                            let parent = range.startContainer.parentElement;
-                            if (parent) caretRect = parent.getBoundingClientRect();
-                        }
-                    }
-                    if (!caretRect) caretRect = elementRect; 
-                } else { 
-                    const coords = this.getCaretCoordinates(activeElement, activeElement.selectionStart);
-                    const computedStyle = window.getComputedStyle(activeElement);
-                    const lineHeight = parseInt(computedStyle.lineHeight, 10) || (parseInt(computedStyle.fontSize, 10) * 1.4);
-                    caretRect = { 
-                        top: coords.top, 
-                        bottom: coords.top + lineHeight,
-                    };
-                }
-
-                finalTop = caretRect.bottom + window.scrollY + margin;
-                if ((finalTop - window.scrollY) + imeHeight > viewportHeight) {
-                     if ((caretRect.top - window.scrollY) - imeHeight - margin > 0) {
-                        finalTop = caretRect.top + window.scrollY - imeHeight - margin;
-                     } else {
-                        finalTop = window.scrollY + viewportHeight - imeHeight - margin;
-                     }
-                }
-            }
-            
-            const finalLeft = window.scrollX + margin;
-            const finalWidth = viewportWidth - (margin * 2);
-
-            imeContainer.style.left = `${finalLeft}px`;
-            imeContainer.style.top = `${finalTop}px`;
-            imeContainer.style.width = `${finalWidth}px`;
-            imeContainer.style.maxWidth = `${finalWidth}px`;
-        } else {
-            // 在「停用」狀態下，清除寬度設定，讓 CSS 來控制其自動縮小
-            imeContainer.style.width = '';
-            imeContainer.style.maxWidth = ''; 
-            // 停用時，位置簡單跟隨輸入框即可，避免位置錯亂
-            const elementRect = activeElement.getBoundingClientRect();
-            imeContainer.style.top = `${elementRect.bottom + window.scrollY + 5}px`;
-            imeContainer.style.left = `${elementRect.left + window.scrollX}px`;
-        }
-        // --- BUG FIX END ---
-        
-        return; 
-    }
-
-    // --- 桌面/大螢幕的原始定位邏輯 ---
-    imeContainer.style.width = '';
-    imeContainer.style.maxWidth = '100vw'; 
 
     let caretRect;
     const elementRect = activeElement.getBoundingClientRect();
@@ -1412,100 +2143,146 @@ reposition() {
             }
         }
         if (!caretRect || (caretRect.width === 0 && caretRect.height === 0)) {
-            caretRect = elementRect; 
+            caretRect = elementRect;
         }
     } else if (activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'INPUT') {
         const coords = this.getCaretCoordinates(activeElement, activeElement.selectionStart);
         const computedStyle = window.getComputedStyle(activeElement);
         const lineHeight = parseInt(computedStyle.lineHeight) || (parseInt(computedStyle.fontSize) * 1.4);
-        caretRect = { 
-            top: coords.top, 
-            bottom: coords.top + lineHeight, 
-            left: coords.left, 
-            right: coords.left, 
-            height: lineHeight, 
-            width: 0 
+        caretRect = {
+            top: coords.top,
+            bottom: coords.top + lineHeight,
+            left: coords.left,
+            right: coords.left,
+            height: lineHeight,
+            width: 0
         };
     } else {
         caretRect = elementRect;
     }
 
-    const imeHeight = imeContainer.offsetHeight;
-    const imeWidth = imeContainer.offsetWidth;
+    const imeHeight = candidatesContainer.offsetHeight;
+    const imeWidth = candidatesContainer.offsetWidth;
     const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
     const margin = 10;
 
-    let finalTop = caretRect.bottom + window.scrollY + margin;
-    if (finalTop - window.scrollY + imeHeight > viewportHeight) {
-        if (caretRect.top - imeHeight - margin > 0) {
-            finalTop = caretRect.top + window.scrollY - imeHeight - margin;
-        } else {
+    // --- 垂直定位 (通用邏輯) ---
+    // 優先嘗試放在游標下方
+    let finalTop = caretRect.bottom + window.scrollY + 5;
+    // 如果下方空間不足，則嘗試放到游標上方
+    if ((finalTop - window.scrollY + imeHeight) > viewportHeight) {
+        if (caretRect.top - imeHeight - 5 > 0) {
+            finalTop = caretRect.top + window.scrollY - imeHeight - 5;
+        } else { // 如果上方空間也不足，就貼齊視窗底部
             finalTop = window.scrollY + viewportHeight - imeHeight - margin;
         }
     }
-
-    let finalLeft = caretRect.left + window.scrollX;
-    if (finalLeft - window.scrollX + imeWidth > viewportWidth) {
-        finalLeft = window.scrollX + viewportWidth - imeWidth - margin;
-    }
-    if (finalLeft < window.scrollX + margin) {
-        finalLeft = window.scrollX + margin;
-    }
-    
+     // 確保不會超出頂部邊緣
     if (finalTop < window.scrollY + margin) {
         finalTop = window.scrollY + margin;
     }
 
-    imeContainer.style.top = `${finalTop}px`;
-    imeContainer.style.left = `${finalLeft}px`;
+
+    // --- 水平定位 (通用邏輯) ---
+    // 無論是電腦或手機，都採用相同的游標追蹤邏輯
+    let finalLeft = caretRect.left + window.scrollX;
+
+    // 恢復或設定 CSS 預設的最大寬度，確保寬度計算正確
+    candidatesContainer.style.maxWidth = '90vw'; 
+
+    // 如果右側超出視窗，則向左移動，實現「向左擴展」效果
+    if (finalLeft - window.scrollX + imeWidth > viewportWidth - margin) {
+        finalLeft = window.scrollX + viewportWidth - imeWidth - margin;
+    }
+    // 確保不會超出左側邊緣
+    if (finalLeft < window.scrollX + margin) {
+        finalLeft = window.scrollX + margin;
+    }
+
+    // 應用最終計算出的位置
+    candidatesContainer.style.top = `${finalTop}px`;
+    candidatesContainer.style.left = `${finalLeft}px`;
+    candidatesContainer.style.position = 'absolute';
 },
 
 show() {
-    this.imeContainer.style.display = 'block';
+    this.toolbarContainer.style.display = 'block';
 },
-hide() { this.imeContainer.style.display = 'none'; },
+
+hide() {
+    this.toolbarContainer.style.display = 'none';
+    this.candidatesContainer.style.display = 'none';
+},
+
 getModeDisplayName(mode) {
     const names = { 'pinyin': '拼音', 'kasu': '詔安', 'sixian': '四縣', 'hailu': '海陸' , 'dapu': '大埔' , 'raoping': '饒平' , 'sixiannan': '南四' ,'holo': '和樂', 'cangjie': '倉頡', 'xiami': '蝦米' };
     return names[mode] || mode;
 },
 
+
+/**
+ * 切換工具列在左下角或右下角的位置
+ */
+togglePosition() {
+    this.isPositionRight = !this.isPositionRight;
+    if (this.isPositionRight) {
+        localStorage.setItem(this.config.storagePrefix + 'position', 'right');
+    } else {
+        localStorage.removeItem(this.config.storagePrefix + 'position');
+    }
+    this.updateToolbarPosition();
+    if (this.activeElement) {
+        this.activeElement.focus();
+    }
+},
+
+/**
+ * 根據 isPositionRight 狀態更新工具列的 CSS 樣式
+ */
+updateToolbarPosition() {
+    if (this.isPositionRight) {
+        this.toolbarContainer.style.left = 'auto';
+        this.toolbarContainer.style.right = '10px';
+    } else {
+        this.toolbarContainer.style.left = '10px';
+        this.toolbarContainer.style.right = 'auto';
+    }
+},
+
+
 initDrag(e) {
-    // 檢查是否點擊在可互動元素上，或是滑鼠右鍵
+    // 只有在釘選狀態下才允許拖曳
+    if (!this.isPinned) return;
+
     if (e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON') return;
     if (e.type === 'mousedown' && e.button !== 0) return;
 
     this.isDragging = true;
-
     const touch = e.touches ? e.touches[0] : null;
     const clientX = touch ? touch.clientX : e.clientX;
     const clientY = touch ? touch.clientY : e.clientY;
 
-    this.offsetX = clientX - this.imeContainer.offsetLeft;
-    this.offsetY = clientY - this.imeContainer.offsetTop;
+    // 因為工具列是 fixed 定位，可以直接用 clientX/Y
+    this.offsetX = clientX - this.toolbarContainer.getBoundingClientRect().left;
+    this.offsetY = clientY - this.toolbarContainer.getBoundingClientRect().top;
 
-    // 對 touchmove 使用 { passive: false } 來允許 preventDefault()，防止頁面滾動
     window.addEventListener('mousemove', this.boundDragMove);
     window.addEventListener('touchmove', this.boundDragMove, { passive: false });
     window.addEventListener('mouseup', this.boundDragEnd);
     window.addEventListener('touchend', this.boundDragEnd);
     
-    // 在觸控模式下，如果事件是可取消的，則阻止預設行為(如文字選取)
     if (e.cancelable) {
         e.preventDefault();
     }
 },
 
 
+
 dragMove(e) {
     if (!this.isDragging) return;
+    if (e.type === 'touchmove') e.preventDefault();
 
-    // 阻止觸控拖曳時的頁面滾動行為
-    if (e.type === 'touchmove') {
-        e.preventDefault();
-    }
-
-    // 統一處理滑鼠和觸控事件的座標
     const touch = e.touches ? e.touches[0] : null;
     const clientX = touch ? touch.clientX : e.clientX;
     const clientY = touch ? touch.clientY : e.clientY;
@@ -1513,35 +2290,27 @@ dragMove(e) {
     let newLeft = clientX - this.offsetX;
     let newTop = clientY - this.offsetY;
 
-    // --- 修改核心：拖曳範圍限制 ---
-    // 無論是否釘選，都將拖曳範圍限制在視窗內，並保留一個小的邊界
-    const margin = 10; // 可視為與視窗邊緣的最小距離
-    const imeWidth = this.imeContainer.offsetWidth;
-    const imeHeight = this.imeContainer.offsetHeight;
+    const margin = 10;
+    const imeWidth = this.toolbarContainer.offsetWidth;
+    const imeHeight = this.toolbarContainer.offsetHeight;
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
-    // 確保工具條不會被拖到視窗外部
-    // 限制左邊界
     newLeft = Math.max(margin, newLeft);
-    // 限制右邊界
     newLeft = Math.min(newLeft, viewportWidth - imeWidth - margin);
-    // 限制上邊界
     newTop = Math.max(margin, newTop);
-    // 限制下邊界
     newTop = Math.min(newTop, viewportHeight - imeHeight - margin);
-    // --- 限制邏輯結束 ---
 
-    // 如果是釘選狀態，則更新並儲存釘選位置
-    if (this.isPinned) {
-        this.pinnedTop = `${newTop}px`;
-        this.pinnedLeft = `${newLeft}px`;
-        localStorage.setItem(this.config.storagePrefix + 'pinnedTop', this.pinnedTop);
-        localStorage.setItem(this.config.storagePrefix + 'pinnedLeft', this.pinnedLeft);
-    }
+    // 拖曳時，更新並儲存釘選位置
+    this.pinnedTop = `${newTop}px`;
+    this.pinnedLeft = `${newLeft}px`;
+    localStorage.setItem(this.config.storagePrefix + 'pinnedTop', this.pinnedTop);
+    localStorage.setItem(this.config.storagePrefix + 'pinnedLeft', this.pinnedLeft);
 
-    this.imeContainer.style.left = `${newLeft}px`;
-    this.imeContainer.style.top = `${newTop}px`;
+    this.toolbarContainer.style.left = this.pinnedLeft;
+    this.toolbarContainer.style.top = this.pinnedTop;
+    
+    // 拖曳工具列時，候選字列不需要跟隨，因為它只跟隨游標
 },
 
 dragEnd() { 

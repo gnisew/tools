@@ -245,18 +245,21 @@
             <div class="toolbar">
                 <div class="toolbar-group">
                     <span class="logo" id="logo" style="display: none;">🥷</span>
+                    <button class="toolbar-button ime-toggle-button" title="烏衣行輸入法">
+                        <span class="material-icons">keyboard</span>
+                    </button>		
                     <button class="toolbar-button" onclick="saveText()" title="儲存">
                         <span class="material-icons">save</span>
                     </button>
-                    <button class="toolbar-button" onclick="undo()" title="復原">
-                        <span class="material-icons">undo</span>
+                    <button class="toolbar-button" onclick="selectAll()" title="全選">
+                        <span class="material-icons">select_all</span>
                     </button>
-                    <button class="toolbar-button" onclick="redo()" title="重做">
-                        <span class="material-icons">redo</span>
+                    <button class="toolbar-button" onclick="copyText()" title="複製">
+                        <span class="material-icons">content_copy</span>
                     </button>
-                </div>
-
-                <div class="toolbar-group">
+                    <button class="toolbar-button" onclick="clearText()" title="清除">
+                        <span class="material-icons">delete</span>
+                    </button>		
                     <select class="size-select" onchange="changeFontSize(this.value)">
                         <option value="12">12</option>
                         <option value="14" selected>14</option>
@@ -267,17 +270,11 @@
                         <option value="28">28</option>
                         <option value="32">32</option>
                     </select>
-                </div>
-
-                <div class="toolbar-group">
-                    <button class="toolbar-button" onclick="selectAll()" title="全選">
-                        <span class="material-icons">select_all</span>
+                    <button class="toolbar-button" onclick="undo()" title="復原">
+                        <span class="material-icons">undo</span>
                     </button>
-                    <button class="toolbar-button" onclick="copyText()" title="複製">
-                        <span class="material-icons">content_copy</span>
-                    </button>
-                    <button class="toolbar-button" onclick="clearText()" title="清除">
-                        <span class="material-icons">delete</span>
+                    <button class="toolbar-button" onclick="redo()" title="重做">
+                        <span class="material-icons">redo</span>
                     </button>
                 </div>
 
@@ -286,18 +283,13 @@
                         <span class="material-icons">keyboard_arrow_up</span>
                     </button>
                 </div>
+
             </div>
         </div>
     </div>
 
     <div class="editor-container">
-        <textarea class="editor" id="editor" placeholder="聲調可用字母zˊ vˇ sˋ xˆ f⁺ lˈ，也可切換為數字。
-「連」打可以連打拼音。
-x 是標點。
-空白鍵選第一個候選字。
-也可用 ,< .> 左右移動加空白鍵。
-也可以用數字或 shift+數字來選候選字。
-輸入編碼 + w 可輸出拼音。"></textarea>
+        <textarea class="editor" id="editor" placeholder=""></textarea>
     </div>
 
 
@@ -578,5 +570,8 @@ x 是標點。
 
     <script src="ime-dict.js"></script>
     <script src="ime.js"></script>
+	<script src="ime-button.js"></script>
+
+
 </body>
 </html>
