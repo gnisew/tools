@@ -235,6 +235,46 @@
                 margin-right: 0;
             }
         }
+
+
+        #more-options-container {
+            position: relative; /* 為了讓下拉選單可以相對於它定位 */
+        }
+
+        .overflow-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background-color: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(60,64,67,0.15);
+            border: 1px solid #dadce0;
+            z-index: 1001;
+            padding: 4px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 150px; /* 選單最小寬度 */
+        }
+
+        /* 讓移到選單中的按鈕樣式更適合垂直排列 */
+        .overflow-menu > .toolbar-button,
+        .overflow-menu > .size-select {
+            width: 100%;
+            box-sizing: border-box;
+            justify-content: flex-start; /* 文字靠左 */
+            padding: 8px 12px;
+            border-radius: 0;
+        }
+
+        .overflow-menu > .size-select {
+            border: none; /* 移除下拉選單的邊框 */
+        }
+        
+        .overflow-menu > .toolbar-button:hover {
+            background-color: #f1f3f4;
+        }
+
     </style>
 </head>
 <body>
@@ -242,8 +282,9 @@
         <div class="header-content">
             <h1 class="title">🥷烏衣行輸入法</h1>
             
+
             <div class="toolbar">
-                <div class="toolbar-group">
+                <div class="toolbar-group" id="main-toolbar-group">
                     <span class="logo" id="logo" style="display: none;">🥷</span>
                     <button class="toolbar-button ime-toggle-button" title="烏衣行輸入法">
                         <span class="material-icons">keyboard</span>
@@ -278,13 +319,20 @@
                     </button>
                 </div>
 
+                <div class="toolbar-group" id="more-options-container">
+                    <button class="toolbar-button" id="more-options-button" title="更多選項" style="display: none;">
+                        <span class="material-icons">more_vert</span>
+                    </button>
+                    <div class="overflow-menu" id="overflow-menu" style="display: none;">
+                        </div>
+                </div>
                 <div class="toolbar-group mobile-only">
                     <button class="toolbar-button" onclick="toggleHeader()" title="摺疊/展開" id="collapseBtn">
                         <span class="material-icons">keyboard_arrow_up</span>
                     </button>
                 </div>
-
             </div>
+
         </div>
     </div>
 
@@ -527,6 +575,71 @@
             };
         }
 
+
+
+        /**
+         * 管理工具列按鈕的溢位。
+         * 當視窗寬度不足時，自動將末端的按鈕移動到「更多」下拉選單中。
+         */
+        function manageToolbarOverflow() {
+            const toolbar = document.querySelector('.toolbar');
+            const mainGroup = document.getElementById('main-toolbar-group');
+            const moreButton = document.getElementById('more-options-button');
+            const overflowMenu = document.getElementById('overflow-menu');
+
+            // 1. 重設狀態：將所有按鈕從下拉選單移回主工具列
+            // 這樣才能在視窗變寬時，正確地將按鈕顯示回來
+            while (overflowMenu.firstChild) {
+                mainGroup.appendChild(overflowMenu.firstChild);
+            }
+            moreButton.style.display = 'none';
+            overflowMenu.style.display = 'none';
+
+            // 2. 檢查是否需要溢位
+            const toolbarWidth = toolbar.offsetWidth;
+            const children = Array.from(mainGroup.children);
+            let totalWidth = 0;
+            const moreButtonWidth = 40; // 為「更多」按鈕預留空間
+
+            // 取得所有子元素的總寬度
+            children.forEach(child => {
+                totalWidth += child.offsetWidth;
+            });
+
+            // 3. 如果超出寬度，則從後往前將按鈕移入下拉選單
+            if (totalWidth > toolbarWidth) {
+                moreButton.style.display = 'flex';
+                let currentWidth = totalWidth;
+
+                for (let i = children.length - 1; i >= 0; i--) {
+                    const child = children[i];
+                    // 如果目前寬度仍然超出（要為 moreButton 預留空間），則移動此按鈕
+                    if (currentWidth + moreButtonWidth > toolbarWidth) {
+                        // 使用 prepend 來維持按鈕的原始順序
+                        overflowMenu.prepend(child);
+                        currentWidth -= child.offsetWidth;
+                    } else {
+                        break; // 空間足夠，停止移動
+                    }
+                }
+            }
+        }
+
+        // 點擊「更多選項」按鈕時，開關下拉選單
+        document.getElementById('more-options-button').addEventListener('click', (e) => {
+            e.stopPropagation(); // 防止觸發下面的 document 點擊事件
+            const overflowMenu = document.getElementById('overflow-menu');
+            overflowMenu.style.display = overflowMenu.style.display === 'block' ? 'none' : 'block';
+        });
+
+        // 點擊頁面其他地方時，關閉下拉選單
+        document.addEventListener('click', () => {
+            document.getElementById('overflow-menu').style.display = 'none';
+        });
+        
+        // 頁面載入完成和視窗大小改變時，執行管理功能
+        window.addEventListener('load', manageToolbarOverflow);
+        window.addEventListener('resize', manageToolbarOverflow);
 
 
         // 初始化

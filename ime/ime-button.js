@@ -45,7 +45,6 @@ function injectImeButtonStyles() {
 
 
 document.addEventListener('DOMContentLoaded', () => {
-    checkAndLoadMaterialIcons();
 	injectImeButtonStyles();
 
     // 在此呼叫新加入的函數，來禁止下拉更新

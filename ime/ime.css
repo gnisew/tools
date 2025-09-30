@@ -382,3 +382,10 @@
 #web-ime-settings-modal #web-ime-reset-button:hover {
     background-color: #c82333;
 }
+
+/* --- 設定視窗分隔線 --- */
+#web-ime-settings-modal .settings-section + .settings-section {
+    border-top: 1px solid #e9ecef;
+    margin-top: 15px;
+    padding-top: 15px;
+}

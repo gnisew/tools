@@ -1,34 +1,288 @@
-/**
- * 檢查頁面是否已載入 Google Material Icons，若無則動態載入。
- */
-function checkAndLoadMaterialIcons() {
-    // 檢查字體是否已經被瀏覽器載入 (更可靠的方法)
-    if (document.fonts && document.fonts.check('1em "Material Icons"')) {
-        console.log('Material Icons font already loaded.');
-        return;
-    }
+const defaultKeyMap = {
+    selectCandidate: [' '],
+    commitComposition: ['Enter'],
+    clearComposition: ["'",'Escape'],
+    nextCandidate: ['.', 'ArrowRight'],
+    prevCandidate: [',', 'ArrowLeft'],
+    nextPage: [']', 'PageDown', 'ArrowDown'],
+    prevPage: ['[', 'PageUp', 'ArrowUp'],
+    moveCursorRight: ['>'],
+    moveCursorLeft: ['<'],
+    toggleLongPhrase: ['='],
+    transformTone: ['w'],
+    backspaceWithCandidates: [";"],
+    reverseLookup: ['/']
+};
 
-    // 備用檢查：遍歷樣式表連結
-    const links = document.getElementsByTagName('link');
-    let isLoaded = false;
-    for (let i = 0; i < links.length; i++) {
-        if (links[i].href.includes('fonts.googleapis.com/icon?family=Material+Icons')) {
-            isLoaded = true;
-            break;
+// 客語通用的標點符號對應表
+const hakkaPunctuationMappings = {
+	'x':'， 。 、 ？ ！ ； ： 「」 （） 『』 ── …… ﹏﹏ 〈〉 《》 ＿＿ ． — ～',
+	'xx':'； ： 「」 （） 『』 ── …… ﹏﹏ 〈〉 《》 ＿＿ ． — ～',
+	'xxx':'── …… ﹏﹏ 〈〉 《》 ＿＿ ． — ～',
+	'xxxx':'＿＿ ． — ～',
+	'xd':'、 ．',
+	'xj':'。 ．',
+	'xw':'？',
+	'xt':'！',
+	'xf':'；',
+	'xm':'：',
+	'xy':'「 」 『 』',
+	'xyy':'」 』',
+	'xg':'（　） 〈 〉 《 》',
+	'xgg':'） 〉 》',
+	'xp':'──',
+	'xs':'…… ﹏﹏ 〈 〉 《 》',
+	'xl':'— ～',
+};
+
+// 動態將標點符號對應表，只加入到 targetLanguages 列表指定的字典中
+const targetLanguages = ['kasu', 'sixian', 'hailu', 'dapu', 'raoping', 'sixiannan', 'holo', 'cangjie', 'xiami'];
+targetLanguages.forEach(lang => {
+    if (dictionaries[lang]) {
+        Object.assign(dictionaries[lang], hakkaPunctuationMappings);
+    }
+});
+
+
+
+
+const imeLanguageProperties = {
+    'cangjie': {
+        maxLength: 5,                 // 最大編碼長度
+        longPhraseMode: false,        // 關閉連打功能
+        allowLongPhraseToggle: false, // 不允許使用者切換連打功能 (會隱藏按鈕)
+        enableToneTransform: false,   // 禁用 'w' 拼音轉換鍵
+		spaceActionOnNoCandidates: 'clear', 
+		layoutType: 'narrow',
+		toneType: 'alphabetic',
+        keyMap: {
+            ...defaultKeyMap,
+            selectCandidate: [' '],
+            nextCandidate: ['.', 'ArrowRight', '>'],
+            prevCandidate: [',', 'ArrowLeft', '<'],
+            nextPage: ['PageDown', 'ArrowDown', ']'],
+            prevPage: ['PageUp', 'ArrowUp', '['],
+            moveCursorRight: [],
+            moveCursorLeft: [],
+            toggleLongPhrase: [],
+            transformTone: []
         }
-    }
+    },
+    'xiami': {
+        maxLength: 5,
+        longPhraseMode: false,
+        allowLongPhraseToggle: false,
+        enableToneTransform: false,
+		spaceActionOnNoCandidates: 'clear', 
+		layoutType: 'narrow',
+		toneType: 'alphabetic',
+        keyMap: {
+            ...defaultKeyMap,
+            selectCandidate: [' '],
+            nextCandidate: ['.', 'ArrowRight', '>'],
+            prevCandidate: [',', 'ArrowLeft', '<'],
+            nextPage: ['PageDown', 'ArrowDown', ']'],
+            prevPage: ['PageUp', 'ArrowUp', '['],
+            moveCursorRight: [],
+            moveCursorLeft: [],
+            toggleLongPhrase: [],
+            transformTone: []
+        }
+    },
 
-    // 如果沒有找到，就建立一個 <link> 標籤並插入到 <head>
-    if (!isLoaded) {
-        console.log('Material Icons not found, loading dynamically...');
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'https://fonts.googleapis.com/icon?family=Material+Icons';
-        document.head.appendChild(link);
-    }
-}
+    'hanglie': {
+        maxLength: 5,
+        longPhraseMode: false,
+        allowLongPhraseToggle: false,
+        enableToneTransform: false,
+		spaceActionOnNoCandidates: 'clear',
+		layoutType: 'narrow',
+		toneType: 'alphabetic',
+        keyMap: {
+            ...defaultKeyMap,
+            nextCandidate: ['ArrowRight', '>'],
+            prevCandidate: ['ArrowLeft', '<'],
+            nextPage: ['PageDown', 'ArrowDown', ']'],
+            prevPage: ['PageUp', 'ArrowUp', '['],
+            moveCursorRight: [],
+            moveCursorLeft: [],
+            reverseLookup: [],
+            backspaceWithCandidates: [],
+			transformTone: []
+        }
+    },
+	'pinyin': { 
+        toneType: 'numeric',
+		spaceActionOnNoCandidates: 'clear', 
+		initialConsonants: [ 'zh', 'ch', 'sh', 'b', 'p', 'm', 'f', 'd', 't', 'n', 'l', 'g', 'k', 'h', 'j', 'q', 'x', 'r', 'z', 'c', 's', 'y', 'w' ],
+		keyMap: defaultKeyMap
+    },
+    'kasu': { 
+        toneType: 'alphabetic',
+        toneModes: ['alphabetic', 'numeric'],
+		keyMap: defaultKeyMap,
+		spaceActionOnNoCandidates: 'clear', 
+		initialConsonants: [ 'zh', 'ch', 'sh', 'rh', 'ng', 'bb', 'b', 'p', 'm', 'f', 'v', 'd', 't', 'n', 'l', 'g', 'k', 'h', 'z', 'c', 's' ],
+        numericToneMap: {
+            '2': 'z',
+            '6': 'z',
+            '3': 'v',
+            '4': 's',
+            '7': 'x',
+            '5': 'x'
+
+        }
+    },
+    'sixian': { 
+        toneType: 'numeric',
+        // 定義可用的聲調模式
+        toneModes: ['alphabetic', 'numeric'],
+        // 定義數字到字母聲調的映射表
+		keyMap: defaultKeyMap,
+		spaceActionOnNoCandidates: 'clear', 
+		initialConsonants: [ 'ng', 'b', 'p', 'm', 'f', 'v', 'd', 't', 'n', 'l', 'g', 'k', 'h', 'j', 'q', 'x', 'z', 'c', 's' ],
+        numericToneMap: {
+            '2': 'z',
+            '6': 'z',
+            '3': 'v',
+            '4': 's'
+        }
+    },
+    'hailu': { 
+        toneType: 'numeric',
+        // 定義可用的聲調模式
+        toneModes: ['alphabetic', 'numeric'],  //toneModes: ['alphabetic', 'numeric'],
+        // 定義數字到字母聲調的映射表
+		keyMap: defaultKeyMap,
+		spaceActionOnNoCandidates: 'clear', 
+		initialConsonants: [ 'zh', 'ch', 'sh', 'rh', 'ng', 'b', 'p', 'm', 'f', 'v', 'd', 't', 'n', 'l', 'g', 'k', 'h', 'z', 'c', 's' ],
+        numericToneMap: {
+            '2': 'z',
+            '6': 'z',
+            '3': 'v',
+            '7': 'f',
+            '4': 's'
+        }
+    },
+    'dapu': { 
+        toneType: 'numeric',
+        // 定義可用的聲調模式
+        toneModes: ['alphabetic', 'numeric'],  //toneModes: ['alphabetic', 'numeric'],
+        // 定義數字到字母聲調的映射表
+		keyMap: defaultKeyMap,
+		spaceActionOnNoCandidates: 'clear', 
+		initialConsonants: [ 'zh', 'ch', 'sh', 'rh', 'ng', 'b', 'p', 'm', 'f', 'v', 'd', 't', 'n', 'l', 'g', 'k', 'h', 'z', 'c', 's' ],
+        numericToneMap: {
+            '2': 'z',
+            '6': 'z',
+            '3': 'v',
+            '7': 'f',
+            '5': 'x',
+            '4': 's'
+        }
+    },
+    'raoping': { 
+        toneType: 'numeric',
+        // 定義可用的聲調模式
+        toneModes: ['alphabetic', 'numeric'],  //toneModes: ['alphabetic', 'numeric'],
+        // 定義數字到字母聲調的映射表
+		keyMap: defaultKeyMap,
+		spaceActionOnNoCandidates: 'clear', 
+		initialConsonants: [ 'zh', 'ch', 'sh', 'rh', 'ng', 'b', 'p', 'm', 'f', 'v', 'd', 't', 'n', 'l', 'g', 'k', 'h', 'z', 'c', 's' ],
+        numericToneMap: {
+            '2': 'z',
+            '6': 'z',
+            '3': 'v',
+            '7': 'f',
+            '5': 'x',
+            '4': 's'
+        }
+    },
+    'sixiannan': { 
+        toneType: 'numeric',
+        // 定義可用的聲調模式
+        toneModes: ['alphabetic', 'numeric'],
+        // 定義數字到字母聲調的映射表
+		keyMap: defaultKeyMap,
+		spaceActionOnNoCandidates: 'clear', 
+		initialConsonants: [ 'ng', 'b', 'p', 'm', 'f', 'v', 'd', 't', 'n', 'l', 'g', 'k', 'h', 'j', 'q', 'x', 'z', 'c', 's' ],
+        numericToneMap: {
+            '2': 'z',
+            '6': 'z',
+            '3': 'v',
+            '4': 's'
+        }
+    },
+    'holo': { 
+        toneType: 'numeric',
+        // 定義可用的聲調模式
+        toneModes: ['alphabetic', 'numeric'],  //toneModes: ['alphabetic', 'numeric'],
+        // 定義數字到字母聲調的映射表
+		keyMap: defaultKeyMap,
+		spaceActionOnNoCandidates: 'clear', 
+		initialConsonants: [ 'tsh', 'kh', 'ng', 'ph', 'th', 'ts', 'b', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 's', 't' ],
+        numericToneMap: {
+            '1': '',
+            '2': 'z',
+            '3': 's',
+            '4': '',
+            '5': 'x',
+            '7': 'f',
+            '8': 'l'
+        }
+    },
+};
+
+/**
+ * 聲調定義表
+ * 使用「正則表達式」來定義需要從音節字尾移除的聲調標記。
+ * 這讓規則定義更有彈性，可以同時處理字母和數字聲調。
+ */
+const imeToneMappings = {
+    'pinyin': /[1-5]/,
+    'kasu': /[zvsfxl]$/,
+    'sixian': /[zvs]$/,
+    'hailu': /[zvsf]$/,
+    'dapu': /[zvsxf]$/,
+    'raoping': /[zvsxf]$/,
+    'sixiannan': /[zvs]$/,
+    'holo': /[zvsfxl]$/,
+};
+
+
 
 (function() {
+
+    /**
+     * --- NEW: 強制載入 Google Material Icons ---
+     * 這段程式碼會在 ime.js 被讀取時立即執行，
+     * 以確保在頁面渲染前，圖示字型的 CSS 已經被加入到 <head> 中。
+     */
+    (function forceLoadMaterialIcons() {
+        // 定義一個 ID，用來檢查是否已經手動或透過此腳本加入過 CSS
+        const styleId = 'google-material-icons-stylesheet';
+
+        // 如果頁面上已經存在這個 <link> 標籤，就直接返回，避免重複載入
+        if (document.getElementById(styleId) || document.querySelector('link[href*="Material+Icons"]')) {
+            return;
+        }
+
+        // 建立 <link> 元素並設定屬性
+        const link = document.createElement('link');
+        link.id = styleId;
+        link.rel = 'stylesheet';
+        link.href = 'https://fonts.googleapis.com/icon?family=Material+Icons';
+        
+        // 將 <link> 元素附加到 <head> 的最前面，確保優先載入
+        document.head.insertBefore(link, document.head.firstChild);
+    })();
+
+    const materialIcons = [
+        'emoji_people', 'accessibility', 'accessibility_new', 'directions_run',
+        'directions_walk', 'downhill_skiing', 'sports_martial_arts', 'self_improvement',
+        'skateboarding', 'sledding', 'snowboarding', 'sports_handball', 'surfing'
+    ];
+    const randomIconName = materialIcons[Math.floor(Math.random() * materialIcons.length)];
 
     if (window.WebIME) {
         return;
@@ -37,6 +291,9 @@ function checkAndLoadMaterialIcons() {
     const WebIME = {
 	isInitialized: false,
 	boundGlobalKeyDownHandler: null, 
+	boundEnsureInBounds: null,
+    isPredictionState: false,
+    predictionMap: {},
     defaultKeyMap: window.defaultKeyMap || {},
     activeElement: null,
     boundFocusInHandler: null,
@@ -45,6 +302,7 @@ function checkAndLoadMaterialIcons() {
     candidatesContainer: null, 
     candidatesList: null,
     topBar: null,
+	toastElement: null,
 
     modeDisplayButton: null,
     modeDisplayText: null,
@@ -64,6 +322,7 @@ function checkAndLoadMaterialIcons() {
         candidatesPerPage: 5,       // 每頁顯示的候選字數量
         maxCompositionLength: 30,   // 編碼區最大字元數
         storagePrefix: 'webime_',   // 用於 localStorage 的前綴
+		enablePrediction: false,
     },
     
     isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
@@ -189,6 +448,83 @@ createReverseDictionaries() {
     });
     console.log("Reverse dictionaries created.");
 },
+
+
+/**
+ * 建立聯想詞地圖以優化效能。
+ * 遍歷所有字典，將每個詞拆解成 "前綴" 和 "後續字"，並存儲起來。
+ * 例如：詞 "大家" -> { "大": ["家"] }
+ */
+createPredictionMap() {
+    console.log("Creating prediction maps...");
+    for (const mode in dictionaries) {
+        this.predictionMap[mode] = {};
+        const dictionary = dictionaries[mode];
+        for (const key in dictionary) {
+            const words = dictionary[key].split(' ');
+            for (const word of words) {
+                // 只處理長度大於1的詞彙
+                if (word.length > 1) {
+                    for (let i = 1; i < word.length; i++) {
+                        const prefix = word.substring(0, i);
+                        const suffix = word.substring(i);
+                        if (!this.predictionMap[mode][prefix]) {
+                            this.predictionMap[mode][prefix] = new Set();
+                        }
+                        this.predictionMap[mode][prefix].add(suffix);
+                    }
+                }
+            }
+        }
+        // 將 Set 轉換為 Array 以方便後續使用
+        for (const prefix in this.predictionMap[mode]) {
+            this.predictionMap[mode][prefix] = Array.from(this.predictionMap[mode][prefix]);
+        }
+    }
+    console.log("Prediction maps created.");
+},
+
+/**
+ * 根據給定的前綴詞，從預處理的地圖中尋找聯想詞。
+ * @param {string} prefix - 已送出的文字 (例如 "大" 或 "鴨嫲")
+ * @returns {string[]} - 聯想詞陣列 (例如 ["方", "紅", "風"])
+ */
+findPredictionCandidates(prefix) {
+    if (!prefix || !this.predictionMap[this.currentMode]) {
+        return [];
+    }
+    return this.predictionMap[this.currentMode][prefix] || [];
+},
+
+/**
+ * 從 localStorage 載入聯想詞設定
+ */
+loadPredictionSettings() {
+    const saved = localStorage.getItem(this.config.storagePrefix + 'prediction');
+    this.config.enablePrediction = (saved !== null) ? (saved === 'true') : false;
+
+    if (this.settingsModal) {
+        const checkbox = this.settingsModal.querySelector('#toggle-prediction');
+        if (checkbox) {
+            checkbox.checked = this.config.enablePrediction;
+        }
+    }
+},
+
+/**
+ * 儲存聯想詞設定到 localStorage
+ */
+savePredictionSettings() {
+    const checkbox = this.settingsModal.querySelector('#toggle-prediction');
+    if (checkbox) {
+        this.config.enablePrediction = checkbox.checked;
+        localStorage.setItem(this.config.storagePrefix + 'prediction', this.config.enablePrediction);
+    }
+},
+
+
+
+
     /**
      * 初始化函數接受客製化設定
      * @param {object} userConfig - 使用者傳入的設定物件，可覆寫預設值
@@ -200,9 +536,26 @@ init(userConfig = {}) {
         console.warn("WebIME is already initialized.");
         return;
     }
+/*
+    // --- 更新頁面上的靜態圖示 ---
+    document.title = `${randomIconName} 烏衣行輸入法`;
+    const mainTitle = document.querySelector('h1.title');
+    if (mainTitle) {
+        mainTitle.innerHTML = `<span class="material-icons" style="vertical-align: middle; margin-right: 8px;">${randomIconName}</span>烏衣行輸入法`;
+    }
+    const mainLogo = document.getElementById('logo');
+    if (mainLogo) {
+        mainLogo.textContent = randomIconName;
+        mainLogo.classList.add('material-icons');
+    }
+*/
 
     this.preprocessDictionaries();
     this.createReverseDictionaries();
+    // --- NEW START ---
+    this.createPredictionMap(); // 建立聯想詞地圖
+    // --- NEW END ---
+
     this.config = { ...this.config, ...userConfig };
     this.config.globalMaxCompositionLength = this.config.maxCompositionLength;
 
@@ -220,21 +573,40 @@ init(userConfig = {}) {
     const savedFullWidth = localStorage.getItem(this.config.storagePrefix + 'fullWidth');
     this.isFullWidthMode = (savedFullWidth !== null) ? (savedFullWidth === 'true') : true;
     
-    const savedPosition = localStorage.getItem(this.config.storagePrefix + 'position');
-    this.isPositionRight = savedPosition === 'right';
-
     this.boundReposition = this.reposition.bind(this);
     this.boundHandleInput = this.handleInput.bind(this);
     this.boundHandleKeyDown = this.handleKeyDown.bind(this);
+    this.boundInitDrag = this.initDrag.bind(this);
+    this.boundDragMove = this.dragMove.bind(this);
+    this.boundDragEnd = this.dragEnd.bind(this);
+
+    this.boundEnsureInBounds = this.ensureInBounds.bind(this);
 
     this.loadKeyMapSettings();
     this.loadToolbarSettings();
+    // --- NEW START ---
+    this.loadPredictionSettings(); // 載入聯想詞設定
+    // --- NEW END ---
 
     this.createUI();
     this.loadQuerySettings();
     
-    this.updateToolbarPosition();
+    const pinnedTop = localStorage.getItem(this.config.storagePrefix + 'pinnedTop');
+    const pinnedLeft = localStorage.getItem(this.config.storagePrefix + 'pinnedLeft');
+    if (pinnedTop && pinnedLeft) {
+        this.toolbarContainer.style.top = pinnedTop;
+        this.toolbarContainer.style.left = pinnedLeft;
+        this.toolbarContainer.style.bottom = 'auto';
+        this.toolbarContainer.style.right = 'auto';
+    } else {
+        // 預設位置為左下角
+        this.toolbarContainer.style.left = '10px';
+        this.toolbarContainer.style.right = 'auto';
+    }
+
     this.updateToolbarButtonsVisibility();
+
+    this.updateToneModeButtonUI();
 
     const initialLangProps = imeLanguageProperties[this.currentMode] || {};
     this.config.maxCompositionLength = initialLangProps.maxLength || this.config.globalMaxCompositionLength;
@@ -253,6 +625,7 @@ init(userConfig = {}) {
     this.updatePunctuationButtonUI();
 
     this.attachEventListeners();
+    window.addEventListener('resize', this.boundEnsureInBounds);
 
     this.boundGlobalKeyDownHandler = (e) => {
         if (e.ctrlKey && e.key === '/') {
@@ -284,6 +657,10 @@ destroy() {
     }
     if (this.boundFocusOutHandler) {
         document.removeEventListener("focusout", this.boundFocusOutHandler);
+    }
+
+    if (this.boundEnsureInBounds) {
+        window.removeEventListener('resize', this.boundEnsureInBounds);
     }
 
     // 3. 從 DOM 中移除 UI 元素
@@ -348,17 +725,20 @@ createUI() {
     this.toolbarContainer.className = "web-ime-base";
     this.toolbarContainer.style.position = 'fixed';
     this.toolbarContainer.style.bottom = '10px';
-    // 預設位置由 updateToolbarPosition() 控制
-    // this.toolbarContainer.style.left = '10px';
-    // this.toolbarContainer.style.right = 'auto';
+    // 預設位置由 init() 中的邏輯控制
     this.toolbarContainer.style.top = 'auto';
 
     this.topBar = document.createElement("div");
     this.topBar.id = "web-ime-top-bar";
+    
+    this.topBar.addEventListener('mousedown', this.boundInitDrag);
+    this.topBar.addEventListener('touchstart', this.boundInitDrag, { passive: false });
+
 
     const logo = document.createElement("span");
-    logo.className = "ime-logo";
-    logo.textContent = "🥷";
+    // --- 修改點：使用 material-icons class 和隨機圖示名稱 ---
+    logo.className = "ime-logo material-icons";
+    logo.textContent = randomIconName;
     this.topBar.appendChild(logo);
 
     const modeContainer = document.createElement("div");
@@ -459,15 +839,6 @@ createUI() {
     settingsContainer.appendChild(this.punctuationModeToggleBtn);
     this.topBar.appendChild(settingsContainer);
 
-    // 建立「切換位置」
-    this.positionToggleButton = document.createElement("button");
-    this.positionToggleButton.type = "button";
-    this.positionToggleButton.className = "ime-settings-button";
-    this.positionToggleButton.title = "切換位置";
-    this.positionToggleButton.innerHTML = '<span class="material-icons" style="font-size: 18px;">swap_horiz</span>';
-    this.positionToggleButton.addEventListener('click', () => this.togglePosition());
-    settingsContainer.appendChild(this.positionToggleButton); // 將其加入設定按鈕群組
-
     this.toolbarContainer.appendChild(this.topBar);
     document.body.appendChild(this.toolbarContainer);
 
@@ -567,7 +938,6 @@ createSettingsModal() {
     this.settingsModal.id = 'web-ime-settings-modal';
     this.settingsModal.style.display = 'none';
 
-    // 點擊背景遮罩時關閉視窗
     this.settingsModal.addEventListener('click', (e) => {
         if (e.target === this.settingsModal) {
             this.settingsModal.style.display = 'none';
@@ -577,26 +947,48 @@ createSettingsModal() {
     const modalContent = document.createElement('div');
     modalContent.className = 'modal-content';
 
-    // --- 視窗標題與關閉按鈕 ---
     const modalHeader = document.createElement('div');
     modalHeader.className = 'modal-header';
-    modalHeader.innerHTML = '<h3>輸入法設定</h3>';
+    modalHeader.innerHTML = `<h3><span class="material-icons" style="vertical-align: bottom; margin-right: 8px;">${randomIconName}</span>烏衣行輸入法設定</h3>`;
     const closeBtn = document.createElement('button');
     closeBtn.className = 'close-button';
     closeBtn.innerHTML = '&times;';
-    closeBtn.onclick = () => { this.settingsModal.style.display = 'none'; };
+    closeBtn.onclick = () => { this.settingsModal.style.display = 'none'; }; 
     modalHeader.appendChild(closeBtn);
     modalContent.appendChild(modalHeader);
 
     const modalBody = document.createElement('div');
     modalBody.className = 'modal-body';
 
+    // --- NEW START ---
+    const featureSettingsSection = document.createElement('div');
+    featureSettingsSection.className = 'settings-section';
+    featureSettingsSection.innerHTML = '<h4>功能設定</h4>';
+    const featureContainer = document.createElement('div');
+    featureContainer.className = 'query-options-container';
+
+    const predictionLabel = document.createElement('label');
+    const predictionCheckbox = document.createElement('input');
+    predictionCheckbox.type = 'checkbox';
+    predictionCheckbox.id = 'toggle-prediction';
+    predictionCheckbox.checked = this.config.enablePrediction;
+    predictionCheckbox.onchange = () => this.savePredictionSettings();
+    predictionLabel.appendChild(predictionCheckbox);
+    predictionLabel.appendChild(document.createTextNode(' 啟用聯想詞'));
+    featureContainer.appendChild(predictionLabel);
+
+    featureSettingsSection.appendChild(featureContainer);
+    modalBody.appendChild(featureSettingsSection);
+    // --- NEW END ---
+
     const toolbarSettingsSection = document.createElement('div');
     toolbarSettingsSection.className = 'settings-section';
     toolbarSettingsSection.innerHTML = '<h4>工具列按鈕顯示</h4>';
     const buttonsContainer = document.createElement('div');
     buttonsContainer.className = 'query-options-container'; 
-    const buttonOptions = { 'toneMode': '字母/數字', 'longPhrase': '連打/拼音首', 'punctuation': '全形/半形', 'position': '切換位置' };
+    
+    const buttonOptions = { 'toneMode': '字母/數字', 'longPhrase': '連打/拼音首', 'punctuation': '全形/半形' };
+
     for (const key in buttonOptions) {
         const labelText = buttonOptions[key];
         const label = document.createElement('label');
@@ -628,26 +1020,20 @@ createSettingsModal() {
     
     const finalKeyMap = { ...defaultKeyMap, ...this.config.userKeyMap };
 
-    // *** 這是主要的修改區域 ***
     for (const action in configurableKeys) {
         const labelText = configurableKeys[action];
         
-        // 建立一個容器 div 來取代原本的 label
         const settingRow = document.createElement('div');
-        settingRow.className = 'keymap-setting-row'; // 給予新 class 以便設定樣式
+        settingRow.className = 'keymap-setting-row';
 
-        // 建立 checkbox
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.checked = true; // 預設勾選
-        // checkbox.disabled = true; // 如果只是顯示用，可以禁用它
+        checkbox.checked = true;
 
-        // 建立文字標籤 (使用 span)
         const labelSpan = document.createElement('span');
         labelSpan.className = 'keymap-label-text';
         labelSpan.textContent = `${labelText}：`;
         
-        // 建立設定按鍵的 input 格子
         const input = document.createElement('input');
         input.type = 'text';
         input.id = `key-${action}`;
@@ -657,7 +1043,6 @@ createSettingsModal() {
         input.dataset.key = currentKey;
         input.readOnly = true;
         
-        // 將新的元件組合起來
         settingRow.appendChild(checkbox);
         settingRow.appendChild(labelSpan);
         settingRow.appendChild(input);
@@ -672,8 +1057,9 @@ createSettingsModal() {
     querySettingsSection.innerHTML = '<h4>字根反查</h4>';
     const optionsContainer = document.createElement('div');
     optionsContainer.className = 'query-options-container';
-    for (const mode in dictionaries) {
-        if (this.reverseDicts[mode] && Object.keys(this.reverseDicts[mode]).length > 0) {
+
+    for (const mode in this.reverseDicts) {
+        if (Object.keys(this.reverseDicts[mode]).length > 0) {
             const displayName = this.getModeDisplayName(mode);
             const label = document.createElement('label');
             const checkbox = document.createElement('input');
@@ -686,6 +1072,17 @@ createSettingsModal() {
             optionsContainer.appendChild(label);
         }
     }
+    
+    const unicodeLabel = document.createElement('label');
+    const unicodeCheckbox = document.createElement('input');
+    unicodeCheckbox.type = 'checkbox';
+    unicodeCheckbox.id = 'query-unicode';
+    unicodeCheckbox.value = 'unicode';
+    unicodeCheckbox.onchange = () => this.saveQuerySettings();
+    unicodeLabel.appendChild(unicodeCheckbox);
+    unicodeLabel.appendChild(document.createTextNode(' Unicode'));
+    optionsContainer.appendChild(unicodeLabel);
+
     querySettingsSection.appendChild(optionsContainer);
     modalBody.appendChild(querySettingsSection);
 
@@ -736,15 +1133,25 @@ Ctrl+/ 可快速啟用/停用輸入法。`;
     });
 
     resetButton.addEventListener('click', () => {
-        if (confirm('確定要重設所有設定嗎？此操作將會清除所有自訂選項並重新載入頁面。')) {
-            Object.keys(localStorage).forEach(key => {
-                if (key.startsWith(this.config.storagePrefix)) {
-                    localStorage.removeItem(key);
-                }
-            });
-            alert('設定已重設，頁面將會重新載入。');
-            location.reload();
-        }
+        this.settingsModal.style.display = 'none';
+        
+        this.showCustomConfirm(
+            '確定要重設所有設定嗎？<br>此操作將會清除所有自訂選項。',
+            () => {
+                
+                Object.keys(localStorage).forEach(key => {
+                    if (key.startsWith(this.config.storagePrefix)) {
+                        localStorage.removeItem(key);
+                    }
+                });
+
+                this.showToast('設定已重設，頁面即將重新載入。', 2000);
+
+                setTimeout(() => {
+                    location.reload();
+                }, 1500); 
+            }
+        );
     });
 },
 
@@ -785,8 +1192,14 @@ loadQuerySettings() {
                 checkbox.checked = !!settings[lang];
             }
         }
+        // 額外處理 Unicode 選項的勾選狀態
+        const unicodeCheckbox = this.settingsModal.querySelector('#query-unicode');
+        if (unicodeCheckbox) {
+            unicodeCheckbox.checked = !!settings['unicode'];
+        }
     }
 },
+
 
 
 /**
@@ -1010,21 +1423,50 @@ handleInput(e) {
     if (currentVal.length > this.lastInputValue.length) {
         let diff = currentVal.substring(this.lastInputValue.length);
 
-        // 【主要修改點】
+        // 【新增的程式碼】開始
+        // 透過正規表達式判斷輸入的字元是否為 ASCII 字元 (標準英數鍵盤上的字元)
+        const isAsciiRegex = /^[ -~]*$/;
+        // 如果輸入的不是 ASCII 字元 (例如：漢字、日文、表情符號等)
+        if (!isAsciiRegex.test(diff)) {
+            // 將其視為原生輸入法 (手寫、語音等) 的直接輸出
+            // 我們只需接受這個輸入，並同步輸入法的內部狀態即可
+            this.lastInputValue = currentVal;
+
+            // 如果我們的輸入法剛好有編碼在，也一併清除，避免狀態混亂
+            if (this.compositionBuffer) {
+                this.compositionBuffer = '';
+                this.compositionCursorPos = 0;
+                this.updateCandidates();
+            }
+            // 結束函式，不再將漢字等字元當作 "編碼" 處理
+            return;
+        }
+        // 【新增的程式碼】結束
+
+        // 【已整合的舊有修正】處理 Enter 換行符
+        if (diff.includes('\n')) {
+            this.lastInputValue = currentVal;
+            return;
+        }
+        
+        // 【關鍵修改】使用 this.getCurrentToneMode() 判斷當前有效模式
+        const isNumericInput = /^[0-9]$/.test(diff);
+        if (isNumericInput && this.getCurrentToneMode() === 'alphabetic' && !this.compositionBuffer) {
+            this.lastInputValue = currentVal; // 同步狀態
+            return; // 結束函式，讓數字留在輸入框中
+        }
+
+
         // 當輸入的是空白鍵時，進行特別處理
         if (diff === ' ') {
             const hasBuffer = this.compositionBuffer.length > 0;
             const hasCandidates = this.allCandidates.length > 0;
 
-            // 情況 3: 如果編碼區是空的，這就是一個普通的空白字元。
-            // 我們只需更新 lastInputValue，然後結束函數，讓空白留在編輯器中。
             if (!hasBuffer) {
                 this.lastInputValue = currentVal;
                 return;
             }
 
-            // 如果程式執行到這裡，代表編碼區不是空的，
-            // 所以空白鍵是一個「指令」，必須先從編輯區移除。
             const restoreVal = this.lastInputValue;
             if (target.isContentEditable) {
                 target.textContent = restoreVal;
@@ -1045,19 +1487,15 @@ handleInput(e) {
             }
             this.lastInputValue = restoreVal;
 
-            // 現在根據情況執行對應的「指令」
-            // 情況 1: 有候選字，執行「選字」
             if (hasCandidates) {
                 this.selectCandidate(this.highlightedIndex);
             } 
-            // 情況 2: 有編碼但無候選字，執行「清除編碼」
             else {
                 this.compositionBuffer = '';
                 this.compositionCursorPos = 0;
-                this.updateCandidates(); // 更新UI以清空編碼區
+                this.updateCandidates();
             }
             
-            // 處理完畢，直接返回
             return;
         }
 
@@ -1067,10 +1505,8 @@ handleInput(e) {
         const isNumberSelect = currentToneMode === 'alphabetic' && diff.match(/^[1-9]$/) && hasComposition;
         const isWTransform = diff.toLowerCase() === 'w' && this.compositionBuffer;
 
-        // 如果觸發了任何其他特殊功能（數字選字、w 轉換）
         if (isNumberSelect || isWTransform) {
             
-            // 步驟 1: 立刻還原輸入框的內容，吃掉剛剛輸入的特殊字元
             const restoreVal = this.lastInputValue;
             if (target.isContentEditable) {
                 target.textContent = restoreVal;
@@ -1089,9 +1525,8 @@ handleInput(e) {
                 target.value = restoreVal;
                 target.setSelectionRange(originalSelectionStart - diff.length, originalSelectionStart - diff.length);
             }
-            this.lastInputValue = restoreVal; // 同步 lastInputValue
+            this.lastInputValue = restoreVal; 
 
-            // 步驟 2: 在乾淨的狀態下，執行對應的功能
             if (isNumberSelect) {
                 const index = parseInt(diff, 10) - 1;
                 if (index < this.candidatesList.children.length) {
@@ -1121,11 +1556,9 @@ handleInput(e) {
                     this.updateCandidates();
                 }
             }
-            return; // 任務完成，結束函數
+            return;
         }
         
-        // (如果不是特殊功能鍵，則執行正常的編碼輸入邏輯)
-        const langProps = imeLanguageProperties[this.currentMode] || {};
         const isNumericToneMode = currentToneMode === 'numeric' && langProps.numericToneMap;
 
         if (isNumericToneMode && diff.match(/^[0-9]$/)) {
@@ -1220,6 +1653,14 @@ findPhraseCandidates(buffer) {
 
 
 handleKeyDown(e) {
+    // 當模式不是行列，且候選字容器未顯示時，才將 ; 轉為全形；
+    if (this.currentMode !== 'hanglie' && e.key === ';' && (!this.candidatesContainer || this.candidatesContainer.style.display === 'none')) {
+        if (this.isFullWidthMode) {
+            e.preventDefault();
+            this.commitText('；');
+            return;
+        }
+    }
     if (e.isComposing || e.keyCode === 229) return;
     if (e.ctrlKey || e.altKey || e.metaKey) return;
 
@@ -1253,28 +1694,14 @@ handleKeyDown(e) {
 
     const action = reverseKeyMap[e.key];
 
-    // --- 【修改核心】---
-    // 只有在 action 存在時才進行處理
     if (action) {
-        // 如果是 Enter 鍵 (commitComposition)，但沒有任何輸入編碼，
-        // 則直接 return，不做任何事，讓瀏覽器執行預設的換行行為。
-        if (action === 'commitComposition' && !hasComposition) {
-            return;
-        }
-
-        // 對於其他情況，或 Enter 鍵在有輸入編碼時，才阻止預設行為。
-        // 特殊情況：backspaceWithCandidates 在沒有編碼時不阻止
-        if (action === 'backspaceWithCandidates' && !hasComposition) {
-            // 不做任何事，讓按鍵事件繼續
-        } else {
-            e.preventDefault();
-        }
-
         switch (action) {
             case 'selectCandidate':
                 if (hasCandidates) {
+                    e.preventDefault();
                     this.selectCandidate(this.highlightedIndex);
                 } else if (hasComposition) {
+                    e.preventDefault();
                     const actionOnNoCandidates = langProps.spaceActionOnNoCandidates || 'commit';
                     if (actionOnNoCandidates === 'clear') {
                         this.compositionBuffer = '';
@@ -1290,108 +1717,161 @@ handleKeyDown(e) {
                 return;
             
             case 'commitComposition':
-                 // 由於上面的檢查，這裡的 hasComposition 必定為 true
-                 this.commitText(this.compositionBuffer);
-                 this.compositionBuffer = '';
-                 this.compositionCursorPos = 0;
-                 this.updateCandidates();
-                 return;
-
-            case 'clearComposition':
-                if (hasComposition) {
+                 if (hasComposition) { // 只有在有輸入碼時才攔截 Enter
+                    e.preventDefault();
+                    this.commitText(this.compositionBuffer);
                     this.compositionBuffer = '';
                     this.compositionCursorPos = 0;
                     this.updateCandidates();
+                    return;
+                 }
+                 break;
+
+            case 'clearComposition':
+                if (hasComposition || hasCandidates) {
+                    e.preventDefault();
+                    this.compositionBuffer = '';
+                    this.compositionCursorPos = 0;
+                    this.updateCandidates();
+                    return;
                 }
-                return;
+                break;
             
+            // 【修改重點】: 為 backspaceWithCandidates 加入聯想詞模式的判斷
             case 'backspaceWithCandidates':
+                e.preventDefault();
                 if (hasComposition) {
-                     if (this.compositionCursorPos > 0) {
+                    // 如果有編碼，行為是刪除一個字元
+                    if (this.compositionCursorPos > 0) {
                         const buffer = this.compositionBuffer;
                         const pos = this.compositionCursorPos;
                         this.compositionBuffer = buffer.substring(0, pos - 1) + buffer.substring(pos);
                         this.compositionCursorPos--;
                         this.updateCandidates();
                     }
+                } else if (this.isPredictionState) {
+                    // 如果沒有編碼，但處於聯想詞模式，行為是退出聯想詞模式
+                    this.isPredictionState = false;
+                    this.lastCommittedWord = '';
+                    this.updateCandidates(); // 這將會因為 buffer 為空而自動關閉候選容器
                 }
                 return;
             
             case 'reverseLookup':
-                if (this.isQueryMode) {
-                    this.exitQueryMode(false);
-                } else if (hasCandidates && !['cangjie', 'xiami'].includes(this.currentMode)) {
-                    this.enterQueryMode();
+                if (this.isQueryMode || hasCandidates) {
+                    e.preventDefault();
+                    if (this.isQueryMode) {
+                        this.exitQueryMode(false);
+                    } else if (!['cangjie', 'xiami'].includes(this.currentMode)) {
+                        this.enterQueryMode();
+                    }
+                    return;
                 }
-                return;
+                break;
 
             case 'nextCandidate':
-                if (hasCandidates) this.navigateCandidates(1);
-                return;
+                if (hasCandidates) {
+                    e.preventDefault();
+                    this.navigateCandidates(1);
+                    return; 
+                }
+                break; 
             case 'prevCandidate':
-                if (hasCandidates) this.navigateCandidates(-1);
-                return;
+                if (hasCandidates) {
+                    e.preventDefault();
+                    this.navigateCandidates(-1);
+                    return; 
+                }
+                break; 
+
             case 'nextPage':
-                if (hasCandidates) this.changePage(1);
-                return;
+                if (hasCandidates) {
+                    e.preventDefault();
+                    this.changePage(1);
+                    return;
+                }
+                break;
+
             case 'prevPage':
-                if (hasCandidates) this.changePage(-1);
-                return;
+                if (hasCandidates) {
+                    e.preventDefault();
+                    this.changePage(-1);
+                    return;
+                }
+                break;
+
             case 'moveCursorLeft':
-                 if (hasComposition && this.compositionCursorPos > 0) this.compositionCursorPos--;
-                 this.updateCompositionDisplay();
-                 return;
+                if (hasComposition) {
+                    e.preventDefault();
+                    if (this.compositionCursorPos > 0) this.compositionCursorPos--;
+                    this.updateCompositionDisplay();
+                    return;
+                }
+                break;
+
             case 'moveCursorRight':
-                 if (hasComposition && this.compositionCursorPos < this.compositionBuffer.length) this.compositionCursorPos++;
-                 this.updateCompositionDisplay();
-                 return;
+                if (hasComposition) {
+                    e.preventDefault();
+                    if (this.compositionCursorPos < this.compositionBuffer.length) this.compositionCursorPos++;
+                    this.updateCompositionDisplay();
+                    return;
+                }
+                break;
+
             case 'toggleLongPhrase':
-                this.toggleLongPhraseMode();
-                return;
+                if (hasComposition) {
+                    e.preventDefault();
+                    this.toggleLongPhraseMode();
+                    return;
+                }
+                break;
+            
             case 'transformTone':
-                const isTransformEnabled = langProps.enableToneTransform !== false;
-                if (hasComposition && isTransformEnabled) {
-                    let transformedText = this.compositionBuffer;
-                    if (window.imeToneTransformFunctions && typeof window.imeToneTransformFunctions[this.currentMode] === 'function') {
-                        transformedText = window.imeToneTransformFunctions[this.currentMode](transformedText);
-                    } else {
-                        let rules = (window.imeToneTransformRules || {})[this.currentMode];
-                        if (rules && rules.length > 0) {
-                            for (const rule of rules) {
-                                const regex = new RegExp(rule[0][0], rule[0][1]);
-                                transformedText = transformedText.replace(regex, rule[1]);
+                if (hasComposition) {
+                    const isTransformEnabled = langProps.enableToneTransform !== false;
+                    if (isTransformEnabled) {
+                        e.preventDefault();
+                        let transformedText = this.compositionBuffer;
+                        if (window.imeToneTransformFunctions && typeof window.imeToneTransformFunctions[this.currentMode] === 'function') {
+                            transformedText = window.imeToneTransformFunctions[this.currentMode](transformedText);
+                        } else {
+                            let rules = (window.imeToneTransformRules || {})[this.currentMode];
+                            if (rules && rules.length > 0) {
+                                for (const rule of rules) {
+                                    const regex = new RegExp(rule[0][0], rule[0][1]);
+                                    transformedText = transformedText.replace(regex, rule[1]);
+                                }
                             }
                         }
+                        this.commitText(transformedText);
+                        this.compositionBuffer = '';
+                        this.compositionCursorPos = 0;
+                        this.updateCandidates();
                     }
-                    this.commitText(transformedText);
-                    this.compositionBuffer = '';
-                    this.compositionCursorPos = 0;
-                    this.updateCandidates();
                 }
                 return;
         }
     }
     
-    // --- 【修改說明】---
-    // 以下的標點符號與輸入邏輯維持不變
     if (this.isFullWidthMode && !hasComposition) {
         const fullWidthPunctuation = {
-            ',': '，', '.': '。', '?': '？', ';': '；', ':': '：', "'": '、', '[': '「', ']': '」', '{': '『', '}': '』', '!': '！', '-': '─', '(': '（', ')': '）', '~': '～', '/': '？', '<': '〈', '>': '〉', '_': '＿', '"': '…', '\\': '【】', '|': '《》'
+            ',': '，', '.': '。', '?': '？', ':': '：', "'": '、', '[': '「', ']': '」', '{': '『', '}': '』', '!': '！', '-': '─', '(': '（', ')': '）', '~': '～', '<': '〈', '>': '〉', '_': '＿', '"': '…', '\\': '【】', '|': '《》', '\;': 'X'
         };
         const fullWidthChar = fullWidthPunctuation[e.key];
-        if (fullWidthChar) {
+
+        if (fullWidthChar && !(this.currentMode === 'hanglie' && [',', '.', ';', '/'].includes(e.key))) {
             e.preventDefault();
             this.commitText(fullWidthChar);
             return;
         }
     }
 
-    if (hasComposition && hasCandidates) {
+    if (hasCandidates) {
         const currentToneMode = this.getCurrentToneMode();
         if (currentToneMode === 'alphabetic' && e.key >= '1' && e.key <= '9') {
+            e.preventDefault();
             const index = parseInt(e.key, 10) - 1;
             if (index < this.candidatesList.children.length) {
-                e.preventDefault();
                 this.selectCandidate(index);
                 return;
             }
@@ -1410,18 +1890,32 @@ handleKeyDown(e) {
     }
 
     if (e.key === 'Backspace') {
-        if (hasComposition && this.compositionCursorPos > 0) {
+        if (hasComposition) {
             e.preventDefault();
-            const buffer = this.compositionBuffer;
-            const pos = this.compositionCursorPos;
-            this.compositionBuffer = buffer.substring(0, pos - 1) + buffer.substring(pos);
-            this.compositionCursorPos--;
-            this.updateCandidates();
+            if (this.compositionCursorPos > 0) {
+                const buffer = this.compositionBuffer;
+                const pos = this.compositionCursorPos;
+                this.compositionBuffer = buffer.substring(0, pos - 1) + buffer.substring(pos);
+                this.compositionCursorPos--;
+                this.updateCandidates();
+            }
         }
         return;
     }
     
+    const isNumericKey = /^[0-9]$/.test(e.key);
+    if (isNumericKey && this.getCurrentToneMode() === 'alphabetic' && !hasComposition) {
+        return;
+    }
+
+
+    if (e.key === '+' || e.key === '=' ) {
+        return;
+    }
+
+    
     if (!this.isMobile && e.key.length === 1 && !reverseKeyMap[e.key]) {
+        e.preventDefault();
         let character = e.key;
         const currentToneMode = this.getCurrentToneMode();
         const isNumericToneMode = currentToneMode === 'numeric' && langProps.numericToneMap;
@@ -1430,7 +1924,6 @@ handleKeyDown(e) {
             character = langProps.numericToneMap[character] || character;
         }
 
-        e.preventDefault();
         if (this.compositionBuffer.length < this.config.maxCompositionLength) {
             const buffer = this.compositionBuffer;
             const pos = this.compositionCursorPos;
@@ -1442,7 +1935,6 @@ handleKeyDown(e) {
 },
 
 
-
 getCurrentToneMode() {
     const langProps = imeLanguageProperties[this.currentMode] || {};
     const defaultToneMode = langProps.toneType || (langProps.toneModes && langProps.toneModes[0]) || 'alphabetic';
@@ -1451,12 +1943,15 @@ getCurrentToneMode() {
 
 updateToneModeButtonUI() {
     const langProps = imeLanguageProperties[this.currentMode] || {};
+    // 檢查該語言屬性中是否有 toneModes 陣列且長度大於 1
     if (langProps.toneModes && langProps.toneModes.length > 1) {
+        // 如果有，就顯示按鈕並更新文字
         this.toneModeToggleBtn.style.display = '';
         const currentSetting = this.getCurrentToneMode();
         const modeText = currentSetting === 'numeric' ? '調ˇ' : 'źv̌s̀';
         this.toneModeToggleBtn.textContent = `${modeText}`;
     } else {
+        // 如果沒有 (例如倉頡、蝦米)，則隱藏按鈕
         this.toneModeToggleBtn.style.display = 'none';
     }
 },
@@ -1478,10 +1973,17 @@ toggleToneMode() {
     this.updateToneModeButtonUI();
 
     if (this.activeElement) this.activeElement.focus();
+
+    const modeText = newMode === 'numeric' ? '數字模式' : '字母模式';
+    this.showToast(modeText);
 },
 
-// 請用此新版函數完整取代舊的 updateCandidates 函數
 updateCandidates() {
+    // 任何時候更新候選字 (代表使用者正在輸入新編碼)，都應結束聯想詞狀態
+    this.isPredictionState = false;
+    this.lastCommittedWord = '';
+    // --- NEW END ---
+
     const activeBuffer = this.compositionBuffer.substring(0, this.compositionCursorPos).toLowerCase();
 
     this.updateUIState();
@@ -1496,8 +1998,6 @@ updateCandidates() {
     let candidates = [];
 
     // --- 核心邏輯 ---
-
-    // 1. 尋找完全符合當前完整編碼 (activeBuffer) 的候選字
     const exactResult = dictionary[activeBuffer];
     if (exactResult) {
         exactResult.split(' ').forEach(word => {
@@ -1505,7 +2005,6 @@ updateCandidates() {
         });
     }
 
-    // 2. 根據模式尋找其他候選字 (例如：連打、簡拼、前綴)
     if (this.isLongPhraseEnabled) {
         this.findPhraseCandidates(activeBuffer).forEach(word => {
             candidates.push({ word: word, consumed: activeBuffer });
@@ -1522,29 +2021,19 @@ updateCandidates() {
         });
     }
 
-    // 3. 在長詞模式下，尋找最長有效前綴的候選字作為「後備選項」
     if (this.isLongPhraseEnabled && activeBuffer.length > 1) {
         for (let i = activeBuffer.length - 1; i > 0; i--) {
             const prefix = activeBuffer.substring(0, i);
-            // 檢查這個前綴本身是否是一個有效的編碼 (存在於字典中)
             if (dictionary[prefix]) {
-                // 【修正點】
-                // 直接從字典取用該前綴的候選字，確保精確匹配
-                // 而不是使用會包含其他開頭相同編碼的 findSimplePrefixCandidates
                 const prefixCandidates = dictionary[prefix].split(' ');
-                
                 prefixCandidates.forEach(word => {
-                    // 標記這些候選字只消耗了前綴的部分
                     candidates.push({ word: word, consumed: prefix });
                 });
-                
-                // 找到最長的前綴後就停止，避免產生過多不相關的結果
                 break;
             }
         }
     }
 
-    // 4. 移除重複的候選字 (以 word 為基準)，並保留最先出現的
     const uniqueCandidates = new Map();
     candidates.forEach(c => {
         if (!uniqueCandidates.has(c.word)) {
@@ -1553,7 +2042,6 @@ updateCandidates() {
     });
 
     this.allCandidates = Array.from(uniqueCandidates.values());
-
     this.currentPage = 0;
     this.highlightedIndex = 0;
     this.renderCandidates();
@@ -1697,33 +2185,61 @@ commitText(text) {
 
 selectCandidate(indexOnPage) {
     const wasInQueryMode = this.isQueryMode;
-    const selectedCandidate = this.allCandidates[this.currentPage * this.config.candidatesPerPage + indexOnPage];
+    const startIndex = this.currentPage * this.config.candidatesPerPage;
+    const selectedCandidate = this.allCandidates[startIndex + indexOnPage];
     if (!selectedCandidate) return;
 
-    // 從候選物件中取得要上屏的文字和消耗的編碼
     const selectedWord = selectedCandidate.word;
-    const consumedBuffer = selectedCandidate.consumed;
+    const consumedBuffer = this.isPredictionState ? selectedWord : selectedCandidate.consumed;
 
     this.commitText(selectedWord);
 
+    // --- 聯想詞處理邏輯 ---
+    if (this.config.enablePrediction && !wasInQueryMode) {
+        // 如果是從聯想詞列表選擇，則將已選文字累加，繼續尋找下一層聯想
+        const searchPrefix = this.isPredictionState 
+            ? (this.lastCommittedWord || '') + selectedWord 
+            : selectedWord;
+
+        const predictions = this.findPredictionCandidates(searchPrefix);
+        this.lastCommittedWord = searchPrefix; // 更新最後送出的詞
+
+        if (predictions.length > 0) {
+            this.isPredictionState = true;
+            this.compositionBuffer = ''; // 清空編碼區
+            this.compositionCursorPos = 0;
+            // 將聯想詞格式化為候選字物件
+            this.allCandidates = predictions.map(p => ({ word: p, consumed: p }));
+            this.currentPage = 0;
+            this.highlightedIndex = 0;
+            
+            // 【修改重點】: 在此處手動更新 UI 狀態
+            this.updateCompositionDisplay(); // 更新游標與編碼區顯示 (會清空)
+            this.renderCandidates();         // 渲染新的聯想詞
+            this.updateUIState();            // 根據新邏輯確保容器在編碼為空時依然可見
+            this.reposition();
+            return; // 結束函數，停在聯想詞畫面
+        }
+    }
+    
+    // --- 如果未啟用聯想詞或找不到聯想詞，執行原始邏輯 ---
+    this.isPredictionState = false;
+    this.lastCommittedWord = ''; // 重設
+
     if (wasInQueryMode) {
-        this.isQueryMode = false;
-        this.queriedWord = '';
-        this.originalState = null;
+        this.exitQueryMode(false);
         this.compositionBuffer = '';
         this.compositionCursorPos = 0;
-        this.updateCandidates();
     } else {
-        // 使用 consumedBuffer 的長度來計算剩餘的編碼
         const remainingBuffer = this.compositionBuffer.substring(consumedBuffer.length);
         this.compositionBuffer = remainingBuffer;
         this.compositionCursorPos = remainingBuffer.length;
+    }
 
-        if (this.activeElement && this.activeElement.isContentEditable) {
-            setTimeout(() => this.updateCandidates(), 0);
-        } else {
-            this.updateCandidates();
-        }
+    if (this.activeElement && this.activeElement.isContentEditable) {
+        setTimeout(() => this.updateCandidates(), 0);
+    } else {
+        this.updateCandidates();
     }
 },
 
@@ -1750,20 +2266,20 @@ updateCompositionDisplay() {
 
 
 updateUIState() {
-    // 如果編碼區有內容，則顯示整個候選字容器
-    if (this.compositionBuffer) {
+    // 【修改重點】: 加入 this.allCandidates.length > 0 的判斷
+    // 確保在有聯想詞 (此時 compositionBuffer 為空) 的情況下，候選容器不會被隱藏
+    if (this.compositionBuffer || this.allCandidates.length > 0) {
         this.candidatesContainer.style.display = 'flex';
         if (this.compositionDisplay) {
-            this.compositionDisplay.style.display = 'block';
+            // 僅在有編碼時才顯示編碼區，聯想詞模式下會自動隱藏
+            this.compositionDisplay.style.display = this.compositionBuffer ? 'block' : 'none';
         }
         // 【新邏輯】控制查詢按鈕的顯示
         // 只有當有候選字且不支援倉頡、蝦米反查時才顯示
         const showQueryButton = this.allCandidates.length > 0 && !['cangjie', 'xiami'].includes(this.currentMode);
         this.queryBtn.style.display = showQueryButton ? 'flex' : 'none';
 
-    } 
-    // 如果編碼區是空的，則隱藏整個候選字容器
-    else {
+    } else {
         this.candidatesContainer.style.display = 'none';
         if (this.compositionDisplay) {
             this.compositionDisplay.style.display = 'none';
@@ -1838,6 +2354,17 @@ enterQueryMode() {
     const enabledLangs = this.config.querySettings || {};
 
     chars.forEach(char => {
+        // --- 【新增的程式碼】 ---
+        // 優先處理 Unicode 查詢
+        if (enabledLangs.unicode) {
+            // .codePointAt(0) 可以正確處理擴充字元 (如：𠊎)
+            // .toString(16) 轉換為十六進位
+            // .toUpperCase() 轉為大寫
+            const codePoint = char.codePointAt(0).toString(16).toUpperCase();
+            queryResults.push(`[U] ${char} ${codePoint}`);
+        }
+        // --- 【新增結束】 ---
+
         for (const lang in enabledLangs) {
             // 如果該語言在設定中是啟用的，並且反查字典存在
             if (enabledLangs[lang] && this.reverseDicts[lang]) {
@@ -1936,7 +2463,7 @@ togglePinMode() {
 
 toggleIsEnabled() {
     this.isEnabled = !this.isEnabled;
-    
+
     if (this.toolbarContainer) {
         this.toolbarContainer.classList.toggle('disabled', !this.isEnabled);
     }
@@ -1951,32 +2478,14 @@ toggleIsEnabled() {
             }
         }
     }
-    
-    // *** 新增的修改點 ***
-    // 如果是切換為「停用」狀態，則清除候選字並隱藏候選字容器
+
     if (!this.isEnabled) {
-        this.clearCandidates(); // 這會自動隱藏候選字容器
+        this.clearCandidates(); 
     }
 
-
+    // 使用新的 showToast 函數來顯示提示
     const status = this.isEnabled ? "已啟用" : "已停用";
-    const toast = document.createElement('div');
-    toast.style.cssText = `
-        position: fixed; 
-        top: 50%; 
-        left: 50%; 
-        transform: translate(-50%, -50%); 
-        background: rgba(0,0,0,0.75); 
-        color: white; 
-        padding: 12px 24px; 
-        border-radius: 8px; 
-        z-index: 10001; 
-        font-size: 16px;
-        pointer-events: none;
-    `;
-    toast.textContent = `輸入法 ${status}`;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 1200);
+    this.showToast(`輸入法 ${status}`);
 },
 
 toggleLongPhraseMode() {
@@ -1985,22 +2494,18 @@ toggleLongPhraseMode() {
     this.longPhraseToggleBtn.classList.toggle('active', this.isLongPhraseEnabled);
     this.updateCandidates();
     if (this.activeElement) this.activeElement.focus();
+    const modeText = this.isLongPhraseEnabled ? '長詞連打' : '首音縮打';
+    this.showToast(modeText);
 },
-
-toggleLongPhraseMode() {
-    this.isLongPhraseEnabled = !this.isLongPhraseEnabled;
-    localStorage.setItem(this.config.storagePrefix + 'longPhrase', this.isLongPhraseEnabled);
-    this.longPhraseToggleBtn.classList.toggle('active', this.isLongPhraseEnabled);
-    this.updateCandidates();
-    if (this.activeElement) this.activeElement.focus();
-},
-
 
 togglePunctuationMode() {
     this.isFullWidthMode = !this.isFullWidthMode;
     localStorage.setItem(this.config.storagePrefix + 'fullWidth', this.isFullWidthMode);
     this.updatePunctuationButtonUI();
     if (this.activeElement) this.activeElement.focus();
+
+    const modeText = this.isFullWidthMode ? '全形標點' : '半形標點';
+    this.showToast(modeText);
 },
 
 
@@ -2216,7 +2721,7 @@ hide() {
 },
 
 getModeDisplayName(mode) {
-    const names = { 'pinyin': '拼音', 'kasu': '詔安', 'sixian': '四縣', 'hailu': '海陸' , 'dapu': '大埔' , 'raoping': '饒平' , 'sixiannan': '南四' ,'holo': '和樂', 'cangjie': '倉頡', 'xiami': '蝦米' };
+    const names = { 'pinyin': '拼音', 'kasu': '詔安', 'sixian': '四縣', 'hailu': '海陸' , 'dapu': '大埔' , 'raoping': '饒平' , 'sixiannan': '南四' ,'holo': '和樂', 'cangjie': '倉頡', 'xiami': '蝦米', 'hanglie': '行列' };
     return names[mode] || mode;
 },
 
@@ -2252,26 +2757,34 @@ updateToolbarPosition() {
 
 
 initDrag(e) {
-    // 只有在釘選狀態下才允許拖曳
-    if (!this.isPinned) return;
-
+    // 避免在點擊按鈕或下拉選單時觸發拖曳
     if (e.target.tagName === 'SELECT' || e.target.tagName === 'BUTTON') return;
+    // 只響應滑鼠左鍵
     if (e.type === 'mousedown' && e.button !== 0) return;
 
     this.isDragging = true;
+    const rect = this.toolbarContainer.getBoundingClientRect();
+    
+    this.toolbarContainer.style.top = `${rect.top}px`;
+    this.toolbarContainer.style.left = `${rect.left}px`;
+    this.toolbarContainer.style.right = 'auto';  // 清除 right 屬性
+    this.toolbarContainer.style.bottom = 'auto'; // 清除 bottom 屬性
+
     const touch = e.touches ? e.touches[0] : null;
     const clientX = touch ? touch.clientX : e.clientX;
     const clientY = touch ? touch.clientY : e.clientY;
 
-    // 因為工具列是 fixed 定位，可以直接用 clientX/Y
-    this.offsetX = clientX - this.toolbarContainer.getBoundingClientRect().left;
-    this.offsetY = clientY - this.toolbarContainer.getBoundingClientRect().top;
+    // 計算滑鼠（或觸控點）在容器內的偏移量
+    this.offsetX = clientX - rect.left;
+    this.offsetY = clientY - rect.top;
 
+    // 綁定後續的移動和結束事件
     window.addEventListener('mousemove', this.boundDragMove);
     window.addEventListener('touchmove', this.boundDragMove, { passive: false });
     window.addEventListener('mouseup', this.boundDragEnd);
     window.addEventListener('touchend', this.boundDragEnd);
     
+    // 防止拖曳時選取到頁面上的文字
     if (e.cancelable) {
         e.preventDefault();
     }
@@ -2321,6 +2834,172 @@ dragEnd() {
     window.removeEventListener('touchmove', this.boundDragMove);
     window.removeEventListener('mouseup', this.boundDragEnd); 
     window.removeEventListener('touchend', this.boundDragEnd);
+},
+
+ensureInBounds() {
+    if (!this.toolbarContainer) return;
+
+    const rect = this.toolbarContainer.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const margin = 10;
+
+    let newLeft = rect.left;
+    let newTop = rect.top;
+
+    // 檢查是否超出右邊界
+    if (newLeft + rect.width > viewportWidth - margin) {
+        newLeft = viewportWidth - rect.width - margin;
+    }
+    // 檢查是否超出下邊界
+    if (newTop + rect.height > viewportHeight - margin) {
+        newTop = viewportHeight - rect.height - margin;
+    }
+    // 檢查是否超出左邊界
+    if (newLeft < margin) {
+        newLeft = margin;
+    }
+    // 檢查是否超出上邊界
+    if (newTop < margin) {
+        newTop = margin;
+    }
+
+    // 如果計算出的新位置與當前位置不同，則更新樣式和儲存的座標
+    if (newLeft !== rect.left || newTop !== rect.top) {
+        const finalLeft = `${newLeft}px`;
+        const finalTop = `${newTop}px`;
+
+        this.toolbarContainer.style.left = finalLeft;
+        this.toolbarContainer.style.top = finalTop;
+
+        // 同步更新儲存在 localStorage 的位置
+        localStorage.setItem(this.config.storagePrefix + 'pinnedLeft', finalLeft);
+        localStorage.setItem(this.config.storagePrefix + 'pinnedTop', finalTop);
+    }
+},
+
+showCustomConfirm(message, onConfirm) {
+    // 移除畫面上可能已存在的舊對話框
+    const existingDialog = document.getElementById('web-ime-custom-confirm');
+    if (existingDialog) {
+        existingDialog.remove();
+    }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'web-ime-custom-confirm';
+    overlay.style.cssText = `
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.4);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 10001; /* 確保在設定視窗之上 */
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+    `;
+
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+        background: white;
+        border-radius: 8px;
+        padding: 24px;
+        box-shadow: 0 4px 16px rgba(60,64,67,0.15);
+        max-width: 320px;
+        width: 90%;
+        text-align: center;
+        transform: scale(0.95);
+        transition: transform 0.2s ease-in-out;
+    `;
+
+    // 使用 innerHTML 快速建立內部結構
+    dialog.innerHTML = `
+        <div style="font-size: 16px; color: #202124; line-height: 1.5; margin-bottom: 20px;">${message}</div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+            <button id="ime-confirm-cancel" style="
+                background: transparent; border: 1px solid transparent; border-radius: 4px;
+                padding: 8px 12px; cursor: pointer; color: #1a73e8; font-size: 14px; font-weight: 500;
+            ">取消</button>
+            <button id="ime-confirm-ok" style="
+                background: #1a73e8; border: none; border-radius: 4px;
+                padding: 8px 12px; cursor: pointer; color: white; font-size: 14px; font-weight: 500;
+            ">確定重設</button>
+        </div>
+    `;
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    // 漸入動畫
+    setTimeout(() => {
+        overlay.style.opacity = '1';
+        dialog.style.transform = 'scale(1)';
+    }, 10);
+
+    const closeDialog = () => {
+        overlay.style.opacity = '0';
+        dialog.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+             if (overlay.parentNode) {
+                overlay.remove();
+             }
+        }, 200);
+    };
+
+    const cancelBtn = document.getElementById('ime-confirm-cancel');
+    const confirmBtn = document.getElementById('ime-confirm-ok');
+
+    // 綁定事件
+    cancelBtn.onclick = closeDialog;
+    overlay.onclick = (e) => {
+        if (e.target === overlay) {
+            closeDialog();
+        }
+    };
+    confirmBtn.onclick = () => {
+        onConfirm(); // 執行傳入的確認後動作
+        closeDialog();
+    };
+},
+
+showToast(message, duration = 1200) {
+    // 如果畫面上已經有一個提示，先將它移除
+    if (this.toastElement && this.toastElement.parentNode) {
+        this.toastElement.remove();
+    }
+
+    const toast = document.createElement('div');
+    this.toastElement = toast;
+
+    // 設定提示訊息的樣式與內容
+    toast.style.cssText = `
+        position: fixed; 
+        top: 50%; 
+        left: 50%; 
+        transform: translate(-50%, -50%); 
+        background: rgba(0,0,0,0.75); 
+        color: white; 
+        padding: 12px 24px; 
+        border-radius: 8px; 
+        z-index: 10001; 
+        font-size: 16px;
+        pointer-events: none;
+        opacity: 1;
+        transition: opacity 0.4s ease;
+    `;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    // 設定計時器，在指定時間後淡出並移除提示
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        // 等待淡出動畫結束後再從 DOM 中移除
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+            if (this.toastElement === toast) {
+                this.toastElement = null;
+            }
+        }, 400); // 400ms 應與 transition 的時間一致
+    }, duration);
 },
 
 
