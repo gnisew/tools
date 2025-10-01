@@ -772,13 +772,25 @@ getInitial(word, mode) {
 // 輔助函數，用於移除 key 中的空白和聲調
 simplifyKey(key, mode) {
     const toneRegex = imeToneMappings[mode];
+    // 用於匹配單一連字號、雙連字號或空白的正規表示式
+    const delimiterRegex = /-{1,2}|\s+/g;
+
+    // 步驟 1：先移除所有的分隔符號 (-, --, 空白)
+    let noDelimitersKey = key.replace(delimiterRegex, '');
+
+    // 如果這個輸入法模式沒有定義聲調規則，就直接返回
     if (!toneRegex) {
-        return key.replace(/\s/g, '');
+        return noDelimitersKey;
     }
-    const simplifiedParts = key
-        .split(' ')
-        .map(part => part.replace(toneRegex, ''));
-    return simplifiedParts.join('');
+
+    // 步驟 2：建立一個新的、全域匹配的聲調正規表示式
+    // 關鍵：移除原始規則中的結尾錨點 '$'，並加上 'g' (global) 旗標
+    // 這能確保字串中「所有」符合規則的聲調字母都會被移除，而不僅僅是最後一個
+    // 例如：/[zvsfxl]$/ 會變成 /[zvsfxl]/g
+    const globalToneRegex = new RegExp(toneRegex.source.replace('$', ''), 'g');
+
+    // 步驟 3：使用新的全域規則來移除所有聲調字母
+    return noDelimitersKey.replace(globalToneRegex, '');
 },
 
 
@@ -1854,23 +1866,20 @@ handleInput(e) {
 },
 
 findPhraseCandidates(buffer) {
-    // *** 修改點：對傳入的 buffer 進行正規化 ***
+    // 步驟 1：將使用者的原始輸入進行正規化與簡化
     const normalizedBuffer = this.normalizeCompositionBuffer(buffer, this.currentMode);
+    const simplifiedBuffer = this.simplifyKey(normalizedBuffer, this.currentMode);
 
-    const langProps = imeLanguageProperties[this.currentMode] || {};
-    const toneRegex = imeToneMappings[this.currentMode];
-    let processedBuffer = normalizedBuffer; // *** 修改點：使用正規化後的 buffer 進行後續處理 ***
-
-    if (langProps.toneType === 'numeric' && toneRegex) {
-        processedBuffer = processedBuffer.replace(new RegExp(toneRegex.source, 'g'), '');
-    }
-
-    if (this.phraseCache[processedBuffer]) {
-        return this.phraseCache[processedBuffer];
+    // 步驟 2：檢查快取，如果這個簡化過的字串已經查過，就直接回傳結果
+    if (this.phraseCache[simplifiedBuffer]) {
+        return this.phraseCache[simplifiedBuffer];
     }
 
     const dictionary = dictionaries[this.currentMode];
     const simplifiedDict = {};
+
+    // 步驟 3：建立一個臨時的簡化字典，用於快速查找
+    // (因為使用了新的 simplifyKey，這裡建立的 simplifiedKey 會更準確)
     for (const key in dictionary) {
         const simplifiedKey = this.simplifyKey(key, this.currentMode);
         if (!simplifiedDict[simplifiedKey]) {
@@ -1878,10 +1887,12 @@ findPhraseCandidates(buffer) {
         }
     }
 
-    let remainingBuffer = processedBuffer;
+    // 步驟 4：使用「簡化後」的使用者輸入來進行斷詞匹配
+    let remainingBuffer = simplifiedBuffer;
     const path = [];
     while (remainingBuffer.length > 0) {
         let foundMatch = false;
+        // 從最長的可能組合開始往前找
         for (let i = remainingBuffer.length; i > 0; i--) {
             const prefix = remainingBuffer.substring(0, i);
             if (simplifiedDict[prefix]) {
@@ -1891,6 +1902,7 @@ findPhraseCandidates(buffer) {
                 break;
             }
         }
+        // 如果都找不到匹配的詞，代表匹配失敗
         if (!foundMatch) {
             path.length = 0;
             break;
@@ -1898,7 +1910,8 @@ findPhraseCandidates(buffer) {
     }
 
     const finalResults = path.length > 0 ? [path.join('')] : [];
-    this.phraseCache[processedBuffer] = finalResults;
+    // 步驟 5：將查詢結果存入快取，避免重複計算
+    this.phraseCache[simplifiedBuffer] = finalResults;
     return finalResults;
 },
 
@@ -2378,10 +2391,16 @@ findSimplePrefixCandidates(buffer) {
         return [];
     }
 
-    // *** 修改點：先對使用者輸入的 buffer 進行正規化 ***
+    // 步驟 1：正規化並簡化使用者輸入的 buffer
     const normalizedBuffer = this.normalizeCompositionBuffer(buffer, this.currentMode);
+    const simplifiedBuffer = this.simplifyKey(normalizedBuffer, this.currentMode);
 
-    const firstChar = normalizedBuffer[0].toLowerCase();
+    if (simplifiedBuffer.length < 1) {
+        return [];
+    }
+    
+    // 步驟 2：使用簡化後 buffer 的首字母來查詢預處理過的字典分組，提升效能
+    const firstChar = simplifiedBuffer[0].toLowerCase();
     const relevantEntries = this.preprocessedDicts[this.currentMode][firstChar];
 
     // 如果沒有該首字母對應的詞條分組，直接返回空陣列
@@ -2392,14 +2411,14 @@ findSimplePrefixCandidates(buffer) {
     const candidates = [];
     // 只遍歷相關的分組，而不是整個字典
     for (const entry of relevantEntries) {
-        // *** 修改點：使用正規化後的 normalizedBuffer 進行比對 ***
-        // 比對包含聲調的原始 key (連續)
-        if (entry.originalKey.replace(/\s/g, '').startsWith(normalizedBuffer)) {
-             candidates.push(...entry.values);
-        }
-        // 比對移除聲調後的簡化 key
-        else if (entry.simplifiedKey.startsWith(normalizedBuffer)) {
+        // 步驟 3：核心比較邏輯
+        // 將「預處理好的簡化字典碼」與「剛剛簡化完的使用者輸入」進行前綴比較
+        if (entry.simplifiedKey.startsWith(simplifiedBuffer)) {
             candidates.push(...entry.values);
+        }
+        // 保留原始的比較邏輯，以應對可能存在的邊界情況
+        else if (entry.originalKey.replace(/\s/g, '').startsWith(normalizedBuffer)) {
+             candidates.push(...entry.values);
         }
     }
     return candidates;
@@ -2425,13 +2444,17 @@ findAbbreviationCandidates(buffer) {
     if (!relevantEntries) {
         return [];
     }
+    
+    // 用於分割所有可能的分隔符號
+    const delimiterRegex = /-{1,2}|\s+/g;
 
     const candidates = [];
     // 只遍歷相關的分組
     for (const entry of relevantEntries) {
-        if (entry.originalKey.includes(' ')) {
+        // 使用正規表示式來判斷 key 是否包含任何分隔符號
+        if (delimiterRegex.test(entry.originalKey)) {
             const abbreviation = entry.originalKey
-                .split(' ')
+                .split(delimiterRegex) // 使用正規表示式分割
                 .filter(part => part)
                 .map(part => this.getInitial(part, this.currentMode))
                 .join('');
@@ -2664,12 +2687,12 @@ updateUIState() {
 },
 
 /**
- * [升級版] 根據語言規則轉換查詢到的字根編碼
+ * [升級版] 根據語言規則轉換查詢到的字根編碼，並保留原始分隔符號
  * 1. 優先檢查並使用專門的轉換函式 (如 holo)。
- * 2. 對於規則轉換，會將多音節拆開逐一處理，解決 `$` 結尾符號的問題。
- * @param {string} code - 原始編碼 (可能包含多個音節，以空格分隔)
+ * 2. 對於規則轉換，會使用正規表示式來拆分音節和分隔符號，然後分別處理再重組。
+ * @param {string} code - 原始編碼 (可能包含多種分隔符號，如 'riuv-simv')
  * @param {string} lang - 語言模式
- * @returns {string} - 轉換後的編碼
+ * @returns {string} - 轉換後的編碼 (如 'riuˇ-simˇ')
  */
 transformQueryCode(code, lang) {
     // 倉頡與蝦米直接轉為大寫
@@ -2677,37 +2700,53 @@ transformQueryCode(code, lang) {
         return code.toUpperCase();
     }
 
-    // --- 【新增】優先處理專門的轉換函式 (for Holo) ---
+    // --- 優先處理專門的轉換函式 (for Holo) ---
     if (window.imeToneTransformFunctions && typeof window.imeToneTransformFunctions[lang] === 'function') {
+        // Holo 函式比較特殊，它自己會處理內部邏輯，這裡假設它能正確處理
         return window.imeToneTransformFunctions[lang](code);
     }
-    // --- 新增結束 ---
 
     const rules = (window.imeToneTransformRules || {})[lang];
     if (!rules || rules.length === 0) {
         return code; // 如果沒有規則，直接返回原編碼
     }
 
-    // 將編碼按空格拆分，對每個音節獨立套用規則 ---
-    const syllables = code.split(' ');
-    const transformedSyllables = syllables.map(syllable => {
-        let transformed = syllable;
+    // --- 核心修改：保留分隔符號的轉換邏輯 ---
+    
+    // 1. 建立一個帶有 "捕獲群組" () 的正規表示式。
+    //    這樣 split 函式在分割時，會將分隔符號本身也保留在結果陣列中。
+    const delimiterRegexWithCapture = /(-{1,2}|\s+)/g;
+    
+    // 'riuv-simv' -> ['riuv', '-', 'simv']
+    // 'a b--c' -> ['a', ' ', 'b', '--', 'c']
+    const parts = code.split(delimiterRegexWithCapture);
+
+    const transformedParts = parts.map(part => {
+        // 如果這個部分是分隔符號，則直接返回，不做任何處理
+        if (delimiterRegexWithCapture.test(part)) {
+            // 重設 lastIndex 以避免正規表示式狀態問題
+            delimiterRegexWithCapture.lastIndex = 0; 
+            return part;
+        }
+
+        // 如果這個部分是音節，則套用聲調轉換規則
+        let transformedSyllable = part;
         for (const rule of rules) {
             try {
                 const regex = new RegExp(rule[0][0], rule[0][1]);
-                // 使用 .test() 檢查是否匹配，如果匹配就替換並跳出內層迴圈
-                if (regex.test(transformed)) {
-                    transformed = transformed.replace(regex, rule[1]);
+                if (regex.test(transformedSyllable)) {
+                    transformedSyllable = transformedSyllable.replace(regex, rule[1]);
                     break; // 一個音節只套用第一條匹配的規則
                 }
             } catch (e) {
-                console.error(`Error applying regex rule for lang "${lang}" on syllable "${syllable}":`, rule, e);
+                console.error(`Error applying regex rule for lang "${lang}" on syllable "${part}":`, rule, e);
             }
         }
-        return transformed;
+        return transformedSyllable;
     });
     
-    return transformedSyllables.join(' '); // 將處理完的音節重新組合
+    // 3. 將處理完的所有部分（已轉換的音節 + 保留的分隔符號）重新組合起來
+    return transformedParts.join('');
 },
 
 /**
