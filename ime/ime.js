@@ -779,6 +779,31 @@ simplifyKey(key, mode) {
 },
 
 
+/**
+ * 對輸入的編碼進行正規化，以匹配字典中的標準拼法。
+ * @param {string} buffer - 使用者輸入的原始編碼。
+ * @param {string} mode - 當前的輸入法模式。
+ * @returns {string} - 正規化後的編碼。
+ */
+normalizeCompositionBuffer(buffer, mode) {
+    // 目前只針對 kasu (詔安) 模式進行處理
+    if (mode !== 'kasu') {
+        return buffer; // 如果不是 kasu 模式，直接返回原始編碼
+    }
+
+    let normalized = buffer;
+    normalized = normalized.replace(/([bpfvdtlgkhzcsi])oo/g, '$1o');
+    normalized = normalized.replace(/rh([aeiou])/g, 'r$1');
+    normalized = normalized.replace(/bb([aeiou])/g, 'v$1');
+
+    normalized = normalized
+        .replace(/ji/g, 'zi')
+        .replace(/qi/g, 'ci')
+        .replace(/xi/g, 'si');
+
+    return normalized;
+},
+
 
 createUI() {
     // --- 建立工具列容器 (Toolbar) ---
@@ -1765,12 +1790,15 @@ handleInput(e) {
 },
 
 findPhraseCandidates(buffer) {
+    // *** 修改點：對傳入的 buffer 進行正規化 ***
+    const normalizedBuffer = this.normalizeCompositionBuffer(buffer, this.currentMode);
+
     const langProps = imeLanguageProperties[this.currentMode] || {};
     const toneRegex = imeToneMappings[this.currentMode];
-    let processedBuffer = buffer;
+    let processedBuffer = normalizedBuffer; // *** 修改點：使用正規化後的 buffer 進行後續處理 ***
 
     if (langProps.toneType === 'numeric' && toneRegex) {
-        processedBuffer = buffer.replace(new RegExp(toneRegex.source, 'g'), '');
+        processedBuffer = processedBuffer.replace(new RegExp(toneRegex.source, 'g'), '');
     }
 
     if (this.phraseCache[processedBuffer]) {
@@ -2141,7 +2169,6 @@ updateCandidates() {
     // 任何時候更新候選字 (代表使用者正在輸入新編碼)，都應結束聯想詞狀態
     this.isPredictionState = false;
     this.lastCommittedWord = '';
-    // --- NEW END ---
 
     const activeBuffer = this.compositionBuffer.substring(0, this.compositionCursorPos).toLowerCase();
 
@@ -2156,41 +2183,51 @@ updateCandidates() {
     const dictionary = dictionaries[this.currentMode];
     let candidates = [];
 
-    // --- 核心邏輯 ---
-    const exactResult = dictionary[activeBuffer];
-    if (exactResult) {
-        exactResult.split(' ').forEach(word => {
-            candidates.push({ word: word, consumed: activeBuffer });
-        });
-    }
-
+    // --- 【核心修改：長詞連打模式的搜尋邏輯】 ---
     if (this.isLongPhraseEnabled) {
-        this.findPhraseCandidates(activeBuffer).forEach(word => {
-            candidates.push({ word: word, consumed: activeBuffer });
-        });
-        this.findSimplePrefixCandidates(activeBuffer).forEach(word => {
-            candidates.push({ word: word, consumed: activeBuffer });
-        });
+        // 從最長的編碼開始，逐步縮短，直到找到匹配的候選詞為止
+        for (let i = activeBuffer.length; i > 0; i--) {
+            const prefixToSearch = activeBuffer.substring(0, i);
+            let foundCandidatesForPrefix = [];
+
+            // 1. 精確匹配
+            const exactResult = dictionary[prefixToSearch];
+            if (exactResult) {
+                exactResult.split(' ').forEach(word => {
+                    foundCandidatesForPrefix.push({ word: word, consumed: prefixToSearch });
+                });
+            }
+
+            // 2. 詞組匹配 (例如 taiga -> 大家)
+            this.findPhraseCandidates(prefixToSearch).forEach(word => {
+                foundCandidatesForPrefix.push({ word: word, consumed: prefixToSearch });
+            });
+
+            // 3. 簡單前綴匹配 (例如 gong -> 工程師)
+            this.findSimplePrefixCandidates(prefixToSearch).forEach(word => {
+                foundCandidatesForPrefix.push({ word: word, consumed: prefixToSearch });
+            });
+            
+            // 如果當前的長度(prefixToSearch)找到了任何候選詞，就用這些詞並且停止繼續縮短搜尋
+            if (foundCandidatesForPrefix.length > 0) {
+                candidates = foundCandidatesForPrefix;
+                break;
+            }
+        }
     } else {
+        // --- 非長詞連打模式的原始邏輯 ---
+        const exactResult = dictionary[activeBuffer];
+        if (exactResult) {
+            exactResult.split(' ').forEach(word => {
+                candidates.push({ word: word, consumed: activeBuffer });
+            });
+        }
         this.findSimplePrefixCandidates(activeBuffer).forEach(word => {
             candidates.push({ word: word, consumed: activeBuffer });
         });
         this.findAbbreviationCandidates(activeBuffer).forEach(word => {
             candidates.push({ word: word, consumed: activeBuffer });
         });
-    }
-
-    if (this.isLongPhraseEnabled && activeBuffer.length > 1) {
-        for (let i = activeBuffer.length - 1; i > 0; i--) {
-            const prefix = activeBuffer.substring(0, i);
-            if (dictionary[prefix]) {
-                const prefixCandidates = dictionary[prefix].split(' ');
-                prefixCandidates.forEach(word => {
-                    candidates.push({ word: word, consumed: prefix });
-                });
-                break;
-            }
-        }
     }
 
     const uniqueCandidates = new Map();
@@ -2213,12 +2250,15 @@ updateCandidates() {
  * @returns {string[]} - 候選字陣列
  */
 findSimplePrefixCandidates(buffer) {
-    // 當輸入長度小於 2 時，不進行搜尋，避免返回過多無用結果並提升效能
+    // 當輸入長度小於 1 時，不進行搜尋
     if (buffer.length < 1) {
         return [];
     }
 
-    const firstChar = buffer[0].toLowerCase();
+    // *** 修改點：先對使用者輸入的 buffer 進行正規化 ***
+    const normalizedBuffer = this.normalizeCompositionBuffer(buffer, this.currentMode);
+
+    const firstChar = normalizedBuffer[0].toLowerCase();
     const relevantEntries = this.preprocessedDicts[this.currentMode][firstChar];
 
     // 如果沒有該首字母對應的詞條分組，直接返回空陣列
@@ -2229,12 +2269,13 @@ findSimplePrefixCandidates(buffer) {
     const candidates = [];
     // 只遍歷相關的分組，而不是整個字典
     for (const entry of relevantEntries) {
+        // *** 修改點：使用正規化後的 normalizedBuffer 進行比對 ***
         // 比對包含聲調的原始 key (連續)
-        if (entry.originalKey.replace(/\s/g, '').startsWith(buffer)) {
+        if (entry.originalKey.replace(/\s/g, '').startsWith(normalizedBuffer)) {
              candidates.push(...entry.values);
         }
         // 比對移除聲調後的簡化 key
-        else if (entry.simplifiedKey.startsWith(buffer)) {
+        else if (entry.simplifiedKey.startsWith(normalizedBuffer)) {
             candidates.push(...entry.values);
         }
     }
@@ -2247,12 +2288,15 @@ findSimplePrefixCandidates(buffer) {
  * @returns {string[]} - 候選字陣列
  */
 findAbbreviationCandidates(buffer) {
-    // 同樣，對縮寫搜尋也限制最小長度
+    // 對縮寫搜尋也限制最小長度
     if (buffer.length < 2) {
         return [];
     }
     
-    const firstChar = buffer[0].toLowerCase();
+    // *** 修改點：同樣對縮寫查詢的 buffer 進行正規化 ***
+    const normalizedBuffer = this.normalizeCompositionBuffer(buffer, this.currentMode);
+
+    const firstChar = normalizedBuffer[0].toLowerCase();
     const relevantEntries = this.preprocessedDicts[this.currentMode][firstChar];
 
     if (!relevantEntries) {
@@ -2269,7 +2313,7 @@ findAbbreviationCandidates(buffer) {
                 .map(part => this.getInitial(part, this.currentMode))
                 .join('');
             
-            if (abbreviation.startsWith(buffer)) {
+            if (abbreviation.startsWith(normalizedBuffer)) {
                 candidates.push(...entry.values);
             }
         }
@@ -2349,55 +2393,57 @@ selectCandidate(indexOnPage) {
     if (!selectedCandidate) return;
 
     const selectedWord = selectedCandidate.word;
+    // 在關聯詞模式下，消耗的是整個詞；否則，消耗的是匹配到的編碼
     const consumedBuffer = this.isPredictionState ? selectedWord : selectedCandidate.consumed;
 
+    // 1. 將選擇的文字送到編輯區
     this.commitText(selectedWord);
 
-    // --- 聯想詞處理邏輯 ---
-    if (this.config.enablePrediction && !wasInQueryMode) {
-        // 如果是從聯想詞列表選擇，則將已選文字累加，繼續尋找下一層聯想
-        const searchPrefix = this.isPredictionState 
-            ? (this.lastCommittedWord || '') + selectedWord 
-            : selectedWord;
+    // 2. 【關鍵修改】優先計算並更新剩餘的編碼
+    const remainingBuffer = this.compositionBuffer.substring(consumedBuffer.length);
+    this.compositionBuffer = remainingBuffer;
+    this.compositionCursorPos = remainingBuffer.length;
 
-        const predictions = this.findPredictionCandidates(searchPrefix);
-        this.lastCommittedWord = searchPrefix; // 更新最後送出的詞
-
-        if (predictions.length > 0) {
-            this.isPredictionState = true;
-            this.compositionBuffer = ''; // 清空編碼區
-            this.compositionCursorPos = 0;
-            // 將聯想詞格式化為候選字物件
-            this.allCandidates = predictions.map(p => ({ word: p, consumed: p }));
-            this.currentPage = 0;
-            this.highlightedIndex = 0;
-            
-            // 【修改重點】: 在此處手動更新 UI 狀態
-            this.updateCompositionDisplay(); // 更新游標與編碼區顯示 (會清空)
-            this.renderCandidates();         // 渲染新的聯想詞
-            this.updateUIState();            // 根據新邏輯確保容器在編碼為空時依然可見
-            this.reposition();
-            return; // 結束函數，停在聯想詞畫面
+    // 3. 根據剩餘編碼的狀態決定下一步
+    if (this.compositionBuffer.length > 0) {
+        // **情況 A：還有剩餘編碼 (例如 "zo")**
+        // - 立刻對剩餘編碼進行查詞
+        // - 確保關聯詞狀態是關閉的
+        this.isPredictionState = false;
+        this.lastCommittedWord = '';
+        this.updateCandidates(); // 這會自動去查 "zo" 的候選詞
+    } else {
+        // **情況 B：編碼已完全消耗**
+        // - 這時才檢查是否要啟用關聯詞功能
+        
+        // 如果是從反查模式選字，則直接退出
+        if (wasInQueryMode) {
+            this.exitQueryMode(false);
+            this.updateCandidates(); // 清空面板
+            return;
         }
-    }
-    
-    // --- 如果未啟用聯想詞或找不到聯想詞，執行原始邏輯 ---
-    this.isPredictionState = false;
-    this.lastCommittedWord = ''; // 重設
 
-    if (wasInQueryMode) {
-        this.exitQueryMode(false);
-        this.compositionBuffer = '';
-        this.compositionCursorPos = 0;
-    } else {
-        const remainingBuffer = this.compositionBuffer.substring(consumedBuffer.length);
-        this.compositionBuffer = remainingBuffer;
-        this.compositionCursorPos = remainingBuffer.length;
-    }
-
-    if (this.activeElement && this.activeElement.isContentEditable) {
-        setTimeout(() => this.updateCandidates(), 0);
-    } else {
+        // 檢查是否啟用關聯詞且找到了關聯詞
+        if (this.config.enablePrediction) {
+            const predictions = this.findPredictionCandidates(selectedWord);
+            if (predictions.length > 0) {
+                this.isPredictionState = true;
+                this.lastCommittedWord = selectedWord; 
+                this.allCandidates = predictions.map(p => ({ word: p, consumed: p }));
+                this.currentPage = 0;
+                this.highlightedIndex = 0;
+                
+                this.updateCompositionDisplay();
+                this.renderCandidates();
+                this.updateUIState();
+                this.reposition();
+                return; // 停在關聯詞畫面，結束函式
+            }
+        }
+        
+        // 如果關聯詞未啟用或找不到，就正常清空面板
+        this.isPredictionState = false;
+        this.lastCommittedWord = '';
         this.updateCandidates();
     }
 },
