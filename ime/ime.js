@@ -679,6 +679,24 @@ init(userConfig = {}) {
     };
     document.addEventListener('keydown', this.boundGlobalKeyDownHandler);
 
+
+    document.addEventListener('mousedown', (e) => {
+        // 如果候選字面板沒有顯示，或還沒初始化完成，則不執行任何動作
+        if (!this.isInitialized || !this.candidatesContainer || this.candidatesContainer.style.display === 'none') {
+            return;
+        }
+
+        // 【關鍵修改】只判斷點擊是否發生在輸入法UI內部 (候選字 + 工具列)
+        const isClickInsideIME = this.toolbarContainer.contains(e.target) || this.candidatesContainer.contains(e.target);
+        
+        // 如果點擊位置不在輸入法UI內，就關閉候選字面板
+        if (!isClickInsideIME) {
+            this.compositionBuffer = '';
+            this.compositionCursorPos = 0;
+            this.updateCandidates(); // 會自動處理UI隱藏
+        }
+    });
+
     this.isInitialized = true;
     console.log("WebIME initialized.");
 },
@@ -932,33 +950,40 @@ createUI() {
     });
     compositionBar.appendChild(this.compositionDisplay);
 
-    this.queryBtn = document.createElement("button");
-    this.queryBtn.type = "button";
-    this.queryBtn.className = "ime-page-button";
-    this.queryBtn.title = "字根反查 (/)";
-    this.queryBtn.innerHTML = '<span class="material-icons" style="font-size: 20px;">search</span>';
-    this.queryBtn.addEventListener("click", () => {
-         if (this.isQueryMode) {
-            this.exitQueryMode(false);
-        } else if (this.allCandidates.length > 0) {
-            this.enterQueryMode();
-        }
-    });
-    compositionBar.appendChild(this.queryBtn);
+// 【新程式碼開始】 建立一個新的容器來包裹右側的所有按鈕
+const rightControls = document.createElement("div");
+rightControls.className = "ime-right-controls"; // 給予一個 class 以便設定樣式
 
-    const pagination = document.createElement("div");
-    pagination.className = "ime-pagination";
-    this.prevPageBtn = document.createElement("button");
-    this.prevPageBtn.className = "ime-page-button";
-    this.prevPageBtn.innerHTML = '<span class="material-icons">chevron_left</span>';
-    this.prevPageBtn.addEventListener("click", () => this.changePage(-1));
-    this.nextPageBtn = document.createElement("button");
-    this.nextPageBtn.className = "ime-page-button";
-    this.nextPageBtn.innerHTML = '<span class="material-icons">chevron_right</span>';
-    this.nextPageBtn.addEventListener("click", () => this.changePage(1));
-    pagination.appendChild(this.prevPageBtn);
-    pagination.appendChild(this.nextPageBtn);
-    compositionBar.appendChild(pagination);
+this.queryBtn = document.createElement("button");
+this.queryBtn.type = "button";
+this.queryBtn.className = "ime-page-button"; // 沿用翻頁按鈕的樣式
+this.queryBtn.title = "字根反查 (/)";
+this.queryBtn.innerHTML = '<span class="material-icons" style="font-size: 20px;">search</span>';
+this.queryBtn.addEventListener("click", () => {
+     if (this.isQueryMode) {
+        this.exitQueryMode(false);
+    } else if (this.allCandidates.length > 0) {
+        this.enterQueryMode();
+    }
+});
+rightControls.appendChild(this.queryBtn); // 將 queryBtn 加入新容器
+
+const pagination = document.createElement("div");
+pagination.className = "ime-pagination";
+this.prevPageBtn = document.createElement("button");
+this.prevPageBtn.className = "ime-page-button";
+this.prevPageBtn.innerHTML = '<span class="material-icons">chevron_left</span>';
+this.prevPageBtn.addEventListener("click", () => this.changePage(-1));
+this.nextPageBtn = document.createElement("button");
+this.nextPageBtn.className = "ime-page-button";
+this.nextPageBtn.innerHTML = '<span class="material-icons">chevron_right</span>';
+this.nextPageBtn.addEventListener("click", () => this.changePage(1));
+pagination.appendChild(this.prevPageBtn);
+pagination.appendChild(this.nextPageBtn);
+rightControls.appendChild(pagination); // 將 pagination 加入新容器
+
+compositionBar.appendChild(rightControls); // 將整個右側按鈕容器加入 compositionBar
+// 【新程式碼結束】
 
     this.candidatesContainer.appendChild(compositionBar);
 
@@ -982,6 +1007,49 @@ createUI() {
 
     this.updateUIState();
     this.updateToneModeButtonUI();
+},
+
+
+/**
+ * 防止行動裝置上彈出視窗的滾動穿透問題 (Overscroll)。
+ * @param {HTMLElement} element - 要套用此行為的可滾動元素。
+ */
+preventModalOverscroll(element) {
+    let startY = 0;
+
+    // passive: true 可提升效能，因為我們只記錄起點，不阻止預設行為
+    element.addEventListener('touchstart', (e) => {
+        startY = e.touches[0].pageY;
+    }, { passive: true });
+
+    // passive: false 是必要的，因為我們需要在特定情況下呼叫 e.preventDefault()
+    element.addEventListener('touchmove', (e) => {
+        const currentY = e.touches[0].pageY;
+        const isScrollingUp = currentY < startY;
+
+        // 檢查滾動內容是否已到達頂部
+        const isAtTop = element.scrollTop === 0;
+
+        // 檢查滾動內容是否已到達底部 (加入 1px 的容錯值以應對像素計算誤差)
+        const isAtBottom = Math.ceil(element.scrollTop + element.clientHeight) >= element.scrollHeight - 1;
+
+        // 如果【向上滑動】且【已在底部】，則阻止瀏覽器預設行為 (如頁面滾動)
+        if (isScrollingUp && isAtBottom) {
+            e.preventDefault();
+            return;
+        }
+
+        // 如果【向下滑動】且【已在頂部】，則阻止瀏覽器預設行為 (如 pull-to-refresh)
+        if (!isScrollingUp && isAtTop) {
+            e.preventDefault();
+            return;
+        }
+
+        // 在其他情況下 (內容正常滾動時)，不阻止預設行為，但阻止事件冒泡
+        // 這樣可以避免影響頁面中可能存在的其他滾動監聽器
+        e.stopPropagation();
+
+    }, { passive: false });
 },
 
 
@@ -1012,6 +1080,8 @@ createSettingsModal() {
 
     const modalBody = document.createElement('div');
     modalBody.className = 'modal-body';
+
+	this.preventModalOverscroll(modalBody); // 將防止 Overscroll 的功能綁定到 modalBody
 
     // --- 功能設定區 ---
     const featureSettingsSection = document.createElement('div');
@@ -1252,13 +1322,18 @@ createSettingsModal() {
 
 saveQuerySettings() {
     const enabled = {};
-    const checkboxes = this.settingsModal.querySelectorAll('.settings-section input[type="checkbox"]');
+    const checkboxes = this.settingsModal.querySelectorAll('.query-options-container input[type="checkbox"]');
     checkboxes.forEach(cb => {
-        enabled[cb.value] = cb.checked;
+        if (cb.id.startsWith('query-')) {
+            enabled[cb.value] = cb.checked;
+        }
     });
     // 將設定儲存到 WebIME 物件和 localStorage
     this.config.querySettings = enabled;
     localStorage.setItem(this.config.storagePrefix + 'querySettings', JSON.stringify(enabled));
+
+    // --- 新增此行 ---
+    this.updateUIState(); // 立即更新UI以反應按鈕的顯示狀態
 },
 
 loadQuerySettings() {
@@ -2331,8 +2406,16 @@ updateCompositionDisplay() {
     if (this.compositionDisplay) {
         this.compositionDisplay.innerHTML = '';
         const preCursorText = this.compositionBuffer.substring(0, this.compositionCursorPos);
+
         const textSpan = document.createElement('span');
         textSpan.textContent = this.compositionBuffer;
+        // --- 新增開始 ---
+        // 只有當有文字時，才讓文字的 span 顯示可點擊的指標
+        if (this.compositionBuffer) {
+            textSpan.style.cursor = 'pointer';
+        }
+        // --- 新增結束 ---
+
         const measureSpan = document.createElement('span');
         measureSpan.style.visibility = 'hidden';
         measureSpan.style.position = 'absolute';
@@ -2343,6 +2426,7 @@ updateCompositionDisplay() {
         document.body.appendChild(measureSpan);
         const textWidth = measureSpan.offsetWidth;
         document.body.removeChild(measureSpan);
+
         this.compositionDisplay.appendChild(textSpan);
         this.compositionDisplay.style.setProperty('--cursor-offset', `${textWidth}px`);
     }
@@ -2358,11 +2442,17 @@ updateUIState() {
             // 僅在有編碼時才顯示編碼區，聯想詞模式下會自動隱藏
             this.compositionDisplay.style.display = this.compositionBuffer ? 'block' : 'none';
         }
-        // 【新邏輯】控制查詢按鈕的顯示
-        // 只有當有候選字且不支援倉頡、蝦米反查時才顯示
-        const showQueryButton = this.allCandidates.length > 0 && !['cangjie', 'xiami'].includes(this.currentMode);
-        this.queryBtn.style.display = showQueryButton ? 'flex' : 'none';
 
+        // 檢查是否有任何一個反查選項被勾選
+        const hasQueryOptionEnabled = Object.values(this.config.querySettings || {}).some(v => v === true);
+
+        // 只有當有候選字、至少一個反查選項被啟用，且不支援倉頡、蝦米反查時才顯示
+        const showQueryButton = this.allCandidates.length > 0 && 
+                              hasQueryOptionEnabled &&
+                              !['cangjie', 'xiami'].includes(this.currentMode);
+
+        this.queryBtn.style.display = showQueryButton ? 'flex' : 'none';
+        
     } else {
         this.candidatesContainer.style.display = 'none';
         if (this.compositionDisplay) {

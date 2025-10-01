@@ -74,6 +74,13 @@
     padding: 0 3px;
 }
 
+.ime-right-controls {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-left: auto;
+}
+
 #web-ime-composition {
     display: none;
     position: relative;
@@ -89,8 +96,6 @@
     white-space: nowrap;
     overflow: hidden;
     flex-shrink: 1;
-    flex-grow: 1;
-    cursor: pointer;
 }
 
 .ime-query-button {
@@ -108,6 +113,8 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0; }
 }
+
+
 
 
 /* 分頁按鈕*/
