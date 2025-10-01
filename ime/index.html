@@ -289,9 +289,9 @@
                     <button class="toolbar-button ime-toggle-button" title="烏衣行輸入法">
                         <span class="material-icons">keyboard</span>
                     </button>		
-                    <button class="toolbar-button" onclick="saveText()" title="儲存">
-                        <span class="material-icons">save</span>
-                    </button>
+					<button class="toolbar-button" id="auto-save-button" onclick="toggleAutoSave()" title="切換自動儲存">
+						<span class="material-icons">save</span>
+					</button>
                     <button class="toolbar-button" onclick="selectAll()" title="全選">
                         <span class="material-icons">select_all</span>
                     </button>
@@ -337,174 +337,212 @@
     </div>
 
     <div class="editor-container">
-        <textarea class="editor" id="editor" placeholder=""></textarea>
+        <textarea class="editor" id="editor" placeholder="1.切換到英數 2.點鍵盤圖示 3.選語言"></textarea>
     </div>
 
+<script>
+    let editor = document.getElementById('editor');
+    const autoSaveButton = document.getElementById('auto-save-button');
 
+    // --- 新增的變數 ---
+    let isAutoSaveEnabled = true; // 預設啟用自動儲存
+    let autoSaveTimer = null;     // 用於延遲儲存的計時器
+    const AUTO_SAVE_DELAY = 1500; // 使用者停止輸入後 1.5 秒自動儲存
 
-    <script>
-        let editor = document.getElementById('editor');
+    // --- Undo/Redo 相關變數 ---
+    let undoStack = [];
+    let redoStack = [];
+    let currentState = '';
 
-        let undoStack = [];
-        let redoStack = [];
-        let currentState = '';
-
-        function saveState() {
-            if (editor.value !== currentState) {
-                undoStack.push(currentState);
-                currentState = editor.value;
-                redoStack = [];
-            }
+    function saveState() {
+        if (editor.value !== currentState) {
+            undoStack.push(currentState);
+            currentState = editor.value;
+            redoStack = [];
         }
+    }
 
-        function undo() {
-            if (undoStack.length > 0) {
-                redoStack.push(currentState);
-                currentState = undoStack.pop();
-                editor.value = currentState;
-                updateWordCount();
-            }
+    function undo() {
+        if (undoStack.length > 0) {
+            redoStack.push(currentState);
+            currentState = undoStack.pop();
+            editor.value = currentState;
         }
+    }
 
-        function redo() {
-            if (redoStack.length > 0) {
-                undoStack.push(currentState);
-                currentState = redoStack.pop();
-                editor.value = currentState;
-                updateWordCount();
-            }
+    function redo() {
+        if (redoStack.length > 0) {
+            undoStack.push(currentState);
+            currentState = redoStack.pop();
+            editor.value = currentState;
         }
+    }
 
-        function changeFontSize(size) {
-            editor.style.fontSize = size + 'pt';
-        }
+    function changeFontSize(size) {
+        editor.style.fontSize = size + 'pt';
+    }
 
-        // 獨特的 localStorage 前綴，避免與其他網頁程式衝突
-        const STORAGE_PREFIX = 'wesing_ime_editor_1';
+    const STORAGE_PREFIX = 'wesing_ime_editor_1';
 
-        function saveText() {
-            const content = editor.value;
-            const timestamp = new Date().toLocaleString('zh-TW');
-            
-            try {
-                localStorage.setItem(STORAGE_PREFIX + 'content', content);
-                localStorage.setItem(STORAGE_PREFIX + 'timestamp', timestamp);
+    /**
+     * [修改後的儲存函式]
+     * @param {boolean} showNotification - 是否顯示提示訊息
+     */
+    function saveText(showNotification = false) {
+        const content = editor.value;
+        const timestamp = new Date().toLocaleString('zh-TW');
+        
+        try {
+            localStorage.setItem(STORAGE_PREFIX + 'content', content);
+            localStorage.setItem(STORAGE_PREFIX + 'timestamp', timestamp);
+            if (showNotification) {
                 showToast(`文字已儲存 (${timestamp})`);
-            } catch (error) {
+            }
+        } catch (error) {
+            if (showNotification) {
                 showToast('儲存失敗，請檢查瀏覽器設定');
             }
         }
+    }
 
-        function loadText() {
-            try {
-                const savedContent = localStorage.getItem(STORAGE_PREFIX + 'content');
-                const savedTimestamp = localStorage.getItem(STORAGE_PREFIX + 'timestamp');
-                
-                if (savedContent !== null) {
-                    saveState(); // 儲存當前狀態到復原堆疊
-                    editor.value = savedContent;
-                    showToast(`已載入儲存的文字 (${savedTimestamp || '未知時間'})`);
-                } else {
-                    showToast('沒有找到儲存的文字');
-                }
-            } catch (error) {
-                showToast('載入失敗，請檢查瀏覽器設定');
-            }
-        }
-
-        function selectAll() {
-            editor.select();
-            showToast('已全選文字');
-        }
-
-        function copyText() {
-            const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
-            if (selectedText) {
-                navigator.clipboard.writeText(selectedText).then(() => {
-                    showToast('選取文字已複製到剪貼簿');
-                }).catch(() => {
-                    // 備用方法
-                    const textArea = document.createElement('textarea');
-                    textArea.value = selectedText;
-                    document.body.appendChild(textArea);
-                    textArea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textArea);
-                    showToast('選取文字已複製到剪貼簿');
-                });
-            } else {
-                showToast('請先選取要複製的文字');
-            }
-        }
-
-        function showToast(message) {
-            const toast = document.createElement('div');
-            toast.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: #323232;
-                color: white;
-                padding: 12px 16px;
-                border-radius: 4px;
-                font-size: 14px;
-                z-index: 10000;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-                opacity: 0;
-                transform: translateY(-10px);
-                transition: all 0.3s ease;
-            `;
-            toast.textContent = message;
-            document.body.appendChild(toast);
-
-            // 顯示動畫
-            setTimeout(() => {
-                toast.style.opacity = '1';
-                toast.style.transform = 'translateY(0)';
-            }, 10);
-
-            // 自動消失
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateY(-10px)';
-                setTimeout(() => {
-                    if (document.body.contains(toast)) {
-                        document.body.removeChild(toast);
-                    }
-                }, 300);
-            }, 2000);
-        }
-
-        function clearText() {
-            showConfirmDialog('要清除並重置嗎？', function() {
+    function loadText() {
+        try {
+            const savedContent = localStorage.getItem(STORAGE_PREFIX + 'content');
+            const savedTimestamp = localStorage.getItem(STORAGE_PREFIX + 'timestamp');
+            
+            if (savedContent !== null) {
                 saveState();
-                editor.value = '';
-                // 清除 localStorage 中的儲存內容
-                try {
-                    localStorage.removeItem(STORAGE_PREFIX + 'content');
-                    localStorage.removeItem(STORAGE_PREFIX + 'timestamp');
-                    showToast('文字和儲存已清除');
-                } catch (error) {
-                    showToast('文字已清除');
-                }
-            });
-        }
-
-        function toggleHeader() {
-            const header = document.querySelector('.header');
-            const collapseBtn = document.getElementById('collapseBtn');
-            const collapseBtnIcon = collapseBtn.querySelector('.material-icons');
-            
-            header.classList.toggle('collapsed');
-            
-            if (header.classList.contains('collapsed')) {
-                collapseBtnIcon.textContent = 'keyboard_arrow_down';
-                collapseBtn.title = '展開';
+                editor.value = savedContent;
+                currentState = savedContent; // 更新當前狀態
+                showToast(`已載入儲存的文字 (${savedTimestamp || '未知時間'})`);
             } else {
-                collapseBtnIcon.textContent = 'keyboard_arrow_up';
-                collapseBtn.title = '摺疊';
+                showToast('沒有找到儲存的文字');
             }
+        } catch (error) {
+            showToast('載入失敗，請檢查瀏覽器設定');
         }
+    }
+    
+    /**
+     * [新增的函式]
+     * 更新自動儲存按鈕的啟用/停用狀態顏色
+     */
+    function updateAutoSaveButtonUI() {
+        if (isAutoSaveEnabled) {
+            autoSaveButton.classList.add('active');
+            autoSaveButton.title = '自動儲存已啟用';
+        } else {
+            autoSaveButton.classList.remove('active');
+            autoSaveButton.title = '自動儲存已停用';
+        }
+    }
+
+    /**
+     * [新增的函式]
+     * 切換自動儲存的狀態
+     */
+    function toggleAutoSave() {
+        isAutoSaveEnabled = !isAutoSaveEnabled; // 切換狀態
+        updateAutoSaveButtonUI(); // 更新按鈕顏色
+
+        if (isAutoSaveEnabled) {
+            showToast('自動儲存已啟用');
+            saveText(); // 啟用時立刻儲存一次
+        } else {
+            showToast('自動儲存已停用');
+        }
+    }
+
+
+    function selectAll() {
+        editor.select();
+        showToast('已全選文字');
+    }
+
+    function copyText() {
+        const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+        if (selectedText) {
+            navigator.clipboard.writeText(selectedText).then(() => {
+                showToast('選取文字已複製到剪貼簿');
+            }).catch(() => {
+                const textArea = document.createElement('textarea');
+                textArea.value = selectedText;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showToast('選取文字已複製到剪貼簿');
+            });
+        } else {
+            showToast('請先選取要複製的文字');
+        }
+    }
+
+    function showToast(message) {
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #323232;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            z-index: 10000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+        `;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateY(0)';
+        }, 10);
+
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(-10px)';
+            setTimeout(() => {
+                if (document.body.contains(toast)) {
+                    document.body.removeChild(toast);
+                }
+            }, 300);
+        }, 2000);
+    }
+
+    function clearText() {
+        showConfirmDialog('要清除並重置嗎？', function() {
+            saveState();
+            editor.value = '';
+            try {
+                localStorage.removeItem(STORAGE_PREFIX + 'content');
+                localStorage.removeItem(STORAGE_PREFIX + 'timestamp');
+                showToast('文字和儲存已清除');
+            } catch (error) {
+                showToast('文字已清除');
+            }
+        });
+    }
+
+    function toggleHeader() {
+        const header = document.querySelector('.header');
+        const collapseBtn = document.getElementById('collapseBtn');
+        const collapseBtnIcon = collapseBtn.querySelector('.material-icons');
+        
+        header.classList.toggle('collapsed');
+        
+        if (header.classList.contains('collapsed')) {
+            collapseBtnIcon.textContent = 'keyboard_arrow_down';
+            collapseBtn.title = '展開';
+        } else {
+            collapseBtnIcon.textContent = 'keyboard_arrow_up';
+            collapseBtn.title = '摺疊';
+        }
+    }
 
         function showConfirmDialog(message, onConfirm) {
             const overlay = document.createElement('div');
@@ -576,11 +614,6 @@
         }
 
 
-
-        /**
-         * 管理工具列按鈕的溢位。
-         * 當視窗寬度不足時，自動將末端的按鈕移動到「更多」下拉選單中。
-         */
         function manageToolbarOverflow() {
             const toolbar = document.querySelector('.toolbar');
             const mainGroup = document.getElementById('main-toolbar-group');
@@ -636,50 +669,55 @@
         document.addEventListener('click', () => {
             document.getElementById('overflow-menu').style.display = 'none';
         });
+    
+    window.addEventListener('load', manageToolbarOverflow);
+    window.addEventListener('resize', manageToolbarOverflow);
+
+    // --- [修改後的初始化與事件監聽] ---
+    editor.addEventListener('input', function() {
+        saveState(); // undo/redo 狀態儲存
         
-        // 頁面載入完成和視窗大小改變時，執行管理功能
-        window.addEventListener('load', manageToolbarOverflow);
-        window.addEventListener('resize', manageToolbarOverflow);
+        // 自動儲存邏輯
+        if (isAutoSaveEnabled) {
+            clearTimeout(autoSaveTimer); // 清除上一個計時器
+            autoSaveTimer = setTimeout(() => {
+                saveText(false); // 執行儲存，不顯示提示
+            }, AUTO_SAVE_DELAY);
+        }
+    });
 
-
-        // 初始化
-        editor.addEventListener('input', function() {
-            saveState();
-        });
-
-        // 鍵盤快捷鍵
-        document.addEventListener('keydown', function(e) {
-            if (e.ctrlKey || e.metaKey) {
-                switch(e.key) {
-                    case 'z':
-                        if (e.shiftKey) {
-                            e.preventDefault();
-                            redo();
-                        } else {
-                            e.preventDefault();
-                            undo();
-                        }
-                        break;
-                    case 'y':
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey || e.metaKey) {
+            switch(e.key) {
+                case 'z':
+                    if (e.shiftKey) {
                         e.preventDefault();
                         redo();
-                        break;
-                }
+                    } else {
+                        e.preventDefault();
+                        undo();
+                    }
+                    break;
+                case 'y':
+                    e.preventDefault();
+                    redo();
+                    break;
             }
-        });
+        }
+    });
 
-        // 初始化
+    // 頁面載入時自動載入儲存的文字並設定初始狀態
+    window.addEventListener('load', function() {
+        const savedContent = localStorage.getItem(STORAGE_PREFIX + 'content');
+        if (savedContent !== null) {
+            editor.value = savedContent;
+        }
         currentState = editor.value;
         
-        // 頁面載入時自動載入儲存的文字
-        window.addEventListener('load', function() {
-            const savedContent = localStorage.getItem(STORAGE_PREFIX + 'content');
-            if (savedContent !== null) {
-                editor.value = savedContent;
-                currentState = savedContent;
-            }
-        });
-    </script>
+        // 初始化自動儲存按鈕的 UI
+        updateAutoSaveButtonUI();
+    });
+</script>
 
     <script src="ime-dict.js"></script>
     <script src="ime.js"></script>
