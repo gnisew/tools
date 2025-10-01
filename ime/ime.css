@@ -396,3 +396,23 @@
     margin-top: 15px;
     padding-top: 15px;
 }
+
+/* --- 設定視窗中的輸出模式選項微調 --- */
+#web-ime-settings-modal #web-ime-output-mode-setting-row {
+    justify-content: flex-start; /* 確保從左邊開始排 */
+}
+
+#web-ime-settings-modal #output-mode-sub-options {
+    align-items: center; /* 垂直置中對齊 */
+}
+
+#web-ime-settings-modal #output-mode-sub-options label {
+    padding: 0; /* 移除 radio button 繼承來的多餘 padding */
+}
+/* --- 優化設定視窗中 "輸出字音" 選項的排版 --- */
+#web-ime-settings-modal #web-ime-output-mode-setting-row {
+    flex-basis: 100%;       /* 讓這個設定項目佔據父容器的整行寬度 */
+    min-width: 0;           /* 重設最小寬度限制 */
+    white-space: nowrap;    /* 強制內部的文字和選項不換行 */
+    overflow: hidden;       /* 隱藏可能超出的部分（以防萬一） */
+}
