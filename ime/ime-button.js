@@ -40,73 +40,99 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // 讀取網址參數，以便在啟用時套用
     const params = new URLSearchParams(window.location.search);
     const configFromUrl = {};
-    if (params.has('ime')) configFromUrl.defaultMode = params.get('ime');
-    if (params.has('prediction')) configFromUrl.enablePrediction = params.get('prediction') === 'true';
-    if (params.has('tonemode')) {
-        const toneMode = params.get('tonemode');
-        if (toneMode === 'numeric' || toneMode === 'alphabetic') configFromUrl.initialToneMode = toneMode;
-    }
-    if (params.has('longphrase')) configFromUrl.longPhrase = params.get('longphrase') === 'true';
-    if (params.has('fullwidth')) configFromUrl.initialFullWidth = params.get('fullwidth') === 'true';
-    if (params.has('ime-output')) {
-        const outputMode = params.get('ime-output');
-        if (['pinyin', 'word_pinyin', 'word'].includes(outputMode)) {
-            configFromUrl.outputMode = outputMode;
-            configFromUrl.outputEnabled = true;
+    let shouldAutoEnable = false;
+
+    // --- 更新：與 ime-on.js 相同的解碼邏輯 ---
+    if (params.has('ime')) {
+        const imeParam = params.get('ime');
+        const parts = imeParam.split('-');
+
+        if (parts.length === 3) {
+            shouldAutoEnable = parts[0] === '1';
+            configFromUrl.defaultMode = parts[1];
+            const settingsCode = parts[2];
+            if (settingsCode.length >= 1) configFromUrl.enablePrediction = settingsCode[0] === '1';
+            if (settingsCode.length >= 2) configFromUrl.initialToneMode = settingsCode[1] === '1' ? 'alphabetic' : 'numeric';
+            if (settingsCode.length >= 3) configFromUrl.longPhrase = settingsCode[2] === '1';
+            if (settingsCode.length >= 4) configFromUrl.initialFullWidth = settingsCode[3] === '1';
+            if (settingsCode.length >= 5) {
+                const isOutputEnabled = settingsCode[4] === '1';
+                configFromUrl.outputEnabled = isOutputEnabled;
+                if (isOutputEnabled && settingsCode.length >= 6) {
+                    if (settingsCode[5] === '1') configFromUrl.outputMode = 'pinyin';
+                    else if (settingsCode[5] === '2') configFromUrl.outputMode = 'word_pinyin';
+                }
+            }
+        } else if (parts.length > 3) {
+            shouldAutoEnable = true;
+            configFromUrl.defaultMode = parts[0];
+        } else {
+            configFromUrl.defaultMode = imeParam;
         }
     }
-    if (params.has('output_enabled')) configFromUrl.outputEnabled = params.get('output_enabled') === 'true';
+    
+    if (params.get('ime-enabled') === 'true') {
+        shouldAutoEnable = true;
+    } else if (params.get('ime-enabled') === 'false') {
+        shouldAutoEnable = false;
+    }
+
+    // (向下相容的長格式參數讀取)
+    if (!configFromUrl.hasOwnProperty('enablePrediction') && params.has('prediction')) {
+        configFromUrl.enablePrediction = params.get('prediction') === 'true';
+    }
+    if (!configFromUrl.hasOwnProperty('initialToneMode') && params.has('tonemode')) {
+        configFromUrl.initialToneMode = params.get('tonemode');
+    }
+    if (!configFromUrl.hasOwnProperty('longPhrase') && params.has('longphrase')) {
+        configFromUrl.longPhrase = params.get('longphrase') === 'true';
+    }
+    if (!configFromUrl.hasOwnProperty('initialFullWidth') && params.has('fullwidth')) {
+        configFromUrl.initialFullWidth = params.get('fullwidth') === 'true';
+    }
+    if (!configFromUrl.hasOwnProperty('outputMode') && params.has('ime-output')) {
+        configFromUrl.outputMode = params.get('ime-output');
+        configFromUrl.outputEnabled = true;
+    }
+    if (!configFromUrl.hasOwnProperty('outputEnabled') && params.has('output_enabled')) {
+         configFromUrl.outputEnabled = params.get('output_enabled') === 'true';
+    }
 
 
     function syncAllToggleButtonsUI(isActive) {
         toggleButtons.forEach(button => {
             const iconSpan = button.querySelector('.material-icons');
             if (isActive) {
-                iconSpan.textContent = 'keyboard_hide'; // 啟用狀態下的圖示
+                iconSpan.textContent = 'keyboard_hide';
                 button.title = '停用烏衣行輸入法';
-                button.classList.add('ime-active'); // 加上啟用狀態的 CSS class
+                button.classList.add('ime-active');
             } else {
-                iconSpan.textContent = 'keyboard'; // 停用狀態下的圖示
+                iconSpan.textContent = 'keyboard';
                 button.title = '啟用烏衣行輸入法';
-                button.classList.remove('ime-active'); // 移除啟用狀態的 CSS class
+                button.classList.remove('ime-active');
             }
         });
     }
 
-    // 1. 判斷是否要在頁面載入時自動啟用 IME
-    const shouldAutoEnable = params.get('ime-enabled') === 'true';
     if (shouldAutoEnable) {
-        const baseConfig = { 
-            defaultMode: 'sixian', 
-            candidatesPerPage: 5 
-        };
+        const baseConfig = { defaultMode: 'sixian', candidatesPerPage: 5 };
         const finalConfig = { ...baseConfig, ...configFromUrl };
         WebIME.init(finalConfig);
     }
 
-
-    //    在頁面載入後，不論上面是否啟用了 IME，都立即根據 WebIME 的最終狀態 (`isInitialized`)
-    //    同步一次所有按鈕的 UI。這一步會設定好按鈕的正確初始外觀。
     syncAllToggleButtonsUI(WebIME.isInitialized);
 
-    // 3. 為所有切換按鈕綁定點擊事件
     toggleButtons.forEach(button => {
         button.addEventListener('click', () => {
-            // 點擊時，判斷當前狀態來決定要啟用還是銷毀
             if (WebIME.isInitialized) {
                 WebIME.destroy();
             } else {
-                const baseConfig = { 
-                    defaultMode: 'sixian', 
-                    candidatesPerPage: 5 
-                };
+                const baseConfig = { defaultMode: 'sixian', candidatesPerPage: 5 };
                 const finalConfig = { ...baseConfig, ...configFromUrl };
                 WebIME.init(finalConfig);
             }
-            // 每次點擊操作後，都再次同步所有按鈕的 UI
             syncAllToggleButtonsUI(WebIME.isInitialized);
         });
     });

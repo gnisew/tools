@@ -1372,12 +1372,10 @@ createSettingsModal() {
     const resetSection = document.createElement('div');
     resetSection.className = 'settings-section';
 
-    // --- 新增：建立分享按鈕 ---
     const shareButton = document.createElement('button');
     shareButton.id = 'web-ime-share-button';
     shareButton.textContent = '分享設定';
     resetSection.appendChild(shareButton);
-    // --- 新增結束 ---
 
     const resetButton = document.createElement('button');
     resetButton.id = 'web-ime-reset-button';
@@ -1407,41 +1405,49 @@ createSettingsModal() {
         });
     });
 
-    // --- 新增：為分享按鈕綁定點擊事件 ---
+    // --- 修改：為分享按鈕綁定新的編碼邏輯 ---
     shareButton.addEventListener('click', () => {
         const baseUrl = window.location.origin + window.location.pathname;
-        const params = new URLSearchParams();
         
-        // 收集目前的所有狀態
-        params.set('ime-enabled', 'true');
-        params.set('ime', this.currentMode);
-        params.set('prediction', this.config.enablePrediction);
-        params.set('tonemode', this.getCurrentToneMode());
-        params.set('longphrase', this.isLongPhraseEnabled);
-        params.set('fullwidth', this.isFullWidthMode);
+        // 新格式: <啟用狀態>-<語言>-<設定碼>
+        // 1. 啟用狀態: 1 (分享時必定是啟用狀態)
+        const enabledState = '1';
 
-        // 處理輸出模式相關參數
-        if (this.config.toolbarButtons.outputModeToggle) {
-            params.set('output_enabled', 'true');
-            if (this.config.outputMode !== 'word') {
-                params.set('ime-output', this.config.outputMode);
-            }
-        } else {
-            params.set('output_enabled', 'false');
+        // 2. 語言
+        const langCode = this.currentMode;
+
+        // 3. 設定碼 (6位數)
+        // 順序: prediction, tonemode, longphrase, fullwidth, output_enabled, ime-output
+        const isOutputEnabled = this.config.toolbarButtons.outputModeToggle;
+        let outputModeCode = '0'; // 'word'
+        if (isOutputEnabled) {
+            if (this.config.outputMode === 'pinyin') outputModeCode = '1';
+            else if (this.config.outputMode === 'word_pinyin') outputModeCode = '2';
         }
+        
+        const settingsCode = [
+            this.config.enablePrediction ? '1' : '0',
+            this.getCurrentToneMode() === 'alphabetic' ? '1' : '0',
+            this.isLongPhraseEnabled ? '1' : '0',
+            this.isFullWidthMode ? '1' : '0',
+            isOutputEnabled ? '1' : '0',
+            outputModeCode
+        ].join('');
 
-        const shareableUrl = `${baseUrl}?${params.toString()}`;
+        // 組合最終字串
+        const shortCode = `${enabledState}-${langCode}-${settingsCode}`;
+        const shareableUrl = `${baseUrl}?ime=${shortCode}`;
 
-        // 使用 Clipboard API 複製到剪貼簿
+        // 複製到剪貼簿
         navigator.clipboard.writeText(shareableUrl).then(() => {
             this.showToast('分享網址已複製到剪貼簿');
-            this.settingsModal.style.display = 'none'; // 成功後關閉視窗
+            this.settingsModal.style.display = 'none';
         }).catch(err => {
             console.error('無法複製網址: ', err);
             this.showToast('複製失敗，您的瀏覽器可能不支援');
         });
     });
-    // --- 新增結束 ---
+    // --- 修改結束 ---
 
     resetButton.addEventListener('click', () => {
         this.settingsModal.style.display = 'none';
