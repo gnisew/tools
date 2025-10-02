@@ -3495,7 +3495,6 @@ const hakkaToneRules = [
 
 window.imeToneTransformRules = {
     'pinyin': [], // 拼音模式目前無此需求，可留空
-    'kasu': hakkaToneRules,
     'sixian': hakkaToneRules,
     'hailu': hakkaToneRules,
     'dapu': hakkaToneRules,
@@ -3503,6 +3502,41 @@ window.imeToneTransformRules = {
     'sixiannan': hakkaToneRules
 
 };
+
+
+/**
+ * 詔安(kasu)客語拼音轉換函式
+ * 將輸入的 rov (數字/字母調) 轉換為帶有聲調符號的 rhoobb (白話字) 拼音。
+ * 規則包含：r/v 變體、o/oo 轉換，以及聲調符號替換。
+ */
+const imeKasuRovToRhoobb = (function() {
+    return function(t) {
+        // 規則1: 詞首的 r + 母音 -> rh + 母音
+        // 例如：riuv -> rhiuv
+        t = t.replace(/\b(r)([aeiou])/g, 'rh$2');
+
+        // 規則2: 詞首的 v + 母音 -> bb + 母音
+        // 例如：vuz -> bbuz
+        t = t.replace(/\b(v)([aeiou])/g, 'bb$2');
+
+        // 規則3: 特定聲母 + o + (選擇性聲調) -> 聲母 + oo + (選擇性聲調)
+        // 例如：lox -> loox, gons -> goons
+        t = t.replace(/\b([bpfdtlgkhzcs]|bb|zh|ch|sh|rh)(o)([zvsx]?)\b/g, '$1oo$3');
+        
+        // 規則4: 單獨的 o + (選擇性聲調) -> oo + (選擇性聲調)
+        // 例如：ox -> oox
+        t = t.replace(/\b(o)([zvsx]?)\b/g, 'oo$2');
+
+        // 規則5: 處理 z, v, s, x 聲調字母，轉換為對應的聲調符號
+        t = t.replace(/([aeioumngbd])(z)$/g, '$1ˊ'); // 陽平
+        t = t.replace(/([aeioumngbd])(v)$/g, '$1ˇ'); // 上聲
+        t = t.replace(/([aeioumngbd])(s)$/g, '$1ˋ'); // 去聲
+        t = t.replace(/([aeioumngbd])(x)$/g, '$1ˆ'); // 陽入
+
+        return t;
+    };
+})();
+
 
 /**
  * 聲調轉換函式表 (基於函式)
@@ -3645,7 +3679,7 @@ const imeHoloZvsToTone = (function() {
     };
 })();
 
-// 註冊 'holo' 語言使用的轉換函式
 window.imeToneTransformFunctions = {
-    'holo': imeHoloZvsToTone
+    'holo': imeHoloZvsToTone,
+    'kasu': imeKasuRovToRhoobb
 };
