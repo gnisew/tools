@@ -450,3 +450,21 @@
 #web-ime-toolbar-container.disabled .ime-mode-button::before {
     opacity: 0.3;
 }
+
+/* --- 設定視窗中新增的「分享設定」按鈕樣式 --- */
+#web-ime-settings-modal #web-ime-share-button {
+    background-color: #1a73e8;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    width: 100%;
+    margin-bottom: 8px; /* 和下方的重設按鈕間隔開 */
+    transition: background-color 0.2s;
+}
+
+#web-ime-settings-modal #web-ime-share-button:hover {
+    background-color: #185abc;
+}

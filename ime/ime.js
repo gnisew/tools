@@ -576,49 +576,77 @@ savePredictionMappingSettings() {
      * 初始化函數接受客製化設定
      * @param {object} userConfig - 使用者傳入的設定物件，可覆寫預設值
      */
-
 init(userConfig = {}) {
     // 防止重複初始化
     if (this.isInitialized) {
         console.warn("WebIME is already initialized.");
         return;
     }
-/*
-    // --- 更新頁面上的靜態圖示 ---
-    document.title = `${randomIconName} 烏衣行輸入法`;
-    const mainTitle = document.querySelector('h1.title');
-    if (mainTitle) {
-        mainTitle.innerHTML = `<span class="material-icons" style="vertical-align: middle; margin-right: 8px;">${randomIconName}</span>烏衣行輸入法`;
-    }
-    const mainLogo = document.getElementById('logo');
-    if (mainLogo) {
-        mainLogo.textContent = randomIconName;
-        mainLogo.classList.add('material-icons');
-    }
-*/
 
     this.preprocessDictionaries();
     this.createReverseDictionaries();
-    // --- NEW START ---
-    this.createPredictionMap(); // 建立聯想詞地圖
-    // --- NEW END ---
+    this.createPredictionMap(); 
 
+    // 將傳入的設定與預設設定合併
     this.config = { ...this.config, ...userConfig };
     this.config.globalMaxCompositionLength = this.config.maxCompositionLength;
 
+    // --- 狀態初始化邏輯修改 ---
+    // 規則：URL 參數 (userConfig) > localStorage > 預設值
+
+    // 1. 決定當前語言模式
+    // 優先使用 URL 參數，其次是 localStorage，最後是預設值
     const savedMode = localStorage.getItem(this.config.storagePrefix + 'mode');
-    this.currentMode = (savedMode && dictionaries[savedMode]) ? savedMode : this.config.defaultMode;
+    this.currentMode = (userConfig.defaultMode && dictionaries[userConfig.defaultMode]) 
+                       ? userConfig.defaultMode 
+                       : (savedMode && dictionaries[savedMode]) 
+                           ? savedMode 
+                           : this.config.defaultMode;
 
+    // 2. 決定是否啟用長詞連打
     const savedLongPhrase = localStorage.getItem(this.config.storagePrefix + 'longPhrase');
-    this.isLongPhraseEnabled = (savedLongPhrase !== null) ? (savedLongPhrase === 'true') : this.config.longPhrase;
+    if (typeof userConfig.longPhrase === 'boolean') {
+        this.isLongPhraseEnabled = userConfig.longPhrase;
+    } else {
+        this.isLongPhraseEnabled = (savedLongPhrase !== null) ? (savedLongPhrase === 'true') : this.config.longPhrase;
+    }
 
+    // 3. 載入所有語言的聲調模式設定
     const savedToneModes = localStorage.getItem(this.config.storagePrefix + 'toneModes');
     if (savedToneModes) {
         try { this.toneModes = JSON.parse(savedToneModes); } catch (e) { this.toneModes = {}; }
     }
-    
+    // 如果 URL 有指定初始聲調模式，就覆蓋當前語言的設定
+    if (userConfig.initialToneMode) {
+        this.toneModes[this.currentMode] = userConfig.initialToneMode;
+    }
+
+    // 4. 決定全形/半形模式
     const savedFullWidth = localStorage.getItem(this.config.storagePrefix + 'fullWidth');
-    this.isFullWidthMode = (savedFullWidth !== null) ? (savedFullWidth === 'true') : true;
+    if (typeof userConfig.initialFullWidth === 'boolean') {
+        this.isFullWidthMode = userConfig.initialFullWidth;
+    } else {
+        this.isFullWidthMode = (savedFullWidth !== null) ? (savedFullWidth === 'true') : true;
+    }
+
+    // 5. 決定聯想詞設定
+    const savedPrediction = localStorage.getItem(this.config.storagePrefix + 'prediction');
+    if (typeof userConfig.enablePrediction === 'boolean') {
+        this.config.enablePrediction = userConfig.enablePrediction;
+    } else {
+        this.config.enablePrediction = (savedPrediction !== null) ? (savedPrediction === 'true') : false;
+    }
+
+    // 6. 決定輸出模式
+    const savedOutputMode = localStorage.getItem(this.config.storagePrefix + 'outputMode');
+    if (userConfig.outputMode) {
+        this.config.outputMode = userConfig.outputMode;
+    } else {
+        this.config.outputMode = ['word', 'pinyin', 'word_pinyin'].includes(savedOutputMode) ? savedOutputMode : 'word';
+    }
+
+
+    // --- 後續程式碼與原版相同 ---
     
     this.boundReposition = this.reposition.bind(this);
     this.boundHandleInput = this.handleInput.bind(this);
@@ -631,8 +659,23 @@ init(userConfig = {}) {
 
     this.loadKeyMapSettings();
     this.loadToolbarSettings();
-	this.loadOutputModeSettings(); 
-    this.loadPredictionSettings(); // 載入聯想詞設定
+    
+    // 如果 URL 參數有指定 outputEnabled，它會覆蓋 loadToolbarSettings 的結果
+    if (typeof userConfig.outputEnabled === 'boolean') {
+        this.config.toolbarButtons.outputModeToggle = userConfig.outputEnabled;
+    }
+
+    this.loadOutputModeSettings(); // 確保 UI 顯示正確
+    // 再次檢查 URL 參數以確保最高優先級
+    if (userConfig.outputMode) {
+        this.config.outputMode = userConfig.outputMode;
+    }
+    
+    this.loadPredictionSettings(); // 確保 UI 顯示正確
+    if (typeof userConfig.enablePrediction === 'boolean') {
+        this.config.enablePrediction = userConfig.enablePrediction;
+    }
+
 	this.loadPredictionMappingSettings();
 
     this.createUI();
@@ -646,14 +689,13 @@ init(userConfig = {}) {
         this.toolbarContainer.style.bottom = 'auto';
         this.toolbarContainer.style.right = 'auto';
     } else {
-        // 預設位置為左下角
         this.toolbarContainer.style.left = '10px';
         this.toolbarContainer.style.right = 'auto';
     }
 
     this.updateToolbarButtonsVisibility();
-
     this.updateToneModeButtonUI();
+    this.updateOutputModeButtonUI();
 
     const initialLangProps = imeLanguageProperties[this.currentMode] || {};
     this.config.maxCompositionLength = initialLangProps.maxLength || this.config.globalMaxCompositionLength;
@@ -684,19 +726,16 @@ init(userConfig = {}) {
 
 
     document.addEventListener('mousedown', (e) => {
-        // 如果候選字面板沒有顯示，或還沒初始化完成，則不執行任何動作
         if (!this.isInitialized || !this.candidatesContainer || this.candidatesContainer.style.display === 'none') {
             return;
         }
 
-        // 【關鍵修改】只判斷點擊是否發生在輸入法UI內部 (候選字 + 工具列)
         const isClickInsideIME = this.toolbarContainer.contains(e.target) || this.candidatesContainer.contains(e.target);
         
-        // 如果點擊位置不在輸入法UI內，就關閉候選字面板
         if (!isClickInsideIME) {
             this.compositionBuffer = '';
             this.compositionCursorPos = 0;
-            this.updateCandidates(); // 會自動處理UI隱藏
+            this.updateCandidates();
         }
     });
 
@@ -1332,6 +1371,14 @@ createSettingsModal() {
 
     const resetSection = document.createElement('div');
     resetSection.className = 'settings-section';
+
+    // --- 新增：建立分享按鈕 ---
+    const shareButton = document.createElement('button');
+    shareButton.id = 'web-ime-share-button';
+    shareButton.textContent = '分享設定';
+    resetSection.appendChild(shareButton);
+    // --- 新增結束 ---
+
     const resetButton = document.createElement('button');
     resetButton.id = 'web-ime-reset-button';
     resetButton.textContent = '重設所有設定';
@@ -1359,6 +1406,42 @@ createSettingsModal() {
             input.blur();
         });
     });
+
+    // --- 新增：為分享按鈕綁定點擊事件 ---
+    shareButton.addEventListener('click', () => {
+        const baseUrl = window.location.origin + window.location.pathname;
+        const params = new URLSearchParams();
+        
+        // 收集目前的所有狀態
+        params.set('ime-enabled', 'true');
+        params.set('ime', this.currentMode);
+        params.set('prediction', this.config.enablePrediction);
+        params.set('tonemode', this.getCurrentToneMode());
+        params.set('longphrase', this.isLongPhraseEnabled);
+        params.set('fullwidth', this.isFullWidthMode);
+
+        // 處理輸出模式相關參數
+        if (this.config.toolbarButtons.outputModeToggle) {
+            params.set('output_enabled', 'true');
+            if (this.config.outputMode !== 'word') {
+                params.set('ime-output', this.config.outputMode);
+            }
+        } else {
+            params.set('output_enabled', 'false');
+        }
+
+        const shareableUrl = `${baseUrl}?${params.toString()}`;
+
+        // 使用 Clipboard API 複製到剪貼簿
+        navigator.clipboard.writeText(shareableUrl).then(() => {
+            this.showToast('分享網址已複製到剪貼簿');
+            this.settingsModal.style.display = 'none'; // 成功後關閉視窗
+        }).catch(err => {
+            console.error('無法複製網址: ', err);
+            this.showToast('複製失敗，您的瀏覽器可能不支援');
+        });
+    });
+    // --- 新增結束 ---
 
     resetButton.addEventListener('click', () => {
         this.settingsModal.style.display = 'none';
