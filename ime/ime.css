@@ -397,22 +397,56 @@
     padding-top: 15px;
 }
 
-/* --- 設定視窗中的輸出模式選項微調 --- */
+/* --- 設定視窗中的輸出模式選項微調--- */
 #web-ime-settings-modal #web-ime-output-mode-setting-row {
-    justify-content: flex-start; /* 確保從左邊開始排 */
+    flex-basis: 100%;
+    min-width: 0;
+    white-space: nowrap;
+    justify-content: flex-start !important; 
 }
 
+/* 這是 radio button 選項們的容器 */
 #web-ime-settings-modal #output-mode-sub-options {
-    align-items: center; /* 垂直置中對齊 */
+    justify-content: flex-start !important;
+    align-items: center;  /* 垂直置中 */
+    gap: 6px; 
 }
 
-#web-ime-settings-modal #output-mode-sub-options label {
-    padding: 0; /* 移除 radio button 繼承來的多餘 padding */
+/* 這是每一個選項 (radio + icon + text) 的容器 */
+.output-mode-option {
+    display: inline-flex;
+    align-items: center;
+    max-width: 70px;
 }
-/* --- 優化設定視窗中 "輸出字音" 選項的排版 --- */
-#web-ime-settings-modal #web-ime-output-mode-setting-row {
-    flex-basis: 100%;       /* 讓這個設定項目佔據父容器的整行寬度 */
-    min-width: 0;           /* 重設最小寬度限制 */
-    white-space: nowrap;    /* 強制內部的文字和選項不換行 */
-    overflow: hidden;       /* 隱藏可能超出的部分（以防萬一） */
+
+/* 這是選項的 Label 本身 (包含圖示和文字) */
+.output-mode-option label {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 0;
+}
+
+/* 設定圖示的樣式 */
+.output-mode-option .material-icons {
+    font-size: 18px;     /* 圖示大小 */
+    margin-right: 2px;   /* 圖示和文字之間的微小間距 */
+    vertical-align: middle; /* 確保圖示垂直對齊 */
+}
+
+/* 調整 radio button 和 label 之間的距離 */
+.output-mode-option input[type="radio"] {
+    margin-right: 3px;
+    cursor: pointer;
+}
+
+/* 當選項被選中時，讓其對應的 label (圖示+文字) 變色，更加醒目 */
+.output-mode-option input[type="radio"]:checked + label {
+    color: #1a73e8;
+}
+
+/* 當輸入法工具列處於禁用狀態時，讓語言按鈕的下拉箭頭與分隔線變淡 */
+#web-ime-toolbar-container.disabled .ime-mode-button::after,
+#web-ime-toolbar-container.disabled .ime-mode-button::before {
+    opacity: 0.3;
 }
