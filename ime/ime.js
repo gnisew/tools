@@ -314,15 +314,15 @@ const imeToneMappings = {
 	toneModeToggleBtn: null,
 	outputModeToggleBtn: null,
 
-    // --- NEW START ---
-    // 設定集中管理
+
+    // 集中設定管理
     // 外部呼叫 init() 時可以傳入客製化設定來覆寫它們
     config: {
         defaultMode: 'sixian',      // 預設輸入法
         longPhrase: false,           // 預設是否啟用連打模式
         candidatesPerPage: 5,       // 每頁顯示的候選字數量
         maxCompositionLength: 30,   // 編碼區最大字元數
-        storagePrefix: 'webime_1_',   // 用於 localStorage 的前綴
+        storagePrefix: 'webime_2_',   // 用於 localStorage 的前綴
 		enablePrediction: false,
 		outputMode: 'pinyin', 
     },
@@ -1817,9 +1817,46 @@ handleInput(e) {
         }
         return;
     }
-
-    // --- 以下為行動裝置專用的核心邏輯 ---
+    
+    // --- 【新增的核心修改邏輯】 ---
     const target = e.target;
+    const isEditableDiv = target.isContentEditable;
+    let cursorPos, textLength;
+
+    if (isEditableDiv) {
+        // 對於 contentEditable 元素，使用 Selection API 來取得游標位置
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            cursorPos = range.endOffset;
+            textLength = target.textContent.length;
+        } else {
+            // 如果無法取得 selection，則假定在末端以維持基本功能
+            cursorPos = target.textContent.length;
+            textLength = target.textContent.length;
+        }
+    } else {
+        // 對於 <input> 和 <textarea>，直接使用 selectionStart
+        cursorPos = target.selectionStart;
+        textLength = target.value.length;
+    }
+
+    // 如果游標不在文字末端，代表使用者正在編輯中間內容
+    // 這時應重設輸入法狀態，讓瀏覽器正常處理編輯
+    if (cursorPos < textLength) {
+        if (this.compositionBuffer) {
+            this.compositionBuffer = '';
+            this.compositionCursorPos = 0;
+            this.updateCandidates(); // 清除候選字
+        }
+        // 更新最後的輸入值，然後結束此函數
+        this.lastInputValue = isEditableDiv ? target.textContent : target.value;
+        return;
+    }
+    // --- 【修改結束】 ---
+
+
+    // --- 以下為行動裝置專用的核心邏輯 (游標在末端時才會執行) ---
     const currentVal = target.isContentEditable ? target.textContent : target.value;
     
     // 偵測輸入
