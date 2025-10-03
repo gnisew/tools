@@ -1808,7 +1808,7 @@ handleInput(e) {
     if (this.isCommittingText) {
         return;
     }
-    
+
     // 如果不是行動裝置，此函數不作用 (桌機邏輯在 keydown 中)
     if (!this.isMobile) {
         if (this.compositionBuffer) {
@@ -1821,13 +1821,18 @@ handleInput(e) {
     // --- 以下為行動裝置專用的核心邏輯 ---
     const target = e.target;
     const currentVal = target.isContentEditable ? target.textContent : target.value;
-    
-    // 偵測輸入
+    const selectionEnd = target.selectionEnd; // 【重點1】取得當前游標位置
+
+    // 偵測輸入 (文字增加)
     if (currentVal.length > this.lastInputValue.length) {
-        let diff = currentVal.substring(this.lastInputValue.length);
+        const insertedLength = currentVal.length - this.lastInputValue.length;
+        // 【重點2】根據游標位置，精準計算出差異字元
+        let diff = currentVal.substring(selectionEnd - insertedLength, selectionEnd);
+        // 【重點3】儲存輸入前的游標位置，以便還原
+        const originalCursorPos = selectionEnd - insertedLength;
 
         const isAsciiRegex = /^[ -~]*$/;
-        if (!isAsciiRegex.test(diff)) {
+        if (!isAsciiRegex.test(diff) || diff.includes('\n')) {
             this.lastInputValue = currentVal;
             if (this.compositionBuffer) {
                 this.compositionBuffer = '';
@@ -1837,99 +1842,56 @@ handleInput(e) {
             return;
         }
 
-        if (diff.includes('\n')) {
-            this.lastInputValue = currentVal;
-            return;
-        }
-        
         const isNumericInput = /^[0-9]$/.test(diff);
         if (isNumericInput && this.getCurrentToneMode() === 'alphabetic' && !this.compositionBuffer) {
             this.lastInputValue = currentVal;
             return;
         }
 
-
         // 當輸入的是空白鍵時，進行特別處理
         if (diff === ' ') {
             const hasBuffer = this.compositionBuffer.length > 0;
             const hasCandidates = this.allCandidates.length > 0;
 
-            // 當處於關聯詞狀態 (isPredictionState) 時，即使 buffer 為空，也允許選字
             if (!hasBuffer && !this.isPredictionState) {
                 this.lastInputValue = currentVal;
                 return;
             }
 
-            const restoreVal = this.lastInputValue;
-            if (target.isContentEditable) {
-                target.textContent = restoreVal;
-                const range = document.createRange();
-                const sel = window.getSelection();
-                if (target.childNodes.length > 0) {
-                    range.setStart(target.childNodes[0], restoreVal.length);
-                } else {
-                    range.setStart(target, 0);
-                }
-                range.collapse(true);
-                sel.removeAllRanges();
-                sel.addRange(range);
-            } else {
-                const originalSelectionStart = target.selectionStart;
-                target.value = restoreVal;
-                target.setSelectionRange(originalSelectionStart - diff.length, originalSelectionStart - diff.length);
-            }
-            this.lastInputValue = restoreVal;
+            // 【重點4】還原輸入框內容與游標位置
+            target.value = this.lastInputValue;
+            target.setSelectionRange(originalCursorPos, originalCursorPos);
+            this.lastInputValue = target.value;
 
             if (hasCandidates) {
                 this.selectCandidate(this.highlightedIndex);
-            } 
-            else {
+            } else {
                 this.compositionBuffer = '';
                 this.compositionCursorPos = 0;
                 this.updateCandidates();
             }
-            
             return;
         }
-
-        const currentToneMode = this.getCurrentToneMode();
-        // 判斷是否可用數字選字的條件，從 `hasComposition` 改為 `this.allCandidates.length > 0`
+        
         const hasCandidatesOnScreen = this.allCandidates.length > 0;
-        const isNumberSelect = currentToneMode === 'alphabetic' && diff.match(/^[1-9]$/) && hasCandidatesOnScreen;
+        const isNumberSelect = this.getCurrentToneMode() === 'alphabetic' && diff.match(/^[1-9]$/) && hasCandidatesOnScreen;
         const isWTransform = diff.toLowerCase() === 'w' && this.compositionBuffer;
-
+        
+        // 處理數字選字或 'w' 轉換拼音
         if (isNumberSelect || isWTransform) {
-            
-            const restoreVal = this.lastInputValue;
-            if (target.isContentEditable) {
-                target.textContent = restoreVal;
-                const range = document.createRange();
-                const sel = window.getSelection();
-                if (target.childNodes.length > 0) {
-                    range.setStart(target.childNodes[0], restoreVal.length);
-                } else {
-                    range.setStart(target, 0);
-                }
-                range.collapse(true);
-                sel.removeAllRanges();
-                sel.addRange(range);
-            } else {
-                const originalSelectionStart = target.selectionStart;
-                target.value = restoreVal;
-                target.setSelectionRange(originalSelectionStart - diff.length, originalSelectionStart - diff.length);
-            }
-            this.lastInputValue = restoreVal; 
+            target.value = this.lastInputValue;
+            target.setSelectionRange(originalCursorPos, originalCursorPos);
+            this.lastInputValue = target.value;
 
             if (isNumberSelect) {
                 const index = parseInt(diff, 10) - 1;
                 if (index < this.candidatesList.children.length) {
                     this.selectCandidate(index);
                 }
-            } 
-            else if (isWTransform) {
+            } else if (isWTransform) {
+                // ... (此處省略 'w' 鍵轉換的詳細程式碼，因為它與 bug 無直接關係)
                 const langProps = imeLanguageProperties[this.currentMode] || {};
                 const isTransformEnabled = langProps.enableToneTransform !== false;
-
                 if (isTransformEnabled) {
                     let transformedText = this.compositionBuffer;
                     if (window.imeToneTransformFunctions && typeof window.imeToneTransformFunctions[this.currentMode] === 'function') {
@@ -1951,50 +1913,36 @@ handleInput(e) {
             }
             return;
         }
-        
+
+        // 處理正常的字母輸入
         const langProps = imeLanguageProperties[this.currentMode] || {};
-        const isNumericToneMode = currentToneMode === 'numeric' && langProps.numericToneMap;
+        const isNumericToneMode = this.getCurrentToneMode() === 'numeric' && langProps.numericToneMap;
 
         if (isNumericToneMode && diff.match(/^[0-9]$/)) {
             const mappedChar = langProps.numericToneMap[diff];
             if (mappedChar) {
-                diff = mappedChar; 
+                diff = mappedChar;
             }
         }
-        
+
         this.compositionBuffer += diff;
         this.compositionCursorPos += diff.length;
-        
-        const restoreVal = this.lastInputValue;
-        if (target.isContentEditable) {
-            target.textContent = restoreVal;
-            const range = document.createRange();
-            const sel = window.getSelection();
-            if (target.childNodes.length > 0) {
-                range.setStart(target.childNodes[0], restoreVal.length);
-            } else {
-                range.setStart(target, 0);
-            }
-            range.collapse(true);
-            sel.removeAllRanges();
-            sel.addRange(range);
-        } else {
-            const originalSelectionStart = target.selectionStart;
-            target.value = restoreVal;
-            target.setSelectionRange(originalSelectionStart - diff.length, originalSelectionStart - diff.length);
-        }
-        
-        this.lastInputValue = restoreVal;
+
+        target.value = this.lastInputValue;
+        target.setSelectionRange(originalCursorPos, originalCursorPos);
+        this.lastInputValue = target.value;
         this.updateCandidates();
-    }
-    else if (currentVal.length < this.lastInputValue.length) {
-         if (this.compositionBuffer) {
+
+    } else if (currentVal.length < this.lastInputValue.length) {
+        // 偵測刪除 (Backspce)
+        if (this.compositionBuffer) {
             this.compositionBuffer = this.compositionBuffer.slice(0, -1);
             this.compositionCursorPos = this.compositionBuffer.length;
             this.updateCandidates();
         }
         this.lastInputValue = currentVal;
     } else {
+        // 其他情況 (例如取代文字)，直接更新狀態
         this.lastInputValue = currentVal;
     }
 },
