@@ -651,6 +651,7 @@ init(userConfig = {}) {
     this.boundReposition = this.reposition.bind(this);
     this.boundHandleInput = this.handleInput.bind(this);
     this.boundHandleKeyDown = this.handleKeyDown.bind(this);
+	this.boundHandleCursorChange = this.handleCursorChange.bind(this);
     this.boundInitDrag = this.initDrag.bind(this);
     this.boundDragMove = this.dragMove.bind(this);
     this.boundDragEnd = this.dragEnd.bind(this);
@@ -1760,18 +1761,19 @@ activate(element) {
     setTimeout(() => this.reposition(), 0);
 
     // 為了確保穩健，先移除可能殘留的監聽器，再重新附加。
-    // 這可以防止因意外的狀態導致監聽器重複綁定或遺漏綁定。
-    this.activeElement.removeEventListener('click', this.boundReposition);
-    this.activeElement.removeEventListener('keyup', this.boundReposition);
-    this.activeElement.removeEventListener('mouseup', this.boundReposition);
     this.activeElement.removeEventListener('keydown', this.boundHandleKeyDown);
     if (this.isMobile) {
         this.activeElement.removeEventListener('input', this.boundHandleInput);
     }
-    
-    this.activeElement.addEventListener('click', this.boundReposition);
-    this.activeElement.addEventListener('keyup', this.boundReposition);
-    this.activeElement.addEventListener('mouseup', this.boundReposition);
+    // 【修改點】移除舊的 reposition 監聽器
+    this.activeElement.removeEventListener('click', this.boundReposition);
+    this.activeElement.removeEventListener('keyup', this.boundReposition);
+    this.activeElement.removeEventListener('mouseup', this.boundReposition);
+
+    // 【修改點】改為使用新的 handleCursorChange 監聽器
+    this.activeElement.addEventListener('click', this.boundHandleCursorChange);
+    this.activeElement.addEventListener('keyup', this.boundHandleCursorChange);
+    this.activeElement.addEventListener('mouseup', this.boundHandleCursorChange);
     
     // 根據輸入法是否啟用，來決定是否附加核心的輸入事件監聽器
     if (this.isEnabled) {
@@ -1787,18 +1789,23 @@ activate(element) {
 
 deactivate() {
     if (!this.activeElement) return;
+    
     if (this.compositionBuffer) {
         this.commitText(this.compositionBuffer);
         this.compositionBuffer = '';
         this.compositionCursorPos = 0;
     }
+
+    // 移除所有事件監聽器
     this.activeElement.removeEventListener('keydown', this.boundHandleKeyDown);
     if (this.isMobile) {
         this.activeElement.removeEventListener('input', this.boundHandleInput);
     }
-    this.activeElement.removeEventListener('click', this.boundReposition);
-    this.activeElement.removeEventListener('keyup', this.boundReposition);
-    this.activeElement.removeEventListener('mouseup', this.boundReposition);
+    // 【修改點】確保移除的是新的監聽器
+    this.activeElement.removeEventListener('click', this.boundHandleCursorChange);
+    this.activeElement.removeEventListener('keyup', this.boundHandleCursorChange);
+    this.activeElement.removeEventListener('mouseup', this.boundHandleCursorChange);
+
     this.activeElement = null;
     this.clearCandidates();
 },
@@ -3130,6 +3137,24 @@ getCaretCoordinates(element, position) {
     const top = elementRect.top + (span.offsetTop - element.scrollTop) + parseInt(style.borderTopWidth);
     const left = elementRect.left + (span.offsetLeft - element.scrollLeft) + parseInt(style.borderLeftWidth);
     return { top, left };
+},
+
+
+handleCursorChange(e) {
+    // 只有在還有未完成的輸入編碼時，才需要重設。
+    if (this.compositionBuffer) {
+        this.compositionBuffer = '';
+        this.compositionCursorPos = 0;
+        this.updateCandidates(); // 這會清空並隱藏候選字列表
+    }
+
+    // 【關鍵】同步 `lastInputValue`，確保下一次輸入事件的比對基準是正確的。
+    if (this.activeElement) {
+        this.lastInputValue = this.activeElement.isContentEditable ? this.activeElement.textContent : this.activeElement.value;
+    }
+
+    // 最後，呼叫原本的 reposition 函式來更新游標位置。
+    this.reposition(e);
 },
 
 
