@@ -3141,19 +3141,27 @@ getCaretCoordinates(element, position) {
 
 
 handleCursorChange(e) {
-    // 只有在還有未完成的輸入編碼時，才需要重設。
+    // 【關鍵修正】判斷事件類型。
+    // 如果事件是「一般字元」的 keyup 事件，我們就只更新位置，然後直接返回，不清除輸入碼。
+    // 這可以防止輸入'a'時，keydown 才剛建立輸入碼，keyup 就立刻把它清除的狀況。
+    if (e.type === 'keyup' && e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        this.reposition(e); // 只需確保UI位置跟隨游標即可
+        return;
+    }
+
+    // 對於滑鼠點擊、方向鍵等真正改變輸入焦點的操作，才執行完整的重設邏輯。
     if (this.compositionBuffer) {
         this.compositionBuffer = '';
         this.compositionCursorPos = 0;
-        this.updateCandidates(); // 這會清空並隱藏候選字列表
+        this.updateCandidates(); // 清除輸入碼並隱藏候選容器
     }
 
-    // 【關鍵】同步 `lastInputValue`，確保下一次輸入事件的比對基準是正確的。
+    // 同步 lastInputValue，為下一次輸入做準備。
     if (this.activeElement) {
         this.lastInputValue = this.activeElement.isContentEditable ? this.activeElement.textContent : this.activeElement.value;
     }
-
-    // 最後，呼叫原本的 reposition 函式來更新游標位置。
+    
+    // 最後，同樣更新UI位置。
     this.reposition(e);
 },
 
