@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🥷烏衣行輸入法</title>
+    <link href="https://oikasu1.github.io/kasuexam/kasu/fonts/twhei.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="ime.css">
+    <style>
+		* {
+		  font-family: twhei-s, TWHEI, "台灣黑體", tauhu-oo, PingFangTC-Regular, "Microsoft JhengHei", sans-serif;
+		}
+        body {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+            color: #202124;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .header {
+            background: white;
+            border-bottom: 1px solid #e8eaed;
+            padding: 8px 0;
+            display: flex;
+            justify-content: center;
+        }
+
+        .header-content {
+            max-width: 816px;
+            width: 100%;
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .title {
+            font-size: 18px;
+            font-weight: 400;
+            color: #202124;
+            margin: 0;
+            flex-shrink: 0;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            margin-right: 12px;
+        }
+
+        .toolbar-button {
+            background: none;
+            border: none;
+            padding: 8px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            color: #5f6368;
+            font-size: 14px;
+            min-width: 28px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+
+        .toolbar-button:hover {
+            background-color: #f1f3f4;
+        }
+
+        .toolbar-button.active {
+            background-color: #e8f0fe;
+            color: #1a73e8;
+        }
+
+        .toolbar-separator {
+            width: 1px;
+            height: 24px;
+            background-color: #dadce0;
+            margin: 0 4px;
+        }
+
+        .size-select {
+            border: 1px solid #dadce0;
+            border-radius: 4px;
+            padding: 6px 2px;
+            font-size: 14px;
+            background: white;
+            color: #202124;
+            cursor: pointer;
+            margin-right: 0px;
+            width: 42px;
+        }
+
+        .editor-container {
+            max-width: 816px;
+            margin: 24px auto;
+            background: white;
+            box-shadow: 0 1px 3px rgba(60,64,67,0.15);
+            height: calc(80vh - 120px);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .editor {
+            width: 100%;
+            flex: 1;
+            padding: 24px;
+            padding-bottom: 80px;
+            border: none;
+            outline: none;
+            font-size: 14pt;
+            line-height: 1.5;
+            color: #202124;
+            resize: none;
+            box-sizing: border-box;
+            overflow-y: auto;
+            border-radius: 6px;
+        }
+
+
+
+        /* 輸入法相關樣式 */
+        .ime-candidate {
+            position: absolute;
+            background: white;
+            border: 1px solid #dadce0;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(60,64,67,0.15);
+            z-index: 1000;
+            max-width: 300px;
+        }
+
+        .ime-candidate-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f3f4;
+        }
+
+        .ime-candidate-item:hover {
+            background-color: #f1f3f4;
+        }
+
+        .ime-candidate-item:last-child {
+            border-bottom: none;
+        }
+
+        .mobile-only {
+            display: none;
+        }
+
+        .logo {
+            font-size: 18px;
+            margin-right: 8px;
+            display: flex;
+            align-items: center;
+        }
+
+        .header.collapsed .title {
+            display: none;
+        }
+
+        .header.collapsed .logo {
+            display: flex !important;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-only {
+                display: flex;
+            }
+
+            .header-content {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+                transition: all 0.3s ease;
+            }
+            
+            .header.collapsed .header-content {
+                flex-direction: row;
+                align-items: center;
+                gap: 12px;
+            }
+            
+            .toolbar {
+                width: 100%;
+                justify-content: flex-start;
+                position: relative;
+            }
+            
+            .header.collapsed .toolbar {
+
+            }
+            
+            .toolbar .mobile-only {
+                position: absolute;
+                right: 0;
+            }
+            
+            .editor-container {
+                margin: 12px;
+                max-width: none;
+                height: calc(100vh - 140px);
+            }
+            
+            .header.collapsed + .editor-container {
+                height: calc(100vh - 80px);
+            }
+            
+            .editor {
+                padding: 16px;
+                padding-bottom: 60px;
+            }
+            
+            .toolbar-group {
+                margin-right: 4px;
+            }
+
+            .toolbar-group:last-child:not(.mobile-only) {
+                margin-right: 0;
+            }
+        }
+
+
+        #more-options-container {
+            position: relative; /* 為了讓下拉選單可以相對於它定位 */
+        }
+
+        .overflow-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background-color: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(60,64,67,0.15);
+            border: 1px solid #dadce0;
+            z-index: 1001;
+            padding: 4px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 150px; /* 選單最小寬度 */
+        }
+
+        /* 讓移到選單中的按鈕樣式更適合垂直排列 */
+        .overflow-menu > .toolbar-button,
+        .overflow-menu > .size-select {
+            width: 100%;
+            box-sizing: border-box;
+            justify-content: flex-start; /* 文字靠左 */
+            padding: 8px 12px;
+            border-radius: 0;
+        }
+
+        .overflow-menu > .size-select {
+            border: none; /* 移除下拉選單的邊框 */
+        }
+        
+        .overflow-menu > .toolbar-button:hover {
+            background-color: #f1f3f4;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1 class="title">🥷烏衣行輸入法</h1>
+            
+
+<div class="toolbar">
+                <div class="toolbar-group" id="main-toolbar-group">
+                    <span class="logo" id="logo" style="display: none;">🥷</span>
+                    <button class="toolbar-button ime-toggle-button" title="烏衣行輸入法">
+                        <span class="material-icons">keyboard</span>
+                    </button>		
+					<button class="toolbar-button" id="auto-save-button" onclick="toggleAutoSave()" title="切換自動儲存">
+						<span class="material-icons">save</span>
+					</button>
+                    <button class="toolbar-button" onclick="selectAll()" title="全選">
+                        <span class="material-icons">select_all</span>
+                    </button>
+                    <button class="toolbar-button" onclick="copyText()" title="複製">
+                        <span class="material-icons">content_copy</span>
+                    </button>
+                    <button class="toolbar-button" onclick="clearText()" title="清除">
+                        <span class="material-icons">delete</span>
+                    </button>		
+                    <select class="size-select" onchange="changeFontSize(this.value)">
+                        <option value="12">12</option>
+                        <option value="14" selected>14</option>
+                        <option value="16">16</option>
+                        <option value="18">18</option>
+                        <option value="20">20</option>
+                        <option value="24">24</option>
+                        <option value="28">28</option>
+                        <option value="32">32</option>
+                    </select>
+                    <button class="toolbar-button" onclick="undo()" title="復原">
+                        <span class="material-icons">undo</span>
+                    </button>
+                    <button class="toolbar-button" onclick="redo()" title="重做">
+                        <span class="material-icons">redo</span>
+                    </button>
+                </div>
+
+                <div class="toolbar-group mobile-only">
+                    <button class="toolbar-button" onclick="toggleHeader()" title="摺疊/展開" id="collapseBtn">
+                        <span class="material-icons">keyboard_arrow_up</span>
+                    </button>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <div class="editor-container">
+        <textarea class="editor" id="editor" placeholder="1.切換到英數 2.點鍵盤圖示 3.選語言"></textarea>
+    </div>
+
+<script>
+    let editor = document.getElementById('editor');
+    const autoSaveButton = document.getElementById('auto-save-button');
+
+    // --- 新增的變數 ---
+    let isAutoSaveEnabled = true; // 預設啟用自動儲存
+    let autoSaveTimer = null;     // 用於延遲儲存的計時器
+    const AUTO_SAVE_DELAY = 1500; // 使用者停止輸入後 1.5 秒自動儲存
+
+    // --- Undo/Redo 相關變數 ---
+    let undoStack = [];
+    let redoStack = [];
+    let currentState = '';
+
+    function saveState() {
+        if (editor.value !== currentState) {
+            undoStack.push(currentState);
+            currentState = editor.value;
+            redoStack = [];
+        }
+    }
+
+    function undo() {
+        if (undoStack.length > 0) {
+            redoStack.push(currentState);
+            currentState = undoStack.pop();
+            editor.value = currentState;
+        }
+    }
+
+    function redo() {
+        if (redoStack.length > 0) {
+            undoStack.push(currentState);
+            currentState = redoStack.pop();
+            editor.value = currentState;
+        }
+    }
+
+    function changeFontSize(size) {
+        editor.style.fontSize = size + 'pt';
+    }
+
+    const STORAGE_PREFIX = 'wesing_ime_editor_1';
+
+    /**
+     * [修改後的儲存函式]
+     * @param {boolean} showNotification - 是否顯示提示訊息
+     */
+    function saveText(showNotification = false) {
+        const content = editor.value;
+        const timestamp = new Date().toLocaleString('zh-TW');
+        
+        try {
+            localStorage.setItem(STORAGE_PREFIX + 'content', content);
+            localStorage.setItem(STORAGE_PREFIX + 'timestamp', timestamp);
+            if (showNotification) {
+                showToast(`文字已儲存 (${timestamp})`);
+            }
+        } catch (error) {
+            if (showNotification) {
+                showToast('儲存失敗，請檢查瀏覽器設定');
+            }
+        }
+    }
+
+    function loadText() {
+        try {
+            const savedContent = localStorage.getItem(STORAGE_PREFIX + 'content');
+            const savedTimestamp = localStorage.getItem(STORAGE_PREFIX + 'timestamp');
+            
+            if (savedContent !== null) {
+                saveState();
+                editor.value = savedContent;
+                currentState = savedContent; // 更新當前狀態
+                showToast(`已載入儲存的文字 (${savedTimestamp || '未知時間'})`);
+            } else {
+                showToast('沒有找到儲存的文字');
+            }
+        } catch (error) {
+            showToast('載入失敗，請檢查瀏覽器設定');
+        }
+    }
+    
+    /**
+     * [新增的函式]
+     * 更新自動儲存按鈕的啟用/停用狀態顏色
+     */
+    function updateAutoSaveButtonUI() {
+        if (isAutoSaveEnabled) {
+            autoSaveButton.classList.add('active');
+            autoSaveButton.title = '自動儲存已啟用';
+        } else {
+            autoSaveButton.classList.remove('active');
+            autoSaveButton.title = '自動儲存已停用';
+        }
+    }
+
+    /**
+     * [新增的函式]
+     * 切換自動儲存的狀態
+     */
+    function toggleAutoSave() {
+        isAutoSaveEnabled = !isAutoSaveEnabled; // 切換狀態
+        updateAutoSaveButtonUI(); // 更新按鈕顏色
+
+        if (isAutoSaveEnabled) {
+            showToast('自動儲存已啟用');
+            saveText(); // 啟用時立刻儲存一次
+        } else {
+            showToast('自動儲存已停用');
+        }
+    }
+
+
+    function selectAll() {
+        editor.select();
+        showToast('已全選文字');
+    }
+
+    function copyText() {
+        const selectedText = editor.value.substring(editor.selectionStart, editor.selectionEnd);
+        if (selectedText) {
+            navigator.clipboard.writeText(selectedText).then(() => {
+                showToast('選取文字已複製到剪貼簿');
+            }).catch(() => {
+                const textArea = document.createElement('textarea');
+                textArea.value = selectedText;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showToast('選取文字已複製到剪貼簿');
+            });
+        } else {
+            showToast('請先選取要複製的文字');
+        }
+    }
+
+    function showToast(message) {
+        const toast = document.createElement('div');
+        toast.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #323232;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            z-index: 10000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+        `;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateY(0)';
+        }, 10);
+
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(-10px)';
+            setTimeout(() => {
+                if (document.body.contains(toast)) {
+                    document.body.removeChild(toast);
+                }
+            }, 300);
+        }, 2000);
+    }
+
+    function clearText() {
+        showConfirmDialog('要清除並重置嗎？', function() {
+            saveState();
+            editor.value = '';
+            try {
+                localStorage.removeItem(STORAGE_PREFIX + 'content');
+                localStorage.removeItem(STORAGE_PREFIX + 'timestamp');
+                showToast('文字和儲存已清除');
+            } catch (error) {
+                showToast('文字已清除');
+            }
+        });
+    }
+
+    function toggleHeader() {
+        const header = document.querySelector('.header');
+        const collapseBtn = document.getElementById('collapseBtn');
+        const collapseBtnIcon = collapseBtn.querySelector('.material-icons');
+        
+        header.classList.toggle('collapsed');
+        
+        if (header.classList.contains('collapsed')) {
+            collapseBtnIcon.textContent = 'keyboard_arrow_down';
+            collapseBtn.title = '展開';
+        } else {
+            collapseBtnIcon.textContent = 'keyboard_arrow_up';
+            collapseBtn.title = '摺疊';
+        }
+    }
+
+    function showConfirmDialog(message, onConfirm) {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        `;
+
+        const dialog = document.createElement('div');
+        dialog.style.cssText = `
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 4px 16px rgba(60,64,67,0.15);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        `;
+
+        dialog.innerHTML = `
+            <div style="font-size: 16px; color: #202124; margin-bottom: 20px;">${message}</div>
+            <div style="display: flex; gap: 12px; justify-content: center;">
+                <button id="cancelBtn" style="
+                    background: #f8f9fa;
+                    border: 1px solid #dadce0;
+                    border-radius: 4px;
+                    padding: 8px 16px;
+                    cursor: pointer;
+                    color: #3c4043;
+                    font-size: 14px;
+                ">取消</button>
+                <button id="confirmBtn" style="
+                    background: #1a73e8;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 8px 16px;
+                    cursor: pointer;
+                    color: white;
+                    font-size: 14px;
+                ">確定</button>
+            </div>
+        `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('cancelBtn').onclick = function() {
+            document.body.removeChild(overlay);
+        };
+
+        document.getElementById('confirmBtn').onclick = function() {
+            onConfirm();
+            document.body.removeChild(overlay);
+        };
+
+        overlay.onclick = function(e) {
+            if (e.target === overlay) {
+                document.body.removeChild(overlay);
+            }
+        };
+    }
+
+    // --- [修改後的初始化與事件監聽] ---
+    editor.addEventListener('input', function() {
+        saveState(); // undo/redo 狀態儲存
+        
+        // 自動儲存邏輯
+        if (isAutoSaveEnabled) {
+            clearTimeout(autoSaveTimer); // 清除上一個計時器
+            autoSaveTimer = setTimeout(() => {
+                saveText(false); // 執行儲存，不顯示提示
+            }, AUTO_SAVE_DELAY);
+        }
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey || e.metaKey) {
+            switch(e.key) {
+                case 'z':
+                    if (e.shiftKey) {
+                        e.preventDefault();
+                        redo();
+                    } else {
+                        e.preventDefault();
+                        undo();
+                    }
+                    break;
+                case 'y':
+                    e.preventDefault();
+                    redo();
+                    break;
+            }
+        }
+    });
+
+    // 頁面載入時自動載入儲存的文字並設定初始狀態
+    window.addEventListener('load', function() {
+        const savedContent = localStorage.getItem(STORAGE_PREFIX + 'content');
+        if (savedContent !== null) {
+            editor.value = savedContent;
+        }
+        currentState = editor.value;
+        
+        // 初始化自動儲存按鈕的 UI
+        updateAutoSaveButtonUI();
+    });
+</script>
+
+    <script src="ime-dict.js"></script>
+    <script src="ime.js"></script>
+	<script src="ime-button.js"></script>
+
+
+</body>
+</html>
