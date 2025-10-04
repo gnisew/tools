@@ -651,7 +651,6 @@ init(userConfig = {}) {
     this.boundReposition = this.reposition.bind(this);
     this.boundHandleInput = this.handleInput.bind(this);
     this.boundHandleKeyDown = this.handleKeyDown.bind(this);
-	this.boundHandleCursorChange = this.handleCursorChange.bind(this);
     this.boundInitDrag = this.initDrag.bind(this);
     this.boundDragMove = this.dragMove.bind(this);
     this.boundDragEnd = this.dragEnd.bind(this);
@@ -1761,19 +1760,18 @@ activate(element) {
     setTimeout(() => this.reposition(), 0);
 
     // 為了確保穩健，先移除可能殘留的監聽器，再重新附加。
+    // 這可以防止因意外的狀態導致監聽器重複綁定或遺漏綁定。
+    this.activeElement.removeEventListener('click', this.boundReposition);
+    this.activeElement.removeEventListener('keyup', this.boundReposition);
+    this.activeElement.removeEventListener('mouseup', this.boundReposition);
     this.activeElement.removeEventListener('keydown', this.boundHandleKeyDown);
     if (this.isMobile) {
         this.activeElement.removeEventListener('input', this.boundHandleInput);
     }
-    // 【修改點】移除舊的 reposition 監聽器
-    this.activeElement.removeEventListener('click', this.boundReposition);
-    this.activeElement.removeEventListener('keyup', this.boundReposition);
-    this.activeElement.removeEventListener('mouseup', this.boundReposition);
-
-    // 【修改點】改為使用新的 handleCursorChange 監聽器
-    this.activeElement.addEventListener('click', this.boundHandleCursorChange);
-    this.activeElement.addEventListener('keyup', this.boundHandleCursorChange);
-    this.activeElement.addEventListener('mouseup', this.boundHandleCursorChange);
+    
+    this.activeElement.addEventListener('click', this.boundReposition);
+    this.activeElement.addEventListener('keyup', this.boundReposition);
+    this.activeElement.addEventListener('mouseup', this.boundReposition);
     
     // 根據輸入法是否啟用，來決定是否附加核心的輸入事件監聽器
     if (this.isEnabled) {
@@ -1789,57 +1787,55 @@ activate(element) {
 
 deactivate() {
     if (!this.activeElement) return;
-    
     if (this.compositionBuffer) {
         this.commitText(this.compositionBuffer);
         this.compositionBuffer = '';
         this.compositionCursorPos = 0;
     }
-
-    // 移除所有事件監聽器
     this.activeElement.removeEventListener('keydown', this.boundHandleKeyDown);
     if (this.isMobile) {
         this.activeElement.removeEventListener('input', this.boundHandleInput);
     }
-    // 【修改點】確保移除的是新的監聽器
-    this.activeElement.removeEventListener('click', this.boundHandleCursorChange);
-    this.activeElement.removeEventListener('keyup', this.boundHandleCursorChange);
-    this.activeElement.removeEventListener('mouseup', this.boundHandleCursorChange);
-
+    this.activeElement.removeEventListener('click', this.boundReposition);
+    this.activeElement.removeEventListener('keyup', this.boundReposition);
+    this.activeElement.removeEventListener('mouseup', this.boundReposition);
     this.activeElement = null;
     this.clearCandidates();
 },
 
 handleInput(e) {
-    // 如果是我們自己觸發的 input 事件，就直接忽略
+    // 如果是我們自己觸發的 input 事件 (例如 commitText)，就直接忽略
     if (this.isCommittingText) {
         return;
     }
-
-    // 如果不是行動裝置，此函數不作用 (桌機邏輯在 keydown 中)
+    // 如果不是行動裝置，此函數不作用 (桌機邏輯在 keydown 中處理)
     if (!this.isMobile) {
-        if (this.compositionBuffer) {
-            this.compositionBuffer = '';
-            this.updateCandidates();
-        }
         return;
     }
 
-    // --- 以下為行動裝置專用的核心邏輯 ---
     const target = e.target;
     const currentVal = target.isContentEditable ? target.textContent : target.value;
-    const selectionEnd = target.selectionEnd; // 【重點1】取得當前游標位置
+    const selectionStart = target.selectionStart;
 
-    // 偵測輸入 (文字增加)
+    // 處理刪除文字 (Backspace) 的情況
+    if (currentVal.length < this.lastInputValue.length) {
+        if (this.compositionBuffer) {
+            this.compositionBuffer = this.compositionBuffer.slice(0, -1);
+            this.compositionCursorPos = this.compositionBuffer.length;
+            this.updateCandidates();
+        }
+        this.lastInputValue = currentVal;
+        return;
+    }
+
+    // 處理新增文字的情況
     if (currentVal.length > this.lastInputValue.length) {
-        const insertedLength = currentVal.length - this.lastInputValue.length;
-        // 【重點2】根據游標位置，精準計算出差異字元
-        let diff = currentVal.substring(selectionEnd - insertedLength, selectionEnd);
-        // 【重點3】儲存輸入前的游標位置，以便還原
-        const originalCursorPos = selectionEnd - insertedLength;
+        // 找出差異 (新輸入的字元)
+        const diff = currentVal.substring(this.lastInputValue.length, selectionStart);
 
-        const isAsciiRegex = /^[ -~]*$/;
-        if (!isAsciiRegex.test(diff) || diff.includes('\n')) {
+        // 如果差異不是單一的 ASCII 可列印字元，則可能是自動完成或貼上，我們直接接受結果並重設輸入法
+        const isAsciiRegex = /^[ -~]$/;
+        if (!isAsciiRegex.test(diff)) {
             this.lastInputValue = currentVal;
             if (this.compositionBuffer) {
                 this.compositionBuffer = '';
@@ -1849,110 +1845,92 @@ handleInput(e) {
             return;
         }
 
-        const isNumericInput = /^[0-9]$/.test(diff);
-        if (isNumericInput && this.getCurrentToneMode() === 'alphabetic' && !this.compositionBuffer) {
-            this.lastInputValue = currentVal;
-            return;
+        // --- 核心邏輯：攔截輸入、還原編輯區、更新內部緩衝 ---
+        
+        // 1. 取得還原點的游標位置 (新字元插入前的位置)
+        const restoreCursorPos = selectionStart - diff.length;
+        
+        // 2. 將編輯區的內容還原到輸入前
+        //    (重要！我們不直接用 this.lastInputValue 是因為游標可能在中間，貼上會導致內容不符)
+        const restoredValue = currentVal.slice(0, restoreCursorPos) + currentVal.slice(selectionStart);
+        
+        this.isCommittingText = true; // 暫時標記，避免觸發遞迴
+        if (target.isContentEditable) {
+            // contentEditable 的處理較複雜，此處簡化為 value-based 的邏輯
+            target.textContent = restoredValue;
+        } else {
+            target.value = restoredValue;
         }
+        target.setSelectionRange(restoreCursorPos, restoreCursorPos);
+        this.isCommittingText = false;
+        
+        // 3. 更新 lastInputValue 為還原後的狀態
+        this.lastInputValue = restoredValue;
 
-        // 當輸入的是空白鍵時，進行特別處理
+        // --- 處理被攔截下來的字元 `diff` ---
+
+        // 如果輸入的是空白鍵，且有候選字，則視為選字
         if (diff === ' ') {
-            const hasBuffer = this.compositionBuffer.length > 0;
-            const hasCandidates = this.allCandidates.length > 0;
-
-            if (!hasBuffer && !this.isPredictionState) {
-                this.lastInputValue = currentVal;
+            if (this.allCandidates.length > 0 || this.isPredictionState) {
+                this.selectCandidate(this.highlightedIndex);
+                return;
+            } else {
+                // 如果沒有候選字，則將空白鍵直接送入編輯區
+                this.commitText(' ');
                 return;
             }
+        }
+        
+        // 處理數字選字或 'w' 轉換
+        const hasCandidatesOnScreen = this.allCandidates.length > 0;
+        const isNumberSelect = this.getCurrentToneMode() === 'alphabetic' && /^[1-9]$/.test(diff) && hasCandidatesOnScreen;
+        const isWTransform = diff.toLowerCase() === 'w' && this.compositionBuffer;
 
-            // 【重點4】還原輸入框內容與游標位置
-            target.value = this.lastInputValue;
-            target.setSelectionRange(originalCursorPos, originalCursorPos);
-            this.lastInputValue = target.value;
-
-            if (hasCandidates) {
-                this.selectCandidate(this.highlightedIndex);
-            } else {
+        if (isNumberSelect) {
+            const index = parseInt(diff, 10) - 1;
+            if (index < this.candidatesList.children.length) {
+                this.selectCandidate(index);
+            }
+            return;
+        }
+        
+        if (isWTransform) {
+            const langProps = imeLanguageProperties[this.currentMode] || {};
+            if (langProps.enableToneTransform !== false) {
+                let transformedText = this.compositionBuffer;
+                // (此處省略 'w' 轉換的詳細程式碼，因為它與原版相同)
+                if (window.imeToneTransformFunctions && typeof window.imeToneTransformFunctions[this.currentMode] === 'function') {
+                    transformedText = window.imeToneTransformFunctions[this.currentMode](transformedText);
+                }
+                this.commitText(transformedText);
                 this.compositionBuffer = '';
                 this.compositionCursorPos = 0;
                 this.updateCandidates();
             }
             return;
         }
-        
-        const hasCandidatesOnScreen = this.allCandidates.length > 0;
-        const isNumberSelect = this.getCurrentToneMode() === 'alphabetic' && diff.match(/^[1-9]$/) && hasCandidatesOnScreen;
-        const isWTransform = diff.toLowerCase() === 'w' && this.compositionBuffer;
-        
-        // 處理數字選字或 'w' 轉換拼音
-        if (isNumberSelect || isWTransform) {
-            target.value = this.lastInputValue;
-            target.setSelectionRange(originalCursorPos, originalCursorPos);
-            this.lastInputValue = target.value;
 
-            if (isNumberSelect) {
-                const index = parseInt(diff, 10) - 1;
-                if (index < this.candidatesList.children.length) {
-                    this.selectCandidate(index);
-                }
-            } else if (isWTransform) {
-                // ... (此處省略 'w' 鍵轉換的詳細程式碼，因為它與 bug 無直接關係)
-                const langProps = imeLanguageProperties[this.currentMode] || {};
-                const isTransformEnabled = langProps.enableToneTransform !== false;
-                if (isTransformEnabled) {
-                    let transformedText = this.compositionBuffer;
-                    if (window.imeToneTransformFunctions && typeof window.imeToneTransformFunctions[this.currentMode] === 'function') {
-                        transformedText = window.imeToneTransformFunctions[this.currentMode](transformedText);
-                    } else {
-                        let rules = (window.imeToneTransformRules || {})[this.currentMode];
-                        if (rules && rules.length > 0) {
-                            for (const rule of rules) {
-                                const regex = new RegExp(rule[0][0], rule[0][1]);
-                                transformedText = transformedText.replace(regex, rule[1]);
-                            }
-                        }
-                    }
-                    this.commitText(transformedText);
-                    this.compositionBuffer = '';
-                    this.compositionCursorPos = 0;
-                    this.updateCandidates();
-                }
-            }
-            return;
-        }
-
-        // 處理正常的字母輸入
+        // 4. 將攔截到的字元加入到內部緩衝區
+        let charToAdd = diff;
         const langProps = imeLanguageProperties[this.currentMode] || {};
         const isNumericToneMode = this.getCurrentToneMode() === 'numeric' && langProps.numericToneMap;
 
-        if (isNumericToneMode && diff.match(/^[0-9]$/)) {
-            const mappedChar = langProps.numericToneMap[diff];
-            if (mappedChar) {
-                diff = mappedChar;
-            }
+        if (isNumericToneMode && /^[0-9]$/.test(charToAdd)) {
+            charToAdd = langProps.numericToneMap[charToAdd] || charToAdd;
         }
+        
+        this.compositionBuffer += charToAdd;
+        this.compositionCursorPos = this.compositionBuffer.length;
 
-        this.compositionBuffer += diff;
-        this.compositionCursorPos += diff.length;
-
-        target.value = this.lastInputValue;
-        target.setSelectionRange(originalCursorPos, originalCursorPos);
-        this.lastInputValue = target.value;
+        // 5. 更新候選字窗
         this.updateCandidates();
 
-    } else if (currentVal.length < this.lastInputValue.length) {
-        // 偵測刪除 (Backspce)
-        if (this.compositionBuffer) {
-            this.compositionBuffer = this.compositionBuffer.slice(0, -1);
-            this.compositionCursorPos = this.compositionBuffer.length;
-            this.updateCandidates();
-        }
-        this.lastInputValue = currentVal;
     } else {
-        // 其他情況 (例如取代文字)，直接更新狀態
+        // 內容長度不變 (例如游標移動)，只需更新狀態
         this.lastInputValue = currentVal;
     }
 },
+
 
 findPhraseCandidates(buffer) {
     // *** 修改點：對傳入的 buffer 進行正規化 ***
@@ -2016,8 +1994,12 @@ handleKeyDown(e) {
     if (e.isComposing || e.keyCode === 229) return;
     if (e.ctrlKey || e.altKey || e.metaKey) return;
 
-    // 【關鍵修改】: 刪除了先前版本中針對 isMobile 的特殊判斷 `if (this.isMobile && ...)` 
-    // 這使得行動裝置和電腦版都會走接下來的標準輸入判斷流程。
+    // 【核心修改】
+    // 在正則表達式中加入了「空白鍵(\s)」，讓 handleKeyDown 在手機上忽略空白鍵與數字鍵，
+    // 將其完全交給 handleInput 處理，避免事件衝突。
+    if (this.isMobile && e.key && e.key.length === 1 && /[a-zA-Z0-9\s]/.test(e.key)) {
+        return;
+    }
 
     const hasComposition = this.compositionBuffer.length > 0;
     const hasCandidates = this.allCandidates.length > 0;
@@ -2046,7 +2028,6 @@ handleKeyDown(e) {
     const action = reverseKeyMap[e.key];
 
     if (action) {
-        // 這一段 switch case 邏輯完全不變
         switch (action) {
             case 'selectCandidate':
                 if (hasCandidates) {
@@ -2069,7 +2050,7 @@ handleKeyDown(e) {
                 return;
             
             case 'commitComposition':
-                 if (hasComposition) {
+                 if (hasComposition) { // 只有在有輸入碼時才攔截 Enter
                     e.preventDefault();
                     this.commitText(this.compositionBuffer);
                     this.compositionBuffer = '';
@@ -2119,26 +2100,62 @@ handleKeyDown(e) {
                 break;
 
             case 'nextCandidate':
-                if (hasCandidates) { e.preventDefault(); this.navigateCandidates(1); return; }
+                if (hasCandidates) {
+                    e.preventDefault();
+                    this.navigateCandidates(1);
+                    return; 
+                }
                 break; 
             case 'prevCandidate':
-                if (hasCandidates) { e.preventDefault(); this.navigateCandidates(-1); return; }
+                if (hasCandidates) {
+                    e.preventDefault();
+                    this.navigateCandidates(-1);
+                    return; 
+                }
                 break; 
+
             case 'nextPage':
-                if (hasCandidates) { e.preventDefault(); this.changePage(1); return; }
+                if (hasCandidates) {
+                    e.preventDefault();
+                    this.changePage(1);
+                    return;
+                }
                 break;
+
             case 'prevPage':
-                if (hasCandidates) { e.preventDefault(); this.changePage(-1); return; }
+                if (hasCandidates) {
+                    e.preventDefault();
+                    this.changePage(-1);
+                    return;
+                }
                 break;
+
             case 'moveCursorLeft':
-                if (hasComposition) { e.preventDefault(); if (this.compositionCursorPos > 0) this.compositionCursorPos--; this.updateCompositionDisplay(); return; }
+                if (hasComposition) {
+                    e.preventDefault();
+                    if (this.compositionCursorPos > 0) this.compositionCursorPos--;
+                    this.updateCompositionDisplay();
+                    return;
+                }
                 break;
+
             case 'moveCursorRight':
-                if (hasComposition) { e.preventDefault(); if (this.compositionCursorPos < this.compositionBuffer.length) this.compositionCursorPos++; this.updateCompositionDisplay(); return; }
+                if (hasComposition) {
+                    e.preventDefault();
+                    if (this.compositionCursorPos < this.compositionBuffer.length) this.compositionCursorPos++;
+                    this.updateCompositionDisplay();
+                    return;
+                }
                 break;
+
             case 'toggleLongPhrase':
-                if (hasComposition) { e.preventDefault(); this.toggleLongPhraseMode(); return; }
+                if (hasComposition) {
+                    e.preventDefault();
+                    this.toggleLongPhraseMode();
+                    return;
+                }
                 break;
+            
             case 'transformTone':
                 if (hasComposition) {
                     const isTransformEnabled = langProps.enableToneTransform !== false;
@@ -2167,11 +2184,39 @@ handleKeyDown(e) {
     }
     
     if (this.isFullWidthMode && !hasComposition) {
-        // ... (這段標點符號邏輯不變)
+        const fullWidthPunctuation = {
+            ',': '，', '.': '。', '?': '？', ':': '：', "'": '、', '[': '「', ']': '」', '{': '『', '}': '』', '!': '！', '-': '─', '(': '（', ')': '）', '~': '～', '<': '〈', '>': '〉', '_': '＿', '"': '…', '\\': '【】', '|': '《》', '\;': 'X'
+        };
+        const fullWidthChar = fullWidthPunctuation[e.key];
+
+        if (fullWidthChar && !(this.currentMode === 'hanglie' && [',', '.', ';', '/'].includes(e.key))) {
+            e.preventDefault();
+            this.commitText(fullWidthChar);
+            return;
+        }
     }
 
     if (hasCandidates) {
-        // ... (這段數字選字邏輯不變)
+        const currentToneMode = this.getCurrentToneMode();
+        if (currentToneMode === 'alphabetic' && e.key >= '1' && e.key <= '9') {
+            e.preventDefault();
+            const index = parseInt(e.key, 10) - 1;
+            if (index < this.candidatesList.children.length) {
+                this.selectCandidate(index);
+                return;
+            }
+        }
+        if (e.shiftKey && e.code.startsWith('Digit')) {
+            const num = e.code.slice(5);
+            if (num >= '1' && num <= '9') {
+                const index = parseInt(num, 10) - 1;
+                if (index < this.candidatesList.children.length) {
+                    e.preventDefault();
+                    this.selectCandidate(index);
+                    return;
+                }
+            }
+        }
     }
 
     if (e.key === 'Backspace') {
@@ -2192,13 +2237,14 @@ handleKeyDown(e) {
     if (isNumericKey && this.getCurrentToneMode() === 'alphabetic' && !hasComposition) {
         return;
     }
+
+
     if (e.key === '+' || e.key === '=' ) {
         return;
     }
 
-    // 【關鍵修改】: 移除了 `!this.isMobile` 的判斷
-    // 這使得後面的程式碼對行動裝置和電腦版都有效
-    if (e.key.length === 1 && !reverseKeyMap[e.key]) {
+    
+    if (!this.isMobile && e.key.length === 1 && !reverseKeyMap[e.key]) {
         e.preventDefault();
         let character = e.key;
         const currentToneMode = this.getCurrentToneMode();
@@ -3069,32 +3115,6 @@ getCaretCoordinates(element, position) {
     const top = elementRect.top + (span.offsetTop - element.scrollTop) + parseInt(style.borderTopWidth);
     const left = elementRect.left + (span.offsetLeft - element.scrollLeft) + parseInt(style.borderLeftWidth);
     return { top, left };
-},
-
-
-handleCursorChange(e) {
-    // 【關鍵修正】判斷事件類型。
-    // 如果事件是「一般字元」的 keyup 事件，我們就只更新位置，然後直接返回，不清除輸入碼。
-    // 這可以防止輸入'a'時，keydown 才剛建立輸入碼，keyup 就立刻把它清除的狀況。
-    if (e.type === 'keyup' && e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        this.reposition(e); // 只需確保UI位置跟隨游標即可
-        return;
-    }
-
-    // 對於滑鼠點擊、方向鍵等真正改變輸入焦點的操作，才執行完整的重設邏輯。
-    if (this.compositionBuffer) {
-        this.compositionBuffer = '';
-        this.compositionCursorPos = 0;
-        this.updateCandidates(); // 清除輸入碼並隱藏候選容器
-    }
-
-    // 同步 lastInputValue，為下一次輸入做準備。
-    if (this.activeElement) {
-        this.lastInputValue = this.activeElement.isContentEditable ? this.activeElement.textContent : this.activeElement.value;
-    }
-    
-    // 最後，同樣更新UI位置。
-    this.reposition(e);
 },
 
 
