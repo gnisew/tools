@@ -303,7 +303,17 @@ const imeToneMappings = {
     candidatesList: null,
     topBar: null,
 	toastElement: null,
+    // 按鈕註冊表，用於同步多個UI上的按鈕
+    allToneModeButtons: [],
+    allLongPhraseButtons: [],
+    allPunctuationButtons: [],
+    allOutputModeButtons: [],
+    allSettingsButtons: [],
+    allModeDisplayTexts: [],
+    allModeMenus: [],
 
+    // 外部工具列的容器元素
+    externalToolbarContainer: null, 
     modeDisplayButton: null,
     modeDisplayText: null,
     modeMenu: null,
@@ -340,7 +350,6 @@ const imeToneMappings = {
 
     compositionBuffer: '',
     compositionCursorPos: 0,
-    isModeMenuVisible: false,
 
     allCandidates: [],
     currentPage: 0,
@@ -572,10 +581,10 @@ savePredictionMappingSettings() {
 },
 
 
-    /**
-     * 初始化函數接受客製化設定
-     * @param {object} userConfig - 使用者傳入的設定物件，可覆寫預設值
-     */
+/**
+ * 初始化函數接受客製化設定
+ * @param {object} userConfig - 使用者傳入的設定物件，可覆寫預設值
+ */
 init(userConfig = {}) {
     // 防止重複初始化
     if (this.isInitialized) {
@@ -591,17 +600,18 @@ init(userConfig = {}) {
     this.config = { ...this.config, ...userConfig };
     this.config.globalMaxCompositionLength = this.config.maxCompositionLength;
 
-    // --- 狀態初始化邏輯修改 ---
-    // 規則：URL 參數 (userConfig) > localStorage > 預設值
+    // --- 【核心修改點】狀態初始化邏輯 ---
+    // 規則變更為：localStorage 優先 > URL 參數 (userConfig) > 程式預設值
 
-    // 1. 決定當前語言模式
-    // 優先使用 URL 參數，其次是 localStorage，最後是預設值
+    // 1. 決定當前語言模式 (localStorage 優先)
     const savedMode = localStorage.getItem(this.config.storagePrefix + 'mode');
-    this.currentMode = (userConfig.defaultMode && dictionaries[userConfig.defaultMode]) 
-                       ? userConfig.defaultMode 
-                       : (savedMode && dictionaries[savedMode]) 
-                           ? savedMode 
-                           : this.config.defaultMode;
+    const urlMode = (userConfig.defaultMode && dictionaries[userConfig.defaultMode]) 
+                    ? userConfig.defaultMode 
+                    : null;
+
+    this.currentMode = (savedMode && dictionaries[savedMode]) 
+                       ? savedMode 
+                       : (urlMode || this.config.defaultMode);
 
     // 2. 決定是否啟用長詞連打
     const savedLongPhrase = localStorage.getItem(this.config.storagePrefix + 'longPhrase');
@@ -642,7 +652,7 @@ init(userConfig = {}) {
     if (userConfig.outputMode) {
         this.config.outputMode = userConfig.outputMode;
     } else {
-        this.config.outputMode = ['word', 'pinyin', 'word_pinyin'].includes(savedOutputMode) ? savedOutputMode : 'word';
+        this.config.outputMode = ['word', 'pinyin', 'word_pinyin', 'word_pinyin2'].includes(savedOutputMode) ? savedOutputMode : 'word';
     }
 
 
@@ -684,6 +694,12 @@ init(userConfig = {}) {
 	this.loadPredictionMappingSettings();
 
     this.createUI();
+
+    // 尋找並填充外部工具列容器
+    this.externalToolbarContainer = document.getElementById('ime-external-toolbar-container');
+    if (this.externalToolbarContainer) {
+        this.createExternalToolbar();
+    }
     this.loadQuerySettings();
     
     const pinnedTop = localStorage.getItem(this.config.storagePrefix + 'pinnedTop');
@@ -752,6 +768,7 @@ init(userConfig = {}) {
 /**
  * 徹底銷毀 WebIME 實例，移除所有 UI 和事件監聽。
  */
+
 destroy() {
     if (!this.isInitialized) {
         return; // 如果尚未初始化，則不執行任何操作
@@ -767,7 +784,9 @@ destroy() {
     if (this.boundFocusOutHandler) {
         document.removeEventListener("focusout", this.boundFocusOutHandler);
     }
-
+    if (this.boundGlobalKeyDownHandler) {
+        document.removeEventListener('keydown', this.boundGlobalKeyDownHandler);
+    }
     if (this.boundEnsureInBounds) {
         window.removeEventListener('resize', this.boundEnsureInBounds);
     }
@@ -788,9 +807,10 @@ destroy() {
 
     // 4. 重設內部狀態
     this.compositionBuffer = '';
-    this.compositionCursorPos = 0;
     this.allCandidates = [];
     this.activeElement = null;
+    this.allModeMenus = []; // 清空註冊表
+    this.allModeDisplayTexts = [];
 
     // 5. 將初始化旗標設為 false
     this.isInitialized = false;
@@ -885,53 +905,52 @@ createUI() {
     this.modeDisplayText = document.createElement("span");
     this.modeDisplayText.className = "ime-mode-text";
     this.modeDisplayText.textContent = this.getModeDisplayName(this.currentMode);
+	this.allModeDisplayTexts.push(this.modeDisplayText); 
     this.modeDisplayButton.appendChild(this.modeDisplayText);
 
-this.modeDisplayButton.addEventListener('click', (e) => {
+
+    this.modeDisplayButton.addEventListener('click', (e) => {
+        // 阻止事件冒泡，避免觸發我們剛才新增的全域關閉監聽器
+        e.stopPropagation(); 
+        
         const rect = this.modeDisplayButton.getBoundingClientRect();
         const clickX = e.clientX;
         const arrowClickAreaStart = rect.right - 30;
 
-        // 判斷點擊位置是否在右側的箭頭區域
-        if (clickX > arrowClickAreaStart) {
+        if (clickX > arrowClickAreaStart) { // 點擊右側箭頭區域
+            if (!this.isEnabled) return;
             
-            // 【新增修改】
-            // 如果輸入法當前是停用狀態，則直接返回，不執行任何動作。
-            if (!this.isEnabled) {
-                return;
-            }
-            // 【修改結束】
+            // 直接切換 .open class
+            const isMenuVisible = modeContainer.classList.toggle('open');
+            
+            // 如果是開啟選單，才計算位置
+            if (isMenuVisible) {
+                // 關閉其他可能已開啟的選單
+                this.allModeMenus.forEach(menu => {
+                    if (menu !== this.modeMenu) {
+                        menu.parentElement.classList.remove('open');
+                    }
+                });
 
-            // (以下是原本開啟選單的邏輯)
-            if (this.isModeMenuVisible) {
-                modeContainer.classList.remove('open');
-                this.isModeMenuVisible = false;
-            } else {
-                this.modeMenu.style.visibility = 'hidden';
-                modeContainer.classList.add('open');
+                this.modeMenu.style.visibility = 'hidden'; // 先隱藏以便計算
                 const menuWidth = this.modeMenu.offsetWidth;
                 const menuHeight = this.modeMenu.offsetHeight;
                 const viewportWidth = window.innerWidth;
                 const viewportHeight = window.innerHeight;
+                
                 if (rect.left + menuWidth > viewportWidth) {
-                    this.modeMenu.style.left = 'auto';
-                    this.modeMenu.style.right = '0';
+                    this.modeMenu.style.left = 'auto'; this.modeMenu.style.right = '0';
                 } else {
-                    this.modeMenu.style.left = '0';
-                    this.modeMenu.style.right = 'auto';
+                    this.modeMenu.style.left = '0'; this.modeMenu.style.right = 'auto';
                 }
                 if (rect.bottom + menuHeight > viewportHeight) {
-                    this.modeMenu.style.top = 'auto';
-                    this.modeMenu.style.bottom = '105%';
+                    this.modeMenu.style.top = 'auto'; this.modeMenu.style.bottom = '105%';
                 } else {
-                    this.modeMenu.style.top = '105%';
-                    this.modeMenu.style.bottom = 'auto';
+                    this.modeMenu.style.top = '105%'; this.modeMenu.style.bottom = 'auto';
                 }
-                this.modeMenu.style.visibility = 'visible';
-                this.isModeMenuVisible = true;
+                this.modeMenu.style.visibility = 'visible'; // 計算完畢後顯示
             }
-        } else {
-            // 點擊文字區域，則是啟用/停用輸入法
+        } else { // 點擊文字區域
             this.toggleIsEnabled();
         }
     });
@@ -939,6 +958,7 @@ this.modeDisplayButton.addEventListener('click', (e) => {
 
     this.modeMenu = document.createElement("ul");
     this.modeMenu.className = "ime-mode-menu";
+	this.allModeMenus.push(this.modeMenu); 
     Object.keys(dictionaries).forEach(mode => {
         const item = document.createElement("li");
         item.dataset.mode = mode;
@@ -976,6 +996,7 @@ this.modeDisplayButton.addEventListener('click', (e) => {
     this.toneModeToggleBtn.className = "ime-settings-button";
     this.toneModeToggleBtn.title = "字母/數字";
     this.toneModeToggleBtn.addEventListener('click', () => this.toggleToneMode());
+	this.allToneModeButtons.push(this.toneModeToggleBtn);
     settingsContainer.appendChild(this.toneModeToggleBtn);
     this.longPhraseToggleBtn = document.createElement("button");
     this.longPhraseToggleBtn.type = "button";
@@ -983,6 +1004,7 @@ this.modeDisplayButton.addEventListener('click', (e) => {
     this.longPhraseToggleBtn.innerHTML = '<span class="material-icons" style="font-size: 18px;">add_box</span>';
     this.longPhraseToggleBtn.title = "長詞連打/音首縮打";
     this.longPhraseToggleBtn.addEventListener('click', () => this.toggleLongPhraseMode());
+	this.allLongPhraseButtons.push(this.longPhraseToggleBtn);
     if (this.isLongPhraseEnabled) {
         this.longPhraseToggleBtn.classList.add('active');
     }
@@ -992,6 +1014,7 @@ this.modeDisplayButton.addEventListener('click', (e) => {
     this.punctuationModeToggleBtn.className = "ime-settings-button";
     this.punctuationModeToggleBtn.title = "全形/半形標點";
     this.punctuationModeToggleBtn.addEventListener('click', () => this.togglePunctuationMode());
+	this.allPunctuationButtons.push(this.punctuationModeToggleBtn);
     settingsContainer.appendChild(this.punctuationModeToggleBtn);
 
     this.outputModeToggleBtn = document.createElement("button");
@@ -1001,6 +1024,7 @@ this.modeDisplayButton.addEventListener('click', (e) => {
     this.outputModeToggleBtn.innerHTML = '<span class="material-icons" style="font-size: 18px;">format_size</span>';
     this.outputModeToggleBtn.title = "切換輸出模式";
     this.outputModeToggleBtn.addEventListener('click', () => this.toggleOutputMode());
+	this.allOutputModeButtons.push(this.outputModeToggleBtn); 
     settingsContainer.appendChild(this.outputModeToggleBtn);
 
     this.topBar.appendChild(settingsContainer);
@@ -1045,40 +1069,40 @@ this.modeDisplayButton.addEventListener('click', (e) => {
     });
     compositionBar.appendChild(this.compositionDisplay);
 
-// 【新程式碼開始】 建立一個新的容器來包裹右側的所有按鈕
-const rightControls = document.createElement("div");
-rightControls.className = "ime-right-controls"; // 給予一個 class 以便設定樣式
+	// 【新程式碼開始】 建立一個新的容器來包裹右側的所有按鈕
+	const rightControls = document.createElement("div");
+	rightControls.className = "ime-right-controls"; // 給予一個 class 以便設定樣式
 
-this.queryBtn = document.createElement("button");
-this.queryBtn.type = "button";
-this.queryBtn.className = "ime-page-button"; // 沿用翻頁按鈕的樣式
-this.queryBtn.title = "字根反查 (/)";
-this.queryBtn.innerHTML = '<span class="material-icons" style="font-size: 20px;">search</span>';
-this.queryBtn.addEventListener("click", () => {
-     if (this.isQueryMode) {
-        this.exitQueryMode(false);
-    } else if (this.allCandidates.length > 0) {
-        this.enterQueryMode();
-    }
-});
-rightControls.appendChild(this.queryBtn); // 將 queryBtn 加入新容器
+	this.queryBtn = document.createElement("button");
+	this.queryBtn.type = "button";
+	this.queryBtn.className = "ime-page-button"; // 沿用翻頁按鈕的樣式
+	this.queryBtn.title = "字根反查 (/)";
+	this.queryBtn.innerHTML = '<span class="material-icons" style="font-size: 20px;">search</span>';
+	this.queryBtn.addEventListener("click", () => {
+		 if (this.isQueryMode) {
+			this.exitQueryMode(false);
+		} else if (this.allCandidates.length > 0) {
+			this.enterQueryMode();
+		}
+	});
+	rightControls.appendChild(this.queryBtn); // 將 queryBtn 加入新容器
 
-const pagination = document.createElement("div");
-pagination.className = "ime-pagination";
-this.prevPageBtn = document.createElement("button");
-this.prevPageBtn.className = "ime-page-button";
-this.prevPageBtn.innerHTML = '<span class="material-icons">chevron_left</span>';
-this.prevPageBtn.addEventListener("click", () => this.changePage(-1));
-this.nextPageBtn = document.createElement("button");
-this.nextPageBtn.className = "ime-page-button";
-this.nextPageBtn.innerHTML = '<span class="material-icons">chevron_right</span>';
-this.nextPageBtn.addEventListener("click", () => this.changePage(1));
-pagination.appendChild(this.prevPageBtn);
-pagination.appendChild(this.nextPageBtn);
-rightControls.appendChild(pagination); // 將 pagination 加入新容器
+	const pagination = document.createElement("div");
+	pagination.className = "ime-pagination";
+	this.prevPageBtn = document.createElement("button");
+	this.prevPageBtn.className = "ime-page-button";
+	this.prevPageBtn.innerHTML = '<span class="material-icons">chevron_left</span>';
+	this.prevPageBtn.addEventListener("click", () => this.changePage(-1));
+	this.nextPageBtn = document.createElement("button");
+	this.nextPageBtn.className = "ime-page-button";
+	this.nextPageBtn.innerHTML = '<span class="material-icons">chevron_right</span>';
+	this.nextPageBtn.addEventListener("click", () => this.changePage(1));
+	pagination.appendChild(this.prevPageBtn);
+	pagination.appendChild(this.nextPageBtn);
+	rightControls.appendChild(pagination); // 將 pagination 加入新容器
 
-compositionBar.appendChild(rightControls); // 將整個右側按鈕容器加入 compositionBar
-// 【新程式碼結束】
+	compositionBar.appendChild(rightControls); // 將整個右側按鈕容器加入 compositionBar
+	// 【新程式碼結束】
 
     this.candidatesContainer.appendChild(compositionBar);
 
@@ -1094,6 +1118,7 @@ compositionBar.appendChild(rightControls); // 將整個右側按鈕容器加入 
     settingsBtn.addEventListener('click', () => {
         if (this.settingsModal) this.settingsModal.style.display = 'flex';
     });
+	this.allSettingsButtons.push(settingsBtn); 
     settingsContainer.appendChild(settingsBtn);
 
     this.createSettingsModal();
@@ -1104,7 +1129,104 @@ compositionBar.appendChild(rightControls); // 將整個右側按鈕容器加入 
     this.updateToneModeButtonUI();
 },
 
+/**
+ * 【修改後的新版本 V2】
+ * 在指定的外部容器中建立一組同步的工具列按鈕，包含能獨立正確定位的語言選單。
+ */
+createExternalToolbar() {
+    if (!this.externalToolbarContainer) return;
 
+    this.externalToolbarContainer.innerHTML = '';
+
+    const originalModeContainer = this.topBar.querySelector('.ime-mode-container');
+    if (originalModeContainer) {
+        const newModeContainer = originalModeContainer.cloneNode(true);
+        const newModeDisplayButton = newModeContainer.querySelector('.ime-mode-button');
+        const newModeDisplayText = newModeContainer.querySelector('.ime-mode-text');
+        const newModeMenu = newModeContainer.querySelector('.ime-mode-menu');
+
+        this.allModeDisplayTexts.push(newModeDisplayText);
+        this.allModeMenus.push(newModeMenu);
+
+        newModeMenu.querySelectorAll('li').forEach(item => {
+            const mode = item.dataset.mode;
+            item.addEventListener("mousedown", (e) => {
+                e.preventDefault();
+                this.switchMode(mode);
+            });
+        });
+
+        // 【核心修改】為新的語言切換按鈕綁定獨立的點擊事件
+        newModeDisplayButton.addEventListener('click', (e) => {
+            e.stopPropagation(); // 阻止事件冒泡
+
+            const rect = newModeDisplayButton.getBoundingClientRect();
+            const clickX = e.clientX;
+            const arrowClickAreaStart = rect.right - 30;
+
+            if (clickX > arrowClickAreaStart) { // 點擊右側箭頭區域
+                if (!this.isEnabled) return;
+                
+                const isMenuVisible = newModeContainer.classList.toggle('open');
+                
+                if (isMenuVisible) {
+                    // 關閉其他可能已開啟的選單
+                    this.allModeMenus.forEach(menu => {
+                        if (menu !== newModeMenu) {
+                            menu.parentElement.classList.remove('open');
+                        }
+                    });
+
+                    newModeMenu.style.visibility = 'hidden';
+                    const menuWidth = newModeMenu.offsetWidth;
+                    const menuHeight = newModeMenu.offsetHeight;
+                    const viewportWidth = window.innerWidth;
+                    const viewportHeight = window.innerHeight;
+
+                    if (rect.left + menuWidth > viewportWidth) {
+                        newModeMenu.style.left = 'auto'; newModeMenu.style.right = '0';
+                    } else {
+                        newModeMenu.style.left = '0'; newModeMenu.style.right = 'auto';
+                    }
+                    if (rect.bottom + menuHeight > viewportHeight) {
+                        newModeMenu.style.top = 'auto'; newModeMenu.style.bottom = '105%';
+                    } else {
+                        newModeMenu.style.top = '105%'; newModeMenu.style.bottom = 'auto';
+                    }
+                    newModeMenu.style.visibility = 'visible';
+                }
+            } else { // 點擊文字區域
+                this.toggleIsEnabled();
+            }
+        });
+        
+        this.externalToolbarContainer.appendChild(newModeContainer);
+    }
+
+    const createAndRegister = (originalButton, clickHandler, buttonArray) => {
+        if (!originalButton) return null;
+        
+        const newButton = originalButton.cloneNode(true);
+        newButton.className = "toolbar-btn ime-settings-button"; 
+        
+        newButton.addEventListener('click', clickHandler);
+        buttonArray.push(newButton);
+        this.externalToolbarContainer.appendChild(newButton);
+        return newButton;
+    };
+    
+    createAndRegister(this.toneModeToggleBtn, () => this.toggleToneMode(), this.allToneModeButtons);
+    createAndRegister(this.longPhraseToggleBtn, () => this.toggleLongPhraseMode(), this.allLongPhraseButtons);
+    createAndRegister(this.punctuationModeToggleBtn, () => this.togglePunctuationMode(), this.allPunctuationButtons);
+    createAndRegister(this.outputModeToggleBtn, () => this.toggleOutputMode(), this.allOutputModeButtons);
+    
+    const originalSettingsBtn = this.allSettingsButtons[0];
+    if (originalSettingsBtn) {
+        createAndRegister(originalSettingsBtn, () => {
+            if (this.settingsModal) this.settingsModal.style.display = 'flex';
+        }, this.allSettingsButtons);
+    }
+},
 /**
  * 防止行動裝置上彈出視窗的滾動穿透問題 (Overscroll)。
  * @param {HTMLElement} element - 要套用此行為的可滾動元素。
@@ -1160,7 +1282,7 @@ createSettingsModal() {
     });
 
     const modalContent = document.createElement('div');
-    modalContent.className = 'modal-content';
+    modalContent.className = 'web-ime-modal-content'; // ****** 修改點 ******
 
     const modalHeader = document.createElement('div');
     modalHeader.className = 'modal-header';
@@ -1244,7 +1366,8 @@ const outputModeLabel = document.createElement('label');
     // 3. 建立下拉選單的選項
     const options = [
         { value: 'pinyin', text: '拼音' },
-        { value: 'word_pinyin', text: '字(音)' }
+        { value: 'word_pinyin', text: '字(音)' },
+        { value: 'word_pinyin2', text: '字［音］' }
         // 未來可以在這裡增加更多選項
     ];
 
@@ -1362,6 +1485,27 @@ const outputModeLabel = document.createElement('label');
     shareButton.textContent = '分享設定';
     resetSection.appendChild(shareButton);
 
+
+    const exitImeStateButton = document.createElement('button');
+    exitImeStateButton.id = 'web-ime-exit-state-button';
+    exitImeStateButton.textContent = '離開指定輸入法語言狀態';
+
+    // 檢查網址列是否包含 'ime' 參數，並設定按鈕初始狀態
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('ime')) {
+        exitImeStateButton.disabled = false; // 網址有參數，按鈕可點擊
+        exitImeStateButton.addEventListener('click', () => {
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.delete('ime'); // 刪除 'ime' 參數
+            window.location.href = currentUrl.href; // 導向新網址
+        });
+    } else {
+        exitImeStateButton.disabled = true; // 網址無參數，按鈕禁用
+        exitImeStateButton.title = '目前網址不包含指定語言狀態';
+    }
+    resetSection.appendChild(exitImeStateButton);
+
+
     const resetButton = document.createElement('button');
     resetButton.id = 'web-ime-reset-button';
     resetButton.textContent = '重設所有設定';
@@ -1408,6 +1552,7 @@ const outputModeLabel = document.createElement('label');
         if (isOutputEnabled) {
             if (this.config.outputMode === 'pinyin') outputModeCode = '1';
             else if (this.config.outputMode === 'word_pinyin') outputModeCode = '2';
+			else if (this.config.outputMode === 'word_pinyin2') outputModeCode = '3';
         }
         
         const settingsCode = [
@@ -1541,7 +1686,7 @@ saveToolbarSettings() {
 loadOutputModeSettings() {
     const saved = localStorage.getItem(this.config.storagePrefix + 'outputMode');
     // 合法的值為 'pinyin', 'word_pinyin'，否則使用預設值 'pinyin'
-    this.config.outputMode = ['pinyin', 'word_pinyin'].includes(saved) ? saved : 'pinyin';
+    this.config.outputMode = ['pinyin', 'word_pinyin', 'word_pinyin2'].includes(saved) ? saved : 'pinyin';
 
     if (this.settingsModal) {
         // 根據載入的設定，設定下拉選單的目前值
@@ -1648,50 +1793,45 @@ getKeyDisplayName(key) {
 updateToolbarButtonsVisibility() {
     if (!this.toolbarContainer) return;
 
-    // 取得當前語言的屬性
     const langProps = imeLanguageProperties[this.currentMode] || {};
     const nonPinyinModes = ['cangjie', 'xiami', 'hanglie'];
 
-    // 判斷目前語言是否支援特定功能
     const isLongPhraseSupported = langProps.allowLongPhraseToggle !== false;
     const isPinyinOutputAvailable = !nonPinyinModes.includes(this.currentMode);
 
-    // 將按鈕、語言支援條件、使用者設定三者對應起來
+    // 【修改】將按鈕元素對應到按鈕陣列
     const buttonConfig = {
         'toneMode': {
-            element: this.toneModeToggleBtn,
-            // 此按鈕的顯示由 updateToneModeButtonUI 控制，這裡只看使用者設定
+            elements: this.allToneModeButtons,
             isSupported: (langProps.toneModes && langProps.toneModes.length > 1) 
         },
         'longPhrase': {
-            element: this.longPhraseToggleBtn,
+            elements: this.allLongPhraseButtons,
             isSupported: isLongPhraseSupported
         },
         'punctuation': {
-            element: this.punctuationModeToggleBtn,
-            isSupported: true // 假設全形/半形按鈕總是支援
+            elements: this.allPunctuationButtons,
+            isSupported: true
         },
         'outputModeToggle': {
-            element: this.outputModeToggleBtn,
+            elements: this.allOutputModeButtons,
             isSupported: isPinyinOutputAvailable
         }
     };
 
-    // 遍歷所有設定，決定最終顯示狀態
     for (const key in buttonConfig) {
         const config = buttonConfig[key];
-        // 從使用者設定中讀取是否要顯示此按鈕
         const isEnabledByUser = this.config.toolbarButtons[key];
-
-        if (config.element) {
-            // 【核心修改點】
-            // 所有按鈕的顯示條件統一為：語言支援 && 使用者在設定中啟用
-            if (config.isSupported && isEnabledByUser) {
-                config.element.style.display = ''; // 顯示按鈕
-            } else {
-                config.element.style.display = 'none'; // 隱藏按鈕
+        
+        config.elements.forEach(element => {
+            if (element) {
+                if (config.isSupported && isEnabledByUser) {
+                    element.style.display = '';
+                } else {
+                    element.style.display = 'none';
+                }
             }
-        }
+        });
     }
 },
 
@@ -1702,7 +1842,6 @@ attachEventListeners() {
     this.candidatesContainer.addEventListener('mousedown', onImeInteractionStart);
     this.candidatesContainer.addEventListener('touchstart', onImeInteractionStart, { passive: true });
 
-    // << 修改重點：將事件處理邏輯包裝成獨立函數，並儲存綁定後的版本
     this.handleFocusIn = (e) => {
         if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) {
             this.activate(e.target);
@@ -1731,6 +1870,19 @@ attachEventListeners() {
 
     document.addEventListener("focusin", this.boundFocusInHandler);
     document.addEventListener("focusout", this.boundFocusOutHandler);
+
+    // 全域點擊監聽器，用於關閉開啟的語言選單
+    document.addEventListener('click', (e) => {
+        // 遍歷所有已註冊的語言選單
+        this.allModeMenus.forEach(menu => {
+            const container = menu.parentElement; // 找到 .ime-mode-container
+            // 如果點擊的目標不在當前選單的容器內，就關閉它
+            if (container && !container.contains(e.target)) {
+                container.classList.remove('open');
+            }
+        });
+    });
+
 },
 
 
@@ -2281,19 +2433,20 @@ getCurrentToneMode() {
 
 updateToneModeButtonUI() {
     const langProps = imeLanguageProperties[this.currentMode] || {};
-    // 檢查該語言屬性中是否有 toneModes 陣列且長度大於 1
-    if (langProps.toneModes && langProps.toneModes.length > 1) {
-        // 如果有，就顯示按鈕並更新文字
-        this.toneModeToggleBtn.style.display = '';
-        const currentSetting = this.getCurrentToneMode();
-        const modeText = currentSetting === 'numeric' ? '調ˇ' : 'źv̌s̀';
-        this.toneModeToggleBtn.textContent = `${modeText}`;
-    } else {
-        // 如果沒有 (例如倉頡、蝦米)，則隱藏按鈕
-        this.toneModeToggleBtn.style.display = 'none';
-    }
+    const shouldShow = langProps.toneModes && langProps.toneModes.length > 1;
+    
+    // 【修改】遍歷所有相關按鈕並更新
+    this.allToneModeButtons.forEach(btn => {
+        if (shouldShow) {
+            btn.style.display = '';
+            const currentSetting = this.getCurrentToneMode();
+            const modeText = currentSetting === 'numeric' ? '調ˇ' : 'źv̌s̀';
+            btn.textContent = `${modeText}`;
+        } else {
+            btn.style.display = 'none';
+        }
+    });
 },
-
 
 /**
  * [新版] 循環切換輸出模式 (僅切換功能啟用/停用狀態)
@@ -2311,26 +2464,18 @@ toggleOutputMode() {
     this.showToast(`字音輸出已${statusText}`);
 },
 
-/**
- * 更新輸出模式按鈕的 UI 狀態 (圖示、標題與是否啟用)
- */
 updateOutputModeButtonUI() {
-    if (!this.outputModeToggleBtn) return;
+    // 【修改】遍歷所有相關按鈕並更新
+    this.allOutputModeButtons.forEach(btn => {
+        if (!btn) return;
+        const isEnabled = this.config.outputModeActive;
+        const icon = isEnabled ? 'translate' : 'format_size';
+        const title = isEnabled ? '字音輸出已啟用' : '字音輸出已停用';
 
-    // --- 【核心修改】 ---
-    // 根據新的「功能啟用狀態 (outputModeActive)」來決定是否啟用
-    const isEnabled = this.config.outputModeActive;
-    // --- 【修改結束】 ---
-
-    // 根據啟用/停用狀態決定圖示和提示文字
-    const icon = isEnabled ? 'translate' : 'format_size';
-    const title = isEnabled ? '字音輸出已啟用' : '字音輸出已停用';
-
-    this.outputModeToggleBtn.innerHTML = `<span class="material-icons" style="font-size: 18px;">${icon}</span>`;
-    this.outputModeToggleBtn.title = title;
-
-    // 按鈕啟用時，才顯示 'active' 樣式
-    this.outputModeToggleBtn.classList.toggle('active', isEnabled);
+        btn.innerHTML = `<span class="material-icons" style="font-size: 18px;">${icon}</span>`;
+        btn.title = title;
+        btn.classList.toggle('active', isEnabled);
+    });
 },
 
 toggleToneMode() {
@@ -2617,6 +2762,8 @@ selectCandidate(indexOnPage) {
                 textToCommit = transformedPinyin;
             } else if (this.config.outputMode === 'word_pinyin') {
                 textToCommit = `${selectedWord}(${transformedPinyin})`;
+            } else if (this.config.outputMode === 'word_pinyin2') {
+                textToCommit = `${selectedWord}［${transformedPinyin}］`;
             }
         }
     }
@@ -2920,17 +3067,32 @@ togglePinMode() {
 
 
 
-
+/**
+ * 【修改後版本】
+ * 切換輸入法的啟用/停用狀態。
+ * 這個函數現在會同時控制浮動工具列、外部工具列的 disabled 狀態，
+ * 並且在停用時，會直接隱藏整個候選字視窗。
+ */
 toggleIsEnabled() {
     this.isEnabled = !this.isEnabled;
+    const isDisabled = !this.isEnabled;
 
+    // 1. 控制主要浮動工具列的 disabled 狀態
     if (this.toolbarContainer) {
-        this.toolbarContainer.classList.toggle('disabled', !this.isEnabled);
+        this.toolbarContainer.classList.toggle('disabled', isDisabled);
     }
 
+    // 2. 【新增】控制外部工具列的 disabled 狀態
+    const externalToolbar = document.getElementById('ime-external-toolbar-container');
+    if (externalToolbar) {
+        externalToolbar.classList.toggle('disabled', isDisabled);
+    }
+
+    // 3. 處理當前作用中的輸入框事件綁定
     if (this.activeElement) {
         this.activeElement.removeEventListener('keydown', this.boundHandleKeyDown);
         this.activeElement.removeEventListener('input', this.boundHandleInput);
+        
         if (this.isEnabled) {
             this.activeElement.addEventListener('keydown', this.boundHandleKeyDown);
             if (this.isMobile) {
@@ -2939,11 +3101,16 @@ toggleIsEnabled() {
         }
     }
 
-    if (!this.isEnabled) {
+    // 4. 【修改】如果切換為停用狀態，不僅清空候選字，也直接隱藏候選字容器
+    if (isDisabled) {
+        this.compositionBuffer = ''; // 清除編碼
+        this.compositionCursorPos = 0;
         this.clearCandidates(); 
+        if(this.candidatesContainer) {
+            this.candidatesContainer.style.display = 'none'; // 隱藏候選字視窗
+        }
     }
 
-    // 使用新的 showToast 函數來顯示提示
     const status = this.isEnabled ? "已啟用" : "已停用";
     this.showToast(`輸入法 ${status}`);
 },
@@ -2951,7 +3118,12 @@ toggleIsEnabled() {
 toggleLongPhraseMode() {
     this.isLongPhraseEnabled = !this.isLongPhraseEnabled;
     localStorage.setItem(this.config.storagePrefix + 'longPhrase', this.isLongPhraseEnabled);
-    this.longPhraseToggleBtn.classList.toggle('active', this.isLongPhraseEnabled);
+    
+    // 【修改】遍歷所有相關按鈕並更新
+    this.allLongPhraseButtons.forEach(btn => {
+        btn.classList.toggle('active', this.isLongPhraseEnabled);
+    });
+
     this.updateCandidates();
     if (this.activeElement) this.activeElement.focus();
     const modeText = this.isLongPhraseEnabled ? '長詞連打' : '首音縮打';
@@ -2971,15 +3143,17 @@ togglePunctuationMode() {
 
 
 updatePunctuationButtonUI() {
-    if (this.punctuationModeToggleBtn) {
-        this.punctuationModeToggleBtn.innerHTML = this.isFullWidthMode 
-            ? '<span class="material-icons" style="font-size: 16px;">radio_button_unchecked</span>' 
-            : '<span class="material-icons" style="font-size: 16px;">tonality</span>';
-        
-        this.punctuationModeToggleBtn.classList.toggle('active', this.isFullWidthMode);
-    }
+    // 【修改】遍歷所有相關按鈕並更新
+    this.allPunctuationButtons.forEach(btn => {
+        if (btn) {
+            btn.innerHTML = this.isFullWidthMode 
+                ? '<span class="material-icons" style="font-size: 16px;">radio_button_unchecked</span>' 
+                : '<span class="material-icons" style="font-size: 16px;">tonality</span>';
+            
+            btn.classList.toggle('active', this.isFullWidthMode);
+        }
+    });
 },
-
 
 navigateCandidates(direction) {
     const itemsOnPage = this.candidatesList.children.length;
@@ -3028,12 +3202,9 @@ switchMode(mode) {
 
     this.config.maxCompositionLength = langProps.maxLength || this.config.globalMaxCompositionLength;
     
-    // 檢查語言是否支援連打模式的切換
     if (langProps.allowLongPhraseToggle === false) {
-        // 如果不支援，則強制設定連打功能的狀態
         this.isLongPhraseEnabled = langProps.longPhraseMode === true;
     } else {
-        // 如果支援，則讀取使用者上次的設定
         const savedLongPhrase = localStorage.getItem(this.config.storagePrefix + 'longPhrase');
         if (savedLongPhrase !== null) {
             this.isLongPhraseEnabled = savedLongPhrase === 'true';
@@ -3041,9 +3212,12 @@ switchMode(mode) {
             this.isLongPhraseEnabled = this.config.longPhrase;
         }
     }
-    this.longPhraseToggleBtn.classList.toggle('active', this.isLongPhraseEnabled);
 
-    // 同步設定視窗中的「輸出字音」選項是否可見
+    // 【修改】使用 allLongPhraseButtons 陣列來同步
+    this.allLongPhraseButtons.forEach(btn => {
+        btn.classList.toggle('active', this.isLongPhraseEnabled);
+    });
+
     if (this.settingsModal) {
         const isPinyinOutputAvailable = !['cangjie', 'xiami', 'hanglie'].includes(this.currentMode);
         const outputSettingRow = this.settingsModal.querySelector('#web-ime-output-mode-setting-row');
@@ -3052,21 +3226,28 @@ switchMode(mode) {
         }
     }
 
-    this.modeDisplayText.textContent = this.getModeDisplayName(mode);
-    this.modeMenu.querySelectorAll('li').forEach(item => {
-        item.classList.toggle('active', item.dataset.mode === mode);
+    // 【修改】同步所有語言選單的顯示文字
+    this.allModeDisplayTexts.forEach(textEl => {
+        textEl.textContent = this.getModeDisplayName(mode);
     });
 
-    if (this.isModeMenuVisible) {
-        this.modeMenu.parentElement.classList.remove('open');
-        this.isModeMenuVisible = false;
-    }
+
+    this.allModeMenus.forEach(menuEl => {
+        menuEl.querySelectorAll('li').forEach(item => {
+            item.classList.toggle('active', item.dataset.mode === mode);
+        });
+        // 【修改】直接移除 open class 即可，不再需要手動更新 isModeMenuVisible
+        const container = menuEl.parentElement;
+        if (container) {
+            container.classList.remove('open');
+        }
+    });
+
 
     this.compositionBuffer = '';
     this.compositionCursorPos = 0;
     this.updateCandidates();
 
-    // 統一呼叫按鈕可見性更新函式
     this.updateToolbarButtonsVisibility();
     this.updateToneModeButtonUI();
     this.updateOutputModeButtonUI();

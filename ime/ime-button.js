@@ -44,11 +44,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const configFromUrl = {};
     let shouldAutoEnable = false;
 
-    // --- 更新：與 ime-on.js 相同的解碼邏輯 ---
+    // (這一段解析 URL 參數的程式碼保持不變)
     if (params.has('ime')) {
         const imeParam = params.get('ime');
         const parts = imeParam.split('-');
-
         if (parts.length === 3) {
             shouldAutoEnable = parts[0] === '1';
             configFromUrl.defaultMode = parts[1];
@@ -72,14 +71,11 @@ document.addEventListener('DOMContentLoaded', () => {
             configFromUrl.defaultMode = imeParam;
         }
     }
-    
     if (params.get('ime-enabled') === 'true') {
         shouldAutoEnable = true;
     } else if (params.get('ime-enabled') === 'false') {
         shouldAutoEnable = false;
     }
-
-    // (向下相容的長格式參數讀取)
     if (!configFromUrl.hasOwnProperty('enablePrediction') && params.has('prediction')) {
         configFromUrl.enablePrediction = params.get('prediction') === 'true';
     }
@@ -101,39 +97,62 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    function syncAllToggleButtonsUI(isActive) {
-        toggleButtons.forEach(button => {
-            const iconSpan = button.querySelector('.material-icons');
-            if (isActive) {
-                iconSpan.textContent = 'keyboard_hide';
-                button.title = '停用烏衣行輸入法';
-                button.classList.add('ime-active');
-            } else {
-                iconSpan.textContent = 'keyboard';
-                button.title = '啟用烏衣行輸入法';
-                button.classList.remove('ime-active');
-            }
-        });
-    }
+	function syncAllToggleButtonsUI() {
+		// 檢查 WebIME 物件是否存在且 isInitialized 為 true
+		const isActive = typeof WebIME !== 'undefined' && WebIME.isInitialized;
+		const externalToolbar = document.getElementById('ime-external-toolbar-container');
 
+		toggleButtons.forEach(button => {
+			const iconSpan = button.querySelector('.material-icons');
+			if (isActive) {
+				iconSpan.textContent = 'keyboard_hide';
+				button.title = '完全關閉烏衣行輸入法';
+				button.classList.add('ime-active');
+			} else {
+				iconSpan.textContent = 'keyboard';
+				button.title = '啟用烏衣行輸入法';
+				button.classList.remove('ime-active');
+			}
+		});
+
+		// 【核心修改】
+		// 如果輸入法不是啟用狀態 (已被 destroy)，就找到外部容器並清空它。
+		if (!isActive && externalToolbar) {
+			externalToolbar.innerHTML = '';
+		}
+	}
+
+    // 如果 URL 參數要求自動啟用，則先初始化
     if (shouldAutoEnable) {
-        const baseConfig = { defaultMode: 'sixian', candidatesPerPage: 5 };
-        const finalConfig = { ...baseConfig, ...configFromUrl };
-        WebIME.init(finalConfig);
+        if (typeof WebIME !== 'undefined') {
+            const baseConfig = { defaultMode: 'sixian', candidatesPerPage: 5 };
+            const finalConfig = { ...baseConfig, ...configFromUrl };
+            WebIME.init(finalConfig);
+        }
     }
+    
+    // 使用新的同步函式來設定初始狀態
+    syncAllToggleButtonsUI();
 
-    syncAllToggleButtonsUI(WebIME.isInitialized);
-
+    // 為所有切換按鈕綁定新的點擊邏輯
     toggleButtons.forEach(button => {
         button.addEventListener('click', () => {
-            if (WebIME.isInitialized) {
-                WebIME.destroy();
-            } else {
-                const baseConfig = { defaultMode: 'sixian', candidatesPerPage: 5 };
-                const finalConfig = { ...baseConfig, ...configFromUrl };
-                WebIME.init(finalConfig);
+            /**
+             * 【核心修改】
+             * - 如果輸入法已初始化，我們呼叫 WebIME.destroy() 來完全移除它。
+             * - 如果輸入法尚未初始化，行為不變，一樣是呼叫 WebIME.init()。
+             */
+            if (typeof WebIME !== 'undefined') {
+                if (WebIME.isInitialized) {
+                    WebIME.destroy();
+                } else {
+                    const baseConfig = { defaultMode: 'sixian', candidatesPerPage: 5 };
+                    const finalConfig = { ...baseConfig, ...configFromUrl };
+                    WebIME.init(finalConfig);
+                }
+                // 無論執行了何種操作，都呼叫同步函式來更新所有按鈕的 UI
+                syncAllToggleButtonsUI();
             }
-            syncAllToggleButtonsUI(WebIME.isInitialized);
         });
     });
 });
