@@ -111,7 +111,7 @@
             margin: 24px auto;
             background: white;
             box-shadow: 0 1px 3px rgba(60,64,67,0.15);
-            height: calc(90vh - 120px);
+            height: calc(100vh - 120px);
             position: relative;
             display: flex;
             flex-direction: column;
@@ -283,7 +283,7 @@
             <h1 class="title">🥷烏衣行輸入法</h1>
             
 
-<div class="toolbar">
+            <div class="toolbar">
                 <div class="toolbar-group" id="main-toolbar-group">
                     <span class="logo" id="logo" style="display: none;">🥷</span>
                     <button class="toolbar-button ime-toggle-button" title="烏衣行輸入法">
@@ -319,13 +319,20 @@
                     </button>
                 </div>
 
+                <div class="toolbar-group" id="more-options-container">
+                    <button class="toolbar-button" id="more-options-button" title="更多選項" style="display: none;">
+                        <span class="material-icons">more_vert</span>
+                    </button>
+                    <div class="overflow-menu" id="overflow-menu" style="display: none;">
+                        </div>
+                </div>
                 <div class="toolbar-group mobile-only">
                     <button class="toolbar-button" onclick="toggleHeader()" title="摺疊/展開" id="collapseBtn">
                         <span class="material-icons">keyboard_arrow_up</span>
                     </button>
                 </div>
             </div>
-            
+
         </div>
     </div>
 
@@ -537,74 +544,134 @@
         }
     }
 
-    function showConfirmDialog(message, onConfirm) {
-        const overlay = document.createElement('div');
-        overlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-        `;
+        function showConfirmDialog(message, onConfirm) {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+            `;
 
-        const dialog = document.createElement('div');
-        dialog.style.cssText = `
-            background: white;
-            border-radius: 8px;
-            padding: 24px;
-            box-shadow: 0 4px 16px rgba(60,64,67,0.15);
-            max-width: 400px;
-            width: 90%;
-            text-align: center;
-        `;
+            const dialog = document.createElement('div');
+            dialog.style.cssText = `
+                background: white;
+                border-radius: 8px;
+                padding: 24px;
+                box-shadow: 0 4px 16px rgba(60,64,67,0.15);
+                max-width: 400px;
+                width: 90%;
+                text-align: center;
+            `;
 
-        dialog.innerHTML = `
-            <div style="font-size: 16px; color: #202124; margin-bottom: 20px;">${message}</div>
-            <div style="display: flex; gap: 12px; justify-content: center;">
-                <button id="cancelBtn" style="
-                    background: #f8f9fa;
-                    border: 1px solid #dadce0;
-                    border-radius: 4px;
-                    padding: 8px 16px;
-                    cursor: pointer;
-                    color: #3c4043;
-                    font-size: 14px;
-                ">取消</button>
-                <button id="confirmBtn" style="
-                    background: #1a73e8;
-                    border: none;
-                    border-radius: 4px;
-                    padding: 8px 16px;
-                    cursor: pointer;
-                    color: white;
-                    font-size: 14px;
-                ">確定</button>
-            </div>
-        `;
+            dialog.innerHTML = `
+                <div style="font-size: 16px; color: #202124; margin-bottom: 20px;">${message}</div>
+                <div style="display: flex; gap: 12px; justify-content: center;">
+                    <button id="cancelBtn" style="
+                        background: #f8f9fa;
+                        border: 1px solid #dadce0;
+                        border-radius: 4px;
+                        padding: 8px 16px;
+                        cursor: pointer;
+                        color: #3c4043;
+                        font-size: 14px;
+                    ">取消</button>
+                    <button id="confirmBtn" style="
+                        background: #1a73e8;
+                        border: none;
+                        border-radius: 4px;
+                        padding: 8px 16px;
+                        cursor: pointer;
+                        color: white;
+                        font-size: 14px;
+                    ">確定</button>
+                </div>
+            `;
 
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
 
-        document.getElementById('cancelBtn').onclick = function() {
-            document.body.removeChild(overlay);
-        };
-
-        document.getElementById('confirmBtn').onclick = function() {
-            onConfirm();
-            document.body.removeChild(overlay);
-        };
-
-        overlay.onclick = function(e) {
-            if (e.target === overlay) {
+            document.getElementById('cancelBtn').onclick = function() {
                 document.body.removeChild(overlay);
+            };
+
+            document.getElementById('confirmBtn').onclick = function() {
+                onConfirm();
+                document.body.removeChild(overlay);
+            };
+
+            overlay.onclick = function(e) {
+                if (e.target === overlay) {
+                    document.body.removeChild(overlay);
+                }
+            };
+        }
+
+
+        function manageToolbarOverflow() {
+            const toolbar = document.querySelector('.toolbar');
+            const mainGroup = document.getElementById('main-toolbar-group');
+            const moreButton = document.getElementById('more-options-button');
+            const overflowMenu = document.getElementById('overflow-menu');
+
+            // 1. 重設狀態：將所有按鈕從下拉選單移回主工具列
+            // 這樣才能在視窗變寬時，正確地將按鈕顯示回來
+            while (overflowMenu.firstChild) {
+                mainGroup.appendChild(overflowMenu.firstChild);
             }
-        };
-    }
+            moreButton.style.display = 'none';
+            overflowMenu.style.display = 'none';
+
+            // 2. 檢查是否需要溢位
+            const toolbarWidth = toolbar.offsetWidth;
+            const children = Array.from(mainGroup.children);
+            let totalWidth = 0;
+            const moreButtonWidth = 40; // 為「更多」按鈕預留空間
+
+            // 取得所有子元素的總寬度
+            children.forEach(child => {
+                totalWidth += child.offsetWidth;
+            });
+
+            // 3. 如果超出寬度，則從後往前將按鈕移入下拉選單
+            if (totalWidth > toolbarWidth) {
+                moreButton.style.display = 'flex';
+                let currentWidth = totalWidth;
+
+                for (let i = children.length - 1; i >= 0; i--) {
+                    const child = children[i];
+                    // 如果目前寬度仍然超出（要為 moreButton 預留空間），則移動此按鈕
+                    if (currentWidth + moreButtonWidth > toolbarWidth) {
+                        // 使用 prepend 來維持按鈕的原始順序
+                        overflowMenu.prepend(child);
+                        currentWidth -= child.offsetWidth;
+                    } else {
+                        break; // 空間足夠，停止移動
+                    }
+                }
+            }
+        }
+
+        // 點擊「更多選項」按鈕時，開關下拉選單
+        document.getElementById('more-options-button').addEventListener('click', (e) => {
+            e.stopPropagation(); // 防止觸發下面的 document 點擊事件
+            const overflowMenu = document.getElementById('overflow-menu');
+            overflowMenu.style.display = overflowMenu.style.display === 'block' ? 'none' : 'block';
+        });
+
+        // 點擊頁面其他地方時，關閉下拉選單
+        document.addEventListener('click', () => {
+            document.getElementById('overflow-menu').style.display = 'none';
+        });
+    
+    window.addEventListener('load', manageToolbarOverflow);
+    window.addEventListener('resize', manageToolbarOverflow);
 
     // --- [修改後的初始化與事件監聽] ---
     editor.addEventListener('input', function() {

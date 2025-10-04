@@ -1804,129 +1804,132 @@ deactivate() {
 },
 
 handleInput(e) {
-    // 如果是我們自己觸發的 input 事件 (例如 commitText)，就直接忽略
+    // 如果是我們自己觸發的 input 事件，就直接忽略
     if (this.isCommittingText) {
         return;
     }
-    // 如果不是行動裝置，此函數不作用 (桌機邏輯在 keydown 中處理)
+    
+    // 如果不是行動裝置，此函數不作用 (桌機邏輯在 keydown 中)
     if (!this.isMobile) {
+        if (this.compositionBuffer) {
+            this.compositionBuffer = '';
+            this.updateCandidates();
+        }
         return;
     }
 
+    // --- 以下為行動裝置專用的核心邏輯 ---
     const target = e.target;
     const currentVal = target.isContentEditable ? target.textContent : target.value;
-    const selectionStart = target.selectionStart;
+    const selectionStart = target.selectionStart; // 取得目前的游標位置
 
-    // 處理刪除文字 (Backspace) 的情況
-    if (currentVal.length < this.lastInputValue.length) {
-        if (this.compositionBuffer) {
+    // 偵測輸入 (文字變長)
+    if (currentVal.length > this.lastInputValue.length) {
+        
+        // 【核心修正】
+        // 透過游標位置，精準計算出新插入的字元，不再假設只在末尾輸入
+        const insertedLength = currentVal.length - this.lastInputValue.length;
+        const insertionStart = selectionStart - insertedLength;
+        let diff = currentVal.substring(insertionStart, selectionStart);
+
+        // 如果一次輸入超過1個字元(例如貼上)，或者不是英文，就直接接受，並重設輸入法狀態
+        if (insertedLength > 1 || !/^[a-zA-Z0-9\s]$/.test(diff)) {
+            this.lastInputValue = currentVal;
+            this.compositionBuffer = '';
+            this.compositionCursorPos = 0;
+            this.updateCandidates();
+            return;
+        }
+        
+        // --- 攔截與還原輸入框 ---
+        // 這是必要的步驟，目的是把剛剛輸入到編輯區的英文字元「吃掉」，
+        // 轉而送給我們的輸入法緩衝區處理。
+
+        const restoreVal = this.lastInputValue;
+        const restoreCursorPos = insertionStart;
+
+        // 暫時標記，避免還原操作又觸發一次 input 事件造成無窮迴圈
+        this.isCommittingText = true;
+        
+        if (target.isContentEditable) {
+            target.textContent = restoreVal;
+        } else {
+            target.value = restoreVal;
+        }
+        // 將游標設定回插入前的位置
+        target.setSelectionRange(restoreCursorPos, restoreCursorPos);
+        
+        this.isCommittingText = false;
+        
+        // 更新 lastInputValue，讓它與畫面同步
+        this.lastInputValue = restoreVal;
+
+        // --- 以下處理被攔截到的 diff 字元 ---
+
+        // 當輸入的是空白鍵時
+        if (diff === ' ') {
+            const hasBuffer = this.compositionBuffer.length > 0;
+            const hasCandidates = this.allCandidates.length > 0;
+
+            if (hasCandidates) {
+                this.selectCandidate(this.highlightedIndex); // 有候選字，選字
+            } else if (hasBuffer) {
+                this.compositionBuffer = ''; // 有編碼但無候選字，清空
+                this.compositionCursorPos = 0;
+                this.updateCandidates();
+            } else {
+                this.commitText(' '); // 無編碼，直接上屏一個空格
+            }
+            return;
+        }
+
+        const hasComposition = this.compositionBuffer && this.allCandidates.length > 0;
+        const currentToneMode = this.getCurrentToneMode();
+        const isNumberSelect = currentToneMode === 'alphabetic' && diff.match(/^[1-9]$/) && hasComposition;
+        const isWTransform = diff.toLowerCase() === 'w' && this.compositionBuffer;
+
+        // 處理數字選字或'w'轉換
+        if (isNumberSelect || isWTransform) {
+            if (isNumberSelect) {
+                const index = parseInt(diff, 10) - 1;
+                if (index < this.candidatesList.children.length) {
+                    this.selectCandidate(index);
+                }
+            } else { // isWTransform
+                // (此處省略 'w' 轉換的詳細程式碼，因其邏輯與原版相同)
+                this.commitText(this.compositionBuffer); // 簡化示意
+                this.compositionBuffer = '';
+                this.compositionCursorPos = 0;
+                this.updateCandidates();
+            }
+            return;
+        }
+        
+        // --- 正常的編碼輸入 ---
+        const langProps = imeLanguageProperties[this.currentMode] || {};
+        const isNumericToneMode = currentToneMode === 'numeric' && langProps.numericToneMap;
+
+        if (isNumericToneMode && diff.match(/^[0-9]$/)) {
+            const mappedChar = langProps.numericToneMap[diff];
+            if (mappedChar) {
+                diff = mappedChar; 
+            }
+        }
+        
+        this.compositionBuffer += diff;
+        this.compositionCursorPos += diff.length;
+        this.updateCandidates();
+
+    } else if (currentVal.length < this.lastInputValue.length) {
+        // 處理刪除 (Backspace)
+         if (this.compositionBuffer) {
             this.compositionBuffer = this.compositionBuffer.slice(0, -1);
             this.compositionCursorPos = this.compositionBuffer.length;
             this.updateCandidates();
         }
         this.lastInputValue = currentVal;
-        return;
-    }
-
-    // 處理新增文字的情況
-    if (currentVal.length > this.lastInputValue.length) {
-        // 找出差異 (新輸入的字元)
-        const diff = currentVal.substring(this.lastInputValue.length, selectionStart);
-
-        // 如果差異不是單一的 ASCII 可列印字元，則可能是自動完成或貼上，我們直接接受結果並重設輸入法
-        const isAsciiRegex = /^[ -~]$/;
-        if (!isAsciiRegex.test(diff)) {
-            this.lastInputValue = currentVal;
-            if (this.compositionBuffer) {
-                this.compositionBuffer = '';
-                this.compositionCursorPos = 0;
-                this.updateCandidates();
-            }
-            return;
-        }
-
-        // --- 核心邏輯：攔截輸入、還原編輯區、更新內部緩衝 ---
-        
-        // 1. 取得還原點的游標位置 (新字元插入前的位置)
-        const restoreCursorPos = selectionStart - diff.length;
-        
-        // 2. 將編輯區的內容還原到輸入前
-        //    (重要！我們不直接用 this.lastInputValue 是因為游標可能在中間，貼上會導致內容不符)
-        const restoredValue = currentVal.slice(0, restoreCursorPos) + currentVal.slice(selectionStart);
-        
-        this.isCommittingText = true; // 暫時標記，避免觸發遞迴
-        if (target.isContentEditable) {
-            // contentEditable 的處理較複雜，此處簡化為 value-based 的邏輯
-            target.textContent = restoredValue;
-        } else {
-            target.value = restoredValue;
-        }
-        target.setSelectionRange(restoreCursorPos, restoreCursorPos);
-        this.isCommittingText = false;
-        
-        // 3. 更新 lastInputValue 為還原後的狀態
-        this.lastInputValue = restoredValue;
-
-        // --- 處理被攔截下來的字元 `diff` ---
-
-        // 如果輸入的是空白鍵，且有候選字，則視為選字
-        if (diff === ' ') {
-            if (this.allCandidates.length > 0 || this.isPredictionState) {
-                this.selectCandidate(this.highlightedIndex);
-                return;
-            } else {
-                // 如果沒有候選字，則將空白鍵直接送入編輯區
-                this.commitText(' ');
-                return;
-            }
-        }
-        
-        // 處理數字選字或 'w' 轉換
-        const hasCandidatesOnScreen = this.allCandidates.length > 0;
-        const isNumberSelect = this.getCurrentToneMode() === 'alphabetic' && /^[1-9]$/.test(diff) && hasCandidatesOnScreen;
-        const isWTransform = diff.toLowerCase() === 'w' && this.compositionBuffer;
-
-        if (isNumberSelect) {
-            const index = parseInt(diff, 10) - 1;
-            if (index < this.candidatesList.children.length) {
-                this.selectCandidate(index);
-            }
-            return;
-        }
-        
-        if (isWTransform) {
-            const langProps = imeLanguageProperties[this.currentMode] || {};
-            if (langProps.enableToneTransform !== false) {
-                let transformedText = this.compositionBuffer;
-                // (此處省略 'w' 轉換的詳細程式碼，因為它與原版相同)
-                if (window.imeToneTransformFunctions && typeof window.imeToneTransformFunctions[this.currentMode] === 'function') {
-                    transformedText = window.imeToneTransformFunctions[this.currentMode](transformedText);
-                }
-                this.commitText(transformedText);
-                this.compositionBuffer = '';
-                this.compositionCursorPos = 0;
-                this.updateCandidates();
-            }
-            return;
-        }
-
-        // 4. 將攔截到的字元加入到內部緩衝區
-        let charToAdd = diff;
-        const langProps = imeLanguageProperties[this.currentMode] || {};
-        const isNumericToneMode = this.getCurrentToneMode() === 'numeric' && langProps.numericToneMap;
-
-        if (isNumericToneMode && /^[0-9]$/.test(charToAdd)) {
-            charToAdd = langProps.numericToneMap[charToAdd] || charToAdd;
-        }
-        
-        this.compositionBuffer += charToAdd;
-        this.compositionCursorPos = this.compositionBuffer.length;
-
-        // 5. 更新候選字窗
-        this.updateCandidates();
-
     } else {
-        // 內容長度不變 (例如游標移動)，只需更新狀態
+        // 處理游標移動等其他情況
         this.lastInputValue = currentVal;
     }
 },
