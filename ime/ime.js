@@ -659,7 +659,12 @@ init(userConfig = {}) {
 
     this.loadKeyMapSettings();
     this.loadToolbarSettings();
-    
+
+
+    // 載入「輸出字音」功能的啟用/停用狀態 (與按鈕是否可見分開)
+    const savedOutputModeActive = localStorage.getItem(this.config.storagePrefix + 'outputModeActive');
+    // 如果 localStorage 中有儲存 'true'，則設為 true，否則預設為 false (停用)
+    this.config.outputModeActive = savedOutputModeActive === 'true';
     // 如果 URL 參數有指定 outputEnabled，它會覆蓋 loadToolbarSettings 的結果
     if (typeof userConfig.outputEnabled === 'boolean') {
         this.config.toolbarButtons.outputModeToggle = userConfig.outputEnabled;
@@ -1216,9 +1221,9 @@ createSettingsModal() {
         buttonsContainer.appendChild(label);
     }
 
-    const outputModeLabel = document.createElement('label');
-    outputModeLabel.id = 'web-ime-output-mode-setting-row'; // 給予ID以便 switchMode 控制
-    outputModeLabel.className = 'keymap-setting-row'; // 借用 keymap 的 class 來排版
+const outputModeLabel = document.createElement('label');
+    outputModeLabel.id = 'web-ime-output-mode-setting-row';
+    outputModeLabel.className = 'keymap-setting-row';
 
     // 1. 主要的 "輸出字音" Checkbox
     const mainCheckbox = document.createElement('input');
@@ -1227,64 +1232,44 @@ createSettingsModal() {
     mainCheckbox.dataset.key = 'outputModeToggle';
     mainCheckbox.checked = this.config.toolbarButtons.outputModeToggle;
     outputModeLabel.appendChild(mainCheckbox);
-    outputModeLabel.appendChild(document.createTextNode(' 輸出字音 ('));
+    outputModeLabel.appendChild(document.createTextNode(' 輸出字音'));
 
-    // 2. 用於放置 radio button 子選項的 Span
-    const subOptionsSpan = document.createElement('span');
-    subOptionsSpan.id = 'output-mode-sub-options';
+    // 2. 建立新的下拉選單
+    const outputModeSelect = document.createElement('select');
+    outputModeSelect.id = 'output-mode-select';
+    outputModeSelect.style.marginLeft = '10px'; // 與 checkbox 的間距
     // 根據主開關的初始狀態決定是否顯示
-    subOptionsSpan.style.display = mainCheckbox.checked ? 'inline-flex' : 'none';
-    
-    outputModeLabel.appendChild(subOptionsSpan);
+    outputModeSelect.style.display = mainCheckbox.checked ? 'inline-block' : 'none';
 
-    // 3. 建立三個 radio button 子選項
+    // 3. 建立下拉選單的選項
     const options = [
-        { value: 'word', text: '預設', icon: 'format_size' },
-        { value: 'pinyin', text: '拼音', icon: 'font_download' },
-        { value: 'word_pinyin', text: '字音', icon: 'translate' }
+        { value: 'pinyin', text: '拼音' },
+        { value: 'word_pinyin', text: '字(音)' }
+        // 未來可以在這裡增加更多選項
     ];
 
-    options.forEach((opt, index) => {
-        const optionContainer = document.createElement('div');
-        optionContainer.className = 'output-mode-option'; 
-
-        const radioInput = document.createElement('input');
-        radioInput.type = 'radio';
-        radioInput.name = 'output-mode-option';
-        radioInput.value = opt.value;
-        
-        // 在建立時，就根據已載入的設定決定是否勾選
+    options.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt.value;
+        option.textContent = opt.text;
         if (this.config.outputMode === opt.value) {
-            radioInput.checked = true;
+            option.selected = true;
         }
-
-        const radioId = `web-ime-output-mode-${opt.value}-${index}`;
-        radioInput.id = radioId;
-        radioInput.addEventListener('change', () => this.saveOutputModeSettings());
-
-        const radioLabel = document.createElement('label');
-        radioLabel.setAttribute('for', radioId);
-        
-        const iconSpan = document.createElement('span');
-        iconSpan.className = 'material-icons';
-        iconSpan.textContent = opt.icon;
-
-        optionContainer.appendChild(radioInput);
-        optionContainer.appendChild(radioLabel);
-        radioLabel.appendChild(iconSpan);
-        radioLabel.appendChild(document.createTextNode(opt.text));
-        
-        subOptionsSpan.appendChild(optionContainer);
+        outputModeSelect.appendChild(option);
     });
+    
+    // 當下拉選單變更時，儲存設定
+    outputModeSelect.addEventListener('change', () => this.saveOutputModeSettings());
+    
+    outputModeLabel.appendChild(outputModeSelect);
 
-    outputModeLabel.appendChild(document.createTextNode(')'));
     // 4. 綁定主開關的事件
     mainCheckbox.addEventListener('change', () => {
         this.saveToolbarSettings(); // 儲存主開關狀態
-        // 連動顯示/隱藏子選項
-        subOptionsSpan.style.display = mainCheckbox.checked ? 'inline-flex' : 'none';
+        // 連動顯示/隱藏下拉選單
+        outputModeSelect.style.display = mainCheckbox.checked ? 'inline-block' : 'none';
     });
-
+    
     buttonsContainer.appendChild(outputModeLabel);
 
 
@@ -1532,47 +1517,51 @@ saveToolbarSettings() {
         const key = cb.dataset.key;
         if (key) {
             this.config.toolbarButtons[key] = cb.checked;
+
+            // 當使用者透過「設定」取消勾選「輸出字音」時
+            if (key === 'outputModeToggle' && !cb.checked) {
+                // 我們需要同時將「功能啟用狀態」也強制設為 false
+                this.config.outputModeActive = false;
+                // 並將這個狀態儲存起來
+                localStorage.setItem(this.config.storagePrefix + 'outputModeActive', 'false');
+                // 同步更新按鈕的顏色狀態（雖然它即將被隱藏）
+                this.updateOutputModeButtonUI();
+            }
         }
     });
     localStorage.setItem(this.config.storagePrefix + 'toolbarSettings', JSON.stringify(this.config.toolbarButtons));
-    // 立即套用變更
+    // 立即套用變更（顯示或隱藏按鈕）
     this.updateToolbarButtonsVisibility();
 },
 
 
-
-
-
 /**
- * 從 localStorage 載入輸出模式設定
+ * 從 localStorage 載入輸出模式設定 (下拉選單的值)
  */
 loadOutputModeSettings() {
     const saved = localStorage.getItem(this.config.storagePrefix + 'outputMode');
-    // 合法的值為 'word', 'pinyin', 'word_pinyin'，否則使用預設值 'word'
-    this.config.outputMode = ['word', 'pinyin', 'word_pinyin'].includes(saved) ? saved : 'word';
+    // 合法的值為 'pinyin', 'word_pinyin'，否則使用預設值 'pinyin'
+    this.config.outputMode = ['pinyin', 'word_pinyin'].includes(saved) ? saved : 'pinyin';
 
     if (this.settingsModal) {
-        // 根據載入的設定，勾選對應的 radio button
-        const radioToCheck = this.settingsModal.querySelector(`input[name="output-mode-option"][value="${this.config.outputMode}"]`);
-        if (radioToCheck) {
-            radioToCheck.checked = true;
+        // 根據載入的設定，設定下拉選單的目前值
+        const selectElement = this.settingsModal.querySelector('#output-mode-select');
+        if (selectElement) {
+            selectElement.value = this.config.outputMode;
         }
     }
 },
 
 /**
- * 儲存輸出模式設定到 localStorage
+ * 儲存輸出模式設定 (下拉選單的值) 到 localStorage
  */
 saveOutputModeSettings() {
-    // 找到被勾選的 radio button
-    const selectedRadio = this.settingsModal.querySelector('input[name="output-mode-option"]:checked');
-    if (selectedRadio) {
-        this.config.outputMode = selectedRadio.value;
+    // 找到下拉選單
+    const selectElement = this.settingsModal.querySelector('#output-mode-select');
+    if (selectElement) {
+        this.config.outputMode = selectElement.value;
         localStorage.setItem(this.config.storagePrefix + 'outputMode', this.config.outputMode);
     }
-    
-    // 更新按鈕狀態以即時反應變化
-    this.updateOutputModeButtonUI();
 },
 
 
@@ -1695,7 +1684,8 @@ updateToolbarButtonsVisibility() {
         const isEnabledByUser = this.config.toolbarButtons[key];
 
         if (config.element) {
-            // 條件：語言支援 && 使用者啟用
+            // 【核心修改點】
+            // 所有按鈕的顯示條件統一為：語言支援 && 使用者在設定中啟用
             if (config.isSupported && isEnabledByUser) {
                 config.element.style.display = ''; // 顯示按鈕
             } else {
@@ -1832,8 +1822,9 @@ handleInput(e) {
         const insertionStart = selectionStart - insertedLength;
         let diff = currentVal.substring(insertionStart, selectionStart);
 
-        // 如果一次輸入超過1個字元(例如貼上)，或者不是英文，就直接接受，並重設輸入法狀態
-        if (insertedLength > 1 || !/^[a-zA-Z0-9\s]$/.test(diff)) {
+        // 如果一次輸入超過1個字元(例如貼上)，或者不是英文/數字/空格，就直接接受，並重設輸入法狀態
+        // 【關鍵修改】：將 `\s` 修改為明確的空格 ` `，避免比對到換行符 `\n`
+        if (insertedLength > 1 || !/^[a-zA-Z0-9 ]$/.test(diff)) {
             this.lastInputValue = currentVal;
             this.compositionBuffer = '';
             this.compositionCursorPos = 0;
@@ -2052,16 +2043,30 @@ handleKeyDown(e) {
                 }
                 return;
             
-            case 'commitComposition':
-                 if (hasComposition) { // 只有在有輸入碼時才攔截 Enter
-                    e.preventDefault();
-                    this.commitText(this.compositionBuffer);
-                    this.compositionBuffer = '';
-                    this.compositionCursorPos = 0;
-                    this.updateCandidates();
-                    return;
-                 }
-                 break;
+                case 'commitComposition':
+                // 核心修正：
+                // 檢查是否有輸入編碼。如果沒有，我們必須讓瀏覽器自己處理 Enter 鍵的預設行為
+                // (例如在 <textarea> 中換行，或在 <input> 中提交表單)。
+                // 因此，我們直接用 break 跳出 switch，不執行任何攔截 (e.preventDefault)。
+                if (!hasComposition) {
+                    break;
+                }
+
+                // 如果程式執行到這裡，代表 hasComposition 為 true，有輸入編碼。
+                // 在這種情況下，我們就要攔截 Enter 鍵的預設行為。
+                e.preventDefault();
+
+                // 將編碼區的文字送出到編輯區。
+                this.commitText(this.compositionBuffer);
+
+                // 重設輸入法狀態，清空編碼區。
+                this.compositionBuffer = '';
+                this.compositionCursorPos = 0;
+                this.updateCandidates();
+
+                // 因為我們已經處理完畢，使用 return 來結束整個 handleKeyDown 函數的執行，
+                // 避免後續其他程式碼可能造成的干擾。
+                return;
 
             case 'clearComposition':
                 if (hasComposition || hasCandidates) {
@@ -2289,30 +2294,21 @@ updateToneModeButtonUI() {
     }
 },
 
+
 /**
- * [新版] 循環切換輸出模式 (預設 -> 拼音 -> 字音)
+ * [新版] 循環切換輸出模式 (僅切換功能啟用/停用狀態)
  */
 toggleOutputMode() {
-    const modes = ['word', 'pinyin', 'word_pinyin'];
-    const currentIndex = modes.indexOf(this.config.outputMode);
-    const nextIndex = (currentIndex + 1) % modes.length;
-    this.config.outputMode = modes[nextIndex];
-    
-    // 將變動儲存起來
-    localStorage.setItem(this.config.storagePrefix + 'outputMode', this.config.outputMode);
-    
-    // 更新設定視窗中的選項，使其同步
-    this.loadOutputModeSettings();
+    // 切換「功能啟用狀態」，而不是「按鈕可見度」的狀態
+    this.config.outputModeActive = !this.config.outputModeActive;
 
-    // 更新按鈕UI並顯示提示
+    // 將新的「功能啟用狀態」儲存到 localStorage
+    localStorage.setItem(this.config.storagePrefix + 'outputModeActive', this.config.outputModeActive);
+
+    // 更新按鈕UI (變色) 並顯示提示
     this.updateOutputModeButtonUI();
-    
-    const modeTextMap = {
-        'word': '預設輸出',
-        'pinyin': '僅輸出拼音',
-        'word_pinyin': '輸出字詞與拼音'
-    };
-    this.showToast(modeTextMap[this.config.outputMode]);
+    const statusText = this.config.outputModeActive ? '啟用' : '停用';
+    this.showToast(`字音輸出已${statusText}`);
 },
 
 /**
@@ -2321,31 +2317,20 @@ toggleOutputMode() {
 updateOutputModeButtonUI() {
     if (!this.outputModeToggleBtn) return;
 
-    // 定義三種模式對應的圖示和提示文字
-    const modeUIMap = {
-        'word': { 
-            icon: 'format_size', 
-            title: '目前：預設輸出' 
-        },
-        'pinyin': { 
-            icon: 'font_download', 
-            title: '目前：僅輸出拼音' 
-        },
-        'word_pinyin': { 
-            icon: 'translate', 
-            title: '目前：輸出字詞與拼音' 
-        }
-    };
-    
-    const currentUIMap = modeUIMap[this.config.outputMode] || modeUIMap['word'];
+    // --- 【核心修改】 ---
+    // 根據新的「功能啟用狀態 (outputModeActive)」來決定是否啟用
+    const isEnabled = this.config.outputModeActive;
+    // --- 【修改結束】 ---
 
-    // 更新圖示和 title
-    this.outputModeToggleBtn.innerHTML = `<span class="material-icons" style="font-size: 18px;">${currentUIMap.icon}</span>`;
-    this.outputModeToggleBtn.title = currentUIMap.title;
+    // 根據啟用/停用狀態決定圖示和提示文字
+    const icon = isEnabled ? 'translate' : 'format_size';
+    const title = isEnabled ? '字音輸出已啟用' : '字音輸出已停用';
 
-    // 在非 'word' 模式時，按鈕顯示為啟用狀態
-    const isDefaultMode = this.config.outputMode === 'word';
-    this.outputModeToggleBtn.classList.toggle('active', !isDefaultMode);
+    this.outputModeToggleBtn.innerHTML = `<span class="material-icons" style="font-size: 18px;">${icon}</span>`;
+    this.outputModeToggleBtn.title = title;
+
+    // 按鈕啟用時，才顯示 'active' 樣式
+    this.outputModeToggleBtn.classList.toggle('active', isEnabled);
 },
 
 toggleToneMode() {
@@ -2607,10 +2592,10 @@ selectCandidate(indexOnPage) {
     let textToCommit = selectedWord; 
 
 
-// --- 【核心修改】判斷條件改為主開關 ---
-    // 檢查 "輸出字音" 功能是否被啟用，且目前模式不是 'word'
-    if (this.config.toolbarButtons.outputModeToggle && this.config.outputMode !== 'word' && isPinyinOutputAvailable) {
+    if (this.config.outputModeActive && this.config.outputMode !== 'word' && isPinyinOutputAvailable) {
         const possibleCodes = this.reverseDicts[this.currentMode]?.[selectedWord];
+    
+
         
         if (possibleCodes && possibleCodes.length > 0) {
             let bestMatchCode = possibleCodes[0]; 
@@ -2635,7 +2620,6 @@ selectCandidate(indexOnPage) {
             }
         }
     }
-    // --- 修改結束 ---
 
     // 1. 將最終處理好的文字送到編輯區
     this.commitText(textToCommit);
