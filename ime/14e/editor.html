@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>線上文字編輯器</title>
+    <style>
+        body {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f3f2f1;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: #ffffff;
+            border-bottom: 1px solid #d1d1d1;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .logo {
+            font-size: 18px;
+            font-weight: 600;
+            color: #323130;
+        }
+
+        .menu-bar {
+            background: #ffffff;
+            border-bottom: 1px solid #d1d1d1;
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            overflow-x: auto;
+        }
+
+        .menu-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            color: #323130;
+            font-size: 14px;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .menu-item:hover {
+            background: #f3f2f1;
+            border-bottom-color: #0078d4;
+        }
+
+        .menu-item.active {
+            border-bottom-color: #0078d4;
+            color: #0078d4;
+        }
+
+        .toolbar {
+            background: #ffffff;
+            border-bottom: 1px solid #d1d1d1;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding-right: 12px;
+            border-right: 1px solid #d1d1d1;
+            margin-right: 8px;
+        }
+
+        .toolbar-group:last-child {
+            border-right: none;
+            margin-right: 0;
+        }
+
+        .toolbar-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: #323130;
+            transition: background 0.2s;
+        }
+
+        .toolbar-btn:hover {
+            background: #f3f2f1;
+        }
+
+        .toolbar-btn.active {
+            background: #deecf9;
+            color: #0078d4;
+        }
+
+        .font-select, .size-select {
+            border: 1px solid #d1d1d1;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .font-select {
+            width: 120px;
+        }
+
+        .size-select {
+            width: 60px;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .editor-container {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            overflow: auto;
+        }
+
+        .editor {
+            width: 100%;
+            max-width: 800px;
+            min-height: 600px;
+            background: white;
+            border: 1px solid #d1d1d1;
+            border-radius: 4px;
+            padding: 40px;
+            font-size: 14px;
+            line-height: 1.6;
+            font-family: 'Times New Roman', serif;
+            outline: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            resize: none;
+        }
+
+        .status-bar {
+            background: #ffffff;
+            border-top: 1px solid #d1d1d1;
+            padding: 8px 16px;
+            font-size: 12px;
+            color: #605e5c;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            min-width: 300px;
+        }
+
+        .modal-header {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #323130;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin-top: 16px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: 1px solid #d1d1d1;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #0078d4;
+            color: white;
+            border-color: #0078d4;
+        }
+
+        .btn-primary:hover {
+            background: #106ebe;
+        }
+
+        .btn:hover {
+            background: #f3f2f1;
+        }
+
+        @media (max-width: 768px) {
+            .toolbar {
+                overflow-x: auto;
+                flex-wrap: nowrap;
+            }
+            
+            .editor {
+                padding: 20px;
+                font-size: 16px;
+            }
+            
+            .menu-bar {
+                padding: 0 8px;
+                gap: 12px;
+            }
+            
+            .toolbar {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">📝 文字編輯器</div>
+        <div style="font-size: 12px; color: #605e5c;">未命名文件</div>
+    </div>
+
+    <div class="menu-bar">
+        <div class="menu-item active" onclick="switchTab('home')">首頁</div>
+        <div class="menu-item" onclick="switchTab('insert')">插入</div>
+        <div class="menu-item" onclick="switchTab('view')">檢視</div>
+        <div class="menu-item" onclick="switchTab('help')">說明</div>
+    </div>
+
+    <div class="toolbar" id="homeToolbar">
+        <div class="toolbar-group">
+            <button class="toolbar-btn" onclick="newDocument()" title="新增">📄</button>
+            <button class="toolbar-btn" onclick="openFile()" title="開啟">📁</button>
+            <button class="toolbar-btn" onclick="saveFile()" title="儲存">💾</button>
+        </div>
+        
+        <div class="toolbar-group">
+            <button class="toolbar-btn" onclick="undo()" title="復原">↶</button>
+            <button class="toolbar-btn" onclick="redo()" title="重做">↷</button>
+        </div>
+        
+        <div class="toolbar-group">
+            <select class="font-select" onchange="changeFont(this.value)">
+                <option value="Times New Roman">Times New Roman</option>
+                <option value="Arial">Arial</option>
+                <option value="Microsoft JhengHei">微軟正黑體</option>
+                <option value="Courier New">Courier New</option>
+            </select>
+            <select class="size-select" onchange="changeFontSize(this.value)">
+                <option value="12">12</option>
+                <option value="14" selected>14</option>
+                <option value="16">16</option>
+                <option value="18">18</option>
+                <option value="20">20</option>
+                <option value="24">24</option>
+            </select>
+        </div>
+        
+        <div class="toolbar-group">
+            <button class="toolbar-btn" onclick="toggleBold()" title="粗體" id="boldBtn">B</button>
+            <button class="toolbar-btn" onclick="toggleItalic()" title="斜體" id="italicBtn">I</button>
+            <button class="toolbar-btn" onclick="toggleUnderline()" title="底線" id="underlineBtn">U</button>
+        </div>
+        
+        <div class="toolbar-group">
+            <button class="toolbar-btn" onclick="alignLeft()" title="靠左對齊">⬅</button>
+            <button class="toolbar-btn" onclick="alignCenter()" title="置中對齊">↔</button>
+            <button class="toolbar-btn" onclick="alignRight()" title="靠右對齊">➡</button>
+        </div>
+        
+        <div class="toolbar-group">
+            <button class="toolbar-btn" onclick="findReplace()" title="尋找與取代">🔍</button>
+            <button class="toolbar-btn" onclick="showWordCount()" title="字數統計">#</button>
+        </div>
+    </div>
+
+    <div class="toolbar" id="insertToolbar" style="display: none;">
+        <div class="toolbar-group">
+            <button class="toolbar-btn" onclick="insertDate()" title="插入日期">📅</button>
+            <button class="toolbar-btn" onclick="insertTime()" title="插入時間">🕐</button>
+            <button class="toolbar-btn" onclick="insertLine()" title="插入分隔線">➖</button>
+        </div>
+    </div>
+
+    <div class="toolbar" id="viewToolbar" style="display: none;">
+        <div class="toolbar-group">
+            <button class="toolbar-btn" onclick="toggleFullscreen()" title="全螢幕">⛶</button>
+            <button class="toolbar-btn" onclick="zoomIn()" title="放大">🔍+</button>
+            <button class="toolbar-btn" onclick="zoomOut()" title="縮小">🔍-</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="editor-container">
+            <textarea class="editor" id="editor" placeholder="開始輸入您的文字..."></textarea>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <div>字數: <span id="charCount">0</span> | 行數: <span id="lineCount">1</span></div>
+        <div>縮放: <span id="zoomLevel">100%</span></div>
+    </div>
+
+    <!-- 模態視窗 -->
+    <div class="modal" id="findModal">
+        <div class="modal-content">
+            <div class="modal-header">尋找與取代</div>
+            <div style="margin-bottom: 12px;">
+                <input type="text" id="findText" placeholder="尋找文字" style="width: 100%; padding: 8px; border: 1px solid #d1d1d1; border-radius: 4px;">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <input type="text" id="replaceText" placeholder="取代為" style="width: 100%; padding: 8px; border: 1px solid #d1d1d1; border-radius: 4px;">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn" onclick="closeFindModal()">取消</button>
+                <button class="btn" onclick="findNext()">尋找下一個</button>
+                <button class="btn btn-primary" onclick="replaceAll()">全部取代</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="wordCountModal">
+        <div class="modal-content">
+            <div class="modal-header">文件統計</div>
+            <div style="line-height: 1.8;">
+                <div>字元數（含空格）: <span id="totalChars">0</span></div>
+                <div>字元數（不含空格）: <span id="charsNoSpace">0</span></div>
+                <div>單字數: <span id="wordCount">0</span></div>
+                <div>行數: <span id="totalLines">1</span></div>
+                <div>段落數: <span id="paragraphCount">1</span></div>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-primary" onclick="closeWordCountModal()">確定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const editor = document.getElementById('editor');
+        let currentZoom = 100;
+        let undoStack = [];
+        let redoStack = [];
+        let currentContent = '';
+
+        // 初始化
+        editor.addEventListener('input', function() {
+            updateStatus();
+            saveToUndoStack();
+        });
+
+        // 選單切換
+        function switchTab(tab) {
+            // 更新選單樣式
+            document.querySelectorAll('.menu-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // 顯示對應工具列
+            document.querySelectorAll('.toolbar').forEach(toolbar => {
+                toolbar.style.display = 'none';
+            });
+            
+            const toolbarId = tab + 'Toolbar';
+            const toolbar = document.getElementById(toolbarId);
+            if (toolbar) {
+                toolbar.style.display = 'flex';
+            }
+        }
+
+        // 文件操作
+        function newDocument() {
+            if (editor.value && confirm('確定要建立新文件嗎？未儲存的變更將會遺失。')) {
+                editor.value = '';
+                updateStatus();
+                undoStack = [];
+                redoStack = [];
+            }
+        }
+
+        function openFile() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.txt';
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        editor.value = e.target.result;
+                        updateStatus();
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            input.click();
+        }
+
+        function saveFile() {
+            const content = editor.value;
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = '文件.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // 復原/重做
+        function saveToUndoStack() {
+            if (editor.value !== currentContent) {
+                undoStack.push(currentContent);
+                if (undoStack.length > 50) undoStack.shift();
+                redoStack = [];
+                currentContent = editor.value;
+            }
+        }
+
+        function undo() {
+            if (undoStack.length > 0) {
+                redoStack.push(editor.value);
+                editor.value = undoStack.pop();
+                currentContent = editor.value;
+                updateStatus();
+            }
+        }
+
+        function redo() {
+            if (redoStack.length > 0) {
+                undoStack.push(editor.value);
+                editor.value = redoStack.pop();
+                currentContent = editor.value;
+                updateStatus();
+            }
+        }
+
+        // 格式設定
+        function changeFont(font) {
+            editor.style.fontFamily = font;
+        }
+
+        function changeFontSize(size) {
+            editor.style.fontSize = size + 'px';
+        }
+
+        function toggleBold() {
+            const btn = document.getElementById('boldBtn');
+            if (editor.style.fontWeight === 'bold') {
+                editor.style.fontWeight = 'normal';
+                btn.classList.remove('active');
+            } else {
+                editor.style.fontWeight = 'bold';
+                btn.classList.add('active');
+            }
+        }
+
+        function toggleItalic() {
+            const btn = document.getElementById('italicBtn');
+            if (editor.style.fontStyle === 'italic') {
+                editor.style.fontStyle = 'normal';
+                btn.classList.remove('active');
+            } else {
+                editor.style.fontStyle = 'italic';
+                btn.classList.add('active');
+            }
+        }
+
+        function toggleUnderline() {
+            const btn = document.getElementById('underlineBtn');
+            if (editor.style.textDecoration === 'underline') {
+                editor.style.textDecoration = 'none';
+                btn.classList.remove('active');
+            } else {
+                editor.style.textDecoration = 'underline';
+                btn.classList.add('active');
+            }
+        }
+
+        function alignLeft() {
+            editor.style.textAlign = 'left';
+        }
+
+        function alignCenter() {
+            editor.style.textAlign = 'center';
+        }
+
+        function alignRight() {
+            editor.style.textAlign = 'right';
+        }
+
+        // 插入功能
+        function insertDate() {
+            const date = new Date().toLocaleDateString('zh-TW');
+            insertAtCursor(date);
+        }
+
+        function insertTime() {
+            const time = new Date().toLocaleTimeString('zh-TW');
+            insertAtCursor(time);
+        }
+
+        function insertLine() {
+            insertAtCursor('\n' + '─'.repeat(50) + '\n');
+        }
+
+        function insertAtCursor(text) {
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            const value = editor.value;
+            editor.value = value.substring(0, start) + text + value.substring(end);
+            editor.selectionStart = editor.selectionEnd = start + text.length;
+            editor.focus();
+            updateStatus();
+        }
+
+        // 尋找與取代
+        function findReplace() {
+            document.getElementById('findModal').style.display = 'block';
+        }
+
+        function closeFindModal() {
+            document.getElementById('findModal').style.display = 'none';
+        }
+
+        function findNext() {
+            const findText = document.getElementById('findText').value;
+            if (!findText) return;
+            
+            const content = editor.value;
+            const currentPos = editor.selectionStart;
+            const foundPos = content.indexOf(findText, currentPos);
+            
+            if (foundPos !== -1) {
+                editor.setSelectionRange(foundPos, foundPos + findText.length);
+                editor.focus();
+            } else {
+                alert('找不到指定的文字');
+            }
+        }
+
+        function replaceAll() {
+            const findText = document.getElementById('findText').value;
+            const replaceText = document.getElementById('replaceText').value;
+            
+            if (!findText) return;
+            
+            const newContent = editor.value.replaceAll(findText, replaceText);
+            editor.value = newContent;
+            updateStatus();
+            closeFindModal();
+        }
+
+        // 檢視功能
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function zoomIn() {
+            currentZoom += 10;
+            updateZoom();
+        }
+
+        function zoomOut() {
+            if (currentZoom > 50) {
+                currentZoom -= 10;
+                updateZoom();
+            }
+        }
+
+        function updateZoom() {
+            document.body.style.zoom = currentZoom + '%';
+            document.getElementById('zoomLevel').textContent = currentZoom + '%';
+        }
+
+        // 字數統計
+        function showWordCount() {
+            const content = editor.value;
+            const totalChars = content.length;
+            const charsNoSpace = content.replace(/\s/g, '').length;
+            const words = content.trim() ? content.trim().split(/\s+/).length : 0;
+            const lines = content.split('\n').length;
+            const paragraphs = content.trim() ? content.split(/\n\s*\n/).length : 0;
+
+            document.getElementById('totalChars').textContent = totalChars;
+            document.getElementById('charsNoSpace').textContent = charsNoSpace;
+            document.getElementById('wordCount').textContent = words;
+            document.getElementById('totalLines').textContent = lines;
+            document.getElementById('paragraphCount').textContent = paragraphs;
+            
+            document.getElementById('wordCountModal').style.display = 'block';
+        }
+
+        function closeWordCountModal() {
+            document.getElementById('wordCountModal').style.display = 'none';
+        }
+
+        // 狀態更新
+        function updateStatus() {
+            const content = editor.value;
+            document.getElementById('charCount').textContent = content.length;
+            document.getElementById('lineCount').textContent = content.split('\n').length;
+        }
+
+        // 鍵盤快捷鍵
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case 'n':
+                        e.preventDefault();
+                        newDocument();
+                        break;
+                    case 'o':
+                        e.preventDefault();
+                        openFile();
+                        break;
+                    case 's':
+                        e.preventDefault();
+                        saveFile();
+                        break;
+                    case 'z':
+                        e.preventDefault();
+                        if (e.shiftKey) {
+                            redo();
+                        } else {
+                            undo();
+                        }
+                        break;
+                    case 'f':
+                        e.preventDefault();
+                        findReplace();
+                        break;
+                }
+            }
+        });
+
+        // 初始化狀態
+        updateStatus();
+        saveToUndoStack();
+    </script>
+</html>
