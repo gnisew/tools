@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web IME 智慧輸入法 (Google 風格)</title>
+    <link rel="stylesheet" href="ime.css">
+    <style>
+        /* 頁面專屬的額外樣式 */
+        body {
+            font-family: "Segoe UI", "Microsoft JhengHei", Arial, sans-serif;
+            background-color: #f8f9fa;
+            color: #202124;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header {
+            width: 100%;
+            padding: 15px 30px;
+            border-bottom: 1px solid #dee2e6;
+            background-color: #ffffff;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            font-weight: 500;
+            margin: 0;
+        }
+
+        .main-content {
+            width: 100%;
+            max-width: 900px;
+            margin-top: 30px;
+            padding: 0 20px;
+            box-sizing: border-box;
+        }
+
+        .editor-container {
+            background-color: #ffffff;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            margin-bottom: 25px;
+        }
+        
+        .editor-container .title {
+            padding: 12px 18px;
+            font-size: 16px;
+            font-weight: 500;
+            color: #5f6368;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .editor-container .editor,
+        .editor-container input,
+        .editor-container textarea {
+            width: 100%;
+            box-sizing: border-box;
+            border: none;
+            outline: none;
+            padding: 18px;
+            font-size: 18px;
+            line-height: 1.6;
+            background-color: transparent;
+            font-family: inherit;
+        }
+        
+        .editor-container .editor {
+            min-height: 200px;
+            cursor: text;
+        }
+
+        .editor-container textarea {
+             resize: vertical;
+             min-height: 150px;
+        }
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <h1>Web 輸入法 (類 Google IME 風格)</h1>
+    </header>
+
+    <main class="main-content">
+        
+        <div class="editor-container">
+            <div class="title">單行 Input 輸入框</div>
+            <input type="text" id="test-input-1" placeholder="在此處輸入...">
+        </div>
+
+        <div class="editor-container">
+            <div class="title">多行 Textarea 文本域</div>
+            <textarea id="test-textarea" rows="5" placeholder="在此處輸入..."></textarea>
+        </div>
+        <div class="editor-container">
+            <div class="title">多行 Div 編輯區</div>
+            <div class="editor" contenteditable="true" spellcheck="false"></div>
+        </div>
+    </main>
+
+
+    <script src="ime-dict.js"></script>
+    <script src="ime.js"></script>
+    <script src="ime-on.js"></script>
+    </script>
+</body>
+</html>
