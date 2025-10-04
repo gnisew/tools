@@ -3195,85 +3195,84 @@ getCaretCoordinates(element, position) {
 
 
 reposition() {
-    if (this.candidatesContainer.style.display === 'none' || !this.activeElement) return;
-
-    const candidatesContainer = this.candidatesContainer;
-    const activeElement = this.activeElement;
-
-    let caretRect;
-    const elementRect = activeElement.getBoundingClientRect();
-
-    if (activeElement.isContentEditable) {
-        const selection = window.getSelection();
-        if (selection && selection.rangeCount > 0) {
-            const range = selection.getRangeAt(0);
-            const rects = range.getClientRects();
-            if (rects.length > 0) {
-                caretRect = rects[rects.length - 1];
-            }
+    // --- 【核心修改】 ---
+    // 使用 setTimeout 將整個定位邏輯延遲到下一個事件循環。
+    // 這可以確保在我們執行定位計算之前，瀏覽器已經有足夠的時間
+    // 更新 activeElement.selectionStart (游標位置) 的值。
+    // 這對於解決行動版 Chrome 點擊後無法正確定位的問題至關重要。
+    setTimeout(() => {
+        if (this.candidatesContainer.style.display === 'none' || !this.activeElement) {
+            return;
         }
-        if (!caretRect || (caretRect.width === 0 && caretRect.height === 0)) {
+
+        const candidatesContainer = this.candidatesContainer;
+        const activeElement = this.activeElement;
+
+        let caretRect;
+        const elementRect = activeElement.getBoundingClientRect();
+
+        if (activeElement.isContentEditable) {
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                const rects = range.getClientRects();
+                if (rects.length > 0) {
+                    caretRect = rects[rects.length - 1];
+                }
+            }
+            if (!caretRect || (caretRect.width === 0 && caretRect.height === 0)) {
+                caretRect = elementRect;
+            }
+        } else if (activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'INPUT') {
+            const coords = this.getCaretCoordinates(activeElement, activeElement.selectionStart);
+            const computedStyle = window.getComputedStyle(activeElement);
+            const lineHeight = parseInt(computedStyle.lineHeight) || (parseInt(computedStyle.fontSize) * 1.4);
+            caretRect = {
+                top: coords.top,
+                bottom: coords.top + lineHeight,
+                left: coords.left,
+                right: coords.left,
+                height: lineHeight,
+                width: 0
+            };
+        } else {
             caretRect = elementRect;
         }
-    } else if (activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'INPUT') {
-        const coords = this.getCaretCoordinates(activeElement, activeElement.selectionStart);
-        const computedStyle = window.getComputedStyle(activeElement);
-        const lineHeight = parseInt(computedStyle.lineHeight) || (parseInt(computedStyle.fontSize) * 1.4);
-        caretRect = {
-            top: coords.top,
-            bottom: coords.top + lineHeight,
-            left: coords.left,
-            right: coords.left,
-            height: lineHeight,
-            width: 0
-        };
-    } else {
-        caretRect = elementRect;
-    }
 
-    const imeHeight = candidatesContainer.offsetHeight;
-    const imeWidth = candidatesContainer.offsetWidth;
-    const viewportHeight = window.innerHeight;
-    const viewportWidth = window.innerWidth;
-    const margin = 10;
+        const imeHeight = candidatesContainer.offsetHeight;
+        const imeWidth = candidatesContainer.offsetWidth;
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+        const margin = 10;
 
-    // --- 垂直定位 (通用邏輯) ---
-    // 優先嘗試放在游標下方
-    let finalTop = caretRect.bottom + window.scrollY + 5;
-    // 如果下方空間不足，則嘗試放到游標上方
-    if ((finalTop - window.scrollY + imeHeight) > viewportHeight) {
-        if (caretRect.top - imeHeight - 5 > 0) {
-            finalTop = caretRect.top + window.scrollY - imeHeight - 5;
-        } else { // 如果上方空間也不足，就貼齊視窗底部
-            finalTop = window.scrollY + viewportHeight - imeHeight - margin;
+        // 垂直定位
+        let finalTop = caretRect.bottom + window.scrollY + 5;
+        if ((finalTop - window.scrollY + imeHeight) > viewportHeight) {
+            if (caretRect.top - imeHeight - 5 > 0) {
+                finalTop = caretRect.top + window.scrollY - imeHeight - 5;
+            } else {
+                finalTop = window.scrollY + viewportHeight - imeHeight - margin;
+            }
         }
-    }
-     // 確保不會超出頂部邊緣
-    if (finalTop < window.scrollY + margin) {
-        finalTop = window.scrollY + margin;
-    }
+        if (finalTop < window.scrollY + margin) {
+            finalTop = window.scrollY + margin;
+        }
 
+        // 水平定位
+        let finalLeft = caretRect.left + window.scrollX;
+        candidatesContainer.style.maxWidth = '90vw';
+        if (finalLeft - window.scrollX + imeWidth > viewportWidth - margin) {
+            finalLeft = window.scrollX + viewportWidth - imeWidth - margin;
+        }
+        if (finalLeft < window.scrollX + margin) {
+            finalLeft = window.scrollX + margin;
+        }
 
-    // --- 水平定位 (通用邏輯) ---
-    // 無論是電腦或手機，都採用相同的游標追蹤邏輯
-    let finalLeft = caretRect.left + window.scrollX;
-
-    // 恢復或設定 CSS 預設的最大寬度，確保寬度計算正確
-    candidatesContainer.style.maxWidth = '90vw'; 
-
-    // 如果右側超出視窗，則向左移動，實現「向左擴展」效果
-    if (finalLeft - window.scrollX + imeWidth > viewportWidth - margin) {
-        finalLeft = window.scrollX + viewportWidth - imeWidth - margin;
-    }
-    // 確保不會超出左側邊緣
-    if (finalLeft < window.scrollX + margin) {
-        finalLeft = window.scrollX + margin;
-    }
-
-    // 應用最終計算出的位置
-    candidatesContainer.style.top = `${finalTop}px`;
-    candidatesContainer.style.left = `${finalLeft}px`;
-    candidatesContainer.style.position = 'absolute';
+        // 應用最終計算出的位置
+        candidatesContainer.style.top = `${finalTop}px`;
+        candidatesContainer.style.left = `${finalLeft}px`;
+        candidatesContainer.style.position = 'absolute';
+    }, 0);
 },
 
 show() {
