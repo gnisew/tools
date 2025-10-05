@@ -3,10 +3,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const configFromUrl = {};
     
-    // --- 修改點：將這裡的 false 改為 true ---
+    // 預設為 true，代表只要載入此 js，就會嘗試啟用輸入法
     let shouldAutoEnable = true;
 
-    // --- 更新：與 ime-on.js 相同的解碼邏輯 ---
+    // 與 ime-button.js 相同的 URL 參數解析邏輯
     if (params.has('ime')) {
         const imeParam = params.get('ime');
         const parts = imeParam.split('-');
@@ -63,10 +63,30 @@ document.addEventListener('DOMContentLoaded', () => {
          configFromUrl.outputEnabled = params.get('output_enabled') === 'true';
     }
 
+    /**
+	 * 【新的初始化邏輯】
+	 * 套用與 ime-button.js 相同的修正，確保 URL 參數優先。
+	 */
     if (shouldAutoEnable) {
-        const baseConfig = { defaultMode: 'sixian', candidatesPerPage: 5 };
+        // 1. 暫存目標語言
+        const urlDefaultMode = configFromUrl.defaultMode;
+        
+        // 2. 從設定中移除，讓 init 先走完預設流程
+        delete configFromUrl.defaultMode;
+
+        // 3. 組合設定並初始化
+        const baseConfig = { candidatesPerPage: 5 };
         const finalConfig = { ...baseConfig, ...configFromUrl };
         WebIME.init(finalConfig);
-    }
 
+        // 4. 初始化後，強制切換到 URL 指定的語言
+        if (urlDefaultMode && typeof WebIME.switchMode === 'function') {
+            WebIME.switchMode(urlDefaultMode);
+        }
+		
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('ime');
+        newUrl.searchParams.delete('ime-enabled');
+        window.history.replaceState({}, document.title, newUrl.href);
+    }
 });

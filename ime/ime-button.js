@@ -31,7 +31,6 @@ function injectImeButtonStyles() {
     document.head.appendChild(styleElement);
 }
 
-
 document.addEventListener('DOMContentLoaded', () => {
 	injectImeButtonStyles();
 
@@ -97,8 +96,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+	/**
+	 * 【新的同步函數】
+	 * 負責同步所有相關 UI 的狀態，包含按鈕圖示和外部工具列。
+	 */
 	function syncAllToggleButtonsUI() {
-		// 檢查 WebIME 物件是否存在且 isInitialized 為 true
 		const isActive = typeof WebIME !== 'undefined' && WebIME.isInitialized;
 		const externalToolbar = document.getElementById('ime-external-toolbar-container');
 
@@ -115,20 +117,42 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 		});
 
-		// 【核心修改】
+		// 【核心修正】
 		// 如果輸入法不是啟用狀態 (已被 destroy)，就找到外部容器並清空它。
 		if (!isActive && externalToolbar) {
 			externalToolbar.innerHTML = '';
 		}
 	}
 
-    // 如果 URL 參數要求自動啟用，則先初始化
+    /**
+	 * 【新的初始化邏輯】
+	 * 這段程式碼修正了 URL 參數被 Local Storage 覆蓋的問題。
+	 */
     if (shouldAutoEnable) {
-        if (typeof WebIME !== 'undefined') {
-            const baseConfig = { defaultMode: 'sixian', candidatesPerPage: 5 };
-            const finalConfig = { ...baseConfig, ...configFromUrl };
-            WebIME.init(finalConfig);
+        // 1. 從 URL 參數中暫存要切換的目標語言
+        const urlDefaultMode = configFromUrl.defaultMode;
+
+        // 2. 從傳給 init 的設定中移除 defaultMode，避免 init 邏輯混淆。
+        //    讓 WebIME 核心先用它自己的預設或 Local Storage 邏輯完成初始化。
+        delete configFromUrl.defaultMode;
+
+        // 3. 組合最終的初始化設定 (現在不包含 URL 的 defaultMode)
+		const baseConfig = { candidatesPerPage: 5 };
+        const finalConfig = { ...baseConfig, ...configFromUrl };
+        
+        // 4. 呼叫核心初始化
+        WebIME.init(finalConfig);
+        
+        // 5. 【關鍵修正】: 在初始化完成後，強制切換到 URL 參數指定的語言模式。
+        //    這一步會覆蓋 Local Storage 或任何預設值，確保 URL 參數優先。
+        if (urlDefaultMode && typeof WebIME.switchMode === 'function') {
+            WebIME.switchMode(urlDefaultMode);
         }
+
+		const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('ime');
+        newUrl.searchParams.delete('ime-enabled'); // 順便清理舊的參數以防萬一
+        window.history.replaceState({}, document.title, newUrl.href);
     }
     
     // 使用新的同步函式來設定初始狀態
@@ -137,11 +161,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // 為所有切換按鈕綁定新的點擊邏輯
     toggleButtons.forEach(button => {
         button.addEventListener('click', () => {
-            /**
-             * 【核心修改】
-             * - 如果輸入法已初始化，我們呼叫 WebIME.destroy() 來完全移除它。
-             * - 如果輸入法尚未初始化，行為不變，一樣是呼叫 WebIME.init()。
-             */
             if (typeof WebIME !== 'undefined') {
                 if (WebIME.isInitialized) {
                     WebIME.destroy();
@@ -150,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const finalConfig = { ...baseConfig, ...configFromUrl };
                     WebIME.init(finalConfig);
                 }
-                // 無論執行了何種操作，都呼叫同步函式來更新所有按鈕的 UI
+                // 無論是啟用還是停用，都呼叫同步函式來更新所有按鈕的 UI
                 syncAllToggleButtonsUI();
             }
         });
