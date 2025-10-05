@@ -1,0 +1,518 @@
+
+
+/* 1. 工具列容器 */
+#web-ime-toolbar-container {
+    display: block;
+    max-width: 100vw;
+    padding: 4px 8px;
+}
+
+/* 2. 候選字容器 */
+#web-ime-candidates-container {
+    display: flex;
+    flex-direction: column;
+    padding: 5px;
+    min-width: 240px; /* 預設為較寬的最小寬度 */
+    max-width: 90vw;  /* 防止在寬螢幕上過度伸展 */
+}
+
+#web-ime-candidates-container.ime-narrow {
+    min-width: 180px; /* 窄版模式最小寬度 */
+}
+
+/* 頂部工具列 */
+#web-ime-top-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    user-select: none;
+}
+
+#web-ime-top-bar .ime-logo {
+    font-size: 18px;
+    cursor: move;
+}
+
+/* 語言切換元件 */
+.ime-mode-container{
+    display: flex;
+    align-items: center;
+	position: relative;
+}
+
+.ime-mode-button {
+    background: none; border: none; border-radius: 4px; padding: 4px;
+    font-family: inherit; font-size: 14px; cursor: pointer;
+    position: relative; padding-right: 30px; min-width: 0px;
+    text-align: left; color: #444; display: flex; align-items: center;
+}
+.ime-mode-button:hover { background-color: #f0f0f0; }
+.ime-mode-button::after { content: '▾'; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 12px; color: #5f6368; pointer-events: none; }
+.ime-mode-button::before { content: ''; position: absolute; right: 26px; top: 5px; bottom: 5px; width: 1px; background-color: #e0e0e0; pointer-events: none; }
+
+.ime-mode-menu {
+    position: absolute; top: 105%; left: 0; background-color: #fff;
+    border: 1px solid #dcdcdc; border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    list-style: none; margin: 0; padding: 6px 10px; min-width: 160px;
+    display: none; z-index: 10000; column-count: 2; column-gap: 12px;
+}
+.ime-mode-container.open .ime-mode-menu { display: block; }
+.ime-mode-menu li { padding: 8px 12px; font-size: 14px; cursor: pointer; break-inside: avoid; page-break-inside: avoid; }
+.ime-mode-menu li:hover { background-color: #f0f0f0; }
+.ime-mode-menu li.active { background-color: #e8f0fe; color: #1967d2; font-weight: 500; }
+
+/* 禁用狀態 */
+#web-ime-toolbar-container.disabled { min-width: initial; opacity: 0.8; }
+#web-ime-toolbar-container.disabled .ime-settings-container { display: none; }
+#web-ime-toolbar-container.disabled .ime-mode-text,
+.ime-external-toolbar.disabled .ime-mode-text {
+    color: #9e9e9e;
+    background-color: #f0f0f0;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+#web-ime-composition-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 0 3px;
+}
+
+.ime-right-controls {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-left: auto;
+}
+
+#web-ime-composition {
+    display: none;
+    position: relative;
+    width: fit-content;
+    min-width: 30px;
+    height: 24px;
+    line-height: 24px;
+    padding: 2px 4px;
+    color: #222;
+    font-family: "Consolas", "Courier New", monospace !important;
+    font-size: 18px;
+    letter-spacing: 0px;
+    white-space: nowrap;
+    overflow: hidden;
+    flex-shrink: 1;
+}
+
+.ime-query-button {
+    font-weight: normal;
+    font-size: 14px;
+}
+
+#web-ime-composition::after {
+    content: ''; position: absolute; left: var(--cursor-offset, 4px);
+    top: 5px; bottom: 5px; width: 2px; background-color: #5A5;
+    animation: ime-blink 1s step-end infinite;
+}
+
+@keyframes ime-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+
+
+
+/* 分頁按鈕*/
+.ime-pagination {
+    display: flex;
+    align-items: center;
+    width: fit-content;
+    flex-shrink: 0;
+}
+
+.ime-page-button {
+    width: 28px; height: 28px; border: 1px solid transparent; border-radius: 4px;
+    cursor: pointer; background: transparent; font-size: 18px; color: #5f6368;
+    display: flex; align-items: center; justify-content: center;
+}
+.ime-page-button:hover:not(:disabled) { background-color: #f0f0f0; border-color: #e0e0e0; }
+.ime-page-button:disabled { color: #bdbdbd; cursor: default; }
+
+/* 候選字列表 */
+#web-ime-candidates {
+    list-style: none; margin: 0; padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    border-top: 1px solid #f0f0f0;
+    margin-top: 5px;
+    padding-top: 5px;
+}
+
+#web-ime-candidates li {
+    padding: 4px 6px; cursor: pointer; border-radius: 4px;
+    display: flex; align-items: center; white-space: nowrap;
+}
+#web-ime-candidates li:hover { background-color: #f0f0f0; }
+#web-ime-candidates li.highlighted { background-color: #e8f0fe; color: #1967d2; }
+#web-ime-candidates li .candidate-index { color: #888; margin-right: 4px; line-height: 1; }
+#web-ime-candidates li .candidate-index sup { font-size: 12px; font-weight: 500; }
+#web-ime-candidates li .candidate-text { font-size: 16px; }
+
+/* 釘選按鈕 */
+.web-ime-base.pinned { position: fixed; }
+#web-ime-pin-toggle { transition: filter 0.2s, opacity 0.2s; filter: grayscale(1); opacity: 0.6; }
+#web-ime-pin-toggle:hover { opacity: 1; }
+#web-ime-pin-toggle.active { background: transparent; color: #1967d2; filter: none; opacity: 0.9; }
+#web-ime-toolbar-container.disabled #web-ime-pin-toggle { display: none; }
+
+
+/* --- 設定視窗 (Modal) 樣式 --- */
+#web-ime-settings-modal {
+    display: none; /* 預設隱藏 */
+    position: fixed;
+    z-index: 10000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.4);
+    align-items: center;
+    justify-content: center;
+}
+
+#web-ime-settings-modal .web-ime-modal-content {
+    background-color: #fefefe;
+    padding: 20px;
+    border: 1px solid #888;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    max-height: 85vh;
+}
+
+#web-ime-settings-modal .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+    flex-shrink: 0; 
+}
+
+#web-ime-settings-modal h3 {
+    margin: 0;
+    font-size: 18px;
+    color: #333;
+}
+
+#web-ime-settings-modal .close-button {
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0 8px;
+}
+
+#web-ime-settings-modal .close-button:hover,
+#web-ime-settings-modal .close-button:focus {
+    color: black;
+}
+
+#web-ime-settings-modal .settings-section {
+    margin-bottom: 15px;
+}
+
+#web-ime-settings-modal .settings-section h4 {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+    color: #555;
+}
+
+#web-ime-settings-modal .settings-section label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 5px 0;
+    font-size: 14px;
+}
+
+#web-ime-settings-modal .settings-section input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+
+#web-ime-settings-modal .query-options-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px 10px;
+}
+
+#web-ime-settings-modal .query-options-container label {
+    flex-basis: calc(25% - 15px); /* 預設一行三個，可依需求調整 */
+    box-sizing: border-box;
+    min-width: 100px; /* 每個選項的最小寬度 */
+}
+
+/* Web IME 通用基礎樣式 */
+.web-ime-base {
+    position: absolute;
+    z-index: 9999;
+    background-color: #ffffff;
+    border: 1px solid #dcdcdc;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    font-family: "Segoe UI", "Microsoft JhengHei", Arial, sans-serif;
+    font-size: 14px;
+    color: #444;
+    box-sizing: border-box;
+    display: none;
+}
+
+.ime-settings-container {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.ime-settings-button {
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: #5f6368;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ime-settings-button.active {
+    background-color: #e8f0fe;
+    color: #1967d2;
+    font-weight: 500;
+}
+.ime-settings-button:hover { background-color: #f0f0f0; }
+
+/* 設定視窗中的使用說明區塊樣式 */
+#web-ime-settings-modal .settings-help-content {
+    background-color: #f8f9fa;
+    padding: 12px;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: #343a40;
+    white-space: pre-wrap; /* 讓換行符號有效 */
+    word-break: break-word;
+}
+
+
+#web-ime-settings-modal .modal-body {
+    overflow-y: auto;
+    padding-right: 10px;
+    margin-right: -10px;
+}
+
+
+#web-ime-settings-modal .keymap-settings-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#web-ime-settings-modal .keymap-settings-container label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 14px;
+}
+
+#web-ime-settings-modal .keymap-settings-container input[type="text"] {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 4px 8px;
+    width: 120px;
+    text-align: center;
+    background-color: #f8f9fa;
+    cursor: pointer;
+    font-family: "Consolas", "Courier New", monospace;
+}
+
+#web-ime-settings-modal .keymap-settings-container input[type="text"]:focus {
+    background-color: #fff;
+    border-color: #1a73e8;
+    box-shadow: 0 0 0 1px #1a73e8;
+}
+
+
+#web-ime-settings-modal .keymap-setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start; /* 從左邊開始對齊 */
+    gap: 8px; /* 元件之間的間距 */
+    padding: 5px 0; /* 增加垂直間距 */
+}
+
+#web-ime-settings-modal .keymap-label-text {
+    flex-grow: 1; /* 讓文字標籤佔據多餘的空間，將輸入框推到右邊 */
+    text-align: left;
+    font-size: 14px;
+}
+
+/* 取代舊的 label 樣式，確保對齊 */
+#web-ime-settings-modal .keymap-settings-container label {
+    justify-content: flex-start; /* 確保舊的 label (如果還有) 也從左對齊 */
+}
+
+#web-ime-settings-modal #web-ime-reset-button {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    width: 100%;
+    margin-top: 10px;
+    transition: background-color 0.2s;
+}
+
+#web-ime-settings-modal #web-ime-reset-button:hover {
+    background-color: #c82333;
+}
+
+/* --- 設定視窗分隔線 --- */
+#web-ime-settings-modal .settings-section + .settings-section {
+    border-top: 1px solid #e9ecef;
+    margin-top: 15px;
+    padding-top: 15px;
+}
+
+/* --- 設定視窗中的輸出模式選項微調--- */
+#web-ime-settings-modal #web-ime-output-mode-setting-row {
+    flex-basis: 100%;
+    min-width: 0;
+    white-space: nowrap;
+    justify-content: flex-start !important; 
+}
+
+/* 這是 radio button 選項們的容器 */
+#web-ime-settings-modal #output-mode-sub-options {
+    justify-content: flex-start !important;
+    align-items: center;  /* 垂直置中 */
+    gap: 6px; 
+}
+
+/* 這是每一個選項 (radio + icon + text) 的容器 */
+.output-mode-option {
+    display: inline-flex;
+    align-items: center;
+    max-width: 70px;
+}
+
+/* 這是選項的 Label 本身 (包含圖示和文字) */
+.output-mode-option label {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 0;
+}
+
+/* 設定圖示的樣式 */
+.output-mode-option .material-icons {
+    font-size: 18px;     /* 圖示大小 */
+    margin-right: 2px;   /* 圖示和文字之間的微小間距 */
+    vertical-align: middle; /* 確保圖示垂直對齊 */
+}
+
+/* 調整 radio button 和 label 之間的距離 */
+.output-mode-option input[type="radio"] {
+    margin-right: 3px;
+    cursor: pointer;
+}
+
+/* 當選項被選中時，讓其對應的 label (圖示+文字) 變色，更加醒目 */
+.output-mode-option input[type="radio"]:checked + label {
+    color: #1a73e8;
+}
+
+/* 當輸入法工具列處於禁用狀態時，讓語言按鈕的下拉箭頭與分隔線變淡 */
+#web-ime-toolbar-container.disabled .ime-mode-button::after,
+#web-ime-toolbar-container.disabled .ime-mode-button::before {
+    opacity: 0.3;
+}
+
+/* --- 設定視窗中新增的「分享設定」按鈕樣式 --- */
+#web-ime-settings-modal #web-ime-share-button {
+    background-color: #1a73e8;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    width: 100%;
+    margin-bottom: 8px; /* 和下方的重設按鈕間隔開 */
+    transition: background-color 0.2s;
+}
+
+#web-ime-settings-modal #web-ime-share-button:hover {
+    background-color: #185abc;
+}
+
+
+.ime-external-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+
+
+.ime-external-toolbar.disabled .ime-settings-button {
+    display: none;
+}
+
+
+.ime-external-toolbar.disabled .ime-mode-container {
+    display: flex;
+}
+
+
+#web-ime-settings-modal #web-ime-exit-state-button {
+    background-color: #28a745; /* 綠色 */
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    width: 100%;
+    margin-bottom: 8px;
+    transition: background-color 0.2s;
+}
+
+#web-ime-settings-modal #web-ime-exit-state-button:hover:not(:disabled) {
+    background-color: #218838; /* 深綠 */
+}
+
+/* 禁用時的樣式 */
+#web-ime-settings-modal #web-ime-exit-state-button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
