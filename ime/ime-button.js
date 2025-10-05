@@ -61,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isOutputEnabled && settingsCode.length >= 6) {
                     if (settingsCode[5] === '1') configFromUrl.outputMode = 'pinyin';
                     else if (settingsCode[5] === '2') configFromUrl.outputMode = 'word_pinyin';
+					else if (settingsCode[5] === '3') configFromUrl.outputMode = 'word_pinyin2';
                 }
             }
         } else if (parts.length > 3) {
@@ -117,59 +118,40 @@ document.addEventListener('DOMContentLoaded', () => {
 			}
 		});
 
-		// 【核心修正】
-		// 如果輸入法不是啟用狀態 (已被 destroy)，就找到外部容器並清空它。
+		// 如果輸入法不是啟用狀態 (已被 imeDestroy)，就找到外部容器並清空它。
 		if (!isActive && externalToolbar) {
 			externalToolbar.innerHTML = '';
 		}
 	}
 
     /**
-	 * 【新的初始化邏輯】
-	 * 這段程式碼修正了 URL 參數被 Local Storage 覆蓋的問題。
+	 * 【簡化後的初始化邏輯】
 	 */
     if (shouldAutoEnable) {
-        // 1. 從 URL 參數中暫存要切換的目標語言
-        const urlDefaultMode = configFromUrl.defaultMode;
-
-        // 2. 從傳給 imeInit 的設定中移除 defaultMode，避免 imeInit 邏輯混淆。
-        //    讓 WebIME 核心先用它自己的預設或 Local Storage 邏輯完成初始化。
-        delete configFromUrl.defaultMode;
-
-        // 3. 組合最終的初始化設定 (現在不包含 URL 的 defaultMode)
-		const baseConfig = { candidatesPerPage: 5 };
+        const baseConfig = { candidatesPerPage: 5 };
+        // 直接將包含 defaultMode 的完整設定物件傳遞給 imeInit
         const finalConfig = { ...baseConfig, ...configFromUrl };
-        
-        // 4. 呼叫核心初始化
         WebIME.imeInit(finalConfig);
-        
-        // 5. 【關鍵修正】: 在初始化完成後，強制切換到 URL 參數指定的語言模式。
-        //    這一步會覆蓋 Local Storage 或任何預設值，確保 URL 參數優先。
-        if (urlDefaultMode && typeof WebIME.switchMode === 'function') {
-            WebIME.switchMode(urlDefaultMode);
-        }
 
-		const newUrl = new URL(window.location.href);
+        // 清理 URL，避免重新整理時重複套用
+        const newUrl = new URL(window.location.href);
         newUrl.searchParams.delete('ime');
-        newUrl.searchParams.delete('ime-enabled'); // 順便清理舊的參數以防萬一
+        newUrl.searchParams.delete('ime-enabled');
         window.history.replaceState({}, document.title, newUrl.href);
     }
     
-    // 使用新的同步函式來設定初始狀態
     syncAllToggleButtonsUI();
 
-    // 為所有切換按鈕綁定新的點擊邏輯
     toggleButtons.forEach(button => {
         button.addEventListener('click', () => {
             if (typeof WebIME !== 'undefined') {
                 if (WebIME.isInitialized) {
-                    WebIME.destroy();
+                    WebIME.imeDestroy();
                 } else {
                     const baseConfig = { defaultMode: 'sixian', candidatesPerPage: 5 };
                     const finalConfig = { ...baseConfig, ...configFromUrl };
                     WebIME.imeInit(finalConfig);
                 }
-                // 無論是啟用還是停用，都呼叫同步函式來更新所有按鈕的 UI
                 syncAllToggleButtonsUI();
             }
         });

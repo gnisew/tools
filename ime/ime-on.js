@@ -3,7 +3,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(window.location.search);
     const configFromUrl = {};
     
-    // 預設為 true，代表只要載入此 js，就會嘗試啟用輸入法
     let shouldAutoEnable = true;
 
     // 與 ime-button.js 相同的 URL 參數解析邏輯
@@ -25,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isOutputEnabled && settingsCode.length >= 6) {
                     if (settingsCode[5] === '1') configFromUrl.outputMode = 'pinyin';
                     else if (settingsCode[5] === '2') configFromUrl.outputMode = 'word_pinyin';
+                    else if (settingsCode[5] === '3') configFromUrl.outputMode = 'word_pinyin2';
                 }
             }
         } else if (parts.length > 3) {
@@ -35,14 +35,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // 即使預設啟用，URL 參數仍可強制關閉
     if (params.get('ime-enabled') === 'true') {
         shouldAutoEnable = true;
     } else if (params.get('ime-enabled') === 'false') {
         shouldAutoEnable = false;
     }
 
-    // (向下相容的長格式參數讀取)
     if (!configFromUrl.hasOwnProperty('enablePrediction') && params.has('prediction')) {
         configFromUrl.enablePrediction = params.get('prediction') === 'true';
     }
@@ -64,26 +62,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
-	 * 【新的初始化邏輯】
-	 * 套用與 ime-button.js 相同的修正，確保 URL 參數優先。
+	 * 【簡化後的初始化邏輯】
 	 */
     if (shouldAutoEnable) {
-        // 1. 暫存目標語言
-        const urlDefaultMode = configFromUrl.defaultMode;
-        
-        // 2. 從設定中移除，讓 imeInit 先走完預設流程
-        delete configFromUrl.defaultMode;
-
-        // 3. 組合設定並初始化
         const baseConfig = { candidatesPerPage: 5 };
+        // 直接將包含 defaultMode 的完整設定物件傳遞給 imeInit
         const finalConfig = { ...baseConfig, ...configFromUrl };
         WebIME.imeInit(finalConfig);
 
-        // 4. 初始化後，強制切換到 URL 指定的語言
-        if (urlDefaultMode && typeof WebIME.switchMode === 'function') {
-            WebIME.switchMode(urlDefaultMode);
-        }
-		
+        // 清理 URL，避免重新整理時重複套用
         const newUrl = new URL(window.location.href);
         newUrl.searchParams.delete('ime');
         newUrl.searchParams.delete('ime-enabled');
