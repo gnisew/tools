@@ -480,6 +480,8 @@
     display: flex;
     align-items: center;
     gap: 2px;
+    position: relative;
+    z-index: 100;
 }
 
 
