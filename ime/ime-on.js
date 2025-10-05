@@ -71,13 +71,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1. 暫存目標語言
         const urlDefaultMode = configFromUrl.defaultMode;
         
-        // 2. 從設定中移除，讓 init 先走完預設流程
+        // 2. 從設定中移除，讓 imeInit 先走完預設流程
         delete configFromUrl.defaultMode;
 
         // 3. 組合設定並初始化
         const baseConfig = { candidatesPerPage: 5 };
         const finalConfig = { ...baseConfig, ...configFromUrl };
-        WebIME.init(finalConfig);
+        WebIME.imeInit(finalConfig);
 
         // 4. 初始化後，強制切換到 URL 指定的語言
         if (urlDefaultMode && typeof WebIME.switchMode === 'function') {

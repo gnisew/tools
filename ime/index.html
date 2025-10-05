@@ -246,17 +246,20 @@
         .editor {
             width: 100%;
             max-width: 800px;
-            height: calc(100vh - 240px);
+            /* 【修改核心】移除固定的 calc() 高度，改用 100% 填滿父容器 */
+            height: 100%; 
             background: white;
             border: 1px solid #d1d1d1;
             border-radius: 4px;
-            padding: 40px 20px;
+            padding: 30px 30px;
             font-size: 18px;
             line-height: 1.6;
             font-family: "台灣黑體", 'tauhu-oo', serif;
             outline: none;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             resize: none;
+            /* 【新增】確保 padding 不會影響高度計算 */
+            box-sizing: border-box; 
         }
 
         .status-bar {

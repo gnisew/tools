@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1. 從 URL 參數中暫存要切換的目標語言
         const urlDefaultMode = configFromUrl.defaultMode;
 
-        // 2. 從傳給 init 的設定中移除 defaultMode，避免 init 邏輯混淆。
+        // 2. 從傳給 imeInit 的設定中移除 defaultMode，避免 imeInit 邏輯混淆。
         //    讓 WebIME 核心先用它自己的預設或 Local Storage 邏輯完成初始化。
         delete configFromUrl.defaultMode;
 
@@ -141,7 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const finalConfig = { ...baseConfig, ...configFromUrl };
         
         // 4. 呼叫核心初始化
-        WebIME.init(finalConfig);
+        WebIME.imeInit(finalConfig);
         
         // 5. 【關鍵修正】: 在初始化完成後，強制切換到 URL 參數指定的語言模式。
         //    這一步會覆蓋 Local Storage 或任何預設值，確保 URL 參數優先。
@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     const baseConfig = { defaultMode: 'sixian', candidatesPerPage: 5 };
                     const finalConfig = { ...baseConfig, ...configFromUrl };
-                    WebIME.init(finalConfig);
+                    WebIME.imeInit(finalConfig);
                 }
                 // 無論是啟用還是停用，都呼叫同步函式來更新所有按鈕的 UI
                 syncAllToggleButtonsUI();
