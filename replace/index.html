@@ -432,6 +432,7 @@
       <option value="countChineseWords" title="a1">漢詞頻</option>
       <option value="countPinyin" title="a1">拼音頻</option>
       <option value="countMultiSyllables" title="a1">多音節頻</option>
+	  <option value="segmentText" title="用_斷詞">條件斷詞</option>
     </select>
 
     <select onchange="handleDropdownChange(this)" onfocus="showOptions(this)"
@@ -445,7 +446,10 @@
 	  <option value="reverseArrangeText" title="文字\a b => 文a 字b">詞音字音</option>
 	  <option value="" disabled></option>
       <option value="examText" title="Excel「數字 漢字 拼音」">字音字形</option>
+	  <option value="examWhichWord" title="文「字」=> 2 文「字」">「字」標數</option>
+	  <option value="examWhichPinyin" title="pin「yin」=> 2 pin「yin」">「yin」標數</option>
       <option value="rubyText" title="Ruby注音標示">&#123;漢字/標音&#125;</option>
+	  <option value="samePunctuation" title="相同注音">相同注音</option>
     </select>
 
     <select onchange="handleDropdownChange(this)" onfocus="showOptions(this)"
@@ -480,7 +484,7 @@
       onblur="resetOptions(this)">
       <option value="" disabled selected>其他</option>
       <option value="importData">載入txt</option>
-      <option value="matchText" title="詞 詞彙、詞條、語詞">該詞有字</option>
+      <option value="matchText" title="A詞 音、C字 音">該詞有字</option>
       <option value="matchData" title="詞彙 解釋；查詞">詞解查查</option>
       <option value="replaceFn">自訂取代</option>
       <option value="removeDuplicateLinesIdB">去除重複</option>
@@ -490,6 +494,7 @@
       <option value="splitTextByPunctuation">標點斷行</option>
       <option value="connectText">斷行接回</option>
       <option value="spaceToNewline">\s_換行</option>
+	  <option value="correctParagraph" title="接回不自然換行，如非。？！」換行">修正換行</option>
 
       <option value="wordWrongToRight">校正異字</option>
       <option value="generateText" title="一你生成語詞">生成語詞</option>
@@ -858,6 +863,7 @@ function countMultiSyllables() {
 
 
 
+
 // 統計漢字詞
 function countChineseWords() {
     let reg = /[\u3007\u3400-\u4DB5\u4E00-\u9FCB\uE815-\uE864\uD840-\uD87F\uDC00-\uDFFF]+/g;
@@ -953,6 +959,134 @@ function countSentenceLengths() {
     // 將結果輸出到 id_B
     document.getElementById('id_B').value = result;
 }
+
+
+
+
+function segmentText() {
+            // 1. // 條件斷詞，在 id_A 放資料， id_C 放次數、字詞，沒有次數也可以
+			//次數	字詞
+			//3	天火
+			//1	天主教
+			//1	天仔隔五里
+
+            const textA = document.getElementById('id_A');
+            const textB = document.getElementById('id_B');
+            const textC = document.getElementById('id_C');
+
+            const sourceText = textA.value;
+            const rulesText = textC.value;
+
+            if (!sourceText.trim() || !rulesText.trim()) {
+                alert("來源文本和斷詞規則不能為空！");
+                return;
+            }
+
+            try {
+                // *** ✨ 增強版預處理步驟 ***
+                // 使用一個正則表達式同時匹配「連續的字母數字」或「單個標點符號」
+                // [a-zA-Z0-9]+ : 匹配一個或多個字母/數字
+                // | : OR
+                // [,...] : 匹配列表中的任一標點
+                const tokenizerRegex = /[a-zA-Z0-9]+|[,."?!;:'"(){}\[\]<>`~@#$%^&*\-+=|\\/－，。！？；：（）《》「」『』【】、]/g;
+                
+                // 將所有匹配到的詞元 (token) 用空格包裹
+                let processedText = sourceText.replace(tokenizerRegex, ' $& ');
+
+                // 2. 解析並排序規則 (建立詞表)
+				const wordList = rulesText
+					.split('\n')
+					.map(line => line.trim())
+					.filter(line => line && !/^\s*次數\s+字詞\s*$/.test(line))
+					.map(line => {
+						const parts = line.split(/\s+/);
+						if (parts.length === 1) {
+							// 只有字詞 → 當作次數=1
+							return {
+								count: 1,
+								word: parts[0]
+							};
+						} else if (parts.length >= 2) {
+							return {
+								count: parseInt(parts[0], 10) || 1, // 如果轉數字失敗也用1
+								word: parts[1]
+							};
+						}
+						return null;
+					})
+					.filter(item => item && item.word);
+
+
+                // 排序: 1. 字詞長度(長->短) 2. 次數(高->低)
+                wordList.sort((a, b) => {
+                    const lenA = Array.from(a.word).length;
+                    const lenB = Array.from(b.word).length;
+                    if (lenA !== lenB) {
+                        return lenB - lenA;
+                    }
+                    return b.count - a.count;
+                });
+                
+                if (wordList.length === 0) {
+                    alert("未能解析出任何有效的斷詞規則！");
+                    return;
+                }
+                
+                // 3. 核心轉換邏輯 (兩階段替換)
+                const placeholders = [];
+
+                // --- 第一階段：將詞彙替換為獨一無二的代號 ---
+                wordList.forEach((item, index) => {
+                    const placeholder = `__PLACEHOLDER_${index}__`;
+                    // 注意：這裡直接替換 item.word。因為預處理只在詞元周圍加空格，
+                    // 不會破壞詞元本身，所以 '天生' 仍然可以匹配到 ' 天生 ' 中的 '天生'。
+                    if (processedText.includes(item.word)) {
+                        processedText = processedText.replaceAll(item.word, placeholder);
+                        placeholders[index] = item.word;
+                    }
+                });
+
+                // --- 第二階段：將代號替換回前後加底線的詞彙 ---
+                placeholders.forEach((originalWord, index) => {
+                     if (originalWord) {
+                        const placeholder = `__PLACEHOLDER_${index}__`;
+                        const formattedWord = `_${originalWord}_`;
+                        processedText = processedText.replaceAll(placeholder, formattedWord);
+                     }
+                });
+
+                // 4. 最終清理與輸出
+                // 將所有空白序列（包括預處理加入的空格和原始的換行符）轉換為單一底線
+				let finalText = processedText
+					.trim()
+					// 把「不是換行的空白」統一成一個底線
+					.replace(/[ ]+/g, '_')
+					// 多重底線縮成一個
+					.replace(/__+/g, '_')
+					// 移除開頭與結尾的底線
+					.replace(/^_|_$/g, '');
+
+
+                textB.value = finalText;
+
+            } catch (error) {
+                console.error("轉換過程中發生錯誤:", error);
+                alert("處理失敗，請檢查主控台中的錯誤訊息。");
+                textB.value = "錯誤: " + error.message;
+            }
+}
+
+
+
+
+
+
+
+
+
+
+
+
 
 function showOptions(selectElement) {
     const otherOption = selectElement.querySelector('option[value=""]');
@@ -1473,8 +1607,8 @@ function replacePunctuation() {
 	replaceText = replaceText.replace(/{\^ss}|{SS}/g,"([^ 　\\t\\r\\n\\v\\f])");  // 非所有空白字元;
 	replaceText = replaceText.replace(/{\^s}|{S}/g,"([ 　\\t\\v])");  // 非空格、製表字元;
 
-	replaceText = replaceText.replace(/{biaodian}|{b}/g,"([。，、；：！？「」『』（）《》〈〉〔〕【】〖〗︵︶︹︺︿﹀︽︾﹁﹂﹃﹄｡─…．～﹗﹙﹚﹐﹑﹒︰﹕﹔])");  //標點;
-	replaceText = replaceText.replace(/{^biaodian}|{^b}|{B}/g,"([^。，、；：！？「」『』（）《》〈〉〔〕【】〖〗︵︶︹︺︿﹀︽︾﹁﹂﹃﹄｡─…．～﹗﹙﹚﹐﹑﹒︰﹕﹔])");  //非標點;
+	replaceText = replaceText.replace(/{biaodian}|{b}/g,"([。，、；：！？「」『』（）《》〈〉〔〕【】〖〗︵︶︹︺︿﹀︽︾﹁﹂﹃﹄｡─－…．～﹗﹙﹚﹐﹑﹒︰﹕﹔])");  //標點;
+	replaceText = replaceText.replace(/{^biaodian}|{^b}|{B}/g,"([^。，、；：！？「」『』（）《》〈〉〔〕【】〖〗︵︶︹︺︿﹀︽︾﹁﹂﹃﹄｡─－…．～﹗﹙﹚﹐﹑﹒︰﹕﹔])");  //非標點;
 
 	replaceText = replaceText.replace(/{bb}/g,"([,.?!\"\':;])");  //標點半形;
 	replaceText = replaceText.replace(/{\^bb}|{BB}/g,"([^,.?!\"\':;])");  //非標點半形;
@@ -2063,11 +2197,124 @@ function combineHyphen() {
 
 
 
+        /**
+         * 主函數，用於雙向同步 id_A 中漢字和拼音的標點，並將結果輸出到 id_B。
+         */
+        function samePunctuation() {
+            const inputArea = document.getElementById('id_A');
+            const outputArea = document.getElementById('id_B');
 
+            if (!inputArea || !outputArea) {
+                console.error("找不到 id_A 或 id_B 的 textarea 元素。");
+                return;
+            }
 
+            const lines = inputArea.value.split('\n');
+            const processedLines = [];
+            
+            const isHanziRegex = /\p{Script=Han}/u;
+            const isPunctuationRegex = /[^\p{L}\p{N}]/u;
+            const punctCaptureRegex = /([^\p{L}\p{N}])/gu;
 
+            /**
+             * 輔助函數：從一個 token 陣列中分離出內容和標點。
+             */
+            function extractContentAndPunctuation(tokens, isContentCondition) {
+                const content = [];
+                const punctuationMap = new Map();
+                let currentPunctuation = [];
 
+                for (const token of tokens) {
+                    const isContent = (typeof isContentCondition === 'function')
+                        ? isContentCondition(token)
+                        : isContentCondition.test(token);
 
+                    if (isContent) {
+                        if (currentPunctuation.length > 0) {
+                            punctuationMap.set(content.length, currentPunctuation);
+                            currentPunctuation = [];
+                        }
+                        content.push(token);
+                    } else {
+                        currentPunctuation.push(token);
+                    }
+                }
+                
+                if (currentPunctuation.length > 0) {
+                    punctuationMap.set(content.length, currentPunctuation);
+                }
+
+                return { content, punctuationMap };
+            }
+
+            for (const line of lines) {
+                if (line.trim() === '') {
+                    processedLines.push('');
+                    continue;
+                }
+                
+                const parts = line.split('\t');
+                if (parts.length < 2) {
+                    processedLines.push(line);
+                    continue;
+                }
+
+                const [hanziPart, pinyinPart] = parts;
+
+                const hanziTokens = Array.from(hanziPart);
+                const pinyinTokens = pinyinPart.trim().replace(punctCaptureRegex, ' $1 ').split(/\s+/).filter(Boolean);
+
+                const { content: hanziContent, punctuationMap: hanziPunctuationMap } =
+                    extractContentAndPunctuation(hanziTokens, isHanziRegex);
+                
+                const { content: pinyinContent, punctuationMap: pinyinPunctuationMap } =
+                    extractContentAndPunctuation(pinyinTokens, (token) => !isPunctuationRegex.test(token));
+
+                let newHanziString = '';
+                let newPinyinString = '';
+                const maxContentLength = Math.max(hanziContent.length, pinyinContent.length);
+
+                for (let i = 0; i <= maxContentLength; i++) {
+                    const puncFromHanzi = hanziPunctuationMap.get(i) || [];
+                    const puncFromPinyin = pinyinPunctuationMap.get(i) || [];
+                    
+                    // ===================== NEW LOGIC STARTS HERE =====================
+                    // 優先使用漢字側的標點，如果漢字側沒有，才用拼音側的。
+                    // 這樣可以保留 `－ －` 這類重複的標點。
+                    const finalPunctuationTokens = puncFromHanzi.length > 0 ? puncFromHanzi : puncFromPinyin;
+                    
+                    if (finalPunctuationTokens.length > 0) {
+                        // 漢字標點間不加空格
+                        newHanziString += finalPunctuationTokens.join('');
+
+                        // 拼音標點間用空格分隔
+                        const pinyinPunctuationString = finalPunctuationTokens.join(' ');
+                        if (newPinyinString.length > 0 && !newPinyinString.endsWith(' ')) {
+                             newPinyinString += ' ';
+                        }
+                        newPinyinString += pinyinPunctuationString + ' ';
+                    }
+                    // ===================== NEW LOGIC ENDS HERE =======================
+
+                    if (i < hanziContent.length) {
+                        newHanziString += hanziContent[i];
+                    }
+                    if (i < pinyinContent.length) {
+                        newPinyinString += pinyinContent[i] + ' ';
+                    }
+                }
+                
+                let resultLine = `${newHanziString.trim()}\t${newPinyinString.trim()}`;
+
+                if (hanziContent.length !== pinyinContent.length) {
+                    resultLine += `\t${hanziContent.length}/${pinyinContent.length}`;
+                }
+                
+                processedLines.push(resultLine);
+            }
+
+            outputArea.value = processedLines.join('\n');
+        }
 
 function holoNumberToRoman() {
 	// 閩數字 轉 羅馬字
@@ -2596,39 +2843,64 @@ function reverseArrangeText() {
 // 查符合的詞
 // 在 id_A 匯入文字，一行一字詞；在id_C 放要查的詞，最終輸出在id_B
 function matchText() {
-    let myData = [];
-    let t = document.getElementById('id_A').value;
-    if (t.startsWith('載入的資料共')) {
-        t = allData.join("\n");
-    }
-    myData = t.trim().split(/\r\n|\r|\n/);
-    
-    // 獲取輸入文本
-    const inputText = document.getElementById('id_C').value.trim();
-    
-    // 將輸入文本按行分割
-    const inputLines = inputText.split('\n');
-    
-    // 存儲結果的陣列
+    // 讀取資料
+    const dataA = document.getElementById('id_A').value;
+    const dataC = document.getElementById('id_C').value;
+
+    // 解析 id_A 的詞彙資料
+    const vocabList = dataA.trim().split('\n').map(line => {
+        const parts = line.split('\t');
+        return {
+            word: parts[0] || '',
+            pronunciation: parts[1] || ''
+        };
+    });
+
+    // 解析 id_C 的查詢字
+    const queryList = dataC.trim().split('\n').map(line => {
+        const parts = line.split('\t');
+        return {
+            char: parts[0] || '',
+            pronunciation: parts[1] || ''
+        };
+    });
+
+    // 處理每個查詢字
     const results = [];
-    
-    // 遍歷每一行輸入
-    inputLines.forEach(line => {
-        // 尋找符合前綴的數據項
-        const matchedItems = myData.filter(dataItem => {
-            return dataItem.startsWith(line);
+
+    queryList.forEach(query => {
+        if (!query.char) return;
+
+        // 使用 Array.from 正確處理擴充漢字
+        const queryChars = Array.from(query.char);
+        const matchedWords = [];
+
+        // 在詞彙列表中尋找符合的詞
+        vocabList.forEach(vocab => {
+            if (!vocab.word) return;
+
+            // 使用 Array.from 正確處理擴充漢字
+            const vocabChars = Array.from(vocab.word);
+
+            // 檢查詞彙的第一個字是否符合查詢字，且發音也要符合
+            if (vocabChars.length > 0 && vocabChars[0] === queryChars[0]) {
+                // 取得詞彙的第一個字的發音（空格前的部分）
+                const firstPronunciation = vocab.pronunciation.split(' ')[0];
+
+                // 比對發音是否相同
+                if (firstPronunciation === query.pronunciation) {
+                    matchedWords.push(`${vocab.word}\\${vocab.pronunciation}`);
+                }
+            }
         });
-        
-        // 如果找到匹配項
-        if (matchedItems.length > 0) {
-            // 將原始輸入與匹配的項目組合成單行字串
-            results.push(`${line}\t${matchedItems.join('、')}`);
-        } else {
-            results.push(line);
+
+        // 組合結果：查詢字 + tab + 發音 + tab + 符合詞彙（用 _ 分隔）
+        if (matchedWords.length > 0) {
+            results.push(`${query.char}\t${query.pronunciation}\t${matchedWords.join('_')}`);
         }
     });
-    
-    // 將結果顯示在輸出區，確保是單行輸出
+
+    // 輸出結果
     document.getElementById('id_B').value = results.join('\n');
 }
 
@@ -3216,6 +3488,57 @@ function examText() {
 
 
 
+function examWhichWord() {
+  const input = document.getElementById("id_A").value.trim();
+  const lines = input.split(/\r?\n/);
+
+  const results = lines.map(line => {
+    // 忽略空格，只算漢字（用 Array.from 確保擴展字正確處理）
+    const cleanChars = Array.from(line.replace(/\s+/g, '')); 
+    const match = line.match(/「(.*?)」/);
+    if (!match) return line; // 沒有「」則原樣返回
+
+    const targetChar = match[1]; // 「」內的字
+    let count = 0;
+    let position = -1;
+
+    for (let i = 0; i < cleanChars.length; i++) {
+      const ch = cleanChars[i];
+      // 跳過符號
+      if (ch === '「' || ch === '」') continue;
+
+      count++;
+      if (ch === targetChar) {
+        position = count;
+        break;
+      }
+    }
+
+    return `${position}\t${line}`;
+  });
+
+  document.getElementById("id_B").value = results.join("\n");
+}
+
+
+
+function examWhichPinyin() {
+
+    const input = document.getElementById('id_A').value.trim().split('\n');
+    const output = input.map(line => {
+        // 清理空白
+        line = line.replace(/\s+/g, ' ').trim();          // 多空格 → 一空格
+        line = line.replace(/「\s*/g, '「');               // 「 後空格移除
+        line = line.replace(/\s*」/g, '」');               // 」 前空格移除
+
+        // 判斷是否以「開頭
+        const count = line.startsWith('「') ? 1 : 2;
+        return `${count}\t${line}`;
+    }).join('\n');
+
+    document.getElementById('id_B').value = output;
+}
+
 
 function kasuime() {
             let idAValue = document.getElementById('id_A').value.trim();
@@ -3595,7 +3918,19 @@ function kasuime() {
 			}
 }
 
-
+function correctParagraph() {
+            // 取得輸入文本
+            let text = document.getElementById('id_A').value;
+            
+            // 1. 先去除所有行尾空格
+            text = text.replace(/[ \t]+$/gm, '');
+            
+            // 2. 將不是以指定標點結尾的換行刪除（與下一行合併）
+            text = text.replace(/([^。」！？])\n/g, '$1');
+            
+            // 輸出到目標元素
+            document.getElementById('id_B').value = text;
+}
 
 function generateText() {
     const text = document.getElementById('id_A').value.trim();
