@@ -2,14 +2,14 @@
 //  START: 語言設定
 // ==================================================================
 const LANGUAGES = {
-  'kasu': { name: '詔安', file: 'hanzitopinyin-kasu.js' },
-  'sixian': { name: '四縣', file: 'hanzitopinyin-sixian.js' },
-  'hailu': { name: '海陸', file: 'hanzitopinyin-hailu.js' },
-  'dapu': { name: '大埔', file: 'hanzitopinyin-dapu.js' },
-  'raoping': { name: '饒平', file: 'hanzitopinyin-raoping.js' },
-  'sixiannan': { name: '南四', file: 'hanzitopinyin-sixiannan.js' },
-  'holo': { name: '和樂', file: 'hanzitopinyin-holo.js' },
-  'cangjie': { name: '倉頡', file: 'hanzitopinyin-cangjie.js' },
+  'kasu': { name: '詔安', file: 'hanzitopinyin-kasu.js', url: 'https://sites.google.com/view/oikasu/' },
+  'sixian': { name: '四縣', file: 'hanzitopinyin-sixian.js', url: 'https://sites.google.com/view/oikasu/hoka' },
+  'hailu': { name: '海陸', file: 'hanzitopinyin-hailu.js', url: 'https://sites.google.com/view/oikasu/hoka' },
+  'dapu': { name: '大埔', file: 'hanzitopinyin-dapu.js', url: 'https://sites.google.com/view/oikasu/hoka' },
+  'raoping': { name: '饒平', file: 'hanzitopinyin-raoping.js', url: 'https://sites.google.com/view/oikasu/hoka' },
+  'sixiannan': { name: '南四', file: 'hanzitopinyin-sixiannan.js', url: 'https://sites.google.com/view/oikasu/hoka' },
+  'holo': { name: '和樂', file: 'hanzitopinyin-holo.js', url: 'https://sites.google.com/view/oikasu/holo' },
+  'cangjie': { name: '倉頡', file: 'hanzitopinyin-cangjie.js', url: 'https://sites.google.com/view/oikasu/' },
 };
 // ==================================================================
 //  END: 語言設定
@@ -2317,17 +2317,25 @@ function updateLanguageUI() {
  * 根據當前選擇的語言更新網頁標題和主標題
  */
 function updateTitles() {
-    if (!LANGUAGES[currentLanguageKey] || !mainTitle) return;
+    const langConfig = LANGUAGES[currentLanguageKey];
+    if (!langConfig || !mainTitle) return;
 
-    const langName = LANGUAGES[currentLanguageKey].name;
-    const newPageTitle = `烏衣行 ${langName} × 拼音`;
-    const newMainTitle = `烏衣行 ${langName} × 拼音`;
+    const newPageTitle = `烏衣行 ${langConfig.name} × 拼音`;
+    const newMainTitle = `烏衣行 ${langConfig.name} × 拼音`;
 
     // 更新瀏覽器分頁的標題
     document.title = newPageTitle;
     
     // 更新頁面上的 H1 主標題
     mainTitle.textContent = newMainTitle;
+
+    // 讓標題變成可點擊的連結
+    mainTitle.style.cursor = 'pointer';
+    mainTitle.onclick = () => {
+        if (langConfig.url) {
+            window.open(langConfig.url, '_blank');
+        }
+    };
 }
 
 /**
