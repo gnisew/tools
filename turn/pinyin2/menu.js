@@ -29,118 +29,6 @@ const langSixian = `
 
 
 	
-	
-	
-// 客語拼音轉注音
-function hakkaPinyinBpm(t){ 
-	console.log(t)
-	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	console.log(t)
-	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }	
-	console.log(t)
-		t = hakkaPinyinToBpm(t)
-		console.log(t)
-	return t;
-}
-
-// 客語注音轉拼音字尾調
-function hakkaBpmPinyinTone(t){ 
-	t = hakkaBpmToPinyin(t);
-	return hakkaToneToFX(t);	
-}
-
-// 客語拼音轉字尾調
-function hakkaPinyinTone(t){ 
-	if (regexLetter.test(t)) {t = hakkaLetterTone(t) }
-	if (regexZvs.test(t)) {t = hakkaZvsTone(t) }
-	t = hakkaToneToFX(t);
-	return t;
-}
-
-// 客語拼音轉字中調
-function hakkaPinyinLetter(t){ 
-	if (regexTone.test(t)) {t = hakkaToneLetter(t) }
-	if (regexZvs.test(t)) {t = hakkaZvsLetter(t) }
-	return t;
-}
-
-// 客語拼音轉字母調
-function hakkaPinyinZvs(t){ 
-	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
-	return t;
-}
-
-
-
-// 客語字母調轉字尾調
-function hakkaZvsTone(t){ 
-	t = hakkaToneToFX(t)	
-	return hakkaZvsToTone(t);	}
-// 客語字母調轉字中調
-function hakkaZvsLetter(t){ return hakkaZvsToLetter(t);}
-// 客語字中調轉字母調
-function hakkaLetterZvs(t){ 	return letterToZvs(t);}
-// 客語字中調轉字尾調
-function hakkaLetterTone(t){ 
-	t = hakkaToneToFX(t)
-	t = letterToZvs(t)
-	return hakkaZvsToTone(t);
-}
-// 客語字尾調轉字母調
-function hakkaToneZvs(t){ return hakkaToneToZvs(t);}
-
-// 客語字尾調轉字中調
-function hakkaToneLetter(t){ 
-	t = hakkaToneToZvs(t);
-	return hakkaZvsToLetter(t);
-}
-
-
-// 四縣教羅轉客拼字尾調
-function sixianPojEduTone(t){
-	t = sixianPojVowelToEdu(t);
-	t = sixianPojConsonantToEdu(t);
-	t = hakkaZvsToTone(t);
-	return t;
-}
-
-// 四縣教羅轉客拼字中調
-function sixianPojEduLetter(t){
-	t = sixianPojVowelToEdu(t);
-	t = sixianPojConsonantToEdu(t);
-	t = hakkaZvsToLetter(t);
-	return t;
-}
-
-
-// 四縣教羅轉客拼字母調
-function sixianPojEduZvs(t){
-	t = sixianPojVowelToEdu(t);
-	t = sixianPojConsonantToEdu(t);
-	return t;
-}
-
-// 四縣拼音轉變調
-function sixianPinyinChange(t){ 
-	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
-	t = sixianPinyinToChange(t);
-	t = hakkaZvsToTone(t)
-	return t;
-}
-
-
-// 四縣聲調轉調值
-function sixianToneNumbers(t){ 
-	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
-	t = sixianToneToNumbers(t);
-	return t;
-}
-// 四縣調值轉字尾調
-function sixianNumbersTone(t){ return sixianNumbersToTone(t);}
-
 
 
 
@@ -163,24 +51,7 @@ const langHailu = `
 詞彙本調	詞彙變調	hailuPinyinChange	hoˊ honˇ	ho⁺ honˇ
 `;
 
-// 海陸拼音轉變調
-function hailuPinyinChange(t){ 
-	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
-	t = hailuPinyinToChange(t);
-	t = hakkaZvsToTone(t)
-	return t;
-}
 
-// 海陸聲調轉調值
-function hailuToneNumbers(t){ 
-	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
-	t = hailuToneToNumbers(t);
-	return t;
-}
-// 海陸調值轉字尾調
-function hailuNumbersTone(t){ return hailuNumbersToTone(t);}
 
 
 // 大埔語言配置
@@ -202,24 +73,6 @@ const langDapu = `
 詞彙本調	詞彙變調	dapuPinyinChange	sin⁺ ngienˇ	sinˊ ngienˇ
 `;
 
-// 大埔拼音轉變調
-function dapuPinyinChange(t){ 
-	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
-	t = dapuPinyinToChange(t);
-	t = hakkaZvsToTone(t)
-	return t;
-}
-
-// 大埔聲調轉調值
-function dapuToneNumbers(t){ 
-	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
-	t = dapuToneToNumbers(t);
-	return t;
-}
-// 大埔調值轉字尾調
-function dapuNumbersTone(t){ return dapuNumbersToTone(t);}
 
 // 饒平語言配置
 const langRaoping = `
@@ -240,25 +93,6 @@ const langRaoping = `
 詞彙本調	詞彙變調	raopingPinyinChange	denˊ lu⁺	den⁺ lu⁺
 `;
 
-// 饒平拼音轉變調
-function raopingPinyinChange(t){ 
-	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
-	t = raopingPinyinToChange(t);
-	t = hakkaZvsToTone(t)
-	return t;
-}
-
-// 饒平聲調轉調值
-function raopingToneNumbers(t){ 
-	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
-	t = raopingToneToNumbers(t);
-	return t;
-}
-// 饒平調值轉字尾調
-function raopingNumbersTone(t){ return raopingNumbersToTone(t);}
-
 // 詔安語言配置
 const langKasu = `
 左邊選單	右邊選單	執行函數	左邊範例	右邊範例
@@ -275,26 +109,6 @@ const langKasu = `
 字中調	字母調	hakkaLetterZvs	á ǎ à â ā	az av as ax af
 詞彙本調	詞彙變調	kasuPinyinChange	kaˊ su	ka su
 `;
-
-// 詔安拼音轉變調
-function kasuPinyinChange(t){ 
-	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
-	t = kasuPinyinToChange(t);
-	t = hakkaZvsToTone(t)
-	return t;
-}
-
-// 詔安聲調轉調值
-function kasuToneNumbers(t){ 
-	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
-	t = kasuToneToNumbers(t);
-	return t;
-}
-// 詔安調值轉字尾調
-function kasuNumbersTone(t){ return kasuNumbersToTone(t);}
-
 
 
 
@@ -316,56 +130,6 @@ const langHolo = `
 國際音標	台羅	holoIpaTailo	ʦiau3 an1 kʰeʔ4 ue7 ti7 lun7 pue3	tsiàu an kheh uē tī lūn puè
 國際音標	台羅數字	holoIpaNumber	ʦiau3 an1 kʰeʔ4 ue7 ti7 lun7 pue3	tsiau3 an1 kheh4 ue7 ti7 lun7 pue3
 `;
-
-function holoPinyinLetter(t){
-	if (regexNumber.test(t)) {t = holoNumberToTone(t) }
-	if (regexZvs.test(t)) {t = holoZvsToTone(t) }
-	return t;
-}
-
-function holoPinyinNumber(t){
-	if (regexLetter.test(t)) {t = letterToZvs(t) }
-	return holoZvsToNumber(t);
-}
-
-function holoPinyinZvs(t){ 
-	if (regexLetter.test(t)) {t = letterToZvs(t) }
-	if (regexNumber.test(t)) {t = holoNumberToZvs(t) }
-	return t;
-}
-
-function holoPinyinIpa(t){
-	if (regexLetter.test(t)) {t = letterToZvs(t) }
-	if (regexZvs.test(t)) {t = holoZvsToNumber(t) }
-	return holoTailoToIpa(t);
-}
-
-function holoTailoIpa(t){
-	if (regexLetter.test(t)) {t = letterToZvs(t) }
-	if (regexZvs.test(t)) {t = holoZvsToNumber(t) }
-	return holoTailoToIpa(t);
-}
-
-function holoIpaNumber(t){
-	return holoIpaToNumber(t);
-}
-
-function holoIpaTailo(t){
-	t = holoIpaToNumber(t);
-	return holoNumberToTone(t);
-}
-
-
-function holoToneNumber(t){ 
-	t = letterToZvs(t)
-	return holoZvsToNumber(t); }
-function holoToneZvs(t){ return letterToZvs(t); }
-function holoNumberTone(t){ return holoNumberToTone(t); }
-function holoNumberZvs(t){ return holoNumberToZvs(t); }
-function holoZvsTone(t){ return holoZvsToTone(t); }
-function holoZvsNumber(t){ return holoZvsToNumber(t); }
-function holoPojTailo(t){ return holoPojToTailo(t); }
-function holoIpaTailo(t){ return holoIpaToTailo(t); }
 
 
 // 馬祖語言配置
@@ -393,99 +157,6 @@ const langMatsu = `
 拼音(字母調)	字中調	zvsToLetter	maf tsuf	mā tsū
 拼音(字母調)	數字調	matsuZvsNumber	maf tsuf	ma2 tsu2
 `;
-
-function matsuPinyinBpm(t){
-	 if (regexLetter.test(t)) {t = letterToZvs(t) }
-	 if (regexTone.test(t)) {t = matsuToneToZvs(t) }
-	 if (regexNumber.test(t)) {t = matsuNumberToZvs(t) }
-	return matsuPinyinToBpm(t);
-}
-
-function matsuPinyinTone(t){
-	 if (regexLetter.test(t)) {t = letterToZvs(t) }
-	 if (regexTone.test(t)) {t = matsuToneToZvs(t) }
-	 if (regexNumber.test(t)) {t = matsuNumberToZvs(t) }
-	 t = mstsuToneToFX(t);
-	return matsuZvsToTone(t);
-}
-
-function matsuPinyinNumber(t){
-	 if (regexLetter.test(t)) {t = letterToZvs(t) }
-	 if (regexTone.test(t)) {t = matsuToneToZvs(t) }
-	 //if (regexNumber.test(t)) {t = matsuNumberToZvs(t) }
-	return matsuZvsToNumber(t);
-}
-
-function matsuPinyinLetter(t){
-	 //if (regexLetter.test(t)) {t = letterToZvs(t) }
-	 if (regexTone.test(t)) {t = matsuToneToZvs(t) }
-	 if (regexNumber.test(t)) {t = matsuNumberToZvs(t) }
-	return zvsToLetter(t);
-}
-
-function matsuPinyinZvs(t){
-	 if (regexLetter.test(t)) {t = letterToZvs(t) }
-	 if (regexTone.test(t)) {t = matsuToneToZvs(t) }
-	 if (regexNumber.test(t)) {t = matsuNumberToZvs(t) }
-	return t;
-}
-
-function matsuBpmPinyinTone(t){ 
-	 t = mstsuToneToFX(t);
-	return matsuBpmToPinyin(t); }
-function matsuBpmPinyinNumber(t){ 
-	t=matsuBpmToPinyin(t);
-	t=matsuToneToNumber(t);
-	return t; 
-}
-function matsuBpmPinyinZvs(t){ 
-	t=matsuBpmToPinyin(t);
-	t=matsuToneToZvs(t);
-	return t; 
-}
-
-function matsuBpmPinyinLetter(t){ 
-	t=matsuBpmToPinyin(t);
-	t=matsuToneToZvs(t);
-	return zvsToLetter(t); 
-}
-
-function matsuNumberTone(t){ 
-	 t = mstsuToneToFX(t);
-	return matsuNumberToTone(t); }
-function matsuNumberZvs(t){ return matsuNumberToZvs(t); }
-function matsuToneNumber(t){ return matsuToneToNumber(t); }
-function matsuToneZvs(t){ return matsuToneToZvs(t); }
-function matsuZvsTone(t){ 
-	 t = mstsuToneToFX(t);
-	return matsuZvsToTone(t); }
-function matsuZvsNumber(t){ return matsuZvsToNumber(t); }
-function matsuPinyinOriginalChangeZvs(t){
-	 if (regexLetter.test(t)) {t = letterToZvs(t) }
-	 if (regexTone.test(t)) {t = matsuToneToZvs(t) }
-	 if (regexNumber.test(t)) {t = matsuNumberToZvs(t) }
-    return matsuOriginalToChange(t); 
-}
-function matsuPinyinOriginalChangeTone(t){
-	t = matsuPinyinOriginalChangeZvs(t);
-	return matsuZvsToTone(t);
-}
-function matsuBpmOriginalChangeTone(t){
-	t = matsuBpmPinyinZvs(t);
-	t = matsuPinyinOriginalChangeZvs(t);
-	t = matsuPinyinBpm(t);
-	return t;
-}
-
-
-function matsuToneLetter(t){
-	t = matsuToneToZvs(t)
-	return zvsToLetter(t);
-}
-function matsuNumberLetter(t){
-	t = matsuNumberToZvs(t)
-	return zvsToLetter(t);
-}
 
 
 //==============================;

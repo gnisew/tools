@@ -7,7 +7,7 @@ const LANGUAGES = {
   'hailu': { name: '海陸', file: 'hanzitopinyin-hailu.js' },
   'dapu': { name: '大埔', file: 'hanzitopinyin-dapu.js' },
   'raoping': { name: '饒平', file: 'hanzitopinyin-raoping.js' },
-  'sixiannan': { name: '南四縣', file: 'hanzitopinyin-sixiannan.js' },
+  'sixiannan': { name: '南四', file: 'hanzitopinyin-sixiannan.js' },
   'holo': { name: '和樂', file: 'hanzitopinyin-holo.js' },
   'cangjie': { name: '倉頡', file: 'hanzitopinyin-cangjie.js' },
 };
@@ -22,7 +22,8 @@ const AppConfig = {
     STORAGE_PREFIX: 'OIKASU_HAKKA_ANNOTATOR_V1_',
     storageKeys: {
         TONE_CONVERSION_DEFAULT: 'toneConversionDefault',
-        SELECTED_LANGUAGE: 'selectedLanguage' 
+        SELECTED_LANGUAGE: 'selectedLanguage',
+		INPUT_MODE: 'inputMode'
     }
 };
 
@@ -72,6 +73,14 @@ const WHITESPACES = new Set([' ', '\t', '\u3000']);
 // DOM 快捷
 const $ = (sel) => document.querySelector(sel);
 const hanziInput = $('#hanziInput');
+
+const btnModeHanziToPinyin = $('#btnModeHanziToPinyin');
+const btnModePinyinToHanzi = $('#btnModePinyinToHanzi');
+const textareasContainer = $('#textareasContainer');
+const btnHanziToPinyin = $('#btnHanziToPinyin');
+const btnPinyinToHanzi = $('#btnPinyinToHanzi');
+const btnCopy = $('#btnCopy');
+
 const pinyinInput = $('#pinyinInput');
 const btnProcess = $('#btnProcess');
 const btnClear = $('#btnClear');
@@ -82,11 +91,6 @@ const phoneticsContainer = $('#phoneticsContainer');
 const btnPhonetics = $('#btnPhonetics');
 const phoneticsMenu = $('#phoneticsMenu');
 
-const btnToneHelp = $('#btnToneHelp');
-const toneHelpModal = $('#toneHelpModal');
-const btnCloseToneHelp = $('#btnCloseToneHelp');
-const btnToggleToneConverter = $('#btnToggleToneConverter');
-const toneConverterMenu = $('#toneConverterMenu');
 const btnConvertLetterTone = $('#btnConvertLetterTone');
 const btnConvertNumberTone = $('#btnConvertNumberTone');
 const btnFontFamily = $('#btnFontFamily');
@@ -126,12 +130,81 @@ const fontVal = document.getElementById('fontVal');
 const fontShow = document.getElementById('fontShow');
 const rtShow = document.getElementById('rtShow');
 
+
+
+// ==================================================================
+//  START: 拼音轉漢字所需變數與輔助函數
+// ==================================================================
+let PROCESSED_IME_DICTS = {};
+
+/**
+ * 將 ime-dict.js 的資料轉換為更高效的 Map 結構以便查詢。
+ * 此函數應在程式初始化時執行一次。
+ */
+function initializeImeDicts() {
+    // 'dictionaries' 物件來自外部載入的 ime-dict.js
+    if (typeof dictionaries === 'undefined') {
+        console.error("ime-dict.js 尚未載入或不存在。");
+        return;
+    }
+    for (const lang in dictionaries) {
+        const dict = dictionaries[lang];
+        const map = new Map();
+        for (const pinyin in dict) {
+            // 字典中的漢字選項以空白分隔，依據需求，我們只取第一個最常用的
+            const hanziOptions = dict[pinyin].split(' ');
+            map.set(pinyin, hanziOptions[0]);
+        }
+        PROCESSED_IME_DICTS[lang] = map;
+    }
+}
+
+/**
+ * 將拼音字串斷詞，同時保留標點符號，並將以連字號(-)連接的音節視為一個單位。
+ * @param {string} raw - 原始拼音字串
+ * @returns {string[]} 斷詞後的 token 陣列
+ */
+function tokenizePinyinWithHyphens(raw) {
+    const tokens = [];
+    let currentToken = '';
+    
+    for (const ch of toCharArray(raw || '')) {
+        // 分隔符號是空白或標點符號（但連字號'-'除外）
+        const isDelimiter = isWhitespace(ch) || (isPunct(ch) && ch !== '-');
+        
+        if (isDelimiter) {
+            // 遇到分隔符號時，先將當前累積的 token 推入陣列
+            if (currentToken.length > 0) {
+                tokens.push(currentToken);
+                currentToken = '';
+            }
+            // 然後將分隔符號本身也推入陣列
+            tokens.push(ch);
+        } else {
+            // 若非分隔符號，則累加到當前的 token
+            currentToken += ch;
+        }
+    }
+    
+    // 迴圈結束後，若還有剩餘的 token，則推入陣列
+    if (currentToken.length > 0) {
+        tokens.push(currentToken);
+    }
+    
+    return tokens;
+}
+// ==================================================================
+//  END: 拼音轉漢字所需變數與輔助函數
+// ==================================================================
+
+
 // 狀態
 let CC_SEG = {
     hSegs: [],
     pSegRaws: [],
     map: []
 };
+let inputMode = 'hanzi-to-pinyin'; // 'hanzi-to-pinyin' | 'pinyin-to-hanzi'
 let PROBLEMS = [];
 let problemIdx = -1;
 let mode = 'view'; // 'view' | 'edit'
@@ -226,8 +299,8 @@ function tokenizeSyls(raw) {
     const syls = [];
     let token = '';
     for (const ch of toCharArray(raw || '')) {
-        // 【核心修正】在判斷是否為標點時，排除連字號 '-'
-        if (isLineBreak(ch) || isWhitespace(ch) || (isPunct(ch) && ch !== '-')) {
+        // 【核心修正】在判斷是否為標點時，排除連字號 '-' 和兩種中間點 '·', '‧'
+        if (isLineBreak(ch) || isWhitespace(ch) || (isPunct(ch) && ch !== '-' && ch !== '·' && ch !== '‧')) {
             if (token.trim()) {
                 syls.push(token.trim());
                 token = '';
@@ -460,8 +533,181 @@ function attachAudioHandlers() {
     });
 }
 
+/**
+ * 核心功能：將拼音輸入框的內容轉換為漢字。
+ */
+function pinyinToHanzi() {
+    let pinyinText = pinyinInput.value;
+
+    // 根據當前語言，先將拼音轉換為字母調 (zvs) 格式
+    const hakkaLanguages = new Set(['sixian', 'hailu', 'dapu', 'raoping', 'sixiannan']);
+    if (hakkaLanguages.has(currentLanguageKey)) {
+        pinyinText = hakkaToneToZvs(pinyinText);
+    } else if (currentLanguageKey === 'kasu') {
+        pinyinText = hakkaToneToZvs(pinyinText);
+		console.log(pinyinText)
+		pinyinText = pinyinText
+			.replace(/([bpfvdtlgkhzcsi])oo([zvsx]?)\b/g, '$1o$2')
+			.replace(/(\b)(rh)([aeiou])/g, '$1r$3')
+			.replace(/(\b)(bb)([aeiou])/g, '$1v$3')
+			.replace(/(\b)(ji)/g, '$1zi')
+			.replace(/(\b)(qi)/g, '$1ci')
+			.replace(/(\b)(xi)/g, '$1si');
+		console.log(pinyinText)
+    } else if (currentLanguageKey === 'holo') {		
+		pinyinText = holoPojToTailo(pinyinText);
+        pinyinText = holoPinyinZvs(pinyinText);
+    } else if (currentLanguageKey === 'matsu') {
+        pinyinText = matsuPinyinZvs(pinyinText);
+    } 
+
+	
+    // 拼音前後要有空格
+	pinyinText = pinyinText
+	  .replace(/(?<![A-Za-z\s-])([A-Za-z]+)/g, ' $1')
+	  .replace(/([A-Za-z]+)(?![A-Za-z\s-])/g, '$1 ')
+	  .replace(/([A-Za-z])\n/g, '$1 \n')
+	  .replace(/\n([A-Za-z])/g, '\n $1')
+	  .trim();
+
+    const lang = currentLanguageKey;
+    let dict = PROCESSED_IME_DICTS[lang];
+
+    if (!dict || dict.size === 0) {
+        console.error(`Dictionary for language "${lang}" not found or is empty.`);
+        return;
+    }
+
+    // 🧠 效能優化：建立一份 key 全部轉小寫的新辭典
+    const lowerDict = new Map();
+    for (const [key, value] of dict.entries()) {
+        lowerDict.set(key.toLowerCase(), value);
+    }
+    dict = lowerDict;
+
+    // 步驟 1: 斷詞，保留所有原始 token
+    const tokens = tokenizePinyinWithHyphens(pinyinText);
+    const isActualSyllable = (token) => !isWhitespace(token) && !isPunct(token);
+    const syllables = tokens.filter(isActualSyllable);
+
+    // 步驟 2: 轉換
+    const convertedUnits = [];
+    let i = 0;
+    while (i < syllables.length) {
+        let matchFound = false;
+
+        // 策略 1: 優先匹配多音節長詞
+        for (let n = Math.min(5, syllables.length - i); n > 1; n--) {
+            const phrase = syllables.slice(i, i + n).join(' ').toLowerCase();
+            if (dict.has(phrase)) {
+                convertedUnits.push({ hanzi: dict.get(phrase), sourceCount: n });
+                i += n;
+                matchFound = true;
+                break;
+            }
+        }
+        if (matchFound) continue;
+
+        // 策略 2: 處理單一音節單位
+        const currentSyl = syllables[i].toLowerCase();
+
+        if (dict.has(currentSyl)) {
+            convertedUnits.push({ hanzi: dict.get(currentSyl), sourceCount: 1 });
+            matchFound = true;
+        } else if (currentSyl.includes('-')) {
+            const subPinyins = currentSyl.split(/-+/);
+            const translatedSubs = subPinyins.map(sub => dict.get(sub.toLowerCase()) || sub);
+            convertedUnits.push({ hanzi: translatedSubs.join(''), sourceCount: 1 });
+            matchFound = true;
+        }
+
+        // 策略 3: 若無任何匹配，保留原樣
+        if (!matchFound) {
+            convertedUnits.push({ hanzi: syllables[i], sourceCount: 1 });
+        }
+        
+        i++;
+    }
+
+    // 步驟 3: 重組文本
+    let unitIndex = 0;
+    let syllablesToSkip = 0;
+    let finalText = "";
+
+    tokens.forEach(token => {
+        if (!isActualSyllable(token)) {
+            if (!isWhitespace(token)) {
+                finalText += token; // 保留標點
+            }
+            return;
+        }
+        
+        if (syllablesToSkip > 0) {
+            syllablesToSkip--;
+            return;
+        }
+
+        if (unitIndex < convertedUnits.length) {
+            const unit = convertedUnits[unitIndex];
+            finalText += unit.hanzi;
+            syllablesToSkip = unit.sourceCount - 1;
+            unitIndex++;
+        } else {
+            finalText += token;
+        }
+    });
+
+    finalText = finalText.replace(/\s+([，。、；：！？.,;:!?])/g, '$1').trim();
+    hanziInput.value = finalText;
+}
 
 
+/**
+ * 設定輸入區的模式（字轉音 / 音轉字）
+ * @param {'hanzi-to-pinyin'|'pinyin-to-hanzi'} newMode - 要切換到的新模式
+ * @param {boolean} [isInitialLoad=false] - 是否為初始載入，若是則不更新 URL
+ */
+function setInputMode(newMode, isInitialLoad = false) {
+    // 只有當模式實際改變時才更新，除非是強制設定初始狀態
+    if (newMode === inputMode && !isInitialLoad) return;
+    inputMode = newMode;
+
+    // 將新的模式選擇儲存到 Local Storage
+    saveSetting(AppConfig.storageKeys.INPUT_MODE, newMode);
+
+    if (inputMode === 'hanzi-to-pinyin') {
+        // 更新分頁按鈕樣式
+        btnModeHanziToPinyin.classList.add('active');
+        btnModePinyinToHanzi.classList.remove('active');
+
+        // 調整輸入框順序 (漢字在上，拼音在下)
+        textareasContainer.classList.remove('flex-col-reverse');
+
+        // 顯示/隱藏對應的轉換按鈕 (下方欄位是拼音，故顯示「漢字轉拼音」)
+        btnHanziToPinyin.classList.remove('hidden');
+        btnPinyinToHanzi.classList.add('hidden');
+    } else { // 'pinyin-to-hanzi'
+        // 更新分頁按鈕樣式
+        btnModePinyinToHanzi.classList.add('active');
+        btnModeHanziToPinyin.classList.remove('active');
+
+        // 調整輸入框順序 (拼音在上，漢字在下)
+        textareasContainer.classList.add('flex-col-reverse');
+
+        // 顯示/隱藏對應的轉換按鈕 (下方欄位是漢字，故顯示「拼音轉漢字」)
+        btnHanziToPinyin.classList.add('hidden');
+        btnPinyinToHanzi.classList.remove('hidden');
+    }
+
+    // 更新網址參數 (如果不是初始載入)
+    if (!isInitialLoad) {
+        const url = new URL(window.location);
+        const modeParam = (newMode === 'pinyin-to-hanzi') ? 'p2h' : 'h2p';
+        url.searchParams.set('mode', modeParam);
+        // 使用 history.pushState 更新網址，不重新載入頁面
+        window.history.pushState({}, '', url);
+    }
+}
 
 
 // 主渲染：依模式決定是否顯示警示與編輯
@@ -1695,19 +1941,25 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode }) {
         return segs;
     }
 
-    function tokenizeSyls(raw) {
-        const syls = []; let token = '';
-        for (const ch of toCharArray(raw || '')) {
-            if (isLineBreak(ch) || isWhitespace(ch) || (isPunct(ch) && ch !== '-')) {
-                if (token.trim()) { syls.push(token.trim()); token = ''; }
-                continue;
-            }
-            token += ch;
-        }
-        if (token.trim()) syls.push(token.trim());
-        return syls;
-    }
-    
+	// 斷詞：拼音音節（不含標點/換行）
+	function tokenizeSyls(raw) {
+		const syls = [];
+		let token = '';
+		for (const ch of toCharArray(raw || '')) {
+			// 【核心修正】在判斷是否為標點時，排除連字號 '-' 和兩種中間點 '·', '‧'
+			if (isLineBreak(ch) || isWhitespace(ch) || (isPunct(ch) && ch !== '-' && ch !== '·' && ch !== '‧')) {
+				if (token.trim()) {
+					syls.push(token.trim());
+					token = '';
+				}
+				continue;
+			}
+			token += ch;
+		}
+		if (token.trim()) syls.push(token.trim());
+		return syls;
+	}  
+	
     function tokenizeHanziWithAlphanum(text) {
         if (!text) return [];
         const regex = /([a-zA-Z0-9]+|.)/gu;
@@ -1867,14 +2119,6 @@ btnSample?.addEventListener('click', () => {
     render();
 });
 
-// 顯示/隱藏說明視窗
-btnToneHelp?.addEventListener('click', () => toneHelpModal?.classList.remove('hidden'));
-btnCloseToneHelp?.addEventListener('click', () => toneHelpModal?.classList.add('hidden'));
-toneHelpModal?.addEventListener('click', (e) => {
-    if (e.target === toneHelpModal) { // 點擊背景關閉
-        toneHelpModal.classList.add('hidden');
-    }
-});
 
 
 // ==================================================================
@@ -2101,10 +2345,18 @@ function switchLanguage(newLangKey) {
     currentLanguageKey = newLangKey;
     saveSetting(AppConfig.storageKeys.SELECTED_LANGUAGE, newLangKey);
     
-    // 建立新的 URL，包含 ?lang=... 參數
-    const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?lang=${newLangKey}`;
-    // 使用 history.pushState 來更新網址，這樣不會觸發頁面重整
-    window.history.pushState({path: newUrl}, '', newUrl);
+    // --- START: 修改的 URL 處理邏輯 ---
+    // 1. 取得目前的模式，並決定對應的 URL 參數值
+    const modeParam = (inputMode === 'pinyin-to-hanzi') ? 'p2h' : 'h2p';
+
+    // 2. 使用 URLSearchParams 來安全地建立新的查詢字串
+    const url = new URL(window.location);
+    url.searchParams.set('lang', newLangKey);
+    url.searchParams.set('mode', modeParam);
+
+    // 3. 使用 history.pushState 來更新網址，這樣不會觸發頁面重整
+    window.history.pushState({path: url.href}, '', url.href);
+    // --- END: 修改的 URL 處理邏輯 ---
 
     updateLanguageUI();
     updateTitles();
@@ -2121,25 +2373,56 @@ function switchLanguage(newLangKey) {
 
 
 (function init() {
+    const btnPinyinToHanzi = document.getElementById('btnPinyinToHanzi');
 
     // --- START: 網站啟動邏輯修改 ---
-    // 優先從 URL 參數讀取語言設定
     const urlParams = new URLSearchParams(window.location.search);
+    
+    // 1. 讀取語言設定 (優先順序: URL > Local Storage > 預設值)
     const langFromUrl = urlParams.get('lang');
-
-    // 決定起始語言的優先順序: 1. URL 參數 > 2. 本地儲存 > 3. 預設值
     if (langFromUrl && LANGUAGES[langFromUrl]) {
-        // 如果 URL 參數存在且有效，就使用它
         currentLanguageKey = langFromUrl;
     } else {
-        // 否則，沿用原本的邏輯，從 localStorage 或預設值載入
         currentLanguageKey = loadSetting(AppConfig.storageKeys.SELECTED_LANGUAGE, 'kasu');
     }
+
+    // 2. 讀取模式設定 (優先順序: Local Storage > 預設值)
+    // 這樣可以記住使用者的上一次選擇
+    const initialMode = loadSetting(AppConfig.storageKeys.INPUT_MODE, 'hanzi-to-pinyin');
     // --- END: 網站啟動邏輯修改 ---
 
     updateLanguageUI();
 	updateTitles();
     loadLanguageDatabase(currentLanguageKey);
+
+
+    // 監聽分頁按鈕點擊
+    btnModeHanziToPinyin.addEventListener('click', () => setInputMode('hanzi-to-pinyin'));
+    btnModePinyinToHanzi.addEventListener('click', () => setInputMode('pinyin-to-hanzi'));
+
+
+    // 監聽新的複製按鈕點擊
+    btnCopy.addEventListener('click', async () => {
+        let contentToCopy = '';
+        // 根據目前模式，決定要複製哪個欄位的內容
+        if (inputMode === 'hanzi-to-pinyin') {
+            contentToCopy = pinyinInput.value;
+        } else { // pinyin-to-hanzi
+            contentToCopy = hanziInput.value;
+        }
+
+        if (contentToCopy) {
+            try {
+                await navigator.clipboard.writeText(contentToCopy);
+                toast('已複製下方欄位的內容！');
+            } catch (err) {
+                console.error('無法複製文字: ', err);
+                toast('複製失敗！');
+            }
+        } else {
+            toast('下方欄位沒有內容可複製。');
+        }
+    });
 
     btnLanguage?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -2158,6 +2441,8 @@ function switchLanguage(newLangKey) {
     applyTypography();
     updateAllToneConverterUIs();
 
+	setInputMode(initialMode, true);
+
     // --- 可收合面板功能 (維持不變) ---
     const mainGrid = document.getElementById('mainGrid');
     const inputSection = document.getElementById('inputSection');
@@ -2169,18 +2454,21 @@ function switchLanguage(newLangKey) {
         resultSection.classList.remove('is-collapsed');
         mainGrid.classList.remove('lg:grid-cols-[68px,1fr]', 'lg:grid-cols-[1fr,68px]');
         mainGrid.classList.add('lg:grid-cols-2');
+        inputModeToggle.classList.remove('hidden');
     };
     const collapseInput = () => {
         inputSection.classList.add('is-collapsed');
         resultSection.classList.remove('is-collapsed');
         mainGrid.classList.remove('lg:grid-cols-2', 'lg:grid-cols-[1fr,68px]');
         mainGrid.classList.add('lg:grid-cols-[68px,1fr]');
+        inputModeToggle.classList.add('hidden');
     };
     const collapseResult = () => {
         resultSection.classList.add('is-collapsed');
         inputSection.classList.remove('is-collapsed');
         mainGrid.classList.remove('lg:grid-cols-2', 'lg:grid-cols-[68px,1fr]');
         mainGrid.classList.add('lg:grid-cols-[1fr,68px]');
+        inputModeToggle.classList.remove('hidden');
     };
     const inputIcon = inputHeader.querySelector('.material-symbols-outlined');
     const resultIcon = resultHeader.querySelector('.material-symbols-outlined');
@@ -2240,6 +2528,10 @@ function switchLanguage(newLangKey) {
     }
     // --- END: 字體切換功能 ---
 
+    // 加入拼音轉漢字的初始化與事件綁定
+    initializeImeDicts();
+    // 將事件綁定到正確的按鈕上 (因為 HTML 中有兩個同功能按鈕)
+    document.querySelector('#btnPinyinToHanzi').addEventListener('click', pinyinToHanzi);
 })();
 
 
@@ -2299,3 +2591,5 @@ const arr_pz = ["ainn","","iang","","iong","","iung","�
 document.getElementById('btnHanziToPinyin').addEventListener('click', () => {
   hanziToPinyin();
 });
+
+
