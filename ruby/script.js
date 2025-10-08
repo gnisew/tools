@@ -2384,9 +2384,22 @@ function switchLanguage(newLangKey) {
         currentLanguageKey = loadSetting(AppConfig.storageKeys.SELECTED_LANGUAGE, 'kasu');
     }
 
-    // 2. 讀取模式設定 (優先順序: Local Storage > 預設值)
-    // 這樣可以記住使用者的上一次選擇
-    const initialMode = loadSetting(AppConfig.storageKeys.INPUT_MODE, 'hanzi-to-pinyin');
+    // 2. 讀取模式設定 (優先順序: URL > Local Storage > 預設值)
+    const modeFromUrl = urlParams.get('mode');
+    let initialMode;
+
+    if (modeFromUrl === 'p2h') {
+        initialMode = 'pinyin-to-hanzi';
+        // 當網址參數存在時，更新 Local Storage 以保持同步
+        saveSetting(AppConfig.storageKeys.INPUT_MODE, initialMode); 
+    } else if (modeFromUrl === 'h2p') {
+        initialMode = 'hanzi-to-pinyin';
+        // 當網址參數存在時，更新 Local Storage 以保持同步
+        saveSetting(AppConfig.storageKeys.INPUT_MODE, initialMode);
+    } else {
+        // 若 URL 沒有指定模式，才從 Local Storage 讀取舊設定
+        initialMode = loadSetting(AppConfig.storageKeys.INPUT_MODE, 'hanzi-to-pinyin');
+    }
     // --- END: 網站啟動邏輯修改 ---
 
     updateLanguageUI();
