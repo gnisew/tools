@@ -545,7 +545,6 @@ function pinyinToHanzi() {
         pinyinText = hakkaToneToZvs(pinyinText);
     } else if (currentLanguageKey === 'kasu') {
         pinyinText = hakkaToneToZvs(pinyinText);
-		console.log(pinyinText)
 		pinyinText = pinyinText
 			.replace(/([bpfvdtlgkhzcsi])oo([zvsx]?)\b/g, '$1o$2')
 			.replace(/(\b)(rh)([aeiou])/g, '$1r$3')
@@ -553,7 +552,6 @@ function pinyinToHanzi() {
 			.replace(/(\b)(ji)/g, '$1zi')
 			.replace(/(\b)(qi)/g, '$1ci')
 			.replace(/(\b)(xi)/g, '$1si');
-		console.log(pinyinText)
     } else if (currentLanguageKey === 'holo') {		
 		pinyinText = holoPojToTailo(pinyinText);
         pinyinText = holoPinyinZvs(pinyinText);
@@ -2279,7 +2277,7 @@ function loadLanguageDatabase(langKey) {
   script.id = SCRIPT_ID;
   script.src = langConfig.file;
   script.onload = () => {
-    console.log(`${langConfig.name} (${langConfig.file}) 資料庫載入成功。`);
+    //console.log(`${langConfig.name} (${langConfig.file}) 資料庫載入成功。`);
     // 載入成功後，呼叫 hanzitopinyin.js 中的函數來初始化轉換器
     initializeConverter();
   };
