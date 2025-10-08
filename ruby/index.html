@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@300..700" rel="stylesheet" />
   <link href="style.css" rel="stylesheet">
   <link href="https://oikasu1.github.io/kasuexam/kasu/fonts/twhei.css" rel="stylesheet">
+  <link href="https://gnisew.github.io/tools/ime/ime.css" rel="stylesheet">
   <script src="https://oikasu1.github.io/snd/app.js"></script>
 
 </head>
@@ -37,7 +38,13 @@
             <span class="material-symbols-outlined text-[22px] text-blue-600">description</span>
             <span class="title-text">輸入</span>
           </h2>
+
+			
           <div id="inputModeToggle" class="seg bg-slate-100">
+		  	<button class="toolbar-btn-text ime-toggle-button" title="輸入法">
+				<span class="material-icons">keyboard</span>
+				<span class="btn-text"></span>				
+			</button>	
             <button id="btnModeHanziToPinyin" class="active">字轉音</button>
             <button id="btnModePinyinToHanzi">音轉字</button>
           </div>
@@ -83,15 +90,15 @@
           </div>
 
           <div class="tool-row flex items-center gap-2 pt-1 mt-auto">
-            <button id="btnCopy" class="inline-flex items-center gap-2 bg-slate-100 text-slate-700 rounded-full px-4 py-2.5 hover:bg-slate-200 transition-colors">
-              <span class="material-symbols-outlined text-[20px]">content_paste</span> 複製
+            <button id="btnCopy" class="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full px-3 py-1.5 text-sm">
+              <span class="material-symbols-outlined">content_paste</span> 複製
             </button>
-            <button id="btnClear" class="inline-flex items-center gap-2 bg-slate-100 text-slate-700 rounded-full px-4 py-2.5 hover:bg-slate-200 transition-colors">
-              <span class="material-symbols-outlined text-[20px]">restart_alt</span> 清空
+            <button id="btnClear" class="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full px-3 py-1.5 text-sm">
+              <span class="material-symbols-outlined">restart_alt</span> 清空
             </button>
             <div class="ml-auto"></div>
-            <button id="btnProcess" class="inline-flex items-center gap-2 bg-blue-600 text-white rounded-full px-4 py-2.5 shadow hover:bg-blue-700 transition-colors">
-              <span class="material-symbols-outlined text-[20px]">magic_button</span> 開始標註
+            <button id="btnProcess" class="inline-flex items-center gap-2 bg-blue-600 text-white rounded-full px-2 py-2.5 shadow hover:bg-blue-700 transition-colors text-sm">
+              <span class="material-symbols-outlined">magic_button</span> 標註
             </button>
           </div>
         </div>
@@ -181,9 +188,9 @@
               </div>
               <div class="relative">
                   <div id="btnPrimaryContainer" class="inline-flex rounded-full shadow">
-                      <button id="btnPrimary" class="inline-flex items-center gap-2 bg-emerald-600 text-white rounded-l-full pl-4 pr-3 py-2.5 hover:bg-emerald-700 transition-colors focus:outline-none">
-                          <span class="material-symbols-outlined text-[20px]">content_copy</span>
-                          複製標註
+                      <button id="btnPrimary" class="inline-flex items-center gap-2 bg-emerald-600 text-white rounded-l-full pl-4 pr-3 py-2.5 hover:bg-emerald-700 transition-colors focus:outline-none text-sm">
+                          <span class="material-symbols-outlined">content_copy</span>
+                          複製
                       </button>
                       <button id="btnPrimaryToggle" class="inline-flex items-center bg-emerald-600 text-white rounded-r-full px-2 py-2.5 border-l border-emerald-500 hover:bg-emerald-700 transition-colors focus:outline-none">
                           <span class="material-symbols-outlined text-[18px]">arrow_drop_down</span>
@@ -275,7 +282,11 @@ if (headerEmoji) {
 </script>
 
   <script src="https://gnisew.github.io/tools/turn/pinyin2/data-pinyin2pinyin.js"></script>
-  <script src="https://gnisew.github.io/tools/ime/ime-dict.js"></script>
+
+    <script src="https://gnisew.github.io/tools/ime/ime-dict.js"></script>
+    <script src="https://gnisew.github.io/tools/ime/ime.js"></script>
+    <script src="https://gnisew.github.io/tools/ime/ime-button.js"></script>
+
   <script>let c, d, ccc, ddd;</script>
   <script src="hanzitopinyin.js"></script>
   <script src="script.js"></script>
