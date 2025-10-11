@@ -2843,11 +2843,9 @@ function reverseArrangeText() {
 // 查符合的詞
 // 在 id_A 匯入文字，一行一字詞；在id_C 放要查的詞，最終輸出在id_B
 function matchText() {
-    // 讀取資料
     const dataA = document.getElementById('id_A').value;
     const dataC = document.getElementById('id_C').value;
 
-    // 解析 id_A 的詞彙資料
     const vocabList = dataA.trim().split('\n').map(line => {
         const parts = line.split('\t');
         return {
@@ -2856,7 +2854,6 @@ function matchText() {
         };
     });
 
-    // 解析 id_C 的查詢字
     const queryList = dataC.trim().split('\n').map(line => {
         const parts = line.split('\t');
         return {
@@ -2865,44 +2862,32 @@ function matchText() {
         };
     });
 
-    // 處理每個查詢字
     const results = [];
 
     queryList.forEach(query => {
         if (!query.char) return;
-
-        // 使用 Array.from 正確處理擴充漢字
         const queryChars = Array.from(query.char);
         const matchedWords = [];
 
-        // 在詞彙列表中尋找符合的詞
         vocabList.forEach(vocab => {
             if (!vocab.word) return;
 
-            // 使用 Array.from 正確處理擴充漢字
             const vocabChars = Array.from(vocab.word);
-
-            // 檢查詞彙的第一個字是否符合查詢字，且發音也要符合
             if (vocabChars.length > 0 && vocabChars[0] === queryChars[0]) {
-                // 取得詞彙的第一個字的發音（空格前的部分）
                 const firstPronunciation = vocab.pronunciation.split(' ')[0];
-
-                // 比對發音是否相同
                 if (firstPronunciation === query.pronunciation) {
                     matchedWords.push(`${vocab.word}\\${vocab.pronunciation}`);
                 }
             }
         });
 
-        // 組合結果：查詢字 + tab + 發音 + tab + 符合詞彙（用 _ 分隔）
-        if (matchedWords.length > 0) {
-            results.push(`${query.char}\t${query.pronunciation}\t${matchedWords.join('_')}`);
-        }
+        // ✅ 無論是否有 matchedWords 都要輸出
+        results.push(`${query.char}\t${query.pronunciation}\t${matchedWords.join('_') || ''}`);
     });
 
-    // 輸出結果
     document.getElementById('id_B').value = results.join('\n');
 }
+
 
 function matchData() {
             // 取得輸入值
