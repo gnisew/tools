@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>烏衣行 - 打字遊戲</title>
+    <link rel="stylesheet" href="ime.css">
+    <link rel="stylesheet" href="game-style.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+    <div class="game-container">
+        <header class="game-header">
+            <h1>烏衣行打字遊戲</h1>
+            <div class="settings-panel">
+                <div class="setting-item">
+                    <label for="language-select">語言：</label>
+                    <select id="language-select"></select>
+                </div>
+                <div class="setting-item">
+                    <label for="game-mode-select">模式：</label>
+                    <select id="game-mode-select">
+                        <option value="pinyinToHanzi">看拼音打漢字</option>
+                        <option value="hanziToPinyin">看漢字打拼音</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <label for="question-count-select">題數：</label>
+                    <select id="question-count-select">
+                        <option value="10">10 題</option>
+                        <option value="20" selected>20 題</option>
+                        <option value="30">30 題</option>
+                        <option value="50">50 題</option>
+                    </select>
+                </div>
+                <button id="start-game-btn" class="game-button">開始遊戲</button>
+                <button id="reset-game-btn" class="game-button" style="display: none;">重新開始</button>
+				<button id="share-game-btn" class="game-button share-button" title="分享目前設定">
+					<span class="material-icons">share</span>
+				</button>
+            </div>
+        </header>
+
+        <main class="game-main">
+            <div id="stats-display" class="stats-display" style="visibility: hidden;">
+                <div class="stat">
+                    <span class="stat-label">時間</span>
+                    <span id="timer-display" class="stat-value">00:00</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">進度</span>
+                    <span id="progress-display" class="stat-value">0 / 20</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">正確率</span>
+                    <span id="accuracy-display" class="stat-value">100%</span>
+                </div>
+            </div>
+
+            <div id="question-container" class="question-container">
+                <div id="question-display" class="question-display">
+                    選語言、題數，開始遊戲！
+                </div>
+                <div id="learning-answer-display" class="learning-answer"></div>
+            </div>
+
+            <div class="answer-container">
+                <input type="text" id="answer-input" placeholder="在這裡輸入答案，然後按下 Enter" disabled>
+                <div id="feedback-indicator" class="feedback-indicator"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="ime-dict.js"></script>
+    <script src="ime.js"></script>
+    <script src="ime-button.js"></script>
+    <script src="game-logic.js"></script>
+
+</body>
+</html>
