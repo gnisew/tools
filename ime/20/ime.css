@@ -549,9 +549,9 @@
     box-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
-/* 當 checkbox 被選中時，改變軌道顏色並移動滑塊 */
+/* 【修改後】當 checkbox 被選中時 (預設啟用狀態)，改變軌道顏色為藍色 */
 .ime-enable-toggle:checked + .ime-enable-label {
-    background-color: #1a73e8; /* 啟用時的顏色 (Google Blue) */
+    background-color: #1a73e8; /* 預設啟用顏色 (Google Blue) */
 }
 
 .ime-enable-toggle:checked + .ime-enable-label span {
@@ -599,19 +599,18 @@
 #web-ime-settings-modal #feature-outputMode-select {
     border: 1px solid #ccc;
     border-radius: 4px;
-    padding: 4px 8px;
+    padding: 4px 4px;
     background-color: #f8f9fa;
     cursor: pointer;
 }
-/* --- 新增：單字模式啟用時的開關樣式 --- */
+/* --- 當處於「單字模式」且啟用時，顏色覆寫為綠色 --- */
 #web-ime-toolbar-container.single-char-mode-active .ime-enable-toggle:checked + .ime-enable-label,
 .ime-external-toolbar.single-char-mode-active .ime-enable-toggle:checked + .ime-enable-label {
-    background-color: #28a745; /* 一個標準的綠色 */
+    background-color: #28a745; /* 單字模式啟用時的綠色 */
 }
 
-/* --- 字音輸出啟用時的開關樣式 (維持不變，放在後面以確保優先級) --- */
+/* --- 當處於「字音輸出」模式且啟用時，顏色覆寫為紅色 --- */
 #web-ime-toolbar-container.output-mode-active .ime-enable-toggle:checked + .ime-enable-label,
 .ime-external-toolbar.output-mode-active .ime-enable-toggle:checked + .ime-enable-label {
-    background-color: #dc3545; /* 使用與重設按鈕一致的紅色系 */
+    background-color: #dc3545; /* 字音輸出模式啟用時的紅色 */
 }
-

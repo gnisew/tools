@@ -35,10 +35,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 		toggleButtons.forEach(button => {
 			if (isActive) {
-				button.title = '停用輸入法';
+				button.title = '關閉輸入法';
 				button.classList.add('ime-active');
 			} else {
-				button.title = '啟用輸入法';
+				button.title = '開啟輸入法';
 				button.classList.remove('ime-active');
 			}
 		});

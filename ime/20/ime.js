@@ -357,7 +357,7 @@ const imeToneMappings = {
         longPhrase: false,           // 預設是否啟用連打模式
         candidatesPerPage: 5,       // 每頁顯示的候選字數量
         maxCompositionLength: 30,   // 編碼區最大字元數
-        storagePrefix: 'webime_5_',   // 用於 localStorage 的前綴
+        storagePrefix: 'webime_6_',   // 用於 localStorage 的前綴
 		enablePrediction: false,
 		outputMode: 'pinyin', 
     },
@@ -697,9 +697,16 @@ imeInit(userConfig = {}) {
     this.imeCreateSettingsModal();
 
     // 步驟 4.A: 提前載入並同步所有功能設定
+    // 【核心修正】在此處的 defaults 物件中，新增 singleCharMode: false，
+    // 並統一 outputMode 的預設值，確保首次啟用的狀態正確。
     const defaults = {
-        prediction: false, numericTone: true, longPhrase: false,
-        fullWidthPunctuation: true, outputEnabled: false, outputMode: 'pinyin'
+        singleCharMode: false,
+        prediction: false,
+        numericTone: true,
+        longPhrase: false,
+        fullWidthPunctuation: true,
+        outputEnabled: false,
+        outputMode: 'pinyin_mode'
     };
     let fromStorage = {};
     try {
@@ -789,10 +796,13 @@ imeInit(userConfig = {}) {
     };
     document.addEventListener('keydown', this.boundGlobalKeyDownHandler);
     
+    // 在初始化結束時，強制呼叫一次 imeSetIsEnabled(true)。
+    // 這能確保所有 UI 元素（包括浮動和外部工具列）的視覺狀態都與內部的啟用狀態同步。
+    this.imeSetIsEnabled(true);
+    
     this.isInitialized = true;
     console.log("WebIME 初始化完成，目前語言:", this.currentMode);
 },
-
 
 
 imeDestroy() {
@@ -1606,14 +1616,22 @@ imeCreateSettingsModal() {
 	
 /**
  * 儲存到 localStorage，並同步 UI 介面。
- * [新版本] 新增了單字模式與聯想詞之間的互斥邏輯。
+ * [新版本] 重新排序邏輯，確保在更新 UI 前，設定值已完成互斥處理。
  * @param {object} features - 要套用的功能設定物件。
  */
 _syncFeatureSettings(features) {
-    // 1. 更新核心設定物件
+    // 步驟 1: **優先處理並強制執行互斥邏輯**。
+    // 如果「單字模式」被啟用，則無論其他設定為何，都強制關閉「長詞連打」和「聯想詞」。
+    // 這可以修正從 localStorage 載入不一致舊設定時可能發生的問題。
+    if (features.singleCharMode) {
+        features.longPhrase = false;
+        features.prediction = false;
+    }
+
+    // 步驟 2: 使用這個經過邏輯清理後的 `features` 物件來更新核心設定。
     this.config.features = features;
 
-    // 2. 更新即時狀態變數
+    // 步驟 3: 根據這個**已確保邏輯正確**的設定來更新即時狀態變數和 UI Class。
     this.isLongPhraseEnabled = this.config.features.longPhrase;
     this.isFullWidthMode = this.config.features.fullWidthPunctuation;
     this.config.enablePrediction = this.config.features.prediction;
@@ -1621,7 +1639,7 @@ _syncFeatureSettings(features) {
     this.config.outputMode = this.config.features.outputMode;
 
     const isOutputActive = this.config.features.outputEnabled;
-    const isSingleCharActive = this.config.features.singleCharMode;
+    const isSingleCharActive = this.config.features.singleCharMode; // 此時這個變數的值是絕對正確的
     const outputClass = 'output-mode-active';
     const singleCharClass = 'single-char-mode-active';
 
@@ -1629,16 +1647,15 @@ _syncFeatureSettings(features) {
     const toolbars = [this.toolbarContainer, document.getElementById('ime-external-toolbar-container')].filter(Boolean);
 
     toolbars.forEach(bar => {
-        // 獨立切換單字模式的 class (綠色)
+        // 現在才根據正確的狀態來切換 class，確保顏色正確
         bar.classList.toggle(singleCharClass, isSingleCharActive);
-        // 獨立切換字音輸出的 class (紅色)
         bar.classList.toggle(outputClass, isOutputActive);
     });
 
-    // 3. 儲存到 localStorage
+    // 步驟 4: 將這個**已清理過的、狀態一致的**設定儲存到 localStorage。
     localStorage.setItem(this.config.storagePrefix + 'featureSettings', JSON.stringify(this.config.features));
 
-    // 4. 同步設定視窗的 UI
+    // 步驟 5: 同步設定視窗的 UI 介面。
     if (this.settingsModal) {
         for (const key in this.config.features) {
             const checkbox = this.settingsModal.querySelector(`#feature-${key}`);
@@ -1649,33 +1666,18 @@ _syncFeatureSettings(features) {
         const select = this.settingsModal.querySelector('#feature-outputMode-select');
         if (select) {
             select.value = this.config.features.outputMode;
-            // 當「字音輸出」未勾選時，隱藏下拉選單
             select.style.display = this.config.features.outputEnabled ? 'inline-block' : 'none';
         }
 
         const singleCharCheckbox = this.settingsModal.querySelector('#feature-singleCharMode');
         const longPhraseCheckbox = this.settingsModal.querySelector('#feature-longPhrase');
-        const predictionCheckbox = this.settingsModal.querySelector('#feature-prediction'); // 取得聯想詞的 checkbox
+        const predictionCheckbox = this.settingsModal.querySelector('#feature-prediction');
 
         if (singleCharCheckbox && longPhraseCheckbox && predictionCheckbox) {
-            if (singleCharCheckbox.checked) {
-                // 如果單字模式被勾選：
-                // a. 強制關閉「長詞連打」並禁用其選項
-                longPhraseCheckbox.checked = false;
-                longPhraseCheckbox.disabled = true;
-                this.config.features.longPhrase = false;
-                
-                // b. 強制關閉「聯想詞」並禁用其選項
-                predictionCheckbox.checked = false;
-                predictionCheckbox.disabled = true;
-                this.config.features.prediction = false; // 同步更新內部狀態
-                this.config.enablePrediction = false;
-
-            } else {
-                // 如果單字模式未被勾選，則恢復「長詞連打」和「聯想詞」選項為可操作狀態
-                longPhraseCheckbox.disabled = false;
-                predictionCheckbox.disabled = false;
-            }
+            // 根據單字模式的狀態，禁用或啟用其他相關選項
+            const isDisabled = singleCharCheckbox.checked;
+            longPhraseCheckbox.disabled = isDisabled;
+            predictionCheckbox.disabled = isDisabled;
         }
     }
 },
@@ -1696,12 +1698,19 @@ imeLoadFeatureSettings() {
 
     let savedSettings = {};
     try {
-        savedSettings = JSON.parse(localStorage.getItem(this.config.storagePrefix + 'featureSettings')) || {};
+        // 嘗試從 localStorage 讀取設定
+        const savedString = localStorage.getItem(this.config.storagePrefix + 'featureSettings');
+        // 只有在字串存在時才解析，否則使用空物件
+        savedSettings = savedString ? JSON.parse(savedString) : {};
     } catch (e) {
+        // 如果解析失敗，也使用空物件
         savedSettings = {};
     }
     
+    // 使用預設值來填補任何未在儲存設定中找到的項目
     const finalSettings = { ...defaults, ...savedSettings };
+
+    // 呼叫同步函式來套用最終的設定
     this._syncFeatureSettings(finalSettings);
 },
 
