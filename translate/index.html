@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" translate="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🥷 烏衣行翻譯系統</title>
+	<meta name="google" content="notranslate">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@400" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css">
+    <link href="https://oikasu1.github.io/kasuexam/kasu/fonts/twhei.css" rel="stylesheet">
+    <link href="https://gnisew.github.io/tools/ime/ime.css" rel="stylesheet">
+</head>
+<body>
+
+	<header>
+        <div class="header-content">
+            <div class="header-group header-left">
+                <button id="btnOpenSettings" class="icon-btn" title="設定">
+                    <span class="material-symbols-outlined">menu</span>
+                </button>
+            </div>
+            
+            <h1>🥷 烏衣行翻譯</h1>
+            
+            <div class="header-group header-right">
+                </div>
+        </div>
+    </header>
+
+    <main class="translator-container">
+        
+		<nav class="language-selector">
+            <div class="lang-control">
+                <button id="btnLangLeft" class="lang-btn lang-btn-left">華語<span class="material-symbols-outlined">keyboard_arrow_down</span></button>
+                <div id="popoverLeft" class="popover popover-lang-grid hidden">
+                    </div>
+            </div>
+
+            <button id="btnSwap" class="swap-btn" title="交換語言">
+                <span class="material-symbols-outlined">swap_horiz</span>
+            </button>
+
+            <div class="lang-control">
+                <button id="btnLangRight" class="lang-btn lang-btn-right">詔安<span class="material-symbols-outlined">keyboard_arrow_down</span></button>
+                <div id="popoverRight" class="popover popover-lang-grid hidden">
+                </div>
+            </div>
+        </nav>
+
+        <div class="panels-wrapper">
+            <section class="panel panel-left">
+                <textarea id="textInput" placeholder="輸入文字..."></textarea>
+                
+                <div class="panel-toolbar">
+                    <div class="toolbar-group">
+                        <button id="btnClearInput" class="icon-btn" title="清除文字">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
+                        <button id="btnCopyInput" class="icon-btn" title="複製文字">
+                            <span class="material-symbols-outlined">content_copy</span>
+                        </button>
+						<button class="icon-btn ime-toggle-button" title="輸入法">
+							<span class="material-icons">keyboard</span>		
+						</button>	
+                    </div>
+                    <div class="toolbar-group translate-controls">
+                        <label class="instant-translate-label" title="勾選後，輸入時將自動翻譯">
+                            <input type="checkbox" id="chkInstantTranslate" checked>
+                            <span>自動</span>
+                        </label>
+							<div id="manualTranslateControls" class="split-btn-container hidden">
+								<button id="btnManualTranslateAction" class="split-btn-action">翻譯</button>
+								<button id="btnManualTranslateToggle" class="split-btn-toggle" title="更多翻譯選項">
+									<span class="material-symbols-outlined">arrow_drop_down</span>
+								</button>
+								<div id="popoverTranslateOptions" class="popover translate-popover hidden">
+									<button data-action="segment">原地斷詞</button>
+									<button data-action="space">語詞加空格</button>
+									<button data-action="translate" class="active">翻譯</button>
+								</div>
+							</div>
+					</div>
+                </div>
+            </section>
+    
+            <section class="panel panel-right">
+                <textarea id="textOutput" placeholder="翻譯結果..."></textarea>
+                <div class="panel-toolbar">
+                    <div class="toolbar-group">
+                        <button id="btnClearOutput" class="icon-btn" title="清除文字">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
+                        <button id="btnCopyOutput" class="icon-btn" title="複製結果">
+                            <span class="material-symbols-outlined">content_copy</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </div>
+        
+    </main>
+	<div id="settingsBackdrop" class="backdrop hidden"></div>
+    <aside id="settingsSidebar" class="sidebar hidden">
+        <div class="sidebar-header">
+            <h2>設定</h2>
+            <button id="btnCloseSettings" class="icon-btn" title="關閉">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+		<div class="sidebar-content">
+            <div class="setting-item">
+                <label for="inputDelimiter">轉換後分隔符號</label>
+                <input type="text" id="inputDelimiter" placeholder="預設為空 (無符號)">
+                <small>翻譯結果中，詞與詞之間的分隔符號。</small>
+            </div>
+
+            <div class="setting-item" id="pivotLangContainer">
+                <label for="selectPivotLang">中介語言</label>
+                <select id="selectPivotLang">
+                    </select>
+                <small>A語-(直達)-B語；A語-中介-B語。
+                </small>
+            </div>
+        </div>
+    </aside>
+
+    <div id="toastContainer"></div>
+
+    <script src="translate.js"></script>    
+    <script src="script.js" defer></script>
+
+    <script src="https://gnisew.github.io/tools/ime/ime-dict.js"></script>
+    <script src="https://gnisew.github.io/tools/ime/ime.js"></script>
+    <script src="https://gnisew.github.io/tools/ime/ime-button.js"></script>
+</body>
+</html>
