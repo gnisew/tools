@@ -41,6 +41,15 @@
             </div>
         </header>
 
+        <div class="custom-questions-panel">
+            <textarea id="custom-questions-input" placeholder="選擇語言後，可在此貼上自訂題庫，格式為：&#10;考第幾字 詞彙 標音 (以 Tab 或空格分隔)&#10;1	斷臍	donxv-cis&#10;2	目汁	hmzc-zhibz"></textarea>
+            <div class="custom-controls">
+                <button id="load-custom-btn" class="game-button">載入自訂題庫</button>
+                <button id="clear-custom-btn" class="game-button clear-button">清除已存題庫</button> 
+                <span id="custom-status-display"></span>
+            </div>
+        </div>
+
         <main class="game-main">
             <div id="stats-display" class="stats-display" style="visibility: hidden;">
                 <div class="stat">

@@ -272,3 +272,44 @@ select:focus, .game-button:focus {
     opacity: 0.9;
     letter-spacing: 2px;
 }
+
+/* --- Custom Questions Panel Styles --- */
+.custom-questions-panel {
+    margin-bottom: 24px;
+    padding: 16px;
+    background-color: #f1f3f4;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+#custom-questions-input {
+    width: 100%;
+    box-sizing: border-box;
+    height: 120px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 14px;
+    font-family: monospace;
+    resize: vertical;
+    margin-bottom: 12px;
+}
+
+.custom-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+#custom-status-display {
+    font-size: 14px;
+    color: var(--secondary-text-color);
+}
+
+.clear-button {
+    background-color: #dc3545; /* A shade of red for destructive actions */
+}
+
+.clear-button:hover {
+    background-color: #c82333;
+}

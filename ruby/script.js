@@ -9,6 +9,7 @@ const LANGUAGES = {
   'raoping': { name: '饒平', file: 'hanzitopinyin-raoping.js', url: 'https://sites.google.com/view/oikasu/hoka' },
   'sixiannan': { name: '南四', file: 'hanzitopinyin-sixiannan.js', url: 'https://sites.google.com/view/oikasu/hoka' },
   'holo': { name: '和樂', file: 'hanzitopinyin-holo.js', url: 'https://sites.google.com/view/oikasu/holo' },
+  'jinmen': { name: '金門', file: 'hanzitopinyin-jinmen.js', url: 'https://sites.google.com/view/oikasu/holo' },
   'cangjie': { name: '倉頡', file: 'hanzitopinyin-cangjie.js', url: 'https://sites.google.com/view/oikasu/' },
 };
 // ==================================================================
@@ -19,7 +20,7 @@ const LANGUAGES = {
 //  START: 應用程式設定與 Local Storage
 // ==================================================================
 const AppConfig = {
-    STORAGE_PREFIX: 'OIKASU_HAKKA_ANNOTATOR_V1_',
+    STORAGE_PREFIX: 'OIKASU_HAKKA_ANNOTATOR_V2_',
     storageKeys: {
         TONE_CONVERSION_DEFAULT: 'toneConversionDefault',
         SELECTED_LANGUAGE: 'selectedLanguage',
@@ -553,6 +554,9 @@ function pinyinToHanzi() {
 			.replace(/(\b)(qi)/g, '$1ci')
 			.replace(/(\b)(xi)/g, '$1si');
     } else if (currentLanguageKey === 'holo') {		
+		pinyinText = holoPojToTailo(pinyinText);
+        pinyinText = holoPinyinZvs(pinyinText);
+    } else if (currentLanguageKey === 'jinmen') {		
 		pinyinText = holoPojToTailo(pinyinText);
         pinyinText = holoPinyinZvs(pinyinText);
     } else if (currentLanguageKey === 'matsu') {
