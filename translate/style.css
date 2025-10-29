@@ -632,8 +632,8 @@ textarea#textOutput {
     }
 
     textarea {
-        min-height: 170px;
-        font-size: 1.2rem;
+        min-height: 200px;
+        font-size: 1rem;
     }
 
     .panel-toolbar {

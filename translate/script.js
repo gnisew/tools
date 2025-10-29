@@ -489,7 +489,7 @@ document.addEventListener('DOMContentLoaded', () => {
         populatePopovers(); // 重新整理選單的 disabled 和 active 狀態
         closeAllPopovers();
         saveState();
-        //triggerTranslation();
+        triggerTranslation();
 
         // (以下為 步驟13 中新增的程式碼，保持不變)
         preloadDictionaries(langLeft, langRight);
@@ -511,7 +511,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateLanguageButtons();
         populatePopovers();
         saveState();
-        //triggerTranslation();
+        triggerTranslation();
 		preloadDictionaries(langLeft, langRight);
 
 		// --- (不傳入 savedPivot，讓函式自動選擇預設值) ---
