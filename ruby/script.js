@@ -315,16 +315,21 @@ function tokenizeSyls(raw) {
 }
 
 /**
- * 切分漢字字串，將連續的英數字元視為一個詞
- * e.g., "臺灣123客語AI" -> ["臺", "灣", "123", "客", "語", "AI"]
+ * 切分漢字字串，將連續的非漢字、非空白字元視為一個詞
+ * e.g., "臺灣#1客語AI" -> ["臺", "灣", "#1", "客", "語", "AI"]
  * @param {string} text - 原始漢字字串
  * @returns {string[]} 包含漢字、英數字詞、標點的陣列
  */
 function tokenizeHanziWithAlphanum(text) {
     if (!text) return [];
-    // 分割規則：匹配連續的英數字元，或任何單一字元
-    // 加上 u 旗標，讓 . 能正確匹配擴充漢字等輔助平面字元
-    const regex = /([a-zA-Z0-9]+|.)/gu;
+    
+    // 分割規則：
+    // 1. [^\s\p{Script=Han}]+  : 優先匹配「不是空白(\s) 且 不是漢字(\p{Script=Han})」的連續字串
+    // 2. .                      : 否則，匹配任意一個字元 (用來捕捉漢字、空白、或標點)
+    // 
+    // 必須加上 u 旗標 (Unicode) 才能讓 \p{Script=Han} 生效
+    const regex = /([^\s\p{Script=Han}]+|.)/gu;
+    
     return text.match(regex) || [];
 }
 
@@ -449,12 +454,28 @@ function alignByClauses({
             } 
             // 情況二：單音節字
             else {
-                const ruby = document.createElement('ruby');
-                ruby.className = 'glyph';
-                ruby.dataset.hanzi = hToken;
-                ruby.dataset.pinyin = pToken;
-                ruby.innerHTML = `<rt>${getDisplayText(pToken)}</rt><rb>${hToken}</rb>`;
-                fragment.appendChild(ruby);
+                // ==========================================================
+                // 【核心修改】
+                // 檢查漢字 token 和 拼音 token 是否完全相同
+                // 如果是 (例如 '123' vs '123', 或 '#1' vs '#1')
+                // 則將它視為不需標註的「符號」，直接輸出
+                if (hToken === pToken) {
+                    const span = document.createElement('span');
+                    // 借用 'punct' 樣式來實現直排顯示
+                    // 這樣它就會被當作一個不可標註的符號，就像逗號一樣
+                    span.className = 'glyph punct'; 
+                    span.textContent = hToken;
+                    fragment.appendChild(span);
+                } else {
+                    // 否則 (例如 '南' vs 'namˋ')，執行原本的 <ruby> 標註
+                    const ruby = document.createElement('ruby');
+                    ruby.className = 'glyph';
+                    ruby.dataset.hanzi = hToken;
+                    ruby.dataset.pinyin = pToken;
+                    ruby.innerHTML = `<rt>${getDisplayText(pToken)}</rt><rb>${hToken}</rb>`;
+                    fragment.appendChild(ruby);
+                }
+                // ==========================================================
                 h_idx++;
                 p_idx++;
             }
