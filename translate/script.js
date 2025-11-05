@@ -49,6 +49,29 @@ document.addEventListener('DOMContentLoaded', () => {
 		'data-dapu-kasu.js': ['dapu-kasu', 'kasu-dapu'],
         'data-holo-kasu.js': ['holo-kasu', 'kasu-holo'],
     };
+	// --- 【新增】 動態 Textarea 高度 ---
+    const isMobile = () => window.innerWidth <= 768;
+
+    /**
+     * 動態調整 Textarea 高度以符合內容
+     * @param {HTMLElement} element - 要調整的 textarea 元素
+     */
+    function autoResizeTextarea(element) {
+        if (!element) return;
+        
+        if (!isMobile()) {
+            // 如果切換回桌機版，重設樣式
+            element.style.height = '';
+            return;
+        }
+        
+        element.style.height = 'auto'; // 1. 重設高度
+        
+        // 2. 設定為捲動高度 (scrollHeight)
+        // 3. 加上 2px 緩衝，避免某些瀏覽器出現閃爍的捲動條
+        element.style.height = (element.scrollHeight + 2) + 'px';
+    }
+    // --- 【新增結束】 ---
 
 	// --- 預先計算代理 (Proxy) 語言 ---
     const proxyMap = new Map();
@@ -133,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 2. 狀態與設定 ---
 
-    const STORAGE_PREFIX = 'OIKASU_TRANSLATOR_V4_';
+    const STORAGE_PREFIX = 'OIKASU_TRANSLATOR_V5_';
     const DEFAULT_LEFT = 'chinese';
     const DEFAULT_RIGHT = 'kasu';
 	
@@ -516,6 +539,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 		// --- (不傳入 savedPivot，讓函式自動選擇預設值) ---
         updatePivotLangSelector(langLeft, langRight);
+		autoResizeTextarea(textInput);
+        autoResizeTextarea(textOutput);
     }
 
     /**
@@ -701,7 +726,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	/**
      * [REVISED] 根據來源/目標語言和動作，取得字典和要執行的函式
-     * (修正代理語言的 'if' 判斷 Bug)
+     * (修正 'sourceText' initialization 錯誤)
      * @param {string} from - 來源語言 (e.g., 'chinese')
      * @param {string} to - 目標語言 (e.g., 'kasu')
      * @param {string} action - 'translate', 'segment', 'space'
@@ -709,10 +734,16 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     async function getDictionaryAndAction(from, to, action) {
         
-        // --- 1. 處理斷詞 (邏輯不變) ---
+        // --- 【核心修正】: 將 sourceText 和 delimiter 移到函式最頂端 ---
+        const sourceText = textInput.value;
+        const delimiter = translationDelimiter;
+        // --- 【修正結束】 ---
+
+        // --- 1. 處理斷詞 (action 'space' or 'segment') ---
         if (action === 'space' || action === 'segment') {
-            // ... (此區塊邏輯不變，請保留您原有的程式碼) ...
             console.log(`[Segment] 執行斷詞: ${from}`);
+            
+            // (此區塊邏輯不變，現在可以安全存取 sourceText)
             const proxyFromTarget = getProxyTarget(from);
             const segmentSourceLang = proxyFromTarget || from; 
             let dataFile, segmentPairKey;
@@ -740,6 +771,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (segmentSourceLang === langB) reSegment = dicts.reGK; 
                 else reSegment = dicts.reKG; 
             }
+            
+            // 現在 'sourceText' 已被初始化，可以安全返回
             if (action === 'space') {
                 return { dicts: dicts, actionFn: (text, d) => TonvBasic(text, reSegment, d.reVariant, d.mapVariant), sourceText: sourceText };
             } else {
@@ -748,54 +781,46 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // --- 2. 處理翻譯 ---
-        const delimiter = translationDelimiter;
-        let sourceText = textInput.value;
+        // 'delimiter' 和 'sourceText' 已移到頂端
         
+        let currentText = sourceText; // 使用 'currentText' 進行多步驟處理
+        let currentFrom = from;
+
         // --- Step 1: 處理 'from' 代理 (e.g., sixiannan -> sixian) ---
         const proxyFromTarget = getProxyTarget(from);
-        // 【修正】: 只有當 'to' 不是 'from' 的代理目標時，才執行 'from' 代理
         if (proxyFromTarget && to !== proxyFromTarget) {
-            console.log(`[Proxy] 步驟 1 (FROM): ${from} -> ${proxyFromTarget}`);
-            sourceText = await executeTranslation(from, proxyFromTarget, sourceText, delimiter);
-            from = proxyFromTarget; // 'from' 現在變成了 'sixian'
+            console.log(`[Proxy] 步驟 1 (FROM): ${currentFrom} -> ${proxyFromTarget}`);
+            currentText = await executeTranslation(currentFrom, proxyFromTarget, currentText, delimiter);
+            currentFrom = proxyFromTarget; // 'from' 現在變成了 'sixian'
         }
 
         // --- Step 2: 處理 'to' 代理 (找出 'effectiveTo') ---
         const proxyToTarget = getProxyTarget(to);
         let effectiveTo = to;
-        // 【修正】: 只有當 'from' 不是 'to' 的代理目標時，才執行 'to' 代理
-        if (proxyToTarget && from !== proxyToTarget) {
+        if (proxyToTarget && currentFrom !== proxyToTarget) {
              effectiveTo = proxyToTarget; // 主要翻譯的目標是 'sixian'
              console.log(`[Proxy] 主要目標設定為 (TO): ${effectiveTo}`);
         }
 
-        // --- Step 3: 執行主要翻譯 (from -> effectiveTo) ---
+        // --- Step 3: 執行主要翻譯 (currentFrom -> effectiveTo) ---
         let mainResultText;
         const requiresPivot = (currentPivotLang && currentPivotLang !== DIRECT_TRANSLATE_KEY);
         
-        if (requiresPivot && currentPivotLang !== from && currentPivotLang !== effectiveTo) {
+        if (requiresPivot && currentPivotLang !== currentFrom && currentPivotLang !== effectiveTo) {
             // --- A. 樞軸翻譯 (from -> pivot -> effectiveTo) ---
             const pivotLang = currentPivotLang;
-            console.log(`[Pivot] 步驟 2 (MAIN): ${from} -> ${pivotLang} -> ${effectiveTo}`);
-            
-            // A.1: from -> pivot
-            let pivotText = await executeTranslation(from, pivotLang, sourceText, delimiter);
-            console.log(`[Pivot] Step 2.1 result: ${pivotText}`);
-            
-            // A.2: pivot -> effectiveTo
+            console.log(`[Pivot] 步驟 2 (MAIN): ${currentFrom} -> ${pivotLang} -> ${effectiveTo}`);
+            let pivotText = await executeTranslation(currentFrom, pivotLang, currentText, delimiter);
             mainResultText = await executeTranslation(pivotLang, effectiveTo, pivotText, delimiter);
-            console.log(`[Pivot] Step 2.2 result: ${mainResultText}`);
-
         } else {
             // --- B. 直達翻譯 (from -> effectiveTo) ---
-            console.log(`[Translate] 步驟 2 (MAIN): ${from} -> ${effectiveTo}`);
-            mainResultText = await executeTranslation(from, effectiveTo, sourceText, delimiter);
+            console.log(`[Translate] 步驟 2 (MAIN): ${currentFrom} -> ${effectiveTo}`);
+            mainResultText = await executeTranslation(currentFrom, effectiveTo, currentText, delimiter);
         }
 
         // --- Step 4: 處理 'to' 代理 (final hop) ---
         let finalResultText = mainResultText;
-        // 【修正】: 只有當 'from' 不是 'to' 的代理目標時，才執行 'to' 代理
-        if (proxyToTarget && from !== proxyToTarget) {
+        if (proxyToTarget && currentFrom !== proxyToTarget) {
              console.log(`[Proxy] 步驟 3 (FINAL TO): ${proxyToTarget} -> ${to}`);
              finalResultText = await executeTranslation(proxyToTarget, to, mainResultText, delimiter);
         }
@@ -804,7 +829,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return {
             dicts: null, // 字典已在內部使用
             actionFn: (text, d) => finalResultText, // 直接返回已計算好的結果
-            sourceText: sourceText
+            sourceText: sourceText // 返回原始的 sourceText (actionFn 會忽略它)
         };
     }
 
@@ -901,6 +926,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 textOutput.value = ''; // 斷詞時也清空右欄
             }
+			autoResizeTextarea(textOutput);
             return;
         }
 
@@ -908,8 +934,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (actionToPerform === 'translate') {
             textOutput.value = "處理中...";
+			autoResizeTextarea(textOutput);
         } else {
             textOutput.value = ''; // 確保右欄為空
+			autoResizeTextarea(textOutput);
         }
         
         // 檢查核心庫是否載入
@@ -928,15 +956,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 根據 actionToPerform 決定輸出位置
                 if (actionToPerform === 'translate') {
                     textOutput.value = result.trim();
+					autoResizeTextarea(textOutput);
                 } else {
                     textInput.value = result.trim();
                     textOutput.value = ''; 
+					autoResizeTextarea(textInput);
+					autoResizeTextarea(textOutput);
                 }
             })
             .catch(err => {
                 console.error("翻譯/斷詞處理失敗:", err);
                 showToast(err.message || "處理失敗");
                 textOutput.value = "處理錯誤";
+				autoResizeTextarea(textOutput);
             });
     }
 
@@ -965,8 +997,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	// 即時翻譯事件
     textInput.addEventListener('input', () => {
+        autoResizeTextarea(textInput);
+        
         if (isInstantTranslate) {
-            // 即時翻譯永遠執行 'translate' 動作
             triggerTranslation('translate');
         }
     });
@@ -1033,15 +1066,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // 工具列按鈕
     btnClearInput.addEventListener('click', () => {
         textInput.value = '';
-        //textOutput.value = '';
+        autoResizeTextarea(textInput);
         showToast('已清除輸入內容');
     });
 
     btnClearOutput.addEventListener('click', () => {
         textOutput.value = '';
+        autoResizeTextarea(textOutput);
         showToast('已清除輸出內容');
     });
-
 
     btnCopyInput.addEventListener('click', () => {
         if (!textInput.value) return;
@@ -1093,6 +1126,18 @@ document.addEventListener('DOMContentLoaded', () => {
     updateLanguageButtons(); // 更新按鈕文字
     populatePopovers(); // 產生選單
 	preloadDictionaries(langLeft, langRight); // 預先載入預設語言
+
+	// --- 頁面載入時和視窗大小改變時，重設高度 ---
+    // 延遲執行，確保字體和佈局載入完成
+    setTimeout(() => {
+        autoResizeTextarea(textInput);
+        autoResizeTextarea(textOutput);
+    }, 100); 
+
+    window.addEventListener('resize', () => {
+        autoResizeTextarea(textInput);
+        autoResizeTextarea(textOutput);
+    });
     
     // 如果輸入框有內容且設定為自動，則觸發一次翻譯
     if (isInstantTranslate && textInput.value.trim() !== '') {

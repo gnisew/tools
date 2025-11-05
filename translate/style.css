@@ -617,27 +617,66 @@ textarea#textOutput {
         font-size: 22px;
     }
 
-    .translator-container {
+	.translator-container {
         padding: 1rem;
         gap: 1rem;
+        padding-bottom: 3rem;
     }
 
-    /* 讓面板在行動版堆疊 */
+	/* 讓面板在行動版堆疊 */
     .panels-wrapper {
         grid-template-columns: 1fr;
+        gap: 0; /* 【修改】移除面板間的 1rem 間距 */
     }
 
     .panel {
         height: auto;
+        /* 【修改】移除面板樣式，使其透明 */
+        background-color: transparent;
+        box-shadow: none;
+        border-radius: 0;
     }
 
-    textarea {
-        min-height: 200px;
+    /* 【新增】為第一個面板 (輸入區) 加上底線作為分隔 */
+    .panel-left {
+        border-bottom: 1px solid var(--border-color);
+    }
+	/* 【新增】為第二個面板 (輸出區) 也加上底線 */
+    .panel-right {
+        border-bottom: 1px solid var(--border-color);
+    }
+	textarea {
+        /* min-height: 200px;  <-- 【移除】舊的 min-height */
         font-size: 1rem;
+        
+        /* 【修改】移除桌機版為了解決 overflow 而新增的圓角 */
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+        
+        /* 【新增】在行動版增加一點左右 padding */
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+
+        /* --- 【新增】動態高度設定 --- */
+        /* 1. 設定最大高度，即原本的 200px */
+        max-height: 200px; 
+        /* 2. 設定一個合理的最小高度 (約 2-3 行) */
+        min-height: 30px; 
+        /* 3. 讓 JS 可以控制高度 */
+        height: auto; 
+        /* 4. 確保使用者不能手動調整 */
+        resize: none; 
+        /* 5. 內容超出 max-height 時才顯示捲軸 (預設值) */
+        overflow-y: auto; 
     }
 
-    .panel-toolbar {
+	.panel-toolbar {
         gap: 0.75rem;
+        /* 【修改】移除桌機版為了解決 overflow 而新增的圓角 */
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+        /* 【新增】移除工具列的白色背景 */
+        background-color: transparent;
     }
     
     .toolbar-group {
