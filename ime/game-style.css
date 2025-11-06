@@ -9,62 +9,257 @@
     --incorrect-color: #ea4335;
 }
 
+/* --- 基礎與行動裝置佈局優化 --- */
+html {
+    box-sizing: border-box;
+}
+*, *:before, *:after {
+    box-sizing: inherit;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     background-color: var(--background-color);
     color: var(--text-color);
+    margin: 0;
+    height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: 100vh;
-    margin: 0;
-    padding: 20px;
-    box-sizing: border-box;
+    overflow: hidden;
 }
 
 .game-container {
     width: 100%;
+    height: 100%;
     max-width: 800px;
     background-color: var(--container-bg);
-    border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(60,64,67,0.15);
-    border: 1px solid var(--border-color);
-    padding: 24px 32px;
-    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
 }
 
+@media (min-width: 768px) {
+    body {
+        padding: 20px;
+    }
+    .game-container {
+        height: 95vh;
+        max-height: 800px;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(60,64,67,0.15);
+        border: 1px solid var(--border-color);
+        padding: 24px 32px;
+    }
+}
+
+/* --- 遊戲前 頁首 --- */
 .game-header {
     text-align: center;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 20px;
-    margin-bottom: 24px;
+    /* (修改)：移除了 border-bottom, padding-bottom, 和 margin-bottom 
+      來消除底線和多餘的區隔，讓版面更簡潔。
+    */
+    flex-shrink: 0;
+    position: relative; /* 為了讓分享按鈕可以絕對定位 */
 }
-
 .game-header h1 {
     margin: 0 0 20px 0;
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 500;
 }
 
+/* --- 新的設定面板佈局 --- */
 .settings-panel {
+    display: flex;
+    flex-direction: column; /* 垂直排列 */
+    gap: 16px; /* 行間距 */
+    width: 100%;
+    max-width: 400px; /* 設定最大寬度，使其居中且美觀 */
+    margin: 0 auto 24px auto; /* 上下邊距及自動左右居中 */
+}
+.setting-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.setting-row label {
+    flex-basis: 60px; /* 標籤固定寬度 */
+    flex-shrink: 0;
+    text-align: right; /* 標籤文字靠右對齊 */
+    color: var(--secondary-text-color);
+    font-size: 14px;
+}
+.setting-row select {
+    flex-grow: 1; /* 下拉選單填滿剩餘空間 */
+    width: 100%;
+}
+
+.game-controls {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
 }
 
-.setting-item {
+/* --- 遊戲中 頁首 (預設隱藏) --- */
+.game-active-header {
+    display: none;
+    /* (修改)：改回 flex 佈局來自動推開元素 */
+    justify-content: space-between; 
+    align-items: center;
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border-color);
+    height: 40px;
+    /* (移除)：position: relative; */
+}
+
+/* --- 狀態切換 --- */
+.game-running .game-header {
+    display: none;
+}
+.game-running .game-active-header {
+    display: flex;
+}
+
+/* 遊戲中：精簡的統計資料 */
+#stats-display {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 16px;
+    /* (移除)：position: absolute; */
+    /* (移除)：right: 0; */
 }
 
-.setting-item label {
+.stat { 
+    display: flex;
+    align-items: center;
+    gap: 4px;
     color: var(--secondary-text-color);
+}
+.stat-icon {
+    font-size: 18px;
+    vertical-align: middle;
+}
+.stat-value {
     font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    min-width: 35px;
+    text-align: left;
+}
+.stat-label {
+    display: none;
 }
 
+/* 遊戲中：X 關閉按鈕 */
+.close-button {
+    background: transparent;
+    border: none;
+    color: var(--secondary-text-color);
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    position: relative; 
+    z-index: 10;
+}
+.close-button:hover {
+    background-color: #f1f3f4;
+}
+.close-button .material-icons {
+    font-size: 24px;
+}
+
+
+/* --- 遊戲主畫面佈局 --- */
+.game-main {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+#question-container {
+    flex-grow: 1;
+    min-height: 100px;
+    display: flex;
+    flex-direction: column; 
+    justify-content: center;
+    align-items: center;
+    padding: 16px 0;
+    overflow-y: auto;
+}
+.question-display {
+    font-size: 32px;
+    letter-spacing: 2px;
+    text-align: center;
+    color: var(--text-color);
+    user-select: none;
+    line-height: 1.5;
+}
+.question-display .highlight {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+.question-display .highlight::before {
+    content: '「';
+    margin-right: 0.1em;
+    color: var(--secondary-text-color);
+}
+.question-display .highlight::after {
+    content: '」';
+    margin-left: 0.1em;
+    color: var(--secondary-text-color);
+}
+.learning-answer {
+    margin-top: 16px;
+    min-height: 28px; /* (修改) 將 24px 改為 28px */
+    font-size: 20px;
+    color: var(--secondary-text-color);
+    letter-spacing: 1.5px;
+    text-align: center;
+}
+.learning-feedback {
+    color: var(--correct-color); /* 預設為綠色 */
+    font-size: 24px;
+    opacity: 0.9;
+    letter-spacing: 2px;
+}
+
+.learning-feedback.incorrect {
+    color: var(--incorrect-color); /* 答錯時顯示為紅色 */
+}
+
+/* 答案輸入框 */
+.answer-container {
+    position: relative;
+    margin-top: 16px;
+    flex-shrink: 0;
+}
+#answer-input {
+    width: 100%;
+    padding: 16px 20px;
+    font-size: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    text-align: center;
+}
+#answer-input:disabled {
+    background-color: #f1f3f4;
+    cursor: not-allowed;
+}
+#answer-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.2);
+}
+
+/* --- 按鈕樣式 --- */
 select, .game-button {
     border: 1px solid var(--border-color);
     border-radius: 4px;
@@ -74,112 +269,125 @@ select, .game-button {
     cursor: pointer;
     transition: background-color 0.2s, box-shadow 0.2s;
 }
-
-select:focus, .game-button:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
-}
-
 .game-button {
     background-color: var(--primary-color);
     color: white;
     font-weight: 500;
     border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
 }
-
 .game-button:hover {
     background-color: #185abc;
 }
-
-.stats-display {
-    display: flex;
-    justify-content: space-around;
-    margin-bottom: 24px;
+.secondary-button {
     background-color: #f1f3f4;
-    padding: 12px;
-    border-radius: 8px;
-}
-
-.stat {
-    text-align: center;
-}
-
-.stat-label {
-    display: block;
-    font-size: 12px;
     color: var(--secondary-text-color);
-    margin-bottom: 4px;
-}
-
-.stat-value {
-    display: block;
-    font-size: 20px;
-    font-weight: 500;
-}
-
-.question-container {
-    min-height: 100px;
-    display: flex;
-    flex-direction: column; 
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-}
-
-.question-display {
-    font-size: 36px;
-    letter-spacing: 2px;
-    text-align: center;
-    color: var(--text-color);
-    user-select: none;
-}
-
-.question-display .highlight {
-    color: var(--primary-color);
-    font-weight: 600;
-    position: relative;
-}
-
-.question-display .highlight::before {
-    content: '「';
-    margin-right: 0.1em;
-    color: var(--secondary-text-color);
-}
-
-.question-display .highlight::after {
-    content: '」';
-    margin-left: 0.1em;
-    color: var(--secondary-text-color);
-}
-
-.answer-container {
-    position: relative;
-    margin-top: 24px;
-}
-
-#answer-input {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 16px 20px;
-    font-size: 20px;
     border: 1px solid var(--border-color);
+}
+.secondary-button:hover {
+    background-color: #e8eaed;
+}
+.secondary-button .material-icons {
+    font-size: 20px;
+}
+
+/* --- 分享按鈕 (右上角) --- */
+.share-button {
+    position: absolute;
+    top: 16px; /* 根據 .game-container padding 調整 */
+    right: 16px; /* 根據 .game-container padding 調整 */
+    background-color: #5f6368;
+    padding: 6px;
+    min-width: 40px;
+    z-index: 5;
+}
+.share-button:hover {
+    background-color: #4a4e51;
+}
+.share-button .material-icons {
+    font-size: 20px;
+}
+/* 桌面上，padding 較大，按鈕位置也調整 */
+@media (min-width: 768px) {
+    .share-button {
+        top: 24px;
+        right: 32px;
+    }
+}
+
+
+.clear-button {
+    background-color: #dc3545;
+}
+.clear-button:hover {
+    background-color: #c82333;
+}
+
+/* --- 彈出式視窗 (Modal) 樣式 --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+.modal-content {
+    background: var(--container-bg);
     border-radius: 8px;
-    text-align: center;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border-color);
+}
+.modal-header h2 {
+    margin: 0;
+    font-size: 20px;
+}
+.modal-body {
+    padding: 24px;
+    overflow-y: auto;
+}
+.custom-questions-panel {}
+#custom-questions-input {
+    width: 100%;
+    height: 120px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 14px;
+    font-family: monospace;
+    resize: vertical;
+    margin-bottom: 12px;
+}
+.custom-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+#custom-status-display {
+    font-size: 14px;
+    color: var(--secondary-text-color);
 }
 
-#answer-input:disabled {
-    background-color: #f1f3f4;
-    cursor: not-allowed;
-}
-
-#answer-input:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.2);
-}
-
+/* --- 答題回饋與動畫 --- */
 .feedback-indicator {
     position: absolute;
     top: 50%;
@@ -190,126 +398,70 @@ select:focus, .game-button:focus {
     opacity: 0;
     transition: opacity 0.3s;
 }
-
 .feedback-indicator.correct::before,
 .feedback-indicator.incorrect::before {
     font-family: 'Material Icons';
     font-size: 24px;
     position: absolute;
 }
-
 .feedback-indicator.correct::before {
     content: 'check_circle';
     color: var(--correct-color);
 }
-
 .feedback-indicator.incorrect::before {
     content: 'cancel';
     color: var(--incorrect-color);
 }
-
-/* 答錯時的晃動動畫 */
 @keyframes shake {
     10%, 90% { transform: translateX(-1px); }
     20%, 80% { transform: translateX(2px); }
     30%, 50%, 70% { transform: translateX(-4px); }
     40%, 60% { transform: translateX(4px); }
 }
-
 .shake {
     animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
 }
 
-.share-button {
-    background-color: #5f6368; /* 中性色 */
-    padding: 8px; /* 讓按鈕更方正 */
-    min-width: 40px;
-    display: inline-flex;
-    align-items: center;
+/* --- 遊戲前/中 切換底部控制 --- */
+
+/* 預設 (遊戲前，.game-container 沒有 .game-running)
+*/
+.answer-container #start-game-btn {
+    display: inline-flex; /* 顯示「開始遊戲」按鈕 */
+    width: 100%; /* 讓按鈕滿版 */
+    padding: 16px 20px; /* 讓按鈕和輸入框一樣大 */
+    font-size: 18px; /* 放大字體 */
     justify-content: center;
 }
-
-.share-button:hover {
-    background-color: #4a4e51;
+.answer-container #answer-input {
+    display: none; /* 隱藏「答案輸入框」 */
 }
 
-.share-button .material-icons {
-    font-size: 20px;
-    vertical-align: middle;
+/* 遊戲中 (當 .game-container 有 .game-running class 時)
+*/
+.game-running .answer-container #start-game-btn {
+    display: none; /* 隱藏「開始遊戲」按鈕 */
+}
+.game-running .answer-container #answer-input {
+    display: block; /* 顯示「答案輸入框」 */
 }
 
-/* 答對時的學習回饋樣式 */
-.learning-feedback {
-    color: var(--correct-color);
-    font-size: 28px; /* 比題目稍小一點 */
-    opacity: 0.9;
-    letter-spacing: 2px;
-}
-
-/* 答對時的學習回饋樣式 */
-.learning-feedback {
-    color: var(--correct-color);
-    font-size: 28px; /* 比題目稍小一點 */
-    opacity: 0.9;
-    letter-spacing: 2px;
-}
-
-/* 用於顯示學習答案的容器樣式 */
-.learning-answer {
-    margin-top: 16px;
-    min-height: 24px; /* 避免內容為空時排版跳動 */
-    font-size: 20px;
+/* --- 遊戲中：顯示目前語言 --- */
+.current-lang-display {
+    /* (移除)：所有 position, left, transform 屬性 */
+    font-size: 15px;
+    font-weight: 500;
     color: var(--secondary-text-color);
-    letter-spacing: 1.5px;
-    text-align: center;
-    transition: opacity 0.3s ease-in-out;
-}
 
-/* 答對時的學習回饋樣式 (沿用舊有名稱) */
-.learning-feedback {
-    color: var(--correct-color);
-    font-size: 28px; /* 比題目稍小一點 */
-    opacity: 0.9;
-    letter-spacing: 2px;
-}
+    /* (新增)：用邊框和邊距將其與統計資料隔開 */
+    border-right: 1px solid var(--border-color);
+    padding-right: 16px;
+    /* (調整)：微調 margin-right 來平衡 gap */
+    margin-right: -4px; 
 
-/* --- Custom Questions Panel Styles --- */
-.custom-questions-panel {
-    margin-bottom: 24px;
-    padding: 16px;
-    background-color: #f1f3f4;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-}
-
-#custom-questions-input {
-    width: 100%;
-    box-sizing: border-box;
-    height: 120px;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    padding: 10px;
-    font-size: 14px;
-    font-family: monospace;
-    resize: vertical;
-    margin-bottom: 12px;
-}
-
-.custom-controls {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-
-#custom-status-display {
-    font-size: 14px;
-    color: var(--secondary-text-color);
-}
-
-.clear-button {
-    background-color: #dc3545; /* A shade of red for destructive actions */
-}
-
-.clear-button:hover {
-    background-color: #c82333;
+    /* (保留)：確保文字不會太長 */
+    max-width: 150px; 
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }

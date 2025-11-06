@@ -3885,7 +3885,7 @@ imeShowToast(message, duration = 1200) {
     // 設定提示訊息的樣式與內容
     toast.style.cssText = `
         position: fixed; 
-        top: 50%; 
+        top: 15%;
         left: 50%; 
         transform: translate(-50%, -50%); 
         background: rgba(0,0,0,0.75); 

@@ -1,12 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
     // 遊戲狀態物件
-    const game = {
+const game = {
         isRunning: false,
-        isCustomGame: false, // 新增：是否為自訂題庫模式
+        isCustomGame: false,
         currentLanguage: '',
-        gameMode: 'pinyinToHanzi', // pinyinToHanzi 或 hanziToPinyin
+        gameMode: 'pinyinToHanzi',
         questions: [],
-        customQuestions: [], // 新增：存放自訂題庫內容
+        customQuestions: [],
         currentQuestionIndex: 0,
         correctAnswers: 0,
         totalAttempts: 0,
@@ -16,90 +16,89 @@ document.addEventListener('DOMContentLoaded', () => {
             questionCount: 20,
         },
         expectedAnswer: '',
+        isAwaitingCorrectedAnswer: false, // 追蹤是否答錯並等待修正
     };
 
-// DOM 元素參考
+    // DOM 元素參考 (對應最新的 game.html)
     const dom = {
+        gameContainer: document.getElementById('game-container'),
+        gameActiveHeader: document.querySelector('.game-active-header'),
         languageSelect: document.getElementById('language-select'),
         gameModeSelect: document.getElementById('game-mode-select'),
         questionCountSelect: document.getElementById('question-count-select'),
         startGameBtn: document.getElementById('start-game-btn'),
         resetGameBtn: document.getElementById('reset-game-btn'),
         shareGameBtn: document.getElementById('share-game-btn'),
+        
+        currentLangDisplay: document.getElementById('current-lang-display'),
         statsDisplay: document.getElementById('stats-display'),
         timerDisplay: document.getElementById('timer-display'),
         progressDisplay: document.getElementById('progress-display'),
         accuracyDisplay: document.getElementById('accuracy-display'),
+        
         questionDisplay: document.getElementById('question-display'),
         answerInput: document.getElementById('answer-input'),
         feedbackIndicator: document.getElementById('feedback-indicator'),
         learningAnswerDisplay: document.getElementById('learning-answer-display'),
+        
+        customQuizBtn: document.getElementById('custom-quiz-btn'),
+        customModal: document.getElementById('custom-modal'),
+        closeCustomBtn: document.getElementById('close-custom-btn'),
         customQuestionsInput: document.getElementById('custom-questions-input'),
         loadCustomBtn: document.getElementById('load-custom-btn'),
         customStatusDisplay: document.getElementById('custom-status-display'),
         clearCustomBtn: document.getElementById('clear-custom-btn'), 
     };
 
+    /**
+     * 從 localStorage 載入自訂題庫
+     */
+    function loadCustomQuestionsFromStorage() {
+        const lang = dom.languageSelect.value;
+        if (!lang) return;
 
-
-/**
- * 從瀏覽器的 localStorage 載入對應語言的自訂題庫
- */
-function loadCustomQuestionsFromStorage() {
-    const lang = dom.languageSelect.value;
-    if (!lang) return;
-
-    const savedText = localStorage.getItem(`custom_questions_${lang}`);
-    dom.customQuestionsInput.value = savedText || '';
-    
-    // 重設狀態
-    dom.customStatusDisplay.textContent = '';
-    game.isCustomGame = false;
-    game.customQuestions = [];
-}
-
-/**
- * 從瀏覽器的 localStorage 清除目前語言的自訂題庫
- */
-function clearCustomQuestionsFromStorage() {
-    const lang = dom.languageSelect.value;
-    const langName = dom.languageSelect.options[dom.languageSelect.selectedIndex].text;
-    
-    if (confirm(`確定要清除已儲存的「${langName}」語言題庫嗎？\n此操作無法復原。`)) {
-        localStorage.removeItem(`custom_questions_${lang}`);
-        dom.customQuestionsInput.value = '';
-        dom.customStatusDisplay.textContent = '已清除儲存的題庫。';
+        const savedText = localStorage.getItem(`custom_questions_${lang}`);
+        dom.customQuestionsInput.value = savedText || '';
+        
+        dom.customStatusDisplay.textContent = '';
         game.isCustomGame = false;
         game.customQuestions = [];
-        alert(`已清除「${langName}」的題庫。`);
-    }
-}
-
-
-
-/**
- * 初始化遊戲
- */
-function init() {
-    // 動態填入語言選單，這必須先執行才能讀取 URL 參數
-    populateLanguageSelect();
-
-    // 檢查網址中是否有 'game-lang' 參數，若有則自動選定該語言
-    const urlParams = new URLSearchParams(window.location.search);
-    const langFromUrl = urlParams.get('game-lang');
-    if (langFromUrl && dom.languageSelect.querySelector(`option[value="${langFromUrl}"]`)) {
-        dom.languageSelect.value = langFromUrl;
-        game.currentLanguage = langFromUrl;
     }
 
-    // 設定事件監聽器
-    setupEventListeners();
-    // 初始化輸入法
-    WebIME.imeInit();
-    
-    // 在頁面載入時，自動載入對應語言的題庫
-    loadCustomQuestionsFromStorage();
-}
+    /**
+     * 從 localStorage 清除自訂題庫
+     */
+    function clearCustomQuestionsFromStorage() {
+        const lang = dom.languageSelect.value;
+        const langName = dom.languageSelect.options[dom.languageSelect.selectedIndex].text;
+        
+        if (confirm(`確定要清除已儲存的「${langName}」語言題庫嗎？\n此操作無法復原。`)) {
+            localStorage.removeItem(`custom_questions_${lang}`);
+            dom.customQuestionsInput.value = '';
+            dom.customStatusDisplay.textContent = '已清除儲存的題庫。';
+            game.isCustomGame = false;
+            game.customQuestions = [];
+            alert(`已清除「${langName}」的題庫。`);
+        }
+    }
+
+    /**
+     * 初始化遊戲
+     */
+    function init() {
+        populateLanguageSelect(); // 填入語言選單
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const langFromUrl = urlParams.get('game-lang');
+        if (langFromUrl && dom.languageSelect.querySelector(`option[value="${langFromUrl}"]`)) {
+            dom.languageSelect.value = langFromUrl;
+            game.currentLanguage = langFromUrl;
+        }
+
+        setupEventListeners(); // 設定監聽器
+        WebIME.imeInit(); // 初始化輸入法
+        loadCustomQuestionsFromStorage(); // 載入題庫
+    }
 
     /**
      * 動態填入語言選單
@@ -115,173 +114,163 @@ function init() {
                 const option = document.createElement('option');
                 option.value = langCode;
                 option.textContent = availableLanguages[langCode];
-                dom.languageSelect.appendChild(option);
+                // 這裡就是出錯的地方，確保 dom.languageSelect 不是 null
+                if (dom.languageSelect) {
+                    dom.languageSelect.appendChild(option);
+                }
             }
         }
-        game.currentLanguage = dom.languageSelect.value;
+        if (dom.languageSelect) {
+            game.currentLanguage = dom.languageSelect.value;
+        }
     }
 
-
-/**
- * 解析使用者自訂的題庫
- */
-function parseCustomQuestions() {
-    const text = dom.customQuestionsInput.value.trim();
-    if (!text) {
-        alert('請先在文字區塊中貼上您的題庫！');
-        return;
-    }
-    
-    // ▼▼▼ 新增此行：在解析前先取得當前語言 ▼▼▼
-    const currentLang = dom.languageSelect.value;
-    if (!currentLang) {
-        alert('請先選擇一個語言！');
-        return;
-    }
-
-    const lines = text.split('\n');
-    const parsedQuestions = [];
-
-    for (const line of lines) {
-        if (!line.trim()) continue;
-
-        const parts = line.split(/\s+/);
-        if (parts.length < 3) continue;
-
-        const [indexStr, hanzi, pinyin] = parts;
-        const targetIndex = parseInt(indexStr, 10) - 1;
-
-        if (isNaN(targetIndex) || !hanzi || !pinyin || targetIndex < 0) {
-            continue;
+    /**
+     * 解析使用者自訂的題庫
+     */
+    function parseCustomQuestions() {
+        const text = dom.customQuestionsInput.value.trim();
+        if (!text) {
+            alert('請先在文字區塊中貼上您的題庫！');
+            return;
+        }
+        
+        const currentLang = dom.languageSelect.value;
+        if (!currentLang) {
+            alert('請先選擇一個語言！');
+            return;
         }
 
-        const hanziChars = Array.from(hanzi);
-        const pinyinSyllables = pinyin.split(/[\s-]+/);
+        const lines = text.split('\n');
+        const parsedQuestions = [];
 
-        if (targetIndex >= hanziChars.length || hanziChars.length !== pinyinSyllables.length) {
-            console.warn(`跳過格式錯誤的題目: ${line}`);
-            continue;
+        for (const line of lines) {
+            if (!line.trim()) continue;
+            const parts = line.split(/\s+/);
+            if (parts.length < 3) continue;
+
+            const [indexStr, hanzi, pinyin] = parts;
+            const targetIndex = parseInt(indexStr, 10) - 1;
+            if (isNaN(targetIndex) || !hanzi || !pinyin || targetIndex < 0) continue;
+
+            const hanziChars = Array.from(hanzi);
+            const pinyinSyllables = pinyin.split(/[\s-]+/);
+            if (targetIndex >= hanziChars.length || hanziChars.length !== pinyinSyllables.length) {
+                console.warn(`跳過格式錯誤的題目: ${line}`);
+                continue;
+            }
+
+            parsedQuestions.push({
+                hanziChars: hanziChars,
+                allOriginalPinyins: [pinyin],
+                allPinyinArrays: [pinyinSyllables],
+                allSiblingWords: [hanzi],
+                targetIndex: targetIndex
+            });
         }
 
-        parsedQuestions.push({
-            hanziChars: hanziChars,
-            allOriginalPinyins: [pinyin],
-            allPinyinArrays: [pinyinSyllables],
-            allSiblingWords: [hanzi],
-            targetIndex: targetIndex
+        if (parsedQuestions.length > 0) {
+            try {
+                localStorage.setItem(`custom_questions_${currentLang}`, text);
+                game.customQuestions = parsedQuestions;
+                game.isCustomGame = true;
+                dom.customStatusDisplay.textContent = `已成功載入並儲存 ${parsedQuestions.length} 題。`;
+                dom.customStatusDisplay.style.color = 'var(--correct-color)';
+                alert(`成功載入並為「${dom.languageSelect.options[dom.languageSelect.selectedIndex].text}」儲存了 ${parsedQuestions.length} 題！`);
+                dom.customModal.style.display = 'none'; // 載入成功後關閉彈窗
+            } catch (e) {
+                console.error('儲存題庫失敗:', e);
+                alert('儲存題庫失敗！可能是瀏覽器儲存空間已滿。');
+            }
+        } else {
+            game.isCustomGame = false;
+            dom.customStatusDisplay.textContent = '載入失敗，請檢查格式。';
+            dom.customStatusDisplay.style.color = 'var(--incorrect-color)';
+            alert('載入失敗！\n請檢查您的題庫格式是否正確，至少需有一行有效資料。');
+        }
+    }
+
+    /**
+     * 設定所有事件監聽器
+     */
+    function setupEventListeners() {
+        dom.startGameBtn.addEventListener('click', startGame);
+        dom.resetGameBtn.addEventListener('click', resetGame);
+        dom.shareGameBtn.addEventListener('click', shareGameSettings);
+
+        // 自訂題庫彈窗的控制
+        dom.customQuizBtn.addEventListener('click', () => dom.customModal.style.display = 'flex');
+        dom.closeCustomBtn.addEventListener('click', () => dom.customModal.style.display = 'none');
+        dom.customModal.addEventListener('click', (e) => {
+            if (e.target === dom.customModal) dom.customModal.style.display = 'none';
+        });
+
+        // 彈窗內的按鈕
+        dom.loadCustomBtn.addEventListener('click', parseCustomQuestions);
+        dom.clearCustomBtn.addEventListener('click', clearCustomQuestionsFromStorage);
+
+        // 語言選單
+        dom.languageSelect.addEventListener('change', (e) => {
+            game.currentLanguage = e.target.value;
+            loadCustomQuestionsFromStorage();
+            const newUrl = new URL(window.location);
+            newUrl.searchParams.set('game-lang', game.currentLanguage);
+            window.history.replaceState({ path: newUrl.href }, '', newUrl.href);
+        });
+
+        dom.gameModeSelect.addEventListener('change', (e) => game.gameMode = e.target.value);
+        dom.questionCountSelect.addEventListener('change', (e) => game.settings.questionCount = parseInt(e.target.value, 10));
+
+        // 答案輸入框
+        dom.answerInput.addEventListener('keydown', (e) => {
+            if (!game.isRunning) return;
+            if (e.key === 'Enter') checkAnswer();
+            if (e.key === ' ') {
+                const isSingleUnitAnswer =
+                    (game.gameMode === 'pinyinToHanzi' && game.expectedAnswer.length === 1) ||
+                    (game.gameMode === 'hanziToPinyin' && !game.expectedAnswer.includes(' '));
+                if (isSingleUnitAnswer) {
+                    e.preventDefault();
+                    checkAnswer();
+                }
+            }
         });
     }
 
-    if (parsedQuestions.length > 0) {
-        try {
-            localStorage.setItem(`custom_questions_${currentLang}`, text);
-            game.customQuestions = parsedQuestions;
-            game.isCustomGame = true;
-            dom.customStatusDisplay.textContent = `已成功載入並儲存 ${parsedQuestions.length} 題。`;
-            dom.customStatusDisplay.style.color = 'var(--correct-color)';
-            alert(`成功載入並為「${dom.languageSelect.options[dom.languageSelect.selectedIndex].text}」儲存了 ${parsedQuestions.length} 題！`);
-        } catch (e) {
-            console.error('儲存題庫失敗:', e);
-            alert('儲存題庫失敗！可能是瀏覽器儲存空間已滿。');
-        }
-    } else {
-        game.isCustomGame = false;
-        dom.customStatusDisplay.textContent = '載入失敗，請檢查格式。';
-        dom.customStatusDisplay.style.color = 'var(--incorrect-color)';
-        alert('載入失敗！\n請檢查您的題庫格式是否正確，至少需有一行有效資料。');
-    }
-}
-
-
-/**
- * 設定所有事件監聽器
- */
-function setupEventListeners() {
-    dom.startGameBtn.addEventListener('click', startGame);
-    dom.resetGameBtn.addEventListener('click', resetGame);
-    dom.shareGameBtn.addEventListener('click', shareGameSettings);
-    dom.loadCustomBtn.addEventListener('click', parseCustomQuestions);
-    dom.clearCustomBtn.addEventListener('click', clearCustomQuestionsFromStorage); // 新增此行
-
-    // 當語言選單變更時，更新遊戲狀態並在網址中加入參數
-    dom.languageSelect.addEventListener('change', (e) => {
-        game.currentLanguage = e.target.value;
-        
-        // ▼▼▼ 新增此行：切換語言時，自動載入該語言的題庫 ▼▼▼
-        loadCustomQuestionsFromStorage();
-
-        // 更新網址參數，方便分享
-        const newUrl = new URL(window.location);
-        newUrl.searchParams.set('game-lang', game.currentLanguage);
-        // 使用 replaceState 來更新網址，避免在瀏覽紀錄中留下太多項目
-        window.history.replaceState({ path: newUrl.href }, '', newUrl.href);
-    });
-
-    dom.gameModeSelect.addEventListener('change', (e) => game.gameMode = e.target.value);
-    dom.questionCountSelect.addEventListener('change', (e) => game.settings.questionCount = parseInt(e.target.value, 10));
-
-    // （以下 'keydown' 事件監聽器保持不變）
-    dom.answerInput.addEventListener('keydown', (e) => {
-        if (!game.isRunning) return;
-
-        if (e.key === 'Enter') {
-            checkAnswer();
-        }
-
-        if (e.key === ' ') {
-            const isSingleUnitAnswer =
-                (game.gameMode === 'pinyinToHanzi' && game.expectedAnswer.length === 1) ||
-                (game.gameMode === 'hanziToPinyin' && !game.expectedAnswer.includes(' '));
-
-            if (isSingleUnitAnswer) {
-                e.preventDefault();
-                checkAnswer();
-            }
-        }
-    });
-}
-
-/**
+    /**
      * 開始遊戲
      */
     function startGame() {
         game.isRunning = true;
         resetState();
 
-        // --- 核心修改：根據遊戲模式設定輸入法狀態 ---
         const features = {
-            singleCharMode: false,
-            prediction: false,
-            numericTone: true,
-            longPhrase: false,
-            fullWidthPunctuation: true,
-            outputEnabled: false,
+            singleCharMode: false, prediction: false, numericTone: true,
+            longPhrase: false, fullWidthPunctuation: true, outputEnabled: false,
             outputMode: 'pinyin_mode'
         };
 
         if (game.gameMode === 'hanziToPinyin') {
-            // 看漢字打拼音：啟用「字音輸出」和「拼音模式」
             features.outputEnabled = true;
             features.outputMode = 'pinyin_mode';
             WebIME.imeShowToast('已切換為拼音輸入模式', 1500);
         } else {
-            // 看拼音打漢字：關閉「字音輸出」，恢復成一般打字模式
             features.outputEnabled = false;
             WebIME.imeShowToast('已切換為漢字輸入模式', 1500);
         }
         
-        // 直接呼叫 WebIME 內部函式來同步設定
         if (window.WebIME && WebIME.isInitialized) {
             WebIME._syncFeatureSettings(features);
-            WebIME.imeSwitchMode(game.currentLanguage); // 確保語言也同步
+            WebIME.imeSwitchMode(game.currentLanguage);
         }
         
-        // --- 新增：判斷使用預設題庫還是自訂題庫 ---
+        // 顯示目前語言
+        const languageName = dom.languageSelect.options[dom.languageSelect.selectedIndex].text;
+        dom.currentLangDisplay.textContent = languageName;
+        
         if (game.isCustomGame && game.customQuestions.length > 0) {
-            // 使用自訂題庫
             game.questions = shuffleArray([...game.customQuestions]).slice(0, game.settings.questionCount);
         } else {
-            // 使用內建字典產生的題庫
             game.questions = generateQuestions();
         }
 
@@ -294,15 +283,13 @@ function setupEventListeners() {
             return;
         }
 
-        toggleControls(false);
-        dom.statsDisplay.style.visibility = 'visible';
-        
+        toggleControls(false); // 切換為「遊戲中」介面
         displayNextQuestion();
         startTimer();
     }
     
     /**
-     * 重設遊戲狀態
+     * 重設遊戲狀態 (供內部呼叫)
      */
     function resetState() {
         game.currentQuestionIndex = 0;
@@ -312,224 +299,229 @@ function setupEventListeners() {
         updateStatsDisplay();
     }
 
-/**
- * 切換設定控制項的啟用狀態
- * @param {boolean} enabled 是否啟用
- */
-function toggleControls(enabled) {
-    dom.languageSelect.disabled = !enabled;
-    dom.gameModeSelect.disabled = !enabled;
-    dom.questionCountSelect.disabled = !enabled;
-    dom.answerInput.disabled = enabled;
-
-    dom.startGameBtn.style.display = enabled ? 'inline-block' : 'none';
-    dom.resetGameBtn.style.display = enabled ? 'none' : 'inline-block';
-
-	// 分享按鈕現在會一直保持可見。
-
-    if(enabled){
-        dom.answerInput.value = '';
-        dom.questionDisplay.innerHTML = '選語言、題數，開始！';
-    } else {
-         dom.answerInput.focus();
+    /**
+     * 切換遊戲介面狀態 (遊戲前/遊戲中)
+     */
+    function toggleControls(enabled) {
+        if (enabled) {
+            // 遊戲結束或重設
+            dom.gameContainer.classList.remove('game-running');
+            dom.answerInput.disabled = true;
+            dom.answerInput.value = '';
+            dom.questionDisplay.innerHTML = '';
+            dom.currentLangDisplay.textContent = '';
+        } else {
+            // 遊戲開始
+            dom.gameContainer.classList.add('game-running');
+            dom.answerInput.disabled = false;
+            dom.answerInput.focus();
+        }
     }
-}
 
 /**
- * 產生題目
- * @returns {Array} 題目陣列
- */
-function generateQuestions() {
-    const dictionary = dictionaries[game.currentLanguage];
-    if (!dictionary) return [];
+     * 輔助函式：清除狀態並前進到下一題
+     */
+    function proceedToNextQuestion() {
+        game.isAwaitingCorrectedAnswer = false; // 重設狀態
+        game.currentQuestionIndex++;
+        if (game.isRunning) {
+            dom.answerInput.disabled = false; // 解鎖輸入框
+        }
+        displayNextQuestion(); // 顯示新題目
+    }
 
-    // 建立一個臨時的 Map，以漢字詞為鍵 (key)
-    const hanziMap = new Map();
+    /**
+     * 產生題目
+     */
+    function generateQuestions() {
+        const dictionary = dictionaries[game.currentLanguage];
+        if (!dictionary) return [];
+        const hanziMap = new Map();
+        for (const pinyinStr in dictionary) {
+            if (pinyinStr.length === 1 && pinyinStr.startsWith('x')) continue;
+            const words = dictionary[pinyinStr].split(' ');
+            const pinyinSyllablesForCheck = pinyinStr.split(/[\s-]+/);
+            if (pinyinSyllablesForCheck.length < 2 || pinyinSyllablesForCheck.length > 4) continue;
+            for (const hanziStr of words) {
+                const hanziChars = Array.from(hanziStr);
+                if (pinyinSyllablesForCheck.length !== hanziChars.length) continue;
+                if (!hanziMap.has(hanziStr)) {
+                    hanziMap.set(hanziStr, {
+                        hanziChars: hanziChars,
+                        allPinyinStrings: new Set(),
+                        allSiblingWords: new Set() 
+                    });
+                }
+                const entry = hanziMap.get(hanziStr);
+                entry.allPinyinStrings.add(pinyinStr);
+                words.forEach(sibling => entry.allSiblingWords.add(sibling));
+            }
+        }
+        const validEntries = Array.from(hanziMap.values()).map(entry => {
+            const allOriginalPinyins = Array.from(entry.allPinyinStrings);
+            return {
+                hanziChars: entry.hanziChars,
+                allOriginalPinyins: allOriginalPinyins,
+                allPinyinArrays: allOriginalPinyins.map(p => p.split(/[\s-]+/)),
+                allSiblingWords: Array.from(entry.allSiblingWords) 
+            };
+        });
+        const shuffledEntries = shuffleArray(validEntries);
+        return shuffledEntries.slice(0, game.settings.questionCount);
+    }
 
-    // 遍歷字典，建立題庫資料
-    for (const pinyinStr in dictionary) {
-        // 略過輸入法用來打標點符號的 'x' 開頭編碼
-        if (pinyinStr.length === 1 && pinyinStr.startsWith('x')) continue;
+/**
+     * 顯示下一題
+     */
+    function displayNextQuestion() {
+        // 確保重設答題狀態
+        game.isAwaitingCorrectedAnswer = false;
+        dom.learningAnswerDisplay.innerHTML = ''; // 清除上一題的答案
 
-        const words = dictionary[pinyinStr].split(' ');
-        const pinyinSyllablesForCheck = pinyinStr.split(/[\s-]+/);
-
-        // 篩選出 2-4 個音節的詞彙
-        if (pinyinSyllablesForCheck.length < 2 || pinyinSyllablesForCheck.length > 4) {
-            continue;
+        if (game.currentQuestionIndex >= game.questions.length) {
+            endGame();
+            return;
         }
 
-        // 針對該拼音對應的每一個漢字詞進行處理
-        for (const hanziStr of words) {
-            const hanziChars = Array.from(hanziStr);
+        const questionData = game.questions[game.currentQuestionIndex];
+        
+        const targetIndex = (questionData.targetIndex !== undefined)
+            ? questionData.targetIndex
+            : Math.floor(Math.random() * questionData.hanziChars.length);
+        
+        let displayHtml, expectedAnswer;
 
-            // 確保漢字長度與拼音音節數相等
-            if (pinyinSyllablesForCheck.length !== hanziChars.length) {
-                continue;
+        if (game.gameMode === 'pinyinToHanzi') {
+            expectedAnswer = questionData.allSiblingWords.map(word => Array.from(word)[targetIndex]);
+            
+            // --- ▼▼▼ 修正點在此 ▼▼▼ ---
+            const allPinyinStrings = questionData.allOriginalPinyins; // (原為 allOriginalPins)
+            // --- ▲▲▲ 修正結束 ▲▲▲ ---
+
+            const processedPinyinDisplays = allPinyinStrings.map(pinyinStr => {
+                const parts = pinyinStr.split(/([\s-]+)/);
+                let currentSyllableIndex = 0;
+                const displayParts = parts.map(part => {
+                    if (/[\s-]+/.test(part)) return part;
+                    const transformedPinyin = WebIME.imeTransformQueryCode(part, game.currentLanguage);
+                    let result;
+                    if (currentSyllableIndex === targetIndex) {
+                        result = `<span class="highlight">${transformedPinyin}</span>`;
+                    } else {
+                        result = transformedPinyin;
+                    }
+                    currentSyllableIndex++;
+                    return result;
+                });
+                return displayParts.join('');
+            });
+            displayHtml = processedPinyinDisplays.join('、');
+        } else { // hanziToPinyin
+            expectedAnswer = [...new Set(questionData.allPinyinArrays.map(pinyinArray => pinyinArray[targetIndex]))];
+            const displayHanzis = questionData.hanziChars;
+            const displayParts = displayHanzis.map((h, index) => (index === targetIndex) ? `"${h}"` : h);
+            displayHtml = displayParts.join('').replace(/"([^"]+)"/g, '<span class="highlight">$1</span>');
+        }
+        
+        game.expectedAnswer = expectedAnswer;
+        dom.questionDisplay.innerHTML = displayHtml;
+        dom.answerInput.value = '';
+        dom.answerInput.focus();
+        updateStatsDisplay();
+    }
+
+/**
+     * 輔助函式：前進到下一題
+     */
+    function proceedToNextQuestion() {
+        game.currentQuestionIndex++;
+        if (game.isRunning) {
+            dom.answerInput.disabled = false; // 解鎖輸入框
+        }
+        displayNextQuestion(); // 顯示新題目
+    }
+/**
+     * 檢查答案 (重構版 - 包含訂正邏輯)
+     */
+    function checkAnswer() {
+        const userAnswer = dom.answerInput.value.trim();
+        if (userAnswer === '') return;
+
+        const userAnswerLower = userAnswer.toLowerCase();
+        let isCorrect = false;
+
+        // 檢查答案是否正確
+        if (game.gameMode === 'pinyinToHanzi') {
+            if (Array.isArray(game.expectedAnswer)) {
+                isCorrect = game.expectedAnswer.includes(userAnswer);
             }
-
-            // 如果 Map 中還沒有這個漢字詞，就建立一個基礎結構
-            if (!hanziMap.has(hanziStr)) {
-                hanziMap.set(hanziStr, {
-                    hanziChars: hanziChars,
-                    allPinyinStrings: new Set(),
-                    // 【核心修改】新增一個 Set 來儲存所有來自同一拼音源的「同音詞」
-                    allSiblingWords: new Set() 
+        } else { // hanziToPinyin
+            if (Array.isArray(game.expectedAnswer)) {
+                isCorrect = game.expectedAnswer.some(expectedPinyin => {
+                    const transformedPinyin = WebIME.imeTransformQueryCode(expectedPinyin, game.currentLanguage);
+                    return userAnswerLower === expectedPinyin.toLowerCase() || userAnswerLower === transformedPinyin.toLowerCase();
                 });
             }
-
-            const entry = hanziMap.get(hanziStr);
-            // 將當前的拼音字串加入
-            entry.allPinyinStrings.add(pinyinStr);
-            // 【核心修改】將這個拼音源的所有對應詞 (包含自己) 都加入到 allSiblingWords 集合中
-            words.forEach(sibling => entry.allSiblingWords.add(sibling));
         }
-    }
 
-    // 將 Map 轉換為遊戲所需的題目陣列格式
-    const validEntries = Array.from(hanziMap.values()).map(entry => {
-        const allOriginalPinyins = Array.from(entry.allPinyinStrings);
-        return {
-            hanziChars: entry.hanziChars,
-            allOriginalPinyins: allOriginalPinyins,
-            allPinyinArrays: allOriginalPinyins.map(p => p.split(/[\s-]+/)),
-            // 將 Set 轉換為陣列，方便後續使用
-            allSiblingWords: Array.from(entry.allSiblingWords) 
-        };
-    });
-    
-    console.log(`語言 "${game.currentLanguage}" 產生的有效題庫:`, validEntries);
-    
-    const shuffledEntries = shuffleArray(validEntries);
-    
-    return shuffledEntries.slice(0, game.settings.questionCount);
-}
+        // --- 新的答題流程 ---
 
-/**
- * 顯示下一題
- */
-function displayNextQuestion() {
-    if (game.currentQuestionIndex >= game.questions.length) {
-        endGame();
-        return;
-    }
-
-    dom.learningAnswerDisplay.innerHTML = ''; // 清除上一題的答案
-
-    const questionData = game.questions[game.currentQuestionIndex];
-    
-    // --- 核心修改：優先使用題目自帶的 targetIndex ---
-    // 如果 questionData 中有 targetIndex 屬性，就使用它；否則，隨機產生。
-    const targetIndex = (questionData.targetIndex !== undefined)
-        ? questionData.targetIndex
-        : Math.floor(Math.random() * questionData.hanziChars.length);
-    
-    let displayHtml, expectedAnswer;
-
-    if (game.gameMode === 'pinyinToHanzi') {
-        expectedAnswer = questionData.allSiblingWords.map(word => Array.from(word)[targetIndex]);
-        
-        const allPinyinStrings = questionData.allOriginalPinyins;
-
-        const processedPinyinDisplays = allPinyinStrings.map(pinyinStr => {
-            const parts = pinyinStr.split(/([\s-]+)/);
-            let currentSyllableIndex = 0;
-
-            const displayParts = parts.map(part => {
-                if (/[\s-]+/.test(part)) {
-                    return part;
-                }
+        // 情況 1：使用者正在「訂正錯誤」
+        if (game.isAwaitingCorrectedAnswer) {
+            if (isCorrect) {
+                // 訂正正確
+                game.isAwaitingCorrectedAnswer = false;
+                showFeedback(true); // 顯示綠色勾勾
+                dom.learningAnswerDisplay.innerHTML = ''; // 清除紅色答案
                 
-                const transformedPinyin = WebIME.imeTransformQueryCode(part, game.currentLanguage);
-                let result;
+                // 訂正正確後，延遲短一點時間進入下一題
+                dom.answerInput.disabled = true;
+                setTimeout(proceedToNextQuestion, 500); 
+            } else {
+                // 訂正錯誤
+                dom.answerInput.classList.add('shake');
+                setTimeout(() => {
+                    dom.answerInput.classList.remove('shake');
+                    dom.answerInput.value = '';
+                }, 1000);
+            }
+            return; // 結束函式，不重複計算分數
+        }
 
-                if (currentSyllableIndex === targetIndex) {
-                    result = `<span class="highlight">${transformedPinyin}</span>`;
-                } else {
-                    result = transformedPinyin;
-                }
-                currentSyllableIndex++;
-                return result;
-            });
+        // 情況 2：使用者是「首次嘗試」
+        game.totalAttempts++; // 只有首次嘗試才計入總次數
+
+        if (isCorrect) {
+            // 首次嘗試就答對
+            game.correctAnswers++;
+            showFeedback(true);
+            showLearningFeedback(true); // 顯示綠色答案，並延遲 1.5 秒後進入下一題
+        } else {
+            // 首次嘗試答錯
+            game.isAwaitingCorrectedAnswer = true; // 標記為等待訂正
+            showFeedback(false);
+            dom.answerInput.classList.add('shake');
+            setTimeout(() => {
+                dom.answerInput.classList.remove('shake');
+                dom.answerInput.value = '';
+            }, 1000);
             
-            return displayParts.join('');
-        });
-        
-        displayHtml = processedPinyinDisplays.join('、');
-
-    } else { // hanziToPinyin
-        expectedAnswer = [...new Set(questionData.allPinyinArrays.map(pinyinArray => pinyinArray[targetIndex]))];
-        
-        const displayHanzis = questionData.hanziChars;
-        const displayParts = displayHanzis.map((h, index) => {
-            return (index === targetIndex) ? `"${h}"` : h;
-        });
-        displayHtml = displayParts.join('').replace(/"([^"]+)"/g, '<span class="highlight">$1</span>');
-    }
-    
-    game.expectedAnswer = expectedAnswer;
-
-    dom.questionDisplay.innerHTML = displayHtml;
-    
-    dom.answerInput.value = '';
-    dom.answerInput.focus();
-    updateStatsDisplay();
-}
-
-/**
- * 檢查答案
- */
-function checkAnswer() {
-    const userAnswer = dom.answerInput.value.trim();
-    if (userAnswer === '') return;
-
-    const userAnswerLower = userAnswer.toLowerCase();
-    game.totalAttempts++;
-    let isCorrect = false;
-
-    if (game.gameMode === 'pinyinToHanzi') {
-        // 【核心修正】檢查使用者的漢字答案是否存在於預期的答案陣列中
-        if (Array.isArray(game.expectedAnswer)) {
-            isCorrect = game.expectedAnswer.includes(userAnswer);
+            // 顯示紅色答案，但不自動進入下一題
+            showLearningFeedback(false); 
         }
-
-    } else { // hanziToPinyin
-        if (Array.isArray(game.expectedAnswer)) {
-            isCorrect = game.expectedAnswer.some(expectedPinyin => {
-                const transformedPinyin = WebIME.imeTransformQueryCode(expectedPinyin, game.currentLanguage);
-                return userAnswerLower === expectedPinyin.toLowerCase() || userAnswerLower === transformedPinyin.toLowerCase();
-            });
-        }
+        
+        updateStatsDisplay(); // 更新分數顯示
     }
-
-    if (isCorrect) {
-        game.correctAnswers++;
-        showFeedback(true);
-        showLearningFeedback();
-    } else {
-        showFeedback(false);
-        dom.answerInput.classList.add('shake');
-        // 在震動動畫結束後，同時移除 class 並清空輸入框的值
-        setTimeout(() => {
-            dom.answerInput.classList.remove('shake');
-            dom.answerInput.value = ''; // 清空內容
-        }, 1000);
-    }
-    updateStatsDisplay();
-}
-    
+        
     /**
-     * 顯示答題回饋 (正確/錯誤)
-     * @param {boolean} isCorrect 
+     * 顯示答題回饋
      */
     function showFeedback(isCorrect){
         dom.feedbackIndicator.classList.remove('correct', 'incorrect');
         const feedbackClass = isCorrect ? 'correct' : 'incorrect';
         dom.feedbackIndicator.classList.add(feedbackClass);
         dom.feedbackIndicator.style.opacity = '1';
-        setTimeout(() => {
-            dom.feedbackIndicator.style.opacity = '0';
-        }, 500);
+        setTimeout(() => dom.feedbackIndicator.style.opacity = '0', 500);
     }
 
     /**
@@ -538,20 +530,19 @@ function checkAnswer() {
     function endGame() {
         game.isRunning = false;
         clearInterval(game.timerId);
-        toggleControls(true);
+        toggleControls(true); // 切換回「遊戲前」介面
         const finalTime = formatTime(game.timer);
         dom.questionDisplay.textContent = `遊戲結束！完成時間：${finalTime}`;
     }
 
-/**
-     * 重設遊戲
+    /**
+     * 重設遊戲 (供 X 按鈕呼叫)
      */
     function resetGame() {
         game.isRunning = false;
         clearInterval(game.timerId);
         resetState();
-        toggleControls(true);
-        dom.statsDisplay.style.visibility = 'hidden';
+        toggleControls(true); // 切換回「遊戲前」介F
         dom.learningAnswerDisplay.innerHTML = '';
     }
 
@@ -561,7 +552,7 @@ function checkAnswer() {
     function updateStatsDisplay() {
         dom.progressDisplay.textContent = `${game.currentQuestionIndex} / ${game.questions.length}`;
         const accuracy = game.totalAttempts > 0 ? Math.round((game.correctAnswers / game.totalAttempts) * 100) : 100;
-        dom.accuracyDisplay.textContent = `${accuracy}%`;
+        dom.accuracyDisplay.textContent = `${accuracy}`;
     }
 
     /**
@@ -583,9 +574,7 @@ function checkAnswer() {
     }
 
     /**
-     * 隨機排序陣列 (Fisher-Yates shuffle)
-     * @param {Array} array 
-     * @returns {Array}
+     * 隨機排序陣列
      */
     function shuffleArray(array) {
         for (let i = array.length - 1; i > 0; i--) {
@@ -595,91 +584,69 @@ function checkAnswer() {
         return array;
     }
 
-
 /**
- * 答對後顯示完整詞彙/拼音，用於學習
- */
-function showLearningFeedback() {
-    const currentQuestion = game.questions[game.currentQuestionIndex];
-    let feedbackText = '';
+     * 顯示完整詞彙/拼音 (可顯示正確或錯誤)
+     * @param {boolean} isCorrect - true 顯示綠色答案並準備下一題, false 顯示紅色答案並等待修正
+     */
+    function showLearningFeedback(isCorrect) {
+        const currentQuestion = game.questions[game.currentQuestionIndex];
+        let feedbackText = '';
 
-    if (game.gameMode === 'pinyinToHanzi') {
-        // 【核心修改】從 allSiblingWords 取得所有可能的完整詞彙，並用 " / " 串聯起來
-        feedbackText = currentQuestion.allSiblingWords.join(' / ');
-    } else { // hanziToPinyin
-        const allFullPinyins = currentQuestion.allOriginalPinyins;
-        const transformedFullPinyins = allFullPinyins.map(pinyinStr =>
-            WebIME.imeTransformQueryCode(pinyinStr, game.currentLanguage)
-        );
-        feedbackText = [...new Set(transformedFullPinyins)].join(' / ');
-    }
-    
-    dom.learningAnswerDisplay.innerHTML = `<span class="learning-feedback">${feedbackText}</span>`;
-    dom.answerInput.disabled = true;
+        if (game.gameMode === 'pinyinToHanzi') {
+            feedbackText = currentQuestion.allSiblingWords.join(' / ');
+        } else { // hanziToPinyin
+            
+            const allFullPinyins = currentQuestion.allOriginalPinyins; // (原為 allOriginalPins)
 
-    setTimeout(() => {
-        game.currentQuestionIndex++;
-        if (game.isRunning) {
-            dom.answerInput.disabled = false;
+            const transformedFullPinyins = allFullPinyins.map(pinyinStr =>
+                WebIME.imeTransformQueryCode(pinyinStr, game.currentLanguage)
+            );
+            feedbackText = [...new Set(transformedFullPinyins)].join(' / ');
         }
-        displayNextQuestion();
-    }, 1500);
-}
+        
+        // 根據 isCorrect 決定CSS class
+        const feedbackClass = isCorrect ? '' : 'incorrect'; // 答對用預設綠色，答錯用 .incorrect
+        dom.learningAnswerDisplay.innerHTML = `<span class="learning-feedback ${feedbackClass}">${feedbackText}</span>`;
+
+        if (isCorrect) {
+            // 答對了：鎖定輸入框，並在 1.5 秒後進入下一題
+            dom.answerInput.disabled = true;
+            setTimeout(proceedToNextQuestion, 1500);
+        } else {
+            // 答錯了：不鎖定輸入框，讓使用者可以立刻輸入正確答案
+            dom.answerInput.focus();
+        }
+    }
+
 
     /**
      * 產生並複製分享連結
      */
-/**
- * 產生並複製分享連結
- */
-function shareGameSettings() {
-    const baseUrl = window.location.origin + window.location.pathname;
-    const langCode = game.currentLanguage;
+    function shareGameSettings() {
+        const baseUrl = window.location.origin + window.location.pathname;
+        const langCode = game.currentLanguage;
+        const params = new URLSearchParams();
+        params.set('game-lang', langCode);
+        const settingsCode = game.gameMode === 'hanziToPinyin' ? '0000011' : '0000000';
+        const shortCode = `1-${langCode}-${settingsCode}`;
+        params.set('ime', shortCode);
+        const shareableUrl = `${baseUrl}?${params.toString()}`;
 
-    // --- 【核心修改處】 ---
-
-    // 1. 建立 URL 查詢參數
-    const params = new URLSearchParams();
-
-    // 2. 加入遊戲語言參數
-    params.set('game-lang', langCode);
-
-    // 3. 根據遊戲模式決定輸入法設定碼
-    // 看漢字打拼音需要 '字音輸出' 和 '拼音模式'，對應碼為 0000011
-    const settingsCode = game.gameMode === 'hanziToPinyin' ? '0000011' : '0000000';
-    const shortCode = `1-${langCode}-${settingsCode}`; // '1' 代表輸入法啟用狀態
-
-    // 4. 加入輸入法設定參數
-    params.set('ime', shortCode);
-
-    // 5. 組合出最終的分享網址
-    const shareableUrl = `${baseUrl}?${params.toString()}`;
-
-    // --- 修改結束 ---
-
-    navigator.clipboard.writeText(shareableUrl).then(() => {
-        const originalIcon = dom.shareGameBtn.innerHTML;
-        dom.shareGameBtn.innerHTML = `<span class="material-icons">check</span> 已複製`;
-        setTimeout(() => {
-            dom.shareGameBtn.innerHTML = originalIcon;
-        }, 2000);
-    }).catch(err => {
-        alert('複製分享網址失敗！');
-        console.error('無法複製網址: ', err);
-    });
-}
-
-
-
-
-
-
-
-
-
-
-
+        navigator.clipboard.writeText(shareableUrl).then(() => {
+            const originalIcon = dom.shareGameBtn.innerHTML;
+            dom.shareGameBtn.innerHTML = `<span class="material-icons">check</span>`;
+            dom.shareGameBtn.title = '已複製！';
+            setTimeout(() => {
+                dom.shareGameBtn.innerHTML = originalIcon;
+                dom.shareGameBtn.title = '分享目前設定';
+            }, 2000);
+        }).catch(err => {
+            alert('複製分享網址失敗！');
+            console.error('無法複製網址: ', err);
+        });
+    }
 
     // 啟動遊戲
     init();
 });
+
