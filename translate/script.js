@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		'data-dapu-kasu.js': ['dapu-kasu', 'kasu-dapu'],
         'data-holo-kasu.js': ['holo-kasu', 'kasu-holo'],
     };
-	// --- 【新增】 動態 Textarea 高度 ---
+	// --- 動態 Textarea 高度 ---
     const isMobile = () => window.innerWidth <= 768;
 
     /**
@@ -71,7 +71,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // 3. 加上 2px 緩衝，避免某些瀏覽器出現閃爍的捲動條
         element.style.height = (element.scrollHeight + 2) + 'px';
     }
-    // --- 【新增結束】 ---
 
 	// --- 預先計算代理 (Proxy) 語言 ---
     const proxyMap = new Map();
