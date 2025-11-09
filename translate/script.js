@@ -723,26 +723,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-	/**
+/**
      * [REVISED] 根據來源/目標語言和動作，取得字典和要執行的函式
-     * (修正 'sourceText' initialization 錯誤)
-     * @param {string} from - 來源語言 (e.g., 'chinese')
-     * @param {string} to - 目標語言 (e.g., 'kasu')
+     * @param {string} from - 來源語言
+     * @param {string} to - 目標語言
      * @param {string} action - 'translate', 'segment', 'space'
      * @returns {Promise<object>} { dicts, actionFn, sourceText }
      */
     async function getDictionaryAndAction(from, to, action) {
         
-        // --- 【核心修正】: 將 sourceText 和 delimiter 移到函式最頂端 ---
         const sourceText = textInput.value;
         const delimiter = translationDelimiter;
-        // --- 【修正結束】 ---
 
-        // --- 1. 處理斷詞 (action 'space' or 'segment') ---
+        // --- 1. 處理斷詞 (邏輯不變) ---
         if (action === 'space' || action === 'segment') {
+            // ... (此區塊邏輯不變，請保留您原有的程式碼) ...
             console.log(`[Segment] 執行斷詞: ${from}`);
-            
-            // (此區塊邏輯不變，現在可以安全存取 sourceText)
             const proxyFromTarget = getProxyTarget(from);
             const segmentSourceLang = proxyFromTarget || from; 
             let dataFile, segmentPairKey;
@@ -770,8 +766,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (segmentSourceLang === langB) reSegment = dicts.reGK; 
                 else reSegment = dicts.reKG; 
             }
-            
-            // 現在 'sourceText' 已被初始化，可以安全返回
             if (action === 'space') {
                 return { dicts: dicts, actionFn: (text, d) => TonvBasic(text, reSegment, d.reVariant, d.mapVariant), sourceText: sourceText };
             } else {
@@ -780,55 +774,55 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // --- 2. 處理翻譯 ---
-        // 'delimiter' 和 'sourceText' 已移到頂端
-        
-        let currentText = sourceText; // 使用 'currentText' 進行多步驟處理
+        let currentText = sourceText;
         let currentFrom = from;
+        let currentTo = to;
 
         // --- Step 1: 處理 'from' 代理 (e.g., sixiannan -> sixian) ---
-        const proxyFromTarget = getProxyTarget(from);
-        if (proxyFromTarget && to !== proxyFromTarget) {
+        const proxyFromTarget = getProxyTarget(currentFrom);
+        if (proxyFromTarget && currentTo !== proxyFromTarget) {
             console.log(`[Proxy] 步驟 1 (FROM): ${currentFrom} -> ${proxyFromTarget}`);
             currentText = await executeTranslation(currentFrom, proxyFromTarget, currentText, delimiter);
-            currentFrom = proxyFromTarget; // 'from' 現在變成了 'sixian'
+            currentFrom = proxyFromTarget;
         }
 
-        // --- Step 2: 處理 'to' 代理 (找出 'effectiveTo') ---
-        const proxyToTarget = getProxyTarget(to);
-        let effectiveTo = to;
+        // --- Step 2: 處理 'to' 代理 (e.g., sixiannan <- sixian) ---
+        const proxyToTarget = getProxyTarget(currentTo);
         if (proxyToTarget && currentFrom !== proxyToTarget) {
-             effectiveTo = proxyToTarget; // 主要翻譯的目標是 'sixian'
-             console.log(`[Proxy] 主要目標設定為 (TO): ${effectiveTo}`);
+            console.log(`[Proxy] 步驟 2 (FINAL TO): 目標是代理 ${currentTo}，將在最後處理`);
         }
-
-        // --- Step 3: 執行主要翻譯 (currentFrom -> effectiveTo) ---
-        let mainResultText;
-        const requiresPivot = (currentPivotLang && currentPivotLang !== DIRECT_TRANSLATE_KEY);
         
-        if (requiresPivot && currentPivotLang !== currentFrom && currentPivotLang !== effectiveTo) {
-            // --- A. 樞軸翻譯 (from -> pivot -> effectiveTo) ---
+        // --- Step 3: 執行主要翻譯 (currentFrom -> effectiveTo) ---
+        const effectiveTo = (proxyToTarget && currentFrom !== proxyToTarget) ? proxyToTarget : currentTo;
+
+        let mainResultText;
+        // 【核心修正】: 使用更明確的判斷
+        const usePivot = (currentPivotLang && currentPivotLang !== DIRECT_TRANSLATE_KEY);
+
+        if (usePivot) {
+            // --- A. 樞軸翻譯 ---
             const pivotLang = currentPivotLang;
-            console.log(`[Pivot] 步驟 2 (MAIN): ${currentFrom} -> ${pivotLang} -> ${effectiveTo}`);
+            console.log(`[Pivot] MAIN: ${currentFrom} -> ${pivotLang} -> ${effectiveTo}`);
             let pivotText = await executeTranslation(currentFrom, pivotLang, currentText, delimiter);
             mainResultText = await executeTranslation(pivotLang, effectiveTo, pivotText, delimiter);
         } else {
-            // --- B. 直達翻譯 (from -> effectiveTo) ---
-            console.log(`[Translate] 步驟 2 (MAIN): ${currentFrom} -> ${effectiveTo}`);
+            // --- B. 直達翻譯 ---
+            console.log(`[Translate] MAIN: ${currentFrom} -> ${effectiveTo}`);
             mainResultText = await executeTranslation(currentFrom, effectiveTo, currentText, delimiter);
         }
 
         // --- Step 4: 處理 'to' 代理 (final hop) ---
         let finalResultText = mainResultText;
         if (proxyToTarget && currentFrom !== proxyToTarget) {
-             console.log(`[Proxy] 步驟 3 (FINAL TO): ${proxyToTarget} -> ${to}`);
-             finalResultText = await executeTranslation(proxyToTarget, to, mainResultText, delimiter);
+             console.log(`[Proxy] FINAL HOP: ${proxyToTarget} -> ${currentTo}`);
+             finalResultText = await executeTranslation(proxyToTarget, currentTo, mainResultText, delimiter);
         }
 
         // --- Step 5: 返回一個立即執行的函式 ---
         return {
-            dicts: null, // 字典已在內部使用
-            actionFn: (text, d) => finalResultText, // 直接返回已計算好的結果
-            sourceText: sourceText // 返回原始的 sourceText (actionFn 會忽略它)
+            dicts: null,
+            actionFn: () => finalResultText, // 直接返回已計算好的結果
+            sourceText: sourceText
         };
     }
 
