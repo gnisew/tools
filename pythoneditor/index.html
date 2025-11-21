@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Python Editor 烏衣行</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.31.1/ace.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.1.0/ansi_up.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-color: #1e1e1e; --header-bg: #2d2d2d; --accent-color: #4CAF50;
+            --secondary-color: #2196F3; --btn-text: #e0e0e0; --border-color: #444;
+            --toolbar-bg: #252526; --symbol-btn-bg: #3e3e42;
+            --gutter-bg: #111; --gutter-hover: #4CAF50;
+            --font-web: "JetBrains Mono", monospace;
+            --font-sys: "Consolas", "Monaco", monospace;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0; padding: 0; background-color: var(--bg-color); color: var(--btn-text);
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+            overscroll-behavior: none;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--header-bg); padding: 0 10px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border-color); height: 50px; flex-shrink: 0; z-index: 20;
+        }
+        h1 { font-size: 0.9rem; margin: 0; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+        
+        .btn-group { display: flex; gap: 5px; }
+
+        button {
+            border: none; padding: 0 10px; height: 32px; border-radius: 4px;
+            font-size: 0.8rem; font-weight: bold; cursor: pointer; color: white;
+            display: flex; align-items: center; justify-content: center; transition: opacity 0.2s; user-select: none;
+        }
+        button:active { opacity: 0.7; transform: scale(0.98); }
+        button:disabled { background-color: #555 !important; opacity: 0.5; cursor: not-allowed; }
+
+        .btn-gray { background-color: #444; border: 1px solid #555; }
+        .btn-gray.active { border-color: var(--secondary-color); color: var(--secondary-color); }
+        .btn-blue { background-color: var(--secondary-color); }
+        .btn-green { background-color: var(--accent-color); min-width: 60px; }
+        .btn-text { background: none; color: #aaa; border: 1px solid transparent; font-weight: normal;}
+        .btn-text:hover { color: #fff; background-color: #333; }
+
+        @media (max-width: 768px) {
+            #layout-btn { display: none; } 
+            h1 { display: none; } 
+        }
+
+        /* Toolbar */
+        #symbol-toolbar {
+            background-color: var(--toolbar-bg); padding: 6px 0;
+            display: flex; overflow-x: auto; white-space: nowrap;
+            border-bottom: 1px solid var(--border-color); flex-shrink: 0;
+            width: 100%; max-width: 100vw;
+            scrollbar-width: none; -ms-overflow-style: none;
+        }
+        #symbol-toolbar::-webkit-scrollbar { display: none; }
+        #symbol-toolbar.hidden { display: none; }
+
+        .sym-btn {
+            background-color: var(--symbol-btn-bg); color: #ddd;
+            min-width: 42px; height: 36px; margin: 0 3px;
+            font-family: var(--font-web); font-size: 1.1rem;
+            border-radius: 6px; flex-shrink: 0; border: 1px solid #555;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .sym-btn:first-child { margin-left: 8px; }
+        .sym-btn:last-child { margin-right: 8px; }
+        .sym-btn:active { background-color: var(--accent-color); color: #fff; border-color: transparent; }
+
+        /* Workspace */
+        #main-workspace { flex: 1; display: flex; overflow: hidden; position: relative; }
+        #main-workspace.layout-vertical { flex-direction: column; }
+        #main-workspace.layout-horizontal { flex-direction: row; }
+
+        #editor-container { position: relative; overflow: hidden; min-height: 50px; min-width: 50px; }
+        #output-container { display: flex; flex-direction: column; background-color: #121212; overflow: hidden; min-height: 50px; min-width: 50px; }
+
+        #editor { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
+
+        /* Resizer */
+        .gutter {
+            background-color: var(--gutter-bg);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 10; user-select: none; transition: background-color 0.2s;
+        }
+        .gutter:hover, .gutter.active { background-color: var(--gutter-hover); }
+        .gutter::after { content: ''; display: block; background-color: #555; border-radius: 2px; }
+
+        #main-workspace.layout-vertical .gutter { height: 10px; width: 100%; cursor: row-resize; border-top: 1px solid #333; border-bottom: 1px solid #333; }
+        #main-workspace.layout-vertical .gutter::after { width: 30px; height: 2px; }
+
+        #main-workspace.layout-horizontal .gutter { width: 10px; height: 100%; cursor: col-resize; border-left: 1px solid #333; border-right: 1px solid #333; }
+        #main-workspace.layout-horizontal .gutter::after { width: 2px; height: 30px; }
+
+        /* Output */
+        .output-header {
+            padding: 5px 10px; font-size: 0.75rem; color: #888; background-color: #252526;
+            border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+        }
+        #output {
+            flex: 1; padding: 10px; overflow-y: auto;
+            font-family: var(--font-sys); font-size: 14px; white-space: pre-wrap; color: #ddd; line-height: 1.4;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(2px);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 999; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        
+        .modal-content {
+            background: #333; width: 85%; max-width: 450px;
+            border-radius: 12px; padding: 20px; border: 1px solid #555;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8); max-height: 85vh; overflow-y: auto;
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .modal-title { font-size: 1.1rem; font-weight: bold; color: white; }
+        .close-modal { font-size: 1.5rem; color: #aaa; background: none; padding: 0; }
+
+        .menu-group-title { color: var(--accent-color); font-size: 0.8rem; margin: 15px 0 5px 0; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #555; padding-bottom: 5px; }
+        .menu-list { display: flex; flex-direction: column; gap: 8px; }
+        .menu-item {
+            background: #444; padding: 10px 12px; border-radius: 8px; text-align: left;
+            display: flex; flex-direction: column; width: 100%; border: 1px solid transparent;
+        }
+        .menu-item:hover { background: #505050; }
+        .menu-item strong { font-size: 0.9rem; color: #fff; margin-bottom: 2px;}
+        .menu-item small { font-size: 0.75rem; color: #bbb; }
+        .menu-item.installed { border-color: var(--accent-color); color: var(--accent-color); }
+        .custom-install { display: flex; gap: 5px; margin-top: 15px; padding-top: 15px; border-top: 1px solid #555; }
+        .custom-install input { flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #555; background: #222; color: white; }
+
+        .error-msg { color: #ff6b6b; }
+        .system-msg { color: #64b5f6; font-style: italic; opacity: 0.8; }
+        .success-msg { color: #81c784; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>烏衣行 Python Editor</h1>
+        <div class="btn-group">
+            <button id="layout-btn" class="btn-gray" onclick="toggleLayout()">◫ 版面</button>
+            <button id="font-btn" class="btn-gray" onclick="toggleFont()">Aa</button>
+            <button class="btn-gray" onclick="openModal('example-modal')">📖 範例</button>
+            <button class="btn-gray" onclick="toggleToolbar()">⌨️ 符號</button>
+            <button class="btn-blue" onclick="openModal('pkg-modal')">📦 套件</button>
+            <button class="btn-green" id="run-btn" onclick="runPython()" disabled>載入中</button>
+        </div>
+    </header>
+
+    <div id="symbol-toolbar" class="hidden"></div>
+
+    <div id="main-workspace" class="layout-vertical">
+        <div id="editor-container" style="flex-basis: 60%;">
+            <div id="editor"># Python Ready.
+# 試試看: 點擊「📖 範例」->「有趣套件」
+# 執行代碼時會自動安裝所需套件！
+</div>
+        </div>
+        <div class="gutter" id="resizer"></div>
+        <div id="output-container" style="flex-basis: 40%;">
+            <div class="output-header">
+                <span>Terminal</span>
+                <div style="display:flex; gap:5px; align-items:center;">
+                    <span id="status-indicator" style="color: #666; margin-right: 5px;">Init...</span>
+                    <button class="btn-text" id="copy-btn" onclick="copyOutput()">複製</button>
+                    <div style="width:1px; height:12px; background:#555;"></div>
+                    <button class="btn-text" onclick="clearOutput()">清除</button>
+                </div>
+            </div>
+            <div id="output"></div>
+        </div>
+    </div>
+
+    <div id="pkg-modal" class="modal-overlay" onclick="handleModalClick(event, 'pkg-modal')">
+        <div class="modal-content">
+            <div class="modal-header"><div class="modal-title">📦 套件管理</div><button class="close-modal" onclick="closeModal('pkg-modal')">×</button></div>
+            <div style="color:#aaa; font-size:0.8rem; margin-bottom:10px;">自動安裝已啟用，無需手動點擊。</div>
+            <div class="menu-list">
+                <button class="menu-item" id="btn-asciichartpy" onclick="installPip('asciichartpy')"><strong>AsciiChart</strong><small>終端機折線圖</small></button>
+                <button class="menu-item" id="btn-art" onclick="installPip('art')"><strong>Art</strong><small>ASCII 藝術字產生器</small></button>
+                <button class="menu-item" id="btn-sympy" onclick="installNative('sympy')"><strong>SymPy</strong><small>符號數學運算</small></button>
+                <button class="menu-item" id="btn-pandas" onclick="installNative('pandas')"><strong>Pandas</strong><small>資料分析</small></button>
+            </div>
+            <div class="custom-install">
+                <input type="text" id="pip-name" placeholder="套件名稱">
+                <button class="btn-gray" onclick="customInstall()">安裝</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="example-modal" class="modal-overlay" onclick="handleModalClick(event, 'example-modal')">
+        <div class="modal-content">
+            <div class="modal-header"><div class="modal-title">📖 學習與趣味範例</div><button class="close-modal" onclick="closeModal('example-modal')">×</button></div>
+            
+            <div class="menu-group-title">🎨 趣味與視覺化 (Fun)</div>
+            <div class="menu-list">
+                <button class="menu-item" onclick="loadExample('asciichart')"><strong>文字折線圖 (Chart)</strong><small>使用 asciichartpy 繪圖</small></button>
+                <button class="menu-item" onclick="loadExample('art_demo')"><strong>藝術字 (ASCII Art)</strong><small>產生超酷的大型文字</small></button>
+                <button class="menu-item" onclick="loadExample('cowsay')"><strong>乳牛說話 (Cowsay)</strong><small>經典 Linux 趣味程式</small></button>
+            </div>
+
+            <div class="menu-group-title">📐 數學與科學 (Math)</div>
+            <div class="menu-list">
+                <button class="menu-item" onclick="loadExample('sympy_solve')"><strong>解方程式 (Algebra)</strong><small>使用 SymPy 解 x, y</small></button>
+                <button class="menu-item" onclick="loadExample('numpy_stats')"><strong>統計運算 (NumPy)</strong><small>平均數、標準差</small></button>
+            </div>
+
+            <div class="menu-group-title">🌱 基礎學習</div>
+            <div class="menu-list">
+                <button class="menu-item" onclick="loadExample('list_comp')"><strong>列表推導式</strong><small>Python 必學語法</small></button>
+                <button class="menu-item" onclick="loadExample('try_except')"><strong>錯誤處理</strong><small>Try / Except</small></button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Init ---
+        const outputDiv = document.getElementById("output");
+        const runBtn = document.getElementById("run-btn");
+        const statusSpan = document.getElementById("status-indicator");
+        const symbolToolbar = document.getElementById("symbol-toolbar");
+        const workspace = document.getElementById("main-workspace");
+        const fontBtn = document.getElementById("font-btn");
+        const editorContainer = document.getElementById("editor-container");
+        const outputContainer = document.getElementById("output-container");
+        const resizer = document.getElementById("resizer");
+        
+        let pyodide = null;
+        let ansi_up = typeof AnsiUp !== 'undefined' ? new AnsiUp() : { ansi_to_html: t => t };
+        let isWebFont = false;
+        let installedPackages = new Set();
+        let isVertical = true;
+
+        var editor = ace.edit("editor");
+        editor.setTheme("ace/theme/twilight");
+        editor.session.setMode("ace/mode/python");
+        editor.setOptions({
+            wrap: true, showPrintMargin: false, fontSize: "16px", tabSize: 4,
+            fontFamily: "Consolas, Monaco, monospace"
+        });
+
+        // --- Resizer ---
+        let isResizing = false;
+        resizer.addEventListener('mousedown', startResize);
+        resizer.addEventListener('touchstart', startResize);
+        function startResize(e) {
+            isResizing = true; resizer.classList.add('active');
+            document.body.style.cursor = isVertical ? 'row-resize' : 'col-resize';
+            document.body.style.userSelect = 'none';
+            window.addEventListener('mousemove', resize); window.addEventListener('touchmove', resize);
+            window.addEventListener('mouseup', stopResize); window.addEventListener('touchend', stopResize);
+        }
+        function resize(e) {
+            if (!isResizing) return;
+            const cx = e.touches ? e.touches[0].clientX : e.clientX;
+            const cy = e.touches ? e.touches[0].clientY : e.clientY;
+            const rect = workspace.getBoundingClientRect();
+            let pct = isVertical ? ((cy - rect.top) / rect.height) * 100 : ((cx - rect.left) / rect.width) * 100;
+            pct = Math.max(10, Math.min(90, pct));
+            editorContainer.style.flexBasis = `${pct}%`;
+            outputContainer.style.flexBasis = `${100 - pct}%`;
+            editor.resize();
+        }
+        function stopResize() {
+            isResizing = false; resizer.classList.remove('active');
+            document.body.style.cursor = ''; document.body.style.userSelect = '';
+            window.removeEventListener('mousemove', resize); window.removeEventListener('touchmove', resize);
+            window.removeEventListener('mouseup', stopResize); window.removeEventListener('touchend', stopResize);
+        }
+
+        // --- UI Toggles ---
+        function toggleLayout() {
+            isVertical = !isVertical;
+            workspace.className = isVertical ? "layout-vertical" : "layout-horizontal";
+            editorContainer.style.flexBasis = isVertical ? "60%" : "50%";
+            outputContainer.style.flexBasis = isVertical ? "40%" : "50%";
+            setTimeout(() => editor.resize(), 50);
+        }
+        function toggleFont() {
+            isWebFont = !isWebFont;
+            const f = isWebFont ? "'JetBrains Mono', monospace" : "Consolas, Monaco, monospace";
+            editor.setOptions({ fontFamily: f }); outputDiv.style.fontFamily = f;
+            fontBtn.classList.toggle('active');
+        }
+        
+        // --- Toolbar ---
+        const symbols = [':', '=', '(', ')', '[', ']', '{', '}', "'", '"', '+', '-', '*', '/', '<', '>', '_', '#', 'print', 'range', 'len', 'def', 'return', 'import'];
+        symbols.forEach(c => {
+            const b = document.createElement('button'); b.className = 'sym-btn';
+            b.textContent = c;
+            b.onclick = () => { editor.insert(c); editor.focus(); };
+            symbolToolbar.appendChild(b);
+        });
+        function toggleToolbar() { symbolToolbar.classList.toggle('hidden'); setTimeout(()=>editor.resize(), 50); }
+
+        // --- Auto Install ---
+        const packageMap = {
+            'numpy': { type: 'native', pkg: 'numpy' },
+            'pandas': { type: 'native', pkg: 'pandas' },
+            'sympy': { type: 'native', pkg: 'sympy' },
+            'asciichartpy': { type: 'pip', pkg: 'asciichartpy' },
+            'art': { type: 'pip', pkg: 'art' },
+            'cowsay': { type: 'pip', pkg: 'cowsay' },
+            'rich': { type: 'pip', pkg: 'rich' },
+            'faker': { type: 'pip', pkg: 'Faker' },
+            'bs4': { type: 'pip', pkg: 'beautifulsoup4' }
+        };
+
+        async function detectAndInstallImports(code) {
+            const regex = /(?:^|\n)\s*(?:import|from)\s+([a-zA-Z0-9_]+)/g;
+            let match, needed = new Set();
+            while ((match = regex.exec(code)) !== null) {
+                const lib = match[1].toLowerCase();
+                if (packageMap[lib] && !installedPackages.has(lib)) needed.add(lib);
+            }
+            if (needed.size > 0) {
+                printToOutput(`>>> 自動偵測並安裝: ${Array.from(needed).join(", ")}...`, "system");
+                for (let lib of needed) {
+                    const info = packageMap[lib];
+                    statusSpan.textContent = `Install ${info.pkg}...`;
+                    try {
+                        if (info.type === 'native') await pyodide.loadPackage(info.pkg);
+                        else { const m = pyodide.pyimport("micropip"); await m.install(info.pkg); }
+                        installedPackages.add(lib);
+                        document.getElementById(`btn-${lib}`)?.classList.add('installed');
+                    } catch (e) { printToOutput(`安裝 ${info.pkg} 失敗: ${e}`, "error"); }
+                }
+                printToOutput(">>> 安裝完成，執行程式。\n", "success");
+            }
+        }
+
+        // --- Examples ---
+        const examples = {
+            asciichart: [
+                '# [Auto Install] asciichartpy',
+                'import asciichartpy',
+                'import math',
+                '',
+                '# 產生正弦波數據',
+                'series = [10 * math.sin(i * 0.2) for i in range(60)]',
+                '',
+                'print("--- 終端機折線圖 ---")',
+                '# 繪製圖表 (高度 10)',
+                'print(asciichartpy.plot(series, {"height": 10}))'
+            ].join('\n'),
+
+            art_demo: [
+                '# [Auto Install] art',
+                'from art import text2art',
+                '',
+                'print("--- ASCII 藝術字 ---")',
+                'print(text2art("PYTHON"))',
+                'print(text2art("PyEditor", font="block"))',
+                'print(text2art("COOL!", font="random"))'
+            ].join('\n'),
+
+            cowsay: [
+                '# [Auto Install] cowsay',
+                'import cowsay',
+                '',
+                'cowsay.cow("Hello PyEditor!")',
+                'cowsay.dragon("我是龍！")'
+            ].join('\n'),
+
+            sympy_solve: [
+                '# [Auto Install] sympy',
+                'from sympy import symbols, Eq, solve',
+                '',
+                'print("--- 解二元一次聯立方程式 ---")',
+                'print("x + y = 5")',
+                'print("x - y = 1")',
+                '',
+                'x, y = symbols("x y")',
+                'eq1 = Eq(x + y, 5)',
+                'eq2 = Eq(x - y, 1)',
+                '',
+                'ans = solve((eq1, eq2), (x, y))',
+                'print(f"解答: {ans}")'
+            ].join('\n'),
+
+            numpy_stats: [
+                'import numpy as np',
+                'scores = [80, 95, 70, 100, 65, 88]',
+                'print(f"分數: {scores}")',
+                'print(f"平均: {np.mean(scores):.2f}")',
+                'print(f"標準差: {np.std(scores):.2f}")',
+                'print(f"最高分: {np.max(scores)}")'
+            ].join('\n'),
+
+            list_comp: [
+                'words = ["apple", "banana", "cherry", "date"]',
+                '# 取出長度大於 5 的單字並轉大寫',
+                'long_upper = [w.upper() for w in words if len(w) > 5]',
+                'print(long_upper)'
+            ].join('\n'),
+            
+            try_except: [
+                'try:',
+                '    num = int("abc")',
+                'except ValueError:',
+                '    print("錯誤：字串無法轉換為整數")'
+            ].join('\n')
+        };
+
+        function loadExample(key) { editor.setValue(examples[key], -1); closeModal('example-modal'); }
+
+        // --- Utils ---
+        function printToOutput(text, type = "normal") {
+            const div = document.createElement("div");
+            if (type === "error") div.className = "error-msg";
+            else if (type === "system") div.className = "system-msg";
+            else if (type === "success") div.className = "success-msg";
+            div.innerHTML = (type === "normal") ? ansi_up.ansi_to_html(String(text)) : String(text);
+            outputDiv.appendChild(div); outputDiv.scrollTop = outputDiv.scrollHeight;
+        }
+        function clearOutput() { outputDiv.innerHTML = ""; }
+        function copyOutput() {
+            navigator.clipboard.writeText(outputDiv.innerText).then(() => {
+                const btn = document.getElementById("copy-btn"); const t = btn.textContent;
+                btn.textContent = "OK!"; setTimeout(() => btn.textContent = t, 1000);
+            });
+        }
+        function openModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+        function handleModalClick(e, id) { if (e.target.id === id) closeModal(id); }
+        async function customInstall() { const val = document.getElementById('pip-name').value.trim(); if(val) installPip(val); }
+
+        // Install Helpers
+        async function installPip(n) { installGeneric(n, async () => { const m = pyodide.pyimport("micropip"); await m.install(n); }); }
+        async function installNative(n) { installGeneric(n, async () => { await pyodide.loadPackage(n); }); }
+        async function installGeneric(n, fn) {
+            closeModal('pkg-modal'); printToOutput(`>>> 安裝 ${n}...`, "system"); statusSpan.textContent = `Install ${n}...`;
+            try { await fn(); installedPackages.add(n.toLowerCase()); document.getElementById(`btn-${n.toLowerCase()}`)?.classList.add('installed'); printToOutput(`>>> ${n} OK`, "success"); }
+            catch (e) { printToOutput(`失敗: ${e}`, "error"); } finally { statusSpan.textContent = "Ready"; }
+        }
+
+        // --- Run ---
+        async function initPyodide() {
+            try {
+                printToOutput(">>> 正在載入 Python...", "system");
+                pyodide = await loadPyodide();
+                await pyodide.loadPackage("micropip");
+                pyodide.setStdout({ batched: (msg) => printToOutput(msg) });
+                printToOutput(">>> Python Ready.", "success");
+                statusSpan.textContent = "Ready"; runBtn.disabled = false; runBtn.textContent = "執行";
+            } catch (err) { printToOutput("Init Error: " + err, "error"); }
+        }
+
+        async function runPython() {
+            if (!pyodide) return;
+            let code = editor.getValue().replace(/\u200b/g, '');
+            const sep = document.createElement("div"); sep.style.borderTop = "1px dashed #333"; sep.style.margin = "8px 0"; outputDiv.appendChild(sep);
+            statusSpan.textContent = "Running..."; runBtn.disabled = true;
+            try { await detectAndInstallImports(code); await pyodide.runPythonAsync(code); }
+            catch (err) { printToOutput(err.toString(), "error"); }
+            finally { statusSpan.textContent = "Ready"; runBtn.disabled = false; }
+        }
+
+        initPyodide();
+    </script>
+</body>
+</html>
