@@ -6,7 +6,7 @@ const state = {
     vocabulary: [], // Will be initialized from VOCAB_DATA
     listMode: 'full', // 'full' or 'compact'
     sortOrder: 'default', // 'default' or 'alpha'
-    listColumns: ['check', 'num', 'word', 'kk', 'part', 'def'],
+    listColumns: ['check', 'num', 'word', 'kk', 'part', 'def', 'other'],
 	pagination: {
         mode: 'unit', // 選項: 'unit', '50', '100', 'all'
         currentPage: 1
@@ -26,7 +26,8 @@ const state = {
         mode: 'read', // 'read', 'quiz'
         filledBlanks: {},
         selectedBlank: null,
-        revealedTrans: {}
+        revealedTrans: {},
+		consecutiveErrors: 0
     },
 	audio: {
         lastText: null,
@@ -229,7 +230,8 @@ function updateNavActiveState() {
 // --- HOME VIEW ---
 function renderHome() {
     const container = document.createElement('div');
-    container.className = "flex flex-col items-center justify-center p-6 animate-fade-in w-full max-w-2xl";
+    // [修改點] 移除了 'animate-fade-in'
+    container.className = "flex flex-col items-center justify-center p-6 w-full max-w-2xl";
     
     const isAllSelected = state.selectedUnits.length === state.allUnits.length;
 
@@ -297,7 +299,7 @@ function renderList() {
         totalPages = distinctUnits.length;
         
         if (currentPage > totalPages) currentPage = 1;
-        if (currentPage < 1 && totalPages > 0) currentPage = 1; // 防呆
+        if (currentPage < 1 && totalPages > 0) currentPage = 1;
         state.pagination.currentPage = currentPage;
 
         if (totalPages > 0) {
@@ -317,17 +319,16 @@ function renderList() {
 
         const startIndex = (currentPage - 1) * pageSize;
         displayWords = allWords.slice(startIndex, startIndex + pageSize);
-        pageInfo = `第 ${currentPage} 頁`; // 簡化顯示
+        pageInfo = `第 ${currentPage} 頁`;
     }
 
-    // 計算本頁是否全選
     const isAllChecked = displayWords.length > 0 && displayWords.every(w => w.checked);
 
     // 3. 建立容器與 Header
     const container = document.createElement('div');
-    container.className = "pb-48 animate-fade-in w-full max-w-6xl mx-auto px-4";
+    // [修改點 1] 移除 'animate-fade-in' 類別，消除按鈕點擊時的閃爍浮動感
+    container.className = "pb-48 w-full max-w-6xl mx-auto px-4";
 
-    // 準備上方分頁按鈕 HTML (取代原本的提示文字)
     let topPaginationHTML = '';
     if (totalPages > 1) {
         topPaginationHTML = `
@@ -363,10 +364,12 @@ function renderList() {
                 </div>
 
                 <button onclick="toggleSortOrder()" class="flex items-center gap-1 bg-indigo-700 hover:bg-indigo-500 px-3 py-1.5 rounded-lg text-sm transition-colors border border-indigo-500">
-                    <i class="fas ${state.sortOrder === 'default' ? 'fa-sort-alpha-down' : 'fa-sort-numeric-down'}"></i> ${state.sortOrder === 'default' ? "字母排序" : "原序"}
+                    <i class="fas ${state.sortOrder === 'default' ? 'fa-sort-alpha-down' : 'fa-sort-numeric-down'}"></i> ${state.sortOrder === 'default' ? "字母" : "原序"}
                 </button>
+                
                 <button onclick="toggleListMode()" class="flex items-center gap-1 bg-indigo-700 hover:bg-indigo-500 px-3 py-1.5 rounded-lg text-sm transition-colors border border-indigo-500">
                     <i class="fas ${state.listMode === 'full' ? 'fa-list' : 'fa-th'}"></i>
+                    <span>${state.listMode === 'full' ? '精簡' : '完整'}</span>
                 </button>
            </div>
         </div>
@@ -384,35 +387,41 @@ function renderList() {
     if (displayWords.length === 0) {
         listContainer.innerHTML = `<div class="text-center py-10 text-gray-500">本頁無資料</div>`;
     } else if (state.listMode === 'compact') {
-        // --- Compact Mode ---
-        listContainer.className = "bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6";
+        // --- Compact Mode (精簡檢視) ---
+        listContainer.className = "bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6 overflow-x-auto";
         
-        // Header Row (動態生成 Checkbox)
         const headerRow = document.createElement('div');
-        headerRow.className = "flex bg-gray-50 p-2 border-b border-gray-200 gap-2 select-none";
+        headerRow.className = "flex bg-gray-50 p-2 border-b border-gray-200 gap-2 select-none min-w-[800px]"; 
         
-        // 這裡定義欄位，特別注意 check 欄位現在是全選開關
-        // 使用 preventDefault 防止拖曳時觸發點擊，使用 stopPropagation 防止點擊時觸發其他事件
         const checkIcon = isAllChecked ? 'fa-check-square text-indigo-600' : 'fa-square text-gray-400';
         const checkHTML = `<i class="far ${checkIcon} text-lg cursor-pointer hover:text-indigo-500 transition-colors" onclick="event.stopPropagation(); toggleAllVocabCheck(${!isAllChecked})"></i>`;
 
         const colLabels = { 
-            check: checkHTML, // 替換原本的 '選取'
+            check: checkHTML,
             num: '編號', 
             word: '單字', 
-            kk: 'KK音標', 
+            kk: 'KK', 
             part: '詞性', 
-            def: '中文' 
+            def: '中文定義',
+            other: '變化形'
         };
-        const colWidths = { check: 'w-12', num: 'w-12', word: 'flex-1', kk: 'w-24', part: 'w-16', def: 'flex-1' };
+        
+        const colWidths = { 
+            check: 'w-12', 
+            num: 'w-12', 
+            word: 'w-40', 
+            kk: 'w-28',   
+            part: 'w-14', 
+            def: 'flex-1', 
+            other: 'w-48'
+        };
 
         state.listColumns.forEach(col => {
             const cell = document.createElement('div');
             let alignClass = (col === 'check') ? 'justify-center text-center' : 'justify-start text-left pl-2';
             
-            cell.className = `${colWidths[col]} font-bold text-gray-500 text-sm cursor-move hover:bg-gray-100 py-2 rounded flex items-center gap-1 ${alignClass}`;
+            cell.className = `${colWidths[col]} font-bold text-gray-500 text-sm cursor-move hover:bg-gray-100 py-2 rounded flex items-center gap-1 ${alignClass} flex-shrink-0`;
             
-            // 如果是 check 欄位，直接插入 HTML；其他欄位加上拖曳圖示
             if (col === 'check') {
                 cell.innerHTML = colLabels[col];
             } else {
@@ -431,22 +440,47 @@ function renderList() {
         displayWords.forEach((item, index) => {
             const rowNum = index + 1;
             const row = document.createElement('div');
-            row.className = "flex items-center p-2 hover:bg-indigo-50 cursor-pointer transition-colors border-b border-gray-100 last:border-0 gap-2";
+            row.className = "flex items-center p-2 hover:bg-indigo-50 cursor-pointer transition-colors border-b border-gray-100 last:border-0 gap-2 min-w-[800px]";
+            
             row.onclick = () => speak(item.word);
 
             state.listColumns.forEach(col => {
                 let cellHTML = '';
                 switch(col) {
                     case 'check':
-                        cellHTML = `<div class="w-12 text-center" onclick="event.stopPropagation(); toggleVocabCheck(${item.id})">
+                        cellHTML = `<div class="w-12 text-center flex-shrink-0" onclick="event.stopPropagation(); toggleVocabCheck(${item.id})">
                             <i class="far ${item.checked ? 'fa-check-square text-indigo-600' : 'fa-square text-gray-300'} text-xl"></i>
                         </div>`;
                         break;
-                    case 'num': cellHTML = `<div class="w-12 text-left pl-4 text-indigo-600 font-mono text-xs font-bold">${rowNum}</div>`; break;
-                    case 'word': cellHTML = `<div class="flex-1 text-left pl-2 font-bold text-gray-800 text-lg">${item.word}</div>`; break;
-                    case 'kk': cellHTML = `<div class="w-24 text-left pl-2 text-gray-500 font-mono text-sm">${item.kk}</div>`; break;
-                    case 'part': cellHTML = `<div class="w-16 text-left pl-2 text-gray-500 font-bold text-xs italic">${item.part}</div>`; break;
-                    case 'def': cellHTML = `<div class="flex-1 text-left pl-2 text-gray-600">${item.def}</div>`; break;
+                    case 'num': 
+                        cellHTML = `<div class="w-12 text-left pl-4 text-indigo-600 font-mono text-xs font-bold flex-shrink-0">${rowNum}</div>`; 
+                        break;
+                    case 'word': 
+                        cellHTML = `<div class="w-40 text-left pl-2 font-bold text-gray-800 text-lg flex-shrink-0 truncate" title="${item.word}">${item.word}</div>`; 
+                        break;
+                    case 'kk': 
+                        cellHTML = `<div class="w-28 text-left pl-2 text-gray-500 font-mono text-sm flex-shrink-0 truncate">${item.kk}</div>`; 
+                        break;
+                    case 'part': 
+                        cellHTML = `<div class="w-14 text-left pl-2 text-gray-500 font-bold text-xs italic flex-shrink-0">${item.part}</div>`; 
+                        break;
+                    case 'def': 
+                        cellHTML = `<div class="flex-1 text-left pl-2 text-gray-600 truncate text-base" title="${item.def}">${item.def}</div>`; 
+                        break;
+                    case 'other': 
+                        // [修改點 3] 移除 '-'，若無資料則為空，確保版面整潔與對齊
+                        const otherText = item.other || '';
+                        const hasOther = !!item.other;
+                        
+                        const speakAction = hasOther ? `onclick="event.stopPropagation(); speak('${item.other.replace(/'/g, "\\'")}')"` : '';
+                        const styleClass = hasOther ? 
+                            'text-indigo-700 font-bold cursor-pointer hover:bg-indigo-100 hover:text-indigo-900 rounded px-2 -ml-2 transition-colors' : 
+                            'text-gray-300 pointer-events-none px-2 -ml-2'; // 即使是空值也保留 px-2 -ml-2 結構以維持水平對齊
+                        
+                        cellHTML = `<div class="w-48 text-left pl-2 text-sm flex-shrink-0 truncate ${styleClass}" title="${hasOther ? `點擊念出: ${otherText}` : ''}" ${speakAction}>
+                            ${otherText}
+                        </div>`; 
+                        break;
                 }
                 row.innerHTML += cellHTML;
             });
@@ -455,7 +489,6 @@ function renderList() {
 
     } else {
         // --- Full Mode (Cards) ---
-        // 為了方便卡片模式使用者，也在列表上方加一個簡單的全選條
         const toolsRow = document.createElement('div');
         toolsRow.className = "flex justify-between items-center mb-4 px-2";
         toolsRow.innerHTML = `
@@ -482,6 +515,13 @@ function renderList() {
                             <span class="text-3xl font-bold text-gray-800 group-hover:text-indigo-600 transition-colors">${item.word}</span>
                             <span class="text-sm text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded-md">${item.kk}</span>
                             <span class="text-sm font-semibold text-indigo-500 italic">${item.part}</span>
+                            
+                            ${item.other ? `
+                            <span class="text-sm font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded border border-indigo-200 ml-1 cursor-pointer hover:bg-indigo-100 hover:text-indigo-900 transition-colors shadow-sm" 
+                                  title="點擊朗讀變化形" 
+                                  onclick="event.stopPropagation(); speak('${item.other.replace(/'/g, "\\'")}')">
+                                <i class="fas fa-code-branch text-xs mr-1 opacity-50"></i>${item.other}
+                            </span>` : ''}
                         </div>
                         <p class="text-gray-600 text-lg font-medium mb-2">${item.def}</p>
                     </div>
@@ -502,7 +542,7 @@ function renderList() {
     }
     container.appendChild(listContainer);
 
-    // 5. Bottom Pagination (保留底部大按鈕，方便操作)
+    // 5. Bottom Pagination (保持不變)
     if (totalPages > 1) {
         const paginationNav = document.createElement('div');
         paginationNav.className = "flex justify-center items-center gap-4 py-6";
@@ -536,21 +576,84 @@ function initQuiz(mode) {
     const activeWords = state.vocabulary.filter(w => state.selectedUnits.includes(w.unit) && w.checked);
     
     if (activeWords.length === 0) {
-        state.quiz.questions = []; // No words
+        state.quiz.questions = []; 
         return;
     }
 
     // Generate Questions
     if (mode === 'sentence') {
         const validWords = activeWords.filter(w => w.sentence && w.sentence.length > 5);
+        
         state.quiz.questions = shuffle([...validWords]).map(w => {
-            const regex = new RegExp(`\\b${w.word}\\w*\\b`, 'i');
-            const questionText = w.sentence.replace(regex, '_______');
+            // --- 1. 找出句子裡實際用的是哪個字 (原形或變化形) ---
+            let usedWord = w.word; // 預設為原形
+            
+            const variations = w.other ? w.other.split('/').map(s => s.trim()).filter(s => s) : [];
+            const candidates = [w.word, ...variations];
+            
+            // 依照長度由長到短排序
+            candidates.sort((a, b) => b.length - a.length);
+
+            let matched = false;
+            let regex = null;
+
+            for (const cand of candidates) {
+                const re = new RegExp(`\\b${cand}\\b`, 'i');
+                if (re.test(w.sentence)) {
+                    const match = w.sentence.match(re);
+                    usedWord = match[0]; // 抓出句子裡實際的大小寫與拼法
+                    regex = re;
+                    matched = true;
+                    break;
+                }
+            }
+
+            if (!matched) {
+                const looseRe = new RegExp(`\\b${w.word}\\w*\\b`, 'i');
+                if (looseRe.test(w.sentence)) {
+                    const match = w.sentence.match(looseRe);
+                    usedWord = match[0];
+                    regex = looseRe;
+                } else {
+                    regex = new RegExp(w.word, 'i');
+                }
+            }
+
+            // --- 2. 產生題目文字 (挖空) ---
+            const blankPlaceholder = '_______';
+            const questionText = w.sentence.replace(regex, blankPlaceholder);
+
+            // --- 3. 準備選項 ---
             const others = shuffle(state.vocabulary.filter(cw => cw.id !== w.id)).slice(0, 3);
-            const options = shuffle([w, ...others]);
-            return { target: w, text: questionText, options, emoji: getRandomEmoji() };
+            const rawOptions = shuffle([w, ...others]);
+
+            const processedOptions = rawOptions.map(opt => {
+                let displayText = opt.word; 
+
+                if (opt.id === w.id) {
+                    displayText = usedWord;
+                } else {
+                    if (usedWord.toLowerCase() !== w.word.toLowerCase() && opt.other) {
+                        const optVars = opt.other.split('/').map(s => s.trim()).filter(s => s);
+                        if (optVars.length > 0) {
+                            displayText = optVars[Math.floor(Math.random() * optVars.length)];
+                        }
+                    }
+                }
+                return { ...opt, displayText };
+            });
+
+            // [新增] 將 usedWord 存入物件中，作為 answerWord
+            return { 
+                target: w, 
+                text: questionText, 
+                answerWord: usedWord, // 儲存正確答案的詞形
+                options: processedOptions, 
+                emoji: getRandomEmoji() 
+            };
         });
     } else {
+        // 一般模式 (不變)
         state.quiz.questions = shuffle([...activeWords]).map(w => {
             const others = shuffle(state.vocabulary.filter(cw => cw.id !== w.id)).slice(0, 3);
             const options = shuffle([w, ...others]);
@@ -596,8 +699,18 @@ function renderQuiz() {
     }
 
     const currentQ = questions[currentIndex];
-    const questionText = mode === 'cn-en' ? currentQ.target.def : (mode === 'en-cn' ? currentQ.target.word : currentQ.text);
+    
+    // 預設題目文字 (含底線)
+    let questionDisplayHTML = mode === 'cn-en' ? currentQ.target.def : (mode === 'en-cn' ? currentQ.target.word : currentQ.text);
     const targetWord = currentQ.target.word;
+
+    // [新增邏輯] 若為句子模式且已作答，將題目中的底線替換為高亮的正確答案
+    if (mode === 'sentence' && status === 'result') {
+        // 使用 CSS 加上底色(bg-indigo-100) 與 文字顏色(text-indigo-700)
+        const highlightedWord = `<span class="inline-block px-2 rounded-md bg-indigo-100 text-indigo-700 border-b-2 border-indigo-400 font-bold mx-1 animate-scale-in">${currentQ.answerWord}</span>`;
+        // 將底線替換掉
+        questionDisplayHTML = currentQ.text.replace('_______', highlightedWord);
+    }
 
     let headerHTML = `
         <div class="mb-6 flex justify-between items-center text-sm font-medium text-gray-500 bg-gray-100 px-4 py-2 rounded-full">
@@ -607,35 +720,35 @@ function renderQuiz() {
             </button>
         </div>`;
 
-    // 題目區塊 (修改重點：絕對置中)
     if (mode !== 'sentence') {
+        // 一般模式 Header
         headerHTML += `
         <div class="relative bg-white p-6 md:p-8 rounded-3xl shadow-sm mb-6 flex flex-col md:block items-center justify-center gap-6 border-b-4 border-indigo-100 min-h-[160px]">
-             
              <div onclick="speak('${targetWord}')" class="flex-shrink-0 bg-indigo-50 w-24 h-24 md:w-24 md:h-24 rounded-full flex items-center justify-center cursor-pointer hover:scale-105 hover:bg-indigo-100 transition-all active:scale-95 group mb-4 md:mb-0 md:absolute md:left-8 md:top-1/2 md:-translate-y-1/2 z-10">
                  <div class="text-5xl filter drop-shadow-sm group-hover:scale-110 transition-transform">
                     ${currentQ.emoji}
                  </div>
               </div>
-
               <div class="w-full flex flex-col items-center justify-center text-center md:h-[120px] md:px-32">
                 <h3 onclick="speak('${targetWord}')" class="text-3xl md:text-4xl font-bold text-gray-800 leading-tight cursor-pointer hover:text-indigo-600 transition-colors select-none active:scale-[0.98]">
-                    ${questionText}
+                    ${questionDisplayHTML}
                 </h3>
             </div>
         </div>
         `;
     } else {
-        // 句子模式
+        // 句子模式 Header
         headerHTML += `
-        <div class="bg-white p-6 md:p-10 rounded-3xl shadow-sm mb-6 min-h-[220px] flex flex-col justify-center border border-gray-100 text-center">
-             <h3 class="text-xl md:text-2xl font-medium text-gray-800 leading-relaxed font-serif">${questionText}</h3>
+        <div class="bg-white p-6 md:p-10 rounded-3xl shadow-sm mb-6 min-h-[220px] flex flex-col justify-center border border-gray-100 text-center relative overflow-hidden">
+             <h3 class="text-xl md:text-2xl font-medium text-gray-800 leading-relaxed font-serif relative z-10">${questionDisplayHTML}</h3>
+             
              ${status === 'result' ? `
                 <div class="mt-6 p-4 rounded-xl text-center animate-fade-in border ${selectedOption.id === currentQ.target.id ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}">
                      <div class="flex items-center justify-center gap-2 mb-2">
                         <i class="fas ${selectedOption.id === currentQ.target.id ? 'fa-check-circle text-green-600' : 'fa-times-circle text-red-600'} text-xl"></i>
-                        <span class="text-xl font-bold ${selectedOption.id === currentQ.target.id ? 'text-green-700' : 'text-red-700'}">${currentQ.target.word}</span>
-                        <button onclick="speak('${currentQ.target.word}')" class="p-1 bg-white rounded-full shadow-sm"><i class="fas fa-volume-up text-gray-600"></i></button>
+                        <span class="text-lg font-bold text-gray-500">正確答案: </span>
+                        <span class="text-xl font-bold text-indigo-600">${currentQ.answerWord}</span>
+                        <button onclick="speak('${currentQ.target.word}')" class="p-1 bg-white rounded-full shadow-sm hover:bg-gray-100"><i class="fas fa-volume-up text-gray-600"></i></button>
                      </div>
                      <p class="text-gray-700 font-medium">${currentQ.target.senTrans}</p>
                 </div>
@@ -644,17 +757,26 @@ function renderQuiz() {
         `;
     }
 
-    // 選項區塊 (維持不變)
+    // 選項區塊
     let optionsHTML = '';
     if (status === 'answering') {
         optionsHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             ${currentQ.options.map(opt => {
-                const content = mode === 'cn-en' ? opt.word : (mode === 'sentence' ? opt.word : opt.def);
+                let content = '';
+                if (mode === 'sentence') {
+                    content = opt.displayText || opt.word; 
+                } else if (mode === 'cn-en') {
+                    content = opt.word;
+                } else {
+                    content = opt.def;
+                }
+                
                 return `<button onclick="handleAnswer(${opt.id})" class="p-6 rounded-xl text-xl font-medium border-2 bg-white border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 text-gray-700 active:scale-[0.98] shadow-sm hover:-translate-y-1 transition-all relative overflow-hidden">${content}</button>`;
             }).join('')}
         </div>`;
     } else {
          if (mode !== 'sentence') {
+             // 一般模式的結果選項
              optionsHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 ${currentQ.options.map(opt => {
                     const content = mode === 'cn-en' ? opt.word : opt.def;
@@ -666,6 +788,7 @@ function renderQuiz() {
                 }).join('')}
              </div>`;
          } else {
+             // 句子模式的下一題按鈕 (選項消失，只留按鈕)
              optionsHTML = `<button onclick="nextQuestion()" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2 animate-bounce-subtle">
                 ${currentIndex < questions.length - 1 ? '下一題' : '查看結果'} <i class="fas fa-chevron-right"></i>
              </button>`;
@@ -1042,9 +1165,10 @@ function changeStory(idx) {
     state.story.selectedBlank = null;
     state.story.revealedTrans = {};
     
-    // 重置緩存，確保切換故事時會重新生成單字表
+    // 重置緩存與錯誤計數
     state.story.currentWordBank = null;
     state.story.cachedTitle = null; 
+    state.story.consecutiveErrors = 0; // [新增] 重置錯誤計數
     
     render();
 }
@@ -1087,24 +1211,89 @@ function fillStoryBlank(userWord) {
         // --- 答對 ---
         state.story.filledBlanks[state.story.selectedBlank] = userWord;
         state.story.selectedBlank = null;
+        state.story.consecutiveErrors = 0; // 重置錯誤計數
+        
         speak(userWord);
         render();
     } else {
         // --- 答錯 ---
         speak(userWord);
+        state.story.consecutiveErrors = (state.story.consecutiveErrors || 0) + 1;
+
+        // [修改點] 檢查是否達到 5 次錯誤
+        if (state.story.consecutiveErrors >= 5) {
+            
+            // 使用新的美觀提示窗
+            showCustomAlert("您似乎遇到了一些困難，<br>建議先回到閱讀模式複習一下喔！", () => {
+                // 1. 清空作答
+                state.story.filledBlanks = {};
+                // 2. 重置狀態
+                state.story.consecutiveErrors = 0;
+                state.story.selectedBlank = null;
+                state.story.errorBlank = null;
+                // 3. 自動切換回「閱讀模式」(更符合提示語境)
+                state.story.mode = 'read';
+                
+                render();
+            });
+            return; // 中斷後續執行，等待使用者點擊確認
+        }
         
-        // 1. 設定錯誤狀態 (紀錄哪個 ID 錯了)
+        // 未達 5 次，顯示錯誤紅框
         state.story.errorBlank = state.story.selectedBlank;
-        
-        // 2. 更新畫面 (顯示紅色)
         render();
         
-        // 3. 延遲 800毫秒後退回 (清除錯誤狀態，畫面會變回藍色選取框)
         setTimeout(() => {
             state.story.errorBlank = null;
             render();
         }, 800);
     }
+}
+
+
+function showCustomAlert(message, callback) {
+    // 1. 建立遮罩層
+    const overlay = document.createElement('div');
+    overlay.className = "fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[100] flex items-center justify-center animate-fade-in p-4";
+
+    // 2. 建立卡片內容
+    const card = document.createElement('div');
+    card.className = "bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full text-center transform transition-all animate-scale-in border-4 border-indigo-50 relative overflow-hidden";
+
+    // 裝飾背景圓圈
+    const decor = document.createElement('div');
+    decor.className = "absolute -top-10 -right-10 w-32 h-32 bg-indigo-50 rounded-full opacity-50 pointer-events-none";
+    card.appendChild(decor);
+
+    card.innerHTML += `
+        <div class="relative z-10">
+            <div class="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-5 text-indigo-600 shadow-sm">
+                <i class="fas fa-book-reader text-3xl"></i>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-800 mb-3">學習建議</h3>
+            <p class="text-gray-600 mb-8 font-medium leading-relaxed text-lg">${message}</p>
+            <button id="custom-alert-btn" class="w-full py-3.5 bg-indigo-600 text-white rounded-2xl font-bold text-lg shadow-lg hover:bg-indigo-700 hover:shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2">
+                <span>好的，前往閱讀</span> <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
+    `;
+
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    // 3. 綁定按鈕事件
+    const btn = card.querySelector('#custom-alert-btn');
+    btn.onclick = () => {
+        // 移除特效並關閉
+        overlay.classList.remove('animate-fade-in');
+        overlay.classList.add('opacity-0', 'transition-opacity', 'duration-200');
+        setTimeout(() => {
+            if (document.body.contains(overlay)) {
+                document.body.removeChild(overlay);
+            }
+            if (callback) callback();
+        }, 200);
+    };
 }
 
 function getRandomEmoji() {
