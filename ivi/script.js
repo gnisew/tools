@@ -577,7 +577,7 @@ function renderQuiz() {
         container.innerHTML = `
             <div class="text-center p-8 bg-white rounded-3xl shadow-lg mt-10 mx-4 animate-scale-in max-w-lg mx-auto border-2 border-indigo-50">
                 <div class="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-5xl">
-                    ${pct > 0.8 ? "🎉" : "💪"}
+                    ${pct > 0.65 ? "🎉" : "💪"}
                 </div>
                 <h2 class="text-3xl font-bold text-gray-800 mb-2">測驗結束！</h2>
                 <p class="text-xl text-gray-600 mb-8">
