@@ -124,20 +124,22 @@ function speak(text, rate = 1) {
         if (synth.speaking) {
             synth.cancel();
 
+            // 如果點擊的是同一個正在播放的內容，則視為「停止」操作
             if (state.audio.lastText === text && state.audio.lastRate === rate) {
                 state.audio.lastText = null;
                 state.audio.lastRate = null;
+                state.audio.isPlaying = false; 
+                
+                // 保持畫面位置
+                const scrollY = window.scrollY;
+                render(); 
+                window.scrollTo(0, scrollY);
                 return;
             }
         }
 
-        // --- 解決聲音被切掉的關鍵修改 ---
-
-        // 技巧 A: 在文字前面加一個 "中文句號" 或 "逗號" 再加空白
-        // 這樣引擎會先處理這個停頓，讓音訊硬體有時間開啟 (暖機)
-        // 許多瀏覽器對純空白會直接忽略，所以用標點符號最保險
-        const padding = navigator.userAgent.match(/(iPhone|iPad|iPod|Mac)/i) ? "" : "";
-        const textToSpeak = padding + " " + text;
+        // [修改重點] 直接使用原始文字，移除會被唸出來的標點符號 (padding)
+        const textToSpeak = text;
 
         const utterance = new SpeechSynthesisUtterance(textToSpeak);
         
@@ -148,32 +150,43 @@ function speak(text, rate = 1) {
         }
         utterance.rate = rate;
 
-        // 2. 解決 GC (Garbage Collection) 問題：
-        // 有些瀏覽器如果 utterance 物件沒有被參照，講長文會講到一半斷掉
-        // 將其掛在 window 上可避免此問題
+        // 掛載到 window 避免被記憶體回收機制清除導致中斷
         window.currentUtterance = utterance;
 
-        state.audio.lastText = text;
-        state.audio.lastRate = rate;
+        // --- 播放開始事件 ---
+        utterance.onstart = () => {
+            state.audio.lastText = text;
+            state.audio.lastRate = rate;
+            state.audio.isPlaying = true;
+            
+            const scrollY = window.scrollY;
+            render();
+            window.scrollTo(0, scrollY);
+        };
 
+        // --- 播放結束事件 ---
         utterance.onend = () => {
             if (state.audio.lastText === text && state.audio.lastRate === rate) {
                 state.audio.lastText = null;
                 state.audio.lastRate = null;
+                state.audio.isPlaying = false;
+                
+                const scrollY = window.scrollY;
+                render();
+                window.scrollTo(0, scrollY);
             }
         };
 
-        // 技巧 B: 使用 setTimeout 給予 10ms 的緩衝
-        // 確保 cancel() 指令完全執行完畢，且讓音訊線程有一點喘息空間
+        // [修改重點] 使用延遲來解決開頭被切掉的問題，而不是加字
+        // 50ms 通常足夠讓 iOS 的音訊 session 啟動
         setTimeout(() => {
             synth.speak(utterance);
-        }, 10);
+        }, 50);
 
     } else {
         console.warn("Browser does not support Speech Synthesis");
     }
 }
-
 // --- NAVIGATION ---
 function renderNav() {
     const navItems = [
@@ -331,7 +344,6 @@ function renderList() {
 
     // 3. 建立容器與 Header
     const container = document.createElement('div');
-    // [修改點 1] 移除 'animate-fade-in' 類別，消除按鈕點擊時的閃爍浮動感
     container.className = "pb-48 w-full max-w-6xl mx-auto px-4";
 
     let topPaginationHTML = '';
@@ -392,7 +404,7 @@ function renderList() {
     if (displayWords.length === 0) {
         listContainer.innerHTML = `<div class="text-center py-10 text-gray-500">本頁無資料</div>`;
     } else if (state.listMode === 'compact') {
-        // --- Compact Mode (精簡檢視) ---
+        // --- Compact Mode (精簡檢視 - 維持不變) ---
         listContainer.className = "bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6 overflow-x-auto";
         
         const headerRow = document.createElement('div');
@@ -473,14 +485,12 @@ function renderList() {
                         cellHTML = `<div class="flex-1 text-left pl-2 text-gray-600 truncate text-base" title="${item.def}">${item.def}</div>`; 
                         break;
                     case 'other': 
-                        // [修改點 3] 移除 '-'，若無資料則為空，確保版面整潔與對齊
                         const otherText = item.other || '';
                         const hasOther = !!item.other;
-                        
                         const speakAction = hasOther ? `onclick="event.stopPropagation(); speak('${item.other.replace(/'/g, "\\'")}')"` : '';
                         const styleClass = hasOther ? 
                             'text-indigo-700 font-bold cursor-pointer hover:bg-indigo-100 hover:text-indigo-900 rounded px-2 -ml-2 transition-colors' : 
-                            'text-gray-300 pointer-events-none px-2 -ml-2'; // 即使是空值也保留 px-2 -ml-2 結構以維持水平對齊
+                            'text-gray-300 pointer-events-none px-2 -ml-2';
                         
                         cellHTML = `<div class="w-48 text-left pl-2 text-sm flex-shrink-0 truncate ${styleClass}" title="${hasOther ? `點擊念出: ${otherText}` : ''}" ${speakAction}>
                             ${otherText}
@@ -493,7 +503,7 @@ function renderList() {
         });
 
     } else {
-        // --- Full Mode (Cards) ---
+        // --- Full Mode (Cards) - [修改重點] ---
         const toolsRow = document.createElement('div');
         toolsRow.className = "flex justify-between items-center mb-4 px-2";
         toolsRow.innerHTML = `
@@ -508,13 +518,15 @@ function renderList() {
         grid.className = "grid grid-cols-1 gap-4 mb-6";
         displayWords.forEach(item => {
             const card = document.createElement('div');
-            card.className = "bg-white p-0 rounded-2xl shadow-sm border border-gray-100 flex overflow-hidden hover:shadow-md transition-shadow";
+            card.className = "bg-white p-0 rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow relative";
+            // [修改 1] 移除左側獨立 Checkbox 區塊，改為單一容器
             card.innerHTML = `
-                <div class="w-12 bg-gray-50 flex items-center justify-center cursor-pointer border-r border-gray-100 hover:bg-gray-100" onclick="toggleVocabCheck(${item.id})">
-                    <i class="far ${item.checked ? 'fa-check-square text-indigo-600' : 'fa-square text-gray-300'} text-2xl"></i>
-                </div>
-                <div class="flex-1 flex flex-col md:flex-row">
-                    <div class="flex-1 p-5 cursor-pointer group relative" onclick="speak('${item.word}')">
+                <div class="flex flex-col relative">
+                    <div class="absolute top-3 right-3 z-10 p-2 cursor-pointer rounded-full hover:bg-gray-50" onclick="toggleVocabCheck(${item.id}); event.stopPropagation();">
+                        <i class="far ${item.checked ? 'fa-check-square text-indigo-600' : 'fa-square text-gray-300'} text-2xl"></i>
+                    </div>
+
+                    <div class="p-5 pr-12 cursor-pointer group" onclick="speak('${item.word}')">
                         <div class="flex items-baseline flex-wrap gap-2 mb-2">
                             <span class="bg-indigo-100 text-indigo-800 text-xs font-bold px-2 py-0.5 rounded">U${item.unit}</span>
                             <span class="text-3xl font-bold text-gray-800 group-hover:text-indigo-600 transition-colors">${item.word}</span>
@@ -530,14 +542,13 @@ function renderList() {
                         </div>
                         <p class="text-gray-600 text-lg font-medium mb-2">${item.def}</p>
                     </div>
-                    <div class="flex-1 p-5 md:border-l border-t md:border-t-0 border-gray-100 bg-gray-50/50 cursor-pointer hover:bg-indigo-50 transition-colors flex items-center" onclick="speak('${item.sentence.replace(/'/g, "\\'")}')">
-                        <div class="flex gap-3 items-start w-full">
-                            <div class="mt-1"><i class="fas fa-volume-up text-gray-400"></i></div>
-                            <div>
-                                <p class="text-gray-800 text-base font-medium leading-relaxed">${item.sentence}</p>
-                                <p class="text-gray-500 text-sm mt-1">${item.senTrans}</p>
-                            </div>
-                        </div>
+
+                    <div class="p-5 border-t border-gray-100 bg-gray-50/50 cursor-pointer hover:bg-indigo-50 transition-colors" onclick="speak('${item.sentence.replace(/'/g, "\\'")}')">
+                        <p class="text-gray-800 text-base font-medium leading-relaxed">
+                            ${item.sentence}
+                            <span class="inline-block ml-2 text-indigo-400"><i class="fas fa-volume-up"></i></span>
+                        </p>
+                        <p class="text-gray-500 text-sm mt-1">${item.senTrans}</p>
                     </div>
                 </div>
             `;
@@ -547,7 +558,7 @@ function renderList() {
     }
     container.appendChild(listContainer);
 
-    // 5. Bottom Pagination (保持不變)
+    // 5. Bottom Pagination
     if (totalPages > 1) {
         const paginationNav = document.createElement('div');
         paginationNav.className = "flex justify-center items-center gap-4 py-6";
@@ -887,6 +898,10 @@ function renderStory() {
     }
     const currentStory = validStories[state.story.activeIndex];
 
+    // --- 計算上一篇/下一篇索引 ---
+    const prevIndex = (state.story.activeIndex - 1 + validStories.length) % validStories.length;
+    const nextIndex = (state.story.activeIndex + 1) % validStories.length;
+
     const segments = currentStory.text.split(/(\{.*?\})/).map((part, idx) => {
         if (part.startsWith('{') && part.endsWith('}')) {
             return { type: 'word', content: part.slice(1, -1), id: idx };
@@ -902,21 +917,56 @@ function renderStory() {
     }
     const wordBank = state.story.currentWordBank;
 
+    // --- Header ---
     const header = document.createElement('div');
     header.className = "px-4 mb-4";
     header.innerHTML = `
-        <div class="relative">
-            <select onchange="changeStory(this.value)" class="w-full p-4 pr-10 rounded-2xl border-2 border-indigo-100 bg-white font-bold text-gray-700 shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none appearance-none cursor-pointer transition-all">
-                ${validStories.map((s, idx) => `<option value="${idx}" ${idx === state.story.activeIndex ? 'selected' : ''}>${s.title}</option>`).join('')}
-            </select>
-            <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-500"><i class="fas fa-chevron-down"></i></div>
+        <div class="flex items-center gap-2">
+            <button onclick="changeStory(${prevIndex})" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white border-2 border-indigo-100 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-all shadow-sm active:scale-95 flex-shrink-0" title="上一篇">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+
+            <div class="relative flex-1">
+                <select onchange="changeStory(this.value)" class="w-full p-3 pr-8 rounded-xl border-2 border-indigo-100 bg-white font-bold text-gray-700 shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none appearance-none cursor-pointer transition-all truncate h-12">
+                    ${validStories.map((s, idx) => `<option value="${idx}" ${idx === state.story.activeIndex ? 'selected' : ''}>${s.title}</option>`).join('')}
+                </select>
+                <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-500 text-sm"><i class="fas fa-chevron-down"></i></div>
+            </div>
+
+            <button onclick="changeStory(${nextIndex})" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white border-2 border-indigo-100 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-all shadow-sm active:scale-95 flex-shrink-0" title="下一篇">
+                <i class="fas fa-chevron-right"></i>
+            </button>
         </div>
     `;
     container.appendChild(header);
 
     const controls = document.createElement('div');
     controls.className = "px-4";
+    
+    // 準備要朗讀的文字
     const speakText = currentStory.text.replace(/[{}]/g, '').replace(/'/g, "\\'");
+    
+    // --- 判斷播放狀態 (決定按鈕樣式) ---
+    // 檢查目前是否正在播放「這篇故事」
+    const isPlayingThis = state.audio.isPlaying && state.audio.lastText === currentStory.text.replace(/[{}]/g, '');
+    const currentRate = state.audio.lastRate;
+
+    // 1. 正常速度按鈕設定
+    const isNormalActive = isPlayingThis && currentRate === 1;
+    const normalBtnClass = isNormalActive 
+        ? "bg-gray-600 text-white hover:bg-gray-700 shadow-inner"  // 停止樣式
+        : "bg-amber-100 text-amber-800 hover:bg-amber-200";         // 播放樣式
+    const normalIcon = isNormalActive ? "fa-stop" : "fa-volume-up";
+    const normalText = isNormalActive ? "停止" : "正常";
+
+    // 2. 慢速按鈕設定
+    const isSlowActive = isPlayingThis && currentRate === 0.7;
+    const slowBtnClass = isSlowActive 
+        ? "bg-gray-600 text-white hover:bg-gray-700 shadow-inner"   // 停止樣式
+        : "bg-green-100 text-green-800 hover:bg-green-200";           // 播放樣式
+    const slowIcon = isSlowActive ? "fa-stop" : ""; // 慢速播放時顯示 Stop，否則無 icon (用 emoji)
+    const slowContent = isSlowActive ? "" : "🐢";   // 慢速播放時不顯示龜，否則顯示龜
+    const slowText = isSlowActive ? "停止" : "慢速";
 
     controls.innerHTML = `
         <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-4">
@@ -924,11 +974,12 @@ function renderStory() {
                 <h2 class="font-bold text-lg text-gray-800 line-clamp-1">故事閱讀</h2>
                 
                 <div class="flex gap-2 self-end sm:self-auto">
-                    <button onclick="speak('${speakText}', 1)" class="flex items-center gap-1 px-3 py-1.5 bg-amber-100 text-amber-800 rounded-full text-xs font-bold hover:bg-amber-200 transition-colors">
-                        <i class="fas fa-volume-up"></i> 正常
+                    <button onclick="speak('${speakText}', 1)" class="flex items-center gap-1 px-4 py-1.5 rounded-full text-xs font-bold transition-all ${normalBtnClass}">
+                        <i class="fas ${normalIcon}"></i> ${normalText}
                     </button>
-                    <button onclick="speak('${speakText}', 0.7)" class="flex items-center gap-1 px-3 py-1.5 bg-green-100 text-green-800 rounded-full text-xs font-bold hover:bg-green-200 transition-colors">
-                        🐢 慢速
+                    
+                    <button onclick="speak('${speakText}', 0.7)" class="flex items-center gap-1 px-4 py-1.5 rounded-full text-xs font-bold transition-all ${slowBtnClass}">
+                        ${slowIcon ? `<i class="fas ${slowIcon}"></i>` : slowContent} ${slowText}
                     </button>
                 </div>
             </div>
