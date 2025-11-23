@@ -404,7 +404,7 @@ function renderList() {
     if (displayWords.length === 0) {
         listContainer.innerHTML = `<div class="text-center py-10 text-gray-500">本頁無資料</div>`;
     } else if (state.listMode === 'compact') {
-        // --- Compact Mode (精簡檢視 - 維持不變) ---
+        // --- Compact Mode (精簡檢視) ---
         listContainer.className = "bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6 overflow-x-auto";
         
         const headerRow = document.createElement('div');
@@ -503,7 +503,7 @@ function renderList() {
         });
 
     } else {
-        // --- Full Mode (Cards) - [修改重點] ---
+        // --- Full Mode (Cards) ---
         const toolsRow = document.createElement('div');
         toolsRow.className = "flex justify-between items-center mb-4 px-2";
         toolsRow.innerHTML = `
@@ -518,38 +518,37 @@ function renderList() {
         grid.className = "grid grid-cols-1 gap-4 mb-6";
         displayWords.forEach(item => {
             const card = document.createElement('div');
-            card.className = "bg-white p-0 rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow relative";
-            // [修改 1] 移除左側獨立 Checkbox 區塊，改為單一容器
+            // [修改重點] 啟用 Grid 布局: 手機單欄，平板/電腦雙欄
+            card.className = "bg-white p-0 rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow grid grid-cols-1 md:grid-cols-2";
+            
             card.innerHTML = `
-                <div class="flex flex-col relative">
+                <div class="relative p-5 cursor-pointer group flex flex-col justify-center" onclick="speak('${item.word}')">
                     <div class="absolute top-3 right-3 z-10 p-2 cursor-pointer rounded-full hover:bg-gray-50" onclick="toggleVocabCheck(${item.id}); event.stopPropagation();">
                         <i class="far ${item.checked ? 'fa-check-square text-indigo-600' : 'fa-square text-gray-300'} text-2xl"></i>
                     </div>
 
-                    <div class="p-5 pr-12 cursor-pointer group" onclick="speak('${item.word}')">
-                        <div class="flex items-baseline flex-wrap gap-2 mb-2">
-                            <span class="bg-indigo-100 text-indigo-800 text-xs font-bold px-2 py-0.5 rounded">U${item.unit}</span>
-                            <span class="text-3xl font-bold text-gray-800 group-hover:text-indigo-600 transition-colors">${item.word}</span>
-                            <span class="text-sm text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded-md">${item.kk}</span>
-                            <span class="text-sm font-semibold text-indigo-500 italic">${item.part}</span>
-                            
-                            ${item.other ? `
-                            <span class="text-sm font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded border border-indigo-200 ml-1 cursor-pointer hover:bg-indigo-100 hover:text-indigo-900 transition-colors shadow-sm" 
-                                  title="點擊朗讀變化形" 
-                                  onclick="event.stopPropagation(); speak('${item.other.replace(/'/g, "\\'")}')">
-                                <i class="fas fa-code-branch text-xs mr-1 opacity-50"></i>${item.other}
-                            </span>` : ''}
-                        </div>
-                        <p class="text-gray-600 text-lg font-medium mb-2">${item.def}</p>
+                    <div class="flex items-baseline flex-wrap gap-2 mb-2 pr-8">
+                        <span class="bg-indigo-100 text-indigo-800 text-xs font-bold px-2 py-0.5 rounded">U${item.unit}</span>
+                        <span class="text-3xl font-bold text-gray-800 group-hover:text-indigo-600 transition-colors">${item.word}</span>
+                        <span class="text-sm text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded-md">${item.kk}</span>
+                        <span class="text-sm font-semibold text-indigo-500 italic">${item.part}</span>
+                        
+                        ${item.other ? `
+                        <span class="text-sm font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded border border-indigo-200 ml-1 cursor-pointer hover:bg-indigo-100 hover:text-indigo-900 transition-colors shadow-sm" 
+                              title="點擊朗讀變化形" 
+                              onclick="event.stopPropagation(); speak('${item.other.replace(/'/g, "\\'")}')">
+                            <i class="fas fa-code-branch text-xs mr-1 opacity-50"></i>${item.other}
+                        </span>` : ''}
                     </div>
+                    <p class="text-gray-600 text-lg font-medium">${item.def}</p>
+                </div>
 
-                    <div class="p-5 border-t border-gray-100 bg-gray-50/50 cursor-pointer hover:bg-indigo-50 transition-colors" onclick="speak('${item.sentence.replace(/'/g, "\\'")}')">
-                        <p class="text-gray-800 text-base font-medium leading-relaxed">
-                            ${item.sentence}
-                            <span class="inline-block ml-2 text-indigo-400"><i class="fas fa-volume-up"></i></span>
-                        </p>
-                        <p class="text-gray-500 text-sm mt-1">${item.senTrans}</p>
-                    </div>
+                <div class="p-5 border-t md:border-t-0 md:border-l border-gray-100 bg-gray-50/50 cursor-pointer hover:bg-indigo-50 transition-colors flex flex-col justify-center" onclick="speak('${item.sentence.replace(/'/g, "\\'")}')">
+                    <p class="text-gray-800 text-base font-medium leading-relaxed">
+                        ${item.sentence}
+                        <span class="inline-block ml-2 text-indigo-400"><i class="fas fa-volume-up"></i></span>
+                    </p>
+                    <p class="text-gray-500 text-sm mt-1">${item.senTrans}</p>
                 </div>
             `;
             grid.appendChild(card);
@@ -578,7 +577,6 @@ function renderList() {
 
     appRoot.appendChild(container);
 }
-
 // --- QUIZ VIEW ---
 function initQuiz(mode) {
     state.quiz.mode = mode;
