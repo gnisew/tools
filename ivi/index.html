@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vioiv 基礎字彙</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+    <!-- Data File (Loaded first) -->
+    <script src="data.js"></script>
+</head>
+<body class="bg-slate-50 font-sans text-gray-900 pb-20">
+
+    <!-- App Container -->
+    <main id="app-root" class="w-full box-border pt-4 flex justify-center min-h-screen">
+        <!-- Content will be injected here by script.js -->
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 pb-safe shadow-[0_-2px_10px_rgba(0,0,0,0.02)]">
+        <div class="flex justify-around items-center max-w-3xl mx-auto h-16 px-2" id="nav-container">
+            <!-- Nav items injected by JS -->
+        </div>
+    </nav>
+
+    <!-- Main Script -->
+    <script src="script.js"></script>
+</body>
+</html>
