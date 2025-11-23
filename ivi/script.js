@@ -718,11 +718,9 @@ function renderQuiz() {
     let questionDisplayHTML = mode === 'cn-en' ? currentQ.target.def : (mode === 'en-cn' ? currentQ.target.word : currentQ.text);
     const targetWord = currentQ.target.word;
 
-    // [新增邏輯] 若為句子模式且已作答，將題目中的底線替換為高亮的正確答案
+    // 若為句子模式且已作答，顯示填入後的正確句子
     if (mode === 'sentence' && status === 'result') {
-        // 使用 CSS 加上底色(bg-indigo-100) 與 文字顏色(text-indigo-700)
-        const highlightedWord = `<span class="inline-block px-2 rounded-md bg-indigo-100 text-indigo-700 border-b-2 border-indigo-400 font-bold mx-1 animate-scale-in">${currentQ.answerWord}</span>`;
-        // 將底線替換掉
+        const highlightedWord = `<span class="inline-block px-2 rounded-md bg-indigo-100 text-indigo-700 border-b-2 border-indigo-400 font-bold mx-1">${currentQ.answerWord}</span>`;
         questionDisplayHTML = currentQ.text.replace('_______', highlightedWord);
     }
 
@@ -752,16 +750,19 @@ function renderQuiz() {
         `;
     } else {
         // 句子模式 Header
+        const isCorrect = status === 'result' && selectedOption.id === currentQ.target.id;
+        
         headerHTML += `
         <div class="bg-white p-6 md:p-10 rounded-3xl shadow-sm mb-6 min-h-[220px] flex flex-col justify-center border border-gray-100 text-center relative overflow-hidden">
              <h3 class="text-xl md:text-2xl font-medium text-gray-800 leading-relaxed font-serif relative z-10">${questionDisplayHTML}</h3>
              
              ${status === 'result' ? `
-                <div class="mt-6 p-4 rounded-xl text-center animate-fade-in border ${selectedOption.id === currentQ.target.id ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}">
+                <div class="mt-6 p-4 rounded-xl text-center border ${isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}">
                      <div class="flex items-center justify-center gap-2 mb-2">
-                        <i class="fas ${selectedOption.id === currentQ.target.id ? 'fa-check-circle text-green-600' : 'fa-times-circle text-red-600'} text-xl"></i>
-                        <span class="text-lg font-bold text-gray-500">正確答案: </span>
+                        ${isCorrect ? '<i class="fas fa-check-circle text-green-600 text-xl"></i>' : ''}
+                        
                         <span class="text-xl font-bold text-indigo-600">${currentQ.answerWord}</span>
+                        
                         <button onclick="speak('${currentQ.target.word}')" class="p-1 bg-white rounded-full shadow-sm hover:bg-gray-100"><i class="fas fa-volume-up text-gray-600"></i></button>
                      </div>
                      <p class="text-gray-700 font-medium">${currentQ.target.senTrans}</p>
@@ -802,8 +803,8 @@ function renderQuiz() {
                 }).join('')}
              </div>`;
          } else {
-             // 句子模式的下一題按鈕 (選項消失，只留按鈕)
-             optionsHTML = `<button onclick="nextQuestion()" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2 animate-bounce-subtle">
+             // 句子模式的下一題按鈕
+             optionsHTML = `<button onclick="nextQuestion()" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2">
                 ${currentIndex < questions.length - 1 ? '下一題' : '查看結果'} <i class="fas fa-chevron-right"></i>
              </button>`;
          }
