@@ -44,6 +44,11 @@ function init() {
     // Clone data to avoid mutating original source directly if we re-fetch
     if (typeof VOCAB_DATA !== 'undefined') {
         state.vocabulary = JSON.parse(JSON.stringify(VOCAB_DATA)).map(item => ({ ...item, checked: true }));
+        
+        const distinctUnits = [...new Set(state.vocabulary.map(v => v.unit))].sort((a, b) => a - b);
+        state.allUnits = distinctUnits;
+        state.selectedUnits = [...distinctUnits]; // 預設全選所有新單元
+       
     } else {
         console.error("VOCAB_DATA not found. Make sure data.js is loaded first.");
     }
@@ -131,7 +136,7 @@ function speak(text, rate = 1) {
         // 技巧 A: 在文字前面加一個 "中文句號" 或 "逗號" 再加空白
         // 這樣引擎會先處理這個停頓，讓音訊硬體有時間開啟 (暖機)
         // 許多瀏覽器對純空白會直接忽略，所以用標點符號最保險
-        const padding = navigator.userAgent.match(/(iPhone|iPad|iPod|Mac)/i) ? "." : "。";
+        const padding = navigator.userAgent.match(/(iPhone|iPad|iPod|Mac)/i) ? "" : "";
         const textToSpeak = padding + " " + text;
 
         const utterance = new SpeechSynthesisUtterance(textToSpeak);

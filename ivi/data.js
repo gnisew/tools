@@ -212,7 +212,172 @@ const STORIES = [
       { text: "He is such a smart player.", trans: "他真是個聰明的玩家。" },
       { text: "There is a limit to his patience though.", trans: "不過他的耐心是有限度的。" }
     ]
-  }
+  },
+// Unit 28 Stories
+  {
+    title: "Unit 28: The New Album",
+    units: [28],
+    text: "The singer released a new {album} last week. It was {brilliant} and quickly broke the {record}. She has a huge {influence} on young people. However, she looks {pale} because she is on a strict {diet}. Her fans {cheer} for her whenever she appears on a TV {channel}. She plans to {create} more songs in the future.",
+    translations: [
+      { text: "The singer released a new album last week.", trans: "這位歌手上週發行了一張新專輯。" },
+      { text: "It was brilliant and quickly broke the record.", trans: "它非常出色，並迅速打破了紀錄。" },
+      { text: "She has a huge influence on young people.", trans: "她對年輕人有巨大的影響力。" },
+      { text: "However, she looks pale because she is on a strict diet.", trans: "然而，她看起來臉色蒼白，因為她正在嚴格節食。" },
+      { text: "Her fans cheer for her whenever she appears on a TV channel.", trans: "每當她出現在電視頻道上，她的粉絲都會為她歡呼。" },
+      { text: "She plans to create more songs in the future.", trans: "她計劃在未來創作更多歌曲。" }
+    ]
+  },
+  {
+    title: "Unit 28: Environmental Issues",
+    units: [28],
+    text: "We should care about our {environment}. Recently, the {temperature} has gone {beyond} normal levels. It is a {similar} situation in many countries. We simply cannot go {against} nature. Some people {blanket} the roof with solar panels to save energy. It is our {personal} duty to protect the earth before the damage is {due}.",
+    translations: [
+      { text: "We should care about our environment.", trans: "我們應該關心我們的環境。" },
+      { text: "Recently, the temperature has gone beyond normal levels.", trans: "最近，氣溫已經超過了正常水平。" },
+      { text: "It is a similar situation in many countries.", trans: "許多國家的情況都很相似。" },
+      { text: "We simply cannot go against nature.", trans: "我們簡直無法違抗大自然。" },
+      { text: "Some people blanket the roof with solar panels to save energy.", trans: "有些人用太陽能板覆蓋屋頂以節省能源。" },
+      { text: "It is our personal duty to protect the earth before the damage is due.", trans: "在損害造成之前保護地球是我們個人的責任。" }
+    ]
+  },
+  {
+    title: "Unit 28: The Interview",
+    units: [28],
+    text: "I had to {accept} an invitation to an {event}. It was a meeting with a famous writer. I read the business {section} of the newspaper to prepare {material}. My mind went {blank} when I saw him. {Therefore}, I just smiled. He spoke {highly} of my questions. It was not a {usual} day for me.",
+    translations: [
+      { text: "I had to accept an invitation to an event.", trans: "我必須接受一個活動的邀請。" },
+      { text: "It was a meeting with a famous writer.", trans: "那是與一位著名作家的會議。" },
+      { text: "I read the business section of the newspaper to prepare material.", trans: "我閱讀報紙的商業版以準備素材。" },
+      { text: "My mind went blank when I saw him.", trans: "當我看到他時，我的腦袋一片空白。" },
+      { text: "Therefore, I just smiled.", trans: "因此，我只是微笑。" },
+      { text: "He spoke highly of my questions.", trans: "他對我的問題評價很高。" },
+      { text: "It was not a usual day for me.", trans: "對我來說，這不是平常的一天。" }
+    ]
+  },
+  // Unit 29 Stories
+  {
+    title: "Unit 29: The Ocean Clean-up",
+    units: [29],
+    text: "The ocean {surface} was covered with trash. A non-profit {organization} made a {decision} to clean it. They found that many bottles {contain} harmful chemicals. The plastic {industry} is the main {source} of this pollution. They want to restore the {natural} beauty of the sea. It was a {clever} plan to help the fish live in {peace}.",
+    translations: [
+      { text: "The ocean surface was covered with trash.", trans: "海面被垃圾覆蓋。" },
+      { text: "A non-profit organization made a decision to clean it.", trans: "一個非營利組織決定清理它。" },
+      { text: "They found that many bottles contain harmful chemicals.", trans: "他們發現許多瓶子含有有害化學物質。" },
+      { text: "The plastic industry is the main source of this pollution.", trans: "塑膠工業是這種污染的主要來源。" },
+      { text: "They want to restore the natural beauty of the sea.", trans: "他們想要恢復海洋的自然美景。" },
+      { text: "It was a clever plan to help the fish live in peace.", trans: "這是一個幫助魚類和平共處的聰明計畫。" }
+    ]
+  },
+  {
+    title: "Unit 29: Fashion Design",
+    units: [29],
+    text: "Linda loves {fashion}. She creates clothes with great {detail}. Recently, she won a {prize} for her design. She knows how to {manage} her time well. She used a {single} piece of cloth to make a dress. Even though she {lack}s money, she never gives up. It is {likely} that she will become famous soon.",
+    translations: [
+      { text: "Linda loves fashion.", trans: "琳達熱愛時尚。" },
+      { text: "She creates clothes with great detail.", trans: "她創作的衣服細節非常棒。" },
+      { text: "Recently, she won a prize for her design.", trans: "最近，她的設計贏得了一個獎項。" },
+      { text: "She knows how to manage her time well.", trans: "她懂得如何妥善管理時間。" },
+      { text: "She used a single piece of cloth to make a dress.", trans: "她用單一塊布料做了一件洋裝。" },
+      { text: "Even though she lacks money, she never gives up.", trans: "即使她缺錢，她也從不放棄。" },
+      { text: "It is likely that she will become famous soon.", trans: "她很有可能很快就會成名。" }
+    ]
+  },
+  {
+    title: "Unit 29: A True Story",
+    units: [29],
+    text: "The box was {empty}. The {actual} thief had taken everything. He wore a {mask} to hide his face. The police tried to {lift} fingerprints from the door. It is {equal} to finding a needle in a haystack. They need to go back to {basics} to solve this case. I hope the truth will {surface} soon.",
+    translations: [
+      { text: "The box was empty.", trans: "箱子是空的。" },
+      { text: "The actual thief had taken everything.", trans: "真正的小偷把一切都拿走了。" },
+      { text: "He wore a mask to hide his face.", trans: "他戴著面具遮住臉。" },
+      { text: "The police tried to lift fingerprints from the door.", trans: "警方試圖從門上採集指紋。" },
+      { text: "It is equal to finding a needle in a haystack.", trans: "這就像大海撈針一樣。" },
+      { text: "They need to go back to basics to solve this case.", trans: "他們需要回到基本面來解決這個案件。" },
+      { text: "I hope the truth will surface soon.", trans: "我希望真相能很快浮出水面。" }
+    ]
+  },
+  // Unit 30 Stories
+  {
+    title: "Unit 30: The Art Gallery",
+    units: [30],
+    text: "The {artist} displayed his works in the {central} hall. In my {opinion}, the {quality} of his painting is high. He gained {support} from a wealthy buyer. He used his sister as a {model} for the portrait. The {entire} collection shows his {growth} as a painter. There is no {failure} here, only success.",
+    translations: [
+      { text: "The artist displayed his works in the central hall.", trans: "這位藝術家在中央大廳展示他的作品。" },
+      { text: "In my opinion, the quality of his painting is high.", trans: "依我看，他的畫作品質很高。" },
+      { text: "He gained support from a wealthy buyer.", trans: "他獲得了一位富有買家的支持。" },
+      { text: "He used his sister as a model for the portrait.", trans: "他用他的妹妹作為肖像畫的模特兒。" },
+      { text: "The entire collection shows his growth as a painter.", trans: "整個系列展示了他作為畫家的成長。" },
+      { text: "There is no failure here, only success.", trans: "這裡沒有失敗，只有成功。" }
+    ]
+  },
+  {
+    title: "Unit 30: A Difficult Talk",
+    units: [30],
+    text: "I had a {conversation} with my neighbor. He is very {shy} and avoids eye contact. We talked about the {repair} of the fence. He didn't have the {nerve} to admit he broke it. I tried to {emphasize} that good {relation}s are important. {Unless} he pays for it, I will have to {remove} the old fence myself.",
+    translations: [
+      { text: "I had a conversation with my neighbor.", trans: "我和鄰居進行了一次對話。" },
+      { text: "He is very shy and avoids eye contact.", trans: "他非常害羞，避免眼神接觸。" },
+      { text: "We talked about the repair of the fence.", trans: "我們談到了圍欄的修理。" },
+      { text: "He didn't have the nerve to admit he broke it.", trans: "他沒有勇氣承認是他弄壞的。" },
+      { text: "I tried to emphasize that good relations are important.", trans: "我試著強調良好關係的重要性。" },
+      { text: "Unless he pays for it, I will have to remove the old fence myself.", trans: "除非他付錢，否則我將不得不自己拆除舊圍欄。" }
+    ]
+  },
+  {
+    title: "Unit 30: The Hotel Stay",
+    units: [30],
+    text: "Upon my {arrival} at the hotel, I checked the room. They {charge} extra for internet service. The view {range}s from the city to the ocean. I am {particular} about cleanliness. I saw some {blood} on the carpet, which was terrible. I asked the manager to handle this {occur}rence immediately.",
+    translations: [
+      { text: "Upon my arrival at the hotel, I checked the room.", trans: "一抵達飯店，我就檢查了房間。" },
+      { text: "They charge extra for internet service.", trans: "他們對網路服務額外收費。" },
+      { text: "The view ranges from the city to the ocean.", trans: "視野範圍從城市延伸到海洋。" },
+      { text: "I am particular about cleanliness.", trans: "我對整潔很挑剔。" },
+      { text: "I saw some blood on the carpet, which was terrible.", trans: "我看到地毯上有一些血跡，這太糟糕了。" },
+      { text: "I asked the manager to handle this occurrence immediately.", trans: "我要求經理立即處理這個事件。" }
+    ]
+  },
+  // Unit 31 Stories
+  {
+    title: "Unit 31: The Lost Wallet",
+    units: [31],
+    text: "I suffered a {loss} yesterday. My {wallet} was stolen. The thief played a {trick} on me to distract my attention. It contained a {sample} of my work and some cash. I felt like I was facing an {enemy}. I had to go to the police station to fill out a {form}. It was a great {difficulty} for me.",
+    translations: [
+      { text: "I suffered a loss yesterday.", trans: "我昨天遭受了損失。" },
+      { text: "My wallet was stolen.", trans: "我的錢包被偷了。" },
+      { text: "The thief played a trick on me to distract my attention.", trans: "小偷對我耍了個把戲來分散我的注意力。" },
+      { text: "It contained a sample of my work and some cash.", trans: "裡面有我的工作樣品和一些現金。" },
+      { text: "I felt like I was facing an enemy.", trans: "我覺得我像是在面對敵人。" },
+      { text: "I had to go to the police station to fill out a form.", trans: "我必須去警察局填寫表格。" },
+      { text: "It was a great difficulty for me.", trans: "這對我來說是一個巨大的困難。" }
+    ]
+  },
+  {
+    title: "Unit 31: A Wedding Toast",
+    units: [31],
+    text: "We {gather}ed to celebrate the wedding. The happy {couple} stood in front of us. I proposed a {toast} to wish them happiness. I have deep {respect} for their love. The {whole} room was full of joy. The groom said the {meaning} of marriage is to share life together. Everyone was {confident} about their future.",
+    translations: [
+      { text: "We gathered to celebrate the wedding.", trans: "我們聚集在一起慶祝婚禮。" },
+      { text: "The happy couple stood in front of us.", trans: "這對幸福的夫婦站在我們面前。" },
+      { text: "I proposed a toast to wish them happiness.", trans: "我舉杯祝他們幸福。" },
+      { text: "I have deep respect for their love.", trans: "我對他們的愛深表尊敬。" },
+      { text: "The whole room was full of joy.", trans: "整個房間充滿了歡樂。" },
+      { text: "The groom said the meaning of marriage is to share life together.", trans: "新郎說婚姻的意義在於共同分享生活。" },
+      { text: "Everyone was confident about their future.", trans: "大家對他們的未來充滿信心。" }
+    ]
+  },
+  {
+    title: "Unit 31: Shipping Goods",
+    units: [31],
+    text: "The company wants to {trade} with partners in {distant} lands. We send the goods by {express} mail. We need to {weigh} every package carefully. In {addition}, we must make sure the box is {shut} tight. Even a small error can cause a problem to some {degree}. We don't want to see any {wound} on the products.",
+    translations: [
+      { text: "The company wants to trade with partners in distant lands.", trans: "公司想要與遙遠國度的夥伴進行貿易。" },
+      { text: "We send the goods by express mail.", trans: "我們用快遞寄送貨物。" },
+      { text: "We need to weigh every package carefully.", trans: "我們需要仔細稱重每個包裹。" },
+      { text: "In addition, we must make sure the box is shut tight.", trans: "此外，我們必須確保箱子緊緊關上。" },
+      { text: "Even a small error can cause a problem to some degree.", trans: "即使是一個小錯誤也在某種程度上會造成問題。" },
+      { text: "We don't want to see any wound on the products.", trans: "我們不想看到產品上有任何損傷。" }
+    ]
+  },
 ];
 
 // 單字資料庫
@@ -375,7 +540,7 @@ const VOCAB_DATA = [
   { id: 149, unit: 26, word: 'consideration', kk: '[kən͵sɪdəˋreʃən]', part: 'n.', def: '考慮', sentence: 'Further consideration is necessary before we carry out this plan.', senTrans: '在我們實施這項計畫前，必須再三考慮才行。', other: 'considerations' },
   { id: 150, unit: 26, word: 'thought', kk: '[θɔt]', part: 'n.', def: '想法', sentence: 'Kevin felt sad at the thought of his disabled child struggling at school.', senTrans: '凱文想到自己的身障孩子在學校掙扎，就感到很難過。', other: 'thoughts' },
 
-  // --- Unit 27 (New) ---
+  // --- Unit 27 ---
   { id: 151, unit: 27, word: 'pride', kk: '[praɪd]', part: 'n.', def: '自豪; 自尊', sentence: 'The father takes pride in his son\'s excellent performance in school.', senTrans: '那位父親以兒子在校優異的表現為榮。', other: '' },
   { id: 152, unit: 27, word: 'govern', kk: '[ˋgʌvɚn]', part: 'v.', def: '統治; 管理', sentence: 'The president has governed that country for the last ten years.', senTrans: '這位總統在過去的 10 年一直統治著那個國家。', other: 'governed / governing' },
   { id: 153, unit: 27, word: 'government', kk: '[ˋgʌvɚnmənt]', part: 'n.', def: '政府', sentence: 'The central government has promised to cut taxes.', senTrans: '中央政府已承諾要減稅。', other: 'governments' },
@@ -416,5 +581,112 @@ const VOCAB_DATA = [
   { id: 188, unit: 27, word: 'obey', kk: '[oˋbe]', part: 'v.', def: '遵守; 服從', sentence: 'Obey the law, or you will be punished.', senTrans: '要守法，不然你就會受到懲處。', other: 'obeyed / obeying' },
   { id: 189, unit: 27, word: 'border', kk: '[ˋbɔrdɚ]', part: 'n.', def: '邊界', sentence: 'My aunt and uncle live on the border of Germany and France.', senTrans: '我的嬸嬸和叔叔住在德法交界處。', other: 'borders' },
   { id: 190, unit: 27, word: 'super', kk: '[ˋsupɚ]', part: 'a.', def: '超級的; 極好的', sentence: 'Kelly\'s teacher said that she did a super job on her essay.', senTrans: '凱莉的老師說她的文章寫得非常好。', other: '' },
-  { id: 191, unit: 27, word: 'supper', kk: '[ˋsʌpɚ]', part: 'n.', def: '晚餐', sentence: 'Mother usually makes supper at seven.', senTrans: '媽媽通常在 7 點做晚飯。', other: 'suppers' }
+  { id: 191, unit: 27, word: 'supper', kk: '[ˋsʌpɚ]', part: 'n.', def: '晚餐', sentence: 'Mother usually makes supper at seven.', senTrans: '媽媽通常在 7 點做晚飯。', other: 'suppers' },
+
+// --- Unit 28 ---
+  { id: 192, unit: 28, word: 'diet', kk: '[ˋdaɪət]', part: 'n.', def: '日常飲食; 節食', sentence: 'Wayne\'s diet is full of sweet food, so he has gotten fat.', senTrans: '韋恩的日常飲食都是甜食，所以他變胖了。', other: 'diets' },
+  { id: 193, unit: 28, word: 'environment', kk: '[ɪnˋvaɪrənmənt]', part: 'n.', def: '環境', sentence: 'We should spare no effort to protect our environment from being polluted.', senTrans: '我們應盡全力保護我們的環境免於汙染。', other: 'environments' },
+  { id: 194, unit: 28, word: 'highly', kk: '[ˋhaɪlɪ]', part: 'adv.', def: '極; 非常', sentence: 'David was highly delighted at the news.', senTrans: '大衛聽到這消息高興極了。', other: '' },
+  { id: 195, unit: 28, word: 'blank', kk: '[blæŋk]', part: 'a.', def: '空白的', sentence: 'Please write here and leave the bottom of the page blank.', senTrans: '請你寫在這裡，這一頁底部留白。', other: 'blanks' },
+  { id: 196, unit: 28, word: 'material', kk: '[məˋtɪrɪəl]', part: 'n.', def: '材料; 原料; 素材', sentence: 'The company sells building materials such as bricks and tiles.', senTrans: '那家公司販售建材，如磚塊、磁磚等。', other: 'materials' },
+  { id: 197, unit: 28, word: 'include', kk: '[ɪnˋklud]', part: 'v.', def: '包括', sentence: 'Service and taxes are included in the room price.', senTrans: '房間價格包括服務費及稅金在內。', other: 'included / including' },
+  { id: 198, unit: 28, word: 'record', kk: '[ˋrɛkɚd]', part: 'n.', def: '唱片; 紀錄', sentence: 'We asked the DJ to play this record.', senTrans: '我們要求 DJ 放這張唱片。', other: 'records / recorded / recording' },
+  { id: 199, unit: 28, word: 'section', kk: '[ˋsɛkʃən]', part: 'n.', def: '部分; 區域; 版面', sentence: 'I\'d like a seat in the non-smoking section.', senTrans: '我想要非吸菸區的座位。', other: 'sections' },
+  { id: 200, unit: 28, word: 'usual', kk: '[ˋjuʒʊəl]', part: 'a.', def: '通常的', sentence: 'As usual, Blake was late for work again this morning.', senTrans: '和往常一樣，布萊克今早上班又遲到了。', other: '' },
+  { id: 201, unit: 28, word: 'therefore', kk: '[ˋðɛr͵fɔr]', part: 'adv.', def: '因此', sentence: 'Lance didn\'t study at all; therefore, he failed the test.', senTrans: '蘭斯根本沒有念書，因此他考試不及格。', other: '' },
+  { id: 202, unit: 28, word: 'accept', kk: '[əkˋsɛpt]', part: 'v.', def: '接受', sentence: 'I\'m glad to accept your invitation.', senTrans: '我很高興接受您的邀請。', other: 'accepted / accepting' },
+  { id: 203, unit: 28, word: 'event', kk: '[ɪˋvɛnt]', part: 'n.', def: '事件; 項目', sentence: 'Eddy\'s birthday party is a big event this week.', senTrans: '艾迪的生日派對是本週的大事。', other: 'events' },
+  { id: 204, unit: 28, word: 'personal', kk: '[ˋpɝsn!]', part: 'a.', def: '個人的; 私人的', sentence: 'My personal belongings were all gone when I returned.', senTrans: '我回來時，我的私人物品全都不見了。', other: '' },
+  { id: 205, unit: 28, word: 'simply', kk: '[ˋsɪmplɪ]', part: 'adv.', def: '簡單地; 僅僅', sentence: 'Wendy is simply a beautiful lady.', senTrans: '溫蒂實在是一位美女。', other: '' },
+  { id: 206, unit: 28, word: 'create', kk: '[kriˋet]', part: 'v.', def: '創造', sentence: 'Gary believes that God created Heaven and Earth.', senTrans: '蓋瑞相信上帝創造了天和地。', other: 'created / creating' },
+  { id: 207, unit: 28, word: 'beyond', kk: '[bɪˋjɑnd]', part: 'prep.', def: '超過; 在遠處', sentence: 'The situation is beyond my control.', senTrans: '情況超過我能控制的範圍。', other: '' },
+  { id: 208, unit: 28, word: 'brilliant', kk: '[ˋbrɪljənt]', part: 'a.', def: '燦爛的; 出色的', sentence: 'Josh came up with a brilliant idea to solve the problem.', senTrans: '喬許想到了個很棒的方法來解決這個問題。', other: '' },
+  { id: 209, unit: 28, word: 'against', kk: '[əˋgɛnst]', part: 'prep.', def: '反對; 倚; 靠', sentence: 'Never do anything against the law.', senTrans: '千萬別做違法的事。', other: '' },
+  { id: 210, unit: 28, word: 'blanket', kk: '[ˋblæŋkɪt]', part: 'n.', def: '毯子', sentence: 'The mother wrapped the baby in a blanket.', senTrans: '這母親把嬰兒裹在毯子裡。', other: 'blankets' },
+  { id: 211, unit: 28, word: 'channel', kk: '[ˋtʃæn!]', part: 'n.', def: '頻道; 海峽; 管道', sentence: 'The internet has become an important channel of communication.', senTrans: '網路已成為一個重要的溝通管道。', other: 'channels' },
+  { id: 212, unit: 28, word: 'pale', kk: '[pel]', part: 'a.', def: '蒼白的; 淡色的', sentence: 'Jim went deathly pale upon hearing the news.', senTrans: '吉姆聽到這消息，臉色立即變得一片死白。', other: '' },
+  { id: 213, unit: 28, word: 'cheer', kk: '[tʃɪr]', part: 'v.', def: '歡呼; 喝彩', sentence: 'When their team scored a goal, the fans cheered.', senTrans: '當他們的球隊進球得分時，球迷們都歡呼了起來。', other: 'cheered / cheering' },
+  { id: 214, unit: 28, word: 'similar', kk: '[ˋsɪməlɚ]', part: 'a.', def: '相似的', sentence: 'Your taste in clothes is similar to mine.', senTrans: '你的穿著品味和我很相似。', other: '' },
+  { id: 215, unit: 28, word: 'album', kk: '[ˋælbəm]', part: 'n.', def: '專輯; 相簿', sentence: 'This singer is going to release her new album next month.', senTrans: '這歌手下個月會發行她的新專輯。', other: 'albums' },
+  { id: 216, unit: 28, word: 'due', kk: '[dju]', part: 'a.', def: '到期的; 預定的', sentence: 'The first payment is due on August 31st.', senTrans: '第一筆付款額於 8 月 31 日到期。', other: '' },
+  { id: 217, unit: 28, word: 'influence', kk: '[ˋɪnflʊəns]', part: 'n.', def: '影響', sentence: 'Ms. Brown has a good influence on the students.', senTrans: '布朗老師對學生有正面的影響。', other: 'influenced / influencing' },
+
+  // --- Unit 29 ---
+  { id: 218, unit: 29, word: 'surface', kk: '[ˋsɝfɪs]', part: 'n.', def: '表面', sentence: 'The surface of the table was covered with dirt.', senTrans: '桌子的表面布滿灰塵。', other: 'surfaces' },
+  { id: 219, unit: 29, word: 'decision', kk: '[dɪˋsɪʒən]', part: 'n.', def: '決定', sentence: 'I\'m sorry, but you\'ll have to make a decision quickly.', senTrans: '很抱歉，但你必須趕快做決定。', other: 'decisions' },
+  { id: 220, unit: 29, word: 'contain', kk: '[kənˋten]', part: 'v.', def: '包含; 裝有', sentence: 'This photo album contains all of my grandmother\'s favorite photos.', senTrans: '這本相簿裡裝著所有我奶奶最愛的照片。', other: 'contained / containing' },
+  { id: 221, unit: 29, word: 'recent', kk: '[ˋrisnt]', part: 'a.', def: '最近的', sentence: 'Ivy\'s grades have improved in recent months.', senTrans: '最近幾個月來，艾薇的成績已有進步。', other: '' },
+  { id: 222, unit: 29, word: 'organization', kk: '[͵ɔrgənəˋzeʃən]', part: 'n.', def: '組織', sentence: 'Greenpeace is a famous non-profit organization.', senTrans: '綠色和平組織是一個有名的非營利組織。', other: 'organizations' },
+  { id: 223, unit: 29, word: 'industry', kk: '[ˋɪndəstrɪ]', part: 'n.', def: '工業; 行業', sentence: 'The fashion industry would be an interesting one to get into.', senTrans: '從事時裝業會很有意思。', other: 'industries' },
+  { id: 224, unit: 29, word: 'basic', kk: '[ˋbesɪk]', part: 'a.', def: '基本的', sentence: 'Every parent must provide their child with at least the basics.', senTrans: '每個父母都必須至少為其子女提供基本需求。', other: 'basics' },
+  { id: 225, unit: 29, word: 'source', kk: '[sɔrs]', part: 'n.', def: '來源', sentence: 'Reading is a wonderful source of pleasure.', senTrans: '閱讀是很棒的快樂泉源。', other: 'sources' },
+  { id: 226, unit: 29, word: 'peace', kk: '[pis]', part: 'n.', def: '和平; 平靜', sentence: 'Zora loves the peace of the countryside.', senTrans: '卓拉喜歡鄉間的平靜。', other: '' },
+  { id: 227, unit: 29, word: 'single', kk: '[ˋsɪŋg!]', part: 'a.', def: '單身的; 單一的', sentence: 'Wendy has decided to remain single for the rest of her life.', senTrans: '溫蒂已經決定此後終生單身。', other: 'singles' },
+  { id: 228, unit: 29, word: 'natural', kk: '[ˋnætʃərəl]', part: 'a.', def: '自然的', sentence: 'We enjoyed the natural beauty of the Grand Canyon.', senTrans: '我們欣賞著大峽谷的自然美景。', other: '' },
+  { id: 229, unit: 29, word: 'clever', kk: '[ˋklɛvɚ]', part: 'a.', def: '聰明的', sentence: 'Sally is such a clever girl.', senTrans: '莎莉是個如此聰明的女孩。', other: '' },
+  { id: 230, unit: 29, word: 'mask', kk: '[mæsk]', part: 'n.', def: '面具; 口罩', sentence: 'Always wear a face mask when you are sweeping the floor.', senTrans: '你掃地的時候，一定要戴口罩。', other: 'masks' },
+  { id: 231, unit: 29, word: 'likely', kk: '[ˋlaɪklɪ]', part: 'a.', def: '有可能的', sentence: 'It is likely that John and Lulu will get married.', senTrans: '約翰和露露可能會結婚。', other: '' },
+  { id: 232, unit: 29, word: 'actual', kk: '[ˋæktʃʊəl]', part: 'a.', def: '真實的; 確實的', sentence: 'This is the actual sword that was used in the film.', senTrans: '這是那部電影中真正用的劍。', other: '' },
+  { id: 233, unit: 29, word: 'lack', kk: '[læk]', part: 'v.', def: '缺乏', sentence: 'This soup lacks salt. Maybe you should add some.', senTrans: '這碗湯沒加鹽，也許你應該加一點。', other: 'lacked / lacking' },
+  { id: 234, unit: 29, word: 'empty', kk: '[ˋɛmptɪ]', part: 'a.', def: '空的', sentence: 'The classroom was empty, with no teacher or children in sight.', senTrans: '這教室裡空無一人，都沒看到老師和小孩。', other: 'emptied / emptying' },
+  { id: 235, unit: 29, word: 'lift', kk: '[lɪft]', part: 'v.', def: '舉起', sentence: 'That box is too heavy to lift.', senTrans: '那箱子太重而提不動。', other: 'lifted / lifting' },
+  { id: 236, unit: 29, word: 'fashion', kk: '[ˋfæʃən]', part: 'n.', def: '流行; 時尚', sentence: 'Miniskirts used to be in fashion, but they\'re out of fashion now.', senTrans: '迷你裙以前很流行，但現在退燒了。', other: 'fashions' },
+  { id: 237, unit: 29, word: 'detail', kk: '[ˋditel]', part: 'n.', def: '細節', sentence: 'I haven\'t had time to review the plan in detail yet.', senTrans: '我還沒有時間詳細審閱這計畫。', other: 'details' },
+  { id: 238, unit: 29, word: 'equal', kk: '[ˋikwəl]', part: 'a.', def: '平等的; 相等的', sentence: 'Four plus four is equal to eight.', senTrans: '4 加 4 等於 8。', other: 'equaled / equaling' },
+  { id: 239, unit: 29, word: 'manage', kk: '[ˋmænɪdʒ]', part: 'v.', def: '經營; 管理; 設法', sentence: 'Erin managed the hotel while her father was ill.', senTrans: '艾琳父親生病時，飯店是由艾琳經營的。', other: 'managed / managing' },
+  { id: 240, unit: 29, word: 'prize', kk: '[praɪz]', part: 'n.', def: '獎品; 獎金', sentence: 'Dolly won a big prize for her science experiment.', senTrans: '朵莉所做的科學實驗為她贏得了大獎。', other: 'prizes' },
+
+  // --- Unit 30 ---
+  { id: 241, unit: 30, word: 'artist', kk: '[ˋɑrtɪst]', part: 'n.', def: '藝術家', sentence: 'That street artist attracted a large crowd of visitors.', senTrans: '那位街頭藝人吸引了一大群的遊客。', other: 'artists' },
+  { id: 242, unit: 30, word: 'failure', kk: '[ˋfeljɚ]', part: 'n.', def: '失敗', sentence: 'Failure is the mother of success.', senTrans: '失敗為成功之母。', other: 'failures' },
+  { id: 243, unit: 30, word: 'occur', kk: '[əˋkɝ]', part: 'v.', def: '發生', sentence: 'The serious car accident occurred because of the taxi driver\'s carelessness.', senTrans: '會發生那起嚴重車禍是因為那計程車司機很粗心大意。', other: 'occurred / occurring' },
+  { id: 244, unit: 30, word: 'charge', kk: '[tʃɑrdʒ]', part: 'v.', def: '收費; 充電; 控訴', sentence: 'The company charged me NT$500 for fixing the television.', senTrans: '那家公司向我索取新臺幣 500 元的電視修理費。', other: 'charged / charging' },
+  { id: 245, unit: 30, word: 'entire', kk: '[ɪnˋtaɪr]', part: 'a.', def: '整個的; 全部的', sentence: 'The entire staff in that company were against the new policy.', senTrans: '那家公司的全體員工一致反對那項新政策。', other: '' },
+  { id: 246, unit: 30, word: 'manner', kk: '[ˋmænɚ]', part: 'n.', def: '方式; 禮貌', sentence: 'The little girl answered her teacher\'s question in a confident manner.', senTrans: '小女孩很有自信地回答了老師的問題。', other: 'manners' },
+  { id: 247, unit: 30, word: 'range', kk: '[rendʒ]', part: 'n.', def: '範圍; 幅度', sentence: 'The price range of the product is from US$40 to US$400.', senTrans: '這種產品的價格範圍從 40 美元到 400 美元不等。', other: 'ranges' },
+  { id: 248, unit: 30, word: 'quality', kk: '[ˋkwɑlətɪ]', part: 'n.', def: '品質', sentence: 'That shirt is of high quality, and the price is reasonable.', senTrans: '那件襯衫品質很好，價格又合理。', other: 'qualities' },
+  { id: 249, unit: 30, word: 'relation', kk: '[rɪˋleʃən]', part: 'n.', def: '關係', sentence: 'I think there is a relation between media violence and crime.', senTrans: '我認為媒體暴力與犯罪之間是有關係的。', other: 'relations' },
+  { id: 250, unit: 30, word: 'central', kk: '[ˋsɛntrəl]', part: 'a.', def: '中央的', sentence: 'The park is in the central part of the city.', senTrans: '那座公園位於市中心。', other: '' },
+  { id: 251, unit: 30, word: 'support', kk: '[səˋport]', part: 'v.', def: '支持', sentence: 'My father has always supported me in whatever I want to do.', senTrans: '不論我想做什麼，我父親總是支持我。', other: 'supported / supporting' },
+  { id: 252, unit: 30, word: 'model', kk: '[ˋmɑd!]', part: 'n.', def: '模特兒; 模型; 榜樣', sentence: 'Mary is a famous fashion model.', senTrans: '瑪麗是知名的時裝模特兒。', other: 'models' },
+  { id: 253, unit: 30, word: 'northern', kk: '[ˋnɔrðɚn]', part: 'a.', def: '北方的', sentence: 'The northern part of this country is very beautiful.', senTrans: '這國家的北部很美麗。', other: '' },
+  { id: 254, unit: 30, word: 'opinion', kk: '[əˋpɪnjən]', part: 'n.', def: '意見', sentence: 'In my opinion, students should not be allowed to bring cellphones to school.', senTrans: '依我之見，不應允許學生帶手機到學校。', other: 'opinions' },
+  { id: 255, unit: 30, word: 'rather', kk: '[ˋræðɚ]', part: 'adv.', def: '相當; 寧願', sentence: 'It\'s rather hot today.', senTrans: '今天相當熱。', other: '' },
+  { id: 256, unit: 30, word: 'growth', kk: '[groθ]', part: 'n.', def: '成長', sentence: 'There has been a steady growth in Amber\'s business.', senTrans: '安柏的事業一直穩定成長。', other: '' },
+  { id: 257, unit: 30, word: 'repair', kk: '[rɪˋpɛr]', part: 'v.', def: '修理', sentence: 'My car broke down yesterday, so I\'m going to have it repaired.', senTrans: '我的車子昨天拋錨了，因此我今天要把它拿去送修。', other: 'repaired / repairing' },
+  { id: 258, unit: 30, word: 'remove', kk: '[rɪˋmuv]', part: 'v.', def: '移除; 去掉', sentence: 'I removed a coffee stain from the shirt with a special cleanser.', senTrans: '我用一種特別的清潔劑把襯衫上的咖啡漬去掉了。', other: 'removed / removing' },
+  { id: 259, unit: 30, word: 'arrival', kk: '[əˋraɪv!]', part: 'n.', def: '到達', sentence: 'Our lives have changed since the arrival of the mobile phone.', senTrans: '自從手機問世後，我們的生活便大大的改變了。', other: 'arrivals' },
+  { id: 260, unit: 30, word: 'rent', kk: '[rɛnt]', part: 'v.', def: '租用; 出租', sentence: 'How much is your monthly rent for your apartment?', senTrans: '你每月公寓租金是多少錢？', other: 'rented / renting' },
+  { id: 261, unit: 30, word: 'nerve', kk: '[nɝv]', part: 'n.', def: '神經; 勇氣', sentence: 'Arthur doesn\'t have the nerve to apologize to Bonnie.', senTrans: '亞瑟沒有勇氣向邦妮道歉。', other: 'nerves' },
+  { id: 262, unit: 30, word: 'blood', kk: '[blʌd]', part: 'n.', def: '血', sentence: 'Help! A man is losing a lot of blood here.', senTrans: '救命啊！有人在這裡流好多血。', other: '' },
+  { id: 263, unit: 30, word: 'particular', kk: '[pɚˋtɪkjəlɚ]', part: 'a.', def: '特別的; 挑剔的', sentence: 'The little boy is very particular about the food he eats.', senTrans: '那小男孩對他吃的食物很挑剔。', other: '' },
+  { id: 264, unit: 30, word: 'unless', kk: '[ənˋlɛs]', part: 'conj.', def: '除非', sentence: 'Unless you make a reservation, you won\'t get a table.', senTrans: '除非去訂位，要不然你不會有位子坐。', other: '' },
+  { id: 265, unit: 30, word: 'conversation', kk: '[͵kɑnvɚˋseʃən]', part: 'n.', def: '對話', sentence: 'Matt was eager to have a conversation with the pretty girl.', senTrans: '麥特非常想和那漂亮的女孩聊天。', other: 'conversations' },
+  { id: 266, unit: 30, word: 'shy', kk: '[ʃaɪ]', part: 'a.', def: '害羞的', sentence: 'The little girl is too shy to talk to anyone.', senTrans: '那小女孩太害羞了，因此沒辦法跟任何人交談。', other: '' },
+  { id: 267, unit: 30, word: 'emphasize', kk: '[ˋɛmfə͵saɪz]', part: 'v.', def: '強調', sentence: 'The study emphasizes the importance of a balanced diet.', senTrans: '這份研究強調均衡飲食的重要性。', other: 'emphasized / emphasizing' },
+
+  // --- Unit 31 ---
+  { id: 268, unit: 31, word: 'triangle', kk: '[ˋtraɪ͵æŋg!]', part: 'n.', def: '三角形', sentence: 'The child is learning to draw a triangle.', senTrans: '這小朋友正在學畫三角形。', other: 'triangles' },
+  { id: 269, unit: 31, word: 'shut', kk: '[ʃʌt]', part: 'v.', def: '關閉', sentence: 'Shut the window before you leave.', senTrans: '離開前把窗戶關起來。', other: 'shut / shutting' },
+  { id: 270, unit: 31, word: 'wallet', kk: '[ˋwɑlɪt]', part: 'n.', def: '皮夾', sentence: 'Dad gave me a leather wallet for my birthday.', senTrans: '老爸送我皮夾子當生日禮物。', other: 'wallets' },
+  { id: 271, unit: 31, word: 'addition', kk: '[əˋdɪʃən]', part: 'n.', def: '加法; 添加', sentence: 'Mom, my teacher told me we would learn addition first.', senTrans: '媽媽，我老師說我們會先學加法。', other: 'additions' },
+  { id: 272, unit: 31, word: 'express', kk: '[ɪkˋsprɛs]', part: 'v.', def: '表達; 快遞', sentence: 'He can express himself fluently in English.', senTrans: '他能用流利的英文表達自己的意思。', other: 'expressed / expressing' },
+  { id: 273, unit: 31, word: 'loss', kk: '[lɔs]', part: 'n.', def: '損失; 失去', sentence: 'Mr. Wang\'s death was a great loss to our company.', senTrans: '王先生去世是我們公司的一大損失。', other: 'losses' },
+  { id: 274, unit: 31, word: 'couple', kk: '[ˋkʌp!]', part: 'n.', def: '一對; 夫婦', sentence: 'I think the young couple next door is very kind.', senTrans: '我覺得隔壁那對年輕夫婦很友善。', other: 'couples' },
+  { id: 275, unit: 31, word: 'meaning', kk: '[ˋminɪŋ]', part: 'n.', def: '意義; 意思', sentence: 'Not many people understand the meaning behind his words.', senTrans: '不是很多人了解隱藏在他話背後的含意。', other: 'meanings' },
+  { id: 276, unit: 31, word: 'form', kk: '[fɔrm]', part: 'n.', def: '表格; 形式', sentence: 'Fill out the application form, and then wait in line.', senTrans: '填妥申請表格，然後排隊等候。', other: 'forms' },
+  { id: 277, unit: 31, word: 'distant', kk: '[ˋdɪstənt]', part: 'a.', def: '遙遠的', sentence: 'The two boys are distant relatives of mine.', senTrans: '這 2 個男孩是我的遠房親戚。', other: '' },
+  { id: 278, unit: 31, word: 'gather', kk: '[ˋgæðɚ]', part: 'v.', def: '聚集; 收集', sentence: 'A lot of students are gathering there.', senTrans: '很多學生正聚集在那裡。', other: 'gathered / gathering' },
+  { id: 279, unit: 31, word: 'respect', kk: '[rɪˋspɛkt]', part: 'n.', def: '尊敬', sentence: 'Students should show their respect for their teachers.', senTrans: '學生應該尊敬老師。', other: 'respected / respecting' },
+  { id: 280, unit: 31, word: 'trade', kk: '[tred]', part: 'v.', def: '貿易; 交換', sentence: 'Jim traded his favorite comic book for a toy car.', senTrans: '吉姆用他最喜歡的漫畫書換了玩具車。', other: 'traded / trading' },
+  { id: 281, unit: 31, word: 'difficulty', kk: '[ˋdɪfə͵kʌltɪ]', part: 'n.', def: '困難', sentence: 'Do you have any difficulty understanding spoken Chinese?', senTrans: '你聽口語中文有困難嗎？', other: 'difficulties' },
+  { id: 282, unit: 31, word: 'enemy', kk: '[ˋɛnəmɪ]', part: 'n.', def: '敵人', sentence: 'Laziness is your own worst enemy.', senTrans: '懶惰是你最大的敵人。', other: 'enemies' },
+  { id: 283, unit: 31, word: 'sample', kk: '[ˋsæmp!]', part: 'n.', def: '樣品; 樣本', sentence: 'The supermarket gives customers samples of food every day.', senTrans: '此超市每天都給客人提供試吃。', other: 'samples' },
+  { id: 284, unit: 31, word: 'toast', kk: '[tost]', part: 'n.', def: '吐司; 敬酒', sentence: 'I had two slices of toast for breakfast.', senTrans: '我今早吃了 2 片烤麵包片當早餐。', other: 'toasts' },
+  { id: 285, unit: 31, word: 'whole', kk: '[hol]', part: 'a.', def: '整個的', sentence: 'Tell me the whole story.', senTrans: '把整個故事都告訴我。', other: '' },
+  { id: 286, unit: 31, word: 'weigh', kk: '[we]', part: 'v.', def: '稱...的重量', sentence: 'I weigh myself right after I wake up.', senTrans: '我早上一醒來就量體重。', other: 'weighed / weighing' },
+  { id: 287, unit: 31, word: 'degree', kk: '[dɪˋgri]', part: 'n.', def: '度; 程度; 學位', sentence: 'It\'s 0 degrees Celsius today.', senTrans: '今天氣溫攝氏 0 度。', other: 'degrees' },
+  { id: 288, unit: 31, word: 'trick', kk: '[trɪk]', part: 'n.', def: '把戲; 惡作劇', sentence: 'You can\'t teach an old dog new tricks.', senTrans: '老狗學不會新把戲。', other: 'tricks' },
+  { id: 289, unit: 31, word: 'wound', kk: '[wund]', part: 'n.', def: '傷口', sentence: 'Time heals all wounds.', senTrans: '時間會癒合所有的傷痛。', other: 'wounded / wounding' },
+  { id: 290, unit: 31, word: 'confident', kk: '[ˋkɑnfədənt]', part: 'a.', def: '有信心的', sentence: 'The ruling party was confident of winning the election.', senTrans: '執政黨有信心贏得選舉。', other: '' },
 ];
