@@ -1263,23 +1263,25 @@ function fillStoryBlank(userWord) {
 
     if (!correctWord) return;
 
-    if (userWord === correctWord) {
+    // [修改重點 1] 改為不分大小寫比對 (toLowerCase)
+    if (userWord.toLowerCase() === correctWord.toLowerCase()) {
         // --- 答對 ---
-        state.story.filledBlanks[state.story.selectedBlank] = userWord;
+        // [修改重點 2] 填入 correctWord (保留原本的大小寫，例如句首大寫)，讓閱讀體驗更好
+        state.story.filledBlanks[state.story.selectedBlank] = correctWord;
+        
         state.story.selectedBlank = null;
         state.story.consecutiveErrors = 0; // 重置錯誤計數
         
-        speak(userWord);
+        speak(correctWord); // 唸出正確的單字
         render();
     } else {
         // --- 答錯 ---
         speak(userWord);
         state.story.consecutiveErrors = (state.story.consecutiveErrors || 0) + 1;
 
-        // [修改點] 檢查是否達到 5 次錯誤
+        // 檢查是否達到 5 次錯誤
         if (state.story.consecutiveErrors >= 5) {
             
-            // 使用新的美觀提示窗
             showCustomAlert("您似乎遇到了一些困難，<br>建議先回到閱讀模式複習一下喔！", () => {
                 // 1. 清空作答
                 state.story.filledBlanks = {};
@@ -1287,12 +1289,12 @@ function fillStoryBlank(userWord) {
                 state.story.consecutiveErrors = 0;
                 state.story.selectedBlank = null;
                 state.story.errorBlank = null;
-                // 3. 自動切換回「閱讀模式」(更符合提示語境)
+                // 3. 自動切換回「閱讀模式」
                 state.story.mode = 'read';
                 
                 render();
             });
-            return; // 中斷後續執行，等待使用者點擊確認
+            return; // 中斷後續執行
         }
         
         // 未達 5 次，顯示錯誤紅框
