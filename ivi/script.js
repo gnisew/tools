@@ -889,11 +889,11 @@ function renderStory() {
         return { type: 'text', content: part };
     });
 
-    // 單字庫邏輯 (保留字母排序)
+    // 單字庫邏輯
     const rawWords = [...new Set(segments.filter(s => s.type === 'word').map(s => s.content.toLowerCase()))];
     if (state.story.cachedTitle !== currentStory.title || !state.story.currentWordBank) {
         state.story.cachedTitle = currentStory.title;
-        state.story.currentWordBank = rawWords.sort(); // 字母排序
+        state.story.currentWordBank = rawWords.sort();
     }
     const wordBank = state.story.currentWordBank;
 
@@ -909,10 +909,8 @@ function renderStory() {
     `;
     container.appendChild(header);
 
-const controls = document.createElement('div');
+    const controls = document.createElement('div');
     controls.className = "px-4";
-    
-    // 準備要朗讀的純文字 (移除符號與跳脫單引號)
     const speakText = currentStory.text.replace(/[{}]/g, '').replace(/'/g, "\\'");
 
     controls.innerHTML = `
@@ -968,7 +966,7 @@ const controls = document.createElement('div');
                 `;
             }).join('')}
         </div>`;
-	} else {
+    } else {
         content.className += " leading-[3.5rem]";
         content.innerHTML = `<div>
             ${segments.map(seg => {
@@ -977,14 +975,11 @@ const controls = document.createElement('div');
                 const userWord = state.story.filledBlanks[seg.id];
                 const isActive = state.story.selectedBlank === seg.id;
                 const isError = state.story.errorBlank === seg.id;
-                // 新增：判斷是否已經完成作答
                 const isFinished = !!userWord;
 
-                // 修改：根據是否作答完成，決定游標樣式 (cursor-pointer vs cursor-default)
                 let cssClass = "inline-flex items-center justify-center mx-1 min-w-[80px] h-10 border-b-2 transition-all px-3 rounded-md align-middle font-bold ";
                 cssClass += isFinished ? "cursor-default " : "cursor-pointer ";
                 
-                // 樣式優先級：錯誤 > 作用中 > 已填寫 > 預設
                 if (isError) {
                     cssClass += "border-red-500 bg-red-100 text-red-600 animate-pulse";
                 } else if (isActive) {
@@ -992,13 +987,20 @@ const controls = document.createElement('div');
                 } else if (userWord) {
                     cssClass += "border-green-500 text-green-700 bg-green-50";
                 } else {
-                    cssClass += "border-gray-300 bg-gray-100 text-gray-400";
+                    cssClass += "border-gray-300 bg-gray-50 text-gray-400 hover:bg-gray-100";
                 }
 
-                // 修改：如果已經答對 (isFinished)，就不加入 onclick 事件
                 const clickAction = isFinished ? "" : `onclick="selectStoryBlank(${seg.id})"`;
+                let innerContent = '';
+                if (userWord) {
+                    innerContent = userWord;
+                } else if (isError) {
+                    innerContent = '<i class="fas fa-exclamation-circle text-xl"></i>';
+                } else {
+                    innerContent = '<i class="fas fa-hand-pointer text-indigo-100 text-lg transform rotate-[-15deg]"></i>';
+                }
 
-                return `<span ${clickAction} class="${cssClass}">${userWord || (isError ? 'Error' : '<span class="text-xs font-normal">點擊</span>')}</span>`;
+                return `<span ${clickAction} class="${cssClass}">${innerContent}</span>`;
             }).join('')}
         </div>`;
     }
