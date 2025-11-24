@@ -1337,17 +1337,19 @@ function renderQuiz() {
         return;
     }
 
-    // 2. 測驗結束畫面
+    // 2. 測驗結束畫面 (★ 修改處：加入外層 Flex 容器以達成垂直水平置中)
     if (isFinished) {
         const total = questions.length;
         const pct = score / total;
         container.innerHTML = `
-            <div class="text-center p-8 bg-white rounded-3xl shadow-lg mt-10 mx-4 animate-scale-in max-w-lg mx-auto border-2 border-indigo-50">
-                <div class="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-5xl">${pct > 0.65 ? "🎉" : "💪"}</div>
-                <h2 class="text-3xl font-bold text-gray-800 mb-2">測驗結束！</h2>
-                <p class="text-xl text-gray-600 mb-8">得分: <span class="text-indigo-600 font-bold text-4xl">${score}</span> / ${total}</p>
-                ${wrongQuestions.length > 0 ? `<button onclick="retryWrongQuestions()" class="w-full py-4 bg-orange-500 text-white rounded-xl font-bold shadow-lg hover:bg-orange-600 mb-4 flex items-center justify-center gap-2"><i class="fas fa-redo"></i> 練習答錯的 ${wrongQuestions.length} 題</button>` : ''}
-                <button onclick="setState('view', 'list')" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700">返回列表</button>
+            <div class="flex flex-col items-center justify-center min-h-[60vh] w-full">
+                <div class="text-center p-8 bg-white rounded-3xl shadow-lg w-full max-w-lg border-2 border-indigo-50 animate-scale-in">
+                    <div class="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-5xl">${pct > 0.65 ? "🎉" : "💪"}</div>
+                    <h2 class="text-3xl font-bold text-gray-800 mb-2">測驗結束！</h2>
+                    <p class="text-xl text-gray-600 mb-8">得分: <span class="text-indigo-600 font-bold text-4xl">${score}</span> / ${total}</p>
+                    ${wrongQuestions.length > 0 ? `<button onclick="retryWrongQuestions()" class="w-full py-4 bg-orange-500 text-white rounded-xl font-bold shadow-lg hover:bg-orange-600 mb-4 flex items-center justify-center gap-2"><i class="fas fa-redo"></i> 練習答錯的 ${wrongQuestions.length} 題</button>` : ''}
+                    <button onclick="setState('view', 'list')" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700">返回列表</button>
+                </div>
             </div>
         `;
         appRoot.appendChild(container);
@@ -1356,34 +1358,28 @@ function renderQuiz() {
 
     const currentQ = questions[currentIndex];
     
-    // 3. 準備題目顯示文字
+    // 3. 準備題目顯示文字 (題目本身不標紅字)
     let questionDisplayHTML = '';
     
     if (mode === 'cn-en') {
-        // 中文題目：不標紅字
         questionDisplayHTML = currentQ.target.def;
     } else if (mode === 'en-cn') {
-        // 英文題目 (單字)：標示紅字
         questionDisplayHTML = formatDisplayWord(currentQ.target.word);
     } else {
-        // 填空題 (句子)：★ 修正：即使開關打開，題目句子本身也不標紅字 (Raw Text)
+        // 填空題 (句子)：Raw Text，不標紅字
         questionDisplayHTML = currentQ.text;
     }
     
-    // 填空題：顯示結果狀態 (把空格換成答案)
+    // 填空題：顯示結果狀態 (把空格換成答案，答案文字也不標紅字)
     if (mode === 'sentence' && status === 'result') {
-        // ★ 修正：答案文字本身不標紅字
         const formattedAnswer = currentQ.answerWord; 
-        
-        // 答案維持藍色背景強調，但不加紅字
+        // 僅保留藍色背景強調
         const highlightedWord = `<span class="inline-block px-2 rounded-md bg-indigo-100 text-indigo-700 border-b-2 border-indigo-400 font-bold mx-1">${formattedAnswer}</span>`;
-        
-        // 直接替換空格
+        // 替換空格
         questionDisplayHTML = currentQ.text.replace('_______', highlightedWord);
     }
 
-    // 4. 頂部工具列
-    // ★ 修正：移除 mode !== 'sentence' 的判斷，讓按鈕在所有模式下都顯示，以控制選項的紅字
+    // 4. 頂部工具列 (按鈕皆顯示以控制選項紅字)
     let headerHTML = `
         <div class="mb-6 flex justify-between items-center text-sm font-medium text-gray-500 bg-gray-100 px-4 py-2 rounded-full shadow-inner">
             <span>進度: ${currentIndex + 1} / ${questions.length}</span>
@@ -1401,7 +1397,7 @@ function renderQuiz() {
 
     // 5. 題目區域渲染
     if (mode !== 'sentence') {
-        // --- 單字題 (中選英/英選中) ---
+        // --- 單字題 ---
         headerHTML += `
         <div class="relative bg-white p-6 md:p-8 rounded-3xl shadow-sm mb-6 flex flex-col md:block items-center justify-center gap-6 border-b-4 border-indigo-100 min-h-[160px]">
              <div onclick="speak('${currentQ.target.word}')" class="flex-shrink-0 bg-indigo-50 w-24 h-24 md:w-24 md:h-24 rounded-full flex items-center justify-center cursor-pointer hover:scale-105 hover:bg-indigo-100 transition-all active:scale-95 group mb-4 md:mb-0 md:absolute md:left-8 md:top-1/2 md:-translate-y-1/2 z-10">
@@ -1415,9 +1411,7 @@ function renderQuiz() {
     } else {
         // --- 填空題 (句子) ---
         const isCorrect = status === 'result' && selectedOption.id === currentQ.target.id;
-        
-        // 結果區塊顯示的單字也不要紅字
-        const displayAnswer = currentQ.answerWord;
+        const displayAnswer = currentQ.answerWord; // 結果顯示也不標紅字
 
         headerHTML += `
         <div class="bg-white p-6 md:p-10 rounded-3xl shadow-sm mb-6 min-h-[220px] flex flex-col justify-center border border-gray-100 text-center relative overflow-hidden">
@@ -1436,15 +1430,14 @@ function renderQuiz() {
         `;
     }
 
-    // 6. 選項區域渲染
+    // 6. 選項區域渲染 (選項依舊會標紅字)
     let optionsHTML = '';
     if (status === 'answering') {
-        // 作答中
         optionsHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             ${currentQ.options.map(opt => {
                 let content = '';
                 if (mode === 'sentence') {
-                    // ★ 修正：填空題的「選項」，必須應用 formatDisplayWord，這樣才會跟隨頂端按鈕變色
+                    // 填空題選項：應用 formatDisplayWord (受頂端按鈕控制)
                     content = formatDisplayWord(opt.displayText || opt.word);
                 } else if (mode === 'cn-en') {
                     content = formatDisplayWord(opt.word);
@@ -1455,7 +1448,6 @@ function renderQuiz() {
             }).join('')}
         </div>`;
     } else {
-        // 顯示結果 (禁用按鈕)
          if (mode !== 'sentence') {
              optionsHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 ${currentQ.options.map(opt => {
@@ -1471,7 +1463,6 @@ function renderQuiz() {
                 }).join('')}
              </div>`;
          } else {
-             // 填空題的「下一題」按鈕
              optionsHTML = `<button onclick="nextQuestion()" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2 transition-transform active:scale-95">${currentIndex < questions.length - 1 ? '下一題' : '查看結果'} <i class="fas fa-chevron-right"></i></button>`;
          }
     }
