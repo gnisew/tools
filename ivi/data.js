@@ -465,6 +465,94 @@ const STORIES = [
     ]
   },
 
+
+// --- Unit 202511 Stories (November) ---
+  {
+    title: "Unit 202511: Dinner Time",
+    units: [202511],
+    text: "We went to a restaurant and looked at the {menu}. I had an {idea} to order healthy food. I asked for {spinach}, {broccoli}, and {squash}. My friend ate everything on his {plate} until he saw the {base}. He had to {face} the fact that he ate too much. We found the {exit} and left. It was a nice meal.",
+    translations: [
+      { text: "We went to a restaurant and looked at the menu.", trans: "我們去了一家餐廳並看了菜單。" },
+      { text: "I had an idea to order healthy food.", trans: "我有個點子要點健康的食物。" },
+      { text: "I asked for spinach, broccoli, and squash.", trans: "我點了菠菜、綠花椰菜和南瓜。" },
+      { text: "My friend ate everything on his plate until he saw the base.", trans: "我朋友吃光了盤子裡的所有東西直到看見底部。" },
+      { text: "He had to face the fact that he ate too much.", trans: "他必須面對他吃太多的事實。" },
+      { text: "We found the exit and left.", trans: "我們找到出口並離開了。" },
+      { text: "It was a nice meal.", trans: "這是一頓美好的一餐。" }
+    ]
+  },
+  {
+    title: "Unit 202511: The New Apartment",
+    units: [202511],
+    text: "A young {couple} moved into a new {apartment}. It is in a {high} building with an {elevator}. They like to {explore} the rooms. The walls are {bright} and the place is {quiet}. They stood on the {balcony} to look at the view. They want to {finish} unpacking the boxes soon. They hung a picture on the {wall}.",
+    translations: [
+      { text: "A young couple moved into a new apartment.", trans: "一對年輕夫婦搬進了一間新公寓。" },
+      { text: "It is in a high building with an elevator.", trans: "它位於一棟有電梯的高樓層建築裡。" },
+      { text: "They like to explore the rooms.", trans: "他們喜歡探索這些房間。" },
+      { text: "The walls are bright and the place is quiet.", trans: "牆壁很明亮且這個地方很安靜。" },
+      { text: "They stood on the balcony to look at the view.", trans: "他們站在陽臺上看風景。" },
+      { text: "They want to finish unpacking the boxes soon.", trans: "他們想要盡快完成拆箱。" },
+      { text: "They hung a picture on the wall.", trans: "他們在牆上掛了一幅畫。" }
+    ]
+  },
+  {
+    title: "Unit 202511: Outdoor Activity",
+    units: [202511],
+    text: "My {wife} and I like to be {active}. We walked around the {neighborhood}. We saw a {terrific} {owl} in the tree. It is a great {hunter}. We decided to {climb} a hill. The path was {narrow}, so we had to be careful not to {worry}. We learned about a local {custom}. It was an {amazing} day.",
+    translations: [
+      { text: "My wife and I like to be active.", trans: "我和我太太喜歡保持活躍。" },
+      { text: "We walked around the neighborhood.", trans: "我們在鄰里社區附近散步。" },
+      { text: "We saw a terrific owl in the tree.", trans: "我們在樹上看見一隻極好的貓頭鷹。" },
+      { text: "It is a great hunter.", trans: "它是個偉大的獵人。" },
+      { text: "We decided to climb a hill.", trans: "我們決定去爬山丘。" },
+      { text: "The path was narrow, so we had to be careful not to worry.", trans: "小徑很狹窄，所以我們必須小心別擔心。" },
+      { text: "We learned about a local custom.", trans: "我們了解了一項當地習俗。" },
+      { text: "It was an amazing day.", trans: "那是個驚奇的一天。" }
+    ]
+  },
+  {
+    title: "Unit 202511: Thanksgiving",
+    units: [202511],
+    text: "I am {thankful} for every {member} of my family. We made a {drawing} of a {flower} and wrote a {poem}. For dinner, we had {cabbage}, {onion}, and {corn}. The food was a {treasure}. Later, we sat under a {blanket} in the {darkness}. The stars began to {shine}. It was a {special} {place} to be.",
+    translations: [
+      { text: "I am thankful for every member of my family.", trans: "我感謝家裡的每一位成員。" },
+      { text: "We made a drawing of a flower and wrote a poem.", trans: "我們畫了一朵花並寫了一首詩。" },
+      { text: "For dinner, we had cabbage, onion, and corn.", trans: "晚餐我們吃了高麗菜、洋蔥和玉米。" },
+      { text: "The food was a treasure.", trans: "這些食物是寶藏。" },
+      { text: "Later, we sat under a blanket in the darkness.", trans: "後來，我們在黑暗中坐在毯子下。" },
+      { text: "The stars began to shine.", trans: "星星開始閃耀。" },
+      { text: "It was a special place to be.", trans: "這是一個特別的地方。" }
+    ]
+  },
+  {
+    title: "Unit 202511: The Garage Sale",
+    units: [202511],
+    text: "We visited a {garage} sale to help the {environment}. People {sell} {used} items there. I {grab}bed a {cheap} toy and a {gift} package. We should {reuse} things. I saw a candle start to {melt} in the sun. I had to {yell} to my friend to {choose} quickly. The box had a strange {shape}.",
+    translations: [
+      { text: "We visited a garage sale to help the environment.", trans: "我們參觀了一個車庫拍賣以幫助環境。" },
+      { text: "People sell used items there.", trans: "人們在那裡賣二手物品。" },
+      { text: "I grabbed a cheap toy and a gift package.", trans: "我抓了一個便宜的玩具和一個禮物包。" },
+      { text: "We should reuse things.", trans: "我們應該重複使用物品。" },
+      { text: "I saw a candle start to melt in the sun.", trans: "我看見一根蠟燭在陽光下開始融化。" },
+      { text: "I had to yell to my friend to choose quickly.", trans: "我必須對朋友大喊叫他快點選。" },
+      { text: "The box had a strange shape.", trans: "那個箱子有個奇怪的形狀。" }
+    ]
+  },
+  {
+    title: "Unit 202511: Office Work",
+    units: [202511],
+    text: "I need to check my {account} and pay the {bill}. I tried to {dial} the number, but I was {on hold} for a long time. {Unfortunately}, I forgot the {appointment}. I asked the clerk to {explain} the {option}. Please pay {attention} to the {slide}. I will {add} more {information} later.",
+    translations: [
+      { text: "I need to check my account and pay the bill.", trans: "我需要檢查我的帳戶並付帳單。" },
+      { text: "I tried to dial the number, but I was on hold for a long time.", trans: "我試著撥號，但我被保留通話很久。" },
+      { text: "Unfortunately, I forgot the appointment.", trans: "不幸地，我忘了這個預約。" },
+      { text: "I asked the clerk to explain the option.", trans: "我請店員解釋這個選項。" },
+      { text: "Please pay attention to the slide.", trans: "請注意這張投影片。" },
+      { text: "I will add more information later.", trans: "我稍後會增加更多資訊。" }
+    ]
+  },
+
+
 {
     title: "Unit 202512: Indoor Fun",
     units: [202512],
@@ -1030,6 +1118,133 @@ const VOCAB_DATA = [
   { unit: 202510, word: 'improve', kk: '[ɪmˋpruv]', part: 'v.', def: '進步; 改善', sentence: 'I want my English to improve.', senTrans: '我想要我的英文進步。', other: 'improved / improving' },
   { unit: 202510, word: 'adventure', kk: '[ədˋvɛntʃɚ]', part: 'n.', def: '冒險', sentence: 'Let\'s go on an adventure!', senTrans: '我們去冒險吧！', other: 'adventures' },
   { unit: 202510, word: 'wise', kk: '[waɪz]', part: 'adj.', def: '有智慧的', sentence: 'He listened to the wise woman\'s advice.', senTrans: '他聽取了那位有智慧女士的建議。', other: 'wiser' },
+
+
+// --- Unit 202511 (November) ---
+  // Date 3
+  { unit: 202511, word: 'meter', kk: '[ˋmitɚ]', part: 'n.', def: '公尺', sentence: 'Josh is two meters tall.', senTrans: '喬許有兩公尺高。', other: 'meters' },
+  { unit: 202511, word: 'idea', kk: '[aɪˋdiə]', part: 'n.', def: '想法; 主意', sentence: 'Tim has a great idea for the trip.', senTrans: '提姆對這次旅行有個很棒的點子。', other: 'ideas' },
+  { unit: 202511, word: 'face', kk: '[fes]', part: 'v.', def: '面對', sentence: 'Turn and face the class.', senTrans: '轉過身面對班級。', other: 'faced / facing' },
+  { unit: 202511, word: 'exit', kk: '[ˋɛgzɪt]', part: 'n.', def: '出口', sentence: "Where's the exit?", senTrans: '出口在哪裡？', other: 'exits' },
+  { unit: 202511, word: 'menu', kk: '[ˋmɛnju]', part: 'n.', def: '菜單', sentence: 'What drinks are on the menu?', senTrans: '菜單上有什麼飲料？', other: 'menus' },
+  { unit: 202511, word: 'spinach', kk: '[ˋspɪnɪtʃ]', part: 'n.', def: '菠菜', sentence: 'Put some spinach in the salad.', senTrans: '在沙拉裡放些菠菜。', other: '' },
+  { unit: 202511, word: 'pin', kk: '[pɪn]', part: 'n.', def: '插銷; 別針', sentence: "I can't find the pin.", senTrans: '我找不到別針。', other: 'pins' },
+  { unit: 202511, word: 'broccoli', kk: '[ˋbrɑkəlɪ]', part: 'n.', def: '綠花椰菜', sentence: 'Broccoli is easy to cook.', senTrans: '綠花椰菜很容易煮。', other: '' },
+  { unit: 202511, word: 'base', kk: '[bes]', part: 'n.', def: '底部', sentence: 'She is sitting at the base of the tree.', senTrans: '她正坐在樹的底部。', other: 'bases' },
+  { unit: 202511, word: 'squash', kk: '[skwɑʃ]', part: 'n.', def: '南瓜類', sentence: 'What kind of squash is this?', senTrans: '這是哪種南瓜？', other: '' },
+
+  // Date 4
+  { unit: 202511, word: 'apartment', kk: '[əˋpɑrtmənt]', part: 'n.', def: '公寓', sentence: 'Tom lives in a small apartment.', senTrans: '湯姆住在一間小公寓裡。', other: 'apartments' },
+  { unit: 202511, word: 'couple', kk: '[ˋkʌp!]', part: 'n.', def: '幾個; 一對', sentence: 'We waited a couple of hours.', senTrans: '我們等了幾個小時。', other: 'couples' },
+  { unit: 202511, word: 'high', kk: '[haɪ]', part: 'adj.', def: '高的', sentence: 'The mountain is very high.', senTrans: '這座山非常高。', other: 'higher' },
+  { unit: 202511, word: 'elevator', kk: '[ˋɛlə͵vetɚ]', part: 'n.', def: '電梯', sentence: 'Take the elevator to the 20th floor.', senTrans: '搭電梯到20樓。', other: 'elevators' },
+  { unit: 202511, word: 'explore', kk: '[ɪkˋsplɔr]', part: 'v.', def: '探索', sentence: "Let's explore this park.", senTrans: '我們來探索這個公園吧。', other: 'explored / exploring' },
+  { unit: 202511, word: 'finish', kk: '[ˋfɪnɪʃ]', part: 'v.', def: '完成; 結束', sentence: 'They finished all the food.', senTrans: '他們吃完了所有的食物。', other: 'finished / finishing' },
+  { unit: 202511, word: 'balcony', kk: '[ˋbælkənɪ]', part: 'n.', def: '陽臺', sentence: 'She looked down at him from the balcony.', senTrans: '她從陽臺往下看著他。', other: 'balconies' },
+  { unit: 202511, word: 'bright', kk: '[braɪt]', part: 'adj.', def: '鮮豔的; 明亮的', sentence: 'The sun is very bright today.', senTrans: '今天的太陽很明亮。', other: 'brighter' },
+  { unit: 202511, word: 'quiet', kk: '[ˋkwaɪət]', part: 'adj.', def: '安靜的', sentence: "It's quiet because everyone is sleeping.", senTrans: '因為大家都在睡覺，所以很安靜。', other: '' },
+  { unit: 202511, word: 'wall', kk: '[wɔl]', part: 'n.', def: '牆壁', sentence: 'There is a painting on the wall.', senTrans: '牆上有一幅畫。', other: 'walls' },
+
+  // Date 5
+  { unit: 202511, word: 'wife', kk: '[waɪf]', part: 'n.', def: '太太; 妻子', sentence: 'Where are your wife and kids?', senTrans: '你的太太和孩子在哪裡？', other: 'wives' },
+  { unit: 202511, word: 'terrific', kk: '[təˋrɪfɪk]', part: 'adj.', def: '極好的', sentence: 'What a terrific idea!', senTrans: '真是個極好的點子！', other: '' },
+  { unit: 202511, word: 'run out of', kk: '[rʌn aʊt əv]', part: 'idiom', def: '用完', sentence: 'The restaurant ran out of food.', senTrans: '餐廳的食物用完了。', other: 'ran out of' },
+  { unit: 202511, word: 'expect', kk: '[ɪkˋspɛkt]', part: 'v.', def: '期待; 預期', sentence: 'What are you expecting today?', senTrans: '你今天有什麼期待？', other: 'expected / expecting' },
+  { unit: 202511, word: 'row', kk: '[ro]', part: 'v.', def: '划(船)', sentence: 'Can you row a boat?', senTrans: '你會划船嗎？', other: 'rowed / rowing' },
+  { unit: 202511, word: 'narrow', kk: '[ˋnæro]', part: 'adj.', def: '狹窄的', sentence: 'This street is very narrow.', senTrans: '這條街非常狹窄。', other: '' },
+  { unit: 202511, word: 'worry', kk: '[ˋwɝɪ]', part: 'v.', def: '擔心; 憂慮', sentence: 'She is worrying about her children.', senTrans: '她正在擔心她的孩子們。', other: 'worried / worrying' },
+  { unit: 202511, word: 'neighborhood', kk: '[ˋnebɚ͵hʊd]', part: 'n.', def: '鄰里社區', sentence: 'Do you live in this neighborhood?', senTrans: '你住在這個社區嗎？', other: 'neighborhoods' },
+  { unit: 202511, word: 'amazing', kk: '[əˋmezɪŋ]', part: 'adj.', def: '令人驚嘆的', sentence: 'We had an amazing time in Japan.', senTrans: '我們在日本度過了令人驚嘆的時光。', other: '' },
+  { unit: 202511, word: 'climb', kk: '[klaɪm]', part: 'v.', def: '攀爬', sentence: 'He climbed to the top of the hill.', senTrans: '他爬到了山頂。', other: 'climbed / climbing' },
+
+  // Date 6
+  { unit: 202511, word: 'owl', kk: '[aʊl]', part: 'n.', def: '貓頭鷹', sentence: 'Owls are beautiful birds.', senTrans: '貓頭鷹是美麗的鳥類。', other: 'owls' },
+  { unit: 202511, word: 'custom', kk: '[ˋkʌstəm]', part: 'n.', def: '習俗', sentence: 'This country has interesting customs.', senTrans: '這個國家有有趣的習俗。', other: 'customs' },
+  { unit: 202511, word: 'active', kk: '[ˋæktɪv]', part: 'adj.', def: '活躍的', sentence: 'Her children are very active.', senTrans: '她的孩子們非常活躍。', other: '' },
+  { unit: 202511, word: 'hunter', kk: '[ˋhʌntɚ]', part: 'n.', def: '獵人', sentence: 'Her cat is a great hunter of mice.', senTrans: '她的貓是個捕鼠高手。', other: 'hunters' },
+  { unit: 202511, word: 'style', kk: '[staɪl]', part: 'n.', def: '風格', sentence: 'What style of music is this?', senTrans: '這是什麼風格的音樂？', other: 'styles' },
+  { unit: 202511, word: 'clap', kk: '[klæp]', part: 'v.', def: '鼓掌', sentence: 'Everyone clapped for the musicians.', senTrans: '大家為音樂家鼓掌。', other: 'clapped / clapping' },
+  { unit: 202511, word: 'sound', kk: '[saʊnd]', part: 'n.', def: '聲音', sentence: "The children didn't make a sound.", senTrans: '孩子們沒有發出一點聲音。', other: 'sounds' },
+  { unit: 202511, word: 'dish', kk: '[dɪʃ]', part: 'n.', def: '菜餚', sentence: 'This beef dish is delicious.', senTrans: '這道牛肉料理很好吃。', other: 'dishes' },
+  { unit: 202511, word: 'around', kk: '[əˋraʊnd]', part: 'adv.', def: '環繞; 到處', sentence: 'Walk around. Do the shoes feel OK?', senTrans: '四處走走。鞋子感覺還可以嗎？', other: '' },
+  { unit: 202511, word: 'rice', kk: '[raɪs]', part: 'n.', def: '米; 飯', sentence: 'She ate rice and vegetables for dinner.', senTrans: '她晚餐吃這飯和蔬菜。', other: '' },
+
+  // Date 7
+  { unit: 202511, word: 'drawing', kk: '[ˋdrɔɪŋ]', part: 'n.', def: '圖畫', sentence: 'What is this drawing of?', senTrans: '這是畫什麼？', other: 'drawings' },
+  { unit: 202511, word: 'thankful', kk: '[ˋθæŋkfəl]', part: 'adj.', def: '感謝的; 感恩的', sentence: "I'm thankful for my friends and family.", senTrans: '我感謝我的朋友和家人。', other: '' },
+  { unit: 202511, word: 'serious', kk: '[ˋsɪrɪəs]', part: 'adj.', def: '嚴肅的', sentence: 'Our teacher is very serious today.', senTrans: '我們老師今天很嚴肅。', other: '' },
+  { unit: 202511, word: 'eye', kk: '[aɪ]', part: 'n.', def: '眼睛', sentence: 'Sylvia has beautiful blue eyes.', senTrans: '西爾維亞有美麗的藍眼睛。', other: 'eyes' },
+  { unit: 202511, word: 'member', kk: '[ˋmɛmbɚ]', part: 'n.', def: '成員; 會員', sentence: 'Rick is a new team member.', senTrans: '瑞克是新團隊成員。', other: 'members' },
+  { unit: 202511, word: 'flower', kk: '[ˋflaʊɚ]', part: 'n.', def: '花', sentence: 'Ellen loves beautiful flowers.', senTrans: '艾倫喜歡美麗的花。', other: 'flowers' },
+  { unit: 202511, word: 'poem', kk: '[ˋpoəm]', part: 'n.', def: '詩', sentence: 'I like to read poems.', senTrans: '我喜歡讀詩。', other: 'poems' },
+  { unit: 202511, word: 'place', kk: '[ples]', part: 'n.', def: '地方; 場所', sentence: "Let's go to a place with a lot of nature.", senTrans: '我們去一個有很多大自然的地方吧。', other: 'places' },
+  { unit: 202511, word: 'darkness', kk: '[ˋdɑrknɪs]', part: 'n.', def: '黑暗', sentence: "He couldn't see in the darkness.", senTrans: '他在黑暗中看不見。', other: '' },
+  { unit: 202511, word: 'special', kk: '[ˋspɛʃəl]', part: 'adj.', def: '特別的', sentence: 'You are very special to us.', senTrans: '你對我們來說很特別。', other: '' },
+
+  // Date 10
+  { unit: 202511, word: 'cabbage', kk: '[ˋkæbɪdʒ]', part: 'n.', def: '高麗菜; 捲心菜', sentence: 'This cabbage is delicious.', senTrans: '這高麗菜很好吃。', other: '' },
+  { unit: 202511, word: 'lettuce', kk: '[ˋlɛtəs]', part: 'n.', def: '生菜; 萵苣', sentence: 'I like lettuce in salads.', senTrans: '我喜歡沙拉裡的生菜。', other: '' },
+  { unit: 202511, word: 'onion', kk: '[ˋʌnjən]', part: 'n.', def: '洋蔥', sentence: 'Do you eat raw onions?', senTrans: '你吃生洋蔥嗎？', other: 'onions' },
+  { unit: 202511, word: 'green bean', kk: '[grin bin]', part: 'n.', def: '四季豆; 青豆', sentence: 'Mom is cooking green beans for dinner.', senTrans: '媽媽正在煮四季豆當晚餐。', other: 'green beans' },
+  { unit: 202511, word: 'corn', kk: '[kɔrn]', part: 'n.', def: '玉米', sentence: 'Corn is her favorite vegetable.', senTrans: '玉米是她最喜歡的蔬菜。', other: '' },
+  { unit: 202511, word: 'blanket', kk: '[ˋblæŋkɪt]', part: 'n.', def: '毯子; 毛毯', sentence: 'Is there a blanket on the bed?', senTrans: '床上有毯子嗎？', other: 'blankets' },
+  { unit: 202511, word: 'rich', kk: '[rɪtʃ]', part: 'adj.', def: '有錢的; 富有的', sentence: 'Tom is rich. He has lots of money.', senTrans: '湯姆很有錢。他有很多錢。', other: '' },
+  { unit: 202511, word: 'treasure', kk: '[ˋtrɛʒɚ]', part: 'n.', def: '金銀財寶; 財富', sentence: 'Where does he keep his treasure?', senTrans: '他把寶藏藏在哪裡？', other: 'treasures' },
+  { unit: 202511, word: 'seem', kk: '[sim]', part: 'v.', def: '看來好像; 似乎', sentence: 'You seem very happy today.', senTrans: '你今天似乎很開心。', other: 'seemed / seeming' },
+  { unit: 202511, word: 'shine', kk: '[ʃaɪn]', part: 'n.', def: '光彩; 光澤', sentence: 'There is a shine on the new car.', senTrans: '新車上有光澤。', other: '' },
+
+  // Date 19
+  { unit: 202511, word: 'grab', kk: '[græb]', part: 'v.', def: '抓取', sentence: 'He grabbed his bag and left.', senTrans: '他抓起他的包包就離開了。', other: 'grabbed / grabbing' },
+  { unit: 202511, word: 'gift', kk: '[gɪft]', part: 'n.', def: '禮物', sentence: 'This is a gift for you.', senTrans: '這是給你的禮物。', other: 'gifts' },
+  { unit: 202511, word: 'yell', kk: '[jɛl]', part: 'v.', def: '叫喊; 吼叫', sentence: "Don't yell at me.", senTrans: '不要對我吼叫。', other: 'yelled / yelling' },
+  { unit: 202511, word: 'choose', kk: '[tʃuz]', part: 'v.', def: '選擇; 挑選', sentence: 'Please choose one.', senTrans: '請選擇一個。', other: 'chose / chosen / choosing' },
+  { unit: 202511, word: 'easily', kk: '[ˋizəlɪ]', part: 'adv.', def: '容易地', sentence: 'She won the game easily.', senTrans: '她輕鬆地贏了比賽。', other: '' },
+  { unit: 202511, word: 'flow', kk: '[flo]', part: 'n.', def: '前後連接; 連貫性', sentence: 'The flow of the story is good.', senTrans: '故事的連貫性很好。', other: '' },
+  { unit: 202511, word: 'nod', kk: '[nɑd]', part: 'v.', def: '點頭', sentence: 'She nodded her head.', senTrans: '她點了點頭。', other: 'nodded / nodding' },
+  { unit: 202511, word: 'phrase', kk: '[frez]', part: 'n.', def: '措辭; 片語', sentence: 'I like that phrase.', senTrans: '我喜歡那個片語。', other: 'phrases' },
+  { unit: 202511, word: 'miss', kk: '[mɪs]', part: 'v.', def: '想念; 惦記', sentence: 'I miss my family.', senTrans: '我想念我的家人。', other: 'missed / missing' },
+  { unit: 202511, word: 'guide', kk: '[gaɪd]', part: 'v.', def: '引導; 帶領', sentence: 'He guided us through the city.', senTrans: '他帶領我們穿越城市。', other: 'guided / guiding' },
+
+  // Date 20
+  { unit: 202511, word: 'garage', kk: '[gəˋrɑʒ]', part: 'n.', def: '車庫', sentence: 'The car is in the garage.', senTrans: '車子在車庫裡。', other: 'garages' },
+  { unit: 202511, word: 'used', kk: '[juzd]', part: 'adj.', def: '用過的; 二手的', sentence: 'He bought a used car.', senTrans: '他買了一輛二手車。', other: '' },
+  { unit: 202511, word: 'sell', kk: '[sɛl]', part: 'v.', def: '賣', sentence: 'They want to sell their house.', senTrans: '他們想要賣掉房子。', other: 'sold / selling' },
+  { unit: 202511, word: 'package', kk: '[ˋpækɪdʒ]', part: 'n.', def: '包裝(盒、袋、箱)', sentence: 'The package arrived today.', senTrans: '包裹今天到了。', other: 'packages' },
+  { unit: 202511, word: 'reuse', kk: '[riˋjuz]', part: 'v.', def: '再用; 重複使用', sentence: 'We should reuse plastic bags.', senTrans: '我們應該重複使用塑膠袋。', other: 'reused / reusing' },
+  { unit: 202511, word: 'environment', kk: '[ɪnˋvaɪrənmənt]', part: 'n.', def: '環境; 自然環境', sentence: 'Protecting the environment is important.', senTrans: '保護環境很重要。', other: '' },
+  { unit: 202511, word: 'visit', kk: '[ˋvɪzɪt]', part: 'v.', def: '拜訪', sentence: 'I will visit my grandmother.', senTrans: '我會去拜訪我祖母。', other: 'visited / visiting' },
+  { unit: 202511, word: 'melt', kk: '[mɛlt]', part: 'v.', def: '熔化; 融化', sentence: 'The ice cream is melting.', senTrans: '冰淇淋正在融化。', other: 'melted / melting' },
+  { unit: 202511, word: 'cheap', kk: '[tʃip]', part: 'adj.', def: '便宜的; 低價的', sentence: 'This shirt is very cheap.', senTrans: '這件襯衫很便宜。', other: '' },
+  { unit: 202511, word: 'shape', kk: '[ʃep]', part: 'n.', def: '形狀; 外形', sentence: 'The cloud has a funny shape.', senTrans: '那朵雲有個有趣的形狀。', other: 'shapes' },
+
+  // Date 21
+  { unit: 202511, word: 'unfortunately', kk: '[ʌnˋfɔrtʃənɪtlɪ]', part: 'adv.', def: '可惜; 遺憾地', sentence: 'Unfortunately, I cannot go.', senTrans: '很遺憾地，我不能去。', other: '' },
+  { unit: 202511, word: 'throw away', kk: '[θro əˋwe]', part: 'phr v.', def: '扔掉; 拋棄', sentence: "Don't throw away that box.", senTrans: '不要扔掉那個箱子。', other: 'threw away / thrown away' },
+  { unit: 202511, word: 'account', kk: '[əˋkaʊnt]', part: 'n.', def: '帳戶', sentence: 'I have money in my bank account.', senTrans: '我的銀行帳戶裡有錢。', other: 'accounts' },
+  { unit: 202511, word: 'valuable', kk: '[ˋvæljʊəb!]', part: 'adj.', def: '值錢的; 貴重的', sentence: 'This ring is very valuable.', senTrans: '這枚戒指很貴重。', other: '' },
+  { unit: 202511, word: 'stay', kk: '[ste]', part: 'v.', def: '留下; 停留', sentence: 'Please stay here.', senTrans: '請留在這裡。', other: 'stayed / staying' },
+
+  // Date 24
+  { unit: 202511, word: 'information', kk: '[͵ɪnfɚˋmeʃən]', part: 'n.', def: '資訊; 訊息', sentence: 'I need more information.', senTrans: '我需要更多資訊。', other: '' },
+  { unit: 202511, word: 'dial', kk: '[ˋdaɪəl]', part: 'v.', def: '打電話; 撥(號)', sentence: 'Dial the number carefully.', senTrans: '小心撥打號碼。', other: 'dialed / dialing' },
+  { unit: 202511, word: 'on hold', kk: '[ɑn hold]', part: 'idiom', def: '(在電話上)等待', sentence: 'He put me on hold.', senTrans: '他讓我保留通話(等待)。', other: '' },
+  { unit: 202511, word: 'call back', kk: '[kɔl bæk]', part: 'phr v.', def: '回電', sentence: 'I will call you back later.', senTrans: '我稍後會回電給你。', other: 'called back' },
+  { unit: 202511, word: 'welcome', kk: '[ˋwɛlkəm]', part: 'adj.', def: '(接受謝意)不客氣', sentence: "You're welcome.", senTrans: '不客氣。', other: '' },
+
+  // Date 25
+  { unit: 202511, word: 'option', kk: '[ˋɑpʃən]', part: 'n.', def: '選項', sentence: 'You have two options.', senTrans: '你有兩個選項。', other: 'options' },
+  { unit: 202511, word: 'address', kk: '[əˋdrɛs]', part: 'n.', def: '地址', sentence: "What is your home address?", senTrans: '你家地址是什麼？', other: 'addresses' },
+  { unit: 202511, word: 'bill', kk: '[bɪl]', part: 'n.', def: '帳單', sentence: 'The electricity bill is high.', senTrans: '電費帳單很高。', other: 'bills' },
+  { unit: 202511, word: 'appointment', kk: '[əˋpɔɪntmənt]', part: 'n.', def: '預約; (正式的)約會', sentence: 'I have a doctor appointment.', senTrans: '我有預約看醫生。', other: 'appointments' },
+  { unit: 202511, word: 'on the line', kk: '[ɑn ðə laɪn]', part: 'idiom', def: '(電話)通話中', sentence: 'Mr. Smith is on the line.', senTrans: '史密斯先生正在線上(通話中)。', other: '' },
+
+  // Date 26
+  { unit: 202511, word: 'follow', kk: '[ˋfɑlo]', part: 'v.', def: '遵行; 採用; 聽從', sentence: 'Follow the instructions.', senTrans: '遵行指示。', other: 'followed / following' },
+  { unit: 202511, word: 'attention', kk: '[əˋtɛnʃən]', part: 'n.', def: '注意; 留心', sentence: 'Pay attention to the teacher.', senTrans: '注意聽老師說。', other: '' },
+  { unit: 202511, word: 'explain', kk: '[ɪkˋsplen]', part: 'v.', def: '解釋', sentence: 'Can you explain this rule?', senTrans: '你能解釋這條規則嗎？', other: 'explained / explaining' },
+  { unit: 202511, word: 'slide', kk: '[slaɪd]', part: 'n.', def: '投影片; 幻燈片', sentence: 'Look at the next slide.', senTrans: '看下一張投影片。', other: 'slides' },
+  { unit: 202511, word: 'add', kk: '[æd]', part: 'v.', def: '添加; 增加', sentence: 'Add some sugar to the tea.', senTrans: '在茶裡加點糖。', other: 'added / adding' },
+
 
 // Date 1
   { unit: 202512, word: 'movie', kk: '[ˋmuvɪ]', part: 'n.', def: '電影', sentence: "Let's watch a movie tonight.", senTrans: '我們今晚看電影吧。', other: 'movies' },
