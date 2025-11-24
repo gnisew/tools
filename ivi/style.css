@@ -22,8 +22,8 @@
 }
 
 @keyframes fade-in {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 .animate-fade-in {
     animation: fade-in 0.3s ease-out forwards;
@@ -51,4 +51,56 @@
 /* Utility for conditional rendering */
 .hidden {
     display: none !important;
+}
+
+/* --- Custom Sets & Tabs --- */
+.tab-btn {
+    @apply px-6 py-2 rounded-full font-bold text-sm transition-all border-2 border-transparent;
+}
+.tab-btn.active {
+    @apply bg-indigo-600 text-white shadow-md border-indigo-600;
+}
+.tab-btn.inactive {
+    @apply bg-white text-gray-500 hover:bg-gray-50 border-gray-200;
+}
+
+/* --- Modal Overlay --- */
+.modal-overlay {
+    background-color: rgba(17, 24, 39, 0.7);
+    backdrop-filter: blur(4px);
+}
+.modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* --- Toast Notification --- */
+.toast-enter {
+    transform: translateY(100%);
+    opacity: 0;
+}
+.toast-enter-active {
+    transform: translateY(0);
+    opacity: 1;
+    transition: all 0.3s ease-out;
+}
+.toast-exit {
+    transform: translateY(0);
+    opacity: 1;
+}
+.toast-exit-active {
+    transform: translateY(100%);
+    opacity: 0;
+    transition: all 0.3s ease-in;
+}
+
+/* --- Custom Input Modal --- */
+.input-modal-overlay {
+    background-color: rgba(17, 24, 39, 0.8); /* 更深一點的背景，讓焦點更集中 */
+    backdrop-filter: blur(4px);
+}
+
+.input-field-focus:focus {
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.2); /* Indigo ring */
+    border-color: #4f46e5;
 }
