@@ -8,7 +8,7 @@ const state = {
     filterMode: 'default', 
     
     // Default Mode 相關
-    selectedUnits: [23, 24, 25, 26, 27],
+    selectedUnits: [],
     allUnits: [],
     
     // Custom Mode 相關
@@ -225,7 +225,6 @@ function renderHome() {
     const headerHTML = `
         <div class="w-full mb-4 pl-1">
             <h1 class="text-3xl font-extrabold text-gray-800 tracking-tight">Let's Learn!</h1>
-            <p class="text-gray-500 text-sm mt-1">今天想複習哪些內容呢？</p>
         </div>
     `;
 
@@ -273,7 +272,6 @@ function renderHome() {
             `;
         }).join('');
 
-        // 移除 animate-fade-in
         contentHTML = `
             <div class="w-full">
                 <div class="mb-5">
@@ -298,12 +296,13 @@ function renderHome() {
             </div>
         `;
     
-    // --- TAB 2: 自訂學習集 ---
-    } else {
+    // --- TAB 2: 自訂學習集 (已修改) ---
+} else {
         const hasSets = state.customSets.length > 0;
         let setsHTML = '';
         
         if (!hasSets) {
+            // ... (無學習集時的顯示保持不變) ...
             setsHTML = `
                 <div class="col-span-full flex flex-col items-center justify-center text-gray-400 py-12 border-2 border-dashed border-gray-200 rounded-3xl bg-gray-50/50">
                     <div class="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mb-4">
@@ -316,68 +315,109 @@ function renderHome() {
         } else {
             setsHTML = state.customSets.map(set => {
                 const isSelected = state.activeSetId === set.id;
-                const previewWords = state.vocabulary
-                    .filter(w => set.wordIds.includes(w.id))
-                    .slice(0, 3)
-                    .map(w => w.word)
-                    .join(', ');
+                const isEmpty = set.wordIds.length === 0;
                 
-                const borderClass = isSelected 
-                    ? 'bg-indigo-50 border-indigo-600 border-2 shadow-sm' 
-                    : 'bg-white border-gray-200 border-2 hover:border-indigo-300';
+                // --- 樣式與互動邏輯修正 ---
+                let borderClass = '';
+                let iconColor = '';
+                let textColor = '';
+                let countColor = '';
+                let clickAction = ''; // 預設無點擊動作
+                let cursorClass = 'cursor-default'; // 預設無游標反應
+
+                if (isEmpty) {
+                    // [空集合]: 灰色、無點擊事件、無 Hover 邊框變色
+                    borderClass = 'bg-gray-100 border-gray-200 border-2'; 
+                    iconColor = 'text-gray-400';
+                    textColor = 'text-gray-500';
+                    countColor = 'text-gray-400';
+                    clickAction = ''; // ★ 關鍵：空集合沒有 onclick
+                    cursorClass = 'cursor-default'; // ★ 關鍵：游標不變手型
+                } else {
+                    // [一般集合]: 正常樣式、可點擊
+                    borderClass = isSelected 
+                        ? 'bg-indigo-50 border-indigo-600 border-2 shadow-sm' 
+                        : 'bg-white border-gray-200 border-2 hover:border-indigo-300 hover:bg-gray-50';
+                    iconColor = isSelected ? 'text-indigo-600' : 'text-amber-400';
+                    textColor = isSelected ? 'text-indigo-900' : 'text-gray-800';
+                    countColor = isSelected ? 'text-indigo-500' : 'text-gray-400';
+                    clickAction = `onclick="selectCustomSet('${set.id}')"`; // ★ 正常集合才有 onclick
+                    cursorClass = 'cursor-pointer'; // ★ 正常集合游標變手型
+                }
                 
                 return `
-                    <div onclick="selectCustomSet('${set.id}')" class="relative group cursor-pointer rounded-2xl p-5 transition-all duration-200 flex flex-col justify-between min-h-[140px] ${borderClass}">
-                        <div class="flex justify-between items-start mb-2">
-                            <div class="flex items-center gap-2 overflow-hidden">
-                                <i class="fas fa-folder ${isSelected ? 'text-indigo-600' : 'text-amber-400'} text-xl"></i>
-                                <h3 class="font-bold text-gray-800 truncate">${set.name}</h3>
+                    <div ${clickAction} class="relative group ${cursorClass} rounded-2xl p-3 transition-all duration-200 flex flex-col justify-between h-28 ${borderClass}">
+                        
+                        <div class="flex justify-between items-start gap-2">
+                            <div class="flex flex-col overflow-hidden">
+                                <div class="flex items-center gap-1.5 mb-1">
+                                    <i class="fas fa-folder ${iconColor} text-sm"></i>
+                                    <span class="text-[10px] ${isEmpty ? 'bg-gray-200 text-gray-500' : 'bg-indigo-100 text-indigo-600'} px-1.5 rounded font-bold">
+                                        ${isEmpty ? 'Empty' : 'Set'}
+                                    </span>
+                                </div>
+                                <h3 class="font-bold text-sm ${textColor} truncate leading-tight" title="${set.name}">${set.name}</h3>
                             </div>
-                            <div class="w-5 h-5 rounded-full flex items-center justify-center transition-colors">
-                                <i class="fas ${isSelected ? 'fa-check-circle text-indigo-600' : 'fa-circle text-gray-200'} text-xl"></i>
+                            
+                            <div class="w-5 h-5 flex-shrink-0 flex items-center justify-center ${isEmpty ? 'opacity-0' : 'opacity-100'}">
+                                <i class="fas ${isSelected ? 'fa-check-circle text-indigo-600' : 'fa-circle text-gray-200'} text-xl transition-colors"></i>
                             </div>
                         </div>
 
-                        <div class="flex-1">
-                            <p class="text-xs text-gray-400 font-mono mb-1">${set.wordIds.length} words</p>
-                            <p class="text-xs text-gray-500 line-clamp-2 leading-relaxed bg-black/5 p-2 rounded-lg">
-                                ${previewWords || '<span class="italic opacity-50">Empty set</span>'} ${set.wordIds.length > 3 ? '...' : ''}
-                            </p>
-                        </div>
+                        <div class="flex justify-between items-end mt-auto">
+                            <span class="text-xs font-mono font-bold ${countColor}">
+                                ${set.wordIds.length} words
+                            </span>
 
-                        <div class="flex justify-end gap-2 mt-3 pt-3 border-t border-gray-200/50">
-                             <button onclick="openRenameSetModal('${set.id}', '${set.name}')" class="p-2 text-gray-400 hover:text-indigo-600 hover:bg-white rounded-lg transition-colors" title="重新命名">
-                                <i class="fas fa-pen text-xs"></i>
-                             </button>
-                             <button onclick="deleteCustomSet('${set.id}')" class="p-2 text-gray-400 hover:text-red-500 hover:bg-white rounded-lg transition-colors" title="刪除">
-                                <i class="fas fa-trash text-xs"></i>
-                             </button>
+                            <div class="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                 <button onclick="openRenameSetModal('${set.id}', '${set.name}'); event.stopPropagation();" class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-black/5 rounded-lg transition-colors" title="重新命名">
+                                    <i class="fas fa-pen text-xs"></i>
+                                 </button>
+                                 <button onclick="deleteCustomSet('${set.id}'); event.stopPropagation();" class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-black/5 rounded-lg transition-colors" title="刪除">
+                                    <i class="fas fa-trash text-xs"></i>
+                                 </button>
+                            </div>
                         </div>
                     </div>
                 `;
             }).join('');
         }
 
-        // 移除 animate-fade-in
+        // 修改後的 Grid (與 Unit 相同: grid-cols-2 sm:grid-cols-3)
+        // 並將建立按鈕的高度設為 h-28 以匹配新的卡片高度
         contentHTML = `
             <div class="w-full">
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-48">
-                    <button onclick="openCreateSetModal()" class="border-2 border-dashed border-indigo-200 rounded-2xl p-5 flex flex-col items-center justify-center gap-3 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 hover:border-indigo-400 transition-all min-h-[140px] group">
-                        <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <i class="fas fa-plus text-indigo-600"></i>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 pb-48">
+                    <button onclick="openCreateSetModal()" class="border-2 border-dashed border-indigo-200 rounded-2xl p-3 flex flex-col items-center justify-center gap-2 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 hover:border-indigo-400 transition-all h-28 group">
+                        <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <i class="fas fa-plus text-indigo-600 text-sm"></i>
                         </div>
-                        <span class="font-bold text-sm">建立新學習集</span>
+                        <span class="font-bold text-xs">建立新學習集</span>
                     </button>
                     ${setsHTML}
                 </div>
             </div>
         `;
 
+        // 檢查選中的集合是否為空
+        let isSetEmpty = false;
+        if (state.activeSetId) {
+            const activeSet = state.customSets.find(s => s.id === state.activeSetId);
+            if (activeSet && activeSet.wordIds.length === 0) {
+                isSetEmpty = true;
+            }
+        }
+        
+        // 按鈕狀態邏輯：如果沒選 OR 選中的是空的，都 Disable
+        const isBtnDisabled = !state.activeSetId || isSetEmpty;
+        const btnText = isSetEmpty ? '此學習集是空的' : '進入單字表';
+        const btnBgClass = isBtnDisabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-800 hover:bg-gray-900';
+
         floatingBtnHTML = `
             <div class="fixed bottom-[65px] left-0 right-0 z-50 px-6 pt-12 pb-4 bg-gradient-to-t from-slate-50 via-slate-50/95 to-transparent flex justify-center pointer-events-none">
-                 <button onclick="startLearning('custom')" class="pointer-events-auto w-full max-w-md bg-gray-800 text-white h-14 rounded-2xl font-bold text-lg shadow-xl hover:bg-gray-900 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none" ${!state.activeSetId ? 'disabled' : ''}>
-                    <span>進入單字表</span>
-                    <i class="fas fa-list-ul"></i>
+                 <button onclick="startLearning('custom')" class="pointer-events-auto w-full max-w-md text-white h-14 rounded-2xl font-bold text-lg shadow-xl transition-all flex items-center justify-center gap-2 ${btnBgClass} active:scale-95 disabled:transform-none disabled:shadow-none" ${isBtnDisabled ? 'disabled' : ''}>
+                    <span>${btnText}</span>
+                    ${!isSetEmpty ? '<i class="fas fa-list-ul"></i>' : '<i class="fas fa-ban"></i>'}
                 </button>
             </div>
         `;
