@@ -104,3 +104,82 @@
     box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.2); /* Indigo ring */
     border-color: #4f46e5;
 }
+
+/* --- Nav Collapsed State Adjustments --- */
+
+/* 當導航收合時，首頁浮動按鈕往下降 */
+body.nav-collapsed #home-floating-container {
+    bottom: 10px !important; /* 距離底部留一點空間給右側的收合按鈕 */
+}
+
+/* 當導航收合時，故事頁的單字庫貼底 */
+body.nav-collapsed #story-footer {
+    bottom: 0px !important;
+    padding-bottom: 20px; /* 手機上增加底部留白較好按 */
+}
+
+/* --- Story Mode Enhancements --- */
+
+/* 模糊效果 (用於隱藏英文時) */
+.text-blur {
+    filter: blur(6px);
+    user-select: none;
+    transition: filter 0.3s ease;
+    opacity: 0.7;
+}
+.text-blur:hover {
+    filter: blur(0);
+    opacity: 1;
+}
+
+/* 句子區塊互動效果 */
+.sentence-card {
+    transition: all 0.2s ease-in-out;
+    border-left: 3px solid transparent;
+}
+.sentence-card:hover {
+    background-color: #f8fafc; /* slate-50 */
+    border-left-color: #6366f1; /* indigo-500 */
+}
+
+/* 播放按鈕微動畫 */
+.play-icon {
+    opacity: 0;
+    transform: translateX(-5px);
+    transition: all 0.2s ease;
+}
+.sentence-card:hover .play-icon {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* --- Timer & Quiz Enhancements --- */
+
+/* 計時器樣式 */
+.timer-badge {
+    font-variant-numeric: tabular-nums; 
+}
+
+/* 空格內的數字編號 */
+.blank-number {
+    display: inline-block;
+    color: #9ca3af; /* gray-400 */
+    font-size: 0.75rem; /* text-xs */
+    font-weight: bold;
+    user-select: none;
+}
+/* 空格區塊 */
+.blank-slot {
+    min-width: 80px; /* 稍微縮小最小寬度 */
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    margin: 0 4px;
+    padding: 0 8px;
+    border-bottom-width: 2px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    cursor: pointer;
+}

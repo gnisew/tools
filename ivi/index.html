@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="style.css">
     <!-- Data File (Loaded first) -->
     <script src="data.js"></script>
+	<script src="data2.js"></script>
 </head>
 <body class="bg-slate-50 font-sans text-gray-900 pb-20">
 
@@ -21,11 +22,15 @@
     </main>
 
     <!-- Bottom Navigation -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 pb-safe shadow-[0_-2px_10px_rgba(0,0,0,0.02)]">
-        <div class="flex justify-around items-center max-w-3xl mx-auto h-16 px-2" id="nav-container">
-            <!-- Nav items injected by JS -->
-        </div>
-    </nav>
+	<nav id="bottom-nav" class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 pb-safe shadow-[0_-2px_10px_rgba(0,0,0,0.02)] transition-transform duration-300 ease-in-out transform translate-y-0">
+		
+		<button id="nav-toggle-btn" class="absolute -top-8 left-6 h-8 w-12 bg-white border border-gray-200 border-b-0 rounded-t-xl flex items-center justify-center text-gray-400 hover:text-indigo-600 shadow-[0_-2px_4px_rgba(0,0,0,0.05)] cursor-pointer active:scale-95 transition-all z-50">
+			<i id="nav-toggle-icon" class="fas fa-chevron-down transition-transform duration-300"></i>
+		</button>
+
+		<div class="flex justify-around items-center max-w-3xl mx-auto h-16 px-2" id="nav-container">
+			</div>
+	</nav>
 
     <!-- Main Script -->
     <script src="script.js"></script>
