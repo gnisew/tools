@@ -1812,10 +1812,9 @@ function renderQuiz() {
     ` : '';
 
 	const isMatchMode = (mode === 'en-cn' && subMode === 'match');
-    const containerClass = isMatchMode 
-        ? "relative bg-white p-4 rounded-3xl shadow-sm mb-4 flex flex-col md:block items-center justify-center border-b-4 border-indigo-100 min-h-[60px]" // 配對模式：高度極小化
-        : "relative bg-white p-6 md:p-8 rounded-3xl shadow-sm mb-6 flex flex-col md:block items-center justify-center gap-6 border-b-4 border-indigo-100 min-h-[160px]"; // 正常模式
-
+	const containerClass = isMatchMode 
+        ? "relative bg-white p-4 rounded-3xl shadow-sm mb-4 flex flex-col md:block items-center justify-center border-b-4 border-indigo-100 min-h-[65px]" 
+        : "relative bg-white p-6 md:p-8 rounded-3xl shadow-sm mb-4 flex flex-col md:block items-center justify-center gap-6 border-b-4 border-indigo-100 min-h-[160px]";
     const contentAreaClass = isMatchMode
         ? "w-full flex flex-col items-center justify-center noselect hidden" // 配對模式：隱藏內容區
         : "w-full flex flex-col items-center justify-center md:min-h-[120px] noselect"; // 正常模式
