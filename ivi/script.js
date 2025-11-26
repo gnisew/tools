@@ -21,7 +21,7 @@ const state = {
     // UI 狀態
     listMode: 'full', // 'full' or 'compact'
     sortOrder: 'default', // 'default' or 'alpha'
-    listColumns: ['check', 'num', 'word', 'kk', 'part', 'def', 'other'],
+    listColumns: ['check', 'num', 'word', 'kk', 'part', 'other', 'def'],
     highlightVowels: true,
     pagination: {
         mode: 'unit', // 'unit', '50', '100', 'all'
@@ -29,7 +29,7 @@ const state = {
     },
     
     // Quiz & Story (保持原樣)
-    quiz: {
+	quiz: {
         questions: [],
         currentIndex: 0,
         score: 0,
@@ -37,7 +37,29 @@ const state = {
         status: 'answering',
         selectedOption: null,
         isFinished: false,
-        mode: '' 
+        mode: '',
+        subMode: 'choice', // 'choice' (四選一) 或 'spell' (拼字)
+		spellingDifficulty: 5, 
+		sentenceDifficulty: 5,
+        matchingDifficulty: 4, 
+        matching: {
+            items: [],      // 卡片列表
+            selectedId: null, // 目前選中的卡片 ID
+            matchedPairs: 0, // 已配對組數
+            totalPairs: 0   // 本輪總組數
+        },
+        spelling: {
+            currentWord: "",
+            revealedMask: [],
+            letterPool: [],
+            nextIndex: 0
+        },
+		ordering: {
+            targetWords: [],
+            revealedMask: [],
+            wordPool: [],
+            nextIndex: 0
+        }
     },
     story: {
         activeIndex: 0,
@@ -431,6 +453,14 @@ function renderHome() {
 
 // --- LIST VIEW ---
 function renderList() {
+    const allAvailableCols = [
+        { id: 'num', label: '編號' },
+        { id: 'word', label: '單字' },
+        { id: 'kk', label: 'KK' },
+        { id: 'part', label: '詞性' },
+        { id: 'other', label: '變化形' },
+        { id: 'def', label: '中文定義' },
+    ];
     // 1. 根據 FilterMode 篩選資料
     let allWords = [];
     let listTitle = "";
@@ -537,7 +567,7 @@ function renderList() {
     // List Header (Toolbar)
     const header = document.createElement('div');
     header.className = "bg-indigo-600 text-white p-4 md:p-6 rounded-b-3xl shadow-lg mb-6 -mx-4 md:mx-0 md:rounded-3xl";
-    header.innerHTML = `
+	header.innerHTML = `
         <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
            <div class="flex flex-col">
                <h2 class="text-2xl font-bold truncate max-w-[200px] md:max-w-md">${listTitle}</h2>
@@ -545,10 +575,34 @@ function renderList() {
            </div>
 
            <div class="flex flex-wrap justify-center items-center gap-2">
-                <button onclick="toggleListMode()" class="flex items-center gap-1 bg-indigo-700 hover:bg-indigo-500 px-3 py-1.5 rounded-lg text-sm transition-colors border border-indigo-500">
-                    <i class="fas ${state.listMode === 'full' ? 'fa-list' : 'fa-th'}"></i>
-                    <span>${state.listMode === 'full' ? '精簡' : '完整'}</span>
-                </button>
+                ${state.listMode === 'compact' ? `
+                <div class="relative group">
+                    <button onclick="document.getElementById('col-dropdown').classList.toggle('hidden'); event.stopPropagation();" class="flex items-center gap-1 bg-indigo-700 hover:bg-indigo-500 px-3 py-1.5 rounded-lg text-sm transition-colors border border-indigo-500">
+                        <i class="fas fa-eye"></i>
+                        <span>顯示</span>
+                        <i class="fas fa-chevron-down text-xs ml-1"></i>
+                    </button>
+                    <div id="col-dropdown" class="hidden absolute top-full right-0 mt-2 w-40 bg-white rounded-xl shadow-xl border border-gray-100 p-2 z-50" onclick="event.stopPropagation()">
+                        <div class="text-xs font-bold text-gray-400 px-2 py-1 mb-1">勾選顯示欄位</div>
+                        ${allAvailableCols.map(col => {
+                            const isChecked = state.listColumns.includes(col.id);
+                            return `
+                            <label class="flex items-center px-2 py-2 hover:bg-indigo-50 rounded cursor-pointer transition-colors">
+                                <input type="checkbox" class="form-checkbox text-indigo-600 rounded w-4 h-4 mr-2" 
+                                    ${isChecked ? 'checked' : ''} 
+                                    onchange="toggleListColumn('${col.id}')">
+                                <span class="text-sm font-bold text-gray-700 select-none">${col.label}</span>
+                            </label>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+                ` : ''}
+				<button onclick="toggleListMode()" class="flex items-center gap-1 bg-amber-600 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold transition-colors border border-amber-600 shadow-sm">
+					<i class="fas ${state.listMode === 'full' ? 'fa-list' : 'fa-th'}"></i>
+					<span>${state.listMode === 'full' ? '精簡' : '完整'}</span>
+				</button>
+
 
                 <div class="relative">
                     <select onchange="setPaginationMode(this.value)" class="appearance-none bg-indigo-700 hover:bg-indigo-500 text-white pl-3 pr-8 py-1.5 rounded-lg text-sm font-bold outline-none cursor-pointer transition-colors border border-indigo-500">
@@ -578,21 +632,21 @@ function renderList() {
     container.appendChild(header);
 
     // List Body Container
-const listContainer = document.createElement('div');
+	const listContainer = document.createElement('div');
     
     if (displayWords.length === 0) {
         listContainer.innerHTML = `<div class="text-center py-10 text-gray-500">本頁無資料</div>`;
     } else if (state.listMode === 'compact') {
         // --- Compact View (Table) ---
-        listContainer.className = "bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6 overflow-x-auto";
+        listContainer.className = "bg-white rounded-2xl shadow-sm border border-gray-100 mb-6 relative";
         
         // Table Header
         const headerRow = document.createElement('div');
-        headerRow.className = "flex bg-gray-50 p-2 border-b border-gray-200 gap-2 select-none min-w-[800px]";
+        headerRow.className = "sticky top-0 z-30 flex bg-gray-50 p-2 border-b border-gray-200 gap-2 select-none min-w-[800px] shadow-sm";
         
         const checkIcon = isAllChecked ? 'fa-check-square text-indigo-600' : 'fa-square text-gray-400';
         
-        // ★ 修改 1: 在 colLabels 和 colWidths 加入 remove 的定義
+        // 在 colLabels 和 colWidths 加入 remove 的定義
         const colLabels = { 
             check: `<i class="far ${checkIcon} text-lg cursor-pointer hover:text-indigo-500" onclick="event.stopPropagation(); toggleAllVocabCheck(${!isAllChecked})"></i>`,
             num: '編號', word: '單字', kk: 'KK', part: '詞性', def: '中文定義', other: '變化形',
@@ -628,8 +682,6 @@ const listContainer = document.createElement('div');
             headerRow.appendChild(cell);
         });
         
-        // ★ 刪除：原本這裡手動加入 Action Column 的程式碼已移除
-        
         listContainer.appendChild(headerRow);
 
         // Table Rows
@@ -652,7 +704,6 @@ const listContainer = document.createElement('div');
                         </div>`;
                         break;
                     case 'num': 
-                        // ★ 修改 2: 修正左邊界 (pl-4 -> pl-2)
                         cellHTML = `<div class="w-12 text-left pl-2 text-indigo-600 font-mono text-xs font-bold flex-shrink-0">${displayNum}</div>`; 
                         break;
                     case 'word': 
@@ -673,15 +724,12 @@ const listContainer = document.createElement('div');
                          const action = hasOther ? `onclick="event.stopPropagation(); speak('${item.other.replace(/'/g, "\\'")}')"` : '';
                          cellHTML = `<div class="w-48 text-left pl-2 text-sm flex-shrink-0 truncate ${style}" ${action}>${item.other || ''}</div>`; 
                          break;
-                    // ★ 修改 3: 新增 remove case
                     case 'remove':
                          cellHTML = `<div class="w-16 text-center flex-shrink-0"><button onclick="event.stopPropagation(); removeWordFromSet('${state.activeSetId}', ${item.id})" class="text-gray-300 hover:text-red-500 transition-colors p-2"><i class="fas fa-trash-alt"></i></button></div>`;
                          break;
                 }
                 row.innerHTML += cellHTML;
             });
-
-            // ★ 刪除：原本這裡手動加入 Remove Button 的程式碼已移除
 
             listContainer.appendChild(row);
         });
@@ -700,13 +748,12 @@ const listContainer = document.createElement('div');
 
             const highlightedSentence = highlightTargetWord(item.sentence, item.word, item.other);
 
-            // ★ 修改 4: 修正卡片模式左邊界 (pl-10 -> pl-5)
             card.innerHTML = `
                 ${removeBtnHTML}
                 <div class="relative p-5 cursor-pointer group flex flex-col justify-center pl-5" onclick="speak('${item.word}')">
                     <div class="flex items-baseline flex-wrap gap-2 mb-2 pr-4">
                         <span class="bg-indigo-100 text-indigo-800 text-xs font-bold px-2 py-0.5 rounded">U${item.unit}</span>
-                        <span class="text-3xl font-bold text-gray-800 group-hover:text-indigo-600 transition-colors">${formatDisplayWord(item.word)}</span>
+                        <span class="text-2xl sm:text-3xl font-bold text-gray-800 group-hover:text-indigo-600 transition-colors break-all">${formatDisplayWord(item.word)}</span>
                         <span class="text-sm text-gray-500 font-mono bg-gray-100 px-2 py-0.5 rounded-md">${item.kk}</span>
                         <span class="text-sm font-semibold text-indigo-500 italic">${item.part}</span>
                         ${item.other ? `<span class="text-sm font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded border border-indigo-200 ml-1 cursor-pointer" onclick="event.stopPropagation(); speak('${item.other.replace(/'/g, "\\'")}')"><i class="fas fa-code-branch text-xs mr-1 opacity-50"></i>${formatDisplayWord(item.other)}</span>` : ''}
@@ -783,11 +830,11 @@ function handleDrop(e, targetCol) {
 function showInputModal(title, defaultValue, placeholder, onConfirm) {
     // 建立 Overlay
     const overlay = document.createElement('div');
-    overlay.className = "fixed inset-0 z-[150] flex items-center justify-center input-modal-overlay p-4 animate-fade-in";
+    overlay.className = "fixed inset-0 z-[150] flex items-center justify-center input-modal-overlay p-4";
     
     // 建立 Modal 本體
     const modal = document.createElement('div');
-    modal.className = "bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-scale-in transform transition-all";
+    modal.className = "bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden";
     
     modal.innerHTML = `
         <div class="p-6">
@@ -867,7 +914,7 @@ function showConfirmModal(title, message, onConfirm, confirmText = "確定", con
     overlay.className = "fixed inset-0 z-[150] flex items-center justify-center input-modal-overlay p-4 animate-fade-in";
     
     const modal = document.createElement('div');
-    modal.className = "bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-scale-in transform transition-all";
+    modal.className = "bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all";
     
     modal.innerHTML = `
         <div class="p-6 text-center">
@@ -941,7 +988,6 @@ function openAddToSetModal() {
     }
 
     if (candidates.length === 0) {
-        // 使用 toast 替代 alert，體驗更好
         showToast("請先勾選至少一個單字！"); 
         return;
     }
@@ -953,7 +999,7 @@ function openAddToSetModal() {
     overlay.className = "fixed inset-0 z-[100] flex items-center justify-center modal-overlay p-4 animate-fade-in";
     
     const modal = document.createElement('div');
-    modal.className = "bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden modal-content animate-scale-in";
+    modal.className = "bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden modal-content ";
     
     // 列表生成
     let setsListHTML = state.customSets.length > 0 ? state.customSets.map(set => `
@@ -1114,10 +1160,154 @@ function startLearning(mode) {
     setState('view', 'list');
 }
 
-// --- QUIZ LOGIC UPDATE ---
-// 修改 initQuiz 以支援 custom set
+// --- Matching Mode Logic ---
+
+function setMatchingDifficulty(num) {
+    state.quiz.matchingDifficulty = num;
+    initMatchingData(); // 重新生成
+    render();
+}
+
+function initMatchingData() {
+    const { questions, currentIndex, matchingDifficulty } = state.quiz;
+    
+    // 從 questions 中取出 N 個題目
+    const sliceEnd = Math.min(currentIndex + matchingDifficulty, questions.length);
+    const targetQuestions = questions.slice(currentIndex, sliceEnd);
+    
+    let enList = [];
+    let cnList = [];
+    
+    targetQuestions.forEach((q, idx) => {
+        // 英文卡 (word) -> 放入左側列表
+        enList.push({
+            id: `w-${q.target.id}`,
+            pairId: q.target.id,
+            type: 'word',
+            text: q.target.word,
+            matched: false
+        });
+        
+        // 中文卡 (def) -> 放入右側列表
+        cnList.push({
+            id: `d-${q.target.id}`,
+            pairId: q.target.id,
+            type: 'def',
+            text: q.target.def,
+            matched: false
+        });
+    });
+    
+    // ★ 關鍵修改：左右分開洗牌
+    // 這樣左邊永遠是英文(亂序)，右邊永遠是中文(亂序)
+    enList = shuffle(enList);
+    cnList = shuffle(cnList);
+    
+    // 合併到 items 供後續邏輯使用 (render 時會再分開讀取)
+    state.quiz.matching = {
+        items: [...enList, ...cnList],
+        selectedId: null,
+        matchedPairs: 0,
+        totalPairs: targetQuestions.length
+    };
+}
+
+function handleMatchClick(itemId) {
+    const { matching } = state.quiz;
+    const item = matching.items.find(i => i.id === itemId);
+    
+    // 無效點擊：找不到、已配對、或點擊已選中的同一張
+    if (!item || item.matched || matching.selectedId === itemId) {
+        if (matching.selectedId === itemId) {
+            // 再次點擊取消選取
+            state.quiz.matching.selectedId = null;
+            render();
+        }
+        return;
+    }
+
+    // 發音：如果點到的是英文卡，播放聲音 (若開啟自動播放)
+    if (item.type === 'word' && state.quiz.autoPlayAudio) {
+        speak(item.text);
+    }
+
+    if (!matching.selectedId) {
+        // --- 情況 1：還沒選第一張 ---
+        state.quiz.matching.selectedId = itemId;
+        render();
+    } else {
+        // --- 情況 2：已經選了一張，這是第二張 ---
+        const firstId = matching.selectedId;
+        const firstItem = matching.items.find(i => i.id === firstId);
+        
+        // 判斷是否配對成功 (檢查 pairId 是否相同)
+        if (firstItem.pairId === item.pairId) {
+            // ★ 配對成功
+            // 1. 標記為 matched
+            firstItem.matched = true;
+            item.matched = true;
+            
+            // 2. 清除選取
+            state.quiz.matching.selectedId = null;
+            state.quiz.matching.matchedPairs++;
+            state.quiz.score++; // 這裡可以斟酌是否加分
+            
+            // 3. 播放成功音效 (可選，這裡用簡單的視覺)
+            render();
+            
+            // 4. 檢查是否全部完成
+            if (state.quiz.matching.matchedPairs >= state.quiz.matching.totalPairs) {
+                // 完成本組
+                setTimeout(() => {
+                    nextMatchingBatch();
+                }, 800); // 稍微停頓讓使用者看到最後一組消失
+            }
+            
+        } else {
+            // ★ 配對失敗
+            // 1. 先渲染選中狀態 (讓使用者看到選了哪兩張)
+            // 並加上 error class
+            const card1 = document.getElementById(`match-card-${firstId}`);
+            const card2 = document.getElementById(`match-card-${itemId}`);
+            
+            if (card1) card1.classList.add('error');
+            if (card2) card2.classList.add('error');
+            
+            // 2. 延遲後取消選取
+            state.quiz.matching.selectedId = null; // 立即清空邏輯選取，防止快速點第三張
+            
+            setTimeout(() => {
+                render(); // 重繪以移除 error 樣式
+            }, 500);
+        }
+    }
+}
+
+function nextMatchingBatch() {
+    // 增加 index
+    const step = state.quiz.matching.totalPairs;
+    state.quiz.currentIndex += step;
+    
+    if (state.quiz.currentIndex >= state.quiz.questions.length) {
+        endQuiz();
+    } else {
+        initMatchingData(); // 載入下一批
+        render();
+    }
+}
+
+// --- QUIZ LOGIC ---
 function initQuiz(mode) {
+    // 1. 重置基本測驗狀態
     state.quiz.mode = mode;
+    state.quiz.subMode = 'choice'; 
+
+    state.quiz.spellingDifficulty = 5;
+    state.quiz.sentenceDifficulty = 5;
+	state.quiz.matchingDifficulty = 4;
+	if (state.quiz.autoPlayAudio === undefined) {
+        state.quiz.autoPlayAudio = true;
+    }
     state.quiz.currentIndex = 0;
     state.quiz.score = 0;
     state.quiz.isFinished = false;
@@ -1125,33 +1315,51 @@ function initQuiz(mode) {
     state.quiz.status = 'answering';
     state.quiz.selectedOption = null;
 
+    // 確保 subMode 有預設值 (若尚未設定過)
+    if (!state.quiz.subMode) state.quiz.subMode = 'choice';
+
+    // 2. 決定資料來源 (篩選單字)
     let activeWords = [];
     
-    // [修改點] 判斷資料來源
+    // 判斷是否為「自訂學習集」模式
     if (state.filterMode === 'custom' && state.activeSetId) {
         const set = state.customSets.find(s => s.id === state.activeSetId);
         if (set) {
-            // 找出 set 裡的單字，並且只選 checked 的
+            // 找出 set 裡的單字，並且只選 checked (已勾選) 的
             activeWords = state.vocabulary.filter(w => set.wordIds.includes(w.id) && w.checked);
         }
     } else {
+        // 預設模式：使用首頁勾選的 Unit
         activeWords = state.vocabulary.filter(w => state.selectedUnits.includes(w.unit) && w.checked);
     }
     
+    // 若無單字則返回 (renderQuiz 會處理空狀態顯示)
     if (activeWords.length === 0) {
         state.quiz.questions = []; 
         return;
     }
 
-    // Generate Questions (保持原有邏輯)
+    // 3. 產生題目 (根據模式)
+    // 初始化 Emoji
+    let currentEmoji = getRandomEmoji();
+
     if (mode === 'sentence') {
+        // --- 句子填空模式 ---
         const validWords = activeWords.filter(w => w.sentence && w.sentence.length > 5);
-        state.quiz.questions = shuffle([...validWords]).map(w => {
+        
+        state.quiz.questions = shuffle([...validWords]).map((w, index) => {
+            // 每 5 題換一個 Emoji
+            if (index > 0 && index % 5 === 0) {
+                currentEmoji = getRandomEmoji();
+            }
+
             let usedWord = w.word; 
             const variations = w.other ? w.other.split('/').map(s => s.trim()).filter(s => s) : [];
             const candidates = [w.word, ...variations].sort((a, b) => b.length - a.length);
             let matched = false;
             let regex = null;
+
+            // 嘗試在句子中比對單字 (包含變化形)
             for (const cand of candidates) {
                 const re = new RegExp(`\\b${cand}\\b`, 'i');
                 if (re.test(w.sentence)) {
@@ -1161,6 +1369,7 @@ function initQuiz(mode) {
                     break;
                 }
             }
+            // 若精確比對失敗，嘗試模糊比對
             if (!matched) {
                 const looseRe = new RegExp(`\\b${w.word}\\w*\\b`, 'i');
                 if (looseRe.test(w.sentence)) {
@@ -1170,31 +1379,69 @@ function initQuiz(mode) {
                     regex = new RegExp(w.word, 'i');
                 }
             }
+
+            // 挖空處理 (用於選擇模式)
             const blankPlaceholder = '_______';
             const questionText = w.sentence.replace(regex, blankPlaceholder);
-            // 選項需從「所有單字」中隨機挑選，不侷限於目前的 set，增加難度
+            
+            // 產生選項 (混淆項從所有單字中隨機挑選)
             const others = shuffle(state.vocabulary.filter(cw => cw.id !== w.id)).slice(0, 3);
             const rawOptions = shuffle([w, ...others]);
+            
+            // 處理選項顯示文字 (盡量使用變化形以配合時態)
             const processedOptions = rawOptions.map(opt => {
                 let displayText = opt.word; 
                 if (opt.id === w.id) {
                     displayText = usedWord;
                 } else if (opt.other) {
-                    // 混淆項也盡量用變化形
                      const optVars = opt.other.split('/').map(s => s.trim()).filter(s => s);
                      if(optVars.length > 0) displayText = optVars[0]; 
                 }
                 return { ...opt, displayText };
             });
 
-            return { target: w, text: questionText, answerWord: usedWord, options: processedOptions, emoji: getRandomEmoji() };
+            return { 
+                target: w, 
+                text: questionText, 
+                answerWord: usedWord, 
+                options: processedOptions, 
+                emoji: currentEmoji 
+            };
         });
+
     } else {
-        state.quiz.questions = shuffle([...activeWords]).map(w => {
+        // --- 一般選擇題 (中選英 / 英選中) ---
+        state.quiz.questions = shuffle([...activeWords]).map((w, index) => {
+            // 每 5 題換一個 Emoji
+            if (index > 0 && index % 5 === 0) {
+                currentEmoji = getRandomEmoji();
+            }
+
             const others = shuffle(state.vocabulary.filter(cw => cw.id !== w.id)).slice(0, 3);
             const options = shuffle([w, ...others]);
-            return { target: w, options, emoji: getRandomEmoji() };
+            
+            return { 
+                target: w, 
+                options, 
+                emoji: currentEmoji 
+            };
         });
+    }
+
+    // 4. ★ 特殊模式初始化 (拼字 / 排序)
+    if (state.quiz.questions.length > 0) {
+        // 如果是「中選英」且為「拼字模式」
+        if (mode === 'cn-en' && state.quiz.subMode === 'spell') {
+            initSpellingData(state.quiz.questions[0].target.word);
+        }
+        // 如果是「填空題」且為「排序模式」
+        if (mode === 'sentence' && state.quiz.subMode === 'order') {
+            initOrderingData(state.quiz.questions[0].target.sentence);
+        }
+		// 新增：如果是「英選中」且為「配對模式」
+		if (mode === 'en-cn' && state.quiz.subMode === 'match') {
+            initMatchingData();
+        }
     }
 }
 
@@ -1214,30 +1461,44 @@ function speak(text, rate = 1) {
     if (!text) return;
     if ('speechSynthesis' in window) {
         const synth = window.speechSynthesis;
+        
+        // 如果正在播放
         if (synth.speaking) {
             synth.cancel();
+            // 如果點擊的是同一個按鈕(相同的文字與速度)，則視為「停止」操作，更新狀態並重繪
             if (state.audio.lastText === text && state.audio.lastRate === rate) {
                 state.audio.lastText = null;
                 state.audio.lastRate = null;
                 state.audio.isPlaying = false; 
-                render(); 
+                render(); // 這裡原本就有，保持不動
                 return;
             }
         }
+
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = /[\u4e00-\u9fa5]/.test(text) ? 'zh-TW' : 'en-US';
         utterance.rate = rate;
         window.currentUtterance = utterance;
+
         utterance.onstart = () => {
             state.audio.lastText = text;
             state.audio.lastRate = rate;
             state.audio.isPlaying = true;
+            render(); // 新增這一行
         };
+
         utterance.onend = () => {
-            if (state.audio.lastText === text) { // Simple check
+            if (state.audio.lastText === text) { 
                 state.audio.isPlaying = false;
+                render(); // 新增這一行
             }
         };
+
+        utterance.onerror = () => {
+            state.audio.isPlaying = false;
+            render();
+        };
+
         setTimeout(() => { synth.speak(utterance); }, 50);
     }
 }
@@ -1269,6 +1530,11 @@ function formatDisplayWord(text) {
 
 function toggleVowelMode() {
     state.highlightVowels = !state.highlightVowels;
+    render();
+}
+
+function toggleQuizAudio() {
+    state.quiz.autoPlayAudio = !state.quiz.autoPlayAudio;
     render();
 }
 
@@ -1349,14 +1615,10 @@ function toggleAllUnits() {
     render();
 }
 
-// --- QUIZ VIEW RENDER (簡化版，重用原邏輯) ---
-// 這裡保留原 renderQuiz, handleAnswer 等函式
-// 為了避免代碼過長，我將這些函式保持原樣，因為它們依賴 state.quiz.questions，
-// 而 initQuiz 已經正確處理了資料來源。
-// (請確保將原始檔案中的 renderQuiz, handleAnswer, nextQuestion, endQuiz, retryWrongQuestions 複製回來或保留在此處)
 
+// --- QUIZ VIEW RENDER ---
 function renderQuiz() {
-    const { questions, currentIndex, score, isFinished, wrongQuestions, status, mode, selectedOption } = state.quiz;
+    const { questions, currentIndex, score, isFinished, wrongQuestions, status, mode, selectedOption, subMode, spellingDifficulty, sentenceDifficulty } = state.quiz;
     const container = document.createElement('div');
     container.className = "max-w-4xl mx-auto pb-24 px-4 pt-6 w-full";
 
@@ -1368,13 +1630,13 @@ function renderQuiz() {
         return;
     }
 
-    // 2. 測驗結束畫面 (★ 修改處：加入外層 Flex 容器以達成垂直水平置中)
+    // 2. 測驗結束畫面
     if (isFinished) {
         const total = questions.length;
         const pct = score / total;
         container.innerHTML = `
             <div class="flex flex-col items-center justify-center min-h-[60vh] w-full">
-                <div class="text-center p-8 bg-white rounded-3xl shadow-lg w-full max-w-lg border-2 border-indigo-50 animate-scale-in">
+                <div class="text-center p-8 bg-white rounded-3xl shadow-lg w-full max-w-lg border-2 border-indigo-50">
                     <div class="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-5xl">${pct > 0.65 ? "🎉" : "💪"}</div>
                     <h2 class="text-3xl font-bold text-gray-800 mb-2">測驗結束！</h2>
                     <p class="text-xl text-gray-600 mb-8">得分: <span class="text-indigo-600 font-bold text-4xl">${score}</span> / ${total}</p>
@@ -1389,112 +1651,323 @@ function renderQuiz() {
 
     const currentQ = questions[currentIndex];
     
-    // 3. 準備題目顯示文字 (題目本身不標紅字)
-    let questionDisplayHTML = '';
-    
-    if (mode === 'cn-en') {
-        questionDisplayHTML = currentQ.target.def;
-    } else if (mode === 'en-cn') {
-        questionDisplayHTML = formatDisplayWord(currentQ.target.word);
-    } else {
-        // 填空題 (句子)：Raw Text，不標紅字
-        questionDisplayHTML = currentQ.text;
-    }
-    
-    // 填空題：顯示結果狀態 (把空格換成答案，答案文字也不標紅字)
-    if (mode === 'sentence' && status === 'result') {
-        const formattedAnswer = currentQ.answerWord; 
-        // 僅保留藍色背景強調
-        const highlightedWord = `<span class="inline-block px-2 rounded-md bg-indigo-100 text-indigo-700 border-b-2 border-indigo-400 font-bold mx-1">${formattedAnswer}</span>`;
-        // 替換空格
-        questionDisplayHTML = currentQ.text.replace('_______', highlightedWord);
-    }
-
-    // 4. 頂部工具列 (按鈕皆顯示以控制選項紅字)
-    let headerHTML = `
-        <div class="mb-6 flex justify-between items-center text-sm font-medium text-gray-500 bg-gray-100 px-4 py-2 rounded-full shadow-inner">
-            <span>進度: ${currentIndex + 1} / ${questions.length}</span>
-            
-            <div class="flex items-center gap-2">
-                <button onclick="toggleVowelMode()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm border border-gray-200 hover:bg-indigo-50 transition-colors active:scale-95" title="切換母音紅字">
-                    <i class="fas fa-font ${state.highlightVowels ? 'text-red-400' : 'text-gray-400'}"></i>
-                </button>
-                
-                <button onclick="endQuiz()" class="text-red-500 hover:text-red-700 font-bold flex items-center gap-1 bg-white px-3 py-1 rounded-full shadow-sm border border-gray-200 hover:bg-red-50 active:scale-95 transition-all text-xs">
-                    <i class="fas fa-sign-out-alt"></i> <span class="hidden sm:inline">結束</span>
-                </button>
+    // 3. 頂部工具列
+	let headerHTML = `
+        <div class="flex flex-col items-center mb-6">
+            <div class="w-full flex justify-between items-center text-sm font-medium text-gray-500 bg-gray-100 px-4 py-2 rounded-full shadow-inner">
+                <span>進度: ${currentIndex + 1} / ${questions.length}</span>
+                <div class="flex items-center gap-2">
+                    
+                    <button onclick="toggleQuizAudio()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm border border-gray-200 hover:bg-indigo-50 transition-colors active:scale-95" title="${state.quiz.autoPlayAudio ? '關閉自動發音' : '開啟自動發音'}">
+                        <i class="fas ${state.quiz.autoPlayAudio ? 'fa-volume-up text-indigo-500' : 'fa-volume-mute text-gray-400'}"></i>
+                    </button>
+                    <button onclick="toggleVowelMode()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm border border-gray-200 hover:bg-indigo-50 transition-colors active:scale-95" title="切換母音紅字">
+                        <i class="fas fa-font ${state.highlightVowels ? 'text-red-400' : 'text-gray-400'}"></i>
+                    </button>
+                    <button onclick="endQuiz()" class="text-red-500 hover:text-red-700 font-bold flex items-center gap-1 bg-white px-3 py-1 rounded-full shadow-sm border border-gray-200 hover:bg-red-50 active:scale-95 transition-all text-xs">
+                        <i class="fas fa-sign-out-alt"></i> <span class="hidden sm:inline">結束</span>
+                    </button>
+                </div>
             </div>
         </div>`;
 
-    // 5. 題目區域渲染
-    if (mode !== 'sentence') {
-        // --- 單字題 ---
-        headerHTML += `
-        <div class="relative bg-white p-6 md:p-8 rounded-3xl shadow-sm mb-6 flex flex-col md:block items-center justify-center gap-6 border-b-4 border-indigo-100 min-h-[160px]">
-             <div onclick="speak('${currentQ.target.word}')" class="flex-shrink-0 bg-indigo-50 w-24 h-24 md:w-24 md:h-24 rounded-full flex items-center justify-center cursor-pointer hover:scale-105 hover:bg-indigo-100 transition-all active:scale-95 group mb-4 md:mb-0 md:absolute md:left-8 md:top-1/2 md:-translate-y-1/2 z-10">
-                 <div class="text-5xl filter drop-shadow-sm group-hover:scale-110 transition-transform">${currentQ.emoji}</div>
-              </div>
-              <div class="w-full flex flex-col items-center justify-center text-center md:h-[120px] md:px-32">
-                <h3 onclick="speak('${currentQ.target.word}')" class="text-3xl md:text-4xl font-bold text-gray-800 leading-tight cursor-pointer hover:text-indigo-600 select-none active:scale-[0.98]">${questionDisplayHTML}</h3>
-            </div>
-        </div>
-        `;
-    } else {
-        // --- 填空題 (句子) ---
-        const isCorrect = status === 'result' && selectedOption.id === currentQ.target.id;
-        const displayAnswer = currentQ.answerWord; // 結果顯示也不標紅字
+    // 4. 題目與結果回饋準備
+    let questionDisplayHTML = '';
+    let feedbackHTML = '';
+    
+    let fontClass = "";
+    let breakClass = "";
+    
+    // 判斷是否為「填空題模式」(sentence)
+    const isSpeechMode = (mode === 'sentence');
 
-        headerHTML += `
-        <div class="bg-white p-6 md:p-10 rounded-3xl shadow-sm mb-6 min-h-[220px] flex flex-col justify-center border border-gray-100 text-center relative overflow-hidden">
-             <h3 class="text-xl md:text-2xl font-medium text-gray-800 leading-relaxed font-serif relative z-10">${questionDisplayHTML}</h3>
-             ${status === 'result' ? `
-                <div class="mt-6 p-4 rounded-xl text-center border ${isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'} animate-fade-in">
-                     <div class="flex items-center justify-center gap-2 mb-2">
-                        ${isCorrect ? '<i class="fas fa-check-circle text-green-600 text-xl"></i>' : ''}
-                        <span class="text-xl font-bold text-indigo-600">${displayAnswer}</span>
-                        <button onclick="speak('${currentQ.target.word}')" class="p-1 bg-white rounded-full shadow-sm hover:bg-gray-100 transition-colors"><i class="fas fa-volume-up text-gray-600"></i></button>
-                     </div>
-                     <p class="text-gray-700 font-medium">${currentQ.target.senTrans}</p>
+    if (mode === 'cn-en') {
+        questionDisplayHTML = currentQ.target.def;
+        fontClass = "text-3xl md:text-4xl leading-tight text-center";
+        breakClass = "break-all";
+    } else if (mode === 'en-cn') {
+        if (subMode === 'match') {
+             questionDisplayHTML = '';
+             fontClass = "hidden"; // 直接隱藏容器
+        } else {
+             questionDisplayHTML = formatDisplayWord(currentQ.target.word);
+             fontClass = "text-3xl md:text-4xl leading-tight text-center";
+        }
+        breakClass = "break-all";
+    } else {
+        // --- 句子填空模式 (Speech Mode) ---
+        let rawContent = "";
+        
+        if (subMode === 'order') {
+            rawContent = currentQ.target.senTrans;
+            fontClass = "text-xl md:text-2xl leading-relaxed"; 
+            breakClass = "break-words";
+        } else {
+            rawContent = currentQ.text;
+            fontClass = "text-xl md:text-2xl leading-relaxed";
+            breakClass = "break-words";
+            
+            if (status === 'result') {
+                const highlightedWord = `<span class="inline-block px-2 rounded-md bg-indigo-100 text-indigo-700 border-b-2 border-indigo-400 font-bold mx-1">${currentQ.answerWord}</span>`;
+                rawContent = currentQ.text.replace('_______', highlightedWord);
+
+                const isCorrect = selectedOption && selectedOption.id === currentQ.target.id;
+                const resultClass = isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
+                const iconClass = isCorrect ? 'fa-check-circle text-green-600' : 'fa-times-circle text-red-500';
+                
+                feedbackHTML = `
+                    <div class="mt-4 p-4 rounded-xl text-center border ${resultClass} noselect">
+                         <div class="flex items-center justify-center gap-2 mb-2">
+                            <i class="fas ${iconClass} text-xl"></i>
+                            <span class="text-xl font-bold text-indigo-600">${currentQ.answerWord}</span>
+                            <button onclick="speak('${currentQ.target.word}')" class="w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm hover:bg-gray-50 transition-colors"><i class="fas fa-volume-up text-gray-600 text-sm"></i></button>
+                         </div>
+                         <p class="text-gray-700 font-medium">${currentQ.target.senTrans}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // 簡潔置中版 HTML
+        questionDisplayHTML = `
+			<div class="flex items-center justify-center gap-4 w-full mt-12 mb-2">
+                <div class="flex-shrink-0 text-3xl select-none transform scale-x-[-1] cursor-pointer hover:scale-110 transition-transform opacity-90" onclick="speak('${currentQ.target.word}')">
+                    ${currentQ.emoji}
                 </div>
-             ` : ''}
-        </div>
+                <div class="font-bold text-gray-800 text-left cursor-pointer hover:text-indigo-600 transition-colors" onclick="speak('${currentQ.target.word}')">
+                     ${rawContent}
+                </div>
+            </div>
         `;
     }
 
-    // 6. 選項區域渲染 (選項依舊會標紅字)
+    // 難度按鈕 HTML
+    let difficultySelectorHTML = '';
+    if (mode === 'cn-en' && subMode === 'spell') {
+        difficultySelectorHTML = `
+             <div class="absolute top-4 left-4 z-20 flex items-center gap-1 bg-gray-100 rounded-lg p-1 shadow-inner">
+                <span class="text-[10px] font-bold text-gray-400 px-1 select-none">數量</span>
+                <button onclick="setSpellingDifficulty('a')" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${spellingDifficulty === 'a' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}">a</button>
+                <button onclick="setSpellingDifficulty(3)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${spellingDifficulty === 3 ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}">3</button>
+                <button onclick="setSpellingDifficulty(4)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${spellingDifficulty === 4 ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}">4</button>
+                <button onclick="setSpellingDifficulty(5)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${spellingDifficulty === 5 ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}">5</button>
+             </div>
+        `;
+    } else if (mode === 'sentence' && subMode === 'order') {
+        difficultySelectorHTML = `
+             <div class="absolute top-4 left-4 z-20 flex items-center gap-1 bg-gray-100 rounded-lg p-1 shadow-inner">
+                <span class="text-[10px] font-bold text-gray-400 px-1 select-none">數量</span>
+                <button onclick="setSentenceDifficulty(3)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${sentenceDifficulty === 3 ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}">3</button>
+                <button onclick="setSentenceDifficulty(4)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${sentenceDifficulty === 4 ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}">4</button>
+                <button onclick="setSentenceDifficulty(5)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${sentenceDifficulty === 5 ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}">5</button>
+             </div>
+        `;
+    }
+	// 配對模式難度選擇
+    if (mode === 'en-cn' && subMode === 'match') {
+        difficultySelectorHTML = `
+             <div class="absolute top-4 left-4 z-20 flex items-center gap-1 bg-gray-100 rounded-lg p-1 shadow-inner">
+                <span class="text-[10px] font-bold text-gray-400 px-1 select-none">組數</span>
+                <button onclick="setMatchingDifficulty(2)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${state.quiz.matchingDifficulty === 2 ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}">2</button>
+                <button onclick="setMatchingDifficulty(3)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${state.quiz.matchingDifficulty === 3 ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}">3</button>
+                <button onclick="setMatchingDifficulty(4)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${state.quiz.matchingDifficulty === 4 ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}">4</button>
+                <button onclick="setMatchingDifficulty(5)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${state.quiz.matchingDifficulty === 5 ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}">5</button>
+             </div>
+        `;
+    }
+
+    // 模式切換 HTML
+    let modeToggleHTML = '';
+    if (mode === 'cn-en') {
+        modeToggleHTML = `
+             <div class="mode-toggle-pill">
+                <button onclick="setQuizSubMode('choice')" class="mode-btn-small ${subMode === 'choice' ? 'active' : ''}"><i class="fas fa-list-ul"></i> 選擇</button>
+                <button onclick="setQuizSubMode('spell')" class="mode-btn-small ${subMode === 'spell' ? 'active' : ''}"><i class="fas fa-keyboard"></i> 拼字</button>
+             </div>
+        `;
+    } else if (mode === 'sentence') {
+        modeToggleHTML = `
+             <div class="mode-toggle-pill">
+                <button onclick="setQuizSubMode('choice')" class="mode-btn-small ${subMode === 'choice' ? 'active' : ''}"><i class="fas fa-check-square"></i> 選擇</button>
+                <button onclick="setQuizSubMode('order')" class="mode-btn-small ${subMode === 'order' ? 'active' : ''}"><i class="fas fa-sort"></i> 排序</button>
+             </div>
+        `;
+    }
+	if (mode === 'en-cn') {
+        modeToggleHTML = `
+             <div class="mode-toggle-pill">
+                <button onclick="setQuizSubMode('choice')" class="mode-btn-small ${subMode === 'choice' ? 'active' : ''}"><i class="fas fa-list-ul"></i> 選擇</button>
+                <button onclick="setQuizSubMode('match')" class="mode-btn-small ${subMode === 'match' ? 'active' : ''}"><i class="fas fa-th-large"></i> 配對</button>
+             </div>
+        `;
+    }
+
+
+    const bigEmojiHTML = (!isSpeechMode && !(mode === 'en-cn' && subMode === 'match')) ? `
+        <div onclick="speak('${currentQ.target.word}')" class="flex-shrink-0 w-24 h-24 md:w-24 md:h-24 flex items-center justify-center cursor-pointer hover:scale-105 transition-all active:scale-95 group mb-4 md:mb-0 md:absolute md:left-8 md:top-1/2 md:-translate-y-1/2 z-10 mt-8 md:mt-0">
+             <div class="text-5xl filter drop-shadow-sm group-hover:scale-110 transition-transform">
+                <span style="display:inline-block; transform: scaleX(-1);">${currentQ.emoji}</span>
+             </div>
+        </div>
+    ` : '';
+
+	const isMatchMode = (mode === 'en-cn' && subMode === 'match');
+    const containerClass = isMatchMode 
+        ? "relative bg-white p-4 rounded-3xl shadow-sm mb-4 flex flex-col md:block items-center justify-center border-b-4 border-indigo-100 min-h-[60px]" // 配對模式：高度極小化
+        : "relative bg-white p-6 md:p-8 rounded-3xl shadow-sm mb-6 flex flex-col md:block items-center justify-center gap-6 border-b-4 border-indigo-100 min-h-[160px]"; // 正常模式
+
+    const contentAreaClass = isMatchMode
+        ? "w-full flex flex-col items-center justify-center noselect hidden" // 配對模式：隱藏內容區
+        : "w-full flex flex-col items-center justify-center md:min-h-[120px] noselect"; // 正常模式
+
+    headerHTML += `
+        <div class="${containerClass}">
+             ${difficultySelectorHTML}
+             ${modeToggleHTML}
+             ${bigEmojiHTML}
+              
+              <div class="${contentAreaClass}">
+                <h3 class="${fontClass} font-bold text-gray-800 w-full ${breakClass} ${!isSpeechMode ? 'px-4 md:px-32' : ''} noselect">
+                    ${questionDisplayHTML}
+                </h3>
+                ${feedbackHTML}
+
+                ${(mode === 'cn-en' && subMode === 'spell') ? `
+					<div class="spelling-display mt-4 w-full px-2 md:px-4 noselect flex flex-wrap justify-center items-end gap-1">
+						${state.quiz.spelling.revealedMask.map(char => {
+							if (char) {
+								return `<span class="text-indigo-600 border-b-4 border-indigo-200 min-w-[32px] text-center pb-1">${formatDisplayWord(char)}</span>`;
+							} else {
+								return `<span class="border-b-4 border-gray-200 h-12 w-8 inline-block"></span>`;
+							}
+						}).join('')}
+					</div>
+				` : ''}
+
+                ${(mode === 'sentence' && subMode === 'order') ? `
+                    <div class="ordering-display mt-4 w-full px-2 md:px-4 noselect">
+                        ${state.quiz.ordering.revealedMask.map(word => {
+                            if (word) return `<span class="ordering-slot filled">${word}</span>`;
+                            else return `<span class="ordering-slot"></span>`;
+                        }).join(' ')}
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+
+    // 5. 選項/操作區域
     let optionsHTML = '';
-    if (status === 'answering') {
+
+	if (mode === 'en-cn' && subMode === 'match') {
+// --- 配對模式 (左右分欄版) ---
+        
+        // 1. 分離出左右兩邊的資料
+        const leftItems = state.quiz.matching.items.filter(i => i.type === 'word');
+        const rightItems = state.quiz.matching.items.filter(i => i.type === 'def');
+
+        // 2. 定義生成卡片 HTML 的輔助函式
+        const createCardHTML = (item) => {
+            const isSelected = state.quiz.matching.selectedId === item.id;
+            const isMatched = item.matched;
+            // 英文顯示紅色母音，中文直接顯示
+            let content = item.type === 'word' ? formatDisplayWord(item.text) : item.text;
+            
+            let cls = "match-card";
+            if (isSelected) cls += " selected";
+            if (isMatched) cls += " matched";
+            
+            return `
+            <div id="match-card-${item.id}" onclick="handleMatchClick('${item.id}')" class="${cls}">
+                ${content}
+            </div>`;
+        };
+
+        // 3. 生成左右兩欄的 HTML
+        optionsHTML = `
+            <div class="matching-container noselect mt-4">
+                <div class="matching-column">
+                    ${leftItems.map(createCardHTML).join('')}
+                </div>
+                
+                <div class="matching-column">
+                    ${rightItems.map(createCardHTML).join('')}
+                </div>
+            </div>
+        `;
+        
+        // (選擇性) 隱藏 Header 中的題目顯示區，保持介面乾淨
+        if(questionDisplayHTML) {
+             // 這裡不做事，維持前面邏輯設定的 '請找出所有對應的卡片'
+        }
+
+    } else if (mode === 'cn-en' && subMode === 'spell') {
+        // --- 拼字模式 ---
+        optionsHTML = `
+            <div class="letter-pool noselect">
+                ${state.quiz.spelling.letterPool.map(item => `
+                    <button id="spell-btn-${item.id}" onclick="checkSpellingInput('${item.char}', ${item.id})" class="letter-btn hover:bg-blue-100 active:scale-95 noselect">
+                        ${formatDisplayWord(item.char)}
+                    </button>
+                `).join('')}
+            </div>
+            <div class="text-center mt-6">
+                <button onclick="speak('${currentQ.target.word}')" class="text-gray-400 hover:text-indigo-500 text-sm font-bold"><i class="fas fa-volume-up"></i> 提示發音</button>
+            </div>
+        `;
+
+    } else if (mode === 'sentence' && subMode === 'order') {
+        // --- 排序模式 ---
+        optionsHTML = `
+            <div class="word-pool noselect">
+                ${state.quiz.ordering.wordPool.map(item => `
+                    <button id="order-btn-${item.id}" onclick="checkOrderingInput('${item.text.replace(/'/g, "\\'")}', ${item.id})" class="word-btn hover:bg-blue-100 active:scale-95 noselect">
+                        ${item.text.toLowerCase()}
+                    </button>
+                `).join('')}
+            </div>
+            <div class="text-center mt-6">
+                <button onclick="speak('${currentQ.target.sentence.replace(/'/g, "\\'")}')" class="text-gray-400 hover:text-indigo-500 text-sm font-bold"><i class="fas fa-volume-up"></i> 提示發音</button>
+            </div>
+        `;
+
+    } else if (status === 'answering') {
+        // --- 四選一 (作答中) ---
         optionsHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            ${currentQ.options.map(opt => {
+            ${currentQ.options.map((opt, idx) => {
                 let content = '';
-                if (mode === 'sentence') {
-                    // 填空題選項：應用 formatDisplayWord (受頂端按鈕控制)
-                    content = formatDisplayWord(opt.displayText || opt.word);
-                } else if (mode === 'cn-en') {
-                    content = formatDisplayWord(opt.word);
-                } else {
-                    content = opt.def;
-                }
-                return `<button onclick="handleAnswer(${opt.id})" class="p-6 rounded-xl text-xl font-medium border-2 bg-white border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 text-gray-700 active:scale-[0.98] shadow-sm hover:-translate-y-1 transition-all relative overflow-hidden">${content}</button>`;
+                if (mode === 'sentence') content = formatDisplayWord(opt.displayText || opt.word);
+                else if (mode === 'cn-en') content = formatDisplayWord(opt.word);
+                else content = opt.def;
+                
+                return `
+                <button onclick="handleAnswer(${opt.id})" class="p-6 rounded-xl text-xl font-medium border-2 bg-white border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 text-gray-700 active:scale-[0.98] shadow-sm hover:-translate-y-1 transition-all relative overflow-hidden break-all noselect">
+                    <span class="key-hint">${idx + 1}</span>
+                    ${content}
+                </button>`;
             }).join('')}
         </div>`;
     } else {
-         if (mode !== 'sentence') {
+         // --- 結果顯示 (Result State) ---
+         
+         // ★ 修改：如果是填空題 (sentence)，隱藏選項，顯示下一題按鈕
+         if (mode === 'sentence' && subMode === 'choice') {
+             optionsHTML = `<button onclick="nextQuestion()" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2 transition-transform active:scale-95 noselect">${currentIndex < questions.length - 1 ? '下一題' : '查看結果'} <i class="fas fa-chevron-right"></i></button>`;
+         } else {
+             // 其他模式 (如 CN-EN, EN-CN) 保持顯示變色後的選項
              optionsHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                ${currentQ.options.map(opt => {
+                ${currentQ.options.map((opt, idx) => {
                     let content = '';
                     if (mode === 'cn-en') content = formatDisplayWord(opt.word);
                     else content = opt.def;
 
-                    let btnClass = "p-6 rounded-xl text-xl font-medium border-2 transition-all relative overflow-hidden ";
+                    let btnClass = "p-6 rounded-xl text-xl font-medium border-2 transition-all relative overflow-hidden break-all noselect ";
                     if (opt.id === currentQ.target.id) btnClass += "bg-green-50 border-green-500 text-green-800 shadow-md transform scale-[1.02]";
                     else if (opt.id === selectedOption.id) btnClass += "bg-red-50 border-red-500 text-red-800";
                     else btnClass += "bg-gray-50 border-gray-100 text-gray-400 opacity-50";
-                    return `<button disabled class="${btnClass}">${content}</button>`;
+                    return `<button disabled class="${btnClass}"><span class="key-hint">${idx + 1}</span>${content}</button>`;
                 }).join('')}
              </div>`;
-         } else {
-             optionsHTML = `<button onclick="nextQuestion()" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2 transition-transform active:scale-95">${currentIndex < questions.length - 1 ? '下一題' : '查看結果'} <i class="fas fa-chevron-right"></i></button>`;
          }
     }
     
@@ -1506,24 +1979,351 @@ function handleAnswer(optionId) {
     const currentQ = state.quiz.questions[state.quiz.currentIndex];
     const option = currentQ.options.find(o => o.id === optionId);
     state.quiz.selectedOption = option;
-    speak(currentQ.target.word);
+    
+    if (state.quiz.autoPlayAudio) {
+        speak(currentQ.target.word);
+    }
+    
     if (option.id === currentQ.target.id) state.quiz.score++;
     else state.quiz.wrongQuestions.push(currentQ.target);
+    
     state.quiz.status = 'result';
-    render(); 
-    if (state.quiz.mode !== 'sentence') setTimeout(nextQuestion, 1000);
+    render();     
+    
+    if (state.quiz.mode !== 'sentence') {
+        setTimeout(nextQuestion, 1000);
+    }
 }
+
 
 function nextQuestion() {
     if (state.quiz.currentIndex < state.quiz.questions.length - 1) {
         state.quiz.currentIndex++;
         state.quiz.status = 'answering';
         state.quiz.selectedOption = null;
+        
+        if (state.quiz.mode === 'cn-en' && state.quiz.subMode === 'spell') {
+            initSpellingData(state.quiz.questions[state.quiz.currentIndex].target.word);
+        }
+        if (state.quiz.mode === 'sentence' && state.quiz.subMode === 'order') {
+            initOrderingData(state.quiz.questions[state.quiz.currentIndex].target.sentence);
+        }
+        
         render();
     } else {
         endQuiz();
     }
 }
+
+// --- Spelling Mode Logic ---
+
+function setQuizSubMode(newSubMode) {
+    state.quiz.subMode = newSubMode;
+    
+    // 根據當前主模式與新子模式，初始化對應資料
+    const currentQ = state.quiz.questions[state.quiz.currentIndex];
+    
+    if (state.quiz.mode === 'cn-en' && newSubMode === 'spell') {
+        initSpellingData(currentQ.target.word);
+    }
+    
+    if (state.quiz.mode === 'sentence' && newSubMode === 'order') {
+        initOrderingData(currentQ.target.sentence);
+    }
+
+    // ★ 新增：切換到配對模式時，立即初始化資料
+    if (state.quiz.mode === 'en-cn' && newSubMode === 'match') {
+        initMatchingData();
+    }
+    
+    render();
+}
+
+// 設定拼字難度
+function setSpellingDifficulty(num) {
+    state.quiz.spellingDifficulty = num;
+    // 如果當前有題目，立即重置該題的拼字資料以反映新難度
+    if (state.quiz.questions.length > 0) {
+        initSpellingData(state.quiz.questions[state.quiz.currentIndex].target.word);
+    }
+    render();
+}
+
+// 初始化單題拼字資料
+function initSpellingData(word) {
+    const cleanWord = word.trim();
+    const len = cleanWord.length;
+    
+    let revealed = new Array(len).fill(null);
+    let pool = [];
+    let buttonIndices = []; // 最終要變成按鈕的索引列表
+
+    // 讀取設定 (可能是 數字 3,4,5 或 字串 'a')
+    const diff = state.quiz.spellingDifficulty;
+
+    if (diff === 'a') {
+        // --- ★ 母音模式 (Vowel Mode) ---
+        // 定義母音 (包含大小寫)
+        const vowels = ['a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O', 'U'];
+        let hasVowel = false;
+
+        for (let i = 0; i < len; i++) {
+            const char = cleanWord[i];
+            if (vowels.includes(char)) {
+                // 是母音 -> 變成按鈕 (revealed 維持 null)
+                buttonIndices.push(i);
+                hasVowel = true;
+            } else {
+                // 是子音 -> 直接顯示
+                revealed[i] = char;
+            }
+        }
+
+        // 防呆：如果單字完全沒有母音 (例如 "cry", "rhythm")，
+        // 為了避免沒有題目可做，改為隨機挖空一個字母
+        if (!hasVowel && len > 0) {
+            const randIdx = Math.floor(Math.random() * len);
+            revealed[randIdx] = null; // 挖空
+            buttonIndices.push(randIdx);
+        }
+
+    } else {
+        // --- ★ 數量模式 (Number Mode: 3, 4, 5) ---
+        const MAX_BUTTONS = typeof diff === 'number' ? diff : 5;
+
+        if (len < 4) {
+            // 短單字 (< 4)：全部挖空
+            for (let i = 0; i < len; i++) {
+                buttonIndices.push(i);
+            }
+        } else {
+            // 一般單字：先顯示首尾
+            revealed[0] = cleanWord[0];
+            revealed[len - 1] = cleanWord[len - 1];
+
+            // 取得中間部分
+            let innerIndices = [];
+            for (let i = 1; i < len - 1; i++) {
+                innerIndices.push(i);
+            }
+
+            // 檢查中間是否過長
+            if (innerIndices.length > MAX_BUTTONS) {
+                const countToReveal = innerIndices.length - MAX_BUTTONS;
+                const shuffled = innerIndices.sort(() => 0.5 - Math.random());
+                
+                // 取出多餘部分直接顯示
+                const indicesToReveal = shuffled.slice(0, countToReveal);
+                indicesToReveal.forEach(idx => {
+                    revealed[idx] = cleanWord[idx];
+                });
+
+                // 剩下的作為按鈕
+                buttonIndices = shuffled.slice(countToReveal).sort((a, b) => a - b);
+            } else {
+                // 沒過長，中間全挖空
+                buttonIndices = innerIndices;
+            }
+        }
+    }
+
+    // 建立按鈕池
+    buttonIndices.forEach(idx => {
+        pool.push({ char: cleanWord[idx], id: idx }); 
+    });
+
+    // 排序按鈕 (A-Z)
+    pool.sort((a, b) => a.char.toLowerCase().localeCompare(b.char.toLowerCase()));
+
+    // 計算下一個填空位置
+    let nextIndex = 0;
+    while (nextIndex < len && revealed[nextIndex] !== null) {
+        nextIndex++;
+    }
+
+    state.quiz.spelling = {
+        currentWord: cleanWord,
+        revealedMask: revealed,
+        letterPool: pool,
+        nextIndex: nextIndex
+    };
+}
+
+// 檢查拼字輸入
+function checkSpellingInput(inputChar, btnId) {
+    const { currentWord, nextIndex } = state.quiz.spelling;
+    
+    // 取得正確答案的該字元
+    const correctChar = currentWord[nextIndex];
+
+    // 比較 (不分大小寫)
+    if (inputChar.toLowerCase() === correctChar.toLowerCase()) {
+        // --- 答對 ---
+        speak(inputChar); // 唸出字母
+        
+        // 1. 更新顯示文字
+        state.quiz.spelling.revealedMask[nextIndex] = currentWord[nextIndex]; // 填入原本的大小寫
+        
+        // 2. 從 Pool 中移除該按鈕
+        state.quiz.spelling.letterPool = state.quiz.spelling.letterPool.filter(item => item.id !== btnId);
+        
+        // 3. 計算下一個空格位置
+        let newNextIndex = nextIndex + 1;
+        // 跳過原本就已經顯示的尾字 (如果有的話)
+        while (newNextIndex < currentWord.length && state.quiz.spelling.revealedMask[newNextIndex] !== null) {
+            newNextIndex++;
+        }
+        state.quiz.spelling.nextIndex = newNextIndex;
+
+        // 4. 檢查是否完成
+        if (state.quiz.spelling.letterPool.length === 0) {
+            // 完成！
+            speak(state.quiz.spelling.currentWord);
+            state.quiz.score++;
+            state.quiz.status = 'result'; // 借用 result 狀態來顯示過場或直接下一題
+            
+            // 延遲一點點後進入下一題
+            render();
+            setTimeout(nextQuestion, 800);
+        } else {
+            render();
+        }
+
+    } else {
+        // --- 答錯 ---
+        // 觸發按鈕動畫
+        const btn = document.getElementById(`spell-btn-${btnId}`);
+        if (btn) {
+            btn.classList.add('btn-error');
+            // 動畫結束後移除 class
+            setTimeout(() => {
+                btn.classList.remove('btn-error');
+            }, 400);
+        }
+    }
+}
+
+
+// --- Sentence Ordering Logic ---
+
+// 設定句子排序難度
+function setSentenceDifficulty(num) {
+    state.quiz.sentenceDifficulty = num;
+    if (state.quiz.questions.length > 0) {
+        initOrderingData(state.quiz.questions[state.quiz.currentIndex].target.sentence);
+    }
+    render();
+}
+
+// 初始化單題排序資料
+function initOrderingData(sentence) {
+    // 1. 切割句子 (依空白切割，保留標點符號在單字內，較簡單)
+    // 例如: "How are you?" -> ["How", "are", "you?"]
+    const words = sentence.trim().split(/\s+/);
+    const len = words.length;
+    
+    let revealed = new Array(len).fill(null);
+    let pool = [];
+    let buttonIndices = [];
+
+    // 讀取設定
+    const MAX_BUTTONS = state.quiz.sentenceDifficulty || 5;
+
+    // 建立所有可能的索引
+    let allIndices = [];
+    for(let i=0; i<len; i++) allIndices.push(i);
+
+    // ★ 規則：
+    // 如果句子長度 <= 難度，全部挖空
+    // 如果句子長度 > 難度，隨機挖空 MAX_BUTTONS 個，其餘直接顯示
+    
+    if (len <= MAX_BUTTONS) {
+        buttonIndices = allIndices;
+    } else {
+        // 隨機洗牌
+        const shuffled = allIndices.sort(() => 0.5 - Math.random());
+        
+        // 取出前 N 個作為「按鈕」 (挖空)
+        buttonIndices = shuffled.slice(0, MAX_BUTTONS).sort((a,b) => a-b);
+        
+        // 剩下的直接顯示
+        const indicesToReveal = shuffled.slice(MAX_BUTTONS);
+        indicesToReveal.forEach(idx => {
+            revealed[idx] = words[idx];
+        });
+    }
+
+	// 建立按鈕池
+    buttonIndices.forEach(idx => {
+        const cleanText = words[idx].replace(/[.,!?;:]/g, '');
+        pool.push({ text: cleanText, id: idx });
+    });
+
+    // 按鈕池隨機排序 (打亂順序)
+    pool.sort(() => 0.5 - Math.random());
+
+    // 計算 nextIndex
+    let nextIndex = 0;
+    while (nextIndex < len && revealed[nextIndex] !== null) {
+        nextIndex++;
+    }
+
+    state.quiz.ordering = {
+        targetWords: words,
+        revealedMask: revealed,
+        wordPool: pool,
+        nextIndex: nextIndex
+    };
+}
+
+// 檢查排序輸入
+function checkOrderingInput(selectedWord, btnId) {
+    const { targetWords, nextIndex } = state.quiz.ordering;
+    const correctWord = targetWords[nextIndex];
+    
+    const cleanCorrect = correctWord.replace(/[.,!?;:]/g, '');
+
+    if (selectedWord.toLowerCase() === cleanCorrect.toLowerCase()) {
+        // --- 答對 ---
+        speak(selectedWord);
+        
+        // 1. 更新顯示 (這裡填入 correctWord，保留原本句子的大小寫格式，比較美觀)
+        state.quiz.ordering.revealedMask[nextIndex] = correctWord;
+        
+        // 2. 移除按鈕
+        state.quiz.ordering.wordPool = state.quiz.ordering.wordPool.filter(item => item.id !== btnId);
+        
+        // 3. 計算下一個
+        let newNextIndex = nextIndex + 1;
+        while (newNextIndex < targetWords.length && state.quiz.ordering.revealedMask[newNextIndex] !== null) {
+            newNextIndex++;
+        }
+        state.quiz.ordering.nextIndex = newNextIndex;
+
+        // 4. 檢查完成
+        if (state.quiz.ordering.wordPool.length === 0) {
+            // 完成
+            state.quiz.score++;
+            state.quiz.status = 'result';
+            render();
+            setTimeout(nextQuestion, 1000);
+        } else {
+            render();
+        }
+
+    } else {
+        // --- 答錯 ---
+        const btn = document.getElementById(`order-btn-${btnId}`);
+        if (btn) {
+            btn.classList.add('btn-error');
+            setTimeout(() => btn.classList.remove('btn-error'), 400);
+        }
+    }
+}
+
+
+
+
 
 function endQuiz() {
     state.quiz.isFinished = true;
@@ -1638,92 +2438,114 @@ function renderStory() {
     const header = document.createElement('div');
     header.className = "px-4 mb-4";
     header.innerHTML = `
-        <div class="flex items-center gap-2">
-            <button onclick="changeStory(${prevIndex})" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white border-2 border-indigo-100 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-all shadow-sm active:scale-95 flex-shrink-0" title="上一篇">
-                <i class="fas fa-chevron-left"></i>
-            </button>
-            <div class="relative flex-1">
-                <select onchange="changeStory(this.value)" class="w-full p-3 pr-8 rounded-xl border-2 border-indigo-100 bg-white font-bold text-gray-700 shadow-sm focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none appearance-none cursor-pointer transition-all truncate h-12">
-                    ${validStories.map((s, idx) => `<option value="${idx}" ${idx === state.story.activeIndex ? 'selected' : ''}>${s.title}</option>`).join('')}
-                </select>
-                <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-500 text-sm"><i class="fas fa-chevron-down"></i></div>
-            </div>
-            <button onclick="changeStory(${nextIndex})" class="w-12 h-12 flex items-center justify-center rounded-xl bg-white border-2 border-indigo-100 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-all shadow-sm active:scale-95 flex-shrink-0" title="下一篇">
-                <i class="fas fa-chevron-right"></i>
-            </button>
-        </div>
+		<div class="flex items-center gap-2">
+			<button onclick="toggleQuizAudio()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm border border-gray-200 hover:bg-indigo-50 transition-colors active:scale-95" title="${state.quiz.autoPlayAudio ? '關閉自動發音' : '開啟自動發音'}">
+				<i class="fas ${state.quiz.autoPlayAudio ? 'fa-volume-up text-indigo-500' : 'fa-volume-mute text-gray-400'}"></i>
+			</button>
+
+			<button onclick="toggleVowelMode()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm border border-gray-200 hover:bg-indigo-50 transition-colors active:scale-95" title="切換母音紅字">
+				<i class="fas fa-font ${state.highlightVowels ? 'text-red-400' : 'text-gray-400'}"></i>
+			</button>
+			<button onclick="endQuiz()" class="text-red-500 hover:text-red-700 font-bold flex items-center gap-1 bg-white px-3 py-1 rounded-full shadow-sm border border-gray-200 hover:bg-red-50 active:scale-95 transition-all text-xs">
+				<i class="fas fa-sign-out-alt"></i> <span class="hidden sm:inline">結束</span>
+			</button>
+		</div>
     `;
     container.appendChild(header);
 
     // (B) 控制面板
-    const controls = document.createElement('div');
+	const controls = document.createElement('div');
     controls.className = "px-4";
     
     const speakText = currentStory.text.replace(/[{}]/g, '').replace(/'/g, "\\'");
     const isPlayingThis = state.audio.isPlaying && state.audio.lastText === currentStory.text.replace(/[{}]/g, '');
     const currentRate = state.audio.lastRate;
 
-    const normalBtnClass = (isPlayingThis && currentRate === 1) ? "bg-gray-700 text-white" : "bg-amber-100 text-amber-800 hover:bg-amber-200";
-    const slowBtnClass = (isPlayingThis && currentRate === 0.7) ? "bg-gray-700 text-white" : "bg-green-100 text-green-800 hover:bg-green-200";
+    // 修改按鈕樣式：更小、更緊湊
+    const btnBase = "flex items-center justify-center gap-1 px-3 py-1 rounded-md text-xs font-bold transition-all border shadow-sm active:scale-95";
+    
+    const normalBtnClass = (isPlayingThis && currentRate === 1) 
+        ? "bg-gray-700 text-white border-gray-700" 
+        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50";
+        
+    const slowBtnClass = (isPlayingThis && currentRate === 0.7) 
+        ? "bg-gray-700 text-white border-gray-700" 
+        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50";
+    
     const showEn = state.story.options.showEnglish;
     const showCn = state.story.options.showTranslation;
-    const enBtnClass = showEn ? "bg-indigo-600 text-white shadow-md ring-1 ring-indigo-600" : "bg-white text-gray-400 border border-gray-200 hover:bg-gray-50";
-    const cnBtnClass = showCn ? "bg-indigo-600 text-white shadow-md ring-1 ring-indigo-600" : "bg-white text-gray-400 border border-gray-200 hover:bg-gray-50";
 
-    // 左側內容
+    // 顯示開關樣式
+    const enBtnClass = showEn 
+        ? "bg-indigo-50 text-indigo-600 border-indigo-200" 
+        : "bg-white text-gray-400 border-gray-200";
+    const cnBtnClass = showCn 
+        ? "bg-indigo-50 text-indigo-600 border-indigo-200" 
+        : "bg-white text-gray-400 border-gray-200";
+
     let leftControlHTML = '';
     if (state.story.mode === 'read') {
         leftControlHTML = `
-            <div class="flex items-center gap-2 w-full sm:w-auto animate-fade-in">
-                <span class="text-xs font-bold text-gray-400 mr-1">顯示:</span>
-                <button onclick="toggleStoryOption('showEnglish')" class="flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${enBtnClass}">
-                    <i class="fas fa-font"></i> <span class="hidden xs:inline">英文</span>
+            <div class="flex items-center gap-1">
+                <span class="text-[10px] font-bold text-gray-400 mr-1">顯示</span>
+                <button onclick="toggleStoryOption('showEnglish')" class="${btnBase} ${enBtnClass}">
+                    <span class="font-mono">EN</span>
                 </button>
-                <button onclick="toggleStoryOption('showTranslation')" class="flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${cnBtnClass}">
-                    <i class="fas fa-language"></i> <span class="hidden xs:inline">中文</span>
+                <button onclick="toggleStoryOption('showTranslation')" class="${btnBase} ${cnBtnClass}">
+                    <span class="font-mono">中</span>
                 </button>
             </div>
         `;
     } else {
-        // ★ 填空模式：X 按鈕 + 計時器
-        // 只有在 playing 或 finished 狀態才顯示 X 按鈕 (idle 狀態只顯示空的佔位或隱藏)
         const showReset = state.story.quizStatus !== 'idle';
         leftControlHTML = `
             <div class="flex items-center gap-2">
                 ${showReset ? `
-                <button onclick="stopStoryQuiz()" class="w-7 h-7 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-500 transition-colors active:scale-90" title="重新開始">
-                    <i class="fas fa-times text-sm"></i>
+                <button onclick="stopStoryQuiz()" class="w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-500 transition-colors active:scale-90" title="重新開始">
+                    <i class="fas fa-times text-xs"></i>
                 </button>` : ''}
                 
-                <div class="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100 h-[30px]">
-                    <i class="fas fa-stopwatch text-indigo-400 text-xs ${state.story.quizStatus === 'playing' ? 'animate-pulse' : ''}"></i>
-                    <span id="quiz-timer-display" class="timer-badge font-bold text-indigo-600 text-xs min-w-[2.5rem] text-center">${formatTime(state.story.timer)}</span>
+                <div class="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-200">
+                    <i class="fas fa-stopwatch text-gray-400 text-[10px] ${state.story.quizStatus === 'playing' ? 'animate-pulse' : ''}"></i>
+                    <span id="quiz-timer-display" class="timer-badge font-mono font-bold text-indigo-600 text-xs w-8 text-center">${formatTime(state.story.timer)}</span>
                 </div>
             </div>
         `;
     }
+    
+    // 準備音檔播放狀態邏輯
+    const isNormalPlaying = isPlayingThis && currentRate === 1;
+    const isSlowPlaying = isPlayingThis && currentRate === 0.7;
+    
+    // 正常速度圖示：播放中顯示 Stop，否則顯示 喇叭
+    const normalIcon = isNormalPlaying ? 'fa-stop' : 'fa-volume-up';
+    
+    // 慢速圖示：播放中顯示 Stop (FontAwesome)，否則顯示 烏龜 (Emoji)
+    // 移除原本的 scale-75 transform 讓烏龜恢復正常大小
+    const slowContent = isSlowPlaying ? '<i class="fas fa-stop"></i>' : '🐢';
 
     controls.innerHTML = `
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-4">
-            <div class="flex gap-2 p-1 bg-gray-100 rounded-xl mb-4">
-                <button onclick="setStoryMode('read')" class="flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${state.story.mode === 'read' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}">
+        <div class="bg-white p-2 rounded-xl shadow-sm border border-gray-100 mb-4">
+            
+            <div class="w-full bg-gray-100 p-1.5 rounded-2xl flex relative mb-4 shadow-inner">
+                <button onclick="setStoryMode('read')" class="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 z-10 flex items-center justify-center gap-2 ${state.story.mode === 'read' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600'}">
                     <i class="far fa-eye"></i> 閱讀
                 </button>
-                <button onclick="setStoryMode('quiz')" class="flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${state.story.mode === 'quiz' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}">
+                <button onclick="setStoryMode('quiz')" class="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 z-10 flex items-center justify-center gap-2 ${state.story.mode === 'quiz' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600'}">
                     <i class="far fa-check-circle"></i> 填空
                 </button>
             </div>
 
-            <div class="flex flex-col sm:flex-row justify-between items-center gap-3">
-                <div class="w-full sm:w-auto flex justify-center sm:justify-start">
-                    ${leftControlHTML}
-                </div>
-                <div class="flex gap-2 w-full sm:w-auto justify-end">
-                    <button onclick="speak('${speakText}', 1)" class="flex-1 sm:flex-none flex items-center justify-center gap-1 px-4 py-1.5 rounded-full text-xs font-bold transition-all h-[30px] ${normalBtnClass}">
-                        <i class="fas ${isPlayingThis && currentRate === 1 ? 'fa-stop' : 'fa-volume-up'}"></i> 正常
+            <div class="flex justify-between items-center px-1">
+                ${leftControlHTML}
+                
+                <div class="flex items-center gap-2">
+                    <button onclick="speak('${speakText}', 1)" class="${btnBase} ${normalBtnClass} w-10 h-8" title="正常速度">
+                        <i class="fas ${normalIcon}"></i>
                     </button>
-                    <button onclick="speak('${speakText}', 0.7)" class="flex-1 sm:flex-none flex items-center justify-center gap-1 px-4 py-1.5 rounded-full text-xs font-bold transition-all h-[30px] ${slowBtnClass}">
-                        <i class="fas ${isPlayingThis && currentRate === 0.7 ? 'fa-stop' : 'fa-volume-down'}"></i> 慢速
+                    
+                    <button onclick="speak('${speakText}', 0.7)" class="${btnBase} ${slowBtnClass} w-10 h-8" title="慢速播放">
+                        <span class="">${slowContent}</span>
                     </button>
                 </div>
             </div>
@@ -1749,27 +2571,34 @@ function renderStory() {
         // --- 閱讀模式 ---
         content.innerHTML += `<div class="space-y-3">
             ${currentStory.translations.map((item, idx) => {
-                const isRevealed = state.story.options.showTranslation || state.story.revealedTrans[idx];
+                // 個別設定優先於全域設定
+                const isRevealed = state.story.revealedTrans[idx] !== undefined 
+                    ? state.story.revealedTrans[idx] 
+                    : state.story.options.showTranslation;
+                
                 const isEnBlurred = !state.story.options.showEnglish;
+                
                 return `
-                <div class="sentence-card bg-white p-4 rounded-xl shadow-sm border border-gray-100 group transition-all duration-200 hover:shadow-md hover:border-indigo-100">
+                <div class="sentence-card bg-white p-4 rounded-xl shadow-sm border border-gray-100 group hover:border-indigo-100">
                     <div class="flex items-start gap-3">
-                        <button onclick="speak('${item.text.replace(/'/g, "\\'")}')" class="play-icon mt-1 w-8 h-8 flex items-center justify-center rounded-full bg-indigo-50 text-indigo-500 hover:bg-indigo-100 hover:text-indigo-700 transition-all flex-shrink-0" title="播放此句">
-                            <i class="fas fa-volume-up text-sm"></i>
-                        </button>
+                        <button onclick="speak('${item.text.replace(/'/g, "\\'")}')" class="play-icon mt-1 w-8 h-8 hidden md:flex items-center justify-center rounded-full bg-indigo-50 text-indigo-500 hover:bg-indigo-100 hover:text-indigo-700 flex-shrink-0" title="播放此句">
+							<i class="fas fa-volume-up text-sm"></i>
+						</button>
+                        
                         <div class="flex-1">
-                            <p class="text-lg leading-relaxed font-medium text-gray-800 cursor-pointer transition-all duration-300 ${isEnBlurred ? 'text-blur' : ''}" onclick="speak('${item.text.replace(/'/g, "\\'")}')">
+                            <p class="text-lg leading-relaxed font-medium text-gray-800 cursor-pointer ${isEnBlurred ? 'text-blur' : ''}" onclick="speak('${item.text.replace(/'/g, "\\'")}')">
                                 ${item.text.split(' ').map(word => {
                                     const cleanWord = word.replace(/[^a-zA-Z]/g, '');
                                     const isKey = state.vocabulary.some(v => v.word.toLowerCase() === cleanWord.toLowerCase());
                                     return `<span class="${isKey ? 'text-indigo-700 font-bold' : ''}">${word} </span>`;
                                 }).join('')}
                             </p>
+                            
                             <div class="mt-3 pt-3 border-t border-gray-100 flex items-start gap-2">
-                                <button onclick="toggleTrans(${idx})" class="mt-0.5 text-gray-400 hover:text-indigo-500 transition-colors focus:outline-none p-1" title="${isRevealed ? '隱藏翻譯' : '顯示翻譯'}">
+                                <button onclick="toggleTrans(${idx})" class="mt-0.5 text-gray-400 hover:text-indigo-500 focus:outline-none p-1" title="${isRevealed ? '隱藏翻譯' : '顯示翻譯'}">
                                     <i class="fas ${isRevealed ? 'fa-eye-slash' : 'fa-language'}"></i>
                                 </button>
-                                <span class="text-base text-gray-600 font-medium leading-relaxed transition-all duration-300 ${isRevealed ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 hidden'}">
+                                <span class="text-base text-gray-600 font-medium leading-relaxed ${isRevealed ? 'block' : 'hidden'}">
                                     ${item.trans}
                                 </span>
                             </div>
@@ -1820,7 +2649,6 @@ function renderStory() {
         footer.className = "fixed bottom-[70px] left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-200 p-3 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-40 transition-all duration-300 ease-in-out";        
         
         if (state.story.quizStatus === 'idle') {
-            // [待機]
             footer.innerHTML = `
                 <div class="max-w-2xl mx-auto flex justify-center">
                     <button onclick="startStoryQuiz()" class="w-full max-w-sm h-14 bg-indigo-600 text-white rounded-2xl font-bold text-xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3">
@@ -1829,7 +2657,6 @@ function renderStory() {
                 </div>
             `;
         } else if (state.story.quizStatus === 'finished') {
-            // [完成] ★ 修改：雙按鈕 (再次挑戰 + 下一篇)
             footer.innerHTML = `
                 <div class="max-w-4xl mx-auto flex flex-col items-center pb-2">
                     <div class="flex gap-3 w-full justify-center max-w-md">
@@ -1843,18 +2670,17 @@ function renderStory() {
                 </div>
             `;
         } else {
-            // [進行中]
-            footer.innerHTML = `
-                <div class="max-w-2xl mx-auto px-4 overflow-x-auto no-scrollbar"> 
-                    <div class="flex flex-wrap justify-center gap-2 pb-1 min-w-max sm:min-w-0">
-                        ${wordBank.map(word => `
-                            <button onclick="fillStoryBlank('${word}')" class="px-4 py-2 rounded-xl font-bold text-sm border transition-all active:scale-95 whitespace-nowrap ${state.story.selectedBlank !== null ? 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-400 shadow-sm' : 'bg-gray-100 border-gray-100 text-gray-300 cursor-not-allowed'}" ${state.story.selectedBlank === null ? 'disabled' : ''}>
-                                ${word}
-                            </button>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
+			footer.innerHTML = `
+				<div class="max-w-2xl mx-auto px-4"> 
+					<div class="flex flex-wrap justify-center gap-2 pb-1">
+						${wordBank.map(word => `
+							<button onclick="fillStoryBlank('${word}')" class="px-4 py-2 rounded-xl font-bold text-sm border transition-all active:scale-95 whitespace-nowrap ${state.story.selectedBlank !== null ? 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-400 shadow-sm' : 'bg-gray-100 border-gray-100 text-gray-300 cursor-not-allowed'}" ${state.story.selectedBlank === null ? 'disabled' : ''}>
+								${word}
+							</button>
+						`).join('')}
+					</div>
+				</div>
+			`;
         }
         container.appendChild(footer);
     }
@@ -1890,11 +2716,18 @@ function setStoryMode(mode) {
 }
 
 function toggleTrans(idx) {
-    state.story.revealedTrans[idx] = !state.story.revealedTrans[idx];
+    const currentState = state.story.revealedTrans[idx] !== undefined 
+        ? state.story.revealedTrans[idx] 
+        : state.story.options.showTranslation;
+    // 設定為相反狀態 (這會產生一個個別覆蓋設定)
+    state.story.revealedTrans[idx] = !currentState;
     render();
 }
 function toggleStoryOption(option) {
     state.story.options[option] = !state.story.options[option];
+    if (option === 'showTranslation') {
+        state.story.revealedTrans = {};
+    }
     render();
 }
 function startStoryQuiz() {
@@ -2092,11 +2925,15 @@ function resetStoryQuiz() {
 
 // --- STATE UPDATERS (Generic) ---
 function setState(key, value) {
+    if (key === 'view') {
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        state.audio.isPlaying = false;
+        state.audio.lastText = null;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }    
     state[key] = value;
     render();
-    if (key === 'view') window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-
 function toggleVocabCheck(id) {
     state.vocabulary = state.vocabulary.map(item => 
         item.id === id ? { ...item, checked: !item.checked } : item
@@ -2146,12 +2983,89 @@ function toggleListMode() {
     render();
 }
 
+function toggleListColumn(colId) {
+    if (state.listColumns.includes(colId)) {
+        // 移除欄位 (過濾掉)
+        state.listColumns = state.listColumns.filter(c => c !== colId);
+    } else {
+        const defaultOrder = ['check', 'remove', 'num', 'word', 'kk', 'part', 'other', 'def'];
+        
+        // 目前有的欄位 + 新增的欄位
+        const currentSet = new Set([...state.listColumns, colId]);
+        
+        // 依照標準順序篩選出應該存在的欄位
+        state.listColumns = defaultOrder.filter(c => currentSet.has(c));
+    }
+    render();
+    
+    setTimeout(() => {
+        const dropdown = document.getElementById('col-dropdown');
+        if (dropdown) dropdown.classList.remove('hidden');
+    }, 0);
+}
 function getRandomEmoji() {
     if (typeof EMOJIS !== 'undefined' && EMOJIS.length > 0) {
         return EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
     }
     return '🌟';
 }
+
+// --- Global Keyboard Listener ---
+function initKeyboardListener() {
+    document.addEventListener('keydown', (e) => {
+        // 1. 檢查是否在測驗頁面
+        if (!state.view.startsWith('quiz') || state.quiz.questions.length === 0 || state.quiz.isFinished) return;
+
+        const currentQ = state.quiz.questions[state.quiz.currentIndex];
+        
+        // --- 狀況 A: 四選一 (包含 英選中, 填空, 中選英的選擇模式) ---
+        if (state.quiz.status === 'answering' && 
+           (state.quiz.mode !== 'cn-en' || state.quiz.subMode === 'choice')) {
+            
+            if (['1', '2', '3', '4'].includes(e.key)) {
+                const index = parseInt(e.key) - 1;
+                // 確保選項存在
+                if (currentQ.options && currentQ.options[index]) {
+                    handleAnswer(currentQ.options[index].id);
+                }
+            }
+        }
+
+        // --- 狀況 B: 拼字模式 (僅 中選英 的 spell 模式) ---
+        if (state.quiz.mode === 'cn-en' && state.quiz.subMode === 'spell') {
+            const char = e.key.toLowerCase();
+            // 檢查是否為 a-z 字母
+            if (/^[a-z]$/.test(char)) {
+                // 在字母池中尋找符合的按鈕
+                // 注意：可能有重複字母 (如 apple 的 p)，需找第一個存在的
+                const btn = state.quiz.spelling.letterPool.find(item => item.char.toLowerCase() === char);
+                
+                if (btn) {
+                    checkSpellingInput(btn.char, btn.id);
+                } else {
+                    // 如果字母是對的但已經按過了(不在池中)，或是錯誤字母
+                    // 這裡可以選擇是否要給予錯誤回饋 (目前邏輯是按錯按鈕會搖晃)
+                    // 若要模擬按錯鍵盤的錯誤回饋，可能需要更複雜的邏輯去尋找 DOM
+                }
+            }
+        }
+        
+        // --- 狀況 C: 結果頁面按 Enter 下一題 ---
+        if (state.quiz.status === 'result' && e.key === 'Enter') {
+            if (state.quiz.mode !== 'sentence') { // 填空模式是自動下一題，其他模式可能有手動按鈕
+                 // 檢查是否有下一題按鈕
+                 nextQuestion();
+            }
+        }
+    });
+}
+
+
+const originalInit = init;
+init = function() {
+    originalInit();
+    initKeyboardListener();
+};
 
 // Start
 init();
