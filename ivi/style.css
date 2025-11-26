@@ -1,0 +1,526 @@
+/* Safe area for mobile */
+.pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+/* Scrollbar hiding */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Animations */
+@keyframes bounce-subtle {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+.animate-bounce-subtle {
+    animation: bounce-subtle 2s infinite ease-in-out;
+}
+
+@keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.animate-fade-in {
+    animation: fade-in 0.3s ease-out forwards;
+}
+
+@keyframes scale-in {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+.animate-scale-in {
+    animation: scale-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Drag and Drop Visuals */
+.draggable-source {
+    opacity: 0.4;
+    border: 2px dashed #6366f1;
+}
+
+.draggable-over {
+    background-color: #e0e7ff; /* indigo-100 */
+    border-left: 4px solid #4338ca; /* indigo-700 */
+}
+
+/* Utility for conditional rendering */
+.hidden {
+    display: none !important;
+}
+
+/* --- Custom Sets & Tabs --- */
+.tab-btn {
+    @apply px-6 py-2 rounded-full font-bold text-sm transition-all border-2 border-transparent;
+}
+.tab-btn.active {
+    @apply bg-indigo-600 text-white shadow-md border-indigo-600;
+}
+.tab-btn.inactive {
+    @apply bg-white text-gray-500 hover:bg-gray-50 border-gray-200;
+}
+
+/* --- Modal Overlay --- */
+.modal-overlay {
+    background-color: rgba(17, 24, 39, 0.7);
+    backdrop-filter: blur(4px);
+}
+.modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* --- Toast Notification --- */
+.toast-enter {
+    transform: translateY(100%);
+    opacity: 0;
+}
+.toast-enter-active {
+    transform: translateY(0);
+    opacity: 1;
+    transition: all 0.3s ease-out;
+}
+.toast-exit {
+    transform: translateY(0);
+    opacity: 1;
+}
+.toast-exit-active {
+    transform: translateY(100%);
+    opacity: 0;
+    transition: all 0.3s ease-in;
+}
+
+/* --- Custom Input Modal --- */
+.input-modal-overlay {
+    background-color: rgba(17, 24, 39, 0.8); /* 更深一點的背景，讓焦點更集中 */
+    backdrop-filter: blur(4px);
+}
+
+.input-field-focus:focus {
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.2); /* Indigo ring */
+    border-color: #4f46e5;
+}
+
+/* --- Nav Collapsed State Adjustments --- */
+
+/* 當導航收合時，首頁浮動按鈕往下降 */
+body.nav-collapsed #home-floating-container {
+    bottom: 10px !important; /* 距離底部留一點空間給右側的收合按鈕 */
+}
+
+/* 當導航收合時，故事頁的單字庫貼底 */
+body.nav-collapsed #story-footer {
+    bottom: 0px !important;
+    padding-bottom: 20px; /* 手機上增加底部留白較好按 */
+}
+
+/* --- Story Mode Enhancements --- */
+
+/* 模糊效果 (用於隱藏英文時) */
+.text-blur {
+    filter: blur(6px);
+    user-select: none;
+    transition: filter 0.3s ease;
+    opacity: 0.7;
+}
+.text-blur:hover {
+    filter: blur(0);
+    opacity: 1;
+}
+
+/* 句子區塊互動效果 */
+.sentence-card {
+    transition: all 0.2s ease-in-out;
+    border-left: 3px solid transparent;
+}
+.sentence-card:hover {
+    background-color: #f8fafc; /* slate-50 */
+    border-left-color: #6366f1; /* indigo-500 */
+}
+
+/* 播放按鈕微動畫 */
+.play-icon {
+    opacity: 0;
+    transform: translateX(-5px);
+    transition: all 0.2s ease;
+}
+.sentence-card:hover .play-icon {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* --- Timer & Quiz Enhancements --- */
+
+/* 計時器樣式 */
+.timer-badge {
+    font-variant-numeric: tabular-nums; 
+}
+
+/* 空格內的數字編號 */
+.blank-number {
+    display: inline-block;
+    color: #9ca3af; /* gray-400 */
+    font-size: 0.75rem; /* text-xs */
+    font-weight: bold;
+    user-select: none;
+}
+/* 空格區塊 */
+.blank-slot {
+    min-width: 80px; /* 稍微縮小最小寬度 */
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+    margin: 0 4px;
+    padding: 0 8px;
+    border-bottom-width: 2px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+/* --- Quiz Mode: Spelling Enhancements --- */
+
+/* 字母按鈕容器 */
+.letter-pool {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 20px;
+}
+
+/* 字母按鈕 */
+.letter-btn {
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    background-color: #eff6ff; /* blue-50 */
+    color: #1d4ed8; /* blue-700 */
+    font-weight: bold;
+    font-size: 1.25rem;
+    border: 2px solid #dbeafe; /* blue-100 */
+    box-shadow: 0 2px 0 #bfdbfe;
+    transition: all 0.1s;
+    text-transform: lowercase; /* 強制小寫顯示 */
+}
+
+.letter-btn:active {
+    transform: translateY(2px);
+    box-shadow: none;
+}
+
+/* 錯誤時的搖晃動畫 (退回效果) */
+@keyframes shake-horizontal {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-5px); }
+    40% { transform: translateX(5px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
+}
+
+.btn-error {
+    animation: shake-horizontal 0.4s ease-in-out;
+    background-color: #fee2e2 !important; /* red-100 */
+    border-color: #fca5a5 !important; /* red-300 */
+    color: #b91c1c !important; /* red-700 */
+}
+
+/* 拼字顯示區 (題目) */
+.spelling-display {
+    font-family: monospace;
+    /* 使用 clamp 讓字體在手機上變小 (最小1.5rem, 最大2.5rem) */
+    font-size: clamp(1.5rem, 6vw, 2.5rem); 
+    letter-spacing: 0.1em; /* 稍微縮小字距 */
+    color: #374151;
+    font-weight: bold;
+    min-height: 60px;
+    
+    display: flex;
+    flex-wrap: wrap; 
+    justify-content: center;
+    gap: 0.5rem; /* 使用 gap 控制字母間距 */
+    word-break: break-all; /* 強制長單字換行 */
+    padding: 0 10px; /* 左右留白防止貼邊 */
+}
+
+/* 分隔模式切換按鈕 */
+.quiz-mode-switch {
+    background-color: #f3f4f6;
+    padding: 4px;
+    border-radius: 12px;
+    display: inline-flex;
+    gap: 4px;
+    margin-bottom: 16px;
+}
+.quiz-mode-btn {
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: bold;
+    color: #6b7280;
+    transition: all 0.2s;
+}
+.quiz-mode-btn.active {
+    background-color: white;
+    color: #4f46e5;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+/* --- Mode Toggle (Top-Right of Card) --- */
+.mode-toggle-pill {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    display: flex;
+    background-color: #f3f4f6; /* gray-100 */
+    border-radius: 9999px;
+    padding: 4px;
+    z-index: 20; /* 確保在最上層 */
+}
+
+.mode-btn-small {
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-size: 0.75rem; /* text-xs */
+    font-weight: bold;
+    color: #9ca3af; /* gray-400 */
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.mode-btn-small.active {
+    background-color: white;
+    color: #4f46e5; /* indigo-600 */
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.mode-btn-small:hover:not(.active) {
+    color: #6b7280; /* gray-500 */
+}
+
+
+
+/* 禁止反白 (通用工具類) */
+.noselect {
+    -webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-select: none; /* Safari */
+    -khtml-user-select: none; /* Konqueror HTML */
+    -moz-user-select: none; /* Old versions of Firefox */
+    -ms-user-select: none; /* Internet Explorer/Edge */
+    user-select: none; /* Non-prefixed version, currently supported by Chrome, Edge, Opera and Firefox */
+}
+
+/* 選項按鈕左上角的鍵盤提示 (1, 2, 3, 4) */
+.key-hint {
+    position: absolute;
+    top: 8px;
+    left: 10px;
+    font-size: 0.75rem; /* text-xs */
+    font-weight: bold;
+    color: #9ca3af; /* gray-400 */
+    padding: 1px 7px;
+    pointer-events: none; /* 避免遮擋點擊 */
+    box-shadow: 0 1px 0 rgba(0,0,0,0.05);
+}
+
+/* --- Difficulty Selector (Spelling Mode) --- */
+.difficulty-selector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 12px;
+    background-color: #f3f4f6;
+    padding: 4px;
+    border-radius: 12px;
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.diff-label {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    font-weight: bold;
+    margin-right: 4px;
+    padding-left: 8px;
+}
+
+.diff-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: bold;
+    color: #6b7280;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.diff-btn.active {
+    background-color: white;
+    color: #4f46e5; /* indigo-600 */
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.diff-btn:hover:not(.active) {
+    background-color: #e5e7eb;
+}
+
+/* --- Sentence Ordering Mode --- */
+
+/* 句子顯示區 */
+.ordering-display {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center; /* 置中對齊 */
+    gap: 8px;
+    margin-top: 32px; /* 與上方題目的間距 */
+    min-height: 60px;
+    line-height: 2.5rem;
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: #374151;
+    padding: 0 10px;
+    width: 100%; /* 確保佔滿寬度 */
+}
+
+/* 已填入/預設顯示的單字 */
+/* 空格區塊 (排序題) */
+.ordering-slot {
+    /* --- 修正 2: 底線長度設定 --- */
+    min-width: 50px;  /* 設定最小寬度，恢復舊版長底線的美感 */
+    flex-shrink: 0;   /* 防止在手機或窄螢幕上被擠壓變短 */
+    
+    /* --- 修正 1: 文字與底線距離 --- */
+    height: auto;     /* 高度隨內容調整，不再強制固定太高 */
+    min-height: 2.2rem; /* 保持一個基礎高度，確保視覺整齊 */
+    line-height: 2; /* 緊湊行高，消除文字下方多餘留白 */
+    padding: 0 2px 1px 0px; /* 底部留白極小(1px)，讓單字緊貼底線 */
+    
+    /* --- 排版設定 --- */
+    display: inline-flex;
+    align-items: flex-end; /* 強制內容靠底對齊 */
+    justify-content: center;
+    vertical-align: bottom;
+    margin: 0 2px 12px 2px; /* 增加下方 margin，讓多行排列時不會太擠 */
+    
+    /* --- 邊框樣式 --- */
+    border-bottom-width: 2px;
+    border-radius: 4px 4px 0 0; /* 上方圓角，下方直角貼齊底線 */
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.ordering-slot.filled {
+    border-bottom-color: #6366f1; /* indigo-500 */
+    color: #4f46e5; /* indigo-600 */
+}
+
+/* 單字按鈕容器 */
+.word-pool {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 24px;
+}
+
+/* 單字按鈕 */
+.word-btn {
+    padding: 8px 16px;
+    border-radius: 12px;
+    background-color: #eff6ff; /* blue-50 */
+    color: #1d4ed8; /* blue-700 */
+    font-weight: bold;
+    font-size: 1rem;
+    border: 2px solid #dbeafe; /* blue-100 */
+    box-shadow: 0 2px 0 #bfdbfe;
+    transition: all 0.1s;
+    cursor: pointer;
+}
+
+.word-btn:active {
+    transform: translateY(2px);
+    box-shadow: none;
+}
+
+
+
+/* --- Matching Mode Layout (左右分欄) --- */
+.matching-container {
+    display: flex;
+    gap: 12px; /* 左右欄間距 */
+    width: 100%;
+    justify-content: center;
+}
+
+.matching-column {
+    flex: 1; /* 左右平分寬度 */
+    display: flex;
+    flex-direction: column;
+    gap: 12px; /* 上下卡片間距 */
+    max-width: 50%; /* 確保不超過一半 */
+}
+
+.match-card {
+    background-color: white;
+    border: 2px solid #e5e7eb; /* gray-200 */
+    border-radius: 12px;
+    padding: 12px 8px;
+    min-height: 60px; /* 稍微降低高度以容納更多卡片 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+    font-weight: bold;
+    color: #374151; /* gray-700 */
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    font-size: 1rem;
+    word-break: break-word; /* 防止長字撐開 */
+}
+
+.match-card:active {
+    transform: scale(0.98);
+}
+
+/* 選中狀態 */
+.match-card.selected {
+    border-color: #6366f1; /* indigo-500 */
+    background-color: #e0e7ff; /* indigo-100 */
+    color: #4338ca; /* indigo-700 */
+    box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.2);
+    z-index: 10;
+}
+
+/* 配對成功 (變淡但不消失) */
+.match-card.matched {
+    opacity: 0.9; /* 變淡 */
+    background-color: #f3f4f6; /* gray-100 */
+    border-color: #d1d5db; /* gray-300 */
+    color: #9ca3af; /* gray-400 */
+    pointer-events: none; /* 禁止再點擊 */
+    transform: none;
+    box-shadow: none;
+}
+
+/* 配對錯誤 (搖晃 + 紅色) */
+.match-card.error {
+    border-color: #fca5a5; /* red-300 */
+    background-color: #fee2e2; /* red-100 */
+    color: #b91c1c; /* red-700 */
+    animation: shake-horizontal 0.4s ease-in-out;
+}
