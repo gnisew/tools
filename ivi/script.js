@@ -889,22 +889,31 @@ function openRenameSetModal(id, oldName) {
     );
 }
 
-function openAddToSetModal() {
-    // 1. Get Checked Words
-    let candidates = [];
-    if (state.filterMode === 'custom' && state.activeSetId) {
-         const set = state.customSets.find(s => s.id === state.activeSetId);
-         candidates = state.vocabulary.filter(w => set.wordIds.includes(w.id) && w.checked);
+// 修改後的 openAddToSetModal
+function openAddToSetModal(specificIds = null) {
+    let idsToAdd = [];
+
+    // 判斷是否傳入了指定的 ID 陣列 (來自錯題收藏)
+    if (Array.isArray(specificIds)) {
+        idsToAdd = specificIds;
     } else {
-         candidates = state.vocabulary.filter(w => state.selectedUnits.includes(w.unit) && w.checked);
+        // 原本的邏輯：從列表介面抓取已勾選(Checked)的單字
+        let candidates = [];
+        if (state.filterMode === 'custom' && state.activeSetId) {
+             const set = state.customSets.find(s => s.id === state.activeSetId);
+             candidates = state.vocabulary.filter(w => set.wordIds.includes(w.id) && w.checked);
+        } else {
+             candidates = state.vocabulary.filter(w => state.selectedUnits.includes(w.unit) && w.checked);
+        }
+
+        if (candidates.length === 0) {
+            showToast("請先勾選至少一個單字！"); 
+            return;
+        }
+        idsToAdd = candidates.map(w => w.id);
     }
 
-    if (candidates.length === 0) {
-        showToast("請先勾選至少一個單字！"); 
-        return;
-    }
-
-    const idsToAdd = candidates.map(w => w.id);
+    // --- 以下為原本的 Modal 渲染邏輯 (保持不變) ---
 
     // 2. Create Modal HTML
     const overlay = document.createElement('div');
@@ -952,19 +961,16 @@ function openAddToSetModal() {
 
     window.handleAddAction = (targetId) => {
         if (targetId === 'NEW') {
-            
             const defaultName = "我的單字集 " + (new Date().toLocaleDateString());
-            
             showInputModal(
                 "建立新學習集", 
                 defaultName, 
                 "請輸入名稱...", 
                 (name) => {
-                    // Confirm Callback
                     const newSet = createCustomSet(name.trim(), idsToAdd);
                     showToast(`已建立並加入「${newSet.name}」`);
-                    window.closeModal(); // 關閉選擇視窗
-                    render(); // 重新渲染以更新 UI
+                    window.closeModal(); 
+                    render(); 
                 }
             );
         } else {
@@ -972,6 +978,15 @@ function openAddToSetModal() {
             window.closeModal();
         }
     };
+}
+
+function saveWrongQuestionsToSet() {
+    if (!state.quiz.wrongQuestions || state.quiz.wrongQuestions.length === 0) {
+        showToast("沒有錯題可收藏");
+        return;
+    }
+    const ids = state.quiz.wrongQuestions.map(w => w.id);
+    openAddToSetModal(ids);
 }
 
 function showToast(message) {
@@ -1562,7 +1577,7 @@ function renderQuiz() {
         return;
     }
 
-    // 2. 測驗結束畫面
+	// 2. 測驗結束畫面
     if (isFinished) {
         const total = questions.length;
         const pct = score / total;
@@ -1572,7 +1587,17 @@ function renderQuiz() {
                     <div class="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-5xl">${pct > 0.65 ? "🎉" : "💪"}</div>
                     <h2 class="text-3xl font-bold text-gray-800 mb-2">測驗結束！</h2>
                     <p class="text-xl text-gray-600 mb-8">得分: <span class="text-indigo-600 font-bold text-4xl">${score}</span> / ${total}</p>
-                    ${wrongQuestions.length > 0 ? `<button onclick="retryWrongQuestions()" class="w-full py-4 bg-orange-500 text-white rounded-xl font-bold shadow-lg hover:bg-orange-600 mb-4 flex items-center justify-center gap-2"><i class="fas fa-redo"></i> 練習答錯的 ${wrongQuestions.length} 題</button>` : ''}
+                    
+                    ${wrongQuestions.length > 0 ? `
+                        <button onclick="retryWrongQuestions()" class="w-full py-4 bg-orange-500 text-white rounded-xl font-bold shadow-lg hover:bg-orange-600 mb-3 flex items-center justify-center gap-2">
+                            <i class="fas fa-redo"></i> 練習答錯的 ${wrongQuestions.length} 題
+                        </button>
+                        
+                        <button onclick="saveWrongQuestionsToSet()" class="w-full py-4 bg-green-500 text-white rounded-xl font-bold shadow-lg hover:bg-green-600 mb-4 flex items-center justify-center gap-2">
+                            <i class="fas fa-folder-plus"></i> 將錯題加入學習集
+                        </button>
+                    ` : ''}
+
                     <button onclick="setState('view', 'list')" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700">返回列表</button>
                 </div>
             </div>
@@ -1580,7 +1605,6 @@ function renderQuiz() {
         appRoot.appendChild(container);
         return;
     }
-
     const currentQ = questions[currentIndex];
     
     // 3. 頂部工具列
