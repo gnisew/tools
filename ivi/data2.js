@@ -544,6 +544,75 @@ const VOCAB_DATA = [
   { unit: 202511, word: 'around', kk: '[əˋraʊnd]', part: 'adv.', def: '環繞; 到處', sentence: 'Walk around. Do the shoes feel OK?', senTrans: '四處走走。鞋子感覺還可以嗎？', other: '' },
   { unit: 202511, word: 'rice', kk: '[raɪs]', part: 'n.', def: '米; 飯', sentence: 'She ate rice and vegetables for dinner.', senTrans: '她晚餐吃這飯和蔬菜。', other: '' },
 
+// Date 17
+  { unit: 202511, word: 'flower', kk: '[ˋflaʊɚ]', part: 'n.', def: '花', sentence: 'Ellen loves beautiful flowers.', senTrans: '艾倫喜歡美麗的花。', other: 'flowers' },
+  { unit: 202511, word: 'poem', kk: '[ˋpoəm]', part: 'n.', def: '詩', sentence: 'I like to read poems.', senTrans: '我喜歡讀詩。', other: 'poems' },
+  { unit: 202511, word: 'place', kk: '[ples]', part: 'n.', def: '地方; 場所', sentence: "Let's go to a place with a lot of nature.", senTrans: '我們去一個有很多大自然的地方吧。', other: 'places' },
+  { unit: 202511, word: 'darkness', kk: '[ˋdɑrknɪs]', part: 'n.', def: '黑暗', sentence: "He couldn't see in the darkness.", senTrans: '他在黑暗中看不見。', other: '' },
+  { unit: 202511, word: 'special', kk: '[ˋspɛʃəl]', part: 'adj.', def: '特別的', sentence: 'You are very special to us.', senTrans: '你對我們來說很特別。', other: '' },
+
+// Date 18
+  { unit: 202511, word: 'blanket', kk: '[ˋblæŋkɪt]', part: 'n.', def: '毯子; 毛毯', sentence: 'Is there a blanket on the bed?', senTrans: '床上有毯子嗎？', other: 'blankets' },
+  { unit: 202511, word: 'rich', kk: '[rɪtʃ]', part: 'adj.', def: '有錢的; 富有的', sentence: 'Tom is rich. He has lots of money.', senTrans: '湯姆很有錢。他有很多錢。', other: '' },
+  { unit: 202511, word: 'treasure', kk: '[ˋtrɛʒɚ]', part: 'n.', def: '金銀財寶; 財富', sentence: 'Where does he keep his treasure?', senTrans: '他把寶藏藏在哪裡？', other: 'treasures' },
+  { unit: 202511, word: 'seem', kk: '[sim]', part: 'v.', def: '看來好像; 似乎', sentence: 'You seem very happy today.', senTrans: '你今天似乎很開心。', other: 'seemed / seeming' },
+  { unit: 202511, word: 'shine', kk: '[ʃaɪn]', part: 'n.', def: '光彩; 光澤', sentence: 'There is a shine on the new car.', senTrans: '新車上有光澤。', other: '' },
+
+// Date 19
+  { unit: 202511, word: 'grab', kk: '[græb]', part: 'v.', def: '抓取', sentence: 'He grabbed his bag and left.', senTrans: '他抓起他的包包就離開了。', other: 'grabbed / grabbing' },
+  { unit: 202511, word: 'gift', kk: '[gɪft]', part: 'n.', def: '禮物', sentence: 'This is a gift for you.', senTrans: '這是給你的禮物。', other: 'gifts' },
+  { unit: 202511, word: 'yell', kk: '[jɛl]', part: 'v.', def: '叫喊; 吼叫', sentence: "Don't yell at me.", senTrans: '不要對我吼叫。', other: 'yelled / yelling' },
+  { unit: 202511, word: 'choose', kk: '[tʃuz]', part: 'v.', def: '選擇; 挑選', sentence: 'Please choose one.', senTrans: '請選擇一個。', other: 'chose / chosen / choosing' },
+  { unit: 202511, word: 'easily', kk: '[ˋizəlɪ]', part: 'adv.', def: '容易地', sentence: 'She won the game easily.', senTrans: '她輕鬆地贏了比賽。', other: '' },
+
+// Date 20
+  { unit: 202511, word: 'garage', kk: '[gəˋrɑʒ]', part: 'n.', def: '車庫', sentence: 'The car is in the garage.', senTrans: '車子在車庫裡。', other: 'garages' },
+  { unit: 202511, word: 'used', kk: '[juzd]', part: 'adj.', def: '用過的; 二手的', sentence: 'He bought a used car.', senTrans: '他買了一輛二手車。', other: '' },
+  { unit: 202511, word: 'sell', kk: '[sɛl]', part: 'v.', def: '賣', sentence: 'They want to sell their house.', senTrans: '他們想要賣掉房子。', other: 'sold / selling' },
+  { unit: 202511, word: 'package', kk: '[ˋpækɪdʒ]', part: 'n.', def: '包裝(盒、袋、箱)', sentence: 'The package arrived today.', senTrans: '包裹今天到了。', other: 'packages' },
+  { unit: 202511, word: 'reuse', kk: '[riˋjuz]', part: 'v.', def: '再用; 重複使用', sentence: 'We should reuse plastic bags.', senTrans: '我們應該重複使用塑膠袋。', other: 'reused / reusing' },
+
+// Date 21
+  { unit: 202511, word: 'unfortunately', kk: '[ʌnˋfɔrtʃənɪtlɪ]', part: 'adv.', def: '可惜; 遺憾地', sentence: 'Unfortunately, I cannot go.', senTrans: '很遺憾地，我不能去。', other: '' },
+  { unit: 202511, word: 'throw away', kk: '[θro əˋwe]', part: 'phr v.', def: '扔掉; 拋棄', sentence: "Don't throw away that box.", senTrans: '不要扔掉那個箱子。', other: 'threw away / thrown away' },
+  { unit: 202511, word: 'account', kk: '[əˋkaʊnt]', part: 'n.', def: '帳戶', sentence: 'I have money in my bank account.', senTrans: '我的銀行帳戶裡有錢。', other: 'accounts' },
+  { unit: 202511, word: 'valuable', kk: '[ˋvæljʊəb!]', part: 'adj.', def: '值錢的; 貴重的', sentence: 'This ring is very valuable.', senTrans: '這枚戒指很貴重。', other: '' },
+  { unit: 202511, word: 'stay', kk: '[ste]', part: 'v.', def: '留下; 停留', sentence: 'Please stay here.', senTrans: '請留在這裡。', other: 'stayed / staying' },
+
+// Date 24
+  { unit: 202511, word: 'information', kk: '[͵ɪnfɚˋmeʃən]', part: 'n.', def: '資訊; 訊息', sentence: 'I need more information.', senTrans: '我需要更多資訊。', other: '' },
+  { unit: 202511, word: 'dial', kk: '[ˋdaɪəl]', part: 'v.', def: '打電話; 撥(號)', sentence: 'Dial the number carefully.', senTrans: '小心撥打號碼。', other: 'dialed / dialing' },
+  { unit: 202511, word: 'on hold', kk: '[ɑn hold]', part: 'idiom', def: '(在電話上)等待', sentence: 'He put me on hold.', senTrans: '他讓我保留通話(等待)。', other: '' },
+  { unit: 202511, word: 'call back', kk: '[kɔl bæk]', part: 'phr v.', def: '回電', sentence: 'I will call you back later.', senTrans: '我稍後會回電給你。', other: 'called back' },
+  { unit: 202511, word: 'welcome', kk: '[ˋwɛlkəm]', part: 'adj.', def: '(接受謝意)不客氣', sentence: "You're welcome.", senTrans: '不客氣。', other: '' },
+
+// Date 25
+  { unit: 202511, word: 'option', kk: '[ˋɑpʃən]', part: 'n.', def: '選項', sentence: 'You have two options.', senTrans: '你有兩個選項。', other: 'options' },
+  { unit: 202511, word: 'address', kk: '[əˋdrɛs]', part: 'n.', def: '地址', sentence: "What is your home address?", senTrans: '你家地址是什麼？', other: 'addresses' },
+  { unit: 202511, word: 'bill', kk: '[bɪl]', part: 'n.', def: '帳單', sentence: 'The electricity bill is high.', senTrans: '電費帳單很高。', other: 'bills' },
+  { unit: 202511, word: 'appointment', kk: '[əˋpɔɪntmənt]', part: 'n.', def: '預約; (正式的)約會', sentence: 'I have a doctor appointment.', senTrans: '我有預約看醫生。', other: 'appointments' },
+  { unit: 202511, word: 'on the line', kk: '[ɑn ðə laɪn]', part: 'idiom', def: '(電話)通話中', sentence: 'Mr. Smith is on the line.', senTrans: '史密斯先生正在線上(通話中)。', other: '' },
+
+// Date 26
+  { unit: 202511, word: 'follow', kk: '[ˋfɑlo]', part: 'v.', def: '遵行; 採用; 聽從', sentence: 'Follow the instructions.', senTrans: '遵行指示。', other: 'followed / following' },
+  { unit: 202511, word: 'attention', kk: '[əˋtɛnʃən]', part: 'n.', def: '注意; 留心', sentence: 'Pay attention to the teacher.', senTrans: '注意聽老師說。', other: '' },
+  { unit: 202511, word: 'explain', kk: '[ɪkˋsplen]', part: 'v.', def: '解釋', sentence: 'Can you explain this rule?', senTrans: '你能解釋這條規則嗎？', other: 'explained / explaining' },
+  { unit: 202511, word: 'slide', kk: '[slaɪd]', part: 'n.', def: '投影片; 幻燈片', sentence: 'Look at the next slide.', senTrans: '看下一張投影片。', other: 'slides' },
+  { unit: 202511, word: 'add', kk: '[æd]', part: 'v.', def: '添加; 增加', sentence: 'Add some sugar to the tea.', senTrans: '在茶裡加點糖。', other: 'added / adding' },
+
+// Date 27
+  { unit: 202511, word: 'flow', kk: '[flo]', part: 'n.', def: '前後連接; 連貫性', sentence: 'The flow of the story is good.', senTrans: '故事的連貫性很好。', other: '' },
+  { unit: 202511, word: 'nod', kk: '[nɑd]', part: 'v.', def: '點頭', sentence: 'She nodded her head.', senTrans: '她點了點頭。', other: 'nodded / nodding' },
+  { unit: 202511, word: 'phrase', kk: '[frez]', part: 'n.', def: '措辭; 片語', sentence: 'I like that phrase.', senTrans: '我喜歡那個片語。', other: 'phrases' },
+  { unit: 202511, word: 'miss', kk: '[mɪs]', part: 'v.', def: '想念; 惦記', sentence: 'I miss my family.', senTrans: '我想念我的家人。', other: 'missed / missing' },
+  { unit: 202511, word: 'guide', kk: '[gaɪd]', part: 'v.', def: '引導; 帶領', sentence: 'He guided us through the city.', senTrans: '他帶領我們穿越城市。', other: 'guided / guiding' },
+
+// Date 28
+  { unit: 202511, word: 'environment', kk: '[ɪnˋvaɪrənmənt]', part: 'n.', def: '環境; 自然環境', sentence: 'Protecting the environment is important.', senTrans: '保護環境很重要。', other: '' },
+  { unit: 202511, word: 'visit', kk: '[ˋvɪzɪt]', part: 'v.', def: '拜訪', sentence: 'I will visit my grandmother.', senTrans: '我會去拜訪我祖母。', other: 'visited / visiting' },
+  { unit: 202511, word: 'melt', kk: '[mɛlt]', part: 'v.', def: '熔化; 融化', sentence: 'The ice cream is melting.', senTrans: '冰淇淋正在融化。', other: 'melted / melting' },
+  { unit: 202511, word: 'cheap', kk: '[tʃip]', part: 'adj.', def: '便宜的; 低價的', sentence: 'This shirt is very cheap.', senTrans: '這件襯衫很便宜。', other: '' },
+  { unit: 202511, word: 'shape', kk: '[ʃep]', part: 'n.', def: '形狀; 外形', sentence: 'The cloud has a funny shape.', senTrans: '那朵雲有個有趣的形狀。', other: 'shapes' },
 
 
 // Date 1
