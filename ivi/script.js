@@ -501,7 +501,7 @@ function renderList() {
                 <i class="fas fa-th"></i><span>完整字表</span>
             </button>
             <button onclick="setListMode('compact')" class="px-4 py-1.5 rounded-lg text-xs md:text-sm font-bold transition-all duration-200 flex items-center gap-2 ${state.listMode === 'compact' ? 'bg-white text-indigo-600 shadow-sm' : 'text-indigo-200 hover:text-white hover:bg-white/10'}">
-                <i class="fas fa-list"></i><span>精簡字表</span>
+                <i class="fas fa-list"></i><span>挑選字表</span>
             </button>
         </div>
     `;
@@ -1219,12 +1219,15 @@ function nextMatchingBatch() {
 function initQuiz(mode) {
     // 1. 重置基本測驗狀態
     state.quiz.mode = mode;
-    state.quiz.subMode = 'choice'; 
+    state.quiz.subMode = state.quiz.subMode || 'choice'; // 保留子模式或預設
+
+    // 初始化順序模式 (預設隨機)
+    if (!state.quiz.orderMode) state.quiz.orderMode = 'random';
 
     state.quiz.spellingDifficulty = 5;
     state.quiz.sentenceDifficulty = 5;
-	state.quiz.matchingDifficulty = 4;
-	if (state.quiz.autoPlayAudio === undefined) {
+    state.quiz.matchingDifficulty = 4;
+    if (state.quiz.autoPlayAudio === undefined) {
         state.quiz.autoPlayAudio = true;
     }
     state.quiz.currentIndex = 0;
@@ -1234,13 +1237,8 @@ function initQuiz(mode) {
     state.quiz.status = 'answering';
     state.quiz.selectedOption = null;
 
-    // 確保 subMode 有預設值 (若尚未設定過)
-    if (!state.quiz.subMode) state.quiz.subMode = 'choice';
-
     // 2. 決定資料來源 (篩選單字)
     let activeWords = [];
-    
-    // 判斷是否為「自訂學習集」模式
     if (state.filterMode === 'custom' && state.activeSetId) {
         const set = state.customSets.find(s => s.id === state.activeSetId);
         if (set) {
@@ -1250,25 +1248,31 @@ function initQuiz(mode) {
         activeWords = state.vocabulary.filter(w => state.selectedUnits.includes(w.unit) && w.checked);
     }
     
-    // 若無單字則返回 (renderQuiz 會處理空狀態顯示)
     if (activeWords.length === 0) {
         state.quiz.questions = []; 
         return;
     }
 
-    // 3. 產生題目 (根據模式)
-    // 初始化 Emoji
+    // --- 內部輔助函式：根據模式決定列表順序 ---
+    const getSrcList = (list) => {
+        if (state.quiz.orderMode === 'random') {
+            return shuffle([...list]);
+        } else {
+            // 依序 (依 ID 排序)
+            return [...list].sort((a, b) => a.id - b.id);
+        }
+    };
+
+    // 3. 產生題目
     let currentEmoji = getRandomEmoji();
 
     if (mode === 'sentence') {
         // --- 句子填空模式 ---
         const validWords = activeWords.filter(w => w.sentence && w.sentence.length > 5);
         
-        state.quiz.questions = shuffle([...validWords]).map((w, index) => {
-            // 每 5 題換一個 Emoji
-            if (index > 0 && index % 5 === 0) {
-                currentEmoji = getRandomEmoji();
-            }
+        // 使用 getSrcList 替代原本的 shuffle
+        state.quiz.questions = getSrcList(validWords).map((w, index) => {
+            if (index > 0 && index % 5 === 0) currentEmoji = getRandomEmoji();
 
             let usedWord = w.word; 
             const variations = w.other ? w.other.split('/').map(s => s.trim()).filter(s => s) : [];
@@ -1276,7 +1280,6 @@ function initQuiz(mode) {
             let matched = false;
             let regex = null;
 
-            // 嘗試在句子中比對單字 (包含變化形)
             for (const cand of candidates) {
                 const re = new RegExp(`\\b${cand}\\b`, 'i');
                 if (re.test(w.sentence)) {
@@ -1286,7 +1289,6 @@ function initQuiz(mode) {
                     break;
                 }
             }
-            // 若精確比對失敗，嘗試模糊比對
             if (!matched) {
                 const looseRe = new RegExp(`\\b${w.word}\\w*\\b`, 'i');
                 if (looseRe.test(w.sentence)) {
@@ -1297,15 +1299,13 @@ function initQuiz(mode) {
                 }
             }
 
-            // 挖空處理 (用於選擇模式)
             const blankPlaceholder = '_______';
             const questionText = w.sentence.replace(regex, blankPlaceholder);
             
-            // 產生選項 (混淆項從所有單字中隨機挑選)
+            // 選項仍需隨機
             const others = shuffle(state.vocabulary.filter(cw => cw.id !== w.id)).slice(0, 3);
             const rawOptions = shuffle([w, ...others]);
             
-            // 處理選項顯示文字 (盡量使用變化形以配合時態)
             const processedOptions = rawOptions.map(opt => {
                 let displayText = opt.word; 
                 if (opt.id === w.id) {
@@ -1327,12 +1327,10 @@ function initQuiz(mode) {
         });
 
     } else {
-        // --- 一般選擇題 (中選英 / 英選中) ---
-        state.quiz.questions = shuffle([...activeWords]).map((w, index) => {
-            // 每 5 題換一個 Emoji
-            if (index > 0 && index % 5 === 0) {
-                currentEmoji = getRandomEmoji();
-            }
+        // --- 一般選擇題 ---
+        // 使用 getSrcList 替代原本的 shuffle
+        state.quiz.questions = getSrcList(activeWords).map((w, index) => {
+            if (index > 0 && index % 5 === 0) currentEmoji = getRandomEmoji();
 
             const others = shuffle(state.vocabulary.filter(cw => cw.id !== w.id)).slice(0, 3);
             const options = shuffle([w, ...others]);
@@ -1345,21 +1343,33 @@ function initQuiz(mode) {
         });
     }
 
-    // 4. 特殊模式初始化 (拼字 / 排序)
+    // 4. 特殊模式初始化
     if (state.quiz.questions.length > 0) {
-        // 如果是「中選英」且為「拼字模式」
+        const currentQ = state.quiz.questions[0];
         if (mode === 'cn-en' && state.quiz.subMode === 'spell') {
-            initSpellingData(state.quiz.questions[0].target.word);
+            initSpellingData(currentQ.target.word);
         }
-        // 如果是「填空題」且為「排序模式」
+        // 注意：這裡要加上 isFirstLastMode 的判斷 (如果您之前有加過)
         if (mode === 'sentence' && state.quiz.subMode === 'order') {
-            initOrderingData(state.quiz.questions[0].target.sentence);
+            initOrderingData(currentQ.target.sentence);
         }
-		// 新增：如果是「英選中」且為「配對模式」
-		if (mode === 'en-cn' && state.quiz.subMode === 'match') {
+        if (mode === 'en-cn' && state.quiz.subMode === 'match') {
             initMatchingData();
         }
     }
+}
+
+function toggleQuizOrder() {
+    // 切換模式
+    state.quiz.orderMode = state.quiz.orderMode === 'random' ? 'sequential' : 'random';
+    
+    // 重新初始化測驗 (因為順序改變了，必須重新生成題目列表)
+    initQuiz(state.quiz.mode);
+    render();
+
+    // 提示使用者
+    const msg = state.quiz.orderMode === 'random' ? "隨機模式 (重新開始)" : "依序模式 (重新開始)";
+    showToast(msg);
 }
 
 // --- UTILITIES (Existing + Updated) ---
@@ -1605,15 +1615,26 @@ function renderQuiz() {
         appRoot.appendChild(container);
         return;
     }
-    const currentQ = questions[currentIndex];
+	
+	const currentQ = questions[currentIndex];
     
     // 3. 頂部工具列
-	let headerHTML = `
+    
+    // 準備按鈕圖示與標題
+    const orderIcon = state.quiz.orderMode === 'random' ? 'fa-random' : 'fa-sort-numeric-down';
+    const orderTitle = state.quiz.orderMode === 'random' ? '切換為依序' : '切換為隨機';
+    const orderColor = state.quiz.orderMode === 'random' ? 'text-indigo-500' : 'text-blue-600';
+
+    let headerHTML = `
         <div class="flex flex-col items-center mb-6">
             <div class="w-full flex justify-between items-center text-sm font-medium text-gray-500 bg-gray-100 px-4 py-2 rounded-full shadow-inner">
                 <span>進度: ${currentIndex + 1} / ${questions.length}</span>
                 <div class="flex items-center gap-2">
                     
+                    <button onclick="toggleQuizOrder()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm border border-gray-200 hover:bg-indigo-50 transition-colors active:scale-95" title="${orderTitle}">
+                        <i class="fas ${orderIcon} ${orderColor}"></i>
+                    </button>
+
                     <button onclick="toggleQuizAudio()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm border border-gray-200 hover:bg-indigo-50 transition-colors active:scale-95" title="${state.quiz.autoPlayAudio ? '關閉自動發音' : '開啟自動發音'}">
                         <i class="fas ${state.quiz.autoPlayAudio ? 'fa-volume-up text-indigo-500' : 'fa-volume-mute text-gray-400'}"></i>
                     </button>
@@ -1655,7 +1676,11 @@ function renderQuiz() {
         let rawContent = "";
         
         if (subMode === 'order') {
-            rawContent = currentQ.target.senTrans;
+            const shouldBlur = state.quiz.isFirstLastMode && state.quiz.status !== 'result';
+            const blurClass = shouldBlur ? 'text-blur transition-all duration-200' : '';
+            
+            rawContent = `<span class="${blurClass}">${currentQ.target.senTrans}</span>`;
+            
             fontClass = "text-xl md:text-2xl leading-relaxed"; 
             breakClass = "break-words";
         } else {
@@ -1684,13 +1709,15 @@ function renderQuiz() {
             }
         }
 
-        // 簡潔置中版 HTML
+		const sentenceToSpeak = currentQ.target.sentence.replace(/'/g, "\\'");
+
+		// 簡潔置中版 HTML
         questionDisplayHTML = `
 			<div class="flex items-center justify-center gap-4 w-full mt-12 mb-2">
-                <div class="flex-shrink-0 text-3xl select-none transform scale-x-[-1] cursor-pointer hover:scale-110 transition-transform opacity-90" onclick="speak('${currentQ.target.word}')">
+                <div class="flex-shrink-0 text-3xl select-none transform scale-x-[-1] cursor-pointer hover:scale-110 transition-transform opacity-90" onclick="speak('${sentenceToSpeak}')">
                     ${currentQ.emoji}
                 </div>
-                <div class="font-bold text-gray-800 text-left cursor-pointer hover:text-indigo-600 transition-colors" onclick="speak('${currentQ.target.word}')">
+                <div class="font-bold text-gray-800 text-left cursor-pointer hover:text-indigo-600 transition-colors" onclick="speak('${sentenceToSpeak}')">
                      ${rawContent}
                 </div>
             </div>
@@ -1709,10 +1736,18 @@ function renderQuiz() {
                 <button onclick="setSpellingDifficulty(5)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${spellingDifficulty === 5 ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}">5</button>
              </div>
         `;
-    } else if (mode === 'sentence' && subMode === 'order') {
+	} else if (mode === 'sentence' && subMode === 'order') {
+        const isFL = state.quiz.isFirstLastMode;
         difficultySelectorHTML = `
              <div class="absolute top-4 left-4 z-20 flex items-center gap-1 bg-gray-100 rounded-lg p-1 shadow-inner">
-                <span class="text-[10px] font-bold text-gray-400 px-1 select-none">數量</span>
+                <span class="text-[10px] font-bold text-gray-400 px-1 select-none">設定</span>
+                
+                <button onclick="toggleFirstLastMode()" class="w-8 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${isFL ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}" title="首尾模式">
+                    &lt;&gt;
+                </button>
+                
+                <div class="w-px h-3 bg-gray-300 mx-1"></div>
+
                 <button onclick="setSentenceDifficulty(3)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${sentenceDifficulty === 3 ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}">3</button>
                 <button onclick="setSentenceDifficulty(4)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${sentenceDifficulty === 4 ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}">4</button>
                 <button onclick="setSentenceDifficulty(5)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${sentenceDifficulty === 5 ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200'}">5</button>
@@ -2192,50 +2227,101 @@ function setSentenceDifficulty(num) {
     render();
 }
 
+function toggleFirstLastMode() {
+    // 切換模式狀態
+    state.quiz.isFirstLastMode = !state.quiz.isFirstLastMode;
+    
+    // 重新初始化當前題目的排序資料
+    if (state.quiz.questions.length > 0) {
+        initOrderingData(state.quiz.questions[state.quiz.currentIndex].target.sentence);
+    }
+    render();
+}
+
 // 初始化單題排序資料
 function initOrderingData(sentence) {
-    // 1. 切割句子 (依空白切割，保留標點符號在單字內，較簡單)
-    // 例如: "How are you?" -> ["How", "are", "you?"]
+    // 1. 切割句子 (依空白切割，保留標點符號在單字內)
     const words = sentence.trim().split(/\s+/);
     const len = words.length;
     
     let revealed = new Array(len).fill(null);
     let pool = [];
-    let buttonIndices = [];
+    let buttonIndices = []; // 這些索引將會被挖空變成按鈕
 
     // 讀取設定
     const MAX_BUTTONS = state.quiz.sentenceDifficulty || 5;
+    const isFirstLastMode = state.quiz.isFirstLastMode; // 讀取是否啟用 <> 模式
 
-    // 建立所有可能的索引
-    let allIndices = [];
-    for(let i=0; i<len; i++) allIndices.push(i);
+    // 建立所有可能的索引 [0, 1, 2, ... len-1]
+    let candidates = [];
+    for(let i=0; i<len; i++) candidates.push(i);
 
-    if (len <= MAX_BUTTONS) {
-        buttonIndices = allIndices;
+    if (isFirstLastMode) {
+        // --- 首尾模式 ---
+        // 邏輯：預設保留首尾，中間挖空。若中間挖空數量超過 MAX_BUTTONS，則從首尾往內縮，減少挖空。
+        
+        // 1. 先決定要保留的索引 (預設保留頭尾)
+        let keepIndices = [];
+        if (len > 0) keepIndices.push(0);
+        if (len > 1) keepIndices.push(len - 1);
+
+        // 2. 初始挖空名單 (排除頭尾)
+        let potentialHides = candidates.filter(idx => !keepIndices.includes(idx));
+
+        // 3. 檢查挖空數量是否超過設定的 MAX_BUTTONS
+        // 如果中間太長 (例如 "A b c d e f G", max=3)，目前挖空 5 個 (b,c,d,e,f)
+        // 我們需要減少挖空，把 b 和 f 也顯示出來，變成 "A b _ _ _ f G"
+        while (potentialHides.length > MAX_BUTTONS) {
+            // 從前面吐一個回去 (變成顯示)
+            const first = potentialHides.shift(); 
+            // 從後面吐一個回去 (變成顯示)
+            if (potentialHides.length > MAX_BUTTONS) {
+                 const last = potentialHides.pop();
+            }
+            // 迴圈繼續，直到剩餘的挖空數量 <= MAX_BUTTONS
+        }
+        
+        buttonIndices = potentialHides;
+
+        // 4. 設定 revealed (非按鈕的都顯示)
+        for (let i = 0; i < len; i++) {
+            if (!buttonIndices.includes(i)) {
+                revealed[i] = words[i];
+            }
+        }
+
     } else {
-        // 隨機洗牌
-        const shuffled = allIndices.sort(() => 0.5 - Math.random());
+        // --- 原本的隨機模式 ---
+        // 邏輯：隨機選 MAX_BUTTONS 個挖空，其餘顯示
         
-        // 取出前 N 個作為「按鈕」 (挖空)
-        buttonIndices = shuffled.slice(0, MAX_BUTTONS).sort((a,b) => a-b);
-        
-        // 剩下的直接顯示
-        const indicesToReveal = shuffled.slice(MAX_BUTTONS);
-        indicesToReveal.forEach(idx => {
-            revealed[idx] = words[idx];
-        });
+        if (len <= MAX_BUTTONS) {
+            buttonIndices = candidates; // 全部挖空
+        } else {
+            // 隨機洗牌
+            const shuffled = candidates.sort(() => 0.5 - Math.random());
+            
+            // 取出前 N 個作為「按鈕」 (挖空)
+            buttonIndices = shuffled.slice(0, MAX_BUTTONS).sort((a,b) => a-b);
+            
+            // 剩下的直接顯示
+            const indicesToReveal = shuffled.slice(MAX_BUTTONS);
+            indicesToReveal.forEach(idx => {
+                revealed[idx] = words[idx];
+            });
+        }
     }
 
 	// 建立按鈕池
     buttonIndices.forEach(idx => {
+        // 移除標點符號，讓按鈕看起來乾淨一點 (比對時也會移除)
         const cleanText = words[idx].replace(/[.,!?;:]/g, '');
         pool.push({ text: cleanText, id: idx });
     });
 
-    // 按鈕池隨機排序 (打亂順序)
+    // 按鈕池隨機排序 (打亂順序供使用者選擇)
     pool.sort(() => 0.5 - Math.random());
 
-    // 計算 nextIndex
+    // 計算 nextIndex (第一個非 null 的位置)
     let nextIndex = 0;
     while (nextIndex < len && revealed[nextIndex] !== null) {
         nextIndex++;
@@ -2285,10 +2371,18 @@ function checkOrderingInput(selectedWord, btnId) {
             // 如果希望整句拼完後自動唸整句，可以在這裡加 (選用)
             // if (state.quiz.autoPlayAudio) { speak(state.quiz.questions[state.quiz.currentIndex].target.sentence); }
 
-            state.quiz.score++;
-            state.quiz.status = 'result';
+			state.quiz.score++;
+            state.quiz.status = 'result'; // 設定為結果狀態 (中文會變清晰)
             render();
-            setTimeout(nextQuestion, 1000);
+            
+            // 判斷：如果是首尾模式 (<>)，給 3 秒 (3000ms) 閱讀中文
+            // 否則給 1.2 秒 (1200ms) 就夠了
+            const delay = state.quiz.isFirstLastMode ? 2000 : 1200;
+            
+            setTimeout(nextQuestion, delay);
+            
+            // --- 修改重點結束 ---
+
         } else {
             render();
         }
@@ -2862,18 +2956,29 @@ function fillStoryBlank(userWord) {
         // --- 答錯 (保持原邏輯) ---
         speak(userWord);
         state.story.consecutiveErrors = (state.story.consecutiveErrors || 0) + 1;
+        
+        // 檢查是否連續錯誤達 5 次
         if (state.story.consecutiveErrors >= 5) {
-             showCustomAlert("您似乎遇到了一些困難，<br>建議先回到閱讀模式複習一下喔！", () => {
-                stopStoryTimer(); // 記得停止計時
-                state.story.quizStatus = 'idle';
-                state.story.filledBlanks = {};
-                state.story.consecutiveErrors = 0;
-                state.story.selectedBlank = null;
-                state.story.mode = 'read';
-                render();
-            });
+             // 修改重點：將原本不存在的 showCustomAlert 改為 showConfirmModal
+             showConfirmModal(
+                "休息一下", // 標題
+                "您似乎遇到了一些困難，<br>建議先回到閱讀模式複習一下喔！", // 訊息內容
+                () => {
+                    // 按下確定後的動作
+                    stopStoryTimer(); 
+                    state.story.quizStatus = 'idle';
+                    state.story.filledBlanks = {};
+                    state.story.consecutiveErrors = 0;
+                    state.story.selectedBlank = null;
+                    state.story.mode = 'read';
+                    render();
+                },
+                "好的，去複習" // 按鈕文字
+            );
             return;
         }
+
+        // 錯誤回饋動畫
         state.story.errorBlank = state.story.selectedBlank;
         render();
         setTimeout(() => {

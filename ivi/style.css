@@ -478,7 +478,7 @@ body.nav-collapsed #story-footer {
     border: 2px solid #e5e7eb; /* gray-200 */
     border-radius: 12px;
     padding: 12px 8px;
-    min-height: 60px; /* 稍微降低高度以容納更多卡片 */
+    min-height: 60px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -489,7 +489,7 @@ body.nav-collapsed #story-footer {
     font-weight: bold;
     color: #374151; /* gray-700 */
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    font-size: 1rem;
+    font-size: 1.5rem;
     word-break: break-word; /* 防止長字撐開 */
 }
 
