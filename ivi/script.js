@@ -72,9 +72,11 @@ const state = {
         showCelebration: false,
         currentWordBank: null,
         cachedTitle: null,
+		feedbackSpeed: 1,
 		options: {
             showEnglish: true,
-            showTranslation: true // 預設顯示翻譯，也可設為 false
+            showTranslation: true, // 預設顯示翻譯，也可設為 false
+			feedbackAudio: true
         },
 		quizStatus: 'idle', // 'idle' (尚未開始), 'playing' (進行中), 'finished' (完成)
         timer: 0,           // 秒數
@@ -2710,7 +2712,10 @@ function renderStory() {
     }
     const currentStory = validStories[state.story.activeIndex];
 
-    const segments = currentStory.text.split(/(\{.*?\})/).map((part, idx) => {
+    // 動態組合完整文章
+    const fullStoryText = currentStory.translations.map(t => t.text).join(' ');
+
+    const segments = fullStoryText.split(/(\{.*?\})/).map((part, idx) => {
         if (part.startsWith('{') && part.endsWith('}')) {
             return { type: 'word', content: part.slice(1, -1), id: idx };
         }
@@ -2718,6 +2723,7 @@ function renderStory() {
     });
 
     const rawWords = [...new Set(segments.filter(s => s.type === 'word').map(s => s.content.toLowerCase()))];
+    
     if (state.story.cachedTitle !== currentStory.title || !state.story.currentWordBank) {
         state.story.cachedTitle = currentStory.title;
         state.story.currentWordBank = rawWords.sort();
@@ -2727,6 +2733,11 @@ function renderStory() {
         state.story.consecutiveErrors = 0;
         state.story.quizStatus = 'idle'; 
         state.story.timer = 0;
+        
+        if (state.story.options.feedbackAudio === undefined) {
+            state.story.options.feedbackAudio = true;
+        }
+
         if (state.story.timerInterval) clearInterval(state.story.timerInterval);
     }
     const wordBank = state.story.currentWordBank;
@@ -2761,43 +2772,30 @@ function renderStory() {
 	const controls = document.createElement('div');
     controls.className = "px-4";
     
-    const speakText = currentStory.text.replace(/[{}]/g, '').replace(/'/g, "\\'");
-    const isPlayingThis = state.audio.isPlaying && state.audio.lastText === currentStory.text.replace(/[{}]/g, '');
+    const speakText = fullStoryText.replace(/[{}]/g, '').replace(/'/g, "\\'");
+    const isPlayingThis = state.audio.isPlaying && state.audio.lastText === fullStoryText.replace(/[{}]/g, '');
     const currentRate = state.audio.lastRate;
 
-    // 修改按鈕樣式：更小、更緊湊
     const btnBase = "flex items-center justify-center gap-1 px-3 py-1 rounded-md text-xs font-bold transition-all border shadow-sm active:scale-95";
     
-    const normalBtnClass = (isPlayingThis && currentRate === 1) 
-        ? "bg-gray-700 text-white border-gray-700" 
-        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50";
-        
-    const slowBtnClass = (isPlayingThis && currentRate === 0.7) 
-        ? "bg-gray-700 text-white border-gray-700" 
-        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50";
-    
+    const normalBtnClass = (isPlayingThis && currentRate === 1) ? "bg-gray-800 text-white border-gray-800" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50";
+    const slowBtnClass = (isPlayingThis && currentRate === 0.7) ? "bg-gray-800 text-white border-gray-800" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50";
+    const normalIcon = (isPlayingThis && currentRate === 1) ? 'fa-stop' : 'fa-volume-up';
+    const slowContent = (isPlayingThis && currentRate === 0.7) ? '<i class="fas fa-stop"></i>' : '🐢';
+
     const showEn = state.story.options.showEnglish;
     const showCn = state.story.options.showTranslation;
+    const enBtnClass = showEn ? "bg-indigo-50 text-indigo-600 border-indigo-200" : "bg-white text-gray-400 border-gray-200";
+    const cnBtnClass = showCn ? "bg-indigo-50 text-indigo-600 border-indigo-200" : "bg-white text-gray-400 border-gray-200";
 
-    // 顯示開關樣式
-    const enBtnClass = showEn 
-        ? "bg-indigo-50 text-indigo-600 border-indigo-200" 
-        : "bg-white text-gray-400 border-gray-200";
-    const cnBtnClass = showCn 
-        ? "bg-indigo-50 text-indigo-600 border-indigo-200" 
-        : "bg-white text-gray-400 border-gray-200";
-
+    // 左側控制項
     let leftControlHTML = '';
     if (state.story.mode === 'read') {
         leftControlHTML = `
             <div class="flex items-center gap-1">
                 <span class="text-[10px] font-bold text-gray-400 mr-1">顯示</span>
-                <button onclick="toggleStoryOption('showEnglish')" class="${btnBase} ${enBtnClass}">
-                    <span class="font-mono">EN</span>
-                </button>
-                <button onclick="toggleStoryOption('showTranslation')" class="${btnBase} ${cnBtnClass}">
-                    <span class="font-mono">中</span>
-                </button>
+                <button onclick="toggleStoryOption('showEnglish')" class="${btnBase} ${enBtnClass}">EN</button>
+                <button onclick="toggleStoryOption('showTranslation')" class="${btnBase} ${cnBtnClass}">中</button>
             </div>
         `;
     } else {
@@ -2808,7 +2806,6 @@ function renderStory() {
                 <button onclick="stopStoryQuiz()" class="w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 text-gray-400 hover:bg-red-100 hover:text-red-500 transition-colors active:scale-90" title="重新開始">
                     <i class="fas fa-times text-xs"></i>
                 </button>` : ''}
-                
                 <div class="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-200">
                     <i class="fas fa-stopwatch text-gray-400 text-[10px] ${state.story.quizStatus === 'playing' ? 'animate-pulse' : ''}"></i>
                     <span id="quiz-timer-display" class="timer-badge font-mono font-bold text-indigo-600 text-xs w-8 text-center">${formatTime(state.story.timer)}</span>
@@ -2816,26 +2813,17 @@ function renderStory() {
             </div>
         `;
     }
-    
-    // 準備音檔播放狀態邏輯
-    const isNormalPlaying = isPlayingThis && currentRate === 1;
-    const isSlowPlaying = isPlayingThis && currentRate === 0.7;
-    
-    // 正常速度圖示：播放中顯示 Stop，否則顯示 喇叭
-    const normalIcon = isNormalPlaying ? 'fa-stop' : 'fa-volume-up';
-    
-    // 慢速圖示：播放中顯示 Stop (FontAwesome)，否則顯示 烏龜 (Emoji)
-    // 移除原本的 scale-75 transform 讓烏龜恢復正常大小
-    const slowContent = isSlowPlaying ? '<i class="fas fa-stop"></i>' : '🐢';
 
+    // [修改重點] 移除了原本中間的 middleControlHTML (發音開關)，這裡清空
+    
     controls.innerHTML = `
         <div class="bg-white p-2 rounded-xl shadow-sm border border-gray-100 mb-4">
             
-            <div class="w-full bg-gray-100 p-1.5 rounded-2xl flex relative mb-4 shadow-inner">
-                <button onclick="setStoryMode('read')" class="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 z-10 flex items-center justify-center gap-2 ${state.story.mode === 'read' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600'}">
+            <div class="w-full bg-gray-100 p-1.5 rounded-2xl flex relative mb-3 shadow-inner">
+                <button onclick="setStoryMode('read')" class="flex-1 py-2 rounded-xl text-sm font-bold transition-all duration-300 z-10 flex items-center justify-center gap-2 ${state.story.mode === 'read' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600'}">
                     <i class="far fa-eye"></i> 閱讀
                 </button>
-                <button onclick="setStoryMode('quiz')" class="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 z-10 flex items-center justify-center gap-2 ${state.story.mode === 'quiz' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600'}">
+                <button onclick="setStoryMode('quiz')" class="flex-1 py-2 rounded-xl text-sm font-bold transition-all duration-300 z-10 flex items-center justify-center gap-2 ${state.story.mode === 'quiz' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600'}">
                     <i class="far fa-check-circle"></i> 填空
                 </button>
             </div>
@@ -2844,11 +2832,10 @@ function renderStory() {
                 ${leftControlHTML}
                 
                 <div class="flex items-center gap-2">
-                    <button onclick="speak('${speakText}', 1)" class="${btnBase} ${normalBtnClass} w-10 h-8" title="正常速度">
+                    <button onclick="speak('${speakText}', 1)" class="${btnBase} ${normalBtnClass} w-9 h-8" title="全文原速">
                         <i class="fas ${normalIcon}"></i>
                     </button>
-                    
-                    <button onclick="speak('${speakText}', 0.7)" class="${btnBase} ${slowBtnClass} w-10 h-8" title="慢速播放">
+                    <button onclick="speak('${speakText}', 0.7)" class="${btnBase} ${slowBtnClass} w-9 h-8" title="全文慢速">
                         <span class="">${slowContent}</span>
                     </button>
                 </div>
@@ -2875,23 +2862,23 @@ function renderStory() {
         // --- 閱讀模式 ---
         content.innerHTML += `<div class="space-y-3">
             ${currentStory.translations.map((item, idx) => {
-                // 個別設定優先於全域設定
                 const isRevealed = state.story.revealedTrans[idx] !== undefined 
                     ? state.story.revealedTrans[idx] 
                     : state.story.options.showTranslation;
-                
                 const isEnBlurred = !state.story.options.showEnglish;
+                const displaySentence = item.text.replace(/[{}]/g, '');
+                const safeSentence = displaySentence.replace(/'/g, "\\'");
                 
                 return `
                 <div class="sentence-card bg-white p-4 rounded-xl shadow-sm border border-gray-100 group hover:border-indigo-100">
                     <div class="flex items-start gap-3">
-                        <button onclick="speak('${item.text.replace(/'/g, "\\'")}')" class="play-icon mt-1 w-8 h-8 hidden md:flex items-center justify-center rounded-full bg-indigo-50 text-indigo-500 hover:bg-indigo-100 hover:text-indigo-700 flex-shrink-0" title="播放此句">
+                        <button onclick="speak('${safeSentence}')" class="play-icon mt-1 w-8 h-8 hidden md:flex items-center justify-center rounded-full bg-indigo-50 text-indigo-500 hover:bg-indigo-100 hover:text-indigo-700 flex-shrink-0" title="播放此句">
 							<i class="fas fa-volume-up text-sm"></i>
 						</button>
                         
                         <div class="flex-1">
-                            <p class="text-lg leading-relaxed font-medium text-gray-800 cursor-pointer ${isEnBlurred ? 'text-blur' : ''}" onclick="speak('${item.text.replace(/'/g, "\\'")}')">
-                                ${item.text.split(' ').map(word => {
+                            <p class="text-lg leading-relaxed font-medium text-gray-800 cursor-pointer ${isEnBlurred ? 'text-blur' : ''}" onclick="speak('${safeSentence}')">
+                                ${displaySentence.split(' ').map(word => {
                                     const cleanWord = word.replace(/[^a-zA-Z]/g, '');
                                     const isKey = state.vocabulary.some(v => v.word.toLowerCase() === cleanWord.toLowerCase());
                                     return `<span class="${isKey ? 'text-indigo-700 font-bold' : ''}">${word} </span>`;
@@ -2974,9 +2961,21 @@ function renderStory() {
                 </div>
             `;
         } else {
+            // --- 修改重點：在 Word Bank 按鈕群組的最前面，加入靜音開關 ---
+            const isFeedbackOn = state.story.options.feedbackAudio;
+            
+            // 靜音按鈕 HTML (樣式調整為與單字按鈕高度一致)
+            const muteBtnHTML = `
+                <button onclick="toggleStoryOption('feedbackAudio')" class="px-3 py-2 rounded-xl font-bold text-sm border border-gray-200 transition-all active:scale-95 flex items-center justify-center ${isFeedbackOn ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-gray-100 text-gray-400'}" title="${isFeedbackOn ? '點擊發音' : '靜音'}">
+                    <i class="fas ${isFeedbackOn ? 'fa-volume-up' : 'fa-volume-mute'}"></i>
+                </button>
+            `;
+
 			footer.innerHTML = `
 				<div class="max-w-2xl mx-auto px-4"> 
 					<div class="flex flex-wrap justify-center gap-2 pb-1">
+                        ${muteBtnHTML}
+                        
 						${wordBank.map(word => `
 							<button onclick="fillStoryBlank('${word}')" class="px-4 py-2 rounded-xl font-bold text-sm border transition-all active:scale-95 whitespace-nowrap ${state.story.selectedBlank !== null ? 'bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-400 shadow-sm' : 'bg-gray-100 border-gray-100 text-gray-300 cursor-not-allowed'}" ${state.story.selectedBlank === null ? 'disabled' : ''}>
 								${word}
@@ -3017,6 +3016,11 @@ function setStoryMode(mode) {
     } 
     stopStoryTimer();
     render();
+}
+
+function setStoryFeedbackSpeed(speed) {
+    state.story.feedbackSpeed = speed;
+    render(); 
 }
 
 function toggleTrans(idx) {
@@ -3063,9 +3067,12 @@ function startStoryQuiz() {
     const validStories = STORIES.filter(story => story.units.some(u => effectiveUnits.includes(u)));
     const currentStory = validStories[state.story.activeIndex];
     
+    // [修改重點] 動態組合全文以尋找空格
+    const fullStoryText = currentStory.translations.map(t => t.text).join(' ');
+
     // 找出第一個空格 ID
     let firstBlankId = null;
-    currentStory.text.split(/(\{.*?\})/).forEach((part, idx) => {
+    fullStoryText.split(/(\{.*?\})/).forEach((part, idx) => {
         if (part.startsWith('{') && part.endsWith('}') && firstBlankId === null) {
             firstBlankId = idx;
         }
@@ -3107,21 +3114,24 @@ function fillStoryBlank(userWord) {
     // 1. 防呆檢查
     if (state.story.selectedBlank === null) return;
 
-    // --- 防亂按機制 (連續點擊同一個按鈕超過 2 次) ---
+    // --- 防亂按機制 (連續點擊同一個按鈕超過 3 次) ---
+    // 判斷是否跟上一次點擊的單字相同
     if (userWord === state.story.lastClickedWord) {
         state.story.sameWordClickCount = (state.story.sameWordClickCount || 0) + 1;
     } else {
+        // 如果點了不同的字，重置計數
         state.story.lastClickedWord = userWord;
         state.story.sameWordClickCount = 1;
     }
 
-    if (state.story.sameWordClickCount > 2) {
-        showBoringCooldown();
-        state.story.sameWordClickCount = 0;
-        state.story.consecutiveErrors = 0;        
-        return;
+    // 如果連續點同一個字超過 3 次 (即第 4 次)
+    if (state.story.sameWordClickCount > 3) {
+        showBoringCooldown();           // 顯示無聊遮罩
+        state.story.sameWordClickCount = 0; // 重置計數
+        state.story.consecutiveErrors = 0;  // 重要：重置錯誤計數，避免回來後又馬上觸發休息
+        return;                         // 阻擋執行
     }
-
+    // -----------------------------------------------------
 
     // 找出目前的故事 (需與 renderStory 的篩選邏輯一致)
 	let effectiveUnits = [];
@@ -3138,9 +3148,12 @@ function fillStoryBlank(userWord) {
     if (validStories.length === 0 || state.story.activeIndex >= validStories.length) return;
     const currentStory = validStories[state.story.activeIndex];
 
+    // [修改重點] 動態組合完整文章
+    const fullStoryText = currentStory.translations.map(t => t.text).join(' ');
+
     // 找出正確答案
     let correctWord = null;
-    currentStory.text.split(/(\{.*?\})/).forEach((part, idx) => {
+    fullStoryText.split(/(\{.*?\})/).forEach((part, idx) => {
         if (idx === state.story.selectedBlank && part.startsWith('{') && part.endsWith('}')) {
             correctWord = part.slice(1, -1);
         }
@@ -3152,9 +3165,13 @@ function fillStoryBlank(userWord) {
         // --- 答對 ---
         state.story.filledBlanks[state.story.selectedBlank] = correctWord;
         state.story.consecutiveErrors = 0;
-        speak(correctWord);
+        
+        // [修改重點] 根據設定播放聲音
+        if (state.story.options.feedbackAudio) {
+            speak(correctWord);
+        }
 
-        const segments = currentStory.text.split(/(\{.*?\})/).map((part, idx) => {
+        const segments = fullStoryText.split(/(\{.*?\})/).map((part, idx) => {
             if (part.startsWith('{') && part.endsWith('}')) return { type: 'word', id: idx };
             return { type: 'text', id: idx };
         });
@@ -3204,26 +3221,29 @@ function fillStoryBlank(userWord) {
         }
 
     } else {
-		// --- 答錯 ---
-        speak(userWord);
+        // --- 答錯 ---
+        
+        // [修改重點] 根據設定播放聲音
+        if (state.story.options.feedbackAudio) {
+            speak(userWord);
+        }
+
         state.story.consecutiveErrors = (state.story.consecutiveErrors || 0) + 1;
         
         // 檢查是否連續錯誤達 5 次
         if (state.story.consecutiveErrors >= 5) {
              
-             // --- 修改重點：在此處立即重置計數 ---
+             // [修改重點] 立即重置計數，避免無限迴圈
              state.story.consecutiveErrors = 0;
-             // ----------------------------------
 
              showConfirmModal(
                 "休息一下", 
                 "您似乎遇到了一些困難，<br>建議先回到閱讀模式複習一下喔！", 
                 () => {
-                    // 按下 [好的，去複習] 的動作
+                    // 按下確定後的動作
                     stopStoryTimer(); 
                     state.story.quizStatus = 'idle';
                     state.story.filledBlanks = {};
-                    // state.story.consecutiveErrors = 0; // 這裡可以不用加了，因為上面已經重置
                     state.story.selectedBlank = null;
                     state.story.mode = 'read';
                     render();
@@ -3233,7 +3253,7 @@ function fillStoryBlank(userWord) {
             return;
         }
 
-        // 錯誤回饋動畫 (答錯 1~4 次時顯示)
+        // 錯誤回饋動畫
         state.story.errorBlank = state.story.selectedBlank;
         render();
         setTimeout(() => {

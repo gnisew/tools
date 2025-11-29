@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>資料轉換工具 v8 (智慧解析版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        textarea { font-family: 'Consolas', 'Monaco', monospace; white-space: pre; line-height: 1.4; font-size: 13px; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen p-4">
+
+    <div class="max-w-7xl mx-auto">
+        <div class="flex flex-col sm:flex-row justify-between items-end mb-4 gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fas fa-robot text-indigo-600"></i>
+                    資料轉換工具 v8
+                </h1>
+                <p class="text-xs text-gray-500 mt-1">智慧偵測括號範圍，忽略變數宣告</p>
+            </div>
+
+            <div class="bg-white p-1 rounded-lg shadow-sm border border-gray-300 flex gap-1">
+                <button onclick="setDataType('vocab')" id="btn-type-vocab" class="px-4 py-1.5 rounded-md font-bold text-sm transition-all bg-indigo-600 text-white shadow-sm">
+                    單字庫 (Vocab)
+                </button>
+                <button onclick="setDataType('story')" id="btn-type-story" class="px-4 py-1.5 rounded-md font-bold text-sm transition-all text-gray-500 hover:bg-gray-100">
+                    故事集 (Stories)
+                </button>
+            </div>
+        </div>
+
+        <div class="flex gap-2 mb-0 border-b border-gray-300">
+            <button onclick="switchTab('export')" id="tab-export" class="px-5 py-2 font-bold text-indigo-600 border-b-2 border-indigo-600 bg-white rounded-t-lg transition-all text-sm">
+                JS 轉 試算表 (Export)
+            </button>
+            <button onclick="switchTab('import')" id="tab-import" class="px-5 py-2 font-bold text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-t-lg transition-all text-sm">
+                試算表 轉 JS (Import)
+            </button>
+        </div>
+
+        <div id="section-export" class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-b-xl rounded-tr-xl shadow-sm border border-t-0 border-gray-200" style="height: 450px;">
+            <div class="flex flex-col h-full">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="font-bold text-gray-700 text-xs uppercase tracking-wider" id="label-export-src">貼上 JS 資料</label>
+                    <button onclick="document.getElementById('js-input').value=''" class="text-xs text-gray-400 hover:text-red-500">清空</button>
+                </div>
+                <textarea id="js-input" class="w-full flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none" 
+                    placeholder="貼上內容範例：&#10;const STORIES = [ ... ]&#10;或是直接 [ ... ]&#10;或是 { ... }, { ... }"></textarea>
+            </div>
+
+            <div class="flex md:hidden justify-center items-center py-2">
+                <button onclick="convertJsToTsv()" class="bg-indigo-600 text-white px-6 py-2 rounded-full shadow-lg text-sm">轉換 <i class="fas fa-arrow-down"></i></button>
+            </div>
+
+            <div class="flex flex-col h-full">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="font-bold text-gray-700 text-xs uppercase tracking-wider">轉換結果 (複製到 Excel)</label>
+                    <div class="flex gap-2">
+                        <button onclick="convertJsToTsv()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1 rounded font-bold transition-colors">轉換</button>
+                        <button onclick="copyToClipboard('tsv-output')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1 rounded font-bold transition-colors">複製</button>
+                    </div>
+                </div>
+                <textarea id="tsv-output" class="w-full flex-1 p-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-emerald-500 outline-none resize-none" readonly></textarea>
+            </div>
+        </div>
+
+        <div id="section-import" class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-b-xl rounded-tr-xl shadow-sm border border-t-0 border-gray-200 hidden" style="height: 450px;">
+            <div class="flex flex-col h-full">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="font-bold text-gray-700 text-xs uppercase tracking-wider" id="label-import-src">從 Excel 複製貼上</label>
+                    <button onclick="document.getElementById('tsv-input').value=''" class="text-xs text-gray-400 hover:text-red-500">清空</button>
+                </div>
+                <textarea id="tsv-input" class="w-full flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder=""></textarea>
+            </div>
+
+            <div class="flex md:hidden justify-center items-center py-2">
+                <button onclick="convertTsvToJs()" class="bg-indigo-600 text-white px-6 py-2 rounded-full shadow-lg text-sm">轉換 <i class="fas fa-arrow-down"></i></button>
+            </div>
+
+            <div class="flex flex-col h-full">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="font-bold text-gray-700 text-xs uppercase tracking-wider">JS 程式碼結果</label>
+                    <div class="flex gap-2">
+                        <button onclick="convertTsvToJs()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1 rounded font-bold transition-colors">轉換</button>
+                        <button onclick="copyToClipboard('js-output')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1 rounded font-bold transition-colors">複製</button>
+                    </div>
+                </div>
+                <textarea id="js-output" class="w-full flex-1 p-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-emerald-500 outline-none resize-none" readonly></textarea>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let currentType = 'vocab'; // 'vocab' or 'story'
+
+        // --- Configuration ---
+        function setDataType(type) {
+            currentType = type;
+            const btnVocab = document.getElementById('btn-type-vocab');
+            const btnStory = document.getElementById('btn-type-story');
+            const labelSrcExport = document.getElementById('label-export-src');
+            const labelSrcImport = document.getElementById('label-import-src');
+            const jsInput = document.getElementById('js-input');
+            const tsvInput = document.getElementById('tsv-input');
+
+            const activeClass = "px-4 py-1.5 rounded-md font-bold text-sm transition-all bg-indigo-600 text-white shadow-sm";
+            const inactiveClass = "px-4 py-1.5 rounded-md font-bold text-sm transition-all text-gray-500 hover:bg-gray-100";
+
+            if (type === 'vocab') {
+                btnVocab.className = activeClass;
+                btnStory.className = inactiveClass;
+                labelSrcExport.innerText = "貼上 JS (VOCAB_DATA)";
+                labelSrcImport.innerText = "從 Excel 複製 (含標題列)";
+                jsInput.placeholder = "{ unit: 23, word: 'apple', ... },\n{ unit: 23, word: 'banana', ... },";
+                tsvInput.placeholder = "unit\tword\tkk\tpart\tdef\t...\n23\tapple\t...";
+            } else {
+                btnStory.className = activeClass;
+                btnVocab.className = inactiveClass;
+                labelSrcExport.innerText = "貼上 JS (STORIES)";
+                labelSrcImport.innerText = "從 Excel 複製 (垂直格式)";
+                jsInput.placeholder = "{ title: 'Story 1', units: [23], translations: [...] },";
+                tsvInput.placeholder = "title\tUnit 1: Title\nunits\t23\ntext\tJohn is a {boy}.\t約翰是男孩。\n...";
+            }
+        }
+
+        function switchTab(tab) {
+            const exportSec = document.getElementById('section-export');
+            const importSec = document.getElementById('section-import');
+            const tabExport = document.getElementById('tab-export');
+            const tabImport = document.getElementById('tab-import');
+
+            const activeTabClass = "px-5 py-2 font-bold text-indigo-600 border-b-2 border-indigo-600 bg-white rounded-t-lg transition-all text-sm";
+            const inactiveTabClass = "px-5 py-2 font-bold text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-t-lg transition-all text-sm";
+
+            if (tab === 'export') {
+                exportSec.classList.remove('hidden');
+                importSec.classList.add('hidden');
+                tabExport.className = activeTabClass;
+                tabImport.className = inactiveTabClass;
+            } else {
+                exportSec.classList.add('hidden');
+                importSec.classList.remove('hidden');
+                tabImport.className = activeTabClass;
+                tabExport.className = inactiveTabClass;
+            }
+        }
+
+        // --- Helper: Robust JS Parsing ---
+        function parseJsInput(input) {
+            let rawStr = input.trim();
+            
+            // 尋找括號位置
+            const firstSquare = rawStr.indexOf('[');
+            const firstCurly = rawStr.indexOf('{');
+
+            // 策略 A: 發現 [...] 且它在 {...} 之前 (或沒有 {})
+            // 代表這是個陣列結構，我們只抓取 [ ... ] 之間的內容，忽略前面所有變數宣告
+            if (firstSquare !== -1 && (firstCurly === -1 || firstSquare < firstCurly)) {
+                const lastSquare = rawStr.lastIndexOf(']');
+                if (lastSquare > firstSquare) {
+                    let jsonStr = rawStr.substring(firstSquare, lastSquare + 1);
+                    try {
+                        return new Function("return " + jsonStr)();
+                    } catch(e) {
+                        // 失敗重試：可能是尾端多餘逗號 ",]" 導致
+                        jsonStr = jsonStr.replace(/,(\s*)]$/, '$1]');
+                        return new Function("return " + jsonStr)();
+                    }
+                }
+            } 
+            
+            // 策略 B: 發現 {...} 且它在 [...] 之前 (或沒有 [])
+            // 代表這是個物件列表，但沒有被 [] 包起來
+            else if (firstCurly !== -1) {
+                const lastCurly = rawStr.lastIndexOf('}');
+                if (lastCurly > firstCurly) {
+                    let objStr = rawStr.substring(firstCurly, lastCurly + 1);
+                    // 強制包上 []
+                    let wrappedStr = `[${objStr}]`;
+                    try {
+                        return new Function("return " + wrappedStr)();
+                    } catch(e) {
+                        // 失敗重試
+                        wrappedStr = wrappedStr.replace(/,(\s*)]$/, '$1]');
+                        return new Function("return " + wrappedStr)();
+                    }
+                }
+            }
+
+            throw new Error("無法識別有效資料 (找不到 [ 或 { )");
+        }
+
+        // --- Logic: JS to TSV (Export) ---
+        function convertJsToTsv() {
+            let input = document.getElementById('js-input').value.trim();
+            if (!input) return;
+
+            try {
+                const dataArray = parseJsInput(input);
+                if (!Array.isArray(dataArray)) throw new Error("解析結果不是陣列");
+
+                let output = "";
+
+                if (currentType === 'vocab') {
+                    // --- VOCAB (Horizontal) ---
+                    const columns = ['unit', 'word', 'kk', 'part', 'def', 'sentence', 'senTrans', 'other'];
+                    output = columns.join('\t') + '\n';
+                    output += dataArray.map(item => {
+                        return columns.map(col => {
+                            let val = item[col];
+                            if (val === undefined || val === null) return '';
+                            return String(val).replace(/\t/g, ' ').replace(/\n/g, ' ');
+                        }).join('\t');
+                    }).join('\n');
+
+                } else {
+                    // --- STORY (Vertical) ---
+                    // Format:
+                    // title    Title
+                    // units    23,24
+                    // text     Eng     Ch
+                    
+                    dataArray.forEach((story, index) => {
+                        // Title Row
+                        output += `title\t${story.title || ''}\n`;
+                        
+                        // Units Row
+                        const unitsStr = Array.isArray(story.units) ? story.units.join(',') : '';
+                        output += `units\t${unitsStr}\n`;
+
+                        // Translation Rows (text + trans)
+                        if (Array.isArray(story.translations)) {
+                            story.translations.forEach(t => {
+                                const en = (t.text || '').replace(/\t/g, ' ').replace(/\n/g, ' ');
+                                const ch = (t.trans || '').replace(/\t/g, ' ').replace(/\n/g, ' ');
+                                output += `text\t${en}\t${ch}\n`;
+                            });
+                        }
+
+                        // Separator
+                        output += '\n';
+                    });
+                }
+
+                document.getElementById('tsv-output').value = output;
+
+            } catch (e) {
+                console.error(e);
+                alert("轉換錯誤：" + e.message);
+            }
+        }
+
+        // --- Logic: TSV to JS (Import) ---
+        function convertTsvToJs() {
+            const input = document.getElementById('tsv-input').value.trim();
+            if (!input) return;
+
+            try {
+                let jsCode = "";
+
+                if (currentType === 'vocab') {
+                    // --- VOCAB Import ---
+                    const rows = input.split('\n');
+                    const headers = rows[0].split('\t').map(h => h.trim());
+                    
+                    const dataObjects = [];
+                    for (let i = 1; i < rows.length; i++) {
+                        const rowStr = rows[i]; 
+                        if (!rowStr.trim()) continue;
+                        const cols = rowStr.split('\t');
+                        const obj = {};
+                        headers.forEach((header, index) => {
+                            let value = cols[index] ? cols[index].trim() : '';
+                            if (header === 'unit') {
+                                value = value ? parseInt(value, 10) : 0;
+                                if (isNaN(value)) value = 0;
+                            }
+                            obj[header] = value;
+                        });
+                        if (obj.word) dataObjects.push(obj);
+                    }
+
+                    // Format Output
+                    const order = ['unit', 'word', 'kk', 'part', 'def', 'sentence', 'senTrans', 'other'];
+                    jsCode = dataObjects.map(item => {
+                        const props = order.map(key => {
+                            const val = item[key];
+                            if (key === 'unit') return `unit: ${val}`;
+                            const safeVal = String(val || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                            return `${key}: '${safeVal}'`;
+                        });
+                        return "  { " + props.join(', ') + " }";
+                    }).join(',\n');
+                    
+                    if (jsCode) jsCode += ",";
+
+                } else {
+                    // --- STORY Import (Vertical Format) ---
+                    const lines = input.split('\n');
+                    const stories = [];
+                    let currentStory = null;
+
+                    lines.forEach(line => {
+                        const trimmedLine = line.trim();
+                        // Empty line -> End of story
+                        if (!trimmedLine) {
+                            if (currentStory) {
+                                stories.push(currentStory);
+                                currentStory = null;
+                            }
+                            return;
+                        }
+
+                        const cols = line.split('\t');
+                        const type = cols[0] ? cols[0].trim() : '';
+                        
+                        if (type === 'title') {
+                            if (currentStory) stories.push(currentStory);
+                            currentStory = { 
+                                title: cols[1] ? cols[1].trim() : '', 
+                                units: [], 
+                                translations: [] 
+                            };
+                        } else if (type === 'units') {
+                            if (currentStory && cols[1]) {
+                                currentStory.units = cols[1].split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+                            }
+                        } else if (type === 'text') {
+                            if (currentStory) {
+                                const en = cols[1] ? cols[1].trim() : '';
+                                const ch = cols[2] ? cols[2].trim() : '';
+                                if (en || ch) {
+                                    currentStory.translations.push({ text: en, trans: ch });
+                                }
+                            }
+                        }
+                    });
+                    
+                    if (currentStory) stories.push(currentStory);
+
+                    // Format Output
+                    jsCode = stories.map(story => {
+                        const safeTitle = (story.title || '').replace(/'/g, "\\'");
+                        const unitsStr = JSON.stringify(story.units || []);
+                        
+                        let transStr = "[\n";
+                        if (Array.isArray(story.translations)) {
+                            transStr += story.translations.map(t => {
+                                const st = (t.text || '').replace(/'/g, "\\'");
+                                const str = (t.trans || '').replace(/'/g, "\\'");
+                                return `      { text: '${st}', trans: '${str}' }`;
+                            }).join(',\n');
+                        }
+                        transStr += "\n    ]";
+
+                        return `  {
+    title: '${safeTitle}',
+    units: ${unitsStr},
+    translations: ${transStr}
+  }`;
+                    }).join(',\n');
+
+                    if (jsCode) jsCode += ",";
+                }
+
+                document.getElementById('js-output').value = jsCode;
+
+            } catch (e) {
+                console.error(e);
+                alert("轉換錯誤：" + e.message);
+            }
+        }
+
+        // --- Utils ---
+        function copyToClipboard(elementId) {
+            const el = document.getElementById(elementId);
+            el.select();
+            el.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(el.value).then(() => {
+                const originalBg = el.style.backgroundColor;
+                el.style.backgroundColor = '#dcfce7'; 
+                setTimeout(() => el.style.backgroundColor = originalBg, 200);
+            });
+        }
+    </script>
+</body>
+</html>
