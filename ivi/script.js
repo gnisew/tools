@@ -1372,6 +1372,52 @@ function toggleQuizOrder() {
     showToast(msg);
 }
 
+function jumpToQuestion() {
+    // 防呆：只有依序模式才允許跳題 (隨機模式跳題意義不大，但若您想開放也可以拿掉這行)
+    if (state.quiz.orderMode !== 'sequential') {
+        showToast("請先切換為「依序模式」才能指定跳題");
+        return;
+    }
+
+    const total = state.quiz.questions.length;
+    const current = state.quiz.currentIndex + 1;
+
+    showInputModal(
+        "跳至指定題目", 
+        "", // 預設值留空
+        `請輸入題號 (1 - ${total})`, 
+        (value) => {
+            const num = parseInt(value);
+            if (isNaN(num) || num < 1 || num > total) {
+                showToast("無效的題號！");
+                return;
+            }
+
+            // 更新索引 (使用者輸入 1-based，程式用 0-based)
+            state.quiz.currentIndex = num - 1;
+            
+            // 重置該題狀態
+            state.quiz.status = 'answering';
+            state.quiz.selectedOption = null;
+            state.quiz.isFinished = false;
+
+            // 重要：針對特殊模式 (拼字/排序/配對)，必須重新初始化該題資料
+            const currentQ = state.quiz.questions[state.quiz.currentIndex];
+            
+            if (state.quiz.mode === 'cn-en' && state.quiz.subMode === 'spell') {
+                initSpellingData(currentQ.target.word);
+            } else if (state.quiz.mode === 'sentence' && state.quiz.subMode === 'order') {
+                initOrderingData(currentQ.target.sentence);
+            } else if (state.quiz.mode === 'en-cn' && state.quiz.subMode === 'match') {
+                initMatchingData();
+            }
+
+            render();
+            showToast(`已跳至第 ${num} 題`);
+        }
+    );
+}
+
 // --- UTILITIES (Existing + Updated) ---
 
 function shuffle(array) {
@@ -1620,27 +1666,42 @@ function renderQuiz() {
     
     // 3. 頂部工具列
     
-    // 準備按鈕圖示與標題
+	// 準備按鈕圖示與標題 (保持原本邏輯)
     const orderIcon = state.quiz.orderMode === 'random' ? 'fa-random' : 'fa-sort-numeric-down';
-    const orderTitle = state.quiz.orderMode === 'random' ? '切換為依序' : '切換為隨機';
+    const orderTitle = state.quiz.orderMode === 'random' ? '目前為隨機，點擊切換為依序' : '目前為依序，點擊切換為隨機';
     const orderColor = state.quiz.orderMode === 'random' ? 'text-indigo-500' : 'text-blue-600';
+
+    // 進度條的可點擊設定 (保持原本邏輯)
+    const isSequential = state.quiz.orderMode === 'sequential';
+    const progressClass = isSequential 
+        ? "cursor-pointer hover:text-indigo-600 hover:bg-white/50 px-2 py-1 rounded transition-colors border-b border-dashed border-gray-400 hover:border-indigo-600 select-none" 
+        : "select-none";
+    const progressAction = isSequential ? `onclick="jumpToQuestion()"` : "";
+    const progressTitle = isSequential ? "點擊可跳題" : "隨機模式無法跳題";
 
     let headerHTML = `
         <div class="flex flex-col items-center mb-6">
-            <div class="w-full flex justify-between items-center text-sm font-medium text-gray-500 bg-gray-100 px-4 py-2 rounded-full shadow-inner">
-                <span>進度: ${currentIndex + 1} / ${questions.length}</span>
+            <div class="w-full flex justify-between items-center text-sm font-medium text-gray-500 bg-gray-100 px-3 py-2 rounded-full shadow-inner">
+                
                 <div class="flex items-center gap-2">
-                    
-                    <button onclick="toggleQuizOrder()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm border border-gray-200 hover:bg-indigo-50 transition-colors active:scale-95" title="${orderTitle}">
+                    <button onclick="toggleQuizOrder()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm border border-gray-200 hover:bg-indigo-50 transition-colors active:scale-95 flex-shrink-0" title="${orderTitle}">
                         <i class="fas ${orderIcon} ${orderColor}"></i>
                     </button>
+                    
+                    <span class="${progressClass} text-xs sm:text-sm" ${progressAction} title="${progressTitle}">
+                        ${currentIndex + 1} / ${questions.length}
+                    </span>
+                </div>
 
+                <div class="flex items-center gap-2">
                     <button onclick="toggleQuizAudio()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm border border-gray-200 hover:bg-indigo-50 transition-colors active:scale-95" title="${state.quiz.autoPlayAudio ? '關閉自動發音' : '開啟自動發音'}">
                         <i class="fas ${state.quiz.autoPlayAudio ? 'fa-volume-up text-indigo-500' : 'fa-volume-mute text-gray-400'}"></i>
                     </button>
+                    
                     <button onclick="toggleVowelMode()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm border border-gray-200 hover:bg-indigo-50 transition-colors active:scale-95" title="切換母音紅字">
                         <i class="fas fa-font ${state.highlightVowels ? 'text-red-400' : 'text-gray-400'}"></i>
                     </button>
+                    
                     <button onclick="endQuiz()" class="text-red-500 hover:text-red-700 font-bold flex items-center gap-1 bg-white px-3 py-1 rounded-full shadow-sm border border-gray-200 hover:bg-red-50 active:scale-95 transition-all text-xs">
                         <i class="fas fa-sign-out-alt"></i> <span class="hidden sm:inline">結束</span>
                     </button>
