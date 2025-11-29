@@ -2006,9 +2006,10 @@ function renderQuiz() {
             </div>
         `;
 
-    } else if (status === 'answering') {
+} else if (status === 'answering') {
         // --- 四選一 (作答中) ---
-        optionsHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        // 修改重點：將 class 中的 p-6 改為 p-4 md:p-6，text-xl 改為 text-lg md:text-xl
+        optionsHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             ${currentQ.options.map((opt, idx) => {
                 let content = '';
                 if (mode === 'sentence') content = formatDisplayWord(opt.displayText || opt.word);
@@ -2016,7 +2017,7 @@ function renderQuiz() {
                 else content = opt.def;
                 
                 return `
-                <button onclick="handleAnswer(${opt.id})" class="p-6 rounded-xl text-xl font-medium border-2 bg-white border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 text-gray-700 active:scale-[0.98] shadow-sm hover:-translate-y-1 transition-all relative overflow-hidden break-all noselect">
+                <button onclick="handleAnswer(${opt.id})" class="p-4 md:p-6 rounded-xl text-lg md:text-xl font-medium border-2 bg-white border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 text-gray-700 active:scale-[0.98] shadow-sm hover:-translate-y-1 transition-all relative overflow-hidden break-all noselect">
                     <span class="key-hint">${idx + 1}</span>
                     ${content}
                 </button>`;
@@ -2025,18 +2026,19 @@ function renderQuiz() {
     } else {
          // --- 結果顯示 (Result State) ---
          
-         // 如果是填空題 (sentence)，隱藏選項，顯示下一題按鈕
          if (mode === 'sentence' && subMode === 'choice') {
+             // 填空題結果顯示下一題按鈕 (保持不變)
              optionsHTML = `<button onclick="nextQuestion()" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2 transition-transform active:scale-95 noselect">${currentIndex < questions.length - 1 ? '下一題' : '查看結果'} <i class="fas fa-chevron-right"></i></button>`;
          } else {
-             // 其他模式 (如 CN-EN, EN-CN) 保持顯示變色後的選項
-             optionsHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+             // 其他模式顯示結果選項
+             // 修改重點：同樣將 p-6 改為 p-4 md:p-6，text-xl 改為 text-lg md:text-xl
+             optionsHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                 ${currentQ.options.map((opt, idx) => {
                     let content = '';
                     if (mode === 'cn-en') content = formatDisplayWord(opt.word);
                     else content = opt.def;
 
-                    let btnClass = "p-6 rounded-xl text-xl font-medium border-2 transition-all relative overflow-hidden break-all noselect ";
+                    let btnClass = "p-4 md:p-6 rounded-xl text-lg md:text-xl font-medium border-2 transition-all relative overflow-hidden break-all noselect ";
                     if (opt.id === currentQ.target.id) btnClass += "bg-green-50 border-green-500 text-green-800 shadow-md transform scale-[1.02]";
                     else if (opt.id === selectedOption.id) btnClass += "bg-red-50 border-red-500 text-red-800";
                     else btnClass += "bg-gray-50 border-gray-100 text-gray-400 opacity-50";
@@ -2045,7 +2047,7 @@ function renderQuiz() {
              </div>`;
          }
     }
-    
+	
     container.innerHTML = headerHTML + optionsHTML;
     appRoot.appendChild(container);
 }
@@ -3140,6 +3142,15 @@ function getRandomEmoji() {
 // --- Global Keyboard Listener ---
 function initKeyboardListener() {
     document.addEventListener('keydown', (e) => {
+        // --- 修改重點：檢查是否有開啟任何視窗 ---
+        // 1. .input-modal-overlay: 輸入題號、確認視窗、重新命名等
+        // 2. .modal-overlay: 加入學習集列表
+        // 如果這些視窗存在，表示使用者正在輸入或操作視窗，此時應暫停測驗的鍵盤控制
+        if (document.querySelector('.input-modal-overlay') || document.querySelector('.modal-overlay')) {
+            return;
+        }
+        // ------------------------------------
+
         // 1. 檢查是否在測驗頁面
         if (!state.view.startsWith('quiz') || state.quiz.questions.length === 0 || state.quiz.isFinished) return;
 
@@ -3149,6 +3160,7 @@ function initKeyboardListener() {
         if (state.quiz.status === 'answering' && 
            (state.quiz.mode !== 'cn-en' || state.quiz.subMode === 'choice')) {
             
+            // 數字鍵 1-4 對應選項
             if (['1', '2', '3', '4'].includes(e.key)) {
                 const index = parseInt(e.key) - 1;
                 // 確保選項存在
@@ -3164,29 +3176,23 @@ function initKeyboardListener() {
             // 檢查是否為 a-z 字母
             if (/^[a-z]$/.test(char)) {
                 // 在字母池中尋找符合的按鈕
-                // 注意：可能有重複字母 (如 apple 的 p)，需找第一個存在的
                 const btn = state.quiz.spelling.letterPool.find(item => item.char.toLowerCase() === char);
                 
                 if (btn) {
                     checkSpellingInput(btn.char, btn.id);
-                } else {
-                    // 如果字母是對的但已經按過了(不在池中)，或是錯誤字母
-                    // 這裡可以選擇是否要給予錯誤回饋 (目前邏輯是按錯按鈕會搖晃)
-                    // 若要模擬按錯鍵盤的錯誤回饋，可能需要更複雜的邏輯去尋找 DOM
                 }
             }
         }
         
         // --- 狀況 C: 結果頁面按 Enter 下一題 ---
         if (state.quiz.status === 'result' && e.key === 'Enter') {
-            if (state.quiz.mode !== 'sentence') { // 填空模式是自動下一題，其他模式可能有手動按鈕
-                 // 檢查是否有下一題按鈕
+            if (state.quiz.mode !== 'sentence') { 
+                 // 檢查是否有下一題按鈕 (填空題通常自動跳轉，但若有暫停機制也可以保留此邏輯)
                  nextQuestion();
             }
         }
     });
 }
-
 // --- Global Click Listener (處理點擊外部關閉選單) ---
 function initGlobalClickListener() {
     document.addEventListener('click', (e) => {
