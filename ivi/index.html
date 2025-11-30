@@ -11,8 +11,8 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="style.css">
     <!-- Data File (Loaded first) -->
-    <script src="data.js"></script>
-	<script src="data2.js"></script>
+    <script src="data-word.js"></script>
+	<script src="data-story.js"></script>
 </head>
 <body class="bg-slate-50 font-sans text-gray-900 pb-20">
 
@@ -40,5 +40,24 @@
 
     <!-- Main Script -->
     <script src="script.js"></script>
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyDupfKC9UZp4Jh6GSVvyl0RRQlH26edYP4",
+    authDomain: "english-word-story.firebaseapp.com",
+    projectId: "english-word-story",
+    storageBucket: "english-word-story.firebasestorage.app",
+    messagingSenderId: "485546340898",
+    appId: "1:485546340898:web:e55a6f6c0b2941521fd07b"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+</script>
 </body>
 </html>

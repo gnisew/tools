@@ -17,6 +17,9 @@ const state = {
     homeTab: 'default', // 首頁分頁: 'default' 或 'custom'
 
     vocabulary: [], // Will be initialized from VOCAB_DATA
+	searchQuery: '',
+	isSearchExpanded: false,
+	lastPaginationMode: 'unit',
     
     // UI 狀態
     listMode: 'full', // 'full' or 'compact'
@@ -414,9 +417,9 @@ function renderList() {
         { id: 'other', label: '變化形' },
         { id: 'def', label: '中文定義' },
     ];
-    // 1. 根據 FilterMode 篩選資料
-    let allWords = [];
     
+    // 1. 資料篩選邏輯 (保持不變)
+    let allWords = [];
     if (state.filterMode === 'custom' && state.activeSetId) {
         const set = state.customSets.find(s => s.id === state.activeSetId);
         if (set) {
@@ -429,12 +432,34 @@ function renderList() {
         allWords = state.vocabulary.filter(w => state.selectedUnits.includes(w.unit));
     }
 
+	// --- 修改重點 A: 搜尋過濾邏輯 (預設直接啟用 Regex) ---
+    if (state.searchQuery) {
+        const q = state.searchQuery.trim();
+        
+        try {
+            // 直接將使用者輸入當作正則表達式的 Pattern
+            // 'i' 參數代表忽略大小寫 (Case-insensitive)
+            const regex = new RegExp(q, 'i');
+
+            allWords = allWords.filter(w => 
+                regex.test(w.word) || 
+                regex.test(w.def) || 
+                (w.other && regex.test(w.other))
+            );
+        } catch (e) {
+            // 當輸入了無效的正則語法 (例如 "[" 還沒閉合，或是 "\")
+            // 捕捉錯誤並回傳空陣列，避免程式崩潰
+            allWords = [];
+        }
+    }
+    // 排序
     if (state.sortOrder === 'alpha') {
         allWords.sort((a, b) => a.word.localeCompare(b.word));
     } else {
         allWords.sort((a, b) => a.id - b.id);
     }
 
+    // 分頁邏輯 (保持不變)
     let displayWords = [];
     let totalPages = 1;
     let pageInfo = "";
@@ -466,24 +491,28 @@ function renderList() {
     } else {
         const pageSize = parseInt(mode);
         totalPages = Math.ceil(allWords.length / pageSize);
+        if (totalPages === 0) totalPages = 1;
         if (currentPage > totalPages) currentPage = 1;
-        if (currentPage < 1 && totalPages > 0) currentPage = 1;
+        if (currentPage < 1) currentPage = 1;
+        
         state.pagination.currentPage = currentPage;
         const startIndex = (currentPage - 1) * pageSize;
         displayWords = allWords.slice(startIndex, startIndex + pageSize);
-        pageInfo = `${currentPage}/${totalPages} 頁`; // 簡化顯示
+        pageInfo = `${currentPage}/${totalPages} 頁`; 
         seqOffset = startIndex;
     }
 
     const isAllChecked = displayWords.length > 0 && displayWords.every(w => w.checked);
     
+    // --- UI 渲染 ---
     const container = document.createElement('div');
     container.className = "pb-48 w-full max-w-6xl mx-auto px-4";
 
+    // 頂部分頁器 (只在多頁時顯示)
     let topPaginationHTML = '';
     if (totalPages > 1) {
         topPaginationHTML = `
-            <div class="flex items-center gap-2 bg-indigo-700/50 rounded-lg px-2 py-1">
+            <div class="flex items-center gap-2 bg-indigo-800/30 rounded-lg px-2 py-1.5 ml-auto">
                 <button onclick="changePage(-1)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/20 transition-colors ${currentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'text-white'}" ${currentPage === 1 ? 'disabled' : ''}><i class="fas fa-chevron-left text-xs"></i></button>
                 <span class="font-mono text-white text-xs font-bold whitespace-nowrap">${pageInfo}</span>
                 <button onclick="changePage(1)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/20 transition-colors ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed' : 'text-white'}" ${currentPage === totalPages ? 'disabled' : ''}><i class="fas fa-chevron-right text-xs"></i></button>
@@ -492,83 +521,113 @@ function renderList() {
     }
 
     const header = document.createElement('div');
-    header.className = "bg-indigo-600 text-white p-3 md:px-6 md:py-4 rounded-b-3xl shadow-lg mb-6 -mx-4 md:mx-0 md:rounded-3xl";
+    header.className = "bg-indigo-600 text-white p-4 rounded-b-3xl shadow-lg mb-6 -mx-4 md:mx-0 md:rounded-3xl flex flex-col gap-4";
 	
-    const listModeSwitchHTML = `
-        <div class="flex bg-indigo-800/50 p-1 rounded-xl shadow-inner select-none">
-            <button onclick="setListMode('full')" class="px-4 py-1.5 rounded-lg text-xs md:text-sm font-bold transition-all duration-200 flex items-center gap-2 ${state.listMode === 'full' ? 'bg-white text-indigo-600 shadow-sm' : 'text-indigo-200 hover:text-white hover:bg-white/10'}">
-                <i class="fas fa-th"></i><span>完整字表</span>
+    // 1. 大型檢視模式切換 (佔滿寬度)
+    const viewToggleHTML = `
+        <div class="w-full bg-indigo-800/40 p-1 rounded-xl flex shadow-inner">
+            <button onclick="setListMode('full')" class="flex-1 py-2 rounded-lg text-sm font-bold transition-all duration-300 flex items-center justify-center gap-2 ${state.listMode === 'full' ? 'bg-white text-indigo-600 shadow-sm' : 'text-indigo-200 hover:text-white hover:bg-white/10'}">
+                <i class="fas fa-th-large"></i> 完整卡片
             </button>
-            <button onclick="setListMode('compact')" class="px-4 py-1.5 rounded-lg text-xs md:text-sm font-bold transition-all duration-200 flex items-center gap-2 ${state.listMode === 'compact' ? 'bg-white text-indigo-600 shadow-sm' : 'text-indigo-200 hover:text-white hover:bg-white/10'}">
-                <i class="fas fa-list"></i><span>挑選字表</span>
+            <button onclick="setListMode('compact')" class="flex-1 py-2 rounded-lg text-sm font-bold transition-all duration-300 flex items-center justify-center gap-2 ${state.listMode === 'compact' ? 'bg-white text-indigo-600 shadow-sm' : 'text-indigo-200 hover:text-white hover:bg-white/10'}">
+                <i class="fas fa-list"></i> 列表檢視
             </button>
         </div>
     `;
 
-    header.innerHTML = `
-        <div class="flex flex-col md:flex-row justify-between items-center gap-3">
-           
-           <div class="flex-shrink-0 w-full md:w-auto flex justify-center md:justify-start">
-               ${listModeSwitchHTML}
-           </div>
-
-           <div class="flex flex-wrap justify-center md:justify-end items-center gap-2 w-full md:w-auto">
-
-                ${state.listMode === 'compact' ? `
-                <div class="relative group">
-                    <button onclick="document.getElementById('col-dropdown').classList.toggle('hidden'); event.stopPropagation();" class="flex items-center gap-1 bg-indigo-700 hover:bg-indigo-500 px-3 py-1.5 rounded-lg text-sm transition-colors border border-indigo-500/50 shadow-sm">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <div id="col-dropdown" class="hidden absolute top-full left-1/2 -translate-x-1/2 md:left-auto md:right-0 md:translate-x-0 mt-2 w-40 bg-white rounded-xl shadow-xl border border-gray-100 p-2 z-50 text-gray-800" onclick="event.stopPropagation()">
-                        <div class="text-xs font-bold text-gray-400 px-2 py-1 mb-1">顯示欄位</div>
-                        ${allAvailableCols.map(col => {
-                            const isChecked = state.listColumns.includes(col.id);
-                            return `
-                            <label class="flex items-center px-2 py-2 hover:bg-indigo-50 rounded cursor-pointer transition-colors">
-                                <input type="checkbox" class="form-checkbox text-indigo-600 rounded w-4 h-4 mr-2" 
-                                    ${isChecked ? 'checked' : ''} 
-                                    onchange="toggleListColumn('${col.id}')">
-                                <span class="text-sm font-bold text-gray-700 select-none">${col.label}</span>
-                            </label>
-                            `;
-                        }).join('')}
-                    </div>
-                </div>
-                ` : ''}
-
-                <div class="w-px h-6 bg-indigo-400/30 mx-1 hidden md:block"></div>
-
-               
-                <button onclick="toggleSortOrder()" class="flex items-center gap-1 bg-indigo-700 hover:bg-indigo-500 px-3 py-1.5 rounded-lg text-sm transition-colors border border-indigo-500/50 shadow-sm" title="切換排序">
-                    <i class="fas ${state.sortOrder === 'default' ? 'fa-sort-alpha-down' : 'fa-sort-numeric-down'}"></i>
+    // 2. 搜尋框 HTML (展開狀態 vs 收合按鈕)
+    let searchAreaHTML = '';
+    
+	if (state.isSearchExpanded || state.searchQuery) {
+        // 展開狀態
+        // 修改重點：移除了 'animate-fade-in', 'origin-left', 'transition-all', 'duration-200'
+        // 只保留布局相關的 class，這樣打字重繪時就不會閃爍了
+        searchAreaHTML = `
+            <div class="relative group w-full md:w-56">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-indigo-300 transition-colors"></i>
+                <input type="text" id="vocab-search-input"
+                    class="w-full pl-9 pr-8 py-2 rounded-xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-300 text-sm font-bold shadow-sm"
+                    placeholder="搜尋..."
+                    value="${state.searchQuery || ''}"
+                    oninput="handleSearch(this.value)"
+                >
+                <button onclick="${state.searchQuery ? "handleSearch('')" : "toggleSearchExpand()"}" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors">
+                    <i class="fas ${state.searchQuery ? 'fa-times' : 'fa-reply'} text-xs"></i>
                 </button>
+            </div>
+        `;
+    } else {
+        // 收合狀態 (小按鈕)
+        searchAreaHTML = `
+            <button onclick="toggleSearchExpand()" class="flex-shrink-0 w-9 h-9 flex items-center justify-center bg-indigo-700 hover:bg-indigo-500 text-white rounded-lg shadow-sm border border-indigo-500/50 transition-all active:scale-95" title="搜尋">
+                <i class="fas fa-search"></i>
+            </button>
+        `;
+	}
+    // 3. 功能工具列 (搜尋 + 欄位 + 排序 + 母音 + 分頁下拉 + 頂部分頁器)
+    const toolbarHTML = `
+        <div class="flex flex-wrap items-center gap-2 w-full">
+            
+            ${searchAreaHTML}
 
-                <button onclick="toggleVowelMode()" class="flex items-center gap-1 bg-indigo-700 hover:bg-indigo-500 px-3 py-1.5 rounded-lg text-sm transition-colors border border-indigo-500/50 shadow-sm" title="切換母音紅字">
-                    <i class="fas fa-font ${state.highlightVowels ? 'text-red-300' : 'text-indigo-300'}"></i>
+            ${state.listMode === 'compact' ? `
+            <div class="relative group">
+                <button onclick="document.getElementById('col-dropdown').classList.toggle('hidden'); event.stopPropagation();" class="w-9 h-9 flex items-center justify-center bg-indigo-700 hover:bg-indigo-500 rounded-lg text-white transition-colors border border-indigo-500/50 shadow-sm" title="顯示欄位">
+                    <i class="fas fa-columns"></i>
                 </button>
-
-                <div class="relative">
-                    <select onchange="setPaginationMode(this.value)" class="appearance-none bg-indigo-700 hover:bg-indigo-500 text-white pl-3 pr-8 py-1.5 rounded-lg text-sm font-bold outline-none cursor-pointer transition-colors border border-indigo-500/50 shadow-sm">
-                        <option value="unit" ${mode === 'unit' ? 'selected' : ''}>單元換頁</option>
-                        <option value="50" ${mode === '50' ? 'selected' : ''}>50筆</option>
-                        <option value="100" ${mode === '100' ? 'selected' : ''}>100筆</option>
-                        <option value="all" ${mode === 'all' ? 'selected' : ''}>全部</option>
-                    </select>
-                    <div class="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-200 text-xs"><i class="fas fa-chevron-down"></i></div>
+                <div id="col-dropdown" class="hidden absolute top-full left-0 mt-2 w-40 bg-white rounded-xl shadow-xl border border-gray-100 p-2 z-50 text-gray-800" onclick="event.stopPropagation()">
+                    <div class="text-xs font-bold text-gray-400 px-2 py-1 mb-1">顯示欄位</div>
+                    ${allAvailableCols.map(col => {
+                        const isChecked = state.listColumns.includes(col.id);
+                        return `
+                        <label class="flex items-center px-2 py-2 hover:bg-indigo-50 rounded cursor-pointer transition-colors">
+                            <input type="checkbox" class="form-checkbox text-indigo-600 rounded w-4 h-4 mr-2" 
+                                ${isChecked ? 'checked' : ''} 
+                                onchange="toggleListColumn('${col.id}')">
+                            <span class="text-sm font-bold text-gray-700 select-none">${col.label}</span>
+                        </label>
+                        `;
+                    }).join('')}
                 </div>
+            </div>
+            ` : ''}
 
-                ${topPaginationHTML}
+            <button onclick="toggleSortOrder()" class="w-9 h-9 flex items-center justify-center bg-indigo-700 hover:bg-indigo-500 rounded-lg text-white transition-colors border border-indigo-500/50 shadow-sm" title="切換排序">
+                <i class="fas ${state.sortOrder === 'default' ? 'fa-sort-numeric-down' : 'fa-sort-alpha-down'}"></i>
+            </button>
 
+            <button onclick="toggleVowelMode()" class="w-9 h-9 flex items-center justify-center bg-indigo-700 hover:bg-indigo-500 rounded-lg text-white transition-colors border border-indigo-500/50 shadow-sm" title="切換母音紅字">
+                <i class="fas fa-font ${state.highlightVowels ? 'text-red-300' : 'text-indigo-300'}"></i>
+            </button>
 
-           </div>
+            <div class="relative ml-0 md:ml-2">
+                <select onchange="setPaginationMode(this.value)" class="appearance-none bg-indigo-700 hover:bg-indigo-500 text-white pl-3 pr-8 py-2 rounded-lg text-xs font-bold outline-none cursor-pointer transition-colors border border-indigo-500/50 shadow-sm h-9">
+                    <option value="unit" ${mode === 'unit' ? 'selected' : ''}>單元</option>
+                    <option value="50" ${mode === '50' ? 'selected' : ''}>50筆</option>
+                    <option value="100" ${mode === '100' ? 'selected' : ''}>100筆</option>
+                    <option value="all" ${mode === 'all' ? 'selected' : ''}>全部</option>
+                </select>
+                <div class="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-200 text-xs"><i class="fas fa-chevron-down"></i></div>
+            </div>
+
+            ${topPaginationHTML}
         </div>
     `;
+
+    header.innerHTML = viewToggleHTML + toolbarHTML;
     container.appendChild(header);
 
+    // --- 列表內容渲染 (保持不變) ---
 	const listContainer = document.createElement('div');
     
     if (displayWords.length === 0) {
-        listContainer.innerHTML = `<div class="text-center py-10 text-gray-500">本頁無資料</div>`;
+        listContainer.innerHTML = `<div class="text-center py-20 text-gray-400 flex flex-col items-center">
+            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <i class="fas fa-search text-2xl text-gray-300"></i>
+            </div>
+            <p class="font-bold text-gray-500">找不到相關單字</p>
+            <p class="text-sm text-gray-400 mt-1">請嘗試其他關鍵字</p>
+        </div>`;
     } else if (state.listMode === 'compact') {
         listContainer.className = "bg-white rounded-2xl shadow-sm border border-gray-100 mb-6 relative overflow-x-auto";
         
@@ -659,7 +718,6 @@ function renderList() {
             listContainer.appendChild(row);
         });
     } else {
-        
         listContainer.className = "flex flex-col bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden mb-6";
         
         displayWords.forEach((item, index) => {
@@ -681,7 +739,7 @@ function renderList() {
 
             card.innerHTML = `
                 ${removeBtnHTML}
-                <div class="relative p-5 md:p-6 cursor-pointer group flex flex-col justify-center pl-5 md:pl-8" onclick="speak('${item.word}')">
+                <div class="relative p-4 pb-1 md:p-6 cursor-pointer group flex flex-col justify-center pl-5 md:pl-8" onclick="speak('${item.word}')">
                     <div class="flex items-baseline flex-wrap gap-2 mb-2 pr-4">
                         <span class="bg-indigo-100 text-indigo-800 text-xs font-bold px-2 py-0.5 rounded">U${item.unit}</span>
                         <span class="text-2xl sm:text-3xl font-bold text-gray-800 group-hover:text-indigo-600 transition-colors break-all">${formatDisplayWord(item.word)}</span>
@@ -692,7 +750,7 @@ function renderList() {
                     <p class="text-gray-600 text-lg font-medium">${item.def}</p>
                 </div>
                 
-                <div class="p-5 md:p-6 md:border-l border-gray-100 cursor-pointer flex flex-col justify-center bg-gray-50/30 md:bg-transparent" onclick="speak('${item.sentence.replace(/'/g, "\\'")}')">
+                <div class="p-4 pt-2 md:p-6 md:border-l border-gray-100 cursor-pointer flex flex-col justify-center bg-gray-50/30 md:bg-transparent" onclick="speak('${item.sentence.replace(/'/g, "\\'")}')">
                     <p class="text-gray-800 text-base font-medium leading-relaxed">${highlightedSentence} <span class="inline-block ml-2 text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity"><i class="fas fa-volume-up"></i></span></p>
                     <p class="text-gray-500 text-sm mt-1">${item.senTrans}</p>
                 </div>
@@ -725,6 +783,69 @@ function renderList() {
 
     appRoot.appendChild(container);
 }
+
+
+// 切換搜尋框展開/收合
+function toggleSearchExpand() {
+    state.isSearchExpanded = !state.isSearchExpanded;
+    
+    // 如果是「收合」且目前有搜尋文字，則視為「取消搜尋」
+    if (!state.isSearchExpanded && state.searchQuery) {
+        handleSearch(''); // 這會觸發還原分頁邏輯
+    } else {
+        render(); // 單純切換 UI
+    }
+    
+    // 展開後自動聚焦
+    if (state.isSearchExpanded) {
+        setTimeout(() => {
+            const input = document.getElementById('vocab-search-input');
+            if (input) input.focus();
+        }, 50);
+    }
+}
+
+// 處理搜尋輸入
+function handleSearch(value) {
+    // 1. 記錄目前的游標位置 (在重繪前)
+    const inputEl = document.getElementById('vocab-search-input');
+    const cursorPosition = inputEl ? inputEl.selectionStart : value.length;
+
+    // 2. 處理數值 (注意：不要 trim，否則無法輸入空白或是修改中間的字)
+    const newVal = value; 
+    const oldVal = state.searchQuery;
+
+    // --- 邏輯 A: 開始搜尋 (從無到有) ---
+    // 這裡使用 trim() 來判斷是否真的有內容，避免只打空白就觸發切換
+    if (newVal.trim() && !oldVal.trim()) {
+        state.lastPaginationMode = state.pagination.mode;
+        state.pagination.mode = 'all';
+    }
+    
+    // --- 邏輯 B: 結束搜尋 (從有到無) ---
+    else if (!newVal.trim() && oldVal.trim()) {
+        if (state.lastPaginationMode) {
+            state.pagination.mode = state.lastPaginationMode;
+        }
+    }
+
+    state.searchQuery = newVal;
+    state.pagination.currentPage = 1; 
+    
+    render(); // 重繪介面 (此時輸入框會被重建，失去焦點)
+    
+    // 3. 還原焦點與游標位置
+    setTimeout(() => {
+        const input = document.getElementById('vocab-search-input');
+        if (input) {
+            input.focus();
+            // 使用 setSelectionRange 精準還原游標位置
+            input.setSelectionRange(cursorPosition, cursorPosition);
+        }
+    }, 0);
+}
+
+
 
 // --- DRAG AND DROP HELPER ---
 function handleDrop(e, targetCol) {
@@ -2058,7 +2179,7 @@ function renderQuiz() {
         // 1. 定義「要顯示」的按鍵提示字元 (僅顯示 ERDF)
         const displayKeys = ['E', 'R', 'D', 'F'];
 
-        optionsHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        optionsHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             ${currentQ.options.map((opt, idx) => {
                 let content = '';
                 if (mode === 'sentence') content = formatDisplayWord(opt.displayText || opt.word);
@@ -2069,11 +2190,11 @@ function renderQuiz() {
                 const extraKey = displayKeys[idx] || '';
 
                 return `
-                <button onclick="handleAnswer(${opt.id})" class="p-6 rounded-xl text-xl font-medium border-2 bg-white border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 text-gray-700 active:scale-[0.98] shadow-sm hover:-translate-y-1 transition-all relative overflow-hidden break-all noselect">
+                <button onclick="handleAnswer(${opt.id})" class="p-3 md:p-6 rounded-xl text-xl font-medium border-2 bg-white border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 text-gray-700 active:scale-[0.98] shadow-sm hover:-translate-y-1 transition-all relative overflow-hidden break-all noselect">
                     
                     <span class="key-hint">${idx + 1}</span>
                     
-                    <span class="absolute bottom-2 left-4 text-xs font-bold text-gray-200 select-none block z-10 opacity-70">${extraKey}</span>
+                    <span class="absolute bottom-1.5 left-3 text-xs font-bold text-gray-400 select-none hidden md:block">${extraKey}</span>
                     
                     ${content}
                 </button>`;
@@ -2082,19 +2203,21 @@ function renderQuiz() {
 	} else {
          // --- 結果顯示 (Result State) ---
          
-         if (mode === 'sentence' && subMode === 'choice') {
+		if (mode === 'sentence' && subMode === 'choice') {
              // 填空題結果顯示下一題按鈕 (保持不變)
              optionsHTML = `<button onclick="nextQuestion()" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2 transition-transform active:scale-95 noselect">${currentIndex < questions.length - 1 ? '下一題' : '查看結果'} <i class="fas fa-chevron-right"></i></button>`;
          } else {
              // 其他模式顯示結果選項
-             // 修改重點：同樣改為 p-4 md:p-6 和 text-xl
+             // 修改重點： gap-3 md:gap-4 和 p-3 md:p-6
              optionsHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                 ${currentQ.options.map((opt, idx) => {
                     let content = '';
                     if (mode === 'cn-en') content = formatDisplayWord(opt.word);
                     else content = opt.def;
 
-                    let btnClass = "p-4 md:p-6 rounded-xl text-xl font-medium border-2 transition-all relative overflow-hidden break-all noselect ";
+                    // 修改這裡：p-3 md:p-6
+                    let btnClass = "p-3 md:p-6 rounded-xl text-xl font-medium border-2 transition-all relative overflow-hidden break-all noselect ";
+                    
                     if (opt.id === currentQ.target.id) btnClass += "bg-green-50 border-green-500 text-green-800 shadow-md transform scale-[1.02]";
                     else if (opt.id === selectedOption.id) btnClass += "bg-red-50 border-red-500 text-red-800";
                     else btnClass += "bg-gray-50 border-gray-100 text-gray-400 opacity-50";
