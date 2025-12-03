@@ -64,12 +64,11 @@ function loadSetting(key, defaultValue) {
 
 
 // 符號集合
-const PUNCTS = new Set([
-    '，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '—', '…', '－', '‧', '·', '﹑',
-    ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…'
-]);
-const ENDERS = new Set(['。', '！', '？', '?', '!', '．', '.', '，', ',']);
-const WHITESPACES = new Set([' ', '\t', '\u3000']);
+    const PUNCTS = new Set(['，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '—', '…', '－', '‧', '·', '﹑', ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…']);
+    
+    const ENDERS = new Set(['。', '！', '？', '?', '!', '．', '.']);
+
+    const WHITESPACES = new Set([' ', '\\t', '\\u3000']);
 
 // DOM 快捷
 const $ = (sel) => document.querySelector(sel);
@@ -670,6 +669,7 @@ function pinyinToHanzi() {
             return;
         }
 
+
         if (unitIndex < convertedUnits.length) {
             const unit = convertedUnits[unitIndex];
             finalText += unit.hanzi;
@@ -681,6 +681,17 @@ function pinyinToHanzi() {
     });
 
     finalText = finalText.replace(/\s+([，。、；：！？.,;:!?])/g, '$1').trim();
+
+    finalText = finalText
+        .replace(/,/g, '，')
+        .replace(/(?<!\.)\.(?!\.)/g, '。') 
+        .replace(/\?/g, '？')
+        .replace(/!/g, '！')
+        .replace(/;/g, '；')
+        .replace(/:/g, '：')
+        .replace(/\(/g, '（')
+        .replace(/\)/g, '）');
+
     hanziInput.value = finalText;
 }
 
@@ -1519,11 +1530,11 @@ function convertTonesInResult() {
 
 function convertToneMarks(str) {
     return (str || '')
-        .replace(/([aeioumngbd])(ˊ)/g, '$1 \u0301')
-        .replace(/([aeioumngbd])(ˇ)/g, '$1 \u030C')
-        .replace(/([aeioumngbd])(ˋ)/g, '$1 \u0300')
-        .replace(/([aeioumngbd])\^/g, '$1ˆ')
-        .replace(/([aeioumngbd])\+/g, '$1⁺');
+        .replace(/([aeioumngbd,-])(ˊ)/g, '$1 \u0301')
+        .replace(/([aeioumngbd,-])(ˇ)/g, '$1 \u030C')
+        .replace(/([aeioumngbd,-])(ˋ)/g, '$1 \u0300')
+        .replace(/([aeioumngbd,-])\^/g, '$1ˆ')
+        .replace(/([aeioumngbd,-])\+/g, '$1⁺');
 }
 
 // 僅轉寫指定節點內的 rt，不影響畫面上的結果區
@@ -1716,6 +1727,7 @@ actCopyAnnotated.addEventListener('click', async () => {
     menuMore.classList.add('hidden');
 });
 
+
 // 複製HTML
 actCopy.addEventListener('click', async () => {
     const {
@@ -1725,11 +1737,11 @@ actCopy.addEventListener('click', async () => {
         pinyin: pinyinInput.value,
         showWarnings: false,
         allowEdit: false,
-        annotationMode: annotationMode
+        annotationMode: annotationMode,
+        phoneticDisplayMode: phoneticDisplayMode 
     });
     const wrap = document.createElement('div');
-    wrap.appendChild(node);
-    const html = wrap.innerHTML;
+    wrap.appendChild(node);    const html = wrap.innerHTML;
     try {
         await navigator.clipboard.writeText(html);
         toast('已複製檢視模式的 HTML！');
@@ -1752,6 +1764,8 @@ actDownload.addEventListener('click', () => {
     menuMore.classList.add('hidden');
 });
 
+
+
 // 複製標註
 async function copyAnnotated() {
     // 以重新渲染的檢視模式內容為輸出來源
@@ -1764,11 +1778,11 @@ async function copyAnnotated() {
         pinyin,
         showWarnings: false,
         allowEdit: false,
-        annotationMode: annotationMode // <<< 這裏是新增的關鍵程式碼
+        annotationMode: annotationMode,
+        phoneticDisplayMode: phoneticDisplayMode 
     });
     const tempWrap = document.createElement('div');
     tempWrap.appendChild(node);
-
     // 轉寫調號（僅輸出）
     convertTonesInNode(tempWrap);
 
@@ -1924,9 +1938,14 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode }) {
     const annotationMode = \`${escapedAnnotationMode}\`;
 
     // --- 步驟 2: 標註工具的核心函式 (從原工具複製而來) ---
-    const PUNCTS = new Set(['，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '—', '…', '－', '‧', '·', '﹑', ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…']);
-    const ENDERS = new Set(['。', '！', '？', '?', '!', '．', '.', '，', ',']);
-    const WHITESPACES = new Set([' ', '\\t', '\\u3000']);
+	const PUNCTS = new Set([
+		'，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '—', '…', '－', '‧', '·', '﹑',
+		',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…'
+	]);
+
+	const ENDERS = new Set(['。', '！', '？', '?', '!', '．', '.']); 
+
+	const WHITESPACES = new Set([' ', '\t', '\u3000']);
     const toCharArray = (str) => Array.from(str || '');
     const isPunct = (ch) => PUNCTS.has(ch);
     const isWhitespace = (ch) => WHITESPACES.has(ch);
@@ -2527,6 +2546,54 @@ function switchLanguage(newLangKey) {
     inputHeader.addEventListener('click', () => { (inputSection.classList.contains('is-collapsed') || resultSection.classList.contains('is-collapsed')) ? resetToDefault() : collapseInput(); });
     resultHeader.addEventListener('click', () => { (resultSection.classList.contains('is-collapsed') || inputSection.classList.contains('is-collapsed')) ? resetToDefault() : collapseResult(); });
 
+
+
+
+
+    const btnTogglePunctuation = document.getElementById('btnTogglePunctuation');
+    if (btnTogglePunctuation) {
+        const fullToHalf = {
+            '，': ',', '。': '.', '？': '?', '！': '!', '；': ';', 
+            '：': ':', '（': '(', '）': ')', '、': ','
+        };
+        const halfToFull = {
+            ',': '，', '.': '。', '?': '？', '!': '！', ';': '；', 
+            ':': '：', '(': '（', ')': '）'
+        };
+
+        const fullWidthRegex = new RegExp(Object.keys(fullToHalf).join('|'), 'g');
+        const halfWidthRegex = /(?<!\.)\.(?!\.)|[\,\?\!\;\:\(\)]/g;
+
+        btnTogglePunctuation.addEventListener('click', () => {
+            const currentText = pinyinInput.value;
+            if (!currentText) {
+                toast('拼音區沒有內容可轉換。');
+                return;
+            }
+
+            const fullWidthPattern = /[，。？！；：（）、]/;
+            
+            if (fullWidthPattern.test(currentText)) {
+                // --- 動作：全形轉半形 ---
+                let newText = currentText.replace(fullWidthRegex, match => fullToHalf[match]);
+                
+                // 轉換後，在標點和後方文字之間補上空格 (例如："，ngin" -> ", ngin")
+                newText = newText.replace(/([,\.\?!;\:\(\)])([a-zA-Z0-9])/g, '$1 $2');
+                
+                pinyinInput.value = newText;
+                toast('標點已轉換為半形');
+            } else {
+                // --- 動作：半形轉全形 ---
+                let newText = currentText.replace(halfWidthRegex, match => halfToFull[match] || match);
+                
+                // 轉換後，移除全形標點前後的空格 (例如：" ， ngin" -> "，ngin")
+                newText = newText.replace(/\s*([，。？！；：（）、])\s*/g, '$1');
+
+                pinyinInput.value = newText;
+                toast('標點已轉換為全形');
+            }
+        });
+    }
 
     // --- START: 字體切換功能 (最終修復版) ---
     if (btnFontFamily && fontFamilyPopover) {
