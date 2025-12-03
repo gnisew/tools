@@ -1841,15 +1841,20 @@ function renderQuiz() {
         return;
     }
 
-	// 2. 測驗結束畫面
+    // 2. 測驗結束畫面
     if (isFinished) {
         const total = questions.length;
         const pct = score / total;
+        
+        // 判斷是否可以繼續測驗：
+        // 如果「目前題號」不是「最後一題」 或者 「狀態」不是「已顯示結果(代表已答完)」
+        // 代表測驗是被中途手動結束的，因此可以繼續。
+        const canResume = !(currentIndex === total - 1 && status === 'result');
+
         container.innerHTML = `
             <div class="flex flex-col items-center justify-center min-h-[60vh] w-full">
                 <div class="text-center p-8 bg-white rounded-3xl shadow-lg w-full max-w-lg border-2 border-indigo-50">
-                    <div class="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-5xl">${pct > 0.65 ? "🎉" : "💪"}</div>
-                    <h2 class="text-3xl font-bold text-gray-800 mb-2">測驗結束！</h2>
+                    <div class="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-5xl">${pct > 0.65 ? "🎉" : "✨"}</div>
                     <p class="text-xl text-gray-600 mb-8">得分: <span class="text-indigo-600 font-bold text-4xl">${score}</span> / ${total}</p>
                     
                     ${wrongQuestions.length > 0 ? `
@@ -1862,7 +1867,17 @@ function renderQuiz() {
                         </button>
                     ` : ''}
 
-                    <button onclick="setState('view', 'list')" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700">返回列表</button>
+                    <!-- 新增：繼續測驗按鈕 -->
+                    ${canResume ? `
+                    <button onclick="resumeQuiz()" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 mb-3 flex items-center justify-center gap-2">
+                        <i class="fas fa-play"></i> 繼續測驗
+                    </button>
+                    ` : ''}
+
+                    <!-- 修改：返回列表改為次要樣式 (灰/白)，讓繼續測驗更明顯 -->
+                    <button onclick="setState('view', 'list')" class="w-full py-4 bg-white border-2 border-gray-200 text-gray-500 rounded-xl font-bold shadow-sm hover:bg-gray-50 hover:text-gray-700 transition-colors">
+                        返回列表
+                    </button>
                 </div>
             </div>
         `;
@@ -2066,25 +2081,30 @@ function renderQuiz() {
     const getModeBtnClass = (condition) => `mode-btn-small ${condition ? activeClass : inactiveClass}`;
 
     // --- 難度選擇區 (左上角) ---
+
     let difficultySelectorHTML = '';
     
     if (mode === 'cn-en' && subMode === 'spell') {
+        // 修改：
+        // 1. 加入 max-w-[calc(100%-110px)] 避免與右側切換按鈕重疊
+        // 2. 加入 overflow-x-auto 與 no-scrollbar 支援橫向滑動
+        // 3. 將「數量」文字改為圖示 fa-cubes
+        // 4. 加入 'all' 選項按鈕
         difficultySelectorHTML = `
-             <div class="absolute top-4 left-4 z-20 flex items-center gap-1 bg-gray-100 rounded-lg p-1 shadow-inner">
-                <span class="text-[10px] font-bold text-gray-400 px-1 select-none">數量</span>
-                <button onclick="setSpellingDifficulty('a')" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${getBtnStyle(spellingDifficulty === 'a')}">a</button>
-                <button onclick="setSpellingDifficulty(3)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${getBtnStyle(spellingDifficulty === 3)}">3</button>
-                <button onclick="setSpellingDifficulty(4)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${getBtnStyle(spellingDifficulty === 4)}">4</button>
-                <button onclick="setSpellingDifficulty(5)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${getBtnStyle(spellingDifficulty === 5)}">5</button>
+             <div class="absolute top-4 left-4 z-20 flex items-center gap-1 bg-gray-100 rounded-lg p-1 shadow-inner max-w-[calc(100%-110px)] overflow-x-auto no-scrollbar">
+              
+                <button onclick="setSpellingDifficulty('all')" class="w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-md text-xs font-bold transition-all ${getBtnStyle(spellingDifficulty === 'all')}" title="全部">o</button>
+                <button onclick="setSpellingDifficulty('a')" class="w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-md text-xs font-bold transition-all ${getBtnStyle(spellingDifficulty === 'a')}">a</button>
+                <button onclick="setSpellingDifficulty(3)" class="w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-md text-xs font-bold transition-all ${getBtnStyle(spellingDifficulty === 3)}">3</button>
+                <button onclick="setSpellingDifficulty(4)" class="w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-md text-xs font-bold transition-all ${getBtnStyle(spellingDifficulty === 4)}">4</button>
+                <button onclick="setSpellingDifficulty(5)" class="w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-md text-xs font-bold transition-all ${getBtnStyle(spellingDifficulty === 5)}">5</button>
              </div>
         `;
-    } else if (mode === 'sentence' && subMode === 'order') {
+    }  else if (mode === 'sentence' && subMode === 'order') {
         const isFL = state.quiz.isFirstLastMode;
         difficultySelectorHTML = `
              <div class="absolute top-4 left-4 z-20 flex items-center gap-1 bg-gray-100 rounded-lg p-1 shadow-inner">
-                <span class="text-[10px] font-bold text-gray-400 px-1 select-none">設定</span>
                 <button onclick="toggleFirstLastMode()" class="w-8 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${getBtnStyle(isFL)}" title="首尾模式">&lt;&gt;</button>
-                <div class="w-px h-3 bg-gray-300 mx-1"></div>
                 <button onclick="setSentenceDifficulty(3)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${getBtnStyle(sentenceDifficulty === 3)}">3</button>
                 <button onclick="setSentenceDifficulty(4)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${getBtnStyle(sentenceDifficulty === 4)}">4</button>
                 <button onclick="setSentenceDifficulty(5)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${getBtnStyle(sentenceDifficulty === 5)}">5</button>
@@ -2511,6 +2531,7 @@ function setSpellingDifficulty(num) {
 }
 
 // 初始化單題拼字資料
+
 function initSpellingData(word) {
     const cleanWord = word.trim();
     const len = cleanWord.length;
@@ -2519,83 +2540,68 @@ function initSpellingData(word) {
     let pool = [];
     let buttonIndices = []; // 最終要變成按鈕的索引列表
 
-    // 讀取設定 (可能是 數字 3,4,5 或 字串 'a')
+    // 讀取設定 (可能是 數字 3,4,5 或 字串 'a' 或 'all')
     const diff = state.quiz.spellingDifficulty;
 
-    if (diff === 'a') {
-        // 定義母音 (包含大小寫)
+    // --- 新增：全部模式 ---
+    if (diff === 'all') {
+        // 全部字母都變成按鈕 (全部挖空)
+        for (let i = 0; i < len; i++) {
+            buttonIndices.push(i);
+        }
+    } else if (diff === 'a') {
+        // ... (原有母音邏輯保持不變) ...
         const vowels = ['a', 'e', 'i', 'o', 'u', 'A', 'E', 'I', 'O', 'U'];
         let hasVowel = false;
 
         for (let i = 0; i < len; i++) {
             const char = cleanWord[i];
             if (vowels.includes(char)) {
-                // 是母音 -> 變成按鈕 (revealed 維持 null)
                 buttonIndices.push(i);
                 hasVowel = true;
             } else {
-                // 是子音 -> 直接顯示
                 revealed[i] = char;
             }
         }
-
-        // 防呆：如果單字完全沒有母音 (例如 "cry", "rhythm")，
-        // 為了避免沒有題目可做，改為隨機挖空一個字母
         if (!hasVowel && len > 0) {
             const randIdx = Math.floor(Math.random() * len);
-            revealed[randIdx] = null; // 挖空
+            revealed[randIdx] = null;
             buttonIndices.push(randIdx);
         }
-
     } else {
-        // --- 數量模式 (Number Mode: 3, 4, 5) ---
+        // ... (原有數字邏輯保持不變) ...
         const MAX_BUTTONS = typeof diff === 'number' ? diff : 5;
-
         if (len < 4) {
-            // 短單字 (< 4)：全部挖空
             for (let i = 0; i < len; i++) {
                 buttonIndices.push(i);
             }
         } else {
-            // 一般單字：先顯示首尾
             revealed[0] = cleanWord[0];
             revealed[len - 1] = cleanWord[len - 1];
-
-            // 取得中間部分
             let innerIndices = [];
             for (let i = 1; i < len - 1; i++) {
                 innerIndices.push(i);
             }
-
-            // 檢查中間是否過長
             if (innerIndices.length > MAX_BUTTONS) {
                 const countToReveal = innerIndices.length - MAX_BUTTONS;
                 const shuffled = innerIndices.sort(() => 0.5 - Math.random());
-                
-                // 取出多餘部分直接顯示
                 const indicesToReveal = shuffled.slice(0, countToReveal);
                 indicesToReveal.forEach(idx => {
                     revealed[idx] = cleanWord[idx];
                 });
-
-                // 剩下的作為按鈕
                 buttonIndices = shuffled.slice(countToReveal).sort((a, b) => a - b);
             } else {
-                // 沒過長，中間全挖空
                 buttonIndices = innerIndices;
             }
         }
     }
 
-    // 建立按鈕池
+    // ... (原有建立按鈕池邏輯保持不變) ...
     buttonIndices.forEach(idx => {
         pool.push({ char: cleanWord[idx], id: idx }); 
     });
-
-    // 排序按鈕 (A-Z)
     pool.sort((a, b) => a.char.toLowerCase().localeCompare(b.char.toLowerCase()));
 
-    // 計算下一個填空位置
     let nextIndex = 0;
     while (nextIndex < len && revealed[nextIndex] !== null) {
         nextIndex++;
@@ -2700,7 +2706,7 @@ function initOrderingData(sentence) {
 
     // 讀取設定
     const MAX_BUTTONS = state.quiz.sentenceDifficulty || 5;
-    const isFirstLastMode = state.quiz.isFirstLastMode; // 讀取是否啟用 <> 模式
+    const isFirstLastMode = state.quiz.isFirstLastMode;
 
     // 建立所有可能的索引 [0, 1, 2, ... len-1]
     let candidates = [];
@@ -2864,6 +2870,11 @@ function checkOrderingInput(selectedWord, btnId) {
 
 function endQuiz() {
     state.quiz.isFinished = true;
+    render();
+}
+
+function resumeQuiz() {
+    state.quiz.isFinished = false;
     render();
 }
 
