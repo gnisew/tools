@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>烏衣行 漢字 × 拼音</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@300..700" rel="stylesheet" />
+  <link href="style.css" rel="stylesheet">
+  <link href="https://oikasu1.github.io/kasuexam/kasu/fonts/twhei.css" rel="stylesheet">
+  <link href="https://gnisew.github.io/tools/ime/ime.css" rel="stylesheet">
+  <script src="https://oikasu1.github.io/snd/app.js"></script>
+
+</head>
+<body class="text-slate-900">
+  <header class="px-5 sm:px-8 pt-6 pb-2">
+    <div class="max-w-6xl mx-auto flex items-center gap-3">
+      <span id="headerEmoji" aria-hidden="true" class="text-3xl leading-none">🥷</span>
+      <h1 id="mainTitle" class="text-xl sm:text-2xl font-semibold tracking-tight">烏衣行 漢字 × 拼音</h1>
+      <div id="languageSwitcher" class="ml-auto relative">
+        <button id="btnLanguage" class="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full px-4 py-2">
+          <span class="material-symbols-outlined text-[18px]">language</span>
+          <span id="currentLanguageName" class="text-sm font-medium">詔安</span>
+          <span class="material-symbols-outlined text-[18px]">arrow_drop_down</span>
+        </button>
+        <div id="languageMenu" class="popover hidden" style="width: 140px; padding: 6px; right: 0;">
+          </div>
+      </div>
+    </div>
+  </header>
+
+<main class="px-5 sm:px-8 pb-14">
+    <div id="mainGrid" class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+      <section id="inputSection" class="bg-white/90 backdrop-blur rounded-2xl p-4 sm:p-6 elevated flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <h2 id="inputHeader" class="font-semibold text-lg flex items-center gap-2 cursor-pointer">
+            <span class="material-symbols-outlined text-[22px] text-blue-600">description</span>
+            <span class="title-text">輸入</span>
+          </h2>
+
+			
+          <div id="inputModeToggle" class="seg bg-slate-100">
+		  	<button class="toolbar-btn-text ime-toggle-button" title="輸入法">
+				<span class="material-icons">keyboard</span>
+				<span class="btn-text"></span>				
+			</button>	
+            <button id="btnModeHanziToPinyin" class="active">字轉音</button>
+            <button id="btnModePinyinToHanzi">音轉字</button>
+          </div>
+        </div>
+
+        <div class="collapsible-content">
+          <div id="textareasContainer" class="gap-4 flex flex-col flex-1">
+            <div class="block">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-[18px] text-blue-600">text_fields</span>
+                  漢字區
+                </span>
+                <div class="flex items-center gap-2">
+				<button id="btnPinyinToHanzi" class="text-xs font-medium text-blue-800 bg-blue-100 hover:bg-blue-200 flex items-center gap-1 px-3 py-1.5 rounded-full transition-colors">
+				  <span class="material-symbols-outlined text-[18px]">arrow_downward</span>
+				  拼音轉漢字
+				</button>
+                  <button id="btnSample" class="hidden text-xs text-blue-700 hover:text-blue-900 flex items-center gap-1">
+                    <span class="material-symbols-outlined text-[18px]">dataset</span> 塞入範例
+                  </button>
+                </div>
+              </div>
+              <textarea id="hanziInput" class="w-full rounded-xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-400 px-4 py-3 min-h-[160px] leading-relaxed" placeholder="漢字…"></textarea>
+            </div>
+
+            <div class="block">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-sm font-medium text-slate-700 flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-[18px] text-blue-600">match_case</span>
+                  拼音區
+                </span>
+                <div class="flex items-center gap-4">
+                  
+                  <button id="btnTogglePunctuation" class="text-xs text-slate-600 hover:text-slate-900 flex items-center gap-1" title="切換全形/半形標點">
+                    <span class="material-symbols-outlined text-[18px]">swap_horiz</span>
+                    全/半形
+                  </button>
+
+					<button id="btnHanziToPinyin" class="text-xs font-medium text-blue-800 bg-blue-100 hover:bg-blue-200 flex items-center gap-1 px-3 py-1.5 rounded-full transition-colors">
+					  <span class="material-symbols-outlined text-[18px]">arrow_downward</span>
+					  漢字轉拼音
+					</button>
+
+                </div>
+              </div>
+              <textarea id="pinyinInput" class="w-full rounded-xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-400 px-4 py-3 min-h-[160px] leading-relaxed" placeholder="拼音…"></textarea>
+            </div>
+          </div>
+
+          <div class="tool-row flex items-center gap-2 pt-1 mt-auto">
+            <button id="btnCopy" class="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full px-3 py-1.5 text-sm">
+              <span class="material-symbols-outlined">content_paste</span> 複製
+            </button>
+            <button id="btnClear" class="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full px-3 py-1.5 text-sm">
+              <span class="material-symbols-outlined">restart_alt</span> 清空
+            </button>
+            <div class="ml-auto"></div>
+            <button id="btnProcess" class="inline-flex items-center gap-2 bg-blue-600 text-white rounded-full px-2 py-2.5 shadow hover:bg-blue-700 transition-colors text-sm">
+              <span class="material-symbols-outlined">magic_button</span> 標註
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section id="resultSection" class="@container relative bg-white/90 backdrop-blur rounded-2xl p-4 sm:p-6 elevated flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <h2 id="resultHeader" class="font-semibold text-lg flex items-center gap-2 cursor-pointer">
+            <span class="material-symbols-outlined text-[22px] text-blue-600">stylus_note</span>
+            <span class="title-text">標註</span>
+          </h2>
+
+			<div class="flex items-center gap-3">
+				<div id="phoneticsContainer" class="relative hidden">
+					<button id="btnPhonetics" class="inline-flex items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full p-2 @[380px]:px-3 @[380px]:py-1.5">
+						<span class="material-symbols-outlined text-[18px]">translate</span>
+						<span class="text-sm hidden @[380px]:inline">標音</span>
+					</button>
+					<div id="phoneticsMenu" class="popover hidden" style="width: 160px; padding: 6px; right: 0;">
+						<button id="actWordTones" class="w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50 flex items-center gap-2">
+							<span class="material-symbols-outlined text-[18px]">imagesearch_roller</span> Word聲調
+						</button>
+						<hr class="my-1 border-slate-100">
+						<button id="actShowPinyin" data-type="pinyin" class="phonetic-choice w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50">顯示拼音</button>
+						<button id="actShowZhuyin" data-type="zhuyin" class="phonetic-choice w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50">顯示注音</button>
+					</div>
+				</div>
+						<div id="issueBar" class="hidden items-center text-amber-700">
+						  <button id="btnPrev" class="px-1.5 py-1 rounded hover:text-amber-800" title="上一句">〈</button>
+						  <span id="issueIndex" class="mx-1.5 text-sm select-none">0/0</span>
+						  <button id="btnNext" class="px-1.5 py-1 rounded hover:text-amber-800" title="下一句">〉</button>
+						</div>
+
+				<button id="btnPlayAudio" class="hidden items-center justify-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full p-2 @[380px]:px-3 @[380px]:py-1.5">
+					<span class="material-symbols-outlined text-[18px]">volume_up</span>
+					<span class="text-sm hidden @[380px]:inline">點播</span>
+				</button>
+				<div id="charWordToggleContainer" class="seg bg-slate-100">
+					<button id="btnModeChar" class="active">字</button>
+					<button id="btnModeWord">詞</button>
+				</div>
+				<div id="modeToggleContainer" class="seg bg-slate-100"> <button id="btnModeView" class="active">檢視</button>
+					<button id="btnModeEdit">編輯</button>
+				</div>
+			</div>
+        </div>
+
+        <div class="collapsible-content">
+            <div id="resultArea" class="scroll-area border border-slate-200 p-4 mode-view" style="font-size:14pt; --rt-scale:0.68;">
+              <div class="text-slate-400 text-sm">標註結果會出現在這裡…</div>
+            </div>
+            <div class="mt-4 flex items-center gap-2 justify-end">
+              <div class="relative">
+                <button id="btnTypography" class="inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full px-3 py-1.5">
+                  <span class="material-symbols-outlined text-[18px]">format_size</span>
+                  <span id="fontVal" class="text-sm">18</span>
+                </button>
+                <div id="typoPopover" class="popover hidden">
+                  <div class="flex items-center justify-between mb-2">
+                    <div class="text-slate-700 font-medium">字級調整</div>
+                    <button id="btnResetFont" class="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700">預設</button>
+                  </div>
+                  <div class="number-row">
+                    <span class="text-sm text-slate-600">整體</span>
+                    <button class="btn-ghost" data-dec="font">－</button>
+                    <span id="fontShow" class="px-2 py-1 bg-slate-50 rounded-md text-slate-700 min-w-[36px] text-center">18</span>
+                    <button class="btn-ghost" data-inc="font">＋</button>
+                  </div>
+                  <div class="number-row mt-2">
+                    <span class="text-sm text-slate-600">拼音</span>
+                    <button class="btn-ghost" data-dec="rt">－</button>
+                    <span id="rtShow" class="px-2 py-1 bg-slate-50 rounded-md text-slate-700 min-w-[36px] text-center">0.68</span>
+                    <button class="btn-ghost" data-inc="rt">＋</button>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="relative">
+                <button id="btnFontFamily" class="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full px-3 py-1.5">
+                  <span class="material-symbols-outlined text-[18px]">font_download</span>
+                  <span class="text-sm">字體</span>
+                </button>
+                <div id="fontFamilyPopover" class="popover hidden" style="width: 120px; padding: 6px;">
+                    <button data-font="hei" class="font-choice active w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50">黑體</button>
+                    <button data-font="kai" class="font-choice w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50">楷體</button>
+                </div>
+              </div>
+              <div class="relative">
+                  <div id="btnPrimaryContainer" class="inline-flex rounded-full shadow">
+                      <button id="btnPrimary" class="inline-flex items-center gap-2 bg-emerald-600 text-white rounded-l-full pl-4 pr-3 py-2.5 hover:bg-emerald-700 transition-colors focus:outline-none text-sm">
+                          <span class="material-symbols-outlined">content_copy</span>
+                          複製
+                      </button>
+                      <button id="btnPrimaryToggle" class="inline-flex items-center bg-emerald-600 text-white rounded-r-full px-2 py-2.5 border-l border-emerald-500 hover:bg-emerald-700 transition-colors focus:outline-none">
+                          <span class="material-symbols-outlined text-[18px]">arrow_drop_down</span>
+                      </button>
+                  </div>
+                  <div id="menuMore" class="absolute mt-2 w-52 bg-white border border-slate-200 rounded-lg shadow hidden z-10" style="right: 0;">
+                    <button id="actCopyAnnotated" class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2">
+                      <span class="material-symbols-outlined text-[18px]">content_copy</span> 複製標註
+                    </button>
+                    <button id="actCopy" class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2">
+                      <span class="material-symbols-outlined text-[18px]">code</span> 複製HTML
+                    </button>
+                    <button id="actDownload" class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2">
+                      <span class="material-symbols-outlined text-[18px]">download</span> 下載 HTML
+                    </button>
+                  </div>
+              </div>
+            </div>
+        </div>
+      </section>
+    </div>
+</main>
+
+<script>
+// 動態注入 CSS 樣式
+function addSparkleEffectStyles() {
+  const cssRules = `
+    @keyframes emoji-sparkle {
+      0% {
+        transform: translate(0, 0) scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: translate(var(--tx), var(--ty)) scale(0);
+        opacity: 0;
+      }
+    }
+
+    .sparkle-emoji {
+      position: fixed;
+      z-index: 999;
+      pointer-events: none;
+      font-size: 1.5rem;
+      animation: emoji-sparkle 0.8s ease-out forwards;
+    }
+	#headerEmoji {
+	  cursor: pointer;
+	}
+  `;
+  const styleElement = document.createElement('style');
+  styleElement.textContent = cssRules;
+  document.head.appendChild(styleElement);
+}
+// 執行函數，在頁面載入時就添加樣式
+addSparkleEffectStyles();
+
+// 點擊特效
+const headerEmoji = document.getElementById('headerEmoji');
+if (headerEmoji) {
+  headerEmoji.addEventListener('click', (e) => {
+    const rect = e.target.getBoundingClientRect();
+    const originX = rect.left + rect.width / 2;
+    const originY = rect.top + rect.height / 2;
+    const starEmojis = ['✨', '🌟', '☄️', '💖'];
+
+    for (let i = 0; i < 15; i++) {
+      const sparkle = document.createElement('span');
+      sparkle.classList.add('sparkle-emoji');
+      sparkle.textContent = starEmojis[Math.floor(Math.random() * starEmojis.length)];
+      sparkle.style.left = `${originX}px`;
+      sparkle.style.top = `${originY}px`;
+
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.random() * 80 + 50;
+      const endX = Math.cos(angle) * radius;
+      const endY = Math.sin(angle) * radius;
+
+      sparkle.style.setProperty('--tx', `${endX}px`);
+      sparkle.style.setProperty('--ty', `${endY}px`);
+      
+      document.body.appendChild(sparkle);
+
+      setTimeout(() => {
+        sparkle.remove();
+      }, 800);
+    }
+  });
+}
+</script>
+
+  <script src="https://gnisew.github.io/tools/turn/pinyin2/data-pinyin2pinyin.js"></script>
+
+    <script src="https://gnisew.github.io/tools/ime/ime-dict.js"></script>
+    <script src="https://gnisew.github.io/tools/ime/ime.js"></script>
+    <script src="https://gnisew.github.io/tools/ime/ime-button.js"></script>
+
+  <script>let c, d, ccc, ddd;</script>
+  <script src="hanzitopinyin.js"></script>
+  <script src="script.js"></script>
+
+
+</html>
