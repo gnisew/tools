@@ -1,3 +1,4 @@
+
 // --- CONSTANTS & CONFIG ---
 const STORAGE_KEY = 'vioiv_vocab_custom_sets_v1';
 
@@ -30,7 +31,20 @@ const state = {
         mode: 'unit', // 'unit', '50', '100', 'all'
         currentPage: 1
     },
-    
+
+	// --- 新增：冒險模式狀態 ---
+	adventure: {
+        enabled: false,
+        currentStep: 0,
+        prevStep: 0,   
+		isCelebrating: false,
+        totalSteps: 10,
+        character: '🐱',
+        target: '🍰',
+        characters: ['🐱', '🐶', '🐰', '🦊', '🐼', '🐯', '🦁', '🐷', '🐸', '🦄'],
+        targets: ['🍰', '🍎', '🍔', '🍕', '🍩', '🍪', '🍗', '🍣', '🍦', '🍓']
+    },
+
 	quiz: {
         questions: [],
         currentIndex: 0,
@@ -418,7 +432,7 @@ function renderList() {
         { id: 'def', label: '中文定義' },
     ];
     
-    // 1. 資料篩選邏輯 (保持不變)
+    // 1. 資料篩選邏輯
     let allWords = [];
     if (state.filterMode === 'custom' && state.activeSetId) {
         const set = state.customSets.find(s => s.id === state.activeSetId);
@@ -432,26 +446,21 @@ function renderList() {
         allWords = state.vocabulary.filter(w => state.selectedUnits.includes(w.unit));
     }
 
-	// --- 修改重點 A: 搜尋過濾邏輯 (預設直接啟用 Regex) ---
+    // 搜尋過濾
     if (state.searchQuery) {
         const q = state.searchQuery.trim();
-        
         try {
-            // 直接將使用者輸入當作正則表達式的 Pattern
-            // 'i' 參數代表忽略大小寫 (Case-insensitive)
             const regex = new RegExp(q, 'i');
-
             allWords = allWords.filter(w => 
                 regex.test(w.word) || 
                 regex.test(w.def) || 
                 (w.other && regex.test(w.other))
             );
         } catch (e) {
-            // 當輸入了無效的正則語法 (例如 "[" 還沒閉合，或是 "\")
-            // 捕捉錯誤並回傳空陣列，避免程式崩潰
             allWords = [];
         }
     }
+
     // 排序
     if (state.sortOrder === 'alpha') {
         allWords.sort((a, b) => a.word.localeCompare(b.word));
@@ -459,7 +468,7 @@ function renderList() {
         allWords.sort((a, b) => a.id - b.id);
     }
 
-    // 分頁邏輯 (保持不變)
+    // 分頁邏輯
     let displayWords = [];
     let totalPages = 1;
     let pageInfo = "";
@@ -506,48 +515,58 @@ function renderList() {
     
     // --- UI 渲染 ---
     const container = document.createElement('div');
-    container.className = "pb-48 w-full max-w-6xl mx-auto px-4";
+    container.className = "pb-48 w-full max-w-6xl mx-auto px-4 pt-4";
 
-    // 頂部分頁器 (只在多頁時顯示)
+    // 頂部分頁器 (上一頁/下一頁) HTML
     let topPaginationHTML = '';
     if (totalPages > 1) {
+        // [修改重點] 移除了 ml-auto，因為外層容器會處理靠右
         topPaginationHTML = `
-            <div class="flex items-center gap-2 bg-indigo-800/30 rounded-lg px-2 py-1.5 ml-auto">
-                <button onclick="changePage(-1)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/20 transition-colors ${currentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'text-white'}" ${currentPage === 1 ? 'disabled' : ''}><i class="fas fa-chevron-left text-xs"></i></button>
-                <span class="font-mono text-white text-xs font-bold whitespace-nowrap">${pageInfo}</span>
-                <button onclick="changePage(1)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-white/20 transition-colors ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed' : 'text-white'}" ${currentPage === totalPages ? 'disabled' : ''}><i class="fas fa-chevron-right text-xs"></i></button>
+            <div class="flex items-center gap-2 bg-gray-100 border border-gray-200 rounded-lg px-2 py-1.5">
+                <button onclick="changePage(-1)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 transition-colors ${currentPage === 1 ? 'opacity-30 cursor-not-allowed text-gray-400' : 'text-gray-600'}" ${currentPage === 1 ? 'disabled' : ''}><i class="fas fa-chevron-left text-xs"></i></button>
+                <span class="font-mono text-gray-600 text-xs font-bold whitespace-nowrap">${pageInfo}</span>
+                <button onclick="changePage(1)" class="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 transition-colors ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed text-gray-400' : 'text-gray-600'}" ${currentPage === totalPages ? 'disabled' : ''}><i class="fas fa-chevron-right text-xs"></i></button>
             </div>
         `;
     }
 
+    // 分頁模式下拉選單 HTML
+    const paginationSelectHTML = `
+        <div class="relative">
+            <select onchange="setPaginationMode(this.value)" class="appearance-none bg-white hover:bg-gray-50 text-gray-600 pl-3 pr-8 py-2 rounded-xl text-xs font-bold outline-none cursor-pointer transition-colors border-2 border-gray-200 shadow-sm h-10 focus:border-indigo-500">
+                <option value="unit" ${mode === 'unit' ? 'selected' : ''}>單元</option>
+                <option value="50" ${mode === '50' ? 'selected' : ''}>50筆</option>
+                <option value="100" ${mode === '100' ? 'selected' : ''}>100筆</option>
+                <option value="all" ${mode === 'all' ? 'selected' : ''}>全部</option>
+            </select>
+            <div class="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-xs"><i class="fas fa-chevron-down"></i></div>
+        </div>
+    `;
+
     const header = document.createElement('div');
-    header.className = "bg-indigo-600 text-white p-4 rounded-b-3xl shadow-lg mb-6 -mx-4 md:mx-0 md:rounded-3xl flex flex-col gap-4";
+    header.className = "mb-6 flex flex-col gap-4";
 	
-    // 1. 大型檢視模式切換 (佔滿寬度)
+    // 1. 大型檢視模式切換
     const viewToggleHTML = `
-        <div class="w-full bg-indigo-800/40 p-1 rounded-xl flex shadow-inner">
-            <button onclick="setListMode('full')" class="flex-1 py-2 rounded-lg text-sm font-bold transition-all duration-300 flex items-center justify-center gap-2 ${state.listMode === 'full' ? 'bg-white text-indigo-600 shadow-sm' : 'text-indigo-200 hover:text-white hover:bg-white/10'}">
+        <div class="w-full bg-gray-100 p-1.5 rounded-2xl flex shadow-inner border border-gray-200/50">
+            <button onclick="setListMode('full')" class="flex-1 py-2 rounded-xl text-sm font-bold transition-all duration-300 flex items-center justify-center gap-2 ${state.listMode === 'full' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600'}">
                 <i class="fas fa-th-large"></i> 完整卡片
             </button>
-            <button onclick="setListMode('compact')" class="flex-1 py-2 rounded-lg text-sm font-bold transition-all duration-300 flex items-center justify-center gap-2 ${state.listMode === 'compact' ? 'bg-white text-indigo-600 shadow-sm' : 'text-indigo-200 hover:text-white hover:bg-white/10'}">
+            <button onclick="setListMode('compact')" class="flex-1 py-2 rounded-xl text-sm font-bold transition-all duration-300 flex items-center justify-center gap-2 ${state.listMode === 'compact' ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-black/5' : 'text-gray-400 hover:text-gray-600'}">
                 <i class="fas fa-list"></i> 列表檢視
             </button>
         </div>
     `;
 
-    // 2. 搜尋框 HTML (展開狀態 vs 收合按鈕)
+    // 2. 搜尋框 HTML
     let searchAreaHTML = '';
-    
-	if (state.isSearchExpanded || state.searchQuery) {
-        // 展開狀態
-        // 修改重點：移除了 'animate-fade-in', 'origin-left', 'transition-all', 'duration-200'
-        // 只保留布局相關的 class，這樣打字重繪時就不會閃爍了
+    if (state.isSearchExpanded || state.searchQuery) {
         searchAreaHTML = `
-            <div class="relative group w-full md:w-56">
-                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-indigo-300 transition-colors"></i>
+            <div class="relative group w-full md:w-64 transition-all duration-200">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-indigo-500"></i>
                 <input type="text" id="vocab-search-input"
-                    class="w-full pl-9 pr-8 py-2 rounded-xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-300 text-sm font-bold shadow-sm"
-                    placeholder="搜尋..."
+                    class="w-full pl-9 pr-8 py-2 rounded-xl bg-white text-gray-800 placeholder-gray-400 border-2 border-gray-200 focus:border-indigo-500 focus:outline-none focus:ring-0 transition-all text-sm font-bold shadow-sm"
+                    placeholder="搜尋... (Regex)"
                     value="${state.searchQuery || ''}"
                     oninput="handleSearch(this.value)"
                 >
@@ -557,14 +576,16 @@ function renderList() {
             </div>
         `;
     } else {
-        // 收合狀態 (小按鈕)
         searchAreaHTML = `
-            <button onclick="toggleSearchExpand()" class="flex-shrink-0 w-9 h-9 flex items-center justify-center bg-indigo-700 hover:bg-indigo-500 text-white rounded-lg shadow-sm border border-indigo-500/50 transition-all active:scale-95" title="搜尋">
+            <button onclick="toggleSearchExpand()" class="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-500 hover:text-indigo-600 rounded-xl shadow-sm border-2 border-gray-200 transition-all active:scale-95" title="搜尋">
                 <i class="fas fa-search"></i>
             </button>
         `;
-	}
-    // 3. 功能工具列 (搜尋 + 欄位 + 排序 + 母音 + 分頁下拉 + 頂部分頁器)
+    }
+
+    // 3. 功能工具列 (按鈕樣式)
+    const toolBtnClass = "w-10 h-10 flex items-center justify-center bg-white hover:bg-gray-50 text-gray-500 hover:text-indigo-600 rounded-xl shadow-sm border-2 border-gray-200 transition-all active:scale-95";
+
     const toolbarHTML = `
         <div class="flex flex-wrap items-center gap-2 w-full">
             
@@ -572,7 +593,7 @@ function renderList() {
 
             ${state.listMode === 'compact' ? `
             <div class="relative group">
-                <button onclick="document.getElementById('col-dropdown').classList.toggle('hidden'); event.stopPropagation();" class="w-9 h-9 flex items-center justify-center bg-indigo-700 hover:bg-indigo-500 rounded-lg text-white transition-colors border border-indigo-500/50 shadow-sm" title="顯示欄位">
+                <button onclick="document.getElementById('col-dropdown').classList.toggle('hidden'); event.stopPropagation();" class="${toolBtnClass}" title="顯示欄位">
                     <i class="fas fa-columns"></i>
                 </button>
                 <div id="col-dropdown" class="hidden absolute top-full left-0 mt-2 w-40 bg-white rounded-xl shadow-xl border border-gray-100 p-2 z-50 text-gray-800" onclick="event.stopPropagation()">
@@ -592,25 +613,18 @@ function renderList() {
             </div>
             ` : ''}
 
-            <button onclick="toggleSortOrder()" class="w-9 h-9 flex items-center justify-center bg-indigo-700 hover:bg-indigo-500 rounded-lg text-white transition-colors border border-indigo-500/50 shadow-sm" title="切換排序">
+            <button onclick="toggleSortOrder()" class="${toolBtnClass} ${state.sortOrder === 'alpha' ? 'text-indigo-600 border-indigo-200 bg-indigo-50' : ''}" title="切換排序">
                 <i class="fas ${state.sortOrder === 'default' ? 'fa-sort-numeric-down' : 'fa-sort-alpha-down'}"></i>
             </button>
 
-            <button onclick="toggleVowelMode()" class="w-9 h-9 flex items-center justify-center bg-indigo-700 hover:bg-indigo-500 rounded-lg text-white transition-colors border border-indigo-500/50 shadow-sm" title="切換母音紅字">
-                <i class="fas fa-font ${state.highlightVowels ? 'text-red-300' : 'text-indigo-300'}"></i>
+            <button onclick="toggleVowelMode()" class="${toolBtnClass} ${state.highlightVowels ? 'text-red-500 border-red-200 bg-red-50' : ''}" title="切換母音紅字">
+                <i class="fas fa-font"></i>
             </button>
 
-            <div class="relative ml-0 md:ml-2">
-                <select onchange="setPaginationMode(this.value)" class="appearance-none bg-indigo-700 hover:bg-indigo-500 text-white pl-3 pr-8 py-2 rounded-lg text-xs font-bold outline-none cursor-pointer transition-colors border border-indigo-500/50 shadow-sm h-9">
-                    <option value="unit" ${mode === 'unit' ? 'selected' : ''}>單元</option>
-                    <option value="50" ${mode === '50' ? 'selected' : ''}>50筆</option>
-                    <option value="100" ${mode === '100' ? 'selected' : ''}>100筆</option>
-                    <option value="all" ${mode === 'all' ? 'selected' : ''}>全部</option>
-                </select>
-                <div class="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-indigo-200 text-xs"><i class="fas fa-chevron-down"></i></div>
+            <div class="flex items-center gap-2 ml-auto">
+                ${paginationSelectHTML}
+                ${topPaginationHTML}
             </div>
-
-            ${topPaginationHTML}
         </div>
     `;
 
@@ -718,6 +732,7 @@ function renderList() {
             listContainer.appendChild(row);
         });
     } else {
+        
         listContainer.className = "flex flex-col bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden mb-6";
         
         displayWords.forEach((item, index) => {
@@ -759,6 +774,7 @@ function renderList() {
         });
     }
     container.appendChild(listContainer);
+    
     // Bottom Pagination
     if (totalPages > 1) {
         const paginationNav = document.createElement('div');
@@ -1406,7 +1422,7 @@ function initQuiz(mode) {
     // 3. 產生題目
     let currentEmoji = getRandomEmoji();
 
-    if (mode === 'sentence') {
+	if (mode === 'sentence') {
         // --- 句子填空模式 ---
         const validWords = activeWords.filter(w => w.sentence && w.sentence.length > 5);
         
@@ -1454,7 +1470,11 @@ function initQuiz(mode) {
                      const optVars = opt.other.split('/').map(s => s.trim()).filter(s => s);
                      if(optVars.length > 0) displayText = optVars[0]; 
                 }
-                return { ...opt, displayText };
+                
+                // --- 修改重點：強制轉為小寫 ---
+                // 這樣無論單字在原句中是否為句首大寫，選項都會統一顯示小寫，避免洩題
+                return { ...opt, displayText: displayText.toLowerCase() };
+                // ---------------------------
             });
 
             return { 
@@ -1559,6 +1579,54 @@ function jumpToQuestion() {
 }
 
 // --- UTILITIES (Existing + Updated) ---
+
+// --- Adventure Mode Helpers ---
+
+function toggleAdventureMode() {
+    state.adventure.enabled = !state.adventure.enabled;
+    // 如果開啟且還沒初始化過，隨機選一組
+    if (state.adventure.enabled && state.adventure.currentStep === 0) {
+        randomizeAdventureAssets();
+    }
+    render();
+}
+
+function randomizeAdventureAssets() {
+    const chars = state.adventure.characters;
+    const targets = state.adventure.targets;
+    state.adventure.character = chars[Math.floor(Math.random() * chars.length)];
+    state.adventure.target = targets[Math.floor(Math.random() * targets.length)];
+    state.adventure.currentStep = 0;
+}
+
+function advanceAdventure() {
+    if (!state.adventure.enabled) return;
+
+    // 如果正在慶祝中，不處理任何動作
+    if (state.adventure.isCelebrating) return;
+
+    state.adventure.prevStep = state.adventure.currentStep;
+    state.adventure.currentStep++;
+    
+    // 檢查是否到達目標
+    if (state.adventure.currentStep >= state.adventure.totalSteps) {
+        // 1. 設定慶祝狀態
+        state.adventure.isCelebrating = true;
+        
+        // 2. 觸發渲染 (顯示慶祝畫面)
+        // 注意：這裡不需要手動 call render()，因為外部的答題函式隨後會呼叫 render()
+        
+        // 3. 設定計時器：3.5秒後重置並開始下一輪
+        setTimeout(() => {
+            state.adventure.isCelebrating = false; // 結束慶祝
+            randomizeAdventureAssets();            // 換新角色
+            state.adventure.prevStep = 0;          // 歸零
+            state.adventure.currentStep = 0;
+            render();                              // 重繪回正常軌道
+        }, 3500); // 延長到 3.5 秒，讓使用者看清楚
+    }
+}
+
 
 function shuffle(array) {
     let currentIndex = array.length, randomIndex;
@@ -1804,14 +1872,11 @@ function renderQuiz() {
 	
 	const currentQ = questions[currentIndex];
     
-    // 3. 頂部工具列
-    
-	// 準備按鈕圖示與標題 (保持原本邏輯)
+    // 3. 準備頂部工具列
     const orderIcon = state.quiz.orderMode === 'random' ? 'fa-random' : 'fa-sort-numeric-down';
     const orderTitle = state.quiz.orderMode === 'random' ? '目前為隨機，點擊切換為依序' : '目前為依序，點擊切換為隨機';
     const orderColor = state.quiz.orderMode === 'random' ? 'text-indigo-500' : 'text-blue-600';
 
-    // 進度條的可點擊設定 (保持原本邏輯)
     const isSequential = state.quiz.orderMode === 'sequential';
     const progressClass = isSequential 
         ? "cursor-pointer hover:text-indigo-600 hover:bg-white/50 px-2 py-1 rounded transition-colors border-b border-dashed border-gray-400 hover:border-indigo-600 select-none" 
@@ -1819,9 +1884,73 @@ function renderQuiz() {
     const progressAction = isSequential ? `onclick="jumpToQuestion()"` : "";
     const progressTitle = isSequential ? "點擊可跳題" : "隨機模式無法跳題";
 
+    // --- (A) 冒險模式 HTML 生成邏輯 ---
+    let adventureHTML = '';
+    let adventureAnimFn = null;
+
+    if (state.adventure.enabled) {
+        
+        // --- 狀態 1: 慶祝模式 ---
+        if (state.adventure.isCelebrating) {
+            adventureHTML = `
+                <div class="w-full mt-4 -mb-4 relative h-20 select-none rounded-2xl bg-yellow-50 border-2 border-yellow-200 flex items-center justify-center overflow-hidden">
+                    
+                    <div class="absolute inset-0 bg-yellow-100/50 animate-pulse"></div>
+                    
+                    <div class="relative z-10 flex items-center gap-6 animate-bounce-subtle">
+                        <div class="text-6xl filter drop-shadow-lg transform -scale-x-100">${state.adventure.character}</div>
+                        <div class="text-4xl font-bold text-yellow-600 font-mono">YUMMY!</div>
+                        <div class="text-6xl filter drop-shadow-lg">${state.adventure.target}</div>
+                    </div>
+
+                    <div class="absolute top-2 left-4 text-2xl animate-spin-slow">✨</div>
+                    <div class="absolute bottom-2 right-4 text-2xl animate-pulse">🎉</div>
+                </div>
+            `;
+        } 
+        
+        // --- 狀態 2: 一般模式 (前進中) ---
+        else {
+            const getLeftPos = (step) => `calc(5% + ${(step / state.adventure.totalSteps) * 90}%)`;
+            const startPos = getLeftPos(state.adventure.prevStep);
+            const endPos = getLeftPos(state.adventure.currentStep);
+            const isMoving = state.adventure.currentStep > state.adventure.prevStep;
+            
+            state.adventure.prevStep = state.adventure.currentStep;
+
+            adventureHTML = `
+                <div class="w-full mt-4 -mb-4 relative h-10 select-none">
+                    
+                    <div class="absolute top-1/2 left-0 right-0 h-5 bg-indigo-50/50 rounded-full -translate-y-1/2"></div>
+
+                    <div class="absolute top-1/2 left-4 right-4 h-0 border-b-2 border-dashed border-indigo-200/60"></div>
+                    
+                    <div id="adv-char" class="absolute top-1/2 transform -translate-y-1/2 -translate-x-1/2 text-6xl filter drop-shadow-md z-10 will-change-left"
+                         style="left: ${startPos}; transition: left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);">
+                        ${state.adventure.character}
+                    </div>
+                    
+                    <div class="absolute top-1/2 right-[5%] transform -translate-y-1/2 translate-x-1/2 text-5xl filter drop-shadow-md z-0">
+                        ${state.adventure.target}
+                    </div>
+                </div>
+            `;
+
+            if (isMoving) {
+                adventureAnimFn = () => {
+                    const char = document.getElementById('adv-char');
+                    if (char) {
+                        setTimeout(() => { char.style.left = endPos; }, 20);
+                    }
+                };
+            }
+        }
+    }
+    // -------------------------
+
     let headerHTML = `
         <div class="flex flex-col items-center mb-6">
-            <div class="w-full flex justify-between items-center text-sm font-medium text-gray-500 bg-gray-100 px-3 py-2 rounded-full shadow-inner">
+            <div class="w-full flex justify-between items-center text-sm font-medium text-gray-500 bg-gray-100 px-3 py-2 rounded-full shadow-inner mb-2">
                 
                 <div class="flex items-center gap-2">
                     <button onclick="toggleQuizOrder()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm border border-gray-200 hover:bg-indigo-50 transition-colors active:scale-95 flex-shrink-0" title="${orderTitle}">
@@ -1834,6 +1963,10 @@ function renderQuiz() {
                 </div>
 
                 <div class="flex items-center gap-2">
+                    <button onclick="toggleAdventureMode()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm border border-gray-200 hover:bg-indigo-50 transition-colors active:scale-95" title="${state.adventure.enabled ? '關閉冒險模式' : '開啟冒險模式'}">
+                        <i class="fas fa-gamepad ${state.adventure.enabled ? 'text-amber-500' : 'text-green-500'}"></i>
+                    </button>
+
                     <button onclick="toggleQuizAudio()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-sm border border-gray-200 hover:bg-indigo-50 transition-colors active:scale-95" title="${state.quiz.autoPlayAudio ? '關閉自動發音' : '開啟自動發音'}">
                         <i class="fas ${state.quiz.autoPlayAudio ? 'fa-volume-up text-indigo-500' : 'fa-volume-mute text-gray-400'}"></i>
                     </button>
@@ -1842,11 +1975,14 @@ function renderQuiz() {
                         <i class="fas fa-font ${state.highlightVowels ? 'text-red-400' : 'text-gray-400'}"></i>
                     </button>
                     
-                    <button onclick="endQuiz()" class="text-red-500 hover:text-red-700 font-bold flex items-center gap-1 bg-white px-3 py-1 rounded-full shadow-sm border border-gray-200 hover:bg-red-50 active:scale-95 transition-all text-xs">
-                        <i class="fas fa-sign-out-alt"></i> <span class="hidden sm:inline">結束</span>
+                    <button onclick="endQuiz()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold flex items-center gap-2 px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all text-xs active:scale-95">
+                        <i class="fas fa-flag-checkered"></i> <span>結束</span>
                     </button>
                 </div>
             </div>
+
+            ${adventureHTML}
+            
         </div>`;
 
     // 4. 題目與結果回饋準備
@@ -1855,8 +1991,6 @@ function renderQuiz() {
     
     let fontClass = "";
     let breakClass = "";
-    
-    // 判斷是否為「填空題模式」(sentence)
     const isSpeechMode = (mode === 'sentence');
 
     if (mode === 'cn-en') {
@@ -1866,22 +2000,20 @@ function renderQuiz() {
     } else if (mode === 'en-cn') {
         if (subMode === 'match') {
              questionDisplayHTML = '';
-             fontClass = "hidden"; // 直接隱藏容器
+             fontClass = "hidden"; 
         } else {
              questionDisplayHTML = formatDisplayWord(currentQ.target.word);
              fontClass = "text-3xl md:text-4xl leading-tight text-center";
         }
         breakClass = "break-all";
     } else {
-        // --- 句子填空模式 (Speech Mode) ---
+        // --- 句子填空模式 ---
         let rawContent = "";
         
         if (subMode === 'order') {
             const shouldBlur = state.quiz.isFirstLastMode && state.quiz.status !== 'result';
             const blurClass = shouldBlur ? 'text-blur transition-all duration-200' : '';
-            
             rawContent = `<span class="${blurClass}">${currentQ.target.senTrans}</span>`;
-            
             fontClass = "text-xl md:text-2xl leading-relaxed"; 
             breakClass = "break-words";
         } else {
@@ -1912,12 +2044,14 @@ function renderQuiz() {
 
 		const sentenceToSpeak = currentQ.target.sentence.replace(/'/g, "\\'");
 
-		// 簡潔置中版 HTML
-        questionDisplayHTML = `
+        // 隱藏 Emoji 的邏輯：如果開啟冒險模式，就不顯示原本的大 Emoji
+		questionDisplayHTML = `
 			<div class="flex items-center justify-center gap-4 w-full mt-12 mb-2">
+                ${!state.adventure.enabled ? `
                 <div class="flex-shrink-0 text-3xl select-none transform scale-x-[-1] cursor-pointer hover:scale-110 transition-transform opacity-90" onclick="speak('${sentenceToSpeak}')">
                     ${currentQ.emoji}
-                </div>
+                </div>` : ''}
+                
                 <div class="font-bold text-gray-800 text-left cursor-pointer hover:text-indigo-600 transition-colors" onclick="speak('${sentenceToSpeak}')">
                      ${rawContent}
                 </div>
@@ -1925,22 +2059,15 @@ function renderQuiz() {
         `;
     }
 
-	// 選中狀態：白底、藍字、陰影、輕微放大 (不突兀的凸顯)
+	// 按鈕樣式設定
     const activeClass = "bg-white text-indigo-600 shadow-sm transform scale-105"; 
-    // 未選中狀態：灰字、滑鼠懸停變深
     const inactiveClass = "text-gray-400 hover:text-gray-600 hover:bg-gray-200";
-
-    // 輔助函式 1：通用按鈕樣式 (給難度數字用)
     const getBtnStyle = (condition) => condition ? activeClass : inactiveClass;
-    
-    // 輔助函式 2：模式切換按鈕專用 (保留 mode-btn-small 的排版設定，並疊加顏色樣式)
     const getModeBtnClass = (condition) => `mode-btn-small ${condition ? activeClass : inactiveClass}`;
 
-
-    // --- 1. 難度/設定按鈕區域 (左上角) ---
+    // --- 難度選擇區 (左上角) ---
     let difficultySelectorHTML = '';
     
-    // (A) 拼字模式 (中選英 - spell)
     if (mode === 'cn-en' && subMode === 'spell') {
         difficultySelectorHTML = `
              <div class="absolute top-4 left-4 z-20 flex items-center gap-1 bg-gray-100 rounded-lg p-1 shadow-inner">
@@ -1951,27 +2078,18 @@ function renderQuiz() {
                 <button onclick="setSpellingDifficulty(5)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${getBtnStyle(spellingDifficulty === 5)}">5</button>
              </div>
         `;
-    
-    // (B) 排序模式 (填空題 - order)
     } else if (mode === 'sentence' && subMode === 'order') {
         const isFL = state.quiz.isFirstLastMode;
         difficultySelectorHTML = `
              <div class="absolute top-4 left-4 z-20 flex items-center gap-1 bg-gray-100 rounded-lg p-1 shadow-inner">
                 <span class="text-[10px] font-bold text-gray-400 px-1 select-none">設定</span>
-                
-                <button onclick="toggleFirstLastMode()" class="w-8 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${getBtnStyle(isFL)}" title="首尾模式">
-                    &lt;&gt;
-                </button>
-                
+                <button onclick="toggleFirstLastMode()" class="w-8 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${getBtnStyle(isFL)}" title="首尾模式">&lt;&gt;</button>
                 <div class="w-px h-3 bg-gray-300 mx-1"></div>
-
                 <button onclick="setSentenceDifficulty(3)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${getBtnStyle(sentenceDifficulty === 3)}">3</button>
                 <button onclick="setSentenceDifficulty(4)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${getBtnStyle(sentenceDifficulty === 4)}">4</button>
                 <button onclick="setSentenceDifficulty(5)" class="w-6 h-6 flex items-center justify-center rounded-md text-xs font-bold transition-all ${getBtnStyle(sentenceDifficulty === 5)}">5</button>
              </div>
         `;
-    
-    // (C) 配對模式 (英選中 - match)
     } else if (mode === 'en-cn' && subMode === 'match') {
         difficultySelectorHTML = `
              <div class="absolute top-4 left-4 z-20 flex items-center gap-1 bg-gray-100 rounded-lg p-1 shadow-inner">
@@ -1984,13 +2102,8 @@ function renderQuiz() {
         `;
     }
 
-
-    // --- 2. 模式切換按鈕區域 (右上角) ---
-    // 這裡使用 getModeBtnClass 來確保所有模式的按鈕風格一致
-    
+    // --- 模式切換區 (右上角) ---
     let modeToggleHTML = '';
-    
-    // (A) 中選英 (CN-EN)
     if (mode === 'cn-en') {
         modeToggleHTML = `
              <div class="mode-toggle-pill">
@@ -1998,8 +2111,6 @@ function renderQuiz() {
                 <button onclick="setQuizSubMode('spell')" class="${getModeBtnClass(subMode === 'spell')}"><i class="fas fa-keyboard"></i> 拼字</button>
              </div>
         `;
-    
-    // (B) 填空題 (Sentence) [修正重點：原本這裡使用 .active class，現在改用 getModeBtnClass]
     } else if (mode === 'sentence') {
         modeToggleHTML = `
              <div class="mode-toggle-pill">
@@ -2007,8 +2118,6 @@ function renderQuiz() {
                 <button onclick="setQuizSubMode('order')" class="${getModeBtnClass(subMode === 'order')}"><i class="fas fa-sort"></i> 排序</button>
              </div>
         `;
-    
-    // (C) 英選中 (EN-CN) [修正重點：原本這裡使用 .active class，現在改用 getModeBtnClass]
     } else if (mode === 'en-cn') {
         modeToggleHTML = `
              <div class="mode-toggle-pill">
@@ -2017,7 +2126,29 @@ function renderQuiz() {
              </div>
         `;
     }
-	const bigEmojiHTML = (!isSpeechMode && !(mode === 'en-cn' && subMode === 'match')) ? `
+
+	// 大 Emoji 邏輯：冒險模式開啟時隱藏，否則顯示
+    // 這裡我們直接整合進 containerClass 的高度調整邏輯
+	const isMatchMode = (mode === 'en-cn' && subMode === 'match');
+    const isSpellMode = (mode === 'cn-en' && subMode === 'spell');
+    
+    let containerClass = "relative bg-white rounded-3xl shadow-sm mb-4 flex flex-col items-center justify-center border-b-4 border-indigo-100 ";
+    
+    if (isMatchMode) {
+        containerClass += "p-4 min-h-[65px]";
+    } else if (isSpellMode) {
+        containerClass += "p-5 md:p-6 min-h-[250px] md:justify-start md:pt-20"; 
+    } else {
+        // 如果冒險模式開啟，減少高度
+        if (state.adventure.enabled) {
+            containerClass += "p-4 min-h-[120px]"; 
+        } else {
+            containerClass += "p-5 md:p-6 min-h-[160px]"; 
+        }
+    }
+    
+    // 如果不是冒險模式，且不是配對模式，顯示原本的大 Emoji (絕對定位)
+    const bigEmojiHTML = (!isSpeechMode && !isMatchMode && !state.adventure.enabled) ? `
         <div onclick="speak('${currentQ.target.word}')" class="
             flex-shrink-0 flex items-center justify-center cursor-pointer group z-10 transition-transform active:scale-95
             w-16 h-16 md:w-24 md:h-24            
@@ -2030,22 +2161,6 @@ function renderQuiz() {
         </div>
     ` : '';
 
-	const isMatchMode = (mode === 'en-cn' && subMode === 'match');
-    const isSpellMode = (mode === 'cn-en' && subMode === 'spell');
-    
-    let containerClass = "relative bg-white rounded-3xl shadow-sm mb-4 flex flex-col items-center justify-center border-b-4 border-indigo-100 ";
-    
-    if (isMatchMode) {
-        containerClass += "p-4 min-h-[65px]";
-    } else if (isSpellMode) {
-        // --- 修改重點 ---
-        // 1. md:justify-start: 電腦版改為「靠上對齊」，不再垂直置中
-        // 2. md:pt-20: 電腦版增加頂部內距，讓中文題目往下移，避開頂部按鈕
-        // 3. min-h-[250px]: 稍微加高容器最小高度
-        containerClass += "p-5 md:p-6 min-h-[250px] md:justify-start md:pt-20"; 
-    } else {
-        containerClass += "p-5 md:p-6 min-h-[160px]";
-    }
     const contentAreaClass = isMatchMode
         ? "w-full flex flex-col items-center justify-center noselect hidden" 
         : "w-full flex flex-col items-center justify-center noselect text-center relative z-0"; 
@@ -2054,7 +2169,6 @@ function renderQuiz() {
         <div class="${containerClass}">
              ${difficultySelectorHTML}
              ${modeToggleHTML}
-             
              ${bigEmojiHTML}
               
               <div class="${contentAreaClass}">
@@ -2100,17 +2214,12 @@ function renderQuiz() {
     let optionsHTML = '';
 
 	if (mode === 'en-cn' && subMode === 'match') {
-	// --- 配對模式 (左右分欄版) ---
-        
-        // 1. 分離出左右兩邊的資料
         const leftItems = state.quiz.matching.items.filter(i => i.type === 'word');
         const rightItems = state.quiz.matching.items.filter(i => i.type === 'def');
 
-        // 2. 定義生成卡片 HTML 的輔助函式
         const createCardHTML = (item) => {
             const isSelected = state.quiz.matching.selectedId === item.id;
             const isMatched = item.matched;
-            // 英文顯示紅色母音，中文直接顯示
             let content = item.type === 'word' ? formatDisplayWord(item.text) : item.text;
             
             let cls = "match-card";
@@ -2123,26 +2232,18 @@ function renderQuiz() {
             </div>`;
         };
 
-        // 3. 生成左右兩欄的 HTML
         optionsHTML = `
             <div class="matching-container noselect mt-4">
                 <div class="matching-column">
                     ${leftItems.map(createCardHTML).join('')}
                 </div>
-                
                 <div class="matching-column">
                     ${rightItems.map(createCardHTML).join('')}
                 </div>
             </div>
         `;
-        
-        // (選擇性) 隱藏 Header 中的題目顯示區，保持介面乾淨
-        if(questionDisplayHTML) {
-             // 這裡不做事，維持前面邏輯設定的 '請找出所有對應的卡片'
-        }
 
     } else if (mode === 'cn-en' && subMode === 'spell') {
-        // --- 拼字模式 ---
         optionsHTML = `
             <div class="letter-pool noselect">
                 ${state.quiz.spelling.letterPool.map(item => `
@@ -2157,7 +2258,6 @@ function renderQuiz() {
         `;
 
 	} else if (mode === 'sentence' && subMode === 'order') {
-        // --- 排序模式 ---
         optionsHTML = `
             <div class="word-pool noselect">
                 ${state.quiz.ordering.wordPool.map((item, idx) => `
@@ -2172,11 +2272,7 @@ function renderQuiz() {
             </div>
         `;
 
-
 	} else if (status === 'answering') {
-        // --- 四選一 (作答中) ---
-        
-        // 1. 定義「要顯示」的按鍵提示字元 (僅顯示 ERDF)
         const displayKeys = ['E', 'R', 'D', 'F'];
 
         optionsHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
@@ -2186,14 +2282,12 @@ function renderQuiz() {
                 else if (mode === 'cn-en') content = formatDisplayWord(opt.word);
                 else content = opt.def;
                 
-                // 2. 取得對應的字元
                 const extraKey = displayKeys[idx] || '';
 
                 return `
-                <button onclick="handleAnswer(${opt.id})" class="p-3 md:p-6 rounded-xl text-xl font-medium border-2 bg-white border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 text-gray-700 active:scale-[0.98] shadow-sm hover:-translate-y-1 transition-all relative overflow-hidden break-all noselect">
+                <button onclick="handleAnswer(${opt.id})" class="p-3 md:p-6 rounded-xl text-xl font-medium border-2 bg-white border-gray-200 hover:border-indigo-400 hover:bg-indigo-50 text-gray-700 active:scale-[0.98] shadow-sm hover:-translate-y-1 transition-all relative overflow-hidden break-words noselect">
                     
                     <span class="key-hint">${idx + 1}</span>
-                    
                     <span class="absolute bottom-1.5 left-3 text-xs font-bold text-gray-400 select-none hidden md:block">${extraKey}</span>
                     
                     ${content}
@@ -2201,22 +2295,16 @@ function renderQuiz() {
             }).join('')}
         </div>`;
 	} else {
-         // --- 結果顯示 (Result State) ---
-         
 		if (mode === 'sentence' && subMode === 'choice') {
-             // 填空題結果顯示下一題按鈕 (保持不變)
              optionsHTML = `<button onclick="nextQuestion()" class="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-indigo-700 flex items-center justify-center gap-2 transition-transform active:scale-95 noselect">${currentIndex < questions.length - 1 ? '下一題' : '查看結果'} <i class="fas fa-chevron-right"></i></button>`;
          } else {
-             // 其他模式顯示結果選項
-             // 修改重點： gap-3 md:gap-4 和 p-3 md:p-6
              optionsHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                 ${currentQ.options.map((opt, idx) => {
                     let content = '';
                     if (mode === 'cn-en') content = formatDisplayWord(opt.word);
                     else content = opt.def;
 
-                    // 修改這裡：p-3 md:p-6
-                    let btnClass = "p-3 md:p-6 rounded-xl text-xl font-medium border-2 transition-all relative overflow-hidden break-all noselect ";
+                    let btnClass = "p-3 md:p-6 rounded-xl text-xl font-medium border-2 transition-all relative overflow-hidden break-words noselect ";
                     
                     if (opt.id === currentQ.target.id) btnClass += "bg-green-50 border-green-500 text-green-800 shadow-md transform scale-[1.02]";
                     else if (opt.id === selectedOption.id) btnClass += "bg-red-50 border-red-500 text-red-800";
@@ -2229,10 +2317,15 @@ function renderQuiz() {
 	
     container.innerHTML = headerHTML + optionsHTML;
     appRoot.appendChild(container);
+
+    // --- 執行冒險模式動畫 (Post-Render) ---
+    if (state.adventure.enabled && adventureAnimFn) {
+        adventureAnimFn();
+    }
 }
 
 function handleAnswer(optionId) {
-	if (checkSpamming()) return;
+    if (checkSpamming()) return;
     const currentQ = state.quiz.questions[state.quiz.currentIndex];
     const option = currentQ.options.find(o => o.id === optionId);
     state.quiz.selectedOption = option;
@@ -2241,11 +2334,17 @@ function handleAnswer(optionId) {
         speak(currentQ.target.word);
     }
     
-    if (option.id === currentQ.target.id) state.quiz.score++;
-    else state.quiz.wrongQuestions.push(currentQ.target);
+    if (option.id === currentQ.target.id) {
+        state.quiz.score++;
+        // --- 新增這行 ---
+        advanceAdventure(); // 答對前進
+        // ----------------
+    } else {
+        state.quiz.wrongQuestions.push(currentQ.target);
+    }
     
     state.quiz.status = 'result';
-    render();     
+    render(); // 這裡的 render 會觸發 UI 更新，角色就會移動
     
     if (state.quiz.mode !== 'sentence') {
         setTimeout(nextQuestion, 1000);
@@ -2547,6 +2646,7 @@ function checkSpellingInput(inputChar, btnId) {
             }
             
             state.quiz.score++;
+			advanceAdventure();
             state.quiz.status = 'result'; 
             render();
             setTimeout(nextQuestion, 1200);
@@ -2724,6 +2824,9 @@ function checkOrderingInput(selectedWord, btnId) {
         // 4. 檢查完成
         if (state.quiz.ordering.wordPool.length === 0) {
             state.quiz.score++;
+            
+            advanceAdventure(); // 拼完正確句子才算前進
+            
             state.quiz.status = 'result'; 
             render();
             
@@ -3478,14 +3581,26 @@ function getRandomEmoji() {
 // --- Global Keyboard Listener ---
 function initKeyboardListener() {
     document.addEventListener('keydown', (e) => {
-        // 1. 檢查是否有開啟任何視窗 (防止與依序模式的輸入框衝突)
+        // 1. 優先檢查是否有任何彈出視窗，若有則不執行後續任何鍵盤操作
         if (document.querySelector('.input-modal-overlay') || document.querySelector('.modal-overlay') || 
             document.getElementById('cooldown-overlay')) {
             return;
         }
 
-        // 2. 檢查是否在測驗頁面
-        if (!state.view.startsWith('quiz') || state.quiz.questions.length === 0 || state.quiz.isFinished) return;
+        // 【⭐ 修正點 Start ⭐】
+        // 2. 在指定視圖中，攔截空白鍵的預設滾動行為
+        const viewsToBlockSpaceScroll = ['quiz-cn', 'quiz-en', 'quiz-sen', 'story'];
+        if (e.key === ' ' && viewsToBlockSpaceScroll.includes(state.view)) {
+            // 阻止瀏覽器的預設行為 (例如：捲動頁面)
+            e.preventDefault();
+        }
+        // 【⭐ 修正點 End ⭐】
+
+
+        // 3. 檢查是否在測驗頁面，若不是則結束，避免影響其他頁面
+        if (!state.view.startsWith('quiz') || state.quiz.questions.length === 0 || state.quiz.isFinished) {
+            return;
+        }
 
         const currentQ = state.quiz.questions[state.quiz.currentIndex];
         
@@ -3496,20 +3611,14 @@ function initKeyboardListener() {
             
             const key = e.key.toLowerCase();
             
-            // 修改重點：同時支援三組按鍵
             const keyMap = {
-                // 數字鍵
                 '1': 0, '2': 1, '3': 2, '4': 3, 
-                // 左手鍵 (顯示在畫面上)
                 'e': 0, 'r': 1, 'd': 2, 'f': 3,
-                // 右手鍵 (隱藏功能)
                 'u': 0, 'i': 1, 'j': 2, 'k': 3  
             };
 
-            // 檢查是否在映射表中
             if (keyMap.hasOwnProperty(key)) {
                 const index = keyMap[key];
-                // 確保選項存在
                 if (currentQ.options && currentQ.options[index]) {
                     handleAnswer(currentQ.options[index].id);
                 }
@@ -3519,26 +3628,29 @@ function initKeyboardListener() {
         // --- 狀況 B: 拼字模式 (僅 中選英 - spell) ---
         if (state.quiz.status === 'answering' && 
             state.quiz.mode === 'cn-en' && state.quiz.subMode === 'spell') {
+            
+            if (checkSpamming()) return; // 防亂按機制
+
             const char = e.key.toLowerCase();
-            if (/^[a-z]$/.test(char)) {
+            
+            if (/^[a-z]$/.test(char) || char === ' ') { 
                 const btn = state.quiz.spelling.letterPool.find(item => item.char.toLowerCase() === char);
                 if (btn) {
+                    // 此處的 e.preventDefault() 已被上方的通用修正涵蓋，但保留也無妨
                     checkSpellingInput(btn.char, btn.id);
                 }
             }
         }
 
-        // --- 狀況 D: 排序模式 (僅 填空題 - order) [新增] ---
+        // --- 狀況 D: 排序模式 (僅 填空題 - order) ---
         if (state.quiz.status === 'answering' && 
             state.quiz.mode === 'sentence' && state.quiz.subMode === 'order') {
             
             const num = parseInt(e.key);
-            // 檢查是否為數字鍵 1-9
             if (!isNaN(num) && num >= 1 && num <= 9) {
                 const index = num - 1;
                 const pool = state.quiz.ordering.wordPool;
                 
-                // 檢查該索引是否有對應的單字按鈕
                 if (pool && pool[index]) {
                     const item = pool[index];
                     checkOrderingInput(item.text, item.id);
@@ -3548,17 +3660,16 @@ function initKeyboardListener() {
         
         // --- 狀況 C: 結果頁面 (Result State) ---
         if (state.quiz.status === 'result') {
-            
-            // 修改重點：只允許 Enter 或 空白鍵 (Space)
             if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault(); // 重要：防止按下空白鍵時網頁往下滑動
-                
-                // 無論是填空題(需手動)或其他模式(加速跳過倒數)，都執行下一題
+                // 此處的 e.preventDefault() 已被上方的通用修正涵蓋
                 nextQuestion();
             }
         }
     });
 }
+
+
+
 
 
 // --- Global Click Listener (處理點擊外部關閉選單) ---
