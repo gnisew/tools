@@ -12,6 +12,14 @@ const regexNumber = /(?<!\w)(tsh|chh|th|ph|kh|ts|ch|zh|sh|rh|ng|bb|gg|[bpmfvdtnl
 const regexZvs = /(?<!\w)(tsh|chh|th|ph|kh|ts|ch|zh|sh|rh|ng|bb|gg|[bpmfvdtnlgkhzcsjqxry])?(?:ng|[aeioumy]){1,3}(?:nnh|nnd|ng|nn|[mnbdgptkhr])?([zvsxfl])(?!\w)/i;
 
 
+//小注音檢測
+const regexBpmSmall =/[-]/i;
+//大注音檢測
+const regexBpmBig =/[ㄅ-ㆷ,兀,万,勺,廿]/i;
+//直注音檢測
+const regexBpmTiny =/[-]/i;
+
+
 // 和樂字母調轉數字調
 const holoZvsToNumber = (function() {
     const toneMap = { zz: '9', z: '2', s: '3', x: '5', v: '6', f: '7', l: '8' };
@@ -692,6 +700,95 @@ const holoTailoToIpa = (function() {
     }
 })();
 
+
+// Taiwanese Serif 舊字型編碼 轉 Unicode 台羅
+const holoTaiwaneseToTailuo = (function() {
+    // 定義靜態對應表 (只會初始化一次)
+    const charMap = {
+        // A 系列
+        "Ä": "Ā", "ä": "ā",
+        "Ā": "Ā", "ā": "ā",
+        "Ã": "A̍", "ã": "a̍",
+        "": "a̍", "": "A̍", // Private Use Area
+        "À": "À", "à": "à",
+        "Â": "Â", "â": "â",
+        "Á": "Á", "á": "á",
+        
+        // E 系列
+        "Ë": "Ē", "ë": "ē",
+        "Ē": "Ē", "ē": "ē",
+        "Ç": "E̍", "ç": "e̍",
+        "": "E̍", "": "e̍",
+        "È": "È", "è": "è",
+        "Ê": "Ê", "ê": "ê",
+        "É": "É", "é": "é",
+        
+        // I 系列
+        "‚": "Ī", "„": "ī", // 特殊符號對應
+        "Ī": "Ī", "ī": "ī",
+        "…": "i̍", "ƒ": "I̍",
+        "": "i̍", "": "I̍",
+        "Ì": "Ì", "ì": "ì",
+        "Î": "Î", "î": "î",
+        "Í": "Í", "í": "í",
+        
+        // M 系列
+        "˜": "m̄", "‹": "M̄",
+        "": "M̄", "": "m̄", "": "m̄",
+        "Œ": "M̍", "™": "m̍",
+        "": "M̍", "": "m̍", "": "M̍",
+        "–": "m̀", "‰": "M̀",
+        "": "M̀", "": "m̀",
+        "—": "m̂", "Š": "M̂",
+        "": "M̂", "": "m̂",
+        "ˆ": "Ḿ", "•": "ḿ",
+        "Ḿ": "Ḿ", "ḿ": "ḿ",
+        
+        // N 系列
+        "¤": "n̄", "Ÿ": "N̄",
+        "": "N̄", "": "n̄",
+        "Ñ": "N̍", "ñ": "n̍",
+        "": "N̍", "": "n̍", "": "n̍",
+        "›": "Ǹ", "¢": "ǹ",
+        "Ǹ": "Ǹ", "ǹ": "ǹ",
+        "£": "n̂", "œ": "N̂",
+        "": "N̂", "": "n̂",
+        "¡": "ń", "Ń": "Ń",
+        "ń": "ń", "š": "Ń",
+        
+        // O 系列
+        "Ö": "Ō", "ö": "ō",
+        "Ō": "Ō", "ō": "ō",
+        "Õ": "O̍", "õ": "o̍",
+        "": "O̍", "": "o̍", "": "O̍", "": "o̍",
+        "Ò": "Ò", "ò": "ò",
+        "Ô": "Ô", "ô": "ô",
+        "Ó": "Ó", "ó": "ó",
+        
+        // U 系列
+        "Ü": "Ū", "ü": "ū",
+        "Ū": "Ū", "ū": "ū",
+        "Ý": "U̍", "ý": "u̍",
+        "": "U̍", "": "u̍",
+        "Ù": "Ù", "ù": "ù",
+        "Û": "Û", "û": "û",
+        "Ú": "Ú", "ú": "ú"
+    };
+
+    // 返回實際執行的轉換函數
+    return function(text) {
+        if (!text) return "";
+        
+        let result = "";
+        // 遍歷字串中的每個字元
+        for (const char of text) {
+            // 如果在表中找到對應字元則替換，否則保持原樣
+            const mapped = charMap[char];
+            result += (mapped !== undefined) ? mapped : char;
+        }
+        return result;
+    };
+})();
 
 
 
@@ -2410,7 +2507,7 @@ const hakkaPinyinToBpm = (function() {
     };
 })();
 
-console.log(hakkaPinyinToBpm("ta va vi bbi"))
+
 // 客語注音轉拼音
 const hakkaBpmToPinyin = (function() {
 	const bpmData =`ㄧㄛㄥ	iong_ㄧㄨㄥ	iung_ㄧㄚㄍ	iag_ㄧㄝㄉ	ied_ㄧㄝㄣ	ien_ㄧㄚㄅ	iab_ㄧㄚㄇ	iam_ㄧㄛㄍ	iog_ㄧㄝㄅ	ieb_ㄧㄝㄇ	iem_ㄧㄝㄨ	ieu_ㄧㄨㄍ	iug_ㄧㄨㄣ	iun_ㄨㄚㄉ	uad_ㄨㄝㄉ	ued_ㄨㄝㄣ	uen_ㄧㄨㄧ	iui_ㄧㄛㄧ	ioi_ㄧㄨㄉ	iud_ㄧㄛㄣ	ion_ㄧㄤ	iang_ㄨㄤ	uang_ㄛㄥ	ong_ㄨㄥ	ung_ㄧㄠ	iau_ㄨㄞ	uai_ㄨㄢ	uan_ㄚㄅ	ab_ㄚㄉ	ad_ㄚㄍ	ag_ㄚㄇ	am_ㄝㄉ	ed_ㄝㄣ	en_ㄝㄨ	eu_ㄧㄉ	id_ㄧㄣ	in_ㄧㄨ	iu_ㄛㄉ	od_ㄛㄍ	og_ㄛㄧ	oi_ㄨㄉ	ud_ㄨㄍ	ug_ㄨㄣ	un_ㄝㄇ	em_ㄛㄣ	on_ㄝㄅ	eb_ㄧㄛ	io_ㄧㄚ	ia_ㄧㄅ	ib_ㄧㄝ	ie_ㄧㄇ	im_ㄨㄚ	ua_ㄨㄧ	ui_ㄘㄉ	ciid_ㄘㄇ	ciim_ㄘㄣ	ciin_ㄙㄅ	siib_ㄙㄉ	siid_ㄙㄇ	siim_ㄙㄣ	siin_ㄗㄅ	ziib_ㄗㄉ	ziid_ㄗㄇ	ziim_ㄗㄣ	ziin_ㄤ	ang_ㄞ	ai_ㄢ	an_ㄠ	au_ㄜ	er_ㄚ	a_ㄝ	e_ㄧ	i_ㄛ	o_ㄨ	u_兀	ng_ㄖ	rh_ㄓ	zh_ㄔ	ch_ㄕ	sh_ㄅ	b_ㄆ	p_ㄇ	m_ㄈ	f_ㄉ	d_ㄊ	t_ㄋ	n_ㄌ	l_ㄍ	g_ㄎ	k_ㄏ	h_ㄐ	j_ㄑ	q_ㄒ	x_万	v_ㄘ	cii_ㄙ	sii_ㄗ	zii_乜	ee_乜ㄇ	eem_ㄨㆮ	uainn_ㆮ	ainn_ㆩ	ann_ㄨㆩㄉ	uannd_ㆳ	inn_ㆲ	ong`;
@@ -2454,6 +2551,151 @@ const hakkaBpmToPinyin = (function() {
 
 
 
+const [bpmBigToSmall, bpmSmallToBig] = (function() {
+    const rawData = [
+        "ㄅ","","ㄆ","","ㄇ","","ㄈ","","ㄉ","","ㄊ","","ㄋ","","ㄌ","",
+        "ㄍ","","ㄎ","","ㄏ","","ㄐ","","ㄑ","","ㄒ","","ㄓ","","ㄔ","",
+        "ㄕ","","ㄖ","","ㄗ","","ㄘ","","ㄙ","","ㄧ","","ㄨ","","ㄩ","",
+        "ㄚ","","ㄛ","","ㄜ","","ㄝ","","ㄞ","","ㄟ","","ㄠ","","ㄡ","",
+        "ㄢ","","ㄣ","","ㄤ","","ㄥ","","ㄦ","","ㄪ","","ㄫ","","ㄬ","",
+        "ㆠ","","ㆣ","","ㆢ","","ㆡ","","ㆳ","","ㆫ","","ㆩ","","ㆦ","",
+        "ㆧ","","ㆤ","","ㆥ","","ㆮ","","ㆯ","","ㆬ","","ㆰ","","ㆱ","",
+        "ㆲ","","ㆭ","","勺","","廿","","工","","万","","兀",""
+    ];
+
+    const b2s = new Map();
+    const s2b = new Map();
+
+    // 建構映射表
+    for (let i = 0; i < rawData.length; i += 2) {
+        const big = rawData[i];
+        const small = rawData[i + 1];
+        if (!b2s.has(big)) {
+            b2s.set(big, small);
+        }
+        s2b.set(small, big);
+    }
+
+    // 轉換函數：大 -> 小
+    function toSmall(text) {
+        if (!text) return "";
+        let result = "";
+        for (const char of text) {
+            result += b2s.get(char) || char;
+        }
+        return result;
+    }
+
+    // 轉換函數：小 -> 大
+    function toBig(text) {
+        if (!text) return "";
+        let result = "";
+        for (const char of text) {
+            result += s2b.get(char) || char;
+        }
+        return result;
+    }
+
+    return [toSmall, toBig];
+})();
+
+
+
+
+const [kasuPinyinToBpmSmall, kasuBpmSmallToPinyin] = (function() {
+    const rawData = [
+        "ainn","","iang","","iong","","iung","","uang","","inn","",
+        "eeu","","een","","eem","","eed","","eeb","","enn","","onn","",
+        "ang","","iag","","ied","","ien","","ong","","ung","",
+        "iid","","iim","","iin","","iab","","iam","","iau","","iog","",
+        "ieb","","iem","","ieu","","iug","","iun","","uad","",
+        "uai","","uan","","ued","","uen","","iui","","ioi","",
+        "iud","","ion","","iib","ngo","",
+        "no","","","ab","","ad","","ag","","ai","",
+        "am","","an","","au","","ed","","en","","eu","","ee","","oo","",
+        "er","","id","","in","","iu","","od","","og","","oi","","ud","",
+        "ug","","un","","em","","ii","","on","","ui","","eb","","io","",
+        "ia","","ib","","ie","","im","","ua","","bb","","a","","e","",
+        "i","","o","","u","","ng","","rh","","r","","zh","","ch","","sh","",
+        "b","","p","","m","","f","","d","","t","","n","","l","","g","",
+        "k","","h","","j","","q","","x","","z","","c","","s","","v","",
+        
+        // === 新增：解決 si 吃掉 sin/sing 的問題，以及 zi/ci/si 的特殊對應 ===
+        // 長度較長的拼音會優先被匹配 (例如 zing 優先於 zi)
+        
+        // 1. 特殊聲母 (z,c,s 接 i)
+        "zi", "",
+        "ci", "",
+        "si", "",
+        
+        // 2. 特殊聲母 + in (使用 )
+        "zin", "",
+        "cin", "",
+        "sin", "",
+        
+        // 3. 特殊聲母 + ing (使用 )
+        "zing", "",
+        "cing", "",
+        "sing", ""
+    ];
+
+    const p2s = new Map(); // 拼音 -> 小注音
+    const s2p = new Map(); // 小注音 -> 拼音
+
+    for (let i = 0; i < rawData.length; i += 2) {
+        const pinyin = rawData[i];
+        const small = rawData[i + 1];
+        
+        // 建立 拼音 -> 小注音
+        p2s.set(pinyin, small);
+
+        // 建立 小注音 -> 拼音 (後面的設定會覆蓋前面的)
+        if (small) {
+            s2p.set(small, pinyin);
+        }
+    }
+
+    // ==========================================
+    // === 優先權強制設定 (手動覆寫反向對應) ===
+    // ==========================================
+    
+    // 1. 處理 oo 優先於 o (既有需求)
+    // 讓  轉回 oo
+    s2p.set("", "oo");
+    s2p.set("", "rh");
+    // 2. 處理 特殊聲母 轉回 z, c, s (新增需求)
+    // 覆蓋原本 rawData 中對應的 j, q, x
+    s2p.set("", "z");
+    s2p.set("", "c");
+    s2p.set("", "s");
+
+    // ==========================================
+
+    // 排序 Key，長度長的優先匹配
+    // 這確保了 'sing' (4字元) 會比 'si' (2字元) 先被轉換
+    const pKeys = Array.from(p2s.keys()).sort((a, b) => b.length - a.length);
+    const sKeys = Array.from(s2p.keys()).sort((a, b) => b.length - a.length);
+
+    // 建立正則表達式
+    const pRegex = new RegExp(pKeys.join('|'), 'g');
+    const sRegex = new RegExp(sKeys.join('|'), 'g');
+
+    // 拼音 -> 小注音
+    function toSmall(text) {
+        if (!text) return "";
+        return text.replace(pRegex, (match) => p2s.get(match));
+    }
+
+    // 小注音 -> 拼音
+    function toPinyin(text) {
+        if (!text) return "";
+        return text.replace(sRegex, (match) => s2p.get(match));
+    }
+
+    return [toSmall, toPinyin];
+})();
+
+
 
 //-----------------------------------//
 
@@ -2464,18 +2706,23 @@ const hakkaBpmToPinyin = (function() {
 	
 // 客語拼音轉注音
 function hakkaPinyinBpm(t){ 
-	console.log(t)
 	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	console.log(t)
-	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }	
-	console.log(t)
+	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
 		t = hakkaPinyinToBpm(t)
-		console.log(t)
+	return t;
+}
+
+// 客語拼音轉小注音
+function hakkaPinyinBpmSmall(t){ 
+	if (regexBpmBig.test(t)) {t = bpmBigToSmall(t) }	
+	t = hakkaPinyinBpm(t);
+	t = bpmBigToSmall(t);
 	return t;
 }
 
 // 客語注音轉拼音字尾調
 function hakkaBpmPinyinTone(t){ 
+	if (regexBpmSmall.test(t)) {t = bpmSmallToBig(t) }
 	t = hakkaBpmToPinyin(t);
 	return hakkaToneToFX(t);	
 }
@@ -2531,11 +2778,8 @@ function hakkaToneLetter(t){
 // 四縣教羅轉客拼字尾調
 function sixianPojEduTone(t){
 	t = sixianPojVowelToEdu(t);
-	console.log(t)
 	t = sixianPojConsonantToEdu(t);
-	console.log(t)
 	t = hakkaZvsToTone(t);
-	console.log(t)
 	return t;
 }
 
@@ -2702,11 +2946,32 @@ function holoZvsNumber(t){ return holoZvsToNumber(t); }
 function holoPojTailo(t){ return holoPojToTailo(t); }
 function holoIpaTailo(t){ return holoIpaToTailo(t); }
 
+
+function holoTaiwaneseTailuo(t){
+	t = holoTaiwaneseToTailuo(t);
+	return t;
+}
+
+
+
+
+
+
+
+
+
 function matsuPinyinBpm(t){
 	 if (regexLetter.test(t)) {t = letterToZvs(t) }
 	 if (regexTone.test(t)) {t = matsuToneToZvs(t) }
 	 if (regexNumber.test(t)) {t = matsuNumberToZvs(t) }
-	return matsuPinyinToBpm(t);
+	 t = matsuPinyinToBpm(t);
+	return t;
+}
+
+function matsuPinyinBpmSmall(t){
+	 t = matsuPinyinBpm(t)
+	 t = bpmBigSmall(t);	 
+	return t;
 }
 
 function matsuPinyinTone(t){
@@ -2739,16 +3004,20 @@ function matsuPinyinZvs(t){
 }
 
 function matsuBpmPinyinTone(t){ 
+	 if (regexBpmSmall.test(t)) {t = bpmSmallToBig(t) }
 	 t = mstsuToneToFX(t);
 	return matsuBpmToPinyin(t); }
+
 function matsuBpmPinyinNumber(t){ 
+	if (regexBpmSmall.test(t)) {t = bpmSmallToBig(t) }
 	t=matsuBpmToPinyin(t);
 	t=matsuToneToNumber(t);
 	return t; 
 }
 function matsuBpmPinyinZvs(t){ 
-	t=matsuBpmToPinyin(t);
-	t=matsuToneToZvs(t);
+	if (regexBpmSmall.test(t)) {t = bpmSmallToBig(t) }
+	t = matsuBpmToPinyin(t);
+	t = matsuToneToZvs(t);
 	return t; 
 }
 
@@ -2785,6 +3054,14 @@ function matsuBpmOriginalChangeTone(t){
 	return t;
 }
 
+function matsuBpmSmallOriginalChangeTone(t){
+	t = matsuBpmPinyinZvs(t);
+	t = matsuPinyinOriginalChangeZvs(t);
+	t = matsuPinyinBpm(t);
+	if (regexBpmBig.test(t)) {t = bpmBigToSmall(t) }	
+	return t;
+}
+
 
 function matsuToneLetter(t){
 	t = matsuToneToZvs(t)
@@ -2794,4 +3071,29 @@ function matsuNumberLetter(t){
 	t = matsuNumberToZvs(t)
 	return zvsToLetter(t);
 }
+
+
+function bpmBigSmall(t){
+	t = bpmBigToSmall(t)
+	return t;
+}
+function bpmSmallBig(t){
+	t = bpmSmallToBig(t)
+	return t;
+}
+
+function kasuBpmSmallPinyin(t){
+	if (regexBpmBig.test(t)) {t = bpmBigToSmall(t) }	
+	t = kasuBpmSmallToPinyin(t)
+	return t;
+}
+
+function kasuPinyinBpmSmall(t){
+	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
+	t = hakkaZvsToTone(t);
+	if (regexBpmBig.test(t)) {t = bpmBigToSmall(t) }
+	t = kasuPinyinToBpmSmall(t)
+	return t;
+}
+
 

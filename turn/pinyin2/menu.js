@@ -8,7 +8,10 @@ const APP_ID = "translateText"; // 每個不同的應用都要有不同的 APP_I
 const langSixian = `
 左邊選單	右邊選單	執行函數	左邊範例	右邊範例
 拼音	注音	hakkaPinyinBpm	hagˋ gaˊ	ㄏㄚㄍˋ ㄍㄚˊ
-注音	拼音字尾調	hakkaBpmPinyinTone	ㄏㄚㄍˋ ㄍㄚˊ	hagˋ gaˊ
+拼音	小注音	hakkaPinyinBpmSmall	hagˋ gaˊ	ˋ ˊ
+注音	拼音字尾調	hakkaBpmPinyinTone	ㄏㄚㄍˋ ㄍㄚˊ ˋ ˊ	hagˋ gaˊ hagˋ gaˊ
+注音	小注音	bpmBigSmall	ㄏㄚㄍˋ ㄍㄚˊ	ˋ ˊ
+注音	大注音	bpmSmallBig	ˋ ˊ	ㄏㄚㄍˋ ㄍㄚˊ
 拼音	字尾調	hakkaPinyinTone	hags gaz nginv	hagˋ gaˊ nginˇ
 拼音	字中調	hakkaPinyinLetter	hagˋ gaˊ nginˇ	hàg gá ngǐn
 拼音	字母調	hakkaPinyinZvs	hagˋ gaˊ nginˇ	hags gaz nginv
@@ -36,7 +39,10 @@ const langSixian = `
 const langHailu = `
 左邊選單	右邊選單	執行函數	左邊範例	右邊範例
 拼音	注音	hakkaPinyinBpm	aˋ aˊ	ㄚˋ ㄚˊ
-注音	拼音字尾調	hakkaBpmPinyinTone	ㄚˋ ㄚˊ	aˋ aˊ
+拼音	小注音	hakkaPinyinBpmSmall	aˋ	ˋ
+注音	拼音字尾調	hakkaBpmPinyinTone	ㄚˋ ˋ	aˋ aˋ
+注音	小注音	bpmBigSmall	ㄚˋ	ˋ
+注音	大注音	bpmSmallBig	ˋ	ㄚˋ
 拼音	字尾調	hakkaPinyinTone	az av as ax af	aˊ aˇ aˋ aˆ a⁺
 拼音	字中調	hakkaPinyinLetter	aˊ aˇ aˋ aˆ a⁺	á ǎ à â ā
 拼音	字母調	hakkaPinyinZvs	aˊ aˇ aˋ aˆ a⁺	az av as ax af
@@ -58,7 +64,10 @@ const langHailu = `
 const langDapu = `
 左邊選單	右邊選單	執行函數	左邊範例	右邊範例
 拼音	注音	hakkaPinyinBpm	aˋ aˊ	ㄚˋ ㄚˊ
-注音	拼音字尾調	hakkaBpmPinyinTone	ㄚˋ ㄚˊ	aˋ aˊ
+拼音	小注音	hakkaPinyinBpmSmall	aˋ	ˋ
+注音	拼音字尾調	hakkaBpmPinyinTone	ㄚˋ ˋ	aˋ aˋ
+注音	小注音	bpmBigSmall	ㄚˋ	ˋ
+注音	大注音	bpmSmallBig	ˋ	ㄚˋ
 拼音	字尾調	hakkaPinyinTone	az av as ax af	aˊ aˇ aˋ aˆ a⁺
 拼音	字中調	hakkaPinyinLetter	aˊ aˇ aˋ aˆ a⁺	á ǎ à â ā
 拼音	字母調	hakkaPinyinZvs	aˊ aˇ aˋ aˆ a⁺	az av as ax af
@@ -78,7 +87,10 @@ const langDapu = `
 const langRaoping = `
 左邊選單	右邊選單	執行函數	左邊範例	右邊範例
 拼音	注音	hakkaPinyinBpm	aˋ aˊ	ㄚˋ ㄚˊ
-注音	拼音字尾調	hakkaBpmPinyinTone	ㄚˋ ㄚˊ	aˋ aˊ
+拼音	小注音	hakkaPinyinBpmSmall	aˋ	ˋ
+注音	拼音字尾調	hakkaBpmPinyinTone	ㄚˋ ˋ	aˋ aˋ
+注音	小注音	bpmBigSmall	ㄚˋ	ˋ
+注音	大注音	bpmSmallBig	ˋ	ㄚˋ
 拼音	字尾調	hakkaPinyinTone	az av as ax af	aˊ aˇ aˋ aˆ a⁺
 拼音	字中調	hakkaPinyinLetter	aˊ aˇ aˋ aˆ a⁺	á ǎ à â ā
 拼音	字母調	hakkaPinyinZvs	aˊ aˇ aˋ aˆ a⁺	az av as ax af
@@ -93,9 +105,14 @@ const langRaoping = `
 詞彙本調	詞彙變調	raopingPinyinChange	denˊ lu⁺	den⁺ lu⁺
 `;
 
+
 // 詔安語言配置
 const langKasu = `
 左邊選單	右邊選單	執行函數	左邊範例	右邊範例
+拼音	注音	kasuPinyinBpmSmall	aˋ aˊ	ˋ ˊ
+注音	拼音字尾調	kasuBpmSmallPinyin	ㄚˋ ˋ	aˋ aˋ
+注音	小注音	bpmBigSmall	ㄚˋ	ˋ
+注音	大注音	bpmSmallBig	ˋ	ㄚˋ
 拼音	字尾調	hakkaPinyinTone	az av as ax af	aˊ aˇ aˋ aˆ a⁺
 拼音	字中調	hakkaPinyinLetter	aˊ aˇ aˋ aˆ a⁺	á ǎ à â ā
 拼音	字母調	hakkaPinyinZvs	aˊ aˇ aˋ aˆ a⁺	az av as ax af
@@ -128,7 +145,7 @@ const langHolo = `
 字母調	數字調	holoZvsNumber	Tsiaus-an Kheh-uef tif Lunf-pues	Tsiau3-an1 Kheh4-ue7 ti7 Lun7-pue3
 教羅	台羅	holoPojTailo	Chiàu-an Kheh-oē tī Lūn-poè	Tsiàu-an Kheh-uē tī Lūn-puè
 國際音標	台羅	holoIpaTailo	ʦiau3 an1 kʰeʔ4 ue7 ti7 lun7 pue3	tsiàu an kheh uē tī lūn puè
-國際音標	台羅數字	holoIpaNumber	ʦiau3 an1 kʰeʔ4 ue7 ti7 lun7 pue3	tsiau3 an1 kheh4 ue7 ti7 lun7 pue3
+TaiwaneseSerif	台羅	holoTaiwaneseTailuo	të	tē
 `;
 
 
@@ -136,6 +153,7 @@ const langHolo = `
 const langMatsu = `
 左邊選單	右邊選單	執行函數	左邊範例	右邊範例
 拼音	注音	matsuPinyinBpm	ma⁺ tsu⁺	ㄇㄚ⁺ ㄗㄨ⁺
+拼音	小注音	matsuPinyinBpmSmall	ma⁺ tsu⁺	⁺ ⁺
 拼音	拼音(尾調形)	matsuPinyinTone	ma⁺ tsu⁺	ma⁺ tsu⁺
 拼音	拼音(數字調)	matsuPinyinNumber	ma⁺ tsu⁺	ma2 tsu2
 拼音	拼音(字中調)	matsuPinyinLetter	ma⁺ tsu⁺	mā tsū
@@ -146,7 +164,8 @@ const langMatsu = `
 注音	拼音(字母調)	matsuBpmPinyinZvs	ㄇㄚ⁺ ㄗㄨ⁺	maf tsuf
 本音拼音	變音(尾調形)	matsuPinyinOriginalChangeTone	ma⁺ tsu⁺	maˊ ju⁺
 本音拼音	變音(字母調)	matsuPinyinOriginalChangeZvs	ma⁺ tsu⁺	maz juf
-本音注音	變音(尾調形)	matsuBpmOriginalChangeTone	ㄇㄚ⁺ ㄗㄨ⁺	ㄇㄚˊ ㄖㄨ⁺
+本音注音	大注音變音(尾調形)	matsuBpmOriginalChangeTone	ㄇㄚ⁺ ㄗㄨ⁺	ㄇㄚˊ ㄖㄨ⁺
+本音注音	小注音變音(尾調形)	matsuBpmSmallOriginalChangeTone	⁺ ⁺	ˊ ⁺
 拼音(數字調)	尾調形	matsuNumberTone	ma2 tsu2	ma⁺ tsu⁺
 拼音(數字調)	字中調	matsuNumberLetter	ma2 tsu2	mā tsū
 拼音(數字調)	字母調	matsuNumberZvs	ma2 tsu2	maf tsuf

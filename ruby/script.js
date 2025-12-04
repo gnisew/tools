@@ -366,17 +366,41 @@ function alignByClauses({
     mode = 'view',
     annotationMode = 'char', // 'char' | 'word'
     phoneticDisplayMode = 'pinyin'
-}) {
+	}) {
     const container = document.createElement('div');
     container.className = 'line-wrap';
 
     // 取得拼音/注音顯示文字的輔助函式
     const getDisplayText = (py) => {
+		
+        // 針對 詔安 (kasu) 語言的特殊處理
+        if (currentLanguageKey === 'kasu') {
+			
+            // 若為「顯示注音」模式，使用專用的轉換函式 (kasuPinyinToBpmSmall)
+            if (phoneticDisplayMode === 'zhuyin' && typeof kasuPinyinToBpmSmall === 'function') {
+                return kasuPinyinToBpmSmall(py);
+            }
+            // 若為「顯示拼音」模式，嘗試將可能存在的注音轉回拼音 (kasuBpmSmallToPinyin)
+            if (phoneticDisplayMode === 'pinyin' && typeof kasuBpmSmallToPinyin === 'function') {
+                return kasuBpmSmallToPinyin(py);
+            }
+        }else if (currentLanguageKey === 'matsu') { // 馬祖
+            if (phoneticDisplayMode === 'zhuyin' && py) {
+                return matsuPinyinToBpm(py);	
+            }
+            if (phoneticDisplayMode === 'pinyin' && py) {
+                return matsuBpmToPinyin(py);
+            }
+        }
+
+        // 其他語言或預設行為：若為注音模式，使用通用的拼音轉注音；要再排除閩南語
         if (phoneticDisplayMode === 'zhuyin' && py) {
             return convertPinyinToZhuyin(py);
         }
+        // 預設回傳原拼音
         return py;
     };
+
 
     // 處理一個子句的核心函式
     const processClause = (hTokens, pSegSyls) => {
@@ -2702,5 +2726,101 @@ const arr_pz = ["ainn","","iang","","iong","","iung","�
 document.getElementById('btnHanziToPinyin').addEventListener('click', () => {
   hanziToPinyin();
 });
+
+
+
+
+const [kasuPinyinToBpmSmall, kasuBpmSmallToPinyin] = (function() {
+    const rawData = [
+        "ainn","","iang","","iong","","iung","","uang","","inn","",
+        "eeu","","een","","eem","","eed","","eeb","","enn","","onn","",
+        "ang","","iag","","ied","","ien","","ong","","ung","",
+        "iid","","iim","","iin","","iab","","iam","","iau","","iog","",
+        "ieb","","iem","","ieu","","iug","","iun","","uad","",
+        "uai","","uan","","ued","","uen","","iui","","ioi","",
+        "iud","","ion","","iib","ngo","",
+        "no","","","ab","","ad","","ag","","ai","",
+        "am","","an","","au","","ed","","en","","eu","","ee","","oo","",
+        "er","","id","","in","","iu","","od","","og","","oi","","ud","",
+        "ug","","un","","em","","ii","","on","","ui","","eb","","io","",
+        "ia","","ib","","ie","","im","","ua","","bb","","a","","e","",
+        "i","","o","","u","","ng","","rh","","r","","zh","","ch","","sh","",
+        "b","","p","","m","","f","","d","","t","","n","","l","","g","",
+        "k","","h","","j","","q","","x","","z","","c","","s","","v","",
+        
+        // === 新增：解決 si 吃掉 sin/sing 的問題，以及 zi/ci/si 的特殊對應 ===
+        // 長度較長的拼音會優先被匹配 (例如 zing 優先於 zi)
+        
+        // 1. 特殊聲母 (z,c,s 接 i)
+        "zi", "",
+        "ci", "",
+        "si", "",
+        
+        // 2. 特殊聲母 + in (使用 )
+        "zin", "",
+        "cin", "",
+        "sin", "",
+        
+        // 3. 特殊聲母 + ing (使用 )
+        "zing", "",
+        "cing", "",
+        "sing", ""
+    ];
+
+    const p2s = new Map(); // 拼音 -> 小注音
+    const s2p = new Map(); // 小注音 -> 拼音
+
+    for (let i = 0; i < rawData.length; i += 2) {
+        const pinyin = rawData[i];
+        const small = rawData[i + 1];
+        
+        // 建立 拼音 -> 小注音
+        p2s.set(pinyin, small);
+
+        // 建立 小注音 -> 拼音 (後面的設定會覆蓋前面的)
+        if (small) {
+            s2p.set(small, pinyin);
+        }
+    }
+
+    // ==========================================
+    // === 優先權強制設定 (手動覆寫反向對應) ===
+    // ==========================================
+    
+    // 1. 處理 oo 優先於 o (既有需求)
+    // 讓  轉回 oo
+    s2p.set("", "oo");
+    s2p.set("", "rh");
+    // 2. 處理 特殊聲母 轉回 z, c, s (新增需求)
+    // 覆蓋原本 rawData 中對應的 j, q, x
+    s2p.set("", "z");
+    s2p.set("", "c");
+    s2p.set("", "s");
+
+    // ==========================================
+
+    // 排序 Key，長度長的優先匹配
+    // 這確保了 'sing' (4字元) 會比 'si' (2字元) 先被轉換
+    const pKeys = Array.from(p2s.keys()).sort((a, b) => b.length - a.length);
+    const sKeys = Array.from(s2p.keys()).sort((a, b) => b.length - a.length);
+
+    // 建立正則表達式
+    const pRegex = new RegExp(pKeys.join('|'), 'g');
+    const sRegex = new RegExp(sKeys.join('|'), 'g');
+
+    // 拼音 -> 小注音
+    function toSmall(text) {
+        if (!text) return "";
+        return text.replace(pRegex, (match) => p2s.get(match));
+    }
+
+    // 小注音 -> 拼音
+    function toPinyin(text) {
+        if (!text) return "";
+        return text.replace(sRegex, (match) => s2p.get(match));
+    }
+
+    return [toSmall, toPinyin];
+})();
 
 
