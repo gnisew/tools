@@ -100,6 +100,7 @@ const btnLanguage = $('#btnLanguage');
 const currentLanguageName = $('#currentLanguageName');
 const languageMenu = $('#languageMenu');
 const mainTitle = $('#mainTitle');
+const btnHanziToPinyinContainer = $('#btnHanziToPinyinContainer');
 
 // 模式切換
 const btnModeView = document.getElementById('btnModeView');
@@ -225,6 +226,15 @@ const toCharArray = (str) => Array.from(str || '');
 const isPunct = (ch) => PUNCTS.has(ch);
 const isWhitespace = (ch) => WHITESPACES.has(ch);
 const isLineBreak = (ch) => ch === '\r' || ch === '\n';
+
+
+
+const actBracket = $('#actHanziPinyinBracket');
+
+actBracket?.addEventListener('click', () => {
+    hanziToPinyin('bracket'); 
+    menuHanzi.classList.add('hidden');
+});
 
 // 切分：漢字（依句末/逗號/換行）
 function segmentHanziByClauses(str) {
@@ -738,22 +748,33 @@ function setInputMode(newMode, isInitialLoad = false) {
         btnModeHanziToPinyin.classList.add('active');
         btnModePinyinToHanzi.classList.remove('active');
 
-        // 調整輸入框順序 (漢字在上，拼音在下)
+        // 調整輸入框順序
         textareasContainer.classList.remove('flex-col-reverse');
 
-        // 顯示/隱藏對應的轉換按鈕 (下方欄位是拼音，故顯示「漢字轉拼音」)
-        btnHanziToPinyin.classList.remove('hidden');
+        // 【修改重點】顯示「漢字轉拼音」的整組容器，隱藏「拼音轉漢字」按鈕
+        if (btnHanziToPinyinContainer) {
+            btnHanziToPinyinContainer.classList.remove('hidden');
+        } else {
+            // 相容舊代碼：如果還沒改 HTML ID，至少隱藏舊按鈕
+            btnHanziToPinyin.classList.remove('hidden');
+        }
         btnPinyinToHanzi.classList.add('hidden');
+
     } else { // 'pinyin-to-hanzi'
         // 更新分頁按鈕樣式
         btnModePinyinToHanzi.classList.add('active');
         btnModeHanziToPinyin.classList.remove('active');
 
-        // 調整輸入框順序 (拼音在上，漢字在下)
+        // 調整輸入框順序
         textareasContainer.classList.add('flex-col-reverse');
 
-        // 顯示/隱藏對應的轉換按鈕 (下方欄位是漢字，故顯示「拼音轉漢字」)
-        btnHanziToPinyin.classList.add('hidden');
+        // 【修改重點】隱藏「漢字轉拼音」的整組容器，顯示「拼音轉漢字」按鈕
+        if (btnHanziToPinyinContainer) {
+            btnHanziToPinyinContainer.classList.add('hidden');
+        } else {
+             // 相容舊代碼
+            btnHanziToPinyin.classList.add('hidden');
+        }
         btnPinyinToHanzi.classList.remove('hidden');
     }
 
@@ -850,7 +871,7 @@ function render() {
 
     const hasProblems = PROBLEMS.length > 0;
     // 選取「檢視/編輯」容器
-    const segControl = document.getElementById('modeToggleContainer');
+    const segControl = $('#modeToggleContainer');
 
     if (issueBar) {
         issueBar.classList.toggle('hidden', !hasProblems || !isEdit);
@@ -1143,10 +1164,10 @@ function attachEditHandlers() {
             const editor = document.createElement('div');
             editor.className = 'inline-editor';
             editor.innerHTML = `
-            <input type="text" class="ed-h" placeholder="漢字" value="${escapeAttr(curH)}">
-            <input type="text" class="ed-p" placeholder="拼音（空白分隔）" value="${escapeAttr(curP)}">
+            <input type="text" class="ed-h" placeholder="漢字" value="${escapeAttr(curH)}" spellcheck="false" autocorrect="off" autocapitalize="off">
+            <input type="text" class="ed-p" placeholder="拼音（空白分隔）" value="${escapeAttr(curP)}" spellcheck="false" autocorrect="off" autocapitalize="off">
             <div class="actions">
-				${createToneConverterHTML()}
+                ${createToneConverterHTML()}
               <button type="button" class="btn cancel">取消</button>
               <button type="button" class="btn save">儲存</button>
             </div>
@@ -1210,11 +1231,11 @@ function showWordUnitEditor(wordUnitEl) {
 
     editor.innerHTML = `
         <div class="space-y-2">
-            <input type="text" class="ed-h-word" value="${escapeAttr(originalHanzi)}" placeholder="詞彙">
-            <input type="text" class="ed-p-word" value="${escapeAttr(originalPinyin)}" placeholder="拼音">
+            <input type="text" class="ed-h-word" value="${escapeAttr(originalHanzi)}" placeholder="詞彙" spellcheck="false" autocorrect="off" autocapitalize="off">
+            <input type="text" class="ed-p-word" value="${escapeAttr(originalPinyin)}" placeholder="拼音" spellcheck="false" autocorrect="off" autocapitalize="off">
         </div>
         <div class="actions">
-			${createToneConverterHTML()} 
+            ${createToneConverterHTML()} 
             <button type="button" class="btn cancel">取消</button>
             <button type="button" class="btn save">儲存</button>
         </div>
@@ -1329,18 +1350,18 @@ function showWordEditor(rubyEl, hIndex, wordIndex) {
 
     editor.innerHTML = `
         <div class="space-y-2">
-            <input type="text" class="ed-h-word" value="${escapeAttr(originalHanzi)}" placeholder="字">
-            <input type="text" class="ed-p-word" value="${escapeAttr(originalPinyin)}" placeholder="音">
+            <input type="text" class="ed-h-word" value="${escapeAttr(originalHanzi)}" placeholder="字" spellcheck="false" autocorrect="off" autocapitalize="off">
+            <input type="text" class="ed-p-word" value="${escapeAttr(originalPinyin)}" placeholder="音" spellcheck="false" autocorrect="off" autocapitalize="off">
         </div>
         <div class="actions">
-			${createToneConverterHTML()} 
+            ${createToneConverterHTML()} 
             <button type="button" class="btn cancel">取消</button>
             <button type="button" class="btn save">儲存</button>
         </div>
     `;
 
     document.body.appendChild(editor);
-    updateAllToneConverterUIs(); // <-- ★ 在此處新增呼叫
+    updateAllToneConverterUIs();
 
     const rect = rubyEl.getBoundingClientRect();
     editor.style.left = `${window.scrollX + rect.left}px`;
@@ -1349,12 +1370,11 @@ function showWordEditor(rubyEl, hIndex, wordIndex) {
     const pinyinField = editor.querySelector('.ed-p-word');
     pinyinField.focus();
 
-    // --- START: 新增的取消按鈕事件綁定 ---
+    // 取消按鈕事件綁定 ---
     editor.querySelector('.cancel').addEventListener('click', (e) => {
-        e.stopPropagation(); // 避免觸發其他點擊事件
-        closeWordEditor();   // 呼叫關閉編輯器的函式
+        e.stopPropagation();
+        closeWordEditor();
     });
-    // --- END: 新增的取消按鈕事件綁定 ---
 
     // --- START: 採用使用者建議的「從結果回寫」新邏輯 ---
     editor.querySelector('.save').addEventListener('click', (e) => {
@@ -1635,9 +1655,9 @@ btnResetFont.addEventListener('click', () => {
 
 // 綁定模式切換與提示（集中一次綁定，避免重複宣告）
 (function bindModeControls() {
-    const btnModeView = document.getElementById('btnModeView');
-    const btnModeEdit = document.getElementById('btnModeEdit');
-    const issueHint = document.getElementById('issueHint');
+    const btnModeView = $('#btnModeView');
+    const btnModeEdit = $('#btnModeEdit');
+    const issueHint = $('#issueHint');
     btnModeView?.addEventListener('click', () => {
         mode = 'view';
         btnModeView.classList.add('active');
@@ -1673,7 +1693,7 @@ btnPhonetics.addEventListener('click', (e) => {
     phoneticsMenu.classList.toggle('hidden');
 });
 
-document.getElementById('actWordTones').addEventListener('click', () => {
+$('#actWordTones').addEventListener('click', () => {
     convertTonesInResult();
     toast('已轉寫結果區的調號為 Word 適用格式');
     phoneticsMenu.classList.add('hidden');
@@ -1701,7 +1721,7 @@ btnClear.addEventListener('click', () => {
     issueBar.classList.add('hidden');
     updateIssueBar();
 
-    const segControl = document.getElementById('modeToggleContainer');
+    const segControl = $('#modeToggleContainer');
     if (segControl) {
         segControl.classList.remove('bg-rose-100');
         segControl.classList.add('bg-slate-100');
@@ -2406,6 +2426,22 @@ function updateTitles() {
     };
 }
 
+// ==========================================
+// 控制「原始拼音」按鈕的可見性 (全域函數)
+// ==========================================
+function updateRawButtonVisibility() {
+    // 每次執行時重新抓取按鈕，確保一定抓得到
+    const actRaw = document.getElementById('actHanziToPinyinRaw');
+    if (!actRaw) return;
+    
+    // 檢查全域變數 currentLanguageKey
+    if (typeof currentLanguageKey !== 'undefined' && currentLanguageKey === 'kasu') {
+        actRaw.classList.remove('hidden'); 
+    } else {
+        actRaw.classList.add('hidden');
+    }
+}
+
 /**
  * 處理語言切換的邏輯
  * @param {string} newLangKey - 使用者選擇的新語言鍵
@@ -2435,6 +2471,7 @@ function switchLanguage(newLangKey) {
     updateLanguageUI();
     updateTitles();
     loadLanguageDatabase(newLangKey); 
+	updateRawButtonVisibility();
     
     btnClear.click();
     toast(`已切換至 ${LANGUAGES[newLangKey].name}`);
@@ -2574,50 +2611,7 @@ function switchLanguage(newLangKey) {
 
 
 
-    const btnTogglePunctuation = document.getElementById('btnTogglePunctuation');
-    if (btnTogglePunctuation) {
-        const fullToHalf = {
-            '，': ',', '。': '.', '？': '?', '！': '!', '；': ';', 
-            '：': ':', '（': '(', '）': ')', '、': ','
-        };
-        const halfToFull = {
-            ',': '，', '.': '。', '?': '？', '!': '！', ';': '；', 
-            ':': '：', '(': '（', ')': '）'
-        };
-
-        const fullWidthRegex = new RegExp(Object.keys(fullToHalf).join('|'), 'g');
-        const halfWidthRegex = /(?<!\.)\.(?!\.)|[\,\?\!\;\:\(\)]/g;
-
-        btnTogglePunctuation.addEventListener('click', () => {
-            const currentText = pinyinInput.value;
-            if (!currentText) {
-                toast('拼音區沒有內容可轉換。');
-                return;
-            }
-
-            const fullWidthPattern = /[，。？！；：（）、]/;
-            
-            if (fullWidthPattern.test(currentText)) {
-                // --- 動作：全形轉半形 ---
-                let newText = currentText.replace(fullWidthRegex, match => fullToHalf[match]);
-                
-                // 轉換後，在標點和後方文字之間補上空格 (例如："，ngin" -> ", ngin")
-                newText = newText.replace(/([,\.\?!;\:\(\)])([a-zA-Z0-9])/g, '$1 $2');
-                
-                pinyinInput.value = newText;
-                toast('標點已轉換為半形');
-            } else {
-                // --- 動作：半形轉全形 ---
-                let newText = currentText.replace(halfWidthRegex, match => halfToFull[match] || match);
-                
-                // 轉換後，移除全形標點前後的空格 (例如：" ， ngin" -> "，ngin")
-                newText = newText.replace(/\s*([，。？！；：（）、])\s*/g, '$1');
-
-                pinyinInput.value = newText;
-                toast('標點已轉換為全形');
-            }
-        });
-    }
+ 
 
     // --- START: 字體切換功能 (最終修復版) ---
     if (btnFontFamily && fontFamilyPopover) {
@@ -2663,10 +2657,165 @@ function switchLanguage(newLangKey) {
     }
     // --- END: 字體切換功能 ---
 
+
+	// ==========================================
+	// 下拉選單與空格斷詞 (FMM演算法)
+	// ==========================================
+
+	// 1. 選單控制邏輯
+	const btnMenuToggle = document.getElementById('btnHanziToPinyinMenuToggle');
+	const menuHanzi = document.getElementById('menuHanziToPinyin');
+	const actSpaceSeg = document.getElementById('actSpaceSegmentation');
+	const actDefault = document.getElementById('actHanziToPinyin');
+
+	// 點擊小三角形切換選單顯示
+	btnMenuToggle?.addEventListener('click', (e) => {
+		e.stopPropagation();
+		// 關閉其他可能開啟的選單
+		document.querySelectorAll('.popover').forEach(p => p.classList.add('hidden'));
+		menuHanzi.classList.toggle('hidden');
+	});
+
+	// 點擊「漢字轉拼音」選項 (執行預設功能並關閉選單)
+	actDefault?.addEventListener('click', () => {
+		hanziToPinyin();
+		menuHanzi.classList.add('hidden');
+	});
+
+	// 點擊「空格斷詞」選項
+	actSpaceSeg?.addEventListener('click', () => {
+		segmentHanzi(); // 執行斷詞函數
+		menuHanzi.classList.add('hidden');
+	});
+
+	// 點擊頁面其他地方關閉選單
+	document.addEventListener('click', (e) => {
+		if (menuHanzi && !menuHanzi.contains(e.target) && !btnMenuToggle.contains(e.target)) {
+			menuHanzi.classList.add('hidden');
+		}
+	});
+
+	// 取得新按鈕
+	const actRaw = document.getElementById('actHanziToPinyinRaw');
+
+	// 1. 綁定點擊事件
+	actRaw?.addEventListener('click', () => {
+		hanziToPinyin('raw'); // 呼叫時帶入 'raw' 參數
+		menuHanzi.classList.add('hidden');
+	});
+
+	// 2. 核心函數：空格斷詞 (使用正向最大匹配法 FMM)
+	function segmentHanzi() {
+		const text = hanziInput.value;
+		const pinyinOutput = document.getElementById('pinyinInput');
+		const btn = document.getElementById('actSpaceSegmentation'); // 這是選單裡的按鈕 ID
+
+		// 1. 安全地獲取資料庫 (同時支援 window.pinyinMap 和全域 pinyinMap)
+		// 這是為了防止 "語言資料庫尚未載入" 的錯誤
+		const map = window.pinyinMap || (typeof pinyinMap !== 'undefined' ? pinyinMap : null);
+
+		// 2. 基本檢查
+		if (!text) {
+			toast('請先在漢字區輸入文字');
+			return;
+		}
+
+		if (!map || map.size === 0) {
+			toast('錯誤：語言資料庫尚未載入。請確認 hanzitopinyin.js 中已加入 "window.pinyinMap = pinyinMap;"');
+			console.error("無法讀取 pinyinMap。請檢查 hanzitopinyin.js 是否已修改。");
+			return;
+		}
+
+		// 3. UI 狀態：顯示「處理中」並鎖定按鈕
+		// 保存原始按鈕內容以便稍後還原
+		let originalBtnContent = '';
+		if (btn) {
+			originalBtnContent = btn.innerHTML;
+			// 使用 Tailwind 的 animate-spin 讓圖示旋轉
+			btn.innerHTML = `
+				<span class="material-symbols-outlined text-[18px] text-orange-500 animate-spin">progress_activity</span> 
+				<span>處理中...</span>
+			`;
+			btn.disabled = true;
+		}
+
+		// 4. 使用 setTimeout 延遲執行，讓瀏覽器有時間先渲染 UI (防凍結)
+		setTimeout(() => {
+			const startTime = performance.now(); // 計時開始
+
+			// --- 核心演算法：正向最大匹配法 (FMM) ---
+			
+			// A. 計算資料庫中最長詞彙的長度
+			let maxLen = 0;
+			for (const key of map.keys()) {
+				if (key.length > maxLen) maxLen = key.length;
+			}
+
+			// B. 開始掃描
+			let i = 0;
+			const len = text.length;
+			const resultTokens = [];
+
+			while (i < len) {
+				let matched = false;
+				
+				// 從最大可能長度開始嘗試匹配，不能超過剩餘字串長度
+				let currentMax = Math.min(maxLen, len - i);
+				
+				for (let l = currentMax; l >= 1; l--) {
+					const sub = text.substr(i, l);
+					
+					// 檢查是否在資料庫中
+					if (map.has(sub)) {
+						resultTokens.push(sub);
+						i += l; // 跳過已匹配的長度
+						matched = true;
+						break; // 找到最長匹配，跳出內部迴圈
+					}
+				}
+				
+				// 如果都沒有匹配 (例如標點符號、或不在字典裡的罕用字)
+				if (!matched) {
+					resultTokens.push(text[i]); // 將單字作為一個 token
+					i++;
+				}
+			}
+
+			// --- 演算法結束 ---
+
+			// 5. 輸出結果
+			if (pinyinOutput) {
+				let raw = resultTokens.join(' ');
+				let lines = raw.split('\n').map(line => {
+					let processed = line.replace(/ +/g, ' ');
+					processed = processed.replace(/^ +| +$/g, '');
+					if (processed.length > 0) {
+						return ' ' + processed + ' ';
+					}
+					return processed;
+				});
+				pinyinOutput.value = lines.join('\n');
+			}
+
+			// 6. 恢復 UI 狀態
+			if (btn) {
+				btn.innerHTML = originalBtnContent;
+				btn.disabled = false;
+			}
+
+			// 7. 顯示完成訊息
+			const endTime = performance.now();
+			const duration = ((endTime - startTime) / 1000).toFixed(2);
+			//toast(`斷詞完成！(耗時 ${duration} 秒)`);
+
+		}, 20); // 延遲 20ms 啟動，確保 UI 不會卡死
+	}
+
     // 加入拼音轉漢字的初始化與事件綁定
     initializeImeDicts();
     // 將事件綁定到正確的按鈕上 (因為 HTML 中有兩個同功能按鈕)
     document.querySelector('#btnPinyinToHanzi').addEventListener('click', pinyinToHanzi);
+	updateRawButtonVisibility();
 })();
 
 
@@ -2728,3 +2877,129 @@ document.getElementById('btnHanziToPinyin').addEventListener('click', () => {
 });
 
 
+// ==========================================
+// 新增：拼音區工具選單 (全半形、大小寫)
+// ==========================================
+
+(function setupPunctuationTools() {
+    const container = document.getElementById('btnPunctuationContainer');
+    const btnMain = document.getElementById('btnTogglePunctuation');
+    const btnToggle = document.getElementById('btnPunctuationMenuToggle');
+    const menu = document.getElementById('menuPunctuation');
+    
+    const actToggle = document.getElementById('actTogglePunctuation');
+    const actCapitalize = document.getElementById('actCapitalize');
+    const actLowercase = document.getElementById('actLowercase');
+
+    if (!container) return;
+
+    // 1. 選單開關邏輯
+    btnToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // 關閉其他選單
+        document.querySelectorAll('.popover').forEach(p => {
+             if(p.id !== 'menuPunctuation') p.classList.add('hidden');
+        });
+        // 切換自己
+        menu.classList.toggle('hidden');
+    });
+
+    // 點擊外部關閉
+    document.addEventListener('click', (e) => {
+        if (menu && !menu.contains(e.target) && !btnToggle.contains(e.target)) {
+            menu.classList.add('hidden');
+        }
+    });
+
+    // --------------------------------------
+    // 功能 A: 全/半形切換 (主按鈕 & 選單項目)
+    // --------------------------------------
+    const doTogglePunctuation = () => {
+        const pinyinInput = document.getElementById('pinyinInput');
+        const currentText = pinyinInput.value;
+        if (!currentText) {
+            toast('拼音區沒有內容可轉換。');
+            return;
+        }
+
+        const fullToHalf = {
+            '，': ',', '。': '.', '？': '?', '！': '!', '；': ';', 
+            '：': ':', '（': '(', '）': ')', '、': ','
+        };
+        const halfToFull = {
+            ',': '，', '.': '。', '?': '？', '!': '！', ';': '；', 
+            ':': '：', '(': '（', ')': '）'
+        };
+        const fullWidthRegex = new RegExp(Object.keys(fullToHalf).join('|'), 'g');
+        const halfWidthRegex = /(?<!\.)\.(?!\.)|[\,\?\!\;\:\(\)]/g;
+        const fullWidthPattern = /[，。？！；：（）、]/;
+
+        if (fullWidthPattern.test(currentText)) {
+            // 全形轉半形
+            let newText = currentText.replace(fullWidthRegex, match => fullToHalf[match]);
+            newText = newText.replace(/([,\.\?!;\:\(\)])([a-zA-Z0-9])/g, '$1 $2');
+            pinyinInput.value = newText;
+            toast('標點轉為半形');
+        } else {
+            // 半形轉全形
+            let newText = currentText.replace(halfWidthRegex, match => halfToFull[match] || match);
+            newText = newText.replace(/\s*([，。？！；：（）、])\s*/g, '$1');
+            pinyinInput.value = newText;
+            toast('標點轉為全形');
+        }
+    };
+
+    btnMain.addEventListener('click', doTogglePunctuation);
+    actToggle.addEventListener('click', () => {
+        doTogglePunctuation();
+        menu.classList.add('hidden');
+    });
+
+    // --------------------------------------
+    // 功能 B: 句首大寫
+    // --------------------------------------
+
+    actCapitalize.addEventListener('click', () => {
+        const pinyinInput = document.getElementById('pinyinInput');
+        let text = pinyinInput.value;
+        if (!text) return;
+
+        // 修正說明：
+        // 1. 使用 'u' 旗標：開啟 Unicode 模式。
+        // 2. 使用 \p{Ll} ：代表 "Lowercase Letter" (任何 Unicode 小寫字母)。
+        
+        text = text.replace(/(^|[.?!。？！\n]\s*)([\p{Ll}])/gu, (match) => {
+            return match.toUpperCase();
+        });
+
+        pinyinInput.value = text;
+        toast('已句首大寫');
+        menu.classList.add('hidden');
+    });
+    // --------------------------------------
+    // 功能 C: 全部小寫
+    // --------------------------------------
+    actLowercase.addEventListener('click', () => {
+        const pinyinInput = document.getElementById('pinyinInput');
+        if (!pinyinInput.value) return;
+        
+        pinyinInput.value = pinyinInput.value.toLowerCase();
+        
+        toast('已轉換為小寫字母');
+        menu.classList.add('hidden');
+    });
+
+
+	// --------------------------------------
+	// 功能 D: 全部大寫
+	// --------------------------------------
+	actUppercase?.addEventListener('click', () => {
+		const pinyinInput = document.getElementById('pinyinInput');
+		if (!pinyinInput.value) return;
+
+		pinyinInput.value = pinyinInput.value.toUpperCase();
+		
+		toast('已轉換為大寫字母');
+		menu.classList.add('hidden');
+	});
+})();

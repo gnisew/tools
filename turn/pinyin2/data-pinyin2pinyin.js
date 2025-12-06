@@ -2604,8 +2604,8 @@ const [bpmBigToSmall, bpmSmallToBig] = (function() {
 
 const [kasuPinyinToBpmSmall, kasuBpmSmallToPinyin] = (function() {
     const rawData = [
-        "ainn","","iang","","iong","","iung","","uang","","inn","",
-        "eeu","","een","","eem","","eed","","eeb","","enn","","onn","",
+        "ainn","","aunn","","iang","","iong","","iung","","uang","",
+        "eeu","","een","","eem","","eed","","eeb","","ann","","inn","","enn","","onn","",
         "ang","","iag","","ied","","ien","","ong","","ung","",
         "iid","","iim","","iin","","iab","","iam","","iau","","iog","",
         "ieb","","iem","","ieu","","iug","","iun","","uad","",
@@ -2694,6 +2694,148 @@ const [kasuPinyinToBpmSmall, kasuBpmSmallToPinyin] = (function() {
 
     return [toSmall, toPinyin];
 })();
+
+
+
+
+// 1. Basic Data Arrays (Mini <-> Small)
+// Cleaned up and aligned.
+const bpmTiny = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""];
+const bpmTinyEqualSmall = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "⁺", "⁺", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "ˋ", "ˋ", "ˋ", "ˋ", "ˋ", "ˋ", "ˋ", "ˋ", "", "", "", "", "", "", "", "", "", "", "", "ˇ", "ˇ", "ˇ", "ˇ", "ˇ", "ˆ", "ˆ", "ˆ", "ˊ", "ˊ", "ˊ", "ˊ", "ˊ", "ˊ", "ˊ", "", "ˊ", "", ""];
+
+// 2. Derived Maps
+// Map for Small -> [Mini_Candidate_1, Mini_Candidate_2, ...]
+const smallToMiniCandidates = {};
+// Map for Mini -> Small (Simple Lookup)
+const miniToSmallMap = {};
+
+bpmTiny.forEach((mini, i) => {
+    const small = bpmTinyEqualSmall[i];
+    miniToSmallMap[mini] = small;
+    
+    if (!smallToMiniCandidates[small]) {
+        smallToMiniCandidates[small] = [];
+    }
+    smallToMiniCandidates[small].push(mini);
+});
+
+// Tones list
+const tones = ['ˊ', 'ˇ', 'ˋ', '⁺', 'ˆ'];
+
+// 3. Core Conversion Logic (Small -> Mini)
+// Based on Syllable Body Length (2, 3, 4) and Position
+function bpmSmallToTiny(inputString) {
+    let result = "";
+    
+    // Tokenizer: Split input into syllables. 
+    // Assuming syllable ends with a tone or is a known block.
+    // Simple approach: Iterate and consume.
+    
+    let buffer = [];
+    
+    // Helper to process the buffer as one syllable
+    const processBuffer = (buf, toneChar) => {
+        if (buf.length === 0 && !toneChar) return "";
+        
+        const length = buf.length; // Body length
+        let mapped = "";
+        
+        // Apply Set Rules based on length
+        buf.forEach((char, index) => {
+            const candidates = smallToMiniCandidates[char];
+            if (!candidates) {
+                mapped += char; // Unknown char, keep as is
+                return;
+            }
+            
+            let setIndex = 0; // Default to Set 0
+            
+            // --- RULES ---
+            if (length === 2) {
+                // Length 2: Set 0 for both (Top/Bottom)
+                setIndex = 0;
+            } else if (length === 3) {
+                // Length 3: Set 1 (Left), Set 1/2 (Top-Right), Set 2 (Bottom-Right)
+                if (index === 0) setIndex = 1;
+                else if (index === 1) {
+                    // Complex rule: Some chars prefer Set 1, others Set 2.
+                    // Default to 2, fallback to 1 if 2 not avail? 
+                    // Empirical: "Pap"(A) uses Set 2. "Pan"(AN) uses Set 1.
+                    // Check if index 2 exists in candidates
+                    setIndex = candidates.length > 2 ? 2 : 1;
+                    // Hardcoded fix for '' (AN) which prefers Set 1 in this pos
+                    if (char === '') setIndex = 1; 
+                }
+                else if (index === 2) setIndex = 2;
+            } else if (length === 4) {
+                // Length 4: Set 3 (Lefts), Set 4 (Rights)
+                if (index === 0 || index === 1) setIndex = 3;
+                else setIndex = 4;
+            }
+            
+            // Bounds check
+            if (setIndex >= candidates.length) setIndex = candidates.length - 1;
+            mapped += candidates[setIndex];
+        });
+        
+        // Append Tone
+        if (toneChar) {
+            const toneCandidates = smallToMiniCandidates[toneChar];
+            if (toneCandidates) {
+                let toneSet = 0;
+                // Tone Rules
+                if (length === 3) toneSet = 3; // Approx based on examples
+                else if (length === 4) toneSet = 6;
+                
+                if (toneSet >= toneCandidates.length) toneSet = toneCandidates.length - 1;
+                mapped += toneCandidates[toneSet];
+            } else {
+                mapped += toneChar;
+            }
+        }
+        return mapped;
+    };
+
+    // Iterate string to form syllables
+    for (let char of inputString) {
+        if (tones.includes(char)) {
+            // Tone found, process buffer + tone
+            result += processBuffer(buffer, char);
+            buffer = [];
+        } else {
+            // Check if char is a valid Small Bopomofo component
+            if (smallToMiniCandidates[char]) {
+                buffer.push(char);
+            } else {
+                // Non-Bopomofo (punctuation/spaces), flush buffer first
+                result += processBuffer(buffer, null);
+                buffer = [];
+                result += char;
+            }
+        }
+    }
+    // Flush remaining
+    result += processBuffer(buffer, null);
+    
+    return result;
+}
+
+// 4. Mini -> Small (Simple)
+function bpmTinyToSmall(t) {
+    let result = "";
+    for (let i = 0; i < t.length; i++) {
+        let twoChars = t.substr(i, 2);
+        if (miniToSmallMap[twoChars]) {
+            result += miniToSmallMap[twoChars];
+            i++; // Skip next char
+        } else {
+            let oneChar = t[i];
+            result += miniToSmallMap[oneChar] || oneChar;
+        }
+    }
+    return result;
+}
+
 
 
 
@@ -2968,11 +3110,7 @@ function matsuPinyinBpm(t){
 	return t;
 }
 
-function matsuPinyinBpmSmall(t){
-	 t = matsuPinyinBpm(t)
-	 t = bpmBigSmall(t);	 
-	return t;
-}
+
 
 function matsuPinyinTone(t){
 	 if (regexLetter.test(t)) {t = letterToZvs(t) }
@@ -3074,11 +3212,21 @@ function matsuNumberLetter(t){
 
 
 function bpmBigSmall(t){
+	if (regexBpmTiny.test(t)) {t = bpmTinyToSmall(t) }
 	t = bpmBigToSmall(t)
 	return t;
 }
+
+
+
 function bpmSmallBig(t){
 	t = bpmSmallToBig(t)
+	return t;
+}
+
+function bpmSmallTiny(t){
+	if (regexBpmBig.test(t)) {t = bpmBigToSmall(t) }	
+	t = bpmSmallToTiny(t)
 	return t;
 }
 
@@ -3097,3 +3245,11 @@ function kasuPinyinBpmSmall(t){
 }
 
 
+function kasuPinyinBpmTiny(t){
+	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
+	t = hakkaZvsToTone(t);
+	if (regexBpmBig.test(t)) {t = bpmBigToSmall(t) }
+	t = kasuPinyinToBpmSmall(t);
+    t = bpmSmallToTiny(t);
+	return t;
+}

@@ -54,10 +54,10 @@ function initializeConverter() {
     const escapedWords = uniqueWords.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     masterRegex = new RegExp(escapedWords.join('|'), 'g');
     
-    //console.log("拼音轉換器已使用新的語言資料庫重新初始化。");
+    window.pinyinMap = pinyinMap; 
 }
 
-function hanziToPinyin() {
+function hanziToPinyin(mode) {
     const hanziInput = document.getElementById('hanziInput');
     const pinyinInput = document.getElementById('pinyinInput');
     const sourceText = hanziInput.value;
@@ -68,57 +68,80 @@ function hanziToPinyin() {
         return;
     }
 
-    const normalizedText = replaceChars(sourceText, m, n);
+	const normalizedText = replaceChars(sourceText, m, n);
 
-    const pinyinText = normalizedText.replace(masterRegex, (matchedWord) => {
+
+    // -----------------------------------------------------------
+    // 1：保護原始空格
+    // -----------------------------------------------------------
+    // 使用一個特殊字元 (Unit Separator \u001F) 來暫時替換使用者輸入的空格
+    // 這樣它就不會被後續的 "空白合併" 邏輯給吃掉
+    const spaceMarker = '\u001F';
+    const textToConvert = normalizedText.replace(/ /g, spaceMarker);
+
+    // 注意：這裡改成使用 textToConvert 來進行轉換
+    const pinyinText = textToConvert.replace(masterRegex, (matchedWord) => {
         const pinyin = pinyinMap.get(matchedWord);
-        // 如果找不到對應拼音，則返回原字，避免產生多餘空格
         if (pinyin === undefined) {
             return matchedWord;
         }
         return ' ' + pinyin + ' ';
     });
 
-    // 1. 將轉換後的拼音文本按換行符切分成陣列
     const lines = pinyinText.split('\n');
     
-    // 2. 遍歷每一行，對單獨一行進行空白處理
-    const processedLines = lines.map(line => 
-        line.replace(/\s+/g, ' ').trim()
-    );
+    // -----------------------------------------------------------
+    // 2：還原空格並處理間距
+    // -----------------------------------------------------------
+    const processedLines = lines.map(line => {
+        let processed = line.replace(/\s+/g, ' ').trim();
+        processed = processed.replace(new RegExp(` ${spaceMarker} `, 'g'), '  ');
+        processed = processed.replace(new RegExp(spaceMarker, 'g'), ' ');
+        
+        return processed;
+    });
+    
     
     // 3. 將處理過的各行用換行符重新組合成最終文本
     let outputText = processedLines.join('\n');
 
     // 移除所有標點符號「前」的空格
-    outputText = outputText.replace(/\s+([，。、；：！？（）「」『』《》〈〉—…－‧·﹑,.;:!?()\[\]{}\"\'\-\…])/g, '$1');
+    outputText = outputText.replace(/[ \t]+([，。、；：！？（）「」『』《》〈〉—…－‧·﹑,.;:!?()\[\]{}\"\'\-\…])/g, '$1');
 
-    // 【此處為新增修改】移除所有標點符號「後」的空格
-    outputText = outputText.replace(/([，。、；：！？（）「」『』《》〈〉—…－‧·﹑,.;:!?()\[\]{}\"\'\-\…])\s+/g, '$1');
+    // 移除所有標點符號「後」的空格
+    outputText = outputText.replace(/([，。、；：！？（）「」『』《》〈〉—…－‧·﹑,.;:!?()\[\]{}\"\'\-\…])[ \t]+/g, '$1');
 
 
     // 根據當前語言，先將拼音轉換為字母調 (zvs) 格式
+
     const hakkaLanguages = new Set(['sixian', 'hailu', 'dapu', 'raoping', 'sixiannan']);
+    
     if (hakkaLanguages.has(currentLanguageKey)) {
-        //outputText = hakkaToneToZvs(outputText);
-    } else if (currentLanguageKey === 'kasu') {
-        //outputText = hakkaToneToZvs(outputText);
-		outputText = outputText
-			.replace(/([a-z]{0,4})([mngbdgaeiou])([zvsxc])([zvsxfc])/g, '$1$2$3')
-			.replace(/([a-z]{0,4})([mngbdgaeiou])([cf])/g, '$1$2')
-			.replace(/([aeioumngbdzvsxfc])(=)([a-z])/g, '$1 $3')
-		    .replace(/([aeioumngbdzvsxfc])(--)([a-z])/g, '$1 $3')
-			.replace(/([aeioumngbdzvsxfc])(-)([a-z])/g, '$1 $3')
-			.replace(/([bpfvdtlgkhzcs])o([zvsx]?)(\b)/gi, '$1oo$2$3')
-			.replace(/(\b)(r)([aeiou])/g, '$1rh$3')
-			.replace(/(\b)(v)([aeiou])/g, '$1bb$3')
-			.replace(/(\b)(ji)/g, '$1zi')
-			.replace(/(\b)(qi)/g, '$1ci')
-			.replace(/(\b)(xi)/g, '$1si');
+        // outputText = hakkaToneToZvs(outputText); // 原本邏輯不變
+    } 
+    else if (currentLanguageKey === 'kasu') {
+        if (mode === 'raw') {			
+            // --- 模式：原始拼音 ---
+            if (typeof hakkaToneToZvs === 'function') {
+                outputText = hakkaToneToZvs(outputText);
+            }
+        } else {
+            // --- 模式：預設 (變形處理) ---
+            outputText = outputText
+                .replace(/([a-z]{0,4})([mngbdgaeiou])([zvsxc])([zvsxfc])/g, '$1$2$3')
+                .replace(/([a-z]{0,4})([mngbdgaeiou])([cf])/g, '$1$2')
+                .replace(/([aeioumngbdzvsxfc])(=)([a-z])/g, '$1 $3')
+                .replace(/([aeioumngbdzvsxfc])(--)([a-z])/g, '$1 $3')
+                .replace(/([aeioumngbdzvsxfc])(-)([a-z])/g, '$1 $3')
+                .replace(/([bpfvdtlgkhzcs])o([zvsx]?)(\b)/gi, '$1oo$2$3')
+                .replace(/(\b)(r)([aeiou])/g, '$1rh$3')
+                .replace(/(\b)(v)([aeiou])/g, '$1bb$3')
+                .replace(/(\b)(ji)/g, '$1zi')
+                .replace(/(\b)(qi)/g, '$1ci')
+                .replace(/(\b)(xi)/g, '$1si');
 
-		outputText = outputText
-		outputText = zxvToTone(outputText);
-
+            outputText = zxvToTone(outputText);
+        }
     } else if (currentLanguageKey === 'holo') {		
 		//outputText = holoPojToTailo(outputText);
         //outputText = holoPinyinZvs(outputText);
@@ -128,6 +151,40 @@ function hanziToPinyin() {
     } else if (currentLanguageKey === 'matsu') {
         //outputText = matsuPinyinZvs(outputText);
     } 	
+
+
+    // -----------------------------------------------------------
+    // 處理「字〔yin〕」模式
+    // -----------------------------------------------------------
+    if (mode === 'bracket') {
+        // 1. 取得原始漢字（按行切割）
+        const sourceLines = sourceText.split('\n');
+        // 2. 取得剛剛算好的拼音（按行切割）
+        const pinyinLines = outputText.split('\n');
+        
+        const combined = [];
+        const len = Math.max(sourceLines.length, pinyinLines.length);
+
+        for (let i = 0; i < len; i++) {
+            // 去除頭尾空白，避免對齊問題
+            const h = (sourceLines[i] || '').trim(); 
+            let p = (pinyinLines[i] || '').trim();
+
+            if (h) {
+                // 如果拼音跟漢字一樣（代表沒轉換成功或是標點），或者拼音是空的
+                // 就只顯示漢字，不要顯示空的括號
+                if (!p || p === h) {
+                    combined.push(h);
+                } else {
+                    // 格式：漢字〔拼音〕
+                    combined.push(`${h}〔${p}〕`);
+                }
+            } else {
+                combined.push(''); // 保留空行
+            }
+        }
+        outputText = combined.join('\n');
+    }
 
     pinyinInput.value = outputText;
 }

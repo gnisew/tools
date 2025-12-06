@@ -113,7 +113,7 @@ const htmlData = `
                 <div class="input-section">
                     <div class="text-container">
                         <div class="line-numbers" id="inputLineNumbers"></div>
-                        <textarea class="text-area" id="inputText" placeholder="輸入文字" oninput="handleInput(); updateLineNumbers('input');" onscroll="syncLineNumbersScroll('input')"></textarea>
+                        <textarea class="text-area" id="inputText" spellcheck="false" autocorrect="off" autocapitalize="off" placeholder="輸入文字" oninput="handleInput(); updateLineNumbers('input');" onscroll="syncLineNumbersScroll('input')"></textarea>
                         <button class="icon-btn clear-btn" onclick="clearInput()" title="清除">
                             <i class="fas fa-times"></i>
                         </button>
@@ -126,7 +126,8 @@ const htmlData = `
                 <div class="output-section">
                     <div class="text-container">
                         <div class="line-numbers" id="outputLineNumbers"></div>
-                        <div class="output-area" id="outputText" onscroll="syncLineNumbersScroll('output')">翻譯</div>
+                        <div class="output-area" id="outputText" spellcheck="false" autocorrect="off" autocapitalize="off" onscroll="syncLineNumbersScroll('output')">翻譯</div>
+
                         <button class="icon-btn copy-btn" onclick="copyOutput()" id="copyBtn" disabled title="複製">
                             <i class="fas fa-copy"></i>
                         </button>

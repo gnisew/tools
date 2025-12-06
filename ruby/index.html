@@ -55,9 +55,7 @@
             <div class="block">
               <div class="flex items-center justify-between mb-2">
                 <span class="text-sm font-medium text-slate-700 flex items-center gap-1.5">
-                  <span class="material-symbols-outlined text-[18px] text-blue-600">text_fields</span>
-                  漢字區
-                </span>
+                  <span class="material-symbols-outlined text-[18px] text-blue-600">text_fields</span>漢字區</span>
                 <div class="flex items-center gap-2">
 				<button id="btnPinyinToHanzi" class="text-xs font-medium text-blue-800 bg-blue-100 hover:bg-blue-200 flex items-center gap-1 px-3 py-1.5 rounded-full transition-colors">
 				  <span class="material-symbols-outlined text-[18px]">arrow_downward</span>
@@ -68,7 +66,14 @@
                   </button>
                 </div>
               </div>
-              <textarea id="hanziInput" class="w-full rounded-xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-400 px-4 py-3 min-h-[160px] leading-relaxed" placeholder="漢字…"></textarea>
+              
+					<textarea 
+						id="hanziInput" 
+						class="w-full rounded-xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-400 px-4 py-3 min-h-[160px] leading-relaxed" 
+						placeholder="漢字…" 
+						spellcheck="false" 
+						autocorrect="off" 
+						autocapitalize="off"></textarea>
             </div>
 
             <div class="block">
@@ -79,19 +84,102 @@
                 </span>
                 <div class="flex items-center gap-4">
                   
-                  <button id="btnTogglePunctuation" class="text-xs text-slate-600 hover:text-slate-900 flex items-center gap-1" title="切換全形/半形標點">
-                    <span class="material-symbols-outlined text-[18px]">swap_horiz</span>
-                    全/半形
-                  </button>
 
-					<button id="btnHanziToPinyin" class="text-xs font-medium text-blue-800 bg-blue-100 hover:bg-blue-200 flex items-center gap-1 px-3 py-1.5 rounded-full transition-colors">
-					  <span class="material-symbols-outlined text-[18px]">arrow_downward</span>
-					  漢字轉拼音
+				<div id="btnPunctuationContainer" class="inline-flex rounded-full shadow relative group bg-white border border-slate-200">
+				  
+				  <!-- 左側主按鈕：維持原本的全/半形切換功能 -->
+				  <button id="btnTogglePunctuation" class="text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 flex items-center gap-1 pl-3 pr-2 py-1.5 rounded-l-full transition-colors border-r border-slate-200" title="切換全形/半形標點">
+					<span class="material-symbols-outlined text-[18px]">swap_horiz</span>
+					全/半形
+				  </button>
+				  
+				  <!-- 右側小三角形：點擊展開選單 -->
+				  <button id="btnPunctuationMenuToggle" class="text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-50 flex items-center px-1 py-1.5 rounded-r-full transition-colors">
+					<span class="material-symbols-outlined text-[18px]">arrow_drop_down</span>
+				  </button>
+
+				  <!-- 下拉選單 -->
+				  <div id="menuPunctuation" class="hidden absolute top-full right-0 mt-2 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-50 p-1 overflow-hidden origin-top-right">
+					 
+					 <button id="actTogglePunctuation" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors">
+						<span class="material-symbols-outlined text-[18px]">swap_horiz</span> 
+						<span>全/半形</span>
 					</button>
+
+					<div class="h-px bg-slate-100 my-1"></div>
+
+					<button id="actCapitalize" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors">
+						<span class="material-symbols-outlined text-[18px] text-green-600">text_increase</span> 
+						<span>句首大寫</span>
+					</button>
+
+					<button id="actLowercase" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors">
+						<span class="material-symbols-outlined text-[18px] text-slate-500">lowercase</span> 
+						<span>小寫字母</span>
+					</button>
+
+					<button id="actUppercase" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors">
+						<span class="material-symbols-outlined text-[18px] text-slate-800">uppercase</span> 
+						<span>大寫字母</span>
+					</button>
+				  </div>
+				</div>
+
+
+				<div id="btnHanziToPinyinContainer" class="inline-flex rounded-full shadow relative group">
+				  <!-- 左側主按鈕：維持原本的漢字轉拼音功能 -->
+				  <button id="btnHanziToPinyin" class="text-xs font-medium text-blue-800 bg-blue-100 hover:bg-blue-200 flex items-center gap-1 pl-3 pr-2 py-1.5 rounded-l-full transition-colors border-r border-blue-200">
+					<span class="material-symbols-outlined text-[18px]">arrow_downward</span>
+					漢字轉拼音
+				  </button>
+				  
+				  <!-- 右側小三角形：點擊展開選單 -->
+				  <button id="btnHanziToPinyinMenuToggle" class="text-xs font-medium text-blue-800 bg-blue-100 hover:bg-blue-200 flex items-center px-1 py-1.5 rounded-r-full transition-colors" title="更多轉換選項">
+					<span class="material-symbols-outlined text-[18px]">arrow_drop_down</span>
+				  </button>
+
+				  <!-- 下拉選單 -->		  
+
+					<div id="menuHanziToPinyin" class="hidden absolute top-full right-0 mt-2 w-44 bg-white rounded-xl shadow-xl border border-slate-200 z-50 p-1 overflow-hidden origin-top-right">
+						
+						<!-- 按鈕 1 -->
+						<button id="actHanziToPinyin" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors">
+							<span class="material-symbols-outlined text-[18px] text-blue-600">arrow_downward</span> 
+							<span>漢字轉拼音</span>
+						</button>
+						
+						<!-- 按鈕 2 (預設隱藏) -->
+						<button id="actHanziToPinyinRaw" class="hidden w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors">
+							<span class="material-symbols-outlined text-[18px] text-teal-600">raw_on</span> 
+							<span>Bunxc-bienx</span>
+						</button>
+
+						<button id="actHanziPinyinBracket" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors">
+							<span class="material-symbols-outlined text-[18px] text-purple-600">data_object</span> 
+							<span>字〔yin〕</span>
+						</button>
+
+						<!-- 按鈕 3 -->
+						<button id="actSpaceSegmentation" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors">
+							<span class="material-symbols-outlined text-[18px] text-orange-500">segment</span> 
+							<span>空格分詞</span>
+						</button>
+
+					</div>
+
+
+
+				</div>
 
                 </div>
               </div>
-              <textarea id="pinyinInput" class="w-full rounded-xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-400 px-4 py-3 min-h-[160px] leading-relaxed" placeholder="拼音…"></textarea>
+				<textarea 
+					id="pinyinInput" 
+					class="w-full rounded-xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-400 px-4 py-3 min-h-[160px] leading-relaxed" 
+					placeholder="拼音…" 
+					spellcheck="false" 
+					autocorrect="off" 
+					autocapitalize="off"></textarea>
             </div>
           </div>
 
