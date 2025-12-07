@@ -645,104 +645,157 @@ function loginUser(name, classNum, avatar, quizCode) {
             }
         }
 
-        // 跳到指定題目
-        function goToQuestion(index) {
-            currentQuestionIndex = index;
-            showQuestion();
-            updateProgress();
-        }
+        
+// 跳到指定題目
+function goToQuestion(index) {
+    if (userAnswers[0] === undefined && index !== 0) {
+        return;
+    }
+    currentQuestionIndex = index;
+    showQuestion();
+    updateProgress();
+}
 
-        // 顯示題目
-        function showQuestion() {
-            // 切換題目時停止朗讀
-            if (isReading) {
-                stopReading();
+
+// 顯示題目
+
+function showQuestion() {
+    // 切換題目時停止朗讀
+    if (isReading) {
+        stopReading();
+    }
+    
+    const question = currentQuestions[currentQuestionIndex];
+    const isTrue = question.option1 === '○' && question.option2 === '╳';
+    
+    document.getElementById('questionTitle').textContent = `${studentAvatar} ${currentQuestionIndex + 1}`;
+    
+    const questionText = document.getElementById('questionText');
+    questionText.textContent = question.question;
+    questionText.style.fontSize = FONT_SIZES[fontSizeIndex] + 'px';
+    
+    if (zhuyinMode) {
+        questionText.classList.add('zhuyin-font');
+    } else {
+        questionText.classList.remove('zhuyin-font');
+    }
+    
+    const container = document.getElementById('optionsContainer');
+    container.innerHTML = '';
+    
+    // 設定容器的排版模式
+    if (layoutMode === 'grid') {
+        container.className = 'grid grid-cols-2 gap-3';
+    } else {
+        container.className = 'space-y-3';
+    }
+    
+    // 設定選項不可點擊
+    optionsClickable = false;
+    
+    if (isTrue) {
+        // 是非題
+        ['○ 正確', '╳ 錯誤'].forEach((option, index) => {
+            const button = createOptionButton(option, index + 1);
+            container.appendChild(button);
+        });
+    } else {
+        // 選擇題
+        const options = [
+            { text: question.option1, value: 1 },
+            { text: question.option2, value: 2 },
+            { text: question.option3, value: 3 },
+            { text: question.option4, value: 4 }
+        ].filter(opt => opt.text && opt.text.trim());
+        
+        let displayOptions;
+        if (userAnswers[currentQuestionIndex] !== undefined) {
+            displayOptions = options;
+        } else {
+            displayOptions = [...options].sort(() => Math.random() - 0.5);
+        }
+        
+        displayOptions.forEach((option, index) => {
+            const button = createOptionButton(`${String.fromCharCode(65 + index)}. ${option.text}`, option.value);
+            container.appendChild(button);
+        });
+    }
+    
+    // 如果該題未作答，1秒後才允許點擊選項
+    if (userAnswers[currentQuestionIndex] === undefined) {
+        setTimeout(() => {
+            optionsClickable = true;
+        }, 1000);
+    } else {
+        optionsClickable = true;
+    }
+    
+    // ==========================================
+    // 【修改】移除這裡原本的手動按鈕控制
+    // 改為呼叫 updateNextButton 統一處理
+    // ==========================================
+    updateNextButton();
+    
+    // 如果該題已作答，顯示解析
+    if (userAnswers[currentQuestionIndex] !== undefined) {
+        showExplanation(question.explanation);
+    } else {
+        document.getElementById('explanationArea').classList.add('hidden');
+        showingExplanation = false;
+    }
+    
+    // 更新導航
+    updateQuestionNavigation();
+}
+
+
+        // 選擇答案
+        function selectAnswer(value, buttonElement) {
+            // 如果選項不可點擊或已經作答，不允許點擊
+            if (!optionsClickable || userAnswers[currentQuestionIndex] !== undefined) {
+                return;
             }
             
+            userAnswers[currentQuestionIndex] = value;
             const question = currentQuestions[currentQuestionIndex];
-            const isTrue = question.option1 === '○' && question.option2 === '╳';
+            const isCorrect = value === question.correctAnswer;
             
-            document.getElementById('questionTitle').textContent = `${studentAvatar} ${currentQuestionIndex + 1}`;
+            // 移除所有選項的選中狀態和hover效果
+            const options = document.querySelectorAll('#optionsContainer button');
+            options.forEach(btn => {
+                btn.classList.remove('bg-purple-100', 'border-purple-400', 'bg-green-100', 'border-green-400', 'bg-red-100', 'border-red-400');
+                btn.classList.add('border-gray-200');
+                btn.style.pointerEvents = 'none'; // 禁用點擊
+                btn.classList.remove('option-button'); // 移除hover效果
+            });
             
-            const questionText = document.getElementById('questionText');
-            questionText.textContent = question.question;
-            questionText.style.fontSize = FONT_SIZES[fontSizeIndex] + 'px';
-            
-            if (zhuyinMode) {
-                questionText.classList.add('zhuyin-font');
-            } else {
-                questionText.classList.remove('zhuyin-font');
-            }
-            
-            const container = document.getElementById('optionsContainer');
-            container.innerHTML = '';
-            
-            // 設定容器的排版模式
-            if (layoutMode === 'grid') {
-                // 左右排版
-                container.className = 'grid grid-cols-2 gap-3';
-            } else {
-                // 上下排版
-                container.className = 'space-y-3';
-            }
-            
-            // 設定選項不可點擊
-            optionsClickable = false;
-            
-            if (isTrue) {
-                // 是非題 - 固定順序
-                ['○ 正確', '╳ 錯誤'].forEach((option, index) => {
-                    const button = createOptionButton(option, index + 1);
-                    container.appendChild(button);
-                });
-            } else {
-                // 選擇題 - 如果已作答則保持固定順序，未作答則隨機
-                const options = [
-                    { text: question.option1, value: 1 },
-                    { text: question.option2, value: 2 },
-                    { text: question.option3, value: 3 },
-                    { text: question.option4, value: 4 }
-                ].filter(opt => opt.text && opt.text.trim());
+            // 顯示正確答案和用戶選擇
+            options.forEach((btn) => {
+                const btnValue = parseInt(btn.dataset.value);
                 
-                let displayOptions;
-                if (userAnswers[currentQuestionIndex] !== undefined) {
-                    // 已作答，保持固定順序
-                    displayOptions = options;
-                } else {
-                    // 未作答，隨機打亂選項順序
-                    displayOptions = [...options].sort(() => Math.random() - 0.5);
+                if (btnValue === question.correctAnswer) {
+                    btn.classList.add('bg-green-100', 'border-green-400');
+                    btn.classList.remove('border-gray-200');
+                    
+                    if (isCorrect) {
+                        showCorrectEffectOnButton(btn);
+                    }
                 }
-                
-                displayOptions.forEach((option, index) => {
-                    const button = createOptionButton(`${String.fromCharCode(65 + index)}. ${option.text}`, option.value);
-                    container.appendChild(button);
-                });
-            }
+                if (btnValue === value && !isCorrect) {
+                    btn.classList.add('bg-red-100', 'border-red-400');
+                    btn.classList.remove('border-gray-200');
+                }
+            });
             
-            // 如果該題未作答，1秒後才允許點擊選項
-            if (userAnswers[currentQuestionIndex] === undefined) {
-                setTimeout(() => {
-                    optionsClickable = true;
-                }, 1000);
-            } else {
-                optionsClickable = true;
-            }
+            // 顯示解析
+            showExplanation(question.explanation);
             
-            // 更新按鈕狀態
-            document.getElementById('prevBtn').disabled = currentQuestionIndex === 0;
-            
-            updateNextButton();
-            
-            // 如果該題已作答，顯示解析
-            if (userAnswers[currentQuestionIndex] !== undefined) {
-                showExplanation(question.explanation);
-            } else {
-                document.getElementById('explanationArea').classList.add('hidden');
-                showingExplanation = false;
-            }
-            
-            // 更新導航
+            // 更新進度和導航
+            updateProgress();
             updateQuestionNavigation();
+            updateNextButton();
+
+            document.getElementById('nextBtn').style.visibility = 'visible';
         }
 
         // 創建選項按鈕
@@ -918,26 +971,54 @@ function loginUser(name, classNum, avatar, quizCode) {
         }
 
         // 更新下一題按鈕
-        function updateNextButton() {
-            const nextBtn = document.getElementById('nextBtn');
-            const allAnswered = Object.keys(userAnswers).length === currentQuestions.length;
-            const isLastQuestion = currentQuestionIndex === currentQuestions.length - 1;
-            
-            if (allAnswered || (isLastQuestion && userAnswers[currentQuestionIndex] !== undefined)) {
-                // 所有題目都已作答，或在最後一題且該題已作答
-                // 使用 innerHTML 來包含圖示
-                nextBtn.innerHTML = `<span>完成測驗</span><span class="material-icons-outlined">check_circle</span>`;
-                nextBtn.disabled = false;
-            } else if (isLastQuestion) {
-                // 最後一題但未作答
-                nextBtn.disabled = true;
-            } else {
-                // 非最後一題，正常顯示
-                // 使用 innerHTML 來包含圖示
-                nextBtn.innerHTML = `<span class="material-icons-outlined">arrow_forward</span>`;
-                nextBtn.disabled = false;
-            }
-        }
+
+
+function updateNextButton() {
+    const nextBtn = document.getElementById('nextBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    
+    const isCurrentAnswered = userAnswers[currentQuestionIndex] !== undefined;
+    const allAnswered = Object.keys(userAnswers).length === currentQuestions.length;
+    const isLastQuestion = currentQuestionIndex === currentQuestions.length - 1;
+    
+    // ==========================================
+    // 1. 控制「上一題」按鈕顯示
+    // 規則：第一題永遠隱藏；其他題目若「未作答」則隱藏，「已作答」才顯示
+    // ==========================================
+    if (currentQuestionIndex === 0) {
+        prevBtn.style.visibility = 'hidden'; // 第一題絕對隱藏
+    } else if (isCurrentAnswered) {
+        prevBtn.style.visibility = 'visible'; // 有作答才顯示
+    } else {
+        prevBtn.style.visibility = 'hidden'; // 沒作答就隱藏
+    }
+
+    // ==========================================
+    // 2. 控制「下一題」按鈕顯示
+    // 規則：有作答才顯示，沒作答隱藏
+    // ==========================================
+    if (isCurrentAnswered) {
+        nextBtn.style.visibility = 'visible';
+    } else {
+        nextBtn.style.visibility = 'hidden';
+    }
+
+    // ==========================================
+    // 3. 設定下一題按鈕的文字與狀態 (維持原有邏輯)
+    // ==========================================
+    if (allAnswered || (isLastQuestion && isCurrentAnswered)) {
+        // 完成測驗
+        nextBtn.innerHTML = `<span>完成測驗</span><span class="material-icons-outlined">check_circle</span>`;
+        nextBtn.disabled = false;
+    } else if (isLastQuestion) {
+        // 最後一題
+        nextBtn.disabled = true;
+    } else {
+        // 正常下一題
+        nextBtn.innerHTML = `<span class="material-icons-outlined">arrow_forward</span>`;
+        nextBtn.disabled = false;
+    }
+}
 
         // 上一題
         document.getElementById('prevBtn').onclick = () => {
@@ -949,19 +1030,24 @@ function loginUser(name, classNum, avatar, quizCode) {
         };
 
         // 下一題
-        document.getElementById('nextBtn').onclick = () => {
-            const allAnswered = Object.keys(userAnswers).length === currentQuestions.length;
-            
-            if (allAnswered) {
-                // 所有題目都已作答，完成測驗
-                showResult();
-            } else if (currentQuestionIndex < currentQuestions.length - 1) {
-                // 還有下一題，繼續
-                currentQuestionIndex++;
-                showQuestion();
-                updateProgress();
-            }
-        };
+document.getElementById('nextBtn').onclick = () => {
+    // 若第一題沒有作答，則不可點下一題
+    if (userAnswers[0] === undefined) {
+        return;
+    }
+
+    const allAnswered = Object.keys(userAnswers).length === currentQuestions.length;
+    
+    if (allAnswered) {
+        // 所有題目都已作答，完成測驗
+        showResult();
+    } else if (currentQuestionIndex < currentQuestions.length - 1) {
+        // 還有下一題，繼續
+        currentQuestionIndex++;
+        showQuestion();
+        updateProgress();
+    }
+};
 
         // 完成測驗
         document.getElementById('finishBtn').onclick = () => {
@@ -1251,12 +1337,16 @@ function loginUser(name, classNum, avatar, quizCode) {
             }, 10); // 短延遲確保 CSS transition 生效
         };
 
-        // 頁面關閉時儲存未完成紀錄
-        window.addEventListener('beforeunload', () => {
-            if (startTime && document.getElementById('quizArea').classList.contains('hidden') === false) {
-                saveHistory(0, false);
-            }
-        });
+// 頁面關閉時儲存未完成紀錄
+window.addEventListener('beforeunload', () => {
+    // 判斷是否有作答
+    const hasAnswered = Object.keys(userAnswers).length > 0;
+
+    // 只有在測驗進行中且「有作答」時才記錄
+    if (startTime && document.getElementById('quizArea').classList.contains('hidden') === false && hasAnswered) {
+        saveHistory(0, false);
+    }
+});
 
 
 
@@ -1280,23 +1370,28 @@ function loginUser(name, classNum, avatar, quizCode) {
 		}
 		
 		// 實際執行終止測驗的函式
-		function performQuizExit() {
-			if (startTime) {
-				saveHistory(0, false);
-			}
-			
-			// 恢復標題
-			document.getElementById('mainTitle').textContent = QUIZ_TITLE;
-			
-			// 恢復右上角個人資訊點擊功能
-			document.getElementById('userInfo').style.cursor = 'pointer';
-			document.getElementById('userInfo').onclick = editStudentInfo;
-			
-			hideAllAreas();
-			document.getElementById('courseSelection').classList.remove('hidden');
-			
-			updateHeaderButtonsVisibility();
-		}
+
+function performQuizExit() {
+    // 檢查是否至少回答了一題
+    const hasAnswered = Object.keys(userAnswers).length > 0;
+
+    // 只有在開始計時且「有作答」的情況下，才儲存為未完成
+    if (startTime && hasAnswered) {
+        saveHistory(0, false);
+    }
+    
+    // 恢復標題
+    document.getElementById('mainTitle').textContent = QUIZ_TITLE;
+    
+    // 恢復右上角個人資訊點擊功能
+    document.getElementById('userInfo').style.cursor = 'pointer';
+    document.getElementById('userInfo').onclick = editStudentInfo;
+    
+    hideAllAreas();
+    document.getElementById('courseSelection').classList.remove('hidden');
+    
+    updateHeaderButtonsVisibility();
+}
 
 		// 按下「確定終止」
 		confirmExitBtn.addEventListener('click', () => {
