@@ -1,0 +1,67 @@
+
+        @font-face {
+            font-family: 'BpmfZihiSans-Regular';
+            src: url('https://oikasu1.github.io/fonts/BpmfZihiSans-Regular.woff2') format('woff2'),
+                 url('https://oikasu1.github.io/fonts/BpmfZihiSans-Regular.woff') format('woff');
+            font-weight: normal;
+            font-style: normal;
+        }
+        
+        body {
+            font-family: 'tauhu-oo', sans-serif;
+        }
+        
+        .zhuyin-font {
+            font-family: 'BpmfZihiSans-Regular', 'tauhu-oo', sans-serif;
+        }
+        
+        .celebration-icon {
+            position: fixed;
+            font-size: 2rem;
+            pointer-events: none;
+            animation: floatUp 2s ease-out forwards;
+            z-index: 1000;
+        }
+        
+        @keyframes floatUp {
+            0% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-100px) scale(1.2);
+            }
+        }
+        
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+        
+        .question-card {
+            transition: all 0.3s ease;
+        }
+        
+        .question-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        }
+        
+        .option-button:hover {
+            border-color: #9ca3af !important;
+            background-color: #f9fafb !important;
+        }
+
+		#exitConfirmDialog {
+			transition: opacity 0.3s ease-in-out;
+		}
+		#exitConfirmDialogContent {
+			transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+		}
+
+		#genericConfirmDialog {
+			transition: opacity 0.3s ease-in-out;
+		}
+		#genericConfirmDialogContent {
+			transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+		}

@@ -1,0 +1,350 @@
+document.getElementById("myhtml").innerHTML = `
+        <!-- 標題 -->
+        <div class="text-center mb-8 relative min-h-[4rem]" id="headerArea">
+			<div class="absolute top-0 left-0 flex items-center space-x-1 md:space-x-2">
+				<button id="backFromHistoryBtn" class="hidden bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors">
+					<span class="material-icons-outlined">arrow_back</span>
+				</button>
+				<button id="exitQuizBtn" class="hidden bg-red-500 hover:bg-red-600 text-white w-8 h-8 md:w-10 md:h-10 rounded-full font-bold transition-colors text-sm md:text-base" title="終止測驗">
+					✕
+				</button>
+				<button id="backFromEditBtn" class="hidden bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors">
+					<span class="material-icons-outlined">arrow_back</span>
+				</button>
+				<div id="filterContainer" class="relative hidden">
+					<button id="filterBtn" class="bg-gray-100 hover:bg-gray-200 p-1.5 md:p-2 rounded-full transition-colors text-sm md:text-base flex items-center space-x-1" title="篩選課別">
+						<span class="material-icons-outlined text-base md:text-xl">filter_list</span>
+						<span id="filterBtnText">全部</span>
+						<span class="material-icons-outlined text-base md:text-xl">arrow_drop_down</span>
+					</button>
+					<div id="filterMenu" class="hidden absolute left-0 mt-2 w-40 bg-white rounded-md shadow-lg z-10">
+						</div>
+				</div>
+					<button id="historyBtn" class="bg-gray-100 hover:bg-gray-200 p-1.5 md:p-2 rounded-full transition-colors text-sm md:text-base" title="查看歷史紀錄" style="display: none;">
+						<span class="material-icons-outlined text-base md:text-xl">history</span>
+					</button>
+			</div>
+            <div class="absolute top-0 right-0 flex items-center space-x-1 md:space-x-2 transition-colors max-w-[40%] md:max-w-none" id="userInfo" style="display: none;">
+                <span id="userAvatar" class="text-lg md:text-2xl"></span>
+                <span id="userName" class="font-medium text-purple-700 text-sm md:text-base truncate"></span>
+            </div>
+            <div class="px-16 md:px-0">
+                <h1 class="text-2xl md:text-4xl font-bold text-purple-800 mb-2 leading-tight" id="mainTitle"></h1>
+            </div>
+        </div>
+
+        <!-- 學生資訊輸入 -->
+        <div id="studentInfo" class="bg-white rounded-2xl shadow-lg p-6 mb-6 relative">
+            <h2 class="text-2xl font-bold text-center text-purple-700 mb-4" id="studentInfoTitle">個人資訊設定</h2>
+            <div class="max-w-lg mx-auto">
+                <div class="mb-4 flex items-center">
+                    <label for="studentName" class="w-18 text-gray-700 font-bold mr-2 flex-shrink-0">名稱：</label>
+                    <input type="text" id="studentName" class="flex-grow px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500" placeholder="輸入你的姓名">
+                </div>
+                <div class="mb-4 flex items-center">
+                    <label for="studentClass" class="w-18 text-gray-700 font-bold mr-2 flex-shrink-0">班號：</label>
+                    <input type="text" id="studentClass" class="flex-grow px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500" placeholder="如四甲6號「40106」，四乙13號「40213」">
+                </div>
+                <div class="mb-4 flex items-center">
+                    <label for="studentQuizCode" class="w-18 text-gray-700 font-bold mr-2 flex-shrink-0">代碼：</label>
+                    <input type="text" id="studentQuizCode" class="flex-grow px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500" placeholder="輸入老師提供的測驗代碼">
+                </div>
+                <div class="mb-4">
+                    <div class="flex items-center mb-2">
+                        <label class="w-18 text-gray-700 font-bold mr-2 flex-shrink-0">頭像：</label>
+                        <div class="flex flex-wrap gap-2 flex-grow" id="avatarTabs">
+                            <button class="px-3 py-1 rounded-full text-sm font-medium transition-colors bg-purple-500 text-white" data-category="animals">動物</button>
+                            <button class="px-3 py-1 rounded-full text-sm font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300" data-category="insects">蟲</button>
+                            <button class="px-3 py-1 rounded-full text-sm font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300" data-category="plants">植物</button>
+                            <button class="px-3 py-1 rounded-full text-sm font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300" data-category="people">人</button>
+                            <button class="px-3 py-1 rounded-full text-sm font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300" data-category="faces">臉</button>
+                            <button class="px-3 py-1 rounded-full text-sm font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300" data-category="transport">交通</button>
+                            <button class="px-3 py-1 rounded-full text-sm font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300" data-category="other">其他</button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-8 gap-2 h-32 overflow-y-auto border rounded-lg p-2" id="avatarSelection">
+                    </div>
+                </div>
+                <div class="text-center space-x-4">
+                    <button id="confirmStudentInfo" class="bg-purple-500 hover:bg-purple-600 text-white px-6 py-2 rounded-full font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>
+                        開始 🚀
+                    </button>
+                    <button id="cancelEditBtn" class="hidden bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-full font-medium transition-colors">
+                        取消
+                    </button>
+                    <button id="resetBtn" class="hidden bg-yellow-500 hover:bg-yellow-600 text-white px-6 py-2 rounded-full font-medium transition-colors">
+                        重設
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 課別選單 -->
+        <div id="courseSelection" class="hidden bg-white rounded-2xl shadow-lg p-6 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="courseButtons">
+                <!-- 課別按鈕將動態生成 -->
+            </div>
+        </div>
+
+        <!-- 測驗區域 -->
+        <div id="quizArea" class="hidden">
+            <div class="question-card bg-white rounded-2xl shadow-lg p-4 mb-6" id="questionCard">
+                <div class="flex justify-between items-center gap-3">
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm font-medium text-purple-700" id="progressText">0/0</span>
+                        <div class="flex flex-wrap gap-1" id="questionNav">
+                            </div>
+                    </div>
+                    <button id="toggleHeaderBtn" class="bg-red-500 hover:bg-red-600 text-white w-8 h-8 rounded-full font-bold transition-colors flex items-center justify-center flex-shrink-0" title="收合/展開標題">
+                        <span id="toggleHeaderIcon" class="material-icons-outlined">expand_less</span>
+                    </button>
+                </div>
+
+                <hr class="my-4 border-gray-200">
+
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-purple-700" id="questionTitle">題目 1</h3>
+                    <div class="flex items-center space-x-2">
+						<button id="readBtn" class="bg-green-100 hover:bg-green-200 text-green-700 w-10 h-10 rounded-full text-sm font-medium transition-colors flex items-center justify-center">
+							<span class="material-icons-outlined">volume_up</span>
+						</button>
+                        <button id="zhuyinBtn" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded-full text-sm font-medium transition-colors">
+                            注音
+                        </button>
+                        <button id="fontSizeDown" class="bg-gray-100 hover:bg-gray-200 text-gray-700 w-8 h-8 rounded-full text-sm font-bold transition-colors">
+                            -
+                        </button>
+                        <button id="fontSizeUp" class="bg-gray-100 hover:bg-gray-200 text-gray-700 w-8 h-8 rounded-full text-sm font-bold transition-colors">
+                            +
+                        </button>
+                        <button id="layoutBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm font-medium transition-colors" title="切換選項排版">
+                            ⚏
+                        </button>
+                    </div>
+                </div>
+                <p class="text-lg text-gray-800 mb-6 leading-relaxed" id="questionText"></p>
+                
+                <div id="optionsContainer">
+                </div>
+
+				<div id="explanationArea" class="hidden bg-blue-50 rounded-xl p-4 mt-6">
+				  <p class="text-gray-700 leading-relaxed">
+					<span class="inline-flex items-center space-x-1 align-middle">
+					  <span class="text-xl font-bold text-blue-700">💡</span>
+					  <button id="readExplanationBtn"
+						class="bg-green-100 hover:bg-green-200 text-green-700 w-6 h-6 rounded-full flex items-center justify-center text-xs">
+						<span class="material-icons-outlined text-base">volume_up</span>
+					  </button>
+					</span>
+					<span id="explanationText"></span>
+				  </p>
+				</div>
+
+                <div class="mt-6 flex justify-between">
+                    <button id="prevBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-full font-medium transition-colors inline-flex items-center justify-center space-x-2">
+                        <span class="material-icons-outlined">arrow_back</span>
+
+                    </button>
+                    <button id="nextBtn" class="bg-purple-500 hover:bg-purple-600 text-white px-6 py-2 rounded-full font-medium transition-colors inline-flex items-center justify-center space-x-2">
+
+                        <span class="material-icons-outlined">arrow_forward</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="text-center">
+                <button id="finishBtn" class="hidden bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white px-8 py-3 rounded-full font-bold text-lg transition-all transform hover:scale-105">
+                    🎉 完成
+                </button>
+            </div>
+        </div>
+
+        <!-- 成績報告 -->
+        <div id="resultArea" class="hidden">
+            <div class="bg-white rounded-2xl shadow-lg p-8 text-center">
+
+                <div class="text-6xl mb-4" id="starRating"></div>
+                <div class="text-2xl font-bold text-gray-800 mb-6" id="scoreText"></div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-green-100 rounded-lg p-4">
+                        <div class="text-2xl font-bold text-green-600" id="correctCount">0</div>
+                        <div class="text-green-600">答對題數</div>
+                    </div>
+                    <div class="bg-red-100 rounded-lg p-4">
+                        <div class="text-2xl font-bold text-red-600" id="wrongCount">0</div>
+                        <div class="text-red-600">答錯題數</div>
+                    </div>
+                    <div class="bg-gray-100 rounded-lg p-4">
+                        <div class="text-2xl font-bold text-gray-600" id="totalCount">0</div>
+                        <div class="text-gray-600">總題數</div>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <button id="reviewBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-full font-medium transition-colors mr-4">
+                        📝 檢視錯題
+                    </button>
+                    <button id="restartBtn" class="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-full font-medium transition-colors">
+                        🏠 返回首頁
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 錯題檢視 -->
+        <div id="reviewArea" class="hidden">
+            <div class="bg-white rounded-2xl shadow-lg p-6 relative">
+                <button id="backToResultBtnTop" class="absolute top-4 left-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors">
+                    ⬅️ 返回成績
+                </button>
+                <button id="backToHomeFromReviewBtnTop" class="absolute top-4 right-4 bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors">
+                    🏠 返回首頁
+                </button>
+                <h2 class="text-2xl font-bold text-red-600 mb-4 pt-16">❌ 錯題檢視與解析</h2>
+                <div id="wrongQuestions">
+                    <!-- 錯題將動態生成 -->
+                </div>
+                <div class="flex justify-between mt-6">
+                    <button id="backToResultBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-full font-medium transition-colors">
+                        ⬅️ 返回成績
+                    </button>
+                    <button id="backToHomeFromReviewBtn" class="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-full font-medium transition-colors">
+                        🏠 返回首頁
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 歷史紀錄 -->
+        <div id="historyArea" class="hidden relative">
+
+            <div class="bg-white rounded-2xl shadow-lg p-6">
+                <div class="flex justify-between items-center mb-4 pt-8">
+                    <h2 class="text-2xl font-bold text-blue-600">📊 歷史紀錄</h2>
+                    <div class="space-x-2">
+                        <button id="clearIncompleteBtn" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors">
+                            🗑️ 清除未完成
+                        </button>
+                        <button id="clearAllHistoryBtn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors">
+                            🗑️ 全部清除
+                        </button>
+                    </div>
+                </div>
+                <div id="historyList" class="space-y-2">
+                    </div>
+            </div>
+        </div>
+
+        <div id="exitConfirmDialog" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300 opacity-0">
+            <div id="exitConfirmDialogContent" class="bg-white rounded-2xl shadow-xl p-8 w-11/12 max-w-md text-center transform transition-all scale-95 opacity-0">
+                <h3 class="text-2xl font-bold text-red-600 mb-4">⚠️ 確定要終止測驗嗎？</h3>
+                <p class="text-gray-600 mb-8">目前的作答進度將會被記錄為「未完成」。</p>
+                <div class="flex justify-center space-x-4">
+                    <button id="confirmExitBtn" class="bg-red-500 hover:bg-red-600 text-white px-8 py-3 rounded-full font-medium transition-colors transform hover:scale-105">
+                        確定終止
+                    </button>
+                    <button id="cancelExitBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-8 py-3 rounded-full font-medium transition-colors">
+                        繼續作答
+                    </button>
+                </div>
+            </div>
+        </div>
+		
+        <div id="exitConfirmDialog" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300 opacity-0">
+            <div id="exitConfirmDialogContent" class="bg-white rounded-2xl shadow-xl p-8 w-11/12 max-w-md text-center transform transition-all scale-95 opacity-0">
+                <h3 class="text-2xl font-bold text-red-600 mb-4">⚠️ 確定要終止測驗嗎？</h3>
+                <p class="text-gray-600 mb-8">目前的作答進度將會被記錄為「未完成」，但不會計分。</p>
+                <div class="flex justify-center space-x-4">
+                    <button id="confirmExitBtn" class="bg-red-500 hover:bg-red-600 text-white px-8 py-3 rounded-full font-medium transition-colors transform hover:scale-105">
+                        確定終止
+                    </button>
+                    <button id="cancelExitBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-8 py-3 rounded-full font-medium transition-colors">
+                        繼續作答
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="genericConfirmDialog" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300 opacity-0">
+            <div id="genericConfirmDialogContent" class="bg-white rounded-2xl shadow-xl p-8 w-11/12 max-w-md text-center transform transition-all scale-95 opacity-0">
+                <h3 id="genericDialogTitle" class="text-2xl font-bold text-red-600 mb-4">標題</h3>
+                <p id="genericDialogMessage" class="text-gray-600 mb-6">訊息</p>
+                <div id="genericDialogPasswordWrapper" class="mb-6 hidden">
+                    <label class="block text-gray-700 text-sm font-bold mb-2 text-left">請輸入管理密碼：</label>
+                    <input type="password" id="genericDialogPasswordInput" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500" placeholder="Password">
+                </div>
+                <div class="flex justify-center space-x-4">
+                    <button id="genericConfirmBtn" class="bg-red-500 hover:bg-red-600 text-white px-8 py-3 rounded-full font-medium transition-colors transform hover:scale-105">
+                        確認
+                    </button>
+                    <button id="genericCancelBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-8 py-3 rounded-full font-medium transition-colors">
+                        取消
+                    </button>
+                </div>
+            </div>
+        </div>
+
+
+
+
+
+
+        <!-- 練習紀錄彈出視窗 (新增) -->
+        <div id="statsModal" class="hidden fixed inset-0 z-[60] overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+            <!-- 背景遮罩 -->
+            <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity backdrop-blur-sm" aria-hidden="true" onclick="closeStatsModal()"></div>
+                <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                
+                <!-- 彈窗本體 -->
+                <div class="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-sm w-full relative">
+                    
+                    <!-- 裝飾背景頭部 -->
+                    <div class="bg-gradient-to-r from-purple-100 to-blue-100 h-24 absolute top-0 left-0 w-full z-0"></div>
+                    
+                    <!-- 關閉按鈕 -->
+                    <button onclick="closeStatsModal()" class="absolute top-3 right-3 bg-white/50 hover:bg-white text-gray-500 hover:text-gray-700 rounded-full p-1 z-50 transition-colors">
+                        <span class="material-icons-outlined">close</span>
+                    </button>
+
+                    <div class="relative px-6 pt-12 pb-6 z-10">
+                        <!-- 標題 -->
+                        <div class="text-center mb-6">
+                            <h3 class="text-xl font-bold text-gray-800 mb-1" id="statsModalTitle">單元名稱</h3>
+                        </div>
+
+                        <!-- 星星評分 -->
+                        <div class="flex justify-center mb-6 space-x-1" id="statsModalStars">
+                            <!-- 星星將由 JS 動態生成 -->
+                        </div>
+
+                        <!-- 數據卡片 -->
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div class="bg-orange-50 rounded-2xl p-3 text-center border border-orange-100">
+                                <div class="text-orange-500 mb-1"><span class="material-icons-outlined text-2xl">emoji_events</span></div>
+                                <div class="text-2xl font-bold text-gray-800" id="statsModalScore">0</div>
+                                <div class="text-xs text-gray-500 font-medium">平均分數</div>
+                            </div>
+                            <div class="bg-blue-50 rounded-2xl p-3 text-center border border-blue-100">
+                                <div class="text-blue-500 mb-1"><span class="material-icons-outlined text-2xl">rocket_launch</span></div>
+                                <div class="text-2xl font-bold text-gray-800" id="statsModalCount">0</div>
+                                <div class="text-xs text-gray-500 font-medium">練習次數</div>
+                            </div>
+                        </div>
+
+                        <!-- 鼓勵評語 -->
+                        <div class="text-center bg-gray-50 rounded-xl p-3 border border-gray-100">
+                            <span id="statsModalComment" class="text-gray-700 font-medium text-sm"></span>
+                        </div>
+                        
+                        <!-- 按鈕 -->
+                        <div class="mt-6">
+                            <button type="button" onclick="closeStatsModal()" class="w-full inline-flex justify-center rounded-full border border-transparent shadow-sm px-4 py-3 bg-purple-600 text-base font-medium text-white hover:bg-purple-700 focus:outline-none sm:text-sm transition-transform active:scale-95">
+                                確定！
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+`;
