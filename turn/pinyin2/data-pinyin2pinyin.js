@@ -3300,6 +3300,11 @@ function matsuPinyinBpm(t){
 	return t;
 }
 
+function matsuPinyinBpmSmall(t){
+	 t = matsuPinyinBpm(t);
+	 t = bpmBigSmall(t);
+	return t;
+}
 
 
 function matsuPinyinTone(t){
