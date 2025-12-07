@@ -368,6 +368,7 @@ function isSyllableToken(token) {
 
 
 // 主渲染邏輯：依據模式生成不同結構
+
 function alignByClauses({
     hanzi,
     pinyin,
@@ -376,41 +377,55 @@ function alignByClauses({
     mode = 'view',
     annotationMode = 'char', // 'char' | 'word'
     phoneticDisplayMode = 'pinyin'
-	}) {
+}) {
     const container = document.createElement('div');
     container.className = 'line-wrap';
 
-    // 取得拼音/注音顯示文字的輔助函式
+    // --- 取得拼音/注音/雙顯 顯示文字的輔助函式 ---
     const getDisplayText = (py) => {
-		
         // 針對 詔安 (kasu) 語言的特殊處理
         if (currentLanguageKey === 'kasu') {
-			
-            // 若為「顯示注音」模式，使用專用的轉換函式 (kasuPinyinToBpmSmall)
+            // 模式：顯示注音
             if (phoneticDisplayMode === 'zhuyin' && typeof kasuPinyinToBpmSmall === 'function') {
                 return kasuPinyinToBpmSmall(py);
             }
-            // 若為「顯示拼音」模式，嘗試將可能存在的注音轉回拼音 (kasuBpmSmallToPinyin)
-            if (phoneticDisplayMode === 'pinyin' && typeof kasuBpmSmallToPinyin === 'function') {
+            // 模式：顯示拼音 OR 拼音+注音 (上方 RT 只顯示拼音)
+            if ((phoneticDisplayMode === 'pinyin' || phoneticDisplayMode === 'pinyin-zhuyin') && typeof kasuBpmSmallToPinyin === 'function') {
                 return kasuBpmSmallToPinyin(py);
             }
-        }else if (currentLanguageKey === 'matsu') { // 馬祖
+        } else if (currentLanguageKey === 'matsu') { // 馬祖
             if (phoneticDisplayMode === 'zhuyin' && py) {
-                return matsuPinyinToBpm(py);	
+                return matsuPinyinToBpm(py);
             }
-            if (phoneticDisplayMode === 'pinyin' && py) {
+            if ((phoneticDisplayMode === 'pinyin' || phoneticDisplayMode === 'pinyin-zhuyin') && py) {
                 return matsuBpmToPinyin(py);
             }
         }
 
-        // 其他語言或預設行為：若為注音模式，使用通用的拼音轉注音；要再排除閩南語
+        // 其他語言：若為注音模式
         if (phoneticDisplayMode === 'zhuyin' && py) {
             return convertPinyinToZhuyin(py);
         }
-        // 預設回傳原拼音
+        
+        // 預設回傳原拼音 (包含 pinyin-zhuyin 模式的 RT 部分)
         return py;
     };
 
+    // --- 取得 RB 內容 (處理拼音注音雙顯模式) ---
+    const getRbText = (hToken, pToken) => {
+        // 如果是「拼音+注音」模式，且有對應的轉換函數
+        if (phoneticDisplayMode === 'pinyin-zhuyin' && typeof kasuPinyinBpmTiny === 'function') {
+			if (currentLanguageKey === 'kasu') {
+				const tiny = kasuPinyinBpmTiny(pToken) || '';
+				return `${hToken}${tiny}`;
+			}else{
+				const tiny = hakkaPinyinBpmTiny(pToken) || '';
+				return `${hToken}${tiny}`;			
+			}
+        }
+        // 預設只回傳漢字
+        return hToken;
+    };
 
     // 處理一個子句的核心函式
     const processClause = (hTokens, pSegSyls) => {
@@ -442,43 +457,57 @@ function alignByClauses({
             }
 
             const pToken = pSegSyls[p_idx];
-            const pSubSyls = pToken.split(/--?|=/); // 檢查是否為多音節詞 (e.g., "av-i")
+            const pSubSyls = pToken.split(/--?|=/); // 檢查是否為多音節詞
 
             // 情況一：多音節詞 (e.g., "av-i")
             if (pSubSyls.length > 1) {
                 const wordLen = pSubSyls.length;
-                // 【修正】先取得 token 陣列，再用其長度進行判斷，避免擴充漢字的 .length 問題
                 const hWordTokens = hTokens.slice(h_idx, h_idx + wordLen);
                 const hWord = hWordTokens.join('');
 
                 // 檢查漢字 token 數量是否匹配
                 if (hWordTokens.length === wordLen) {
-                    // 【關鍵邏輯】
-                    // 在「詞」模式下，生成單一的 <ruby> 標籤包覆整個詞
                     if (annotationMode === 'word') {
+                        // 詞模式：整個詞包在一個 ruby
                         const ruby = document.createElement('ruby');
                         ruby.className = 'glyph glyph-word';
                         ruby.dataset.hanzi = hWord;
                         ruby.dataset.pinyin = pToken;
-                        ruby.innerHTML = `<rt>${getDisplayText(pToken)}</rt><rb>${hWord}</rb>`;
+                        
+                        // 計算詞模式下的 RB 顯示 (需要對每個音節分別轉 bpmTiny 嗎？)
+                        // 通常詞模式較難完美對齊右側注音，這裡做簡單處理：
+                        // 如果是拼音注音模式，嘗試把每個字的注音接在該字後面，重組 RB
+                        let rbContent = hWord;
+                        if (phoneticDisplayMode === 'pinyin-zhuyin' && typeof kasuPinyinBpmTiny === 'function') {
+                            rbContent = '';
+                            for(let k=0; k<wordLen; k++) {
+                                rbContent += hWordTokens[k] + kasuPinyinBpmTiny(pSubSyls[k]);
+                            }
+                        }
+
+                        ruby.innerHTML = `<rt>${getDisplayText(pToken)}</rt><rb>${rbContent}</rb>`;
                         fragment.appendChild(ruby);
                     } 
-                    // 在「字」模式下，為每個字生成獨立的 <ruby>
                     else {
+                        // 字模式：每個字獨立 ruby
                          for (let i = 0; i < wordLen; i++) {
                             const ruby = document.createElement('ruby');
                             ruby.className = 'glyph';
                             ruby.dataset.hanzi = hTokens[h_idx + i];
                             ruby.dataset.pinyin = pSubSyls[i];
-                            ruby.innerHTML = `<rt>${getDisplayText(pSubSyls[i])}</rt><rb>${hTokens[h_idx + i]}</rb>`;
+                            // 使用新的 getRbText 函式
+                            const rbContent = getRbText(hTokens[h_idx + i], pSubSyls[i]);
+                            ruby.innerHTML = `<rt>${getDisplayText(pSubSyls[i])}</rt><rb>${rbContent}</rb>`;
                             fragment.appendChild(ruby);
                         }
                     }
                     h_idx += wordLen;
                     p_idx++;
-                } else { // 長度不匹配，則退回單字模式處理，避免對位錯誤
+                } else { 
+                    // 長度不匹配退回單字
                     const ruby = document.createElement('ruby');
                     ruby.className = 'glyph missing';
+                    // 這裡通常是異常狀況，暫不處理雙顯
                     ruby.innerHTML = `<rt>${getDisplayText(pToken)}</rt><rb>${hToken}</rb>`;
                     fragment.appendChild(ruby);
                     h_idx++;
@@ -487,28 +516,21 @@ function alignByClauses({
             } 
             // 情況二：單音節字
             else {
-                // ==========================================================
-                // 【核心修改】
-                // 檢查漢字 token 和 拼音 token 是否完全相同
-                // 如果是 (例如 '123' vs '123', 或 '#1' vs '#1')
-                // 則將它視為不需標註的「符號」，直接輸出
                 if (hToken === pToken) {
                     const span = document.createElement('span');
-                    // 借用 'punct' 樣式來實現直排顯示
-                    // 這樣它就會被當作一個不可標註的符號，就像逗號一樣
                     span.className = 'glyph punct'; 
                     span.textContent = hToken;
                     fragment.appendChild(span);
                 } else {
-                    // 否則 (例如 '南' vs 'namˋ')，執行原本的 <ruby> 標註
                     const ruby = document.createElement('ruby');
                     ruby.className = 'glyph';
                     ruby.dataset.hanzi = hToken;
                     ruby.dataset.pinyin = pToken;
-                    ruby.innerHTML = `<rt>${getDisplayText(pToken)}</rt><rb>${hToken}</rb>`;
+                    // 使用新的 getRbText 函式
+                    const rbContent = getRbText(hToken, pToken);
+                    ruby.innerHTML = `<rt>${getDisplayText(pToken)}</rt><rb>${rbContent}</rb>`;
                     fragment.appendChild(ruby);
                 }
-                // ==========================================================
                 h_idx++;
                 p_idx++;
             }
@@ -516,9 +538,10 @@ function alignByClauses({
         return fragment;
     };
 
+    // ... (後續 hSegs, pSegRaws 遍歷邏輯保持不變) ...
     const hSegs = segmentHanziByClauses(hanzi || '');
     const pSegRaws = segmentPinyinRawByClauses(pinyin || '');
-    CC_SEG.map = []; // 清空舊 map
+    CC_SEG.map = []; 
 
     const processAndAppend = (hText, pText, index) => {
         const clause = document.createElement('span');
@@ -543,7 +566,6 @@ function alignByClauses({
         container.appendChild(clause);
     };
 
-    // 遍歷子句並渲染
     let hSegIndex = 0;
     let pSegIndex = 0;
     while (hSegIndex < hSegs.length || pSegIndex < pSegRaws.length) {
@@ -565,7 +587,6 @@ function alignByClauses({
 
         hSegIndex++;
         pSegIndex++;
-
         if (hSegIndex >= hSegs.length && pSegIndex >= pSegRaws.length) break;
     }
 
@@ -1139,7 +1160,7 @@ btnModeWord.addEventListener('click', () => {
 
 
 function attachEditHandlers() {
-    // 功能1：編輯整個子句 (邏輯不變)
+    // 功能1：編輯整個子句
     resultArea.querySelectorAll('.clause .edit-btn').forEach(btn => {
          btn.addEventListener('click', (e) => {
             if (mode !== 'edit') return;
@@ -1158,7 +1179,12 @@ function attachEditHandlers() {
             const mapItem = CC_SEG.map.find(m => m.hIndex === hIndex);
             const pIndex = mapItem ? mapItem.pIndex : hIndex;
 
-            const curH = CC_SEG.hSegs.filter(s => s.type === 'seg')[hIndex]?.text || '';
+            // 1. 取得漢字 (過濾掉微型注音)
+            let curH = CC_SEG.hSegs.filter(s => s.type === 'seg')[hIndex]?.text || '';
+            const cleanerRegex = window.regexBpmTiny || /[-]/g;
+            curH = curH.replace(new RegExp(cleanerRegex, 'g'), '');
+
+            // 2. 取得拼音 (CC_SEG 源自輸入框，本身就是拼音，不受顯示模式影響)
             const curP = CC_SEG.pSegRaws.filter(s => s.type === 'seg')[pIndex]?.text || '';
 
             const editor = document.createElement('div');
@@ -1187,23 +1213,25 @@ function attachEditHandlers() {
                 const finalPinyinText = rebuildPinyinWithReplace(pIndex, newP);
                 hanziInput.value = finalHanziText;
                 pinyinInput.value = finalPinyinText;
+                
+                // render() 會根據當前模式 (例如顯示注音) 重新生成畫面
                 render();
                 toast('已更新本段，並同步輸入區');
             });
         });
     });
 
-    // 【核心修改】功能2：為所有可編輯的 <ruby> 綁定編輯器
-    // 編輯模式下，一定是「字」模式，所以結構是統一的
+    // 功能2：為所有可編輯的 <ruby> 綁定編輯器
     resultArea.querySelectorAll('.clause ruby.glyph').forEach(rubyEl => {
         rubyEl.style.cursor = 'pointer';
         rubyEl.addEventListener('click', (e) => {
             if (mode !== 'edit' || e.target.closest('.word-editor')) return;
-            // 不論是單字還是詞彙中的字，都觸發單字編輯器
             showWordEditor(rubyEl);
         });
     });
 }
+
+
 
 // 關閉單詞編輯器
 function closeWordEditor() {
@@ -1257,6 +1285,8 @@ function showWordUnitEditor(wordUnitEl) {
     });
 
     // 儲存邏輯
+
+    // 儲存邏輯
     editor.querySelector('.save').addEventListener('click', (e) => {
         e.stopPropagation();
         const newHanzi = editor.querySelector('.ed-h-word').value;
@@ -1266,7 +1296,7 @@ function showWordUnitEditor(wordUnitEl) {
         wordUnitEl.dataset.hanzi = newHanzi;
         wordUnitEl.dataset.pinyin = newPinyin;
 
-        // 2. 根據新的資料，重新生成內部的 <ruby> 標籤
+        // 2. 重新生成內部 HTML
         const hanziChars = toCharArray(newHanzi);
         const pinyinSyls = newPinyin.split(/--?|=/);
         let newInnerHTML = '';
@@ -1275,24 +1305,33 @@ function showWordUnitEditor(wordUnitEl) {
         for (let i = 0; i < len; i++) {
             const h = hanziChars[i] || '';
             const p = pinyinSyls[i] || '';
+            
+            // 【關鍵修改】：若在雙顯模式，要在這裡生成 rb 內容
+            let rbContent = h;
+            if (phoneticDisplayMode === 'pinyin-zhuyin' && typeof kasuPinyinBpmTiny === 'function') {
+                rbContent += kasuPinyinBpmTiny(p);
+            }
+            
+            // 注意：rt 的顯示也要符合當前模式
+            // 由於 getDisplayText 是在 alignByClauses 內部定義的，這裡無法直接呼叫
+            // 但我們可以簡單判斷：如果是 kasu，詞彙編輯器通常是輸入拼音，所以顯示拼音即可
+            // 若需要嚴謹，可以把 getDisplayText 移到全域，或在這裡複製一份邏輯
+            // 這裡假設直接顯示拼音 (符合使用者編輯時的需求)
             newInnerHTML += `
                 <ruby class="glyph">
                     <rt>${p}</rt>
-                    <rb>${h}</rb>
+                    <rb>${rbContent}</rb>
                 </ruby>
             `;
         }
         wordUnitEl.innerHTML = newInnerHTML;
 
-        // 3. 觸發與單字編輯器相同的「從結果回寫」邏輯，更新主輸入框
-        // 我們可以借用單字編輯器 save 按鈕中的部分程式碼來完成此操作
-        // 為了避免重複程式碼，我們直接呼叫 render，它會根據畫面上的最新結果重新整理一切
-        
-        // 從結果區讀取並重建完整文本
+        // 3. 從結果回寫 (Logic Copy from showWordEditor with Cleaner)
         const hanziParts = [];
         const pinyinParts = [];
         const lineWrap = resultArea.querySelector('.line-wrap');
-        
+        const cleanerRegex = window.regexBpmTiny || /[-]/g; // 清除器
+
         if (lineWrap) {
             lineWrap.childNodes.forEach(node => {
                 if (node.nodeName === 'BR') {
@@ -1300,15 +1339,25 @@ function showWordUnitEditor(wordUnitEl) {
                     pinyinParts.push('\n');
                 } else if (node.classList && node.classList.contains('clause')) {
                     node.childNodes.forEach(glyphNode => {
+                        // 處理 word-unit
                         if (glyphNode.classList && glyphNode.classList.contains('word-unit')) {
+                            // word-unit 的 dataset 應該是乾淨的，直接用 dataset 比較安全
                             hanziParts.push(glyphNode.dataset.hanzi);
                             pinyinParts.push(glyphNode.dataset.pinyin);
-                        } else if (glyphNode.nodeName === 'RUBY') {
-                            const hanzi = glyphNode.querySelector('rb')?.textContent || '';
+                        } 
+                        // 處理普通 ruby
+                        else if (glyphNode.nodeName === 'RUBY') {
+                            let hanzi = glyphNode.querySelector('rb')?.textContent || '';
                             const pinyin = glyphNode.querySelector('rt')?.textContent || '';
+                            
+                            // 【關鍵清除】
+                            hanzi = hanzi.replace(new RegExp(cleanerRegex, 'g'), '');
+
                             if (hanzi) hanziParts.push(hanzi);
                             if (pinyin) pinyinParts.push(pinyin);
-                        } else if (glyphNode.classList && glyphNode.classList.contains('punct')) {
+                        } 
+                        // ... 其他類型 (span, punct) 處理同上 ...
+                        else if (glyphNode.classList && glyphNode.classList.contains('punct')) {
                             const punct = glyphNode.textContent || '';
                             hanziParts.push(punct);
                             pinyinParts.push(punct);
@@ -1324,6 +1373,7 @@ function showWordUnitEditor(wordUnitEl) {
             });
         }
         
+        // ... (後續回填 input 與 render 邏輯不變) ...
         const finalHanziText = hanziParts.join('');
         const finalPinyinText = pinyinParts.join(' ').replace(/\s+/g, ' ').replace(/\s+([,.;:!?])/g, '$1').trim();
         
@@ -1331,17 +1381,24 @@ function showWordUnitEditor(wordUnitEl) {
         pinyinInput.value = finalPinyinText;
 
         closeWordEditor();
-        render(); // 重新渲染，確保所有狀態同步
+        render();
         toast('詞彙內容已更新');
     });
 }
 
+
+// 顯示單詞編輯器
 // 顯示單詞編輯器
 function showWordEditor(rubyEl, hIndex, wordIndex) {
     closeWordEditor(); // 先關閉其他已開啟的編輯器
 
-    const originalHanzi = rubyEl.querySelector('rb')?.textContent || '';
-    const originalPinyin = rubyEl.querySelector('rt')?.textContent || '';
+    // 1. 取得 rb 內容，並清除可能的注音符號 (確保漢字區乾淨)
+    let originalHanzi = rubyEl.querySelector('rb')?.textContent || '';
+    const cleanerRegex = window.regexBpmTiny || /[-]/g;
+    originalHanzi = originalHanzi.replace(new RegExp(cleanerRegex, 'g'), '');
+
+    // 2. 取得拼音：優先從 dataset 讀取原始拼音 (解決顯示注音模式下讀到注音的問題)
+    const originalPinyin = rubyEl.dataset.pinyin || rubyEl.querySelector('rt')?.textContent || '';
 
     const editor = document.createElement('div');
     editor.className = 'word-editor';
@@ -1370,103 +1427,105 @@ function showWordEditor(rubyEl, hIndex, wordIndex) {
     const pinyinField = editor.querySelector('.ed-p-word');
     pinyinField.focus();
 
-    // 取消按鈕事件綁定 ---
+    // 取消按鈕事件綁定
     editor.querySelector('.cancel').addEventListener('click', (e) => {
         e.stopPropagation();
         closeWordEditor();
     });
 
-    // --- START: 採用使用者建議的「從結果回寫」新邏輯 ---
+    // 儲存邏輯
     editor.querySelector('.save').addEventListener('click', (e) => {
         e.stopPropagation();
         const newHanzi = editor.querySelector('.ed-h-word').value;
         const newPinyin = pinyinField.value.trim();
 
-        // 1. 直接在畫面上更新被編輯的單字
+        // 1. 更新 DOM dataset (關鍵：確保 dataset 是最新的拼音)
+        rubyEl.dataset.hanzi = newHanzi;
+        rubyEl.dataset.pinyin = newPinyin;
+
+        // 2. 視覺更新 (暫時顯示，render() 會稍後重繪)
+        // 為了讓視覺上也能即時看到正確的 bpmTiny (若在雙顯模式)
+        let displayRbContent = newHanzi;
+        if (phoneticDisplayMode === 'pinyin-zhuyin' && typeof kasuPinyinBpmTiny === 'function') {
+            displayRbContent = newHanzi + kasuPinyinBpmTiny(newPinyin);
+        }
+
         const targetRb = rubyEl.querySelector('rb');
         const targetRt = rubyEl.querySelector('rt');
-        if (targetRb) targetRb.textContent = newHanzi;
+        if (targetRb) targetRb.textContent = displayRbContent;
         if (targetRt) targetRt.textContent = newPinyin;
 
-        // 2. 準備從畫面結果區讀取完整的正確內容
+        // 3. 從畫面結果區讀取完整的正確內容 (回寫 Input)
         const hanziParts = [];
         const pinyinParts = [];
         const lineWrap = resultArea.querySelector('.line-wrap');
-        
+        const cleanerRegexLoop = window.regexBpmTiny || /[-]/g;
+
         if (lineWrap) {
-            // 遍歷所有子元素 (包括 <br> 換行符)
             lineWrap.childNodes.forEach(node => {
                 if (node.nodeName === 'BR') {
                     hanziParts.push('\n');
                     pinyinParts.push('\n');
                 } else if (node.classList && node.classList.contains('clause')) {
-                    // 遍歷一個句子 (clause) 裡的所有元素
                     node.childNodes.forEach(glyph => {
                         if (glyph.nodeName === 'RUBY') {
-                            const hanzi = glyph.querySelector('rb')?.textContent || '';
-                            const pinyin = glyph.querySelector('rt')?.textContent || '';
+                            let hanzi = glyph.querySelector('rb')?.textContent || '';
+                            // 【關鍵】：收集資料時優先讀取 dataset.pinyin
+                            // 這樣即使畫面上 rt 顯示的是注音，我們也能收集到正確的拼音
+                            const pinyin = glyph.dataset.pinyin || glyph.querySelector('rt')?.textContent || '';
+                            
+                            // 清除 rb 內容中的 bpmTiny 符號
+                            hanzi = hanzi.replace(new RegExp(cleanerRegexLoop, 'g'), '');
+
                             if (hanzi) hanziParts.push(hanzi);
-                            // 即使漢字為空，也要保留拼音(處理多餘拼音的情況)
                             if (pinyin) pinyinParts.push(pinyin);
 
                         } else if (glyph.classList && glyph.classList.contains('punct')) {
                             const punct = glyph.textContent || '';
                             hanziParts.push(punct);
                             pinyinParts.push(punct);
-                        
-                        // 【核心修改】增加對純文字 span (如 'AI', '123') 的處理
-                        } else if (glyph.nodeName === 'SPAN' && glyph.classList.contains('glyph') && !glyph.classList.contains('punct')) {
-                            const token = glyph.textContent || '';
-                            if (token) {
-                                hanziParts.push(token);
-                                pinyinParts.push(token); // 相同內容同時放入漢字和拼音陣列
-                            }
+                        } else if (glyph.nodeName === 'SPAN' && glyph.classList.contains('glyph')) {
+                             const token = glyph.textContent || '';
+                             if (token) {
+                                 hanziParts.push(token);
+                                 pinyinParts.push(token);
+                             }
                         }
                     });
                 }
             });
         }
 
-        // 3. 組合漢字區的最終文字
+        // 4. 組合最終字串
         const finalHanziText = hanziParts.join('').replace(/\n /g, '\n').trim();
-
-        // 4. 處理拼音區的最終文字 (標點轉半形、加空格)
         const puncMap = { '，':' ,', '。':' .', '、':' ,', '；':' ;', '：':' :', '！':' !', '？':' ?' };
         let finalPinyinText = '';
         for (let i = 0; i < pinyinParts.length; i++) {
             let part = pinyinParts[i];
-            
             if (part === '\n') {
                 finalPinyinText += '\n';
                 continue;
             }
-
-            // 轉換標點為半形，並在前後加上空格以便後續處理
-            if (puncMap[part]) {
-                part = puncMap[part];
-            }
-            
+            if (puncMap[part]) part = puncMap[part];
             finalPinyinText += part;
-
-            // 在音節後面加上空格，但如果下一個是標點或換行，則不加
             const nextPart = pinyinParts[i + 1];
             if (nextPart && nextPart !== '\n' && !puncMap[nextPart]) {
                  finalPinyinText += ' ';
             }
         }
-        // 清理多餘的空格
         finalPinyinText = finalPinyinText.replace(/\s+/g, ' ').replace(/\s+([,.;:!?])/g, '$1').trim();
         
-        // 5. 將整理好的文字回填到輸入框
+        // 5. 回填並重繪 (render 會根據當前模式重新將拼音轉為注音顯示)
         hanziInput.value = finalHanziText;
         pinyinInput.value = finalPinyinText;
 
         closeWordEditor();
-        render(); // 根據新的輸入框內容，重新渲染一次結果，確保同步
+        render(); 
         toast('內容已更新');
     });
-    // --- END: 全新儲存邏輯 ---
 }
+
+
 
 // 監聽全局點擊，若點擊編輯器以外區域則關閉
 document.addEventListener('click', (e) => {

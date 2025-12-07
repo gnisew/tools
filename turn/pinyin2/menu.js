@@ -9,9 +9,11 @@ const langSixian = `
 左邊選單	右邊選單	執行函數	左邊範例	右邊範例
 拼音	注音	hakkaPinyinBpm	hagˋ gaˊ	ㄏㄚㄍˋ ㄍㄚˊ
 拼音	小注音	hakkaPinyinBpmSmall	hagˋ gaˊ	ˋ ˊ
+拼音	直注音	hakkaPinyinBpmTiny	hagˋ gaˊ	 
 注音	拼音字尾調	hakkaBpmPinyinTone	ㄏㄚㄍˋ ㄍㄚˊ ˋ ˊ	hagˋ gaˊ hagˋ gaˊ
 注音	小注音	bpmBigSmall	ㄏㄚㄍˋ ㄍㄚˊ	ˋ ˊ
 注音	大注音	bpmSmallBig	ˋ ˊ	ㄏㄚㄍˋ ㄍㄚˊ
+注音	直注音	bpmSmallTiny	ˋ ˊ	 
 拼音	字尾調	hakkaPinyinTone	hags gaz nginv	hagˋ gaˊ nginˇ
 拼音	字中調	hakkaPinyinLetter	hagˋ gaˊ nginˇ	hàg gá ngǐn
 拼音	字母調	hakkaPinyinZvs	hagˋ gaˊ nginˇ	hags gaz nginv
@@ -40,9 +42,11 @@ const langHailu = `
 左邊選單	右邊選單	執行函數	左邊範例	右邊範例
 拼音	注音	hakkaPinyinBpm	aˋ aˊ	ㄚˋ ㄚˊ
 拼音	小注音	hakkaPinyinBpmSmall	aˋ	ˋ
+拼音	直注音	hakkaPinyinBpmTiny	aˋ	
 注音	拼音字尾調	hakkaBpmPinyinTone	ㄚˋ ˋ	aˋ aˋ
 注音	小注音	bpmBigSmall	ㄚˋ	ˋ
 注音	大注音	bpmSmallBig	ˋ	ㄚˋ
+注音	直注音	bpmSmallTiny	ˋ ˊ	 
 拼音	字尾調	hakkaPinyinTone	az av as ax af	aˊ aˇ aˋ aˆ a⁺
 拼音	字中調	hakkaPinyinLetter	aˊ aˇ aˋ aˆ a⁺	á ǎ à â ā
 拼音	字母調	hakkaPinyinZvs	aˊ aˇ aˋ aˆ a⁺	az av as ax af
@@ -65,9 +69,11 @@ const langDapu = `
 左邊選單	右邊選單	執行函數	左邊範例	右邊範例
 拼音	注音	hakkaPinyinBpm	aˋ aˊ	ㄚˋ ㄚˊ
 拼音	小注音	hakkaPinyinBpmSmall	aˋ	ˋ
+拼音	直注音	hakkaPinyinBpmTiny	aˋ	
 注音	拼音字尾調	hakkaBpmPinyinTone	ㄚˋ ˋ	aˋ aˋ
 注音	小注音	bpmBigSmall	ㄚˋ	ˋ
 注音	大注音	bpmSmallBig	ˋ	ㄚˋ
+注音	直注音	bpmSmallTiny	ˋ ˊ	 
 拼音	字尾調	hakkaPinyinTone	az av as ax af	aˊ aˇ aˋ aˆ a⁺
 拼音	字中調	hakkaPinyinLetter	aˊ aˇ aˋ aˆ a⁺	á ǎ à â ā
 拼音	字母調	hakkaPinyinZvs	aˊ aˇ aˋ aˆ a⁺	az av as ax af
@@ -88,9 +94,11 @@ const langRaoping = `
 左邊選單	右邊選單	執行函數	左邊範例	右邊範例
 拼音	注音	hakkaPinyinBpm	aˋ aˊ	ㄚˋ ㄚˊ
 拼音	小注音	hakkaPinyinBpmSmall	aˋ	ˋ
+拼音	直注音	hakkaPinyinBpmTiny	aˋ	
 注音	拼音字尾調	hakkaBpmPinyinTone	ㄚˋ ˋ	aˋ aˋ
 注音	小注音	bpmBigSmall	ㄚˋ	ˋ
 注音	大注音	bpmSmallBig	ˋ	ㄚˋ
+注音	直注音	bpmSmallTiny	ˋ ˊ	 
 拼音	字尾調	hakkaPinyinTone	az av as ax af	aˊ aˇ aˋ aˆ a⁺
 拼音	字中調	hakkaPinyinLetter	aˊ aˇ aˋ aˆ a⁺	á ǎ à â ā
 拼音	字母調	hakkaPinyinZvs	aˊ aˇ aˋ aˆ a⁺	az av as ax af
@@ -112,6 +120,7 @@ const langKasu = `
 拼音	注音	kasuPinyinBpmSmall	aˋ aˊ	ˋ ˊ
 拼音	直注音	kasuPinyinBpmTiny	aˋ aˊ	ˋ ˊ
 注音	拼音字尾調	kasuBpmSmallPinyin	ㄚˋ ˋ	aˋ aˋ
+注音	拼音字母調	kasuBpmSmallZvs	ㄚˋ ˋ	as as
 注音	小注音	bpmBigSmall	ㄚˋ	ˋ
 注音	大注音	bpmSmallBig	ˋ	ㄚˋ
 注音	直注音	bpmSmallTiny	ˋ	ㄚˋ
@@ -120,6 +129,7 @@ const langKasu = `
 拼音	字母調	hakkaPinyinZvs	aˊ aˇ aˋ aˆ a⁺	az av as ax af
 拼音	調值	kasuToneNumbers	aˊ	a24
 調值	字尾調	kasuNumbersTone	a24	aˊ
+調值	字母調	kasuNumbersZvs	a24	az
 字尾調	字中調	hakkaToneLetter	aˊ aˇ aˋ aˆ a⁺	á ǎ à â ā
 字尾調	字母調	hakkaToneZvs	aˊ aˇ aˋ aˆ a⁺	az av as ax af
 字母調	字尾調	hakkaZvsTone	az av as ax af	aˊ aˇ aˋ aˆ a⁺

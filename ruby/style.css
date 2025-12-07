@@ -591,3 +591,14 @@ section.is-collapsed .title-text {
 }
 
 
+
+/* --- 新增：直注音模式樣式 --- */
+/* 當 resultArea 擁有此 class 時，隱藏內部的 rt (拼音) */
+.mode-vertical-zhuyin rt {
+    display: none;
+}
+
+/* 微調：在直注音模式下，為了讓 RB 內的微型注音顯示更清楚，可以稍微調整 RB 樣式 */
+.mode-vertical-zhuyin rb {
+    line-height: 1.5; /* 增加行高避免擠在一起 */
+}

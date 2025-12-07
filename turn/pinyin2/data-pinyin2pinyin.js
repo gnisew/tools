@@ -2432,7 +2432,9 @@ const kasuNumbersToTone = (function() {
 		t = t.replace(/([aeioumn]|ng)(55)/gi, '$1');
 		t = t.replace(/([aeioumn]|ng)(33)/gi, '$1⁺');
 		t = t.replace(/([aeiou])([bdg])(3)/gi, '$1$2⁺');
+		t = t.replace(/([aeiou])([bdg])(5)/gi, '$1$2');
 		t = t.replace(/(nnd)(3)/gi, '$1⁺');
+		t = t.replace(/(nnd)(5)/gi, '$1');
         return t;
     };
 })();
@@ -2443,43 +2445,56 @@ const kasuNumbersToTone = (function() {
 
 
 
-
 // 客語拼音轉注音
 const hakkaPinyinToBpm = (function() {
-    const consonantData = `bb	万_ng	兀_rh	ㄖ_r	ㄖ_zh	ㄓ_ch	ㄔ_sh	ㄕ_b	ㄅ_p	ㄆ_m	ㄇ_f	ㄈ_d	ㄉ_t	ㄊ_n	ㄋ_l	ㄌ_g	ㄍ_k	ㄎ_h	ㄏ_j	ㄐ_q	ㄑ_x	ㄒ_z	ㄗ_c	ㄘ_s	ㄙ_v	万_r	ㄖ`;
-    const vowelData = `iang	ㄧㄤ_iong	ㄧㄛㄥ_iung	ㄧㄨㄥ_uang	ㄨㄤ_ang	ㄤ_iag	ㄧㄚㄍ_ied	ㄧㄝㄉ_ien	ㄧㄝㄣ_ong	ㄛㄥ_ung	ㄨㄥ_iid	ㄉ_iim	ㄇ_iin	ㄣ_iab	ㄧㄚㄅ_iam	ㄧㄚㄇ_iau	ㄧㄠ_iog	ㄧㄛㄍ_ieb	ㄧㄝㄅ_iem	ㄧㄝㄇ_ieu	ㄧㄝㄨ_iug	ㄧㄨㄍ_iun	ㄧㄨㄣ_uad	ㄨㄚㄉ_uai	ㄨㄞ_uan	ㄨㄢ_ued	ㄨㄝㄉ_uen	ㄨㄝㄣ_iui	ㄧㄨㄧ_ioi	ㄧㄛㄧ_iud	ㄧㄨㄉ_ion	ㄧㄛㄣ_iib	ㄅ_ab	ㄚㄅ_ad	ㄚㄉ_ag	ㄚㄍ_ai	ㄞ_am	ㄚㄇ_an	ㄢ_au	ㄠ_ed	ㄝㄉ_en	ㄝㄣ_eu	ㄝㄨ_er	ㄜ_id	ㄧㄉ_in	ㄧㄣ_iu	ㄧㄨ_od	ㄛㄉ_og	ㄛㄍ_oi	ㄛㄧ_ud	ㄨㄉ_ug	ㄨㄍ_un	ㄨㄣ_em	ㄝㄇ_ii	_on	ㄛㄣ_ui	ㄨㄧ_eb	ㄝㄅ_io	ㄧㄛ_ia	ㄧㄚ_ib	ㄧㄅ_ie	ㄧㄝ_im	ㄧㄇ_ua	ㄨㄚ_ng	ㄥ_a	ㄚ_e	ㄝ_i	ㄧ_o	ㄛ_u	ㄨ_inn	ㆳ_uannd	ㄨㆩㄉ_ann	ㆩ_ainn	ㆮ_uainn	ㄨㆮ_ee	乜_eem	乜ㄇ_m	ㄇ`;
+    // 聲母對應表 (直接定義物件，易於閱讀與維護)
+    const consonantMap = {
+        "bb": "万", "ng": "兀", "rh": "ㄖ", "r": "ㄖ", "zh": "ㄓ", 
+        "ch": "ㄔ", "sh": "ㄕ", "b": "ㄅ", "p": "ㄆ", "m": "ㄇ", 
+        "f": "ㄈ", "d": "ㄉ", "t": "ㄊ", "n": "ㄋ", "l": "ㄌ", 
+        "g": "ㄍ", "k": "ㄎ", "h": "ㄏ", "j": "ㄐ", "q": "ㄑ", 
+        "x": "ㄒ", "z": "ㄗ", "c": "ㄘ", "s": "ㄙ", "v": "万"
+    };
+
+    // 韻母對應表
+    // 特別注意：ii 對應空字串，但在處理時會暫時標記，以利聲母識別
+    const vowelMap = {
+        "iang": "ㄧㄤ", "iong": "ㄧㄛㄥ", "iung": "ㄧㄨㄥ", "uang": "ㄨㄤ", "ang": "ㄤ", 
+        "iag": "ㄧㄚㄍ", "ied": "ㄧㄝㄉ", "ien": "ㄧㄝㄣ", "ong": "ㄛㄥ", "ung": "ㄨㄥ", 
+        "iid": "ㄉ", "iim": "ㄇ", "iin": "ㄣ", "iab": "ㄧㄚㄅ", "iam": "ㄧㄚㄇ", "iau": "ㄧㄠ", 
+        "iog": "ㄧㄛㄍ", "ieb": "ㄧㄝㄅ", "iem": "ㄧㄝㄇ", "ieu": "ㄧㄝㄨ", "iug": "ㄧㄨㄍ", 
+        "iun": "ㄧㄨㄣ", "uad": "ㄨㄚㄉ", "uai": "ㄨㄞ", "uan": "ㄨㄢ", "ued": "ㄨㄝㄉ", 
+        "uen": "ㄨㄝㄣ", "iui": "ㄧㄨㄧ", "ioi": "ㄧㄛㄧ", "iud": "ㄧㄨㄉ", "ion": "ㄧㄛㄣ", 
+        "iib": "ㄅ", "ab": "ㄚㄅ", "ad": "ㄚㄉ", "ag": "ㄚㄍ", "ai": "ㄞ", "am": "ㄚㄇ", 
+        "an": "ㄢ", "au": "ㄠ", "ed": "ㄝㄉ", "en": "ㄝㄣ", "eu": "ㄝㄨ", "er": "ㄜ", 
+        "id": "ㄧㄉ", "in": "ㄧㄣ", "iu": "ㄧㄨ", "od": "ㄛㄉ", "og": "ㄛㄍ", "oi": "ㄛㄧ", 
+        "ud": "ㄨㄉ", "ug": "ㄨㄍ", "un": "ㄨㄣ", "em": "ㄝㄇ", "ii": "\u200B", // 使用零寬空格作為標記
+        "on": "ㄛㄣ", "ui": "ㄨㄧ", "eb": "ㄝㄅ", "io": "ㄧㄛ", "ia": "ㄧㄚ", "ib": "ㄧㄅ", 
+        "ie": "ㄧㄝ", "im": "ㄧㄇ", "ua": "ㄨㄚ", "ng": "ㄥ", "a": "ㄚ", "e": "ㄝ", 
+        "i": "ㄧ", "o": "ㄛ", "u": "ㄨ", "inn": "ㆳ", "uannd": "ㄨㆩㄉ", "ann": "ㆩ", 
+        "ainn": "ㆮ", "uainn": "ㄨㆮ", "ee": "乜", "eem": "乜ㄇ", "m": "ㄇ"
+    };
 
     // 聲調對應表
-    const toneData = `f	⁺_v	ˇ_z	ˊ_s	ˋ_x	ˆ`;
+    const toneMap = {
+        "f": "⁺", "v": "ˇ", "z": "ˊ", "s": "ˋ", "x": "ˆ"
+    };
 
-    // 解析資料成 Map
-    function parseData(dataString) {
-        const map = new Map();
-        dataString.trim().split('_').forEach(line => {
-            if (line.trim()) {
-                const [key, value] = line.split('\t');
-                if (key) {
-                    map.set(key.trim(), value ? value.trim() : '');
-                }
-            }
-        });
-        return map;
-    }
+    // 預編譯正則表達式
+    const vowelKeys = Object.keys(vowelMap).sort((a, b) => b.length - a.length);
+    const consonantKeys = Object.keys(consonantMap).sort((a, b) => b.length - a.length);
 
-    const consonantMap = parseData(consonantData);
-    const vowelMap = parseData(vowelData);
-    const toneMap = parseData(toneData);
+    // 動態生成 Lookahead 字符集：包含所有轉換後韻母的第一個字元，以及我們的特殊標記 \u200B
+    // 這確保聲母轉換時，後面確實跟著已轉換的韻母
+    const validFollowChars = new Set(Object.values(vowelMap).map(v => v ? v[0] : '').filter(Boolean));
+    const lookaheadPattern = '[' + Array.from(validFollowChars).join('') + '\u200B' + ']';
 
-
-    // 預編譯正則表達式以提高效率
-    const vowelKeys = Array.from(vowelMap.keys()).sort((a, b) => b.length - a.length);
-    const consonantKeys = Array.from(consonantMap.keys()).sort((a, b) => b.length - a.length);
+    // 韻母匹配正則：(聲母)?(韻母)(聲調)?
+    // 使用 consonantKeys 確保聲母列表與數據一致
+    const vowelRegex = new RegExp(`\\b(${consonantKeys.join('|')})?(${vowelKeys.join('|')})([fvzsx]?)\\b`, 'gi');
     
-    // 韻母匹配正則（按長度從長到短）
-    const vowelRegex = new RegExp(`\\b(zh|ch|sh|rh|bb|gg|ng|[bpmfdtnlgkhzcsjqxvr])?(${vowelKeys.join('|')})([fvzsx]?)\\b`, 'gi');
-    
-    // 聲母匹配正則
-    const consonantRegex = new RegExp(`\\b(${consonantKeys.join('|')})(?=[ㄧㄨㄚㄛㄜㄝㄞㄠㄡㄢㄣㄤㄥㄇㄋ兀ㄅㄉㄍㆮㆳㆬㆲㆰ])`, 'gi');
+    // 聲母匹配正則：聲母 + (Lookahead: 注音符號或標記)
+    const consonantRegex = new RegExp(`\\b(${consonantKeys.join('|')})(?=${lookaheadPattern})`, 'gi');
 
     return function(text) {
         if (!text || typeof text !== 'string') {
@@ -2489,19 +2504,22 @@ const hakkaPinyinToBpm = (function() {
         let result = text;
 
         // 第一步：轉換韻母和聲調
+        // 如果有捕捉到聲母，先保留原樣，待第二步處理
         result = result.replace(vowelRegex, (match, consonant, vowel, tone) => {
-            const zhuyin_vowel = vowelMap.get(vowel.toLowerCase()) || vowel;
-            const zhuyin_tone = tone ? toneMap.get(tone) : '';
-
-		// 保留聲母部分，稍後處理
+            const zhuyin_vowel = vowelMap[vowel.toLowerCase()] || vowel;
+            const zhuyin_tone = tone ? toneMap[tone] : '';
             const consonantPart = consonant ? consonant : '';
             return consonantPart + zhuyin_vowel + zhuyin_tone;
         });
 
         // 第二步：轉換聲母
+        // 這裡會匹配 "聲母" 後面跟著 "注音" 的情況
         result = result.replace(consonantRegex, (match, consonant) => {
-            return consonantMap.get(consonant.toLowerCase()) || consonant;
+            return consonantMap[consonant.toLowerCase()] || consonant;
         });
+
+        // 第三步：移除 ii 產生的臨時標記
+        result = result.replace(/\u200B/g, '');
 
         return result;
     };
@@ -2510,29 +2528,33 @@ const hakkaPinyinToBpm = (function() {
 
 // 客語注音轉拼音
 const hakkaBpmToPinyin = (function() {
-	const bpmData =`ㄧㄛㄥ	iong_ㄧㄨㄥ	iung_ㄧㄚㄍ	iag_ㄧㄝㄉ	ied_ㄧㄝㄣ	ien_ㄧㄚㄅ	iab_ㄧㄚㄇ	iam_ㄧㄛㄍ	iog_ㄧㄝㄅ	ieb_ㄧㄝㄇ	iem_ㄧㄝㄨ	ieu_ㄧㄨㄍ	iug_ㄧㄨㄣ	iun_ㄨㄚㄉ	uad_ㄨㄝㄉ	ued_ㄨㄝㄣ	uen_ㄧㄨㄧ	iui_ㄧㄛㄧ	ioi_ㄧㄨㄉ	iud_ㄧㄛㄣ	ion_ㄧㄤ	iang_ㄨㄤ	uang_ㄛㄥ	ong_ㄨㄥ	ung_ㄧㄠ	iau_ㄨㄞ	uai_ㄨㄢ	uan_ㄚㄅ	ab_ㄚㄉ	ad_ㄚㄍ	ag_ㄚㄇ	am_ㄝㄉ	ed_ㄝㄣ	en_ㄝㄨ	eu_ㄧㄉ	id_ㄧㄣ	in_ㄧㄨ	iu_ㄛㄉ	od_ㄛㄍ	og_ㄛㄧ	oi_ㄨㄉ	ud_ㄨㄍ	ug_ㄨㄣ	un_ㄝㄇ	em_ㄛㄣ	on_ㄝㄅ	eb_ㄧㄛ	io_ㄧㄚ	ia_ㄧㄅ	ib_ㄧㄝ	ie_ㄧㄇ	im_ㄨㄚ	ua_ㄨㄧ	ui_ㄘㄉ	ciid_ㄘㄇ	ciim_ㄘㄣ	ciin_ㄙㄅ	siib_ㄙㄉ	siid_ㄙㄇ	siim_ㄙㄣ	siin_ㄗㄅ	ziib_ㄗㄉ	ziid_ㄗㄇ	ziim_ㄗㄣ	ziin_ㄤ	ang_ㄞ	ai_ㄢ	an_ㄠ	au_ㄜ	er_ㄚ	a_ㄝ	e_ㄧ	i_ㄛ	o_ㄨ	u_兀	ng_ㄖ	rh_ㄓ	zh_ㄔ	ch_ㄕ	sh_ㄅ	b_ㄆ	p_ㄇ	m_ㄈ	f_ㄉ	d_ㄊ	t_ㄋ	n_ㄌ	l_ㄍ	g_ㄎ	k_ㄏ	h_ㄐ	j_ㄑ	q_ㄒ	x_万	v_ㄘ	cii_ㄙ	sii_ㄗ	zii_乜	ee_乜ㄇ	eem_ㄨㆮ	uainn_ㆮ	ainn_ㆩ	ann_ㄨㆩㄉ	uannd_ㆳ	inn_ㆲ	ong`;
+    // 注音轉拼音對應表
+    const bpmMap = {
+        "ㄧㄛㄥ": "iong", "ㄧㄨㄥ": "iung", "ㄧㄚㄍ": "iag", "ㄧㄝㄉ": "ied", "ㄧㄝㄣ": "ien", 
+        "ㄧㄚㄅ": "iab", "ㄧㄚㄇ": "iam", "ㄧㄛㄍ": "iog", "ㄧㄝㄅ": "ieb", "ㄧㄝㄇ": "iem", 
+        "ㄧㄝㄨ": "ieu", "ㄧㄨㄍ": "iug", "ㄧㄨㄣ": "iun", "ㄨㄚㄉ": "uad", "ㄨㄝㄉ": "ued", 
+        "ㄨㄝㄣ": "uen", "ㄧㄨㄧ": "iui", "ㄧㄛㄧ": "ioi", "ㄧㄨㄉ": "iud", "ㄧㄛㄣ": "ion", 
+        "ㄧㄤ": "iang", "ㄨㄤ": "uang", "ㄛㄥ": "ong", "ㄨㄥ": "ung", "ㄧㄠ": "iau", 
+        "ㄨㄞ": "uai", "ㄨㄢ": "uan", "ㄚㄅ": "ab", "ㄚㄉ": "ad", "ㄚㄍ": "ag", 
+        "ㄚㄇ": "am", "ㄝㄉ": "ed", "ㄝㄣ": "en", "ㄝㄨ": "eu", "ㄧㄉ": "id", 
+        "ㄧㄣ": "in", "ㄧㄨ": "iu", "ㄛㄉ": "od", "ㄛㄍ": "og", "ㄛㄧ": "oi", 
+        "ㄨㄉ": "ud", "ㄨㄍ": "ug", "ㄨㄣ": "un", "ㄝㄇ": "em", "ㄛㄣ": "on", 
+        "ㄝㄅ": "eb", "ㄧㄛ": "io", "ㄧㄚ": "ia", "ㄧㄅ": "ib", "ㄧㄝ": "ie", 
+        "ㄧㄇ": "im", "ㄨㄚ": "ua", "ㄨㄧ": "ui", "ㄘㄉ": "ciid", "ㄘㄇ": "ciim", 
+        "ㄘㄣ": "ciin", "ㄙㄅ": "siib", "ㄙㄉ": "siid", "ㄙㄇ": "siim", "ㄙㄣ": "siin", 
+        "ㄗㄅ": "ziib", "ㄗㄉ": "ziid", "ㄗㄇ": "ziim", "ㄗㄣ": "ziin", "ㄤ": "ang", 
+        "ㄞ": "ai", "ㄢ": "an", "ㄠ": "au", "ㄜ": "er", "ㄚ": "a", 
+        "ㄝ": "e", "ㄧ": "i", "ㄛ": "o", "ㄨ": "u", "兀": "ng", 
+        "ㄖ": "rh", "ㄓ": "zh", "ㄔ": "ch", "ㄕ": "sh", "ㄅ": "b", 
+        "ㄆ": "p", "ㄇ": "m", "ㄈ": "f", "ㄉ": "d", "ㄊ": "t", 
+        "ㄋ": "n", "ㄌ": "l", "ㄍ": "g", "ㄎ": "k", "ㄏ": "h", 
+        "ㄐ": "j", "ㄑ": "q", "ㄒ": "x", "万": "v", "ㄘ": "cii", 
+        "ㄙ": "sii", "ㄗ": "zii", "乜": "ee", "乜ㄇ": "eem", "ㄨㆮ": "uainn", 
+        "ㆮ": "ainn", "ㆩ": "ann", "ㄨㆩㄉ": "uannd", "ㆳ": "inn", "ㆲ": "ong"
+    };
 
-    
-    // 解析資料成 Map
-    function parseData(dataString) {
-        const map = new Map();
-        dataString.trim().split('_').forEach(line => {
-            if (line.trim()) {
-                const [key, value] = line.split('\t');
-                if (key !== undefined) {
-                    map.set(key ? key.trim() : '', value ? value.trim() : '');
-                }
-            }
-        });
-        return map;
-    }
-    
-    const bpmMap = parseData(bpmData);
-    
-    // 預編譯正則表達式以提高效率
-    const bpmKeys = Array.from(bpmMap.keys()).sort((a, b) => b.length - a.length);
-    
-    // 注音轉拼音正則
+    // 預編譯正則表達式 (按長度排序，確保最長匹配優先)
+    const bpmKeys = Object.keys(bpmMap).sort((a, b) => b.length - a.length);
     const zhuyinRegex = new RegExp(`(${bpmKeys.join('|')})`, 'g');
     
     return function(text) {
@@ -2540,12 +2562,12 @@ const hakkaBpmToPinyin = (function() {
             return '';
         }
         
-        // 轉換注音為拼音
         return text.replace(zhuyinRegex, (match, bpm) => {
-            return bpmMap.get(bpm) || bpm;
+            return bpmMap[bpm] || bpm;
         });
     };
 })();
+
 
 
 
@@ -2601,89 +2623,102 @@ const [bpmBigToSmall, bpmSmallToBig] = (function() {
 
 
 
-
 const [kasuPinyinToBpmSmall, kasuBpmSmallToPinyin] = (function() {
+
     const rawData = [
-        "ainn","","aunn","","iang","","iong","","iung","","uang","",
+        // === 1. 程式邏輯專用的特殊映射 ===
+        "__o", "",         // 特殊 o (用於 m/n/ng 後)
+        "__ng_intro", "",  // 特殊 ng (聲母專用)
+        
+        // === 2. 補全資料 ===
+        "ing", "",        // 補全 ing
+        "ng", "",          // 【修改】ng 預設為韻母/單獨音 ()
+
+        // === 3. 原有資料 (移除 ngo，交由邏輯處理) ===
+        "uannd","","iaunn","","uainn","","ainn","","aunn","","iann","","iang","","iong","","iong","","iung","","uang","",
         "eeu","","een","","eem","","eed","","eeb","","ann","","inn","","enn","","onn","",
-        "ang","","iag","","ied","","ien","","ong","","ung","",
-        "iid","","iim","","iin","","iab","","iam","","iau","","iog","",
-        "ieb","","iem","","ieu","","iug","","iun","","uad","",
+        "ang","","iag","","ied","","ien","","ong","","ong","","ung","",
+        "iid","","iim","","iin","","iab","","iam","","iam","","iau","","iog","",
+        "ieb","","iem","","ieu","","iug","","iun","","uad","","ien","",
         "uai","","uan","","ued","","uen","","iui","","ioi","",
-        "iud","","ion","","iib","ngo","",
+        "iud","","ion","","iib",
         "no","","","ab","","ad","","ag","","ai","",
-        "am","","an","","au","","ed","","en","","eu","","ee","","oo","",
-        "er","","id","","in","","iu","","od","","og","","oi","","ud","",
-        "ug","","un","","em","","ii","","on","","ui","","eb","","io","",
+        "am","","am","","an","","au","","ed","","en","","eu","","ee","","oo","",
+        "er","","id","","in","","iu","","io","","ob","","od","","og","","oi","","ud","",
+        "ug","","un","","om","","om","","em","","ii","","on","","ui","","eb","","io","",
         "ia","","ib","","ie","","im","","ua","","bb","","a","","e","",
-        "i","","o","","u","","ng","","rh","","r","","zh","","ch","","sh","",
+        "i","","o","","u","","rh","","r","","zh","","ch","","sh","",
         "b","","p","","m","","f","","d","","t","","n","","l","","g","",
-        "k","","h","","j","","q","","x","","z","","c","","s","","v","",
-        
-        // === 新增：解決 si 吃掉 sin/sing 的問題，以及 zi/ci/si 的特殊對應 ===
-        // 長度較長的拼音會優先被匹配 (例如 zing 優先於 zi)
-        
-        // 1. 特殊聲母 (z,c,s 接 i)
-        "zi", "",
-        "ci", "",
-        "si", "",
-        
-        // 2. 特殊聲母 + in (使用 )
-        "zin", "",
-        "cin", "",
-        "sin", "",
-        
-        // 3. 特殊聲母 + ing (使用 )
-        "zing", "",
-        "cing", "",
-        "sing", ""
+        "k","","h","","j","","q","","x","","z","","c","","s","","v",""
     ];
 
-    const p2s = new Map(); // 拼音 -> 小注音
-    const s2p = new Map(); // 小注音 -> 拼音
+    const p2s = new Map();
+    const s2p = new Map();
 
     for (let i = 0; i < rawData.length; i += 2) {
         const pinyin = rawData[i];
         const small = rawData[i + 1];
-        
-        // 建立 拼音 -> 小注音
         p2s.set(pinyin, small);
-
-        // 建立 小注音 -> 拼音 (後面的設定會覆蓋前面的)
-        if (small) {
-            s2p.set(small, pinyin);
-        }
+        if (small) s2p.set(small, pinyin);
     }
 
-    // ==========================================
-    // === 優先權強制設定 (手動覆寫反向對應) ===
-    // ==========================================
-    
-    // 1. 處理 oo 優先於 o (既有需求)
-    // 讓  轉回 oo
+    // === 4. 優先權與反查設定 ===
     s2p.set("", "oo");
     s2p.set("", "rh");
-    // 2. 處理 特殊聲母 轉回 z, c, s (新增需求)
-    // 覆蓋原本 rawData 中對應的 j, q, x
+	s2p.set("", "bb");
     s2p.set("", "z");
     s2p.set("", "c");
     s2p.set("", "s");
+    
+    // 【反查修正】
+    //  (聲母) 顯示為 ng
+    //  (韻母) 顯示為 ng
+    //  (ngo) 顯示為 ngo
+    s2p.set("", "ng"); 
+    s2p.set("", "ng");
+    s2p.set("", "ngo");
+    s2p.delete(""); 
 
-    // ==========================================
-
-    // 排序 Key，長度長的優先匹配
-    // 這確保了 'sing' (4字元) 會比 'si' (2字元) 先被轉換
     const pKeys = Array.from(p2s.keys()).sort((a, b) => b.length - a.length);
     const sKeys = Array.from(s2p.keys()).sort((a, b) => b.length - a.length);
-
-    // 建立正則表達式
     const pRegex = new RegExp(pKeys.join('|'), 'g');
     const sRegex = new RegExp(sKeys.join('|'), 'g');
 
     // 拼音 -> 小注音
     function toSmall(text) {
         if (!text) return "";
-        return text.replace(pRegex, (match) => p2s.get(match));
+
+        // 步驟 1: 處理 z/c/s 接 i
+        let processed = text.replace(/([zcs])(?=i)/g, (match) => {
+            if (match === 'z') return 'j';
+            if (match === 'c') return 'q';
+            if (match === 's') return 'x';
+            return match;
+        });
+
+        // 步驟 2: 處理 m/n/ng 接 o (o 轉為 __o)
+        // 這會讓 ngo 變成 ng__o
+        processed = processed.replace(/(ng|m|n)(i?o)(?![ngdib])/g, (match, p1, p2) => {
+            return p1 + p2.replace('o', '__o');
+        });
+
+        // 步驟 3: 【核心修正】處理 ng 的聲母/韻母歧義
+        // 規則：
+        // 1. 如果 ng 後面接了字母或底線 (代表後面有韻母，例如 nga, ng__o) -> 視為聲母 ()
+        // 2. 但如果 ng 前面是母音 (a,e,i,o,u) -> 代表它是 ang, ong, ing 的一部分 -> 保持不變 ()
+        // 3. 這裡使用 regex capturing group ($1) 來檢查前面是否有母音
+        processed = processed.replace(/([aeiou])?ng(?=[a-zA-Z_])/g, (match, p1) => {
+            if (p1) return match; // 捕捉到前面有母音 (如 ang)，保持原樣，交給後續 pRegex 處理
+            return "__ng_intro";  // 前面無母音且後面有字 (如 nga)，改為聲母代碼
+        });
+
+        // 步驟 4: 標準查表
+        // 這裡會處理:
+        // __ng_intro -> 
+        // __o -> 
+        // ang ->  (因為 ang 長度優先)
+        // ng ->  (沒被上面規則抓到的單獨 ng)
+        return processed.replace(pRegex, (match) => p2s.get(match));
     }
 
     // 小注音 -> 拼音
@@ -2698,145 +2733,295 @@ const [kasuPinyinToBpmSmall, kasuBpmSmallToPinyin] = (function() {
 
 
 
-// 1. Basic Data Arrays (Mini <-> Small)
-// Cleaned up and aligned.
-const bpmTiny = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""];
-const bpmTinyEqualSmall = ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "⁺", "⁺", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "ˋ", "ˋ", "ˋ", "ˋ", "ˋ", "ˋ", "ˋ", "ˋ", "", "", "", "", "", "", "", "", "", "", "", "ˇ", "ˇ", "ˇ", "ˇ", "ˇ", "ˆ", "ˆ", "ˆ", "ˊ", "ˊ", "ˊ", "ˊ", "ˊ", "ˊ", "ˊ", "", "ˊ", "", ""];
 
-// 2. Derived Maps
-// Map for Small -> [Mini_Candidate_1, Mini_Candidate_2, ...]
-const smallToMiniCandidates = {};
-// Map for Mini -> Small (Simple Lookup)
-const miniToSmallMap = {};
+/**
+ * 小注音與迷你注音的雙向轉換
+ */
 
-bpmTiny.forEach((mini, i) => {
-    const small = bpmTinyEqualSmall[i];
-    miniToSmallMap[mini] = small;
-    
-    if (!smallToMiniCandidates[small]) {
-        smallToMiniCandidates[small] = [];
+// ==========================================
+// 1. 規則數據定義 (Data Definitions)
+// ==========================================
+
+const bpmRules = {
+    // Group 3-2: Base(1) + ComplexFinal(3) + Tone(1)
+    "S3_2": [
+        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        ["", "", "", "", "", "", "", "", ""],
+        ["ˊ", "ˇ", "ˋ", "ˆ", "⁺"]
+    ],
+    "M3_2": [
+        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        ["", "", "", "", "", "", "", "", ""],
+        ["", "", "", "", ""]
+    ],
+
+    // Group 3-1: Base(1) + Medial(1) + Final(1 or 2) + Filler(1) + Tone(1)
+    "S3_1": [
+        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        ["", "", "", "", "", ""],
+        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        ["", "", "", ""],
+        ["ˊ", "ˇ", "ˋ", "ˆ", "⁺"]
+    ],
+    "M3_1": [
+        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        ["", "", "", "", "", ""],
+        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        ["", "", "", ""],
+        ["", "", "", "", ""]
+    ],
+
+    // Group 2: Base(1) + Final(1 or 2) + Filler(1) + Tone(1)
+    "S2": [
+        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        ["", "", "", ""],
+        ["ˊ", "ˇ", "ˋ", "ˆ", "⁺"]
+    ],
+    "M2": [
+        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        ["", "", "", ""],
+        ["", "", "", "", ""]
+    ],
+
+    // Group 1: Base(1) + Medial(1) + Tone(1)
+    "S1": [
+        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        ["", "", "", ""],
+        ["ˊ", "ˇ", "ˋ", "ˆ", "⁺"]
+    ],
+    "M1": [
+        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+        ["", "", "", ""],
+        ["", "", "", "", ""]
+    ]
+};
+
+const miniToSmallMap = {
+    "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "",
+    "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "ˊ", "": "ˇ", "": "ˋ", "": "ˆ", "": "⁺",
+    "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "",
+    "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "",
+    "": "", "": "", "": "", "": "", "": "ˊ", "": "ˇ", "": "ˋ", "": "ˆ", "": "⁺",
+    "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "",
+    "": "", "": "", "": "",
+    "": "", "": "", "": "", "": "", "": "", "": "",
+    "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "",
+    "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "",
+    "": "", "": "", "": "", "": "",
+    "": "ˊ", "": "ˇ", "": "ˋ", "": "ˆ", "": "⁺"
+};
+
+
+
+// ==========================================
+// 2. 轉換函數 (Conversion Functions)
+// ==========================================
+
+/**
+ * 輔助函數：在列表中尋找最長的匹配字串
+ */
+const findBestMatch = (text, startIdx, candidateList) => {
+    const MAX_LEN = 3;
+    for (let len = MAX_LEN; len >= 1; len--) {
+        if (startIdx + len > text.length) continue;
+        let sub = text.substr(startIdx, len);
+        let idx = candidateList.indexOf(sub);
+        if (idx !== -1) {
+            return { index: idx, length: len, match: sub };
+        }
     }
-    smallToMiniCandidates[small].push(mini);
-});
+    return null;
+};
 
-// Tones list
-const tones = ['ˊ', 'ˇ', 'ˋ', '⁺', 'ˆ'];
-
-// 3. Core Conversion Logic (Small -> Mini)
-// Based on Syllable Body Length (2, 3, 4) and Position
-function bpmSmallToTiny(inputString) {
+/**
+ * 迷你注音 轉為 小注音
+ */
+const bpmTinyToSmall = (text) => {
+    const sortedKeys = Object.keys(miniToSmallMap).sort((a, b) => b.length - a.length);
     let result = "";
-    
-    // Tokenizer: Split input into syllables. 
-    // Assuming syllable ends with a tone or is a known block.
-    // Simple approach: Iterate and consume.
-    
-    let buffer = [];
-    
-    // Helper to process the buffer as one syllable
-    const processBuffer = (buf, toneChar) => {
-        if (buf.length === 0 && !toneChar) return "";
-        
-        const length = buf.length; // Body length
-        let mapped = "";
-        
-        // Apply Set Rules based on length
-        buf.forEach((char, index) => {
-            const candidates = smallToMiniCandidates[char];
-            if (!candidates) {
-                mapped += char; // Unknown char, keep as is
-                return;
+    let i = 0;
+    const len = text.length;
+
+    while (i < len) {
+        let matched = false;
+        for (const key of sortedKeys) {
+            if (text.substr(i, key.length) === key) {
+                result += miniToSmallMap[key];
+                i += key.length;
+                matched = true;
+                break;
             }
-            
-            let setIndex = 0; // Default to Set 0
-            
-            // --- RULES ---
-            if (length === 2) {
-                // Length 2: Set 0 for both (Top/Bottom)
-                setIndex = 0;
-            } else if (length === 3) {
-                // Length 3: Set 1 (Left), Set 1/2 (Top-Right), Set 2 (Bottom-Right)
-                if (index === 0) setIndex = 1;
-                else if (index === 1) {
-                    // Complex rule: Some chars prefer Set 1, others Set 2.
-                    // Default to 2, fallback to 1 if 2 not avail? 
-                    // Empirical: "Pap"(A) uses Set 2. "Pan"(AN) uses Set 1.
-                    // Check if index 2 exists in candidates
-                    setIndex = candidates.length > 2 ? 2 : 1;
-                    // Hardcoded fix for '' (AN) which prefers Set 1 in this pos
-                    if (char === '') setIndex = 1; 
+        }
+        if (!matched) {
+            result += text[i];
+            i++;
+        }
+    }
+    return result;
+};
+
+/**
+ * 小注音 轉為 迷你注音
+ */
+const bpmSmallToTiny = (text) => {
+    let result = "";
+    let i = 0;
+    const len = text.length;
+    const findIdx = (char, list) => list.indexOf(char);
+
+    while (i < len) {
+        let c1 = text[i];
+
+        // --- Priority 0: bpmRulesExceptions (Special Combinations) ---
+
+
+        // --- Priority 1: Group 3-2 (Base + Complex Final) ---
+        if (i + 4 <= len) { 
+            let s2 = text.substr(i + 1, 3);
+            let idx1 = findIdx(c1, bpmRules.S3_2[0]);
+            let idx2 = findIdx(s2, bpmRules.S3_2[1]);
+
+            if (idx1 !== -1 && idx2 !== -1) {
+                let out = bpmRules.M3_2[0][idx1] + bpmRules.M3_2[1][idx2];
+                let consumed = 4;
+                if (i + 4 < len) {
+                    let idx3 = findIdx(text[i + 4], bpmRules.S3_2[2]);
+                    if (idx3 !== -1) {
+                        out += bpmRules.M3_2[2][idx3];
+                        consumed = 5;
+                    }
                 }
-                else if (index === 2) setIndex = 2;
-            } else if (length === 4) {
-                // Length 4: Set 3 (Lefts), Set 4 (Rights)
-                if (index === 0 || index === 1) setIndex = 3;
-                else setIndex = 4;
+                result += out;
+                i += consumed;
+                continue;
+            }
+        }
+
+        // --- Candidate Competition (S3_1 vs S2 vs S1) ---
+        let candidates = [];
+
+        // A. Check S3_1 (Base + Medial + Final)
+        if (i + 2 <= len) {
+            let idx1 = findIdx(c1, bpmRules.S3_1[0]);
+            if (idx1 !== -1) {
+                let c2 = text[i+1];
+                let idx2 = findIdx(c2, bpmRules.S3_1[1]);
+                if (idx2 !== -1) {
+                    let finalMatch = findBestMatch(text, i+2, bpmRules.S3_1[2]);
+                    if (finalMatch) {
+                        candidates.push({
+                            type: 'S3_1',
+                            coreLen: 2 + finalMatch.length,
+                            data: { idx1, idx2, idx3: finalMatch.index }
+                        });
+                    }
+                }
+            }
+        }
+
+        // B. Check S2 (Base + Final)
+        if (i + 1 <= len) {
+            let idx1 = findIdx(c1, bpmRules.S2[0]);
+            if (idx1 !== -1) {
+                let finalMatch = findBestMatch(text, i+1, bpmRules.S2[1]);
+                if (finalMatch) {
+                    candidates.push({
+                        type: 'S2',
+                        coreLen: 1 + finalMatch.length,
+                        data: { idx1, idx2: finalMatch.index }
+                    });
+                }
+            }
+        }
+
+        // C. Check S1 Multi (Ligature Base)
+        let s1Match = findBestMatch(text, i, bpmRules.S1[0]);
+        if (s1Match && s1Match.length > 1) {
+            candidates.push({
+                type: 'S1',
+                coreLen: s1Match.length,
+                data: { idx1: s1Match.index }
+            });
+        }
+
+        // D. Select Best Candidate
+        if (candidates.length > 0) {
+            // Sort by Core Length DESC, then Priority (S1 > S2 > S3_1)
+            candidates.sort((a, b) => {
+                if (b.coreLen !== a.coreLen) return b.coreLen - a.coreLen;
+                const p = { 'S1': 3, 'S2': 2, 'S3_1': 1 };
+                return p[b.type] - p[a.type];
+            });
+            
+            let best = candidates[0];
+            let out = "";
+            let consumed = best.coreLen;
+            
+            if (best.type === 'S3_1') {
+                out = bpmRules.M3_1[0][best.data.idx1] + bpmRules.M3_1[1][best.data.idx2] + bpmRules.M3_1[2][best.data.idx3];
+                if (i + consumed < len) { // Filler
+                    let idx = findIdx(text[i + consumed], bpmRules.S3_1[3]);
+                    if (idx !== -1) { out += bpmRules.M3_1[3][idx]; consumed++; }
+                }
+                if (i + consumed < len) { // Tone
+                    let idx = findIdx(text[i + consumed], bpmRules.S3_1[4]);
+                    if (idx !== -1) { out += bpmRules.M3_1[4][idx]; consumed++; }
+                }
+            } else if (best.type === 'S2') {
+                out = bpmRules.M2[0][best.data.idx1] + bpmRules.M2[1][best.data.idx2];
+                if (i + consumed < len) { // Filler
+                    let idx = findIdx(text[i + consumed], bpmRules.S2[2]);
+                    if (idx !== -1) { out += bpmRules.M2[2][idx]; consumed++; }
+                }
+                if (i + consumed < len) { // Tone
+                    let idx = findIdx(text[i + consumed], bpmRules.S2[3]);
+                    if (idx !== -1) { out += bpmRules.M2[3][idx]; consumed++; }
+                }
+            } else if (best.type === 'S1') {
+                out = bpmRules.M1[0][best.data.idx1];
+                if (i + consumed < len) { // Filler
+                    let idx = findIdx(text[i + consumed], bpmRules.S1[1]);
+                    if (idx !== -1) { out += bpmRules.M1[1][idx]; consumed++; }
+                }
+                if (i + consumed < len) { // Tone
+                    let idx = findIdx(text[i + consumed], bpmRules.S1[2]);
+                    if (idx !== -1) { out += bpmRules.M1[2][idx]; consumed++; }
+                }
             }
             
-            // Bounds check
-            if (setIndex >= candidates.length) setIndex = candidates.length - 1;
-            mapped += candidates[setIndex];
-        });
-        
-        // Append Tone
-        if (toneChar) {
-            const toneCandidates = smallToMiniCandidates[toneChar];
-            if (toneCandidates) {
-                let toneSet = 0;
-                // Tone Rules
-                if (length === 3) toneSet = 3; // Approx based on examples
-                else if (length === 4) toneSet = 6;
-                
-                if (toneSet >= toneCandidates.length) toneSet = toneCandidates.length - 1;
-                mapped += toneCandidates[toneSet];
-            } else {
-                mapped += toneChar;
-            }
+            result += out;
+            i += consumed;
+            continue;
         }
-        return mapped;
-    };
 
-    // Iterate string to form syllables
-    for (let char of inputString) {
-        if (tones.includes(char)) {
-            // Tone found, process buffer + tone
-            result += processBuffer(buffer, char);
-            buffer = [];
-        } else {
-            // Check if char is a valid Small Bopomofo component
-            if (smallToMiniCandidates[char]) {
-                buffer.push(char);
-            } else {
-                // Non-Bopomofo (punctuation/spaces), flush buffer first
-                result += processBuffer(buffer, null);
-                buffer = [];
-                result += char;
-            }
-        }
-    }
-    // Flush remaining
-    result += processBuffer(buffer, null);
-    
-    return result;
-}
+        // --- Priority 4: Group 1 (Single Char Base) ---
+        let idx1 = findIdx(c1, bpmRules.S1[0]);
+        if (idx1 !== -1) {
+            let out = bpmRules.M1[0][idx1];
+            let consumed = 1;
 
-// 4. Mini -> Small (Simple)
-function bpmTinyToSmall(t) {
-    let result = "";
-    for (let i = 0; i < t.length; i++) {
-        let twoChars = t.substr(i, 2);
-        if (miniToSmallMap[twoChars]) {
-            result += miniToSmallMap[twoChars];
-            i++; // Skip next char
-        } else {
-            let oneChar = t[i];
-            result += miniToSmallMap[oneChar] || oneChar;
+            if (i + consumed < len) {
+                let idx2 = findIdx(text[i + consumed], bpmRules.S1[1]);
+                if (idx2 !== -1) { out += bpmRules.M1[1][idx2]; consumed++; }
+            }
+            if (i + consumed < len) {
+                let idx3 = findIdx(text[i + consumed], bpmRules.S1[2]);
+                if (idx3 !== -1) { out += bpmRules.M1[2][idx3]; consumed++; }
+            }
+            
+            result += out;
+            i += consumed;
+            continue;
         }
+
+        // No Match Found
+        result += c1;
+        i++;
     }
     return result;
-}
-
-
+};
 
 
 //-----------------------------------//
@@ -3037,6 +3222,11 @@ function kasuToneNumbers(t){
 // 詔安調值轉字尾調
 function kasuNumbersTone(t){ return kasuNumbersToTone(t);}
 
+function kasuNumbersZvs(t){
+	t = kasuNumbersToTone(t)
+	t = hakkaToneZvs(t);
+	return t;
+}
 
 function holoPinyinLetter(t){
 	if (regexNumber.test(t)) {t = holoNumberToTone(t) }
@@ -3217,12 +3407,12 @@ function bpmBigSmall(t){
 	return t;
 }
 
-
-
 function bpmSmallBig(t){
 	t = bpmSmallToBig(t)
 	return t;
 }
+
+
 
 function bpmSmallTiny(t){
 	if (regexBpmBig.test(t)) {t = bpmBigToSmall(t) }	
@@ -3232,7 +3422,16 @@ function bpmSmallTiny(t){
 
 function kasuBpmSmallPinyin(t){
 	if (regexBpmBig.test(t)) {t = bpmBigToSmall(t) }	
+	if (regexBpmTiny.test(t)) {t = bpmTinyToSmall(t) }	
+	t = kasuBpmSmallToPinyin(t)	
+	return t;
+}
+
+function kasuBpmSmallZvs(t){
+	if (regexBpmBig.test(t)) {t = bpmBigToSmall(t) }	
+	if (regexBpmTiny.test(t)) {t = bpmTinyToSmall(t) }	
 	t = kasuBpmSmallToPinyin(t)
+	t = hakkaPinyinZvs(t)
 	return t;
 }
 
@@ -3250,6 +3449,16 @@ function kasuPinyinBpmTiny(t){
 	t = hakkaZvsToTone(t);
 	if (regexBpmBig.test(t)) {t = bpmBigToSmall(t) }
 	t = kasuPinyinToBpmSmall(t);
+    t = bpmSmallToTiny(t);
+	return t;
+}
+
+
+function hakkaPinyinBpmTiny(t){
+	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
+	t = hakkaZvsToTone(t);
+	if (regexBpmBig.test(t)) {t = bpmBigToSmall(t) }
+	t = hakkaPinyinBpmSmall(t);
     t = bpmSmallToTiny(t);
 	return t;
 }
