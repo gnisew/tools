@@ -2631,8 +2631,8 @@ const [kasuPinyinToBpmSmall, kasuBpmSmallToPinyin] = (function() {
         "__ng_intro", "",  // 特殊 ng (聲母專用)
         
         // === 2. 補全資料 ===
-        "ing", "",        // 補全 ing
-        "ng", "",          // 【修改】ng 預設為韻母/單獨音 ()
+        "ing", "", 
+        "ng", "",  
 
         // === 3. 原有資料 (移除 ngo，交由邏輯處理) ===
         "uannd","","iaunn","","uainn","","ainn","","aunn","","iann","","iang","","iong","","iong","","iung","","uang","",
@@ -3026,8 +3026,119 @@ const bpmSmallToTiny = (text) => {
 
 //-----------------------------------//
 
+// ==========================================
+// 客語拼音 <-> 國際音標 (IPA) 轉換功能
+// ==========================================
+
+// 1. 主對照表 (Single Source of Truth)
+// 格式：[拼音, IPA]
+const kasuIpaMasterData = [
+    // === 特殊韻母 & 複合韻母 ===
+    ["iaunn", "iãu"], ["uainn", "uãi"], 
+    ["iang", "iaŋ"], ["uang", "uaŋ"], ["iung", "iuŋ"], ["iong", "iɔŋ"], 
+    ["ainn", "ãi"], ["uai", "uãi"], ["eeu", "ɛu"], ["iau", "iau"],
+    ["iam", "iam"], ["uan", "uan"], ["ien", "ien"], ["uen", "uen"], 
+    ["ang", "aŋ"], ["ing", "iŋ"], ["ung", "uŋ"], ["ong", "ɔŋ"], 
+    ["ann", "ã"], ["inn", "ĩ"], ["enn", "ẽ"], 
+    ["iab", "iap"], ["eeb", "ɛp"], ["ied", "iet"], ["uad", "uat"],
+    ["eed", "ɛt"], ["uag", "uak"], ["iag", "iak"], 
+    
+    // === 聲母 (Digraphs) ===
+    ["zh", "ʧ"], ["ch", "ʧʰ"], ["sh", "ʃ"], ["rh", "ʒ"], 
+    ["bb", "b"], ["ng", "ŋ"],
+    
+    // === 母音 ===
+    ["oo", "o"], ["ee", "ɛ"], ["ii", "ɨ"], ["er", "ɤ"],
+    ["ai", "ai"], ["au", "au"], ["io", "io"], ["iu", "iu"], ["ue", "ue"],
+    ["ia", "ia"], ["ua", "ua"], ["oi", "ɔi"], ["ui", "ui"], ["eu", "eu"],
+    
+    // === 韻尾組合 ===
+    ["am", "am"], ["im", "im"], ["em", "em"], ["an", "an"], ["iim", "ɨm"],
+    ["in", "in"], ["en", "en"], ["on", "ɔn"],  ["un", "un"], ["iin", "ɨn"],
+    ["ab", "ap"], ["ib", "ip"], ["eb", "ep"], ["ob", "ɔp"], ["iib", "ɨp"],
+    ["ad", "at"], ["id", "it"], ["ud", "ut"], ["ed", "et"], ["od", "ɔt"], ["iid", "ɨt"],
+    ["ag", "ak"], ["ig", "ik"], ["ug", "uk"], ["eg", "ek"], ["og", "ɔk"], 
+    
+    // === 單聲母 ===
+    ["b", "p"], ["p", "pʰ"], ["m", "m"], ["f", "f"], ["d", "t"],
+    ["t", "tʰ"], ["n", "n"], ["l", "l"], ["g", "k"], ["k", "kʰ"],
+    ["h", "h"], ["z", "ʦ"], ["c", "ʦʰ"], ["s", "s"], ["v", "v"],
+	["j", "ʨ"], ["q", "ʨʰ"], ["x", "ɕ"], 
+    
+    // === 單母音 ===
+    ["a", "a"], ["i", "i"], ["u", "u"], ["e", "e"], ["o", "ɔ"],
+
+    // === 聲調數值 (轉上標) ===
+    ["11", "¹¹"], ["55", "⁵⁵"], ["53", "⁵³"], ["24", "²⁴"], 
+    ["31", "³¹"], ["43", "⁴³"], ["5", "⁵"], ["3", "³"],
+    
+    // === 數字容錯 (用於處理個別數字) ===
+    ["0", "⁰"], ["1", "¹"], ["2", "²"], ["4", "⁴"], 
+    ["6", "⁶"], ["7", "⁷"], ["8", "⁸"], ["9", "⁹"]
+];
+
+// 2. 初始化轉換引擎
+const { pinyinToIpaRegex, pinyinToIpaMap, ipaToPinyinRegex, ipaToPinyinMap } = (function() {
+    // 輔助函數：轉義正則特殊字符
+    const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // 建立 [Pinyin, IPA] 列表並按 Pinyin 長度排序 (長在前)
+    const p2iList = [...kasuIpaMasterData].sort((a, b) => b[0].length - a[0].length);
+    
+    // 建立 [IPA, Pinyin] 列表並按 IPA 長度排序 (長在前)
+    // 注意：這裡將 masterData 的 [key, value] 反轉為 [value, key]
+    const i2pList = kasuIpaMasterData.map(([k, v]) => [v, k]).sort((a, b) => b[0].length - a[0].length);
+
+    // 建立正則表達式與 Map
+    return {
+        pinyinToIpaRegex: new RegExp(p2iList.map(x => escapeRegExp(x[0])).join('|'), 'g'),
+        pinyinToIpaMap: new Map(p2iList),
+        ipaToPinyinRegex: new RegExp(i2pList.map(x => escapeRegExp(x[0])).join('|'), 'g'),
+        ipaToPinyinMap: new Map(i2pList)
+    };
+})();
 
 
+
+// 客語拼音轉國際音標
+function hakkaPinyinIpa(t) {
+    if (!t) return "";
+    t = t.replace(/\bng(?=[0-9])/gi, 'ŋ̍'); // ng -> ŋ̍ (成節)
+    t = t.replace(/\bm(?=[0-9])/gi, 'm̩');  // m  -> m̩ (成節)
+    t = t.replace(/\bn(?=[0-9])/gi, 'n̩');  // n  -> n̩ (成節)
+
+    // 執行通用替換 (Regex 全局比對 + Map 查表)
+    return t.replace(pinyinToIpaRegex, (match) => pinyinToIpaMap.get(match) || match);
+}
+
+// 4. 國際音標轉客語拼音
+function hakkaIpaPinyin(t) {
+    if (!t) return "";
+
+    t = t.replace(/ŋ̍/g, 'ng');
+    t = t.replace(/m̩/g, 'm');
+    t = t.replace(/n̩/g, 'n');
+
+    t = t.replace(ipaToPinyinRegex, (match) => ipaToPinyinMap.get(match) || match);    
+
+    return kasuNumbersToTone(t);
+}
+
+function kasuPinyinIpa(t) {
+    if (regexLetter.test(t)) { t = hakkaLetterZvs(t); }
+    if (regexTone.test(t)) { t = hakkaToneToZvs(t); }
+    t = kasuToneToNumbers(t);
+	t = hakkaPinyinIpa(t)
+	return t;
+}
+
+function kasuIpaPinyin(t) {
+    t = hakkaIpaPinyin(t) 
+    return kasuNumbersToTone(t);
+}
+
+
+//-----------------------------------//
 
 	
 	
@@ -3146,6 +3257,8 @@ function sixianToneNumbers(t){
 function sixianNumbersTone(t){ return sixianNumbersToTone(t);}
 
 
+
+
 // 海陸拼音轉變調
 function hailuPinyinChange(t){ 
 	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
@@ -3227,6 +3340,67 @@ function kasuNumbersZvs(t){
 	t = hakkaToneZvs(t);
 	return t;
 }
+
+function sixianPinyinIpa(t) {
+    if (regexLetter.test(t)) { t = hakkaLetterZvs(t); }
+    if (regexTone.test(t)) { t = hakkaToneToZvs(t); }
+    t = sixianToneToNumbers(t);
+	t = hakkaPinyinIpa(t)
+	return t;
+}
+
+function sixianIpaPinyin(t) {
+    t = hakkaIpaPinyin(t) 
+    return sixianNumbersToTone(t);
+}
+
+function hailuPinyinIpa(t) {
+    if (regexLetter.test(t)) { t = hakkaLetterZvs(t); }
+    if (regexTone.test(t)) { t = hakkaToneToZvs(t); }
+    t = hailuToneToNumbers(t);
+	t = hakkaPinyinIpa(t)
+	return t;
+}
+
+function hailuIpaPinyin(t) {
+    t = hakkaIpaPinyin(t) 
+    return hailuNumbersToTone(t);
+}
+
+function dapuPinyinIpa(t) {
+    if (regexLetter.test(t)) { t = hakkaLetterZvs(t); }
+    if (regexTone.test(t)) { t = hakkaToneToZvs(t); }
+    t = dapuToneToNumbers(t);
+	t = hakkaPinyinIpa(t)
+	return t;
+}
+
+function dapuIpaPinyin(t) {
+    t = hakkaIpaPinyin(t) 
+    return dapuNumbersToTone(t);
+}
+
+function raopingPinyinIpa(t) {
+    if (regexLetter.test(t)) { t = hakkaLetterZvs(t); }
+    if (regexTone.test(t)) { t = hakkaToneToZvs(t); }
+    t = raopingToneToNumbers(t);
+	t = hakkaPinyinIpa(t)
+	return t;
+}
+
+function raopingIpaPinyin(t) {
+    t = hakkaIpaPinyin(t) 
+    return raopingNumbersToTone(t);
+}
+
+
+
+
+
+
+
+
+
 
 function holoPinyinLetter(t){
 	if (regexNumber.test(t)) {t = holoNumberToTone(t) }

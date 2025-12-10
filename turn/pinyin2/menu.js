@@ -10,6 +10,8 @@ const langSixian = `
 拼音	注音	hakkaPinyinBpm	hagˋ gaˊ	ㄏㄚㄍˋ ㄍㄚˊ
 拼音	小注音	hakkaPinyinBpmSmall	hagˋ gaˊ	ˋ ˊ
 拼音	直注音	hakkaPinyinBpmTiny	hagˋ gaˊ	 
+拼音	國際音標	sixianPinyinIpa	ngaiˋ	ŋai⁵³
+國際音標	拼音	sixianIpaPinyin	ŋai⁵³	ngaiˋ
 注音	拼音字尾調	hakkaBpmPinyinTone	ㄏㄚㄍˋ ㄍㄚˊ ˋ ˊ	hagˋ gaˊ hagˋ gaˊ
 注音	小注音	bpmBigSmall	ㄏㄚㄍˋ ㄍㄚˊ	ˋ ˊ
 注音	大注音	bpmSmallBig	ˋ ˊ	ㄏㄚㄍˋ ㄍㄚˊ
@@ -43,6 +45,8 @@ const langHailu = `
 拼音	注音	hakkaPinyinBpm	aˋ aˊ	ㄚˋ ㄚˊ
 拼音	小注音	hakkaPinyinBpmSmall	aˋ	ˋ
 拼音	直注音	hakkaPinyinBpmTiny	aˋ	
+拼音	國際音標	hailuPinyinIpa	ngaiˋ	ŋai⁵³
+國際音標	拼音	hailuIpaPinyin	ŋai⁵³	ngaiˋ
 注音	拼音字尾調	hakkaBpmPinyinTone	ㄚˋ ˋ	aˋ aˋ
 注音	小注音	bpmBigSmall	ㄚˋ	ˋ
 注音	大注音	bpmSmallBig	ˋ	ㄚˋ
@@ -70,6 +74,8 @@ const langDapu = `
 拼音	注音	hakkaPinyinBpm	aˋ aˊ	ㄚˋ ㄚˊ
 拼音	小注音	hakkaPinyinBpmSmall	aˋ	ˋ
 拼音	直注音	hakkaPinyinBpmTiny	aˋ	
+拼音	國際音標	dapuPinyinIpa	ngaiˋ	ŋai⁵³
+國際音標	拼音	dapuIpaPinyin	ŋai⁵³	ngaiˋ
 注音	拼音字尾調	hakkaBpmPinyinTone	ㄚˋ ˋ	aˋ aˋ
 注音	小注音	bpmBigSmall	ㄚˋ	ˋ
 注音	大注音	bpmSmallBig	ˋ	ㄚˋ
@@ -95,6 +101,8 @@ const langRaoping = `
 拼音	注音	hakkaPinyinBpm	aˋ aˊ	ㄚˋ ㄚˊ
 拼音	小注音	hakkaPinyinBpmSmall	aˋ	ˋ
 拼音	直注音	hakkaPinyinBpmTiny	aˋ	
+拼音	國際音標	raopingPinyinIpa	ngaiˋ	ŋai⁵³
+國際音標	拼音	raopingIpaPinyin	ŋai⁵³	ngaiˋ
 注音	拼音字尾調	hakkaBpmPinyinTone	ㄚˋ ˋ	aˋ aˋ
 注音	小注音	bpmBigSmall	ㄚˋ	ˋ
 注音	大注音	bpmSmallBig	ˋ	ㄚˋ
@@ -123,6 +131,8 @@ const langKasu = `
 拼音	字中調	hakkaPinyinLetter	aˊ aˇ aˋ aˆ a⁺	á ǎ à â ā
 拼音	字母調	hakkaPinyinZvs	aˊ aˇ aˋ aˆ a⁺	az av as ax af
 拼音	調值	kasuToneNumbers	aˊ	a24
+拼音	國際音標	kasuPinyinIpa	ngaiˋ	ŋai⁵³
+國際音標	拼音	kasuIpaPinyin	ŋai⁵³	ngaiˋ
 注音	拼音字尾調	kasuBpmSmallPinyin	ㄚˋ ˋ	aˋ aˋ
 注音	拼音字母調	kasuBpmSmallZvs	ㄚˋ ˋ	as as
 注音	小注音	bpmBigSmall	ㄚˋ	ˋ
