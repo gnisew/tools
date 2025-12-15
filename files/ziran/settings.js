@@ -31,9 +31,12 @@
         
         // Google表單傳送開關 (true: 傳送, false: 不傳送)
         const ENABLE_GOOGLE_FORM_SUBMIT = true;
+
+		// 是否允許跳題作答 (true: 允許自由點選題號, false: 嚴格順序且不可回頭)
+        const ALLOW_SKIP_QUESTIONS = false;
         
         // 字體大小設定 (五級)
-        const FONT_SIZES = [22, 24, 26, 28, 30];
+        const FONT_SIZES = [24, 26, 28, 30];
         const DEFAULT_FONT_SIZE_INDEX = 0; // 預設使用第一級
         
         // 歷史紀錄過期設定 (6月30日前的紀錄會被清除)

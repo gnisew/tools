@@ -41,7 +41,7 @@
         let userAnswers = {};
         let showingExplanation = false;
         let startTime = null;
-        let zhuyinMode = false;
+        let zhuyinMode = true;
         let fontSizeIndex = DEFAULT_FONT_SIZE_INDEX; // 使用索引而非直接數值
         let studentName = '';
         let studentClass = '';
@@ -487,6 +487,10 @@ function loginUser(name, classNum, avatar, quizCode) {
 
 		// 開始測驗
 		function startQuiz(course) {
+            isReviewMode = false; 
+            originalQuestionsBackup = [];
+            originalAnswersBackup = {};
+
 			currentCourse = course;
 			currentQuestions = allQuestions.filter(q => q.course === course);
 			currentQuestionIndex = 0;
@@ -634,32 +638,78 @@ function loginUser(name, classNum, avatar, quizCode) {
             });
         }
 
-        // 更新導航按鈕狀態
+// 更新導航按鈕狀態
         function updateNavButton(button, index) {
+            // 1. 判斷是否可互動
+            let isInteractive = false;
+            if (ALLOW_SKIP_QUESTIONS) {
+                isInteractive = true;
+            } else {
+                // 嚴格模式：只有「下一題」且「目前這題已作答」時才可互動
+                if (index === currentQuestionIndex + 1 && userAnswers[currentQuestionIndex] !== undefined) {
+                    isInteractive = true;
+                }
+            }
+
+            const interactiveClass = isInteractive 
+                ? 'hover:scale-105 cursor-pointer' 
+                : 'cursor-default';
+
+            // 2. 【新增】外框樣式邏輯
+            // 預設給所有按鈕 2px 的透明外框 (border-transparent)，確保大小一致，避免跳動
+            let borderClass = 'border-2 border-transparent';
+
+            // 條件：嚴格模式 + 是下一題 + 可互動 (代表前一題寫完了)
+            if (!ALLOW_SKIP_QUESTIONS && index === currentQuestionIndex + 1 && isInteractive) {
+                // 變成紫色外框，並加上一點陰影凸顯
+                borderClass = 'border-2 border-purple-500 shadow-md bg-purple-50';
+            }
+
+            // 3. 組合樣式
+            // 注意：我們把 ${borderClass} 加入到了每個狀態的 class 字串中
             if (index === currentQuestionIndex) {
-                // 當前題目用藍色
-                button.className = 'w-8 h-8 rounded-full font-medium text-sm transition-all hover:scale-105 bg-blue-500 text-white select-none';
+                // 當前題目 (藍色)
+                button.className = `w-8 h-8 rounded-full font-medium text-sm transition-all ${borderClass} ${interactiveClass} bg-blue-500 text-white select-none`;
             } else if (userAnswers[index] !== undefined) {
+                // 已作答 (綠色/紅色)
                 const isCorrect = userAnswers[index] === currentQuestions[index].correctAnswer;
-                button.className = `w-8 h-8 rounded-full font-medium text-sm transition-all hover:scale-105 select-none ${
+                button.className = `w-8 h-8 rounded-full font-medium text-sm transition-all select-none ${borderClass} ${interactiveClass} ${
                     isCorrect ? 'bg-green-400 text-white' : 'bg-red-400 text-white'
                 }`;
             } else {
-                button.className = 'w-8 h-8 rounded-full font-medium text-sm transition-all hover:scale-105 bg-gray-300 text-gray-700 select-none';
+                // 未作答 (灰色)
+                // 這裡會套用到上面的紫色外框邏輯
+                button.className = `w-8 h-8 rounded-full font-medium text-sm transition-all ${borderClass} ${interactiveClass} bg-gray-300 text-gray-700 select-none`;
             }
         }
 
         
-// 跳到指定題目
-function goToQuestion(index) {
-    if (userAnswers[0] === undefined && index !== 0) {
-        return;
-    }
-    currentQuestionIndex = index;
-    showQuestion();
-    updateProgress();
-}
 
+// 跳到指定題目
+        function goToQuestion(index) {
+            // 【修改】嚴格順序模式下的跳轉檢查
+            if (!ALLOW_SKIP_QUESTIONS) {
+                // 條件：必須是「下一題 (index === current + 1)」 且 「目前這題已作答」
+                const isNextQuestion = index === currentQuestionIndex + 1;
+                const isCurrentAnswered = userAnswers[currentQuestionIndex] !== undefined;
+
+                // 如果不是下一題，或者目前這題還沒寫完，就阻擋
+                if (!isNextQuestion || !isCurrentAnswered) {
+                    return;
+                }
+            }
+
+            // (下方的原本邏輯保持不變)
+            if (userAnswers[0] === undefined && index !== 0) {
+                // 如果第一題都還沒寫 (且不是要跳去第一題)，也阻擋
+                // (這通常是防剛載入時的錯誤，保留即可)
+                if (!ALLOW_SKIP_QUESTIONS) return; // 雙重保險
+            }
+
+            currentQuestionIndex = index;
+            showQuestion();
+            updateProgress();
+        }
 
 // 顯示題目
 
@@ -669,14 +719,13 @@ function goToQuestion(index) {
             const question = currentQuestions[currentQuestionIndex];
             const isTrue = question.option1 === '○' && question.option2 === '╳';
             
-            // 【修改】標題顯示邏輯
+            // 標題顯示邏輯
             if (isReviewMode) {
                 document.getElementById('questionTitle').textContent = `錯題 ${currentQuestionIndex + 1}`;
             } else {
                 document.getElementById('questionTitle').textContent = `${studentAvatar} ${currentQuestionIndex + 1}`;
             }
             
-            // ... (以下保持原本的 showQuestion 程式碼不變) ...
             const questionText = document.getElementById('questionText');
             questionText.textContent = question.question;
             questionText.style.fontSize = FONT_SIZES[fontSizeIndex] + 'px';
@@ -690,7 +739,14 @@ function goToQuestion(index) {
             const container = document.getElementById('optionsContainer');
             container.innerHTML = '';
             
-            if (layoutMode === 'grid') {
+            // 【修正重點 1】容器排版邏輯
+            // 必須最先判斷 isReviewMode。如果是複習模式，強制使用 Flex 單欄佈局，忽視原本的 grid 設定。
+            if (isReviewMode) {
+                // w-full: 容器滿寬
+                // flex flex-col: 垂直排列
+                // items-center: 讓內部的按鈕置中
+                container.className = 'w-full flex flex-col items-center space-y-3';
+            } else if (layoutMode === 'grid') {
                 container.className = 'grid grid-cols-2 gap-3';
             } else {
                 container.className = 'space-y-3';
@@ -700,7 +756,21 @@ function goToQuestion(index) {
             
             if (isTrue) {
                 ['○ 正確', '╳ 錯誤'].forEach((option, index) => {
-                    const button = createOptionButton(option, index + 1);
+                    const val = index + 1;
+                    // 複習模式下，若不是正確答案就跳過
+                    if (isReviewMode && val !== question.correctAnswer) return;
+
+                    const button = createOptionButton(option, val);
+                    
+                    // 【修正重點 2】複習模式下按鈕樣式
+                    if (isReviewMode) {
+                        // 移除原本可能被擠壓的寬度設定
+                        button.classList.remove('w-full'); 
+                        // w-full: 手機版滿寬
+                        // md:w-3/4: 電腦版 75% 寬度 (美觀一點，不要太長)
+                        // text-center: 文字置中
+                        button.classList.add('w-full', 'md:w-3/4', 'text-center'); 
+                    }
                     container.appendChild(button);
                 });
             } else {
@@ -712,7 +782,6 @@ function goToQuestion(index) {
                 ].filter(opt => opt.text && opt.text.trim());
                 
                 let displayOptions;
-                // 在複習模式下，userAnswers 必定有值，所以順序會固定，不會隨機亂跳
                 if (userAnswers[currentQuestionIndex] !== undefined) {
                     displayOptions = options;
                 } else {
@@ -720,7 +789,21 @@ function goToQuestion(index) {
                 }
                 
                 displayOptions.forEach((option, index) => {
-                    const button = createOptionButton(`${String.fromCharCode(65 + index)}. ${option.text}`, option.value);
+                    // 複習模式下，若不是正確答案就跳過
+                    if (isReviewMode && option.value !== question.correctAnswer) return;
+
+                    const btnText = isReviewMode ? option.text : `${String.fromCharCode(65 + index)}. ${option.text}`;
+                    
+                    const button = createOptionButton(btnText, option.value);
+                    
+                    // 【修正重點 2】複習模式下按鈕樣式
+                    if (isReviewMode) {
+                        button.classList.remove('w-full');
+                        // w-full: 手機版滿寬
+                        // md:w-3/4: 電腦版 75% 寬度
+                        // text-center: 文字置中 (若選項文字很長，可視情況改回 text-left)
+                        button.classList.add('w-full', 'md:w-3/4', 'text-center');
+                    }
                     container.appendChild(button);
                 });
             }
@@ -731,10 +814,9 @@ function goToQuestion(index) {
                 optionsClickable = true;
             }
             
-            // 呼叫 updateNextButton 統一處理按鈕顯示
             updateNextButton();
             
-            if (userAnswers[currentQuestionIndex] !== undefined) {
+            if (userAnswers[currentQuestionIndex] !== undefined || isReviewMode) {
                 showExplanation(question.explanation);
             } else {
                 document.getElementById('explanationArea').classList.add('hidden');
@@ -968,55 +1050,63 @@ function goToQuestion(index) {
 
         // 更新下一題按鈕
 
+
         function updateNextButton() {
             const nextBtn = document.getElementById('nextBtn');
-            const prevBtn = document.getElementById('prevBtn');
             
+            // 判斷當前這題是否已作答
             const isCurrentAnswered = userAnswers[currentQuestionIndex] !== undefined;
+            // 判斷是否為最後一題
             const isLastQuestion = currentQuestionIndex === currentQuestions.length - 1;
             
-            // 1. 控制「上一題」按鈕
-            if (currentQuestionIndex === 0) {
-                prevBtn.style.visibility = 'hidden';
-            } else if (isCurrentAnswered) {
-                prevBtn.style.visibility = 'visible';
+            // 【新增】計算目前總共回答了幾題
+            const totalAnswered = Object.keys(userAnswers).length;
+            const totalQuestions = currentQuestions.length;
+            // 【新增】判斷是否全部都寫完了
+            const isAllFinished = totalAnswered === totalQuestions;
+
+            // 決定按鈕是否顯示的變數
+            let shouldShow = false;
+
+            if (isLastQuestion) {
+                // 如果是最後一頁：必須「全部題目都寫完」才顯示按鈕
+                // (如果是複習模式，通常答案都已經填入，所以也會符合條件)
+                if (isAllFinished) {
+                    shouldShow = true;
+                }
             } else {
-                prevBtn.style.visibility = 'hidden';
+                // 如果不是最後一頁：只要「這題有寫」就顯示按鈕
+                if (isCurrentAnswered) {
+                    shouldShow = true;
+                }
             }
 
-            // 2. 控制「下一題」按鈕
-            if (isCurrentAnswered) {
+            // 執行顯示或隱藏
+            if (shouldShow) {
                 nextBtn.style.visibility = 'visible';
+                nextBtn.classList.remove('opacity-0');
             } else {
                 nextBtn.style.visibility = 'hidden';
+                nextBtn.classList.add('opacity-0');
             }
 
-            // 3. 設定按鈕文字與邏輯
+            // 設定按鈕樣式與文字 (維持您之前的設定)
+            const baseClass = "w-full md:w-auto md:px-24 md:min-w-[300px] py-4 rounded-xl font-bold text-xl transition-colors shadow-lg flex items-center justify-center";
+
             if (isLastQuestion) {
-                // 如果是最後一題
                 if (isReviewMode) {
-                    // 【新增】複習模式：顯示「返回成績」
-                    nextBtn.innerHTML = `<span>返回成績</span><span class="material-icons-outlined">undo</span>`;
+                    nextBtn.innerHTML = `<span class="mr-2">返回成績</span><span class="material-icons-outlined">undo</span>`;
+                    nextBtn.className = `${baseClass} bg-gray-600 hover:bg-gray-700 text-white`;
                 } else {
-                    // 一般模式：顯示「完成測驗」
-                    nextBtn.innerHTML = `<span>完成測驗</span><span class="material-icons-outlined">check_circle</span>`;
+                    nextBtn.innerHTML = `<span class="mr-2">完成測驗，看成績！</span><span class="material-icons-outlined">check_circle</span>`;
+                    nextBtn.className = `${baseClass} bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white`;
                 }
-                nextBtn.disabled = false;
             } else {
-                // 非最後一題
-                nextBtn.innerHTML = `<span class="material-icons-outlined">arrow_forward</span>`;
-                nextBtn.disabled = false;
+                // 一般題目
+                nextBtn.innerHTML = `<span class="mr-2">下一題</span><span class="material-icons-outlined">arrow_forward</span>`;
+                nextBtn.className = `${baseClass} bg-purple-500 hover:bg-purple-600 text-white`;
             }
         }
-
-        // 上一題
-        document.getElementById('prevBtn').onclick = () => {
-            if (currentQuestionIndex > 0) {
-                currentQuestionIndex--;
-                showQuestion();
-                updateProgress();
-            }
-        };
 
         // 下一題按鈕點擊事件
         document.getElementById('nextBtn').onclick = () => {
@@ -1024,7 +1114,6 @@ function goToQuestion(index) {
 
             if (isLastQuestion) {
                 if (isReviewMode) {
-                    // 【新增】如果是複習模式，最後一題點擊後回到成績單
                     exitReviewMode();
                 } else {
                     // 一般模式，完成測驗
@@ -1207,6 +1296,7 @@ function goToQuestion(index) {
 
         // 頂端返回首頁按鈕
 		document.getElementById('backToHomeFromReviewBtnTop').onclick = () => {
+			isReviewMode = false;
 			// 恢復標題
 			document.getElementById('mainTitle').textContent = QUIZ_TITLE;
 			
@@ -1257,6 +1347,7 @@ function goToQuestion(index) {
 
         // 底部返回首頁按鈕
 		document.getElementById('backToHomeFromReviewBtn').onclick = () => {
+			isReviewMode = false;
 			// 恢復標題
 			document.getElementById('mainTitle').textContent = QUIZ_TITLE;
 			
@@ -1530,28 +1621,28 @@ function performQuizExit() {
             showQuestion(); // 重新顯示題目以應用字體
         };
 
-        // 字體大小控制 (五級：18, 20, 22, 24, 26)
-        document.getElementById('fontSizeUp').onclick = () => {
-            if (fontSizeIndex < FONT_SIZES.length - 1) {
-                fontSizeIndex++;
-                showQuestion();
-                if (showingExplanation) {
-                    const explanationText = document.getElementById('explanationText');
-                    explanationText.style.fontSize = FONT_SIZES[fontSizeIndex] + 'px';
-                }
+		// 字體大小控制 (單鍵循環切換)
+        document.getElementById('fontSizeBtn').onclick = () => {
+            // 索引 +1，如果超過長度就回到 0 (使用餘數運算 %)
+            fontSizeIndex = (fontSizeIndex + 1) % FONT_SIZES.length;
+            
+            // 重新顯示題目以套用新字體
+            showQuestion();
+            
+            // 如果目前解析是打開的，也要同步更新解析的字體
+            if (showingExplanation) {
+                const explanationText = document.getElementById('explanationText');
+                explanationText.style.fontSize = FONT_SIZES[fontSizeIndex] + 'px';
             }
+            
+            // (選用) 為了讓使用者知道字體變了，可以給按鈕一個短暫的視覺回饋
+            const btn = document.getElementById('fontSizeBtn');
+            btn.classList.add('bg-purple-200', 'text-purple-700');
+            setTimeout(() => {
+                btn.classList.remove('bg-purple-200', 'text-purple-700');
+            }, 200);
         };
 
-        document.getElementById('fontSizeDown').onclick = () => {
-            if (fontSizeIndex > 0) {
-                fontSizeIndex--;
-                showQuestion();
-                if (showingExplanation) {
-                    const explanationText = document.getElementById('explanationText');
-                    explanationText.style.fontSize = FONT_SIZES[fontSizeIndex] + 'px';
-                }
-            }
-        };
 
         // 排版切換按鈕
         document.getElementById('layoutBtn').onclick = () => {
@@ -2013,4 +2104,9 @@ function checkStudentInfo() {
             };
 			loadSavedUserInfo();
 			updateHeaderButtonsVisibility();
+			if (zhuyinMode) {
+                const btn = document.getElementById('zhuyinBtn');
+                btn.classList.remove('bg-blue-100', 'text-blue-700');
+                btn.classList.add('bg-blue-500', 'text-white');
+            }
 		});
