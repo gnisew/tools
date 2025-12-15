@@ -100,7 +100,6 @@
             </div>
         </div>
 
-
         <div v-if="view === 'hunter'" class="absolute bottom-6 right-6 z-40 flex flex-col items-center gap-2">
             <button @click="fireHunterRay" :disabled="hunter.isFiring" class="fire-btn" :class="{'opacity-50 cursor-not-allowed': hunter.isFiring, 'animate-pulse': !hunter.isFiring}">
                 <span class="text-2xl">🔥</span>

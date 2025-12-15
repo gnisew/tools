@@ -39,8 +39,10 @@ createApp({
 
         // 透鏡計算結果 (computed)
         const lensData = computed(() => {
+            // 物理符號約定：凹透鏡 f 為負
             const f = lensParams.value.type === 'convex' ? lensParams.value.f : -lensParams.value.f;
             const do_ = lensParams.value.objDist;
+            
             // 1/f = 1/do + 1/di  =>  1/di = 1/f - 1/do  =>  di = (f*do) / (do - f)
             let di = Infinity;
             if (do_ !== f) di = (f * do_) / (do_ - f);
@@ -48,14 +50,21 @@ createApp({
             const m = -di / do_; // 放大率
             const hi = m * lensParams.value.objHeight;
             
+            // 判斷實像/虛像：di > 0 為實像 (鏡後)，di < 0 為虛像 (鏡前)
             let isReal = di > 0;
+            
             let desc = '';
+            // 處理凸透鏡焦點極限狀況
             if (Math.abs(do_ - lensParams.value.f) < 2 && lensParams.value.type === 'convex') {
                 desc = '不成像 (平行光)';
             } else {
                 const nature = isReal ? '實像' : '虛像';
                 const orientation = m < 0 ? '倒立' : '正立';
-                const size = Math.abs(m) > 1 ? '放大' : (Math.abs(m) === 1 ? '相等' : '縮小');
+                let size = '';
+                if (Math.abs(m) > 1.05) size = '放大';
+                else if (Math.abs(m) < 0.95) size = '縮小';
+                else size = '相等';
+                
                 desc = `${orientation} · ${size} · ${nature}`;
             }
 
@@ -80,7 +89,7 @@ createApp({
         // --- 文字 ---
         const headerText = computed(() => {
             if (view.value === 'menu') return '';
-            if (view.value === 'lens') return '拖曳藍點移動物體，拖曳紅點改變焦距';
+            if (view.value === 'lens') return '拖曳藍色箭頭移動物體，拖曳紅點改變焦距';
             if (view.value === 'sim') return simParams.value.type === 'refraction' ? '比較不同介質的折射差異' : '拖曳光源或鏡子';
             if (view.value === 'game') return game.value.state === 'playing' ? '光線會射向哪裡？' : '測驗結果';
             if (view.value === 'sandbox') return '拖曳物件中心可移動，拖曳邊緣/箭頭可旋轉';
@@ -134,11 +143,13 @@ createApp({
             ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 4;
             if(isDashed) ctx.setLineDash([8, 6]);
             
+            // 箭身
             ctx.beginPath();
             ctx.moveTo(x, y); 
             ctx.lineTo(x, y - h);
             ctx.stroke();
 
+            // 箭頭
             const headSize = 12;
             const angle = h > 0 ? -Math.PI/2 : Math.PI/2;
             const tipX = x; 
@@ -188,7 +199,7 @@ createApp({
             ctx.save(); ctx.fillStyle = color; ctx.translate(x, y); ctx.rotate(angle); ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(-6, 6); ctx.lineTo(-6, -6); ctx.closePath(); ctx.fill(); ctx.restore();
         };
 
-        // --- Hunter 模式邏輯 (完整) ---
+        // --- Hunter 模式 ---
         const monsterEmojis = ['👾', '👽', '👻', '🦇', '🕷️', '🦂', '🛸'];
         
         const generateMonster = () => {
@@ -215,142 +226,73 @@ createApp({
         const calculateHunterPath = () => {
             const sx = hunter.value.sourceX;
             const sy = 60; 
-            const cx = hunter.value.mirrorX; // 使用可移動的鏡子中心
+            const cx = hunter.value.mirrorX; 
             const cy = height * 0.8; 
-            
-            const dx1 = cx - sx;
-            const dy1 = cy - sy;
-            const len1 = Math.sqrt(dx1*dx1 + dy1*dy1);
-            
-            const nx = 0, ny = -1; // 法線
-            
-            const ix = dx1 / len1, iy = dy1 / len1;
-            const dot = ix * nx + iy * ny;
-            const rx = ix - 2 * dot * nx;
-            const ry = iy - 2 * dot * ny;
-            
+            const dx1 = cx - sx; const dy1 = cy - sy; const len1 = Math.sqrt(dx1*dx1 + dy1*dy1);
+            const nx = 0, ny = -1; 
+            const ix = dx1 / len1, iy = dy1 / len1; const dot = ix * nx + iy * ny;
+            const rx = ix - 2 * dot * nx; const ry = iy - 2 * dot * ny;
             const len2 = Math.max(width, height) * 1.5;
-            
             return {
-                start: {x: sx, y: sy},
-                hit: {x: cx, y: cy},
-                end: {x: cx + rx * len2, y: cy + ry * len2},
-                len1: len1,
-                len2: len2
+                start: {x: sx, y: sy}, hit: {x: cx, y: cy}, end: {x: cx + rx * len2, y: cy + ry * len2}, len1: len1, len2: len2
             };
         };
 
         const hunterLoop = () => {
             if (view.value !== 'hunter' || !hunter.value.isFiring) return;
-
-            hunter.value.rayProgress += 30; // 速度
-            const path = hunter.value.fullPath;
-            const totalLen = path.len1 + path.len2;
+            hunter.value.rayProgress += 30; 
+            const path = hunter.value.fullPath; const totalLen = path.len1 + path.len2;
             
-            // 碰撞偵測
             if (!hunter.value.hitMonster && hunter.value.rayProgress > path.len1) {
                 const currentReflectLen = hunter.value.rayProgress - path.len1;
-                const rx = path.end.x - path.hit.x;
-                const ry = path.end.y - path.hit.y;
-                const rTotal = path.len2;
-                
-                const tx = path.hit.x + (rx/rTotal) * currentReflectLen;
-                const ty = path.hit.y + (ry/rTotal) * currentReflectLen;
-                
-                const mx = hunter.value.monster.x;
-                const my = hunter.value.monster.y;
+                const rx = path.end.x - path.hit.x; const ry = path.end.y - path.hit.y; const rTotal = path.len2;
+                const tx = path.hit.x + (rx/rTotal) * currentReflectLen; const ty = path.hit.y + (ry/rTotal) * currentReflectLen;
+                const mx = hunter.value.monster.x; const my = hunter.value.monster.y;
                 if (Math.hypot(tx - mx, ty - my) < 30) {
-                    hunter.value.hitMonster = true;
-                    hunter.value.monster.dead = true;
-                    hunter.value.score++;
-                    hunter.value.isFiring = false; // 擊中後停止運算
-                    draw(); // 繪製爆炸
-                    setTimeout(() => {
-                        hunter.value.rayProgress = 0;
-                        generateMonster();
-                    }, 800); 
+                    hunter.value.hitMonster = true; hunter.value.monster.dead = true; hunter.value.score++; hunter.value.isFiring = false; 
+                    draw(); setTimeout(() => { hunter.value.rayProgress = 0; generateMonster(); }, 800); 
                     return; 
                 }
             }
-
             draw();
-
             if (hunter.value.rayProgress < totalLen && !hunter.value.hitMonster) {
                 animationFrameId = requestAnimationFrame(hunterLoop);
             } else {
-                // 動畫結束，沒打中
-                hunter.value.isFiring = false;
-                hunter.value.rayProgress = 0;
-                draw();
+                hunter.value.isFiring = false; hunter.value.rayProgress = 0; draw();
             }
         };
 
         const fireHunterRay = () => {
             if (hunter.value.isFiring) return;
-            hunter.value.isFiring = true;
-            hunter.value.fullPath = calculateHunterPath();
-            hunter.value.rayProgress = 0;
-            hunter.value.hitMonster = false;
-            hunterLoop();
+            hunter.value.isFiring = true; hunter.value.fullPath = calculateHunterPath(); hunter.value.rayProgress = 0; hunter.value.hitMonster = false; hunterLoop();
         };
 
         // --- 沙盒計算 ---
         const calculateMultiBounce = () => {
              if (!sandbox.value.source.isOn) return [];
-            
-            const maxBounces = 50;
-            const segments = [];
-            let currX = sandbox.value.source.x;
-            let currY = sandbox.value.source.y;
-            let currAngle = rad(sandbox.value.source.angle);
-            const epsilon = 0.01;
-
+            const maxBounces = 50; const segments = []; let currX = sandbox.value.source.x; let currY = sandbox.value.source.y; let currAngle = rad(sandbox.value.source.angle); const epsilon = 0.01;
             for (let i = 0; i < maxBounces; i++) {
-                let closestDist = Infinity;
-                let hitRecord = null;
-                const dx = Math.cos(currAngle);
-                const dy = Math.sin(currAngle);
-
+                let closestDist = Infinity; let hitRecord = null; const dx = Math.cos(currAngle); const dy = Math.sin(currAngle);
                 sandbox.value.mirrors.forEach(mirror => {
                     const mc = getMirrorCoords(mirror.x, mirror.y, mirror.angle, mirror.length);
-                    const x1 = currX, y1 = currY;
-                    const x2 = currX + dx*10000, y2 = currY + dy*10000;
-                    const x3 = mc.x1, y3 = mc.y1;
-                    const x4 = mc.x2, y4 = mc.y2;
+                    const x1 = currX, y1 = currY; const x2 = currX + dx*10000, y2 = currY + dy*10000;
+                    const x3 = mc.x1, y3 = mc.y1; const x4 = mc.x2, y4 = mc.y2;
                     const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
                     if (den === 0) return;
-
                     const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
                     const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
-
                     if (t > epsilon && u >= 0 && u <= 1) {
-                        const px = x1 + t * (x2 - x1);
-                        const py = y1 + t * (y2 - y1);
+                        const px = x1 + t * (x2 - x1); const py = y1 + t * (y2 - y1);
                         const dist = Math.sqrt((px-x1)**2 + (py-y1)**2);
                         if (dist < closestDist) {
-                            closestDist = dist;
-                            const mx = x4 - x3, my = y4 - y3;
-                            let nx = -my, ny = mx;
-                            if (dx*nx + dy*ny > 0) { nx = -nx; ny = -ny; }
-                            const nLen = Math.sqrt(nx*nx + ny*ny);
-                            nx /= nLen; ny /= nLen;
-                            const dot = dx*nx + dy*ny;
-                            const rx = dx - 2*dot*nx;
-                            const ry = dy - 2*dot*ny;
+                            closestDist = dist; const mx = x4 - x3, my = y4 - y3; let nx = -my, ny = mx; if (dx*nx + dy*ny > 0) { nx = -nx; ny = -ny; }
+                            const nLen = Math.sqrt(nx*nx + ny*ny); nx /= nLen; ny /= nLen; const dot = dx*nx + dy*ny; const rx = dx - 2*dot*nx; const ry = dy - 2*dot*ny;
                             hitRecord = { x: px, y: py, nextAngle: Math.atan2(ry, rx) };
                         }
                     }
                 });
-
-                if (!hitRecord) {
-                    segments.push({ x1: currX, y1: currY, x2: currX + dx*2000, y2: currY + dy*2000 });
-                    break;
-                } else {
-                    segments.push({ x1: currX, y1: currY, x2: hitRecord.x, y2: hitRecord.y });
-                    currX = hitRecord.x;
-                    currY = hitRecord.y;
-                    currAngle = hitRecord.nextAngle;
-                }
+                if (!hitRecord) { segments.push({ x1: currX, y1: currY, x2: currX + dx*2000, y2: currY + dy*2000 }); break; } 
+                else { segments.push({ x1: currX, y1: currY, x2: hitRecord.x, y2: hitRecord.y }); currX = hitRecord.x; currY = hitRecord.y; currAngle = hitRecord.nextAngle; }
             }
             return segments;
         };
@@ -361,34 +303,41 @@ createApp({
             const cy = height / 2;
             const lp = lensParams.value;
             const ld = lensData.value;
+            const fPx = lp.f;
 
-            // 1. 繪製主軸
-            drawLine(0, cy, width, cy, '#64748b');
+            // 1. 主軸 (中線)
+            drawLine(0, cy, width, cy, '#cbd5e1'); // 淺灰實線
 
-            // 2. 繪製透鏡
+            // 2. 繪製透鏡 (簡潔圖示)
             ctx.save();
-            ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 4;
+            ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 3;
+            // 畫垂直線
             ctx.beginPath();
             ctx.moveTo(cx, cy - 150); ctx.lineTo(cx, cy + 150);
             ctx.stroke();
             
-            const s = 15; 
+            // 畫箭頭 (凸:外, 凹:內)
+            const s = 12; 
             ctx.beginPath();
             if (lp.type === 'convex') {
+                // 上箭頭 (^)
                 ctx.moveTo(cx - s, cy - 150 + s); ctx.lineTo(cx, cy - 150); ctx.lineTo(cx + s, cy - 150 + s);
+                // 下箭頭 (v)
                 ctx.moveTo(cx - s, cy + 150 - s); ctx.lineTo(cx, cy + 150); ctx.lineTo(cx + s, cy + 150 - s);
             } else {
+                // 上箭頭 (v)
                 ctx.moveTo(cx - s, cy - 150); ctx.lineTo(cx, cy - 150 + s); ctx.lineTo(cx + s, cy - 150);
+                // 下箭頭 (^)
                 ctx.moveTo(cx - s, cy + 150); ctx.lineTo(cx, cy + 150 - s); ctx.lineTo(cx + s, cy + 150);
             }
             ctx.stroke();
             
-            ctx.fillStyle = 'rgba(59, 130, 246, 0.1)';
-            ctx.beginPath(); ctx.ellipse(cx, cy, lp.type==='convex'?15:5, 150, 0, 0, Math.PI*2); ctx.fill();
+            // 淡淡的實體填色
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.05)';
+            ctx.beginPath(); ctx.ellipse(cx, cy, lp.type==='convex'?15:6, 150, 0, 0, Math.PI*2); ctx.fill();
             ctx.restore();
 
-            // 3. 焦點
-            const fPx = lp.f;
+            // 3. 焦點與標示
             drawPoint(cx - fPx, cy, '#ef4444', 'F');
             drawPoint(cx + fPx, cy, '#ef4444', 'F');
             drawPoint(cx - fPx*2, cy, '#94a3b8', '2F');
@@ -396,56 +345,62 @@ createApp({
 
             // 4. 物體
             const objX = cx - lp.objDist;
-            const objY = cy;
             const objTipY = cy - lp.objHeight;
-            drawArrow(objX, objY, lp.objHeight, '#3b82f6', '物體');
-            drawPoint(objX, objTipY, '#3b82f6'); 
+            drawArrow(objX, cy, lp.objHeight, '#ef4444', '物體');
+            drawPoint(objX, objTipY, '#ef4444'); // 拖曳點
 
             // 5. 像
-            if (Math.abs(lp.objDist - lp.f) >= 2 || lp.type === 'concave') {
-                const imgX = cx + ld.di;
-                drawArrow(imgX, cy, ld.hi, '#a855f7', '像', !ld.isReal);
+            const imgX = cx + ld.di;
+            const imgTipY = cy - ld.hi;
+            // 如果成像在合理範圍內才畫
+            if (Math.abs(ld.di) < 2000) {
+                drawArrow(imgX, cy, ld.hi, '#a855f7', '像', !ld.isReal); // 虛像用虛線
             }
 
-            // 6. 光線追蹤
+            // 6. 簡潔光線追蹤
+            // 為了簡潔，只畫從 物體尖端 到 像尖端 的關鍵路徑
+            
             const tipX = objX; const tipY = objTipY;
-            const imgTipX = cx + ld.di; const imgTipY = cy - ld.hi;
 
-            // (A) 平行 -> 焦
-            drawLine(tipX, tipY, cx, tipY, '#fca5a5'); 
+            // (A) 平行光 -> 焦點
+            // 1. 入射 (水平)
+            drawLine(tipX, tipY, cx, tipY, '#ef4444'); 
+            
             if (lp.type === 'convex') {
-                const slope = (cy - tipY) / fPx;
-                const endX = width; const endY = tipY + slope * (width - cx);
+                // 凸：折射過右焦點
+                // 畫出射光 (延伸到螢幕邊緣或足夠長)
+                const slope = (cy - tipY) / fPx; // 斜率
+                const endX = width; 
+                const endY = tipY + slope * (width - cx);
                 drawLine(cx, tipY, endX, endY, '#ef4444');
-                if (!ld.isReal) drawLine(cx, tipY, imgTipX, imgTipY, '#ef4444', true);
+                
+                // 如果是虛像，往回畫虛線指向像
+                if (!ld.isReal) drawLine(cx, tipY, imgX, imgTipY, '#ef4444', true);
+
             } else {
-                const slope = (tipY - cy) / fPx;
-                const endX = width; const endY = tipY - slope * (width - cx);
+                // 凹：發散，延伸線過左焦點
+                const slope = (tipY - cy) / fPx; // 斜率
+                const endX = width;
+                const endY = tipY - slope * (width - cx); // 發散
                 drawLine(cx, tipY, endX, endY, '#ef4444');
+                
+                // 虛線回左焦
                 drawLine(cx, tipY, cx - fPx, cy, '#ef4444', true);
             }
 
-            // (B) 過鏡心
+            // (B) 過鏡心 (直線)
+            // 畫一條長直線穿過中心
             const slope2 = (cy - tipY) / (cx - tipX);
             const endX2 = width; const endY2 = cy + slope2 * (width - cx);
-            drawLine(tipX, tipY, endX2, endY2, '#4ade80');
-            if(!ld.isReal) drawLine(cx, cy, imgTipX, imgTipY, '#4ade80', true);
-
-            // (C) 過焦點 -> 平行
-            if (lp.type === 'convex') {
-                const m3 = (cy - tipY) / (cx - fPx - tipX);
-                const lensHitY = tipY + m3 * (cx - tipX);
-                drawLine(tipX, tipY, cx, lensHitY, '#fdba74');
-                drawLine(cx, lensHitY, width, lensHitY, '#f97316');
-                if (!ld.isReal) drawLine(cx, lensHitY, 0, lensHitY, '#f97316', true);
-            } else {
-                const m3 = (cy - tipY) / (cx + fPx - tipX);
-                const lensHitY = tipY + m3 * (cx - tipX);
-                drawLine(tipX, tipY, cx, lensHitY, '#fdba74');
-                drawLine(cx, lensHitY, cx + fPx, cy, '#fdba74', true);
-                drawLine(cx, lensHitY, width, lensHitY, '#f97316');
-                drawLine(cx, lensHitY, 0, lensHitY, '#f97316', true);
+            drawLine(tipX, tipY, endX2, endY2, '#10b981'); // 綠色
+            
+            if(!ld.isReal) {
+                // 虛像時，從中心往回畫虛線到像
+                drawLine(cx, cy, imgX, imgTipY, '#10b981', true);
             }
+
+            // 為了保持簡潔，這裡只畫兩條線 (平行與過心) 就足以定出交點，這也是最乾淨的畫法。
+            // 許多教科書為了不讓畫面太亂，也常只畫這兩條。
         };
 
         // --- 主繪圖 ---
@@ -453,13 +408,11 @@ createApp({
             if (!ctx || !width) return;
             ctx.clearRect(0, 0, width, height);
             
-            // Lens
             if (view.value === 'lens') {
                 drawLens();
                 return;
             }
 
-            // Sandbox
             if (view.value === 'sandbox') {
                  sandbox.value.mirrors.forEach(m => {
                     const mc = getMirrorCoords(m.x, m.y, m.angle, m.length);
@@ -475,7 +428,6 @@ createApp({
                  return;
             }
 
-            // Hunter
             if (view.value === 'hunter') {
                 const cx = hunter.value.mirrorX; const cy = height * 0.8; const mc = getMirrorCoords(cx, cy, 0); 
                 ctx.save(); ctx.lineWidth = 8; ctx.strokeStyle = '#94a3b8'; ctx.beginPath(); ctx.moveTo(mc.x1, mc.y1); ctx.lineTo(mc.x2, mc.y2); ctx.stroke();
@@ -528,7 +480,6 @@ createApp({
                 if (view.value === 'sim') { ctx.beginPath(); ctx.arc(mc.x2, mc.y2, 12, 0, Math.PI*2); ctx.fillStyle = 'white'; ctx.fill(); ctx.stroke(); }
             }
 
-            // Game ray
             if (view.value === 'game' && !game.value.rayPath) return;
             const sx = (view.value === 'game') ? game.value.rayPath.start.x : simParams.value.sourceX;
             const sy = (view.value === 'game') ? game.value.rayPath.start.y : 80;
@@ -602,7 +553,6 @@ createApp({
         const handleStart = (e) => {
             const p = getPointerPos(e);
             
-            // Lens mode
             if (view.value === 'lens') {
                 const cx = width / 2;
                 const cy = height / 2;
@@ -622,7 +572,6 @@ createApp({
                 return;
             }
 
-            // Hunter mode
             if (view.value === 'hunter') {
                 const sx = hunter.value.sourceX; const sy = 60;
                 if (Math.hypot(p.x - sx, p.y - sy) < 40) { isDragging.value = true; dragTarget.value = { type: 'hunter_source' }; return; }
@@ -631,7 +580,6 @@ createApp({
                 return;
             }
 
-            // Sandbox
             if (view.value === 'sandbox') {
                 const src = sandbox.value.source;
                 if (Math.hypot(p.x - src.x, p.y - src.y) < 30) { isDragging.value = true; dragTarget.value = { type: 'source', part: 'center' }; return; }
@@ -645,7 +593,6 @@ createApp({
                 return;
             }
 
-            // Sim
             if (view.value === 'sim') {
                 const sx = simParams.value.sourceX, sy = 80;
                 if (Math.hypot(p.x - sx, p.y - sy) < 50) { isDragging.value = true; dragTarget.value = { type: 'sim_source' }; return; }
@@ -655,7 +602,6 @@ createApp({
                 }
             }
 
-            // Game
             if (view.value === 'game' && game.value.state === 'playing') {
                 let closestIdx = -1; let minDist = Infinity;
                 game.value.targets.forEach((t, i) => { const d = Math.hypot(p.x - t.x, p.y - t.y); if (d < minDist) { minDist = d; closestIdx = i; } });
