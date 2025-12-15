@@ -202,14 +202,6 @@
 
             <div class="menu-col">
                 <h2 class="text-slate-400 text-sm font-bold uppercase tracking-widest mb-2">測驗挑戰</h2>
-
-                <button @click="startHunter" class="btn-card bg-slate-800 hover:border-red-500 border border-slate-700">
-                    <span class="text-4xl">👾</span>
-                    <div>
-                        <div class="font-bold text-xl text-red-400">反射獵人</div>
-                        <div class="text-sm text-slate-400">調整光源與鏡子 · 擊中怪物</div>
-                    </div>
-                </button>
                 
                 <button @click="startGame('reflection')" class="btn-card bg-slate-800 hover:border-green-400">
                     <span class="text-4xl">📐</span>
@@ -224,6 +216,15 @@
                     <div>
                         <div class="font-bold text-xl text-yellow-400">折射測驗</div>
                         <div class="text-sm text-slate-400">5個關卡 · 預測路徑</div>
+                    </div>
+                </button>
+
+
+                <button @click="startHunter" class="btn-card bg-slate-800 hover:border-red-500 border border-slate-700">
+                    <span class="text-4xl">👾</span>
+                    <div>
+                        <div class="font-bold text-xl text-red-400">反射獵人</div>
+                        <div class="text-sm text-slate-400">調整光源與鏡子 · 擊中怪物</div>
                     </div>
                 </button>
             </div>
