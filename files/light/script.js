@@ -16,9 +16,9 @@ createApp({
 
         // --- 定義介質資料 ---
         const mediaOptions = {
-            air:   { n: 1.0,  name: '空氣', color: '#94a3b8' },
-            water: { n: 1.33, name: '水',   color: '#22d3ee' },
-            glass: { n: 1.5,  name: '玻璃', color: '#c084fc' }
+            air:   { n: 1.0,  name: '空氣', color: '#94a3b8' }, // 灰色
+            water: { n: 1.33, name: '水',   color: '#22d3ee' }, // 藍色
+            glass: { n: 1.5,  name: '玻璃', color: '#c084fc' }  // 紫色
         };
 
         // --- 狀態 ---
@@ -26,49 +26,7 @@ createApp({
             type: 'refraction', 
             sourceX: 300, 
             mirrorAngle: 0,
-            activeMedia: ['water'] 
-        });
-        
-        // 透鏡模擬參數
-        const lensParams = ref({
-            type: 'convex', // convex (凸) 或 concave (凹)
-            f: 150,         // 焦距 (單位 px)
-            objDist: 250,   // 物距 (單位 px)
-            objHeight: 100  // 物高 (單位 px)
-        });
-
-        // 透鏡計算結果 (computed)
-        const lensData = computed(() => {
-            // 物理符號約定：凹透鏡 f 為負
-            const f = lensParams.value.type === 'convex' ? lensParams.value.f : -lensParams.value.f;
-            const do_ = lensParams.value.objDist;
-            
-            // 1/f = 1/do + 1/di  =>  1/di = 1/f - 1/do  =>  di = (f*do) / (do - f)
-            let di = Infinity;
-            if (do_ !== f) di = (f * do_) / (do_ - f);
-            
-            const m = -di / do_; // 放大率
-            const hi = m * lensParams.value.objHeight;
-            
-            // 判斷實像/虛像：di > 0 為實像 (鏡後)，di < 0 為虛像 (鏡前)
-            let isReal = di > 0;
-            
-            let desc = '';
-            // 處理凸透鏡焦點極限狀況
-            if (Math.abs(do_ - lensParams.value.f) < 2 && lensParams.value.type === 'convex') {
-                desc = '不成像 (平行光)';
-            } else {
-                const nature = isReal ? '實像' : '虛像';
-                const orientation = m < 0 ? '倒立' : '正立';
-                let size = '';
-                if (Math.abs(m) > 1.05) size = '放大';
-                else if (Math.abs(m) < 0.95) size = '縮小';
-                else size = '相等';
-                
-                desc = `${orientation} · ${size} · ${nature}`;
-            }
-
-            return { di, m, hi, isReal, desc };
+            activeMedia: ['water'] // 預設顯示水
         });
         
         const game = ref({
@@ -89,7 +47,6 @@ createApp({
         // --- 文字 ---
         const headerText = computed(() => {
             if (view.value === 'menu') return '';
-            if (view.value === 'lens') return '拖曳藍色箭頭移動物體，拖曳紅點改變焦距';
             if (view.value === 'sim') return simParams.value.type === 'refraction' ? '比較不同介質的折射差異' : '拖曳光源或鏡子';
             if (view.value === 'game') return game.value.state === 'playing' ? '光線會射向哪裡？' : '測驗結果';
             if (view.value === 'sandbox') return '拖曳物件中心可移動，拖曳邊緣/箭頭可旋轉';
@@ -103,6 +60,7 @@ createApp({
         const deg = (r) => r * 180 / Math.PI;
 
         const getMirrorCoords = (cx, cy, angleDeg, len = 320) => {
+            // 避免 angleDeg 為 undefined 導致錯誤
             const safeAngle = angleDeg || 0;
             const r = rad(safeAngle);
             const dx = (len/2) * Math.cos(r);
@@ -110,13 +68,15 @@ createApp({
             return { x1: cx - dx, y1: cy - dy, x2: cx + dx, y2: cy + dy };
         };
 
+        // --- 光線計算 ---
         const calculateSimRay = (type, sx, sy, cx, cy, angleDeg, w, n2 = 1.33) => {
             if (!w) return null;
             if (type === 'refraction') {
                 const iAng = Math.atan2(cx - sx, cy - sy); 
-                const n1 = 1.0; 
+                const n1 = 1.0; // 空氣
                 let sinR = (n1 / n2) * Math.sin(iAng);
                 sinR = Math.max(-1, Math.min(1, sinR));
+                
                 const rAng = Math.asin(sinR);
                 const len = Math.max(w, cy*2) * 1.5;
                 const endX = cx + len * Math.sin(rAng);
@@ -137,282 +97,87 @@ createApp({
             }
         };
 
-        // --- 繪圖輔助 ---
-        const drawArrow = (x, y, h, color, label = '', isDashed = false) => {
-            ctx.save();
-            ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 4;
-            if(isDashed) ctx.setLineDash([8, 6]);
-            
-            // 箭身
-            ctx.beginPath();
-            ctx.moveTo(x, y); 
-            ctx.lineTo(x, y - h);
-            ctx.stroke();
+        // --- Hunter 模式邏輯 (保持不變) ---
+        const monsterEmojis = [
+		  '👾','👽','👻','🦇','🕷️','🦂','🛸',
+		  '😈','💀','☠️','💩','🤡','👹','👺',
+		  '🦟','🪰','🦠',
+		  '🍩','🍪','🎂','🍰','🧁','🍓','🥝',
+		  '🎃','♥️','🧑‍🎤',
+		  '🛩️','🚀','⭐','☣️'
+		];
 
-            // 箭頭
-            const headSize = 12;
-            const angle = h > 0 ? -Math.PI/2 : Math.PI/2;
-            const tipX = x; 
-            const tipY = y - h;
-
-            ctx.beginPath();
-            ctx.moveTo(tipX, tipY);
-            ctx.lineTo(tipX - headSize * Math.cos(angle - Math.PI/6), tipY - headSize * Math.sin(angle - Math.PI/6));
-            ctx.lineTo(tipX - headSize * Math.cos(angle + Math.PI/6), tipY - headSize * Math.sin(angle + Math.PI/6));
-            ctx.setLineDash([]);
-            ctx.fill();
-
-            if(label) {
-                ctx.font = 'bold 14px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillStyle = color;
-                ctx.fillText(label, x, y + (h > 0 ? 20 : -20));
-            }
-            ctx.restore();
+        const generateMonster = () => {
+             const margin = 50; const my = height * 0.8; 
+             let mx, my_pos, safe = false;
+             while(!safe) { mx = margin + Math.random()*(width-2*margin); my_pos = margin + Math.random()*(my-150); safe=true; }
+             hunter.value.monster = { x: mx, y: my_pos, emoji: monsterEmojis[Math.floor(Math.random()*monsterEmojis.length)], dead: false };
+             hunter.value.hitMonster = false; hunter.value.rayProgress = 0; draw();
+        };
+        const calculateHunterPath = () => {
+             const sx = hunter.value.sourceX; const sy = 60; const cx = hunter.value.mirrorX; const cy = height * 0.8; 
+             const dx1 = cx-sx; const dy1 = cy-sy; const len1 = Math.sqrt(dx1*dx1+dy1*dy1);
+             const nx = 0, ny = -1; const ix = dx1/len1, iy = dy1/len1; const dot = ix*nx+iy*ny;
+             const rx = ix-2*dot*nx; const ry = iy-2*dot*ny; const len2 = Math.max(width,height)*1.5;
+             return { start: {x:sx,y:sy}, hit: {x:cx,y:cy}, end: {x:cx+rx*len2,y:cy+ry*len2}, len1:len1, len2:len2 };
+        };
+        const fireHunterRay = () => { if (hunter.value.isFiring) return; hunter.value.isFiring = true; hunter.value.fullPath = calculateHunterPath(); hunter.value.rayProgress = 0; hunter.value.hitMonster = false; hunterLoop(); };
+        const hunterLoop = () => {
+             if (view.value !== 'hunter' || !hunter.value.isFiring) return;
+             hunter.value.rayProgress += 30; const path = hunter.value.fullPath; const totalLen = path.len1+path.len2;
+             if (!hunter.value.hitMonster && hunter.value.rayProgress > path.len1) {
+                 const currentReflectLen = hunter.value.rayProgress - path.len1;
+                 const rx = path.end.x - path.hit.x; const ry = path.end.y - path.hit.y; const rTotal = path.len2;
+                 const tx = path.hit.x + (rx/rTotal)*currentReflectLen; const ty = path.hit.y + (ry/rTotal)*currentReflectLen;
+                 const mx = hunter.value.monster.x; const my = hunter.value.monster.y;
+                 if (Math.hypot(tx-mx, ty-my) < 30) {
+                     hunter.value.hitMonster = true; hunter.value.monster.dead = true; hunter.value.score++; hunter.value.isFiring = false; draw();
+                     setTimeout(() => { hunter.value.rayProgress = 0; generateMonster(); }, 800); return; 
+                 }
+             }
+             draw();
+             if (hunter.value.rayProgress < totalLen && !hunter.value.hitMonster) animationFrameId = requestAnimationFrame(hunterLoop);
+             else { hunter.value.isFiring = false; hunter.value.rayProgress = 0; draw(); }
         };
 
-        const drawPoint = (x, y, color, label) => {
-            ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI*2);
-            ctx.fillStyle = color; ctx.fill(); ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.stroke();
-            if(label) {
-                ctx.fillStyle = color; ctx.font = '12px Arial'; ctx.textAlign = 'center'; 
-                ctx.fillText(label, x, y + 20);
-            }
+        // --- 沙盒計算 (保持不變) ---
+        const calculateMultiBounce = () => {
+             if (!sandbox.value.source.isOn) return [];
+             const maxBounces = 50; const segments = []; let currX = sandbox.value.source.x; let currY = sandbox.value.source.y; let currAngle = rad(sandbox.value.source.angle); const epsilon = 0.01;
+             for (let i = 0; i < maxBounces; i++) {
+                 let closestDist = Infinity; let hitRecord = null; const dx = Math.cos(currAngle); const dy = Math.sin(currAngle);
+                 sandbox.value.mirrors.forEach(mirror => {
+                     const mc = getMirrorCoords(mirror.x, mirror.y, mirror.angle, mirror.length);
+                     const x1=currX, y1=currY; const x2=currX+dx*10000, y2=currY+dy*10000; const x3=mc.x1, y3=mc.y1; const x4=mc.x2, y4=mc.y2;
+                     const den = (x1-x2)*(y3-y4)-(y1-y2)*(x3-x4); if(den===0) return;
+                     const t = ((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/den; const u = -((x1-x2)*(y1-y3)-(y1-y2)*(x1-x3))/den;
+                     if(t>epsilon && u>=0 && u<=1){
+                         const px=x1+t*(x2-x1); const py=y1+t*(y2-y1); const dist=Math.sqrt((px-x1)**2+(py-y1)**2);
+                         if(dist<closestDist){ closestDist=dist; const mx=x4-x3, my=y4-y3; let nx=-my, ny=mx; if(dx*nx+dy*ny>0){nx=-nx; ny=-ny;} const nLen=Math.sqrt(nx*nx+ny*ny); nx/=nLen; ny/=nLen; const dot=dx*nx+dy*ny; const rx=dx-2*dot*nx; const ry=dy-2*dot*ny; hitRecord={x:px,y:py,nextAngle:Math.atan2(ry,rx)}; }
+                     }
+                 });
+                 if(!hitRecord){ segments.push({x1:currX,y1:currY,x2:currX+dx*2000,y2:currY+dy*2000}); break; }
+                 else{ segments.push({x1:currX,y1:currY,x2:hitRecord.x,y2:hitRecord.y}); currX=hitRecord.x; currY=hitRecord.y; currAngle=hitRecord.nextAngle; }
+             }
+             return segments;
         };
 
-        const drawLine = (x1, y1, x2, y2, color, dashed = false) => {
-            ctx.save();
-            ctx.strokeStyle = color; ctx.lineWidth = 2;
-            if(dashed) ctx.setLineDash([5, 5]);
-            ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-            ctx.restore();
-        };
-
+        // --- 繪圖輔助 (保持不變) ---
         const drawDashedArrow = (x1, y1, x2, y2, color) => {
             ctx.save(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 4; ctx.setLineDash([12, 12]); ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
             const angle = Math.atan2(y2-y1, x2-x1);
             const drawHead = (px, py) => { ctx.beginPath(); const s = 14; ctx.moveTo(px, py); ctx.lineTo(px - s * Math.cos(angle-Math.PI/6), py - s * Math.sin(angle-Math.PI/6)); ctx.lineTo(px - s * Math.cos(angle+Math.PI/6), py - s * Math.sin(angle+Math.PI/6)); ctx.setLineDash([]); ctx.fill(); };
             drawHead(x1 + (x2-x1)*0.6, y1 + (y2-y1)*0.6); drawHead(x2, y2); ctx.restore();
         };
-
         const drawArrowHead = (x, y, angle, color) => {
             ctx.save(); ctx.fillStyle = color; ctx.translate(x, y); ctx.rotate(angle); ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(-6, 6); ctx.lineTo(-6, -6); ctx.closePath(); ctx.fill(); ctx.restore();
         };
 
-        // --- Hunter 模式 ---
-        const monsterEmojis = ['👾', '👽', '👻', '🦇', '🕷️', '🦂', '🛸'];
-        
-        const generateMonster = () => {
-            const margin = 50; 
-            const my = height * 0.8; 
-            let mx, my_pos;
-            let safe = false;
-            while(!safe) {
-                mx = margin + Math.random() * (width - 2*margin);
-                my_pos = margin + Math.random() * (my - 150);
-                safe = true;
-            }
-            hunter.value.monster = {
-                x: mx,
-                y: my_pos,
-                emoji: monsterEmojis[Math.floor(Math.random() * monsterEmojis.length)],
-                dead: false
-            };
-            hunter.value.hitMonster = false;
-            hunter.value.rayProgress = 0;
-            draw();
-        };
-
-        const calculateHunterPath = () => {
-            const sx = hunter.value.sourceX;
-            const sy = 60; 
-            const cx = hunter.value.mirrorX; 
-            const cy = height * 0.8; 
-            const dx1 = cx - sx; const dy1 = cy - sy; const len1 = Math.sqrt(dx1*dx1 + dy1*dy1);
-            const nx = 0, ny = -1; 
-            const ix = dx1 / len1, iy = dy1 / len1; const dot = ix * nx + iy * ny;
-            const rx = ix - 2 * dot * nx; const ry = iy - 2 * dot * ny;
-            const len2 = Math.max(width, height) * 1.5;
-            return {
-                start: {x: sx, y: sy}, hit: {x: cx, y: cy}, end: {x: cx + rx * len2, y: cy + ry * len2}, len1: len1, len2: len2
-            };
-        };
-
-        const hunterLoop = () => {
-            if (view.value !== 'hunter' || !hunter.value.isFiring) return;
-            hunter.value.rayProgress += 30; 
-            const path = hunter.value.fullPath; const totalLen = path.len1 + path.len2;
-            
-            if (!hunter.value.hitMonster && hunter.value.rayProgress > path.len1) {
-                const currentReflectLen = hunter.value.rayProgress - path.len1;
-                const rx = path.end.x - path.hit.x; const ry = path.end.y - path.hit.y; const rTotal = path.len2;
-                const tx = path.hit.x + (rx/rTotal) * currentReflectLen; const ty = path.hit.y + (ry/rTotal) * currentReflectLen;
-                const mx = hunter.value.monster.x; const my = hunter.value.monster.y;
-                if (Math.hypot(tx - mx, ty - my) < 30) {
-                    hunter.value.hitMonster = true; hunter.value.monster.dead = true; hunter.value.score++; hunter.value.isFiring = false; 
-                    draw(); setTimeout(() => { hunter.value.rayProgress = 0; generateMonster(); }, 800); 
-                    return; 
-                }
-            }
-            draw();
-            if (hunter.value.rayProgress < totalLen && !hunter.value.hitMonster) {
-                animationFrameId = requestAnimationFrame(hunterLoop);
-            } else {
-                hunter.value.isFiring = false; hunter.value.rayProgress = 0; draw();
-            }
-        };
-
-        const fireHunterRay = () => {
-            if (hunter.value.isFiring) return;
-            hunter.value.isFiring = true; hunter.value.fullPath = calculateHunterPath(); hunter.value.rayProgress = 0; hunter.value.hitMonster = false; hunterLoop();
-        };
-
-        // --- 沙盒計算 ---
-        const calculateMultiBounce = () => {
-             if (!sandbox.value.source.isOn) return [];
-            const maxBounces = 50; const segments = []; let currX = sandbox.value.source.x; let currY = sandbox.value.source.y; let currAngle = rad(sandbox.value.source.angle); const epsilon = 0.01;
-            for (let i = 0; i < maxBounces; i++) {
-                let closestDist = Infinity; let hitRecord = null; const dx = Math.cos(currAngle); const dy = Math.sin(currAngle);
-                sandbox.value.mirrors.forEach(mirror => {
-                    const mc = getMirrorCoords(mirror.x, mirror.y, mirror.angle, mirror.length);
-                    const x1 = currX, y1 = currY; const x2 = currX + dx*10000, y2 = currY + dy*10000;
-                    const x3 = mc.x1, y3 = mc.y1; const x4 = mc.x2, y4 = mc.y2;
-                    const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-                    if (den === 0) return;
-                    const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
-                    const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
-                    if (t > epsilon && u >= 0 && u <= 1) {
-                        const px = x1 + t * (x2 - x1); const py = y1 + t * (y2 - y1);
-                        const dist = Math.sqrt((px-x1)**2 + (py-y1)**2);
-                        if (dist < closestDist) {
-                            closestDist = dist; const mx = x4 - x3, my = y4 - y3; let nx = -my, ny = mx; if (dx*nx + dy*ny > 0) { nx = -nx; ny = -ny; }
-                            const nLen = Math.sqrt(nx*nx + ny*ny); nx /= nLen; ny /= nLen; const dot = dx*nx + dy*ny; const rx = dx - 2*dot*nx; const ry = dy - 2*dot*ny;
-                            hitRecord = { x: px, y: py, nextAngle: Math.atan2(ry, rx) };
-                        }
-                    }
-                });
-                if (!hitRecord) { segments.push({ x1: currX, y1: currY, x2: currX + dx*2000, y2: currY + dy*2000 }); break; } 
-                else { segments.push({ x1: currX, y1: currY, x2: hitRecord.x, y2: hitRecord.y }); currX = hitRecord.x; currY = hitRecord.y; currAngle = hitRecord.nextAngle; }
-            }
-            return segments;
-        };
-
-        // --- Lens 繪圖邏輯 ---
-        const drawLens = () => {
-            const cx = width / 2;
-            const cy = height / 2;
-            const lp = lensParams.value;
-            const ld = lensData.value;
-            const fPx = lp.f;
-
-            // 1. 主軸 (中線)
-            drawLine(0, cy, width, cy, '#cbd5e1'); // 淺灰實線
-
-            // 2. 繪製透鏡 (簡潔圖示)
-            ctx.save();
-            ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 3;
-            // 畫垂直線
-            ctx.beginPath();
-            ctx.moveTo(cx, cy - 150); ctx.lineTo(cx, cy + 150);
-            ctx.stroke();
-            
-            // 畫箭頭 (凸:外, 凹:內)
-            const s = 12; 
-            ctx.beginPath();
-            if (lp.type === 'convex') {
-                // 上箭頭 (^)
-                ctx.moveTo(cx - s, cy - 150 + s); ctx.lineTo(cx, cy - 150); ctx.lineTo(cx + s, cy - 150 + s);
-                // 下箭頭 (v)
-                ctx.moveTo(cx - s, cy + 150 - s); ctx.lineTo(cx, cy + 150); ctx.lineTo(cx + s, cy + 150 - s);
-            } else {
-                // 上箭頭 (v)
-                ctx.moveTo(cx - s, cy - 150); ctx.lineTo(cx, cy - 150 + s); ctx.lineTo(cx + s, cy - 150);
-                // 下箭頭 (^)
-                ctx.moveTo(cx - s, cy + 150); ctx.lineTo(cx, cy + 150 - s); ctx.lineTo(cx + s, cy + 150);
-            }
-            ctx.stroke();
-            
-            // 淡淡的實體填色
-            ctx.fillStyle = 'rgba(59, 130, 246, 0.05)';
-            ctx.beginPath(); ctx.ellipse(cx, cy, lp.type==='convex'?15:6, 150, 0, 0, Math.PI*2); ctx.fill();
-            ctx.restore();
-
-            // 3. 焦點與標示
-            drawPoint(cx - fPx, cy, '#ef4444', 'F');
-            drawPoint(cx + fPx, cy, '#ef4444', 'F');
-            drawPoint(cx - fPx*2, cy, '#94a3b8', '2F');
-            drawPoint(cx + fPx*2, cy, '#94a3b8', '2F');
-
-            // 4. 物體
-            const objX = cx - lp.objDist;
-            const objTipY = cy - lp.objHeight;
-            drawArrow(objX, cy, lp.objHeight, '#ef4444', '物體');
-            drawPoint(objX, objTipY, '#ef4444'); // 拖曳點
-
-            // 5. 像
-            const imgX = cx + ld.di;
-            const imgTipY = cy - ld.hi;
-            // 如果成像在合理範圍內才畫
-            if (Math.abs(ld.di) < 2000) {
-                drawArrow(imgX, cy, ld.hi, '#a855f7', '像', !ld.isReal); // 虛像用虛線
-            }
-
-            // 6. 簡潔光線追蹤
-            // 為了簡潔，只畫從 物體尖端 到 像尖端 的關鍵路徑
-            
-            const tipX = objX; const tipY = objTipY;
-
-            // (A) 平行光 -> 焦點
-            // 1. 入射 (水平)
-            drawLine(tipX, tipY, cx, tipY, '#ef4444'); 
-            
-            if (lp.type === 'convex') {
-                // 凸：折射過右焦點
-                // 畫出射光 (延伸到螢幕邊緣或足夠長)
-                const slope = (cy - tipY) / fPx; // 斜率
-                const endX = width; 
-                const endY = tipY + slope * (width - cx);
-                drawLine(cx, tipY, endX, endY, '#ef4444');
-                
-                // 如果是虛像，往回畫虛線指向像
-                if (!ld.isReal) drawLine(cx, tipY, imgX, imgTipY, '#ef4444', true);
-
-            } else {
-                // 凹：發散，延伸線過左焦點
-                const slope = (tipY - cy) / fPx; // 斜率
-                const endX = width;
-                const endY = tipY - slope * (width - cx); // 發散
-                drawLine(cx, tipY, endX, endY, '#ef4444');
-                
-                // 虛線回左焦
-                drawLine(cx, tipY, cx - fPx, cy, '#ef4444', true);
-            }
-
-            // (B) 過鏡心 (直線)
-            // 畫一條長直線穿過中心
-            const slope2 = (cy - tipY) / (cx - tipX);
-            const endX2 = width; const endY2 = cy + slope2 * (width - cx);
-            drawLine(tipX, tipY, endX2, endY2, '#10b981'); // 綠色
-            
-            if(!ld.isReal) {
-                // 虛像時，從中心往回畫虛線到像
-                drawLine(cx, cy, imgX, imgTipY, '#10b981', true);
-            }
-
-            // 為了保持簡潔，這裡只畫兩條線 (平行與過心) 就足以定出交點，這也是最乾淨的畫法。
-            // 許多教科書為了不讓畫面太亂，也常只畫這兩條。
-        };
-
-        // --- 主繪圖 ---
+        // --- 主繪圖函數 (修正) ---
         const draw = () => {
             if (!ctx || !width) return;
             ctx.clearRect(0, 0, width, height);
             
-            if (view.value === 'lens') {
-                drawLens();
-                return;
-            }
-
             if (view.value === 'sandbox') {
                  sandbox.value.mirrors.forEach(m => {
                     const mc = getMirrorCoords(m.x, m.y, m.angle, m.length);
@@ -454,15 +219,17 @@ createApp({
                 return;
             }
 
-            // Sim/Game
+            // === 模擬/測驗模式 ===
             const cy = getInterfaceY();
             const cx = width / 2;
             const type = view.value === 'game' ? game.value.type : simParams.value.type;
 
+            // 1. 繪製環境
             if (type === 'refraction') {
                 const isSim = view.value === 'sim';
                 ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(width, cy);
                 ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.setLineDash([]); ctx.stroke();
+
                 if (isSim) {
                     ctx.fillStyle = 'rgba(255, 255, 255, 0.05)'; ctx.fillRect(0, cy, width, height - cy);
                     ctx.font = '16px sans-serif'; ctx.fillStyle = '#94a3b8'; ctx.fillText('空氣', 20, cy - 10);
@@ -480,12 +247,16 @@ createApp({
                 if (view.value === 'sim') { ctx.beginPath(); ctx.arc(mc.x2, mc.y2, 12, 0, Math.PI*2); ctx.fillStyle = 'white'; ctx.fill(); ctx.stroke(); }
             }
 
+            // 2. 繪製光線
+            // 【重要修正】：如果是在遊戲模式，且光線尚未產生 (rayPath 為 null)，則暫停繪製光線
             if (view.value === 'game' && !game.value.rayPath) return;
+
             const sx = (view.value === 'game') ? game.value.rayPath.start.x : simParams.value.sourceX;
             const sy = (view.value === 'game') ? game.value.rayPath.start.y : 80;
             const hitX = (view.value === 'game') ? game.value.rayPath.hit.x : cx;
-            const hitY = cy; 
+            const hitY = cy; // 對於單一表面，hitY 永遠是介面高度
 
+            // 畫法線
             ctx.save(); ctx.setLineDash([4, 6]); ctx.strokeStyle = 'rgba(255,255,255,0.2)';
             ctx.beginPath();
             if (type === 'refraction') { ctx.moveTo(hitX, hitY - 300); ctx.lineTo(hitX, hitY + 300); }
@@ -493,6 +264,7 @@ createApp({
                 let ray;
                 if (view.value === 'game') ray = game.value.rayPath;
                 else ray = calculateSimRay(type, sx, sy, cx, cy, simParams.value.mirrorAngle, width);
+                
                 if (ray) {
                     const na = ray.normalAngle; 
                     ctx.moveTo(hitX, hitY); ctx.lineTo(hitX+Math.cos(na)*200, hitY+Math.sin(na)*200); 
@@ -500,9 +272,11 @@ createApp({
             }
             ctx.stroke(); ctx.restore();
 
+            // 畫光源點
             ctx.beginPath(); ctx.arc(sx, sy, 14, 0, Math.PI*2);
             ctx.fillStyle = '#facc15'; ctx.fill(); ctx.strokeStyle = 'white'; ctx.lineWidth = 3; ctx.setLineDash([]); ctx.stroke();
 
+            // 畫光線路徑
             if (view.value === 'sim' && type === 'refraction') {
                 drawDashedArrow(sx, sy, hitX, hitY, '#facc15');
                 if (simParams.value.activeMedia.length === 0) {
@@ -522,13 +296,16 @@ createApp({
             } else {
                 let ray;
                 if (view.value === 'game') ray = game.value.rayPath;
-                else ray = calculateSimRay(type, sx, sy, cx, cy, simParams.value.mirrorAngle, width); 
+                else ray = calculateSimRay(type, sx, sy, cx, cy, simParams.value.mirrorAngle, width); // 預設水
+
                 drawDashedArrow(sx, sy, ray.hit.x, ray.hit.y, '#facc15');
+                
                 if (view.value === 'sim' || game.value.state === 'result') {
                     const color = (view.value === 'sim' || game.value.lastCorrect) ? '#facc15' : '#ef4444';
                     drawDashedArrow(ray.hit.x, ray.hit.y, ray.end.x, ray.end.y, color);
                 }
             }
+
             if (view.value === 'game' && game.value.targets.length) {
                 game.value.targets.forEach(t => {
                     const isResult = game.value.state === 'result';
@@ -553,25 +330,6 @@ createApp({
         const handleStart = (e) => {
             const p = getPointerPos(e);
             
-            if (view.value === 'lens') {
-                const cx = width / 2;
-                const cy = height / 2;
-                const lp = lensParams.value;
-                const objX = cx - lp.objDist;
-                const objY = cy - lp.objHeight;
-                if (Math.hypot(p.x - objX, p.y - objY) < 30) {
-                    isDragging.value = true; 
-                    dragTarget.value = { type: 'lens_obj' };
-                    return;
-                }
-                if (Math.hypot(p.x - (cx - lp.f), p.y - cy) < 30 || Math.hypot(p.x - (cx + lp.f), p.y - cy) < 30) {
-                    isDragging.value = true;
-                    dragTarget.value = { type: 'lens_focus' };
-                    return;
-                }
-                return;
-            }
-
             if (view.value === 'hunter') {
                 const sx = hunter.value.sourceX; const sy = 60;
                 if (Math.hypot(p.x - sx, p.y - sy) < 40) { isDragging.value = true; dragTarget.value = { type: 'hunter_source' }; return; }
@@ -614,17 +372,7 @@ createApp({
             const p = getPointerPos(e);
             const dt = dragTarget.value;
 
-            if (dt.type === 'lens_obj') {
-                const cx = width / 2;
-                const cy = height / 2;
-                const newDist = Math.max(10, cx - p.x);
-                lensParams.value.objDist = newDist;
-                lensParams.value.objHeight = Math.max(-250, Math.min(250, cy - p.y));
-            } else if (dt.type === 'lens_focus') {
-                const cx = width / 2;
-                lensParams.value.f = Math.max(20, Math.abs(p.x - cx));
-            }
-            else if (dt.type === 'hunter_source') {
+            if (dt.type === 'hunter_source') {
                 hunter.value.sourceX = Math.max(20, Math.min(width - 20, p.x));
                 if (!hunter.value.isFiring) hunter.value.rayProgress = 0;
             } else if (dt.type === 'hunter_mirror') {
@@ -643,8 +391,7 @@ createApp({
                 const cx = width/2, cy = getInterfaceY(); let ang = deg(Math.atan2(p.y - cy, p.x - cx));
                 if (ang > 180) ang -= 360; simParams.value.mirrorAngle = Math.max(-45, Math.min(45, ang));
             }
-            
-            if (view.value === 'hunter' || (view.value === 'sim' && simParams.value.type === 'refraction') || view.value === 'lens') draw();
+            if (view.value === 'hunter' || (view.value === 'sim' && simParams.value.type === 'refraction')) draw();
         };
 
         const handleEnd = () => { isDragging.value = false; dragTarget.value = null; };
@@ -656,7 +403,7 @@ createApp({
              if (!width) return; game.value.state = 'playing'; if (game.value.level === 1) { showGameHint.value = true; setTimeout(() => showGameHint.value = false, 2500); }
              const cx = width/2, cy = getInterfaceY(); const isLeft = Math.random()>0.5; let sx; if (isLeft) sx = Math.random()*(cx-220)+40; else sx = Math.random()*(width-40-(cx+180))+(cx+180);
              const sy = 80+Math.random()*50; const mAngle = game.value.type === 'reflection' ? (Math.random()*50-25) : 0;
-             const ray = calculateSimRay(game.value.type, sx, sy, cx, cy, mAngle, width); 
+             const ray = calculateSimRay(game.value.type, sx, sy, cx, cy, mAngle, width); // 使用預設 1.33
              game.value.rayPath = ray; game.value.source = {x:sx, y:sy}; game.value.mirrorAngle = mAngle;
              let raw = []; const tDist = Math.min(width, height)*0.35; const rVx = ray.end.x - ray.hit.x, rVy = ray.end.y - ray.hit.y; const rLen = Math.sqrt(rVx*rVx + rVy*rVy);
              raw.push({ x: ray.hit.x+(rVx/rLen)*tDist, y: ray.hit.y+(rVy/rLen)*tDist, isCorrect: true });
@@ -674,7 +421,6 @@ createApp({
 
         const resizeCanvas = () => { if(!containerRef.value) return; width = containerRef.value.clientWidth; height = containerRef.value.clientHeight; canvasRef.value.width = width; canvasRef.value.height = height; ctx = canvasRef.value.getContext('2d'); if(view.value === 'sim' && simParams.value.sourceX > width) simParams.value.sourceX = width-50; if(hunter.value.mirrorX === 0) hunter.value.mirrorX = width / 2; draw(); };
         const startSim = (t) => { simParams.value.type = t; view.value = 'sim'; nextTick(() => { resizeCanvas(); draw(); }); };
-        const startLens = () => { view.value = 'lens'; nextTick(() => { resizeCanvas(); draw(); }); }; 
         const startSandbox = () => { view.value = 'sandbox'; nextTick(() => { resizeCanvas(); draw(); }); };
         const startGame = (t) => { game.value = { type: t, level: 1, score: 0, state: 'playing', targets: [], rayPath: null }; view.value = 'game'; nextTick(() => { resizeCanvas(); setTimeout(generateLevel, 50); }); };
         const startHunter = () => { view.value = 'hunter'; hunter.value = { sourceX: width ? width/2 : 100, mirrorX: width ? width/2 : 0, score: 0, monster: { x:0, y:0, emoji:'👾', dead:false }, isFiring: false, rayProgress: 0, fullPath: null, hitMonster: false }; nextTick(() => { resizeCanvas(); generateMonster(); draw(); }); };
@@ -685,8 +431,7 @@ createApp({
         onUnmounted(() => resizeObserver?.disconnect());
         watch(simParams, () => { if(view.value === 'sim') requestAnimationFrame(draw); }, { deep: true });
         watch(sandbox, () => { if(view.value === 'sandbox') requestAnimationFrame(draw); }, { deep: true });
-        watch(lensParams, () => { if(view.value === 'lens') requestAnimationFrame(draw); }, { deep: true });
 
-        return { view, simParams, lensParams, lensData, game, sandbox, hunter, showGameHint, containerRef, canvasRef, headerText, startSim, startLens, startSandbox, startGame, startHunter, nextLevel, goHome, handleStart, handleMove, handleEnd, toggleSandboxLight, addMirror, removeMirror, fireHunterRay, mediaOptions };
+        return { view, simParams, game, sandbox, hunter, showGameHint, containerRef, canvasRef, headerText, startSim, startSandbox, startGame, startHunter, nextLevel, goHome, handleStart, handleMove, handleEnd, toggleSandboxLight, addMirror, removeMirror, fireHunterRay, mediaOptions };
     }
 }).mount('#app');

@@ -164,14 +164,7 @@
             
             <div class="menu-col">
                 <h2 class="text-slate-400 text-sm font-bold uppercase tracking-widest mb-2">實驗與模擬</h2>
-                
-                <button @click="startLens" class="btn-card hover:border-blue-400 border border-transparent bg-slate-800">
-                    <span class="text-4xl">🔍</span>
-                    <div>
-                        <div class="font-bold text-xl text-blue-400">透鏡成像</div>
-                        <div class="text-sm text-slate-400">凸透鏡 · 凹透鏡 · 光路圖</div>
-                    </div>
-                </button>
+
 
                 <button @click="startSim('reflection')" class="btn-card hover:border-purple-400">
                     <span class="text-4xl">🪞</span>
@@ -194,6 +187,15 @@
                     <div>
                         <div class="font-bold text-xl text-white">多鏡反射沙盒</div>
                         <div class="text-sm text-slate-400">自由放置鏡子 · 改變光線</div>
+                    </div>
+                </button>
+
+                
+                <button @click="startLens" class="btn-card hover:border-blue-400 border border-transparent bg-slate-800">
+                    <span class="text-4xl">🔍</span>
+                    <div>
+                        <div class="font-bold text-xl text-blue-400">透鏡成像</div>
+                        <div class="text-sm text-slate-400">凸透鏡 · 凹透鏡 · 光路圖</div>
                     </div>
                 </button>
             </div>
