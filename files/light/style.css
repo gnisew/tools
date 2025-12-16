@@ -5,22 +5,21 @@ body {
     margin: 0;
     overflow: hidden;
     
-    /* 禁止彈性捲動與縮放 */
-    overscroll-behavior: none; 
-    -webkit-overflow-scrolling: touch; 
-    
-    touch-action: none; 
+    /* 關鍵修正：防止 iOS/Android 下拉刷新或滑動上一頁 */
+    overscroll-behavior: none;
+    touch-action: none;
+    -webkit-overflow-scrolling: touch;
     user-select: none;
 }
 
 #app {
-    position: fixed; /* 強制固定，避免被捲動 */
+    position: fixed; /* 強制固定 */
     top: 0;
     left: 0;
     width: 100vw;
-    /* 核心修正：使用 dvh 解決手機瀏覽器網址列遮擋問題 */
-    height: 100vh; 
-    height: 100dvh; 
+    /* 關鍵修正：使用 dvh (Dynamic Viewport Height) 解決手機瀏覽器工具列遮擋問題 */
+    height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
 }
@@ -42,9 +41,9 @@ body {
 .canvas-area {
     flex-grow: 1;
     position: relative;
-    background: #0f172a;
+    background: #0f172a; /* 設為深色背景，讓格線清楚 */
     overflow: hidden;
-    touch-action: none; /* 確保畫布區域完全接管觸控 */
+    touch-action: none;
 }
 
 canvas {
@@ -52,7 +51,7 @@ canvas {
     width: 100%;
     height: 100%;
     cursor: default;
-    touch-action: none; /* 關鍵：防止瀏覽器劫持手勢 */
+    touch-action: none; /* 關鍵 */
 }
 canvas.interactive { cursor: pointer; }
 
@@ -71,17 +70,13 @@ canvas.interactive { cursor: pointer; }
     display: flex;
     align-items: center;
     justify-content: center;
-    /* 防止按鈕上的誤觸發 */
     touch-action: manipulation;
 }
 .fire-btn:active:not(:disabled) {
     transform: scale(0.95) translateY(2px);
     box-shadow: 0 2px 5px rgba(0,0,0,0.5);
 }
-.fire-btn:disabled {
-    filter: grayscale(0.8);
-    cursor: not-allowed;
-}
+.fire-btn:disabled { filter: grayscale(0.8); cursor: not-allowed; }
 
 /* 結果提示框 */
 .result-box {
@@ -158,10 +153,7 @@ canvas.interactive { cursor: pointer; }
 /* 選單覆蓋層 */
 .menu-overlay {
     position: absolute;
-    top: 50px; 
-    left: 0;
-    right: 0;
-    bottom: 0;
+    top: 50px; left: 0; right: 0; bottom: 0;
     background: #0f172a;
     z-index: 60;
     display: flex;
@@ -180,7 +172,6 @@ canvas.interactive { cursor: pointer; }
     width: 100%;
     max-width: 350px;
 }
-
 @media (min-width: 768px) {
     .menu-grid {
         grid-template-columns: 1fr 1fr;
@@ -189,12 +180,7 @@ canvas.interactive { cursor: pointer; }
         align-items: start;
     }
 }
-
-.menu-col {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
+.menu-col { display: flex; flex-direction: column; gap: 15px; }
 
 .btn-card {
     background: #334155;

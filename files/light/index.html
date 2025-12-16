@@ -62,6 +62,18 @@
             </label>
         </div>
 
+        <div v-if="view === 'sim' && simParams.type === 'reflection'" 
+             class="absolute top-20 left-4 z-40 flex flex-col gap-3 select-none">
+            <label class="flex items-center gap-2 cursor-pointer group opacity-90 hover:opacity-100 transition">
+                <input type="checkbox" v-model="simParams.showAngles" 
+                       class="w-5 h-5 cursor-pointer rounded border-slate-500 bg-slate-700/50 accent-yellow-400">
+                <span class="font-bold text-sm tracking-wide text-yellow-400" 
+                      style="text-shadow: 0 2px 4px rgba(0,0,0,0.8)">
+                    顯示角度
+                </span>
+            </label>
+        </div>
+
         <div v-if="view === 'lens'" class="absolute top-4 left-4 z-40 flex flex-col gap-4">
             <div class="bg-slate-800/90 p-1.5 rounded-lg border border-slate-600 flex gap-1 backdrop-blur-sm">
                 <button @click="lensParams.type = 'convex'" 
@@ -75,6 +87,13 @@
                     凹透鏡
                 </button>
             </div>
+            
+            <select v-model="lensParams.objEmoji" 
+                    class="bg-slate-800/90 text-white text-sm rounded-lg p-2 border border-slate-600 outline-none cursor-pointer backdrop-blur-sm hover:border-blue-500 transition">
+                <option v-for="opt in lensObjects" :key="opt.emoji" :value="opt.emoji">
+                    {{ opt.emoji }} {{ opt.label }}
+                </option>
+            </select>
         </div>
 
         <div v-if="view === 'lens'" class="absolute bottom-4 left-4 z-40 bg-slate-900/90 border border-slate-700 p-4 rounded-xl shadow-xl backdrop-blur-md min-w-[240px]">
@@ -160,7 +179,6 @@
 
     <div v-if="view === 'menu'" class="menu-overlay">
         <div class="menu-grid">
-            
             <div class="menu-col">
                 <h2 class="text-slate-400 text-sm font-bold uppercase tracking-widest mb-2">實驗與模擬</h2>
 
@@ -171,7 +189,6 @@
                         <div class="text-sm text-slate-400">單一鏡面 · 驗證反射定律</div>
                     </div>
                 </button>
-
                 <button @click="startSim('refraction')" class="btn-card hover:border-cyan-400">
                     <span class="text-4xl">🌊</span>
                     <div>
@@ -179,7 +196,6 @@
                         <div class="text-sm text-slate-400">單一光源 · 觀察水下折射</div>
                     </div>
                 </button>
-
                 <button @click="startSandbox" class="btn-card bg-slate-800 hover:border-white border-dashed border-2 border-slate-600">
                     <span class="text-4xl">🛠</span>
                     <div>
@@ -188,7 +204,6 @@
                     </div>
                 </button>
 
-                
                 <button @click="startLens" class="btn-card hover:border-blue-400 border border-transparent bg-slate-800">
                     <span class="text-4xl">🔍</span>
                     <div>
@@ -197,10 +212,9 @@
                     </div>
                 </button>
             </div>
-
             <div class="menu-col">
                 <h2 class="text-slate-400 text-sm font-bold uppercase tracking-widest mb-2">測驗挑戰</h2>
-                
+
                 <button @click="startGame('reflection')" class="btn-card bg-slate-800 hover:border-green-400">
                     <span class="text-4xl">📐</span>
                     <div>
@@ -208,7 +222,6 @@
                         <div class="text-sm text-slate-400">5個關卡 · 預測落點</div>
                     </div>
                 </button>
-
                 <button @click="startGame('refraction')" class="btn-card bg-slate-800 hover:border-yellow-400">
                     <span class="text-4xl">⚡</span>
                     <div>
@@ -216,7 +229,6 @@
                         <div class="text-sm text-slate-400">5個關卡 · 預測路徑</div>
                     </div>
                 </button>
-
 
                 <button @click="startHunter" class="btn-card bg-slate-800 hover:border-red-500 border border-slate-700">
                     <span class="text-4xl">👾</span>
@@ -226,11 +238,10 @@
                     </div>
                 </button>
             </div>
-            
         </div>
     </div>
 </div>
 
-<script src="script.js?v=3"></script>
+<script src="script.js?v=5"></script>
 </body>
 </html>
