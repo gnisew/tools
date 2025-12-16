@@ -143,11 +143,13 @@ createApp({
             ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 4;
             if(isDashed) ctx.setLineDash([8, 6]);
             
+            // 箭身
             ctx.beginPath();
             ctx.moveTo(x, y); 
             ctx.lineTo(x, y - h);
             ctx.stroke();
 
+            // 箭頭
             const headSize = 12;
             const angle = h > 0 ? -Math.PI/2 : Math.PI/2;
             const tipX = x; 
@@ -198,7 +200,7 @@ createApp({
         };
 
         // --- Hunter 模式 ---
-        const monsterEmojis = ['👾', '👽', '👻', '🦇', '🕷️', '🦂', '🛸'];
+        const monsterEmojis = ['👾', '👽', '👻', '🦇', '🕷️', '🦂', '🛸', '😈', '💀', '☠️', '💩', '🤡', '👹', '👺', '🦟', '🪰', '🦠', '🍩', '🍪', '🎂', '🍰', '🧁', '🍓', '🥝', '🎃', '♥️', '🧑‍🎤', '🛩️', '🚀', '⭐', '☣️'];
         
         const generateMonster = () => {
             const margin = 50; 
@@ -518,13 +520,18 @@ createApp({
 
         const getPointerPos = (e) => {
             const r = canvasRef.value.getBoundingClientRect();
-            let cx = e.clientX, cy = e.clientY;
-            if (e.touches && e.touches.length > 0) { cx = e.touches[0].clientX; cy = e.touches[0].clientY; }
+            // 核心修改：Pointer Events 自動標準化了 clientX/Y，不需再區分 touch/mouse
+            const cx = e.clientX;
+            const cy = e.clientY;
             return { x: cx - r.left, y: cy - r.top };
         };
 
         const handleStart = (e) => {
             const p = getPointerPos(e);
+            // 讓瀏覽器知道這個事件被我們處理了，這有助於後續事件的捕捉
+            if(e.target.setPointerCapture) {
+                e.target.setPointerCapture(e.pointerId);
+            }
             
             if (view.value === 'lens') {
                 const cx = width / 2;
@@ -620,7 +627,14 @@ createApp({
             if (view.value === 'hunter' || (view.value === 'sim' && simParams.value.type === 'refraction') || view.value === 'lens') draw();
         };
 
-        const handleEnd = () => { isDragging.value = false; dragTarget.value = null; };
+        const handleEnd = (e) => { 
+            isDragging.value = false; 
+            dragTarget.value = null; 
+            if(e && e.target.releasePointerCapture) {
+                e.target.releasePointerCapture(e.pointerId);
+            }
+        };
+        
         const toggleSandboxLight = () => { sandbox.value.source.isOn = !sandbox.value.source.isOn; };
         const addMirror = () => { if (sandbox.value.mirrors.length >= 6) return; sandbox.value.mirrors.push({ x: width/2 + (Math.random()-0.5)*200, y: height/2 + (Math.random()-0.5)*200, angle: Math.random()*180, length: 200 }); };
         const removeMirror = () => { sandbox.value.mirrors.pop(); };

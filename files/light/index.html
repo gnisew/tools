@@ -40,13 +40,12 @@
     <div class="canvas-area" ref="containerRef">
         <canvas ref="canvasRef"
             :class="{ interactive: view !== 'menu' }"
-            @mousedown="handleStart"
-            @mousemove="handleMove"
-            @mouseup="handleEnd"
-            @mouseleave="handleEnd"
-            @touchstart.prevent="handleStart"
-            @touchmove.prevent="handleMove"
-            @touchend="handleEnd">
+            @pointerdown="handleStart"
+            @pointermove="handleMove"
+            @pointerup="handleEnd"
+            @pointercancel="handleEnd"
+            @pointerleave="handleEnd"
+            @contextmenu.prevent>
         </canvas>
 
         <div v-if="view === 'sim' && simParams.type === 'refraction'" 
@@ -165,7 +164,6 @@
             <div class="menu-col">
                 <h2 class="text-slate-400 text-sm font-bold uppercase tracking-widest mb-2">實驗與模擬</h2>
 
-
                 <button @click="startSim('reflection')" class="btn-card hover:border-purple-400">
                     <span class="text-4xl">🪞</span>
                     <div>
@@ -233,6 +231,6 @@
     </div>
 </div>
 
-<script src="script.js?v=2"></script>
+<script src="script.js?v=3"></script>
 </body>
 </html>

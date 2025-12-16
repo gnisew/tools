@@ -3,19 +3,24 @@ body {
     color: white;
     font-family: 'Segoe UI', system-ui, sans-serif;
     margin: 0;
-    overflow: hidden; /* 已有，隱藏捲軸 */
+    overflow: hidden;
     
-    /* === 新增以下兩行 === */
-    overscroll-behavior: none; /* 禁止捲動邊界時的彈跳/重新整理效果 */
-    -webkit-overflow-scrolling: touch; /* 讓 iOS 捲動更平滑 (雖然這裡沒捲軸，但加著保險) */
+    /* 禁止彈性捲動與縮放 */
+    overscroll-behavior: none; 
+    -webkit-overflow-scrolling: touch; 
     
-    touch-action: none; /* 已有，這行最重要 */
-    user-select: none;  /* 已有 */
+    touch-action: none; 
+    user-select: none;
 }
 
 #app {
+    position: fixed; /* 強制固定，避免被捲動 */
+    top: 0;
+    left: 0;
     width: 100vw;
-    height: 100vh;
+    /* 核心修正：使用 dvh 解決手機瀏覽器網址列遮擋問題 */
+    height: 100vh; 
+    height: 100dvh; 
     display: flex;
     flex-direction: column;
 }
@@ -39,6 +44,7 @@ body {
     position: relative;
     background: #0f172a;
     overflow: hidden;
+    touch-action: none; /* 確保畫布區域完全接管觸控 */
 }
 
 canvas {
@@ -46,6 +52,7 @@ canvas {
     width: 100%;
     height: 100%;
     cursor: default;
+    touch-action: none; /* 關鍵：防止瀏覽器劫持手勢 */
 }
 canvas.interactive { cursor: pointer; }
 
@@ -64,6 +71,8 @@ canvas.interactive { cursor: pointer; }
     display: flex;
     align-items: center;
     justify-content: center;
+    /* 防止按鈕上的誤觸發 */
+    touch-action: manipulation;
 }
 .fire-btn:active:not(:disabled) {
     transform: scale(0.95) translateY(2px);
@@ -107,6 +116,7 @@ canvas.interactive { cursor: pointer; }
     display: flex;
     align-items: center;
     gap: 8px;
+    touch-action: manipulation;
 }
 .next-btn:active { transform: scale(0.95); }
 
