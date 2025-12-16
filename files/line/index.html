@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🥷烏衣行 線性函數</title>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --danger: #ef476f;
+            --bg: #f8f9fa;
+            --panel-bg: #ffffff;
+            --border: #e9ecef;
+            --text: #2b2d42;
+            --panel-width: 380px;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            user-select: none; 
+            -webkit-user-select: none;
+        }
+
+        /* --- 畫布區 --- */
+        #canvas-wrapper {
+            position: relative;
+            flex: 1;
+            background: #fff;
+            overflow: hidden;
+            cursor: grab; 
+            transition: width 0.3s ease;
+        }
+
+        #canvas-wrapper:active { cursor: grabbing; }
+
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* 浮動控制按鈕 */
+        .float-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 5;
+            transition: bottom 0.3s ease;
+        }
+
+        .control-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 1px solid #ddd;
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            font-size: 1.5rem;
+            color: #333;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+        }
+        .control-btn:active { background: #f0f0f0; transform: scale(0.95); }
+        .btn-center { font-size: 1.2rem; color: var(--primary); font-weight: bold; }
+
+        /* --- 控制面板容器 --- */
+        #controls-container {
+            width: var(--panel-width);
+            background: var(--panel-bg);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            z-index: 10;
+            box-shadow: -5px 0 20px rgba(0,0,0,0.05);
+        }
+
+        /* Desktop 收合狀態 */
+        #controls-container.collapsed {
+            transform: translateX(100%);
+            width: 0;
+            border: none;
+        }
+
+        /* 切換按鈕 (Desktop) */
+        #toggle-panel-btn {
+            position: absolute;
+            background: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 20;
+            outline: none;
+        }
+
+        @media (min-width: 769px) {
+            #toggle-panel-btn {
+                left: -32px;
+                top: 15px;
+                width: 32px;
+                height: 50px;
+                border-radius: 8px 0 0 8px;
+            }
+            #toggle-panel-btn:hover { width: 36px; left: -36px; }
+        }
+
+        /* 面板內容 */
+        #controls-content {
+            padding: 15px;
+            overflow-y: auto;
+            flex: 1;
+            width: var(--panel-width); 
+            user-select: text; 
+            -webkit-user-select: text;
+        }
+
+        header { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid var(--primary); }
+        h2 { margin: 0; font-size: 1.2rem; display: flex; align-items: center; gap: 8px; }
+
+        /* 卡片設計 */
+        .function-card {
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-left: 6px solid #ccc;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: bold; }
+        .formula-text { font-family: 'Times New Roman', serif; font-style: italic; font-size: 1.05rem; }
+        
+        .btn-del { background: transparent; border: none; color: #999; font-size: 1.2rem; padding: 0 8px; cursor: pointer; }
+        .btn-del:hover { color: var(--danger); }
+
+        .input-row { display: flex; align-items: center; gap: 8px; }
+        .input-group { display: flex; align-items: center; background: #f1f3f5; border-radius: 6px; padding: 4px 8px; flex: 1; }
+        .input-group.calc-group { background: #e7f5ff; border: 1px dashed #74c0fc; }
+        
+        .input-group label { font-family: 'Times New Roman', serif; font-style: italic; font-weight: bold; color: #555; margin-right: 6px; font-size: 1.1rem; }
+        
+        /* 一般輸入框 */
+        input { width: 100%; border: none; background: transparent; font-size: 1rem; outline: none; text-align: center; padding: 4px 0; color: #333; }
+        
+        /* 狀態文字顏色 */
+        .status-text { color: var(--danger); font-weight: bold; font-size: 0.9rem; }
+        .status-any { color: var(--primary); font-weight: bold; font-size: 0.9rem; }
+
+        .divider-vertical { width: 1px; height: 28px; background-color: #ddd; margin: 0 4px; }
+
+        .btn-add { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 1rem; box-shadow: 0 2px 4px rgba(67, 97, 238, 0.3); }
+        .btn-add:active { transform: translateY(1px); }
+
+        /* --- Mobile 專屬 --- */
+        @media (max-width: 768px) {
+            :root { --panel-width: 100%; }
+            body { flex-direction: column; }
+            
+            .float-controls {
+                flex-direction: row;
+                bottom: 20px;
+                right: 15px;
+            }
+
+            #controls-container {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                height: 55%;
+                border-left: none;
+                border-top: 1px solid #ddd;
+                border-radius: 20px 20px 0 0;
+                box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+                transform: translateY(0);
+                z-index: 100;
+            }
+
+            #controls-container.collapsed {
+                width: 100%;
+                transform: translateY(100%); 
+                border: none;
+            }
+
+            /* 手機版頁籤按鈕 */
+            #toggle-panel-btn {
+                left: 50%;
+                top: -36px;
+                transform: translateX(-50%);
+                width: 80px;
+                height: 36px;
+                border-radius: 12px 12px 0 0;
+                box-shadow: 0 -3px 6px rgba(0,0,0,0.1);
+                font-size: 1rem;
+                padding-top: 4px;
+            }
+            
+            #controls-content {
+                width: 100%;
+                padding-bottom: 50px; /* 增加底部緩衝 */
+            }
+
+            #canvas-wrapper { height: 100vh; width: 100vw; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="canvas-wrapper">
+    <canvas id="graphCanvas"></canvas>
+    <div class="float-controls" id="float-controls">
+        <button class="control-btn btn-center" onclick="resetView()" title="回歸原點">⌖</button>
+        <button class="control-btn" onclick="zoom(0.8)">−</button>
+        <button class="control-btn" onclick="zoom(1.2)">+</button>
+    </div>
+</div>
+
+<div id="controls-container">
+    <button id="toggle-panel-btn" onclick="togglePanel()">▼</button>
+    
+    <div id="controls-content">
+        <header>
+            <h2>🥷烏衣行 線性函數</h2>
+        </header>
+
+        <div id="functions-list">
+            </div>
+
+        <button class="btn-add" onclick="addNewFunction()">+ 新增函數線條</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('graphCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvas-wrapper');
+    const list = document.getElementById('functions-list');
+    const controlsContainer = document.getElementById('controls-container');
+    const toggleBtn = document.getElementById('toggle-panel-btn');
+    const floatControls = document.getElementById('float-controls');
+
+    let width, height;
+    let scale = 40; 
+    let offsetX = 0, offsetY = 0; 
+    const INPUT_MAX = 10000;
+    
+    let isDragging = false;
+    let lastX = 0, lastY = 0;
+
+    let functions = [];
+    const colors = ['#4361ee', '#e63946', '#2a9d8f', '#f77f00', '#7209b7', '#00b4d8'];
+
+    // --- 初始化 ---
+    function init() {
+        resize();
+        window.addEventListener('resize', () => {
+            resize();
+            updateToggleIcon();
+        });
+        
+        addNewFunction(0, 1); // 預設 y=1 測試案例
+        
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            zoom(delta);
+        }, { passive: false });
+
+        canvas.addEventListener('mousedown', startDrag);
+        window.addEventListener('mousemove', drag);
+        window.addEventListener('mouseup', endDrag);
+
+        canvas.addEventListener('touchstart', startDrag, {passive: false});
+        window.addEventListener('touchmove', drag, {passive: false});
+        window.addEventListener('touchend', endDrag);
+
+        updateToggleIcon();
+        adjustFloatControls();
+        draw();
+    }
+
+    // --- 介面控制 ---
+    function togglePanel() {
+        controlsContainer.classList.toggle('collapsed');
+        updateToggleIcon();
+        adjustFloatControls();
+        
+        setTimeout(() => {
+            resize();
+            if (window.innerWidth > 768) {
+                offsetX = width / 2;
+                offsetY = height / 2;
+            }
+            draw();
+        }, 320);
+    }
+
+	function updateToggleIcon() {
+        const isCollapsed = controlsContainer.classList.contains('collapsed');
+        const isMobile = window.innerWidth <= 768;
+
+        if (isMobile) {
+            // 手機版 (沒變)：收合時顯示「往上拉(▲)」，展開時顯示「往下收(▼)」
+            toggleBtn.innerText = isCollapsed ? '▲' : '▼';
+        } else {
+            // 電腦版 (修正後)：
+            // isCollapsed (收合狀態/面板在右側外): 顯示 ◀ (提示按下去會往左展開)
+            // !isCollapsed (展開狀態/面板在畫面上): 顯示 ➤ (提示按下去會往右收起)
+            toggleBtn.innerText = isCollapsed ? '◀' : '➤';
+        }
+    }
+
+    function adjustFloatControls() {
+        const isMobile = window.innerWidth <= 768;
+        const isCollapsed = controlsContainer.classList.contains('collapsed');
+        if (isMobile) {
+            floatControls.style.bottom = isCollapsed ? '20px' : '58%'; 
+        } else {
+            floatControls.style.bottom = '20px';
+        }
+    }
+
+    // --- 拖曳與縮放 ---
+    function startDrag(e) {
+        isDragging = true;
+        const pos = getEventPos(e);
+        lastX = pos.x;
+        lastY = pos.y;
+        container.style.cursor = 'grabbing';
+    }
+
+    function drag(e) {
+        if (!isDragging) return;
+        e.preventDefault(); 
+        const pos = getEventPos(e);
+        const dx = pos.x - lastX;
+        const dy = pos.y - lastY;
+        offsetX += dx;
+        offsetY += dy;
+        lastX = pos.x;
+        lastY = pos.y;
+        draw();
+    }
+
+    function endDrag() {
+        isDragging = false;
+        container.style.cursor = 'grab';
+    }
+
+    function getEventPos(e) {
+        if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        return { x: e.clientX, y: e.clientY };
+    }
+
+    function resetView() {
+        resize();
+        offsetX = width / 2;
+        offsetY = height / 2;
+        scale = 40;
+        draw();
+    }
+
+    function resize() {
+        width = container.clientWidth;
+        height = container.clientHeight;
+        canvas.width = width;
+        canvas.height = height;
+        if (offsetX === 0 && offsetY === 0) {
+            offsetX = width / 2;
+            offsetY = height / 2;
+        }
+    }
+
+    // --- 數據邏輯 (Bug修復重點) ---
+
+    // 檢查數值是否合法
+    function isValidNum(n) {
+        return !isNaN(parseFloat(n)) && isFinite(n);
+    }
+
+    function clamp(val) {
+        if (val > INPUT_MAX) return INPUT_MAX;
+        if (val < -INPUT_MAX) return -INPUT_MAX;
+        return val;
+    }
+
+    function addNewFunction(defA = 1, defB = 0) {
+        const id = Date.now() + Math.random();
+        const color = colors[functions.length % colors.length];
+        functions.push({ id, a: defA, b: defB, color, userPoint: null });
+        renderList();
+        draw();
+    }
+
+    function removeFunction(id) {
+        functions = functions.filter(f => f.id !== id);
+        renderList();
+        draw();
+    }
+
+    function updateParams(id, key, val) {
+        const f = functions.find(func => func.id === id);
+        if (f) {
+            if (val === '' || val === '-' || val === '.') return; // 允許編輯過程
+            
+            let num = parseFloat(val);
+            if(isNaN(num)) num = 0;
+            
+            f[key] = num;
+            updateHeader(id);
+            recalcUserPoint(id); // 重新計算點的位置
+            draw();
+        }
+    }
+
+    function onInputX(id, val) {
+        const f = functions.find(func => func.id === id);
+        const yInput = document.getElementById(`in-y-${id}`);
+        
+        // 重置樣式
+        yInput.className = ''; 
+
+        if (val === '' || val === '-') {
+            yInput.value = '';
+            f.userPoint = null;
+        } else {
+            if (!isValidNum(val)) return;
+            let x = parseFloat(val);
+            x = clamp(x);
+            
+            const y = (f.a * x) + f.b;
+            yInput.value = Number.isInteger(y) ? y : parseFloat(y.toFixed(2));
+            f.userPoint = { x: x, y: y };
+        }
+        draw();
+    }
+
+    function onInputY(id, val) {
+        const f = functions.find(func => func.id === id);
+        const xInput = document.getElementById(`in-x-${id}`);
+
+        // 重置樣式
+        xInput.className = '';
+
+        if (val === '' || val === '-') {
+            xInput.value = '';
+            f.userPoint = null;
+        } else {
+            if (!isValidNum(val)) return;
+            let y = parseFloat(val);
+            y = clamp(y);
+
+            // Bug 修復：判斷 a=0 的情況
+            if (f.a === 0) {
+                if (Math.abs(y - f.b) < 0.0001) { // 浮點數容許誤差
+                    xInput.value = "任意";
+                    xInput.className = "status-any"; // 綠色
+                    // 為了能在圖上顯示，我們可以隨便畫一個點，或是隱藏點
+                    // 這裡選擇不畫點，因為是無限多點
+                    f.userPoint = null; 
+                } else {
+                    xInput.value = "無解";
+                    xInput.className = "status-text"; // 紅色
+                    f.userPoint = null;
+                }
+            } else {
+                const x = (y - f.b) / f.a;
+                xInput.value = Number.isInteger(x) ? x : parseFloat(x.toFixed(2));
+                f.userPoint = { x: x, y: y };
+            }
+        }
+        draw();
+    }
+
+    function recalcUserPoint(id) {
+        const xInput = document.getElementById(`in-x-${id}`);
+        // 如果 X 已經有值，就根據新的 a, b 重新計算 Y
+        // 排除顯示文字狀態 ("無解"/"任意")
+        if (xInput && xInput.value !== '' && isValidNum(xInput.value)) {
+            onInputX(id, xInput.value);
+        } else {
+             // 如果原本是無解狀態，現在可能因為 a 改變而有解了，重試計算
+             // 這裡比較複雜，簡單作法是如果 Y 有值，試著反推 X
+             const yInput = document.getElementById(`in-y-${id}`);
+             if (yInput && yInput.value !== '' && isValidNum(yInput.value)) {
+                 onInputY(id, yInput.value);
+             }
+        }
+    }
+
+    // --- 渲染與繪圖 ---
+    function formatEquation(a, b) {
+        let text = "y = ";
+        if (a === 0) {} 
+        else if (a === 1) text += "x"; 
+        else if (a === -1) text += "-x"; 
+        else text += `${a}x`;
+
+        if (b > 0) text += (a !== 0 ? ` + ${b}` : `${b}`);
+        else if (b < 0) text += ` - ${Math.abs(b)}`;
+        else { if (a === 0) text += "0"; }
+        return text;
+    }
+
+    function updateHeader(id) {
+        const f = functions.find(func => func.id === id);
+        const el = document.getElementById(`header-title-${id}`);
+        if (el) el.innerText = `函數：${formatEquation(f.a, f.b)}`;
+    }
+
+    function renderList() {
+        list.innerHTML = '';
+        functions.forEach((f) => {
+            const card = document.createElement('div');
+            card.className = 'function-card';
+            card.style.borderLeftColor = f.color;
+            
+            card.innerHTML = `
+                <div class="card-header" style="color:${f.color}">
+                    <span id="header-title-${f.id}" class="formula-text">函數：${formatEquation(f.a, f.b)}</span>
+                    <button class="btn-del" onclick="removeFunction(${f.id})">✕</button>
+                </div>
+                
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>a</label>
+                        <input type="number" value="${f.a}" oninput="updateParams(${f.id}, 'a', this.value)">
+                    </div>
+                    <div class="input-group">
+                        <label>b</label>
+                        <input type="number" value="${f.b}" oninput="updateParams(${f.id}, 'b', this.value)">
+                    </div>
+                    <div class="divider-vertical"></div>
+                    
+                    <div class="input-group calc-group">
+                        <label>x</label>
+                        <input type="text" inputmode="decimal" id="in-x-${f.id}" placeholder="?" oninput="onInputX(${f.id}, this.value)">
+                    </div>
+                    <div class="input-group calc-group">
+                        <label>y</label>
+                        <input type="text" inputmode="decimal" id="in-y-${f.id}" placeholder="?" oninput="onInputY(${f.id}, this.value)">
+                    </div>
+                </div>
+            `;
+            list.appendChild(card);
+            
+            // 恢復之前的計算值
+            if (f.userPoint) {
+                document.getElementById(`in-x-${f.id}`).value = parseFloat(f.userPoint.x.toFixed(2));
+                document.getElementById(`in-y-${f.id}`).value = parseFloat(f.userPoint.y.toFixed(2));
+            } else {
+                // 如果沒有 userPoint 但有 a=0 的狀態，觸發一次檢查來顯示無解或任意
+                const xInput = document.getElementById(`in-x-${f.id}`);
+                const yInput = document.getElementById(`in-y-${f.id}`);
+                // 這裡暫不主動填值，等待使用者輸入
+            }
+        });
+    }
+
+    // --- 繪圖區 (保持不變) ---
+    function toScreenX(x) { return offsetX + (x * scale); }
+    function toScreenY(y) { return offsetY - (y * scale); }
+    function toLogicX(sx) { return (sx - offsetX) / scale; }
+    function toLogicY(sy) { return (offsetY - sy) / scale; }
+
+    function draw() {
+        ctx.clearRect(0, 0, width, height);
+        drawGridAndAxes();
+        functions.forEach(f => {
+            drawLine(f);
+            drawUserPoint(f);
+        });
+        drawKeyPoints();
+    }
+
+    function drawGridAndAxes() {
+        let step = 1;
+        if (scale < 10) step = 10;
+        else if (scale < 20) step = 5;
+        else if (scale < 40) step = 2;
+
+        const left = Math.floor(toLogicX(0) / step) * step;
+        const right = Math.ceil(toLogicX(width) / step) * step;
+        const bottom = Math.floor(toLogicY(height) / step) * step;
+        const top = Math.ceil(toLogicY(0) / step) * step;
+
+        ctx.strokeStyle = '#e9ecef';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let x = left; x <= right; x += step) {
+            const sx = toScreenX(x);
+            ctx.moveTo(sx, 0); ctx.lineTo(sx, height);
+        }
+        for (let y = bottom; y <= top; y += step) {
+            const sy = toScreenY(y);
+            ctx.moveTo(0, sy); ctx.lineTo(width, sy);
+        }
+        ctx.stroke();
+
+        ctx.strokeStyle = '#555';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, offsetY); ctx.lineTo(width, offsetY);
+        ctx.moveTo(offsetX, 0); ctx.lineTo(offsetX, height);
+        ctx.stroke();
+
+        ctx.fillStyle = '#888';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        
+        const maxTicks = 200;
+        let c = 0;
+        for (let x = left; x <= right; x += step) {
+            if (c++ > maxTicks) break;
+            if (x === 0) continue;
+            ctx.fillText(x, toScreenX(x), offsetY + 12);
+        }
+        c = 0;
+        ctx.textAlign = 'right';
+        for (let y = bottom; y <= top; y += step) {
+            if (c++ > maxTicks) break;
+            if (y === 0) continue;
+            ctx.fillText(y, offsetX - 6, toScreenY(y) + 3);
+        }
+        
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 14px Times New Roman';
+        ctx.fillText("x", width - 10, offsetY - 10);
+        ctx.fillText("y", offsetX + 15, 15);
+    }
+
+    function drawLine(f) {
+        const xMin = toLogicX(0);
+        const xMax = toLogicX(width);
+        const y1 = (f.a * xMin) + f.b;
+        const y2 = (f.a * xMax) + f.b;
+        ctx.beginPath();
+        ctx.strokeStyle = f.color;
+        ctx.lineWidth = 2.5;
+        ctx.moveTo(toScreenX(xMin), toScreenY(y1));
+        ctx.lineTo(toScreenX(xMax), toScreenY(y2));
+        ctx.stroke();
+    }
+
+    function drawUserPoint(f) {
+        if (!f.userPoint) return;
+        const { x, y } = f.userPoint;
+        const sx = toScreenX(x);
+        const sy = toScreenY(y);
+        ctx.beginPath();
+        ctx.arc(sx, sy, 6, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = f.color;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(sx, sy, 2, 0, Math.PI * 2);
+        ctx.fillStyle = f.color;
+        ctx.fill();
+        const text = `(${parseFloat(x.toFixed(2))}, ${parseFloat(y.toFixed(2))})`;
+        ctx.font = 'bold 12px Arial';
+        const textW = ctx.measureText(text).width;
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.fillRect(sx + 8, sy - 20, textW + 4, 16);
+        ctx.fillStyle = '#333';
+        ctx.textAlign = 'left';
+        ctx.fillText(text, sx + 10, sy - 8);
+    }
+
+    function drawKeyPoints() {
+        ctx.font = '10px Arial';
+        functions.forEach(f => {
+            drawDot(0, f.b, f.color);
+            if (f.a !== 0) drawDot(-f.b/f.a, 0, f.color);
+        });
+        if (functions.length >= 2) {
+             for (let i = 0; i < functions.length; i++) {
+                for (let j = i + 1; j < functions.length; j++) {
+                    const f1 = functions[i], f2 = functions[j];
+                    if (f1.a !== f2.a) {
+                        const x = (f2.b - f1.b) / (f1.a - f2.a);
+                        const y = f1.a * x + f1.b;
+                        if (Math.abs(x) < INPUT_MAX && Math.abs(y) < INPUT_MAX) {
+                            drawDot(x, y, '#333', true);
+                        }
+                    }
+                }
+             }
+        }
+    }
+
+    function drawDot(x, y, color, isIntersect = false) {
+        const sx = toScreenX(x);
+        const sy = toScreenY(y);
+        if (sx < -20 || sx > width + 20 || sy < -20 || sy > height + 20) return;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 3, 0, Math.PI * 2);
+        ctx.fillStyle = isIntersect ? 'rgba(0,0,0,0.6)' : color;
+        ctx.fill();
+    }
+
+    function zoom(factor) {
+        const newScale = scale * factor;
+        if (newScale > 0.5 && newScale < 500) {
+            scale = newScale;
+            draw();
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>
