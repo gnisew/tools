@@ -1,0 +1,186 @@
+:root {
+    --bg-color: #0b0d17;
+    --panel-bg: #15192b;
+    --text-color: #e0e6ed;
+    --text-muted: #8892b0;
+    --accent-color: #ffd700;
+    --accent-hover: #ffea70;
+    --border-color: #2a304a;
+    --lunar-color: #64ffda; /* 改為更亮眼的青色，區分西曆 */
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+}
+
+header { text-align: center; margin-bottom: 20px; }
+h1 { margin: 0; font-weight: 300; letter-spacing: 2px; }
+.subtitle { color: var(--text-muted); font-size: 0.9rem; margin-top: 5px; }
+
+/* 控制區 */
+.controls-container {
+    background: var(--panel-bg);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    width: 100%;
+    max-width: 800px;
+    box-sizing: border-box;
+}
+
+.control-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.settings-row {
+    justify-content: space-between;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color);
+}
+
+.toggle-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(0,0,0,0.2);
+    padding: 4px;
+    border-radius: 8px;
+}
+
+/* 按鈕 */
+input[type="date"] {
+    background: #0b0d17;
+    border: 1px solid var(--border-color);
+    color: white;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 1rem;
+}
+
+button {
+    background: #2a304a;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: 0.2s;
+}
+
+button:hover { background: #3b4261; }
+button.btn-primary { background: var(--accent-color); color: var(--bg-color); font-weight: bold; }
+
+/* 切換按鈕 */
+button.toggle-btn {
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+button.toggle-btn.active {
+    background: var(--border-color);
+    color: white;
+    font-weight: bold;
+}
+
+/* === 單日視圖 === */
+.view-section { display: none; width: 100%; max-width: 800px; animation: fadeIn 0.4s; }
+.view-section.active { display: block; }
+
+.single-view-layout {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 40px;
+    align-items: center;
+}
+
+.large-moon {
+    width: 260px;
+    height: 260px;
+    filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.15)); 
+}
+
+.info-panel {
+    flex: 1;
+    min-width: 300px;
+    background: var(--panel-bg);
+    padding: 25px;
+    border-radius: 16px;
+}
+
+.date-header { margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+#displayDateMain { font-size: 1.6rem; margin: 0; color: white; }
+.sub-date { font-size: 1.2rem; color: var(--lunar-color); margin-top: 4px; font-weight: 400; letter-spacing: 1px; }
+
+.phase-title { font-size: 2rem; color: var(--accent-color); margin: 10px 0; }
+
+.data-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin: 20px 0;
+}
+.data-item { background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; }
+.label { font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 5px; }
+.value { font-size: 1.3rem; font-weight: bold; }
+.description { color: #a0a8c0; line-height: 1.6; }
+
+/* === 月曆網格 === */
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+}
+
+.cal-day {
+    background: var(--panel-bg);
+    border-radius: 8px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 110px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: transform 0.2s;
+    position: relative;
+}
+
+.cal-day:hover { transform: translateY(-3px); background: #1f2438; border-color: #444; z-index: 10; }
+.cal-day.is-today { border: 1px solid var(--accent-color); box-shadow: 0 0 10px rgba(255, 215, 0, 0.1); }
+
+/* 字體調整 */
+.cal-gregorian { font-size: 0.85rem; font-weight: bold; color: var(--text-color); }
+.cal-weekday { font-size: 0.7rem; color: var(--text-muted); margin-left: 2px; }
+.cal-lunar { font-size: 0.8rem; color: var(--lunar-color); margin-top: 2px; }
+
+/* Moon SVG in Calendar */
+.cal-moon svg { width: 45px; height: 45px; margin: 4px 0; }
+
+/* 顯示模式切換邏輯 */
+.mode-gregorian .cal-lunar, .mode-gregorian #displayDateSub { display: none; }
+.mode-lunar .cal-gregorian, .mode-lunar #displayDateMain { display: none; }
+.mode-lunar .cal-lunar { font-size: 0.95rem; font-weight: bold; color: var(--lunar-color); margin-top: 5px; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+@media (max-width: 650px) {
+    .calendar-grid { grid-template-columns: repeat(4, 1fr); }
+    .settings-row { justify-content: center; gap: 15px; }
+}

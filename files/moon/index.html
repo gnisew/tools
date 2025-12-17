@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>月亮觀測實驗室 - 修正版</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header>
+        <h1>月亮觀測實驗室</h1>
+        <div class="subtitle">實驗一：日期與週期觀測 (2025 校正版)</div>
+    </header>
+
+    <div class="controls-container">
+        <div class="control-row">
+            <button onclick="changeDay(-1)">&#9664; 前一天</button>
+            <input type="date" id="datePicker">
+            <button onclick="changeDay(1)">後一天 &#9654;</button>
+            <button class="btn-primary" onclick="setToday()">今天</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="control-row settings-row">
+            <div class="toggle-group">
+                <span class="group-label">視圖模式：</span>
+                <button class="toggle-btn active" onclick="switchView('single', this)">單日特寫</button>
+                <button class="toggle-btn" onclick="switchView('month', this)">月曆檢視</button>
+                <button class="toggle-btn" onclick="switchView('two-months', this)">雙月檢視</button>
+            </div>
+
+            <div class="toggle-group">
+                <span class="group-label">日期顯示：</span>
+                <button class="toggle-btn" onclick="setDateMode('gregorian', this)">西曆</button>
+                <button class="toggle-btn" onclick="setDateMode('lunar', this)">農曆</button>
+                <button class="toggle-btn active" onclick="setDateMode('both', this)">西曆+農曆</button>
+            </div>
+        </div>
+    </div>
+
+    <main id="view-single" class="view-section active">
+        <div class="single-view-layout">
+            <div class="moon-display-area">
+                <div id="largeMoon" class="large-moon"></div>
+            </div>
+            
+            <div class="info-panel">
+                <div class="date-header">
+                    <h2 id="displayDateMain">--</h2> <div id="displayDateSub" class="sub-date">--</div> </div>
+                
+                <h3 id="phaseName" class="phase-title">--</h3>
+                
+                <div class="data-grid">
+                    <div class="data-item">
+                        <span class="label">月齡 (Moon Age)</span>
+                        <span class="value" id="moonAge">--</span>
+                    </div>
+                    <div class="data-item">
+                        <span class="label">照度 (Illumination)</span>
+                        <span class="value" id="illumination">--</span>
+                    </div>
+                </div>
+                <p class="description" id="phaseDesc">--</p>
+            </div>
+        </div>
+    </main>
+
+    <main id="view-calendar" class="view-section">
+        <div id="calendarGrid" class="calendar-grid">
+            </div>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
