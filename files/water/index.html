@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>水實驗-🥷烏衣行</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+</head>
+<body>
+
+    <div id="menu-view">
+        <div class="menu-content">
+            <div class="logo">🧪</div>
+            <h1>🥷烏衣行 水實驗</h1>
+            
+            <button class="menu-btn primary" onclick="app.startExp1()">
+                <span>實驗一</span>
+                <small>水平現象</small>
+            </button>
+            
+            <button class="menu-btn primary" onclick="app.startExp2()">
+                <span>實驗二</span>
+                <small>連通管(多管)</small>
+            </button>
+
+            <button class="menu-btn primary" onclick="app.startExp3()">
+                <span>實驗三</span>
+                <small>連通管(兩管)</small>
+            </button>
+
+            <button class="menu-btn primary" onclick="app.startExp4()">
+                <span>實驗四</span>
+                <small>虹吸現象</small>
+            </button>
+        </div>
+    </div>
+
+    <div id="experiment-1-view" class="view hidden">
+        <header>
+            <button class="back-btn" onclick="app.goHome()">❮ 返回</button>
+            <span class="title">實驗一：水平現象</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="lineToggle1" checked>
+                <span class="slider"></span>
+                <span class="label-text">基準線</span>
+            </label>
+        </header>
+        <div class="side-menu">
+            <button class="shape-btn active" data-type="beaker">燒杯</button>
+            <button class="shape-btn" data-type="rect">方型</button>
+            <button class="shape-btn" data-type="triangle">三角</button>
+            <button class="shape-btn" data-type="circle">圓型</button>
+            <button class="shape-btn" data-type="tube">試管</button>
+        </div>
+        <main class="lab-stage" id="labArea1">
+            <div class="grid-bg"></div>
+            <div id="dragLine1" class="horizon-line"><div class="line-handle">↕ 拖曳測量</div></div>
+            <svg id="svgExp1" class="responsive-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <path id="path-beaker" d="M90,80 L90,300 Q90,330 130,330 L270,330 Q310,330 310,300 L310,80" />
+                    <rect id="path-rect" x="60" y="120" width="280" height="160" rx="4" />
+                    <path id="path-triangle" d="M200,70 L340,310 L60,310 Z" />
+                    <ellipse id="path-circle" cx="200" cy="200" rx="130" ry="90" />
+                    <path id="path-tube" d="M160,50 L160,300 Q160,340 200,340 Q240,340 240,300 L240,50" />
+                    <clipPath id="container-mask1"><use id="mask-use1" href="#path-beaker" /></clipPath>
+                    <linearGradient id="waterGradient1" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style="stop-color:rgba(0,160,233,0.6)" />
+                        <stop offset="100%" style="stop-color:rgba(0,119,190,0.9)" />
+                    </linearGradient>
+                </defs>
+                <g id="rotateGroup1" transform="rotate(0, 200, 200)">
+                    <g clip-path="url(#container-mask1)"><rect id="waterRect1" x="-200" y="200" width="800" height="800" fill="url(#waterGradient1)" /></g>
+                    <use id="border-use1" href="#path-beaker" class="glass-border" stroke-width="5" />
+                </g>
+            </svg>
+        </main>
+        <div class="controls">
+            <div class="slider-row" style="margin-bottom: 0;">
+                <span>角度: <b id="angleDisplay1">0°</b></span>
+                <input type="range" id="angleSlider1" min="-90" max="90" value="0" step="1">
+            </div>
+        </div>
+    </div>
+
+    <div id="experiment-2-view" class="view hidden">
+        <header>
+            <button class="back-btn" onclick="app.goHome()">❮ 返回</button>
+            <span class="title">實驗二：連通管原理</span>
+            <div class="header-actions">
+                <button id="btnAddWater" class="header-action-btn add">💧 加水</button>
+                <button id="btnResetWater" class="header-action-btn reset">↺ 重來</button>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" id="lineToggle2" checked>
+                <span class="slider"></span>
+                <span class="label-text">基準線</span>
+            </label>
+        </header>
+        <main class="lab-stage" id="labArea2">
+            <div class="grid-bg"></div>
+            <div id="dragLine2" class="horizon-line" style="top: 40%;"><div class="line-handle">↕ 拖曳測量</div></div>
+            <svg id="svgExp2" class="responsive-svg" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <path id="tubes-path-crazy" d="M 30,350 L 570,350 L 570,320 L 560,320 L 520,80 L 480,80 L 520,320 L 415,320 L 415,245 Q 455,200 415,155 L 415,80 L 375,80 L 375,155 Q 335,200 375,245 L 375,320 L 270,320 L 310,80 L 190,80 L 230,320 L 120,320 C 60,240 160,160 120,80 L 80,80 C 120,160 20,240 80,320 L 30,320 Z" />
+                    <clipPath id="tubes-mask-crazy"><use href="#tubes-path-crazy" /></clipPath>
+                    <linearGradient id="waterGradient2" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style="stop-color:rgba(0,180,255,0.7)" />
+                        <stop offset="100%" style="stop-color:rgba(0,119,190,0.95)" />
+                    </linearGradient>
+                </defs>
+                <g id="rotateGroup2" transform="rotate(0, 300, 200)">
+                    <g clip-path="url(#tubes-mask-crazy)"><rect id="waterRect2" x="-300" y="350" width="1200" height="1200" fill="url(#waterGradient2)" /></g>
+                    <use href="#tubes-path-crazy" class="glass-border" stroke-width="5" />
+                    <rect class="pour-zone" x="80" y="50" width="40" height="50" />
+                    <rect class="pour-zone" x="190" y="50" width="120" height="50" />
+                    <rect class="pour-zone" x="375" y="50" width="40" height="50" />
+                    <rect class="pour-zone" x="480" y="50" width="40" height="50" />
+                </g>
+            </svg>
+        </main>
+        <div class="controls">
+            <div class="slider-row" style="margin-bottom: 0;">
+                <span>角度: <b id="angleDisplay2">0°</b></span>
+                <input type="range" id="angleSlider2" min="-45" max="45" value="0" step="1">
+            </div>
+        </div>
+    </div>
+
+    <div id="experiment-3-view" class="view hidden">
+        <header>
+            <button class="back-btn" onclick="app.goHome()">❮ 返回</button>
+            <span class="title">實驗三：軟管連通</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="lineToggle3" checked>
+                <span class="slider"></span>
+                <span class="label-text">基準線</span>
+            </label>
+        </header>
+        <main class="lab-stage" id="labArea3">
+            <div class="grid-bg"></div>
+            <div class="hint-overlay">↕ 拖曳瓶子以觀察水位變化</div>
+            <div id="dragLine3" class="horizon-line" style="top: 50%;"><div class="line-handle">↕ 拖曳測量</div></div>
+            <svg id="svgExp3" class="responsive-svg" viewBox="0 0 600 500" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <path id="bottle-shape" d="M-30,-100 L-30,80 Q-30,100 0,100 Q30,100 30,80 L30,-100" />
+                    <clipPath id="bottle-mask"><use href="#bottle-shape" /></clipPath>
+                    <linearGradient id="waterGradient3" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style="stop-color:rgba(0,180,255,0.7)" />
+                        <stop offset="100%" style="stop-color:rgba(0,119,190,0.95)" />
+                    </linearGradient>
+                </defs>
+                <path id="tube-bg" fill="none" stroke="#ddd" stroke-width="20" stroke-linecap="round" />
+                <path id="tube-water" fill="none" stroke="url(#waterGradient3)" stroke-width="14" stroke-linecap="round" />
+                <g id="bottleLeftGroup" class="bottle-draggable" data-side="left" transform="translate(150, 250)">
+                    <use href="#bottle-shape" class="bottle-hit-area" />
+                    <g clip-path="url(#bottle-mask)"><rect id="waterLeft" x="-50" y="-200" width="100" height="400" fill="url(#waterGradient3)" /></g>
+                    <use href="#bottle-shape" class="glass-border bottle-glass" stroke-width="4" />
+                    <ellipse cx="0" cy="-100" rx="30" ry="5" fill="none" stroke="#333" stroke-width="2" />
+                </g>
+                <g id="bottleRightGroup" class="bottle-draggable" data-side="right" transform="translate(450, 250)">
+                    <use href="#bottle-shape" class="bottle-hit-area" />
+                    <g clip-path="url(#bottle-mask)"><rect id="waterRight" x="-50" y="-200" width="100" height="400" fill="url(#waterGradient3)" /></g>
+                    <use href="#bottle-shape" class="glass-border bottle-glass" stroke-width="4" />
+                    <ellipse cx="0" cy="-100" rx="30" ry="5" fill="none" stroke="#333" stroke-width="2" />
+                </g>
+            </svg>
+        </main>
+    </div>
+
+    <div id="experiment-4-view" class="view hidden">
+        <header>
+            <button class="back-btn" onclick="app.goHome()">❮ 返回</button>
+            <span class="title">虹吸實驗</span>
+            <div class="header-actions">
+                <label class="toggle-switch" style="margin-right: 10px;">
+                    <input type="checkbox" id="blockToggle4">
+                    <span class="slider"></span>
+                    <span class="label-text" id="blockLabel4">堵住</span>
+                </label>
+                <button id="btnPrimeTube" class="header-action-btn add">💧 充滿</button>
+                <button id="btnResetExp4" class="header-action-btn reset">↺</button>
+            </div>
+        </header>
+
+        <div id="exp4-floating-info" class="floating-panel collapsed">
+            <div class="panel-header" onclick="app.toggleInfoPanel()">
+                <div class="status-row">
+                    <span class="icon">ℹ️</span>
+                    <span id="exp4-status">狀態: 準備就緒</span>
+                </div>
+                <span id="info-toggle-icon" class="toggle-icon">▼</span>
+            </div>
+            <div class="panel-content">
+                <small id="exp4-hint">
+                    <strong>操作步驟：</strong><br>
+                    1. 開啟上方「堵住」開關<br>
+                    2. 點擊「充滿水」<br>
+                    3. 拖曳管口至低處<br>
+                    4. 關閉「堵住」即開始虹吸
+                </small>
+            </div>
+        </div>
+
+        <main class="lab-stage" id="labArea4" style="padding:0;">
+            <div class="grid-bg"></div>
+            <svg id="svgExp4" class="responsive-svg" viewBox="0 0 600 500" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="waterGradient4" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style="stop-color:rgba(0,180,255,0.7)" />
+                        <stop offset="100%" style="stop-color:rgba(0,119,190,0.95)" />
+                    </linearGradient>
+                    <path id="cup-shape" d="M0,0 L0,150 Q0,160 10,160 L140,160 Q150,160 150,150 L150,0" />
+                    <mask id="break-mask">
+                        <rect x="-1000" y="-1000" width="3000" height="3000" fill="white" />
+                        <circle id="break-air-bubble" cx="0" cy="0" r="0" fill="black" />
+                    </mask>
+                </defs>
+
+                <path id="outflow-stream" d="" fill="none" stroke="rgba(0,180,255,0.6)" stroke-width="8" stroke-dasharray="10,5" class="hidden" />
+                <path id="siphon-tube-bg" fill="none" stroke="#ccc" stroke-width="16" stroke-linecap="round" />
+                <path id="siphon-tube-water" mask="url(#break-mask)" fill="none" stroke="transparent" stroke-width="10" stroke-linecap="round" stroke-dasharray="0" />
+                
+                <g id="exp4-source-group" transform="translate(50, 200)" class="bottle-draggable" data-role="source">
+                    <rect x="-10" y="160" width="170" height="120" rx="4" fill="#deb887" stroke="#8b5a2b" stroke-width="2" />
+                    <text x="75" y="220" text-anchor="middle" fill="#5c4033" font-size="14" font-weight="bold" style="pointer-events:none;">拖曳調整高度</text>
+                    <clipPath id="source-cup-mask"><use href="#cup-shape" /></clipPath>
+                    <g clip-path="url(#source-cup-mask)"><rect id="exp4-source-water" x="-5" y="50" width="160" height="200" fill="url(#waterGradient4)" /></g>
+                    <use href="#cup-shape" class="glass-border" stroke-width="4" stroke="#555" fill="none" pointer-events="all"/>
+                    <rect x="0" y="0" width="150" height="280" fill="transparent" />
+                </g>
+
+                <g id="exp4-dest-group" transform="translate(350, 320)">
+                    <clipPath id="dest-cup-mask"><use href="#cup-shape" /></clipPath>
+                    <g clip-path="url(#dest-cup-mask)"><rect id="exp4-dest-water" x="-5" y="130" width="160" height="200" fill="url(#waterGradient4)" /></g>
+                    <use href="#cup-shape" class="glass-border" stroke-width="4" stroke="#555" fill="none" />
+                </g>
+
+                <g id="exp4-outlet-handle" transform="translate(425, 350)" class="tube-handle">
+                    <circle cx="0" cy="0" r="16" fill="white" opacity="0.5" />
+                    <circle id="outlet-indicator" cx="0" cy="0" r="12" fill="#28cd41" stroke="white" stroke-width="2" />
+                </g>
+            </svg>
+        </main>
+    </div>
+
+</body>
+</html>
