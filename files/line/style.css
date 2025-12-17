@@ -1,0 +1,360 @@
+        :root {
+            --primary: #4361ee;
+            --danger: #ef476f;
+            --bg: #f8f9fa;
+            --panel-bg: #ffffff;
+            --border: #e9ecef;
+            --text: #2b2d42;
+            --panel-width: 380px;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            user-select: none; 
+            -webkit-user-select: none;
+        }
+
+        /* --- 畫布區 --- */
+        #canvas-wrapper {
+            position: relative;
+            flex: 1;
+            background: #fff;
+            overflow: hidden;
+            cursor: grab; 
+            transition: width 0.3s ease;
+        }
+
+        #canvas-wrapper:active { cursor: grabbing; }
+
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* 浮動控制按鈕 */
+        .float-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 5;
+            transition: bottom 0.3s ease;
+        }
+
+        .control-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 1px solid #ddd;
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            font-size: 1.5rem;
+            color: #333;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+        }
+        .control-btn:active { background: #f0f0f0; transform: scale(0.95); }
+        .btn-center { font-size: 1.2rem; color: var(--primary); font-weight: bold; }
+
+        /* --- 控制面板容器 --- */
+        #controls-container {
+            width: var(--panel-width);
+            background: var(--panel-bg);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            z-index: 10;
+            box-shadow: -5px 0 20px rgba(0,0,0,0.05);
+        }
+
+        /* Desktop 收合狀態 */
+        #controls-container.collapsed {
+            transform: translateX(100%);
+            width: 0;
+            border: none;
+        }
+
+        /* 切換按鈕 (Desktop) */
+        #toggle-panel-btn {
+            position: absolute;
+            background: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 20;
+            outline: none;
+        }
+
+        @media (min-width: 769px) {
+            #toggle-panel-btn {
+                left: -32px;
+                top: 15px;
+                width: 32px;
+                height: 50px;
+                border-radius: 8px 0 0 8px;
+            }
+            #toggle-panel-btn:hover { width: 36px; left: -36px; }
+        }
+
+        /* 面板內容 */
+        #controls-content {
+            padding: 15px;
+            overflow-y: auto;
+            flex: 1;
+            width: var(--panel-width); 
+            user-select: text; 
+            -webkit-user-select: text;
+        }
+
+        header { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid var(--primary); }
+        h2 { margin: 0; font-size: 1.2rem; display: flex; align-items: center; gap: 8px; }
+
+        /* 卡片設計 */
+        .function-card {
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-left: 6px solid #ccc;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: bold; }
+        .formula-text { font-family: 'Times New Roman', serif; font-style: italic; font-size: 1.05rem; }
+        
+        .btn-del { background: transparent; border: none; color: #999; font-size: 1.2rem; padding: 0 8px; cursor: pointer; }
+        .btn-del:hover { color: var(--danger); }
+
+        .input-row { display: flex; align-items: center; gap: 4px; flex-wrap: wrap;}
+        .input-group { display: flex; align-items: center; background: #f1f3f5; border-radius: 6px; padding: 4px 8px; flex: 1; min-width: 60px;}
+        .input-group.calc-group { background: #e7f5ff; border: 1px dashed #74c0fc; }
+        
+        .input-group label { font-family: 'Times New Roman', serif; font-style: italic; font-weight: bold; color: #555; margin-right: 6px; font-size: 1.1rem; }
+        
+        /* 一般輸入框 */
+        input { width: 100%; border: none; background: transparent; font-size: 1rem; outline: none; text-align: center; padding: 4px 0; color: #333; }
+        
+        /* 狀態文字顏色 */
+        .status-text { color: var(--danger); font-weight: bold; font-size: 0.9rem; }
+        .status-any { color: var(--primary); font-weight: bold; font-size: 0.9rem; }
+
+        .divider-vertical { width: 1px; height: 28px; background-color: #ddd; margin: 0 4px; }
+
+        .btn-add { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 1rem; box-shadow: 0 2px 4px rgba(67, 97, 238, 0.3); }
+        .btn-add:active { transform: translateY(1px); }
+
+        /* --- Mobile 專屬 --- */
+        @media (max-width: 768px) {
+            :root { --panel-width: 100%; }
+            body { flex-direction: column; }
+            
+            .float-controls {
+                flex-direction: row;
+                bottom: 20px;
+                right: 15px;
+            }
+
+            #controls-container {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                height: 55%;
+                border-left: none;
+                border-top: 1px solid #ddd;
+                border-radius: 20px 20px 0 0;
+                box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+                transform: translateY(0);
+                z-index: 100;
+            }
+
+            #controls-container.collapsed {
+                width: 100%;
+                transform: translateY(100%); 
+                border: none;
+            }
+
+            /* 手機版頁籤按鈕 */
+            #toggle-panel-btn {
+                left: 50%;
+                top: -36px;
+                transform: translateX(-50%);
+                width: 80px;
+                height: 36px;
+                border-radius: 12px 12px 0 0;
+                box-shadow: 0 -3px 6px rgba(0,0,0,0.1);
+                font-size: 1rem;
+                padding-top: 4px;
+            }
+            
+            #controls-content {
+                width: 100%;
+                padding-bottom: 50px; /* 增加底部緩衝 */
+            }
+
+            #canvas-wrapper { height: 100vh; width: 100vw; }
+        }
+
+
+select.type-select {
+    width: 100%;
+    padding: 6px;
+    margin-bottom: 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background-color: #f8f9fa;
+    font-size: 0.95rem;
+    color: #333;
+    outline: none;
+    cursor: pointer;
+}
+
+select.type-select:hover {
+    border-color: var(--primary);
+}
+
+
+.card-header {
+    flex-direction: column; /* 改為垂直排列 */
+    align-items: stretch;
+    gap: 5px;
+}
+
+.card-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+
+#help-btn {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background-color: var(--primary);
+    color: white;
+    font-size: 1.5rem;
+    font-weight: bold;
+    border: none;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    cursor: pointer;
+    z-index: 100; /* 確保在最上層 */
+    transition: transform 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#help-btn:hover {
+    transform: scale(1.1) rotate(10deg);
+    background-color: #3a56d4;
+}
+
+/* --- 新增：彈出視窗 (Modal) --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(3px);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 1;
+    transition: opacity 0.3s;
+}
+
+.modal-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.modal-content {
+    background: white;
+    width: 90%;
+    max-width: 600px;
+    max-height: 85vh;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.modal-header {
+    padding: 15px 20px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 { margin: 0; color: var(--primary); font-size: 1.3rem; }
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #666;
+}
+
+#help-body {
+    padding: 20px;
+    overflow-y: auto;
+}
+
+/* --- 說明卡片樣式 --- */
+.help-item {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px dashed #ddd;
+}
+.help-item:last-child { border-bottom: none; }
+
+.help-title {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.help-tag {
+    font-size: 0.8rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #e7f5ff;
+    color: var(--primary);
+    font-family: 'Times New Roman', serif;
+}
+
+.help-desc { font-size: 0.95rem; color: #555; line-height: 1.5; margin: 5px 0; }
+.help-label { font-weight: bold; color: #222; display: block; margin-top: 8px;}
