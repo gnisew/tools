@@ -35,6 +35,10 @@
         <div v-if="view === 'sandbox'" class="text-xs text-slate-400">
             鏡子: {{ sandbox.mirrors.length }}/6
         </div>
+		<div v-if="view === 'rectilinear'" class="flex gap-3 text-sm font-mono">
+			<span class="text-pink-400">Lv {{ rectGame.level }}</span>
+			<span class="text-yellow-400">Score: {{ rectGame.score }}</span>
+		</div>
     </div>
 
     <div class="canvas-area" ref="containerRef">
@@ -236,11 +240,20 @@
                         <div class="text-sm text-slate-400">調整光源與鏡子 · 擊中怪物</div>
                     </div>
                 </button>
+				<button @click="startRectilinear" class="btn-card bg-slate-800 hover:border-pink-400">
+					<span class="text-4xl">🔦</span>
+					<div>
+						<div class="font-bold text-xl text-pink-400">直線傳播</div>
+						<div class="text-sm text-slate-400">穿過孔洞 · 照亮目標</div>
+					</div>
+				</button>
             </div>
         </div>
     </div>
 </div>
 
+<script src="rectilinearGame.js"></script>
 <script src="script.js?v=5"></script>
+
 </body>
 </html>

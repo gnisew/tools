@@ -1,5 +1,5 @@
 const { createApp, ref, computed, onMounted, onUnmounted, watch, nextTick } = Vue;
-
+let winAnimFrameId = null;
 createApp({
     setup() {
         const view = ref('menu');
@@ -33,6 +33,20 @@ createApp({
             { label: '便便', emoji: '💩' },
             { label: '鐵塔', emoji: '🗼' }
         ];
+
+const rectGame = ref(null);
+
+// 新增啟動函數
+const startRectilinear = () => {
+    view.value = 'rectilinear';
+    rectGame.value = RectilinearGame.setup(width, height);
+    nextTick(() => {
+        resizeCanvas();
+        RectilinearGame.generateLevel(rectGame.value, width, height);
+        RectilinearGame.updateRay(rectGame.value, width);
+        draw();
+    });
+};
 
         // --- 狀態 ---
         const simParams = ref({ 
@@ -350,9 +364,14 @@ createApp({
         };
 
         // --- 主繪圖 ---
-        const draw = () => {
-            if (!ctx || !width) return;
-            ctx.clearRect(0, 0, width, height);
+		const draw = () => {
+			if (!ctx || !width) return;
+			ctx.clearRect(0, 0, width, height);
+			
+			if (view.value === 'rectilinear' && rectGame.value) {
+				RectilinearGame.draw(ctx, rectGame.value, width, height);
+				return;
+			}
             
             if (view.value === 'lens') { drawLens(); return; }
 
@@ -497,9 +516,250 @@ createApp({
         };
 
         const getPointerPos = (e) => { const r = canvasRef.value.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
-        const handleStart = (e) => { const p = getPointerPos(e); if (e.target.setPointerCapture) { e.target.setPointerCapture(e.pointerId); } if (view.value === 'lens') { const cx = width / 2; const cy = height / 2; const lp = lensParams.value; const objX = cx - lp.objDist; const objY = cy - lp.objHeight; if (Math.hypot(p.x - objX, p.y - objY) < 30) { isDragging.value = true; dragTarget.value = { type: 'lens_obj' }; return; } if (Math.hypot(p.x - (cx - lp.f), p.y - cy) < 30 || Math.hypot(p.x - (cx + lp.f), p.y - cy) < 30) { isDragging.value = true; dragTarget.value = { type: 'lens_focus' }; return; } return; } if (view.value === 'hunter') { const sx = hunter.value.sourceX; const sy = 60; if (Math.hypot(p.x - sx, p.y - sy) < 40) { isDragging.value = true; dragTarget.value = { type: 'hunter_source' }; return; } const mx = hunter.value.mirrorX; const my = height * 0.8; if (Math.hypot(p.x - mx, p.y - my) < 50) { isDragging.value = true; dragTarget.value = { type: 'hunter_mirror' }; return; } return; } if (view.value === 'sandbox') { const src = sandbox.value.source; if (Math.hypot(p.x - src.x, p.y - src.y) < 30) { isDragging.value = true; dragTarget.value = { type: 'source', part: 'center' }; return; } const radAng = rad(src.angle); const hx = src.x + 35 * Math.cos(radAng); const hy = src.y + 35 * Math.sin(radAng); if (Math.hypot(p.x - hx, p.y - hy) < 20) { isDragging.value = true; dragTarget.value = { type: 'source', part: 'handle' }; return; } for (let i = 0; i < sandbox.value.mirrors.length; i++) { const m = sandbox.value.mirrors[i]; const mc = getMirrorCoords(m.x, m.y, m.angle, m.length); if (Math.hypot(p.x - m.x, p.y - m.y) < 25) { isDragging.value = true; dragTarget.value = { type: 'mirror', id: i, part: 'center' }; return; } if (Math.hypot(p.x - mc.x1, p.y - mc.y1) < 25 || Math.hypot(p.x - mc.x2, p.y - mc.y2) < 25) { isDragging.value = true; dragTarget.value = { type: 'mirror', id: i, part: 'end' }; return; } } return; } if (view.value === 'sim') { const sx = simParams.value.sourceX, sy = 80; if (Math.hypot(p.x - sx, p.y - sy) < 50) { isDragging.value = true; dragTarget.value = { type: 'sim_source' }; return; } if (simParams.value.type === 'reflection') { const cx = width/2, cy = getInterfaceY(); const mc = getMirrorCoords(cx, cy, simParams.value.mirrorAngle); if (Math.hypot(p.x - mc.x2, p.y - mc.y2) < 50) { isDragging.value = true; dragTarget.value = { type: 'sim_mirror' }; return; } } } if (view.value === 'game' && game.value.state === 'playing') { let closestIdx = -1; let minDist = Infinity; game.value.targets.forEach((t, i) => { const d = Math.hypot(p.x - t.x, p.y - t.y); if (d < minDist) { minDist = d; closestIdx = i; } }); if (closestIdx !== -1 && minDist < 80) submitAnswer(closestIdx); } };
-        const handleMove = (e) => { if (!isDragging.value) return; const p = getPointerPos(e); const dt = dragTarget.value; if (dt.type === 'lens_obj') { const cx = width / 2; const cy = height / 2; const newDist = Math.max(10, cx - p.x); lensParams.value.objDist = newDist; lensParams.value.objHeight = Math.max(-250, Math.min(250, cy - p.y)); } else if (dt.type === 'lens_focus') { const cx = width / 2; lensParams.value.f = Math.max(20, Math.abs(p.x - cx)); } else if (dt.type === 'hunter_source') { hunter.value.sourceX = Math.max(20, Math.min(width - 20, p.x)); if (!hunter.value.isFiring) hunter.value.rayProgress = 0; } else if (dt.type === 'hunter_mirror') { const centerX = width / 2; const limit = 150; hunter.value.mirrorX = Math.max(centerX - limit, Math.min(centerX + limit, p.x)); if (!hunter.value.isFiring) hunter.value.rayProgress = 0; } else if (dt.type === 'source') { if (dt.part === 'center') { sandbox.value.source.x = p.x; sandbox.value.source.y = p.y; } else { const src = sandbox.value.source; sandbox.value.source.angle = deg(Math.atan2(p.y - src.y, p.x - src.x)); } } else if (dt.type === 'mirror') { const m = sandbox.value.mirrors[dt.id]; if (dt.part === 'center') { m.x = p.x; m.y = p.y; } else { m.angle = deg(Math.atan2(p.y - m.y, p.x - m.x)); } } else if (dt.type === 'sim_source') { simParams.value.sourceX = Math.max(20, Math.min(width - 20, p.x)); } else if (dt.type === 'sim_mirror') { const cx = width/2, cy = getInterfaceY(); let ang = deg(Math.atan2(p.y - cy, p.x - cx)); if (ang > 180) ang -= 360; simParams.value.mirrorAngle = Math.max(-45, Math.min(45, ang)); } if (view.value === 'hunter' || (view.value === 'sim' && simParams.value.type === 'refraction') || view.value === 'lens' || (view.value === 'sim' && simParams.value.type === 'reflection')) draw(); };
-        const handleEnd = (e) => { isDragging.value = false; dragTarget.value = null; if (e && e.target.releasePointerCapture) { e.target.releasePointerCapture(e.pointerId); } };
+
+const handleStart = (e) => {
+    const p = getPointerPos(e);
+    if (e.target.setPointerCapture) {
+        e.target.setPointerCapture(e.pointerId);
+    }
+
+    // 1. 直線前進遊戲 (New)
+    if (view.value === 'rectilinear' && rectGame.value) {
+        const g = rectGame.value;
+        // 檢查是否點擊光源 (手電筒)
+        if (Math.hypot(p.x - g.source.x, p.y - g.source.y) < 40) {
+            isDragging.value = true;
+            dragTarget.value = { type: 'rect_source' };
+            return;
+        }
+        // 檢查是否點擊牆上的孔洞
+        for (let wall of g.walls) {
+            if (Math.hypot(p.x - wall.x, p.y - wall.holeY) < 35) {
+                isDragging.value = true;
+                dragTarget.value = { type: 'rect_wall', id: wall.id };
+                return;
+            }
+        }
+    }
+
+    // 2. 透鏡模擬
+    if (view.value === 'lens') {
+        const cx = width / 2;
+        const cy = height / 2;
+        const lp = lensParams.value;
+        const objX = cx - lp.objDist;
+        const objY = cy - lp.objHeight;
+        // 點擊物體尖端或中心
+        if (Math.hypot(p.x - objX, p.y - objY) < 40) {
+            isDragging.value = true;
+            dragTarget.value = { type: 'lens_obj' };
+            return;
+        }
+        // 點擊焦點 F
+        if (Math.hypot(p.x - (cx - lp.f), p.y - cy) < 30 || Math.hypot(p.x - (cx + lp.f), p.y - cy) < 30) {
+            isDragging.value = true;
+            dragTarget.value = { type: 'lens_focus' };
+            return;
+        }
+    }
+
+    // 3. 反射獵人模式
+    if (view.value === 'hunter') {
+        const sx = hunter.value.sourceX;
+        const sy = 60;
+        if (Math.hypot(p.x - sx, p.y - sy) < 40) {
+            isDragging.value = true;
+            dragTarget.value = { type: 'hunter_source' };
+            return;
+        }
+        const mx = hunter.value.mirrorX;
+        const my = height * 0.8;
+        if (Math.hypot(p.x - mx, p.y - my) < 50) {
+            isDragging.value = true;
+            dragTarget.value = { type: 'hunter_mirror' };
+            return;
+        }
+    }
+
+    // 4. 多鏡反射沙盒
+    if (view.value === 'sandbox') {
+        const src = sandbox.value.source;
+        // 光源中心
+        if (Math.hypot(p.x - src.x, p.y - src.y) < 30) {
+            isDragging.value = true;
+            dragTarget.value = { type: 'source', part: 'center' };
+            return;
+        }
+        // 光源旋轉桿
+        const radAng = rad(src.angle);
+        const hx = src.x + 35 * Math.cos(radAng);
+        const hy = src.y + 35 * Math.sin(radAng);
+        if (Math.hypot(p.x - hx, p.y - hy) < 25) {
+            isDragging.value = true;
+            dragTarget.value = { type: 'source', part: 'handle' };
+            return;
+        }
+        // 鏡子
+        for (let i = 0; i < sandbox.value.mirrors.length; i++) {
+            const m = sandbox.value.mirrors[i];
+            const mc = getMirrorCoords(m.x, m.y, m.angle, m.length);
+            if (Math.hypot(p.x - m.x, p.y - m.y) < 30) {
+                isDragging.value = true;
+                dragTarget.value = { type: 'mirror', id: i, part: 'center' };
+                return;
+            }
+            if (Math.hypot(p.x - mc.x1, p.y - mc.y1) < 30 || Math.hypot(p.x - mc.x2, p.y - mc.y2) < 30) {
+                isDragging.value = true;
+                dragTarget.value = { type: 'mirror', id: i, part: 'end' };
+                return;
+            }
+        }
+    }
+
+    // 5. 基礎模擬 (反射/折射)
+    if (view.value === 'sim') {
+        const sx = simParams.value.sourceX, sy = 80;
+        if (Math.hypot(p.x - sx, p.y - sy) < 50) {
+            isDragging.value = true;
+            dragTarget.value = { type: 'sim_source' };
+            return;
+        }
+        if (simParams.value.type === 'reflection') {
+            const cx = width / 2, cy = getInterfaceY();
+            const mc = getMirrorCoords(cx, cy, simParams.value.mirrorAngle);
+            if (Math.hypot(p.x - mc.x2, p.y - mc.y2) < 50) {
+                isDragging.value = true;
+                dragTarget.value = { type: 'sim_mirror' };
+                return;
+            }
+        }
+    }
+
+    // 6. 測驗模式點擊作答
+    if (view.value === 'game' && game.value.state === 'playing') {
+        let closestIdx = -1;
+        let minDist = Infinity;
+        game.value.targets.forEach((t, i) => {
+            const d = Math.hypot(p.x - t.x, p.y - t.y);
+            if (d < minDist) {
+                minDist = d;
+                closestIdx = i;
+            }
+        });
+        if (closestIdx !== -1 && minDist < 80) submitAnswer(closestIdx);
+    }
+};
+
+const handleMove = (e) => {
+    if (!isDragging.value) return;
+    const p = getPointerPos(e);
+    const dt = dragTarget.value;
+
+    // --- 1. 直線前進遊戲邏輯 (Rectilinear Mode) ---
+    if (view.value === 'rectilinear' && rectGame.value) {
+        const g = rectGame.value;
+        
+        // 如果已經在勝利等待狀態，鎖定操作避免干擾動畫
+        if (g.state === 'win') return; 
+
+        if (dt.type === 'rect_source') {
+            // 調整手電筒指向角度
+            g.source.angle = Math.atan2(p.y - g.source.y, p.x - g.source.x);
+        } else if (dt.type === 'rect_wall') {
+            // 找到對應的牆並調整孔洞高度
+            const wall = g.walls.find(w => w.id === dt.id);
+            if (wall) wall.holeY = Math.max(50, Math.min(height - 50, p.y));
+        }
+        
+        // 每次移動物件後，立即更新光線碰撞計算
+        RectilinearGame.updateRay(g, width);
+
+        // --- 自動過關判定 ---
+        if (g.isHit && g.state === 'playing') {
+            g.state = 'win'; // 標記為勝利，觸發動畫與暫停操作
+            g.score += 20;   // 增加分數
+            
+            // 啟動動畫循環：即使滑鼠不動，呼吸特效也能持續播放
+            const loopAnimate = () => {
+                if (g.state === 'win') {
+                    draw(); 
+                    winAnimFrameId = requestAnimationFrame(loopAnimate);
+                }
+            };
+            
+            if (winAnimFrameId) cancelAnimationFrame(winAnimFrameId);
+            loopAnimate();
+
+            // 延遲 0.8 秒後自動切換下一關
+            setTimeout(() => {
+                cancelAnimationFrame(winAnimFrameId); // 停止動畫循環
+                g.level++;
+                // 重新生成關卡 (Emoji 會移動到新位置，光源與牆壁也會重置)
+                RectilinearGame.generateLevel(g, width, height); 
+                RectilinearGame.updateRay(g, width);
+                draw();
+            }, 800);
+        }
+    }
+
+    // --- 2. 透鏡成像模式 (Lens Mode) ---
+    else if (dt.type === 'lens_obj') {
+        const cx = width / 2;
+        const cy = height / 2;
+        lensParams.value.objDist = Math.max(10, cx - p.x);
+        lensParams.value.objHeight = Math.max(-250, Math.min(250, cy - p.y));
+    } else if (dt.type === 'lens_focus') {
+        const cx = width / 2;
+        lensParams.value.f = Math.max(20, Math.abs(p.x - cx));
+    } 
+
+    // --- 3. 反射獵人模式 (Hunter Mode) ---
+    else if (dt.type === 'hunter_source') {
+        hunter.value.sourceX = Math.max(20, Math.min(width - 20, p.x));
+        if (!hunter.value.isFiring) hunter.value.rayProgress = 0;
+    } else if (dt.type === 'hunter_mirror') {
+        const centerX = width / 2;
+        const limit = 200;
+        hunter.value.mirrorX = Math.max(centerX - limit, Math.min(centerX + limit, p.x));
+        if (!hunter.value.isFiring) hunter.value.rayProgress = 0;
+    } 
+
+    // --- 4. 多鏡反射沙盒 (Sandbox Mode) ---
+    else if (dt.type === 'source') {
+        if (dt.part === 'center') {
+            sandbox.value.source.x = p.x;
+            sandbox.value.source.y = p.y;
+        } else {
+            const src = sandbox.value.source;
+            sandbox.value.source.angle = deg(Math.atan2(p.y - src.y, p.x - src.x));
+        }
+    } else if (dt.type === 'mirror') {
+        const m = sandbox.value.mirrors[dt.id];
+        if (dt.part === 'center') {
+            m.x = p.x;
+            m.y = p.y;
+        } else {
+            m.angle = deg(Math.atan2(p.y - m.y, p.x - m.x));
+        }
+    } 
+
+    // --- 5. 基礎模擬模式 (Reflection / Refraction) ---
+    else if (dt.type === 'sim_source') {
+        simParams.value.sourceX = Math.max(20, Math.min(width - 20, p.x));
+    } else if (dt.type === 'sim_mirror') {
+        const cx = width / 2, cy = getInterfaceY();
+        let ang = deg(Math.atan2(p.y - cy, p.x - cx));
+        if (ang > 180) ang -= 360;
+        simParams.value.mirrorAngle = Math.max(-45, Math.min(45, ang));
+    }
+
+    // 最後執行重繪 (除了正在播動畫的 win 狀態，其餘手動觸發)
+    if (!(view.value === 'rectilinear' && rectGame.value && rectGame.value.state === 'win')) {
+        draw();
+    }
+};
+		
+		const handleEnd = (e) => { isDragging.value = false; dragTarget.value = null; if (e && e.target.releasePointerCapture) { e.target.releasePointerCapture(e.pointerId); } };
         const toggleSandboxLight = () => { sandbox.value.source.isOn = !sandbox.value.source.isOn; };
         const addMirror = () => { if (sandbox.value.mirrors.length >= 6) return; sandbox.value.mirrors.push({ x: width/2 + (Math.random()-0.5)*200, y: height/2 + (Math.random()-0.5)*200, angle: Math.random()*180, length: 200 }); };
         const removeMirror = () => { sandbox.value.mirrors.pop(); };
@@ -520,6 +780,6 @@ createApp({
         watch(sandbox, () => { if(view.value === 'sandbox') requestAnimationFrame(draw); }, { deep: true });
         watch(lensParams, () => { if(view.value === 'lens') requestAnimationFrame(draw); }, { deep: true });
 
-        return { view, simParams, lensParams, lensData, game, sandbox, hunter, showGameHint, containerRef, canvasRef, headerText, startSim, startLens, startSandbox, startGame, startHunter, nextLevel, goHome, handleStart, handleMove, handleEnd, toggleSandboxLight, addMirror, removeMirror, fireHunterRay, mediaOptions, lensObjects };
+        return { view, simParams, lensParams, rectGame, startRectilinear, lensData, game, sandbox, hunter, showGameHint, containerRef, canvasRef, headerText, startSim, startLens, startSandbox, startGame, startHunter, nextLevel, goHome, handleStart, handleMove, handleEnd, toggleSandboxLight, addMirror, removeMirror, fireHunterRay, mediaOptions, lensObjects };
     }
 }).mount('#app');
