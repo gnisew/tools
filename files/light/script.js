@@ -68,12 +68,12 @@ createApp({
             if (Math.abs(do_ - lensParams.value.f) < 2 && lensParams.value.type === 'convex') {
                 desc = '不成像 (平行光)';
             } else {
-                const nature = isReal ? '實像 (Real)' : '虛像 (Virtual)';
-                const orientation = m < 0 ? '倒立 (Inverted)' : '正立 (Upright)';
+                const nature = isReal ? '實像' : '虛像';
+                const orientation = m < 0 ? '倒立' : '正立';
                 let size = '';
-                if (Math.abs(m) > 1.05) size = '放大 (Magnified)';
-                else if (Math.abs(m) < 0.95) size = '縮小 (Diminished)';
-                else size = '相等 (Same Size)';
+                if (Math.abs(m) > 1.05) size = '放大';
+                else if (Math.abs(m) < 0.95) size = '縮小';
+                else size = '相等';
                 
                 desc = `${orientation} · ${size} · ${nature}`;
             }
