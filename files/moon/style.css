@@ -2,7 +2,7 @@
     --bg-color: #0b0d17;
     --panel-bg: #15192b;
     --text-color: #e0e6ed;
-    --text-muted: #8892b0;
+    --text-muted: #f0f0f0;
     --accent-color: #ffd700;
     --accent-hover: #ffea70;
     --border-color: #2a304a;
@@ -184,3 +184,330 @@ button.toggle-btn.active {
     .calendar-grid { grid-template-columns: repeat(4, 1fr); }
     .settings-row { justify-content: center; gap: 15px; }
 }
+/* 導覽列 */
+.main-nav {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 900px;
+    padding: 15px;
+    background: var(--panel-bg);
+    border-radius: 0 0 15px 15px;
+    margin-bottom: 20px;
+}
+.nav-links button { margin-left: 10px; background: #2a304a; }
+.nav-links button.active { border: 2px solid var(--accent-color); }
+
+/* 天空容器 */
+.sky-container {
+    width: 100%;
+    height: 350px;
+    background: linear-gradient(to bottom, #05070a 0%, #15192b 100%);
+    border-radius: 5px;
+    position: relative;
+    overflow: hidden;
+    border: 2px solid var(--border-color);
+}
+
+.horizon {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 2px;
+    background: rgba(255,255,255,0.2);
+}
+
+.sky-moon {
+    position: absolute;
+    /* 修改這裡：原本是 translate(-50%, 0)，改為 50% 讓中心點對齊底線位置 */
+    transform: translate(-50%, 50%); 
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* 增加 z-index 確保月亮在格線之上 */
+    z-index: 10;
+    /* 讓滑鼠事件穿透月亮，避免擋住拖曳操作 (雖然目前滑桿在下方，但這是好習慣) */
+    pointer-events: none; 
+}
+
+.moon-info-bubble {
+    background: rgba(0,0,0,0.7);
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 0.7rem;
+    margin-top: 5px;
+    white-space: nowrap;
+}
+
+.compass-labels {
+    position: absolute;
+    bottom: 10px;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 20px;
+    box-sizing: border-box;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.time-control {
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
+}
+
+/* 高度角格線 */
+.sky-grids {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.grid-line {
+    position: absolute;
+    width: 100%;
+    border-top: 1px dashed rgba(255, 255, 255, 0.15);
+    left: 0;
+}
+
+.grid-label {
+    position: absolute;
+    left: 10px;
+    bottom: 5px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+/* 強化天空背景 */
+.sky-bg {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    /* 增加刻度感 */
+    background-image: radial-gradient(circle at 50% 100%, #1a203a 0%, #05070a 100%);
+}
+
+/* 精簡控制區 */
+.compact-mode {
+    padding: 10px 15px !important;
+    margin-top: 10px;
+}
+
+.time-stepper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.step-group {
+    display: flex;
+    gap: 5px;
+}
+
+.step-group button {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    min-width: 45px;
+    background: #2a304a;
+    border: 1px solid var(--border-color);
+}
+
+.time-display-box {
+    text-align: center;
+    flex-grow: 1;
+}
+
+.main-time {
+    display: block;
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: var(--accent-color);
+    line-height: 1;
+}
+
+#datePicker2 {
+    font-size: 0.75rem;
+    padding: 2px 5px;
+    margin-top: 5px;
+}
+
+.mini-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin: 5px 0 0 0;
+    text-align: center;
+}
+
+/* 讓圖表資訊氣泡更小 */
+.moon-info-bubble {
+    font-size: 0.65rem;
+    padding: 3px 6px;
+}
+
+/* 高度角格線 */
+.sky-grids {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-bottom: 2px solid var(--accent-color); /* 底線 */
+}
+.grid-line {
+    position: absolute;
+    width: 100%;
+    border-top: 1px dashed rgba(255,255,255,0.1);
+}
+.grid-label {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    padding-left: 5px;
+}
+
+/* 整合式滑桿 (當作底線) */
+.sky-bottom-area {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    background: rgba(0,0,0,0.3);
+}
+.compass-labels {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 5% 2px 5%;
+    font-size: 0.75rem;
+    color: var(--accent-color);
+}
+.integrated-slider {
+    width: 100%;
+    margin: 0;
+    cursor: pointer;
+    /* 移除原生滑桿背景，使其看起來像一條線 */
+    appearance: none;
+    background: var(--accent-color);
+    height: 3px;
+}
+.integrated-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--accent-color);
+}
+
+/* 控制區緊湊佈局 */
+.info-row-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+}
+.rise-set-info { font-size: 0.8rem; color: var(--text-muted); }
+.date-ctrl-group {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+    margin-bottom: 8px;
+}
+.date-ctrl-group button { padding: 4px 8px; font-size: 0.8rem; }
+.step-buttons-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+.step-label { font-size: 0.75rem; color: var(--text-muted); }
+
+/* 新增預測網格樣式 */
+.predict-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+    margin-top: 20px;
+    animation: fadeIn 0.5s;
+}
+
+/* 強化原本的月曆 cell 點擊效果 */
+.cal-day {
+    cursor: pointer;
+    background: var(--panel-bg);
+    transition: all 0.2s ease;
+}
+
+.cal-day:active {
+    transform: scale(0.95);
+    background: var(--border-color);
+}
+/* 軌跡點專用標籤 */
+.path-label {
+    font-size: 0.7rem;
+    color: var(--accent-color);
+    background: rgba(0,0,0,0.5);
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-top: 2px;
+}
+
+/* 讓軌跡點稍微半透明，區分目前選中點 (選配) */
+.path-point {
+    opacity: 0.8;
+    transition: opacity 0.3s;
+}
+
+.path-point:hover {
+    opacity: 1;
+    z-index: 100;
+}
+
+/* 單行工具列 */
+.compact-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--panel-bg);
+    padding: 10px 15px;
+    border-radius: 10px;
+    margin-top: 15px;
+    border: 1px solid var(--border-color);
+    position: relative; /* 供右上角資訊定位 */
+}
+
+/* 模式按鈕精簡 */
+.mode-pills { display: flex; background: rgba(0,0,0,0.2); border-radius: 6px; padding: 2px; }
+.pill { padding: 4px 10px; font-size: 0.75rem; background: transparent; border: none; }
+.pill.active { background: #2a304a; color: var(--accent-color); font-weight: bold; }
+
+/* 時間與微調 */
+.toolbar-center { display: flex; align-items: center; gap: 12px; }
+.step-ctrls button { 
+    background: transparent; color: var(--text-muted); 
+    font-size: 1.2rem; padding: 0 5px; cursor: pointer; border: none;
+}
+.step-ctrls button:hover { color: var(--accent-color); }
+
+.time-display-wrapper { position: relative; padding: 0 10px; text-align: center; }
+.toolbar-time { font-size: 1.6rem; font-weight: bold; color: var(--accent-color); font-family: monospace; }
+
+/* 右上角月出月落 (置於表格內部右上) */
+.astro-meta {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    opacity: 1;
+}
+
+/* 日期區域 */
+.toolbar-right { display: flex; align-items: center; gap: 8px; }
+.date-inline { 
+    background: transparent; border: 1px solid var(--border-color); 
+    color: white; font-size: 0.85rem; padding: 2px 5px; border-radius: 4px;
+}
+.btn-today-sm { background: #2a304a; font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; }
+
+/* 軌跡標籤優化 */
+.path-label { font-size: 0.55rem; color: var(--accent-color); background: rgba(0,0,0,0.6); padding: 0 2px; }
