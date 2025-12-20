@@ -1,21 +1,39 @@
 // ====== 天文常數與共用工具 ======
-const SYNODIC_MONTH = 29.53058867; //
-const KNOWN_NEW_MOON_2025 = new Date('2025-01-29T20:36:00+08:00'); //
+// 觀測設定
+const OBSERVER_LAT = 23.5; // 預設觀測緯度：台灣 (北緯 23.5°)
+
+const SYNODIC_MONTH = 29.53058867; 
+const KNOWN_NEW_MOON_2025 = new Date('2025-01-29T20:36:00+08:00'); 
+
+/**
+ * 估算該日期的月球最大仰角 (中天高度)
+ * 符合事實：根據緯度與月球赤緯估算
+ */
+function getRealisticMaxAltitude(date) {
+    const moon = getMoonData(date); //
+    // 模擬月球赤緯隨農曆週期在 ±20 度之間擺動
+    const approxDeclination = Math.sin((moon.phase * 2 * Math.PI) - Math.PI/2) * 20;
+    
+    // 公式：90 - |觀測者緯度 - 月球赤緯|
+    const maxAlt = 90 - Math.abs(OBSERVER_LAT - approxDeclination);
+    return maxAlt;
+}
+
 
 function getMoonData(date) {
-    const diffTime = date.getTime() - KNOWN_NEW_MOON_2025.getTime(); //
-    const diffDays = diffTime / (1000 * 3600 * 24); //
+    // ... (保留原本的 getMoonData 內容不變) ...
+    const diffTime = date.getTime() - KNOWN_NEW_MOON_2025.getTime();
+    const diffDays = diffTime / (1000 * 3600 * 24);
     
-    let age = diffDays % SYNODIC_MONTH; //
-    if (age < 0) age += SYNODIC_MONTH; //
+    let age = diffDays % SYNODIC_MONTH;
+    if (age < 0) age += SYNODIC_MONTH;
 
-    const phase = age / SYNODIC_MONTH; //
-    const illumination = ((1 - Math.cos(phase * 2 * Math.PI)) / 2 * 100).toFixed(0); //
+    const phase = age / SYNODIC_MONTH;
+    const illumination = ((1 - Math.cos(phase * 2 * Math.PI)) / 2 * 100).toFixed(0);
 
     let name = "";
     let desc = "";
     
-    // 月相名稱判定
     if (age < 1.0 || age > 28.5) { name = "新月"; desc = "農曆初一，月球在地球與太陽之間。"; }
     else if (age < 6.5) { name = "眉月"; desc = "傍晚可見，亮面在右側。"; }
     else if (age < 8.5) { name = "上弦月"; desc = "中午升起，午夜落下，右半亮。"; }
@@ -29,7 +47,7 @@ function getMoonData(date) {
 }
 
 function generateMoonSVG(phase, size) {
-    // 繪製邏輯 (保留您原始精確的 SVG Path 算法)
+    // ... (保留原本的 generateMoonSVG 內容不變) ...
     const r = 45;
     const isWaxing = phase <= 0.5;
     const theta = phase * 2 * Math.PI;
@@ -50,3 +68,33 @@ function generateMoonSVG(phase, size) {
 
     return `<svg viewBox="0 0 100 100" width="${size}" height="${size}"><circle cx="50" cy="50" r="45" fill="#1a1d2e" /><path d="${d}" fill="${fill}" /></svg>`;
 }
+
+// === 新增：共用的日期格式化工具 ===
+function getExtendedDate(date) {
+    const weekday = new Intl.DateTimeFormat('zh-TW', { weekday: 'short' }).format(date);
+    const ymd = `${date.getFullYear()}/${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')}`;
+    
+    // 農曆計算
+    const lunarFormatter = new Intl.DateTimeFormat('zh-TW-u-ca-chinese', { month: 'numeric', day: 'numeric' });
+    const parts = lunarFormatter.formatToParts(date);
+    let lunarMonth = "", lunarDay = "";
+    parts.forEach(p => {
+        if (p.type === 'month') lunarMonth = p.value;
+        if (p.type === 'day') lunarDay = p.value;
+    });
+    
+    // 數字轉中文月份 (選用)
+    const chineseMonths = ['正', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
+    if (!isNaN(parseInt(lunarMonth))) lunarMonth = chineseMonths[parseInt(lunarMonth) - 1];
+    lunarMonth = lunarMonth.replace('月', '');
+
+    return {
+        iso: date.toISOString().split('T')[0],
+        ymd: ymd,
+        week: weekday,
+        fullGregorian: `${ymd} (${weekday})`,
+        lunar: `農曆${lunarMonth}月${lunarDay}`,
+        combined: `${ymd} (${weekday}) | ${lunarMonth}月${lunarDay}`
+    };
+}
+
