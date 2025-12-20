@@ -86,20 +86,24 @@
                 <button onclick="exp1.changeMonth(1)">下個月 ➡</button>
             </div>
             
-            <div class="toggle-group mt-15" style="margin-top: 15px; display: flex; justify-content: center;">
-                <button class="toggle-btn" id="btn-view-single" onclick="exp1.setView('single')">單日</button>
-                <button class="toggle-btn" id="btn-view-month" onclick="exp1.setView('month')">單月</button>
-                <button class="toggle-btn" id="btn-view-two" onclick="exp1.setView('two-months')">雙月</button>
-                <div class="predict-controls" style="margin-top: 15px; text-align: center;">
-                    <select id="phaseSelector" onchange="exp1.predictPhases(this.value)" style="background: #0b0d17; color: white; border: 1px solid var(--border-color); padding: 4px; border-radius: 4px;">
-                        <option value="">-- 選擇月相 --</option>
-                        <option value="新月">新月 (初一)</option>
-                        <option value="上弦月">上弦月</option>
-                        <option value="滿月">滿月 (十五)</option>
-                        <option value="下弦月">下弦月</option>
-                    </select>
-                </div>
-            </div>
+            <div class="toggle-group mt-15">
+				<button class="toggle-btn" id="btn-view-single" onclick="exp1.setView('single')">單日</button>
+				<button class="toggle-btn" id="btn-view-month" onclick="exp1.setView('month')">單月</button>
+				<button class="toggle-btn" id="btn-view-two" onclick="exp1.setView('two-months')">雙月</button>
+				<button class="toggle-btn" id="btn-view-cycle" onclick="exp1.setView('cycle')">週期</button>
+				
+				<select id="phaseSelector" onchange="exp1.predictPhases(this.value)" class="toggle-select">
+					<option value="">月相</option>
+					<option value="朔月">朔月</option>
+					<option value="眉月">眉月</option>
+					<option value="上弦月">上弦月</option>
+					<option value="盈凸月">盈凸月</option>
+					<option value="滿月">滿月</option>
+					<option value="虧凸月">虧凸月</option>
+					<option value="下弦月">下弦月</option>
+					<option value="殘月">殘月</option>
+				</select>
+			</div>
 
             <div id="predict-results" class="predict-grid" style="display: none;"></div>
         </div>

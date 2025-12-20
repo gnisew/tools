@@ -99,7 +99,7 @@ const exp3 = {
         this.el.time.max = this.currentData.duration;
         this.el.time.step = 0.01;
         
-        if (resetToCenter) this.el.time.value = this.currentData.duration / 2;
+        if (resetToCenter) this.el.time.value = this.currentData.duration / 5;
     },
 
     stepTime(mins) {

@@ -320,7 +320,7 @@ const exp2 = {
         this.el.riseVal.textContent = this.formatTime(rise);
         this.el.setVal.textContent = this.formatTime(set);
 
-        if (resetToCenter) this.el.time.value = duration / 2;
+        if (resetToCenter) this.el.time.value = duration / 5;
     },
 
     update(isFinalUpdate = false) {

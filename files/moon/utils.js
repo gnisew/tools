@@ -34,7 +34,7 @@ function getMoonData(date) {
     let name = "";
     let desc = "";
     
-    if (age < 1.0 || age > 28.5) { name = "新月"; desc = "農曆初一，月球在地球與太陽之間。"; }
+    if (age < 1.0 || age > 28.5) { name = "朔月"; desc = "農曆初一，月球在地球與太陽之間。"; }
     else if (age < 6.5) { name = "眉月"; desc = "傍晚可見，亮面在右側。"; }
     else if (age < 8.5) { name = "上弦月"; desc = "中午升起，午夜落下，右半亮。"; }
     else if (age < 13.5) { name = "盈凸月"; desc = "整夜可見，接近滿月。"; }
@@ -46,27 +46,54 @@ function getMoonData(date) {
     return { age, phase, illumination, name, desc };
 }
 
-function generateMoonSVG(phase, size) {
-    // ... (保留原本的 generateMoonSVG 內容不變) ...
-    const r = 45;
-    const isWaxing = phase <= 0.5;
-    const theta = phase * 2 * Math.PI;
-    const rx = r * Math.cos(theta);
-    let d = "";
 
+
+function generateMoonSVG(phase, size) {
+    const r = 45; // 月亮半徑
+    // 計算比例因子：從 -1 (滿月) 到 1 (新月)，在 0.5 (弦月) 時為 0
+    const rx = Math.cos(phase * 2 * Math.PI) * r;
+    
+    // 決定背景與亮部顏色
+    const bgColor = "#1a1d2e";
+    const lightColor = "#f4f6f0";
+    
+    // 基本邏輯：
+    // 0.0 ~ 0.5 (盈)：亮部在右側，左側是陰影
+    // 0.5 ~ 1.0 (虧)：亮部在左側，右側是陰影
+    const isWaxing = phase <= 0.5;
+    
+    // 建立兩個半圓路徑
+    // 右半圓
+    const rightHalf = `M 50 5 A 45 45 0 0 1 50 95`;
+    // 左半圓
+    const leftHalf = `M 50 95 A 45 45 0 0 1 50 5`;
+    
+    let d = "";
     if (isWaxing) {
-        const sweep = (phase < 0.25) ? 0 : 1;
-        d = `M 50 5 A 45 45 0 0 1 50 95 A ${Math.abs(rx)} 45 0 0 ${sweep} 50 5`;
+        // 盈月：固定右半圓亮，左半圓隨 rx 變化 (凸或凹)
+        // 當 phase < 0.25 (眉月), rx > 0，弧線向右彎(凹)；phase > 0.25 (盈凸), rx < 0，弧線向左彎(凸)
+        const sweep = rx > 0 ? 0 : 1; 
+        d = `${rightHalf} A ${Math.abs(rx)} 45 0 0 ${sweep} 50 5`;
     } else {
-        const sweep = (phase < 0.75) ? 1 : 0;
-        d = `M 50 95 A 45 45 0 0 1 50 5 A ${Math.abs(rx)} 45 0 0 ${sweep} 50 95`;
+        // 虧月：固定左半圓亮，右半圓隨 rx 變化
+        // 當 phase < 0.75 (虧凸), rx < 0，弧線向右彎(凸)；phase > 0.75 (殘月), rx > 0，弧線向左彎(凹)
+        const sweep = rx < 0 ? 1 : 0;
+        d = `${leftHalf} A ${Math.abs(rx)} 45 0 0 ${sweep} 50 95`;
     }
 
-    let fill = "#f4f6f0";
-    if (phase < 0.02 || phase > 0.98) { fill = "transparent"; d = `M 50 5 A 45 45 0 1 1 50 95 A 45 45 0 1 1 50 5`; }
-    else if (Math.abs(phase - 0.5) < 0.02) { d = `M 50 5 A 45 45 0 1 1 50 95 A 45 45 0 1 1 50 5`; }
+    // 特別處理新月與滿月，避免極小值產生的細線
+    if (phase < 0.02 || phase > 0.98) {
+        return `<svg viewBox="0 0 100 100" width="${size}" height="${size}"><circle cx="50" cy="50" r="45" fill="${bgColor}" /></svg>`;
+    }
+    if (Math.abs(phase - 0.5) < 0.02) {
+        return `<svg viewBox="0 0 100 100" width="${size}" height="${size}"><circle cx="50" cy="50" r="45" fill="${lightColor}" /></svg>`;
+    }
 
-    return `<svg viewBox="0 0 100 100" width="${size}" height="${size}"><circle cx="50" cy="50" r="45" fill="#1a1d2e" /><path d="${d}" fill="${fill}" /></svg>`;
+    return `
+    <svg viewBox="0 0 100 100" width="${size}" height="${size}">
+        <circle cx="50" cy="50" r="45" fill="${bgColor}" />
+        <path d="${d}" fill="${lightColor}" />
+    </svg>`;
 }
 
 // === 新增：共用的日期格式化工具 ===
