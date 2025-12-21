@@ -6,7 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>月亮觀測實驗室-烏衣行🥷</title>
     <link rel="stylesheet" href="style.css">
-	<link rel="stylesheet" href="exp3.css">
+	<link rel="stylesheet" href="exp5.css">
+	<link rel="stylesheet" href="exp6.css">
+
 </head>
 <body>
 
@@ -59,6 +61,33 @@
     </div>
 </div>
 
+<div class="menu-card" onclick="router.navigate('eclipse')">
+    <div class="card-icon">☀️</div>
+    <div class="card-content">
+        <h3>實驗四：日月食觀測</h3>
+        <p>模擬日食與月食的成因，觀察本影與半影的變化，以及迷人的血月現象。</p>
+        <span class="card-link">進入實驗 &rarr;</span>
+    </div>
+</div>
+
+<div class="menu-card" onclick="router.navigate('lunar-eclipse')">
+    <div class="card-icon">🌕</div>
+    <div class="card-content">
+        <h3>實驗五：月蝕觀測</h3>
+        <p>進入太空視角旋轉月球軌道，觀察月球進入地球本影時產生的「血月」現象。</p>
+        <span class="card-link">進入實驗 &rarr;</span>
+    </div>
+</div>
+
+
+<div class="menu-card" onclick="router.navigate('altitude-tool')">
+    <div class="card-icon">📐</div>
+    <div class="card-content">
+        <h3>實驗六：高度角觀測器</h3>
+        <p>動手操作虛擬觀測器，練習將瞄準管對準月亮，並從下垂的棉線讀取高度角刻度。</p>
+        <span class="card-link">進入實驗 &rarr;</span>
+    </div>
+</div>
                 <!-- 未來實驗預留卡片 (範例) -->
                 <div class="menu-card disabled">
                     <div class="card-icon">🔭</div>
@@ -237,6 +266,18 @@
 
 <main id="view-altitude" class="view-section">
     <div class="obs-container">
+        <div class="obs-hud-left">
+            <div class="hud-check-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="chkShowTexts" checked onchange="exp3.toggleView()"> 度數
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="chkShowLines" checked onchange="exp3.toggleView()"> 線段
+                </label>
+
+            </div>
+        </div>
+
         <div id="altitudeObserver" class="observer-box">
             <svg id="protractorSvg" viewBox="0 0 600 400"></svg>
             <div id="obsCenterIcon" class="obs-center-icon">🧐</div>
@@ -245,18 +286,11 @@
     </div>
 
     <div class="unified-control-panel">
-        <div class="slider-wrapper">
-            <input type="range" id="altTimeSlider" class="integrated-slider">
+        <div class="slider-full-width">
+            <input type="range" id="altTimeSlider" class="integrated-slider" step="1">
         </div>
 
         <div class="compact-toolbar altitude-toolbar">
-            <div class="toolbar-left">
-                <div class="obs-status-capsule">
-                    <div class="status-item">高度：<span id="altAngleVal">0</span>°</div>
-                    <div class="status-item">方位：<span id="altSideVal">--</span></div>
-                </div>
-            </div>
-            
             <div class="toolbar-center">
                 <div class="step-ctrls">
                     <button onclick="exp3.stepTime(-60)">«</button>
@@ -283,10 +317,160 @@
 </main>
 
 
+<main id="view-eclipse" class="view-section">
+    <div class="eclipse-container">
+        <div id="eclipseCanvas" class="eclipse-canvas">
+            <div id="spaceLabel" class="view-label">太空視角</div>
+            </div>
+
+        <div class="eclipse-info-panel">
+            <h3 id="eclipseTitle">日全食</h3>
+            <p id="eclipseStatus">月球正準備遮蔽太陽</p>
+            <div class="eclipse-details">
+                <span id="eclipsePercent">遮蔽率: 0%</span>
+                <span id="eclipseType">狀態: 初虧</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="compact-toolbar">
+        <div class="toolbar-left">
+			<div class="mode-pills">
+				<button class="pill active" id="btn-eclipse-total" onclick="exp4.setMode('total')">日全食</button>
+				<button class="pill" id="btn-eclipse-annular" onclick="exp4.setMode('annular')">日環食</button>
+				<button class="pill" id="btn-eclipse-lunar" onclick="exp4.setMode('lunar')">月食</button>
+			</div>
+        </div>
+        <div class="toolbar-center">
+            <input type="range" id="eclipseSlider" class="integrated-slider" min="0" max="100" value="0">
+        </div>
+        <div class="toolbar-right">
+             <button class="btn-primary" onclick="exp4.playAnimation()">播放過程</button>
+        </div>
+    </div>
+</main>
+
+
+<main id="view-lunar-eclipse" class="view-section">
+    <div class="exp5-layout">
+        <div class="space-monitor-v2">
+            <div id="spaceStageV2" class="space-stage-v2">
+			                <label class="checkbox-label">
+                    <input type="checkbox" id="chkShowPhysicsV2" checked onchange="exp5.update()"> 顯示本影/半影/光線
+                </label>
+                <div class="sun-v2"></div>
+                
+                <svg id="physicsSvgV2" class="physics-layer-v2"></svg>
+                
+                <div class="earth-v2">
+                    <div class="earth-lit"></div>
+                </div>
+
+                <div class="orbit-path-v2"></div>
+                
+                <div id="orbitMoonBodyV2" class="orbit-moon-v2">
+                    <div id="moonLitV2" class="moon-lit-half"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="exp5-controls-bar">
+            <div class="slider-container">
+                <input type="range" id="lunarOrbitSliderV2" min="0" max="360" value="0" class="integrated-slider">
+                <div class="angle-info">軌道位置：<span id="angleValV2">0</span>°</div>
+            </div>
+        </div>
+
+        <div class="exp5-info-section">
+            <div class="telescope-side">
+                <div id="groundMoonViewV2" class="ground-moon-box"></div>
+            </div>
+            <div class="description-side">
+                <h2 id="lunarStatusTitleV2">--</h2>
+                <div id="lunarStatusTagV2" class="status-tag">--</div>
+                <p id="lunarStatusDescV2">--</p>
+            </div>
+        </div>
+    </div>
+</main>
+
+
+
+
+
+<main id="view-altitude-tool" class="view-section">
+    <div class="exp6-layout">
+        <div class="exp6-header">
+            <div class="mode-pills">
+                <button class="pill active" id="btn-tool-learn" onclick="exp6.setMode('learn')">觀測練習</button>
+                <button class="pill" id="btn-tool-game" onclick="exp6.setMode('game')">挑戰模式</button>
+            </div>
+            <div id="game-stats" class="game-stats" style="display: none;">
+                第 <span id="game-level">1</span> 關 | 成功：<span id="game-score">0</span>
+            </div>
+        </div>
+
+        <div class="exp6-workspace">
+            <div class="exp6-side-panel">
+                <div class="panel-section angle-display">
+                    <span class="label">當前觀測仰角</span>
+                    <strong id="displayToolAngle">0</strong><span class="unit">°</span>
+                </div>
+
+                <div class="panel-section">
+                    <input type="range" id="toolRotateSlider" min="0" max="90" value="0" class="integrated-slider-v">
+                </div>
+
+                <div class="panel-section feedback-area">
+                    <div id="exp6Feedback"></div>
+                </div>
+
+                <div class="panel-section" id="moon-slider-row">
+                    <div class="moon-ctrl">
+                        <span class="label">變更月亮高度 (練習用)</span>
+                        <input type="range" id="moonPosSlider" min="5" max="85" value="30" class="integrated-slider">
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <button id="btn-check-align" class="btn-check-large" onclick="exp6.checkAlignment()" style="display:none;">檢查是否對準</button>
+                    <button id="btn-next-level" class="btn-next-large" onclick="exp6.nextLevel()" style="display:none;">進入下一關 &rarr;</button>
+                </div>
+            </div>
+
+            <div class="obs-sky-zone" id="exp6SkyZone">
+                <svg class="orbit-svg-layer">
+                    <path id="exp6OrbitPath" d="" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="2" stroke-dasharray="8,6" />
+                </svg>
+                <div id="exp6Moon" class="exp6-target-moon"></div>
+                
+                <div id="exp6ToolContainer" class="tool-fixed-container">
+                    <div id="clinometerTool" class="clinometer-base">
+                        <div class="sighting-tube-red">
+                            <span class="tube-label">瞄準管</span>
+                            <div class="obs-eye-port">👁️</div>
+                        </div>
+                        <div class="protractor-card">
+                            <svg viewBox="0 0 100 100" class="protractor-svg">
+                                <path d="M 0 10 L 90 10 A 80 80 0 0 1 10 90 L 0 90 Z" fill="#f9f9d0" stroke="#333" stroke-width="0.5"/>
+                                <g id="exp6ScaleGroup"></g>
+                            </svg>
+                        </div>
+                        <div id="plumbLineExp6" class="plumb-line-container">
+                            <div class="thread"></div>
+                            <div class="weight-clip"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
     <script src="utils.js"></script>
-    <script src="exp1.js"></script>
-    <script src="exp2.js"></script>
-	<script src="exp3.js"></script>
+    <script src="exp.js"></script>
+	<script src="exp5.js"></script>
+	<script src="exp6.js"></script>
 
     <script src="main.js"></script>
 </body>

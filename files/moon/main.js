@@ -5,6 +5,9 @@ const router = {
         'phase': { title: '實驗一：月相觀測' },
         'position': { title: '實驗二：軌跡觀測' },
 		'altitude': { title: '實驗三：高度角觀測' },
+		'eclipse': { title: '實驗四：日月食模擬' },
+		'lunar-eclipse': { title: '實驗五：月蝕成因觀測' },
+		'altitude-tool': { title: '實驗六：高度角觀測器' },
         // 未來新增： 'distance': { title: '實驗三：地月距離' }
     },
 
@@ -63,6 +66,15 @@ const router = {
         }
 		if (exp === 'altitude') {
 			if (typeof exp3 !== 'undefined') exp3.init();
+		}
+		if (exp === 'eclipse') {
+			if (typeof exp4 !== 'undefined') exp4.init();
+		}
+		if (exp === 'lunar-eclipse') {
+			if (typeof exp5 !== 'undefined') exp5.init();
+		}
+		if (exp === 'altitude-tool') {
+			if (typeof exp6 !== 'undefined') exp6.init();
 		}
     },
 

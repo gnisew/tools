@@ -1,0 +1,168 @@
+/* exp5.css - 月相與月蝕實驗專用樣式 */
+.exp5-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+/* --- 1. 太空模擬舞台 --- */
+/* 深藍色太空背景，讓陰影更明顯 */
+.space-monitor-v2 {
+    background: #050b1a; /* 深藍黑色背景 */
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    height: 320px; /* 固定高度確保顯示比例 */
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 80px rgba(0,0,0,0.6); /* 內部深邃感 */
+}
+
+.space-stage-v2 { width: 100%; height: 100%; position: relative; }
+
+/* 太陽：右側發光體 */
+.sun-v2 {
+    position: absolute;
+    right: -80px; top: 50%;
+    transform: translateY(-50%);
+    width: 125px; height: 125px;
+    /* 徑向漸層模擬發光 */
+    background: radial-gradient(circle, #fff 10%, #ffdd55 40%, #ff8800 70%, transparent 100%);
+    border-radius: 50%;
+    z-index: 5;
+    box-shadow: 0 0 100px rgba(255, 180, 0, 0.3); /* 外部光暈 */
+}
+
+/* 地球：位於中心 */
+.earth-v2 {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 64px; height: 64px;
+    background: #1a3c6e; /* 地球背光面顏色 */
+    border-radius: 50%;
+    z-index: 10;
+    overflow: hidden;
+    box-shadow: 0 0 20px rgba(40, 100, 255, 0.2);
+}
+.earth-lit {
+    position: absolute;
+    right: 0; top: 0; width: 55%; height: 100%;
+    background: #4a90e2; /* 地球受光面 (朝右) */
+    border-radius: 0 50% 50% 0; /* 稍微圓弧化交界 */
+}
+
+
+/* 月球軌道 */
+.orbit-path-v2 {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 240px; height: 240px;
+    border: 1px dashed rgba(255,255,255,0.2);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+/* 軌道上的月球實體 */
+.orbit-moon-v2 {
+    position: absolute;
+    width: 32px; height: 32px;
+    background: #111; /* 月球背光面 (預設黑) */
+    border-radius: 50%;
+    z-index: 20;
+    overflow: hidden;
+    transition: background 0.2s, box-shadow 0.2s; /* 平滑過渡變色 */
+    border: 1px solid rgba(255,255,255,0.1);
+}
+/* 月球受光面 (永遠朝右) */
+.moon-lit-half {
+    position: absolute;
+    right: 0; top: 0; width: 50%; height: 100%;
+    background: #e0e0e0; /* 月球亮面顏色 */
+    transition: background 0.2s;
+}
+
+/* SVG 層：繪製黃色光線與灰色陰影 */
+.physics-layer-v2 { position: absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index: 6; }
+
+
+/* --- 2. 控制列 (排版優化) --- */
+.exp5-controls-bar {
+    background: var(--panel-bg);
+    padding: 10px 20px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 15px; 
+}
+
+.slider-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    width: 100%;
+}
+/* 自定義滑桿樣式優化 */
+.integrated-slider { flex: 1; cursor: pointer; height: 8px; }
+
+.angle-info { 
+    min-width: 120px; 
+    font-weight: bold; 
+    color: var(--accent-color); 
+    font-family: monospace; 
+    text-align: right;
+}
+
+
+
+
+/* --- 3. 地面觀測與解說區 --- */
+.exp5-info-section {
+    display: grid;
+    grid-template-columns: 180px 1fr; /* 左側圖形，右側文字 */
+    gap: 25px;
+    background: var(--panel-bg);
+    padding: 25px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    align-items: start;
+}
+
+.ground-moon-box {
+    width: 160px; height: 160px;
+    background: radial-gradient(circle at center, #1a1d2e 0%, #000 100%); /* 模擬夜空 */
+    border-radius: 50%;
+    display: flex; justify-content: center; align-items: center;
+    border: 2px solid #333;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+
+.description-side h2 { color: var(--accent-color); margin: 0 0 10px 0; font-size: 1.5rem;}
+.status-tag { 
+    display: inline-block; 
+    padding: 4px 12px; 
+    background: var(--lunar-color, #e0e0e0); 
+    color: #000; 
+    border-radius: 20px; 
+    font-weight: bold; 
+    font-size: 0.85rem; 
+    margin-bottom: 12px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+.description-side p { 
+    line-height: 1.7; 
+    color: var(--text-muted); 
+    margin: 0; 
+    font-size: 1rem;
+}
+
+/* 手機版適配 */
+@media (max-width: 680px) {
+    .exp5-info-section { grid-template-columns: 1fr; text-align: center; }
+    .telescope-side { display: flex; flex-direction: column; align-items: center; margin-bottom: 15px; }
+    .space-monitor-v2 { height: 350px; }
+}
