@@ -631,8 +631,9 @@ const exp2 = {
             this.update(true); 
         };
 
-        this.el.time.oninput = () => this.update(false);
-        this.el.time.onchange = () => this.update(true);
+
+		this.el.time.oninput = () => this.update(false); // 傳入 false，表示僅視覺更新
+		this.el.time.onchange = () => this.update(true);  // 傳入 true，表示放開時才更新網址
         
         if (!this.el.date.value) this.setToday(true);
         else {
@@ -667,10 +668,11 @@ const exp2 = {
     },
 
     stepTime(mins) {
-        let newValue = parseFloat(this.el.time.value) + (mins / 60);
-        this.el.time.value = Math.max(0, Math.min(newValue, this.currentData.duration));
-        this.update(true);
-    },
+		let newValue = parseInt(this.el.time.value) + mins;
+		this.el.time.value = Math.max(0, Math.min(newValue, this.el.time.max));
+		this.update(true); // 點擊按鈕是明確的變更，直接傳入 true
+	},
+
 
     toggleGuide(show) {
         this.state.showGuide = show;
@@ -748,7 +750,11 @@ const exp2 = {
     },
 
     update(isFinalUpdate = false) {
+    // 只有在放開滑桿或初始載入時，才去更新 URL 參數
+    if (isFinalUpdate) {
         router.updateURL({ date: this.el.date.value, mode: this.state.mode });
+    }
+
 
         document.querySelectorAll('.path-point').forEach(p => p.remove());
         this.el.multiContainer.innerHTML = '';
@@ -1022,7 +1028,8 @@ const exp3 = {
 
         this.drawProtractor();
         this.el.date.onchange = () => { this.calculateData(true); this.update(); };
-        this.el.time.oninput = () => this.update();
+        this.el.time.oninput = () => this.update(false); // 拖動中：只更新畫面
+		this.el.time.onchange = () => this.update(true);  // 放開後：更新網址
         this.el.centerIcon.onclick = () => this.randomizeCenterIcon();
         
         const initDate = router.params.get('date') || new Date().toISOString().split('T')[0];
@@ -1081,7 +1088,8 @@ const exp3 = {
             const textR = this.RADIUS + 35;
             const tx = this.CENTER_X + Math.cos(rad) * textR;
             const ty = this.CENTER_Y - Math.sin(rad) * textR;
-            html += `<text x="${tx}" y="${ty}" class="protractor-text flip-fix" text-anchor="middle" dominant-baseline="middle">${a}°</text>`;
+           	html += `<text x="${tx}" y="${ty}" class="protractor-text flip-fix" text-anchor="middle" dominant-baseline="central">${a}°</text>`;
+
         }
         html += `</g>`;
 
@@ -1108,11 +1116,12 @@ const exp3 = {
         if (resetToCenter) this.el.time.value = Math.floor(this.el.time.max / 8);
     },
 
-    stepTime(mins) {
-        let newValue = parseInt(this.el.time.value) + mins;
-        this.el.time.value = Math.max(0, Math.min(newValue, this.el.time.max));
-        this.update();
-    },
+
+	stepTime(mins) {
+		let newValue = parseInt(this.el.time.value) + mins;
+		this.el.time.value = Math.max(0, Math.min(newValue, this.el.time.max));
+		this.update(true); // 點擊按鈕是明確的變更，直接傳入 true
+	},
 
     update() {
         const date = new Date(this.el.date.value);
@@ -1151,8 +1160,11 @@ const exp3 = {
         this.el.moon.style.left = `${mx}px`;
         this.el.moon.style.top = `${my}px`;
 
-        router.updateURL({ date: this.el.date.value, mode: 'altitude' });
-    },
+        // 只有在必要時（放開滑桿或初始載入）才更新網址
+		if (isFinalUpdate) {
+			router.updateURL({ date: this.el.date.value, mode: 'altitude' });
+		}
+	},
 
     formatTime(dec) {
         let h = Math.floor(dec % 24);

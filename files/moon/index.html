@@ -38,7 +38,6 @@
                     <div class="card-content">
                         <h3>實驗一：月相觀測</h3>
                         <p>探索月球盈虧變化的週期，查詢特定日期的月相、月齡與農曆對照。</p>
-                        <span class="card-link">進入實驗 &rarr;</span>
                     </div>
                 </div>
 
@@ -48,7 +47,6 @@
                     <div class="card-content">
                         <h3>實驗二：軌跡觀測</h3>
                         <p>模擬月亮在天空中的運行軌跡，觀察不同時間的仰角與方位角變化。</p>
-                        <span class="card-link">進入實驗 &rarr;</span>
                     </div>
                 </div>
 
@@ -57,45 +55,40 @@
     <div class="card-content">
         <h3>實驗三：高度角觀測</h3>
         <p>使用虛擬觀測器測量月亮仰角，模擬真實觀測時量角器的度數變化。</p>
-        <span class="card-link">進入實驗 &rarr;</span>
     </div>
 </div>
+
+<div class="menu-card" onclick="router.navigate('altitude-tool')">
+    <div class="card-icon">📐</div>
+    <div class="card-content">
+        <h3>實驗四：高度角觀測器</h3>
+        <p>動手操作虛擬觀測器，練習將瞄準管對準月亮，並從下垂的棉線讀取高度角刻度。</p>
+    </div>
+</div>
+
 
 <div class="menu-card" onclick="router.navigate('eclipse')">
     <div class="card-icon">☀️</div>
     <div class="card-content">
-        <h3>實驗四：日月食觀測</h3>
+        <h3>實驗五：日月食觀測</h3>
         <p>模擬日食與月食的成因，觀察本影與半影的變化，以及迷人的血月現象。</p>
-        <span class="card-link">進入實驗 &rarr;</span>
     </div>
 </div>
 
 <div class="menu-card" onclick="router.navigate('lunar-eclipse')">
     <div class="card-icon">🌕</div>
     <div class="card-content">
-        <h3>實驗五：月蝕觀測</h3>
+        <h3>實驗六：月蝕觀測</h3>
         <p>進入太空視角旋轉月球軌道，觀察月球進入地球本影時產生的「血月」現象。</p>
-        <span class="card-link">進入實驗 &rarr;</span>
     </div>
 </div>
 
 
-<div class="menu-card" onclick="router.navigate('altitude-tool')">
-    <div class="card-icon">📐</div>
-    <div class="card-content">
-        <h3>實驗六：高度角觀測器</h3>
-        <p>動手操作虛擬觀測器，練習將瞄準管對準月亮，並從下垂的棉線讀取高度角刻度。</p>
-        <span class="card-link">進入實驗 &rarr;</span>
-    </div>
-</div>
-                <!-- 未來實驗預留卡片 (範例) -->
-                <div class="menu-card disabled">
-                    <div class="card-icon">🔭</div>
-                    <div class="card-content">
-                        <h3>實驗三：地月距離 (開發中)</h3>
-                        <p>即將推出：觀測月球近地點與遠地點的大小變化。</p>
-                    </div>
-                </div>
+
+
+
+
+
             </div>
         </div>
     </main>
@@ -104,15 +97,14 @@
     <main id="view-phase" class="view-section">
         <div class="controls-container">
             <div class="control-row">
-                <button onclick="exp1.changeMonth(-1)">⬅ 前個月</button>
-                <button onclick="exp1.changeDay(-1)">◀ 前一天</button>
                 
-                <button onclick="exp1.setToday()" class="btn-primary" style="background: var(--accent-color); color: var(--bg-color);">今天</button>
+                <input type="date" id="datePicker1">                
                 
-                <input type="date" id="datePicker1">
-                
-                <button onclick="exp1.changeDay(1)">後一天 ▶</button>
+				<button onclick="exp1.changeDay(-1)">◀ 前一天</button>
+				<button onclick="exp1.changeDay(1)">後一天 ▶</button>
+				<button onclick="exp1.changeMonth(-1)">⬅ 前個月</button>
                 <button onclick="exp1.changeMonth(1)">下個月 ➡</button>
+				<button onclick="exp1.setToday()" class="btn-primary" style="background: var(--accent-color); color: var(--bg-color);">今天</button>
             </div>
             
             <div class="toggle-group mt-15">
