@@ -67,16 +67,26 @@
         </div>
 
         <div v-if="view === 'sim' && simParams.type === 'reflection'" 
-             class="absolute top-20 left-4 z-40 flex flex-col gap-3 select-none">
-            <label class="flex items-center gap-2 cursor-pointer group opacity-90 hover:opacity-100 transition">
-                <input type="checkbox" v-model="simParams.showAngles" 
-                       class="w-5 h-5 cursor-pointer rounded border-slate-500 bg-slate-700/50 accent-yellow-400">
-                <span class="font-bold text-sm tracking-wide text-yellow-400" 
-                      style="text-shadow: 0 2px 4px rgba(0,0,0,0.8)">
-                    顯示角度
-                </span>
-            </label>
-        </div>
+			 class="absolute top-20 left-4 z-40 flex flex-col gap-3 select-none">
+			
+			<label class="flex items-center gap-2 cursor-pointer group opacity-90 hover:opacity-100 transition">
+				<input type="checkbox" v-model="simParams.showAngles" 
+					   class="w-5 h-5 cursor-pointer rounded border-slate-500 bg-slate-700/50 accent-yellow-400">
+				<span class="font-bold text-sm tracking-wide text-yellow-400" 
+					  style="text-shadow: 0 2px 4px rgba(0,0,0,0.8)">
+					顯示角度
+				</span>
+			</label>
+
+			<label class="flex items-center gap-2 cursor-pointer group opacity-90 hover:opacity-100 transition">
+				<input type="checkbox" v-model="simParams.showLabels" 
+					   class="w-5 h-5 cursor-pointer rounded border-slate-500 bg-slate-700/50 accent-cyan-400">
+				<span class="font-bold text-sm tracking-wide text-cyan-400" 
+					  style="text-shadow: 0 2px 4px rgba(0,0,0,0.8)">
+					顯示標籤
+				</span>
+			</label>
+		</div>
 
         <div v-if="view === 'lens'" class="absolute top-4 right-4 z-40 flex flex-col gap-4">
             <div class="bg-slate-800/90 p-1.5 rounded-lg border border-slate-600 flex gap-1 backdrop-blur-sm">

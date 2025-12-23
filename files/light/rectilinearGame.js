@@ -33,7 +33,7 @@ const RectilinearGame = {
             // 隨等級提升，孔洞逐漸縮小 (最窄 30px)
             const baseSize = 80;
             const minSize = 30;
-            const currentHoleSize = Math.max(minSize, baseSize - (game.level * 3));
+            const currentHoleSize = Math.max(minSize, baseSize - (game.level * 10));
             
             return {
                 x: x,

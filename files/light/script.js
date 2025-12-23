@@ -54,7 +54,8 @@ const startRectilinear = () => {
             sourceX: 300, 
             mirrorAngle: 0,
             activeMedia: ['water'],
-            showAngles: false 
+            showAngles: false,
+			showLabels: false
         });
         
         // 透鏡模擬參數
@@ -504,6 +505,57 @@ const startRectilinear = () => {
                 ctx.restore();
             }
 
+			if (view.value === 'sim' && type === 'reflection' && simParams.value.showLabels && ray) {
+				ctx.save();
+				ctx.font = 'bold 16px "Microsoft JhengHei", Arial';
+				ctx.textAlign = 'center';
+				ctx.textBaseline = 'middle';
+				ctx.shadowBlur = 4;
+				ctx.shadowColor = 'black';
+
+				const { start, hit, end, normalAngle } = ray;
+
+				// 1. 入射線：取入射光中點
+				ctx.fillStyle = '#facc15';
+				ctx.fillText('入射線', (start.x + hit.x) / 2 - 40, (start.y + hit.y) / 2 -40);
+
+				// 2. 反射線：取反射光中點
+				ctx.fillStyle = '#ef4444';
+				ctx.fillText('反射線', (hit.x + end.x) / 2 + 40, (hit.y + end.y) / 2);
+
+				// 3. 法線：在法線末端附近
+				ctx.fillStyle = '#ffffff';
+				const nx = hit.x + Math.cos(normalAngle) * 220;
+				const ny = hit.y + Math.sin(normalAngle) * 220;
+				ctx.fillText('法線', nx, ny - 20);
+
+				// 4. 入射點：在碰撞點下方
+				ctx.fillText('入射點', hit.x, hit.y + 30);
+
+				// 5. 入射角與反射角 (參考原本角度顯示的位置)
+				const labelDist = 110;
+				const angS = Math.atan2(start.y - hit.y, start.x - hit.x);
+				const angE = Math.atan2(end.y - hit.y, end.x - hit.x);
+				
+				// 計算夾角中間的角度來放文字
+				const midAngI = normalAngle + (angS - normalAngle) / 2;
+				const midAngR = normalAngle + (angE - normalAngle) / 2;
+
+				ctx.fillStyle = '#facc15';
+				ctx.fillText('入射角', hit.x + Math.cos(midAngI) * labelDist, hit.y + Math.sin(midAngI) * labelDist);
+				
+				ctx.fillStyle = '#ef4444';
+				ctx.fillText('反射角', hit.x + Math.cos(midAngR) * labelDist, hit.y + Math.sin(midAngR) * labelDist);
+
+
+				// 6. 反射面：在鏡子邊緣
+				ctx.fillStyle = '#94a3b8';
+				const mc = getMirrorCoords(width / 2, getInterfaceY(), simParams.value.mirrorAngle);
+				ctx.fillText('反射面', mc.x2 + 40, mc.y2);
+
+				ctx.restore();
+			}
+
             if (view.value === 'sim' && type === 'refraction') {
                 drawDashedArrow(sx, sy, hitX, hitY, '#facc15');
                 if (simParams.value.activeMedia.length === 0) { ctx.font = '20px sans-serif'; ctx.fillStyle = '#ef4444'; ctx.textAlign='center'; ctx.fillText('請勾選下方介質', width/2, height - 50); }
@@ -718,11 +770,13 @@ const handleMove = (e) => {
         hunter.value.sourceX = Math.max(20, Math.min(width - 20, p.x));
         if (!hunter.value.isFiring) hunter.value.rayProgress = 0;
     } else if (dt.type === 'hunter_mirror') {
-        const centerX = width / 2;
-        const limit = 200;
-        hunter.value.mirrorX = Math.max(centerX - limit, Math.min(centerX + limit, p.x));
-        if (!hunter.value.isFiring) hunter.value.rayProgress = 0;
-    } 
+		const centerX = width / 2;
+		// 將限制改為：寬度的 45% (即左右兩邊各留 5% 的邊距)
+		const limit = width * 0.35; 
+		hunter.value.mirrorX = Math.max(centerX - limit, Math.min(centerX + limit, p.x));
+		
+		if (!hunter.value.isFiring) hunter.value.rayProgress = 0;
+	}
 
     // --- 4. 多鏡反射沙盒 (Sandbox Mode) ---
     else if (dt.type === 'source') {
