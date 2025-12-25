@@ -32,8 +32,8 @@
         </div>
     </aside>
 
-    <main class="canvas-area">
-        <svg id="simulation" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
+<main class="canvas-area">
+        <svg id="simulation" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">
             <defs>
                 <linearGradient id="soilGradient" x1="0%" y1="0%" x2="0%" y2="100%">
                     <stop offset="0%" style="stop-color:#F0E6D2;" /> 
@@ -47,21 +47,21 @@
 
             <rect width="100%" height="100%" fill="#E3F2FD" />
             
-            <g id="cloud-left-group" transform="translate(100, 80)">
+            <g id="cloud-left-group" transform="translate(140, 80)">
                 <g class="cloud-btn">
                     <path d="M 0 0 C -20 0 -30 20 -10 30 C -10 45 15 50 25 40 C 40 45 60 30 50 15 C 50 0 30 -10 15 5 C 5 -5 0 0 0 0 Z" fill="#FFFFFF" />
                 </g>
             </g>
-            <g id="wind-left" class="wind-effect" transform="translate(170, 100)">
+            <g id="wind-left" class="wind-effect" transform="translate(210, 100)">
                 <path class="wind-line" d="M0 0 L 100 20" stroke="rgba(255,255,255,0.8)" stroke-width="3" fill="none" />
             </g>
 
-            <g id="cloud-right-group" transform="translate(650, 150)">
+            <g id="cloud-right-group" transform="translate(610, 150)">
                 <g class="cloud-btn">
                     <path d="M -10 10 Q -30 10 -35 -5 Q -35 -25 -10 -30 Q 0 -50 30 -45 Q 55 -55 75 -35 Q 95 -35 95 -10 Q 95 15 70 15 L -10 10 Z" fill="#FFFFFF" />
                 </g>
             </g>
-            <g id="wind-right" class="wind-effect" transform="translate(640, 100) scale(-1, 1)">
+            <g id="wind-right" class="wind-effect" transform="translate(600, 100) scale(-1, 1)">
                 <path class="wind-line" d="M0 0 L 100 20" stroke="rgba(255,255,255,0.8)" stroke-width="3" fill="none" />
             </g>
 
