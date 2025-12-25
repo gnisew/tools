@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>蓮花實驗 - 烏衣行</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <a href="../../index.html" class="back-link">‹ 返回首頁</a>
+            <h1>蓮花生態實驗</h1>
+        </div>
+
+        <div class="control-group">
+            <div class="label-row">
+                <label>💧 水位控制</label>
+                <span id="levelText" class="badge">中水位</span>
+            </div>
+            <input type="range" id="waterLevel" min="0" max="100" value="50">
+        </div>
+
+        <div class="info-card">
+            <h3>觀察重點</h3>
+            <ul>
+                <li>
+                    <span class="dot pink"></span>
+                    <strong>蓮花荷葉</strong>：莖較堅硬，直接挺出水面，是挺水性植物。
+                </li>
+                <li>
+                    <span class="dot brown"></span>
+                    <strong>蓮藕地下莖</strong>：蓮藕可以儲存養分，有孔洞可以儲存空氣。
+                </li>
+                <li>
+                    <span class="dot orange"></span>
+                    <strong>根</strong>：固定在水裡的泥土裡，根生長在蓮藕邊緣。
+                </li>
+            </ul>
+        </div>
+    </aside>
+
+    <main class="canvas-area">
+        <svg id="simulation" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
+            <defs>
+                <linearGradient id="soilGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" style="stop-color:#F0E6D2;stop-opacity:1" /> 
+                    <stop offset="100%" style="stop-color:#D7CCC8;stop-opacity:1" /> 
+                </linearGradient>
+                
+                <linearGradient id="petalGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" style="stop-color:#E91E63;stop-opacity:1" /> 
+                    <stop offset="40%" style="stop-color:#F48FB1;stop-opacity:1" /> 
+                    <stop offset="95%" style="stop-color:#FFFFFF;stop-opacity:1" /> 
+                </linearGradient>
+                
+                <radialGradient id="leafGradient" cx="50%" cy="40%" r="50%" fx="50%" fy="40%">
+                    <stop offset="0%" style="stop-color:#81C784;stop-opacity:1" /> 
+                    <stop offset="100%" style="stop-color:#2E7D32;stop-opacity:1" /> 
+                </radialGradient>
+
+                <linearGradient id="sideLeafGradient" x1="0%" y1="100%" x2="0%" y2="0%">
+                    <stop offset="0%" style="stop-color:#A5D6A7;stop-opacity:1" /> 
+                    <stop offset="100%" style="stop-color:#66BB6A;stop-opacity:1" /> 
+                </linearGradient>
+            </defs>
+
+            <!-- 背景 -->
+            <rect width="100%" height="100%" fill="#E3F2FD" />
+
+            <!-- 土壤 -->
+            <path d="M0 480 Q 400 470 800 480 L 800 600 L 0 600 Z" fill="url(#soilGradient)" />
+            
+            <!-- 莖 (Stems) -->
+            <g id="stems-layer"></g>
+
+            <!-- 蓮藕層 (Rhizome) -->
+            <g id="rhizome-layer">
+                <g stroke="#8D6E63" stroke-width="2" fill="none" stroke-linecap="round">
+                    <g transform="translate(170, 505)"><path d="M0 0 L -15 25" /><path d="M0 0 L -5 30" /><path d="M0 0 L 5 25" /></g>
+                    <g transform="translate(280, 510)"><path d="M0 0 L -10 40" /><path d="M0 0 L 0 50" /><path d="M0 0 L 15 45" /><path d="M0 0 L -5 30" /></g>
+                    <g transform="translate(370, 505)"><path d="M0 0 L -12 35" /><path d="M0 0 L 5 45" /><path d="M0 0 L 15 30" /></g>
+                    <g transform="translate(450, 505)"><path d="M0 0 L -8 30" /><path d="M0 0 L 2 40" /><path d="M0 0 L 10 35" /></g>
+                    <g transform="translate(520, 505)"><path d="M0 0 L -5 25" /><path d="M0 0 L 5 30" /><path d="M0 0 L 15 20" /></g>
+                </g>
+
+                <g fill="#D2B48C" stroke="#A1887F" stroke-width="2">
+                    <ellipse cx="225" cy="505" rx="60" ry="26" transform="rotate(2 225 505)" />
+                    <ellipse cx="325" cy="508" rx="45" ry="20" transform="rotate(-2 325 508)" />
+                    <ellipse cx="410" cy="505" rx="40" ry="18" transform="rotate(1 410 505)" />
+                    <ellipse cx="485" cy="508" rx="35" ry="15" transform="rotate(-1 485 508)" />
+                </g>
+            </g>
+
+            <!-- 生物圖層 -->
+            <g id="creatures-layer"></g>
+
+            <!-- 水體 -->
+            <rect id="water-body" x="0" y="300" width="800" height="300" fill="rgba(33, 150, 243, 0.25)" />
+            <line id="water-surface" x1="0" y1="300" x2="800" y2="300" stroke="#29B6F6" stroke-width="2" stroke-dasharray="8,4" />
+
+            <!-- 空中部分 (Aerial Parts) -->
+            <g id="aerial-parts">
+                
+                <!-- 1. 葉1 (左) -->
+                <g transform="translate(220, 220)">
+                    <g id="leaf-1" class="plant-head">
+                        <g transform="rotate(-15)"> 
+                            <path d="M -80 0 Q -75 -25 -45 -40 Q -20 -45 0 -35 Q 30 -45 60 -40 Q 80 -25 75 0 Q 80 25 60 40 Q 30 45 0 35 Q -20 45 -45 40 Q -75 25 -80 0 Z" 
+                                  fill="url(#leafGradient)" stroke="#3E2723" stroke-width="1.5" />
+                            <g stroke="#3E2723" stroke-width="0.8" fill="none" opacity="0.5">
+                                <path d="M0 0 Q -25 -5 -50 -10 L -65 -15 M -50 -10 L -60 -5" /><path d="M0 0 Q -20 -10 -40 -25 L -55 -30 M -40 -25 L -50 -35" /><path d="M0 0 Q -5 -15 0 -30 L -5 -40 M 0 -30 L 5 -40" /><path d="M0 0 Q 15 -15 45 -25 L 55 -30 M 45 -25 L 60 -20" /><path d="M0 0 Q 25 -5 55 0 L 70 -5 M 55 0 L 70 5" /><path d="M0 0 Q 20 10 45 25 L 60 30 M 45 25 L 55 35" /><path d="M0 0 Q 5 15 0 30 L 5 40 M 0 30 L -5 40" /><path d="M0 0 Q -15 15 -40 25 L -50 35 M -40 25 L -55 30" />
+                            </g>
+                            <circle cx="0" cy="0" r="3" fill="#3E2723"/>
+                        </g>
+                    </g>
+                </g>
+
+                <!-- 2. 主花 (修正內層花瓣高度) -->
+                <g transform="translate(300, 210)">
+                    <g id="flower-head" class="plant-head">
+                        <g transform="translate(0, -10) scale(0.9)">
+                            
+                            <!-- 花托 -->
+                            <path d="M -5 0 Q 0 5 5 0 L 0 0 Z" fill="#7CB342" stroke="none" />
+
+                            <!-- 外層花瓣 (保持不變) -->
+                            <g stroke="#C2185B" stroke-width="0.8" fill="url(#petalGradient)">
+                                <path d="M 0 0 C 25 -10 35 -40 0 -75 C -35 -40 -25 -10 0 0" transform="rotate(75)" />
+                                <path d="M 0 0 C 25 -10 35 -40 0 -75 C -35 -40 -25 -10 0 0" transform="rotate(-75)" />
+                                <path d="M 0 0 C 20 -10 30 -45 0 -80 C -30 -45 -20 -10 0 0" transform="rotate(40)" />
+                                <path d="M 0 0 C 20 -10 30 -45 0 -80 C -30 -45 -20 -10 0 0" transform="rotate(-40)" />
+                                <path d="M 0 0 C 15 -15 25 -50 0 -85 C -25 -50 -15 -15 0 0" transform="rotate(15)" />
+                                <path d="M 0 0 C 15 -15 25 -50 0 -85 C -25 -50 -15 -15 0 0" transform="rotate(-15)" />
+                            </g>
+
+                            <!-- 蓮蓬 (位置維持) -->
+                            <g transform="translate(0, -38)">
+                                <path d="M -12 0 Q 0 10 12 0 L 10 -6 Q 0 -2 -10 -6 Z" fill="#FDD835" stroke="#FBC02D" stroke-width="0.5" />
+                                <ellipse cx="0" cy="-6" rx="10" ry="4" fill="#FFF176" stroke="#FBC02D" stroke-width="0.5" />
+                                <circle cx="0" cy="-6" r="1" fill="#558B2F" /><circle cx="-5" cy="-7" r="1" fill="#558B2F" /><circle cx="5" cy="-7" r="1" fill="#558B2F" /><circle cx="-4" cy="-4" r="1" fill="#558B2F" /><circle cx="4" cy="-4" r="1" fill="#558B2F" />
+                            </g>
+
+                            <!-- 內層花瓣 (變短、彎曲露出蓮蓬) -->
+                            <g stroke="#C2185B" stroke-width="0.8" fill="url(#petalGradient)">
+                                <!-- 左後 (稍微外彎) -->
+                                <path d="M 0 0 C 15 -10 20 -30 0 -55 C -20 -30 -15 -10 0 0" transform="rotate(-30)" />
+                                <!-- 右後 (稍微外彎) -->
+                                <path d="M 0 0 C 15 -10 20 -30 0 -55 C -20 -30 -15 -10 0 0" transform="rotate(30)" />
+                                <!-- 左前 (變短、明顯外彎) -->
+                                <path d="M 0 0 C 18 -5 22 -20 0 -40 C -22 -20 -18 -5 0 0" transform="rotate(-65)" />
+                                <!-- 右前 (變短、明顯外彎) -->
+                                <path d="M 0 0 C 18 -5 22 -20 0 -40 C -22 -20 -18 -5 0 0" transform="rotate(65)" />
+                                <!-- 正前 (最矮，露出下方蓮蓬) -->
+                                <path d="M 0 0 C 15 -5 20 -20 0 -35 C -20 -20 -15 -5 0 0" />
+                            </g>
+
+                        </g>
+                    </g>
+                </g>
+
+                <!-- 3. 花苞 -->
+                <g transform="translate(440, 300)">
+                    <g id="flower-bud" class="plant-head">
+                        <path d="M0 0 C -12 -15 -18 -40 0 -70 C 18 -40 12 -15 0 0" fill="url(#petalGradient)" stroke="#C2185B" stroke-width="0.5"/>
+                        <path d="M0 0 C -8 -5 -8 -20 0 -35 C 8 -20 8 -5 0 0" fill="#7CB342" stroke="none" transform="scale(0.6) translate(0, 5)" />
+                    </g>
+                </g>
+
+                <!-- 4. 葉2 (大葉) -->
+                <g transform="translate(400, 180)">
+                    <g id="leaf-2" class="plant-head">
+                        <g transform="rotate(5)"> 
+                            <path d="M -60 -50 Q -30 -80 0 -70 Q 30 -80 60 -50 L 0 0 Z" fill="#2E7D32" stroke="#1B5E20" stroke-width="1.5"/>
+                            <g stroke="#81C784" stroke-width="0.5" fill="none" opacity="0.4">
+                                <path d="M0 0 L -40 -50 M -40 -50 L -50 -55 M -40 -50 L -30 -58" /><path d="M0 0 L 0 -60 M 0 -60 L -5 -65 M 0 -60 L 5 -65" /><path d="M0 0 L 40 -50 M 40 -50 L 30 -58 M 40 -50 L 50 -55" />
+                            </g>
+                            <path d="M 0 0 L -60 -50 Q -30 -40 0 -35 Q 30 -40 60 -50 L 0 0 Z" fill="url(#sideLeafGradient)" stroke="#3E2723" stroke-width="1.5"/>
+                            <g stroke="#3E2723" stroke-width="0.6" fill="none" opacity="0.6">
+                                <path d="M0 0 Q -25 -25 -55 -45 L -60 -48 M -55 -45 L -52 -49" /><path d="M0 0 Q -10 -20 -20 -35 L -23 -38 M -20 -35 L -17 -38" /><path d="M0 0 L 0 -30 L -3 -34 M 0 -30 L 3 -34" /><path d="M0 0 Q 10 -20 20 -35 L 17 -38 M 20 -35 L 23 -38" /><path d="M0 0 Q 25 -25 55 -45 L 52 -49 M 55 -45 L 60 -48" />
+                            </g>
+                            <circle cx="0" cy="0" r="3" fill="#3E2723"/>
+                        </g>
+                    </g>
+                </g>
+
+                <!-- 5. 葉3 (小葉) -->
+                <g transform="translate(550, 240)">
+                    <g id="leaf-3" class="plant-head">
+                        <g transform="rotate(10)"> 
+                            <path d="M -60 0 Q -55 -10 -40 -20 Q -20 -28 0 -25 Q 20 -28 40 -20 Q 55 -10 60 0 Q 55 10 40 20 Q 20 28 0 25 Q -20 28 -40 20 Q -55 10 -60 0 Z" fill="url(#leafGradient)" stroke="#3E2723" stroke-width="1.5"/>
+                            <g stroke="#3E2723" stroke-width="0.6" fill="none" opacity="0.6">
+                                <path d="M0 0 Q -25 -5 -45 0 L -50 -2 M -45 0 L -50 2" /><path d="M0 0 Q -15 -8 -30 -15 L -33 -18 M -30 -15 L -28 -18" /><path d="M0 0 Q -5 -12 0 -20 L -3 -23 M 0 -20 L 3 -23" /><path d="M0 0 Q 10 -12 30 -15 L 33 -18 M 30 -15 L 28 -18" /><path d="M0 0 Q 25 -5 45 0 L 50 -2 M 45 0 L 50 2" /><path d="M0 0 Q 15 8 30 15 L 33 18 M 30 15 L 28 18" /><path d="M0 0 Q 5 12 0 20 L 3 23 M 0 20 L -3 23" /><path d="M0 0 Q -10 12 -30 15 L -33 18 M -30 15 L -28 18" />
+                            </g>
+                            <circle cx="0" cy="0" r="2.5" fill="#3E2723"/>
+                        </g>
+                    </g>
+                </g>
+
+            </g>
+        </svg>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>睡蓮實驗 - 烏衣行</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <a href="../../index.html" class="back-link">‹ 返回首頁</a>
+            <h1>睡蓮生態實驗</h1>
+        </div>
+
+        <div class="control-group">
+            <div class="label-row">
+                <label>💧 水位控制</label>
+                <span id="levelText" class="badge">中水位</span>
+            </div>
+            <input type="range" id="waterLevel" min="0" max="100" value="50">
+        </div>
+
+        <div class="info-card">
+            <h3>觀察重點</h3>
+            <ul>
+                <li>
+                    <span class="dot purple"></span>
+                    <strong>花超出水面</strong>：莖部堅硬，位置固定。
+                </li>
+                <li>
+                    <span class="dot green"></span>
+                    <strong>葉浮在水面</strong>：低水位時葉柄彎曲，高水位時葉柄伸直。
+                </li>
+                <li>
+                    <span class="dot orange"></span>
+                    <strong>根固定在土裡</strong>：柔軟的莖連結到根部，固定在水裡的泥土裡。
+                </li>
+            </ul>
+        </div>
+    </aside>
+
+    <main class="canvas-area">
+        <svg id="simulation" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
+            <defs>
+                <linearGradient id="soilGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" style="stop-color:#795548;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#4E342E;stop-opacity:1" />
+                </linearGradient>
+            </defs>
+
+            <!-- 背景 -->
+            <rect width="100%" height="100%" fill="#E3F2FD" />
+
+            <!-- 土壤 -->
+            <path d="M0 500 Q 400 460 800 500 L 800 600 L 0 600 Z" fill="url(#soilGradient)" />
+            
+            <!-- 根部 -->
+            <g id="roots" transform="translate(400, 485)" opacity="0.8">
+                <path d="M0 0 C -5 20, 5 40, 0 80" stroke="#3E2723" stroke-width="3" fill="none"/>
+                <path d="M0 0 Q -20 30 -50 60" stroke="#5D4037" stroke-width="2" fill="none"/>
+                <path d="M0 0 Q -10 40 -30 70" stroke="#5D4037" stroke-width="2" fill="none"/>
+                <path d="M0 0 Q 20 30 50 60" stroke="#5D4037" stroke-width="2" fill="none"/>
+                <path d="M0 0 Q 10 40 30 70" stroke="#5D4037" stroke-width="2" fill="none"/>
+            </g>
+
+            <!-- 生物圖層 -->
+            <g id="creatures-layer"></g>
+
+            <!-- 植物主體 -->
+            <path id="flower-stem" stroke="#689F38" stroke-width="6" fill="none" />
+            <path id="stem-1" class="stem" stroke="#558B2F" stroke-width="4" fill="none" />
+            <path id="stem-2" class="stem" stroke="#558B2F" stroke-width="4" fill="none" />
+            <path id="stem-3" class="stem" stroke="#7CB342" stroke-width="3" fill="none" />
+            <path id="stem-4" class="stem" stroke="#7CB342" stroke-width="3" fill="none" />
+
+            <!-- 水體 -->
+            <rect id="water-body" x="0" y="300" width="800" height="300" fill="rgba(33, 150, 243, 0.25)" />
+            <line id="water-surface" x1="0" y1="300" x2="800" y2="300" stroke="#29B6F6" stroke-width="2" stroke-dasharray="8,4" />
+
+            <!-- 葉子 -->
+            <g id="leaf-1"><ellipse rx="65" ry="14" fill="#43A047" stroke="#2E7D32" /></g>
+            <g id="leaf-2"><ellipse rx="70" ry="15" fill="#43A047" stroke="#2E7D32" /></g>
+            <g id="leaf-3"><ellipse rx="45" ry="10" fill="#66BB6A" stroke="#388E3C" /></g>
+            <g id="leaf-4"><ellipse rx="50" ry="11" fill="#66BB6A" stroke="#388E3C" /></g>
+
+            <!-- 花朵 -->
+            <g id="flower-head" transform="translate(400, 150)">
+                <path d="M0 0 C -15 -45, -30 -60, 0 -90 C 30 -60, 15 -45, 0 0" fill="#AB47BC" />
+                <path d="M0 0 C -25 -30, -50 -40, -40 -80" fill="#CE93D8" />
+                <path d="M0 0 C 25 -30, 50 -40, 40 -80" fill="#CE93D8" />
+                <path d="M0 0 C -10 -25, -35 -25, -45 -55" fill="#E1BEE7" />
+                <path d="M0 0 C 10 -25, 35 -25, 45 -55" fill="#E1BEE7" />
+                <ellipse cx="0" cy="-20" rx="6" ry="20" fill="#FFEB3B" />
+            </g>
+
+        </svg>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

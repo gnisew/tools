@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>水蘊草生態實驗 - 烏衣行</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <a href="../../index.html" class="back-link">‹ 返回首頁</a>
+            <h1>水蘊草生態實驗</h1>
+        </div>
+
+        <div class="control-group">
+            <div class="label-row">
+                <label>💧 水位控制</label>
+                <span id="levelText" class="badge">中水位</span>
+            </div>
+            <input type="range" id="waterLevel" min="0" max="100" value="70">
+        </div>
+
+        <div class="info-card">
+            <h3>觀察重點</h3>
+            <ul>
+                <li>
+                    <span class="dot orange"></span>
+                    <strong>高水位適應</strong>：植物利用浮力直立。
+                </li>
+                <li>
+                    <span class="dot pink"></span>
+                    <strong>低水位適應</strong>：柔軟的莖會隨水面彎曲。
+                </li>
+                <li>
+                    <span class="dot green"></span>
+                    <strong>鬚狀根系</strong>：主幹向下延伸細密的鬚狀根毛，以固定在泥土。
+                </li>
+
+            </ul>
+        </div>
+    </aside>
+
+    <main class="canvas-area">
+        <svg id="simulation" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
+            <defs>
+                <linearGradient id="soilGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" style="stop-color:#455A64;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#263238;stop-opacity:1" />
+                </linearGradient>
+                
+                <g id="leaf-whorl">
+                    <ellipse rx="9" ry="2.5" fill="#4CAF50" opacity="0.8" transform="rotate(0) translate(7,0)"/>
+                    <ellipse rx="9" ry="2.5" fill="#4CAF50" opacity="0.8" transform="rotate(72) translate(7,0)"/>
+                    <ellipse rx="9" ry="2.5" fill="#4CAF50" opacity="0.8" transform="rotate(144) translate(7,0)"/>
+                    <ellipse rx="9" ry="2.5" fill="#4CAF50" opacity="0.8" transform="rotate(216) translate(7,0)"/>
+                    <ellipse rx="9" ry="2.5" fill="#4CAF50" opacity="0.8" transform="rotate(288) translate(7,0)"/>
+                </g>
+
+                <g id="plant-root">
+                    <circle cx="0" cy="0" r="1.8" fill="#5D4037" opacity="0.7"/>
+
+                    <path d="M0 0 C 1 20, -2 50, 0 85" stroke="#6D4C41" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+                    <path d="M0 0 C -2 15, 3 45, -1 75" stroke="#6D4C41" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.9"/>
+
+                    <path d="M0.5 15 Q 8 25, 12 45" stroke="#8D6E63" stroke-width="1" fill="none" opacity="0.8" stroke-linecap="round"/>
+                    <path d="M-0.5 35 Q 6 45, 8 65" stroke="#8D6E63" stroke-width="0.9" fill="none" opacity="0.8" stroke-linecap="round"/>
+                    
+                    <path d="M-0.5 20 Q -8 30, -10 50" stroke="#8D6E63" stroke-width="1" fill="none" opacity="0.8" stroke-linecap="round"/>
+                    <path d="M0.5 40 Q -6 55, -8 70" stroke="#8D6E63" stroke-width="0.9" fill="none" opacity="0.8" stroke-linecap="round"/>
+
+                    <g opacity="0.6" stroke="#A1887F" stroke-width="0.6" stroke-linecap="round">
+                        <path d="M1 10 Q 10 15, 15 30" fill="none"/>
+                        <path d="M-1 12 Q -10 18, -14 35" fill="none"/>
+                        <path d="M10 40 Q 15 45, 18 55" fill="none"/>
+                        <path d="M-8 45 Q -14 50, -16 60" fill="none"/>
+                        <path d="M0 55 Q 4 65, 2 78" fill="none"/>
+                        <path d="M0 5 Q 5 10, 6 20" fill="none" opacity="0.5"/>
+                        <path d="M0 5 Q -5 10, -6 20" fill="none" opacity="0.5"/>
+                    </g>
+                </g>
+                </defs>
+
+            <rect width="100%" height="100%" fill="#E0F2F1" />
+            
+            <path d="M0 480 Q 400 460 800 480 L 800 600 L 0 600 Z" fill="url(#soilGradient)" />
+            
+            <g id="creatures-layer"></g>
+            <g id="plants-container"></g>
+
+            <rect id="water-body" x="0" y="200" width="800" height="400" fill="rgba(0, 188, 212, 0.2)" />
+            <line id="water-surface" x1="0" y1="200" x2="800" y2="200" stroke="#00ACC1" stroke-width="2" stroke-dasharray="10,5" />
+        </svg>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

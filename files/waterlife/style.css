@@ -1,0 +1,113 @@
+:root {
+    --bg-color: #f0f4f8;
+    --primary-color: #1a2a3a;
+    --text-main: #2c3e50;
+    --text-sub: #7f8c8d;
+    
+    /* 植物主題色 */
+    --color-lily: #9b59b6;      /* 睡蓮: 紫色調 */
+    --color-lotus: #e91e63;     /* 蓮花: 粉色調 */
+    --color-elodea: #27ae60;    /* 水蘊草: 綠色調 */
+    --color-hyacinth: #3498db;  /* 布袋蓮: 藍色調 */
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; }
+
+body { 
+    background-color: var(--bg-color); 
+    color: var(--text-main); 
+    user-select: none;
+    line-height: 1.6;
+}
+
+/* 頂部標題區優化 */
+.main-header {
+    background: linear-gradient(135deg, #1a2a3a 0%, #2c3e50 100%);
+    color: white;
+    padding: 3.5rem 1rem;
+    text-align: center;
+    clip-path: ellipse(120% 100% at 50% 0%); /* 圓弧底邊設計 */
+}
+
+.main-header h1 { font-size: 1.8rem; letter-spacing: 2px; margin-bottom: 8px; }
+.main-header p { font-size: 0.95rem; opacity: 0.8; font-weight: 300; }
+
+.container {
+    max-width: 800px;
+    margin: -30px auto 0; /* 往上提與標題交疊 */
+    padding: 0 20px 40px;
+}
+
+.experiment-list {
+    display: grid;
+    grid-template-columns: 1fr; /* 手機版單欄 */
+    gap: 18px;
+}
+
+/* 實驗卡片重新設計 */
+.experiment-card {
+    display: flex;
+    align-items: center;
+    background: #ffffff;
+    padding: 22px;
+    border-radius: 20px;
+    text-decoration: none;
+    color: inherit;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+/* 側邊裝飾色塊 */
+.experiment-card::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 8px;
+}
+
+.experiment-card:active { transform: scale(0.96); }
+
+/* 各卡片專屬色設定 */
+.card-lily { border-left: 8px solid var(--color-lily); }
+.card-lotus { border-left: 8px solid var(--color-lotus); }
+.card-elodea { border-left: 8px solid var(--color-elodea); }
+.card-hyacinth { border-left: 8px solid var(--color-hyacinth); }
+
+.card-icon { 
+    font-size: 2.8rem; 
+    margin-right: 20px;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+}
+
+.card-info h2 { font-size: 1.25rem; color: #34495e; margin-bottom: 4px; }
+.card-info p { font-size: 0.88rem; color: var(--text-sub); margin-bottom: 8px; }
+
+/* 植物類別標籤 */
+.tag {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    background: #f0f2f5;
+    color: #7f8c8d;
+}
+
+.arrow { 
+    margin-left: auto; 
+    width: 32px; height: 32px; 
+    background: #f8f9fa;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: #bdc3c7; font-size: 0.9rem;
+}
+
+.main-footer { text-align: center; padding: 40px 20px; color: #95a5a6; font-size: 0.85rem; }
+
+/* 平板與電腦版切換為雙欄 */
+@media (min-width: 600px) {
+    .experiment-list { grid-template-columns: 1fr 1fr; }
+    .main-header { padding: 5rem 1rem; }
+}

@@ -1,0 +1,123 @@
+/* 確保所有寬度計算包含內邊距 */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0; padding: 0;
+    font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+    background-color: #f0f2f5;
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+    user-select: none;
+}
+
+.sidebar {
+    width: 320px; background: #ffffff;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+    z-index: 20; display: flex; flex-direction: column; padding: 25px; flex-shrink: 0;
+    overflow-y: auto; /* 內容超出時顯示捲動條 */
+}
+
+/* 隱藏側邊欄捲動條視覺但保持功能 */
+.sidebar::-webkit-scrollbar { display: none; }
+.sidebar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.sidebar-header { margin-bottom: 20px; }
+.sidebar-header h1 { font-size: 1.4rem; color: #2c3e50; margin: 10px 0; }
+
+.back-link {
+    text-decoration: none;
+    color: #78909c;
+    font-size: 0.9rem;
+    font-weight: bold;
+    display: inline-block;
+    transition: color 0.2s;
+}
+.back-link:hover { color: #3498db; }
+
+.control-group { background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 25px; }
+.label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.badge { background: #e0f7fa; color: #00838f; padding: 4px 10px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; }
+
+input[type="range"] { width: 100%; cursor: pointer; accent-color: #00ACC1; }
+
+.info-card h3 { font-size: 1rem; color: #37474f; margin-bottom: 15px; }
+.info-card ul { list-style: none; padding: 0; }
+.info-card li { margin-bottom: 15px; font-size: 0.9rem; color: #546e7a; position: relative; padding-left: 20px; line-height: 1.5; }
+
+.dot { position: absolute; left: 0; top: 6px; width: 10px; height: 10px; border-radius: 50%; }
+.dot.green { background-color: #43A047; }
+.dot.orange { background-color: #FB8C00; }
+.dot.pink { background: #F48FB1; }
+
+.canvas-area { flex: 1; position: relative; background: #B2EBF2; overflow: hidden; }
+svg { width: 100%; height: 100%; display: block; }
+
+/* 生物動畫系統 */
+.creature-wrapper { transition: transform 0.8s ease-out; }
+
+@keyframes swimLeftToRight {
+    from { transform: translateX(-150px); }
+    to { transform: translateX(950px); }
+}
+
+@keyframes swimRightToLeft {
+    from { transform: translateX(950px) scaleX(-1); }
+    to { transform: translateX(-150px) scaleX(-1); }
+}
+
+.swim-lr { animation: swimLeftToRight linear infinite; }
+.swim-rl { animation: swimRightToLeft linear infinite; }
+.paused { animation-play-state: paused !important; }
+
+@keyframes gentleWave {
+    0%, 100% { transform: translateY(0); }
+    25% { transform: translateY(-10px); }
+    75% { transform: translateY(10px); }
+}
+.swimming-wave { animation: gentleWave 5s ease-in-out infinite; }
+
+/* --- 手機版響應式修正 (參考 Lotus 介面) --- */
+@media (max-width: 768px) {
+    body { 
+        flex-direction: column-reverse; /* 畫布在上，控制台在下 */
+        overflow-y: auto; 
+        height: auto;
+        overflow-x: hidden; 
+    }
+
+    .canvas-area { 
+        height: 50vh; /* 固定畫布高度，避免被壓縮 */
+        width: 100%;
+        flex-shrink: 0;
+    }
+
+    .sidebar { 
+        width: 100%; 
+        height: auto; 
+        padding: 20px; 
+        border-radius: 20px 20px 0 0;
+        margin-top: -20px; /* 稍微覆蓋在畫布上增加設計感 */
+        overflow: visible; 
+    }
+
+    .sidebar-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+    }
+
+    .sidebar-header h1 {
+        margin: 0;
+        font-size: 1.1rem;
+    }
+
+    .info-card { 
+        display: block; /* 在手機版也顯示，因為現在可以滾動了 */
+        border-top: 1px solid #eceff1;
+        padding-top: 20px;
+    }
+}
