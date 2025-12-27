@@ -24,16 +24,18 @@
 
         <div class="info-card">
             <h3>觀察重點</h3>
-            <ul>
+            <ul> 
+			    <li><span class="dot pink"></span><strong>葉面防水：</strong> 葉面光滑，可以防水。</li>
                 <li><span class="dot orange"></span><strong>浮囊構造：</strong> 葉柄基部膨大，提供浮力。</li>
                 <li><span class="dot brown"></span><strong>簇生根系：</strong> 懸浮於水中，維持平衡。</li>
-                <li><span class="dot pink"></span><strong>隨波逐流：</strong> 點擊上方雲朵，觀察布袋蓮隨風飄移。</li>
+                
             </ul>
         </div>
     </aside>
 
 <main class="canvas-area">
-        <svg id="simulation" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">
+        <svg id="simulation" viewBox="0 0 800 480" preserveAspectRatio="xMidYMax meet">
+
             <defs>
                 <linearGradient id="soilGradient" x1="0%" y1="0%" x2="0%" y2="100%">
                     <stop offset="0%" style="stop-color:#F0E6D2;" /> 
@@ -47,31 +49,73 @@
 
             <rect width="100%" height="100%" fill="#E3F2FD" />
             
-            <g id="cloud-left-group" transform="translate(140, 80)">
+            <!-- 新增：太陽 -->
+			<g transform="translate(220, 60)">
+				
+				<!-- 內層保留 id="sun-group"：專門負責「旋轉動畫」與「點擊事件」 -->
+				<!-- 注意：這裡不需要寫 transform，因為外層已經定好位置了 -->
+				<g id="sun-group">
+					<circle cx="0" cy="0" r="25" fill="#FDD835" />
+					<g stroke="#FDD835" stroke-width="4" stroke-linecap="round">
+						<line x1="0" y1="-32" x2="0" y2="-40" />
+						<line x1="0" y1="32" x2="0" y2="40" />
+						<line x1="-32" y1="0" x2="-40" y2="0" />
+						<line x1="32" y1="0" x2="40" y2="0" />
+						<line x1="-22" y1="-22" x2="-28" y2="-28" />
+						<line x1="22" y1="-22" x2="28" y2="-28" />
+						<line x1="-22" y1="22" x2="-28" y2="28" />
+						<line x1="22" y1="22" x2="28" y2="28" />
+					</g>
+				</g>
+				
+			</g>
+
+            <g id="cloud-left-group" transform="translate(50, 60)">
                 <g class="cloud-btn">
                     <path d="M 0 0 C -20 0 -30 20 -10 30 C -10 45 15 50 25 40 C 40 45 60 30 50 15 C 50 0 30 -10 15 5 C 5 -5 0 0 0 0 Z" fill="#FFFFFF" />
                 </g>
             </g>
-            <g id="wind-left" class="wind-effect" transform="translate(210, 100)">
+            <g id="wind-left" class="wind-effect" transform="translate(80, 80)">
                 <path class="wind-line" d="M0 0 L 100 20" stroke="rgba(255,255,255,0.8)" stroke-width="3" fill="none" />
+				<path class="wind-line" d="M0 10 L 100 60" stroke="rgba(255,255,255,0.8)" stroke-width="3" fill="none" />
             </g>
 
-            <g id="cloud-right-group" transform="translate(610, 150)">
+            <!-- 新增：中間雲朵 (下雨控制) -->
+            <g id="cloud-middle-group" transform="translate(480, 80)">
+                <g class="cloud-btn">
+                    <path class="cloud-path" d="M -35 15 Q -45 15 -50 5 Q -55 -15 -35 -25 Q -25 -45 5 -40 Q 25 -50 45 -30 Q 55 -30 55 -5 Q 55 20 35 20 L -35 15 Z" fill="#FFFFFF" />
+                </g>
+            </g>
+
+            <g id="cloud-right-group" transform="translate(680, 160)">
                 <g class="cloud-btn">
                     <path d="M -10 10 Q -30 10 -35 -5 Q -35 -25 -10 -30 Q 0 -50 30 -45 Q 55 -55 75 -35 Q 95 -35 95 -10 Q 95 15 70 15 L -10 10 Z" fill="#FFFFFF" />
                 </g>
             </g>
-            <g id="wind-right" class="wind-effect" transform="translate(600, 100) scale(-1, 1)">
+            <g id="wind-right" class="wind-effect" transform="translate(680, 160) scale(-1, 1)">
                 <path class="wind-line" d="M0 0 L 100 20" stroke="rgba(255,255,255,0.8)" stroke-width="3" fill="none" />
+				<path class="wind-line" d="M0 10 L 100 60" stroke="rgba(255,255,255,0.8)" stroke-width="3" fill="none" />
             </g>
 
-            <path d="M0 480 Q 400 470 800 480 L 800 600 L 0 600 Z" fill="url(#soilGradient)" />
+<g id="flying-layer"></g>
+
+            <!-- 新增：下雨圖層 (位於水體後方或上方皆可，這裡設在背景土壤前) -->
+            <g id="rain-layer"></g>
+
+            <path d="M0 450 Q 400 440 800 450 L 800 500 L 0 500 Z" fill="url(#soilGradient)" />
+
             <rect id="water-body" x="0" y="300" width="800" height="300" fill="rgba(33, 150, 243, 0.2)" />
             <line id="water-surface" x1="0" y1="300" x2="800" y2="300" stroke="#29B6F6" stroke-width="2" stroke-dasharray="8,4" />
 
             <g id="creatures-layer"></g>
 
-            <g id="hyacinth-position" transform="translate(400, 300)">
+
+
+<g id="turtle-layer"></g>
+
+<g id="snail-layer"></g>
+
+            <g id="hyacinth-position" transform="translate(400, 300)" style="cursor: pointer;">
                 <g id="hyacinth-lean-wrapper">
                     <g id="hyacinth-body">
                         <g id="roots" stroke="#5D4037" stroke-width="1.2" opacity="0.6">

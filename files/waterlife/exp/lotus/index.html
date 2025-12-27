@@ -33,10 +33,7 @@
                     <span class="dot brown"></span>
                     <strong>蓮藕地下莖</strong>：蓮藕可以儲存養分，有孔洞可以儲存空氣。
                 </li>
-                <li>
-                    <span class="dot orange"></span>
-                    <strong>根</strong>：固定在水裡的泥土裡，根生長在蓮藕邊緣。
-                </li>
+                <li><span class="dot pink"></span><strong>蓮葉效應</strong>蓮葉不沾水，有水時可以保持清潔。</li>
             </ul>
         </div>
     </aside>
@@ -68,6 +65,37 @@
 
             <!-- 背景 -->
             <rect width="100%" height="100%" fill="#E3F2FD" />
+
+            <!-- 新增：太陽 (點擊降低水位) -->
+            <!-- 外層 <g> 負責定位位置 -->
+            <g transform="translate(100, 120)">
+                <!-- 內層 <g> 負責旋轉動畫與點擊事件 (保留 id) -->
+                <g id="sun-group">
+                    <circle cx="0" cy="0" r="30" fill="#FDD835" />
+                    <g stroke="#FDD835" stroke-width="5" stroke-linecap="round">
+                        <line x1="0" y1="-38" x2="0" y2="-48" />
+                        <line x1="0" y1="38" x2="0" y2="48" />
+                        <line x1="-38" y1="0" x2="-48" y2="0" />
+                        <line x1="38" y1="0" x2="48" y2="0" />
+                        <line x1="-26" y1="-26" x2="-34" y2="-34" />
+                        <line x1="26" y1="-26" x2="34" y2="-34" />
+                        <line x1="-26" y1="26" x2="-34" y2="34" />
+                        <line x1="26" y1="26" x2="34" y2="34" />
+                    </g>
+                </g>
+            </g>
+
+            <!-- 雲朵 (點擊下雨升高水位) -->
+            <g transform="translate(650, 150)">
+                <!-- 內層 <g> 負責互動與縮放 (id 移動到這裡) -->
+                <g id="cloud-middle-group">
+                    <path class="cloud-path" d="M -35 15 Q -45 15 -50 5 Q -55 -15 -35 -25 Q -25 -45 5 -40 Q 25 -50 45 -30 Q 55 -30 55 -5 Q 55 20 35 20 L -35 15 Z" fill="#FFFFFF" transform="scale(1)" />
+                </g>
+            </g>
+
+
+            <!-- 新增：下雨圖層 -->
+            <g id="rain-layer"></g>
 
             <!-- 土壤 -->
             <path d="M0 480 Q 400 470 800 480 L 800 600 L 0 600 Z" fill="url(#soilGradient)" />
@@ -102,7 +130,7 @@
 
             <!-- 空中部分 (Aerial Parts) -->
             <g id="aerial-parts">
-                
+                <!-- 植物圖層保持不變 -->
                 <!-- 1. 葉1 (左) -->
                 <g transform="translate(220, 220)">
                     <g id="leaf-1" class="plant-head">
@@ -116,16 +144,11 @@
                         </g>
                     </g>
                 </g>
-
-                <!-- 2. 主花 (修正內層花瓣高度) -->
+                <!-- 2. 主花 -->
                 <g transform="translate(300, 210)">
                     <g id="flower-head" class="plant-head">
                         <g transform="translate(0, -10) scale(0.9)">
-                            
-                            <!-- 花托 -->
                             <path d="M -5 0 Q 0 5 5 0 L 0 0 Z" fill="#7CB342" stroke="none" />
-
-                            <!-- 外層花瓣 (保持不變) -->
                             <g stroke="#C2185B" stroke-width="0.8" fill="url(#petalGradient)">
                                 <path d="M 0 0 C 25 -10 35 -40 0 -75 C -35 -40 -25 -10 0 0" transform="rotate(75)" />
                                 <path d="M 0 0 C 25 -10 35 -40 0 -75 C -35 -40 -25 -10 0 0" transform="rotate(-75)" />
@@ -134,32 +157,21 @@
                                 <path d="M 0 0 C 15 -15 25 -50 0 -85 C -25 -50 -15 -15 0 0" transform="rotate(15)" />
                                 <path d="M 0 0 C 15 -15 25 -50 0 -85 C -25 -50 -15 -15 0 0" transform="rotate(-15)" />
                             </g>
-
-                            <!-- 蓮蓬 (位置維持) -->
                             <g transform="translate(0, -38)">
                                 <path d="M -12 0 Q 0 10 12 0 L 10 -6 Q 0 -2 -10 -6 Z" fill="#FDD835" stroke="#FBC02D" stroke-width="0.5" />
                                 <ellipse cx="0" cy="-6" rx="10" ry="4" fill="#FFF176" stroke="#FBC02D" stroke-width="0.5" />
                                 <circle cx="0" cy="-6" r="1" fill="#558B2F" /><circle cx="-5" cy="-7" r="1" fill="#558B2F" /><circle cx="5" cy="-7" r="1" fill="#558B2F" /><circle cx="-4" cy="-4" r="1" fill="#558B2F" /><circle cx="4" cy="-4" r="1" fill="#558B2F" />
                             </g>
-
-                            <!-- 內層花瓣 (變短、彎曲露出蓮蓬) -->
                             <g stroke="#C2185B" stroke-width="0.8" fill="url(#petalGradient)">
-                                <!-- 左後 (稍微外彎) -->
                                 <path d="M 0 0 C 15 -10 20 -30 0 -55 C -20 -30 -15 -10 0 0" transform="rotate(-30)" />
-                                <!-- 右後 (稍微外彎) -->
                                 <path d="M 0 0 C 15 -10 20 -30 0 -55 C -20 -30 -15 -10 0 0" transform="rotate(30)" />
-                                <!-- 左前 (變短、明顯外彎) -->
                                 <path d="M 0 0 C 18 -5 22 -20 0 -40 C -22 -20 -18 -5 0 0" transform="rotate(-65)" />
-                                <!-- 右前 (變短、明顯外彎) -->
                                 <path d="M 0 0 C 18 -5 22 -20 0 -40 C -22 -20 -18 -5 0 0" transform="rotate(65)" />
-                                <!-- 正前 (最矮，露出下方蓮蓬) -->
                                 <path d="M 0 0 C 15 -5 20 -20 0 -35 C -20 -20 -15 -5 0 0" />
                             </g>
-
                         </g>
                     </g>
                 </g>
-
                 <!-- 3. 花苞 -->
                 <g transform="translate(440, 300)">
                     <g id="flower-bud" class="plant-head">
@@ -167,7 +179,6 @@
                         <path d="M0 0 C -8 -5 -8 -20 0 -35 C 8 -20 8 -5 0 0" fill="#7CB342" stroke="none" transform="scale(0.6) translate(0, 5)" />
                     </g>
                 </g>
-
                 <!-- 4. 葉2 (大葉) -->
                 <g transform="translate(400, 180)">
                     <g id="leaf-2" class="plant-head">
@@ -184,7 +195,6 @@
                         </g>
                     </g>
                 </g>
-
                 <!-- 5. 葉3 (小葉) -->
                 <g transform="translate(550, 240)">
                     <g id="leaf-3" class="plant-head">
@@ -197,7 +207,6 @@
                         </g>
                     </g>
                 </g>
-
             </g>
         </svg>
     </main>

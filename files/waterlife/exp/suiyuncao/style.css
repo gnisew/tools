@@ -17,10 +17,9 @@ body {
     width: 320px; background: #ffffff;
     box-shadow: 2px 0 10px rgba(0,0,0,0.05);
     z-index: 20; display: flex; flex-direction: column; padding: 25px; flex-shrink: 0;
-    overflow-y: auto; /* 內容超出時顯示捲動條 */
+    overflow-y: auto; 
 }
 
-/* 隱藏側邊欄捲動條視覺但保持功能 */
 .sidebar::-webkit-scrollbar { display: none; }
 .sidebar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -51,6 +50,7 @@ input[type="range"] { width: 100%; cursor: pointer; accent-color: #00ACC1; }
 .dot.green { background-color: #43A047; }
 .dot.orange { background-color: #FB8C00; }
 .dot.pink { background: #F48FB1; }
+.dot.blue { background: #29B6F6; }
 
 .canvas-area { flex: 1; position: relative; background: #B2EBF2; overflow: hidden; }
 svg { width: 100%; height: 100%; display: block; }
@@ -58,16 +58,8 @@ svg { width: 100%; height: 100%; display: block; }
 /* 生物動畫系統 */
 .creature-wrapper { transition: transform 0.8s ease-out; }
 
-@keyframes swimLeftToRight {
-    from { transform: translateX(-150px); }
-    to { transform: translateX(950px); }
-}
-
-@keyframes swimRightToLeft {
-    from { transform: translateX(950px) scaleX(-1); }
-    to { transform: translateX(-150px) scaleX(-1); }
-}
-
+@keyframes swimLeftToRight { from { transform: translateX(-150px); } to { transform: translateX(950px); } }
+@keyframes swimRightToLeft { from { transform: translateX(950px) scaleX(-1); } to { transform: translateX(-150px) scaleX(-1); } }
 .swim-lr { animation: swimLeftToRight linear infinite; }
 .swim-rl { animation: swimRightToLeft linear infinite; }
 .paused { animation-play-state: paused !important; }
@@ -79,45 +71,101 @@ svg { width: 100%; height: 100%; display: block; }
 }
 .swimming-wave { animation: gentleWave 5s ease-in-out infinite; }
 
-/* --- 手機版響應式修正 (參考 Lotus 介面) --- */
+/* --- 新增：天氣特效樣式 --- */
+#sun-group { cursor: pointer; transition: filter 0.3s; transform-box: fill-box; transform-origin: center; }
+#sun-group:hover { filter: drop-shadow(0 0 8px #FFF176); }
+.sun-rotating { animation: sun-spin 10s linear infinite; }
+@keyframes sun-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+#cloud-middle-group { cursor: pointer; transition: transform 0.4s; transform-box: fill-box; transform-origin: center; }
+#cloud-middle-group:hover { transform: scale(1.1); }
+#cloud-middle-group .cloud-path { transition: fill 0.5s; }
+.raining-cloud .cloud-path { fill: #78909c !important; } /* 下雨時變深灰 */
+
+.rain-drop {
+    stroke: #4FC3F7;
+    stroke-width: 2;
+    stroke-linecap: round;
+    animation: rainfall 0.8s linear forwards;
+}
+
+@keyframes rainfall {
+    0% { transform: translateY(0); opacity: 0; }
+    20% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(300px); opacity: 0; }
+}
+
+/* --- 手機版響應式修正 --- */
 @media (max-width: 768px) {
     body { 
-        flex-direction: column-reverse; /* 畫布在上，控制台在下 */
+        flex-direction: column-reverse;
         overflow-y: auto; 
         height: auto;
         overflow-x: hidden; 
     }
+    .canvas-area { height: 50vh; width: 100%; flex-shrink: 0; }
+    .sidebar { width: 100%; height: auto; padding: 20px; border-radius: 20px 20px 0 0; margin-top: -20px; overflow: visible; }
+    .sidebar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .sidebar-header h1 { margin: 0; font-size: 1.1rem; }
+    .info-card { display: block; border-top: 1px solid #eceff1; padding-top: 20px; }
+}
 
-    .canvas-area { 
-        height: 50vh; /* 固定畫布高度，避免被壓縮 */
-        width: 100%;
-        flex-shrink: 0;
-    }
+/* 鴨子樣式 */
+.duck-emoji {
+    font-size: 50px;
+    user-select: none;
+    cursor: default;
+    /* 讓 emoji 置中於座標點 */
+    dominant-baseline: middle;
+    text-anchor: middle;
+}
 
-    .sidebar { 
-        width: 100%; 
-        height: auto; 
-        padding: 20px; 
-        border-radius: 20px 20px 0 0;
-        margin-top: -20px; /* 稍微覆蓋在畫布上增加設計感 */
-        overflow: visible; 
-    }
+/* 向右游時翻轉 Emoji */
+.duck-facing-right {
+    transform: scaleX(-1);
+}
 
-    .sidebar-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 20px;
-    }
+/* 讓鴨子游動稍微平滑一點 */
+.duck-group {
+    transition: transform 0s linear;
+}
 
-    .sidebar-header h1 {
-        margin: 0;
-        font-size: 1.1rem;
-    }
 
-    .info-card { 
-        display: block; /* 在手機版也顯示，因為現在可以滾動了 */
-        border-top: 1px solid #eceff1;
-        padding-top: 20px;
-    }
+
+
+
+
+@keyframes emojiJump {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-50px) scale(1.1); } /* 向上跳 50px 並稍微變大 */
+}
+
+.jumping {
+    /* 這裡必須加上 transform-box，SVG 元素動畫才不會跑位 */
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: emojiJump 0.5s ease-out;
+}
+
+.land-creature-clickable {
+    cursor: pointer;
+    user-select: none; 
+}
+
+
+#water-body {
+    fill: rgba(0, 188, 212, 0.2);
+    /* 關鍵修改：讓滑鼠事件穿透水體，這樣才能點到水下的生物 */
+    pointer-events: none;
+
+}
+
+/* 如果需要，水面線也可以加上 */
+#water-surface {
+    stroke: #00ACC1;
+    stroke-width: 2;
+    stroke-dasharray: 10,5;
+    /* 關鍵修改：讓滑鼠事件穿透水面線 */
+    pointer-events: none;
 }

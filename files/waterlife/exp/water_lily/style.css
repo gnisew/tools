@@ -137,11 +137,11 @@ svg { width: 100%; height: 100%; display: block; }
 }
 
 @keyframes sway {
-    0% { transform: translate(400px, 150px) rotate(0deg); }
-    25% { transform: translate(400px, 150px) rotate(3deg); }
-    50% { transform: translate(400px, 150px) rotate(-2deg); }
-    75% { transform: translate(400px, 150px) rotate(1deg); }
-    100% { transform: translate(400px, 150px) rotate(0deg); }
+    0% { transform: translate(400px, 180px) rotate(0deg); }
+    25% { transform: translate(400px, 180px) rotate(3deg); }
+    50% { transform: translate(400px, 180px) rotate(-2deg); }
+    75% { transform: translate(400px, 180px) rotate(1deg); }
+    100% { transform: translate(400px, 180px) rotate(0deg); }
 }
 
 .swaying { animation: sway 2.5s ease-in-out; }
@@ -201,4 +201,43 @@ svg { width: 100%; height: 100%; display: block; }
 
     /* 恢復顯示觀察重點，因為現在可以滾動了 */
     .info-card { display: block; }
+}
+
+/* --- 天氣與蜻蜓特效 --- */
+#sun-group { cursor: pointer; transition: filter 0.3s; transform-box: fill-box; transform-origin: center; }
+#sun-group:hover { filter: drop-shadow(0 0 8px #FFF176); }
+.sun-rotating { animation: sun-spin 8s linear infinite; }
+@keyframes sun-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+#cloud-middle-group { cursor: pointer; transition: transform 0.3s; transform-box: fill-box; transform-origin: center; }
+#cloud-middle-group:hover { transform: scale(1.1); }
+.raining-cloud .cloud-path { fill: #CFD8DC !important; transition: fill 0.5s; }
+
+.rain-drop {
+    stroke: #64B5F6;
+    stroke-width: 2;
+    stroke-linecap: round;
+    animation: rainfall 0.7s linear forwards;
+}
+@keyframes rainfall {
+    0% { transform: translateY(0); opacity: 0; }
+    20% { opacity: 1; }
+    100% { transform: translateY(300px); opacity: 0; }
+}
+
+/* 蜻蜓翅膀振動 */
+.dragonfly-wings {
+    animation: wing-flutter 0.08s infinite linear;
+    transform-origin: center;
+    transform-box: fill-box;
+}
+@keyframes wing-flutter {
+    0%, 100% { transform: scaleY(1); }
+    50% { transform: scaleY(0.5); }
+}
+.wings-stop .dragonfly-wings { animation: none !important; }
+
+/* 讓睡蓮的部分可以點擊 */
+#flower-head, #leaf-1, #leaf-2, #leaf-3, #leaf-4 {
+    cursor: pointer;
 }

@@ -31,7 +31,7 @@
                 </li>
                 <li>
                     <span class="dot pink"></span>
-                    <strong>低水位適應</strong>：柔軟的莖會隨水面彎曲。
+                    <strong>低水位適應</strong>：柔軟的莖會隨水面彎曲，或順水流擺動。
                 </li>
                 <li>
                     <span class="dot green"></span>
@@ -60,16 +60,12 @@
 
                 <g id="plant-root">
                     <circle cx="0" cy="0" r="1.8" fill="#5D4037" opacity="0.7"/>
-
                     <path d="M0 0 C 1 20, -2 50, 0 85" stroke="#6D4C41" stroke-width="1.4" fill="none" stroke-linecap="round"/>
                     <path d="M0 0 C -2 15, 3 45, -1 75" stroke="#6D4C41" stroke-width="1.2" fill="none" stroke-linecap="round" opacity="0.9"/>
-
                     <path d="M0.5 15 Q 8 25, 12 45" stroke="#8D6E63" stroke-width="1" fill="none" opacity="0.8" stroke-linecap="round"/>
                     <path d="M-0.5 35 Q 6 45, 8 65" stroke="#8D6E63" stroke-width="0.9" fill="none" opacity="0.8" stroke-linecap="round"/>
-                    
                     <path d="M-0.5 20 Q -8 30, -10 50" stroke="#8D6E63" stroke-width="1" fill="none" opacity="0.8" stroke-linecap="round"/>
                     <path d="M0.5 40 Q -6 55, -8 70" stroke="#8D6E63" stroke-width="0.9" fill="none" opacity="0.8" stroke-linecap="round"/>
-
                     <g opacity="0.6" stroke="#A1887F" stroke-width="0.6" stroke-linecap="round">
                         <path d="M1 10 Q 10 15, 15 30" fill="none"/>
                         <path d="M-1 12 Q -10 18, -14 35" fill="none"/>
@@ -80,17 +76,48 @@
                         <path d="M0 5 Q -5 10, -6 20" fill="none" opacity="0.5"/>
                     </g>
                 </g>
-                </defs>
+            </defs>
 
             <rect width="100%" height="100%" fill="#E0F2F1" />
+
+            <!-- 新增：太陽 (外層定位，內層互動) -->
+            <g transform="translate(120, 100)">
+                <g id="sun-group">
+                    <circle cx="0" cy="0" r="30" fill="#FDD835" />
+                    <g stroke="#FDD835" stroke-width="5" stroke-linecap="round">
+                        <line x1="0" y1="-38" x2="0" y2="-48" />
+                        <line x1="0" y1="38" x2="0" y2="48" />
+                        <line x1="-38" y1="0" x2="-48" y2="0" />
+                        <line x1="38" y1="0" x2="48" y2="0" />
+                        <line x1="-26" y1="-26" x2="-34" y2="-34" />
+                        <line x1="26" y1="-26" x2="34" y2="-34" />
+                        <line x1="-26" y1="26" x2="-34" y2="34" />
+                        <line x1="26" y1="26" x2="34" y2="34" />
+                    </g>
+                </g>
+            </g>
+
+            <!-- 新增：雲朵 -->
+            <g transform="translate(600, 120)">
+                <g id="cloud-middle-group">
+                    <path class="cloud-path" d="M -35 15 Q -45 15 -50 5 Q -55 -15 -35 -25 Q -25 -45 5 -40 Q 25 -50 45 -30 Q 55 -30 55 -5 Q 55 20 35 20 L -35 15 Z" fill="#FFFFFF" transform="scale(1)" />
+                </g>
+            </g>
+
+            <!-- 新增：下雨圖層 -->
+            <g id="rain-layer"></g>
             
             <path d="M0 480 Q 400 460 800 480 L 800 600 L 0 600 Z" fill="url(#soilGradient)" />
             
             <g id="creatures-layer"></g>
             <g id="plants-container"></g>
-
-            <rect id="water-body" x="0" y="200" width="800" height="400" fill="rgba(0, 188, 212, 0.2)" />
+			
+			<rect id="water-body" x="0" y="200" width="800" height="400" fill="rgba(0, 188, 212, 0.2)" />
             <line id="water-surface" x1="0" y1="200" x2="800" y2="200" stroke="#00ACC1" stroke-width="2" stroke-dasharray="10,5" />
+			<g id="duck-layer"></g> 
+            
+            
+        </svg>
         </svg>
     </main>
 

@@ -78,6 +78,30 @@ svg { width: 100%; height: 100%; display: block; }
 .swim-lr { animation: swim-lr linear; }
 .swim-rl { animation: swim-rl linear; }
 
+/* --- 新增：天氣互動樣式 --- */
+#sun-group { cursor: pointer; transition: filter 0.3s; transform-box: fill-box; transform-origin: center; }
+#sun-group:hover { filter: drop-shadow(0 0 8px #FFF176); }
+.sun-rotating { animation: sun-spin 10s linear infinite; }
+@keyframes sun-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+#cloud-middle-group { cursor: pointer; transition: fill 0.5s; }
+#cloud-middle-group:hover .cloud-path { fill: #f5f5f5; }
+.raining-cloud .cloud-path { fill: #90A4AE !important; } /* 下雨時雲變灰 */
+
+.rain-drop {
+    stroke: #64B5F6;
+    stroke-width: 2;
+    stroke-linecap: round;
+    animation: rainfall 0.8s linear forwards;
+}
+
+@keyframes rainfall {
+    0% { transform: translateY(0); opacity: 0; }
+    20% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { transform: translateY(300px); opacity: 0; }
+}
+
 /* --- RWD 手機版修正 --- */
 @media (max-width: 768px) {
     body {
@@ -109,4 +133,69 @@ svg { width: 100%; height: 100%; display: block; }
         height: 55vh; /* 畫布佔螢幕高度一半以上 */
         flex: none;
     }
+}
+
+/* 烏龜樣式 */
+.turtle {
+    font-size: 100px;
+    transition: transform 0s ease-in-out;
+    user-select: none;
+}
+
+/* 讓文字（Emoji）置中對齊座標點 */
+.turtle-text {
+    dominant-baseline: middle;
+    text-anchor: middle;
+}
+
+/* 向右走時翻轉 Emoji */
+.facing-right {
+    transform: scaleX(-1);
+}
+
+/* 蝸牛樣式 (與烏龜類似，但稍微小一點) */
+.snail {
+    font-size: 40px;
+    transition: transform 0s linear;
+    user-select: none;
+}
+
+
+
+/* 定義下沉再浮起的動畫 */
+@keyframes sinkEffect {
+    0% { transform: translateY(0); }
+    40% { transform: translateY(20px); }
+    100% { transform: translateY(0); }    /* 回到原位 */
+}
+
+.clicked-sink {
+    /* 這裡的時間要跟 JS 的 setTimeout 一致，例如 0.6s = 600ms */
+    animation: sinkEffect 0.8s ease-in-out;
+}
+
+/* --- 飛行物體樣式與動畫 --- */
+.flying-emoji {
+    font-size: 40px;
+    dominant-baseline: middle;
+    text-anchor: middle;
+    pointer-events: none; /* 避免干擾點擊 */
+}
+
+@keyframes fly-lr {
+    from { transform: translateX(-60px); }
+    to { transform: translateX(860px); }
+}
+
+@keyframes fly-rl {
+    from { transform: translateX(860px) scaleX(-1); } /* 往左飛時翻轉 */
+    to { transform: translateX(-60px) scaleX(-1); }
+}
+
+.fly-animation-lr {
+    animation: fly-lr 8s linear forwards;
+}
+
+.fly-animation-rl {
+    animation: fly-rl 8s linear forwards;
 }
