@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>紫色高麗菜酸鹼實驗室-烏衣行</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app-wrapper">
+    <header class="top-nav">
+        <h1>🥷烏衣行 - 紫色高麗菜實驗室</h1>
+        <button class="reset-button" onclick="resetLab()">🔄 重新實驗</button>
+    </header>
+
+    <main class="lab-main">
+        <aside class="side-panel selection-area">
+            <h3>1. 選擇待測溶液</h3>
+            <div class="button-grid">
+				<button class="liquid-btn" onclick="selectLiquid('lemon')">🍋 檸檬汁</button>
+				<button class="liquid-btn" onclick="selectLiquid('vinegar')">🍶 食醋</button>
+				<button class="liquid-btn" onclick="selectLiquid('hcl')">🧪 鹽酸</button>
+				<button class="liquid-btn" onclick="selectLiquid('sparkling')">🫧 氣泡水</button>
+				<button class="liquid-btn" onclick="selectLiquid('water')">💧 純水</button>
+				<button class="liquid-btn" onclick="selectLiquid('soda')">⚪ 小蘇打</button>
+				<button class="liquid-btn" onclick="selectLiquid('soap')">🧼 肥皂水</button>
+				<button class="liquid-btn" onclick="selectLiquid('bleach')">⚪ 漂白水</button>
+				<button class="liquid-btn" onclick="selectLiquid('sodium_per')">✨ 過碳酸鈉</button>
+			</div>
+
+            <h3 style="margin-top: 25px;">2. 準備指示劑</h3>
+            <button id="add-juice-btn" class="action-btn disabled" onclick="fillDropper()">+ 紫色高麗菜汁</button>
+        </aside>
+
+        <section class="experiment-stage">
+            <div class="glassware-container">
+                <div id="dropper" class="dropper disabled" onclick="triggerDrip()">
+                    <div id="dropper-bulb" class="dropper-bulb"></div>
+                    <div class="dropper-tube">
+                        <div id="dropper-liquid" class="juice-fill"></div>
+                    </div>
+                </div>
+                
+                <div id="drop-particle" class="water-drop"></div>
+
+                <div class="beaker">
+                    <div id="beaker-emoji" class="beaker-emoji"></div>
+                    
+                    <div id="base-liquid" class="liquid-fill">
+                        <div class="surface-line"></div>
+                    </div>
+                    <div id="color-overlay" class="liquid-fill overlay">
+                        <div class="surface-line"></div>
+                    </div>
+                    <div id="inner-label" class="beaker-name-display"></div>
+                </div>
+            </div>
+        </section>
+
+        <aside class="side-panel info-area">
+            <div class="info-card report">
+                <h3>📋 實驗觀察紀錄</h3>
+                <p id="status-msg">請先點選左側溶液開始。</p>
+                <div id="drop-counter" class="hide">已滴入：0 / 5 滴</div>
+            </div>
+
+<div class="info-card solution-intro">
+    <h3>📖 溶液小百科</h3>
+    <p id="intro-placeholder">請選擇左側溶液以查看詳細介紹。</p>
+
+    <div id="intro-lemon" class="intro-item hide">
+        <h4>🍋 檸檬酸：亮晶晶的水垢剋星</h4>
+        <ul>
+            <li><b>成分：</b>含有「檸檬酸」，味道偏酸。</li>
+            <li><b>用途：</b>常添加於汽水中增加風味。</li>
+            <li><b>清潔：</b>清潔水垢的高手，可去除水壺或浴缸的白色硬痕。</li>
+            <li><b>提醒：</b>濃度高時酸度強，建議稀釋後使用才安全。</li>
+        </ul>
+    </div>
+
+    <div id="intro-vinegar" class="intro-item hide">
+        <h4>🥗 食醋：除臭消毒的開胃專家</h4>
+        <ul>
+            <li><b>成分：</b>含有「醋酸」，聞起來有刺鼻味。</li>
+            <li><b>用途：</b>料理祕密武器，能讓食物更開胃。</li>
+            <li><b>清潔：</b>家中的「消毒小隊長」，適合擦拭冰箱或噴灑排水孔。</li>
+            <li><b>功能：</b>除了殺菌，還能有效去除難聞異味。</li>
+        </ul>
+    </div>
+
+<div id="intro-hcl" class="intro-item hide">
+    <h4>🧪 鹽酸：強力的工業清道夫</h4>
+    <ul>
+        <li><b>成分：</b>氯化氫的水溶液，屬於「強酸」。</li>
+        <li><b>用途：</b>清除建築表面的水泥殘留或金屬除鏽。</li>
+        <li><b>清潔：</b>清潔浴廁頑垢（如尿垢）極有效，但具侵蝕性。</li>
+        <li><b>安全：</b>會冒煙且刺鼻，使用時絕對不可混用漂白水，否則會產生毒氣！</li>
+    </ul>
+</div>
+
+<div id="intro-sparkling" class="intro-item hide">
+    <h4>🫧 氣泡水：溫和的碳酸派對</h4>
+    <ul>
+        <li><b>成分：</b>水中加壓溶解「二氧化碳」，形成弱碳酸。</li>
+        <li><b>特性：</b>比起檸檬汁，它的酸性非常微弱。</li>
+        <li><b>生活：</b>喝下去時會有刺刺的口感，是調製飲品的熱門基底。</li>
+        <li><b>觀察：</b>你會在燒杯中看到細小的氣泡往上冒喔！</li>
+    </ul>
+</div>
+
+    <div id="intro-water" class="intro-item hide">
+        <h4>💧 清水：最溫暖的百搭小助手</h4>
+        <ul>
+            <li><b>特性：</b>無色無味，是所有溶液的「基底」。</li>
+            <li><b>調節：</b>能稀釋強酸或強鹼，讓溶液變得溫和安全。</li>
+            <li><b>限制：</b>無法獨自對付頑強油垢，但能沖走大部分灰塵。</li>
+            <li><b>地位：</b>所有清潔法寶的最佳搭檔。</li>
+        </ul>
+    </div>
+
+    <div id="intro-soda" class="intro-item hide">
+        <h4>🍰 小蘇打：會變魔術的油垢殺手</h4>
+        <ul>
+            <li><b>成分：</b>含有「碳酸氫鈉」，能讓糕點蓬鬆酥脆。</li>
+            <li><b>清潔：</b>變身「油垢殺手」，對付抽油煙機或燒焦鍋底非常有效。</li>
+            <li><b>使用：</b>灑上粉末後輕輕刷洗即可去汙。</li>
+            <li><b>提醒：</b>若要用於料理，記得選擇「食用級」包裝。</li>
+        </ul>
+    </div>
+
+    <div id="intro-soap" class="intro-item hide">
+        <h4>🧼 肥皂水：超強力的髒汙搬運工</h4>
+        <ul>
+            <li><b>特性：</b>觸感滑溜，屬於厲害的汙垢「搬運工」。</li>
+            <li><b>原理：</b>分子一端親水、一端親油，能抓住油汙隨水流走。</li>
+            <li><b>妙用：</b>可用於洗手、檢查瓦斯管是否漏氣（會冒泡）。</li>
+            <li><b>園藝：</b>在花園中能讓部分小害蟲窒息，具備基本驅蟲功能。</li>
+        </ul>
+    </div>
+
+<div id="intro-bleach" class="intro-item hide">
+    <h4>⚪ 漂白水：細菌病毒的終結者</h4>
+    <ul>
+        <li><b>成分：</b>主要含有「次氯酸鈉」，是強鹼性物質。</li>
+        <li><b>功能：</b>具強力氧化作用，能破壞色素與殺滅細菌。</li>
+        <li><b>注意：</b>因為它會「破壞」花青素，顏色可能會從綠轉黃，最後變透明。</li>
+        <li><b>提醒：</b>味道刺鼻，使用時務必保持環境通風。</li>
+    </ul>
+</div>
+
+<div id="intro-sodium_per" class="intro-item hide">
+    <h4>✨ 過碳酸鈉：活氧環保洗淨專家</h4>
+    <ul>
+        <li><b>成分：</b>俗稱「固體過氧化氫」，溶於水呈鹼性。</li>
+        <li><b>用途：</b>常用於洗衣槽清潔或去除衣服上的黃垢。</li>
+        <li><b>特點：</b>分解後產生氧氣與水，對環境相對友善。</li>
+        <li><b>妙用：</b>對付茶垢、咖啡垢效果驚人，是清潔神器。</li>
+    </ul>
+</div>
+
+</div>
+
+            <div class="info-card science">
+                <h3>🔬 科學原理</h3>
+                <p>紫色高麗菜汁含有花青素。遇到<b>酸性</b>變紅色系，遇到<b>鹼性</b>變藍綠色系。</p>
+            </div>
+        </aside>
+    </main>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

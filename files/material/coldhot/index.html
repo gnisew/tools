@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>物質冷熱變變-🥷烏衣行</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-wrapper">
+        <header class="top-nav">
+            <h1>🥷烏衣行-物質冷熱變變</h1>
+            <button class="reset-btn" onclick="resetExperiment()">🔄 重新實驗</button>
+        </header>
+
+        <main class="lab-main">
+            <aside class="side-panel">
+                <div class="control-group">
+                    <h3>1. 選擇實驗對象</h3>
+                    <div class="selection-grid">
+                        <button class="item-btn" onclick="selectItem('ice')">冰塊</button>
+                        <button class="item-btn" onclick="selectItem('chocolate')">巧克力</button>
+                        <button class="item-btn" onclick="selectItem('butter')">奶油</button>
+                        <button class="item-btn" onclick="selectItem('egg')">雞蛋</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>2. 手動操作、遊戲模式</h3>
+                    <div class="tab-headers">
+                        <button id="tab-manual" class="tab-btn active" onclick="switchTab('manual')">手動操作</button>
+                        <button id="tab-game" class="tab-btn" onclick="switchTab('game')">遊戲模式</button>
+                    </div>
+
+                    <div id="panel-manual" class="tab-panel">
+                        <div class="slider-container">
+                            <div class="temp-labels">
+                                <span style="color: var(--cold-color);">❄️ 低溫 (冷卻)</span>
+                                <span style="color: var(--hot-color);">🔥 高溫 (加熱)</span>
+                            </div>
+                            <input type="range" id="temp-slider" min="0" max="1" step="1" value="0" disabled oninput="handleSliderChange(this.value)">
+                        </div>
+                    </div>
+
+                    <div id="panel-game" class="tab-panel hide">
+                        <button id="game-start-btn" class="action-btn game" onclick="toggleGameMode()">🎮 開始遊戲 (20秒挑戰)</button>
+                    </div>
+                </div>
+            </aside>
+
+            <section class="experiment-stage">
+                <div id="game-ui" class="game-ui hide">
+					<div class="timer-line-wrap" id="timer-wrap">
+						<div id="timer-line" class="timer-line"></div>
+					</div>
+					<div class="score-board">遊戲得分：<span id="score-num">0</span></div>
+				</div>
+                <div id="game-emoji-container"></div>
+
+                <div id="stage-bg" class="stage-container">
+                    <div id="drawing-container" class="drawing-box">
+                        <div class="placeholder-text">← 請先選擇左側物品</div>
+                    </div>
+                    <div id="temp-label" class="temp-indicator">等待操作...</div>
+                </div>
+            </section>
+
+            <aside class="side-panel info-area">
+                <div class="info-card observation">
+                    <h3>📋 實驗觀察紀錄</h3>
+                    <p id="observation-msg">請選擇物品，觀察溫度對形態的影響。</p>
+                </div>
+                <div class="info-card science-box">
+                    <h3>💡 溶液小百科</h3>
+                    <ul id="science-content">
+                        <li><b>物質變化的性質：</b> 溫度改變可能造成物質的形狀、顏色、體積、形態等性質改變。</li>
+                        <li><b>物理變化 (可逆)：</b> 巧克力、冰塊、奶油遇熱變成液態，冷卻後會回復成固態。</li>
+                        <li><b>化學變化 (不可逆)：</b> 雞蛋受熱後形態和顏色會發生變化，冷卻後無法回復原狀。</li>
+                    </ul>
+                </div>
+            </aside>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
