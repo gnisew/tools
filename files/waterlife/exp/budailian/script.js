@@ -19,8 +19,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const cloudMiddle = document.getElementById('cloud-middle-group');
     const rainLayer = document.getElementById('rain-layer');
 
-let isFlyingActive = false; 
-const flyingLayer = document.getElementById('flying-layer');
+	let isFlyingActive = false; 
+	let lastTriggeredLevel = -1;
+	const flyingLayer = document.getElementById('flying-layer');
 
     const svgHeight = 500;
     const soilTop = 450;
@@ -209,16 +210,17 @@ const turtleLayer = document.getElementById('turtle-layer');
 hyacinthPos.addEventListener('click', () => {
     const val = Math.round(slider.value);
     
-    // 1. 觸發下沉動畫 (原本的邏輯)
+    // 1. 觸發下沉動畫
     hyacinthBody.classList.remove('clicked-sink'); 
     void hyacinthBody.offsetWidth; 
     hyacinthBody.classList.add('clicked-sink');
     setTimeout(() => hyacinthBody.classList.remove('clicked-sink'), 800);
 
-    // 2. 中水位觸發飛行物
-    // 根據程式碼邏輯，中水位定義為 20 <= val <= 80
-    if (val >= 60 && val <= 90 && !isFlyingActive) {
+    // 2. 判斷是否觸發飛行物
+    // 新增條件：val !== lastTriggeredLevel (當前水位不等於上次觸發的水位)
+    if (val >= 40 && val <= 80 && !isFlyingActive && val !== lastTriggeredLevel) {
         spawnFlyingObject();
+        lastTriggeredLevel = val; // 成功觸發後，紀錄當前水位
     }
 
     // 3. 判斷水位生成生物 (原本的邏輯)
