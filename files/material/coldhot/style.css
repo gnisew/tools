@@ -104,3 +104,40 @@ input[type=range]::-moz-range-thumb {
 }
 
 .hide { display: none !important; }
+
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 15px; /* 按鈕與標題之間的間距 */
+}
+
+.home-btn {
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.1); /* 半透明背景，與深色標題列融合 */
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.2s ease;
+}
+
+.home-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+}
+
+/* 行動裝置適應 */
+@media (max-width: 600px) {
+    .nav-left {
+        gap: 8px;
+    }
+    .home-btn {
+        font-size: 0.8rem;
+        padding: 5px 8px;
+    }
+    .top-nav h1 {
+        font-size: 1.1rem;
+    }
+}

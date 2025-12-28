@@ -168,3 +168,42 @@ body {
     .beaker { bottom: 20px; }
     .info-area { max-height: none; overflow: visible; }
 }
+
+/* --- 導覽列左側群組 --- */
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 15px; /* 首頁按鈕與標題的間距 */
+}
+
+/* --- 返回首頁按鈕樣式 --- */
+.home-button {
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.15); /* 半透明背景 */
+    color: white;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.home-button:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+}
+
+/* 針對行動裝置微調 */
+@media (max-width: 600px) {
+    .top-nav {
+        padding: 10px 15px;
+    }
+    .top-nav h1 {
+        font-size: 1.1rem; /* 手機端標題縮小一點 */
+    }
+    .home-button {
+        font-size: 0.8rem;
+        padding: 5px 8px;
+    }
+}
