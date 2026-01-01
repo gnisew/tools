@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>九州四國地質考察</title>
+    <style>
+
+/* --- 變數設定 --- */
+:root {
+    --primary-color: #2c3e50;
+    --accent-color: #2980b9;
+    --highlight-color: #e67e22;
+    --bg-color: #f4f6f7;
+    --card-bg: #ffffff;
+    --text-main: #333;
+    --text-light: #7f8c8d;
+    --border-radius: 12px;
+    --nav-height: 60px;
+    --safe-bottom: env(safe-area-inset-bottom);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+    margin: 0; padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--bg-color); color: var(--text-main);
+    padding-bottom: calc(var(--nav-height) + 20px + var(--safe-bottom));
+    line-height: 1.5;
+}
+
+/* --- Header (不固定) --- */
+.app-header {
+    background: var(--primary-color); color: white;
+    padding: 15px 20px;
+    position: relative; 
+    z-index: 100;
+    display: flex; justify-content: space-between; align-items: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+.header-content h1 { margin: 0; font-size: 1.2rem; }
+.header-content p { margin: 2px 0 0; font-size: 0.75rem; opacity: 0.8; }
+
+.icon-btn {
+    background: rgba(255,255,255,0.2); border: none; font-size: 1.5rem;
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.pulse-animation { animation: pulse 2s infinite; }
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(231, 76, 60, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); }
+}
+
+#main-container { padding: 16px; max-width: 768px; margin: 0 auto; }
+.view { display: none; animation: fadeIn 0.3s ease; }
+.view.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+.section-title {
+    font-size: 0.9rem; font-weight: bold; color: var(--text-light);
+    margin: 10px 5px; text-transform: uppercase; letter-spacing: 1px;
+}
+
+.card {
+    background: var(--card-bg); border-radius: var(--border-radius);
+    padding: 16px; margin-bottom: 16px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.03);
+}
+.highlight-card { border-left: 5px solid var(--highlight-color); }
+.card-header { display: flex; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #f0f0f0; }
+.clickable-header { cursor: pointer; justify-content: space-between; margin-bottom: 0; border-bottom: none; }
+.card-header h3 { margin: 0; font-size: 1.1rem; color: var(--primary-color); }
+.card-header .icon { margin-right: 10px; font-size: 1.2rem; }
+.card-content { display: none; padding-top: 15px; border-top: 1px solid #f0f0f0; margin-top: 10px; }
+.card-content.open { display: block; }
+
+.info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #eee; font-size: 0.95rem; }
+.info-row:last-child { border: none; }
+.major-info { background: #fff8f0; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-weight: bold; }
+.red-text { color: #c0392b; }
+.note-text { font-size: 0.85rem; color: var(--text-light); margin-top: 5px; font-style: italic; }
+
+/* 行程樣式 */
+.day-card { background: white; border-radius: var(--border-radius); margin-bottom: 12px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+.day-header { padding: 15px; background: white; display: flex; align-items: center; cursor: pointer; transition: background 0.2s; }
+.day-header.active { background: #f0f8ff; border-bottom: 1px solid #e1e8ed; }
+.day-date-box { background: var(--primary-color); color: white; border-radius: 8px; padding: 5px 10px; text-align: center; margin-right: 15px; min-width: 60px; }
+.day-date-box .date { font-size: 0.8rem; font-weight: bold; display: block; }
+.day-date-box .weekday { font-size: 0.9rem; font-weight: bold; }
+.day-title-box { flex: 1; }
+.day-title-box h4 { margin: 0; font-size: 1.05rem; color: var(--text-main); }
+.day-title-box span { font-size: 0.85rem; color: var(--text-light); }
+.day-toggle-icon { font-size: 1.2rem; color: #ccc; transition: transform 0.3s; }
+.day-header.active .day-toggle-icon { transform: rotate(180deg); color: var(--accent-color); }
+.day-body { display: none; padding: 15px 15px 15px 10px; background: #fff; }
+.day-body.open { display: block; animation: slideDown 0.3s ease-out; }
+@keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+.timeline { position: relative; padding-left: 20px; }
+.timeline::before { content: ''; position: absolute; left: 6px; top: 5px; bottom: 5px; width: 2px; background: #eee; }
+.event { position: relative; padding-left: 20px; margin-bottom: 25px; }
+.event:last-child { margin-bottom: 0; }
+.event-dot { position: absolute; left: -21px; top: 2px; width: 14px; height: 14px; background: white; border: 3px solid #ccc; border-radius: 50%; z-index: 2; }
+.type-move .event-dot { border-color: #95a5a6; }
+.type-spot .event-dot { border-color: #27ae60; }
+.type-hotel .event-dot { border-color: #8e44ad; }
+.type-food .event-dot { border-color: #d35400; }
+.event-time { font-size: 0.85rem; font-weight: bold; color: var(--accent-color); margin-bottom: 2px; display: flex; align-items: center; }
+.event-tag { font-size: 0.7rem; padding: 1px 6px; border-radius: 4px; background: #eee; color: #666; margin-left: 8px; font-weight: normal; }
+.event-content h5 { margin: 0 0 4px 0; font-size: 1rem; color: var(--text-main); }
+.event-desc { font-size: 0.9rem; color: #666; line-height: 1.4; margin-bottom: 6px; }
+
+/* 搜尋連結樣式 (取代按鈕) */
+.search-link {
+    color: var(--text-main);
+    text-decoration: underline;
+    text-decoration-color: var(--accent-color);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+.search-link:active { color: var(--accent-color); background-color: rgba(41, 128, 185, 0.1); }
+
+/* 日語卡片樣式 */
+.jp-category { margin-bottom: 20px; }
+.jp-header { font-weight: bold; color: var(--primary-color); padding: 8px 5px; border-bottom: 2px solid #eee; margin-bottom: 10px; display: flex; align-items: center; }
+.jp-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.jp-card {
+    background: white; border-radius: 8px; padding: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #eee;
+    display: flex; justify-content: space-between; align-items: center;
+    cursor: pointer; transition: transform 0.1s, background 0.1s;
+    -webkit-tap-highlight-color: rgba(0,0,0,0.05);
+}
+.jp-card:active { transform: scale(0.98); background: #f0f8ff; border-color: var(--accent-color); }
+.jp-text { flex: 1; }
+.jp-word { font-size: 1.1rem; font-weight: bold; color: #333; display: block; margin-bottom: 2px; }
+.jp-romaji { font-size: 0.8rem; color: #888; font-family: monospace; display: block; margin-bottom: 2px; }
+.jp-cn { font-size: 0.9rem; color: var(--accent-color); }
+.jp-icon { font-size: 1.2rem; opacity: 0.3; }
+
+.hotel-card { display: flex; flex-direction: column; overflow: hidden; }
+.hotel-info { padding: 15px; }
+.hotel-actions { display: flex; border-top: 1px solid #eee; }
+.action-btn { flex: 1; padding: 12px; text-align: center; color: var(--accent-color); text-decoration: none; border-right: 1px solid #eee; background: #f9f9f9; }
+.action-btn:last-child { border-right: none; }
+
+.check-item { display: flex; padding: 12px 0; border-bottom: 1px solid #eee; }
+.check-item input { width: 22px; height: 22px; margin-right: 12px; margin-top: 2px; }
+.check-item label { flex: 1; font-size: 1rem; }
+.checklist-progress { display: flex; align-items: center; margin-bottom: 15px; background: #f0f2f5; padding: 10px; border-radius: 8px; }
+.progress-bar { flex: 1; height: 8px; background: #ddd; border-radius: 4px; overflow: hidden; margin-right: 10px; }
+.progress-fill { height: 100%; background: #27ae60; transition: width 0.3s; }
+.btn-reset { width: 100%; padding: 10px; background: #95a5a6; color: white; border: none; border-radius: 8px; margin-top: 10px; font-size: 0.9rem; }
+
+.bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: white; border-top: 1px solid #eee; display: flex; justify-content: space-around; height: calc(var(--nav-height) + var(--safe-bottom)); padding-bottom: var(--safe-bottom); z-index: 1000; }
+.nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #bdc3c7; font-size: 0.7rem; }
+.nav-item.active { color: var(--primary-color); }
+.nav-item .icon { font-size: 1.4rem; margin-bottom: 3px; }
+
+.modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; align-items: center; justify-content: center; padding: 20px; }
+.modal.open { display: flex; }
+.modal-content { background: white; width: 100%; max-width: 320px; border-radius: 16px; padding: 20px; animation: slideUp 0.3s; position: relative; }
+.close-btn { position: absolute; right: 15px; top: 10px; font-size: 24px; cursor: pointer; color: #999; }
+.contact-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 0; text-decoration: none; color: inherit; }
+.contact-info .name { font-weight: bold; display: block; }
+.contact-info .role { font-size: 0.8rem; color: #888; }
+.phone-icon { background: #eef6fb; color: var(--accent-color); padding: 5px 10px; border-radius: 15px; font-size: 0.9rem; }
+.divider { border-bottom: 1px solid #eee; margin: 5px 0; }
+
+</style>
+</head>
+<body>
+
+    <header class="app-header">
+        <div class="header-content">
+            <h1>九州四國地質考察</h1>
+            <p>NTNU & Kyushu Univ. Joint Field Trip</p>
+        </div>
+        <button id="emergency-btn" class="icon-btn pulse-animation" onclick="toggleModal('emergency-modal')">🆘</button>
+    </header>
+
+    <main id="main-container">
+        
+        <section id="view-home" class="view active">
+            
+            <div class="card highlight-card">
+                <div class="card-header">
+                    <span class="icon">🚩</span> 
+                    <h3>集合資訊 (Meeting)</h3>
+                </div>
+                <div class="card-body">
+                    <div class="info-row major-info">
+                        <span class="label">時間</span>
+                        <span class="value red-text">1/13 (二) AM 05:50</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">地點</span>
+                        <span class="value">桃園機場 T2 3F 出境大廳</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">櫃台</span>
+                        <span class="value">長榮航空 14/15 號櫃台前方</span>
+                    </div>
+                    <p class="note-text">⚠️ 務必於起飛前 2 小時抵達</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span class="icon">✈️</span>
+                    <h3>航班資訊 (Flights)</h3>
+                </div>
+                <div class="card-body flight-grid">
+                    <div class="flight-leg">
+                        <div class="flight-badge go">去程 1/13</div>
+                        <div class="flight-route">
+                            <span class="city">TPE</span> 08:00 ➝ <span class="city">FUK</span> 11:15
+                        </div>
+                        <div class="flight-detail">長榮 BR106 (T2) | 2hr 15m</div>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="flight-leg">
+                        <div class="flight-badge return">回程 1/19</div>
+                        <div class="flight-route">
+                            <span class="city">KIX</span> 18:10 ➝ <span class="city">TPE</span> 20:25
+                        </div>
+                        <div class="flight-detail">長榮 BR129 (T1出發) | 3hr 15m</div>
+                    </div>
+                    <div class="info-footer">
+                        托運：23kg (去1件/回2件) | 手提：7kg
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span class="icon">📢</span>
+                    <h3>重要須知</h3>
+                </div>
+                <div class="card-body">
+                    <ul class="bullet-list">
+                        <li><strong>補助金：</strong>抵達日本後發放 ¥10,000/人 (用於餐費與地鐵)。</li>
+                        <li><strong>時差：</strong>日本比台灣快 1 小時，集合以日本時間為準。</li>
+                        <li><strong>嚴禁脫隊：</strong>團體行動，保障安全。</li>
+                        <li><strong>餐費預估：</strong>早¥500 / 午¥1000 / 晚¥1500。</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-schedule" class="view">
+            <div class="section-title">每日行程 (點擊展開)</div>
+            <p class="note-text" style="padding: 0 5px 10px 5px;">💡 點擊有底線的標題可直接 Google 搜尋地點。</p>
+            <div id="schedule-container" class="accordion-container"></div>
+        </section>
+
+        <section id="view-hotels" class="view">
+            <div class="section-title">住宿資訊</div>
+            <div id="hotel-container"></div>
+        </section>
+
+        <section id="view-japanese" class="view">
+            <div class="section-title">常用日語 (點擊發音)</div>
+            <div id="japanese-container"></div>
+        </section>
+
+        <section id="view-info" class="view">
+            
+            <div class="card">
+                <div class="card-header clickable-header" onclick="toggleCardContent('checklist-content')">
+                    <h3>🎒 裝備檢查 (Checklist)</h3>
+                    <span class="arrow-icon">▼</span>
+                </div>
+                <div id="checklist-content" class="card-content open">
+                    <div class="checklist-progress">
+                        <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+                        <span id="progress-text">0%</span>
+                    </div>
+                    <div id="checklist-container"></div>
+                    <button class="btn-reset" onclick="resetChecklist()">重置清單</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header clickable-header" onclick="toggleCardContent('notes-content')">
+                    <h3>⚠️ 詳細注意事項</h3>
+                    <span class="arrow-icon">▼</span>
+                </div>
+                <div id="notes-content" class="card-content">
+                    <ol class="ordered-list" id="notes-list"></ol>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="emergency-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="toggleModal('emergency-modal')">×</span>
+            <h2>📞 緊急聯絡人</h2>
+            <div class="contact-list">
+                <a href="tel:0920995210" class="contact-item">
+                    <div class="contact-info">
+                        <span class="name">賴昱銘 老師 (Prof. Lai)</span>
+                    </div>
+                    <span class="phone-icon">0920-995210</span>
+                </a>
+                <a href="tel:0910043753" class="contact-item">
+                    <div class="contact-info">
+                        <span class="name">葉恩肇 老師 (Prof. Yeh)</span>
+                    </div>
+                    <span class="phone-icon">0910-043753</span>
+                </a>
+                 <div class="divider"></div>
+                <a href="tel:+88633983274" class="contact-item">
+                    <div class="contact-info">
+                        <span class="name">桃園機場 T2 客服</span>
+                    </div>
+                    <span class="phone-icon">(03) 398-3274</span>
+                </a>
+                 <a href="https://www.boca.gov.tw/cp-87-212-68045-1.html" target="_blank" class="contact-item" style="background:#fff3cd">
+                    <div class="contact-info">
+                        <span class="name">旅外國人急難救助</span>
+                        <span class="role">日本境內直撥 080-1-008855</span>
+                    </div>
+                    <span class="phone-icon">🌐</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <nav class="bottom-nav">
+        <div class="nav-item active" onclick="switchView('home', this)">
+            <span class="icon">🏠</span>
+            <span class="label">首頁</span>
+        </div>
+        <div class="nav-item" onclick="switchView('schedule', this)">
+            <span class="icon">📅</span>
+            <span class="label">行程</span>
+        </div>
+        <div class="nav-item" onclick="switchView('japanese', this)">
+            <span class="icon">🗣️</span>
+            <span class="label">日語</span>
+        </div>
+        <div class="nav-item" onclick="switchView('hotels', this)">
+            <span class="icon">🏨</span>
+            <span class="label">住宿</span>
+        </div>
+        <div class="nav-item" onclick="switchView('info', this)">
+            <span class="icon">🎒</span>
+            <span class="label">準備</span>
+        </div>
+    </nav>
+
+    <script>
+		
+// --- 資料來源 ---
+
+const tripData = {
+    // 行程資料
+    schedule: [
+        {
+            date: "1/13", day: "Tue", title: "抵達福岡 & 歡迎會",
+            events: [
+                { time: "05:50", title: "機場集合", desc: "桃園機場 T2 3F (長榮 14/15 櫃台前)\n⚠️ 務必準時", type: "move" },
+                { time: "08:00", title: "班機起飛 BR106", desc: "TPE ✈️ FUK (11:15 抵達)", type: "move" },
+                { time: "12:00", title: "前往糸島市", desc: "", type: "move", q: "糸島市" },
+                { time: "13:00", title: "飯店 Check-in", desc: "AZ Hotel Itoshima", type: "hotel", q: "AZ Hotel Itoshima" },
+                { time: "14:30", title: "參訪九州大學", desc: "伊都校區 Campus Tour", type: "work", q: "九州大學 伊都校區" },
+                { time: "18:00", title: "Welcome Party", desc: "Contigo レストラン(芥屋)", type: "food", q: "Contigo レストラン 芥屋" }
+            ]
+        },
+        {
+            date: "1/14", day: "Wed", title: "津屋崎 - 芦屋 - 直方市",
+            events: [
+                { time: "08:00", title: "出發", desc: "飯店出發", type: "move" },
+                { time: "10:20", title: "Stop 1-1 津屋崎", desc: "始新世陸成層 / 火砕流堆積物", type: "spot", q: "津屋崎海岸" },
+                { time: "12:30", title: "Stop 1-2 芦屋 (夏井が浜)", desc: "漸新世ストーム堆積層", type: "spot", q: "夏井ヶ浜はまゆう公園" },
+                { time: "13:30", title: "Stop 1-3 直方石炭博物館", desc: "參觀博物館", type: "spot", q: "直方市石炭記念館" },
+                { time: "18:30", title: "住宿 Check-in", desc: "七城温泉 Riverside Park", type: "hotel", q: "七城温泉ドーム" },
+                { time: "18:30", title: "晚餐 BBQ", desc: "Yakiniku and Hot spring", type: "food" }
+            ]
+        },
+        {
+            date: "1/15", day: "Thu", title: "阿蘇火山 & 熊本地震",
+            events: [
+                { time: "10:00", title: "Stop 2-1 熊本地震紀念館", desc: "KIOKU 震災ミュージアム", type: "spot", q: "熊本地震震災ミュージアム KIOKU" },
+                { time: "11:10", title: "Stop 2-2 外輪山壁村本採石場", desc: "", type: "spot" },
+                { time: "12:10", title: "Stop 2-3 外輪山(兜岩展望台)", desc: "眺望阿蘇五岳", type: "spot", q: "兜岩展望所" },
+                { time: "12:30", title: "Stop 2-4 ラピュタの道", desc: "天空之道", type: "spot", q: "ラピュタの道" },
+                { time: "14:00", title: "Stop 2-5 阿蘇山頂", desc: "中岳火口展望台 砂千里\n⚠️ 若遇雨天改去「鯛生金山」(+¥900)", type: "spot", q: "阿蘇中岳火口" },
+                { time: "15:00", title: "Stop 2-6 阿蘇火山博物館", desc: "草千里前", type: "spot", q: "阿蘇火山博物館" },
+                { time: "16:30", title: "阿蘇日の山温泉", desc: "どんどこ湯 (費用600円)", type: "spot", q: "どんどこ湯" },
+                { time: "18:30", title: "住宿 Check-in", desc: "Farm Village 產山", type: "hotel", q: "ファームビレッジ産山" }
+            ]
+        },
+        {
+            date: "1/16", day: "Fri", title: "巨大火砕流 & 變質岩",
+            events: [
+                { time: "09:30", title: "Stop 3-1 竹田市 野鹿洞穴", desc: "阿蘇4火砕流", type: "spot", q: "竹田市 野鹿洞穴" },
+                { time: "11:00", title: "Stop 3-2 原尻の滝", desc: "東洋的尼加拉瓜瀑布", type: "spot", q: "原尻の滝" },
+                { time: "14:10", title: "Stop 3-3 大分市佐賀関", desc: "三波川変成岩類", type: "spot", q: "関崎海星館" },
+                { time: "16:00", title: "搭乘渡輪", desc: "国道九四フェリー (佐賀関 -> 三崎)\n記得吃暈車藥", type: "move", q: "国道九四フェリー" },
+                { time: "18:30", title: "住宿 Check-in", desc: "国立大洲青少年交流の家", type: "hotel", q: "国立大洲青少年交流の家" }
+            ]
+        },
+        {
+            date: "1/17", day: "Sat", title: "中央構造線 (MTL)",
+            events: [
+                { time: "09:30", title: "Stop 4-1 砥部焼き", desc: "砥部衝上断層", type: "spot", q: "砥部衝上断層公園" },
+                { time: "13:00", title: "Stop 4-2 中山川", desc: "湯谷口衝上断層", type: "spot" },
+                { time: "14:20", title: "Stop 4-3 別子銅山記念館", desc: "參觀", type: "spot", q: "別子銅山記念館" },
+                { time: "16:30", title: "Stop 4-4 道の駅みよし", desc: "中央構造線露頭", type: "spot", q: "中央構造線 露頭 三好" },
+                { time: "18:30", title: "住宿 Check-in", desc: "やまびこ交流センター (香川)", type: "hotel", q: "東かがわ市 やまびこ交流センター" }
+            ]
+        },
+        {
+            date: "1/18", day: "Sun", title: "和泉層群 & 鳴門",
+            events: [
+                { time: "09:00", title: "Stop 5-1 白鳥", desc: "鹿浦越のランプロファイヤ岩脈", type: "spot", q: "鹿浦越 ランプロファイア岩脈" },
+                { time: "09:40", title: "Stop 5-2 和泉層群不整合", desc: "崖下り (Option)", type: "spot" },
+                { time: "11:00", title: "Stop 5-3 徳島県立博物館", desc: "午餐與參觀", type: "spot", q: "徳島県立博物館" },
+                { time: "14:30", title: "Stop 5-4 大神子海岸遊步道", desc: "三波川変成岩", type: "spot", q: "大神子海岸" },
+                { time: "16:30", title: "Stop 5-5 島田島 (Option)", desc: "如有時間前往", type: "spot" },
+                { time: "18:30", title: "返回住宿", desc: "やまびこ交流センター (連泊)", type: "hotel" }
+            ]
+        },
+        {
+            date: "1/19", day: "Mon", title: "淡路島 & 返台",
+            events: [
+                { time: "09:40", title: "Stop 6-1 淡路島", desc: "北淡震災記念館 / 野島断層保存館", type: "spot", q: "北淡震災記念館" },
+                { time: "11:30", title: "Stop 6-2 阪神淡路大震災記念", desc: "人と防災未来センター", type: "spot", q: "人と防災未来センター" },
+                { time: "12:30", title: "神戶 Harborland", desc: "購物觀光 (若有時間)", type: "spot", q: "Kobe Harborland" },
+                { time: "16:30", title: "前往關西機場 (KIX)", desc: "長榮櫃台 Check-in", type: "move" },
+                { time: "18:10", title: "班機起飛 BR129", desc: "KIX ✈️ TPE (20:25 抵達)", type: "move" }
+            ]
+        }
+    ],
+    // 住宿資料
+    hotels: [
+        { date: "1/13", name: "AZ HOTEL ITOSHIMA", address: "福岡県糸島市浦志1丁目9-25", tel: "+81-923-30-8301" },
+        { date: "1/14", name: "七城温泉 Riverside park", address: "熊本県菊池市七城町林原962-1", tel: "+81-968-26-4800" },
+        { date: "1/15", name: "Farm Village 產山", address: "熊本県阿蘇郡産山村大利585", tel: "+81-967-25-2900" },
+        { date: "1/16", name: "国立大洲青少年交流の家", address: "愛媛県大洲市北只108-6", tel: "+81-893-24-5175" },
+        { date: "1/17-18", name: "やまびこ交流センター", address: "香川県東かがわ市与田山351-1", tel: "+81-879-27-2460" }
+    ],
+    // 日語資料 (含發音文字、羅馬拼音、中文)
+    japanesePhrases: [
+        {
+            category: "👋 問候與禮貌",
+            list: [
+                { jp: "こんにちは", ro: "Konnichiwa", cn: "你好 (白天)" },
+                { jp: "ありがとうございます", ro: "Arigatou gozaimasu", cn: "謝謝" },
+                { jp: "すみません", ro: "Sumimasen", cn: "不好意思 / 請問" },
+                { jp: "はい / いいえ", ro: "Hai / Iie", cn: "是 / 不是" },
+                { jp: "おねがいします", ro: "Onegaishimasu", cn: "拜託了 / 麻煩你" }
+            ]
+        },
+        {
+            category: "🛒 購物與結帳",
+            list: [
+                { jp: "これ", ro: "Kore", cn: "這個" },
+                { jp: "いくらですか", ro: "Ikura desuka", cn: "多少錢？" },
+                { jp: "カードは使えますか", ro: "Kaado wa tsukaemasuka", cn: "可以用信用卡嗎？" },
+                { jp: "袋はいりません", ro: "Fukuro wa irimasen", cn: "不用袋子" },
+                { jp: "領収書ください", ro: "Ryoushuusho kudasai", cn: "請給我收據" }
+            ]
+        },
+        {
+            category: "🍽️ 餐廳用餐",
+            list: [
+                { jp: "お水ください", ro: "Omizu kudasai", cn: "請給我水" },
+                { jp: "トイレはどこですか", ro: "Toire wa doko desuka", cn: "廁所在哪裡？" },
+                { jp: "おいしいです", ro: "Oishii desu", cn: "很好吃" },
+                { jp: "お会計おねがいします", ro: "Okaikei onegaishimasu", cn: "麻煩結帳" },
+                { jp: "ごちそうさまでした", ro: "Gochisousama deshita", cn: "謝謝招待 (吃飽後)" }
+            ]
+        },
+        {
+            category: "🚌 交通",
+            list: [
+                { jp: "駅はどこですか", ro: "Eki wa doko desuka", cn: "車站在哪裡？" },
+                { jp: "バス停", ro: "Basutei", cn: "公車站" },
+                { jp: "切符", ro: "Kippu", cn: "車票" },
+                { jp: "ここに行きたいです", ro: "Koko ni ikitai desu", cn: "我想去這裡 (指地圖)" }
+            ]
+        },
+        {
+            category: "🆘 緊急狀況",
+            list: [
+                { jp: "助けて", ro: "Tasukete", cn: "救命 / 幫幫我" },
+                { jp: "警察", ro: "Keisatsu", cn: "警察" },
+                { jp: "病院", ro: "Byouin", cn: "醫院" },
+                { jp: "気分が悪いです", ro: "Kibun ga warui desu", cn: "我不舒服" }
+            ]
+        }
+    ],
+    // 清單資料
+    checklistItems: [
+        "護照 (效期6個月以上)",
+        "緊急聯絡電話資訊",
+        "重要文件影本",
+        "身份證明文件",
+        "證件照2張 (備用)",
+        "少量外幣及台幣",
+        "內衣褲",
+        "襪子",
+        "外衣/外褲",
+        "外套 (防風保暖)",
+        "毛巾 (部分旅館不含)",
+        "牙刷/牙膏",
+        "沐浴乳/洗面乳",
+        "洗髮精/潤髮乳",
+        "梳子",
+        "相機",
+        "相機電池/充電器",
+        "記憶卡",
+        "手機",
+        "手機連接線/充電器",
+        "行動電源",
+        "其他用品充電器",
+        "電腦/電源線",
+        "網路:WIFI機/SIM卡",
+        "備用眼鏡",
+        "餐具(湯匙/筷子/叉子/吸管)",
+        "塑膠袋(大+小)",
+        "衛生紙/溼紙巾",
+        "行李袋/備用背包",
+        "泳衣/(泳鏡/泳帽)",
+        "防曬油",
+        "防曬用品(外套/袖套/帽子)",
+        "登山鞋/健走鞋",
+        "雨具(雨衣/雨傘)",
+        "暈車藥",
+        "腸胃藥",
+        "個人藥品 (常備藥)",
+        "過敏藥",
+        "外傷用藥",
+        "地質圖/路線圖/地圖",
+        "放大鏡",
+        "傾斜儀",
+        "手套",
+        "筆/彩虹筆/奇異筆",
+        "野帳本/筆記本",
+        "洗衣粉/洗衣精"
+    ],
+    // 注意事項
+    notes: [
+        "請記住老師及助教電話，若有緊急狀況請立即聯繫。",
+        "務必於航班起飛前 **2小時** 抵達指定地點集合。",
+        "托運行李限重 23kg (去程1件，回程2件)，手提 7kg。",
+        "野外課程不保證每家旅館都有盥洗用品，請務必自備。",
+        "貴重物品請隨身攜帶，勿放車上或房間。",
+        "嚴禁脫隊，請遵守團體集合時間 (日本時間為準)。",
+        "日本時間比台灣快一小時。",
+        "桃園機場客服: T2 (03)398-3274。"
+    ]
+};
+
+// 確保 DOM 載入後才執行
+document.addEventListener('DOMContentLoaded', () => {
+    try {
+        initSchedule();
+        initHotels();
+        initJapanese(); // 初始化日語
+        initChecklist();
+        initNotes();
+        autoOpenCurrentDay();
+        
+        // 綁定導航按鈕
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const match = this.getAttribute('onclick').match(/'([^']+)'/);
+                if (match && match[1]) switchView(match[1], this);
+            });
+        });
+    } catch (e) {
+        console.error("Initialization error:", e);
+    }
+});
+
+// --- 功能函數 ---
+
+function initSchedule() {
+    const container = document.getElementById('schedule-container');
+    if (!container) return;
+
+    let html = '';
+
+    tripData.schedule.forEach((day, index) => {
+        let eventsHtml = `<div class="timeline">`;
+        day.events.forEach(ev => {
+            const descText = ev.desc ? ev.desc.replace(/\n/g, '<br>') : '';
+            
+            // 處理標題：如果有搜尋關鍵字，加上連結樣式；否則顯示純文字
+            let titleHtml = `<h5>${ev.title}</h5>`;
+            if (ev.q) {
+                const url = 'https://www.google.com/search?q=' + encodeURIComponent(ev.q);
+                titleHtml = `<h5><a href="${url}" target="_blank" class="search-link">${ev.title}</a></h5>`;
+            }
+            
+            eventsHtml += `
+                <div class="event type-${ev.type}">
+                    <div class="event-dot"></div>
+                    <div class="event-content">
+                        <div class="event-time">${ev.time} <span class="event-tag">${getTypeName(ev.type)}</span></div>
+                        ${titleHtml}
+                        <div class="event-desc">${descText}</div>
+                    </div>
+                </div>
+            `;
+        });
+        eventsHtml += `</div>`;
+
+        html += `
+            <div class="day-card" id="day-${index}">
+                <div class="day-header" onclick="toggleDay(${index})">
+                    <div class="day-date-box">
+                        <span class="date">${day.date}</span>
+                        <span class="weekday">${day.day}</span>
+                    </div>
+                    <div class="day-title-box">
+                        <h4>${day.title}</h4>
+                        <span>${day.events.length} 個行程點</span>
+                    </div>
+                    <div class="day-toggle-icon">▼</div>
+                </div>
+                <div class="day-body">
+                    ${eventsHtml}
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function initJapanese() {
+    const container = document.getElementById('japanese-container');
+    if (!container) return;
+
+    let html = '';
+    tripData.japanesePhrases.forEach(cat => {
+        let listHtml = `<div class="jp-grid">`;
+        cat.list.forEach(phrase => {
+            // 注意：onclick 使用 playAudio 函數
+            listHtml += `
+                <div class="jp-card" onclick="playAudio('${phrase.jp}')">
+                    <div class="jp-text">
+                        <span class="jp-word">${phrase.jp}</span>
+                        <span class="jp-romaji">${phrase.ro}</span>
+                        <span class="jp-cn">${phrase.cn}</span>
+                    </div>
+                    <div class="jp-icon">🔊</div>
+                </div>
+            `;
+        });
+        listHtml += `</div>`;
+
+        html += `
+            <div class="jp-category">
+                <div class="jp-header">${cat.category}</div>
+                ${listHtml}
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+// 語音播放功能 (使用瀏覽器內建 Web Speech API)
+window.playAudio = function(text) {
+    if ('speechSynthesis' in window) {
+        // 取消當前正在播放的，避免連點重疊
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'ja-JP'; // 設定為日語
+        utterance.rate = 0.9;     // 語速稍慢一點點，比較清楚
+        window.speechSynthesis.speak(utterance);
+    } else {
+        alert("您的裝置不支援發音功能");
+    }
+};
+
+function getTypeName(type) {
+    const map = { move: '交通', spot: '考察', hotel: '住宿', food: '用餐', work: '參訪' };
+    return map[type] || '活動';
+}
+
+window.toggleDay = function(index) {
+    const dayCard = document.getElementById(`day-${index}`);
+    if (!dayCard) return;
+
+    const header = dayCard.querySelector('.day-header');
+    const body = dayCard.querySelector('.day-body');
+    
+    if (header.classList.contains('active')) {
+        header.classList.remove('active');
+        body.classList.remove('open');
+    } else {
+        header.classList.add('active');
+        body.classList.add('open');
+    }
+};
+
+function autoOpenCurrentDay() {
+    if (window.toggleDay) window.toggleDay(0);
+}
+
+function initHotels() {
+    const container = document.getElementById('hotel-container');
+    if (!container) return;
+
+    let html = '';
+    tripData.hotels.forEach(h => {
+        const mapUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(h.address);
+        const telUrl = 'tel:' + h.tel.replace(/[-+ ]/g, '');
+        
+        html += `
+            <div class="card hotel-card">
+                <div class="hotel-info">
+                    <div style="color:#7f8c8d; font-size:0.85rem; margin-bottom:4px;">📅 ${h.date}</div>
+                    <div style="font-weight:bold; font-size:1.1rem; color:#2c3e50; margin-bottom:8px;">${h.name}</div>
+                    <div style="font-size:0.9rem; margin-bottom:4px;">📍 ${h.address}</div>
+                    <div style="font-size:0.9rem;">📞 <a href="${telUrl}">${h.tel}</a></div>
+                </div>
+                <div class="hotel-actions">
+                    <a href="${mapUrl}" target="_blank" class="action-btn">🗺️ 地圖</a>
+                    <a href="${telUrl}" class="action-btn">📞 撥號</a>
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function initChecklist() {
+    const container = document.getElementById('checklist-container');
+    if (!container) return;
+
+    let html = '';
+    tripData.checklistItems.forEach((item, index) => {
+        const id = index + 1;
+        html += `
+            <div class="check-item">
+                <input type="checkbox" id="chk-${id}" onchange="updateProgress()">
+                <label for="chk-${id}">${id}. ${item}</label>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+    restoreChecklist();
+}
+
+function initNotes() {
+    const list = document.getElementById('notes-list');
+    if (!list) return;
+
+    list.innerHTML = tripData.notes.map(n => {
+        const formatted = n.replace(/\*\*(.*?)\*\*/g, '<b class="red-text">$1</b>');
+        return `<li>${formatted}</li>`;
+    }).join('');
+}
+
+window.switchView = function(viewId, btn) {
+    document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+    const target = document.getElementById(`view-${viewId}`);
+    if (target) target.classList.add('active');
+    
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    
+    window.scrollTo(0, 0);
+};
+
+window.toggleCardContent = function(id) {
+    const content = document.getElementById(id);
+    if (!content) return;
+    
+    const header = content.previousElementSibling;
+    const arrow = header.querySelector('.arrow-icon');
+    
+    if (content.classList.contains('open')) {
+        content.classList.remove('open');
+        if (arrow) arrow.innerText = '▼';
+    } else {
+        content.classList.add('open');
+        if (arrow) arrow.innerText = '▲';
+    }
+};
+
+window.updateProgress = function() {
+    const inputs = document.querySelectorAll('.check-item input');
+    let checked = 0;
+    inputs.forEach(input => {
+        if (input.checked) {
+            checked++;
+            localStorage.setItem(input.id, 'true');
+        } else {
+            localStorage.removeItem(input.id);
+        }
+    });
+    
+    if (inputs.length === 0) return;
+
+    const pct = Math.round((checked / inputs.length) * 100);
+    const fill = document.getElementById('progress-fill');
+    const text = document.getElementById('progress-text');
+    
+    if (fill) fill.style.width = `${pct}%`;
+    if (text) text.innerText = `${pct}%`;
+};
+
+function restoreChecklist() {
+    document.querySelectorAll('.check-item input').forEach(input => {
+        if (localStorage.getItem(input.id) === 'true') input.checked = true;
+    });
+    window.updateProgress();
+}
+
+window.resetChecklist = function() {
+    if (!confirm('確定重置所有勾選項目？')) return;
+    localStorage.clear();
+    document.querySelectorAll('.check-item input').forEach(i => i.checked = false);
+    window.updateProgress();
+};
+
+window.toggleModal = function(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('open');
+};
+
+window.onclick = function(event) {
+    const modal = document.getElementById('emergency-modal');
+    if (event.target == modal) window.toggleModal('emergency-modal');
+};
+    </script>
+</body>
+</html>
