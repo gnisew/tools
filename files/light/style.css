@@ -1,0 +1,82 @@
+body {
+    background-color: #0f172a;
+    color: white;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    margin: 0;
+    overflow-x: hidden;
+    user-select: none;
+}
+
+/* 頂部資訊列 */
+.top-bar {
+    height: 60px;
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 15px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+/* 選單佈局 */
+.menu-overlay {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+}
+
+.menu-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 30px;
+    width: 100%;
+    max-width: 350px;
+}
+
+@media (min-width: 768px) {
+    .menu-grid {
+        grid-template-columns: 1fr 1fr;
+        max-width: 800px;
+        gap: 40px;
+    }
+}
+
+.menu-col {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* 卡片按鈕樣式 */
+.btn-card {
+    background: #334155;
+    width: 100%;
+    padding: 20px;
+    border-radius: 12px;
+    text-decoration: none; /* 移除超連結底線 */
+    color: inherit;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 2px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.btn-card:hover {
+    transform: translateY(-4px);
+    background: #3d4b5f;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+}
+
+.btn-card:active {
+    transform: scale(0.96);
+}
+
+/* 針對特定顏色的微調 */
+.btn-card span {
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+}

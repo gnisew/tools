@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>折射定律挑戰 - 烏衣行</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+    <div class="top-bar">
+        <a href="../index.html" class="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-sm font-bold transition">
+            <span>⬅ 返回選單</span>
+        </a>
+        <div class="absolute left-1/2 transform -translate-x-1/2 text-sm md:text-base font-bold text-slate-200 pointer-events-none">
+            光線進入水中後會射向哪裡？
+        </div>
+        <div class="flex gap-3 text-sm font-mono">
+            <span class="text-cyan-300">Lv {{ game.level }}/5</span>
+            <span class="text-yellow-400">Score: {{ game.score }}</span>
+        </div>
+    </div>
+
+    <div class="canvas-area" ref="containerRef">
+        <canvas ref="canvasRef"
+            @pointerdown="handleStart"
+            @contextmenu.prevent>
+        </canvas>
+
+        <transition name="fade">
+            <div v-if="game.level === 1 && game.state === 'playing' && showGameHint" class="absolute top-20 left-1/2 transform -translate-x-1/2 pointer-events-none z-40">
+                <div class="bg-black/60 px-6 py-2 rounded-full backdrop-blur border border-yellow-500/30 text-yellow-300 font-bold shadow-lg">
+                    點擊 A、B、C 圓點作答
+                </div>
+            </div>
+        </transition>
+
+        <div v-if="game.state === 'result'" class="result-box">
+            <div class="flex items-start gap-3">
+                <span class="text-3xl mt-1">{{ game.lastCorrect ? '✅' : '❌' }}</span>
+                <div>
+                    <div class="text-lg font-bold" :class="game.lastCorrect ? 'text-green-400' : 'text-red-400'">
+                        {{ game.lastCorrect ? '答對了！' : '答錯了' }}
+                    </div>
+                    <div class="text-xs text-slate-300 mt-2 leading-relaxed">
+                        提示：光從空氣進入水中，路徑會向法線偏折。
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button v-if="game.state === 'result'" @click="nextLevel" class="next-btn hover:bg-blue-400">
+            {{ game.level >= 5 ? '查看成績' : '下一題' }} ➡
+        </button>
+
+        <div v-if="game.state === 'summary'" class="summary-overlay">
+            <div class="text-7xl mb-4">🏆</div>
+            <h2 class="text-3xl font-bold mb-2">挑戰完成</h2>
+            <div class="text-xl text-slate-400 mb-8">最終得分：<span class="text-yellow-400 font-bold text-4xl">{{ game.score }}</span></div>
+            <a href="../index.html" class="px-10 py-3 bg-slate-600 rounded-xl font-bold text-lg border border-slate-500 hover:bg-slate-500 text-white">
+                返回選單
+            </a>
+        </div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

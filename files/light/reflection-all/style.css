@@ -1,0 +1,70 @@
+body {
+    background-color: #0f172a;
+    color: white;
+    font-family: 'PingFang TC', 'Microsoft JhengHei', system-ui, sans-serif;
+    margin: 0;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+}
+
+#app {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100dvh;
+    display: flex; flex-direction: column;
+}
+
+.top-bar {
+    height: 50px;
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+    display: flex; align-items: center;
+    padding: 0 15px;
+    z-index: 100;
+}
+
+.canvas-area {
+    flex-grow: 1;
+    position: relative;
+    background: #020617;
+}
+
+/* 層級 1: 畫布 */
+canvas {
+    position: absolute;
+    top: 0; left: 0;
+    z-index: 1;
+}
+
+/* 層級 10: 選單 (無底框) */
+.media-menu {
+    position: absolute;
+    top: 52%; /* 中間線下方 */
+    left: 24px;
+    z-index: 50;
+}
+
+/* 層級 20: 光源 (最高層) */
+.source-handle {
+    position: absolute;
+    width: 50px; /* 大感應區 */
+    height: 50px;
+    transform: translate(-50%, -50%);
+    z-index: 100; /* 最高圖層 */
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.source-handle:active { cursor: grabbing; }
+
+.handle-core {
+    width: 26px; /* 恢復較大的圈圈 */
+    height: 26px;
+    background: #facc15;
+    border: 4px solid white;
+    border-radius: 50%;
+    box-shadow: 0 0 20px rgba(250, 204, 21, 0.8), 0 0 40px rgba(250, 204, 21, 0.4);
+}

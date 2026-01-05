@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>視深實驗室-🥷烏衣行</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        body {
+            background-color: #020617;
+            color: white;
+            font-family: system-ui, sans-serif;
+            margin: 0; overflow: hidden;
+            touch-action: none;
+        }
+        #app { display: flex; flex-direction: column; width: 100vw; height: 100dvh; }
+        .top-bar {
+            height: 50px; background: #1e293b; border-bottom: 1px solid #334155;
+            display: flex; align-items: center; padding: 0 15px; z-index: 100;
+        }
+        .canvas-area { flex-grow: 1; position: relative; background: #020617; }
+        canvas { position: absolute; top: 0; left: 0; z-index: 1; }
+
+        .side-menu {
+            position: absolute; z-index: 50;
+            background: rgba(15, 23, 42, 0.85);
+            padding: 12px; border-radius: 12px;
+            backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1);
+        }
+        .menu-title { font-size: 10px; font-weight: 800; color: #64748b; margin-bottom: 8px; letter-spacing: 1px; text-transform: uppercase; }
+        .menu-item { display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 4px; font-size: 13px; }
+
+        .data-badge {
+            background: rgba(0,0,0,0.3); padding: 4px 12px; border-radius: 20px;
+            font-size: 12px; border: 1px solid rgba(255,255,255,0.1);
+            display: flex; gap: 8px;
+        }
+
+        .controls-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 60; pointer-events: none; }
+
+        .handle { position: absolute; pointer-events: auto; cursor: grab; }
+        .handle:active { cursor: grabbing; }
+
+        .observer-handle {
+            width: 120px;
+            height: 150px;
+            transform: translate(-50%, -100%); 
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .human-figure {
+            font-size: 120px;
+            line-height: 1;
+            user-select: none;
+            filter: drop-shadow(0 5px 15px rgba(0,0,0,0.5));
+            pointer-events: none;
+            margin-bottom: -5px; 
+        }
+
+        .object-handle {
+            width: 30px; height: 30px;
+            background: #ef4444; border: 3px solid white; border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.7);
+            cursor: ns-resize;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div class="top-bar">
+        <h1 class="text-sm font-bold text-slate-200">🥷烏衣行-視深實驗室</h1>
+        <div class="flex items-center gap-4 ml-auto">
+            <div class="data-badge">
+                <span class="text-slate-400">實際深度:</span>
+                <span class="font-mono">{{ realDepth.toFixed(1) }} cm</span>
+            </div>
+            <div class="data-badge border-yellow-500/30">
+                <span class="text-yellow-400">覺知視深:</span>
+                <span class="text-yellow-400 font-mono">{{ apparentDepth.toFixed(1) }} cm</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="canvas-area" ref="containerRef">
+        <canvas ref="canvasRef"></canvas>
+
+        <div class="side-menu left-4 bottom-10">
+            <div class="menu-title">介質折射率 (n)</div>
+            <div class="flex flex-col gap-2">
+                <label v-for="(n, name) in mediumOptions" :key="name" class="menu-item">
+                    <input type="radio" :value="n" v-model="refractiveIndex">
+                    <span>{{ name }} ({{ n }})</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="controls-layer">
+            <div class="handle observer-handle" 
+                 :style="{ left: observerX + 'px', top: waterLevelY + 'px' }"
+                 @pointerdown.stop.prevent="dragTarget = 'observer'">
+                <div class="human-figure">🧍‍♂️</div>
+            </div>
+
+            <div class="handle object-handle" 
+                 :style="{ left: objectX + 'px', top: objectY + 'px' }"
+                 @pointerdown.stop.prevent="dragTarget = 'object'">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const { createApp, ref, onMounted, watch } = Vue;
+
+createApp({
+    setup() {
+        const containerRef = ref(null);
+        const canvasRef = ref(null);
+        let ctx = null, width = 0, height = 0;
+
+        const refractiveIndex = ref(1.33);
+        const mediumOptions = { "空氣": 1.0, "水": 1.33, "玻璃": 1.5, "鑽石": 2.42 };
+        
+        const waterLevelY = ref(0);
+        const objectX = ref(0);
+        const objectY = ref(0);
+        const observerX = ref(0); 
+        const dragTarget = ref(null);
+
+        const realDepthValue = ref(0);
+        const apparentDepthValue = ref(0);
+        const EYE_HEIGHT = 105; 
+
+        const draw = () => {
+            if (!ctx) return;
+            ctx.clearRect(0, 0, width, height);
+
+            const n1 = refractiveIndex.value;
+            const n2 = 1.0;
+
+            // 1. 繪製水體
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.18)';
+            ctx.fillRect(0, waterLevelY.value, width, height - waterLevelY.value);
+            ctx.beginPath();
+            ctx.moveTo(0, waterLevelY.value); ctx.lineTo(width, waterLevelY.value);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)'; ctx.lineWidth = 2; ctx.stroke();
+
+            // 2. 光線模擬與虛像計算
+            const targetEyeX = observerX.value;
+            const H = objectY.value - waterLevelY.value;
+            
+            // 使用掃描法尋找最佳水面折射點
+            let bestSX = objectX.value;
+            let minErr = Infinity;
+            // 搜尋範圍加大以因應更大的水下空間
+            for(let sx = Math.min(objectX.value, targetEyeX) - 200; sx < Math.max(objectX.value, targetEyeX) + 200; sx += 0.5) {
+                const dx = sx - objectX.value;
+                const dy = waterLevelY.value - objectY.value;
+                const angleIn = Math.atan2(dx, -dy);
+                const sinOut = (n1 / n2) * Math.sin(angleIn);
+                if (Math.abs(sinOut) >= 1) continue;
+                
+                const angleOut = Math.asin(sinOut);
+                const ex = sx + Math.tan(angleOut) * EYE_HEIGHT;
+                const err = Math.abs(ex - targetEyeX);
+                if(err < minErr) { minErr = err; bestSX = sx; }
+            }
+            
+            const sx = bestSX;
+            const dx = sx - objectX.value;
+            const dy = waterLevelY.value - objectY.value;
+            const angleIn = Math.atan2(dx, -dy);
+            const angleOut = Math.asin((n1 / n2) * Math.sin(angleIn));
+
+            // 繪製光線
+            ctx.beginPath();
+            ctx.setLineDash([]);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.moveTo(objectX.value, objectY.value);
+            ctx.lineTo(sx, waterLevelY.value);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(sx, waterLevelY.value);
+            ctx.lineTo(targetEyeX, waterLevelY.value - EYE_HEIGHT);
+            ctx.stroke();
+
+            // 虛像延長線
+            ctx.beginPath();
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = 'rgba(250, 204, 21, 0.6)';
+            ctx.moveTo(sx, waterLevelY.value);
+            const vLen = 2000;
+            ctx.lineTo(sx - Math.sin(angleOut) * vLen, waterLevelY.value + Math.cos(angleOut) * vLen);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // 計算虛像座標
+            const angleOut2 = Math.asin((n1 / n2) * Math.sin(Math.atan2(sx + 1 - objectX.value, -dy)));
+            const tan1 = Math.tan(angleOut);
+            const tan2 = Math.tan(angleOut2);
+            const vY = waterLevelY.value + 1 / (tan2 - tan1);
+            const vX = sx - (vY - waterLevelY.value) * tan1;
+
+            ctx.beginPath();
+            ctx.arc(vX, vY, 10, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(250, 204, 21, 0.9)';
+            ctx.fill();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+            apparentDepthValue.value = (vY - waterLevelY.value) / 10;
+            ctx.font = "bold 14px system-ui";
+            ctx.fillStyle = "#facc15";
+            ctx.textAlign = "center";
+            ctx.fillText("虛像 (覺知位置)", vX, vY - 20);
+
+            // 實際位置標籤
+            ctx.fillStyle = "#ef4444";
+            ctx.textAlign = "center";
+            ctx.fillText("實際位置", objectX.value, objectY.value + 35);
+            realDepthValue.value = (objectY.value - waterLevelY.value) / 10;
+        };
+
+        const handleMove = (e) => {
+            if (!dragTarget.value) return;
+            const r = containerRef.value.getBoundingClientRect();
+            const mx = e.clientX - r.left;
+            const my = e.clientY - r.top;
+
+            if (dragTarget.value === 'object') {
+                const newY = Math.max(waterLevelY.value + 30, Math.min(height - 40, my));
+                objectY.value = newY;
+            } else if (dragTarget.value === 'observer') {
+                observerX.value = Math.max(50, Math.min(width - 50, mx));
+            }
+            draw();
+        };
+
+        onMounted(() => {
+            ctx = canvasRef.value.getContext('2d');
+            const resize = () => {
+                width = containerRef.value.clientWidth;
+                height = containerRef.value.clientHeight;
+                canvasRef.value.width = width;
+                canvasRef.value.height = height;
+                
+                // 將水平線移至畫面上方 30% 處，保留 70% 空間給水下
+                waterLevelY.value = height * 0.3; 
+                objectX.value = width / 2;
+                objectY.value = height * 0.7; // 預設物體放在較深處
+                observerX.value = width * 0.75;
+                draw();
+            };
+            window.addEventListener('resize', resize);
+            resize();
+            window.addEventListener('pointermove', handleMove);
+            window.addEventListener('pointerup', () => dragTarget.value = null);
+        });
+
+        watch(refractiveIndex, draw);
+
+        return { 
+            containerRef, canvasRef, refractiveIndex, mediumOptions, 
+            waterLevelY, objectX, objectY, observerX, dragTarget,
+            realDepth: realDepthValue, apparentDepth: apparentDepthValue
+        };
+    }
+}).mount('#app');
+</script>
+
+</body>
+</html>

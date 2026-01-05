@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>反射獵人 - 烏衣行</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+    <div class="top-bar">
+        <a href="../index.html" class="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-sm font-bold transition">
+            <span>⬅ 返回選單</span>
+        </a>
+        <div class="absolute left-1/2 transform -translate-x-1/2 text-sm md:text-base font-bold text-slate-200 pointer-events-none">
+            調整光源與鏡子位置，避開障礙，射擊！
+        </div>
+        <div class="flex gap-3 text-sm font-mono">
+            <span class="text-red-400">HITS: {{ hunter.score }}</span>
+        </div>
+    </div>
+
+    <div class="canvas-area" ref="containerRef">
+        <canvas ref="canvasRef"
+            class="interactive"
+            @pointerdown="handleStart"
+            @pointermove="handleMove"
+            @pointerup="handleEnd"
+            @pointercancel="handleEnd"
+            @pointerleave="handleEnd"
+            @contextmenu.prevent>
+        </canvas>
+
+        <div class="absolute bottom-6 right-6 z-40 flex flex-col items-center gap-2">
+            <button @click="fireHunterRay" :disabled="hunter.isFiring" 
+                    class="fire-btn" :class="{'opacity-50 cursor-not-allowed': hunter.isFiring, 'animate-pulse': !hunter.isFiring}">
+                <span class="text-2xl">🔥</span>
+            </button>
+            <div class="text-xs text-slate-400 font-mono select-none font-bold bg-black/30 px-2 rounded">FIRE</div>
+        </div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

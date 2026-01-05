@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>折射規律模擬 - 烏衣行</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+    <div class="top-bar">
+        <a href="../index.html" class="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-sm font-bold transition">
+            <span>⬅ 返回選單</span>
+        </a>
+        <div class="absolute left-1/2 transform -translate-x-1/2 text-sm md:text-base font-bold text-slate-200 pointer-events-none">
+            比較不同介質的折射差異
+        </div>
+    </div>
+
+    <div class="canvas-area" ref="containerRef">
+        <canvas ref="canvasRef"
+            class="interactive"
+            @pointerdown="handleStart"
+            @pointermove="handleMove"
+            @pointerup="handleEnd"
+            @pointercancel="handleEnd"
+            @pointerleave="handleEnd"
+            @contextmenu.prevent>
+        </canvas>
+
+        <div class="absolute top-[62%] left-4 z-40 flex flex-col gap-3 select-none">
+            <label v-for="(info, key) in mediaOptions" :key="key" 
+                   class="flex items-center gap-2 cursor-pointer group opacity-90 hover:opacity-100 transition">
+                <input type="checkbox" :value="key" v-model="simParams.activeMedia" 
+                       class="w-5 h-5 cursor-pointer rounded border-slate-500 bg-slate-700/50"
+                       :style="{ accentColor: info.color }">
+                <span class="font-bold text-sm tracking-wide" 
+                      :style="{ color: info.color, textShadow: '0 2px 4px rgba(0,0,0,0.8)' }">
+                    {{ info.name }} (n={{ info.n }})
+                </span>
+            </label>
+        </div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
