@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>烏衣行測驗資料轉換器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Outlined" rel="stylesheet">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; }
+        textarea { font-family: 'Consolas', 'Monaco', monospace; font-size: 13px; resize: none; }
+        
+        .btn-primary { background-color: #4f46e5; color: white; }
+        .btn-primary:hover { background-color: #4338ca; }
+        .btn-secondary { background-color: #10b981; color: white; }
+        .btn-secondary:hover { background-color: #059669; }
+
+        /* 電腦版自定義捲軸 */
+        @media (min-width: 1024px) {
+            textarea::-webkit-scrollbar { width: 8px; height: 8px; }
+            textarea::-webkit-scrollbar-track { background: #f1f1f1; }
+            textarea::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+            textarea::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+        }
+    </style>
+</head>
+<body class="min-h-screen lg:h-screen flex flex-col overflow-y-auto lg:overflow-hidden">
+
+    <header class="bg-white shadow-sm border-b border-gray-200 flex-shrink-0 z-20 sticky top-0 lg:static">
+        <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+            <h1 class="font-bold text-gray-700 tracking-wide flex items-center gap-2 text-sm md:text-base whitespace-nowrap">
+                <span class="material-icons-outlined text-indigo-600">transform</span>
+                <span class="hidden md:inline">資料轉換器</span>
+            </h1>
+            
+            <div class="flex bg-gray-100 p-1 rounded-lg mx-2">
+                <button id="tabJsonToExcel" onclick="setMode('jsonToExcel')" class="px-2 md:px-4 py-1.5 text-xs md:text-sm font-medium rounded-md transition-all shadow-sm bg-white text-indigo-600 whitespace-nowrap">
+                    JSON ➜ Excel
+                </button>
+                <button id="tabExcelToJson" onclick="setMode('excelToJson')" class="px-2 md:px-4 py-1.5 text-xs md:text-sm font-medium rounded-md transition-all text-gray-500 hover:text-gray-700 whitespace-nowrap">
+                    Excel ➜ JSON
+                </button>
+            </div>
+            
+            <div id="settingsArea" class="hidden items-center">
+                <input id="includeConst" type="checkbox" class="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500" checked>
+                <label for="includeConst" class="ml-1 md:ml-2 text-xs text-gray-600 font-medium cursor-pointer select-none whitespace-nowrap">含 const</label>
+            </div>
+            <div id="dummyArea" class="w-10 md:w-20 block"></div>
+        </div>
+    </header>
+
+    <main class="flex-grow flex flex-col lg:flex-row p-4 gap-4 lg:overflow-hidden">
+        
+        <div class="w-full lg:flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-96 lg:h-auto shrink-0">
+            <div class="bg-gray-50 px-4 py-2 border-b border-gray-100 flex justify-between items-center flex-shrink-0">
+                <span id="labelInput" class="text-xs font-bold text-gray-500 uppercase tracking-wider">輸入 JSON</span>
+                <button onclick="clearText('inputArea')" class="text-gray-400 hover:text-red-500 transition-colors p-1" title="清除">
+                    <span class="material-icons-outlined text-sm">delete</span>
+                </button>
+            </div>
+            <textarea id="inputArea" class="flex-grow p-4 focus:outline-none w-full resize-none" placeholder="請在此貼上資料..."></textarea>
+            
+            <div class="p-3 border-t border-gray-100 bg-gray-50 flex gap-2 flex-shrink-0">
+                <button id="actionBtn" onclick="convert()" class="flex-grow btn-primary py-3 rounded-lg font-bold shadow-sm transition-all flex items-center justify-center gap-2 active:scale-95">
+                    <span class="material-icons-outlined">arrow_forward</span>
+                    <span id="btnText">轉換為表格</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="w-full lg:flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-96 lg:h-auto shrink-0">
+            <div class="bg-gray-50 px-4 py-2 border-b border-gray-100 flex justify-between items-center flex-shrink-0">
+                <span id="labelOutput" class="text-xs font-bold text-gray-500 uppercase tracking-wider">輸出 Excel (TSV)</span>
+                <div class="flex gap-1">
+                    <button onclick="copyText('outputArea')" class="text-gray-400 hover:text-blue-600 transition-colors p-1" title="複製">
+                        <span class="material-icons-outlined text-sm">content_copy</span>
+                    </button>
+                    <button onclick="clearText('outputArea')" class="text-gray-400 hover:text-red-500 transition-colors p-1" title="清除">
+                        <span class="material-icons-outlined text-sm">delete</span>
+                    </button>
+                </div>
+            </div>
+            <textarea id="outputArea" class="flex-grow p-4 focus:outline-none w-full bg-gray-50 text-gray-700 resize-none" readonly placeholder="轉換結果將顯示於此..."></textarea>
+        </div>
+
+    </main>
+
+    <script>
+        let currentMode = 'jsonToExcel';
+
+        // 設定模式
+        function setMode(mode) {
+            currentMode = mode;
+            
+            const btnJson = document.getElementById('tabJsonToExcel');
+            const btnExcel = document.getElementById('tabExcelToJson');
+            const labelInput = document.getElementById('labelInput');
+            const labelOutput = document.getElementById('labelOutput');
+            const actionBtn = document.getElementById('actionBtn');
+            const btnText = document.getElementById('btnText');
+            const inputArea = document.getElementById('inputArea');
+            const settingsArea = document.getElementById('settingsArea');
+            const dummyArea = document.getElementById('dummyArea');
+
+            // 切換時清空，避免混淆
+            inputArea.value = '';
+            document.getElementById('outputArea').value = '';
+
+            if (mode === 'jsonToExcel') {
+                // UI 狀態：JSON -> Excel
+                btnJson.className = "px-2 md:px-4 py-1.5 text-xs md:text-sm font-medium rounded-md transition-all shadow-sm bg-white text-indigo-600 whitespace-nowrap";
+                btnExcel.className = "px-2 md:px-4 py-1.5 text-xs md:text-sm font-medium rounded-md transition-all text-gray-500 hover:text-gray-700 whitespace-nowrap";
+                
+                labelInput.textContent = "輸入 JSON";
+                labelOutput.textContent = "輸出 Excel (TSV)";
+                inputArea.placeholder = '{ id: "...", title: "...", questions: [...] }';
+                
+                actionBtn.className = actionBtn.className.replace('btn-secondary', 'btn-primary');
+                btnText.textContent = "轉換為表格";
+                
+                settingsArea.classList.add('hidden');
+                settingsArea.classList.remove('flex');
+                dummyArea.style.display = 'block';
+
+            } else {
+                // UI 狀態：Excel -> JSON
+                btnExcel.className = "px-2 md:px-4 py-1.5 text-xs md:text-sm font-medium rounded-md transition-all shadow-sm bg-white text-emerald-600 whitespace-nowrap";
+                btnJson.className = "px-2 md:px-4 py-1.5 text-xs md:text-sm font-medium rounded-md transition-all text-gray-500 hover:text-gray-700 whitespace-nowrap";
+                
+                labelInput.textContent = "輸入 Excel 表格";
+                labelOutput.textContent = "輸出 JSON";
+                // 提示使用者支援的新格式
+                inputArea.placeholder = "ID\t分類\t課別\t題幹\t選項1...";
+                
+                actionBtn.className = actionBtn.className.replace('btn-primary', 'btn-secondary');
+                btnText.textContent = "轉換為 JSON";
+                
+                settingsArea.classList.remove('hidden');
+                settingsArea.classList.add('flex');
+                dummyArea.style.display = 'none';
+            }
+        }
+
+        // 執行轉換
+        function convert() {
+            if (currentMode === 'jsonToExcel') {
+                convertJsonToTsv();
+            } else {
+                convertTsvToJson();
+            }
+        }
+
+        function clearText(elementId) {
+            document.getElementById(elementId).value = '';
+            if (elementId === 'inputArea') {
+                document.getElementById(elementId).focus();
+            }
+        }
+
+        function copyText(elementId) {
+            const el = document.getElementById(elementId);
+            if (!el.value) return;
+            el.select();
+            document.execCommand('copy');
+            
+            const originalBg = el.style.backgroundColor;
+            el.style.backgroundColor = '#d1fae5'; 
+            setTimeout(() => { el.style.backgroundColor = originalBg; }, 300);
+        }
+
+        // ==========================================
+        // 核心邏輯：JSON -> TSV (修正：加入 ID 與 Category)
+        // ==========================================
+        function convertJsonToTsv() {
+            const input = document.getElementById('inputArea').value.trim();
+            if (!input) return;
+
+            try {
+                let cleanInput = input.replace(/const\s+\w+\s*=\s*/, '').replace(/;$/, '');
+                if (cleanInput.trim().startsWith('{') && cleanInput.trim().endsWith('}')) {
+                    cleanInput = `[${cleanInput}]`;
+                }
+                const parseFn = new Function(`return ${cleanInput}`);
+                const data = parseFn();
+
+                // 【修正】新增 ID 和 分類 欄位
+                let output = "ID\t分類\t課別\t題幹\t選項1\t選項2\t選項3\t選項4\t正確答案\t解說\n";
+                const clean = (str) => String(str || "").replace(/\t/g, ' ').replace(/\n/g, ' ');
+
+                data.forEach(course => {
+                    const id = course.id || "";           // 取得 ID
+                    const category = course.category || ""; // 取得分類
+                    const title = course.title || "";
+
+                    if (course.questions && Array.isArray(course.questions)) {
+                        course.questions.forEach(q => {
+                            const opts = q.options || [];
+                            // 【修正】將 ID 和 Category 寫入每一行
+                            output += `${clean(id)}\t${clean(category)}\t${clean(title)}\t${clean(q.question)}\t${clean(opts[0])}\t${clean(opts[1])}\t${clean(opts[2])}\t${clean(opts[3])}\t${q.answer || ""}\t${clean(q.explanation)}\n`;
+                        });
+                    }
+                });
+                document.getElementById('outputArea').value = output;
+            } catch (e) {
+                alert("JSON 格式錯誤：" + e.message);
+            }
+        }
+
+        // ==========================================
+        // 核心邏輯：TSV -> JSON (修正：讀取/生成 ID 與 Category)
+        // ==========================================
+        function convertTsvToJson() {
+            const input = document.getElementById('inputArea').value.trim();
+            const includeConst = document.getElementById('includeConst').checked;
+            if (!input) return;
+
+            try {
+                const lines = input.split('\n');
+                const coursesMap = {};
+                
+                // 判斷標題列，決定欄位索引
+                const header = lines[0] || "";
+                let hasIdCol = false;
+                let colIdx = {
+                    id: -1,
+                    category: -1,
+                    title: 0, // 預設舊格式：第0欄是標題
+                    question: 1,
+                    optStart: 2,
+                    answer: 6,
+                    exp: 7
+                };
+
+                // 簡單判斷：如果第一行包含 "ID"，則切換為新格式模式
+                if (header.toUpperCase().includes('ID')) {
+                    hasIdCol = true;
+                    // 假設格式: ID | 分類 | 課別 | 題幹 | 選項...
+                    colIdx = {
+                        id: 0,
+                        category: 1,
+                        title: 2,
+                        question: 3,
+                        optStart: 4,
+                        answer: 8,
+                        exp: 9
+                    };
+                    // 跳過標題行
+                    startIndex = 1;
+                } else if (header.includes('課別') || header.includes('題幹')) {
+                    // 舊格式標題行
+                    startIndex = 1;
+                } else {
+                    // 無標題行
+                    startIndex = 0;
+                }
+
+                for (let i = startIndex; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (!line) continue;
+                    const parts = line.split('\t');
+                    
+                    // 安全檢查：如果欄位過少，跳過
+                    if (parts.length < 2) continue;
+
+                    // 讀取資料
+                    const title = parts[colIdx.title] ? parts[colIdx.title].trim() : "未命名課程";
+                    
+                    // 處理 ID：如果有欄位就讀取，沒有就看 Map 裡有沒有，再沒有就生成
+                    let id = "";
+                    if (hasIdCol && parts[colIdx.id]) {
+                        id = parts[colIdx.id].trim();
+                    }
+
+                    // 處理 Category
+                    let category = "";
+                    if (hasIdCol && parts[colIdx.category]) {
+                        category = parts[colIdx.category].trim();
+                    } else {
+                        // 舊格式：從標題推斷 (取第一個空格前的字)
+                        category = title.split(' ')[0] || title;
+                    }
+
+                    const questionText = parts[colIdx.question] ? parts[colIdx.question].trim() : "";
+                    
+                    // 讀取選項
+                    const opts = [];
+                    for(let k=0; k<4; k++) {
+                        const optVal = parts[colIdx.optStart + k];
+                        if(optVal && optVal.trim()) opts.push(optVal.trim());
+                    }
+
+                    const ansVal = parts[colIdx.answer];
+                    const expVal = parts[colIdx.exp];
+
+                    // 初始化課程物件 (如果尚未建立)
+                    if (!coursesMap[title]) {
+                        coursesMap[title] = {
+                            id: id || ('unit_' + Math.random().toString(36).substr(2, 6)), // 優先使用讀到的 ID
+                            title: title,
+                            category: category,
+                            questions: []
+                        };
+                    } else {
+                        // 如果同一課但這行有 ID (且之前沒ID?)，更新 ID (通常不會發生，假設同一課 ID 相同)
+                         if (id && coursesMap[title].id.startsWith('unit_') && !id.startsWith('unit_')) {
+                            coursesMap[title].id = id;
+                        }
+                    }
+
+                    coursesMap[title].questions.push({
+                        question: questionText,
+                        options: opts,
+                        answer: parseInt(ansVal || 1),
+                        explanation: expVal ? expVal.trim() : ""
+                    });
+                }
+
+                const resultData = Object.values(coursesMap);
+                
+                let jsonString = JSON.stringify(resultData, null, 2);
+
+                // 壓縮 options 為一行
+                jsonString = jsonString.replace(/("options":\s*\[)([\s\S]*?)(\])/g, function(match, start, content, end) {
+                    let compactContent = content.replace(/\s+/g, ' ').trim();
+                    compactContent = compactContent.replace(/",\s*"/g, '", "');
+                    return `${start}${compactContent}${end}`;
+                });
+
+                jsonString = jsonString
+                    .replace(/"([^"]+)":/g, '$1:')
+                    .replace(/"/g, '"');
+
+                if (includeConst) {
+                    document.getElementById('outputArea').value = `const quizData = ${jsonString};`;
+                } else {
+                    if (resultData.length === 1) {
+                         const singleObj = jsonString.trim().substring(1, jsonString.trim().length - 1).trim();
+                         document.getElementById('outputArea').value = singleObj;
+                    } else {
+                        document.getElementById('outputArea').value = jsonString;
+                    }
+                }
+            } catch (e) {
+                alert("轉換失敗：" + e.message);
+            }
+        }
+    </script>
+</body>
+</html>

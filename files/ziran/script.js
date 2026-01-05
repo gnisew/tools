@@ -1,47 +1,18 @@
-        // ========================================
-        // 📚 測驗資料區 - 修改題目內容時請修改此區域
-        // ========================================
-
-        // 解析資料
-        function parseData(data) {
-            const lines = data.trim().split('\n');
-            const questions = [];
-            
-            for (let i = 1; i < lines.length; i++) {
-                const line = lines[i].trim(); // 清除行首行尾空白
-                if (!line) continue; // 跳過空行
-                
-                const parts = line.split('\t');
-                if (parts.length >= 7) {
-                    const question = {
-                        course: parts[0].trim(),
-                        question: parts[1].trim(),
-                        option1: parts[2].trim(),
-                        option2: parts[3].trim(),
-                        option3: parts[4].trim(),
-                        option4: parts[5].trim(),
-                        correctAnswer: parseInt(parts[6]),
-                        explanation: (parts[7] || "").trim() // 【修改】避免 undefined 錯誤
-                    };
-                    questions.push(question);
-                }
-            }
-            return questions;
-        }
 
         // ========================================
         // 🔧 程式變數區 - 一般情況下不需要修改
         // ========================================
         
         // 全域變數
-        let allQuestions = parseData(myData);
+		let currentCourseId = '';
+		let currentCourseTitle = '';
         let currentCourse = '';
         let currentQuestions = [];
         let currentQuestionIndex = 0;
         let userAnswers = {};
         let showingExplanation = false;
         let startTime = null;
-        let zhuyinMode = true;
+		let zhuyinMode = (typeof DEFAULT_ZHUYIN_MODE !== 'undefined') ? DEFAULT_ZHUYIN_MODE : false;
         let fontSizeIndex = DEFAULT_FONT_SIZE_INDEX; // 使用索引而非直接數值
         let studentName = '';
         let studentClass = '';
@@ -52,11 +23,12 @@
         let currentAudio = null;
         let optionsClickable = false; // 新增選項點擊控制
         let currentExplanationAudio = null; // 解析朗讀音頻
-		let currentFilter = 'all';  // 用於儲存當前的篩選條件
 		
         let isReviewMode = false;
         let originalQuestionsBackup = []; // 備份原始題目
         let originalAnswersBackup = {};   // 備份原始答案
+
+		let isQuizMode = false; // 預設為練習模式
         
         // 頭像分類
         const avatarCategories = {
@@ -134,150 +106,108 @@ function loginUser(name, classNum, avatar, quizCode) {
         }
 
         // 取得課別列表
-        function getCourses() {
-            const courses = [...new Set(allQuestions.map(q => q.course))];
-            return courses;
-        }
+		function getCourses() {
+			return quizData;
+		}
 
 		// 初始化課別選單
 		function initCourseSelection() {
-			const allCourses = getCourses();
-			let filteredCourses;
-
-			// 根據 currentFilter 變數篩選課程
-			if (currentFilter === 'all') {
-				filteredCourses = allCourses;
-			} else {
-				filteredCourses = allCourses.filter(course => course.startsWith(currentFilter));
-			}
-
-			const courseSelectionDiv = document.getElementById('courseSelection');
 			const courseButtonsContainer = document.getElementById('courseButtons');
 			courseButtonsContainer.innerHTML = ''; // 清空現有內容
 
-			// 當篩選為「全部」時，將課程分組到不同的大區塊
-			if (currentFilter === 'all') {
-				// 移除外層容器的白色卡片樣式，因為每個分類區塊將自帶樣式
-				courseSelectionDiv.className = 'mb-6';
-				// 如果 courseSelectionDiv 之前是隱藏的，保持隱藏狀態
-				if (!document.querySelector('#studentInfo').classList.contains('hidden') || !document.querySelector('#quizArea').classList.contains('hidden')) {
-    				if (!courseSelectionDiv.classList.contains('hidden')) {
-        				courseSelectionDiv.classList.add('hidden');
-    				}
+			// 1. 顯示外層容器
+			const courseSelectionDiv = document.getElementById('courseSelection');
+			courseSelectionDiv.classList.remove('hidden');
+			courseSelectionDiv.className = 'mb-6'; // 移除白色卡片背景，改用透明背景以便顯示分組
+
+			// 2. 調整容器間距
+			courseButtonsContainer.className = 'space-y-6'; // 垂直堆疊各個分類區塊
+
+			// 3. 根據 category 進行分組
+			const groupedCourses = quizData.reduce((acc, course) => {
+				const cat = course.category || '其他'; // 如果沒有分類就歸在「其他」
+				if (!acc[cat]) {
+					acc[cat] = [];
 				}
+				acc[cat].push(course);
+				return acc;
+			}, {});
 
+			// 4. 渲染每一個分類區塊
+			Object.keys(groupedCourses).forEach(category => {
+				// 建立分類大區塊
+				const categoryBlock = document.createElement('div');
+				categoryBlock.className = 'bg-white rounded-xl shadow-md overflow-hidden'; 
 
-				// 讓容器改為垂直堆疊各個分類區塊
-				courseButtonsContainer.className = 'space-y-4'; // 調整分類區塊間距
+				// 建立分類標題列
+				const header = document.createElement('div');
+				header.className = 'bg-purple-50 px-6 py-3 border-b border-purple-100 flex items-center';
+				
+				const titleIcon = document.createElement('span');
+				titleIcon.className = 'material-icons-outlined text-purple-600 mr-2';
+				titleIcon.textContent = 'folder_open'; // 或是其他圖示
+				
+				const title = document.createElement('h2');
+				title.className = 'text-lg font-bold text-purple-800'; 
+				title.textContent = category;
+				
+				header.appendChild(titleIcon);
+				header.appendChild(title);
+				categoryBlock.appendChild(header);
 
-				// 將課程按分類進行分組
-				const groupedCourses = filteredCourses.reduce((acc, course) => {
-					const category = course.split(' ')[0];
-					if (!acc[category]) {
-						acc[category] = [];
-					}
-					acc[category].push(course);
-					return acc;
-				}, {});
+				// 建立按鈕網格容器
+				const gridContainer = document.createElement('div');
+				gridContainer.className = 'p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3'; 
 
-				// 為每個分類建立一個獨立的、帶樣式的大區塊
-				Object.keys(groupedCourses).forEach(category => {
-					const categoryBlock = document.createElement('div');
-					// 調整大區塊的陰影和內邊距
-					categoryBlock.className = 'bg-white rounded-xl shadow p-4'; 
-
-					const title = document.createElement('h2');
-					// 調整標題文字大小
-					title.className = 'text-xl font-bold text-purple-700 mb-3'; 
-					title.textContent = category;
-					categoryBlock.appendChild(title);
-
-					const gridContainer = document.createElement('div');
-					// 調整網格佈局，小螢幕 1 欄，中螢幕 2 欄，大螢幕 3 欄
-					gridContainer.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3'; 
-
-					groupedCourses[category].forEach((course, index) => {
-						const button = document.createElement('button');
-						// 調整卡片按鈕的內邊距和陰影
-						button.className = 'bg-gradient-to-r from-purple-100 to-blue-100 hover:from-purple-200 hover:to-blue-200 text-gray-800 px-4 py-4 rounded-lg font-medium text-base transition-all text-left w-full shadow hover:shadow-md transform hover:scale-102'; 
-						
-						const practiceCount = getPracticeCount(course);
-						const avgScore = getAverageScore(course);
-						const starColor = getStarColor(avgScore);
-						
-						button.innerHTML = `
-							<div class="flex justify-between items-center">
-								<div class="text-lg text-black">${index + 1}. ${course}</div>
-								<div class="flex items-center space-x-2">
-									<button class="text-xl ${starColor} hover:scale-110 transition-transform" onclick="event.stopPropagation(); showCourseStats('${course}', ${avgScore})" title="點擊查看練習紀錄">${practiceCount > 0 ? '★' : '☆'}</button>
-									<span class="text-base font-medium text-black">${practiceCount}</span>
-								</div>
-							</div>
-						`;
-						button.onclick = () => startQuiz(course);
-						gridContainer.appendChild(button);
-					});
-
-					categoryBlock.appendChild(gridContainer);
-					courseButtonsContainer.appendChild(categoryBlock);
+				// 生成該分類下的所有課程按鈕
+				groupedCourses[category].forEach((course, index) => {
+					const button = createCourseButton(course, index);
+					gridContainer.appendChild(button);
 				});
 
-			} else {
-				// 如果是特定篩選，則恢復成原本的單一大區塊佈局
-				// 恢復外層容器的樣式
-				// 調整大區塊的陰影和內邊距
-				courseSelectionDiv.className = 'bg-white rounded-xl shadow p-4 mb-6'; 
-				// 如果 courseSelectionDiv 之前是隱藏的，保持隱藏狀態
-				if (!document.querySelector('#studentInfo').classList.contains('hidden') || !document.querySelector('#quizArea').classList.contains('hidden')) {
-    				if (!courseSelectionDiv.classList.contains('hidden')) {
-        				courseSelectionDiv.classList.add('hidden');
-    				}
-				}
-
-
-				// 調整網格佈局，小螢幕 1 欄，中螢幕 2 欄，大螢幕 3 欄
-				courseButtonsContainer.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3'; 
-
-				filteredCourses.forEach((course, index) => {
-					const button = document.createElement('button');
-					// 調整卡片按鈕的內邊距和陰影
-					button.className = 'bg-gradient-to-r from-purple-100 to-blue-100 hover:from-purple-200 hover:to-blue-200 text-gray-800 px-4 py-4 rounded-lg font-medium text-base transition-all text-left w-full shadow hover:shadow-md transform hover:scale-102'; 
-					
-					const practiceCount = getPracticeCount(course);
-					const avgScore = getAverageScore(course);
-					const starColor = getStarColor(avgScore);
-					
-					button.innerHTML = `
-						<div class="flex justify-between items-center">
-							<div class="text-lg text-black">${index + 1}. ${course}</div>
-							<div class="flex items-center space-x-2">
-								<button class="text-xl ${starColor} hover:scale-110 transition-transform" onclick="event.stopPropagation(); showCourseStats('${course}', ${avgScore})" title="點擊查看練習紀錄">${practiceCount > 0 ? '★' : '☆'}</button>
-								<span class="text-base font-medium text-black">${practiceCount}</span>
-							</div>
-						</div>
-					`;
-					button.onclick = () => startQuiz(course);
-					courseButtonsContainer.appendChild(button);
-				});
-			}
+				categoryBlock.appendChild(gridContainer);
+				courseButtonsContainer.appendChild(categoryBlock);
+			});
+		}
+		// 獨立出來的按鈕建立函數，避免程式碼重複
+		function createCourseButton(course, index) {
+			const button = document.createElement('button');
+			button.className = 'bg-gradient-to-r from-purple-100 to-blue-100 hover:from-purple-200 hover:to-blue-200 text-gray-800 px-4 py-4 rounded-lg font-medium text-base transition-all text-left w-full shadow hover:shadow-md transform hover:scale-102'; 
+			
+			// 傳入 course.id 來取得數據
+			const practiceCount = getPracticeCount(course.id);
+			const avgScore = getAverageScore(course.id);
+			const starColor = getStarColor(avgScore);
+			
+			button.innerHTML = `
+				<div class="flex justify-between items-center">
+					<div class="text-lg text-black">${index + 1}. ${course.title}</div>
+					<div class="flex items-center space-x-2">
+						<button class="text-xl ${starColor} hover:scale-110 transition-transform" onclick="event.stopPropagation(); showCourseStats('${course.id}', '${course.title}', ${avgScore})" title="點擊查看練習紀錄">${practiceCount > 0 ? '★' : '☆'}</button>
+						<span class="text-base font-medium text-black">${practiceCount}</span>
+					</div>
+				</div>
+			`;
+			button.onclick = () => startQuiz(course.id);
+			return button;
 		}
 
-
         // 計算練習次數（只計算完成的）
-        function getPracticeCount(course) {
-            const history = JSON.parse(localStorage.getItem(`${QUIZ_ID}_history`) || '[]');
-            return history.filter(record => record.course === course && record.completed).length;
-        }
+		function getPracticeCount(courseId) {
+			const history = JSON.parse(localStorage.getItem(`${QUIZ_ID}_history`) || '[]');
+			// 檢查 record.courseId
+			return history.filter(record => record.courseId === courseId && record.completed).length;
+		}
 
         // 計算平均成績
-        function getAverageScore(course) {
-            const history = JSON.parse(localStorage.getItem(`${QUIZ_ID}_history`) || '[]');
-            const completedRecords = history.filter(record => record.course === course && record.completed);
-            if (completedRecords.length === 0) return 0;
-            
-            const totalScore = completedRecords.reduce((sum, record) => sum + record.score, 0);
-            return Math.round(totalScore / completedRecords.length);
-        }
+		function getAverageScore(courseId) {
+			const history = JSON.parse(localStorage.getItem(`${QUIZ_ID}_history`) || '[]');
+			const completedRecords = history.filter(record => record.courseId === courseId && record.completed);
+			if (completedRecords.length === 0) return 0;
+			
+			const totalScore = completedRecords.reduce((sum, record) => sum + record.score, 0);
+			return Math.round(totalScore / completedRecords.length);
+		}
 
         // 根據成績決定星號顏色
         function getStarColor(score) {
@@ -288,69 +218,67 @@ function loginUser(name, classNum, avatar, quizCode) {
             return 'text-black';                       // 黑色
         }
 
-        // 顯示課程統計
-        function showCourseStats(course, avgScore) {
-            const practiceCount = getPracticeCount(course);
-            
-            // 設定標題
-            document.getElementById('statsModalTitle').textContent = course;
-            document.getElementById('statsModalScore').textContent = avgScore;
-            document.getElementById('statsModalCount').textContent = practiceCount;
+		// 顯示課程統計 (接收 ID 和 Title)
+		function showCourseStats(courseId, courseTitle, avgScore) {
+			const practiceCount = getPracticeCount(courseId);
+			
+			// 設定標題
+			document.getElementById('statsModalTitle').textContent = courseTitle;
+			document.getElementById('statsModalScore').textContent = avgScore;
+			document.getElementById('statsModalCount').textContent = practiceCount;
 
-            // 生成星星
-            let starsHtml = '';
-            const starClass = 'text-3xl text-yellow-400 drop-shadow-sm material-icons'; // 星星樣式
-            const emptyStarClass = 'text-3xl text-gray-200 material-icons'; // 空星星樣式
-            
-            // 計算星星數量 (每20分一顆星)
-            const starCount = Math.floor(avgScore / 20);
-            const hasHalfStar = (avgScore % 20) >= 10;
+			// ... (中間生成星星和評語的程式碼保持不變) ...
+			
+			// 生成星星
+			let starsHtml = '';
+			const starClass = 'text-3xl text-yellow-400 drop-shadow-sm material-icons'; 
+			const emptyStarClass = 'text-3xl text-gray-200 material-icons'; 
+			
+			const starCount = Math.floor(avgScore / 20);
+			const hasHalfStar = (avgScore % 20) >= 10;
 
-            if (practiceCount === 0) {
-                // 如果沒練習過，顯示5顆灰星星
-                for(let i=0; i<5; i++) starsHtml += `<span class="${emptyStarClass}">star</span>`;
-            } else {
-                for (let i = 0; i < starCount; i++) {
-                    starsHtml += `<span class="${starClass}">star</span>`;
-                }
-                if (hasHalfStar && starCount < 5) {
-                    starsHtml += `<span class="${starClass}">star_half</span>`;
-                }
-                const filledStars = starCount + (hasHalfStar ? 1 : 0);
-                for (let i = filledStars; i < 5; i++) {
-                    starsHtml += `<span class="${emptyStarClass}">star</span>`;
-                }
-            }
-            document.getElementById('statsModalStars').innerHTML = starsHtml;
+			if (practiceCount === 0) {
+				for(let i=0; i<5; i++) starsHtml += `<span class="${emptyStarClass}">star</span>`;
+			} else {
+				for (let i = 0; i < starCount; i++) {
+					starsHtml += `<span class="${starClass}">star</span>`;
+				}
+				if (hasHalfStar && starCount < 5) {
+					starsHtml += `<span class="${starClass}">star_half</span>`;
+				}
+				const filledStars = starCount + (hasHalfStar ? 1 : 0);
+				for (let i = filledStars; i < 5; i++) {
+					starsHtml += `<span class="${emptyStarClass}">star</span>`;
+				}
+			}
+			document.getElementById('statsModalStars').innerHTML = starsHtml;
 
-            // 設定評語
-            const commentEl = document.getElementById('statsModalComment');
-            if (practiceCount === 0) {
-                commentEl.textContent = "還沒有練習紀錄，趕快開始挑戰吧！💪";
-                commentEl.className = "text-gray-500 font-medium text-sm";
-            } else if (avgScore >= 95) {
-                commentEl.textContent = "太神了！你是這個單元的專家！👑";
-                commentEl.className = "text-purple-600 font-bold text-sm";
-            } else if (avgScore >= 80) {
-                commentEl.textContent = "表現很棒喔！繼續保持！🌟";
-                commentEl.className = "text-green-600 font-bold text-sm";
-            } else if (avgScore >= 60) {
-                commentEl.textContent = "通過了！再多練習幾次會更強喔！📚";
-                commentEl.className = "text-blue-600 font-bold text-sm";
-            } else {
-                commentEl.textContent = "別灰心，多練習幾次一定會進步的！🌱";
-                commentEl.className = "text-orange-500 font-bold text-sm";
-            }
+			// 設定評語 (略，保持原樣)
+			const commentEl = document.getElementById('statsModalComment');
+			if (practiceCount === 0) {
+				commentEl.textContent = "還沒有練習紀錄，趕快開始挑戰吧！💪";
+				commentEl.className = "text-gray-500 font-medium text-sm";
+			} else if (avgScore >= 95) {
+				commentEl.textContent = "太神了！你是這個單元的專家！👑";
+				commentEl.className = "text-purple-600 font-bold text-sm";
+			} else if (avgScore >= 80) {
+				commentEl.textContent = "表現很棒喔！繼續保持！🌟";
+				commentEl.className = "text-green-600 font-bold text-sm";
+			} else if (avgScore >= 60) {
+				commentEl.textContent = "通過了！再多練習幾次會更強喔！📚";
+				commentEl.className = "text-blue-600 font-bold text-sm";
+			} else {
+				commentEl.textContent = "別灰心，多練習幾次一定會進步的！🌱";
+				commentEl.className = "text-orange-500 font-bold text-sm";
+			}
 
-            // 顯示彈窗 (移除 hidden)
-            const modal = document.getElementById('statsModal');
-            modal.classList.remove('hidden');
-            
-            // 簡單的進場動畫
-            const content = modal.querySelector('.inline-block');
-            content.classList.remove('opacity-0', 'scale-95');
-            content.classList.add('opacity-100', 'scale-100');
-        }
+			// 顯示彈窗
+			const modal = document.getElementById('statsModal');
+			modal.classList.remove('hidden');
+			const content = modal.querySelector('.inline-block');
+			content.classList.remove('opacity-0', 'scale-95');
+			content.classList.add('opacity-100', 'scale-100');
+		}
 
         // 關閉統計視窗
         function closeStatsModal() {
@@ -362,6 +290,66 @@ function loginUser(name, classNum, avatar, quizCode) {
 
 
 
+		// ========================================
+		// 🔗 網址參數與歷史紀錄管理 (新增區塊)
+		// ========================================
+
+		// 根據網址參數自動進入測驗
+		function checkUrlAndLoadQuiz() {
+			const urlParams = new URLSearchParams(window.location.search);
+			const quizId = urlParams.get('id');
+			const mode = urlParams.get('mode'); // 讀取 mode 參數
+
+			// 設定模式
+			if (mode === 'quiz') {
+				isQuizMode = true;
+			} else {
+				isQuizMode = false;
+			}
+
+			if (quizId) {
+				const courseExists = quizData.some(c => c.id === quizId);
+				if (courseExists) {
+					// 傳入 false 代表不要重複 pushState，因為網址已經有了
+					startQuiz(quizId, false); 
+				} else {
+					console.warn("找不到網址指定的測驗 ID:", quizId);
+					resetUrlToHome();
+				}
+			}
+		}
+
+		// 更新網址 (不重新整理頁面)
+		function updateUrlForQuiz(quizId) {
+			const params = new URLSearchParams();
+			params.set('id', quizId);
+			
+			// 如果是測驗模式，要在網址加上 mode=quiz
+			if (isQuizMode) {
+				params.set('mode', 'quiz');
+			}
+			// 如果是練習模式，不加參數 (保持網址乾淨)
+
+			const newUrl = `${window.location.pathname}?${params.toString()}`;
+			history.pushState({ id: quizId, mode: isQuizMode ? 'quiz' : 'practice' }, '', newUrl);
+		}
+
+		// 清除網址參數回到純路徑
+		function resetUrlToHome() {
+			const newUrl = window.location.pathname;
+			history.pushState({ id: null }, '', newUrl);
+		}
+
+		// 監聽瀏覽器「上一頁/下一頁」按鈕
+		window.addEventListener('popstate', (event) => {
+			// 如果 state 有 id，代表要進入測驗
+			if (event.state && event.state.id) {
+				startQuiz(event.state.id, false); // false = 不要再推一次 history
+			} else {
+				// 如果沒有 id，代表回到首頁
+				returnToHomeUI();
+			}
+		});
 
 
 
@@ -372,12 +360,12 @@ function loginUser(name, classNum, avatar, quizCode) {
 		// 從所有題目中，取得可篩選的課別分類
 		function getFilterCategories() {
 			const categories = new Set();
-			allQuestions.forEach(q => {
-				// 依照空格分割課別，並取第一部分作為分類詞
-				const category = q.course.split(' ')[0];
-				categories.add(category);
+			// 使用新的 category 欄位
+			quizData.forEach(course => {
+				if (course.category) {
+					categories.add(course.category);
+				}
 			});
-			// 回傳一個陣列，包含 'all' (全部) 以及所有分類詞
 			return ['all', ...categories];
 		}
 
@@ -458,94 +446,178 @@ function loginUser(name, classNum, avatar, quizCode) {
 
 		// 更新頭部按鈕 (篩選器、歷史紀錄) 的可見性
 		function updateHeaderButtonsVisibility() {
-			const historyBtn = document.getElementById('historyBtn');
-			const filterContainer = document.getElementById('filterContainer');
-			
-			// 判斷當前是否在主選單頁面
-			const isAtCourseSelectionScreen = 
-				!document.getElementById('courseSelection').classList.contains('hidden') && 
-				 document.getElementById('quizArea').classList.contains('hidden');
-			
-			// 判斷是否已登入 (避免在輸入姓名時就顯示)
-			const isSignedIn = !document.getElementById('studentInfo').classList.contains('hidden');
+            const historyBtn = document.getElementById('historyBtn');
+            const exitQuizBtn = document.getElementById('exitQuizBtn');
+            const quizModeBtn = document.getElementById('quizModeToggleBtn');
+            
+            const isAtCourseSelectionScreen = !document.getElementById('courseSelection').classList.contains('hidden');
+            const isInQuiz = !document.getElementById('quizArea').classList.contains('hidden');
+            const isSignedIn = !document.getElementById('studentInfo').classList.contains('hidden');
 
-			// 歷史紀錄按鈕邏輯
-			if (isAtCourseSelectionScreen && hasHistory() && !isSignedIn) {
-				historyBtn.style.display = 'block';
-			} else {
-				historyBtn.style.display = 'none';
-			}
+            // 1. 歷史紀錄按鈕
+            if (isAtCourseSelectionScreen && hasHistory() && !isSignedIn) {
+                historyBtn.style.display = 'block';
+            } else {
+                historyBtn.style.display = 'none';
+            }
 
-			// 篩選按鈕邏輯：只在主選單頁面顯示
-			if (isAtCourseSelectionScreen && !isSignedIn) {
-				filterContainer.classList.remove('hidden');
-			} else {
-				filterContainer.classList.add('hidden');
-			}
-		}
+            // 2. 測驗模式按鈕 & 終止測驗按鈕
+            if (isInQuiz) {
+                quizModeBtn.classList.remove('hidden');
+                
+                if (isQuizMode) {
+                    // ★ 測驗模式下：
+                    // 1. 測驗按鈕：凸顯 (紫色實心) 且 【鎖定不可點擊】
+                    quizModeBtn.classList.remove('bg-white', 'text-gray-600', 'border-gray-300', 'hover:bg-gray-50');
+                    quizModeBtn.classList.add('bg-purple-600', 'text-white', 'border-purple-600');
+                    quizModeBtn.innerHTML = '<span class="material-icons-outlined text-base">assignment_turned_in</span><span>測驗中</span>';
+                    quizModeBtn.style.pointerEvents = 'none'; // 【新增】 禁止點擊切換
 
+                    // 2. X 按鈕：【隱藏】 (不可點終止測驗)
+                    exitQuizBtn.classList.add('hidden');
+                } else {
+                    // ★ 練習模式下：
+                    // 測驗按鈕：普通 (白色空心) 可點擊
+                    quizModeBtn.classList.remove('bg-purple-600', 'text-white', 'border-purple-600');
+                    quizModeBtn.classList.add('bg-white', 'text-gray-600', 'border-gray-300', 'hover:bg-gray-50');
+                    quizModeBtn.innerHTML = '<span class="material-icons-outlined text-base">assignment</span><span>練習</span>';
+                    quizModeBtn.style.pointerEvents = 'auto'; // 允許點擊
+
+                    // X 按鈕：顯示 (紅色警告)
+                    exitQuizBtn.classList.remove('hidden', 'bg-gray-200', 'text-gray-400', 'hover:bg-gray-300');
+                    exitQuizBtn.classList.add('bg-red-500', 'hover:bg-red-600', 'text-white');
+                }
+            } else {
+                quizModeBtn.classList.add('hidden');
+                exitQuizBtn.classList.add('hidden');
+            }
+        }
 
 		// 開始測驗
-		function startQuiz(course) {
-            isReviewMode = false; 
-            originalQuestionsBackup = [];
-            originalAnswersBackup = {};
+		function startQuiz(courseId, pushHistory = true) {
+			isReviewMode = false; 
+			originalQuestionsBackup = [];
+			originalAnswersBackup = {};
 
-			currentCourse = course;
-			currentQuestions = allQuestions.filter(q => q.course === course);
+			// 1. 透過 ID 找到對應的課程物件
+			const courseObj = quizData.find(c => c.id === courseId);
+			
+			if (!courseObj) {
+				console.error("找不到課程 ID:", courseId);
+				return;
+			}
+
+			currentCourseId = courseObj.id;
+			currentCourseTitle = courseObj.title; 
+			
+			if (pushHistory) {
+				updateUrlForQuiz(courseId);
+			}
+
+			// 2. 將 JSON 格式轉換為 UI 需要的扁平格式
+			currentQuestions = courseObj.questions.map(q => {
+				return {
+					course: currentCourseTitle,
+					question: q.question,
+					option1: q.options[0] || "",
+					option2: q.options[1] || "",
+					option3: q.options[2] || "",
+					option4: q.options[3] || "",
+					correctAnswer: q.answer,
+					explanation: q.explanation || ""
+				};
+			});
+
 			currentQuestionIndex = 0;
 			userAnswers = {};
 			showingExplanation = false;
 			startTime = new Date();
 			
-			// 清理過期紀錄
 			cleanExpiredHistory();
 			
-			// 更新標題為單元名稱
-			document.getElementById('mainTitle').textContent = `📚 ${course}`;
-			
-			// 禁用右上角個人資訊點擊
+			// 更新 UI
+			document.getElementById('mainTitle').textContent = `📚 ${currentCourseTitle}`;
 			document.getElementById('userInfo').style.cursor = 'default';
 			document.getElementById('userInfo').onclick = null;
 			
-			// --- 修改重點：先切換頁面，再更新按鈕 ---
-			// 1. 先隱藏課程選單，並顯示測驗區域
 			document.getElementById('courseSelection').classList.add('hidden');
 			document.getElementById('quizArea').classList.remove('hidden');
 			document.getElementById('resultArea').classList.add('hidden');
 			document.getElementById('reviewArea').classList.add('hidden');
 			document.getElementById('historyArea').classList.add('hidden');
 			document.getElementById('exitQuizBtn').classList.remove('hidden');
-			
-			// 2. 然後才根據新的頁面狀態，更新頂部按鈕的可見性
+
+			window.scrollTo(0, 0);		
+		
 			updateHeaderButtonsVisibility();
-			// --- 修改結束 ---
-			
 			initQuestionNavigation();
 			showQuestion();
 			updateProgress();
 		}
 
+		// 統一的返回首頁 UI 處理函式
+		function returnToHomeUI() {
+			isReviewMode = false;
+			// 恢復標題
+			document.getElementById('mainTitle').textContent = QUIZ_TITLE;
+			
+			// 恢復右上角個人資訊點擊功能
+			document.getElementById('userInfo').style.cursor = 'pointer';
+			document.getElementById('userInfo').onclick = editStudentInfo;
+			
+			hideAllAreas();
+			document.getElementById('courseSelection').classList.remove('hidden');
+			
+			// 重新初始化課別選單以更新練習次數
+			initCourseSelection();
+			updateHeaderButtonsVisibility();
 
+			// 重設頂部標題區塊
+			const headerArea = document.getElementById('headerArea');
+			if (headerArea.classList.contains('hidden')) {
+				headerArea.classList.remove('hidden');
+				document.getElementById('toggleHeaderIcon').textContent = 'expand_less';
+			}
+		}
+
+		// 綁定按鈕事件：返回首頁時，同時清除網址參數
+		function bindHomeButtons() {
+			
+			const handleHomeClick = () => {
+				resetUrlToHome(); // 清除網址參數 (?id=...)
+				returnToHomeUI(); // 更新介面
+			};
+
+			// 綁定所有會回到首頁的按鈕
+			document.getElementById('restartBtn').onclick = handleHomeClick;
+			document.getElementById('backToHomeFromReviewBtn').onclick = handleHomeClick;
+			document.getElementById('backToHomeFromReviewBtnTop').onclick = handleHomeClick;
+			
+			// 修改終止測驗的邏輯
+			const confirmExitBtn = document.getElementById('confirmExitBtn');
+			// 先移除舊的事件監聽 (如果有的話，或是直接覆蓋 onclick)
+			// 這裡我們直接修改 performQuizExit 函式內容比較快
+		}
 
         // 歷史紀錄管理
-        function saveHistory(score, completed = true) {
-            const endTime = new Date();
-            const history = JSON.parse(localStorage.getItem(`${QUIZ_ID}_history`) || '[]');
-            
-            const record = {
-                studentName: studentName,
-                studentAvatar: studentAvatar,
-                course: currentCourse,
-                startTime: startTime.toISOString(),
-                endTime: endTime.toISOString(),
-                score: completed ? score : null,
-                completed: completed
-            };
-            
-            history.unshift(record); // 最新的在前面
-            localStorage.setItem(`${QUIZ_ID}_history`, JSON.stringify(history));
-        }
+		function saveHistory(score, completed = true) {
+			const endTime = new Date();
+			const history = JSON.parse(localStorage.getItem(`${QUIZ_ID}_history`) || '[]');
+			
+			const record = {
+				studentName: studentName,
+				studentAvatar: studentAvatar,
+				courseId: currentCourseId,
+				courseTitle: currentCourseTitle,
+				startTime: startTime.toISOString(),
+				endTime: endTime.toISOString(),
+				score: completed ? score : null,
+				completed: completed
+			};
+			
+			history.unshift(record); // 最新的在前面
+			localStorage.setItem(`${QUIZ_ID}_history`, JSON.stringify(history));
+		}
 
         function cleanExpiredHistory() {
             const history = JSON.parse(localStorage.getItem(`${QUIZ_ID}_history`) || '[]');
@@ -591,16 +663,17 @@ function loginUser(name, classNum, avatar, quizCode) {
 					const startStr = `${startTime.getFullYear()}/${String(startTime.getMonth() + 1).padStart(2, '0')}/${String(startTime.getDate()).padStart(2, '0')} ${String(startTime.getHours()).padStart(2, '0')}:${String(startTime.getMinutes()).padStart(2, '0')}`;
 					const endStr = `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`;
 					
-					// 使用紀錄當時的頭像和名稱
 					const displayAvatar = record.studentAvatar || '👤';
 					const displayName = record.studentName || '未知';
+					// 使用 record.courseTitle
+					const displayTitle = record.courseTitle || record.course || '未知課程';
 					
 					return `
 						<div class="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
 							<div class="flex items-center space-x-3 flex-1">
 								<span class="text-2xl">${displayAvatar}</span>
 								<span class="font-medium">${displayName}</span>
-								<span class="text-gray-600">${record.course}</span>
+								<span class="text-gray-600">${displayTitle}</span>
 								<span class="text-sm ${record.completed ? 'text-green-600' : 'text-red-600'}">
 									${record.completed ? `得分 ${record.score}` : '未完成'}
 								</span>
@@ -616,94 +689,95 @@ function loginUser(name, classNum, avatar, quizCode) {
 			
 			hideAllAreas();
 			document.getElementById('historyArea').classList.remove('hidden');
-			
-			// 控制頂部按鈕的顯示/隱藏
-			document.getElementById('filterContainer').classList.add('hidden');
 			document.getElementById('historyBtn').style.display = 'none';
 			document.getElementById('backFromHistoryBtn').classList.remove('hidden');
 		}
 
         // 初始化題目導航
-        function initQuestionNavigation() {
+		function initQuestionNavigation() {
             const nav = document.getElementById('questionNav');
             nav.innerHTML = '';
             
             currentQuestions.forEach((_, index) => {
                 const button = document.createElement('button');
+                // 預設樣式，具體的顏色與互動性由 updateNavButton 決定
                 button.className = 'w-8 h-8 rounded-full font-medium text-sm transition-all hover:scale-105';
                 button.textContent = index + 1;
                 button.onclick = () => goToQuestion(index);
+                
+                // 立即更新狀態
                 updateNavButton(button, index);
+                
                 nav.appendChild(button);
             });
         }
 
-// 更新導航按鈕狀態
-        function updateNavButton(button, index) {
-            // 1. 判斷是否可互動
-            let isInteractive = false;
-            if (ALLOW_SKIP_QUESTIONS) {
-                isInteractive = true;
-            } else {
-                // 嚴格模式：只有「下一題」且「目前這題已作答」時才可互動
-                if (index === currentQuestionIndex + 1 && userAnswers[currentQuestionIndex] !== undefined) {
-                    isInteractive = true;
-                }
-            }
+        // 更新導航按鈕狀態
+		function updateNavButton(button, index) {
+			// 1. 互動性邏輯 (保留您之前的跳題設定)
+			let isInteractive = false;
+			if (ALLOW_SKIP_QUESTIONS) {
+				isInteractive = true;
+			} else {
+				if (index === currentQuestionIndex) {
+					isInteractive = true; 
+				} else if (index === currentQuestionIndex + 1 && userAnswers[currentQuestionIndex] !== undefined) {
+					isInteractive = true;
+				}
+			}
 
-            const interactiveClass = isInteractive 
-                ? 'hover:scale-105 cursor-pointer' 
-                : 'cursor-default';
+			const interactiveClass = isInteractive ? 'hover:scale-105 cursor-pointer' : 'cursor-default';
+			let borderClass = 'border-2 border-transparent';
 
-            // 2. 【新增】外框樣式邏輯
-            // 預設給所有按鈕 2px 的透明外框 (border-transparent)，確保大小一致，避免跳動
-            let borderClass = 'border-2 border-transparent';
+			if (!ALLOW_SKIP_QUESTIONS && index === currentQuestionIndex + 1 && isInteractive) {
+				borderClass = 'border-2 border-purple-500 shadow-md bg-purple-50';
+			}
 
-            // 條件：嚴格模式 + 是下一題 + 可互動 (代表前一題寫完了)
-            if (!ALLOW_SKIP_QUESTIONS && index === currentQuestionIndex + 1 && isInteractive) {
-                // 變成紫色外框，並加上一點陰影凸顯
-                borderClass = 'border-2 border-purple-500 shadow-md bg-purple-50';
-            }
-
-            // 3. 組合樣式
-            // 注意：我們把 ${borderClass} 加入到了每個狀態的 class 字串中
-            if (index === currentQuestionIndex) {
-                // 當前題目 (藍色)
-                button.className = `w-8 h-8 rounded-full font-medium text-sm transition-all ${borderClass} ${interactiveClass} bg-blue-500 text-white select-none`;
-            } else if (userAnswers[index] !== undefined) {
-                // 已作答 (綠色/紅色)
-                const isCorrect = userAnswers[index] === currentQuestions[index].correctAnswer;
-                button.className = `w-8 h-8 rounded-full font-medium text-sm transition-all select-none ${borderClass} ${interactiveClass} ${
-                    isCorrect ? 'bg-green-400 text-white' : 'bg-red-400 text-white'
-                }`;
-            } else {
-                // 未作答 (灰色)
-                // 這裡會套用到上面的紫色外框邏輯
-                button.className = `w-8 h-8 rounded-full font-medium text-sm transition-all ${borderClass} ${interactiveClass} bg-gray-300 text-gray-700 select-none`;
-            }
-        }
+			// 2. 顏色邏輯 (加入 isQuizMode 判斷)
+			if (index === currentQuestionIndex) {
+				// 當前題目：藍色
+				button.className = `w-8 h-8 rounded-full font-medium text-sm transition-all ${borderClass} ${interactiveClass} bg-blue-500 text-white select-none`;
+			} else if (userAnswers[index] !== undefined) {
+				// 已作答
+				if (isQuizMode) {
+					// ★ 測驗模式：統一是紫色，不分對錯
+					button.className = `w-8 h-8 rounded-full font-medium text-sm transition-all select-none ${borderClass} ${interactiveClass} bg-purple-400 text-white`;
+				} else {
+					// ★ 練習模式：顯示綠色(對) 或 紅色(錯)
+					const isCorrect = userAnswers[index] === currentQuestions[index].correctAnswer;
+					button.className = `w-8 h-8 rounded-full font-medium text-sm transition-all select-none ${borderClass} ${interactiveClass} ${
+						isCorrect ? 'bg-green-400 text-white' : 'bg-red-400 text-white'
+					}`;
+				}
+			} else {
+				// 未作答：灰色
+				button.className = `w-8 h-8 rounded-full font-medium text-sm transition-all ${borderClass} ${interactiveClass} bg-gray-300 text-gray-700 select-none`;
+			}
+		}
 
         
-
-// 跳到指定題目
+		// 跳到指定題目
         function goToQuestion(index) {
-            // 【修改】嚴格順序模式下的跳轉檢查
+            // 嚴格順序模式下的邏輯檢查
             if (!ALLOW_SKIP_QUESTIONS) {
-                // 條件：必須是「下一題 (index === current + 1)」 且 「目前這題已作答」
-                const isNextQuestion = index === currentQuestionIndex + 1;
-                const isCurrentAnswered = userAnswers[currentQuestionIndex] !== undefined;
+                // 如果目標題目不是「當前題目」也不是「下一題」，直接阻擋
+                // (也就是禁止回頭，也禁止跳級)
+                if (index < currentQuestionIndex) return; // 禁止回頭
+                if (index > currentQuestionIndex + 1) return; // 禁止跳級
 
-                // 如果不是下一題，或者目前這題還沒寫完，就阻擋
-                if (!isNextQuestion || !isCurrentAnswered) {
-                    return;
+                // 如果想去下一題，必須確認「目前這題」已經作答完畢
+                if (index === currentQuestionIndex + 1 && userAnswers[currentQuestionIndex] === undefined) {
+                    return; // 當前這題沒寫完，不准去下一題
                 }
             }
 
-            // (下方的原本邏輯保持不變)
+            // 原本的防呆邏輯 (保留)
             if (userAnswers[0] === undefined && index !== 0) {
-                // 如果第一題都還沒寫 (且不是要跳去第一題)，也阻擋
-                // (這通常是防剛載入時的錯誤，保留即可)
-                if (!ALLOW_SKIP_QUESTIONS) return; // 雙重保險
+                 if (ALLOW_SKIP_QUESTIONS) {
+                     // 允許跳題模式下，可以跳
+                 } else {
+                     return; // 嚴格模式下，第一題沒寫不能跳
+                 }
             }
 
             currentQuestionIndex = index;
@@ -711,8 +785,8 @@ function loginUser(name, classNum, avatar, quizCode) {
             updateProgress();
         }
 
-// 顯示題目
 
+		// 顯示題目
         function showQuestion() {
             if (isReading) stopReading();
             
@@ -726,6 +800,7 @@ function loginUser(name, classNum, avatar, quizCode) {
                 document.getElementById('questionTitle').textContent = `${studentAvatar} ${currentQuestionIndex + 1}`;
             }
             
+            // ... (以下保持原本的 showQuestion 程式碼不變) ...
             const questionText = document.getElementById('questionText');
             questionText.textContent = question.question;
             questionText.style.fontSize = FONT_SIZES[fontSizeIndex] + 'px';
@@ -739,14 +814,7 @@ function loginUser(name, classNum, avatar, quizCode) {
             const container = document.getElementById('optionsContainer');
             container.innerHTML = '';
             
-            // 【修正重點 1】容器排版邏輯
-            // 必須最先判斷 isReviewMode。如果是複習模式，強制使用 Flex 單欄佈局，忽視原本的 grid 設定。
-            if (isReviewMode) {
-                // w-full: 容器滿寬
-                // flex flex-col: 垂直排列
-                // items-center: 讓內部的按鈕置中
-                container.className = 'w-full flex flex-col items-center space-y-3';
-            } else if (layoutMode === 'grid') {
+            if (layoutMode === 'grid') {
                 container.className = 'grid grid-cols-2 gap-3';
             } else {
                 container.className = 'space-y-3';
@@ -756,21 +824,7 @@ function loginUser(name, classNum, avatar, quizCode) {
             
             if (isTrue) {
                 ['○ 正確', '╳ 錯誤'].forEach((option, index) => {
-                    const val = index + 1;
-                    // 複習模式下，若不是正確答案就跳過
-                    if (isReviewMode && val !== question.correctAnswer) return;
-
-                    const button = createOptionButton(option, val);
-                    
-                    // 【修正重點 2】複習模式下按鈕樣式
-                    if (isReviewMode) {
-                        // 移除原本可能被擠壓的寬度設定
-                        button.classList.remove('w-full'); 
-                        // w-full: 手機版滿寬
-                        // md:w-3/4: 電腦版 75% 寬度 (美觀一點，不要太長)
-                        // text-center: 文字置中
-                        button.classList.add('w-full', 'md:w-3/4', 'text-center'); 
-                    }
+                    const button = createOptionButton(option, index + 1);
                     container.appendChild(button);
                 });
             } else {
@@ -782,6 +836,7 @@ function loginUser(name, classNum, avatar, quizCode) {
                 ].filter(opt => opt.text && opt.text.trim());
                 
                 let displayOptions;
+                // 在複習模式下，userAnswers 必定有值，所以順序會固定，不會隨機亂跳
                 if (userAnswers[currentQuestionIndex] !== undefined) {
                     displayOptions = options;
                 } else {
@@ -789,21 +844,7 @@ function loginUser(name, classNum, avatar, quizCode) {
                 }
                 
                 displayOptions.forEach((option, index) => {
-                    // 複習模式下，若不是正確答案就跳過
-                    if (isReviewMode && option.value !== question.correctAnswer) return;
-
-                    const btnText = isReviewMode ? option.text : `${String.fromCharCode(65 + index)}. ${option.text}`;
-                    
-                    const button = createOptionButton(btnText, option.value);
-                    
-                    // 【修正重點 2】複習模式下按鈕樣式
-                    if (isReviewMode) {
-                        button.classList.remove('w-full');
-                        // w-full: 手機版滿寬
-                        // md:w-3/4: 電腦版 75% 寬度
-                        // text-center: 文字置中 (若選項文字很長，可視情況改回 text-left)
-                        button.classList.add('w-full', 'md:w-3/4', 'text-center');
-                    }
+                    const button = createOptionButton(`${String.fromCharCode(65 + index)}. ${option.text}`, option.value);
                     container.appendChild(button);
                 });
             }
@@ -814,22 +855,29 @@ function loginUser(name, classNum, avatar, quizCode) {
                 optionsClickable = true;
             }
             
+            // 呼叫 updateNextButton 統一處理按鈕顯示
             updateNextButton();
             
-            if (userAnswers[currentQuestionIndex] !== undefined || isReviewMode) {
-                showExplanation(question.explanation);
-            } else {
-                document.getElementById('explanationArea').classList.add('hidden');
-                showingExplanation = false;
-            }
-            
-            updateQuestionNavigation();
-        }
+			// ★ 控制解析顯示
+			if (isQuizMode) {
+				// 測驗模式：永遠隱藏解析
+				document.getElementById('explanationArea').classList.add('hidden');
+				showingExplanation = false;
+			} else {
+				// 練習模式：如果有作答或是複習模式，就顯示
+				if (userAnswers[currentQuestionIndex] !== undefined || isReviewMode) {
+					showExplanation(question.explanation);
+				} else {
+					document.getElementById('explanationArea').classList.add('hidden');
+					showingExplanation = false;
+				}
+			}
+			
+			updateQuestionNavigation();
+		}
 
-
-        // 選擇答案
+		// 選擇答案
         function selectAnswer(value, buttonElement) {
-            // 如果選項不可點擊或已經作答，不允許點擊
             if (!optionsClickable || userAnswers[currentQuestionIndex] !== undefined) {
                 return;
             }
@@ -838,50 +886,66 @@ function loginUser(name, classNum, avatar, quizCode) {
             const question = currentQuestions[currentQuestionIndex];
             const isCorrect = value === question.correctAnswer;
             
-            // 移除所有選項的選中狀態和hover效果
             const options = document.querySelectorAll('#optionsContainer button');
+            
+            // 1. 移除點擊事件
             options.forEach(btn => {
-                btn.classList.remove('bg-purple-100', 'border-purple-400', 'bg-green-100', 'border-green-400', 'bg-red-100', 'border-red-400');
-                btn.classList.add('border-gray-200');
-                btn.style.pointerEvents = 'none'; // 禁用點擊
-                btn.classList.remove('option-button'); // 移除hover效果
+                btn.style.pointerEvents = 'none';
+                btn.classList.remove('option-button');
             });
-            
-            // 顯示正確答案和用戶選擇
-            options.forEach((btn) => {
-                const btnValue = parseInt(btn.dataset.value);
-                
-                if (btnValue === question.correctAnswer) {
-                    btn.classList.add('bg-green-100', 'border-green-400');
-                    btn.classList.remove('border-gray-200');
-                    
-                    if (isCorrect) {
-                        showCorrectEffectOnButton(btn);
+
+            if (isQuizMode) {
+                // 測驗模式：只顯示「已選取 (藍底)」，不顯示對錯
+                options.forEach((btn) => {
+                    const btnValue = parseInt(btn.dataset.value);
+                    // 還原基本邊框
+                    btn.classList.remove('bg-purple-100', 'border-purple-400', 'bg-green-100', 'border-green-400', 'bg-red-100', 'border-red-400', 'bg-blue-100', 'border-blue-500', 'text-blue-900');
+                    btn.classList.add('border-gray-200');
+
+                    if (btnValue === value) {
+                        // 選中的項目：顯示藍色邊框與背景
+                        btn.classList.remove('border-gray-200');
+                        btn.classList.add('bg-blue-100', 'border-blue-500', 'text-blue-900', 'font-bold');
                     }
-                }
-                if (btnValue === value && !isCorrect) {
-                    btn.classList.add('bg-red-100', 'border-red-400');
-                    btn.classList.remove('border-gray-200');
-                }
-            });
+                });
+
+                // ★ 測驗模式：不顯示解析
+                document.getElementById('explanationArea').classList.add('hidden');
+                showingExplanation = false;
+
+            } else {
+                // ★ 練習模式：原本的邏輯 (顯示紅綠燈、特效、解析)
+                options.forEach(btn => {
+                    btn.classList.remove('bg-purple-100', 'border-purple-400', 'bg-green-100', 'border-green-400', 'bg-red-100', 'border-red-400', 'bg-blue-100', 'border-blue-500', 'text-blue-900');
+                    btn.classList.add('border-gray-200');
+                });
+
+                options.forEach((btn) => {
+                    const btnValue = parseInt(btn.dataset.value);
+                    if (btnValue === question.correctAnswer) {
+                        btn.classList.add('bg-green-100', 'border-green-400');
+                        btn.classList.remove('border-gray-200');
+                        if (isCorrect) showCorrectEffectOnButton(btn);
+                    }
+                    if (btnValue === value && !isCorrect) {
+                        btn.classList.add('bg-red-100', 'border-red-400');
+                        btn.classList.remove('border-gray-200');
+                    }
+                });
+                showExplanation(question.explanation);
+            }
             
-            // 顯示解析
-            showExplanation(question.explanation);
-            
-            // 更新進度和導航
             updateProgress();
             updateQuestionNavigation();
             updateNextButton();
-
-            document.getElementById('nextBtn').style.visibility = 'visible';
         }
 
-        // 創建選項按鈕
+		// 創建選項按鈕
         function createOptionButton(text, value) {
             const button = document.createElement('button');
             button.className = 'option-button w-full text-left p-4 rounded-xl border-2 border-gray-200 transition-all font-medium';
             button.textContent = text;
-            button.dataset.value = value; // 儲存實際選項值到 data 屬性
+            button.dataset.value = value; 
             button.onclick = () => selectAnswer(value, button);
             button.style.fontSize = FONT_SIZES[fontSizeIndex] + 'px';
             
@@ -889,72 +953,35 @@ function loginUser(name, classNum, avatar, quizCode) {
                 button.classList.add('zhuyin-font');
             }
             
-            // 如果已經回答過，顯示正確的狀態
+            // 如果已經回答過
             if (userAnswers[currentQuestionIndex] !== undefined) {
                 const question = currentQuestions[currentQuestionIndex];
                 button.style.pointerEvents = 'none';
                 button.classList.remove('option-button');
                 
-                if (value === question.correctAnswer) {
-                    button.classList.add('bg-green-100', 'border-green-400');
-                    button.classList.remove('border-gray-200');
-                } else if (value === userAnswers[currentQuestionIndex]) {
-                    button.classList.add('bg-red-100', 'border-red-400');
-                    button.classList.remove('border-gray-200');
+                if (isQuizMode) {
+                    // 測驗模式：回頭看題目時，只標示選了哪個 (藍色)，不標示對錯
+                    if (value === userAnswers[currentQuestionIndex]) {
+                        // 藍色樣式
+                        button.classList.add('bg-blue-100', 'border-blue-500', 'text-blue-900', 'font-bold');
+                        button.classList.remove('border-gray-200');
+                    }
+                } else {
+                    // 練習模式：回頭看時，顯示對錯
+                    if (value === question.correctAnswer) {
+                        button.classList.add('bg-green-100', 'border-green-400');
+                        button.classList.remove('border-gray-200');
+                    } else if (value === userAnswers[currentQuestionIndex]) {
+                        button.classList.add('bg-red-100', 'border-red-400');
+                        button.classList.remove('border-gray-200');
+                    }
                 }
             }
             
             return button;
         }
 
-        // 選擇答案
-        function selectAnswer(value, buttonElement) {
-            // 如果選項不可點擊或已經作答，不允許點擊
-            if (!optionsClickable || userAnswers[currentQuestionIndex] !== undefined) {
-                return;
-            }
-            
-            userAnswers[currentQuestionIndex] = value;
-            const question = currentQuestions[currentQuestionIndex];
-            const isCorrect = value === question.correctAnswer;
-            
-            // 移除所有選項的選中狀態和hover效果
-            const options = document.querySelectorAll('#optionsContainer button');
-            options.forEach(btn => {
-                btn.classList.remove('bg-purple-100', 'border-purple-400', 'bg-green-100', 'border-green-400', 'bg-red-100', 'border-red-400');
-                btn.classList.add('border-gray-200');
-                btn.style.pointerEvents = 'none'; // 禁用點擊
-                btn.classList.remove('option-button'); // 移除hover效果
-            });
-            
-            // 顯示正確答案和用戶選擇
-            options.forEach((btn) => {
-                // 從按鈕的 data-value 屬性取得實際選項值
-                const btnValue = parseInt(btn.dataset.value);
-                
-                if (btnValue === question.correctAnswer) {
-                    btn.classList.add('bg-green-100', 'border-green-400');
-                    btn.classList.remove('border-gray-200');
-                    
-                    // 在正確選項上顯示特效
-                    if (isCorrect) {
-                        showCorrectEffectOnButton(btn);
-                    }
-                }
-                if (btnValue === value && !isCorrect) {
-                    btn.classList.add('bg-red-100', 'border-red-400');
-                    btn.classList.remove('border-gray-200');
-                }
-            });
-            
-            // 顯示解析
-            showExplanation(question.explanation);
-            
-            // 更新進度和導航
-            updateProgress();
-            updateQuestionNavigation();
-            updateNextButton();
-        }
+
         
         // 在正確選項按鈕上顯示特效
         function showCorrectEffectOnButton(button) {
@@ -1049,62 +1076,41 @@ function loginUser(name, classNum, avatar, quizCode) {
         }
 
         // 更新下一題按鈕
-
-
         function updateNextButton() {
             const nextBtn = document.getElementById('nextBtn');
+            // 移除 prevBtn 的變數定義
             
-            // 判斷當前這題是否已作答
             const isCurrentAnswered = userAnswers[currentQuestionIndex] !== undefined;
-            // 判斷是否為最後一題
             const isLastQuestion = currentQuestionIndex === currentQuestions.length - 1;
             
-            // 【新增】計算目前總共回答了幾題
-            const totalAnswered = Object.keys(userAnswers).length;
-            const totalQuestions = currentQuestions.length;
-            // 【新增】判斷是否全部都寫完了
-            const isAllFinished = totalAnswered === totalQuestions;
+            // 1. 移除控制「上一題」按鈕的程式碼區塊
 
-            // 決定按鈕是否顯示的變數
-            let shouldShow = false;
-
-            if (isLastQuestion) {
-                // 如果是最後一頁：必須「全部題目都寫完」才顯示按鈕
-                // (如果是複習模式，通常答案都已經填入，所以也會符合條件)
-                if (isAllFinished) {
-                    shouldShow = true;
-                }
-            } else {
-                // 如果不是最後一頁：只要「這題有寫」就顯示按鈕
-                if (isCurrentAnswered) {
-                    shouldShow = true;
-                }
-            }
-
-            // 執行顯示或隱藏
-            if (shouldShow) {
+            // 2. 控制「下一題」按鈕 (維持原樣)
+            if (isCurrentAnswered) {
                 nextBtn.style.visibility = 'visible';
-                nextBtn.classList.remove('opacity-0');
+                // 增加一個彈出動畫效果，讓使用者知道可以按了
+                nextBtn.classList.remove('opacity-0', 'translate-y-4'); 
             } else {
                 nextBtn.style.visibility = 'hidden';
-                nextBtn.classList.add('opacity-0');
+                // 隱藏時預備動畫狀態
+                nextBtn.classList.add('opacity-0', 'translate-y-4');
             }
 
-            // 設定按鈕樣式與文字 (維持您之前的設定)
-            const baseClass = "w-full md:w-auto md:px-24 md:min-w-[300px] py-4 rounded-xl font-bold text-xl transition-colors shadow-lg flex items-center justify-center";
-
+            // 3. 設定按鈕文字與邏輯 (微調文字顯示，增加文字說明讓大按鈕更豐富)
             if (isLastQuestion) {
                 if (isReviewMode) {
                     nextBtn.innerHTML = `<span class="mr-2">返回成績</span><span class="material-icons-outlined">undo</span>`;
-                    nextBtn.className = `${baseClass} bg-gray-600 hover:bg-gray-700 text-white`;
+                    nextBtn.className = "w-full md:w-2/3 bg-gray-600 hover:bg-gray-700 text-white py-4 rounded-xl font-bold text-xl transition-all shadow-lg flex items-center justify-center";
                 } else {
                     nextBtn.innerHTML = `<span class="mr-2">完成測驗，看成績！</span><span class="material-icons-outlined">check_circle</span>`;
-                    nextBtn.className = `${baseClass} bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white`;
+                    // 最後一題時，可以換個顏色強調
+                    nextBtn.className = "w-full md:w-2/3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white py-4 rounded-xl font-bold text-xl transition-all shadow-lg flex items-center justify-center";
                 }
             } else {
                 // 一般題目
-                nextBtn.innerHTML = `<span class="mr-2">下一題</span><span class="material-icons-outlined">arrow_forward</span>`;
-                nextBtn.className = `${baseClass} bg-purple-500 hover:bg-purple-600 text-white`;
+                nextBtn.innerHTML = `<span class="mr-1">下一題</span><span class="material-icons-outlined">arrow_forward</span>`;
+                // 恢復標準顏色
+                nextBtn.className = "w-full md:w-2/3 bg-purple-500 hover:bg-purple-600 text-white py-4 rounded-xl font-bold text-xl transition-all shadow-lg flex items-center justify-center";
             }
         }
 
@@ -1127,21 +1133,21 @@ function loginUser(name, classNum, avatar, quizCode) {
             }
         };
 
- // 退出複習模式，還原資料
-        function exitReviewMode() {
-            isReviewMode = false;
-            
-            // 還原原本的題目與答案
-            currentQuestions = originalQuestionsBackup;
-            userAnswers = originalAnswersBackup;
-            
-            // 還原標題
-            document.getElementById('mainTitle').textContent = `📚 ${currentCourse}`;
-            
-            // 切換回成績頁面
-            document.getElementById('quizArea').classList.add('hidden');
-            document.getElementById('resultArea').classList.remove('hidden');
-        }
+		// 退出複習模式，還原資料
+		function exitReviewMode() {
+			isReviewMode = false;
+			
+			// 還原原本的題目與答案
+			currentQuestions = originalQuestionsBackup;
+			userAnswers = originalAnswersBackup;
+			
+			// 使用 currentCourseTitle 還原標題
+			document.getElementById('mainTitle').textContent = `📚 ${currentCourseTitle}`;
+			
+			// 切換回成績頁面
+			document.getElementById('quizArea').classList.add('hidden');
+			document.getElementById('resultArea').classList.remove('hidden');
+		}
 
         // 完成測驗
         document.getElementById('finishBtn').onclick = () => {
@@ -1154,8 +1160,14 @@ function loginUser(name, classNum, avatar, quizCode) {
         };
 
         // 顯示結果
-// 顯示結果
-        function showResult() {
+		function showResult() {
+            // 交卷後，自動結束測驗模式
+            if (isQuizMode) {
+                isQuizMode = false;
+                // 更新網址，移除 ?mode=quiz 參數，變回一般狀態
+                updateUrlForQuiz(currentCourseId);
+            }
+
             const total = currentQuestions.length;
             const answered = Object.keys(userAnswers).length;
             let correct = 0;
@@ -1172,28 +1184,28 @@ function loginUser(name, classNum, avatar, quizCode) {
             // 儲存歷史紀錄
             saveHistory(percentage, true);
             
-            // 【修改】自動傳送成績到Google表單 (如果啟用且測驗代碼正確)
+            // 自動傳送成績到Google表單 (如果啟用且測驗代碼正確)
             if (ENABLE_GOOGLE_FORM_SUBMIT && studentQuizCode === QUIZ_CODE) {
                 sendScoreToGoogleForm(studentName, studentClass, percentage, studentQuizCode);
-                showSubmissionSuccessAlert(); // 顯示成功訊息
+                showSubmissionSuccessAlert(); 
             }
             
-			// 計算星級 (使用 Google Material Icons)
-			let stars = '';
-			const fullStars = Math.floor(percentage / 20);
-			const hasHalfStar = (percentage % 20) >= 10;
-			const starClass = 'material-icons text-yellow-400'; // 定義星星的樣式
+            // 計算星級
+            let stars = '';
+            const fullStars = Math.floor(percentage / 20);
+            const hasHalfStar = (percentage % 20) >= 10;
+            const starClass = 'material-icons text-yellow-400'; 
 
-			for (let i = 0; i < fullStars; i++) {
-				stars += `<span class="${starClass}">star</span>`;
-			}
-			if (hasHalfStar && fullStars < 5) {
-				stars += `<span class="${starClass}">star_half</span>`;
-			}
-			const totalSymbols = fullStars + (hasHalfStar ? 1 : 0);
-			for (let i = totalSymbols; i < 5; i++) {
-				stars += `<span class="${starClass}">star_border</span>`;
-			}
+            for (let i = 0; i < fullStars; i++) {
+                stars += `<span class="${starClass}">star</span>`;
+            }
+            if (hasHalfStar && fullStars < 5) {
+                stars += `<span class="${starClass}">star_half</span>`;
+            }
+            const totalSymbols = fullStars + (hasHalfStar ? 1 : 0);
+            for (let i = totalSymbols; i < 5; i++) {
+                stars += `<span class="${starClass}">star_border</span>`;
+            }
             
             document.getElementById('starRating').innerHTML = stars;
             document.getElementById('scoreText').textContent = `得分：${percentage}分`;
@@ -1204,6 +1216,9 @@ function loginUser(name, classNum, avatar, quizCode) {
             document.getElementById('quizArea').classList.add('hidden');
             document.getElementById('exitQuizBtn').classList.add('hidden');
             document.getElementById('resultArea').classList.remove('hidden');
+
+            // 重新更新頂部按鈕狀態 (因為剛退出了測驗模式)
+            updateHeaderButtonsVisibility();
         }
         
         // 傳送成績到Google表單
@@ -1258,7 +1273,10 @@ function loginUser(name, classNum, avatar, quizCode) {
                  return;
             }
 
+			
+
             // 2. 備份當前狀態
+			isQuizMode = false;
             isReviewMode = true;
             originalQuestionsBackup = [...currentQuestions];
             originalAnswersBackup = {...userAnswers};
@@ -1449,27 +1467,17 @@ window.addEventListener('beforeunload', () => {
 		
 		// 實際執行終止測驗的函式
 
-function performQuizExit() {
-    // 檢查是否至少回答了一題
-    const hasAnswered = Object.keys(userAnswers).length > 0;
+		function performQuizExit() {
+			// 檢查是否至少回答了一題
+			const hasAnswered = Object.keys(userAnswers).length > 0;
 
-    // 只有在開始計時且「有作答」的情況下，才儲存為未完成
-    if (startTime && hasAnswered) {
-        saveHistory(0, false);
-    }
-    
-    // 恢復標題
-    document.getElementById('mainTitle').textContent = QUIZ_TITLE;
-    
-    // 恢復右上角個人資訊點擊功能
-    document.getElementById('userInfo').style.cursor = 'pointer';
-    document.getElementById('userInfo').onclick = editStudentInfo;
-    
-    hideAllAreas();
-    document.getElementById('courseSelection').classList.remove('hidden');
-    
-    updateHeaderButtonsVisibility();
-}
+			if (startTime && hasAnswered) {
+				saveHistory(0, false);
+			}
+			
+			resetUrlToHome();
+			returnToHomeUI();
+		}
 
 		// 按下「確定終止」
 		confirmExitBtn.addEventListener('click', () => {
@@ -1621,28 +1629,28 @@ function performQuizExit() {
             showQuestion(); // 重新顯示題目以應用字體
         };
 
-		// 字體大小控制 (單鍵循環切換)
-        document.getElementById('fontSizeBtn').onclick = () => {
-            // 索引 +1，如果超過長度就回到 0 (使用餘數運算 %)
-            fontSizeIndex = (fontSizeIndex + 1) % FONT_SIZES.length;
-            
-            // 重新顯示題目以套用新字體
-            showQuestion();
-            
-            // 如果目前解析是打開的，也要同步更新解析的字體
-            if (showingExplanation) {
-                const explanationText = document.getElementById('explanationText');
-                explanationText.style.fontSize = FONT_SIZES[fontSizeIndex] + 'px';
+        // 字體大小控制 (五級：18, 20, 22, 24, 26)
+        document.getElementById('fontSizeUp').onclick = () => {
+            if (fontSizeIndex < FONT_SIZES.length - 1) {
+                fontSizeIndex++;
+                showQuestion();
+                if (showingExplanation) {
+                    const explanationText = document.getElementById('explanationText');
+                    explanationText.style.fontSize = FONT_SIZES[fontSizeIndex] + 'px';
+                }
             }
-            
-            // (選用) 為了讓使用者知道字體變了，可以給按鈕一個短暫的視覺回饋
-            const btn = document.getElementById('fontSizeBtn');
-            btn.classList.add('bg-purple-200', 'text-purple-700');
-            setTimeout(() => {
-                btn.classList.remove('bg-purple-200', 'text-purple-700');
-            }, 200);
         };
 
+        document.getElementById('fontSizeDown').onclick = () => {
+            if (fontSizeIndex > 0) {
+                fontSizeIndex--;
+                showQuestion();
+                if (showingExplanation) {
+                    const explanationText = document.getElementById('explanationText');
+                    explanationText.style.fontSize = FONT_SIZES[fontSizeIndex] + 'px';
+                }
+            }
+        };
 
         // 排版切換按鈕
         document.getElementById('layoutBtn').onclick = () => {
@@ -2090,23 +2098,44 @@ function checkStudentInfo() {
             }, 3000);
         }
 
-		// 初始化
+
+		// 初始化區塊
 		document.addEventListener('DOMContentLoaded', function() {
 			document.getElementById('mainTitle').textContent = QUIZ_TITLE;
 			setFavicon(QUIZ_EMOJI);
 			initStudentInfo();
-			initFilterMenu(); 
-			applyFilterFromUrl(); 
+			
 			initCourseSelection();
-            document.getElementById('resetBtn').onclick = resetToDefaultUser;
-            document.getElementById('backFromEditBtn').onclick = () => {
-                document.getElementById('cancelEditBtn').click();
-            };
+			
+			// 綁定返回按鈕的邏輯
+			bindHomeButtons();
+
+			document.getElementById('resetBtn').onclick = resetToDefaultUser;
+			document.getElementById('backFromEditBtn').onclick = () => {
+				document.getElementById('cancelEditBtn').click();
+			};
 			loadSavedUserInfo();
 			updateHeaderButtonsVisibility();
-			if (zhuyinMode) {
-                const btn = document.getElementById('zhuyinBtn');
-                btn.classList.remove('bg-blue-100', 'text-blue-700');
-                btn.classList.add('bg-blue-500', 'text-white');
-            }
+
+			const zhuyinBtn = document.getElementById('zhuyinBtn');
+				if (zhuyinMode) {
+					// 如果預設開啟，將按鈕變為「啟用狀態」(深色背景)
+					zhuyinBtn.classList.remove('bg-blue-100', 'text-blue-700');
+					zhuyinBtn.classList.add('bg-blue-500', 'text-white');
+			}
+
+
+			document.getElementById('quizModeToggleBtn').onclick = () => {
+				isQuizMode = !isQuizMode; // 切換狀態
+				
+				// 更新網址參數
+				updateUrlForQuiz(currentCourseId);
+				
+				// 更新 UI (按鈕顏色、題目顯示方式)
+				updateHeaderButtonsVisibility();
+				initQuestionNavigation(); // 重繪上方題號圈圈顏色
+				showQuestion(); // 重繪題目 (隱藏/顯示解析)
+			};
+
+			checkUrlAndLoadQuiz();
 		});

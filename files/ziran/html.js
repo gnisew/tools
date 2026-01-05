@@ -8,18 +8,15 @@ document.getElementById("myhtml").innerHTML = `
 				<button id="exitQuizBtn" class="hidden bg-red-500 hover:bg-red-600 text-white w-8 h-8 md:w-10 md:h-10 rounded-full font-bold transition-colors text-sm md:text-base" title="終止測驗">
 					✕
 				</button>
+
+				<button id="quizModeToggleBtn" class="hidden px-3 py-1.5 md:px-4 md:py-2 rounded-full font-bold transition-all text-xs md:text-sm flex items-center space-x-1 border-2" title="切換測驗/練習模式">
+                    <span class="material-icons-outlined text-base">assignment</span>
+                    <span>測驗</span>
+                </button>
+
 				<button id="backFromEditBtn" class="hidden bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors">
 					<span class="material-icons-outlined">arrow_back</span>
 				</button>
-				<div id="filterContainer" class="relative hidden">
-					<button id="filterBtn" class="bg-gray-100 hover:bg-gray-200 p-1.5 md:p-2 rounded-full transition-colors text-sm md:text-base flex items-center space-x-1" title="篩選課別">
-						<span class="material-icons-outlined text-base md:text-xl">filter_list</span>
-						<span id="filterBtnText">全部</span>
-						<span class="material-icons-outlined text-base md:text-xl">arrow_drop_down</span>
-					</button>
-					<div id="filterMenu" class="hidden absolute left-0 mt-2 w-40 bg-white rounded-md shadow-lg z-10">
-						</div>
-				</div>
 					<button id="historyBtn" class="bg-gray-100 hover:bg-gray-200 p-1.5 md:p-2 rounded-full transition-colors text-sm md:text-base" title="查看歷史紀錄" style="display: none;">
 						<span class="material-icons-outlined text-base md:text-xl">history</span>
 					</button>
@@ -105,24 +102,24 @@ document.getElementById("myhtml").innerHTML = `
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-xl font-bold text-purple-700" id="questionTitle">題目 1</h3>
                     <div class="flex items-center space-x-2">
+						<button id="readBtn" class="bg-green-100 hover:bg-green-200 text-green-700 w-10 h-10 rounded-full text-sm font-medium transition-colors flex items-center justify-center">
+							<span class="material-icons-outlined">volume_up</span>
+						</button>
                         <button id="zhuyinBtn" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded-full text-sm font-medium transition-colors">
                             注音
                         </button>
-						<button id="fontSizeBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 w-10 h-10 rounded-full text-sm font-medium transition-colors flex items-center justify-center" title="切換字體大小">
-                            <span class="material-icons-outlined">format_size</span>
+                        <button id="fontSizeDown" class="bg-gray-100 hover:bg-gray-200 text-gray-700 w-8 h-8 rounded-full text-sm font-bold transition-colors">
+                            -
+                        </button>
+                        <button id="fontSizeUp" class="bg-gray-100 hover:bg-gray-200 text-gray-700 w-8 h-8 rounded-full text-sm font-bold transition-colors">
+                            +
                         </button>
                         <button id="layoutBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm font-medium transition-colors" title="切換選項排版">
                             ⚏
                         </button>
                     </div>
                 </div>
-				<div class="flex items-start gap-3 mb-6">
-                    <button id="readBtn" class="flex-shrink-0 bg-green-100 hover:bg-green-200 text-green-700 w-11 h-11 rounded-full transition-colors flex items-center justify-center mt-1" title="朗讀題目">
-                        <span class="material-icons-outlined text-xl">volume_up</span>
-                    </button>
-                    
-                    <p class="text-lg text-gray-800 leading-relaxed flex-1 pt-2" id="questionText"></p>
-                </div>
+                <p class="text-lg text-gray-800 mb-6 leading-relaxed" id="questionText"></p>
                 
                 <div id="optionsContainer">
                 </div>

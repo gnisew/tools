@@ -3,7 +3,7 @@
         // ========================================
         
         // 測驗識別碼 (用於區分不同測驗的儲存資料)
-        const QUIZ_ID = "nature_science_quiz_v4";
+		const QUIZ_ID = "nature_science_quiz_json_v1";
 
         // 網頁標題
         document.title ="自然烏衣行";
@@ -36,10 +36,12 @@
         const ALLOW_SKIP_QUESTIONS = false;
         
         // 字體大小設定 (五級)
-        const FONT_SIZES = [24, 26, 28, 30];
-        const DEFAULT_FONT_SIZE_INDEX = 0; // 預設使用第一級
+        const FONT_SIZES = [22, 24, 26, 28, 30];
+        const DEFAULT_FONT_SIZE_INDEX = 1; // 預設使用第二級
+		const DEFAULT_ZHUYIN_MODE = true; // 注音 (true: 開啟, false: 關閉)
         
         // 歷史紀錄過期設定 (6月30日前的紀錄會被清除)
         const HISTORY_CUTOFF_MONTH = 5; // 6月 (月份從0開始)
         const HISTORY_CUTOFF_DAY = 30;
+
 
