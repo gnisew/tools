@@ -6,9 +6,7 @@ document.getElementById("myhtml").innerHTML = `
 					<span class="material-icons-outlined">arrow_back</span>
 				</button>
 				
-                <button id="analysisBtn" class="hover:bg-indigo-200 text-indigo-700 p-1.5 md:p-2 rounded-full transition-colors text-sm md:text-base mr-1" title="成績分析">
-					<span class="material-icons-outlined text-base md:text-xl">analytics</span>
-				</button>
+
 				<button id="exitQuizBtn" class="hidden bg-red-500 hover:bg-red-600 text-white w-8 h-8 md:w-10 md:h-10 rounded-full font-bold transition-colors text-sm md:text-base" title="終止測驗">
 					✕
 				</button>
@@ -24,6 +22,10 @@ document.getElementById("myhtml").innerHTML = `
 					<button id="historyBtn" class="bg-gray-100 hover:bg-gray-200 p-1.5 md:p-2 rounded-full transition-colors text-sm md:text-base" title="查看歷史紀錄" style="display: none;">
 						<span class="material-icons-outlined text-base md:text-xl">history</span>
 					</button>
+
+                <button id="analysisBtn" class="hover:bg-indigo-200 text-indigo-700 p-1.5 md:p-2 rounded-full transition-colors text-sm md:text-base mr-1" title="成績分析">
+					<span class="material-icons-outlined text-base md:text-xl">analytics</span>
+				</button>
 			</div>
             <div class="absolute top-0 right-0 flex items-center space-x-1 md:space-x-2 transition-colors max-w-[40%] md:max-w-none" id="userInfo" style="display: none;">
                 <span id="userAvatar" class="text-lg md:text-2xl"></span>
