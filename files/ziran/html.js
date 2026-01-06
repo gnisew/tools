@@ -5,6 +5,10 @@ document.getElementById("myhtml").innerHTML = `
 				<button id="backFromHistoryBtn" class="hidden bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors">
 					<span class="material-icons-outlined">arrow_back</span>
 				</button>
+				
+                <button id="analysisBtn" class="hover:bg-indigo-200 text-indigo-700 p-1.5 md:p-2 rounded-full transition-colors text-sm md:text-base mr-1" title="成績分析">
+					<span class="material-icons-outlined text-base md:text-xl">analytics</span>
+				</button>
 				<button id="exitQuizBtn" class="hidden bg-red-500 hover:bg-red-600 text-white w-8 h-8 md:w-10 md:h-10 rounded-full font-bold transition-colors text-sm md:text-base" title="終止測驗">
 					✕
 				</button>
@@ -310,16 +314,30 @@ document.getElementById("myhtml").innerHTML = `
                         </div>
 
                         <!-- 數據卡片 -->
-                        <div class="grid grid-cols-2 gap-4 mb-6">
-                            <div class="bg-orange-50 rounded-2xl p-3 text-center border border-orange-100">
-                                <div class="text-orange-500 mb-1"><span class="material-icons-outlined text-2xl">emoji_events</span></div>
-                                <div class="text-2xl font-bold text-gray-800" id="statsModalScore">0</div>
-                                <div class="text-xs text-gray-500 font-medium">平均分數</div>
+						<div class="mb-5 flex space-x-3 items-stretch h-28">
+                            <div class="w-1/3 bg-blue-50 rounded-2xl p-2 text-center border border-blue-100 flex flex-col justify-center items-center">
+                                <div class="text-blue-500 mb-1"><span class="material-icons-outlined text-3xl">rocket_launch</span></div>
+                                <div class="text-4xl font-extrabold text-gray-800 leading-none" id="statsModalCount">0</div>
+                                <div class="text-xs text-gray-500 font-medium mt-1">總練習次數</div>
                             </div>
-                            <div class="bg-blue-50 rounded-2xl p-3 text-center border border-blue-100">
-                                <div class="text-blue-500 mb-1"><span class="material-icons-outlined text-2xl">rocket_launch</span></div>
-                                <div class="text-2xl font-bold text-gray-800" id="statsModalCount">0</div>
-                                <div class="text-xs text-gray-500 font-medium">練習次數</div>
+
+                            <div class="w-2/3 grid grid-cols-2 gap-2">
+                                <div class="bg-red-50 rounded-xl p-1 text-center border border-red-100 flex flex-col justify-center">
+                                    <div class="text-red-500 text-xs font-bold mb-0.5">100分</div>
+                                    <div class="text-xl font-bold text-gray-800 leading-tight" id="statsCount100">0</div>
+                                </div>
+                                <div class="bg-orange-50 rounded-xl p-1 text-center border border-orange-100 flex flex-col justify-center">
+                                    <div class="text-orange-500 text-xs font-bold mb-0.5">90↑</div>
+                                    <div class="text-xl font-bold text-gray-800 leading-tight" id="statsCount90">0</div>
+                                </div>
+                                <div class="bg-green-50 rounded-xl p-1 text-center border border-green-100 flex flex-col justify-center">
+                                    <div class="text-green-600 text-xs font-bold mb-0.5">80↑</div>
+                                    <div class="text-xl font-bold text-gray-800 leading-tight" id="statsCount80">0</div>
+                                </div>
+                                <div class="bg-gray-100 rounded-xl p-1 text-center border border-gray-200 flex flex-col justify-center">
+                                    <div class="text-gray-500 text-xs font-bold mb-0.5">加油</div>
+                                    <div class="text-xl font-bold text-gray-800 leading-tight" id="statsCountOther">0</div>
+                                </div>
                             </div>
                         </div>
 
@@ -339,4 +357,112 @@ document.getElementById("myhtml").innerHTML = `
             </div>
         </div>
 
+		<div id="quizModeConfirmDialog" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300 opacity-0">
+            <div id="quizModeConfirmDialogContent" class="bg-white rounded-2xl shadow-xl p-8 w-11/12 max-w-md text-center transform transition-all scale-95 opacity-0">
+                <div class="mb-4 text-purple-100">
+                    <span class="material-icons-outlined text-6xl bg-purple-500 rounded-full p-4">assignment_turned_in</span>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-800 mb-2">準備好挑戰了嗎？</h3>
+                <p class="text-gray-600 mb-8">此模式將<b>隱藏所有的提示與解析</b></p>
+                <div class="flex justify-center space-x-4">
+                    <button id="confirmQuizModeBtn" class="bg-purple-500 hover:bg-purple-600 text-white px-8 py-3 rounded-full font-bold text-lg transition-transform transform hover:scale-105 shadow-md">
+                        是的，進入測驗
+                    </button>
+                    <button id="cancelQuizModeBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-8 py-3 rounded-full font-medium transition-colors">
+                        先不要
+                    </button>
+                </div>
+            </div>
+        </div>
+
+
+
+
+
+
+
+
+
+
+<div id="analysisModal" class="hidden fixed inset-0 z-[70] overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+            <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity backdrop-blur-sm" aria-hidden="true" onclick="closeAnalysisModal()"></div>
+                <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                
+                <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl w-full">
+                    
+                    <div class="bg-indigo-600 px-6 py-4 flex justify-between items-center">
+                        <h3 class="text-xl font-bold text-white flex items-center">
+                            <span class="material-icons-outlined mr-2">analytics</span> 作答狀況分析
+                        </h3>
+                        <button onclick="closeAnalysisModal()" class="text-white hover:text-gray-200">
+                            <span class="material-icons-outlined">close</span>
+                        </button>
+                    </div>
+
+                    <div class="p-6">
+                        <div class="mb-6">
+                            <label class="block text-gray-700 font-bold mb-2">貼上作答數據 (格式：班號 測驗ID 錯題)</label>
+                            <textarea id="analysisInput" class="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm" placeholder="範例：&#10;1  wz01  2,3&#10;2  wz01  1,3&#10;4  wz01&#10;5  wz01  2"></textarea>
+                            <div class="mt-2 flex justify-end space-x-2">
+                                <button onclick="clearAnalysisInput()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">清除</button>
+                                <button onclick="performAnalysis()" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold shadow-md transition-transform transform active:scale-95">
+                                    開始分析
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="analysisResultArea" class="hidden space-y-8">
+                            
+                            <div class="bg-red-50 rounded-xl p-6 border border-red-100">
+                                <h4 class="text-lg font-bold text-red-700 mb-4 flex items-center">
+                                    <span class="material-icons-outlined mr-2">format_list_numbered</span> 錯題排行榜
+                                </h4>
+                                <div id="errorRankList" class="space-y-3">
+                                    </div>
+                            </div>
+
+                            <div class="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                                <h4 class="text-lg font-bold text-gray-700 mb-4 flex items-center">
+                                    <span class="material-icons-outlined mr-2">grid_on</span> 學生作答分布表
+                                </h4>
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full bg-white rounded-lg overflow-hidden shadow-sm">
+                                        <thead class="bg-gray-200 text-gray-700">
+                                            <tr id="matrixHeader">
+                                                </tr>
+                                        </thead>
+                                        <tbody id="matrixBody" class="text-gray-600">
+                                            </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="quickQuestionModal" class="hidden fixed inset-0 z-[80] overflow-y-auto" style="display: none;">
+             <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center">
+                <div class="fixed inset-0 transition-opacity bg-gray-900 bg-opacity-75" onclick="closeQuickQuestionModal()"></div>
+                <div class="relative inline-block w-full max-w-lg p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
+                    <div class="flex justify-between items-start mb-4">
+                        <h3 class="text-xl font-bold text-purple-700" id="quickQTitle">題目內容</h3>
+                        <button onclick="closeQuickQuestionModal()" class="text-gray-400 hover:text-gray-600">
+                            <span class="material-icons-outlined">close</span>
+                        </button>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-xl mb-4">
+                        <p id="quickQContent" class="text-lg font-medium text-gray-800 mb-3"></p>
+                        <div id="quickQOptions" class="space-y-2 text-gray-600"></div>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-xl border border-green-100">
+                        <p class="font-bold text-green-700 mb-1">💡 解析：</p>
+                        <p id="quickQExplanation" class="text-gray-700"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
 `;

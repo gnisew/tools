@@ -55,9 +55,21 @@
         <div class="w-full lg:flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-96 lg:h-auto shrink-0">
             <div class="bg-gray-50 px-4 py-2 border-b border-gray-100 flex justify-between items-center flex-shrink-0">
                 <span id="labelInput" class="text-xs font-bold text-gray-500 uppercase tracking-wider">輸入 JSON</span>
-                <button onclick="clearText('inputArea')" class="text-gray-400 hover:text-red-500 transition-colors p-1" title="清除">
-                    <span class="material-icons-outlined text-sm">delete</span>
-                </button>
+                <div class="flex items-center gap-1">
+                    <button id="btnLoadData" onclick="loadDataJs()" class="hidden md:flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-gray-600 bg-white border border-gray-300 rounded hover:text-indigo-600 hover:border-indigo-300 transition-all shadow-sm active:scale-95" title="從 data.js 載入">
+                        <span class="material-icons-outlined text-[14px]">file_download</span>
+                        <span>載入 data.js</span>
+                    </button>
+                    <button onclick="loadDataJs()" class="md:hidden text-gray-400 hover:text-indigo-600 transition-colors p-1" title="載入 data.js">
+                        <span class="material-icons-outlined text-sm">file_download</span>
+                    </button>
+
+                    <div class="w-px h-4 bg-gray-300 mx-1"></div>
+
+                    <button onclick="clearText('inputArea')" class="text-gray-400 hover:text-red-500 transition-colors p-1" title="清除">
+                        <span class="material-icons-outlined text-sm">delete</span>
+                    </button>
+                </div>
             </div>
             <textarea id="inputArea" class="flex-grow p-4 focus:outline-none w-full resize-none" placeholder="請在此貼上資料..."></textarea>
             
@@ -102,6 +114,7 @@
             const inputArea = document.getElementById('inputArea');
             const settingsArea = document.getElementById('settingsArea');
             const dummyArea = document.getElementById('dummyArea');
+            const btnLoadData = document.getElementById('btnLoadData'); // 取得載入按鈕
 
             // 切換時清空，避免混淆
             inputArea.value = '';
@@ -122,6 +135,9 @@
                 settingsArea.classList.add('hidden');
                 settingsArea.classList.remove('flex');
                 dummyArea.style.display = 'block';
+                
+                // 顯示載入按鈕
+                if(btnLoadData) btnLoadData.parentElement.style.display = 'flex';
 
             } else {
                 // UI 狀態：Excel -> JSON
@@ -139,7 +155,63 @@
                 settingsArea.classList.remove('hidden');
                 settingsArea.classList.add('flex');
                 dummyArea.style.display = 'none';
+
+                // 隱藏載入按鈕 (Excel 轉 JSON 不需要讀取 js 檔)
+                if(btnLoadData) btnLoadData.parentElement.style.display = 'none';
             }
+        }
+
+        // ==========================================
+        // 新增功能：載入同目錄下的 data.js
+        // ==========================================
+        function loadDataJs() {
+            // 為了避免重複載入或變數衝突，先移除舊的 script 標籤（如果有的話）
+            const oldScript = document.getElementById('data-js-loader');
+            if (oldScript) {
+                oldScript.remove();
+            }
+
+            const script = document.createElement('script');
+            script.id = 'data-js-loader';
+            // 加上 timestamp 防止瀏覽器快取
+            script.src = './data.js?t=' + new Date().getTime();
+
+            script.onload = function() {
+                try {
+                    // 檢查是否存在 quizData 變數
+                    // 注意：在非 module 的 script 中，const 定義的變數在全域但不在 window 物件下
+                    // 我們直接嘗試存取它
+                    if (typeof quizData !== 'undefined') {
+                        const jsonStr = JSON.stringify(quizData, null, 2);
+                        // 格式化為包含 const 的寫法，方便使用者直接轉換
+                        document.getElementById('inputArea').value = `const quizData = ${jsonStr};`;
+                        
+                        // UI 回饋：按鈕變綠色一下
+                        const btn = document.getElementById('btnLoadData');
+                        const originalHtml = btn.innerHTML;
+                        const originalClass = btn.className;
+                        
+                        btn.innerHTML = '<span class="material-icons-outlined text-[14px]">check</span><span>成功</span>';
+                        btn.className = originalClass.replace('text-gray-600', 'text-green-600 border-green-600 bg-green-50');
+                        
+                        setTimeout(() => {
+                            btn.innerHTML = originalHtml;
+                            btn.className = originalClass;
+                        }, 1500);
+
+                    } else {
+                        alert('載入 data.js 成功，但未發現 "quizData" 變數。\n請確認檔案內是否宣告了 const quizData = ...');
+                    }
+                } catch (e) {
+                    alert('讀取變數錯誤：' + e.message);
+                }
+            };
+
+            script.onerror = function() {
+                alert('無法載入 data.js。\n請確認檔案位於同一目錄下，且檔名正確。');
+            };
+
+            document.body.appendChild(script);
         }
 
         // 執行轉換

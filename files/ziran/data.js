@@ -388,6 +388,182 @@ const quizData = [
     ]
   },
   {
+    id: "wz01",
+    title: "物質變變 基礎1",
+    category: "物質變變",
+    questions: [
+      {
+        question: "沙子、土壤、水是物質。",
+        options: ["○", "╳"],
+        answer: 1,
+        explanation: "佔有空間、有重量的東西都是物質。"
+      },
+      {
+        question: "空氣會漂浮，所以不是物質。",
+        options: ["○", "╳"],
+        answer: 2,
+        explanation: "佔有空間又有重量，就是物質。"
+      },
+      {
+        question: "物質會受環境因素改變，這些因素如水、溫度、空氣。",
+        options: ["○", "╳"],
+        answer: 1,
+        explanation: "鐵生鏽是因為同時接觸到「水」和「空氣」才變紅色的。如果環境很乾燥，鐵反而不容易生鏽。"
+      },
+      {
+        question: "鐵礦因為在較乾燥的地方，而呈現生鏽的紅色。",
+        options: ["○", "╳"],
+        answer: 2,
+        explanation: "例如鐵碰到水和空氣會生鏽，冰塊碰到溫暖的溫度會融化。"
+      },
+      {
+        question: "溫泉上的煙霧，是水蒸氣遇冷而凝結成小水滴。",
+        options: ["○", "╳"],
+        answer: 1,
+        explanation: "真正的水蒸氣是看不見的，我們看到的白煙其實是「小水滴」。"
+      },
+      {
+        question: "麵團要發酵，溫度要控制在較低的2~3度。",
+        options: ["○", "╳"],
+        answer: 2,
+        explanation: "麵團發酵要在較溫暖的25~30度。"
+      },
+      {
+        question: "液態豆漿加鹽巴，就可以變成塊狀的鹹豆漿。",
+        options: ["○", "╳"],
+        answer: 2,
+        explanation: "要加醋這種酸性物質，豆漿才會凝固。"
+      },
+      {
+        question: "物質會相互影響而產生變化。",
+        options: ["○", "╳"],
+        answer: 1,
+        explanation: "例如把醋加進小蘇打粉會冒泡泡，這就是物質互相影響。"
+      },
+      {
+        question: "風吹起灰塵，使得灰塵有什麼改變？",
+        options: ["形狀改變", "顏色改變", "位置改變", "大小改變"],
+        answer: 3,
+        explanation: "風吹灰塵，只是把灰塵從一個地方搬到另一個地方。"
+      },
+      {
+        question: "麵團加酵母菌發酵過後，有什麼改變？",
+        options: ["顏色改變", "大小改變", "位置改變", "沒有改變"],
+        answer: 2,
+        explanation: "酵母菌會在麵團裡面產生氣體，像吹氣球一樣把麵團撐起來。"
+      },
+      {
+        question: "冰塊受太陽熱影響，有什麼改變？",
+        options: ["形狀改變", "顏色改變", "位置改變", "沒有改變"],
+        answer: 1,
+        explanation: "從硬硬的冰變成流動的水，是「形狀」發生了改變。"
+      }
+    ]
+  },
+  {
+    id: "wz03",
+    title: "物質變變 基礎3",
+    category: "物質變變",
+    questions: [
+      {
+        question: "醋是什麼性？",
+        options: ["酸性", "鹼性"],
+        answer: 1,
+        explanation: "醋帶酸味，所以是酸性。"
+      },
+      {
+        question: "鹼水是什麼性？",
+        options: ["酸性", "鹼性"],
+        answer: 2,
+        explanation: "鹼水含鹼性成分，所以是鹼性。"
+      },
+      {
+        question: "酸性物質聞起來的味道是？",
+        options: ["酸酸的", "甜甜的"],
+        answer: 1,
+        explanation: "酸性物質通常聞起來酸酸的。"
+      },
+      {
+        question: "肥皂水摸起來滑滑的，可能是什麼性？",
+        options: ["酸性", "鹼性"],
+        answer: 2,
+        explanation: "肥皂水滑滑的，代表它是鹼性。"
+      },
+      {
+        question: "乳酸飲料酸酸的，可能是什麼性？",
+        options: ["酸性", "鹼性"],
+        answer: 1,
+        explanation: "乳酸飲料酸酸的，所以是酸性。"
+      },
+      {
+        question: "汽水或可樂有加糖，但實際上是什麼性？",
+        options: ["酸性", "鹼性"],
+        answer: 1,
+        explanation: "汽水和可樂會呈酸性。"
+      },
+      {
+        question: "運動飲料通常是什麼性？",
+        options: ["酸性", "鹼性"],
+        answer: 1,
+        explanation: "運動飲料多半呈酸性。"
+      },
+      {
+        question: "用來清潔的小蘇打溶液是什麼性？",
+        options: ["酸性", "鹼性"],
+        answer: 2,
+        explanation: "小蘇打溶液具有鹼性。"
+      },
+      {
+        question: "食醋是什麼性？",
+        options: ["酸性", "鹼性"],
+        answer: 1,
+        explanation: "食醋本身就是酸性。"
+      },
+      {
+        question: "紫色高麗菜汁遇到酸性物質變成什麼色系？",
+        options: ["藍綠色系", "紅色系"],
+        answer: 2,
+        explanation: "紫色高麗菜汁遇酸會變紅色系。"
+      },
+      {
+        question: "蝶豆花水加入鹼性物質變成什麼色系？",
+        options: ["藍綠色系", "紅色系"],
+        answer: 1,
+        explanation: "蝶豆花水遇鹼會變藍綠色系。"
+      },
+      {
+        question: "紫色高麗菜汁滴入檸檬汁會變成什麼色系？",
+        options: ["藍綠色系", "紅色系"],
+        answer: 2,
+        explanation: "紫色高麗菜汁加檸檬會變紅色系。"
+      },
+      {
+        question: "豆漿變成塊狀的鹹豆漿，是因為加入什麼物質？",
+        options: ["酸性物質", "鹼性物質"],
+        answer: 1,
+        explanation: "鹹豆漿會凝固是因為加入酸性物質。"
+      },
+      {
+        question: "紫色高麗菜汁加入小蘇打水變成什麼色系？",
+        options: ["藍綠色系", "紅色系"],
+        answer: 1,
+        explanation: "紫色高麗菜汁加小蘇打會變藍綠色系。"
+      },
+      {
+        question: "紫色高麗菜汁加入肥皂水變成什麼色系？",
+        options: ["藍綠色系", "紅色系"],
+        answer: 1,
+        explanation: "紫色高麗菜汁加肥皂水會變藍綠色系。"
+      },
+      {
+        question: "紫色高麗菜汁加入食醋變成什麼色系？",
+        options: ["藍綠色系", "紅色系"],
+        answer: 2,
+        explanation: "紫色高麗菜汁加醋會變紅色系。"
+      }
+    ]
+  },
+  {
     id: "wz11",
     title: "物質變變 1-1",
     category: "物質變變",
@@ -560,6 +736,285 @@ const quizData = [
         options: ["飲料的顏色", "飲料的價格", "觀察紫色高麗菜泡入飲料的顏色變化", "飲料的出產地"],
         answer: 3,
         explanation: "紫色高麗菜汁是一種天然的酸鹼指示劑，遇到酸鹼性物質時會變色。"
+      }
+    ]
+  },
+  {
+    id: "sg01",
+    title: "聲光 基礎1",
+    category: "聲光",
+    questions: [
+      {
+        question: "鼓發出聲音時，鼓面會怎樣？",
+        options: ["振動", "靜止"],
+        answer: 1,
+        explanation: ""
+      },
+      {
+        question: "人發出聲音時，喉嚨有什麼感覺？",
+        options: ["振動", "靜止"],
+        answer: 1,
+        explanation: ""
+      },
+      {
+        question: "握住發出聲音的三角鐵，聲音停了，三角鐵會怎樣？",
+        options: ["振動", "靜止"],
+        answer: 2,
+        explanation: ""
+      },
+      {
+        question: "物體發出聲音時，發音部位會怎樣？",
+        options: ["振動", "靜止"],
+        answer: 1,
+        explanation: ""
+      },
+      {
+        question: "物體停止振動時，聲音會怎樣？",
+        options: ["變大", "變小", "停止"],
+        answer: 3,
+        explanation: ""
+      },
+      {
+        question: "站在水邊聽到哨音，聲音透過什麼傳播？",
+        options: ["液體", "固體", "氣體"],
+        answer: 3,
+        explanation: ""
+      },
+      {
+        question: "在游泳池水裡聽到哨音，聲音透過什麼傳播？",
+        options: ["液體", "固體", "氣體"],
+        answer: 1,
+        explanation: ""
+      },
+      {
+        question: "用紙杯接棉線來聽聲音，聲音透過什麼傳播？",
+        options: ["液體", "固體", "氣體"],
+        answer: 2,
+        explanation: ""
+      },
+      {
+        question: "宇宙的太空裡兩個物體相撞，卻沒有聲音，為什麼？",
+        options: ["太空裡沒有空氣可傳播", "太空裡的物體都很輕"],
+        answer: 1,
+        explanation: ""
+      },
+      {
+        question: "用筷子在水裡敲擊，是要做什麼實驗？",
+        options: ["聲音可透過液體傳播", "光會直線前進", "酸鹼物質變色"],
+        answer: 1,
+        explanation: ""
+      },
+      {
+        question: "用嚎叫集結同伴的動物是？",
+        options: ["青蛙", "五色鳥", "野狼", "獅子"],
+        answer: 3,
+        explanation: ""
+      },
+      {
+        question: "把鳴囊鼓大，用鳴叫來求偶的動物是？",
+        options: ["青蛙", "五色鳥", "野狼", "獅子"],
+        answer: 1,
+        explanation: ""
+      },
+      {
+        question: "用大聲吼叫來警告敵人的動物是？",
+        options: ["青蛙", "五色鳥", "野狼", "獅子"],
+        answer: 4,
+        explanation: ""
+      },
+      {
+        question: "電影裡的士兵趴在鐵軌上聽有沒有火車的聲音，這聲音透過什麼傳播？(趴鐵軌不可模仿)",
+        options: ["液體", "固體", "氣體"],
+        answer: 2,
+        explanation: ""
+      },
+      {
+        question: "聲音在哪種物質傳播速度最快？",
+        options: ["液體", "固體", "氣體"],
+        answer: 2,
+        explanation: ""
+      },
+      {
+        question: "電影裡的士兵，小明站著聽火車聲音，小華趴在鐵軌聽，誰最先聽到火車的聲音？(趴鐵軌不可模仿)",
+        options: ["小明", "小華", "一樣快"],
+        answer: 2,
+        explanation: ""
+      }
+    ]
+  },
+  {
+    id: "sg02",
+    title: "聲光 基礎2",
+    category: "聲光",
+    questions: [
+      {
+        question: "自身能發出光的物體叫做？",
+        options: ["光源", "震源", "水源"],
+        answer: 1,
+        explanation: "能自己發出光的物體稱為光源。"
+      },
+      {
+        question: "哪一個是光源？",
+        options: ["反光背心", "閃亮的水面", "被光照到的鏡子", "點亮的車燈"],
+        answer: 4,
+        explanation: "車燈能自行發光，所以是光源。"
+      },
+      {
+        question: "哪一個不是光源？",
+        options: ["太陽", "月亮", "流星", "螢火蟲"],
+        answer: 2,
+        explanation: "月亮不會發光，只是反射太陽光。"
+      },
+      {
+        question: "光照射到不透明的物體，會怎樣？",
+        options: ["形成影子", "光會穿透", "光會消失"],
+        answer: 1,
+        explanation: "光照到不透明的物體時，會被擋住而形成影子。"
+      },
+      {
+        question: "影子的位置，跟光源如何？",
+        options: ["同一邊", "相反邊"],
+        answer: 2,
+        explanation: "影子會出現在與光源的相反邊。"
+      },
+      {
+        question: "影子在物體左邊，光源在物體哪一邊？",
+        options: ["左邊", "右邊"],
+        answer: 2,
+        explanation: "影子在左邊，表示光源在物體的右邊。"
+      },
+      {
+        question: "玩手影遊戲，手、影子、光在一直線上要怎麼排？",
+        options: ["光－手－影", "手－光－影", "手－影－光", "手－光－影"],
+        answer: 1,
+        explanation: "光在前、手在中間、影子在後。"
+      },
+      {
+        question: "用手電筒照射彎曲的水管，光線會怎樣？",
+        options: ["從出口照射出來", "無法照射出來"],
+        answer: 2,
+        explanation: "光是直線前進，所以無法從彎曲的水管照射出來。"
+      },
+      {
+        question: "用手電筒照射彎曲的水管的實驗，要證明什麼？",
+        options: ["光是直線前進", "光有三原色"],
+        answer: 1,
+        explanation: "這個實驗是用來證明光會直線前進。"
+      },
+      {
+        question: "哪個物品最容易反光？",
+        options: ["抹布", "報紙", "橡皮擦", "玻璃"],
+        answer: 4,
+        explanation: "玻璃表面光滑，最容易反射光線。"
+      },
+      {
+        question: "容易反光的物體，表面是怎樣？",
+        options: ["粗糙", "光滑"],
+        answer: 2,
+        explanation: "容易反光的物體通常表面很光滑。"
+      },
+      {
+        question: "光照到鏡子後，反射的光會繼續怎樣前進？",
+        options: ["彎曲", "直線", "波浪", "鋸齒"],
+        answer: 2,
+        explanation: "光照到鏡子反射後，仍會直線前進。"
+      },
+      {
+        question: "太陽系裡的哪個行星會發光？",
+        options: ["金星", "火星", "木星", "都不會"],
+        answer: 4,
+        explanation: "太陽系的行星都不會發光，都是反射太陽光。"
+      },
+      {
+        question: "通過門縫的光是如何繼續前進？",
+        options: ["彎曲", "波浪", "直線", "鋸齒"],
+        answer: 3,
+        explanation: "通過門縫的光會直線繼續前進。"
+      },
+      {
+        question: "汽車遮陽板用光的什麼特性來隔熱？",
+        options: ["反光", "直線前進", "光有三原色"],
+        answer: 1,
+        explanation: "汽車遮陽板利用光的反射來減少熱量進入車內。"
+      },
+      {
+        question: "哪一個運用光的反射來操作？",
+        options: ["放大鏡聚集陽光", "導護老師的背心", "建築師的水平雷射光", "舞台表演的光束"],
+        answer: 2,
+        explanation: "導護老師的背心利用光的反射讓人更容易被看見。"
+      }
+    ]
+  },
+  {
+    id: "sg03",
+    title: "聲光 基礎3",
+    category: "聲光",
+    questions: [
+      {
+        question: "各種聲音與光，帶給我們的感受都相同。",
+        options: ["O", "X"],
+        answer: 2,
+        explanation: "不同的聲音和光會帶給我們不同的感覺，所以不可能都相同。"
+      },
+      {
+        question: "螢火蟲發出鳴叫來吸引異性。",
+        options: ["O", "X"],
+        answer: 2,
+        explanation: "螢火蟲是靠發光而不是鳴叫來吸引異性。"
+      },
+      {
+        question: "紅綠燈來提醒大家前進或停止，是聲光的哪種應用？",
+        options: ["光", "聲音", "光與聲音", "溫度"],
+        answer: 1,
+        explanation: "紅綠燈是利用光的變化來提醒人們前進或停止。"
+      },
+      {
+        question: "電話鈴響，是聲光的哪種應用？",
+        options: ["光", "聲音", "光與聲音", "空氣"],
+        answer: 2,
+        explanation: "電話鈴響是利用聲音來提醒有人來電。"
+      },
+      {
+        question: "垃圾車播音樂告訴大家要倒垃圾了，是聲光的哪種應用？",
+        options: ["光", "聲音", "光與聲音", "溫度"],
+        answer: 2,
+        explanation: "垃圾車播放音樂是利用聲音通知大家可以倒垃圾了。"
+      },
+      {
+        question: "救護車鳴笛並閃警示燈，是聲光的哪種應用？",
+        options: ["光", "聲音", "光與聲音", "空氣"],
+        answer: 3,
+        explanation: "救護車同時用警笛聲和警示燈來提醒周圍的人注意。"
+      },
+      {
+        question: "鐵路平交道發出警鈴與號誌，是聲光的哪種應用？",
+        options: ["光", "聲音", "光與聲音", "溫度"],
+        answer: 3,
+        explanation: "鐵路平交道用警鈴和號誌一起提醒人車注意安全。"
+      },
+      {
+        question: "火災警示器發出警鈴，是聲光的哪種應用？",
+        options: ["光", "聲音", "光與聲音", "溫度"],
+        answer: 2,
+        explanation: "火災警示器用警鈴聲來提醒發生火災。"
+      },
+      {
+        question: "夜間的路燈，是聲光的哪種應用？",
+        options: ["光", "聲音", "光與聲音", "溫度"],
+        answer: 1,
+        explanation: "夜間路燈是利用光來照亮道路。"
+      },
+      {
+        question: "放煙火時的巨大聲響與美麗火花，是聲光的哪種應用？",
+        options: ["光", "聲音", "光與聲音", "溫度"],
+        answer: 3,
+        explanation: "放煙火時同時產生聲音和光，所以是聲光的應用。"
+      },
+      {
+        question: "萬花筒是運用光的什麼原理來設計？",
+        options: ["光的直線前進", "光的反射", "光的折射"],
+        answer: 2,
+        explanation: "萬花筒是利用光的反射原理來形成美麗圖案。"
       }
     ]
   },
@@ -1128,182 +1583,6 @@ const quizData = [
     ]
   },
   {
-    id: "wz01",
-    title: "物質變變 基礎1",
-    category: "物質變變",
-    questions: [
-      {
-        question: "沙子、土壤、水是物質。",
-        options: ["○", "╳"],
-        answer: 1,
-        explanation: "佔有空間、有重量的東西都是物質。"
-      },
-      {
-        question: "空氣會漂浮，所以不是物質。",
-        options: ["○", "╳"],
-        answer: 2,
-        explanation: "佔有空間又有重量，就是物質。"
-      },
-      {
-        question: "物質會受環境因素改變，這些因素如水、溫度、空氣。",
-        options: ["○", "╳"],
-        answer: 1,
-        explanation: "鐵生鏽是因為同時接觸到「水」和「空氣」才變紅色的。如果環境很乾燥，鐵反而不容易生鏽。"
-      },
-      {
-        question: "鐵礦因為在較乾燥的地方，而呈現生鏽的紅色。",
-        options: ["○", "╳"],
-        answer: 2,
-        explanation: "例如鐵碰到水和空氣會生鏽，冰塊碰到溫暖的溫度會融化。"
-      },
-      {
-        question: "溫泉上的煙霧，是水蒸氣遇冷而凝結成小水滴。",
-        options: ["○", "╳"],
-        answer: 1,
-        explanation: "真正的水蒸氣是看不見的，我們看到的白煙其實是「小水滴」。"
-      },
-      {
-        question: "麵團要發酵，溫度要控制在較低的2~3度。",
-        options: ["○", "╳"],
-        answer: 2,
-        explanation: "麵團發酵要在較溫暖的25~30度。"
-      },
-      {
-        question: "液態豆漿加鹽巴，就可以變成塊狀的鹹豆漿。",
-        options: ["○", "╳"],
-        answer: 2,
-        explanation: "要加醋這種酸性物質，豆漿才會凝固。"
-      },
-      {
-        question: "物質會相互影響而產生變化。",
-        options: ["○", "╳"],
-        answer: 1,
-        explanation: "例如把醋加進小蘇打粉會冒泡泡，這就是物質互相影響。"
-      },
-      {
-        question: "風吹起灰塵，使得灰塵有什麼改變？",
-        options: ["形狀改變", "顏色改變", "位置改變", "大小改變"],
-        answer: 3,
-        explanation: "風吹灰塵，只是把灰塵從一個地方搬到另一個地方。"
-      },
-      {
-        question: "麵團加酵母菌發酵過後，有什麼改變？",
-        options: ["顏色改變", "大小改變", "位置改變", "沒有改變"],
-        answer: 2,
-        explanation: "酵母菌會在麵團裡面產生氣體，像吹氣球一樣把麵團撐起來。"
-      },
-      {
-        question: "冰塊受太陽熱影響，有什麼改變？",
-        options: ["形狀改變", "顏色改變", "位置改變", "沒有改變"],
-        answer: 1,
-        explanation: "從硬硬的冰變成流動的水，是「形狀」發生了改變。"
-      }
-    ]
-  },
-  {
-    id: "wz03",
-    title: "物質變變 基礎3",
-    category: "物質變變",
-    questions: [
-      {
-        question: "醋是什麼性？",
-        options: ["酸性", "鹼性"],
-        answer: 1,
-        explanation: "醋帶酸味，所以是酸性。"
-      },
-      {
-        question: "鹼水是什麼性？",
-        options: ["酸性", "鹼性"],
-        answer: 2,
-        explanation: "鹼水含鹼性成分，所以是鹼性。"
-      },
-      {
-        question: "酸性物質聞起來的味道是？",
-        options: ["酸酸的", "甜甜的"],
-        answer: 1,
-        explanation: "酸性物質通常聞起來酸酸的。"
-      },
-      {
-        question: "肥皂水摸起來滑滑的，可能是什麼性？",
-        options: ["酸性", "鹼性"],
-        answer: 2,
-        explanation: "肥皂水滑滑的，代表它是鹼性。"
-      },
-      {
-        question: "乳酸飲料酸酸的，可能是什麼性？",
-        options: ["酸性", "鹼性"],
-        answer: 1,
-        explanation: "乳酸飲料酸酸的，所以是酸性。"
-      },
-      {
-        question: "汽水或可樂有加糖，但實際上是什麼性？",
-        options: ["酸性", "鹼性"],
-        answer: 1,
-        explanation: "汽水和可樂會呈酸性。"
-      },
-      {
-        question: "運動飲料通常是什麼性？",
-        options: ["酸性", "鹼性"],
-        answer: 1,
-        explanation: "運動飲料多半呈酸性。"
-      },
-      {
-        question: "用來清潔的小蘇打溶液是什麼性？",
-        options: ["酸性", "鹼性"],
-        answer: 2,
-        explanation: "小蘇打溶液具有鹼性。"
-      },
-      {
-        question: "食醋是什麼性？",
-        options: ["酸性", "鹼性"],
-        answer: 1,
-        explanation: "食醋本身就是酸性。"
-      },
-      {
-        question: "紫色高麗菜汁遇到酸性物質變成什麼色系？",
-        options: ["藍綠色系", "紅色系"],
-        answer: 2,
-        explanation: "紫色高麗菜汁遇酸會變紅色系。"
-      },
-      {
-        question: "蝶豆花水加入鹼性物質變成什麼色系？",
-        options: ["藍綠色系", "紅色系"],
-        answer: 1,
-        explanation: "蝶豆花水遇鹼會變藍綠色系。"
-      },
-      {
-        question: "紫色高麗菜汁滴入檸檬汁會變成什麼色系？",
-        options: ["藍綠色系", "紅色系"],
-        answer: 2,
-        explanation: "紫色高麗菜汁加檸檬會變紅色系。"
-      },
-      {
-        question: "豆漿變成塊狀的鹹豆漿，是因為加入什麼物質？",
-        options: ["酸性物質", "鹼性物質"],
-        answer: 1,
-        explanation: "鹹豆漿會凝固是因為加入酸性物質。"
-      },
-      {
-        question: "紫色高麗菜汁加入小蘇打水變成什麼色系？",
-        options: ["藍綠色系", "紅色系"],
-        answer: 1,
-        explanation: "紫色高麗菜汁加小蘇打會變藍綠色系。"
-      },
-      {
-        question: "紫色高麗菜汁加入肥皂水變成什麼色系？",
-        options: ["藍綠色系", "紅色系"],
-        answer: 1,
-        explanation: "紫色高麗菜汁加肥皂水會變藍綠色系。"
-      },
-      {
-        question: "紫色高麗菜汁加入食醋變成什麼色系？",
-        options: ["藍綠色系", "紅色系"],
-        answer: 2,
-        explanation: "紫色高麗菜汁加醋會變紅色系。"
-      }
-    ]
-  },
-  {
     id: "wz12",
     title: "物質變變 1-2",
     category: "物質變變",
@@ -1476,285 +1755,6 @@ const quizData = [
         options: ["觀察飲料的顏色", "看飲料的價格", "把紫色高麗菜汁滴進去，看顏色有沒有變", "看飲料是在哪裡做的"],
         answer: 3,
         explanation: "紫色高麗菜汁可以當作酸鹼試劑，如果滴入飲料後變色，就能判斷飲料是酸性或鹼性。"
-      }
-    ]
-  },
-  {
-    id: "sg01",
-    title: "聲光 基礎1",
-    category: "聲光",
-    questions: [
-      {
-        question: "鼓發出聲音時，鼓面會怎樣？",
-        options: ["振動", "靜止"],
-        answer: 1,
-        explanation: ""
-      },
-      {
-        question: "人發出聲音時，喉嚨有什麼感覺？",
-        options: ["振動", "靜止"],
-        answer: 1,
-        explanation: ""
-      },
-      {
-        question: "握住發出聲音的三角鐵，聲音停了，三角鐵會怎樣？",
-        options: ["振動", "靜止"],
-        answer: 2,
-        explanation: ""
-      },
-      {
-        question: "物體發出聲音時，發音部位會怎樣？",
-        options: ["振動", "靜止"],
-        answer: 1,
-        explanation: ""
-      },
-      {
-        question: "物體停止振動時，聲音會怎樣？",
-        options: ["變大", "變小", "停止"],
-        answer: 3,
-        explanation: ""
-      },
-      {
-        question: "站在水邊聽到哨音，聲音透過什麼傳播？",
-        options: ["液體", "固體", "氣體"],
-        answer: 3,
-        explanation: ""
-      },
-      {
-        question: "在游泳池水裡聽到哨音，聲音透過什麼傳播？",
-        options: ["液體", "固體", "氣體"],
-        answer: 1,
-        explanation: ""
-      },
-      {
-        question: "用紙杯接棉線來聽聲音，聲音透過什麼傳播？",
-        options: ["液體", "固體", "氣體"],
-        answer: 2,
-        explanation: ""
-      },
-      {
-        question: "宇宙的太空裡兩個物體相撞，卻沒有聲音，為什麼？",
-        options: ["太空裡沒有空氣可傳播", "太空裡的物體都很輕"],
-        answer: 1,
-        explanation: ""
-      },
-      {
-        question: "用筷子在水裡敲擊，是要做什麼實驗？",
-        options: ["聲音可透過液體傳播", "光會直線前進", "酸鹼物質變色"],
-        answer: 1,
-        explanation: ""
-      },
-      {
-        question: "用嚎叫集結同伴的動物是？",
-        options: ["青蛙", "五色鳥", "野狼", "獅子"],
-        answer: 3,
-        explanation: ""
-      },
-      {
-        question: "把鳴囊鼓大，用鳴叫來求偶的動物是？",
-        options: ["青蛙", "五色鳥", "野狼", "獅子"],
-        answer: 1,
-        explanation: ""
-      },
-      {
-        question: "用大聲吼叫來警告敵人的動物是？",
-        options: ["青蛙", "五色鳥", "野狼", "獅子"],
-        answer: 4,
-        explanation: ""
-      },
-      {
-        question: "電影裡的士兵趴在鐵軌上聽有沒有火車的聲音，這聲音透過什麼傳播？(趴鐵軌不可模仿)",
-        options: ["液體", "固體", "氣體"],
-        answer: 2,
-        explanation: ""
-      },
-      {
-        question: "聲音在哪種物質傳播速度最快？",
-        options: ["液體", "固體", "氣體"],
-        answer: 2,
-        explanation: ""
-      },
-      {
-        question: "電影裡的士兵，小明站著聽火車聲音，小華趴在鐵軌聽，誰最先聽到火車的聲音？(趴鐵軌不可模仿)",
-        options: ["小明", "小華", "一樣快"],
-        answer: 2,
-        explanation: ""
-      }
-    ]
-  },
-  {
-    id: "sg02",
-    title: "聲光 基礎2",
-    category: "聲光",
-    questions: [
-      {
-        question: "自身能發出光的物體叫做？",
-        options: ["光源", "震源", "水源"],
-        answer: 1,
-        explanation: "能自己發出光的物體稱為光源。"
-      },
-      {
-        question: "哪一個是光源？",
-        options: ["反光背心", "閃亮的水面", "被光照到的鏡子", "點亮的車燈"],
-        answer: 4,
-        explanation: "車燈能自行發光，所以是光源。"
-      },
-      {
-        question: "哪一個不是光源？",
-        options: ["太陽", "月亮", "流星", "螢火蟲"],
-        answer: 2,
-        explanation: "月亮不會發光，只是反射太陽光。"
-      },
-      {
-        question: "光照射到不透明的物體，會怎樣？",
-        options: ["形成影子", "光會穿透", "光會消失"],
-        answer: 1,
-        explanation: "光照到不透明的物體時，會被擋住而形成影子。"
-      },
-      {
-        question: "影子的位置，跟光源如何？",
-        options: ["同一邊", "相反邊"],
-        answer: 2,
-        explanation: "影子會出現在與光源的相反邊。"
-      },
-      {
-        question: "影子在物體左邊，光源在物體哪一邊？",
-        options: ["左邊", "右邊"],
-        answer: 2,
-        explanation: "影子在左邊，表示光源在物體的右邊。"
-      },
-      {
-        question: "玩手影遊戲，手、影子、光在一直線上要怎麼排？",
-        options: ["光－手－影", "手－光－影", "手－影－光", "手－光－影"],
-        answer: 1,
-        explanation: "光在前、手在中間、影子在後。"
-      },
-      {
-        question: "用手電筒照射彎曲的水管，光線會怎樣？",
-        options: ["從出口照射出來", "無法照射出來"],
-        answer: 2,
-        explanation: "光是直線前進，所以無法從彎曲的水管照射出來。"
-      },
-      {
-        question: "用手電筒照射彎曲的水管的實驗，要證明什麼？",
-        options: ["光是直線前進", "光有三原色"],
-        answer: 1,
-        explanation: "這個實驗是用來證明光會直線前進。"
-      },
-      {
-        question: "哪個物品最容易反光？",
-        options: ["抹布", "報紙", "橡皮擦", "玻璃"],
-        answer: 4,
-        explanation: "玻璃表面光滑，最容易反射光線。"
-      },
-      {
-        question: "容易反光的物體，表面是怎樣？",
-        options: ["粗糙", "光滑"],
-        answer: 2,
-        explanation: "容易反光的物體通常表面很光滑。"
-      },
-      {
-        question: "光照到鏡子後，反射的光會繼續怎樣前進？",
-        options: ["彎曲", "直線", "波浪", "鋸齒"],
-        answer: 2,
-        explanation: "光照到鏡子反射後，仍會直線前進。"
-      },
-      {
-        question: "太陽系裡的哪個行星會發光？",
-        options: ["金星", "火星", "木星", "都不會"],
-        answer: 4,
-        explanation: "太陽系的行星都不會發光，都是反射太陽光。"
-      },
-      {
-        question: "通過門縫的光是如何繼續前進？",
-        options: ["彎曲", "波浪", "直線", "鋸齒"],
-        answer: 3,
-        explanation: "通過門縫的光會直線繼續前進。"
-      },
-      {
-        question: "汽車遮陽板用光的什麼特性來隔熱？",
-        options: ["反光", "直線前進", "光有三原色"],
-        answer: 1,
-        explanation: "汽車遮陽板利用光的反射來減少熱量進入車內。"
-      },
-      {
-        question: "哪一個運用光的反射來操作？",
-        options: ["放大鏡聚集陽光", "導護老師的背心", "建築師的水平雷射光", "舞台表演的光束"],
-        answer: 2,
-        explanation: "導護老師的背心利用光的反射讓人更容易被看見。"
-      }
-    ]
-  },
-  {
-    id: "sg03",
-    title: "聲光 基礎3",
-    category: "聲光",
-    questions: [
-      {
-        question: "各種聲音與光，帶給我們的感受都相同。",
-        options: ["O", "X"],
-        answer: 2,
-        explanation: "不同的聲音和光會帶給我們不同的感覺，所以不可能都相同。"
-      },
-      {
-        question: "螢火蟲發出鳴叫來吸引異性。",
-        options: ["O", "X"],
-        answer: 2,
-        explanation: "螢火蟲是靠發光而不是鳴叫來吸引異性。"
-      },
-      {
-        question: "紅綠燈來提醒大家前進或停止，是聲光的哪種應用？",
-        options: ["光", "聲音", "光與聲音", "溫度"],
-        answer: 1,
-        explanation: "紅綠燈是利用光的變化來提醒人們前進或停止。"
-      },
-      {
-        question: "電話鈴響，是聲光的哪種應用？",
-        options: ["光", "聲音", "光與聲音", "空氣"],
-        answer: 2,
-        explanation: "電話鈴響是利用聲音來提醒有人來電。"
-      },
-      {
-        question: "垃圾車播音樂告訴大家要倒垃圾了，是聲光的哪種應用？",
-        options: ["光", "聲音", "光與聲音", "溫度"],
-        answer: 2,
-        explanation: "垃圾車播放音樂是利用聲音通知大家可以倒垃圾了。"
-      },
-      {
-        question: "救護車鳴笛並閃警示燈，是聲光的哪種應用？",
-        options: ["光", "聲音", "光與聲音", "空氣"],
-        answer: 3,
-        explanation: "救護車同時用警笛聲和警示燈來提醒周圍的人注意。"
-      },
-      {
-        question: "鐵路平交道發出警鈴與號誌，是聲光的哪種應用？",
-        options: ["光", "聲音", "光與聲音", "溫度"],
-        answer: 3,
-        explanation: "鐵路平交道用警鈴和號誌一起提醒人車注意安全。"
-      },
-      {
-        question: "火災警示器發出警鈴，是聲光的哪種應用？",
-        options: ["光", "聲音", "光與聲音", "溫度"],
-        answer: 2,
-        explanation: "火災警示器用警鈴聲來提醒發生火災。"
-      },
-      {
-        question: "夜間的路燈，是聲光的哪種應用？",
-        options: ["光", "聲音", "光與聲音", "溫度"],
-        answer: 1,
-        explanation: "夜間路燈是利用光來照亮道路。"
-      },
-      {
-        question: "放煙火時的巨大聲響與美麗火花，是聲光的哪種應用？",
-        options: ["光", "聲音", "光與聲音", "溫度"],
-        answer: 3,
-        explanation: "放煙火時同時產生聲音和光，所以是聲光的應用。"
-      },
-      {
-        question: "萬花筒是運用光的什麼原理來設計？",
-        options: ["光的直線前進", "光的反射", "光的折射"],
-        answer: 2,
-        explanation: "萬花筒是利用光的反射原理來形成美麗圖案。"
       }
     ]
   },
@@ -1934,6 +1934,4 @@ const quizData = [
       }
     ]
   }
-
 ];
-

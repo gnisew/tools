@@ -118,14 +118,14 @@ function loginUser(name, classNum, avatar, quizCode) {
 			// 1. 顯示外層容器
 			const courseSelectionDiv = document.getElementById('courseSelection');
 			courseSelectionDiv.classList.remove('hidden');
-			courseSelectionDiv.className = 'mb-6'; // 移除白色卡片背景，改用透明背景以便顯示分組
+			courseSelectionDiv.className = 'mb-6'; // 移除白色卡片背景，改用透明背景
 
 			// 2. 調整容器間距
-			courseButtonsContainer.className = 'space-y-6'; // 垂直堆疊各個分類區塊
+			courseButtonsContainer.className = 'space-y-4'; // 垂直堆疊各個分類區塊
 
 			// 3. 根據 category 進行分組
 			const groupedCourses = quizData.reduce((acc, course) => {
-				const cat = course.category || '其他'; // 如果沒有分類就歸在「其他」
+				const cat = course.category || '其他';
 				if (!acc[cat]) {
 					acc[cat] = [];
 				}
@@ -134,38 +134,73 @@ function loginUser(name, classNum, avatar, quizCode) {
 			}, {});
 
 			// 4. 渲染每一個分類區塊
-			Object.keys(groupedCourses).forEach(category => {
+			Object.keys(groupedCourses).forEach((category, index) => {
 				// 建立分類大區塊
 				const categoryBlock = document.createElement('div');
-				categoryBlock.className = 'bg-white rounded-xl shadow-md overflow-hidden'; 
+				categoryBlock.className = 'bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300'; 
 
-				// 建立分類標題列
+				// 建立分類標題列 (Header)
+                // 修改：加入 cursor-pointer, justify-between, hover效果
 				const header = document.createElement('div');
-				header.className = 'bg-purple-50 px-6 py-3 border-b border-purple-100 flex items-center';
+				header.className = 'bg-purple-50 px-6 py-4 border-b border-purple-100 flex items-center justify-between cursor-pointer hover:bg-purple-100 transition-colors select-none';
 				
+                // 左側標題群組
+                const titleGroup = document.createElement('div');
+                titleGroup.className = 'flex items-center';
+
 				const titleIcon = document.createElement('span');
 				titleIcon.className = 'material-icons-outlined text-purple-600 mr-2';
-				titleIcon.textContent = 'folder_open'; // 或是其他圖示
+				titleIcon.textContent = 'folder'; // 資料夾圖示
 				
 				const title = document.createElement('h2');
 				title.className = 'text-lg font-bold text-purple-800'; 
 				title.textContent = category;
 				
-				header.appendChild(titleIcon);
-				header.appendChild(title);
+                titleGroup.appendChild(titleIcon);
+                titleGroup.appendChild(title);
+
+                // 右側折疊圖示 (預設顯示 "展開更多" 的箭頭)
+                const toggleIcon = document.createElement('span');
+                toggleIcon.className = 'material-icons-outlined text-purple-400 transition-transform duration-300';
+                toggleIcon.textContent = 'expand_more'; // 預設向下箭頭
+
+				header.appendChild(titleGroup);
+                header.appendChild(toggleIcon);
 				categoryBlock.appendChild(header);
 
 				// 建立按鈕網格容器
+                // 修改：預設加上 'hidden' 以隱藏內容
 				const gridContainer = document.createElement('div');
-				gridContainer.className = 'p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3'; 
+				gridContainer.className = 'p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 hidden bg-gray-50/50'; 
 
 				// 生成該分類下的所有課程按鈕
-				groupedCourses[category].forEach((course, index) => {
-					const button = createCourseButton(course, index);
+				groupedCourses[category].forEach((course, idx) => {
+					// 這裡要注意：原本的 index 是全域迴圈的，現在我們在內部迴圈
+                    // 如果您希望按鈕上的編號是連續的，可能需要調整。
+                    // 這裡先維持用該分類下的順序+1顯示，或是使用原本邏輯
+					const button = createCourseButton(course, idx);
 					gridContainer.appendChild(button);
 				});
 
 				categoryBlock.appendChild(gridContainer);
+
+                // 綁定點擊事件：切換顯示/隱藏
+                header.onclick = () => {
+                    const isHidden = gridContainer.classList.contains('hidden');
+                    
+                    if (isHidden) {
+                        // 展開
+                        gridContainer.classList.remove('hidden');
+                        toggleIcon.textContent = 'expand_less'; // 換成向上箭頭
+                        header.classList.add('bg-purple-100'); // 展開時標題背景加深
+                    } else {
+                        // 折疊
+                        gridContainer.classList.add('hidden');
+                        toggleIcon.textContent = 'expand_more'; // 換成向下箭頭
+                        header.classList.remove('bg-purple-100');
+                    }
+                };
+
 				courseButtonsContainer.appendChild(categoryBlock);
 			});
 		}
@@ -220,16 +255,42 @@ function loginUser(name, classNum, avatar, quizCode) {
 
 		// 顯示課程統計 (接收 ID 和 Title)
 		function showCourseStats(courseId, courseTitle, avgScore) {
-			const practiceCount = getPracticeCount(courseId);
-			
-			// 設定標題
-			document.getElementById('statsModalTitle').textContent = courseTitle;
-			document.getElementById('statsModalScore').textContent = avgScore;
-			document.getElementById('statsModalCount').textContent = practiceCount;
+            // 1. 取得該課程的所有歷史紀錄
+            const history = JSON.parse(localStorage.getItem(`${QUIZ_ID}_history`) || '[]');
+            const records = history.filter(record => record.courseId === courseId && record.completed);
+            
+            // 2. 計算各分數段的次數
+            let count100 = 0;
+            let count90 = 0; // 90~99
+            let count80 = 0; // 80~89
+            let countOther = 0; // 79以下
 
-			// ... (中間生成星星和評語的程式碼保持不變) ...
-			
-			// 生成星星
+            records.forEach(r => {
+                if (r.score === 100) {
+                    count100++;
+                } else if (r.score >= 90) {
+                    count90++;
+                } else if (r.score >= 80) {
+                    count80++;
+                } else {
+                    countOther++;
+                }
+            });
+
+            const practiceCount = records.length;
+
+			// 設定標題與總次數
+			document.getElementById('statsModalTitle').textContent = courseTitle;
+			document.getElementById('statsModalCount').textContent = practiceCount;
+            
+            // 設定分數分布次數
+            document.getElementById('statsCount100').textContent = count100;
+            document.getElementById('statsCount90').textContent = count90;
+            document.getElementById('statsCount80').textContent = count80;
+            document.getElementById('statsCountOther').textContent = countOther;
+
+			// 生成星星 (邏輯保持不變，依照傳入的平均分 avgScore 繪製)
+            // 這樣雖然不顯示平均分數字，但星星依然代表整體實力
 			let starsHtml = '';
 			const starClass = 'text-3xl text-yellow-400 drop-shadow-sm material-icons'; 
 			const emptyStarClass = 'text-3xl text-gray-200 material-icons'; 
@@ -253,19 +314,20 @@ function loginUser(name, classNum, avatar, quizCode) {
 			}
 			document.getElementById('statsModalStars').innerHTML = starsHtml;
 
-			// 設定評語 (略，保持原樣)
+			// 設定評語 (鼓勵文字)
 			const commentEl = document.getElementById('statsModalComment');
 			if (practiceCount === 0) {
 				commentEl.textContent = "還沒有練習紀錄，趕快開始挑戰吧！💪";
 				commentEl.className = "text-gray-500 font-medium text-sm";
-			} else if (avgScore >= 95) {
-				commentEl.textContent = "太神了！你是這個單元的專家！👑";
+			} else if (count100 > 0) {
+                // 如果有拿過100分，給予最高讚賞
+				commentEl.textContent = `太強了！你已經拿過 ${count100} 次滿分囉！👑`;
 				commentEl.className = "text-purple-600 font-bold text-sm";
-			} else if (avgScore >= 80) {
-				commentEl.textContent = "表現很棒喔！繼續保持！🌟";
+			} else if (count90 > 0) {
+				commentEl.textContent = "表現很棒！離滿分只差一點點了！🌟";
 				commentEl.className = "text-green-600 font-bold text-sm";
-			} else if (avgScore >= 60) {
-				commentEl.textContent = "通過了！再多練習幾次會更強喔！📚";
+			} else if (count80 > 0) {
+				commentEl.textContent = "不錯喔！繼續保持，挑戰更高分！📚";
 				commentEl.className = "text-blue-600 font-bold text-sm";
 			} else {
 				commentEl.textContent = "別灰心，多練習幾次一定會進步的！🌱";
@@ -465,25 +527,37 @@ function loginUser(name, classNum, avatar, quizCode) {
             if (isInQuiz) {
                 quizModeBtn.classList.remove('hidden');
                 
+                // 檢查是否已經開始作答
+                const hasStartedAnswering = Object.keys(userAnswers).length > 0;
+
                 if (isQuizMode) {
                     // ★ 測驗模式下：
-                    // 1. 測驗按鈕：凸顯 (紫色實心) 且 【鎖定不可點擊】
                     quizModeBtn.classList.remove('bg-white', 'text-gray-600', 'border-gray-300', 'hover:bg-gray-50');
                     quizModeBtn.classList.add('bg-purple-600', 'text-white', 'border-purple-600');
                     quizModeBtn.innerHTML = '<span class="material-icons-outlined text-base">assignment_turned_in</span><span>測驗中</span>';
-                    quizModeBtn.style.pointerEvents = 'none'; // 【新增】 禁止點擊切換
+                    // 測驗模式原本就鎖定，這裡維持不變
+                    quizModeBtn.style.pointerEvents = 'none'; 
 
-                    // 2. X 按鈕：【隱藏】 (不可點終止測驗)
+                    // X 按鈕：【隱藏】
                     exitQuizBtn.classList.add('hidden');
                 } else {
                     // ★ 練習模式下：
-                    // 測驗按鈕：普通 (白色空心) 可點擊
                     quizModeBtn.classList.remove('bg-purple-600', 'text-white', 'border-purple-600');
                     quizModeBtn.classList.add('bg-white', 'text-gray-600', 'border-gray-300', 'hover:bg-gray-50');
                     quizModeBtn.innerHTML = '<span class="material-icons-outlined text-base">assignment</span><span>練習</span>';
-                    quizModeBtn.style.pointerEvents = 'auto'; // 允許點擊
+                    
+                    // 【修改重點】：如果已經開始作答，就鎖定按鈕；否則允許點擊
+                    if (hasStartedAnswering) {
+                        quizModeBtn.style.pointerEvents = 'none'; // 禁止點擊
+                        quizModeBtn.classList.add('opacity-50', 'cursor-not-allowed'); // 變淡、滑鼠變禁止符號
+                        quizModeBtn.title = "作答中無法切換模式";
+                    } else {
+                        quizModeBtn.style.pointerEvents = 'auto'; // 允許點擊
+                        quizModeBtn.classList.remove('opacity-50', 'cursor-not-allowed'); // 恢復原狀
+                        quizModeBtn.title = "切換至測驗模式";
+                    }
 
-                    // X 按鈕：顯示 (紅色警告)
+                    // X 按鈕：顯示
                     exitQuizBtn.classList.remove('hidden', 'bg-gray-200', 'text-gray-400', 'hover:bg-gray-300');
                     exitQuizBtn.classList.add('bg-red-500', 'hover:bg-red-600', 'text-white');
                 }
@@ -492,7 +566,6 @@ function loginUser(name, classNum, avatar, quizCode) {
                 exitQuizBtn.classList.add('hidden');
             }
         }
-
 		// 開始測驗
 		function startQuiz(courseId, pushHistory = true) {
 			isReviewMode = false; 
@@ -536,7 +609,18 @@ function loginUser(name, classNum, avatar, quizCode) {
 			cleanExpiredHistory();
 			
 			// 更新 UI
-			document.getElementById('mainTitle').textContent = `📚 ${currentCourseTitle}`;
+			document.getElementById('mainTitle').textContent = `${QUIZ_HEADER_ICON} ${currentCourseTitle}`;
+			// 縮小標題區域的樣式 (緊湊模式)
+            const headerArea = document.getElementById('headerArea');
+            const mainTitle = document.getElementById('mainTitle');
+
+            // 減少底部間距 (原本是 mb-8)
+            headerArea.classList.remove('mb-8');
+            headerArea.classList.add('mb-2'); 
+
+            // 縮小字體 (原本是 text-2xl md:text-4xl)
+            mainTitle.classList.remove('text-2xl', 'md:text-4xl');
+            mainTitle.classList.add('text-xl', 'md:text-2xl');
 			document.getElementById('userInfo').style.cursor = 'default';
 			document.getElementById('userInfo').onclick = null;
 			
@@ -560,7 +644,18 @@ function loginUser(name, classNum, avatar, quizCode) {
 			isReviewMode = false;
 			// 恢復標題
 			document.getElementById('mainTitle').textContent = QUIZ_TITLE;
-			
+
+            const headerArea = document.getElementById('headerArea');
+            const mainTitle = document.getElementById('mainTitle');
+
+            // 恢復底部間距
+            headerArea.classList.remove('mb-2');
+            headerArea.classList.add('mb-8');
+
+            // 恢復字體大小
+            mainTitle.classList.remove('text-xl', 'md:text-2xl');
+            mainTitle.classList.add('text-2xl', 'md:text-4xl');
+
 			// 恢復右上角個人資訊點擊功能
 			document.getElementById('userInfo').style.cursor = 'pointer';
 			document.getElementById('userInfo').onclick = editStudentInfo;
@@ -573,7 +668,6 @@ function loginUser(name, classNum, avatar, quizCode) {
 			updateHeaderButtonsVisibility();
 
 			// 重設頂部標題區塊
-			const headerArea = document.getElementById('headerArea');
 			if (headerArea.classList.contains('hidden')) {
 				headerArea.classList.remove('hidden');
 				document.getElementById('toggleHeaderIcon').textContent = 'expand_less';
@@ -619,11 +713,27 @@ function loginUser(name, classNum, avatar, quizCode) {
 			localStorage.setItem(`${QUIZ_ID}_history`, JSON.stringify(history));
 		}
 
-        function cleanExpiredHistory() {
+		function cleanExpiredHistory() {
             const history = JSON.parse(localStorage.getItem(`${QUIZ_ID}_history`) || '[]');
-            const currentYear = new Date().getFullYear();
-            const cutoffDate = new Date(currentYear, HISTORY_CUTOFF_MONTH, HISTORY_CUTOFF_DAY);
             
+            const now = new Date();
+            // 1. 先取得目前的年份
+            let cutoffYear = now.getFullYear();
+            
+            // 2. 建立「今年」的過期基準日 (依據設定是 6月30日)
+            const thisYearCutoff = new Date(cutoffYear, HISTORY_CUTOFF_MONTH, HISTORY_CUTOFF_DAY);
+
+            // 3. 【關鍵修正邏輯】
+            // 如果「現在時間」還沒到「今年的過期日」(例如現在是 1月，還沒到 6月)
+            // 代表我們還在同一個學年，過期標準應該要往回推一年，算「去年」的 6/30 為界線
+            if (now < thisYearCutoff) {
+                cutoffYear -= 1;
+            }
+
+            // 4. 設定真正的過期日
+            const cutoffDate = new Date(cutoffYear, HISTORY_CUTOFF_MONTH, HISTORY_CUTOFF_DAY);
+            
+            // 5. 過濾：只保留日期「晚於」過期日的紀錄
             const validHistory = history.filter(record => {
                 const recordDate = new Date(record.startTime);
                 return recordDate > cutoffDate;
@@ -938,6 +1048,7 @@ function loginUser(name, classNum, avatar, quizCode) {
             updateProgress();
             updateQuestionNavigation();
             updateNextButton();
+			updateHeaderButtonsVisibility();
         }
 
 		// 創建選項按鈕
@@ -1142,8 +1253,21 @@ function loginUser(name, classNum, avatar, quizCode) {
 			userAnswers = originalAnswersBackup;
 			
 			// 使用 currentCourseTitle 還原標題
-			document.getElementById('mainTitle').textContent = `📚 ${currentCourseTitle}`;
-			
+			document.getElementById('mainTitle').textContent = `${QUIZ_HEADER_ICON} ${currentCourseTitle}`;
+			const headerArea = document.getElementById('headerArea');
+            const mainTitle = document.getElementById('mainTitle');
+
+			// 減少底部間距 (原本是 mb-8)
+            headerArea.classList.remove('mb-8');
+            headerArea.classList.add('mb-2'); 
+
+            // 縮小字體 (原本是 text-2xl md:text-4xl)
+            mainTitle.classList.remove('text-2xl', 'md:text-4xl');
+            mainTitle.classList.add('text-xl', 'md:text-2xl');
+
+			document.getElementById('userInfo').style.cursor = 'default';
+			document.getElementById('userInfo').onclick = null;
+
 			// 切換回成績頁面
 			document.getElementById('quizArea').classList.add('hidden');
 			document.getElementById('resultArea').classList.remove('hidden');
@@ -1172,25 +1296,43 @@ function loginUser(name, classNum, avatar, quizCode) {
             const answered = Object.keys(userAnswers).length;
             let correct = 0;
             
+            // 【新增】收集錯題題號的陣列
+            let wrongQuestionsList = [];
+            
             currentQuestions.forEach((question, index) => {
                 if (userAnswers[index] === question.correctAnswer) {
                     correct++;
+                } else {
+                    // 【新增】答錯或未作答，將「題號」(index+1) 加入陣列
+                    wrongQuestionsList.push(index + 1);
                 }
             });
             
             const wrong = answered - correct;
             const percentage = Math.round((correct / total) * 100);
             
+            // 【新增】將錯題陣列轉為字串 (例如 "2,5,8")
+            const wrongString = wrongQuestionsList.join(',');
+
             // 儲存歷史紀錄
             saveHistory(percentage, true);
             
             // 自動傳送成績到Google表單 (如果啟用且測驗代碼正確)
             if (ENABLE_GOOGLE_FORM_SUBMIT && studentQuizCode === QUIZ_CODE) {
-                sendScoreToGoogleForm(studentName, studentClass, percentage, studentQuizCode);
+                // 【修改】傳入新增的參數：ID, 標題, 錯題字串
+                sendScoreToGoogleForm(
+                    studentName, 
+                    studentClass, 
+                    percentage, 
+                    studentQuizCode,
+                    currentCourseId,     // 新增
+                    currentCourseTitle,  // 新增
+                    wrongString          // 新增
+                );
                 showSubmissionSuccessAlert(); 
             }
             
-            // 計算星級
+            // 計算星級 (UI顯示)
             let stars = '';
             const fullStars = Math.floor(percentage / 20);
             const hasHalfStar = (percentage % 20) >= 10;
@@ -1217,31 +1359,51 @@ function loginUser(name, classNum, avatar, quizCode) {
             document.getElementById('exitQuizBtn').classList.add('hidden');
             document.getElementById('resultArea').classList.remove('hidden');
 
-            // 重新更新頂部按鈕狀態 (因為剛退出了測驗模式)
+            // 重新更新頂部按鈕狀態
             updateHeaderButtonsVisibility();
         }
         
         // 傳送成績到Google表單
-// 傳送成績到Google表單
-        function sendScoreToGoogleForm(name, classNum, score, quizCode) {
+        function sendScoreToGoogleForm(name, classNum, score, quizCode, courseId, courseTitle, wrongList) {
             try {
                 // 要送的資料
                 const formData = new URLSearchParams();
                 formData.append(GOOGLE_FORM_CONFIG.nameField, name);
                 formData.append(GOOGLE_FORM_CONFIG.classField, classNum);
                 formData.append(GOOGLE_FORM_CONFIG.scoreField, score);
-                //formData.append(GOOGLE_FORM_CONFIG.quizCodeField, quizCode); // 【新增】
+                
+                // 如果您 settings.js 有設定 quizCodeField，請解開下面這行
+                // if (GOOGLE_FORM_CONFIG.quizCodeField) formData.append(GOOGLE_FORM_CONFIG.quizCodeField, quizCode);
+
+                // 傳送 測驗ID
+                if (GOOGLE_FORM_CONFIG.idField) {
+                    formData.append(GOOGLE_FORM_CONFIG.idField, courseId);
+                }
+
+                // 傳送 測驗標題
+                if (GOOGLE_FORM_CONFIG.titleField) {
+                    formData.append(GOOGLE_FORM_CONFIG.titleField, courseTitle);
+                }
+
+                // 傳送 錯題列表
+                if (GOOGLE_FORM_CONFIG.wrongField) {
+                    // 如果沒有錯題 (空字串)，傳送 "無" 以便閱讀
+                    const finalWrongText = wrongList === "" ? "" : wrongList;
+                    formData.append(GOOGLE_FORM_CONFIG.wrongField, finalWrongText);
+                }
 
                 // 自動送出
                 fetch(GOOGLE_FORM_CONFIG.formUrl, {
                     method: "POST",
                     mode: "no-cors",
                     body: formData
-                }).catch(error => {
+                }).then(() => {
                     console.log('成績傳送完成');
+                }).catch(error => {
+                    console.log('成績傳送發生錯誤 (但不影響作答結果)');
                 });
             } catch (error) {
-                console.log('成績傳送過程中發生錯誤，但不影響測驗結果');
+                console.log('成績傳送過程中發生錯誤');
             }
         }
 
@@ -2110,6 +2272,17 @@ function checkStudentInfo() {
 			// 綁定返回按鈕的邏輯
 			bindHomeButtons();
 
+			// 綁定分析按鈕點擊事件
+			const analysisBtn = document.getElementById('analysisBtn');
+			if (analysisBtn) {
+				analysisBtn.onclick = () => {
+					const modal = document.getElementById('analysisModal');
+					modal.classList.remove('hidden');
+					// 開啟後自動聚焦輸入框，方便直接貼上
+					setTimeout(() => document.getElementById('analysisInput').focus(), 100);
+				};
+			}
+
 			document.getElementById('resetBtn').onclick = resetToDefaultUser;
 			document.getElementById('backFromEditBtn').onclick = () => {
 				document.getElementById('cancelEditBtn').click();
@@ -2125,17 +2298,328 @@ function checkStudentInfo() {
 			}
 
 
-			document.getElementById('quizModeToggleBtn').onclick = () => {
-				isQuizMode = !isQuizMode; // 切換狀態
-				
-				// 更新網址參數
-				updateUrlForQuiz(currentCourseId);
-				
-				// 更新 UI (按鈕顏色、題目顯示方式)
-				updateHeaderButtonsVisibility();
-				initQuestionNavigation(); // 重繪上方題號圈圈顏色
-				showQuestion(); // 重繪題目 (隱藏/顯示解析)
-			};
+		// ========================================
+		// 🔧 新增：測驗模式切換確認功能
+		// ========================================
+		const quizModeConfirmDialog = document.getElementById('quizModeConfirmDialog');
+		const quizModeConfirmDialogContent = document.getElementById('quizModeConfirmDialogContent');
+		const confirmQuizModeBtn = document.getElementById('confirmQuizModeBtn');
+		const cancelQuizModeBtn = document.getElementById('cancelQuizModeBtn');
+
+		// 顯示確認視窗
+		function showQuizModeConfirm() {
+			quizModeConfirmDialog.classList.remove('hidden');
+			setTimeout(() => {
+				quizModeConfirmDialog.classList.remove('opacity-0');
+				quizModeConfirmDialogContent.classList.remove('scale-95', 'opacity-0');
+				quizModeConfirmDialogContent.classList.add('scale-100', 'opacity-100');
+			}, 10);
+		}
+
+		// 關閉確認視窗
+		function closeQuizModeConfirm() {
+			quizModeConfirmDialog.classList.add('opacity-0');
+			quizModeConfirmDialogContent.classList.remove('scale-100', 'opacity-100');
+			quizModeConfirmDialogContent.classList.add('scale-95', 'opacity-0');
+			setTimeout(() => {
+				quizModeConfirmDialog.classList.add('hidden');
+			}, 300);
+		}
+
+		// 執行模式切換 (獨立出來的函式)
+		function performModeSwitch(toQuizMode) {
+			isQuizMode = toQuizMode;
+			updateUrlForQuiz(currentCourseId);
+			updateHeaderButtonsVisibility();
+			initQuestionNavigation();
+			showQuestion();
+		}
+
+		// 【修改】切換按鈕點擊事件
+		document.getElementById('quizModeToggleBtn').onclick = () => {
+			if (!isQuizMode) {
+				// 情況 A：目前是練習模式，想轉去測驗 -> 👮 擋下來問問看
+				showQuizModeConfirm();
+			} else {
+				// 情況 B：目前是測驗模式，想轉回練習 -> 🆗 直接切換 (除非已作答被鎖定)
+				performModeSwitch(false);
+			}
+		};
+
+		// 彈窗按鈕：確定切換
+		confirmQuizModeBtn.onclick = () => {
+			performModeSwitch(true); 
+			closeQuizModeConfirm();
+		};
+
+		// 彈窗按鈕：取消
+		cancelQuizModeBtn.onclick = () => {
+			closeQuizModeConfirm();
+		};
+
+		// 點擊背景關閉
+		quizModeConfirmDialog.addEventListener('click', (e) => {
+			if (e.target === quizModeConfirmDialog) {
+				closeQuizModeConfirm();
+			}
+		});
 
 			checkUrlAndLoadQuiz();
 		});
+
+
+
+
+
+
+
+
+
+
+
+// ========================================
+// 📊 分析功能邏輯區
+// ========================================
+
+// 開啟分析視窗
+document.getElementById('analysisBtn').onclick = () => {
+    const modal = document.getElementById('analysisModal');
+    modal.classList.remove('hidden');
+    // 聚焦輸入框
+    setTimeout(() => document.getElementById('analysisInput').focus(), 100);
+};
+
+// 關閉分析視窗
+function closeAnalysisModal() {
+    document.getElementById('analysisModal').classList.add('hidden');
+}
+
+// 清除輸入
+function clearAnalysisInput() {
+    document.getElementById('analysisInput').value = '';
+    document.getElementById('analysisResultArea').classList.add('hidden');
+}
+
+// 執行分析 (核心功能)
+function performAnalysis() {
+    const rawInput = document.getElementById('analysisInput').value.trim();
+    if (!rawInput) {
+        alert('請先貼上資料喔！');
+        return;
+    }
+
+    // 1. 解析資料
+    const lines = rawInput.split('\n');
+    const records = [];
+    let detectedQuizId = null; // 自動偵測測驗ID
+
+    lines.forEach(line => {
+        line = line.trim();
+        if (!line) return;
+
+        // 使用正則表達式分割，支援 Tab 或 空格
+        const parts = line.split(/\s+/);
+        
+        // 格式：班號(0) ID(1) 錯題(2,可選)
+        if (parts.length >= 2) {
+            const studentId = parts[0];
+            const quizId = parts[1];
+            // 如果 parts[2] 存在，則分割逗號；如果不存在(全對)，則是空陣列
+            const wrongString = parts[2] || ""; 
+            const wrongList = wrongString ? wrongString.split(',').map(n => parseInt(n)) : [];
+
+            records.push({ studentId, quizId, wrongList });
+
+            // 抓取第一個有效的 Quiz ID
+            if (!detectedQuizId && quizId) {
+                detectedQuizId = quizId;
+            }
+        }
+    });
+
+    if (records.length === 0) {
+        alert('無法解析資料，請確認格式是否正確。\n(班號 測驗ID 錯題)');
+        return;
+    }
+
+    // 2. 獲取題庫資料
+    // 假設所有資料都是針對同一個測驗 (取第一個偵測到的 ID)
+    const targetCourse = quizData.find(c => c.id === detectedQuizId);
+
+    if (!targetCourse) {
+        alert(`找不到測驗代號 "${detectedQuizId}" 的題目資料。\n請確認 ID 是否正確 (例如: wz01)。`);
+        return;
+    }
+
+    const totalQuestions = targetCourse.questions.length;
+
+    // 3. 顯示結果區域
+    document.getElementById('analysisResultArea').classList.remove('hidden');
+
+    // --- 分析一：錯題排行榜 ---
+    renderErrorRanking(records, targetCourse);
+
+    // --- 分析二：學生作答矩陣 ---
+    renderStudentMatrix(records, totalQuestions);
+}
+
+// 渲染錯題排行榜
+function renderErrorRanking(records, course) {
+    const errorCounts = {}; // { 題號索引: 錯誤次數 }
+    
+    // 初始化計數
+    for (let i = 0; i < course.questions.length; i++) {
+        errorCounts[i] = 0;
+    }
+
+    // 統計錯誤
+    records.forEach(record => {
+        // 只有 ID 符合的才統計，避免混到別的測驗資料
+        if (record.quizId === course.id) {
+            record.wrongList.forEach(qNum => {
+                // 題號轉索引 (第1題 -> index 0)
+                const idx = qNum - 1;
+                if (errorCounts[idx] !== undefined) {
+                    errorCounts[idx]++;
+                }
+            });
+        }
+    });
+
+    // 轉換成陣列並排序 (錯誤多的在前面)
+    const ranking = Object.keys(errorCounts).map(idx => ({
+        index: parseInt(idx),
+        count: errorCounts[idx],
+        question: course.questions[idx]
+    })).sort((a, b) => b.count - a.count);
+
+    const listContainer = document.getElementById('errorRankList');
+    listContainer.innerHTML = '';
+
+    // 過濾掉沒有人錯的題目 (如果不希望顯示全對的題目) -> 需求說要「排到沒有錯」，所以全顯
+    ranking.forEach((item, rank) => {
+        const qNum = item.index + 1;
+        // 錯誤率顏色：高(紅) -> 低(綠)
+        let barColor = 'bg-green-500';
+        let width = '10%'; // 預設最小寬度
+        
+        if (item.count > 0) {
+            const percentage = Math.min((item.count / records.length) * 100, 100);
+            width = `${Math.max(percentage, 10)}%`; // 至少顯示一點長度
+            
+            if (percentage > 60) barColor = 'bg-red-500';
+            else if (percentage > 30) barColor = 'bg-orange-500';
+            else barColor = 'bg-yellow-500';
+        } else {
+            barColor = 'bg-gray-300'; // 無人答錯
+            width = '0px';
+        }
+
+        const div = document.createElement('div');
+        div.className = 'flex items-center space-x-3 p-2 hover:bg-red-100 rounded-lg transition-colors cursor-pointer group';
+        div.onclick = () => showSingleQuestionDetail(item.question, qNum); // 點擊查看題目
+
+        div.innerHTML = `
+            <div class="w-8 h-8 flex items-center justify-center bg-white rounded-full font-bold shadow-sm text-gray-700 flex-shrink-0">
+                ${qNum}
+            </div>
+            <div class="flex-grow">
+                <div class="flex justify-between text-sm mb-1">
+                    <span class="font-medium text-gray-800 truncate pr-2">${item.question.question}</span>
+                    <span class="font-bold ${item.count > 0 ? 'text-red-600' : 'text-gray-400'} flex-shrink-0">${item.count} 人錯</span>
+                </div>
+                <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="${barColor} h-full rounded-full transition-all duration-500" style="width: ${width}"></div>
+                </div>
+            </div>
+            <div class="text-gray-400 group-hover:text-red-500">
+                <span class="material-icons-outlined">visibility</span>
+            </div>
+        `;
+        listContainer.appendChild(div);
+    });
+}
+
+// 渲染學生作答矩陣
+function renderStudentMatrix(records, totalQuestions) {
+    const thead = document.getElementById('matrixHeader');
+    const tbody = document.getElementById('matrixBody');
+    
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+
+    // 1. 建立表頭 (座號 + 題號 1~N)
+    let headerHtml = '<th class="px-4 py-2 text-left sticky left-0 bg-gray-200 z-10">座號</th>';
+    for (let i = 1; i <= totalQuestions; i++) {
+        headerHtml += `<th class="px-2 py-2 text-center text-xs font-bold text-gray-500">${i}</th>`;
+    }
+    thead.innerHTML = headerHtml;
+
+    // 2. 建立內容
+    // 依座號排序 (假設座號是數字)
+    records.sort((a, b) => parseInt(a.studentId) - parseInt(b.studentId));
+
+    records.forEach(record => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b hover:bg-gray-50';
+
+        // 座號欄
+        let rowHtml = `<td class="px-4 py-2 font-bold text-gray-800 sticky left-0 bg-white shadow-sm border-r">${record.studentId}</td>`;
+
+        // 題目欄 (O 或 X)
+        for (let i = 1; i <= totalQuestions; i++) {
+            // 檢查該題號是否在錯題列表中
+            const isWrong = record.wrongList.includes(i);
+            
+            if (isWrong) {
+                // 答錯 X (紅色)
+                rowHtml += `<td class="px-1 py-2 text-center"><span class="text-red-500 font-bold">✕</span></td>`;
+            } else {
+                // 答對 O (綠色點點，視覺比較不雜亂)
+                rowHtml += `<td class="px-1 py-2 text-center"><span class="text-green-300">●</span></td>`;
+            }
+        }
+        tr.innerHTML = rowHtml;
+        tbody.appendChild(tr);
+    });
+}
+
+// 顯示單題詳情 (輕量版彈窗)
+function showSingleQuestionDetail(qData, qNum) {
+    document.getElementById('quickQuestionModal').style.display = 'block';
+    document.getElementById('quickQuestionModal').classList.remove('hidden');
+    
+    document.getElementById('quickQTitle').textContent = `第 ${qNum} 題詳細內容`;
+    document.getElementById('quickQContent').textContent = qData.question;
+    document.getElementById('quickQExplanation').textContent = qData.explanation || "無解析";
+
+    const optionsContainer = document.getElementById('quickQOptions');
+    optionsContainer.innerHTML = '';
+
+    // 判斷是非題
+    const isTrueFalse = qData.options[0] === '○' || qData.options[0] === '正确'; // 簡單判斷
+    
+    if (isTrueFalse) {
+         ['○ 正確', '╳ 錯誤'].forEach((text, idx) => {
+             const isAns = (idx + 1) === qData.answer;
+             const div = document.createElement('div');
+             div.className = `p-2 rounded-lg border ${isAns ? 'bg-green-100 border-green-500 text-green-800 font-bold' : 'border-gray-200'}`;
+             div.textContent = text + (isAns ? ' (正解)' : '');
+             optionsContainer.appendChild(div);
+         });
+    } else {
+        qData.options.forEach((opt, idx) => {
+            if (!opt) return;
+            const isAns = (idx + 1) === qData.answer;
+            const div = document.createElement('div');
+            // 正解標示為綠色
+            div.className = `p-2 rounded-lg border ${isAns ? 'bg-green-100 border-green-500 text-green-800 font-bold' : 'border-gray-200'}`;
+            div.textContent = `${String.fromCharCode(65 + idx)}. ${opt}` + (isAns ? ' (正解)' : '');
+            optionsContainer.appendChild(div);
+        });
+    }
+}
+
+function closeQuickQuestionModal() {
+    document.getElementById('quickQuestionModal').style.display = 'none';
+}

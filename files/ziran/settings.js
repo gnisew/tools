@@ -10,9 +10,10 @@
 		
 		// 網頁圖示
 		const QUIZ_EMOJI = "🐛";
+		const QUIZ_HEADER_ICON = "🧪";
 		
         // 內部標題
-        const QUIZ_TITLE = "自然";
+        const QUIZ_TITLE = "🥷烏衣行 - 自然而然";
 
         // 測驗代碼 (必須輸入此代碼才會傳送分數)
         const QUIZ_CODE = "6962164";
@@ -20,11 +21,19 @@
         // Google表單設定
         const GOOGLE_FORM_CONFIG = {
             formUrl: "https://docs.google.com/forms/d/e/1FAIpQLSeRIREnnXzmKngg4r54DoPkn8NVhZr3PDwMyrAPdLnFMXOhFg/formResponse",
-            nameField: "entry.287735125",    // 姓名
-            classField: "entry.1894453414",  // 班號
-            scoreField: "entry.774071075",   // 成績
+            nameField: "entry.287735125",    // 姓名            
+			scoreField: "entry.1894453414",   // 成績
+			classField: "entry.774071075",  // 班號
+			idField: "entry.1692942949",   // id            		
+			wrongField: "entry.1649280184",   // 錯題
+			titleField: "entry.1837856764",   // 課名	
            // quizCodeField: "entry.123456789"  【新增】測驗代碼欄位ID (請替換為您自己的表單欄位ID)
         };
+
+
+
+
+
         
         // 管理碼
         const ADMIN_PASSWORD = "kasu";
