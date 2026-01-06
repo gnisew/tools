@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>實驗三：高度角觀測 - 獨立重製版</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="main-nav">
+        <div class="nav-left"><a href="../index.html" class="nav-back-btn">← 實驗室首頁</a></div>
+        <div class="nav-brand">實驗三：高度角觀測</div>
+        <div class="nav-right"></div>
+    </nav>
+
+    <div class="obs-container">
+        <div class="obs-hud-left">
+            <label class="checkbox-label">
+                <input type="checkbox" id="chkShowTexts" checked onchange="exp3.toggleView()"> 顯示度數文字
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="chkShowLines" checked onchange="exp3.toggleView()"> 顯示輔助線段
+            </label>
+        </div>
+
+        <div id="altitudeObserver" class="observer-box">
+            <svg id="protractorSvg" viewBox="0 0 600 400"></svg>
+            <div id="obsCenterIcon" class="obs-center-icon" onclick="exp3.randomizeCenterIcon()">🧐</div>
+            <div id="obsMoon" class="obs-moon"></div>
+        </div>
+    </div>
+
+    <div class="unified-control-panel">
+        <div class="slider-full-width">
+            <input type="range" id="altTimeSlider" class="integrated-slider" min="0" max="732" value="100">
+        </div>
+        <div class="compact-toolbar">
+            <div class="toolbar-center">
+                <div class="step-ctrls">
+                    <button onclick="exp3.stepTime(-60)" title="減少 1 小時">«</button>
+                    <button onclick="exp3.stepTime(-10)" title="減少 10 分鐘">‹</button>
+                </div>
+                <div class="toolbar-time" id="altTimeLabel">00:00</div>
+                <div class="step-ctrls">
+                    <button onclick="exp3.stepTime(10)" title="增加 10 分鐘">›</button>
+                    <button onclick="exp3.stepTime(60)" title="增加 1 小時">»</button>
+                </div>
+            </div>
+            <div class="toolbar-right">
+                <div class="date-capsule" onclick="document.getElementById('datePicker3').showPicker()">
+                    <div class="date-main" id="displayDate3">2025/01/01 (三)</div>
+                    <div class="date-sub" id="displayLunar3">農曆 --</div>
+                </div>
+                <input type="date" id="datePicker3" style="position:absolute; visibility:hidden; width:0;">
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

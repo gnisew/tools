@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>實驗四：高度角觀測器 - 獨立版</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <nav class="main-nav">
+        <div class="nav-left">
+            <a href="../index.html" class="nav-back-btn">&larr; 回實驗室首頁</a>
+        </div>
+        <div class="nav-center">
+            <div class="nav-brand">實驗四：高度角觀測器</div>
+        </div>
+        <div class="nav-right"></div>
+    </nav>
+
+    <main class="view-section active">
+        <div class="exp6-layout">
+            <div class="exp6-header">
+                <div class="mode-pills">
+                    <button class="pill active" id="btn-tool-learn" onclick="exp6.setMode('learn')">觀測練習</button>
+                    <button class="pill" id="btn-tool-game" onclick="exp6.setMode('game')">挑戰模式</button>
+                </div>
+                <div id="game-stats" class="game-stats" style="display: none;">
+                    第 <span id="game-level">1</span> 關 | 成功：<span id="game-score">0</span>
+                </div>
+            </div>
+
+            <div class="exp6-workspace">
+                <div class="exp6-side-panel">
+                    <div class="panel-section angle-display">
+                        <span class="label">當前觀測仰角</span>
+                        <strong id="displayToolAngle">0</strong><span class="unit">°</span>
+                    </div>
+
+                    <div class="panel-section">
+                        <span class="label">轉動觀測器瞄準月亮</span>
+                        <input type="range" id="toolRotateSlider" min="0" max="90" value="0" class="integrated-slider-v">
+                    </div>
+
+                    <div class="panel-section feedback-area">
+                        <div id="exp6Feedback"></div>
+                    </div>
+
+                    <div class="panel-section" id="moon-slider-row">
+                        <div class="moon-ctrl">
+                            <span class="label">變更月亮高度 (練習用)</span>
+                            <input type="range" id="moonPosSlider" min="5" max="85" value="30" class="integrated-slider">
+                        </div>
+                    </div>
+
+                    <div class="panel-section">
+                        <button id="btn-check-align" class="btn-check-large" onclick="exp6.checkAlignment()" style="display:none;">檢查是否對準</button>
+                        <button id="btn-next-level" class="btn-next-large" onclick="exp6.nextLevel()" style="display:none;">進入下一關 &rarr;</button>
+                    </div>
+                </div>
+
+                <div class="obs-sky-zone" id="exp6SkyZone">
+                    <svg class="orbit-svg-layer">
+                        <path id="exp6OrbitPath" d="" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="2" stroke-dasharray="8,6" />
+                    </svg>
+                    <div id="exp6Moon" class="exp6-target-moon"></div>
+                    
+                    <div id="exp6ToolContainer" class="tool-fixed-container">
+                        <div id="clinometerTool" class="clinometer-base">
+                            <div class="sighting-tube-red">
+                                <span class="tube-label">瞄準管</span>
+                                <div class="obs-eye-port">👁️</div>
+                            </div>
+                            <div class="protractor-card">
+                                <svg viewBox="0 0 100 100" class="protractor-svg">
+                                    <path d="M 0 10 L 90 10 A 80 80 0 0 1 10 90 L 0 90 Z" fill="#f9f9d0" stroke="#333" stroke-width="0.5"/>
+                                    <g id="exp6ScaleGroup"></g>
+                                </svg>
+                            </div>
+                            <div id="plumbLineExp6" class="plumb-line-container">
+                                <div class="thread"></div>
+                                <div class="weight-clip"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

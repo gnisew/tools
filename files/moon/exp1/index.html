@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>實驗一：月相觀測 - 完整重製版</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <nav class="main-nav">
+        <div class="nav-left">
+            <a href="../index.html" class="nav-back-btn">&larr; 返回實驗室</a>
+        </div>
+        <div class="nav-center">
+            <div class="nav-brand">實驗一：月相觀測</div>
+        </div>
+        <div class="nav-right"></div>
+    </nav>
+
+    <main class="exp-content">
+        <div class="controls-container">
+            <div class="control-row">
+                <input type="date" id="datePicker1">                
+                <button onclick="exp1.changeDay(-1)">◀ 前一天</button>
+                <button onclick="exp1.changeDay(1)">後一天 ▶</button>
+                <button onclick="exp1.changeMonth(-1)">⬅ 前個月</button>
+                <button onclick="exp1.changeMonth(1)">下個月 ➡</button>
+                <button onclick="exp1.setToday()" class="btn-primary">今天</button>
+            </div>
+            
+            <div class="toggle-group">
+                <button class="toggle-btn" id="btn-view-single" onclick="exp1.setView('single')">單日觀測</button>
+                <button class="toggle-btn" id="btn-view-month" onclick="exp1.setView('month')">單月月曆</button>
+                <button class="toggle-btn" id="btn-view-two" onclick="exp1.setView('two-months')">雙月對比</button>
+                <button class="toggle-btn" id="btn-view-cycle" onclick="exp1.setView('cycle')">公轉週期</button>
+                
+                <select id="phaseSelector" onchange="exp1.predictPhases(this.value)" class="toggle-select">
+                    <option value="">🔮 月相預測</option>
+                    <option value="朔月">朔月</option>
+                    <option value="眉月">眉月</option>
+                    <option value="上弦月">上弦月</option>
+                    <option value="盈凸月">盈凸月</option>
+                    <option value="滿月">滿月</option>
+                    <option value="虧凸月">虧凸月</option>
+                    <option value="下弦月">下弦月</option>
+                    <option value="殘月">殘月</option>
+                </select>
+            </div>
+        </div>
+        
+        <div id="phase-view-container">
+            <div id="single-view" class="single-view-layout">
+                <div id="largeMoon" class="large-moon"></div>
+                <div class="info-panel">
+                    <h2 id="displayDate1">--</h2>
+                    <div id="displayDateSub" class="sub-date"></div> 
+                    <div class="phase-header">
+                        <h3 id="phaseName" class="phase-title">--</h3>
+                        <div class="phase-meta">
+                            <span>月齡 <strong id="moonAge">--</strong></span>
+                            <span class="meta-divider">|</span>
+                            <span>照度 <strong id="illumination">--</strong></span>
+                        </div>
+                    </div>
+                    <p id="phaseDesc" class="description"></p>
+                </div>
+            </div>
+
+            <div id="calendarGrid" class="calendar-grid" style="display: none;"></div>
+            <div id="predict-results" class="predict-grid" style="display: none;"></div>
+
+            <div id="cycle-grid" class="cycle-grid-container" style="display: none;"></div>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

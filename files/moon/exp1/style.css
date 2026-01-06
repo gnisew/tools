@@ -1,0 +1,117 @@
+:root {
+    --bg-color: #0b0d17;
+    --panel-bg: #15192b;
+    --text-color: #e0e6ed;
+    --text-muted: #a0a8c0;
+    --accent-color: #ffd700;
+    --border-color: #2a304a;
+    --lunar-color: #64ffda;
+}
+
+body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    min-height: 100vh; /* 備援方案 */
+    min-height: 100dvh; /* 動態調整高度，避開網址列 */
+}
+
+/* 導覽列 */
+.main-nav {
+    display: flex; justify-content: space-between; align-items: center;
+    max-width: 1000px; margin: 0 auto 20px; padding: 15px 20px;
+    background: var(--panel-bg); border-radius: 0 0 15px 15px;
+}
+.nav-back-btn { color: var(--accent-color); text-decoration: none; font-size: 0.9rem; font-weight: bold; }
+.nav-brand { font-size: 1.2rem; font-weight: bold; letter-spacing: 1px; }
+
+/* 佈局容器 */
+.exp-content {
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 15px 40px; /* 增加底部 40px 的空間 */
+    box-sizing: border-box;
+}
+.controls-container { background: var(--panel-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 25px; }
+.control-row { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; }
+
+button {
+    background: #2a304a; color: white; border: none; padding: 8px 16px;
+    border-radius: 8px; cursor: pointer; transition: 0.2s; font-size: 0.9rem;
+}
+button:hover { background: #3b4261; transform: translateY(-1px); }
+.btn-primary { background: var(--accent-color); color: var(--bg-color); font-weight: bold; }
+.toggle-btn.active { background: var(--accent-color); color: var(--bg-color); font-weight: bold; }
+
+input[type="date"], .toggle-select {
+    background: #0b0d17; border: 1px solid var(--border-color);
+    color: white; padding: 8px; border-radius: 6px; outline: none;
+}
+
+.toggle-group { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+
+/* 單日視圖 */
+.single-view-layout { display: flex; flex-wrap: wrap; justify-content: center; gap: 40px; padding: 20px 0; }
+.large-moon { width: 260px; height: 260px; filter: drop-shadow(0 0 30px rgba(255, 215, 0, 0.2)); }
+.info-panel { flex: 1; min-width: 300px; background: var(--panel-bg); padding: 30px; border-radius: 20px; border: 1px solid var(--border-color); }
+.phase-title { font-size: 2.2rem; color: var(--accent-color); margin: 5px 0; }
+.sub-date { color: var(--lunar-color); font-weight: bold; margin-bottom: 15px; }
+.phase-meta { margin: 15px 0; color: var(--text-muted); }
+.meta-divider { margin: 0 10px; opacity: 0.3; }
+.description { line-height: 1.8; color: var(--text-muted); font-size: 1.05rem; }
+
+/* 網格系統 */
+.calendar-grid, .predict-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 12px; margin-top: 20px;
+}
+.cal-day {
+    background: var(--panel-bg); border-radius: 10px; padding: 15px;
+    display: flex; flex-direction: column; align-items: center; cursor: pointer;
+    border: 1px solid var(--border-color); transition: 0.2s;
+}
+.cal-day:hover { border-color: var(--accent-color); background: rgba(255, 255, 255, 0.05); }
+.cal-lunar { font-size: 0.85rem; color: var(--lunar-color); margin-top: 5px; }
+
+/* --- 週期視圖 (核心樣式) --- */
+.cycle-grid-container {
+    position: relative; width: 100%; max-width: 800px; height: 500px;
+    margin: 40px auto; background: rgba(0, 0, 0, 0.3);
+    border-radius: 50%; display: block; border: 1px solid rgba(255,255,255,0.05);
+}
+
+.cycle-center-mark {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 90px; height: 90px; border-radius: 50%;
+    display: flex; justify-content: center; align-items: center;
+    background: rgba(100, 255, 218, 0.1); border: 2px dashed var(--lunar-color);
+    color: var(--lunar-color); font-weight: bold; z-index: 20; text-align: center;
+}
+
+.cycle-card-absolute {
+    position: absolute; top: 50%; left: 50%;
+    width: 110px; padding: 10px; border-radius: 12px;
+    display: flex; flex-direction: column; align-items: center;
+    transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty)));
+    cursor: pointer; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 10; border: 1px solid transparent;
+}
+.cycle-card-absolute:hover { background: rgba(255,255,255,0.08); }
+.cycle-card-absolute.is-selected {
+    background: rgba(255, 215, 0, 0.1); border-color: var(--accent-color);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+}
+
+.cycle-direction-svg {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 5;
+}
+.orbit-path { fill: none; stroke: var(--accent-color); stroke-width: 2; stroke-dasharray: 8, 5; opacity: 0.2; }
+.orbit-arrow { fill: var(--accent-color); opacity: 0.5; }
+
+@media (max-width: 600px) {
+    .cycle-grid-container { height: 400px; transform: scale(0.8); }
+    .single-view-layout { gap: 20px; }
+}

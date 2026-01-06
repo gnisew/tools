@@ -1,0 +1,553 @@
+:root {
+    --bg-color: #0d0f1a;
+    --panel-bg: #161b2e;
+    --text-color: #e0e6ed;
+    --text-muted: #a0a8c0;
+    --accent-color: #ffd700;
+    --border-color: rgba(255, 255, 255, 0.1);
+    --lunar-color: #64ffda;
+    --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0; padding: 20px;
+    display: flex; flex-direction: column; align-items: center;
+}
+
+/* --- 導覽列 --- */
+.main-nav {
+    display: flex; justify-content: space-between; align-items: center;
+    width: 100%; max-width: 900px;
+    height: 50px; padding: 0 15px;
+    background: var(--panel-bg); border-radius: 10px;
+    margin-bottom: 20px; border: 1px solid var(--border-color);
+}
+.nav-back-btn { 
+    background: rgba(255,255,255,0.05); padding: 5px 12px;
+    border-radius: 6px; color: var(--accent-color); text-decoration: none; font-size: 0.85rem;
+}
+
+/* ====== 實驗二：軌跡觀測 ====== */
+.sky-container {
+    width: 100%;
+    height: 350px;
+    background: linear-gradient(to bottom, #05070a 0%, #15192b 100%);
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+    border: 2px solid var(--border-color);
+    box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
+}
+
+.sky-bg {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+/* 天空格線 */
+.sky-grids { position: absolute; width: 100%; height: 100%; pointer-events: none; }
+.grid-line {
+    position: absolute;
+    width: 100%;
+    border-top: 1px dashed rgba(255, 255, 255, 0.2);
+    left: 0;
+}
+.grid-label {
+    position: absolute;
+    left: 8px;
+    bottom: 4px;
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* 天空中的月亮 */
+.sky-moon {
+    position: absolute;
+    width: 0;
+    height: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+    pointer-events: none;
+    flex-direction: column;
+}
+
+.moon-visual {
+    position: absolute;
+    left: 0; 
+    top: 0;    
+    transform: translate(-50%, -50%);
+    width: 45px;
+    height: 45px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+
+
+/* 資訊氣泡 (單日模式用) */
+.moon-info-bubble {
+    position: absolute;
+    top: 25px; /* 位於月亮下方 */
+    left: 0;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.6);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    color: #ccc;
+    pointer-events: none;
+}
+
+
+
+/* 軌跡點 */
+.path-point { opacity: 0.7; z-index: 5; transition: opacity 0.3s; }
+.path-point:hover { opacity: 1; z-index: 20; }
+.path-label {
+    font-size: 0.6rem;
+    color: var(--accent-color);
+    background: rgba(0,0,0,0.6);
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-top: 2px;
+}
+
+/* 底部滑桿區 */
+.sky-bottom-area {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    padding-bottom: 2px;
+}
+.compass-labels {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 5%;
+    font-size: 0.8rem;
+    color: var(--accent-color);
+    margin-bottom: 2px;
+    font-weight: bold;
+    text-shadow: 0 0 5px rgba(0,0,0,0.8);
+}
+.integrated-slider {
+    width: 100%;
+    margin: 0;
+    cursor: pointer;
+    appearance: none;
+    background: rgba(255, 215, 0, 0.3);
+    height: 4px;
+    display: block;
+}
+.integrated-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: var(--accent-color);
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    cursor: grab;
+    margin-top: -7px; /* 修正位置 */
+}
+.integrated-slider::-webkit-slider-runnable-track { height: 4px; }
+
+.astro-meta {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    background: rgba(0,0,0,0.5);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+/* ====== 工具列與日期膠囊 (Exp2) ====== */
+.compact-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--panel-bg);
+    padding: 10px 15px;
+    border-radius: 12px;
+    margin-top: 15px;
+    border: 1px solid var(--border-color);
+    gap: 10px;
+    flex-wrap: nowrap;
+}
+
+/* 左側：模式切換 */
+.toolbar-left { flex-shrink: 0; }
+.mode-pills { display: flex; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 3px; }
+.pill { padding: 5px 12px; font-size: 0.8rem; background: transparent; border: none; color: var(--text-muted); }
+.pill.active { background: #2a304a; color: var(--accent-color); font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+
+/* 中間：時間控制 */
+.toolbar-center { display: flex; align-items: center; gap: 8px; flex-grow: 1; justify-content: center; }
+.step-ctrls button {
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    padding: 4px;
+    min-width: 30px;
+    border: 1px solid transparent;
+}
+.step-ctrls button:hover { color: var(--accent-color); border-color: var(--border-color); }
+.toolbar-time { font-size: 1.5rem; font-weight: bold; color: var(--accent-color); font-family: monospace; min-width: 70px; text-align: center; }
+
+/* 右側：日期顯示 */
+.toolbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* 日期膠囊：核心樣式 (Exp1 也可使用) */
+.date-capsule {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 5px 12px;
+    cursor: pointer;
+    text-align: right;
+    transition: all 0.2s;
+    min-width: 90px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    user-select: none;
+}
+.date-capsule:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--accent-color);
+}
+.date-main { font-size: 0.85rem; color: var(--text-color); font-weight: bold; line-height: 1.2; }
+.date-sub { font-size: 0.75rem; color: var(--lunar-color); line-height: 1.2; }
+
+/* 圓形今天按鈕 */
+.btn-today-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--accent-color);
+    color: var(--bg-color);
+    border: none;
+    font-weight: bold;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    flex-shrink: 0;
+    transition: transform 0.2s;
+}
+.btn-today-circle:hover { background: white; transform: scale(1.1); }
+
+/* ====== 動畫與 RWD ====== */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* 平板與手機版優化 */
+@media (max-width: 768px) {
+    .calendar-grid { grid-template-columns: repeat(4, 1fr); }
+    .nav-brand { font-size: 1rem; }
+    .large-moon { width: 200px; height: 200px; }
+}
+
+@media (max-width: 600px) {
+    /* 導覽列縮小 */
+    .main-nav { padding: 0 15px; height: 60px; margin-bottom: 15px; }
+    .nav-back-btn { font-size: 0.8rem; padding: 4px 8px; }
+    
+    /* 工具列優化：隱藏次要按鈕，縮小字體 */
+    .compact-toolbar { padding: 8px; gap: 5px; }
+    .toolbar-time { font-size: 1.2rem; min-width: 60px; }
+    .pill { padding: 4px 8px; font-size: 0.75rem; }
+    .step-ctrls button { font-size: 1rem; min-width: 25px; padding: 2px; }
+    
+    /* 手機直式時，隱藏 +/- 1小時按鈕 (假設 HTML onclick 裡分別是 ±60) */
+    .step-ctrls button[onclick*="60"] { display: none; }
+    
+    /* 日期膠囊微調 */
+    .date-capsule { padding: 4px 8px; min-width: auto; }
+    .date-main { font-size: 0.8rem; }
+    .date-sub { font-size: 0.7rem; }
+    .btn-today-circle { width: 32px; height: 32px; }
+
+    /* 首頁選單 */
+    .menu-grid { grid-template-columns: 1fr; }
+    
+    /* 實驗一 */
+    .single-view-layout { gap: 20px; }
+    .info-panel { padding: 15px; }
+    .phase-title { font-size: 1.6rem; }
+    
+    /* 實驗二 */
+    .sky-container { height: 280px; }
+}
+
+@media (max-width: 768px) {
+    .cycle-grid-container { 
+        height: 400px; /* 手機版高度與寬度比例接近，維持圓形感 */
+    }
+}
+.multi-controls-panel {
+    background: #15192b;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 12px 15px;
+    margin-top: 15px;
+    font-size: 0.9rem;
+}
+
+
+
+.multi-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+
+
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    user-select: none;
+}
+.checkbox-label:hover { color: #fff; }
+.checkbox-label input { accent-color: var(--accent-color); }
+
+
+.count-text {
+    font-size: 0.8rem;
+    color: #888;
+}
+
+
+
+
+.setting-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    margin-bottom: 5px;
+}
+.setting-group label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+}
+.setting-group label:hover { color: #ddd; }
+
+.setting-group input[type="checkbox"] {
+    accent-color: var(--accent-color);
+}
+
+.multi-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+
+.btn-action {
+    background: var(--accent-color);
+    color: #0b0d17; /* 深色文字增加對比 */
+    border: none;
+    border-radius: 4px;
+    padding: 5px 12px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+.btn-action:hover {
+    background: #ffffff; /* 懸停變白 */
+    color: #000;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+.btn-action:disabled {
+    background: #444;
+    color: #888;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.multi-list-item {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 5px 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+}
+.multi-list-item .info { display: flex; flex-direction: column; line-height: 1.2; }
+.multi-list-item .date { color: var(--accent-color); font-weight: bold; }
+.multi-list-item .time, .multi-list-item .alt { color: var(--text-muted); font-size: 0.75rem; }
+
+.btn-del {
+    background: transparent;
+    border: none;
+    color: #ff6b6b;
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+    padding: 0;
+}
+.btn-del:hover { color: #ff4c4c; }
+
+.multi-hint {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+/* 新增：多日模式 - 天空上的詳細標籤 */
+.multi-moon-item {
+    position: absolute;
+    transform: translate(-50%, 50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 15; /* 比軌跡點高 */
+    pointer-events: none;
+}
+
+.multi-moon-label {
+    position: absolute;
+    top: 22px; /* 稍微拉近一點 */
+    left: 0;
+    transform: translateX(-50%);
+    text-align: center;
+    min-width: 80px; /* 縮小寬度限制 */
+    pointer-events: none;
+    text-shadow: 0 1px 4px rgba(0,0,0,1), 0 0 2px rgba(0,0,0,0.8); /* 加強陰影 */
+}
+
+
+.label-row {
+    line-height: 1.25;
+    white-space: nowrap;
+}
+.row-date { font-size: 0.7rem; color: #fff; font-weight: bold; margin-bottom: 1px; }
+.row-week { font-size: 0.7rem; color: #ddd; } /* 獨立的星期樣式 */
+.row-time { font-size: 0.75rem; color: var(--accent-color); font-family: monospace; font-weight: bold; }
+.row-lunar { font-size: 0.65rem; color: var(--lunar-color); opacity: 0.9; }
+.row-pos { font-size: 0.65rem; color: #a0a8c0; margin-top: 1px; }
+
+
+
+/* 讓多日模式的預覽月亮 (Ghost Moon) 有點不同 */
+#skyMoon[style*="opacity: 0.5"] {
+    filter: grayscale(0.5);
+    z-index: 20; /* 確保正在操作的這顆在最上面 */
+}
+
+
+/* ====== 地面景物層 ====== */
+.ground-layer {
+    position: absolute;
+    bottom: -10px;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+.ground-layer.visible {
+    opacity: 0.4;
+}
+
+/* 幾何圖形通用樣式 */
+.geo-shape {
+    fill: #5b7c99;
+    stroke: none;
+    transition: all 0.3s ease;
+}
+
+/* 如果需要夜間模式下的景物稍微變暗，可選 */
+.sky-container:hover .geo-shape {
+    fill: #6a8ba8; 
+}
+
+/* 新增：景物控制按鈕 (放在工具列中) */
+.scenery-ctrl-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-right: 10px;
+    padding-right: 10px;
+    border-right: 1px solid var(--border-color);
+}
+
+.btn-icon {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 4px 8px;
+    font-size: 1rem;
+    transition: all 0.2s;
+}
+
+.btn-icon:hover {
+    color: var(--accent-color);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.btn-icon.active {
+    color: var(--accent-color);
+    border-color: var(--accent-color);
+    background: rgba(255, 215, 0, 0.1);
+}
+
+@media (max-width: 600px) {
+    .scenery-ctrl-group {
+        margin-right: 5px;
+        padding-right: 5px;
+    }
+}

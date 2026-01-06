@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>實驗六：月蝕成因觀測 - 獨立版</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <nav class="main-nav compact">
+        <div class="nav-left">
+            <a href="../index.html" class="nav-back-btn">&larr; 返回</a>
+        </div>
+        <div class="nav-center">
+            <h1 class="nav-brand">實驗六：月蝕成因觀測</h1>
+        </div>
+        <div class="nav-right"></div>
+    </nav>
+
+    <main class="exp-container compact-gap">
+        <section class="space-monitor-v2 compact-h">
+            <div id="spaceStageV2" class="space-stage-v2">
+                <div class="physics-toggle-box">
+                    <label>
+                        <input type="checkbox" id="chkShowPhysicsV2" checked> 顯示物理光影示意
+                    </label>
+                </div>
+                
+                <div class="sun-v2"></div>
+                <svg id="physicsSvgV2" class="physics-layer-v2"></svg>
+                <div class="earth-v2">
+                    <div class="earth-lit"></div>
+                </div>
+                <div class="orbit-path-v2"></div>
+                <div id="orbitMoonBodyV2" class="orbit-moon-v2">
+                    <div id="moonLitV2" class="moon-lit-half"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="controls-panel compact-p">
+            <div class="slider-group">
+                <div class="label-row">
+                    <span>月球軌道位置 (逆時針公轉)</span>
+                    <span class="angle-display"><span id="angleValV2">0</span>°</span>
+                </div>
+                <input type="range" id="lunarOrbitSliderV2" min="0" max="360" value="0" class="custom-slider">
+            </div>
+        </section>
+
+        <section class="info-layout compact-gap">
+            <div class="obs-view compact-p">
+                <div class="view-header">地面望遠鏡觀測視角</div>
+                <div id="groundMoonViewV2" class="ground-moon-box compact-size"></div>
+            </div>
+            <div class="desc-view compact-p">
+                <div class="status-header compact-mb">
+                    <h2 id="lunarStatusTitleV2">--</h2>
+                    <span id="lunarStatusTagV2" class="status-tag">--</span>
+                </div>
+                <div class="status-body">
+                    <p id="lunarStatusDescV2">請移動滑桿開始觀測月相與月蝕的成因。</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

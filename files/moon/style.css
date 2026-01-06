@@ -1,0 +1,152 @@
+:root {
+    --bg-color: #0b0d17;
+    --panel-bg: #15192b;
+    --text-color: #e0e6ed;
+    --text-muted: #a0a8c0;
+    --accent-color: #ffd700;
+    --accent-hover: #ffea70;
+    --border-color: #2a304a;
+    --lunar-color: #64ffda;
+    --nav-height: 70px;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+/* ====== 導覽列 ====== */
+.main-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 900px;
+    height: var(--nav-height);
+    padding: 0 20px;
+    background: var(--panel-bg);
+    border-radius: 0 0 15px 15px;
+    margin-bottom: 25px;
+    box-sizing: border-box;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+
+.nav-center {
+    flex: 1;
+    text-align: center;
+}
+
+.nav-brand {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--text-color);
+    letter-spacing: 1px;
+}
+
+/* ====== 首頁容器與動畫 ====== */
+.view-section {
+    display: block;
+    width: 100%;
+    max-width: 900px;
+    animation: fadeIn 0.4s ease-out;
+}
+
+.home-container {
+    width: 100%;
+    margin: 0 auto;
+}
+
+/* ====== 選單網格與卡片 ====== */
+.menu-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    padding: 0 5px;
+}
+
+.menu-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 25px;
+    cursor: pointer;
+    transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.menu-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    border-color: var(--accent-color);
+    background: #1a1d2e;
+}
+
+.card-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+    width: 70px;
+    height: 70px;
+    line-height: 70px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+    transition: transform 0.3s;
+}
+
+.menu-card:hover .card-icon { 
+    transform: scale(1.1) rotate(10deg); 
+}
+
+.menu-card h3 { 
+    margin: 0 0 10px 0; 
+    color: var(--text-color); 
+    font-size: 1.3rem; 
+}
+
+.menu-card p { 
+    color: var(--text-muted); 
+    font-size: 0.9rem; 
+    line-height: 1.5; 
+    margin-bottom: 20px; 
+    flex-grow: 1; 
+}
+
+.card-link { 
+    color: var(--accent-color); 
+    font-weight: bold; 
+    font-size: 0.9rem; 
+    opacity: 0.8; 
+}
+
+.menu-card:hover .card-link { 
+    opacity: 1; 
+    text-decoration: underline; 
+}
+
+/* ====== 動畫定義 ====== */
+@keyframes fadeIn { 
+    from { opacity: 0; transform: translateY(10px); } 
+    to { opacity: 1; transform: translateY(0); } 
+}
+
+/* ====== 響應式佈局 (手機/平板) ====== */
+@media (max-width: 768px) {
+    .nav-brand { font-size: 1rem; }
+    .menu-grid { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+}
+
+@media (max-width: 600px) {
+    .main-nav { padding: 0 15px; height: 60px; margin-bottom: 15px; }
+    .menu-grid { grid-size: 1fr; }
+    .menu-card { padding: 20px; }
+}

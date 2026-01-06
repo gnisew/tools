@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>實驗二：軌跡觀測 - 獨立運作版</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <nav class="main-nav">
+        <div class="nav-left">
+            <a href="../index.html" class="nav-back-btn">← 回實驗室首頁</a>
+        </div>
+        <div class="nav-center">
+            <div id="nav-title" class="nav-brand">實驗二：軌跡觀測</div>
+        </div>
+        <div class="nav-right"></div>
+    </nav>
+
+
+    <main id="view-position" class="view-section">
+        <div class="sky-container">
+            <div class="sky-bg">
+                <div class="astro-meta">
+                   今日 月出 <span id="riseTimeVal">--</span> | 月落 <span id="setTimeVal">--</span>
+                </div>
+                <div class="sky-grids" id="skyGrids10"></div>
+                
+                <!-- 新增：地面景物層 -->
+                <div id="groundScenery" class="ground-layer"></div>
+
+                <!-- 單日/引導 月亮 -->
+                <div id="skyMoon" class="sky-moon">
+                    <div id="skyMoonGraphic" class="moon-visual"></div>
+                    <div class="moon-info-bubble"><span id="altVal">0</span>° | <span id="azimuthVal">--</span></div>
+                </div>
+
+                <!-- 多日模式月亮容器 -->
+                <div id="multiMoonContainer"></div>
+
+                <div class="sky-bottom-area">
+                    <div class="compass-labels">
+                        <span>東</span><span>東南</span><span>南</span><span>西南</span><span>西</span>
+                    </div>
+                    <input type="range" id="timeSlider" class="integrated-slider">
+                </div>
+            </div>
+        </div>
+
+
+        <div class="compact-toolbar">
+            <div class="toolbar-left">
+                <div class="mode-pills">
+                    <button class="pill active" id="btn-pos-single" onclick="exp2.setMode('single')">單日</button>
+                    <button class="pill" id="btn-pos-path" onclick="exp2.setMode('path')">軌跡</button>
+                    <button class="pill" id="btn-pos-multi" onclick="exp2.setMode('multi')">多日</button>
+                </div>
+            </div>
+
+            <!-- 新增：景物控制 (放在中間靠左，或右側靠左) -->
+            <div class="toolbar-center" style="justify-content: center;">
+                
+                <!-- 把時間控制往右推一點，這裡放景物開關 -->
+                <div class="scenery-ctrl-group" id="sceneryControls"> 
+                    <!-- 新增：數值資訊開關 (僅單日顯示) -->
+                    <button class="btn-icon" id="btn-info-toggle" onclick="exp2.toggleInfoBubble()" title="顯示/隱藏 角度數值">📐</button>                   
+                    <button class="btn-icon" id="btn-scenery-toggle" onclick="exp2.toggleScenery()" title="顯示/隱藏 地面景物">⛰️</button>
+                    <button class="btn-icon" id="btn-scenery-switch" onclick="exp2.switchSceneryType()" title="切換景物樣式" style="font-size: 0.8rem;">⇄</button>
+                </div>
+                <div class="step-ctrls">
+                    <button onclick="exp2.stepTime(-60)" title="-1小時">«</button>
+                    <button onclick="exp2.stepTime(-10)" title="-10分鐘">‹</button>
+                    <button onclick="exp2.stepTime(-1)" title="-1分鐘" style="font-size: 0.8rem; min-width: 20px;">-</button>
+                </div>
+                <div class="time-display-wrapper">
+                    <span id="timeLabel" class="toolbar-time">--:--</span>
+                </div>
+                <div class="step-ctrls">
+                    <button onclick="exp2.stepTime(1)" title="+1分鐘" style="font-size: 0.8rem; min-width: 20px;">+</button>
+                    <button onclick="exp2.stepTime(10)" title="+10分鐘">›</button>
+                    <button onclick="exp2.stepTime(60)" title="+1小時">»</button>
+                </div>
+            </div>
+
+            <div class="toolbar-right">
+                <input type="date" id="datePicker2" style="position:absolute; visibility:hidden; width:0;">
+                <div class="date-capsule" onclick="document.getElementById('datePicker2').showPicker()">
+                    <div class="date-main" id="displayDate2">--/-- (--)</div>
+                    <div class="date-sub" id="displayLunar2">農曆 --</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 多日模式控制面板 -->
+        <div id="multi-controls-panel" class="multi-controls-panel" style="display: none;">
+            <div class="multi-header">
+                <div class="header-left">
+
+            <div class="setting-group">                    
+                <label><input type="checkbox" checked onchange="exp2.toggleLabel('date', this.checked)"> 日期</label>
+                <label><input type="checkbox" checked onchange="exp2.toggleLabel('week', this.checked)"> 星期</label>
+                <label><input type="checkbox" checked onchange="exp2.toggleLabel('time', this.checked)"> 時間</label>
+                <label><input type="checkbox" checked onchange="exp2.toggleLabel('lunar', this.checked)"> 農曆</label>
+                <label><input type="checkbox" onchange="exp2.toggleLabel('alt', this.checked)"> 高度</label>
+                <label><input type="checkbox" onchange="exp2.toggleLabel('azi', this.checked)"> 方位</label>
+            </div>
+                </div>
+                <div class="header-right">
+                     
+					 <label class="checkbox-label"><input type="checkbox" id="chk-guide-moon" checked onchange="exp2.toggleGuide(this.checked)">引導月</label>
+                     <button id="btnAddMoon" class="btn-action" onclick="exp2.addMultiMoon()">＋<span class="count-text">(<span id="multiCount">0</span>/5)月</span></button>
+                </div>
+            </div>
+           
+            <div id="multiList" class="multi-list"></div>
+        </div>
+    </main>
+
+
+    <script src="script.js"></script>
+</body>
+</html>

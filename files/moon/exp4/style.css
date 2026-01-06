@@ -1,0 +1,80 @@
+:root {
+    --bg-color: #0b0d17;
+    --panel-bg: #15192b;
+    --text-color: #e0e6ed;
+    --text-muted: #a0a8c0;
+    --accent-color: #ffd700;
+    --border-color: #2a304a;
+    --lunar-color: #64ffda;
+    --nav-height: 70px;
+}
+
+body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background-color: var(--bg-color); color: var(--text-color);
+    margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center;
+}
+
+/* 導覽列 */
+.main-nav {
+    display: flex; justify-content: space-between; align-items: center;
+    width: 100%; max-width: 1000px; height: var(--nav-height);
+    padding: 0 20px; background: var(--panel-bg); border-radius: 12px;
+    margin-bottom: 25px; box-sizing: border-box; border: 1px solid var(--border-color);
+}
+.nav-back-btn { color: var(--accent-color); text-decoration: none; border: 1px solid var(--border-color); padding: 5px 12px; border-radius: 6px; }
+
+.view-section {
+    display: none;
+    width: 100%;
+    max-width: 900px;
+    animation: fadeIn 0.4s ease-out;
+}
+.view-section.active { display: block; }
+
+/* 佈局 */
+.exp6-layout { width: 100%; max-width: 1000px; display: flex; flex-direction: column; gap: 15px; }
+.exp6-header { display: flex; justify-content: space-between; align-items: center; }
+.exp6-workspace { display: flex; gap: 20px; width: 100%; align-items: stretch; }
+
+/* 控制面板 */
+.exp6-side-panel {
+    flex: 1; min-width: 260px; background: var(--panel-bg); border-radius: 16px;
+    padding: 25px; border: 1px solid var(--border-color);
+    display: flex; flex-direction: column; justify-content: flex-end; gap: 20px;
+}
+.angle-display { text-align: center; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; }
+.angle-display strong { font-size: 2.8rem; color: var(--accent-color); font-family: monospace; }
+.label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px; display: block; }
+
+/* 模式按鈕 */
+.mode-pills { display: flex; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 4px; }
+.pill { background: transparent; border: none; color: var(--text-muted); padding: 6px 15px; cursor: pointer; border-radius: 6px; }
+.pill.active { background: #2a304a; color: var(--accent-color); font-weight: bold; }
+
+/* 觀測天空區 */
+.obs-sky-zone {
+    flex: 2.8; height: 500px; border-radius: 16px; position: relative; overflow: hidden;
+    background: radial-gradient(circle at 60% 90%, #1a2a4a 0%, #05070a 100%);
+    border: 2px solid var(--border-color);
+}
+.exp6-target-moon { position: absolute; width: 32px; height: 32px; z-index: 10; transform: translate(-50%, -50%); }
+
+/* 測角器 UI */
+.tool-fixed-container { position: absolute; left: 60%; bottom: 30px; width: 180px; height: 180px; transform: translateX(-50%); }
+.clinometer-base { position: relative; width: 100%; height: 100%; transform-origin: 10px 10px; }
+.sighting-tube-red {
+    position: absolute; top: -1px; left: -10px; width: 160px; height: 24px;
+    background: #e74c3c; border-radius: 4px; border: 1px solid #c0392b;
+    display: flex; align-items: center; padding-left: 10px; color: white;
+}
+.plumb-line-container {
+    position: absolute; top: 10px; left: 10px; width: 2px; height: 180px;
+    z-index: 15; transform-origin: top center;
+}
+.thread { width: 100%; height: 100%; background: #fff; }
+.weight-clip { position: absolute; bottom: 0; left: -6px; width: 14px; height: 24px; background: #888; clip-path: polygon(25% 0%, 75% 0%, 100% 100%, 0% 100%); }
+
+.integrated-slider, .integrated-slider-v { width: 100%; cursor: pointer; accent-color: var(--accent-color); }
+.btn-check-large { background: var(--accent-color); color: #000; font-weight: bold; padding: 12px; border: none; border-radius: 8px; cursor: pointer; }
+.btn-next-large { background: #2ecc71; color: white; padding: 12px; border: none; border-radius: 8px; cursor: pointer; }

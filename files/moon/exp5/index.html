@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>實驗五：日月食模擬 - 獨立版</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <nav class="main-nav">
+        <div class="nav-left">
+            <a href="../index.html" class="nav-back-btn">&larr; 回實驗室首頁</a>
+        </div>
+        <div class="nav-center">
+            <div class="nav-brand">實驗五：日月食模擬</div>
+        </div>
+        <div class="nav-right"></div>
+    </nav>
+
+    <main class="view-section active">
+        <div class="eclipse-container">
+            <div id="eclipseCanvas" class="eclipse-canvas">
+                <div class="view-label">觀測視角</div>
+                <div class="dir-label left">東</div>
+                <div class="dir-label right">西</div>
+                </div>
+
+            <div class="eclipse-info-panel">
+                <h3 id="eclipseTitle">日月食模擬</h3>
+                <p id="eclipseStatus">準備進行模擬觀測</p>
+                <div class="eclipse-details">
+                    <span id="eclipsePercent">進度: 0%</span>
+                    <span id="eclipseType">狀態: 待機</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="compact-toolbar">
+            <div class="toolbar-left">
+                <div class="mode-pills">
+                    <button class="pill active" id="btn-eclipse-total" onclick="exp5.setMode('total')">日全食</button>
+                    <button class="pill" id="btn-eclipse-annular" onclick="exp5.setMode('annular')">日環食</button>
+                    <button class="pill" id="btn-eclipse-lunar" onclick="exp5.setMode('lunar')">月食</button>
+                </div>
+            </div>
+            <div class="toolbar-center">
+                <input type="range" id="eclipseSlider" class="integrated-slider" min="0" max="100" value="0">
+            </div>
+            <div class="toolbar-right">
+                <button class="btn-action" onclick="exp5.playAnimation()">播放過程</button>
+            </div>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
