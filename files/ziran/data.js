@@ -1511,7 +1511,7 @@ const quizData = [
       {
         question: "物體停止振動時，聲音會怎樣？",
         options: ["變大", "變小", "停止"],
-        answer: 1,
+        answer: 3,
         explanation: ""
       },
       {
@@ -1934,4 +1934,5 @@ const quizData = [
       }
     ]
   }
+
 ];
