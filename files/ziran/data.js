@@ -1802,7 +1802,7 @@ const quizData = [
       {
         question: "我們可以用鏡子來改變光的行進方向。",
         options: ["○", "╳"],
-        answer: 2,
+        answer: 1,
         explanation: "鏡子光滑的表面會反射光線，所以可以改變光的行進路線。"
       },
       {
@@ -1936,3 +1936,4 @@ const quizData = [
   }
 
 ];
+
