@@ -404,8 +404,8 @@ document.getElementById("myhtml").innerHTML = `
 
                     <div class="p-6">
                         <div class="mb-6">
-                            <label class="block text-gray-700 font-bold mb-2">貼上作答數據 (格式：班號 測驗ID 錯題)</label>
-                            <textarea id="analysisInput" class="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm" placeholder="範例：&#10;1  wz01  2,3&#10;2  wz01  1,3&#10;4  wz01&#10;5  wz01  2"></textarea>
+                            <label class="block text-gray-700 font-bold mb-2">貼上作答數據</label>
+                            <textarea id="analysisInput" class="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm" placeholder="(格式：班號 測驗ID 錯題)"></textarea>
                             <div class="mt-2 flex justify-end space-x-2">
                                 <button onclick="clearAnalysisInput()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">清除</button>
                                 <button onclick="performAnalysis()" class="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold shadow-md transition-transform transform active:scale-95">

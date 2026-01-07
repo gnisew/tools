@@ -511,53 +511,63 @@ function loginUser(name, classNum, avatar, quizCode) {
             const historyBtn = document.getElementById('historyBtn');
             const exitQuizBtn = document.getElementById('exitQuizBtn');
             const quizModeBtn = document.getElementById('quizModeToggleBtn');
+            // 取得分析按鈕
+            const analysisBtn = document.getElementById('analysisBtn');
             
             const isAtCourseSelectionScreen = !document.getElementById('courseSelection').classList.contains('hidden');
             const isInQuiz = !document.getElementById('quizArea').classList.contains('hidden');
-            const isSignedIn = !document.getElementById('studentInfo').classList.contains('hidden');
+            // 判斷「個人資訊」區塊是否顯示中 (沒有 hidden class 代表顯示中)
+            const isStudentInfoVisible = !document.getElementById('studentInfo').classList.contains('hidden');
 
-            // 1. 歷史紀錄按鈕
-            if (isAtCourseSelectionScreen && hasHistory() && !isSignedIn) {
+            // 1. 歷史紀錄按鈕 (維持原邏輯)
+            // 邏輯：在課程選單頁 + 有歷史紀錄 + 不是在編輯個人資訊時
+            if (isAtCourseSelectionScreen && hasHistory() && !isStudentInfoVisible) {
                 historyBtn.style.display = 'block';
             } else {
                 historyBtn.style.display = 'none';
             }
 
-            // 2. 測驗模式按鈕 & 終止測驗按鈕
+            // 2. 【新增】分析按鈕邏輯
+            // 邏輯：只在「個人資訊」頁面顯示
+            if (analysisBtn) {
+                if (isStudentInfoVisible) {
+                    analysisBtn.classList.remove('hidden');
+                } else {
+                    analysisBtn.classList.add('hidden');
+                }
+            }
+
+            // 3. 測驗模式按鈕 & 終止測驗按鈕 (維持原邏輯)
             if (isInQuiz) {
                 quizModeBtn.classList.remove('hidden');
                 
-                // 檢查是否已經開始作答
-                const hasStartedAnswering = Object.keys(userAnswers).length > 0;
+                // 檢查是否已經開始作答 (防止作答中途切換模式)
+                const hasStartedAnswering = typeof userAnswers !== 'undefined' && Object.keys(userAnswers).length > 0;
 
                 if (isQuizMode) {
                     // ★ 測驗模式下：
                     quizModeBtn.classList.remove('bg-white', 'text-gray-600', 'border-gray-300', 'hover:bg-gray-50');
                     quizModeBtn.classList.add('bg-purple-600', 'text-white', 'border-purple-600');
                     quizModeBtn.innerHTML = '<span class="material-icons-outlined text-base">assignment_turned_in</span><span>測驗中</span>';
-                    // 測驗模式原本就鎖定，這裡維持不變
-                    quizModeBtn.style.pointerEvents = 'none'; 
+                    quizModeBtn.style.pointerEvents = 'none'; // 鎖定
 
-                    // X 按鈕：【隱藏】
-                    exitQuizBtn.classList.add('hidden');
+                    exitQuizBtn.classList.add('hidden'); // 隱藏 X
                 } else {
                     // ★ 練習模式下：
                     quizModeBtn.classList.remove('bg-purple-600', 'text-white', 'border-purple-600');
                     quizModeBtn.classList.add('bg-white', 'text-gray-600', 'border-gray-300', 'hover:bg-gray-50');
                     quizModeBtn.innerHTML = '<span class="material-icons-outlined text-base">assignment</span><span>練習</span>';
                     
-                    // 【修改重點】：如果已經開始作答，就鎖定按鈕；否則允許點擊
                     if (hasStartedAnswering) {
-                        quizModeBtn.style.pointerEvents = 'none'; // 禁止點擊
-                        quizModeBtn.classList.add('opacity-50', 'cursor-not-allowed'); // 變淡、滑鼠變禁止符號
+                        quizModeBtn.style.pointerEvents = 'none'; 
+                        quizModeBtn.classList.add('opacity-50', 'cursor-not-allowed'); // 變淡
                         quizModeBtn.title = "作答中無法切換模式";
                     } else {
-                        quizModeBtn.style.pointerEvents = 'auto'; // 允許點擊
-                        quizModeBtn.classList.remove('opacity-50', 'cursor-not-allowed'); // 恢復原狀
+                        quizModeBtn.style.pointerEvents = 'auto'; 
+                        quizModeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                         quizModeBtn.title = "切換至測驗模式";
                     }
 
-                    // X 按鈕：顯示
                     exitQuizBtn.classList.remove('hidden', 'bg-gray-200', 'text-gray-400', 'hover:bg-gray-300');
                     exitQuizBtn.classList.add('bg-red-500', 'hover:bg-red-600', 'text-white');
                 }
@@ -2411,26 +2421,22 @@ function performAnalysis() {
     // 1. 解析資料
     const lines = rawInput.split('\n');
     const records = [];
-    let detectedQuizId = null; // 自動偵測測驗ID
+    let detectedQuizId = null; 
 
     lines.forEach(line => {
         line = line.trim();
         if (!line) return;
 
-        // 使用正則表達式分割，支援 Tab 或 空格
         const parts = line.split(/\s+/);
         
-        // 格式：班號(0) ID(1) 錯題(2,可選)
         if (parts.length >= 2) {
             const studentId = parts[0];
             const quizId = parts[1];
-            // 如果 parts[2] 存在，則分割逗號；如果不存在(全對)，則是空陣列
             const wrongString = parts[2] || ""; 
             const wrongList = wrongString ? wrongString.split(',').map(n => parseInt(n)) : [];
 
             records.push({ studentId, quizId, wrongList });
 
-            // 抓取第一個有效的 Quiz ID
             if (!detectedQuizId && quizId) {
                 detectedQuizId = quizId;
             }
@@ -2443,15 +2449,12 @@ function performAnalysis() {
     }
 
     // 2. 獲取題庫資料
-    // 假設所有資料都是針對同一個測驗 (取第一個偵測到的 ID)
     const targetCourse = quizData.find(c => c.id === detectedQuizId);
 
     if (!targetCourse) {
         alert(`找不到測驗代號 "${detectedQuizId}" 的題目資料。\n請確認 ID 是否正確 (例如: wz01)。`);
         return;
     }
-
-    const totalQuestions = targetCourse.questions.length;
 
     // 3. 顯示結果區域
     document.getElementById('analysisResultArea').classList.remove('hidden');
@@ -2460,7 +2463,7 @@ function performAnalysis() {
     renderErrorRanking(records, targetCourse);
 
     // --- 分析二：學生作答矩陣 ---
-    renderStudentMatrix(records, totalQuestions);
+    renderStudentMatrix(records, targetCourse);
 }
 
 // 渲染錯題排行榜
@@ -2526,7 +2529,7 @@ function renderErrorRanking(records, course) {
             <div class="flex-grow">
                 <div class="flex justify-between text-sm mb-1">
                     <span class="font-medium text-gray-800 truncate pr-2">${item.question.question}</span>
-                    <span class="font-bold ${item.count > 0 ? 'text-red-600' : 'text-gray-400'} flex-shrink-0">${item.count} 人錯</span>
+                    <span class="font-bold ${item.count > 0 ? 'text-red-600' : 'text-gray-400'} flex-shrink-0">${item.count} ✕</span>
                 </div>
                 <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
                     <div class="${barColor} h-full rounded-full transition-all duration-500" style="width: ${width}"></div>
@@ -2540,23 +2543,40 @@ function renderErrorRanking(records, course) {
     });
 }
 
-// 渲染學生作答矩陣
-function renderStudentMatrix(records, totalQuestions) {
+// 渲染學生作答矩陣 (修改：支援點擊表頭題號)
+function renderStudentMatrix(records, course) { // 參數改為 course
     const thead = document.getElementById('matrixHeader');
     const tbody = document.getElementById('matrixBody');
+    const totalQuestions = course.questions.length; // 從 course 取得總題數
     
     thead.innerHTML = '';
     tbody.innerHTML = '';
 
-    // 1. 建立表頭 (座號 + 題號 1~N)
-    let headerHtml = '<th class="px-4 py-2 text-left sticky left-0 bg-gray-200 z-10">座號</th>';
-    for (let i = 1; i <= totalQuestions; i++) {
-        headerHtml += `<th class="px-2 py-2 text-center text-xs font-bold text-gray-500">${i}</th>`;
-    }
-    thead.innerHTML = headerHtml;
+    // 1. 建立表頭 (改用 DOM 操作以綁定事件)
+    
+    // (1) 座號欄
+    const thStudent = document.createElement('th');
+    thStudent.className = 'px-4 py-2 text-left sticky left-0 bg-gray-200 z-10';
+    thStudent.textContent = '座號';
+    thead.appendChild(thStudent);
 
-    // 2. 建立內容
-    // 依座號排序 (假設座號是數字)
+    // (2) 題號欄 1~N
+    for (let i = 1; i <= totalQuestions; i++) {
+        const th = document.createElement('th');
+        // 加入 cursor-pointer 和 hover 效果，提示可點擊
+        th.className = 'px-2 py-2 text-center text-xs font-bold text-gray-500 cursor-pointer hover:bg-indigo-100 hover:text-indigo-700 transition-colors';
+        th.textContent = i;
+        th.title = '點擊查看題目'; // 滑鼠移上去的提示
+        
+        // 【新增】綁定點擊事件：顯示該題詳細內容
+        // 索引值 = i - 1
+        th.onclick = () => showSingleQuestionDetail(course.questions[i-1], i);
+        
+        thead.appendChild(th);
+    }
+
+    // 2. 建立內容 (這部分維持字串拼接即可，效能較好)
+    // 依座號排序
     records.sort((a, b) => parseInt(a.studentId) - parseInt(b.studentId));
 
     records.forEach(record => {
@@ -2568,14 +2588,13 @@ function renderStudentMatrix(records, totalQuestions) {
 
         // 題目欄 (O 或 X)
         for (let i = 1; i <= totalQuestions; i++) {
-            // 檢查該題號是否在錯題列表中
             const isWrong = record.wrongList.includes(i);
             
             if (isWrong) {
-                // 答錯 X (紅色)
+                // 答錯 X
                 rowHtml += `<td class="px-1 py-2 text-center"><span class="text-red-500 font-bold">✕</span></td>`;
             } else {
-                // 答對 O (綠色點點，視覺比較不雜亂)
+                // 答對 O
                 rowHtml += `<td class="px-1 py-2 text-center"><span class="text-green-300">●</span></td>`;
             }
         }
