@@ -1295,10 +1295,14 @@ function loginUser(name, classNum, avatar, quizCode) {
 
         // 顯示結果
 		function showResult() {
+            if (isReviewMode) {
+                exitReviewMode();
+                return;
+            }
+
             // 交卷後，自動結束測驗模式
             if (isQuizMode) {
                 isQuizMode = false;
-                // 更新網址，移除 ?mode=quiz 參數，變回一般狀態
                 updateUrlForQuiz(currentCourseId);
             }
 
@@ -1306,14 +1310,12 @@ function loginUser(name, classNum, avatar, quizCode) {
             const answered = Object.keys(userAnswers).length;
             let correct = 0;
             
-            // 【新增】收集錯題題號的陣列
             let wrongQuestionsList = [];
             
             currentQuestions.forEach((question, index) => {
                 if (userAnswers[index] === question.correctAnswer) {
                     correct++;
                 } else {
-                    // 【新增】答錯或未作答，將「題號」(index+1) 加入陣列
                     wrongQuestionsList.push(index + 1);
                 }
             });
@@ -1321,24 +1323,26 @@ function loginUser(name, classNum, avatar, quizCode) {
             const wrong = answered - correct;
             const percentage = Math.round((correct / total) * 100);
             
-            // 【新增】將錯題陣列轉為字串 (例如 "2,5,8")
+            // 將錯題陣列轉為字串
             const wrongString = wrongQuestionsList.join(',');
 
             // 儲存歷史紀錄
             saveHistory(percentage, true);
             
-            // 自動傳送成績到Google表單 (如果啟用且測驗代碼正確)
+            // 【修正 2】確保 100 分也能送出
+            // 只要啟用開關且代碼正確，無論幾分都要送
             if (ENABLE_GOOGLE_FORM_SUBMIT && studentQuizCode === QUIZ_CODE) {
-                // 【修改】傳入新增的參數：ID, 標題, 錯題字串
                 sendScoreToGoogleForm(
                     studentName, 
                     studentClass, 
                     percentage, 
                     studentQuizCode,
-                    currentCourseId,     // 新增
-                    currentCourseTitle,  // 新增
-                    wrongString          // 新增
+                    currentCourseId,
+                    currentCourseTitle,
+                    wrongString 
                 );
+                
+                // 只有在真的送出資料時，才顯示成功提示
                 showSubmissionSuccessAlert(); 
             }
             
@@ -1369,36 +1373,32 @@ function loginUser(name, classNum, avatar, quizCode) {
             document.getElementById('exitQuizBtn').classList.add('hidden');
             document.getElementById('resultArea').classList.remove('hidden');
 
-            // 重新更新頂部按鈕狀態
             updateHeaderButtonsVisibility();
         }
         
         // 傳送成績到Google表單
         function sendScoreToGoogleForm(name, classNum, score, quizCode, courseId, courseTitle, wrongList) {
             try {
-                // 要送的資料
                 const formData = new URLSearchParams();
                 formData.append(GOOGLE_FORM_CONFIG.nameField, name);
                 formData.append(GOOGLE_FORM_CONFIG.classField, classNum);
                 formData.append(GOOGLE_FORM_CONFIG.scoreField, score);
                 
-                // 如果您 settings.js 有設定 quizCodeField，請解開下面這行
                 // if (GOOGLE_FORM_CONFIG.quizCodeField) formData.append(GOOGLE_FORM_CONFIG.quizCodeField, quizCode);
 
-                // 傳送 測驗ID
                 if (GOOGLE_FORM_CONFIG.idField) {
                     formData.append(GOOGLE_FORM_CONFIG.idField, courseId);
                 }
 
-                // 傳送 測驗標題
                 if (GOOGLE_FORM_CONFIG.titleField) {
                     formData.append(GOOGLE_FORM_CONFIG.titleField, courseTitle);
                 }
 
-                // 傳送 錯題列表
                 if (GOOGLE_FORM_CONFIG.wrongField) {
-                    // 如果沒有錯題 (空字串)，傳送 "無" 以便閱讀
-                    const finalWrongText = wrongList === "" ? "" : wrongList;
+                    let finalWrongText = "無";
+                    if (wrongList && wrongList.length > 0) {
+                        finalWrongText = wrongList;
+                    }
                     formData.append(GOOGLE_FORM_CONFIG.wrongField, finalWrongText);
                 }
 
@@ -1408,7 +1408,7 @@ function loginUser(name, classNum, avatar, quizCode) {
                     mode: "no-cors",
                     body: formData
                 }).then(() => {
-                    console.log('成績傳送完成');
+                    console.log(`成績傳送成功: ${score}分`);
                 }).catch(error => {
                     console.log('成績傳送發生錯誤 (但不影響作答結果)');
                 });
@@ -1423,19 +1423,15 @@ function loginUser(name, classNum, avatar, quizCode) {
         };
 
         // 顯示錯題
-
         function showWrongQuestions() {
             // 1. 篩選出錯誤的題目
             const wrongQs = [];
-            const reviewAnswers = {}; // 建立一個新的答案對應表，讓介面顯示紅/綠框
+            const reviewAnswers = {};
 
             currentQuestions.forEach((q, originalIndex) => {
                 const userAns = userAnswers[originalIndex];
-                // 判斷是否答錯 (有作答且答案不正確)
                 if (userAns !== undefined && userAns !== q.correctAnswer) {
                     wrongQs.push(q);
-                    // 在新的錯題列表中，這題是第幾題 (索引)，並填入使用者原本的錯誤答案
-                    // 這樣 showQuestion 就會以為這題已經作答過，直接顯示解析與紅框
                     reviewAnswers[wrongQs.length - 1] = userAns;
                 }
             });
@@ -1444,8 +1440,6 @@ function loginUser(name, classNum, avatar, quizCode) {
                  alert('🎉 太棒了！沒有答錯的題目！');
                  return;
             }
-
-			
 
             // 2. 備份當前狀態
 			isQuizMode = false;
@@ -1459,9 +1453,11 @@ function loginUser(name, classNum, avatar, quizCode) {
             currentQuestionIndex = 0;
 
             // 4. 切換介面顯示
-            document.getElementById('resultArea').classList.add('hidden'); // 隱藏成績單
-            document.getElementById('quizArea').classList.remove('hidden'); // 顯示測驗區
-            document.getElementById('exitQuizBtn').classList.add('hidden'); // 複習時不顯示右上角叉叉，避免誤觸
+            document.getElementById('resultArea').classList.add('hidden'); 
+            document.getElementById('quizArea').classList.remove('hidden'); 
+            document.getElementById('exitQuizBtn').classList.add('hidden'); 
+            
+            document.getElementById('finishBtn').classList.add('hidden');
 
             // 修改標題
             document.getElementById('mainTitle').textContent = '📝 錯題檢視';
@@ -1469,6 +1465,8 @@ function loginUser(name, classNum, avatar, quizCode) {
             // 5. 初始化題目介面
             initQuestionNavigation();
             showQuestion();
+            
+            // 複習模式不需要顯示進度條 (因為會一直跳動)，或是顯示也無妨
             updateProgress();
         }
 
