@@ -190,8 +190,8 @@
        <button onclick="importDataJs()" class="flex-item">載入 js</button>
        <select id="fileSelect" onchange="loadSelectedFile()" class="flex-item">
          <option value="" selected>線上載入</option>
-         <option value="g2m2.js">閩南語</option>
-         <option value="g2k_kasu2.js">詔安客語</option>
+         <option value="data-holo-chinese.js">閩南語</option>
+         <option value="data-kasu-chinese.js">詔安客語</option>
        </select>
      </div>
    </div>
@@ -324,24 +324,46 @@ function importDataJs() {
 
 
 function loadSelectedFile() {
+    // 1. 取得下拉選單選到的檔名
     const selectedFile = document.getElementById('fileSelect').value;
-    if (selectedFile) {
-        fetch(selectedFile)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error("Network response was not ok " + response.statusText);
-                }
-                return response.text();
-            })
-            .then(fileContent => processFileContent(fileContent))
-            .catch(error => console.error("無法加載文件：", error));
+    
+    // 2. 如果是空值（選到"線上載入"那個選項），就什麼都不做
+    if (!selectedFile) {
+        return;
     }
+
+    // 3. 使用 fetch 抓取同資料夾的檔案
+    fetch(selectedFile)
+        .then(response => {
+            // 檢查是否讀取成功
+            if (!response.ok) {
+                throw new Error("無法讀取檔案，狀態碼：" + response.status);
+            }
+            return response.text(); // 將檔案內容轉為文字
+        })
+        .then(fileContent => {
+            // 4. 讀取成功，呼叫處理函式 (就是上一題修復正則表達式的那一個)
+            processFileContent(fileContent);
+            
+            // 提示使用者
+            // alert("載入成功：" + selectedFile); 
+        })
+        .catch(error => {
+            console.error("載入失敗：", error);
+            // 針對 file:// 協議的常見錯誤給予提示
+            if (window.location.protocol === 'file:') {
+                alert("載入失敗！\n\n您似乎是直接開啟檔案 (file://)。\n瀏覽器安全限制禁止直接讀取本機檔案。\n\n解決方法：\n1. 請使用 VS Code 的 'Live Server' 開啟。\n2. 或將檔案上傳至網站空間。");
+            } else {
+                alert("載入失敗，請確認資料夾內是否有 " + selectedFile + " 檔案。");
+            }
+        });
 }
 
 function processFileContent(fileContent) {
-    // 假設檔案內容是用某種方式定義的字串（例如 let ww = "..."）
-    // 我們可以用正則表達式提取這個字串
-    const wwMatch = fileContent.match(/let ww\s*=\s*"([^"]*)"/);
+    // 修改處：將 /let ww.../ 改為 /(?:var|let|const)\s+ww.../ 
+    // 這樣無論是用 var ww, let ww 還是 const ww 都能成功讀取
+    const wwMatch = fileContent.match(/(?:var|let|const)\s+ww\s*=\s*"([^"]*)"/);
+    
     if (wwMatch) {
         const xx = wwMatch[1];
 
@@ -363,6 +385,8 @@ function processFileContent(fileContent) {
         const displayLines = allData.slice(0, 100);
         document.getElementById('originalData').value = "載入的資料共" + allData.length + "行(僅顯示前 100 行)：\n"  + displayLines.join('\n');
     } else {
+        // 建議加上 alert 以便在介面上直接看到錯誤
+        alert("格式錯誤：找不到變數 'ww' 的定義 (請確認檔案開頭是否為 var ww = ...)");
         console.error("未能找到變數 'ww' 的定義。");
     }
 }
