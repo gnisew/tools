@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>英語口說練習 🎧</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="app-container">
+    
+    <div id="homeView" class="view-section">
+        <header class="main-header">
+            <div class="header-content">
+                <h1>English Talk 🗣️</h1>
+                <p>選擇章節開始練習</p>
+            </div>
+            <div class="header-decoration"></div>
+        </header>
+        
+        <main class="menu-scroll-area" id="menuContainer">
+            </main>
+    </div>
+
+    <div id="playerView" class="view-section hidden">
+        <header class="player-header">
+            <button id="backBtn" class="icon-btn">❮ 返回</button>
+            <span id="currentTitle" class="header-title">第 1 回 - Q1</span>
+            <div style="width: 40px;"></div> </header>
+
+        <div class="quick-controls">
+            <div class="control-group">
+                <label>速度</label>
+                <select id="speedSelect">
+                    <option value="0.65">0.65x</option>
+                    <option value="0.7">0.7x</option>
+                    <option value="0.8">0.8x</option>
+                    <option value="0.9">0.9x</option>
+                    <option value="1" selected>1.0x</option>
+                </select>
+            </div>
+            
+            <button id="toggleShadowing" class="toggle-chip">
+                <span class="icon">🦜</span> 跟讀
+            </button>
+            <button id="toggleCn" class="toggle-chip">
+                <span class="icon">中</span> 翻譯
+            </button>
+        </div>
+
+        <main class="conversation-area" id="conversationArea">
+            <div class="scroll-wrapper">
+                <div class="chat-row left">
+                    <div class="avatar teacher-avatar">T</div>
+                    <div class="bubble q-bubble">
+                        <div class="text-en" id="qTextEn">Thinking...</div>
+                        <div class="text-cn hidden" id="qTextCn">...</div>
+                    </div>
+                </div>
+
+                <div class="chat-row right">
+                    <div class="bubble a-bubble">
+                        <div class="text-en" id="aTextEn">Thinking...</div>
+                        <div class="text-cn hidden" id="aTextCn">...</div>
+                    </div>
+                    <div class="avatar student-avatar">Me</div>
+                </div>
+                <div class="spacer"></div>
+            </div>
+        </main>
+
+        <div class="bottom-bar">
+            <button id="prevBtn" class="nav-btn">⏮</button>
+            <button id="playBtn" class="play-btn">
+                <span class="play-icon">▶</span>
+                <span class="btn-text">播放</span>
+            </button>
+            <button id="nextBtn" class="nav-btn">⏭</button>
+        </div>
+    </div>
+
+</div>
+
+<script src="data.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
