@@ -3,201 +3,295 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>客語母音空間分析 (Vowel Space)</title>
-    <script src="https://unpkg.com/meyda/dist/web/meyda.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>方言音素比對系統 (AI Powered)</title>
     <style>
-        body { font-family: "Microsoft JhengHei", sans-serif; padding: 20px; background: #f0f2f5; max-width: 800px; margin: 0 auto; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
+        :root {
+            --primary: #4a90e2;
+            --success: #2ecc71;
+            --danger: #e74c3c;
+            --bg: #f5f7fa;
+            --card-bg: #ffffff;
+        }
+        body { font-family: "Microsoft JhengHei", "Segoe UI", sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 800px; margin: 0 auto; }
         
-        /* 視覺化區域 */
-        .chart-container { position: relative; height: 400px; width: 100%; margin-top: 20px; background: white; border: 1px solid #ddd; border-radius: 8px; }
+        h1 { text-align: center; color: #2c3e50; margin-bottom: 10px; }
+        p.subtitle { text-align: center; color: #7f8c8d; margin-top: 0; }
+
+        /* 卡片樣式 */
+        .card { background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; transition: transform 0.2s; }
+        .card:hover { transform: translateY(-2px); }
         
-        .controls { display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; }
-        button { padding: 10px 20px; border: none; border-radius: 50px; font-size: 16px; cursor: pointer; transition: 0.2s; font-weight: bold; }
+        h2 { margin-top: 0; font-size: 1.2rem; border-left: 4px solid var(--primary); padding-left: 10px; color: #34495e; }
         
-        .btn-ref { background: #3498db; color: white; } /* 藍色 */
-        .btn-user { background: #e74c3c; color: white; } /* 紅色 */
-        .btn-clear { background: #95a5a6; color: white; }
+        /* IPA 顯示區 */
+        .ipa-box { 
+            background: #ecf0f1; 
+            padding: 15px; 
+            border-radius: 8px; 
+            font-family: "Courier New", monospace; 
+            font-weight: bold; 
+            font-size: 1.2rem; 
+            min-height: 24px;
+            margin-top: 10px;
+            letter-spacing: 1px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed #bdc3c7;
+        }
+        .ipa-box.active { border-style: solid; border-color: var(--primary); background: #eaf2f8; }
+
+        /* 按鈕樣式 */
+        .controls { display: flex; gap: 10px; margin-top: 15px; }
+        button { 
+            padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; 
+            font-size: 1rem; font-weight: bold; transition: 0.3s; flex: 1;
+        }
+        .btn-upload { background: #34495e; color: white; }
+        .btn-record { background: var(--danger); color: white; }
+        .btn-compare { background: var(--success); color: white; width: 100%; padding: 15px; font-size: 1.3rem; margin-top: 10px; }
         
-        button:active { transform: scale(0.95); }
-        button.recording { animation: pulse 1s infinite; }
+        button:disabled { background: #bdc3c7; cursor: not-allowed; }
+        button:active { transform: scale(0.98); }
         
-        .instruction { font-size: 0.9em; color: #666; margin-top: 10px; line-height: 1.6; }
+        /* 錄音動畫 */
+        .recording-pulse { animation: pulse 1.5s infinite; background: #c0392b; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+
+        /* 結果顯示區 */
+        #resultArea { display: none; text-align: center; margin-top: 20px; padding: 20px; background: #fff; border-radius: 12px; border: 2px solid var(--success); }
+        .score { font-size: 3.5rem; font-weight: bold; margin: 10px 0; color: var(--success); }
+        .details { color: #7f8c8d; font-size: 0.9rem; }
         
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+        /* 載入中動畫 */
+        .loader { display: inline-block; width: 12px; height: 12px; border: 2px solid #333; border-radius: 50%; border-top-color: transparent; animation: spin 1s linear infinite; margin-right: 5px;}
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .status-msg { font-size: 0.85rem; color: #e67e22; margin-top: 5px; font-style: italic; }
     </style>
 </head>
 <body>
 
+<div class="container">
+    <h1>發音比對機</h1>
+    <p class="subtitle">AI 技術支援：IPA 國際音標辨識</p>
+
     <div class="card">
-        <h1>客語發音結構分析</h1>
-        <p>不比對文字，只比對「共鳴位置」 (Formant Structure)</p>
-        
+        <h2>1. 老師示範 (Standard)</h2>
+        <p style="font-size:0.9em; color:#666;">請上傳標準發音檔 (mp3/wav)</p>
         <div class="controls">
-            <button id="btnRef" class="btn-ref" onmousedown="startRec('ref')" onmouseup="stopRec()">
-                1. 老師錄音 (建立目標)
-            </button>
-            <button id="btnUser" class="btn-user" onmousedown="startRec('user')" onmouseup="stopRec()">
-                2. 學生跟讀 (嘗試重疊)
-            </button>
-            <button class="btn-clear" onclick="clearChart()">清除畫面</button>
+            <input type="file" id="refFile" accept="audio/*" style="display:none">
+            <button class="btn-upload" onclick="document.getElementById('refFile').click()">📂 選擇音檔</button>
         </div>
-
-        <div class="chart-container">
-            <canvas id="vowelChart"></canvas>
-        </div>
-
-        <div class="instruction">
-            <h3>使用說明：</h3>
-            <ol style="text-align: left; display: inline-block;">
-                <li>請老師長按藍色按鈕，唸出客語母音（如：a, i, u, e, o）。</li>
-                <li>畫面上會出現藍色點點，這代表正確的<b>「舌位分佈區域」</b>。</li>
-                <li>學生長按紅色按鈕模仿。若紅點落在藍點區域內，代表<b>口型正確</b>。</li>
-                <li>若是紅點偏離（例如偏左或偏下），代表舌頭太前或嘴巴張太大。</li>
-            </ol>
-        </div>
+        <div id="refIPA" class="ipa-box">等待輸入...</div>
+        <div id="refStatus" class="status-msg"></div>
     </div>
 
+    <div class="card">
+        <h2>2. 你的發音 (Practice)</h2>
+        <p style="font-size:0.9em; color:#666;">請按住按鈕錄音</p>
+        <div class="controls">
+            <button id="recordBtn" class="btn-record">🎙️ 按住錄音</button>
+        </div>
+        <div id="userIPA" class="ipa-box">等待錄音...</div>
+        <div id="userStatus" class="status-msg"></div>
+    </div>
+
+    <button class="btn-compare" onclick="calculateScore()">📊 計算相似度</button>
+
+    <div id="resultArea">
+        <div>發音準確度</div>
+        <div class="score" id="scoreVal">--</div>
+        <div class="details" id="scoreDesc"></div>
+        <div style="margin-top:15px; font-size:0.8em; background:#f9f9f9; padding:10px; border-radius:5px; text-align:left;">
+            <strong>診斷報告：</strong><br>
+            老師音標：<span id="resRef" style="color:var(--primary)">--</span><br>
+            學生音標：<span id="resUser" style="color:var(--danger)">--</span><br>
+            差異距離：<span id="resDist">--</span> (數值越小越準)
+        </div>
+    </div>
+</div>
+
 <script>
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    let mediaStreamSource = null;
-    let analyzer = null;
-    let chart = null;
-    let isRecording = false;
-    let currentMode = 'ref'; // 'ref' or 'user'
+    // ==========================================
+    // 設定區：你的後端網址
+    // ==========================================
+    const API_URL = "https://wskone-kasu-api.hf.space/recognize";
 
-    // 初始化圖表
-    function initChart() {
-        const ctx = document.getElementById('vowelChart').getContext('2d');
-        chart = new Chart(ctx, {
-            type: 'scatter',
-            data: {
-                datasets: [
-                    {
-                        label: '老師 (標準範圍)',
-                        data: [],
-                        backgroundColor: 'rgba(52, 152, 219, 0.6)', // 半透明藍
-                        pointRadius: 5,
-                        pointHoverRadius: 7
-                    },
-                    {
-                        label: '學生 (你的落點)',
-                        data: [],
-                        backgroundColor: 'rgba(231, 76, 60, 0.8)', // 紅色
-                        pointRadius: 6,
-                        pointHoverRadius: 8
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: false, // 關閉動畫以提高效能
-                scales: {
-                    x: {
-                        title: { display: true, text: '舌位前後 (F2 / Timbre)' },
-                        min: -20, max: 20, // 根據 MFCC 數值範圍預設
-                        grid: { color: '#eee' }
-                    },
-                    y: {
-                        title: { display: true, text: '開口大小 (F1 / Openness)' },
-                        min: -20, max: 20,
-                        grid: { color: '#eee' }
-                    }
-                },
-                plugins: {
-                    legend: { position: 'top' },
-                    tooltip: { enabled: false }
-                }
-            }
-        });
-    }
+    // 全域變數
+    let refIPA = "";
+    let userIPA = "";
+    let mediaRecorder;
+    let chunks = [];
 
-    // 啟動錄音與分析
-    async function startRec(mode) {
-        if (isRecording) return;
+    // --- 1. 處理老師檔案上傳 ---
+    document.getElementById('refFile').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        updateUI('refIPA', 'refStatus', '處理中...', '上傳並分析中 (首次啟動可能需 30-60 秒)...');
         
-        // 必須由使用者觸發 AudioContext (瀏覽器政策)
-        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        const ipa = await sendToBackend(file);
+        if (ipa) {
+            refIPA = ipa;
+            updateUI('refIPA', 'refStatus', ipa, '分析完成', true);
+        } else {
+            updateUI('refIPA', 'refStatus', '失敗', '無法辨識或伺服器錯誤', false);
+        }
+    });
 
-        currentMode = mode;
-        const btn = document.getElementById(mode === 'ref' ? 'btnRef' : 'btnUser');
-        btn.classList.add('recording');
-        btn.innerText = "錄音中... (放開結束)";
-        isRecording = true;
+    // --- 2. 處理學生錄音 ---
+    const recordBtn = document.getElementById('recordBtn');
+
+    // 初始化麥克風
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        mediaRecorder = new MediaRecorder(stream);
+        
+        mediaRecorder.ondataavailable = e => chunks.push(e.data);
+        
+        mediaRecorder.onstop = async () => {
+            const blob = new Blob(chunks, { type: 'audio/webm' }); // Chrome 預設
+            chunks = [];
+            const file = new File([blob], "record.webm", { type: "audio/webm" });
+
+            updateUI('userIPA', 'userStatus', '分析中...', '正在傳送至 AI 伺服器...');
+            
+            const ipa = await sendToBackend(file);
+            if (ipa) {
+                userIPA = ipa;
+                updateUI('userIPA', 'userStatus', ipa, '分析完成', true);
+            } else {
+                updateUI('userIPA', 'userStatus', '失敗', '無法辨識', false);
+            }
+        };
+    }).catch(e => {
+        alert("無法存取麥克風，請確認是否有權限 (需使用 HTTPS 或 Localhost)");
+        console.error(e);
+    });
+
+    // 按鈕事件
+    recordBtn.addEventListener('mousedown', () => {
+        if(mediaRecorder && mediaRecorder.state === 'inactive') {
+            mediaRecorder.start();
+            recordBtn.classList.add('recording-pulse');
+            recordBtn.innerText = "放開結束...";
+            document.getElementById('userIPA').innerText = "錄音中...";
+        }
+    });
+
+    recordBtn.addEventListener('mouseup', () => {
+        if(mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            recordBtn.classList.remove('recording-pulse');
+            recordBtn.innerText = "🎙️ 按住錄音";
+        }
+    });
+    // 手機觸控支援
+    recordBtn.addEventListener('touchstart', (e) => { e.preventDefault(); recordBtn.dispatchEvent(new Event('mousedown')); });
+    recordBtn.addEventListener('touchend', (e) => { e.preventDefault(); recordBtn.dispatchEvent(new Event('mouseup')); });
+
+
+    // --- 3. 與後端溝通 (API Fetch) ---
+    async function sendToBackend(file) {
+        const formData = new FormData();
+        formData.append('file', file);
 
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaStreamSource = audioCtx.createMediaStreamSource(stream);
-            
-            // 設定 Meyda
-            // 我們使用 MFCC (13維)，但只取其中兩維來做 2D 映射
-            // MFCC[1] 通常與 F1 (開口度) 相關
-            // MFCC[2] 或 [3] 通常與 F2 (前後舌位) 相關
-            analyzer = Meyda.createMeydaAnalyzer({
-                "audioContext": audioCtx,
-                "source": mediaStreamSource,
-                "bufferSize": 512,
-                "featureExtractors": ["mfcc", "energy"],
-                "callback": (features) => {
-                    if (features && features.energy > 0.5) { // 只有當有聲音(能量夠大)時才畫點
-                        updateChart(features.mfcc);
-                    }
-                }
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                body: formData
             });
-            analyzer.start();
+            const data = await res.json();
             
+            if (data.error) throw new Error(data.error);
+            return data.ipa; // 成功回傳 IPA 字串
         } catch (err) {
             console.error(err);
-            alert("無法存取麥克風");
-            stopRec();
+            return null;
         }
     }
 
-    function stopRec() {
-        if (!isRecording) return;
+    // --- 4. 輔助功能：更新介面 ---
+    function updateUI(boxId, statusId, text, statusText, isSuccess = null) {
+        const box = document.getElementById(boxId);
+        const status = document.getElementById(statusId);
         
-        if (analyzer) analyzer.stop();
-        if (mediaStreamSource) mediaStreamSource.mediaStream.getTracks().forEach(track => track.stop());
-        
-        const btn = document.getElementById(currentMode === 'ref' ? 'btnRef' : 'btnUser');
-        btn.classList.remove('recording');
-        btn.innerText = currentMode === 'ref' ? "1. 老師錄音 (建立目標)" : "2. 學生跟讀 (嘗試重疊)";
-        
-        isRecording = false;
+        if (text === '處理中...' || text === '分析中...') {
+            box.innerHTML = `<span class="loader"></span> ${text}`;
+            box.classList.remove('active');
+        } else {
+            box.innerText = text;
+            if(isSuccess) box.classList.add('active');
+        }
+        status.innerText = statusText;
     }
 
-    // 更新圖表邏輯
-    function updateChart(mfcc) {
-        // MFCC 是一個陣列 [c0, c1, c2, ... c12]
-        // c0 通常與能量有關，忽略
-        // 我們取 c1 和 c2 作為 X, Y 軸
-        // 注意：為了讓圖表符合直覺（例如高音在上方），可能需要將數值反轉或縮放
+    // --- 5. 核心演算法：編輯距離 (Levenshtein Distance) ---
+    function levenshtein(a, b) {
+        if(!a || !b) return 0;
+        // 移除 IPA 中的空格以便比對符號本身
+        const s = a.replace(/\s+/g, '');
+        const t = b.replace(/\s+/g, '');
         
-        const xVal = mfcc[1] * 2; // X軸
-        const yVal = mfcc[2] * 2; // Y軸
+        const d = [];
+        for (let i = 0; i <= s.length; i++) d[i] = [i];
+        for (let j = 0; j <= t.length; j++) d[0][j] = j;
 
-        const datasetIndex = currentMode === 'ref' ? 0 : 1;
-        
-        // 限制點的數量，避免瀏覽器卡頓
-        if (chart.data.datasets[datasetIndex].data.length > 200) {
-            chart.data.datasets[datasetIndex].data.shift(); // 移除舊的點
+        for (let i = 1; i <= s.length; i++) {
+            for (let j = 1; j <= t.length; j++) {
+                const cost = s[i-1] === t[j-1] ? 0 : 1;
+                d[i][j] = Math.min(
+                    d[i-1][j] + 1,      // 刪除
+                    d[i][j-1] + 1,      // 插入
+                    d[i-1][j-1] + cost  // 替換
+                );
+            }
+        }
+        return d[s.length][t.length];
+    }
+
+    // --- 6. 計算並顯示分數 ---
+    function calculateScore() {
+        if (!refIPA || !userIPA) {
+            alert("請先完成 老師音檔上傳 與 學生錄音！");
+            return;
         }
 
-        chart.data.datasets[datasetIndex].data.push({ x: xVal, y: yVal });
-        chart.update();
+        const dist = levenshtein(refIPA, userIPA);
+        const maxLen = Math.max(refIPA.replace(/\s+/g, '').length, userIPA.replace(/\s+/g, '').length);
+        
+        // 分數計算： (1 - 錯誤數/總長度) * 100
+        // 若完全沒字，分數為 0
+        let score = maxLen === 0 ? 0 : Math.max(0, ((maxLen - dist) / maxLen) * 100);
+        score = Math.round(score);
+
+        // 顯示結果
+        const resultArea = document.getElementById('resultArea');
+        const scoreVal = document.getElementById('scoreVal');
+        const scoreDesc = document.getElementById('scoreDesc');
+        
+        resultArea.style.display = 'block';
+        scoreVal.innerText = score + " 分";
+        
+        // 評語
+        if (score === 100) scoreDesc.innerText = "太神了！完全正確！";
+        else if (score >= 80) scoreDesc.innerText = "發音非常標準，只有一點點差異。";
+        else if (score >= 60) scoreDesc.innerText = "還可以，請注意某些音節的咬字。";
+        else scoreDesc.innerText = "差異較大，請再聽一次老師的示範。";
+
+        // 顏色變化
+        if(score >= 80) scoreVal.style.color = "#2ecc71";
+        else if(score >= 60) scoreVal.style.color = "#f39c12";
+        else scoreVal.style.color = "#e74c3c";
+
+        // 詳細報告
+        document.getElementById('resRef').innerText = refIPA;
+        document.getElementById('resUser').innerText = userIPA;
+        document.getElementById('resDist').innerText = dist;
     }
-
-    function clearChart() {
-        chart.data.datasets[0].data = [];
-        chart.data.datasets[1].data = [];
-        chart.update();
-    }
-
-    // 啟動
-    initChart();
-
 </script>
+
 </body>
 </html>
