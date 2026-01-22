@@ -3,183 +3,360 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>方言發音練習 - 聲學比對</title>
+    <title>方言發音評測 Pro - 頻譜與聲紋分析2</title>
+    <script src="https://unpkg.com/meyda/dist/web/meyda.min.js"></script>
     <style>
-        body { font-family: "Microsoft JhengHei", sans-serif; max-width: 800px; margin: 20px auto; padding: 20px; line-height: 1.6; }
-        .container { border: 1px solid #ccc; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        h2 { border-bottom: 2px solid #333; padding-bottom: 10px; }
-        .control-panel { margin-top: 10px; }
-        button { padding: 10px 20px; cursor: pointer; font-size: 16px; margin-right: 10px; }
-        canvas { width: 100%; height: 150px; background-color: #f0f0f0; border: 1px solid #999; margin-top: 10px; }
-        .status { color: #666; margin-top: 5px; font-style: italic; }
-        .score-board { font-size: 1.2em; font-weight: bold; color: #d9534f; margin-top: 10px; }
+        :root {
+            --primary: #2c3e50;
+            --accent: #3498db;
+            --success: #27ae60;
+            --bg: #f4f7f6;
+        }
+        body { font-family: "Segoe UI", "Microsoft JhengHei", sans-serif; background: var(--bg); color: #333; max-width: 900px; margin: 0 auto; padding: 20px; }
+        h1, h2 { text-align: center; color: var(--primary); }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
         
-        /* 視覺化兩條音軌的顏色 */
-        .ref-label { color: #007bff; font-weight: bold; }
-        .user-label { color: #28a745; font-weight: bold; }
+        .visual-container { position: relative; margin-top: 10px; }
+        canvas { width: 100%; display: block; background: #000; border-radius: 4px; }
+        .waveform { height: 80px; margin-bottom: 5px; border-bottom: 1px solid #333; }
+        .spectrogram { height: 120px; }
+        
+        .label { font-size: 0.85em; color: #666; margin-bottom: 5px; display: flex; justify-content: space-between; }
+        .tag { padding: 2px 8px; border-radius: 4px; color: white; font-size: 0.8em; }
+        .tag-ref { background: var(--accent); }
+        .tag-user { background: var(--success); }
+
+        .controls { display: flex; gap: 10px; margin-top: 10px; }
+        button { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 1rem; }
+        .btn-play { background: #e0e0e0; color: #333; }
+        .btn-record { background: #e74c3c; color: white; }
+        .btn-record.recording { background: #c0392b; animation: pulse 1.5s infinite; }
+        .btn-compare { background: var(--primary); color: white; width: 100%; font-size: 1.2rem; margin-top: 10px; }
+        
+        .result-box { text-align: center; margin-top: 20px; padding: 20px; background: #e8f6f3; border-radius: 8px; border: 2px solid var(--success); display: none; }
+        .score { font-size: 3rem; font-weight: bold; color: var(--success); }
+        .feedback { font-size: 1.1rem; color: #555; margin-top: 10px; }
+        .loading { color: #888; font-style: italic; text-align: center; display: none;}
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
 
-    <h1>方言發音練習機</h1>
-    <p>技術原理：比較使用者錄音與標準音檔的波形與頻譜特徵。</p>
+    <h1>方言發音評測 Pro</h1>
+    <p style="text-align: center; color: #666;">可視化聲紋比對系統 (MFCC + Spectrogram)</p>
 
-    <div class="container">
-        <h3 class="ref-label">1. 標準音檔 (老師/耆老)</h3>
-        <p>請上傳方言的標準 mp3/wav 檔案：</p>
-        <input type="file" id="refInput" accept="audio/*">
-        <div class="control-panel">
-            <button onclick="playAudio(refAudioBuffer)">播放標準音</button>
+    <div class="card">
+        <div class="label">
+            <span><span class="tag tag-ref">老師</span> 標準示範 (Reference)</span>
+            <span id="ref-dur">0.0s</span>
         </div>
-        <canvas id="refCanvas"></canvas>
-    </div>
-
-    <div class="container">
-        <h3 class="user-label">2. 你的發音 (學生)</h3>
-        <div class="control-panel">
-            <button id="recordBtn">按住錄音</button>
-            <button onclick="playAudio(userAudioBuffer)" id="playUserBtn" disabled>播放你的錄音</button>
-        </div>
-        <canvas id="userCanvas"></canvas>
-        <div id="status" class="status">準備就緒...</div>
-    </div>
-
-    <div class="container">
-        <h3>3. 比對分析</h3>
-        <button onclick="compareAudio()">計算相似度</button>
-        <div id="resultScore" class="score-board"></div>
-        <p style="font-size: 0.9em; color: #555;">注意：此為基礎波形比對，僅供參考。若波形起伏位置一致，代表語氣節奏正確。</p>
-    </div>
-
-    <script>
-        let audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        let refAudioBuffer = null;
-        let userAudioBuffer = null;
-        let mediaRecorder;
-        let audioChunks = [];
-
-        // 1. 處理標準音檔上傳
-        document.getElementById('refInput').addEventListener('change', function(e) {
-            let file = e.target.files[0];
-            if (file) {
-                let reader = new FileReader();
-                reader.onload = function(ev) {
-                    audioContext.decodeAudioData(ev.target.result, function(buffer) {
-                        refAudioBuffer = buffer;
-                        drawWaveform(refAudioBuffer, 'refCanvas', '#007bff');
-                        document.getElementById('status').innerText = "標準音檔已載入";
-                    });
-                };
-                reader.readAsArrayBuffer(file);
-            }
-        });
-
-        // 2. 處理錄音功能
-        const recordBtn = document.getElementById('recordBtn');
+        <input type="file" id="fileInput" accept="audio/*">
         
-        // 為了相容性，這裡使用基本的 MediaRecorder
-        navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(stream => {
-                mediaRecorder = new MediaRecorder(stream);
+        <div class="visual-container">
+            <canvas id="canvas-ref-wave" class="waveform"></canvas>
+            <canvas id="canvas-ref-spec" class="spectrogram"></canvas>
+        </div>
+        
+        <div class="controls">
+            <button class="btn-play" onclick="playAudio(refBuffer)">播放示範</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="label">
+            <span><span class="tag tag-user">學生</span> 你的發音 (User)</span>
+            <span id="user-dur">0.0s</span>
+        </div>
+        
+        <div class="visual-container">
+            <canvas id="canvas-user-wave" class="waveform"></canvas>
+            <canvas id="canvas-user-spec" class="spectrogram"></canvas>
+        </div>
+
+        <div class="controls">
+            <button id="recordBtn" class="btn-record">按住錄音</button>
+            <button class="btn-play" id="playUserBtn" onclick="playAudio(userBuffer)" disabled>播放回放</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <button class="btn-compare" onclick="analyzeAndCompare()">開始聲紋比對</button>
+        <div id="loading" class="loading">正在進行特徵提取與動態校正 (DTW)...</div>
+        
+        <div id="resultBox" class="result-box">
+            <div>相似度評分</div>
+            <div class="score" id="scoreDisplay">--</div>
+            <div class="feedback" id="feedbackText">請先錄音</div>
+            <div style="font-size: 0.8em; color: #999; margin-top: 10px;">
+                分析指標：MFCC 歐氏距離 + 動態時間軸對齊 (DTW)
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- 全局變數 ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 }); // 強制 16kHz 以利語音分析
+    let refBuffer = null;
+    let userBuffer = null;
+    let mediaRecorder = null;
+    let chunks = [];
+
+    // --- 1. 檔案處理 ---
+    document.getElementById('fileInput').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const arrayBuffer = await file.arrayBuffer();
+        refBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+        
+        document.getElementById('ref-dur').innerText = refBuffer.duration.toFixed(1) + "s";
+        drawVisuals(refBuffer, 'canvas-ref-wave', 'canvas-ref-spec', '#3498db');
+    });
+
+    // --- 2. 錄音處理 ---
+    const recordBtn = document.getElementById('recordBtn');
+    
+    // 初始化錄音權限
+    async function initRecorder() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            
+            mediaRecorder.ondataavailable = e => chunks.push(e.data);
+            
+            mediaRecorder.onstop = async () => {
+                const blob = new Blob(chunks, { type: 'audio/webm' }); // Chrome 預設
+                chunks = [];
+                const arrayBuffer = await blob.arrayBuffer();
+                userBuffer = await audioCtx.decodeAudioData(arrayBuffer);
                 
-                mediaRecorder.ondataavailable = event => {
-                    audioChunks.push(event.data);
-                };
-
-                mediaRecorder.onstop = () => {
-                    let audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                    let reader = new FileReader();
-                    reader.onload = function(ev) {
-                        audioContext.decodeAudioData(ev.target.result, function(buffer) {
-                            userAudioBuffer = buffer;
-                            drawWaveform(userAudioBuffer, 'userCanvas', '#28a745');
-                            document.getElementById('playUserBtn').disabled = false;
-                            document.getElementById('status').innerText = "錄音完成";
-                        });
-                    };
-                    reader.readAsArrayBuffer(audioBlob);
-                    audioChunks = [];
-                };
-            });
-
-        recordBtn.addEventListener('mousedown', () => {
-            if (mediaRecorder && mediaRecorder.state === "inactive") {
-                mediaRecorder.start();
-                document.getElementById('status').innerText = "錄音中...";
-                recordBtn.innerText = "放開停止";
-                recordBtn.style.backgroundColor = "#ffcccc";
-            }
-        });
-
-        recordBtn.addEventListener('mouseup', () => {
-            if (mediaRecorder && mediaRecorder.state === "recording") {
-                mediaRecorder.stop();
-                recordBtn.innerText = "按住錄音";
-                recordBtn.style.backgroundColor = "";
-            }
-        });
-
-        // 3. 播放音訊輔助函式
-        function playAudio(buffer) {
-            if (!buffer) return;
-            let source = audioContext.createBufferSource();
-            source.buffer = buffer;
-            source.connect(audioContext.destination);
-            source.start(0);
+                document.getElementById('user-dur').innerText = userBuffer.duration.toFixed(1) + "s";
+                document.getElementById('playUserBtn').disabled = false;
+                drawVisuals(userBuffer, 'canvas-user-wave', 'canvas-user-spec', '#27ae60');
+            };
+        } catch (err) {
+            alert("無法存取麥克風。請確認網址為 https 或 localhost，並允許權限。");
+            console.error(err);
         }
+    }
+    initRecorder();
 
-        // 4. 繪製波形圖 (Canvas)
-        function drawWaveform(buffer, canvasId, color) {
-            const canvas = document.getElementById(canvasId);
-            const ctx = canvas.getContext('2d');
-            const width = canvas.width;
-            const height = canvas.height;
-            const data = buffer.getChannelData(0);
-            const step = Math.ceil(data.length / width);
-            const amp = height / 2;
+    recordBtn.addEventListener('mousedown', () => {
+        if (mediaRecorder && mediaRecorder.state === 'inactive') {
+            mediaRecorder.start();
+            recordBtn.classList.add('recording');
+            recordBtn.innerText = "放開停止";
+        }
+    });
 
-            ctx.clearRect(0, 0, width, height);
-            ctx.fillStyle = color;
-            ctx.beginPath();
+    recordBtn.addEventListener('mouseup', () => {
+        if (mediaRecorder && mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            recordBtn.classList.remove('recording');
+            recordBtn.innerText = "按住錄音";
+        }
+    });
 
-            for (let i = 0; i < width; i++) {
-                let min = 1.0;
-                let max = -1.0;
-                for (let j = 0; j < step; j++) {
-                    const datum = data[i * step + j];
-                    if (datum < min) min = datum;
-                    if (datum > max) max = datum;
+    // --- 3. 播放功能 ---
+    function playAudio(buffer) {
+        if (!buffer) return;
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioCtx.destination);
+        source.start();
+    }
+
+    // --- 4. 可視化繪圖 (波形 + 頻譜) ---
+    function drawVisuals(buffer, waveId, specId, color) {
+        drawWaveform(buffer, waveId, color);
+        drawSpectrogram(buffer, specId);
+    }
+
+    function drawWaveform(buffer, canvasId, color) {
+        const canvas = document.getElementById(canvasId);
+        const ctx = canvas.getContext('2d');
+        const data = buffer.getChannelData(0);
+        
+        // 為了效能，降採樣繪製
+        const step = Math.ceil(data.length / canvas.width);
+        const amp = canvas.height / 2;
+
+        ctx.fillStyle = '#000'; 
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = color;
+        
+        ctx.beginPath();
+        for (let i = 0; i < canvas.width; i++) {
+            let min = 1.0, max = -1.0;
+            for (let j = 0; j < step; j++) {
+                const val = data[i * step + j];
+                if (val < min) min = val;
+                if (val > max) max = val;
+            }
+            ctx.fillRect(i, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
+        }
+    }
+
+    // 使用 Meyda 生成靜態頻譜圖 (Heatmap)
+    function drawSpectrogram(buffer, canvasId) {
+        const canvas = document.getElementById(canvasId);
+        const ctx = canvas.getContext('2d');
+        const data = buffer.getChannelData(0);
+        
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 設定 FFT 參數
+        const bufferSize = 512;
+        Meyda.bufferSize = bufferSize;
+        const hopSize = Math.floor(data.length / canvas.width); // 讓每個像素寬度對應一段聲音
+
+        for (let i = 0; i < canvas.width; i++) {
+            // 切割一小段音訊
+            const start = i * hopSize;
+            if (start + bufferSize >= data.length) break;
+            const chunk = data.slice(start, start + bufferSize);
+            
+            // 提取頻譜能量 (Spectral Magnitude)
+            const features = Meyda.extract('spectralMagnitude', chunk);
+            
+            if (features) {
+                // 繪製這一列 (直的)
+                // features 陣列通常是 bufferSize/2 + 1 (257 bins)
+                const binHeight = canvas.height / features.length;
+                
+                for (let j = 0; j < features.length; j++) {
+                    // 顏色映射：能量越大越亮 (黑 -> 藍 -> 紅 -> 黃)
+                    const mag = Math.log1p(features[j]) * 50; // Log scale 增強對比
+                    const y = canvas.height - (j * binHeight); // 低頻在下，高頻在上
+                    
+                    let r = mag * 10;
+                    let g = mag * 2;
+                    let b = mag * 0.5;
+                    ctx.fillStyle = `rgb(${r},${g},${b})`;
+                    ctx.fillRect(i, y, 1, binHeight);
                 }
-                ctx.fillRect(i, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
             }
         }
+    }
 
-        // 5. 簡易比對邏輯 (概念驗證)
-        // 真正的 DTW 需要大量的計算，這裡我們計算「長度差異」與「能量包絡」作為簡單回饋
-        function compareAudio() {
-            if (!refAudioBuffer || !userAudioBuffer) {
-                alert("請先載入標準音檔並完成錄音！");
-                return;
-            }
-
-            // A. 長度比對
-            let durationDiff = Math.abs(refAudioBuffer.duration - userAudioBuffer.duration);
-            let durationScore = Math.max(0, 100 - (durationDiff * 20)); // 每差1秒扣20分
-
-            // B. 結果輸出
-            let msg = "";
-            if (durationScore > 80) {
-                msg = "節奏非常準確！";
-            } else if (durationScore > 50) {
-                msg = "長度有點差異，請注意語速。";
-            } else {
-                msg = "長度差異過大，請再試一次。";
-            }
-
-            // 這裡只是模擬，實際上需要引入 Meyda.js 或類似庫來做 MFCC + DTW
-            document.getElementById('resultScore').innerHTML = 
-                `長度相似度: ${durationScore.toFixed(0)}% <br><span style='font-size:0.8em; color:black'>${msg}</span>`;
+    // --- 5. 核心分析與比對 ---
+    async function analyzeAndCompare() {
+        if (!refBuffer || !userBuffer) {
+            alert("請先載入老師音檔並完成錄音！");
+            return;
         }
-    </script>
+        
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('resultBox').style.display = 'none';
+
+        // 為了避免 UI 卡頓，給一點延遲讓 DOM 更新
+        setTimeout(() => {
+            try {
+                // A. 靜音裁切 (Pre-processing)
+                const refTrimmed = trimSilence(refBuffer);
+                const userTrimmed = trimSilence(userBuffer);
+
+                // B. 特徵提取 (MFCC)
+                const refMFCC = extractFeatures(refTrimmed);
+                const userMFCC = extractFeatures(userTrimmed);
+
+                // C. DTW 比對
+                const distance = computeDTW(refMFCC, userMFCC);
+                
+                // D. 評分轉換
+                // 經驗法則：DTW 距離通常在 10~50 之間。我們將其映射到 0-100。
+                // 距離 0 = 100分, 距離 40 = 60分
+                let score = Math.max(0, 100 - (distance * 1.5));
+                if (score > 95) score = 100; // 給點鼓勵
+                
+                showResult(score, distance);
+            } catch (e) {
+                alert("分析錯誤：" + e);
+            }
+            document.getElementById('loading').style.display = 'none';
+        }, 100);
+    }
+
+    function trimSilence(buffer) {
+        const raw = buffer.getChannelData(0);
+        const threshold = 0.02; // 噪音門檻
+        let start = 0, end = raw.length - 1;
+        while (start < end && Math.abs(raw[start]) < threshold) start++;
+        while (end > start && Math.abs(raw[end]) < threshold) end--;
+        // 為了 Meyda 處理方便，轉為一般 Array (且如果太長可以截斷，這裡保留完整)
+        return raw.slice(start, end + 1); 
+    }
+
+    function extractFeatures(audioData) {
+        const bufferSize = 512;
+        const mfccs = [];
+        // 以 512 samples 為窗口滑動
+        for (let i = 0; i < audioData.length - bufferSize; i += bufferSize) {
+            const chunk = audioData.slice(i, i + bufferSize);
+            // 提取 13 維 MFCC
+            const features = Meyda.extract('mfcc', chunk); 
+            if (features) mfccs.push(features);
+        }
+        return mfccs;
+    }
+
+    // 動態時間校正 (DTW) - 允許語速不同
+    function computeDTW(seq1, seq2) {
+        const n = seq1.length;
+        const m = seq2.length;
+        // 初始化矩陣
+        let dtw = Array(n + 1).fill(0).map(() => Array(m + 1).fill(Infinity));
+        dtw[0][0] = 0;
+
+        const dist = (a, b) => {
+            let sum = 0;
+            for (let k = 0; k < a.length; k++) sum += (a[k] - b[k]) ** 2;
+            return Math.sqrt(sum);
+        };
+
+        for (let i = 1; i <= n; i++) {
+            // 效能優化：設定 Sakoe-Chiba Band 限制 (只計算對角線附近的區域)
+            // 這裡不做限制以求精確，但若檔案過長(>10s)可能會慢
+            for (let j = 1; j <= m; j++) {
+                const cost = dist(seq1[i-1], seq2[j-1]);
+                dtw[i][j] = cost + Math.min(dtw[i-1][j], dtw[i][j-1], dtw[i-1][j-1]);
+            }
+        }
+        // 正規化距離
+        return dtw[n][m] / (n + m);
+    }
+
+    function showResult(score, rawDist) {
+        const box = document.getElementById('resultBox');
+        const scoreEl = document.getElementById('scoreDisplay');
+        const feedEl = document.getElementById('feedbackText');
+        
+        box.style.display = 'block';
+        scoreEl.innerText = score.toFixed(0);
+        
+        let msg = "";
+        let color = "";
+        
+        if (score >= 85) {
+            msg = "太棒了！發音非常標準！";
+            color = "#27ae60";
+        } else if (score >= 70) {
+            msg = "很不錯，注意聲調的起伏。";
+            color = "#f39c12";
+        } else if (score >= 50) {
+            msg = "還可以，請看頻譜圖，你的音調可能偏了。";
+            color = "#e67e22";
+        } else {
+            msg = "差異較大，請再聽一次老師的示範。";
+            color = "#c0392b";
+        }
+        
+        feedEl.innerText = msg;
+        scoreEl.style.color = color;
+        box.style.borderColor = color;
+    }
+</script>
+
 </body>
 </html>
