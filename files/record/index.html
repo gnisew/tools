@@ -3,297 +3,108 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>方言發音矯正器 (最終極版)</title>
+    <title>客語母音空間分析 (Vowel Space)</title>
     <script src="https://unpkg.com/meyda/dist/web/meyda.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --ref-color: #3498db; --user-color: #e74c3c; --bg: #f8f9fa; }
-        body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); max-width: 960px; margin: 0 auto; padding: 20px; }
+        body { font-family: "Microsoft JhengHei", sans-serif; padding: 20px; background: #f0f2f5; max-width: 800px; margin: 0 auto; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
         
-        .panel { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 25px; }
-        h2 { margin-top: 0; color: #2c3e50; border-left: 5px solid var(--ref-color); padding-left: 10px; }
-        h2.user-title { border-color: var(--user-color); }
+        /* 視覺化區域 */
+        .chart-container { position: relative; height: 400px; width: 100%; margin-top: 20px; background: white; border: 1px solid #ddd; border-radius: 8px; }
         
-        .visual-row { display: flex; gap: 20px; flex-wrap: wrap; }
-        .visual-col { flex: 1; min-width: 300px; }
+        .controls { display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; }
+        button { padding: 10px 20px; border: none; border-radius: 50px; font-size: 16px; cursor: pointer; transition: 0.2s; font-weight: bold; }
         
-        /* 畫布樣式 */
-        canvas.waveform { width: 100%; height: 80px; background: #222; border-radius: 4px; display: block; }
-        .chart-container { position: relative; height: 250px; width: 100%; margin-top: 10px; }
+        .btn-ref { background: #3498db; color: white; } /* 藍色 */
+        .btn-user { background: #e74c3c; color: white; } /* 紅色 */
+        .btn-clear { background: #95a5a6; color: white; }
         
-        .controls { margin-top: 15px; display: flex; gap: 10px; }
-        button { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; transition: 0.2s; }
-        .btn-primary { background: var(--ref-color); color: white; }
-        .btn-record { background: var(--user-color); color: white; }
-        .btn-action { background: #2ecc71; color: white; width: 100%; font-size: 1.2rem; padding: 15px; margin-top: 20px; }
+        button:active { transform: scale(0.95); }
+        button.recording { animation: pulse 1s infinite; }
         
-        .analysis-result { display: flex; justify-content: space-around; margin-top: 20px; text-align: center; }
-        .score-card { padding: 15px; background: #eef2f3; border-radius: 8px; width: 45%; }
-        .score-val { font-size: 2.5rem; font-weight: bold; }
-        .score-label { color: #666; font-size: 0.9rem; }
+        .instruction { font-size: 0.9em; color: #666; margin-top: 10px; line-height: 1.6; }
         
-        .note { font-size: 0.85rem; color: #888; margin-top: 5px; }
-        
-        /* 錄音動畫 */
-        .recording-pulse { animation: pulse 1s infinite; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(231, 76, 60, 0); } 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0); } }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
 
-    <div style="text-align:center; margin-bottom: 30px;">
-        <h1>方言發音矯正器 <span style="font-size:0.5em; color:gray">PRO3</span></h1>
-        <p>技術：MFCC (音素/嘴型) + Normalized Pitch (相對聲調)</p>
-    </div>
-
-    <div class="panel">
-        <h2>1. 標準示範 (老師)</h2>
-        <input type="file" id="refFile" accept="audio/*">
-        <div class="controls">
-            <button class="btn-primary" onclick="playAudio(refBuffer)">播放原音</button>
-        </div>
-        <div class="visual-row">
-            <div class="visual-col">
-                <p class="note">波形 (節奏/力度)</p>
-                <canvas id="cvs-ref-wave" class="waveform"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <div class="panel">
-        <h2 class="user-title">2. 你的發音 (學生)</h2>
-        <div class="controls">
-            <button id="btnRecord" class="btn-record">按住錄音</button>
-            <button class="btn-primary" onclick="playAudio(userBuffer)" id="btnPlayUser" disabled>播放回放</button>
-        </div>
-        <div class="visual-row">
-            <div class="visual-col">
-                <p class="note">波形 (節奏/力度)</p>
-                <canvas id="cvs-user-wave" class="waveform"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <div class="panel">
-        <h2 style="border-color: #2ecc71;">3. 深度比對分析</h2>
-        <button class="btn-action" onclick="analyze()">開始分析 (聲調 + 發音)</button>
+    <div class="card">
+        <h1>客語發音結構分析</h1>
+        <p>不比對文字，只比對「共鳴位置」 (Formant Structure)</p>
         
-        <div class="chart-container">
-            <canvas id="pitchChart"></canvas>
+        <div class="controls">
+            <button id="btnRef" class="btn-ref" onmousedown="startRec('ref')" onmouseup="stopRec()">
+                1. 老師錄音 (建立目標)
+            </button>
+            <button id="btnUser" class="btn-user" onmousedown="startRec('user')" onmouseup="stopRec()">
+                2. 學生跟讀 (嘗試重疊)
+            </button>
+            <button class="btn-clear" onclick="clearChart()">清除畫面</button>
         </div>
-        <p class="note" style="text-align: center;">▲ 聲調曲線圖：藍色=老師, 紅色=你。若形狀重疊，代表聲調(Intonation)正確。</p>
 
-        <div class="analysis-result" id="resultArea" style="opacity: 0.3;">
-            <div class="score-card">
-                <div class="score-label">聲調相似度 (Pitch Contour)</div>
-                <div class="score-val" id="score-pitch">--</div>
-                <div style="font-size:0.8rem; color:#666">比對相對音高走向<br>(忽略男女音高差異)</div>
-            </div>
-            <div class="score-card">
-                <div class="score-label">發音準確度 (Phoneme/MFCC)</div>
-                <div class="score-val" id="score-phoneme">--</div>
-                <div style="font-size:0.8rem; color:#666">比對嘴型與共鳴<br>(母音/子音準確度)</div>
-            </div>
+        <div class="chart-container">
+            <canvas id="vowelChart"></canvas>
+        </div>
+
+        <div class="instruction">
+            <h3>使用說明：</h3>
+            <ol style="text-align: left; display: inline-block;">
+                <li>請老師長按藍色按鈕，唸出客語母音（如：a, i, u, e, o）。</li>
+                <li>畫面上會出現藍色點點，這代表正確的<b>「舌位分佈區域」</b>。</li>
+                <li>學生長按紅色按鈕模仿。若紅點落在藍點區域內，代表<b>口型正確</b>。</li>
+                <li>若是紅點偏離（例如偏左或偏下），代表舌頭太前或嘴巴張太大。</li>
+            </ol>
         </div>
     </div>
 
 <script>
-    // --- Setup ---
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-    let refBuffer, userBuffer;
-    let chartInstance = null;
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let mediaStreamSource = null;
+    let analyzer = null;
+    let chart = null;
+    let isRecording = false;
+    let currentMode = 'ref'; // 'ref' or 'user'
 
-    // --- 錄音功能 ---
-    let mediaRecorder, chunks = [];
-    const btnRecord = document.getElementById('btnRecord');
-
-    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-        mediaRecorder = new MediaRecorder(stream);
-        mediaRecorder.ondataavailable = e => chunks.push(e.data);
-        mediaRecorder.onstop = async () => {
-            const blob = new Blob(chunks, { type: 'audio/webm' });
-            chunks = [];
-            const arrayBuffer = await blob.arrayBuffer();
-            userBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-            drawWaveform(userBuffer, 'cvs-user-wave', '#e74c3c');
-            document.getElementById('btnPlayUser').disabled = false;
-        };
-    }).catch(e => console.error("Mic Error:", e));
-
-    btnRecord.onmousedown = () => { mediaRecorder?.start(); btnRecord.classList.add('recording-pulse'); btnRecord.innerText="放開停止"; };
-    btnRecord.onmouseup = () => { mediaRecorder?.stop(); btnRecord.classList.remove('recording-pulse'); btnRecord.innerText="按住錄音"; };
-
-    // --- 檔案上傳 ---
-    document.getElementById('refFile').onchange = async (e) => {
-        if(!e.target.files[0]) return;
-        const ab = await e.target.files[0].arrayBuffer();
-        refBuffer = await audioCtx.decodeAudioData(ab);
-        drawWaveform(refBuffer, 'cvs-ref-wave', '#3498db');
-    };
-
-    // --- 播放 ---
-    function playAudio(buf) {
-        if(!buf) return;
-        const s = audioCtx.createBufferSource();
-        s.buffer = buf;
-        s.connect(audioCtx.destination);
-        s.start();
-    }
-
-    // --- 核心演算法：音高提取 (Autocorrelation) ---
-    // 這是在前端計算 F0 最簡單有效的方法
-    function getPitchArray(buffer) {
-        const data = buffer.getChannelData(0);
-        const sampleRate = buffer.sampleRate;
-        const windowSize = 1024; // 分析視窗大小
-        const hopSize = 256;     // 滑動步長
-        let pitches = [];
-
-        for(let i=0; i < data.length - windowSize; i += hopSize) {
-            const slice = data.slice(i, i + windowSize);
-            
-            // 1. 計算 RMS (音量)，太小聲就視為無音高 (0)
-            let rms = 0;
-            for(let k=0; k<windowSize; k++) rms += slice[k]*slice[k];
-            rms = Math.sqrt(rms/windowSize);
-            if(rms < 0.02) {
-                pitches.push(null); // 靜音
-                continue;
-            }
-
-            // 2. 自相關 (Autocorrelation) 找週期
-            // 這是精簡版，適合語音範圍 (80Hz - 400Hz)
-            let bestOffset = -1;
-            let bestCorrelation = 0;
-            
-            // 搜尋範圍：對應 80Hz ~ 600Hz
-            const minOffset = Math.floor(sampleRate / 600);
-            const maxOffset = Math.floor(sampleRate / 80);
-
-            for(let offset = minOffset; offset < maxOffset; offset++) {
-                let correlation = 0;
-                for(let k=0; k < windowSize - offset; k++) {
-                    correlation += slice[k] * slice[k+offset];
-                }
-                if(correlation > bestCorrelation) {
-                    bestCorrelation = correlation;
-                    bestOffset = offset;
-                }
-            }
-
-            if(bestOffset > -1) {
-                const hz = sampleRate / bestOffset;
-                pitches.push(hz);
-            } else {
-                pitches.push(null);
-            }
-        }
-        return pitches;
-    }
-
-    // --- 核心演算法：音高正規化 (Normalization) ---
-    // 將絕對 Hz 轉換為 相對 Z-Score
-    function normalizePitch(pitchArray) {
-        // 1. 過濾掉 null (靜音)
-        const validValues = pitchArray.filter(p => p !== null);
-        if(validValues.length === 0) return pitchArray.map(() => 0);
-
-        // 2. 計算平均值 (Mean) 和 標準差 (StdDev)
-        const mean = validValues.reduce((a,b)=>a+b,0) / validValues.length;
-        const variance = validValues.reduce((a,b)=>a + Math.pow(b-mean, 2), 0) / validValues.length;
-        const stdDev = Math.sqrt(variance) || 1; // 避免除以 0
-
-        // 3. 轉換
-        return pitchArray.map(p => {
-            if(p === null) return null;
-            return (p - mean) / stdDev; // 這就是 Z-Score
-        });
-    }
-
-    // --- 主分析流程 ---
-    function analyze() {
-        if(!refBuffer || !userBuffer) { alert("請先準備好兩個音檔"); return; }
-
-        document.getElementById('resultArea').style.opacity = 1;
-
-        // 1. 取得音高陣列
-        const refPitchRaw = getPitchArray(refBuffer);
-        const userPitchRaw = getPitchArray(userBuffer);
-
-        // 2. 音高正規化 (解決男女音高不同問題)
-        const refPitchNorm = normalizePitch(refPitchRaw);
-        const userPitchNorm = normalizePitch(userPitchRaw);
-
-        // 3. 取得 MFCC (用於發音準確度)
-        const refMFCC = getMFCC(refBuffer);
-        const userMFCC = getMFCC(userBuffer);
-
-        // 4. 計算分數 (使用 DTW)
-        // A. 聲調分數 (比對 normalized pitch)
-        // 我們先把 null 補成 0 以利計算，實際應用可做更細緻處理
-        const p1 = refPitchNorm.map(v => v===null ? -3 : v); // -3 代表無聲背景
-        const p2 = userPitchNorm.map(v => v===null ? -3 : v);
-        const pitchDist = computeDTW_Simple(p1, p2); 
-        const pitchScore = Math.max(0, 100 - (pitchDist * 10)); // 係數需調校
-
-        // B. 發音分數 (比對 MFCC)
-        const mfccDist = computeDTW_Vector(refMFCC, userMFCC);
-        const phonemeScore = Math.max(0, 100 - (mfccDist * 1.5));
-
-        // 顯示分數
-        document.getElementById('score-pitch').innerText = pitchScore.toFixed(0);
-        document.getElementById('score-phoneme').innerText = phonemeScore.toFixed(0);
-
-        // 5. 繪製圖表 (疊加比對)
-        drawPitchChart(refPitchNorm, userPitchNorm);
-    }
-
-    // --- 圖表繪製 (Chart.js) ---
-    function drawPitchChart(refData, userData) {
-        const ctx = document.getElementById('pitchChart').getContext('2d');
-        if(chartInstance) chartInstance.destroy();
-
-        // 為了讓圖表對齊，我們可能需要根據 DTW 路徑拉伸，
-        // 但為了簡單展示，這裡直接繪製原始時間軸
-        
-        // 建立 X 軸標籤
-        const maxLength = Math.max(refData.length, userData.length);
-        const labels = Array.from({length: maxLength}, (_, i) => i);
-
-        chartInstance = new Chart(ctx, {
-            type: 'line',
+    // 初始化圖表
+    function initChart() {
+        const ctx = document.getElementById('vowelChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'scatter',
             data: {
-                labels: labels,
                 datasets: [
                     {
-                        label: '老師聲調 (標準)',
-                        data: refData, // 使用正規化後的數據
-                        borderColor: '#3498db',
-                        borderWidth: 3,
-                        pointRadius: 0,
-                        tension: 0.4, // 平滑曲線
-                        spanGaps: true // 允許數據中有 null (斷開線條)
+                        label: '老師 (標準範圍)',
+                        data: [],
+                        backgroundColor: 'rgba(52, 152, 219, 0.6)', // 半透明藍
+                        pointRadius: 5,
+                        pointHoverRadius: 7
                     },
                     {
-                        label: '你的聲調 (模仿)',
-                        data: userData,
-                        borderColor: '#e74c3c',
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        tension: 0.4,
-                        spanGaps: true
+                        label: '學生 (你的落點)',
+                        data: [],
+                        backgroundColor: 'rgba(231, 76, 60, 0.8)', // 紅色
+                        pointRadius: 6,
+                        pointHoverRadius: 8
                     }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: false, // 關閉動畫以提高效能
                 scales: {
-                    y: { 
-                        display: false, // 隱藏 Y 軸數值，因為是相對值 (Z-score)
-                        min: -3, max: 3 
-                    }, 
-                    x: { display: false }
+                    x: {
+                        title: { display: true, text: '舌位前後 (F2 / Timbre)' },
+                        min: -20, max: 20, // 根據 MFCC 數值範圍預設
+                        grid: { color: '#eee' }
+                    },
+                    y: {
+                        title: { display: true, text: '開口大小 (F1 / Openness)' },
+                        min: -20, max: 20,
+                        grid: { color: '#eee' }
+                    }
                 },
                 plugins: {
                     legend: { position: 'top' },
@@ -303,75 +114,90 @@
         });
     }
 
-    // --- 輔助函式：MFCC 提取 ---
-    function getMFCC(buffer) {
-        const data = buffer.getChannelData(0);
-        Meyda.bufferSize = 512;
-        const mfccs = [];
-        for(let i=0; i<data.length - 512; i+=512) {
-            const features = Meyda.extract('mfcc', data.slice(i, i+512));
-            if(features) mfccs.push(features);
+    // 啟動錄音與分析
+    async function startRec(mode) {
+        if (isRecording) return;
+        
+        // 必須由使用者觸發 AudioContext (瀏覽器政策)
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+        currentMode = mode;
+        const btn = document.getElementById(mode === 'ref' ? 'btnRef' : 'btnUser');
+        btn.classList.add('recording');
+        btn.innerText = "錄音中... (放開結束)";
+        isRecording = true;
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaStreamSource = audioCtx.createMediaStreamSource(stream);
+            
+            // 設定 Meyda
+            // 我們使用 MFCC (13維)，但只取其中兩維來做 2D 映射
+            // MFCC[1] 通常與 F1 (開口度) 相關
+            // MFCC[2] 或 [3] 通常與 F2 (前後舌位) 相關
+            analyzer = Meyda.createMeydaAnalyzer({
+                "audioContext": audioCtx,
+                "source": mediaStreamSource,
+                "bufferSize": 512,
+                "featureExtractors": ["mfcc", "energy"],
+                "callback": (features) => {
+                    if (features && features.energy > 0.5) { // 只有當有聲音(能量夠大)時才畫點
+                        updateChart(features.mfcc);
+                    }
+                }
+            });
+            analyzer.start();
+            
+        } catch (err) {
+            console.error(err);
+            alert("無法存取麥克風");
+            stopRec();
         }
-        return mfccs;
     }
 
-    // --- 輔助函式：DTW (單一數值陣列) ---
-    function computeDTW_Simple(arr1, arr2) {
-        const n = arr1.length, m = arr2.length;
-        let dtw = Array(n+1).fill(0).map(()=>Array(m+1).fill(Infinity));
-        dtw[0][0] = 0;
-        for(let i=1; i<=n; i++){
-            for(let j=1; j<=m; j++){
-                const cost = Math.abs(arr1[i-1] - arr2[j-1]);
-                dtw[i][j] = cost + Math.min(dtw[i-1][j], dtw[i][j-1], dtw[i-1][j-1]);
-            }
-        }
-        return dtw[n][m] / (n+m);
+    function stopRec() {
+        if (!isRecording) return;
+        
+        if (analyzer) analyzer.stop();
+        if (mediaStreamSource) mediaStreamSource.mediaStream.getTracks().forEach(track => track.stop());
+        
+        const btn = document.getElementById(currentMode === 'ref' ? 'btnRef' : 'btnUser');
+        btn.classList.remove('recording');
+        btn.innerText = currentMode === 'ref' ? "1. 老師錄音 (建立目標)" : "2. 學生跟讀 (嘗試重疊)";
+        
+        isRecording = false;
     }
 
-    // --- 輔助函式：DTW (向量陣列，算歐式距離) ---
-    function computeDTW_Vector(seq1, seq2) {
-        const n = seq1.length, m = seq2.length;
-        let dtw = Array(n+1).fill(0).map(()=>Array(m+1).fill(Infinity));
-        dtw[0][0] = 0;
-        const dist = (a, b) => {
-            let sum=0; 
-            for(let k=0; k<a.length; k++) sum+=(a[k]-b[k])**2; 
-            return Math.sqrt(sum);
-        };
-        for(let i=1; i<=n; i++){
-            // 簡化計算範圍 (Sakoe-Chiba Band) 防止過度運算
-            let start = Math.max(1, i - 50);
-            let end = Math.min(m, i + 50);
-            for(let j=start; j<=end; j++){
-                const cost = dist(seq1[i-1], seq2[j-1]);
-                dtw[i][j] = cost + Math.min(dtw[i-1][j], dtw[i][j-1], dtw[i-1][j-1]);
-            }
+    // 更新圖表邏輯
+    function updateChart(mfcc) {
+        // MFCC 是一個陣列 [c0, c1, c2, ... c12]
+        // c0 通常與能量有關，忽略
+        // 我們取 c1 和 c2 作為 X, Y 軸
+        // 注意：為了讓圖表符合直覺（例如高音在上方），可能需要將數值反轉或縮放
+        
+        const xVal = mfcc[1] * 2; // X軸
+        const yVal = mfcc[2] * 2; // Y軸
+
+        const datasetIndex = currentMode === 'ref' ? 0 : 1;
+        
+        // 限制點的數量，避免瀏覽器卡頓
+        if (chart.data.datasets[datasetIndex].data.length > 200) {
+            chart.data.datasets[datasetIndex].data.shift(); // 移除舊的點
         }
-        return dtw[n][m] / (n+m);
+
+        chart.data.datasets[datasetIndex].data.push({ x: xVal, y: yVal });
+        chart.update();
     }
 
-    // --- 繪製波形圖 (Canvas) ---
-    function drawWaveform(buffer, id, color) {
-        const cvs = document.getElementById(id);
-        const ctx = cvs.getContext('2d');
-        const w = cvs.width = cvs.clientWidth;
-        const h = cvs.height = cvs.clientHeight;
-        const data = buffer.getChannelData(0);
-        const step = Math.ceil(data.length / w);
-        const amp = h/2;
-        ctx.fillStyle = '#222'; ctx.fillRect(0,0,w,h);
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        for(let i=0; i<w; i++) {
-            let min=1, max=-1;
-            for(let j=0; j<step; j++) {
-                const v = data[i*step+j];
-                if(v<min)min=v; if(v>max)max=v;
-            }
-            ctx.fillRect(i, (1+min)*amp, 1, Math.max(1, (max-min)*amp));
-        }
+    function clearChart() {
+        chart.data.datasets[0].data = [];
+        chart.data.datasets[1].data = [];
+        chart.update();
     }
+
+    // 啟動
+    initChart();
+
 </script>
 </body>
 </html>
