@@ -332,16 +332,13 @@ function tokenizeSyls(raw) {
 function tokenizeHanziWithAlphanum(text) {
     if (!text) return [];
     
-    // 分割規則：
-    // 1. [^\s\p{Script=Han}]+  : 優先匹配「不是空白(\s) 且 不是漢字(\p{Script=Han})」的連續字串
-    // 2. .                      : 否則，匹配任意一個字元 (用來捕捉漢字、空白、或標點)
-    // 
-    // 必須加上 u 旗標 (Unicode) 才能讓 \p{Script=Han} 生效
-    const regex = /([^\s\p{Script=Han}]+|.)/gu;
+    // 修正寫法：加入 \p{P}，排除標點符號被黏合
+    // 意思為：抓取連續的「非空白、非漢字、且"非標點"」字串，否則抓取單一字元
+	// 必須加上 u 旗標 (Unicode) 才能讓 \p{Script=Han} 生效
+    const regex = /([^\s\p{Script=Han}\p{P}]+|.)/gu;
     
     return text.match(regex) || [];
 }
-
 /**
  * 帶分隔符號的拼音斷詞：將字串切分為音節和分隔符號的陣列
  * e.g., "kon giˇ, maˇ voi." -> ["kon", " ", "giˇ", ", ", "maˇ", " ", "voi", "."]
@@ -2135,12 +2132,13 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode, pho
 		return syls;
 	}  
 	
-    function tokenizeHanziWithAlphanum(text) {
-        if (!text) return [];
-        const regex = /([a-zA-Z0-9]+|.)/gu;
-        return text.match(regex) || [];
-    }
-    
+	function tokenizeHanziWithAlphanum(text) {
+		if (!text) return [];
+		const regex = /([^\s\p{Script=Han}\p{P}]+|.)/gu;
+		return text.match(regex) || [];
+	}
+
+
     // --- 步驟 3: 動態內容生成函式 ---
 
     function renderContent() {
