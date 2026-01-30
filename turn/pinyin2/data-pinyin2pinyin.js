@@ -12,25 +12,23 @@ const regexNumber = /(?<!\w)(tsh|chh|th|ph|kh|ts|ch|zh|sh|rh|ng|bb|gg|[bpmfvdtnl
 const regexZvs = /(?<!\w)(tsh|chh|th|ph|kh|ts|ch|zh|sh|rh|ng|bb|gg|[bpmfvdtnlgkhzcsjqxry])?(?:ng|[aeioumy]){1,3}(?:nnh|nnd|ng|nn|[mnbdgptkhr])?([zvsxfl])(?!\w)/i;
 
 
-//小注音檢測
-const regexBpmSmall =/[-]/i;
-//大注音檢測
-const regexBpmBig =/[ㄅ-ㆷ,兀,万,勺,廿]/i;
-//直注音檢測
-const regexBpmTiny =/[-]/i;
-
-
 // 和樂字母調轉數字調
 const holoZvsToNumber = (function() {
+    // 1. 聲調對應表 (根據您的指示：s 對應 3)
     const toneMap = { zz: '9', z: '2', s: '3', x: '5', v: '6', f: '7', l: '8' };
     
-    // 基本模式
-    const basePattern = `\\b(tsh|ph|th|kh|ts|ng|[pmtnlkhjsbg])?([aeiour]{1,3})`;    
-    // 鼻音結尾正則
-    const nasalRegex = new RegExp(`${basePattern}(ng|nn|[mn]?)(zz|[zsxvf])?\\b`, 'gi');    
-    // 塞音結尾正則
-    const stopRegex = new RegExp(`${basePattern}([ptkh])([l]?)\\b`, 'gi');
+    // 基本拼音組成 (聲母 + 韻母) - 用於一般有母音的字
+    const basePattern = `(tsh|ph|th|kh|ts|ng|[pmtnlkhjsbg])?([aeiour]{1,3})`;    
     
+    // 原有的正則表達式 (處理帶母音的字)
+    const nasalRegex = new RegExp(`\\b${basePattern}(ng|nn|[mn]?)(zz|[zsxvf])?\\b`, 'gi');    
+    const stopRegex = new RegExp(`\\b${basePattern}([ptkh])([l]?)\\b`, 'gi');
+
+    // 2. 母音成韻正則 (處理 ng, m, n 單獨成韻的情況)
+    // 邏輯：邊界 + (ng 或 m 或 n) + (入聲h + 可選l) 或 (舒聲調號) + 邊界
+    // 注意：\b 確保了 n 不會匹配到 na 的開頭
+    const syllabicRegex = /\b(ng|m|n)(?:(h)(l?)|(zz|[zsxvf]))?\b/gi;
+
     return function(text) {
         if (!text || typeof text !== 'string') {
             return '';
@@ -38,16 +36,38 @@ const holoZvsToNumber = (function() {
         
         let result = text;
         
-        // 處理鼻音結尾
+        // --- 優先處理姆音成韻 (ngs, mh, Ns 等) ---
+        result = result.replace(syllabicRegex, (match, nucleus, stopH, stopL, toneChar) => {
+            // match: 完整字串 (如 ngs)
+            // nucleus: 韻母核心 (ng, m, n)
+            // stopH: 是否有 h
+            // stopL: 是否有 l
+            // toneChar: 舒聲調號 (s, z, x...)
+            
+            // 情況 A: 入聲 (結尾有 h)
+            if (stopH) {
+                const tone = stopL ? '8' : '4'; // 有 l 為 8，無 l 為 4
+                return `${nucleus}h${tone}`;
+            }
+            
+            // 情況 B: 舒聲 (結尾有 s, z, x 等，或無標記)
+            const tone = toneMap[toneChar] || '1'; // 查表，若無標記則為 1
+            return `${nucleus}${tone}`;
+        });
+        
+        // --- 處理一般帶母音的字 ---
+        
+        // 處理一般鼻音/舒聲結尾
         result = result.replace(nasalRegex, (match, initial, vowel, nasal, tone) => {
             const base = `${initial || ''}${vowel}${nasal}`;
             return base + (toneMap[tone] || '1');
         });
         
-        // 處理塞音結尾
+        // 處理一般塞音結尾
         result = result.replace(stopRegex, (match, initial, vowel, stop, tone) => {
             const base = `${initial || ''}${vowel}${stop}`;
-            return base + (toneMap[tone] || '4');
+            const toneNum = (tone === 'l') ? '8' : '4'; 
+            return base + toneNum;
         });
         
         return result;
@@ -2432,9 +2452,7 @@ const kasuNumbersToTone = (function() {
 		t = t.replace(/([aeioumn]|ng)(55)/gi, '$1');
 		t = t.replace(/([aeioumn]|ng)(33)/gi, '$1⁺');
 		t = t.replace(/([aeiou])([bdg])(3)/gi, '$1$2⁺');
-		t = t.replace(/([aeiou])([bdg])(5)/gi, '$1$2');
 		t = t.replace(/(nnd)(3)/gi, '$1⁺');
-		t = t.replace(/(nnd)(5)/gi, '$1');
         return t;
     };
 })();
@@ -2445,56 +2463,43 @@ const kasuNumbersToTone = (function() {
 
 
 
+
 // 客語拼音轉注音
 const hakkaPinyinToBpm = (function() {
-    // 聲母對應表 (直接定義物件，易於閱讀與維護)
-    const consonantMap = {
-        "bb": "万", "ng": "兀", "rh": "ㄖ", "r": "ㄖ", "zh": "ㄓ", 
-        "ch": "ㄔ", "sh": "ㄕ", "b": "ㄅ", "p": "ㄆ", "m": "ㄇ", 
-        "f": "ㄈ", "d": "ㄉ", "t": "ㄊ", "n": "ㄋ", "l": "ㄌ", 
-        "g": "ㄍ", "k": "ㄎ", "h": "ㄏ", "j": "ㄐ", "q": "ㄑ", 
-        "x": "ㄒ", "z": "ㄗ", "c": "ㄘ", "s": "ㄙ", "v": "万"
-    };
-
-    // 韻母對應表
-    // 特別注意：ii 對應空字串，但在處理時會暫時標記，以利聲母識別
-    const vowelMap = {
-        "iang": "ㄧㄤ", "iong": "ㄧㄛㄥ", "iung": "ㄧㄨㄥ", "uang": "ㄨㄤ", "ang": "ㄤ", 
-        "iag": "ㄧㄚㄍ", "ied": "ㄧㄝㄉ", "ien": "ㄧㄝㄣ", "ong": "ㄛㄥ", "ung": "ㄨㄥ", 
-        "iid": "ㄉ", "iim": "ㄇ", "iin": "ㄣ", "iab": "ㄧㄚㄅ", "iam": "ㄧㄚㄇ", "iau": "ㄧㄠ", 
-        "iog": "ㄧㄛㄍ", "ieb": "ㄧㄝㄅ", "iem": "ㄧㄝㄇ", "ieu": "ㄧㄝㄨ", "iug": "ㄧㄨㄍ", 
-        "iun": "ㄧㄨㄣ", "uad": "ㄨㄚㄉ", "uai": "ㄨㄞ", "uan": "ㄨㄢ", "ued": "ㄨㄝㄉ", 
-        "uen": "ㄨㄝㄣ", "iui": "ㄧㄨㄧ", "ioi": "ㄧㄛㄧ", "iud": "ㄧㄨㄉ", "ion": "ㄧㄛㄣ", 
-        "iib": "ㄅ", "ab": "ㄚㄅ", "ad": "ㄚㄉ", "ag": "ㄚㄍ", "ai": "ㄞ", "am": "ㄚㄇ", 
-        "an": "ㄢ", "au": "ㄠ", "ed": "ㄝㄉ", "en": "ㄝㄣ", "eu": "ㄝㄨ", "er": "ㄜ", 
-        "id": "ㄧㄉ", "in": "ㄧㄣ", "iu": "ㄧㄨ", "od": "ㄛㄉ", "og": "ㄛㄍ", "oi": "ㄛㄧ", 
-        "ud": "ㄨㄉ", "ug": "ㄨㄍ", "un": "ㄨㄣ", "em": "ㄝㄇ", "ii": "\u200B", // 使用零寬空格作為標記
-        "on": "ㄛㄣ", "ui": "ㄨㄧ", "eb": "ㄝㄅ", "io": "ㄧㄛ", "ia": "ㄧㄚ", "ib": "ㄧㄅ", 
-        "ie": "ㄧㄝ", "im": "ㄧㄇ", "ua": "ㄨㄚ", "ng": "ㄥ", "a": "ㄚ", "e": "ㄝ", 
-        "i": "ㄧ", "o": "ㄛ", "u": "ㄨ", "inn": "ㆳ", "uannd": "ㄨㆩㄉ", "ann": "ㆩ", 
-        "ainn": "ㆮ", "uainn": "ㄨㆮ", "ee": "乜", "eem": "乜ㄇ", "m": "ㄇ"
-    };
+    const consonantData = `bb	万_ng	兀_rh	ㄖ_r	ㄖ_zh	ㄓ_ch	ㄔ_sh	ㄕ_b	ㄅ_p	ㄆ_m	ㄇ_f	ㄈ_d	ㄉ_t	ㄊ_n	ㄋ_l	ㄌ_g	ㄍ_k	ㄎ_h	ㄏ_j	ㄐ_q	ㄑ_x	ㄒ_z	ㄗ_c	ㄘ_s	ㄙ_v	万_r	ㄖ`;
+    const vowelData = `iang	ㄧㄤ_iong	ㄧㄛㄥ_iung	ㄧㄨㄥ_uang	ㄨㄤ_ang	ㄤ_iag	ㄧㄚㄍ_ied	ㄧㄝㄉ_ien	ㄧㄝㄣ_ong	ㄛㄥ_ung	ㄨㄥ_iid	ㄉ_iim	ㄇ_iin	ㄣ_iab	ㄧㄚㄅ_iam	ㄧㄚㄇ_iau	ㄧㄠ_iog	ㄧㄛㄍ_ieb	ㄧㄝㄅ_iem	ㄧㄝㄇ_ieu	ㄧㄝㄨ_iug	ㄧㄨㄍ_iun	ㄧㄨㄣ_uad	ㄨㄚㄉ_uai	ㄨㄞ_uan	ㄨㄢ_ued	ㄨㄝㄉ_uen	ㄨㄝㄣ_iui	ㄧㄨㄧ_ioi	ㄧㄛㄧ_iud	ㄧㄨㄉ_ion	ㄧㄛㄣ_iib	ㄅ_ab	ㄚㄅ_ad	ㄚㄉ_ag	ㄚㄍ_ai	ㄞ_am	ㄚㄇ_an	ㄢ_au	ㄠ_ed	ㄝㄉ_en	ㄝㄣ_eu	ㄝㄨ_er	ㄜ_id	ㄧㄉ_in	ㄧㄣ_iu	ㄧㄨ_od	ㄛㄉ_og	ㄛㄍ_oi	ㄛㄧ_ud	ㄨㄉ_ug	ㄨㄍ_un	ㄨㄣ_em	ㄝㄇ_ii	_on	ㄛㄣ_ui	ㄨㄧ_eb	ㄝㄅ_io	ㄧㄛ_ia	ㄧㄚ_ib	ㄧㄅ_ie	ㄧㄝ_im	ㄧㄇ_ua	ㄨㄚ_ng	ㄥ_a	ㄚ_e	ㄝ_i	ㄧ_o	ㄛ_u	ㄨ_inn	ㆳ_uannd	ㄨㆩㄉ_ann	ㆩ_ainn	ㆮ_uainn	ㄨㆮ_ee	乜_eem	乜ㄇ_m	ㄇ`;
 
     // 聲調對應表
-    const toneMap = {
-        "f": "⁺", "v": "ˇ", "z": "ˊ", "s": "ˋ", "x": "ˆ"
-    };
+    const toneData = `f	⁺_v	ˇ_z	ˊ_s	ˋ_x	ˆ`;
 
-    // 預編譯正則表達式
-    const vowelKeys = Object.keys(vowelMap).sort((a, b) => b.length - a.length);
-    const consonantKeys = Object.keys(consonantMap).sort((a, b) => b.length - a.length);
+    // 解析資料成 Map
+    function parseData(dataString) {
+        const map = new Map();
+        dataString.trim().split('_').forEach(line => {
+            if (line.trim()) {
+                const [key, value] = line.split('\t');
+                if (key) {
+                    map.set(key.trim(), value ? value.trim() : '');
+                }
+            }
+        });
+        return map;
+    }
 
-    // 動態生成 Lookahead 字符集：包含所有轉換後韻母的第一個字元，以及我們的特殊標記 \u200B
-    // 這確保聲母轉換時，後面確實跟著已轉換的韻母
-    const validFollowChars = new Set(Object.values(vowelMap).map(v => v ? v[0] : '').filter(Boolean));
-    const lookaheadPattern = '[' + Array.from(validFollowChars).join('') + '\u200B' + ']';
+    const consonantMap = parseData(consonantData);
+    const vowelMap = parseData(vowelData);
+    const toneMap = parseData(toneData);
 
-    // 韻母匹配正則：(聲母)?(韻母)(聲調)?
-    // 使用 consonantKeys 確保聲母列表與數據一致
-    const vowelRegex = new RegExp(`\\b(${consonantKeys.join('|')})?(${vowelKeys.join('|')})([fvzsx]?)\\b`, 'gi');
+
+    // 預編譯正則表達式以提高效率
+    const vowelKeys = Array.from(vowelMap.keys()).sort((a, b) => b.length - a.length);
+    const consonantKeys = Array.from(consonantMap.keys()).sort((a, b) => b.length - a.length);
     
-    // 聲母匹配正則：聲母 + (Lookahead: 注音符號或標記)
-    const consonantRegex = new RegExp(`\\b(${consonantKeys.join('|')})(?=${lookaheadPattern})`, 'gi');
+    // 韻母匹配正則（按長度從長到短）
+    const vowelRegex = new RegExp(`\\b(zh|ch|sh|rh|bb|gg|ng|[bpmfdtnlgkhzcsjqxvr])?(${vowelKeys.join('|')})([fvzsx]?)\\b`, 'gi');
+    
+    // 聲母匹配正則
+    const consonantRegex = new RegExp(`\\b(${consonantKeys.join('|')})(?=[ㄧㄨㄚㄛㄜㄝㄞㄠㄡㄢㄣㄤㄥㄇㄋ兀ㄅㄉㄍㆮㆳㆬㆲㆰ])`, 'gi');
 
     return function(text) {
         if (!text || typeof text !== 'string') {
@@ -2504,57 +2509,50 @@ const hakkaPinyinToBpm = (function() {
         let result = text;
 
         // 第一步：轉換韻母和聲調
-        // 如果有捕捉到聲母，先保留原樣，待第二步處理
         result = result.replace(vowelRegex, (match, consonant, vowel, tone) => {
-            const zhuyin_vowel = vowelMap[vowel.toLowerCase()] || vowel;
-            const zhuyin_tone = tone ? toneMap[tone] : '';
+            const zhuyin_vowel = vowelMap.get(vowel.toLowerCase()) || vowel;
+            const zhuyin_tone = tone ? toneMap.get(tone) : '';
+
+		// 保留聲母部分，稍後處理
             const consonantPart = consonant ? consonant : '';
             return consonantPart + zhuyin_vowel + zhuyin_tone;
         });
 
         // 第二步：轉換聲母
-        // 這裡會匹配 "聲母" 後面跟著 "注音" 的情況
         result = result.replace(consonantRegex, (match, consonant) => {
-            return consonantMap[consonant.toLowerCase()] || consonant;
+            return consonantMap.get(consonant.toLowerCase()) || consonant;
         });
-
-        // 第三步：移除 ii 產生的臨時標記
-        result = result.replace(/\u200B/g, '');
 
         return result;
     };
 })();
 
-
+console.log(hakkaPinyinToBpm("ta va vi bbi"))
 // 客語注音轉拼音
 const hakkaBpmToPinyin = (function() {
-    // 注音轉拼音對應表
-    const bpmMap = {
-        "ㄧㄛㄥ": "iong", "ㄧㄨㄥ": "iung", "ㄧㄚㄍ": "iag", "ㄧㄝㄉ": "ied", "ㄧㄝㄣ": "ien", 
-        "ㄧㄚㄅ": "iab", "ㄧㄚㄇ": "iam", "ㄧㄛㄍ": "iog", "ㄧㄝㄅ": "ieb", "ㄧㄝㄇ": "iem", 
-        "ㄧㄝㄨ": "ieu", "ㄧㄨㄍ": "iug", "ㄧㄨㄣ": "iun", "ㄨㄚㄉ": "uad", "ㄨㄝㄉ": "ued", 
-        "ㄨㄝㄣ": "uen", "ㄧㄨㄧ": "iui", "ㄧㄛㄧ": "ioi", "ㄧㄨㄉ": "iud", "ㄧㄛㄣ": "ion", 
-        "ㄧㄤ": "iang", "ㄨㄤ": "uang", "ㄛㄥ": "ong", "ㄨㄥ": "ung", "ㄧㄠ": "iau", 
-        "ㄨㄞ": "uai", "ㄨㄢ": "uan", "ㄚㄅ": "ab", "ㄚㄉ": "ad", "ㄚㄍ": "ag", 
-        "ㄚㄇ": "am", "ㄝㄉ": "ed", "ㄝㄣ": "en", "ㄝㄨ": "eu", "ㄧㄉ": "id", 
-        "ㄧㄣ": "in", "ㄧㄨ": "iu", "ㄛㄉ": "od", "ㄛㄍ": "og", "ㄛㄧ": "oi", 
-        "ㄨㄉ": "ud", "ㄨㄍ": "ug", "ㄨㄣ": "un", "ㄝㄇ": "em", "ㄛㄣ": "on", 
-        "ㄝㄅ": "eb", "ㄧㄛ": "io", "ㄧㄚ": "ia", "ㄧㄅ": "ib", "ㄧㄝ": "ie", 
-        "ㄧㄇ": "im", "ㄨㄚ": "ua", "ㄨㄧ": "ui", "ㄘㄉ": "ciid", "ㄘㄇ": "ciim", 
-        "ㄘㄣ": "ciin", "ㄙㄅ": "siib", "ㄙㄉ": "siid", "ㄙㄇ": "siim", "ㄙㄣ": "siin", 
-        "ㄗㄅ": "ziib", "ㄗㄉ": "ziid", "ㄗㄇ": "ziim", "ㄗㄣ": "ziin", "ㄤ": "ang", 
-        "ㄞ": "ai", "ㄢ": "an", "ㄠ": "au", "ㄜ": "er", "ㄚ": "a", 
-        "ㄝ": "e", "ㄧ": "i", "ㄛ": "o", "ㄨ": "u", "兀": "ng", 
-        "ㄖ": "rh", "ㄓ": "zh", "ㄔ": "ch", "ㄕ": "sh", "ㄅ": "b", 
-        "ㄆ": "p", "ㄇ": "m", "ㄈ": "f", "ㄉ": "d", "ㄊ": "t", 
-        "ㄋ": "n", "ㄌ": "l", "ㄍ": "g", "ㄎ": "k", "ㄏ": "h", 
-        "ㄐ": "j", "ㄑ": "q", "ㄒ": "x", "万": "v", "ㄘ": "cii", 
-        "ㄙ": "sii", "ㄗ": "zii", "乜": "ee", "乜ㄇ": "eem", "ㄨㆮ": "uainn", 
-        "ㆮ": "ainn", "ㆩ": "ann", "ㄨㆩㄉ": "uannd", "ㆳ": "inn", "ㆲ": "ong"
-    };
+	const bpmData =`ㄧㄛㄥ	iong_ㄧㄨㄥ	iung_ㄧㄚㄍ	iag_ㄧㄝㄉ	ied_ㄧㄝㄣ	ien_ㄧㄚㄅ	iab_ㄧㄚㄇ	iam_ㄧㄛㄍ	iog_ㄧㄝㄅ	ieb_ㄧㄝㄇ	iem_ㄧㄝㄨ	ieu_ㄧㄨㄍ	iug_ㄧㄨㄣ	iun_ㄨㄚㄉ	uad_ㄨㄝㄉ	ued_ㄨㄝㄣ	uen_ㄧㄨㄧ	iui_ㄧㄛㄧ	ioi_ㄧㄨㄉ	iud_ㄧㄛㄣ	ion_ㄧㄤ	iang_ㄨㄤ	uang_ㄛㄥ	ong_ㄨㄥ	ung_ㄧㄠ	iau_ㄨㄞ	uai_ㄨㄢ	uan_ㄚㄅ	ab_ㄚㄉ	ad_ㄚㄍ	ag_ㄚㄇ	am_ㄝㄉ	ed_ㄝㄣ	en_ㄝㄨ	eu_ㄧㄉ	id_ㄧㄣ	in_ㄧㄨ	iu_ㄛㄉ	od_ㄛㄍ	og_ㄛㄧ	oi_ㄨㄉ	ud_ㄨㄍ	ug_ㄨㄣ	un_ㄝㄇ	em_ㄛㄣ	on_ㄝㄅ	eb_ㄧㄛ	io_ㄧㄚ	ia_ㄧㄅ	ib_ㄧㄝ	ie_ㄧㄇ	im_ㄨㄚ	ua_ㄨㄧ	ui_ㄘㄉ	ciid_ㄘㄇ	ciim_ㄘㄣ	ciin_ㄙㄅ	siib_ㄙㄉ	siid_ㄙㄇ	siim_ㄙㄣ	siin_ㄗㄅ	ziib_ㄗㄉ	ziid_ㄗㄇ	ziim_ㄗㄣ	ziin_ㄤ	ang_ㄞ	ai_ㄢ	an_ㄠ	au_ㄜ	er_ㄚ	a_ㄝ	e_ㄧ	i_ㄛ	o_ㄨ	u_兀	ng_ㄖ	rh_ㄓ	zh_ㄔ	ch_ㄕ	sh_ㄅ	b_ㄆ	p_ㄇ	m_ㄈ	f_ㄉ	d_ㄊ	t_ㄋ	n_ㄌ	l_ㄍ	g_ㄎ	k_ㄏ	h_ㄐ	j_ㄑ	q_ㄒ	x_万	v_ㄘ	cii_ㄙ	sii_ㄗ	zii_乜	ee_乜ㄇ	eem_ㄨㆮ	uainn_ㆮ	ainn_ㆩ	ann_ㄨㆩㄉ	uannd_ㆳ	inn_ㆲ	ong`;
 
-    // 預編譯正則表達式 (按長度排序，確保最長匹配優先)
-    const bpmKeys = Object.keys(bpmMap).sort((a, b) => b.length - a.length);
+    
+    // 解析資料成 Map
+    function parseData(dataString) {
+        const map = new Map();
+        dataString.trim().split('_').forEach(line => {
+            if (line.trim()) {
+                const [key, value] = line.split('\t');
+                if (key !== undefined) {
+                    map.set(key ? key.trim() : '', value ? value.trim() : '');
+                }
+            }
+        });
+        return map;
+    }
+    
+    const bpmMap = parseData(bpmData);
+    
+    // 預編譯正則表達式以提高效率
+    const bpmKeys = Array.from(bpmMap.keys()).sort((a, b) => b.length - a.length);
+    
+    // 注音轉拼音正則
     const zhuyinRegex = new RegExp(`(${bpmKeys.join('|')})`, 'g');
     
     return function(text) {
@@ -2562,8 +2560,9 @@ const hakkaBpmToPinyin = (function() {
             return '';
         }
         
+        // 轉換注音為拼音
         return text.replace(zhuyinRegex, (match, bpm) => {
-            return bpmMap[bpm] || bpm;
+            return bpmMap.get(bpm) || bpm;
         });
     };
 })();
@@ -2573,686 +2572,27 @@ const hakkaBpmToPinyin = (function() {
 
 
 
-const [bpmBigToSmall, bpmSmallToBig] = (function() {
-    const rawData = [
-        "ㄅ","","ㄆ","","ㄇ","","ㄈ","","ㄉ","","ㄊ","","ㄋ","","ㄌ","",
-        "ㄍ","","ㄎ","","ㄏ","","ㄐ","","ㄑ","","ㄒ","","ㄓ","","ㄔ","",
-        "ㄕ","","ㄖ","","ㄗ","","ㄘ","","ㄙ","","ㄧ","","ㄨ","","ㄩ","",
-        "ㄚ","","ㄛ","","ㄜ","","ㄝ","","ㄞ","","ㄟ","","ㄠ","","ㄡ","",
-        "ㄢ","","ㄣ","","ㄤ","","ㄥ","","ㄦ","","ㄪ","","ㄫ","","ㄬ","",
-        "ㆠ","","ㆣ","","ㆢ","","ㆡ","","ㆳ","","ㆫ","","ㆩ","","ㆦ","",
-        "ㆧ","","ㆤ","","ㆥ","","ㆮ","","ㆯ","","ㆬ","","ㆰ","","ㆱ","",
-        "ㆲ","","ㆭ","","勺","","廿","","工","","万","","兀",""
-    ];
-
-    const b2s = new Map();
-    const s2b = new Map();
-
-    // 建構映射表
-    for (let i = 0; i < rawData.length; i += 2) {
-        const big = rawData[i];
-        const small = rawData[i + 1];
-        if (!b2s.has(big)) {
-            b2s.set(big, small);
-        }
-        s2b.set(small, big);
-    }
-
-    // 轉換函數：大 -> 小
-    function toSmall(text) {
-        if (!text) return "";
-        let result = "";
-        for (const char of text) {
-            result += b2s.get(char) || char;
-        }
-        return result;
-    }
-
-    // 轉換函數：小 -> 大
-    function toBig(text) {
-        if (!text) return "";
-        let result = "";
-        for (const char of text) {
-            result += s2b.get(char) || char;
-        }
-        return result;
-    }
-
-    return [toSmall, toBig];
-})();
-
-
-
-const [kasuPinyinToBpmSmall, kasuBpmSmallToPinyin] = (function() {
-
-    const rawData = [
-        // === 1. 程式邏輯專用的特殊映射 ===
-        "__o", "",         // 特殊 o (用於 m/n/ng 後)
-        "__ng_intro", "",  // 特殊 ng (聲母專用)
-        
-        // === 2. 補全資料 ===
-        "ing", "", 
-        "ng", "",  
-
-        // === 3. 原有資料 (移除 ngo，交由邏輯處理) ===
-        "uannd","","iaunn","","uainn","","ainn","","aunn","","iann","","iang","","iong","","iong","","iung","","uang","",
-        "eeu","","een","","eem","","eed","","eeb","","ann","","inn","","enn","","onn","",
-        "ang","","iag","","ied","","ien","","ong","","ong","","ung","",
-        "iid","","iim","","iin","","iab","","iam","","iam","","iau","","iog","",
-        "ieb","","iem","","ieu","","iug","","iun","","uad","","ien","",
-        "uai","","uan","","ued","","uen","","iui","","ioi","",
-        "iud","","ion","","iib",
-        "no","","","ab","","ad","","ag","","ai","",
-        "am","","am","","an","","au","","ed","","en","","eu","","ee","","oo","",
-        "er","","id","","in","","iu","","io","","ob","","od","","og","","oi","","ud","",
-        "ug","","un","","om","","om","","em","","ii","","on","","ui","","eb","","io","",
-        "ia","","ib","","ie","","im","","ua","","bb","","a","","e","",
-        "i","","o","","u","","rh","","r","","zh","","ch","","sh","",
-        "b","","p","","m","","f","","d","","t","","n","","l","","g","",
-        "k","","h","","j","","q","","x","","z","","c","","s","","v",""
-    ];
-
-    const p2s = new Map();
-    const s2p = new Map();
-
-    for (let i = 0; i < rawData.length; i += 2) {
-        const pinyin = rawData[i];
-        const small = rawData[i + 1];
-        p2s.set(pinyin, small);
-        if (small) s2p.set(small, pinyin);
-    }
-
-    // === 4. 優先權與反查設定 ===
-    s2p.set("", "oo");
-    s2p.set("", "rh");
-	s2p.set("", "bb");
-    s2p.set("", "z");
-    s2p.set("", "c");
-    s2p.set("", "s");
-    
-    // 【反查修正】
-    //  (聲母) 顯示為 ng
-    //  (韻母) 顯示為 ng
-    //  (ngo) 顯示為 ngo
-    s2p.set("", "ng"); 
-    s2p.set("", "ng");
-    s2p.set("", "ngo");
-    s2p.delete(""); 
-
-    const pKeys = Array.from(p2s.keys()).sort((a, b) => b.length - a.length);
-    const sKeys = Array.from(s2p.keys()).sort((a, b) => b.length - a.length);
-    const pRegex = new RegExp(pKeys.join('|'), 'g');
-    const sRegex = new RegExp(sKeys.join('|'), 'g');
-
-    // 拼音 -> 小注音
-    function toSmall(text) {
-        if (!text) return "";
-
-        // 步驟 1: 處理 z/c/s 接 i
-        let processed = text.replace(/([zcs])(?=i)/g, (match) => {
-            if (match === 'z') return 'j';
-            if (match === 'c') return 'q';
-            if (match === 's') return 'x';
-            return match;
-        });
-
-        // 步驟 2: 處理 m/n/ng 接 o (o 轉為 __o)
-        // 這會讓 ngo 變成 ng__o
-        processed = processed.replace(/(ng|m|n)(i?o)(?![ngdib])/g, (match, p1, p2) => {
-            return p1 + p2.replace('o', '__o');
-        });
-
-        // 步驟 3: 【核心修正】處理 ng 的聲母/韻母歧義
-        // 規則：
-        // 1. 如果 ng 後面接了字母或底線 (代表後面有韻母，例如 nga, ng__o) -> 視為聲母 ()
-        // 2. 但如果 ng 前面是母音 (a,e,i,o,u) -> 代表它是 ang, ong, ing 的一部分 -> 保持不變 ()
-        // 3. 這裡使用 regex capturing group ($1) 來檢查前面是否有母音
-        processed = processed.replace(/([aeiou])?ng(?=[a-zA-Z_])/g, (match, p1) => {
-            if (p1) return match; // 捕捉到前面有母音 (如 ang)，保持原樣，交給後續 pRegex 處理
-            return "__ng_intro";  // 前面無母音且後面有字 (如 nga)，改為聲母代碼
-        });
-
-        // 步驟 4: 標準查表
-        // 這裡會處理:
-        // __ng_intro -> 
-        // __o -> 
-        // ang ->  (因為 ang 長度優先)
-        // ng ->  (沒被上面規則抓到的單獨 ng)
-        return processed.replace(pRegex, (match) => p2s.get(match));
-    }
-
-    // 小注音 -> 拼音
-    function toPinyin(text) {
-        if (!text) return "";
-        return text.replace(sRegex, (match) => s2p.get(match));
-    }
-
-    return [toSmall, toPinyin];
-})();
-
-
-
-
-
-/**
- * 小注音與迷你注音的雙向轉換
- */
-
-// ==========================================
-// 1. 規則數據定義 (Data Definitions)
-// ==========================================
-
-const bpmRules = {
-    // Group 3-2: Base(1) + ComplexFinal(3) + Tone(1)
-    "S3_2": [
-        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
-        ["", "", "", "", "", "", "", "", ""],
-        ["ˊ", "ˇ", "ˋ", "ˆ", "⁺"]
-    ],
-    "M3_2": [
-        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
-        ["", "", "", "", "", "", "", "", ""],
-        ["", "", "", "", ""]
-    ],
-
-    // Group 3-1: Base(1) + Medial(1) + Final(1 or 2) + Filler(1) + Tone(1)
-    "S3_1": [
-        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
-        ["", "", "", "", "", ""],
-        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
-        ["", "", "", ""],
-        ["ˊ", "ˇ", "ˋ", "ˆ", "⁺"]
-    ],
-    "M3_1": [
-        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
-        ["", "", "", "", "", ""],
-        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
-        ["", "", "", ""],
-        ["", "", "", "", ""]
-    ],
-
-    // Group 2: Base(1) + Final(1 or 2) + Filler(1) + Tone(1)
-    "S2": [
-        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
-        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
-        ["", "", "", ""],
-        ["ˊ", "ˇ", "ˋ", "ˆ", "⁺"]
-    ],
-    "M2": [
-        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
-        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
-        ["", "", "", ""],
-        ["", "", "", "", ""]
-    ],
-
-    // Group 1: Base(1) + Medial(1) + Tone(1)
-    "S1": [
-        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
-        ["", "", "", ""],
-        ["ˊ", "ˇ", "ˋ", "ˆ", "⁺"]
-    ],
-    "M1": [
-        ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
-        ["", "", "", ""],
-        ["", "", "", "", ""]
-    ]
-};
-
-const miniToSmallMap = {
-    "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "",
-    "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "ˊ", "": "ˇ", "": "ˋ", "": "ˆ", "": "⁺",
-    "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "",
-    "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "",
-    "": "", "": "", "": "", "": "", "": "ˊ", "": "ˇ", "": "ˋ", "": "ˆ", "": "⁺",
-    "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "",
-    "": "", "": "", "": "",
-    "": "", "": "", "": "", "": "", "": "", "": "",
-    "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "",
-    "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "", "": "",
-    "": "", "": "", "": "", "": "",
-    "": "ˊ", "": "ˇ", "": "ˋ", "": "ˆ", "": "⁺"
-};
-
-
-
-// ==========================================
-// 2. 轉換函數 (Conversion Functions)
-// ==========================================
-
-/**
- * 輔助函數：在列表中尋找最長的匹配字串
- */
-const findBestMatch = (text, startIdx, candidateList) => {
-    const MAX_LEN = 3;
-    for (let len = MAX_LEN; len >= 1; len--) {
-        if (startIdx + len > text.length) continue;
-        let sub = text.substr(startIdx, len);
-        let idx = candidateList.indexOf(sub);
-        if (idx !== -1) {
-            return { index: idx, length: len, match: sub };
-        }
-    }
-    return null;
-};
-
-/**
- * 迷你注音 轉為 小注音
- */
-const bpmTinyToSmall = (text) => {
-    const sortedKeys = Object.keys(miniToSmallMap).sort((a, b) => b.length - a.length);
-    let result = "";
-    let i = 0;
-    const len = text.length;
-
-    while (i < len) {
-        let matched = false;
-        for (const key of sortedKeys) {
-            if (text.substr(i, key.length) === key) {
-                result += miniToSmallMap[key];
-                i += key.length;
-                matched = true;
-                break;
-            }
-        }
-        if (!matched) {
-            result += text[i];
-            i++;
-        }
-    }
-    return result;
-};
-
-/**
- * 小注音 轉為 迷你注音
- */
-const bpmSmallToTiny = (text) => {
-    let result = "";
-    let i = 0;
-    const len = text.length;
-    const findIdx = (char, list) => list.indexOf(char);
-
-    while (i < len) {
-        let c1 = text[i];
-
-        // --- Priority 0: bpmRulesExceptions (Special Combinations) ---
-
-
-        // --- Priority 1: Group 3-2 (Base + Complex Final) ---
-        if (i + 4 <= len) { 
-            let s2 = text.substr(i + 1, 3);
-            let idx1 = findIdx(c1, bpmRules.S3_2[0]);
-            let idx2 = findIdx(s2, bpmRules.S3_2[1]);
-
-            if (idx1 !== -1 && idx2 !== -1) {
-                let out = bpmRules.M3_2[0][idx1] + bpmRules.M3_2[1][idx2];
-                let consumed = 4;
-                if (i + 4 < len) {
-                    let idx3 = findIdx(text[i + 4], bpmRules.S3_2[2]);
-                    if (idx3 !== -1) {
-                        out += bpmRules.M3_2[2][idx3];
-                        consumed = 5;
-                    }
-                }
-                result += out;
-                i += consumed;
-                continue;
-            }
-        }
-
-        // --- Candidate Competition (S3_1 vs S2 vs S1) ---
-        let candidates = [];
-
-        // A. Check S3_1 (Base + Medial + Final)
-        if (i + 2 <= len) {
-            let idx1 = findIdx(c1, bpmRules.S3_1[0]);
-            if (idx1 !== -1) {
-                let c2 = text[i+1];
-                let idx2 = findIdx(c2, bpmRules.S3_1[1]);
-                if (idx2 !== -1) {
-                    let finalMatch = findBestMatch(text, i+2, bpmRules.S3_1[2]);
-                    if (finalMatch) {
-                        candidates.push({
-                            type: 'S3_1',
-                            coreLen: 2 + finalMatch.length,
-                            data: { idx1, idx2, idx3: finalMatch.index }
-                        });
-                    }
-                }
-            }
-        }
-
-        // B. Check S2 (Base + Final)
-        if (i + 1 <= len) {
-            let idx1 = findIdx(c1, bpmRules.S2[0]);
-            if (idx1 !== -1) {
-                let finalMatch = findBestMatch(text, i+1, bpmRules.S2[1]);
-                if (finalMatch) {
-                    candidates.push({
-                        type: 'S2',
-                        coreLen: 1 + finalMatch.length,
-                        data: { idx1, idx2: finalMatch.index }
-                    });
-                }
-            }
-        }
-
-        // C. Check S1 Multi (Ligature Base)
-        let s1Match = findBestMatch(text, i, bpmRules.S1[0]);
-        if (s1Match && s1Match.length > 1) {
-            candidates.push({
-                type: 'S1',
-                coreLen: s1Match.length,
-                data: { idx1: s1Match.index }
-            });
-        }
-
-        // D. Select Best Candidate
-        if (candidates.length > 0) {
-            // Sort by Core Length DESC, then Priority (S1 > S2 > S3_1)
-            candidates.sort((a, b) => {
-                if (b.coreLen !== a.coreLen) return b.coreLen - a.coreLen;
-                const p = { 'S1': 3, 'S2': 2, 'S3_1': 1 };
-                return p[b.type] - p[a.type];
-            });
-            
-            let best = candidates[0];
-            let out = "";
-            let consumed = best.coreLen;
-            
-            if (best.type === 'S3_1') {
-                out = bpmRules.M3_1[0][best.data.idx1] + bpmRules.M3_1[1][best.data.idx2] + bpmRules.M3_1[2][best.data.idx3];
-                if (i + consumed < len) { // Filler
-                    let idx = findIdx(text[i + consumed], bpmRules.S3_1[3]);
-                    if (idx !== -1) { out += bpmRules.M3_1[3][idx]; consumed++; }
-                }
-                if (i + consumed < len) { // Tone
-                    let idx = findIdx(text[i + consumed], bpmRules.S3_1[4]);
-                    if (idx !== -1) { out += bpmRules.M3_1[4][idx]; consumed++; }
-                }
-            } else if (best.type === 'S2') {
-                out = bpmRules.M2[0][best.data.idx1] + bpmRules.M2[1][best.data.idx2];
-                if (i + consumed < len) { // Filler
-                    let idx = findIdx(text[i + consumed], bpmRules.S2[2]);
-                    if (idx !== -1) { out += bpmRules.M2[2][idx]; consumed++; }
-                }
-                if (i + consumed < len) { // Tone
-                    let idx = findIdx(text[i + consumed], bpmRules.S2[3]);
-                    if (idx !== -1) { out += bpmRules.M2[3][idx]; consumed++; }
-                }
-            } else if (best.type === 'S1') {
-                out = bpmRules.M1[0][best.data.idx1];
-                if (i + consumed < len) { // Filler
-                    let idx = findIdx(text[i + consumed], bpmRules.S1[1]);
-                    if (idx !== -1) { out += bpmRules.M1[1][idx]; consumed++; }
-                }
-                if (i + consumed < len) { // Tone
-                    let idx = findIdx(text[i + consumed], bpmRules.S1[2]);
-                    if (idx !== -1) { out += bpmRules.M1[2][idx]; consumed++; }
-                }
-            }
-            
-            result += out;
-            i += consumed;
-            continue;
-        }
-
-        // --- Priority 4: Group 1 (Single Char Base) ---
-        let idx1 = findIdx(c1, bpmRules.S1[0]);
-        if (idx1 !== -1) {
-            let out = bpmRules.M1[0][idx1];
-            let consumed = 1;
-
-            if (i + consumed < len) {
-                let idx2 = findIdx(text[i + consumed], bpmRules.S1[1]);
-                if (idx2 !== -1) { out += bpmRules.M1[1][idx2]; consumed++; }
-            }
-            if (i + consumed < len) {
-                let idx3 = findIdx(text[i + consumed], bpmRules.S1[2]);
-                if (idx3 !== -1) { out += bpmRules.M1[2][idx3]; consumed++; }
-            }
-            
-            result += out;
-            i += consumed;
-            continue;
-        }
-
-        // No Match Found
-        result += c1;
-        i++;
-    }
-    return result;
-};
-
-
 //-----------------------------------//
 
-// ==========================================
-// 詔安客語拼音 <-> 國際音標 (IPA) 轉換功能
-// ==========================================
-
-// 1. 聲調與數字對照表 (獨立定義，用於特殊處理)
-const hakkaIpaToneData = [
-    ["11", "¹¹"], ["55", "⁵⁵"], ["53", "⁵³"], ["24", "²⁴"], 
-    ["31", "³¹"], ["43", "⁴³"], ["5", "⁵"], ["3", "³"],
-    ["0", "⁰"], ["1", "¹"], ["2", "²"], ["4", "⁴"], 
-    ["6", "⁶"], ["7", "⁷"], ["8", "⁸"], ["9", "⁹"]
-];
-
-// 2. 主對照表 (僅包含拼音與 IPA 符號，不含數字)
-// 格式：[拼音, IPA]
-const hakkaIpaMasterData = [
-    // === 特殊韻母 & 複合韻母 ===
-    ["iaunn", "iãu"], ["uainn", "uãi"], 
-    ["iang", "iaŋ"], ["uang", "uaŋ"], ["iung", "iuŋ"], ["iong", "iɔŋ"], 
-    ["ainn", "ãi"], ["uai", "uãi"], ["eeu", "ɛu"], ["iau", "iau"],
-    ["iam", "iam"], ["uan", "uan"], ["ien", "ien"], ["uen", "uen"], 
-    ["ang", "aŋ"], ["ing", "iŋ"], ["ung", "uŋ"], ["ong", "ɔŋ"], 
-    ["ann", "ã"], ["inn", "ĩ"], ["enn", "ẽ"], 
-    ["iab", "iap"], ["eeb", "ɛp"], ["ied", "iet"], ["uad", "uat"],
-    ["eed", "ɛt"], ["uag", "uak"], ["iag", "iak"], 
-    
-    // === 聲母 (Digraphs) ===
-    ["zh", "ʧ"], ["ch", "ʧʰ"], ["sh", "ʃ"], ["rh", "ʒ"], 
-    ["bb", "b"], ["ng", "ŋ"],
-    
-    // === 母音 ===
-    ["oo", "o"], ["ee", "ɛ"], ["ii", "ɨ"], ["er", "ɤ"],
-    ["ai", "ai"], ["au", "au"], ["io", "io"], ["iu", "iu"], ["ue", "ue"],
-    ["ia", "ia"], ["ua", "ua"], ["oi", "ɔi"], ["ui", "ui"], ["eu", "eu"],
-    
-    // === 韻尾組合 ===
-    ["am", "am"], ["im", "im"], ["em", "em"], ["an", "an"], ["iim", "ɨm"],
-    ["in", "in"], ["en", "en"], ["on", "ɔn"],  ["un", "un"], ["iin", "ɨn"],
-    ["ab", "ap"], ["ib", "ip"], ["eb", "ep"], ["ob", "ɔp"], ["iib", "ɨp"],
-    ["ad", "at"], ["id", "it"], ["ud", "ut"], ["ed", "et"], ["od", "ɔt"], ["iid", "ɨt"],
-    ["ag", "ak"], ["ig", "ik"], ["ug", "uk"], ["eg", "ek"], ["og", "ɔk"], 
-    
-    // === 單聲母 ===
-    ["b", "p"], ["p", "pʰ"], ["m", "m"], ["f", "f"], ["d", "t"],
-    ["t", "tʰ"], ["n", "n"], ["l", "l"], ["g", "k"], ["k", "kʰ"],
-    ["h", "h"], ["z", "ʦ"], ["c", "ʦʰ"], ["s", "s"], ["v", "v"],
-    ["j", "ʨ"], ["q", "ʨʰ"], ["x", "ɕ"], 
-    
-    // === 單母音 ===
-    ["a", "a"], ["i", "i"], ["u", "u"], ["e", "e"], ["o", "ɔ"]
-];
-
-// 3. 初始化轉換引擎
-const { pinyinToIpaRegex, pinyinToIpaMap, ipaToPinyinRegex, ipaToPinyinMap, numberToSuperMap } = (function() {
-    const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-    // Pinyin -> IPA (僅包含主表，不含數字)
-    // 這樣 "123" 在此階段不會被轉換，只有文字會被轉換
-    const p2iList = [...hakkaIpaMasterData].sort((a, b) => b[0].length - a[0].length);
-    
-    // IPA -> Pinyin (主表 + 數字表)
-    // 這樣 "¹²³" 可以轉回 "123"
-    const i2pList = [...hakkaIpaMasterData, ...hakkaIpaToneData]
-        .map(([k, v]) => [v, k])
-        .sort((a, b) => b[0].length - a[0].length);
-
-    // 數字轉上標 Map (用於後處理)
-    const numMap = new Map(hakkaIpaToneData);
-
-    return {
-        pinyinToIpaRegex: new RegExp(p2iList.map(x => escapeRegExp(x[0])).join('|'), 'g'),
-        pinyinToIpaMap: new Map(p2iList),
-        ipaToPinyinRegex: new RegExp(i2pList.map(x => escapeRegExp(x[0])).join('|'), 'g'),
-        ipaToPinyinMap: new Map(i2pList),
-        numberToSuperMap: numMap
-    };
-})();
-
-// 4. 輔助函數：數字轉上標 (僅轉換緊接在 IPA 字符後的數字)
-function convertNumbersToSuperscript(text) {
-    // 正則：匹配前面的字符是否為有效的 IPA/拉丁字符或組合符號
-    // [a-z]: 基本拉丁字母
-    // \u00C0-\u02FF: 包含拉丁補充、IPA 擴展 (如 ɛ, ɔ, ɨ, ɤ, ŋ, ʰ)
-    // \u0300-\u036F: 組合變音符號 (如成節鼻音的下方豎線 ̩ )
-    const validPredecessor = /[a-z\u00C0-\u02FF\u0300-\u036F]/i;
-    
-    return text.replace(/([0-9]+)/g, (match, number, offset) => {
-        // 檢查數字的前一個字符
-        if (offset > 0 && validPredecessor.test(text[offset - 1])) {
-            // 是 IPA 字符接續的數字 -> 進行轉換
-            let converted = "";
-            for (let char of number) {
-                converted += numberToSuperMap.get(char) || char;
-            }
-            return converted;
-        }
-        // 前面是空白、標點或其他符號 -> 保持原樣 (如 "123" 或 "No.1")
-        return match;
-    });
-}
-
-// 5. 客語拼音轉國際音標 (底層函數)
-function hakkaPinyinIpa(t) {
-    if (!t) return "";
-    
-    // 處理成節鼻音 (在數字調轉換後，IPA 替換前)
-    // 這裡同樣只在後面跟著數字時才轉換，避免誤判
-    t = t.replace(/\bng(?=[0-9])/gi, 'ŋ̍');
-    t = t.replace(/\bm(?=[0-9])/gi, 'm̩');
-    t = t.replace(/\bn(?=[0-9])/gi, 'n̩');
-
-    // 執行主要替換 (文字部分)
-    t = t.replace(pinyinToIpaRegex, (match) => pinyinToIpaMap.get(match) || match);
-    
-    // 執行數字上標轉換 (僅當緊接在 IPA 字符後)
-    t = convertNumbersToSuperscript(t);
-    
-    return t;
-}
-
-// 6. 國際音標轉客語拼音 (底層函數)
-function hakkaIpaPinyin(t) {
-    if (!t) return "";
-
-    // 還原成節鼻音
-    t = t.replace(/ŋ̍/g, 'ng');
-    t = t.replace(/m̩/g, 'm');
-    t = t.replace(/n̩/g, 'n');
-
-    // 執行替換 (包含文字與上標數字還原)
-    t = t.replace(ipaToPinyinRegex, (match) => ipaToPinyinMap.get(match) || match);    
-
-    // 將數字調轉回聲調符號
-    return kasuNumbersToTone(t);
-}
-
-// 7. 詔安拼音轉國際音標 (公開接口)
-function kasuPinyinIpa(t) {
-    // 預處理：統一轉為字尾調
-    if (regexLetter.test(t)) { t = hakkaLetterZvs(t); }
-    if (regexTone.test(t)) { t = hakkaToneToZvs(t); }
-    // 轉為數字調 (此時文字仍為拼音)
-    t = kasuToneToNumbers(t);
-    // 轉為 IPA
-	t = hakkaPinyinIpa(t)
-	return t;
-}
-
-// 8. 國際音標轉詔安拼音 (公開接口)
-function kasuIpaPinyin(t) {
-    t = hakkaIpaPinyin(t) 
-    return kasuNumbersToTone(t);
-}
-
-// 9. 其他腔調的 IPA 支援 (沿用相同邏輯)
-function sixianPinyinIpa(t) {
-    if (regexLetter.test(t)) { t = hakkaLetterZvs(t); }
-    if (regexTone.test(t)) { t = hakkaToneToZvs(t); }
-    t = sixianToneToNumbers(t);
-	t = hakkaPinyinIpa(t)
-	return t;
-}
-function sixianIpaPinyin(t) {
-    t = hakkaIpaPinyin(t) 
-    return sixianNumbersToTone(t);
-}
-
-function hailuPinyinIpa(t) {
-    if (regexLetter.test(t)) { t = hakkaLetterZvs(t); }
-    if (regexTone.test(t)) { t = hakkaToneToZvs(t); }
-    t = hailuToneToNumbers(t);
-	t = hakkaPinyinIpa(t)
-	return t;
-}
-function hailuIpaPinyin(t) {
-    t = hakkaIpaPinyin(t) 
-    return hailuNumbersToTone(t);
-}
-
-function dapuPinyinIpa(t) {
-    if (regexLetter.test(t)) { t = hakkaLetterZvs(t); }
-    if (regexTone.test(t)) { t = hakkaToneToZvs(t); }
-    t = dapuToneToNumbers(t);
-	t = hakkaPinyinIpa(t)
-	return t;
-}
-function dapuIpaPinyin(t) {
-    t = hakkaIpaPinyin(t) 
-    return dapuNumbersToTone(t);
-}
-
-function raopingPinyinIpa(t) {
-    if (regexLetter.test(t)) { t = hakkaLetterZvs(t); }
-    if (regexTone.test(t)) { t = hakkaToneToZvs(t); }
-    t = raopingToneToNumbers(t);
-	t = hakkaPinyinIpa(t)
-	return t;
-}
-function raopingIpaPinyin(t) {
-    t = hakkaIpaPinyin(t) 
-    return raopingNumbersToTone(t);
-}
 
 
-
-//-----------------------------------//
 
 	
 	
 // 客語拼音轉注音
 function hakkaPinyinBpm(t){ 
+	console.log(t)
 	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }
+	console.log(t)
+	if (regexTone.test(t)) {t = hakkaToneToZvs(t) }	
+	console.log(t)
 		t = hakkaPinyinToBpm(t)
-	return t;
-}
-
-// 客語拼音轉小注音
-function hakkaPinyinBpmSmall(t){ 
-	if (regexBpmBig.test(t)) {t = bpmBigToSmall(t) }	
-	t = hakkaPinyinBpm(t);
-	t = bpmBigToSmall(t);
+		console.log(t)
 	return t;
 }
 
 // 客語注音轉拼音字尾調
 function hakkaBpmPinyinTone(t){ 
-	if (regexBpmSmall.test(t)) {t = bpmSmallToBig(t) }
 	t = hakkaBpmToPinyin(t);
 	return hakkaToneToFX(t);	
 }
@@ -3308,8 +2648,11 @@ function hakkaToneLetter(t){
 // 四縣教羅轉客拼字尾調
 function sixianPojEduTone(t){
 	t = sixianPojVowelToEdu(t);
+	console.log(t)
 	t = sixianPojConsonantToEdu(t);
+	console.log(t)
 	t = hakkaZvsToTone(t);
+	console.log(t)
 	return t;
 }
 
@@ -3347,8 +2690,6 @@ function sixianToneNumbers(t){
 }
 // 四縣調值轉字尾調
 function sixianNumbersTone(t){ return sixianNumbersToTone(t);}
-
-
 
 
 // 海陸拼音轉變調
@@ -3427,21 +2768,6 @@ function kasuToneNumbers(t){
 // 詔安調值轉字尾調
 function kasuNumbersTone(t){ return kasuNumbersToTone(t);}
 
-function kasuNumbersZvs(t){
-	t = kasuNumbersToTone(t)
-	t = hakkaToneZvs(t);
-	return t;
-}
-
-
-
-
-
-
-
-
-
-
 
 function holoPinyinLetter(t){
 	if (regexNumber.test(t)) {t = holoNumberToTone(t) }
@@ -3511,16 +2837,8 @@ function matsuPinyinBpm(t){
 	 if (regexLetter.test(t)) {t = letterToZvs(t) }
 	 if (regexTone.test(t)) {t = matsuToneToZvs(t) }
 	 if (regexNumber.test(t)) {t = matsuNumberToZvs(t) }
-	 t = matsuPinyinToBpm(t);
-	return t;
+	return matsuPinyinToBpm(t);
 }
-
-function matsuPinyinBpmSmall(t){
-	 t = matsuPinyinBpm(t);
-	 t = bpmBigSmall(t);
-	return t;
-}
-
 
 function matsuPinyinTone(t){
 	 if (regexLetter.test(t)) {t = letterToZvs(t) }
@@ -3552,20 +2870,16 @@ function matsuPinyinZvs(t){
 }
 
 function matsuBpmPinyinTone(t){ 
-	 if (regexBpmSmall.test(t)) {t = bpmSmallToBig(t) }
 	 t = mstsuToneToFX(t);
 	return matsuBpmToPinyin(t); }
-
 function matsuBpmPinyinNumber(t){ 
-	if (regexBpmSmall.test(t)) {t = bpmSmallToBig(t) }
 	t=matsuBpmToPinyin(t);
 	t=matsuToneToNumber(t);
 	return t; 
 }
 function matsuBpmPinyinZvs(t){ 
-	if (regexBpmSmall.test(t)) {t = bpmSmallToBig(t) }
-	t = matsuBpmToPinyin(t);
-	t = matsuToneToZvs(t);
+	t=matsuBpmToPinyin(t);
+	t=matsuToneToZvs(t);
 	return t; 
 }
 
@@ -3602,14 +2916,6 @@ function matsuBpmOriginalChangeTone(t){
 	return t;
 }
 
-function matsuBpmSmallOriginalChangeTone(t){
-	t = matsuBpmPinyinZvs(t);
-	t = matsuPinyinOriginalChangeZvs(t);
-	t = matsuPinyinBpm(t);
-	if (regexBpmBig.test(t)) {t = bpmBigToSmall(t) }	
-	return t;
-}
-
 
 function matsuToneLetter(t){
 	t = matsuToneToZvs(t)
@@ -3620,65 +2926,3 @@ function matsuNumberLetter(t){
 	return zvsToLetter(t);
 }
 
-
-function bpmBigSmall(t){
-	if (regexBpmTiny.test(t)) {t = bpmTinyToSmall(t) }
-	t = bpmBigToSmall(t)
-	return t;
-}
-
-function bpmSmallBig(t){
-	t = bpmSmallToBig(t)
-	return t;
-}
-
-
-
-function bpmSmallTiny(t){
-	if (regexBpmBig.test(t)) {t = bpmBigToSmall(t) }	
-	t = bpmSmallToTiny(t)
-	return t;
-}
-
-function kasuBpmSmallPinyin(t){
-	if (regexBpmBig.test(t)) {t = bpmBigToSmall(t) }	
-	if (regexBpmTiny.test(t)) {t = bpmTinyToSmall(t) }	
-	t = kasuBpmSmallToPinyin(t)	
-	return t;
-}
-
-function kasuBpmSmallZvs(t){
-	if (regexBpmBig.test(t)) {t = bpmBigToSmall(t) }	
-	if (regexBpmTiny.test(t)) {t = bpmTinyToSmall(t) }	
-	t = kasuBpmSmallToPinyin(t)
-	t = hakkaPinyinZvs(t)
-	return t;
-}
-
-function kasuPinyinBpmSmall(t){
-	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	t = hakkaZvsToTone(t);
-	if (regexBpmBig.test(t)) {t = bpmBigToSmall(t) }
-	t = kasuPinyinToBpmSmall(t)
-	return t;
-}
-
-
-function kasuPinyinBpmTiny(t){
-	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	t = hakkaZvsToTone(t);
-	if (regexBpmBig.test(t)) {t = bpmBigToSmall(t) }
-	t = kasuPinyinToBpmSmall(t);
-    t = bpmSmallToTiny(t);
-	return t;
-}
-
-
-function hakkaPinyinBpmTiny(t){
-	if (regexLetter.test(t)) {t = hakkaLetterZvs(t) }
-	t = hakkaZvsToTone(t);
-	if (regexBpmBig.test(t)) {t = bpmBigToSmall(t) }
-	t = hakkaPinyinBpmSmall(t);
-    t = bpmSmallToTiny(t);
-	return t;
-}
