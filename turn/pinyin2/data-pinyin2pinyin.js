@@ -14,20 +14,24 @@ const regexZvs = /(?<!\w)(tsh|chh|th|ph|kh|ts|ch|zh|sh|rh|ng|bb|gg|[bpmfvdtnlgkh
 
 // 和樂字母調轉數字調
 const holoZvsToNumber = (function() {
-    // 1. 聲調對應表 (根據您的指示：s 對應 3)
+    // 1. 聲調對應表
     const toneMap = { zz: '9', z: '2', s: '3', x: '5', v: '6', f: '7', l: '8' };
     
-    // 基本拼音組成 (聲母 + 韻母) - 用於一般有母音的字
-    const basePattern = `(tsh|ph|th|kh|ts|ng|[pmtnlkhjsbg])?([aeiour]{1,3})`;    
-    
-    // 原有的正則表達式 (處理帶母音的字)
+    // 定義聲母 Pattern (抽取出來共用)
+    // 包含雙字母聲母 (tsh, ph...) 和單字母 (p, m, t...)
+    const initialPatternStr = '(tsh|ph|th|kh|ts|ng|[pmtnlkhjsbg])?';
+
+    // 2. 姆音成韻正則 (修正版：加入聲母支援)
+    // 結構：邊界 + (聲母) + (韻母 m/n/ng) + (入聲或舒聲調) + 邊界
+    const syllabicRegex = new RegExp(
+        `\\b${initialPatternStr}(ng|m|n)(?:(h)(l?)|(zz|[zsxvf]))?\\b`, 
+        'gi'
+    );
+
+    // 3. 一般帶母音的正則 (維持原樣，但使用變數組合更整潔)
+    const basePattern = `${initialPatternStr}([aeiour]{1,3})`; 
     const nasalRegex = new RegExp(`\\b${basePattern}(ng|nn|[mn]?)(zz|[zsxvf])?\\b`, 'gi');    
     const stopRegex = new RegExp(`\\b${basePattern}([ptkh])([l]?)\\b`, 'gi');
-
-    // 2. 母音成韻正則 (處理 ng, m, n 單獨成韻的情況)
-    // 邏輯：邊界 + (ng 或 m 或 n) + (入聲h + 可選l) 或 (舒聲調號) + 邊界
-    // 注意：\b 確保了 n 不會匹配到 na 的開頭
-    const syllabicRegex = /\b(ng|m|n)(?:(h)(l?)|(zz|[zsxvf]))?\b/gi;
 
     return function(text) {
         if (!text || typeof text !== 'string') {
@@ -36,36 +40,34 @@ const holoZvsToNumber = (function() {
         
         let result = text;
         
-        // --- 優先處理姆音成韻 (ngs, mh, Ns 等) ---
-        result = result.replace(syllabicRegex, (match, nucleus, stopH, stopL, toneChar) => {
-            // match: 完整字串 (如 ngs)
-            // nucleus: 韻母核心 (ng, m, n)
-            // stopH: 是否有 h
-            // stopL: 是否有 l
-            // toneChar: 舒聲調號 (s, z, x...)
-            
+        // --- 優先處理：姆音成韻 (含聲母) ---
+        // 例如: sngz, tng, mng, hngh ...
+        result = result.replace(syllabicRegex, (match, initial, nucleus, stopH, stopL, toneChar) => {
+
+            const outputInitial = initial || '';
+
             // 情況 A: 入聲 (結尾有 h)
             if (stopH) {
-                const tone = stopL ? '8' : '4'; // 有 l 為 8，無 l 為 4
-                return `${nucleus}h${tone}`;
+                const tone = stopL ? '8' : '4'; 
+                return `${outputInitial}${nucleus}h${tone}`;
             }
             
-            // 情況 B: 舒聲 (結尾有 s, z, x 等，或無標記)
-            const tone = toneMap[toneChar] || '1'; // 查表，若無標記則為 1
-            return `${nucleus}${tone}`;
+            // 情況 B: 舒聲
+            const tone = toneMap[toneChar] || '1';
+            return `${outputInitial}${nucleus}${tone}`;
         });
         
-        // --- 處理一般帶母音的字 ---
-        
-        // 處理一般鼻音/舒聲結尾
+       
+        // 一般舒聲/鼻音
         result = result.replace(nasalRegex, (match, initial, vowel, nasal, tone) => {
             const base = `${initial || ''}${vowel}${nasal}`;
             return base + (toneMap[tone] || '1');
         });
         
-        // 處理一般塞音結尾
+        // 一般入聲 (ptk 結尾)
         result = result.replace(stopRegex, (match, initial, vowel, stop, tone) => {
             const base = `${initial || ''}${vowel}${stop}`;
+            // 這裡 tone 對應的是 stopRegex 的第4個 group ([l]?)
             const toneNum = (tone === 'l') ? '8' : '4'; 
             return base + toneNum;
         });
