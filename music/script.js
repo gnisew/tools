@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     // 1. 全域變數
     // ==========================================
-    const STORAGE_KEY = 'wesing_music_data_v25';
+    const STORAGE_KEY = 'wesing_music_data_v26';
     let appData = { currentId: null, songs: [] };
     let currentInstrument = 'sine';
     let currentTempo = 100;
@@ -199,6 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let inputIdx = 0;
         let pendingAccidental = 0; 
 
+        // --- 步驟 1: Token 解析 ---
         parts.forEach(part => {
             const token = part;
             const inputLen = token.length;
@@ -209,8 +210,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // 修正：檢查是否為和弦（字母開頭，且不是單獨的 b/z）
-            // 如果是和弦 (如 G7, Dm)，則視為不播放的符號
+            // 1. 優先偵測反覆記號
+            if (cleanStr === '||:') {
+                notes.push({
+                    type: 'repeatStart',
+                    token: token,
+                    freq: 0, duration: 0, visualDuration: 0,
+                    inputStart: inputIdx, inputEnd: inputIdx + inputLen,
+                    play: false
+                });
+                inputIdx += inputLen;
+                return;
+            }
+            if (cleanStr === ':||') {
+                notes.push({
+                    type: 'repeatEnd',
+                    token: token,
+                    freq: 0, duration: 0, visualDuration: 0,
+                    inputStart: inputIdx, inputEnd: inputIdx + inputLen,
+                    play: false
+                });
+                inputIdx += inputLen;
+                return;
+            }
+
+            // 2. 忽略非音樂符號
             if ((token.match(/^[a-zA-Z]/) && cleanStr !== 'b' && cleanStr !== 'z') || token.includes('|') || token.includes(')')) {
                 inputIdx += inputLen;
                 return;
@@ -292,10 +316,44 @@ document.addEventListener('DOMContentLoaded', () => {
             inputIdx += inputLen;
         });
 
-        // Tie Logic
-        let processedNotes = [];
+        // --- 步驟 1.5: 反覆記號展開 (Unroll Repeats) ---
+        let unrolledNotes = [];
+        let repeatStartIndex = 0;
+
         for (let i = 0; i < notes.length; i++) {
-            let curr = notes[i];
+            const note = notes[i];
+            
+            if (note.type === 'repeatStart') {
+                unrolledNotes.push(note);
+                repeatStartIndex = unrolledNotes.length;
+            } else if (note.type === 'repeatEnd') {
+                unrolledNotes.push(note);
+                
+                // 複製區段 (從 repeatStartIndex 到目前)
+                // 使用 shallow copy 確保後續 Tie 處理獨立
+                const section = unrolledNotes.slice(repeatStartIndex, unrolledNotes.length - 1);
+                
+                for (let item of section) {
+                    // 不重複複製 repeatEnd 標記
+                    if (item.type === 'repeatEnd') continue;
+                    unrolledNotes.push(Object.assign({}, item));
+                }
+                
+                // 重置起點
+                repeatStartIndex = unrolledNotes.length;
+            } else {
+                unrolledNotes.push(note);
+            }
+        }
+        
+        let finalProcessingNotes = unrolledNotes;
+
+        // --- 步驟 2: 連音處理 (Tie Logic) ---
+        let processedNotes = [];
+        for (let i = 0; i < finalProcessingNotes.length; i++) {
+            let curr = finalProcessingNotes[i];
+            
+            // 2.1 Extension
             if (curr.isExtension) {
                 let prevPlayable = null;
                 for (let k = processedNotes.length - 1; k >= 0; k--) {
@@ -313,6 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 continue;
             }
 
+            // 2.2 Tie
             if (curr.isTieStart) {
                 let prevNote = null;
                 for (let k = processedNotes.length - 1; k >= 0; k--) {
@@ -323,15 +382,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 let nextNoteIndex = -1;
-                for (let k = i + 1; k < notes.length; k++) {
-                    let n = notes[k];
+                for (let k = i + 1; k < finalProcessingNotes.length; k++) {
+                    let n = finalProcessingNotes[k];
                     if (n.type === 'note' && !n.isExtension && !n.isTieStart && !n.isRest) {
                         nextNoteIndex = k;
                         break;
                     }
                 }
                 if (prevNote && nextNoteIndex !== -1) {
-                    let nextNote = notes[nextNoteIndex];
+                    let nextNote = finalProcessingNotes[nextNoteIndex];
                     if (Math.abs(prevNote.freq - nextNote.freq) < 0.1) {
                         prevNote.duration += nextNote.duration; 
                         nextNote.play = false; 
@@ -483,7 +542,6 @@ document.addEventListener('DOMContentLoaded', () => {
             let token = parts[i];
             let clean = token.trim();
             
-            // 跳過非音符或和弦
             if(!clean || (token.match(/^[a-zA-Z]/) && clean !== 'b' && clean !== 'z') || token.includes('|') || token.includes(')') || token.includes('(') || token.includes('-')) {
                 newParts.push(token);
                 continue;
@@ -492,7 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (clean === 'b') { 
                 pendingAcc = -1; 
                 if (i + 1 < parts.length && /^\s+$/.test(parts[i+1])) {
-                    i++; // Skip space after accidental
+                    i++; 
                 }
                 continue; 
             }
@@ -553,7 +611,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 let newDigit = mapped.n;
                 let newAcc = mapped.a; 
 
-                // 組合升降記號 (含空格)
                 if(newAcc === 1) newParts.push("# ");
                 if(newAcc === -1) newParts.push("b ");
                 
@@ -605,11 +662,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const settingsBtn = document.getElementById('settings-trigger-btn');
     const settingsPopover = document.getElementById('settings-popover');
-    
     if (settingsBtn && settingsPopover) {
         settingsBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             settingsPopover.classList.toggle('show');
+            // Mobile Fix
             if (window.innerWidth <= 768) {
                 const actionPanel = settingsBtn.closest('.panel-actions');
                 if(actionPanel) {
@@ -623,7 +680,6 @@ document.addEventListener('DOMContentLoaded', () => {
             renderInstrumentList();
             updateTransposeUI();
         });
-
         document.addEventListener('click', (e) => {
             if (!settingsPopover.contains(e.target) && !settingsBtn.contains(e.target)) {
                 settingsPopover.classList.remove('show');
