@@ -5,22 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>🥷烏衣行簡譜</title>
     <link rel="stylesheet" href="https://oikasu1.github.io/kasuexam/kasu/fonts/twhei.css">
+	<script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="app-container">
     
-    <aside id="sidebar" class="sidebar collapsed">
+	<aside id="sidebar" class="sidebar collapsed">
         <div class="sidebar-header">
-            <div class="mobile-sidebar-title">🥷烏衣行</div>
-            <button id="new-song-btn" class="new-chat-btn">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-                <span>新增樂譜</span>
-            </button>
+            <div class="mobile-sidebar-title">🥷烏衣行簡譜</div>
+            </div>
+        
+        <div class="sidebar-tabs">
+            <button class="side-tab-btn active" data-target="view-my-songs">我的樂譜</button>
+            <button class="side-tab-btn" data-target="view-library">範例曲庫</button>
         </div>
-        <div class="song-list-label">最近</div>
-        <div class="song-list" id="song-list"></div>
+
+        <div id="view-my-songs" class="side-list-view active">
+            <button id="new-song-btn" class="new-chat-btn" style="margin-bottom: 10px;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                <span></span>
+            </button>
+            <div class="song-list" id="song-list"></div>
+        </div>
+
+        <div id="view-library" class="side-list-view">
+            <div class="song-list" id="library-list"></div>
+        </div>
     </aside>
 
     <div id="overlay" class="overlay"></div>
@@ -33,7 +45,7 @@
                 </button>
                 <h1 class="app-name">
                     <span class="app-icon">🥷</span>
-                    <span class="app-text">烏衣行🎶</span>
+                    <span class="app-text">烏衣行簡譜</span>
                 </h1>
             </div>
             
@@ -58,7 +70,7 @@
                         <button class="icon-btn-tiny toggle-panel-btn" data-target="panel-input" title="收合/展開">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
                         </button>
-                        <span class="label">🧑‍🎤</span>
+                        <span class="label">🖋️</span>
                     </div>
                     
                     <div class="panel-actions">
@@ -66,66 +78,80 @@
                             <button id="play-toggle-btn" class="action-btn play-main-btn" title="播放/停止">
                                 <svg class="icon-play" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                                 <svg class="icon-stop" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" style="display:none;"><rect x="6" y="6" width="12" height="12"></rect></svg>
+                                <div class="icon-loading" style="display:none;"></div>
                             </button>
                             <button id="settings-trigger-btn" class="action-btn settings-trigger-btn" title="播放設定">
                                 <span id="current-inst-icon" class="monochrome-icon">🎹</span>
                             </button>
 
-                            <div id="settings-popover" class="settings-popover">
-                                <div class="setting-section">
-                                    <div class="section-label">速度 (BPM)</div>
-                                    <div class="control-row">
-                                        <button id="tempo-minus" class="stepper-btn">-</button>
-                                        <input type="number" id="tempo-input" value="100" min="40" max="240" step="1">
-                                        <button id="tempo-plus" class="stepper-btn">+</button>
-                                    </div>
-                                </div>
+<div id="settings-popover" class="settings-popover">
+    <div class="tabs-header">
+        <button class="tab-btn active" data-tab="tab-play">播放</button>
+        <button class="tab-btn" data-tab="tab-sound">音色</button>
+        <button class="tab-btn" data-tab="tab-edit">編輯</button>
+    </div>
 
-                                <div class="setting-section separator-top">
-                                    <div class="section-label">移調播放 (僅聽覺)</div>
-                                    <div class="control-row transpose-row">
-                                        <button id="transpose-minus" class="stepper-btn">-</button>
-                                        <span id="transpose-value" class="value-display">+0</span>
-                                        <button id="transpose-plus" class="stepper-btn">+</button>
-                                        <div class="key-result-wrapper">
-                                            <span class="key-result-label">Play:</span>
-                                            <span id="key-name-display" class="key-result">C</span>
-                                        </div>
-                                    </div>
-                                </div>
+    <div id="tab-play" class="tab-content active">
+        <div class="setting-section">
+            <div class="section-label">速度 (BPM)</div>
+            <div class="control-row">
+                <button id="tempo-minus" class="stepper-btn">-</button>
+                <input type="number" id="tempo-input" value="100" min="40" max="240" step="1">
+                <button id="tempo-plus" class="stepper-btn">+</button>
+            </div>
+        </div>
+        
+        <div class="setting-section separator-top">
+            <div class="section-label">移調播放 (僅聽覺)</div>
+            <div class="control-row transpose-row">
+                <button id="transpose-minus" class="stepper-btn">-</button>
+                <span id="transpose-value" class="value-display">+0</span>
+                <button id="transpose-plus" class="stepper-btn">+</button>
+                <div class="key-result-wrapper">
+                    <span class="key-result-label">Play:</span>
+                    <span id="key-name-display" class="key-result">C</span>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                                <div class="setting-section">
-                                    <div class="section-label">樂譜原調 & 修改</div>
-                                    <select id="base-key-select" class="wide-select">
-                                        <option value="0">C</option>
-                                        <option value="1">C# / Db</option>
-                                        <option value="2">D</option>
-                                        <option value="3">Eb</option>
-                                        <option value="4">E</option>
-                                        <option value="5">F</option>
-                                        <option value="6">F# / Gb</option>
-                                        <option value="7">G</option>
-                                        <option value="8">G# / Ab</option>
-                                        <option value="9">A</option>
-                                        <option value="10">Bb</option>
-                                        <option value="11">B</option>
-                                    </select>
+    <div id="tab-sound" class="tab-content">
+        <div class="instrument-list" id="instrument-list"></div>
+    </div>
 
-                                    <div class="control-row mt-2">
-                                        <button id="score-transpose-down" class="wide-btn action-transpose-btn">
-                                            <span>♭</span> 降調
-                                        </button>
-                                        <button id="score-transpose-up" class="wide-btn action-transpose-btn">
-                                            <span>♯</span> 升調
-                                        </button>
-                                    </div>
-                                </div>
+    <div id="tab-edit" class="tab-content">
+        <div class="setting-section">
+            <div class="section-label">樂譜原調 (Base Key)</div>
+            <select id="base-key-select" class="wide-select">
+                <option value="0">C</option>
+                <option value="1">C# / Db</option>
+                <option value="2">D</option>
+                <option value="3">Eb</option>
+                <option value="4">E</option>
+                <option value="5">F</option>
+                <option value="6">F# / Gb</option>
+                <option value="7">G</option>
+                <option value="8">G# / Ab</option>
+                <option value="9">A</option>
+                <option value="10">Bb</option>
+                <option value="11">B</option>
+            </select>
+        </div>
 
-                                <div class="setting-section instrument-section">
-                                    <div class="section-label">樂器</div>
-                                    <div class="instrument-list" id="instrument-list"></div>
-                                </div>
-                            </div>
+        <div class="setting-section separator-top">
+            <div class="section-label" style="color:#b3261e;">樂譜轉調 (直接修改文字)</div>
+            <div class="control-row">
+                <button id="score-transpose-down" class="wide-btn action-transpose-btn">
+                    <span>♭</span> 降調
+                </button>
+                <button id="score-transpose-up" class="wide-btn action-transpose-btn">
+                    <span>♯</span> 升調
+                </button>
+            </div>
+            <div class="hint-text">此操作會直接更改輸入框內的代碼</div>
+        </div>
+    </div>
+</div>
                         </div>
 
                         <div class="divider-vertical"></div>
@@ -146,7 +172,7 @@
                 <div id="panel-content-input" class="panel-content-wrapper">
                     <div id="quick-toolbar" class="quick-toolbar hidden"></div>
                     <div class="editor-container">
-                        <textarea id="code-input" placeholder="輸入數字後，請按空格鍵轉換為簡譜...&#10;"></textarea>
+                        <textarea id="code-input" placeholder="輸入數字後，請按空格鍵轉換為簡譜...&#10;範例：2 ( 2/ "></textarea>
                     </div>
                 </div>
             </section>
@@ -214,6 +240,7 @@
     </div>
 </div>
 
+<script src="data.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

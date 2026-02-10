@@ -150,6 +150,14 @@ body {
 .play-main-btn.playing { color: #d93025; background: #fce8e6; border-color: #fad2cf; }
 .play-main-btn.playing:hover { background: #fad2cf; color: #b3261e; }
 
+/* Spinner for Loading State */
+.icon-loading {
+    width: 14px; height: 14px;
+    border: 2px solid #188038; border-top-color: transparent;
+    border-radius: 50%; animation: spin 1s linear infinite;
+}
+@keyframes spin { 100% { transform: rotate(360deg); } }
+
 .settings-trigger-btn {
     border-radius: 0 16px 16px 0; padding: 0 8px;
     color: var(--text-sub); min-width: 32px; display: flex; justify-content: center;
@@ -175,7 +183,6 @@ body {
 .section-label { font-size: 0.8rem; color: var(--text-sub); font-weight: 600; margin-bottom: 8px; }
 .hint-text { font-size: 0.75rem; color: var(--text-sub); margin-top: 6px; text-align: center; }
 
-/* Control Controls */
 .control-row { display: flex; align-items: center; gap: 8px; }
 .stepper-btn { 
     width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border); 
@@ -183,18 +190,14 @@ body {
     font-weight: bold; color: var(--text-sub); flex-shrink: 0;
 }
 .stepper-btn:hover { background: #f0f4f9; color: var(--text-main); }
-.mt-2 { margin-top: 8px; }
-
-/* Wide Button for Transpose */
 .wide-btn { 
     flex: 1; border-radius: 8px; font-weight: 500; font-size: 0.85rem; width: auto; height: 32px;
     color: #444746; gap: 4px;
 }
-.action-transpose-btn {
-    background-color: #f8f9fa; border-color: #e0e3e1;
-}
+.action-transpose-btn { background-color: #f8f9fa; border-color: #e0e3e1; }
 .action-transpose-btn:hover { background-color: #e8f0fe; color: #0b57d0; border-color: #d3e3fd; }
 .action-transpose-btn span { font-weight: bold; margin-right: 4px; }
+.mt-2 { margin-top: 8px; }
 
 #tempo-input { 
     width: 80px; text-align: center; border: 1px solid var(--border); 
@@ -205,7 +208,6 @@ body {
     border-radius: 6px; font-size: 0.95rem; background: white;
 }
 
-/* Transpose Row */
 .transpose-row { justify-content: flex-start; }
 .value-display { 
     font-family: monospace; font-weight: 600; width: 30px; text-align: center; 
@@ -214,9 +216,7 @@ body {
     margin-left: auto; display: flex; align-items: center; gap: 4px;
 }
 .key-result-label { font-size: 0.8rem; color: var(--text-sub); }
-.key-result { 
-    font-size: 0.9rem; color: #0b57d0; font-weight: 600; 
-}
+.key-result { font-size: 0.9rem; color: #0b57d0; font-weight: 600; }
 
 .instrument-list { display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto; }
 .inst-option {
@@ -227,6 +227,7 @@ body {
 .inst-option.selected { background-color: #e8f0fe; color: #0b57d0; font-weight: 500; }
 .inst-check { margin-left: auto; display: none; }
 .inst-option.selected .inst-check { display: block; }
+.sub-label { font-size: 0.75rem; color: #666; margin-left: 6px; font-weight: normal; }
 
 /* Buttons */
 .icon-btn, .icon-btn-medium, .icon-btn-small, .icon-btn-tiny {
@@ -316,7 +317,7 @@ textarea::selection { background-color: #c2e7ff; color: #001d35; }
 .filled-btn-danger { background-color: #b3261e; color: white; border: none; padding: 10px 24px; border-radius: 20px; font-weight: 500; cursor: pointer; transition: background 0.2s; }
 .filled-btn-danger:hover { background-color: #8c1d18; }
 
-
+/* === Mobile Settings Popover Fix === */
 @media (max-width: 768px) {
     .settings-popover {
         position: fixed; 
@@ -331,4 +332,240 @@ textarea::selection { background-color: #c2e7ff; color: #001d35; }
         max-height: 80vh;
         overflow-y: auto;
     }
+}
+
+/* --- Settings Tabs UI --- */
+.settings-popover {
+    padding: 0; /* 移除內距，由子元素控制 */
+    overflow: hidden;
+    width: 280px; /* 稍微加寬 */
+}
+
+.tabs-header {
+    display: flex;
+    background-color: #f0f4f9;
+    border-bottom: 1px solid var(--border);
+}
+
+.tab-btn {
+    flex: 1;
+    border: none;
+    background: none;
+    padding: 12px 0;
+    font-size: 0.9rem;
+    color: var(--text-sub);
+    cursor: pointer;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.tab-btn:hover {
+    background-color: #e2e7eb;
+    color: var(--text-main);
+}
+
+.tab-btn.active {
+    color: #0b57d0;
+    border-bottom: 2px solid #0b57d0;
+    background-color: #ffffff;
+}
+
+.tab-content {
+    display: none;
+    padding: 16px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+
+.instrument-list {
+    max-height: none;
+    padding-right: 4px;
+}
+
+/* Sidebar Details */
+details.library-details summary {
+    list-style: none; /* 隱藏預設三角形 */
+    outline: none;
+    padding-bottom: 8px;
+    font-size: 0.85rem; 
+    font-weight: 500; 
+    color: var(--text-sub);
+    display: flex;
+    justify-content: space-between;
+}
+
+/* 自訂三角形 (選用) */
+details.library-details summary::after {
+    content: '+';
+    font-weight: bold;
+}
+details.library-details[open] summary::after {
+    content: '-';
+}
+
+.library-item {
+    color: #5f6368; /* 範例歌曲顏色淡一點，區分使用者歌曲 */
+    background-color: transparent;
+}
+.library-item:hover {
+    background-color: #f0f4f9;
+    color: #0b57d0;
+}
+
+.sidebar-tabs {
+    display: flex;
+    margin: 0 12px 10px 12px;
+    background-color: #e0e5eb;
+    border-radius: 10px;
+    padding: 4px;
+}
+
+.side-tab-btn {
+    flex: 1;
+    border: none;
+    background: none;
+    padding: 8px 0;
+    font-size: 0.85rem;
+    color: var(--text-sub);
+    cursor: pointer;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: 0.2s;
+}
+
+.side-tab-btn.active {
+    background-color: #ffffff;
+    color: #0b57d0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.side-list-view {
+    display: none;
+    flex: 1;
+    overflow-y: auto;
+    flex-direction: column;
+}
+
+.side-list-view.active {
+    display: flex;
+    animation: fadeIn 0.2s ease;
+}
+
+@media (max-width: 768px) {
+    .delete-song-btn { 
+        opacity: 1 !important; 
+        color: #999; /* 給個淡灰色，避免視覺太搶眼 */
+        padding: 10px; /* 增加觸控範圍 */
+    }
+    
+    .delete-song-btn:active {
+        color: #b3261e;
+        background-color: rgba(0,0,0,0.05);
+    }
+}
+
+/* --- 1. 優化設定視窗 (加寬與對齊) --- */
+.settings-popover {
+    width: 340px; /* 加寬，讓樂器名稱不換行 */
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+}
+
+/* 讓樂器選項橫向排列，文字垂直居中 */
+.inst-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* 圖示文字靠左，勾勾靠右 */
+    padding: 10px 12px;
+    margin-bottom: 4px;
+    border-radius: 8px;
+}
+
+/* 樂器名稱文字 */
+.inst-name {
+    flex: 1;
+    font-size: 0.95rem;
+    white-space: nowrap; /* 強制不換行 */
+}
+
+/* 需下載/內建 的小標籤 */
+.sub-label {
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    color: #666;
+    margin: 0 8px;
+    white-space: nowrap;
+}
+
+
+/* --- 2. 優化側邊欄 (分頁與按鈕) --- */
+
+/* 側邊欄標題區域微調 */
+.sidebar-header {
+    padding: 16px 16px 8px 16px;
+}
+
+/* 側邊欄頁籤容器 - 改為藥丸狀風格 */
+.sidebar-tabs {
+    display: flex;
+    margin: 0 16px 16px 16px; /* 增加間距 */
+    background-color: #f1f3f4; /* 淺灰底色 */
+    border-radius: 20px; /* 圓角 */
+    padding: 4px;
+}
+
+/* 頁籤按鈕 */
+.side-tab-btn {
+    flex: 1;
+    border: none;
+    background: none;
+    padding: 6px 0;
+    font-size: 0.9rem;
+    color: #5f6368;
+    cursor: pointer;
+    border-radius: 16px; /* 配合容器圓角 */
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+/* 頁籤選中狀態 - 白色浮起卡片感 */
+.side-tab-btn.active {
+    background-color: #ffffff;
+    color: #1a73e8; /* Google Blue */
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+/* 新增樂譜按鈕 - 扁平化設計，不那麼突兀 */
+#new-song-btn {
+    width: calc(100% - 32px); /* 滿寬減去邊距 */
+    margin: 0 16px 12px 16px;
+    padding: 10px;
+    background-color: #e8f0fe; /* 淺藍底 */
+    color: #1a73e8;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.2s;
+}
+
+#new-song-btn:hover {
+    background-color: #d2e3fc;
 }

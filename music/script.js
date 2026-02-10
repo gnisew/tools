@@ -1,36 +1,186 @@
 document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
-    // 1. 全域變數
+    // 1. 全域變數與 DOM 元素
     // ==========================================
-    const STORAGE_KEY = 'wesing_music_data_v26';
+    const STORAGE_KEY = 'wesing_music_data_v36';
     let appData = { currentId: null, songs: [] };
-    let currentInstrument = 'sine';
+    let currentInstrument = 'acoustic_grand_piano';
     let currentTempo = 100;
     let currentBaseKey = 0; 
     let currentTranspose = 0;
+    let activeSoundfontInst = null;
+    let loadedInstruments = {};
+
+    // Font Mapping Arrays
+    const codeToFontRules = [];
+    const fontToCodeRules = [];
+    let allPairs = [];
 
     // DOM Elements
     const codeInput = document.getElementById('code-input');
     const fontOutput = document.getElementById('font-output');
     const titleInput = document.getElementById('doc-title');
     const songListEl = document.getElementById('song-list');
+    const libraryListEl = document.getElementById('library-list'); // 新增：範例清單容器
+    
+    // Toolbar & Controls
     const playToggleBtn = document.getElementById('play-toggle-btn');
     const toggleToolbarBtn = document.getElementById('toggle-toolbar-btn');
     const quickToolbar = document.getElementById('quick-toolbar');
     
-    // Setting Inputs
+    // Settings UI
+    const settingsBtn = document.getElementById('settings-trigger-btn');
+    const settingsPopover = document.getElementById('settings-popover');
     const tempoInput = document.getElementById('tempo-input');
     const baseKeySelect = document.getElementById('base-key-select');
     const transposeValueEl = document.getElementById('transpose-value');
     const keyNameEl = document.getElementById('key-name-display');
 
-    // Modal Control
+    // Modal UI
     const modalOverlay = document.getElementById('confirm-modal');
     const modalTitle = document.getElementById('modal-title');
     const modalMessage = document.getElementById('modal-message');
     const modalConfirmBtn = document.getElementById('modal-confirm-btn');
     const modalCancelBtn = document.getElementById('modal-cancel-btn');
     let currentConfirmCallback = null;
+
+    // Audio Context
+    let audioCtx;
+    let isPlaying = false;
+    let activeOscillators = []; 
+    let activeTimers = []; 
+
+    // ==========================================
+    // 2. 資料常數
+    // ==========================================
+    const keyNames = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B'];
+    const relFreqs = { '1': 261.63, '2': 293.66, '3': 329.63, '4': 349.23, '5': 392.00, '6': 440.00, '7': 493.88 };
+    
+    const instruments = [
+        // --- 鍵盤與撥弦 ---
+        { id: 'piano', name: '🎹 鋼琴 (真)', type: 'soundfont', val: 'acoustic_grand_piano', icon: '🎹' },
+        { id: 'guitar', name: '🎸 吉他 (真)', type: 'soundfont', val: 'acoustic_guitar_nylon', icon: '🎸' },
+        { id: 'harp', name: '🎼 豎琴 (真)', type: 'soundfont', val: 'orchestral_harp', icon: '🎼' },
+        
+        // --- 弦樂 ---
+        { id: 'violin', name: '🎻 小提琴 (真)', type: 'soundfont', val: 'violin', icon: '🎻' },
+        { id: 'cello', name: '🎻 大提琴 (真)', type: 'soundfont', val: 'cello', icon: '🎻' },
+        
+        // --- 木管 ---
+        { id: 'flute', name: '🎵 長笛 (真)', type: 'soundfont', val: 'flute', icon: '🎵' },
+        { id: 'clarinet', name: '🎵 單簧管 (真)', type: 'soundfont', val: 'clarinet', icon: '🎵' },
+        { id: 'oboe', name: '🎵 雙簧管 (真)', type: 'soundfont', val: 'oboe', icon: '🎵' },
+        { id: 'sax', name: '🎷 薩克斯風 (真)', type: 'soundfont', val: 'alto_sax', icon: '🎷' },
+        
+        // --- 銅管 ---
+        { id: 'trumpet', name: '🎺 小號 (真)', type: 'soundfont', val: 'trumpet', icon: '🎺' },
+        
+        // --- 打擊與其他 ---
+        { id: 'xylophone', name: '🪵 木琴 (真)', type: 'soundfont', val: 'xylophone', icon: '🪵' },
+        { id: 'glockenspiel', name: '🔔 鐵琴 (真)', type: 'soundfont', val: 'glockenspiel', icon: '🔔' },
+        { id: 'marimba', name: '🎹 馬林巴 (真)', type: 'soundfont', val: 'marimba', icon: '🎹' },
+        { id: 'accordion', name: '🪗 手風琴 (真)', type: 'soundfont', val: 'accordion', icon: '🪗' },
+        { id: 'harmonica', name: '🎼 口琴 (真)', type: 'soundfont', val: 'harmonica', icon: '🎼' },
+
+        
+        // --- 合成器 ---
+        { id: 'synth-sine', name: '🎹 鋼琴 (合成)', type: 'synth', val: 'sine', icon: '🎹' },
+        { id: 'synth-tri', name: '🎵 長笛 (合成)', type: 'synth', val: 'triangle', icon: '🎵' },
+        { id: 'synth-square', name: '🕹️ 8-Bit', type: 'synth', val: 'square', icon: '🕹️' },
+
+		// --- 節奏與打擊樂 (強制固定音高) ---
+        // 木魚 (原本的)，聲音短促
+        { id: 'woodblock', name: '🪵 木魚', type: 'soundfont', val: 'woodblock', icon: '🪵' },
+        // 使用 Taiko (太鼓) 作為大鼓，聲音厚實
+        { id: 'bass-drum', name: '🥁 大鼓', type: 'soundfont', val: 'taiko_drum', icon: '🥁' },
+        // 使用 Synth Drum (合成鼓) 作為小鼓，聲音較脆
+        { id: 'snare-drum', name: '🥁 小鼓', type: 'soundfont', val: 'synth_drum', icon: '🥁' },
+        // 使用 Tinkle Bell (叮噹鈴) 作為三角鐵
+        { id: 'triangle', name: '🔺 三角鐵', type: 'soundfont', val: 'tinkle_bell', icon: '🔺' },
+        // 使用 Agogo (阿哥哥鈴) 作為銅鈴/牛鈴
+        { id: 'cowbell', name: '🔔 銅鈴', type: 'soundfont', val: 'agogo', icon: '🔔' },
+    ];
+
+    const keys = [
+        { char: '1', display: '1', type: 'num' }, { char: '2', display: '2', type: 'num' }, { char: '3', display: '3', type: 'num' },
+        { char: '4', display: '4', type: 'num' }, { char: '5', display: '5', type: 'num' }, { char: '6', display: '6', type: 'num' },
+        { char: '7', display: '7', type: 'num' }, { char: '0', display: '0', type: 'num' }, { char: ' ', display: '空', type: 'space' },
+        { char: '-', display: '-', type: 'normal' }, { char: '/', display: '/', type: 'normal' }, { char: '.', display: '.', type: 'normal' },
+        { char: ':', display: ':', type: 'normal' }, { char: '|', display: '|', type: 'normal' }, { char: '(', display: '(', type: 'normal' },
+        { char: '#', display: '#', type: 'normal' }, { char: 'b', display: 'b', type: 'normal' }, { char: 'z', display: 'z', type: 'normal' },
+        { char: 'backspace', display: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path><line x1="18" y1="9" x2="12" y2="15"></line><line x1="12" y1="9" x2="18" y2="15"></line></svg>', type: 'func' },
+        { char: 'delete', display: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>', type: 'func' }
+    ];
+
+    const mappingData = [
+        { font: "", code: ". " }, { font: "", code: "0 " }, { font: "", code: "1 " }, { font: "", code: "2 " },
+        { font: "", code: "3 " }, { font: "", code: "4 " }, { font: "", code: "5 " }, { font: "", code: "6 " },
+        { font: "", code: "7 " }, { font: "", code: "0/ " }, { font: "", code: "1/ " }, { font: "", code: "2/ " },
+        { font: "", code: "3/ " }, { font: "", code: "4/ " }, { font: "", code: "5/ " }, { font: "", code: "6/ " },
+        { font: "", code: "7/ " }, { font: "", code: "./ " }, { font: "", code: "0// " }, { font: "", code: "1// " },
+        { font: "", code: "2// " }, { font: "", code: "3// " }, { font: "", code: "4// " }, { font: "", code: "5// " },
+        { font: "", code: "6// " }, { font: "", code: "7// " }, { font: "", code: ".// " }, { font: "", code: "0/// " },
+        { font: "", code: "1/// " }, { font: "", code: "2/// " }, { font: "", code: "3/// " }, { font: "", code: "4/// " },
+        { font: "", code: "5/// " }, { font: "", code: "6/// " }, { font: "", code: "7/// " }, { font: "", code: "./// " },
+        { font: "", code: "1. " }, { font: "", code: "2. " }, { font: "", code: "3. " }, { font: "", code: "4. " },
+        { font: "", code: "5. " }, { font: "", code: "6. " }, { font: "", code: "7. " }, { font: "", code: ".1 " },
+        { font: "", code: ".2 " }, { font: "", code: ".3 " }, { font: "", code: ".4 " }, { font: "", code: ".5 " },
+        { font: "", code: ".6 " }, { font: "", code: ".7 " }, 
+        { font: "", codes: ["1./ ", "1/. "] }, { font: "", codes: ["2./ ", "2/. "] }, { font: "", codes: ["3./ ", "3/. "] },
+        { font: "", codes: ["4./ ", "4/. "] }, { font: "", codes: ["5./ ", "5/. "] }, { font: "", codes: ["6./ ", "6/. "] },
+        { font: "", codes: ["7./ ", "7/. "] }, { font: "", code: ".1/ " }, { font: "", code: ".2/ " }, { font: "", code: ".3/ " },
+        { font: "", code: ".4/ " }, { font: "", code: ".5/ " }, { font: "", code: ".6/ " }, { font: "", code: ".7/ " },
+        { font: "", codes: ["1.// ", "1//. "] }, { font: "", codes: ["2.// ", "2//. "] }, { font: "", codes: ["3.// ", "3//. "] },
+        { font: "", codes: ["4.// ", "4//. "] }, { font: "", codes: ["5.// ", "5//. "] }, { font: "", codes: ["6.// ", "6//. "] },
+        { font: "", codes: ["7.// ", "7//. "] }, { font: "", code: ".1// " }, { font: "", code: ".2// " }, { font: "", code: ".3// " },
+        { font: "", code: ".4// " }, { font: "", code: ".5// " }, { font: "", code: ".6// " }, { font: "", code: ".7// " },
+        { font: "", codes: ["1./// ", "1///. "] }, { font: "", codes: ["2./// ", "2///. "] }, { font: "", codes: ["3./// ", "3///. "] },
+        { font: "", codes: ["4./// ", "4///. "] }, { font: "", codes: ["5./// ", "5///. "] }, { font: "", codes: ["6./// ", "6///. "] },
+        { font: "", codes: ["7./// ", "7///. "] }, { font: "", code: ".1/// " }, { font: "", code: ".2/// " }, { font: "", code: ".3/// " },
+        { font: "", code: ".4/// " }, { font: "", code: ".5/// " }, { font: "", code: ".6/// " }, { font: "", code: ".7/// " },
+        { font: "", code: "1: " }, { font: "", code: "2: " }, { font: "", code: "3: " }, { font: "", code: "4: " },
+        { font: "", code: "5: " }, { font: "", code: "6: " }, { font: "", code: "7: " },
+        { font: "", code: ":1 " }, { font: "", code: ":2 " }, { font: "", code: ":3 " }, { font: "", code: ":4 " },
+        { font: "", code: ":5 " }, { font: "", code: ":6 " }, { font: "", code: ":7 " },
+        { font: "", codes: ["1/: ", "1:/ "] }, { font: "", codes: ["2/: ", "2:/ "] }, { font: "", codes: ["3/: ", "3:/ "] },
+        { font: "", codes: ["4/: ", "4:/ "] }, { font: "", codes: ["5/: ", "5:/ "] }, { font: "", codes: ["6/: ", "6:/ "] },
+        { font: "", codes: ["7/: ", "7:/ "] }, { font: "", code: ":1/ " }, { font: "", code: ":2/ " }, { font: "", code: ":3/ " },
+        { font: "", code: ":4/ " }, { font: "", code: ":5/ " }, { font: "", code: ":6/ " }, { font: "", code: ":7/ " },
+        { font: "", codes: ["1//: ", "1:// "] }, { font: "", codes: ["2//: ", "2:// "] }, { font: "", codes: ["3//: ", "3:// "] },
+        { font: "", codes: ["4//: ", "4:// "] }, { font: "", codes: ["5//: ", "5:// "] }, { font: "", codes: ["6//: ", "6:// "] },
+        { font: "", codes: ["7//: ", "7:// "] }, { font: "", code: ":1// " }, { font: "", code: ":2// " }, { font: "", code: ":3// " },
+        { font: "", code: ":4// " }, { font: "", code: ":5// " }, { font: "", code: ":6// " }, { font: "", code: ":7// " },
+        { font: "", code: ":1/// " }, { font: "", code: ":2/// " }, { font: "", code: ":4/// " }, { font: "", code: ":5/// " },
+        { font: "", code: ":6/// " }, { font: "", code: ":7/// " },
+        { font: "", code: "- " }, { font: "", code: "b " }, { font: "", code: "z " }, { font: "", code: "# " },
+        { font: "", code: "( " }, { font: "", code: "(. " }, { font: "", code: "2/2) " }, { font: "", code: "3/4) " },
+        { font: "", code: "4/4) " }, { font: "", code: "| " }, { font: "", code: "|| " }, { font: "", code: "||| " },
+        { font: "", code: "||: " }, { font: "", code: ":|| " }
+    ];
+
+    function escapeRegExp(string) { return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+    // Init Font Rules Immediately
+    mappingData.forEach(item => {
+        if (item.codes) {
+            item.codes.forEach(c => allPairs.push({ code: c, font: item.font }));
+            fontToCodeRules.push({ regex: new RegExp(escapeRegExp(item.font), 'g'), replacement: item.codes[0] });
+        } else {
+            allPairs.push({ code: item.code, font: item.font });
+            fontToCodeRules.push({ regex: new RegExp(escapeRegExp(item.font), 'g'), replacement: item.code });
+        }
+    });
+    allPairs.sort((a, b) => b.code.length - a.code.length);
+    allPairs.forEach(pair => {
+        codeToFontRules.push({
+            regex: new RegExp("(?<![a-zA-Z])" + escapeRegExp(pair.code), 'g'),
+            replacement: pair.font
+        });
+    });
+
+    // ==========================================
+    // 3. 核心函式定義
+    // ==========================================
 
     function showConfirm(title, message, onConfirm) {
         if(!modalOverlay) return;
@@ -46,31 +196,78 @@ document.addEventListener('DOMContentLoaded', () => {
         currentConfirmCallback = null;
     }
 
-    if(modalCancelBtn) modalCancelBtn.addEventListener('click', closeConfirm);
-    if(modalConfirmBtn) modalConfirmBtn.addEventListener('click', () => {
-        if (currentConfirmCallback) currentConfirmCallback();
-        closeConfirm();
-    });
-    if(modalOverlay) modalOverlay.addEventListener('click', (e) => {
-        if (e.target === modalOverlay) closeConfirm();
-    });
-
-    // ==========================================
-    // 2. 資料管理
-    // ==========================================
     function loadData() {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
             try { appData = JSON.parse(stored); } 
             catch (e) { console.error("Data Reset", e); }
         }
+        
+        // 如果沒有任何歌曲，創建一首空的
         if (appData.songs.length === 0) {
             createNewSong("未命名樂譜", "");
         } else {
-            const emptySong = appData.songs.find(s => s.title === "未命名樂譜" && s.content === "");
-            if(!appData.currentId) {
-                appData.currentId = emptySong ? emptySong.id : appData.songs[0].id;
+            // 確保 currentId 有效
+            if (!appData.songs.find(s => s.id === appData.currentId)) {
+                appData.currentId = appData.songs[0].id;
             }
+        }
+
+        // 渲染使用者清單
+        renderSidebar(); 
+        
+        // 渲染範例曲庫 (若 data.js 存在)
+        renderLibrary();
+    }
+
+    // --- 新增：渲染範例曲庫 ---
+    function renderLibrary() {
+        if (!libraryListEl || typeof exampleSongs === 'undefined') return;
+        
+        libraryListEl.innerHTML = '';
+        exampleSongs.forEach((exSong) => {
+            const div = document.createElement('div');
+            div.className = 'song-item library-item'; 
+            div.innerHTML = `<span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${exSong.title}</span>`;
+            div.onclick = () => importExampleSong(exSong);
+            libraryListEl.appendChild(div);
+        });
+    }
+
+    // --- 新增：匯入範例歌曲 (覆蓋模式) ---
+    function importExampleSong(exSong) {
+        const currentSong = getCurrentSong();
+        if (!currentSong) return;
+
+        // 檢查編輯區是否為空 (視為安全可直接載入)
+        const contentIsEmpty = !codeInput.value || codeInput.value.trim() === "";
+
+        const doUpdate = () => {
+            // 處理預設值
+            // currentSong.title = exSong.title; // <--- 這一行註解掉或刪除，保留原標題
+            currentSong.content = exSong.content.trim();
+            currentSong.tempo = exSong.tempo || 100;
+            currentSong.instrument = exSong.instrument || 'acoustic_grand_piano';
+            currentSong.baseKey = (exSong.baseKey !== undefined) ? exSong.baseKey : 0;
+            currentSong.transpose = 0;
+            currentSong.lastModified = Date.now();
+
+            // 存檔與渲染
+            saveData();
+            renderAll();
+            
+            // 手機版自動收合側邊欄
+            if (window.innerWidth <= 768) toggleSidebar(false);
+        };
+
+        if (contentIsEmpty) {
+            doUpdate();
+        } else {
+            showConfirm(
+                "覆蓋確認",
+                "編輯區已有內容，確定要載入範例歌曲並覆蓋目前內容嗎？(此動作無法復原)",
+                doUpdate
+            );
         }
     }
 
@@ -99,7 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
             content: content, 
             lastModified: Date.now(),
             tempo: 100,
-            instrument: 'sine',
+            instrument: 'acoustic_grand_piano',
             baseKey: 0,
             transpose: 0
         };
@@ -132,21 +329,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ==========================================
-    // 3. 音訊引擎
-    // ==========================================
-    let audioCtx;
-    let isPlaying = false;
-    let activeOscillators = []; 
-    let activeTimers = []; 
-    
-    const keyNames = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B'];
-
-    const relFreqs = {
-        '1': 261.63, '2': 293.66, '3': 329.63, '4': 349.23, 
-        '5': 392.00, '6': 440.00, '7': 493.88
-    };
-
     async function initAudio() {
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -156,50 +338,142 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function playTone(freq, startTime, duration, type) {
-        if (!audioCtx) return;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.value = freq;
-        
-        const now = startTime;
-        gain.gain.setValueAtTime(0, now);
-        
-        if (type === 'sawtooth') { 
-            gain.gain.linearRampToValueAtTime(0.3, now + 0.1); 
-            gain.gain.linearRampToValueAtTime(0, now + duration);
-        } else if (type === 'square') { 
-            gain.gain.setValueAtTime(0.1, now);
-            gain.gain.setValueAtTime(0.1, now + duration - 0.01);
-            gain.gain.linearRampToValueAtTime(0, now + duration);
-        } else if (type === 'triangle') { 
-            gain.gain.linearRampToValueAtTime(0.4, now + 0.05); 
-            gain.gain.setValueAtTime(0.4, now + duration - 0.05);
-            gain.gain.linearRampToValueAtTime(0, now + duration);
-        } else { 
-            gain.gain.linearRampToValueAtTime(0.5, now + 0.02); 
-            gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
-        }
-        
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        
-        osc.start(startTime);
-        osc.stop(startTime + duration);
-        activeOscillators.push(osc);
+    function freqToMidi(freq) {
+        return Math.round(69 + 12 * Math.log2(freq / 440));
     }
 
-    // ==========================================
-    // 4. 解析與播放邏輯
-    // ==========================================
+    // --- Dynamic Script Loader ---
+    async function loadScript(url) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = url;
+            script.crossOrigin = "anonymous";
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error(`Failed to load script: ${url}`));
+            document.head.appendChild(script);
+        });
+    }
+
+    async function loadInstrument(instName) {
+        if (loadedInstruments[instName]) return loadedInstruments[instName];
+        
+        if (typeof window.Soundfont === 'undefined') {
+            console.log("Soundfont library missing, attempting dynamic load...");
+            try {
+                await loadScript('https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js');
+            } catch (e1) {
+                console.warn("Primary CDN failed, trying backup...", e1);
+                try {
+                    await loadScript('https://unpkg.com/soundfont-player@0.12.0/dist/soundfont-player.min.js');
+                } catch (e2) {
+                    throw new Error("All Soundfont CDNs failed.");
+                }
+            }
+        }
+
+        if (typeof window.Soundfont === 'undefined') {
+             throw new Error("Soundfont object still undefined after script load");
+        }
+
+        try {
+            if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const inst = await window.Soundfont.instrument(audioCtx, instName);
+            loadedInstruments[instName] = inst;
+            return inst;
+        } catch (e) {
+            console.error("Soundfont load failed", e);
+            throw e;
+        }
+    }
+
+    function playTone(freq, startTime, duration, instVal) {
+        // --- 特殊處理：節奏打擊樂器 ---
+        // 這些樂器強制忽略樂譜的 Do Re Mi，只發出固定的單一節奏音
+        
+        let volumeBoost = 1.0; // 預設音量倍率
+
+        switch (instVal) {
+            case 'taiko_drum': // 大鼓
+                freq = 100; // 低頻 (約 G2)
+                volumeBoost = 5.0; // 大幅增加音量
+                break;
+            case 'synth_drum': // 小鼓
+                freq = 250; // 中頻 (約 B3)
+                volumeBoost = 4.0;
+                break;
+            case 'tinkle_bell': // 三角鐵
+                freq = 2000; // 高頻 (約 B6)
+                volumeBoost = 6.0; // 三角鐵通常很小聲，要用力推
+                break;
+            case 'agogo': // 銅鈴
+                freq = 600; // 中高頻 (約 D5)
+                volumeBoost = 4.0;
+                break;
+            case 'woodblock': // 木魚
+                freq = 800; // 高頻 (約 G5)
+                volumeBoost = 6.0; // 之前覺得太小聲，這裡放大 6 倍
+                break;
+        }
+
+        const instDef = instruments.find(i => i.val === instVal) || instruments[0];
+        
+        if (instDef.type === 'soundfont') {
+            if (activeSoundfontInst) {
+                const midi = freqToMidi(freq);
+                try {
+                    // 這裡加入了 gain: volumeBoost 來解決音量過小的問題
+                    const node = activeSoundfontInst.play(midi, startTime, { 
+                        duration: duration,
+                        gain: volumeBoost 
+                    });
+                    activeOscillators.push({ stop: () => node.stop() });
+                } catch(e) { console.warn("Play error", e); }
+            }
+        } else {
+            // 合成器 (Synth) 的處理
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = instDef.val; 
+            osc.frequency.value = freq;
+            
+            const now = startTime;
+            gain.gain.setValueAtTime(0, now);
+            
+            // 合成器的音量控制 (這裡稍微調小一點，避免爆音)
+            if (instDef.val === 'square') { 
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.setValueAtTime(0.1, now + duration - 0.01);
+                gain.gain.linearRampToValueAtTime(0, now + duration);
+            } else { 
+                gain.gain.linearRampToValueAtTime(0.5, now + 0.02); 
+                gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+            }
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+            activeOscillators.push({ 
+                stop: () => {
+                    try {
+                        gain.gain.cancelScheduledValues(audioCtx.currentTime);
+                        gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                        osc.stop();
+                    } catch(e){}
+                }
+            });
+        }
+    }
+
     function parseScore(text) {
         const parts = text.split(/(\s+)/);
         let notes = [];
         let inputIdx = 0;
         let pendingAccidental = 0; 
 
-        // --- 步驟 1: Token 解析 ---
+        // 1. Token Parse
         parts.forEach(part => {
             const token = part;
             const inputLen = token.length;
@@ -210,51 +484,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // 1. 優先偵測反覆記號
-            if (cleanStr === '||:') {
-                notes.push({
-                    type: 'repeatStart',
-                    token: token,
-                    freq: 0, duration: 0, visualDuration: 0,
-                    inputStart: inputIdx, inputEnd: inputIdx + inputLen,
-                    play: false
-                });
-                inputIdx += inputLen;
-                return;
-            }
-            if (cleanStr === ':||') {
-                notes.push({
-                    type: 'repeatEnd',
-                    token: token,
-                    freq: 0, duration: 0, visualDuration: 0,
-                    inputStart: inputIdx, inputEnd: inputIdx + inputLen,
-                    play: false
-                });
-                inputIdx += inputLen;
-                return;
-            }
-
-            // 2. 忽略非音樂符號
             if ((token.match(/^[a-zA-Z]/) && cleanStr !== 'b' && cleanStr !== 'z') || token.includes('|') || token.includes(')')) {
                 inputIdx += inputLen;
                 return;
             }
 
-            if (cleanStr === 'b') {
-                pendingAccidental = -1;
+            if (cleanStr === '||:') {
+                notes.push({ type: 'repeatStart', token: token, freq: 0, duration: 0, visualDuration: 0, inputStart: inputIdx, inputEnd: inputIdx + inputLen, play: false });
                 inputIdx += inputLen;
                 return;
             }
-            if (cleanStr === '#') {
-                pendingAccidental = 1;
+            if (cleanStr === ':||') {
+                notes.push({ type: 'repeatEnd', token: token, freq: 0, duration: 0, visualDuration: 0, inputStart: inputIdx, inputEnd: inputIdx + inputLen, play: false });
                 inputIdx += inputLen;
                 return;
             }
-            if (cleanStr === 'z') {
-                pendingAccidental = 0;
-                inputIdx += inputLen;
-                return;
-            }
+
+            if (cleanStr === 'b') { pendingAccidental = -1; inputIdx += inputLen; return; }
+            if (cleanStr === '#') { pendingAccidental = 1; inputIdx += inputLen; return; }
+            if (cleanStr === 'z') { pendingAccidental = 0; inputIdx += inputLen; return; }
 
             let note = {
                 token: token,
@@ -294,7 +542,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         if (prefix.includes('b')) freq *= Math.pow(2, -1/12);
                         if (prefix.includes('#')) freq *= Math.pow(2, 1/12);
-                        
                         if (prefix.includes(':')) freq *= 4;
                         else if (prefix.includes('.')) freq *= 2;
                         if (suffix.includes(':')) freq /= 4;
@@ -310,50 +557,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 const slashCount = (token.match(/\//g) || []).length;
                 if (slashCount > 0) note.duration = 1 / Math.pow(2, slashCount);
             }
-            
             note.visualDuration = note.duration; 
             notes.push(note);
             inputIdx += inputLen;
         });
 
-        // --- 步驟 1.5: 反覆記號展開 (Unroll Repeats) ---
+        // 2. Unroll Repeats
         let unrolledNotes = [];
         let repeatStartIndex = 0;
-
         for (let i = 0; i < notes.length; i++) {
             const note = notes[i];
-            
             if (note.type === 'repeatStart') {
                 unrolledNotes.push(note);
                 repeatStartIndex = unrolledNotes.length;
             } else if (note.type === 'repeatEnd') {
                 unrolledNotes.push(note);
-                
-                // 複製區段 (從 repeatStartIndex 到目前)
-                // 使用 shallow copy 確保後續 Tie 處理獨立
                 const section = unrolledNotes.slice(repeatStartIndex, unrolledNotes.length - 1);
-                
                 for (let item of section) {
-                    // 不重複複製 repeatEnd 標記
                     if (item.type === 'repeatEnd') continue;
                     unrolledNotes.push(Object.assign({}, item));
                 }
-                
-                // 重置起點
                 repeatStartIndex = unrolledNotes.length;
             } else {
                 unrolledNotes.push(note);
             }
         }
         
-        let finalProcessingNotes = unrolledNotes;
-
-        // --- 步驟 2: 連音處理 (Tie Logic) ---
+        // 3. Tie Logic
         let processedNotes = [];
-        for (let i = 0; i < finalProcessingNotes.length; i++) {
-            let curr = finalProcessingNotes[i];
-            
-            // 2.1 Extension
+        for (let i = 0; i < unrolledNotes.length; i++) {
+            let curr = unrolledNotes[i];
             if (curr.isExtension) {
                 let prevPlayable = null;
                 for (let k = processedNotes.length - 1; k >= 0; k--) {
@@ -363,15 +596,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         break;
                     }
                 }
-                if (prevPlayable) {
-                    prevPlayable.duration += 1; 
-                }
+                if (prevPlayable) prevPlayable.duration += 1; 
                 curr.play = false;
                 processedNotes.push(curr);
                 continue;
             }
-
-            // 2.2 Tie
             if (curr.isTieStart) {
                 let prevNote = null;
                 for (let k = processedNotes.length - 1; k >= 0; k--) {
@@ -382,15 +611,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
                 let nextNoteIndex = -1;
-                for (let k = i + 1; k < finalProcessingNotes.length; k++) {
-                    let n = finalProcessingNotes[k];
+                for (let k = i + 1; k < unrolledNotes.length; k++) {
+                    let n = unrolledNotes[k];
                     if (n.type === 'note' && !n.isExtension && !n.isTieStart && !n.isRest) {
                         nextNoteIndex = k;
                         break;
                     }
                 }
                 if (prevNote && nextNoteIndex !== -1) {
-                    let nextNote = finalProcessingNotes[nextNoteIndex];
+                    let nextNote = unrolledNotes[nextNoteIndex];
                     if (Math.abs(prevNote.freq - nextNote.freq) < 0.1) {
                         prevNote.duration += nextNote.duration; 
                         nextNote.play = false; 
@@ -408,6 +637,19 @@ document.addEventListener('DOMContentLoaded', () => {
     async function playMusic() {
         stopMusic();
         await initAudio();
+        updatePlayButtonUI('loading');
+        
+        const instDef = instruments.find(i => i.val === currentInstrument) || instruments[0];
+        if (instDef.type === 'soundfont') {
+            try {
+                activeSoundfontInst = await loadInstrument(instDef.val);
+            } catch (e) {
+                console.warn("Fallback to synth: " + e.message);
+                currentInstrument = 'sine';
+                const fallbackIcon = instruments.find(i => i.val === 'sine').icon;
+                document.getElementById('current-inst-icon').textContent = fallbackIcon;
+            }
+        }
         
         isPlaying = true;
         updatePlayButtonUI('play');
@@ -492,14 +734,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function stopMusic() {
         isPlaying = false;
         updatePlayButtonUI('stop');
-        if (audioCtx) {
-            audioCtx.close().then(() => {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            });
-        }
+        
+        if (activeSoundfontInst) activeSoundfontInst.stop();
+        activeOscillators.forEach(o => o.stop());
+        activeOscillators = [];
         activeTimers.forEach(t => clearTimeout(t));
         activeTimers = [];
-        activeOscillators = [];
+        
         if(codeInput) {
             codeInput.setSelectionRange(codeInput.selectionStart, codeInput.selectionStart);
         }
@@ -509,14 +750,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!playToggleBtn) return;
         const iconPlay = playToggleBtn.querySelector('.icon-play');
         const iconStop = playToggleBtn.querySelector('.icon-stop');
-        if (state === 'play') {
+        const iconLoading = playToggleBtn.querySelector('.icon-loading');
+        
+        if(iconPlay) iconPlay.style.display = 'none';
+        if(iconStop) iconStop.style.display = 'none';
+        if(iconLoading) iconLoading.style.display = 'none';
+
+        if (state === 'loading') {
             playToggleBtn.classList.add('playing');
-            iconPlay.style.display = 'none';
-            iconStop.style.display = 'block';
+            if(iconLoading) iconLoading.style.display = 'block';
+        } else if (state === 'play') {
+            playToggleBtn.classList.add('playing');
+            if(iconStop) iconStop.style.display = 'block';
         } else {
             playToggleBtn.classList.remove('playing');
-            iconPlay.style.display = 'block';
-            iconStop.style.display = 'none';
+            if(iconPlay) iconPlay.style.display = 'block';
         }
     }
 
@@ -529,9 +777,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ==========================================
-    // 5. Score Transposition
-    // ==========================================
     function transposeText(direction) {
         const raw = codeInput.value;
         const parts = raw.split(/(\s+)/);
@@ -542,30 +787,30 @@ document.addEventListener('DOMContentLoaded', () => {
             let token = parts[i];
             let clean = token.trim();
             
-            if(!clean || (token.match(/^[a-zA-Z]/) && clean !== 'b' && clean !== 'z') || token.includes('|') || token.includes(')') || token.includes('(') || token.includes('-')) {
+            if(!clean) {
                 newParts.push(token);
                 continue;
             }
 
+            if((token.match(/^[a-zA-Z]/) && clean !== 'b' && clean !== 'z') || token.includes('|') || token.includes(')') || token.includes('(') || token.includes('-')) {
+                newParts.push(token);
+                continue;
+            }
+
+            // Eat Accidental tokens & check next space
             if (clean === 'b') { 
                 pendingAcc = -1; 
-                if (i + 1 < parts.length && /^\s+$/.test(parts[i+1])) {
-                    i++; 
-                }
+                if (i + 1 < parts.length && /^\s+$/.test(parts[i+1])) { i++; }
                 continue; 
             }
             if (clean === '#') { 
                 pendingAcc = 1; 
-                if (i + 1 < parts.length && /^\s+$/.test(parts[i+1])) {
-                    i++; 
-                }
+                if (i + 1 < parts.length && /^\s+$/.test(parts[i+1])) { i++; }
                 continue; 
             }
             if (clean === 'z') { 
                 pendingAcc = 0; 
-                if (i + 1 < parts.length && /^\s+$/.test(parts[i+1])) {
-                    i++; 
-                }
+                if (i + 1 < parts.length && /^\s+$/.test(parts[i+1])) { i++; }
                 continue; 
             }
 
@@ -611,9 +856,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 let newDigit = mapped.n;
                 let newAcc = mapped.a; 
 
-                if(newAcc === 1) newParts.push("# ");
-                if(newAcc === -1) newParts.push("b ");
-                
+                if(newAcc === 1) newParts.push("#");
+                if(newAcc === -1) newParts.push("b");
+                if(newAcc !== 0) newParts.push(" ");
+
                 let newPrefix = "";
                 if(newOctave > 0) {
                     let d2 = Math.floor(newOctave / 2);
@@ -644,70 +890,45 @@ document.addEventListener('DOMContentLoaded', () => {
         
         currentBaseKey = (currentBaseKey + direction + 12) % 12;
         baseKeySelect.value = currentBaseKey;
-        
         codeInput.dispatchEvent(new Event('input'));
         updateCurrentSongSettings();
         updateTransposeUI();
     }
 
-    // ==========================================
-    // UI Events
-    // ==========================================
-    if (playToggleBtn) {
-        playToggleBtn.addEventListener('click', () => {
-            if (isPlaying) stopMusic();
-            else playMusic();
-        });
+    function convertCodeToFont(input) {
+        if (!input) return "";
+        let result = input;
+        for (const rule of codeToFontRules) {
+            result = result.replace(rule.regex, rule.replacement);
+        }
+        return result;
     }
 
-    const settingsBtn = document.getElementById('settings-trigger-btn');
-    const settingsPopover = document.getElementById('settings-popover');
-    if (settingsBtn && settingsPopover) {
-        settingsBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            settingsPopover.classList.toggle('show');
-            // Mobile Fix
-            if (window.innerWidth <= 768) {
-                const actionPanel = settingsBtn.closest('.panel-actions');
-                if(actionPanel) {
-                    if (settingsPopover.classList.contains('show')) {
-                        actionPanel.style.overflowX = 'visible';
-                    } else {
-                        actionPanel.style.overflowX = 'auto';
-                    }
-                }
-            }
-            renderInstrumentList();
-            updateTransposeUI();
-        });
-        document.addEventListener('click', (e) => {
-            if (!settingsPopover.contains(e.target) && !settingsBtn.contains(e.target)) {
-                settingsPopover.classList.remove('show');
-                if (window.innerWidth <= 768) {
-                    const actionPanel = settingsBtn.closest('.panel-actions');
-                    if(actionPanel) actionPanel.style.overflowX = 'auto';
-                }
-            }
-        });
+    function convertFontToCode(input) {
+        if (!input) return "";
+        let result = input;
+        for (const rule of fontToCodeRules) {
+            result = result.replace(rule.regex, rule.replacement);
+        }
+        return result;
     }
 
-    const instruments = [
-        { id: 'sine', name: '🎹 鋼琴', val: 'sine', icon: '🎹' },
-        { id: 'triangle', name: '🎵 長笛', val: 'triangle', icon: '🎵' },
-        { id: 'square', name: '🕹️ 8-Bit', val: 'square', icon: '🕹️' },
-        { id: 'sawtooth', name: '🌊 合成器', val: 'sawtooth', icon: '🌊' }
-    ];
-    
     function renderInstrumentList() {
         const list = document.getElementById('instrument-list');
         if(!list) return;
         list.innerHTML = '';
         instruments.forEach(inst => {
             const div = document.createElement('div');
-            const isSelected = currentInstrument === inst.val && 
-                               document.getElementById('current-inst-icon').textContent === inst.icon;
+            const isSelected = currentInstrument === inst.val;
             div.className = `inst-option ${isSelected ? 'selected' : ''}`;
-            div.innerHTML = `${inst.name} <span class="inst-check">✓</span>`;
+            
+            // 修改這裡：使用 span 包裹名稱，配合新的 CSS
+            div.innerHTML = `
+                <span class="inst-name">${inst.name}</span> 
+                <span class="sub-label">${inst.type === 'soundfont' ? '需下載' : '內建'}</span> 
+                <span class="inst-check" style="${isSelected ? 'opacity:1' : 'opacity:0'}">✓</span>
+            `;
+            
             div.onclick = () => {
                 currentInstrument = inst.val;
                 document.getElementById('current-inst-icon').textContent = inst.icon;
@@ -718,46 +939,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    document.getElementById('tempo-minus').addEventListener('click', () => {
-        tempoInput.value = Math.max(40, parseInt(tempoInput.value) - 1);
-        currentTempo = parseInt(tempoInput.value);
-        updateCurrentSongSettings();
-    });
-    document.getElementById('tempo-plus').addEventListener('click', () => {
-        tempoInput.value = Math.min(240, parseInt(tempoInput.value) + 1);
-        currentTempo = parseInt(tempoInput.value);
-        updateCurrentSongSettings();
-    });
-    tempoInput.addEventListener('change', () => {
-        currentTempo = parseInt(tempoInput.value);
-        updateCurrentSongSettings();
-    });
-
-    baseKeySelect.addEventListener('change', () => {
-        currentBaseKey = parseInt(baseKeySelect.value);
-        updateTransposeUI();
-        updateCurrentSongSettings();
-    });
-
-    document.getElementById('transpose-minus').addEventListener('click', () => {
-        currentTranspose = Math.max(-12, currentTranspose - 1);
-        updateTransposeUI();
-        updateCurrentSongSettings();
-    });
-    document.getElementById('transpose-plus').addEventListener('click', () => {
-        currentTranspose = Math.min(12, currentTranspose + 1);
-        updateTransposeUI();
-        updateCurrentSongSettings();
-    });
-
-    document.getElementById('score-transpose-down').addEventListener('click', () => transposeText(-1));
-    document.getElementById('score-transpose-up').addEventListener('click', () => transposeText(1));
-
-    function renderAll() {
-        renderSidebar();
-        renderEditor();
-    }
-
     function renderEditor() {
         const song = getCurrentSong();
         if (!song) return;
@@ -766,7 +947,7 @@ document.addEventListener('DOMContentLoaded', () => {
         codeInput.value = song.content;
         
         currentTempo = song.tempo || 100;
-        currentInstrument = song.instrument || 'sine';
+        currentInstrument = song.instrument || 'acoustic_grand_piano';
         currentBaseKey = song.baseKey || 0;
         currentTranspose = song.transpose || 0;
         
@@ -797,77 +978,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function renderAll() {
+        renderSidebar();
+        renderEditor();
+        if(typeof renderLibrary === 'function') renderLibrary();
+    }
+
     function switchSong(id) {
         appData.currentId = id;
         saveData();
         renderAll();
         if (window.innerWidth <= 768) toggleSidebar(false);
     }
-
-    codeInput.addEventListener('input', (e) => {
-        const song = getCurrentSong();
-        if (song) {
-            song.content = e.target.value;
-            saveData();
-            fontOutput.value = convertCodeToFont(song.content);
-        }
-    });
-
-    fontOutput.addEventListener('input', (e) => {
-        const song = getCurrentSong();
-        if (song) {
-            const convertedCode = convertFontToCode(e.target.value);
-            song.content = convertedCode;
-            saveData();
-            codeInput.value = convertedCode;
-        }
-    });
-
-    titleInput.addEventListener('input', (e) => {
-        const song = getCurrentSong();
-        if (song) {
-            song.title = e.target.value;
-            saveData();
-            renderSidebar();
-        }
-    });
-
-    document.getElementById('new-song-btn').addEventListener('click', () => {
-        createNewSong();
-        if (window.innerWidth <= 768) toggleSidebar(false);
-        setTimeout(() => titleInput.focus(), 100);
-    });
-
-    const setupClearBtn = (id, type) => {
-        const btn = document.getElementById(id);
-        if(!btn) return;
-        btn.addEventListener('click', () => {
-            const val = type === 'input' ? codeInput.value : fontOutput.value;
-            if (!val) return;
-            showConfirm("清除內容", "確定清空？", () => {
-                const song = getCurrentSong();
-                song.content = ''; codeInput.value = ''; fontOutput.value = ''; saveData();
-            });
-        });
-    };
-    setupClearBtn('clear-input-btn', 'input');
-    setupClearBtn('clear-output-btn', 'output');
-
-    const setupCopyBtn = (id, targetId) => {
-        const btn = document.getElementById(id);
-        if(!btn) return;
-        btn.addEventListener('click', () => {
-            const el = document.getElementById(targetId);
-            el.select(); navigator.clipboard.writeText(el.value);
-        });
-    };
-    setupCopyBtn('copy-input-btn', 'code-input');
-    setupCopyBtn('copy-output-btn', 'font-output');
-
-    const togglePanelBtns = document.querySelectorAll('.toggle-panel-btn');
-    togglePanelBtns.forEach(btn => {
-        btn.addEventListener('click', () => togglePanel(btn.dataset.target));
-    });
 
     function togglePanel(panelId) {
         const panel = document.getElementById(panelId);
@@ -881,13 +1003,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('overlay');
-    const menuBtn = document.getElementById('menu-btn');
-    const layoutBtn = document.getElementById('layout-btn');
-    const workspace = document.getElementById('workspace');
-
     function toggleSidebar(forceState) {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
         const isMobile = window.innerWidth <= 768;
         if (isMobile) {
             const isOpen = typeof forceState === 'boolean' ? forceState : !sidebar.classList.contains('open');
@@ -898,152 +1016,6 @@ document.addEventListener('DOMContentLoaded', () => {
             sidebar.classList.toggle('collapsed', isCollapsed);
         }
     }
-
-    if(menuBtn) menuBtn.addEventListener('click', () => toggleSidebar());
-    if(overlay) overlay.addEventListener('click', () => toggleSidebar(false));
-    if(layoutBtn) layoutBtn.addEventListener('click', () => {
-        workspace.classList.toggle('layout-horizontal');
-        workspace.classList.toggle('layout-vertical');
-    });
-
-    if(toggleToolbarBtn) {
-        toggleToolbarBtn.addEventListener('click', () => {
-            quickToolbar.classList.toggle('hidden');
-            if (quickToolbar.classList.contains('hidden')) {
-                toggleToolbarBtn.classList.remove('active');
-            } else {
-                toggleToolbarBtn.classList.add('active');
-            }
-        });
-    }
-
-    // Mapping Data
-    const mappingData = [
-        { font: "", code: ". " }, { font: "", code: "0 " }, { font: "", code: "1 " }, { font: "", code: "2 " },
-        { font: "", code: "3 " }, { font: "", code: "4 " }, { font: "", code: "5 " }, { font: "", code: "6 " },
-        { font: "", code: "7 " }, { font: "", code: "0/ " }, { font: "", code: "1/ " }, { font: "", code: "2/ " },
-        { font: "", code: "3/ " }, { font: "", code: "4/ " }, { font: "", code: "5/ " }, { font: "", code: "6/ " },
-        { font: "", code: "7/ " }, { font: "", code: "./ " }, { font: "", code: "0// " }, { font: "", code: "1// " },
-        { font: "", code: "2// " }, { font: "", code: "3// " }, { font: "", code: "4// " }, { font: "", code: "5// " },
-        { font: "", code: "6// " }, { font: "", code: "7// " }, { font: "", code: ".// " }, { font: "", code: "0/// " },
-        { font: "", code: "1/// " }, { font: "", code: "2/// " }, { font: "", code: "3/// " }, { font: "", code: "4/// " },
-        { font: "", code: "5/// " }, { font: "", code: "6/// " }, { font: "", code: "7/// " }, { font: "", code: "./// " },
-        { font: "", code: "1. " }, { font: "", code: "2. " }, { font: "", code: "3. " }, { font: "", code: "4. " },
-        { font: "", code: "5. " }, { font: "", code: "6. " }, { font: "", code: "7. " }, { font: "", code: ".1 " },
-        { font: "", code: ".2 " }, { font: "", code: ".3 " }, { font: "", code: ".4 " }, { font: "", code: ".5 " },
-        { font: "", code: ".6 " }, { font: "", code: ".7 " }, 
-        { font: "", codes: ["1./ ", "1/. "] }, 
-        { font: "", codes: ["2./ ", "2/. "] },
-        { font: "", codes: ["3./ ", "3/. "] },
-        { font: "", codes: ["4./ ", "4/. "] },
-        { font: "", codes: ["5./ ", "5/. "] },
-        { font: "", codes: ["6./ ", "6/. "] },
-        { font: "", codes: ["7./ ", "7/. "] },
-        { font: "", code: ".1/ " }, { font: "", code: ".2/ " }, { font: "", code: ".3/ " }, { font: "", code: ".4/ " },
-        { font: "", code: ".5/ " }, { font: "", code: ".6/ " }, { font: "", code: ".7/ " },
-        { font: "", codes: ["1.// ", "1//. "] },
-        { font: "", codes: ["2.// ", "2//. "] },
-        { font: "", codes: ["3.// ", "3//. "] },
-        { font: "", codes: ["4.// ", "4//. "] },
-        { font: "", codes: ["5.// ", "5//. "] },
-        { font: "", codes: ["6.// ", "6//. "] },
-        { font: "", codes: ["7.// ", "7//. "] },
-        { font: "", code: ".1// " }, { font: "", code: ".2// " }, { font: "", code: ".3// " }, { font: "", code: ".4// " },
-        { font: "", code: ".5// " }, { font: "", code: ".6// " }, { font: "", code: ".7// " },
-        { font: "", codes: ["1./// ", "1///. "] },
-        { font: "", codes: ["2./// ", "2///. "] },
-        { font: "", codes: ["3./// ", "3///. "] },
-        { font: "", codes: ["4./// ", "4///. "] },
-        { font: "", codes: ["5./// ", "5///. "] },
-        { font: "", codes: ["6./// ", "6///. "] },
-        { font: "", codes: ["7./// ", "7///. "] },
-        { font: "", code: ".1/// " }, { font: "", code: ".2/// " }, { font: "", code: ".3/// " }, { font: "", code: ".4/// " },
-        { font: "", code: ".5/// " }, { font: "", code: ".6/// " }, { font: "", code: ".7/// " },
-        { font: "", code: "1: " }, { font: "", code: "2: " }, { font: "", code: "3: " }, { font: "", code: "4: " },
-        { font: "", code: "5: " }, { font: "", code: "6: " }, { font: "", code: "7: " },
-        { font: "", code: ":1 " }, { font: "", code: ":2 " }, { font: "", code: ":3 " }, { font: "", code: ":4 " },
-        { font: "", code: ":5 " }, { font: "", code: ":6 " }, { font: "", code: ":7 " },
-        { font: "", codes: ["1/: ", "1:/ "] },
-        { font: "", codes: ["2/: ", "2:/ "] },
-        { font: "", codes: ["3/: ", "3:/ "] },
-        { font: "", codes: ["4/: ", "4:/ "] },
-        { font: "", codes: ["5/: ", "5:/ "] },
-        { font: "", codes: ["6/: ", "6:/ "] },
-        { font: "", codes: ["7/: ", "7:/ "] },
-        { font: "", code: ":1/ " }, { font: "", code: ":2/ " }, { font: "", code: ":3/ " }, { font: "", code: ":4/ " },
-        { font: "", code: ":5/ " }, { font: "", code: ":6/ " }, { font: "", code: ":7/ " },
-        { font: "", codes: ["1//: ", "1:// "] },
-        { font: "", codes: ["2//: ", "2:// "] },
-        { font: "", codes: ["3//: ", "3:// "] },
-        { font: "", codes: ["4//: ", "4:// "] },
-        { font: "", codes: ["5//: ", "5:// "] },
-        { font: "", codes: ["6//: ", "6:// "] },
-        { font: "", codes: ["7//: ", "7:// "] },
-        { font: "", code: ":1// " }, { font: "", code: ":2// " }, { font: "", code: ":3// " }, { font: "", code: ":4// " },
-        { font: "", code: ":5// " }, { font: "", code: ":6// " }, { font: "", code: ":7// " },
-        { font: "", code: ":1/// " }, { font: "", code: ":2/// " }, { font: "", code: ":4/// " }, { font: "", code: ":5/// " },
-        { font: "", code: ":6/// " }, { font: "", code: ":7/// " },
-        { font: "", code: "- " }, { font: "", code: "b " }, { font: "", code: "z " }, { font: "", code: "# " },
-        { font: "", code: "( " }, { font: "", code: "(. " }, { font: "", code: "2/2) " }, { font: "", code: "3/4) " },
-        { font: "", code: "4/4) " }, { font: "", code: "| " }, { font: "", code: "|| " }, { font: "", code: "||| " },
-        { font: "", code: "||: " }, { font: "", code: ":|| " }
-    ];
-
-    function escapeRegExp(string) {
-        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
-
-    const codeToFontRules = [];
-    const fontToCodeRules = [];
-
-    let allPairs = [];
-    mappingData.forEach(item => {
-        if (item.codes) {
-            item.codes.forEach(c => allPairs.push({ code: c, font: item.font }));
-            fontToCodeRules.push({ regex: new RegExp(escapeRegExp(item.font), 'g'), replacement: item.codes[0] });
-        } else {
-            allPairs.push({ code: item.code, font: item.font });
-            fontToCodeRules.push({ regex: new RegExp(escapeRegExp(item.font), 'g'), replacement: item.code });
-        }
-    });
-
-    allPairs.sort((a, b) => b.code.length - a.code.length);
-
-    allPairs.forEach(pair => {
-        codeToFontRules.push({
-            regex: new RegExp("(?<![a-zA-Z])" + escapeRegExp(pair.code), 'g'),
-            replacement: pair.font
-        });
-    });
-
-    function convertCodeToFont(input) {
-        if (!input) return "";
-        let result = input;
-        for (const rule of codeToFontRules) {
-            result = result.replace(rule.regex, rule.replacement);
-        }
-        return result;
-    }
-
-    function convertFontToCode(input) {
-        if (!input) return "";
-        let result = input;
-        for (const rule of fontToCodeRules) {
-            result = result.replace(rule.regex, rule.replacement);
-        }
-        return result;
-    }
-
-    const keys = [
-        { char: '1', display: '1', type: 'num' }, { char: '2', display: '2', type: 'num' }, { char: '3', display: '3', type: 'num' },
-        { char: '4', display: '4', type: 'num' }, { char: '5', display: '5', type: 'num' }, { char: '6', display: '6', type: 'num' },
-        { char: '7', display: '7', type: 'num' }, { char: '0', display: '0', type: 'num' }, { char: ' ', display: '空', type: 'space' },
-        { char: '-', display: '-', type: 'normal' }, { char: '/', display: '/', type: 'normal' }, { char: '.', display: '.', type: 'normal' },
-        { char: ':', display: ':', type: 'normal' }, { char: '|', display: '|', type: 'normal' }, { char: '(', display: '(', type: 'normal' },
-        { char: '#', display: '#', type: 'normal' }, { char: 'b', display: 'b', type: 'normal' }, { char: 'z', display: 'z', type: 'normal' },
-        { char: 'backspace', display: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path><line x1="18" y1="9" x2="12" y2="15"></line><line x1="12" y1="9" x2="18" y2="15"></line></svg>', type: 'func' },
-        { char: 'delete', display: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>', type: 'func' }
-    ];
 
     function createKeys() {
         if(!quickToolbar) return;
@@ -1096,6 +1068,202 @@ document.addEventListener('DOMContentLoaded', () => {
         inputElement.setSelectionRange(newCursorPos, newCursorPos);
     }
 
+    // ==========================================
+    // 6. UI Events & Init
+    // ==========================================
+    
+    // Inputs
+    codeInput.addEventListener('input', (e) => {
+        const song = getCurrentSong();
+        if (song) {
+            song.content = e.target.value;
+            saveData();
+            fontOutput.value = convertCodeToFont(song.content);
+        }
+    });
+
+    fontOutput.addEventListener('input', (e) => {
+        const song = getCurrentSong();
+        if (song) {
+            const convertedCode = convertFontToCode(e.target.value);
+            song.content = convertedCode;
+            saveData();
+            codeInput.value = convertedCode;
+        }
+    });
+
+    titleInput.addEventListener('input', (e) => {
+        const song = getCurrentSong();
+        if (song) {
+            song.title = e.target.value;
+            saveData();
+            renderSidebar();
+        }
+    });
+
+    // Buttons
+    document.getElementById('new-song-btn').addEventListener('click', () => {
+        createNewSong();
+        if (window.innerWidth <= 768) toggleSidebar(false);
+        setTimeout(() => titleInput.focus(), 100);
+    });
+
+    document.getElementById('clear-input-btn').addEventListener('click', () => {
+        if (!codeInput.value) return;
+        showConfirm("清除內容", "確定清空？", () => {
+            const song = getCurrentSong();
+            song.content = ''; codeInput.value = ''; fontOutput.value = ''; saveData();
+        });
+    });
+
+    document.getElementById('clear-output-btn').addEventListener('click', () => {
+        if (!fontOutput.value) return;
+        showConfirm("清除內容", "確定清空？", () => {
+            const song = getCurrentSong();
+            song.content = ''; codeInput.value = ''; fontOutput.value = ''; saveData();
+        });
+    });
+
+    document.getElementById('copy-input-btn').addEventListener('click', () => {
+        codeInput.select(); navigator.clipboard.writeText(codeInput.value);
+    });
+    
+    document.getElementById('copy-output-btn').addEventListener('click', () => {
+        fontOutput.select(); navigator.clipboard.writeText(fontOutput.value);
+    });
+
+    if (playToggleBtn) {
+        playToggleBtn.addEventListener('click', () => {
+            if (isPlaying) stopMusic();
+            else playMusic();
+        });
+    }
+
+    if (settingsBtn && settingsPopover) {
+        settingsBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            settingsPopover.classList.toggle('show');
+            if (window.innerWidth <= 768) {
+                const actionPanel = settingsBtn.closest('.panel-actions');
+                if(actionPanel) {
+                    if (settingsPopover.classList.contains('show')) actionPanel.style.overflowX = 'visible';
+                    else actionPanel.style.overflowX = 'auto';
+                }
+            }
+            renderInstrumentList();
+            updateTransposeUI();
+        });
+        document.addEventListener('click', (e) => {
+            if (!settingsPopover.contains(e.target) && !settingsBtn.contains(e.target)) {
+                settingsPopover.classList.remove('show');
+                if (window.innerWidth <= 768) {
+                    const actionPanel = settingsBtn.closest('.panel-actions');
+                    if(actionPanel) actionPanel.style.overflowX = 'auto';
+                }
+            }
+        });
+    }
+
+    // Tabs Logic
+    const tabs = document.querySelectorAll('.tab-btn');
+    const contents = document.querySelectorAll('.tab-content');
+    if (tabs.length > 0) {
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                contents.forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                const targetId = tab.dataset.tab;
+                const targetContent = document.getElementById(targetId);
+                if(targetContent) targetContent.classList.add('active');
+            });
+        });
+    }
+
+    document.querySelectorAll('.toggle-panel-btn').forEach(btn => {
+        btn.addEventListener('click', () => togglePanel(btn.dataset.target));
+    });
+
+    document.getElementById('menu-btn').addEventListener('click', () => toggleSidebar());
+    document.getElementById('overlay').addEventListener('click', () => toggleSidebar(false));
+    
+    document.getElementById('layout-btn').addEventListener('click', () => {
+        const workspace = document.getElementById('workspace');
+        workspace.classList.toggle('layout-horizontal');
+        workspace.classList.toggle('layout-vertical');
+    });
+
+    if(toggleToolbarBtn) {
+        toggleToolbarBtn.addEventListener('click', () => {
+            quickToolbar.classList.toggle('hidden');
+            if (quickToolbar.classList.contains('hidden')) {
+                toggleToolbarBtn.classList.remove('active');
+            } else {
+                toggleToolbarBtn.classList.add('active');
+            }
+        });
+    }
+
+    if(modalCancelBtn) modalCancelBtn.addEventListener('click', closeConfirm);
+    if(modalConfirmBtn) modalConfirmBtn.addEventListener('click', () => {
+        if (currentConfirmCallback) currentConfirmCallback();
+        closeConfirm();
+    });
+
+    // Settings Controls
+    document.getElementById('tempo-minus').addEventListener('click', () => {
+        tempoInput.value = Math.max(40, parseInt(tempoInput.value) - 1);
+        currentTempo = parseInt(tempoInput.value);
+        updateCurrentSongSettings();
+    });
+    document.getElementById('tempo-plus').addEventListener('click', () => {
+        tempoInput.value = Math.min(240, parseInt(tempoInput.value) + 1);
+        currentTempo = parseInt(tempoInput.value);
+        updateCurrentSongSettings();
+    });
+    tempoInput.addEventListener('change', () => {
+        currentTempo = parseInt(tempoInput.value);
+        updateCurrentSongSettings();
+    });
+
+    baseKeySelect.addEventListener('change', () => {
+        currentBaseKey = parseInt(baseKeySelect.value);
+        updateTransposeUI();
+        updateCurrentSongSettings();
+    });
+
+    document.getElementById('transpose-minus').addEventListener('click', () => {
+        currentTranspose = Math.max(-12, currentTranspose - 1);
+        updateTransposeUI();
+        updateCurrentSongSettings();
+    });
+    document.getElementById('transpose-plus').addEventListener('click', () => {
+        currentTranspose = Math.min(12, currentTranspose + 1);
+        updateTransposeUI();
+        updateCurrentSongSettings();
+    });
+
+    document.getElementById('score-transpose-down').addEventListener('click', () => transposeText(-1));
+    document.getElementById('score-transpose-up').addEventListener('click', () => transposeText(1));
+
+	// --- Sidebar Tabs Logic (側邊欄頁籤切換) ---
+    const sideTabs = document.querySelectorAll('.side-tab-btn');
+    const sideViews = document.querySelectorAll('.side-list-view');
+
+    sideTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            // 移除所有 active 狀態
+            sideTabs.forEach(t => t.classList.remove('active'));
+            sideViews.forEach(v => v.classList.remove('active'));
+
+            // 啟用當前點擊的頁籤
+            tab.classList.add('active');
+            const targetId = tab.dataset.target;
+            const targetView = document.getElementById(targetId);
+            if (targetView) targetView.classList.add('active');
+        });
+    });
+    // Final Init
     createKeys();
     loadData();
     renderAll();
