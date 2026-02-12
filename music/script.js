@@ -220,8 +220,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // 分解和弦類節奏 (Arpeggios) - 對應語法 :C
+    // 分解和弦類節奏 (Arpeggios) - 對應語法 :C
     const RHYTHM_ARP = {
-        1: { name: "上行琶音", steps: [
+        // --- 基礎類 ---
+        1: { name: "上行琶音 (1-3-5-3)", steps: [
             { t: 0, len: 1, notes: [0] }, { t: 1, len: 1, notes: [1] },
             { t: 2, len: 1, notes: [2] }, { t: 3, len: 1, notes: [1] }
         ]},
@@ -237,7 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { t: 2, len: 0.5, notes: [0] }, { t: 2.5, len: 0.5, notes: [2] }, 
             { t: 3, len: 0.5, notes: [1] }, { t: 3.5, len: 0.5, notes: [2] }
         ]},
-        4: { name: "抒情分解 (Slow)", steps: [
+        4: { name: "抒情分解 (慢)", steps: [
             { t: 0, len: 0.5, notes: [0] }, { t: 0.5, len: 0.5, notes: [2] },
             { t: 1, len: 1, notes: [1] }, 
             { t: 2, len: 0.5, notes: [0] }, { t: 2.5, len: 0.5, notes: [2] },
@@ -245,6 +247,113 @@ document.addEventListener('DOMContentLoaded', () => {
         ]},
         5: { name: "根五 (Bass)", steps: [
             { t: 0, len: 2, notes: [0] }, { t: 2, len: 2, notes: [2] }
+        ]},
+
+        // --- 鋼琴抒情系列 (Piano Ballad 12 Types) ---
+        // 代碼表: -1=1.(低根), -2=5.(低五), -3=7.(低七)
+        //         0=1(根), 9=2(九音), 1=3(三度), 2=5(五度), 3=7(七度)
+        
+        // 1./ 5./ 2/ 3 ( 3 -
+        6: { name: "鋼琴抒情 1 (Add9)", steps: [
+            { t: 0, len: 0.5, notes: [-1] },   // 1.
+            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
+            { t: 1.0, len: 0.5, notes: [9] },  // 2 (九音)
+            { t: 1.5, len: 2.5, notes: [1] }   // 3 (延音)
+        ]},
+        
+        // 1./ 5./ 2/ 3/ 5 -
+        7: { name: "鋼琴抒情 2 (Add9)", steps: [
+            { t: 0, len: 0.5, notes: [-1] },   // 1.
+            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
+            { t: 1.0, len: 0.5, notes: [9] },  // 2 (九音)
+            { t: 1.5, len: 0.5, notes: [1] },  // 3
+            { t: 2.0, len: 2.0, notes: [2] }   // 5
+        ]},
+        
+        // 1./ 5./ 2/ 3/ 7 -
+        8: { name: "鋼琴抒情 3 (Add9+7)", steps: [
+            { t: 0, len: 0.5, notes: [-1] },   // 1.
+            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
+            { t: 1.0, len: 0.5, notes: [9] },  // 2 (九音)
+            { t: 1.5, len: 0.5, notes: [1] },  // 3
+            { t: 2.0, len: 2.0, notes: [3] }   // 7
+        ]},
+        
+        // 1./ 5./ 3/ 2 ( 2 -
+        9: { name: "鋼琴抒情 4 (Sus2)", steps: [
+            { t: 0, len: 0.5, notes: [-1] },   // 1.
+            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
+            { t: 1.0, len: 0.5, notes: [1] },  // 3
+            { t: 1.5, len: 2.5, notes: [9] }   // 2 (九音/Sus2)
+        ]},
+        
+        // 1./ 5./ 1/ 2 ( 2 -
+        10: { name: "鋼琴抒情 5 (Standard)", steps: [
+            { t: 0, len: 0.5, notes: [-1] },   // 1.
+            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
+            { t: 1.0, len: 0.5, notes: [0] },  // 1 (根)
+            { t: 1.5, len: 2.5, notes: [9] }   // 2 (九音)
+        ]},
+        
+        // 1./ 5./ 1/ 2/ 3 -
+        11: { name: "鋼琴抒情 6", steps: [
+            { t: 0, len: 0.5, notes: [-1] },   // 1.
+            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
+            { t: 1.0, len: 0.5, notes: [0] },  // 1 (根)
+            { t: 1.5, len: 0.5, notes: [9] },  // 2 (九音)
+            { t: 2.0, len: 2.0, notes: [1] }   // 3
+        ]},
+        
+        // 1./ 5./ 1/ 2/ 5 -
+        12: { name: "鋼琴抒情 7", steps: [
+            { t: 0, len: 0.5, notes: [-1] },   // 1.
+            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
+            { t: 1.0, len: 0.5, notes: [0] },  // 1 (根)
+            { t: 1.5, len: 0.5, notes: [9] },  // 2 (九音)
+            { t: 2.0, len: 2.0, notes: [2] }   // 5
+        ]},
+        
+        // 1./ 5./ 1/ 2/ 7 -
+        13: { name: "鋼琴抒情 8", steps: [
+            { t: 0, len: 0.5, notes: [-1] },   // 1.
+            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
+            { t: 1.0, len: 0.5, notes: [0] },  // 1 (根)
+            { t: 1.5, len: 0.5, notes: [9] },  // 2 (九音)
+            { t: 2.0, len: 2.0, notes: [3] }   // 7
+        ]},
+        
+        // 1./ 5./ 7./ 1 ( 1 -
+        14: { name: "鋼琴抒情 9 (Bass Line)", steps: [
+            { t: 0, len: 0.5, notes: [-1] },   // 1.
+            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
+            { t: 1.0, len: 0.5, notes: [-3] }, // 7. (低七)
+            { t: 1.5, len: 2.5, notes: [0] }   // 1 (根)
+        ]},
+        
+        // 1./ 5./ 7./ 1 3 -
+        15: { name: "鋼琴抒情 10 (Bass Line)", steps: [
+            { t: 0, len: 0.5, notes: [-1] },   // 1.
+            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
+            { t: 1.0, len: 0.5, notes: [-3] }, // 7. (低七)
+            { t: 1.5, len: 0.5, notes: [0] },  // 1 (根)
+            { t: 2.0, len: 2.0, notes: [1] }   // 3
+        ]},
+        
+        // 1./ 5./ 7./ 1 5 -
+        16: { name: "鋼琴抒情 11 (Bass Line)", steps: [
+            { t: 0, len: 0.5, notes: [-1] },   // 1.
+            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
+            { t: 1.0, len: 0.5, notes: [-3] }, // 7. (低七)
+            { t: 1.5, len: 0.5, notes: [0] },  // 1 (根)
+            { t: 2.0, len: 2.0, notes: [2] }   // 5
+        ]},
+        
+        // 1./ 5./ 1/ 7. -
+        17: { name: "鋼琴抒情 12 (Bass Turn)", steps: [
+            { t: 0, len: 0.5, notes: [-1] },   // 1.
+            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
+            { t: 1.0, len: 0.5, notes: [0] },  // 1 (根)
+            { t: 1.5, len: 2.5, notes: [-3] }  // 7. (低七)
         ]}
     };
 
@@ -725,12 +834,52 @@ document.addEventListener('DOMContentLoaded', () => {
                 const noteTotalDuration = note.duration * beatTime; // 總時長
 
                 // [新增] 匯出時的和弦處理邏輯 (與 playMusic 同步)
+                // [修改] 匯出時的和弦處理 (同步 playMusic 邏輯)
                 if (note.type === 'chord' && note.chordFreqs) {
                     let patternLib = RHYTHM_BLOCK; 
                     if (note.rhythmType === 'arp') patternLib = RHYTHM_ARP;
 
                     const pattern = patternLib[note.rhythmId] || patternLib[1];
                     const patternLen = 4;
+                    
+                    // 輔助：計算特殊音程頻率 (與 playMusic 相同)
+                    // 輔助：計算特殊音程頻率 (邏輯分組版)
+                    const getFreq = (code, root, noteObj) => {
+                        let baseF = 0;
+                        const freqs = noteObj.chordFreqs;
+                        // 判斷大小調 (影響 7th 的計算)
+                        const isMinor = noteObj.chordInfo && noteObj.chordInfo.quality.includes('m') && !noteObj.chordInfo.quality.includes('maj');
+                        
+                        switch (code) {
+                            // === 1. 標準和弦音 (Standard) ===
+                            case 0: baseF = freqs[0]; break; // 根音 (1)
+                            case 1: baseF = freqs[1] || freqs[0] * 1.2599; break; // 三度 (3)
+                            case 2: baseF = freqs[2] || freqs[0] * 1.4983; break; // 五度 (5)
+                            case 3: // 七度 (7)
+                                if (freqs[3]) baseF = freqs[3];
+                                else baseF = freqs[0] * (isMinor ? 1.7817 : 1.8877); 
+                                break;
+
+                            // === 2. 特殊裝飾音 (Color Tones) ===
+                            case 9: // 九音/二度 (2) -> 讓和弦聽起來夢幻
+                                baseF = freqs[0] * 1.12246; 
+                                break;
+
+                            // === 3. 低音伴奏區 (Bass / Low Octave) ===
+                            case -1: baseF = freqs[0] / 2; break; // 低音根音 (1.)
+                            case -2: baseF = (freqs[2] || freqs[0] * 1.4983) / 2; break; // 低音五度 (5.)
+                            case -3: // 低音七度 (7.)
+                                if (freqs[3]) baseF = freqs[3] / 2;
+                                else baseF = (freqs[0] * (isMinor ? 1.7817 : 1.8877)) / 2;
+                                break;
+                            case -4: // 低音三度 (3.)
+                                baseF = (freqs[1] || freqs[0] * 1.2599) / 2;
+                                break;
+
+                            default: baseF = freqs[0]; 
+                        }
+                        return baseF;
+                    };
                     
                     for (let loopStart = 0; loopStart < note.duration; loopStart += patternLen) {
                         pattern.steps.forEach(step => {
@@ -746,11 +895,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             const absDur = playDuration * beatTime;
 
                             if (Array.isArray(step.notes)) {
-                                step.notes.forEach(idx => {
-                                    let f = 0;
-                                    if (idx < note.chordFreqs.length) f = note.chordFreqs[idx];
-                                    else if (idx === 3) f = note.chordFreqs[0] * 2;
-
+                                step.notes.forEach(code => {
+                                    const f = getFreq(code, note.chordFreqs[0], note);
                                     if (f > 0) {
                                         playTone(
                                             f * pitchFactor, 
@@ -765,7 +911,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                         });
                     }
-                } 
+                }
                 // [維持] 單音處理邏輯
                 else if (note.freq > 0) {
                     const finalFreq = note.freq * pitchFactor;
@@ -854,7 +1000,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    function parseScore(text) {
+function parseScore(text) {
         // ==========================================
         // 1. 預處理：流程管理 (Play Flow) 與 行讀取
         // ==========================================
@@ -969,22 +1115,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
 
-                    // [新增] 處理三連音括號 ( 與 )
-                    // 必須支援緊貼的情況，如 (2/ 或 6/)
+                    // 1. 處理三連音括號 ( 與 )
                     let tempToken = cleanStr;
                     let hasGroupStart = false;
                     let hasGroupEnd = false;
                     let localInputOffset = 0;
 
-                    // 檢查開頭是否有 (
                     if (tempToken.startsWith('(') && tempToken !== '(') { 
-                        // 排除純粹是 "(" 的情況，稍後統一處理
                         hasGroupStart = true;
                         tempToken = tempToken.substring(1);
                         localInputOffset = 1;
                     } else if (tempToken === '(') {
                         rawLineNotes.push({ 
-                            type: 'groupStart', // 標記為群組開始
+                            type: 'groupStart',
                             play: false, duration: 0, visualDuration: 0,
                             inputStart: lineObj.startIndex + textOffsetInLine + inputIdx,
                             inputEnd: lineObj.startIndex + textOffsetInLine + inputIdx + 1
@@ -993,13 +1136,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
 
-                    // 檢查結尾是否有 )
                     if (tempToken.endsWith(')') && tempToken !== ')') {
                         hasGroupEnd = true;
                         tempToken = tempToken.slice(0, -1);
                     } else if (tempToken === ')') {
                         rawLineNotes.push({ 
-                            type: 'groupEnd', // 標記為群組結束
+                            type: 'groupEnd',
                             play: false, duration: 0, visualDuration: 0,
                             inputStart: lineObj.startIndex + textOffsetInLine + inputIdx,
                             inputEnd: lineObj.startIndex + textOffsetInLine + inputIdx + 1
@@ -1008,7 +1150,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
 
-                    // 若剛才檢測到前綴 (，先加入 start 標記
                     if (hasGroupStart) {
                         rawLineNotes.push({ 
                             type: 'groupStart',
@@ -1021,12 +1162,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (cleanStr === '||:') { rawLineNotes.push({ type: 'repeatStart' }); inputIdx += inputLen; return; }
                     if (cleanStr === ':||') { rawLineNotes.push({ type: 'repeatEnd' }); inputIdx += inputLen; return; }
 
-                    // 計算音符本體的絕對位置 (需扣除前綴括號的長度)
                     const absoluteStart = lineObj.startIndex + textOffsetInLine + inputIdx + localInputOffset;
-                    // end 需要根據實際剩下的 token 長度計算
                     const absoluteEnd = absoluteStart + tempToken.length;
 
-                    // 使用處理過的 tempToken 進行音符解析
                     let note = {
                         token: tempToken,
                         freq: 0,
@@ -1039,7 +1177,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         inputEnd: absoluteEnd,
                         isRest: false,
                         isExtension: tempToken === '-',
-                        isTieStart: tempToken.includes('('), // 這裡保留原本的 Tie 偵測 (如 1( )
+                        isTieStart: tempToken.includes('('), 
                         play: true,
                         visualDuration: 1,
                         type: 'note',
@@ -1051,7 +1189,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     let isChordParsed = false;
                     let prefixChar = '';
 
-                    // 檢查是否為和弦
                     if (tempToken.startsWith('.') || tempToken.startsWith(':')) {
                         prefixChar = tempToken[0];
                         let rawContent = tempToken.substring(1).replace(/[\/\(\\]/g, '');
@@ -1155,7 +1292,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         rawLineNotes.push(note);
                     }
 
-                    // 若檢測到後綴 )，加入 end 標記
                     if (hasGroupEnd) {
                         rawLineNotes.push({ 
                             type: 'groupEnd',
@@ -1186,28 +1322,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 let processedLineNotesRaw = expandedNotes;
 
                 // ===============================================
-                // [新增] 三連音 (Tuplet) 邏輯處理區塊
-                // 優先級：在 Tie 之前處理，確保時值先被縮放
+                // 三連音 (Tuplet) 邏輯處理
                 // ===============================================
                 for (let i = 0; i < processedLineNotesRaw.length; i++) {
                     if (processedLineNotesRaw[i].type === 'groupStart') {
-                        // 尋找配對的 groupEnd
                         let endIndex = -1;
                         for (let j = i + 1; j < processedLineNotesRaw.length; j++) {
                             if (processedLineNotesRaw[j].type === 'groupEnd') {
                                 endIndex = j;
                                 break;
                             }
-                            // 如果遇到另一個 groupStart，表示嵌套或錯誤，中止搜尋
                             if (processedLineNotesRaw[j].type === 'groupStart') break;
                         }
 
                         if (endIndex !== -1) {
-                            // --- 找到三連音群組 ( ... ) ---
-                            // 將區間內的音符時值縮短為 2/3
-                            // 三連音定義：3個音符佔用2個音符的時間
                             const scaleFactor = 2 / 3;
-                            
                             for (let k = i + 1; k < endIndex; k++) {
                                 let n = processedLineNotesRaw[k];
                                 if (n.type === 'note' || n.type === 'chord' || n.isRest || n.isExtension) {
@@ -1215,12 +1344,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                     n.visualDuration *= scaleFactor;
                                 }
                             }
-                            // 標記括號本身為處理過 (不發聲、不佔位)
                             processedLineNotesRaw[i].play = false;
                             processedLineNotesRaw[endIndex].play = false;
                         } else {
-                            // --- 沒找到配對的 )，視為「連結線 (Tie)」 ---
-                            // 將 type 改回 tie，讓下方的 Tie 邏輯處理它
                             processedLineNotesRaw[i].type = 'tie';
                         }
                     }
@@ -1239,21 +1365,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 for (let i = 0; i < processedLineNotesRaw.length; i++) {
                     let curr = processedLineNotesRaw[i];
                     
-                    // 忽略已被標記為群組標籤的物件
                     if (curr.type === 'groupStart' || curr.type === 'groupEnd') continue;
 
-                    // 1. 處理延音線 (-)
+                    // 1. [修正] 處理延音線 (-)
                     if (curr.isExtension) {
                         let prev = findLastPlayable(processedLineNotes);
-                        if (prev) prev.duration += 1; // 延音線本身不受三連音影響，固定加1拍 (除非在三連音內已被縮放? 上面邏輯已縮放)
-                        // 注意：如果 - 在括號內，curr.duration 已經變成 0.66 了，所以這裡應該加 curr.duration
-                        // 但 curr.isExtension 初始化是 1。上面迴圈會把它縮放。
-                        // 所以改為：
-                        // if (prev) prev.duration += curr.duration;
-                        // 不過，傳統延音符號 - 通常表示「增加一拍」，但在三連音裡表示「增加單位時值」
-                        // 為了保險，這裡使用 curr.duration (已被 Tuplet 邏輯縮放過)
-                        if (prev) prev.duration += curr.duration;
-
+                        if (prev) {
+                            // 這裡只加 curr.duration
+                            // 如果是普通延音，curr.duration 為 1
+                            // 如果在三連音內，curr.duration 已被縮放為 0.66
+                            prev.duration += curr.duration;
+                        }
+                        
                         curr.play = false;
                         processedLineNotes.push(curr);
                         continue;
@@ -1274,13 +1397,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         continue;
                     }
 
-                    // 3. 處理獨立連結線 (Tie) - 這裡包含由 groupStart 轉變來的 Tie
+                    // 3. 處理獨立連結線 (Tie)
                     if (curr.type === 'tie') {
                         let prev = findLastPlayable(processedLineNotes);
                         let nextIndex = -1;
                         for (let k = i + 1; k < processedLineNotesRaw.length; k++) {
                             let n = processedLineNotesRaw[k];
-                            // 跳過 extension, tie, dotted, rest, groupEnd
                             if (!n.isExtension && n.type !== 'tie' && n.type !== 'dotted' && !n.isRest && n.type !== 'groupEnd') {
                                 nextIndex = k;
                                 break;
@@ -1307,7 +1429,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         continue;
                     }
 
-                    // 4. 處理附著連結線 (Attached Tie, e.g. 1( )
+                    // 4. 處理附著連結線
                     if (curr.isTieStart) {
                         let nextIndex = -1;
                         for (let k = i + 1; k < processedLineNotesRaw.length; k++) {
@@ -1418,13 +1540,52 @@ document.addEventListener('DOMContentLoaded', () => {
             if (note.isRest) return;
             
             // [修改] 和弦播放邏輯：區分 Block 與 Arp
+            // [修改] 和弦播放邏輯：區分 Block 與 Arp，並支援特殊音程 (9th, Low Bass)
             if (note.type === 'chord' && note.chordFreqs) {
-                let patternLib = RHYTHM_BLOCK; // 預設用柱式
-                if (note.rhythmType === 'arp') patternLib = RHYTHM_ARP; // 如果是 : 開頭，用分解
+                let patternLib = RHYTHM_BLOCK; 
+                if (note.rhythmType === 'arp') patternLib = RHYTHM_ARP; 
 
                 const pattern = patternLib[note.rhythmId] || patternLib[1];
-                const patternLen = 4; // 預設 4 拍循環
+                const patternLen = 4; 
                 
+                // 輔助：計算特殊音程頻率
+                // 輔助：計算特殊音程頻率 (邏輯分組版)
+                    const getFreq = (code, root, noteObj) => {
+                        let baseF = 0;
+                        const freqs = noteObj.chordFreqs;
+                        // 判斷大小調 (影響 7th 的計算)
+                        const isMinor = noteObj.chordInfo && noteObj.chordInfo.quality.includes('m') && !noteObj.chordInfo.quality.includes('maj');
+                        
+                        switch (code) {
+                            // === 1. 標準和弦音 (Standard) ===
+                            case 0: baseF = freqs[0]; break; // 根音 (1)
+                            case 1: baseF = freqs[1] || freqs[0] * 1.2599; break; // 三度 (3)
+                            case 2: baseF = freqs[2] || freqs[0] * 1.4983; break; // 五度 (5)
+                            case 3: // 七度 (7)
+                                if (freqs[3]) baseF = freqs[3];
+                                else baseF = freqs[0] * (isMinor ? 1.7817 : 1.8877); 
+                                break;
+
+                            // === 2. 特殊裝飾音 (Color Tones) ===
+                            case 9: // 九音/二度 (2) -> 讓和弦聽起來夢幻
+                                baseF = freqs[0] * 1.12246; 
+                                break;
+
+                            // === 3. 低音伴奏區 (Bass / Low Octave) ===
+                            case -1: baseF = freqs[0] / 2; break; // 低音根音 (1.)
+                            case -2: baseF = (freqs[2] || freqs[0] * 1.4983) / 2; break; // 低音五度 (5.)
+                            case -3: // 低音七度 (7.)
+                                if (freqs[3]) baseF = freqs[3] / 2;
+                                else baseF = (freqs[0] * (isMinor ? 1.7817 : 1.8877)) / 2;
+                                break;
+                            case -4: // 低音三度 (3.)
+                                baseF = (freqs[1] || freqs[0] * 1.2599) / 2;
+                                break;
+
+                            default: baseF = freqs[0]; 
+                        }
+                        return baseF;
+                    };
                 for (let loopStart = 0; loopStart < note.duration; loopStart += patternLen) {
                     pattern.steps.forEach(step => {
                         const stepAbsStart = loopStart + step.t;
@@ -1439,17 +1600,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         const absDur = playDuration * beatTime;
 
                         if (Array.isArray(step.notes)) {
-                            step.notes.forEach(idx => {
-                                let f = 0;
-                                if (idx < note.chordFreqs.length) f = note.chordFreqs[idx];
-                                else if (idx === 3) f = note.chordFreqs[0] * 2; // 八度
-
+                            step.notes.forEach(code => {
+                                const f = getFreq(code, note.chordFreqs[0], note);
                                 if (f > 0) playTone(f * pitchFactor, absTime, absDur, note.instrument);
                             });
                         }
                     });
                 }
-            } 
+            }
             else if (note.freq > 0) {
                 const finalFreq = note.freq * pitchFactor;
                 playTone(finalFreq, noteStartTime, noteTotalDuration, note.instrument);
