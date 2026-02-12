@@ -227,7 +227,7 @@ body {
 .inst-option.selected { background-color: #e8f0fe; color: #0b57d0; font-weight: 500; }
 .inst-check { margin-left: auto; display: none; }
 .inst-option.selected .inst-check { display: block; }
-.sub-label { font-size: 0.75rem; color: #666; margin-left: 6px; font-weight: normal; }
+
 
 /* Buttons */
 .icon-btn, .icon-btn-medium, .icon-btn-small, .icon-btn-tiny {
@@ -335,11 +335,8 @@ textarea::selection { background-color: #c2e7ff; color: #001d35; }
 }
 
 /* --- Settings Tabs UI --- */
-.settings-popover {
-    padding: 0; /* 移除內距，由子元素控制 */
-    overflow: hidden;
-    width: 280px; /* 稍微加寬 */
-}
+
+
 
 .tabs-header {
     display: flex;
@@ -477,28 +474,11 @@ details.library-details[open] summary::after {
 }
 
 /* --- 1. 優化設定視窗 (加寬與對齊) --- */
-.settings-popover {
-    width: 340px; /* 加寬，讓樂器名稱不換行 */
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-}
 
-/* 讓樂器選項橫向排列，文字垂直居中 */
-.inst-option {
-    display: flex;
-    align-items: center;
-    justify-content: space-between; /* 圖示文字靠左，勾勾靠右 */
-    padding: 10px 12px;
-    margin-bottom: 4px;
-    border-radius: 8px;
-}
 
-/* 樂器名稱文字 */
-.inst-name {
-    flex: 1;
-    font-size: 0.95rem;
-    white-space: nowrap; /* 強制不換行 */
-}
+
+
+
 
 /* 需下載/內建 的小標籤 */
 .sub-label {
@@ -568,4 +548,168 @@ details.library-details[open] summary::after {
 
 #new-song-btn:hover {
     background-color: #d2e3fc;
+}
+
+
+/* --- 設定視窗 (修正超出視窗問題) --- */
+.settings-popover {
+    display: none; 
+    position: absolute; 
+    top: 100%; 
+    
+    /* [關鍵修正] 改為靠右對齊，防止超出右側視窗 */
+    left: auto; 
+    right: 0;
+    
+    margin-top: 8px;
+    background: white; 
+    border: 1px solid var(--border); 
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15); 
+    z-index: 50;
+    
+    /* 縮減寬度 */
+    width: 260px; 
+    padding: 0; 
+    overflow: hidden;
+}
+
+.settings-popover.show { display: block; }
+
+/* --- 樂器選項 (打勾移到前方) --- */
+.inst-option {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start; /* 內容靠左 */
+    padding: 10px 12px;
+    margin-bottom: 2px;
+    border-radius: 8px;
+    cursor: pointer;
+    gap: 8px; /* 勾勾與文字的間距 */
+}
+.inst-option:hover { background-color: #f0f4f9; }
+.inst-option.selected { background-color: #e8f0fe; color: #0b57d0; font-weight: 500; }
+
+/* 樂器名稱 */
+.inst-name { 
+    flex: 1;
+    font-size: 0.9rem; 
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 打勾符號 (顯示控制由 JS 的 opacity 處理) */
+.inst-check { 
+    color: #0b57d0; 
+    font-weight: bold; 
+    width: 16px; 
+    text-align: center;
+    flex-shrink: 0;
+}
+
+/* 隱藏舊的標籤 */
+.sub-label { display: none; }
+
+.replace-bar.single-line {
+    display: flex;
+    align-items: center;
+    gap: 6px; 
+    padding: 6px 12px;
+    background-color: #f0f4f9; 
+    border-bottom: 1px solid var(--border);
+    animation: slideDown 0.2s ease-out;
+    white-space: nowrap;
+    overflow-x: auto; /* 若螢幕極小仍可滑動 */
+}
+
+/* [關鍵修改] 極窄輸入框 */
+.replace-input.tiny {
+    width: 50px; /* 固定寬度，只夠輸入簡短代碼 */
+    padding: 4px 6px;
+    border: 1px solid #d0d7de;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    text-align: center; /* 文字置中比較好看 */
+}
+
+.replace-input.tiny:focus {
+    outline: none;
+    border-color: #0b57d0;
+    background-color: white;
+}
+
+.arrow-icon {
+    color: var(--text-sub);
+    font-size: 0.9rem;
+    font-weight: bold;
+    user-select: none;
+}
+
+.replace-confirm-btn.compact {
+    padding: 4px 10px;
+    font-size: 0.85rem;
+    background-color: #0b57d0;
+    color: white;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+.replace-confirm-btn.compact:hover {
+    background-color: #0a4ab8;
+}
+
+/* 按鈕啟動狀態 (深色底) */
+.icon-btn-medium.active {
+    background-color: #d3e3fd; 
+    color: #041e49;
+    font-weight: bold;
+    transform: translateY(1px);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- 快速取代按鈕樣式 --- */
+.quick-actions-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.quick-replace-btn {
+    padding: 2px 0;
+    width: 26px; /* 固定寬度方形 */
+    height: 28px;
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 0.95rem;
+    color: #444746;
+    background-color: #ffffff;
+    border: 1px solid #dadce0;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.2s;
+}
+
+.quick-replace-btn:hover {
+    background-color: #e8f0fe;
+    color: #0b57d0;
+    border-color: #d3e3fd;
+}
+
+.quick-replace-btn:active {
+    background-color: #d2e3fc;
+    transform: translateY(1px);
+}
+
+/* 垂直分隔線微調 (在工具列中) */
+.divider-vertical.small {
+    height: 20px;
+    margin: 0 4px;
+    background-color: #c7c7c7;
 }
