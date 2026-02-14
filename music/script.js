@@ -51,6 +51,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeTimers = []; 
 	let savedSelection = null;
 	let lastPlayedNoteStart = -1;
+	let lastPlayedNoteEnd = -1;
+	let playbackTimer = null;
 
     // ==========================================
     // 2. 資料常數
@@ -76,7 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // --- 銅管 ---
         { id: 'trumpet', name: '🎺 小號 t:', type: 'soundfont', val: 'trumpet', icon: '🎺', alias: 't' },
-        
+
+
         // --- 打擊與其他 ---
         { id: 'xylophone', name: '🪵 木琴 x:', type: 'soundfont', val: 'xylophone', icon: '🪵', alias: 'x' },
         { id: 'glockenspiel', name: '🔔 鐵琴 q:', type: 'soundfont', val: 'glockenspiel', icon: '🔔', alias: 'q' },
@@ -88,6 +91,17 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'synth-sine', name: '🎹 鋼琴 (內建) P:', type: 'synth', val: 'sine', icon: '🎹', alias: 'P' },
         { id: 'synth-tri', name: '🎵 長笛 (內建) F:', type: 'synth', val: 'triangle', icon: '🎵', alias: 'F' },
         { id: 'synth-square', name: '🕹️ 8-Bit B:', type: 'synth', val: 'square', icon: '🕹️', alias: 'B' },
+
+		// --- 節奏與打擊樂 (爵士鼓組) ---
+        { id: 'drum-kick', name: '🥁 大鼓 (Kick) jD:', type: 'soundfont', val: 'drum_kick', icon: '🥁', alias: 'jD' },
+        { id: 'drum-snare', name: '🥁 小鼓 (Snare) jd:', type: 'soundfont', val: 'drum_snare', icon: '🥁', alias: 'jd' },
+        { id: 'drum-hihat-c', name: '🥢 閉鈸 (Hi-hat Cls) jb:', type: 'soundfont', val: 'drum_hihat_close', icon: '🥢', alias: 'jb' },
+        { id: 'drum-hihat-o', name: '🥢 開鈸 (Hi-hat Opn) jB:', type: 'soundfont', val: 'drum_hihat_open', icon: '🥢', alias: 'jB' },
+        { id: 'drum-tom-h', name: '🥁 高中鼓 (Tom Hi) jh:', type: 'soundfont', val: 'drum_tom_hi', icon: '🥁', alias: 'jh' },
+        { id: 'drum-tom-l', name: '🥁 落地鼓 (Tom Lo) jl:', type: 'soundfont', val: 'drum_tom_lo', icon: '🥁', alias: 'jl' },
+        { id: 'drum-crash', name: '💥 碎音鈸 (Crash) jc:', type: 'soundfont', val: 'drum_crash', icon: '💥', alias: 'jc' },
+        { id: 'drum-ride', name: '🔔 疊音鈸 (Ride) jr:', type: 'soundfont', val: 'drum_ride', icon: '🔔', alias: 'jr' },
+
 
         // --- 節奏與打擊樂 ---
         { id: 'woodblock', name: '🪵 木魚 w:', type: 'soundfont', val: 'woodblock', icon: '🪵', alias: 'w' },
@@ -127,257 +141,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-    // 柱式/齊奏類節奏 (Block Chords) - 對應語法 .C
-    const RHYTHM_BLOCK = {
-        // --- 基礎類 ---
-        1: { name: "全音符 (Pad)", steps: [
-            { t: 0, len: 4, notes: [0, 1, 2] } 
-        ]},
-        2: { name: "四分音符 (進行曲)", steps: [
-            { t: 0, len: 1, notes: [0, 1, 2] }, { t: 1, len: 1, notes: [0, 1, 2] },
-            { t: 2, len: 1, notes: [0, 1, 2] }, { t: 3, len: 1, notes: [0, 1, 2] }
-        ]},
-        3: { name: "八分音符 (直球搖滾)", steps: [
-            { t: 0, len: 0.5, notes: [0, 1, 2] }, { t: 0.5, len: 0.5, notes: [0, 1, 2] },
-            { t: 1, len: 0.5, notes: [0, 1, 2] }, { t: 1.5, len: 0.5, notes: [0, 1, 2] },
-            { t: 2, len: 0.5, notes: [0, 1, 2] }, { t: 2.5, len: 0.5, notes: [0, 1, 2] },
-            { t: 3, len: 0.5, notes: [0, 1, 2] }, { t: 3.5, len: 0.5, notes: [0, 1, 2] }
-        ]},
-        
-        // --- 吉他刷法類 (Strumming) ---
-        // 模擬吉他：[0] 代表低音弦先刷，[1,2] 代表高音弦，[0,1,2] 代表全刷
-        
-        4: { name: "民謠吉他 (Folk) - 下_下上_上下", steps: [
-            // 常見的 "D - D U - U D U" 刷法 (島嶼風格)
-            { t: 0, len: 1, notes: [0, 1, 2] },    // 下 (1拍)
-            { t: 1, len: 0.5, notes: [0, 1, 2] },  // 下
-            { t: 1.5, len: 1, notes: [1, 2] },     // 上 (延音跨過第3拍)
-            { t: 2.5, len: 0.5, notes: [1, 2] },   // 上
-            { t: 3, len: 0.5, notes: [0, 1, 2] },  // 下
-            { t: 3.5, len: 0.5, notes: [1, 2] }    // 上
-        ]},
-        5: { name: "鄉村吉他 (Country) - 根_刷_五_刷", steps: [
-            // 經典的 Bass-Chord 伴奏
-            { t: 0, len: 1, notes: [0] },      // 根音
-            { t: 1, len: 1, notes: [1, 2] },   // 和弦
-            { t: 2, len: 1, notes: [2] },      // 五度音 (Alternating Bass)
-            { t: 3, len: 1, notes: [1, 2] }    // 和弦
-        ]},
-        6: { name: "慢搖滾 (Slow Rock) - 三連音感", steps: [
-            // 12/8 拍感覺的刷法 (強 弱 弱 強 弱 弱)
-            { t: 0, len: 1, notes: [0, 1, 2] },
-            { t: 1, len: 0.5, notes: [1, 2] }, // 弱
-            { t: 1.5, len: 0.5, notes: [1, 2] }, // 弱
-            { t: 2, len: 1, notes: [0, 1, 2] },
-            { t: 3, len: 0.5, notes: [1, 2] }, // 弱
-            { t: 3.5, len: 0.5, notes: [1, 2] }  // 弱
-        ]},
-        7: { name: "抒情刷法 (Ballad) - 分散式", steps: [
-            // 類似鋼琴柱式，但帶有一點分解感
-            { t: 0, len: 2, notes: [0] },         // 根音長音
-            { t: 0.5, len: 1.5, notes: [1, 2] },  // 和弦慢半拍進來
-            { t: 2, len: 1, notes: [0] },         // 根音
-            { t: 3, len: 1, notes: [1, 2] }       // 和弦
-        ]},
-        8: { name: "切分節奏 (Syncopated)", steps: [
-            // 強調反拍，帶有律動感 (3-3-2 結構)
-            { t: 0, len: 1.5, notes: [0, 1, 2] },  // 1.5拍
-            { t: 1.5, len: 1.5, notes: [0, 1, 2] },// 1.5拍 (切分)
-            { t: 3, len: 1, notes: [0, 1, 2] }     // 1拍
-        ]},
-        
-        // --- 特殊風格 ---
-        9: { name: "雷鬼/斯卡 (Reggae/Ska) - 反拍", steps: [
-            // 只在反拍出聲 (嗯-恰-嗯-恰)
-            { t: 0.5, len: 0.25, notes: [1, 2] }, 
-            { t: 1.5, len: 0.25, notes: [1, 2] }, 
-            { t: 2.5, len: 0.25, notes: [1, 2] }, 
-            { t: 3.5, len: 0.25, notes: [1, 2] } 
-        ]},
-        10: { name: "放克 (Funk 16 Beat)", steps: [
-            // 16分音符切分
-            { t: 0, len: 0.25, notes: [0,1,2] },
-            { t: 0.75, len: 0.25, notes: [1,2] }, // e & "a"
-            { t: 1.5, len: 0.5, notes: [1,2] },   // &
-            { t: 2.5, len: 0.25, notes: [1,2] },  // &
-            { t: 3, len: 0.25, notes: [0,1,2] },  // 4
-            { t: 3.5, len: 0.25, notes: [1,2] }   // &
-        ]},
-        11: { name: "華爾滋 (Waltz 3/4)", steps: [
-            // 雖然是 4 拍定義，但在這裡模擬 3 拍子的重音 (重-輕-輕)
-            { t: 0, len: 1, notes: [0] }, 
-            { t: 1, len: 1, notes: [1, 2] }, 
-            { t: 2, len: 1, notes: [1, 2] },
-            { t: 3, len: 1, notes: [0] } // 第4拍填補(或留空)
-        ]},
-        12: { name: "急板 (Galop) - 騎馬節奏", steps: [
-            // 噠噠-噠噠-噠噠-噠噠
-            { t: 0, len: 0.5, notes: [0] }, { t: 0.5, len: 0.5, notes: [1, 2] },
-            { t: 1, len: 0.5, notes: [0] }, { t: 1.5, len: 0.5, notes: [1, 2] },
-            { t: 2, len: 0.5, notes: [0] }, { t: 2.5, len: 0.5, notes: [1, 2] },
-            { t: 3, len: 0.5, notes: [0] }, { t: 3.5, len: 0.5, notes: [1, 2] }
-        ]}
-    };
-
-    // 分解和弦類節奏 (Arpeggios) - 對應語法 :C
-    // 分解和弦類節奏 (Arpeggios) - 對應語法 :C
-    const RHYTHM_ARP = {
-        // --- 基礎類 ---
-        1: { name: "上行琶音 (1-3-5-3)", steps: [
-            { t: 0, len: 1, notes: [0] }, { t: 1, len: 1, notes: [1] },
-            { t: 2, len: 1, notes: [2] }, { t: 3, len: 1, notes: [1] }
-        ]},
-        2: { name: "流動 (16分)", steps: [
-            { t: 0, len: 0.5, notes: [0] }, { t: 0.5, len: 0.5, notes: [2] }, 
-            { t: 1, len: 0.5, notes: [1] }, { t: 1.5, len: 0.5, notes: [2] },
-            { t: 2, len: 0.5, notes: [0] }, { t: 2.5, len: 0.5, notes: [2] }, 
-            { t: 3, len: 0.5, notes: [1] }, { t: 3.5, len: 0.5, notes: [2] }
-        ]},
-        3: { name: "阿爾貝蒂 (古典)", steps: [
-            { t: 0, len: 0.5, notes: [0] }, { t: 0.5, len: 0.5, notes: [2] }, 
-            { t: 1, len: 0.5, notes: [1] }, { t: 1.5, len: 0.5, notes: [2] },
-            { t: 2, len: 0.5, notes: [0] }, { t: 2.5, len: 0.5, notes: [2] }, 
-            { t: 3, len: 0.5, notes: [1] }, { t: 3.5, len: 0.5, notes: [2] }
-        ]},
-        4: { name: "抒情分解 (慢)", steps: [
-            { t: 0, len: 0.5, notes: [0] }, { t: 0.5, len: 0.5, notes: [2] },
-            { t: 1, len: 1, notes: [1] }, 
-            { t: 2, len: 0.5, notes: [0] }, { t: 2.5, len: 0.5, notes: [2] },
-            { t: 3, len: 1, notes: [1] }
-        ]},
-        5: { name: "根五 (Bass)", steps: [
-            { t: 0, len: 2, notes: [0] }, { t: 2, len: 2, notes: [2] }
-        ]},
-
-        // --- 鋼琴抒情系列 (Piano Ballad 12 Types) ---
-        // 代碼表: -1=1.(低根), -2=5.(低五), -3=7.(低七)
-        //         0=1(根), 9=2(九音), 1=3(三度), 2=5(五度), 3=7(七度)
-        
-        // 1./ 5./ 2/ 3 ( 3 -
-        6: { name: "鋼琴抒情 1 (Add9)", steps: [
-            { t: 0, len: 0.5, notes: [-1] },   // 1.
-            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
-            { t: 1.0, len: 0.5, notes: [9] },  // 2 (九音)
-            { t: 1.5, len: 2.5, notes: [1] }   // 3 (延音)
-        ]},
-        
-        // 1./ 5./ 2/ 3/ 5 -
-        7: { name: "鋼琴抒情 2 (Add9)", steps: [
-            { t: 0, len: 0.5, notes: [-1] },   // 1.
-            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
-            { t: 1.0, len: 0.5, notes: [9] },  // 2 (九音)
-            { t: 1.5, len: 0.5, notes: [1] },  // 3
-            { t: 2.0, len: 2.0, notes: [2] }   // 5
-        ]},
-        
-        // 1./ 5./ 2/ 3/ 7 -
-        8: { name: "鋼琴抒情 3 (Add9+7)", steps: [
-            { t: 0, len: 0.5, notes: [-1] },   // 1.
-            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
-            { t: 1.0, len: 0.5, notes: [9] },  // 2 (九音)
-            { t: 1.5, len: 0.5, notes: [1] },  // 3
-            { t: 2.0, len: 2.0, notes: [3] }   // 7
-        ]},
-        
-        // 1./ 5./ 3/ 2 ( 2 -
-        9: { name: "鋼琴抒情 4 (Sus2)", steps: [
-            { t: 0, len: 0.5, notes: [-1] },   // 1.
-            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
-            { t: 1.0, len: 0.5, notes: [1] },  // 3
-            { t: 1.5, len: 2.5, notes: [9] }   // 2 (九音/Sus2)
-        ]},
-        
-        // 1./ 5./ 1/ 2 ( 2 -
-        10: { name: "鋼琴抒情 5 (Standard)", steps: [
-            { t: 0, len: 0.5, notes: [-1] },   // 1.
-            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
-            { t: 1.0, len: 0.5, notes: [0] },  // 1 (根)
-            { t: 1.5, len: 2.5, notes: [9] }   // 2 (九音)
-        ]},
-        
-        // 1./ 5./ 1/ 2/ 3 -
-        11: { name: "鋼琴抒情 6", steps: [
-            { t: 0, len: 0.5, notes: [-1] },   // 1.
-            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
-            { t: 1.0, len: 0.5, notes: [0] },  // 1 (根)
-            { t: 1.5, len: 0.5, notes: [9] },  // 2 (九音)
-            { t: 2.0, len: 2.0, notes: [1] }   // 3
-        ]},
-        
-        // 1./ 5./ 1/ 2/ 5 -
-        12: { name: "鋼琴抒情 7", steps: [
-            { t: 0, len: 0.5, notes: [-1] },   // 1.
-            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
-            { t: 1.0, len: 0.5, notes: [0] },  // 1 (根)
-            { t: 1.5, len: 0.5, notes: [9] },  // 2 (九音)
-            { t: 2.0, len: 2.0, notes: [2] }   // 5
-        ]},
-        
-        // 1./ 5./ 1/ 2/ 7 -
-        13: { name: "鋼琴抒情 8", steps: [
-            { t: 0, len: 0.5, notes: [-1] },   // 1.
-            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
-            { t: 1.0, len: 0.5, notes: [0] },  // 1 (根)
-            { t: 1.5, len: 0.5, notes: [9] },  // 2 (九音)
-            { t: 2.0, len: 2.0, notes: [3] }   // 7
-        ]},
-        
-        // 1./ 5./ 7./ 1 ( 1 -
-        14: { name: "鋼琴抒情 9 (Bass Line)", steps: [
-            { t: 0, len: 0.5, notes: [-1] },   // 1.
-            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
-            { t: 1.0, len: 0.5, notes: [-3] }, // 7. (低七)
-            { t: 1.5, len: 2.5, notes: [0] }   // 1 (根)
-        ]},
-        
-        // 1./ 5./ 7./ 1 3 -
-        15: { name: "鋼琴抒情 10 (Bass Line)", steps: [
-            { t: 0, len: 0.5, notes: [-1] },   // 1.
-            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
-            { t: 1.0, len: 0.5, notes: [-3] }, // 7. (低七)
-            { t: 1.5, len: 0.5, notes: [0] },  // 1 (根)
-            { t: 2.0, len: 2.0, notes: [1] }   // 3
-        ]},
-        
-        // 1./ 5./ 7./ 1 5 -
-        16: { name: "鋼琴抒情 11 (Bass Line)", steps: [
-            { t: 0, len: 0.5, notes: [-1] },   // 1.
-            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
-            { t: 1.0, len: 0.5, notes: [-3] }, // 7. (低七)
-            { t: 1.5, len: 0.5, notes: [0] },  // 1 (根)
-            { t: 2.0, len: 2.0, notes: [2] }   // 5
-        ]},
-        
-        // 1./ 5./ 1/ 7. -
-        17: { name: "鋼琴抒情 12 (Bass Turn)", steps: [
-            { t: 0, len: 0.5, notes: [-1] },   // 1.
-            { t: 0.5, len: 0.5, notes: [-2] }, // 5.
-            { t: 1.0, len: 0.5, notes: [0] },  // 1 (根)
-            { t: 1.5, len: 2.5, notes: [-3] }  // 7. (低七)
-        ]}
-    };
-
     const keys = [
         { char: '1', display: '1', type: 'num' }, { char: '2', display: '2', type: 'num' }, { char: '3', display: '3', type: 'num' },
         { char: '4', display: '4', type: 'num' }, { char: '5', display: '5', type: 'num' }, { char: '6', display: '6', type: 'num' },
         { char: '7', display: '7', type: 'num' }, { char: '0', display: '0', type: 'num' }, { char: ' ', display: '空', type: 'space' },
-        { char: '-', display: '-', type: 'normal' }, { char: '/', display: '/', type: 'normal' }, { char: '.', display: '.', type: 'normal' },
-        { char: ':', display: ':', type: 'normal' }, { char: '|', display: '|', type: 'normal' }, { char: '(', display: '(', type: 'normal' },
+        { char: '-', display: '-', type: 'normal' }, { char: '/', display: '/', type: 'normal' }, { char: '*', display: '*', type: 'normal' },
+        { char: ':', display: ':', type: 'normal' }, { char: '<', display: '<3>', type: 'normal' }, 
+        { char: '(', display: '(合)', type: 'normal' }, 
+        { char: '|', display: '|', type: 'normal' },
         { char: '#', display: '#', type: 'normal' }, { char: 'b', display: 'b', type: 'normal' }, { char: 'z', display: 'z', type: 'normal' },
         { char: 'backspace', display: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path><line x1="18" y1="9" x2="12" y2="15"></line><line x1="12" y1="9" x2="18" y2="15"></line></svg>', type: 'func' },
         { char: 'delete', display: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>', type: 'func' }
     ];
 
     const mappingData = [
-        { font: "", code: ". " }, { font: "", code: "0 " }, { font: "", code: "1 " }, { font: "", code: "2 " },
+        { font: "", code: "* " }, { font: "", code: "0 " }, { font: "", code: "1 " }, { font: "", code: "2 " },
         { font: "", code: "3 " }, { font: "", code: "4 " }, { font: "", code: "5 " }, { font: "", code: "6 " },
         { font: "", code: "7 " }, { font: "", code: "0/ " }, { font: "", code: "1/ " }, { font: "", code: "2/ " },
         { font: "", code: "3/ " }, { font: "", code: "4/ " }, { font: "", code: "5/ " }, { font: "", code: "6/ " },
-        { font: "", code: "7/ " }, { font: "", code: "./ " }, { font: "", code: "0// " }, { font: "", code: "1// " },
+        { font: "", code: "7/ " }, { font: "", code: "*/ " }, { font: "", code: "0// " }, { font: "", code: "1// " },
         { font: "", code: "2// " }, { font: "", code: "3// " }, { font: "", code: "4// " }, { font: "", code: "5// " },
-        { font: "", code: "6// " }, { font: "", code: "7// " }, { font: "", code: ".// " }, { font: "", code: "0/// " },
+        { font: "", code: "6// " }, { font: "", code: "7// " }, { font: "", code: "*// " }, { font: "", code: "0/// " },
         { font: "", code: "1/// " }, { font: "", code: "2/// " }, { font: "", code: "3/// " }, { font: "", code: "4/// " },
-        { font: "", code: "5/// " }, { font: "", code: "6/// " }, { font: "", code: "7/// " }, { font: "", code: "./// " },
+        { font: "", code: "5/// " }, { font: "", code: "6/// " }, { font: "", code: "7/// " }, { font: "", code: "*/// " },
         { font: "", code: "1. " }, { font: "", code: "2. " }, { font: "", code: "3. " }, { font: "", code: "4. " },
         { font: "", code: "5. " }, { font: "", code: "6. " }, { font: "", code: "7. " }, { font: "", code: ".1 " },
         { font: "", code: ".2 " }, { font: "", code: ".3 " }, { font: "", code: ".4 " }, { font: "", code: ".5 " },
@@ -409,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { font: "", code: ":1/// " }, { font: "", code: ":2/// " }, { font: "", code: ":4/// " }, { font: "", code: ":5/// " },
         { font: "", code: ":6/// " }, { font: "", code: ":7/// " },
         { font: "", code: "- " }, { font: "", code: "b " }, { font: "", code: "z " }, { font: "", code: "# " },
-        { font: "", code: "( " }, { font: "", code: "(. " }, { font: "", code: "2/2) " }, { font: "", code: "3/4) " },
+        { font: "", code: "(( " }, { font: "", code: "(. " }, { font: "", code: "2/2) " }, { font: "", code: "3/4) " },
         { font: "", code: "4/4) " }, { font: "", code: "| " }, { font: "", code: "|| " }, { font: "", code: "||| " },
         { font: "", code: "||: " }, { font: "", code: ":|| " },
 
@@ -418,15 +204,15 @@ document.addEventListener('DOMContentLoaded', () => {
 		// 注意：程式碼中 "\\" 代表一個反斜線
         { font: "", code: "0\\ " }, { font: "", code: "1\\ " }, { font: "", code: "2\\ " }, 
         { font: "", code: "3\\ " }, { font: "", code: "4\\ " }, { font: "", code: "5\\ " }, 
-        { font: "", code: "6\\ " }, { font: "", code: "7\\ " }, { font: "", code: ".\\ " },
+        { font: "", code: "6\\ " }, { font: "", code: "7\\ " }, { font: "", code: "*\\ " },
         
         { font: "", code: "0\\\\ " }, { font: "", code: "1\\\\ " }, { font: "", code: "2\\\\ " }, 
         { font: "", code: "3\\\\ " }, { font: "", code: "4\\\\ " }, { font: "", code: "5\\\\ " }, 
-        { font: "", code: "6\\\\ " }, { font: "", code: "7\\\\ " }, { font: "", code: ".\\\\ " },
+        { font: "", code: "6\\\\ " }, { font: "", code: "7\\\\ " }, { font: "", code: "*\\\\ " },
         
         { font: "", code: "0\\\\\\ " }, { font: "", code: "1\\\\\\ " }, { font: "", code: "2\\\\\\ " }, 
         { font: "", code: "3\\\\\\ " }, { font: "", code: "4\\\\\\ " }, { font: "", code: "5\\\\\\ " }, 
-        { font: "", code: "6\\\\\\ " }, { font: "", code: "7\\\\\\ " }, { font: "", code: ".\\\\\\ " },
+        { font: "", code: "6\\\\\\ " }, { font: "", code: "7\\\\\\ " }, { font: "", code: "*\\\\\\ " },
 
         { font: "", codes: ["1.\\ ", "1\\. "] }, { font: "", codes: ["2.\\ ", "2\\. "] }, 
         { font: "", codes: ["3.\\ ", "3\\. "] }, { font: "", codes: ["4.\\ ", "4\\. "] }, 
@@ -479,10 +265,16 @@ document.addEventListener('DOMContentLoaded', () => {
             fontToCodeRules.push({ regex: new RegExp(escapeRegExp(item.font), 'g'), replacement: item.code });
         }
     });
+    
+    // 確保長代碼先被處理 (例如 .1 先於 1)
     allPairs.sort((a, b) => b.code.length - a.code.length);
+    
     allPairs.forEach(pair => {
+        // [修正] 正則表達式：負向後行斷言 (Negative Lookbehind)
+        // 排除前方是：英文字母、數字(\d)、錢字號(\$)、左大括號(\{)
+        // 這樣 $1, {1:, r1C 裡面的 1 都不會被當作音符轉換
         codeToFontRules.push({
-            regex: new RegExp("(?<![a-zA-Z])" + escapeRegExp(pair.code), 'g'),
+            regex: new RegExp("(?<![a-zA-Z\\d\\$\\{])" + escapeRegExp(pair.code), 'g'),
             replacement: pair.font
         });
     });
@@ -663,33 +455,43 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-        async function loadInstrument(instName, targetCtx) {
-        // 如果沒有指定 targetCtx，就使用全域 audioCtx (一般播放用)
+	async function loadInstrument(instName, targetCtx) {
+        if (!instName) return null;
+
         const ctx = targetCtx || audioCtx;
         
-        // 只有在「一般播放」且「已經載入過」時，才使用快取
-        // 匯出時因為 Context 不同，必須重新建立實例 (瀏覽器會快取檔案，不用擔心流量)
+        const DRUM_MAP = {
+            'drum_kick': 'taiko_drum',       // 大鼓 -> 太鼓 (厚實)
+            'drum_snare': 'synth_drum',      // 小鼓 -> 合成鼓 (有力)
+            'drum_hihat_close': 'woodblock', // 閉鈸 -> 木魚 (短促)
+            'drum_hihat_open': 'agogo',      // 開鈸 -> 阿哥哥鈴 (金屬延音)
+            'drum_tom_hi': 'melodic_tom',    // 高中鼓 -> 旋律通鼓
+            'drum_tom_lo': 'melodic_tom',    // 落地鼓 -> 旋律通鼓
+            'drum_crash': 'agogo',           // 碎音鈸 -> 阿哥哥鈴 (高音)
+            'drum_ride': 'tinkle_bell'       // 疊音鈸 -> 鈴鐺 (清脆)
+        };
+
+        // 判斷是否需要映射，如果不是鼓，就用原本的名字
+        const realInstName = DRUM_MAP[instName] || instName;
+
         if (!targetCtx && loadedInstruments[instName]) {
             return loadedInstruments[instName];
         }
         
         if (typeof window.Soundfont === 'undefined') {
-            // ... (原本的載入 Library 邏輯保持不變) ...
             await loadScript('https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js');
         }
 
         try {
-            // 確保有 Context
             if (!ctx && !targetCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
             
-            // 使用指定的 ctx 載入樂器
-            const inst = await window.Soundfont.instrument(ctx || audioCtx, instName);
+            // 載入真實的樂器檔
+            const inst = await window.Soundfont.instrument(ctx || audioCtx, realInstName);
             
-            // 只有一般播放才存入全域快取
             if (!targetCtx) {
-                loadedInstruments[instName] = inst;
+                loadedInstruments[instName] = inst; // 使用虛擬名稱存入快取，方便後續呼叫
             }
             return inst;
         } catch (e) {
@@ -707,14 +509,29 @@ document.addEventListener('DOMContentLoaded', () => {
         let volumeBoost = 1.0; 
         const targetInst = instVal || currentInstrument;
 
-        if (targetInst === 'taiko_drum') { freq = 100; volumeBoost = 5.0; }
+		// 爵士鼓組與打擊樂頻率映射
+        if (targetInst === 'drum_kick') { 
+            freq = 60; volumeBoost = 6.0; 
+            duration = Math.min(duration, 0.3); 
+        }        
+        else if (targetInst === 'drum_snare') { 
+            freq = 180;       // 稍微降低頻率，讓聲音更厚實
+            volumeBoost = 3.0; 
+            duration = 0.02;
+        }
+        else if (targetInst === 'drum_tom_hi') { freq = 400; volumeBoost = 5.0; }
+        else if (targetInst === 'drum_tom_lo') { freq = 150; volumeBoost = 5.0; }
+        else if (targetInst === 'drum_hihat_close') { freq = 1200; volumeBoost = 3.0; duration = 0.1; } // 極短促
+        else if (targetInst === 'drum_hihat_open') { freq = 800; volumeBoost = 3.0; }
+        else if (targetInst === 'drum_crash') { freq = 900; volumeBoost = 4.0; } // 高音金屬
+        else if (targetInst === 'drum_ride') { freq = 1500; volumeBoost = 2.5; } // 清脆點擊
+        
+        // 原有的打擊樂
+        else if (targetInst === 'taiko_drum') { freq = 100; volumeBoost = 5.0; }
         else if (targetInst === 'synth_drum') { freq = 250; volumeBoost = 4.0; }
-        else if (targetInst === 'tinkle_bell') { freq = 2000; volumeBoost = 6.0; }
-        else if (targetInst === 'agogo') { freq = 600; volumeBoost = 4.0; }
         else if (targetInst === 'woodblock') { freq = 800; volumeBoost = 6.0; }
 
         const instDef = instruments.find(i => i.val === targetInst) || instruments[0];
-        
         if (instDef.type === 'soundfont') {
             // 優先使用傳入的 Player (匯出用)，否則嘗試從快取抓 (播放用)
             let player = targetPlayer;
@@ -730,7 +547,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         gain: volumeBoost 
                     });
 
-                    // [關鍵修復]：如果是即時播放 (非匯出)，將聲音節點存入清單，以便可以被停止
+                    // 如果是即時播放 (非匯出)，將聲音節點存入清單，以便可以被停止
                     if (!targetCtx) {
                         activeOscillators.push({ stop: () => {
                             try { node.stop(); } catch(e){} 
@@ -833,7 +650,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const noteStartTime = note.startTime * beatTime;
                 const noteTotalDuration = note.duration * beatTime; // 總時長
 
-                // [新增] 匯出時的和弦處理邏輯 (與 playMusic 同步)
+
                 // [修改] 匯出時的和弦處理 (同步 playMusic 邏輯)
                 if (note.type === 'chord' && note.chordFreqs) {
                     let patternLib = RHYTHM_BLOCK; 
@@ -1000,25 +817,172 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-function parseScore(text) {
+
+	// 將簡譜節奏字串解析為 steps 物件
+	function parseRhythmString(patternStr) {
+		const steps = [];
+		let currentTime = 0;
+		let groupCache = []; 
+
+		// 支援全形/半形空格切割
+		const tokens = patternStr.trim().split(/[\s\u3000]+/);
+
+		// 音高代碼對照表 (確保 regex 抓出來的 key 這裡都有)
+		const noteMap = {
+			'1.': -1, '2.': -20, '3.': -4, '4.': -21, '5.': -2, '6.': -22, '7.': -3, 
+			'1': 0, '2': 9, '3': 1, '4': 11, '5': 2, '6': 13, '7': 3, 
+			'.1': 12, '.2': 14, '.3': 15, '.4': 16, '.5': 17, '.6': 18, '.7': 19
+		};
+
+		tokens.forEach(token => {
+			if (!token) return;
+			let duration = 1; 
+			let cleanToken = token;
+			
+			// 處理時值後綴
+			if (token.endsWith('---')) { duration = 4; cleanToken = token.slice(0, -3); }
+			else if (token.endsWith('--')) { duration = 3; cleanToken = token.slice(0, -2); }
+			else if (token.endsWith('-/')) { duration = 2.5; cleanToken = token.slice(0, -2); }
+			else if (token.endsWith('-')) { duration = 2; cleanToken = token.slice(0, -1); }
+			else if (token.endsWith('/*')) { duration = 0.75; cleanToken = token.slice(0, -2); } 
+			else if (token.endsWith('*')) { duration = 1.5; cleanToken = token.slice(0, -1); }   
+			else if (token.endsWith('//')) { duration = 0.25; cleanToken = token.slice(0, -2); }
+			else if (token.endsWith('/')) { duration = 0.5; cleanToken = token.slice(0, -1); }
+
+			let notes = [];
+			
+			// A. 引用群組 ($1)
+			if (cleanToken.startsWith('$')) {
+				const refIdx = parseInt(cleanToken.substring(1)) - 1;
+				if (groupCache[refIdx]) { notes = [...groupCache[refIdx]]; }
+			} 
+			// B. 休止符 (0)
+			else if (cleanToken === '0') { 
+				notes = []; 
+			}
+			// C. 音符解析 (核心修正：同步編輯區的解析邏輯)
+			else {
+				// 1. 移除括號
+				let inner = cleanToken.replace(/[\(\)]/g, '');
+				
+				// 2. [關鍵升級] 採用混合解析策略
+				// 支援: 15 -> 1, 5
+				// 支援: 1.15 -> 1., 1, 5
+				// 支援: 1'.15 -> 1, .1, 5
+				
+				let subTokens = [];
+				if (inner.includes("'")) {
+					// 如果有分隔符，先切割
+					let segments = inner.split("'");
+					segments.forEach(seg => {
+						if (!seg) return;
+						// 對每個區段抓取音符 (包含 . 或 :)
+						let found = seg.match(/[.:]*[0-7][.:]*/g);
+						if (found) subTokens.push(...found);
+					});
+				} else {
+					// 沒有分隔符，直接正則抓取 (會自動將 1. 視為一個單位，1 視為另一個)
+					subTokens = inner.match(/[.:]*[0-7][.:]*/g) || [];
+				}
+
+				// 3. 映射到代碼
+				subTokens.forEach(t => { 
+					// 防呆：如果 map 裡有這個 key 才加入
+					if (noteMap.hasOwnProperty(t)) {
+						notes.push(noteMap[t]); 
+					} else {
+						// 嘗試處理更複雜的寫法 (如倍低音 :1)，若 map 沒有定義則 fallback 到中音
+						// 這裡簡單處理：去掉所有符號只看數字 (僅作備援)
+						let simpleNum = t.replace(/[.:]/g, '');
+						if (noteMap.hasOwnProperty(simpleNum)) notes.push(noteMap[simpleNum]);
+					}
+				});
+				
+				// 4. 存入快取 (若原始 token 有括號)
+				if (cleanToken.includes('(')) { groupCache.push(notes); }
+			}
+
+
+			steps.push({ t: currentTime, len: duration, notes: notes });
+			
+			// 推進時間
+			currentTime += duration;
+		});
+
+		return { name: "Custom Rhythm", steps: steps };
+	}
+
+    // [修正] 樂譜解析核心 (修復三連音與各類符號的優先順序)
+    // 樂譜解析核心
+    function parseScore(text, ignoreFlow = false) {
         // ==========================================
-        // 1. 預處理：流程管理 (Play Flow) 與 行讀取
+        // 0. 預處理：解析並「挖空」自定義節奏定義
+        // ==========================================
+        let customRhythms = {}; 
+        
+        const defRegex = /\[(rhythm|r)\s*(?::\s*([a-zA-Z0-9_]*))?\s*\]\s*\{([^}]+)\}/gi;
+        
+        let textForParsing = text.replace(defRegex, (match, p1, p2, p3) => {
+            let prefix = (p2 || '').trim();
+            if (!prefix) prefix = 'r';
+            const content = p3;
+            
+            if (!customRhythms[prefix]) customRhythms[prefix] = {};
+
+            // 允許 ID 與冒號之間有空格
+            const patternParts = content.split(/(\d+)\s*:/);
+            for (let i = 1; i < patternParts.length; i += 2) {
+                const id = patternParts[i].trim();
+                const patternStr = patternParts[i+1] ? patternParts[i+1].trim() : "";
+                if (id && patternStr) {
+                    customRhythms[prefix][id] = parseRhythmString(patternStr);
+                    customRhythms[prefix][id].name = `Custom ${prefix}-${id}`;
+                }
+            }
+            return ' '.repeat(match.length);
+        });
+
+        // ==========================================
+        // 1. 預處理：流程管理
         // ==========================================
         let lines = [];
-        const flowMatch = text.match(/^\[\s*play\s*:\s*(.*?)\]/im);
+        const flowMatch = textForParsing.match(/^\[\s*play\s*:\s*(.*?)\]/im);
 
-        if (flowMatch) {
+        // [關鍵修正] 如果有選取範圍 (ignoreFlow=true)，則無視 Play 指令，直接走線性解析 (Mode B)
+        if (flowMatch && !ignoreFlow) {
+            // --- Mode A: 流程控制模式 ---
             const flowIds = flowMatch[1].trim().split(/\s+/); 
             const sectionMap = {};
-            const sectionRegex = /\[([a-zA-Z0-9_-]+)\]\s*\{\s*([^}]*)\s*\}/g;
-            let match;
-            while ((match = sectionRegex.exec(text)) !== null) {
-                const label = match[1];
-                const content = match[2];
-                const fullMatchStr = match[0];
-                const contentStartOffset = match.index + fullMatchStr.indexOf(content);
-                sectionMap[label] = { content: content, startOffset: contentStartOffset };
+            
+            // 引擎 1：優先掃描 [A]{ content }
+            const braceRegex = /\[([a-zA-Z0-9_-]+)\]\s*\{([^}]*)\}/g;
+            let bMatch;
+            while ((bMatch = braceRegex.exec(textForParsing)) !== null) {
+                const label = bMatch[1];
+                const content = bMatch[2];
+                // 精確計算內容起始位置 (從 { 後面開始)
+                const openBraceIndex = textForParsing.indexOf('{', bMatch.index);
+                const realStartOffset = openBraceIndex + 1; 
+                sectionMap[label] = { content: content, startOffset: realStartOffset };
             }
+
+            // 引擎 2：掃描 [A] ... [B]
+            const headerRegex = /^\[([a-zA-Z0-9_-]+)\]\s*$/gm;
+            let hMatch;
+            let headers = [];
+            while ((hMatch = headerRegex.exec(textForParsing)) !== null) {
+                 if (hMatch[1].toLowerCase() === 'play' || hMatch[1].toLowerCase() === 'rhythm') continue;
+                 headers.push({ label: hMatch[1], idx: hMatch.index, len: hMatch[0].length });
+            }
+            headers.forEach((h, i) => {
+                if (sectionMap[h.label]) return; // 已被引擎 1 抓取
+                const start = h.idx + h.len;
+                const end = (i + 1 < headers.length) ? headers[i+1].idx : textForParsing.length;
+                const content = textForParsing.substring(start, end);
+                sectionMap[h.label] = { content: content, startOffset: start };
+            });
+
+            // 組裝流程
             flowIds.forEach(id => {
                 const section = sectionMap[id];
                 if (section) {
@@ -1029,30 +993,37 @@ function parseScore(text) {
                         if (endIdx === -1) endIdx = secText.length;
                         let lineContent = secText.substring(ptr, endIdx);
                         if (lineContent.endsWith('\r')) lineContent = lineContent.slice(0, -1);
-                        lines.push({ text: lineContent, startIndex: section.startOffset + ptr });
+                        if (lineContent.trim()) {
+                            lines.push({ text: lineContent, startIndex: section.startOffset + ptr });
+                        }
                         ptr = endIdx + 1;
                     }
-                    lines.push({ text: "", startIndex: -1 });
+                    lines.push({ text: "", startIndex: -1 }); // 段落間隔
                 }
             });
         } else {
+            // --- Mode B: 線性解析模式 (無流程 或 強制選取播放) ---
             let ptr = 0;
-            while (ptr < text.length) {
-                 let endIdx = text.indexOf('\n', ptr);
-                 if (endIdx === -1) endIdx = text.length;
-                 let lineContent = text.substring(ptr, endIdx);
+            while (ptr < textForParsing.length) {
+                 let endIdx = textForParsing.indexOf('\n', ptr);
+                 if (endIdx === -1) endIdx = textForParsing.length;
+                 let lineContent = textForParsing.substring(ptr, endIdx);
                  if (lineContent.endsWith('\r')) lineContent = lineContent.slice(0, -1);
-                 lines.push({ text: lineContent, startIndex: ptr });
+                 
+                 // 忽略純標籤行 (如 [A])，避免干擾，但其餘內容照單全收
+                 if (!lineContent.trim().match(/^\[([a-zA-Z0-9_-]+)\]$/)) {
+                     lines.push({ text: lineContent, startIndex: ptr });
+                 }
                  ptr = endIdx + 1; 
             }
         }
 
         // ==========================================
-        // 2. 分組邏輯 (Grouping)
+        // 2. 分組邏輯 (處理合奏 p: g: )
         // ==========================================
         const blocks = [];
         let currentSimulBlock = [];
-        const labelRegex = /^([a-zA-Z0-9_-]+):\s*(.*)/;
+        const labelRegex = /^\s*([a-zA-Z0-9_-]+):\s*(.*)/;
 
         lines.forEach(lineObj => {
             const cleanLine = lineObj.text.trim();
@@ -1077,7 +1048,7 @@ function parseScore(text) {
         if (currentSimulBlock.length > 0) blocks.push(currentSimulBlock);
 
         // ==========================================
-        // 3. 解析音符 (Parsing)
+        // 3. 解析音符 (核心迴圈)
         // ==========================================
         let allNotes = [];
         let globalTimeOffset = 0; 
@@ -1097,7 +1068,7 @@ function parseScore(text) {
                     const instDef = instruments.find(i => i.id === instId || i.alias === instId);
                     if (instDef) currentLineInstrument = instDef.val; 
                     parseText = match[2]; 
-                    textOffsetInLine = lineText.indexOf(parseText);
+                    textOffsetInLine = lineText.indexOf(parseText); 
                 }
 
                 const parts = parseText.split(/(\s+)/);
@@ -1115,52 +1086,139 @@ function parseScore(text) {
                         return;
                     }
 
-                    // 1. 處理三連音括號 ( 與 )
                     let tempToken = cleanStr;
-                    let hasGroupStart = false;
-                    let hasGroupEnd = false;
-                    let localInputOffset = 0;
+                    
+                    const tokenAbsStart = lineObj.startIndex + textOffsetInLine + inputIdx;
+                    const tokenAbsEnd = tokenAbsStart + token.length;
 
-                    if (tempToken.startsWith('(') && tempToken !== '(') { 
-                        hasGroupStart = true;
-                        tempToken = tempToken.substring(1);
-                        localInputOffset = 1;
-                    } else if (tempToken === '(') {
-                        rawLineNotes.push({ 
-                            type: 'groupStart',
-                            play: false, duration: 0, visualDuration: 0,
-                            inputStart: lineObj.startIndex + textOffsetInLine + inputIdx,
-                            inputEnd: lineObj.startIndex + textOffsetInLine + inputIdx + 1
-                        });
-                        inputIdx += inputLen;
-                        return;
+                    // ==========================================
+                    // 1. [優先處理] 獨立結構符號 (Separate Tokens)
+                    // 必須放在 startsWith('<') 檢查之前，避免重複觸發
+                    // ==========================================
+                    if (cleanStr === '<') {
+                        rawLineNotes.push({ type: 'groupStart', play: false, duration: 0, visualDuration: 0, inputStart: tokenAbsStart, inputEnd: tokenAbsEnd });
+                        inputIdx += inputLen; return;
                     }
-
-                    if (tempToken.endsWith(')') && tempToken !== ')') {
-                        hasGroupEnd = true;
-                        tempToken = tempToken.slice(0, -1);
-                    } else if (tempToken === ')') {
-                        rawLineNotes.push({ 
-                            type: 'groupEnd',
-                            play: false, duration: 0, visualDuration: 0,
-                            inputStart: lineObj.startIndex + textOffsetInLine + inputIdx,
-                            inputEnd: lineObj.startIndex + textOffsetInLine + inputIdx + 1
-                        });
-                        inputIdx += inputLen;
-                        return;
+                    if (cleanStr === '>') {
+                        rawLineNotes.push({ type: 'groupEnd', play: false, duration: 0, visualDuration: 0, inputStart: tokenAbsStart, inputEnd: tokenAbsEnd });
+                        inputIdx += inputLen; return;
                     }
-
-                    if (hasGroupStart) {
-                        rawLineNotes.push({ 
-                            type: 'groupStart',
-                            play: false, duration: 0, visualDuration: 0,
-                            inputStart: lineObj.startIndex + textOffsetInLine + inputIdx,
-                            inputEnd: lineObj.startIndex + textOffsetInLine + inputIdx + 1
-                        });
+                    if (cleanStr === '((') {
+                        rawLineNotes.push({ type: 'tieSymbol', play: false, duration: 0, inputStart: tokenAbsStart, inputEnd: tokenAbsEnd });
+                        inputIdx += inputLen; return;
                     }
-
                     if (cleanStr === '||:') { rawLineNotes.push({ type: 'repeatStart' }); inputIdx += inputLen; return; }
                     if (cleanStr === ':||') { rawLineNotes.push({ type: 'repeatEnd' }); inputIdx += inputLen; return; }
+
+                    // ==========================================
+                    // 2. 緊湊寫法的前後綴檢查 (Compact Prefix/Suffix)
+                    // ==========================================
+                    let hasTupletStart = false;
+                    let hasTupletEnd = false;
+                    let localInputOffset = 0;
+
+                    if (tempToken.startsWith('<')) { 
+                        hasTupletStart = true;
+                        tempToken = tempToken.substring(1);
+                        localInputOffset = 1;
+                    } 
+                    if (tempToken.endsWith('>')) {
+                        hasTupletEnd = true;
+                        tempToken = tempToken.slice(0, -1);
+                    }
+
+                    // 如果是緊湊寫法，插入 groupStart
+                    if (hasTupletStart) {
+                        rawLineNotes.push({ type: 'groupStart', play: false, duration: 0, visualDuration: 0 });
+                    }
+
+                    // ==========================================
+                    // 3. 和弦 Chord ( ... )
+                    // ==========================================
+                    let isChordEnd = false;
+                    const compactMatch = tempToken.match(/^\(([0-7.:'\s]+)\)([\/\\*-]*)$/);
+                    
+                    if (compactMatch) {
+                        const content = compactMatch[1];
+                        const suffix = compactMatch[2];
+                        
+                        rawLineNotes.push({ type: 'chordStart', play: false, duration: 0, inputStart: tokenAbsStart });
+                        
+                        let tokens = [];
+                        if (content.includes(' ')) {
+                             tokens = content.split(/\s+/);
+                        } else {
+                             let segments = content.split("'");
+                             segments.forEach(seg => {
+                                 if(!seg) return;
+                                 let found = seg.match(/[.:]*[0-7][.:]*/g);
+                                 if(found) tokens.push(...found);
+                             });
+                        }
+
+                        for (let tokenStr of tokens) {
+                            const numMatch = tokenStr.match(/[0-7]/);
+                            if (numMatch) {
+                                const char = numMatch[0];
+                                let freq = relFreqs[char] || 0;
+                                const prefix = tokenStr.substring(0, numMatch.index);
+                                const suffixPart = tokenStr.substring(numMatch.index + 1);
+
+                                if (prefix.includes(':')) freq *= 4; 
+                                else if (prefix.includes('.')) freq *= 2;
+                                if (suffixPart.includes(':')) freq /= 4;
+                                else if (suffixPart.includes('.')) freq /= 2;
+                                
+                                let noteDuration = 1;
+                                if (suffix.includes('//')) noteDuration = 0.25;
+                                else if (suffix.includes('/')) noteDuration = 0.5;
+                                else if (suffix.includes('\\')) noteDuration = 0.5;
+                                else if (suffix.includes('*')) noteDuration = 1.5;
+                                else if (suffix.includes('-')) noteDuration = 1 + suffix.length;
+
+                                rawLineNotes.push({
+                                    type: 'note',
+                                    freq: freq,
+                                    duration: noteDuration,
+                                    visualDuration: noteDuration,
+                                    play: true,
+                                    isRest: (char === '0'),
+                                    instrument: currentLineInstrument,
+                                    inputStart: tokenAbsStart,
+                                    inputEnd: tokenAbsEnd,
+                                    isMainTrack: (lineIndex === 0)
+                                });
+                            }
+                        }
+                        rawLineNotes.push({ type: 'chordEnd', play: false, duration: 0, inputEnd: tokenAbsEnd });
+                        
+                        // [修正] 緊湊寫法結尾補上 groupEnd
+                        if (hasTupletEnd) {
+                            rawLineNotes.push({ type: 'groupEnd', play: false, duration: 0, visualDuration: 0 });
+                        }
+
+                        inputIdx += inputLen;
+                        return; 
+                    }
+
+                    if (tempToken.startsWith('(')) {
+                        rawLineNotes.push({ type: 'chordStart', play: false, duration: 0, inputStart: tokenAbsStart });
+                        tempToken = tempToken.substring(1);
+                        localInputOffset = 1;
+                    }
+                    if (tempToken.endsWith(')')) {
+                        isChordEnd = true;
+                        tempToken = tempToken.slice(0, -1);
+                    }
+                    
+                    if (cleanStr === '(') {
+                        rawLineNotes.push({ type: 'chordStart', play: false, duration: 0, inputStart: tokenAbsStart, inputEnd: tokenAbsEnd });
+                        inputIdx += inputLen; return;
+                    }
+                    if (cleanStr === ')') {
+                        rawLineNotes.push({ type: 'chordEnd', play: false, duration: 0, inputStart: tokenAbsStart, inputEnd: tokenAbsEnd });
+                        inputIdx += inputLen; return;
+                    }
 
                     const absoluteStart = lineObj.startIndex + textOffsetInLine + inputIdx + localInputOffset;
                     const absoluteEnd = absoluteStart + tempToken.length;
@@ -1172,187 +1230,146 @@ function parseScore(text) {
                         chordInfo: null,
                         rhythmId: 1,    
                         rhythmType: '', 
+                        customSteps: null,
                         duration: 1,
                         inputStart: absoluteStart,
                         inputEnd: absoluteEnd,
                         isRest: false,
                         isExtension: tempToken === '-',
-                        isTieStart: tempToken.includes('('), 
+                        isTieStart: false,
                         play: true,
                         visualDuration: 1,
                         type: 'note',
                         instrument: currentLineInstrument,
-                        startTime: 0, 
+                        startTime: 0,
                         isMainTrack: (lineIndex === 0) 
                     };
 
                     let isChordParsed = false;
-                    let prefixChar = '';
 
-                    if (tempToken.startsWith('.') || tempToken.startsWith(':')) {
-                        prefixChar = tempToken[0];
-                        let rawContent = tempToken.substring(1).replace(/[\/\(\\]/g, '');
-                        let rhythmMatch = rawContent.match(/^(\d+)/);
-                        let chordNamePart = rawContent;
-                        let rhythmIdTemp = 1;
-
-                        if (rhythmMatch) {
-                            rhythmIdTemp = parseInt(rhythmMatch[1]);
-                            chordNamePart = rawContent.substring(rhythmMatch[0].length);
-                        }
-
-                        if (chordNamePart.length > 0) {
-                            const sortedRoots = Object.keys(CHORD_ROOTS).sort((a, b) => b.length - a.length);
-                            let rootVal = -1;
-                            let quality = "";
-                            for (let r of sortedRoots) {
-                                if (chordNamePart.startsWith(r)) {
-                                    rootVal = CHORD_ROOTS[r];
-                                    quality = chordNamePart.substring(r.length);
+                    // 自訂節奏與 Arpeggio
+                    if (tempToken.startsWith('.') || tempToken.startsWith(':') || /^[a-zA-Z]/.test(tempToken)) {
+                        let rawContent = tempToken;
+                        let rType = '';
+                        if (tempToken.startsWith('.')) { rType = 'block'; rawContent = tempToken.substring(1); }
+                        else if (tempToken.startsWith(':')) { rType = 'arp'; rawContent = tempToken.substring(1); }
+                        else {
+                            for (const prefix in customRhythms) {
+                                if (tempToken.startsWith(prefix)) {
+                                    rType = 'custom';
+                                    rawContent = tempToken.substring(prefix.length);
                                     break;
                                 }
                             }
-                            if (rootVal !== -1) {
+                        }
+                        if (rType) {
+                            let cleanContent = rawContent.replace(/[\/\(\)\\*-]/g, '');
+                            let rhythmMatch = cleanContent.match(/^(\d+)/);
+                            let chordNamePart = cleanContent;
+                            let rhythmIdTemp = 1;
+                            if (rhythmMatch) { rhythmIdTemp = parseInt(rhythmMatch[1]); chordNamePart = cleanContent.substring(rhythmMatch[0].length); }
+                            if (checkChord(chordNamePart, note)) {
                                 isChordParsed = true;
                                 note.type = 'chord';
                                 note.rhythmId = rhythmIdTemp;
-                                if (prefixChar === '.') note.rhythmType = 'block'; 
-                                else if (prefixChar === ':') note.rhythmType = 'arp'; 
+                                note.rhythmType = rType;
+                                if (rType === 'custom') note.customSteps = customRhythms[Object.keys(customRhythms).find(k=>tempToken.startsWith(k))][rhythmIdTemp]?.steps;
+                                parseDurationSuffix(tempToken, note);
+                            }
+                        }
+                    }
 
-                                let slashMatch = tempToken.match(/[\/\\]+/); 
-                                if (slashMatch) {
-                                    note.duration = 1 / Math.pow(2, slashMatch[0].length);
+                    if (!isChordParsed) {
+                         if (tempToken.startsWith('*')) { note.type = 'dotted'; note.play = false; note.duration = 0; }
+                         else if ((token.match(/^[a-zA-Z]/) && !['b','z'].includes(tempToken)) || tempToken.includes('|') || tempToken === ':') { /* ignore */ }
+                         else if (tempToken === 'b') { pendingAccidental = -1; }
+                         else if (tempToken === '#') { pendingAccidental = 1; }
+                         else if (tempToken === 'z') { pendingAccidental = 0; }
+                         else if (note.isExtension) { note.play = false; note.duration = 1; note.visualDuration = note.duration; }
+                         else {
+                            const cleanToken = tempToken.replace(/[\(\/\*\\-]/g, '').trim(); 
+                            const numMatch = cleanToken.match(/[0-7]/);
+                            if (numMatch) {
+                                const num = numMatch[0];
+                                if (num === '0') { note.isRest = true; pendingAccidental = 0; } 
+                                else {
+                                    let freq = relFreqs[num];
+                                    const prefix = cleanToken.substring(0, numMatch.index);
+                                    const suffix = cleanToken.substring(numMatch.index + 1);
+                                    if (pendingAccidental === -1) freq *= Math.pow(2, -1/12);
+                                    if (pendingAccidental === 1) freq *= Math.pow(2, 1/12);
+                                    pendingAccidental = 0;
+                                    if (prefix.includes('b')) freq *= Math.pow(2, -1/12);
+                                    if (prefix.includes('#')) freq *= Math.pow(2, 1/12);
+                                    if (prefix.includes(':')) freq *= 4;
+                                    else if (prefix.includes('.')) freq *= 2;
+                                    if (suffix.includes(':')) freq /= 4;
+                                    else if (suffix.includes('.')) freq /= 2;
+                                    note.freq = freq;
                                 }
-                                note.chordInfo = { root: rootVal, quality: quality };
-                                note.chordFreqs = [];
-                                const intervals = CHORD_QUALITIES[quality] || [0, 4, 7];
-                                const baseC4 = 261.63;
-                                intervals.forEach(interval => {
-                                    const semitone = rootVal + interval;
-                                    const freq = baseC4 * Math.pow(2, semitone / 12);
-                                    note.chordFreqs.push(freq);
-                                });
                             }
-                        }
+                            parseDurationSuffix(tempToken, note);
+                         }
                     }
 
-                    if (isChordParsed) {
-                        // Done
-                    } 
-                    else if (tempToken.startsWith('.') && !/\d/.test(tempToken)) {
-                        note.type = 'dotted';
-                        note.play = false; 
-                        note.duration = 0; 
-                    }
-                    else if ((token.match(/^[a-zA-Z]/) && !['b','z'].includes(tempToken)) || tempToken.includes('|') || (tempToken.includes(')') && !hasGroupEnd) || tempToken === ':') {
-                        if (tempToken === ':' && token.length === 1) { /* ignore */ }
-                    } 
-                    else if (tempToken === 'b') { pendingAccidental = -1; }
-                    else if (tempToken === '#') { pendingAccidental = 1; }
-                    else if (tempToken === 'z') { pendingAccidental = 0; }
-                    else if (note.isExtension || note.isTieStart) {
-                        if (note.isExtension) {
-                            note.play = false; note.duration = 1;
-                        }
-                        note.visualDuration = note.duration;
-                    } 
-                    else {
-                        const cleanToken = tempToken.replace(/[\(\/\\]/g, '').trim(); 
-                        const numMatch = cleanToken.match(/[0-7]/);
-                        if (numMatch) {
-                            const num = numMatch[0];
-                            if (num === '0') {
-                                note.isRest = true;
-                                pendingAccidental = 0;
-                            } else {
-                                let freq = relFreqs[num];
-                                const prefix = cleanToken.substring(0, numMatch.index);
-                                const suffix = cleanToken.substring(numMatch.index + 1);
-
-                                if (pendingAccidental === -1) freq *= Math.pow(2, -1/12);
-                                if (pendingAccidental === 1) freq *= Math.pow(2, 1/12);
-                                pendingAccidental = 0;
-
-                                if (prefix.includes('b')) freq *= Math.pow(2, -1/12);
-                                if (prefix.includes('#')) freq *= Math.pow(2, 1/12);
-                                if (prefix.includes(':')) freq *= 4;
-                                else if (prefix.includes('.')) freq *= 2;
-                                if (suffix.includes(':')) freq /= 4;
-                                else if (suffix.includes('.')) freq /= 2;
-
-                                note.freq = freq;
-                            }
-                        }
-                        const slashCount = (tempToken.match(/[\/\\]/g) || []).length;
-                        if (slashCount > 0) note.duration = 1 / Math.pow(2, slashCount);
-                    }
-
-                    if (note.freq > 0 || note.isRest || note.isExtension || note.isTieStart || note.type === 'chord' || note.type === 'dotted') {
+                    if (note.freq > 0 || note.isRest || note.isExtension || note.type === 'chord' || note.type === 'dotted') {
                         note.visualDuration = note.duration; 
                         rawLineNotes.push(note);
                     }
 
-                    if (hasGroupEnd) {
-                        rawLineNotes.push({ 
-                            type: 'groupEnd',
-                            play: false, duration: 0, visualDuration: 0,
-                            inputStart: lineObj.startIndex + textOffsetInLine + inputIdx + inputLen - 1,
-                            inputEnd: lineObj.startIndex + textOffsetInLine + inputIdx + inputLen
-                        });
+                    if (hasTupletEnd) {
+                        rawLineNotes.push({ type: 'groupEnd', play: false, duration: 0, visualDuration: 0 });
+                    }
+                    if (isChordEnd) {
+                        rawLineNotes.push({ type: 'chordEnd', play: false, duration: 0, inputEnd: tokenAbsEnd });
                     }
                     
                     inputIdx += inputLen;
                 });
 
-                // Unroll Repeats
+                // ==================================================
+                // 4. 後處理
+                // ==================================================
+                
+                // 4.1 展開反覆
                 let expandedNotes = [];
                 let repeatStartIdx = 0;
                 for (let i = 0; i < rawLineNotes.length; i++) {
                     const item = rawLineNotes[i];
-                    if (item.type === 'repeatStart') {
-                        repeatStartIdx = expandedNotes.length;
-                    } else if (item.type === 'repeatEnd') {
+                    if (item.type === 'repeatStart') { repeatStartIdx = expandedNotes.length; } 
+                    else if (item.type === 'repeatEnd') {
                         const section = expandedNotes.slice(repeatStartIdx);
                         section.forEach(n => expandedNotes.push(Object.assign({}, n)));
                         repeatStartIdx = expandedNotes.length;
-                    } else {
-                        expandedNotes.push(item);
-                    }
+                    } else { expandedNotes.push(item); }
                 }
                 let processedLineNotesRaw = expandedNotes;
 
-                // ===============================================
-                // 三連音 (Tuplet) 邏輯處理
-                // ===============================================
+                // 4.2 三連音 (Tuplet)
                 for (let i = 0; i < processedLineNotesRaw.length; i++) {
                     if (processedLineNotesRaw[i].type === 'groupStart') {
                         let endIndex = -1;
+                        let depth = 1;
                         for (let j = i + 1; j < processedLineNotesRaw.length; j++) {
-                            if (processedLineNotesRaw[j].type === 'groupEnd') {
-                                endIndex = j;
-                                break;
-                            }
-                            if (processedLineNotesRaw[j].type === 'groupStart') break;
+                            if (processedLineNotesRaw[j].type === 'groupStart') depth++;
+                            if (processedLineNotesRaw[j].type === 'groupEnd') depth--;
+                            if (depth === 0) { endIndex = j; break; }
                         }
-
                         if (endIndex !== -1) {
                             const scaleFactor = 2 / 3;
                             for (let k = i + 1; k < endIndex; k++) {
                                 let n = processedLineNotesRaw[k];
-                                if (n.type === 'note' || n.type === 'chord' || n.isRest || n.isExtension) {
-                                    n.duration *= scaleFactor;
-                                    n.visualDuration *= scaleFactor;
+                                if (n.duration > 0) {
+                                    n.duration *= scaleFactor; n.visualDuration *= scaleFactor;
                                 }
                             }
-                            processedLineNotesRaw[i].play = false;
+                            processedLineNotesRaw[i].play = false; 
                             processedLineNotesRaw[endIndex].play = false;
-                        } else {
-                            processedLineNotesRaw[i].type = 'tie';
                         }
                     }
                 }
 
-                // Tie & Extension logic & Dotted Logic
+                // 4.3 延音、附點、Tie
                 let processedLineNotes = [];
                 const findLastPlayable = (list) => {
                     for (let k = list.length - 1; k >= 0; k--) {
@@ -1365,107 +1382,115 @@ function parseScore(text) {
                 for (let i = 0; i < processedLineNotesRaw.length; i++) {
                     let curr = processedLineNotesRaw[i];
                     
-                    if (curr.type === 'groupStart' || curr.type === 'groupEnd') continue;
-
-                    // 1. [修正] 處理延音線 (-)
-                    if (curr.isExtension) {
-                        let prev = findLastPlayable(processedLineNotes);
-                        if (prev) {
-                            // 這裡只加 curr.duration
-                            // 如果是普通延音，curr.duration 為 1
-                            // 如果在三連音內，curr.duration 已被縮放為 0.66
-                            prev.duration += curr.duration;
-                        }
-                        
-                        curr.play = false;
+                    if (['groupStart', 'groupEnd', 'chordStart', 'chordEnd'].includes(curr.type)) {
                         processedLineNotes.push(curr);
                         continue;
                     }
-
-                    // 2. 處理獨立附點 (Dotted)
+                    if (curr.type === 'tieSymbol') {
+                        let prev = findLastPlayable(processedLineNotes);
+                        if (prev) { prev.isTieStart = true; }
+                        continue; 
+                    }
+                    if (curr.isExtension) {
+                        let prev = findLastPlayable(processedLineNotes);
+                        if (prev) { prev.duration += curr.duration; }
+                        curr.play = false; processedLineNotes.push(curr); continue;
+                    }
                     if (curr.type === 'dotted') {
                         let prev = findLastPlayable(processedLineNotes);
                         if (prev) {
                             const addedDuration = prev.duration * 0.5;
-                            prev.duration += addedDuration;
-                            curr.visualDuration = addedDuration;
+                            prev.duration += addedDuration; curr.visualDuration = addedDuration;
+                        } else { curr.visualDuration = 0; }
+                        curr.play = false; processedLineNotes.push(curr); continue;
+                    }
+
+                    let prev = findLastPlayable(processedLineNotes);
+                    if (prev && prev.isTieStart && !curr.isRest && (curr.type === 'note' || curr.type === 'chord')) {
+                        let match = false;
+                        if (prev.type === 'chord' && curr.type === 'chord') {
+                             if (prev.chordInfo && curr.chordInfo) {
+                                 match = (prev.chordInfo.root === curr.chordInfo.root && prev.chordInfo.quality === curr.chordInfo.quality);
+                             } else {
+                                 match = JSON.stringify(prev.chordFreqs) === JSON.stringify(curr.chordFreqs);
+                             }
+                        } else if (prev.type === 'note' && curr.type === 'note') {
+                             match = Math.abs(prev.freq - curr.freq) < 0.1;
+                        }
+
+                        if (match) {
+                            prev.duration += curr.duration;
+                            curr.play = false; 
+                            prev.isTieStart = false; 
                         } else {
-                            curr.visualDuration = 0;
-                        }
-                        curr.play = false; 
-                        processedLineNotes.push(curr);
-                        continue;
-                    }
-
-                    // 3. 處理獨立連結線 (Tie)
-                    if (curr.type === 'tie') {
-                        let prev = findLastPlayable(processedLineNotes);
-                        let nextIndex = -1;
-                        for (let k = i + 1; k < processedLineNotesRaw.length; k++) {
-                            let n = processedLineNotesRaw[k];
-                            if (!n.isExtension && n.type !== 'tie' && n.type !== 'dotted' && !n.isRest && n.type !== 'groupEnd') {
-                                nextIndex = k;
-                                break;
-                            }
-                        }
-                        if (prev && nextIndex !== -1) {
-                            let next = processedLineNotesRaw[nextIndex];
-                            let match = false;
-                            if (prev.type === 'chord' && next.type === 'chord') {
-                                if (prev.chordInfo && next.chordInfo) {
-                                    match = (prev.chordInfo.root === next.chordInfo.root) && 
-                                            (prev.chordInfo.quality === next.chordInfo.quality);
-                                } else {
-                                    match = JSON.stringify(prev.chordFreqs) === JSON.stringify(next.chordFreqs);
-                                }
-                            } else if (prev.type === 'note' && next.type === 'note') {
-                                match = Math.abs(prev.freq - next.freq) < 0.1;
-                            }
-                            if (match) {
-                                prev.duration += next.duration;
-                                next.play = false;
-                            }
-                        }
-                        continue;
-                    }
-
-                    // 4. 處理附著連結線
-                    if (curr.isTieStart) {
-                        let nextIndex = -1;
-                        for (let k = i + 1; k < processedLineNotesRaw.length; k++) {
-                            let n = processedLineNotesRaw[k];
-                            if (!n.isExtension && n.type !== 'tie' && n.type !== 'dotted' && !n.isRest && n.type !== 'groupEnd') {
-                                nextIndex = k;
-                                break;
-                            }
-                        }
-                        if (nextIndex !== -1) {
-                            let next = processedLineNotesRaw[nextIndex];
-                            let match = false;
-                            if (curr.type === 'chord' && next.type === 'chord') {
-                                if (curr.chordInfo && next.chordInfo) {
-                                    match = (curr.chordInfo.root === next.chordInfo.root) && 
-                                            (curr.chordInfo.quality === next.chordInfo.quality);
-                                } else {
-                                    match = JSON.stringify(curr.chordFreqs) === JSON.stringify(next.chordFreqs);
-                                }
-                            } else if (curr.type === 'note' && next.type === 'note') {
-                                match = Math.abs(curr.freq - next.freq) < 0.1;
-                            }
-                            if (match) {
-                                curr.duration += next.duration;
-                                next.play = false;
-                            }
+                            prev.isTieStart = false;
                         }
                     }
                     processedLineNotes.push(curr);
                 }
 
-                // C. 計算絕對時間
+                // 4.4 和弦高亮
+                for (let i = 0; i < processedLineNotes.length; i++) {
+                    if (processedLineNotes[i].type === 'chordStart') {
+                        let cStart = processedLineNotes[i].inputStart;
+                        let chordNotes = [];
+                        let cEnd = -1;
+                        let foundEnd = false;
+                        for (let j = i + 1; j < processedLineNotes.length; j++) {
+                            if (processedLineNotes[j].type === 'chordEnd') {
+                                cEnd = processedLineNotes[j].inputEnd;
+                                foundEnd = true;
+                                break;
+                            }
+                            if (processedLineNotes[j].type === 'note' || processedLineNotes[j].type === 'chord') {
+                                chordNotes.push(processedLineNotes[j]);
+                            }
+                        }
+                        if (foundEnd && chordNotes.length > 0) {
+                            const finalStart = (cStart !== undefined) ? cStart : chordNotes[0].inputStart;
+                            const finalEnd = (cEnd !== undefined) ? cEnd : chordNotes[chordNotes.length-1].inputEnd;
+                            chordNotes[0].inputStart = finalStart;
+                            chordNotes[0].inputEnd = finalEnd;
+                            for (let k = 1; k < chordNotes.length; k++) {
+                                chordNotes[k].inputStart = undefined;
+                                chordNotes[k].inputEnd = undefined;
+                            }
+                        }
+                    }
+                }
+
+                // 5. 計算時間 (補強防呆)
                 let lineTime = 0;
+                let inChord = false;
+                let chordStartTime = 0;
+                let chordTimeAdvance = 0; 
+                let isFirstNoteInChord = false;
+
                 processedLineNotes.forEach(note => {
-                    note.startTime = globalTimeOffset + lineTime;
-                    lineTime += note.visualDuration; 
+                    if (note.type === 'chordStart') {
+                        inChord = true;
+                        chordStartTime = lineTime;
+                        chordTimeAdvance = 0;
+                        isFirstNoteInChord = true; 
+                        return;
+                    }
+                    if (note.type === 'chordEnd') {
+                        inChord = false;
+                        lineTime = chordStartTime + chordTimeAdvance; 
+                        return;
+                    }
+                    
+                    if (inChord) {
+                        note.startTime = globalTimeOffset + chordStartTime;
+                        if (isFirstNoteInChord && note.play && !note.isRest) {
+                            chordTimeAdvance = note.visualDuration || 0;
+                            isFirstNoteInChord = false; 
+                        }
+                    } else {
+                        note.startTime = globalTimeOffset + lineTime;
+                        lineTime += (note.visualDuration || 0); 
+                    }
+                    
                     allNotes.push(note);
                 });
 
@@ -1478,170 +1503,212 @@ function parseScore(text) {
         return allNotes;
     }
 
-    async function playMusic() {
-        stopMusic();
-        await initAudio();
-        updatePlayButtonUI('loading');
-        
-        const notes = parseScore(codeInput.value);
-        if (notes.length === 0) { isPlaying = false; updatePlayButtonUI('stop'); return; }
 
-        const selStart = codeInput.selectionStart;
-        const selEnd = codeInput.selectionEnd;
-        const isRangeSelection = (selEnd - selStart) > 0;
-        let notesToPlay = [];
-        let timeOffset = 0;
-        lastPlayedNoteStart = -1;
 
-        if (isRangeSelection) {
-            savedSelection = { start: selStart, end: selEnd };
-            notesToPlay = notes.filter(n => n.inputStart >= selStart && n.inputEnd <= selEnd);
-            if (notesToPlay.length > 0) timeOffset = Math.min(...notesToPlay.map(n => n.startTime));
-        } else {
-            savedSelection = null;
-            const sortedByText = [...notes].sort((a, b) => a.inputStart - b.inputStart);
-            let targetNote = sortedByText.find(n => n.inputEnd > selStart);
-            if (targetNote) {
-                const startBeat = targetNote.startTime;
-                timeOffset = startBeat;
-                notesToPlay = notes.filter(n => n.startTime >= startBeat);
-            } else { notesToPlay = notes; timeOffset = 0; }
+    // 輔助：提取的共用函數
+    function checkChord(chordName, note) {
+        if (!chordName) return false;
+        const sortedRoots = Object.keys(CHORD_ROOTS).sort((a, b) => b.length - a.length);
+        let rootVal = -1;
+        let quality = "";
+
+        for (let r of sortedRoots) {
+            if (chordName.startsWith(r)) {
+                rootVal = CHORD_ROOTS[r];
+                quality = chordName.substring(r.length);
+                break;
+            }
         }
 
-        if (notesToPlay.length === 0) { isPlaying = false; updatePlayButtonUI('stop'); return; }
+        if (rootVal !== -1) {
+            note.chordInfo = { root: rootVal, quality: quality };
+            note.chordFreqs = [];
+            const intervals = CHORD_QUALITIES[quality] || [0, 4, 7];
+            const baseC4 = 261.63;
+            intervals.forEach(interval => {
+                const semitone = rootVal + interval;
+                const freq = baseC4 * Math.pow(2, semitone / 12);
+                note.chordFreqs.push(freq);
+            });
+            return true;
+        }
+        return false;
+    }
 
-        const usedInstruments = [...new Set(notesToPlay.map(n => n.instrument))];
-        try {
-            await Promise.all(usedInstruments.map(async (instVal) => {
-                const instDef = instruments.find(i => i.val === instVal);
-                if (instDef && instDef.type === 'soundfont') await loadInstrument(instVal);
-            }));
-        } catch (e) { console.error("Instrument load error", e); }
+    function parseDurationSuffix(token, note) {
+        let slashMatch = token.match(/[\/\\]+/); 
+        if (slashMatch) {
+            note.duration = 1 / Math.pow(2, slashMatch[0].length);
+        }
+    }
+
+
+    // 播放邏輯
+    async function playMusic() {
+        if (isPlaying) {
+            stopMusic();
+            return;
+        }
+
+        await initAudio();
+
+        const fullText = codeInput.value;
+        const start = codeInput.selectionStart;
+        const end = codeInput.selectionEnd;
+        const hasSelection = start !== end;
         
+        // [修正 1] 如果有選取，傳入 true 給 parseScore，強制其忽略 [Play: A B A]
+        // 這樣解析出來的音符就是「線性」對應到文本的，避免因流程控制而產生重複段落
+        let notes = parseScore(fullText, hasSelection);
+
+        let hasPlayableNote = notes.some(n => n.play && !n.isRest && (n.type === 'note' || n.type === 'chord'));
+        if (!hasPlayableNote) {
+            console.warn("No playable notes found.");
+            stopMusic(); 
+            return;
+        }
+
         isPlaying = true;
-        updatePlayButtonUI('play');
+        updatePlayButtonUI('loading'); 
 
-        const tempo = parseInt(tempoInput.value) || 100;
-        const beatTime = 60 / tempo;
-        const totalShift = currentBaseKey + currentTranspose;
-        const pitchFactor = Math.pow(2, totalShift / 12);
-        const now = audioCtx.currentTime + 0.1;
-        let endTime = 0;
-        let finalNoteEndPos = 0;
-
-        notesToPlay.forEach((note) => {
-            if (note.inputEnd > finalNoteEndPos) finalNoteEndPos = note.inputEnd;
-            if (!note.play) return; 
-
-            const noteStartTime = now + (note.startTime - timeOffset) * beatTime;
-            const noteTotalDuration = note.duration * beatTime;
-
-            if (noteStartTime < now) return; 
-            if (note.isRest) return;
+        let seekTime = 0;
+        
+        if (hasSelection) {
+            savedSelection = { start: start, end: end };
             
-            // [修改] 和弦播放邏輯：區分 Block 與 Arp
-            // [修改] 和弦播放邏輯：區分 Block 與 Arp，並支援特殊音程 (9th, Low Bass)
-            if (note.type === 'chord' && note.chordFreqs) {
-                let patternLib = RHYTHM_BLOCK; 
-                if (note.rhythmType === 'arp') patternLib = RHYTHM_ARP; 
+            // [修正 2] 在選取模式下，找出「選取範圍內」最早的音符時間作為起點
+            const firstNote = notes.find(n => 
+                n.inputStart !== undefined && 
+                n.inputEnd !== undefined &&
+                // 只要音符的範圍與選取範圍有交集，就視為候選
+                Math.max(start, n.inputStart) < Math.min(end, n.inputEnd)
+            );
+            
+            if (firstNote) seekTime = firstNote.startTime;
+        } else {
+            // 游標播放模式
+            savedSelection = null;
+            let targetNote = notes.find(n => start >= n.inputStart && start < n.inputEnd);
+            if (!targetNote) targetNote = notes.find(n => n.inputStart >= start);
+            if (targetNote) seekTime = targetNote.startTime;
+        }
 
-                const pattern = patternLib[note.rhythmId] || patternLib[1];
-                const patternLen = 4; 
-                
-                // 輔助：計算特殊音程頻率
-                // 輔助：計算特殊音程頻率 (邏輯分組版)
-                    const getFreq = (code, root, noteObj) => {
-                        let baseF = 0;
-                        const freqs = noteObj.chordFreqs;
-                        // 判斷大小調 (影響 7th 的計算)
-                        const isMinor = noteObj.chordInfo && noteObj.chordInfo.quality.includes('m') && !noteObj.chordInfo.quality.includes('maj');
-                        
-                        switch (code) {
-                            // === 1. 標準和弦音 (Standard) ===
-                            case 0: baseF = freqs[0]; break; // 根音 (1)
-                            case 1: baseF = freqs[1] || freqs[0] * 1.2599; break; // 三度 (3)
-                            case 2: baseF = freqs[2] || freqs[0] * 1.4983; break; // 五度 (5)
-                            case 3: // 七度 (7)
-                                if (freqs[3]) baseF = freqs[3];
-                                else baseF = freqs[0] * (isMinor ? 1.7817 : 1.8877); 
-                                break;
+        // [修正 3] 過濾無效樂器 (修復 undefined-mp3.js 404 錯誤)
+        const usedInstrumentVals = new Set(
+            notes
+            .filter(n => n.instrument) // 只保留有定義樂器的音符
+            .map(n => n.instrument)
+        );
+        usedInstrumentVals.add(currentInstrument);
 
-                            // === 2. 特殊裝飾音 (Color Tones) ===
-                            case 9: // 九音/二度 (2) -> 讓和弦聽起來夢幻
-                                baseF = freqs[0] * 1.12246; 
-                                break;
+        const loadPromises = Array.from(usedInstrumentVals).map(val => loadInstrument(val));
 
-                            // === 3. 低音伴奏區 (Bass / Low Octave) ===
-                            case -1: baseF = freqs[0] / 2; break; // 低音根音 (1.)
-                            case -2: baseF = (freqs[2] || freqs[0] * 1.4983) / 2; break; // 低音五度 (5.)
-                            case -3: // 低音七度 (7.)
-                                if (freqs[3]) baseF = freqs[3] / 2;
-                                else baseF = (freqs[0] * (isMinor ? 1.7817 : 1.8877)) / 2;
-                                break;
-                            case -4: // 低音三度 (3.)
-                                baseF = (freqs[1] || freqs[0] * 1.2599) / 2;
-                                break;
+        Promise.all(loadPromises).then(() => {
+            if (!isPlaying) return;
 
-                            default: baseF = freqs[0]; 
+            updatePlayButtonUI('play');
+
+            const tempo = currentTempo;
+            const beatTime = 60 / tempo;
+            const now = audioCtx.currentTime;
+            const startTime = now + 0.1; 
+            const pitchFactor = Math.pow(2, (currentTranspose + currentBaseKey) / 12);
+
+            activeSoundfontInst = loadedInstruments[currentInstrument]; 
+
+            let maxEndTime = 0;
+
+            notes.forEach(note => {
+                // 過濾結構標記
+                if (['chordStart', 'chordEnd', 'groupStart', 'groupEnd', 'tieSymbol', 'repeatStart', 'repeatEnd'].includes(note.type)) return;
+
+                // [修正 4] 嚴格過濾邏輯：確保只播選取到的
+                if (hasSelection) {
+                    // 如果音符的文字範圍沒有落在選取範圍內，直接跳過
+                    // 邏輯：音符結束點 <= 選取開始點 (在左邊) OR 音符開始點 >= 選取結束點 (在右邊)
+                    // 這也自然解決了合奏時「選上行播到下行」的問題，因為下行的文字位置完全不同
+                    if (note.inputEnd <= start || note.inputStart >= end) return;
+                } else {
+                    // 游標模式：只過濾時間
+                    if (note.startTime < seekTime - 0.01) return;
+                }
+
+                // 計算相對時間 (將 seekTime 視為 0)
+                const relativeNoteTime = note.startTime - seekTime;
+                const noteAbsStart = startTime + relativeNoteTime * beatTime;
+
+                // --- UI 高亮 ---
+                if (note.inputStart !== undefined && note.inputEnd !== undefined) {
+                    if (note.isMainTrack) {
+                        const delayMs = (noteAbsStart - now) * 1000;
+                        if (delayMs >= -50) { 
+                            const timerId = setTimeout(() => {
+                                if (!isPlaying) return;
+                                highlightInput(note.inputStart, note.inputEnd);
+                                lastPlayedNoteEnd = note.inputEnd; 
+                            }, delayMs);
+                            activeTimers.push(timerId);
                         }
-                        return baseF;
-                    };
-                for (let loopStart = 0; loopStart < note.duration; loopStart += patternLen) {
-                    pattern.steps.forEach(step => {
-                        const stepAbsStart = loopStart + step.t;
-                        if (stepAbsStart >= note.duration) return;
+                    }
+                }
 
-                        let playDuration = step.len;
-                        if (stepAbsStart + playDuration > note.duration) {
-                            playDuration = note.duration - stepAbsStart;
-                        }
+                // --- 音訊播放 ---
+                if (note.play) {
+                    const absDur = note.duration * beatTime;
+                    const noteEndTime = noteAbsStart + absDur;
+                    // 使用調整後的 noteAbsStart 來計算結束時間，確保進度條長度正確
+                    if (noteEndTime > maxEndTime) maxEndTime = noteEndTime;
 
-                        const absTime = noteStartTime + (stepAbsStart * beatTime);
-                        const absDur = playDuration * beatTime;
-
-                        if (Array.isArray(step.notes)) {
-                            step.notes.forEach(code => {
-                                const f = getFreq(code, note.chordFreqs[0], note);
-                                if (f > 0) playTone(f * pitchFactor, absTime, absDur, note.instrument);
+                    if (note.type === 'chord' && note.chordFreqs) {
+                        let patternLib = RHYTHM_BLOCK; 
+                        if (note.rhythmType === 'arp') patternLib = RHYTHM_ARP;
+                        const pattern = patternLib[note.rhythmId] || patternLib[1];
+                        const patternLen = 4;
+                        const getFreq = (code, root, noteObj) => {
+                             let baseF = 0; const freqs = noteObj.chordFreqs; const isMinor = noteObj.chordInfo && noteObj.chordInfo.quality.includes('m') && !noteObj.chordInfo.quality.includes('maj');
+                             switch (code) { case 0: baseF = freqs[0]; break; case 1: baseF = freqs[1] || freqs[0] * 1.2599; break; case 2: baseF = freqs[2] || freqs[0] * 1.4983; break; case 3: if (freqs[3]) baseF = freqs[3]; else baseF = freqs[0] * (isMinor ? 1.7817 : 1.8877); break; case 9: baseF = freqs[0] * 1.12246; break; case -1: baseF = freqs[0] / 2; break; case -2: baseF = (freqs[2] || freqs[0] * 1.4983) / 2; break; case -3: if (freqs[3]) baseF = freqs[3] / 2; else baseF = (freqs[0] * (isMinor ? 1.7817 : 1.8877)) / 2; break; case -4: baseF = (freqs[1] || freqs[0] * 1.2599) / 2; break; case -20: baseF = (freqs[0] * 1.12246) / 2; break; case -21: baseF = (freqs[0] * 1.3348) / 2; break; case -22: baseF = (freqs[0] * 1.6818) / 2; break; case 12: baseF = freqs[0] * 2; break; case 14: baseF = (freqs[0] * 1.12246) * 2; break; case 15: baseF = (freqs[1] || freqs[0] * 1.2599) * 2; break; default: baseF = freqs[0]; } return baseF;
+                        };
+                        for (let loopStart = 0; loopStart < note.duration; loopStart += patternLen) {
+                            pattern.steps.forEach(step => {
+                                const stepAbsStart = loopStart + step.t;
+                                if (stepAbsStart >= note.duration) return;
+                                let playDuration = step.len;
+                                if (stepAbsStart + playDuration > note.duration) playDuration = note.duration - stepAbsStart;
+                                const absTime = noteAbsStart + (stepAbsStart * beatTime); 
+                                const absDur = playDuration * beatTime;
+                                if (Array.isArray(step.notes)) {
+                                    step.notes.forEach(code => {
+                                        const f = getFreq(code, note.chordFreqs[0], note);
+                                        if (f > 0) playTone(f * pitchFactor, absTime, absDur, note.instrument);
+                                    });
+                                }
                             });
                         }
-                    });
+                    } else {
+                        if (!note.isRest && note.freq > 0) {
+                            playTone(note.freq * pitchFactor, noteAbsStart, absDur, note.instrument);
+                        }
+                    }
                 }
-            }
-            else if (note.freq > 0) {
-                const finalFreq = note.freq * pitchFactor;
-                playTone(finalFreq, noteStartTime, noteTotalDuration, note.instrument);
+            });
+
+            // 設定自動停止計時器 (使用新的 maxEndTime - now)
+            // 確保只等待選取範圍播放完畢的時間
+            const totalDurationSec = maxEndTime - now;
+            if (totalDurationSec > 0) {
+                playbackTimer = setTimeout(() => {
+                    stopMusic();
+                }, totalDurationSec * 1000 + 100); 
             } else {
-                return; 
+                stopMusic();
             }
-
-            if (noteStartTime + noteTotalDuration > endTime) endTime = noteStartTime + noteTotalDuration;
-
-            if (note.isMainTrack) {
-                const timer = setTimeout(() => {
-                    if (!isPlaying) return;
-                    lastPlayedNoteStart = note.inputStart;
-                    highlightInput(note.inputStart, note.inputEnd);
-                }, (noteStartTime - audioCtx.currentTime) * 1000);
-                activeTimers.push(timer);
-            }
+        }).catch(err => {
+            console.error("Playback failed:", err);
+            stopMusic();
+            alert("載入樂器失敗，請檢查網路連線。");
         });
-
-        const endTimer = setTimeout(() => {
-            lastPlayedNoteStart = -1; 
-            stopMusic(); 
-            if (!isRangeSelection && finalNoteEndPos > 0) {
-                const rawText = codeInput.value;
-                let targetPos = finalNoteEndPos;
-                while (targetPos < rawText.length && /[ \t]/.test(rawText[targetPos])) {
-                    targetPos++;
-                }
-                codeInput.setSelectionRange(targetPos, targetPos);
-                codeInput.focus();
-            }
-        }, (endTime - audioCtx.currentTime) * 1000 + 500);
-        activeTimers.push(endTimer);
     }
+
 
     function highlightInput(start, end) {
         if (document.activeElement !== codeInput) {
@@ -1655,25 +1722,50 @@ function parseScore(text) {
         const lines = subText.split('\n').length;
     }
 
+    // 停止播放
+    // 停止播放
     function stopMusic() {
         isPlaying = false;
-        updatePlayButtonUI('stop');
         
-        if (activeSoundfontInst) activeSoundfontInst.stop();
-        activeOscillators.forEach(o => o.stop());
-        activeOscillators = [];
-        activeTimers.forEach(t => clearTimeout(t));
-        activeTimers = [];
+        // [修正] 改用統一的 UI 管理函數，傳入 'stop' (或任意非 loading/play 的字串)
+        updatePlayButtonUI('stop'); 
+
+        if (activeSoundfontInst) {
+            activeSoundfontInst.stop();
+        }
+
+        if (activeOscillators) {
+            activeOscillators.forEach(o => o.stop());
+            activeOscillators = [];
+        }
+
+        if (activeTimers) {
+            activeTimers.forEach(t => clearTimeout(t));
+            activeTimers = [];
+        }
         
+        if (playbackTimer) {
+            clearTimeout(playbackTimer);
+            playbackTimer = null;
+        }
+
+        // [關鍵修正] 游標/選取行為
         if (savedSelection) {
             codeInput.setSelectionRange(savedSelection.start, savedSelection.end);
             codeInput.focus();
             savedSelection = null; 
-        }
-        else if (lastPlayedNoteStart !== -1) {
-            codeInput.setSelectionRange(lastPlayedNoteStart, lastPlayedNoteStart);
+        } 
+        else if (lastPlayedNoteEnd !== -1) {
+            let targetPos = lastPlayedNoteEnd;
+            
+            const val = codeInput.value;
+            while (targetPos < val.length && val[targetPos] === ' ') {
+                targetPos++;
+            }
+
+            codeInput.setSelectionRange(targetPos, targetPos);
             codeInput.focus();
-            lastPlayedNoteStart = -1; // 使用後重置
+            lastPlayedNoteEnd = -1; 
         }
     }
 
@@ -1884,32 +1976,95 @@ function parseScore(text) {
         updateStatusDisplay();
     }
 
+    // 代碼轉字型
     function convertCodeToFont(input) {
         if (!input) return "";
         let result = input;
-        const hwLookahead = "(?=[0-7.:]*\\\\[0-7.:\\\\]*)";
 
+        // 1. 和弦預處理
+        result = result.replace(/\(([0-7.:'\s]+)\)([\/\\*-]*)/g, (match, content, suffix) => {
+            let inner = content.trim();
+            let tokens = [];
+
+            if (inner.includes(' ')) {
+                tokens = inner.split(/\s+/);
+            } else {
+                let segments = inner.split("'");
+                segments.forEach(seg => {
+                    if (!seg) return;
+                    let found = seg.match(/[.:]*[0-7][.:]*/g);
+                    if (found) tokens.push(...found);
+                });
+            }
+
+            let expanded = "";
+            tokens.forEach(t => {
+                if(t) expanded += t + suffix + " ";
+            });
+            
+            return `(${expanded})`; 
+        });
+
+        // 2. 處理特殊符號
+        const hwLookahead = "(?=[0-7.:<]*\\\\[0-7.:\\\\<]*)";
         result = result.replace(new RegExp("b " + hwLookahead, "g"), "");
         result = result.replace(new RegExp("# " + hwLookahead, "g"), "");
-        result = result.replace(new RegExp("\\( " + hwLookahead, "g"), "");
-
-        // 執行原本的通用規則 (處理剩下的 b, #, (, 以及其他所有音符)
+        
+        // 3. 通用規則取代
         for (const rule of codeToFontRules) {
             result = result.replace(rule.regex, rule.replacement);
         }
+        
+        // [還原] 不執行 HTML escape，保留 < > 原始字元
         return result;
     }
+    // 字型轉代碼
     function convertFontToCode(input) {
         if (!input) return "";
         let result = input;
-        result = result.replace(//g, "b "); // 特殊降記號 -> b
-        result = result.replace(//g, "# "); // 特殊升記號 -> #
-        result = result.replace(//g, "( "); // 特殊連音線 -> (
+        
+        result = result.replace(//g, "b ");
+        result = result.replace(//g, "# ");
 
-        // 執行原本的通用規則
+        // 1. 通用規則還原
         for (const rule of fontToCodeRules) {
             result = result.replace(rule.regex, rule.replacement);
         }
+
+        // 2. 後處理：智慧壓縮
+        result = result.replace(/\(([^)]+)\)/g, (match, content) => {
+            const tokens = content.trim().split(/\s+/);
+            if (tokens.length < 2) return match; 
+
+            const firstMatch = tokens[0].match(/^([0-7.:]+)(.*)$/); // 允許 . :
+            if (!firstMatch) return match;
+            
+            const commonSuffix = firstMatch[2]; 
+            let notesList = [firstMatch[1]];
+            let hasComplexNote = /[.:]/.test(firstMatch[1]); // 檢查是否有特殊符號
+
+            for (let i = 1; i < tokens.length; i++) {
+                const m = tokens[i].match(/^([0-7.:]+)(.*)$/);
+                if (!m || m[2] !== commonSuffix) {
+                    return match; // 後綴不一致，不壓縮
+                }
+                notesList.push(m[1]);
+                if (/[.:]/.test(m[1])) hasComplexNote = true;
+            }
+
+            // 決定連接符號
+            // 如果音符中有 . 或 :，強制使用 ' 分隔，避免歧義
+            // 否則直接連在一起
+            let joinedNotes = "";
+            if (hasComplexNote) {
+                joinedNotes = notesList.join("'");
+            } else {
+                joinedNotes = notesList.join("");
+            }
+
+            return `(${joinedNotes})${commonSuffix}`;
+        });
+
         return result;
     }
 
@@ -2542,6 +2697,253 @@ function updateStatusDisplay() {
             if (targetView) targetView.classList.add('active');
         });
     });
+
+
+
+	// ==========================================
+    // [新增] 節奏字典邏輯 (Rhythm Dictionary)
+    // ==========================================
+    const rhythmModal = document.getElementById('rhythm-modal');
+    const openDictBtn = document.getElementById('open-rhythm-dict-btn');
+    const closeDictBtn = document.getElementById('close-rhythm-modal');
+    const dictTableBody = document.getElementById('rhythm-table-body');
+    const dictChordSelect = document.getElementById('dict-chord-root');
+    const dictFilterTabs = document.querySelectorAll('.filter-tab');
+    
+    let currentDictType = 'block'; // 'block' or 'arp'
+
+    if (openDictBtn && rhythmModal) {
+        openDictBtn.addEventListener('click', () => {
+            rhythmModal.classList.add('show');
+            renderRhythmDictionary();
+        });
+        
+        closeDictBtn.addEventListener('click', () => {
+            rhythmModal.classList.remove('show');
+            stopMusic(); // 關閉視窗時停止試聽
+        });
+
+        // 點擊遮罩層也可關閉
+        rhythmModal.addEventListener('click', (e) => {
+            if (e.target === rhythmModal) {
+                rhythmModal.classList.remove('show');
+                stopMusic();
+            }
+        });
+
+        dictChordSelect.addEventListener('change', () => {
+            // 切換和弦時不需重繪表格，試聽時會自動抓新值
+        });
+
+        dictFilterTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                dictFilterTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentDictType = tab.dataset.type;
+                renderRhythmDictionary();
+            });
+        });
+    }
+
+    function renderRhythmDictionary() {
+        if (!dictTableBody) return;
+        dictTableBody.innerHTML = '';
+
+        // 根據 rhythm.js 載入的資料決定顯示哪種
+        const lib = currentDictType === 'block' ? RHYTHM_BLOCK : RHYTHM_ARP;
+        const prefix = currentDictType === 'block' ? '.' : ':';
+
+        Object.keys(lib).forEach(id => {
+            const item = lib[id];
+            const tr = document.createElement('tr');
+            
+            // 生成可讀的音符檢視字串
+            const noteView = generateRhythmView(item.steps);
+            
+            tr.innerHTML = `
+                <td><code>${prefix}${id}</code></td>
+                <td>${item.name}</td>
+                <td><div class="note-view">${noteView}</div></td>
+                <td>
+                    <button class="play-sample-btn" data-id="${id}" title="試聽">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                    </button>
+                </td>
+            `;
+
+            // 綁定試聽按鈕
+            const btn = tr.querySelector('.play-sample-btn');
+            btn.addEventListener('click', () => playRhythmSample(id, currentDictType));
+
+            dictTableBody.appendChild(tr);
+        });
+    }
+
+    // --- 將節奏數據轉為可讀的音符字串 ---
+    function generateRhythmView(steps) {
+        // 代碼對照表
+        const map = {
+            '-1': '1.', '-2': '5.', '-3': '7.', '-4': '3.',
+            '0': '1', '1': '3', '2': '5', '3': '7', '9': '2'
+        };
+
+        let resultParts = [];
+        let groupCache = []; // 用來存已經出現過的群組，以便用 $1, $2 簡化
+        let lastTime = 0;    // [新增] 追蹤時間軸，用來抓出休止符
+
+        // 必須先對 steps 依照時間排序 (雖然通常已經排好，但保險起見)
+        const sortedSteps = [...steps].sort((a, b) => a.t - b.t);
+
+        sortedSteps.forEach(step => {
+            // 1. [新增] 自動偵測並填補休止符
+            // 如果當前音符的開始時間 (step.t) 大於 上一個音符的結束時間 (lastTime)
+            const gap = step.t - lastTime;
+            if (gap > 0.01) { // 容許微小浮點數誤差
+                resultParts.push(formatDurationSymbol('0', gap));
+            }
+
+            // 2. 轉換音符 (代碼轉簡譜)
+            let noteStr = "";
+            if (Array.isArray(step.notes)) {
+                if (step.notes.length === 1) {
+                    noteStr = map[step.notes[0]] || '?';
+                } else {
+                    const mapped = step.notes.map(n => map[n] || '?').join('');
+                    noteStr = `(${mapped})`;
+                }
+            }
+
+            // 3. 檢查重複群組 ($1 logic)
+            if (noteStr.startsWith('(')) {
+                const existingIdx = groupCache.indexOf(noteStr);
+                if (existingIdx !== -1) {
+                    noteStr = `$${existingIdx + 1}`;
+                } else {
+                    groupCache.push(noteStr);
+                }
+            }
+
+            // 4. 處理音符時值 (將 noteStr 加上 - 或 / 或 . 等符號)
+            resultParts.push(formatDurationSymbol(noteStr, step.len));
+
+            // 更新時間指針
+            lastTime = step.t + step.len;
+        });
+
+        return resultParts.join(' ');
+    }
+
+    // 將 "符號" + "長度" 轉為視覺化簡譜
+    function formatDurationSymbol(symbol, len) {
+        // 處理微小誤差
+        len = Math.round(len * 100) / 100;
+
+        if (len === 4) return `${symbol} - - -`;
+        if (len === 3) return `${symbol} - -`;
+        if (len === 2.5) return `${symbol} - /`; // 2.5拍 = 2拍 + 半拍
+        if (len === 2) return `${symbol} -`;
+        if (len === 1.5) return `${symbol} *`;   // [修正] 附點四分音符 (加空格)
+        if (len === 1) return `${symbol}`;
+        
+        if (len === 0.75) return `${symbol}/ *`; // [修正] 附點八分音符 (加空格，如 0/ .)
+        
+        if (len === 0.5) return `${symbol}/`;
+        if (len === 0.25) return `${symbol}//`;
+        
+        return `${symbol}?`; // 例外狀況
+    }
+    // --- 試聽功能 ---
+	function playRhythmSample(id, type) {
+		const root = dictChordSelect.value || 'C';
+		const prefix = type === 'block' ? '.' : ':';
+		const testCode = `${prefix}${id}${root}`; // 例如 .1C 或 :6G
+		
+		// [關鍵修正] 移除原本尾端的 " - - -"，避免試聽時產生多餘的 4 拍延音
+		// 現在改為「定義多少就播多少」
+		const mockScore = `[Audition]{ ${testCode} }`; 
+		
+		// 2. 解析
+		const notes = parseScore(mockScore);
+		
+		// 3. 播放
+		stopMusic(); 
+		initAudio().then(() => {
+			// 試聽不需要跟隨全域速度，給定一個舒適的速度 (例如 100)
+			const beatTime = 60 / 100; 
+			const now = audioCtx.currentTime + 0.1;
+			
+			loadInstrument(currentInstrument).then(() => {
+				notes.forEach(note => {
+					if (!note.play) return;
+					
+					if (note.type === 'chord' && note.chordFreqs) {
+						let pattern = null;
+						let patternLen = 4;
+
+						if (note.rhythmType === 'custom' && note.customSteps) {
+							pattern = { steps: note.customSteps };
+						} else {
+							let patternLib = RHYTHM_BLOCK; 
+							if (note.rhythmType === 'arp') patternLib = RHYTHM_ARP; 
+							pattern = patternLib[note.rhythmId] || patternLib[1];
+						}
+
+						// (內部 getFreq 函數)
+						const getFreq = (code, root, noteObj) => {
+							let baseF = 0;
+							const freqs = noteObj.chordFreqs;
+							const isMinor = noteObj.chordInfo && noteObj.chordInfo.quality.includes('m') && !noteObj.chordInfo.quality.includes('maj');
+							
+							switch (code) {
+								case 0: baseF = freqs[0]; break;
+								case 1: baseF = freqs[1] || freqs[0] * 1.2599; break;
+								case 2: baseF = freqs[2] || freqs[0] * 1.4983; break;
+								case 3: if (freqs[3]) baseF = freqs[3]; else baseF = freqs[0] * (isMinor ? 1.7817 : 1.8877); break;
+								case 9: baseF = freqs[0] * 1.12246; break;
+								case -1: baseF = freqs[0] / 2; break;
+								case -2: baseF = (freqs[2] || freqs[0] * 1.4983) / 2; break;
+								case -3: if (freqs[3]) baseF = freqs[3] / 2; else baseF = (freqs[0] * (isMinor ? 1.7817 : 1.8877)) / 2; break;
+								case -4: baseF = (freqs[1] || freqs[0] * 1.2599) / 2; break;
+								case -20: baseF = (freqs[0] * 1.12246) / 2; break; 
+								case -21: baseF = (freqs[0] * 1.3348) / 2; break; 
+								case -22: baseF = (freqs[0] * 1.6818) / 2; break; 
+								case 12: baseF = freqs[0] * 2; break; 
+								case 14: baseF = (freqs[0] * 1.12246) * 2; break; 
+								case 15: baseF = (freqs[1] || freqs[0] * 1.2599) * 2; break; 
+								default: baseF = freqs[0]; 
+							}
+							return baseF;
+						};
+
+						for (let loopStart = 0; loopStart < note.duration; loopStart += patternLen) {
+							pattern.steps.forEach(step => {
+								const stepAbsStart = loopStart + step.t;
+								if (stepAbsStart >= note.duration) return;
+
+								let playDuration = step.len;
+								if (stepAbsStart + playDuration > note.duration) {
+									playDuration = note.duration - stepAbsStart;
+								}
+
+								// [注意] 試聽時使用簡單的絕對時間計算
+								const absTime = now + (note.startTime * beatTime) + (stepAbsStart * beatTime);
+								const absDur = playDuration * beatTime;
+
+								if (Array.isArray(step.notes)) {
+									step.notes.forEach(code => {
+										const f = getFreq(code, note.chordFreqs[0], note);
+										if (f > 0) playTone(f, absTime, absDur, note.instrument);
+									});
+								}
+							});
+						}
+					}
+				});
+			});
+		});
+	}
+
+
     // Final Init
     createKeys();
     loadData();

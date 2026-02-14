@@ -238,95 +238,145 @@
 
         </div>
 
-        <footer class="footer-help">
+		<footer class="footer-help">
             <details class="help-details">
                 <summary>
                     <span>使用說明與符號對照</span>
                     <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
                 </summary>
 
+                <div class="help-content">
 
-<div class="help-content">
-    <div class="help-section">
-        <h4>⚠️ 重要原則</h4>
-        <p class="highlight-rule">所有符號後要加「<strong>空格</strong>」！</p>
-    </div>
+                    <div class="help-section">
+                        <h4>⚠️ 重要原則</h4>
+                        <p class="highlight-rule">所有符號後要加「<strong>空格</strong>」！</p>
+                    </div>
+                
+                    <div class="help-grid">
+                        <div class="help-category">
+                            <h5>🎵 音高與休止符</h5>
+                            <ul class="help-list">
+                                <li><code>1</code> ~ <code>7</code> = 中音 (Do ~ Si)</li>
+                                <li><code>0</code> = 休止符</li>
+                                <li><code>.1</code> = 上加一點高音 </li>
+                                <li><code>:1</code> = 上加兩點高音 </li>
+                                <li><code>1. </code> = 下加一點低音 </li>
+                                <li><code>1: </code> = 下加兩點低音 </li>
+                                <li><code># 1 </code> = 升半音 </li>
+                                <li><code>b 1 </code> = 降半音 </li>
+                            </ul>
+                        </div>
+                
+                        <div class="help-category">
+                            <h5>⏱️ 時值與節奏</h5>
+                            <ul class="help-list">
+                                <li><code>1</code> = 四分音符 (1拍)</li>
+                                <li><code>1 - </code> = 二分音符 (2拍)</li>
+                                <li><code>1 - - </code> = 附點二分音符 (3拍)</li>
+                                <li><code>1/ </code> = 八分音符 (0.5拍)，符號全形 </li>
+                                <li><code>1\ </code> = 八分音符 (0.5拍)，符號半形 </li>
+                                <li><code>1// </code> = 十六分音符 (0.25拍)，符號全形 </li>
+                                <li><code>1\\ </code> = 十六分音符 (0.25拍)，符號半形 </li>
+                                <li><code> * </code> = 附點 (增加一半時值) <br><small>註= <code>*/</code> <code>*//</code> 效果相同，僅為美觀</small></li>
+                                <li><code>1 (( 1/</code> =  連結線 (前後同音則時值相加)</li>
+                                <li><code>&lt;1/ 2/ 3/ &gt;</code> = 三連音 <br><small>註= &lt; &gt; 內<strong>不加空格</strong></small></li>            
+                            </ul>
+                        </div>
+                
+                        <div class="help-category">
+                            <h5>🎸 和弦與伴奏</h5>
+							<div class="help-section separator-top" style="text-align: center; border-top: 1px solid #eee; padding: 5px;">
+								<button id="open-rhythm-dict-btn" class="wide-btn action-btn" style="width: 100%; justify-content: center; background-color: #e8f0fe; color: #0b57d0; font-weight: bold; border: 1px solid #d2e3fc;">
+									📖 節奏字典 (查詢與試聽)
+								</button>
+							</div>
+                            <ul class="help-list">
+                                <li><code>.C</code> = 柱式/齊奏 C 和弦</li>
+                                <li><code>:C</code> = 分解/琶音 C 和弦</li>
+                                <li><code>.5Dm</code> = 第5種 Dm 柱式節奏</li>
+                                <li><code>:3F</code> = 第3種 F 分解節奏</li>
+                                <li><code>.C - </code> (2拍)、<code>.C/ </code> (半拍)</li>
+								<li><code>[r:]{1:節奏}</code> = 自定義和弦節奏，以C和弦音符撰寫，使用時為 r1C 、r1Am、r1F </li>
+								<li><code>[r:]{2:節奏}</code> = 使用時為 r2C 、r2Am、r2F </li>
+                            </ul>
+                        </div>
+                
+                        <div class="help-category">
+                            <h5>🎻 樂器與合奏</h5>
+                            <ul class="help-list">
+                                <li><code>p:</code> 鋼琴 (Piano)</li>
+                                <li><code>g:</code> 吉他 (Guitar)</li>
+                                <li><code>v:</code> 小提琴 (Violin)</li>
+                                <li><code>d:</code> 小鼓 (Drum)</li>
+                                <li><strong>合奏方式 = </strong><br>上下行<strong>相接</strong>為同時播放。<br>空行視為先後播放。</li>
+                            </ul>
+                        </div>
+                
+                        <div class="help-category">
+                            <h5>🎼 結構與記號</h5>
+                            <ul class="help-list">
+                                <li><code>| </code> 、<code>|| </code> = 小節線</li>
+                                <li><code>||: </code> <code>:|| </code> = 反覆記號</li>
+                                <li><strong>段落定義 = </strong><br><code>[A]{ 樂句 } [B1]{ 樂句 } [B2]{ 樂句 }</code></li>
+                                <li><strong>播放流程 (需置頂) = </strong><br><code>[Play: A B1 A B2]</code></li>
+                            </ul>
+                        </div>
+                    </div> 
 
-    <div class="help-grid">
-        <div class="help-category">
-            <h5>🎵 音高與休止符</h5>
-            <ul class="help-list">
-                <li><code>1</code> ~ <code>7</code> = 中音 (Do ~ Si)</li>
-                <li><code>0</code> = 休止符</li>
-                <li><code>.1</code> = 上加一點高音 </li>
-                <li><code>:1</code> = 上加兩點高音 </li>
-                <li><code>1. </code> = 下加一點低音 </li>
-                <li><code>1: </code> = 下加兩點低音 </li>
-                <li><code># 1 </code> = 升半音 </li>
-                <li><code>b 1 </code> = 降半音 </li>
-            </ul>
-        </div>
-
-        <div class="help-category">
-            <h5>⏱️ 時值與節奏</h5>
-            <ul class="help-list">
-                <li><code>1</code> = 四分音符 (1拍)</li>
-                <li><code>1 - </code> = 二分音符 (2拍)</li>
-                <li><code>1 - - </code> = 附點二分音符 (3拍)</li>
-                <li><code>1/ </code> = 八分音符 (0.5拍)，符號全形 </li>
-				<li><code>1\ </code> = 八分音符 (0.5拍)，符號半形 </li>
-                <li><code>1// </code> = 十六分音符 (0.25拍)，符號全形 </li>
-				<li><code>1\\ </code> = 十六分音符 (0.25拍)，符號半形 </li>
-                <li><code> . </code> = 附點 (增加一半時值) <br><small>註= <code>./</code> <code>.//</code> 效果相同，僅為美觀</small></li>
-                <li><code>1 ( 1/</code> =  連結線 (前後同音則時值相加)</li>
-                <li><code>(1/ 2/ 3/ ) </code> = 三連音 <br><small>註= (左括號後<strong>不加空格</strong></small></li>			
-
-            </ul>
-        </div>
-
-        <div class="help-category">
-            <h5>🎸 和弦與伴奏</h5>
-            <ul class="help-list">
-                <li><code>.C</code> = 柱式/齊奏 C 和弦</li>
-                <li><code>:C</code> = 分解/琶音 C 和弦</li>
-                <li><code>.5Dm</code> = 第5種 Dm 柱式節奏</li>
-                <li><code>:3F</code> = 第3種 F 分解節奏</li>
-                <li><code>.C - </code> (2拍)、<code>.C/ </code> (半拍)</li>
-            </ul>
-        </div>
-
-        <div class="help-category">
-            <h5>🎻 樂器與合奏</h5>
-            <ul class="help-list">
-                <li><code>p:</code> 鋼琴 (Piano)</li>
-                <li><code>g:</code> 吉他 (Guitar)</li>
-                <li><code>v:</code> 小提琴 (Violin)</li>
-                <li><code>d:</code> 小鼓 (Drum)</li>
-                <li><strong>合奏方式 = </strong><br>上下行<strong>相接</strong>為同時播放。<br>空行視為先後播放。</li>
-            </ul>
-        </div>
-
-        <div class="help-category">
-            <h5>🎼 結構與記號</h5>
-            <ul class="help-list">
-                <li><code>| </code> 、<code>|| </code> = 小節線</li>
-                <li><code>||: </code> <code>:|| </code> = 反覆記號</li>
-                <li><strong>段落定義 = </strong><br><code>[A]{ 樂句 } [B1]{ 樂句 } [B2]{ 樂句 }</code></li>
-                <li><strong>播放流程 (需置頂) = </strong><br><code>[Play: A B1 A B2]</code></li>
-            </ul>
-        </div>
-    </div>
-</div>
-
-
-            </details>
+                </div> </details>
         </footer>
     </main>
 
-    <div id="confirm-modal" class="modal-overlay">
+    <div id="rhythm-modal" class="modal-overlay">
+        <div class="modal-box large-modal">
+            <div class="modal-header">
+                <h3 class="modal-title" style="margin:0;">📖 節奏字典</h3>
+                <button id="close-rhythm-modal" class="icon-btn-tiny" style="font-size: 1.2rem;">✕</button>
+            </div>
+            
+            <div class="modal-controls">
+                <div class="control-group">
+                    <label>類別：</label>
+                    <div class="tab-group">
+                        <button class="filter-tab active" data-type="block">柱式 (.C)</button>
+                        <button class="filter-tab" data-type="arp">分解 (:C)</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>試聽：</label>
+                    <select id="dict-chord-root" class="compact-select">
+                        <option value="C" selected>C</option>
+                        <option value="Dm">Dm</option>
+                        <option value="E">E</option>
+                        <option value="F">F</option>
+                        <option value="G">G</option>
+                        <option value="Am">Am</option>
+                        <option value="B">B</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="rhythm-list-container">
+                <table class="rhythm-table">
+                    <thead>
+                        <tr>
+                            <th width="15%">代號</th>
+                            <th width="30%">名稱</th>
+                            <th width="40%">音符檢視 <small style="color:#666; font-weight:normal;">(1=根, 3=三, 5=五)</small></th>
+                            <th width="15%">試聽</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rhythm-table-body">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+	<div id="confirm-modal" class="modal-overlay">
         <div class="modal-box">
-            <h3 class="modal-title" id="modal-title">確認動作</h3>
-            <p class="modal-message" id="modal-message">您確定要執行此操作嗎？</p>
+            <h3 id="modal-title" class="modal-title">確認</h3>
+            <p id="modal-message" class="modal-message">訊息內容...</p>
             <div class="modal-actions">
                 <button id="modal-cancel-btn" class="text-btn">取消</button>
                 <button id="modal-confirm-btn" class="filled-btn-danger">確定</button>
@@ -336,6 +386,7 @@
 </div>
 
 <script src="data.js"></script>
+<script src="rhythm.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
