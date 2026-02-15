@@ -447,16 +447,149 @@ textarea::selection { background-color: #c2e7ff; color: #001d35; }
     .filter-tab { padding: 4px 10px; font-size: 0.8rem; }
 }
 
-/* 確保按鈕有足夠的點擊區域 */
+/* 1. 預設狀態 (電腦版/大螢幕)：隱藏 */
 #keyboard-toggle-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    /* 如果希望關閉時有不同顏色 */
-    color: var(--text-main); 
+    display: none;
+}
+
+/* 2. 行動裝置狀態 (手機/平板)：顯示 */
+/* max-width: 768px 代表螢幕寬度在 768px 以下時生效 (這是常見的平板直向/手機界線) */
+@media (max-width: 768px) {
+    #keyboard-toggle-btn {
+        /* 使用 flex 以保持與其他 icon-btn 排版一致 */
+        display: flex; 
+        
+        /* 確保按鈕不會太小，好點擊 */
+        align-items: center;
+        justify-content: center;
+    }
 }
 
 /* 當鍵盤開啟時的樣式 (可選) */
 #keyboard-toggle-btn.active {
     color: #0b57d0; /* 使用您的主色系 */
+}
+
+
+/* ==========================================
+   Virtual Keyboard (虛擬鍵盤)
+   ========================================== */
+.quick-toolbar { 
+    display: grid; 
+    /* 預設模式 (固定)：電腦版單行，手機版雙行 (由 Media Query 控制) */
+    grid-template-columns: repeat(10, 1fr); 
+    gap: 4px; padding: 8px 12px; 
+    background-color: #f8f9fa; 
+    border-bottom: 1px solid var(--border); 
+    transition: transform 0.3s ease, opacity 0.3s ease; 
+}
+
+/* 隱藏狀態 */
+.quick-toolbar.hidden { 
+    display: none; 
+}
+
+/* ==========================================
+   1. 固定鍵盤 (原有的 quick-toolbar)
+   ========================================== */
+.quick-toolbar { 
+    display: grid; 
+    grid-template-columns: repeat(10, 1fr); 
+    gap: 4px; padding: 8px 12px; 
+    background-color: #f8f9fa; 
+    border-bottom: 1px solid var(--border); 
+}
+.quick-toolbar.hidden { display: none; }
+
+/* ==========================================
+   2. 浮動鍵盤 (全新的 Floating Keyboard)
+   ========================================== */
+.floating-keyboard {
+    position: fixed;
+
+	bottom: 20px; 
+    left: 50%;                   /* 1. 設定左側基準點為螢幕的一半 */
+    transform: translateX(-50%); /* 2. 向左移動自身寬度的一半，達成完全居中 */
+    right: auto;
+
+    width: 95%; max-width: 400px; /* 手機寬度友善，電腦不超過 400px */
+    background-color: rgba(255, 255, 255, 0.95);
+    border: 1px solid #ccc;
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+    backdrop-filter: blur(8px);
+    z-index: 9999; /* 確保在最上層 */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: opacity 0.2s, transform 0.2s;
+}
+
+.floating-keyboard.hidden {
+    display: none;
+}
+
+/* 拖曳手把 */
+.drag-handle {
+    height: 36px;
+    background-color: #f1f3f4;
+    border-bottom: 1px solid #e0e0e0;
+    cursor: move; /* 游標提示可拖曳 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #888;
+    font-size: 12px;
+    font-weight: bold;
+    user-select: none;
+    position: relative;
+}
+
+.close-float-btn {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; font-size: 16px; cursor: pointer; color: #666;
+    width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+}
+.close-float-btn:hover { background-color: #ddd; color: #000; }
+
+/* 浮動鍵盤的按鈕網格 */
+.keys-grid {
+    display: grid;
+    /* [關鍵] 強制 8 列 (約 3 行)，確保按鈕夠大 */
+    grid-template-columns: repeat(8, 1fr);
+    gap: 6px;
+    padding: 12px;
+}
+
+/* 浮動鍵盤內的按鈕樣式 (繼承 key-btn 但微調) */
+.keys-grid .key-btn {
+    height: 44px; /* 比固定版高一點，更好按 */
+    font-size: 1.1rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.05);
+}
+
+/* 手機版優化：預設居中 */
+@media (max-width: 768px) {
+    .floating-keyboard {
+        left: 50%; transform: translateX(-50%);
+        bottom: 30px; right: auto;
+    }
+}
+
+/* 切換模式按鈕 (進入其他模式) */
+.key-btn.mode-btn {
+    background-color: #e8f0fe;
+    color: #0b57d0;
+    font-weight: bold;
+    font-size: 0.9rem;
+    border-color: #d2e3fc;
+}
+
+/* 返回主鍵盤按鈕 */
+.key-btn.return-btn {
+    background-color: #fce8e6;
+    color: #c5221f;
+    font-weight: bold;
+    border-color: #fad2cf;
 }
