@@ -57,6 +57,74 @@ document.addEventListener('DOMContentLoaded', () => {
 	let lastPlayedNoteEnd = -1;
 	let playbackTimer = null;
 
+	// ==========================================
+    // 歷史紀錄與還原 (Undo System)
+    // ==========================================
+    let historyStack = [];
+    let historyIndex = -1;
+    let isUndoing = false;      // 防止還原時觸發儲存
+    let historyTimer = null;    // 打字防抖計時器
+
+    // 1. 記錄當前狀態 (儲存到堆疊)
+    function recordHistory(immediate = false) {
+        if (isUndoing) return; // 如果正在執行還原，不要重複紀錄
+
+        const saveAction = () => {
+            const content = codeInput.value;
+            
+            // 如果跟上一步一樣，就不存 (避免重複)
+            if (historyIndex >= 0 && historyStack[historyIndex] === content) return;
+
+            // 如果目前不在最新的位置 (曾經 Undo 過)，則捨棄後面的紀錄 (Redo path)
+            if (historyIndex < historyStack.length - 1) {
+                historyStack = historyStack.slice(0, historyIndex + 1);
+            }
+
+            historyStack.push(content);
+            historyIndex++;
+
+            // 限制紀錄筆數 (例如只保留最近 50 步)
+            if (historyStack.length > 50) {
+                historyStack.shift();
+                historyIndex--;
+            }
+        };
+
+        if (immediate) {
+            clearTimeout(historyTimer);
+            saveAction();
+        } else {
+            // 防抖：打字時不會每個字都存，停頓 0.5 秒才存
+            clearTimeout(historyTimer);
+            historyTimer = setTimeout(saveAction, 500);
+        }
+    }
+
+    // 2. 執行還原
+    function performUndo() {
+        if (historyIndex > 0) {
+            isUndoing = true; // 鎖定：告訴系統這次改變是「還原」，不要當作新輸入存起來
+            
+            historyIndex--;
+            const prevContent = historyStack[historyIndex];
+            
+            codeInput.value = prevContent;
+            
+            // 觸發 input 事件以更新畫面 (樂譜字型、localStorage)
+            // 這裡會觸發 codeInput 的 'input' listener，
+            // 但因為 isUndoing = true，所以不會再次呼叫 recordHistory
+            codeInput.dispatchEvent(new Event('input'));
+            
+            isUndoing = false; // 解鎖
+        }
+    }
+
+    // 3. 初始化歷史紀錄 (載入歌曲時呼叫)
+    function initHistory() {
+        historyStack = [];
+        historyIndex = -1;
+        recordHistory(true); // 存入初始狀態
+    }
     // ==========================================
     // 2. 資料常數
     // ==========================================
@@ -2081,6 +2149,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         fontOutput.value = convertCodeToFont(song.content);
 		updateStatusDisplay();
+		initHistory();
 	}
 
     function renderSidebar() {
@@ -2140,8 +2209,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-// ==========================================
-    // [修改] 範圍取代功能模組 (極簡版)
+	// ==========================================
+    // 範圍取代功能模組
     // ==========================================
     const toggleReplaceBtn = document.getElementById('toggle-replace-btn');
     const replaceBar = document.getElementById('replace-bar');
@@ -2404,6 +2473,7 @@ document.addEventListener('DOMContentLoaded', () => {
         inputElement.value = newVal;
         inputElement.dispatchEvent(new Event('input'));
         inputElement.setSelectionRange(newCursorPos, newCursorPos);
+		recordHistory(true);
     }
 
     // ==========================================
@@ -2419,6 +2489,7 @@ document.addEventListener('DOMContentLoaded', () => {
             fontOutput.value = convertCodeToFont(song.content);
         }
 		updateStatusDisplay();
+		recordHistory(false);
     });
 
     fontOutput.addEventListener('input', (e) => {
@@ -3190,6 +3261,11 @@ function updateStatusDisplay() {
         document.addEventListener('touchend', stopDrag);
     }
 
+	// 綁定還原按鈕
+    const undoBtn = document.getElementById('undo-btn');
+    if (undoBtn) {
+        undoBtn.addEventListener('click', performUndo);
+    }
     // Final Init
     createKeys();
     loadData();
