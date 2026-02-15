@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const quickToolbar = document.getElementById('quick-toolbar');
 	// 全域變數：紀錄當前鍵盤模式 (預設 main)
     let currentKeyMode = 'main';
+	let isShiftEnabled = false; // 控制 Shift 狀態
     
     // Settings UI
     const settingsBtn = document.getElementById('settings-trigger-btn');
@@ -143,43 +144,66 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-// 定義三種面板：main(簡譜), chord(和弦), snippet(語法)
+	// 定義四種面板：main(簡譜), chord(和弦), snippet(語法), qwerty(英數)
     const keySets = {
         // --- 1. 主鍵盤 (簡譜與編輯) ---
         main: [
-				{ char: '1', display: '1', type: 'num' }, { char: '2', display: '2', type: 'num' }, { char: '3', display: '3', type: 'num' },
-				{ char: '4', display: '4', type: 'num' }, { char: '5', display: '5', type: 'num' }, { char: '6', display: '6', type: 'num' },
-				{ char: '7', display: '7', type: 'num' }, { char: '0', display: '0', type: 'num' }, { char: ' ', display: '空', type: 'space' },
-				{ char: '- ', display: '-', type: 'normal' }, { char: '/', display: '/', type: 'normal' }, { char: '\\', display: '\\', type: 'normal' }, 
-				{ char: ' *', display: '*', type: 'normal' },{ char: '.', display: '.', type: 'normal' },
-				{ char: ':', display: ':', type: 'normal' }, 
-				{ char: '(', display: '(', type: 'normal' }, { char: ') ', display: ')', type: 'normal' }, 
-				{ char: '|', display: '|', type: 'normal' },{ char: '[', display: '[', type: 'normal' },{ char: ']', display: ']', type: 'normal' },
-				{ char: '<>', display: '<', type: 'normal' }, 
-				{ char: '{', display: '{', type: 'normal' },{ char: '} ', display: '}', type: 'normal' },
-				{ char: '\'', display: '\'', type: 'normal' },{ char: '$', display: '$', type: 'normal' },
-				{ char: '#', display: '#', type: 'normal' }, { char: 'b', display: 'b', type: 'normal' }, 
+				{ char: '0', display: '0', type: 'num' }, { char: '1', display: '1', type: 'num' }, 
+				{ char: '2', display: '2', type: 'num' }, { char: '3', display: '3', type: 'num' },
+				{ char: '4', display: '4', type: 'num' },	 { char: '5', display: '5', type: 'num' }, 
+				{ char: '6', display: '6', type: 'num' },	 { char: '7', display: '7', type: 'num' },
+				{ char: '8', display: '8', type: 'num' },	 { char: '9', display: '9', type: 'num' }, 
 
-            
-            // [切換鍵]
-            { display: '弦', type: 'switch', target: 'chord', class: 'mode-btn' },
-            { display: '快', type: 'switch', target: 'snippet', class: 'mode-btn' },
+
+			    { char: ' ', display: '空', type: 'space', class: 'space-btn span-3'},
+
+				{ char: '- ', display: '-', type: 'normal' }, { char: '/', display: '/', type: 'normal' }, { char: '\\', display: '\\', type: 'normal' }, 
+				{ char: '* ', display: '*', type: 'normal' },{ char: '.', display: '.', type: 'normal' },
+				{ char: ':', display: ':', type: 'normal' }, { char: 'backspace', display: '⌫', type: 'func' },
+
+				{ char: '(', display: '(', type: 'normal' }, { char: ') ', display: ')', type: 'normal' }, 
+				
+
+				{ char: '<', display: '<', type: 'normal' }, { char: '>', display: '>', type: 'normal' }, 
+				{ char: '|', display: '|', type: 'normal' },{ char: '[', display: '[', type: 'normal' },{ char: ']', display: ']', type: 'normal' },
+				
+				{ char: '{', display: '{', type: 'normal' },{ char: '} ', display: '}', type: 'normal' },
+				{ char: '\n', display: '⮠ ', type: 'normal' },
+
+				// [切換鍵]
+				{ display: '英', type: 'switch', target: 'qwerty', class: 'mode-btn' },
+				{ display: '弦', type: 'switch', target: 'chord', class: 'mode-btn' },
+				{ display: '快', type: 'switch', target: 'snippet', class: 'mode-btn' },
+
+				{ char: '\'', display: '\'', type: 'normal' },{ char: '$', display: '$', type: 'normal' },
+				{ char: '#', display: '#', type: 'normal' }, 
+
+
+
+				{ char: 'b', display: 'b', type: 'normal' }, 
 
             
             // 功能鍵
-            { char: 'backspace', display: '⌫', type: 'func' },
-			{ char: '\n', display: '┛', type: 'normal' },
+            
+			
         ],
 
         // --- 2. 和弦鍵盤 (CDEFG...) ---
         chord: [
             // [切換鍵]
-            { display: '數', type: 'switch', target: 'main', class: 'return-btn' },    
-			
+               
+				{ char: '0', display: '0', type: 'num' }, { char: '1', display: '1', type: 'num' }, 
+				{ char: '2', display: '2', type: 'num' }, { char: '3', display: '3', type: 'num' },
+				{ char: '4', display: '4', type: 'num' },	 { char: '5', display: '5', type: 'num' }, 
+				{ char: '6', display: '6', type: 'num' },	 { char: '7', display: '7', type: 'num' },
+				{ char: '8', display: '8', type: 'num' },	 { char: '9', display: '9', type: 'num' }, 
+			    { char: ' ', display: '空', type: 'space' }, { char: '- ', display: '-', type: 'normal' },
+				{ char: '/', display: '/', type: 'normal' },
+
 			{ char: '.', display: '.', type: 'normal' },
             { char: ':', display: ':', type: 'normal' },
             { char: 'r', display: 'r', type: 'normal' },
-			{ char: '- ', display: '-', type: 'normal' },
+			
 
 
             // 根音列
@@ -195,54 +219,99 @@ document.addEventListener('DOMContentLoaded', () => {
             { char: 'B', display: 'B', type: 'chord-root' },
             
             // 性質列 (Qualities)
-            { char: 'm', display: 'm', type: 'chord-quality' }, { char: '7', display: '7', type: 'chord-quality' }, 
-            { char: 'maj7', display: 'maj⁷', type: 'chord-quality' }, { char: 'm7', display: 'm⁷', type: 'chord-quality' },
+            { char: 'm', display: 'm', type: 'chord-quality' }, { char: '7', display: '7', type: 'chord-quality' },
+			{ char: 'backspace', display: '⌫', type: 'func' },
+            
+
+			{ display: '英', type: 'switch', target: 'qwerty', class: 'mode-btn' },
+			{ display: '數', type: 'switch', target: 'main', class: 'return-btn' }, 
+			{ display: '快', type: 'switch', target: 'snippet', class: 'mode-btn' },
+
+			{ char: 'maj7', display: 'maj⁷', type: 'chord-quality' }, 
+			{ char: 'm7', display: 'm⁷', type: 'chord-quality' },
+
             { char: 'sus4', display: 'sus⁴', type: 'chord-quality' }, { char: 'sus2', display: 'sus²', type: 'chord-quality' },
             { char: 'add9', display: 'add⁹', type: 'chord-quality' }, { char: 'dim', display: 'dim', type: 'chord-quality' },
             
-            // 常用符號補強
-			{ char: '/', display: '/', type: 'normal' },
-		
-			{ display: '快', type: 'switch', target: 'snippet', class: 'mode-btn' },
+            
+			{ char: '\n', display: '⮠ ', type: 'normal' },
 			
-			{ char: ' ', display: '空', type: 'space' },
-            { char: 'backspace', display: '⌫', type: 'func' },
-			{ char: '\n', display: '┛', type: 'normal' },
 
         ],
 
         // --- 3. 語法與代碼鍵盤 (Snippets) ---
         snippet: [
-            // [切換鍵]
-            { display: '數', type: 'switch', target: 'main', class: 'return-btn' },
-            { display: '弦', type: 'switch', target: 'chord', class: 'mode-btn' },
+				{ char: '0', display: '0', type: 'num' }, { char: '1', display: '1', type: 'num' }, 
+				{ char: '2', display: '2', type: 'num' }, { char: '3', display: '3', type: 'num' },
+				{ char: '4', display: '4', type: 'num' },	 { char: '5', display: '5', type: 'num' }, 
+				{ char: '6', display: '6', type: 'num' },	 { char: '7', display: '7', type: 'num' },
+				{ char: '8', display: '8', type: 'num' },	 { char: '9', display: '9', type: 'num' }, 
+			    { char: ' ', display: '空', type: 'space' }, 
+				{ char: '- ', display: '-', type: 'normal' },
+				{ char: ':', display: ':', type: 'normal' },
 
             // 播放流程控制
-            { label: '[Play]', text: '\n[play: A B A ]\n', offset: 0, type: 'insert', display: '[P]' },
-            { label: '[A]{', text: '[A]{', offset: -2, type: 'insert', display: '[A]' },
-            { label: '[B]{', text: '[B]{', offset: -2, type: 'insert', display: '[B]' },
-			{ label: '[C]{', text: '[C]{', offset: -2, type: 'insert', display: '[C]' },
-			{ label: '[D]{', text: '[D]{', offset: -2, type: 'insert', display: '[D]' },
-			{ label: '};', text: '};', offset: 0, type: 'insert', display: '};' },
-            
-            // 自定義節奏樣板
-            { label: '[r:]{1:}', text: '[r:]{1: (1.) $1 $1 $1 }', offset: -18, type: 'insert', display: '[r]' },
-            
+            { label: '[Play]', text: '[Play: A B C D ]', offset: 0, type: 'insert', display: '[P]', class: 'snippet-key' },
+            { label: '[A]{', text: '[A]{', offset: -2, type: 'insert', display: '[A]{', class: 'snippet-key' },
+            { label: '[B]{', text: '[B]{', offset: -2, type: 'insert', display: '[B]{', class: 'snippet-key' },
+			{ label: '[C]{', text: '[C]{', offset: -2, type: 'insert', display: '[C]{', class: 'snippet-key' },
+			{ label: '[D]{', text: '[D]{', offset: -2, type: 'insert', display: '[D]{', class: 'snippet-key' },
+			{ label: '};', text: '};', offset: 0, type: 'insert', display: '};', class: 'snippet-key' },
+            { label: '[r:]{1:}', text: '[r:]{1: (1.) $1 $1 $1 }', offset: -17, type: 'insert', display: '[r]{}', class: 'snippet-key' },
+
+
             // 常用樂器切換
             { char: 'p: ', display: 'p:', type: 'normal' },
             { char: 'g: ', display: 'g:', type: 'normal' },
             { char: 'v: ', display: 'v:', type: 'normal' },
             { char: 'd: ', display: 'd:', type: 'normal' },
-            
+
+			{ display: '英', type: 'switch', target: 'qwerty', class: 'mode-btn' },
+			{ display: '數', type: 'switch', target: 'main', class: 'return-btn' }, 
+            { display: '弦', type: 'switch', target: 'chord', class: 'mode-btn' },
+
             { char: 'backspace', display: '⌫', type: 'func' },
-			{ char: '\n', display: '┛', type: 'normal' },
+			{ char: '\n', display: '⮠ ', type: 'normal' },
+
+        ],
+		// --- 4. [新增] QWERTY 英數鍵盤 ---
+		qwerty: [
+			// Row 1: 數字
+			{ char: '1', display: '1', type: 'num' }, { char: '2', display: '2', type: 'num' }, { char: '3', display: '3', type: 'num' },
+			{ char: '4', display: '4', type: 'num' }, { char: '5', display: '5', type: 'num' }, { char: '6', display: '6', type: 'num' },
+			{ char: '7', display: '7', type: 'num' }, { char: '8', display: '8', type: 'num' }, { char: '9', display: '9', type: 'num' },
+			{ char: '0', display: '0', type: 'num' },
+
+			// Row 2: Q-P (type: 'letter' 會受 Shift 影響)
+			{ char: 'q', display: 'q', type: 'letter' }, { char: 'w', display: 'w', type: 'letter' }, { char: 'e', display: 'e', type: 'letter' },
+			{ char: 'r', display: 'r', type: 'letter' }, { char: 't', display: 't', type: 'letter' }, { char: 'y', display: 'y', type: 'letter' },
+			{ char: 'u', display: 'u', type: 'letter' }, { char: 'i', display: 'i', type: 'letter' }, { char: 'o', display: 'o', type: 'letter' },
+			{ char: 'p', display: 'p', type: 'letter' },
+
+			// Row 3: A-L + 符號
+			{ char: 'a', display: 'a', type: 'letter' }, { char: 's', display: 's', type: 'letter' }, { char: 'd', display: 'd', type: 'letter' },
+			{ char: 'f', display: 'f', type: 'letter' }, { char: 'g', display: 'g', type: 'letter' }, { char: 'h', display: 'h', type: 'letter' },
+			{ char: 'j', display: 'j', type: 'letter' }, { char: 'k', display: 'k', type: 'letter' }, { char: 'l', display: 'l', type: 'letter' },
+			{ char: '-', display: '-', type: 'normal' },
+
+			// Row 4: Shift, Z-M, Backspace
+			{ display: '⇧', type: 'shift', class: 'shift-btn' }, // Shift 鍵
+			{ char: 'z', display: 'z', type: 'letter' }, { char: 'x', display: 'x', type: 'letter' }, { char: 'c', display: 'c', type: 'letter' },
+			{ char: 'v', display: 'v', type: 'letter' }, { char: 'b', display: 'b', type: 'letter' }, { char: 'n', display: 'n', type: 'letter' },
+			{ char: 'm', display: 'm', type: 'letter' },
+			{ char: '.', display: ':', type: 'normal'},
+			{ char: 'backspace', display: '⌫', type: 'func' },
 			
 
-				
-
-
-        ]
-    };
+			// Row 5: 導覽與空白鍵 (使用 CSS span 跨欄)
+			{ display: '數', type: 'switch', target: 'main', class: 'return-btn' }, 
+            { display: '弦', type: 'switch', target: 'chord', class: 'mode-btn' },
+            { display: '快', type: 'switch', target: 'snippet', class: 'mode-btn' },
+			{ char: ' ', display: 'Space', type: 'space', class: 'space-btn span-6' },
+			{ char: '.', display: '.', type: 'normal'},
+			{ char: '\n', display: '⮠ ', type: 'normal' },
+		]
+	};
 
 
 
@@ -2919,47 +2988,81 @@ function updateStatusDisplay() {
     const closeFloatBtn = document.getElementById('close-float-kb');
 
     // 1. 通用生成按鈕函數
-    function renderKeysTo(container) {
-        if (!container) return;
-        container.innerHTML = '';
-        
-        // 根據 currentKeyMode 取得對應的按鈕列表
-        const activeSet = keySets[currentKeyMode] || keySets['main'];
-        
-        activeSet.forEach(item => {
-            const btn = document.createElement('button');
-            btn.className = 'key-btn';
-            btn.innerHTML = item.display;
-            
-            // 樣式類別處理
-            if (item.type === 'num') btn.classList.add('num-key');
-            if (item.type === 'func') btn.classList.add('func-key');
-            if (item.type === 'chord-root') { btn.style.color = '#d93025'; }
-            if (item.type === 'chord-quality') { btn.style.color = '#188038'; fontSize = '0.7rem'; }
-            if (item.class) btn.classList.add(item.class); // 加入自訂 class (如 mode-btn)
+	function renderKeysTo(container) {
+		if (!container) return;
+		container.innerHTML = '';
+		
+		const activeSet = keySets[currentKeyMode] || keySets['main'];
+		
+		// 如果是 QWERTY 模式，加入特定 class 以便 CSS 做特殊排版 (如需要)
+		if (currentKeyMode === 'qwerty') {
+			container.classList.add('layout-qwerty');
+		} else {
+			container.classList.remove('layout-qwerty');
+		}
+		
+		activeSet.forEach(item => {
+			const btn = document.createElement('button');
+			btn.className = 'key-btn';
+			
+			// --- 處理顯示文字與大小寫 ---
+			let displayText = item.display;
+			let inputChar = item.char;
 
-            // 事件綁定
-            btn.addEventListener('click', (e) => {
-                e.preventDefault(); // 防止失焦
-                
-                if (item.type === 'switch') {
-                    // --- 切換模式邏輯 ---
-                    currentKeyMode = item.target;
-                    createKeys(); // 重新渲染所有鍵盤容器
-                } 
-                else if (item.type === 'insert') {
-                    // --- 插入長文字邏輯 (Snippet) ---
-                    insertTextAtCursor(codeInput, item.text, item.offset);
-                }
-                else {
-                    // --- 一般字元輸入 ---
-                    handleKeyInput(codeInput, item.char);
-                }
-            });
-            
-            container.appendChild(btn);
-        });
-    }
+			if (item.type === 'letter' && isShiftEnabled) {
+				displayText = displayText.toUpperCase();
+				inputChar = inputChar.toUpperCase();
+			}
+
+			btn.innerHTML = displayText;
+			
+			// --- 樣式類別處理 ---
+			if (item.type === 'num') btn.classList.add('num-key');
+			if (item.type === 'func') btn.classList.add('func-key');
+			if (item.type === 'chord-root') { btn.style.color = '#d93025'; }
+			if (item.type === 'chord-quality') { 
+				btn.classList.add('chord-quality');
+				btn.style.color = '#188038'; 
+			}
+			if (item.type === 'shift') {
+				 if (isShiftEnabled) btn.classList.add('active'); // Shift 啟用時亮燈
+			}
+			if (item.class) {
+				// 支援多個 class (例如 'return-btn span-2')
+				const classes = item.class.split(' ');
+				classes.forEach(c => btn.classList.add(c));
+			}
+
+			// --- 事件綁定 ---
+			btn.addEventListener('click', (e) => {
+				e.preventDefault();
+				
+				if (item.type === 'switch') {
+					currentKeyMode = item.target;
+					// 切換模式時，通常重置 Shift 狀態
+					isShiftEnabled = false; 
+					createKeys(); 
+				} 
+				else if (item.type === 'shift') {
+					// --- Shift 切換邏輯 ---
+					isShiftEnabled = !isShiftEnabled;
+					createKeys(); // 重新渲染以更新字母顯示
+				}
+				else if (item.type === 'insert') {
+					insertTextAtCursor(codeInput, item.text, item.offset);
+				}
+				else {
+					// 一般輸入 (包含經過大小寫轉換的 inputChar)
+					handleKeyInput(codeInput, inputChar);
+					
+					// 選項：如果是手機習慣，打完一個大寫字母後自動切回小寫
+					// if (isShiftEnabled) { isShiftEnabled = false; createKeys(); }
+				}
+			});
+			
+			container.appendChild(btn);
+		});
+	}
 
     function createKeys() {
         renderKeysTo(document.getElementById('quick-toolbar'));
@@ -2995,15 +3098,18 @@ function updateStatusDisplay() {
         toggleFloatBtn.addEventListener('click', () => {
             const isHidden = floatingKeyboard.classList.contains('hidden');
             if (isHidden) {
+                // --- 開啟鍵盤 ---
                 floatingKeyboard.classList.remove('hidden');
                 toggleFloatBtn.classList.add('active');
                 
-                // [修改] 解開註解並強制清除定位，讓 CSS 的置中生效
                 floatingKeyboard.style.top = ''; 
                 floatingKeyboard.style.left = '';
-                floatingKeyboard.style.transform = ''; // 清除拖曳時可能留下的 transform: none
+                floatingKeyboard.style.bottom = ''; 
+                floatingKeyboard.style.right = ''; 
+                floatingKeyboard.style.transform = ''; 
                 
             } else {
+                // --- 關閉鍵盤 ---
                 floatingKeyboard.classList.add('hidden');
                 toggleFloatBtn.classList.remove('active');
             }
@@ -3025,11 +3131,14 @@ function updateStatusDisplay() {
 
         const startDrag = (e) => {
             // 只允許按住 Header 拖曳
-            if (e.target.closest('button')) return; // 避免拖曳到關閉按鈕
+            if (e.target.closest('button')) return;
 
             isDragging = true;
             dragHandle.style.cursor = 'grabbing';
             
+            // [新增] 開始拖曳時，暫時關閉動畫，避免移除 transform 時產生位移晃動
+            floatingKeyboard.style.transition = 'none';
+
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
             
@@ -3043,16 +3152,16 @@ function updateStatusDisplay() {
             // 轉為絕對定位計算
             floatingKeyboard.style.bottom = 'auto';
             floatingKeyboard.style.right = 'auto';
-            floatingKeyboard.style.transform = 'none'; // 移除 CSS 的居中 transform
+            floatingKeyboard.style.transform = 'none'; 
             floatingKeyboard.style.left = `${initialLeft}px`;
             floatingKeyboard.style.top = `${initialTop}px`;
             
-            if(e.type === 'touchstart') document.body.style.overflow = 'hidden'; // 防止手機拖曳時畫面捲動
+            if(e.type === 'touchstart') document.body.style.overflow = 'hidden'; 
         };
 
         const onDrag = (e) => {
             if (!isDragging) return;
-            e.preventDefault(); // 關鍵：防止手機瀏覽器下拉刷新或捲動
+            e.preventDefault(); 
 
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -3067,7 +3176,9 @@ function updateStatusDisplay() {
         const stopDrag = () => {
             isDragging = false;
             dragHandle.style.cursor = 'move';
-            document.body.style.overflow = ''; // 恢復捲動
+            document.body.style.overflow = ''; 
+            
+            floatingKeyboard.style.transition = ''; 
         };
 
         dragHandle.addEventListener('mousedown', startDrag);

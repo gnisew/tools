@@ -556,14 +556,14 @@ textarea::selection { background-color: #c2e7ff; color: #001d35; }
 .keys-grid {
     display: grid;
     /* [關鍵] 強制 8 列 (約 3 行)，確保按鈕夠大 */
-    grid-template-columns: repeat(8, 1fr);
+    grid-template-columns: repeat(10, 1fr);
     gap: 6px;
-    padding: 12px;
+    padding: 10px 10px;
 }
 
 /* 浮動鍵盤內的按鈕樣式 (繼承 key-btn 但微調) */
 .keys-grid .key-btn {
-    height: 44px; /* 比固定版高一點，更好按 */
+    height: 36px; /* 比固定版高一點，更好按 */
     font-size: 1.1rem;
     border-radius: 8px;
     box-shadow: 0 2px 0 rgba(0,0,0,0.05);
@@ -592,4 +592,124 @@ textarea::selection { background-color: #c2e7ff; color: #001d35; }
     color: #c5221f;
     font-weight: bold;
     border-color: #fad2cf;
+}
+
+
+/* ==========================================
+   手機版優化：將固定鍵盤移至底部 (Overlay)
+   ========================================== */
+@media (max-width: 768px) {
+    
+    /* 針對固定鍵盤 (quick-toolbar) 進行定位覆寫 */
+    .quick-toolbar {
+        position: fixed;
+        bottom: 0; 
+        left: 5px; 
+        right: 5px;
+        width: 100%;        
+        z-index: 150; 
+        
+        background-color: #f8f9fa;
+        border-top: 1px solid #ccc;
+        border-bottom: none;
+        box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
+        
+        /* iPhone X+ 底部安全區域 (避免 Home Bar 擋住按鈕) */
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+        padding-top: 12px;
+        
+        /* 確保按鈕好按 */
+        gap: 6px;
+    }
+
+    .editor-container textarea {
+        padding-bottom: 220px !important; 
+    }
+}
+
+
+/* 1. 讓浮動鍵盤內的所有按鈕字體稍微小一點 (原本是 1.1rem) */
+.keys-grid .key-btn {
+    font-size: 1rem; 
+    padding: 0 2px; /* 減少左右內距，爭取空間 */
+}
+
+/* 2. 特別針對「和弦性質」按鈕 (如 maj7, sus4, add9) 進行壓縮 */
+.keys-grid .key-btn.chord-quality {
+    font-size: 0.75rem !important;
+    letter-spacing: -0.5px;
+    font-weight: 500;
+    font-family: "Segoe UI", Roboto, sans-serif;
+}
+
+
+.keys-grid .key-btn.snippet-key {
+    font-size: 0.75rem !important;
+    letter-spacing: -0.5px;
+    font-weight: 500;
+    font-family: "Segoe UI", Roboto, sans-serif;
+    color: #7b1fa2;            /* 深紫色文字 */
+}
+
+/* 按下時的回饋感 */
+.keys-grid .key-btn.snippet-key:active {
+    background-color: #e1bee7;
+    transform: translateY(1px);
+}
+
+@media (max-width: 400px) {
+    .keys-grid {
+        /* 如果螢幕真的很小，稍微縮小間距 */
+        gap: 3px; 
+        padding: 8px;
+    }
+}
+
+
+
+/* 1. Shift 鍵樣式 */
+.key-btn.shift-btn {
+    font-weight: bold;
+    color: #5f6368;
+    background-color: #f1f3f4;
+}
+
+/* Shift 啟用狀態 (亮燈) */
+.key-btn.shift-btn.active {
+    background-color: #c2e7ff; /* 淺藍色高亮 */
+    color: #001d35;
+    border-color: #7fcfff;
+}
+
+/* 2. 跨欄位工具 (Grid Spanning) 
+   目前的 .keys-grid 是 repeat(10, 1fr)
+   這些 class 讓按鈕可以佔據多個格子
+*/
+.keys-grid .key-btn.span-2 {
+    grid-column: span 2;
+}
+.keys-grid .key-btn.span-3 {
+    grid-column: span 3;
+}
+.keys-grid .key-btn.span-4 {
+    grid-column: span 4;
+}
+.keys-grid .key-btn.span-6 {
+    grid-column: span 5; /* 用於空白鍵 */
+}
+
+/* 3. 空白鍵樣式 */
+.key-btn.space-btn {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+/* 4. 手機版微調
+   如果手機版按鈕太小，可以適度縮小 QWERTY 模式下的 padding
+*/
+@media (max-width: 400px) {
+    .layout-qwerty .key-btn {
+        padding: 0;
+        font-size: 0.9rem;
+    }
 }
