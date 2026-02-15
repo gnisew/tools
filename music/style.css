@@ -446,3 +446,17 @@ textarea::selection { background-color: #c2e7ff; color: #001d35; }
     .tab-group { display: flex; flex-shrink: 0; }
     .filter-tab { padding: 4px 10px; font-size: 0.8rem; }
 }
+
+/* 確保按鈕有足夠的點擊區域 */
+#keyboard-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* 如果希望關閉時有不同顏色 */
+    color: var(--text-main); 
+}
+
+/* 當鍵盤開啟時的樣式 (可選) */
+#keyboard-toggle-btn.active {
+    color: #0b57d0; /* 使用您的主色系 */
+}

@@ -177,6 +177,11 @@
                 </div>
 
 				<div id="replace-bar" class="replace-bar single-line" style="display: none;">
+<button id="keyboard-toggle-btn" class="icon-btn" title="切換系統鍵盤">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+            <path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/>
+        </svg>
+    </button>
                     <input type="text" id="find-text" placeholder="尋找" class="replace-input tiny">
                     <input type="text" id="replace-text" placeholder="取代" class="replace-input tiny">
                     <button id="do-replace-btn" class="text-btn replace-confirm-btn compact">取代</button>
@@ -194,7 +199,9 @@
                 </div>
 
                 <div id="panel-content-input" class="panel-content-wrapper">
-                    <div id="quick-toolbar" class="quick-toolbar hidden"></div>
+                    <div id="quick-toolbar" class="quick-toolbar hidden">
+                    </div>
+
                     <div class="editor-container">
                         <textarea id="code-input" placeholder="輸入數字後，請按空格鍵轉換為簡譜...&#10;"></textarea>
                     </div>
@@ -278,8 +285,9 @@
                                 <li><code>1// </code> = 十六分音符 (0.25拍)，符號全形 </li>
                                 <li><code>1\\ </code> = 十六分音符 (0.25拍)，符號半形 </li>
                                 <li><code> * </code> = 附點 (增加一半時值) <br><small>註= <code>*/</code> <code>*//</code> 效果相同，僅為美觀</small></li>
-                                <li><code>1 (( 1/</code> =  連結線 (前後同音則時值相加)</li>
-                                <li><code>&lt;1/ 2/ 3/ &gt;</code> = 三連音 <br><small>註= &lt; &gt; 內<strong>不加空格</strong></small></li>            
+                                <li><code>(( </code> = 連結線如 1 (( 1/ 為 (  前後同音則時值相加)</li>
+                                <li><code>&lt; 1/ 2/ 3/ &gt;</code> = 1拍三連音</li>
+								<li><code>&lt; 1 2 3 &gt;</code> = 2拍三連音</li>  
                             </ul>
                         </div>
                 

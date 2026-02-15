@@ -2853,97 +2853,156 @@ function updateStatusDisplay() {
         return `${symbol}?`; // 例外狀況
     }
     // --- 試聽功能 ---
-	function playRhythmSample(id, type) {
-		const root = dictChordSelect.value || 'C';
-		const prefix = type === 'block' ? '.' : ':';
-		const testCode = `${prefix}${id}${root}`; // 例如 .1C 或 :6G
-		
-		// [關鍵修正] 移除原本尾端的 " - - -"，避免試聽時產生多餘的 4 拍延音
-		// 現在改為「定義多少就播多少」
-		const mockScore = `[Audition]{ ${testCode} }`; 
-		
-		// 2. 解析
-		const notes = parseScore(mockScore);
-		
-		// 3. 播放
-		stopMusic(); 
-		initAudio().then(() => {
-			// 試聽不需要跟隨全域速度，給定一個舒適的速度 (例如 100)
-			const beatTime = 60 / 100; 
-			const now = audioCtx.currentTime + 0.1;
-			
-			loadInstrument(currentInstrument).then(() => {
-				notes.forEach(note => {
-					if (!note.play) return;
-					
-					if (note.type === 'chord' && note.chordFreqs) {
-						let pattern = null;
-						let patternLen = 4;
+    function playRhythmSample(id, type) {
+        const root = dictChordSelect.value || 'C';
+        const prefix = type === 'block' ? '.' : ':';
+        const testCode = `${prefix}${id}${root}`; // 例如 .1C 或 :6G
+        
+        // 1. 建立樂譜字串 (保持乾淨，不加 - - -)
+        const mockScore = `[Audition]{ ${testCode} }`; 
+        
+        // 2. 解析
+        // 傳入 true 忽略流程控制，確保單純解析
+        const notes = parseScore(mockScore, true);
+        
+        // [關鍵修正] 手動將所有可播放音符的長度設為 4 拍
+        // 這能確保節奏樣式 (Pattern) 有足夠的時間完整播放
+        notes.forEach(n => {
+            if (n.play && (n.type === 'note' || n.type === 'chord')) {
+                n.duration = 4;
+                n.visualDuration = 4;
+            }
+        });
+        
+        // 3. 播放
+        stopMusic(); 
+        initAudio().then(() => {
+            // 試聽速度固定為 100 BPM，方便確認節奏感
+            const beatTime = 60 / 100; 
+            const now = audioCtx.currentTime + 0.1;
+            
+            // 確保樂器載入 (試聽通常只用鋼琴，或依當前樂器)
+            loadInstrument(currentInstrument).then(() => {
+                notes.forEach(note => {
+                    if (!note.play) return;
+                    
+                    if (note.type === 'chord' && note.chordFreqs) {
+                        let pattern = null;
+                        let patternLen = 4; // 預設節奏長度
 
-						if (note.rhythmType === 'custom' && note.customSteps) {
-							pattern = { steps: note.customSteps };
-						} else {
-							let patternLib = RHYTHM_BLOCK; 
-							if (note.rhythmType === 'arp') patternLib = RHYTHM_ARP; 
-							pattern = patternLib[note.rhythmId] || patternLib[1];
-						}
+                        if (note.rhythmType === 'custom' && note.customSteps) {
+                            pattern = { steps: note.customSteps };
+                        } else {
+                            let patternLib = RHYTHM_BLOCK; 
+                            if (note.rhythmType === 'arp') patternLib = RHYTHM_ARP; 
+                            pattern = patternLib[note.rhythmId] || patternLib[1];
+                        }
 
-						// (內部 getFreq 函數)
-						const getFreq = (code, root, noteObj) => {
-							let baseF = 0;
-							const freqs = noteObj.chordFreqs;
-							const isMinor = noteObj.chordInfo && noteObj.chordInfo.quality.includes('m') && !noteObj.chordInfo.quality.includes('maj');
-							
-							switch (code) {
-								case 0: baseF = freqs[0]; break;
-								case 1: baseF = freqs[1] || freqs[0] * 1.2599; break;
-								case 2: baseF = freqs[2] || freqs[0] * 1.4983; break;
-								case 3: if (freqs[3]) baseF = freqs[3]; else baseF = freqs[0] * (isMinor ? 1.7817 : 1.8877); break;
-								case 9: baseF = freqs[0] * 1.12246; break;
-								case -1: baseF = freqs[0] / 2; break;
-								case -2: baseF = (freqs[2] || freqs[0] * 1.4983) / 2; break;
-								case -3: if (freqs[3]) baseF = freqs[3] / 2; else baseF = (freqs[0] * (isMinor ? 1.7817 : 1.8877)) / 2; break;
-								case -4: baseF = (freqs[1] || freqs[0] * 1.2599) / 2; break;
-								case -20: baseF = (freqs[0] * 1.12246) / 2; break; 
-								case -21: baseF = (freqs[0] * 1.3348) / 2; break; 
-								case -22: baseF = (freqs[0] * 1.6818) / 2; break; 
-								case 12: baseF = freqs[0] * 2; break; 
-								case 14: baseF = (freqs[0] * 1.12246) * 2; break; 
-								case 15: baseF = (freqs[1] || freqs[0] * 1.2599) * 2; break; 
-								default: baseF = freqs[0]; 
-							}
-							return baseF;
-						};
+                        const getFreq = (code, root, noteObj) => {
+                            let baseF = 0;
+                            const freqs = noteObj.chordFreqs;
+                            const isMinor = noteObj.chordInfo && noteObj.chordInfo.quality.includes('m') && !noteObj.chordInfo.quality.includes('maj');
+                            
+                            switch (code) {
+                                case 0: baseF = freqs[0]; break;
+                                case 1: baseF = freqs[1] || freqs[0] * 1.2599; break;
+                                case 2: baseF = freqs[2] || freqs[0] * 1.4983; break;
+                                case 3: if (freqs[3]) baseF = freqs[3]; else baseF = freqs[0] * (isMinor ? 1.7817 : 1.8877); break;
+                                case 9: baseF = freqs[0] * 1.12246; break;
+                                case -1: baseF = freqs[0] / 2; break;
+                                case -2: baseF = (freqs[2] || freqs[0] * 1.4983) / 2; break;
+                                case -3: if (freqs[3]) baseF = freqs[3] / 2; else baseF = (freqs[0] * (isMinor ? 1.7817 : 1.8877)) / 2; break;
+                                case -4: baseF = (freqs[1] || freqs[0] * 1.2599) / 2; break;
+                                case -20: baseF = (freqs[0] * 1.12246) / 2; break; 
+                                case -21: baseF = (freqs[0] * 1.3348) / 2; break; 
+                                case -22: baseF = (freqs[0] * 1.6818) / 2; break; 
+                                case 12: baseF = freqs[0] * 2; break; 
+                                case 14: baseF = (freqs[0] * 1.12246) * 2; break; 
+                                case 15: baseF = (freqs[1] || freqs[0] * 1.2599) * 2; break; 
+                                default: baseF = freqs[0]; 
+                            }
+                            return baseF;
+                        };
 
-						for (let loopStart = 0; loopStart < note.duration; loopStart += patternLen) {
-							pattern.steps.forEach(step => {
-								const stepAbsStart = loopStart + step.t;
-								if (stepAbsStart >= note.duration) return;
+                        // [修正] 這裡使用 note.duration (現在是 4)，可以完整執行迴圈
+                        for (let loopStart = 0; loopStart < note.duration; loopStart += patternLen) {
+                            pattern.steps.forEach(step => {
+                                const stepAbsStart = loopStart + step.t;
+                                if (stepAbsStart >= note.duration) return;
 
-								let playDuration = step.len;
-								if (stepAbsStart + playDuration > note.duration) {
-									playDuration = note.duration - stepAbsStart;
-								}
+                                let playDuration = step.len;
+                                if (stepAbsStart + playDuration > note.duration) {
+                                    playDuration = note.duration - stepAbsStart;
+                                }
 
-								// [注意] 試聽時使用簡單的絕對時間計算
-								const absTime = now + (note.startTime * beatTime) + (stepAbsStart * beatTime);
-								const absDur = playDuration * beatTime;
+                                const absTime = now + (note.startTime * beatTime) + (stepAbsStart * beatTime);
+                                const absDur = playDuration * beatTime;
 
-								if (Array.isArray(step.notes)) {
-									step.notes.forEach(code => {
-										const f = getFreq(code, note.chordFreqs[0], note);
-										if (f > 0) playTone(f, absTime, absDur, note.instrument);
-									});
-								}
-							});
-						}
-					}
-				});
-			});
-		});
-	}
+                                if (Array.isArray(step.notes)) {
+                                    step.notes.forEach(code => {
+                                        const f = getFreq(code, note.chordFreqs[0], note);
+                                        if (f > 0) playTone(f, absTime, absDur, note.instrument);
+                                    });
+                                }
+                            });
+                        }
+                    }
+                });
+            });
+        });
+    }
 
+// ==========================================
+    // [新增] 手機版系統鍵盤切換邏輯
+    // ==========================================
+    const keyboardToggleBtn = document.getElementById('keyboard-toggle-btn');
+    // 預設開啟系統鍵盤 (true)
+    let isSystemKeyboardEnabled = true;
 
+    if (keyboardToggleBtn) {
+        keyboardToggleBtn.addEventListener('click', (e) => {
+            // 防止點擊按鈕導致編輯區失焦
+            e.preventDefault();
+
+            isSystemKeyboardEnabled = !isSystemKeyboardEnabled;
+            const input = document.getElementById('code-input');
+
+            if (isSystemKeyboardEnabled) {
+                // --- 開啟系統鍵盤 ---
+                input.setAttribute('inputmode', 'text'); // 或 'decimal' 視需求而定
+                
+                // 更新按鈕樣式 (實心鍵盤圖示)
+                keyboardToggleBtn.classList.add('active'); // 可選：加上高亮樣式
+                keyboardToggleBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                        <path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/>
+                    </svg>`;
+            } else {
+                // --- 關閉系統鍵盤 (只顯示游標) ---
+                input.setAttribute('inputmode', 'none');
+                
+                // 更新按鈕樣式 (鍵盤打叉或空心圖示)
+                keyboardToggleBtn.classList.remove('active');
+                keyboardToggleBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                         <path d="M19 7h2v2h-2V7zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2zM7 7h2v2H7V7zm0 4h2v2H7v-2zm0 4h2v2H7v-2zM3 7h2v2H3V7zm0 4h2v2H3v-2zm0 4h2v2H3v-2zm4 4h10v2H7v-2zm-5 4V5c0-1.1.9-2 2-2h16c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2zm2-16v14h16V5H4z"/>
+                         <path d="M0 0h24v24H0z" fill="none"/>
+                         <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2" />
+                    </svg>`;
+            }
+
+            // [關鍵] 強制刷新鍵盤狀態
+            // 行動裝置通常需要 blur 再 focus 才會重新讀取 inputmode 設定
+            if (document.activeElement === input) {
+                input.blur();
+                setTimeout(() => {
+                    input.focus();
+                }, 50); // 稍微延遲以確保瀏覽器反應
+            } else {
+                input.focus();
+            }
+        });
+    }
     // Final Init
     createKeys();
     loadData();
