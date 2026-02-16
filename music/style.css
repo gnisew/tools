@@ -629,13 +629,13 @@ textarea::selection { background-color: #c2e7ff; color: #001d35; }
 
 
 /* 1. 讓浮動鍵盤內的所有按鈕字體稍微小一點 (原本是 1.1rem) */
-.keys-grid .key-btn {
+.key-btn {
     font-size: 1rem; 
     padding: 0 2px; /* 減少左右內距，爭取空間 */
 }
 
 /* 2. 特別針對「和弦性質」按鈕 (如 maj7, sus4, add9) 進行壓縮 */
-.keys-grid .key-btn.chord-quality {
+.key-btn.chord-quality {
     font-size: 0.75rem !important;
     letter-spacing: -0.5px;
     font-weight: 500;
@@ -643,7 +643,7 @@ textarea::selection { background-color: #c2e7ff; color: #001d35; }
 }
 
 
-.keys-grid .key-btn.snippet-key {
+.key-btn.snippet-key {
     font-size: 0.75rem !important;
     letter-spacing: -0.5px;
     font-weight: 500;

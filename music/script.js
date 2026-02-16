@@ -216,28 +216,49 @@ document.addEventListener('DOMContentLoaded', () => {
     const keySets = {
         // --- 1. 主鍵盤 (簡譜與編輯) ---
         main: [
-				{ char: '0', display: '0', type: 'num' }, { char: '1', display: '1', type: 'num' }, 
-				{ char: '2', display: '2', type: 'num' }, { char: '3', display: '3', type: 'num' },
-				{ char: '4', display: '4', type: 'num' },	 { char: '5', display: '5', type: 'num' }, 
-				{ char: '6', display: '6', type: 'num' },	 { char: '7', display: '7', type: 'num' },
-				{ char: '8', display: '8', type: 'num' },	 { char: '9', display: '9', type: 'num' }, 
+
+				{ char: '[', display: '[', type: 'normal' },
+				{ char: ']', display: ']', type: 'normal' },
+				
+				{ char: '{', display: '{', type: 'normal' },
+				{ char: '} ', display: '}', type: 'normal' },
 
 
-			    { char: ' ', display: '空', type: 'space', class: 'space-btn span-3'},
+				{ char: '* ', display: '*', type: 'normal' },
+				{ char: '|', display: '|', type: 'normal' },
+				{ char: '7', display: '7', type: 'num' },
+				{ char: '8', display: '8', type: 'num' },	 
 
+				{ char: '9', display: '9', type: 'num' }, 
 				{ char: '- ', display: '-', type: 'normal' }, 
+
+
+				{ char: '<', display: '<', type: 'normal' }, 
+				{ char: '>', display: '>', type: 'normal' }, 
+
+				{ char: '(', display: '(', type: 'normal' }, 
+				{ char: ') ', display: ')', type: 'normal' }, 
+				{ char: '\'', display: '\'', type: 'normal' },
+				{ char: '\\', display: '\\', type: 'normal' }, 
+
+				{ char: '4', display: '4', type: 'num' },	 
+				{ char: '5', display: '5', type: 'num' }, 
+				{ char: '6', display: '6', type: 'num' },	 
+
 				{ char: '/', display: '/', type: 'normal' }, 
 
-				{ char: '* ', display: '*', type: 'normal' },{ char: '.', display: '.', type: 'normal' },
-				{ char: ':', display: ':', type: 'normal' },					
 
-				{ char: '(', display: '(', type: 'normal' }, { char: ') ', display: ')', type: 'normal' }, 
-				{ char: '\'', display: '\'', type: 'normal' },{ char: '$', display: '$', type: 'normal' },	
 
-				{ char: '<', display: '<', type: 'normal' }, { char: '>', display: '>', type: 'normal' }, 
-				{ char: '|', display: '|', type: 'normal' },{ char: '[', display: '[', type: 'normal' },{ char: ']', display: ']', type: 'normal' },
-				
-				{ char: '{', display: '{', type: 'normal' },{ char: '} ', display: '}', type: 'normal' },
+
+			    { char: ' ', display: '空', type: 'space', class: 'space-btn span-4'},
+
+
+				{ char: '#', display: '#', type: 'normal' }, 
+				{ char: 'b', display: 'b', type: 'normal' }, 
+
+				{ char: '1', display: '1', type: 'num' }, 
+				{ char: '2', display: '2', type: 'num' }, 
+				{ char: '3', display: '3', type: 'num' },
 				
 				
 				{ char: 'backspace', display: '⌫', type: 'func' },
@@ -246,20 +267,18 @@ document.addEventListener('DOMContentLoaded', () => {
 				{ display: '英', type: 'switch', target: 'qwerty', class: 'mode-btn' },
 				{ display: '弦', type: 'switch', target: 'chord', class: 'mode-btn' },
 				{ display: '快', type: 'switch', target: 'snippet', class: 'mode-btn' },
-				
-				{ char: '\\', display: '\\', type: 'normal' }, 
+				{ char: ';', display: ';', type: 'normal' },	
+				{ char: '$', display: '$', type: 'normal' },
+				{ char: 'r', display: 'r', type: 'normal' },	
+				{ char: '0', display: '0', type: 'num' }, 
+				{ char: '.', display: '.', type: 'normal' },
+				{ char: ':', display: ':', type: 'normal' },
 
-
-				{ char: '#', display: '#', type: 'normal' }, 
-
-
-
-				{ char: 'b', display: 'b', type: 'normal' }, 
 				{ 
-					char: 'enter', 
+					char: '\n', 
 					display: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>', 
 					type: 'func', 
-					class: 'span-2 enter-btn'
+					class: 'span-1 enter-btn'
 				},
             
             // 功能鍵
@@ -313,7 +332,12 @@ document.addEventListener('DOMContentLoaded', () => {
             { char: 'add9', display: 'add⁹', type: 'chord-quality' }, { char: 'dim', display: 'dim', type: 'chord-quality' },
             
             
-			{ char: '\n', display: '⮠ ', type: 'normal' },
+				{ 
+					char: '\n', 
+					display: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>', 
+					type: 'func', 
+					class: 'span-1 enter-btn'
+				},
 			
 
         ],
@@ -353,10 +377,10 @@ document.addEventListener('DOMContentLoaded', () => {
             { char: 'd: ', display: 'd:', type: 'normal' },
 
 				{ 
-					char: 'enter', 
+					char: '\n', 
 					display: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>', 
 					type: 'func', 
-					class: 'span-2 enter-btn'
+					class: 'span-1 enter-btn'
 				},
 
         ],
@@ -399,12 +423,12 @@ document.addEventListener('DOMContentLoaded', () => {
 			{ char: '.', display: '.', type: 'normal'},
 			{ char: '/', display: '/', type: 'normal' },
 
-			{ 
-				char: 'enter', 
-				display: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>', 
-				type: 'func', 
-				class: 'span-2 enter-btn'
-			},
+				{ 
+					char: '\n', 
+					display: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>', 
+					type: 'func', 
+					class: 'span-1 enter-btn'
+				},
 		]
 	};
 
