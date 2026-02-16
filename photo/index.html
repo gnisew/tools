@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>照片貼圖編輯器</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS (用於快速樣式) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Fabric.js (用於畫布操作) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+
+    <!-- 樣式調整 -->
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            overscroll-behavior: none; /* 防止手機下拉刷新 */
+        }
+        /* 隱藏檔案上傳 input */
+        .hidden-input {
+            display: none;
+        }
+        canvas {
+            border: 1px dashed #ccc;
+        }
+        /* 貼圖選單樣式 */
+        .sticker-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .sticker-item {
+            font-size: 2rem;
+            cursor: pointer;
+            text-align: center;
+            padding: 5px;
+            background: #f3f4f6;
+            border-radius: 8px;
+        }
+        .sticker-item:active {
+            background: #e5e7eb;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- 頂部導航 -->
+    <header class="bg-white shadow-sm p-4 flex justify-between items-center z-10">
+        <h1 class="text-lg font-bold text-gray-800">📷 貼圖編輯器</h1>
+        <button onclick="downloadImage()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow active:bg-blue-700 transition">
+            儲存圖片
+        </button>
+    </header>
+
+    <!-- 主要畫布區域 -->
+    <main class="flex-1 flex items-center justify-center bg-gray-200 p-2 relative overflow-hidden" id="canvas-container">
+        <!-- 尚未上傳照片時的提示 -->
+        <div id="placeholder-text" class="absolute text-gray-500 text-center pointer-events-none">
+            <p class="text-4xl mb-2">🖼️</p>
+            <p>請先點擊下方「上傳照片」</p>
+        </div>
+        
+        <canvas id="c"></canvas>
+    </main>
+
+    <!-- 控制按鈕區 (針對刪除功能) -->
+    <div id="object-controls" class="bg-red-50 p-2 flex justify-center hidden">
+        <button onclick="deleteSelected()" class="text-red-600 font-bold text-sm flex items-center gap-2">
+            🗑️ 刪除選取的項目
+        </button>
+    </div>
+
+    <!-- 底部工具列 -->
+    <footer class="bg-white border-t p-3 pb-8 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-20">
+        <div class="grid grid-cols-4 gap-2">
+            <!-- 1. 上傳背景 -->
+            <button onclick="document.getElementById('bg-upload').click()" class="flex flex-col items-center justify-center p-2 rounded hover:bg-gray-50 text-gray-700">
+                <span class="text-2xl">📷</span>
+                <span class="text-xs mt-1">上傳照片</span>
+            </button>
+            <input type="file" id="bg-upload" class="hidden-input" accept="image/*">
+
+            <!-- 2. 加文字 -->
+            <button onclick="addText()" class="flex flex-col items-center justify-center p-2 rounded hover:bg-gray-50 text-gray-700">
+                <span class="text-2xl">Aa</span>
+                <span class="text-xs mt-1">加文字</span>
+            </button>
+
+            <!-- 3. 加貼圖 (選單) -->
+            <button onclick="toggleStickerMenu()" class="flex flex-col items-center justify-center p-2 rounded hover:bg-gray-50 text-gray-700">
+                <span class="text-2xl">😊</span>
+                <span class="text-xs mt-1">加貼圖</span>
+            </button>
+
+            <!-- 4. 上傳自定義貼圖 -->
+            <button onclick="document.getElementById('sticker-upload').click()" class="flex flex-col items-center justify-center p-2 rounded hover:bg-gray-50 text-gray-700">
+                <span class="text-2xl">📤</span>
+                <span class="text-xs mt-1">上傳圖層</span>
+            </button>
+            <input type="file" id="sticker-upload" class="hidden-input" accept="image/*">
+        </div>
+
+        <!-- 貼圖選擇面板 (預設隱藏) -->
+        <div id="sticker-menu" class="hidden mt-4 border-t pt-4">
+            <p class="text-xs text-gray-500 mb-2 font-bold">點擊加入貼圖：</p>
+            <div class="sticker-grid">
+                <!-- 這裡的貼圖由 JS 動態生成，或者直接寫死 -->
+                <div class="sticker-item" onclick="addEmoji('😎')">😎</div>
+                <div class="sticker-item" onclick="addEmoji('❤️')">❤️</div>
+                <div class="sticker-item" onclick="addEmoji('🔥')">🔥</div>
+                <div class="sticker-item" onclick="addEmoji('🎉')">🎉</div>
+                <div class="sticker-item" onclick="addEmoji('👍')">👍</div>
+                <div class="sticker-item" onclick="addEmoji('🐱')">🐱</div>
+                <div class="sticker-item" onclick="addEmoji('🐶')">🐶</div>
+                <div class="sticker-item" onclick="addEmoji('🌟')">🌟</div>
+                <div class="sticker-item" onclick="addEmoji('💢')">💢</div>
+                <div class="sticker-item" onclick="addEmoji('💧')">💧</div>
+                <div class="sticker-item" onclick="addEmoji('👑')">👑</div>
+                <div class="sticker-item" onclick="addEmoji('🕶️')">🕶️</div>
+                <div class="sticker-item" onclick="addEmoji('💬')">💬</div>
+                <div class="sticker-item" onclick="addEmoji('🎀')">🎀</div>
+                <div class="sticker-item" onclick="addEmoji('💯')">💯</div>
+            </div>
+            <button onclick="toggleStickerMenu()" class="w-full mt-2 py-2 text-center text-gray-500 text-sm bg-gray-100 rounded">關閉選單</button>
+        </div>
+    </footer>
+
+    <!-- JavaScript 邏輯 -->
+    <script>
+        // 1. 初始化 Fabric Canvas
+        const canvas = new fabric.Canvas('c', {
+            preserveObjectStacking: true, // 選取物件時保持層級，不自動跑到最上層
+        });
+        
+        // 設定選取框的樣式 (更適合手機操作)
+        fabric.Object.prototype.set({
+            transparentCorners: false,
+            cornerColor: '#ffffff',
+            cornerStrokeColor: '#3b82f6',
+            borderColor: '#3b82f6',
+            cornerSize: 20, // 手機上操作點要大一點
+            padding: 10,
+            borderDashArray: [4, 4]
+        });
+
+        // 螢幕寬度與容器
+        const container = document.getElementById('canvas-container');
+        let containerWidth = container.offsetWidth;
+        let containerHeight = container.offsetHeight;
+
+        // 初始化畫布大小 (預設正方形)
+        resizeCanvas(300, 300);
+
+        // 2. 監聽物件選取，顯示刪除按鈕
+        const deleteBtnDiv = document.getElementById('object-controls');
+        
+        canvas.on('selection:created', () => deleteBtnDiv.classList.remove('hidden'));
+        canvas.on('selection:updated', () => deleteBtnDiv.classList.remove('hidden'));
+        canvas.on('selection:cleared', () => deleteBtnDiv.classList.add('hidden'));
+
+        // --- 功能函數 ---
+
+        // 調整畫布大小函數
+        function resizeCanvas(w, h) {
+            canvas.setWidth(w);
+            canvas.setHeight(h);
+            canvas.renderAll();
+        }
+
+        // A. 上傳背景照片
+        document.getElementById('bg-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(f) {
+                const data = f.target.result;
+                fabric.Image.fromURL(data, function(img) {
+                    // 隱藏提示文字
+                    document.getElementById('placeholder-text').style.display = 'none';
+
+                    // 計算適配螢幕的尺寸
+                    const maxWidth = container.offsetWidth - 20; // 留邊距
+                    const maxHeight = container.offsetHeight - 20;
+                    
+                    let newWidth = img.width;
+                    let newHeight = img.height;
+                    
+                    // 縮放邏輯：確保圖片完整顯示在螢幕內
+                    const ratio = Math.min(maxWidth / newWidth, maxHeight / newHeight);
+                    
+                    newWidth = newWidth * ratio;
+                    newHeight = newHeight * ratio;
+
+                    // 重設畫布大小
+                    resizeCanvas(newWidth, newHeight);
+
+                    // 設定背景圖
+                    canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+                        scaleX: ratio,
+                        scaleY: ratio,
+                        originX: 'left',
+                        originY: 'top'
+                    });
+                });
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // B. 加入文字
+        function addText() {
+            const text = new fabric.IText('雙擊編輯', {
+                left: canvas.width / 2,
+                top: canvas.height / 2,
+                fontFamily: 'Noto Sans TC',
+                fill: '#ffffff',
+                stroke: '#000000',
+                strokeWidth: 1, // 文字描邊，讓它在圖片上更清楚
+                fontSize: 40,
+                originX: 'center',
+                originY: 'center'
+            });
+            canvas.add(text);
+            canvas.setActiveObject(text);
+        }
+
+        // C. 加入 Emoji 貼圖
+        function addEmoji(emoji) {
+            const text = new fabric.Text(emoji, {
+                left: canvas.width / 2,
+                top: canvas.height / 2,
+                fontSize: 60,
+                originX: 'center',
+                originY: 'center',
+                selectable: true
+            });
+            canvas.add(text);
+            toggleStickerMenu(); // 選完關閉選單
+        }
+
+        // D. 上傳自定義貼圖 (圖片)
+        document.getElementById('sticker-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(f) {
+                fabric.Image.fromURL(f.target.result, function(img) {
+                    // 縮放一下貼圖，避免太大蓋住整個畫面
+                    const scaleFactor = 100 / img.width; 
+                    
+                    img.set({
+                        left: canvas.width / 2,
+                        top: canvas.height / 2,
+                        originX: 'center',
+                        originY: 'center',
+                        scaleX: scaleFactor,
+                        scaleY: scaleFactor
+                    });
+                    canvas.add(img);
+                    canvas.setActiveObject(img);
+                });
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // E. 刪除選取物件
+        function deleteSelected() {
+            const activeObject = canvas.getActiveObject();
+            if (activeObject) {
+                canvas.remove(activeObject);
+                canvas.discardActiveObject();
+                canvas.requestRenderAll();
+            }
+        }
+
+        // F. 切換貼圖選單顯示
+        function toggleStickerMenu() {
+            const menu = document.getElementById('sticker-menu');
+            menu.classList.toggle('hidden');
+        }
+
+        // G. 下載圖片
+        function downloadImage() {
+            // 取消選取狀態，避免選取框被印出來
+            canvas.discardActiveObject();
+            canvas.renderAll();
+
+            if (!canvas.backgroundImage) {
+                alert('請先上傳照片作為背景！');
+                return;
+            }
+
+            const dataURL = canvas.toDataURL({
+                format: 'png',
+                quality: 1,
+                multiplier: 2 // 下載 2 倍高畫質
+            });
+
+            const link = document.createElement('a');
+            link.download = 'edited-photo-' + Date.now() + '.png';
+            link.href = dataURL;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // 視窗改變大小時重新計算容器 (選用，手機旋轉時可能需要)
+        window.addEventListener('resize', function() {
+           // 這裡可以加入重新計算畫布位置的邏輯，
+           // 但 Fabric.js 改變畫布大小會裁切內容，簡單版暫不實作複雜重繪。
+        });
+
+    </script>
+</body>
+</html>
