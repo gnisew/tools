@@ -685,17 +685,20 @@ textarea::selection { background-color: #c2e7ff; color: #001d35; }
    目前的 .keys-grid 是 repeat(10, 1fr)
    這些 class 讓按鈕可以佔據多個格子
 */
-.keys-grid .key-btn.span-2 {
+.key-btn.span-2 {
     grid-column: span 2;
 }
-.keys-grid .key-btn.span-3 {
+.key-btn.span-3 {
     grid-column: span 3;
 }
-.keys-grid .key-btn.span-4 {
+.key-btn.span-4 {
     grid-column: span 4;
 }
-.keys-grid .key-btn.span-6 {
-    grid-column: span 5; /* 用於空白鍵 */
+.key-btn.span-5 {
+    grid-column: span 5;
+}
+.key-btn.span-6 {
+    grid-column: span 6;
 }
 
 /* 3. 空白鍵樣式 */
@@ -712,4 +715,29 @@ textarea::selection { background-color: #c2e7ff; color: #001d35; }
         padding: 0;
         font-size: 0.9rem;
     }
+}
+
+/* ==========================================
+   字體大小控制 (Font Size Control)
+   ========================================== */
+
+/* 預設 (Level 0) - 若沒有加 class 就是這個大小，或由原本 CSS 決定 */
+textarea.fs-level-0 {
+    font-size: 1.2rem !important;
+    line-height: 1.5;
+}
+
+textarea.fs-level-1 {
+    font-size: 1.25rem !important;
+    line-height: 1.5;
+}
+
+textarea.fs-level-2 {
+    font-size: 1.3rem !important;
+    line-height: 1.5;
+}
+
+textarea.fs-level-3 {
+    font-size: 1.4rem !important;
+    line-height: 1.5;
 }

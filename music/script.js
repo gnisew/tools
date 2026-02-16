@@ -225,31 +225,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
 			    { char: ' ', display: '空', type: 'space', class: 'space-btn span-3'},
 
-				{ char: '- ', display: '-', type: 'normal' }, { char: '/', display: '/', type: 'normal' }, { char: '\\', display: '\\', type: 'normal' }, 
+				{ char: '- ', display: '-', type: 'normal' }, 
+				{ char: '/', display: '/', type: 'normal' }, 
+
 				{ char: '* ', display: '*', type: 'normal' },{ char: '.', display: '.', type: 'normal' },
-				{ char: ':', display: ':', type: 'normal' }, { char: 'backspace', display: '⌫', type: 'func' },
+				{ char: ':', display: ':', type: 'normal' },					
 
 				{ char: '(', display: '(', type: 'normal' }, { char: ') ', display: ')', type: 'normal' }, 
-				
+				{ char: '\'', display: '\'', type: 'normal' },{ char: '$', display: '$', type: 'normal' },	
 
 				{ char: '<', display: '<', type: 'normal' }, { char: '>', display: '>', type: 'normal' }, 
 				{ char: '|', display: '|', type: 'normal' },{ char: '[', display: '[', type: 'normal' },{ char: ']', display: ']', type: 'normal' },
 				
 				{ char: '{', display: '{', type: 'normal' },{ char: '} ', display: '}', type: 'normal' },
-				{ char: '\n', display: '⮠ ', type: 'normal' },
+				
+				
+				{ char: 'backspace', display: '⌫', type: 'func' },
 
 				// [切換鍵]
 				{ display: '英', type: 'switch', target: 'qwerty', class: 'mode-btn' },
 				{ display: '弦', type: 'switch', target: 'chord', class: 'mode-btn' },
 				{ display: '快', type: 'switch', target: 'snippet', class: 'mode-btn' },
+				
+				{ char: '\\', display: '\\', type: 'normal' }, 
 
-				{ char: '\'', display: '\'', type: 'normal' },{ char: '$', display: '$', type: 'normal' },
+
 				{ char: '#', display: '#', type: 'normal' }, 
 
 
 
 				{ char: 'b', display: 'b', type: 'normal' }, 
-
+				{ 
+					char: 'enter', 
+					display: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>', 
+					type: 'func', 
+					class: 'span-2 enter-btn'
+				},
             
             // 功能鍵
             
@@ -325,6 +336,13 @@ document.addEventListener('DOMContentLoaded', () => {
 			{ label: '[C]{', text: '[C]{', offset: -2, type: 'insert', display: '[C]{', class: 'snippet-key' },
 			{ label: '[D]{', text: '[D]{', offset: -2, type: 'insert', display: '[D]{', class: 'snippet-key' },
 			{ label: '};', text: '};', offset: 0, type: 'insert', display: '};', class: 'snippet-key' },
+			
+			{ char: 'backspace', display: '⌫', type: 'func' },
+
+			{ display: '英', type: 'switch', target: 'qwerty', class: 'mode-btn' },
+			{ display: '數', type: 'switch', target: 'main', class: 'return-btn' }, 
+            { display: '弦', type: 'switch', target: 'chord', class: 'mode-btn' },
+
             { label: '[r:]{1:}', text: '[r:]{1: (1.) $1 $1 $1 }', offset: -17, type: 'insert', display: '[r]{}', class: 'snippet-key' },
 
 
@@ -334,12 +352,12 @@ document.addEventListener('DOMContentLoaded', () => {
             { char: 'v: ', display: 'v:', type: 'normal' },
             { char: 'd: ', display: 'd:', type: 'normal' },
 
-			{ display: '英', type: 'switch', target: 'qwerty', class: 'mode-btn' },
-			{ display: '數', type: 'switch', target: 'main', class: 'return-btn' }, 
-            { display: '弦', type: 'switch', target: 'chord', class: 'mode-btn' },
-
-            { char: 'backspace', display: '⌫', type: 'func' },
-			{ char: '\n', display: '⮠ ', type: 'normal' },
+				{ 
+					char: 'enter', 
+					display: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>', 
+					type: 'func', 
+					class: 'span-2 enter-btn'
+				},
 
         ],
 		// --- 4. [新增] QWERTY 英數鍵盤 ---
@@ -367,7 +385,9 @@ document.addEventListener('DOMContentLoaded', () => {
 			{ char: 'z', display: 'z', type: 'letter' }, { char: 'x', display: 'x', type: 'letter' }, { char: 'c', display: 'c', type: 'letter' },
 			{ char: 'v', display: 'v', type: 'letter' }, { char: 'b', display: 'b', type: 'letter' }, { char: 'n', display: 'n', type: 'letter' },
 			{ char: 'm', display: 'm', type: 'letter' },
-			{ char: '.', display: ':', type: 'normal'},
+			{ char: ':', display: ':', type: 'normal'},
+			
+			
 			{ char: 'backspace', display: '⌫', type: 'func' },
 			
 
@@ -375,9 +395,16 @@ document.addEventListener('DOMContentLoaded', () => {
 			{ display: '數', type: 'switch', target: 'main', class: 'return-btn' }, 
             { display: '弦', type: 'switch', target: 'chord', class: 'mode-btn' },
             { display: '快', type: 'switch', target: 'snippet', class: 'mode-btn' },
-			{ char: ' ', display: 'Space', type: 'space', class: 'space-btn span-6' },
+			{ char: ' ', display: 'Space', type: 'space', class: 'space-btn span-3' },
 			{ char: '.', display: '.', type: 'normal'},
-			{ char: '\n', display: '⮠ ', type: 'normal' },
+			{ char: '/', display: '/', type: 'normal' },
+
+			{ 
+				char: 'enter', 
+				display: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>', 
+				type: 'func', 
+				class: 'span-2 enter-btn'
+			},
 		]
 	};
 
@@ -3266,6 +3293,50 @@ function updateStatusDisplay() {
     if (undoBtn) {
         undoBtn.addEventListener('click', performUndo);
     }
+
+
+
+    // 字體大小控制邏輯
+    const fontSizeBtn = document.getElementById('font-size-btn');
+    const textAreas = [codeInput, fontOutput]; // 同時控制這兩個區域
+    
+    // 定義等級: 0=小(預設), 1=中, 2=大, 3=特大
+    const MAX_FONT_LEVEL = 3;
+    let currentFontLevel = 0;
+
+    // 1. 應用字體等級
+    function applyFontLevel(level) {
+        textAreas.forEach(el => {
+            if (!el) return;
+            // 移除所有相關 class
+            for (let i = 0; i <= MAX_FONT_LEVEL; i++) {
+                el.classList.remove(`fs-level-${i}`);
+            }
+            // 加入當前等級 class
+            el.classList.add(`fs-level-${level}`);
+        });
+        
+        // 記憶設定 (Better Way: 記住使用者的偏好)
+        localStorage.setItem('wesing_font_pref', level);
+    }
+
+    // 2. 初始化 (讀取記憶)
+    const savedFontLevel = localStorage.getItem('wesing_font_pref');
+    if (savedFontLevel !== null) {
+        currentFontLevel = parseInt(savedFontLevel);
+        applyFontLevel(currentFontLevel);
+    }
+
+    // 3. 綁定按鈕點擊事件
+    if (fontSizeBtn) {
+        fontSizeBtn.addEventListener('click', () => {
+			console.log("A")
+            // 循環邏輯: 0 -> 1 -> 2 -> 3 -> 0
+            currentFontLevel = (currentFontLevel + 1) % (MAX_FONT_LEVEL + 1);
+            applyFontLevel(currentFontLevel);
+        });
+    }
+
     // Final Init
     createKeys();
     loadData();
