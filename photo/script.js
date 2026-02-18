@@ -1,83 +1,117 @@
 document.addEventListener('DOMContentLoaded', () => {
     
-    // ---------------------------------------------------------
-    // 1. 初始化
-    // ---------------------------------------------------------
+    // 初始化 Fabric
     const canvas = new fabric.Canvas('c', {
-        preserveObjectStacking: true,
-        selection: false,
-        controlsAboveOverlay: true,
-        backgroundColor: '#d1d5db'
+        preserveObjectStacking: true, selection: false, controlsAboveOverlay: true, backgroundColor: '#d1d5db'
     });
+    // 解決 Chrome 對 alphabetical 的警告，並提升渲染準確度
+    fabric.Object.prototype.objectCaching = false; 
 
     let artboardImage = null;
+    let isDragging = false;
+    let lastPosX, lastPosY;
 
-    const PALETTE = ['#000000', '#ffffff', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#7c3aed', '#6b7280'];
-
-    const stickerData = {
-        '表情': ['😎', '😂', '🥰', '😍', '😒', '😭', '😡', '😱', '👍', '👎', '👊', '✌️', '👌', '❤️', '💔', '🔥', '✨', '🎉', '💯', '💢', '💤', '👀', '👄', '💀', '👻', '💩', '🤡', '👺'],
-        '動物': ['🐱', '🐶', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🦋', '🐌'],
-        '植物': ['🌹', '🌺', '🌻', '🌼', '🌷', '🌱', '🌲', '🌳', '🌴', '🌵', '🌾', '🌿', '🍀', '🍁', '🍂', '🍃', '🍄', '🧅', '🧄', '🥦', '🥕', '🌽', '🥒'],
-        '食物': ['🍎', '🍌', '🍉', '🍇', '🍓', '🍑', '🍒', '🥭', '🍍', '🥝', '🍅', '🥑', '🍔', '🍟', '🍕', '🌭', '🥪', '🌮', '🍜', '🍣', '🍱', '🍛', '🍚', '🍦', '🍩', '🍪', '🎂', '🍻', '🍷', '☕'],
-        'CDN圖': [
-            { type: 'image', url: 'https://cdn-icons-png.flaticon.com/128/4151/4151475.png' },
-            { type: 'image', url: 'https://cdn-icons-png.flaticon.com/128/4151/4151590.png' },
-            { type: 'image', url: 'https://cdn-icons-png.flaticon.com/128/4151/4151676.png' },
-            { type: 'image', url: 'https://cdn-icons-png.flaticon.com/128/1828/1828884.png' },
-            { type: 'image', url: 'https://cdn-icons-png.flaticon.com/128/1828/1828970.png' }
-        ]
-    };
+    const { palette, fonts, stickers } = APP_DATA;
 
     const dom = {
         container: document.getElementById('canvas-container'),
         floatingMenu: document.getElementById('floating-menu'),
         menuStandard: document.getElementById('menu-standard'),
         menuLocked: document.getElementById('menu-locked'),
-        btnMore: document.getElementById('btn-more'),             
-        menuMoreOptions: document.getElementById('menu-more-options'),
-        textToolbar: document.getElementById('text-toolbar'),
+        
+        editorToolbar: document.getElementById('editor-toolbar'),
+        toolbarMainMenu: document.getElementById('toolbar-main-menu'),
+        groupTextOnly: document.querySelector('.group-text-only'),
+        btnCloseEditor: document.getElementById('btn-close-editor'),
+        btnToolbarFlip: document.getElementById('btn-toolbar-flip'),
+        btnOpenBgTools: document.getElementById('btn-open-bg-tools'),
+        
+        btnLoadImg: document.getElementById('btn-load-img'),
+        headerImgUpload: document.getElementById('header-img-upload'),
+
+        // Clear Modal DOM
+        btnShowClearModal: document.getElementById('btn-show-clear-modal'),
+        clearModal: document.getElementById('clear-modal'),
+        btnClearAll: document.getElementById('btn-clear-all'),
+        btnClearObjects: document.getElementById('btn-clear-objects'),
+        btnCloseModal: document.getElementById('btn-close-modal'),
+
+        subMenus: document.querySelectorAll('.sub-menu-container'),
+        backBtns: document.querySelectorAll('.sub-menu-back'),
+        subBackground: document.getElementById('sub-background'),
+        btnCloseBgTools: document.getElementById('btn-close-bg-tools'),
+        
+        btnBgReplace: document.getElementById('btn-bg-replace'),
+        bgReplaceUpload: document.getElementById('bg-replace-upload'),
+        btnBgRotate: document.getElementById('btn-bg-rotate'),
+        btnZoomIn: document.getElementById('btn-zoom-in'),
+        btnZoomOut: document.getElementById('btn-zoom-out'),
+        btnZoomFit: document.getElementById('btn-zoom-fit'),
+        
+        fontListContainer: document.getElementById('font-list-container'),
+        btnFontMinus: document.getElementById('btn-font-minus'),
+        btnFontPlus: document.getElementById('btn-font-plus'),
+        fontSizeDisplay: document.getElementById('font-size-display'),
+        inputFontSizeSlider: document.getElementById('input-font-size-slider'),
+        inputText: document.getElementById('input-text-color'),
+        textColorPreview: document.getElementById('text-color-preview'),
+        quickColorPalette: document.getElementById('quick-color-palette'),
+        
+        inputOutlineColor: document.getElementById('input-outline-color'),
+        outlineColorPreview: document.getElementById('outline-color-preview'),
+        inputOutlineWidth: document.getElementById('input-outline-width'),
+        displayOutlineWidth: document.getElementById('display-outline-width'),
+        btnOutlineWidthPreset: document.getElementById('btn-outline-width-preset'),
+        outlineWidthPresets: document.getElementById('outline-width-presets'),
+        btnToggleOutlineColor: document.getElementById('btn-toggle-outline-color'),
+        outlineColorPicker: document.getElementById('outline-color-picker'),
+        outlineQuickColors: document.getElementById('outline-quick-colors'),
+
+        btnLayerTop: document.getElementById('btn-layer-top'),
+        btnLayerUp: document.getElementById('btn-layer-up'),
+        btnLayerDown: document.getElementById('btn-layer-down'),
+        btnLayerBottom: document.getElementById('btn-layer-bottom'),
+        
+        // --- 修正開始：區分 Float 與 Main ID ---
+        inputOpacityFloat: document.getElementById('input-opacity-float'),
+        valOpacityFloat: document.getElementById('opacity-val-float'),
+        inputOpacityMain: document.getElementById('input-opacity-main'),
+        valOpacityMain: document.getElementById('opacity-val-main'),
+        // --- 修正結束 ---
+
+        btnRotate90: document.getElementById('btn-rotate-90'),
+        inputRotate: document.getElementById('input-rotate'),
+        rotateVal: document.getElementById('rotate-val'),
+
         placeholder: document.getElementById('placeholder-text'),
         stickerDrawer: document.getElementById('sticker-drawer'),
         stickerTabs: document.getElementById('sticker-tabs'),
         stickerContainer: document.getElementById('sticker-container'),
         saveStatus: document.getElementById('save-status'),
-        fontFamily: document.getElementById('font-family'),
-        fontSizeDisplay: document.getElementById('font-size-display'),
-        btnUnlock: document.getElementById('btn-unlock'),
-        
-        // 新增的控制項
-        btnFlip: document.getElementById('btn-flip'),
-        btnRotate: document.getElementById('btn-rotate'),
-        btnOpacity: document.getElementById('btn-opacity'),
-        opacityControl: document.getElementById('opacity-control'),
-        inputOpacity: document.getElementById('input-opacity'),
-        opacityVal: document.getElementById('opacity-val'),
-        iconOpacityArrow: document.getElementById('icon-opacity-arrow'),
-        
-        styleDrawer: document.getElementById('text-style-drawer'),
-        btnOpenStyle: document.getElementById('btn-open-text-style'),
-        btnCloseStyle: document.getElementById('close-text-style'),
-        currentColorPreview: document.getElementById('current-color-preview'),
-        drawerTextColor: document.getElementById('drawer-text-color'),
-        drawerTextColorDisplay: document.getElementById('drawer-text-color-display'),
-        drawerColorPalette: document.getElementById('drawer-color-palette'),
-        
-        inputTextStrokeWidth: document.getElementById('input-text-stroke-width'),
-        inputTextStrokeColor: document.getElementById('input-text-stroke-color'),
-        textStrokeColorDisplay: document.getElementById('text-stroke-color-display')
+        btnUnlock: document.getElementById('btn-unlock')
     };
 
     function resizeCanvas() {
         canvas.setWidth(dom.container.offsetWidth);
         canvas.setHeight(dom.container.offsetHeight);
-        canvas.renderAll();
+        if(artboardImage) fitAndCenterImage(); else canvas.renderAll();
     }
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // ---------------------------------------------------------
-    // 2. 自定義控制項
-    // ---------------------------------------------------------
+    function preloadFonts() {
+        const fontFamilies = fonts.map(f => f.name);
+        WebFont.load({
+            google: { families: fontFamilies },
+            active: () => { console.log('Fonts loaded'); canvas.requestRenderAll(); }
+        });
+    }
+    preloadFonts();
+
+    let userPrefOutlineColor = localStorage.getItem('pref_outline_color') || '#ffffff';
+    let userPrefOutlineWidth = parseFloat(localStorage.getItem('pref_outline_width')) || 0;
+
+    // 自定義控制項 (保持不變)
     const iconRotate = `data:image/svg+xml;utf8,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23374151' stroke-width='2'%3E%3Cpath d='M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8'/%3E%3Cpath d='M21 3v5h-5'/%3E%3C/svg%3E`;
     const iconMove = `data:image/svg+xml;utf8,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23374151' stroke-width='2'%3E%3Cpath d='M5 9l-3 3 3 3M9 5l3-3 3 3M19 9l3 3-3 3M9 19l3 3 3-3M2 12h20M12 2v20'/%3E%3C/svg%3E`;
     const imgRotate = document.createElement('img'); imgRotate.src = iconRotate;
@@ -85,18 +119,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderIcon(ctx, left, top, styleOverride, fabricObject, imgElement) {
         const size = 24;
-        ctx.save();
-        ctx.translate(left, top);
-        ctx.rotate(fabric.util.degreesToRadians(fabricObject.angle));
-        ctx.beginPath();
-        ctx.arc(0, 0, 13, 0, 2 * Math.PI);
-        ctx.fillStyle = '#ffffff';
-        ctx.fill();
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = '#e5e7eb';
-        ctx.stroke();
-        ctx.drawImage(imgElement, -size/2, -size/2, size, size);
-        ctx.restore();
+        ctx.save(); ctx.translate(left, top); ctx.rotate(fabric.util.degreesToRadians(fabricObject.angle));
+        ctx.beginPath(); ctx.arc(0, 0, 13, 0, 2 * Math.PI); ctx.fillStyle = '#ffffff'; ctx.fill();
+        ctx.lineWidth = 1; ctx.strokeStyle = '#e5e7eb'; ctx.stroke();
+        ctx.drawImage(imgElement, -size/2, -size/2, size, size); ctx.restore();
     }
 
     fabric.Object.prototype.set({
@@ -108,12 +134,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateControlsSpacing(obj) {
         if (!obj.controls || !obj.controls.mtr || !obj.controls.move) return;
         const currentWidth = obj.width * obj.scaleX;
-        const minPixelDistance = 35;
-        let spacingFactor = minPixelDistance / currentWidth;
-        spacingFactor = Math.max(0.15, spacingFactor);
-        spacingFactor = Math.min(spacingFactor, 2.0);
-        obj.controls.mtr.x = -spacingFactor;
-        obj.controls.move.x = spacingFactor;
+        let spacingFactor = Math.max(0.15, Math.min(35 / currentWidth, 2.0));
+        obj.controls.mtr.x = -spacingFactor; obj.controls.move.x = spacingFactor;
     }
 
     function styleControls(obj, isText = false) {
@@ -128,370 +150,479 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isText) {
             const widthHandler = (eventData, transform, x, y) => {
                 const result = fabric.controlsUtils.changeWidth(eventData, transform, x, y);
-                updateControlsSpacing(transform.target);
-                return result;
+                updateControlsSpacing(transform.target); return result;
             };
-            controls.ml = new fabric.Control({ x: -0.5, y: 0, cursorStyle: 'ew-resize', actionHandler: widthHandler, render: renderVerticalBar });
-            controls.mr = new fabric.Control({ x: 0.5, y: 0, cursorStyle: 'ew-resize', actionHandler: widthHandler, render: renderVerticalBar });
+            const renderBar = (ctx, left, top, style, fabricObject) => {
+                ctx.save(); ctx.translate(left, top); ctx.rotate(fabric.util.degreesToRadians(fabricObject.angle));
+                ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#8b5cf6'; ctx.lineWidth = 1;
+                ctx.beginPath(); ctx.roundRect(-4, -10, 8, 20, 4); ctx.fill(); ctx.stroke(); ctx.restore();
+            };
+            controls.ml = new fabric.Control({ x: -0.5, y: 0, cursorStyle: 'ew-resize', actionHandler: widthHandler, render: renderBar });
+            controls.mr = new fabric.Control({ x: 0.5, y: 0, cursorStyle: 'ew-resize', actionHandler: widthHandler, render: renderBar });
         }
         obj.controls = controls;
         updateControlsSpacing(obj);
     }
 
-    function renderVerticalBar(ctx, left, top, style, fabricObject) {
-        ctx.save();
-        ctx.translate(left, top);
-        ctx.rotate(fabric.util.degreesToRadians(fabricObject.angle));
-        ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = '#8b5cf6';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.roundRect(-4, -10, 8, 20, 4);
-        ctx.fill();
-        ctx.stroke();
-        ctx.restore();
-    }
-
-    function updateFloatingMenu() {
-        const obj = canvas.getActiveObject();
-        if (!obj || obj === artboardImage || canvas.isDrawingMode || obj.isMoving || obj.isScaling || obj.isRotating) {
-            dom.floatingMenu.classList.add('hidden');
-            dom.floatingMenu.style.opacity = '0';
-            closeMoreMenu();
-            return;
+    // Zoom & Pan
+    canvas.on('mouse:wheel', function(opt) {
+        var delta = opt.e.deltaY;
+        var zoom = canvas.getZoom();
+        zoom *= 0.999 ** delta;
+        if (zoom > 20) zoom = 20; if (zoom < 0.1) zoom = 0.1;
+        canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+        opt.e.preventDefault(); opt.e.stopPropagation();
+    });
+    canvas.on('mouse:down', function(opt) {
+        var evt = opt.e;
+        if (!canvas.getActiveObject()) { 
+            isDragging = true; canvas.selection = false;
+            lastPosX = evt.clientX || evt.touches[0].clientX;
+            lastPosY = evt.clientY || evt.touches[0].clientY;
         }
-        dom.floatingMenu.classList.remove('hidden');
-        requestAnimationFrame(() => dom.floatingMenu.style.opacity = '1');
-        
-        if (obj.lockMovementX) {
-            dom.menuStandard.classList.add('hidden');
-            dom.menuLocked.classList.remove('hidden');
-        } else {
-            dom.menuStandard.classList.remove('hidden');
-            dom.menuLocked.classList.add('hidden');
-        }
-
-        const canvasRect = canvas.getElement().getBoundingClientRect();
-        const objRect = obj.getBoundingRect(); 
-        const menuRect = dom.floatingMenu.getBoundingClientRect();
-        const headerHeight = 50; 
-        const gap = 55;          
-        
-        let left = canvasRect.left + objRect.left + (objRect.width / 2);
-        let top = canvasRect.top + objRect.top - menuRect.height - gap;
-
-        if (top < headerHeight + 5) {
-            top = canvasRect.top + objRect.top + objRect.height + gap;
-        }
-
-        const halfWidth = menuRect.width / 2;
-        if (left - halfWidth < 5) left = 5 + halfWidth;
-        else if (left + halfWidth > window.innerWidth - 5) left = window.innerWidth - 5 - halfWidth;
-
-        dom.floatingMenu.style.top = `${top}px`;
-        dom.floatingMenu.style.left = `${left}px`;
-        dom.floatingMenu.style.transform = 'translateX(-50%)';
-    }
-
-    function updateFontSizeDisplay(obj) {
-        if (obj && obj.type === 'textbox') {
-            const effectiveSize = Math.round(obj.fontSize * obj.scaleX);
-            dom.fontSizeDisplay.textContent = effectiveSize;
-            dom.currentColorPreview.style.backgroundColor = obj.fill;
-        }
-    }
-
-    // ---------------------------------------------------------
-    // 新增：更多選單內的邏輯
-    // ---------------------------------------------------------
-
-    // 左右翻轉
-    dom.btnFlip.onclick = () => {
-        const obj = canvas.getActiveObject();
-        if (obj) { 
-            obj.set('flipX', !obj.flipX); 
-            canvas.renderAll(); 
-            saveState(); 
-        }
-    };
-
-    // 旋轉 90 度
-    dom.btnRotate.onclick = () => {
-        const obj = canvas.getActiveObject();
-        if (obj) {
-            let angle = obj.angle % 360;
-            // 轉到下一個 90 的倍數
-            let newAngle = (Math.round(angle / 90) * 90 + 90) % 360;
-            obj.rotate(newAngle);
+    });
+    canvas.on('mouse:move', function(opt) {
+        if (isDragging) {
+            var e = opt.e;
+            var vpt = canvas.viewportTransform;
+            var clientX = e.clientX || e.touches[0].clientX;
+            var clientY = e.clientY || e.touches[0].clientY;
+            vpt[4] += clientX - lastPosX;
+            vpt[5] += clientY - lastPosY;
             canvas.requestRenderAll();
-            saveState();
+            lastPosX = clientX; lastPosY = clientY;
         }
-    };
-
-    // 透明度開關
-    dom.btnOpacity.onclick = (e) => {
-        e.stopPropagation();
-        const isHidden = dom.opacityControl.classList.contains('hidden');
-        if (isHidden) {
-            dom.opacityControl.classList.remove('hidden');
-            dom.iconOpacityArrow.classList.add('rotate-180');
-            const obj = canvas.getActiveObject();
-            if(obj) {
-                const opacity = (obj.opacity !== undefined) ? obj.opacity : 1;
-                dom.inputOpacity.value = Math.round(opacity * 100);
-                dom.opacityVal.textContent = Math.round(opacity * 100);
-            }
-        } else {
-            dom.opacityControl.classList.add('hidden');
-            dom.iconOpacityArrow.classList.remove('rotate-180');
-        }
-    };
-
-    // 透明度調整
-    dom.inputOpacity.oninput = (e) => {
-        const val = parseInt(e.target.value, 10);
-        dom.opacityVal.textContent = val;
-        const obj = canvas.getActiveObject();
-        if(obj) {
-            obj.set('opacity', val / 100);
-            canvas.requestRenderAll();
-        }
-    };
-    dom.inputOpacity.onchange = () => saveState();
-
-    function toggleMoreMenu() { 
-        const isHidden = dom.menuMoreOptions.classList.contains('hidden'); 
-        if (isHidden) {
-            dom.menuMoreOptions.classList.remove('hidden');
-            // 每次打開時重置透明度選單為收合狀態
-            dom.opacityControl.classList.add('hidden');
-            dom.iconOpacityArrow.classList.remove('rotate-180');
-        } else {
-            closeMoreMenu(); 
-        }
-    }
-    
-    function closeMoreMenu() { 
-        dom.menuMoreOptions.classList.add('hidden'); 
-    }
-    dom.btnMore.onclick = (e) => { e.stopPropagation(); toggleMoreMenu(); };
-    dom.opacityControl.addEventListener('click', (e) => e.stopPropagation());
-
-    document.addEventListener('click', (e) => { if (!dom.floatingMenu.contains(e.target)) closeMoreMenu(); });
-
-    // ---------------------------------------------------------
-    // 樣式抽屜
-    // ---------------------------------------------------------
-    
-    PALETTE.forEach(color => {
-        const div = document.createElement('div');
-        div.className = 'color-dot';
-        div.style.backgroundColor = color;
-        div.onclick = () => {
-            const obj = canvas.getActiveObject();
-            if(obj && obj.type === 'textbox') {
-                obj.set('fill', color);
-                dom.drawerTextColor.value = color;
-                dom.drawerTextColorDisplay.style.backgroundColor = color;
-                dom.currentColorPreview.style.backgroundColor = color;
-                canvas.requestRenderAll();
-                saveState();
-            }
-        };
-        dom.drawerColorPalette.appendChild(div);
+    });
+    canvas.on('mouse:up', function(opt) {
+        canvas.setViewportTransform(canvas.viewportTransform);
+        isDragging = false; canvas.selection = true;
     });
 
-    dom.btnOpenStyle.onclick = () => {
-        const obj = canvas.getActiveObject();
-        if(obj && obj.type === 'textbox') {
-            dom.drawerTextColor.value = obj.fill;
-            dom.drawerTextColorDisplay.style.backgroundColor = obj.fill;
-            dom.inputTextStrokeWidth.value = obj.strokeWidth || 0;
-            dom.inputTextStrokeColor.value = obj.stroke || '#000000';
-            dom.textStrokeColorDisplay.style.backgroundColor = obj.stroke || '#000000';
-
-            dom.styleDrawer.classList.remove('translate-y-full');
-            dom.styleDrawer.classList.add('translate-y-0');
-        }
-    };
-
-    dom.btnCloseStyle.onclick = () => {
-        dom.styleDrawer.classList.remove('translate-y-0');
-        dom.styleDrawer.classList.add('translate-y-full');
-    };
-
-    dom.drawerTextColor.oninput = (e) => {
-        const val = e.target.value;
-        dom.drawerTextColorDisplay.style.backgroundColor = val;
-        dom.currentColorPreview.style.backgroundColor = val;
-        const obj = canvas.getActiveObject();
-        if(obj) { obj.set('fill', val); canvas.requestRenderAll(); }
-    };
-
-    dom.inputTextStrokeWidth.oninput = (e) => {
-        const val = parseFloat(e.target.value);
-        const obj = canvas.getActiveObject();
-        if(obj) { 
-            obj.set({
-                'strokeWidth': val,
-                'paintFirst': 'stroke',
-                'strokeLineJoin': 'round',
-                'strokeLineCap': 'round'
-            });
-            canvas.requestRenderAll(); 
-        }
-    };
-
-    dom.inputTextStrokeColor.oninput = (e) => {
-        const val = e.target.value;
-        dom.textStrokeColorDisplay.style.backgroundColor = val;
-        const obj = canvas.getActiveObject();
-        if(obj) { obj.set('stroke', val); canvas.requestRenderAll(); }
-    };
-
-    // ---------------------------------------------------------
-    // 其他事件
-    // ---------------------------------------------------------
+    function setZoom(val) { canvas.zoomToPoint(new fabric.Point(canvas.width / 2, canvas.height / 2), val); }
+    dom.btnZoomIn.onclick = () => setZoom(canvas.getZoom() * 1.1);
+    dom.btnZoomOut.onclick = () => setZoom(canvas.getZoom() * 0.9);
     
-    canvas.on('selection:created', onSelected);
-    canvas.on('selection:updated', onSelected);
-    canvas.on('object:scaling', (e) => { updateFloatingMenu(); updateFontSizeDisplay(e.target); updateControlsSpacing(e.target); });
-    canvas.on('object:moving', () => updateFloatingMenu()); 
-    canvas.on('object:rotating', () => updateFloatingMenu());
-    canvas.on('object:modified', (e) => { updateFloatingMenu(); updateFontSizeDisplay(e.target); saveState(); }); 
-    canvas.on('selection:cleared', () => {
-        dom.floatingMenu.classList.add('hidden');
-        dom.textToolbar.classList.add('hidden');
-        dom.stickerDrawer.classList.add('translate-y-full');
-        dom.styleDrawer.classList.add('translate-y-full');
-        closeMoreMenu();
-    });
+    function fitAndCenterImage() {
+        if (!artboardImage) return;
+        canvas.setViewportTransform([1, 0, 0, 1, 0, 0]); 
+        
+        artboardImage.set({ originX: 'center', originY: 'center', left: canvas.width / 2, top: canvas.height / 2 });
+        artboardImage.setCoords();
 
-    function onSelected(e) {
-        const obj = e.selected[0];
-        if (obj === artboardImage) { canvas.discardActiveObject(); canvas.requestRenderAll(); return; }
-        updateFloatingMenu();
-        if (obj.type === 'textbox' && !obj.lockMovementX) {
-            dom.textToolbar.classList.remove('hidden');
-            dom.fontFamily.value = obj.fontFamily;
-            updateFontSizeDisplay(obj);
-        } else {
-            dom.textToolbar.classList.add('hidden');
-        }
+        const rect = artboardImage.getBoundingRect();
+        const padding = 40;
+        const scaleX = (dom.container.offsetWidth - padding) / rect.width;
+        const scaleY = (dom.container.offsetHeight - padding) / rect.height;
+        const zoom = Math.min(scaleX, scaleY);
+
+        canvas.zoomToPoint(new fabric.Point(canvas.width / 2, canvas.height / 2), zoom);
+        const vpt = canvas.viewportTransform;
+        vpt[4] = (dom.container.offsetWidth / 2) - (canvas.width / 2) * zoom;
+        vpt[5] = (dom.container.offsetHeight / 2) - (canvas.height / 2) * zoom;
+        canvas.requestRenderAll();
     }
+    dom.btnZoomFit.onclick = fitAndCenterImage;
 
-    document.getElementById('btn-upload-bg').onclick = () => document.getElementById('bg-upload').click();
-    document.getElementById('bg-upload').onchange = (e) => {
-        const file = e.target.files[0]; if(!file) return;
+    // Load Background
+    function loadBackgroundImage(file) {
+        if(!file) return;
         const reader = new FileReader();
         reader.onload = (f) => {
             fabric.Image.fromURL(f.target.result, (img) => {
                 if (artboardImage) canvas.remove(artboardImage);
                 dom.placeholder.style.display = 'none';
-                const margin = 40;
-                const maxWidth = canvas.width - (margin * 2);
-                const maxHeight = canvas.height - (margin * 2);
-                const scale = Math.min(maxWidth / img.width, maxHeight / img.height);
-                img.set({ scaleX: scale, scaleY: scale, left: canvas.width / 2, top: canvas.height / 2, originX: 'center', originY: 'center', selectable: false, evented: false, hasControls: false, hasBorders: false, shadow: new fabric.Shadow({ color: 'rgba(0,0,0,0.2)', blur: 20 }) });
+                
+                img.set({
+                    originX: 'center', originY: 'center',
+                    selectable: false, evented: false,
+                    hasControls: false, hasBorders: false,
+                    shadow: null 
+                });
+                
                 artboardImage = img;
-                canvas.add(img); img.sendToBack(); canvas.requestRenderAll(); saveState();
+                canvas.add(img); 
+                img.sendToBack(); 
+                fitAndCenterImage();
+                saveState();
             });
-        }; reader.readAsDataURL(file);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    dom.btnLoadImg.onclick = () => dom.headerImgUpload.click();
+    dom.headerImgUpload.onchange = (e) => loadBackgroundImage(e.target.files[0]);
+
+    dom.btnOpenBgTools.onclick = () => {
+        dom.editorToolbar.classList.remove('hidden');
+        dom.toolbarMainMenu.classList.add('hidden');
+        dom.subBackground.classList.remove('hidden');
+    };
+    dom.btnBgReplace.onclick = () => dom.bgReplaceUpload.click();
+    dom.bgReplaceUpload.onchange = (e) => loadBackgroundImage(e.target.files[0]);
+
+    dom.btnBgRotate.onclick = () => {
+        if (!artboardImage) return;
+        artboardImage.rotate((artboardImage.angle + 90) % 360);
+        fitAndCenterImage();
+        saveState();
     };
 
-    document.getElementById('btn-download').onclick = () => {
-        canvas.discardActiveObject(); canvas.requestRenderAll();
-        if (!artboardImage && canvas.getObjects().length === 0) return alert('畫布是空的');
-        const link = document.createElement('a'); link.download = `canva-pro-${Date.now()}.png`;
-        let options = { format: 'png', multiplier: 2 };
-        if (artboardImage) {
-            const width = artboardImage.width * artboardImage.scaleX;
-            const height = artboardImage.height * artboardImage.scaleY;
-            options.left = artboardImage.left - (width / 2);
-            options.top = artboardImage.top - (height / 2);
-            options.width = width; options.height = height;
+    dom.btnCloseBgTools.onclick = () => {
+        dom.editorToolbar.classList.add('hidden');
+        canvas.discardActiveObject();
+    };
+
+    // UI Init (Font/Color...)
+    fonts.forEach(font => {
+        const btn = document.createElement('button');
+        btn.className = 'font-btn'; btn.textContent = font.label; btn.style.fontFamily = font.name;
+        btn.onclick = () => {
+            const obj = canvas.getActiveObject();
+            if (obj && obj.type === 'textbox') {
+                WebFont.load({ google: { families: [font.name] }, active: () => canvas.requestRenderAll() });
+                obj.set('fontFamily', font.name); canvas.requestRenderAll(); saveState();
+                document.querySelectorAll('.font-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active');
+            }
+        };
+        dom.fontListContainer.appendChild(btn);
+    });
+
+    palette.forEach(color => {
+        const div = document.createElement('div'); div.className = 'color-dot'; div.style.backgroundColor = color;
+        div.onclick = () => {
+            const obj = canvas.getActiveObject();
+            if(obj && obj.type === 'textbox') { obj.set('fill', color); dom.textColorPreview.style.backgroundColor = color; canvas.requestRenderAll(); saveState(); }
+        };
+        dom.quickColorPalette.appendChild(div);
+    });
+
+    const clearBtn = document.createElement('div');
+    clearBtn.className = 'color-dot border-red-200 relative'; clearBtn.style.background = 'white'; 
+    clearBtn.innerHTML = '<div class="absolute inset-0 m-auto w-full h-0.5 bg-red-400 rotate-45"></div>';
+    clearBtn.onclick = () => { setOutlineWidth(0); closeAllPopups(); };
+    dom.outlineQuickColors.appendChild(clearBtn);
+
+    palette.forEach(color => {
+        const div = document.createElement('div'); div.className = 'color-dot'; div.style.backgroundColor = color;
+        div.onclick = () => { setOutlineColor(color); closeAllPopups(); };
+        dom.outlineQuickColors.appendChild(div);
+    });
+
+    const widthPresets = [1, 1.5, 2, 3, 4, 5, 6, 7, 8];
+    dom.outlineWidthPresets.innerHTML = '';
+    const btnZero = document.createElement('button'); btnZero.className = 'preset-btn text-red-400 border-red-100'; btnZero.textContent = '無';
+    btnZero.onclick = () => { setOutlineWidth(0); closeAllPopups(); };
+    dom.outlineWidthPresets.appendChild(btnZero);
+
+    widthPresets.forEach(w => {
+        const btn = document.createElement('button'); btn.className = 'preset-btn'; btn.textContent = w;
+        btn.onclick = () => { 
+            setOutlineWidth(w); 
+            const obj = canvas.getActiveObject();
+            if(w > 0 && (!obj.stroke || obj.stroke === 'transparent')) { setOutlineColor(userPrefOutlineColor); }
+            closeAllPopups(); 
+        };
+        dom.outlineWidthPresets.appendChild(btn);
+    });
+
+    document.querySelectorAll('.menu-cat-btn').forEach(btn => {
+        btn.onclick = () => {
+            const targetId = btn.dataset.target;
+            if(targetId) {
+                document.getElementById(targetId).classList.remove('hidden');
+                dom.toolbarMainMenu.classList.add('hidden');
+                syncSubMenuValues(targetId);
+            }
+        };
+    });
+    
+    dom.backBtns.forEach(btn => {
+        if (btn !== dom.btnCloseBgTools) {
+            btn.onclick = () => {
+                dom.subMenus.forEach(el => el.classList.add('hidden'));
+                dom.toolbarMainMenu.classList.remove('hidden');
+                closeAllPopups();
+            };
         }
-        link.href = canvas.toDataURL(options); link.click();
+    });
+    
+    dom.btnCloseEditor.onclick = () => {
+        dom.editorToolbar.classList.add('hidden');
+        canvas.discardActiveObject(); canvas.requestRenderAll();
+        closeAllPopups();
     };
 
-    function saveState() { dom.saveStatus.textContent = '已儲存'; setTimeout(() => dom.saveStatus.textContent = '', 2000); }
-    document.getElementById('btn-lock').onclick = () => toggleLock(true);
-    dom.btnUnlock.onclick = () => toggleLock(false);
-    function toggleLock(locked) { const obj = canvas.getActiveObject(); if (obj) { obj.set({ lockMovementX: locked, lockMovementY: locked, lockRotation: locked, lockScalingX: locked, lockScalingY: locked, selectable: true, evented: true }); obj.hasControls = !locked; obj.borderColor = locked ? '#9ca3af' : '#8b5cf6'; canvas.requestRenderAll(); updateFloatingMenu(); }}
-    const moveLayer = (d) => { const o = canvas.getActiveObject(); if(o) { d=='up'?o.bringForward():o.sendBackwards(); if(artboardImage) artboardImage.sendToBack(); closeMoreMenu(); }};
-    document.getElementById('btn-layer-up').onclick = () => moveLayer('up');
-    document.getElementById('btn-layer-down').onclick = () => moveLayer('down');
-    document.getElementById('btn-delete').onclick = () => { const o = canvas.getActiveObject(); if(o) canvas.remove(o); dom.floatingMenu.classList.add('hidden'); };
-    document.getElementById('btn-duplicate').onclick = () => { const obj = canvas.getActiveObject(); if (!obj) return; obj.clone((cloned) => { canvas.discardActiveObject(); cloned.set({ left: obj.left + 20, top: obj.top + 20 }); canvas.add(cloned); canvas.setActiveObject(cloned); styleControls(cloned, cloned.type === 'textbox'); });};
-    document.getElementById('btn-clear').onclick = () => { if(confirm('確定清空？')) { canvas.clear(); canvas.setBackgroundColor('#d1d5db', canvas.renderAll.bind(canvas)); artboardImage = null; dom.placeholder.style.display = 'flex'; }};
+    function syncSubMenuValues(targetId) {
+        const obj = canvas.getActiveObject();
+        if(!obj) return;
+        if (targetId === 'sub-opacity') {
+            const val = Math.round((obj.opacity || 1) * 100);
+            // --- 修正：同步更新主選單數值 ---
+            dom.inputOpacityMain.value = val; 
+            dom.valOpacityMain.textContent = val + '%';
+        } else if (targetId === 'sub-rotate') {
+            const val = Math.round(obj.angle % 360);
+            dom.inputRotate.value = val; dom.rotateVal.textContent = val + '°';
+        } else if (targetId === 'sub-outline') {
+            const w = obj.strokeWidth || 0;
+            dom.inputOutlineWidth.value = w;
+            dom.displayOutlineWidth.textContent = w;
+            dom.outlineColorPreview.style.backgroundColor = obj.stroke || '#ffffff';
+        }
+    }
 
-    function loadFont(f) { WebFont.load({ google: { families: [f] }, active: () => canvas.requestRenderAll() }); }
-    dom.fontFamily.onchange = (e) => { const o = canvas.getActiveObject(); if(o && o.type==='textbox') { loadFont(e.target.value); o.set('fontFamily', e.target.value); canvas.requestRenderAll(); }};
+    // Functionality
+    function setFontSize(val) {
+        const obj = canvas.getActiveObject();
+        if (obj && obj.type === 'textbox') {
+            obj.set({ fontSize: val, scaleX: 1, scaleY: 1 });
+            dom.fontSizeDisplay.textContent = val; dom.inputFontSizeSlider.value = val;
+            canvas.requestRenderAll(); updateFloatingMenu(); updateControlsSpacing(obj);
+        }
+    }
+    dom.btnFontMinus.onclick = () => setFontSize(parseInt(dom.inputFontSizeSlider.value) - 2);
+    dom.btnFontPlus.onclick = () => setFontSize(parseInt(dom.inputFontSizeSlider.value) + 2);
+    dom.inputFontSizeSlider.oninput = (e) => setFontSize(parseInt(e.target.value));
+
+    dom.inputText.oninput = (e) => {
+        const obj = canvas.getActiveObject();
+        if(obj && obj.type==='textbox') { obj.set('fill', e.target.value); dom.textColorPreview.style.backgroundColor = e.target.value; canvas.requestRenderAll(); }
+    };
+
+    function setOutlineWidth(val) {
+        val = parseFloat(val); dom.inputOutlineWidth.value = val; dom.displayOutlineWidth.textContent = val;
+        userPrefOutlineWidth = val; localStorage.setItem('pref_outline_width', val);
+        const obj = canvas.getActiveObject();
+        if(obj && obj.type === 'textbox') {
+            obj.set({ 'strokeWidth': val, 'paintFirst': 'stroke', 'strokeLineJoin': 'round', 'strokeLineCap': 'round' });
+            if (val > 0 && (!obj.stroke || obj.stroke === 'transparent' || obj.stroke === null)) { obj.set('stroke', userPrefOutlineColor); dom.outlineColorPreview.style.backgroundColor = userPrefOutlineColor; }
+            canvas.requestRenderAll();
+        }
+    }
+    dom.inputOutlineWidth.oninput = (e) => setOutlineWidth(e.target.value);
+
+    function setOutlineColor(color) {
+        dom.outlineColorPreview.style.backgroundColor = color; dom.inputOutlineColor.value = color;
+        userPrefOutlineColor = color; localStorage.setItem('pref_outline_color', color);
+        const obj = canvas.getActiveObject();
+        if(obj && obj.type === 'textbox') { obj.set('stroke', color); if (obj.strokeWidth === 0) { setOutlineWidth(2); } canvas.requestRenderAll(); }
+    }
+    dom.inputOutlineColor.oninput = (e) => setOutlineColor(e.target.value);
+
+    dom.btnOutlineWidthPreset.onclick = (e) => { e.stopPropagation(); const isHidden = dom.outlineWidthPresets.classList.contains('hidden'); closeAllPopups(); if(isHidden) dom.outlineWidthPresets.classList.remove('hidden'); };
+    dom.btnToggleOutlineColor.onclick = (e) => { e.stopPropagation(); const isHidden = dom.outlineColorPicker.classList.contains('hidden'); closeAllPopups(); if(isHidden) dom.outlineColorPicker.classList.remove('hidden'); };
+    function closeAllPopups() { dom.outlineWidthPresets.classList.add('hidden'); dom.outlineColorPicker.classList.add('hidden'); }
+    document.addEventListener('click', closeAllPopups);
+    dom.outlineWidthPresets.addEventListener('click', (e) => e.stopPropagation());
+    dom.outlineColorPicker.addEventListener('click', (e) => e.stopPropagation());
+
+    dom.btnLayerTop.onclick = () => { const o=canvas.getActiveObject(); if(o) o.bringToFront(); saveState(); };
+    dom.btnLayerBottom.onclick = () => { const o=canvas.getActiveObject(); if(o) { o.sendToBack(); if(artboardImage) artboardImage.sendToBack(); } saveState(); };
+    dom.btnLayerUp.onclick = () => { const o=canvas.getActiveObject(); if(o) o.bringForward(); saveState(); };
+    dom.btnLayerDown.onclick = () => { const o=canvas.getActiveObject(); if(o) { o.sendBackwards(); if(artboardImage) artboardImage.sendToBack(); } saveState(); };
     
-    function changeFontSize(delta) { const obj = canvas.getActiveObject(); if (obj && obj.type === 'textbox') { let currentSize = Math.round(obj.fontSize * obj.scaleX); let newSize = currentSize + delta; if (newSize < 10) newSize = 10; obj.set({ fontSize: newSize, scaleX: 1, scaleY: 1 }); dom.fontSizeDisplay.textContent = newSize; canvas.requestRenderAll(); updateFloatingMenu(); updateControlsSpacing(obj); }}
-    document.getElementById('btn-font-plus').onclick = () => changeFontSize(2);
-    document.getElementById('btn-font-minus').onclick = () => changeFontSize(-2);
-    document.getElementById('btn-close-text').onclick = () => dom.textToolbar.classList.add('hidden');
+    // --- 修正開始：透明度同步控制邏輯 ---
+    function updateOpacity(value) {
+        const val = parseInt(value);
+        // 更新懸浮選單 UI
+        dom.inputOpacityFloat.value = val;
+        dom.valOpacityFloat.textContent = val;
+        // 更新主選單 UI
+        dom.inputOpacityMain.value = val;
+        dom.valOpacityMain.textContent = val + '%';
+        // 更新物件
+        const o = canvas.getActiveObject();
+        if(o) {
+            o.set('opacity', val / 100);
+            canvas.requestRenderAll();
+        }
+    }
+    dom.inputOpacityFloat.oninput = (e) => updateOpacity(e.target.value);
+    dom.inputOpacityMain.oninput = (e) => updateOpacity(e.target.value);
+    // --- 修正結束 ---
+
+    dom.inputRotate.oninput = (e) => { const v=parseInt(e.target.value); dom.rotateVal.textContent=v+'°'; const o=canvas.getActiveObject(); if(o) { o.rotate(v); canvas.requestRenderAll(); updateFloatingMenu(); }};
+    dom.btnRotate90.onclick = () => { const o=canvas.getActiveObject(); if(o) { let a=(Math.round(o.angle/90)*90+90)%360; o.rotate(a); dom.inputRotate.value=a; dom.rotateVal.textContent=a+'°'; canvas.requestRenderAll(); updateFloatingMenu(); saveState(); }};
+    dom.btnToolbarFlip.onclick = () => { const o=canvas.getActiveObject(); if(o) { o.set('flipX', !o.flipX); canvas.renderAll(); saveState(); }};
+
+    function updateFloatingMenu() {
+        const obj = canvas.getActiveObject();
+        if (!obj || obj === artboardImage || canvas.isDrawingMode || obj.isMoving || obj.isScaling || obj.isRotating) { dom.floatingMenu.classList.add('hidden'); return; }
+        dom.floatingMenu.classList.remove('hidden'); requestAnimationFrame(() => dom.floatingMenu.style.opacity = '1');
+        if (obj.lockMovementX) { dom.menuStandard.classList.add('hidden'); dom.menuLocked.classList.remove('hidden'); } else { dom.menuStandard.classList.remove('hidden'); dom.menuLocked.classList.add('hidden'); }
+        const cr = canvas.getElement().getBoundingClientRect(); const or = obj.getBoundingRect(); const mr = dom.floatingMenu.getBoundingClientRect();
+        let top = cr.top + or.top - mr.height - 55; if (top < 60) top = cr.top + or.top + or.height + 55;
+        let left = cr.left + or.left + (or.width / 2);
+        dom.floatingMenu.style.top = `${top}px`; dom.floatingMenu.style.left = `${left}px`; dom.floatingMenu.style.transform = 'translateX(-50%)';
+    }
+
+    canvas.on('selection:created', onSelected);
+    canvas.on('selection:updated', onSelected);
+    canvas.on('object:scaling', (e) => { updateFloatingMenu(); updateToolbarUI(e.target); updateControlsSpacing(e.target); });
+    canvas.on('object:moving', updateFloatingMenu); canvas.on('object:rotating', updateFloatingMenu);
+    canvas.on('object:modified', () => { updateFloatingMenu(); updateToolbarUI(canvas.getActiveObject()); saveState(); }); 
+    canvas.on('selection:cleared', () => {
+        dom.floatingMenu.classList.add('hidden'); dom.editorToolbar.classList.add('hidden'); dom.stickerDrawer.classList.add('translate-y-full');
+        dom.subMenus.forEach(el => el.classList.add('hidden')); dom.toolbarMainMenu.classList.remove('hidden'); closeAllPopups();
+    });
+
+    function updateToolbarUI(obj) {
+        if (!obj) return;
+        if (obj.type === 'textbox') {
+            const size = Math.round(obj.fontSize * obj.scaleX);
+            dom.fontSizeDisplay.textContent = size; dom.inputFontSizeSlider.value = size;
+            dom.textColorPreview.style.backgroundColor = obj.fill;
+            dom.outlineColorPreview.style.backgroundColor = obj.stroke || '#ffffff';
+            dom.displayOutlineWidth.textContent = obj.strokeWidth || 0; dom.inputOutlineWidth.value = obj.strokeWidth || 0;
+        }
+        
+        // --- 修正開始：UI 同步更新 ---
+        const opacity = Math.round((obj.opacity || 1) * 100);
+        dom.inputOpacityFloat.value = opacity;
+        dom.valOpacityFloat.textContent = opacity;
+        dom.inputOpacityMain.value = opacity;
+        dom.valOpacityMain.textContent = opacity + '%';
+        // --- 修正結束 ---
+
+        dom.inputRotate.value = Math.round(obj.angle % 360); dom.rotateVal.textContent = dom.inputRotate.value + '°';
+    }
+
+    function onSelected(e) {
+        const obj = e.selected[0];
+        if (obj === artboardImage) { canvas.discardActiveObject(); return; }
+        updateFloatingMenu();
+        if (!obj.lockMovementX) {
+            dom.editorToolbar.classList.remove('hidden');
+            dom.subBackground.classList.add('hidden');
+            dom.toolbarMainMenu.classList.remove('hidden');
+            if (obj.type === 'textbox') { dom.groupTextOnly.classList.remove('hidden'); } else { dom.groupTextOnly.classList.add('hidden'); }
+            updateToolbarUI(obj);
+        } else {
+            dom.editorToolbar.classList.add('hidden');
+        }
+    }
+
+    // ---------------------------------------------------------
+    // 6. Export Logic (Fixed: Absolute Restoration & No Border)
+    // ---------------------------------------------------------
+    document.getElementById('btn-download').onclick = () => {
+        if(!artboardImage && canvas.getObjects().length===0) return alert('空畫布');
+        
+        // 1. 暫存狀態
+        const originalVpt = canvas.viewportTransform;
+        const originalBg = canvas.backgroundColor;
+        
+        // 2. 準備匯出：取消選取
+        canvas.discardActiveObject();
+        
+        // [修正點 1] 設定背景為白色 (JPEG 不支援透明，若設為 null 會變黑色)
+        // 如果想要保留原背景色，可以使用 originalBg || '#ffffff'
+        canvas.setBackgroundColor('#ffffff', null); 
+        
+        // [修正點 2] 將格式改為 'jpeg' (強制 24-bit)
+        // quality: 0.95 可確保高品質，範圍 0~1
+        let opt = { format: 'jpeg', quality: 0.95, enableRetinaScaling: false };
+        
+        if(artboardImage) {
+            // 3. 取得底圖的「原始尺寸」與「當前縮放」
+            // 強制歸零 Viewport，讓 (0,0) 就是 Canvas (0,0)
+            canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+            
+            // 取得圖片在 Canvas 上的位置與縮放後的大小
+            const rect = artboardImage.getBoundingRect();
+            
+            // 設定裁切區域 (使用 Math.round 避免白邊)
+            opt.left = Math.ceil(rect.left)+5;
+            opt.top = Math.ceil(rect.top)+5;
+            opt.width = Math.floor(rect.width)-10;
+            opt.height = Math.floor(rect.height)-10;
+            
+            // 4. 計算還原倍率
+            opt.multiplier = 1 / artboardImage.scaleX;
+        } else {
+            opt.multiplier = 4;
+        }
+
+        const dataURL = canvas.toDataURL(opt);
+        
+        // 5. 還原狀態
+        canvas.setBackgroundColor(originalBg, null);
+        canvas.setViewportTransform(originalVpt);
+        canvas.requestRenderAll();
+
+        const link = document.createElement('a'); 
+        // [修正點 3] 副檔名改為 .jpg
+        link.download = `canva-pro-${Date.now()}.jpg`;
+        link.href = dataURL; link.click();
+    };
+    // ---------------------------------------------------------
+    // 7. Clear Modal Logic
+    // ---------------------------------------------------------
+    dom.btnShowClearModal.onclick = () => dom.clearModal.classList.remove('hidden');
+    dom.btnCloseModal.onclick = () => dom.clearModal.classList.add('hidden');
     
+    dom.btnClearAll.onclick = () => {
+        canvas.clear(); 
+        canvas.setBackgroundColor('#d1d5db',null); 
+        artboardImage=null; 
+        dom.placeholder.style.display='flex'; 
+        dom.btnZoomFit.click();
+        dom.clearModal.classList.add('hidden');
+    };
+
+    dom.btnClearObjects.onclick = () => {
+        canvas.getObjects().forEach(obj => {
+            if (obj !== artboardImage) canvas.remove(obj);
+        });
+        dom.clearModal.classList.add('hidden');
+        canvas.requestRenderAll();
+        saveState();
+    };
+
     document.getElementById('btn-add-text').onclick = () => { 
-        const t = new fabric.Textbox('雙擊編輯', { 
-            left: canvas.width/2, top: canvas.height/2, width: 150, 
-            fontSize: 40, fontFamily: 'Noto Sans TC', fill: '#333333', 
-            originX: 'center', originY: 'center', textAlign: 'center',
-            splitByGrapheme: true,
-            paintFirst: 'stroke', strokeWidth: 0,
-            strokeLineJoin: 'round', strokeLineCap: 'round'
-        }); 
+        const t = new fabric.Textbox('雙擊編輯', { left: canvas.width/2, top: canvas.height/2, width: 300, fontSize: 40, fontFamily: 'Noto Sans TC', fill: '#333333', originX: 'center', originY: 'center', textAlign: 'center', splitByGrapheme: true, paintFirst: 'stroke', strokeLineJoin: 'round', strokeLineCap: 'round', strokeWidth: userPrefOutlineWidth, stroke: userPrefOutlineColor }); 
         canvas.add(t); canvas.setActiveObject(t); styleControls(t, true); 
     };
 
     const drawer = dom.stickerDrawer;
     function initStickers() {
-        Object.keys(stickerData).forEach((cat, index) => {
-            const btn = document.createElement('button');
-            btn.className = `tab-btn ${index === 0 ? 'active' : ''}`;
-            btn.textContent = cat;
-            btn.onclick = () => switchTab(cat, btn);
+        Object.keys(stickers).forEach((cat, index) => {
+            const btn = document.createElement('button'); btn.className = `tab-btn ${index===0?'active':''}`; btn.textContent = cat;
+            btn.onclick = () => { document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderStickerContent(cat); };
             dom.stickerTabs.appendChild(btn);
         });
-        renderStickerContent(Object.keys(stickerData)[0]);
+        renderStickerContent(Object.keys(stickers)[0]);
     }
-    function switchTab(category, btnElement) {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        btnElement.classList.add('active');
-        renderStickerContent(category);
-    }
-    function renderStickerContent(category) {
-        dom.stickerContainer.innerHTML = ''; 
-        const items = stickerData[category] || [];
-        items.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'sticker-item';
-            if (typeof item === 'string') {
-                div.textContent = item;
-                div.onclick = () => { const t = new fabric.Text(item, { left: canvas.width/2, top: canvas.height/2, fontSize: 80, originX: 'center', originY: 'center' }); canvas.add(t); canvas.setActiveObject(t); styleControls(t, false); closeDrawer(); };
-            } else if (item.type === 'image') {
-                const img = document.createElement('img'); img.src = item.url; img.className = 'sticker-img';
-                div.appendChild(img);
-                div.onclick = () => { fabric.Image.fromURL(item.url, (imgObj) => { const scale = (canvas.width * 0.15) / imgObj.width; imgObj.set({ left: canvas.width/2, top: canvas.height/2, scaleX: scale, scaleY: scale, originX: 'center', originY: 'center' }); canvas.add(imgObj); canvas.setActiveObject(imgObj); styleControls(imgObj, false); closeDrawer(); }); };
+    function renderStickerContent(cat) {
+        dom.stickerContainer.innerHTML = '';
+        stickers[cat].forEach(item => {
+            const div = document.createElement('div'); div.className = 'sticker-item';
+            if(typeof item === 'string') {
+                div.textContent = item; div.onclick = () => { const t = new fabric.Text(item, { left: canvas.width/2, top: canvas.height/2, fontSize: 80, originX: 'center', originY: 'center' }); canvas.add(t); canvas.setActiveObject(t); styleControls(t, false); closeDrawer(); };
+            } else {
+                const img = document.createElement('img'); img.src = item.url; img.className = 'sticker-img'; div.appendChild(img);
+                div.onclick = () => { fabric.Image.fromURL(item.url, (obj) => { const s=(canvas.width*0.15)/obj.width; obj.set({left:canvas.width/2,top:canvas.height/2,scaleX:s,scaleY:s,originX:'center',originY:'center'}); canvas.add(obj); canvas.setActiveObject(obj); styleControls(obj, false); closeDrawer(); }); };
             }
             dom.stickerContainer.appendChild(div);
         });
     }
-    function closeDrawer() { drawer.classList.remove('translate-y-0'); drawer.classList.add('translate-y-full'); saveState(); }
-    document.getElementById('btn-stickers').onclick = () => { drawer.classList.remove('translate-y-full'); drawer.classList.add('translate-y-0'); };
+    function closeDrawer() { drawer.classList.add('translate-y-full'); saveState(); }
+    document.getElementById('btn-stickers').onclick = () => { drawer.classList.remove('translate-y-full'); };
     document.getElementById('close-sticker-drawer').onclick = closeDrawer;
+    
     document.getElementById('btn-upload-sticker').onclick = () => document.getElementById('sticker-upload').click();
     document.getElementById('sticker-upload').onchange = (e) => {
-        const file = e.target.files[0]; if(!file) return;
-        const r = new FileReader(); r.onload = (f) => {
-            fabric.Image.fromURL(f.target.result, (img) => {
-                const s = (canvas.width * 0.3) / img.width;
-                img.set({ left: canvas.width/2, top: canvas.height/2, scaleX: s, scaleY: s, originX: 'center', originY: 'center' });
-                canvas.add(img); canvas.setActiveObject(img); styleControls(img, false);
-            });
-        }; r.readAsDataURL(file);
+        const f = e.target.files[0]; if(!f) return; const r = new FileReader();
+        r.onload = (ev) => { fabric.Image.fromURL(ev.target.result, (img) => { const s = (canvas.width * 0.3) / img.width; img.set({ left: canvas.width/2, top: canvas.height/2, scaleX: s, scaleY: s, originX: 'center', originY: 'center' }); canvas.add(img); canvas.setActiveObject(img); styleControls(img, false); }); }; r.readAsDataURL(f);
     };
 
+    document.getElementById('btn-lock').onclick = () => { const o=canvas.getActiveObject(); if(o) { o.set({lockMovementX:true, lockMovementY:true, lockRotation:true, lockScalingX:true, lockScalingY:true, selectable:true}); o.hasControls=false; o.borderColor='#9ca3af'; canvas.requestRenderAll(); updateFloatingMenu(); }};
+    document.getElementById('btn-unlock').onclick = () => { const o=canvas.getActiveObject(); if(o) { o.set({lockMovementX:false, lockMovementY:false, lockRotation:false, lockScalingX:false, lockScalingY:false}); o.hasControls=true; o.borderColor='#8b5cf6'; canvas.requestRenderAll(); updateFloatingMenu(); }};
+    document.getElementById('btn-delete').onclick = () => { const o=canvas.getActiveObject(); if(o) canvas.remove(o); dom.floatingMenu.classList.add('hidden'); };
+    document.getElementById('btn-duplicate').onclick = () => { const o=canvas.getActiveObject(); if(o) o.clone((c) => { canvas.discardActiveObject(); c.set({left:o.left+20,top:o.top+20}); canvas.add(c); canvas.setActiveObject(c); styleControls(c, c.type==='textbox'); }); };
+    
+    // Clear btn logic moved to modal section
+    
+    function saveState() { dom.saveStatus.textContent = '已儲存'; setTimeout(() => dom.saveStatus.textContent = '', 2000); }
     initStickers();
 });
