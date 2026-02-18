@@ -4,12 +4,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const canvas = new fabric.Canvas('c', {
         preserveObjectStacking: true, selection: false, controlsAboveOverlay: true, backgroundColor: '#d1d5db'
     });
-    // 解決 Chrome 對 alphabetical 的警告，並提升渲染準確度
     fabric.Object.prototype.objectCaching = false; 
 
     let artboardImage = null;
     let isDragging = false;
     let lastPosX, lastPosY;
+    let batchFilesQueue = []; 
 
     const { palette, fonts, stickers } = APP_DATA;
 
@@ -28,6 +28,18 @@ document.addEventListener('DOMContentLoaded', () => {
         
         btnLoadImg: document.getElementById('btn-load-img'),
         headerImgUpload: document.getElementById('header-img-upload'),
+
+        // Batch Mode DOM
+        btnBatchMode: document.getElementById('btn-batch-mode'),
+        batchImgUpload: document.getElementById('batch-img-upload'),
+        batchSettingsModal: document.getElementById('batch-settings-modal'),
+        btnStartBatch: document.getElementById('btn-start-batch'),
+        btnCancelBatch: document.getElementById('btn-cancel-batch'),
+        batchSuffixInput: document.getElementById('batch-suffix'),
+        
+        batchModal: document.getElementById('batch-modal'),
+        batchProgressBar: document.getElementById('batch-progress-bar'),
+        batchStatusText: document.getElementById('batch-status-text'),
 
         // Clear Modal DOM
         btnShowClearModal: document.getElementById('btn-show-clear-modal'),
@@ -72,12 +84,10 @@ document.addEventListener('DOMContentLoaded', () => {
         btnLayerDown: document.getElementById('btn-layer-down'),
         btnLayerBottom: document.getElementById('btn-layer-bottom'),
         
-        // --- 修正開始：區分 Float 與 Main ID ---
         inputOpacityFloat: document.getElementById('input-opacity-float'),
         valOpacityFloat: document.getElementById('opacity-val-float'),
         inputOpacityMain: document.getElementById('input-opacity-main'),
         valOpacityMain: document.getElementById('opacity-val-main'),
-        // --- 修正結束 ---
 
         btnRotate90: document.getElementById('btn-rotate-90'),
         inputRotate: document.getElementById('input-rotate'),
@@ -111,7 +121,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let userPrefOutlineColor = localStorage.getItem('pref_outline_color') || '#ffffff';
     let userPrefOutlineWidth = parseFloat(localStorage.getItem('pref_outline_width')) || 0;
 
-    // 自定義控制項 (保持不變)
     const iconRotate = `data:image/svg+xml;utf8,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23374151' stroke-width='2'%3E%3Cpath d='M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8'/%3E%3Cpath d='M21 3v5h-5'/%3E%3C/svg%3E`;
     const iconMove = `data:image/svg+xml;utf8,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23374151' stroke-width='2'%3E%3Cpath d='M5 9l-3 3 3 3M9 5l3-3 3 3M19 9l3 3-3 3M9 19l3 3 3-3M2 12h20M12 2v20'/%3E%3C/svg%3E`;
     const imgRotate = document.createElement('img'); imgRotate.src = iconRotate;
@@ -272,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
         canvas.discardActiveObject();
     };
 
-    // UI Init (Font/Color...)
+    // UI Init
     fonts.forEach(font => {
         const btn = document.createElement('button');
         btn.className = 'font-btn'; btn.textContent = font.label; btn.style.fontFamily = font.name;
@@ -357,7 +366,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if(!obj) return;
         if (targetId === 'sub-opacity') {
             const val = Math.round((obj.opacity || 1) * 100);
-            // --- 修正：同步更新主選單數值 ---
             dom.inputOpacityMain.value = val; 
             dom.valOpacityMain.textContent = val + '%';
         } else if (targetId === 'sub-rotate') {
@@ -390,7 +398,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function setOutlineWidth(val) {
-        val = parseFloat(val); dom.inputOutlineWidth.value = val; dom.displayOutlineWidth.textContent = val;
+        val = parseFloat(val);
+        dom.inputOutlineWidth.value = val; dom.displayOutlineWidth.textContent = val;
         userPrefOutlineWidth = val; localStorage.setItem('pref_outline_width', val);
         const obj = canvas.getActiveObject();
         if(obj && obj.type === 'textbox') {
@@ -421,16 +430,12 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.btnLayerUp.onclick = () => { const o=canvas.getActiveObject(); if(o) o.bringForward(); saveState(); };
     dom.btnLayerDown.onclick = () => { const o=canvas.getActiveObject(); if(o) { o.sendBackwards(); if(artboardImage) artboardImage.sendToBack(); } saveState(); };
     
-    // --- 修正開始：透明度同步控制邏輯 ---
     function updateOpacity(value) {
         const val = parseInt(value);
-        // 更新懸浮選單 UI
         dom.inputOpacityFloat.value = val;
         dom.valOpacityFloat.textContent = val;
-        // 更新主選單 UI
         dom.inputOpacityMain.value = val;
         dom.valOpacityMain.textContent = val + '%';
-        // 更新物件
         const o = canvas.getActiveObject();
         if(o) {
             o.set('opacity', val / 100);
@@ -439,7 +444,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     dom.inputOpacityFloat.oninput = (e) => updateOpacity(e.target.value);
     dom.inputOpacityMain.oninput = (e) => updateOpacity(e.target.value);
-    // --- 修正結束 ---
 
     dom.inputRotate.oninput = (e) => { const v=parseInt(e.target.value); dom.rotateVal.textContent=v+'°'; const o=canvas.getActiveObject(); if(o) { o.rotate(v); canvas.requestRenderAll(); updateFloatingMenu(); }};
     dom.btnRotate90.onclick = () => { const o=canvas.getActiveObject(); if(o) { let a=(Math.round(o.angle/90)*90+90)%360; o.rotate(a); dom.inputRotate.value=a; dom.rotateVal.textContent=a+'°'; canvas.requestRenderAll(); updateFloatingMenu(); saveState(); }};
@@ -475,15 +479,11 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.outlineColorPreview.style.backgroundColor = obj.stroke || '#ffffff';
             dom.displayOutlineWidth.textContent = obj.strokeWidth || 0; dom.inputOutlineWidth.value = obj.strokeWidth || 0;
         }
-        
-        // --- 修正開始：UI 同步更新 ---
         const opacity = Math.round((obj.opacity || 1) * 100);
         dom.inputOpacityFloat.value = opacity;
         dom.valOpacityFloat.textContent = opacity;
         dom.inputOpacityMain.value = opacity;
         dom.valOpacityMain.textContent = opacity + '%';
-        // --- 修正結束 ---
-
         dom.inputRotate.value = Math.round(obj.angle % 360); dom.rotateVal.textContent = dom.inputRotate.value + '°';
     }
 
@@ -503,64 +503,262 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ---------------------------------------------------------
-    // 6. Export Logic (Fixed: Absolute Restoration & No Border)
+    // 批次處理邏輯 (三種模式：預設 / 資料夾 / ZIP)
     // ---------------------------------------------------------
+    dom.btnBatchMode.onclick = () => {
+        if (!artboardImage) return alert('請先載入一張底圖並設計好您的樣板（文字、貼圖）');
+        dom.batchImgUpload.click();
+    };
+
+    dom.batchImgUpload.onchange = (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+        
+        batchFilesQueue = files;
+        dom.batchSettingsModal.classList.remove('hidden');
+        dom.batchImgUpload.value = '';
+    };
+
+    dom.btnCancelBatch.onclick = () => {
+        batchFilesQueue = [];
+        dom.batchSettingsModal.classList.add('hidden');
+    };
+
+    // 開始按鈕：判斷模式並獲取權限
+    dom.btnStartBatch.onclick = async () => {
+        if (batchFilesQueue.length === 0) return;
+        
+        const mode = document.querySelector('input[name="batch-mode"]:checked').value; // 'default', 'folder', or 'zip'
+        const suffix = dom.batchSuffixInput.value || '';
+        
+        dom.batchSettingsModal.classList.add('hidden');
+
+        let dirHandle = null;
+
+        // 如果選擇「指定資料夾」，需要先取得權限
+        if (mode === 'folder') {
+            if ('showDirectoryPicker' in window) {
+                try {
+                    dirHandle = await window.showDirectoryPicker();
+                } catch (err) {
+                    // 使用者取消選擇，停止執行
+                    console.log('User cancelled folder picker');
+                    return; 
+                }
+            } else {
+                alert('您的瀏覽器不支援「指定資料夾」功能 (僅 Chrome/Edge 電腦版支援)。\n將自動切換為「瀏覽器預設位置」模式。');
+            }
+        }
+
+        await processBatch(batchFilesQueue, mode, suffix, dirHandle);
+    };
+
+    async function processBatch(files, mode, suffix, dirHandle) {
+        dom.batchModal.classList.remove('hidden');
+        updateBatchProgress(0, files.length);
+
+        const originalJSON = canvas.toJSON();
+        const originalBg = artboardImage; 
+
+        // 智慧相對位置計算
+        canvas.setViewportTransform([1,0,0,1,0,0]); 
+        const bgRect = originalBg.getBoundingRect();
+        const bgWidth = bgRect.width;
+        const bgHeight = bgRect.height;
+        const bgLeft = bgRect.left;
+        const bgTop = bgRect.top;
+
+        const overlays = canvas.getObjects().filter(o => o !== originalBg);
+        
+        const relativeObjects = overlays.map(obj => {
+            const objCenter = obj.getCenterPoint();
+            const relX = (objCenter.x - bgLeft) / bgWidth;
+            const relY = (objCenter.y - bgTop) / bgHeight;
+            const scaleRatioToBgWidth = obj.scaleX / bgWidth;
+
+            return {
+                object: obj,
+                relX, relY,
+                scaleRatioToBgWidth
+            };
+        });
+
+        // 初始化 ZIP (如果模式是 zip)
+        let zip = null;
+        let folder = null;
+        if (mode === 'zip') {
+            zip = new JSZip();
+            folder = zip.folder("batch_output");
+        }
+
+        try {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                updateBatchProgress(i + 1, files.length);
+
+                const imgUrl = await readFileAsDataURL(file);
+                
+                canvas.clear();
+                canvas.setBackgroundColor('#ffffff', null);
+
+                // 等待圖片載入與圖層複製
+                await new Promise(resolve => {
+                    fabric.Image.fromURL(imgUrl, async (img) => {
+                        canvas.setWidth(img.width);
+                        canvas.setHeight(img.height);
+                        
+                        img.set({
+                            originX: 'center', originY: 'center',
+                            left: canvas.width / 2, top: canvas.height / 2,
+                            selectable: false
+                        });
+                        canvas.add(img);
+                        
+                        const newBgWidth = img.width;
+                        const newBgHeight = img.height;
+                        
+                        // 確保所有圖層(含圖片)都處理完
+                        const clonePromises = relativeObjects.map(item => {
+                            return new Promise(resolveClone => {
+                                item.object.clone((cloned) => {
+                                    const newLeft = (canvas.width / 2 - newBgWidth / 2) + (newBgWidth * item.relX);
+                                    const newTop = (canvas.height / 2 - newBgHeight / 2) + (newBgHeight * item.relY);
+
+                                    const newScaleX = newBgWidth * item.scaleRatioToBgWidth;
+                                    const scaleFactor = newScaleX / item.object.scaleX;
+                                    const newScaleY = item.object.scaleY * scaleFactor;
+
+                                    cloned.set({
+                                        left: newLeft,
+                                        top: newTop,
+                                        originX: 'center',
+                                        originY: 'center',
+                                        scaleX: newScaleX,
+                                        scaleY: newScaleY
+                                    });
+                                    canvas.add(cloned);
+                                    resolveClone();
+                                });
+                            });
+                        });
+
+                        await Promise.all(clonePromises);
+                        resolve();
+                    });
+                });
+
+                canvas.renderAll();
+                const blob = await new Promise(resolve => canvas.getElement().toBlob(resolve, 'image/jpeg', 0.95));
+                
+                const originalName = file.name.replace(/\.[^/.]+$/, "");
+                const newFileName = `${originalName}${suffix}.jpg`;
+
+                // --- 依據模式儲存 ---
+                if (mode === 'zip') {
+                    // 模式 3: 加入 ZIP
+                    folder.file(newFileName, blob);
+
+                } else if (mode === 'folder' && dirHandle) {
+                    // 模式 2: 指定資料夾 (API 寫入)
+                    try {
+                        const fileHandle = await dirHandle.getFileHandle(newFileName, { create: true });
+                        const writable = await fileHandle.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+                    } catch (err) {
+                        console.error('File write failed, fallback to default download:', err);
+                        downloadBlob(blob, newFileName); // 若寫入失敗則退回預設下載
+                    }
+
+                } else {
+                    // 模式 1: 瀏覽器預設 (或模式2失敗退回)
+                    downloadBlob(blob, newFileName);
+                    // 延遲以避免瀏覽器阻擋連續下載
+                    await new Promise(r => setTimeout(r, 600));
+                }
+            }
+
+            // 若為 ZIP 模式，最後觸發下載
+            if (mode === 'zip') {
+                const content = await zip.generateAsync({ type: "blob" });
+                downloadBlob(content, `batch_download_${Date.now()}.zip`);
+            }
+
+        } catch (err) {
+            console.error(err);
+            alert('批次處理發生錯誤: ' + err.message);
+        } finally {
+            dom.batchModal.classList.add('hidden');
+            batchFilesQueue = []; 
+            
+            canvas.loadFromJSON(originalJSON, () => {
+                const objs = canvas.getObjects();
+                objs.forEach(o => {
+                   if (!o.selectable && o.type === 'image') artboardImage = o;
+                   else styleControls(o, o.type==='textbox'); 
+                });
+                
+                canvas.setBackgroundColor('#d1d5db', null);
+                resizeCanvas();
+            });
+        }
+    }
+
+    function downloadBlob(blob, fileName) {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+    }
+
+    function updateBatchProgress(current, total) {
+        const pct = Math.round((current / total) * 100);
+        dom.batchProgressBar.style.width = `${pct}%`;
+        dom.batchStatusText.textContent = `${current} / ${total}`;
+    }
+
+    function readFileAsDataURL(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // Export Logic
     document.getElementById('btn-download').onclick = () => {
         if(!artboardImage && canvas.getObjects().length===0) return alert('空畫布');
-        
-        // 1. 暫存狀態
         const originalVpt = canvas.viewportTransform;
         const originalBg = canvas.backgroundColor;
-        
-        // 2. 準備匯出：取消選取
         canvas.discardActiveObject();
-        
-        // [修正點 1] 設定背景為白色 (JPEG 不支援透明，若設為 null 會變黑色)
-        // 如果想要保留原背景色，可以使用 originalBg || '#ffffff'
         canvas.setBackgroundColor('#ffffff', null); 
-        
-        // [修正點 2] 將格式改為 'jpeg' (強制 24-bit)
-        // quality: 0.95 可確保高品質，範圍 0~1
         let opt = { format: 'jpeg', quality: 0.95, enableRetinaScaling: false };
-        
         if(artboardImage) {
-            // 3. 取得底圖的「原始尺寸」與「當前縮放」
-            // 強制歸零 Viewport，讓 (0,0) 就是 Canvas (0,0)
             canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
-            
-            // 取得圖片在 Canvas 上的位置與縮放後的大小
             const rect = artboardImage.getBoundingRect();
-            
-            // 設定裁切區域 (使用 Math.round 避免白邊)
             opt.left = Math.ceil(rect.left)+5;
             opt.top = Math.ceil(rect.top)+5;
             opt.width = Math.floor(rect.width)-10;
             opt.height = Math.floor(rect.height)-10;
-            
-            // 4. 計算還原倍率
             opt.multiplier = 1 / artboardImage.scaleX;
-        } else {
-            opt.multiplier = 4;
-        }
-
+        } else { opt.multiplier = 4; }
         const dataURL = canvas.toDataURL(opt);
-        
-        // 5. 還原狀態
         canvas.setBackgroundColor(originalBg, null);
         canvas.setViewportTransform(originalVpt);
         canvas.requestRenderAll();
-
         const link = document.createElement('a'); 
-        // [修正點 3] 副檔名改為 .jpg
         link.download = `canva-pro-${Date.now()}.jpg`;
         link.href = dataURL; link.click();
     };
-    // ---------------------------------------------------------
-    // 7. Clear Modal Logic
-    // ---------------------------------------------------------
+
+    // Clear Modal Logic
     dom.btnShowClearModal.onclick = () => dom.clearModal.classList.remove('hidden');
     dom.btnCloseModal.onclick = () => dom.clearModal.classList.add('hidden');
-    
     dom.btnClearAll.onclick = () => {
         canvas.clear(); 
         canvas.setBackgroundColor('#d1d5db',null); 
@@ -569,7 +767,6 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.btnZoomFit.click();
         dom.clearModal.classList.add('hidden');
     };
-
     dom.btnClearObjects.onclick = () => {
         canvas.getObjects().forEach(obj => {
             if (obj !== artboardImage) canvas.remove(obj);
@@ -620,8 +817,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-unlock').onclick = () => { const o=canvas.getActiveObject(); if(o) { o.set({lockMovementX:false, lockMovementY:false, lockRotation:false, lockScalingX:false, lockScalingY:false}); o.hasControls=true; o.borderColor='#8b5cf6'; canvas.requestRenderAll(); updateFloatingMenu(); }};
     document.getElementById('btn-delete').onclick = () => { const o=canvas.getActiveObject(); if(o) canvas.remove(o); dom.floatingMenu.classList.add('hidden'); };
     document.getElementById('btn-duplicate').onclick = () => { const o=canvas.getActiveObject(); if(o) o.clone((c) => { canvas.discardActiveObject(); c.set({left:o.left+20,top:o.top+20}); canvas.add(c); canvas.setActiveObject(c); styleControls(c, c.type==='textbox'); }); };
-    
-    // Clear btn logic moved to modal section
     
     function saveState() { dom.saveStatus.textContent = '已儲存'; setTimeout(() => dom.saveStatus.textContent = '', 2000); }
     initStickers();
