@@ -1630,7 +1630,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // 播放邏輯
-    // [修正] 播放邏輯 (支援嚴格選取播放、過濾合奏滲漏、404修復)
     async function playMusic() {
         if (isPlaying) {
             stopMusic();
@@ -1640,13 +1639,114 @@ document.addEventListener('DOMContentLoaded', () => {
         await initAudio();
 
         const fullText = codeInput.value;
-        const start = codeInput.selectionStart;
+        const cursor = codeInput.selectionStart;
         const end = codeInput.selectionEnd;
-        const hasSelection = start !== end;
+        const hasSelection = cursor !== end;
         
-        // [修正 1] 如果有選取，傳入 true 給 parseScore，強制其忽略 [Play: A B A]
-        // 這樣解析出來的音符就是「線性」對應到文本的，避免因流程控制而產生重複段落
-        let notes = parseScore(fullText, hasSelection);
+        // ---------------------------------------------------------
+        // 1. 智慧判斷：是否點擊在 [play: ...] 流程控制內
+        // ---------------------------------------------------------
+        const flowRegex = /^\[\s*play\s*:\s*(.*?)\]/im; 
+        const flowMatch = fullText.match(flowRegex);
+        
+        let textToParse = fullText;
+        let isFlowModeClick = false; 
+        let sourceMap = null; // [新增] 用來記錄虛擬樂譜與原始文本的對應關係
+
+        if (!hasSelection && flowMatch) {
+            const flowStart = flowMatch.index;
+            const flowEnd = flowStart + flowMatch[0].length;
+
+            if (cursor >= flowStart && cursor <= flowEnd) {
+                isFlowModeClick = true;
+                
+                // A. 解析 play 內容
+                const innerContent = flowMatch[1]; 
+                const innerStartOffset = flowStart + flowMatch[0].indexOf(innerContent);
+                
+                const tokenRegex = /\S+/g;
+                let tokenMatch;
+                let targetIndex = -1;
+                const tokens = [];
+
+                while ((tokenMatch = tokenRegex.exec(innerContent)) !== null) {
+                    const tokenStart = innerStartOffset + tokenMatch.index;
+                    const tokenEnd = tokenStart + tokenMatch[0].length;
+                    tokens.push(tokenMatch[0]); 
+
+                    if (targetIndex === -1 && cursor <= tokenEnd) {
+                        targetIndex = tokens.length - 1;
+                    }
+                }
+
+                if (targetIndex === -1 && tokens.length > 0) targetIndex = tokens.length - 1;
+
+                if (targetIndex !== -1) {
+                    // B. 取得播放順序
+                    const playSequence = tokens.slice(targetIndex);
+                    
+                    // C. 提取段落內容 (需包含原始位置資訊)
+                    const sectionMap = {};
+                    
+                    // 格式 1: [A]{...}
+                    const braceRegex = /\[([a-zA-Z0-9_-]+)\]\s*\{([^}]*)\}/g;
+                    let bMatch;
+                    while ((bMatch = braceRegex.exec(fullText)) !== null) {
+                        // 計算內容的真實起始位置 (大括號後面)
+                        const contentStart = bMatch.index + bMatch[0].indexOf(bMatch[2]);
+                        sectionMap[bMatch[1]] = { 
+                            content: bMatch[2], 
+                            startOffset: contentStart 
+                        };
+                    }
+                    
+                    // 格式 2: [A] ... [B]
+                    const headerRegex = /^\[([a-zA-Z0-9_-]+)\]\s*$/gm;
+                    let hMatch;
+                    const headers = [];
+                    while ((hMatch = headerRegex.exec(fullText)) !== null) {
+                         if (hMatch[1].toLowerCase() === 'play' || hMatch[1].toLowerCase() === 'rhythm') continue;
+                         headers.push({ label: hMatch[1], idx: hMatch.index, len: hMatch[0].length });
+                    }
+                    headers.forEach((h, i) => {
+                        if (sectionMap[h.label]) return;
+                        const sStart = h.idx + h.len;
+                        const sEnd = (i + 1 < headers.length) ? headers[i+1].idx : fullText.length;
+                        sectionMap[h.label] = { 
+                            content: fullText.substring(sStart, sEnd), 
+                            startOffset: sStart 
+                        };
+                    });
+
+                    // D. [關鍵] 組裝虛擬樂譜並建立 Source Map
+                    let virtualContent = "";
+                    sourceMap = []; 
+
+                    playSequence.forEach(id => {
+                        const sec = sectionMap[id];
+                        if (sec) {
+                            const vStart = virtualContent.length;
+                            virtualContent += sec.content + "\n"; 
+                            const vEnd = virtualContent.length;
+                            
+                            // 記錄這一段虛擬文字 對應到 原始文件的哪裡
+                            sourceMap.push({
+                                vStart: vStart,
+                                vEnd: vEnd,
+                                rStart: sec.startOffset
+                            });
+                        }
+                    });
+
+                    textToParse = virtualContent; 
+                }
+            }
+        }
+
+        // ---------------------------------------------------------
+        // 2. 解析樂譜
+        // ---------------------------------------------------------
+        let notes = parseScore(textToParse, hasSelection || isFlowModeClick);
 
         let hasPlayableNote = notes.some(n => n.play && !n.isRest && (n.type === 'note' || n.type === 'chord'));
         if (!hasPlayableNote) {
@@ -1658,34 +1758,34 @@ document.addEventListener('DOMContentLoaded', () => {
         isPlaying = true;
         updatePlayButtonUI('loading'); 
 
+        // ---------------------------------------------------------
+        // 3. 計算 Seek Time
+        // ---------------------------------------------------------
         let seekTime = 0;
         
-        if (hasSelection) {
-            savedSelection = { start: start, end: end };
-            
-            // [修正 2] 在選取模式下，找出「選取範圍內」最早的音符時間作為起點
+        if (isFlowModeClick) {
+            seekTime = 0; // 流程點擊模式總是從組裝好的起點開始
+        } 
+        else if (hasSelection) {
+            savedSelection = { start: cursor, end: end };
             const firstNote = notes.find(n => 
-                n.inputStart !== undefined && 
-                n.inputEnd !== undefined &&
-                // 只要音符的範圍與選取範圍有交集，就視為候選
-                Math.max(start, n.inputStart) < Math.min(end, n.inputEnd)
+                n.inputStart !== undefined && n.inputEnd !== undefined &&
+                Math.max(cursor, n.inputStart) < Math.min(end, n.inputEnd)
             );
-            
             if (firstNote) seekTime = firstNote.startTime;
-        } else {
-            // 游標播放模式
+        } 
+        else {
             savedSelection = null;
-            let targetNote = notes.find(n => start >= n.inputStart && start < n.inputEnd);
-            if (!targetNote) targetNote = notes.find(n => n.inputStart >= start);
+            let targetNote = notes.find(n => cursor >= n.inputStart && cursor < n.inputEnd);
+            if (!targetNote) targetNote = notes.find(n => n.inputStart >= cursor);
             if (targetNote) seekTime = targetNote.startTime;
         }
 
-        // [修正 3] 過濾無效樂器 (修復 undefined-mp3.js 404 錯誤)
-        // 這是導致程式卡死的元兇，務必加入 filter
+        // ---------------------------------------------------------
+        // 4. 載入與播放
+        // ---------------------------------------------------------
         const usedInstrumentVals = new Set(
-            notes
-            .filter(n => n.instrument) // 只保留有定義樂器的音符
-            .map(n => n.instrument)
+            notes.filter(n => n.instrument).map(n => n.instrument)
         );
         usedInstrumentVals.add(currentInstrument);
 
@@ -1707,44 +1807,56 @@ document.addEventListener('DOMContentLoaded', () => {
             let maxEndTime = 0;
 
             notes.forEach(note => {
-                // 過濾結構標記
                 if (['chordStart', 'chordEnd', 'groupStart', 'groupEnd', 'tieSymbol', 'repeatStart', 'repeatEnd'].includes(note.type)) return;
 
-                // [修正 4] 嚴格過濾邏輯：確保只播選取到的
                 if (hasSelection) {
-                    // 如果音符的文字範圍沒有落在選取範圍內，直接跳過
-                    // 邏輯：音符結束點 <= 選取開始點 (在左邊) OR 音符開始點 >= 選取結束點 (在右邊)
-                    // 這也自然解決了合奏時「選上行播到下行」的問題，因為下行的文字位置完全不同
-                    if (note.inputEnd <= start || note.inputStart >= end) return;
+                    if (note.inputEnd <= cursor || note.inputStart >= end) return;
                 } else {
-                    // 游標模式：只過濾時間
                     if (note.startTime < seekTime - 0.01) return;
                 }
 
-                // 計算相對時間 (將 seekTime 視為 0)
                 const relativeNoteTime = note.startTime - seekTime;
                 const noteAbsStart = startTime + relativeNoteTime * beatTime;
 
-                // --- UI 高亮 ---
+                // -----------------------------------------------------
+                // [關鍵修復] UI 高亮邏輯 (支援座標轉換)
+                // -----------------------------------------------------
                 if (note.inputStart !== undefined && note.inputEnd !== undefined) {
                     if (note.isMainTrack) {
                         const delayMs = (noteAbsStart - now) * 1000;
                         if (delayMs >= -50) { 
                             const timerId = setTimeout(() => {
                                 if (!isPlaying) return;
-                                highlightInput(note.inputStart, note.inputEnd);
-                                lastPlayedNoteEnd = note.inputEnd; 
+                                
+                                let hlStart = note.inputStart;
+                                let hlEnd = note.inputEnd;
+
+                                // 如果是流程模式，需要將虛擬座標轉回原始座標
+                                if (isFlowModeClick && sourceMap) {
+                                    // 找出此音符屬於哪一個區塊
+                                    const mapping = sourceMap.find(m => hlStart >= m.vStart && hlStart < m.vEnd);
+                                    if (mapping) {
+                                        const offset = hlStart - mapping.vStart;
+                                        hlStart = mapping.rStart + offset;
+                                        // 使用相對長度計算結束點
+                                        hlEnd = hlStart + (note.inputEnd - note.inputStart);
+                                    } else {
+                                        return; // 找不到對應，跳過高亮
+                                    }
+                                }
+
+                                highlightInput(hlStart, hlEnd);
+                                lastPlayedNoteEnd = hlEnd; // 記錄位置
                             }, delayMs);
                             activeTimers.push(timerId);
                         }
                     }
                 }
 
-                // --- 音訊播放 ---
+                // ... (音訊播放邏輯保持不變) ...
                 if (note.play) {
                     const absDur = note.duration * beatTime;
                     const noteEndTime = noteAbsStart + absDur;
-                    // 使用調整後的 noteAbsStart 來計算結束時間，確保進度條長度正確
                     if (noteEndTime > maxEndTime) maxEndTime = noteEndTime;
 
                     if (note.type === 'chord' && note.chordFreqs) {
@@ -1780,8 +1892,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // 設定自動停止計時器 (使用新的 maxEndTime - now)
-            // 確保只等待選取範圍播放完畢的時間
             const totalDurationSec = maxEndTime - now;
             if (totalDurationSec > 0) {
                 playbackTimer = setTimeout(() => {
