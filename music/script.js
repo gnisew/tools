@@ -409,7 +409,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			{ char: 'z', display: 'z', type: 'letter' }, { char: 'x', display: 'x', type: 'letter' }, { char: 'c', display: 'c', type: 'letter' },
 			{ char: 'v', display: 'v', type: 'letter' }, { char: 'b', display: 'b', type: 'letter' }, { char: 'n', display: 'n', type: 'letter' },
 			{ char: 'm', display: 'm', type: 'letter' },
-			{ char: ':', display: ':', type: 'normal'},
+			{ char: ';', display: ';', type: 'normal'},
 			
 			
 			{ char: 'backspace', display: '⌫', type: 'func' },
@@ -421,8 +421,8 @@ document.addEventListener('DOMContentLoaded', () => {
             { display: '快', type: 'switch', target: 'snippet', class: 'mode-btn' },
 			{ char: ' ', display: 'Space', type: 'space', class: 'space-btn span-3' },
 			{ char: '.', display: '.', type: 'normal'},
+			{ char: ':', display: ':', type: 'normal' },
 			{ char: '/', display: '/', type: 'normal' },
-
 				{ 
 					char: '\n', 
 					display: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 10 4 15 9 20"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4"></path></svg>', 
@@ -1651,7 +1651,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let textToParse = fullText;
         let isFlowModeClick = false; 
-        let sourceMap = null; // [新增] 用來記錄虛擬樂譜與原始文本的對應關係
+        let sourceMap = null; 
 
         if (!hasSelection && flowMatch) {
             const flowStart = flowMatch.index;
