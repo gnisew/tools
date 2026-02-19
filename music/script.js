@@ -1210,7 +1210,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 sectionMap[label] = { content: content, startOffset: realStartOffset };
             }
 
-            const headerRegex = /^\[([a-zA-Z0-9_-]+)\]\s*$/gm;
+            const headerRegex = /^\[([a-zA-Z0-9_-]+)\].*$/gm;
             let hMatch;
             let headers = [];
             while ((hMatch = headerRegex.exec(textForParsing)) !== null) {
@@ -1251,7 +1251,7 @@ document.addEventListener('DOMContentLoaded', () => {
                  let lineContent = textForParsing.substring(ptr, endIdx);
                  if (lineContent.endsWith('\r')) lineContent = lineContent.slice(0, -1);
                  
-                 if (!lineContent.trim().match(/^\[([a-zA-Z0-9_-]+)\]$/)) {
+                 if (!lineContent.trim().match(/^\[([a-zA-Z0-9_-]+)\].*$/)) {
                      lines.push({ text: lineContent, startIndex: ptr });
                  }
                  ptr = endIdx + 1; 
@@ -1318,6 +1318,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     let tempToken = cleanStr;
                     const tokenAbsStart = lineObj.startIndex + textOffsetInLine + inputIdx;
                     const tokenAbsEnd = tokenAbsStart + token.length;
+
+                    // [關鍵修正] 忽略 [A1], [B] 等段落標記，避免裡面的數字被誤認為音符
+                    if (/^\[.*\]$/.test(cleanStr)) { 
+                        inputIdx += inputLen; 
+                        return; 
+                    }
 
                     if (cleanStr === '<') { rawLineNotes.push({ type: 'groupStart', play: false, duration: 0, visualDuration: 0, inputStart: tokenAbsStart, inputEnd: tokenAbsEnd }); inputIdx += inputLen; return; }
                     if (cleanStr === '>') { rawLineNotes.push({ type: 'groupEnd', play: false, duration: 0, visualDuration: 0, inputStart: tokenAbsStart, inputEnd: tokenAbsEnd }); inputIdx += inputLen; return; }
@@ -1576,8 +1582,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // 播放邏輯
-    // [修正] 播放邏輯 (支援嚴格選取播放、過濾合奏滲漏、404修復)
-    // [修正] 播放邏輯 (包含修復後的 getFreq)
     async function playMusic() {
         if (isPlaying) {
             stopMusic();
@@ -1590,8 +1594,48 @@ document.addEventListener('DOMContentLoaded', () => {
         const start = codeInput.selectionStart;
         const end = codeInput.selectionEnd;
         const hasSelection = start !== end;
-        
-        let notes = parseScore(fullText, hasSelection);
+
+        // [關鍵修正 1] 動態決定解析文本與播放模式
+        let textToParse = fullText;
+        let ignoreFlow = hasSelection;
+
+        if (!hasSelection) {
+            const playRegex = /^\[\s*play\s*:\s*(.*?)\]/im;
+            const flowMatch = playRegex.exec(fullText);
+
+            if (flowMatch) {
+                const playBlockStart = flowMatch.index;
+                const playBlockEnd = playBlockStart + flowMatch[0].length;
+
+                if (start > playBlockEnd) {
+                    // 游標在 [Play: ...] 區塊之後 (例如點在 [A1] 定義內)
+                    // 使用者預期從此處開始聽，因此忽略流程，改為線性播放
+                    ignoreFlow = true;
+                } else if (start > playBlockStart && start <= playBlockEnd) {
+                    // 游標在 [Play: ...] 區塊之內
+                    // 動態將游標「前面」的段落 ID 替換為空白，讓系統只跑後面的流程
+                    let tokenStart = start;
+                    
+                    // 往回找，直到遇到空白或冒號，定位當前單字的開頭
+                    while (tokenStart > playBlockStart && !/[\s:]/.test(fullText[tokenStart - 1])) {
+                        tokenStart--;
+                    }
+
+                    const prefixLength = fullText.indexOf(':', playBlockStart) + 1;
+                    if (tokenStart > prefixLength) {
+                        // 產生等長的空白來填補，確保文字長度不變，不破壞後續音符的游標高亮座標
+                        const spaces = " ".repeat(tokenStart - prefixLength);
+                        const originalArgsAfter = fullText.substring(tokenStart, playBlockEnd);
+                        const newPlayBlock = fullText.substring(playBlockStart, prefixLength) + spaces + originalArgsAfter;
+                        
+                        textToParse = fullText.substring(0, playBlockStart) + newPlayBlock + fullText.substring(playBlockEnd);
+                    }
+                }
+            }
+        }
+
+        // 使用動態調整後的文字進行解析
+        let notes = parseScore(textToParse, ignoreFlow);
 
         let hasPlayableNote = notes.some(n => n.play && !n.isRest && (n.type === 'note' || n.type === 'chord'));
         if (!hasPlayableNote) {
@@ -1605,6 +1649,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let seekTime = 0;
         
+        // [關鍵修正 2] 尋找起始播放時間 (seekTime)
         if (hasSelection) {
             savedSelection = { start: start, end: end };
             const firstNote = notes.find(n => 
@@ -1874,30 +1919,36 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // ========================================================
-        // 2. 展開緊湊的同時演奏括號 (例如 (1.13) -> ( 1. 1 3 ) )
+        // 2. 展開緊湊的同時演奏括號，並分配外部修飾符
         // ========================================================
-        // [關鍵修正 1] 暫時保護連結線 ((，避免它被當成一般括號的起點
         protectedText = protectedText.replace(/\(\(/g, '___TIE___');
 
-        // [關鍵修正 2] 括號匹配不能跨行：使用 [^)\r\n]+ 限定只在同行內尋找
-        protectedText = protectedText.replace(/\(([^)\r\n]+)\)/g, (match, content) => {
+        // [關鍵修正] 捕捉右括號後方緊接著的時值修飾符 (如 /、*、-)
+        protectedText = protectedText.replace(/\(([^)\r\n]+)\)([\/\\*-]*)/g, (match, content, groupSuffix) => {
             let tokens = [];
             let parts = content.trim().split(/\s+/);
             
             parts.forEach(part => {
-                // 如果是獨立的時值、升降號、英文字母，或是三連音符號，直接保留原樣
-                if (/^[\/\\*-]+$/.test(part) || /^[b#]$/.test(part) || /^[a-zA-Z]$/.test(part) || part.includes('<') || part.includes('>')) {
+                // 如果是獨立的時值、升降號、英文字母，或是三連音符號，直接保留，不附加 groupSuffix
+                if (/^[\/\\*-]+$/.test(part) || /^[b#z]$/.test(part) || /^[a-zA-Z]$/.test(part) || part.includes('<') || part.includes('>')) {
                     tokens.push(part);
                 } else {
                     let segments = part.split("'");
                     segments.forEach(seg => {
                         if (seg) {
-                            let found = seg.match(/[b#]*[.:]*[0-7][.:]*[\/\\*-]*/g);
-                            if (found) tokens.push(...found);
+                            // 捕捉音高與其自帶的修飾符
+                            let found = seg.match(/[b#z]*[.:]*[0-7][.:]*[\/\\*-]*/g);
+                            if (found) {
+                                found.forEach(n => {
+                                    // 將括號外的時值修飾符 (groupSuffix) 分配給每一個音符
+                                    tokens.push(n + groupSuffix);
+                                });
+                            }
                         }
                     });
                 }
             });
+            // 強制加上空格，讓每個音符獨立
             return '( ' + tokens.join(' ') + ' )';
         });
 
