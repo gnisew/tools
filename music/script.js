@@ -2711,12 +2711,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('menu-btn').addEventListener('click', () => toggleSidebar());
     document.getElementById('overlay').addEventListener('click', () => toggleSidebar(false));
     
-    document.getElementById('layout-btn').addEventListener('click', () => {
-        const workspace = document.getElementById('workspace');
-        workspace.classList.toggle('layout-horizontal');
-        workspace.classList.toggle('layout-vertical');
-    });
-
     if(toggleToolbarBtn) {
         toggleToolbarBtn.addEventListener('click', () => {
             quickToolbar.classList.toggle('hidden');
