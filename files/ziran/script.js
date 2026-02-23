@@ -556,7 +556,7 @@ function loginUser(name, classNum, avatar, quizCode) {
                     // ★ 練習模式下：
                     quizModeBtn.classList.remove('bg-purple-600', 'text-white', 'border-purple-600');
                     quizModeBtn.classList.add('bg-white', 'text-gray-600', 'border-gray-300', 'hover:bg-gray-50');
-                    quizModeBtn.innerHTML = '<span class="material-icons-outlined text-base">assignment</span><span>練習</span>';
+                    quizModeBtn.innerHTML = '<span class="material-icons-outlined text-base">assignment</span><span>進入測驗</span>';
                     
                     if (hasStartedAnswering) {
                         quizModeBtn.style.pointerEvents = 'none'; 
