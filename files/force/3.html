@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>注射筒水力傳送-烏衣行🥷</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in-up {
+      animation: fadeInUp 0.3s ease-out forwards;
+    }
+    /* 防止在 SVG 區域拖曳時畫面捲動 */
+    .touch-none-area {
+      touch-action: none;
+    }
+    /* 選項按鈕點擊動畫 */
+    .btn-scale:active {
+      transform: scale(0.95);
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-sky-50 font-sans text-gray-800 pb-10 selection:bg-blue-200">
+
+
+  <main class="max-w-4xl mx-auto mt-4 px-3 sm:px-4 space-y-6">
+    
+    <!-- 互動實驗區 -->
+    <section class="bg-white rounded-3xl shadow-xl border-2 border-blue-100 overflow-hidden flex flex-col">
+      <!-- 模式切換區 -->
+      <div class="bg-blue-600 px-4 py-2 sm:py-3 flex justify-between items-center text-white z-10">
+        <h2 class="text-base sm:text-lg font-bold flex items-center">
+          <span class="bg-white text-blue-600 p-1 rounded-lg mr-2 shadow-sm"><i data-lucide="flask-conical" class="w-4 h-4 sm:w-5 sm:h-5"></i></span> 
+          🥷烏衣行-注射筒水力傳送
+        </h2>
+        <!-- 雙模式切換按鈕 -->
+        <div class="flex bg-blue-800 rounded-lg p-1">
+          <button id="btnFreeMode" class="px-3 sm:px-4 py-1 sm:py-1.5 rounded-md bg-white text-blue-800 font-bold text-sm transition-colors shadow-sm">自由操作</button>
+          <button id="btnQuizMode" class="px-3 sm:px-4 py-1 sm:py-1.5 rounded-md text-white font-bold text-sm transition-colors">測驗遊戲</button>
+        </div>
+      </div>
+
+      <!-- 面板 1：自由操作模式 -->
+      <div id="panelFreeMode" class="bg-blue-50 px-4 sm:px-6 py-3 border-b border-blue-100 flex justify-between items-center gap-2 z-10">
+        <div class="font-bold text-blue-800 flex items-center text-sm sm:text-base">
+          <i data-lucide="hand" class="w-5 h-5 mr-1 sm:mr-2 text-blue-500"></i> 請上下拖曳橘色把手
+        </div>
+        <div class="font-bold text-sm sm:text-base bg-white px-3 py-1 rounded-full border border-blue-200 text-gray-600 shadow-sm">
+          總水量：<span class="text-blue-600">25 mL</span>
+        </div>
+      </div>
+
+      <!-- 面板 2：測驗遊戲模式 (預設隱藏) -->
+      <div id="panelQuizMode" class="hidden bg-purple-50 px-4 sm:px-6 py-3 border-b border-purple-100 flex-col gap-3 z-10">
+        <div class="flex justify-between items-center">
+          <div class="font-bold text-purple-800 flex items-center text-base sm:text-lg">
+            <i data-lucide="gamepad-2" class="w-5 h-5 mr-1 sm:mr-2"></i> 實境測驗 (<span id="quizProgress">1/5</span>)
+          </div>
+          <div class="text-sm font-bold bg-white px-3 py-1 rounded-full shadow-sm border border-purple-200">
+            ✅ <span id="scoreCorrect" class="text-green-600">0</span> ｜ 
+            ❌ <span id="scoreWrong" class="text-red-600">0</span>
+          </div>
+        </div>
+        
+        <!-- 題目區 (單行顯示) -->
+        <div id="quizQuestion" class="text-base sm:text-lg font-black text-gray-800 transition-colors duration-300">
+          <!-- 題目內容由 JS 動態產生 -->
+        </div>
+
+        <!-- 選項按鈕區 -->
+        <div id="quizOptions" class="grid grid-cols-3 gap-2 w-full">
+          <!-- 選項由 JS 動態產生 -->
+        </div>
+      </div>
+
+      <!-- 實驗畫布 (調整 viewBox 切除上下留白，放大注射筒) -->
+      <div class="relative w-full bg-white overflow-hidden flex justify-center items-center select-none touch-none-area h-[260px] sm:h-[340px]" id="svgContainer">
+        
+        <!-- 左上角漂浮提示 (Toast) -->
+        <div id="toastPrompt" class="absolute top-3 left-3 sm:top-4 sm:left-4 bg-orange-500 text-white px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl shadow-lg font-bold text-sm sm:text-base transition-all duration-300 transform -translate-x-[120%] opacity-0 pointer-events-none z-20 flex items-center border-2 border-orange-300">
+          👉 拖曳 A 到 <span id="toastTarget" class="mx-1 text-yellow-200 text-lg"></span> mL 驗證！
+        </div>
+
+        <!-- 右下角漂浮按鈕 -->
+        <button id="quizNextBtn" class="hidden absolute bottom-3 right-3 sm:bottom-4 sm:right-4 px-5 py-2 sm:px-6 sm:py-2.5 bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white font-bold rounded-full text-sm sm:text-base shadow-lg border-2 border-purple-400 transition-transform btn-scale flex items-center z-20">
+          下一題 <i data-lucide="arrow-right" class="ml-1 w-4 h-4 sm:w-5 sm:h-5"></i>
+        </button>
+
+        <!-- SVG 畫布 (viewBox 調整為 100 20 400 420 以放大並切除空白) -->
+        <svg id="experimentCanvas" viewBox="100 20 400 420" class="w-full h-full drop-shadow-sm touch-none-area">
+          
+          <!-- 連通管 (背景塑膠管) -->
+          <path d="M 170 340 C 170 440, 430 440, 430 340" fill="none" stroke="#e2e8f0" stroke-width="14" stroke-linecap="round" />
+          
+          <!-- 連通管裡的水 -->
+          <path d="M 170 340 C 170 440, 430 440, 430 340" fill="none" stroke="#3b82f6" stroke-width="10" stroke-linecap="round" class="opacity-80" />
+
+          <!-- ================= 注射筒 A (左側) ================= -->
+          <g transform="translate(150, 165)">
+            <!-- 標籤 A -->
+            <circle cx="-35" cy="190" r="16" fill="#3b82f6" />
+            <text x="-35" y="190" class="text-lg font-black fill-white text-center" text-anchor="middle" dominant-baseline="middle">A</text>
+
+            <!-- 刻度與文字 -->
+            <text x="-12" y="10" class="text-sm font-bold fill-gray-500" dominant-baseline="middle" text-anchor="end">mL</text>
+            <text x="-12" y="30" class="text-sm font-bold fill-gray-500" dominant-baseline="middle" text-anchor="end">25</text>
+            <text x="-12" y="55" class="text-sm font-bold fill-gray-500" dominant-baseline="middle" text-anchor="end">20</text>
+            <text x="-12" y="80" class="text-sm font-bold fill-gray-500" dominant-baseline="middle" text-anchor="end">15</text>
+            <text x="-12" y="105" class="text-sm font-bold fill-gray-500" dominant-baseline="middle" text-anchor="end">10</text>
+            <text x="-12" y="130" class="text-sm font-bold fill-gray-500" dominant-baseline="middle" text-anchor="end">5</text>
+            <text x="-12" y="155" class="text-sm font-bold fill-gray-500" dominant-baseline="middle" text-anchor="end">0</text>
+            
+            <!-- 刻度線 -->
+            <path d="M 0 30 L 10 30 M 0 55 L 10 55 M 0 80 L 10 80 M 0 105 L 10 105 M 0 130 L 10 130 M 0 155 L 10 155" stroke="#94a3b8" stroke-width="2" />
+            
+            <!-- 筒身 -->
+            <rect x="0" y="15" width="40" height="145" fill="#f8fafc" stroke="#94a3b8" stroke-width="3" rx="2" opacity="0.6"/>
+            <!-- 底部出水口 (Nozzle) -->
+            <rect x="13" y="160" width="14" height="15" fill="#f8fafc" stroke="#94a3b8" stroke-width="3" opacity="0.6"/>
+            
+            <!-- A 水量 -->
+            <rect id="waterA" x="3" y="30" width="34" height="125" fill="#3b82f6" class="opacity-80" />
+            <!-- Nozzle裡面的靜態水 -->
+            <rect x="15" y="160" width="10" height="15" fill="#3b82f6" class="opacity-80" />
+            
+            <!-- A 活塞 (Plunger) -->
+            <g id="plungerA" transform="translate(0, 30)">
+              <rect x="2" y="-15" width="36" height="15" fill="#1e293b" />
+              <rect x="12" y="-140" width="16" height="125" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="2" />
+              <!-- 頂端把手 (改亮橘色提示) -->
+              <rect x="-10" y="-150" width="60" height="10" fill="#f59e0b" rx="3" />
+              
+              <!-- 上方靜態箭頭提示 (預設隱藏，不再跳動) -->
+              <g id="dragHintArrow" transform="translate(20, -170)" style="display: none;">
+                <path d="M-8 0 L8 0 L0 12 Z" fill="#ef4444" />
+                <rect x="-3" y="-12" width="6" height="12" fill="#ef4444" />
+              </g>
+
+              <!-- 拖曳感應區 -->
+              <rect id="dragHandleA" x="-30" y="-180" width="100" height="80" fill="transparent" class="cursor-grab" />
+            </g>
+          </g>
+
+          <!-- ================= 注射筒 B (右側) ================= -->
+          <g transform="translate(410, 165)">
+            <!-- 標籤 B -->
+            <circle cx="75" cy="190" r="16" fill="#06b6d4" />
+            <text x="75" y="190" class="text-lg font-black fill-white text-center" text-anchor="middle" dominant-baseline="middle">B</text>
+
+            <!-- 刻度與文字 -->
+            <text x="52" y="10" class="text-sm font-bold fill-gray-500" dominant-baseline="middle" text-anchor="start">mL</text>
+            <text x="52" y="30" class="text-sm font-bold fill-gray-500" dominant-baseline="middle" text-anchor="start">25</text>
+            <text x="52" y="55" class="text-sm font-bold fill-gray-500" dominant-baseline="middle" text-anchor="start">20</text>
+            <text x="52" y="80" class="text-sm font-bold fill-gray-500" dominant-baseline="middle" text-anchor="start">15</text>
+            <text x="52" y="105" class="text-sm font-bold fill-gray-500" dominant-baseline="middle" text-anchor="start">10</text>
+            <text x="52" y="130" class="text-sm font-bold fill-gray-500" dominant-baseline="middle" text-anchor="start">5</text>
+            <text x="52" y="155" class="text-sm font-bold fill-gray-500" dominant-baseline="middle" text-anchor="start">0</text>
+            
+            <!-- 刻度線 -->
+            <path d="M 40 30 L 30 30 M 40 55 L 30 55 M 40 80 L 30 80 M 40 105 L 30 105 M 40 130 L 30 130 M 40 155 L 30 155" stroke="#94a3b8" stroke-width="2" />
+            
+            <!-- 筒身 -->
+            <rect x="0" y="15" width="40" height="145" fill="#f8fafc" stroke="#94a3b8" stroke-width="3" rx="2" opacity="0.6"/>
+            <!-- 底部出水口 (Nozzle) -->
+            <rect x="13" y="160" width="14" height="15" fill="#f8fafc" stroke="#94a3b8" stroke-width="3" opacity="0.6"/>
+            
+            <!-- B 水量 (動態) -->
+            <rect id="waterB" x="3" y="155" width="34" height="0" fill="#3b82f6" class="opacity-80" />
+            <!-- Nozzle裡面的靜態水 -->
+            <rect x="15" y="160" width="10" height="15" fill="#3b82f6" class="opacity-80" />
+            
+            <!-- B 活塞 (Plunger) -->
+            <g id="plungerB" transform="translate(0, 155)">
+              <rect x="2" y="-15" width="36" height="15" fill="#1e293b" />
+              <rect x="12" y="-140" width="16" height="125" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="2" />
+              <rect x="-10" y="-150" width="60" height="10" fill="#475569" rx="3" />
+            </g>
+          </g>
+
+        </svg>
+      </div>
+
+    </section>
+
+    <!-- 課後觀念挑戰區 -->
+    <section class="bg-white rounded-3xl shadow-lg border-2 border-green-100 overflow-hidden" id="quiz-section">
+      <div class="bg-green-600 px-4 sm:px-6 py-3 flex items-center text-white">
+        <h2 class="text-base sm:text-xl font-bold flex items-center">
+          <span class="bg-white text-green-600 p-1 rounded-lg mr-2 shadow-sm">📝</span> 
+          課後觀念挑戰
+        </h2>
+      </div>
+      <div class="p-3 sm:p-5" id="staticQuizContainer">
+        <!-- 測驗內容由 JS 動態生成 -->
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // ==========================================
+    // 介面與模式控制
+    // ==========================================
+    const btnFreeMode = document.getElementById('btnFreeMode');
+    const btnQuizMode = document.getElementById('btnQuizMode');
+    const panelFreeMode = document.getElementById('panelFreeMode');
+    const panelQuizMode = document.getElementById('panelQuizMode');
+
+    let labMode = 'free'; // 'free' | 'quiz'
+
+    btnFreeMode.addEventListener('click', () => setMode('free'));
+    btnQuizMode.addEventListener('click', () => setMode('quiz'));
+
+    function setMode(mode) {
+      labMode = mode;
+      if (mode === 'free') {
+        // UI 切換
+        btnFreeMode.className = "px-3 sm:px-4 py-1 sm:py-1.5 rounded-md bg-white text-blue-800 font-bold text-sm transition-colors shadow-sm";
+        btnQuizMode.className = "px-3 sm:px-4 py-1 sm:py-1.5 rounded-md text-white font-bold text-sm transition-colors";
+        panelFreeMode.classList.remove('hidden');
+        panelFreeMode.classList.add('flex');
+        panelQuizMode.classList.add('hidden');
+        panelQuizMode.classList.remove('flex');
+      } else {
+        // UI 切換
+        btnQuizMode.className = "px-3 sm:px-4 py-1 sm:py-1.5 rounded-md bg-white text-blue-800 font-bold text-sm transition-colors shadow-sm";
+        btnFreeMode.className = "px-3 sm:px-4 py-1 sm:py-1.5 rounded-md text-white font-bold text-sm transition-colors";
+        panelFreeMode.classList.add('hidden');
+        panelFreeMode.classList.remove('flex');
+        panelQuizMode.classList.remove('hidden');
+        panelQuizMode.classList.add('flex');
+        
+        // 若測驗尚未初始化，啟動測驗
+        if (labQuizState === 'uninit') {
+          startLabQuiz();
+        } else {
+          // 強制 A 回到題目指定的起始點
+          currentValA = labQuestions[currentLabQIdx].startA;
+          updateSyringeUI(currentValA);
+        }
+      }
+    }
+
+    // ==========================================
+    // 實境測驗遊戲邏輯
+    // ==========================================
+    let labQuizState = 'uninit'; // 'uninit' | 'waiting_for_guess' | 'waiting_for_drag' | 'completed'
+    let currentLabQIdx = 0;
+    let labScore = { correct: 0, wrong: 0 };
+    let selectedOptionIdx = null;
+    let toastTimeout = null;
+    let hasShownArrowHint = false;
+    let hasShownToastHint = false;
+
+// 實境測驗「總題庫」(12題)
+    const allLabQuestions = [
+      // --- 正確答案在第 1 個選項 (Index 0) ---
+      { startA: 25, endA: 15, options: [10, 5, 15],  correctVal: 10, dirText: "壓到", bDir: "上升" },
+      { startA: 15, endA: 5,  options: [20, 15, 25], correctVal: 20, dirText: "壓到", bDir: "上升" },
+      { startA: 5,  endA: 20, options: [5, 0, 15],   correctVal: 5,  dirText: "拉回", bDir: "下降" },
+      { startA: 20, endA: 0,  options: [25, 15, 20], correctVal: 25, dirText: "壓到", bDir: "上升" },
+
+      // --- 正確答案在第 2 個選項 (Index 1) ---
+      { startA: 0,  endA: 15, options: [5, 10, 15],  correctVal: 10, dirText: "拉回", bDir: "下降" },
+      { startA: 10, endA: 0,  options: [15, 25, 20], correctVal: 25, dirText: "壓到", bDir: "上升" },
+      { startA: 25, endA: 5,  options: [10, 20, 15], correctVal: 20, dirText: "壓到", bDir: "上升" },
+      { startA: 20, endA: 10, options: [5, 15, 10],  correctVal: 15, dirText: "壓到", bDir: "上升" },
+
+      // --- 正確答案在第 3 個選項 (Index 2) ---
+      { startA: 0,  endA: 25, options: [10, 20, 0],  correctVal: 0,  dirText: "拉到", bDir: "下降" },
+      { startA: 10, endA: 25, options: [5, 15, 0],   correctVal: 0,  dirText: "拉到", bDir: "下降" },
+      { startA: 5,  endA: 15, options: [15, 20, 10], correctVal: 10, dirText: "拉回", bDir: "下降" },
+      { startA: 15, endA: 20, options: [0, 10, 5],   correctVal: 5,  dirText: "拉回", bDir: "下降" }
+    ];
+
+    // 用來存放「當次測驗」抽出的 5 題
+    let labQuestions = [];
+
+    const elQuizProgress = document.getElementById('quizProgress');
+    const elQuizQuestion = document.getElementById('quizQuestion');
+    const elQuizOptions = document.getElementById('quizOptions');
+    const elQuizNextBtn = document.getElementById('quizNextBtn');
+    const elScoreCorrect = document.getElementById('scoreCorrect');
+    const elScoreWrong = document.getElementById('scoreWrong');
+    const elToastPrompt = document.getElementById('toastPrompt');
+    const elToastTarget = document.getElementById('toastTarget');
+
+    function showToastPrompt(targetML) {
+      elToastTarget.innerText = targetML;
+      elToastPrompt.classList.remove('-translate-x-[120%]', 'opacity-0');
+      
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        elToastPrompt.classList.add('-translate-x-[120%]', 'opacity-0');
+      }, 3500); // 3.5秒後自動消失
+    }
+
+    function hideToastPrompt() {
+      if (toastTimeout) clearTimeout(toastTimeout);
+      elToastPrompt.classList.add('-translate-x-[120%]', 'opacity-0');
+    }
+
+	function startLabQuiz() {
+      currentLabQIdx = 0;
+      labScore = { correct: 0, wrong: 0 };
+      
+      // 1. 複製一份總題庫來洗牌，以免把原本的大題庫順序弄壞
+      let shuffledPool = [...allLabQuestions];
+      
+      // 2. 使用 Fisher-Yates 演算法隨機打亂題庫
+      for (let i = shuffledPool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledPool[i], shuffledPool[j]] = [shuffledPool[j], shuffledPool[i]];
+      }
+      
+      // 3. 從打亂後的題庫中，只取出前 5 題作為本次測驗題目
+      labQuestions = shuffledPool.slice(0, 5);
+
+      updateLabScoreUI();
+      loadLabQuestion();
+    }
+
+    function loadLabQuestion() {
+      const q = labQuestions[currentLabQIdx];
+      labQuizState = 'waiting_for_guess';
+      selectedOptionIdx = null;
+      hideToastPrompt();
+
+      // 重設畫面與數值
+      currentValA = q.startA;
+      updateSyringeUI(currentValA);
+
+      // 確保箭頭提示初始為隱藏 (等到選擇答案後才可能顯示)
+      document.getElementById('dragHintArrow').style.display = 'none';
+
+      // 更新題目 UI (單行無換行)
+      elQuizProgress.innerText = `${currentLabQIdx + 1}/${labQuestions.length}`;
+      elQuizQuestion.innerHTML = `請預測：當 A 從 <span class="text-blue-600">${q.startA} mL </span> ${q.dirText} <span class="text-blue-600">${q.endA} mL</span> 時，B 會從 ${25 - q.startA} mL ${q.bDir}到哪裡？`;
+      
+      // 產生選項
+      elQuizOptions.innerHTML = '';
+      q.options.forEach((optVal, idx) => {
+        const btn = document.createElement('button');
+        btn.className = "py-2 sm:py-3 bg-white border-2 border-purple-200 rounded-xl font-bold text-base sm:text-lg text-purple-700 shadow-sm transition-all btn-scale flex justify-center items-center";
+        btn.innerText = `${optVal} mL`;
+        btn.onclick = () => selectLabOption(idx);
+        elQuizOptions.appendChild(btn);
+      });
+
+      // 隱藏下一題按鈕
+      elQuizNextBtn.classList.add('hidden');
+    }
+
+    function selectLabOption(idx) {
+      if (labQuizState !== 'waiting_for_guess') return;
+      
+      selectedOptionIdx = idx;
+      labQuizState = 'waiting_for_drag';
+      const q = labQuestions[currentLabQIdx];
+
+      // 更新按鈕外觀
+      Array.from(elQuizOptions.children).forEach((btn, i) => {
+        if (i === idx) {
+          btn.className = "py-2 sm:py-3 bg-purple-600 border-2 border-purple-700 rounded-xl font-bold text-base sm:text-lg text-white shadow-md flex justify-center items-center transition-all";
+        } else {
+          btn.className = "py-2 sm:py-3 bg-gray-50 border-2 border-gray-200 rounded-xl font-bold text-base sm:text-lg text-gray-400 opacity-60 flex justify-center items-center transition-all";
+        }
+      });
+
+      // 顯示左上角漂浮通知 (只提示第一次)
+      if (!hasShownToastHint) {
+        showToastPrompt(q.endA);
+        hasShownToastHint = true;
+      }
+
+      // 顯示靜態箭頭提示 (只顯示一次)
+      if (!hasShownArrowHint) {
+        document.getElementById('dragHintArrow').style.display = 'block';
+        hasShownArrowHint = true;
+      }
+    }
+
+    function verifyLabDragResult() {
+      const q = labQuestions[currentLabQIdx];
+      const selectedVal = q.options[selectedOptionIdx];
+      const isCorrect = (selectedVal === q.correctVal);
+      const correctIdx = q.options.indexOf(q.correctVal);
+
+      // 隱藏 Toast 通知
+      hideToastPrompt();
+      
+      // 顯示漂浮的下一題按鈕
+      elQuizNextBtn.classList.remove('hidden');
+
+      // 更新選項按鈕顏色與圖示 (標示正確與錯誤)
+      Array.from(elQuizOptions.children).forEach((btn, i) => {
+        if (i === correctIdx) {
+          // 正確答案標綠色 + V
+          btn.className = "py-2 sm:py-3 bg-green-500 border-2 border-green-600 rounded-xl font-bold text-base sm:text-lg text-white shadow-md flex justify-center items-center transition-all animate-fade-in-up";
+          btn.innerHTML = `${q.options[i]} mL <i data-lucide="check-circle" class="ml-1.5 w-5 h-5"></i>`;
+        } else if (i === selectedOptionIdx && !isCorrect) {
+          // 錯誤猜測標紅色 + X
+          btn.className = "py-2 sm:py-3 bg-red-500 border-2 border-red-600 rounded-xl font-bold text-base sm:text-lg text-white shadow-md flex justify-center items-center transition-all animate-fade-in-up";
+          btn.innerHTML = `${q.options[i]} mL <i data-lucide="x-circle" class="ml-1.5 w-5 h-5"></i>`;
+        } else {
+          // 其他維持淡化
+          btn.className = "py-2 sm:py-3 bg-gray-50 border-2 border-gray-200 rounded-xl font-bold text-base sm:text-lg text-gray-400 opacity-40 flex justify-center items-center transition-all";
+          btn.innerHTML = `${q.options[i]} mL`;
+        }
+      });
+
+      if (isCorrect) labScore.correct++;
+      else labScore.wrong++;
+
+      updateLabScoreUI();
+      
+      if (currentLabQIdx === labQuestions.length - 1) {
+        elQuizNextBtn.innerHTML = `重新測驗 <i data-lucide="rotate-ccw" class="ml-1 w-4 h-4 sm:w-5 sm:h-5"></i>`;
+      } else {
+        elQuizNextBtn.innerHTML = `下一題 <i data-lucide="arrow-right" class="ml-1 w-4 h-4 sm:w-5 sm:h-5"></i>`;
+      }
+      lucide.createIcons();
+    }
+
+    elQuizNextBtn.addEventListener('click', () => {
+      if (currentLabQIdx === labQuestions.length - 1) {
+        startLabQuiz(); // 重新開始
+      } else {
+        currentLabQIdx++;
+        loadLabQuestion();
+      }
+    });
+
+    function updateLabScoreUI() {
+      elScoreCorrect.innerText = labScore.correct;
+      elScoreWrong.innerText = labScore.wrong;
+    }
+
+
+    // ==========================================
+    // 實驗區核心互動邏輯 (拖曳控制與自動煞車)
+    // ==========================================
+    const svg = document.getElementById('experimentCanvas');
+    const dragHandleA = document.getElementById('dragHandleA');
+    const dragHintArrow = document.getElementById('dragHintArrow');
+    
+    // SVG 內部元素
+    const waterA = document.getElementById('waterA');
+    const plungerA = document.getElementById('plungerA');
+    const waterB = document.getElementById('waterB');
+    const plungerB = document.getElementById('plungerB');
+
+    // 狀態變數
+    let currentValA = 25; 
+    let isDragging = false;
+    let startY = 0;
+    let startVal = 25;
+
+    // Y 軸轉換常數設定
+    // 25mL -> Y = 30 ; 0mL -> Y = 155 ; 每 1mL = 5px
+    function updateSyringeUI(valA) {
+      const valB = 25 - valA; 
+
+      // 更新 A 的位置
+      const yA = 155 - (valA * 5); 
+      waterA.setAttribute('y', yA);
+      waterA.setAttribute('height', 155 - yA);
+      plungerA.setAttribute('transform', `translate(0, ${yA})`);
+
+      // 更新 B 的位置
+      const yB = 155 - (valB * 5);
+      waterB.setAttribute('y', yB);
+      waterB.setAttribute('height', 155 - yB);
+      plungerB.setAttribute('transform', `translate(0, ${yB})`);
+    }
+
+    // 滑鼠/觸控事件處理
+    function getClientY(e) {
+      return e.touches ? e.touches[0].clientY : e.clientY;
+    }
+
+    function onDragStart(e) {
+      // 測驗模式阻擋邏輯
+      if (labMode === 'quiz') {
+        if (labQuizState === 'waiting_for_guess') {
+          // 閃爍題目提醒先選擇答案
+          elQuizQuestion.classList.add('text-red-500');
+          setTimeout(() => elQuizQuestion.classList.remove('text-red-500'), 400);
+          return; 
+        }
+        if (labQuizState === 'completed') {
+          return; 
+        }
+      }
+
+      isDragging = true;
+      e.preventDefault(); 
+      dragHandleA.classList.remove('cursor-grab');
+      dragHandleA.classList.add('cursor-grabbing');
+      
+      // 隱藏提示箭頭
+      dragHintArrow.style.display = 'none';
+
+      startY = getClientY(e);
+      startVal = currentValA;
+    }
+
+    function onDragMove(e) {
+      if (!isDragging) return;
+      e.preventDefault();
+      
+      const clientY = getClientY(e);
+      const deltaY = clientY - startY; 
+      
+      const CTM = svg.getScreenCTM();
+      const svgDeltaY = deltaY / CTM.d;
+      
+      let newVal = startVal - (svgDeltaY / 5);
+
+      // 測驗模式：自動煞車防呆設計
+      if (labMode === 'quiz' && labQuizState === 'waiting_for_drag') {
+        const q = labQuestions[currentLabQIdx];
+        const isPushingDown = q.startA > q.endA; // 判斷方向
+        
+        // 確保不會超過目標刻度 (強制煞車)
+        if (isPushingDown && newVal <= q.endA) {
+          newVal = q.endA;
+        } else if (!isPushingDown && newVal >= q.endA) {
+          newVal = q.endA;
+        }
+      }
+      
+      // 限制數值在 0 ~ 25 之間
+      newVal = Math.max(0, Math.min(25, newVal));
+      currentValA = newVal;
+      updateSyringeUI(currentValA);
+
+      // 檢查是否精準抵達目標 (觸發結果)
+      if (labMode === 'quiz' && labQuizState === 'waiting_for_drag') {
+        const q = labQuestions[currentLabQIdx];
+        if (currentValA === q.endA) {
+          // 抵達目標，強制停止拖曳並觸發驗證
+          labQuizState = 'completed'; 
+          isDragging = false;
+          dragHandleA.classList.remove('cursor-grabbing');
+          dragHandleA.classList.add('cursor-grab');
+          verifyLabDragResult();
+        }
+      }
+    }
+
+    function onDragEnd() {
+      if (isDragging) {
+        isDragging = false;
+        dragHandleA.classList.remove('cursor-grabbing');
+        dragHandleA.classList.add('cursor-grab');
+        
+        currentValA = Math.round(currentValA);
+        updateSyringeUI(currentValA);
+      }
+    }
+
+    // 綁定事件
+    dragHandleA.addEventListener('mousedown', onDragStart);
+    dragHandleA.addEventListener('touchstart', onDragStart, { passive: false });
+
+    // 綁定在 window 上確保滑鼠離開 SVG 也能正確感應
+    window.addEventListener('mousemove', onDragMove, { passive: false });
+    window.addEventListener('touchmove', onDragMove, { passive: false });
+    window.addEventListener('mouseup', onDragEnd);
+    window.addEventListener('touchend', onDragEnd);
+
+    // 初始畫面設定
+    updateSyringeUI(25);
+
+
+    // ==========================================
+    // 課後觀念挑戰 (下方靜態題庫)
+    // ==========================================
+    const staticQuizData = [
+      {
+        question: "1. 雙手沒有拉動注射筒 B，為何 B 的活塞會移動？",
+        options: [
+          "塑膠管有彈性", 
+          "地球引力吸的", 
+          "空氣變熱膨脹", 
+          "水傳送了推力"
+        ],
+        answer: 3,
+        explanation: "管子裡的水就像一座橋，把你推 A 活塞的力氣原封不動傳給了 B。"
+      },
+      {
+        question: "2. 如果把管子裡的水換成「空氣」，推 A 活塞後，B 活塞會移動嗎？",
+        options: [
+          "會，只有水才能傳送", 
+          "會，但是效果比水差", 
+          "不會，因為空氣會被壓縮", 
+          "不會，只有水才能傳送力"
+        ],
+        answer: 1,
+        explanation: "空氣可以傳送力，但空氣可被壓縮，所以傳送的力比用水傳送弱。"
+      },
+      {
+        question: "3. 當 A 活塞往下壓 10 毫升時，B 活塞的位置會如何變化？",
+        options: [
+          "增加 10 毫升", 
+          "減少 10 毫升", 
+          "增加 15 毫升", 
+          "不會改變"
+        ],
+        answer: 0,
+        explanation: "水不會被壓縮，所以 A 減少的水量會全部跑到 B 裡面喔！"
+      },
+      {
+        question: "4. 當 A 活塞往上拉，從 10 毫升拉到 15 毫升時，B 活塞的位置會如何變化？",
+        options: [
+          "增加 10 毫升", 
+          "減少 10 毫升", 
+          "減少 15 毫升", 
+          "不會改變"
+        ],
+        answer: 2,
+        explanation: "水力傳送需要密閉的管子和連續的水當作「橋樑」，水流失就無法傳送力了。"
+      },
+      {
+        question: "5. 這個實驗主要想告訴我們什麼科學觀念？",
+        options: [
+          "水會往低處流", 
+          "空氣可被壓縮", 
+          "水可保持水平", 
+          "水可以傳送力"
+        ],
+        answer: 3,
+        explanation: "實驗證明，力氣除了直接接觸外，還可以透過物體（例如：水）來傳送並產生動力！"
+      }
+    ];
+
+    let currentStaticQ = 0;
+    let staticScore = 0;
+    let isStaticAnswered = false;
+    let selectedStaticOption = null;
+    let isStaticFinished = false;
+
+    const staticQuizContainer = document.getElementById('staticQuizContainer');
+
+    function renderStaticQuiz() {
+      if (isStaticFinished) {
+        let msg = staticScore === 100 ? "太棒了！你完全掌握了觀念！" : "做的不錯，可以再多複習一次實驗喔！";
+        staticQuizContainer.innerHTML = `
+          <div class="text-center py-6">
+            <h3 class="text-xl sm:text-2xl font-black text-gray-800 mb-2">測驗完成！</h3>
+            <p class="text-base sm:text-lg text-gray-600 mb-3 font-bold">你的得分是：<span class="text-3xl text-green-600 mx-2">${staticScore}</span>分</p>
+            <p class="text-gray-700 font-bold mb-5 text-sm sm:text-base">${msg}</p>
+            <button onclick="resetStaticQuiz()" class="bg-green-500 text-white font-bold py-2.5 px-6 rounded-full shadow-md text-sm sm:text-base">再測驗一次</button>
+          </div>
+        `;
+        return;
+      }
+
+      const q = staticQuizData[currentStaticQ];
+      let optionsHtml = '';
+      
+      q.options.forEach((opt, index) => {
+        let btnClass = "w-full text-left p-3 sm:p-4 rounded-xl border-2 font-bold text-sm sm:text-base transition-all shadow-sm flex items-center ";
+        let iconHtml = '';
+
+        if (!isStaticAnswered) {
+          btnClass += "bg-white border-gray-200 hover:border-blue-400 text-gray-700";
+        } else {
+          if (index === q.answer) {
+            btnClass += "bg-green-50 border-green-500 text-green-800";
+            iconHtml = `<i data-lucide="check-circle" class="text-green-500 ml-auto w-5 h-5"></i>`;
+          } else if (index === selectedStaticOption && index !== q.answer) {
+            btnClass += "bg-red-50 border-red-400 text-red-700";
+            iconHtml = `<i data-lucide="x-circle" class="text-red-500 ml-auto w-5 h-5"></i>`;
+          } else {
+            btnClass += "bg-gray-50 border-gray-200 text-gray-400 opacity-60";
+          }
+        }
+
+        optionsHtml += `
+          <button onclick="handleStaticAnswer(${index})" ${isStaticAnswered ? 'disabled' : ''} class="${btnClass}">
+            <span class="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gray-100 flex items-center justify-center mr-2 sm:mr-3 text-xs sm:text-sm text-gray-500 border border-gray-200 flex-shrink-0">${String.fromCharCode(65 + index)}</span>
+            <span>${opt}</span>
+            ${iconHtml}
+          </button>
+        `;
+      });
+
+      let explanationHtml = '';
+      if (isStaticAnswered) {
+        const isCorrect = selectedStaticOption === q.answer;
+        explanationHtml = `
+          <div class="mt-4 sm:mt-5 p-3 sm:p-4 bg-blue-50 rounded-xl border border-blue-200 animate-fade-in-up">
+            <h4 class="text-base sm:text-lg font-bold ${isCorrect ? 'text-green-600' : 'text-orange-500'} mb-1 sm:mb-2 flex items-center">
+              ${isCorrect ? '答對了！' : '解析：'}
+            </h4>
+            <p class="text-gray-700 text-sm sm:text-base font-medium">${q.explanation}</p>
+            <div class="mt-3 flex justify-end">
+              <button onclick="nextStaticQuestion()" class="py-2 px-6 bg-blue-600 text-white font-bold rounded-full shadow-sm text-sm sm:text-base flex items-center">
+                ${currentStaticQ < staticQuizData.length - 1 ? '下一題' : '看成績'} <i data-lucide="arrow-right" class="ml-1 w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }
+
+      staticQuizContainer.innerHTML = `
+        <div class="bg-gray-50 rounded-2xl p-3 sm:p-5 border border-gray-100">
+          <div class="text-xs sm:text-sm font-bold text-gray-500 mb-3 bg-white inline-block px-3 py-1 rounded-full border border-gray-200">
+            第 ${currentStaticQ + 1} / ${staticQuizData.length} 題
+          </div>
+          <h3 class="text-base sm:text-lg font-bold text-gray-800 mb-3 sm:mb-4">${q.question}</h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+            ${optionsHtml}
+          </div>
+          ${explanationHtml}
+        </div>
+      `;
+      lucide.createIcons();
+    }
+
+    function handleStaticAnswer(index) {
+      if (isStaticAnswered) return;
+      selectedStaticOption = index;
+      isStaticAnswered = true;
+      if (index === staticQuizData[currentStaticQ].answer) {
+        staticScore += Math.round(100 / staticQuizData.length);
+      }
+      renderStaticQuiz();
+    }
+
+    function nextStaticQuestion() {
+      isStaticAnswered = false;
+      selectedStaticOption = null;
+      if (currentStaticQ < staticQuizData.length - 1) {
+        currentStaticQ++;
+      } else {
+        isStaticFinished = true;
+      }
+      renderStaticQuiz();
+    }
+
+    function resetStaticQuiz() {
+      currentStaticQ = 0;
+      staticScore = 0;
+      isStaticFinished = false;
+      isStaticAnswered = false;
+      selectedStaticOption = null;
+      renderStaticQuiz();
+    }
+
+    // 初始化下方測驗與圖示
+    renderStaticQuiz();
+    lucide.createIcons();
+  </script>
+</body>
+</html>
