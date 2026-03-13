@@ -333,12 +333,13 @@ function tokenizeHanziWithAlphanum(text) {
     if (!text) return [];
     
     // 修正寫法：加入 \p{P}，排除標點符號被黏合
-    // 意思為：抓取連續的「非空白、非漢字、且"非標點"」字串，否則抓取單一字元
-	// 必須加上 u 旗標 (Unicode) 才能讓 \p{Script=Han} 生效
-    const regex = /([^\s\p{Script=Han}\p{P}]+|.)/gu;
+    // 【修改重點】：前綴增加 [a-zA-Z0-9_\-#]+ 優先匹配，允許英數字與特定的連接符號（如 -, _, #）相連，避免 2-1, 3_1 等被切斷
+    // 必須加上 u 旗標 (Unicode) 才能讓 \p{Script=Han} 生效
+    const regex = /([a-zA-Z0-9_\-#]+|[^\s\p{Script=Han}\p{P}]+|.)/gu;
     
     return text.match(regex) || [];
 }
+
 /**
  * 帶分隔符號的拼音斷詞：將字串切分為音節和分隔符號的陣列
  * e.g., "kon giˇ, maˇ voi." -> ["kon", " ", "giˇ", ", ", "maˇ", " ", "voi", "."]
@@ -2134,7 +2135,7 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode, pho
 	
 	function tokenizeHanziWithAlphanum(text) {
 		if (!text) return [];
-		const regex = /([^\s\p{Script=Han}\p{P}]+|.)/gu;
+		const regex = /([a-zA-Z0-9_\-#]+|[^\s\p{Script=Han}\p{P}]+|.)/gu;
 		return text.match(regex) || [];
 	}
 
