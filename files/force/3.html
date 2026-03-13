@@ -256,14 +256,29 @@
     let hasShownArrowHint = false;
     let hasShownToastHint = false;
 
-    // 實境測驗題庫
-    const labQuestions = [
-      { startA: 25, endA: 15, options: [5, 10, 15], correctVal: 10, dirText: "壓到", bDir: "上升" },
-      { startA: 15, endA: 5,  options: [15, 20, 25], correctVal: 20, dirText: "壓到", bDir: "上升" },
-      { startA: 5,  endA: 20, options: [0, 5, 15],  correctVal: 5,  dirText: "拉回", bDir: "下降" },
-      { startA: 20, endA: 0,  options: [15, 20, 25], correctVal: 25, dirText: "壓到底", bDir: "上升" },
-      { startA: 0,  endA: 15, options: [5, 10, 15],  correctVal: 10, dirText: "拉回", bDir: "下降" }
+// 實境測驗「總題庫」(12題)
+    const allLabQuestions = [
+      // --- 正確答案在第 1 個選項 (Index 0) ---
+      { startA: 25, endA: 15, options: [10, 5, 15],  correctVal: 10, dirText: "壓到", bDir: "上升" },
+      { startA: 15, endA: 5,  options: [20, 15, 25], correctVal: 20, dirText: "壓到", bDir: "上升" },
+      { startA: 5,  endA: 20, options: [5, 0, 15],   correctVal: 5,  dirText: "拉回", bDir: "下降" },
+      { startA: 20, endA: 0,  options: [25, 15, 20], correctVal: 25, dirText: "壓到", bDir: "上升" },
+
+      // --- 正確答案在第 2 個選項 (Index 1) ---
+      { startA: 0,  endA: 15, options: [5, 10, 15],  correctVal: 10, dirText: "拉回", bDir: "下降" },
+      { startA: 10, endA: 0,  options: [15, 25, 20], correctVal: 25, dirText: "壓到", bDir: "上升" },
+      { startA: 25, endA: 5,  options: [10, 20, 15], correctVal: 20, dirText: "壓到", bDir: "上升" },
+      { startA: 20, endA: 10, options: [5, 15, 10],  correctVal: 15, dirText: "壓到", bDir: "上升" },
+
+      // --- 正確答案在第 3 個選項 (Index 2) ---
+      { startA: 0,  endA: 25, options: [10, 20, 0],  correctVal: 0,  dirText: "拉到", bDir: "下降" },
+      { startA: 10, endA: 25, options: [5, 15, 0],   correctVal: 0,  dirText: "拉到", bDir: "下降" },
+      { startA: 5,  endA: 15, options: [15, 20, 10], correctVal: 10, dirText: "拉回", bDir: "下降" },
+      { startA: 15, endA: 20, options: [0, 10, 5],   correctVal: 5,  dirText: "拉回", bDir: "下降" }
     ];
+
+    // 用來存放「當次測驗」抽出的 5 題
+    let labQuestions = [];
 
     const elQuizProgress = document.getElementById('quizProgress');
     const elQuizQuestion = document.getElementById('quizQuestion');
@@ -289,9 +304,22 @@
       elToastPrompt.classList.add('-translate-x-[120%]', 'opacity-0');
     }
 
-    function startLabQuiz() {
+	function startLabQuiz() {
       currentLabQIdx = 0;
       labScore = { correct: 0, wrong: 0 };
+      
+      // 1. 複製一份總題庫來洗牌，以免把原本的大題庫順序弄壞
+      let shuffledPool = [...allLabQuestions];
+      
+      // 2. 使用 Fisher-Yates 演算法隨機打亂題庫
+      for (let i = shuffledPool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledPool[i], shuffledPool[j]] = [shuffledPool[j], shuffledPool[i]];
+      }
+      
+      // 3. 從打亂後的題庫中，只取出前 5 題作為本次測驗題目
+      labQuestions = shuffledPool.slice(0, 5);
+
       updateLabScoreUI();
       loadLabQuestion();
     }
@@ -311,7 +339,7 @@
 
       // 更新題目 UI (單行無換行)
       elQuizProgress.innerText = `${currentLabQIdx + 1}/${labQuestions.length}`;
-      elQuizQuestion.innerHTML = `請預測：當 A 從 <span class="text-blue-600">${q.startA} mL </span> ${q.dirText} <span class="text-blue-600">${q.endA} mL</span> 時，B 會從 ${25 - q.startA} mL ${q.bDir}到多少？`;
+      elQuizQuestion.innerHTML = `請預測：當 A 從 <span class="text-blue-600">${q.startA} mL </span> ${q.dirText} <span class="text-blue-600">${q.endA} mL</span> 時，B 會從 ${25 - q.startA} mL ${q.bDir}到哪裡？`;
       
       // 產生選項
       elQuizOptions.innerHTML = '';

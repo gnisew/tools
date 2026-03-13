@@ -164,7 +164,6 @@
             <section id="sec-quiz" class="hidden space-y-6">
                 <div class="bg-purple-50 border-4 border-purple-200 rounded-2xl p-6">
                     <h2 class="text-2xl font-bold text-purple-800 mb-4">🧠 觀念大考驗</h2>
-                    <p class="text-gray-700 mb-6 font-bold">請選出最正確的答案。注意喔，選項順序會改變！</p>
                     
                     <div id="quiz-container" class="space-y-8"></div>
 
@@ -407,6 +406,7 @@
 
         function kickBall(force, angleDeg) {
             isKicking = true;
+            // 1. 每次踢球時，重新取得當前準確的遊戲場地尺寸
             arenaRect = arena.getBoundingClientRect();
 
             const rad = angleDeg * (Math.PI / 180);
@@ -419,10 +419,19 @@
             const dx = Math.cos(rad) * travelDistance;
             const dy = Math.sin(rad) * travelDistance;
 
-            let finalX = ballStartPos.x + dx;
-            let finalY = ballStartPos.y + dy;
+            // 【修正核心】：不要用舊的 ballStartPos，改用百分比與最新寬高動態算出目前的「球體真實中心點」
+            let currentBallStartX = arenaRect.width * (currentLevelData.bx / 100);
+            let currentBallStartY = arenaRect.height * (currentLevelData.by / 100);
 
-            let distToTarget = Math.sqrt(Math.pow(finalX - targetPos.x, 2) + Math.pow(finalY - targetPos.y, 2));
+            let finalX = currentBallStartX + dx;
+            let finalY = currentBallStartY + dy;
+
+            // 【修正核心】：不要用舊的 targetPos，動態算出目前的「怪物圈圈真實中心點」
+            let currentTargetX = arenaRect.width * (currentLevelData.tx / 100);
+            let currentTargetY = arenaRect.height * (currentLevelData.ty / 100);
+
+            // 以真實中心點計算兩者的直線距離
+            let distToTarget = Math.sqrt(Math.pow(finalX - currentTargetX, 2) + Math.pow(finalY - currentTargetY, 2));
 
             let event = "miss";
 
@@ -447,7 +456,6 @@
 
             setTimeout(() => {
                 if(!isGameActive) {
-                    // 若動畫期間時間到，確保狀態重置
                     isKicking = false;
                     return;
                 }
@@ -464,11 +472,11 @@
                     gameMessage.className = "text-2xl font-black text-green-600 animate-bounce";
                     targetEmoji.innerText = "💥";
                     target.style.transform = "translate(-50%, -50%) scale(1.5) rotate(36deg)";
-                    resetGameAfterDelay(2000, true); // true 代表產生新關卡
+                    resetGameAfterDelay(1000, true); // true 代表產生新關卡
                 } else {
                     gameMessage.innerText = "💨 可惜，力量沒抓好（飛過頭或掉在前面）...退回原點再試一次！";
                     gameMessage.className = "text-xl font-bold text-blue-700";
-                    resetGameAfterDelay(1500, false); // false 代表維持同一個關卡
+                    resetGameAfterDelay(1000, false); // false 代表維持同一個關卡
                 }
             }, duration + 50);
         }

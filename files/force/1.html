@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>水力傳送大挑戰 2.0</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(15px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in-up {
+      animation: fadeInUp 0.4s ease-out forwards;
+    }
+    .animate-bounce-hover:hover {
+      animation: bounce 1s infinite;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-sky-50 font-sans text-gray-800 pb-10 selection:bg-blue-200">
+
+  <!-- 標題區 -->
+  <header class="bg-white shadow-md py-6 px-4 border-b-4 border-blue-400">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div>
+        <span class="bg-orange-400 text-white px-3 py-1 rounded-full text-sm font-bold mr-2 tracking-wider">水力傳送大挑戰</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto mt-8 px-4 space-y-10">
+    
+    <!-- 遊戲互動區 -->
+    <section class="bg-white rounded-3xl shadow-xl border-2 border-blue-100 overflow-hidden">
+      <!-- 狀態列 -->
+      <div class="bg-blue-600 px-6 py-4 flex justify-between items-center text-white">
+        <h2 class="text-xl font-bold flex items-center">
+          <span class="bg-white text-blue-600 p-1.5 rounded-lg mr-3 shadow-sm">🎮</span> 
+          實境射擊模擬器
+        </h2>
+        <div class="flex space-x-6 font-bold text-lg">
+          <span class="bg-blue-700 px-4 py-1 rounded-full border border-blue-400">
+            水球剩餘：<span id="attemptsDisplay" class="text-white">10</span> / 10
+          </span>
+          <span class="bg-blue-700 px-4 py-1 rounded-full border border-blue-400">
+            擊倒目標：<span id="scoreDisplay" class="text-green-300">0</span> / 3
+          </span>
+        </div>
+      </div>
+
+      <!-- 遊戲畫布 -->
+      <div class="relative w-full aspect-[2/1] bg-gradient-to-b from-blue-50 to-blue-100/50 border-b-2 border-gray-200 overflow-hidden">
+        <svg id="gameCanvas" viewBox="0 0 600 300" class="w-full h-full drop-shadow-sm"></svg>
+
+        <!-- 勝利/失敗 覆蓋層 -->
+        <div id="winOverlay" class="absolute inset-0 bg-white/80 backdrop-blur-sm flex-col items-center justify-center animate-fade-in-up hidden">
+          <i data-lucide="trophy" class="w-20 h-20 text-yellow-500 mb-4 animate-bounce"></i>
+          <h3 class="text-3xl font-black text-green-600 mb-4 tracking-widest">挑戰成功！</h3>
+          <button onclick="resetGame()" class="px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-full shadow-lg transition flex items-center">
+            <i data-lucide="rotate-ccw" class="w-5 h-5 mr-2"></i> 再玩一次
+          </button>
+        </div>
+
+        <div id="loseOverlay" class="absolute inset-0 bg-gray-900/70 backdrop-blur-sm flex-col items-center justify-center animate-fade-in-up text-white hidden">
+          <i data-lucide="wind" class="w-20 h-20 text-blue-300 mb-4 opacity-80"></i>
+          <h3 class="text-3xl font-black text-red-400 mb-2 tracking-widest">水用光了...</h3>
+          <p class="text-gray-200 mb-6 text-lg">還差一點點，調整角度再來一次！</p>
+          <button onclick="resetGame()" class="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full shadow-lg transition flex items-center">
+            <i data-lucide="rotate-ccw" class="w-5 h-5 mr-2"></i> 重新挑戰
+          </button>
+        </div>
+      </div>
+
+      <!-- 控制面板 -->
+      <div class="p-6 bg-gray-50 border-t border-gray-200">
+         <div class="flex flex-col md:flex-row gap-8 items-end">
+            <!-- 發射按鈕 (在左側) -->
+            <div class="flex-shrink-0 w-full md:w-auto flex justify-center pb-1">
+              <button id="shootBtn" onclick="shoot()" class="group relative px-8 py-4 bg-gradient-to-b from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-black text-xl rounded-2xl shadow-[0_6px_0_#1d4ed8] hover:shadow-[0_2px_0_#1d4ed8] hover:translate-y-[4px] disabled:shadow-none disabled:translate-y-[6px] transition-all flex items-center tracking-widest">
+                <span id="shootBtnText">發射！</span>
+                <i data-lucide="droplets" class="ml-2 w-6 h-6 animate-bounce-hover hidden md:block"></i>
+              </button>
+            </div>
+
+            <!-- 角度控制 -->
+            <div class="flex-1 w-full">
+              <label class="flex justify-between font-bold text-gray-700 mb-2">
+                <span>📐 射擊角度 (往上)</span>
+                <span id="angleValue" class="text-blue-600 bg-blue-100 px-2 rounded">30°</span>
+              </label>
+              <input type="range" id="angleInput" min="0" max="75" value="30" class="w-full h-3 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-blue-500">
+              <div class="flex justify-between text-xs text-gray-400 mt-1 font-bold">
+                <span>平射</span><span>高拋</span>
+              </div>
+            </div>
+
+            <!-- 力道控制 -->
+            <div class="flex-1 w-full">
+              <label class="flex justify-between font-bold text-gray-700 mb-2">
+                <span>💪 推水力道 (距離)</span>
+                <span id="powerValue" class="text-red-500 bg-red-100 px-2 rounded">60</span>
+              </label>
+              <input type="range" id="powerInput" min="20" max="100" value="60" class="w-full h-3 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-red-500">
+              <div class="flex justify-between text-xs text-gray-400 mt-1 font-bold">
+                <span>弱</span><span>強</span>
+              </div>
+            </div>
+         </div>
+      </div>
+
+      <!-- 課文重點 -->
+      <div class="bg-yellow-50 px-6 py-4 border-t-2 border-yellow-200">
+        <p class="text-gray-700 text-lg font-medium">
+          💡 <strong class="text-yellow-800">科學筆記：</strong>水可以<span class="text-red-600 font-bold border-b-2 border-red-200 pb-0.5 mx-1">傳送動力</span>讓物體移動。不同角度和力道，水柱拋物線傳送力量的位置也會不同喔！
+        </p>
+      </div>
+    </section>
+
+    <!-- 測驗區 -->
+    <section class="bg-white rounded-3xl shadow-lg border-2 border-green-100 overflow-hidden" id="quiz-section">
+      <div class="bg-green-600 px-6 py-4 flex items-center text-white">
+        <h2 class="text-xl font-bold flex items-center">
+          <span class="bg-white text-green-600 p-1.5 rounded-lg mr-3 shadow-sm">📝</span> 
+          動力傳送觀念挑戰
+        </h2>
+      </div>
+      <div class="p-6" id="quizContainer">
+        <!-- 測驗內容由 JS 動態生成 -->
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // ==========================================
+    // 遊戲核心邏輯
+    // ==========================================
+    let angle = 30;
+    let power = 60;
+    let isShooting = false;
+    let attemptsLeft = 10;
+    let waterPath = [];
+    let cups = [];
+    let intervalRef = null;
+    let plungerOffset = 0; // 水槍推桿的位移量
+
+    // DOM 元素
+    const canvas = document.getElementById('gameCanvas');
+    const angleInput = document.getElementById('angleInput');
+    const powerInput = document.getElementById('powerInput');
+    const angleValue = document.getElementById('angleValue');
+    const powerValue = document.getElementById('powerValue');
+    const shootBtn = document.getElementById('shootBtn');
+    const shootBtnText = document.getElementById('shootBtnText');
+    const attemptsDisplay = document.getElementById('attemptsDisplay');
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const winOverlay = document.getElementById('winOverlay');
+    const loseOverlay = document.getElementById('loseOverlay');
+
+    // 隨機產生杯子位置
+    function initCups() {
+      // 分為近、中、遠三個區塊隨機產生，確保不會重疊
+      cups = [
+        { id: 1, x: 200 + Math.random() * 60, y: 30 + Math.random() * 100, isHit: false },
+        { id: 2, x: 340 + Math.random() * 60, y: 30 + Math.random() * 120, isHit: false },
+        { id: 3, x: 480 + Math.random() * 60, y: 30 + Math.random() * 100, isHit: false }
+      ];
+    }
+
+    // 渲染遊戲畫面
+    function renderGame() {
+      let svgContent = '';
+
+      // 繪製架子與杯子
+      cups.forEach(cup => {
+        // 動態產生專屬小層架
+        svgContent += `<rect x="${cup.x - 25}" y="${300 - cup.y}" width="50" height="8" fill="#8B4513" rx="4" />`;
+        
+        // 杯子狀態 (如果擊中則旋轉)
+        const transform = cup.isHit ? `rotate(80deg)` : `rotate(0deg)`;
+        const transformOrigin = `${cup.x + 15}px ${300 - cup.y}px`;
+        
+        svgContent += `
+          <g style="transform-origin: ${transformOrigin}; transform: ${transform}; transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);">
+            <polygon points="${cup.x - 15},${300 - cup.y} ${cup.x + 15},${300 - cup.y} ${cup.x + 20},${300 - cup.y - 40} ${cup.x - 20},${300 - cup.y - 40}" fill="white" stroke="#94a3b8" stroke-width="2" />
+          </g>
+        `;
+
+        // 擊中時的水花特效
+        if (cup.isHit) {
+          svgContent += `<circle cx="${cup.x + 20}" cy="${300 - cup.y - 10}" r="18" fill="#60a5fa" opacity="0.6" class="animate-ping" style="animation-iteration-count: 1; animation-duration: 0.5s;" />`;
+        }
+      });
+
+      // 繪製水柱軌跡
+      if (waterPath.length > 1) {
+        const points = waterPath.map(p => `${p.x},${300 - p.y}`).join(' ');
+        svgContent += `<polyline points="${points}" fill="none" stroke="#3b82f6" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.8" class="drop-shadow-md" />`;
+      }
+
+      // 繪製水槍 (包含推桿動畫)
+      svgContent += `
+        <g transform="translate(50, 250) rotate(${-angle})">
+          <!-- 會動的推桿 -->
+          <g transform="translate(${plungerOffset}, 0)" style="transition: transform 0.1s;">
+            <rect x="-50" y="-4" width="40" height="8" fill="#d97706" />
+            <rect x="-60" y="-18" width="10" height="36" fill="#78350f" rx="4" />
+          </g>
+          <!-- 固定槍管 -->
+          <rect x="-15" y="-12" width="70" height="24" fill="#fbbf24" stroke="#d97706" stroke-width="2" rx="6" />
+          <rect x="55" y="-8" width="10" height="16" fill="#f59e0b" rx="2" /> 
+        </g>
+      `;
+
+      canvas.innerHTML = svgContent;
+      
+      // 更新狀態列
+      const hitCount = cups.filter(c => c.isHit).length;
+      attemptsDisplay.textContent = attemptsLeft;
+      attemptsDisplay.className = attemptsLeft <= 3 ? "text-yellow-300" : "text-white";
+      scoreDisplay.textContent = hitCount;
+    }
+
+    // 發射邏輯
+    function shoot() {
+      const win = cups.every(c => c.isHit);
+      if (isShooting || attemptsLeft <= 0 || win) return;
+      
+      isShooting = true;
+      attemptsLeft--;
+      
+      // 禁用控制
+      angleInput.disabled = true;
+      powerInput.disabled = true;
+      shootBtn.disabled = true;
+      shootBtnText.textContent = '發射中...';
+
+      // 1. 推桿往前推的特效
+      plungerOffset = 35; 
+      renderGame();
+
+      // 物理參數
+      const theta = (angle * Math.PI) / 180;
+      const startX = 50 + 50 * Math.cos(theta);
+      const startY = 50 + 50 * Math.sin(theta);
+      let t = 0;
+      const v = power * 0.85;
+      const g = 14; 
+      
+      waterPath = [{ x: startX, y: startY }];
+
+      intervalRef = setInterval(() => {
+        t += 0.35; 
+        const currentX = startX + v * Math.cos(theta) * t;
+        const currentY = startY + v * Math.sin(theta) * t - 0.5 * g * t * t;
+        
+        waterPath.push({ x: currentX, y: currentY });
+
+        let hitAny = false;
+        cups.forEach(cup => {
+          if (cup.isHit) return;
+          const hitLeft = cup.x - 20;
+          const hitRight = cup.x + 20;
+          const hitBottom = cup.y;
+          const hitTop = cup.y + 40;
+
+          if (currentX >= hitLeft && currentX <= hitRight && currentY >= hitBottom && currentY <= hitTop) {
+            cup.isHit = true;
+            hitAny = true;
+          }
+        });
+
+        renderGame();
+
+        // 結束條件：擊中、落地、飛出畫面
+        if (hitAny || currentY < -20 || currentX > 650) {
+          clearInterval(intervalRef);
+          
+          // 等待 0.5 秒讓玩家看清楚結果，然後復原狀態
+          setTimeout(() => {
+            waterPath = []; // 水消失
+            plungerOffset = 0; // 推桿復原
+            isShooting = false;
+            
+            angleInput.disabled = false;
+            powerInput.disabled = false;
+            shootBtn.disabled = false;
+            shootBtnText.textContent = '發射！';
+            
+            renderGame();
+            checkGameState();
+          }, 500);
+        }
+      }, 20);
+    }
+
+    function checkGameState() {
+      const win = cups.every(c => c.isHit);
+      const lose = attemptsLeft === 0 && !win;
+      
+      if (win) {
+        winOverlay.classList.remove('hidden');
+        winOverlay.classList.add('flex');
+      } else if (lose) {
+        loseOverlay.classList.remove('hidden');
+        loseOverlay.classList.add('flex');
+      }
+    }
+
+    function resetGame() {
+      initCups();
+      attemptsLeft = 10;
+      waterPath = [];
+      isShooting = false;
+      plungerOffset = 0;
+      
+      winOverlay.classList.add('hidden');
+      winOverlay.classList.remove('flex');
+      loseOverlay.classList.add('hidden');
+      loseOverlay.classList.remove('flex');
+      
+      angleInput.disabled = false;
+      powerInput.disabled = false;
+      shootBtn.disabled = false;
+      shootBtnText.textContent = '發射！';
+      
+      renderGame();
+    }
+
+    // 事件監聽
+    angleInput.addEventListener('input', (e) => {
+      angle = Number(e.target.value);
+      angleValue.textContent = `${angle}°`;
+      renderGame();
+    });
+
+    powerInput.addEventListener('input', (e) => {
+      power = Number(e.target.value);
+      powerValue.textContent = power;
+      renderGame();
+    });
+
+    // 初始化遊戲
+    initCups();
+    renderGame();
+
+
+    // ==========================================
+    // 測驗區邏輯
+    // ==========================================
+    const quizData = [
+      {
+        question: "在剛剛的實驗中，我們的手最先是對哪一個物品「施力」？",
+        options: ["水槍的推桿", "槍管內的水", "前方的杯子", "噴出的水柱"],
+        answer: 0,
+        explanation: "手直接接觸並推動的是「水槍的推桿」，之後力才透過水柱傳送出去喔！"
+      },
+      {
+        question: "杯子沒被手碰到，為何會倒下？",
+        options: ["水柱傳送推力給杯子", "水槍產生的強風吹倒", "杯子太輕自己站不穩", "水的溫度改變了氣壓"],
+        answer: 0,
+        explanation: "答對了！水柱成為了傳送「力」的橋樑，把手推的力氣傳送到了杯子上。"
+      },
+      {
+        question: "這個實驗主要想證明什麼科學概念？",
+        options: ["水具有傳送動力的特性", "水的重量能讓物體浮起", "空氣可以傳遞聲音熱能", "塑膠碰到水會改變形狀"],
+        answer: 0,
+        explanation: "重點在於：力除了直接接觸，還可以透過其他物體（例如水）來傳送動力。"
+      },
+      {
+        question: "【動動腦】假設水槍裡沒水，只推空氣，結果會？",
+        options: ["空氣傳送力弱，杯子難倒", "空氣傳送力強，杯子易倒", "空氣無法傳力，完全沒用", "空氣會讓杯子往水槍倒"],
+        answer: 0,
+        explanation: "空氣其實也能傳送力（像風一樣），但因為質量比水輕很多，所以傳送動力的效果很弱，很難推倒杯子。"
+      },
+      {
+        question: "【生活應用】下列何者也是「透過物體傳力」的例子？",
+        options: ["用球棒擊打飛過來的棒球", "用眼睛觀察遠方的小鳥飛", "用鼻子聞到廚房的飯菜香", "用耳朵聽見外面的下雨聲"],
+        answer: 0,
+        explanation: "打棒球時，手把力氣傳給「球棒」，球棒再把力氣傳給「棒球」，這就是透過物體傳送力！其他選項是感官的作用。"
+      }
+    ];
+
+    let currentQuiz = 0;
+    let quizScore = 0;
+    let showExplanation = false;
+    let selectedAnswer = null;
+    let quizFinished = false;
+
+    const quizContainer = document.getElementById('quizContainer');
+
+    function renderQuiz() {
+      if (quizFinished) {
+        // 結果畫面
+        let message = "沒關係！去上面多射幾次水槍，再來挑戰一次吧！";
+        if (quizScore === 100) message = "太神啦！你完全掌握了「力可以透過物體傳送」的科學原理！";
+        else if (quizScore >= 60) message = "做得好！你已經了解大部分的觀念囉，若有錯的地方可以再看一次解析！";
+
+        quizContainer.innerHTML = `
+          <div class="text-center py-12 px-4 bg-gradient-to-b from-green-50 to-white rounded-2xl border border-green-100">
+            <i data-lucide="trophy" class="w-28 h-28 text-yellow-400 mx-auto mb-6 drop-shadow-md"></i>
+            <h3 class="text-4xl font-black text-gray-800 mb-3">挑戰完成！</h3>
+            <p class="text-xl text-gray-600 mb-8 font-medium">你的觀念得分是：<span class="text-5xl font-black text-green-600 mx-3">${quizScore}</span>分</p>
+            <div class="max-w-lg mx-auto bg-white p-8 rounded-2xl shadow-sm border border-gray-100 mb-10">
+              <p class="text-gray-700 font-bold text-xl leading-relaxed">${message}</p>
+            </div>
+            <button onclick="resetQuiz()" class="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-10 text-lg rounded-full shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all flex items-center mx-auto">
+              <i data-lucide="rotate-ccw" class="mr-2 w-6 h-6"></i> 再測驗一次
+            </button>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      // 測驗畫面
+      const q = quizData[currentQuiz];
+      let optionsHtml = '';
+      
+      q.options.forEach((opt, index) => {
+        let btnClass = "w-full text-left p-5 rounded-xl border-2 font-bold text-lg transition-all duration-200 shadow-sm ";
+        let iconHtml = '';
+
+        if (!showExplanation) {
+          btnClass += "bg-white border-gray-200 hover:border-blue-400 hover:bg-blue-50 hover:shadow-md text-gray-700 cursor-pointer";
+        } else {
+          if (index === q.answer) {
+            btnClass += "bg-green-50 border-green-500 text-green-800 ring-2 ring-green-200";
+            iconHtml = `<i data-lucide="check-circle" class="text-green-500 ml-2 flex-shrink-0"></i>`;
+          } else if (index === selectedAnswer && index !== q.answer) {
+            btnClass += "bg-red-50 border-red-400 text-red-700 opacity-90";
+            iconHtml = `<i data-lucide="x-circle" class="text-red-500 ml-2 flex-shrink-0"></i>`;
+          } else {
+            btnClass += "bg-gray-100 border-gray-200 text-gray-400 opacity-50";
+          }
+        }
+
+        optionsHtml += `
+          <button onclick="handleAnswer(${index})" ${showExplanation ? 'disabled' : ''} class="${btnClass}">
+            <div class="flex items-center">
+              <span class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center mr-3 text-sm text-gray-500 border border-gray-200">${String.fromCharCode(65 + index)}</span>
+              <span class="flex-1">${opt}</span>
+              ${iconHtml}
+            </div>
+          </button>
+        `;
+      });
+
+      let explanationHtml = '';
+      if (showExplanation) {
+        const isCorrect = selectedAnswer === q.answer;
+        explanationHtml = `
+          <div class="mt-8 p-6 bg-blue-50/80 rounded-2xl border border-blue-200 animate-fade-in-up">
+            <div class="flex items-start">
+              <div class="mr-4 mt-1 bg-white rounded-full p-2 shadow-sm text-3xl">
+                ${isCorrect ? '🎉' : '💡'}
+              </div>
+              <div>
+                <h4 class="text-xl font-bold ${isCorrect ? 'text-green-600' : 'text-orange-500'} mb-2">
+                  ${isCorrect ? '答對了！' : '解析：'}
+                </h4>
+                <p class="text-gray-700 text-lg leading-relaxed">${q.explanation}</p>
+              </div>
+            </div>
+            <div class="mt-6 flex justify-end">
+              <button onclick="nextQuestion()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl flex items-center transition-colors shadow-md">
+                ${currentQuiz < quizData.length - 1 ? '挑戰下一題' : '查看成績單'}
+                <i data-lucide="arrow-right" class="ml-2 w-5 h-5"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }
+
+      quizContainer.innerHTML = `
+        <div class="bg-gray-50 rounded-2xl p-6 md:p-8 border border-gray-100 shadow-inner">
+          <div class="flex justify-between items-center mb-6">
+            <span class="text-sm font-bold text-gray-400 bg-white px-3 py-1 rounded-full border border-gray-200">
+              第 ${currentQuiz + 1} / ${quizData.length} 題
+            </span>
+            <span class="text-sm font-bold text-green-700 bg-green-100 px-4 py-1 rounded-full border border-green-200">
+              分數: ${quizScore}
+            </span>
+          </div>
+          <h3 class="text-2xl font-bold text-gray-800 mb-8 leading-normal">${q.question}</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            ${optionsHtml}
+          </div>
+          ${explanationHtml}
+        </div>
+      `;
+      
+      lucide.createIcons();
+    }
+
+    function handleAnswer(index) {
+      if (showExplanation) return;
+      selectedAnswer = index;
+      showExplanation = true;
+      if (index === quizData[currentQuiz].answer) {
+        quizScore += (100 / quizData.length);
+      }
+      renderQuiz();
+    }
+
+    function nextQuestion() {
+      showExplanation = false;
+      selectedAnswer = null;
+      if (currentQuiz < quizData.length - 1) {
+        currentQuiz++;
+      } else {
+        quizFinished = true;
+      }
+      renderQuiz();
+    }
+
+    function resetQuiz() {
+      currentQuiz = 0;
+      quizScore = 0;
+      quizFinished = false;
+      showExplanation = false;
+      selectedAnswer = null;
+      renderQuiz();
+    }
+
+    // 初始化測驗
+    renderQuiz();
+    
+    // 初始化全域圖示
+    lucide.createIcons();
+  </script>
+</body>
+</html>
