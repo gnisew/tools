@@ -133,7 +133,7 @@ function hanziToPinyin(mode) {
                 .replace(/([aeioumngbdzvsxfc])(=)([a-z])/g, '$1 $3')
                 .replace(/([aeioumngbdzvsxfc])(--)([a-z])/g, '$1 $3')
                 .replace(/([aeioumngbdzvsxfc])(-)([a-z])/g, '$1 $3')
-                .replace(/([bpfvdtlgkhzcs])o([zvsx]?)(\b)/gi, '$1oo$2$3')
+                .replace(/\b([bpfvdtlgkhzcs]|zh|ch|sh|rh|bb)o([zvsx]?)\b/gi, '$1oo$2')
                 .replace(/(\b)(r)([aeiou])/g, '$1rh$3')
                 .replace(/(\b)(v)([aeiou])/g, '$1bb$3')
                 .replace(/(\b)(ji)/g, '$1zi')
