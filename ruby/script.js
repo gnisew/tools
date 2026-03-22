@@ -386,17 +386,15 @@ function alignByClauses({
             if (phoneticDisplayMode === 'zhuyin' && typeof kasuPinyinToBpmSmall === 'function') {
                 return kasuPinyinToBpmSmall(py);
             }
-            // 【修改】顯示拼音 OR 拼音+注音 OR 直注音 (三者 RT 都生成拼音)
-            if ((phoneticDisplayMode === 'pinyin' || phoneticDisplayMode === 'pinyin-zhuyin' || phoneticDisplayMode === 'vertical-zhuyin') && typeof kasuBpmSmallToPinyin === 'function') {
-                return kasuBpmSmallToPinyin(py);
+			if (phoneticDisplayMode === 'pinyin' || phoneticDisplayMode === 'pinyin-zhuyin' || phoneticDisplayMode === 'vertical-zhuyin') {
+                return py;
             }
         } else if (currentLanguageKey === 'matsu') { 
             if (phoneticDisplayMode === 'zhuyin' && py) {
                 return matsuPinyinToBpm(py);
             }
-            // 【修改】包含 vertical-zhuyin
             if ((phoneticDisplayMode === 'pinyin' || phoneticDisplayMode === 'pinyin-zhuyin' || phoneticDisplayMode === 'vertical-zhuyin') && py) {
-                return matsuBpmToPinyin(py);
+                return py;
             }
         }
 
@@ -452,8 +450,13 @@ function alignByClauses({
                 continue;
             }
 
-            const pToken = pSegSyls[p_idx];
-            const pSubSyls = pToken.split(/--?|=/); 
+            const pToken = pSegSyls[p_idx];            
+            let pSubSyls;
+            if (hToken === pToken) {
+                pSubSyls = [pToken];
+            } else {
+                pSubSyls = pToken.split(/--?|=/); 
+            }
 
             if (pSubSyls.length > 1) {
                 const wordLen = pSubSyls.length;
@@ -2177,8 +2180,13 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode, pho
                     continue;
                 }
 
-                const pToken = pSegSyls[p_idx];
-                const pSubSyls = pToken.split(/--?|=/);
+				const pToken = pSegSyls[p_idx];            
+				let pSubSyls;
+				if (hToken === pToken) {
+					pSubSyls = [pToken];
+				} else {
+					pSubSyls = pToken.split(/--?|=/); 
+				}
 
                 if (pSubSyls.length > 1) {
                     const wordLen = pSubSyls.length;
