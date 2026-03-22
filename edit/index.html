@@ -17,21 +17,15 @@
         <!-- 極簡圖示工具列 -->
         <div class="mb-3 flex items-center flex-wrap gap-1 bg-white px-2 py-1.5 rounded-lg border border-gray-200 shadow-sm relative overflow-visible">
             
-            <span class="material-symbols-outlined text-gray-400 px-2 cursor-default" title="烏衣行編輯器">edit_document</span>
-            <div class="h-6 w-px bg-gray-300 mx-1"></div>
-
-            <button id="btnUndo" class="icon-btn hover:bg-gray-100" title="復原 (Ctrl+Z)"><span class="material-symbols-outlined">undo</span></button>
-
-            <div class="h-6 w-px bg-gray-300 mx-1"></div>
 
             <!-- 檢視模式 -->
             <div class="relative dropdown-container" id="dd-viewMode">
-                <button class="dropdown-btn icon-btn text-blue-600 bg-blue-50" title="切換檢視模式">
-                    <span class="material-symbols-outlined" id="viewModeIcon">article</span>
+                <button class="dropdown-btn icon-btn text-blue-600 bg-blue-50" title="烏衣行編輯器">
+                    <span class="material-symbols-outlined" id="viewModeIcon">edit_document</span>
                 </button>
                 <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1">
                     <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="text">
-                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">article</span>文字模式</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span>
+                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">edit_document</span>文字模式</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span>
                     </button>
                     <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="table">
                         <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">table_chart</span>表格模式</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
@@ -39,7 +33,12 @@
                 </div>
             </div>
 
-            <!-- 介面設定 -->
+            <button id="btnUndo" class="icon-btn hover:bg-gray-100" title="復原 (Ctrl+Z)"><span class="material-symbols-outlined">undo</span></button>
+
+						<!-- 尋找與取代按鈕 -->
+            <button id="btnFindReplace" title="尋找與取代 (Ctrl+F)" class="icon-btn hover:bg-blue-50 hover:text-blue-600"><span class="material-symbols-outlined">search</span></button>
+
+			<!-- 介面設定 -->
             <div class="relative dropdown-container" id="dd-editorWidth">
                 <button class="dropdown-btn icon-btn" title="介面寬度"><span class="material-symbols-outlined">width_full</span></button>
                 <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-40 z-50 py-1">
@@ -50,7 +49,7 @@
                     <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="800px"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">tablet</span>寬 800px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
                 </div>
             </div>
-
+            <div class="h-6 w-px bg-gray-300 mx-1"></div>
 
 			<div class="relative dropdown-container" id="dd-fontFamily">
                 <button class="dropdown-btn icon-btn" title="切換字體"><span class="material-symbols-outlined">font_download</span></button>
@@ -145,8 +144,11 @@
                 </div>
             </div>
 
+					<!-- 新增：行動版多選模式開關 -->
+					<button id="btnToggleMultiSelect" class="icon-btn" title="切換多選模式 (模擬 Ctrl 鍵)">
+						<span class="material-symbols-outlined" id="multiSelectIcon">checklist</span>
+					</button>
 			<!-- 排序設定按鈕 -->
-			<div class="h-6 w-px bg-gray-300 mx-1"></div>
     <button id="btnOpenSort" class="icon-btn hover:bg-purple-50 hover:text-purple-600" title="排序設定"><span class="material-symbols-outlined">sort</span></button>
 
 <!-- 神奇多功能工具 -->
@@ -185,9 +187,6 @@
             </div>
 
             <div class="flex-grow"></div>
-			<!-- 尋找與取代按鈕 -->
-            <button id="btnFindReplace" title="尋找與取代 (Ctrl+F)" class="icon-btn hover:bg-blue-50 hover:text-blue-600"><span class="material-symbols-outlined">search</span></button>
-            <div class="h-6 w-px bg-gray-300 mx-1"></div>
 
             <button id="btnPaste" title="貼上 (Ctrl+V)" class="icon-btn hover:bg-blue-50 hover:text-blue-600"><span class="material-symbols-outlined">content_paste</span></button>
             <button id="btnCopy" title="複製 (Ctrl+C)" class="icon-btn hover:bg-blue-50 hover:text-blue-600"><span class="material-symbols-outlined">content_copy</span></button>
@@ -202,6 +201,7 @@
                     <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-red-600 font-bold flex items-center gap-2 code-text" onclick="document.getElementById('btnClearAll').click()"><span class="material-symbols-outlined text-base">warning</span>全部清空</button>
                 </div>
             </div>
+
             <!-- 隱藏的按鈕觸發清空 Modal -->
             <button id="btnClearAll" class="hidden"></button>
         </div>
@@ -251,7 +251,7 @@
     <div id="floating-tool">✨ 特殊合併</div>
 
 	<!-- 尋找與取代 浮動對話框 (全部套用 code-text 字體) -->
-    <div id="findReplaceModal" class="fixed top-20 right-10 bg-white rounded shadow-xl border border-gray-200 w-[360px] hidden z-[9999] code-text flex flex-col cursor-move">
+    <div id="findReplaceModal" class="fixed top-20 right-10 bg-white rounded shadow-xl border border-gray-200 w-[360px] max-w-[90vw] hidden z-[9999] code-text flex flex-col cursor-move">
         <!-- 標題列 / 狀態列 (與背景同色，無分隔線) -->
         <div class="flex justify-between items-center px-4 py-3 pb-1" id="findReplaceHeader">
             <div class="flex items-center gap-2 pointer-events-none">
@@ -334,7 +334,7 @@
 
 
 <!-- 排序設定對話框 -->
-<div id="sortPanel" class="fixed top-20 right-6 bg-white rounded-lg shadow-2xl border border-gray-100 w-96 hidden z-[9999] code-text flex flex-col p-4 max-h-[70vh]">
+<div id="sortPanel" class="fixed top-20 right-6 bg-white rounded-lg shadow-2xl border border-gray-100 w-96 max-w-[90vw] hidden z-[9999] code-text flex flex-col p-4 max-h-[70vh]">
     <div class="flex justify-between items-center mb-5 cursor-move" id="sortPanelHeader">
         <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2.5">
             <span class="material-symbols-outlined text-purple-600 font-bold" style="font-size: 24px;">notes</span> 排序設定
@@ -362,7 +362,7 @@
 
 
 <!-- 神奇多功能工具：自動填入 浮動對話框 -->
-<div id="autoFillModal" class="fixed top-32 right-20 bg-white rounded-lg shadow-2xl border border-gray-100 w-[340px] hidden z-[9999] code-text flex flex-col cursor-move overflow-hidden">
+<div id="autoFillModal" class="fixed top-32 right-20 bg-white rounded-lg shadow-2xl border border-gray-100 w-[340px] max-w-[90vw] hidden z-[9999] code-text flex flex-col cursor-move overflow-hidden">
     
     <div class="flex justify-between items-center px-5 py-4 cursor-move" id="autoFillHeader">
         <div class="flex items-center gap-3 pointer-events-none">
