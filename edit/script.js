@@ -2723,18 +2723,35 @@ const formulaFunctions = {
 };
 
 // 5. 解析並執行公式字串
+// 5. 解析並執行公式字串 (支援簡寫)
 function evaluateFormula(formulaStr) {
-    // 移除等號並轉大寫：=len(a1) -> LEN(A1)
+    // 移除等號並轉大寫：=len(a1) 或 =l(a1) -> LEN(A1) 或 L(A1)
     const cleanFormula = formulaStr.substring(1).trim().toUpperCase(); 
     
     // 簡單正則解析：找尋 函數名(參數)
     const match = cleanFormula.match(/^([A-Z]+)\((.*)\)$/);
     if (!match) return "錯誤: 語法無效";
     
-    const funcName = match[1];
+    let funcName = match[1];
     // 將參數以逗號分隔，並移除多餘空白
     const args = match[2].split(',').map(arg => arg.trim()); 
     
+    // ======== 新增：函數簡寫對照表 (Alias Dictionary) ========
+    const aliases = {
+        'L': 'LEN',
+        'S': 'SUM',
+        'CI': 'COUNTIF',
+        'CC': 'COUNTCHAR',
+        'E': 'EXACT'
+    };
+    
+    // 如果輸入的名稱在簡寫字典中找得到，就將其轉換為完整的函數名稱
+    if (aliases[funcName]) {
+        funcName = aliases[funcName];
+    }
+    // =========================================================
+    
+    // 檢查轉換後的函數是否存在於我們的函數庫中
     if (formulaFunctions[funcName]) {
         try {
             return formulaFunctions[funcName](args);
