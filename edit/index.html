@@ -70,6 +70,10 @@
             <span class="material-symbols-outlined text-base">splitscreen</span>自動分割
         </button>
 
+		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-orange-50 text-orange-700 flex items-center gap-2 code-text" id="btnOpenAutoMerge">
+            <span class="material-symbols-outlined text-base">merge_type</span>自動合併
+        </button>
+
 		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-green-50 text-purple-700 flex items-center gap-2 code-text" id="btnOpenSort">
             <span class="material-symbols-outlined text-base">sort</span>排序設定
         </button>
@@ -496,6 +500,9 @@
                 <option value='=EXACTCHAR(A1, B1, "X")'>=EXACTCHAR(A1, B1, "X") (EC字元數比對)</option>
 				<option value='=VLOOKUP(A1, D:E, 2, 0)'>=VLOOKUP(A1, D:E, 2, 0) (V垂直搜尋)</option>
 				<option value='=VLOOKUPALL(A1, D:E, 2, ", ")'>=VLOOKUPALL(A1, D:E, 2, ", ") (VA搜尋全部並合併)</option>
+				<option value='=LEFT(A1, 2)'>=LEFT(A1, 2) (LF左側截取)</option>
+                <option value='=RIGHT(A1, 2)'>=RIGHT(A1, 2) (R右側截取)</option>
+                <option value='=MID(A1, 2, 3)'>=MID(A1, 2, 3) (M中間截取)</option>
             </select>
         </div>
         
@@ -565,6 +572,32 @@
     </div>
 </div>
 
+
+<div id="autoMergeModal" class="fixed bg-white rounded-lg shadow-2xl border border-gray-100 w-72 max-w-[90vw] hidden z-[9999] code-text flex flex-col overflow-hidden">
+    <div class="flex justify-between items-center px-4 py-3 cursor-move bg-orange-50" id="autoMergeHeader">
+        <div class="flex items-center gap-2 pointer-events-none">
+            <span class="material-symbols-outlined text-orange-600 font-bold text-lg">merge_type</span>
+            <span class="text-gray-800 text-sm font-bold">自動合併設定</span>
+        </div>
+        <button id="btnCloseAutoMerge" class="text-gray-400 hover:text-red-500 transition cursor-pointer"><span class="material-symbols-outlined text-sm">close</span></button>
+    </div>
+    <div class="p-4 flex flex-col gap-3 text-sm">
+        <div class="flex flex-col gap-1">
+            <label class="font-bold text-gray-700">分隔字元</label>
+            <input type="text" id="autoMergeDelimiter" class="w-full border border-gray-200 rounded px-2 py-1.5 outline-none focus:border-orange-300 code-text" placeholder="預設留空">
+        </div>
+        <div class="flex flex-col gap-1 mt-1">
+            <label class="font-bold text-gray-700">合併方向</label>
+            <div class="grid grid-cols-2 gap-y-3 gap-x-2 mt-1">
+                <label class="flex items-center gap-1 cursor-pointer text-gray-700"><input type="radio" name="mergeDirection" value="left" checked class="accent-orange-600 w-4 h-4"> 往左集中</label>
+                <label class="flex items-center gap-1 cursor-pointer text-gray-700"><input type="radio" name="mergeDirection" value="right" class="accent-orange-600 w-4 h-4"> 往右集中</label>
+                <label class="flex items-center gap-1 cursor-pointer text-gray-700"><input type="radio" name="mergeDirection" value="up" class="accent-orange-600 w-4 h-4"> 往上集中</label>
+                <label class="flex items-center gap-1 cursor-pointer text-gray-700"><input type="radio" name="mergeDirection" value="down" class="accent-orange-600 w-4 h-4"> 往下集中</label>
+            </div>
+        </div>
+        <button id="btnApplyAutoMerge" class="w-full mt-3 px-4 py-2 bg-orange-100 text-orange-800 hover:bg-orange-200 rounded-lg transition text-sm font-bold shadow-sm cursor-pointer">確定合併</button>
+    </div>
+</div>
 
     <!-- 引入外部 JS 檔案 -->
     <script src="script.js"></script>

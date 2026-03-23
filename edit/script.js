@@ -1429,32 +1429,12 @@ dataTable.addEventListener('click', (e) => {
             
             return; // 提早結束，防止原本的選取範圍被清空
         }
-		// 修改：統一把 Ctrl 判斷提取出來
+        // 修改：統一把 Ctrl 判斷提取出來
         const isCtrl = e.ctrlKey || e.metaKey || isMobileMultiSelect;
 
-        if (e.shiftKey && lastClickedCell) {
-            if (selectedCellBlocks.length === 0) {
-                selectedCellBlocks.push({ startR: lastClickedCell.r, startC: lastClickedCell.c, endR: rIdx, endC: cIdx });
-            } else {
-                const lastBlock = selectedCellBlocks[selectedCellBlocks.length - 1];
-                lastBlock.endR = rIdx; lastBlock.endC = cIdx;
-            }
-            if (!isCtrl) { // 修改這裡
-                selectedCellBlocks = [selectedCellBlocks[selectedCellBlocks.length - 1]];
-                selectedRows = []; selectedCols = [];
-            }
-            applySelectionVisuals(); window.getSelection().removeAllRanges();
-        } else if (isCtrl) { // 修改這裡
-            selectedCellBlocks.push({ startR: rIdx, startC: cIdx, endR: rIdx, endC: cIdx });
-            lastClickedCell = { r: rIdx, c: cIdx };
-            applySelectionVisuals();
-        } else {
-            lastClickedCell = { r: rIdx, c: cIdx };
-            selectedCellBlocks = [{ startR: rIdx, startC: cIdx, endR: rIdx, endC: cIdx }];
-            clearTableSelection(false);
-            selectedRows = []; selectedCols = [];
-            applySelectionVisuals();
-        }
+        // ======== 選取邏輯已完美移轉至 mousedown 與 mouseover (支援拖曳) ========
+        // 如果剛才發生了拖曳，我們就跳過點擊開啟編輯器的動作
+        if (window.isCellDragging) return;
 
         // 修改：如果不換行模式且沒有按住特殊鍵 (包含多選模式)，點文字才開啟編輯器
         if (dataTable.classList.contains('table-nowrap') && !e.shiftKey && !isCtrl && !isClickOnPaddingGap) {
@@ -3000,6 +2980,71 @@ const formulaFunctions = {
         }
     },
 
+	// 截取左側字元：=LEFT(文字, [截取長度])
+    LEFT: (args) => {
+        if (args.length < 1) return "錯誤: 參數不足";
+        const resolveArg = (arg) => {
+            const cell = parseCellReference(arg);
+            if (cell) return String(getCellValue(cell.row, cell.col));
+            return arg.replace(/^["']|["']$/g, "");
+        };
+        const text = resolveArg(args[0]);
+        let numChars = 1; // 預設截取 1 個字元
+        if (args.length >= 2) {
+            numChars = parseInt(resolveArg(args[1]), 10);
+            if (isNaN(numChars) || numChars < 0) return "#VALUE!";
+        }
+        if (numChars === 0) return "";
+        
+        // 使用展開運算子完美處理 Unicode 擴充漢字
+        const chars = [...text];
+        return chars.slice(0, numChars).join('');
+    },
+
+    // 截取右側字元：=RIGHT(文字, [截取長度])
+    RIGHT: (args) => {
+        if (args.length < 1) return "錯誤: 參數不足";
+        const resolveArg = (arg) => {
+            const cell = parseCellReference(arg);
+            if (cell) return String(getCellValue(cell.row, cell.col));
+            return arg.replace(/^["']|["']$/g, "");
+        };
+        const text = resolveArg(args[0]);
+        let numChars = 1;
+        if (args.length >= 2) {
+            numChars = parseInt(resolveArg(args[1]), 10);
+            if (isNaN(numChars) || numChars < 0) return "#VALUE!";
+        }
+        if (numChars === 0) return "";
+        
+        const chars = [...text];
+        if (numChars >= chars.length) return text;
+        return chars.slice(-numChars).join('');
+    },
+
+    // 截取中間字元：=MID(文字, 起始位置, 截取長度)
+    MID: (args) => {
+        if (args.length < 3) return "錯誤: 參數不足";
+        const resolveArg = (arg) => {
+            const cell = parseCellReference(arg);
+            if (cell) return String(getCellValue(cell.row, cell.col));
+            return arg.replace(/^["']|["']$/g, "");
+        };
+        const text = resolveArg(args[0]);
+        const startNum = parseInt(resolveArg(args[1]), 10);
+        const numChars = parseInt(resolveArg(args[2]), 10);
+        
+        if (isNaN(startNum) || startNum < 1 || isNaN(numChars) || numChars < 0) return "#VALUE!";
+        if (numChars === 0) return "";
+        
+        const chars = [...text];
+        if (startNum > chars.length) return "";
+        
+        // Excel 的起始位置是 1-based，所以陣列索引要減 1
+        return chars.slice(startNum - 1, startNum - 1 + numChars).join('');
+    },
+
+
     // 總和計算
     SUM: (args) => {
         if (!args[0]) return 0;
@@ -3288,6 +3333,9 @@ function evaluateFormula(formulaStr) {
         'EC': 'EXACTCHAR',
 		'V': 'VLOOKUP',
 		'VA': 'VLOOKUPALL',
+		'LF': 'LEFT',
+        'R': 'RIGHT',
+        'M': 'MID',
     };
     
     // 轉換別名
@@ -4058,9 +4106,234 @@ document.getElementById('btnApplyAutoSplit').addEventListener('click', () => {
 
 
 
+/* ==========================================
+   神奇多功能工具：自動合併 模組
+   ========================================== */
+const autoMergeModal = document.getElementById('autoMergeModal');
+
+// 1. 開啟與關閉對話框
+document.getElementById('btnOpenAutoMerge').addEventListener('click', (e) => {
+    e.stopPropagation();
+    autoMergeModal.classList.remove('hidden');
+    document.querySelectorAll('.dropdown-menu, .action-menu').forEach(m => m.classList.remove('show'));
+    centerModal(autoMergeModal); // 呼叫置中函數
+    document.getElementById('autoMergeDelimiter').focus();
+});
+document.getElementById('btnCloseAutoMerge').addEventListener('click', () => {
+    autoMergeModal.classList.add('hidden');
+});
+
+// 2. 視窗全區拖曳
+let isDraggingAMM = false, dragStartXAMM = 0, dragStartYAMM = 0, ammStartLeft = 0, ammStartTop = 0;
+autoMergeModal.addEventListener('mousedown', (e) => {
+    if (e.target.closest('input, button, label')) return; 
+    isDraggingAMM = true; dragStartXAMM = e.clientX; dragStartYAMM = e.clientY;
+    const rect = autoMergeModal.getBoundingClientRect();
+    ammStartLeft = rect.left; ammStartTop = rect.top;
+    document.body.style.userSelect = 'none';
+});
+document.addEventListener('mousemove', (e) => {
+    if (!isDraggingAMM) return;
+    autoMergeModal.style.left = `${ammStartLeft + (e.clientX - dragStartXAMM)}px`;
+    autoMergeModal.style.top = `${ammStartTop + (e.clientY - dragStartYAMM)}px`;
+    autoMergeModal.style.transform = 'none';
+});
+document.addEventListener('mouseup', () => { isDraggingAMM = false; document.body.style.userSelect = ''; });
+autoMergeModal.addEventListener('touchstart', (e) => {
+    if (e.target.closest('input, button, label')) return; 
+    const touch = e.touches[0];
+    isDraggingAMM = true; dragStartXAMM = touch.clientX; dragStartYAMM = touch.clientY;
+    const rect = autoMergeModal.getBoundingClientRect();
+    ammStartLeft = rect.left; ammStartTop = rect.top;
+    if (!e.target.closest('input')) e.preventDefault();
+}, { passive: false });
+document.addEventListener('touchmove', (e) => {
+    if (!isDraggingAMM) return;
+    const touch = e.touches[0];
+    autoMergeModal.style.left = `${ammStartLeft + (touch.clientX - dragStartXAMM)}px`;
+    autoMergeModal.style.top = `${ammStartTop + (touch.clientY - dragStartYAMM)}px`;
+    autoMergeModal.style.transform = 'none';
+    e.preventDefault();
+}, { passive: false });
+document.addEventListener('touchend', () => { isDraggingAMM = false; });
+
+// 3. 核心邏輯：執行合併
+document.getElementById('btnApplyAutoMerge').addEventListener('click', () => {
+    if (currentMode !== 'table') return showToast('⚠️ 僅能在表格模式使用');
+    
+    // 找出選取範圍的邊界 (Bounding Box)
+    let minR = Infinity, maxR = -1, minC = Infinity, maxC = -1;
+    if (selectedCellBlocks.length > 0) {
+        selectedCellBlocks.forEach(b => {
+            minR = Math.min(minR, b.startR, b.endR); maxR = Math.max(maxR, b.startR, b.endR);
+            minC = Math.min(minC, b.startC, b.endC); maxC = Math.max(maxC, b.startC, b.endC);
+        });
+    } else if (selectedRows.length > 0) {
+        minR = Math.min(...selectedRows); maxR = Math.max(...selectedRows);
+        minC = 0; maxC = dataTable.querySelector('thead tr').children.length - 2;
+    } else if (selectedCols.length > 0) {
+        minR = 0; maxR = dataTable.querySelectorAll('tbody tr').length - 1;
+        minC = Math.min(...selectedCols); maxC = Math.max(...selectedCols);
+    } else if (lastClickedCell) {
+        minR = maxR = lastClickedCell.r;
+        minC = maxC = lastClickedCell.c;
+    } 
+
+    if (minR === Infinity || (minR === maxR && minC === maxC)) {
+        return showToast('⚠️ 請先選取大於一格的範圍來進行合併');
+    }
+
+    const delimiter = document.getElementById('autoMergeDelimiter').value;
+    const direction = document.querySelector('input[name="mergeDirection"]:checked').value;
+    const tbodyRows = dataTable.querySelectorAll('tbody tr');
+
+    // 橫向合併 (左或右)
+    if (direction === 'left' || direction === 'right') {
+        for (let r = minR; r <= maxR; r++) {
+            let parts = [];
+            let cellsToClear = [];
+            for (let c = minC; c <= maxC; c++) {
+                const inner = tbodyRows[r]?.children[c + 1]?.querySelector('.td-inner');
+                if (inner) {
+                    let txt = inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : inner.innerText;
+                    if (txt !== null && txt !== undefined && txt.trim() !== '') {
+                        parts.push(txt);
+                    }
+                    cellsToClear.push(inner);
+                }
+            }
+            if (parts.length > 0) {
+                let mergedText = parts.join(delimiter);
+                cellsToClear.forEach(inner => { inner.removeAttribute('data-formula'); inner.innerText = ''; });
+                
+                let targetCell = direction === 'left' ? cellsToClear[0] : cellsToClear[cellsToClear.length - 1];
+                targetCell.innerText = mergedText;
+                if (mergedText.startsWith('=')) targetCell.setAttribute('data-formula', mergedText);
+            }
+        }
+    } 
+    // 直向合併 (上或下)
+    else if (direction === 'up' || direction === 'down') {
+        for (let c = minC; c <= maxC; c++) {
+            let parts = [];
+            let cellsToClear = [];
+            for (let r = minR; r <= maxR; r++) {
+                const inner = tbodyRows[r]?.children[c + 1]?.querySelector('.td-inner');
+                if (inner) {
+                    let txt = inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : inner.innerText;
+                    if (txt !== null && txt !== undefined && txt.trim() !== '') {
+                        parts.push(txt);
+                    }
+                    cellsToClear.push(inner);
+                }
+            }
+            if (parts.length > 0) {
+                let mergedText = parts.join(delimiter);
+                cellsToClear.forEach(inner => { inner.removeAttribute('data-formula'); inner.innerText = ''; });
+                
+                let targetCell = direction === 'up' ? cellsToClear[0] : cellsToClear[cellsToClear.length - 1];
+                targetCell.innerText = mergedText;
+                if (mergedText.startsWith('=')) targetCell.setAttribute('data-formula', mergedText);
+            }
+        }
+    }
+
+    recalculateAllFormulas();
+    localStorage.setItem(STORAGE_KEY, extractTextFromTable());
+    debouncedSaveHistory();
+    autoMergeModal.classList.add('hidden');
+    showToast('✅ 自動合併完成！');
+});
 
 
+/* ==========================================
+   滑鼠拖曳與多選儲存格引擎 (完美相容 Shift/Ctrl)
+   ========================================== */
+window.isCellDragging = false;
+let isMouseDownOnCell = false;
 
+// 1. 按下滑鼠：記錄起點，並執行原有的多選判斷
+dataTable.addEventListener('mousedown', (e) => {
+    // 排除標題列、選單按鈕、縮放把手等 UI 元素
+    if (e.target.closest('th') || e.target.closest('.resize-handle') || e.target.closest('.btn-col-menu') || e.target.closest('.btn-row-menu')) return;
 
+    const td = e.target.closest('td');
+    if (td && currentMode === 'table') {
+        // 如果游標正在這格裡面閃爍 (打字中)，放行讓使用者可以點擊反白文字，不觸發拖曳選取
+        if (document.activeElement === td.querySelector('.td-inner')) return;
+        
+        if (isSelectionLocked) return;
+
+        const tr = td.closest('tr');
+        const rIdx = Array.from(tr.parentNode.children).indexOf(tr);
+        const cIdx = Array.from(tr.children).indexOf(td) - 1;
+
+        isMouseDownOnCell = true;
+        window.isCellDragging = false; 
+
+        // 完美保留你的多選狀態判斷
+        const isCtrl = e.ctrlKey || e.metaKey || isMobileMultiSelect;
+
+        if (e.shiftKey && lastClickedCell) {
+            if (selectedCellBlocks.length === 0) {
+                selectedCellBlocks.push({ startR: lastClickedCell.r, startC: lastClickedCell.c, endR: rIdx, endC: cIdx });
+            } else {
+                const lastBlock = selectedCellBlocks[selectedCellBlocks.length - 1];
+                lastBlock.endR = rIdx; lastBlock.endC = cIdx;
+            }
+            if (!isCtrl) {
+                selectedCellBlocks = [selectedCellBlocks[selectedCellBlocks.length - 1]];
+                selectedRows = []; selectedCols = [];
+            }
+            applySelectionVisuals(); 
+            window.getSelection().removeAllRanges();
+        } else if (isCtrl) {
+            selectedCellBlocks.push({ startR: rIdx, startC: cIdx, endR: rIdx, endC: cIdx });
+            lastClickedCell = { r: rIdx, c: cIdx };
+            applySelectionVisuals();
+        } else {
+            lastClickedCell = { r: rIdx, c: cIdx };
+            selectedCellBlocks = [{ startR: rIdx, startC: cIdx, endR: rIdx, endC: cIdx }];
+            clearTableSelection(false);
+            selectedRows = []; selectedCols = [];
+            applySelectionVisuals();
+        }
+    }
+});
+
+// 2. 滑鼠移動：動態更新選取框邊界
+dataTable.addEventListener('mouseover', (e) => {
+    if (!isMouseDownOnCell || isSelectionLocked) return;
+
+    const td = e.target.closest('td');
+    if (td) {
+        const tr = td.closest('tr');
+        const rIdx = Array.from(tr.parentNode.children).indexOf(tr);
+        const cIdx = Array.from(tr.children).indexOf(td) - 1;
+
+        const lastBlock = selectedCellBlocks[selectedCellBlocks.length - 1];
+        
+        // 只要游標進入了不同的一格，就擴充選取範圍
+        if (lastBlock && (lastBlock.endR !== rIdx || lastBlock.endC !== cIdx)) {
+            window.isCellDragging = true; // 標記為「拖曳中」
+            lastBlock.endR = rIdx;
+            lastBlock.endC = cIdx;
+            
+            applySelectionVisuals();
+            window.getSelection().removeAllRanges(); // 防止拖曳時反白到文字
+        }
+    }
+});
+
+// 3. 放開滑鼠：結束拖曳狀態 (綁在 document 上確保滑出表格也能正確解除)
+document.addEventListener('mouseup', () => {
+    if (isMouseDownOnCell) {
+        isMouseDownOnCell = false;
+        // 延遲解除拖曳旗標，避免 click 事件誤判
+        setTimeout(() => {
+            window.isCellDragging = false;
+        }, 50);
+    }
+});
 
 init();
