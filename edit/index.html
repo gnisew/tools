@@ -53,11 +53,44 @@
             </div>
             <div class="h-6 w-px bg-gray-300 mx-1"></div>
 
+<!-- 神奇多功能工具 -->
+<div class="relative dropdown-container" id="dd-magicTool">
+    <button class="dropdown-btn icon-btn hover:bg-yellow-50 hover:text-yellow-600" title="神奇多功能工具">
+        <span class="material-symbols-outlined">auto_fix_high</span>
+    </button>
+    <div class="dropdown-menu absolute right-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-36 z-50 py-1">
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 flex items-center gap-2 code-text" id="btnOpenAutoFill">
+            <span class="material-symbols-outlined text-base">format_list_numbered</span>自動填入
+        </button>
+		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-green-50 text-green-700 flex items-center gap-2 code-text" id="btnOpenAutoFormula">
+            <span class="material-symbols-outlined text-base">functions</span>自動函數
+        </button>
+
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-cyan-50 text-cyan-700 flex items-center gap-2 code-text" id="btnOpenAutoSplit">
+            <span class="material-symbols-outlined text-base">splitscreen</span>自動分割
+        </button>
+
+		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-green-50 text-purple-700 flex items-center gap-2 code-text" id="btnOpenSort">
+            <span class="material-symbols-outlined text-base">sort</span>排序設定
+        </button>
+
+		<div class="h-px bg-gray-200 my-1 mx-2"></div>
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-purple-50 text-purple-700 flex items-center gap-2 code-text" id="btnOpenRemoveDuplicates">
+            <span class="material-symbols-outlined text-base">difference</span>移除重複
+        </button>
+
+
+
+    </div>
+</div>
+
 
 		  	<button class="toolbar-btn-text ime-toggle-button" title="輸入法">
 				<span class="material-icons">keyboard</span>
 				<span class="btn-text"></span>				
 			</button>	
+
+<div class="h-6 w-px bg-gray-300 mx-1"></div>
 
 			<div class="relative dropdown-container" id="dd-fontFamily">
                 <button class="dropdown-btn icon-btn" title="切換字體"><span class="material-symbols-outlined">font_download</span></button>
@@ -155,7 +188,7 @@
                 </div>
             </div>
 
-<!-- ======== 新增：Enter 鍵行為與移動方向設定 ======== -->
+			<!-- ======== 新增：Enter 鍵行為與移動方向設定 ======== -->
             <div class="h-6 w-px bg-gray-300 mx-1"></div>
             
             <!-- Enter 鍵行為設定 -->
@@ -194,37 +227,7 @@
 					</button>
 
 
-<!-- 神奇多功能工具 -->
-<div class="relative dropdown-container" id="dd-magicTool">
-    <button class="dropdown-btn icon-btn hover:bg-yellow-50 hover:text-yellow-600" title="神奇多功能工具">
-        <span class="material-symbols-outlined">auto_fix_high</span>
-    </button>
-    <div class="dropdown-menu absolute right-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-36 z-50 py-1">
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 flex items-center gap-2 code-text" id="btnOpenAutoFill">
-            <span class="material-symbols-outlined text-base">format_list_numbered</span>自動填入
-        </button>
-		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-green-50 text-green-700 flex items-center gap-2 code-text" id="btnOpenAutoFormula">
-            <span class="material-symbols-outlined text-base">functions</span>自動函數
-        </button>
 
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-cyan-50 text-cyan-700 flex items-center gap-2 code-text" id="btnOpenAutoSplit">
-            <span class="material-symbols-outlined text-base">splitscreen</span>自動分割
-        </button>
-
-		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-green-50 text-purple-700 flex items-center gap-2 code-text" id="btnOpenSort">
-            <span class="material-symbols-outlined text-base">sort</span>排序設定
-        </button>
-
-		<div class="h-px bg-gray-200 my-1 mx-2"></div>
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-purple-50 text-purple-700 flex items-center gap-2 code-text" id="btnOpenRemoveDuplicates">
-            <span class="material-symbols-outlined text-base">difference</span>移除重複
-        </button>
-
-
-
-    </div>
-</div>
-<div class="h-6 w-px bg-gray-300 mx-1"></div>
 
                 <!-- 批次新增列 -->
                 <div class="relative action-dropdown">
