@@ -10,6 +10,8 @@
     <link rel="stylesheet" href="style.css">
 	<link href="https://oikasu1.github.io/kasuexam/kasu/fonts/twhei.css" rel="stylesheet">
     <link href="https://tauhu.tw/tauhu-oo.css" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@300..700" rel="stylesheet" />
+	<link href="https://gnisew.github.io/tools/ime/ime.css" rel="stylesheet">
 </head>
 <body class="p-2 md:p-6">
 
@@ -50,6 +52,12 @@
                 </div>
             </div>
             <div class="h-6 w-px bg-gray-300 mx-1"></div>
+
+
+		  	<button class="toolbar-btn-text ime-toggle-button" title="輸入法">
+				<span class="material-icons">keyboard</span>
+				<span class="btn-text"></span>				
+			</button>	
 
 			<div class="relative dropdown-container" id="dd-fontFamily">
                 <button class="dropdown-btn icon-btn" title="切換字體"><span class="material-symbols-outlined">font_download</span></button>
@@ -96,12 +104,15 @@
                     <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="16px"><div class="flex items-center gap-2">16px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
                     <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="18px"><div class="flex items-center gap-2">18px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
                     <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="20px"><div class="flex items-center gap-2">20px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+					<button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="24px"><div class="flex items-center gap-2">24px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+					<button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="32px"><div class="flex items-center gap-2">32px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
                 </div>
             </div>
 
             <div class="relative dropdown-container" id="dd-lineHeight">
                 <button class="dropdown-btn icon-btn" title="設定行距"><span class="material-symbols-outlined">format_line_spacing</span></button>
                 <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-40 z-50 py-1">
+					<button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1"><div class="flex items-center gap-2">行距 1</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
                     <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1.2"><div class="flex items-center gap-2">行距 1.2</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
                     <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1.4"><div class="flex items-center gap-2">行距 1.4</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
                     <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1.6"><div class="flex items-center gap-2">行距 1.6</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
@@ -144,12 +155,44 @@
                 </div>
             </div>
 
+<!-- ======== 新增：Enter 鍵行為與移動方向設定 ======== -->
+            <div class="h-6 w-px bg-gray-300 mx-1"></div>
+            
+            <!-- Enter 鍵行為設定 -->
+            <div class="relative dropdown-container" id="dd-enterAction">
+                <button class="dropdown-btn icon-btn" title="Enter 鍵行為"><span class="material-symbols-outlined" id="enterActionIcon">keyboard_return</span></button>
+                <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1">
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="confirm">
+                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">check_circle</span>Enter 確認</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span>
+                    </button>
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="newline">
+                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">keyboard_return</span>Enter 換行</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 確認後移動方向設定 -->
+            <div class="relative dropdown-container" id="dd-enterDirection">
+                <button class="dropdown-btn icon-btn" title="確認後移動方向"><span class="material-symbols-outlined" id="enterDirectionIcon">arrow_downward</span></button>
+                <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-40 z-50 py-1">
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="down">
+                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">arrow_downward</span>向下移動</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span>
+                    </button>
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="right">
+                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">arrow_forward</span>向右移動</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
+                    </button>
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="stay">
+                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">pan_tool</span>留在原格</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
+                    </button>
+                </div>
+            </div>
+            <!-- ==================================================== -->
+
 					<!-- 新增：行動版多選模式開關 -->
 					<button id="btnToggleMultiSelect" class="icon-btn" title="切換多選模式 (模擬 Ctrl 鍵)">
 						<span class="material-symbols-outlined" id="multiSelectIcon">checklist</span>
 					</button>
-			<!-- 排序設定按鈕 -->
-    <button id="btnOpenSort" class="icon-btn hover:bg-purple-50 hover:text-purple-600" title="排序設定"><span class="material-symbols-outlined">sort</span></button>
+
 
 <!-- 神奇多功能工具 -->
 <div class="relative dropdown-container" id="dd-magicTool">
@@ -160,6 +203,25 @@
         <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 flex items-center gap-2 code-text" id="btnOpenAutoFill">
             <span class="material-symbols-outlined text-base">format_list_numbered</span>自動填入
         </button>
+		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-green-50 text-green-700 flex items-center gap-2 code-text" id="btnOpenAutoFormula">
+            <span class="material-symbols-outlined text-base">functions</span>自動函數
+        </button>
+
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-cyan-50 text-cyan-700 flex items-center gap-2 code-text" id="btnOpenAutoSplit">
+            <span class="material-symbols-outlined text-base">splitscreen</span>自動分割
+        </button>
+
+		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-green-50 text-purple-700 flex items-center gap-2 code-text" id="btnOpenSort">
+            <span class="material-symbols-outlined text-base">sort</span>排序設定
+        </button>
+
+		<div class="h-px bg-gray-200 my-1 mx-2"></div>
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-purple-50 text-purple-700 flex items-center gap-2 code-text" id="btnOpenRemoveDuplicates">
+            <span class="material-symbols-outlined text-base">difference</span>移除重複
+        </button>
+
+
+
     </div>
 </div>
 <div class="h-6 w-px bg-gray-300 mx-1"></div>
@@ -251,7 +313,7 @@
     <div id="floating-tool">✨ 特殊合併</div>
 
 	<!-- 尋找與取代 浮動對話框 (全部套用 code-text 字體) -->
-    <div id="findReplaceModal" class="fixed top-20 right-10 bg-white rounded shadow-xl border border-gray-200 w-[360px] max-w-[90vw] hidden z-[9999] code-text flex flex-col cursor-move">
+    <div id="findReplaceModal" class="fixed bg-white rounded shadow-xl border border-gray-200 w-[360px] max-w-[90vw] hidden z-[9999] code-text flex flex-col cursor-move">
         <!-- 標題列 / 狀態列 (與背景同色，無分隔線) -->
         <div class="flex justify-between items-center px-4 py-3 pb-1" id="findReplaceHeader">
             <div class="flex items-center gap-2 pointer-events-none">
@@ -298,6 +360,7 @@
                     <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chkCellMatch"> 儲存格相符</label>
                     <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chkPrefixMatch"> 前綴相符</label>
                     <label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chkRegex"> 正則表達</label>
+					<label class="flex items-center gap-1 cursor-pointer"><input type="checkbox" id="chkFormulaMatch"> 公式文字</label>
                 </div>
             </div>
         </div>
@@ -334,7 +397,7 @@
 
 
 <!-- 排序設定對話框 -->
-<div id="sortPanel" class="fixed top-20 right-6 bg-white rounded-lg shadow-2xl border border-gray-100 w-96 max-w-[90vw] hidden z-[9999] code-text flex flex-col p-4 max-h-[70vh]">
+<div id="sortPanel" class="fixed bg-white rounded-lg shadow-2xl border border-gray-100 w-96 max-w-[90vw] hidden z-[9999] code-text flex flex-col p-4 max-h-[70vh]">
     <div class="flex justify-between items-center mb-5 cursor-move" id="sortPanelHeader">
         <h2 class="text-xl font-bold text-gray-800 flex items-center gap-2.5">
             <span class="material-symbols-outlined text-purple-600 font-bold" style="font-size: 24px;">notes</span> 排序設定
@@ -362,7 +425,7 @@
 
 
 <!-- 神奇多功能工具：自動填入 浮動對話框 -->
-<div id="autoFillModal" class="fixed top-32 right-20 bg-white rounded-lg shadow-2xl border border-gray-100 w-[340px] max-w-[90vw] hidden z-[9999] code-text flex flex-col cursor-move overflow-hidden">
+<div id="autoFillModal" class="fixed bg-white rounded-lg shadow-2xl border border-gray-100 w-[340px] max-w-[90vw] hidden z-[9999] code-text flex flex-col cursor-move overflow-hidden">
     
     <div class="flex justify-between items-center px-5 py-4 cursor-move" id="autoFillHeader">
         <div class="flex items-center gap-3 pointer-events-none">
@@ -402,7 +465,109 @@
     </div>
 </div>
 
+
+
+
+
+<!-- 神奇多功能工具：自動函數 浮動對話框 -->
+<div id="autoFormulaModal" class="fixed bg-white rounded-lg shadow-2xl border border-gray-100 w-[340px] max-w-[90vw] hidden z-[9999] code-text flex flex-col cursor-move overflow-hidden">
+    
+    <div class="flex justify-between items-center px-5 py-4 cursor-move" id="autoFormulaHeader">
+        <div class="flex items-center gap-3 pointer-events-none">
+            <span class="material-symbols-outlined text-green-500 font-bold" style="font-size: 24px;">functions</span>
+            <span class="text-gray-800 text-base font-bold">自動函數</span>
+        </div>
+        <button id="btnCloseAutoFormula" class="text-gray-400 hover:text-red-500 transition cursor-pointer"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    
+    <div class="px-5 pb-5 pt-1 flex flex-col gap-4">
+        <div class="flex flex-col gap-1">
+            <label class="text-xs text-gray-500 pl-1 font-bold">函數參考 (點選可直接帶入)</label>
+            <select id="autoFormulaSelect" class="w-full border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:border-green-300 code-text cursor-pointer bg-white">
+                <option value="">-- 請選擇參考函數 --</option>
+                <option value="=LEN(A1)">=LEN(A1) (L字數)</option>
+                <option value='=COUNTIF(A:A, "目標")'>=COUNTIF(A:A, "目標") (C條件計數)</option>
+                <option value="=SUM(A1:A5)">=SUM(A1:A5) (S總和)</option>
+                <option value="=EXACT(A1, B1)">=EXACT(A1, B1) (E精確比對)</option>
+                <option value='=COUNTCHAR(A1, "X")'>=COUNTCHAR(A1, "X") (CC某字元數)</option>
+                <option value='=EXACTCHAR(A1, B1, "X")'>=EXACTCHAR(A1, B1, "X") (EC字元數比對)</option>
+				<option value='=VLOOKUP(A1, D:E, 2, 0)'>=VLOOKUP(A1, D:E, 2, 0) (V垂直搜尋)</option>
+				<option value='=VLOOKUPALL(A1, D:E, 2, ", ")'>=VLOOKUPALL(A1, D:E, 2, ", ") (VA搜尋全部並合併)</option>
+            </select>
+        </div>
+        
+        <div class="flex flex-col gap-1">
+            <label class="text-xs text-gray-500 pl-1 font-bold">請輸入範圍「第一格」的公式</label>
+            <input type="text" id="autoFormulaInput" class="w-full border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:border-green-300 code-text cursor-text bg-white" placeholder="例如: =LEN(A3)">
+        </div>
+        
+        <div class="mt-2">
+            <button id="btnApplyAutoFormula" class="w-full px-4 py-2 bg-green-100 text-green-800 hover:bg-green-200 rounded-lg transition text-sm code-text font-bold cursor-pointer shadow-sm">智慧套用至選取範圍</button>
+        </div>
+    </div>
+</div>
+
+
+<div id="removeDuplicatesModal" class="fixed top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-2xl border border-gray-100 w-72 max-w-[90vw] hidden z-[9999] code-text flex flex-col overflow-hidden">
+    <div class="flex justify-between items-center px-4 py-3 cursor-move bg-purple-50" id="removeDuplicatesHeader">
+        <div class="flex items-center gap-2 pointer-events-none">
+            <span class="material-symbols-outlined text-purple-600 font-bold text-lg">difference</span>
+            <span class="text-gray-800 text-sm font-bold">移除重複設定</span>
+        </div>
+        <button id="btnCloseRemoveDuplicates" class="text-gray-400 hover:text-red-500 transition cursor-pointer"><span class="material-symbols-outlined text-sm">close</span></button>
+    </div>
+    <div class="p-4 flex flex-col gap-3 text-sm">
+        <div class="font-bold text-gray-700 mb-1">處理方式</div>
+        <label class="flex items-center gap-2 cursor-pointer text-gray-700">
+            <input type="radio" name="rdLayout" value="inplace" checked class="accent-purple-600 w-4 h-4">
+            <span>留在原位 (清空重複項目)</span>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer text-gray-700">
+            <input type="radio" name="rdLayout" value="shift" class="accent-purple-600 w-4 h-4">
+            <span>往上集中 (消除空白)</span>
+        </label>
+        <div class="h-px bg-gray-200 my-1"></div>
+        <label class="flex items-center gap-2 cursor-pointer font-bold text-purple-700">
+            <input type="checkbox" id="chkRdCount" class="accent-purple-600 w-4 h-4">
+            <span>統計次數並標示於右側新欄</span>
+        </label>
+        <button id="btnApplyRemoveDuplicates" class="w-full mt-2 px-4 py-2 bg-purple-100 text-purple-800 hover:bg-purple-200 rounded-lg transition text-sm font-bold shadow-sm cursor-pointer">確定移除重複</button>
+    </div>
+</div>
+
+
+
+<div id="autoSplitModal" class="fixed bg-white rounded-lg shadow-2xl border border-gray-100 w-72 max-w-[90vw] hidden z-[9999] code-text flex flex-col overflow-hidden">
+    <div class="flex justify-between items-center px-4 py-3 cursor-move bg-cyan-50" id="autoSplitHeader">
+        <div class="flex items-center gap-2 pointer-events-none">
+            <span class="material-symbols-outlined text-cyan-600 font-bold text-lg">splitscreen</span>
+            <span class="text-gray-800 text-sm font-bold">自動分割設定</span>
+        </div>
+        <button id="btnCloseAutoSplit" class="text-gray-400 hover:text-red-500 transition cursor-pointer"><span class="material-symbols-outlined text-sm">close</span></button>
+    </div>
+    <div class="p-4 flex flex-col gap-3 text-sm">
+        <div class="flex flex-col gap-1">
+            <label class="font-bold text-gray-700">指定分割字元</label>
+            <input type="text" id="autoSplitDelimiter" class="w-full border border-gray-200 rounded px-2 py-1.5 outline-none focus:border-cyan-300 code-text" placeholder="留空則逐字元分割">
+        </div>
+        <label class="flex items-center gap-2 cursor-pointer text-gray-700 mt-1">
+            <input type="checkbox" id="chkMergeDelimiters" class="accent-cyan-600 w-4 h-4">
+            <span>連續分隔字元視為單一處理</span>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer text-gray-700">
+            <input type="checkbox" id="chkKeepDelimiter" class="accent-cyan-600 w-4 h-4">
+            <span>分割後保留分割字元 (獨立成欄)</span>
+        </label>
+        <button id="btnApplyAutoSplit" class="w-full mt-2 px-4 py-2 bg-cyan-100 text-cyan-800 hover:bg-cyan-200 rounded-lg transition text-sm font-bold shadow-sm cursor-pointer">確定分割</button>
+    </div>
+</div>
+
+
     <!-- 引入外部 JS 檔案 -->
     <script src="script.js"></script>
+    <script src="https://gnisew.github.io/tools/ime/ime-dict.js"></script>
+    <script src="https://gnisew.github.io/tools/ime/ime.js"></script>
+    <script src="https://gnisew.github.io/tools/ime/ime-button.js"></script>
+
 </body>
 </html>

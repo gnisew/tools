@@ -47,6 +47,9 @@ let historyStack = [];
 let isUndoing = false;
 let saveTimeout;
 
+const ENTER_ACTION_KEY = 'tauhu-enter-action';
+const ENTER_DIRECTION_KEY = 'tauhu-enter-direction';
+
 const FONT_FAMILY_KEY = 'tauhu-font-family';
 
 /* 工具列元件初始化 */
@@ -88,6 +91,17 @@ function initDropdowns() {
         if (!e.target.closest('#rowMenu') && !e.target.closest('.btn-row-menu')) rowMenu.classList.remove('show');
     });
 }
+
+	// 讀取 Enter 鍵偏好設定
+    const savedEnterAction = localStorage.getItem(ENTER_ACTION_KEY) || 'confirm';
+    setDropdownValue('dd-enterAction', savedEnterAction);
+    document.getElementById('enterActionIcon').textContent = savedEnterAction === 'confirm' ? 'check_circle' : 'keyboard_return';
+
+    const savedEnterDirection = localStorage.getItem(ENTER_DIRECTION_KEY) || 'down';
+    setDropdownValue('dd-enterDirection', savedEnterDirection);
+    const dirIconMap = { 'down': 'arrow_downward', 'right': 'arrow_forward', 'stay': 'pan_tool' };
+    document.getElementById('enterDirectionIcon').textContent = dirIconMap[savedEnterDirection];
+
 
 // 行動版多選模式按鈕切換邏輯
 const btnToggleMultiSelect = document.getElementById('btnToggleMultiSelect');
@@ -1060,44 +1074,167 @@ function closeCellEditor(save = true) {
 document.getElementById('cellEditorOverlay').addEventListener('click', () => closeCellEditor(true));
 
 /* 鍵盤與剪貼簿事件監聽 */
-/* 鍵盤與剪貼簿事件監聽 */
+/* 鍵盤與剪貼簿事件監聽 (全面升級版) */
 document.addEventListener('keydown', (e) => {
-    // 攔截 Ctrl+F 快捷鍵
+    // 1. 攔截 Ctrl+F 快捷鍵
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         document.getElementById('findReplaceModal').classList.toggle('hidden');
         if (!document.getElementById('findReplaceModal').classList.contains('hidden')) {
+            centerModal(document.getElementById('findReplaceModal'));
             document.getElementById('findInput').focus();
             document.getElementById('findInput').select();
         }
         return;
     }
 
-    if (currentMode === 'table' && (e.key === 'Delete' || e.key === 'Backspace')) {
-        // [修正關鍵] 將輸入框判斷移到最前面：只要發現正在輸入框內打字或刪除，絕對不觸發表格結構刪除
-        const isInput = e.target.closest('input, textarea, .td-inner');
-        if (isInput) return;
+    if (currentMode === 'table') {
+        // 判斷目前是否有文字游標正在儲存格內閃爍 (編輯模式)
+        const activeInner = document.activeElement.closest('.td-inner');
+        const isEditing = activeInner !== null;
+        
+        // 判斷是否處於選取狀態 (有藍框，不在編輯模式)
+        const hasSelection = !isEditing && selectedCellBlocks.length > 0;
 
-        // 忽略文字編輯器或對話框內的操作
-        if (!document.getElementById('promptModal').classList.contains('hidden') ||
-            !document.getElementById('confirmModal').classList.contains('hidden') ||
-            !document.getElementById('cellEditor').classList.contains('hidden') ||
-            !document.getElementById('findReplaceModal').classList.contains('hidden')) {
+        // --- 處理方向鍵導覽 (支援 Shift 多選擴充) ---
+        if (hasSelection && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+            e.preventDefault(); // 阻止整個網頁捲動
+            
+            const tbody = dataTable.querySelector('tbody');
+            const maxR = tbody.children.length - 1;
+            const maxC = dataTable.querySelector('thead tr').children.length - 2;
+
+            const lastBlock = selectedCellBlocks[selectedCellBlocks.length - 1];
+            
+            // 決定移動的基準點：
+            // 有按 Shift -> 從選取框的「尾端(end)」繼續延伸
+            // 沒按 Shift -> 從選取框的「起點(anchor)」開始重新移動
+            let headR = e.shiftKey ? lastBlock.endR : (lastClickedCell ? lastClickedCell.r : lastBlock.startR);
+            let headC = e.shiftKey ? lastBlock.endC : (lastClickedCell ? lastClickedCell.c : lastBlock.startC);
+
+            // 計算新的游標位置
+            if (e.key === 'ArrowUp') headR--;
+            else if (e.key === 'ArrowDown') headR++;
+            else if (e.key === 'ArrowLeft') headC--;
+            else if (e.key === 'ArrowRight') headC++;
+
+            // 邊界限制，防止超出表格
+            if (headR < 0) headR = 0; if (headR > maxR) headR = maxR;
+            if (headC < 0) headC = 0; if (headC > maxC) headC = maxC;
+
+            if (e.shiftKey) {
+                // 【Shift + 方向鍵】：擴大或縮小選取範圍
+                lastBlock.endR = headR;
+                lastBlock.endC = headC;
+            } else {
+                // 【單純方向鍵】：取消多選，變成單一選取框
+                lastClickedCell = { r: headR, c: headC };
+                selectedCellBlocks = [{ startR: headR, startC: headC, endR: headR, endC: headC }];
+                selectedRows = []; selectedCols = [];
+            }
+
+            applySelectionVisuals();
+
+            // 將新儲存格滾動到視野內
+            const targetTd = tbody.children[headR]?.children[headC + 1];
+            if (targetTd) targetTd.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
             return;
         }
-        
-        const isMultiSelect = selectedRows.length > 0 || selectedCols.length > 0 || selectedCellBlocks.length > 1 || (selectedCellBlocks.length === 1 && (selectedCellBlocks[0].startR !== selectedCellBlocks[0].endR || selectedCellBlocks[0].startC !== selectedCellBlocks[0].endC));
-        
-        if (isMultiSelect) { 
-            e.preventDefault(); 
-            handleClearAction(); 
-            return; 
+
+        // --- 處理 Enter 鍵 ---
+        if (e.key === 'Enter') {
+            if (hasSelection && !isEditing) {
+                // 【情境 A：選取模式下按 Enter ➔ 進入編輯】
+                e.preventDefault();
+                // 如果是多選狀態，以「起點 (Anchor)」的儲存格作為編輯目標
+                const editR = lastClickedCell ? lastClickedCell.r : selectedCellBlocks[0].startR;
+                const editC = lastClickedCell ? lastClickedCell.c : selectedCellBlocks[0].startC;
+                const tbody = dataTable.querySelector('tbody');
+                const targetInner = tbody.children[editR]?.children[editC + 1]?.querySelector('.td-inner');
+                
+                if (targetInner) {
+                    targetInner.focus();
+                    // 將文字游標精準移到文字的最末端
+                    const range = document.createRange();
+                    const sel = window.getSelection();
+                    range.selectNodeContents(targetInner);
+                    range.collapse(false);
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                }
+                return;
+            } 
+            else if (isEditing) {
+                // 【情境 B：編輯模式下按 Enter】(這裡保留你原有的設定邏輯不變)
+                const enterAction = localStorage.getItem(ENTER_ACTION_KEY) || 'confirm';
+                
+                if (e.shiftKey || enterAction === 'newline') {
+                    return; 
+                } 
+                else {
+                    e.preventDefault();
+                    activeInner.blur(); 
+
+                    const direction = localStorage.getItem(ENTER_DIRECTION_KEY) || 'down';
+                    let tr = activeInner.closest('tr');
+                    let r = Array.from(tr.parentNode.children).indexOf(tr);
+                    let c = Array.from(tr.children).indexOf(activeInner.closest('td')) - 1;
+
+                    const tbody = dataTable.querySelector('tbody');
+                    let maxR = tbody.children.length - 1;
+                    const maxC = dataTable.querySelector('thead tr').children.length - 2;
+
+                    if (direction === 'down') {
+                        r++;
+                        if (r > maxR) insertRowAt(tbody.children.length);
+                    } else if (direction === 'right') {
+                        c++;
+                        if (c > maxC) c = maxC; 
+                    }
+
+                    lastClickedCell = { r, c };
+                    selectedCellBlocks = [{ startR: r, startC: c, endR: r, endC: c }];
+                    selectedRows = []; selectedCols = [];
+                    applySelectionVisuals();
+
+                    const targetTd = tbody.children[r]?.children[c + 1];
+                    if (targetTd) targetTd.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+                }
+            }
         }
 
-        if (selectedCellBlocks.length === 1 && selectedCellBlocks[0].startR === selectedCellBlocks[0].endR && selectedCellBlocks[0].startC === selectedCellBlocks[0].endC) {
-            const activeInner = document.activeElement.closest('.td-inner');
-            if (!activeInner) {
-                e.preventDefault(); handleClearAction();
+        // --- 處理 Delete 與 Backspace (刪除內容) ---
+        // --- 處理 Delete 與 Backspace (刪除內容) ---
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            
+            // 1. 如果有開啟任何對話框，不觸發表格刪除 (讓對話框內的輸入框正常使用)
+            if (!document.getElementById('promptModal').classList.contains('hidden') ||
+                !document.getElementById('confirmModal').classList.contains('hidden') ||
+                !document.getElementById('cellEditor').classList.contains('hidden') ||
+                !document.getElementById('findReplaceModal').classList.contains('hidden')) {
+                return;
+            }
+
+            // 2. 判斷目前是否為「多選狀態」(大於一格的選取)
+            const isMultiSelect = selectedRows.length > 0 || selectedCols.length > 0 || 
+                                  selectedCellBlocks.length > 1 || 
+                                  (selectedCellBlocks.length === 1 && 
+                                  (selectedCellBlocks[0].startR !== selectedCellBlocks[0].endR || 
+                                   selectedCellBlocks[0].startC !== selectedCellBlocks[0].endC));
+
+            const isInput = e.target.closest('input, textarea, .td-inner');
+            
+            // ======== 關鍵修復： ========
+            // 如果正在打字 (焦點在輸入框或單格編輯中)，且「沒有」多選範圍，才放行讓系統刪除一個字元
+            if (isInput && !isMultiSelect) return; 
+            // ============================
+
+            // 3. 只要有選取範圍 (無論單格或多格)，統一呼叫清除動作
+            const anySelected = selectedRows.length > 0 || selectedCols.length > 0 || selectedCellBlocks.length > 0;
+            
+            if (anySelected) { 
+                e.preventDefault(); 
+                handleClearAction(); 
             }
         }
     }
@@ -1121,11 +1258,18 @@ document.addEventListener('copy', (e) => {
     }
 });
 
-// 順便補上工具列「複製按鈕」的點擊觸發機制 (確保點擊上方工具列也能運作)
+// 順便補上工具列「複製按鈕」的點擊觸發機制 (行動版修復與增強)
 const btnCopyElement = document.getElementById('btnCopy');
 if (btnCopyElement) {
-    btnCopyElement.addEventListener('click', () => {
-        document.execCommand('copy');
+    btnCopyElement.addEventListener('click', (e) => {
+        // 如果是在表格模式，且畫面上有藍框選取的儲存格
+        if (currentMode === 'table' && (selectedRows.length > 0 || selectedCols.length > 0 || selectedCellBlocks.length > 0)) {
+            e.preventDefault(); // 阻止預設行為，防止失去焦點
+            copySelectedTableData(); // 直接強制呼叫我們的智慧複製引擎！
+        } else {
+            // 文字模式或沒有選取表格時，維持原生複製行為
+            document.execCommand('copy');
+        }
     });
 }
 
@@ -1242,6 +1386,7 @@ dataTable.addEventListener('click', (e) => {
 
     const td = e.target.closest('td');
     if (td) {
+		lastMatchedCell = null;
         const tdRect = td.getBoundingClientRect();
         const isClickOnPaddingGap = (e.clientX >= tdRect.right - 12) || (e.clientX <= tdRect.left + 12);
         
@@ -1367,6 +1512,7 @@ dataTable.addEventListener('drop', (e) => {
                     const tdToMove = tr.children[dragIndex + 1]; const refTd = targetIndex > dragIndex ? tr.children[targetIndex + 2] : tr.children[targetIndex + 1];
                     tr.insertBefore(tdToMove, refTd);
                 });
+				adjustFormulasForColMove(dragIndex, targetIndex);
                 updateTableHeaders(); localStorage.setItem(STORAGE_KEY, extractTextFromTable()); saveColNames(); saveColWidths(); saveHistoryState(); applyFreeze();
             }
         }
@@ -1471,6 +1617,7 @@ dataTable.addEventListener('touchend', (e) => {
                     const refTd = targetIndex > touchDragIndex ? tr.children[targetIndex + 2] : tr.children[targetIndex + 1];
                     tr.insertBefore(tdToMove, refTd);
                 });
+				adjustFormulasForColMove(touchDragIndex, targetIndex);
                 updateTableHeaders(); localStorage.setItem(STORAGE_KEY, extractTextFromTable()); saveColNames(); saveColWidths(); saveHistoryState(); applyFreeze();
             }
         } else if (touchDragType === 'row') {
@@ -1644,6 +1791,20 @@ document.getElementById('dd-lockSelection').addEventListener('change', (e) => {
     showToast(isSelectionLocked ? '🔒 選取範圍已鎖定' : '🔓 選取範圍已解除鎖定');
 });
 
+// Enter 鍵行為切換
+document.getElementById('dd-enterAction').addEventListener('change', (e) => {
+    localStorage.setItem(ENTER_ACTION_KEY, e.detail.value);
+    document.getElementById('enterActionIcon').textContent = e.detail.value === 'confirm' ? 'check_circle' : 'keyboard_return';
+    showToast(`設定已變更：Enter 鍵將執行 [${e.detail.value === 'confirm' ? '確認' : '換行'}]`);
+});
+
+// 確認後移動方向切換
+document.getElementById('dd-enterDirection').addEventListener('change', (e) => {
+    localStorage.setItem(ENTER_DIRECTION_KEY, e.detail.value);
+    const dirIconMap = { 'down': 'arrow_downward', 'right': 'arrow_forward', 'stay': 'pan_tool' };
+    document.getElementById('enterDirectionIcon').textContent = dirIconMap[e.detail.value];
+});
+
 document.getElementById('dd-wordWrap').addEventListener('change', (e) => { 
     const wrap = e.detail.value;
     editor.style.whiteSpace = wrap; 
@@ -1775,10 +1936,23 @@ document.getElementById('btnToggleAdvancedSearch').addEventListener('click', () 
     icon.textContent = opts.classList.contains('hidden') ? 'arrow_right' : 'arrow_drop_down';
 });
 
+// 輔助函數：將視窗精準置中
+function centerModal(modal) {
+    // 只有在「第一次打開」時才置中，這樣使用者拖曳後的位置才會被保留
+    if (!modal.style.left) {
+        modal.style.left = (window.innerWidth - modal.offsetWidth) / 2 + 'px';
+        // 高度設定乘以 0.4，讓視窗稍微偏上一點點，視覺上最舒適
+        modal.style.top = (window.innerHeight - modal.offsetHeight) * 0.4 + 'px'; 
+    }
+}
+
 // 開啟/關閉視窗
 document.getElementById('btnFindReplace').addEventListener('click', () => {
     findReplaceModal.classList.toggle('hidden');
-    if (!findReplaceModal.classList.contains('hidden')) { findInput.focus(); findInput.select(); }
+    if (!findReplaceModal.classList.contains('hidden')) { 
+        centerModal(findReplaceModal);
+        findInput.focus(); findInput.select(); 
+    }
 });
 document.getElementById('btnCloseFindReplace').addEventListener('click', () => {
     findReplaceModal.classList.add('hidden');
@@ -1972,14 +2146,29 @@ function executeFind(isDown) {
         let currentIdx = -1;
         
         if (lastMatchedCell) {
+            // 如果是連續點擊「下一個」，就接續上一次找到的儲存格
             currentIdx = cells.findIndex(c => c.inner === lastMatchedCell);
         } else {
-            const activeInner = document.activeElement.closest('.td-inner');
-            if (activeInner) currentIdx = cells.findIndex(c => c.inner === activeInner);
+            // 優先看有沒有正在編輯的儲存格 (文字游標閃爍中)
+            let targetInner = document.activeElement.closest('.td-inner');
+            
+            // 如果沒有 (因為你剛點了尋找按鈕，焦點被按鈕搶走了)，就去抓「你最後點擊的那一格」
+            if (!targetInner && lastClickedCell) {
+                const rows = dataTable.querySelectorAll('tbody tr');
+                if (rows[lastClickedCell.r]) {
+                    targetInner = rows[lastClickedCell.r].children[lastClickedCell.c + 1]?.querySelector('.td-inner');
+                }
+            }
+            
+            // 找到起點後，取得它在搜尋陣列中的索引
+            if (targetInner) {
+                currentIdx = cells.findIndex(c => c.inner === targetInner);
+            }
         }
         
+        // 如果都沒選，預設從頭(或尾)開始找
         if (currentIdx === -1) currentIdx = isDown ? -1 : 0; 
-
+        
         let found = false;
         for (let i = 1; i <= cells.length; i++) {
             let step = isDown ? i : -i;
@@ -1987,6 +2176,12 @@ function executeFind(isDown) {
             if (checkIdx < 0) checkIdx += cells.length;
             
             const cell = cells[checkIdx];
+			const isFormulaMatch = document.getElementById('chkFormulaMatch')?.checked;
+            // 優先抓取公式，如果沒有公式或沒勾選，就抓取表面文字
+            let textToSearch = cell.inner.innerText;
+            if (isFormulaMatch && cell.inner.hasAttribute('data-formula')) {
+                textToSearch = cell.inner.getAttribute('data-formula');
+            }
             if (regex.test(cell.inner.innerText)) {
                 lastMatchedCell = cell.inner;
                 
@@ -2056,10 +2251,14 @@ function executeFind(isDown) {
     }
 }
 
+
+
+
 // 綁定前一個/後一個按鈕
 document.getElementById('btnFindNext').addEventListener('click', () => executeFind(true));
 document.getElementById('btnFindPrev').addEventListener('click', () => executeFind(false));
 
+// --- 取代 ---
 // --- 取代 ---
 document.getElementById('btnReplace').addEventListener('click', () => {
     const regex = buildSearchRegex();
@@ -2079,13 +2278,47 @@ document.getElementById('btnReplace').addEventListener('click', () => {
         }
     } else {
         let targetCell = lastMatchedCell || document.activeElement.closest('.td-inner');
-        if (targetCell && regex.test(targetCell.innerText)) {
-            targetCell.innerText = targetCell.innerText.replace(regex, replaceWith);
-            debouncedSaveHistory();
-            localStorage.setItem(STORAGE_KEY, extractTextFromTable());
-            executeFind(isDown); 
-        } else {
-            executeFind(isDown); 
+        
+        if (!targetCell && lastClickedCell) {
+            const rows = dataTable.querySelectorAll('tbody tr');
+            if (rows[lastClickedCell.r]) {
+                targetCell = rows[lastClickedCell.r].children[lastClickedCell.c + 1]?.querySelector('.td-inner');
+            }
+        }
+
+        const isFormulaMatch = document.getElementById('chkFormulaMatch')?.checked;
+
+        if (targetCell) {
+            // 判斷要取代的是公式還是表面文字
+            let textToSearch = targetCell.innerText;
+            if (isFormulaMatch && targetCell.hasAttribute('data-formula')) {
+                textToSearch = targetCell.getAttribute('data-formula');
+            }
+
+            if (regex.test(textToSearch)) {
+                // ======== 關鍵修正：取得帶有全域 (g) 旗標的搜尋條件 ========
+                const globalRegex = buildSearchRegex(true);
+                // 使用全域條件來取代，確保儲存格內的所有目標都被換掉
+                let newText = textToSearch.replace(globalRegex, replaceWith);
+                // ==============================================================
+                
+                // 如果是替換公式，就把新公式存回屬性中
+                if (isFormulaMatch && targetCell.hasAttribute('data-formula')) {
+                    targetCell.setAttribute('data-formula', newText);
+                } else {
+                    targetCell.innerText = newText;
+                    // 如果取代後不再是公式，移除公式標記
+                    if (!newText.startsWith('=')) targetCell.removeAttribute('data-formula');
+                }
+                
+                // 觸發全表重新計算，讓新公式立即生效顯示
+                recalculateAllFormulas();
+                debouncedSaveHistory();
+                localStorage.setItem(STORAGE_KEY, extractTextFromTable());
+                executeFind(isDown); 
+            } else {
+                executeFind(isDown); 
+            }
         }
     }
 });
@@ -2113,16 +2346,35 @@ document.getElementById('btnReplaceAll').addEventListener('click', () => {
         }
         if (count > 0) { debouncedSaveHistory(); updateLineNumbers(); }
     } else {
+        const isFormulaMatch = document.getElementById('chkFormulaMatch')?.checked;
         const cells = getTargetCells();
+        
         cells.forEach(cell => {
-            const text = cell.inner.innerText;
-            if (globalRegex.test(text)) {
-                const matches = text.match(globalRegex);
+            // 判斷要搜尋的是公式還是表面文字
+            let textToSearch = cell.inner.innerText;
+            if (isFormulaMatch && cell.inner.hasAttribute('data-formula')) {
+                textToSearch = cell.inner.getAttribute('data-formula');
+            }
+
+            if (globalRegex.test(textToSearch)) {
+                const matches = textToSearch.match(globalRegex);
                 count += matches ? matches.length : 0;
-                cell.inner.innerText = text.replace(globalRegex, replaceWith);
+                
+                let newText = textToSearch.replace(globalRegex, replaceWith);
+                
+                // 寫回新的公式或文字
+                if (isFormulaMatch && cell.inner.hasAttribute('data-formula')) {
+                    cell.inner.setAttribute('data-formula', newText);
+                } else {
+                    cell.inner.innerText = newText;
+                    if (!newText.startsWith('=')) cell.inner.removeAttribute('data-formula');
+                }
             }
         });
+        
         if (count > 0) {
+            // 取代完成後，統一重新計算全表公式
+            recalculateAllFormulas();
             debouncedSaveHistory();
             localStorage.setItem(STORAGE_KEY, extractTextFromTable());
         }
@@ -2260,6 +2512,7 @@ function createSortRuleElement(columns) {
 }
 
 // 初始化並開啟排序窗格
+// 初始化並開啟排序窗格
 function openSortPanel() {
     sortRulesContainer.innerHTML = ''; // 清空舊規則
     const columns = getTableColumnsForSort();
@@ -2273,18 +2526,18 @@ function openSortPanel() {
     sortRulesContainer.appendChild(createSortRuleElement(columns));
     
     // 重新取得並設定「有標題」核取方塊的狀態
-    // 如果有凍結列，則預設勾選且不可取消
     if (frozenRowsCount > 0) {
         chkSortHasHeader.checked = true;
-        // 如果有凍結列，則「有標題」應強制選取，不讓用戶修改
         chkSortHasHeader.setAttribute('disabled', 'true');
     } else {
-        // 如果沒有凍結列，則恢復為預設 (false)，且可修改
         chkSortHasHeader.checked = false; 
         chkSortHasHeader.removeAttribute('disabled');
     }
 
+    // 顯示視窗
     sortPanel.classList.remove('hidden');
+    
+    centerModal(sortPanel); 
 }
 
 // 套用排序邏輯
@@ -2377,9 +2630,8 @@ const autoFillModal = document.getElementById('autoFillModal');
 document.getElementById('btnOpenAutoFill').addEventListener('click', (e) => {
     e.stopPropagation();
     autoFillModal.classList.remove('hidden');
-    // 關閉其他可能開啟的下拉選單
     document.querySelectorAll('.dropdown-menu, .action-menu').forEach(m => m.classList.remove('show'));
-    // 自動聚焦到第一個輸入框
+    centerModal(autoFillModal);
     document.getElementById('autoFillPrefix').focus();
 });
 document.getElementById('btnCloseAutoFill').addEventListener('click', () => {
@@ -2532,6 +2784,17 @@ function colStrToNum(colStr) {
     return colIndex - 1;
 }
 
+// 0.5 輔助函數：將數字索引轉回欄位字母 (0=A, 1=B, 26=AA)
+function colNumToStr(colIndex) {
+    let str = '';
+    let temp = colIndex + 1;
+    while (temp > 0) {
+        let remainder = (temp - 1) % 26;
+        str = String.fromCharCode(65 + remainder) + str;
+        temp = Math.floor((temp - 1) / 26);
+    }
+    return str;
+}
 // 1. 座標轉換：將 "A1" 轉換為 { row: 0, col: 0 }
 function parseCellReference(ref) {
     const match = ref.toUpperCase().match(/^([A-Z]+)(\d+)$/);
@@ -2636,7 +2899,6 @@ const formulaFunctions = {
         // 將值轉為字串
         const strVal = String(val);
         // 使用 ES6 展開運算子 [...str]，正確解析 Unicode 擴充漢字
-        // 這樣「𠊎」就會被正確計算為 1 個字
         return [...strVal].length;
     },
 
@@ -2686,11 +2948,267 @@ const formulaFunctions = {
         // 嚴格比對兩者是否完全相同 (區分大小寫)
         return val1 === val2 ? "O" : "X";
     },
-    // 總和計算 (贈送的基礎功能)：=SUM(A1:A5)
+
+	// 字元數量比對：=EXACTCHAR(A1, B1, "X")
+    // 參數 4 (選填): 1 代表精確比對 (區分大小寫，預設)，0 代表模糊比對
+    EXACTCHAR: (args) => {
+        // 需要至少 3 個參數：A1, B1, "要找的字元"
+        if (args.length < 3) return "錯誤: 參數不足";
+        
+        // 內部小工具：判斷參數是「儲存格」還是「純文字」
+        const resolveArg = (arg) => {
+            const cell = parseCellReference(arg);
+            if (cell) {
+                return String(getCellValue(cell.row, cell.col));
+            }
+            return arg.replace(/^["']|["']$/g, "");
+        };
+
+        const val1 = resolveArg(args[0]);
+        const val2 = resolveArg(args[1]);
+        const targetChar = args[2].replace(/^["']|["']$/g, "");
+        
+        if (!targetChar) return "錯誤: 無目標字元";
+
+        // 判斷是否開啟 exact 精確比對模式 (預設為 true)
+        let isExact = true;
+        if (args.length >= 4) {
+            isExact = args[3].trim() !== "0"; 
+        }
+
+        let count1 = 0;
+        let count2 = 0;
+
+        // 計算次數的邏輯 (沿用 COUNTCHAR 的穩健寫法)
+        if (isExact) {
+            count1 = val1.split(targetChar).length - 1;
+            count2 = val2.split(targetChar).length - 1;
+        } else {
+            const safeTarget = targetChar.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(safeTarget, 'gi');
+            const matches1 = val1.match(regex);
+            const matches2 = val2.match(regex);
+            count1 = matches1 ? matches1.length : 0;
+            count2 = matches2 ? matches2.length : 0;
+        }
+
+        // 比較次數並組合輸出結果
+        if (count1 === count2) {
+            return `O,${count1}`;
+        } else {
+            return `X,${count1},${count2}`;
+        }
+    },
+
+    // 總和計算
     SUM: (args) => {
         if (!args[0]) return 0;
         const values = getRangeValues(args[0]);
         return values.reduce((acc, val) => acc + (typeof val === 'number' ? val : 0), 0);
+    },
+
+	// 垂直搜尋：=VLOOKUP(尋找目標, 搜尋範圍, 回傳欄數, [是否精確比對])
+    // 範例：=VLOOKUP(A1, D:E, 2, 0)
+    VLOOKUP: (args) => {
+        if (args.length < 3) return "錯誤: 參數不足";
+
+        // 1. 解析「尋找目標」(Lookup Value)
+        const resolveArg = (arg) => {
+            const cell = parseCellReference(arg);
+            if (cell) return getCellValue(cell.row, cell.col);
+            return arg.replace(/^["']|["']$/g, ""); // 移除引號
+        };
+        const lookupValue = String(resolveArg(args[0])).trim();
+
+        // 2. 解析「搜尋範圍」(Table Array)
+        const rangeParts = args[1].split(':');
+        if (rangeParts.length !== 2) return "#VALUE!";
+        
+        const str1 = rangeParts[0].trim().toUpperCase();
+        const str2 = rangeParts[1].trim().toUpperCase();
+        
+        let minRow, maxRow, minCol, maxCol;
+
+        // 支援整欄選取 (如 D:E)
+        if (/^[A-Z]+$/.test(str1) && /^[A-Z]+$/.test(str2)) {
+            minCol = Math.min(colStrToNum(str1), colStrToNum(str2));
+            maxCol = Math.max(colStrToNum(str1), colStrToNum(str2));
+            minRow = 0;
+            maxRow = dataTable.querySelectorAll('tbody tr').length - 1;
+        } 
+        // 支援區塊選取 (如 D1:E10)
+        else {
+            const start = parseCellReference(str1);
+            const end = parseCellReference(str2);
+            if (!start || !end) return "#REF!";
+            minRow = Math.min(start.row, end.row);
+            maxRow = Math.max(start.row, end.row);
+            minCol = Math.min(start.col, end.col);
+            maxCol = Math.max(start.col, end.col);
+        }
+
+        // 3. 解析「回傳欄數」(Column Index)
+        const colIndex = parseInt(args[2].trim(), 10);
+        if (isNaN(colIndex) || colIndex < 1) return "#VALUE!";
+        
+        // 檢查回傳欄數是否超出了選取範圍的寬度
+        if (colIndex > (maxCol - minCol + 1)) return "#REF!";
+
+        // 4. 解析「比對模式」 (預設為精確比對)
+        let isExact = true; 
+        if (args.length >= 4) {
+            const exactArg = args[3].trim().toUpperCase();
+            if (exactArg === '1' || exactArg === 'TRUE') isExact = false;
+        }
+
+        // 5. 開始由上往下逐列搜尋
+        for (let r = minRow; r <= maxRow; r++) {
+            // 抓取該列第一欄的值
+            const cellVal = String(getCellValue(r, minCol)).trim();
+            
+            // 簡單強大的字串比對
+            if (cellVal === lookupValue) {
+                // 找到目標！回傳該列往右數 (colIndex - 1) 欄的值
+                return getCellValue(r, minCol + colIndex - 1);
+            }
+        }
+
+        // 找不到目標時，回傳標準的 Excel 錯誤代碼
+        return "#N/A";
+    },
+	
+	// 垂直搜尋全部符合項目：=VLOOKUPALL(尋找目標, 搜尋範圍, 回傳欄數, [分隔符號])
+    // 範例：=VLOOKUPALL(A1, D:E, 2, ", ")
+    VLOOKUPALL: (args) => {
+        if (args.length < 3) return "錯誤: 參數不足";
+
+        // 1. 解析「尋找目標」(Lookup Value)
+        const resolveArg = (arg) => {
+            const cell = parseCellReference(arg);
+            if (cell) return getCellValue(cell.row, cell.col);
+            return arg.replace(/^["']|["']$/g, "");
+        };
+        const lookupValue = String(resolveArg(args[0])).trim();
+
+        // 2. 解析「搜尋範圍」(Table Array)
+        const rangeParts = args[1].split(':');
+        if (rangeParts.length !== 2) return "#VALUE!";
+        
+        const str1 = rangeParts[0].trim().toUpperCase();
+        const str2 = rangeParts[1].trim().toUpperCase();
+        
+        let minRow, maxRow, minCol, maxCol;
+
+        if (/^[A-Z]+$/.test(str1) && /^[A-Z]+$/.test(str2)) {
+            minCol = Math.min(colStrToNum(str1), colStrToNum(str2));
+            maxCol = Math.max(colStrToNum(str1), colStrToNum(str2));
+            minRow = 0;
+            maxRow = dataTable.querySelectorAll('tbody tr').length - 1;
+        } else {
+            const start = parseCellReference(str1);
+            const end = parseCellReference(str2);
+            if (!start || !end) return "#REF!";
+            minRow = Math.min(start.row, end.row);
+            maxRow = Math.max(start.row, end.row);
+            minCol = Math.min(start.col, end.col);
+            maxCol = Math.max(start.col, end.col);
+        }
+
+        // 3. 解析「回傳欄數」(Column Index)
+        const colIndex = parseInt(args[2].trim(), 10);
+        if (isNaN(colIndex) || colIndex < 1) return "#VALUE!";
+        if (colIndex > (maxCol - minCol + 1)) return "#REF!";
+
+        // 4. 解析「分隔符號」 (預設為 ", ")
+        let separator = ", ";
+        if (args.length >= 4) {
+            // 允許使用者自訂分隔符，並移除外層引號
+            separator = args[3].replace(/^["']|["']$/g, ""); 
+        }
+
+        // 5. 開始由上往下逐列搜尋，收集所有符合的項目
+        const results = [];
+        for (let r = minRow; r <= maxRow; r++) {
+            const cellVal = String(getCellValue(r, minCol)).trim();
+            
+            if (cellVal === lookupValue) {
+                const matchVal = String(getCellValue(r, minCol + colIndex - 1)).trim();
+                // 避免把完全空白的格子也加進去
+                if (matchVal !== "") {
+                    results.push(matchVal);
+                }
+            }
+        }
+
+        // 6. 組合並回傳結果
+        if (results.length === 0) return "#N/A";
+        return results.join(separator);
+    },// 垂直搜尋全部符合項目：=VLOOKUPALL(尋找目標, 搜尋範圍, 回傳欄數, [分隔符號])
+    // 範例：=VLOOKUPALL(A1, D:E, 2, ", ")
+    VLOOKUPALL: (args) => {
+        if (args.length < 3) return "錯誤: 參數不足";
+
+        // 1. 解析「尋找目標」(Lookup Value)
+        const resolveArg = (arg) => {
+            const cell = parseCellReference(arg);
+            if (cell) return getCellValue(cell.row, cell.col);
+            return arg.replace(/^["']|["']$/g, "");
+        };
+        const lookupValue = String(resolveArg(args[0])).trim();
+
+        // 2. 解析「搜尋範圍」(Table Array)
+        const rangeParts = args[1].split(':');
+        if (rangeParts.length !== 2) return "#VALUE!";
+        
+        const str1 = rangeParts[0].trim().toUpperCase();
+        const str2 = rangeParts[1].trim().toUpperCase();
+        
+        let minRow, maxRow, minCol, maxCol;
+
+        if (/^[A-Z]+$/.test(str1) && /^[A-Z]+$/.test(str2)) {
+            minCol = Math.min(colStrToNum(str1), colStrToNum(str2));
+            maxCol = Math.max(colStrToNum(str1), colStrToNum(str2));
+            minRow = 0;
+            maxRow = dataTable.querySelectorAll('tbody tr').length - 1;
+        } else {
+            const start = parseCellReference(str1);
+            const end = parseCellReference(str2);
+            if (!start || !end) return "#REF!";
+            minRow = Math.min(start.row, end.row);
+            maxRow = Math.max(start.row, end.row);
+            minCol = Math.min(start.col, end.col);
+            maxCol = Math.max(start.col, end.col);
+        }
+
+        // 3. 解析「回傳欄數」(Column Index)
+        const colIndex = parseInt(args[2].trim(), 10);
+        if (isNaN(colIndex) || colIndex < 1) return "#VALUE!";
+        if (colIndex > (maxCol - minCol + 1)) return "#REF!";
+
+        // 4. 解析「分隔符號」 (預設為 ", ")
+        let separator = ", ";
+        if (args.length >= 4) {
+            // 允許使用者自訂分隔符，並移除外層引號
+            separator = args[3].replace(/^["']|["']$/g, ""); 
+        }
+
+        // 5. 開始由上往下逐列搜尋，收集所有符合的項目
+        const results = [];
+        for (let r = minRow; r <= maxRow; r++) {
+            const cellVal = String(getCellValue(r, minCol)).trim();
+            
+            if (cellVal === lookupValue) {
+                const matchVal = String(getCellValue(r, minCol + colIndex - 1)).trim();
+                // 避免把完全空白的格子也加進去
+                if (matchVal !== "") {
+                    results.push(matchVal);
+                }
+            }
+        }
+
+        // 6. 組合並回傳結果
+        if (results.length === 0) return "#N/A";
+        return results.join(separator);
     },
 
     // 條件計數：=COUNTIF(A1:A5, ">10") 或 =COUNTIF(A1:A5, "蘋果")
@@ -2722,36 +3240,62 @@ const formulaFunctions = {
     }
 };
 
-// 5. 解析並執行公式字串
-// 5. 解析並執行公式字串 (支援簡寫)
+// 5. 解析並執行公式字串 (支援簡寫、引號保護、保留大小寫)
 function evaluateFormula(formulaStr) {
-    // 移除等號並轉大寫：=len(a1) 或 =l(a1) -> LEN(A1) 或 L(A1)
-    const cleanFormula = formulaStr.substring(1).trim().toUpperCase(); 
+    // 移除等號並去掉前後空白 (不再盲目全轉大寫，以保護引號內的文字)
+    const cleanFormula = formulaStr.substring(1).trim(); 
     
-    // 簡單正則解析：找尋 函數名(參數)
-    const match = cleanFormula.match(/^([A-Z]+)\((.*)\)$/);
+    // 正則解析：找尋 函數名(參數)，函數名不區分大小寫 (a-z)
+    const match = cleanFormula.match(/^([a-zA-Z]+)\((.*)\)$/);
     if (!match) return "錯誤: 語法無效";
     
-    let funcName = match[1];
-    // 將參數以逗號分隔，並移除多餘空白
-    const args = match[2].split(',').map(arg => arg.trim()); 
+    // 只有函數名稱需要強制轉大寫，以利字典比對
+    let funcName = match[1].toUpperCase();
+    let argsStr = match[2]; 
     
-    // ======== 新增：函數簡寫對照表 (Alias Dictionary) ========
+    // ======== 升級版參數解析器 (引號保護機制) ========
+    const args = [];
+    let currentArg = '';
+    let inDoubleQuotes = false;
+    let inSingleQuotes = false;
+    
+    for (let i = 0; i < argsStr.length; i++) {
+        const char = argsStr[i];
+        
+        // 判斷是否進入或離開引號內部
+        if (char === '"' && !inSingleQuotes) inDoubleQuotes = !inDoubleQuotes;
+        else if (char === "'" && !inDoubleQuotes) inSingleQuotes = !inSingleQuotes;
+        
+        // 如果遇到逗號，且「不在」任何引號內部，才視為參數分隔符號
+        if (char === ',' && !inDoubleQuotes && !inSingleQuotes) {
+            args.push(currentArg.trim());
+            currentArg = '';
+        } else {
+            currentArg += char;
+        }
+    }
+    // 推入最後一個參數
+    args.push(currentArg.trim());
+    // =================================================
+
+    // ======== 函數簡寫對照表 (Alias Dictionary) ========
     const aliases = {
         'L': 'LEN',
         'S': 'SUM',
         'CI': 'COUNTIF',
         'CC': 'COUNTCHAR',
-        'E': 'EXACT'
+        'E': 'EXACT',
+        'EC': 'EXACTCHAR',
+		'V': 'VLOOKUP',
+		'VA': 'VLOOKUPALL',
     };
     
-    // 如果輸入的名稱在簡寫字典中找得到，就將其轉換為完整的函數名稱
+    // 轉換別名
     if (aliases[funcName]) {
         funcName = aliases[funcName];
     }
-    // =========================================================
     
-    // 檢查轉換後的函數是否存在於我們的函數庫中
+    // 執行函數
     if (formulaFunctions[funcName]) {
         try {
             return formulaFunctions[funcName](args);
@@ -2762,6 +3306,7 @@ function evaluateFormula(formulaStr) {
         return "錯誤: 找不到函數";
     }
 }
+
 
 
 /* ==========================================
@@ -2880,4 +3425,642 @@ function shiftFormula(formula, rowOffset, colOffset) {
         return shiftCellReference(match, rowOffset, colOffset);
     });
 }
+
+
+
+
+/* ==========================================
+   神奇多功能工具：自動函數 模組
+   ========================================== */
+const autoFormulaModal = document.getElementById('autoFormulaModal');
+const autoFormulaInput = document.getElementById('autoFormulaInput');
+const autoFormulaSelect = document.getElementById('autoFormulaSelect');
+
+// 開啟與關閉對話框
+document.getElementById('btnOpenAutoFormula').addEventListener('click', (e) => {
+    e.stopPropagation();
+    autoFormulaModal.classList.remove('hidden');
+    document.querySelectorAll('.dropdown-menu, .action-menu').forEach(m => m.classList.remove('show'));
+    centerModal(autoFormulaModal);
+    autoFormulaInput.focus();
+});
+document.getElementById('btnCloseAutoFormula').addEventListener('click', () => {
+    autoFormulaModal.classList.add('hidden');
+});
+
+// 當選擇參考函數時，自動帶入輸入框並智慧調整列號
+autoFormulaSelect.addEventListener('change', (e) => {
+    let formulaStr = e.target.value;
+    if (!formulaStr) return;
+
+    // 1. 嘗試找出目前選取範圍的「起始列 (0-based)」
+    let startR = -1;
+    
+    if (selectedCellBlocks.length > 0) {
+        startR = Math.min(selectedCellBlocks[0].startR, selectedCellBlocks[0].endR);
+    } else if (selectedRows.length > 0) {
+        startR = Math.min(...selectedRows);
+    } else if (lastClickedCell) {
+        startR = lastClickedCell.r;
+    } else {
+        // 如果都沒選，看看游標停在哪一格
+        const activeInner = document.activeElement.closest('.td-inner');
+        if (activeInner && dataTable.contains(activeInner)) {
+            const tr = activeInner.closest('tr');
+            startR = Array.from(tr.parentNode.children).indexOf(tr);
+        }
+    }
+
+    // 2. 如果有找到起始列，將範例公式中的列號加上位移量
+    if (startR !== -1) {
+        // 範例公式都是以第 1 列 (Row 1) 為基準，所以位移量就是 startR
+        const rowOffset = startR;
+        
+        // 使用正則表達式尋找所有「字母+數字」的組合 (例如 A1, B1, A5)
+        formulaStr = formulaStr.replace(/([A-Z]+)(\d+)\b/g, (match, col, row) => {
+            const originalRow = parseInt(row, 10);
+            // 將原本的數字加上位移量 (例如起點在第 3 列，A1 會變成 A3，A5 會變成 A7)
+            return col + (originalRow + rowOffset);
+        });
+    }
+
+    // 3. 將調整好的公式填入輸入框
+    autoFormulaInput.value = formulaStr;
+});
+
+// 視窗全區拖曳 (桌機 + 手機)
+let isDraggingAFM = false, dragStartXAFM = 0, dragStartYAFM = 0, afmStartLeft = 0, afmStartTop = 0;
+autoFormulaModal.addEventListener('mousedown', (e) => {
+    if (e.target.closest('input, select, button, label')) return; 
+    isDraggingAFM = true; dragStartXAFM = e.clientX; dragStartYAFM = e.clientY;
+    const rect = autoFormulaModal.getBoundingClientRect();
+    afmStartLeft = rect.left; afmStartTop = rect.top;
+    document.body.style.userSelect = 'none';
+});
+document.addEventListener('mousemove', (e) => {
+    if (!isDraggingAFM) return;
+    autoFormulaModal.style.left = `${afmStartLeft + (e.clientX - dragStartXAFM)}px`;
+    autoFormulaModal.style.top = `${afmStartTop + (e.clientY - dragStartYAFM)}px`;
+    autoFormulaModal.style.right = 'auto'; 
+});
+document.addEventListener('mouseup', () => { isDraggingAFM = false; document.body.style.userSelect = ''; });
+
+autoFormulaModal.addEventListener('touchstart', (e) => {
+    if (e.target.closest('input, select, button, label')) return; 
+    const touch = e.touches[0];
+    isDraggingAFM = true; dragStartXAFM = touch.clientX; dragStartYAFM = touch.clientY;
+    const rect = autoFormulaModal.getBoundingClientRect();
+    afmStartLeft = rect.left; afmStartTop = rect.top;
+    if (!e.target.closest('input, select')) e.preventDefault();
+}, { passive: false });
+document.addEventListener('touchmove', (e) => {
+    if (!isDraggingAFM) return;
+    const touch = e.touches[0];
+    autoFormulaModal.style.left = `${afmStartLeft + (touch.clientX - dragStartXAFM)}px`;
+    autoFormulaModal.style.top = `${afmStartTop + (touch.clientY - dragStartYAFM)}px`;
+    autoFormulaModal.style.right = 'auto'; 
+    e.preventDefault();
+}, { passive: false });
+document.addEventListener('touchend', () => { isDraggingAFM = false; });
+
+// 核心邏輯：套用智慧函數
+document.getElementById('btnApplyAutoFormula').addEventListener('click', () => {
+    if (currentMode !== 'table') return showToast('⚠️ 僅能在表格模式使用');
+    
+    let formulaStr = autoFormulaInput.value.trim();
+    if (!formulaStr) return showToast('⚠️ 請輸入公式');
+    if (!formulaStr.startsWith('=')) formulaStr = '=' + formulaStr; // 防呆：自動補上等號
+
+    const rows = dataTable.querySelectorAll('tbody tr');
+    const cellsToUpdate = [];
+    let startR = Infinity, startC = Infinity; // 用來找出選取範圍的「最左上角(起點)」
+
+    // 收集所有被選取的儲存格，並找出起點
+    for (let r = 0; r < rows.length; r++) {
+        const tr = rows[r];
+        const colsCount = tr.children.length - 1; 
+        for (let c = 0; c < colsCount; c++) {
+            // 判斷是否在選取範圍內
+            if (selectedRows.includes(r) || selectedCols.includes(c) || isCellInAnyBlock(r, c)) {
+                const inner = tr.children[c + 1]?.querySelector('.td-inner');
+                if (inner) {
+                    cellsToUpdate.push({ r, c, inner });
+                    startR = Math.min(startR, r);
+                    startC = Math.min(startC, c);
+                }
+            }
+        }
+    }
+
+    // 處理單格選取 (如果沒有多選，就只套用目前游標或點擊的那一格)
+    if (cellsToUpdate.length === 0) {
+        let targetInner = null;
+        let r = -1, c = -1;
+        const activeEl = document.activeElement;
+        if (activeEl && activeEl.classList.contains('td-inner') && dataTable.contains(activeEl)) {
+            targetInner = activeEl;
+            r = Array.from(activeEl.closest('tr').parentNode.children).indexOf(activeEl.closest('tr'));
+            c = Array.from(activeEl.closest('tr').children).indexOf(activeEl.closest('td')) - 1;
+        } else if (lastClickedCell && rows[lastClickedCell.r]) {
+            targetInner = rows[lastClickedCell.r].children[lastClickedCell.c + 1]?.querySelector('.td-inner');
+            r = lastClickedCell.r; c = lastClickedCell.c;
+        }
+
+        if (targetInner) {
+            cellsToUpdate.push({ r, c, inner: targetInner });
+            startR = r; startC = c;
+        } else {
+            return showToast('⚠️ 請先選取要套用的儲存格範圍');
+        }
+    }
+
+    // 執行套用與公式平移
+    cellsToUpdate.forEach(cell => {
+        // 計算這格相對於「第一格」的位移量
+        const rowOffset = cell.r - startR;
+        const colOffset = cell.c - startC;
+        
+        // 利用我們寫好的引擎進行平移 (例如 B2 移到 B3，公式中的 A3 就會變成 A4)
+        const shiftedFormula = shiftFormula(formulaStr, rowOffset, colOffset);
+        
+        // 寫入儲存格
+        cell.inner.setAttribute('data-formula', shiftedFormula);
+        cell.inner.innerText = shiftedFormula;
+    });
+
+    // 觸發全表重算、存檔與歷史紀錄
+    recalculateAllFormulas();
+    localStorage.setItem(STORAGE_KEY, extractTextFromTable());
+    debouncedSaveHistory();
+    
+    showToast('✅ 函數已智慧套用完成！');
+});
+
+
+
+/* ==========================================
+   神奇多功能工具：移除重複 模組
+   ========================================== */
+const removeDuplicatesModal = document.getElementById('removeDuplicatesModal');
+
+// 開啟與關閉對話框
+document.getElementById('btnOpenRemoveDuplicates').addEventListener('click', (e) => {
+    e.stopPropagation();
+    removeDuplicatesModal.classList.remove('hidden');
+    document.querySelectorAll('.dropdown-menu, .action-menu').forEach(m => m.classList.remove('show'));
+    centerModal(removeDuplicatesModal); // 呼叫你之前寫好的置中函數
+});
+document.getElementById('btnCloseRemoveDuplicates').addEventListener('click', () => {
+    removeDuplicatesModal.classList.add('hidden');
+});
+
+// 視窗全區拖曳 (桌機 + 手機)
+let isDraggingRDM = false, dragStartXRDM = 0, dragStartYRDM = 0, rdmStartLeft = 0, rdmStartTop = 0;
+removeDuplicatesModal.addEventListener('mousedown', (e) => {
+    if (e.target.closest('input, select, button, label')) return; 
+    isDraggingRDM = true; dragStartXRDM = e.clientX; dragStartYRDM = e.clientY;
+    const rect = removeDuplicatesModal.getBoundingClientRect();
+    rdmStartLeft = rect.left; rdmStartTop = rect.top;
+    document.body.style.userSelect = 'none';
+});
+document.addEventListener('mousemove', (e) => {
+    if (!isDraggingRDM) return;
+    removeDuplicatesModal.style.left = `${rdmStartLeft + (e.clientX - dragStartXRDM)}px`;
+    removeDuplicatesModal.style.top = `${rdmStartTop + (e.clientY - dragStartYRDM)}px`;
+    removeDuplicatesModal.style.transform = 'none'; // 覆寫 Tailwind 的置中偏移
+});
+document.addEventListener('mouseup', () => { isDraggingRDM = false; document.body.style.userSelect = ''; });
+removeDuplicatesModal.addEventListener('touchstart', (e) => {
+    if (e.target.closest('input, select, button, label')) return; 
+    const touch = e.touches[0];
+    isDraggingRDM = true; dragStartXRDM = touch.clientX; dragStartYRDM = touch.clientY;
+    const rect = removeDuplicatesModal.getBoundingClientRect();
+    rdmStartLeft = rect.left; rdmStartTop = rect.top;
+    if (!e.target.closest('input')) e.preventDefault();
+}, { passive: false });
+document.addEventListener('touchmove', (e) => {
+    if (!isDraggingRDM) return;
+    const touch = e.touches[0];
+    removeDuplicatesModal.style.left = `${rdmStartLeft + (touch.clientX - dragStartXRDM)}px`;
+    removeDuplicatesModal.style.top = `${rdmStartTop + (touch.clientY - dragStartYRDM)}px`;
+    removeDuplicatesModal.style.transform = 'none';
+    e.preventDefault();
+}, { passive: false });
+document.addEventListener('touchend', () => { isDraggingRDM = false; });
+
+// 輔助函數：在指定欄位右側精準插入一欄 (修復標題空白問題)
+// 輔助函數：在指定欄位右側精準插入一欄 (修復標題空白與格式問題)
+function insertColumnRightOf(colIdx) {
+    const theadTr = dataTable.querySelector('thead tr');
+    const newTh = document.createElement('th');
+    
+    // 使用系統標準的表頭樣式，並呼叫 createThColHTML 建立標題結構
+    newTh.className = 'sticky-top group';
+    newTh.style.width = '150px';
+    newTh.style.minWidth = '150px';
+    newTh.style.maxWidth = '150px';
+    newTh.innerHTML = createThColHTML(0); 
+    
+    if (colIdx + 2 < theadTr.children.length) {
+        theadTr.insertBefore(newTh, theadTr.children[colIdx + 2]);
+    } else {
+        theadTr.appendChild(newTh);
+    }
+    
+    const tbody = dataTable.querySelector('tbody');
+    Array.from(tbody.children).forEach(tr => {
+        const newTd = document.createElement('td');
+        // 使用系統標準的儲存格結構
+        const inner = document.createElement('div');
+        inner.className = 'td-inner';
+        inner.contentEditable = "true";
+        newTd.appendChild(inner);
+        
+        if (colIdx + 2 < tr.children.length) {
+            tr.insertBefore(newTd, tr.children[colIdx + 2]);
+        } else {
+            tr.appendChild(newTd);
+        }
+    });
+    
+    // 強制重繪標題陣列與記憶設定
+    if (typeof updateTableHeaders === 'function') updateTableHeaders();
+    if (typeof saveColNames === 'function') saveColNames();
+    if (typeof saveColWidths === 'function') saveColWidths();
+}
+
+// 核心邏輯：執行移除重複
+document.getElementById('btnApplyRemoveDuplicates').addEventListener('click', () => {
+    if (currentMode !== 'table') return showToast('⚠️ 僅能在表格模式使用');
+    
+    // 1. 確認並鎖定選取範圍
+    let minR = Infinity, maxR = -1, minC = Infinity, maxC = -1;
+    if (selectedCellBlocks.length > 0) {
+        selectedCellBlocks.forEach(b => {
+            minR = Math.min(minR, b.startR, b.endR); maxR = Math.max(maxR, b.startR, b.endR);
+            minC = Math.min(minC, b.startC, b.endC); maxC = Math.max(maxC, b.startC, b.endC);
+        });
+    } else if (selectedRows.length > 0) {
+        minR = Math.min(...selectedRows); maxR = Math.max(...selectedRows);
+        minC = 0; maxC = dataTable.querySelector('thead tr').children.length - 2;
+    } else if (selectedCols.length > 0) {
+        minR = 0; maxR = dataTable.querySelectorAll('tbody tr').length - 1;
+        minC = Math.min(...selectedCols); maxC = Math.max(...selectedCols);
+    } else if (lastClickedCell) {
+        minR = maxR = lastClickedCell.r;
+        minC = maxC = lastClickedCell.c;
+    } else {
+        return showToast('⚠️ 請先選取要處理的範圍');
+    }
+
+    const layout = document.querySelector('input[name="rdLayout"]:checked').value;
+    const addCountCol = document.getElementById('chkRdCount').checked;
+    const tbodyRows = dataTable.querySelectorAll('tbody tr');
+    const DELIMITER = '||_RDM_||';
+
+    // 2. 第一階段掃描：讀取資料並建立唯一金鑰字典
+    const seen = new Map();     
+    const counts = new Map();   
+    const uniqueData = [];      
+
+    const readCell = (r, c) => {
+        const inner = tbodyRows[r]?.children[c + 1]?.querySelector('.td-inner');
+        return inner ? { formula: inner.getAttribute('data-formula'), text: inner.innerText } : { formula: null, text: '' };
+    };
+
+    for (let r = minR; r <= maxR; r++) {
+        let rowData = [];
+        let keyParts = [];
+        for (let c = minC; c <= maxC; c++) {
+            const cellData = readCell(r, c);
+            rowData.push(cellData);
+            keyParts.push(cellData.formula || cellData.text); 
+        }
+        
+        const key = keyParts.join(DELIMITER);
+        
+        // ======== 核心修正：判斷全空行並直接跳過 ========
+        // 如果整行的每一個格子都是空的 (null 或只包含空白)，直接忽略這行！
+        const isEmptyRow = keyParts.every(p => !p || String(p).trim() === '');
+        if (isEmptyRow) continue; 
+        // ===============================================
+        
+        if (!seen.has(key)) {
+            seen.set(key, r);
+            counts.set(key, 1);
+            uniqueData.push({ key, data: rowData }); 
+        } else {
+            counts.set(key, counts.get(key) + 1);
+        }
+    }
+
+    // 3. 第二階段：視需求新增右欄
+    let countColIdx = -1;
+    if (addCountCol) {
+        insertColumnRightOf(maxC);
+        countColIdx = maxC + 1; 
+    }
+
+    const updatedRows = dataTable.querySelectorAll('tbody tr');
+    
+    const writeCell = (r, c, cellData) => {
+        const inner = updatedRows[r]?.children[c + 1]?.querySelector('.td-inner');
+        if (!inner) return;
+        if (cellData && cellData.formula) {
+            inner.setAttribute('data-formula', cellData.formula);
+            inner.innerText = cellData.formula; 
+        } else {
+            inner.removeAttribute('data-formula');
+            inner.innerText = cellData ? cellData.text : '';
+        }
+    };
+
+    // 4. 第三階段：覆寫資料
+    if (layout === 'inplace') {
+        // 【留在原位】
+        for (let r = minR; r <= maxR; r++) {
+            let keyParts = [];
+            for (let c = minC; c <= maxC; c++) {
+                const cellData = readCell(r, c);
+                keyParts.push(cellData.formula || cellData.text);
+            }
+            const key = keyParts.join(DELIMITER);
+            const isEmptyRow = keyParts.every(p => !p || String(p).trim() === '');
+            
+            if (isEmptyRow) continue; // 遇到空行不處理也不清空
+
+            if (seen.get(key) === r) {
+                // 首次出現保留，若有勾選則填入次數
+                if (addCountCol) {
+                    writeCell(r, countColIdx, { text: counts.get(key).toString(), formula: null });
+                }
+            } else {
+                // 重複出現，清空儲存格
+                for (let c = minC; c <= maxC; c++) writeCell(r, c, { text: '', formula: null });
+            }
+        }
+    } else {
+        // 【往上集中】
+        for (let r = minR; r <= maxR; r++) {
+            for (let c = minC; c <= maxC; c++) writeCell(r, c, { text: '', formula: null });
+        }
+        
+        let targetR = minR;
+        for (const ud of uniqueData) {
+            // uniqueData 裡面現在保證沒有全空行了
+            for (let i = 0; i < ud.data.length; i++) {
+                writeCell(targetR, minC + i, ud.data[i]);
+            }
+            if (addCountCol) {
+                writeCell(targetR, countColIdx, { text: counts.get(ud.key).toString(), formula: null });
+            }
+            targetR++;
+        }
+    }
+
+    // 5. 收尾工作
+    recalculateAllFormulas(); 
+    localStorage.setItem(STORAGE_KEY, extractTextFromTable());
+    debouncedSaveHistory();
+    removeDuplicatesModal.classList.add('hidden');
+    showToast(`✅ 移除重複完成！`);
+});
+
+/* ==========================================
+   公式動態參照更新引擎 (攔截欄位移動)
+   ========================================== */
+function adjustFormulasForColMove(oldIdx, newIdx) {
+    if (oldIdx === newIdx) return;
+
+    // 1. 建立欄位索引的新舊對照表 (Mapping)
+    const colMap = {};
+    for (let i = 0; i < 1000; i++) colMap[i] = i; // 初始化 1000 欄
+
+    if (oldIdx < newIdx) {
+        // 往右移：中間的欄位會全部往左遞補 (-1)
+        for (let i = oldIdx + 1; i <= newIdx; i++) colMap[i] = i - 1;
+        colMap[oldIdx] = newIdx;
+    } else {
+        // 往左移：中間的欄位會全部往右推 (+1)
+        for (let i = newIdx; i < oldIdx; i++) colMap[i] = i + 1;
+        colMap[oldIdx] = newIdx;
+    }
+
+    // 2. 定義安全的正則表達式：
+    // 群組1: (["'].*?["']) -> 抓取引號內的字串 (保護不替換)
+    // 群組2,3: ([a-zA-Z]+)(\d+)\b -> 抓取單格座標如 A1, B2
+    // 群組4,5: ([a-zA-Z]+):([a-zA-Z]+)\b -> 抓取整欄座標如 A:B
+    const regex = /(["'].*?["'])|([a-zA-Z]+)(\d+)\b|([a-zA-Z]+):([a-zA-Z]+)\b/g;
+
+    const cells = dataTable.querySelectorAll('.td-inner');
+    
+    // 3. 掃描全表更新公式
+    cells.forEach(cell => {
+        const formula = cell.getAttribute('data-formula');
+        if (formula) {
+            const newFormula = formula.replace(regex, (match, str, col, row, col1, col2) => {
+                if (str) return str; // 若是純字串，原封不動退回
+                
+                // 處理 A1, B5 這種單格座標
+                if (col && row) {
+                    let oldColIdx = colStrToNum(col.toUpperCase());
+                    let newColIdx = colMap[oldColIdx] !== undefined ? colMap[oldColIdx] : oldColIdx;
+                    return colNumToStr(newColIdx) + row;
+                }
+                
+                // 處理 A:B 這種整欄座標
+                if (col1 && col2) {
+                    let oldColIdx1 = colStrToNum(col1.toUpperCase());
+                    let newColIdx1 = colMap[oldColIdx1] !== undefined ? colMap[oldColIdx1] : oldColIdx1;
+                    let oldColIdx2 = colStrToNum(col2.toUpperCase());
+                    let newColIdx2 = colMap[oldColIdx2] !== undefined ? colMap[oldColIdx2] : oldColIdx2;
+                    return colNumToStr(newColIdx1) + ':' + colNumToStr(newColIdx2);
+                }
+                
+                return match;
+            });
+
+            // 寫入更新後的公式
+            cell.setAttribute('data-formula', newFormula);
+            cell.innerText = newFormula;
+        }
+    });
+
+    // 4. 更新完畢後，觸發全表重算讓新結果顯示
+    recalculateAllFormulas();
+}
+
+
+
+/* ==========================================
+   神奇多功能工具：自動分割 模組
+   ========================================== */
+const autoSplitModal = document.getElementById('autoSplitModal');
+
+// 1. 開啟與關閉對話框
+document.getElementById('btnOpenAutoSplit').addEventListener('click', (e) => {
+    e.stopPropagation();
+    autoSplitModal.classList.remove('hidden');
+    document.querySelectorAll('.dropdown-menu, .action-menu').forEach(m => m.classList.remove('show'));
+    centerModal(autoSplitModal); // 呼叫你寫好的置中函數
+});
+document.getElementById('btnCloseAutoSplit').addEventListener('click', () => {
+    autoSplitModal.classList.add('hidden');
+});
+
+// 2. 視窗全區拖曳 (桌機 + 手機)
+let isDraggingASM = false, dragStartXASM = 0, dragStartYASM = 0, asmStartLeft = 0, asmStartTop = 0;
+autoSplitModal.addEventListener('mousedown', (e) => {
+    if (e.target.closest('input, button, label')) return; 
+    isDraggingASM = true; dragStartXASM = e.clientX; dragStartYASM = e.clientY;
+    const rect = autoSplitModal.getBoundingClientRect();
+    asmStartLeft = rect.left; asmStartTop = rect.top;
+    document.body.style.userSelect = 'none';
+});
+document.addEventListener('mousemove', (e) => {
+    if (!isDraggingASM) return;
+    autoSplitModal.style.left = `${asmStartLeft + (e.clientX - dragStartXASM)}px`;
+    autoSplitModal.style.top = `${asmStartTop + (e.clientY - dragStartYASM)}px`;
+    autoSplitModal.style.transform = 'none';
+});
+document.addEventListener('mouseup', () => { isDraggingASM = false; document.body.style.userSelect = ''; });
+autoSplitModal.addEventListener('touchstart', (e) => {
+    if (e.target.closest('input, button, label')) return; 
+    const touch = e.touches[0];
+    isDraggingASM = true; dragStartXASM = touch.clientX; dragStartYASM = touch.clientY;
+    const rect = autoSplitModal.getBoundingClientRect();
+    asmStartLeft = rect.left; asmStartTop = rect.top;
+    if (!e.target.closest('input')) e.preventDefault();
+}, { passive: false });
+document.addEventListener('touchmove', (e) => {
+    if (!isDraggingASM) return;
+    const touch = e.touches[0];
+    autoSplitModal.style.left = `${asmStartLeft + (touch.clientX - dragStartXASM)}px`;
+    autoSplitModal.style.top = `${asmStartTop + (touch.clientY - dragStartYASM)}px`;
+    autoSplitModal.style.transform = 'none';
+    e.preventDefault();
+}, { passive: false });
+document.addEventListener('touchend', () => { isDraggingASM = false; });
+
+// 3. 核心邏輯：執行分割
+document.getElementById('btnApplyAutoSplit').addEventListener('click', () => {
+    if (currentMode !== 'table') return showToast('⚠️ 僅能在表格模式使用');
+    
+    // 找出選取範圍
+    let minR = Infinity, maxR = -1, minC = Infinity, maxC = -1;
+    if (selectedCellBlocks.length > 0) {
+        selectedCellBlocks.forEach(b => {
+            minR = Math.min(minR, b.startR, b.endR); maxR = Math.max(maxR, b.startR, b.endR);
+            minC = Math.min(minC, b.startC, b.endC); maxC = Math.max(maxC, b.startC, b.endC);
+        });
+    } else if (selectedRows.length > 0) {
+        minR = Math.min(...selectedRows); maxR = Math.max(...selectedRows);
+        minC = 0; maxC = dataTable.querySelector('thead tr').children.length - 2;
+    } else if (selectedCols.length > 0) {
+        minR = 0; maxR = dataTable.querySelectorAll('tbody tr').length - 1;
+        minC = Math.min(...selectedCols); maxC = Math.max(...selectedCols);
+    } else if (lastClickedCell) {
+        minR = maxR = lastClickedCell.r;
+        minC = maxC = lastClickedCell.c;
+    } else {
+        return showToast('⚠️ 請先選取要處理的範圍');
+    }
+
+    const delimiter = document.getElementById('autoSplitDelimiter').value;
+    const mergeDelimiters = document.getElementById('chkMergeDelimiters').checked;
+    // ======== 新增：讀取保留字元設定 ========
+    const keepDelimiter = document.getElementById('chkKeepDelimiter').checked; 
+    const tbodyRows = dataTable.querySelectorAll('tbody tr');
+
+    const splitData = []; 
+    let maxSplitLength = 1;
+
+    // 第一階段：讀取並精準切割資料
+    for (let r = minR; r <= maxR; r++) {
+        for (let c = minC; c <= maxC; c++) {
+            const inner = tbodyRows[r]?.children[c + 1]?.querySelector('.td-inner');
+            if (!inner) continue;
+            
+            const text = inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : inner.innerText;
+            if (!text) continue;
+
+            let parts = [];
+            if (delimiter === '') {
+                // 【無分隔符號】：逐字元切割
+                parts = [...text];
+                if (mergeDelimiters) {
+                    parts = parts.filter((char, index, arr) => index === 0 || char !== arr[index - 1]);
+                }
+            } else {
+                // 【有分隔符號】
+                const safeDelim = delimiter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                
+                if (keepDelimiter) {
+                    // 使用捕捉群組切割，把分隔符號留在陣列中
+                    const regex = new RegExp('(' + safeDelim + (mergeDelimiters ? '+' : '') + ')', 'gu');
+                    const rawParts = text.split(regex);
+                    
+                    // ======== 魔法在這裡：將分隔符號當作「前綴」與後段文字合併 ========
+                    // 例如 ["A", ",", "B", ",", "C"] 會變成 ["A", ",B", ",C"]
+                    parts.push(rawParts[0]); // 先推入第一段文字
+                    
+                    for (let i = 1; i < rawParts.length; i += 2) {
+                        const delim = rawParts[i];
+                        const nextText = rawParts[i + 1] || '';
+                        parts.push(delim + nextText);
+                    }
+                    // =================================================================
+                } else {
+                    // 一般切割 (不保留分隔符號)
+                    if (mergeDelimiters) {
+                        const regex = new RegExp(safeDelim + '+', 'gu'); 
+                        parts = text.split(regex);
+                    } else {
+                        parts = text.split(delimiter);
+                    }
+                }
+            }
+
+            if (parts.length > 0) {
+                splitData.push({ r, c, parts });
+                if (parts.length > maxSplitLength) maxSplitLength = parts.length;
+            }
+        }
+    }
+
+    // 第二階段：檢查是否需要擴充表格欄位
+    const theadTr = dataTable.querySelector('thead tr');
+    const currentCols = theadTr.children.length - 1;
+    const requiredCols = maxC + maxSplitLength; 
+    
+    if (requiredCols > currentCols) {
+        insertColAt(currentCols - 1, -1, requiredCols - currentCols);
+    }
+
+    // 第三階段：覆寫資料到畫面上
+    const updatedRows = dataTable.querySelectorAll('tbody tr');
+    splitData.forEach(item => {
+        for (let i = 0; i < item.parts.length; i++) {
+            const targetInner = updatedRows[item.r]?.children[item.c + i + 1]?.querySelector('.td-inner');
+            if (targetInner) {
+                targetInner.removeAttribute('data-formula'); 
+                targetInner.innerText = item.parts[i];
+            }
+        }
+    });
+
+    recalculateAllFormulas();
+    localStorage.setItem(STORAGE_KEY, extractTextFromTable());
+    debouncedSaveHistory();
+    autoSplitModal.classList.add('hidden');
+    showToast('✅ 自動分割完成！');
+});
+
+
+
+
+
+
+
+
 init();
