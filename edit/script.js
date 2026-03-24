@@ -53,29 +53,49 @@ const ENTER_DIRECTION_KEY = 'tauhu-enter-direction';
 const FONT_FAMILY_KEY = 'tauhu-font-family';
 
 /* 工具列元件初始化 */
+/* 工具列元件初始化 (支援槽狀選單) */
 function initDropdowns() {
+    // 1. 處理主要展開按鈕 (第一層)
     document.querySelectorAll('.dropdown-container').forEach(container => {
         const btn = container.querySelector('.dropdown-btn');
         const menu = container.querySelector('.dropdown-menu');
-        const items = container.querySelectorAll('.dropdown-item');
         
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            document.querySelectorAll('.dropdown-menu, .action-menu').forEach(m => { if (m !== menu) m.classList.remove('show'); });
-            menu.classList.toggle('show');
-        });
-
-        items.forEach(item => {
-            item.addEventListener('click', (e) => {
+        if (btn && menu) {
+            btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                items.forEach(i => i.querySelector('.check-icon').classList.remove('active'));
-                item.querySelector('.check-icon').classList.add('active');
-                menu.classList.remove('show');
-                container.dispatchEvent(new CustomEvent('change', { detail: { value: item.dataset.value } }));
+                // 關閉其他不相關的選單
+                document.querySelectorAll('.dropdown-menu.show, .action-menu.show').forEach(m => { 
+                    if (m !== menu && !menu.contains(m)) m.classList.remove('show'); 
+                });
+                menu.classList.toggle('show');
             });
+        }
+    });
+
+    // 2. 處理所有點擊選項 (支援子層點擊與觸發)
+    document.querySelectorAll('.dropdown-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            
+            // 找到負責管理這個資料的父層 ID (例如 dd-fontFamily)
+            const parentDataContainer = item.closest('[id^="dd-"]');
+            
+            if (parentDataContainer) {
+                // 清除該群組內的勾選圖示，並為當前點擊的加上
+                parentDataContainer.querySelectorAll('.dropdown-item .check-icon').forEach(i => i.classList.remove('active'));
+                const myCheck = item.querySelector('.check-icon');
+                if (myCheck) myCheck.classList.add('active');
+                
+                // 觸發我們原先寫好的 change 事件
+                parentDataContainer.dispatchEvent(new CustomEvent('change', { detail: { value: item.dataset.value } }));
+            }
+
+            // 選擇完畢後，把所有選單收起來
+            document.querySelectorAll('.dropdown-menu, .action-menu').forEach(m => m.classList.remove('show'));
         });
     });
 
+    // 3. 原有的 action-dropdown 邏輯
     document.querySelectorAll('.action-dropdown .action-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -85,6 +105,7 @@ function initDropdowns() {
         });
     });
 
+    // 4. 點擊空白處關閉選單
     document.addEventListener('click', (e) => {
         document.querySelectorAll('.dropdown-menu, .action-menu').forEach(m => m.classList.remove('show'));
         if (!e.target.closest('#colMenu') && !e.target.closest('.btn-col-menu')) colMenu.classList.remove('show');
@@ -103,19 +124,28 @@ function initDropdowns() {
     document.getElementById('enterDirectionIcon').textContent = dirIconMap[savedEnterDirection];
 
 
-// 行動版多選模式按鈕切換邏輯
+// 行動版多選模式按鈕切換邏輯 (結合至設定選單)
 const btnToggleMultiSelect = document.getElementById('btnToggleMultiSelect');
+const multiSelectText = document.getElementById('multiSelectText'); 
 if (btnToggleMultiSelect) {
-    btnToggleMultiSelect.addEventListener('click', () => {
+    btnToggleMultiSelect.addEventListener('click', (e) => {
         isMobileMultiSelect = !isMobileMultiSelect;
         
-        // 切換按鈕的外觀 (給予明顯的藍底標示)
-        btnToggleMultiSelect.classList.toggle('bg-blue-100', isMobileMultiSelect);
-        btnToggleMultiSelect.classList.toggle('text-blue-600', isMobileMultiSelect);
+        // 切換選單項目的外觀與文字
+        if (isMobileMultiSelect) {
+            btnToggleMultiSelect.classList.add('bg-blue-50', 'text-blue-600');
+            btnToggleMultiSelect.classList.remove('text-gray-700');
+            if (multiSelectText) multiSelectText.textContent = '取消多選 (模擬 Ctrl)';
+        } else {
+            btnToggleMultiSelect.classList.remove('bg-blue-50', 'text-blue-600');
+            btnToggleMultiSelect.classList.add('text-gray-700');
+            if (multiSelectText) multiSelectText.textContent = '啟用多選 (模擬 Ctrl)';
+        }
         
         showToast(isMobileMultiSelect ? '✅ 多選模式已啟用' : '❌ 多選模式已關閉');
     });
 }
+
 function setDropdownValue(id, value) {
     const container = document.getElementById(id);
     container.querySelectorAll('.dropdown-item').forEach(item => {
@@ -1074,7 +1104,6 @@ function closeCellEditor(save = true) {
 document.getElementById('cellEditorOverlay').addEventListener('click', () => closeCellEditor(true));
 
 /* 鍵盤與剪貼簿事件監聽 */
-/* 鍵盤與剪貼簿事件監聽 (全面升級版) */
 document.addEventListener('keydown', (e) => {
     // 1. 攔截 Ctrl+F 快捷鍵
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
@@ -1096,9 +1125,67 @@ document.addEventListener('keydown', (e) => {
         // 判斷是否處於選取狀態 (有藍框，不在編輯模式)
         const hasSelection = !isEditing && selectedCellBlocks.length > 0;
 
-        // --- 處理方向鍵導覽 (支援 Shift 多選擴充) ---
+        // --- 處理 Tab 鍵 (向右/向左移動並選取) ---
+        if (e.key === 'Tab') {
+            // 讓對話框內的輸入框保留原本的 Tab 切換功能
+            const isInputTarget = e.target.closest('input:not(#cellEditor), textarea:not(#cellEditor), select');
+            if (isInputTarget && !isEditing) return; 
+            
+            e.preventDefault(); // 攔截預設的焦點切換
+            
+            const tbody = dataTable.querySelector('tbody');
+            let maxR = tbody.children.length - 1;
+            const maxC = dataTable.querySelector('thead tr').children.length - 2;
+
+            let r, c;
+
+            // 決定起點：如果在打字就從打字的這格算，否則從藍框算
+            if (isEditing) {
+                activeInner.blur();
+                let tr = activeInner.closest('tr');
+                r = Array.from(tr.parentNode.children).indexOf(tr);
+                c = Array.from(tr.children).indexOf(activeInner.closest('td')) - 1;
+            } else if (lastClickedCell) {
+                r = lastClickedCell.r; c = lastClickedCell.c;
+            } else if (selectedCellBlocks.length > 0) {
+                r = selectedCellBlocks[0].startR; c = selectedCellBlocks[0].startC;
+            } else {
+                r = 0; c = 0; // 都沒選就從 A1 開始
+            }
+
+            // 計算移動方向
+            if (e.shiftKey) {
+                // Shift + Tab 往左移動
+                c--;
+                if (c < 0) { c = maxC; r--; } // 到最左邊就往上一列的最右邊
+                if (r < 0) { r = 0; c = 0; }
+            } else {
+                // Tab 往右移動
+                c++;
+                if (c > maxC) { 
+                    c = 0; r++; // 到最右邊就換下一列
+                    if (r > maxR) {
+                        insertRowAt(tbody.children.length); // 如果到底了，自動新增一列
+                        maxR++;
+                    }
+                }
+            }
+
+            // 更新選取框
+            lastClickedCell = { r, c };
+            selectedCellBlocks = [{ startR: r, startC: c, endR: r, endC: c }];
+            selectedRows = []; selectedCols = [];
+            applySelectionVisuals();
+
+            // 捲動到視野內
+            const targetTd = tbody.children[r]?.children[c + 1];
+            if (targetTd) targetTd.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+            return;
+        }
+
+        // --- 處理方向鍵導覽 (支援 Shift / Ctrl 多選與端點跳轉) ---
         if (hasSelection && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-            e.preventDefault(); // 阻止整個網頁捲動
+            e.preventDefault(); 
             
             const tbody = dataTable.querySelector('tbody');
             const maxR = tbody.children.length - 1;
@@ -1106,28 +1193,67 @@ document.addEventListener('keydown', (e) => {
 
             const lastBlock = selectedCellBlocks[selectedCellBlocks.length - 1];
             
-            // 決定移動的基準點：
-            // 有按 Shift -> 從選取框的「尾端(end)」繼續延伸
-            // 沒按 Shift -> 從選取框的「起點(anchor)」開始重新移動
             let headR = e.shiftKey ? lastBlock.endR : (lastClickedCell ? lastClickedCell.r : lastBlock.startR);
             let headC = e.shiftKey ? lastBlock.endC : (lastClickedCell ? lastClickedCell.c : lastBlock.startC);
 
-            // 計算新的游標位置
-            if (e.key === 'ArrowUp') headR--;
-            else if (e.key === 'ArrowDown') headR++;
-            else if (e.key === 'ArrowLeft') headC--;
-            else if (e.key === 'ArrowRight') headC++;
+            // 計算位移向量
+            let dr = 0, dc = 0;
+            if (e.key === 'ArrowUp') dr = -1;
+            else if (e.key === 'ArrowDown') dr = 1;
+            else if (e.key === 'ArrowLeft') dc = -1;
+            else if (e.key === 'ArrowRight') dc = 1;
 
-            // 邊界限制，防止超出表格
+            const isCtrl = e.ctrlKey || e.metaKey;
+
+            if (isCtrl) {
+                // 智慧端點跳轉引擎 (模擬 Excel 行為)
+                const isCellEmpty = (r, c) => {
+                    const inner = tbody.children[r]?.children[c + 1]?.querySelector('.td-inner');
+                    if (!inner) return true;
+                    const text = inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : inner.innerText;
+                    return text.trim() === '';
+                };
+
+                let currR = headR, currC = headC;
+                const startEmpty = isCellEmpty(currR, currC);
+                let nextR = currR + dr, nextC = currC + dc;
+
+                if (nextR >= 0 && nextR <= maxR && nextC >= 0 && nextC <= maxC) {
+                    const nextEmpty = isCellEmpty(nextR, nextC);
+                    
+                    if (!startEmpty && !nextEmpty) {
+                        // 有資料 -> 有資料：跳到「連續資料區塊」的最邊緣
+                        while (nextR >= 0 && nextR <= maxR && nextC >= 0 && nextC <= maxC && !isCellEmpty(nextR, nextC)) {
+                            currR = nextR; currC = nextC;
+                            nextR += dr; nextC += dc;
+                        }
+                    } else {
+                        // 有資料 -> 空白，或 空白 -> 空白：跳過所有空白，直達「下一個有資料的格子」或「表格底端」
+                        while (nextR >= 0 && nextR <= maxR && nextC >= 0 && nextC <= maxC && isCellEmpty(nextR, nextC)) {
+                            currR = nextR; currC = nextC;
+                            nextR += dr; nextC += dc;
+                        }
+                        if (nextR >= 0 && nextR <= maxR && nextC >= 0 && nextC <= maxC) {
+                            currR = nextR; currC = nextC; // 停在碰到的第一個有資料的格子
+                        }
+                    }
+                }
+                headR = currR; headC = currC;
+            } else {
+                // 一般移動
+                headR += dr; headC += dc;
+            }
+
+            // 邊界限制
             if (headR < 0) headR = 0; if (headR > maxR) headR = maxR;
             if (headC < 0) headC = 0; if (headC > maxC) headC = maxC;
 
             if (e.shiftKey) {
-                // 【Shift + 方向鍵】：擴大或縮小選取範圍
+                // Shift: 擴展選取範圍
                 lastBlock.endR = headR;
                 lastBlock.endC = headC;
             } else {
-                // 【單純方向鍵】：取消多選，變成單一選取框
+                // 單純方向鍵: 重置為單格選取
                 lastClickedCell = { r: headR, c: headC };
                 selectedCellBlocks = [{ startR: headR, startC: headC, endR: headR, endC: headC }];
                 selectedRows = []; selectedCols = [];
@@ -1135,7 +1261,6 @@ document.addEventListener('keydown', (e) => {
 
             applySelectionVisuals();
 
-            // 將新儲存格滾動到視野內
             const targetTd = tbody.children[headR]?.children[headC + 1];
             if (targetTd) targetTd.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
             return;
@@ -1203,7 +1328,42 @@ document.addEventListener('keydown', (e) => {
             }
         }
 
-        // --- 處理 Delete 與 Backspace (刪除內容) ---
+		// --- 處理一般字元輸入 (直接覆蓋並進入編輯) ---
+        // 判斷：按下的是單一可列印字元 (長度為1)，且沒有按 Ctrl/Alt/Meta 等組合鍵
+        const isPrintableKey = e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
+        // 確保焦點不是在其他對話框的搜尋/輸入框裡
+        const isInputTarget = e.target.closest('input, textarea'); 
+
+        if (hasSelection && !isEditing && isPrintableKey && !isInputTarget) {
+            e.preventDefault(); // 攔截預設輸入，交由我們手動寫入
+            
+            // 取得目前選取的目標儲存格 (以起點為主)
+            const editR = lastClickedCell ? lastClickedCell.r : selectedCellBlocks[0].startR;
+            const editC = lastClickedCell ? lastClickedCell.c : selectedCellBlocks[0].startC;
+            const tbody = dataTable.querySelector('tbody');
+            const targetInner = tbody.children[editR]?.children[editC + 1]?.querySelector('.td-inner');
+            
+            if (targetInner) {
+                // 1. 瞬間清空原有資料與背後公式，並填入剛按下的字元
+                targetInner.removeAttribute('data-formula');
+                targetInner.innerText = e.key;
+                
+                // 2. 讓該儲存格獲得焦點，進入編輯模式
+                targetInner.focus();
+                
+                // 3. 將游標精準定位到文字的最末端 (剛打的那個字元後面)
+                const range = document.createRange();
+                const sel = window.getSelection();
+                range.selectNodeContents(targetInner);
+                range.collapse(false);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+            return;
+        }
+
+
+
         // --- 處理 Delete 與 Backspace (刪除內容) ---
         if (e.key === 'Delete' || e.key === 'Backspace') {
             
@@ -1877,11 +2037,9 @@ function loadExtraFonts() {
 // =========================
 const ddFontFamily = document.getElementById('dd-fontFamily');
 if (ddFontFamily) {
-    const btnFont = ddFontFamily.querySelector('.dropdown-btn');
-    
-    // 【效能優化】當滑鼠移入或點擊「字體圖示按鈕」時，才載入龐大字體包
-    btnFont.addEventListener('mouseenter', loadExtraFonts);
-    btnFont.addEventListener('click', loadExtraFonts);
+    // 【修改這裡】：因為結構改變，直接監聽整個 dd-fontFamily 選單項目即可
+    ddFontFamily.addEventListener('mouseenter', loadExtraFonts);
+    ddFontFamily.addEventListener('click', loadExtraFonts);
 
     // 監聽字體下拉選單的變更
     ddFontFamily.addEventListener('change', (e) => {
@@ -4246,8 +4404,143 @@ document.getElementById('btnApplyAutoMerge').addEventListener('click', () => {
 });
 
 
+
 /* ==========================================
-   滑鼠拖曳與多選儲存格引擎 (完美相容 Shift/Ctrl)
+   文字模式專屬：文字編輯工具 (十合一排版引擎)
+   ========================================== */
+function applyTextTool(action) {
+    if (currentMode !== 'text') {
+        showToast('⚠️ 此功能僅能在文字模式使用');
+        return;
+    }
+
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    const hasSelection = start !== end;
+    
+    // 如果有反白選取文字，就只處理選取的部分；否則處理全文
+    const textToProcess = hasSelection ? editor.value.substring(start, end) : editor.value;
+    if (!textToProcess) return;
+
+    let newText = '';
+
+    if (action === 'break') {
+        const lines = textToProcess.split('\n');
+        const brokenLines = lines.map(line => {
+            if (line.trim() === '') return line; 
+            let broken = line.replace(/([：:][‘“「『〈《【（\(<"']+)(?![ \t]*\n)/g, '$1\n');
+            broken = broken.replace(/([。，、；！？\.,!?;．]+|……|…|──|—|～|~+|﹏+|＿+)([’”」』〉》】）\)\]"']*)(?![ \t]*\n)/g, '$1$2\n');
+            return `######\n${broken}\n######`;
+        });
+        newText = brokenLines.join('\n');
+    } 
+    else if (action === 'join') {
+        if (textToProcess.includes('######')) {
+            const lines = textToProcess.split('\n');
+            const result = [];
+            let inBlock = false, currentBlock = [];
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (line.trim() === '######') {
+                    if (inBlock) { result.push(currentBlock.join('')); currentBlock = []; inBlock = false; } 
+                    else { inBlock = true; }
+                } else {
+                    if (inBlock) currentBlock.push(line); else result.push(line);
+                }
+            }
+            if (inBlock && currentBlock.length > 0) result.push(currentBlock.join(''));
+            newText = result.join('\n');
+        } else {
+            const paragraphs = textToProcess.split(/\n{2,}/);
+            const joined = paragraphs.map(p => p.replace(/([a-zA-Z0-9])\n([a-zA-Z0-9])/g, '$1 $2').replace(/\n/g, ''));
+            newText = joined.join('\n\n');
+        }
+    }
+    // ======== 新增的 8 個排版功能 ========
+    else if (action === 'sort-az') {
+        newText = textToProcess.split('\n').sort((a, b) => a.localeCompare(b, 'zh-TW', { numeric: true })).join('\n');
+    }
+    else if (action === 'sort-za') {
+        newText = textToProcess.split('\n').sort((a, b) => b.localeCompare(a, 'zh-TW', { numeric: true })).join('\n');
+    }
+    else if (action === 'remove-dup') {
+        // 先過濾掉所有的空行，再使用 Set 資料結構過濾重複行
+        newText = [...new Set(textToProcess.split('\n').filter(line => line.trim() !== ''))].join('\n');
+    }
+    else if (action === 'remove-empty') {
+        // 過濾掉全空白或無字元的行
+        newText = textToProcess.split('\n').filter(line => line.trim() !== '').join('\n');
+    }
+    else if (action === 'trim-space') {
+        // 移除每行字首字尾的半形空白、全形空白(\u3000)、TAB(\t)
+        newText = textToProcess.split('\n').map(line => line.replace(/^[\s\u3000]+|[\s\u3000]+$/g, '')).join('\n');
+    }
+    else if (action === 'capitalize') {
+        // 句首大寫引擎：在「每行開頭」或「句尾標點 + 引號/空白」之後的第一個拉丁字母進行大寫轉換
+        // 注意：在 u 旗標下，方括號內的 . ! ? 不需要也不可以加斜線跳脫
+        newText = textToProcess.replace(/(^|[。！？.!?"'「『]\s*)([\p{sc=Latn}])/gmu, (match, prefix, letter) => {
+            return prefix + letter.toUpperCase();
+        });
+    }
+    else if (action === 'lowercase') {
+        // 原生 toLowerCase 已完美支援 Unicode 拼音與擴充字元
+        newText = textToProcess.toLowerCase();
+    }
+    else if (action === 'uppercase') {
+        // 原生 toUpperCase 已完美支援 Unicode 拼音與擴充字元
+        newText = textToProcess.toUpperCase();
+    }
+
+    // 將處理完的文字寫回編輯器
+    if (hasSelection) {
+        editor.setRangeText(newText, start, end, 'select');
+    } else {
+        editor.value = newText;
+    }
+
+    // 觸發全域更新與存檔
+    updateLineNumbers();
+    localStorage.setItem(STORAGE_KEY, editor.value);
+    debouncedSaveHistory();
+    if (typeof updateWordCountWidget === 'function') updateWordCountWidget(); // 同步更新字數
+    
+    // 動態提示訊息
+    const msgs = {
+        'break': '標點斷行已套用', 'join': '斷行已精準接回',
+        'sort-az': 'A-Z 排序完成', 'sort-za': 'Z-A 排序完成',
+        'remove-dup': '重複行已移除', 'remove-empty': '空行已移除', 'trim-space': '首尾空格已移除',
+        'capitalize': '句首已大寫', 'lowercase': '已轉為小寫', 'uppercase': '已轉為大寫'
+    };
+    showToast(`✅ ${msgs[action]}`);
+}
+
+// 綁定所有 10 個按鈕的點擊事件
+const textTools = [
+    { id: 'btnPunctuationBreak', action: 'break' },
+    { id: 'btnPunctuationJoin', action: 'join' },
+    { id: 'btnSortAZ', action: 'sort-az' },
+    { id: 'btnSortZA', action: 'sort-za' },
+    { id: 'btnRemoveDupLines', action: 'remove-dup' },
+    { id: 'btnRemoveEmptyLines', action: 'remove-empty' },
+    { id: 'btnTrimSpaces', action: 'trim-space' },
+    { id: 'btnCapitalize', action: 'capitalize' },
+    { id: 'btnLowercase', action: 'lowercase' },
+    { id: 'btnUppercase', action: 'uppercase' }
+];
+
+textTools.forEach(tool => {
+    document.getElementById(tool.id)?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        applyTextTool(tool.action);
+        document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+    });
+});
+
+
+
+
+/* ==========================================
+   滑鼠拖曳與多選儲存格引擎
    ========================================== */
 window.isCellDragging = false;
 let isMouseDownOnCell = false;
@@ -4335,5 +4628,71 @@ document.addEventListener('mouseup', () => {
         }, 50);
     }
 });
+
+
+/* ==========================================
+   文字模式專屬：即時字數統計模組
+   ========================================== */
+const wordCountWidget = document.getElementById('wordCountWidget');
+const wordCountDisplay = document.getElementById('wordCountDisplay');
+
+// 開啟統計視窗
+document.getElementById('btnWordCount')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (currentMode !== 'text') {
+        showToast('⚠️ 字數統計僅能在文字模式使用');
+        return;
+    }
+    wordCountWidget.classList.remove('hidden');
+    updateWordCountWidget(); // 打開的瞬間先算一次
+    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+});
+
+// 關閉統計視窗
+document.getElementById('btnCloseWordCount')?.addEventListener('click', () => {
+    wordCountWidget.classList.add('hidden');
+});
+
+// 核心計算邏輯
+function updateWordCountWidget() {
+    // 只有在視窗顯示且處於文字模式時才進行計算
+    if (wordCountWidget.classList.contains('hidden') || currentMode !== 'text') return;
+
+    const text = editor.value;
+    
+    // 1. 行數：根據換行符號切割 (沒打字時算 0 行)
+    const lineCount = text.length === 0 ? 0 : text.split('\n').length;
+    
+    // ======== 魔法正則表達式解析 ========
+    // 模式 A (羅馬拼音)：[\p{sc=Latn}0-9][\p{sc=Latn}\p{M}0-9ˊˇˋˆ\^\+⁺]*
+    // 模式 B (方音與注音)：
+    //   \u3105-\u312F 是標準注音 (ㄅ-ㄩ)
+    //   \u31A0-\u31BF 是擴充方音符號 (ㆠ-ㆿ)
+    // ===================================
+    
+    // 2. 總字數 (含標點，不含空白)
+    const totalMatches = text.match(/(?:[\p{sc=Latn}0-9][\p{sc=Latn}\p{M}0-9ˊˇˋˆ\^\+⁺]*)|(?:[˙]?[\u3105-\u312F\u31A0-\u31BF兀万廿勺]+[ˊˇˋˆ\^\+⁺˙]*)|[^\s]/gu);
+    const totalChars = totalMatches ? totalMatches.length : 0;
+    
+    // 3. 漢字/純字數 (不含標點、符號、空白)
+    // 排除清單加入 \p{P}(標點) \p{S}(符號)，並將拉丁字母、注音、方音、數字、聲調與所有借音字全數排除，留下純漢字
+    const hanMatches = text.match(/(?:[\p{sc=Latn}0-9][\p{sc=Latn}\p{M}0-9ˊˇˋˆ\^\+⁺]*)|(?:[˙]?[\u3105-\u312F\u31A0-\u31BF兀万廿勺]+[ˊˇˋˆ\^\+⁺˙]*)|[^\s\p{P}\p{S}\p{sc=Latn}\p{M}0-9ˊˇˋˆ\^\+⁺˙\u3105-\u312F\u31A0-\u31BF兀万廿勺]/gu);
+    const hanChars = hanMatches ? hanMatches.length : 0;
+
+    // 更新畫面顯示
+    wordCountDisplay.textContent = `總字${totalChars} , 漢字${hanChars}, ${lineCount}行`;
+}
+
+// 只要編輯器內容有任何變動強制立刻重新計算！
+editor.addEventListener('input', updateWordCountWidget);
+// ==============================================
+
+
+
+
+
+
+
+
 
 init();

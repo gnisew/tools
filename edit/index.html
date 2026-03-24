@@ -53,6 +53,157 @@
             </div>
             <div class="h-6 w-px bg-gray-300 mx-1"></div>
 
+		  	<button class="toolbar-btn-text ime-toggle-button" title="輸入法">
+				<span class="material-icons">keyboard</span>
+				<span class="btn-text"></span>				
+			</button>	
+
+<div class="h-6 w-px bg-gray-300 mx-1"></div>
+
+<div class="relative dropdown-container" id="dd-textTool">
+    <button class="dropdown-btn icon-btn hover:bg-blue-50 hover:text-gray-800" title="文字排版工具">
+        <span class="material-symbols-outlined">custom_typography</span>
+    </button>
+    <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1 max-h-[80vh] overflow-y-auto scrollbar-thin">
+        
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnPunctuationBreak">
+            <span class="material-symbols-outlined text-base">wrap_text</span>標點斷行
+        </button>
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnPunctuationJoin">
+            <span class="material-symbols-outlined text-base">vertical_align_center</span>斷行接回
+        </button>
+        
+        <div class="h-px bg-gray-200 my-1 mx-2"></div>
+        
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnSortAZ">
+            <span class="material-symbols-outlined text-base">sort_by_alpha</span>排序 A-Z
+        </button>
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnSortZA">
+            <span class="material-symbols-outlined text-base">sort_by_alpha</span>排序 Z-A
+        </button>
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnRemoveDupLines">
+            <span class="material-symbols-outlined text-base">difference</span>移除重複行
+        </button>
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnRemoveEmptyLines">
+            <span class="material-symbols-outlined text-base">format_line_spacing</span>移除空行
+        </button>
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnTrimSpaces">
+            <span class="material-symbols-outlined text-base">format_indent_decrease</span>移除首尾空格
+        </button>
+        
+        <div class="h-px bg-gray-200 my-1 mx-2"></div>
+        
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnCapitalize">
+            <span class="material-symbols-outlined text-base">title</span>句首大寫
+        </button>
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnLowercase">
+            <span class="material-symbols-outlined text-base">lowercase</span>轉為小寫
+        </button>
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnUppercase">
+            <span class="material-symbols-outlined text-base">uppercase</span>轉為大寫
+        </button>
+    </div>
+</div>
+
+
+
+
+
+
+
+
+<div class="relative dropdown-container" id="dd-typography">
+                <button class="dropdown-btn icon-btn hover:bg-blue-50 hover:text-blue-600" title="排版設定">
+                    <span class="material-symbols-outlined">design_services</span>
+                </button>
+                <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-48 z-50 py-1">
+                    
+                    <div class="relative group/submenu" id="dd-fontFamily">
+                        <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
+                            <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">font_download</span>切換字體</div>
+                            <span class="material-symbols-outlined text-base">arrow_right</span>
+                        </div>
+                        <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-56 py-1 max-h-[60vh] overflow-y-auto scrollbar-thin z-50">
+                            <div class="px-3 py-1 text-xs font-bold text-gray-500 bg-gray-50 sticky top-0 z-10">基本字體</div>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="twhei-s, TWHEI, '台灣黑體', tauhu-oo, PingFangTC-Regular, 'Microsoft JhengHei', sans-serif"><div style="font-family: twhei-s, TWHEI, sans-serif;">預設黑體</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="'台灣楷體', twkai, 'DFKai-sb', 'BiauKai', serif"><div style="font-family: '台灣楷體', twkai, 'DFKai-sb', 'BiauKai', serif;">台灣楷體</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="'台灣宋體', twsung, 'PMingLiU', 'MingLiU', serif"><div style="font-family: '台灣宋體', twsung, 'PMingLiU', 'MingLiU', serif;">台灣宋體</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="tauhu-oo, sans-serif"><div style="font-family: tauhu-oo, sans-serif;">豆腐黑體</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <div class="px-3 py-1 text-xs font-bold text-gray-500 bg-gray-50 sticky top-0 z-10 border-t border-gray-200">注音與拼音字體</div>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="BpmfZihiSans-Regular"><div>ㄅ字嗨注音黑體</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="BpmfZihiKaiStd-Regular"><div>ㄅ字嗨注音標楷</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="BpmfZihiBox-R"><div>ㄅ字嗨注音加框</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="BpmfZihiOnly-R"><div>ㄅ字嗨注音而已</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="BpmfZihiSerif-Regular"><div>ㄅ字嗨注音宋體</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="ToneOZ-Pinyin-Kai-Traditional"><div>澳聲通拼音庫楷-繁</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <div class="px-3 py-1 text-xs font-bold text-gray-500 bg-gray-50 sticky top-0 z-10 border-t border-gray-200">台語/客語/方音字體</div>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiKaiStd-TL-R"><div>字咍標楷 台羅</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiKaiStd-HI-R"><div>字咍標楷 方音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiKaiStd-TLHI-R"><div>字咍標楷 台羅方音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiGenSekiG-TL-R"><div>字咍源石黑體 台羅</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiGenSekiG-HI-R"><div>字咍源石黑體 方音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiGenSekiG-TLHI-R"><div>字咍源石黑體 台羅方音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiGenRyuM-TL-R"><div>字咍源流明體 台羅</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiGenRyuM-HI-R"><div>字咍源流明體 方音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiGenRyuM-TLHI-R"><div>字咍源流明體 台羅方音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiGenSenR-TL-R"><div>字咍源泉圓體 台羅</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiGenSenR-HI-R"><div>字咍源泉圓體 方音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiGenSenR-TLHI-R"><div>字咍源泉圓體 台羅方音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <div class="px-3 py-1 text-xs font-bold text-gray-500 bg-gray-50 sticky top-0 z-10 border-t border-gray-200">英文/羅馬拼音</div>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="EngTRESSA"><div>EngTRESSA羅馬拼音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="EngTRESSB"><div>EngTRESSB羅馬拼音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                        </div>
+                    </div>
+
+                    <div class="relative group/submenu" id="dd-fontSize">
+                        <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
+                            <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">format_size</span>字體大小</div>
+                            <span class="material-symbols-outlined text-base">arrow_right</span>
+                        </div>
+                        <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-40 z-50 py-1">
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="14px"><div class="flex items-center gap-2">14px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="16px"><div class="flex items-center gap-2">16px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="18px"><div class="flex items-center gap-2">18px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="20px"><div class="flex items-center gap-2">20px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="24px"><div class="flex items-center gap-2">24px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="32px"><div class="flex items-center gap-2">32px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                        </div>
+                    </div>
+
+                    <div class="relative group/submenu" id="dd-lineHeight">
+                        <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
+                            <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">format_line_spacing</span>設定行距</div>
+                            <span class="material-symbols-outlined text-base">arrow_right</span>
+                        </div>
+                        <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-40 z-50 py-1">
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1"><div class="flex items-center gap-2">行距 1</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1.2"><div class="flex items-center gap-2">行距 1.2</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1.4"><div class="flex items-center gap-2">行距 1.4</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1.6"><div class="flex items-center gap-2">行距 1.6</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1.8"><div class="flex items-center gap-2">行距 1.8</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                        </div>
+                    </div>
+
+                    <div class="relative group/submenu" id="dd-wordWrap">
+                        <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
+                            <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">wrap_text</span>換行設定</div>
+                            <span class="material-symbols-outlined text-base">arrow_right</span>
+                        </div>
+                        <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-40 z-50 py-1">
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="pre-wrap"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">wrap_text</span>自動換行</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="pre"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">sync_alt</span>不換行</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+
+			
+			<!-- 表格專屬擴充區 -->
+            <div id="tableControls" class="hidden items-center gap-1">
+                <div class="h-6 w-px bg-gray-300 mx-1"></div>
+                
+
 <!-- 神奇多功能工具 -->
 <div class="relative dropdown-container" id="dd-magicTool">
     <button class="dropdown-btn icon-btn hover:bg-yellow-50 hover:text-yellow-600" title="神奇多功能工具">
@@ -89,147 +240,82 @@
 </div>
 
 
-		  	<button class="toolbar-btn-text ime-toggle-button" title="輸入法">
-				<span class="material-icons">keyboard</span>
-				<span class="btn-text"></span>				
-			</button>	
+<div class="relative dropdown-container" id="dd-tableSettings">
+                    <button class="dropdown-btn icon-btn hover:bg-gray-100" title="表格設定">
+                        <span class="material-symbols-outlined">table_edit</span>
+                    </button>
+                    <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-52 z-50 py-1">
+                        
+                        <div class="relative group/submenu" id="dd-freeze">
+                            <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
+                                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">ac_unit</span>凍結列數</div>
+                                <span class="material-symbols-outlined text-base">arrow_right</span>
+                            </div>
+                            <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-40 z-50 py-1">
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="0"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">visibility_off</span>無凍結</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">horizontal_rule</span>凍結 1 列</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="2"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">drag_handle</span>凍結 2 列</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            </div>
+                        </div>
 
-<div class="h-6 w-px bg-gray-300 mx-1"></div>
+                        <div class="relative group/submenu" id="dd-lockSelection">
+                            <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
+                                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base" id="lockSelectionIcon">lock_open</span>鎖定選取</div>
+                                <span class="material-symbols-outlined text-base">arrow_right</span>
+                            </div>
+                            <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-40 z-50 py-1">
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="false">
+                                    <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">lock_open</span>不鎖定</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span>
+                                </button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="true">
+                                    <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">lock</span>鎖定</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
+                                </button>
+                            </div>
+                        </div>
 
-			<div class="relative dropdown-container" id="dd-fontFamily">
-                <button class="dropdown-btn icon-btn" title="切換字體"><span class="material-symbols-outlined">font_download</span></button>
-                <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-56 z-50 py-1 max-h-[60vh] overflow-y-auto scrollbar-thin">
-                    
-                    <div class="px-3 py-1 text-xs font-bold text-gray-500 bg-gray-50 sticky top-0 z-10">基本字體</div>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="twhei-s, TWHEI, '台灣黑體', tauhu-oo, PingFangTC-Regular, 'Microsoft JhengHei', sans-serif"><div style="font-family: twhei-s, TWHEI, sans-serif;">預設黑體</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="'台灣楷體', twkai, 'DFKai-sb', 'BiauKai', serif"><div style="font-family: '台灣楷體', twkai, 'DFKai-sb', 'BiauKai', serif;">台灣楷體</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-					<button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="'台灣宋體', twsung, 'PMingLiU', 'MingLiU', serif"><div style="font-family: '台灣宋體', twsung, 'PMingLiU', 'MingLiU', serif;">台灣宋體</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="tauhu-oo, sans-serif"><div style="font-family: tauhu-oo, sans-serif;">豆腐黑體</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+						<button id="btnToggleMultiSelect" class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 transition-colors">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-base" id="multiSelectIcon">checklist</span>
+                                <span id="multiSelectText">啟用多選 (模擬 Ctrl)</span>
+                            </div>
+                        </button>
 
-                    <div class="px-3 py-1 text-xs font-bold text-gray-500 bg-gray-50 sticky top-0 z-10 border-t border-gray-200">注音與拼音字體</div>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="BpmfZihiSans-Regular"><div>ㄅ字嗨注音黑體</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="BpmfZihiKaiStd-Regular"><div>ㄅ字嗨注音標楷</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="BpmfZihiBox-R"><div>ㄅ字嗨注音加框</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="BpmfZihiOnly-R"><div>ㄅ字嗨注音而已</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="BpmfZihiSerif-Regular"><div>ㄅ字嗨注音宋體</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="ToneOZ-Pinyin-Kai-Traditional"><div>澳聲通拼音庫楷-繁</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                        <div class="h-px bg-gray-200 my-1 mx-2"></div>
 
-                    <div class="px-3 py-1 text-xs font-bold text-gray-500 bg-gray-50 sticky top-0 z-10 border-t border-gray-200">台語/客語/方音字體</div>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiKaiStd-TL-R"><div>字咍標楷 台羅</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiKaiStd-HI-R"><div>字咍標楷 方音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiKaiStd-TLHI-R"><div>字咍標楷 台羅方音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiGenSekiG-TL-R"><div>字咍源石黑體 台羅</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiGenSekiG-HI-R"><div>字咍源石黑體 方音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiGenSekiG-TLHI-R"><div>字咍源石黑體 台羅方音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiGenRyuM-TL-R"><div>字咍源流明體 台羅</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiGenRyuM-HI-R"><div>字咍源流明體 方音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiGenRyuM-TLHI-R"><div>字咍源流明體 台羅方音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiGenSenR-TL-R"><div>字咍源泉圓體 台羅</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiGenSenR-HI-R"><div>字咍源泉圓體 方音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="TaigiGenSenR-TLHI-R"><div>字咍源泉圓體 台羅方音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                        <div class="relative group/submenu" id="dd-enterAction">
+                            <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
+                                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base" id="enterActionIcon">check_circle</span>Enter 鍵行為</div>
+                                <span class="material-symbols-outlined text-base">arrow_right</span>
+                            </div>
+                            <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1">
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="confirm">
+                                    <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">check_circle</span>確認</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span>
+                                </button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="newline">
+                                    <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">keyboard_return</span>換行</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
+                                </button>
+                            </div>
+                        </div>
 
-                    <div class="px-3 py-1 text-xs font-bold text-gray-500 bg-gray-50 sticky top-0 z-10 border-t border-gray-200">英文/羅馬拼音</div>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="EngTRESSA"><div>EngTRESSA羅馬拼音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="EngTRESSB"><div>EngTRESSB羅馬拼音</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                </div>
-            </div>
-
-            <div class="relative dropdown-container" id="dd-fontSize">
-                <button class="dropdown-btn icon-btn" title="字體大小"><span class="material-symbols-outlined">format_size</span></button>
-                <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-40 z-50 py-1">
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="14px"><div class="flex items-center gap-2">14px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="16px"><div class="flex items-center gap-2">16px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="18px"><div class="flex items-center gap-2">18px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="20px"><div class="flex items-center gap-2">20px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-					<button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="24px"><div class="flex items-center gap-2">24px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-					<button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="32px"><div class="flex items-center gap-2">32px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                </div>
-            </div>
-
-            <div class="relative dropdown-container" id="dd-lineHeight">
-                <button class="dropdown-btn icon-btn" title="設定行距"><span class="material-symbols-outlined">format_line_spacing</span></button>
-                <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-40 z-50 py-1">
-					<button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1"><div class="flex items-center gap-2">行距 1</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1.2"><div class="flex items-center gap-2">行距 1.2</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1.4"><div class="flex items-center gap-2">行距 1.4</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1.6"><div class="flex items-center gap-2">行距 1.6</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1.8"><div class="flex items-center gap-2">行距 1.8</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                </div>
-            </div>
-
-            <div class="relative dropdown-container" id="dd-wordWrap">
-                <button class="dropdown-btn icon-btn" title="換行設定"><span class="material-symbols-outlined">wrap_text</span></button>
-                <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-40 z-50 py-1">
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="pre-wrap"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">wrap_text</span>自動換行</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="pre"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">sync_alt</span>不換行</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                </div>
-            </div>
-
-			
-			<!-- 表格專屬擴充區 -->
-            <div id="tableControls" class="hidden items-center gap-1">
-                <div class="h-6 w-px bg-gray-300 mx-1"></div>
-                
-                <!-- 凍結選項 -->
-                <div class="relative dropdown-container" id="dd-freeze">
-                    <button class="dropdown-btn icon-btn" title="凍結工具"><span class="material-symbols-outlined">ac_unit</span></button>
-                    <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-40 z-50 py-1">
-                        <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="0"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">visibility_off</span>無凍結</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
-                        <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">horizontal_rule</span>凍結 1 列</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                        <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="2"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">drag_handle</span>凍結 2 列</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                        <div class="relative group/submenu" id="dd-enterDirection">
+                            <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
+                                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base" id="enterDirectionIcon">arrow_downward</span>確認後方向</div>
+                                <span class="material-symbols-outlined text-base">arrow_right</span>
+                            </div>
+                            <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-40 z-50 py-1">
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="down">
+                                    <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">arrow_downward</span>向下移動</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span>
+                                </button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="right">
+                                    <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">arrow_forward</span>向右移動</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
+                                </button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="stay">
+                                    <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">pan_tool</span>留在原格</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-			<!-- 鎖定選取 -->
-            <div class="relative dropdown-container" id="dd-lockSelection">
-                <button class="dropdown-btn icon-btn" title="鎖定選取設定"><span class="material-symbols-outlined" id="lockSelectionIcon">lock_open</span></button>
-                <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-40 z-50 py-1">
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="false">
-                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">lock_open</span>不鎖定選取</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span>
-                    </button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="true">
-                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">lock</span>鎖定選取</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
-                    </button>
-                </div>
-            </div>
-
-			<!-- ======== 新增：Enter 鍵行為與移動方向設定 ======== -->
-            <div class="h-6 w-px bg-gray-300 mx-1"></div>
-            
-            <!-- Enter 鍵行為設定 -->
-            <div class="relative dropdown-container" id="dd-enterAction">
-                <button class="dropdown-btn icon-btn" title="Enter 鍵行為"><span class="material-symbols-outlined" id="enterActionIcon">keyboard_return</span></button>
-                <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1">
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="confirm">
-                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">check_circle</span>Enter 確認</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span>
-                    </button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="newline">
-                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">keyboard_return</span>Enter 換行</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- 確認後移動方向設定 -->
-            <div class="relative dropdown-container" id="dd-enterDirection">
-                <button class="dropdown-btn icon-btn" title="確認後移動方向"><span class="material-symbols-outlined" id="enterDirectionIcon">arrow_downward</span></button>
-                <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-40 z-50 py-1">
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="down">
-                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">arrow_downward</span>向下移動</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span>
-                    </button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="right">
-                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">arrow_forward</span>向右移動</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
-                    </button>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="stay">
-                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">pan_tool</span>留在原格</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
-                    </button>
-                </div>
-            </div>
-            <!-- ==================================================== -->
-
-					<!-- 新增：行動版多選模式開關 -->
-					<button id="btnToggleMultiSelect" class="icon-btn" title="切換多選模式 (模擬 Ctrl 鍵)">
-						<span class="material-symbols-outlined" id="multiSelectIcon">checklist</span>
-					</button>
-
 
 
 
@@ -598,6 +684,19 @@
         <button id="btnApplyAutoMerge" class="w-full mt-3 px-4 py-2 bg-orange-100 text-orange-800 hover:bg-orange-200 rounded-lg transition text-sm font-bold shadow-sm cursor-pointer">確定合併</button>
     </div>
 </div>
+
+
+	<div id="wordCountWidget" class="fixed bottom-5 left-5 bg-white border border-gray-200 shadow-md rounded-full px-4 py-2 text-sm text-gray-600 flex items-center gap-3 z-50 hidden code-text transition-all duration-200">
+        <span class="material-symbols-outlined text-blue-600" style="font-size: 18px;">analytics</span>
+        <div id="wordCountDisplay" class="font-bold text-gray-800 tracking-wide">
+            總字0 , 漢字0, 0行
+        </div>
+        <div class="w-px h-4 bg-gray-300 ml-1"></div>
+        <button id="btnCloseWordCount" class="text-gray-400 hover:text-red-500 flex items-center justify-center transition cursor-pointer">
+            <span class="material-symbols-outlined" style="font-size: 16px;">close</span>
+        </button>
+    </div>
+
 
     <!-- 引入外部 JS 檔案 -->
     <script src="script.js"></script>
