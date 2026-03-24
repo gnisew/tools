@@ -60,62 +60,6 @@
 
 <div class="h-6 w-px bg-gray-300 mx-1"></div>
 
-<div class="relative dropdown-container" id="dd-textTool">
-    <button class="dropdown-btn icon-btn hover:bg-blue-50 hover:text-gray-800" title="文字排版工具">
-        <span class="material-symbols-outlined">custom_typography</span>
-    </button>
-    <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1 max-h-[80vh] overflow-y-auto scrollbar-thin">
-
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnWordCount">
-            <span class="material-symbols-outlined text-base">analytics</span>字數統計
-        </button>
-        <div class="h-px bg-gray-200 my-1 mx-2"></div>
-
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnPunctuationBreak">
-            <span class="material-symbols-outlined text-base">wrap_text</span>標點斷行
-        </button>
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnPunctuationJoin">
-            <span class="material-symbols-outlined text-base">vertical_align_center</span>斷行接回
-        </button>
-		<div class="h-px bg-gray-200 my-1 mx-2"></div>
-        
-
-        
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnSortAZ">
-            <span class="material-symbols-outlined text-base">sort_by_alpha</span>排序 A-Z
-        </button>
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnSortZA">
-            <span class="material-symbols-outlined text-base">sort_by_alpha</span>排序 Z-A
-        </button>
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnRemoveDupLines">
-            <span class="material-symbols-outlined text-base">difference</span>移除重複行
-        </button>
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnRemoveEmptyLines">
-            <span class="material-symbols-outlined text-base">format_line_spacing</span>移除空行
-        </button>
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnTrimSpaces">
-            <span class="material-symbols-outlined text-base">format_indent_decrease</span>移除首尾空格
-        </button>
-        
-        <div class="h-px bg-gray-200 my-1 mx-2"></div>
-        
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnCapitalize">
-            <span class="material-symbols-outlined text-base">title</span>句首大寫
-        </button>
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnLowercase">
-            <span class="material-symbols-outlined text-base">lowercase</span>轉為小寫
-        </button>
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnUppercase">
-            <span class="material-symbols-outlined text-base">uppercase</span>轉為大寫
-        </button>
-    </div>
-</div>
-
-
-
-
-
-
 
 
 <div class="relative dropdown-container" id="dd-typography">
@@ -204,10 +148,69 @@
                 </div>
             </div>
 
+
+
+<div class="relative dropdown-container" id="dd-textTool">
+    <button class="dropdown-btn icon-btn hover:bg-blue-50 hover:text-gray-800" title="文字排版工具">
+        <span class="material-symbols-outlined">custom_typography</span>
+    </button>
+    <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1 max-h-[80vh] overflow-y-auto scrollbar-thin">
+
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnWordCount">
+            <span class="material-symbols-outlined text-base">analytics</span>字數統計
+        </button>
+        <div class="h-px bg-gray-200 my-1 mx-2"></div>
+
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnPunctuationBreak">
+            <span class="material-symbols-outlined text-base">wrap_text</span>標點斷行
+        </button>
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnPunctuationJoin">
+            <span class="material-symbols-outlined text-base">vertical_align_center</span>斷行接回
+        </button>
+		<div class="h-px bg-gray-200 my-1 mx-2"></div>
+        
+
+        
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnSortAZ">
+            <span class="material-symbols-outlined text-base">sort_by_alpha</span>排序 A-Z
+        </button>
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnSortZA">
+            <span class="material-symbols-outlined text-base">sort_by_alpha</span>排序 Z-A
+        </button>
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnRemoveDupLines">
+            <span class="material-symbols-outlined text-base">difference</span>移除重複行
+        </button>
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnRemoveEmptyLines">
+            <span class="material-symbols-outlined text-base">format_line_spacing</span>移除空行
+        </button>
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnTrimSpaces">
+            <span class="material-symbols-outlined text-base">format_indent_decrease</span>移除首尾空格
+        </button>
+        
+        <div class="h-px bg-gray-200 my-1 mx-2"></div>
+        
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnCapitalize">
+            <span class="material-symbols-outlined text-base">title</span>句首大寫
+        </button>
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnLowercase">
+            <span class="material-symbols-outlined text-base">lowercase</span>轉為小寫
+        </button>
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnUppercase">
+            <span class="material-symbols-outlined text-base">uppercase</span>轉為大寫
+        </button>
+    </div>
+</div>
+
+
+
+
+
+
+
 			
 			<!-- 表格專屬擴充區 -->
             <div id="tableControls" class="hidden items-center gap-1">
-                <div class="h-6 w-px bg-gray-300 mx-1"></div>
+
                 
 
 <!-- 神奇多功能工具 -->
@@ -323,7 +326,7 @@
                     </div>
                 </div>
 
-
+                <div class="h-6 w-px bg-gray-300 mx-1"></div>
 
                 <!-- 批次新增列 -->
                 <div class="relative action-dropdown">

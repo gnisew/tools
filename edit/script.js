@@ -231,11 +231,17 @@ function switchMode(mode) {
     hideFloatingTool(); clearTableSelection();
     document.getElementById('viewModeIcon').textContent = mode === 'table' ? 'table_chart' : 'edit_document';
 
+    // 取得文字排版工具的元素
+    const ddTextTool = document.getElementById('dd-textTool');
+
     if (mode === 'table') {
         renderTableFromText(editor.value);
         applyFreeze();
         textModeContainer.style.display = 'none'; tableModeContainer.style.display = 'block';
         tableControls.classList.remove('hidden'); tableControls.classList.add('flex');
+        
+        // 在表格模式隱藏「文字排版工具」
+        if (ddTextTool) ddTextTool.classList.add('hidden');
         
         // 切換到表格模式時，重設核取方塊
         resetSortHeaderCheckbox();
@@ -243,6 +249,10 @@ function switchMode(mode) {
         editor.value = extractTextFromTable();
         tableModeContainer.style.display = 'none'; textModeContainer.style.display = 'flex';
         tableControls.classList.remove('flex'); tableControls.classList.add('hidden');
+        
+        // 在文字模式重新顯示「文字排版工具」
+        if (ddTextTool) ddTextTool.classList.remove('hidden');
+        
         updateLineNumbers();
     }
 }
