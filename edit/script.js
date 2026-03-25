@@ -52,8 +52,7 @@ const ENTER_DIRECTION_KEY = 'tauhu-enter-direction';
 
 const FONT_FAMILY_KEY = 'tauhu-font-family';
 
-/* 工具列元件初始化 */
-/* 工具列元件初始化 (支援槽狀選單) */
+/* 工具列元件初始化 (支援槽狀選單與手機版點擊) */
 function initDropdowns() {
     // 1. 處理主要展開按鈕 (第一層)
     document.querySelectorAll('.dropdown-container').forEach(container => {
@@ -67,31 +66,54 @@ function initDropdowns() {
                 document.querySelectorAll('.dropdown-menu.show, .action-menu.show').forEach(m => { 
                     if (m !== menu && !menu.contains(m)) m.classList.remove('show'); 
                 });
+                // 每次打開主選單時，也把裡面展開的子選單收起來
+                menu.querySelectorAll('.group\\/submenu').forEach(s => s.classList.remove('mobile-open'));
                 menu.classList.toggle('show');
             });
         }
     });
 
-    // 2. 處理所有點擊選項 (支援子層點擊與觸發)
+    // 🌟 新增：處理子選單 (group/submenu) 的點擊展開 (專為行動裝置設計)
+    document.querySelectorAll('.group\\/submenu').forEach(submenu => {
+        // 抓取子選單的標題 (例如 "切換字體" 那一列)
+        const header = submenu.querySelector('div:first-child');
+        if (header) {
+            header.addEventListener('click', (e) => {
+                // 如果是在手機版尺寸 (寬度 <= 768px)，就啟用點擊展開功能
+                if (window.innerWidth <= 768) {
+                    e.stopPropagation(); // 阻止事件往上傳遞，避免關閉主選單
+                    // 關閉同層其他的子選單 (保持一次只開一個)
+                    const parentMenu = submenu.closest('.dropdown-menu');
+                    if (parentMenu) {
+                        parentMenu.querySelectorAll('.group\\/submenu').forEach(s => {
+                            if (s !== submenu) s.classList.remove('mobile-open');
+                        });
+                    }
+                    // 切換目前的子選單狀態
+                    submenu.classList.toggle('mobile-open');
+                }
+            });
+        }
+    });
+
+    // 2. 處理所有點擊選項 (最終選項)
     document.querySelectorAll('.dropdown-item').forEach(item => {
         item.addEventListener('click', (e) => {
             e.stopPropagation();
             
-            // 找到負責管理這個資料的父層 ID (例如 dd-fontFamily)
             const parentDataContainer = item.closest('[id^="dd-"]');
             
             if (parentDataContainer) {
-                // 清除該群組內的勾選圖示，並為當前點擊的加上
                 parentDataContainer.querySelectorAll('.dropdown-item .check-icon').forEach(i => i.classList.remove('active'));
                 const myCheck = item.querySelector('.check-icon');
                 if (myCheck) myCheck.classList.add('active');
                 
-                // 觸發我們原先寫好的 change 事件
                 parentDataContainer.dispatchEvent(new CustomEvent('change', { detail: { value: item.dataset.value } }));
             }
 
-            // 選擇完畢後，把所有選單收起來
+            // 選擇完畢後，把所有選單收起來，包含手機版的子選單狀態
             document.querySelectorAll('.dropdown-menu, .action-menu').forEach(m => m.classList.remove('show'));
+            document.querySelectorAll('.group\\/submenu').forEach(s => s.classList.remove('mobile-open'));
         });
     });
 
@@ -108,6 +130,9 @@ function initDropdowns() {
     // 4. 點擊空白處關閉選單
     document.addEventListener('click', (e) => {
         document.querySelectorAll('.dropdown-menu, .action-menu').forEach(m => m.classList.remove('show'));
+        // 點擊外面時，順便清除手機版子選單的開啟狀態
+        document.querySelectorAll('.group\\/submenu').forEach(s => s.classList.remove('mobile-open'));
+        
         if (!e.target.closest('#colMenu') && !e.target.closest('.btn-col-menu')) colMenu.classList.remove('show');
         if (!e.target.closest('#rowMenu') && !e.target.closest('.btn-row-menu')) rowMenu.classList.remove('show');
     });
@@ -4702,6 +4727,392 @@ editor.addEventListener('input', updateWordCountWidget);
 
 
 
+
+
+// ==========================================
+// 浮動翻譯工具
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof setupDictionaries === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://gnisew.github.io/tools/translate/translate.js';
+        document.head.appendChild(script);
+    }
+
+    const BASE_URL = 'https://gnisew.github.io/tools/translate/';
+    const STORE_KEY_SOURCE = 'translate_source_lang';
+    const STORE_KEY_TARGET = 'translate_target_lang';
+    
+    // 1. 完整語言定義
+    const LANGUAGES = {
+        'chinese': { name: '華語' },
+        'sixian': { name: '四縣', file: 'data-sixian-chinese.js' },
+        'hailu': { name: '海陸', file: 'data-hailu-chinese.js' },
+        'dapu': { name: '大埔', file: 'data-dapu-chinese.js' },
+        'raoping': { name: '饒平', file: '' },
+        'kasu': { name: '詔安', file: 'data-kasu-chinese.js' },
+        'sixiannan': { name: '南四縣', file: '' },
+        'holo': { name: '和樂', file: 'data-holo-chinese.js' },
+        'matsu': { name: '馬祖', file: 'data-matsu-chinese.js' },
+        'segment': { name: '分詞', file: '' }
+    };
+
+    const DIRECT_PAIRS = {
+        'sixian-hailu': 'data-sixian-hailu.js',
+        'sixian-dapu': 'data-sixian-dapu.js',
+        'sixian-raoping': 'data-sixian-raoping.js',
+        'sixian-kasu': 'data-sixian-kasu.js',
+        'sixian-sixiannan': 'data-sixian-sixiannan.js',
+        'hailu-dapu': 'data-hailu-dapu.js',
+        'hailu-kasu': 'data-hailu-kasu.js',
+        'dapu-kasu': 'data-dapu-kasu.js',
+        'holo-kasu': 'data-holo-kasu.js'
+    };
+
+    const DEFAULT_PIVOT = 'chinese';
+    let dictCache = {};
+
+    // 2. 建立代理地圖 (Proxy Map)
+    const proxyMap = new Map();
+    for (const langKey in LANGUAGES) {
+        if (langKey !== 'segment' && langKey !== 'chinese' && !LANGUAGES[langKey].file) {
+            let proxyTarget = null, pairCount = 0;
+            for (const pairKey in DIRECT_PAIRS) {
+                const [langA, langB] = pairKey.split('-');
+                if (langA === langKey) { proxyTarget = langB; pairCount++; }
+                else if (langB === langKey) { proxyTarget = langA; pairCount++; }
+            }
+            if (pairCount === 1) proxyMap.set(langKey, proxyTarget);
+        }
+    }
+    function getProxyTarget(lang) { return proxyMap.get(lang); }
+
+    // 狀態變數
+    let transState = {
+        source: localStorage.getItem(STORE_KEY_SOURCE) || 'chinese',
+        target: localStorage.getItem(STORE_KEY_TARGET) || 'kasu',
+        pivot: 'direct' 
+    };
+
+    const transPanel = document.getElementById('floating-translator');
+    const dragHandle = document.getElementById('translator-drag-handle');
+    const btnExecute = document.getElementById('btn-execute-translate');
+    const btnClose = document.getElementById('btn-close-translator');
+    const btnToggle = document.getElementById('btn-toggle-translator');
+    const sourceBtn = document.querySelector('[data-id="source-btn"]');
+    const targetBtn = document.querySelector('[data-id="target-btn"]');
+    const pivotLabel = document.getElementById('pivot-label');
+    const pivotList = document.getElementById('pivot-list');
+
+    // --- UI 邏輯 ---
+    function initDropdowns() {
+        sourceBtn.textContent = LANGUAGES[transState.source].name;
+        targetBtn.textContent = LANGUAGES[transState.target].name;
+
+        document.querySelectorAll('.dropdown-toggle').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const list = btn.nextElementSibling;
+                document.querySelectorAll('.dropdown-list').forEach(l => {
+                    if (l !== list) l.classList.remove('show');
+                });
+                list.classList.toggle('show');
+                if (list.classList.contains('show')) {
+                    const rect = list.getBoundingClientRect();
+                    if (rect.top < 0) {
+                        list.style.bottom = 'auto'; list.style.top = 'calc(100% + 5px)'; 
+                    } else {
+                        list.style.bottom = 'calc(100% + 5px)'; list.style.top = 'auto';
+                    }
+                }
+            });
+        });
+
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.dropdown-list').forEach(l => l.classList.remove('show'));
+        });
+
+        document.querySelectorAll('#dropdown-source .dropdown-item').forEach(item => {
+            item.addEventListener('click', () => { setLanguage('source', item.dataset.value); item.closest('.dropdown-list').classList.remove('show'); });
+        });
+        document.querySelectorAll('#dropdown-target .dropdown-item').forEach(item => {
+            item.addEventListener('click', () => { setLanguage('target', item.dataset.value); item.closest('.dropdown-list').classList.remove('show'); });
+        });
+    }
+
+    function setLanguage(type, value) {
+        transState[type] = value;
+        if (type === 'source') {
+            sourceBtn.textContent = LANGUAGES[value].name; localStorage.setItem(STORE_KEY_SOURCE, value);
+        } else if (type === 'target') {
+            targetBtn.textContent = LANGUAGES[value].name; localStorage.setItem(STORE_KEY_TARGET, value);
+        }
+        updatePivotOptions(); 
+    }
+
+    function checkButtonState() {
+        if (!btnExecute) return;
+        if (transState.source === transState.target) {
+            btnExecute.disabled = true; btnExecute.title = "來源與結果語言相同，無法轉換";
+        } else {
+            btnExecute.disabled = false; btnExecute.title = "";
+        }
+    }
+
+    function hasDirectPath(langA, langB) {
+        if (!langA || !langB || langA === langB) return false;
+        if (DIRECT_PAIRS[`${langA}-${langB}`] || DIRECT_PAIRS[`${langB}-${langA}`]) return true;
+        if (langA === DEFAULT_PIVOT && LANGUAGES[langB]?.file) return true;
+        if (langB === DEFAULT_PIVOT && LANGUAGES[langA]?.file) return true;
+        return false;
+    }
+
+    function findPossiblePivots(from, to) {
+        const pivots = [];
+        const effectiveFrom = getProxyTarget(from) || from;
+        const effectiveTo = getProxyTarget(to) || to;
+
+        if (to === 'segment') {
+            if (effectiveFrom === 'chinese') {
+                for (const key in LANGUAGES) if (LANGUAGES[key].file) pivots.push(key);
+            } else if (!LANGUAGES[effectiveFrom].file) {
+                for (const key in LANGUAGES) {
+                    if (key !== effectiveFrom && hasDirectPath(effectiveFrom, key) && LANGUAGES[key].file) pivots.push(key);
+                }
+            }
+            return pivots;
+        }
+
+        if (effectiveFrom !== DEFAULT_PIVOT && effectiveTo !== DEFAULT_PIVOT && hasDirectPath(effectiveFrom, DEFAULT_PIVOT) && hasDirectPath(DEFAULT_PIVOT, effectiveTo)) {
+            pivots.push(DEFAULT_PIVOT);
+        }
+        for (const langKey in LANGUAGES) {
+            if (langKey !== effectiveFrom && langKey !== effectiveTo && langKey !== DEFAULT_PIVOT && langKey !== 'segment') {
+                if (hasDirectPath(effectiveFrom, langKey) && hasDirectPath(langKey, effectiveTo)) pivots.push(langKey);
+            }
+        }
+        return pivots;
+    }
+
+    function updatePivotOptions() {
+        const source = transState.source;
+        const target = transState.target;
+        const effectiveSource = getProxyTarget(source) || source;
+        const effectiveTarget = getProxyTarget(target) || target;
+        
+        pivotList.innerHTML = '<div class="dropdown-item" data-value="direct">直達 (無)</div>';
+        
+        const possiblePivots = findPossiblePivots(source, target);
+        possiblePivots.forEach(pivotKey => {
+            const item = document.createElement('div');
+            item.className = 'dropdown-item'; item.dataset.value = pivotKey; item.textContent = LANGUAGES[pivotKey].name;
+            pivotList.appendChild(item);
+        });
+
+        pivotList.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', () => {
+                transState.pivot = item.dataset.value; updatePivotLabel(); item.closest('.dropdown-list').classList.remove('show');
+            });
+        });
+
+        // 判斷是否需要移除「直達 (無)」選項
+        let canDirect = true;
+        if (target === 'segment') {
+            if (effectiveSource !== 'chinese' && !LANGUAGES[effectiveSource].file) canDirect = false;
+        } else {
+            if (!hasDirectPath(effectiveSource, effectiveTarget)) canDirect = false;
+        }
+
+        if (!canDirect) {
+            // 移除直達選項
+            const directOpt = pivotList.querySelector('[data-value="direct"]');
+            if (directOpt) directOpt.remove();
+            
+            // 重新給定預設的中介語言 (優先選華語)
+            if (possiblePivots.includes('chinese')) {
+                transState.pivot = 'chinese';
+            } else if (possiblePivots.includes('kasu')) {
+                transState.pivot = 'kasu';
+            } else {
+                transState.pivot = possiblePivots.length > 0 ? possiblePivots[0] : '';
+            }
+        } else {
+            transState.pivot = 'direct';
+        }
+
+        updatePivotLabel(); checkButtonState();
+    }
+
+    function updatePivotLabel() {
+        if (!pivotLabel) return;
+        if (transState.pivot === 'direct' || !transState.pivot) pivotLabel.style.display = 'none';
+        else { pivotLabel.textContent = LANGUAGES[transState.pivot].name; pivotLabel.style.display = 'inline'; }
+    }
+
+    // --- 拖曳面板 ---
+    if(btnToggle) btnToggle.addEventListener('click', () => transPanel.style.display = 'flex');
+    if(btnClose) btnClose.addEventListener('click', () => transPanel.style.display = 'none');
+    let isDragging = false, startX, startY, initialX, initialY;
+    if (dragHandle) {
+        dragHandle.addEventListener('mousedown', (e) => {
+            isDragging = true; startX = e.clientX; startY = e.clientY;
+            initialX = transPanel.getBoundingClientRect().left; initialY = transPanel.getBoundingClientRect().top;
+            document.addEventListener('mousemove', drag); document.addEventListener('mouseup', stopDrag);
+        });
+    }
+    function drag(e) { if (isDragging) { transPanel.style.left = `${initialX + (e.clientX - startX)}px`; transPanel.style.top = `${initialY + (e.clientY - startY)}px`; transPanel.style.bottom = 'auto'; } }
+    function stopDrag() { isDragging = false; document.removeEventListener('mousemove', drag); document.removeEventListener('mouseup', stopDrag); }
+
+    // --- 核心載入與翻譯引擎 ---
+    function getFileForPair(langA, langB) {
+        const pair1 = `${langA}-${langB}`, pair2 = `${langB}-${langA}`;
+        if (DIRECT_PAIRS[pair1]) return DIRECT_PAIRS[pair1];
+        if (DIRECT_PAIRS[pair2]) return DIRECT_PAIRS[pair2];
+        if (langA === 'chinese') return LANGUAGES[langB]?.file;
+        if (langB === 'chinese') return LANGUAGES[langA]?.file;
+        return null;
+    }
+
+    function fetchDictionaryByFile(fileName) {
+        return new Promise((resolve, reject) => {
+            if (!fileName) return resolve(null);
+            if (dictCache[fileName]) return resolve(dictCache[fileName]);
+            const script = document.createElement('script');
+            script.src = BASE_URL + fileName;
+            script.onload = () => {
+                if (typeof ww !== 'undefined') { dictCache[fileName] = setupDictionaries(ww); ww = undefined; resolve(dictCache[fileName]); } 
+                else reject('字典格式錯誤');
+                script.remove();
+            };
+            script.onerror = () => reject(`網路連線失敗: ${fileName}`);
+            document.body.appendChild(script);
+        });
+    }
+
+    async function executeTranslation(from, to, text) {
+        if (from === to || !text) return text;
+        const file = getFileForPair(from, to);
+        if (!file) return text;
+        const dicts = await fetchDictionaryByFile(file);
+        if (!dicts) return text;
+
+        let direction = 'KG';
+        if (DIRECT_PAIRS[`${to}-${from}`]) direction = 'GK';
+        else if (from === 'chinese') direction = 'GK';
+        
+        const re = direction === 'GK' ? dicts.reGK : dicts.reKG;
+        const map = direction === 'GK' ? dicts.mapGK : dicts.mapKG;
+        return GoixBasic(text, re, map, dicts.reVariant, dicts.mapVariant, "");
+    }
+
+    function doSegmentText(text, dicts, isSourceChinese) {
+        if (!text || !dicts) return text;
+        let result = text.replace(dicts.reVariant, (match) => dicts.mapVariant.get(match));
+        const marker = ""; 
+        const re = isSourceChinese ? dicts.reTonv : dicts.reKG;
+        result = result.replace(re, (match) => marker + match + marker);
+        return result.replace(new RegExp(marker + '{1,2}', 'g'), ' ').trim();
+    }
+
+    // --- 轉換執行入口 ---
+    if(btnExecute) {
+        btnExecute.addEventListener('click', async () => {
+            const source = transState.source;
+            const target = transState.target;
+            const pivot = transState.pivot;
+
+            btnExecute.textContent = "處理中..."; btnExecute.disabled = true;
+
+            try {
+                const runTranslationPipeline = async (text) => {
+                    let currentText = text;
+                    let currentFrom = source;
+
+                    // 1. 來源代理 (如：南四縣 -> 四縣)
+                    const proxyFrom = getProxyTarget(currentFrom);
+                    if (proxyFrom && target !== proxyFrom) {
+                        currentText = await executeTranslation(currentFrom, proxyFrom, currentText);
+                        currentFrom = proxyFrom;
+                    }
+
+                    // 2. 目標代理預判
+                    const proxyTo = getProxyTarget(target);
+                    const effectiveTo = (proxyTo && currentFrom !== proxyTo) ? proxyTo : target;
+
+                    // 3. 處理中段 (直達/中介/分詞)
+                    if (target === 'segment') {
+                        let segLang = currentFrom;
+                        if (currentFrom === 'chinese' || !LANGUAGES[currentFrom].file) segLang = pivot;
+                        if (!segLang || segLang === 'direct') segLang = 'kasu';
+
+                        if (pivot !== 'direct' && currentFrom !== pivot) {
+                            currentText = await executeTranslation(currentFrom, pivot, currentText);
+                            currentFrom = pivot;
+                        }
+                        const segFile = getFileForPair('chinese', segLang);
+                        const dictsSeg = await fetchDictionaryByFile(segFile);
+                        currentText = doSegmentText(currentText, dictsSeg, currentFrom === 'chinese');
+                    } else {
+                        if (pivot !== 'direct') {
+                            currentText = await executeTranslation(currentFrom, pivot, currentText);
+                            currentFrom = pivot;
+                        }
+                        currentText = await executeTranslation(currentFrom, effectiveTo, currentText);
+                        
+                        // 4. 目標代理結尾 (如：四縣 -> 南四縣)
+                        if (proxyTo && currentFrom !== proxyTo) {
+                            currentText = await executeTranslation(effectiveTo, target, currentText);
+                        }
+                    }
+                    return currentText;
+                };
+
+                const editor = document.getElementById('editor');
+                const isTableMode = document.getElementById('tableModeContainer').style.display !== 'none';
+
+                if (!isTableMode && editor) {
+                    const start = editor.selectionStart, end = editor.selectionEnd;
+                    let text = (start !== end) ? editor.value.substring(start, end) : editor.value;
+                    text = await runTranslationPipeline(text);
+                    if (start !== end) editor.setRangeText(text, start, end, 'select'); else editor.value = text;
+                } else if (isTableMode) {
+                    const sel = window.getSelection();
+                    const tableContainer = document.getElementById('tableModeContainer');
+                    if (sel.toString().length > 0 && tableContainer && tableContainer.contains(sel.anchorNode)) {
+                        let text = await runTranslationPipeline(sel.toString());
+                        const range = sel.getRangeAt(0); range.deleteContents(); range.insertNode(document.createTextNode(text));
+                    } else {
+                        let selectedCells = Array.from(document.querySelectorAll('table#data-table td.sel-bg .td-inner'));
+                        if (selectedCells.length === 0) {
+                            let activeCell = document.activeElement.closest('.td-inner') || (document.activeElement.classList && document.activeElement.classList.contains('td-inner') ? document.activeElement : null);
+                            if (!activeCell) {
+                                const allTds = document.querySelectorAll('table#data-table td');
+                                const singleSelectedTd = Array.from(allTds).find(td => td.style.boxShadow && td.style.boxShadow.includes('inset'));
+                                if (singleSelectedTd) activeCell = singleSelectedTd.querySelector('.td-inner');
+                            }
+                            if (activeCell) selectedCells.push(activeCell);
+                        }
+                        if (selectedCells.length === 0) { alert("請先選取要處理的文字或儲存格！"); return; }
+                        
+                        // 批次依序處理
+                        for (const cell of selectedCells) {
+                            let text = cell.innerText || cell.textContent;
+                            cell.innerText = await runTranslationPipeline(text);
+                            if (cell.hasAttribute('data-formula')) cell.removeAttribute('data-formula');
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("轉換發生錯誤:", err); alert("轉換失敗，請檢查網路連線或字典資源。");
+            } finally {
+                btnExecute.textContent = "轉換"; checkButtonState();
+            }
+        });
+    }
+
+    initDropdowns();
+    updatePivotOptions();
+});
 
 
 

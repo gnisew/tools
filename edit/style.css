@@ -9,17 +9,10 @@
     font-family: var(--main-font);
 }
 
-/* 針對瀏覽器預設不繼承字體的元素，強制要求繼承 (解決搜尋框、輸入框、按鈕沒字體的問題) */
 input, textarea, select, button {
     font-family: inherit;
 }
 
-
-
-/* 針對瀏覽器預設不繼承字體的元素，強制要求繼承 (解決搜尋框、輸入框、按鈕沒字體的問題) */
-input, textarea, select, button {
-    font-family: inherit;
-}
 
 body {
     font-family: var(--main-font);
@@ -184,4 +177,170 @@ table#data-table td:focus { outline: none; }
 /* 針對 number 類型的輸入框，微調左右 padding 避免跟上下箭頭打架 */
 #autoFillModal input[type="number"] {
     padding-right: 0.5rem;
+}
+
+/* ==========================================
+   手機版槽狀選單 (子選單) 最佳化
+   ========================================== */
+@media (max-width: 768px) {
+    /* 攔截原本向右飛出的設定，改為向下展開 */
+    .group\/submenu > div:last-child {
+        position: static !important; /* 取消絕對定位，讓它把下方內容往下推 */
+        width: 100% !important;      /* 寬度填滿下拉選單 */
+        box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05) !important; /* 改為內陰影 */
+        border: none !important;
+        border-left: 3px solid #3b82f6 !important; /* 左側加上藍色邊線，提示這是子層級 */
+        border-radius: 0 !important;
+        margin-top: 0 !important;
+        background-color: #f8fafc !important; /* 背景稍微變灰，增加層次感 */
+        max-height: 250px !important;
+        display: none !important; /* 預設隱藏，阻擋手機的假 hover，交由 JS 控制 */
+    }
+    
+    /* 當 JS 加上 .mobile-open 類別時，才顯示子選單 */
+    .group\/submenu.mobile-open > div:last-child {
+        display: block !important;
+    }
+}
+
+
+
+/* ================= 浮動翻譯工具列樣式 ================= */
+.draggable-translator {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.5rem 0.4rem 0.2rem;
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+    user-select: none; /* 防止文字被反白選取 */
+}
+
+.drag-handle {
+    cursor: grab;
+    padding: 0 0.4rem;
+    color: #94a3b8;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+}
+.drag-handle:active { cursor: grabbing; }
+
+.min-select {
+    padding: 0.25rem 1.2rem 0.25rem 0.5rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.375rem;
+    background-color: #f8fafc;
+    outline: none;
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: #334155;
+}
+
+/* 中介語言特殊設計：隱藏 select，只秀圖示 */
+.pivot-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 30px;
+    background-color: #f1f5f9;
+    border-radius: 0.375rem;
+    border: 1px solid #e2e8f0;
+    padding: 0 0.3rem;
+    transition: all 0.2s;
+}
+.pivot-wrapper:hover { background-color: #e2e8f0; }
+.pivot-select {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    opacity: 0; 
+    cursor: pointer;
+    z-index: 10;
+}
+.pivot-display {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    pointer-events: none; /* 讓點擊穿透到隱藏的 select */
+}
+.pivot-icon {
+    font-size: 1.2rem; /* 配合 material symbols 調整大小 */
+    color: #475569;
+}
+.pivot-label {
+    font-size: 0.8rem;
+    color: #0f172a;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.trans-btn-primary {
+    background-color: #3b82f6; color: white;
+    border: none; border-radius: 0.375rem;
+    padding: 0.3rem 0.8rem; cursor: pointer; font-size: 0.875rem;
+}
+.trans-btn-primary:hover { background-color: #2563eb; }
+.trans-btn-primary:disabled { background-color: #94a3b8; cursor: not-allowed; }
+
+.trans-close { color: #94a3b8; width: 26px; height: 26px; font-size: 0.8rem;}
+.trans-close:hover { color: #ef4444; background-color: #fee2e2; }
+/* ================= 自訂展開選單樣式 ================= */
+.custom-dropdown {
+    position: relative;
+}
+
+.dropdown-list {
+    position: absolute;
+    bottom: calc(100% + 5px); /* 向上展開 */
+    left: 0;
+    min-width: 100px;
+    max-height: 250px; /* 限制最大高度，避免超出螢幕 */
+    overflow-y: auto;
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+    display: none;
+    z-index: 10000;
+}
+
+.dropdown-list.show {
+    display: block;
+    animation: fadeIn 0.1s ease-in;
+}
+
+.dropdown-item {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    color: #334155;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.dropdown-item:hover {
+    background-color: #f1f5f9;
+    color: #2563eb;
+}
+
+/* 修正按鈕外觀 */
+.pivot-toggle {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
 }
