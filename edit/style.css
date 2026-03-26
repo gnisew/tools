@@ -208,8 +208,9 @@ table#data-table td:focus { outline: none; }
 /* ================= 浮動翻譯工具列樣式 ================= */
 .draggable-translator {
     position: fixed;
-    bottom: 20px;
-    left: 20px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     z-index: 9999;
     display: flex;
     align-items: center;
@@ -219,7 +220,7 @@ table#data-table td:focus { outline: none; }
     border: 1px solid #cbd5e1;
     border-radius: 0.5rem;
     box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
-    user-select: none; /* 防止文字被反白選取 */
+    user-select: none;
 }
 
 .drag-handle {
@@ -278,7 +279,7 @@ table#data-table td:focus { outline: none; }
 .pivot-label {
     font-size: 0.8rem;
     color: #0f172a;
-    font-weight: bold;
+    font-weight: normal; 
     white-space: nowrap;
 }
 
@@ -343,4 +344,33 @@ table#data-table td:focus { outline: none; }
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(5px); }
     to { opacity: 1; transform: translateY(0); }
+}
+
+/* ================= 複合膠囊按鈕樣式 ================= */
+#trans-btn-group button:disabled {
+    background-color: #f1f5f9;
+    color: #94a3b8;
+    border-color: #e2e8f0;
+    cursor: not-allowed;
+}
+
+#trans-options-menu .menu-action-btn {
+    width: 100%;
+    text-align: left;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.875rem;
+    color: #334155;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background-color 0.2s;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+#trans-options-menu .menu-action-btn:hover {
+    background-color: #f8fafc;
+    color: #2563eb;
 }

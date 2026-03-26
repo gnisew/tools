@@ -720,23 +720,23 @@
 <div id="floating-translator" class="draggable-translator" style="display: none;">
     <div id="translator-drag-handle" class="drag-handle" title="按住拖曳">⋮⋮</div>
     
-    <!-- 原語言選單 -->
     <div class="custom-dropdown" id="dropdown-source">
         <button class="dropdown-toggle min-select" data-id="source-btn">華語</button>
         <div class="dropdown-list">
             <div class="dropdown-item" data-value="chinese">華語</div>
             <div class="dropdown-item" data-value="sixian">四縣</div>
+            <div class="dropdown-item" data-value="sixiannan">南四縣</div>
             <div class="dropdown-item" data-value="hailu">海陸</div>
             <div class="dropdown-item" data-value="dapu">大埔</div>
-			<div class="dropdown-item" data-value="raoping">饒平</div>
+            <div class="dropdown-item" data-value="raoping">饒平</div>
             <div class="dropdown-item" data-value="kasu">詔安</div>
-            <div class="dropdown-item" data-value="sixiannan">南四縣</div>
             <div class="dropdown-item" data-value="holo">和樂</div>
+            <div class="dropdown-item" data-value="jinmen">金門</div>
             <div class="dropdown-item" data-value="matsu">馬祖</div>
+            <div class="dropdown-item" data-value="pinyin">拼音</div>
         </div>
     </div>
 
-    <!-- 中介語言選單 -->
     <div class="pivot-wrapper custom-dropdown" id="dropdown-pivot" title="設定中介語言">
         <button class="pivot-toggle dropdown-toggle" data-id="pivot-btn">
             <div class="pivot-display">
@@ -745,29 +745,40 @@
             </div>
         </button>
         <div class="dropdown-list" id="pivot-list">
-            <!-- 由 JS 動態產生 -->
-        </div>
+            </div>
     </div>
 
-    <!-- 新語言選單 -->
     <div class="custom-dropdown" id="dropdown-target">
         <button class="dropdown-toggle min-select" data-id="target-btn">詔安</button>
         <div class="dropdown-list">
             <div class="dropdown-item" data-value="kasu">詔安</div>
             <div class="dropdown-item" data-value="chinese">華語</div>
             <div class="dropdown-item" data-value="sixian">四縣</div>
+            <div class="dropdown-item" data-value="sixiannan">南四縣</div>
             <div class="dropdown-item" data-value="hailu">海陸</div>
             <div class="dropdown-item" data-value="dapu">大埔</div>
-			<div class="dropdown-item" data-value="raoping">饒平</div>
-            <div class="dropdown-item" data-value="sixiannan">南四縣</div>
+            <div class="dropdown-item" data-value="raoping">饒平</div>
             <div class="dropdown-item" data-value="holo">和樂</div>
+            <div class="dropdown-item" data-value="jinmen">金門</div>
             <div class="dropdown-item" data-value="matsu">馬祖</div>
             <div class="dropdown-item" data-value="segment">分詞</div>
+            <div class="dropdown-item" data-value="pinyin">拼音</div>
         </div>
     </div>
 
-    <button id="btn-execute-translate" class="trans-btn-primary">轉換</button>
-    <button id="btn-close-translator" class="icon-btn trans-close" title="關閉">✖</button>
+    <div id="trans-btn-group" class="inline-flex rounded-full shadow relative ml-1">
+        <button id="btn-execute-translate" class="bg-blue-100 hover:bg-blue-200 text-blue-800 font-medium py-1.5 pl-3 pr-2 rounded-l-full border-r border-blue-200 text-sm flex items-center gap-1 transition-colors">
+            轉換
+        </button>
+        <button id="btn-trans-options-toggle" class="bg-blue-100 hover:bg-blue-200 text-blue-800 py-1.5 px-1 rounded-r-full text-sm flex items-center transition-colors">
+            <span class="material-symbols-outlined text-[18px]">arrow_drop_down</span>
+        </button>
+        
+        <div id="trans-options-menu" class="hidden absolute bottom-full right-0 mb-2 w-36 bg-white rounded-xl shadow-xl border border-slate-200 z-50 p-1 overflow-hidden origin-bottom-right">
+            </div>
+    </div>
+
+    <button id="btn-close-translator" class="icon-btn trans-close ml-1" title="關閉">✖</button>
 </div>
 
 

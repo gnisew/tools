@@ -4729,53 +4729,67 @@ editor.addEventListener('input', updateWordCountWidget);
 
 
 
+
+
+
+
+
 // ==========================================
-// 浮動翻譯工具
+// 編輯器專屬：浮動翻譯工具整合模組 (新增 字〔yin〕華 混合功能)
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
+    // --- 1. 防止焦點轉移，保持編輯區反白 ---
+    document.addEventListener('mousedown', (e) => {
+        const isTranslator = e.target.closest('#floating-translator');
+        const isToolbar = e.target.closest('.mb-3.flex') || e.target.closest('.dropdown-menu') || e.target.closest('.action-menu');
+        const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
+        if ((isTranslator || isToolbar) && !isInput) {
+            e.preventDefault(); 
+        }
+    });
+
     if (typeof setupDictionaries === 'undefined') {
         const script = document.createElement('script');
         script.src = 'https://gnisew.github.io/tools/translate/translate.js';
         document.head.appendChild(script);
     }
 
-    const BASE_URL = 'https://gnisew.github.io/tools/translate/';
+    // 準備全域變數，供拼音字典腳本使用
+    window.ccc = ''; window.ddd = ''; window.c = []; window.d = [];
+    window.currentLanguageKey = 'kasu';
+
+    const BASE_URL_TRANS = 'https://gnisew.github.io/tools/translate/';
+    const BASE_URL_RUBY = 'https://gnisew.github.io/tools/ruby/';
+    
     const STORE_KEY_SOURCE = 'translate_source_lang';
     const STORE_KEY_TARGET = 'translate_target_lang';
     
-    // 1. 完整語言定義
     const LANGUAGES = {
         'chinese': { name: '華語' },
-        'sixian': { name: '四縣', file: 'data-sixian-chinese.js' },
-        'hailu': { name: '海陸', file: 'data-hailu-chinese.js' },
-        'dapu': { name: '大埔', file: 'data-dapu-chinese.js' },
-        'raoping': { name: '饒平', file: '' },
-        'kasu': { name: '詔安', file: 'data-kasu-chinese.js' },
-        'sixiannan': { name: '南四縣', file: '' },
-        'holo': { name: '和樂', file: 'data-holo-chinese.js' },
+        'sixian': { name: '四縣', file: 'data-sixian-chinese.js', pyFile: 'hanzitopinyin-sixian.js' },
+        'sixiannan': { name: '南四縣', file: '', pyFile: 'hanzitopinyin-sixiannan.js' },
+        'hailu': { name: '海陸', file: 'data-hailu-chinese.js', pyFile: 'hanzitopinyin-hailu.js' },
+        'dapu': { name: '大埔', file: 'data-dapu-chinese.js', pyFile: 'hanzitopinyin-dapu.js' },
+        'raoping': { name: '饒平', file: '', pyFile: 'hanzitopinyin-raoping.js' },
+        'kasu': { name: '詔安', file: 'data-kasu-chinese.js', pyFile: 'hanzitopinyin-kasu.js' },
+        'holo': { name: '和樂', file: 'data-holo-chinese.js', pyFile: 'hanzitopinyin-holo.js' },
+        'jinmen': { name: '金門', file: '', pyFile: 'hanzitopinyin-jinmen.js' }, 
         'matsu': { name: '馬祖', file: 'data-matsu-chinese.js' },
-        'segment': { name: '分詞', file: '' }
+        'segment': { name: '分詞', file: '' },
+        'pinyin': { name: '拼音', file: '' } 
     };
 
     const DIRECT_PAIRS = {
-        'sixian-hailu': 'data-sixian-hailu.js',
-        'sixian-dapu': 'data-sixian-dapu.js',
-        'sixian-raoping': 'data-sixian-raoping.js',
-        'sixian-kasu': 'data-sixian-kasu.js',
-        'sixian-sixiannan': 'data-sixian-sixiannan.js',
-        'hailu-dapu': 'data-hailu-dapu.js',
-        'hailu-kasu': 'data-hailu-kasu.js',
-        'dapu-kasu': 'data-dapu-kasu.js',
-        'holo-kasu': 'data-holo-kasu.js'
+        'sixian-hailu': true, 'sixian-dapu': true, 'sixian-raoping': true, 'sixian-kasu': true, 'sixian-sixiannan': true,
+        'hailu-dapu': true, 'hailu-kasu': true, 'dapu-kasu': true, 'holo-kasu': true, 'holo-jinmen': true
     };
 
     const DEFAULT_PIVOT = 'chinese';
     let dictCache = {};
 
-    // 2. 建立代理地圖 (Proxy Map)
     const proxyMap = new Map();
     for (const langKey in LANGUAGES) {
-        if (langKey !== 'segment' && langKey !== 'chinese' && !LANGUAGES[langKey].file) {
+        if (langKey !== 'segment' && langKey !== 'pinyin' && langKey !== 'chinese' && !LANGUAGES[langKey].file) {
             let proxyTarget = null, pairCount = 0;
             for (const pairKey in DIRECT_PAIRS) {
                 const [langA, langB] = pairKey.split('-');
@@ -4787,7 +4801,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function getProxyTarget(lang) { return proxyMap.get(lang); }
 
-    // 狀態變數
     let transState = {
         source: localStorage.getItem(STORE_KEY_SOURCE) || 'chinese',
         target: localStorage.getItem(STORE_KEY_TARGET) || 'kasu',
@@ -4797,14 +4810,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const transPanel = document.getElementById('floating-translator');
     const dragHandle = document.getElementById('translator-drag-handle');
     const btnExecute = document.getElementById('btn-execute-translate');
+    const btnOptionsToggle = document.getElementById('btn-trans-options-toggle');
+    const optionsMenu = document.getElementById('trans-options-menu');
     const btnClose = document.getElementById('btn-close-translator');
     const btnToggle = document.getElementById('btn-toggle-translator');
     const sourceBtn = document.querySelector('[data-id="source-btn"]');
     const targetBtn = document.querySelector('[data-id="target-btn"]');
     const pivotLabel = document.getElementById('pivot-label');
     const pivotList = document.getElementById('pivot-list');
+    const pivotWrapper = document.getElementById('dropdown-pivot');
 
-    // --- UI 邏輯 ---
+    // --- 2. UI 邏輯與膠囊按鈕 ---
     function initDropdowns() {
         sourceBtn.textContent = LANGUAGES[transState.source].name;
         targetBtn.textContent = LANGUAGES[transState.target].name;
@@ -4813,23 +4829,59 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const list = btn.nextElementSibling;
-                document.querySelectorAll('.dropdown-list').forEach(l => {
-                    if (l !== list) l.classList.remove('show');
+                document.querySelectorAll('.dropdown-list, #trans-options-menu').forEach(l => {
+                    if (l !== list) l.classList.remove('show', 'hidden');
+                    if (l.id === 'trans-options-menu' && l !== list) l.classList.add('hidden');
                 });
                 list.classList.toggle('show');
+
                 if (list.classList.contains('show')) {
-                    const rect = list.getBoundingClientRect();
-                    if (rect.top < 0) {
-                        list.style.bottom = 'auto'; list.style.top = 'calc(100% + 5px)'; 
+                    const btnRect = btn.getBoundingClientRect();
+                    const windowHeight = window.innerHeight;
+                    const spaceBelow = windowHeight - btnRect.bottom;
+                    const spaceAbove = btnRect.top;
+                    const listMaxHeight = 260; 
+
+                    if (spaceBelow < listMaxHeight && spaceAbove > spaceBelow) {
+                        list.style.bottom = 'calc(100% + 5px)';
+                        list.style.top = 'auto';
                     } else {
-                        list.style.bottom = 'calc(100% + 5px)'; list.style.top = 'auto';
+                        list.style.bottom = 'auto';
+                        list.style.top = 'calc(100% + 5px)';
                     }
                 }
             });
         });
 
+        btnOptionsToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.querySelectorAll('.dropdown-list').forEach(l => l.classList.remove('show'));
+            optionsMenu.classList.toggle('hidden');
+
+            if (!optionsMenu.classList.contains('hidden')) {
+                const btnRect = btnOptionsToggle.getBoundingClientRect();
+                const windowHeight = window.innerHeight;
+                const spaceBelow = windowHeight - btnRect.bottom;
+                const spaceAbove = btnRect.top;
+                const menuMaxHeight = 180; 
+
+                if (spaceBelow < menuMaxHeight && spaceAbove > spaceBelow) {
+                    optionsMenu.style.bottom = 'calc(100% + 5px)';
+                    optionsMenu.style.top = 'auto';
+                    optionsMenu.classList.remove('origin-top-right');
+                    optionsMenu.classList.add('origin-bottom-right');
+                } else {
+                    optionsMenu.style.bottom = 'auto';
+                    optionsMenu.style.top = 'calc(100% + 5px)';
+                    optionsMenu.classList.remove('origin-bottom-right');
+                    optionsMenu.classList.add('origin-top-right');
+                }
+            }
+        });
+
         document.addEventListener('click', () => {
             document.querySelectorAll('.dropdown-list').forEach(l => l.classList.remove('show'));
+            optionsMenu.classList.add('hidden');
         });
 
         document.querySelectorAll('#dropdown-source .dropdown-item').forEach(item => {
@@ -4848,17 +4900,80 @@ document.addEventListener('DOMContentLoaded', () => {
             targetBtn.textContent = LANGUAGES[value].name; localStorage.setItem(STORE_KEY_TARGET, value);
         }
         updatePivotOptions(); 
+        updateCapsuleButtonUI();
+    }
+
+    function updateCapsuleButtonUI() {
+        const isTargetPinyin = transState.target === 'pinyin';
+        
+        btnExecute.innerHTML = '轉換';
+        let menuHTML = '';
+
+        if (isTargetPinyin) {
+            // 🌟 增加 字〔yin〕華 按鈕
+            menuHTML = `
+                <button class="menu-action-btn" data-action="default"><span class="material-symbols-outlined text-[16px] text-blue-600">arrow_downward</span> 字轉音 (預設)</button>
+                <button class="menu-action-btn" data-action="raw"><span class="material-symbols-outlined text-[16px] text-teal-600">raw_on</span> Bunxc-bienx</button>
+                <button class="menu-action-btn" data-action="bracket"><span class="material-symbols-outlined text-[16px] text-purple-600">data_object</span> 字〔yin〕</button>
+                <button class="menu-action-btn" data-action="bracket_trans"><span class="material-symbols-outlined text-[16px] text-indigo-600">translate</span> 字〔yin〕華</button>
+                <button class="menu-action-btn" data-action="segment"><span class="material-symbols-outlined text-[16px] text-orange-500">segment</span> 空格分詞</button>
+            `;
+            btnOptionsToggle.style.display = 'flex';
+            optionsMenu.innerHTML = menuHTML;
+            btnExecute.classList.remove('rounded-full', 'pr-3');
+            btnExecute.classList.add('rounded-l-full', 'border-r', 'border-blue-200', 'pr-2');
+        } else {
+            btnOptionsToggle.style.display = 'none';
+            optionsMenu.innerHTML = '';
+            btnExecute.classList.remove('rounded-l-full', 'border-r', 'border-blue-200', 'pr-2');
+            btnExecute.classList.add('rounded-full', 'pr-3');
+        }
+
+        optionsMenu.querySelectorAll('.menu-action-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                optionsMenu.classList.add('hidden');
+                performConversion(btn.dataset.action); 
+            });
+        });
+        
+        checkButtonState();
     }
 
     function checkButtonState() {
         if (!btnExecute) return;
-        if (transState.source === transState.target) {
-            btnExecute.disabled = true; btnExecute.title = "來源與結果語言相同，無法轉換";
+        const source = transState.source;
+        const target = transState.target;
+        
+        const isSame = source === target;
+        const isBothPinyin = source === 'pinyin' && target === 'pinyin';
+        const isSegmentPinyin = source === 'pinyin' && target === 'segment'; 
+        
+        let isMissingPinyinDict = false;
+        
+        if (target === 'pinyin' && source !== 'pinyin') {
+            if (!LANGUAGES[source].pyFile) isMissingPinyinDict = true;
+        } else if (source === 'pinyin' && target !== 'pinyin') {
+            if (!LANGUAGES[target].pyFile) isMissingPinyinDict = true;
+        }
+
+        if (isSame || isBothPinyin || isMissingPinyinDict || isSegmentPinyin) {
+            btnExecute.disabled = true; 
+            btnOptionsToggle.disabled = true;
+            
+            if (isSame) btnExecute.title = "來源與結果語言相同";
+            else if (isBothPinyin) btnExecute.title = "無法執行拼音轉拼音";
+            else if (isSegmentPinyin) btnExecute.title = "不支援拼音直接分詞";
+            else btnExecute.title = `未配置 ${LANGUAGES[source === 'pinyin' ? target : source].name} 的拼音字典，無法轉換`;
+            
         } else {
-            btnExecute.disabled = false; btnExecute.title = "";
+            btnExecute.disabled = false; 
+            btnOptionsToggle.disabled = false;
+            btnExecute.title = "";
         }
     }
 
+    // --- 3. 動態中介語言與拼音鎖定 ---
     function hasDirectPath(langA, langB) {
         if (!langA || !langB || langA === langB) return false;
         if (DIRECT_PAIRS[`${langA}-${langB}`] || DIRECT_PAIRS[`${langB}-${langA}`]) return true;
@@ -4868,6 +4983,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function findPossiblePivots(from, to) {
+        if (from === 'pinyin' || to === 'pinyin') return []; 
+
         const pivots = [];
         const effectiveFrom = getProxyTarget(from) || from;
         const effectiveTo = getProxyTarget(to) || to;
@@ -4887,7 +5004,7 @@ document.addEventListener('DOMContentLoaded', () => {
             pivots.push(DEFAULT_PIVOT);
         }
         for (const langKey in LANGUAGES) {
-            if (langKey !== effectiveFrom && langKey !== effectiveTo && langKey !== DEFAULT_PIVOT && langKey !== 'segment') {
+            if (langKey !== effectiveFrom && langKey !== effectiveTo && langKey !== DEFAULT_PIVOT && langKey !== 'segment' && langKey !== 'pinyin') {
                 if (hasDirectPath(effectiveFrom, langKey) && hasDirectPath(langKey, effectiveTo)) pivots.push(langKey);
             }
         }
@@ -4897,6 +5014,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function updatePivotOptions() {
         const source = transState.source;
         const target = transState.target;
+
+        if (source === 'pinyin' || target === 'pinyin' || source === target) {
+            pivotWrapper.style.opacity = '0.4';
+            pivotWrapper.style.pointerEvents = 'none';
+            transState.pivot = 'direct';
+            updatePivotLabel();
+            checkButtonState();
+            return;
+        } else {
+            pivotWrapper.style.opacity = '1';
+            pivotWrapper.style.pointerEvents = 'auto';
+        }
+        
         const effectiveSource = getProxyTarget(source) || source;
         const effectiveTarget = getProxyTarget(target) || target;
         
@@ -4915,7 +5045,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // 判斷是否需要移除「直達 (無)」選項
         let canDirect = true;
         if (target === 'segment') {
             if (effectiveSource !== 'chinese' && !LANGUAGES[effectiveSource].file) canDirect = false;
@@ -4924,18 +5053,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (!canDirect) {
-            // 移除直達選項
             const directOpt = pivotList.querySelector('[data-value="direct"]');
             if (directOpt) directOpt.remove();
             
-            // 重新給定預設的中介語言 (優先選華語)
-            if (possiblePivots.includes('chinese')) {
-                transState.pivot = 'chinese';
-            } else if (possiblePivots.includes('kasu')) {
-                transState.pivot = 'kasu';
-            } else {
-                transState.pivot = possiblePivots.length > 0 ? possiblePivots[0] : '';
-            }
+            if (possiblePivots.includes('chinese')) transState.pivot = 'chinese';
+            else if (possiblePivots.includes('kasu')) transState.pivot = 'kasu';
+            else transState.pivot = possiblePivots.length > 0 ? possiblePivots[0] : '';
         } else {
             transState.pivot = 'direct';
         }
@@ -4949,21 +5072,212 @@ document.addEventListener('DOMContentLoaded', () => {
         else { pivotLabel.textContent = LANGUAGES[transState.pivot].name; pivotLabel.style.display = 'inline'; }
     }
 
-    // --- 拖曳面板 ---
+    // --- 4. 拖曳面板 ---
     if(btnToggle) btnToggle.addEventListener('click', () => transPanel.style.display = 'flex');
     if(btnClose) btnClose.addEventListener('click', () => transPanel.style.display = 'none');
+    
     let isDragging = false, startX, startY, initialX, initialY;
+    function startDrag(clientX, clientY) {
+        isDragging = true; startX = clientX; startY = clientY;
+        const rect = transPanel.getBoundingClientRect(); initialX = rect.left; initialY = rect.top;
+        transPanel.style.transform = 'none'; transPanel.style.left = `${initialX}px`; transPanel.style.top = `${initialY}px`;
+        transPanel.style.bottom = 'auto'; transPanel.style.right = 'auto';
+        document.body.style.userSelect = 'none';
+    }
+    function drag(clientX, clientY) { if (isDragging) { transPanel.style.left = `${initialX + (clientX - startX)}px`; transPanel.style.top = `${initialY + (clientY - startY)}px`; } }
+    function stopDrag() { isDragging = false; document.body.style.userSelect = ''; }
+
     if (dragHandle) {
-        dragHandle.addEventListener('mousedown', (e) => {
-            isDragging = true; startX = e.clientX; startY = e.clientY;
-            initialX = transPanel.getBoundingClientRect().left; initialY = transPanel.getBoundingClientRect().top;
-            document.addEventListener('mousemove', drag); document.addEventListener('mouseup', stopDrag);
+        dragHandle.addEventListener('mousedown', (e) => { startDrag(e.clientX, e.clientY); document.addEventListener('mousemove', onMouseMove); document.addEventListener('mouseup', onMouseUp); });
+        dragHandle.addEventListener('touchstart', (e) => { startDrag(e.touches[0].clientX, e.touches[0].clientY); document.addEventListener('touchmove', onTouchMove, { passive: false }); document.addEventListener('touchend', onTouchEnd); }, { passive: false });
+    }
+    function onMouseMove(e) { drag(e.clientX, e.clientY); }
+    function onMouseUp() { stopDrag(); document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); }
+    function onTouchMove(e) { if (!isDragging) return; e.preventDefault(); drag(e.touches[0].clientX, e.touches[0].clientY); }
+    function onTouchEnd() { stopDrag(); document.removeEventListener('touchmove', onTouchMove); document.removeEventListener('touchend', onTouchEnd); }
+
+    // --- 5. 核心輔助工具 (腳本載入與解析引擎) ---
+    function loadScript(url) {
+        return new Promise((resolve) => {
+            if (document.querySelector(`script[src="${url}"]`)) return resolve();
+            const script = document.createElement('script');
+            script.src = url;
+            script.onload = resolve;
+            script.onerror = () => { console.warn(`腳本載入失敗: ${url}`); resolve(); };
+            document.head.appendChild(script);
         });
     }
-    function drag(e) { if (isDragging) { transPanel.style.left = `${initialX + (e.clientX - startX)}px`; transPanel.style.top = `${initialY + (e.clientY - startY)}px`; transPanel.style.bottom = 'auto'; } }
-    function stopDrag() { isDragging = false; document.removeEventListener('mousemove', drag); document.removeEventListener('mouseup', stopDrag); }
 
-    // --- 核心載入與翻譯引擎 ---
+    let PROCESSED_IME_DICTS = {};
+    function initializeImeDicts() {
+        if (typeof dictionaries === 'undefined') return;
+        for (const lang in dictionaries) {
+            const dict = dictionaries[lang];
+            const map = new Map();
+            for (const pinyin in dict) {
+                const hanziOptions = dict[pinyin].split(' ');
+                map.set(pinyin, hanziOptions[0]);
+            }
+            PROCESSED_IME_DICTS[lang] = map;
+        }
+    }
+
+    function tokenizePinyinWithHyphens(raw) {
+        const tokens = [];
+        let currentToken = '';
+        const toCharArray = (str) => Array.from(str || '');
+        const PUNCTS = new Set(['，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '—', '…', '－', '‧', '·', '﹑', ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…']);
+        const WHITESPACES = new Set([' ', '\t', '\u3000']);
+        const isPunct = (ch) => PUNCTS.has(ch);
+        const isWhitespace = (ch) => WHITESPACES.has(ch);
+        
+        for (const ch of toCharArray(raw || '')) {
+            const isDelimiter = isWhitespace(ch) || (isPunct(ch) && ch !== '-');
+            if (isDelimiter) {
+                if (currentToken.length > 0) { tokens.push(currentToken); currentToken = ''; }
+                tokens.push(ch);
+            } else { currentToken += ch; }
+        }
+        if (currentToken.length > 0) tokens.push(currentToken);
+        return tokens;
+    }
+
+    function pinyinToHanziEngine(pinyinText, langKey) {
+        const hakkaLanguages = new Set(['sixian', 'hailu', 'dapu', 'raoping', 'sixiannan']);
+        if (hakkaLanguages.has(langKey) && typeof hakkaToneToZvs === 'function') {
+            pinyinText = hakkaToneToZvs(pinyinText);
+        } else if (langKey === 'kasu' && typeof hakkaToneToZvs === 'function') {
+            pinyinText = hakkaToneToZvs(pinyinText);
+            pinyinText = pinyinText
+                .replace(/([bpfvdtlgkhzcsi])oo([zvsx]?)\b/g, '$1o$2')
+                .replace(/(\b)(rh)([aeiou])/g, '$1r$3')
+                .replace(/(\b)(bb)([aeiou])/g, '$1v$3')
+                .replace(/(\b)(ji)/g, '$1zi')
+                .replace(/(\b)(qi)/g, '$1ci')
+                .replace(/(\b)(xi)/g, '$1si');
+        }
+        
+        pinyinText = pinyinText
+          .replace(/(?<![A-Za-z\s-])([A-Za-z]+)/g, ' $1')
+          .replace(/([A-Za-z]+)(?![A-Za-z\s-])/g, '$1 ')
+          .replace(/([A-Za-z])\n/g, '$1 \n')
+          .replace(/\n([A-Za-z])/g, '\n $1')
+          .trim();
+
+        let dict = PROCESSED_IME_DICTS[langKey];
+        if (!dict || dict.size === 0) return pinyinText;
+
+        const lowerDict = new Map();
+        for (const [key, value] of dict.entries()) {
+            lowerDict.set(key.toLowerCase(), value);
+        }
+        dict = lowerDict;
+
+        const tokens = tokenizePinyinWithHyphens(pinyinText);
+        const WHITESPACES = new Set([' ', '\t', '\u3000']);
+        const PUNCTS = new Set(['，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '—', '…', '－', '‧', '·', '﹑', ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…']);
+        const isActualSyllable = (token) => !WHITESPACES.has(token) && !PUNCTS.has(token);
+        const syllables = tokens.filter(isActualSyllable);
+
+        const convertedUnits = [];
+        let i = 0;
+        while (i < syllables.length) {
+            let matchFound = false;
+            for (let n = Math.min(5, syllables.length - i); n > 1; n--) {
+                const phrase = syllables.slice(i, i + n).join(' ').toLowerCase();
+                if (dict.has(phrase)) {
+                    convertedUnits.push({ hanzi: dict.get(phrase), sourceCount: n });
+                    i += n;
+                    matchFound = true;
+                    break;
+                }
+            }
+            if (matchFound) continue;
+
+            const currentSyl = syllables[i].toLowerCase();
+            if (dict.has(currentSyl)) {
+                convertedUnits.push({ hanzi: dict.get(currentSyl), sourceCount: 1 });
+            } else if (currentSyl.includes('-')) {
+                const subPinyins = currentSyl.split(/-+/);
+                const translatedSubs = subPinyins.map(sub => dict.get(sub.toLowerCase()) || sub);
+                convertedUnits.push({ hanzi: translatedSubs.join(''), sourceCount: 1 });
+            } else {
+                convertedUnits.push({ hanzi: syllables[i], sourceCount: 1 });
+            }
+            i++;
+        }
+
+        let unitIndex = 0;
+        let syllablesToSkip = 0;
+        let finalText = "";
+        tokens.forEach(token => {
+            if (!isActualSyllable(token)) {
+                if (!WHITESPACES.has(token)) finalText += token;
+                return;
+            }
+            if (syllablesToSkip > 0) { syllablesToSkip--; return; }
+            if (unitIndex < convertedUnits.length) {
+                const unit = convertedUnits[unitIndex];
+                finalText += unit.hanzi;
+                syllablesToSkip = unit.sourceCount - 1;
+                unitIndex++;
+            } else {
+                finalText += token;
+            }
+        });
+
+        finalText = finalText.replace(/\s+([，。、；：！？.,;:!?])/g, '$1').trim();
+        finalText = finalText
+            .replace(/,/g, '，').replace(/(?<!\.)\.(?!\.)/g, '。') 
+            .replace(/\?/g, '？').replace(/!/g, '！').replace(/;/g, '；')
+            .replace(/:/g, '：').replace(/\(/g, '（').replace(/\)/g, '）');
+
+        return finalText;
+    }
+
+    function prepareDummyDOM() {
+        let dummyContainer = document.getElementById('dummy-ruby-container');
+        if (dummyContainer) return;
+        dummyContainer = document.createElement('div');
+        dummyContainer.id = 'dummy-ruby-container';
+        dummyContainer.style.display = 'none'; 
+        ['hanziInput', 'pinyinInput'].forEach(id => {
+            let el = document.createElement('textarea');
+            el.id = id; dummyContainer.appendChild(el);
+        });
+        document.body.appendChild(dummyContainer);
+    }
+
+    function loadRubyDictionary(langCode) {
+        return new Promise((resolve, reject) => {
+            const pyFile = LANGUAGES[langCode].pyFile;
+            if (!pyFile) return resolve();
+
+            if (dictCache[pyFile]) {
+                window.pinyinMap = dictCache[pyFile].pinyinMap;
+                window.masterRegex = dictCache[pyFile].masterRegex;
+                return resolve();
+            }
+
+            const SCRIPT_ID = 'ruby-lang-db-script';
+            const existingScript = document.getElementById(SCRIPT_ID);
+            if (existingScript) existingScript.remove();
+
+            const script = document.createElement('script');
+            script.id = SCRIPT_ID;
+            script.src = BASE_URL_RUBY + pyFile;
+            script.onload = () => {
+                if (typeof initializeConverter === 'function') {
+                    initializeConverter();
+                    dictCache[pyFile] = { pinyinMap: window.pinyinMap, masterRegex: window.masterRegex };
+                }
+                resolve();
+            };
+            script.onerror = () => reject('拼音字典載入失敗: ' + pyFile);
+            document.head.appendChild(script);
+        });
+    }
+
     function getFileForPair(langA, langB) {
         const pair1 = `${langA}-${langB}`, pair2 = `${langB}-${langA}`;
         if (DIRECT_PAIRS[pair1]) return DIRECT_PAIRS[pair1];
@@ -4978,10 +5292,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!fileName) return resolve(null);
             if (dictCache[fileName]) return resolve(dictCache[fileName]);
             const script = document.createElement('script');
-            script.src = BASE_URL + fileName;
+            script.src = BASE_URL_TRANS + fileName;
             script.onload = () => {
-                if (typeof ww !== 'undefined') { dictCache[fileName] = setupDictionaries(ww); ww = undefined; resolve(dictCache[fileName]); } 
-                else reject('字典格式錯誤');
+                if (typeof ww !== 'undefined') { dictCache[fileName] = setupDictionaries(ww); ww = undefined; } 
+                else { dictCache[fileName] = true; }
+                resolve(dictCache[fileName]); 
                 script.remove();
             };
             script.onerror = () => reject(`網路連線失敗: ${fileName}`);
@@ -5014,106 +5329,241 @@ document.addEventListener('DOMContentLoaded', () => {
         return result.replace(new RegExp(marker + '{1,2}', 'g'), ' ').trim();
     }
 
-    // --- 轉換執行入口 ---
-    if(btnExecute) {
-        btnExecute.addEventListener('click', async () => {
-            const source = transState.source;
-            const target = transState.target;
-            const pivot = transState.pivot;
+    // --- 6. 抽出轉換核心執行器 ---
+    async function performConversion(actionMode) {
+        const source = transState.source;
+        const target = transState.target;
+        const pivot = transState.pivot;
 
-            btnExecute.textContent = "處理中..."; btnExecute.disabled = true;
+        const originalBtnText = btnExecute.innerHTML;
+        btnExecute.innerHTML = "處理中...";
+        btnExecute.disabled = true;
 
-            try {
-                const runTranslationPipeline = async (text) => {
-                    let currentText = text;
-                    let currentFrom = source;
+        try {
+            const processText = async (text) => {
+                // A. 處理拼音相關
+                if (source === 'pinyin' || target === 'pinyin') {
+                    const langCode = source === 'pinyin' ? target : source;
+                    const pyFile = LANGUAGES[langCode].pyFile;
+                    
+                    if (pyFile) {
+                        prepareDummyDOM();
+                        await loadScript('https://gnisew.github.io/tools/turn/pinyin2/data-pinyin2pinyin.js');
+                        await loadScript('https://gnisew.github.io/tools/ruby/hanzitopinyin.js');
 
-                    // 1. 來源代理 (如：南四縣 -> 四縣)
-                    const proxyFrom = getProxyTarget(currentFrom);
-                    if (proxyFrom && target !== proxyFrom) {
-                        currentText = await executeTranslation(currentFrom, proxyFrom, currentText);
-                        currentFrom = proxyFrom;
-                    }
+                        if (target === 'pinyin') {
+                            window.currentLanguageKey = langCode;
+                            await loadRubyDictionary(langCode);
 
-                    // 2. 目標代理預判
-                    const proxyTo = getProxyTarget(target);
-                    const effectiveTo = (proxyTo && currentFrom !== proxyTo) ? proxyTo : target;
+                            if (actionMode === 'segment') {
+                                // --- FMM 空格斷詞演算法 ---
+                                const map = window.pinyinMap;
+                                if (!map || map.size === 0) return text;
 
-                    // 3. 處理中段 (直達/中介/分詞)
-                    if (target === 'segment') {
-                        let segLang = currentFrom;
-                        if (currentFrom === 'chinese' || !LANGUAGES[currentFrom].file) segLang = pivot;
-                        if (!segLang || segLang === 'direct') segLang = 'kasu';
+                                let maxLen = 0;
+                                for (const key of map.keys()) {
+                                    if (key.length > maxLen) maxLen = key.length;
+                                }
 
-                        if (pivot !== 'direct' && currentFrom !== pivot) {
-                            currentText = await executeTranslation(currentFrom, pivot, currentText);
-                            currentFrom = pivot;
-                        }
-                        const segFile = getFileForPair('chinese', segLang);
-                        const dictsSeg = await fetchDictionaryByFile(segFile);
-                        currentText = doSegmentText(currentText, dictsSeg, currentFrom === 'chinese');
-                    } else {
-                        if (pivot !== 'direct') {
-                            currentText = await executeTranslation(currentFrom, pivot, currentText);
-                            currentFrom = pivot;
-                        }
-                        currentText = await executeTranslation(currentFrom, effectiveTo, currentText);
-                        
-                        // 4. 目標代理結尾 (如：四縣 -> 南四縣)
-                        if (proxyTo && currentFrom !== proxyTo) {
-                            currentText = await executeTranslation(effectiveTo, target, currentText);
-                        }
-                    }
-                    return currentText;
-                };
+                                const resultTokens = [];
+                                let i = 0;
+                                const len = text.length;
 
-                const editor = document.getElementById('editor');
-                const isTableMode = document.getElementById('tableModeContainer').style.display !== 'none';
+                                while (i < len) {
+                                    let matched = false;
+                                    let currentMax = Math.min(maxLen, len - i);
+                                    for (let l = currentMax; l >= 1; l--) {
+                                        const sub = text.substr(i, l);
+                                        if (map.has(sub)) {
+                                            resultTokens.push(sub);
+                                            i += l;
+                                            matched = true;
+                                            break;
+                                        }
+                                    }
+                                    if (!matched) {
+                                        resultTokens.push(text[i]);
+                                        i++;
+                                    }
+                                }
 
-                if (!isTableMode && editor) {
-                    const start = editor.selectionStart, end = editor.selectionEnd;
-                    let text = (start !== end) ? editor.value.substring(start, end) : editor.value;
-                    text = await runTranslationPipeline(text);
-                    if (start !== end) editor.setRangeText(text, start, end, 'select'); else editor.value = text;
-                } else if (isTableMode) {
-                    const sel = window.getSelection();
-                    const tableContainer = document.getElementById('tableModeContainer');
-                    if (sel.toString().length > 0 && tableContainer && tableContainer.contains(sel.anchorNode)) {
-                        let text = await runTranslationPipeline(sel.toString());
-                        const range = sel.getRangeAt(0); range.deleteContents(); range.insertNode(document.createTextNode(text));
-                    } else {
-                        let selectedCells = Array.from(document.querySelectorAll('table#data-table td.sel-bg .td-inner'));
-                        if (selectedCells.length === 0) {
-                            let activeCell = document.activeElement.closest('.td-inner') || (document.activeElement.classList && document.activeElement.classList.contains('td-inner') ? document.activeElement : null);
-                            if (!activeCell) {
-                                const allTds = document.querySelectorAll('table#data-table td');
-                                const singleSelectedTd = Array.from(allTds).find(td => td.style.boxShadow && td.style.boxShadow.includes('inset'));
-                                if (singleSelectedTd) activeCell = singleSelectedTd.querySelector('.td-inner');
+                                let raw = resultTokens.join(' ');
+                                let lines = raw.split('\n').map(line => {
+                                    let processed = line.replace(/ +/g, ' ');
+                                    processed = processed.replace(/^ +| +$/g, '');
+                                    return processed.length > 0 ? ' ' + processed + ' ' : processed;
+                                });
+                                return lines.join('\n').trim();
+                            } else if (actionMode === 'bracket_trans') {
+                                // 🌟 --- 字〔yin〕華 複合翻譯演算法 ---
+                                
+                                // 第一步：取得華語翻譯
+                                let chineseTrans = text;
+                                if (source !== 'chinese') {
+                                    let currentSrc = source;
+                                    const pSrc = getProxyTarget(currentSrc);
+                                    if (pSrc && pSrc !== 'chinese') {
+                                        chineseTrans = await executeTranslation(currentSrc, pSrc, chineseTrans);
+                                        currentSrc = pSrc;
+                                    }
+                                    chineseTrans = await executeTranslation(currentSrc, 'chinese', chineseTrans);
+                                }
+
+                                // 第二步：取得 字〔yin〕格式
+                                let hiddenHanzi = document.getElementById('hanziInput');
+                                let hiddenPinyin = document.getElementById('pinyinInput');
+                                hiddenHanzi.value = text;
+                                hiddenPinyin.value = ''; 
+                                
+                                if (typeof hanziToPinyin === 'function') {
+                                    hanziToPinyin('bracket');
+                                }
+                                
+                                let bracketResult = hiddenPinyin.value || text;
+
+                                // 第三步：逐行合併排版
+                                let origLines = text.split('\n');
+                                let bLines = bracketResult.split('\n');
+                                let cLines = chineseTrans.split('\n');
+                                let combined = [];
+                                
+                                for (let i = 0; i < Math.max(bLines.length, cLines.length); i++) {
+                                    let orig = (origLines[i] || '').trim();
+                                    let b = (bLines[i] || '').trim();
+                                    let c = (cLines[i] || '').trim();
+                                    
+                                    // 只有當翻譯結果不同於原文時，才加上華語翻譯 (防呆，避免：朋友〔pen giu〕：朋友)
+                                    if (b && c && c !== orig) {
+                                        let line = `${b}：${c}`;
+                                        // 智慧標點：如果沒有以標點符號結尾，幫它補上句號
+                                        if (!/[。！？.!?]$/.test(line)) line += '。';
+                                        combined.push(line);
+                                    } else if (b) {
+                                        combined.push(b);
+                                    } else if (c) {
+                                        combined.push(c);
+                                    } else {
+                                        combined.push('');
+                                    }
+                                }
+                                return combined.join('\n');
+
+                            } else {
+                                // --- 一般字轉音 ---
+                                let hiddenHanzi = document.getElementById('hanziInput');
+                                let hiddenPinyin = document.getElementById('pinyinInput');
+                                hiddenHanzi.value = text;
+                                hiddenPinyin.value = ''; 
+                                
+                                if (typeof hanziToPinyin === 'function') {
+                                    hanziToPinyin(actionMode === 'default' ? undefined : actionMode);
+                                }
+                                
+                                const result = hiddenPinyin.value;
+                                return result && result.trim() !== '' ? result : text; 
                             }
-                            if (activeCell) selectedCells.push(activeCell);
+                        } 
+                        else {
+                            window.currentLanguageKey = langCode;
+                            await loadScript('https://gnisew.github.io/tools/ime/ime-dict.js');
+                            initializeImeDicts(); 
+                            
+                            const result = pinyinToHanziEngine(text, langCode);
+                            return result && result.trim() !== '' ? result : text; 
                         }
-                        if (selectedCells.length === 0) { alert("請先選取要處理的文字或儲存格！"); return; }
-                        
-                        // 批次依序處理
-                        for (const cell of selectedCells) {
-                            let text = cell.innerText || cell.textContent;
-                            cell.innerText = await runTranslationPipeline(text);
-                            if (cell.hasAttribute('data-formula')) cell.removeAttribute('data-formula');
-                        }
+                    }
+                    return text;
+                }
+
+                // B. 一般翻譯流程 
+                let currentText = text;
+                let currentFrom = source;
+                const proxyFrom = getProxyTarget(currentFrom);
+                if (proxyFrom && target !== proxyFrom) {
+                    currentText = await executeTranslation(currentFrom, proxyFrom, currentText);
+                    currentFrom = proxyFrom;
+                }
+                const proxyTo = getProxyTarget(target);
+                const effectiveTo = (proxyTo && currentFrom !== proxyTo) ? proxyTo : target;
+
+                if (target === 'segment') {
+                    let segLang = currentFrom;
+                    if (currentFrom === 'chinese' || !LANGUAGES[currentFrom].file) segLang = pivot;
+                    if (!segLang || segLang === 'direct') segLang = 'kasu';
+
+                    if (pivot !== 'direct' && currentFrom !== pivot) {
+                        currentText = await executeTranslation(currentFrom, pivot, currentText);
+                        currentFrom = pivot;
+                    }
+                    const segFile = getFileForPair('chinese', segLang);
+                    const dictsSeg = await fetchDictionaryByFile(segFile);
+                    currentText = doSegmentText(currentText, dictsSeg, currentFrom === 'chinese');
+                } else {
+                    if (pivot !== 'direct') {
+                        currentText = await executeTranslation(currentFrom, pivot, currentText);
+                        currentFrom = pivot;
+                    }
+                    currentText = await executeTranslation(currentFrom, effectiveTo, currentText);
+                    if (proxyTo && currentFrom !== proxyTo) {
+                        currentText = await executeTranslation(effectiveTo, target, currentText);
                     }
                 }
-            } catch (err) {
-                console.error("轉換發生錯誤:", err); alert("轉換失敗，請檢查網路連線或字典資源。");
-            } finally {
-                btnExecute.textContent = "轉換"; checkButtonState();
+                return currentText;
+            };
+
+            const editor = document.getElementById('editor');
+            const tableContainer = document.getElementById('tableModeContainer');
+            const isTableMode = tableContainer && window.getComputedStyle(tableContainer).display !== 'none';
+
+            if (!isTableMode && editor) {
+                const start = editor.selectionStart, end = editor.selectionEnd;
+                let text = (start !== end) ? editor.value.substring(start, end) : editor.value;
+                text = await processText(text);
+                if (start !== end) editor.setRangeText(text, start, end, 'select'); else editor.value = text;
+            } else if (isTableMode) {
+                const sel = window.getSelection();
+                if (sel.toString().length > 0 && tableContainer && tableContainer.contains(sel.anchorNode)) {
+                    let text = await processText(sel.toString());
+                    const range = sel.getRangeAt(0); range.deleteContents(); range.insertNode(document.createTextNode(text));
+                } else {
+                    let selectedCells = Array.from(document.querySelectorAll('table#data-table td.sel-bg .td-inner'));
+                    if (selectedCells.length === 0) {
+                        let activeCell = document.activeElement.closest('.td-inner') || (document.activeElement.classList && document.activeElement.classList.contains('td-inner') ? document.activeElement : null);
+                        if (!activeCell) {
+                            const allTds = document.querySelectorAll('table#data-table td');
+                            const singleSelectedTd = Array.from(allTds).find(td => td.style.boxShadow && td.style.boxShadow.includes('inset'));
+                            if (singleSelectedTd) activeCell = singleSelectedTd.querySelector('.td-inner');
+                        }
+                        if (activeCell) selectedCells.push(activeCell);
+                    }
+                    if (selectedCells.length === 0) { alert("請先選取要處理的文字或儲存格！"); return; }
+                    
+                    for (const cell of selectedCells) {
+                        let text = cell.innerText || cell.textContent;
+                        cell.innerText = await processText(text);
+                        if (cell.hasAttribute('data-formula')) cell.removeAttribute('data-formula');
+                    }
+                }
             }
+        } catch (err) {
+            console.error("轉換發生錯誤:", err); 
+            alert("轉換發生錯誤，詳細請查看主控台 (Console)。");
+        } finally {
+            btnExecute.innerHTML = originalBtnText; 
+            checkButtonState();
+        }
+    }
+
+    if (btnExecute) {
+        btnExecute.addEventListener('click', () => {
+            performConversion('default');
         });
     }
 
     initDropdowns();
+    updateCapsuleButtonUI();
     updatePivotOptions();
 });
-
 
 
 init();
