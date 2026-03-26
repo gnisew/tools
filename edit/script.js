@@ -9,7 +9,7 @@ const floatingTool = document.getElementById('floating-tool');
 const colMenu = document.getElementById('colMenu');
 const rowMenu = document.getElementById('rowMenu');
 const toast = document.getElementById('toast');
-const btnPaste = document.getElementById('btnPaste');
+
 const cellEditor = document.getElementById('cellEditor');
 
 const mirror = document.createElement('div');
@@ -52,8 +52,42 @@ const ENTER_DIRECTION_KEY = 'tauhu-enter-direction';
 
 const FONT_FAMILY_KEY = 'tauhu-font-family';
 
-/* 工具列元件初始化 (支援槽狀選單與手機版點擊) */
+/* 工具列元件初始化 (支援槽狀選單、手機版點擊與視窗邊界偵測) */
 function initDropdowns() {
+    // 共用的邊界偵測函數
+    function adjustMenuPosition(menu) {
+        if (!menu.classList.contains('show')) return;
+        
+        // 1. 先重置樣式，讓瀏覽器依照原本的 CSS (例如 left-0) 渲染
+        menu.style.left = '0px';
+        menu.style.right = 'auto';
+        menu.style.transform = 'none'; // 清除可能有的偏移
+
+        // 2. 取得選單在螢幕上的真實位置
+        let rect = menu.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const padding = 8; // 距離螢幕邊緣保留 8px 的安全距離
+
+        // 3. 如果超出右邊界
+        if (rect.right > viewportWidth) {
+            menu.style.left = 'auto';
+            // 靠右對齊，並確保不會黏在螢幕最邊緣
+            menu.style.right = '0px'; 
+            
+            // 再次檢查，如果靠右對齊後反而超出左邊界 (代表選單比螢幕還寬)
+            rect = menu.getBoundingClientRect();
+            if (rect.left < 0) {
+                menu.style.right = 'auto';
+                menu.style.left = `${padding}px`; // 強制從左邊安全距離開始
+            }
+        } 
+        // 4. 如果一開始就超出左邊界
+        else if (rect.left < 0) {
+            menu.style.left = `${padding}px`;
+            menu.style.right = 'auto';
+        }
+    }
+
     // 1. 處理主要展開按鈕 (第一層)
     document.querySelectorAll('.dropdown-container').forEach(container => {
         const btn = container.querySelector('.dropdown-btn');
@@ -66,75 +100,79 @@ function initDropdowns() {
                 document.querySelectorAll('.dropdown-menu.show, .action-menu.show').forEach(m => { 
                     if (m !== menu && !menu.contains(m)) m.classList.remove('show'); 
                 });
-                // 每次打開主選單時，也把裡面展開的子選單收起來
                 menu.querySelectorAll('.group\\/submenu').forEach(s => s.classList.remove('mobile-open'));
+                
                 menu.classList.toggle('show');
+                
+                // 觸發邊界偵測
+                adjustMenuPosition(menu);
             });
         }
     });
 
-    // 🌟 新增：處理子選單 (group/submenu) 的點擊展開 (專為行動裝置設計)
+    // 2. 處理子選單 (group/submenu) 的點擊展開 (專為行動裝置設計)
     document.querySelectorAll('.group\\/submenu').forEach(submenu => {
-        // 抓取子選單的標題 (例如 "切換字體" 那一列)
         const header = submenu.querySelector('div:first-child');
         if (header) {
             header.addEventListener('click', (e) => {
-                // 如果是在手機版尺寸 (寬度 <= 768px)，就啟用點擊展開功能
                 if (window.innerWidth <= 768) {
-                    e.stopPropagation(); // 阻止事件往上傳遞，避免關閉主選單
-                    // 關閉同層其他的子選單 (保持一次只開一個)
+                    e.stopPropagation(); 
                     const parentMenu = submenu.closest('.dropdown-menu');
                     if (parentMenu) {
                         parentMenu.querySelectorAll('.group\\/submenu').forEach(s => {
                             if (s !== submenu) s.classList.remove('mobile-open');
                         });
                     }
-                    // 切換目前的子選單狀態
                     submenu.classList.toggle('mobile-open');
                 }
             });
         }
     });
 
-    // 2. 處理所有點擊選項 (最終選項)
+    // 3. 處理所有點擊選項 (最終選項)
     document.querySelectorAll('.dropdown-item').forEach(item => {
         item.addEventListener('click', (e) => {
             e.stopPropagation();
-            
             const parentDataContainer = item.closest('[id^="dd-"]');
             
             if (parentDataContainer) {
                 parentDataContainer.querySelectorAll('.dropdown-item .check-icon').forEach(i => i.classList.remove('active'));
                 const myCheck = item.querySelector('.check-icon');
                 if (myCheck) myCheck.classList.add('active');
-                
                 parentDataContainer.dispatchEvent(new CustomEvent('change', { detail: { value: item.dataset.value } }));
             }
 
-            // 選擇完畢後，把所有選單收起來，包含手機版的子選單狀態
             document.querySelectorAll('.dropdown-menu, .action-menu').forEach(m => m.classList.remove('show'));
             document.querySelectorAll('.group\\/submenu').forEach(s => s.classList.remove('mobile-open'));
         });
     });
 
-    // 3. 原有的 action-dropdown 邏輯
+    // 4. 處理 action-dropdown (例如：新增欄列、清除刪除選單)
     document.querySelectorAll('.action-dropdown .action-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const menu = btn.nextElementSibling;
             document.querySelectorAll('.dropdown-menu, .action-menu').forEach(m => { if (m !== menu) m.classList.remove('show'); });
+            
             menu.classList.toggle('show');
+            
+            // 觸發邊界偵測
+            adjustMenuPosition(menu);
         });
     });
 
-    // 4. 點擊空白處關閉選單
+    // 5. 點擊空白處關閉選單
     document.addEventListener('click', (e) => {
         document.querySelectorAll('.dropdown-menu, .action-menu').forEach(m => m.classList.remove('show'));
-        // 點擊外面時，順便清除手機版子選單的開啟狀態
         document.querySelectorAll('.group\\/submenu').forEach(s => s.classList.remove('mobile-open'));
-        
-        if (!e.target.closest('#colMenu') && !e.target.closest('.btn-col-menu')) colMenu.classList.remove('show');
-        if (!e.target.closest('#rowMenu') && !e.target.closest('.btn-row-menu')) rowMenu.classList.remove('show');
+        if (!e.target.closest('#colMenu') && !e.target.closest('.btn-col-menu')) {
+            const colMenu = document.getElementById('colMenu');
+            if(colMenu) colMenu.classList.remove('show');
+        }
+        if (!e.target.closest('#rowMenu') && !e.target.closest('.btn-row-menu')) {
+            const rowMenu = document.getElementById('rowMenu');
+            if(rowMenu) rowMenu.classList.remove('show');
+        }
     });
 }
 
@@ -524,6 +562,202 @@ function applyFreeze() {
     }
 }
 
+
+
+
+
+
+// ==========================================
+// 編輯器專屬：複製與貼上邏輯 (修復選單開關與單格判定)
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    const editor = document.getElementById('editor');
+    const tableContainer = document.getElementById('tableModeContainer');
+    const btnPasteValue = document.getElementById('btn-paste-value');
+    const pasteGroup = document.getElementById('dd-paste-group');
+
+    // 輔助函數：判斷目前是否為表格模式
+    function isTableModeActive() {
+        return tableContainer && window.getComputedStyle(tableContainer).display !== 'none';
+    }
+
+    // 1. 動態控制「貼上為值」的按鈕狀態
+    if (pasteGroup) {
+        const pasteActionBtn = pasteGroup.querySelector('.action-btn');
+        if (pasteActionBtn) {
+            pasteActionBtn.addEventListener('click', () => {
+                if (isTableModeActive()) {
+                    if (btnPasteValue) {
+                        btnPasteValue.disabled = false;
+                        btnPasteValue.title = "貼上純文字並清除公式";
+                    }
+                } else {
+                    if (btnPasteValue) {
+                        btnPasteValue.disabled = true;
+                        btnPasteValue.title = "僅在表格模式可用";
+                    }
+                }
+            });
+        }
+    }
+
+    // 2. 取得表格單格內容的輔助函數 (解決焦點被工具列搶走的問題)
+    function getSingleCellContent() {
+        const rows = dataTable.querySelectorAll('tbody tr');
+        let targetInner = null;
+        // 利用系統全域變數 lastClickedCell 來回溯目標
+        if (typeof lastClickedCell !== 'undefined' && lastClickedCell && rows[lastClickedCell.r]) {
+            targetInner = rows[lastClickedCell.r].children[lastClickedCell.c + 1]?.querySelector('.td-inner');
+        }
+        if (targetInner) {
+            return targetInner.hasAttribute('data-formula') ? targetInner.getAttribute('data-formula') : (targetInner.innerText || targetInner.textContent).trim();
+        }
+        return '';
+    }
+
+    // 3. 綁定「複製」相關動作
+    document.querySelectorAll('#dd-copy-group button[data-action]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            
+            // 【修復 1】只移除 class，絕不加上 style="display:none"
+            const menu = btn.closest('.action-menu');
+            if (menu) menu.classList.remove('show');
+            
+            const action = btn.dataset.action;
+            
+            if (action === 'select-all') {
+                if (isTableModeActive()) {
+                    if (typeof selectAllTable === 'function') selectAllTable();
+                } else if (editor) { 
+                    editor.focus(); editor.select(); 
+                }
+                return;
+            }
+            
+            if (action === 'copy-all') {
+                if (isTableModeActive()) {
+                    if (typeof selectAllTable === 'function') selectAllTable();
+                } else if (editor) { 
+                    editor.focus(); editor.select(); 
+                }
+                
+                // 稍微延遲讓 DOM 更新選取狀態後再複製
+                setTimeout(async () => {
+                    if (isTableModeActive() && typeof copySelectedTableData === 'function') {
+                        copySelectedTableData();
+                    } else {
+                        document.execCommand('copy');
+                        if (typeof showToast === 'function') showToast('✅ 內容已複製！');
+                    }
+                }, 50);
+                return;
+            }
+            
+            if (action === 'copy-selected') {
+                if (isTableModeActive()) {
+                    // 【修復 2】判斷是否有多選
+                    const isMultiSelect = selectedRows.length > 0 || selectedCols.length > 0 || selectedCellBlocks.length > 0;
+                    
+                    if (isMultiSelect) {
+                        // 呼叫系統原本的強大多選複製引擎
+                        if (typeof copySelectedTableData === 'function') copySelectedTableData();
+                    } else {
+                        // 單格複製
+                        const textToCopy = getSingleCellContent();
+                        if (textToCopy) {
+                            try {
+                                await navigator.clipboard.writeText(textToCopy);
+                                if (typeof showToast === 'function') showToast('✅ 儲存格內容已複製！');
+                            } catch (err) {
+                                console.error('複製失敗:', err);
+                            }
+                        } else {
+                            if (typeof showToast === 'function') showToast('沒有可複製的內容。');
+                        }
+                    }
+                } else {
+                    document.execCommand('copy');
+                    if (typeof showToast === 'function') showToast('✅ 文字已複製！');
+                }
+            }
+        });
+    });
+
+    // 4. 綁定「貼上」相關動作
+    document.querySelectorAll('#dd-paste-group button[data-action]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (btn.disabled) return;
+
+            // 【修復 1】只移除 class
+            const menu = btn.closest('.action-menu');
+            if (menu) menu.classList.remove('show');
+
+            const isPasteValue = btn.dataset.action === 'paste-value';
+
+            try {
+                const text = await navigator.clipboard.readText();
+                if (!text) return;
+
+                if (!isTableModeActive()) {
+                    if (editor) {
+                        editor.focus(); 
+                        document.execCommand('insertText', false, text);
+                        if (typeof showToast === 'function') showToast('✅ 內容已貼上！');
+                    }
+                } else {
+                    // 透過全域變數傳遞「貼上為值」旗標
+                    window.isPasteValueMode = isPasteValue;
+                    
+                    const data = typeof parseTSV === 'function' ? parseTSV(text) : [[text]];
+                    const isMultiSelect = selectedRows.length > 0 || selectedCols.length > 0 || selectedCellBlocks.length > 0;
+                    
+                    // 如果剪貼簿有多筆資料，或是畫面上有多選範圍，交給系統引擎處理
+                    if (data.length > 1 || (data[0] && data[0].length > 1) || isMultiSelect) {
+                        if (typeof handleTablePaste === 'function') handleTablePaste(text);
+                    } else {
+                        // 【修復 2】單格貼上：利用 lastClickedCell 來定位
+                        const rows = dataTable.querySelectorAll('tbody tr');
+                        let targetInner = null;
+                        
+                        if (typeof lastClickedCell !== 'undefined' && lastClickedCell && rows[lastClickedCell.r]) {
+                            targetInner = rows[lastClickedCell.r].children[lastClickedCell.c + 1]?.querySelector('.td-inner');
+                        }
+                        
+                        if (targetInner) {
+                            targetInner.focus(); 
+                            targetInner.innerHTML = ''; // 清空原本內容
+                            document.execCommand('insertText', false, text); // 貼上新內容
+                            
+                            // 貼上為值的後續處理
+                            if (isPasteValue) {
+                                targetInner.removeAttribute('data-formula');
+                            } else if (text.startsWith('=')) {
+                                targetInner.setAttribute('data-formula', text);
+                            }
+                            
+                            if (typeof debouncedSaveHistory === 'function') debouncedSaveHistory();
+                            if (typeof recalculateAllFormulas === 'function') recalculateAllFormulas();
+                        } else {
+                            // 若真的找不到點擊目標，退回給 handleTablePaste 處理
+                            if (typeof handleTablePaste === 'function') handleTablePaste(text);
+                        }
+                    }
+                    
+                    window.isPasteValueMode = false; // 用完立刻還原狀態
+                    if (typeof showToast === 'function') showToast(isPasteValue ? '✅ 內容已貼上 (純文字)！' : '✅ 內容已貼上！');
+                }
+            } catch (err) {
+                if (typeof showToast === 'function') showToast('❌ 無法讀取剪貼簿，請使用快捷鍵 Ctrl+V');
+            }
+        });
+    });
+});
+
+
+
+
 /* ---------------------------------
    選單操作功能 (增、刪、複製、清除、命名)
    --------------------------------- */
@@ -600,22 +834,67 @@ function insertRowAt(index, copyFromIndex = -1, count = 1) {
 
 /* 智慧清除與刪除 */
 function handleClearAction() {
+    // 🌟 新增：文字模式下的 Delete 功能
+    if (currentMode === 'text') {
+        const editor = document.getElementById('editor');
+        if (editor && editor.selectionStart !== editor.selectionEnd) {
+            // 刪除選取文字，並將游標停留在刪除處
+            editor.setRangeText('', editor.selectionStart, editor.selectionEnd, 'end');
+            editor.focus();
+            localStorage.setItem(STORAGE_KEY, editor.value);
+            debouncedSaveHistory();
+            updateLineNumbers();
+            showToast('🗑️ 選取文字已清除');
+        } else {
+            showToast('⚠️ 請先選取要清除的文字');
+        }
+        return;
+    }
+
+    // 原有的表格模式邏輯
     if (selectedRows.length > 0) clearSelectedRows();
     else if (selectedCols.length > 0) clearSelectedCols();
     else if (selectedCellBlocks.length > 0) clearSelectedCells();
-    else showToast('請先選取要清除的範圍');
+    else showToast('⚠️ 請先選取要清除的範圍');
 }
 
 function handleDeleteAction() {
+    if (currentMode !== 'table') return; // 防呆：非表格模式直接阻擋
+
     if (selectedRows.length > 0) deleteSelectedRows();
     else if (selectedCols.length > 0) deleteSelectedCols();
     else if (selectedCellBlocks.length > 0) {
         clearSelectedCells();
         showToast('儲存格僅能清除資料，無法刪除結構');
     } else {
-        showToast('請先選取要刪除的列或欄');
+        showToast('⚠️ 請先選取要刪除的列或欄');
     }
 }
+
+// ==========================================
+// 清除選單狀態控制
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    const deleteGroup = document.getElementById('dd-delete-group');
+    if (deleteGroup) {
+        const deleteActionBtn = deleteGroup.querySelector('.action-btn');
+        if (deleteActionBtn) {
+            deleteActionBtn.addEventListener('click', () => {
+                const btnDeleteStructure = document.getElementById('btn-delete-structure');
+                if (!btnDeleteStructure) return;
+                
+                // 動態判斷：只有表格模式可以點擊「刪除結構」
+                if (currentMode === 'table') {
+                    btnDeleteStructure.disabled = false;
+                    btnDeleteStructure.title = "刪除選取的列或欄結構";
+                } else {
+                    btnDeleteStructure.disabled = true;
+                    btnDeleteStructure.title = "僅在表格模式可用";
+                }
+            });
+        }
+    }
+});
 
 function clearSelectedCols() {
     if (selectedCols.length === 0) return;
@@ -980,18 +1259,19 @@ function copySelectedTableData() {
 }
 
 /* 智慧貼上分配引擎 */
+/* 智慧貼上分配引擎 (已修復換行與貼上為值邏輯) */
 function handleTablePaste(text) {
     const data = parseTSV(text);
     if (data.length === 0 || (data.length === 1 && data[0].length === 0)) return;
 
-    let startRow = 0; let startCol = 0;
-    
-    // 取得目前游標所在的儲存格
-    const activeInner = document.activeElement.closest('.td-inner');
-
-   if (activeInner) {
-        activeInner.blur();
+    // 【修復 1：清除複製帶來的隱形尾部換行，防止最後一格變空白】
+    if (data.length > 1 && data[data.length - 1].length === 1 && data[data.length - 1][0] === '') {
+        data.pop();
     }
+
+    let startRow = 0; let startCol = 0;
+    const activeInner = document.activeElement.closest('.td-inner');
+    if (activeInner) activeInner.blur();
 
     let isMultiTarget = false;
     let targetBlocks = selectedCellBlocks;
@@ -1001,7 +1281,6 @@ function handleTablePaste(text) {
     else if (selectedCellBlocks.length > 0) {
         startRow = Math.min(selectedCellBlocks[0].startR, selectedCellBlocks[0].endR); 
         startCol = Math.min(selectedCellBlocks[0].startC, selectedCellBlocks[0].endC);
-        // 判斷使用者是否選取了大於一格的範圍
         if (selectedCellBlocks.length > 1 || selectedCellBlocks[0].startR !== selectedCellBlocks[0].endR || selectedCellBlocks[0].startC !== selectedCellBlocks[0].endC) {
             isMultiTarget = true;
         }
@@ -1016,6 +1295,18 @@ function handleTablePaste(text) {
     
     // 獨立處理器：負責填入資料並計算平移偏移量
     const applyPastedCell = (inner, cellData, targetR, targetC) => {
+        // 【修復 2：貼上為值模式，絕對不平移，直接取得原值】
+        if (window.isPasteValueMode) {
+            inner.removeAttribute('data-formula');
+            if (cellData.startsWith('=')) {
+                inner.innerText = typeof evaluateFormula === 'function' ? evaluateFormula(cellData) : cellData;
+            } else {
+                inner.innerText = cellData;
+            }
+            return;
+        }
+
+        // 一般貼上模式
         if (cellData.startsWith('=') && window.clipboardOrigin) {
             let rowOffset = targetR - window.clipboardOrigin.r;
             let colOffset = targetC - window.clipboardOrigin.c;
@@ -1029,7 +1320,7 @@ function handleTablePaste(text) {
         }
     };
 
-    // 【情境一】：剪貼簿只有 1 格，但使用者選取了多格 -> 啟動填滿模式
+    // 填滿模式
     if (data.length === 1 && data[0].length === 1 && isMultiTarget) {
         const sourceText = data[0][0];
         targetBlocks.forEach(block => {
@@ -1045,7 +1336,7 @@ function handleTablePaste(text) {
             }
         });
     } else {
-        // 【情境二】：一般貼上 (自動擴充表格並對應貼上)
+        // 一般貼上 (自動擴充表格並對應貼上)
         const rowsNeeded = startRow + data.length;
         while (tbody.children.length < rowsNeeded) { insertRowAt(tbody.children.length); }
 
@@ -1064,7 +1355,6 @@ function handleTablePaste(text) {
     }
 
     updateTableHeaders();
-    // 貼上後觸發我們上次做的全域重算，所有貼上的公式會立刻變成數字！
     recalculateAllFormulas(); 
     localStorage.setItem(STORAGE_KEY, extractTextFromTable());
     debouncedSaveHistory(); applyFreeze();
@@ -1453,40 +1743,9 @@ document.addEventListener('copy', (e) => {
     }
 });
 
-// 順便補上工具列「複製按鈕」的點擊觸發機制 (行動版修復與增強)
-const btnCopyElement = document.getElementById('btnCopy');
-if (btnCopyElement) {
-    btnCopyElement.addEventListener('click', (e) => {
-        // 如果是在表格模式，且畫面上有藍框選取的儲存格
-        if (currentMode === 'table' && (selectedRows.length > 0 || selectedCols.length > 0 || selectedCellBlocks.length > 0)) {
-            e.preventDefault(); // 阻止預設行為，防止失去焦點
-            copySelectedTableData(); // 直接強制呼叫我們的智慧複製引擎！
-        } else {
-            // 文字模式或沒有選取表格時，維持原生複製行為
-            document.execCommand('copy');
-        }
-    });
-}
 
-btnPaste.addEventListener('click', async () => {
-    try {
-        const text = await navigator.clipboard.readText();
-        if (currentMode === 'text') {
-            editor.focus(); document.execCommand('insertText', false, text);
-        } else {
-            const data = parseTSV(text);
-            if (data.length > 1 || (data[0] && data[0].length > 1) || selectedRows.length > 0 || selectedCols.length > 0 || selectedCellBlocks.length > 0) {
-                handleTablePaste(text);
-            } else {
-                const activeInner = document.activeElement.closest('.td-inner');
-                if (activeInner && dataTable.contains(activeInner)) {
-                    activeInner.focus(); document.execCommand('insertText', false, text); debouncedSaveHistory();
-                } else { handleTablePaste(text); }
-            }
-        }
-        showToast('✅ 內容已貼上！');
-    } catch (e) { showToast('❌ 無法讀取剪貼簿，請直接在畫面中按 Ctrl+V'); }
-});
+
+
 
 document.addEventListener('paste', (e) => {
     // 只有在表格模式下才處理
@@ -1527,6 +1786,54 @@ document.addEventListener('paste', (e) => {
         }
     }
 });
+
+
+// 綁定貼上選單動作
+document.querySelectorAll('#dd-paste-group button[data-action]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (btn.disabled) return;
+        
+        const menu = btn.closest('.action-menu');
+        if (menu) menu.classList.remove('show');
+
+        const isPasteValue = btn.dataset.action === 'paste-value';
+
+        try {
+            const text = await navigator.clipboard.readText();
+            if (!text) return;
+
+            if (currentMode === 'text') {
+                editor.focus(); document.execCommand('insertText', false, text);
+                showToast('✅ 內容已貼上！');
+            } else {
+                // 透過全域變數傳遞「貼上為值」旗標給 handleTablePaste
+                window.isPasteValueMode = isPasteValue;
+                
+                const data = parseTSV(text);
+                if (data.length > 1 || (data[0] && data[0].length > 1) || selectedRows.length > 0 || selectedCols.length > 0 || selectedCellBlocks.length > 0) {
+                    handleTablePaste(text);
+                } else {
+                    const activeInner = document.activeElement.closest('.td-inner');
+                    if (activeInner && dataTable.contains(activeInner)) {
+                        activeInner.focus(); 
+                        document.execCommand('insertText', false, text);
+                        if (isPasteValue) activeInner.removeAttribute('data-formula');
+                        debouncedSaveHistory();
+                    } else { 
+                        handleTablePaste(text); 
+                    }
+                }
+                
+                window.isPasteValueMode = false; // 貼上後立即還原狀態
+                showToast(isPasteValue ? '✅ 內容已貼上 (純文字)！' : '✅ 內容已貼上！');
+            }
+        } catch (err) {
+            showToast('❌ 無法讀取剪貼簿，請使用快捷鍵 Ctrl+V');
+        }
+    });
+});
+
 
 dataTable.addEventListener('input', () => { 
     localStorage.setItem(STORAGE_KEY, extractTextFromTable()); hideFloatingTool(); debouncedSaveHistory(); applyFreeze();
@@ -2134,24 +2441,33 @@ document.getElementById('btnCloseFindReplace').addEventListener('click', () => {
 // 視窗全區拖曳功能
 let isDraggingFR = false, dragStartX = 0, dragStartY = 0, frStartLeft = 0, frStartTop = 0;
 findReplaceModal.addEventListener('mousedown', (e) => {
-    if (e.target.closest('input, button, label')) return;
+    // ✨ 關鍵修復：把 textarea、select 以及表格儲存格 (td, th) 加入排除名單
+    // 這樣在這些區域點擊並滑動時，就會正常反白選取文字，不會拖動視窗！
+    if (e.target.closest('input, button, label, select, textarea, td, th')) return;
     
     isDraggingFR = true; dragStartX = e.clientX; dragStartY = e.clientY;
     const rect = findReplaceModal.getBoundingClientRect();
     frStartLeft = rect.left; frStartTop = rect.top;
-    document.body.style.userSelect = 'none';
+    document.body.style.userSelect = 'none'; // 拖曳時防止文字被意外反白
 });
+
 document.addEventListener('mousemove', (e) => {
     if (!isDraggingFR) return;
     findReplaceModal.style.left = `${frStartLeft + (e.clientX - dragStartX)}px`;
     findReplaceModal.style.top = `${frStartTop + (e.clientY - dragStartY)}px`;
     findReplaceModal.style.right = 'auto'; 
 });
-document.addEventListener('mouseup', () => { isDraggingFR = false; document.body.style.userSelect = ''; });
+
+document.addEventListener('mouseup', () => { 
+    isDraggingFR = false; 
+    document.body.style.userSelect = ''; // 恢復文字選取功能
+});
 
 // ====== 新增：行動版觸控拖曳支援 (尋找與取代) ======
 findReplaceModal.addEventListener('touchstart', (e) => {
-    if (e.target.closest('input, button, label')) return;
+    // 手機版同樣把這些可輸入、可選取的區域排除
+    if (e.target.closest('input, button, label, select, textarea, td, th')) return;
+    
     const touch = e.touches[0];
     isDraggingFR = true; 
     dragStartX = touch.clientX; 
@@ -2159,8 +2475,9 @@ findReplaceModal.addEventListener('touchstart', (e) => {
     const rect = findReplaceModal.getBoundingClientRect();
     frStartLeft = rect.left; 
     frStartTop = rect.top;
-    // 避免觸控到非輸入框時觸發螢幕滾動
-    if (!e.target.closest('input')) e.preventDefault(); 
+    
+    // 避免觸控到非輸入/滾動區時觸發螢幕整體滾動
+    if (!e.target.closest('input, textarea, select, td, th')) e.preventDefault(); 
 }, { passive: false });
 
 document.addEventListener('touchmove', (e) => {
@@ -2175,6 +2492,7 @@ document.addEventListener('touchmove', (e) => {
 document.addEventListener('touchend', () => { 
     isDraggingFR = false; 
 });
+// ==========================================
 // ==========================================
 
 // 顯示頂端提示訊息
@@ -5073,8 +5391,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- 4. 拖曳面板 ---
-    if(btnToggle) btnToggle.addEventListener('click', () => transPanel.style.display = 'flex');
-    if(btnClose) btnClose.addEventListener('click', () => transPanel.style.display = 'none');
+    // --- 狀態同步與面板開關邏輯 ---
+    function closeTranslatorPanel() {
+        transPanel.style.display = 'none';
+        if (btnToggle) btnToggle.classList.remove('active'); // 移除按鈕變色狀態
+    }
+
+    function openTranslatorPanel() {
+        transPanel.style.display = 'flex';
+        if (btnToggle) btnToggle.classList.add('active'); // 加上按鈕變色狀態
+    }
+
+    // 工具列按鈕：點擊時進行「開關切換」
+    if(btnToggle) {
+        btnToggle.addEventListener('click', () => {
+            if (transPanel.style.display === 'none' || transPanel.style.display === '') {
+                openTranslatorPanel();
+            } else {
+                closeTranslatorPanel();
+            }
+        });
+    }
+
+    // 面板上的關閉按鈕 (✖)
+    if(btnClose) {
+        btnClose.addEventListener('click', closeTranslatorPanel);
+    }
     
     let isDragging = false, startX, startY, initialX, initialY;
     function startDrag(clientX, clientY) {
@@ -5243,7 +5585,10 @@ document.addEventListener('DOMContentLoaded', () => {
         dummyContainer.style.display = 'none'; 
         ['hanziInput', 'pinyinInput'].forEach(id => {
             let el = document.createElement('textarea');
-            el.id = id; dummyContainer.appendChild(el);
+            el.id = id; 
+            el.readOnly = true; 
+            el.setAttribute('inputmode', 'none'); 
+            dummyContainer.appendChild(el);
         });
         document.body.appendChild(dummyContainer);
     }
@@ -5564,6 +5909,530 @@ document.addEventListener('DOMContentLoaded', () => {
     updateCapsuleButtonUI();
     updatePivotOptions();
 });
+
+// ==========================================
+// 複製與貼上選單控制與執行邏輯
+// ==========================================
+const pasteGroup = document.getElementById('dd-paste-group');
+if (pasteGroup) {
+    const pasteActionBtn = pasteGroup.querySelector('.action-btn');
+    pasteActionBtn.addEventListener('click', () => {
+        const btnPasteValue = document.getElementById('btn-paste-value');
+        if (!btnPasteValue) return;
+        if (currentMode === 'table') {
+            btnPasteValue.disabled = false;
+            btnPasteValue.title = "貼上純文字並清除公式";
+        } else {
+            btnPasteValue.disabled = true;
+            btnPasteValue.title = "僅在表格模式可用";
+        }
+    });
+}
+
+// 綁定複製選單動作
+document.querySelectorAll('#dd-copy-group button[data-action]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const menu = btn.closest('.action-menu');
+        if (menu) menu.classList.remove('show');
+        
+        const action = btn.dataset.action;
+        if (action === 'select-all') {
+            if (currentMode === 'table') selectAllTable();
+            else { editor.focus(); editor.select(); }
+        } else if (action === 'copy-all') {
+            if (currentMode === 'table') selectAllTable();
+            else { editor.focus(); editor.select(); }
+            
+            setTimeout(() => {
+                if (currentMode === 'table') copySelectedTableData();
+                else document.execCommand('copy');
+            }, 50);
+        } else if (action === 'copy-selected') {
+            if (currentMode === 'table' && (selectedRows.length > 0 || selectedCols.length > 0 || selectedCellBlocks.length > 0)) {
+                copySelectedTableData();
+            } else {
+                document.execCommand('copy');
+                showToast('✅ 文字已複製！');
+            }
+        }
+    });
+});
+
+
+// ==========================================
+// 手機版：關閉鍵盤功能 (使用 inputmode="none")
+// ==========================================
+let isMobileKeyboardDisabled = false;
+
+document.addEventListener('DOMContentLoaded', () => {
+    const btnToggleKeyboard = document.getElementById('btnToggleKeyboardMobile');
+    const iconKeyboardCheck = document.getElementById('iconKeyboardCheck');
+
+    if (btnToggleKeyboard) {
+        btnToggleKeyboard.addEventListener('click', (e) => {
+            e.stopPropagation();
+            isMobileKeyboardDisabled = !isMobileKeyboardDisabled;
+            
+            if (isMobileKeyboardDisabled) {
+                iconKeyboardCheck.style.opacity = '1';
+                if (typeof showToast === 'function') showToast('✅ 已啟用「關閉鍵盤」');
+            } else {
+                iconKeyboardCheck.style.opacity = '0';
+                if (typeof showToast === 'function') showToast('❌ 已取消「關閉鍵盤」');
+            }
+            
+            applyKeyboardState();
+            
+            // 點擊後自動關閉選單
+            const menu = btnToggleKeyboard.closest('.dropdown-menu');
+            if (menu) menu.classList.remove('show');
+        });
+    }
+
+    // 自動監聽表格變化，確保未來「新增的列或欄」也一併套用關閉鍵盤狀態
+    const dataTable = document.getElementById('data-table');
+    if (dataTable) {
+        const tableObserver = new MutationObserver((mutations) => {
+            if (isMobileKeyboardDisabled) {
+                mutations.forEach(mutation => {
+                    mutation.addedNodes.forEach(node => {
+                        if (node.nodeType === 1) { // 確保是元素節點
+                            if (node.classList && node.classList.contains('td-inner')) {
+                                node.setAttribute('inputmode', 'none');
+                            }
+                            node.querySelectorAll('.td-inner').forEach(inner => inner.setAttribute('inputmode', 'none'));
+                        }
+                    });
+                });
+            }
+        });
+        tableObserver.observe(dataTable, { childList: true, subtree: true });
+    }
+});
+
+// 套用狀態到所有輸入區塊
+function applyKeyboardState() {
+    const editor = document.getElementById('editor');
+    const cellEditor = document.getElementById('cellEditor');
+    const tdInners = document.querySelectorAll('.td-inner');
+    
+    // 收集所有需要防護的輸入元素 (包含主編輯區、獨立儲存格編輯器、各類對話框)
+    const inputs = [
+        editor, cellEditor, 
+        document.getElementById('findInput'), document.getElementById('replaceInput'), 
+        document.getElementById('promptInput'), document.getElementById('autoFillPrefix'), 
+        document.getElementById('autoFillSuffix'), document.getElementById('autoFillStartNum'), 
+        document.getElementById('autoFillDigits'), document.getElementById('autoFormulaInput'),
+        document.getElementById('autoSplitDelimiter'), document.getElementById('autoMergeDelimiter')
+    ];
+                    
+    if (isMobileKeyboardDisabled) {
+        inputs.forEach(el => { if (el) el.setAttribute('inputmode', 'none'); });
+        tdInners.forEach(td => td.setAttribute('inputmode', 'none'));
+    } else {
+        inputs.forEach(el => { if (el) el.removeAttribute('inputmode'); });
+        tdInners.forEach(td => td.removeAttribute('inputmode'));
+    }
+    
+    // 智慧焦點處理：如果當前游標停在任何輸入框上，強制讓它失去焦點再重新聚焦，讓 OS 鍵盤狀態立刻生效
+    const active = document.activeElement;
+    if (active && (active.tagName === 'TEXTAREA' || active.tagName === 'INPUT' || active.classList.contains('td-inner'))) {
+        active.blur();
+        if (!isMobileKeyboardDisabled) {
+            setTimeout(() => active.focus(), 50); 
+        }
+    }
+}
+
+
+// 綁定貼上選單動作
+document.querySelectorAll('#dd-paste-group button[data-action]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (btn.disabled) return;
+        
+        const menu = btn.closest('.action-menu');
+        if (menu) menu.classList.remove('show');
+
+        const isPasteValue = btn.dataset.action === 'paste-value';
+
+        try {
+            const text = await navigator.clipboard.readText();
+            if (!text) return;
+
+            if (currentMode === 'text') {
+                editor.focus(); document.execCommand('insertText', false, text);
+                showToast('✅ 內容已貼上！');
+            } else {
+                // 傳遞貼上為值模式給 handleTablePaste
+                window.isPasteValueMode = isPasteValue;
+                const data = parseTSV(text);
+                
+                if (data.length > 1 || (data[0] && data[0].length > 1) || selectedRows.length > 0 || selectedCols.length > 0 || selectedCellBlocks.length > 0) {
+                    handleTablePaste(text);
+                } else {
+                    const activeInner = document.activeElement.closest('.td-inner');
+                    if (activeInner && dataTable.contains(activeInner)) {
+                        activeInner.focus(); 
+                        document.execCommand('insertText', false, text);
+                        if (isPasteValue) activeInner.removeAttribute('data-formula');
+                        debouncedSaveHistory();
+                    } else { 
+                        handleTablePaste(text); 
+                    }
+                }
+                // 用完恢復預設狀態
+                window.isPasteValueMode = false;
+                showToast(isPasteValue ? '✅ 內容已貼上 (純文字)！' : '✅ 內容已貼上！');
+            }
+        } catch (err) {
+            showToast('❌ 無法讀取剪貼簿，請使用快捷鍵 Ctrl+V');
+        }
+    });
+});
+
+
+
+/* ==========================================
+   尋找與取代：批次取代模組 (支援長度優先、安全佔位符與擴充漢字)
+   ========================================== */
+document.addEventListener('DOMContentLoaded', () => {
+    const BATCH_DATA_KEY = 'tauhu-batch-replace-data';
+    const BATCH_DIR_KEY = 'tauhu-batch-direction';
+    const BATCH_DELIM_KEY = 'tauhu-batch-delimiter'; // 🌟 新增：記憶分隔符號
+
+    const btnToggleBatchMode = document.getElementById('btnToggleBatchMode');
+    const normalSearchContainer = document.getElementById('normalSearchContainer');
+    const batchSearchContainer = document.getElementById('batchSearchContainer');
+    const searchDirectionGroup = document.getElementById('searchDirectionGroup');
+    const frTitleIcon = document.getElementById('frTitleIcon');
+    const msgFind = document.getElementById('findReplaceMessage');
+
+    const batchInputTextarea = document.getElementById('batchInputTextarea');
+    const batchInputTableWrapper = document.getElementById('batchInputTableWrapper');
+    const batchTableBody = document.getElementById('batchTableBody');
+    const btnBatchViewText = document.getElementById('btnBatchViewText');
+    const btnBatchViewTable = document.getElementById('btnBatchViewTable');
+    const batchDelimiter = document.getElementById('batchDelimiter');
+    
+    let isBatchMode = false;
+
+    // 1. 初始化讀取快取資料與設定
+    batchInputTextarea.value = localStorage.getItem(BATCH_DATA_KEY) || '';
+    
+    // 還原方向與分隔符號
+    const savedDir = localStorage.getItem(BATCH_DIR_KEY) || 'L2R';
+    const dirRadio = document.querySelector(`input[name="batchDirection"][value="${savedDir}"]`);
+    if (dirRadio) dirRadio.checked = true;
+    
+    const savedDelim = localStorage.getItem(BATCH_DELIM_KEY) || 'TAB';
+    if (batchDelimiter) batchDelimiter.value = savedDelim;
+
+    // 2. 切換批次模式
+    btnToggleBatchMode.addEventListener('click', () => {
+        isBatchMode = !isBatchMode;
+        if (isBatchMode) {
+            normalSearchContainer.classList.add('hidden');
+            batchSearchContainer.classList.remove('hidden');
+            searchDirectionGroup.classList.add('opacity-30', 'pointer-events-none');
+            btnToggleBatchMode.classList.replace('bg-gray-100', 'bg-indigo-100');
+            btnToggleBatchMode.classList.replace('text-gray-700', 'text-indigo-700');
+            frTitleIcon.textContent = 'checklist';
+            msgFind.textContent = '批次取代';
+        } else {
+            normalSearchContainer.classList.remove('hidden');
+            batchSearchContainer.classList.add('hidden');
+            searchDirectionGroup.classList.remove('opacity-30', 'pointer-events-none');
+            btnToggleBatchMode.classList.replace('bg-indigo-100', 'bg-gray-100');
+            btnToggleBatchMode.classList.replace('text-indigo-700', 'text-gray-700');
+            frTitleIcon.textContent = 'search';
+            msgFind.textContent = '尋找與取代';
+        }
+    });
+
+    // =====================================
+    // 3. 視圖切換與同步邏輯 (支援動態分隔符)
+    // =====================================
+
+    // 取得目前選定的分隔符 (TAB 需轉換為真正的 \t)
+    function getDelimiter() {
+        return batchDelimiter.value === 'TAB' ? '\t' : batchDelimiter.value;
+    }
+
+    // 當分隔符改變時，記錄偏好，並若處於表格檢視，立即同步回文字框
+    batchDelimiter.addEventListener('change', () => {
+        localStorage.setItem(BATCH_DELIM_KEY, batchDelimiter.value); // 🌟 記憶偏好
+        if (!batchInputTableWrapper.classList.contains('hidden')) {
+            syncTableToTextarea();
+        }
+    });
+
+    function syncTableToTextarea() {
+        const delim = getDelimiter();
+        const rows = [];
+        batchTableBody.querySelectorAll('tr').forEach(tr => {
+            const cols = Array.from(tr.querySelectorAll('td')).map(td => td.innerText.trim());
+            // 只要其中一格有文字，就保留這一列
+            if (cols.length > 0 && cols.some(text => text !== '')) rows.push(cols.join(delim));
+        });
+        batchInputTextarea.value = rows.join('\n');
+        localStorage.setItem(BATCH_DATA_KEY, batchInputTextarea.value);
+    }
+
+    function renderBatchTable() {
+        const delim = getDelimiter();
+        const lines = batchInputTextarea.value.split('\n');
+        batchTableBody.innerHTML = '';
+        
+        lines.forEach((line, idx) => {
+            if (line.trim() === '') return; // 跳過空行
+            const parts = line.split(delim);
+            if (parts.length >= 1) {
+                const tr = document.createElement('tr');
+                tr.className = (idx % 2 === 0 ? 'bg-white' : 'bg-gray-50') + ' border-b border-gray-200';
+                
+                // 第一欄 (加上 cursor-default 讓游標變成一般箭頭指標)
+                const td1 = document.createElement('td');
+                td1.className = 'border-r border-gray-200 px-3 py-1.5 outline-none focus:bg-blue-50 break-all w-1/2 cursor-default';
+                td1.contentEditable = true;
+                td1.innerText = parts[0] || '';
+                
+                // 第二欄 (加上 cursor-default 讓游標變成一般箭頭指標)
+                const td2 = document.createElement('td');
+                td2.className = 'px-3 py-1.5 outline-none focus:bg-blue-50 break-all w-1/2 cursor-default';
+                td2.contentEditable = true;
+                td2.innerText = parts[1] || '';
+
+                // 綁定編輯事件同步回 Textarea
+                td1.addEventListener('blur', syncTableToTextarea);
+                td2.addEventListener('blur', syncTableToTextarea);
+
+                tr.appendChild(td1);
+                tr.appendChild(td2);
+                batchTableBody.appendChild(tr);
+            }
+        });
+    }
+
+    btnBatchViewText.addEventListener('click', () => {
+        if (!batchInputTableWrapper.classList.contains('hidden')) {
+            syncTableToTextarea();
+        }
+        batchInputTableWrapper.classList.add('hidden');
+        batchInputTextarea.classList.remove('hidden');
+        btnBatchViewText.classList.replace('text-gray-400', 'text-blue-600');
+        btnBatchViewTable.classList.replace('text-blue-600', 'text-gray-400');
+    });
+
+    btnBatchViewTable.addEventListener('click', () => {
+        renderBatchTable(); // 根據當前分隔符號重新繪製表格
+        batchInputTextarea.classList.add('hidden');
+        batchInputTableWrapper.classList.remove('hidden');
+        btnBatchViewTable.classList.replace('text-gray-400', 'text-blue-600');
+        btnBatchViewText.classList.replace('text-blue-600', 'text-gray-400');
+    });
+
+    // 儲存文字框輸入
+    batchInputTextarea.addEventListener('input', () => {
+        localStorage.setItem(BATCH_DATA_KEY, batchInputTextarea.value);
+    });
+
+    batchTableBody.addEventListener('keydown', (e) => {
+        // 表格檢視下，阻擋 Enter 鍵換行
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.target.blur(); // 按下 Enter 時自動失去焦點並同步
+        }
+    });
+
+    batchTableBody.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const text = (e.originalEvent || e).clipboardData.getData('text/plain');
+        if (!text) return;
+        
+        // Excel 複製出來的資料必定是以 \t (欄) 和 \n (列) 分隔
+        const rows = text.split(/\r?\n/);
+        const activeTd = document.activeElement.closest('td');
+        if (!activeTd || !batchTableBody.contains(activeTd)) return;
+
+        const startTr = activeTd.closest('tr');
+        let startRowIdx = Array.from(batchTableBody.children).indexOf(startTr);
+        let startColIdx = Array.from(startTr.children).indexOf(activeTd);
+
+        rows.forEach((rowStr, rOffset) => {
+            // 忽略 Excel 複製時尾端多出的一個空白換行
+            if (rowStr === '' && rOffset === rows.length - 1) return; 
+            
+            const cols = rowStr.split('\t');
+            let targetTr = batchTableBody.children[startRowIdx + rOffset];
+            
+            // 如果貼上的列數超過目前的表格，自動產生新的一列
+            if (!targetTr) {
+                targetTr = document.createElement('tr');
+                targetTr.className = (startRowIdx + rOffset) % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                
+                const newTd1 = document.createElement('td');
+                newTd1.className = 'border border-gray-200 px-2 py-1 outline-none focus:bg-blue-50 break-all';
+                newTd1.contentEditable = true;
+                newTd1.addEventListener('blur', syncTableToTextarea);
+                
+                const newTd2 = document.createElement('td');
+                newTd2.className = 'border border-gray-200 px-2 py-1 outline-none focus:bg-blue-50 break-all';
+                newTd2.contentEditable = true;
+                newTd2.addEventListener('blur', syncTableToTextarea);
+
+                targetTr.appendChild(newTd1);
+                targetTr.appendChild(newTd2);
+                batchTableBody.appendChild(targetTr);
+            }
+
+            // 將資料對應覆蓋進該格 (最多只覆蓋左、右兩欄)
+            cols.forEach((colStr, cOffset) => {
+                if (startColIdx + cOffset < 2) {
+                    const targetTd = targetTr.children[startColIdx + cOffset];
+                    if (targetTd) targetTd.innerText = colStr.trim();
+                }
+            });
+        });
+        
+        syncTableToTextarea(); // 貼上完畢後立刻同步到文字快取
+        showFRMsg('✅ 表格資料已貼上', false);
+    });
+
+    // 清除資料
+    document.getElementById('btnBatchClear').addEventListener('click', () => {
+        batchInputTextarea.value = '';
+        batchTableBody.innerHTML = '';
+        localStorage.removeItem(BATCH_DATA_KEY);
+    });
+
+    // 記錄方向選擇
+    document.querySelectorAll('input[name="batchDirection"]').forEach(radio => {
+        radio.addEventListener('change', (e) => localStorage.setItem(BATCH_DIR_KEY, e.target.value));
+    });
+
+    // =====================================
+    // 4. 核心：安全佔位符批次取代引擎
+    // =====================================
+    document.getElementById('btnBatchReplaceAll').addEventListener('click', () => {
+        const rawText = batchInputTextarea.value;
+        const direction = document.querySelector('input[name="batchDirection"]:checked').value;
+        const isRegex = document.getElementById('chkRegex').checked;
+        const isCase = document.getElementById('chkCaseSensitive').checked;
+        const isWhole = document.getElementById('chkWholeWord').checked;
+        const isFormulaMatch = document.getElementById('chkFormulaMatch')?.checked;
+        const context = getSelectionContext(); 
+        
+        // 1. 解析成規則陣列並過濾無效行
+        let rules = [];
+        const delim = getDelimiter();
+        
+        rawText.split('\n').forEach(line => {
+            const parts = line.split(delim);
+            if (parts.length >= 2) {
+                let findStr = direction === 'L2R' ? parts[0] : parts[1];
+                let replaceStr = direction === 'L2R' ? parts[1] : parts[0];
+                if (findStr) rules.push({ find: findStr, replace: replaceStr || '' });
+            }
+        });
+
+        if (rules.length === 0) return showFRMsg('⚠️ 請貼上有效的兩欄對照表');
+
+        // 2. ⭐ 關鍵：依尋找字串長度遞減排序 (字數多的優先處理，避免短詞攔截)
+        rules.sort((a, b) => b.find.length - a.find.length);
+
+        // 定義極高安全性的 Unicode 佔位符區段 (Private Use Area)
+        const PL_START = '\uE000';
+        const PL_END = '\uE001';
+        const placeholderMap = {};
+
+        // 3. 預先編譯正則表達式，提升效能
+        rules.forEach((rule, index) => {
+            let term = rule.find;
+            if (!isRegex) term = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            if (!isRegex && isWhole) term = '\\b' + term + '\\b';
+            
+            // 加上 u 旗標以完美支援擴充漢字
+            const flags = (isCase ? '' : 'i') + 'gmu';
+            rule.regex = new RegExp(term, flags);
+            rule.placeholder = `${PL_START}${index}${PL_END}`;
+            placeholderMap[rule.placeholder] = rule.replace;
+        });
+
+        // 共用替換邏輯：單次文字處理
+        const processTextSafely = (text) => {
+            if (!text) return text;
+            let tempText = text;
+            
+            // 階段一：把所有命中的字串變成佔位符
+            rules.forEach(rule => {
+                tempText = tempText.replace(rule.regex, rule.placeholder);
+            });
+
+            // 階段二：將佔位符還原為最終結果
+            const finalRegex = new RegExp(`${PL_START}(\\d+)${PL_END}`, 'g');
+            tempText = tempText.replace(finalRegex, (match) => placeholderMap[match] !== undefined ? placeholderMap[match] : match);
+            
+            return tempText;
+        };
+
+        // 4. 執行取代 (依模式分配)
+        let replacedCount = 0; // 粗略計算是否有變化
+        
+        if (currentMode === 'text') {
+            const text = editor.value;
+            if (context.hasSelection) {
+                const selectedText = text.substring(context.start, context.end);
+                const newText = processTextSafely(selectedText);
+                if (newText !== selectedText) {
+                    editor.setRangeText(newText, context.start, context.end, 'select');
+                    replacedCount++;
+                }
+            } else {
+                const newText = processTextSafely(text);
+                if (newText !== text) {
+                    editor.value = newText;
+                    replacedCount++;
+                }
+            }
+            if (replacedCount > 0) { debouncedSaveHistory(); updateLineNumbers(); }
+        } else {
+            // 表格模式
+            const cells = getTargetCells(); // 使用系統原本的函數來獲取目標儲存格
+            
+            cells.forEach(cell => {
+                let textToSearch = cell.inner.innerText;
+                if (isFormulaMatch && cell.inner.hasAttribute('data-formula')) {
+                    textToSearch = cell.inner.getAttribute('data-formula');
+                }
+
+                const newText = processTextSafely(textToSearch);
+                
+                if (newText !== textToSearch) {
+                    replacedCount++;
+                    if (isFormulaMatch && cell.inner.hasAttribute('data-formula')) {
+                        cell.inner.setAttribute('data-formula', newText);
+                    } else {
+                        cell.inner.innerText = newText;
+                        if (!newText.startsWith('=')) cell.inner.removeAttribute('data-formula');
+                    }
+                }
+            });
+            
+            if (replacedCount > 0) {
+                recalculateAllFormulas();
+                debouncedSaveHistory();
+                localStorage.setItem(STORAGE_KEY, extractTextFromTable());
+            }
+        }
+
+        if (replacedCount > 0) showFRMsg(`✅ 批次取代已套用`, false);
+        else showFRMsg('找不到符合的目標');
+    });
+});
+
+
 
 
 init();

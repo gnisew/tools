@@ -374,3 +374,38 @@ table#data-table td:focus { outline: none; }
     background-color: #f8fafc;
     color: #2563eb;
 }
+
+/* ================= 浮動翻譯工具列 (防邊緣擠壓與手機版優化) ================= */
+
+/* 1. 工具列主體設定 */
+.draggable-translator {
+    width: max-content; 
+    max-width: 95vw; 
+    flex-wrap: nowrap;
+    justify-content: center; 
+}
+
+/* 2. 針對所有按鈕與群組：防止文字被擠壓成直排 */
+.min-select, 
+.pivot-wrapper, 
+#trans-btn-group, 
+#btn-execute-translate, 
+.trans-close {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+}
+
+/* 3. 手機版微調：當螢幕較窄時，才啟用自動換行與優化間距 */
+@media (max-width: 480px) {
+    .draggable-translator {
+        flex-wrap: wrap;
+        gap: 0.35rem;        
+        padding: 0.4rem;
+    }
+    .min-select {
+        padding: 0.25rem 0.8rem 0.25rem 0.5rem;
+    }
+    #trans-btn-group {
+        margin-left: 0;
+    }
+}
