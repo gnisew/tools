@@ -4819,10 +4819,11 @@ function applyTextTool(action) {
             if (line.trim() === '') return line; 
             let broken = line.replace(/([：:][‘“「『〈《【（\(<"']+)(?![ \t]*\n)/g, '$1\n');
             broken = broken.replace(/([。，、；！？\.,!?;．]+|……|…|──|—|～|~+|﹏+|＿+)([’”」』〉》】）\)\]"']*)(?![ \t]*\n)/g, '$1$2\n');
-            return `######\n${broken}\n######`;
+            
+            return `######\n${broken.trimEnd()}\n######`;
         });
         newText = brokenLines.join('\n');
-    } 
+    }
     else if (action === 'join') {
         if (textToProcess.includes('######')) {
             const lines = textToProcess.split('\n');
