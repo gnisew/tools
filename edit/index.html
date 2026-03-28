@@ -395,27 +395,24 @@
 
             <div class="flex-grow"></div>
 
-			<!-- 貼上與複製選單 -->
-            <div class="relative action-dropdown" id="dd-paste-group">
-                <button class="action-btn icon-btn hover:bg-blue-50 hover:text-blue-600" title="貼上選項">
+			<!-- 剪貼簿 (複製與貼上) 選單 -->
+            <div class="relative action-dropdown" id="dd-clipboard-group">
+                <button class="action-btn icon-btn hover:bg-blue-50 hover:text-blue-600" title="剪貼簿選項">
                     <span class="material-symbols-outlined">content_paste</span>
                 </button>
-                <div class="action-menu absolute right-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-32 z-50 py-1">
+                <div class="action-menu absolute right-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-36 z-50 py-1">
+                    <!-- 複製區塊 -->
+                    <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text" data-action="copy-selected">複製</button>
+                    <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text" data-action="copy-all">全選複製</button>
+                    <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text" data-action="select-all">全選</button>
+                    
+                    <div class="h-px bg-gray-200 my-1 mx-2"></div>
+                    
+                    <!-- 貼上區塊 -->
                     <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text" data-action="paste-normal">貼上</button>
                     <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text disabled:text-gray-400 disabled:cursor-not-allowed" id="btn-paste-value" data-action="paste-value">貼上為值</button>
                 </div>
-            </div>
-
-            <div class="relative action-dropdown" id="dd-copy-group">
-                <button class="action-btn icon-btn hover:bg-blue-50 hover:text-blue-600" title="複製選項">
-                    <span class="material-symbols-outlined">content_copy</span>
-                </button>
-                <div class="action-menu absolute right-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-32 z-50 py-1">
-                    <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text" data-action="copy-selected">複製選取</button>
-                    <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text" data-action="copy-all">全選複製</button>
-                    <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text" data-action="select-all">全選</button>
-                </div>
-            </div>            
+            </div>          
             <!-- 清除/刪除/清空 選單 -->
             <div class="relative action-dropdown" id="dd-delete-group">
                 <button class="action-btn icon-btn hover:bg-red-50 hover:text-red-600" title="清除選項"><span class="material-symbols-outlined">delete</span></button>

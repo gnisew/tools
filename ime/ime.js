@@ -2077,55 +2077,78 @@ imeDeactivate() {
 },
 
 imeHandleInput(e) {
-    // 如果是我們自己觸發的 input 事件，就直接忽略
-    if (this.isCommittingText) {
-        return;
-    }
-    
-    // 如果不是行動裝置，此函數不作用 (桌機邏輯在 keydown 中)
-    if (!this.isMobile) {
-        if (this.compositionBuffer) {
-            this.compositionBuffer = '';
-            this.imeUpdateCandidates();
-        }
-        return;
-    }
-
-    const target = e.target;
-    const currentVal = target.isContentEditable ? target.textContent : target.value;
-    const selectionStart = target.selectionStart; // 取得目前的游標位置
-
-    // 偵測輸入 (文字變長)
-    if (currentVal.length > this.lastInputValue.length) {
-        
-        // 透過游標位置，精準計算出新插入的字元，不再假設只在末尾輸入
-        const insertedLength = currentVal.length - this.lastInputValue.length;
-        const insertionStart = selectionStart - insertedLength;
-        let diff = currentVal.substring(insertionStart, selectionStart);
-
-        // 如果一次輸入超過1個字元(例如貼上)，或者不是英文/數字/空格，就直接接受，並重設輸入法狀態
-        // 將 `\s` 修改為明確的空格 ` `，避免比對到換行符 `\n`
-        if (insertedLength > 1 || !/^[a-zA-Z0-9 ]$/.test(diff)) {
-            this.lastInputValue = currentVal;
-            this.compositionBuffer = '';
-            this.compositionCursorPos = 0;
-            this.imeUpdateCandidates();
+        // 如果是我們自己觸發的 input 事件，就直接忽略
+        if (this.isCommittingText) {
             return;
         }
         
-        // --- 攔截與還原輸入框 ---
-        const restoreVal = this.lastInputValue;
-        const restoreCursorPos = insertionStart;
-        this.isCommittingText = true;
-        
-        if (target.isContentEditable) {
-            target.textContent = restoreVal;
-        } else {
-            target.value = restoreVal;
+        if (!this.isMobile) {
+            if (this.compositionBuffer) {
+                this.compositionBuffer = '';
+                this.imeUpdateCandidates();
+            }
+            return;
         }
-        target.setSelectionRange(restoreCursorPos, restoreCursorPos);
-        this.isCommittingText = false;
-        this.lastInputValue = restoreVal;
+
+        const target = e.target;
+        const currentVal = target.isContentEditable ? target.textContent : target.value;
+        
+        let selectionStart = target.selectionStart;
+        if (target.isContentEditable) {
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                selectionStart = sel.focusOffset;
+            } else {
+                selectionStart = currentVal.length;
+            }
+        }
+
+        // 偵測輸入 (文字變長)
+        if (currentVal.length > this.lastInputValue.length) {
+            
+            // 透過游標位置，精準計算出新插入的字元，不再假設只在末尾輸入
+            const insertedLength = currentVal.length - this.lastInputValue.length;
+            const insertionStart = selectionStart - insertedLength;
+            let diff = currentVal.substring(insertionStart, selectionStart);
+
+            // 如果一次輸入超過1個字元(例如貼上)，或者不是英文/數字/空格，就直接接受，並重設輸入法狀態
+            // 將 `\s` 修改為明確的空格 ` `，避免比對到換行符 `\n`
+            if (insertedLength > 1 || !/^[a-zA-Z0-9 ]$/.test(diff)) {
+                this.lastInputValue = currentVal;
+                this.compositionBuffer = '';
+                this.compositionCursorPos = 0;
+                this.imeUpdateCandidates();
+                return;
+            }
+            
+            // --- 攔截與還原輸入框 ---
+            const restoreVal = this.lastInputValue;
+            const restoreCursorPos = insertionStart;
+            this.isCommittingText = true;
+            
+            if (target.isContentEditable) {
+                target.textContent = restoreVal;
+                
+                // 【修正 2】：安全還原 contenteditable 的游標位置
+                const sel = window.getSelection();
+                const range = document.createRange();
+                if (target.childNodes.length > 0) {
+                    const textNode = target.childNodes[0];
+                    range.setStart(textNode, Math.min(restoreCursorPos, textNode.length));
+                    range.collapse(true);
+                } else {
+                    range.selectNodeContents(target);
+                    range.collapse(false);
+                }
+                sel.removeAllRanges();
+                sel.addRange(range);
+                
+            } else {
+                target.value = restoreVal;
+                target.setSelectionRange(restoreCursorPos, restoreCursorPos);
+            }
+            this.isCommittingText = false;
+            this.lastInputValue = restoreVal;
 
         // 當輸入的是空白鍵時
         if (diff === ' ') {
@@ -3665,11 +3688,7 @@ imeGetModeDisplayName(mode) {
 
 
 imeInitDrag(e) {
-    // ******** 修改點 ********
-    // 使用 .closest() 來判斷點擊的是否為按鈕或其內部元素。
-    // 無論使用者點到的是按鈕本身，還是按鈕裡面的圖示(<span>)，
-    // closest('button') 都能找到最近的 <button> 元素，從而正確地跳過拖曳。
-    if (e.target.closest('button, select')) {
+    if (e.target.closest('button, select, input, label')) {
         return;
     }
 
@@ -3681,8 +3700,8 @@ imeInitDrag(e) {
     
     this.toolbarContainer.style.top = `${rect.top}px`;
     this.toolbarContainer.style.left = `${rect.left}px`;
-    this.toolbarContainer.style.right = 'auto';  // 清除 right 屬性
-    this.toolbarContainer.style.bottom = 'auto'; // 清除 bottom 屬性
+    this.toolbarContainer.style.right = 'auto';
+    this.toolbarContainer.style.bottom = 'auto';
 
     const touch = e.touches ? e.touches[0] : null;
     const clientX = touch ? touch.clientX : e.clientX;

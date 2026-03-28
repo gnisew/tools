@@ -1,5 +1,15 @@
 /**
- * 動態注入 IME 切換按鈕所需的 CSS 樣式到 <head>。
+
+<link rel="stylesheet" href="ime.css">
+
+<button class="ime-toggle-button icon-btn hover:bg-blue-50 hover:text-blue-600" title="開啟/關閉輸入法">
+	<span class="material-symbols-outlined">keyboard</span>
+</button>
+
+<script src="ime-dict.js"></script>
+<script src="ime.js"></script>
+<script src="ime-button.js"></script>
+
  */
 function injectImeButtonStyles() {
     const styleId = 'ime-toggle-button-styles';
@@ -48,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
     }
 
-// --- 【全新的 URL 參數處理邏輯】 ---
+// --- 【URL 參數處理邏輯】 ---
     if (params.has('ime')) {
         const imeParam = params.get('ime');
         const parts = imeParam.split('-');

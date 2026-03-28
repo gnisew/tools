@@ -611,7 +611,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const editor = document.getElementById('editor');
     const tableContainer = document.getElementById('tableModeContainer');
     const btnPasteValue = document.getElementById('btn-paste-value');
-    const pasteGroup = document.getElementById('dd-paste-group');
+    const pasteGroup = document.getElementById('dd-clipboard-group');
 
     // 輔助函數：判斷目前是否為表格模式
     function isTableModeActive() {
@@ -653,7 +653,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 3. 綁定「複製」相關動作
-    document.querySelectorAll('#dd-copy-group button[data-action]').forEach(btn => {
+    document.querySelectorAll('#dd-clipboard-group button[data-action^="copy"], #dd-clipboard-group button[data-action="select-all"]').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             e.stopPropagation();
             
@@ -723,7 +723,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 4. 綁定「貼上」相關動作
     // 綁定貼上選單動作
-	document.querySelectorAll('#dd-paste-group button[data-action]').forEach(btn => {
+	document.querySelectorAll('#dd-clipboard-group button[data-action^="paste"]').forEach(btn => {
 		btn.addEventListener('click', async (e) => {
 			e.stopPropagation();
 			if (btn.disabled) return;
@@ -6148,7 +6148,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ==========================================
 // 複製與貼上選單控制與執行邏輯
 // ==========================================
-const pasteGroup = document.getElementById('dd-paste-group');
+const pasteGroup = document.getElementById('dd-clipboard-group');
 if (pasteGroup) {
     const pasteActionBtn = pasteGroup.querySelector('.action-btn');
     pasteActionBtn.addEventListener('click', () => {
@@ -6165,7 +6165,7 @@ if (pasteGroup) {
 }
 
 // 綁定複製選單動作
-document.querySelectorAll('#dd-copy-group button[data-action]').forEach(btn => {
+document.querySelectorAll('#dd-clipboard-group button[data-action^="copy"], #dd-clipboard-group button[data-action="select-all"]').forEach(btn => {
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const menu = btn.closest('.action-menu');
