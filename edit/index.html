@@ -68,7 +68,7 @@
 
 <div class="relative dropdown-container" id="dd-typography">
                 <button class="dropdown-btn icon-btn hover:bg-blue-50 hover:text-blue-600" title="排版設定">
-                    <span class="material-symbols-outlined">design_services</span>
+                    <span class="material-symbols-outlined">custom_typography</span>
                 </button>
                 <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-48 z-50 py-1">
 
@@ -165,12 +165,15 @@
 
 <div class="relative dropdown-container" id="dd-textTool">
     <button class="dropdown-btn icon-btn hover:bg-blue-50 hover:text-gray-800" title="文字排版工具">
-        <span class="material-symbols-outlined">custom_typography</span>
+        <span class="material-symbols-outlined">design_services</span>
     </button>
     <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1 max-h-[80vh] overflow-y-auto scrollbar-thin">
 
         <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnWordCount">
             <span class="material-symbols-outlined text-base">analytics</span>字數統計
+        </button>
+		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnOpenNumbering">
+            <span class="material-symbols-outlined text-base">format_list_numbered</span>編號設定
         </button>
         <div class="h-px bg-gray-200 my-1 mx-2"></div>
 
@@ -180,28 +183,31 @@
         <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnPunctuationJoin">
             <span class="material-symbols-outlined text-base">vertical_align_center</span>斷行接回
         </button>
-		<div class="h-px bg-gray-200 my-1 mx-2"></div>
-        
 
+		<div class="h-px bg-gray-200 my-1 mx-2"></div>
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnTrimSpaces">
+            <span class="material-symbols-outlined text-base">format_indent_decrease</span>移除首尾空格
+        </button>
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnRemoveEmptyLines">
+            <span class="material-symbols-outlined text-base">format_line_spacing</span>移除空行
+        </button>
+		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnRemoveTrailingEmptyLines">
+            <span class="material-symbols-outlined text-base">vertical_align_bottom</span>移除文末空行
+        </button>
+        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnRemoveDupLines">
+            <span class="material-symbols-outlined text-base">difference</span>移除重複行
+        </button>
         
+        <div class="h-px bg-gray-200 my-1 mx-2"></div>	
+
         <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnSortAZ">
             <span class="material-symbols-outlined text-base">sort_by_alpha</span>排序 A-Z
         </button>
         <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnSortZA">
             <span class="material-symbols-outlined text-base">sort_by_alpha</span>排序 Z-A
         </button>
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnRemoveDupLines">
-            <span class="material-symbols-outlined text-base">difference</span>移除重複行
-        </button>
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnRemoveEmptyLines">
-            <span class="material-symbols-outlined text-base">format_line_spacing</span>移除空行
-        </button>
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnTrimSpaces">
-            <span class="material-symbols-outlined text-base">format_indent_decrease</span>移除首尾空格
-        </button>
-        
-        <div class="h-px bg-gray-200 my-1 mx-2"></div>
-        
+		<div class="h-px bg-gray-200 my-1 mx-2"></div>
+
         <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnCapitalize">
             <span class="material-symbols-outlined text-base">title</span>句首大寫
         </button>
@@ -470,8 +476,14 @@
             <!-- 【一般模式區塊】 -->
             <div id="normalSearchContainer" class="flex flex-col gap-2">
                 <div class="flex gap-2">
-                    <input type="text" id="findInput" class="w-1/2 border border-gray-300 rounded px-2 py-1.5 outline-none focus:border-blue-500 code-text cursor-text" placeholder="尋找目標...">
-                    <input type="text" id="replaceInput" class="w-1/2 border border-gray-300 rounded px-2 py-1.5 outline-none focus:border-blue-500 code-text cursor-text" placeholder="取代為...">
+                    <div class="relative w-1/2 flex items-center">
+                        <input type="text" id="findInput" class="w-full border border-gray-300 rounded pl-2 pr-7 py-1.5 outline-none focus:border-blue-500 code-text cursor-text" placeholder="尋找目標...">
+                        <span class="material-symbols-outlined absolute right-1.5 text-gray-400 hover:text-gray-600 cursor-pointer text-[18px] hidden" id="btnClearFind" title="清除">close</span>
+                    </div>
+                    <div class="relative w-1/2 flex items-center">
+                        <input type="text" id="replaceInput" class="w-full border border-gray-300 rounded pl-2 pr-7 py-1.5 outline-none focus:border-blue-500 code-text cursor-text" placeholder="取代為...">
+                        <span class="material-symbols-outlined absolute right-1.5 text-gray-400 hover:text-gray-600 cursor-pointer text-[18px] hidden" id="btnClearReplace" title="清除">close</span>
+                    </div>
                 </div>
                 <div class="flex gap-2 mt-1">
                     <button id="btnFindPrev" class="px-4 py-1.5 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded transition text-sm code-text font-bold cursor-pointer"><</button>
@@ -826,19 +838,19 @@
 
     <div class="custom-dropdown" id="dropdown-target">
         <button class="dropdown-toggle min-select" data-id="target-btn">詔安</button>
-        <div class="dropdown-list">
-            <div class="dropdown-item" data-value="kasu">詔安</div>
+        <div class="dropdown-list">            
             <div class="dropdown-item" data-value="chinese">華語</div>
+			<div class="dropdown-item" data-value="pinyin">拼音</div>
             <div class="dropdown-item" data-value="sixian">四縣</div>
             <div class="dropdown-item" data-value="sixiannan">南四縣</div>
             <div class="dropdown-item" data-value="hailu">海陸</div>
             <div class="dropdown-item" data-value="dapu">大埔</div>
             <div class="dropdown-item" data-value="raoping">饒平</div>
+			<div class="dropdown-item" data-value="kasu">詔安</div>
             <div class="dropdown-item" data-value="holo">和樂</div>
             <div class="dropdown-item" data-value="jinmen">金門</div>
             <div class="dropdown-item" data-value="matsu">馬祖</div>
-            <div class="dropdown-item" data-value="segment">分詞</div>
-            <div class="dropdown-item" data-value="pinyin">拼音</div>
+            <div class="dropdown-item" data-value="segment">分詞</div>            
         </div>
     </div>
 
@@ -856,6 +868,115 @@
 
     <button id="btn-close-translator" class="icon-btn trans-close ml-1" title="關閉">✖</button>
 </div>
+
+
+
+
+<!-- 編號設定 浮動對話框 -->
+<div id="numberingModal" class="fixed bg-white rounded-lg shadow-2xl border border-gray-100 w-[340px] max-w-[90vw] hidden z-[9999] code-text flex flex-col cursor-move overflow-hidden">
+    <div class="flex justify-between items-center px-4 py-3 cursor-move bg-blue-50" id="numberingHeader">
+        <div class="flex items-center gap-2 pointer-events-none">
+            <span class="material-symbols-outlined text-blue-600 font-bold text-lg">format_list_numbered</span>
+            <span class="text-gray-800 text-sm font-bold">編號設定</span>
+        </div>
+        <button id="btnCloseNumbering" class="text-gray-400 hover:text-red-500 transition cursor-pointer"><span class="material-symbols-outlined text-sm">close</span></button>
+    </div>
+    
+    <div class="p-4 flex flex-col gap-3 text-sm">
+               
+        <!-- 第一行：分隔方式、編號類型、略過 (三欄) -->
+        <div class="grid grid-cols-3 gap-2">
+            <div class="flex flex-col gap-1">
+                <label class="font-bold text-gray-700 text-xs">分隔方式</label>
+                <select id="numSeparator" class="border border-gray-200 rounded px-1 py-1.5 outline-none focus:border-blue-300 code-text cursor-pointer bg-white text-sm">
+                    <option value="\n">分行</option>
+                    <option value=" ">空格</option>
+                    <option value="\t">TAB</option>
+                </select>
+            </div>
+            <div class="flex flex-col gap-1">
+                <label class="font-bold text-gray-700 text-xs">編號類型</label>
+                <select id="numType" class="border border-gray-200 rounded px-1 py-1.5 outline-none focus:border-blue-300 code-text cursor-pointer bg-white text-sm">
+                    <option value="num">數字</option>
+                    <option value="(num)">(數字)</option>
+                    <option value="A">字母大</option>
+                    <option value="a">字母小</option>
+                    <option value="Aa">字母大小</option>
+                    <option value="hz_s">漢字小</option>
+                    <option value="(hz_s)">(漢字小)</option>
+                    <option value="hz_l">漢字大</option>
+                </select>
+            </div>
+            <div class="flex flex-col gap-1">
+                <label class="font-bold text-gray-700 text-xs">略過</label>
+                <select id="numSkip" class="border border-gray-200 rounded px-1 py-1.5 outline-none focus:border-blue-300 code-text cursor-pointer bg-white text-sm">
+                    <option value="none">無</option>
+                    <option value="empty">空行</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 第二行：起始、位數、前加、後加 (四欄並排，緊湊設計) -->
+        <div class="grid grid-cols-4 gap-2">
+            <div class="flex flex-col gap-1">
+                <label class="font-bold text-gray-700 text-xs">起始</label>
+                <input type="number" id="numStart" value="1" min="1" class="border border-gray-200 rounded px-1 py-1.5 outline-none focus:border-blue-300 code-text text-sm">
+            </div>
+            <div class="flex flex-col gap-1">
+                <label class="font-bold text-gray-700 text-xs" title="僅支援數字補零">位數</label>
+                <input type="number" id="numDigits" value="1" min="1" class="border border-gray-200 rounded px-1 py-1.5 outline-none focus:border-blue-300 code-text text-sm">
+            </div>
+            <div class="flex flex-col gap-1">
+                <label class="font-bold text-gray-700 text-xs">前加</label>
+                <select id="numPrefix" class="border border-gray-200 rounded px-1 py-1.5 outline-none focus:border-blue-300 code-text cursor-pointer bg-white text-sm">
+                    <option value="">無</option>
+					<option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+					<option value="D">D</option>
+					<option value="_">_</option>
+                    <option value="(">(</option>
+                    <option value="[">[</option>
+                    <option value="{">{</option>
+                    <option value="【">【</option>
+                    <option value="（">（</option>
+                    <option value="〈">〈</option>
+                    <option value="\t">TAB</option>
+                </select>
+            </div>
+            <div class="flex flex-col gap-1">
+                <label class="font-bold text-gray-700 text-xs">後加</label>
+                <select id="numSuffix" class="border border-gray-200 rounded px-1 py-1.5 outline-none focus:border-blue-300 code-text cursor-pointer bg-white text-sm">
+                    <option value="">無</option>
+                    <option value=".">.</option>
+                    <option value=". ">.空</option>
+                    <option value=" ">空格</option>
+					<option value=" ">_</option>
+                    <option value="、" selected>、</option>
+                    <option value=":">:</option>
+                    <option value=")">)</option>
+                    <option value="]">]</option>
+                    <option value="}">}</option>
+                    <option value="】">】</option>
+                    <option value="）">）</option>
+                    <option value="〉">〉</option>
+                    <option value="\t">TAB</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 第三行：執行按鈕 -->
+        <div class="flex gap-2 mt-2">
+            <button id="btnRemoveNumbering" class="flex-1 px-3 py-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition font-bold shadow-sm cursor-pointer">移除編號</button>
+            <button id="btnAddNumbering" class="flex-1 px-3 py-2 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg transition font-bold shadow-sm cursor-pointer">加上編號</button>
+        </div>
+    </div>
+
+</div>
+
+
+
+
 
 
 
