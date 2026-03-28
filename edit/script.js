@@ -3595,6 +3595,81 @@ const formulaFunctions = {
         // Excel 的起始位置是 1-based，所以陣列索引要減 1
         return chars.slice(startNum - 1, startNum - 1 + numChars).join('');
     },
+	
+	// 陣列合併：=JOIN(分隔符, 範圍) 或 =JOIN("-", A1, B1)
+    // 陣列合併：=JOIN(分隔符, 範圍) 或 =JOIN("-", A1, B1)
+    JOIN: (args) => {
+        if (args.length < 2) return "錯誤: 參數不足";
+        
+        const resolveArg = (arg) => {
+            const cell = parseCellReference(arg);
+            return cell ? String(getCellValue(cell.row, cell.col)) : arg.replace(/^["']|["']$/g, "");
+        };
+
+        const separator = resolveArg(args[0]);
+        let valuesToJoin = [];
+
+        // 遍歷第二個參數開始的所有項目
+        for (let i = 1; i < args.length; i++) {
+            const arg = args[i].trim();
+            // 如果是範圍 (包含冒號)
+            if (arg.includes(':')) {
+                const rangeVals = getRangeValues(arg);
+                valuesToJoin = valuesToJoin.concat(rangeVals.map(String));
+            } else {
+                valuesToJoin.push(resolveArg(arg));
+            }
+        }
+        
+        // 排除空字串後再合併
+        return valuesToJoin.filter(v => v !== "").join(separator);
+    },
+
+    // 正則擷取：=REGEXEXTRACT(文字, 正規表達式)
+    REGEXEXTRACT: (args) => {
+        if (args.length < 2) return "錯誤: 參數不足";
+        
+        const resolveArg = (arg) => {
+            const cell = parseCellReference(arg);
+            return cell ? String(getCellValue(cell.row, cell.col)) : arg.replace(/^["']|["']$/g, "");
+        };
+
+        const text = resolveArg(args[0]);
+        const regexStr = resolveArg(args[1]);
+
+        try {
+            const regex = new RegExp(regexStr);
+            const match = text.match(regex);
+            // 如果有捕捉群組，回傳第一個群組；否則回傳整個匹配的字串
+            return match ? (match[1] || match[0]) : "#N/A";
+        } catch (e) {
+            return "錯誤: 無效的正則表達式";
+        }
+    },
+
+    // 取代位置字元：=REPLACE(文字, 起始位置, 取代長度, 新文字)
+    REPLACE: (args) => {
+        if (args.length < 4) return "錯誤: 參數不足";
+        
+        const resolveArg = (arg) => {
+            const cell = parseCellReference(arg);
+            return cell ? String(getCellValue(cell.row, cell.col)) : arg.replace(/^["']|["']$/g, "");
+        };
+
+        const text = resolveArg(args[0]);
+        const startPos = parseInt(resolveArg(args[1]), 10);
+        const numChars = parseInt(resolveArg(args[2]), 10);
+        const newText = resolveArg(args[3]);
+
+        if (isNaN(startPos) || startPos < 1 || isNaN(numChars) || numChars < 0) return "#VALUE!";
+
+        // 轉換成陣列以支援擴充漢字
+        const chars = [...text];
+        const before = chars.slice(0, startPos - 1).join('');
+        const after = chars.slice(startPos - 1 + numChars).join('');
+
+        return before + newText + after;
+    },
 
 
     // 總和計算
@@ -3837,20 +3912,59 @@ const formulaFunctions = {
     }
 };
 
-// 5. 解析並執行公式字串 (支援簡寫、引號保護、保留大小寫)
+// 5. 解析並執行公式字串 (支援簡寫、引號保護、保留大小寫、智慧括號、基礎運算)
 function evaluateFormula(formulaStr) {
-    // 移除等號並去掉前後空白 (不再盲目全轉大寫，以保護引號內的文字)
-    const cleanFormula = formulaStr.substring(1).trim(); 
+    let cleanFormula = formulaStr.substring(1).trim(); 
     
-    // 正則解析：找尋 函數名(參數)，函數名不區分大小寫 (a-z)
+    // 🌟 智慧補齊右括號 (自動加上缺失的 ')')
+    const openBrackets = (cleanFormula.match(/\(/g) || []).length;
+    const closeBrackets = (cleanFormula.match(/\)/g) || []).length;
+    if (openBrackets > closeBrackets) {
+        cleanFormula += ')'.repeat(openBrackets - closeBrackets);
+    }
+    
+    // 判斷是否為函數模式：找尋 函數名(參數)
     const match = cleanFormula.match(/^([a-zA-Z]+)\((.*)\)$/);
-    if (!match) return "錯誤: 語法無效";
     
-    // 只有函數名稱需要強制轉大寫，以利字典比對
+    // 🌟 如果不是函數，嘗試作為基礎運算式執行 (例如 A1+B1, C2&"測試")
+    if (!match) {
+        let evalStr = cleanFormula;
+        
+        // 解析儲存格並帶入實際值
+        evalStr = evalStr.replace(/[A-Z]+\d+/gi, (cellRef) => {
+            const cell = parseCellReference(cellRef);
+            if (!cell) return cellRef;
+            const val = getCellValue(cell.row, cell.col);
+            // 數字直接輸出，文字則包上雙引號並做安全跳脫
+            if (typeof val === 'number' && !isNaN(val)) return val;
+            return `"${String(val).replace(/"/g, '\\"')}"`;
+        });
+
+        // 處理 '&' 連接符號：將不在引號內的 '&' 替換為 '+""+'，強制將前後變數轉型並執行純文字合併
+        let inQuotesForAmp = false;
+        let processedEvalStr = '';
+        for(let i=0; i<evalStr.length; i++) {
+            if (evalStr[i] === '"') inQuotesForAmp = !inQuotesForAmp;
+            if (evalStr[i] === '&' && !inQuotesForAmp) {
+                processedEvalStr += '+""+';
+            } else {
+                processedEvalStr += evalStr[i];
+            }
+        }
+        evalStr = processedEvalStr;
+
+        try {
+            // 使用安全的 Function 建構式進行數學與字串運算
+            const result = new Function(`return ${evalStr}`)();
+            return result === undefined ? "" : result;
+        } catch (e) {
+            return "錯誤: 無效的運算式";
+        }
+    }
+    
     let funcName = match[1].toUpperCase();
     let argsStr = match[2]; 
     
-    // ======== 升級版參數解析器 (引號保護機制) ========
     const args = [];
     let currentArg = '';
     let inDoubleQuotes = false;
@@ -3859,11 +3973,9 @@ function evaluateFormula(formulaStr) {
     for (let i = 0; i < argsStr.length; i++) {
         const char = argsStr[i];
         
-        // 判斷是否進入或離開引號內部
         if (char === '"' && !inSingleQuotes) inDoubleQuotes = !inDoubleQuotes;
         else if (char === "'" && !inDoubleQuotes) inSingleQuotes = !inSingleQuotes;
         
-        // 如果遇到逗號，且「不在」任何引號內部，才視為參數分隔符號
         if (char === ',' && !inDoubleQuotes && !inSingleQuotes) {
             args.push(currentArg.trim());
             currentArg = '';
@@ -3871,11 +3983,8 @@ function evaluateFormula(formulaStr) {
             currentArg += char;
         }
     }
-    // 推入最後一個參數
     args.push(currentArg.trim());
-    // =================================================
 
-    // ======== 函數簡寫對照表 (Alias Dictionary) ========
     const aliases = {
         'L': 'LEN',
         'S': 'SUM',
@@ -3888,14 +3997,15 @@ function evaluateFormula(formulaStr) {
 		'LF': 'LEFT',
         'R': 'RIGHT',
         'M': 'MID',
+        'J': 'JOIN',
+        'RE': 'REGEXEXTRACT',
+        'RP': 'REPLACE',
     };
     
-    // 轉換別名
     if (aliases[funcName]) {
         funcName = aliases[funcName];
     }
     
-    // 執行函數
     if (formulaFunctions[funcName]) {
         try {
             return formulaFunctions[funcName](args);
@@ -6708,9 +6818,304 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
+/* ==========================================
+   拼音轉換工具模組 (單一橫條版 - 支援記憶與狀態)
+   ========================================== */
+document.addEventListener('DOMContentLoaded', () => {
+    const btnOpenPinyin = document.getElementById('btnOpenPinyinTool');
+    const modalPinyin = document.getElementById('floating-pinyin-tool');
+    const dragHandlePinyin = document.getElementById('pinyin-drag-handle');
+    const btnClosePinyin = document.getElementById('btnClosePinyinTool');
+    const btnExecutePinyin = document.getElementById('btnExecutePinyin');
 
+    // UI 元素
+    const langBtn = document.querySelector('[data-id="pinyin-lang-btn"]');
+    const sourceBtn = document.querySelector('[data-id="pinyin-source-btn"]');
+    const targetBtn = document.querySelector('[data-id="pinyin-target-btn"]');
+    const langList = document.getElementById('pinyin-lang-list');
+    const sourceList = document.getElementById('pinyin-source-list');
+    const targetList = document.getElementById('pinyin-target-list');
 
+    let isPinyinScriptsLoaded = false;
+    let pinyinParsedConfig = {}; 
+    
+    // 🌟 新增：定義儲存 Key
+    const PY_LANG_KEY = 'tauhu-py-lang';
+    const PY_SRC_KEY = 'tauhu-py-src';
+    const PY_TGT_KEY = 'tauhu-py-tgt';
 
+    // 🌟 狀態管理 (加入 localStorage 讀取預設值)
+    let pinyinState = {
+        lang: localStorage.getItem(PY_LANG_KEY) || 'kasu',
+        source: localStorage.getItem(PY_SRC_KEY) || '',
+        target: localStorage.getItem(PY_TGT_KEY) || ''
+    };
 
+    // 1. 動態載入腳本
+    function loadPinyinScripts() {
+        if (isPinyinScriptsLoaded) return Promise.resolve();
+        return new Promise((resolve, reject) => {
+            window.APP_ID = "tauhu_pinyin_tool"; 
+            
+            const script1 = document.createElement('script');
+            script1.src = 'https://gnisew.github.io/tools/turn/pinyin2/data-pinyin2pinyin.js';
+            
+            const script2 = document.createElement('script');
+            script2.src = 'https://gnisew.github.io/tools/turn/pinyin2/menu.js';
+            
+            script1.onload = () => document.head.appendChild(script2);
+            script2.onload = () => {
+                isPinyinScriptsLoaded = true;
+                parsePinyinMenuConfig();
+                resolve();
+            };
+            
+            script1.onerror = reject;
+            script2.onerror = reject;
+            document.head.appendChild(script1);
+        });
+    }
 
+    // 2. 解析配置與建立語言選單
+    function parsePinyinMenuConfig() {
+        if (typeof languageConfigs === 'undefined') {
+            showToast('❌ 無法讀取拼音配置');
+            return;
+        }
+        
+        pinyinParsedConfig = {};
+        langList.innerHTML = '';
+        
+        for (const [langId, langData] of Object.entries(languageConfigs)) {
+            const item = document.createElement('div');
+            item.className = 'dropdown-item';
+            item.dataset.value = langId;
+            item.textContent = langData.name;
+            item.addEventListener('click', () => {
+                pinyinState.lang = langId;
+                langBtn.textContent = langData.name;
+                localStorage.setItem(PY_LANG_KEY, langId); // 🌟 記憶語言
+                item.closest('.dropdown-list').classList.remove('show');
+                updatePinyinSourceSelect();
+                if (currentMode === 'text') editor.focus();
+            });
+            langList.appendChild(item);
+            
+            // 解析 TSV
+            pinyinParsedConfig[langId] = {};
+            const lines = langData.config.trim().split(/\n/).slice(1);
+            lines.forEach(line => {
+                const parts = line.split('\t').map(s => s.trim());
+                if (parts.length >= 3) {
+                    const [left, right, func] = parts;
+                    if (!pinyinParsedConfig[langId][left]) pinyinParsedConfig[langId][left] = {};
+                    pinyinParsedConfig[langId][left][right] = func;
+                }
+            });
+        }
+        
+        // 🌟 確保讀取到的語言是有效的
+        if (!languageConfigs[pinyinState.lang]) pinyinState.lang = 'kasu';
+        langBtn.textContent = languageConfigs[pinyinState.lang].name;
+        
+        updatePinyinSourceSelect();
+    }
+
+    // 3. 連動選單更新
+    function updatePinyinSourceSelect() {
+        const langId = pinyinState.lang;
+        sourceList.innerHTML = '';
+        if (!pinyinParsedConfig[langId]) return;
+        
+        const sources = Object.keys(pinyinParsedConfig[langId]);
+        sources.forEach(s => {
+            const item = document.createElement('div');
+            item.className = 'dropdown-item';
+            item.dataset.value = s;
+            item.textContent = s;
+            item.addEventListener('click', () => {
+                pinyinState.source = s;
+                sourceBtn.textContent = s;
+                localStorage.setItem(PY_SRC_KEY, s); // 🌟 記憶原拼音
+                item.closest('.dropdown-list').classList.remove('show');
+                updatePinyinTargetSelect();
+                if (currentMode === 'text') editor.focus();
+            });
+            sourceList.appendChild(item);
+        });
+        
+        // 🌟 自動還原記憶，或選擇第一個
+        if (pinyinState.source && sources.includes(pinyinState.source)) {
+            sourceBtn.textContent = pinyinState.source;
+        } else if (sources.length > 0) {
+            pinyinState.source = sources[0];
+            sourceBtn.textContent = sources[0];
+        } else {
+            pinyinState.source = '';
+            sourceBtn.textContent = '原拼音';
+        }
+        updatePinyinTargetSelect();
+    }
+
+    function updatePinyinTargetSelect() {
+        const langId = pinyinState.lang;
+        const sourceId = pinyinState.source;
+        targetList.innerHTML = '';
+        
+        if (!pinyinParsedConfig[langId] || !pinyinParsedConfig[langId][sourceId]) {
+            pinyinState.target = '';
+            targetBtn.textContent = '新拼音';
+            return;
+        }
+        
+        const targets = Object.keys(pinyinParsedConfig[langId][sourceId]);
+        targets.forEach(t => {
+            const item = document.createElement('div');
+            item.className = 'dropdown-item';
+            item.dataset.value = t;
+            item.textContent = t;
+            item.addEventListener('click', () => {
+                pinyinState.target = t;
+                targetBtn.textContent = t;
+                localStorage.setItem(PY_TGT_KEY, t); // 🌟 記憶新拼音
+                item.closest('.dropdown-list').classList.remove('show');
+                if (currentMode === 'text') editor.focus();
+            });
+            targetList.appendChild(item);
+        });
+        
+        // 🌟 自動還原記憶，或選擇第一個
+        if (pinyinState.target && targets.includes(pinyinState.target)) {
+            targetBtn.textContent = pinyinState.target;
+        } else if (targets.length > 0) {
+            pinyinState.target = targets[0];
+            targetBtn.textContent = targets[0];
+        } else {
+            pinyinState.target = '';
+            targetBtn.textContent = '新拼音';
+        }
+    }
+
+    // 4. 視窗開關與按鈕狀態
+    function togglePinyinPanel() {
+        const isHidden = modalPinyin.style.display === 'none' || modalPinyin.style.display === '';
+        if (isHidden) {
+            modalPinyin.style.display = 'flex';
+            // 🌟 加入底色：深綠文字、淺綠背景
+            btnOpenPinyin?.classList.add('bg-green-100', 'text-green-700');
+        } else {
+            modalPinyin.style.display = 'none';
+            // 🌟 移除底色，恢復灰色
+            btnOpenPinyin?.classList.remove('bg-green-100', 'text-green-700');
+            if (currentMode === 'text') editor.focus();
+        }
+    }
+
+    btnOpenPinyin?.addEventListener('click', async (e) => {
+        e.preventDefault();
+        if (window.matchMedia && !window.matchMedia('(pointer: coarse)').matches) {
+            e.preventDefault();
+        }
+
+        if (!isPinyinScriptsLoaded) {
+            showToast('🔄 正在載入拼音轉換引擎...', 2000);
+            try {
+                await loadPinyinScripts();
+            } catch (err) {
+                showToast('❌ 載入拼音模組失敗', 3000);
+                return;
+            }
+        }
+        
+        togglePinyinPanel();
+    });
+
+    btnClosePinyin?.addEventListener('click', togglePinyinPanel);
+
+    // 5. 視窗拖曳功能
+    let isDraggingPinyin = false, startX, startY, initialX, initialY;
+    function startPinyinDrag(clientX, clientY) {
+        isDraggingPinyin = true; startX = clientX; startY = clientY;
+        const rect = modalPinyin.getBoundingClientRect(); initialX = rect.left; initialY = rect.top;
+        modalPinyin.style.transform = 'none'; modalPinyin.style.left = `${initialX}px`; modalPinyin.style.top = `${initialY}px`;
+        modalPinyin.style.bottom = 'auto'; modalPinyin.style.right = 'auto';
+        document.body.style.userSelect = 'none';
+    }
+    function dragPinyin(clientX, clientY) { if (isDraggingPinyin) { modalPinyin.style.left = `${initialX + (clientX - startX)}px`; modalPinyin.style.top = `${initialY + (clientY - startY)}px`; } }
+    function stopPinyinDrag() { isDraggingPinyin = false; document.body.style.userSelect = ''; }
+
+    if (dragHandlePinyin) {
+        dragHandlePinyin.addEventListener('mousedown', (e) => { startPinyinDrag(e.clientX, e.clientY); document.addEventListener('mousemove', onMouseMovePinyin); document.addEventListener('mouseup', onMouseUpPinyin); });
+        dragHandlePinyin.addEventListener('touchstart', (e) => { startPinyinDrag(e.touches[0].clientX, e.touches[0].clientY); document.addEventListener('touchmove', onTouchMovePinyin, { passive: false }); document.addEventListener('touchend', onTouchEndPinyin); }, { passive: false });
+    }
+    function onMouseMovePinyin(e) { dragPinyin(e.clientX, e.clientY); }
+    function onMouseUpPinyin() { stopPinyinDrag(); document.removeEventListener('mousemove', onMouseMovePinyin); document.removeEventListener('mouseup', onMouseUpPinyin); }
+    function onTouchMovePinyin(e) { if (!isDraggingPinyin) return; e.preventDefault(); dragPinyin(e.touches[0].clientX, e.touches[0].clientY); }
+    function onTouchEndPinyin() { stopPinyinDrag(); document.removeEventListener('touchmove', onTouchMovePinyin); document.removeEventListener('touchend', onTouchEndPinyin); }
+
+    // 6. 執行轉換邏輯
+    btnExecutePinyin?.addEventListener('click', () => {
+        const langId = pinyinState.lang;
+        const sourceId = pinyinState.source;
+        const targetId = pinyinState.target;
+        
+        if (!langId || !sourceId || !targetId) return;
+        
+        const funcName = pinyinParsedConfig[langId][sourceId][targetId];
+        if (!funcName || typeof window[funcName] !== 'function') {
+            showToast('❌ 找不到對應的轉換函數');
+            return;
+        }
+
+        try {
+            if (currentMode === 'text') {
+                const start = editor.selectionStart, end = editor.selectionEnd;
+                let text = (start !== end) ? editor.value.substring(start, end) : editor.value;
+                if (!text) { showToast('⚠️ 編輯區沒有文字'); return; }
+                
+                text = window[funcName](text);
+                
+                if (start !== end) editor.setRangeText(text, start, end, 'select'); 
+                else editor.value = text;
+            } 
+            else if (currentMode === 'table') {
+                const sel = window.getSelection();
+                if (sel.toString().length > 0 && dataTable && dataTable.contains(sel.anchorNode)) {
+                    let text = window[funcName](sel.toString());
+                    const range = sel.getRangeAt(0); 
+                    range.deleteContents(); 
+                    range.insertNode(document.createTextNode(text));
+                } else {
+                    let selectedCells = Array.from(document.querySelectorAll('table#data-table td.sel-bg .td-inner'));
+                    if (selectedCells.length === 0) {
+                        let activeCell = document.activeElement.closest('.td-inner') || 
+                            (document.activeElement.classList && document.activeElement.classList.contains('td-inner') ? document.activeElement : null);
+                        if (!activeCell) {
+                            const allTds = document.querySelectorAll('table#data-table td');
+                            const singleSelectedTd = Array.from(allTds).find(td => td.style.boxShadow && td.style.boxShadow.includes('inset'));
+                            if (singleSelectedTd) activeCell = singleSelectedTd.querySelector('.td-inner');
+                        }
+                        if (activeCell) selectedCells.push(activeCell);
+                    }
+                    
+                    if (selectedCells.length === 0) { 
+                        showToast("請先選取要處理的文字或儲存格！"); 
+                        return; 
+                    }
+                    
+                    for (const cell of selectedCells) {
+                        let text = cell.innerText || cell.textContent;
+                        cell.innerText = window[funcName](text);
+                        if (cell.hasAttribute('data-formula')) cell.removeAttribute('data-formula');
+                    }
+                }
+            }
+            debouncedSaveHistory();
+            showToast('✅ 拼音轉換完成！');
+        } catch (err) {
+            console.error("轉換發生錯誤:", err);
+            showToast("❌ 轉換失敗，請檢查輸入內容", 3000);
+        }
+    });
+});
 init();

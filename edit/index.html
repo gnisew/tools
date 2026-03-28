@@ -58,9 +58,12 @@
 				<span class="btn-text"></span>				
 			</button>	
 
-<button id="btn-toggle-translator" class="icon-btn" title="開啟翻譯轉換工具">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"></path></svg>
-</button>
+			<button id="btn-toggle-translator" class="icon-btn" title="開啟翻譯轉換工具">
+				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"></path></svg>
+			</button>
+			<button id="btnOpenPinyinTool" class="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition flex items-center justify-center cursor-pointer" title="拼音轉換工具">
+				<span class="material-symbols-outlined text-[20px]">rotate_auto</span>
+			</button>
 
 <div class="h-6 w-px bg-gray-300 mx-1"></div>
 
@@ -679,6 +682,7 @@
             <label class="text-xs text-gray-500 pl-1 font-bold">函數參考 (點選可直接帶入)</label>
             <select id="autoFormulaSelect" class="w-full border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:border-green-300 code-text cursor-pointer bg-white">
                 <option value="">-- 請選擇參考函數 --</option>
+                <option value="=A1+B1">=A1+B1 (基礎運算 + - * / &)</option>
                 <option value="=LEN(A1)">=LEN(A1) (L字數)</option>
                 <option value='=COUNTIF(A:A, "目標")'>=COUNTIF(A:A, "目標") (C條件計數)</option>
                 <option value="=SUM(A1:A5)">=SUM(A1:A5) (S總和)</option>
@@ -690,6 +694,9 @@
 				<option value='=LEFT(A1, 2)'>=LEFT(A1, 2) (LF左側截取)</option>
                 <option value='=RIGHT(A1, 2)'>=RIGHT(A1, 2) (R右側截取)</option>
                 <option value='=MID(A1, 2, 3)'>=MID(A1, 2, 3) (M中間截取)</option>
+                <option value='=JOIN("-", A1:C1)'>=JOIN("-", A1:C1) (J陣列合併)</option>
+                <option value='=REGEXEXTRACT(A1, "[0-9]+")'>=REGEXEXTRACT(A1, "正則") (RE正則擷取)</option>
+                <option value='=REPLACE(A1, 1, 2, "X")'>=REPLACE(A1, 1, 2, "X") (RP取代位置字元)</option>
             </select>
         </div>
         
@@ -976,7 +983,39 @@
 
 
 
+<!-- 拼音轉換工具 (簡潔橫條版) -->
+<div id="floating-pinyin-tool" class="draggable-translator" style="display: none;">
+    <div id="pinyin-drag-handle" class="drag-handle" title="按住拖曳">⋮⋮</div>
+    
+    <div class="custom-dropdown" id="dropdown-pinyin-lang">
+        <button class="dropdown-toggle min-select" data-id="pinyin-lang-btn">語言</button>
+        <div class="dropdown-list" id="pinyin-lang-list">
+            <!-- JS 動態產生 -->
+        </div>
+    </div>
 
+    <div class="custom-dropdown" id="dropdown-pinyin-source">
+        <button class="dropdown-toggle min-select" data-id="pinyin-source-btn">原拼音</button>
+        <div class="dropdown-list" id="pinyin-source-list">
+            <!-- JS 動態產生 -->
+        </div>
+    </div>
+
+    <div class="custom-dropdown" id="dropdown-pinyin-target">
+        <button class="dropdown-toggle min-select" data-id="pinyin-target-btn">新拼音</button>
+        <div class="dropdown-list" id="pinyin-target-list">
+            <!-- JS 動態產生 -->
+        </div>
+    </div>
+
+    <div class="inline-flex rounded-full shadow relative ml-1">
+        <button id="btnExecutePinyin" class="bg-green-100 hover:bg-green-200 text-green-800 font-medium py-1.5 px-4 rounded-full text-sm transition-colors cursor-pointer">
+            轉換
+        </button>
+    </div>
+
+    <button id="btnClosePinyinTool" class="icon-btn trans-close ml-1" title="關閉">✖</button>
+</div>
 
 
 
