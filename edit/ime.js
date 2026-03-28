@@ -3665,11 +3665,7 @@ imeGetModeDisplayName(mode) {
 
 
 imeInitDrag(e) {
-    // ******** 修改點 ********
-    // 使用 .closest() 來判斷點擊的是否為按鈕或其內部元素。
-    // 無論使用者點到的是按鈕本身，還是按鈕裡面的圖示(<span>)，
-    // closest('button') 都能找到最近的 <button> 元素，從而正確地跳過拖曳。
-    if (e.target.closest('button, select')) {
+    if (e.target.closest('button, select, input, label')) {
         return;
     }
 
@@ -3681,8 +3677,8 @@ imeInitDrag(e) {
     
     this.toolbarContainer.style.top = `${rect.top}px`;
     this.toolbarContainer.style.left = `${rect.left}px`;
-    this.toolbarContainer.style.right = 'auto';  // 清除 right 屬性
-    this.toolbarContainer.style.bottom = 'auto'; // 清除 bottom 屬性
+    this.toolbarContainer.style.right = 'auto';
+    this.toolbarContainer.style.bottom = 'auto';
 
     const touch = e.touches ? e.touches[0] : null;
     const clientX = touch ? touch.clientX : e.clientX;
