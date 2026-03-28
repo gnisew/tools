@@ -4785,7 +4785,6 @@ document.getElementById('btnApplyAutoMerge').addEventListener('click', () => {
             }
         }
     }
-
     recalculateAllFormulas();
     debouncedSaveHistory();
     autoMergeModal.classList.add('hidden');
@@ -5956,6 +5955,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
+			debouncedSaveHistory();
         } catch (err) {
             console.error("轉換發生錯誤:", err); 
             alert("轉換發生錯誤，詳細請查看主控台 (Console)。");
