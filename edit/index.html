@@ -6,12 +6,12 @@
     <title>烏衣行編輯器</title>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入外部 CSS 檔案 -->
+
     <link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="ime.css">
 	<link href="https://oikasu1.github.io/kasuexam/kasu/fonts/twhei.css" rel="stylesheet">
     <link href="https://tauhu.tw/tauhu-oo.css" rel="stylesheet">
-	<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@300..700" rel="stylesheet" />
-	<link href="https://gnisew.github.io/tools/ime/ime.css" rel="stylesheet">
+
 </head>
 <body class="p-2 md:p-6">
 
@@ -40,6 +40,8 @@
 						<!-- 尋找與取代按鈕 -->
             <button id="btnFindReplace" title="尋找與取代 (Ctrl+F)" class="icon-btn hover:bg-blue-50 hover:text-blue-600"><span class="material-symbols-outlined">search</span></button>
 
+
+
 			<!-- 介面設定 -->
 			<div class="relative dropdown-container hidden md:block" id="dd-editorWidth">
 				<button class="dropdown-btn icon-btn" title="介面寬度"><span class="material-symbols-outlined">width_full</span></button>
@@ -53,19 +55,41 @@
 			</div>
             <div class="h-6 w-px bg-gray-300 mx-1"></div>
 
-		  	<button class="toolbar-btn-text ime-toggle-button" title="輸入法">
-				<span class="material-icons">keyboard</span>
-				<span class="btn-text"></span>				
-			</button>	
 
-			<button id="btn-toggle-translator" class="icon-btn" title="開啟翻譯轉換工具">
-				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 8l6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"></path></svg>
-			</button>
-			<button id="btnOpenPinyinTool" class="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition flex items-center justify-center cursor-pointer" title="拼音轉換工具">
-				<span class="material-symbols-outlined text-[20px]">rotate_auto</span>
-			</button>
 
-<div class="h-6 w-px bg-gray-300 mx-1"></div>
+
+
+			<!-- 語言工具選單 -->
+            <div class="relative dropdown-container" id="dd-languageTools">
+                <button class="dropdown-btn icon-btn hover:bg-green-50 hover:text-green-600" title="語言工具">
+                    <span class="material-symbols-outlined">language</span>
+                </button>
+                <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1">
+
+
+                    <!-- 翻譯轉換工具 -->
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 flex items-center gap-2 code-text" id="btn-toggle-translator" title="烏衣行翻譯系統">
+                        <span class="material-symbols-outlined text-base">translate</span>翻譯系統
+                    </button>
+
+                    <!-- 拼音轉換工具 -->
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 flex items-center gap-2 code-text" id="btnOpenPinyinTool" title="烏衣行拼音轉換">
+                        <span class="material-symbols-outlined text-base">rotate_auto</span>拼音轉換
+                    </button>
+					
+                    <!-- 線上輸入法 -->
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 flex items-center gap-2 code-text ime-toggle-button !justify-start" title="烏衣行輸入法">
+                        <span class="material-symbols-outlined text-base">keyboard</span>輸入法
+                    </button>
+
+					<!-- 手機版專屬關閉鍵盤開關 -->
+                    <button class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 md:hidden" id="btnToggleKeyboardMobile">
+                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">keyboard_off</span>關閉鍵盤</div>
+                        <span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold transition-opacity duration-200" style="opacity: 0;" id="iconKeyboardCheck">check</span>
+                    </button>
+                </div>
+            </div>
+
 
 
 
@@ -76,11 +100,7 @@
                 <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-48 z-50 py-1">
 
 
-					<!-- 手機版專屬關閉鍵盤開關 -->
-                    <button class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 md:hidden" id="btnToggleKeyboardMobile">
-                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">keyboard_off</span>關閉鍵盤</div>
-                        <span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold transition-opacity duration-200" style="opacity: 0;" id="iconKeyboardCheck">check</span>
-                    </button>
+
                     <div class="h-px bg-gray-200 my-1 mx-2 md:hidden"></div>
                     
                     
@@ -270,8 +290,9 @@
     </div>
 </div>
 
+<div class="h-6 w-px bg-gray-300 mx-1"></div>
 
-<div class="relative dropdown-container" id="dd-tableSettings">
+				<div class="relative dropdown-container" id="dd-tableSettings">
                     <button class="dropdown-btn icon-btn hover:bg-gray-100" title="表格設定">
                         <span class="material-symbols-outlined">table_edit</span>
                     </button>
@@ -348,7 +369,7 @@
                     </div>
                 </div>
 
-                <div class="h-6 w-px bg-gray-300 mx-1"></div>
+                
 
                 <!-- 批次新增列 -->
                 <div class="relative action-dropdown">
@@ -1019,12 +1040,11 @@
 
 
 
-
+	<script src="ime-dict.js"></script>
+    <script src="ime.js"></script>
+    <script src="ime-button.js"></script>
     <!-- 引入外部 JS 檔案 -->
     <script src="script.js"></script>
-    <script src="https://gnisew.github.io/tools/ime/ime-dict.js"></script>
-    <script src="https://gnisew.github.io/tools/ime/ime.js"></script>
-    <script src="https://gnisew.github.io/tools/ime/ime-button.js"></script>
 
 </body>
 </html>

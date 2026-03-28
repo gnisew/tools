@@ -17,15 +17,15 @@ mirror.style.position = 'absolute'; mirror.style.visibility = 'hidden';
 mirror.style.pointerEvents = 'none'; mirror.style.top = '0'; mirror.style.left = '0';
 document.body.appendChild(mirror);
 
-const STORAGE_KEY = 'tauhu-editor-content';
-const MODE_KEY = 'tauhu-editor-mode';
-const COL_NAMES_KEY = 'tauhu-col-names'; 
-const FONT_SIZE_KEY = 'tauhu-font-size';
-const LINE_HEIGHT_KEY = 'tauhu-line-height';
-const COL_WIDTHS_KEY = 'tauhu-col-widths';
-const WORD_WRAP_KEY = 'tauhu-word-wrap'; 
-const EDITOR_WIDTH_KEY = 'tauhu-editor-width';
-const FREEZE_ROWS_KEY = 'tauhu-freeze-rows';
+const STORAGE_KEY = 'wesing-editor-content';
+const MODE_KEY = 'wesing-editor-mode';
+const COL_NAMES_KEY = 'wesing-col-names'; 
+const FONT_SIZE_KEY = 'wesing-font-size';
+const LINE_HEIGHT_KEY = 'wesing-line-height';
+const COL_WIDTHS_KEY = 'wesing-col-widths';
+const WORD_WRAP_KEY = 'wesing-word-wrap'; 
+const EDITOR_WIDTH_KEY = 'wesing-editor-width';
+const FREEZE_ROWS_KEY = 'wesing-freeze-rows';
 
 let currentMode = 'text';
 
@@ -47,12 +47,12 @@ let historyStack = [];
 let isUndoing = false;
 let saveTimeout;
 
-const ENTER_ACTION_KEY = 'tauhu-enter-action';
-const ENTER_DIRECTION_KEY = 'tauhu-enter-direction';
+const ENTER_ACTION_KEY = 'wesing-enter-action';
+const ENTER_DIRECTION_KEY = 'wesing-enter-direction';
 
-const FONT_FAMILY_KEY = 'tauhu-font-family';
+const FONT_FAMILY_KEY = 'wesing-font-family';
 
-/* 工具列元件初始化 (支援槽狀選單、手機版點擊與視窗邊界偵測) */
+/* 工具列元件初始化 */
 function initDropdowns() {
     // 共用的邊界偵測函數
     function adjustMenuPosition(menu) {
@@ -61,35 +61,60 @@ function initDropdowns() {
         // 1. 判斷選單 HTML 裡原本是不是設定靠右對齊 (right-0)
         const isRightAligned = menu.classList.contains('right-0');
         
-        // 2. 依照原本的設計意圖重置樣式，而不是盲目全部設為 left: 0px
+        // 2. 重置所有可能被動態修改過的樣式 (確保每次展開都重新計算)
         menu.style.left = isRightAligned ? 'auto' : '0px';
         menu.style.right = isRightAligned ? '0px' : 'auto';
+        menu.style.top = '100%';          // 預設向下展開
+        menu.style.bottom = 'auto';
+        menu.style.marginTop = '4px';     // 對應原本 Tailwind 的 mt-1
+        menu.style.marginBottom = '0px';
+        menu.style.maxHeight = '';        // 清除可能殘留的高度限制
         menu.style.transform = 'none';
 
-        // 3. 取得選單在螢幕上的真實位置
+        // 3. 取得選單在螢幕上的真實位置與視窗大小
         let rect = menu.getBoundingClientRect();
         const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
         const padding = 8; // 距離螢幕邊緣保留 8px 的安全距離
 
-        // 4. 動態修正：如果超出右邊界
+        // 4. 動態修正：水平方向 (如果超出右邊界)
         if (rect.right > viewportWidth) {
             menu.style.left = 'auto';
             menu.style.right = '0px'; 
             
-            // 再次檢查如果改靠右後，反而超出左邊界 (代表選單比螢幕寬，或按鈕被推太過去)
+            // 再次檢查如果改靠右後，反而超出左邊界
             rect = menu.getBoundingClientRect();
             if (rect.left < 0) {
                 menu.style.right = 'auto';
-                // 扣除父元素相對於螢幕的距離，精準貼齊螢幕左側安全邊界
                 const parentLeft = menu.parentElement.getBoundingClientRect().left;
                 menu.style.left = `-${parentLeft - padding}px`; 
             }
         } 
-        // 5. 動態修正：如果一開始就超出左邊界
+        // 5. 動態修正：水平方向 (如果一開始就超出左邊界)
         else if (rect.left < 0) {
             menu.style.right = 'auto';
             const parentLeft = menu.parentElement.getBoundingClientRect().left;
             menu.style.left = `-${parentLeft - padding}px`;
+        }
+
+        rect = menu.getBoundingClientRect();
+        if (rect.bottom > viewportHeight) {
+            const parentRect = menu.parentElement.getBoundingClientRect();
+            const spaceBelow = viewportHeight - parentRect.bottom;
+            const spaceAbove = parentRect.top;
+
+            // 如果上方空間大於下方空間，且選單高度塞不下下方，則改為「向上展開」
+            if (spaceAbove > spaceBelow && rect.height > spaceBelow) {
+                menu.style.top = 'auto';
+                menu.style.bottom = '100%';
+                menu.style.marginTop = '0px';
+                menu.style.marginBottom = '4px'; // 留一點空隙
+                // 限制最大高度，避免往上也超出視窗
+                menu.style.maxHeight = `${spaceAbove - padding}px`;
+            } else {
+                // 否則維持向下展開，但強制縮小它的高度，讓它可以內部正常滾動
+                menu.style.maxHeight = `${spaceBelow - padding}px`;
+            }
         }
     }
     // 1. 處理主要展開按鈕 (第一層)
@@ -230,8 +255,11 @@ function init() {
     }
     const savedWidth = localStorage.getItem(EDITOR_WIDTH_KEY);
     if (savedWidth) {
+        mainContainer.style.transition = 'none';
         mainContainer.style.maxWidth = savedWidth;
         setDropdownValue('dd-editorWidth', savedWidth);
+        void mainContainer.offsetWidth;
+        mainContainer.style.transition = '';
     }
 
     const savedFontSize = localStorage.getItem(FONT_SIZE_KEY);
@@ -6260,9 +6288,9 @@ function applyKeyboardState() {
    尋找與取代：批次取代模組 (支援長度優先、安全佔位符與擴充漢字)
    ========================================== */
 document.addEventListener('DOMContentLoaded', () => {
-    const BATCH_DATA_KEY = 'tauhu-batch-replace-data';
-    const BATCH_DIR_KEY = 'tauhu-batch-direction';
-    const BATCH_DELIM_KEY = 'tauhu-batch-delimiter'; // 🌟 新增：記憶分隔符號
+    const BATCH_DATA_KEY = 'wesing-batch-replace-data';
+    const BATCH_DIR_KEY = 'wesing-batch-direction';
+    const BATCH_DELIM_KEY = 'wesing-batch-delimiter';
 
     const btnToggleBatchMode = document.getElementById('btnToggleBatchMode');
     const normalSearchContainer = document.getElementById('normalSearchContainer');
@@ -6273,8 +6301,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	const btnClearFind = document.getElementById('btnClearFind');
 	const btnClearReplace = document.getElementById('btnClearReplace');
-	const FIND_TEXT_KEY = 'tauhu-find-text';
-	const REPLACE_TEXT_KEY = 'tauhu-replace-text';
+	const FIND_TEXT_KEY = 'wesing-find-text';
+	const REPLACE_TEXT_KEY = 'wesing-replace-text';
 
 	// 輔助函數：根據輸入框內容，決定是否顯示「X」按鈕
 	function updateFindReplaceClearButtons() {
@@ -6870,12 +6898,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let isPinyinScriptsLoaded = false;
     let pinyinParsedConfig = {}; 
     
-    // 🌟 新增：定義儲存 Key
-    const PY_LANG_KEY = 'tauhu-py-lang';
-    const PY_SRC_KEY = 'tauhu-py-src';
-    const PY_TGT_KEY = 'tauhu-py-tgt';
+    const PY_LANG_KEY = 'wesing-py-lang';
+    const PY_SRC_KEY = 'wesing-py-src';
+    const PY_TGT_KEY = 'wesing-py-tgt';
 
-    // 🌟 狀態管理 (加入 localStorage 讀取預設值)
     let pinyinState = {
         lang: localStorage.getItem(PY_LANG_KEY) || 'kasu',
         source: localStorage.getItem(PY_SRC_KEY) || '',
