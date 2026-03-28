@@ -1433,6 +1433,37 @@ function closeCellEditor(save = true) {
 
 document.getElementById('cellEditorOverlay').addEventListener('click', () => closeCellEditor(true));
 
+/* ==========================================
+   輸入法全域焦點同步引擎 (解決手機版與表格模式無反應問題)
+   ========================================== */
+document.addEventListener('focusin', (e) => {
+    // 檢查目前是否已經載入並啟用了輸入法
+    if (typeof WebIME !== 'undefined' && WebIME.isInitialized) {
+        
+        const target = e.target;
+        
+        // 判斷獲得焦點的元素是否為「可輸入區域」
+        // 包含：一般的 input/textarea，以及我們表格中的 .td-inner 儲存格
+        const isEditable = target.tagName === 'INPUT' || 
+                           target.tagName === 'TEXTAREA' || 
+                           target.isContentEditable || 
+                           target.classList.contains('td-inner');
+                           
+        if (isEditable) {
+            WebIME.imeActivate(target);
+            
+            // 在手機版，為了確保虛擬鍵盤彈出後不影響，稍微延遲再觸發一次重新定位
+            if (WebIME.isMobile) {
+                setTimeout(() => {
+                    if (WebIME.activeElement === target) {
+                        WebIME.imeReposition();
+                    }
+                }, 300);
+            }
+        }
+    }
+});
+
 /* 鍵盤與剪貼簿事件監聽 */
 document.addEventListener('keydown', (e) => {
     // 1. 攔截 Ctrl+F 快捷鍵
