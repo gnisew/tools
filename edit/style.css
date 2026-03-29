@@ -21,6 +21,7 @@ body {
     height: 100vh;
     display: flex;
     flex-direction: column;
+	overflow: hidden;
 }
 
 #mainContainer { transition: max-width 0.3s ease; }
@@ -408,4 +409,44 @@ table#data-table td:focus { outline: none; }
     #trans-btn-group {
         margin-left: 0;
     }
+}
+
+/* ================= 文字模式顯示行號開關 ================= */
+.hide-text-line-numbers #lineNumbers {
+    display: none !important;
+}
+
+/* ================= 多工作表頁籤列樣式 ================= */
+.sheet-tab {
+    padding: 6px 16px;
+    font-size: 13px;
+    color: #4b5563;
+    background-color: #f3f4f6;
+    border-right: 1px solid #d1d5db;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.sheet-tab:hover:not(.active) {
+    background-color: #e5e7eb;
+}
+.sheet-tab.active {
+    background-color: #ffffff;
+    color: #10b981; /* 綠色，類似試算表風格 */
+    font-weight: bold;
+    border-bottom: 2px solid #10b981;
+}
+/* 雙擊重新命名時的輸入框 */
+.sheet-rename-input {
+    font-size: 13px;
+    padding: 0 4px;
+    border: 1px solid #10b981;
+    border-radius: 2px;
+    outline: none;
+    font-family: inherit;
+    width: 80px;
 }
