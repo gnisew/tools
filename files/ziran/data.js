@@ -2323,8 +2323,8 @@ const quizData = [
       },
       {
         question: "玩引水接力遊戲時，甲容器比乙容器高，則水會流向哪裡？",
-        options: ["甲容器", "甲容器"],
-        answer: 1,
+        options: ["甲容器", "乙容器"],
+        answer: 2,
         explanation: "水會從高處流向低處。"
       },
       {
