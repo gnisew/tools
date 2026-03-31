@@ -31,6 +31,8 @@ let isShowTextLineNumbers = true;
 
 let currentMode = 'text';
 
+const FIND_TEXT_KEY = 'wesing-find-text';
+const REPLACE_TEXT_KEY = 'wesing-replace-text';
 
 const TABS_DATA_KEY = 'wesing-tabs-data';
 const ACTIVE_TAB_KEY = 'wesing-active-tab';
@@ -267,7 +269,9 @@ function init() {
         document.documentElement.style.setProperty('--main-font', savedFont);
         setDropdownValue('dd-fontFamily', savedFont);
     }
-    const savedWidth = localStorage.getItem(EDITOR_WIDTH_KEY);
+    const savedWidth = localStorage.getItem(EDITOR_WIDTH_KEY) || '800px';
+    mainContainer.style.maxWidth = savedWidth;
+    setDropdownValue('dd-editorWidth', savedWidth);
     if (savedWidth) {
         mainContainer.style.transition = 'none';
         mainContainer.style.maxWidth = savedWidth;
@@ -308,11 +312,7 @@ function init() {
     // 載入當前作用中的頁籤內容
     editor.value = sheetTabs[activeSheetIndex].content;
     
-    const savedMode = localStorage.getItem(MODE_KEY);
-    if (savedMode === 'table') {
-        setDropdownValue('dd-viewMode', 'table');
-        switchMode('table');
-    } else { updateLineNumbers(); }
+    switchMode(currentMode, true);
     
     if (window.ResizeObserver) {
         new ResizeObserver(() => { 
@@ -332,49 +332,68 @@ function init() {
         // 當開啟模式時，才會根據目前凍結列數動態設定
         // 這裡只需要一個全域的同步機制即可
     });
+	requestAnimationFrame(() => {
+			mainContainer.style.opacity = '1';
+	});
 }
 
-/* 模式切換 */
 document.getElementById('dd-viewMode').addEventListener('change', (e) => switchMode(e.detail.value));
 
-function switchMode(mode) {
-    currentMode = mode; localStorage.setItem(MODE_KEY, mode);
-    hideFloatingTool(); clearTableSelection();
-    document.getElementById('viewModeIcon').textContent = mode === 'table' ? 'table_chart' : 'edit_document';
+/* ==========================================
+   全域模式切換核心 (加入 isForce 強制渲染機制)
+========================================== */
+function switchMode(mode, isForce = false) {
+    // 阻擋重複切換，但如果是強制執行 (isForce) 則放行
+    if (currentMode === mode && !isForce) return;
 
-    // 1. 取得需要切換顯示狀態的 UI 元素
+    // 只有「從表格切換回文字」且「非強制初始化」時，才需要從表格提取文字覆蓋
+    if (currentMode === 'table' && mode === 'text' && !isForce) {
+        editor.value = extractTextFromTable();
+    }
+
+    currentMode = mode; 
+    localStorage.setItem(MODE_KEY, mode);
+    hideFloatingTool(); 
+    clearTableSelection();
+    //document.getElementById('viewModeIcon').textContent = mode === 'table' ? 'table_chart' : 'edit_document';
+
     const ddTextTool = document.getElementById('dd-textTool');
-    const btnToggleLineNumbersTextMode = document.getElementById('btnToggleLineNumbersTextMode'); // 取得顯示行號按鈕
+    const btnToggleLineNumbersTextMode = document.getElementById('btnToggleLineNumbersTextMode');
 
     if (mode === 'table') {
+        // 渲染表格 (editor.value 已經在之前被填入了)
         renderTableFromText(editor.value);
         applyFreeze();
-        textModeContainer.style.display = 'none'; tableModeContainer.style.display = 'block';
-        tableControls.classList.remove('hidden'); tableControls.classList.add('flex');
+        textModeContainer.style.display = 'none'; 
+        tableModeContainer.style.display = 'block';
+        tableControls.classList.remove('hidden'); 
+        tableControls.classList.add('flex');
         
-        // 2. 在表格模式隱藏「文字排版工具」與「顯示行號按鈕」
         if (ddTextTool) ddTextTool.classList.add('hidden');
         if (btnToggleLineNumbersTextMode) btnToggleLineNumbersTextMode.classList.add('hidden');
         
-        // 切換到表格模式時，重設核取方塊
         resetSortHeaderCheckbox();
     } else {
-        editor.value = extractTextFromTable();
-        tableModeContainer.style.display = 'none'; textModeContainer.style.display = 'flex';
-        tableControls.classList.remove('flex'); tableControls.classList.add('hidden');
+        tableModeContainer.style.display = 'none'; 
+        textModeContainer.style.display = 'flex';
+        tableControls.classList.remove('flex'); 
+        tableControls.classList.add('hidden');
         
-        // 3. 在文字模式重新顯示「文字排版工具」與「顯示行號按鈕」
         if (ddTextTool) ddTextTool.classList.remove('hidden');
         if (btnToggleLineNumbersTextMode) btnToggleLineNumbersTextMode.classList.remove('hidden');
         
         updateLineNumbers();
     }
+    // 同步下拉選單打勾狀態
+    setDropdownValue('dd-viewMode', mode);
 }
 
 /* 復原系統 (Undo) */
 function debouncedSaveHistory() {
     clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(saveHistoryState, 500);
+    const textLength = editor.value.length;
+    const delayTime = textLength > 50000 ? 1500 : 500; 
+    saveTimeout = setTimeout(saveHistoryState, delayTime);
 }
 
 function saveHistoryState() {
@@ -382,14 +401,28 @@ function saveHistoryState() {
     
     const text = currentMode === 'text' ? editor.value : extractTextFromTable();
     
-    // 寫入歷史紀錄到當前的 historyStack (已綁定到當前頁籤)
     if (historyStack.length === 0 || historyStack[historyStack.length - 1] !== text) {
         historyStack.push(text);
-        if (historyStack.length > 50) historyStack.shift(); 
+        
+        // 【優化 1：動態調整復原次數】
+        const maxHistory = text.length > 50000 ? 5 : 10;
+        if (historyStack.length > maxHistory) {
+            historyStack.shift(); 
+        }
     }
 
-    // 呼叫我們新寫的函數，將所有頁籤狀態存入 localStorage
-    saveAllTabsData();
+    // 【優化 2：針對巨量資料，延遲或略過寫入 localStorage】
+    // 我們依然把歷史紀錄存在記憶體 (historyStack) 中，讓使用者可以 Ctrl+Z
+    // 但如果字串過大，我們不每次都寫入硬碟，減少畫面凍結
+    if (text.length < 100000) {
+        saveAllTabsData(); // 正常資料量，安全存檔
+    } else {
+        // 超大資料量：我們只更新當前頁籤物件的內容，但不立即觸發 localStorage.setItem
+        sheetTabs[activeSheetIndex].content = text;
+        sheetTabs[activeSheetIndex].history = historyStack;
+        sheetTabs[activeSheetIndex].mode = currentMode;
+        // 注意：這裡故意不執行 localStorage.setItem，讓主執行緒保持順暢
+    }
 }
 
 function triggerUndo() {
@@ -517,32 +550,79 @@ function parseTSV(text) {
 
 function renderTableFromText(text) {
     const parsedRows = parseTSV(text);
-    let maxCols = 1; parsedRows.forEach(row => { if (row.length > maxCols) maxCols = row.length; });
+    let maxCols = 1; 
+    parsedRows.forEach(row => { if (row.length > maxCols) maxCols = row.length; });
 
     const savedNames = loadColNames();
     const savedWidths = loadColWidths();
 
-    let html = '<thead><tr><th class="sticky-corner"></th>';
+    // 1. 先快速建立好表頭 (thead) 與空的表格主體 (tbody)
+    let theadHtml = '<thead><tr><th class="sticky-corner"></th>';
     for (let i = 0; i < maxCols; i++) { 
         const name = savedNames[i] || '';
         const width = savedWidths[i] || '150px';
-        html += `<th class="sticky-top group" data-col="${i}" data-col-name="${name}" style="width: ${width}; min-width: ${width}; max-width: ${width};">${createThColHTML(i)}</th>`; 
+        theadHtml += `<th class="sticky-top group" data-col="${i}" data-col-name="${name}" style="width: ${width}; min-width: ${width}; max-width: ${width};">${createThColHTML(i)}</th>`; 
     }
-    html += '</tr></thead><tbody>';
-    
-    parsedRows.forEach((row, index) => {
-        html += '<tr>';
-        html += `<th class="sticky-left group">${createThRowHTML(index)}</th>`;
-        for (let i = 0; i < maxCols; i++) {
-            const safeText = (row[i] !== undefined ? row[i] : '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            html += `<td><div class="td-inner" contenteditable="true">${safeText}</div></td>`;
+    theadHtml += '</tr></thead><tbody></tbody>';
+    dataTable.innerHTML = theadHtml;
+
+    const tbody = dataTable.querySelector('tbody');
+    let currentRowIndex = 0;
+    const CHUNK_SIZE = 500; // 每次產生 500 行，可依據效能微調
+
+    if (typeof showToast === 'function' && parsedRows.length > 1000) {
+        showToast('⏳ 巨量資料載入中，請稍候...');
+    }
+
+    // 2. 建立分批渲染函數
+    function renderChunk() {
+        // 使用 DocumentFragment 在記憶體中組裝 DOM，效能極高
+        const fragment = document.createDocumentFragment();
+        const endRow = Math.min(currentRowIndex + CHUNK_SIZE, parsedRows.length);
+
+        for (let r = currentRowIndex; r < endRow; r++) {
+            const rowData = parsedRows[r];
+            const tr = document.createElement('tr');
+            
+            // 建立左側行號
+            const th = document.createElement('th');
+            th.className = 'sticky-left group';
+            th.innerHTML = createThRowHTML(r);
+            tr.appendChild(th);
+
+            // 建立資料欄位
+            for (let i = 0; i < maxCols; i++) {
+                const td = document.createElement('td');
+                const safeText = (rowData[i] !== undefined ? rowData[i] : '')
+                                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                
+                // 直接指派 innerHTML 比一再 createElement 更快
+                td.innerHTML = `<div class="td-inner" contenteditable="true">${safeText}</div>`;
+                tr.appendChild(td);
+            }
+            fragment.appendChild(tr);
         }
-        html += '</tr>';
-    });
-    html += '</tbody>';
-    dataTable.innerHTML = html;
-    updateTableHeaders();
-	recalculateAllFormulas();
+
+        // 將這 500 行一次性塞入真實網頁中
+        tbody.appendChild(fragment);
+        currentRowIndex = endRow;
+
+        // 3. 判斷是否還有資料未渲染
+        if (currentRowIndex < parsedRows.length) {
+            // 利用 requestAnimationFrame 讓瀏覽器喘口氣，避免畫面凍結
+            requestAnimationFrame(renderChunk);
+        } else {
+            // 4. 全部載入完畢後，執行後續設定
+            updateTableHeaders();
+            recalculateAllFormulas();
+            if (typeof showToast === 'function' && parsedRows.length > 1000) {
+                showToast('✅ 表格載入完成！');
+            }
+        }
+    }
+
+    // 啟動第一次的渲染
+    renderChunk();
 }
 
 function extractTextFromTable() {
@@ -880,7 +960,7 @@ function insertRowAt(index, copyFromIndex = -1, count = 1) {
 
 /* 智慧清除與刪除 */
 function handleClearAction() {
-    // 🌟 新增：文字模式下的 Delete 功能
+    // �文字模式下的 Delete 功能
     if (currentMode === 'text') {
         const editor = document.getElementById('editor');
         if (editor && editor.selectionStart !== editor.selectionEnd) {
@@ -1084,33 +1164,56 @@ function insertColsFromTop(count) {
 function promptInsertCols() { showPrompt('輸入新增欄數', '5', (val) => { const count = parseInt(val); if (count > 0) insertColsFromTop(count); }); }
 
 /* ---------------------------------
-   多選與剪貼簿核心功能 (外圍藍框實作)
+   多選與剪貼簿核心功能 (外圍藍框實作 - 極速優化版)
    --------------------------------- */
 function applySelectionVisuals() {
-    const headers = dataTable.querySelectorAll('thead th');
-    const rows = dataTable.querySelectorAll('tbody tr');
+    // 【優化 1：精準清除】
+    // 不要掃描全表，直接找出有標記的節點清除
+    document.querySelectorAll('.selected-header').forEach(el => el.classList.remove('selected-header'));
+    document.querySelectorAll('.sel-bg').forEach(el => {
+        el.classList.remove('sel-bg');
+        el.style.boxShadow = '';
+    });
+
+    const tbody = dataTable.querySelector('tbody');
+    const theadTr = dataTable.querySelector('thead tr');
+    if (!tbody || !theadTr) return;
+
+    const R = tbody.children.length;
+    const C = theadTr.children.length - 1; // 扣掉左上角的全選區
     
-    headers.forEach(h => h.classList.remove('selected-header'));
-    rows.forEach(r => r.querySelector('th')?.classList.remove('selected-header'));
+    // 如果沒有任何選取，直接結束
+    if (selectedRows.length === 0 && selectedCols.length === 0 && selectedCellBlocks.length === 0) {
+        return;
+    }
 
-    selectedCols.forEach(colIndex => { if(headers[colIndex + 1]) headers[colIndex + 1].classList.add('selected-header'); });
-    rows.forEach((row, rIdx) => { if (selectedRows.includes(rIdx)) row.querySelector('th')?.classList.add('selected-header'); });
+    // 標記表頭 (Th)
+    selectedCols.forEach(colIndex => { 
+        if(theadTr.children[colIndex + 1]) theadTr.children[colIndex + 1].classList.add('selected-header'); 
+    });
+    selectedRows.forEach(rIdx => { 
+        const row = tbody.children[rIdx];
+        if (row && row.children[0]) row.children[0].classList.add('selected-header'); 
+    });
 
-    const R = rows.length;
-    const C = headers.length - 1;
-    let sel = Array(R).fill().map(() => Array(C).fill(false));
-    let totalSelectedCells = 0;
-
+    // 【優化 2：稀疏矩陣邏輯】
+    // 只記錄被選取格子的座標，不再產生巨大二維陣列
+    // selMap 用法: "r,c" -> true
+    const selMap = new Set();
+    
+    // 收集所有選取的座標
     selectedRows.forEach(r => {
         if(r >= 0 && r < R) {
-            for(let c=0; c<C; c++) { if(!sel[r][c]) { sel[r][c] = true; totalSelectedCells++; } }
+            for(let c = 0; c < C; c++) selMap.add(`${r},${c}`);
         }
     });
+    
     selectedCols.forEach(c => {
         if(c >= 0 && c < C) {
-            for(let r=0; r<R; r++) { if(!sel[r][c]) { sel[r][c] = true; totalSelectedCells++; } }
+            for(let r = 0; r < R; r++) selMap.add(`${r},${c}`);
         }
     });
+    
     selectedCellBlocks.forEach(block => {
         const minR = Math.max(0, Math.min(block.startR, block.endR));
         const maxR = Math.min(R - 1, Math.max(block.startR, block.endR));
@@ -1119,42 +1222,45 @@ function applySelectionVisuals() {
 
         for (let r = minR; r <= maxR; r++) {
             for (let c = minC; c <= maxC; c++) {
-                if (!sel[r][c]) { sel[r][c] = true; totalSelectedCells++; }
+                selMap.add(`${r},${c}`);
             }
         }
     });
 
-    const isMulti = totalSelectedCells > 1;
+    // 依據收集到的座標，精準繪製邊框與底色
+    selMap.forEach(coord => {
+        const [rStr, cStr] = coord.split(',');
+        const r = parseInt(rStr, 10);
+        const c = parseInt(cStr, 10);
+        
+        const tr = tbody.children[r];
+        if (!tr) return;
+        const td = tr.children[c + 1];
+        if (!td) return;
 
-    // 動態產生外圍框線 (Inset Box-Shadow) 與底色
-    for (let r = 0; r < R; r++) {
-        const row = rows[r];
-        if (!row) continue;
-        for (let c = 0; c < C; c++) {
-            const td = row.children[c + 1];
-            if (!td) continue;
+        // 判斷上下左右相鄰的格子是否也被選取，決定是否要畫藍框
+        const hasTop = r > 0 && selMap.has(`${r - 1},${c}`);
+        const hasBottom = r < R - 1 && selMap.has(`${r + 1},${c}`);
+        const hasLeft = c > 0 && selMap.has(`${r},${c - 1}`);
+        const hasRight = c < C - 1 && selMap.has(`${r},${c + 1}`);
 
-            if (sel[r][c]) {
-                let top = (r === 0 || !sel[r - 1][c]) ? '2px' : '0';
-                let bottom = (r === R - 1 || !sel[r + 1][c]) ? '-2px' : '0';
-                let left = (c === 0 || !sel[r][c - 1]) ? '2px' : '0';
-                let right = (c === C - 1 || !sel[r][c + 1]) ? '-2px' : '0';
-                
-                let shadows = [];
-                if (top !== '0') shadows.push(`inset 0 ${top} 0 0 #93c5fd`);
-                if (bottom !== '0') shadows.push(`inset 0 ${bottom} 0 0 #93c5fd`);
-                if (left !== '0') shadows.push(`inset ${left} 0 0 0 #93c5fd`);
-                if (right !== '0') shadows.push(`inset ${right} 0 0 0 #93c5fd`);
-                
-                td.style.boxShadow = shadows.join(', ');
-                if (isMulti) td.classList.add('sel-bg');
-                else td.classList.remove('sel-bg');
-            } else {
-                td.style.boxShadow = '';
-                td.classList.remove('sel-bg');
-            }
+        let top = !hasTop ? '2px' : '0';
+        let bottom = !hasBottom ? '-2px' : '0';
+        let left = !hasLeft ? '2px' : '0';
+        let right = !hasRight ? '-2px' : '0';
+        
+        let shadows = [];
+        if (top !== '0') shadows.push(`inset 0 ${top} 0 0 #93c5fd`);
+        if (bottom !== '0') shadows.push(`inset 0 ${bottom} 0 0 #93c5fd`);
+        if (left !== '0') shadows.push(`inset ${left} 0 0 0 #93c5fd`);
+        if (right !== '0') shadows.push(`inset ${right} 0 0 0 #93c5fd`);
+        
+        if (shadows.length > 0) {
+            td.style.boxShadow = shadows.join(', ');
         }
-    }
+        
+        td.classList.add('sel-bg');
+    });
 }
 
 function clearTableSelection(resetArrays = true) {
@@ -1514,6 +1620,11 @@ document.addEventListener('focusin', (e) => {
 
 /* 鍵盤與剪貼簿事件監聽 */
 document.addEventListener('keydown', (e) => {
+	if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        triggerUndo();
+        return;
+    }
     // 1. 攔截 Ctrl+F 快捷鍵
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault();
@@ -1925,19 +2036,16 @@ dataTable.addEventListener('click', (e) => {
     // 調整過濾邏輯：保留對拖曳控制把手的阻擋
     if (e.target.closest('.resize-handle')) return;
 
-    // 新增：偵測是否點擊左上角全選區塊
+    // 偵測是否點擊左上角全選區塊
     if (e.target.closest('th.sticky-corner')) {
-        // 如果目前處於「鎖定選取」狀態，則不執行全選
         if (isSelectionLocked) return; 
-        
         selectAllTable();
-        return; // 執行完畢後直接結束，不繼續往後判斷
+        return; 
     }
 
     const thTop = e.target.closest('th.sticky-top');
     if (thTop && !e.target.closest('.btn-col-menu')) {
         if (isSelectionLocked) return; 
-        // 修改：加入 isMobileMultiSelect 判斷
         const isCtrl = e.ctrlKey || e.metaKey || isMobileMultiSelect;
         return selectTableColumn(parseInt(thTop.dataset.col), e.shiftKey, isCtrl);
     }
@@ -1945,7 +2053,6 @@ dataTable.addEventListener('click', (e) => {
     const thLeft = e.target.closest('th.sticky-left');
     if (thLeft && !e.target.closest('.btn-row-menu')) {
         if (isSelectionLocked) return; 
-        // 修改：加入 isMobileMultiSelect 判斷
         const isCtrl = e.ctrlKey || e.metaKey || isMobileMultiSelect;
         const tr = thLeft.closest('tr');
         return selectTableRow(Array.from(tr.parentNode.children).indexOf(tr), e.shiftKey, isCtrl);
@@ -1953,19 +2060,18 @@ dataTable.addEventListener('click', (e) => {
 
     const td = e.target.closest('td');
     if (td) {
-		lastMatchedCell = null;
-        const tdRect = td.getBoundingClientRect();
-        const isClickOnPaddingGap = (e.clientX >= tdRect.right - 12) || (e.clientX <= tdRect.left + 12);
-        
-        if (isClickOnPaddingGap && document.activeElement && document.activeElement.classList.contains('td-inner')) {
-            document.activeElement.blur(); 
+        lastMatchedCell = null;
+
+        const isClickOnInner = e.target.closest('.td-inner') !== null;
+
+        if (!isClickOnInner && document.activeElement && document.activeElement.classList.contains('td-inner')) {
+            document.activeElement.blur();
         }
-        
+
         const tr = td.closest('tr');
         const rIdx = Array.from(tr.parentNode.children).indexOf(tr);
         const cIdx = Array.from(tr.children).indexOf(td) - 1;
 
-        // 🌟 如果狀態為鎖定，我們攔截後面的選取邏輯，並加入單格高亮提示
         if (isSelectionLocked) {
             
             // 1. 先清除前一次點擊的白底標記 (與尋找取代共用同一個清除邏輯)
@@ -1989,22 +2095,22 @@ dataTable.addEventListener('click', (e) => {
                 window.lastFoundTd = td; // 記錄下來，下次點擊時才能自動清除
             }
 
-            // 4. 處理獨立編輯器的開啟 (維持原功能)
-            if (dataTable.classList.contains('table-nowrap') && !e.shiftKey && !e.ctrlKey && !e.metaKey && !isClickOnPaddingGap) {
+            // 4. 處理獨立編輯器的開啟 (將 !isClickOnPaddingGap 替換為 isClickOnInner)
+            if (dataTable.classList.contains('table-nowrap') && !e.shiftKey && !e.ctrlKey && !e.metaKey && isClickOnInner) {
                 openCellEditor(td);
             }
             
             return; // 提早結束，防止原本的選取範圍被清空
         }
-        // 修改：統一把 Ctrl 判斷提取出來
+        
+        // 統一把 Ctrl 判斷提取出來
         const isCtrl = e.ctrlKey || e.metaKey || isMobileMultiSelect;
 
-        // ======== 選取邏輯已完美移轉至 mousedown 與 mouseover (支援拖曳) ========
         // 如果剛才發生了拖曳，我們就跳過點擊開啟編輯器的動作
         if (window.isCellDragging) return;
 
-        // 修改：如果不換行模式且沒有按住特殊鍵 (包含多選模式)，點文字才開啟編輯器
-        if (dataTable.classList.contains('table-nowrap') && !e.shiftKey && !isCtrl && !isClickOnPaddingGap) {
+        // 修改：如果不換行模式且沒有按住特殊鍵 (包含多選模式)，點擊文字區才開啟編輯器
+        if (dataTable.classList.contains('table-nowrap') && !e.shiftKey && !isCtrl && isClickOnInner) {
             openCellEditor(td);
         }
     }
@@ -2307,14 +2413,41 @@ let lineNumbersTimeout;
 
 function updateLineNumbers() {
     if (currentMode !== 'text') return; 
-    const text = editor.value; const lines = text.split('\n'); const style = window.getComputedStyle(editor);
-    mirror.style.fontFamily = style.fontFamily; mirror.style.fontSize = style.fontSize;
-    mirror.style.lineHeight = style.lineHeight; mirror.style.whiteSpace = style.whiteSpace; mirror.style.wordBreak = style.wordBreak;
+    const text = editor.value; 
+    const lines = text.split('\n'); 
+    
+    // 【新增】極速模式：當行數超過 2000 行時，跳過耗時的精準測量
+    if (lines.length > 2000) {
+        let numbersHtml = '';
+        // 直接使用預設的 1.6em 行高 (對應你的 CSS var(--editor-line-height))
+        for (let i = 0; i < lines.length; i++) { 
+            numbersHtml += `<div class="line-number-item" style="height: 1.6em;">${i + 1}</div>`; 
+        }
+        lineNumbers.innerHTML = numbersHtml;
+        return; // 提早結束，不執行下方的複雜運算
+    }
+
+    // 【原有邏輯】少於 2000 行時，維持精準的自動換行高度測量
+    const style = window.getComputedStyle(editor);
+    mirror.style.fontFamily = style.fontFamily; 
+    mirror.style.fontSize = style.fontSize;
+    mirror.style.lineHeight = style.lineHeight; 
+    mirror.style.whiteSpace = style.whiteSpace; 
+    mirror.style.wordBreak = style.wordBreak;
     mirror.style.width = `${editor.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)}px`;
     mirror.innerHTML = '';
-    lines.forEach(line => { const div = document.createElement('div'); div.textContent = line.length === 0 ? '\u200b' : line; mirror.appendChild(div); });
-    let numbersHtml = ''; const measureDivs = mirror.children;
-    for (let i = 0; i < lines.length; i++) { numbersHtml += `<div class="line-number-item" style="height: ${measureDivs[i].getBoundingClientRect().height}px;">${i + 1}</div>`; }
+    
+    lines.forEach(line => { 
+        const div = document.createElement('div'); 
+        div.textContent = line.length === 0 ? '\u200b' : line; 
+        mirror.appendChild(div); 
+    });
+    
+    let numbersHtml = ''; 
+    const measureDivs = mirror.children;
+    for (let i = 0; i < lines.length; i++) { 
+        numbersHtml += `<div class="line-number-item" style="height: ${measureDivs[i].getBoundingClientRect().height}px;">${i + 1}</div>`; 
+    }
     lineNumbers.innerHTML = numbersHtml;
 }
 
@@ -2397,11 +2530,67 @@ document.getElementById('dd-wordWrap').addEventListener('change', (e) => {
 
 function showToast(message) { toast.textContent = message; toast.classList.remove('opacity-0'); setTimeout(() => { toast.classList.add('opacity-0'); }, 3000); }
 
-document.getElementById('btnClearAll').addEventListener('click', () => { 
-    showConfirm('確認全部清空', '這將會清空所有的資料與結構，你確定嗎？', () => {
-        localStorage.setItem(STORAGE_KEY, ''); localStorage.removeItem(COL_NAMES_KEY); localStorage.removeItem(COL_WIDTHS_KEY); editor.value = '';
-        if (currentMode === 'text') updateLineNumbers(); else renderTableFromText('');
-        saveHistoryState(); showToast('🗑️ 全域內容已清除');
+function handleClearCurrentTab() {
+    showConfirm('確認清除本頁', '這將會清空目前頁籤的所有資料，但保留其他頁籤。你確定嗎？', () => {
+        editor.value = '';
+        if (currentMode === 'text') {
+            updateLineNumbers();
+        } else {
+            renderTableFromText(''); // 表格模式下繪製空表格
+        }
+        // 儲存至歷史紀錄與分頁資料
+        saveHistoryState();
+        saveAllTabsData();
+        showToast('🗑️ 本頁內容已清除');
+    });
+}
+
+/* ==========================================
+   完全刪除 (清空所有分頁，只保留一個空白分頁)
+========================================== */
+document.getElementById('btnFullDelete').addEventListener('click', () => { 
+    showConfirm('確認完全刪除', '這將會刪除所有的分頁、資料與結構，只保留一個空白分頁。你確定嗎？', () => {
+        // 重設分頁陣列
+        sheetTabs = [{ name: '工作表1', content: '', history: [''], mode: 'text' }];
+        activeSheetIndex = 0;
+        historyStack = sheetTabs[0].history;
+        
+        // 清空編輯器
+        editor.value = '';
+        
+        // 直接使用強制切換回到文字模式，系統會幫我們把介面都整理好！
+        switchMode('text', true);
+        
+        saveAllTabsData();
+        renderSheetTabs();
+        
+        showToast('🗑️ 所有分頁與內容已完全刪除');
+    });
+});
+
+/* ==========================================
+   清空記憶 (清除 LocalStorage 並重整網頁)
+========================================== */
+document.getElementById('btnClearCache').addEventListener('click', () => {
+    showConfirm('確認清空記憶', '這將會清除所有儲存在瀏覽器中的偏好設定與暫存紀錄，並重新載入網頁。你確定嗎？', () => {
+        // 安全移除專案使用的 LocalStorage Key
+        const keysToRemove = [
+            STORAGE_KEY, MODE_KEY, COL_NAMES_KEY, FONT_SIZE_KEY, 
+            LINE_HEIGHT_KEY, COL_WIDTHS_KEY, WORD_WRAP_KEY, 
+            EDITOR_WIDTH_KEY, FREEZE_ROWS_KEY, SHOW_TEXT_LINE_NUMBERS_KEY,
+            TABS_DATA_KEY, ACTIVE_TAB_KEY, ENTER_ACTION_KEY, 
+            ENTER_DIRECTION_KEY, FONT_FAMILY_KEY, FIND_TEXT_KEY, 
+            REPLACE_TEXT_KEY, 'wesing-batch-replace-data', 
+            'wesing-batch-direction', 'wesing-batch-delimiter',
+            'wesing-py-lang', 'wesing-py-src', 'wesing-py-tgt'
+        ];
+        
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        
+        showToast('🧹 記憶已清空，即將重新載入...');
+        setTimeout(() => {
+            window.location.reload();
+        }, 1200);
     });
 });
 
@@ -6507,18 +6696,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const frTitleIcon = document.getElementById('frTitleIcon');
     const msgFind = document.getElementById('findReplaceMessage');
 
-	const btnClearFind = document.getElementById('btnClearFind');
-	const btnClearReplace = document.getElementById('btnClearReplace');
-	const FIND_TEXT_KEY = 'wesing-find-text';
-	const REPLACE_TEXT_KEY = 'wesing-replace-text';
-
 	// 輔助函數：根據輸入框內容，決定是否顯示「X」按鈕
 	function updateFindReplaceClearButtons() {
-		if (btnClearFind) {
+		const btnClearFind = document.getElementById('btnClearFind');
+		const btnClearReplace = document.getElementById('btnClearReplace');
+		const findInput = document.getElementById('findInput');
+		const replaceInput = document.getElementById('replaceInput');
+
+		if (btnClearFind && findInput) {
 			if (findInput.value.length > 0) btnClearFind.classList.remove('hidden');
 			else btnClearFind.classList.add('hidden');
 		}
-		if (btnClearReplace) {
+		if (btnClearReplace && replaceInput) {
 			if (replaceInput.value.length > 0) btnClearReplace.classList.remove('hidden');
 			else btnClearReplace.classList.add('hidden');
 		}
@@ -7880,48 +8069,15 @@ function switchSheet(index) {
     if (!newTab.history) newTab.history = [newTab.content];
     historyStack = newTab.history;
     
-    // 讀取該頁籤專屬的模式，並切換 UI 狀態
-    const targetMode = newTab.mode || 'text';
-    currentMode = targetMode;
-    localStorage.setItem(MODE_KEY, currentMode);
+    // 載入新分頁內容至 textarea (做為中介)
+    editor.value = newTab.content;
     
-    // 同步上方工具列圖示與下拉選單的打勾狀態
-    document.getElementById('viewModeIcon').textContent = currentMode === 'table' ? 'table_chart' : 'edit_document';
-    setDropdownValue('dd-viewMode', currentMode);
-
-    const ddTextTool = document.getElementById('dd-textTool');
-    const btnToggleLineNumbersTextMode = document.getElementById('btnToggleLineNumbersTextMode');
-
-    // 依據專屬模式進行渲染
-    if (currentMode === 'table') {
-        renderTableFromText(newTab.content);
-        applyFreeze();
-        textModeContainer.style.display = 'none'; tableModeContainer.style.display = 'block';
-        tableControls.classList.remove('hidden'); tableControls.classList.add('flex');
-        if (ddTextTool) ddTextTool.classList.add('hidden');
-        if (btnToggleLineNumbersTextMode) btnToggleLineNumbersTextMode.classList.add('hidden');
-        resetSortHeaderCheckbox();
-    } else {
-        editor.value = newTab.content;
-        tableModeContainer.style.display = 'none'; textModeContainer.style.display = 'flex';
-        tableControls.classList.remove('flex'); tableControls.classList.add('hidden');
-        if (ddTextTool) ddTextTool.classList.remove('hidden');
-        if (btnToggleLineNumbersTextMode) btnToggleLineNumbersTextMode.classList.remove('hidden');
-        updateLineNumbers();
-    }
+    // 強制執行模式切換與 UI 渲染 (傳入 true)
+    switchMode(newTab.mode || 'text', true);
 
     saveAllTabsData();
     renderSheetTabs();   
 }
-
-// 新增工作表
-btnAddSheet?.addEventListener('click', () => {
-    saveAllTabsData();
-    const newName = `工作表${sheetTabs.length + 1}`;
-    // 預設新建頁籤為文字模式
-    sheetTabs.push({ name: newName, content: '', history: [''], mode: 'text' });
-    switchSheet(sheetTabs.length - 1);
-});
 
 // 刪除工作表
 function deleteSheet(index) {
@@ -7934,31 +8090,12 @@ function deleteSheet(index) {
             activeSheetIndex = Math.max(0, sheetTabs.length - 1);
         }
         
-        // 刪除後強制套用新目標的專屬模式與內容
         const newTab = sheetTabs[activeSheetIndex];
-        currentMode = newTab.mode || 'text';
-        localStorage.setItem(MODE_KEY, currentMode);
-        document.getElementById('viewModeIcon').textContent = currentMode === 'table' ? 'table_chart' : 'edit_document';
-        setDropdownValue('dd-viewMode', currentMode);
-
         historyStack = newTab.history;
-        const ddTextTool = document.getElementById('dd-textTool');
-        const btnToggleLineNumbersTextMode = document.getElementById('btnToggleLineNumbersTextMode');
+        editor.value = newTab.content;
 
-        if (currentMode === 'table') {
-            renderTableFromText(newTab.content);
-            textModeContainer.style.display = 'none'; tableModeContainer.style.display = 'block';
-            tableControls.classList.remove('hidden'); tableControls.classList.add('flex');
-            if (ddTextTool) ddTextTool.classList.add('hidden');
-            if (btnToggleLineNumbersTextMode) btnToggleLineNumbersTextMode.classList.add('hidden');
-        } else {
-            editor.value = newTab.content;
-            tableModeContainer.style.display = 'none'; textModeContainer.style.display = 'flex';
-            tableControls.classList.remove('flex'); tableControls.classList.add('hidden');
-            if (ddTextTool) ddTextTool.classList.remove('hidden');
-            if (btnToggleLineNumbersTextMode) btnToggleLineNumbersTextMode.classList.remove('hidden');
-            updateLineNumbers();
-        }
+        // 強制執行模式切換與 UI 渲染
+        switchMode(newTab.mode || 'text', true);
         
         saveAllTabsData();
         renderSheetTabs();
@@ -7966,6 +8103,106 @@ function deleteSheet(index) {
     });
 }
 
+// 新增工作表
+btnAddSheet?.addEventListener('click', () => {
+    saveAllTabsData();
+    const newName = `工作表${sheetTabs.length + 1}`;
+    // 預設新建頁籤為文字模式
+    sheetTabs.push({ name: newName, content: '', history: [''], mode: 'text' });
+    switchSheet(sheetTabs.length - 1);
+});
+
+
+/* ==========================================
+   檔案管理模組 (開啟檔案與儲存檔案)
+========================================== */
+const fileInput = document.getElementById('fileInput');
+
+// 開啟檔案
+document.getElementById('btnOpenFile')?.addEventListener('click', () => {
+    fileInput.click();
+    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+});
+
+fileInput?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const content = event.target.result;
+        
+        // 將內容寫入編輯器，並更新頁籤名稱
+        editor.value = content;
+        sheetTabs[activeSheetIndex].name = file.name;
+        
+        // 智慧判斷：如果是 .csv 結尾，自動切換至表格模式，否則切換為文字模式
+        const extension = file.name.split('.').pop().toLowerCase();
+        const targetMode = extension === 'csv' ? 'table' : 'text';
+        
+        switchMode(targetMode, true);
+        
+        saveAllTabsData();
+        renderSheetTabs();
+        showToast(`📂 已開啟檔案：${file.name}`);
+        
+        // 清空 input 值，讓下次選同一個檔案也能觸發 change 事件
+        fileInput.value = '';
+    };
+    reader.onerror = () => {
+        showToast('❌ 檔案讀取失敗');
+    };
+    reader.readAsText(file);
+});
+
+// 儲存檔案
+document.getElementById('btnSaveFile')?.addEventListener('click', () => {
+    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+    
+    const currentContent = currentMode === 'text' ? editor.value : extractTextFromTable();
+    if (!currentContent) {
+        return showToast('⚠️ 沒有內容可以儲存');
+    }
+
+    const currentTabName = sheetTabs[activeSheetIndex].name;
+    const defaultExt = currentMode === 'table' ? '.csv' : '.txt';
+    const defaultFilename = currentTabName.includes('.') ? currentTabName : currentTabName + defaultExt;
+
+    // 呼叫內建的自訂 Prompt 詢問檔名
+    showPrompt('儲存檔案', defaultFilename, (filename) => {
+        if (!filename) return;
+        
+        let blobContent = currentContent;
+        
+        // 如果是儲存為 CSV，我們需要把 TSV 的 Tab 轉為逗號，並加上 UTF-8 BOM 以防 Excel 亂碼
+        if (filename.toLowerCase().endsWith('.csv') && currentMode === 'table') {
+            const rows = currentContent.split('\n');
+            const csvRows = rows.map(row => {
+                return row.split('\t').map(cell => {
+                    // 若內容包含逗號、換行或引號，需用雙引號包覆並跳脫
+                    if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
+                        return '"' + cell.replace(/"/g, '""') + '"';
+                    }
+                    return cell;
+                }).join(',');
+            });
+            blobContent = '\uFEFF' + csvRows.join('\n'); // \uFEFF 是 BOM
+        }
+
+        // 觸發下載
+        const blob = new Blob([blobContent], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showToast(`💾 檔案已儲存：${filename}`);
+    });
+});
 
 
 

@@ -18,13 +18,17 @@ body {
     font-family: var(--main-font);
     background-color: #f3f4f6;
     margin: 0;
-    height: 100vh;
+    height: 100vh; 
+    height: 100dvh; 
     display: flex;
     flex-direction: column;
-	overflow: hidden;
+    overflow: hidden;
 }
 
-#mainContainer { transition: max-width 0.3s ease; }
+#mainContainer { 
+    transition: max-width 0.3s ease, opacity 0.4s ease; 
+    opacity: 0; 
+}
 
 .editor-wrapper {
     display: flex; flex: 1; background: #ffffff;
@@ -127,6 +131,9 @@ table#data-table td:focus { outline: none; }
 
 /* 選取底色樣式 (單選無底色，多選淺底色) */
 .sel-bg { background-color: #f4f9ff !important; }
+table#data-table td:focus-within {
+    background-color: #ffffff !important;
+}
 .selected-header { background-color: #bfdbfe !important; color: #1e3a8a !important; }
 
 /* 拖曳高亮效果 */
