@@ -3121,6 +3121,7 @@ document.getElementById('btnReplace').addEventListener('click', () => {
 });
 
 // --- 全部取代 ---
+// --- 全部取代 (支援套用到所有頁籤) ---
 document.getElementById('btnReplaceAll').addEventListener('click', () => {
     const globalRegex = buildSearchRegex(true);
     if (!globalRegex) return;
@@ -3130,54 +3131,117 @@ document.getElementById('btnReplaceAll').addEventListener('click', () => {
         replaceWith = replaceWith.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
     }
     
-    const context = getSelectionContext();
+    const isFormulaMatch = document.getElementById('chkFormulaMatch')?.checked;
+    const chkAllTabs = document.getElementById('chkAllTabs')?.checked;
+    
     let count = 0;
 
-    if (currentMode === 'text') {
-        const text = editor.value;
-        if (context.hasSelection) {
-            const selectedText = text.substring(context.start, context.end);
-            count = (selectedText.match(globalRegex) || []).length;
-            if (count > 0) {
-                const newText = selectedText.replace(globalRegex, replaceWith);
-                editor.setRangeText(newText, context.start, context.end, 'select');
-            }
-        } else {
-            count = (text.match(globalRegex) || []).length;
-            if (count > 0) editor.value = text.replace(globalRegex, replaceWith);
-        }
-        if (count > 0) { debouncedSaveHistory(); updateLineNumbers(); }
-    } else {
-        const isFormulaMatch = document.getElementById('chkFormulaMatch')?.checked;
-        const cells = getTargetCells();
-        
-        cells.forEach(cell => {
-            // 判斷要搜尋的是公式還是表面文字
-            let textToSearch = cell.inner.innerText;
-            if (isFormulaMatch && cell.inner.hasAttribute('data-formula')) {
-                textToSearch = cell.inner.getAttribute('data-formula');
-            }
+    // 🌟 邏輯分支：是否套用到所有頁籤
+    if (chkAllTabs) {
+        // 1. 先將當下畫面最新的資料存入 sheetTabs
+        saveAllTabsData(); 
 
-            if (globalRegex.test(textToSearch)) {
-                const matches = textToSearch.match(globalRegex);
-                count += matches ? matches.length : 0;
+        // 2. 遍歷所有頁籤進行背景替換
+        sheetTabs.forEach((tab) => {
+            if (tab.mode === 'text') {
+                const matches = tab.content.match(globalRegex);
+                if (matches) {
+                    count += matches.length;
+                    tab.content = tab.content.replace(globalRegex, replaceWith);
+                }
+            } else {
+                // 表格模式：在背景解析 TSV 並取代
+                if (!tab.content) return;
+                const data = parseTSV(tab.content);
+                let tabCount = 0;
                 
-                let newText = textToSearch.replace(globalRegex, replaceWith);
-                
-                // 寫回新的公式或文字
-                if (isFormulaMatch && cell.inner.hasAttribute('data-formula')) {
-                    cell.inner.setAttribute('data-formula', newText);
-                } else {
-                    cell.inner.innerText = newText;
-                    if (!newText.startsWith('=')) cell.inner.removeAttribute('data-formula');
+                const newData = data.map(row => {
+                    return row.map(cellText => {
+                        // 若未勾選「公式文字」，且開頭是等號，則跳過不取代
+                        if (!isFormulaMatch && cellText.startsWith('=')) return cellText;
+
+                        if (globalRegex.test(cellText)) {
+                            const m = cellText.match(globalRegex);
+                            tabCount += m ? m.length : 0;
+                            return cellText.replace(globalRegex, replaceWith);
+                        }
+                        return cellText;
+                    });
+                });
+
+                if (tabCount > 0) {
+                    count += tabCount;
+                    // 將陣列轉回 TSV 格式儲存
+                    tab.content = newData.map(row => {
+                        return row.map(cell => {
+                            if (cell.includes('"') || cell.includes('\n') || cell.includes('\t')) {
+                                return '"' + cell.replace(/"/g, '""') + '"';
+                            }
+                            return cell;
+                        }).join('\t');
+                    }).join('\n');
                 }
             }
         });
-        
-        if (count > 0) {
-            // 取代完成後，統一重新計算全表公式
-            recalculateAllFormulas();
+
+		if (count > 0) {
+            // 3. 將更新後的資料寫回 LocalStorage
+            localStorage.setItem(TABS_DATA_KEY, JSON.stringify(sheetTabs));
+            
+            // 將當前頁籤「已經被取代完成」的新內容，同步回目前的編輯器中！
+            editor.value = sheetTabs[activeSheetIndex].content;
+
+            // 4. 強制重新渲染目前畫面
+            switchMode(currentMode, true);
             debouncedSaveHistory();
+        }
+
+    } else {
+        // 🌟 保持原有的單一頁籤 (目前畫面) 取代邏輯
+        const context = getSelectionContext();
+
+        if (currentMode === 'text') {
+            const text = editor.value;
+            if (context.hasSelection) {
+                const selectedText = text.substring(context.start, context.end);
+                count = (selectedText.match(globalRegex) || []).length;
+                if (count > 0) {
+                    const newText = selectedText.replace(globalRegex, replaceWith);
+                    editor.setRangeText(newText, context.start, context.end, 'select');
+                }
+            } else {
+                count = (text.match(globalRegex) || []).length;
+                if (count > 0) editor.value = text.replace(globalRegex, replaceWith);
+            }
+            if (count > 0) { debouncedSaveHistory(); updateLineNumbers(); }
+        } else {
+            const cells = getTargetCells();
+            
+            cells.forEach(cell => {
+                let textToSearch = cell.inner.innerText;
+                if (isFormulaMatch && cell.inner.hasAttribute('data-formula')) {
+                    textToSearch = cell.inner.getAttribute('data-formula');
+                }
+
+                if (globalRegex.test(textToSearch)) {
+                    const matches = textToSearch.match(globalRegex);
+                    count += matches ? matches.length : 0;
+                    
+                    let newText = textToSearch.replace(globalRegex, replaceWith);
+                    
+                    if (isFormulaMatch && cell.inner.hasAttribute('data-formula')) {
+                        cell.inner.setAttribute('data-formula', newText);
+                    } else {
+                        cell.inner.innerText = newText;
+                        if (!newText.startsWith('=')) cell.inner.removeAttribute('data-formula');
+                    }
+                }
+            });
+            
+            if (count > 0) {
+                recalculateAllFormulas();
+                debouncedSaveHistory();
+            }
         }
     }
     
