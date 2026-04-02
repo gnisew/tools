@@ -85,12 +85,26 @@ table#data-table td {
     overflow: hidden; 
 }
 table#data-table th { 
-    border-right: 1px solid #cbd5e1; border-bottom: 1px solid #cbd5e1;
-    background-color: #f1f5f9; color: #475569; font-weight: bold; text-align: center; padding: 0.25rem 0.5rem;
-    user-select: none; position: relative; white-space: nowrap; cursor: pointer; transition: none;
+    border-right: 1px solid #cbd5e1; 
+    border-bottom: 1px solid #cbd5e1;
+    background-color: #f8fafc; /* 將背景稍微調淡一點，更接近純淨的灰色 */
+    color: #475569; /* 字體顏色也稍微調淡，避免喧賓奪主 */
+    font-weight: normal; /* �取消加粗，回歸正常粗細 */
+    font-size: 14px; /* �縮小字體，標準試算表通常介於 12px~13px */
+    text-align: center; 
+    padding: 0.25rem 0.5rem;
+    user-select: none; 
+    position: relative; 
+    white-space: nowrap; 
+    cursor: pointer; 
+    transition: none;
     min-width: 100px;
 }
-table#data-table th:hover { background-color: #e2e8f0; }
+
+table#data-table th:hover { 
+    background-color: #f1f5f9; /* 懸浮時的顏色稍微加深一點點 */
+    color: #334155; /* 懸浮時字體稍微變深，增加互動感 */
+}
 
 table#data-table th.sticky-top { position: sticky; top: 0; z-index: 20; border-top: 1px solid #cbd5e1; }
 table#data-table th.sticky-left { position: sticky; left: 0; z-index: 20; border-left: 1px solid #cbd5e1; width: 4.5rem !important; min-width: 4.5rem !important; max-width: 4.5rem !important; }
@@ -165,15 +179,42 @@ table#data-table td:focus-within {
 ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 6px; }
 ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
 
-/* 工具列按鈕與下拉 */
-.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 6px; color: #4b5563; transition: all 0.2s; }
-.icon-btn:hover { background-color: #f3f4f6; color: #2563eb; }
-.icon-btn.active { background-color: #dbeafe; color: #1d4ed8; }
+/* 工具列按鈕與下拉 (仿 Google Sheets 風格) */
+.icon-btn { 
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center; 
+    width: 34px; 
+    height: 34px; /* 稍微縮小按鈕 */
+    border-radius: 4px; /* 微微的圓角 */
+    color: #444746; /* Google 系統的深灰色 */
+    background-color: transparent; /* 預設透明底 */
+    transition: background-color 0.15s, color 0.15s; 
+}
+.icon-btn .material-symbols-outlined {
+    font-size: 20px; /* 縮小圖示尺寸，看起來更精緻 */
+    font-weight: 300; /* 讓圖示線條柔和一點 */
+}
+.icon-btn:hover { 
+    background-color: #e1e5ea; /* 懸浮時的淺灰底色 */
+    color: #1f1f1f; 
+}
+.icon-btn.active { 
+    background-color: #d3e3fd; /* 啟用時的淺藍底色 */
+    color: #0b57d0; 
+}
 .dropdown-menu, .action-menu { display: none; }
 .dropdown-menu.show, .action-menu.show { display: block; }
 .check-icon { opacity: 0; }
 .check-icon.active { opacity: 1; }
 
+/* 垂直分隔線 */
+.toolbar-separator {
+    width: 1px;
+    height: 20px;
+    background-color: #c7c7c7;
+    margin: 0 4px;
+}
 /* ==========================================
    自動填入視窗專屬細節樣式
    ========================================== */
@@ -456,4 +497,28 @@ table#data-table td:focus-within {
     outline: none;
     font-family: inherit;
     width: 80px;
+}
+
+
+/* ================= 100% 寬度全螢幕無邊距模式 ================= */
+body.full-width-mode {
+    padding: 0 !important; /* 消除 body 外圍的 Tailwind padding (p-2 md:p-6) */
+}
+
+/* 讓工具列貼齊邊緣，並取消圓角 */
+body.full-width-mode > #mainContainer > div:first-child {
+    margin-bottom: 0 !important;
+    border-radius: 0 !important;
+    padding-left: 1rem !important; /* 滿版時，左右留一點呼吸空間 */
+    padding-right: 1rem !important;
+}
+
+/* 讓編輯器與表格完全填滿畫面 */
+body.full-width-mode .editor-wrapper {
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    border-top: 1px solid #d1d5db !important; /* 工具列與編輯區的細分隔線 */
+    box-shadow: none !important;
 }

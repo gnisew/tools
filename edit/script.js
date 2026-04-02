@@ -272,18 +272,19 @@ function init() {
     const savedWidth = localStorage.getItem(EDITOR_WIDTH_KEY) || '800px';
     mainContainer.style.maxWidth = savedWidth;
     setDropdownValue('dd-editorWidth', savedWidth);
+    
+    if (savedWidth === '100%') {
+        document.body.classList.add('full-width-mode');
+    } else {
+        document.body.classList.remove('full-width-mode');
+    }
+
     if (savedWidth) {
         mainContainer.style.transition = 'none';
         mainContainer.style.maxWidth = savedWidth;
         setDropdownValue('dd-editorWidth', savedWidth);
         void mainContainer.offsetWidth;
         mainContainer.style.transition = '';
-    }
-
-    const savedFontSize = localStorage.getItem(FONT_SIZE_KEY);
-    if (savedFontSize) {
-        document.documentElement.style.setProperty('--editor-font-size', savedFontSize);
-        setDropdownValue('dd-fontSize', savedFontSize);
     }
     const savedLineHeight = localStorage.getItem(LINE_HEIGHT_KEY);
     if (savedLineHeight) {
@@ -2671,8 +2672,16 @@ document.getElementById('dd-lineHeight').addEventListener('change', (e) => {
     if (currentMode === 'text') setTimeout(updateLineNumbers, 50); else applySelectionVisuals(); 
 });
 document.getElementById('dd-editorWidth').addEventListener('change', (e) => { 
-    mainContainer.style.maxWidth = e.detail.value; 
-    localStorage.setItem(EDITOR_WIDTH_KEY, e.detail.value);
+    const val = e.detail.value;
+    mainContainer.style.maxWidth = val; 
+    localStorage.setItem(EDITOR_WIDTH_KEY, val);
+    
+    if (val === '100%') {
+        document.body.classList.add('full-width-mode');
+    } else {
+        document.body.classList.remove('full-width-mode');
+    }
+    
     if (currentMode === 'text') setTimeout(updateLineNumbers, 350); else setTimeout(applySelectionVisuals, 350); 
 });
 

@@ -22,13 +22,10 @@
 
 
         <!-- 極簡圖示工具列 -->
-        <div class="mb-3 flex items-center flex-wrap gap-1 bg-white px-2 py-1.5 rounded-lg border border-gray-200 shadow-sm relative overflow-visible">
+<div class="mb-2 flex items-center flex-wrap gap-0.5 bg-[#f0f4f9] px-3 py-1.5 rounded-full relative overflow-visible select-none">
             
-
-            <!-- 檢視模式 -->
-            <!-- 檔案管理 (替換原本的檢視模式) -->
             <div class="relative dropdown-container" id="dd-fileMenu">
-                <button class="dropdown-btn icon-btn text-blue-600 bg-blue-50" title="檔案管理">
+                <button class="dropdown-btn icon-btn" title="檔案管理">
                     <span class="material-symbols-outlined">folder_open</span>
                 </button>
                 <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1">
@@ -40,102 +37,72 @@
                     </button>
                 </div>
             </div>
-            <!-- 隱藏的檔案選擇器 -->
             <input type="file" id="fileInput" class="hidden" accept=".txt,.js,.css,.json,.csv,.html,.md,.xml">
 
-            <button id="btnUndo" class="icon-btn hover:bg-gray-100" title="復原 (Ctrl+Z)"><span class="material-symbols-outlined">undo</span></button>
+            <button id="btnUndo" class="icon-btn" title="復原 (Ctrl+Z)"><span class="material-symbols-outlined">undo</span></button>
+            <button id="btnFindReplace" title="尋找與取代 (Ctrl+F)" class="icon-btn"><span class="material-symbols-outlined">search</span></button>
 
-						<!-- 尋找與取代按鈕 -->
-            <button id="btnFindReplace" title="尋找與取代 (Ctrl+F)" class="icon-btn hover:bg-blue-50 hover:text-blue-600"><span class="material-symbols-outlined">search</span></button>
+            <div class="toolbar-separator"></div>
 
-
-
-
-			<!-- 語言工具選單 -->
-            <div class="relative dropdown-container" id="dd-languageTools">
-                <button class="dropdown-btn icon-btn hover:bg-green-50 hover:text-green-600" title="語言工具">
+			<div class="relative dropdown-container" id="dd-languageTools">
+                <button class="dropdown-btn icon-btn" title="語言工具">
                     <span class="material-symbols-outlined">language</span>
                 </button>
                 <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1">
-
-
-                    <!-- 翻譯轉換工具 -->
                     <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 flex items-center gap-2 code-text" id="btn-toggle-translator" title="烏衣行翻譯系統">
                         <span class="material-symbols-outlined text-base">translate</span>翻譯系統
                     </button>
-
-                    <!-- 拼音轉換工具 -->
                     <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 flex items-center gap-2 code-text" id="btnOpenPinyinTool" title="烏衣行拼音轉換">
                         <span class="material-symbols-outlined text-base">rotate_auto</span>拼音轉換
                     </button>
-					
-                    <!-- 線上輸入法 -->
                     <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 flex items-center gap-2 code-text ime-toggle-button !justify-start" title="烏衣行輸入法">
                         <span class="material-symbols-outlined text-base">keyboard</span>烏衣行輸入法
                     </button>
-
-					<!-- 手機版專屬關閉鍵盤開關 -->
-                    <button class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 md:hidden" id="btnToggleKeyboardMobile">
+					<button class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 md:hidden" id="btnToggleKeyboardMobile">
                         <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">keyboard_off</span>開關手機鍵盤</div>
                         <span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold transition-opacity duration-200" style="opacity: 0;" id="iconKeyboardCheck">check</span>
                     </button>
                 </div>
             </div>
 
-
-
-
-<div class="relative dropdown-container" id="dd-typography">
-    <button class="dropdown-btn icon-btn hover:bg-blue-50 hover:text-blue-600" title="排版設定">
-        <span class="material-symbols-outlined">custom_typography</span>
-    </button>
-    <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-48 z-50 py-1">
-
-        <!-- 🌟 1. 新增的介面寬度子選單 (放在頂端第一個) -->
-        <div class="relative group/submenu" id="dd-editorWidth">
-            <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
-                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">width_full</span>介面寬度</div>
-                <span class="material-symbols-outlined text-base">arrow_right</span>
-            </div>
-            <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1">
-                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="100%"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">fit_screen</span>寬 100%</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1200px"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">desktop_windows</span>寬 1200px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1000px"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">desktop_windows</span>寬 1000px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="900px"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">tablet_mac</span>寬 900px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="800px"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">tablet</span>寬 800px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
-            </div>
-        </div>
-
-
-
-
-        <div class="relative group/submenu" id="dd-viewMode">
-            <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
-                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base" id="viewModeIconMenu">edit_document</span>編輯模式</div>
-                <span class="material-symbols-outlined text-base">arrow_right</span>
-            </div>
-            <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1">
-                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="text">
-                    <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">edit_document</span>文字模式</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span>
+            <div class="relative dropdown-container" id="dd-typography">
+                <button class="dropdown-btn icon-btn" title="排版設定">
+                    <span class="material-symbols-outlined">custom_typography</span>
                 </button>
-                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="table">
-                    <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">table_chart</span>表格模式</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
-                </button>
-            </div>
-        </div>
-
-        <div class="h-px bg-gray-200 my-1 mx-2 hidden md:block"></div>
-
-        <!-- 2. 手機版專屬關閉鍵盤開關 (維持原樣) -->
-        <button class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 md:hidden" id="btnToggleKeyboardMobile">
-            <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">keyboard_off</span>關閉鍵盤</div>
-            <span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold transition-opacity duration-200" style="opacity: 0;" id="iconKeyboardCheck">check</span>
-        </button>
-
-
-
+                <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-48 z-50 py-1">
+                    <div class="relative group/submenu" id="dd-editorWidth">
+                        <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
+                            <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">width_full</span>介面寬度</div>
+                            <span class="material-symbols-outlined text-base">arrow_right</span>
+                        </div>
+                        <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1">
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="100%"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">fit_screen</span>寬 100%</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1200px"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">desktop_windows</span>寬 1200px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1000px"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">desktop_windows</span>寬 1000px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="900px"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">tablet_mac</span>寬 900px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="800px"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">tablet</span>寬 800px</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
+                        </div>
+                    </div>
+                    <div class="relative group/submenu" id="dd-viewMode">
+                        <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
+                            <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base" id="viewModeIconMenu">edit_document</span>編輯模式</div>
+                            <span class="material-symbols-outlined text-base">arrow_right</span>
+                        </div>
+                        <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1">
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="text">
+                                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">edit_document</span>文字模式</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span>
+                            </button>
+                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="table">
+                                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">table_chart</span>表格模式</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="h-px bg-gray-200 my-1 mx-2 hidden md:block"></div>
+                    <button class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 md:hidden" id="btnToggleKeyboardMobile">
+                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">keyboard_off</span>關閉鍵盤</div>
+                        <span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold transition-opacity duration-200" style="opacity: 0;" id="iconKeyboardCheck">check</span>
+                    </button>
                     <div class="h-px bg-gray-200 my-1 mx-2 md:hidden"></div>
-                    
                     
                     <div class="relative group/submenu" id="dd-fontFamily">
                         <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
@@ -221,124 +188,55 @@
                 </div>
             </div>
 
+            <div class="relative dropdown-container" id="dd-textTool">
+                <button class="dropdown-btn icon-btn" title="文字排版工具">
+                    <span class="material-symbols-outlined">design_services</span>
+                </button>
+                <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1 max-h-[80vh] overflow-y-auto scrollbar-thin">
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnWordCount"><span class="material-symbols-outlined text-base">analytics</span>字數統計</button>
+            		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-indigo-50 text-indigo-800 flex items-center gap-2 code-text" id="btnOpenWordStats"><span class="material-symbols-outlined text-base">bar_chart</span>分詞統計</button>
+            		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnOpenNumbering"><span class="material-symbols-outlined text-base">format_list_numbered</span>編號設定</button>
+                    <div class="h-px bg-gray-200 my-1 mx-2"></div>
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnPunctuationBreak"><span class="material-symbols-outlined text-base">wrap_text</span>標點斷行</button>
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnPunctuationJoin"><span class="material-symbols-outlined text-base">vertical_align_center</span>斷行接回</button>
+            		<div class="h-px bg-gray-200 my-1 mx-2"></div>
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnTrimSpaces"><span class="material-symbols-outlined text-base">format_indent_decrease</span>移除首尾空格</button>
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnRemoveEmptyLines"><span class="material-symbols-outlined text-base">format_line_spacing</span>移除空行</button>
+            		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnRemoveTrailingEmptyLines"><span class="material-symbols-outlined text-base">vertical_align_bottom</span>移除文末空行</button>
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnRemoveDupLines"><span class="material-symbols-outlined text-base">difference</span>移除重複行</button>
+                    <div class="h-px bg-gray-200 my-1 mx-2"></div>	
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnSortAZ"><span class="material-symbols-outlined text-base">sort_by_alpha</span>排序 A-Z</button>
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnSortZA"><span class="material-symbols-outlined text-base">sort_by_alpha</span>排序 Z-A</button>
+            		<div class="h-px bg-gray-200 my-1 mx-2"></div>
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnCapitalize"><span class="material-symbols-outlined text-base">title</span>句首大寫</button>
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnLowercase"><span class="material-symbols-outlined text-base">lowercase</span>轉為小寫</button>
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnUppercase"><span class="material-symbols-outlined text-base">uppercase</span>轉為大寫</button>
+                </div>
+            </div>
 
+            <div class="toolbar-separator hidden md:block"></div>
 
-<div class="relative dropdown-container" id="dd-textTool">
-    <button class="dropdown-btn icon-btn hover:bg-blue-50 hover:text-gray-800" title="文字排版工具">
-        <span class="material-symbols-outlined">design_services</span>
-    </button>
-    <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1 max-h-[80vh] overflow-y-auto scrollbar-thin">
-
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnWordCount">
-            <span class="material-symbols-outlined text-base">analytics</span>字數統計
-        </button>
-		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-indigo-50 text-indigo-800 flex items-center gap-2 code-text" id="btnOpenWordStats">
-            <span class="material-symbols-outlined text-base">bar_chart</span>分詞統計
-        </button>
-		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnOpenNumbering">
-            <span class="material-symbols-outlined text-base">format_list_numbered</span>編號設定
-        </button>
-        <div class="h-px bg-gray-200 my-1 mx-2"></div>
-
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnPunctuationBreak">
-            <span class="material-symbols-outlined text-base">wrap_text</span>標點斷行
-        </button>
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnPunctuationJoin">
-            <span class="material-symbols-outlined text-base">vertical_align_center</span>斷行接回
-        </button>
-
-		<div class="h-px bg-gray-200 my-1 mx-2"></div>
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnTrimSpaces">
-            <span class="material-symbols-outlined text-base">format_indent_decrease</span>移除首尾空格
-        </button>
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnRemoveEmptyLines">
-            <span class="material-symbols-outlined text-base">format_line_spacing</span>移除空行
-        </button>
-		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnRemoveTrailingEmptyLines">
-            <span class="material-symbols-outlined text-base">vertical_align_bottom</span>移除文末空行
-        </button>
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnRemoveDupLines">
-            <span class="material-symbols-outlined text-base">difference</span>移除重複行
-        </button>
-        
-        <div class="h-px bg-gray-200 my-1 mx-2"></div>	
-
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnSortAZ">
-            <span class="material-symbols-outlined text-base">sort_by_alpha</span>排序 A-Z
-        </button>
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnSortZA">
-            <span class="material-symbols-outlined text-base">sort_by_alpha</span>排序 Z-A
-        </button>
-		<div class="h-px bg-gray-200 my-1 mx-2"></div>
-
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnCapitalize">
-            <span class="material-symbols-outlined text-base">title</span>句首大寫
-        </button>
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnLowercase">
-            <span class="material-symbols-outlined text-base">lowercase</span>轉為小寫
-        </button>
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnUppercase">
-            <span class="material-symbols-outlined text-base">uppercase</span>轉為大寫
-        </button>
-    </div>
-</div>
-
-
-
-
-
-
-
-			
-<!-- 表格專屬擴充區 -->
-<div id="tableControls" class="hidden items-center gap-1">
-
-                
-
-<!-- 神奇多功能工具 -->
-<div class="relative dropdown-container" id="dd-magicTool">
-    <button class="dropdown-btn icon-btn hover:bg-yellow-50 hover:text-yellow-600" title="神奇多功能工具">
-        <span class="material-symbols-outlined">auto_fix_high</span>
-    </button>
-    <div class="dropdown-menu absolute right-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-36 z-50 py-1">
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 flex items-center gap-2 code-text" id="btnOpenAutoFill">
-            <span class="material-symbols-outlined text-base">format_list_numbered</span>自動填入
-        </button>
-		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-green-50 text-green-700 flex items-center gap-2 code-text" id="btnOpenAutoFormula">
-            <span class="material-symbols-outlined text-base">functions</span>自動函數
-        </button>
-
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-cyan-50 text-cyan-700 flex items-center gap-2 code-text" id="btnOpenAutoSplit">
-            <span class="material-symbols-outlined text-base">splitscreen</span>自動分割
-        </button>
-
-		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-orange-50 text-orange-700 flex items-center gap-2 code-text" id="btnOpenAutoMerge">
-            <span class="material-symbols-outlined text-base">merge_type</span>自動合併
-        </button>
-
-		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-green-50 text-purple-700 flex items-center gap-2 code-text" id="btnOpenSort">
-            <span class="material-symbols-outlined text-base">sort</span>排序設定
-        </button>
-
-		<div class="h-px bg-gray-200 my-1 mx-2"></div>
-        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-purple-50 text-purple-700 flex items-center gap-2 code-text" id="btnOpenRemoveDuplicates">
-            <span class="material-symbols-outlined text-base">difference</span>移除重複
-        </button>
-
-
-
-    </div>
-</div>
-
-
+            <div id="tableControls" class="hidden items-center gap-0.5">
+                <div class="relative dropdown-container" id="dd-magicTool">
+                    <button class="dropdown-btn icon-btn" title="神奇多功能工具">
+                        <span class="material-symbols-outlined">auto_fix_high</span>
+                    </button>
+                    <div class="dropdown-menu absolute right-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-36 z-50 py-1">
+                        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 flex items-center gap-2 code-text" id="btnOpenAutoFill"><span class="material-symbols-outlined text-base">format_list_numbered</span>自動填入</button>
+                		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-green-50 text-green-700 flex items-center gap-2 code-text" id="btnOpenAutoFormula"><span class="material-symbols-outlined text-base">functions</span>自動函數</button>
+                        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-cyan-50 text-cyan-700 flex items-center gap-2 code-text" id="btnOpenAutoSplit"><span class="material-symbols-outlined text-base">splitscreen</span>自動分割</button>
+                		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-orange-50 text-orange-700 flex items-center gap-2 code-text" id="btnOpenAutoMerge"><span class="material-symbols-outlined text-base">merge_type</span>自動合併</button>
+                		<button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-green-50 text-purple-700 flex items-center gap-2 code-text" id="btnOpenSort"><span class="material-symbols-outlined text-base">sort</span>排序設定</button>
+                		<div class="h-px bg-gray-200 my-1 mx-2"></div>
+                        <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-purple-50 text-purple-700 flex items-center gap-2 code-text" id="btnOpenRemoveDuplicates"><span class="material-symbols-outlined text-base">difference</span>移除重複</button>
+                    </div>
+                </div>
 
 				<div class="relative dropdown-container" id="dd-tableSettings">
-                    <button class="dropdown-btn icon-btn hover:bg-gray-100" title="表格設定">
+                    <button class="dropdown-btn icon-btn" title="表格設定">
                         <span class="material-symbols-outlined">table_edit</span>
                     </button>
                     <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-52 z-50 py-1">
-
-                        <!-- 🌟 移入並轉換為子選單的：新增欄 -->
                         <div class="relative group/submenu" id="dd-addCols">
                             <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
                                 <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">view_column</span>新增欄</div>
@@ -352,7 +250,6 @@
                             </div>
                         </div>
 
-                        <!-- 🌟 移入並轉換為子選單的：新增列 -->
                         <div class="relative group/submenu" id="dd-addRows">
                             <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
                                 <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">table_rows</span>新增列</div>
@@ -365,7 +262,6 @@
                             </div>
                         </div>
 
-                        <!-- 加上分隔線讓視覺更清晰 -->
                         <div class="h-px bg-gray-200 my-1 mx-2"></div>
 
                         
@@ -444,53 +340,38 @@
 
             <div class="flex-grow"></div>
 
-			<!-- 剪貼簿 (複製與貼上) 選單 -->
-            <div class="relative action-dropdown" id="dd-clipboard-group">
-                <button class="action-btn icon-btn hover:bg-blue-50 hover:text-blue-600" title="剪貼簿選項">
+            <div class="toolbar-separator hidden md:block"></div>
+
+			<div class="relative action-dropdown" id="dd-clipboard-group">
+                <button class="action-btn icon-btn" title="剪貼簿選項">
                     <span class="material-symbols-outlined">content_paste</span>
                 </button>
                 <div class="action-menu absolute right-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-36 z-50 py-1">
-                    <!-- 複製區塊 -->
                     <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text" data-action="copy-selected">複製</button>
                     <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text" data-action="copy-all">全選複製</button>
                     <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text" data-action="select-all">全選</button>
                     
                     <div class="h-px bg-gray-200 my-1 mx-2"></div>
                     
-                    <!-- 貼上區塊 -->
                     <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text" data-action="paste-normal">貼上</button>
                     <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text disabled:text-gray-400 disabled:cursor-not-allowed" id="btn-paste-value" data-action="paste-value">貼上為值</button>
                 </div>
             </div>          
-            <!-- 清除/刪除/清空 選單 -->
             <div class="relative action-dropdown" id="dd-delete-group">
-                <button class="action-btn icon-btn hover:bg-red-50 hover:text-red-600" title="清除選項"><span class="material-symbols-outlined">delete</span></button>
-                <!-- 👇 這裡移除了 style="display: none;" -->
-                <!-- 清除/刪除/清空 選單 -->
+                <button class="action-btn icon-btn" title="清除選項"><span class="material-symbols-outlined">delete</span></button>
 				<div class="action-menu absolute right-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-36 z-50 py-1">
-					<!-- 1. 清除選取 -->
-					<button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 flex items-center gap-2 code-text" onclick="handleClearAction()"><span class="material-symbols-outlined text-base">backspace</span>清除選取</button>
-					<!-- 2. 刪除結構 -->
+                    <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 flex items-center gap-2 code-text" onclick="handleClearAction()"><span class="material-symbols-outlined text-base">backspace</span>清除選取</button>
 					<button id="btn-delete-structure" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-red-600 flex items-center gap-2 code-text disabled:opacity-40 disabled:cursor-not-allowed" onclick="handleDeleteAction()"><span class="material-symbols-outlined text-base">delete_forever</span>刪除結構</button>
-					
 					<div class="h-px bg-gray-200 my-1"></div>
-					
-					<!-- 3. 清除本頁 -->
 					<button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-orange-600 font-bold flex items-center gap-2 code-text" onclick="handleClearCurrentTab()"><span class="material-symbols-outlined text-base">ink_eraser</span>清除本頁</button>
-					<!-- 4. 完全刪除 -->
 					<button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-red-600 font-bold flex items-center gap-2 code-text" onclick="document.getElementById('btnFullDelete').click()"><span class="material-symbols-outlined text-base">delete_sweep</span>完全刪除</button>
-
 					<div class="h-px bg-gray-200 my-1"></div>
-					<!-- 5. 清空記憶 -->
 					<button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-purple-600 font-bold flex items-center gap-2 code-text" onclick="document.getElementById('btnClearCache').click()"><span class="material-symbols-outlined text-base">cleaning_services</span>清空記憶</button>
 				</div>
-
-				<!-- 隱藏的按鈕觸發 Modal -->
-				<button id="btnFullDelete" class="hidden"></button>
-				<button id="btnClearCache" class="hidden"></button>
             </div>
 
-            <!-- 隱藏的按鈕觸發清空 Modal -->
+            <button id="btnFullDelete" class="hidden"></button>
+            <button id="btnClearCache" class="hidden"></button>
             <button id="btnClearAll" class="hidden"></button>
         </div>
 
