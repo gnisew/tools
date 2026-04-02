@@ -306,12 +306,23 @@ function init() {
         setDropdownValue('dd-freeze', savedFreeze);
     }
 
-    loadTabsData(); // 🌟 啟動多頁籤資料載入
-    renderSheetTabs(); // 🌟 繪製底部頁籤列
+    loadTabsData();
+    renderSheetTabs();
     
     // 載入當前作用中的頁籤內容
     editor.value = sheetTabs[activeSheetIndex].content;
-    
+    // �讀取網址參數，決定初始模式 
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('mode')) {
+        const modeParam = urlParams.get('mode');
+        if (modeParam === 'txt') {
+            currentMode = 'text';
+        } else if (modeParam === 'sheet') {
+            currentMode = 'table';
+        }
+        // 同步更新記憶體中該頁籤的狀態，避免存檔時跑掉
+        sheetTabs[activeSheetIndex].mode = currentMode;
+    }
     switchMode(currentMode, true);
     
     if (window.ResizeObserver) {
@@ -340,6 +351,21 @@ function init() {
 document.getElementById('dd-viewMode').addEventListener('change', (e) => switchMode(e.detail.value));
 
 /* ==========================================
+   網址參數同步功能
+========================================== */
+function updateUrlModeParam(internalMode) {
+    // 將內部模式對應到你要的網址參數
+    const urlMode = internalMode === 'table' ? 'sheet' : 'txt';
+    const newUrl = new URL(window.location.href);
+    
+    // 如果目前的網址參數不等於目標參數，就進行更新 (不重新載入頁面)
+    if (newUrl.searchParams.get('mode') !== urlMode) {
+        newUrl.searchParams.set('mode', urlMode);
+        window.history.replaceState({}, '', newUrl);
+    }
+}
+
+/* ==========================================
    全域模式切換核心 (加入 isForce 強制渲染機制)
 ========================================== */
 function switchMode(mode, isForce = false) {
@@ -353,6 +379,7 @@ function switchMode(mode, isForce = false) {
 
     currentMode = mode; 
     localStorage.setItem(MODE_KEY, mode);
+	updateUrlModeParam(mode);
     hideFloatingTool(); 
     clearTableSelection();
     //document.getElementById('viewModeIcon').textContent = mode === 'table' ? 'table_chart' : 'edit_document';
@@ -990,11 +1017,84 @@ function handleDeleteAction() {
     if (selectedRows.length > 0) deleteSelectedRows();
     else if (selectedCols.length > 0) deleteSelectedCols();
     else if (selectedCellBlocks.length > 0) {
-        clearSelectedCells();
-        showToast('儲存格僅能清除資料，無法刪除結構');
+        // ⭐ 修改這裡：改為呼叫刪除並上移的專屬函數
+        deleteSelectedCellsAndShiftUp();
     } else {
-        showToast('⚠️ 請先選取要刪除的列或欄');
+        showToast('⚠️ 請先選取要刪除的列、欄或儲存格');
     }
+}
+
+/* 刪除儲存格並將下方資料上移 */
+function deleteSelectedCellsAndShiftUp() {
+    if (selectedCellBlocks.length === 0) return;
+
+    const tbody = dataTable.querySelector('tbody');
+    const totalRows = tbody.children.length;
+
+    // 1. 記錄每個欄位 (Column) 中，有哪些列 (Row) 被選取要刪除
+    const colsToDelete = new Map();
+
+    selectedCellBlocks.forEach(block => {
+        const minR = Math.min(block.startR, block.endR);
+        const maxR = Math.max(block.startR, block.endR);
+        const minC = Math.min(block.startC, block.endC);
+        const maxC = Math.max(block.startC, block.endC);
+
+        for (let c = minC; c <= maxC; c++) {
+            if (!colsToDelete.has(c)) colsToDelete.set(c, new Set());
+            for (let r = minR; r <= maxR; r++) {
+                colsToDelete.get(c).add(r);
+            }
+        }
+    });
+
+    // 2. 逐欄進行資料上移處理
+    colsToDelete.forEach((rowSet, c) => {
+        const keptData = []; // 用來存放該欄「沒有被刪除」的資料
+
+        // 收集需要保留的資料
+        for (let r = 0; r < totalRows; r++) {
+            if (!rowSet.has(r)) {
+                const inner = tbody.children[r]?.children[c + 1]?.querySelector('.td-inner');
+                if (inner) {
+                    keptData.push({
+                        text: inner.innerText,
+                        formula: inner.getAttribute('data-formula')
+                    });
+                } else {
+                    keptData.push({ text: '', formula: null });
+                }
+            }
+        }
+
+        // 將保留的資料由上往下重新寫回該欄
+        for (let r = 0; r < totalRows; r++) {
+            const inner = tbody.children[r]?.children[c + 1]?.querySelector('.td-inner');
+            if (!inner) continue;
+
+            if (r < keptData.length) {
+                // 填入上移的資料
+                const data = keptData[r];
+                if (data.formula !== null && data.formula !== undefined) {
+                    inner.setAttribute('data-formula', data.formula);
+                    inner.innerText = data.formula; // 稍後會被重新計算
+                } else {
+                    inner.removeAttribute('data-formula');
+                    inner.innerText = data.text;
+                }
+            } else {
+                // 底部多出來的格子清空
+                inner.removeAttribute('data-formula');
+                inner.innerText = '';
+            }
+        }
+    });
+
+    // 3. 更新畫面與歷史紀錄
+    recalculateAllFormulas(); // 重新計算公式，讓畫面顯示正確數值
+    clearTableSelection();    // 清除選取藍框 (因為格子已經移位了)
+    debouncedSaveHistory();   // 存檔，支援 Ctrl+Z 復原
+    showToast('🗑️ 儲存格已刪除，下方資料已上移');
 }
 
 // ==========================================
@@ -1412,15 +1512,47 @@ function copySelectedTableData() {
 }
 
 /* 智慧貼上分配引擎 */
-/* 智慧貼上分配引擎 (已修復換行與貼上為值邏輯) */
 function handleTablePaste(text) {
     const data = parseTSV(text);
     if (data.length === 0 || (data.length === 1 && data[0].length === 0)) return;
 
-    // 【修復 1：清除複製帶來的隱形尾部換行，防止最後一格變空白】
     if (data.length > 1 && data[data.length - 1].length === 1 && data[data.length - 1][0] === '') {
         data.pop();
     }
+    // 1. 從底部往上檢查，移除完全空白的列
+    while (data.length > 0) {
+        const lastRow = data[data.length - 1];
+        // 檢查該列的所有儲存格是否都是空白
+        const isEmptyRow = lastRow.every(cell => !cell || String(cell).trim() === '');
+        if (isEmptyRow) {
+            data.pop();
+        } else {
+            break; // 遇到有資料的列就停止往上刪除
+        }
+    }
+
+    if (data.length === 0) return; // 如果全部都是空的就提早結束
+
+    // 2. 檢查每一列，找出最右邊有資料的欄位索引
+    let maxColWithData = -1;
+    for (let r = 0; r < data.length; r++) {
+        const row = data[r];
+        for (let c = row.length - 1; c >= 0; c--) {
+            if (row[c] && String(row[c]).trim() !== '') {
+                if (c > maxColWithData) maxColWithData = c;
+                break; // 這列找到最右邊的有資料欄位後，換下一列檢查
+            }
+        }
+    }
+
+    // 3. 把所有列的長度都裁減到 maxColWithData + 1
+    const validColCount = maxColWithData + 1;
+    for (let r = 0; r < data.length; r++) {
+        if (data[r].length > validColCount) {
+            data[r] = data[r].slice(0, validColCount);
+        }
+    }
+    // ==========================================
 
     let startRow = 0; let startCol = 0;
     const activeInner = document.activeElement.closest('.td-inner');
@@ -1952,7 +2084,38 @@ document.addEventListener('copy', (e) => {
     }
 });
 
+/* ==========================================
+   原生剪下事件 (Ctrl+X / Cmd+X) 攔截
+   ========================================== */
+document.addEventListener('cut', (e) => {
+    // 1. 檢查使用者是否有「反白」選取文字 (例如正在儲存格內打字時反白)
+    const selection = window.getSelection();
+    if (selection && selection.toString().length > 0) {
+        // 2. 如果焦點正在儲存格內 (.td-inner) 或獨立編輯器內，直接 return，讓瀏覽器執行原生的文字剪下
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.classList.contains('td-inner') || activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+            return; 
+        }
+    }
 
+    // 3. 當沒有反白文字時，攔截預設行為並執行「表格儲存格」的剪下邏輯
+    if (currentMode === 'table' && (selectedRows.length > 0 || selectedCols.length > 0 || selectedCellBlocks.length > 0)) { 
+        // 阻止瀏覽器預設的剪下行為
+        e.preventDefault(); 
+        
+        // 步驟 A：先執行複製，將選取的資料寫入剪貼簿
+        copySelectedTableData(); 
+        
+        // 步驟 B：執行清除，將選取範圍的資料清空
+        // (handleClearAction 內部已經包含儲存歷史紀錄與畫面更新的邏輯)
+        handleClearAction();
+        
+        // 覆寫提示訊息為「剪下」
+        setTimeout(() => {
+            showToast('✂️ 內容已剪下！');
+        }, 100); // 稍微延遲以覆蓋 copy 和 clear 原本的提示
+    }
+});
 
 
 
@@ -1978,7 +2141,24 @@ document.addEventListener('paste', (e) => {
     if (currentMode === 'text') {
         e.preventDefault(); // 攔截原生貼上，改由我們寫入以確保換行符號乾淨
         editor.focus();
-        document.execCommand('insertText', false, text);
+
+        // 【效能優化】判斷文字量：超過 1 萬字元時，改用直接賦值以防瀏覽器卡死
+        if (text.length > 10000) {
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            // 替換選取區或在游標處插入文字
+            editor.value = editor.value.substring(0, start) + text + editor.value.substring(end);
+            // 將游標移動到貼上文字的末端
+            editor.selectionStart = editor.selectionEnd = start + text.length;
+            
+            // 手動觸發更新
+            debouncedUpdateLineNumbers();
+            debouncedSaveHistory();
+            if (typeof updateWordCountWidget === 'function') updateWordCountWidget();
+        } else {
+            // 少量文字維持原生 execCommand，保留系統預設的 undo 順暢度
+            document.execCommand('insertText', false, text);
+        }
         return;
     }
 
@@ -2058,10 +2238,16 @@ dataTable.addEventListener('click', (e) => {
         return selectTableRow(Array.from(tr.parentNode.children).indexOf(tr), e.shiftKey, isCtrl);
     }
 
+    // 如果使用者正在「反白文字」，絕對不要觸發任何失去焦點或儲存格點擊的邏輯
+    const selection = window.getSelection();
+    if (selection && selection.toString().length > 0) {
+        return;
+    }
+
     const td = e.target.closest('td');
     if (td) {
         lastMatchedCell = null;
-
+        
         const isClickOnInner = e.target.closest('.td-inner') !== null;
 
         if (!isClickOnInner && document.activeElement && document.activeElement.classList.contains('td-inner')) {
@@ -2416,13 +2602,12 @@ function updateLineNumbers() {
     const text = editor.value; 
     const lines = text.split('\n'); 
     
-    // 【新增】極速模式：當行數超過 2000 行時，跳過耗時的精準測量
     if (lines.length > 2000) {
-        let numbersHtml = '';
-        // 直接使用預設的 1.6em 行高 (對應你的 CSS var(--editor-line-height))
-        for (let i = 0; i < lines.length; i++) { 
-            numbersHtml += `<div class="line-number-item" style="height: 1.6em;">${i + 1}</div>`; 
-        }
+        // 【效能優化】使用 Array.from 與 join 來快速大量生成 DOM 字串，比 += 快非常多
+        const numbersHtml = Array.from({ length: lines.length }, (_, i) => 
+            `<div class="line-number-item" style="height: 1.6em;">${i + 1}</div>`
+        ).join('');
+        
         lineNumbers.innerHTML = numbersHtml;
         return; // 提早結束，不執行下方的複雜運算
     }
@@ -5435,6 +5620,14 @@ dataTable.addEventListener('mousedown', (e) => {
 dataTable.addEventListener('mouseover', (e) => {
     if (!isMouseDownOnCell || isSelectionLocked) return;
 
+    // ⭐ 核心細節修正：判斷是否正在「選取文字」
+    // 如果使用者已經反白了文字，當游標滑到邊界時，直接中斷並關閉「儲存格多選」引擎
+    const selection = window.getSelection();
+    if (selection && selection.toString().length > 0) {
+        isMouseDownOnCell = false; // 徹底解除這回合的儲存格拖曳狀態
+        return;
+    }
+
     const td = e.target.closest('td');
     if (td) {
         const tr = td.closest('tr');
@@ -5454,7 +5647,6 @@ dataTable.addEventListener('mouseover', (e) => {
         }
     }
 });
-
 // 3. 放開滑鼠：結束拖曳狀態 (綁在 document 上確保滑出表格也能正確解除)
 document.addEventListener('mouseup', () => {
     if (isMouseDownOnCell) {
