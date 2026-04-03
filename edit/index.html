@@ -30,10 +30,10 @@
                 </button>
                 <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1">
                     <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center hover:bg-gray-100 text-gray-700 gap-2" id="btnOpenFile">
-                        <span class="material-symbols-outlined text-base">file_open</span>開啟檔案
+                        <span class="material-symbols-outlined text-base">file_open</span>匯入檔案
                     </button>
                     <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center hover:bg-gray-100 text-gray-700 gap-2" id="btnSaveFile">
-                        <span class="material-symbols-outlined text-base">save</span>儲存檔案
+                        <span class="material-symbols-outlined text-base">save</span>另存檔案
                     </button>
                 </div>
             </div>
@@ -70,6 +70,8 @@
                     <span class="material-symbols-outlined">custom_typography</span>
                 </button>
                 <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-48 z-50 py-1">
+
+
                     <div class="relative group/submenu" id="dd-editorWidth">
                         <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
                             <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">width_full</span>介面寬度</div>
@@ -95,6 +97,9 @@
                             <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="table">
                                 <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">table_chart</span>表格模式</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
                             </button>
+							<button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="chat">
+								<div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">forum</span>對話模式</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
+							</button>
                         </div>
                     </div>
                     <div class="h-px bg-gray-200 my-1 mx-2 hidden md:block"></div>
@@ -274,8 +279,18 @@
                                 <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="0"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">visibility_off</span>無凍結</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
                                 <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">horizontal_rule</span>凍結 1 列</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
                                 <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="2"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">drag_handle</span>凍結 2 列</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+
+								<button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 flex items-center gap-2 code-text" id="btnSetFirstRowAsHeader">
+									<span class="material-symbols-outlined text-base">top_panel_close</span>首列設欄名
+								</button>
+								<button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 flex items-center gap-2 code-text" id="btnRemoveAllHeaderNames">
+									<span class="material-symbols-outlined text-base">format_color_reset</span>移除欄名
+								</button>
                             </div>
+
+
                         </div>
+
 
                         <div class="relative group/submenu" id="dd-lockSelection">
                             <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
@@ -288,6 +303,24 @@
                                 </button>
                                 <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="true">
                                     <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">lock</span>鎖定</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
+                                </button>
+                            </div>
+                        </div>
+
+						<div class="relative group/submenu" id="dd-rowNumAlign">
+                            <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
+                                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base" id="rowNumAlignIcon">vertical_align_center</span>列號對齊</div>
+                                <span class="material-symbols-outlined text-base">arrow_right</span>
+                            </div>
+                            <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-40 z-50 py-1">
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="top">
+                                    <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">vertical_align_top</span>靠上對齊</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
+                                </button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="middle">
+                                    <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">vertical_align_center</span>置中對齊</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span>
+                                </button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="bottom">
+                                    <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">vertical_align_bottom</span>靠下對齊</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
                                 </button>
                             </div>
                         </div>
@@ -391,6 +424,74 @@
                 </div>
             </div>
 
+			<div id="chatModeContainer" class="flex-1 overflow-hidden flex-col w-full bg-slate-50 relative hidden">
+				<div class="flex items-center gap-1 p-2 border-b border-gray-200 bg-white shadow-sm flex-wrap z-20 relative">
+					
+					<div class="custom-dropdown" id="chat-dropdown-source">
+						<button class="dropdown-toggle min-select code-text" id="chat-source-btn">華語</button>
+						<div class="dropdown-list">
+							<div class="dropdown-item" data-value="chinese">華語</div>
+							<div class="dropdown-item" data-value="sixian">四縣</div>
+							<div class="dropdown-item" data-value="sixiannan">南四縣</div>
+							<div class="dropdown-item" data-value="hailu">海陸</div>
+							<div class="dropdown-item" data-value="dapu">大埔</div>
+							<div class="dropdown-item" data-value="raoping">饒平</div>
+							<div class="dropdown-item" data-value="kasu">詔安</div>
+							<div class="dropdown-item" data-value="holo">和樂</div>
+							<div class="dropdown-item" data-value="jinmen">金門</div>
+							<div class="dropdown-item" data-value="matsu">馬祖</div>
+							<div class="dropdown-item" data-value="pinyin">拼音</div>
+						</div>
+					</div>
+
+					<div class="pivot-wrapper custom-dropdown" id="chat-dropdown-pivot" title="設定中介語言">
+						<button class="pivot-toggle dropdown-toggle" id="chat-pivot-btn">
+							<div class="pivot-display">
+								<span class="material-symbols-outlined pivot-icon">arrow_forward</span>
+								<span id="chat-pivot-label" class="pivot-label" style="display: none;"></span>
+							</div>
+						</button>
+						<div class="dropdown-list" id="chat-pivot-list"></div>
+					</div>
+
+					<div class="custom-dropdown" id="chat-dropdown-target">
+						<button class="dropdown-toggle min-select code-text" id="chat-target-btn">詔安</button>
+						<div class="dropdown-list">            
+							<div class="dropdown-item" data-value="chinese">華語</div>
+							<div class="dropdown-item" data-value="pinyin">拼音</div>
+							<div class="dropdown-item" data-value="sixian">四縣</div>
+							<div class="dropdown-item" data-value="sixiannan">南四縣</div>
+							<div class="dropdown-item" data-value="hailu">海陸</div>
+							<div class="dropdown-item" data-value="dapu">大埔</div>
+							<div class="dropdown-item" data-value="raoping">饒平</div>
+							<div class="dropdown-item" data-value="kasu">詔安</div>
+							<div class="dropdown-item" data-value="holo">和樂</div>
+							<div class="dropdown-item" data-value="jinmen">金門</div>
+							<div class="dropdown-item" data-value="matsu">馬祖</div>
+						</div>
+					</div>
+
+					<div class="h-6 w-px bg-gray-300 mx-1"></div>
+
+					<label class="flex items-center gap-1 cursor-pointer hover:text-blue-600 font-bold text-sm code-text">
+						<input type="checkbox" id="chatConvertToPinyin" class="accent-blue-600 w-4 h-4" checked>
+						附帶拼音
+					</label>
+				</div>
+
+				<div id="chatMessagesArea" class="flex-1 overflow-y-auto p-4 flex flex-col gap-4 scrollbar-thin">
+					</div>
+
+				<div class="p-3 border-t border-gray-200 bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.02)]">
+					<div class="flex items-end gap-2 border border-gray-300 rounded-xl px-3 py-2 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 bg-white transition-all">
+						<textarea id="chatInput" rows="1" class="flex-1 outline-none resize-none max-h-32 code-text bg-transparent py-1" placeholder="輸入文字... (Enter 傳送, Shift+Enter 換行)"></textarea>
+						<button id="btnSendChat" class="text-blue-600 hover:text-blue-800 p-1 rounded-full transition-colors self-end mb-1 cursor-pointer flex items-center justify-center">
+							<span class="material-symbols-outlined text-[24px]">send</span>
+						</button>
+					</div>
+				</div>
+			</div>
+
             <!-- 3. 工作表頁籤列 -->
             <div id="sheetTabBar" class="w-full flex items-center bg-gray-100 border-t border-gray-300 overflow-x-auto scrollbar-thin flex-none">
                 <div id="sheetTabContainer" class="flex items-center">
@@ -442,7 +543,8 @@
         <button class="context-menu-item" data-action="rename"><span class="material-symbols-outlined text-base">edit</span>命名</button>
         <div class="h-px bg-gray-200 my-1"></div>
 
-        <button class="context-menu-item" data-action="mode-table"><span class="material-symbols-outlined text-base">table_chart</span>表格模式</button>
+        <button class="context-menu-item" data-action="mode-chat"><span class="material-symbols-outlined text-base">forum</span>對話模式</button>
+		<button class="context-menu-item" data-action="mode-table"><span class="material-symbols-outlined text-base">table_chart</span>表格模式</button>
         <button class="context-menu-item" data-action="mode-text"><span class="material-symbols-outlined text-base">edit_document</span>文字模式</button>
     </div>
 
@@ -695,6 +797,8 @@
                 <option value='=RIGHT(A1, 2)'>=RIGHT(A1, 2) (R右側截取)</option>
                 <option value='=MID(A1, 2, 3)'>=MID(A1, 2, 3) (M中間截取)</option>
                 <option value='=JOIN("-", A1:C1)'>=JOIN("-", A1:C1) (J陣列合併)</option>
+				<option value="=RAND()">=RAND() (RD亂數 0~1)</option>
+                <option value="=RAND(1, 100)">=RAND(1, 100) (RD範圍整數)</option>
                 <option value='=REGEXEXTRACT(A1, "[0-9]+")'>=REGEXEXTRACT(A1, "正則") (RE正則擷取)</option>
                 <option value='=REPLACE(A1, 1, 2, "X")'>=REPLACE(A1, 1, 2, "X") (RP取代位置字元)</option>
             </select>

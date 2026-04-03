@@ -3,10 +3,8 @@
     --editor-line-height: 1.6;
     --table-white-space: pre-wrap;
     --main-font: twhei-s, TWHEI, "台灣黑體", tauhu-oo, PingFangTC-Regular, "Microsoft JhengHei", sans-serif; 
-}
-
-* {
-    font-family: var(--main-font);
+    --ui-font: twhei-s, TWHEI, "台灣黑體", "Microsoft JhengHei", ui-sans-serif, system-ui, sans-serif;
+	--row-num-valign: middle;
 }
 
 input, textarea, select, button {
@@ -15,7 +13,7 @@ input, textarea, select, button {
 
 
 body {
-    font-family: var(--main-font);
+    font-family: var(--ui-font);
     background-color: #f3f4f6;
     margin: 0;
     height: 100vh; 
@@ -37,18 +35,29 @@ body {
     position: relative;
 }
 
-.code-text {
-    font-family: var(--main-font);
-    font-size: var(--editor-font-size);
-    line-height: var(--editor-line-height);
+input.code-text,
+textarea.code-text,
+select.code-text,
+#batchTableBody td {
+    font-family: var(--main-font) !important;
+    font-size: var(--editor-font-size) !important;
+    line-height: var(--editor-line-height) !important;
 }
-.code-text,
-table#data-table,
-table#data-table th,
+
+textarea#editor,
+.line-numbers,
 table#data-table td,
 .td-inner {
     font-family: var(--main-font) !important;
+    font-size: var(--editor-font-size);
+    line-height: var(--editor-line-height);
 }
+
+table#data-table th {
+    font-family: var(--ui-font) !important;
+}
+
+
 #textModeContainer { display: flex; flex: 1; width: 100%; height: 100%; overflow: hidden; }
 
 #tableModeContainer { 
@@ -107,7 +116,16 @@ table#data-table th:hover {
 }
 
 table#data-table th.sticky-top { position: sticky; top: 0; z-index: 20; border-top: 1px solid #cbd5e1; }
-table#data-table th.sticky-left { position: sticky; left: 0; z-index: 20; border-left: 1px solid #cbd5e1; width: 4.5rem !important; min-width: 4.5rem !important; max-width: 4.5rem !important; }
+table#data-table th.sticky-left { 
+    position: sticky; 
+    left: 0; 
+    z-index: 20; 
+    border-left: 1px solid #cbd5e1; 
+    width: 4.5rem !important; 
+    min-width: 4.5rem !important; 
+    max-width: 4.5rem !important; 
+    vertical-align: var(--row-num-valign) !important;
+}
 table#data-table th.sticky-corner { position: sticky; top: 0; left: 0; z-index: 30; border-top: 1px solid #cbd5e1; border-left: 1px solid #cbd5e1; width: 4.5rem !important; min-width: 4.5rem !important; max-width: 4.5rem !important; cursor: default; background-color: #f8fafc;}
 
 /* 儲存格內部容器：隔離結構與文字 */
@@ -522,3 +540,123 @@ body.full-width-mode .editor-wrapper {
     border-top: 1px solid #d1d5db !important; /* 工具列與編輯區的細分隔線 */
     box-shadow: none !important;
 }
+
+
+
+
+
+/* ================= 對話模式樣式 ================= */
+.chat-bubble {
+    max-width: 80%;
+    padding: 0.75rem 1rem;
+    border-radius: 1rem;
+    position: relative;
+    word-break: break-word;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.chat-bubble-user {
+    background-color: #dbeafe; /* 淺藍色 */
+    color: #1e3a8a;
+    border-bottom-right-radius: 0.25rem;
+    align-self: flex-end;
+}
+
+.chat-bubble-system {
+    background-color: #ffffff;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+    border-bottom-left-radius: 0.25rem;
+    align-self: flex-start;
+}
+
+.chat-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+/* 滑鼠移上去時顯示操作按鈕 */
+.chat-message-wrapper:hover .chat-actions {
+    opacity: 1;
+}
+
+.chat-action-btn {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    cursor: pointer;
+    background: none;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+.chat-action-btn:hover { color: #3b82f6; }
+.chat-action-btn.delete:hover { color: #ef4444; }
+
+
+
+/* ================= 對話模式樣式 ================= */
+#chatModeContainer .dropdown-list {
+    bottom: auto;
+    top: calc(100% + 5px); /* 對話模式下拉選單向下展開 */
+}
+
+.chat-bubble {
+    max-width: 85%;
+    padding: 0.75rem 1rem;
+    border-radius: 1.25rem;
+    position: relative;
+    word-break: break-word;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    font-size: var(--editor-font-size);
+    line-height: var(--editor-line-height);
+}
+
+.chat-bubble-user {
+    background-color: #e0f2fe; /* 淺藍色 */
+    color: #0369a1;
+    border-bottom-right-radius: 0.25rem;
+    align-self: flex-end;
+}
+
+.chat-bubble-system {
+    background-color: #ffffff;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+    border-bottom-left-radius: 0.25rem;
+    align-self: flex-start;
+}
+
+.chat-message-wrapper {
+    transition: all 0.2s;
+}
+
+.chat-actions {
+    display: flex;
+    gap: 0.8rem;
+    margin-top: 0.3rem;
+    opacity: 0;
+}
+
+.chat-message-wrapper:hover .chat-actions {
+    opacity: 1;
+}
+
+.chat-action-btn {
+    font-size: 12px;
+    color: #94a3b8;
+    cursor: pointer;
+    background: none;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 5px;
+    border-radius: 4px;
+}
+
+.chat-action-btn:hover { background-color: #f1f5f9; color: #3b82f6; }
+.chat-action-btn.delete:hover { color: #ef4444; }
