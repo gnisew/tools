@@ -419,8 +419,12 @@ function switchMode(mode, isForce = false) {
     const ddTextTool = document.getElementById('dd-textTool');
     const btnToggleLineNumbersTextMode = document.getElementById('btnToggleLineNumbersTextMode');
     const chatModeContainer = document.getElementById('chatModeContainer');
+    
+    // 👇 新增這兩行：抓取表格與對話工具列 👇
+    const tableControls = document.getElementById('tableControls');
+    const chatControls = document.getElementById('chatControls');
 
-    // 隱藏所有容器，後面再根據模式顯示
+    // 隱藏所有容器
     textModeContainer.style.display = 'none'; 
     tableModeContainer.style.display = 'none';
     chatModeContainer.classList.add('hidden');
@@ -430,27 +434,37 @@ function switchMode(mode, isForce = false) {
         renderTableFromText(editor.value);
         applyFreeze();
         tableModeContainer.style.display = 'block';
-        tableControls.classList.remove('hidden'); 
-        tableControls.classList.add('flex');
+        
+        // 👇 修改：顯示表格工具，隱藏對話工具 👇
+        if (tableControls) { tableControls.classList.remove('hidden'); tableControls.classList.add('flex'); }
+        if (chatControls) { chatControls.classList.add('hidden'); chatControls.classList.remove('flex'); }
+        
         if (ddTextTool) ddTextTool.classList.add('hidden');
         if (btnToggleLineNumbersTextMode) btnToggleLineNumbersTextMode.classList.add('hidden');
     } else if (mode === 'chat') {
         chatModeContainer.classList.remove('hidden');
         chatModeContainer.style.display = 'flex';
-        tableControls.classList.add('hidden');
+        
+        // 👇 修改：隱藏表格工具，顯示對話工具 👇
+        if (tableControls) { tableControls.classList.add('hidden'); tableControls.classList.remove('flex'); }
+        if (chatControls) { chatControls.classList.remove('hidden'); chatControls.classList.add('flex'); }
+        
         if (ddTextTool) ddTextTool.classList.add('hidden');
         if (btnToggleLineNumbersTextMode) btnToggleLineNumbersTextMode.classList.add('hidden');
         setTimeout(() => document.getElementById('chatInput').focus(), 100);
         
         if (typeof updateChatPivotOptions === 'function') updateChatPivotOptions();
         
-        // 🌟 新增：切換回對話模式時，將目前的文字重新渲染成氣泡
         if (typeof window.renderChatFromText === 'function') {
             window.renderChatFromText(editor.value);
         }
     } else {
         textModeContainer.style.display = 'flex';
-        tableControls.classList.add('hidden');
+        
+        // 👇 修改：隱藏表格工具與對話工具 👇
+        if (tableControls) { tableControls.classList.add('hidden'); tableControls.classList.remove('flex'); }
+        if (chatControls) { chatControls.classList.add('hidden'); chatControls.classList.remove('flex'); }
+        
         if (ddTextTool) ddTextTool.classList.remove('hidden');
         if (btnToggleLineNumbersTextMode) btnToggleLineNumbersTextMode.classList.remove('hidden');
         updateLineNumbers();
@@ -506,10 +520,14 @@ function triggerUndo() {
     if (currentMode === 'text') {
         editor.value = previousState;
         updateLineNumbers();
-    } else {
+    } else if (currentMode === 'table') {
         renderTableFromText(previousState);
         applyFreeze();
         clearTableSelection();
+    } else if (currentMode === 'chat') {
+        if (typeof window.renderChatFromText === 'function') {
+            window.renderChatFromText(previousState);
+        }
     }
     localStorage.setItem(STORAGE_KEY, previousState);
     isUndoing = false;
@@ -7142,10 +7160,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatMessagesArea = document.getElementById('chatMessagesArea');
     const chatConvertToPinyin = document.getElementById('chatConvertToPinyin');
     
-    // 🌟 新增：對話模式設定開關
+    // 對話模式設定開關
     const chatModeContainer = document.getElementById('chatModeContainer');
     const chatToggleNumber = document.getElementById('chatToggleNumber');
     const chatToggleEmoji = document.getElementById('chatToggleEmoji');
+    const chatToggleDelete = document.getElementById('chatToggleDelete'); // 加入這行
 
     function updateChatDisplaySettings() {
         if (chatToggleNumber && chatToggleNumber.checked) chatModeContainer.classList.add('show-numbers');
@@ -7153,9 +7172,37 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (chatToggleEmoji && chatToggleEmoji.checked) chatModeContainer.classList.add('show-emojis');
         else chatModeContainer.classList.remove('show-emojis');
+
+        // 👇 加入控制刪除按鈕顯示的邏輯
+        if (chatToggleDelete && chatToggleDelete.checked) chatModeContainer.classList.add('show-delete');
+        else chatModeContainer.classList.remove('show-delete');
+        // 👆 
         
         if(chatToggleNumber) localStorage.setItem('wesing-chat-show-number', chatToggleNumber.checked);
         if(chatToggleEmoji) localStorage.setItem('wesing-chat-show-emoji', chatToggleEmoji.checked);
+        if(chatToggleDelete) localStorage.setItem('wesing-chat-show-delete', chatToggleDelete.checked); // 記憶刪除開關狀態
+    }
+
+    if (chatToggleNumber && chatToggleEmoji) {
+        // 讀取記憶
+        const savedShowNum = localStorage.getItem('wesing-chat-show-number');
+        if (savedShowNum !== null) chatToggleNumber.checked = (savedShowNum === 'true');
+        
+        const savedShowEmoji = localStorage.getItem('wesing-chat-show-emoji');
+        if (savedShowEmoji !== null) chatToggleEmoji.checked = (savedShowEmoji === 'true');
+
+        const savedShowDelete = localStorage.getItem('wesing-chat-show-delete');
+        if (savedShowDelete !== null && chatToggleDelete) chatToggleDelete.checked = (savedShowDelete === 'true');
+
+        chatToggleNumber.addEventListener('change', updateChatDisplaySettings);
+        chatToggleEmoji.addEventListener('change', updateChatDisplaySettings);
+        if (chatToggleDelete) chatToggleDelete.addEventListener('change', updateChatDisplaySettings); // 綁定事件
+
+        updateChatDisplaySettings(); // 執行初始套用
+
+        document.querySelector('#dd-chatSettings .dropdown-menu')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
     }
 
     if (chatToggleNumber && chatToggleEmoji) {
@@ -7597,30 +7644,42 @@ document.addEventListener('DOMContentLoaded', () => {
             infoArea.className = `chat-info-area flex flex-col pb-0.5 select-none ${isUser ? 'mr-2 items-end' : 'ml-2 items-start'}`;
 
             // 動作按鈕容器
+            // 動作按鈕容器 (手機版常駐顯示並加大間距，電腦版維持 hover 顯示)
             const actions = document.createElement('div');
-            actions.className = 'chat-actions flex gap-0.5 mb-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200';
+            actions.className = 'chat-actions flex gap-2 md:gap-0.5 mb-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200';
             
             const copyBtn = document.createElement('button');
-            copyBtn.className = 'text-gray-400 hover:text-blue-500 flex items-center justify-center p-1 rounded hover:bg-gray-100 transition-colors cursor-pointer';
+            copyBtn.className = 'text-gray-400 hover:text-blue-500 flex items-center justify-center p-1.5 md:p-1 rounded hover:bg-gray-100 transition-colors cursor-pointer';
             copyBtn.title = "複製內容";
             copyBtn.innerHTML = '<span class="material-symbols-outlined text-[16px]">content_copy</span>';
-            copyBtn.onclick = () => navigator.clipboard.writeText(bubble.innerText).then(() => {
-                const toast = document.getElementById('toast');
-                if(toast) { 
-                    toast.textContent = '✅ 已複製'; 
-                    toast.classList.remove('opacity-0'); 
-                    if(toast.timer) clearTimeout(toast.timer);
-                    toast.timer = setTimeout(() => { toast.classList.add('opacity-0'); toast.timer = null; }, 2000);
-                }
-            });
+            copyBtn.onclick = (e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(bubble.innerText).then(() => {
+                    const toast = document.getElementById('toast');
+                    if(toast) { 
+                        toast.textContent = '✅ 已複製'; 
+                        toast.classList.remove('opacity-0'); 
+                        if(toast.timer) clearTimeout(toast.timer);
+                        toast.timer = setTimeout(() => { toast.classList.add('opacity-0'); toast.timer = null; }, 2000);
+                    }
+                });
+            };
 
             const delBtn = document.createElement('button');
-            delBtn.className = 'text-gray-400 hover:text-red-500 flex items-center justify-center p-1 rounded hover:bg-gray-100 transition-colors cursor-pointer';
+            delBtn.className = 'chat-btn-delete text-gray-400 hover:text-red-500 flex items-center justify-center p-1.5 md:p-1 rounded hover:bg-gray-100 transition-colors cursor-pointer';
             delBtn.title = "刪除對話";
             delBtn.innerHTML = '<span class="material-symbols-outlined text-[16px]">delete</span>';
-            delBtn.onclick = () => { 
+            delBtn.onclick = (e) => { 
+                e.stopPropagation(); // 防止點擊範圍誤判冒泡
+                
+                // 先強制儲存當下(刪除前)的狀態，確保使用者可以隨時復原
+                saveHistoryState(); 
+                
                 wrapper.remove(); 
-                debouncedSaveHistory(); 
+                
+                // 刪除後再次儲存新狀態
+                saveHistoryState(); 
+                showToast('🗑️ 對話已刪除 (可按 Ctrl+Z 復原)');
             };
 
             // 根據系統或使用者，改變按鈕的插入順序
