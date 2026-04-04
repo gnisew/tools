@@ -506,20 +506,27 @@
 
 			<div id="chatModeContainer" class="flex-1 overflow-hidden flex-col w-full bg-slate-50 relative hidden">
 
-
-
-
 				<div id="chatMessagesArea" class="flex-1 overflow-y-auto p-4 flex flex-col gap-2 scrollbar-thin"></div>
 
-				<div class="p-3 border-t border-gray-200 bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.02)]">
-					<div class="flex items-end gap-2 border border-gray-300 rounded-xl px-3 py-2 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 bg-white transition-all">
-						<textarea id="chatInput" rows="1" class="flex-1 outline-none resize-none max-h-32 code-text bg-transparent py-1" placeholder="輸入文字... (Enter 傳送, Shift+Enter 換行)"></textarea>
+				<div class="p-3 bg-slate-50">
+					<div class="flex items-end gap-2 border border-gray-300 rounded-xl px-3 py-2 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 bg-white transition-all shadow-sm">
+						
+						<button id="btnChatImeToggle" class="ime-toggle-button text-gray-400 hover:text-blue-600 p-1 rounded-full transition-colors self-end mb-1 cursor-pointer flex items-center justify-center" title="載入/卸載烏衣行輸入法">
+							<span class="material-symbols-outlined text-[24px]">keyboard</span>
+						</button>
+						
+						<textarea id="chatInput" rows="1" class="flex-1 outline-none resize-none max-h-32 code-text bg-transparent py-1" placeholder="輸入文字..."></textarea>
+						
+						<button id="btnClearChatInput" class="text-gray-400 hover:text-gray-600 p-1 rounded-full transition-colors self-end mb-1 cursor-pointer flex items-center justify-center hidden" title="清除內容">
+							<span class="material-symbols-outlined text-[20px]">close</span>
+						</button>
+						
 						<button id="btnSendChat" class="text-blue-600 hover:text-blue-800 p-1 rounded-full transition-colors self-end mb-1 cursor-pointer flex items-center justify-center">
 							<span class="material-symbols-outlined text-[24px]">send</span>
 						</button>
 					</div>
 				</div>
-			</div>
+				</div>
 
             <!-- 3. 工作表頁籤列 -->
             <div id="sheetTabBar" class="w-full flex items-center bg-gray-100 border-t border-gray-300 overflow-x-auto scrollbar-thin flex-none">

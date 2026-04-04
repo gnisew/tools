@@ -301,7 +301,7 @@ table#data-table td:focus-within {
 .drag-handle:active { cursor: grabbing; }
 
 .min-select {
-    padding: 0.25rem 1.2rem 0.25rem 0.5rem;
+    padding: 0.25rem 0.6rem;
     border: 1px solid #e2e8f0;
     border-radius: 0.375rem;
     
@@ -473,7 +473,7 @@ table#data-table td:focus-within {
         padding: 0.4rem;
     }
     .min-select {
-        padding: 0.25rem 0.8rem 0.25rem 0.5rem;
+        padding: 0.25rem 0.6rem;
     }
     #trans-btn-group {
         margin-left: 0;

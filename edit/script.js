@@ -396,7 +396,7 @@ function updateUrlModeParam(internalMode) {
 function switchMode(mode, isForce = false) {
     if (currentMode === mode && !isForce) return;
 
-    // 🌟 核心：離開特定模式時的資料提取與無縫轉移
+    // 核心：離開特定模式時的資料提取與無縫轉移
     if (!isForce) {
         if (currentMode === 'table' && mode !== 'table') {
             editor.value = extractTextFromTable();
@@ -424,9 +424,9 @@ function switchMode(mode, isForce = false) {
     const tableControls = document.getElementById('tableControls');
     const chatControls = document.getElementById('chatControls');
 
-    // 👇 新增這兩行：抓取尋找與取代、剪貼簿按鈕
     const btnFindReplace = document.getElementById('btnFindReplace');
     const ddClipboardGroup = document.getElementById('dd-clipboard-group');
+	const ddLanguageTools = document.getElementById('dd-languageTools');
 
     // 隱藏所有容器，後面再根據模式顯示
     textModeContainer.style.display = 'none'; 
@@ -438,6 +438,8 @@ function switchMode(mode, isForce = false) {
         renderTableFromText(editor.value);
         applyFreeze();
         tableModeContainer.style.display = 'block';
+
+		if (ddLanguageTools) ddLanguageTools.classList.remove('hidden');
         
         if (tableControls) { tableControls.classList.remove('hidden'); tableControls.classList.add('flex'); }
         if (chatControls) { chatControls.classList.add('hidden'); chatControls.classList.remove('flex'); }
@@ -452,6 +454,8 @@ function switchMode(mode, isForce = false) {
     } else if (mode === 'chat') {
         chatModeContainer.classList.remove('hidden');
         chatModeContainer.style.display = 'flex';
+
+		if (ddLanguageTools) ddLanguageTools.classList.add('hidden');
         
         if (tableControls) { tableControls.classList.add('hidden'); tableControls.classList.remove('flex'); }
         if (chatControls) { chatControls.classList.remove('hidden'); chatControls.classList.add('flex'); }
@@ -471,6 +475,8 @@ function switchMode(mode, isForce = false) {
         }
     } else {
         textModeContainer.style.display = 'flex';
+
+		if (ddLanguageTools) ddLanguageTools.classList.remove('hidden');
         
         if (tableControls) { tableControls.classList.add('hidden'); tableControls.classList.remove('flex'); }
         if (chatControls) { chatControls.classList.add('hidden'); chatControls.classList.remove('flex'); }
@@ -3534,7 +3540,7 @@ document.getElementById('btnReplaceAll').addEventListener('click', () => {
     
     let count = 0;
 
-    // 🌟 邏輯分支：是否套用到所有頁籤
+    // 邏輯分支：是否套用到所有頁籤
     if (chkAllTabs) {
         // 1. 先將當下畫面最新的資料存入 sheetTabs
         saveAllTabsData(); 
@@ -3595,7 +3601,7 @@ document.getElementById('btnReplaceAll').addEventListener('click', () => {
         }
 
     } else {
-        // 🌟 保持原有的單一頁籤 (目前畫面) 取代邏輯
+        // 保持原有的單一頁籤 (目前畫面) 取代邏輯
         const context = getSelectionContext();
 
         if (currentMode === 'text') {
@@ -3664,7 +3670,7 @@ function resetSortHeaderCheckbox() {
     chkSortHasHeader.checked = false;
 }
 
-// 🌟 開啟視窗 
+// 開啟視窗 
 document.getElementById('btnOpenSort').addEventListener('click', (e) => {
     e.stopPropagation(); 
     document.querySelectorAll('.dropdown-menu, .action-menu').forEach(m => m.classList.remove('show'));
@@ -3709,7 +3715,7 @@ document.addEventListener('touchmove', (e) => {
 }, { passive: false });
 document.addEventListener('touchend', () => { isDraggingSort = false; });
 
-// 🌟 核心引擎 1：精準計算選取範圍與涵蓋的欄位 (已修復致命 Bug)
+// 核心引擎 1：精準計算選取範圍與涵蓋的欄位 (已修復致命 Bug)
 function getSortSelectionInfo() {
     let minR = Infinity, maxR = -1;
     let cIndices = new Set(); 
@@ -3746,7 +3752,7 @@ function getSortSelectionInfo() {
     };
 }
 
-// 🌟 核心引擎 2：動態建立規則下拉選單 (只顯示選取範圍內的欄位)
+// 核心引擎 2：動態建立規則下拉選單 (只顯示選取範圍內的欄位)
 function createSortRuleElement() {
     const ruleDiv = document.createElement('div');
     ruleDiv.className = 'flex items-center gap-2 bg-white py-1 rule-item';
@@ -3785,7 +3791,7 @@ function createSortRuleElement() {
     return ruleDiv;
 }
 
-// 🌟 開啟與初始化設定窗格
+// 開啟與初始化設定窗格
 function openSortPanel() {
     const selInfo = getSortSelectionInfo();
     if (!selInfo) {
@@ -3831,7 +3837,7 @@ function openSortPanel() {
     }
 }
 
-// 🌟 核心引擎 3：局部萃取與原位覆寫排序
+// 核心引擎 3：局部萃取與原位覆寫排序
 document.getElementById('btnApplySort').addEventListener('click', () => {
     const ruleElements = sortRulesContainer.querySelectorAll('.rule-item');
     const rules = Array.from(ruleElements).map(el => ({
@@ -4717,7 +4723,7 @@ const formulaFunctions = {
 function evaluateFormula(formulaStr) {
     let cleanFormula = formulaStr.substring(1).trim(); 
     
-    // 🌟 智慧補齊右括號 (自動加上缺失的 ')')
+    // 智慧補齊右括號 (自動加上缺失的 ')')
     const openBrackets = (cleanFormula.match(/\(/g) || []).length;
     const closeBrackets = (cleanFormula.match(/\)/g) || []).length;
     if (openBrackets > closeBrackets) {
@@ -4727,7 +4733,7 @@ function evaluateFormula(formulaStr) {
     // 判斷是否為函數模式：找尋 函數名(參數)
     const match = cleanFormula.match(/^([a-zA-Z]+)\((.*)\)$/);
     
-    // 🌟 如果不是函數，嘗試作為基礎運算式執行 (例如 A1+B1, C2&"測試")
+    // 如果不是函數，嘗試作為基礎運算式執行 (例如 A1+B1, C2&"測試")
     if (!match) {
         let evalStr = cleanFormula;
         
@@ -6062,6 +6068,13 @@ document.addEventListener('DOMContentLoaded', () => {
         'pinyin': { name: '拼音', file: '' } 
     };
 
+    const SHORT_NAMES = {
+        'chinese': '華', 'sixian': '四', 'sixiannan': '南',
+        'hailu': '海', 'dapu': '埔', 'raoping': '饒',
+        'kasu': '詔', 'holo': '台', 'jinmen': '金',
+        'matsu': '福', 'pinyin': '拼', 'segment': '詞'
+    };
+
     const DIRECT_PAIRS = {
         'sixian-hailu': 'data-sixian-hailu.js',
         'sixian-dapu': 'data-sixian-dapu.js',
@@ -6113,8 +6126,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 2. UI 邏輯與膠囊按鈕 ---
     function initDropdowns() {
-        sourceBtn.textContent = LANGUAGES[transState.source].name;
-        targetBtn.textContent = LANGUAGES[transState.target].name;
+        sourceBtn.textContent = SHORT_NAMES[transState.source] || '華';
+        targetBtn.textContent = SHORT_NAMES[transState.target] || '詔';
 
         document.querySelectorAll('.dropdown-toggle').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -6183,12 +6196,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function setLanguage(type, value) {
+	function setLanguage(type, value) {
         transState[type] = value;
         if (type === 'source') {
-            sourceBtn.textContent = LANGUAGES[value].name; localStorage.setItem(STORE_KEY_SOURCE, value);
+            sourceBtn.textContent = SHORT_NAMES[value] || '華';
+            localStorage.setItem(STORE_KEY_SOURCE, value);
         } else if (type === 'target') {
-            targetBtn.textContent = LANGUAGES[value].name; localStorage.setItem(STORE_KEY_TARGET, value);
+            targetBtn.textContent = SHORT_NAMES[value] || '詔';
+            localStorage.setItem(STORE_KEY_TARGET, value);
         }
         updatePivotOptions(); 
         updateCapsuleButtonUI();
@@ -6415,25 +6430,35 @@ document.addEventListener('DOMContentLoaded', () => {
         const possiblePivots = findPossiblePivots(source, target);
         pivotList.innerHTML = '';
         
-        if (canDirect) {
+        // 建立選單項目的輔助函數 (加入打勾圖示)
+        const createPivotItem = (value, text, isSelected) => {
             const item = document.createElement('div');
-            item.className = 'dropdown-item'; 
-            item.dataset.value = 'direct'; 
-            item.textContent = '直達 (無)';
-            pivotList.appendChild(item);
+            item.className = 'dropdown-item flex items-center justify-between gap-3'; 
+            item.dataset.value = value;
+            
+            item.innerHTML = `
+                <span>${text}</span>
+                <span class="material-symbols-outlined text-[18px] text-blue-600 font-bold" style="opacity: ${isSelected ? '1' : '0'};">check</span>
+            `;
+            
+            item.onclick = (e) => {
+                transState.pivot = value; 
+                updatePivotLabel(); 
+                e.target.closest('.dropdown-list').classList.remove('show');
+                updatePivotOptions(); // 重新渲染選單以更新打勾狀態
+            };
+            return item;
+        };
+
+        if (canDirect) {
+            pivotList.appendChild(createPivotItem('direct', '直達', transState.pivot === 'direct'));
         }
 
-        // 🌟 處理選項文字的渲染
+        // 處理選項文字的渲染
         possiblePivots.forEach(pivotKey => {
-            const item = document.createElement('div');
-            item.className = 'dropdown-item'; 
-            item.dataset.value = pivotKey; 
-            
-            // 將逗號分隔的路徑轉為 "A > B" 的視覺格式
             const names = pivotKey.split(',').map(p => LANGUAGES[p].name);
-            item.textContent = names.join(' > ');
-            
-            pivotList.appendChild(item);
+            const isSelected = transState.pivot === pivotKey;
+            pivotList.appendChild(createPivotItem(pivotKey, names.join(' > '), isSelected));
         });
 
         pivotList.querySelectorAll('.dropdown-item').forEach(item => {
@@ -6464,12 +6489,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updatePivotLabel() {
         if (!pivotLabel) return;
+        
+        // 🌟 永遠隱藏文字，讓按鈕只顯示箭頭
+        pivotLabel.style.display = 'none'; 
+        
+        // 將目前的狀態寫入 title，滑鼠懸浮時可以看
         if (transState.pivot === 'direct' || !transState.pivot) {
-            pivotLabel.style.display = 'none';
+            pivotWrapper.title = "設定中介語言 (目前：直達)";
         } else {
             const names = transState.pivot.split(',').map(p => LANGUAGES[p].name);
-            pivotLabel.textContent = names.join(' > '); 
-            pivotLabel.style.display = 'inline'; 
+            pivotWrapper.title = "設定中介語言 (目前：" + names.join(' > ') + ")";
         }
     }
 
@@ -6931,7 +6960,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             window.currentLanguageKey = langCode;
                             await loadRubyDictionary(langCode);
 
-                            // 🌟 關鍵修改：支援 segment 與 segment_underscore
+                            // 關鍵修改：支援 segment 與 segment_underscore
                             if (actionMode === 'segment' || actionMode === 'segment_underscore') {
                                 // --- FMM 空格斷詞演算法 ---
                                 const map = window.pinyinMap;
@@ -6964,7 +6993,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     }
                                 }
 
-                                // 🌟 依照選項套用對應的連接符號
+                                // 依照選項套用對應的連接符號
                                 const separator = (actionMode === 'segment_underscore') ? '_' : ' ';
                                 let raw = resultTokens.join(separator);
                                 
@@ -7077,7 +7106,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (!segLang || segLang === 'direct') segLang = 'kasu';
 
-                    // 🌟 支援多層陣列的接力翻譯
+                    // 支援多層陣列的接力翻譯
                     if (pivot !== 'direct' && pivot !== '') {
                         const pivotSteps = pivot.split(',');
                         for (const p of pivotSteps) {
@@ -7094,7 +7123,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const separator = (actionMode === 'segment_space') ? ' ' : '_';
                     currentText = doSegmentText(currentText, dictsSeg, currentFrom === 'chinese', separator);
                 } else {
-                    // 🌟 支援多層陣列的接力翻譯
+                    // 支援多層陣列的接力翻譯
                     if (pivot !== 'direct' && pivot !== '') {
                         const pivotSteps = pivot.split(',');
                         for (const p of pivotSteps) {
@@ -7179,7 +7208,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatModeContainer = document.getElementById('chatModeContainer');
     const chatToggleNumber = document.getElementById('chatToggleNumber');
     const chatToggleEmoji = document.getElementById('chatToggleEmoji');
-    const chatToggleDelete = document.getElementById('chatToggleDelete'); // 加入這行
+    const chatToggleDelete = document.getElementById('chatToggleDelete');
+    const chatToggleLangName = document.getElementById('chatToggleLangName'); // 補回語言開關
 
     function updateChatDisplaySettings() {
         if (chatToggleNumber && chatToggleNumber.checked) chatModeContainer.classList.add('show-numbers');
@@ -7188,14 +7218,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (chatToggleEmoji && chatToggleEmoji.checked) chatModeContainer.classList.add('show-emojis');
         else chatModeContainer.classList.remove('show-emojis');
 
-        // 👇 加入控制刪除按鈕顯示的邏輯
         if (chatToggleDelete && chatToggleDelete.checked) chatModeContainer.classList.add('show-delete');
         else chatModeContainer.classList.remove('show-delete');
-        // 👆 
         
         if(chatToggleNumber) localStorage.setItem('wesing-chat-show-number', chatToggleNumber.checked);
         if(chatToggleEmoji) localStorage.setItem('wesing-chat-show-emoji', chatToggleEmoji.checked);
-        if(chatToggleDelete) localStorage.setItem('wesing-chat-show-delete', chatToggleDelete.checked); // 記憶刪除開關狀態
+        if(chatToggleDelete) localStorage.setItem('wesing-chat-show-delete', chatToggleDelete.checked);
+        if(chatToggleLangName) localStorage.setItem('wesing-chat-show-lang-name', chatToggleLangName.checked); // 記憶語言開關
     }
 
     if (chatToggleNumber && chatToggleEmoji) {
@@ -7209,9 +7238,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const savedShowDelete = localStorage.getItem('wesing-chat-show-delete');
         if (savedShowDelete !== null && chatToggleDelete) chatToggleDelete.checked = (savedShowDelete === 'true');
 
+        // 讀取語言開關的記憶
+        const savedShowLangName = localStorage.getItem('wesing-chat-show-lang-name');
+        if (savedShowLangName !== null && chatToggleLangName) chatToggleLangName.checked = (savedShowLangName === 'true');
+
         chatToggleNumber.addEventListener('change', updateChatDisplaySettings);
         chatToggleEmoji.addEventListener('change', updateChatDisplaySettings);
-        if (chatToggleDelete) chatToggleDelete.addEventListener('change', updateChatDisplaySettings); // 綁定事件
+        if (chatToggleDelete) chatToggleDelete.addEventListener('change', updateChatDisplaySettings);
+        if (chatToggleLangName) chatToggleLangName.addEventListener('change', updateChatDisplaySettings); // 綁定事件
 
         updateChatDisplaySettings(); // 執行初始套用
 
@@ -7220,22 +7254,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (chatToggleNumber && chatToggleEmoji) {
-        // 讀取記憶
-        const savedShowNum = localStorage.getItem('wesing-chat-show-number');
-        if (savedShowNum !== null) chatToggleNumber.checked = (savedShowNum === 'true');
-        
-        const savedShowEmoji = localStorage.getItem('wesing-chat-show-emoji');
-        if (savedShowEmoji !== null) chatToggleEmoji.checked = (savedShowEmoji === 'true');
-
-        chatToggleNumber.addEventListener('change', updateChatDisplaySettings);
-        chatToggleEmoji.addEventListener('change', updateChatDisplaySettings);
-        updateChatDisplaySettings(); // 執行初始套用
-
-        document.querySelector('#dd-chatSettings .dropdown-menu')?.addEventListener('click', (e) => {
-            e.stopPropagation();
-        });
-    }
     // 建立對話模式獨立的狀態，預設讀取原本的記憶
     let chatTransState = {
         source: localStorage.getItem('translate_source_lang') || 'chinese',
@@ -7245,7 +7263,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (chatInput && btnSendChat) {
         
-        // 🌟 更新：預先載入翻譯字典與拼音引擎 (加入拼音轉文字的 IME 字典)
+        // 更新：預先載入翻譯字典與拼音引擎 (加入拼音轉文字的 IME 字典)
         async function preloadChatDictionaries() {
             const { source, target, pivot } = chatTransState;
             const needPinyin = chatConvertToPinyin.checked;
@@ -7335,7 +7353,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     checkboxLabel.title = '';
                 }
             } else if (!targetHasPinyin) {
-                // 🌟 情境 B：目標語言沒有拼音資料庫 (如華語、馬祖) ➔ 強制取消打勾並鎖定
+                // 情境 B：目標語言沒有拼音資料庫 (如華語、馬祖) ➔ 強制取消打勾並鎖定
                 chatConvertToPinyin.checked = false;
                 chatConvertToPinyin.disabled = true;
                 if (checkboxLabel) {
@@ -7358,18 +7376,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 1. 初始化對話模式的下拉選單
         function initChatDropdowns() {
-            document.getElementById('chat-source-btn').textContent = LANGUAGES[chatTransState.source]?.name || '華語';
-            document.getElementById('chat-target-btn').textContent = LANGUAGES[chatTransState.target]?.name || '詔安';
+            // 👇 修改：預設讀取 SHORT_NAMES 單字
+            document.getElementById('chat-source-btn').textContent = SHORT_NAMES[chatTransState.source] || '華';
+            document.getElementById('chat-target-btn').textContent = SHORT_NAMES[chatTransState.target] || '詔';
 
             document.querySelectorAll('#chat-dropdown-source .dropdown-item').forEach(item => {
                 item.addEventListener('click', (e) => {
                     chatTransState.source = item.dataset.value;
-                    document.getElementById('chat-source-btn').textContent = item.textContent;
+                    // 👇 修改：按鈕顯示單字
+                    document.getElementById('chat-source-btn').textContent = SHORT_NAMES[item.dataset.value] || '華';
                     localStorage.setItem('translate_source_lang', item.dataset.value);
                     
                     updateChatPivotOptions();
-                    updateChatUIState(); // 🌟 檢查是否要隱藏拼音選項
-                    
+                    updateChatUIState(); 
                     e.target.closest('.dropdown-list').classList.remove('show');
                     preloadChatDictionaries(); 
                 });
@@ -7378,11 +7397,13 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('#chat-dropdown-target .dropdown-item').forEach(item => {
                 item.addEventListener('click', (e) => {
                     chatTransState.target = item.dataset.value;
-                    document.getElementById('chat-target-btn').textContent = item.textContent;
+                    
+                    document.getElementById('chat-target-btn').textContent = SHORT_NAMES[item.dataset.value] || '詔'; 
+                    
                     localStorage.setItem('translate_target_lang', item.dataset.value);
                     
                     updateChatPivotOptions();
-                    updateChatUIState(); // 🌟 檢查是否要鎖定附帶拼音
+                    updateChatUIState(); 
                     
                     e.target.closest('.dropdown-list').classList.remove('show');
                     preloadChatDictionaries(); 
@@ -7416,54 +7437,109 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             pivotWrapper.style.opacity = '1';
+            
+            let canDirect = false;
+            if (target === 'segment') {
+                canDirect = (source === 'chinese' || LANGUAGES[source].file) ? true : false;
+            } else {
+                canDirect = hasDirectPath(source, target);
+            }
+
             const possiblePivots = findPossiblePivots(source, target); 
             pivotList.innerHTML = '';
             
-            const directItem = document.createElement('div');
-            directItem.className = 'dropdown-item'; directItem.textContent = '直達 (無)';
-            directItem.onclick = (e) => { 
-                chatTransState.pivot = 'direct'; 
-                pivotLabel.style.display = 'none'; 
-                e.target.closest('.dropdown-list').classList.remove('show'); 
-                preloadChatDictionaries();
-            };
-            pivotList.appendChild(directItem);
-
-            possiblePivots.forEach(pKey => {
+            // 建立選單項目的輔助函數 (加入打勾圖示)
+            const createChatPivotItem = (value, text, isSelected) => {
                 const item = document.createElement('div');
-                item.className = 'dropdown-item';
-                const names = pKey.split(',').map(p => LANGUAGES[p].name);
-                item.textContent = names.join(' > ');
+                item.className = 'dropdown-item flex items-center justify-between gap-3'; 
+                item.dataset.value = value;
+                
+                item.innerHTML = `
+                    <span>${text}</span>
+                    <span class="material-symbols-outlined text-[18px] text-blue-600 font-bold" style="opacity: ${isSelected ? '1' : '0'};">check</span>
+                `;
+                
                 item.onclick = (e) => {
-                    chatTransState.pivot = pKey;
-                    pivotLabel.textContent = item.textContent;
-                    pivotLabel.style.display = 'inline';
+                    chatTransState.pivot = value; 
+                    pivotLabel.style.display = 'none'; // 按鈕永遠不顯示文字
                     e.target.closest('.dropdown-list').classList.remove('show');
                     preloadChatDictionaries();
+                    updateChatPivotOptions(); // 重新渲染選單以更新打勾狀態
                 };
-                pivotList.appendChild(item);
+                return item;
+            };
+
+            if (canDirect) {
+                pivotList.appendChild(createChatPivotItem('direct', '直達', chatTransState.pivot === 'direct'));
+            }
+
+            possiblePivots.forEach(pKey => {
+                const names = pKey.split(',').map(p => LANGUAGES[p].name);
+                const isSelected = chatTransState.pivot === pKey;
+                pivotList.appendChild(createChatPivotItem(pKey, names.join(' > '), isSelected));
             });
 
-            if (possiblePivots.length > 0 && chatTransState.pivot !== 'direct' && !possiblePivots.includes(chatTransState.pivot)) {
-                chatTransState.pivot = possiblePivots[0];
+            // 設定預設值
+            if (canDirect) {
+                if (chatTransState.pivot !== 'direct' && !possiblePivots.includes(chatTransState.pivot)) {
+                    chatTransState.pivot = 'direct';
+                }
+                if (!chatTransState.pivot) chatTransState.pivot = 'direct';
+            } else {
+                if (possiblePivots.length > 0) {
+                    if (chatTransState.pivot === 'direct' || !possiblePivots.includes(chatTransState.pivot)) {
+                        chatTransState.pivot = possiblePivots[0]; 
+                    }
+                } else {
+                    chatTransState.pivot = '';
+                }
+            }
+
+            // 🌟 永遠隱藏文字，讓按鈕只顯示箭頭
+            pivotLabel.style.display = 'none'; 
+            
+            // 將目前的狀態寫入 title，滑鼠懸浮時可以看
+            if (chatTransState.pivot === 'direct' || !chatTransState.pivot) {
+                pivotWrapper.title = "設定中介語言 (目前：直達)";
+            } else {
                 const names = chatTransState.pivot.split(',').map(p => LANGUAGES[p].name);
-                pivotLabel.textContent = names.join(' > ');
-                pivotLabel.style.display = 'inline';
+                pivotWrapper.title = "設定中介語言 (目前：" + names.join(' > ') + ")";
             }
         }
 
         // 2. 聊天互動與發送
+        const btnClearChatInput = document.getElementById('btnClearChatInput'); // 取得清除按鈕
+
         chatInput.addEventListener('input', function() {
             this.style.height = 'auto';
             this.style.height = (this.scrollHeight) + 'px';
+            
+            // 👇 動態顯示/隱藏清除按鈕
+            if (btnClearChatInput) {
+                if (this.value.length > 0) {
+                    btnClearChatInput.classList.remove('hidden');
+                } else {
+                    btnClearChatInput.classList.add('hidden');
+                }
+            }
         });
+
+        // 👇 綁定清除按鈕點擊事件
+        if (btnClearChatInput) {
+            btnClearChatInput.addEventListener('click', () => {
+                chatInput.value = '';
+                chatInput.style.height = 'auto';
+                btnClearChatInput.classList.add('hidden');
+                chatInput.focus(); // 清除後保持游標在輸入框
+            });
+        }
 
         // 判斷是否為手機等觸控裝置
         const isMobileDevice = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
         
         // 依據裝置動態改變輸入框的提示文字，體驗更好
         if (isMobileDevice) {
-            chatInput.placeholder = "輸入文字... (按右側藍色按鈕傳送)";
+            chatInput.placeholder = "輸入文字...";
         }
 
         chatInput.addEventListener('keydown', (e) => {
@@ -7509,13 +7585,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const needPinyin = chatConvertToPinyin.checked;
 
                 if (source === 'pinyin') {
-                    // 🌟 情境 A：拼音轉文字 (Pinyin to Hanzi)
+                    // 情境 A：拼音轉文字 (Pinyin to Hanzi)
                     window.currentLanguageKey = target; // 告訴引擎目標語言
                     if (typeof pinyinToHanziEngine === 'function') {
                         currentText = pinyinToHanziEngine(currentText, target);
                     }
                 } else if (target === 'pinyin') {
-                    // 🌟 情境 B：純文字轉拼音 (不經過翻譯)
+                    // 情境 B：純文字轉拼音 (不經過翻譯)
                     prepareDummyDOM(); 
                     let hiddenHanzi = document.getElementById('hanziInput');
                     let hiddenPinyin = document.getElementById('pinyinInput');
@@ -7532,7 +7608,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                 } else {
-                    // 🌟 情境 C：一般雙向翻譯
+                    // 情境 C：一般雙向翻譯
                     if (source !== target) {
                         let currentFrom = source;
                         const proxyFrom = getProxyTarget(currentFrom);
@@ -7557,7 +7633,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // 🌟 共同流程：一般翻譯 或 拼音轉文字後，若需「附帶拼音」，則產出標準拼音字串
+                // 共同流程：一般翻譯 或 拼音轉文字後，若需「附帶拼音」，則產出標準拼音字串
                 if (needPinyin && target !== 'pinyin') {
                     prepareDummyDOM(); 
                     let hiddenHanzi = document.getElementById('hanziInput');
@@ -7575,7 +7651,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // 組合結果：如果是純轉拼音，pinyinText 為空，只會輸出 currentText
+                let effectiveOutputLang = target;
+                if (effectiveOutputLang === 'pinyin' || effectiveOutputLang === 'segment') {
+                    effectiveOutputLang = source;
+                }
+                const langName = LANGUAGES[effectiveOutputLang] ? LANGUAGES[effectiveOutputLang].name : '';
+                const showLangName = document.getElementById('chatToggleLangName') && document.getElementById('chatToggleLangName').checked;
+
+                // 如果有開啟，且有文字、有語言名稱，就組合在一起
+                if (showLangName && currentText && langName) {
+                    currentText = `${langName}：${currentText}`;
+                }
+				// 組合結果：如果是純轉拼音，pinyinText 為空，只會輸出 currentText
                 const finalResult = pinyinText ? `${currentText}\n${pinyinText}` : currentText;
                 const safeCurrent = currentText ? currentText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
                 if (pinyinText) {
@@ -7593,7 +7680,7 @@ document.addEventListener('DOMContentLoaded', () => {
 			debouncedSaveHistory();
         }
 
-        // 🌟 新增第三個參數 pinyinText
+        // 新增第三個參數 pinyinText
         function appendChatMessage(text, isUser, pinyinText = '') {
             const msgCount = chatMessagesArea.querySelectorAll('.chat-message-wrapper').length + 1;
             
@@ -7607,7 +7694,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 avatarArea = document.createElement('div');
                 avatarArea.className = 'chat-avatar-area flex-shrink-0 mr-2 flex flex-col items-center self-start mt-0.5';
                 
-                // 🌟 新增：設定各語言的專屬 Emoji
+                // 新增：設定各語言的專屬 Emoji
                 const langEmojis = {
                     'sixian': '🦖',     // 四縣
                     'hailu': '🐳',      // 海陸
@@ -7621,15 +7708,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     'matsu': '🦄'       // 馬祖
                 };
                 
-                // 🌟 動態判斷實際的「輸出語言」
+                // 動態判斷實際的「輸出語言」
                 let effectiveLang = chatTransState.target;
                 // 當轉為拼音或分詞時，輸出語言視為「來源語言」(A 語言)
                 if (effectiveLang === 'pinyin' || effectiveLang === 'segment') {
                     effectiveLang = chatTransState.source;
                 }
+
+                let matchedLangKey = null;
+                if (text) {
+                    // 掃描所有語言，看看文字是否以「語言名稱：」開頭
+                    for (const key in LANGUAGES) {
+                        const langName = LANGUAGES[key].name;
+                        // 同時支援全形與半形的冒號
+                        if (text.startsWith(langName + '：') || text.startsWith(langName + ':')) {
+                            matchedLangKey = key;
+                            break; // 找到就停止掃描
+                        }
+                    }
+                }
                 
-                // 取得對應的 Emoji，如果沒有匹配到則使用預設機器人
-                const sysEmoji = langEmojis[effectiveLang] || '🤖';
+                // 如果文字自帶語言名稱前綴，優先使用該語言的 Emoji；否則使用系統當前的輸出語言
+                const finalEmojiLang = matchedLangKey || effectiveLang;
+                const sysEmoji = langEmojis[finalEmojiLang] || '🤖';
 
                 // 加上 display: inline-block 與 transform: scaleX(-1) 讓 Emoji 完美轉向右邊！
                 avatarArea.innerHTML = `<span class="chat-emoji text-[28px] leading-none" style="display: inline-block; transform: scaleX(-1);">${sysEmoji}</span>`;
@@ -7661,7 +7762,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 動作按鈕容器
             // 動作按鈕容器 (手機版常駐顯示並加大間距，電腦版維持 hover 顯示)
             const actions = document.createElement('div');
-            actions.className = 'chat-actions flex gap-2 md:gap-0.5 mb-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200';
+            actions.className = 'chat-actions flex gap-2 md:gap-0.5 mb-1 opacity-0 md:group-hover:opacity-100 transition-opacity duration-200';
             
             const copyBtn = document.createElement('button');
             copyBtn.className = 'text-gray-400 hover:text-blue-500 flex items-center justify-center p-1.5 md:p-1 rounded hover:bg-gray-100 transition-colors cursor-pointer';
@@ -7725,7 +7826,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 wrapper.appendChild(infoArea);
             }
             
-            chatMessagesArea.appendChild(wrapper);
+            wrapper.addEventListener('click', (e) => {
+                // 判斷是否為觸控裝置 (手機/平板)
+                if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+                    e.stopPropagation(); // 阻止事件冒泡到背景
+                    
+                    // 1. 先把其他已展開的按鈕全部隱藏
+                    document.querySelectorAll('.chat-actions').forEach(act => {
+                        if (act !== actions) {
+                            act.classList.remove('opacity-100');
+                            act.classList.add('opacity-0');
+                        }
+                    });
+                    
+                    // 2. 切換目前點擊的這個氣泡按鈕顯示狀態
+                    actions.classList.toggle('opacity-0');
+                    actions.classList.toggle('opacity-100');
+                }
+            });
+
+			chatMessagesArea.appendChild(wrapper);
             chatMessagesArea.scrollTop = chatMessagesArea.scrollHeight;
             return wrapper;
         }
@@ -8044,7 +8164,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 當分隔符改變時，記錄偏好，並若處於表格檢視，立即同步回文字框
     batchDelimiter.addEventListener('change', () => {
-        localStorage.setItem(BATCH_DELIM_KEY, batchDelimiter.value); // 🌟 記憶偏好
+        localStorage.setItem(BATCH_DELIM_KEY, batchDelimiter.value); // 記憶偏好
         if (!batchInputTableWrapper.classList.contains('hidden')) {
             syncTableToTextarea();
         }
@@ -8719,7 +8839,7 @@ document.addEventListener('DOMContentLoaded', () => {
             item.addEventListener('click', () => {
                 pinyinState.target = t;
                 targetBtn.textContent = t;
-                localStorage.setItem(PY_TGT_KEY, t); // 🌟 記憶新拼音
+                localStorage.setItem(PY_TGT_KEY, t); // 記憶新拼音
                 item.closest('.dropdown-list').classList.remove('show');
                 if (currentMode === 'text') editor.focus();
             });
@@ -9037,8 +9157,10 @@ document.getElementById('btnApplyWordStats')?.addEventListener('click', () => {
 
 
 /* ==========================================
-   線上輸入法：啟動與開關控制引擎
+   線上輸入法：載入與卸載控制引擎
    ========================================== */
+
+window.isMyImeLoaded = false;
 
 document.addEventListener('click', (e) => {
     // 攔截擁有 ime-toggle-button 類別的按鈕
@@ -9050,27 +9172,27 @@ document.addEventListener('click', (e) => {
     // 檢查 HTML 是否有正確載入 WebIME
     if (typeof WebIME !== 'undefined') {
         
-        // 如果尚未初始化，進行初始化並強制開啟
-        if (!WebIME.isInitialized) {
-            WebIME.imeInit({});
-            if (typeof WebIME.imeSetIsEnabled === 'function') {
-                WebIME.imeSetIsEnabled(true);
+        // 單純判斷我們自己的變數
+        if (!window.isMyImeLoaded) {
+            // 【執行載入】
+            if (typeof WebIME.imeInit === 'function') {
+                WebIME.imeInit({});
             }
-            btn.classList.add('ime-active');
-            showToast('✅ 輸入法已開啟！');
+            window.isMyImeLoaded = true; // 更新狀態為已載入
+            showToast('✅ 烏衣行輸入法已載入！');
         } 
-        // 如果已經初始化過了，則執行關閉 (Destroy) 
         else {
+            // 【執行卸載】
             if (typeof WebIME.imeDestroy === 'function') {
                 WebIME.imeDestroy();
             } else if (typeof WebIME.imeSetIsEnabled === 'function') {
-                WebIME.imeSetIsEnabled(false);
+                WebIME.imeSetIsEnabled(false); 
             }
-            btn.classList.remove('ime-active');
-            showToast('❌ 輸入法已關閉');
+            window.isMyImeLoaded = false; // 更新狀態為未載入
+            showToast('❌ 烏衣行輸入法已卸載');
         }
 
-        // 強制將游標對焦到目前的編輯器，藉此喚醒工具列
+        // 載入或卸載後，將游標精準對焦回輸入框，讓體驗不中斷
         setTimeout(() => {
             if (currentMode === 'text') {
                 const editor = document.getElementById('editor');
@@ -9078,13 +9200,27 @@ document.addEventListener('click', (e) => {
             } else if (currentMode === 'table') {
                 const activeInner = document.querySelector('td.sel-bg .td-inner') || document.querySelector('.td-inner');
                 if (activeInner) activeInner.focus();
+            } else if (currentMode === 'chat') {
+                const chatInput = document.getElementById('chatInput');
+                if (chatInput) chatInput.focus();
             }
         }, 100);
 
     } else {
-        showToast('⚠️ 輸入法核心未載入，請確認 HTML 標籤。');
+        showToast('⚠️ 輸入法核心未載入。');
     }
 });
+
+
+
+
+
+
+
+
+
+
+
 
 
 // 處理網址參數自動啟動 (支援分享設定網址)
@@ -9216,9 +9352,18 @@ function renderSheetTabs() {
                 const rect = menuBtn.getBoundingClientRect();
                 
                 tabMenu.classList.add('show');
-                tabMenu.style.left = `${rect.left}px`;
                 
-                // 判斷：按鈕底部 + 選單真實高度，是否會大於螢幕總高度？
+               let leftPos = rect.left;
+                const menuWidth = tabMenu.offsetWidth;
+                
+                // 如果選單的右側會超出螢幕右邊界，就把選單強制往左推
+                if (leftPos + menuWidth > window.innerWidth) {
+                    leftPos = window.innerWidth - menuWidth - 10; // 距離右邊緣保留 10px 安全距離
+                }
+                // 確保左側也不會超出螢幕（雙重保險）
+                tabMenu.style.left = `${Math.max(5, leftPos)}px`; 
+                
+                // 垂直邊界防護
                 if (rect.bottom + tabMenu.offsetHeight > window.innerHeight) {
                     // 如果會超出底部 ➔ 向上展開
                     tabMenu.style.top = 'auto'; // 清除 top 限制
@@ -9273,7 +9418,7 @@ document.getElementById('tabMenu')?.addEventListener('click', (e) => {
     
     if (idx !== activeSheetIndex) switchSheet(idx); // 確保作用於正確頁籤
     
-    // 🌟 新增對話模式，並更新判斷邏輯
+    // 新增對話模式，並更新判斷邏輯
     if (action === 'mode-chat') {
         switchMode('chat');
         saveAllTabsData();
@@ -9514,9 +9659,12 @@ document.getElementById('btnRemoveAllHeaderNames')?.addEventListener('click', (e
     document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
     showToast('🗑️ 已移除所有自訂欄位名稱');
 });
-
-
-
-
-
+document.addEventListener('click', () => {
+    if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+        document.querySelectorAll('.chat-actions').forEach(act => {
+            act.classList.remove('opacity-100');
+            act.classList.add('opacity-0');
+        });
+    }
+});
 init();
