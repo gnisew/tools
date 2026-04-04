@@ -420,11 +420,15 @@ function switchMode(mode, isForce = false) {
     const btnToggleLineNumbersTextMode = document.getElementById('btnToggleLineNumbersTextMode');
     const chatModeContainer = document.getElementById('chatModeContainer');
     
-    // 👇 新增這兩行：抓取表格與對話工具列 👇
+    // 抓取表格與對話工具列
     const tableControls = document.getElementById('tableControls');
     const chatControls = document.getElementById('chatControls');
 
-    // 隱藏所有容器
+    // 👇 新增這兩行：抓取尋找與取代、剪貼簿按鈕
+    const btnFindReplace = document.getElementById('btnFindReplace');
+    const ddClipboardGroup = document.getElementById('dd-clipboard-group');
+
+    // 隱藏所有容器，後面再根據模式顯示
     textModeContainer.style.display = 'none'; 
     tableModeContainer.style.display = 'none';
     chatModeContainer.classList.add('hidden');
@@ -435,17 +439,20 @@ function switchMode(mode, isForce = false) {
         applyFreeze();
         tableModeContainer.style.display = 'block';
         
-        // 👇 修改：顯示表格工具，隱藏對話工具 👇
         if (tableControls) { tableControls.classList.remove('hidden'); tableControls.classList.add('flex'); }
         if (chatControls) { chatControls.classList.add('hidden'); chatControls.classList.remove('flex'); }
         
         if (ddTextTool) ddTextTool.classList.add('hidden');
         if (btnToggleLineNumbersTextMode) btnToggleLineNumbersTextMode.classList.add('hidden');
+
+        // 表格模式：顯示尋找與取代、複製按鈕
+        if (btnFindReplace) btnFindReplace.classList.remove('hidden');
+        if (ddClipboardGroup) ddClipboardGroup.classList.remove('hidden');
+
     } else if (mode === 'chat') {
         chatModeContainer.classList.remove('hidden');
         chatModeContainer.style.display = 'flex';
         
-        // 👇 修改：隱藏表格工具，顯示對話工具 👇
         if (tableControls) { tableControls.classList.add('hidden'); tableControls.classList.remove('flex'); }
         if (chatControls) { chatControls.classList.remove('hidden'); chatControls.classList.add('flex'); }
         
@@ -453,6 +460,10 @@ function switchMode(mode, isForce = false) {
         if (btnToggleLineNumbersTextMode) btnToggleLineNumbersTextMode.classList.add('hidden');
         setTimeout(() => document.getElementById('chatInput').focus(), 100);
         
+        // 👇 新增：對話模式：隱藏尋找與取代、複製按鈕 👇
+        if (btnFindReplace) btnFindReplace.classList.add('hidden');
+        if (ddClipboardGroup) ddClipboardGroup.classList.add('hidden');
+
         if (typeof updateChatPivotOptions === 'function') updateChatPivotOptions();
         
         if (typeof window.renderChatFromText === 'function') {
@@ -461,12 +472,16 @@ function switchMode(mode, isForce = false) {
     } else {
         textModeContainer.style.display = 'flex';
         
-        // 👇 修改：隱藏表格工具與對話工具 👇
         if (tableControls) { tableControls.classList.add('hidden'); tableControls.classList.remove('flex'); }
         if (chatControls) { chatControls.classList.add('hidden'); chatControls.classList.remove('flex'); }
         
         if (ddTextTool) ddTextTool.classList.remove('hidden');
         if (btnToggleLineNumbersTextMode) btnToggleLineNumbersTextMode.classList.remove('hidden');
+        
+        // 文字模式：顯示尋找與取代、複製按鈕
+        if (btnFindReplace) btnFindReplace.classList.remove('hidden');
+        if (ddClipboardGroup) ddClipboardGroup.classList.remove('hidden');
+
         updateLineNumbers();
     }
     setDropdownValue('dd-viewMode', mode);
