@@ -544,119 +544,46 @@ body.full-width-mode .editor-wrapper {
 
 
 
-
-/* ================= 對話模式樣式 ================= */
-.chat-bubble {
-    max-width: 80%;
-    padding: 0.75rem 1rem;
-    border-radius: 1rem;
-    position: relative;
-    word-break: break-word;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
-
-.chat-bubble-user {
-    background-color: #dbeafe; /* 淺藍色 */
-    color: #1e3a8a;
-    border-bottom-right-radius: 0.25rem;
-    align-self: flex-end;
-}
-
-.chat-bubble-system {
-    background-color: #ffffff;
-    color: #334155;
-    border: 1px solid #e2e8f0;
-    border-bottom-left-radius: 0.25rem;
-    align-self: flex-start;
-}
-
-.chat-actions {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 0.25rem;
-    opacity: 0;
-    transition: opacity 0.2s;
-}
-
-/* 滑鼠移上去時顯示操作按鈕 */
-.chat-message-wrapper:hover .chat-actions {
-    opacity: 1;
-}
-
-.chat-action-btn {
-    font-size: 0.75rem;
-    color: #94a3b8;
-    cursor: pointer;
-    background: none;
-    border: none;
-    display: flex;
-    align-items: center;
-    gap: 2px;
-}
-.chat-action-btn:hover { color: #3b82f6; }
-.chat-action-btn.delete:hover { color: #ef4444; }
-
-
-
 /* ================= 對話模式樣式 ================= */
 #chatModeContainer .dropdown-list {
     bottom: auto;
-    top: calc(100% + 5px); /* 對話模式下拉選單向下展開 */
-}
-
-.chat-bubble {
-    max-width: 85%;
-    padding: 0.75rem 1rem;
-    border-radius: 1.25rem;
-    position: relative;
-    word-break: break-word;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    font-size: var(--editor-font-size);
-    line-height: var(--editor-line-height);
-}
-
-.chat-bubble-user {
-    background-color: #e0f2fe; /* 淺藍色 */
-    color: #0369a1;
-    border-bottom-right-radius: 0.25rem;
-    align-self: flex-end;
-}
-
-.chat-bubble-system {
-    background-color: #ffffff;
-    color: #334155;
-    border: 1px solid #e2e8f0;
-    border-bottom-left-radius: 0.25rem;
-    align-self: flex-start;
+    top: calc(100% + 5px);
 }
 
 .chat-message-wrapper {
     transition: all 0.2s;
 }
 
-.chat-actions {
-    display: flex;
-    gap: 0.8rem;
-    margin-top: 0.3rem;
-    opacity: 0;
+/* 氣泡本體樣式 */
+.chat-bubble {
+    width: fit-content;
+    padding: 0.6rem 0.85rem;
+    border-radius: 1.25rem;
+    word-break: break-word;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    font-size: var(--editor-font-size);
+    line-height: var(--editor-line-height);
 }
 
-.chat-message-wrapper:hover .chat-actions {
-    opacity: 1;
+.chat-bubble-user {
+    background-color: #e0f2fe; 
+    color: #0369a1;
+    border-bottom-right-radius: 0.25rem; /* 右下角尖角 */
 }
 
-.chat-action-btn {
-    font-size: 12px;
-    color: #94a3b8;
-    cursor: pointer;
-    background: none;
-    border: none;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    padding: 2px 5px;
-    border-radius: 4px;
+.chat-bubble-system {
+    background-color: #ffffff;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+    border-top-left-radius: 0.25rem;
 }
 
-.chat-action-btn:hover { background-color: #f1f5f9; color: #3b82f6; }
-.chat-action-btn.delete:hover { color: #ef4444; }
+/* 當不顯示 Emoji 時，隱藏系統頭像區塊 */
+#chatModeContainer:not(.show-emojis) .chat-avatar-area {
+    display: none !important;
+}
+
+/* 當不顯示編號時，隱藏對話編號 */
+#chatModeContainer:not(.show-numbers) .chat-number {
+    display: none !important;
+}

@@ -2890,13 +2890,20 @@ function showToast(message) { toast.textContent = message; toast.classList.remov
 
 function handleClearCurrentTab() {
     showConfirm('確認清除本頁', '這將會清空目前頁籤的所有資料，但保留其他頁籤。你確定嗎？', () => {
+        // 1. 清空背後的純文字資料
         editor.value = '';
+        
+        // 2. 根據目前所在的模式，重置對應的畫面
         if (currentMode === 'text') {
             updateLineNumbers();
-        } else {
+        } else if (currentMode === 'table') {
             renderTableFromText(''); // 表格模式下繪製空表格
+        } else if (currentMode === 'chat') {
+            const chatArea = document.getElementById('chatMessagesArea');
+            if (chatArea) chatArea.innerHTML = '';
         }
-        // 儲存至歷史紀錄與分頁資料
+        
+        // 3. 儲存至歷史紀錄與分頁資料
         saveHistoryState();
         saveAllTabsData();
         showToast('🗑️ 本頁內容已清除');
@@ -7134,7 +7141,39 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSendChat = document.getElementById('btnSendChat');
     const chatMessagesArea = document.getElementById('chatMessagesArea');
     const chatConvertToPinyin = document.getElementById('chatConvertToPinyin');
+    
+    // 🌟 新增：對話模式設定開關
+    const chatModeContainer = document.getElementById('chatModeContainer');
+    const chatToggleNumber = document.getElementById('chatToggleNumber');
+    const chatToggleEmoji = document.getElementById('chatToggleEmoji');
 
+    function updateChatDisplaySettings() {
+        if (chatToggleNumber && chatToggleNumber.checked) chatModeContainer.classList.add('show-numbers');
+        else chatModeContainer.classList.remove('show-numbers');
+        
+        if (chatToggleEmoji && chatToggleEmoji.checked) chatModeContainer.classList.add('show-emojis');
+        else chatModeContainer.classList.remove('show-emojis');
+        
+        if(chatToggleNumber) localStorage.setItem('wesing-chat-show-number', chatToggleNumber.checked);
+        if(chatToggleEmoji) localStorage.setItem('wesing-chat-show-emoji', chatToggleEmoji.checked);
+    }
+
+    if (chatToggleNumber && chatToggleEmoji) {
+        // 讀取記憶
+        const savedShowNum = localStorage.getItem('wesing-chat-show-number');
+        if (savedShowNum !== null) chatToggleNumber.checked = (savedShowNum === 'true');
+        
+        const savedShowEmoji = localStorage.getItem('wesing-chat-show-emoji');
+        if (savedShowEmoji !== null) chatToggleEmoji.checked = (savedShowEmoji === 'true');
+
+        chatToggleNumber.addEventListener('change', updateChatDisplaySettings);
+        chatToggleEmoji.addEventListener('change', updateChatDisplaySettings);
+        updateChatDisplaySettings(); // 執行初始套用
+
+        document.querySelector('#dd-chatSettings .dropdown-menu')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    }
     // 建立對話模式獨立的狀態，預設讀取原本的記憶
     let chatTransState = {
         source: localStorage.getItem('translate_source_lang') || 'chinese',
@@ -7144,19 +7183,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (chatInput && btnSendChat) {
         
-        // 🌟 新增：預先載入翻譯字典與拼音引擎 (選定語言時立即觸發)
+        // 🌟 更新：預先載入翻譯字典與拼音引擎 (加入拼音轉文字的 IME 字典)
         async function preloadChatDictionaries() {
             const { source, target, pivot } = chatTransState;
             const needPinyin = chatConvertToPinyin.checked;
             
-            // 預載翻譯字典
+            // A. 預載翻譯字典
             const loadTrans = async (from, to) => {
                 if (from === to) return;
                 const file = getFileForPair(from, to);
                 if (file) await fetchDictionaryByFile(file);
             };
 
-            if (source !== target) {
+            if (source !== target && source !== 'pinyin' && target !== 'pinyin') {
                 let currentFrom = source;
                 const proxyFrom = getProxyTarget(currentFrom);
                 if (proxyFrom && target !== proxyFrom) {
@@ -7179,16 +7218,82 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // 預載拼音引擎與字典
-            if (needPinyin && target !== 'pinyin') {
+            // B. 預載拼音轉文字引擎 (IME Dictionary)
+            if (source === 'pinyin') {
+                await loadScript('https://gnisew.github.io/tools/ime/ime-dict.js');
+                if (typeof initializeImeDicts === 'function') {
+                    initializeImeDicts();
+                }
+            }
+
+            // C. 預載標音引擎與字典 (純轉拼音 或 翻譯後附帶拼音)
+            if (target === 'pinyin' || (needPinyin && target !== 'pinyin')) {
+                const langToLoad = target === 'pinyin' ? source : target; 
                 await loadScript('https://gnisew.github.io/tools/turn/pinyin2/data-pinyin2pinyin.js');
                 await loadScript('https://gnisew.github.io/tools/ruby/hanzitopinyin.js');
-                window.currentLanguageKey = target;
-                await loadRubyDictionary(target);
+                window.currentLanguageKey = langToLoad;
+                await loadRubyDictionary(langToLoad);
             }
         }
 
-        // 1. 初始化對話模式的下拉選單
+        // 動態管理介面狀態
+        function updateChatUIState() {
+            const source = chatTransState.source;
+            const target = chatTransState.target;
+            
+            // 1. 動態隱藏/顯示「拼音」目標選項 (判斷來源是否有拼音)
+            const targetPinyinOption = document.querySelector('#chat-dropdown-target .dropdown-item[data-value="pinyin"]');
+            const sourceHasPinyin = LANGUAGES[source] && LANGUAGES[source].pyFile;
+            
+            if (targetPinyinOption) {
+                if (sourceHasPinyin) {
+                    targetPinyinOption.style.display = 'block'; 
+                } else {
+                    targetPinyinOption.style.display = 'none';  
+                    
+                    if (target === 'pinyin') {
+                        chatTransState.target = (source === 'chinese' ? 'kasu' : 'chinese');
+                        document.getElementById('chat-target-btn').textContent = LANGUAGES[chatTransState.target].name;
+                        localStorage.setItem('translate_target_lang', chatTransState.target);
+                        showToast(`⚠️ ${LANGUAGES[source].name} 無拼音對應，已自動切換目標`);
+                    }
+                }
+            }
+
+            // 2. 動態控制「附帶拼音」核取方塊 (判斷目標是否有拼音)
+            const checkboxLabel = chatConvertToPinyin.closest('label');
+            const targetHasPinyin = LANGUAGES[chatTransState.target] && LANGUAGES[chatTransState.target].pyFile;
+
+            if (chatTransState.target === 'pinyin') {
+                // 情境 A：目標就是拼音 ➔ 強制打勾並鎖定
+                chatConvertToPinyin.checked = true;
+                chatConvertToPinyin.disabled = true;
+                if (checkboxLabel) {
+                    checkboxLabel.style.opacity = '0.5';
+                    checkboxLabel.title = '';
+                }
+            } else if (!targetHasPinyin) {
+                // 🌟 情境 B：目標語言沒有拼音資料庫 (如華語、馬祖) ➔ 強制取消打勾並鎖定
+                chatConvertToPinyin.checked = false;
+                chatConvertToPinyin.disabled = true;
+                if (checkboxLabel) {
+                    checkboxLabel.style.opacity = '0.5';
+                    checkboxLabel.title = `⚠️ ${LANGUAGES[chatTransState.target]?.name || ''} 尚無拼音資料庫`;
+                }
+            } else {
+                // 情境 C：恢復正常 ➔ 讀取使用者原本的記憶
+                chatConvertToPinyin.disabled = false;
+                if (checkboxLabel) {
+                    checkboxLabel.style.opacity = '1';
+                    checkboxLabel.title = '';
+                }
+                const savedPinyinCheck = localStorage.getItem('wesing-chat-pinyin-checked');
+                if (savedPinyinCheck !== null) {
+                    chatConvertToPinyin.checked = (savedPinyinCheck === 'true');
+                }
+            }
+        }
+
         // 1. 初始化對話模式的下拉選單
         function initChatDropdowns() {
             document.getElementById('chat-source-btn').textContent = LANGUAGES[chatTransState.source]?.name || '華語';
@@ -7198,11 +7303,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.addEventListener('click', (e) => {
                     chatTransState.source = item.dataset.value;
                     document.getElementById('chat-source-btn').textContent = item.textContent;
-                    
-                    // 🌟 新增：將來源語言存入記憶體 (與主翻譯系統共用同一個 Key)
                     localStorage.setItem('translate_source_lang', item.dataset.value);
                     
                     updateChatPivotOptions();
+                    updateChatUIState(); // 🌟 檢查是否要隱藏拼音選項
+                    
                     e.target.closest('.dropdown-list').classList.remove('show');
                     preloadChatDictionaries(); 
                 });
@@ -7212,24 +7317,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.addEventListener('click', (e) => {
                     chatTransState.target = item.dataset.value;
                     document.getElementById('chat-target-btn').textContent = item.textContent;
-                    
-                    // 🌟 新增：將目標語言存入記憶體
                     localStorage.setItem('translate_target_lang', item.dataset.value);
                     
                     updateChatPivotOptions();
+                    updateChatUIState(); // 🌟 檢查是否要鎖定附帶拼音
+                    
                     e.target.closest('.dropdown-list').classList.remove('show');
                     preloadChatDictionaries(); 
                 });
             });
 
             if (chatConvertToPinyin) {
-                // 剛載入時，嘗試讀取之前的勾選紀錄 (預設為 true)
                 const savedPinyinCheck = localStorage.getItem('wesing-chat-pinyin-checked');
                 if (savedPinyinCheck !== null) {
                     chatConvertToPinyin.checked = (savedPinyinCheck === 'true');
                 }
-                
-                // 勾選狀態改變時，存入記憶體並觸發預載
                 chatConvertToPinyin.addEventListener('change', (e) => {
                     localStorage.setItem('wesing-chat-pinyin-checked', e.target.checked);
                     preloadChatDictionaries();
@@ -7294,8 +7396,25 @@ document.addEventListener('DOMContentLoaded', () => {
             this.style.height = (this.scrollHeight) + 'px';
         });
 
+        // 判斷是否為手機等觸控裝置
+        const isMobileDevice = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+        
+        // 依據裝置動態改變輸入框的提示文字，體驗更好
+        if (isMobileDevice) {
+            chatInput.placeholder = "輸入文字... (按右側藍色按鈕傳送)";
+        }
+
         chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendChat(); }
+            if (e.key === 'Enter' && !e.shiftKey) {
+                if (isMobileDevice) {
+                    // 手機版：什麼都不攔截，讓 Enter 發揮原本的換行功能
+                    return;
+                } else {
+                    // 電腦版：攔截預設換行，改為直接送出
+                    e.preventDefault(); 
+                    handleSendChat(); 
+                }
+            }
         });
 
         btnSendChat.addEventListener('click', handleSendChat);
@@ -7304,10 +7423,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const text = chatInput.value.trim();
             if (!text) return;
 
+            const { source, target, pivot } = chatTransState;
+            const needPinyin = chatConvertToPinyin.checked;
+
+            if (source === target && !needPinyin) {
+                showToast('⚠️ 來源與目標語言相同，無需轉換');
+                return;
+            }
+
             chatInput.value = ''; chatInput.style.height = 'auto';
             appendChatMessage(text, true);
 
-            const loadingWrapper = appendChatMessage('翻譯處理中...', false);
+            const loadingWrapper = appendChatMessage('處理中...', false);
             const loadingBubble = loadingWrapper.querySelector('.chat-bubble');
 
             try {
@@ -7315,35 +7442,60 @@ document.addEventListener('DOMContentLoaded', () => {
                 await preloadChatDictionaries();
 
                 let currentText = text;
+                let pinyinText = "";
                 const { source, target, pivot } = chatTransState;
                 const needPinyin = chatConvertToPinyin.checked;
 
-                // --- 翻譯核心 ---
-                if (source !== target) {
-                    let currentFrom = source;
-                    const proxyFrom = getProxyTarget(currentFrom);
-                    if (proxyFrom && target !== proxyFrom) {
-                        currentText = await executeTranslation(currentFrom, proxyFrom, currentText);
-                        currentFrom = proxyFrom;
+                if (source === 'pinyin') {
+                    // 🌟 情境 A：拼音轉文字 (Pinyin to Hanzi)
+                    window.currentLanguageKey = target; // 告訴引擎目標語言
+                    if (typeof pinyinToHanziEngine === 'function') {
+                        currentText = pinyinToHanziEngine(currentText, target);
                     }
-                    const proxyTo = getProxyTarget(target);
-                    const effectiveTo = (proxyTo && currentFrom !== proxyTo) ? proxyTo : target;
-
-                    if (pivot && pivot !== 'direct') {
-                        for (const p of pivot.split(',')) {
-                            if (currentFrom !== p) {
-                                currentText = await executeTranslation(currentFrom, p, currentText);
-                                currentFrom = p;
-                            }
+                } else if (target === 'pinyin') {
+                    // 🌟 情境 B：純文字轉拼音 (不經過翻譯)
+                    prepareDummyDOM(); 
+                    let hiddenHanzi = document.getElementById('hanziInput');
+                    let hiddenPinyin = document.getElementById('pinyinInput');
+                    
+                    if (hiddenHanzi && hiddenPinyin) {
+                        hiddenHanzi.value = currentText;
+                        hiddenPinyin.value = '';
+                        window.currentLanguageKey = source; 
+                        
+                        if (typeof hanziToPinyin === 'function') {
+                            hanziToPinyin();
+                            // 直接覆蓋，只輸出拼音
+                            currentText = hiddenPinyin.value || currentText; 
                         }
                     }
-                    if (currentFrom !== effectiveTo) {
-                        currentText = await executeTranslation(currentFrom, effectiveTo, currentText);
+                } else {
+                    // 🌟 情境 C：一般雙向翻譯
+                    if (source !== target) {
+                        let currentFrom = source;
+                        const proxyFrom = getProxyTarget(currentFrom);
+                        if (proxyFrom && target !== proxyFrom) {
+                            currentText = await executeTranslation(currentFrom, proxyFrom, currentText);
+                            currentFrom = proxyFrom;
+                        }
+                        const proxyTo = getProxyTarget(target);
+                        const effectiveTo = (proxyTo && currentFrom !== proxyTo) ? proxyTo : target;
+
+                        if (pivot && pivot !== 'direct') {
+                            for (const p of pivot.split(',')) {
+                                if (currentFrom !== p) {
+                                    currentText = await executeTranslation(currentFrom, p, currentText);
+                                    currentFrom = p;
+                                }
+                            }
+                        }
+                        if (currentFrom !== effectiveTo) {
+                            currentText = await executeTranslation(currentFrom, effectiveTo, currentText);
+                        }
                     }
                 }
 
-                // --- 拼音核心 ---
-                let pinyinText = "";
+                // 🌟 共同流程：一般翻譯 或 拼音轉文字後，若需「附帶拼音」，則產出標準拼音字串
                 if (needPinyin && target !== 'pinyin') {
                     prepareDummyDOM(); 
                     let hiddenHanzi = document.getElementById('hanziInput');
@@ -7352,7 +7504,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (hiddenHanzi && hiddenPinyin) {
                         hiddenHanzi.value = currentText;
                         hiddenPinyin.value = '';
-                        window.currentLanguageKey = target; // 明確告訴引擎當前目標語言
+                        window.currentLanguageKey = target;
                         
                         if (typeof hanziToPinyin === 'function') {
                             hanziToPinyin();
@@ -7361,55 +7513,150 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
+                // 組合結果：如果是純轉拼音，pinyinText 為空，只會輸出 currentText
                 const finalResult = pinyinText ? `${currentText}\n${pinyinText}` : currentText;
-                loadingBubble.innerText = finalResult;
+                const safeCurrent = currentText ? currentText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
+                if (pinyinText) {
+                    const safePinyin = pinyinText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    loadingBubble.innerHTML = safeCurrent ? `${safeCurrent}\n<span class="text-slate-500">${safePinyin}</span>` : `<span class="text-slate-500">${safePinyin}</span>`;
+                } else {
+                    loadingBubble.innerText = currentText;
+                }
             } catch (err) {
                 loadingBubble.innerText = '❌ 轉換發生錯誤';
                 loadingBubble.classList.add('text-red-500');
                 console.error(err);
             }
             chatMessagesArea.scrollTop = chatMessagesArea.scrollHeight;
+			debouncedSaveHistory();
         }
 
-        function appendChatMessage(text, isUser) {
+        // 🌟 新增第三個參數 pinyinText
+        function appendChatMessage(text, isUser, pinyinText = '') {
+            const msgCount = chatMessagesArea.querySelectorAll('.chat-message-wrapper').length + 1;
+            
+            // 最外層容器：讓系統與使用者的元素都沿著底部對齊 (items-end)
             const wrapper = document.createElement('div');
-            wrapper.className = `chat-message-wrapper flex flex-col ${isUser ? 'items-end' : 'items-start'}`;
+			wrapper.className = `chat-message-wrapper flex w-full mb-1 group ${isUser ? 'justify-end items-end' : 'justify-start items-end'}`;
+
+            // 1. 頭像區塊 (僅系統回覆顯示，放在最左側)
+            let avatarArea = null;
+            if (!isUser) {
+                avatarArea = document.createElement('div');
+                avatarArea.className = 'chat-avatar-area flex-shrink-0 mr-2 flex flex-col items-center self-start mt-0.5';
+                
+                // 🌟 新增：設定各語言的專屬 Emoji
+                const langEmojis = {
+                    'sixian': '🦖',     // 四縣
+                    'hailu': '🐳',      // 海陸
+                    'dapu': '🐘',       // 大埔
+                    'raoping': '🪅',    // 饒平
+                    'kasu': '🐣',       // 詔安
+                    'sixiannan': '🐦',  // 南四縣
+                    'jinmen': '🦔',     // 金門
+                    'holo': '🐿️',       // 和樂
+                    'chinese': '🦜',    // 華語
+                    'matsu': '🦄'       // 馬祖
+                };
+                
+                // 🌟 動態判斷實際的「輸出語言」
+                let effectiveLang = chatTransState.target;
+                // 當轉為拼音或分詞時，輸出語言視為「來源語言」(A 語言)
+                if (effectiveLang === 'pinyin' || effectiveLang === 'segment') {
+                    effectiveLang = chatTransState.source;
+                }
+                
+                // 取得對應的 Emoji，如果沒有匹配到則使用預設機器人
+                const sysEmoji = langEmojis[effectiveLang] || '🤖';
+
+                // 加上 display: inline-block 與 transform: scaleX(-1) 讓 Emoji 完美轉向右邊！
+                avatarArea.innerHTML = `<span class="chat-emoji text-[28px] leading-none" style="display: inline-block; transform: scaleX(-1);">${sysEmoji}</span>`;
+            }
+
+            // 2. 氣泡區塊
+            const bubbleContainer = document.createElement('div');
+            bubbleContainer.className = `chat-bubble-container relative max-w-[75%] md:max-w-[65%] flex flex-col ${isUser ? 'items-end' : 'items-start'}`;
             
             const bubble = document.createElement('div');
             bubble.className = `chat-bubble code-text ${isUser ? 'chat-bubble-user' : 'chat-bubble-system'}`;
             bubble.style.whiteSpace = 'pre-wrap';
-            bubble.innerText = text;
 
+			// 拼音色彩 text-slate-500
+            const safeText = text ? text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : '';
+            if (pinyinText) {
+                const safePinyin = pinyinText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                bubble.innerHTML = safeText ? `${safeText}\n<span class="text-slate-500">${safePinyin}</span>` : `<span class="text-slate-500">${safePinyin}</span>`;
+            } else {
+                bubble.innerText = text;
+            }
+            
+            bubbleContainer.appendChild(bubble);
+
+            // 3. 資訊區塊 (包含上方的動作按鈕與下方的編號，放在氣泡外側)
+            const infoArea = document.createElement('div');
+            infoArea.className = `chat-info-area flex flex-col pb-0.5 select-none ${isUser ? 'mr-2 items-end' : 'ml-2 items-start'}`;
+
+            // 動作按鈕容器
             const actions = document.createElement('div');
-            actions.className = `chat-actions ${isUser ? 'justify-end pr-1' : 'justify-start pl-1'}`;
+            actions.className = 'chat-actions flex gap-0.5 mb-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200';
             
             const copyBtn = document.createElement('button');
-            copyBtn.className = 'chat-action-btn';
-            copyBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">content_copy</span>複製';
-            
-            // 🌟 關鍵修正：將 text 改為 bubble.innerText，確保每次都抓取最新結果
+            copyBtn.className = 'text-gray-400 hover:text-blue-500 flex items-center justify-center p-1 rounded hover:bg-gray-100 transition-colors cursor-pointer';
+            copyBtn.title = "複製內容";
+            copyBtn.innerHTML = '<span class="material-symbols-outlined text-[16px]">content_copy</span>';
             copyBtn.onclick = () => navigator.clipboard.writeText(bubble.innerText).then(() => {
                 const toast = document.getElementById('toast');
                 if(toast) { 
                     toast.textContent = '✅ 已複製'; 
                     toast.classList.remove('opacity-0'); 
-                    setTimeout(()=>toast.classList.add('opacity-0'), 2000); 
+                    if(toast.timer) clearTimeout(toast.timer);
+                    toast.timer = setTimeout(() => { toast.classList.add('opacity-0'); toast.timer = null; }, 2000);
                 }
             });
 
             const delBtn = document.createElement('button');
-            delBtn.className = 'chat-action-btn delete';
-            delBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">delete</span>刪除';
-            delBtn.onclick = () => wrapper.remove();
+            delBtn.className = 'text-gray-400 hover:text-red-500 flex items-center justify-center p-1 rounded hover:bg-gray-100 transition-colors cursor-pointer';
+            delBtn.title = "刪除對話";
+            delBtn.innerHTML = '<span class="material-symbols-outlined text-[16px]">delete</span>';
+            delBtn.onclick = () => { 
+                wrapper.remove(); 
+                debouncedSaveHistory(); 
+            };
 
-            actions.appendChild(copyBtn); actions.appendChild(delBtn);
-            wrapper.appendChild(bubble); wrapper.appendChild(actions);
+            // 根據系統或使用者，改變按鈕的插入順序
+            if (isUser) {
+                actions.appendChild(delBtn);  // 左：刪除
+                actions.appendChild(copyBtn); // 右：複製
+            } else {
+                actions.appendChild(copyBtn); // 左：複製
+                actions.appendChild(delBtn);  // 右：刪除
+            }
+
+            const numSpan = document.createElement('span');
+            numSpan.className = 'chat-number text-[12px] text-gray-400 leading-none px-1 pt-0.5';
+            numSpan.innerText = `#${msgCount}`;
+
+            infoArea.appendChild(actions);
+            infoArea.appendChild(numSpan);
+
+            // 4. 組裝 DOM 結構 (根據使用者或系統調整左右順序)
+            if (isUser) {
+                // 使用者：[資訊區(按鈕+編號)] -> [氣泡區]
+                wrapper.appendChild(infoArea);
+                wrapper.appendChild(bubbleContainer);
+            } else {
+                // 系統：[頭像區] -> [氣泡區] -> [資訊區(按鈕+編號)]
+                if (avatarArea) wrapper.appendChild(avatarArea);
+                wrapper.appendChild(bubbleContainer);
+                wrapper.appendChild(infoArea);
+            }
+            
             chatMessagesArea.appendChild(wrapper);
             chatMessagesArea.scrollTop = chatMessagesArea.scrollHeight;
             return wrapper;
         }
 
-		// 🌟 新增：讀取編輯器或表格的文字，重新生成對話氣泡
+		// 讀取編輯器或表格的文字，重新生成對話氣泡
         window.renderChatFromText = function(text) {
             // 1. 先清空目前的對話區
             chatMessagesArea.innerHTML = '';
@@ -7440,13 +7687,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // 4. 根據 B 欄與 C 欄建立「系統氣泡 (翻譯+拼音)」
-                let sysParts = [];
-                if (transText) sysParts.push(transText);
-                if (pinyinText) sysParts.push(pinyinText);
-                
-                if (sysParts.length > 0) {
-                    appendChatMessage(sysParts.join('\n'), false);
+                if (transText || pinyinText) {
+                    appendChatMessage(transText, false, pinyinText);
                 }
+
             });
             
             // 捲動到最底部
