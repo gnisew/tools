@@ -1011,8 +1011,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 				// 1. 消除 Windows 剪貼簿的 \r\n 造成的雙重換行 bug
 				let text = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-				// 2. 將所有連續兩個以上的換行 (中間可能夾雜空白) 強制縮減為單一換行
-				text = text.replace(/\n\s*\n/g, '\n');
 
 				if (currentMode === 'text') {
 					editor.focus(); 
@@ -2284,8 +2282,6 @@ document.addEventListener('paste', (e) => {
 
     // 1. 消除 Windows 剪貼簿的 \r\n 造成的雙重換行 bug
     let text = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    // 2. 將所有連續兩個以上的換行 (中間可能夾雜空白) 強制縮減為單一換行
-    text = text.replace(/\n\s*\n/g, '\n');
 
     // --- 文字模式貼上處理 ---
     if (currentMode === 'text') {
