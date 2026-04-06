@@ -786,18 +786,12 @@ function extractTextFromChat() {
         return text;
     };
 
-    // 🌟 加上自動標題列 (並還原 D 欄之後的自訂標題)
-    let headerRow = ["原文", "翻譯", "拼音"];
-    if (window.chatOriginalHeaderExtra && window.chatOriginalHeaderExtra.length > 0) {
-        headerRow = headerRow.concat(window.chatOriginalHeaderExtra);
-    }
-    tsvData.push(headerRow.join('\t'));
 
     wrappers.forEach(wrapper => {
         const userBubble = wrapper.querySelector('.chat-bubble-user');
         const systemBubble = wrapper.querySelector('.chat-bubble-system');
         
-        // 🌟 打開隱形背包：讀取藏在 DOM 裡的 D 欄以後資料
+        // 打開隱形背包：讀取藏在 DOM 裡的 D 欄以後資料
         let extraCols = [];
         try {
             if (wrapper.dataset.extra) extraCols = JSON.parse(wrapper.dataset.extra);
