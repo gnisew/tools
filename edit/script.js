@@ -593,10 +593,16 @@ function saveColNames() {
     for (let i = 1; i < theadThs.length; i++) {
         names.push(theadThs[i].dataset.colName || '');
     }
-    localStorage.setItem(COL_NAMES_KEY, JSON.stringify(names));
+    if (sheetTabs[activeSheetIndex]) {
+        sheetTabs[activeSheetIndex].colNames = names;
+        saveAllTabsData(); // 呼叫存檔以寫入 localStorage
+    }
 }
 
 function loadColNames() {
+    if (sheetTabs[activeSheetIndex] && sheetTabs[activeSheetIndex].colNames) {
+        return sheetTabs[activeSheetIndex].colNames;
+    }
     try { return JSON.parse(localStorage.getItem(COL_NAMES_KEY)) || []; } 
     catch(e) { return []; }
 }
@@ -607,10 +613,16 @@ function saveColWidths() {
     for (let i = 1; i < theadThs.length; i++) {
         widths.push(theadThs[i].style.width || '150px');
     }
-    localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(widths));
+    if (sheetTabs[activeSheetIndex]) {
+        sheetTabs[activeSheetIndex].colWidths = widths;
+        saveAllTabsData(); 
+    }
 }
 
 function loadColWidths() {
+    if (sheetTabs[activeSheetIndex] && sheetTabs[activeSheetIndex].colWidths) {
+        return sheetTabs[activeSheetIndex].colWidths;
+    }
     try { return JSON.parse(localStorage.getItem(COL_WIDTHS_KEY)) || []; } 
     catch(e) { return []; }
 }
@@ -773,7 +785,7 @@ function extractTextFromChat() {
         return text;
     };
 
-    // 加上自動標題列 (如果你覺得不需要標題，可以把這行註解掉)
+    // 加上自動標題列
     tsvData.push(["原文", "翻譯", "拼音"].join('\t'));
 
     wrappers.forEach(wrapper => {
@@ -787,12 +799,27 @@ function extractTextFromChat() {
             }
             currentUserText = userBubble.innerText.trim();
         } else if (systemBubble) {
-            const systemText = systemBubble.innerText.trim();
-            // 以換行符號切割系統訊息。第一行通常是翻譯，剩下的通常是拼音
-            const parts = systemText.split('\n');
-            const translation = parts[0] || "";
-            // 將剩下的拼音行合併
-            const pinyin = parts.slice(1).join('\n') || ""; 
+            
+            let translation = "";
+            let pinyin = "";
+
+            // 🌟 修正點：利用 DOM 結構來精準分離「翻譯」與「拼音」，徹底解決多行錯亂問題
+            const pinyinSpan = systemBubble.querySelector('span.text-slate-500');
+
+            if (pinyinSpan) {
+                // 拼音就是 span 裡面的文字
+                pinyin = pinyinSpan.innerText.trim();
+                
+                // 翻譯是扣除 span 之後的文字。複製一個節點來操作最安全
+                const cloneBubble = systemBubble.cloneNode(true);
+                const cloneSpan = cloneBubble.querySelector('span.text-slate-500');
+                if (cloneSpan) cloneSpan.remove();
+                
+                translation = cloneBubble.innerText.trim();
+            } else {
+                // 沒有拼音 span，代表全部都是翻譯
+                translation = systemBubble.innerText.trim();
+            }
 
             if (currentUserText) {
                 // 湊齊一組：使用者 -> 翻譯 -> 拼音
@@ -7539,9 +7566,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
+            if (e.key === 'Enter') {
+                // 情境 1：如果按住 Shift 或 Alt，我們強制手動換行 (確保跨瀏覽器與系統皆有效)
+                if (e.shiftKey || e.altKey) {
+                    e.preventDefault(); // 阻擋預設行為
+                    const start = chatInput.selectionStart;
+                    const end = chatInput.selectionEnd;
+                    // 在游標處插入換行符號
+                    chatInput.value = chatInput.value.substring(0, start) + "\n" + chatInput.value.substring(end);
+                    // 將游標移到換行符號的後面
+                    chatInput.selectionStart = chatInput.selectionEnd = start + 1;
+                    
+                    // 手動觸發 input 事件，讓輸入框可以觸發原本寫好的自動長高邏輯
+                    chatInput.dispatchEvent(new Event('input'));
+                    return;
+                }
+                
+                // 情境 2：單純按 Enter (沒有 Shift 也沒有 Alt)
                 if (isMobileDevice) {
-                    // 手機版：什麼都不攔截，讓 Enter 發揮原本的換行功能
+                    // 手機版：什麼都不攔截，讓原生 Enter 繼續發揮換行功能 (送出須按紙飛機)
                     return;
                 } else {
                     // 電腦版：攔截預設換行，改為直接送出
@@ -9504,8 +9547,7 @@ function deleteSheet(index) {
 btnAddSheet?.addEventListener('click', () => {
     saveAllTabsData();
     const newName = `工作表${sheetTabs.length + 1}`;
-    // 預設新建頁籤為文字模式
-    sheetTabs.push({ name: newName, content: '', history: [''], mode: 'text' });
+    sheetTabs.push({ name: newName, content: '', history: [''], mode: currentMode });
     switchSheet(sheetTabs.length - 1);
 });
 
@@ -9663,4 +9705,71 @@ document.addEventListener('click', () => {
         });
     }
 });
+
+
+
+/* ==========================================
+   極致滿版 (Zen Mode) 切換邏輯
+   ========================================== */
+const btnMaximizeView = document.getElementById('btnMaximizeView');
+const btnExitMaximize = document.getElementById('btnExitMaximize');
+
+function toggleMaximizeMode(isMaximized) {
+    if (isMaximized) {
+        document.body.classList.add('maximized-mode');
+        btnExitMaximize.classList.remove('hidden');
+        showToast('🧘 已進入極致滿版模式 (可按 Esc 退出)');
+    } else {
+        document.body.classList.remove('maximized-mode');
+        btnExitMaximize.classList.add('hidden');
+    }
+    
+    // 觸發視窗重新計算，確保行號或表格寬度正確渲染
+    setTimeout(() => {
+        if (currentMode === 'text') {
+            if (typeof debouncedUpdateLineNumbers === 'function') debouncedUpdateLineNumbers();
+        } else if (currentMode === 'table') {
+            if (typeof applySelectionVisuals === 'function') applySelectionVisuals();
+            if (typeof applyFreeze === 'function') applyFreeze();
+        }
+    }, 100);
+}
+
+// 點擊選單按鈕：進入滿版
+if (btnMaximizeView) {
+    btnMaximizeView.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.dropdown-menu, .group\\/submenu').forEach(m => {
+            m.classList.remove('show', 'mobile-open');
+        });
+        toggleMaximizeMode(true);
+    });
+}
+
+// 點擊浮動按鈕：退出滿版
+if (btnExitMaximize) {
+    btnExitMaximize.addEventListener('click', () => {
+        toggleMaximizeMode(false);
+    });
+}
+
+// 監聽鍵盤：按下 Esc 鍵退出滿版
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.body.classList.contains('maximized-mode')) {
+        toggleMaximizeMode(false);
+    }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
 init();

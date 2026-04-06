@@ -252,16 +252,17 @@ table#data-table td:focus-within {
 @media (max-width: 768px) {
     /* 攔截原本向右飛出的設定，改為向下展開 */
     .group\/submenu > div:last-child {
-        position: static !important; /* 取消絕對定位，讓它把下方內容往下推 */
-        width: 100% !important;      /* 寬度填滿下拉選單 */
-        box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05) !important; /* 改為內陰影 */
+        position: static !important; 
+        width: 100% !important;      
+        box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05) !important; 
         border: none !important;
-        border-left: 3px solid #3b82f6 !important; /* 左側加上藍色邊線，提示這是子層級 */
+        border-left: 3px solid #3b82f6 !important; 
         border-radius: 0 !important;
         margin-top: 0 !important;
-        background-color: #f8fafc !important; /* 背景稍微變灰，增加層次感 */
-        max-height: 250px !important;
-        display: none !important; /* 預設隱藏，阻擋手機的假 hover，交由 JS 控制 */
+        background-color: #f8fafc !important; 
+        max-height: 320px !important; 
+        overflow-y: auto !important; 
+        display: none !important; 
     }
     
     /* 當 JS 加上 .mobile-open 類別時，才顯示子選單 */
@@ -598,4 +599,31 @@ body.full-width-mode .editor-wrapper {
 /* 當不顯示刪除按鈕時，隱藏對話氣泡旁的刪除按鈕 */
 #chatModeContainer:not(.show-delete) .chat-btn-delete {
     display: none !important;
+}
+
+
+/* ================= 極致滿版 (Zen Mode) ================= */
+body.maximized-mode {
+    padding: 0 !important;
+}
+/* 隱藏上方工具列 */
+body.maximized-mode > #mainContainer > div:first-child {
+    display: none !important; 
+}
+/* 隱藏下方頁籤列 */
+body.maximized-mode #sheetTabBar {
+    display: none !important; 
+}
+/* 關鍵：強制主容器「垂直」滿版，但「水平」寬度會依照原本設定 (如 800px) */
+body.maximized-mode #mainContainer {
+    /* 註銷掉下面這行，讓它使用原本的 maxWidth 設定 */
+    /* max-width: 100% !important; */ 
+    height: 100vh !important;
+    height: 100dvh !important;
+}
+/* 只有在同時處於 100% 寬度模式時，才去除邊框圓角 */
+body.maximized-mode.full-width-mode .editor-wrapper {
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
 }
