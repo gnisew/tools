@@ -488,11 +488,12 @@ table#data-table td:focus-within {
 
 /* ================= 多工作表頁籤列樣式 ================= */
 .sheet-tab {
-    padding: 6px 16px;
+    padding: 5px 16px;
     font-size: 13px;
     color: #4b5563;
     background-color: #f3f4f6;
     border-right: 1px solid #d1d5db;
+    border-bottom: 3px solid transparent; 
     cursor: pointer;
     white-space: nowrap;
     user-select: none;
@@ -508,7 +509,7 @@ table#data-table td:focus-within {
     background-color: #ffffff;
     color: #10b981; /* 綠色，類似試算表風格 */
     font-weight: bold;
-    border-bottom: 2px solid #10b981;
+    border-bottom: 3px solid #10b981;
 }
 /* 雙擊重新命名時的輸入框 */
 .sheet-rename-input {

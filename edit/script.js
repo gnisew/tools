@@ -766,7 +766,7 @@ function extractTextFromTable() {
 
 // ==========================================
 // 將對話模式的氣泡內容轉換為 TSV 表格格式
-// A欄: 使用者輸入 | B欄: 翻譯結果 | C欄: 拼音
+// A欄: 使用者輸入 | B欄: 翻譯結果 | C欄: 拼音 | D欄以後: 隱形背包完整還原
 // ==========================================
 function extractTextFromChat() {
     const wrappers = document.querySelectorAll('#chatMessagesArea .chat-message-wrapper');
@@ -774,10 +774,11 @@ function extractTextFromChat() {
     if (wrappers.length === 0) return editor.value; 
 
     let tsvData = [];
-    let currentUserText = "";
+    let pendingUser = null; // 🌟 改用物件暫存使用者發言與它的隱形背包
 
     // 處理 TSV 儲存格安全跳脫 (包含換行、引號或Tab時加上雙引號)
     const escapeTSV = (text) => {
+        if (typeof text !== 'string') text = String(text);
         if (!text) return "";
         if (text.includes('"') || text.includes('\n') || text.includes('\t')) {
             return '"' + text.replace(/"/g, '""') + '"';
@@ -785,56 +786,65 @@ function extractTextFromChat() {
         return text;
     };
 
-    // 加上自動標題列
-    tsvData.push(["原文", "翻譯", "拼音"].join('\t'));
+    // 🌟 加上自動標題列 (並還原 D 欄之後的自訂標題)
+    let headerRow = ["原文", "翻譯", "拼音"];
+    if (window.chatOriginalHeaderExtra && window.chatOriginalHeaderExtra.length > 0) {
+        headerRow = headerRow.concat(window.chatOriginalHeaderExtra);
+    }
+    tsvData.push(headerRow.join('\t'));
 
     wrappers.forEach(wrapper => {
         const userBubble = wrapper.querySelector('.chat-bubble-user');
         const systemBubble = wrapper.querySelector('.chat-bubble-system');
+        
+        // 🌟 打開隱形背包：讀取藏在 DOM 裡的 D 欄以後資料
+        let extraCols = [];
+        try {
+            if (wrapper.dataset.extra) extraCols = JSON.parse(wrapper.dataset.extra);
+        } catch(e) {}
 
         if (userBubble) {
-            // 如果連續兩次都是使用者發言(無系統回覆)，先把上一次的推進去
-            if (currentUserText) {
-                tsvData.push([escapeTSV(currentUserText), "", ""].join('\t'));
+            // 如果上一個使用者發言還沒被系統回覆配對，就先把它推入陣列
+            if (pendingUser) {
+                const rowData = [escapeTSV(pendingUser.text), "", "", ...pendingUser.extra.map(escapeTSV)];
+                tsvData.push(rowData.join('\t'));
             }
-            currentUserText = userBubble.innerText.trim();
+            pendingUser = { text: userBubble.innerText.trim(), extra: extraCols };
         } else if (systemBubble) {
             
             let translation = "";
             let pinyin = "";
 
-            // 🌟 修正點：利用 DOM 結構來精準分離「翻譯」與「拼音」，徹底解決多行錯亂問題
+            // 利用 DOM 結構來精準分離「翻譯」與「拼音」
             const pinyinSpan = systemBubble.querySelector('span.text-slate-500');
 
             if (pinyinSpan) {
-                // 拼音就是 span 裡面的文字
                 pinyin = pinyinSpan.innerText.trim();
-                
-                // 翻譯是扣除 span 之後的文字。複製一個節點來操作最安全
                 const cloneBubble = systemBubble.cloneNode(true);
                 const cloneSpan = cloneBubble.querySelector('span.text-slate-500');
                 if (cloneSpan) cloneSpan.remove();
-                
                 translation = cloneBubble.innerText.trim();
             } else {
-                // 沒有拼音 span，代表全部都是翻譯
                 translation = systemBubble.innerText.trim();
             }
 
-            if (currentUserText) {
-                // 湊齊一組：使用者 -> 翻譯 -> 拼音
-                tsvData.push([escapeTSV(currentUserText), escapeTSV(translation), escapeTSV(pinyin)].join('\t'));
-                currentUserText = ""; // 重置，等待下一個使用者發言
+            if (pendingUser) {
+                // 湊齊一組：使用者 -> 翻譯 -> 拼音 -> 額外欄位
+                const rowData = [escapeTSV(pendingUser.text), escapeTSV(translation), escapeTSV(pinyin), ...extraCols.map(escapeTSV)];
+                tsvData.push(rowData.join('\t'));
+                pendingUser = null; // 重置
             } else {
-                // 只有系統發言 (例如：剛開始的錯誤訊息或例外狀況)
-                tsvData.push(["", escapeTSV(translation), escapeTSV(pinyin)].join('\t'));
+                // 只有系統發言
+                const rowData = ["", escapeTSV(translation), escapeTSV(pinyin), ...extraCols.map(escapeTSV)];
+                tsvData.push(rowData.join('\t'));
             }
         }
     });
 
     // 處理最後可能遺留的使用者訊息 (還沒等到系統回覆就切換模式)
-    if (currentUserText) {
-        tsvData.push([escapeTSV(currentUserText), "", ""].join('\t'));
+    if (pendingUser) {
+        const rowData = [escapeTSV(pendingUser.text), "", "", ...pendingUser.extra.map(escapeTSV)];
+        tsvData.push(rowData.join('\t'));
     }
 
     return tsvData.join('\n');
@@ -7744,7 +7754,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     'jinmen': '🦔',     // 金門
                     'holo': '🐿️',       // 和樂
                     'chinese': '🦜',    // 華語
-                    'matsu': '🦄'       // 馬祖
+                    'matsu': '🦄',       // 馬祖
                 };
                 
                 // 動態判斷實際的「輸出語言」
@@ -7898,11 +7908,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // 2. 利用現成的 TSV 解析器將文字轉為陣列
             const rows = parseTSV(text);
             let isFirstRow = true;
+            window.chatOriginalHeaderExtra = [];
 
             rows.forEach(row => {
                 // 跳過我們自動產生的標題列 (A欄="原文")
-                if (isFirstRow && row[0] === '原文') {
+                if (isFirstRow && (row[0] === '原文' || row[1] === '翻譯' || row[2] === '拼音')) {
                     isFirstRow = false;
+                    window.chatOriginalHeaderExtra = row.slice(3);
                     return; 
                 }
                 isFirstRow = false;
@@ -7910,20 +7922,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 const userText = row[0] || '';
                 const transText = row[1] || '';
                 const pinyinText = row[2] || '';
+                const extraCols = row.slice(3);
 
                 // 如果這行全空，就跳過
                 if (userText.trim() === '' && transText.trim() === '' && pinyinText.trim() === '') return;
 
-                // 3. 根據 A 欄建立「使用者氣泡」
-                if (userText) {
+                // 3. 根據內容建立氣泡，並將額外欄位資料綁定在產生的氣泡上
+                if (userText && !transText && !pinyinText) {
+                    const w = appendChatMessage(userText, true);
+                    w.dataset.extra = JSON.stringify(extraCols); // 掛上背包
+                } else if (!userText && (transText || pinyinText)) {
+                    const w = appendChatMessage(transText, false, pinyinText);
+                    w.dataset.extra = JSON.stringify(extraCols); // 掛上背包
+                } else if (userText && (transText || pinyinText)) {
                     appendChatMessage(userText, true);
+                    const w = appendChatMessage(transText, false, pinyinText);
+                    w.dataset.extra = JSON.stringify(extraCols); // 雙向對話時，把背包掛在系統回覆上最安全
                 }
-
-                // 4. 根據 B 欄與 C 欄建立「系統氣泡 (翻譯+拼音)」
-                if (transText || pinyinText) {
-                    appendChatMessage(transText, false, pinyinText);
-                }
-
             });
             
             // 捲動到最底部
