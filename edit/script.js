@@ -3031,17 +3031,109 @@ document.getElementById('btnClearCache').addEventListener('click', () => {
     });
 });
 
-/* 特殊合併邏輯 */
+/* ==========================================
+   特殊合併與底線消除邏輯 (浮動按鈕 - 全域取代版)
+   ========================================== */
 let currentMatch = null; let activeSelectionRange = null; 
 function hideFloatingTool() { floatingTool.style.display = 'none'; currentMatch = null; activeSelectionRange = null; }
+
 function checkAndShowSpecialMerge(selectedText, pageX, pageY) {
+    // 1. 舊有邏輯： A/B_C/D 特殊合併
     const parts = selectedText.split('_');
     if (parts.length >= 2 && parts.every(part => part.split('/').length === 2)) {
-        currentMatch = { textToReplace: parts.map(p => p.split('/')[0]).join('\\') + '/' + parts.map(p => p.split('/')[1]).join('\\') };
-        floatingTool.style.left = `${pageX - 40}px`; floatingTool.style.top = `${pageY - 50}px`; floatingTool.style.display = 'block'; return true;
+        // 🌟 加入 textToFind 記錄你選取的字串
+        currentMatch = { textToFind: selectedText, textToReplace: parts.map(p => p.split('/')[0]).join('\\') + '/' + parts.map(p => p.split('/')[1]).join('\\'), type: 'merge' };
+        floatingTool.textContent = '✨ 特殊合併'; // 動態按鈕文字
+        floatingTool.style.left = `${pageX - 40}px`; floatingTool.style.top = `${pageY - 50}px`; floatingTool.style.display = 'block'; 
+        return true;
+    }
+
+    // 2. 新增邏輯： _飛_官_ 格式底線消除
+    if (selectedText.startsWith('_') && selectedText.endsWith('_')) {
+        const innerStr = selectedText.slice(1, -1); 
+        if (innerStr.includes('_')) { // 條件：中間必須至少還有一個底線
+            const nonUnderscores = innerStr.replace(/_/g, ''); 
+            // 條件：扣除底線後，必須有文字且在 6 個字元以內
+            if (nonUnderscores.length > 0 && nonUnderscores.length <= 6) {
+                // 🌟 加入 textToFind 記錄你選取的字串
+                currentMatch = { textToFind: selectedText, textToReplace: '_' + nonUnderscores + '_', type: 'remove_underscore' };
+                floatingTool.textContent = '✨ 刪中底線'; // 動態按鈕文字
+                floatingTool.style.left = `${pageX - 40}px`; floatingTool.style.top = `${pageY - 50}px`; floatingTool.style.display = 'block'; 
+                return true;
+            }
+        }
     }
     return false;
 }
+
+document.addEventListener('mouseup', (e) => {
+    if (e.target === floatingTool || e.target.closest('.icon-btn') || e.target.classList.contains('resize-handle') || e.target.closest('.btn-col-menu') || e.target.closest('.btn-row-menu')) return;
+    setTimeout(() => {
+        if (currentMode === 'text' && document.activeElement === editor) {
+            if (editor.selectionStart !== editor.selectionEnd) { checkAndShowSpecialMerge(editor.value.substring(editor.selectionStart, editor.selectionEnd), e.pageX, e.pageY); return; }
+        } else if (currentMode === 'table') {
+            const sel = window.getSelection();
+            if (!sel.isCollapsed && sel.rangeCount > 0 && dataTable.contains(sel.anchorNode)) {
+                if (checkAndShowSpecialMerge(sel.toString(), e.pageX, e.pageY)) { activeSelectionRange = sel.getRangeAt(0).cloneRange(); return; }
+            }
+        }
+        hideFloatingTool();
+    }, 10);
+});
+
+floatingTool.addEventListener('click', () => {
+    if (!currentMatch) return;
+    
+    // 🌟 建立全域取代的正則表達式 (安全跳脫字元，避免符號引發錯誤)
+    const safeFindStr = currentMatch.textToFind.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const globalRegex = new RegExp(safeFindStr, 'g');
+    let count = 0;
+
+    // 🌟 全域掃描與取代邏輯
+    if (currentMode === 'text') {
+        const originalText = editor.value;
+        const newText = originalText.replace(globalRegex, currentMatch.textToReplace);
+        
+        if (originalText !== newText) {
+            count = (originalText.match(globalRegex) || []).length; // 計算替換了幾個
+            editor.value = newText;
+            updateLineNumbers();
+        }
+    } else if (currentMode === 'table') {
+        const cells = dataTable.querySelectorAll('.td-inner');
+        cells.forEach(cell => {
+            let text = cell.hasAttribute('data-formula') ? cell.getAttribute('data-formula') : cell.innerText;
+            if (globalRegex.test(text)) {
+                const matches = text.match(globalRegex);
+                count += matches ? matches.length : 0; // 計算替換了幾個
+                const newText = text.replace(globalRegex, currentMatch.textToReplace);
+                
+                if (cell.hasAttribute('data-formula')) {
+                    cell.setAttribute('data-formula', newText);
+                } else {
+                    cell.innerText = newText;
+                }
+            }
+        });
+        if (count > 0) recalculateAllFormulas();
+    }
+    
+    // 動態顯示精準的提示訊息
+    const msg = currentMatch.type === 'remove_underscore' ? `✨ 已將全部 ${count} 個目標的中間底線移除！` : `✨ 已完成 ${count} 筆特殊合併！`;
+    
+    hideFloatingTool(); 
+    debouncedSaveHistory(); // 存檔支援 Ctrl+Z 復原
+    showToast(msg);
+});
+
+
+
+
+
+
+
+
+
 
 document.addEventListener('mouseup', (e) => {
     if (e.target === floatingTool || e.target.closest('.icon-btn') || e.target.classList.contains('resize-handle') || e.target.closest('.btn-col-menu') || e.target.closest('.btn-row-menu')) return;
