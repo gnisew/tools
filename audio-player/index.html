@@ -10,7 +10,7 @@
 <body>
 <div class="player-container">
     <div class="main-player">
-            <div class="current-track" id="currentTrack">🥷烏衣行播放器</div>
+        <div class="current-track" id="currentTrack">🥷烏衣行播放器</div>
     
         <!-- 聲波圖容器 -->
         <div class="waveform-container">
@@ -45,6 +45,9 @@
                 <button class="btn" id="settingsBtn" title="設定">
                     <span class="material-icons">settings</span>
                 </button>
+				<button class="btn" id="fullscreenBtn" title="滿版模式">
+                    <span class="material-icons" id="fullscreenIcon">fullscreen</span>
+                </button>
                 <button class="btn" id="playPauseBtn" title="播放 / 暫停">
                     <span class="material-icons" id="playPauseIcon">play_arrow</span>
                 </button>
@@ -63,6 +66,40 @@
                 <button class="btn btn-mode" id="shuffleBtn" title="隨機">
                     <span class="material-icons">shuffle</span>
                 </button>
+                
+                <!-- 工具列控制項 -->
+                <div class="toolbar-control speed-control" id="speedControlContainer">
+                    <span class="control-label" title="播放速度">
+                        <span class="material-icons">speed</span>
+                    </span>
+                    <select id="toolbarSpeedSelect" class="toolbar-select">
+                        <option value="0.5">0.5x</option>
+                        <option value="0.7">0.7x</option>
+                        <option value="0.8">0.8x</option>
+                        <option value="0.9">0.9x</option>
+                        <option value="1" selected>1.0x</option>
+                        <option value="1.25">1.25x</option>
+                        <option value="1.5">1.5x</option>
+                        <option value="1.75">1.75x</option>
+                        <option value="2">2.0x</option>
+                        <option value="2.5">2.5x</option>
+                        <option value="3">3.0x</option>
+                    </select>
+                </div>
+                
+                <div class="toolbar-control repeat-control" id="repeatControlContainer">
+                    <span class="control-label" title="重複次數">
+                        <span class="material-icons">repeat</span>
+                    </span>
+                    <select id="toolbarRepeatSelect" class="toolbar-select">
+						<option value="0" selected>0次</option>
+                        <option value="1">1次</option>
+                        <option value="2">2次</option>
+                        <option value="3">3次</option>
+                        <option value="4">4次</option>
+                        <option value="5">5次</option>
+                    </select>
+                </div>
             </div>
         </div>
     </div>
@@ -83,12 +120,13 @@
                 <h2>設定</h2>
             </div>
             <div class="settings-content">
-                <div class="settings-section">
+                <!-- 播放設定組 -->
+                <div class="settings-group">
+                    <h3 class="settings-heading">播放設定</h3>
+                    
+                    <!-- 自動播放下一首 -->
                     <div class="settings-item">
-                        <div class="settings-item-header">
-                            <span class="material-icons">play_arrow</span>
-                            <span>接續播放</span>
-                        </div>
+                        <div class="settings-item-label">自動播放下一首</div>
                         <div class="settings-item-control">
                             <label class="switch">
                                 <input type="checkbox" id="autoNextSetting" checked>
@@ -96,16 +134,14 @@
                             </label>
                         </div>
                     </div>
-
+                    
+                    <!-- 播放速度 -->
                     <div class="settings-item">
-                        <div class="settings-item-header">
-                            <span class="material-icons">speed</span>
-                            <span>播放速度</span>
-                        </div>
+                        <div class="settings-item-label">播放速度</div>
                         <div class="settings-item-control">
                             <select id="speedSetting" class="settings-select">
                                 <option value="0.5">0.50x</option>
-                                <option value="0.70">0.70x</option>
+                                <option value="0.7">0.70x</option>
                                 <option value="0.8">0.80x</option>
                                 <option value="0.9">0.90x</option>
                                 <option value="1" selected>1.00x</option>
@@ -113,51 +149,143 @@
                                 <option value="1.5">1.50x</option>
                                 <option value="1.75">1.75x</option>
                                 <option value="2">2.00x</option>
-                                <option value="2.25">2.25x</option>
                                 <option value="2.5">2.50x</option>
-                                <option value="2.75">2.75x</option>
                                 <option value="3">3.00x</option>
                             </select>
                         </div>
                     </div>
-
+                    
+                    <!-- 重複次數 -->
                     <div class="settings-item">
-                        <div class="settings-item-header">
-                            <span class="material-icons">repeat</span>
-                            <span>重複次數</span>
-                        </div>
+                        <div class="settings-item-label">重複次數</div>
                         <div class="settings-item-control">
                             <select id="repeatSetting" class="settings-select">
-                                <option value="1" selected>1次</option>
+                                <option value="0" selected>0次</option>
+								<option value="1">1次</option>
                                 <option value="2">2次</option>
                                 <option value="3">3次</option>
                                 <option value="4">4次</option>
+                                <option value="5">5次</option>
                             </select>
                         </div>
                     </div>
-
+                    
+                    <!-- 音量 -->
                     <div class="settings-item">
-                        <div class="settings-item-header">
-                            <span class="material-icons">volume_up</span>
-                            <span>音量</span>
-                        </div>
-                        <div class="settings-item-control volume-control">
-                            <input type="range" id="volumeSetting" min="0" max="100" value="100">
-                            <span id="volumeSettingValue">100%</span>
+                        <div class="settings-item-label">音量</div>
+                        <div class="settings-item-control">
+                            <div class="range-control">
+                                <input type="range" id="volumeSetting" min="0" max="100" value="100">
+                                <span id="volumeSettingValue">100%</span>
+                            </div>
                         </div>
                     </div>
                     
-                    <!-- 新增聲波圖設定 -->
+                    <!-- 聲波圖檢視 -->
                     <div class="settings-item">
-                        <div class="settings-item-header">
-                            <span class="material-icons">graphic_eq</span>
-                            <span>聲波圖檢視</span>
-                        </div>
+                        <div class="settings-item-label">聲波圖檢視</div>
                         <div class="settings-item-control">
                             <select id="waveformViewSetting" class="settings-select">
                                 <option value="waveform" selected>聲波</option>
                                 <option value="line">線段</option>
                             </select>
+                        </div>
+                    </div>
+                    
+                    <!-- 刪除確認 -->
+                    <div class="settings-item">
+                        <div class="settings-item-label">刪除項目時需要確認</div>
+                        <div class="settings-item-control">
+                            <label class="switch">
+                                <input type="checkbox" id="confirmDeleteSetting" checked>
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 顯示設定組 -->
+                <div class="settings-group">
+                    <h3 class="settings-heading">顯示設定</h3>
+                    
+                    <!-- 按鈕顯示設定 -->
+					<div class="settings-item">
+						<div class="settings-item-label">顯示聲波圖</div>
+						<div class="settings-item-control">
+							<label class="switch">
+								<input type="checkbox" id="waveformVisibility">
+								<span class="slider round"></span>
+							</label>
+						</div>
+					</div>
+
+					<div class="settings-item">
+						<div class="settings-item-label">顯示停止按鈕</div>
+						<div class="settings-item-control">
+							<label class="switch">
+								<input type="checkbox" id="stopBtnVisibility">
+								<span class="slider round"></span>
+							</label>
+						</div>
+					</div>
+
+                    <div class="settings-item">
+                        <div class="settings-item-label">顯示前一首按鈕</div>
+                        <div class="settings-item-control">
+                            <label class="switch">
+                                <input type="checkbox" id="prevBtnVisibility">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-item">
+                        <div class="settings-item-label">顯示下一首按鈕</div>
+                        <div class="settings-item-control">
+                            <label class="switch">
+                                <input type="checkbox" id="nextBtnVisibility">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-item">
+                        <div class="settings-item-label">顯示循環按鈕</div>
+                        <div class="settings-item-control">
+                            <label class="switch">
+                                <input type="checkbox" id="loopBtnVisibility">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-item">
+                        <div class="settings-item-label">顯示隨機按鈕</div>
+                        <div class="settings-item-control">
+                            <label class="switch">
+                                <input type="checkbox" id="shuffleBtnVisibility">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-item">
+                        <div class="settings-item-label">顯示速度控制</div>
+                        <div class="settings-item-control">
+                            <label class="switch">
+                                <input type="checkbox" id="speedControlVisibility">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-item">
+                        <div class="settings-item-label">顯示重複次數控制</div>
+                        <div class="settings-item-control">
+                            <label class="switch">
+                                <input type="checkbox" id="repeatControlVisibility">
+                                <span class="slider round"></span>
+                            </label>
                         </div>
                     </div>
                 </div>
