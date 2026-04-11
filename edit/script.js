@@ -1,4 +1,5 @@
 const textModeContainer = document.getElementById('textModeContainer');
+const gameModes = ['flashcard', 'matching', 'quiz', 'sorting', 'typing', 'choice'];
 const tableModeContainer = document.getElementById('tableModeContainer');
 const editor = document.getElementById('editor');
 const dataTable = document.getElementById('data-table');
@@ -154,7 +155,7 @@ function initDropdowns() {
         }
     });
 
-    // 2. 處理子選單 (group/submenu) 的點擊展開 (專為行動裝置設計)
+    // 2. 處理子選單
     document.querySelectorAll('.group\\/submenu').forEach(submenu => {
         const header = submenu.querySelector('div:first-child');
         if (header) {
@@ -173,13 +174,13 @@ function initDropdowns() {
         }
     });
 
-    // 3. 處理所有點擊選項 (最終選項)
+    // 3. 處理所有點擊選項
     document.querySelectorAll('.dropdown-item').forEach(item => {
         item.addEventListener('click', (e) => {
             e.stopPropagation();
             const parentDataContainer = item.closest('[id^="dd-"]');
             
-            if (parentDataContainer) {
+            if (parentDataContainer && item.hasAttribute('data-value')) {
                 parentDataContainer.querySelectorAll('.dropdown-item .check-icon').forEach(i => i.classList.remove('active'));
                 const myCheck = item.querySelector('.check-icon');
                 if (myCheck) myCheck.classList.add('active');
@@ -259,8 +260,16 @@ if (btnToggleMultiSelect) {
 
 function setDropdownValue(id, value) {
     const container = document.getElementById(id);
+    if (!container) return;
+
     container.querySelectorAll('.dropdown-item').forEach(item => {
-        item.querySelector('.check-icon').classList.toggle('active', item.dataset.value === value);
+        // 先尋找按鈕內是否有 check-icon
+        const checkIcon = item.querySelector('.check-icon');
+        
+        // 只有當 checkIcon 確實存在時，才執行 classList 的切換
+        if (checkIcon) {
+            checkIcon.classList.toggle('active', item.dataset.value === value);
+        }
     });
 }
 
@@ -268,7 +277,13 @@ function setDropdownValue(id, value) {
 function init() {
     initDropdowns();
 
-
+// 綁定退出遊戲的按鈕
+const btnExitGame = document.getElementById('btnExitGame');
+if (btnExitGame) {
+    btnExitGame.addEventListener('click', () => {
+        switchMode('table'); // 預設強制回到表格模式
+    });
+}
 const savedRowNumAlign = localStorage.getItem(ROW_NUM_ALIGN_KEY) || 'middle';
     document.documentElement.style.setProperty('--row-num-valign', savedRowNumAlign);
     setDropdownValue('dd-rowNumAlign', savedRowNumAlign);
@@ -333,19 +348,31 @@ const savedRowNumAlign = localStorage.getItem(ROW_NUM_ALIGN_KEY) || 'middle';
     editor.value = sheetTabs[activeSheetIndex].content;
     // 讀取網址參數，決定初始模式 
     const urlParams = new URLSearchParams(window.location.search);
+    let initialTargetMode = currentMode; // 準備一個變數來決定最終要啟動的模式
+
     if (urlParams.has('mode')) {
         const modeParam = urlParams.get('mode');
         if (modeParam === 'txt') {
-            currentMode = 'text';
+            initialTargetMode = 'text';
         } else if (modeParam === 'sheet') {
-            currentMode = 'table';
+            initialTargetMode = 'table';
         } else if (modeParam === 'chat') {
-            currentMode = 'chat';
+            initialTargetMode = 'chat';
+        } 
+        // ✨ 新增：如果網址參數是我們定義好的遊戲模式之一
+        else if (gameModes.includes(modeParam)) {
+            initialTargetMode = modeParam;
         }
-        // 同步更新記憶體中該頁籤的狀態，避免存檔時跑掉
-        sheetTabs[activeSheetIndex].mode = currentMode;
+
+        // 同步更新記憶體中該頁籤的狀態 (只有編輯類模式才同步，遊戲模式不蓋掉原本的底層模式)
+        if (!gameModes.includes(initialTargetMode)) {
+            sheetTabs[activeSheetIndex].mode = initialTargetMode;
+            currentMode = initialTargetMode;
+        }
     }
-    switchMode(currentMode, true);
+    
+    // ✨ 將原本的 switchMode(currentMode, true); 替換為啟動我們解析出來的目標模式
+    switchMode(initialTargetMode, true);
     
     if (window.ResizeObserver) {
         new ResizeObserver(() => { 
@@ -380,6 +407,7 @@ function updateUrlModeParam(internalMode) {
     let urlMode = 'txt';
     if (internalMode === 'table') urlMode = 'sheet';
     else if (internalMode === 'chat') urlMode = 'chat';
+    else if (gameModes.includes(internalMode)) urlMode = internalMode;
     
     const newUrl = new URL(window.location.href);
     
@@ -411,6 +439,19 @@ function switchMode(mode, isForce = false) {
     }
 
     currentMode = mode; 
+	// 💡 如果是遊戲模式，不將 mode 寫入 LocalStorage，確保重新整理網頁時，預設回到編輯/表格模式
+    if (!gameModes.includes(mode)) {
+        localStorage.setItem(MODE_KEY, mode);
+    }
+
+	updateUrlModeParam(mode);
+    
+    hideFloatingTool(); 
+    clearTableSelection();
+
+    const gameModeContainer = document.getElementById('gameModeContainer');
+
+
     localStorage.setItem(MODE_KEY, mode);
     updateUrlModeParam(mode);
     hideFloatingTool(); 
@@ -428,13 +469,53 @@ function switchMode(mode, isForce = false) {
     const ddClipboardGroup = document.getElementById('dd-clipboard-group');
 	const ddLanguageTools = document.getElementById('dd-languageTools');
 
-    // 隱藏所有容器，後面再根據模式顯示
+    // 先隱藏所有容器
     textModeContainer.style.display = 'none'; 
     tableModeContainer.style.display = 'none';
     chatModeContainer.classList.add('hidden');
     chatModeContainer.style.display = 'none';
+    if (gameModeContainer) {
+        gameModeContainer.classList.add('hidden');
+        gameModeContainer.style.display = 'none';
+    }
 
-    if (mode === 'table') {
+    // 💡 處理進入遊戲模式的邏輯
+    // 💡 處理進入遊戲模式的邏輯
+    if (gameModes.includes(mode)) {
+        if (gameModeContainer) {
+            gameModeContainer.classList.remove('hidden');
+            gameModeContainer.style.display = 'block';
+        }
+        
+        // 隱藏原有的編輯工具列
+        if (tableControls) { tableControls.classList.add('hidden'); tableControls.classList.remove('flex'); }
+        if (chatControls) { chatControls.classList.add('hidden'); chatControls.classList.remove('flex'); }
+        if (ddTextTool) ddTextTool.classList.add('hidden');
+        
+        let rawDataText = editor.value;
+        if (document.getElementById('tableModeContainer').style.display !== 'none') {
+            rawDataText = extractTextFromTable();
+        }
+
+        // 啟動外部獨立的遊戲模組
+        if (typeof window.launchGameMode === 'function') {
+            if (!window.currentGameConfigs) {
+                try {
+                    const savedConfigs = localStorage.getItem('wesing-game-configs');
+                    if (savedConfigs) window.currentGameConfigs = JSON.parse(savedConfigs);
+                } catch(e) {}
+            }
+            
+            // 給予安全的預設值，支援全新的 matchPairs 陣列
+            const configs = window.currentGameConfigs || { 
+                activeBankCols: [0, 1],
+                matchPairs: [{ id: 1, termCol: 0, defCol: 1, customName: '' }],
+                hasHeader: false, hasCategory: false, colC: -1, filterCategory: 'ALL' 
+            };
+            window.launchGameMode(mode, rawDataText, configs);
+        }
+
+    } else if (mode === 'table') {
         renderTableFromText(editor.value);
         applyFreeze();
         tableModeContainer.style.display = 'block';
@@ -1042,6 +1123,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 				// 1. 消除 Windows 剪貼簿的 \r\n 造成的雙重換行 bug
 				let text = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                
+                // 2. 消除從網頁複製文字時，剪貼簿常在尾端多夾帶一個換行符號的 Bug
+                if (text.endsWith('\n')) {
+                    text = text.slice(0, -1);
+                }
+
+                // 智慧判斷：如果文字中包含 \n\n，且「所有的」換行都是 \n\n（沒有落單的 \n），就將其減半還原
+                if (text.includes('\n\n') && text.split('\n\n').join('').indexOf('\n') === -1) {
+                    text = text.replace(/\n\n/g, '\n');
+                }
 
 				if (currentMode === 'text') {
 					editor.focus(); 
@@ -2314,7 +2405,16 @@ document.addEventListener('paste', (e) => {
     // 1. 消除 Windows 剪貼簿的 \r\n 造成的雙重換行 bug
     let text = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-    // --- 文字模式貼上處理 ---
+    // 2. 消除尾端多夾帶的換行符號
+    if (text.endsWith('\n')) {
+        text = text.slice(0, -1);
+    }
+
+    // 3. 關鍵修復：解決從網頁複製段落 (<p>) 造成的「全面雙重換行」
+    if (text.includes('\n\n') && text.split('\n\n').join('').indexOf('\n') === -1) {
+        text = text.replace(/\n\n/g, '\n');
+    }
+
     if (currentMode === 'text') {
         e.preventDefault(); // 攔截原生貼上，改由我們寫入以確保換行符號乾淨
         editor.focus();
@@ -4242,7 +4342,14 @@ function getCellValue(rowIdx, colIdx) {
     
     // 優先抓計算結果，轉為數字方便計算
     let val = inner.innerText.trim();
-    const num = parseFloat(val);
+    
+    // 利用正則檢查是否為「純數字+逗號+小數點」的格式，避免誤傷一般文字 (如 "蘋果,香蕉")
+    let cleanVal = val;
+    if (/^-?[\d,]+(\.\d+)?$/.test(val)) {
+        cleanVal = val.replace(/,/g, ''); // 把逗號全部空字串替換掉
+    }
+
+    const num = parseFloat(cleanVal);
     return isNaN(num) ? val : num;
 }
 
@@ -4820,7 +4927,13 @@ const formulaFunctions = {
             const match = condition.match(/^(>=|<=|>|<|=)?(.+)$/);
             if (match) {
                 const operator = match[1] || '===';
-                const targetValue = parseFloat(match[2]);
+                
+                let numStr = match[2].trim();
+                if (/^-?[\d,]+(\.\d+)?$/.test(numStr)) {
+                    numStr = numStr.replace(/,/g, '');
+                }
+                
+                const targetValue = parseFloat(numStr);
                 
                 if (!isNaN(targetValue) && typeof val === 'number') {
                     switch(operator) {
@@ -9809,6 +9922,475 @@ document.addEventListener('click', () => {
 
 
 
+
+
+// ==========================================
+// 學習模式設定視窗邏輯 (升級版：題庫與多重配對)
+// ==========================================
+const btnOpenGameModal = document.getElementById('btnOpenGameModal');
+const gameSettingsModal = document.getElementById('gameSettingsModal');
+const btnCancelGameModal = document.getElementById('btnCancelGameModal');
+const btnStartGame = document.getElementById('btnStartGame');
+const btnResetGameSettings = document.getElementById('btnResetGameSettings');
+const chkHasHeader = document.getElementById('gameHasHeader'); 
+const selGameColC = document.getElementById('gameColC');
+const bankWrapper = document.getElementById('gameBankWrapper');
+const matchPairsContainer = document.getElementById('gameMatchPairsContainer');
+
+// 狀態變數
+let gameValidCols = [];       // 含有資料的所有欄位
+let gameActiveBankCols = [];  // 被勾選啟用的題庫欄位
+let gameMatchPairs = [];      // 匹配形式清單: [{ id, termCol, defCol, customName }]
+
+if (btnOpenGameModal) {
+    btnOpenGameModal.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.dropdown-menu, .group\\/submenu').forEach(m => m.classList.remove('show'));
+        
+        // 載入先前的設定
+        if (window.currentGameConfigs) {
+            gameActiveBankCols = [...(window.currentGameConfigs.activeBankCols || [])];
+            gameMatchPairs = [...(window.currentGameConfigs.matchPairs || [])];
+        } else {
+            try {
+                const saved = JSON.parse(localStorage.getItem('wesing-game-configs'));
+                if (saved) {
+                    gameActiveBankCols = saved.activeBankCols || [];
+                    gameMatchPairs = saved.matchPairs || [];
+                    if (chkHasHeader) chkHasHeader.checked = saved.hasHeader;
+                }
+            } catch(e) {}
+        }
+
+        initGameColOptions(); 
+        gameSettingsModal.classList.remove('hidden');
+        gameSettingsModal.classList.add('flex');
+    });
+}
+
+const closeGameModal = () => {
+    gameSettingsModal.classList.add('hidden');
+    gameSettingsModal.classList.remove('flex');
+};
+if (btnCancelGameModal) btnCancelGameModal.addEventListener('click', closeGameModal);
+if (gameSettingsModal) gameSettingsModal.addEventListener('click', (e) => { if (e.target === gameSettingsModal) closeGameModal(); });
+
+// 綁定事件
+if (chkHasHeader) chkHasHeader.addEventListener('change', renderGameMatchPairs);
+if (selGameColC) selGameColC.addEventListener('change', renderGameMatchPairs);
+
+// 開始遊戲
+if (btnStartGame) {
+	// ✨ 新增：重設遊戲設定
+	if (btnResetGameSettings) {
+		btnResetGameSettings.addEventListener('click', () => {
+			// 1. 清除瀏覽器中儲存的遊戲設定記憶
+			localStorage.removeItem('wesing-game-configs');
+			window.currentGameConfigs = null;
+
+			// 2. 將陣列狀態清空，讓系統重新抓取預設值
+			gameActiveBankCols = [];
+			gameMatchPairs = [];
+			
+			// 3. ✨ 關鍵修復：重設核取方塊與分類下拉選單
+			if (chkHasHeader) chkHasHeader.checked = false;
+			if (selGameColC) selGameColC.value = '-1'; // 強制把分類選回「(無)」
+
+			// 4. 重新初始化畫面
+			initGameColOptions();
+			
+			// 5. 顯示小提示
+			showToast('🔄 設定已恢復預設');
+		});
+	}
+    if (btnStartGame) {
+    btnStartGame.addEventListener('click', () => {
+        const selectedGame = document.querySelector('input[name="gameType"]:checked').value;
+        const colCValue = parseInt(selGameColC.value, 10);
+        
+        let currentPairs = [];
+        let mcConfig = null;
+
+        if (selectedGame === 'choice') {
+            // 抓取選擇題專屬的設定
+            const mcArea = document.getElementById('mc-config-area');
+            if (mcArea) {
+                mcConfig = {
+                    qCol: parseInt(mcArea.querySelector('.mc-q').value, 10),
+                    o1Col: parseInt(mcArea.querySelector('.mc-o1').value, 10),
+                    o2Col: parseInt(mcArea.querySelector('.mc-o2').value, 10),
+                    o3Col: parseInt(mcArea.querySelector('.mc-o3').value, 10),
+                    o4Col: parseInt(mcArea.querySelector('.mc-o4').value, 10),
+                    ansCol: mcArea.querySelector('.mc-ans').value
+                };
+            }
+        } else {
+            // 抓取一般配對設定
+            if (gameMatchPairs.length === 0) return showToast('⚠️ 請至少設定一組題目與答案匹配形式');
+            matchPairsContainer.querySelectorAll('.match-pair-row').forEach(row => {
+                const termVal = parseInt(row.querySelector('.sel-term').value, 10);
+                const defVal = parseInt(row.querySelector('.sel-def').value, 10);
+                const pairId = parseInt(row.dataset.id, 10);
+                const existing = gameMatchPairs.find(p => p.id === pairId);
+                if (!isNaN(termVal) && !isNaN(defVal)) {
+                    currentPairs.push({ id: pairId, termCol: termVal, defCol: defVal, customName: existing ? existing.customName : '' });
+                }
+            });
+        }
+
+        window.currentGameConfigs = { 
+            activeBankCols: gameActiveBankCols,
+            matchPairs: currentPairs,
+            mcConfig: mcConfig,
+            hasHeader: chkHasHeader ? chkHasHeader.checked : false,
+            hasCategory: colCValue !== -1,
+            colC: colCValue,
+            filterCategory: 'ALL'
+        };
+
+        localStorage.setItem('wesing-game-configs', JSON.stringify(window.currentGameConfigs));
+        closeGameModal();
+        switchMode(selectedGame);
+    });
+}
+}
+
+// 點擊外部自動關閉「題庫選單」的防呆機制
+document.addEventListener('click', (e) => {
+    const details = document.getElementById('gameBankDetails');
+    if (details && details.hasAttribute('open') && !details.contains(e.target)) {
+        details.removeAttribute('open');
+    }
+});
+
+// 初始化題庫資料與核取方塊
+function initGameColOptions() {
+    let rawData = editor.value;
+    if (currentMode === 'table' && typeof extractTextFromTable === 'function') rawData = extractTextFromTable();
+    
+    const lines = rawData.split('\n').filter(l => l.trim() !== '');
+    window.gameHeaders = lines.length > 0 ? lines[0].split('\t') : [];
+    let maxCols = lines.reduce((max, l) => Math.max(max, l.split('\t').length), 2);
+
+    gameValidCols = [];
+    for (let i = 0; i < maxCols; i++) {
+        if (lines.some(l => l.split('\t')[i] && l.split('\t')[i].trim() !== '')) gameValidCols.push(i);
+    }
+    if (gameValidCols.length === 0) gameValidCols.push(0, 1);
+
+    if (gameActiveBankCols.length === 0) gameActiveBankCols = [...gameValidCols];
+
+    // 更新選單標題數字
+    const updateBankSummary = () => {
+        const summaryText = document.getElementById('gameBankSummaryText');
+        if (summaryText) summaryText.textContent = `已選 ${gameActiveBankCols.length} 欄`;
+    };
+
+    // ✨ 產生垂直排列的題庫核取清單
+    bankWrapper.innerHTML = '';
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    gameValidCols.forEach(i => {
+        const isChecked = gameActiveBankCols.includes(i);
+        const letter = alphabet[i % 26];
+        let name = (chkHasHeader && chkHasHeader.checked && window.gameHeaders[i]) ? window.gameHeaders[i].trim() : `${letter}欄`;
+        
+        bankWrapper.innerHTML += `
+            <label class="flex items-center gap-2 px-2 py-1.5 bg-transparent hover:bg-indigo-50 rounded cursor-pointer transition-colors w-full">
+                <input type="checkbox" class="bank-checkbox rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 flex-shrink-0" value="${i}" ${isChecked ? 'checked' : ''}>
+                <span class="text-sm font-bold text-gray-700 truncate select-none" title="${name}">${name}</span>
+            </label>
+        `;
+    });
+
+    updateBankSummary();
+
+    // 監聽題庫勾選改變
+    bankWrapper.querySelectorAll('.bank-checkbox').forEach(cb => {
+        cb.addEventListener('change', (e) => {
+            const val = parseInt(e.target.value, 10);
+            if (e.target.checked) {
+                if (!gameActiveBankCols.includes(val)) gameActiveBankCols.push(val);
+            } else {
+                gameActiveBankCols = gameActiveBankCols.filter(c => c !== val);
+            }
+            gameActiveBankCols.sort((a, b) => a - b);
+            updateBankSummary();
+            renderGameMatchPairs(); 
+        });
+    });
+
+    if (gameMatchPairs.length === 0) {
+        gameMatchPairs.push({ id: Date.now(), termCol: gameActiveBankCols[0], defCol: gameActiveBankCols[1] || gameActiveBankCols[0], customName: '' });
+    }
+
+    renderGameMatchPairs();
+}
+
+// 根據題庫重新渲染分類與匹配清單
+function renderGameMatchPairs() {
+    const isHeaderChecked = chkHasHeader && chkHasHeader.checked;
+    const prevC = selGameColC ? parseInt(selGameColC.value, 10) : -1;
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    if (selGameColC) {
+        selGameColC.innerHTML = '<option value="-1">(無)</option>';
+        gameActiveBankCols.forEach(i => {
+            const letter = alphabet[i % 26];
+            let name = (isHeaderChecked && window.gameHeaders[i]) ? window.gameHeaders[i].trim() : `${letter}欄`;
+            selGameColC.innerHTML += `<option value="${i}">${name}</option>`;
+        });
+        selGameColC.value = gameActiveBankCols.includes(prevC) ? prevC : -1;
+    }
+
+    const currentC = parseInt(selGameColC.value, 10);
+    const availableCols = gameActiveBankCols.filter(c => c !== currentC);
+    
+    let optionsHtml = '';
+    availableCols.forEach(i => {
+        const letter = alphabet[i % 26];
+        let name = (isHeaderChecked && window.gameHeaders[i]) ? window.gameHeaders[i].trim() : `${letter}欄`;
+        optionsHtml += `<option value="${i}">${name}</option>`;
+    });
+
+    matchPairsContainer.innerHTML = '';
+    
+    if (availableCols.length === 0) {
+        matchPairsContainer.innerHTML = '<div class="text-xs text-red-500 py-2 text-center bg-red-50 rounded-lg">請在題庫中勾選至少一個可用欄位</div>';
+        return;
+    }
+
+    const selectedGameType = document.querySelector('input[name="gameType"]:checked').value;
+
+    if (selectedGameType === 'choice') {
+        // ========== 選擇題專屬介面 ==========
+        let mcConfig = (window.currentGameConfigs && window.currentGameConfigs.mcConfig) || {};
+        
+        // 預設值防呆：若沒有設定，或題目欄位被取消勾選，預設抓第一欄
+        if (mcConfig.qCol === undefined || !availableCols.includes(mcConfig.qCol)) {
+            mcConfig.qCol = availableCols[0];
+        }
+        
+        // 💡 智慧邏輯：可用選項清單「自動排除」已被選為題目的欄位
+        const optAvailableCols = availableCols.filter(c => c !== mcConfig.qCol);
+        
+        // 預設選項帶入 (若沒資料則帶入 -1 無)
+        if (mcConfig.o1Col === undefined) mcConfig.o1Col = optAvailableCols[0] !== undefined ? optAvailableCols[0] : -1;
+        if (mcConfig.o2Col === undefined) mcConfig.o2Col = optAvailableCols[1] !== undefined ? optAvailableCols[1] : -1;
+        if (mcConfig.o3Col === undefined) mcConfig.o3Col = optAvailableCols[2] !== undefined ? optAvailableCols[2] : -1;
+        if (mcConfig.o4Col === undefined) mcConfig.o4Col = optAvailableCols[3] !== undefined ? optAvailableCols[3] : -1;
+        if (mcConfig.ansCol === undefined) mcConfig.ansCol = 'fixed_1';
+
+        // 題目下拉選單 (包含所有可用欄位)
+        const createSelQ = (cls, val) => `<select class="${cls} w-full bg-gray-50 border border-gray-200 rounded px-1 py-1 text-xs font-bold text-gray-700 outline-none cursor-pointer truncate">${optionsHtml.replace(`value="${val}"`, `value="${val}" selected`)}</select>`;
+        
+        // 選項下拉選單 (包含 (無) 且排除題目欄位)
+        let optOptionsHtml = '<option value="-1">(無)</option>';
+        optAvailableCols.forEach(i => {
+            const letter = alphabet[i % 26];
+            let name = (isHeaderChecked && window.gameHeaders[i]) ? window.gameHeaders[i].trim() : `${letter}欄`;
+            optOptionsHtml += `<option value="${i}">${name}</option>`;
+        });
+        const createSelOpt = (cls, val) => `<select class="${cls} w-full bg-gray-50 border border-gray-200 rounded px-1 py-1 text-xs font-bold text-gray-700 outline-none cursor-pointer truncate">${optOptionsHtml.replace(`value="${val}"`, `value="${val}" selected`)}</select>`;
+
+        // 答案下拉選單
+        let ansOptionsHtml = `
+            <option value="fixed_1" ${mcConfig.ansCol === 'fixed_1' ? 'selected' : ''}>固定為 選項1</option>
+            <option value="fixed_2" ${mcConfig.ansCol === 'fixed_2' ? 'selected' : ''}>固定為 選項2</option>
+            <option value="fixed_3" ${mcConfig.ansCol === 'fixed_3' ? 'selected' : ''}>固定為 選項3</option>
+            <option value="fixed_4" ${mcConfig.ansCol === 'fixed_4' ? 'selected' : ''}>固定為 選項4</option>
+            <optgroup label="由欄位指定 (內容為1~4或文字)">
+        `;
+        availableCols.forEach(i => {
+            const letter = alphabet[i % 26];
+            let name = (isHeaderChecked && window.gameHeaders[i]) ? window.gameHeaders[i].trim() : `${letter}欄`;
+            ansOptionsHtml += `<option value="col_${i}" ${mcConfig.ansCol === `col_${i}` ? 'selected' : ''}>${name}</option>`;
+        });
+        ansOptionsHtml += `</optgroup>`;
+
+        // UI 排版：題目與答案在第一行，四個選項在第二行
+        const mcHtml = `
+            <div class="flex flex-col gap-2 bg-yellow-50/50 p-2 rounded-lg border border-yellow-100 shadow-sm" id="mc-config-area">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 border-b border-yellow-200/50 pb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-gray-600 w-10 shrink-0 text-right">題目：</span>
+                        ${createSelQ('mc-q', mcConfig.qCol)}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-green-600 w-10 shrink-0 text-right">答案：</span>
+                        <select class="mc-ans w-full bg-green-50 border border-green-200 rounded px-1 py-1 text-xs font-bold text-green-800 outline-none cursor-pointer truncate">
+                            ${ansOptionsHtml}
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <div class="flex items-center gap-1"><span class="text-xs font-bold text-gray-500 w-12 shrink-0 text-right">選項1：</span>${createSelOpt('mc-o1', mcConfig.o1Col)}</div>
+                    <div class="flex items-center gap-1"><span class="text-xs font-bold text-gray-500 w-12 shrink-0 text-right">選項2：</span>${createSelOpt('mc-o2', mcConfig.o2Col)}</div>
+                    <div class="flex items-center gap-1"><span class="text-xs font-bold text-gray-500 w-12 shrink-0 text-right">選項3：</span>${createSelOpt('mc-o3', mcConfig.o3Col)}</div>
+                    <div class="flex items-center gap-1"><span class="text-xs font-bold text-gray-500 w-12 shrink-0 text-right">選項4：</span>${createSelOpt('mc-o4', mcConfig.o4Col)}</div>
+                </div>
+            </div>
+        `;
+        matchPairsContainer.insertAdjacentHTML('beforeend', mcHtml);
+
+        // 綁定連動事件：當使用者更改題目時，立即重繪以更新選項清單
+        const mcArea = document.getElementById('mc-config-area');
+        mcArea.addEventListener('change', (e) => {
+            if (!window.currentGameConfigs) window.currentGameConfigs = {};
+            
+            const newQCol = parseInt(mcArea.querySelector('.mc-q').value, 10);
+            
+            // 如果更改的是題目，把剛好撞到的選項重設為 -1 (無)
+            if (e.target.classList.contains('mc-q')) {
+                ['.mc-o1', '.mc-o2', '.mc-o3', '.mc-o4'].forEach(cls => {
+                    const optSel = mcArea.querySelector(cls);
+                    if (parseInt(optSel.value, 10) === newQCol) optSel.value = "-1";
+                });
+            }
+
+            window.currentGameConfigs.mcConfig = {
+                qCol: newQCol,
+                o1Col: parseInt(mcArea.querySelector('.mc-o1').value, 10),
+                o2Col: parseInt(mcArea.querySelector('.mc-o2').value, 10),
+                o3Col: parseInt(mcArea.querySelector('.mc-o3').value, 10),
+                o4Col: parseInt(mcArea.querySelector('.mc-o4').value, 10),
+                ansCol: mcArea.querySelector('.mc-ans').value
+            };
+            
+            // 重繪以刷新可用的下拉選項
+            if (e.target.classList.contains('mc-q')) renderGameMatchPairs(); 
+        });
+
+    } else {
+        // ========== 原有的配對介面 ==========
+        gameMatchPairs.forEach((pair, index) => {
+            if (!availableCols.includes(pair.termCol)) pair.termCol = availableCols[0];
+            if (!availableCols.includes(pair.defCol)) pair.defCol = availableCols.length > 1 ? availableCols[1] : availableCols[0];
+
+            const isFirst = index === 0;
+            const btnClass = "flex items-center justify-center p-1 rounded transition-colors cursor-pointer";
+            const actionBtnHtml = isFirst 
+                ? `<button class="${btnClass} text-purple-500 hover:bg-purple-100" data-action="auto" title="自動產生組合"><span class="material-symbols-outlined text-[16px]">library_add</span></button>`
+                : `<button class="${btnClass} text-red-400 hover:bg-red-50" data-action="del" title="刪除此組"><span class="material-symbols-outlined text-[16px]">close</span></button>`;
+            const numberBadgeHtml = gameMatchPairs.length > 1 
+                ? `<div class="flex-shrink-0 w-4 h-4 flex items-center justify-center bg-gray-100 text-gray-500 text-[10px] font-bold rounded-full ml-0.5 select-none">${index + 1}</div>` : '';
+
+            const rowHtml = `
+                <div class="match-pair-row flex items-center gap-1 bg-white p-1 rounded border border-gray-200 shadow-sm" data-id="${pair.id}">
+                    ${numberBadgeHtml} <div class="flex flex-col flex-1 min-w-0">
+                        <select class="sel-term w-full bg-transparent text-xs font-bold text-gray-700 outline-none cursor-pointer truncate">
+                            ${optionsHtml.replace(`value="${pair.termCol}"`, `value="${pair.termCol}" selected`)}
+                        </select>
+                    </div>
+                    <div class="text-gray-300 flex-shrink-0"><span class="material-symbols-outlined text-[14px]">arrow_forward</span></div>
+                    <div class="flex flex-col flex-1 min-w-0">
+                        <select class="sel-def w-full bg-transparent text-xs font-bold text-gray-700 outline-none cursor-pointer truncate">
+                            ${optionsHtml.replace(`value="${pair.defCol}"`, `value="${pair.defCol}" selected`)}
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-0.5 border-l border-gray-100 pl-1 flex-shrink-0">
+                        <button class="${btnClass} text-blue-500 hover:bg-blue-50" data-action="add" title="新增一組"><span class="material-symbols-outlined text-[16px]">add</span></button>
+                        <button class="${btnClass} ${pair.customName ? 'text-green-600 bg-green-50' : 'text-gray-400 hover:bg-gray-100'}" data-action="rename" title="${pair.customName ? '已命名: '+pair.customName : '點擊命名'}"><span class="material-symbols-outlined text-[16px]">edit</span></button>
+                        ${actionBtnHtml}
+                    </div>
+                </div>
+            `;
+            matchPairsContainer.insertAdjacentHTML('beforeend', rowHtml);
+        });
+    }
+}
+
+document.querySelectorAll('input[name="gameType"]').forEach(radio => {
+    radio.addEventListener('change', renderGameMatchPairs);
+});
+
+// 4. 事件委派：處理匹配列的按鈕操作
+matchPairsContainer.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    
+    // 同步當下畫面上的選擇到陣列中
+    matchPairsContainer.querySelectorAll('.match-pair-row').forEach((row, idx) => {
+        gameMatchPairs[idx].termCol = parseInt(row.querySelector('.sel-term').value, 10);
+        gameMatchPairs[idx].defCol = parseInt(row.querySelector('.sel-def').value, 10);
+    });
+
+    const row = btn.closest('.match-pair-row');
+    const pairId = parseInt(row.dataset.id, 10);
+    const pairIndex = gameMatchPairs.findIndex(p => p.id === pairId);
+    const action = btn.dataset.action;
+
+    if (action === 'add') {
+        const currentC = selGameColC ? parseInt(selGameColC.value, 10) : -1;
+        const availableCols = gameActiveBankCols.filter(c => c !== currentC);
+        
+        if (availableCols.length < 1) return;
+
+        // 預設值 (防呆)
+        let nextTerm = availableCols[0];
+        let nextDef = availableCols.length > 1 ? availableCols[1] : availableCols[0];
+        let foundUnique = false;
+
+        // ✨ 智慧尋找：掃描所有可能的組合，找出還沒被加進清單的配對
+        for (let i = 0; i < availableCols.length; i++) {
+            for (let j = 0; j < availableCols.length; j++) {
+                if (i === j) continue; // 略過 A欄➔A欄 這種自己對自己的情況
+                
+                const tCol = availableCols[i];
+                const dCol = availableCols[j];
+                
+                // 檢查目前的配對清單中，是否已經有這個組合了
+                const exists = gameMatchPairs.some(p => p.termCol === tCol && p.defCol === dCol);
+                
+                if (!exists) {
+                    nextTerm = tCol;
+                    nextDef = dCol;
+                    foundUnique = true;
+                    break;
+                }
+            }
+            if (foundUnique) break;
+        }
+
+        // 將找到的新鮮組合加入清單 (如果全部組合都被加光了，就會自動帶入預設值)
+        gameMatchPairs.push({ id: Date.now(), termCol: nextTerm, defCol: nextDef, customName: '' });
+        renderGameMatchPairs();
+    }
+    else if (action === 'del') {
+        gameMatchPairs.splice(pairIndex, 1);
+        renderGameMatchPairs();
+    } 
+    else if (action === 'rename') {
+        const currentName = gameMatchPairs[pairIndex].customName;
+        showPrompt('為此匹配形式命名 (留空則自動產生)', currentName, (val) => {
+            gameMatchPairs[pairIndex].customName = val.trim();
+            renderGameMatchPairs();
+        });
+    } 
+    else if (action === 'auto') {
+        const currentC = parseInt(selGameColC.value, 10);
+        const availableCols = gameActiveBankCols.filter(c => c !== currentC);
+        if (availableCols.length < 2) return showToast("⚠️ 可用欄位不足，無法自動產生組合");
+        
+        gameMatchPairs = [];
+        // 產生排列組合 (Permutations) P(n, 2)
+        for (let i = 0; i < availableCols.length; i++) {
+            for (let j = 0; j < availableCols.length; j++) {
+                if (i !== j) {
+                    gameMatchPairs.push({ id: Date.now() + i*100 + j, termCol: availableCols[i], defCol: availableCols[j], customName: '' });
+                }
+            }
+        }
+        renderGameMatchPairs();
+        showToast('✨ 已自動產生所有題目與答案的可能組合！');
+    }
+});
+
+
+
+
+
+
+
 /* ==========================================
    極致滿版 (Zen Mode) 切換邏輯
    ========================================== */
@@ -9822,6 +10404,7 @@ function toggleMaximizeMode(isMaximized) {
         showToast('🧘 已進入極致滿版模式 (可按 Esc 退出)');
     } else {
         document.body.classList.remove('maximized-mode');
+        document.body.classList.remove('is-playing-game'); 
         btnExitMaximize.classList.add('hidden');
     }
     
@@ -9873,4 +10456,6 @@ document.addEventListener('keydown', (e) => {
 
 
 
-init();
+document.addEventListener('DOMContentLoaded', () => {
+    init();
+});

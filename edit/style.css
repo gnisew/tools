@@ -197,6 +197,27 @@ table#data-table td:focus-within {
 ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 6px; }
 ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
 
+/* ================= 細版捲動條專用樣式 ================= */
+.scrollbar-thin::-webkit-scrollbar { 
+    width: 6px; 
+    height: 6px; 
+}
+.scrollbar-thin::-webkit-scrollbar-track { 
+    background: transparent; /* 軌道透明，視覺更輕盈 */
+}
+.scrollbar-thin::-webkit-scrollbar-thumb { 
+    background: #d1d5db; 
+    border-radius: 3px; 
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover { 
+    background: #9ca3af; 
+}
+/* 支援 Firefox 瀏覽器 */
+.scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #d1d5db transparent;
+}
+
 /* 工具列按鈕與下拉 (仿 Google Sheets 風格) */
 .icon-btn { 
     display: inline-flex; 
@@ -627,4 +648,33 @@ body.maximized-mode.full-width-mode .editor-wrapper {
     border: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;
+}
+
+
+/* ================= 遊戲專屬滿版模式 (優化版) ================= */
+/* 當 body 擁有 is-playing-game 時觸發 */
+body.maximized-mode.is-playing-game #gameArea {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important; /* 針對手機瀏覽器高度優化 */
+    background-color: #f9fafb; 
+    z-index: 1000;
+    display: flex;
+    flex-direction: column; /* 讓工具列在上方，內容在下方 */
+    padding: 0; /* 移除 padding，由內部元件自行控制 */
+    box-sizing: border-box;
+}
+
+/* 遊戲進行中，隱藏主程式原本左上角的「退出滿版」懸浮按鈕 */
+body.is-playing-game #btnExitMaximize {
+    display: none !important;
+}
+
+/* 防呆機制：確保文字或表格模式在遊戲進行時完全隱藏 */
+body.maximized-mode.is-playing-game #textModeContainer,
+body.maximized-mode.is-playing-game #tableModeContainer {
+    display: none !important;
 }
