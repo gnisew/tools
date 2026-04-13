@@ -13,7 +13,10 @@
 	
 	<link href="https://oikasu1.github.io/kasuexam/kasu/fonts/twhei.css" rel="stylesheet">
     <link href="https://tauhu.tw/tauhu-oo.css" rel="stylesheet">
-		<link rel="stylesheet" href="https://gnisew.github.io/tools/ime/ime.css">
+	<link rel="stylesheet" href="https://gnisew.github.io/tools/ime/ime.css">
+	<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
 
 </head>
 <body class="px-2 pt-2 pb-0 md:px-4 md:pt-3 md:pb-0">
@@ -35,6 +38,10 @@
                     <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center hover:bg-gray-100 text-gray-700 gap-2" id="btnSaveFile">
                         <span class="material-symbols-outlined text-base">save</span>另存檔案
                     </button>
+					<div class="h-px bg-gray-200 my-1 mx-2"></div>
+					<button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center hover:bg-gray-100 text-gray-700 gap-2" id="btnShareLink">
+						<span class="material-symbols-outlined text-base">share</span>分享網址
+					</button>
                 </div>
             </div>
             <input type="file" id="fileInput" class="hidden" accept=".txt,.js,.css,.json,.csv,.html,.md,.xml">
@@ -526,6 +533,10 @@
 				
 				<div id="gameArea" class="w-full h-full p-4 pt-16 overflow-y-auto pb-24">
 					</div>
+			</div>
+
+			<div id="arenaModeContainer" class="hidden fixed inset-0 z-[1000] w-full h-[100dvh] overflow-hidden bg-blue-50 flex-col">
+				
 			</div>
 
 			<div id="chatModeContainer" class="flex-1 overflow-hidden flex-col w-full bg-slate-50 relative hidden">
@@ -1273,6 +1284,11 @@
 						<span class="material-symbols-outlined text-lg text-yellow-600">list_alt</span>
 						<span class="text-xs font-bold text-gray-700 whitespace-nowrap">選擇</span>
 					</label>
+					<label class="cursor-pointer border border-gray-200 rounded-lg px-1.5 py-1.5 flex items-center justify-center gap-1.5 hover:bg-pink-50 hover:border-pink-200 transition-all has-[:checked]:bg-pink-50 has-[:checked]:border-pink-500 has-[:checked]:shadow-sm">
+						<input type="radio" name="gameType" value="arena" class="hidden">
+						<span class="material-symbols-outlined text-lg text-pink-600">sports_esports</span>
+						<span class="text-xs font-bold text-gray-700 whitespace-nowrap">連線</span>
+					</label>
                 </div>
             </div>
 
@@ -1347,6 +1363,7 @@
 
 
 	<script src="game.js"></script>
+	<script src="arena.js"></script>
     <script src="script.js"></script>
 
 </body>

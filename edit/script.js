@@ -1,5 +1,5 @@
 const textModeContainer = document.getElementById('textModeContainer');
-const gameModes = ['flashcard', 'matching', 'quiz', 'sorting', 'typing', 'choice'];
+const gameModes = ['flashcard', 'matching', 'quiz', 'sorting', 'typing', 'choice', 'arena'];
 const tableModeContainer = document.getElementById('tableModeContainer');
 const editor = document.getElementById('editor');
 const dataTable = document.getElementById('data-table');
@@ -348,30 +348,24 @@ const savedRowNumAlign = localStorage.getItem(ROW_NUM_ALIGN_KEY) || 'middle';
     editor.value = sheetTabs[activeSheetIndex].content;
     // 讀取網址參數，決定初始模式 
     const urlParams = new URLSearchParams(window.location.search);
-    let initialTargetMode = currentMode; // 準備一個變數來決定最終要啟動的模式
+    let initialTargetMode = currentMode; 
 
-    if (urlParams.has('mode')) {
+    // ✨ 優先判斷是否有 arena 空間代碼 (解決被踢出或重整跑掉的問題)
+    if (urlParams.has('arena')) {
+        initialTargetMode = 'arena';
+    } else if (urlParams.has('mode')) {
         const modeParam = urlParams.get('mode');
-        if (modeParam === 'txt') {
-            initialTargetMode = 'text';
-        } else if (modeParam === 'sheet') {
-            initialTargetMode = 'table';
-        } else if (modeParam === 'chat') {
-            initialTargetMode = 'chat';
-        } 
-        // ✨ 新增：如果網址參數是我們定義好的遊戲模式之一
-        else if (gameModes.includes(modeParam)) {
-            initialTargetMode = modeParam;
-        }
+        if (modeParam === 'txt') initialTargetMode = 'text';
+        else if (modeParam === 'sheet') initialTargetMode = 'table';
+        else if (modeParam === 'chat') initialTargetMode = 'chat';
+        else if (gameModes.includes(modeParam)) initialTargetMode = modeParam;
 
-        // 同步更新記憶體中該頁籤的狀態 (只有編輯類模式才同步，遊戲模式不蓋掉原本的底層模式)
-        if (!gameModes.includes(initialTargetMode)) {
+        if (!gameModes.includes(initialTargetMode) && initialTargetMode !== 'arena') {
             sheetTabs[activeSheetIndex].mode = initialTargetMode;
             currentMode = initialTargetMode;
         }
     }
     
-    // ✨ 將原本的 switchMode(currentMode, true); 替換為啟動我們解析出來的目標模式
     switchMode(initialTargetMode, true);
     
     if (window.ResizeObserver) {
@@ -392,6 +386,59 @@ const savedRowNumAlign = localStorage.getItem(ROW_NUM_ALIGN_KEY) || 'middle';
         // 當開啟模式時，才會根據目前凍結列數動態設定
         // 這裡只需要一個全域的同步機制即可
     });
+
+
+
+
+	// ==========================================
+    // 網址載入壓縮資料 (fflate) 讀取邏輯
+    // ==========================================
+    // ==========================================
+    // 網址載入 Firebase 雲端資料邏輯
+    // ==========================================
+    if (urlParams.has('id')) {
+        const docId = urlParams.get('id');
+        showToast('⏳ 正在從雲端載入資料...');
+        
+        // 因為是 async，我們用一個 IIFE (立即執行函式) 包起來
+        (async () => {
+            try {
+                const compressedData = await loadFromFirebase(docId);
+                if (!compressedData) {
+                    return showToast('❌ 雲端資料不存在或已失效');
+                }
+
+                const decompressedText = decompressDataFromUrl(compressedData);
+                if (decompressedText !== null) {
+                    editor.value = decompressedText;
+                    if (sheetTabs[activeSheetIndex]) sheetTabs[activeSheetIndex].content = decompressedText;
+                    
+                    if (currentMode === 'table') {
+                        renderTableFromText(decompressedText);
+                        applyFreeze();
+                    } else if (currentMode === 'chat' && typeof window.renderChatFromText === 'function') {
+                        window.renderChatFromText(decompressedText);
+                    }
+                    
+                    debouncedSaveHistory();
+                    saveAllTabsData();
+                    
+                    // 清理網址上的 ?id= 參數
+                    const cleanUrl = new URL(window.location.href);
+                    cleanUrl.searchParams.delete('id');
+                    window.history.replaceState({}, document.title, cleanUrl.href);
+                    
+                    showToast('✅ 已成功從雲端載入資料！');
+                }
+            } catch (e) {
+                console.error('雲端載入或解壓縮失敗:', e);
+                showToast('❌ 資料解析失敗，可能已損毀');
+            }
+        })();
+    }
+
+
+
 	requestAnimationFrame(() => {
 			mainContainer.style.opacity = '1';
 	});
@@ -403,15 +450,19 @@ document.getElementById('dd-viewMode').addEventListener('change', (e) => switchM
    網址參數同步功能
 ========================================== */
 function updateUrlModeParam(internalMode) {
-    // 將內部模式對應到你要的網址參數
+    const newUrl = new URL(window.location.href);
+    
+    if (newUrl.searchParams.has('arena')) {
+        newUrl.searchParams.delete('mode');
+        window.history.replaceState({}, '', newUrl);
+        return;
+    }
+
     let urlMode = 'txt';
     if (internalMode === 'table') urlMode = 'sheet';
     else if (internalMode === 'chat') urlMode = 'chat';
     else if (gameModes.includes(internalMode)) urlMode = internalMode;
     
-    const newUrl = new URL(window.location.href);
-    
-    // 如果目前的網址參數不等於目標參數，就進行更新 (不重新載入頁面)
     if (newUrl.searchParams.get('mode') !== urlMode) {
         newUrl.searchParams.set('mode', urlMode);
         window.history.replaceState({}, '', newUrl);
@@ -478,10 +529,49 @@ function switchMode(mode, isForce = false) {
         gameModeContainer.classList.add('hidden');
         gameModeContainer.style.display = 'none';
     }
+	const arenaModeContainer = document.getElementById('arenaModeContainer');
+    if (arenaModeContainer) {
+        arenaModeContainer.classList.add('hidden');
+        arenaModeContainer.style.display = 'none';
+    }
 
-    // 💡 處理進入遊戲模式的邏輯
-    // 💡 處理進入遊戲模式的邏輯
-    if (gameModes.includes(mode)) {
+	// 💡 處理進入遊戲或連線模式的邏輯
+    if (mode === 'arena') {
+        // ✨ 新增：啟動連線模式
+        if (arenaModeContainer) {
+            arenaModeContainer.classList.remove('hidden');
+            arenaModeContainer.style.display = 'block';
+        }
+        if (tableControls) { tableControls.classList.add('hidden'); tableControls.classList.remove('flex'); }
+        if (chatControls) { chatControls.classList.add('hidden'); chatControls.classList.remove('flex'); }
+        if (ddTextTool) ddTextTool.classList.add('hidden');
+
+        let rawDataText = editor.value;
+        if (document.getElementById('tableModeContainer').style.display !== 'none') {
+            rawDataText = extractTextFromTable();
+        }
+
+        // ✨ 關鍵修復：如果畫面還沒渲染完導致抓不到資料，直接從記憶體分頁中提款！
+        if (!rawDataText || rawDataText.trim() === '') {
+            if (typeof sheetTabs !== 'undefined' && sheetTabs[activeSheetIndex]) {
+                rawDataText = sheetTabs[activeSheetIndex].content || '';
+            }
+        }
+
+        if (typeof window.launchArenaMode === 'function') {
+            // 重新整理時自動從記憶體載入題庫設定
+            if (!window.currentGameConfigs) {
+                try {
+                    const savedConfigs = localStorage.getItem('wesing-game-configs');
+                    if (savedConfigs) window.currentGameConfigs = JSON.parse(savedConfigs);
+                } catch(e) {}
+            }
+            const configs = window.currentGameConfigs || { mcConfig: null };
+            window.launchArenaMode(rawDataText, configs);
+        }
+
+		// 💡 處理進入遊戲模式的邏輯
+    } else if (gameModes.includes(mode)) {    
         if (gameModeContainer) {
             gameModeContainer.classList.remove('hidden');
             gameModeContainer.style.display = 'block';
@@ -10445,6 +10535,243 @@ document.addEventListener('keydown', (e) => {
 });
 
 
+
+
+
+/* ==========================================
+   產生分享網址
+========================================== */
+document.getElementById('btnShareLink')?.addEventListener('click', async () => {
+    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+    
+    let currentContent = editor.value;
+    if (currentMode === 'table') {
+        currentContent = extractTextFromTable();
+    } else if (currentMode === 'chat') {
+        currentContent = typeof extractTextFromChat === 'function' ? extractTextFromChat() : editor.value;
+    }
+
+    if (!currentContent || currentContent.trim() === '') {
+        return showToast('⚠️ 目前沒有內容可以分享');
+    }
+
+    try {
+        showToast('⏳ 正在產生雲端連結，請稍候...');
+        const compressedData = compressDataForUrl(currentContent);
+        
+        // ✨ 將壓縮資料丟給 Firebase，換取短 ID
+        const docId = await saveToFirebase(compressedData);
+        
+        if (!docId) throw new Error("取得 ID 失敗");
+
+        // ✨ 現在網址參數改成 ?id=短ID，網址會變得超級短！
+        const shareUrl = new URL(window.location.href);
+        shareUrl.searchParams.set('id', docId); 
+        
+        let urlMode = 'txt';
+        if (currentMode === 'table') urlMode = 'sheet';
+        else if (currentMode === 'chat') urlMode = 'chat';
+        else if (gameModes.includes(currentMode)) urlMode = currentMode;
+        shareUrl.searchParams.set('mode', urlMode);
+
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(shareUrl.href);
+            showToast('🔗 短網址已成功複製到剪貼簿！');
+        } else {
+            fallbackCopy(shareUrl.href);
+        }
+    } catch (e) {
+        console.error('雲端分享失敗:', e);
+        showToast('❌ 產生網址失敗，請檢查網路連線');
+    }
+});
+
+// 萬一瀏覽器不支援 navigator.clipboard 的備用方案
+function fallbackCopy(text) {
+    showPrompt('請手動複製以下網址：', text, () => {});
+}
+
+
+
+
+// ==========================================
+// fflate 高效壓縮引擎 (轉換為 URL 安全字串)
+// ==========================================
+function compressDataForUrl(text) {
+    // 1. 將文字轉為二進位 (UTF-8)
+    const uint8 = fflate.strToU8(text);
+    // 2. 使用最高級別 (level: 9) 進行 Deflate 壓縮
+    const compressed = fflate.deflateSync(uint8, { level: 9 });
+    
+    // 3. 將二進位轉換為純文字，再轉成 Base64
+    let binaryStr = '';
+    for (let i = 0; i < compressed.length; i++) {
+        binaryStr += String.fromCharCode(compressed[i]);
+    }
+    // 4. 將 Base64 的 +, /, = 替換成網址安全字元
+    return btoa(binaryStr).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function decompressDataFromUrl(base64UrlSafe) {
+    // 1. 將網址安全字元還原回標準 Base64
+    let base64 = base64UrlSafe.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) {
+        base64 += '=';
+    }
+    
+    // 2. 將 Base64 轉回二進位陣列
+    const binaryStr = atob(base64);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+    }
+    
+    // 3. 進行解壓縮並還原成文字
+    const decompressed = fflate.inflateSync(bytes);
+    return fflate.strFromU8(decompressed);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+// ==========================================
+// Firebase Firestore 雲端資料庫設定
+// ==========================================
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyAuXpz1xu9whyIbtpFUP9_DbyQDAvdTuVY",
+    authDomain: "wesing-editor.firebaseapp.com",
+    projectId: "wesing-editor",
+    storageBucket: "wesing-editor.firebasestorage.app",
+    messagingSenderId: "1055094283651",
+    appId: "1:1055094283651:web:75c96be4540073d081eab6",
+    measurementId: "G-BNK2JP5HE5"
+  };
+
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+// 1. 儲存壓縮資料到 Firebase，取得短 ID
+async function saveToFirebase(compressedData) {
+    try {
+        // 在 "shared_docs" 集合中自動新增一筆文件，Firebase 會自動產生短 ID
+        const docRef = await db.collection("shared_docs").add({
+            data: compressedData,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp() // 記錄時間
+        });
+        return docRef.id; // 回傳這組俐落的短 ID！
+    } catch (e) {
+        console.error("儲存到 Firebase 失敗:", e);
+        return null;
+    }
+}
+
+// 2. 從 Firebase 透過短 ID 讀取資料
+async function loadFromFirebase(docId) {
+    try {
+        const docRef = db.collection("shared_docs").doc(docId);
+        const docSnap = await docRef.get();
+        
+        if (docSnap.exists) {
+            return docSnap.data().data; // 回傳當初存進去的壓縮字串
+        } else {
+            console.warn("找不到該份文件！");
+            return null;
+        }
+    } catch (e) {
+        console.error("從 Firebase 讀取失敗:", e);
+        return null;
+    }
+}
+
+
+// ==========================================
+// 遊戲連線模式 (Arena) 專用 Firebase 邏輯
+// ==========================================
+
+// 1. 老師建立遊戲「空間」
+async function createArenaSpace(gameConfigs) {
+    // 隨機產生 5 碼數字作為空間代碼 (例如：48291)
+    const spaceCode = Math.floor(10000 + Math.random() * 90000).toString();
+    try {
+        await db.collection("spaces").doc(spaceCode).set({
+            status: 'waiting', // 狀態：等待中 (waiting), 遊戲中 (playing), 結算 (finished)
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            config: gameConfigs,
+            currentQuestionIndex: 0
+        });
+        return spaceCode;
+    } catch (e) {
+        console.error("建立空間失敗:", e);
+        return null;
+    }
+}
+
+// 2. 學生加入遊戲「空間」
+async function joinArenaSpace(spaceCode, playerName) {
+    const spaceRef = db.collection("spaces").doc(spaceCode);
+    try {
+        const doc = await spaceRef.get();
+        if (!doc.exists) return "NOT_FOUND"; // 找不到空間
+        if (doc.data().status !== 'waiting') return "ALREADY_STARTED"; // 遊戲已開始
+
+        // 在該空間下建立 players 子集合，並把學生加進去
+        await spaceRef.collection("players").doc(playerName).set({
+            name: playerName,
+            score: 0,
+            joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        return "SUCCESS";
+    } catch (e) {
+        console.error("加入空間失敗:", e);
+        return "ERROR";
+    }
+}
+
+// 3. 學生送出作答結果 (✨ 新增每題獨立紀錄陣列欄位)
+async function submitArenaAnswer(spaceCode, playerName, answerIndex, qIndex, reactionTime = 0) {
+    try {
+        const updateData = {
+            lastAnswer: answerIndex,
+            answeredQuestion: qIndex,
+            lastReactionTime: reactionTime,
+            answeredAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        // ✨ 動態產生欄位名稱，精準記錄這名玩家每一題的「答案」與「秒數」
+        // 這會讓老師端可以回溯計算「連三題霸榜」
+        updateData[`ans_${qIndex}`] = answerIndex;
+        updateData[`time_${qIndex}`] = reactionTime;
+
+        await db.collection("spaces").doc(spaceCode).collection("players").doc(playerName).update(updateData);
+        return "SUCCESS";
+    } catch (e) {
+        console.error("送出答案失敗:", e);
+        return "ERROR";
+    }
+}
+
+// 4. 老師踢出玩家
+async function removeArenaPlayer(spaceCode, playerName) {
+    try {
+        await db.collection("spaces").doc(spaceCode).collection("players").doc(playerName).delete();
+        return true;
+    } catch (e) {
+        console.error("踢出玩家失敗:", e);
+        return false;
+    }
+}
 
 
 
