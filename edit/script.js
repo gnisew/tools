@@ -10700,13 +10700,18 @@ async function loadFromFirebase(docId) {
 // 遊戲連線模式 (Arena) 專用 Firebase 邏輯
 // ==========================================
 
+// ✨ 自動偵測環境：如果網址是 localhost 或 127.0.0.1，就加上 'dev_' 前綴
+const isLocalhost = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+window.DB_PREFIX = isLocalhost ? 'dev_' : '';
+window.SPACES_COLLECTION = window.DB_PREFIX + 'spaces'; // 組合出最終的集合名稱
+
 // 1. 老師建立遊戲「空間」
 async function createArenaSpace(gameConfigs) {
-    // 隨機產生 5 碼數字作為空間代碼 (例如：48291)
     const spaceCode = Math.floor(10000 + Math.random() * 90000).toString();
     try {
-        await db.collection("spaces").doc(spaceCode).set({
-            status: 'waiting', // 狀態：等待中 (waiting), 遊戲中 (playing), 結算 (finished)
+        // ✨ 改用動態集合名稱 window.SPACES_COLLECTION
+        await db.collection(window.SPACES_COLLECTION).doc(spaceCode).set({
+            status: 'waiting', 
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             config: gameConfigs,
             currentQuestionIndex: 0
@@ -10720,13 +10725,13 @@ async function createArenaSpace(gameConfigs) {
 
 // 2. 學生加入遊戲「空間」
 async function joinArenaSpace(spaceCode, playerName) {
-    const spaceRef = db.collection("spaces").doc(spaceCode);
+    // ✨ 改用動態集合名稱
+    const spaceRef = db.collection(window.SPACES_COLLECTION).doc(spaceCode);
     try {
         const doc = await spaceRef.get();
-        if (!doc.exists) return "NOT_FOUND"; // 找不到空間
-        if (doc.data().status !== 'waiting') return "ALREADY_STARTED"; // 遊戲已開始
+        if (!doc.exists) return "NOT_FOUND"; 
+        if (doc.data().status !== 'waiting') return "ALREADY_STARTED"; 
 
-        // 在該空間下建立 players 子集合，並把學生加進去
         await spaceRef.collection("players").doc(playerName).set({
             name: playerName,
             score: 0,
@@ -10739,7 +10744,7 @@ async function joinArenaSpace(spaceCode, playerName) {
     }
 }
 
-// 3. 學生送出作答結果 (✨ 新增每題獨立紀錄陣列欄位)
+// 3. 學生送出作答結果 (獨立記錄每一題作答軌跡)
 async function submitArenaAnswer(spaceCode, playerName, answerIndex, qIndex, reactionTime = 0) {
     try {
         const updateData = {
@@ -10749,12 +10754,11 @@ async function submitArenaAnswer(spaceCode, playerName, answerIndex, qIndex, rea
             answeredAt: firebase.firestore.FieldValue.serverTimestamp()
         };
         
-        // ✨ 動態產生欄位名稱，精準記錄這名玩家每一題的「答案」與「秒數」
-        // 這會讓老師端可以回溯計算「連三題霸榜」
         updateData[`ans_${qIndex}`] = answerIndex;
         updateData[`time_${qIndex}`] = reactionTime;
 
-        await db.collection("spaces").doc(spaceCode).collection("players").doc(playerName).update(updateData);
+        // ✨ 改用動態集合名稱
+        await db.collection(window.SPACES_COLLECTION).doc(spaceCode).collection("players").doc(playerName).update(updateData);
         return "SUCCESS";
     } catch (e) {
         console.error("送出答案失敗:", e);
@@ -10765,14 +10769,14 @@ async function submitArenaAnswer(spaceCode, playerName, answerIndex, qIndex, rea
 // 4. 老師踢出玩家
 async function removeArenaPlayer(spaceCode, playerName) {
     try {
-        await db.collection("spaces").doc(spaceCode).collection("players").doc(playerName).delete();
+        // ✨ 改用動態集合名稱
+        await db.collection(window.SPACES_COLLECTION).doc(spaceCode).collection("players").doc(playerName).delete();
         return true;
     } catch (e) {
         console.error("踢出玩家失敗:", e);
         return false;
     }
 }
-
 
 
 
