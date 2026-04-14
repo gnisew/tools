@@ -1,5 +1,6 @@
 const textModeContainer = document.getElementById('textModeContainer');
 const gameModes = ['flashcard', 'matching', 'quiz', 'sorting', 'typing', 'choice', 'arena'];
+window.currentLoadedBank = null;
 const tableModeContainer = document.getElementById('tableModeContainer');
 const editor = document.getElementById('editor');
 const dataTable = document.getElementById('data-table');
@@ -276,7 +277,6 @@ function setDropdownValue(id, value) {
 /* 系統初始化與記憶設定讀取 */
 function init() {
     initDropdowns();
-
 // 綁定退出遊戲的按鈕
 const btnExitGame = document.getElementById('btnExitGame');
 if (btnExitGame) {
@@ -349,6 +349,20 @@ const savedRowNumAlign = localStorage.getItem(ROW_NUM_ALIGN_KEY) || 'middle';
     // 讀取網址參數，決定初始模式 
     const urlParams = new URLSearchParams(window.location.search);
     let initialTargetMode = currentMode; 
+
+    // ✨ 優先判斷是否有指定載入線上題庫 (?bank=xxx)
+    if (urlParams.has('bank') && window.presetBank) {
+        const bankId = urlParams.get('bank');
+        const preset = window.presetBank.find(p => p.id === bankId);
+        if (preset) {
+            window.currentLoadedBank = { id: preset.id, name: preset.name };
+            editor.value = preset.data;
+            if (sheetTabs[activeSheetIndex]) {
+                sheetTabs[activeSheetIndex].content = preset.data;
+                sheetTabs[activeSheetIndex].name = preset.name;
+            }
+        }
+    }
 
     // ✨ 優先判斷是否有 arena 空間代碼 (解決被踢出或重整跑掉的問題)
     if (urlParams.has('arena')) {
@@ -3046,6 +3060,7 @@ function debouncedUpdateLineNumbers() {
 }
 
 editor.addEventListener('input', () => { 
+	window.currentLoadedBank = null;
     debouncedUpdateLineNumbers();
     hideFloatingTool(); 
     debouncedSaveHistory(); 
@@ -3057,6 +3072,7 @@ editor.addEventListener('scroll', () => {
 });
 
 dataTable.addEventListener('input', () => { 
+	window.currentLoadedBank = null;
     hideFloatingTool(); 
     debouncedSaveHistory(); 
     applyFreeze(); 
@@ -10035,6 +10051,14 @@ let gameMatchPairs = [];      // 匹配形式清單: [{ id, termCol, defCol, cus
 if (btnOpenGameModal) {
     btnOpenGameModal.addEventListener('click', (e) => {
         e.stopPropagation();
+		// ✨ 動態顯示題庫名稱
+        const bankInfo = document.getElementById('gameSettingsBankInfo');
+        if (window.currentLoadedBank && bankInfo) {
+            document.getElementById('gameSettingsBankName').textContent = window.currentLoadedBank.name;
+            bankInfo.classList.remove('hidden');
+        } else if (bankInfo) {
+            bankInfo.classList.add('hidden');
+        }
         document.querySelectorAll('.dropdown-menu, .group\\/submenu').forEach(m => m.classList.remove('show'));
         
         // 載入先前的設定
@@ -10094,11 +10118,53 @@ if (btnStartGame) {
 		});
 	}
     if (btnStartGame) {
+		// ✨ 遊戲專用分享邏輯 (供學習模式與連線模式呼叫)
+    window.generateGameShareLink = async function(targetMode) {
+        let shareUrl = new URL(window.location.href);
+        shareUrl.searchParams.delete('mode');
+        shareUrl.searchParams.delete('bank');
+        shareUrl.searchParams.delete('id');
+        shareUrl.searchParams.delete('ime');
+
+        shareUrl.searchParams.set('mode', targetMode);
+
+        if (window.currentLoadedBank) {
+            // 如果沒改過資料，直接分享 bank ID，網址超短！
+            shareUrl.searchParams.set('bank', window.currentLoadedBank.id);
+            copyUrlAndToast(shareUrl.href);
+        } else {
+            // 如果是被編輯過的資料，使用 Firebase 儲存並回傳短 ID
+            showToast('⏳ 正在產生雲端連結，請稍候...');
+            let currentContent = currentMode === 'text' ? editor.value : extractTextFromTable();
+            if (!currentContent) return showToast('⚠️ 沒有內容可以分享');
+            const compressedData = compressDataForUrl(currentContent);
+            const docId = await saveToFirebase(compressedData);
+            if (!docId) return showToast('❌ 產生網址失敗');
+            shareUrl.searchParams.set('id', docId);
+            copyUrlAndToast(shareUrl.href);
+        }
+    };
+
+    function copyUrlAndToast(url) {
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(url).then(() => showToast('🔗 遊戲直接連結已複製！開啟後將直接進入遊戲。'));
+        } else {
+            showPrompt('請手動複製以下網址：', url, () => {});
+        }
+    }
+
+    const btnShareGame = document.getElementById('btnShareGame');
+    if (btnShareGame) {
+        btnShareGame.addEventListener('click', () => {
+            const selectedGame = document.querySelector('input[name="gameType"]:checked').value;
+            window.generateGameShareLink(selectedGame);
+        });
+    }
         btnStartGame.addEventListener('click', () => {
             const selectedGame = document.querySelector('input[name="gameType"]:checked').value;
             const colCValue = parseInt(selGameColC.value, 10);
             
-            // ✨ 判斷要儲存哪一種設定格式
+            // ✨ 新增：判斷要儲存哪一種設定格式
             let effectiveConfigMode = selectedGame;
             if (selectedGame === 'arena') {
                 const arenaSourceEl = document.querySelector('input[name="arenaSource"]:checked');
@@ -10258,7 +10324,7 @@ function renderGameMatchPairs() {
 
     const selectedGameType = document.querySelector('input[name="gameType"]:checked').value;
 
-    // 控制連線模式專屬開關的顯示與隱藏
+    // ✨ 新增：控制連線模式專屬開關的顯示與隱藏
     const arenaSourceSettings = document.getElementById('arenaSourceSettings');
     if (selectedGameType === 'arena') {
         if (arenaSourceSettings) arenaSourceSettings.classList.remove('hidden');
@@ -10266,13 +10332,14 @@ function renderGameMatchPairs() {
         if (arenaSourceSettings) arenaSourceSettings.classList.add('hidden');
     }
 
-    // 決定目前要渲染哪一種設定介面
+    // ✨ 新增：決定目前要渲染哪一種設定介面
     let effectiveConfigMode = selectedGameType;
     if (selectedGameType === 'arena') {
         const arenaSourceEl = document.querySelector('input[name="arenaSource"]:checked');
         effectiveConfigMode = arenaSourceEl ? arenaSourceEl.value : 'match';
     }
 
+    // 將原本的 selectedGameType 改為 effectiveConfigMode
     if (effectiveConfigMode === 'choice') {
         // ========== 選擇題專屬介面 ==========
         let mcConfig = (window.currentGameConfigs && window.currentGameConfigs.mcConfig) || {};
@@ -10415,10 +10482,12 @@ document.querySelectorAll('input[name="gameType"]').forEach(radio => {
     radio.addEventListener('change', renderGameMatchPairs);
 });
 
-// 當連線模式的「題型來源」改變時，即時重繪下方的欄位設定
+// ✨ 新增：當連線模式的「題型來源」改變時，即時重繪下方的欄位設定
 document.querySelectorAll('input[name="arenaSource"]').forEach(radio => {
     radio.addEventListener('change', renderGameMatchPairs);
 });
+
+
 
 // 4. 事件委派：處理匹配列的按鈕操作
 matchPairsContainer.addEventListener('click', (e) => {
@@ -10804,6 +10873,236 @@ async function removeArenaPlayer(spaceCode, playerName) {
         return false;
     }
 }
+
+
+
+
+// ==========================================
+// 線上題庫大視窗引擎 (緊湊檔案總管版 - 支援搜尋/篩選/排序/自動計算)
+// ==========================================
+const btnOpenPresetModal = document.getElementById('btnOpenPresetModal');
+const presetBankModal = document.getElementById('presetBankModal');
+const btnClosePresetModal = document.getElementById('btnClosePresetModal');
+const presetBankTableBody = document.getElementById('presetBankTableBody');
+const presetBankModalContent = document.getElementById('presetBankModalContent');
+
+const presetSearchInput = document.getElementById('presetSearchInput');
+const presetCategoryFilter = document.getElementById('presetCategoryFilter');
+const presetTypeFilter = document.getElementById('presetTypeFilter');
+const presetCountDisplay = document.getElementById('presetCountDisplay');
+
+// 狀態管理
+let pState = {
+    search: '',
+    category: 'ALL',
+    type: 'ALL',
+    sortCol: 'folder', // 預設依據資料夾排序
+    sortAsc: true
+};
+
+// 輔助函數：自動計算題數 (扣除標題列，過濾空行)
+function getQCount(dataStr) {
+    if (!dataStr) return 0;
+    const lines = dataStr.split('\n').filter(l => l.trim() !== '');
+    return Math.max(0, lines.length - 1);
+}
+
+// 初始化下拉選單
+function initPresetFilters() {
+    if (!window.presetBank || window.presetBank.length === 0) return;
+    
+    // 寫入原始索引，方便排序後依然能抓到正確的資料
+    window.presetBank.forEach((p, idx) => p._originalIndex = idx);
+
+    const categories = new Set();
+    const types = new Set();
+
+    window.presetBank.forEach(p => {
+        if (p.folder) categories.add(p.folder);
+        if (p.type) types.add(p.type);
+    });
+
+    presetCategoryFilter.innerHTML = '<option value="ALL">全部</option>' + 
+        Array.from(categories).sort().map(c => `<option value="${c}">${c}</option>`).join('');
+    
+    presetTypeFilter.innerHTML = '<option value="ALL">全部</option>' + 
+        Array.from(types).sort().map(t => `<option value="${t}">${t}</option>`).join('');
+}
+
+// 核心渲染引擎
+function renderPresetTable() {
+    if (!window.presetBank || window.presetBank.length === 0) {
+        presetBankTableBody.innerHTML = '<tr><td colspan="5" class="text-center py-10 text-gray-400 font-bold">目前沒有可用的線上題庫</td></tr>';
+        presetCountDisplay.textContent = '共 0 筆';
+        return;
+    }
+
+    // 1. 執行篩選 (Search + Filters)
+    let filtered = window.presetBank.filter(p => {
+        const matchSearch = p.name.toLowerCase().includes(pState.search.toLowerCase()) || 
+                            (p.folder && p.folder.toLowerCase().includes(pState.search.toLowerCase()));
+        const matchCat = pState.category === 'ALL' || p.folder === pState.category;
+        const matchType = pState.type === 'ALL' || p.type === pState.type;
+        return matchSearch && matchCat && matchType;
+    });
+
+    // 2. 執行排序 (Sorting)
+    filtered.sort((a, b) => {
+        let valA, valB;
+        if (pState.sortCol === 'folder') { valA = a.folder || ''; valB = b.folder || ''; }
+        else if (pState.sortCol === 'name') { valA = a.name || ''; valB = b.name || ''; }
+        else if (pState.sortCol === 'type') { valA = a.type || ''; valB = b.type || ''; }
+        else if (pState.sortCol === 'count') { valA = getQCount(a.data); valB = getQCount(b.data); }
+
+        if (valA < valB) return pState.sortAsc ? -1 : 1;
+        if (valA > valB) return pState.sortAsc ? 1 : -1;
+        return 0; // 如果相同，維持原順序
+    });
+
+    // 3. 更新表頭圖示
+    document.querySelectorAll('#presetBankModal th[data-sort]').forEach(th => {
+        const icon = th.querySelector('.sort-icon');
+        if (th.dataset.sort === pState.sortCol) {
+            icon.textContent = pState.sortAsc ? 'arrow_upward' : 'arrow_downward';
+            icon.classList.remove('opacity-50');
+            icon.classList.add('text-indigo-600', 'font-bold');
+        } else {
+            icon.textContent = 'unfold_more';
+            icon.classList.add('opacity-50');
+            icon.classList.remove('text-indigo-600', 'font-bold');
+        }
+    });
+
+    // 4. 產生 HTML
+    if (filtered.length === 0) {
+        presetBankTableBody.innerHTML = '<tr><td colspan="5" class="text-center py-10 text-gray-400 font-bold">找不到符合條件的題庫</td></tr>';
+    } else {
+        presetBankTableBody.innerHTML = filtered.map(p => `
+            <tr class="hover:bg-indigo-50/40 transition-colors group cursor-default">
+                <td class="py-2 px-4 text-gray-600 truncate max-w-[150px]" title="${p.folder || '未分類'}">
+                    <div class="flex items-center gap-2"><span class="material-symbols-outlined text-[16px] text-gray-400">folder</span> ${p.folder || '未分類'}</div>
+                </td>
+                <td class="py-2 px-4 text-gray-800 font-bold truncate max-w-[300px]" title="${p.name}">
+                    ${p.name}
+                </td>
+                <td class="py-2 px-4 text-center">
+                    <span class="px-2 py-0.5 rounded text-xs font-bold ${p.type === '選擇' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}">${p.type || '配對'}</span>
+                </td>
+                <td class="py-2 px-4 text-center text-gray-600 font-mono text-sm">
+                    ${getQCount(p.data)}
+                </td>
+                <td class="py-2 px-4 text-center">
+                    <div class="flex items-center justify-center gap-2">
+                        <button class="bg-white border border-gray-300 text-gray-600 hover:bg-gray-100 hover:text-gray-800 px-3 py-1 rounded shadow-sm text-xs font-bold transition-colors cursor-pointer w-full" onclick="viewPresetBank(${p._originalIndex})">
+                            檢視
+                        </button>
+                        <button class="bg-indigo-100 border border-indigo-200 text-indigo-700 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 px-3 py-1 rounded shadow-sm text-xs font-bold transition-colors cursor-pointer w-full" onclick="playPresetBank(${p._originalIndex})">
+                            載入
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    presetCountDisplay.textContent = `共 ${filtered.length} 筆`;
+}
+
+// 關閉視窗動畫
+function closePresetModal() {
+    presetBankModal.classList.remove('opacity-100');
+    presetBankModalContent.classList.remove('scale-100');
+    setTimeout(() => presetBankModal.classList.add('hidden'), 200);
+}
+
+// 綁定事件
+if (btnOpenPresetModal && presetBankModal) {
+    btnOpenPresetModal.addEventListener('click', () => {
+        document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+        
+        // 每次打開時初始化並渲染
+        initPresetFilters();
+        renderPresetTable();
+
+        presetBankModal.classList.remove('hidden');
+        setTimeout(() => {
+            presetBankModal.classList.add('opacity-100');
+            presetBankModalContent.classList.add('scale-100');
+            presetSearchInput.focus(); // 打開時自動聚焦搜尋框
+        }, 10);
+    });
+
+    btnClosePresetModal.addEventListener('click', closePresetModal);
+    presetBankModal.addEventListener('click', (e) => {
+        if (e.target === presetBankModal) closePresetModal(); 
+    });
+
+    // 搜尋與下拉事件
+    presetSearchInput.addEventListener('input', (e) => { pState.search = e.target.value; renderPresetTable(); });
+    presetCategoryFilter.addEventListener('change', (e) => { pState.category = e.target.value; renderPresetTable(); });
+    presetTypeFilter.addEventListener('change', (e) => { pState.type = e.target.value; renderPresetTable(); });
+
+    // 點擊表頭排序事件
+    document.querySelectorAll('#presetBankModal th[data-sort]').forEach(th => {
+        th.addEventListener('click', () => {
+            const col = th.dataset.sort;
+            if (pState.sortCol === col) {
+                pState.sortAsc = !pState.sortAsc; // 反轉順序
+            } else {
+                pState.sortCol = col;
+                pState.sortAsc = true; // 預設升冪
+            }
+            renderPresetTable();
+        });
+    });
+}
+
+// 檢視按鈕：進入表格模式
+window.viewPresetBank = function(index) {
+    const preset = window.presetBank[index];
+    if (!preset) return;
+    
+    window.currentLoadedBank = { id: preset.id, name: preset.name };
+    editor.value = preset.data;
+    sheetTabs[activeSheetIndex].name = preset.name;
+    
+    switchMode('table', true); 
+    saveAllTabsData();
+    renderSheetTabs();
+    
+    showToast(`👀 已檢視題庫：${preset.name}`);
+    closePresetModal();
+};
+
+// 載入按鈕：準備資料後直接彈出學習模式設定框
+window.playPresetBank = function(index) {
+    const preset = window.presetBank[index];
+    if (!preset) return;
+    
+    window.currentLoadedBank = { id: preset.id, name: preset.name };
+    editor.value = preset.data;
+    sheetTabs[activeSheetIndex].name = preset.name;
+    
+    saveAllTabsData();
+    renderSheetTabs();
+    closePresetModal();
+    
+    const btnOpenGameModal = document.getElementById('btnOpenGameModal');
+    if (btnOpenGameModal) btnOpenGameModal.click();
+    showToast(`🚀 已載入並準備學習：${preset.name}`);
+};
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
