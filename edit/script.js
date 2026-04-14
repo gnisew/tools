@@ -537,7 +537,7 @@ function switchMode(mode, isForce = false) {
 
 	// 💡 處理進入遊戲或連線模式的邏輯
     if (mode === 'arena') {
-        // ✨ 新增：啟動連線模式
+        // 啟動連線模式
         if (arenaModeContainer) {
             arenaModeContainer.classList.remove('hidden');
             arenaModeContainer.style.display = 'block';
@@ -10071,7 +10071,7 @@ if (selGameColC) selGameColC.addEventListener('change', renderGameMatchPairs);
 
 // 開始遊戲
 if (btnStartGame) {
-	// ✨ 新增：重設遊戲設定
+	// 重設遊戲設定
 	if (btnResetGameSettings) {
 		btnResetGameSettings.addEventListener('click', () => {
 			// 1. 清除瀏覽器中儲存的遊戲設定記憶
@@ -10094,49 +10094,56 @@ if (btnStartGame) {
 		});
 	}
     if (btnStartGame) {
-    btnStartGame.addEventListener('click', () => {
-        const selectedGame = document.querySelector('input[name="gameType"]:checked').value;
-        const colCValue = parseInt(selGameColC.value, 10);
-        
-        let currentPairs = [];
-        let mcConfig = null;
-
-        if (selectedGame === 'choice') {
-            // 抓取選擇題專屬的設定
-            const mcArea = document.getElementById('mc-config-area');
-            if (mcArea) {
-                mcConfig = {
-                    qCol: parseInt(mcArea.querySelector('.mc-q').value, 10),
-                    o1Col: parseInt(mcArea.querySelector('.mc-o1').value, 10),
-                    o2Col: parseInt(mcArea.querySelector('.mc-o2').value, 10),
-                    o3Col: parseInt(mcArea.querySelector('.mc-o3').value, 10),
-                    o4Col: parseInt(mcArea.querySelector('.mc-o4').value, 10),
-                    ansCol: mcArea.querySelector('.mc-ans').value
-                };
+        btnStartGame.addEventListener('click', () => {
+            const selectedGame = document.querySelector('input[name="gameType"]:checked').value;
+            const colCValue = parseInt(selGameColC.value, 10);
+            
+            // ✨ 判斷要儲存哪一種設定格式
+            let effectiveConfigMode = selectedGame;
+            if (selectedGame === 'arena') {
+                const arenaSourceEl = document.querySelector('input[name="arenaSource"]:checked');
+                effectiveConfigMode = arenaSourceEl ? arenaSourceEl.value : 'match';
             }
-        } else {
-            // 抓取一般配對設定
-            if (gameMatchPairs.length === 0) return showToast('⚠️ 請至少設定一組題目與答案匹配形式');
-            matchPairsContainer.querySelectorAll('.match-pair-row').forEach(row => {
-                const termVal = parseInt(row.querySelector('.sel-term').value, 10);
-                const defVal = parseInt(row.querySelector('.sel-def').value, 10);
-                const pairId = parseInt(row.dataset.id, 10);
-                const existing = gameMatchPairs.find(p => p.id === pairId);
-                if (!isNaN(termVal) && !isNaN(defVal)) {
-                    currentPairs.push({ id: pairId, termCol: termVal, defCol: defVal, customName: existing ? existing.customName : '' });
-                }
-            });
-        }
+            
+            let currentPairs = [];
+            let mcConfig = null;
 
-        window.currentGameConfigs = { 
-            activeBankCols: gameActiveBankCols,
-            matchPairs: currentPairs,
-            mcConfig: mcConfig,
-            hasHeader: chkHasHeader ? chkHasHeader.checked : false,
-            hasCategory: colCValue !== -1,
-            colC: colCValue,
-            filterCategory: 'ALL'
-        };
+            if (effectiveConfigMode === 'choice') {
+                // 抓取選擇題專屬的設定
+                const mcArea = document.getElementById('mc-config-area');
+                if (mcArea) {
+                    mcConfig = {
+                        qCol: parseInt(mcArea.querySelector('.mc-q').value, 10),
+                        o1Col: parseInt(mcArea.querySelector('.mc-o1').value, 10),
+                        o2Col: parseInt(mcArea.querySelector('.mc-o2').value, 10),
+                        o3Col: parseInt(mcArea.querySelector('.mc-o3').value, 10),
+                        o4Col: parseInt(mcArea.querySelector('.mc-o4').value, 10),
+                        ansCol: mcArea.querySelector('.mc-ans').value
+                    };
+                }
+            } else {
+                // 抓取一般配對設定
+                if (gameMatchPairs.length === 0) return showToast('⚠️ 請至少設定一組題目與答案匹配形式');
+                matchPairsContainer.querySelectorAll('.match-pair-row').forEach(row => {
+                    const termVal = parseInt(row.querySelector('.sel-term').value, 10);
+                    const defVal = parseInt(row.querySelector('.sel-def').value, 10);
+                    const pairId = parseInt(row.dataset.id, 10);
+                    const existing = gameMatchPairs.find(p => p.id === pairId);
+                    if (!isNaN(termVal) && !isNaN(defVal)) {
+                        currentPairs.push({ id: pairId, termCol: termVal, defCol: defVal, customName: existing ? existing.customName : '' });
+                    }
+                });
+            }
+
+            window.currentGameConfigs = { 
+                activeBankCols: gameActiveBankCols,
+                matchPairs: currentPairs,
+                mcConfig: mcConfig,
+                hasHeader: chkHasHeader ? chkHasHeader.checked : false,
+                hasCategory: colCValue !== -1,
+                colC: colCValue,
+                filterCategory: 'ALL'
+            };
 
         localStorage.setItem('wesing-game-configs', JSON.stringify(window.currentGameConfigs));
         closeGameModal();
@@ -10251,7 +10258,22 @@ function renderGameMatchPairs() {
 
     const selectedGameType = document.querySelector('input[name="gameType"]:checked').value;
 
-    if (selectedGameType === 'choice') {
+    // 控制連線模式專屬開關的顯示與隱藏
+    const arenaSourceSettings = document.getElementById('arenaSourceSettings');
+    if (selectedGameType === 'arena') {
+        if (arenaSourceSettings) arenaSourceSettings.classList.remove('hidden');
+    } else {
+        if (arenaSourceSettings) arenaSourceSettings.classList.add('hidden');
+    }
+
+    // 決定目前要渲染哪一種設定介面
+    let effectiveConfigMode = selectedGameType;
+    if (selectedGameType === 'arena') {
+        const arenaSourceEl = document.querySelector('input[name="arenaSource"]:checked');
+        effectiveConfigMode = arenaSourceEl ? arenaSourceEl.value : 'match';
+    }
+
+    if (effectiveConfigMode === 'choice') {
         // ========== 選擇題專屬介面 ==========
         let mcConfig = (window.currentGameConfigs && window.currentGameConfigs.mcConfig) || {};
         
@@ -10390,6 +10412,11 @@ function renderGameMatchPairs() {
 }
 
 document.querySelectorAll('input[name="gameType"]').forEach(radio => {
+    radio.addEventListener('change', renderGameMatchPairs);
+});
+
+// 當連線模式的「題型來源」改變時，即時重繪下方的欄位設定
+document.querySelectorAll('input[name="arenaSource"]').forEach(radio => {
     radio.addEventListener('change', renderGameMatchPairs);
 });
 

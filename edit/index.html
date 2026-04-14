@@ -25,7 +25,7 @@
 
 
         <!-- 極簡圖示工具列 -->
-<div class="mb-1 flex items-center flex-wrap gap-0.5 bg-[#f0f4f9] px-3 py-1.5 rounded-full relative overflow-visible select-none">
+		<div class="mb-1 flex items-center flex-wrap gap-0.5 bg-[#f0f4f9] px-3 py-1.5 rounded-full relative overflow-visible select-none">
             
             <div class="relative dropdown-container" id="dd-fileMenu">
                 <button class="dropdown-btn icon-btn" title="檔案管理">
@@ -1289,6 +1289,20 @@
 						<span class="material-symbols-outlined text-lg text-pink-600">sports_esports</span>
 						<span class="text-xs font-bold text-gray-700 whitespace-nowrap">連線</span>
 					</label>
+                </div>
+            </div>
+
+            <div id="arenaSourceSettings" class="hidden mb-4 p-3 bg-pink-50 border border-pink-100 rounded-xl shadow-sm">
+                <label class="block text-pink-900 text-sm font-bold mb-2">連線遊戲題型來源：</label>
+                <div class="flex gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+                        <input type="radio" name="arenaSource" value="match" class="accent-pink-600 w-4 h-4 cursor-pointer" checked>
+                        <span class="text-sm font-bold text-gray-800 select-none">隨機選項 (同「測驗」)</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+                        <input type="radio" name="arenaSource" value="choice" class="accent-pink-600 w-4 h-4 cursor-pointer">
+                        <span class="text-sm font-bold text-gray-800 select-none">自訂選項 (同「選擇」)</span>
+                    </label>
                 </div>
             </div>
 
