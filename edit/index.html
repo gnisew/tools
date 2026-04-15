@@ -43,8 +43,8 @@
                         <span class="material-symbols-outlined text-base">share</span>分享網址
                     </button>
 					<div class="h-px bg-gray-200 my-1 mx-2"></div>
-                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center hover:bg-indigo-50 text-indigo-700 font-bold gap-2 transition-colors" id="btnOpenPresetModal">
-                        <span class="material-symbols-outlined text-base">cloud_download</span>線上題庫
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center hover:bg-indigo-50 text-indigo-700 font-bold gap-2 transition-colors" onclick="switchMode('bank')">
+                        <span class="material-symbols-outlined text-base">cloud_download</span>題庫中心
                     </button>
                 </div>
             </div>
@@ -1381,63 +1381,73 @@
 
 
 
-	<div id="presetBankModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[9999] hidden flex items-center justify-center p-4 sm:p-6 opacity-0 transition-opacity duration-200">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl flex flex-col h-[90vh] md:h-[85vh] overflow-hidden transform scale-95 transition-transform duration-200" id="presetBankModalContent">
+	<div id="bankModeContainer" class="hidden fixed inset-0 z-[2000] w-full h-[100dvh] bg-white flex-col font-sans select-none">
+        
+        <div class="h-16 border-b border-gray-200 flex items-center justify-between px-4 sm:px-8 flex-shrink-0 bg-white">
+            <div class="flex items-center gap-2 text-indigo-700 font-bold text-xl cursor-pointer w-1/4" onclick="switchMode('table')">
+                <span class="material-symbols-outlined text-[28px] text-indigo-600">view_list</span>
+                <span class="hidden sm:inline tracking-wide text-[20px]">線上題庫資料庫</span>
+            </div>
             
-            <div class="px-5 py-3 border-b border-gray-300 flex justify-between items-center bg-gray-50 flex-shrink-0">
-                <div class="flex items-center gap-2 text-indigo-800">
-                    <span class="material-symbols-outlined text-[24px]">cloud</span>
-                    <h2 class="text-lg font-bold">線上題庫資料庫</h2>
+            <div class="flex-1 max-w-2xl px-4">
+                <div class="relative w-full">
+                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[20px]">search</span>
+                    <input type="text" id="bankSearchInput" class="w-full bg-[#f1f3f4] hover:bg-[#e9ebee] focus:bg-white focus:shadow-md border border-transparent focus:border-gray-300 transition-all outline-none rounded-lg py-2.5 pl-10 pr-4 text-gray-700 text-sm font-medium placeholder-gray-500" placeholder="搜尋題庫名稱或分類...">
+                    <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer hidden text-[20px]" id="btnClearBankSearch">close</span>
                 </div>
-                <button id="btnClosePresetModal" class="text-gray-500 hover:text-red-500 hover:bg-gray-200 rounded p-1 flex items-center justify-center transition-colors cursor-pointer">
-                    <span class="material-symbols-outlined text-[20px]">close</span>
+            </div>
+
+            <div class="flex items-center justify-end w-1/4">
+                <button class="text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 px-4 py-2 rounded-md font-bold text-sm flex items-center gap-1.5 transition-colors cursor-pointer" onclick="switchMode('table')">
+                    <span class="material-symbols-outlined text-[20px]">exit_to_app</span> 退出
                 </button>
             </div>
+        </div>
 
-            <div class="px-5 py-2.5 border-b border-gray-200 bg-white flex flex-wrap gap-4 items-center text-sm flex-shrink-0">
-                <div class="relative flex-1 min-w-[200px] max-w-sm">
-                    <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-[18px] pointer-events-none">search</span>
-                    <input type="text" id="presetSearchInput" class="w-full border border-gray-300 rounded-md pl-9 pr-3 py-1.5 outline-none focus:border-indigo-500 text-gray-700 bg-gray-50 focus:bg-white transition-colors" placeholder="搜尋題庫名稱...">
+        <div class="flex-1 w-full bg-white flex flex-col items-center overflow-hidden">
+            <div class="w-full max-w-[1200px] flex flex-col h-full border-x border-gray-100 shadow-[0_0_15px_rgba(0,0,0,0.02)]">
+                
+                <div class="h-14 border-b border-gray-200 flex items-center px-6 gap-4 bg-white flex-shrink-0">
+                    <div class="flex items-center gap-2">
+                        <label class="text-sm font-bold text-gray-600">分類</label>
+                        <select id="bankCategoryFilter" class="bg-white border border-gray-300 rounded md:rounded-md px-2 md:px-3 py-1.5 outline-none focus:border-indigo-500 text-gray-700 cursor-pointer text-sm min-w-[120px] hover:bg-gray-50 transition-colors">
+                            <option value="ALL">全部</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-sm font-bold text-gray-600">題型</label>
+                        <select id="bankTypeFilter" class="bg-white border border-gray-300 rounded md:rounded-md px-2 md:px-3 py-1.5 outline-none focus:border-indigo-500 text-gray-700 cursor-pointer text-sm min-w-[100px] hover:bg-gray-50 transition-colors">
+                            <option value="ALL">全部</option>
+                        </select>
+                    </div>
+                    <div class="ml-auto text-sm text-gray-500 font-bold" id="bankCountDisplay">共 0 筆</div>
                 </div>
-                <div class="flex items-center gap-2">
-                    <label class="font-bold text-gray-600">分類</label>
-                    <select id="presetCategoryFilter" class="border border-gray-300 rounded-md px-2 py-1.5 outline-none focus:border-indigo-500 text-gray-700 cursor-pointer bg-gray-50 hover:bg-white min-w-[120px]">
-                        <option value="ALL">全部</option>
-                    </select>
-                </div>
-                <div class="flex items-center gap-2">
-                    <label class="font-bold text-gray-600">題型</label>
-                    <select id="presetTypeFilter" class="border border-gray-300 rounded-md px-2 py-1.5 outline-none focus:border-indigo-500 text-gray-700 cursor-pointer bg-gray-50 hover:bg-white min-w-[100px]">
-                        <option value="ALL">全部</option>
-                    </select>
-                </div>
-                <div class="ml-auto text-gray-500 font-bold" id="presetCountDisplay">
-                    共 0 筆
-                </div>
-            </div>
 
-            <div class="overflow-y-auto flex-1 bg-white relative scrollbar-thin">
-                <table class="w-full text-left border-collapse text-sm">
-                    <thead class="sticky top-0 z-10 shadow-sm">
-                        <tr class="bg-gray-100 border-b border-gray-300 text-gray-600 select-none">
-                            <th class="py-2.5 px-4 font-bold cursor-pointer hover:bg-gray-200 transition-colors w-1/4" data-sort="folder">
-                                <div class="flex items-center gap-1">大分類 <span class="sort-icon material-symbols-outlined text-[16px] opacity-50">unfold_more</span></div>
-                            </th>
-                            <th class="py-2.5 px-4 font-bold cursor-pointer hover:bg-gray-200 transition-colors w-[45%]" data-sort="name">
-                                <div class="flex items-center gap-1">題庫名稱 <span class="sort-icon material-symbols-outlined text-[16px] opacity-50">unfold_more</span></div>
-                            </th>
-                            <th class="py-2.5 px-4 font-bold cursor-pointer hover:bg-gray-200 transition-colors w-24 text-center" data-sort="type">
-                                <div class="flex items-center justify-center gap-1">題型 <span class="sort-icon material-symbols-outlined text-[16px] opacity-50">unfold_more</span></div>
-                            </th>
-                            <th class="py-2.5 px-4 font-bold cursor-pointer hover:bg-gray-200 transition-colors w-24 text-center" data-sort="count">
-                                <div class="flex items-center justify-center gap-1">題數 <span class="sort-icon material-symbols-outlined text-[16px] opacity-50">unfold_more</span></div>
-                            </th>
-                            <th class="py-2.5 px-4 font-bold w-24 text-center">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="presetBankTableBody" class="text-gray-700 divide-y divide-gray-100">
-                        </tbody>
-                </table>
+                <div class="flex-1 overflow-auto bg-white relative scrollbar-thin">
+                    <div class="min-w-[800px] w-full"> <table class="w-full text-left border-collapse text-sm">
+                            <thead class="sticky top-0 z-10 bg-gray-50 shadow-sm border-b border-gray-200">
+                                <tr class="text-gray-600">
+                                    <th class="py-2.5 px-4 sm:px-6 font-bold cursor-pointer hover:bg-gray-200 w-1/4 transition-colors border-r border-gray-200" data-sort="folder">
+                                        <div class="flex items-center gap-1 text-[13px] whitespace-nowrap">大分類 <span class="sort-icon material-symbols-outlined text-[16px] text-indigo-600 transition-opacity">arrow_downward</span></div>
+                                    </th>
+                                    <th class="py-2.5 px-4 sm:px-6 font-bold cursor-pointer hover:bg-gray-200 w-[45%] transition-colors border-r border-gray-200" data-sort="name">
+                                        <div class="flex items-center gap-1 text-[13px] whitespace-nowrap">題庫名稱 <span class="sort-icon material-symbols-outlined text-[16px] opacity-0 text-indigo-600 transition-opacity">arrow_downward</span></div>
+                                    </th>
+                                    <th class="py-2.5 px-3 font-bold cursor-pointer hover:bg-gray-200 text-center w-28 transition-colors border-r border-gray-200" data-sort="type">
+                                        <div class="flex items-center justify-center gap-1 text-[13px] whitespace-nowrap">題型 <span class="sort-icon material-symbols-outlined text-[16px] opacity-0 text-indigo-600 transition-opacity">arrow_downward</span></div>
+                                    </th>
+                                    <th class="py-2.5 px-3 font-bold cursor-pointer hover:bg-gray-200 text-center w-28 transition-colors border-r border-gray-200" data-sort="count">
+                                        <div class="flex items-center justify-center gap-1 text-[13px] whitespace-nowrap">題數 <span class="sort-icon material-symbols-outlined text-[16px] opacity-0 text-indigo-600 transition-opacity">arrow_downward</span></div>
+                                    </th>
+                                    <th class="py-2.5 px-3 font-bold text-center w-32 text-[13px] whitespace-nowrap">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bankTableBody" class="text-gray-700">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
