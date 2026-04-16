@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>生活中的力：動力傳送</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入 Phosphor Icons 做為圖示庫 -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    /* 隱藏捲軸但保留捲動功能 */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* 僅保留平緩的淡入淡出動畫，符合零干擾設計原則 */
+    .fade-transition {
+      transition: opacity 0.4s ease-in-out, background-color 0.3s ease-in-out, border-color 0.3s ease-in-out, color 0.3s ease-in-out, transform 0.3s ease-out, width 0.3s ease-in-out, height 0.3s ease-in-out, left 0.3s ease-in-out, top 0.3s ease-in-out, bottom 0.3s ease-in-out;
+    }
+
+    /* 骨牌倒下的動畫基礎 */
+    .domino {
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transform-origin: bottom right;
+    }
+    .domino-fallen {
+      transform: rotate(65deg) !important;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 pb-16 min-h-screen select-none">
+
+  <!-- 標題列：沉穩色系，取消 sticky 以最大化可視空間 -->
+  <header class="bg-slate-700 text-white p-4 shadow-md">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="ph ph-wind text-3xl text-cyan-400"></i>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-wider">生活中的力：動力傳送</h1>
+      </div>
+    </div>
+  </header>
+
+  <!-- 全解鎖導航列 -->
+  <div id="progress-container" class="max-w-4xl mx-auto px-4 pt-6 fade-transition">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border-2 border-slate-200 flex flex-wrap justify-between items-center gap-2 overflow-x-auto hide-scrollbar" id="progress-bar">
+      <!-- JS 渲染進度條 -->
+    </div>
+  </div>
+
+  <main id="main-content" class="max-w-4xl mx-auto p-4 mt-4 fade-transition">
+    <!-- JS 渲染內容 -->
+  </main>
+
+  <script>
+    // --- 實用的隨機洗牌函數 ---
+    function shuffleArray(array) {
+      const newArr = [...array];
+      for (let i = newArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+      }
+      return newArr;
+    }
+
+    // --- Tailwind 動態主題安全字典 ---
+    const themeColors = {
+      cyan: { bg50: 'bg-cyan-50', border200: 'border-cyan-200', bg100: 'bg-cyan-100', border400: 'border-cyan-400', text800: 'text-cyan-800', btnBg: 'bg-cyan-500', btnHover: 'hover:bg-cyan-600', btnBorder: 'border-cyan-600', border300: 'border-cyan-300' },
+      orange: { bg50: 'bg-orange-50', border200: 'border-orange-200', bg100: 'bg-orange-100', border400: 'border-orange-400', text800: 'text-orange-800', btnBg: 'bg-orange-500', btnHover: 'hover:bg-orange-600', btnBorder: 'border-orange-600', border300: 'border-orange-300' },
+      blue: { bg50: 'bg-blue-50', border200: 'border-blue-200', bg100: 'bg-blue-100', border400: 'border-blue-400', text800: 'text-blue-800', btnBg: 'bg-blue-500', btnHover: 'hover:bg-blue-600', btnBorder: 'border-blue-600', border300: 'border-blue-300' },
+      emerald: { bg50: 'bg-emerald-50', border200: 'border-emerald-200', bg100: 'bg-emerald-100', border400: 'border-emerald-400', text800: 'text-emerald-800', btnBg: 'bg-emerald-500', btnHover: 'hover:bg-emerald-600', btnBorder: 'border-emerald-600', border300: 'border-emerald-300' },
+      indigo: { bg50: 'bg-indigo-50', border200: 'border-indigo-200', bg100: 'bg-indigo-100', border400: 'border-indigo-400', text800: 'text-indigo-800', btnBg: 'bg-indigo-500', btnHover: 'hover:bg-indigo-600', btnBorder: 'border-indigo-600', border300: 'border-indigo-300' }
+    };
+
+    // --- 系統狀態管理 ---
+    const steps = ['welcome', 'solid', 'fluid', 'application', 'quiz'];
+    let currentStepIndex = 0;
+    
+    let solidProgress = 0;      // 目標: 3 (TF, MCQ, FB)
+    let fluidProgress = 0;      // 目標: 3 (TF, MCQ, FB)
+    let appProgress = 0;        // 目標: 3 (Sort, Match, FB)
+
+    // 互動實驗狀態
+    let dominoState = 'standing'; // 'standing', 'fallen'
+    let syringePushedVol = 0;     // 推動的毫升數: 0, 5, 10, 15
+
+    // 分類遊戲狀態 (動力應用)
+    const baseSortItems = [
+      { id: 1, text: '落葉吹風機', type: 'gas', emoji: '💨', desc: '吹走地上的落葉' },
+      { id: 2, text: '洗車水柱', type: 'liquid', emoji: '💦', desc: '沖走車上的泥沙' },
+      { id: 3, text: '推倒骨牌', type: 'solid', emoji: '🀄', desc: '一個撞倒下一個' },
+      { id: 4, text: '獸醫吹箭', type: 'gas', emoji: '🎯', desc: '用嘴巴吹氣發射' },
+      { id: 5, text: '水槍射擊', type: 'liquid', emoji: '🔫', desc: '壓下開關噴出水流' },
+      { id: 6, text: '腳踏車鏈條', type: 'solid', emoji: '🚲', desc: '帶動後輪旋轉前進' }
+    ];
+    let sortItems = [];
+    let sortCurrentIndex = 0;
+    let sortFeedback = null;
+
+    // --- 最終測驗題庫池 ---
+    const rawQuizPools = [
+      [ { q: "關於動力傳送，下列哪一個說法是正確的？", options: ["只有固體可以傳送動力", "氣體、液體與固體都可以傳送動力", "只有水可以傳送動力", "只有看不見的空氣能傳送動力"], answer: 1 },
+        { q: "自然課本中提到，可以傳送動力的媒介包含哪些？", options: ["只有固體", "固體和液體", "氣體、液體與固體", "只有氣體"], answer: 2 } ],
+      [ { q: "骨牌遊戲中，推倒第一個骨牌會讓後面一個接著一個倒下，這是哪一種動力傳送？", options: ["液體傳送", "氣體傳送", "固體傳送", "磁力傳送"], answer: 2 },
+        { q: "腳踏車的鏈條可以帶動齒輪讓車子前進，這屬於哪一種媒介的動力傳送？", options: ["固體", "液體", "氣體", "水力"], answer: 0 } ],
+      [ { q: "清潔人員利用強力的水柱沖洗地面，這是利用哪一種物質來傳送動力？", options: ["固體", "液體", "氣體", "冰塊"], answer: 1 },
+        { q: "水槍可以把水噴射出去擊倒遠處的紙杯，這證明了什麼？", options: ["水可以傳送動力", "紙杯怕水", "只有空氣可以傳送動力", "水有磁力"], answer: 0 } ],
+      [ { q: "落葉吹風機可以把地上的落葉吹聚在一起，這是哪一種動力傳送的應用？", options: ["固體傳送", "液體傳送", "氣體傳送", "獸力傳送"], answer: 2 },
+        { q: "獸醫使用「吹箭」來幫遠處的動物打針，這主要是利用什麼來傳送動力將箭射出？", options: ["水", "空氣", "磁鐵", "彈簧"], answer: 1 } ],
+      [ { q: "用充滿水的塑膠管連接A、B兩個注射筒，推動A注射筒時，B注射筒會如何？", options: ["活塞向外突出(升高)", "不會有任何反應", "活塞向內縮", "管子會斷掉"], answer: 0 },
+        { q: "當我們把水裝進連通的注射筒並推動活塞來傳送動力，這是利用什麼狀態的物質？", options: ["固體", "液體", "氣體", "粉末"], answer: 1 } ],
+      [ { q: "如果在充滿水的連通注射筒實驗中，將A注射筒往下壓5毫升，B注射筒通常會升高多少？", options: ["大約 5 毫升", "大約 10 毫升", "大約 15 毫升", "完全不會升高"], answer: 0 },
+        { q: "承上題，如果改壓下 15 毫升，B注射筒的活塞會發生什麼事？", options: ["升高更多(約15毫升)", "反而會下降", "只會升高 5 毫升", "管子會塞住"], answer: 0 } ],
+      [ { q: "水槍可以把水噴射出去擊倒遠處的紙杯，這是利用了哪一種方式傳送動力？", options: ["固體傳送", "液體傳送", "磁力傳送", "電力傳送"], answer: 1 },
+        { q: "如果我們想要利用「液體」來傳送動力，下列哪一種物品最適合做為媒介？", options: ["空氣", "沙子", "水", "木塊"], answer: 2 } ],
+      [ { q: "下列哪一個物品的運作，主要是利用「氣體」來傳送動力？", options: ["洗車廠的高壓水槍", "腳踏車的鐵鏈條", "獸醫使用的吹箭", "推倒的積木"], answer: 2 },
+        { q: "下列哪一個是利用「固體傳送動力」的例子？", options: ["用吸管吹泡泡", "用球棒擊中棒球", "用水管澆花", "風車轉動"], answer: 1 } ],
+      [ { q: "我們能夠透過塑膠管把A注射筒的力傳遞到B注射筒，是因為管子裡有什麼？", options: ["只能是沙子", "水等流動物質傳遞了力", "只能是磁鐵", "裡面是真空的"], answer: 1 },
+        { q: "力看不見也摸不著，但我們可以透過各種物質把力送到另一個地方，這個過程稱為什麼？", options: ["動力消失", "動力傳送", "動力隱藏", "動力發電"], answer: 1 } ],
+      [ { q: "關於「力的傳送」，下列哪個敘述錯誤？", options: ["氣體看不見，所以無法傳送動力", "水柱沖走泥沙是液體傳送動力", "骨牌倒下是固體傳送動力", "推注射筒活塞可以觀察動力傳送"], answer: 0 },
+        { q: "打氣筒可以把輪胎打飽，主要是利用哪一種物質在傳送動力？", options: ["水", "空氣", "鐵塊", "磁鐵"], answer: 1 } ]
+    ];
+
+    let quizState = 'dashboard'; 
+    let quizData = [];
+    let quizCurrentQ = 0;
+    let quizScore = 0;
+    let quizSelectedOption = null;
+    let quizIsAnswered = false;
+    let quizStartTime = 0;
+    const LOCAL_STORAGE_KEY = '四下4-1-3翰林自然動力傳送_v2'; 
+
+    function initQuizData() {
+      quizData = rawQuizPools.map(pool => {
+        const qRaw = pool[Math.floor(Math.random() * pool.length)];
+        const correctOpt = qRaw.options[qRaw.answer];
+        const shuffledOptions = shuffleArray(qRaw.options);
+        return { question: qRaw.q, options: shuffledOptions, answer: shuffledOptions.indexOf(correctOpt) };
+      });
+    }
+
+    function formatDuration(ms) {
+      const totalSecs = Math.floor(ms / 1000);
+      const mins = Math.floor(totalSecs / 60);
+      const secs = totalSecs % 60;
+      return `${mins}分 ${secs}秒`;
+    }
+
+    // --- 導航與進度條 ---
+    function jumpToStep(index) {
+      currentStepIndex = index;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function renderProgressBar() {
+      const bar = document.getElementById('progress-bar');
+      const stages = [
+        { name: '出發', icon: 'ph-flag-pennant', th: 'cyan' },
+        { name: '固體傳送', icon: 'ph-cube', th: 'orange' },
+        { name: '液體傳送', icon: 'ph-drop', th: 'blue' },
+        { name: '生活應用', icon: 'ph-lightbulb', th: 'emerald' },
+        { name: '最終測驗', icon: 'ph-file-question', th: 'indigo' },
+      ];
+
+      let html = '';
+      stages.forEach((stage, idx) => {
+        const isActive = currentStepIndex === idx;
+        const isPassed = (idx === 1 && solidProgress >= 3) || 
+                         (idx === 2 && fluidProgress >= 3) || 
+                         (idx === 3 && appProgress >= 3);
+
+        let iconHtml = isPassed ? '<i class="ph-fill ph-check-circle text-xl"></i>' : `<i class="ph ${stage.icon} text-xl"></i>`;
+        let circleClass = `w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm fade-transition `;
+        
+        if (isActive) circleClass += `bg-${stage.th}-500 ring-4 ring-${stage.th}-200`;
+        else if (isPassed) circleClass += `bg-emerald-400`;
+        else circleClass += `bg-slate-300`;
+
+        let textClass = `text-xs font-bold whitespace-nowrap mt-1 ${isActive ? `text-${stage.th}-600` : 'text-slate-500'}`;
+
+        html += `
+          <div class="flex items-center">
+            <button onclick="jumpToStep(${idx})" class="flex flex-col items-center px-2 py-1 fade-transition cursor-pointer hover:bg-slate-50 rounded-lg">
+              <div class="${circleClass}">${iconHtml}</div>
+              <span class="${textClass}">${stage.name}</span>
+            </button>
+        `;
+        if (idx < stages.length - 1) {
+          html += `<div class="hidden sm:block w-8 md:w-12 h-1 rounded-full mx-1 ${isPassed ? 'bg-emerald-300' : 'bg-slate-200'}"></div>`;
+        }
+        html += `</div>`;
+      });
+      bar.innerHTML = html;
+    }
+
+    // --- 區塊渲染：0. 首頁 ---
+    function renderWelcome() {
+      return `
+        <div class="bg-white rounded-3xl p-8 md:p-12 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition">
+          <div class="inline-block bg-cyan-50 p-6 rounded-full mb-6">
+            <i class="ph ph-wind text-7xl text-cyan-500"></i>
+          </div>
+          <h2 class="text-4xl md:text-5xl font-bold text-slate-800 mb-6">動力的奇妙旅程</h2>
+          <p class="text-xl md:text-2xl text-slate-600 leading-relaxed mb-8 max-w-2xl mx-auto">
+            推動一樣東西，一定要手親自摸到它嗎？<br/><br/>
+            其實，「力」可以像接力賽一樣，透過固體、液體或氣體傳送出去！這節課每一關都有 3 個小任務，讓我們一起探索力是如何跑到遠方的吧！
+          </p>
+          <button onclick="jumpToStep(1)" class="inline-flex items-center gap-3 bg-cyan-500 hover:bg-cyan-600 text-white px-8 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm">
+            <i class="ph-fill ph-play-circle text-3xl"></i> 出發探索！
+          </button>
+        </div>
+      `;
+    }
+
+    // --- 區塊渲染：1. 固體傳送 (Orange) ---
+    const solidFBData = {
+      text: ["骨牌遊戲中，推倒第一張骨牌，會透過", "來傳遞力，這種方式稱為", "傳送動力。腳踏車的", "也是相同的原理。"],
+      options: [
+        ["接觸與撞擊", "聲音", "顏色"],
+        ["液體", "氣體", "固體"],
+        ["輪胎", "鏈條", "坐墊"]
+      ],
+      correct: [0, 2, 1] // 接觸與撞擊、固體、鏈條
+    };
+
+    function renderSolid() {
+      let dominoHtml = '';
+      for(let i=0; i<6; i++) {
+        let isFallen = dominoState === 'fallen'; 
+        let rotationClass = isFallen ? 'domino-fallen' : '';
+        // 依序延遲倒下的視覺效果
+        let delay = isFallen ? `transition-delay: ${i * 150}ms;` : 'transition-delay: 0ms;';
+        
+        dominoHtml += `
+          <div class="domino w-6 md:w-8 h-24 md:h-32 bg-orange-400 rounded-sm shadow-md border-r border-orange-500 ${rotationClass}" style="${delay}"></div>
+        `;
+      }
+
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-orange-50 border-l-8 border-orange-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">🀄</div>
+            <div>
+              <h3 class="font-bold text-orange-800 text-lg">觀察任務：骨牌接力賽</h3>
+              <p class="text-orange-700">「骨牌是固體。我們只推倒第一張骨牌，後面的骨牌為什麼也會跟著倒下呢？」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200 text-center">
+            <h2 class="text-2xl font-bold text-orange-600 mb-6 flex items-center justify-center gap-2">
+              <i class="ph-fill ph-hand-pointing text-3xl"></i> 推骨牌體驗區
+            </h2>
+            
+            <div class="flex flex-col items-center mb-6">
+              <div class="relative w-full max-w-lg h-48 bg-slate-50 border-b-8 border-slate-200 flex items-end justify-center pb-0 gap-6 md:gap-10 overflow-hidden mb-8">
+                ${dominoHtml}
+              </div>
+
+              <div class="flex gap-4">
+                <button id="btn-push-domino" onclick="interactDomino()" ${dominoState !== 'standing' ? 'disabled' : ''} class="bg-orange-500 hover:bg-orange-600 text-white px-8 py-3 rounded-xl font-bold shadow-sm fade-transition disabled:opacity-50 flex items-center gap-2">
+                   <i class="ph-bold ph-hand-pointing text-xl"></i> 推倒第一張 
+                </button>
+                <button id="btn-reset-domino" onclick="resetDomino()" ${dominoState !== 'fallen' ? 'disabled' : ''} class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-6 py-3 rounded-xl font-bold shadow-sm fade-transition disabled:opacity-50 flex items-center gap-2">
+                   <i class="ph-bold ph-arrow-counter-clockwise text-xl"></i> 重新排好
+                </button>
+              </div>
+              <p class="text-slate-500 font-bold mt-4 bg-orange-50 px-4 py-2 rounded-lg text-orange-700">👉 結論：前面的骨牌撞擊後面的骨牌，這就是<span class="font-bold text-orange-600 text-lg border-b-2 border-orange-400">「固體傳送動力」</span>。</p>
+            </div>
+          </div>
+      `;
+
+      if (solidProgress >= 0) {
+        content += renderMiniTF('solidTF', '任務一：觀念是非題', 
+          [ {q: '骨牌一個接著一個倒下，是利用「固體」在傳送動力。', a: true},
+            {q: '我們必須親手推倒每一張骨牌，力是沒辦法透過骨牌傳送的。', a: false} ], solidProgress > 0, 'orange');
+      }
+      if (solidProgress >= 1) {
+        content += renderMiniMCQ('solidMCQ', '任務二：觀念選擇題', 
+          [ {q: '腳踏車的鏈條可以帶動齒輪讓車子前進，這屬於哪一種媒介的動力傳送？', opts: ['固體傳送', '液體傳送', '氣體傳送', '磁力傳送'], a: 0},
+            {q: '用球棒擊打棒球，讓棒球飛出去，這是利用什麼在傳遞力？', opts: ['空氣', '水流', '球棒(固體)', '聲音'], a: 2} ], solidProgress > 1, 'orange');
+      }
+      if (solidProgress >= 2) {
+        content += renderMiniFB('solidFB', '任務三：點擊填空題', solidFBData, solidProgress > 2, 'orange');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${solidProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(2)" class="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            太好玩了！前往液體傳送 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      return content;
+    }
+
+    window.interactDomino = function() {
+      if (dominoState !== 'standing') return;
+      dominoState = 'fallen';
+      const dominos = document.querySelectorAll('.domino');
+      dominos.forEach((d, i) => {
+        d.style.transitionDelay = (i * 150) + 'ms'; 
+        d.classList.add('domino-fallen');
+      });
+      document.getElementById('btn-push-domino').disabled = true;
+      document.getElementById('btn-reset-domino').disabled = false;
+    }
+    
+    window.resetDomino = function() {
+      if (dominoState !== 'fallen') return;
+      dominoState = 'standing';
+      const dominos = document.querySelectorAll('.domino');
+      dominos.forEach((d) => {
+        d.style.transitionDelay = '0ms'; 
+        d.classList.remove('domino-fallen');
+      });
+      document.getElementById('btn-push-domino').disabled = false;
+      document.getElementById('btn-reset-domino').disabled = true;
+    }
+
+    // --- 區塊渲染：2. 液體傳送 (Blue) ---
+    const fluidFBData = {
+      text: ["因為水幾乎", "被壓縮，所以推動 A 注射筒 10 毫升時，B 注射筒會精準升高", "毫升。這是", "傳送動力的現象。"],
+      options: [
+        ["可以", "無法", "容易"],
+        ["5", "10", "15"],
+        ["固體", "液體", "氣體"]
+      ],
+      correct: [1, 1, 1] // 無法、10、液體
+    };
+
+    function renderFluid() {
+      let tubeColor = 'bg-blue-300';
+      
+      // 動態計算 UI 高度與位置 (以最大容量 20mL 為基礎)
+      let aFluidHeight = `${100 - (syringePushedVol / 20 * 100)}%`;
+      let aPlungerTop = `calc(${syringePushedVol / 20 * 100}% - 16px)`;
+      
+      let bFluidHeight = `${syringePushedVol / 20 * 100}%`;
+      let bPlungerTop = `calc(${100 - (syringePushedVol / 20 * 100)}% - 16px)`;
+      
+      let noticeHtml = syringePushedVol === 0 
+        ? '<p class="text-blue-700 font-bold md:text-lg">準備好觀察水如何精準傳送動力了嗎？</p>' 
+        : `<p class="text-blue-800 text-lg md:text-xl font-bold">B 注射筒的活塞升高了 <strong class="text-4xl text-blue-600 mx-2">${syringePushedVol}</strong> 毫升！</p><p class="text-blue-700 mt-2 font-bold text-sm">👉 必須先點擊「抽回歸零」才能進行下一次測試喔！</p>`;
+
+      // 按鈕控制邏輯（初始渲染防呆設定）
+      let btn5Props = syringePushedVol > 0 ? 'disabled' : '';
+      let btn10Props = syringePushedVol > 0 ? 'disabled' : '';
+      let btn15Props = syringePushedVol > 0 ? 'disabled' : '';
+      let btn0Props = syringePushedVol === 0 ? 'disabled' : '';
+
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-blue-50 border-l-8 border-blue-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">💉</div>
+            <div>
+              <h3 class="font-bold text-blue-800 text-lg">探險任務：精準的液體傳遞員</h3>
+              <p class="text-blue-700">「將兩個注射筒直立連接並裝滿水。點擊不同毫升(mL)按鈕，看看右邊會如何連動變化！」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200">
+            <h2 class="text-2xl font-bold text-blue-600 mb-6 flex items-center justify-center gap-2">
+              <i class="ph-fill ph-flask text-3xl"></i> 注射筒毫升模擬實驗
+            </h2>
+            
+            <div class="flex flex-col items-center">
+
+              <!-- 注射筒 UI (垂直連通管設計) -->
+              <div class="flex items-end justify-center w-full max-w-lg mb-10 relative pt-[120px]">
+                
+                <!-- 左側注射筒 (A) -->
+                <div class="relative w-24 h-48 border-x-2 border-t-2 border-slate-400 bg-white/80 rounded-t-md z-10 shadow-sm flex flex-col items-center">
+                  <div class="absolute top-4 flex items-center justify-center text-5xl font-black text-slate-300 pointer-events-none z-30">A</div>
+                  
+                  <!-- 刻度 -->
+                  <div class="absolute left-0 top-0 bottom-0 w-8 border-r border-slate-300 flex flex-col justify-between items-center py-1 text-xs text-slate-500 font-bold z-20 bg-white/60">
+                    <span>20</span><span>15</span><span>10</span><span>5</span><span>0</span>
+                  </div>
+                  
+                  <!-- 水 -->
+                  <div id="a-fluid" class="absolute bottom-0 left-0 right-0 opacity-80 transition-all duration-700 ease-in-out z-10 ${tubeColor}" style="height: ${aFluidHeight};"></div>
+                  
+                  <!-- 活塞組 -->
+                  <div id="a-plunger" class="absolute left-0 right-0 transition-all duration-700 ease-in-out z-20" style="top: ${aPlungerTop};">
+                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 w-4 h-48 bg-slate-200 border-x border-t border-slate-400">
+                       <div class="absolute bottom-full left-1/2 -translate-x-1/2 w-16 h-3 bg-slate-400 rounded-t-sm shadow-sm"></div>
+                    </div>
+                    <div class="h-4 bg-slate-700 rounded-sm w-full shadow-md"></div>
+                  </div>
+                </div>
+
+                <!-- 底部連接管 -->
+                <div class="w-24 h-8 border-y-2 border-b-2 border-slate-400 ${tubeColor} opacity-80 z-0 flex items-center justify-center text-blue-900 text-sm font-bold shadow-inner">
+                   水 (不可壓縮)
+                </div>
+
+                <!-- 右側注射筒 (B) -->
+                <div class="relative w-24 h-48 border-x-2 border-t-2 border-slate-400 bg-white/80 rounded-t-md z-10 shadow-sm flex flex-col items-center">
+                  <div class="absolute top-4 flex items-center justify-center text-5xl font-black text-slate-300 pointer-events-none z-30">B</div>
+                  
+                  <!-- 刻度 -->
+                  <div class="absolute right-0 top-0 bottom-0 w-8 border-l border-slate-300 flex flex-col justify-between items-center py-1 text-xs text-slate-500 font-bold z-20 bg-white/60">
+                    <span>20</span><span>15</span><span>10</span><span>5</span><span>0</span>
+                  </div>
+                  
+                  <!-- 水 -->
+                  <div id="b-fluid" class="absolute bottom-0 left-0 right-0 opacity-80 transition-all duration-700 ease-in-out z-10 ${tubeColor}" style="height: ${bFluidHeight};"></div>
+                  
+                  <!-- 活塞組 -->
+                  <div id="b-plunger" class="absolute left-0 right-0 transition-all duration-700 ease-in-out z-20" style="top: ${bPlungerTop};">
+                    <div class="absolute bottom-full left-1/2 -translate-x-1/2 w-4 h-48 bg-slate-200 border-x border-t border-slate-400">
+                       <div class="absolute bottom-full left-1/2 -translate-x-1/2 w-16 h-3 bg-slate-400 rounded-t-sm shadow-sm"></div>
+                    </div>
+                    <div class="h-4 bg-slate-700 rounded-sm w-full shadow-md"></div>
+                  </div>
+                </div>
+              </div>
+              
+              <p class="text-slate-600 font-bold mb-3">請選擇 A 注射筒要往下壓多少水：</p>
+              <!-- 操控面板 -->
+              <div class="flex flex-wrap justify-center gap-3 mb-6">
+                <button onclick="pushSyringe(5)" class="btn-syringe ${syringePushedVol === 5 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'} hover:bg-blue-500 hover:text-white font-bold py-3 px-5 rounded-xl transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" data-vol="5" ${btn5Props}>壓下 5mL</button>
+                <button onclick="pushSyringe(10)" class="btn-syringe ${syringePushedVol === 10 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'} hover:bg-blue-500 hover:text-white font-bold py-3 px-5 rounded-xl transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" data-vol="10" ${btn10Props}>壓下 10mL</button>
+                <button onclick="pushSyringe(15)" class="btn-syringe ${syringePushedVol === 15 ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'} hover:bg-blue-500 hover:text-white font-bold py-3 px-5 rounded-xl transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" data-vol="15" ${btn15Props}>壓下 15mL</button>
+                <button onclick="pushSyringe(0)" class="btn-syringe ${syringePushedVol === 0 ? 'bg-slate-400 text-white' : 'bg-slate-200 text-slate-700'} hover:bg-slate-400 hover:text-white font-bold py-3 px-5 rounded-xl transition-colors shadow-sm ml-0 md:ml-4 disabled:opacity-50 disabled:cursor-not-allowed" data-vol="0" ${btn0Props}><i class="ph-bold ph-arrow-u-up-left"></i> 抽回歸零</button>
+              </div>
+              
+              <!-- 動態結果看板 -->
+              <div id="fluid-result" class="min-h-[6rem] w-full max-w-lg bg-blue-50 rounded-xl border border-blue-200 flex flex-col justify-center items-center p-4 fade-transition">
+                ${noticeHtml}
+              </div>
+            </div>
+          </div>
+      `;
+
+      if (fluidProgress >= 0) {
+        content += renderMiniTF('fluidTF', '任務一：觀念是非題', 
+          [ {q: '用塑膠管連接兩個注射筒並充滿「水」，壓下A注射筒時，B注射筒的活塞也會跟著移動。', a: true},
+            {q: '把水裝進注射筒並推動活塞，這個實驗證明了水無法用來傳送動力。', a: false} ], fluidProgress > 0, 'blue');
+      }
+      if (fluidProgress >= 1) {
+        content += renderMiniMCQ('fluidMCQ', '任務二：觀念選擇題', 
+          [ {q: '用充滿水的塑膠管連接兩個注射筒，壓下A注射筒時，B注射筒會發生什麼事？', opts: ['活塞會向外突出(升高)', '活塞會向內縮', '不會有任何反應', '管子會斷掉'], a: 0},
+            {q: '如果在充滿水的連通注射筒實驗中，將A注射筒往下壓 10 毫升，B注射筒通常會升高多少？', opts: ['大約 5 毫升', '大約 10 毫升', '大約 15 毫升', '完全不會升高'], a: 1} ], fluidProgress > 1, 'blue');
+      }
+      if (fluidProgress >= 2) {
+        content += renderMiniFB('fluidFB', '任務三：點擊填空題', fluidFBData, fluidProgress > 2, 'blue');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${fluidProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(3)" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            太棒了！去看看生活應用 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      return content;
+    }
+
+    window.pushSyringe = function(vol) {
+      syringePushedVol = vol;
+      
+      const aFluid = document.getElementById('a-fluid');
+      const aPlunger = document.getElementById('a-plunger');
+      const bFluid = document.getElementById('b-fluid');
+      const bPlunger = document.getElementById('b-plunger');
+      const resultText = document.getElementById('fluid-result');
+
+      const pct = (vol / 20) * 100;
+
+      if(aFluid) aFluid.style.height = `${100 - pct}%`;
+      if(aPlunger) aPlunger.style.top = `calc(${pct}% - 16px)`;
+      
+      if(bFluid) bFluid.style.height = `${pct}%`;
+      if(bPlunger) bPlunger.style.top = `calc(${100 - pct}% - 16px)`;
+
+      if(resultText) {
+          if (vol === 0) {
+              resultText.innerHTML = '<p class="text-blue-700 font-bold md:text-lg">準備好觀察水如何精準傳送動力了嗎？</p>';
+          } else {
+              resultText.innerHTML = `<p class="text-blue-800 text-lg md:text-xl font-bold">B 注射筒的活塞升高了 <strong class="text-4xl text-blue-600 mx-2">${vol}</strong> 毫升！</p><p class="text-blue-700 mt-2 font-bold text-sm">👉 必須先點擊「抽回歸零」才能進行下一次測試喔！</p>`;
+          }
+      }
+      
+      document.querySelectorAll('.btn-syringe').forEach(btn => {
+          const btnVol = parseInt(btn.getAttribute('data-vol'));
+          btn.classList.remove('bg-blue-600', 'text-white', 'bg-slate-100', 'text-slate-700', 'bg-slate-400', 'bg-slate-200');
+          if (vol > 0) {
+              if (btnVol > 0) {
+                  btn.disabled = true;
+                  if (btnVol === vol) btn.classList.add('bg-blue-600', 'text-white');
+                  else btn.classList.add('bg-slate-100', 'text-slate-700');
+              } else {
+                  btn.disabled = false;
+                  btn.classList.add('bg-slate-200', 'text-slate-700');
+              }
+          } else {
+              if (btnVol > 0) {
+                  btn.disabled = false;
+                  btn.classList.add('bg-slate-100', 'text-slate-700');
+              } else {
+                  btn.disabled = true;
+                  btn.classList.add('bg-slate-400', 'text-white');
+              }
+          }
+      });
+    }
+
+    // --- 區塊渲染：3. 生活應用 (Emerald) ---
+    const appFBData = {
+      text: ["落葉吹風機是利用", "傳送動力；腳踏車鏈條是利用", "傳送動力；而水槍射擊則是利用", "傳送動力。"],
+      options: [
+        ["固體", "液體", "氣體"],
+        ["固體", "液體", "氣體"],
+        ["固體", "液體", "氣體"]
+      ],
+      correct: [2, 0, 1] // 氣體、固體、液體
+    };
+
+    function renderApp() {
+      if (appProgress === 0 && sortItems.length === 0) {
+        sortItems = shuffleArray(baseSortItems);
+      }
+
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-emerald-50 border-l-8 border-emerald-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">💡</div>
+            <div>
+              <h3 class="font-bold text-emerald-800 text-lg">探險任務：生活中的動力大搜查</h3>
+              <p class="text-emerald-700">「生活中到處都是動力傳送的例子，請完成以下三個測驗任務！」</p>
+            </div>
+          </div>
+
+          ${renderSortGame('任務一：動力來源分類賽', appProgress > 0)}
+      `;
+
+      if (appProgress >= 1) {
+        content += renderMatchingGame('appMatch', '任務二：應用連連看', appProgress > 1, 
+          [ {id:'gas', e:'🎯', t:'獸醫吹箭', c:'bg-emerald-50'}, {id:'liquid', e:'💦', t:'洗車水柱', c:'bg-blue-50'}, {id:'solid', e:'🚲', t:'腳踏車鏈條', c:'bg-orange-50'} ],
+          [ {id:'solid', t:'利用「固體」傳送動力'}, {id:'gas', t:'利用「氣體」傳送動力'}, {id:'liquid', t:'利用「液體」傳送動力'} ], 'emerald'
+        );
+      }
+      if (appProgress >= 2) {
+        content += renderMiniFB('appFB', '任務三：點擊填空題', appFBData, appProgress > 2, 'emerald');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${appProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(4)" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            分類大師！迎接最終測驗 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      return content;
+    }
+
+    function renderSortGame(title, isCompleted) {
+      if (isCompleted) sortCurrentIndex = sortItems.length;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? 'bg-emerald-50 border-emerald-200 opacity-80' : 'border-slate-200'}">
+          <h2 class="text-xl font-bold text-emerald-700 mb-6 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-basket"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h2>`;
+
+      if (sortCurrentIndex < sortItems.length && !isCompleted) {
+        const cur = sortItems[sortCurrentIndex];
+        html += `<div class="flex flex-col items-center">
+            <div class="relative w-full max-w-md bg-slate-50 border-4 border-slate-200 rounded-3xl flex flex-col items-center justify-center mb-8 py-8 px-4 fade-transition">`;
+        if (sortFeedback) {
+          html += `<div class="text-2xl font-bold flex items-center gap-2 ${sortFeedback.isCorrect ? 'text-emerald-600' : 'text-red-500'} px-4 text-center">
+              <i class="ph-fill ${sortFeedback.isCorrect ? 'ph-check-circle' : 'ph-x-circle'} text-4xl shrink-0"></i> ${sortFeedback.text}
+            </div>`;
+        } else {
+          html += `<div class="text-center fade-transition">
+              <div class="text-6xl mb-4 drop-shadow-md">${cur.emoji}</div>
+              <h3 class="text-3xl font-bold text-slate-800 mb-2">${cur.text}</h3>
+              <p class="text-slate-500 font-bold bg-white px-3 py-1 rounded shadow-sm border border-slate-100">${cur.desc}</p>
+            </div>`;
+        }
+        html += `</div>
+            <p class="text-slate-600 mb-4 font-bold">它是利用什麼來傳送動力的？</p>
+            <div class="w-full flex justify-center gap-3 md:gap-6 flex-wrap md:flex-nowrap">`;
+        
+        html += `<button onclick="handleSort('solid')" ${sortFeedback?'disabled':''} class="w-full md:w-32 bg-slate-50 hover:bg-orange-50 border-b-4 border-slate-300 hover:border-orange-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50 text-slate-700 hover:text-orange-700">
+            <div class="text-3xl mb-1">🧱</div><div class="font-bold">固體傳送</div>
+          </button>`;
+        html += `<button onclick="handleSort('liquid')" ${sortFeedback?'disabled':''} class="w-full md:w-32 bg-slate-50 hover:bg-blue-50 border-b-4 border-slate-300 hover:border-blue-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50 text-slate-700 hover:text-blue-700">
+            <div class="text-3xl mb-1">💧</div><div class="font-bold">液體傳送</div>
+          </button>`;
+        html += `<button onclick="handleSort('gas')" ${sortFeedback?'disabled':''} class="w-full md:w-32 bg-slate-50 hover:bg-cyan-50 border-b-4 border-slate-300 hover:border-cyan-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50 text-slate-700 hover:text-cyan-700">
+            <div class="text-3xl mb-1">💨</div><div class="font-bold">氣體傳送</div>
+          </button>`;
+        
+        html += `</div><div class="mt-6 text-slate-500 font-bold bg-slate-100 px-4 py-1 rounded-full">進度：${sortCurrentIndex + 1} / ${sortItems.length}</div></div>`;
+      } else {
+        html += `<div class="text-center py-4 fade-transition"><i class="ph-fill ph-check-circle text-6xl text-emerald-500 mb-4 block mx-auto"></i><h3 class="text-xl font-bold text-slate-800">全部判斷正確！</h3></div>`;
+      }
+      return html + `</div>`;
+    }
+    window.handleSort = function(cat) {
+      if (sortFeedback) return;
+      const cur = sortItems[sortCurrentIndex];
+      if (cur.type === cat) {
+        sortFeedback = { isCorrect: true, text: '判斷正確！' };
+      } else {
+        sortFeedback = { isCorrect: false, text: `判斷錯誤喔！再想一想。` };
+      }
+      render();
+      setTimeout(() => {
+        sortFeedback = null;
+        if (cur.type === cat) {
+          if (sortCurrentIndex + 1 < sortItems.length) sortCurrentIndex++;
+          else progressTask('appSort');
+        }
+        render();
+      }, 1000);
+    }
+
+    // --- 區塊渲染：4. 最終測驗 (Indigo) ---
+    function renderQuiz() {
+      if (quizState === 'dashboard') {
+        const history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+        let histHtml = history.length === 0 ? `<p class="text-slate-500 py-4">目前還沒有測驗紀錄，快來挑戰第一次吧！</p>` : `
+          <div class="overflow-x-auto w-full mt-4">
+            <table class="w-full text-left border-collapse min-w-[500px]">
+              <thead><tr class="bg-indigo-100 text-indigo-800 border-b-2 border-indigo-200"><th class="p-3 rounded-tl-xl">日期</th><th class="p-3">時間</th><th class="p-3">成績</th><th class="p-3 rounded-tr-xl">作答時長</th></tr></thead>
+              <tbody>${history.map(r => `<tr class="border-b border-slate-100 hover:bg-slate-50 fade-transition"><td class="p-3 text-slate-600">${r.date}</td><td class="p-3 text-slate-600">${r.time}</td><td class="p-3 font-bold ${r.score >= 80 ? 'text-emerald-600' : 'text-amber-600'}">${r.score} 分</td><td class="p-3 text-slate-500">${r.duration}</td></tr>`).join('')}</tbody>
+            </table>
+          </div>`;
+
+        return `
+          <div class="bg-white rounded-3xl p-8 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition max-w-2xl mx-auto">
+            <i class="ph-fill ph-medal text-6xl text-indigo-500 mb-4 block"></i>
+            <h2 class="text-3xl font-bold text-indigo-800 mb-2">最終綜合測驗</h2>
+            <p class="text-slate-600 mb-8">本測驗共有 10 題，將會從題庫中隨機抽選洗牌。</p>
+            <button onclick="startFinalQuiz()" class="inline-flex items-center justify-center w-full md:w-auto gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm mb-8">
+              <i class="ph-bold ph-pencil-simple"></i> 開始測驗
+            </button>
+            <div class="bg-slate-50 rounded-2xl p-6 border-2 border-slate-100 mb-4">
+              <h3 class="text-xl font-bold text-slate-700 flex items-center justify-center gap-2"><i class="ph-bold ph-clock-counter-clockwise"></i> 最近 5 次測驗紀錄</h3>
+              ${histHtml}
+            </div>
+          </div>
+        `;
+      }
+
+      if (quizState === 'result') {
+        let comment = quizScore >= 90 ? "太厲害了！你是完美過關的「力」學大師！" : (quizScore >= 70 ? "表現不錯喔！你已經成功掌握力的基礎知識了。" : "繼續加油，可以再複習一下喔！");
+        return `
+          <div class="bg-white rounded-3xl p-8 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition">
+            <h2 class="text-4xl font-bold text-indigo-600 mb-6">測驗結束！</h2>
+            <div class="text-8xl mb-6">🏆</div>
+            <p class="text-3xl font-bold mb-4">你的最終得分：<span class="${quizScore >= 80 ? 'text-emerald-500' : 'text-amber-500'}">${quizScore}</span> / 100</p>
+            <p class="text-2xl text-slate-600 mb-8">${comment}</p>
+            <button onclick="returnToQuizDashboard()" class="inline-flex items-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-700 px-8 py-4 rounded-full text-xl font-bold fade-transition"><i class="ph-bold ph-list-dashes"></i> 查看紀錄面板</button>
+          </div>
+        `;
+      }
+
+      const q = quizData[quizCurrentQ];
+      const optionLabels = ['A', 'B', 'C', 'D'];
+      let content = `
+        <div class="space-y-8 fade-transition">
+          <div class="bg-indigo-50 border-l-8 border-indigo-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">📝</div>
+            <div><h3 class="font-bold text-indigo-800 text-lg">營長考驗：最終總測驗</h3><p class="text-indigo-700">「展現你學到的知識，冷靜作答吧！」</p></div>
+          </div>
+          <div class="bg-white rounded-3xl p-6 md:p-10 shadow-sm border-2 border-slate-200">
+            <div class="flex justify-between items-center mb-8 pb-4 border-b-2 border-slate-100">
+              <h2 class="text-2xl md:text-3xl font-bold text-indigo-700">科學知識挑戰賽</h2>
+              <span class="text-lg md:text-xl font-bold bg-indigo-100 text-indigo-800 px-4 py-2 rounded-full">第 ${quizCurrentQ + 1} / ${quizData.length} 題</span>
+            </div>
+            <h3 class="text-xl md:text-2xl font-bold text-slate-800 mb-8 leading-relaxed flex items-start gap-3">
+              <i class="ph-fill ph-question text-indigo-500 text-3xl shrink-0 mt-1"></i><span>${q.question}</span>
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      `;
+
+      q.options.forEach((opt, idx) => {
+        let btnClass = "bg-slate-50 hover:bg-indigo-50 border-slate-200 text-slate-700";
+        let iconHtml = '';
+        if (quizIsAnswered) {
+          if (idx === q.answer) {
+            btnClass = "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold";
+            iconHtml = '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl shrink-0"></i>';
+          } else if (idx === quizSelectedOption) {
+            btnClass = "bg-red-50 border-red-300 text-red-700";
+            iconHtml = '<i class="ph-fill ph-x-circle text-red-500 text-2xl shrink-0"></i>';
+          } else {
+            btnClass = "bg-slate-50 border-slate-200 text-slate-400 opacity-50";
+          }
+        }
+        content += `
+          <button onclick="handleQuizAnswer(${idx})" ${quizIsAnswered ? 'disabled' : ''} class="p-4 md:p-5 text-left text-lg md:text-xl rounded-2xl border-2 fade-transition flex items-center justify-between gap-2 ${btnClass}">
+            <div class="flex items-center gap-3"><span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm border border-slate-200 text-indigo-600 font-bold text-base shrink-0">${optionLabels[idx]}</span><span>${opt}</span></div>
+            ${iconHtml}
+          </button>
+        `;
+      });
+      content += `</div></div></div>`;
+      return content;
+    }
+
+    window.startFinalQuiz = function() {
+      initQuizData(); 
+      quizCurrentQ = 0; quizScore = 0; quizIsAnswered = false; quizSelectedOption = null; quizStartTime = Date.now(); quizState = 'playing';
+      render();
+    }
+    window.handleQuizAnswer = function(idx) {
+      if (quizIsAnswered) return;
+      quizSelectedOption = idx; quizIsAnswered = true;
+      if (idx === quizData[quizCurrentQ].answer) quizScore += 10;
+      render();
+      setTimeout(() => {
+        if (quizCurrentQ + 1 < quizData.length) { quizCurrentQ++; quizSelectedOption = null; quizIsAnswered = false; } 
+        else { saveQuizRecord(quizScore, Date.now() - quizStartTime); quizState = 'result'; }
+        render();
+      }, 1200); 
+    }
+    function saveQuizRecord(score, durationMs) {
+      let history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+      const now = new Date();
+      history.unshift({ date: now.toLocaleDateString('zh-TW'), time: now.toLocaleTimeString('zh-TW', { hour12: false }), score: score, duration: formatDuration(durationMs) }); 
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(history.slice(0, 5)));
+    }
+    window.returnToQuizDashboard = function() { quizState = 'dashboard'; render(); }
+
+    // --- 共用小測驗產生器 (MCQ, TF, FB, Matching, Sorting) ---
+    
+    const mcqStates = {};
+    function renderMiniMCQ(id, title, qPool, isCompleted, theme) {
+      if (!mcqStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        const qRaw = qPool[varIdx];
+        const correctOpt = qRaw.opts[qRaw.a];
+        const shuffledOpts = shuffleArray(qRaw.opts);
+        mcqStates[id] = { selected: null, opts: shuffledOpts, ansIdx: shuffledOpts.indexOf(correctOpt), varIdx: varIdx };
+      }
+      const st = mcqStates[id]; const qRaw = qPool[st.varIdx];
+      const th = `text-${theme}-700`; const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-question"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p><div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
+
+      st.opts.forEach((opt, idx) => {
+        let cls = "bg-slate-50 border-slate-200 hover:bg-slate-100";
+        if (isCompleted) cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-slate-50 text-slate-400 border-slate-100"; 
+        else if (st.selected === idx) cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-red-50 border-red-300 text-red-700"; 
+        html += `<button onclick="handleMCQ('${id}', ${idx}, ${st.ansIdx})" ${isCompleted ? 'disabled' : ''} class="p-4 rounded-2xl border-2 text-left text-lg font-bold fade-transition ${cls}">${opt}</button>`;
+      });
+      return html + `</div></div>`;
+    }
+    window.handleMCQ = function(id, selIdx, ansIdx) {
+      if (mcqStates[id].selected !== null) return;
+      mcqStates[id].selected = selIdx; render();
+      if (selIdx === ansIdx) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { mcqStates[id].selected = null; render(); }, 800);
+    }
+
+    const tfStates = {};
+    function renderMiniTF(id, title, qPool, isCompleted, theme) {
+      if (!tfStates[id]) tfStates[id] = { selected: null, varIdx: Math.floor(Math.random() * qPool.length) };
+      const st = tfStates[id]; const qRaw = qPool[st.varIdx];
+      const th = `text-${theme}-700`; const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-check-square-offset"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p><div class="flex gap-4 justify-center">`;
+      
+      const tCls = isCompleted ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === true ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-red-50 border-red-300 text-red-700") : `bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700`);
+      const fCls = isCompleted ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === false ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-red-50 border-red-300 text-red-700") : `bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700`);
+
+      html += `<button onclick="handleTF('${id}', true, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-6 rounded-2xl border-2 text-2xl font-bold fade-transition text-center ${tCls}">⭕ 是</button>`;
+      html += `<button onclick="handleTF('${id}', false, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-6 rounded-2xl border-2 text-2xl font-bold fade-transition text-center ${fCls}">❌ 非</button>`;
+      return html + `</div></div>`;
+    }
+    window.handleTF = function(id, sel, ans) {
+      if (tfStates[id].selected !== null) return;
+      tfStates[id].selected = sel; render();
+      if (sel === ans) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { tfStates[id].selected = null; render(); }, 800);
+    }
+
+    const fbStates = {};
+    function renderMiniFB(id, title, data, isCompleted, theme) {
+      if (!fbStates[id]) fbStates[id] = { answers: Array(data.options.length).fill(''), activeSlot: 0, err: false, correct: data.correct };
+      const st = fbStates[id];
+      const t = themeColors[theme];
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? `${t.bg50} ${t.border200} opacity-80` : `border-slate-200`} ${st.err ? 'border-red-300 bg-red-50' : ''}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${t.text800}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-text-t"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <div class="text-lg md:text-xl font-bold text-slate-800 mb-6 leading-loose flex flex-wrap items-center gap-y-4 gap-x-1">`;
+
+      data.text.forEach((txt, i) => {
+        html += `<span class="whitespace-pre-wrap">${txt}</span>`;
+        if (i < data.options.length) {
+          let isActive = st.activeSlot === i;
+          let ansIdx = st.answers[i];
+          let displayTxt = ansIdx !== '' ? data.options[i][ansIdx] : '（請點擊選擇）';
+          if (isCompleted) displayTxt = data.options[i][data.correct[i]];
+
+          let btnClass = `px-3 py-1 font-bold rounded-lg border-b-4 transition-all duration-200 outline-none select-none mx-1 `;
+          if (isCompleted) {
+             btnClass += `bg-emerald-50 border-emerald-200 text-emerald-700 underline decoration-emerald-400 decoration-4 underline-offset-4 pointer-events-none`;
+          } else if (isActive) {
+             btnClass += `${t.bg100} ${t.border400} ${t.text800} scale-110 shadow-sm`;
+          } else if (ansIdx !== '') {
+             btnClass += `bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200`;
+          } else {
+             btnClass += `bg-white border-slate-300 text-slate-400 hover:bg-slate-50 border-dashed`;
+          }
+
+          html += `<button onclick="setActiveFBSlot('${id}', ${i})" ${isCompleted ? 'disabled' : ''} class="${btnClass}">${displayTxt}</button>`;
+        }
+      });
+      html += `</div>`;
+
+      if (!isCompleted && st.activeSlot !== null) {
+        html += `<div class="mt-4 p-5 bg-slate-50 rounded-2xl border-2 border-slate-200 text-center fade-transition">
+                 <p class="text-sm font-bold text-slate-500 mb-3 flex justify-center items-center gap-1"><i class="ph-bold ph-hand-pointing"></i> 點擊下方選項填入發光的空格：</p>
+                 <div class="flex flex-wrap justify-center gap-3">`;
+        data.options[st.activeSlot].forEach((opt, optIdx) => {
+           let isSelected = st.answers[st.activeSlot] === String(optIdx);
+           let optClass = isSelected ? `${t.btnBg} text-white ${t.btnBorder}` : `bg-white text-slate-700 border-slate-300 hover:${t.bg50} hover:${t.border300}`;
+           html += `<button onclick="handleFBClick('${id}', ${optIdx})" class="px-5 py-2 rounded-xl border-2 font-bold shadow-sm transition-all ${optClass}">${opt}</button>`;
+        });
+        html += `</div></div>`;
+      }
+
+      if (!isCompleted) {
+         let allSelected = st.answers.every(a => a !== '');
+         html += `<div class="flex flex-col items-end gap-2 mt-6">
+            ${st.err ? '<span class="text-red-500 font-bold"><i class="ph-fill ph-warning-circle"></i> 答案有誤，請再檢查看看！</span>' : ''}
+            <button onclick="checkFB('${id}')" ${!allSelected ? 'disabled' : ''} class="${t.btnBg} ${t.btnHover} text-white px-8 py-3 rounded-xl font-bold shadow-sm fade-transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+              <i class="ph-bold ph-paper-plane-right"></i> 送出答案
+            </button>
+          </div>`;
+      }
+      return html + `</div>`;
+    }
+
+    window.setActiveFBSlot = function(id, index) {
+      fbStates[id].activeSlot = index;
+      render();
+    }
+    
+    window.handleFBClick = function(id, optIdx) {
+      const st = fbStates[id];
+      st.answers[st.activeSlot] = String(optIdx);
+      st.err = false;
+      let nextSlot = st.answers.findIndex(a => a === '');
+      if (nextSlot !== -1) st.activeSlot = nextSlot;
+      render();
+    }
+
+    window.checkFB = function(id) {
+      const st = fbStates[id];
+      let isMatch = true;
+      for (let i = 0; i < st.correct.length; i++) {
+        if (String(st.answers[i]) !== String(st.correct[i])) { isMatch = false; break; }
+      }
+      if (isMatch) { st.err = false; st.activeSlot = null; progressTask(id); } 
+      else { st.err = true; render(); }
+    }
+
+    // 4. Matching Game (連連看)
+    const matchStates = {};
+    function renderMatchingGame(id, title, isCompleted, leftItems, rightItems, theme) {
+      if (!matchStates[id]) matchStates[id] = { selLeft: null, matches: [], err: false, left: shuffleArray(leftItems), right: shuffleArray(rightItems) };
+      const st = matchStates[id]; if (isCompleted && st.matches.length < st.left.length) st.matches = st.left.map(i=>i.id);
+      const th = `text-${theme}-700`; const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : 'border-slate-200'}">
+          <h3 class="text-xl font-bold ${th} mb-2 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-bold ph-link"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-slate-600 mb-6">點擊左邊的圖片，再點擊右邊對應的力連線起來！</p>
+          <div class="flex flex-col md:flex-row gap-4 justify-between"><div class="w-full md:w-2/5 flex flex-col gap-3">`;
+      
+      st.left.forEach(item => {
+        const isMatched = st.matches.includes(item.id); const isSelected = st.selLeft === item.id;
+        let cls = isMatched ? 'bg-slate-100 border-slate-200 opacity-50' : item.c;
+        cls += isSelected ? ' ring-4 border-transparent' : ' border-transparent hover:brightness-95';
+        if (isSelected && st.err) cls += ' bg-red-50 border-red-300';
+        html += `<button onclick="handleMatchLeft('${id}', '${item.id}')" ${isMatched||isCompleted?'disabled':''} class="flex items-center gap-4 p-4 rounded-2xl border-2 fade-transition text-xl font-bold ${cls}"><span class="text-4xl">${item.e}</span> ${item.t}${isMatched ? '<i class="ph-fill ph-check-circle ml-auto text-emerald-500 text-2xl"></i>' : ''}</button>`;
+      });
+
+      html += `</div><div class="w-full md:w-3/5 flex flex-col gap-3">`;
+      st.right.forEach(item => {
+        const isMatched = st.matches.includes(item.id);
+        let cls = isMatched ? 'bg-emerald-50 border-emerald-200 text-emerald-800 opacity-80' : `bg-slate-50 hover:bg-${theme}-50 border-slate-200 text-slate-700`;
+        if (!isMatched && st.selLeft) cls += ` ring-2 ring-${theme}-300 cursor-pointer shadow-md`;
+        html += `<button onclick="handleMatchRight('${id}', '${item.id}')" ${isMatched||isCompleted?'disabled':''} class="flex items-center p-4 min-h-[5rem] rounded-2xl border-2 fade-transition text-lg font-bold text-left ${cls}">${item.t}${isMatched ? '<i class="ph-fill ph-check-circle ml-auto text-emerald-500 text-2xl"></i>' : ''}</button>`;
+      });
+      return html + `</div></div></div>`;
+    }
+    window.handleMatchLeft = function(id, itemId) { if (!matchStates[id].matches.includes(itemId)) { matchStates[id].selLeft = itemId; matchStates[id].err = false; render(); } };
+    window.handleMatchRight = function(id, itemId) {
+      const st = matchStates[id]; if (!st.selLeft || st.matches.includes(itemId)) return;
+      if (st.selLeft === itemId) { st.matches.push(itemId); st.selLeft = null; render(); if (st.matches.length === st.left.length) setTimeout(() => progressTask(id), 500); } 
+      else { st.err = true; render(); setTimeout(() => { st.selLeft = null; st.err = false; render(); }, 800); }
+    };
+
+    // --- 全局狀態推進 ---
+    window.progressTask = function(taskId) {
+      if (taskId.startsWith('solid')) solidProgress++;
+      else if (taskId.startsWith('fluid')) fluidProgress++;
+      else if (taskId.startsWith('app')) appProgress++;
+      render();
+    }
+
+    // 主渲染邏輯
+    function render() {
+      renderProgressBar();
+      const main = document.getElementById('main-content');
+      switch (steps[currentStepIndex]) {
+        case 'welcome': main.innerHTML = renderWelcome(); break;
+        case 'solid': main.innerHTML = renderSolid(); break;
+        case 'fluid': main.innerHTML = renderFluid(); break;
+        case 'application': main.innerHTML = renderApp(); break;
+        case 'quiz': main.innerHTML = renderQuiz(); break;
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>

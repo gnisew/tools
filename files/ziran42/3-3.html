@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>大地探險家：大地的災害</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入 Phosphor Icons 做為圖示庫 -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    /* 隱藏捲軸但保留捲動功能 */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* 僅保留平緩的淡入淡出動畫，減少視覺干擾 */
+    .fade-transition {
+      transition: opacity 0.4s ease-in-out, background-color 0.3s ease-in-out, border-color 0.3s ease-in-out, color 0.3s ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 pb-16 min-h-screen">
+
+  <!-- 標題列：改用沉穩的岩灰色系，並移除 sticky top-0 以釋放可視空間 -->
+  <header class="bg-slate-700 text-white p-4 shadow-md">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="ph ph-warning-circle text-3xl text-amber-400"></i>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-wider">大地探險家：大地的災害</h1>
+      </div>
+    </div>
+  </header>
+
+  <!-- 全解鎖導航列 -->
+  <div id="progress-container" class="max-w-4xl mx-auto px-4 pt-6 fade-transition">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border-2 border-slate-200 flex flex-wrap justify-between items-center gap-2 overflow-x-auto hide-scrollbar" id="progress-bar">
+      <!-- JS 渲染進度條 -->
+    </div>
+  </div>
+
+  <main id="main-content" class="max-w-4xl mx-auto p-4 mt-4 fade-transition">
+    <!-- JS 渲染內容 -->
+  </main>
+
+  <script>
+    // --- 實用的隨機洗牌函數 ---
+    function shuffleArray(array) {
+      const newArr = [...array];
+      for (let i = newArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+      }
+      return newArr;
+    }
+
+    // --- 系統狀態管理 ---
+    const steps = ['welcome', 'intro', 'prepare', 'action', 'quiz'];
+    let currentStepIndex = 0;
+    
+    let introProgress = 0;    
+    let prepareProgress = 0;  
+    let actionProgress = 0;   
+
+    // 避難演練模擬器狀態
+    let drillState = 'idle'; 
+    let drillClicks = []; 
+    const correctDrill = ['drop', 'cover', 'hold'];
+
+    // 分類遊戲狀態 (避難包)
+    const baseSortItems = [
+      { id: 1, text: '瓶裝飲用水', type: 'yes', emoji: '💧' },
+      { id: 2, text: '手電筒與電池', type: 'yes', emoji: '🔦' },
+      { id: 3, text: '急救藥品', type: 'yes', emoji: '🩹' },
+      { id: 4, text: '乾糧與餅乾', type: 'yes', emoji: '🍪' },
+      { id: 5, text: '厚重的百科全書', type: 'no', emoji: '📚' },
+      { id: 6, text: '大型絨毛娃娃', type: 'no', emoji: '🧸' },
+      { id: 7, text: '容易壞的生鮮水果', type: 'no', emoji: '🍎' },
+    ];
+    let sortItems = [];
+    let sortCurrentIndex = 0;
+    let sortFeedback = null;
+
+    // --- 最終測驗題庫池 (包含多種替換題目) ---
+    const rawQuizPools = [
+      [ // 概念1：地震首要動作
+        { q: "地震發生的時候，最重要的第一件事是什麼？", options: ["趕快跑出門", "保護頭部，就地避難", "大聲呼救", "趕快去關瓦斯"], answer: 1 },
+        { q: "當感覺到地板開始劇烈搖晃時，首要的安全動作是？", options: ["尋找掩護並保護頭部", "馬上搭電梯下樓", "跑到陽台求救", "把門窗全部打開"], answer: 0 }
+      ],
+      [ // 概念2：避難三步驟
+        { q: "地震避難的三個重要步驟，正確的順序是什麼？", options: ["掩護、穩住、趴下", "趴下、掩護、穩住", "穩住、趴下、掩護", "趴下、穩住、掩護"], answer: 1 },
+        { q: "保命三步驟「趴下、掩護、穩住」，哪一個動作要最先做？", options: ["掩護", "穩住", "趴下", "同時做"], answer: 2 }
+      ],
+      [ // 概念3：防災準備
+        { q: "平時我們應該準備什麼，以便在地震發生需要逃生時可以立刻帶走？", options: ["滿滿的零食", "所有的玩具", "地震避難包", "很多本故事書"], answer: 2 },
+        { q: "為了應對突發的地震災害，家庭中應該常備哪種物品？", options: ["緊急避難包", "大型保險箱", "露營用大帳篷", "很多套換洗衣物"], answer: 0 }
+      ],
+      [ // 概念4：危險行為
+        { q: "地震發生時，如果我們人在室內，下列哪一個行為是「非常危險」的？", options: ["躲在堅固的桌子下", "搭乘電梯逃生", "用雙手或包包保護頭部", "遠離玻璃窗戶"], answer: 1 },
+        { q: "在室內遇到地震時，絕對「不可以」做什麼事？", options: ["躲開容易掉落的吊燈", "搭乘電梯趕快下樓", "躲進堅固的桌子底下", "遠離大片玻璃窗"], answer: 1 }
+      ],
+      [ // 概念5：居家防護
+        { q: "為了減少地震帶來的傷害，平時在家裡我們可以怎麼做？", options: ["把很重的物品放在高處", "穩固大型家具，防止倒塌", "把逃生路線堆滿雜物", "不用準備手電筒"], answer: 1 },
+        { q: "下列哪一種居家布置方式，最容易在地震時造成危險？", options: ["重物放在較低的櫃子裡", "大型衣櫃有固定在牆上", "高處擺放很多玻璃裝飾品", "手電筒放在床頭容易拿的地方"], answer: 2 }
+      ],
+      [ // 概念6：震後安全
+        { q: "當地震「停止」之後，我們應該優先做什麼事以確保安全？", options: ["趕快打開電視看卡通", "關閉爐火、瓦斯及電器設備", "立刻搭電梯下樓", "躲回桌子底下"], answer: 1 },
+        { q: "搖晃結束後，為了避免引發火災，應該立刻做什麼？", options: ["打開所有的電燈檢查", "檢查並關閉瓦斯與爐火", "馬上點燃蠟燭照明", "使用打火機看清楚周圍"], answer: 1 }
+      ],
+      [ // 概念7：學校避難
+        { q: "在學校遇到地震時，應該要怎麼做？", options: ["聽從老師指示，不推不擠", "邊跑邊尖叫", "自己跑回家", "躲在操場正中央的樹下"], answer: 0 },
+        { q: "在教室上課突然發生地震，下列哪個行為最正確？", options: ["趕快衝出教室", "躲在桌下並抓住桌腳", "大聲尖叫讓大家知道", "跑去窗戶旁邊看外面"], answer: 1 }
+      ],
+      [ // 概念8：避難包內容物
+        { q: "下列哪一項物品「最不需要」放進地震避難包裡？", options: ["飲用水和乾糧", "手電筒和電池", "沉重的厚字典", "急救小藥品"], answer: 2 },
+        { q: "地震避難包裡，通常「不會」準備下列哪一項物品？", options: ["手搖式收音機", "大型絨毛玩具", "輕便雨衣", "哨子"], answer: 1 }
+      ],
+      [ // 概念9：避難細節
+        { q: "躲在桌子底下避難時，雙手應該做什麼動作最正確？", options: ["摀住耳朵", "緊緊握住桌腳", "雙手抱胸", "玩手機"], answer: 1 },
+        { q: "進行「掩護」動作躲在桌下時，為什麼要「穩住」抓住桌腳？", options: ["怕桌子被別人搶走", "怕地震晃動讓桌子移位失去保護", "這樣手比較不會酸", "老師規定的動作"], answer: 1 }
+      ],
+      [ // 概念10：地表變化特性
+        { q: "地震是屬於哪一種地表變化？", options: ["幾百年才會發現的緩慢變化", "短時間內發生的劇烈變化", "只有在海邊才會發生", "人類自己製造的變化"], answer: 1 },
+        { q: "與流水慢慢改變地形不同，地震對地表的影響具有什麼特徵？", options: ["非常緩慢且不易察覺", "只會讓地表變得更平坦", "在極短時間內造成劇烈改變", "只會發生在河流的下游"], answer: 2 }
+      ]
+    ];
+
+    let quizState = 'dashboard'; // 'dashboard', 'playing', 'result'
+    let quizData = [];
+    let quizCurrentQ = 0;
+    let quizScore = 0;
+    let quizSelectedOption = null;
+    let quizIsAnswered = false;
+    let quizStartTime = 0;
+    const LOCAL_STORAGE_KEY = '四下3-3翰林自然42hz33';
+
+    // 初始化/隨機抽題函數
+    function initQuizData() {
+      quizData = rawQuizPools.map(pool => {
+        // 從該概念的題庫中隨機挑選一題
+        const qRaw = pool[Math.floor(Math.random() * pool.length)];
+        const correctOpt = qRaw.options[qRaw.answer];
+        // 洗牌選項
+        const shuffledOptions = shuffleArray(qRaw.options);
+        return {
+          question: qRaw.q,
+          options: shuffledOptions,
+          answer: shuffledOptions.indexOf(correctOpt)
+        };
+      });
+    }
+
+    // --- 時間格式化 ---
+    function formatDuration(ms) {
+      const totalSecs = Math.floor(ms / 1000);
+      const mins = Math.floor(totalSecs / 60);
+      const secs = totalSecs % 60;
+      return `${mins}分 ${secs}秒`;
+    }
+
+    // --- 導航與進度條 ---
+    function jumpToStep(index) {
+      currentStepIndex = index;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function renderProgressBar() {
+      const container = document.getElementById('progress-container');
+      const bar = document.getElementById('progress-bar');
+      
+      const stages = [
+        { name: '出發', icon: 'ph-flag-pennant' },
+        { name: '認識地震', icon: 'ph-info' },
+        { name: '防震準備', icon: 'ph-backpack' },
+        { name: '避難演練', icon: 'ph-person-simple-walk' },
+        { name: '最終測驗', icon: 'ph-file-question' },
+      ];
+
+      let html = '';
+      stages.forEach((stage, idx) => {
+        const isActive = currentStepIndex === idx;
+        const isPassed = (idx === 1 && introProgress >= 2) || 
+                         (idx === 2 && prepareProgress >= 3) || 
+                         (idx === 3 && actionProgress >= 4);
+
+        let iconHtml = isPassed ? '<i class="ph-fill ph-check-circle text-xl"></i>' : `<i class="ph ${stage.icon} text-xl"></i>`;
+        
+        // 顏色主題：根據 isActive 狀態切換
+        let circleClass = `w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm fade-transition `;
+        if (isActive) circleClass += `bg-amber-500 ring-4 ring-amber-200`;
+        else if (isPassed) circleClass += `bg-emerald-400`;
+        else circleClass += `bg-slate-300`;
+
+        let textClass = `text-xs font-bold whitespace-nowrap mt-1 ${isActive ? 'text-amber-600' : 'text-slate-500'}`;
+
+        html += `
+          <div class="flex items-center">
+            <!-- 移除 disabled，讓所有按鈕都可以隨時點擊 -->
+            <button onclick="jumpToStep(${idx})" class="flex flex-col items-center px-2 py-1 fade-transition cursor-pointer hover:bg-slate-50 rounded-lg">
+              <div class="${circleClass}">${iconHtml}</div>
+              <span class="${textClass}">${stage.name}</span>
+            </button>
+        `;
+        if (idx < stages.length - 1) {
+          html += `<div class="hidden sm:block w-8 md:w-12 h-1 rounded-full mx-1 ${isPassed ? 'bg-emerald-300' : 'bg-slate-200'}"></div>`;
+        }
+        html += `</div>`;
+      });
+      bar.innerHTML = html;
+    }
+
+    // --- 區塊渲染：0. 首頁 ---
+    function renderWelcome() {
+      return `
+        <div class="bg-white rounded-3xl p-8 md:p-12 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition">
+          <div class="inline-block bg-slate-100 p-6 rounded-full mb-6">
+            <i class="ph ph-shield-check text-7xl text-slate-600"></i>
+          </div>
+          <h2 class="text-4xl md:text-5xl font-bold text-slate-800 mb-6">防災訓練營：大地的災害</h2>
+          <p class="text-xl md:text-2xl text-slate-600 leading-relaxed mb-8 max-w-2xl mx-auto">
+            臺灣位在地震帶上，地震是我們常遇到的自然現象。<br/><br/>
+            地震發生時該怎麼辦？平時又該做什麼準備才能保護自己呢？快來加入防災訓練營，學習正確的安全知識吧！
+          </p>
+          <button onclick="jumpToStep(1)" class="inline-flex items-center gap-3 bg-amber-500 hover:bg-amber-600 text-white px-8 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm">
+            <i class="ph-fill ph-play-circle text-3xl"></i> 接受訓練，開始學習！
+          </button>
+        </div>
+      `;
+    }
+
+    // --- 區塊渲染：1. 認識地震 (藍色系) ---
+    function renderIntro() {
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-blue-50 border-l-8 border-blue-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">🚨</div>
+            <div>
+              <h3 class="font-bold text-blue-800 text-lg">營長指示：認識地震</h3>
+              <p class="text-blue-700">「地震是一種會讓地表在短時間內劇烈晃動的自然現象。請完成下方的測驗來過關！」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200">
+            <h2 class="text-3xl font-bold text-blue-600 mb-6 flex items-center gap-2">
+              <i class="ph-fill ph-activity text-3xl"></i> 什麼是地震？
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div class="p-6 bg-slate-50 rounded-2xl border-2 border-slate-100">
+                <div class="text-4xl mb-4">💥</div>
+                <h3 class="text-xl font-bold text-slate-700 mb-2">劇烈的變化</h3>
+                <p class="text-slate-600">與流水緩慢的雕刻不同，地震會在非常短的時間內，讓大地產生劇烈的晃動，甚至造成地表裂開或山崩。</p>
+              </div>
+              <div class="p-6 bg-slate-50 rounded-2xl border-2 border-slate-100">
+                <div class="text-4xl mb-4">⛑️</div>
+                <h3 class="text-xl font-bold text-slate-700 mb-2">保護首要目標</h3>
+                <p class="text-slate-600">地震發生時，因為可能會有物品掉落，所以最重要的是**保護頭部**，避免受傷。</p>
+              </div>
+            </div>
+          </div>
+      `;
+
+      if (introProgress >= 0) {
+        content += renderMiniTF('introTF', '任務一：觀念是非題', 
+          [
+            {q: '地震是一種會讓地表在「短時間內」發生劇烈變化的自然現象。', a: true},
+            {q: '地震改變地表的速度非常緩慢，通常需要幾百年才看得出來。', a: false}
+          ], introProgress > 0, 'blue');
+      }
+      if (introProgress >= 1) {
+        content += renderMiniMCQ('introMCQ', '任務二：安全選擇題', 
+          [
+            {q: '地震發生的瞬間，最先要保護身體的哪一個部位？', opts: ['手和腳', '肚子', '頭部', '背部'], a: 2},
+            {q: '為了避免地震時被掉落物砸傷，我們應該優先保護哪裡？', opts: ['肩膀', '頭部', '雙腳', '眼睛'], a: 1}
+          ], introProgress > 1, 'blue');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${introProgress === 2 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(2)" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            完全明白！前往防震準備 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      return content;
+    }
+
+    // --- 區塊渲染：2. 防震準備 (藍綠色/Teal) ---
+    function renderPrepare() {
+      if (prepareProgress === 1 && sortItems.length === 0) {
+        sortItems = shuffleArray(baseSortItems);
+      }
+
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-teal-50 border-l-8 border-teal-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">🎒</div>
+            <div>
+              <h3 class="font-bold text-teal-800 text-lg">營長指示：防震準備</h3>
+              <p class="text-teal-700">「平時做好準備，災難來時才不會慌張。請完成下方的準備任務！」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200">
+            <h2 class="text-3xl font-bold text-teal-600 mb-6 flex items-center gap-2">
+              <i class="ph-fill ph-house-line text-3xl"></i> 平時可以做什麼？
+            </h2>
+            <ul class="list-disc pl-6 text-xl text-slate-700 space-y-4">
+              <li><b>準備地震避難包：</b>放入必需品（水、乾糧、手電筒、藥品等），並定期檢查有沒有過期。</li>
+              <li><b>穩固家具：</b>將大型家具固定好，避免搖晃時倒塌。</li>
+              <li><b>物品擺放安全：</b>重物要放在低處，高處不要放容易掉落的危險物品。</li>
+            </ul>
+          </div>
+      `;
+
+      if (prepareProgress >= 0) {
+        content += renderMiniTF('prepTF', '任務一：居家安全是非題', 
+          [
+            {q: '為了節省空間，我們應該把很重的大箱子放在大櫃子的最上層。', a: false},
+            {q: '平時應該將家裡較重的大型物品放在低處，以防地震時掉落砸傷人。', a: true}
+          ], prepareProgress > 0, 'teal');
+      }
+      if (prepareProgress >= 1) {
+        content += renderSortGame('任務二：整理避難包', prepareProgress > 1);
+      }
+      if (prepareProgress >= 2) {
+        content += renderMiniMCQ('prepMCQ', '任務三：觀念選擇題', 
+          [
+            {q: '為了防止地震時家具倒塌壓傷人，我們平時應該怎麼做？', opts: ["把家具全部丟掉", "用工具將大型家具穩固好", "地震來時再用手扶著", "在家具旁邊堆滿雜物"], a: 1},
+            {q: '平時在家中，哪一種做法可以減少地震造成的傷害？', opts: ["將書櫃或衣櫃固定在牆上", "把逃生通道鎖起來", "睡在吊燈正下方", "把重物全部疊疊樂放在高處"], a: 0}
+          ], prepareProgress > 2, 'teal');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${prepareProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(3)" class="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            準備妥當！前往避難演練 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      return content;
+    }
+
+    // --- 區塊渲染：3. 避難演練 (琥珀色/Amber) ---
+    function renderAction() {
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-amber-50 border-l-8 border-amber-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">🏃</div>
+            <div>
+              <h3 class="font-bold text-amber-800 text-lg">營長指示：避難演練</h3>
+              <p class="text-amber-700">「當地表劇烈搖晃時，我們該怎麼做？請親自進行演練並完成測驗！」</p>
+            </div>
+          </div>
+      `;
+
+      let drillContent = '';
+      if (drillState === 'idle') {
+        drillContent = `<button onclick="startDrill()" class="bg-amber-500 hover:bg-amber-600 text-white font-bold text-2xl px-8 py-4 rounded-2xl fade-transition shadow-sm">⚠️ 點擊模擬：發生地震了！</button>`;
+      } else if (drillState === 'earthquake' || drillState === 'fail') {
+        const btns = [ {id:'drop', t:'趴下', e:'⬇️'}, {id:'cover', t:'掩護', e:'🛡️'}, {id:'hold', t:'穩住', e:'✊'} ];
+        const shuffledBtns = drillClicks.length === 0 ? shuffleArray(btns) : btns; 
+        
+        drillContent = `
+          <p class="text-xl font-bold text-amber-700 mb-4">地板正在搖晃！請依序點擊正確的避難三步驟：</p>
+          <div class="flex gap-4 justify-center mb-4">
+            ${shuffledBtns.map(b => {
+              const isClicked = drillClicks.includes(b.id);
+              let c = isClicked ? 'bg-slate-200 text-slate-400 border-slate-300' : 'bg-white hover:bg-amber-50 border-amber-400 text-amber-800';
+              return `<button onclick="handleDrillClick('${b.id}')" ${isClicked?'disabled':''} class="p-4 border-2 rounded-xl text-xl font-bold flex flex-col items-center min-w-[100px] fade-transition ${c}"><span class="text-3xl mb-1">${b.e}</span>${b.t}</button>`;
+            }).join('')}
+          </div>
+          <div class="h-8 text-lg font-bold ${drillState === 'fail' ? 'text-red-500' : 'text-slate-500'}">
+            ${drillState === 'fail' ? '順序錯了喔！請重新嘗試。' : `已點擊：${drillClicks.length} / 3 步`}
+          </div>
+        `;
+      } else if (drillState === 'success') {
+        drillContent = `
+          <div class="text-2xl font-bold text-emerald-600 flex flex-col items-center">
+            <i class="ph-fill ph-check-circle text-6xl mb-2"></i>
+            演練成功！正確順序是：趴下 ➔ 掩護 ➔ 穩住
+          </div>
+        `;
+      }
+
+      content += `
+        <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200 text-center">
+          <h2 class="text-2xl font-bold text-amber-600 mb-6"><i class="ph-fill ph-person-simple-walk"></i> 任務一：保命三步驟演練</h2>
+          <div class="min-h-[200px] bg-slate-50 rounded-2xl border-2 border-slate-100 flex flex-col items-center justify-center p-6">
+            ${drillContent}
+          </div>
+        </div>
+      `;
+
+      if (actionProgress >= 1) {
+        content += renderMatchingGame('actionMatch', '任務二：地震時機配對', actionProgress > 1,
+          [
+            {id:'d', e:'🏃', t:'地震發生時', c:'bg-amber-50'}, 
+            {id:'a', e:'🛑', t:'地震停止後', c:'bg-teal-50'}, 
+            {id:'n', e:'🏠', t:'平時安全', c:'bg-blue-50'}
+          ],
+          [
+            {id:'a', t:'檢查有無受傷，並關閉爐火、瓦斯及電源'}, 
+            {id:'n', t:'定時進行地震防災演練'}, 
+            {id:'d', t:'保護頭部，絕不可搭乘電梯逃生'}
+          ], 'amber'
+        );
+      }
+      if (actionProgress >= 2) {
+        content += renderOrderGame('actionOrder', '任務三：保命三步驟排序', actionProgress > 2, 
+          [{id:1, t:'趴下', e:'⬇️'}, {id:2, t:'掩護', e:'🛡️'}, {id:3, t:'穩住', e:'✊'}],
+          '再複習一次，地震發生時，我們保護自己的三個步驟順序是什麼？', 'amber'
+        );
+      }
+      if (actionProgress >= 3) {
+         content += renderMiniMCQ('actionMCQ', '任務四：逃生選擇題', 
+          [
+            {q: '地震發生時，如果想從高樓逃生，哪一個行為是絕對「不可以」做的？', opts: ["走樓梯", "搭乘電梯", "保護頭部", "聽從廣播指示"], a: 1},
+            {q: '發生地震時，下列哪一種逃生方式非常危險？', opts: ["用書包保護頭部", "搭乘電梯快速下樓", "遠離玻璃窗戶", "躲進堅固桌下"], a: 1}
+          ], actionProgress > 3, 'amber');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${actionProgress === 4 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(4)" class="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            演練完畢！進行最終測驗 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+      return content;
+    }
+
+    window.startDrill = function() { drillState = 'earthquake'; drillClicks = []; render(); };
+    window.handleDrillClick = function(id) {
+      if (drillState === 'success') return;
+      drillClicks.push(id);
+      let isCorrectSoFar = true;
+      for(let i=0; i<drillClicks.length; i++) { if(drillClicks[i] !== correctDrill[i]) isCorrectSoFar = false; }
+
+      if (!isCorrectSoFar) {
+        drillState = 'fail'; render();
+        setTimeout(() => { drillState = 'earthquake'; drillClicks = []; render(); }, 1500);
+      } else {
+        render();
+        if (drillClicks.length === 3) {
+          drillState = 'success'; render();
+          if (actionProgress === 0) setTimeout(() => { progressTask('action'); }, 1000);
+        }
+      }
+    };
+
+    // --- 區塊渲染：4. 最終測驗 (靛藍色/Indigo) ---
+    function renderQuiz() {
+      if (quizState === 'dashboard') {
+        // 讀取歷史紀錄
+        const history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+        
+        let histHtml = '';
+        if (history.length === 0) {
+          histHtml = `<p class="text-slate-500 py-4">目前還沒有測驗紀錄，快來挑戰第一次吧！</p>`;
+        } else {
+          histHtml = `
+            <div class="overflow-x-auto w-full mt-4">
+              <table class="w-full text-left border-collapse min-w-[500px]">
+                <thead>
+                  <tr class="bg-indigo-100 text-indigo-800 border-b-2 border-indigo-200">
+                    <th class="p-3 rounded-tl-xl">日期</th>
+                    <th class="p-3">時間</th>
+                    <th class="p-3">成績</th>
+                    <th class="p-3 rounded-tr-xl">作答時長</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${history.map(r => `
+                    <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                      <td class="p-3 text-slate-600">${r.date}</td>
+                      <td class="p-3 text-slate-600">${r.time}</td>
+                      <td class="p-3 font-bold ${r.score >= 80 ? 'text-emerald-600' : 'text-amber-600'}">${r.score} 分</td>
+                      <td class="p-3 text-slate-500">${r.duration}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
+
+        // 把開始按鈕移到歷史紀錄上方
+        return `
+          <div class="bg-white rounded-3xl p-8 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition max-w-2xl mx-auto">
+            <i class="ph-fill ph-medal text-6xl text-indigo-500 mb-4 block"></i>
+            <h2 class="text-3xl font-bold text-indigo-800 mb-2">最終綜合測驗</h2>
+            <p class="text-slate-600 mb-8">本測驗共有 10 題，將會隨機從題庫中抽選。</p>
+            
+            <button onclick="startFinalQuiz()" class="inline-flex items-center justify-center w-full md:w-auto gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm mb-8">
+              <i class="ph-bold ph-pencil-simple"></i> 開始測驗
+            </button>
+
+            <div class="bg-slate-50 rounded-2xl p-6 border-2 border-slate-100 mb-4">
+              <h3 class="text-xl font-bold text-slate-700 flex items-center justify-center gap-2">
+                <i class="ph-bold ph-clock-counter-clockwise"></i> 最近 5 次測驗紀錄
+              </h3>
+              ${histHtml}
+            </div>
+          </div>
+        `;
+      }
+
+      if (quizState === 'result') {
+        let comment = "繼續加油，可以再複習一下喔！";
+        if (quizScore >= 90) comment = "太厲害了！你是完美過關的防災小尖兵！";
+        else if (quizScore >= 70) comment = "表現不錯喔！你已經成功掌握防災知識了。";
+
+        return `
+          <div class="bg-white rounded-3xl p-8 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition">
+            <h2 class="text-4xl font-bold text-indigo-600 mb-6">測驗結束！</h2>
+            <div class="text-8xl mb-6">🏆</div>
+            <p class="text-3xl font-bold mb-4">你的最終得分：<span class="${quizScore >= 80 ? 'text-emerald-500' : 'text-amber-500'}">${quizScore}</span> / 100</p>
+            <p class="text-2xl text-slate-600 mb-8">${comment}</p>
+            <button onclick="returnToQuizDashboard()" class="inline-flex items-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-700 px-8 py-4 rounded-full text-xl font-bold fade-transition">
+              <i class="ph-bold ph-list-dashes"></i> 查看紀錄面板
+            </button>
+          </div>
+        `;
+      }
+
+      // Playing State
+      const q = quizData[quizCurrentQ];
+      const optionLabels = ['A', 'B', 'C', 'D'];
+      let content = `
+        <div class="space-y-8 fade-transition">
+          <div class="bg-indigo-50 border-l-8 border-indigo-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">📝</div>
+            <div>
+              <h3 class="font-bold text-indigo-800 text-lg">營長考驗：最終總測驗</h3>
+              <p class="text-indigo-700">「展現你學到的防災知識，冷靜作答吧！」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-10 shadow-sm border-2 border-slate-200">
+            <div class="flex justify-between items-center mb-8 pb-4 border-b-2 border-slate-100">
+              <h2 class="text-2xl md:text-3xl font-bold text-indigo-700">防災知識挑戰賽</h2>
+              <span class="text-lg md:text-xl font-bold bg-indigo-100 text-indigo-800 px-4 py-2 rounded-full">
+                第 ${quizCurrentQ + 1} / ${quizData.length} 題
+              </span>
+            </div>
+            
+            <h3 class="text-xl md:text-2xl font-bold text-slate-800 mb-8 leading-relaxed flex items-start gap-3">
+              <i class="ph-fill ph-question text-indigo-500 text-3xl shrink-0 mt-1"></i>
+              <span>${q.question}</span>
+            </h3>
+            
+            <!-- 將單行排列改為 grid 排列 (寬螢幕左右兩欄) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      `;
+
+      q.options.forEach((opt, idx) => {
+        let btnClass = "bg-slate-50 hover:bg-indigo-50 border-slate-200 text-slate-700";
+        let iconHtml = '';
+        if (quizIsAnswered) {
+          if (idx === q.answer) {
+            btnClass = "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold";
+            iconHtml = '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl shrink-0"></i>';
+          } else if (idx === quizSelectedOption) {
+            btnClass = "bg-red-50 border-red-300 text-red-700";
+            iconHtml = '<i class="ph-fill ph-x-circle text-red-500 text-2xl shrink-0"></i>';
+          } else {
+            btnClass = "bg-slate-50 border-slate-200 text-slate-400 opacity-50";
+          }
+        }
+        
+        // 加上 A, B, C, D 圓角標籤增加圖示感
+        content += `
+          <button onclick="handleQuizAnswer(${idx})" ${quizIsAnswered ? 'disabled' : ''} class="p-4 md:p-5 text-left text-lg md:text-xl rounded-2xl border-2 fade-transition flex items-center justify-between gap-2 ${btnClass}">
+            <div class="flex items-center gap-3">
+              <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm border border-slate-200 text-indigo-600 font-bold text-base shrink-0">${optionLabels[idx]}</span>
+              <span>${opt}</span>
+            </div>
+            ${iconHtml}
+          </button>
+        `;
+      });
+      content += `</div></div></div>`;
+      return content;
+    }
+
+    window.startFinalQuiz = function() {
+      initQuizData(); // 隨機抽題並洗牌
+      quizCurrentQ = 0;
+      quizScore = 0;
+      quizIsAnswered = false;
+      quizSelectedOption = null;
+      quizStartTime = Date.now();
+      quizState = 'playing';
+      render();
+    }
+
+    window.handleQuizAnswer = function(idx) {
+      if (quizIsAnswered) return;
+      quizSelectedOption = idx; quizIsAnswered = true;
+      if (idx === quizData[quizCurrentQ].answer) quizScore += 10;
+      render();
+
+      setTimeout(() => {
+        if (quizCurrentQ + 1 < quizData.length) { 
+          quizCurrentQ++; quizSelectedOption = null; quizIsAnswered = false; 
+        } else { 
+          // 測驗結束，儲存紀錄
+          const durationMs = Date.now() - quizStartTime;
+          saveQuizRecord(quizScore, durationMs);
+          quizState = 'result'; 
+        }
+        render();
+      }, 1200); // 縮短等待時間，讓作答更流暢
+    }
+
+    function saveQuizRecord(score, durationMs) {
+      let history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+      const now = new Date();
+      const record = {
+         date: now.toLocaleDateString('zh-TW'),
+         time: now.toLocaleTimeString('zh-TW', { hour12: false }),
+         score: score,
+         duration: formatDuration(durationMs)
+      };
+      history.unshift(record); // 新的在最前面
+      history = history.slice(0, 5); // 只保留最近 5 筆
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(history));
+    }
+
+    window.returnToQuizDashboard = function() {
+      quizState = 'dashboard';
+      render();
+    }
+
+    // --- 共用小測驗產生器 (支援隨機題庫) ---
+    // MCQ
+    const mcqStates = {};
+    function renderMiniMCQ(id, title, qPool, isCompleted, theme) {
+      if (!mcqStates[id]) {
+        // 從題庫中隨機抽一題
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        const qRaw = qPool[varIdx];
+        const correctOpt = qRaw.opts[qRaw.a];
+        const shuffledOpts = shuffleArray(qRaw.opts);
+        const newAnsIdx = shuffledOpts.indexOf(correctOpt);
+        mcqStates[id] = { selected: null, opts: shuffledOpts, ansIdx: newAnsIdx, varIdx: varIdx };
+      }
+      const st = mcqStates[id];
+      const qRaw = qPool[st.varIdx];
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-question"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
+
+      st.opts.forEach((opt, idx) => {
+        let cls = "bg-slate-50 border-slate-200 hover:bg-slate-100";
+        if (isCompleted) { 
+          cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-slate-50 text-slate-400 border-slate-100"; 
+        } else if (st.selected === idx) { 
+          cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-red-50 border-red-300 text-red-700"; 
+        }
+        html += `<button onclick="handleMCQ('${id}', ${idx}, ${st.ansIdx})" ${isCompleted ? 'disabled' : ''} class="p-4 rounded-2xl border-2 text-left text-lg font-bold fade-transition ${cls}">${opt}</button>`;
+      });
+      return html + `</div></div>`;
+    }
+    window.handleMCQ = function(id, selIdx, ansIdx) {
+      if (mcqStates[id].selected !== null) return;
+      mcqStates[id].selected = selIdx; render();
+      if (selIdx === ansIdx) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { mcqStates[id].selected = null; render(); }, 800);
+    }
+
+    // TF
+    const tfStates = {};
+    function renderMiniTF(id, title, qPool, isCompleted, theme) {
+      if (!tfStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        tfStates[id] = { selected: null, varIdx: varIdx };
+      }
+      const st = tfStates[id];
+      const qRaw = qPool[st.varIdx];
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-check-square-offset"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p>
+          <div class="flex gap-4 justify-center">`;
+      
+      const tCls = isCompleted ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === true ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-red-50 border-red-300 text-red-700") : `bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700`);
+      const fCls = isCompleted ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === false ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-red-50 border-red-300 text-red-700") : `bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700`);
+
+      html += `<button onclick="handleTF('${id}', true, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-6 rounded-2xl border-2 text-2xl font-bold fade-transition text-center ${tCls}">⭕ 是</button>`;
+      html += `<button onclick="handleTF('${id}', false, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-6 rounded-2xl border-2 text-2xl font-bold fade-transition text-center ${fCls}">❌ 非</button>`;
+      return html + `</div></div>`;
+    }
+    window.handleTF = function(id, sel, ans) {
+      if (tfStates[id].selected !== null) return;
+      tfStates[id].selected = sel; render();
+      if (sel === ans) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { tfStates[id].selected = null; render(); }, 800);
+    }
+
+    // Matching
+    const matchStates = {};
+    function renderMatchingGame(id, title, isCompleted, leftItems, rightItems, theme) {
+      if (!matchStates[id]) {
+        matchStates[id] = { selLeft: null, matches: [], err: false, left: shuffleArray(leftItems), right: shuffleArray(rightItems) };
+      }
+      const st = matchStates[id];
+      if (isCompleted && st.matches.length < st.left.length) st.matches = st.left.map(i=>i.id);
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : 'border-slate-200'}">
+          <h3 class="text-xl font-bold ${th} mb-2 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-bold ph-link"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-slate-600 mb-6">點擊左邊的項目，再點擊右邊對應的說明連線起來！</p>
+          <div class="flex flex-col md:flex-row gap-4 justify-between">
+            <div class="w-full md:w-2/5 flex flex-col gap-3">`;
+      
+      st.left.forEach(item => {
+        const isMatched = st.matches.includes(item.id);
+        const isSelected = st.selLeft === item.id;
+        let cls = isMatched ? 'bg-slate-100 border-slate-200 opacity-50' : item.c;
+        cls += isSelected ? ' ring-4 border-transparent' : ' border-transparent hover:brightness-95';
+        if (isSelected && st.err) cls += ' bg-red-100 border-red-300';
+        html += `<button onclick="handleMatchLeft('${id}', '${item.id}')" ${isMatched||isCompleted?'disabled':''} class="flex items-center gap-4 p-4 rounded-2xl border-2 fade-transition text-xl font-bold ${cls}"><span class="text-4xl">${item.e}</span> ${item.t}${isMatched ? '<i class="ph-fill ph-check-circle ml-auto text-emerald-500 text-2xl"></i>' : ''}</button>`;
+      });
+
+      html += `</div><div class="w-full md:w-3/5 flex flex-col gap-3">`;
+
+      st.right.forEach(item => {
+        const isMatched = st.matches.includes(item.id);
+        let cls = isMatched ? 'bg-emerald-50 border-emerald-200 text-emerald-800 opacity-80' : `bg-slate-50 hover:bg-${theme}-50 border-slate-200 text-slate-700`;
+        if (!isMatched && st.selLeft) cls += ` ring-2 ring-${theme}-300 cursor-pointer`;
+        html += `<button onclick="handleMatchRight('${id}', '${item.id}')" ${isMatched||isCompleted?'disabled':''} class="flex items-center p-4 min-h-[5rem] rounded-2xl border-2 fade-transition text-lg font-bold text-left ${cls}">${item.t}${isMatched ? '<i class="ph-fill ph-check-circle ml-auto text-emerald-500 text-2xl"></i>' : ''}</button>`;
+      });
+      return html + `</div></div></div>`;
+    }
+    window.handleMatchLeft = function(id, itemId) {
+      if (!matchStates[id].matches.includes(itemId)) { matchStates[id].selLeft = itemId; matchStates[id].err = false; render(); }
+    };
+    window.handleMatchRight = function(id, itemId) {
+      const st = matchStates[id];
+      if (!st.selLeft || st.matches.includes(itemId)) return;
+      if (st.selLeft === itemId) {
+        st.matches.push(itemId); st.selLeft = null; render();
+        if (st.matches.length === 3) setTimeout(() => progressTask(id), 500);
+      } else {
+        st.err = true; render();
+        setTimeout(() => { st.selLeft = null; st.err = false; render(); }, 800);
+      }
+    };
+
+    // Ordering
+    const orderStates = {};
+    function renderOrderGame(id, title, isCompleted, itemsArr, desc, theme) {
+      if (!orderStates[id]) {
+        let mixed = shuffleArray(itemsArr);
+        orderStates[id] = { items: mixed, slots: [null, null, null], correct: itemsArr };
+      }
+      const st = orderStates[id];
+      if (isCompleted) st.slots = st.correct;
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold ${th} mb-2 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-bold ph-list-numbers"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-slate-600 mb-6">${desc}</p>
+          <div class="flex flex-col md:flex-row gap-4 items-center justify-center mb-8">`;
+
+      [0, 1, 2].forEach(idx => {
+        const slot = st.slots[idx];
+        let cls = `w-36 h-32 rounded-2xl border-4 border-dashed flex flex-col items-center justify-center fade-transition `;
+        if (slot) cls += `border-transparent bg-${theme}-100`;
+        else cls += `border-${theme}-200 bg-${theme}-50`;
+        if (st.slots[2] && st.slots[0]?.id !== st.correct[0].id) cls += ` border-red-300 bg-red-50`;
+        if (isCompleted) cls += ` bg-emerald-50 border-transparent`;
+
+        html += `<button onclick="handleOrderSlot('${id}', ${idx})" ${isCompleted ? 'disabled':''} class="${cls}">`;
+        if (slot) html += `<span class="text-4xl">${slot.e}</span><span class="font-bold text-${theme}-900 mt-2">${slot.t}</span>`;
+        else html += `<span class="text-${theme}-300 font-bold text-2xl">${idx + 1}</span>`;
+        html += `</button>`;
+        if (idx < 2) {
+          html += `<i class="ph-bold ph-arrow-right text-${theme}-300 hidden md:block text-4xl"></i>`;
+          html += `<i class="ph-bold ph-arrow-down text-${theme}-300 md:hidden my-2 text-4xl"></i>`;
+        }
+      });
+
+      html += `</div>`;
+      if (!isCompleted) {
+        html += `<div class="flex flex-wrap justify-center gap-4">`;
+        st.items.forEach(item => {
+          const isUsed = st.slots.some(s => s && s.id === item.id);
+          if (isUsed) { html += `<div class="w-36 opacity-0"></div>`; return; }
+          html += `<button onclick="handleOrderItem('${id}', ${item.id})" class="w-36 h-24 bg-white border-2 border-${theme}-300 rounded-2xl flex flex-col items-center justify-center hover:bg-${theme}-50 fade-transition cursor-pointer">
+              <span class="text-3xl">${item.e}</span><span class="font-bold text-slate-700 text-sm mt-1">${item.t}</span>
+            </button>`;
+        });
+        html += `</div>`;
+      }
+      return html + `</div>`;
+    }
+    window.handleOrderItem = function(id, itemId) {
+      const st = orderStates[id];
+      const nextEmpty = st.slots.findIndex(s => s === null);
+      if (nextEmpty !== -1) {
+        st.slots[nextEmpty] = st.items.find(i => i.id === itemId); render();
+        if (nextEmpty === 2) {
+          if (st.slots[0].id === st.correct[0].id && st.slots[1].id === st.correct[1].id && st.slots[2].id === st.correct[2].id) {
+            setTimeout(() => progressTask(id), 600);
+          } else {
+            setTimeout(() => { st.slots = [null, null, null]; render(); }, 1000);
+          }
+        }
+      }
+    };
+    window.handleOrderSlot = function(id, idx) {
+      if (orderStates[id].slots[idx]) { orderStates[id].slots[idx] = null; render(); }
+    };
+
+    // Sorting Game
+    function renderSortGame(title, isCompleted) {
+      if (isCompleted) sortCurrentIndex = sortItems.length;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? 'bg-teal-50 border-teal-200 opacity-80' : 'border-slate-200'}">
+          <h2 class="text-xl font-bold text-teal-700 mb-6 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-basket"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h2>`;
+
+      if (sortCurrentIndex < sortItems.length && !isCompleted) {
+        const cur = sortItems[sortCurrentIndex];
+        html += `<div class="flex flex-col items-center">
+            <p class="text-slate-600 mb-4 font-bold">這個物品應該放進「地震避難包」裡嗎？</p>
+            <div class="relative w-full max-w-md h-40 bg-slate-50 border-4 border-slate-200 rounded-3xl flex items-center justify-center mb-8 overflow-hidden fade-transition">`;
+        if (sortFeedback) {
+          html += `<div class="text-2xl font-bold flex items-center gap-2 ${sortFeedback.isCorrect ? 'text-emerald-600' : 'text-red-500'} px-4 text-center">
+              <i class="ph-fill ${sortFeedback.isCorrect ? 'ph-check-circle' : 'ph-x-circle'} text-4xl shrink-0"></i> ${sortFeedback.text}
+            </div>`;
+        } else {
+          html += `<div class="text-center px-4 fade-transition">
+              <div class="text-5xl mb-2">${cur.emoji}</div><h3 class="text-2xl font-bold text-slate-700">${cur.text}</h3>
+            </div>`;
+        }
+        html += `</div><div class="w-full flex justify-center gap-4">`;
+        
+        html += `<button onclick="handleSort('yes')" ${sortFeedback?'disabled':''} class="flex-1 max-w-[150px] bg-slate-100 hover:bg-emerald-100 border-b-4 border-slate-300 hover:border-emerald-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50">
+            <div class="text-3xl mb-1">✅</div><div class="text-lg font-bold text-slate-700">要放進去</div>
+          </button>`;
+        html += `<button onclick="handleSort('no')" ${sortFeedback?'disabled':''} class="flex-1 max-w-[150px] bg-slate-100 hover:bg-red-100 border-b-4 border-slate-300 hover:border-red-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50">
+            <div class="text-3xl mb-1">❌</div><div class="text-lg font-bold text-slate-700">不需要放</div>
+          </button>`;
+        
+        html += `</div><div class="mt-6 text-slate-500 font-bold bg-slate-100 px-4 py-1 rounded-full">進度：${sortCurrentIndex + 1} / ${sortItems.length}</div></div>`;
+      } else {
+        html += `<div class="text-center py-4 fade-transition"><i class="ph-fill ph-check-circle text-6xl text-emerald-500 mb-4 block mx-auto"></i><h3 class="text-xl font-bold text-slate-800">避難包整理完成！</h3></div>`;
+      }
+      return html + `</div>`;
+    }
+    window.handleSort = function(cat) {
+      if (sortFeedback) return;
+      const cur = sortItems[sortCurrentIndex];
+      if (cur.type === cat) {
+        sortFeedback = { isCorrect: true, text: '判斷正確！' };
+      } else {
+        sortFeedback = { isCorrect: false, text: `判斷錯誤喔！再想一想。` };
+      }
+      render();
+      setTimeout(() => {
+        sortFeedback = null;
+        if (cur.type === cat) {
+          if (sortCurrentIndex + 1 < sortItems.length) sortCurrentIndex++;
+          else progressTask('prepSort');
+        }
+        render();
+      }, 1000);
+    }
+
+    // --- 全局狀態推進 ---
+    window.progressTask = function(taskId) {
+      // 根據完成的任務 ID 增加進度
+      if (taskId.startsWith('intro')) introProgress++;
+      else if (taskId.startsWith('prep')) prepareProgress++;
+      else if (taskId.startsWith('action')) actionProgress++;
+      render();
+    }
+
+    // 主渲染邏輯
+    function render() {
+      renderProgressBar();
+      const main = document.getElementById('main-content');
+      switch (steps[currentStepIndex]) {
+        case 'welcome': main.innerHTML = renderWelcome(); break;
+        case 'intro': main.innerHTML = renderIntro(); break;
+        case 'prepare': main.innerHTML = renderPrepare(); break;
+        case 'action': main.innerHTML = renderAction(); break;
+        case 'quiz': main.innerHTML = renderQuiz(); break;
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>

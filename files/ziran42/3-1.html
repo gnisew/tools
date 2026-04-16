@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>大地探險家：我們的大地</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入 Phosphor Icons 做為圖示庫 -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    /* 隱藏捲軸但保留捲動功能 */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* 僅保留平緩的淡入淡出動畫，減少視覺干擾 */
+    .fade-transition {
+      transition: opacity 0.4s ease-in-out, background-color 0.3s ease-in-out, border-color 0.3s ease-in-out, color 0.3s ease-in-out, transform 0.3s ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 pb-16 min-h-screen">
+
+  <!-- 標題列：改用沉穩的岩灰色系，並移除 sticky top-0 以釋放可視空間 -->
+  <header class="bg-slate-700 text-white p-4 shadow-md">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="ph ph-mountains text-3xl text-emerald-400"></i>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-wider">大地探險家：我們的大地</h1>
+      </div>
+    </div>
+  </header>
+
+  <!-- 全解鎖導航列 -->
+  <div id="progress-container" class="max-w-4xl mx-auto px-4 pt-6 fade-transition">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border-2 border-slate-200 flex flex-wrap justify-between items-center gap-2 overflow-x-auto hide-scrollbar" id="progress-bar">
+      <!-- JS 渲染進度條 -->
+    </div>
+  </div>
+
+  <main id="main-content" class="max-w-4xl mx-auto p-4 mt-4 fade-transition">
+    <!-- JS 渲染內容 -->
+  </main>
+
+  <script>
+    // --- 實用的隨機洗牌函數 ---
+    function shuffleArray(array) {
+      const newArr = [...array];
+      for (let i = newArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+      }
+      return newArr;
+    }
+
+    // --- 系統狀態管理 ---
+    const steps = ['welcome', 'learn', 'observe', 'magic', 'sort', 'quiz'];
+    let currentStepIndex = 0;
+    
+    let learnProgress = 0;    
+    let observeProgress = 0;  
+    let magicProgress = 0;   
+    let sortProgress = 0;
+
+    // 觀察室狀態
+    let observeSelectedMaterial = null;
+    let observeSelectedTool = null;
+
+    // 魔法陣狀態
+    let magicStage = 'big_rock';
+    let magicClicks = 0;
+    let magicLeaves = 0;
+    let magicGameFinished = false;
+
+    // 分類遊戲狀態 (生活應用)
+    const baseSortItems = [
+      { id: 1, text: '建造堅固的石板屋', type: 'rock', emoji: '🏠' },
+      { id: 2, text: '學校操場的跳遠坑', type: 'sand', emoji: '🏃‍♂️' },
+      { id: 3, text: '農夫種植美味的高麗菜', type: 'soil', emoji: '🥬' },
+      { id: 4, text: '公園裡的健康步道', type: 'rock', emoji: '🛤️' },
+      { id: 5, text: '海邊漂亮的大型沙雕', type: 'sand', emoji: '🏰' },
+      { id: 6, text: '陽台花盆裡的美麗花朵', type: 'soil', emoji: '🌻' },
+      { id: 7, text: '精美的石雕裝飾品', type: 'rock', emoji: '🗿' },
+    ];
+    let sortItems = [];
+    let sortCurrentIndex = 0;
+    let sortFeedback = null;
+
+    // --- 最終測驗題庫池 (包含多種替換題目) ---
+    const rawQuizPools = [
+      [ // 概念1：地表三大物質
+        { q: "構成大地表面最常見的三種物質是什麼？", options: ["黃金、白銀、鑽石", "石頭、沙、土壤", "樹木、花草、小動物", "塑膠、玻璃、金屬"], answer: 1 },
+        { q: "我們腳下踩的大地，主要是由哪三種大自然物質組成的？", options: ["土壤、沙子、石頭", "水、冰塊、雪", "塑膠、木板、水泥", "磚塊、鐵塊、玻璃"], answer: 0 }
+      ],
+      [ // 概念2：岩石的碎裂
+        { q: "堅硬的大岩石經過很長一段時間後，會發生什麼事？", options: ["會自己越長越大", "會變成動物", "會因為大自然力量碎裂成小石頭或沙土", "會融化成水"], answer: 2 },
+        { q: "原來巨大的岩石，為什麼會漸漸變成小碎石呢？", options: ["因為被小動物吃掉了", "因為大自然的水流和風吹日曬", "因為到了冬天會自動縮小", "因為被人們搬回家了"], answer: 1 }
+      ],
+      [ // 概念3：適合種植的物質
+        { q: "想在學校裡種植蔬菜，我們應該把它種在哪裡最適當？", options: ["柏油路上", "石頭堆裡", "土壤裡", "沙坑裡"], answer: 2 },
+        { q: "農夫種植美味的高麗菜，需要大自然的哪一種資源提供養分？", options: ["石頭", "沙子", "土壤", "黃金"], answer: 2 }
+      ],
+      [ // 概念4：觀察工具
+        { q: "如果想看清楚土壤裡面有沒有夾雜微小的枯枝或小蟲，用什麼工具最好？", options: ["望遠鏡", "太陽眼鏡", "放大鏡", "聽診器"], answer: 2 },
+        { q: "想要仔細觀察沙子是不是一顆顆閃亮的小石頭，用哪種工具最適合？", options: ["望遠鏡", "放大鏡", "顯微鏡", "近視眼鏡"], answer: 1 }
+      ],
+      [ // 概念5：沙子的特徵
+        { q: "關於「沙子」的特徵，下面哪一個說法最正確？", options: ["顆粒比石頭還要大很多", "摸起來粗粗硬硬的像大塊岩石", "捏一捏可以結成一大塊不會散開", "通常在海灘或沙漠可以看見，顆粒很小"], answer: 3 },
+        { q: "把「沙子」放在手心裡摸一摸，通常會有什麼感覺？", options: ["細細滑滑的，很容易從指縫流走", "冰冰涼涼的，馬上就融化了", "軟軟黏黏的，可以捏成泥娃娃", "粗粗硬硬的，非常刺手"], answer: 0 }
+      ],
+      [ // 概念6：石頭的應用
+        { q: "我們常去走的堅硬步道，主要是利用大自然的哪一種資源做成的？", options: ["沙子", "石頭", "土壤", "樹葉"], answer: 1 },
+        { q: "原住民建造傳統的石板屋，主要是利用大地的哪一種物質？", options: ["木頭", "泥巴", "石頭", "細沙"], answer: 2 }
+      ],
+      [ // 概念7：土壤的觸感
+        { q: "把「土壤」放在手心裡輕輕捏一捏，通常會有什麼感覺？", options: ["滑滑的、從指縫流掉", "冰冰的、會融化", "軟軟的、鬆鬆的，會結成塊", "非常堅硬、刺刺的"], answer: 2 },
+        { q: "哪一種大地的物質，顏色通常比較深，摸起來軟軟鬆鬆的？", options: ["大岩石", "小石頭", "沙子", "土壤"], answer: 3 }
+      ],
+      [ // 概念8：沙子的應用
+        { q: "小明想在海邊堆一座城堡，他主要會用到哪一種大地的物質？", options: ["土壤", "沙子", "大岩石", "泥巴"], answer: 1 },
+        { q: "學校操場裡的「跳遠坑」，裡面鋪滿了哪一種物質來保護同學？", options: ["柔軟的土壤", "細細的沙子", "堅硬的石頭", "綠色的草皮"], answer: 1 }
+      ],
+      [ // 概念9：風化的時間
+        { q: "大自然中，大石頭變成小沙土的過程，大約需要花費多少時間？", options: ["非常久的時間", "一個星期", "短短一天", "一眨眼的功夫"], answer: 0 },
+        { q: "大自然的力量把岩石雕刻、碎裂成沙子，這個變化是快還是慢？", options: ["非常快速，幾分鐘就好", "非常緩慢，需要很長的時間", "只有晚上的時候才會變", "每年只會發生一次"], answer: 1 }
+      ],
+      [ // 概念10：土壤的應用
+        { q: "下列哪一個是人類運用「土壤」的例子？", options: ["雕刻成美麗的石獅子", "農夫種植一大片好吃的白蘿蔔", "在操場設置跳遠坑", "鋪設步道方便大家行走"], answer: 1 },
+        { q: "陽台花盆裡能開出美麗的花朵，是因為裡面裝了什麼提供植物生長？", options: ["五顏六色的小石頭", "海邊撿來的細沙", "營養豐富的土壤", "純淨的自來水"], answer: 2 }
+      ]
+    ];
+
+    let quizState = 'dashboard'; // 'dashboard', 'playing', 'result'
+    let quizData = [];
+    let quizCurrentQ = 0;
+    let quizScore = 0;
+    let quizSelectedOption = null;
+    let quizIsAnswered = false;
+    let quizStartTime = 0;
+    const LOCAL_STORAGE_KEY = '四下3-1翰林自然42hz31'; // 使用 3-1 獨立的 Key
+
+    // 初始化/隨機抽題函數
+    function initQuizData() {
+      quizData = rawQuizPools.map(pool => {
+        const qRaw = pool[Math.floor(Math.random() * pool.length)];
+        const correctOpt = qRaw.options[qRaw.answer];
+        const shuffledOptions = shuffleArray(qRaw.options);
+        return {
+          question: qRaw.q,
+          options: shuffledOptions,
+          answer: shuffledOptions.indexOf(correctOpt)
+        };
+      });
+    }
+
+    // --- 時間格式化 ---
+    function formatDuration(ms) {
+      const totalSecs = Math.floor(ms / 1000);
+      const mins = Math.floor(totalSecs / 60);
+      const secs = totalSecs % 60;
+      return `${mins}分 ${secs}秒`;
+    }
+
+    // --- 導航與進度條 ---
+    function jumpToStep(index) {
+      currentStepIndex = index;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function renderProgressBar() {
+      const container = document.getElementById('progress-container');
+      const bar = document.getElementById('progress-bar');
+      
+      const stages = [
+        { name: '出發', icon: 'ph-flag-pennant' },
+        { name: '大地的組成', icon: 'ph-tree' },
+        { name: '自然實驗室', icon: 'ph-magnifying-glass' },
+        { name: '大自然魔法', icon: 'ph-sparkle' },
+        { name: '分類大師', icon: 'ph-basket' },
+        { name: '最終測驗', icon: 'ph-file-question' },
+      ];
+
+      let html = '';
+      stages.forEach((stage, idx) => {
+        const isActive = currentStepIndex === idx;
+        const isPassed = (idx === 1 && learnProgress >= 3) || 
+                         (idx === 2 && observeProgress >= 3) || 
+                         (idx === 3 && magicProgress >= 4) ||
+                         (idx === 4 && sortProgress >= 3);
+
+        let iconHtml = isPassed ? '<i class="ph-fill ph-check-circle text-xl"></i>' : `<i class="ph ${stage.icon} text-xl"></i>`;
+        
+        let circleClass = `w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm fade-transition `;
+        if (isActive) circleClass += `bg-emerald-500 ring-4 ring-emerald-200`;
+        else if (isPassed) circleClass += `bg-teal-400`;
+        else circleClass += `bg-slate-300`;
+
+        let textClass = `text-xs font-bold whitespace-nowrap mt-1 ${isActive ? 'text-emerald-600' : 'text-slate-500'}`;
+
+        html += `
+          <div class="flex items-center">
+            <button onclick="jumpToStep(${idx})" class="flex flex-col items-center px-2 py-1 fade-transition cursor-pointer hover:bg-slate-50 rounded-lg">
+              <div class="${circleClass}">${iconHtml}</div>
+              <span class="${textClass}">${stage.name}</span>
+            </button>
+        `;
+        if (idx < stages.length - 1) {
+          html += `<div class="hidden sm:block w-8 md:w-12 h-1 rounded-full mx-1 ${isPassed ? 'bg-teal-300' : 'bg-slate-200'}"></div>`;
+        }
+        html += `</div>`;
+      });
+      bar.innerHTML = html;
+    }
+
+    // --- 區塊渲染：0. 首頁 ---
+    function renderWelcome() {
+      return `
+        <div class="bg-white rounded-3xl p-8 md:p-12 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition">
+          <div class="inline-block bg-slate-100 p-6 rounded-full mb-6">
+            <i class="ph ph-map-trifold text-7xl text-slate-600"></i>
+          </div>
+          <h2 class="text-4xl md:text-5xl font-bold text-slate-800 mb-6">歡迎加入大地探險隊！</h2>
+          <p class="text-xl md:text-2xl text-slate-600 leading-relaxed mb-8 max-w-2xl mx-auto">
+            地球的表面充滿了神奇的秘密。石頭、沙子和土壤是怎麼來的？它們有什麼不一樣？又有什麼功用呢？<br/><br/>
+            跟著任務指引，一步步完成各種小測驗，解開大自然的魔法吧！
+          </p>
+          <button onclick="jumpToStep(1)" class="inline-flex items-center gap-3 bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm">
+            <i class="ph-fill ph-play-circle text-3xl"></i> 接受任務，準備出發！
+          </button>
+        </div>
+      `;
+    }
+
+    // --- 區塊渲染：1. 學習篇 (翡翠綠/Emerald) ---
+    function renderLearn() {
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-emerald-50 border-l-8 border-emerald-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">🦉</div>
+            <div>
+              <h3 class="font-bold text-emerald-800 text-lg">探險長老說：</h3>
+              <p class="text-emerald-700">「探險家們，閱讀完下方的知識後，要連續通過 **3 個隨堂小測驗** 才能前往下一關喔！」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200">
+            <h2 class="text-3xl font-bold text-emerald-600 mb-6 flex items-center gap-2">
+              <i class="ph-fill ph-tree text-3xl"></i> 大地的組成
+            </h2>
+            <p class="text-xl leading-relaxed mb-6 text-slate-700">
+              我們居住的地球表面，有許多不同的環境。仔細看看腳下，你會發現大地是由<strong class="text-slate-800 bg-slate-200 px-2 py-1 rounded">石頭</strong>、<strong class="text-yellow-800 bg-yellow-200 px-2 py-1 rounded">沙子</strong>和<strong class="text-amber-900 bg-amber-200 px-2 py-1 rounded">土壤</strong>構成的。
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div class="p-6 bg-slate-50 rounded-2xl border-2 border-slate-100 text-center">
+                <div class="text-5xl mb-4">🪨</div>
+                <h3 class="text-xl font-bold text-slate-700 mb-2">石頭</h3>
+                <p class="text-slate-600">大岩石受到大自然力量影響，碎裂成大小不同的塊狀物。</p>
+              </div>
+              <div class="p-6 bg-slate-50 rounded-2xl border-2 border-slate-100 text-center">
+                <div class="text-5xl mb-4">🏖️</div>
+                <h3 class="text-xl font-bold text-slate-700 mb-2">沙子</h3>
+                <p class="text-slate-600">石頭繼續碎裂，變成非常細小的顆粒。</p>
+              </div>
+              <div class="p-6 bg-slate-50 rounded-2xl border-2 border-slate-100 text-center">
+                <div class="text-5xl mb-4">🌱</div>
+                <h3 class="text-xl font-bold text-slate-700 mb-2">土壤</h3>
+                <p class="text-slate-600">岩石碎屑加上植物腐爛的枯枝落葉、小蟲子等物質混合而成。</p>
+              </div>
+            </div>
+          </div>
+      `;
+
+      if (learnProgress >= 0) {
+        content += renderMatchingGame('learnMatch', '任務一：名詞配對連連看', learnProgress > 0, 
+          [{id:'rock', e:'🪨', t:'石頭', c:'bg-slate-50'}, {id:'sand', e:'🏖️', t:'沙子', c:'bg-yellow-50'}, {id:'soil', e:'🌱', t:'土壤', c:'bg-amber-50'}],
+          [{id:'soil', t:'岩石碎屑加上枯枝落葉混合而成'}, {id:'rock', t:'大岩石受到力量碎裂的塊狀物'}, {id:'sand', t:'石頭繼續碎裂成非常細小的顆粒'}], 'emerald'
+        );
+      }
+      if (learnProgress >= 1) {
+        content += renderMiniMCQ('learnMCQ', '任務二：觀念選擇題', 
+          [
+            {q: '構成大地表面的自然物質，通常「不包含」下列哪一個？', opts: ['塑膠袋', '石頭', '土壤', '沙子'], a: 0},
+            {q: '我們腳下踩的地球表面，主要是由什麼構成的？', opts: ['塑膠與金屬', '岩石、沙子與土壤', '冰塊與積雪', '全部都是水'], a: 1}
+          ], learnProgress > 1, 'emerald');
+      }
+      if (learnProgress >= 2) {
+        content += renderMiniTF('learnTF', '任務三：觀念是非題', 
+          [
+            {q: '地表上的岩石永遠都會保持原本的大小，大自然的力量無法改變它們。', a: false},
+            {q: '沙子其實也是小石頭的一種，只是因為碎裂變得非常細小。', a: true}
+          ], learnProgress > 2, 'emerald');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${learnProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(2)" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            全部過關！前往自然實驗室 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      return content;
+    }
+
+    // --- 區塊渲染：2. 觀察室 (靛藍色/Indigo) ---
+    function renderObserve() {
+      const getObsRes = () => {
+        if (!observeSelectedMaterial || !observeSelectedTool) return "請點選上方的一種「物質」與一種「觀察工具」，看看會有什麼發現！";
+        const results = {
+          rock: { eye: "看起來有很多種顏色，有大有小。", hand: "摸起來粗粗的、硬硬的，形狀不規則。", magnifier: "表面有很多坑洞，有不同顏色的小斑點。" },
+          sand: { eye: "顆粒非常小，一大片聚集在一起。", hand: "摸起來細細的、滑滑的，很容易從指縫流走。", magnifier: "每一粒沙子都是一顆超級小、閃閃發亮的小石頭！" },
+          soil: { eye: "顏色通常比較深，像是深咖啡色或黑色。", hand: "摸起來軟軟的、鬆鬆的，捏一捏可以結成一塊。", magnifier: "除了小土粒，還夾雜了枯掉的葉子、樹根、木屑呢！" }
+        };
+        return results[observeSelectedMaterial][observeSelectedTool];
+      };
+
+      const mats = [
+        { id: 'rock', n: '石頭', e: '🪨', c: 'bg-slate-100 hover:bg-slate-200' },
+        { id: 'sand', n: '沙子', e: '🏖️', c: 'bg-yellow-100 hover:bg-yellow-200' },
+        { id: 'soil', n: '土壤', e: '🌱', c: 'bg-amber-100 hover:bg-amber-200' },
+      ];
+      const tools = [
+        { id: 'eye', n: '用眼睛看', i: 'ph-eye', c: 'bg-blue-100 hover:bg-blue-200' },
+        { id: 'hand', n: '用手摸', i: 'ph-hand-palm', c: 'bg-pink-100 hover:bg-pink-200' },
+        { id: 'magnifier', n: '用放大鏡', i: 'ph-magnifying-glass-plus', c: 'bg-purple-100 hover:bg-purple-200' },
+      ];
+
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-indigo-50 border-l-8 border-indigo-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">🔬</div>
+            <div>
+              <h3 class="font-bold text-indigo-800 text-lg">探險任務：親自觀察</h3>
+              <p class="text-indigo-700">「請先操作觀察工具，然後解開下方的 **3 個觀察測驗** 來解鎖通道！」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200">
+            <h2 class="text-3xl font-bold text-indigo-600 mb-8 text-center">自然實驗室</h2>
+            <div class="flex flex-col md:flex-row gap-8 justify-center items-center mb-8">
+              
+              <div class="w-full md:w-1/3 bg-slate-50 p-4 rounded-2xl border-2 border-slate-100 relative">
+                <h3 class="text-lg font-bold text-center mb-4 text-slate-600">步驟一：選擇物質</h3>
+                <div class="flex flex-col gap-3">
+                  ${mats.map(m => `
+                    <button onclick="setObsMat('${m.id}')" class="p-3 rounded-xl border-2 border-transparent flex items-center justify-center gap-3 text-xl font-bold fade-transition ${m.c} ${observeSelectedMaterial === m.id ? 'border-slate-400 opacity-80' : ''}">
+                      <span class="text-3xl">${m.e}</span> ${m.n}
+                    </button>
+                  `).join('')}
+                </div>
+              </div>
+              
+              <div class="text-indigo-300 hidden md:block"><i class="ph-bold ph-arrow-right text-5xl"></i></div>
+              
+              <div class="w-full md:w-1/3 bg-slate-50 p-4 rounded-2xl border-2 border-slate-100 relative">
+                <h3 class="text-lg font-bold text-center mb-4 text-slate-600">步驟二：選擇工具</h3>
+                <div class="flex flex-col gap-3">
+                  ${tools.map(t => `
+                    <button onclick="setObsTool('${t.id}')" class="p-3 rounded-xl border-2 border-transparent flex items-center justify-center gap-3 text-xl font-bold fade-transition ${t.c} ${observeSelectedTool === t.id ? 'border-slate-400 opacity-80' : ''}">
+                      <i class="ph ${t.i} text-3xl"></i> ${t.n}
+                    </button>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+
+            <div class="p-6 rounded-2xl border-4 text-center min-h-[120px] flex flex-col items-center justify-center fade-transition ${(observeSelectedMaterial && observeSelectedTool) ? 'bg-indigo-50 border-indigo-200' : 'bg-slate-50 border-slate-200 border-dashed'}">
+              <p class="text-2xl font-bold ${(observeSelectedMaterial && observeSelectedTool) ? 'text-indigo-800' : 'text-slate-400'}">
+                ${getObsRes()}
+              </p>
+            </div>
+          </div>
+      `;
+
+      if (observeProgress >= 0) {
+        content += renderFillBlank('obsBlank', '任務一：觸覺填空測驗', observeProgress > 0,
+          [{ id: 'w1', text: '粗粗硬硬的', correctBlank: 'rock', c: 'bg-slate-200 text-slate-800' },
+           { id: 'w2', text: '細細滑滑的', correctBlank: 'sand', c: 'bg-yellow-200 text-yellow-800' },
+           { id: 'w3', text: '鬆軟會結塊', correctBlank: 'soil', c: 'bg-amber-200 text-amber-800' }],
+          `用手摸摸看，石頭感覺<button id="rock"></button>；<br class="md:hidden" />
+           沙子感覺<button id="sand"></button>；<br class="md:hidden" />
+           土壤感覺<button id="soil"></button>。`, 'indigo'
+        );
+      }
+      if (observeProgress >= 1) {
+        content += renderMatchingGame('obsMatch', '任務二：工具使用時機配對', observeProgress > 1,
+          [{id:'eye', e:'<i class="ph ph-eye text-3xl"></i>', t:'眼睛', c:'bg-blue-50'}, {id:'hand', e:'<i class="ph ph-hand-palm text-3xl"></i>', t:'雙手', c:'bg-pink-50'}, {id:'mag', e:'<i class="ph ph-magnifying-glass-plus text-3xl"></i>', t:'放大鏡', c:'bg-purple-50'}],
+          [{id:'mag', t:'想看清楚沙子是不是小石頭'}, {id:'eye', t:'想看土壤整體的顏色與外觀'}, {id:'hand', t:'想感受石頭粗不粗糙'}], 'indigo'
+        );
+      }
+      if (observeProgress >= 2) {
+        content += renderMiniMCQ('obsMCQ', '任務三：觀察金頭腦', 
+          [
+            {q: '經過剛才的觀察，下列哪一種物質的顆粒非常小，而且容易從指縫中流走？', opts: ["大石頭", "沙子", "植物的葉子", "巨大的岩石"], a: 1},
+            {q: '用放大鏡觀察「土壤」時，除了小土粒之外，通常還會看到什麼？', opts: ["閃亮亮的大鑽石", "微小的枯枝落葉或木屑", "塑膠碎片", "透明的玻璃球"], a: 1}
+          ], observeProgress > 2, 'indigo');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${observeProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(3)" class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            觀察得真仔細！前往魔法陣 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+      
+      return content;
+    }
+
+    // --- 區塊渲染：3. 魔法陣遊戲 (琥珀色/Amber) ---
+    function renderMagic() {
+      let emoji = '', sizeClass = '', name = '';
+      if (magicStage === 'big_rock') { emoji = '🏔️'; sizeClass = 'text-9xl'; name = '巨大的岩石'; }
+      else if (magicStage === 'small_rock') { emoji = '🪨🪨'; sizeClass = 'text-7xl'; name = '小石頭'; }
+      else if (magicStage === 'sand') { emoji = '🏖️'; sizeClass = 'text-8xl'; name = '細細的沙子'; }
+      else if (magicStage === 'soil') { emoji = '🌱'; sizeClass = 'text-8xl'; name = '肥沃的土壤'; }
+
+      // 移除原有的 shake 與 ping 動畫，改為 scale 的過渡效果
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-amber-50 border-l-8 border-amber-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">🌪️</div>
+            <div>
+              <h3 class="font-bold text-amber-800 text-lg">探險任務：大自然的魔法</h3>
+              <p class="text-amber-700">「點擊按鈕親手製造出沙子或土壤，然後解開下方的測驗吧！」</p>
+            </div>
+          </div>
+
+          <div class="bg-slate-50 rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200">
+            <h2 class="text-3xl font-bold text-amber-600 mb-8 text-center flex items-center justify-center gap-2"><i class="ph-fill ph-sparkle"></i> 任務一：大自然魔法陣操作</h2>
+            <div class="relative w-full max-w-lg mx-auto bg-white border-4 border-slate-200 rounded-full h-80 flex items-center justify-center mb-8 fade-transition">
+              <div class="flex flex-col items-center justify-center h-64 fade-transition">
+                <div class="${sizeClass} drop-shadow-md relative">
+                  ${emoji}
+                  ${magicLeaves > 0 && magicStage === 'small_rock' ? '<div class="absolute top-0 left-0 text-3xl fade-transition">🍂🐛</div>' : ''}
+                </div>
+                <div class="mt-4 text-2xl font-bold bg-white px-4 py-1 rounded-full text-slate-700 border border-slate-200">${name}</div>
+              </div>
+            </div>
+      `;
+
+      if (magicStage === 'big_rock' || magicStage === 'small_rock') {
+        content += `
+          <div class="flex flex-col md:flex-row gap-6 justify-center items-center">
+            <div class="flex flex-col items-center">
+              <button onclick="handleMagicWeather()" class="bg-blue-500 hover:bg-blue-600 text-white rounded-full p-6 shadow-sm fade-transition flex flex-col items-center gap-2">
+                <div class="flex gap-2"><i class="ph ph-wind text-3xl"></i><i class="ph ph-cloud-rain text-3xl"></i></div>
+                <span class="text-xl font-bold">風吹水沖！</span>
+              </button>
+              <div class="mt-4 flex gap-1">
+                ${[0,1,2,3].map(i => `<div class="h-3 w-8 rounded-full fade-transition ${i < magicClicks ? 'bg-blue-500' : 'bg-slate-200'}"></div>`).join('')}
+              </div>
+            </div>
+        `;
+        if (magicStage === 'small_rock') {
+          content += `
+            <div class="flex flex-col items-center fade-transition">
+              <button onclick="handleMagicLeaves()" class="bg-emerald-500 hover:bg-emerald-600 text-white rounded-full p-6 shadow-sm fade-transition flex flex-col items-center gap-2">
+                <div class="flex gap-2"><i class="ph ph-leaf text-3xl"></i></div>
+                <span class="text-xl font-bold">加入枯葉小蟲</span>
+              </button>
+              <div class="mt-4 flex gap-1">
+                ${[0,1,2].map(i => `<div class="h-3 w-8 rounded-full fade-transition ${i < magicLeaves ? 'bg-emerald-500' : 'bg-slate-200'}"></div>`).join('')}
+              </div>
+            </div>
+          `;
+        }
+        content += `</div>`;
+      }
+
+      if (magicGameFinished) {
+        content += `
+          <div class="text-center mt-6 fade-transition">
+            <div class="text-2xl font-bold text-amber-700 bg-white inline-flex items-center gap-2 px-8 py-4 rounded-2xl shadow-sm border-2 border-amber-200">
+              <i class="ph-fill ph-check-circle text-emerald-500"></i> 實驗成功！你改變了岩石的樣貌！
+            </div>
+          </div>
+        `;
+      }
+      content += `</div>`;
+
+      if (magicProgress >= 1) {
+        content += renderOrderGame('magicOrder', '任務二：岩石變化排序', magicProgress > 1,
+          [{id:1, t:'巨大的岩石', e:'🏔️'}, {id:2, t:'碎裂成小石頭', e:'🪨'}, {id:3, t:'變成細小的沙子', e:'🏖️'}],
+          '在大自然中，物質變化的先後順序是什麼呢？請點擊下方的卡片排好順序！', 'amber'
+        );
+      }
+      if (magicProgress >= 2) {
+        content += renderMiniMCQ('magicMCQ', '任務三：觀念選擇題', 
+          [
+            {q: '是什麼力量像魔術師一樣，讓原本巨大的岩石漸漸碎裂變小呢？', opts: ["只有地震", "大自然的水流和風吹", "人們用手把它折斷", "太陽的光線照射"], a: 1},
+            {q: '大石頭慢慢變成小碎石，最主要是受到大自然的什麼力量影響？', opts: ["風吹和水流沖刷", "植物把它吃掉", "冬天結冰縮小", "星星的引力"], a: 0}
+          ], magicProgress > 2, 'amber');
+      }
+      if (magicProgress >= 3) {
+        content += renderMiniTF('magicTF', '任務四：魔法真相是非題', 
+          [
+            {q: '大自然把岩石變成沙子或土壤，只需要短短幾天的時間就能立刻完成。', a: false},
+            {q: '大岩石變成沙子，是經過非常長時間的大自然力量交互作用而成的。', a: true}
+          ], magicProgress > 3, 'amber');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${magicProgress === 4 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(4)" class="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            大自然太神奇了！前往分類大師 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+      
+      return content;
+    }
+
+    // --- 區塊渲染：4. 分類遊戲 (藍色系/Blue) ---
+    function renderSort() {
+      if (sortProgress === 0 && sortItems.length === 0) {
+        sortItems = shuffleArray(baseSortItems);
+      }
+
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-blue-50 border-l-8 border-blue-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">📦</div>
+            <div>
+              <h3 class="font-bold text-blue-800 text-lg">探險任務：資源分類測驗</h3>
+              <p class="text-blue-700">「請幫忙把這些生活應用分類到對應的箱子裡！接著回答問題，就能進入最終挑戰。」</p>
+            </div>
+          </div>
+
+          ${renderSortGame('任務一：分類挑戰賽', sortProgress > 0)}
+      `;
+
+      if (sortProgress >= 1) {
+        content += renderMiniTF('sortTF', '任務二：觀念是非題', 
+          [
+            {q: '我們生活中有許多物品都是利用大自然的資源做成的，例如農夫會利用「土壤」來種植蔬菜。', a: true},
+            {q: '沙雕藝術家主要是利用「巨大堅硬的岩石」在海邊堆疊出漂亮的城堡。', a: false}
+          ], sortProgress > 1, 'blue');
+      }
+      if (sortProgress >= 2) {
+        content += renderMiniMCQ('sortMCQ', '任務三：生活應用選擇題', 
+          [
+            {q: '如果我們想要鋪設一條堅固好走、不容易凹陷的步道，通常會選擇大自然的哪一種材料？', opts: ["鬆軟的土壤", "細細的沙子", "堅硬的石頭", "枯掉的樹葉"], a: 2},
+            {q: '學校體育課要練習跳遠，操場上的「跳遠坑」最適合鋪滿什麼物質來保護同學？', opts: ["大顆的石頭", "細細的沙子", "堅硬的水泥", "滿滿的水"], a: 1}
+          ], sortProgress > 2, 'blue');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${sortProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(5)" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            太棒了！迎接最終綜合測驗 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+      return content;
+    }
+
+    // --- 區塊渲染：5. 最終測驗 (靛藍色/Indigo) ---
+    function renderQuiz() {
+      if (quizState === 'dashboard') {
+        const history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+        
+        let histHtml = '';
+        if (history.length === 0) {
+          histHtml = `<p class="text-slate-500 py-4">目前還沒有測驗紀錄，快來挑戰第一次吧！</p>`;
+        } else {
+          histHtml = `
+            <div class="overflow-x-auto w-full mt-4">
+              <table class="w-full text-left border-collapse min-w-[500px]">
+                <thead>
+                  <tr class="bg-indigo-100 text-indigo-800 border-b-2 border-indigo-200">
+                    <th class="p-3 rounded-tl-xl">日期</th>
+                    <th class="p-3">時間</th>
+                    <th class="p-3">成績</th>
+                    <th class="p-3 rounded-tr-xl">作答時長</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${history.map(r => `
+                    <tr class="border-b border-slate-100 hover:bg-slate-50 fade-transition">
+                      <td class="p-3 text-slate-600">${r.date}</td>
+                      <td class="p-3 text-slate-600">${r.time}</td>
+                      <td class="p-3 font-bold ${r.score >= 80 ? 'text-emerald-600' : 'text-amber-600'}">${r.score} 分</td>
+                      <td class="p-3 text-slate-500">${r.duration}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="bg-white rounded-3xl p-8 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition max-w-2xl mx-auto">
+            <i class="ph-fill ph-medal text-6xl text-indigo-500 mb-4 block"></i>
+            <h2 class="text-3xl font-bold text-indigo-800 mb-2">最終綜合測驗</h2>
+            <p class="text-slate-600 mb-8">本測驗共有 10 題，將會隨機從題庫中抽選。</p>
+            
+            <button onclick="startFinalQuiz()" class="inline-flex items-center justify-center w-full md:w-auto gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm mb-8">
+              <i class="ph-bold ph-pencil-simple"></i> 開始測驗
+            </button>
+
+            <div class="bg-slate-50 rounded-2xl p-6 border-2 border-slate-100 mb-4">
+              <h3 class="text-xl font-bold text-slate-700 flex items-center justify-center gap-2">
+                <i class="ph-bold ph-clock-counter-clockwise"></i> 最近 5 次測驗紀錄
+              </h3>
+              ${histHtml}
+            </div>
+          </div>
+        `;
+      }
+
+      if (quizState === 'result') {
+        let comment = "繼續加油，可以再複習一下喔！";
+        if (quizScore >= 90) comment = "太厲害了！你是完美過關的大地知識王！";
+        else if (quizScore >= 70) comment = "表現不錯喔！你已經成功掌握大地的特徵了。";
+
+        return `
+          <div class="bg-white rounded-3xl p-8 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition">
+            <h2 class="text-4xl font-bold text-indigo-600 mb-6">測驗結束！</h2>
+            <div class="text-8xl mb-6">🏆</div>
+            <p class="text-3xl font-bold mb-4">你的最終得分：<span class="${quizScore >= 80 ? 'text-emerald-500' : 'text-amber-500'}">${quizScore}</span> / 100</p>
+            <p class="text-2xl text-slate-600 mb-8">${comment}</p>
+            <button onclick="returnToQuizDashboard()" class="inline-flex items-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-700 px-8 py-4 rounded-full text-xl font-bold fade-transition">
+              <i class="ph-bold ph-list-dashes"></i> 查看紀錄面板
+            </button>
+          </div>
+        `;
+      }
+
+      // Playing State
+      const q = quizData[quizCurrentQ];
+      const optionLabels = ['A', 'B', 'C', 'D'];
+      let content = `
+        <div class="space-y-8 fade-transition">
+          <div class="bg-indigo-50 border-l-8 border-indigo-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">📝</div>
+            <div>
+              <h3 class="font-bold text-indigo-800 text-lg">營長考驗：最終總測驗</h3>
+              <p class="text-indigo-700">「展現你學到的知識，冷靜作答吧！」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-10 shadow-sm border-2 border-slate-200">
+            <div class="flex justify-between items-center mb-8 pb-4 border-b-2 border-slate-100">
+              <h2 class="text-2xl md:text-3xl font-bold text-indigo-700">大地知識挑戰賽</h2>
+              <span class="text-lg md:text-xl font-bold bg-indigo-100 text-indigo-800 px-4 py-2 rounded-full">
+                第 ${quizCurrentQ + 1} / ${quizData.length} 題
+              </span>
+            </div>
+            
+            <h3 class="text-xl md:text-2xl font-bold text-slate-800 mb-8 leading-relaxed flex items-start gap-3">
+              <i class="ph-fill ph-question text-indigo-500 text-3xl shrink-0 mt-1"></i>
+              <span>${q.question}</span>
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      `;
+
+      q.options.forEach((opt, idx) => {
+        let btnClass = "bg-slate-50 hover:bg-indigo-50 border-slate-200 text-slate-700";
+        let iconHtml = '';
+        if (quizIsAnswered) {
+          if (idx === q.answer) {
+            btnClass = "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold";
+            iconHtml = '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl shrink-0"></i>';
+          } else if (idx === quizSelectedOption) {
+            btnClass = "bg-red-50 border-red-300 text-red-700";
+            iconHtml = '<i class="ph-fill ph-x-circle text-red-500 text-2xl shrink-0"></i>';
+          } else {
+            btnClass = "bg-slate-50 border-slate-200 text-slate-400 opacity-50";
+          }
+        }
+        
+        content += `
+          <button onclick="handleQuizAnswer(${idx})" ${quizIsAnswered ? 'disabled' : ''} class="p-4 md:p-5 text-left text-lg md:text-xl rounded-2xl border-2 fade-transition flex items-center justify-between gap-2 ${btnClass}">
+            <div class="flex items-center gap-3">
+              <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm border border-slate-200 text-indigo-600 font-bold text-base shrink-0">${optionLabels[idx]}</span>
+              <span>${opt}</span>
+            </div>
+            ${iconHtml}
+          </button>
+        `;
+      });
+      content += `</div></div></div>`;
+      return content;
+    }
+
+    // --- 內部邏輯處理 ---
+    window.setObsMat = function(id) { observeSelectedMaterial = id; render(); checkObserveInit(); }
+    window.setObsTool = function(id) { observeSelectedTool = id; render(); checkObserveInit(); }
+    function checkObserveInit() {
+      if (observeSelectedMaterial && observeSelectedTool && observeProgress === 0) { observeProgress = 1; render(); }
+    }
+
+    window.handleMagicWeather = function() {
+      if (magicStage === 'big_rock') {
+        if (magicClicks + 1 >= 4) { magicStage = 'small_rock'; magicClicks = 0; } else { magicClicks++; }
+      } else if (magicStage === 'small_rock') {
+        if (magicClicks + 1 >= 4) { 
+          magicStage = 'sand'; magicClicks = 0; magicGameFinished = true;
+          if(magicProgress === 0) progressTask('magic');
+        } else { magicClicks++; }
+      }
+      render();
+    }
+
+    window.handleMagicLeaves = function() {
+      if (magicStage !== 'small_rock') return;
+      magicLeaves++;
+      if (magicLeaves >= 3) {
+        magicStage = 'soil'; magicLeaves = 0; magicGameFinished = true;
+        if(magicProgress === 0) progressTask('magic');
+      }
+      render();
+    }
+
+    window.startFinalQuiz = function() {
+      initQuizData(); 
+      quizCurrentQ = 0;
+      quizScore = 0;
+      quizIsAnswered = false;
+      quizSelectedOption = null;
+      quizStartTime = Date.now();
+      quizState = 'playing';
+      render();
+    }
+
+    window.handleQuizAnswer = function(idx) {
+      if (quizIsAnswered) return;
+      quizSelectedOption = idx; quizIsAnswered = true;
+      if (idx === quizData[quizCurrentQ].answer) quizScore += 10;
+      render();
+
+      setTimeout(() => {
+        if (quizCurrentQ + 1 < quizData.length) { 
+          quizCurrentQ++; quizSelectedOption = null; quizIsAnswered = false; 
+        } else { 
+          const durationMs = Date.now() - quizStartTime;
+          saveQuizRecord(quizScore, durationMs);
+          quizState = 'result'; 
+        }
+        render();
+      }, 1200); 
+    }
+
+    function saveQuizRecord(score, durationMs) {
+      let history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+      const now = new Date();
+      const record = {
+         date: now.toLocaleDateString('zh-TW'),
+         time: now.toLocaleTimeString('zh-TW', { hour12: false }),
+         score: score,
+         duration: formatDuration(durationMs)
+      };
+      history.unshift(record); 
+      history = history.slice(0, 5); 
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(history));
+    }
+
+    window.returnToQuizDashboard = function() {
+      quizState = 'dashboard';
+      render();
+    }
+
+    // --- 共用小測驗產生器 (支援隨機題庫) ---
+    const mcqStates = {};
+    function renderMiniMCQ(id, title, qPool, isCompleted, theme) {
+      if (!mcqStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        const qRaw = qPool[varIdx];
+        const correctOpt = qRaw.opts[qRaw.a];
+        const shuffledOpts = shuffleArray(qRaw.opts);
+        const newAnsIdx = shuffledOpts.indexOf(correctOpt);
+        mcqStates[id] = { selected: null, opts: shuffledOpts, ansIdx: newAnsIdx, varIdx: varIdx };
+      }
+      const st = mcqStates[id];
+      const qRaw = qPool[st.varIdx];
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-question"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
+
+      st.opts.forEach((opt, idx) => {
+        let cls = "bg-slate-50 border-slate-200 hover:bg-slate-100";
+        if (isCompleted) { 
+          cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-slate-50 text-slate-400 border-slate-100"; 
+        } else if (st.selected === idx) { 
+          cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-red-50 border-red-300 text-red-700"; 
+        }
+        html += `<button onclick="handleMCQ('${id}', ${idx}, ${st.ansIdx})" ${isCompleted ? 'disabled' : ''} class="p-4 rounded-2xl border-2 text-left text-lg font-bold fade-transition ${cls}">${opt}</button>`;
+      });
+      return html + `</div></div>`;
+    }
+    window.handleMCQ = function(id, selIdx, ansIdx) {
+      if (mcqStates[id].selected !== null) return;
+      mcqStates[id].selected = selIdx; render();
+      if (selIdx === ansIdx) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { mcqStates[id].selected = null; render(); }, 800);
+    }
+
+    const tfStates = {};
+    function renderMiniTF(id, title, qPool, isCompleted, theme) {
+      if (!tfStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        tfStates[id] = { selected: null, varIdx: varIdx };
+      }
+      const st = tfStates[id];
+      const qRaw = qPool[st.varIdx];
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-check-square-offset"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p>
+          <div class="flex gap-4 justify-center">`;
+      
+      const tCls = isCompleted ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === true ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-red-50 border-red-300 text-red-700") : `bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700`);
+      const fCls = isCompleted ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === false ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-red-50 border-red-300 text-red-700") : `bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700`);
+
+      html += `<button onclick="handleTF('${id}', true, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-6 rounded-2xl border-2 text-2xl font-bold fade-transition text-center ${tCls}">⭕ 是</button>`;
+      html += `<button onclick="handleTF('${id}', false, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-6 rounded-2xl border-2 text-2xl font-bold fade-transition text-center ${fCls}">❌ 非</button>`;
+      return html + `</div></div>`;
+    }
+    window.handleTF = function(id, sel, ans) {
+      if (tfStates[id].selected !== null) return;
+      tfStates[id].selected = sel; render();
+      if (sel === ans) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { tfStates[id].selected = null; render(); }, 800);
+    }
+
+    const matchStates = {};
+    function renderMatchingGame(id, title, isCompleted, leftItems, rightItems, theme) {
+      if (!matchStates[id]) {
+        matchStates[id] = { selLeft: null, matches: [], err: false, left: shuffleArray(leftItems), right: shuffleArray(rightItems) };
+      }
+      const st = matchStates[id];
+      if (isCompleted && st.matches.length < st.left.length) st.matches = st.left.map(i=>i.id);
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : 'border-slate-200'}">
+          <h3 class="text-xl font-bold ${th} mb-2 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-bold ph-link"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-slate-600 mb-6">點擊左邊的項目，再點擊右邊對應的說明連線起來！</p>
+          <div class="flex flex-col md:flex-row gap-4 justify-between">
+            <div class="w-full md:w-2/5 flex flex-col gap-3">`;
+      
+      st.left.forEach(item => {
+        const isMatched = st.matches.includes(item.id);
+        const isSelected = st.selLeft === item.id;
+        let cls = isMatched ? 'bg-slate-100 border-slate-200 opacity-50' : item.c;
+        cls += isSelected ? ' ring-4 border-transparent' : ' border-transparent hover:brightness-95';
+        if (isSelected && st.err) cls += ' bg-red-50 border-red-300';
+        html += `<button onclick="handleMatchLeft('${id}', '${item.id}')" ${isMatched||isCompleted?'disabled':''} class="flex items-center gap-4 p-4 rounded-2xl border-2 fade-transition text-xl font-bold ${cls}"><span class="text-4xl">${item.e}</span> ${item.t}${isMatched ? '<i class="ph-fill ph-check-circle ml-auto text-emerald-500 text-2xl"></i>' : ''}</button>`;
+      });
+
+      html += `</div><div class="w-full md:w-3/5 flex flex-col gap-3">`;
+
+      st.right.forEach(item => {
+        const isMatched = st.matches.includes(item.id);
+        let cls = isMatched ? 'bg-emerald-50 border-emerald-200 text-emerald-800 opacity-80' : `bg-slate-50 hover:bg-${theme}-50 border-slate-200 text-slate-700`;
+        if (!isMatched && st.selLeft) cls += ` ring-2 ring-${theme}-300 cursor-pointer`;
+        html += `<button onclick="handleMatchRight('${id}', '${item.id}')" ${isMatched||isCompleted?'disabled':''} class="flex items-center p-4 min-h-[5rem] rounded-2xl border-2 fade-transition text-lg font-bold text-left ${cls}">${item.t}${isMatched ? '<i class="ph-fill ph-check-circle ml-auto text-emerald-500 text-2xl"></i>' : ''}</button>`;
+      });
+      return html + `</div></div></div>`;
+    }
+    window.handleMatchLeft = function(id, itemId) {
+      if (!matchStates[id].matches.includes(itemId)) { matchStates[id].selLeft = itemId; matchStates[id].err = false; render(); }
+    };
+    window.handleMatchRight = function(id, itemId) {
+      const st = matchStates[id];
+      if (!st.selLeft || st.matches.includes(itemId)) return;
+      if (st.selLeft === itemId) {
+        st.matches.push(itemId); st.selLeft = null; render();
+        if (st.matches.length === 3) setTimeout(() => progressTask(id), 500);
+      } else {
+        st.err = true; render();
+        setTimeout(() => { st.selLeft = null; st.err = false; render(); }, 800);
+      }
+    };
+
+    const blankStates = {};
+    const globalWords = {
+      rock: { id: 'w1', text: '粗粗硬硬的', correctBlank: 'rock', c: 'bg-slate-200 text-slate-800' },
+      sand: { id: 'w2', text: '細細滑滑的', correctBlank: 'sand', c: 'bg-yellow-200 text-yellow-800' },
+      soil: { id: 'w3', text: '鬆軟會結塊', correctBlank: 'soil', c: 'bg-amber-200 text-amber-800' }
+    };
+    function renderFillBlank(id, title, isCompleted, words, templateStr, theme) {
+      if (!blankStates[id]) {
+        let bInit = {};
+        words.forEach(w => bInit[w.correctBlank] = null);
+        blankStates[id] = { b: bInit, sel: null, err: null, words: shuffleArray(words) };
+      }
+      const st = blankStates[id];
+      if (isCompleted) st.words.forEach(w => st.b[w.correctBlank] = w);
+      const th = `text-${theme}-700`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? `bg-${theme}-50 border-${theme}-200 opacity-80` : `border-slate-200`}">
+          <h3 class="text-xl font-bold ${th} mb-2 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-puzzle-piece"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-slate-600 mb-6">點擊字卡拿起來，填入正確的空格中！</p>`;
+
+      if (!isCompleted) {
+        html += `<div class="flex flex-wrap justify-center gap-4 mb-6 p-4 bg-slate-50 rounded-2xl border-2 border-slate-200 min-h-[4rem]">`;
+        st.words.forEach(w => {
+          const isUsed = Object.values(st.b).some(v => v && v.correctBlank === w.correctBlank);
+          if (isUsed) { html += `<div class="w-24 opacity-0"></div>`; return; }
+          const isSelected = st.sel?.correctBlank === w.correctBlank;
+          let cls = `px-6 py-2 rounded-full font-bold text-xl transition-colors cursor-pointer ${w.c} ${isSelected ? `ring-4 ring-${theme}-400` : 'hover:opacity-90'}`;
+          html += `<button onclick="handleBlankWord('${id}', '${w.correctBlank}')" class="${cls}">${w.text}</button>`;
+        });
+        html += `</div>`;
+      }
+
+      let contentHtml = templateStr;
+      st.words.forEach(w => {
+        const key = w.correctBlank;
+        const val = st.b[key];
+        let boxHtml = '';
+        if (val) {
+          boxHtml = `<span class="inline-block mx-2 px-4 py-1 rounded-full text-white bg-green-500 align-middle leading-none">${val.text}</span>`;
+        } else {
+          const isErr = st.err === key;
+          const isSel = !!st.sel && !isErr;
+          let cls = `inline-block mx-2 w-24 h-10 border-b-4 border-dashed align-middle transition-colors outline-none ${isErr ? 'border-red-500 bg-red-50' : `border-${theme}-300 bg-white/50`} ${isSel ? `hover:bg-${theme}-100 cursor-pointer border-${theme}-400` : ''}`;
+          boxHtml = `<button onclick="handleBlankBox('${id}', '${key}')" class="${cls}"></button>`;
+        }
+        contentHtml = contentHtml.replace(`<button id="${key}"></button>`, boxHtml);
+      });
+
+      html += `<div class="text-xl md:text-2xl leading-[3rem] font-bold text-slate-700 bg-${theme}-50 p-6 rounded-2xl border-2 border-${theme}-100">${contentHtml}</div></div>`;
+      return html;
+    }
+
+    window.handleBlankWord = function(id, wordKey) {
+      const st = blankStates[id];
+      if (Object.values(st.b).some(v => v && v.correctBlank === globalWords[wordKey].correctBlank)) return;
+      st.sel = globalWords[wordKey]; render();
+    };
+    window.handleBlankBox = function(id, boxKey) {
+      const st = blankStates[id];
+      if (!st.sel) return;
+      if (st.sel.correctBlank === boxKey) {
+        st.b[boxKey] = st.sel; st.sel = null; render();
+        if (Object.values(st.b).every(v => v !== null)) setTimeout(() => progressTask(id), 500);
+      } else {
+        st.err = boxKey; render(); setTimeout(() => { st.err = null; render(); }, 800);
+      }
+    };
+
+    const orderStates = {};
+    function renderOrderGame(id, title, isCompleted, itemsArr, desc, theme) {
+      if (!orderStates[id]) {
+        let mixed = shuffleArray(itemsArr);
+        orderStates[id] = { items: mixed, slots: [null, null, null], correct: itemsArr };
+      }
+      const st = orderStates[id];
+      if (isCompleted) st.slots = st.correct;
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold ${th} mb-2 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-bold ph-list-numbers"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-slate-600 mb-6">${desc}</p>
+          <div class="flex flex-col md:flex-row gap-4 items-center justify-center mb-8">`;
+
+      [0, 1, 2].forEach(idx => {
+        const slot = st.slots[idx];
+        let cls = `w-36 h-32 rounded-2xl border-4 border-dashed flex flex-col items-center justify-center fade-transition `;
+        if (slot) cls += `border-transparent bg-${theme}-100`;
+        else cls += `border-${theme}-200 bg-${theme}-50`;
+        if (st.slots[2] && st.slots[0]?.id !== st.correct[0].id) cls += ` border-red-300 bg-red-50`;
+        if (isCompleted) cls += ` bg-emerald-50 border-transparent`;
+
+        html += `<button onclick="handleOrderSlot('${id}', ${idx})" ${isCompleted ? 'disabled':''} class="${cls}">`;
+        if (slot) html += `<span class="text-4xl">${slot.e}</span><span class="font-bold text-${theme}-900 mt-2">${slot.t}</span>`;
+        else html += `<span class="text-${theme}-300 font-bold text-2xl">${idx + 1}</span>`;
+        html += `</button>`;
+        if (idx < 2) {
+          html += `<i class="ph-bold ph-arrow-right text-${theme}-300 hidden md:block text-4xl"></i>`;
+          html += `<i class="ph-bold ph-arrow-down text-${theme}-300 md:hidden my-2 text-4xl"></i>`;
+        }
+      });
+
+      html += `</div>`;
+      if (!isCompleted) {
+        html += `<div class="flex flex-wrap justify-center gap-4">`;
+        st.items.forEach(item => {
+          const isUsed = st.slots.some(s => s && s.id === item.id);
+          if (isUsed) { html += `<div class="w-36 opacity-0"></div>`; return; }
+          html += `<button onclick="handleOrderItem('${id}', ${item.id})" class="w-36 h-24 bg-white border-2 border-${theme}-300 rounded-2xl flex flex-col items-center justify-center hover:bg-${theme}-50 fade-transition cursor-pointer">
+              <span class="text-3xl">${item.e}</span><span class="font-bold text-slate-700 text-sm mt-1">${item.t}</span>
+            </button>`;
+        });
+        html += `</div>`;
+      }
+      return html + `</div>`;
+    }
+    window.handleOrderItem = function(id, itemId) {
+      const st = orderStates[id];
+      const nextEmpty = st.slots.findIndex(s => s === null);
+      if (nextEmpty !== -1) {
+        st.slots[nextEmpty] = st.items.find(i => i.id === itemId); render();
+        if (nextEmpty === 2) {
+          if (st.slots[0].id === st.correct[0].id && st.slots[1].id === st.correct[1].id && st.slots[2].id === st.correct[2].id) {
+            setTimeout(() => progressTask(id), 600);
+          } else {
+            setTimeout(() => { st.slots = [null, null, null]; render(); }, 1000);
+          }
+        }
+      }
+    };
+    window.handleOrderSlot = function(id, idx) {
+      if (orderStates[id].slots[idx]) { orderStates[id].slots[idx] = null; render(); }
+    };
+
+    function renderSortGame(title, isCompleted) {
+      if (isCompleted) sortCurrentIndex = sortItems.length;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? 'bg-blue-50 border-blue-200 opacity-80' : 'border-slate-200'}">
+          <h2 class="text-xl font-bold text-blue-700 mb-6 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-basket"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h2>`;
+
+      if (sortCurrentIndex < sortItems.length && !isCompleted) {
+        const cur = sortItems[sortCurrentIndex];
+        html += `<div class="flex flex-col items-center">
+            <p class="text-slate-600 mb-4 font-bold">這個應用主要是使用大自然的什麼材料呢？</p>
+            <div class="relative w-full max-w-md h-40 bg-slate-50 border-4 border-slate-200 rounded-3xl flex items-center justify-center mb-8 overflow-hidden fade-transition">`;
+        if (sortFeedback) {
+          html += `<div class="text-2xl font-bold flex items-center gap-2 ${sortFeedback.isCorrect ? 'text-emerald-600' : 'text-red-500'} px-4 text-center">
+              <i class="ph-fill ${sortFeedback.isCorrect ? 'ph-check-circle' : 'ph-x-circle'} text-4xl shrink-0"></i> ${sortFeedback.text}
+            </div>`;
+        } else {
+          html += `<div class="text-center px-4 fade-transition">
+              <div class="text-5xl mb-2">${cur.emoji}</div><h3 class="text-2xl font-bold text-slate-700">${cur.text}</h3>
+            </div>`;
+        }
+        html += `</div><div class="w-full flex justify-center gap-2 md:gap-4">`;
+        
+        const btns = [
+          {id:'rock', e:'🪨', t:'石頭', c:'bg-slate-50 border-slate-400 text-slate-800'},
+          {id:'sand', e:'🏖️', t:'沙子', c:'bg-yellow-50 border-yellow-400 text-yellow-800'},
+          {id:'soil', e:'🌱', t:'土壤', c:'bg-amber-50 border-amber-400 text-amber-800'}
+        ];
+        btns.forEach(b => {
+          html += `<button onclick="handleSort('${b.id}')" ${sortFeedback?'disabled':''} class="flex-1 max-w-[120px] ${b.c.split(' ')[0]} hover:brightness-95 border-b-4 ${b.c.split(' ')[1]} p-3 md:p-4 rounded-2xl text-center fade-transition disabled:opacity-50">
+            <div class="text-3xl mb-1">${b.e}</div><div class="text-base md:text-lg font-bold ${b.c.split(' ')[2]}">${b.t}</div>
+          </button>`;
+        });
+        
+        html += `</div><div class="mt-6 text-slate-500 font-bold bg-slate-100 px-4 py-1 rounded-full">進度：${sortCurrentIndex + 1} / ${sortItems.length}</div></div>`;
+      } else {
+        html += `<div class="text-center py-4 fade-transition"><i class="ph-fill ph-check-circle text-6xl text-emerald-500 mb-4 block mx-auto"></i><h3 class="text-xl font-bold text-slate-800">特徵分類完成！</h3></div>`;
+      }
+      return html + `</div>`;
+    }
+    window.handleSort = function(cat) {
+      if (sortFeedback) return;
+      const cur = sortItems[sortCurrentIndex];
+      if (cur.type === cat) {
+        sortFeedback = { isCorrect: true, text: '判斷正確！' };
+      } else {
+        sortFeedback = { isCorrect: false, text: `判斷錯誤喔！再想一想。` };
+      }
+      render();
+      setTimeout(() => {
+        sortFeedback = null;
+        if (cur.type === cat) {
+          if (sortCurrentIndex + 1 < sortItems.length) sortCurrentIndex++;
+          else progressTask('sort');
+        }
+        render();
+      }, 1000);
+    }
+
+    // --- 全局狀態推進 ---
+    window.progressTask = function(taskId) {
+      if (taskId.startsWith('learn')) learnProgress++;
+      else if (taskId.startsWith('obs')) observeProgress++;
+      else if (taskId.startsWith('magic')) magicProgress++;
+      else if (taskId.startsWith('sort')) sortProgress++;
+      render();
+    }
+
+    // 主渲染邏輯
+    function render() {
+      renderProgressBar();
+      const main = document.getElementById('main-content');
+      switch (steps[currentStepIndex]) {
+        case 'welcome': main.innerHTML = renderWelcome(); break;
+        case 'learn': main.innerHTML = renderLearn(); break;
+        case 'observe': main.innerHTML = renderObserve(); break;
+        case 'magic': main.innerHTML = renderMagic(); break;
+        case 'sort': main.innerHTML = renderSort(); break;
+        case 'quiz': main.innerHTML = renderQuiz(); break;
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>

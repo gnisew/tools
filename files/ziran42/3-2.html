@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>大地探險家：地表的變化</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入 Phosphor Icons 做為圖示庫 -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    /* 隱藏捲軸但保留捲動功能 */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* 僅保留平緩的淡入淡出動畫，減少視覺干擾 */
+    .fade-transition {
+      transition: opacity 0.4s ease-in-out, background-color 0.3s ease-in-out, border-color 0.3s ease-in-out, color 0.3s ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 pb-16 min-h-screen">
+
+  <!-- 標題列：改用沉穩的岩灰色系，並移除 sticky top-0 以釋放可視空間 -->
+  <header class="bg-slate-700 text-white p-4 shadow-md">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="ph ph-waves text-3xl text-cyan-400"></i>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-wider">大地探險家：地表的變化</h1>
+      </div>
+    </div>
+  </header>
+
+  <!-- 全解鎖導航列 -->
+  <div id="progress-container" class="max-w-4xl mx-auto px-4 pt-6 fade-transition">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border-2 border-slate-200 flex flex-wrap justify-between items-center gap-2 overflow-x-auto hide-scrollbar" id="progress-bar">
+      <!-- JS 渲染進度條 -->
+    </div>
+  </div>
+
+  <main id="main-content" class="max-w-4xl mx-auto p-4 mt-4 fade-transition">
+    <!-- JS 渲染內容 -->
+  </main>
+
+  <script>
+    // --- 實用的隨機洗牌函數 ---
+    function shuffleArray(array) {
+      const newArr = [...array];
+      for (let i = newArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+      }
+      return newArr;
+    }
+
+    // --- 系統狀態管理 ---
+    const steps = ['welcome', 'water', 'river', 'disaster', 'quiz'];
+    let currentStepIndex = 0;
+    
+    let waterProgress = 0;    
+    let riverProgress = 0;  
+    let disasterProgress = 0;   
+
+    // 災難模擬器狀態
+    let simState = 'normal'; // 'normal', 'earthquake', 'typhoon'
+    let hasTriedEQ = false;
+    let hasTriedTyphoon = false;
+
+    // 分類遊戲狀態 (河流特徵)
+    const baseSortItems = [
+      { id: 1, text: '巨大且有稜角的岩石', type: 'up', emoji: '⛰️' },
+      { id: 2, text: '圓滾滾的鵝卵石', type: 'mid', emoji: '🥔' },
+      { id: 3, text: '細細的沙子和泥土', type: 'down', emoji: '🏖️' },
+      { id: 4, text: '水流最急、坡度最陡', type: 'up', emoji: '🌊' },
+      { id: 5, text: '地勢平坦、水流最慢', type: 'down', emoji: '🐢' },
+    ];
+    let sortItems = [];
+    let sortCurrentIndex = 0;
+    let sortFeedback = null;
+
+    // --- 最終測驗題庫池 (包含多種替換題目) ---
+    const rawQuizPools = [
+      [ // 概念1：侵蝕作用
+        { q: "水流把岩石或泥沙從原本的地方帶走的現象，稱為什麼作用？", options: ["堆積作用", "搬運作用", "侵蝕作用", "風化作用"], answer: 2 },
+        { q: "大雨過後，山坡上的泥土被雨水沖刷出深深的溝痕，這是流水的哪一種作用？", options: ["搬運作用", "侵蝕作用", "堆積作用", "光合作用"], answer: 1 }
+      ],
+      [ // 概念2：堆積作用
+        { q: "水流變慢時，夾帶的泥沙和石頭會沉降下來，這稱為什麼作用？", options: ["侵蝕作用", "搬運作用", "堆積作用", "蒸發作用"], answer: 2 },
+        { q: "在河流的下游或出海口，常常可以看到一大片沙洲，這是因為流水的什麼作用造成的？", options: ["搬運作用", "堆積作用", "侵蝕作用", "地震作用"], answer: 1 }
+      ],
+      [ // 概念3：上游特徵
+        { q: "河流的「上游」通常具有什麼樣的特徵？", options: ["地勢平坦，水流很慢", "河床佈滿細細的泥沙", "坡度陡峭，水流很急", "到處都是圓滾滾的鵝卵石"], answer: 2 },
+        { q: "如果你看到一條河的河床裡充滿了「巨大且有稜角」的岩石，水流又非常快，這最可能是河流的哪一段？", options: ["上游", "中游", "下游", "出海口"], answer: 0 }
+      ],
+      [ // 概念4：中游特徵
+        { q: "在河流的哪一個區段，最容易看到圓滾滾的「鵝卵石」？", options: ["上游", "中游", "下游", "高山上"], answer: 1 },
+        { q: "當河水流到「中游」時，石頭會因為互相碰撞摩擦而變成什麼樣子？", options: ["變成巨大的尖銳岩石", "變成細細的黑泥巴", "變成圓滾滾的鵝卵石", "完全消失不見"], answer: 2 }
+      ],
+      [ // 概念5：下游特徵
+        { q: "關於河流「下游」的敘述，哪一個是正確的？", options: ["水流最急", "主要發生強烈的侵蝕作用", "河床上通常堆滿了細沙和泥土", "有很多巨大且有稜角的岩石"], answer: 2 },
+        { q: "河流在準備流入大海之前的「下游」階段，因為地勢平坦，最常發生哪一種作用？", options: ["強烈的侵蝕作用", "明顯的搬運作用", "明顯的堆積作用", "強烈的風化作用"], answer: 2 }
+      ],
+      [ // 概念6：緩慢變化
+        { q: "大自然中，哪一種力量是造成地表景觀「緩慢」改變的主要原因？", options: ["強烈地震", "颱風帶來的土石流", "火山爆發", "長期的流水作用"], answer: 3 },
+        { q: "我們常說流水是「大自然的雕刻家」，這種雕刻地表改變景觀的過程通常是？", options: ["非常快速，一天就完成", "需要花費非常長的時間，緩慢進行", "伴隨著巨大的爆炸聲", "只在冬天發生"], answer: 1 }
+      ],
+      [ // 概念7：劇烈變化 (地震)
+        { q: "下列哪一種情況，會讓地表在「短時間內」發生劇烈的改變？", options: ["小河慢慢流動", "大地震發生", "植物的根慢慢長大", "微風輕輕吹過"], answer: 1 },
+        { q: "哪一種大自然的力量會在短短幾十秒內，讓地面裂開、山壁崩塌？", options: ["毛毛雨", "流水的侵蝕", "大地震", "太陽的照射"], answer: 2 }
+      ],
+      [ // 概念8：劇烈變化 (颱風/豪雨)
+        { q: "颱風帶來連續好幾天的豪大雨，最可能在山區造成什麼災害？", options: ["沙塵暴", "海水倒灌", "山崩與土石流", "乾旱"], answer: 2 },
+        { q: "當颱風帶來超大豪雨時，大量的雨水夾帶泥沙與石頭沖刷而下，我們稱之為什麼災害？", options: ["土石流", "海嘯", "龍捲風", "暴風雪"], answer: 0 }
+      ],
+      [ // 概念9：防災觀念
+        { q: "如果想在河邊蓋房子，為了安全起見，應該要注意什麼？", options: ["隨便蓋在哪裡都可以", "建在容易發生土石流的陡坡上", "避開危險的河道和容易淹水的低窪地區", "把房子蓋在河床正中央"], answer: 2 },
+        { q: "為了避免土石流的危害，我們「不應該」做什麼事？", options: ["在山坡地大量砍伐樹木", "做好水土保持", "不在危險的陡坡蓋房子", "下大雨時遠離山區"], answer: 0 }
+      ],
+      [ // 概念10：流水作用綜合順序
+        { q: "流水的三大作用（侵蝕、搬運、堆積），通常是依照什麼順序在改變地表的？", options: ["堆積 → 搬運 → 侵蝕", "侵蝕 → 搬運 → 堆積", "搬運 → 侵蝕 → 堆積", "沒有固定順序，只會發生其中一種"], answer: 1 },
+        { q: "從高山到大海，河流對地表的作用順序，哪一個描述最合理？", options: ["先在下游侵蝕，再搬運到上游", "先在山上堆積，再侵蝕流向海裡", "先在上游侵蝕岩石，搬運後在下游堆積", "全部都在中游同時發生"], answer: 2 }
+      ]
+    ];
+
+    let quizState = 'dashboard'; // 'dashboard', 'playing', 'result'
+    let quizData = [];
+    let quizCurrentQ = 0;
+    let quizScore = 0;
+    let quizSelectedOption = null;
+    let quizIsAnswered = false;
+    let quizStartTime = 0;
+    const LOCAL_STORAGE_KEY = '四下3-2翰林自然42hz32'; // 使用獨立的 Key
+
+    // 初始化/隨機抽題函數
+    function initQuizData() {
+      quizData = rawQuizPools.map(pool => {
+        const qRaw = pool[Math.floor(Math.random() * pool.length)];
+        const correctOpt = qRaw.options[qRaw.answer];
+        const shuffledOptions = shuffleArray(qRaw.options);
+        return {
+          question: qRaw.q,
+          options: shuffledOptions,
+          answer: shuffledOptions.indexOf(correctOpt)
+        };
+      });
+    }
+
+    // --- 時間格式化 ---
+    function formatDuration(ms) {
+      const totalSecs = Math.floor(ms / 1000);
+      const mins = Math.floor(totalSecs / 60);
+      const secs = totalSecs % 60;
+      return `${mins}分 ${secs}秒`;
+    }
+
+    // --- 導航與進度條 ---
+    function jumpToStep(index) {
+      currentStepIndex = index;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function renderProgressBar() {
+      const container = document.getElementById('progress-container');
+      const bar = document.getElementById('progress-bar');
+      
+      const stages = [
+        { name: '出發', icon: 'ph-flag-pennant' },
+        { name: '流水的魔法', icon: 'ph-drop' },
+        { name: '河流大探索', icon: 'ph-mountains' },
+        { name: '劇烈變化', icon: 'ph-warning' },
+        { name: '最終測驗', icon: 'ph-file-question' },
+      ];
+
+      let html = '';
+      stages.forEach((stage, idx) => {
+        const isActive = currentStepIndex === idx;
+        const isPassed = (idx === 1 && waterProgress >= 3) || 
+                         (idx === 2 && riverProgress >= 3) || 
+                         (idx === 3 && disasterProgress >= 3);
+
+        let iconHtml = isPassed ? '<i class="ph-fill ph-check-circle text-xl"></i>' : `<i class="ph ${stage.icon} text-xl"></i>`;
+        
+        let circleClass = `w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm fade-transition `;
+        if (isActive) circleClass += `bg-cyan-500 ring-4 ring-cyan-200`;
+        else if (isPassed) circleClass += `bg-teal-400`;
+        else circleClass += `bg-slate-300`;
+
+        let textClass = `text-xs font-bold whitespace-nowrap mt-1 ${isActive ? 'text-cyan-600' : 'text-slate-500'}`;
+
+        html += `
+          <div class="flex items-center">
+            <button onclick="jumpToStep(${idx})" class="flex flex-col items-center px-2 py-1 fade-transition cursor-pointer hover:bg-slate-50 rounded-lg">
+              <div class="${circleClass}">${iconHtml}</div>
+              <span class="${textClass}">${stage.name}</span>
+            </button>
+        `;
+        if (idx < stages.length - 1) {
+          html += `<div class="hidden sm:block w-8 md:w-12 h-1 rounded-full mx-1 ${isPassed ? 'bg-teal-300' : 'bg-slate-200'}"></div>`;
+        }
+        html += `</div>`;
+      });
+      bar.innerHTML = html;
+    }
+
+    // --- 區塊渲染：0. 首頁 ---
+    function renderWelcome() {
+      return `
+        <div class="bg-white rounded-3xl p-8 md:p-12 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition">
+          <div class="inline-block bg-slate-100 p-6 rounded-full mb-6">
+            <i class="ph ph-globe-hemisphere-east text-7xl text-slate-600"></i>
+          </div>
+          <h2 class="text-4xl md:text-5xl font-bold text-slate-800 mb-6">大地變化調查局</h2>
+          <p class="text-xl md:text-2xl text-slate-600 leading-relaxed mb-8 max-w-2xl mx-auto">
+            地球表面的風景，像是高山、河流和沙灘，並不是永遠不變的喔！<br/><br/>
+            到底是誰像魔術師一樣改變了大地？是慢慢變化的，還是突然發生的呢？跟著我們一起破解地表變化的秘密吧！
+          </p>
+          <button onclick="jumpToStep(1)" class="inline-flex items-center gap-3 bg-cyan-500 hover:bg-cyan-600 text-white px-8 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm">
+            <i class="ph-fill ph-play-circle text-3xl"></i> 接受任務，開始調查！
+          </button>
+        </div>
+      `;
+    }
+
+    // --- 區塊渲染：1. 流水的魔法 (藍色系) ---
+    function renderWater() {
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-blue-50 border-l-8 border-blue-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">💧</div>
+            <div>
+              <h3 class="font-bold text-blue-800 text-lg">局長提示：流水的力量</h3>
+              <p class="text-blue-700">「大自然中，『流水』是最勤勞的雕刻家。閱讀流水的魔法，並通過測驗來解鎖下一關！」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200">
+            <h2 class="text-3xl font-bold text-blue-600 mb-6 flex items-center gap-2">
+              <i class="ph-fill ph-drop text-3xl"></i> 流水的三大魔法
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div class="p-6 bg-slate-50 rounded-2xl border-2 border-slate-100 text-center">
+                <div class="text-5xl mb-4">⛏️</div>
+                <h3 class="text-xl font-bold text-slate-700 mb-2">侵蝕作用</h3>
+                <p class="text-slate-600">水流把河床上的岩石、泥沙沖刷下來，讓溝痕變得更深或更寬。</p>
+              </div>
+              <div class="p-6 bg-slate-50 rounded-2xl border-2 border-slate-100 text-center">
+                <div class="text-5xl mb-4">🚚</div>
+                <h3 class="text-xl font-bold text-slate-700 mb-2">搬運作用</h3>
+                <p class="text-slate-600">水流將沖刷下來的泥沙和石頭，帶著它們一起往下游移動。</p>
+              </div>
+              <div class="p-6 bg-slate-50 rounded-2xl border-2 border-slate-100 text-center">
+                <div class="text-5xl mb-4">🧱</div>
+                <h3 class="text-xl font-bold text-slate-700 mb-2">堆積作用</h3>
+                <p class="text-slate-600">當水流變慢時，帶不動的泥沙和石頭就會慢慢沉降、堆疊起來。</p>
+              </div>
+            </div>
+          </div>
+      `;
+
+      if (waterProgress >= 0) {
+        content += renderMatchingGame('waterMatch', '任務一：魔法名稱連連看', waterProgress > 0, 
+          [{id:'ero', e:'⛏️', t:'侵蝕作用', c:'bg-blue-50'}, {id:'trans', e:'🚚', t:'搬運作用', c:'bg-indigo-50'}, {id:'dep', e:'🧱', t:'堆積作用', c:'bg-cyan-50'}],
+          [{id:'dep', t:'水流變慢，泥沙沉降下來'}, {id:'ero', t:'水流把岩石和泥土沖刷下來'}, {id:'trans', t:'水流帶著泥沙往下游移動'}], 'blue'
+        );
+      }
+      if (waterProgress >= 1) {
+        content += renderFillBlank('waterBlank', '任務二：觀念填空', waterProgress > 1, 
+          [{ id: 'w1', text: '侵蝕', correctBlank: 'b1', c: 'bg-blue-100 text-blue-800' }, { id: 'w2', text: '堆積', correctBlank: 'b2', c: 'bg-cyan-100 text-cyan-800' }],
+          `水流很急的時候，通常會發生<button id="b1"></button>作用；當水流變慢的時候，就會發生<button id="b2"></button>作用。`, 'blue'
+        );
+      }
+      if (waterProgress >= 2) {
+        content += renderMiniTF('waterTF', '任務三：觀念是非題', 
+          [
+            {q: '流水改變地表的樣子（侵蝕、搬運、堆積）通常需要花費非常長的時間，是緩慢進行的。', a: true},
+            {q: '水流的力量很小，所以幾天之內就可以明顯看到地表被改變的樣子。', a: false}
+          ], waterProgress > 2, 'blue');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${waterProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(2)" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            完全明白！前往河流大探索 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      return content;
+    }
+
+    // --- 區塊渲染：2. 河流大探索 (藍綠色/Teal) ---
+    function renderRiver() {
+      if (riverProgress === 1 && sortItems.length === 0) {
+        sortItems = shuffleArray(baseSortItems);
+      }
+
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-teal-50 border-l-8 border-teal-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">🏞️</div>
+            <div>
+              <h3 class="font-bold text-teal-800 text-lg">局長提示：河流的三種面貌</h3>
+              <p class="text-teal-700">「同一條河流，在不同區段的長相完全不一樣喔！認識它們，並解開探險任務。」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200">
+            <h2 class="text-3xl font-bold text-teal-600 mb-6 flex items-center gap-2">
+              <i class="ph-fill ph-mountains text-3xl"></i> 上游、中游、下游
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div class="p-6 bg-slate-50 rounded-2xl border-2 border-slate-100">
+                <div class="text-3xl mb-4">🏔️ <b class="text-slate-800">上游</b></div>
+                <ul class="list-disc pl-5 text-slate-600 space-y-2">
+                  <li>坡度陡峭，水流很急。</li>
+                  <li>主要發生<b>侵蝕</b>作用。</li>
+                  <li>河床有很多巨大、有稜角的岩石。</li>
+                </ul>
+              </div>
+              <div class="p-6 bg-slate-50 rounded-2xl border-2 border-slate-100">
+                <div class="text-3xl mb-4">🏞️ <b class="text-slate-800">中游</b></div>
+                <ul class="list-disc pl-5 text-slate-600 space-y-2">
+                  <li>坡度變緩，水流變慢。</li>
+                  <li>石頭碰撞摩擦，河床常見圓滾滾的<b>鵝卵石</b>。</li>
+                </ul>
+              </div>
+              <div class="p-6 bg-slate-50 rounded-2xl border-2 border-slate-100">
+                <div class="text-3xl mb-4">🌅 <b class="text-slate-800">下游</b></div>
+                <ul class="list-disc pl-5 text-slate-600 space-y-2">
+                  <li>地勢平坦，水流最慢。</li>
+                  <li>主要發生<b>堆積</b>作用。</li>
+                  <li>河床堆滿了細細的沙子和泥土。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+      `;
+
+      if (riverProgress >= 0) {
+        content += renderOrderGame('riverOrder', '任務一：河流位置排序', riverProgress > 0, 
+          [{id:1, t:'上游 (大岩石)', e:'🏔️'}, {id:2, t:'中游 (鵝卵石)', e:'🥔'}, {id:3, t:'下游 (細泥沙)', e:'🏖️'}],
+          '水是從高處往低處流的，請依照河流從高到低的順序排好！', 'teal'
+        );
+      }
+      if (riverProgress >= 1) {
+        content += renderSortGame('任務二：特徵分類大師', riverProgress > 1);
+      }
+      if (riverProgress >= 2) {
+        content += renderMiniMCQ('riverMCQ', '任務三：觀念選擇題', 
+          [
+            {q: '在河流的哪一個區段，水流最平緩，而且主要發生「堆積作用」？', opts: ["上游", "中游", "下游", "出海口外面的深海"], a: 2},
+            {q: '如果想去撿圓滾滾的「鵝卵石」，最好到河流的哪一個區段尋找？', opts: ["上游", "中游", "下游", "山頂上"], a: 1}
+          ], riverProgress > 2, 'teal');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${riverProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(3)" class="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            調查完畢！前往災難模擬區 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      return content;
+    }
+
+    // --- 區塊渲染：3. 劇烈變化 (橘色系/Orange) ---
+    function renderDisaster() {
+      let simClass = "transition-all duration-1000 ";
+      let emoji = "🏞️";
+      let desc = "原本平靜美麗的山林與河流...";
+      
+      if (simState === 'earthquake') {
+        simClass += "bg-red-50 border-red-300";
+        emoji = "🌋🌩️";
+        desc = "發生大地震！山壁崩塌、地面出現裂縫，地表瞬間改變了！";
+      } else if (simState === 'typhoon') {
+        simClass += "bg-slate-200 border-slate-400";
+        emoji = "🌧️🌊🪨";
+        desc = "豪大雨來襲！大量的雨水夾帶泥沙沖刷而下，引發可怕的土石流！";
+      } else {
+        simClass += "bg-emerald-50 border-emerald-200";
+      }
+
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-orange-50 border-l-8 border-orange-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">⚠️</div>
+            <div>
+              <h3 class="font-bold text-orange-800 text-lg">局長警告：劇烈的變化</h3>
+              <p class="text-orange-700">「流水是緩慢的變化，但有些大自然的力量會在『短時間內』讓地表產生劇烈改變。親自按下按鈕測試，並完成測驗吧！」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200 text-center">
+            <h2 class="text-2xl font-bold text-orange-600 mb-6 flex items-center justify-center gap-2">
+              <i class="ph-fill ph-warning"></i> 任務一：地表災難模擬器
+            </h2>
+            
+            <div class="w-full max-w-lg mx-auto h-64 border-8 rounded-3xl flex flex-col items-center justify-center mb-6 shadow-inner relative overflow-hidden ${simClass}">
+              <div class="text-8xl mb-4 drop-shadow-sm fade-transition">${emoji}</div>
+              <div class="bg-white/90 px-4 py-2 rounded-xl font-bold text-slate-800 shadow-sm mx-4 fade-transition">${desc}</div>
+            </div>
+
+            <div class="flex gap-4 justify-center">
+              <button onclick="triggerSim('earthquake')" class="flex-1 max-w-[160px] bg-orange-500 hover:bg-orange-600 text-white rounded-2xl p-4 shadow-sm fade-transition font-bold text-lg flex flex-col items-center">
+                <i class="ph-fill ph-activity text-3xl mb-1"></i> 觸發大地震
+              </button>
+              <button onclick="triggerSim('typhoon')" class="flex-1 max-w-[160px] bg-slate-600 hover:bg-slate-700 text-white rounded-2xl p-4 shadow-sm fade-transition font-bold text-lg flex flex-col items-center">
+                <i class="ph-fill ph-cloud-rain text-3xl mb-1"></i> 降下豪大雨
+              </button>
+            </div>
+            
+            ${(hasTriedEQ && hasTriedTyphoon) ? `<div class="mt-6 text-emerald-600 font-bold fade-transition"><i class="ph-fill ph-check-circle"></i> 模擬完成！原來地震和豪雨會帶來這麼可怕的災害。</div>` : `<div class="mt-6 text-slate-500 fade-transition">請嘗試點擊上方兩種不同的災難按鈕。</div>`}
+          </div>
+      `;
+
+      if (disasterProgress >= 1) {
+        content += renderMiniTF('disasterTF', '任務二：變化速度是非題', 
+          [
+            {q: '流水改變地貌需要花費很長的時間，但是地震造成的地表裂縫和山崩，是在非常短的時間內發生的。', a: true},
+            {q: '地震和流水一樣，都需要幾十年的時間才能慢慢改變地表的模樣。', a: false}
+          ], disasterProgress > 1, 'orange');
+      }
+      if (disasterProgress >= 2) {
+        content += renderMiniMCQ('disasterMCQ', '任務三：防災選擇題', 
+          [
+            {q: '為了避免土石流或淹水的危險，我們「不應該」把房子蓋在哪裡？', opts: ["平坦寬闊的平原", "陡峭的山坡或河道旁邊", "堅固的岩盤上", "政府規劃的安全住宅區"], a: 1},
+            {q: '颱風來臨時，為了保護自身的安全，下列哪個做法最正確？', opts: ["跑到海邊去觀浪", "在家裡躲好並準備防災用品", "去山上露營", "在河邊搭帳篷"], a: 1}
+          ], disasterProgress > 2, 'orange');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${disasterProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(4)" class="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            我準備好了！進行最終測驗 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+      return content;
+    }
+
+    window.triggerSim = function(type) {
+      simState = type;
+      if (type === 'earthquake') hasTriedEQ = true;
+      if (type === 'typhoon') hasTriedTyphoon = true;
+      render();
+      
+      if (hasTriedEQ && hasTriedTyphoon && disasterProgress === 0) {
+        setTimeout(() => { progressTask('disaster'); }, 1000);
+      }
+      
+      setTimeout(() => { simState = 'normal'; render(); }, 2500);
+    }
+
+    // --- 區塊渲染：4. 最終測驗 (靛藍色/Indigo) ---
+    function renderQuiz() {
+      if (quizState === 'dashboard') {
+        const history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+        
+        let histHtml = '';
+        if (history.length === 0) {
+          histHtml = `<p class="text-slate-500 py-4">目前還沒有測驗紀錄，快來挑戰第一次吧！</p>`;
+        } else {
+          histHtml = `
+            <div class="overflow-x-auto w-full mt-4">
+              <table class="w-full text-left border-collapse min-w-[500px]">
+                <thead>
+                  <tr class="bg-cyan-100 text-cyan-800 border-b-2 border-cyan-200">
+                    <th class="p-3 rounded-tl-xl">日期</th>
+                    <th class="p-3">時間</th>
+                    <th class="p-3">成績</th>
+                    <th class="p-3 rounded-tr-xl">作答時長</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${history.map(r => `
+                    <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                      <td class="p-3 text-slate-600">${r.date}</td>
+                      <td class="p-3 text-slate-600">${r.time}</td>
+                      <td class="p-3 font-bold ${r.score >= 80 ? 'text-emerald-600' : 'text-amber-600'}">${r.score} 分</td>
+                      <td class="p-3 text-slate-500">${r.duration}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="bg-white rounded-3xl p-8 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition max-w-2xl mx-auto">
+            <i class="ph-fill ph-medal text-6xl text-cyan-500 mb-4 block"></i>
+            <h2 class="text-3xl font-bold text-cyan-800 mb-2">最終綜合測驗</h2>
+            <p class="text-slate-600 mb-8">本測驗共有 10 題，將會隨機從題庫中抽選。</p>
+            
+            <button onclick="startFinalQuiz()" class="inline-flex items-center justify-center w-full md:w-auto gap-2 bg-cyan-600 hover:bg-cyan-700 text-white px-10 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm mb-8">
+              <i class="ph-bold ph-pencil-simple"></i> 開始測驗
+            </button>
+
+            <div class="bg-slate-50 rounded-2xl p-6 border-2 border-slate-100 mb-4">
+              <h3 class="text-xl font-bold text-slate-700 flex items-center justify-center gap-2">
+                <i class="ph-bold ph-clock-counter-clockwise"></i> 最近 5 次測驗紀錄
+              </h3>
+              ${histHtml}
+            </div>
+          </div>
+        `;
+      }
+
+      if (quizState === 'result') {
+        let comment = "繼續加油，可以再複習一下喔！";
+        if (quizScore >= 90) comment = "太厲害了！你是完美過關的地表調查大師！";
+        else if (quizScore >= 70) comment = "表現不錯喔！你已經成功掌握地表變化的知識了。";
+
+        return `
+          <div class="bg-white rounded-3xl p-8 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition">
+            <h2 class="text-4xl font-bold text-cyan-600 mb-6">測驗結束！</h2>
+            <div class="text-8xl mb-6">🏆</div>
+            <p class="text-3xl font-bold mb-4">你的最終得分：<span class="${quizScore >= 80 ? 'text-emerald-500' : 'text-amber-500'}">${quizScore}</span> / 100</p>
+            <p class="text-2xl text-slate-600 mb-8">${comment}</p>
+            <button onclick="returnToQuizDashboard()" class="inline-flex items-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-700 px-8 py-4 rounded-full text-xl font-bold fade-transition">
+              <i class="ph-bold ph-list-dashes"></i> 查看紀錄面板
+            </button>
+          </div>
+        `;
+      }
+
+      // Playing State
+      const q = quizData[quizCurrentQ];
+      const optionLabels = ['A', 'B', 'C', 'D'];
+      let content = `
+        <div class="space-y-8 fade-transition">
+          <div class="bg-cyan-50 border-l-8 border-cyan-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">📝</div>
+            <div>
+              <h3 class="font-bold text-cyan-800 text-lg">局長考驗：最終總測驗</h3>
+              <p class="text-cyan-700">「展現你學到的知識，冷靜作答吧！」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-10 shadow-sm border-2 border-slate-200">
+            <div class="flex justify-between items-center mb-8 pb-4 border-b-2 border-slate-100">
+              <h2 class="text-2xl md:text-3xl font-bold text-cyan-700">地表知識挑戰賽</h2>
+              <span class="text-lg md:text-xl font-bold bg-cyan-100 text-cyan-800 px-4 py-2 rounded-full">
+                第 ${quizCurrentQ + 1} / ${quizData.length} 題
+              </span>
+            </div>
+            
+            <h3 class="text-xl md:text-2xl font-bold text-slate-800 mb-8 leading-relaxed flex items-start gap-3">
+              <i class="ph-fill ph-question text-cyan-500 text-3xl shrink-0 mt-1"></i>
+              <span>${q.question}</span>
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      `;
+
+      q.options.forEach((opt, idx) => {
+        let btnClass = "bg-slate-50 hover:bg-cyan-50 border-slate-200 text-slate-700";
+        let iconHtml = '';
+        if (quizIsAnswered) {
+          if (idx === q.answer) {
+            btnClass = "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold";
+            iconHtml = '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl shrink-0"></i>';
+          } else if (idx === quizSelectedOption) {
+            btnClass = "bg-red-50 border-red-300 text-red-700";
+            iconHtml = '<i class="ph-fill ph-x-circle text-red-500 text-2xl shrink-0"></i>';
+          } else {
+            btnClass = "bg-slate-50 border-slate-200 text-slate-400 opacity-50";
+          }
+        }
+        
+        content += `
+          <button onclick="handleQuizAnswer(${idx})" ${quizIsAnswered ? 'disabled' : ''} class="p-4 md:p-5 text-left text-lg md:text-xl rounded-2xl border-2 fade-transition flex items-center justify-between gap-2 ${btnClass}">
+            <div class="flex items-center gap-3">
+              <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm border border-slate-200 text-cyan-600 font-bold text-base shrink-0">${optionLabels[idx]}</span>
+              <span>${opt}</span>
+            </div>
+            ${iconHtml}
+          </button>
+        `;
+      });
+      content += `</div></div></div>`;
+      return content;
+    }
+
+    window.startFinalQuiz = function() {
+      initQuizData(); // 隨機抽題並洗牌
+      quizCurrentQ = 0;
+      quizScore = 0;
+      quizIsAnswered = false;
+      quizSelectedOption = null;
+      quizStartTime = Date.now();
+      quizState = 'playing';
+      render();
+    }
+
+    window.handleQuizAnswer = function(idx) {
+      if (quizIsAnswered) return;
+      quizSelectedOption = idx; quizIsAnswered = true;
+      if (idx === quizData[quizCurrentQ].answer) quizScore += 10;
+      render();
+
+      setTimeout(() => {
+        if (quizCurrentQ + 1 < quizData.length) { 
+          quizCurrentQ++; quizSelectedOption = null; quizIsAnswered = false; 
+        } else { 
+          const durationMs = Date.now() - quizStartTime;
+          saveQuizRecord(quizScore, durationMs);
+          quizState = 'result'; 
+        }
+        render();
+      }, 1200); 
+    }
+
+    function saveQuizRecord(score, durationMs) {
+      let history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+      const now = new Date();
+      const record = {
+         date: now.toLocaleDateString('zh-TW'),
+         time: now.toLocaleTimeString('zh-TW', { hour12: false }),
+         score: score,
+         duration: formatDuration(durationMs)
+      };
+      history.unshift(record); 
+      history = history.slice(0, 5); 
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(history));
+    }
+
+    window.returnToQuizDashboard = function() {
+      quizState = 'dashboard';
+      render();
+    }
+
+    // --- 共用小測驗產生器 (支援隨機題庫) ---
+    // MCQ
+    const mcqStates = {};
+    function renderMiniMCQ(id, title, qPool, isCompleted, theme) {
+      if (!mcqStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        const qRaw = qPool[varIdx];
+        const correctOpt = qRaw.opts[qRaw.a];
+        const shuffledOpts = shuffleArray(qRaw.opts);
+        const newAnsIdx = shuffledOpts.indexOf(correctOpt);
+        mcqStates[id] = { selected: null, opts: shuffledOpts, ansIdx: newAnsIdx, varIdx: varIdx };
+      }
+      const st = mcqStates[id];
+      const qRaw = qPool[st.varIdx];
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-question"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
+
+      st.opts.forEach((opt, idx) => {
+        let cls = "bg-slate-50 border-slate-200 hover:bg-slate-100";
+        if (isCompleted) { 
+          cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-slate-50 text-slate-400 border-slate-100"; 
+        } else if (st.selected === idx) { 
+          cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-red-50 border-red-300 text-red-700"; 
+        }
+        html += `<button onclick="handleMCQ('${id}', ${idx}, ${st.ansIdx})" ${isCompleted ? 'disabled' : ''} class="p-4 rounded-2xl border-2 text-left text-lg font-bold fade-transition ${cls}">${opt}</button>`;
+      });
+      return html + `</div></div>`;
+    }
+    window.handleMCQ = function(id, selIdx, ansIdx) {
+      if (mcqStates[id].selected !== null) return;
+      mcqStates[id].selected = selIdx; render();
+      if (selIdx === ansIdx) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { mcqStates[id].selected = null; render(); }, 800);
+    }
+
+    // TF
+    const tfStates = {};
+    function renderMiniTF(id, title, qPool, isCompleted, theme) {
+      if (!tfStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        tfStates[id] = { selected: null, varIdx: varIdx };
+      }
+      const st = tfStates[id];
+      const qRaw = qPool[st.varIdx];
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-check-square-offset"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p>
+          <div class="flex gap-4 justify-center">`;
+      
+      const tCls = isCompleted ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === true ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-red-50 border-red-300 text-red-700") : `bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700`);
+      const fCls = isCompleted ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === false ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-red-50 border-red-300 text-red-700") : `bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700`);
+
+      html += `<button onclick="handleTF('${id}', true, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-6 rounded-2xl border-2 text-2xl font-bold fade-transition text-center ${tCls}">⭕ 是</button>`;
+      html += `<button onclick="handleTF('${id}', false, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-6 rounded-2xl border-2 text-2xl font-bold fade-transition text-center ${fCls}">❌ 非</button>`;
+      return html + `</div></div>`;
+    }
+    window.handleTF = function(id, sel, ans) {
+      if (tfStates[id].selected !== null) return;
+      tfStates[id].selected = sel; render();
+      if (sel === ans) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { tfStates[id].selected = null; render(); }, 800);
+    }
+
+    // Matching
+    const matchStates = {};
+    function renderMatchingGame(id, title, isCompleted, leftItems, rightItems, theme) {
+      if (!matchStates[id]) {
+        matchStates[id] = { selLeft: null, matches: [], err: false, left: shuffleArray(leftItems), right: shuffleArray(rightItems) };
+      }
+      const st = matchStates[id];
+      if (isCompleted && st.matches.length < st.left.length) st.matches = st.left.map(i=>i.id);
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : 'border-slate-200'}">
+          <h3 class="text-xl font-bold ${th} mb-2 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-bold ph-link"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-slate-600 mb-6">點擊左邊的項目，再點擊右邊對應的說明連線起來！</p>
+          <div class="flex flex-col md:flex-row gap-4 justify-between">
+            <div class="w-full md:w-2/5 flex flex-col gap-3">`;
+      
+      st.left.forEach(item => {
+        const isMatched = st.matches.includes(item.id);
+        const isSelected = st.selLeft === item.id;
+        let cls = isMatched ? 'bg-slate-100 border-slate-200 opacity-50' : item.c;
+        cls += isSelected ? ' ring-4 border-transparent' : ' border-transparent hover:brightness-95';
+        if (isSelected && st.err) cls += ' bg-red-100 border-red-300';
+        html += `<button onclick="handleMatchLeft('${id}', '${item.id}')" ${isMatched||isCompleted?'disabled':''} class="flex items-center gap-4 p-4 rounded-2xl border-2 fade-transition text-xl font-bold ${cls}"><span class="text-4xl">${item.e}</span> ${item.t}${isMatched ? '<i class="ph-fill ph-check-circle ml-auto text-emerald-500 text-2xl"></i>' : ''}</button>`;
+      });
+
+      html += `</div><div class="w-full md:w-3/5 flex flex-col gap-3">`;
+
+      st.right.forEach(item => {
+        const isMatched = st.matches.includes(item.id);
+        let cls = isMatched ? 'bg-emerald-50 border-emerald-200 text-emerald-800 opacity-80' : `bg-slate-50 hover:bg-${theme}-50 border-slate-200 text-slate-700`;
+        if (!isMatched && st.selLeft) cls += ` ring-2 ring-${theme}-300 cursor-pointer`;
+        html += `<button onclick="handleMatchRight('${id}', '${item.id}')" ${isMatched||isCompleted?'disabled':''} class="flex items-center p-4 min-h-[5rem] rounded-2xl border-2 fade-transition text-lg font-bold text-left ${cls}">${item.t}${isMatched ? '<i class="ph-fill ph-check-circle ml-auto text-emerald-500 text-2xl"></i>' : ''}</button>`;
+      });
+      return html + `</div></div></div>`;
+    }
+    window.handleMatchLeft = function(id, itemId) {
+      if (!matchStates[id].matches.includes(itemId)) { matchStates[id].selLeft = itemId; matchStates[id].err = false; render(); }
+    };
+    window.handleMatchRight = function(id, itemId) {
+      const st = matchStates[id];
+      if (!st.selLeft || st.matches.includes(itemId)) return;
+      if (st.selLeft === itemId) {
+        st.matches.push(itemId); st.selLeft = null; render();
+        if (st.matches.length === 3) setTimeout(() => progressTask(id), 500);
+      } else {
+        st.err = true; render();
+        setTimeout(() => { st.selLeft = null; st.err = false; render(); }, 800);
+      }
+    };
+
+    // FillBlank
+    const blankStates = {};
+    const globalWords = {
+      w1: { id: 'w1', text: '侵蝕', correctBlank: 'b1', c: 'bg-blue-100 text-blue-800' },
+      w2: { id: 'w2', text: '堆積', correctBlank: 'b2', c: 'bg-cyan-100 text-cyan-800' }
+    };
+    function renderFillBlank(id, title, isCompleted, words, templateStr, theme) {
+      if (!blankStates[id]) {
+        let bInit = {};
+        words.forEach(w => bInit[w.correctBlank] = null);
+        blankStates[id] = { b: bInit, sel: null, err: null, words: shuffleArray(words) };
+      }
+      const st = blankStates[id];
+      if (isCompleted) st.words.forEach(w => st.b[w.correctBlank] = w);
+      const th = `text-${theme}-700`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? `bg-${theme}-50 border-${theme}-200 opacity-80` : `border-slate-200`}">
+          <h3 class="text-xl font-bold ${th} mb-2 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-puzzle-piece"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-slate-600 mb-6">點擊字卡拿起來，填入正確的空格中！</p>`;
+
+      if (!isCompleted) {
+        html += `<div class="flex flex-wrap justify-center gap-4 mb-6 p-4 bg-slate-50 rounded-2xl border-2 border-slate-200 min-h-[4rem]">`;
+        st.words.forEach(w => {
+          const isUsed = Object.values(st.b).some(v => v && v.correctBlank === w.correctBlank);
+          if (isUsed) { html += `<div class="w-24 opacity-0"></div>`; return; }
+          const isSelected = st.sel?.correctBlank === w.correctBlank;
+          let cls = `px-6 py-2 rounded-full font-bold text-xl transition-colors cursor-pointer ${w.c} ${isSelected ? `ring-4 ring-${theme}-400` : 'hover:opacity-90'}`;
+          html += `<button onclick="handleBlankWord('${id}', '${w.id}')" class="${cls}">${w.text}</button>`;
+        });
+        html += `</div>`;
+      }
+
+      let contentHtml = templateStr;
+      st.words.forEach(w => {
+        const key = w.correctBlank;
+        const val = st.b[key];
+        let boxHtml = '';
+        if (val) {
+          boxHtml = `<span class="inline-block mx-2 px-4 py-1 rounded-full text-white bg-green-500 align-middle leading-none">${val.text}</span>`;
+        } else {
+          const isErr = st.err === key;
+          const isSel = !!st.sel && !isErr;
+          let cls = `inline-block mx-2 w-24 h-10 border-b-4 border-dashed align-middle transition-colors outline-none ${isErr ? 'border-red-500 bg-red-50' : `border-${theme}-300 bg-white/50`} ${isSel ? `hover:bg-${theme}-100 cursor-pointer border-${theme}-400` : ''}`;
+          boxHtml = `<button onclick="handleBlankBox('${id}', '${key}')" class="${cls}"></button>`;
+        }
+        contentHtml = contentHtml.replace(`<button id="${key}"></button>`, boxHtml);
+      });
+
+      html += `<div class="text-xl md:text-2xl leading-[3rem] font-bold text-slate-700 bg-${theme}-50 p-6 rounded-2xl border-2 border-${theme}-100">${contentHtml}</div></div>`;
+      return html;
+    }
+
+    window.handleBlankWord = function(id, wordKey) {
+      const st = blankStates[id];
+      if (Object.values(st.b).some(v => v && v.correctBlank === globalWords[wordKey].correctBlank)) return;
+      st.sel = globalWords[wordKey]; render();
+    };
+    window.handleBlankBox = function(id, boxKey) {
+      const st = blankStates[id];
+      if (!st.sel) return;
+      if (st.sel.correctBlank === boxKey) {
+        st.b[boxKey] = st.sel; st.sel = null; render();
+        if (Object.values(st.b).every(v => v !== null)) setTimeout(() => progressTask(id), 500);
+      } else {
+        st.err = boxKey; render(); setTimeout(() => { st.err = null; render(); }, 800);
+      }
+    };
+
+    // Ordering
+    const orderStates = {};
+    function renderOrderGame(id, title, isCompleted, itemsArr, desc, theme) {
+      if (!orderStates[id]) {
+        let mixed = shuffleArray(itemsArr);
+        orderStates[id] = { items: mixed, slots: [null, null, null], correct: itemsArr };
+      }
+      const st = orderStates[id];
+      if (isCompleted) st.slots = st.correct;
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold ${th} mb-2 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-bold ph-list-numbers"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-slate-600 mb-6">${desc}</p>
+          <div class="flex flex-col md:flex-row gap-4 items-center justify-center mb-8">`;
+
+      [0, 1, 2].forEach(idx => {
+        const slot = st.slots[idx];
+        let cls = `w-36 h-32 rounded-2xl border-4 border-dashed flex flex-col items-center justify-center fade-transition `;
+        if (slot) cls += `border-transparent bg-${theme}-100`;
+        else cls += `border-${theme}-200 bg-${theme}-50`;
+        if (st.slots[2] && st.slots[0]?.id !== st.correct[0].id) cls += ` border-red-300 bg-red-50`;
+        if (isCompleted) cls += ` bg-emerald-50 border-transparent`;
+
+        html += `<button onclick="handleOrderSlot('${id}', ${idx})" ${isCompleted ? 'disabled':''} class="${cls}">`;
+        if (slot) html += `<span class="text-4xl">${slot.e}</span><span class="font-bold text-${theme}-900 mt-2">${slot.t}</span>`;
+        else html += `<span class="text-${theme}-300 font-bold text-2xl">${idx + 1}</span>`;
+        html += `</button>`;
+        if (idx < 2) {
+          html += `<i class="ph-bold ph-arrow-right text-${theme}-300 hidden md:block text-4xl"></i>`;
+          html += `<i class="ph-bold ph-arrow-down text-${theme}-300 md:hidden my-2 text-4xl"></i>`;
+        }
+      });
+
+      html += `</div>`;
+      if (!isCompleted) {
+        html += `<div class="flex flex-wrap justify-center gap-4">`;
+        st.items.forEach(item => {
+          const isUsed = st.slots.some(s => s && s.id === item.id);
+          if (isUsed) { html += `<div class="w-36 opacity-0"></div>`; return; }
+          html += `<button onclick="handleOrderItem('${id}', ${item.id})" class="w-36 h-24 bg-white border-2 border-${theme}-300 rounded-2xl flex flex-col items-center justify-center hover:bg-${theme}-50 fade-transition cursor-pointer">
+              <span class="text-3xl">${item.e}</span><span class="font-bold text-slate-700 text-sm mt-1">${item.t}</span>
+            </button>`;
+        });
+        html += `</div>`;
+      }
+      return html + `</div>`;
+    }
+    window.handleOrderItem = function(id, itemId) {
+      const st = orderStates[id];
+      const nextEmpty = st.slots.findIndex(s => s === null);
+      if (nextEmpty !== -1) {
+        st.slots[nextEmpty] = st.items.find(i => i.id === itemId); render();
+        if (nextEmpty === 2) {
+          if (st.slots[0].id === st.correct[0].id && st.slots[1].id === st.correct[1].id && st.slots[2].id === st.correct[2].id) {
+            setTimeout(() => progressTask(id), 600);
+          } else {
+            setTimeout(() => { st.slots = [null, null, null]; render(); }, 1000);
+          }
+        }
+      }
+    };
+    window.handleOrderSlot = function(id, idx) {
+      if (orderStates[id].slots[idx]) { orderStates[id].slots[idx] = null; render(); }
+    };
+
+    // Sorting Game
+    function renderSortGame(title, isCompleted) {
+      if (isCompleted) sortCurrentIndex = sortItems.length;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? 'bg-teal-50 border-teal-200 opacity-80' : 'border-slate-200'}">
+          <h2 class="text-xl font-bold text-teal-700 mb-6 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-basket"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h2>`;
+
+      if (sortCurrentIndex < sortItems.length && !isCompleted) {
+        const cur = sortItems[sortCurrentIndex];
+        html += `<div class="flex flex-col items-center">
+            <p class="text-slate-600 mb-4 font-bold">這個特徵通常出現在河流的哪個區段呢？</p>
+            <div class="relative w-full max-w-md h-40 bg-slate-50 border-4 border-slate-200 rounded-3xl flex items-center justify-center mb-8 overflow-hidden fade-transition">`;
+        if (sortFeedback) {
+          html += `<div class="text-2xl font-bold flex items-center gap-2 ${sortFeedback.isCorrect ? 'text-emerald-600' : 'text-red-500'} px-4 text-center">
+              <i class="ph-fill ${sortFeedback.isCorrect ? 'ph-check-circle' : 'ph-x-circle'} text-4xl shrink-0"></i> ${sortFeedback.text}
+            </div>`;
+        } else {
+          html += `<div class="text-center px-4 fade-transition">
+              <div class="text-5xl mb-2">${cur.emoji}</div><h3 class="text-2xl font-bold text-slate-700">${cur.text}</h3>
+            </div>`;
+        }
+        html += `</div><div class="w-full flex justify-center gap-2 md:gap-4">`;
+        
+        const btns = [
+          {id:'up', e:'🏔️', t:'上游', c:'bg-emerald-50 border-emerald-400 text-emerald-800'},
+          {id:'mid', e:'🏞️', t:'中游', c:'bg-teal-50 border-teal-400 text-teal-800'},
+          {id:'down', e:'🌅', t:'下游', c:'bg-cyan-50 border-cyan-400 text-cyan-800'}
+        ];
+        btns.forEach(b => {
+          html += `<button onclick="handleSort('${b.id}')" ${sortFeedback?'disabled':''} class="flex-1 max-w-[120px] ${b.c.split(' ')[0]} hover:brightness-95 border-b-4 ${b.c.split(' ')[1]} p-3 md:p-4 rounded-2xl text-center fade-transition disabled:opacity-50">
+            <div class="text-3xl mb-1">${b.e}</div><div class="text-base md:text-lg font-bold ${b.c.split(' ')[2]}">${b.t}</div>
+          </button>`;
+        });
+        
+        html += `</div><div class="mt-6 text-slate-500 font-bold bg-slate-100 px-4 py-1 rounded-full">進度：${sortCurrentIndex + 1} / ${sortItems.length}</div></div>`;
+      } else {
+        html += `<div class="text-center py-4 fade-transition"><i class="ph-fill ph-check-circle text-6xl text-emerald-500 mb-4 block mx-auto"></i><h3 class="text-xl font-bold text-slate-800">特徵分類完成！</h3></div>`;
+      }
+      return html + `</div>`;
+    }
+    window.handleSort = function(cat) {
+      if (sortFeedback) return;
+      const cur = sortItems[sortCurrentIndex];
+      if (cur.type === cat) {
+        sortFeedback = { isCorrect: true, text: '判斷正確！' };
+      } else {
+        sortFeedback = { isCorrect: false, text: `判斷錯誤喔！再想一想。` };
+      }
+      render();
+      setTimeout(() => {
+        sortFeedback = null;
+        if (cur.type === cat) {
+          if (sortCurrentIndex + 1 < sortItems.length) sortCurrentIndex++;
+          else progressTask('riverSort');
+        }
+        render();
+      }, 1000);
+    }
+
+    // --- 全局狀態推進 ---
+    window.progressTask = function(taskId) {
+      if (taskId.startsWith('water')) waterProgress++;
+      else if (taskId.startsWith('river')) riverProgress++;
+      else if (taskId.startsWith('disaster')) disasterProgress++;
+      render();
+    }
+
+    // 主渲染邏輯
+    function render() {
+      renderProgressBar();
+      const main = document.getElementById('main-content');
+      switch (steps[currentStepIndex]) {
+        case 'welcome': main.innerHTML = renderWelcome(); break;
+        case 'water': main.innerHTML = renderWater(); break;
+        case 'river': main.innerHTML = renderRiver(); break;
+        case 'disaster': main.innerHTML = renderDisaster(); break;
+        case 'quiz': main.innerHTML = renderQuiz(); break;
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>

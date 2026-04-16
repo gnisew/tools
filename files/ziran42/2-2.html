@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>水的奇妙現象：虹吸現象</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入 Phosphor Icons 做為圖示庫 -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    /* 隱藏捲軸但保留捲動功能 */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* 零干擾平滑動畫設計 */
+    .fade-transition {
+      transition: opacity 0.4s ease-in-out, background-color 0.3s ease-in-out, border-color 0.3s ease-in-out, color 0.3s ease-in-out, transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), height 0.4s ease-in-out;
+    }
+
+    /* 水流動態動畫 (模擬虹吸流動) */
+    @keyframes water-flow {
+      from { stroke-dashoffset: 24; }
+      to { stroke-dashoffset: 0; }
+    }
+    .water-flow-active {
+      animation: water-flow 0.6s linear infinite;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 pb-16 min-h-screen">
+
+  <!-- 標題列：沉穩色系，取消 sticky 以最大化可視空間 -->
+  <header class="bg-slate-700 text-white p-4 shadow-md">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="ph ph-wave-sine text-3xl text-indigo-400"></i>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-wider">水的奇妙現象：虹吸現象</h1>
+      </div>
+    </div>
+  </header>
+
+  <!-- 全解鎖導航列 -->
+  <div id="progress-container" class="max-w-4xl mx-auto px-4 pt-6 fade-transition">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border-2 border-slate-200 flex flex-wrap justify-between items-center gap-2 overflow-x-auto hide-scrollbar" id="progress-bar">
+      <!-- JS 渲染進度條 -->
+    </div>
+  </div>
+
+  <main id="main-content" class="max-w-4xl mx-auto p-4 mt-4 fade-transition">
+    <!-- JS 渲染內容 -->
+  </main>
+
+  <script>
+    // --- 實用的隨機洗牌函數 (符合全域選項亂數洗牌原則) ---
+    function shuffleArray(array) {
+      const newArr = [...array];
+      for (let i = newArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+      }
+      return newArr;
+    }
+
+    // --- 系統狀態管理 ---
+    const steps = ['welcome', 'intro', 'experiment', 'application', 'quiz'];
+    let currentStepIndex = 0;
+    
+    // 各大關卡的細部任務進度
+    let introProgress = 0; // intro 關卡現在有 4 個任務
+    let expProgress = 0;  
+    let appProgress = 0;   
+
+    // 互動實驗狀態 (高度模擬與流動水量)
+    let siphonState = { 
+      tubeFilled: false, 
+      outletY: 100, 
+      tankAWater: 100, 
+      isFlowing: false, 
+      flowFinished: false 
+    }; 
+    let siphonInterval = null;
+
+    // 分類遊戲狀態 (生活應用：虹吸 vs 連通管)
+    const baseSortItems = [
+      { id: 1, text: '幫魚缸換水', type: 'siphon', emoji: '🐠', desc: '把水從高處引出往下流' },
+      { id: 2, text: '茶壺的設計', type: 'cv', emoji: '🫖', desc: '壺嘴和壺身底部相通' },
+      { id: 3, text: '洗手臺下方 U 形管', type: 'cv', emoji: '🚰', desc: '管內會積水保持水平' },
+      { id: 4, text: '九龍公道杯', type: 'siphon', emoji: '🐉', desc: '水超過彎管就會全部漏光' },
+      { id: 5, text: '熱水瓶水位視窗', type: 'cv', emoji: '💧', desc: '視窗與內部水槽相通' },
+      { id: 6, text: '將高處的水引到低處', type: 'siphon', emoji: '🪣', desc: '利用充滿水的管子翻過容器邊緣' }
+    ];
+    let sortItems = [];
+    let sortCurrentIndex = 0;
+    let sortFeedback = null;
+
+    // --- 最終測驗題庫池 ---
+    const rawQuizPools = [
+      [
+        { q: "幫魚缸換水時，利用下列哪一種方法最省力又不容易把水潑出來？", options: ["用勺子慢慢舀", "用塑膠管引水", "直接把魚缸搬起來倒", "用海綿吸水"], answer: 1 },
+        { q: "想用塑膠管把魚缸裡的水引出來，塑膠管裡面必須呈現什麼狀態？", options: ["充滿空氣", "一半水一半空氣", "裝滿水", "保持乾燥"], answer: 2 }
+      ],
+      [
+        { q: "進行引水實驗時，裝滿水的塑膠管出水口必須放在哪裡，水才會流出來？", options: ["高於容器裡的水面", "和容器裡的水面一樣高", "低於容器裡的水面", "放在容器正上方"], answer: 2 },
+        { q: "如果把引水塑膠管的出水口慢慢提高，高於容器裡的水面，會發生什麼事？", options: ["水會流得更快", "水會停止流動", "水會變色", "塑膠管會破掉"], answer: 1 }
+      ],
+      [
+        { q: "利用裝滿水的管子，將水從高處引出，再向下流到低處，這稱為什麼現象？", options: ["毛細現象", "連通管原理", "虹吸現象", "大氣壓力"], answer: 2 },
+        { q: "下列哪一個是發生「虹吸現象」的必備條件？", options: ["管子要夠粗", "管子內必須裝滿水", "容器必須是圓形的", "水必須是熱的"], answer: 1 }
+      ],
+      [
+        { q: "關於九龍公道杯的敘述，下列哪一個是正確的？", options: ["是利用毛細現象製作的", "酒只要不超過管子的彎曲處就不會漏", "酒倒越多越好", "只能用來裝水不能裝酒"], answer: 1 },
+        { q: "九龍公道杯裡的水如果超過內部隱藏的彎管，水就會全部流光，這是利用什麼原理？", options: ["連通管原理與虹吸現象", "只有連通管原理", "熱脹冷縮", "毛細現象"], answer: 0 }
+      ],
+      [
+        { q: "沒裝水的塑膠管（裡面充滿空氣）可以把水族箱裡的水引出來嗎？", options: ["可以，空氣會把水吸過來", "可以，只要管子夠長", "無法引出水", "可以，但水流很慢"], answer: 2 },
+        { q: "「用塑膠管幫水族箱換水」和「茶壺」，兩者應用的科學原理一樣嗎？", options: ["一樣，都是虹吸現象", "一樣，都是連通管原理", "不一樣，換水是虹吸，茶壺是連通管", "不一樣，換水是連通管，茶壺是虹吸"], answer: 2 }
+      ]
+    ];
+
+    let quizState = 'dashboard'; 
+    let quizData = [];
+    let quizCurrentQ = 0;
+    let quizScore = 0;
+    let quizSelectedOption = null;
+    let quizIsAnswered = false;
+    let quizStartTime = 0;
+    const LOCAL_STORAGE_KEY = '四下4-2-2翰林自然虹吸現象';
+
+    // --- 全局拖曳事件處理 (出水口管子) ---
+    let isDraggingTube = false;
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDraggingTube) return;
+      updateTubePos(e.clientY);
+    });
+
+    window.addEventListener('touchmove', (e) => {
+      if (!isDraggingTube) return;
+      updateTubePos(e.touches[0].clientY);
+    }, { passive: false }); 
+
+    window.addEventListener('mouseup', () => { isDraggingTube = false; });
+    window.addEventListener('touchend', () => { isDraggingTube = false; });
+
+    window.startDragTube = function(e) {
+      isDraggingTube = true;
+    };
+
+    window.updateTubePos = function(clientY) {
+      const container = document.getElementById('siphon-container');
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      let relativeY = clientY - rect.top;
+      // 限制管子拖曳範圍：不能拉得比魚缸水底還高太多，也不能穿透地板
+      siphonState.outletY = Math.max(60, Math.min(260, relativeY)); 
+      checkSiphonFlow();
+    };
+
+    window.checkSiphonFlow = function() {
+        // 魚缸底部Y=200，滿水時高60px (水面Y=140)。
+        // 動態計算水面高度
+        let currentSurfaceY = 200 - (siphonState.tankAWater * 0.6);
+        
+        // 觸發條件：管內有水 && 出水口低於目前水面 && 魚缸內還有水
+        let shouldFlow = siphonState.tubeFilled && (siphonState.outletY > currentSurfaceY) && (siphonState.tankAWater > 0);
+
+        if (shouldFlow && !siphonState.isFlowing) {
+            siphonState.isFlowing = true;
+            if(siphonInterval) clearInterval(siphonInterval);
+            
+            siphonInterval = setInterval(() => {
+                siphonState.tankAWater -= 1.5; // 水流消耗速度
+                
+                // 水流乾了
+                if (siphonState.tankAWater <= 0) {
+                    siphonState.tankAWater = 0;
+                    siphonState.isFlowing = false;
+                    siphonState.flowFinished = true;
+                    siphonState.tubeFilled = false; // 水排空了，管內恢復無水
+                    clearInterval(siphonInterval);
+                }
+                
+                // 檢查拖曳過程中水面下降，導致出水口高於水面而中斷
+                currentSurfaceY = 200 - (siphonState.tankAWater * 0.6);
+                if (siphonState.outletY <= currentSurfaceY) {
+                    siphonState.isFlowing = false;
+                    clearInterval(siphonInterval);
+                }
+                renderSiphonVisuals();
+            }, 50);
+        } else if (!shouldFlow && siphonState.isFlowing) {
+            siphonState.isFlowing = false;
+            clearInterval(siphonInterval);
+        }
+        renderSiphonVisuals();
+    };
+
+    // 直接操作 DOM 以達最高效能，避免重置元件
+    window.renderSiphonVisuals = function() {
+        // 1. 更新 SVG 路徑
+        const d = `M 70,180 L 70,40 Q 70,20 100,20 L 300,20 Q 330,20 330,40 L 330,${siphonState.outletY}`;
+        document.getElementById('tube-path')?.setAttribute('d', d);
+        document.getElementById('water-path')?.setAttribute('d', d);
+        document.getElementById('flow-path')?.setAttribute('d', d);
+        
+        // 瀑布流出特效
+        const spillPath = document.getElementById('spill-path');
+        if (spillPath) {
+           spillPath.setAttribute('d', `M 330,${siphonState.outletY} L 330,280`);
+        }
+
+        // 2. 更新拖曳控制把手位置
+        const handle = document.getElementById('tube-handle');
+        if (handle) handle.style.top = (siphonState.outletY - 20) + 'px';
+
+        // 3. 更新魚缸動態水面
+        const tankAWaterDiv = document.getElementById('tankA-water');
+        if (tankAWaterDiv) tankAWaterDiv.style.height = (siphonState.tankAWater * 0.6) + 'px';
+
+        // 更新水面基準線指標
+        const surfaceLine = document.getElementById('surface-line');
+        let currentSurfaceY = 200 - (siphonState.tankAWater * 0.6);
+        if (surfaceLine) surfaceLine.style.top = currentSurfaceY + 'px';
+
+        // 4. 更新動畫與顏色狀態
+        const waterOpacity = siphonState.tubeFilled ? 'opacity-100' : 'opacity-0';
+        document.getElementById('water-path')?.setAttribute('class', `transition-opacity duration-300 ease-in-out ${waterOpacity}`);
+
+        const flowPath = document.getElementById('flow-path');
+        if (siphonState.isFlowing) {
+            flowPath?.classList.add('water-flow-active', 'opacity-100');
+            flowPath?.classList.remove('opacity-0');
+            spillPath?.classList.add('water-flow-active', 'opacity-80');
+            spillPath?.classList.remove('opacity-0');
+        } else {
+            flowPath?.classList.remove('water-flow-active', 'opacity-100');
+            flowPath?.classList.add('opacity-0');
+            spillPath?.classList.remove('water-flow-active', 'opacity-80');
+            spillPath?.classList.add('opacity-0');
+        }
+
+        // 5. 更新文字回饋與按鈕
+        const feedbackText = document.getElementById('siphon-feedback-text');
+        const restartBtn = document.getElementById('restart-btn');
+        
+        if (siphonState.flowFinished) {
+            if (feedbackText) {
+               feedbackText.innerHTML = '🎉 <b class="text-emerald-700">魚缸的水流完了！觀察看看水是怎麼爬牆的。</b>';
+               feedbackText.className = 'text-emerald-600 text-lg drop-shadow-sm font-bold transition-colors';
+            }
+            if (restartBtn) restartBtn.classList.remove('hidden');
+        } else {
+            if (restartBtn) restartBtn.classList.add('hidden');
+            if (feedbackText) {
+               if (!siphonState.tubeFilled) {
+                   feedbackText.innerHTML = '❌ 塑膠管裡沒有水，空氣擋住了，<b class="text-rose-500">水引不出來</b>。';
+                   feedbackText.className = 'text-fuchsia-800 transition-colors';
+               } else {
+                   if (siphonState.outletY < currentSurfaceY) {
+                       feedbackText.innerHTML = '❌ 出水口高於魚缸水面，<b class="text-rose-500">水流不出來</b>。';
+                       feedbackText.className = 'text-fuchsia-800 transition-colors';
+                   } else if (siphonState.outletY === currentSurfaceY) {
+                       feedbackText.innerHTML = '❌ 出水口和魚缸水面一樣高，<b class="text-rose-500">水流不出來</b>。';
+                       feedbackText.className = 'text-fuchsia-800 transition-colors';
+                   } else {
+                       feedbackText.innerHTML = '✅ <b class="text-emerald-700">成功了！虹吸現象產生，水正在流動！</b>';
+                       feedbackText.className = 'text-emerald-600 text-lg drop-shadow-sm font-bold transition-colors';
+                   }
+               }
+            }
+        }
+    };
+
+    window.setSiphonTube = function(isFilled) {
+        if(siphonState.flowFinished) return; // 結束後需重新開始才能改變
+        siphonState.tubeFilled = isFilled;
+        
+        // 即時切換按鈕外觀
+        const btnEmpty = document.getElementById('btn-tube-empty');
+        const btnFull = document.getElementById('btn-tube-full');
+        if(btnEmpty && btnFull) {
+            if(isFilled) {
+                btnEmpty.className = "flex-1 py-2 rounded-lg font-bold border-2 fade-transition bg-white border-slate-200 text-slate-500 hover:bg-slate-50";
+                btnFull.className = "flex-1 py-2 rounded-lg font-bold border-2 fade-transition bg-emerald-100 border-emerald-400 text-emerald-700";
+            } else {
+                btnEmpty.className = "flex-1 py-2 rounded-lg font-bold border-2 fade-transition bg-fuchsia-100 border-fuchsia-400 text-fuchsia-700";
+                btnFull.className = "flex-1 py-2 rounded-lg font-bold border-2 fade-transition bg-white border-slate-200 text-slate-500 hover:bg-slate-50";
+            }
+        }
+        checkSiphonFlow();
+    };
+
+    window.resetSiphon = function() {
+        if(siphonInterval) clearInterval(siphonInterval);
+        siphonState.tankAWater = 100;
+        siphonState.isFlowing = false;
+        siphonState.flowFinished = false;
+        siphonState.tubeFilled = false;
+        siphonState.outletY = 100; // 重置到高於水面
+        
+        // 恢復按鈕初始狀態
+        const btnEmpty = document.getElementById('btn-tube-empty');
+        const btnFull = document.getElementById('btn-tube-full');
+        if(btnEmpty && btnFull) {
+            btnEmpty.className = "flex-1 py-2 rounded-lg font-bold border-2 fade-transition bg-fuchsia-100 border-fuchsia-400 text-fuchsia-700";
+            btnFull.className = "flex-1 py-2 rounded-lg font-bold border-2 fade-transition bg-white border-slate-200 text-slate-500 hover:bg-slate-50";
+        }
+        
+        renderSiphonVisuals();
+    };
+
+    // 初始化/隨機抽題函數
+    function initQuizData() {
+      quizData = rawQuizPools.map(pool => {
+        const qRaw = pool[Math.floor(Math.random() * pool.length)];
+        const correctOpt = qRaw.options[qRaw.answer];
+        const shuffledOptions = shuffleArray(qRaw.options);
+        return {
+          question: qRaw.q,
+          options: shuffledOptions,
+          answer: shuffledOptions.indexOf(correctOpt)
+        };
+      });
+    }
+
+    function formatDuration(ms) {
+      const totalSecs = Math.floor(ms / 1000);
+      const mins = Math.floor(totalSecs / 60);
+      const secs = totalSecs % 60;
+      return `${mins}分 ${secs}秒`;
+    }
+
+    // --- 導航與進度條 ---
+    function jumpToStep(index) {
+      if(siphonInterval) clearInterval(siphonInterval); // 切換頁面時清理定時器
+      currentStepIndex = index;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function renderProgressBar() {
+      const bar = document.getElementById('progress-bar');
+      const stages = [
+        { name: '出發', icon: 'ph-flag-pennant', th: 'indigo' },
+        { name: '換水難題', icon: 'ph-fish', th: 'violet' },
+        { name: '引水條件', icon: 'ph-flask', th: 'fuchsia' },
+        { name: '現象與應用', icon: 'ph-magic-wand', th: 'emerald' },
+        { name: '最終測驗', icon: 'ph-file-question', th: 'indigo' },
+      ];
+
+      let html = '';
+      stages.forEach((stage, idx) => {
+        const isActive = currentStepIndex === idx;
+        const isPassed = (idx === 1 && introProgress >= 4) || // 更新為 4 個任務
+                         (idx === 2 && expProgress >= 3) || 
+                         (idx === 3 && appProgress >= 3);
+
+        let iconHtml = isPassed ? '<i class="ph-fill ph-check-circle text-xl"></i>' : `<i class="ph ${stage.icon} text-xl"></i>`;
+        
+        let circleClass = `w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm fade-transition `;
+        if (isActive) circleClass += `bg-${stage.th}-500 ring-4 ring-${stage.th}-200`;
+        else if (isPassed) circleClass += `bg-emerald-400`;
+        else circleClass += `bg-slate-300`;
+
+        let textClass = `text-xs font-bold whitespace-nowrap mt-1 ${isActive ? `text-${stage.th}-600` : 'text-slate-500'}`;
+
+        html += `
+          <div class="flex items-center">
+            <button onclick="jumpToStep(${idx})" class="flex flex-col items-center px-2 py-1 fade-transition cursor-pointer hover:bg-slate-50 rounded-lg">
+              <div class="${circleClass}">${iconHtml}</div>
+              <span class="${textClass}">${stage.name}</span>
+            </button>
+        `;
+        if (idx < stages.length - 1) {
+          html += `<div class="hidden sm:block w-8 md:w-12 h-1 rounded-full mx-1 ${isPassed ? 'bg-emerald-300' : 'bg-slate-200'}"></div>`;
+        }
+        html += `</div>`;
+      });
+      bar.innerHTML = html;
+    }
+
+    // --- 區塊渲染：0. 首頁 ---
+    function renderWelcome() {
+      return `
+        <div class="bg-white rounded-3xl p-8 md:p-12 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition">
+          <div class="inline-block bg-indigo-50 p-6 rounded-full mb-6">
+            <i class="ph ph-wave-sine text-7xl text-indigo-500"></i>
+          </div>
+          <h2 class="text-4xl md:text-5xl font-bold text-slate-800 mb-6">會爬牆的水？</h2>
+          <p class="text-xl md:text-2xl text-slate-600 leading-relaxed mb-8 max-w-2xl mx-auto">
+            上一節我們學過，水會從高處往低處流。<br/><br/>
+            但是，如果我們不搬動魚缸，有辦法讓水「往上爬出魚缸」，再往下流出來嗎？這可是連古代皇帝也覺得神奇的科學魔法喔！
+          </p>
+          <button onclick="jumpToStep(1)" class="inline-flex items-center gap-3 bg-indigo-500 hover:bg-indigo-600 text-white px-8 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm">
+            <i class="ph-fill ph-play-circle text-3xl"></i> 揭開魔法！
+          </button>
+        </div>
+      `;
+    }
+
+    // --- 區塊渲染：1. 換水難題 (Violet) ---
+    function renderIntro() {
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-violet-50 border-l-8 border-violet-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">🐟</div>
+            <div>
+              <h3 class="font-bold text-violet-800 text-lg">思考任務：幫水族箱換水</h3>
+              <p class="text-violet-700">「水族箱的水髒了，你想用什麼方法幫魚缸換水呢？」</p>
+            </div>
+          </div>
+      `;
+
+      // 任務一：換水方法配對題
+      content += renderMiniMatch('introMatch', '任務一：換水方法大評比 (配對題)', [
+        { id: 'm1', left: '用勺子慢慢舀', emoji: '🥣', right: '很費力，容易弄溼地板' },
+        { id: 'm2', left: '直接搬起魚缸', emoji: '🏋️', right: '魚缸太重搬不動，非常危險' },
+        { id: 'm3', left: '用塑膠管引水', emoji: '🪣', right: '快速、輕鬆把水引出 (最佳解)' }
+      ], introProgress > 0, 'violet');
+
+      // 任務二：觀念是非題
+      if (introProgress >= 1) {
+        content += renderMiniTF('introTF', '任務二：觀念是非題', 
+          [
+            {q: '用塑膠管幫水族箱換水，是比搬起整個魚缸或用勺子舀水更安全省力的方法。', a: true},
+            {q: '任何一根空管子只要插進水族箱裡，水就會自動源源不絕的流出來。', a: false}
+          ], introProgress > 1, 'violet');
+      }
+      
+      // 任務三：觀念選擇題
+      if (introProgress >= 2) {
+        content += renderMiniMCQ('introMCQ', '任務三：觀念選擇題', 
+          [
+            {q: '想用塑膠管把魚缸裡的水引出來，塑膠管裡面必須呈現什麼狀態？', opts: ['充滿空氣', '保持乾燥', '裝滿水', '一半水一半空氣'], a: 2},
+            {q: '沒裝水的塑膠管（裡面充滿空氣）可以把水族箱裡的水引出來嗎？', opts: ['可以，空氣會吸水', '可以，只要管子夠長', '無法引出水', '可以，但水流很慢'], a: 2}
+          ], introProgress > 2, 'violet');
+      }
+      
+      // 任務四：觀念填空題
+      if (introProgress >= 3) {
+        content += renderMiniFill('introFill', '任務四：觀念填空題', 
+          [
+            { qParts: ["幫魚缸換水時，利用一條", "的塑膠管，就可以輕鬆把水引出來，這稱為", "。"], ans: ["裝滿水", "虹吸現象"], distractors: ["充滿空氣", "連通管原理"] },
+            { qParts: ["沒裝水的管子裡面充滿", "，會阻擋水流，所以無法產生", "。"], ans: ["空氣", "虹吸現象"], distractors: ["真空", "毛細現象"] }
+          ], introProgress > 3, 'violet');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${introProgress === 4 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(2)" class="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            原理是什麼？前往引水實驗室 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      return content;
+    }
+
+    // --- 區塊渲染：2. 引水條件 (Fuchsia) ---
+    function renderExperiment() {
+      // 初始化呈現變數
+      let currentSurfaceY = 200 - (siphonState.tankAWater * 0.6);
+      let isFlowing = siphonState.tubeFilled && (siphonState.outletY > currentSurfaceY) && (siphonState.tankAWater > 0);
+      
+      let waterOpacity = siphonState.tubeFilled ? 'opacity-100' : 'opacity-0';
+      let flowAnimationClass = isFlowing ? 'water-flow-active opacity-100' : 'opacity-0 transition-opacity duration-300';
+      let spillAnimationClass = isFlowing ? 'water-flow-active opacity-80' : 'opacity-0 transition-opacity duration-300';
+      
+      let feedbackStr = '請設定條件來測試引水！';
+      if (!siphonState.tubeFilled) {
+         feedbackStr = '❌ 塑膠管裡沒有水，空氣擋住了，<b class="text-rose-500">水引不出來</b>。';
+      } else {
+         if (siphonState.outletY < currentSurfaceY) feedbackStr = '❌ 出水口高於魚缸水面，<b class="text-rose-500">水流不出來</b>。';
+         else if (siphonState.outletY === currentSurfaceY) feedbackStr = '❌ 出水口和魚缸水面一樣高，<b class="text-rose-500">水流不出來</b>。';
+         else feedbackStr = '✅ <b class="text-emerald-700">成功了！虹吸現象產生，水正在流動！</b>';
+      }
+      
+      let initialBtnEmptyCls = !siphonState.tubeFilled ? 'bg-fuchsia-100 border-fuchsia-400 text-fuchsia-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50';
+      let initialBtnFullCls = siphonState.tubeFilled ? 'bg-emerald-100 border-emerald-400 text-emerald-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50';
+
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-fuchsia-50 border-l-8 border-fuchsia-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">🧪</div>
+            <div>
+              <h3 class="font-bold text-fuchsia-800 text-lg">探險任務：引水條件測試</h3>
+              <p class="text-fuchsia-700">「要讓水自動爬出魚缸，必須達成兩個神祕條件！請點擊按鈕切換裝滿水，並<b>直接上下拖曳管子出水口</b>測試看看。」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200">
+            <h2 class="text-2xl font-bold text-fuchsia-600 mb-6 flex items-center justify-center gap-2">
+              <i class="ph-fill ph-magic-wand text-3xl"></i> 魔法引水實驗室
+            </h2>
+            
+            <div class="flex flex-col items-center">
+              
+              <!-- 實驗區 SVG 畫布 (禁用選取以防拖曳干擾) -->
+              <div id="siphon-container" class="relative w-[400px] h-[300px] max-w-full mx-auto bg-slate-50 border-2 border-slate-100 rounded-2xl mb-6 overflow-hidden select-none">
+                
+                <!-- 動態水面基準線 -->
+                <div id="surface-line" class="absolute w-full border-t-2 border-dashed border-rose-400 z-0 pointer-events-none transition-all duration-75" style="top: ${currentSurfaceY}px;">
+                   <span class="absolute -top-6 left-2 text-rose-500 text-xs font-bold bg-white px-2 py-0.5 rounded shadow-sm opacity-80">魚缸水面</span>
+                </div>
+
+                <!-- Tank A (左側高處魚缸) -->
+                <div class="absolute left-[20px] top-[100px] w-[100px] h-[100px] border-4 border-slate-300 border-t-0 rounded-b-xl overflow-hidden bg-white z-10 shadow-sm pointer-events-none">
+                    <div id="tankA-water" class="absolute bottom-0 w-full bg-blue-300 border-t-2 border-blue-400 transition-all duration-75" style="height: ${siphonState.tankAWater * 0.6}px"></div>
+                </div>
+
+                <!-- 塑膠管與水流 (SVG) -->
+                <svg class="absolute top-0 left-0 w-full h-full z-20 pointer-events-none" viewBox="0 0 400 300">
+                    <path id="tube-path" d="M 70,180 L 70,40 Q 70,20 100,20 L 300,20 Q 330,20 330,40 L 330,${siphonState.outletY}" fill="none" stroke="#cbd5e1" stroke-width="16" stroke-linecap="round"/>
+                    <path id="water-path" d="M 70,180 L 70,40 Q 70,20 100,20 L 300,20 Q 330,20 330,40 L 330,${siphonState.outletY}" fill="none" stroke="#93c5fd" stroke-width="12" stroke-linecap="round" class="transition-opacity duration-300 ease-in-out ${waterOpacity}"/>
+                    <path id="flow-path" d="M 70,180 L 70,40 Q 70,20 100,20 L 300,20 Q 330,20 330,40 L 330,${siphonState.outletY}" fill="none" stroke="#2563eb" stroke-width="6" stroke-linecap="round" stroke-dasharray="10 15" class="${flowAnimationClass}"/>
+                    
+                    <!-- 宣洩而下的水瀑 -->
+                    <path id="spill-path" d="M 330,${siphonState.outletY} L 330,280" fill="none" stroke="#60a5fa" stroke-width="8" stroke-dasharray="8 8" class="${spillAnimationClass}"/>
+                </svg>
+
+                <!-- 可拖曳的管子把手 (模擬出水口) -->
+                <div id="tube-handle" class="absolute w-[60px] h-[40px] bg-transparent z-30 cursor-ns-resize touch-none flex items-center justify-center group" style="left: 300px; top: ${siphonState.outletY - 20}px" onmousedown="startDragTube(event)" ontouchstart="startDragTube(event)">
+                    <div class="w-[24px] h-[12px] bg-slate-400 border-2 border-slate-500 rounded shadow-sm group-hover:bg-fuchsia-400 group-hover:border-fuchsia-600 transition-colors"></div>
+                    <span class="absolute left-14 bg-fuchsia-100 text-fuchsia-700 text-xs font-bold px-2 py-1 rounded shadow-sm whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">拖曳管子</span>
+                </div>
+
+                <!-- 地板/排水區 -->
+                <div class="absolute bottom-0 w-full h-[20px] bg-slate-200 border-t-2 border-slate-300 z-10"></div>
+
+              </div>
+              
+              <!-- 控制面板 -->
+              <div class="flex flex-col gap-4 w-full max-w-lg mb-4">
+                
+                <div class="flex w-full bg-slate-50 p-4 rounded-xl border border-slate-200 items-center justify-between">
+                  <h4 class="font-bold text-slate-700 text-sm whitespace-nowrap mr-4">切換管子狀態</h4>
+                  <div class="flex flex-1 justify-center gap-2">
+                    <button id="btn-tube-empty" onclick="setSiphonTube(false)" class="${initialBtnEmptyCls} py-2 rounded-lg font-bold border-2 fade-transition">沒裝水 (空管)</button>
+                    <button id="btn-tube-full" onclick="setSiphonTube(true)" class="${initialBtnFullCls} py-2 rounded-lg font-bold border-2 fade-transition">裝滿水</button>
+                  </div>
+                </div>
+
+              </div>
+
+              <div class="w-full max-w-lg min-h-[3rem] flex items-center justify-center bg-fuchsia-100 font-bold px-4 py-3 rounded-lg shadow-sm border border-fuchsia-200">
+                <p id="siphon-feedback-text" class="${isFlowing ? 'text-emerald-600 text-lg drop-shadow-sm font-bold' : 'text-fuchsia-800'} transition-colors">${feedbackStr}</p>
+              </div>
+              
+              <div class="flex justify-center mt-4 w-full">
+                  <button id="restart-btn" onclick="resetSiphon()" class="${siphonState.flowFinished ? '' : 'hidden'} bg-fuchsia-500 hover:bg-fuchsia-600 text-white px-8 py-3 rounded-full text-lg font-bold shadow-sm fade-transition inline-flex items-center gap-2">
+                      <i class="ph-bold ph-arrow-counter-clockwise"></i> 重新開始
+                  </button>
+              </div>
+
+            </div>
+          </div>
+      `;
+
+      if (expProgress >= 0) {
+        content += renderMiniTF('expTF', '任務一：觀念是非題', 
+          [
+            {q: '進行引水實驗時，裝滿水的塑膠管出水口必須「低於」容器裡的水面，水才會流出來。', a: true},
+            {q: '如果把引水塑膠管的出水口慢慢提高，高於容器裡的水面，水流的速度會變得更快。', a: false}
+          ], expProgress > 0, 'fuchsia');
+      }
+      if (expProgress >= 1) {
+        content += renderMiniMCQ('expMCQ', '任務二：觀念選擇題', 
+          [
+            {q: '下列哪一個是順利產生「虹吸現象」的必備條件？', opts: ['管子內必須裝滿水', '管子要夠粗', '容器必須是圓形的', '水必須是熱的'], a: 0},
+            {q: '進行引水實驗時，裝滿水的塑膠管出水口必須放在哪裡，水才會流出來？', opts: ['高於容器裡的水面', '和容器裡的水面一樣高', '低於容器裡的水面', '放在容器正上方'], a: 2}
+          ], expProgress > 1, 'fuchsia');
+      }
+      if (expProgress >= 2) {
+        content += renderMiniFill('expFill', '任務三：觀念填空題', 
+          [
+            { qParts: ["要順利產生虹吸現象，管子內必須", "，且出水口必須", "容器內的水面。"], ans: ["裝滿水", "低於"], distractors: ["充滿空氣", "高於"] },
+            { qParts: ["如果將出水口慢慢提高，當出水口", "水族箱水面時，無法產生向下的拉力，水就會", "。"], ans: ["高於", "停止流動"], distractors: ["低於", "加速流出"] }
+          ], expProgress > 2, 'fuchsia');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${expProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(3)" class="inline-flex items-center gap-2 bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            解開謎團了！前往生活應用 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      return content;
+    }
+
+    // --- 區塊渲染：3. 現象與應用 (Emerald) ---
+    function renderApplication() {
+      if (appProgress === 0 && sortItems.length === 0) {
+        sortItems = shuffleArray(baseSortItems);
+      }
+
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-emerald-50 border-l-8 border-emerald-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">💡</div>
+            <div>
+              <h3 class="font-bold text-emerald-800 text-lg">探險任務：這不是連通管！</h3>
+              <p class="text-emerald-700">「利用裝滿水的管子，將水從高處引出，再流到低處，這稱為『<strong class="text-emerald-800 border-b-2 border-emerald-400">虹吸現象</strong>』。請分辨下列物品是虹吸現象，還是上一節學過的連通管原理？」</p>
+            </div>
+          </div>
+
+          ${renderSortGame('任務一：原理分辨雷達 (分類題)', appProgress > 0)}
+      `;
+
+      if (appProgress >= 1) {
+        content += renderMiniTF('appTF', '任務二：觀念是非題', 
+          [
+            {q: '九龍公道杯裡的水如果超過內部隱藏的彎管，水就會全部流光，這是利用虹吸現象。', a: true},
+            {q: '「用塑膠管幫水族箱換水」和「茶壺的設計」，兩者都是應用虹吸現象。', a: false}
+          ], appProgress > 1, 'emerald');
+      }
+      if (appProgress >= 2) {
+        content += renderMiniFill('appFill', '任務三：觀念填空題', 
+          [
+            { qParts: ["利用裝滿水的管子，將水從高處引出，再越過容器邊緣向下流到", "，這稱為", "。"], ans: ["低處", "虹吸現象"], distractors: ["高處", "連通管原理"] },
+            { qParts: ["「幫魚缸換水」是應用了", "，「熱水瓶水位視窗」則是應用了", "。"], ans: ["虹吸現象", "連通管原理"], distractors: ["毛細現象", "浮力原理"] }
+          ], appProgress > 2, 'emerald');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${appProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(4)" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            分類大師！迎接最終測驗 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      return content;
+    }
+
+    function renderSortGame(title, isCompleted) {
+      if (isCompleted) sortCurrentIndex = sortItems.length;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? 'bg-emerald-50 border-emerald-200 opacity-80' : 'border-slate-200'}">
+          <h2 class="text-xl font-bold text-emerald-700 mb-6 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-magnifying-glass"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h2>`;
+
+      if (sortCurrentIndex < sortItems.length && !isCompleted) {
+        const cur = sortItems[sortCurrentIndex];
+        html += `<div class="flex flex-col items-center">
+            <div class="relative w-full max-w-md bg-slate-50 border-4 border-slate-200 rounded-3xl flex flex-col items-center justify-center mb-8 py-8 px-4 fade-transition min-h-[200px]">`;
+        if (sortFeedback) {
+          html += `<div class="text-2xl font-bold flex items-center gap-2 ${sortFeedback.isCorrect ? 'text-emerald-600' : 'text-rose-500'} px-4 text-center">
+              <i class="ph-fill ${sortFeedback.isCorrect ? 'ph-check-circle' : 'ph-x-circle'} text-4xl shrink-0"></i> ${sortFeedback.text}
+            </div>`;
+        } else {
+          html += `<div class="text-center fade-transition">
+              <div class="text-6xl mb-4 drop-shadow-md">${cur.emoji}</div>
+              <h3 class="text-2xl font-bold text-slate-800 mb-2">${cur.text}</h3>
+              <p class="text-slate-500 font-bold bg-white px-3 py-1 rounded shadow-sm border border-slate-100">${cur.desc}</p>
+            </div>`;
+        }
+        html += `</div>
+            <p class="text-slate-600 mb-4 font-bold text-lg">這是哪一種科學原理？</p>
+            <div class="w-full flex justify-center gap-4">`;
+        
+        html += `<button onclick="handleSort('siphon')" ${sortFeedback?'disabled':''} class="w-full md:w-48 bg-slate-50 hover:bg-indigo-50 border-b-4 border-slate-300 hover:border-indigo-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50 text-slate-700 hover:text-indigo-700">
+            <div class="text-3xl mb-1">🌊</div><div class="font-bold text-lg">虹吸現象</div>
+          </button>`;
+        html += `<button onclick="handleSort('cv')" ${sortFeedback?'disabled':''} class="w-full md:w-48 bg-slate-50 hover:bg-sky-50 border-b-4 border-slate-300 hover:border-sky-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50 text-slate-700 hover:text-sky-700">
+            <div class="text-3xl mb-1">⚖️</div><div class="font-bold text-lg">連通管原理</div>
+          </button>`;
+        
+        html += `</div><div class="mt-6 text-slate-500 font-bold bg-slate-100 px-4 py-1 rounded-full">鑑定進度：${sortCurrentIndex + 1} / ${sortItems.length}</div></div>`;
+      } else {
+        html += `<div class="text-center py-4 fade-transition"><i class="ph-fill ph-check-circle text-6xl text-emerald-500 mb-4 block mx-auto"></i><h3 class="text-xl font-bold text-slate-800">全數鑑定完成！</h3></div>`;
+      }
+      return html + `</div>`;
+    }
+
+    window.handleSort = function(cat) {
+      if (sortFeedback) return;
+      const cur = sortItems[sortCurrentIndex];
+      if (cur.type === cat) {
+        sortFeedback = { isCorrect: true, text: '判斷精準！' };
+      } else {
+        sortFeedback = { isCorrect: false, text: `搞混囉！再仔細想想。` };
+      }
+      render();
+      setTimeout(() => {
+        sortFeedback = null;
+        if (cur.type === cat) {
+          if (sortCurrentIndex + 1 < sortItems.length) sortCurrentIndex++;
+          else progressTask('appSort');
+        }
+        render();
+      }, 1200);
+    }
+
+    // --- 區塊渲染：4. 最終測驗 (Indigo) ---
+    function renderQuiz() {
+      if (quizState === 'dashboard') {
+        const history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+        let histHtml = '';
+        if (history.length === 0) {
+          histHtml = `<p class="text-slate-500 py-4">目前還沒有測驗紀錄，快來挑戰第一次吧！</p>`;
+        } else {
+          histHtml = `
+            <div class="overflow-x-auto w-full mt-4">
+              <table class="w-full text-left border-collapse min-w-[500px]">
+                <thead>
+                  <tr class="bg-indigo-100 text-indigo-800 border-b-2 border-indigo-200">
+                    <th class="p-3 rounded-tl-xl">日期</th>
+                    <th class="p-3">時間</th>
+                    <th class="p-3">成績</th>
+                    <th class="p-3 rounded-tr-xl">作答時長</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${history.map(r => `
+                    <tr class="border-b border-slate-100 hover:bg-slate-50 fade-transition">
+                      <td class="p-3 text-slate-600">${r.date}</td>
+                      <td class="p-3 text-slate-600">${r.time}</td>
+                      <td class="p-3 font-bold ${r.score >= 80 ? 'text-emerald-600' : 'text-amber-600'}">${r.score} 分</td>
+                      <td class="p-3 text-slate-500">${r.duration}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="bg-white rounded-3xl p-8 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition max-w-2xl mx-auto">
+            <i class="ph-fill ph-medal text-6xl text-indigo-500 mb-4 block"></i>
+            <h2 class="text-3xl font-bold text-indigo-800 mb-2">最終綜合測驗</h2>
+            <p class="text-slate-600 mb-8">本測驗共有 10 題，將會從題庫中隨機抽選洗牌。</p>
+            
+            <button onclick="startFinalQuiz()" class="inline-flex items-center justify-center w-full md:w-auto gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm mb-8">
+              <i class="ph-bold ph-pencil-simple"></i> 開始測驗
+            </button>
+
+            <div class="bg-slate-50 rounded-2xl p-6 border-2 border-slate-100 mb-4">
+              <h3 class="text-xl font-bold text-slate-700 flex items-center justify-center gap-2">
+                <i class="ph-bold ph-clock-counter-clockwise"></i> 最近 5 次測驗紀錄
+              </h3>
+              ${histHtml}
+            </div>
+          </div>
+        `;
+      }
+
+      if (quizState === 'result') {
+        let comment = "繼續加油，可以再複習一下喔！";
+        if (quizScore >= 90) comment = "太厲害了！你是完美過關的虹吸現象大師！";
+        else if (quizScore >= 70) comment = "表現不錯喔！你已經成功掌握水的奇妙現象了。";
+
+        return `
+          <div class="bg-white rounded-3xl p-8 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition">
+            <h2 class="text-4xl font-bold text-indigo-600 mb-6">測驗結束！</h2>
+            <div class="text-8xl mb-6">🏆</div>
+            <p class="text-3xl font-bold mb-4">你的最終得分：<span class="${quizScore >= 80 ? 'text-emerald-500' : 'text-amber-500'}">${quizScore}</span> / 100</p>
+            <p class="text-2xl text-slate-600 mb-8">${comment}</p>
+            <button onclick="returnToQuizDashboard()" class="inline-flex items-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-700 px-8 py-4 rounded-full text-xl font-bold fade-transition">
+              <i class="ph-bold ph-list-dashes"></i> 查看紀錄面板
+            </button>
+          </div>
+        `;
+      }
+
+      const q = quizData[quizCurrentQ];
+      const optionLabels = ['A', 'B', 'C', 'D'];
+      let content = `
+        <div class="space-y-8 fade-transition">
+          <div class="bg-indigo-50 border-l-8 border-indigo-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">📝</div>
+            <div>
+              <h3 class="font-bold text-indigo-800 text-lg">營長考驗：最終總測驗</h3>
+              <p class="text-indigo-700">「展現你學到的知識，冷靜作答吧！」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-10 shadow-sm border-2 border-slate-200">
+            <div class="flex justify-between items-center mb-8 pb-4 border-b-2 border-slate-100">
+              <h2 class="text-2xl md:text-3xl font-bold text-indigo-700">科學知識挑戰賽</h2>
+              <span class="text-lg md:text-xl font-bold bg-indigo-100 text-indigo-800 px-4 py-2 rounded-full">
+                第 ${quizCurrentQ + 1} / ${quizData.length} 題
+              </span>
+            </div>
+            
+            <h3 class="text-xl md:text-2xl font-bold text-slate-800 mb-8 leading-relaxed flex items-start gap-3">
+              <i class="ph-fill ph-question text-indigo-500 text-3xl shrink-0 mt-1"></i>
+              <span>${q.question}</span>
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      `;
+
+      q.options.forEach((opt, idx) => {
+        let btnClass = "bg-slate-50 hover:bg-indigo-50 border-slate-200 text-slate-700";
+        let iconHtml = '';
+        if (quizIsAnswered) {
+          if (idx === q.answer) {
+            btnClass = "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold";
+            iconHtml = '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl shrink-0"></i>';
+          } else if (idx === quizSelectedOption) {
+            btnClass = "bg-rose-50 border-rose-300 text-rose-700";
+            iconHtml = '<i class="ph-fill ph-x-circle text-rose-500 text-2xl shrink-0"></i>';
+          } else {
+            btnClass = "bg-slate-50 border-slate-200 text-slate-400 opacity-50";
+          }
+        }
+        
+        content += `
+          <button onclick="handleQuizAnswer(${idx})" ${quizIsAnswered ? 'disabled' : ''} class="p-4 md:p-5 text-left text-lg md:text-xl rounded-2xl border-2 fade-transition flex items-center justify-between gap-2 ${btnClass}">
+            <div class="flex items-center gap-3">
+              <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm border border-slate-200 text-indigo-600 font-bold text-base shrink-0">${optionLabels[idx]}</span>
+              <span>${opt}</span>
+            </div>
+            ${iconHtml}
+          </button>
+        `;
+      });
+      content += `</div></div></div>`;
+      return content;
+    }
+
+    window.startFinalQuiz = function() {
+      initQuizData(); 
+      quizCurrentQ = 0;
+      quizScore = 0;
+      quizIsAnswered = false;
+      quizSelectedOption = null;
+      quizStartTime = Date.now();
+      quizState = 'playing';
+      render();
+    }
+
+    window.handleQuizAnswer = function(idx) {
+      if (quizIsAnswered) return;
+      quizSelectedOption = idx; quizIsAnswered = true;
+      if (idx === quizData[quizCurrentQ].answer) quizScore += 10;
+      render();
+
+      setTimeout(() => {
+        if (quizCurrentQ + 1 < quizData.length) { 
+          quizCurrentQ++; quizSelectedOption = null; quizIsAnswered = false; 
+        } else { 
+          const durationMs = Date.now() - quizStartTime;
+          saveQuizRecord(quizScore, durationMs);
+          quizState = 'result'; 
+        }
+        render();
+      }, 1200); 
+    }
+
+    function saveQuizRecord(score, durationMs) {
+      let history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+      const now = new Date();
+      const record = {
+         date: now.toLocaleDateString('zh-TW'),
+         time: now.toLocaleTimeString('zh-TW', { hour12: false }),
+         score: score,
+         duration: formatDuration(durationMs)
+      };
+      history.unshift(record); 
+      history = history.slice(0, 5);
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(history));
+    }
+
+    window.returnToQuizDashboard = function() {
+      quizState = 'dashboard';
+      render();
+    }
+
+    // --- 共用小測驗產生器 (配對題) ---
+    const matchStates = {};
+    function renderMiniMatch(id, title, pairs, isCompleted, theme) {
+      if (!matchStates[id]) {
+        const leftItems = shuffleArray(pairs.map(p => ({ id: p.id, text: p.left, emoji: p.emoji })));
+        const rightItems = shuffleArray(pairs.map(p => ({ id: p.id, text: p.right })));
+        matchStates[id] = { leftItems, rightItems, leftSelected: null, rightSelected: null, matchedPairs: [], wrongMatch: false };
+      }
+      const st = matchStates[id];
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-90`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-intersect"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-slate-600 font-bold mb-6">請點擊左邊的「換水方法」，再點擊右邊對應的「優缺點」來完成配對！</p>
+          <div class="flex flex-col md:flex-row gap-6">
+            
+            <div class="flex-1 flex flex-col gap-3">`;
+
+      st.leftItems.forEach(item => {
+        const isMatched = st.matchedPairs.includes(item.id);
+        const isSelected = st.leftSelected === item.id;
+        let cls = "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700";
+        let iconHtml = '';
+        if (isMatched) {
+            cls = "bg-emerald-50 border-emerald-400 text-emerald-700 font-bold opacity-70";
+            iconHtml = '<i class="ph-bold ph-check text-emerald-500"></i>';
+        } else if (isSelected) {
+            cls = st.wrongMatch ? "bg-rose-100 border-rose-400 text-rose-800 ring-2 ring-rose-400" : `bg-${theme}-100 border-${theme}-400 text-${theme}-800 ring-2 ring-${theme}-400`;
+        }
+        html += `<button onclick="handleMatchClick('${id}', 'left', '${item.id}')" ${isMatched || isCompleted ? 'disabled' : ''} class="p-4 rounded-2xl border-2 text-lg font-bold fade-transition text-left flex items-center justify-between shadow-sm ${cls}">
+                   <span class="flex items-center gap-3"><span class="text-3xl">${item.emoji}</span> <span>${item.text}</span></span> ${iconHtml}
+                 </button>`;
+      });
+
+      html += `</div><div class="flex-1 flex flex-col gap-3">`;
+
+      st.rightItems.forEach(item => {
+        const isMatched = st.matchedPairs.includes(item.id);
+        const isSelected = st.rightSelected === item.id;
+        let cls = "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700";
+        if (isMatched) {
+            cls = "bg-emerald-50 border-emerald-400 text-emerald-700 font-bold opacity-70";
+        } else if (isSelected) {
+            cls = st.wrongMatch ? "bg-rose-100 border-rose-400 text-rose-800 ring-2 ring-rose-400" : `bg-${theme}-100 border-${theme}-400 text-${theme}-800 ring-2 ring-${theme}-400`;
+        }
+        html += `<button onclick="handleMatchClick('${id}', 'right', '${item.id}')" ${isMatched || isCompleted ? 'disabled' : ''} class="p-4 rounded-2xl border-2 text-md font-bold fade-transition text-left flex items-center shadow-sm ${cls}">
+                   ${item.text}
+                 </button>`;
+      });
+
+      html += `</div></div>`;
+      
+      if (isCompleted) {
+         html += `<div class="mt-6 p-4 bg-${theme}-100 rounded-xl border border-${theme}-200 text-center fade-transition">
+                    <p class="text-${theme}-800 font-bold text-lg">💡 結論：只要利用一條<span class="border-b-2 border-${theme}-500">裝滿水</span>的塑膠管，就能輕鬆把魚缸裡的水引出來！</p>
+                  </div>`;
+      }
+
+      html += `</div>`;
+      return html;
+    }
+
+    window.handleMatchClick = function(id, side, itemId) {
+        const st = matchStates[id];
+        if (st.matchedPairs.includes(itemId) || st.wrongMatch) return;
+
+        if (side === 'left') {
+            st.leftSelected = st.leftSelected === itemId ? null : itemId;
+        } else {
+            st.rightSelected = st.rightSelected === itemId ? null : itemId;
+        }
+
+        render();
+
+        if (st.leftSelected && st.rightSelected) {
+            if (st.leftSelected === st.rightSelected) {
+                // 配對成功
+                st.matchedPairs.push(st.leftSelected);
+                st.leftSelected = null;
+                st.rightSelected = null;
+                if (st.matchedPairs.length === st.leftItems.length) {
+                    setTimeout(() => progressTask(id), 600);
+                }
+                render();
+            } else {
+                // 配對失敗
+                st.wrongMatch = true;
+                render();
+                setTimeout(() => {
+                    st.wrongMatch = false;
+                    st.leftSelected = null;
+                    st.rightSelected = null;
+                    render();
+                }, 800);
+            }
+        }
+    }
+
+    // --- 共用小測驗產生器 (選擇題) ---
+    const mcqStates = {};
+    function renderMiniMCQ(id, title, qPool, isCompleted, theme) {
+      if (!mcqStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        const qRaw = qPool[varIdx];
+        const correctOpt = qRaw.opts[qRaw.a];
+        const shuffledOpts = shuffleArray(qRaw.opts);
+        const newAnsIdx = shuffledOpts.indexOf(correctOpt);
+        mcqStates[id] = { selected: null, opts: shuffledOpts, ansIdx: newAnsIdx, varIdx: varIdx };
+      }
+      const st = mcqStates[id];
+      const qRaw = qPool[st.varIdx];
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-question"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
+
+      st.opts.forEach((opt, idx) => {
+        let cls = "bg-slate-50 border-slate-200 hover:bg-slate-100";
+        if (isCompleted) { 
+          cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-slate-50 text-slate-400 border-slate-100"; 
+        } else if (st.selected === idx) { 
+          cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-rose-50 border-rose-300 text-rose-700"; 
+        }
+        html += `<button onclick="handleMCQ('${id}', ${idx}, ${st.ansIdx})" ${isCompleted ? 'disabled' : ''} class="p-4 rounded-2xl border-2 text-left text-lg font-bold fade-transition ${cls}">${opt}</button>`;
+      });
+      return html + `</div></div>`;
+    }
+    window.handleMCQ = function(id, selIdx, ansIdx) {
+      if (mcqStates[id].selected !== null) return;
+      mcqStates[id].selected = selIdx; render();
+      if (selIdx === ansIdx) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { mcqStates[id].selected = null; render(); }, 800);
+    }
+
+    // --- 共用小測驗產生器 (是非題) ---
+    const tfStates = {};
+    function renderMiniTF(id, title, qPool, isCompleted, theme) {
+      if (!tfStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        tfStates[id] = { selected: null, varIdx: varIdx };
+      }
+      const st = tfStates[id];
+      const qRaw = qPool[st.varIdx];
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-check-square-offset"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p>
+          <div class="flex gap-4 justify-center">`;
+      
+      const tCls = isCompleted ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === true ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-rose-50 border-rose-300 text-rose-700") : `bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700`);
+      const fCls = isCompleted ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === false ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-rose-50 border-rose-300 text-rose-700") : `bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700`);
+
+      html += `<button onclick="handleTF('${id}', true, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-6 rounded-2xl border-2 text-2xl font-bold fade-transition text-center ${tCls}">⭕ 是</button>`;
+      html += `<button onclick="handleTF('${id}', false, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-6 rounded-2xl border-2 text-2xl font-bold fade-transition text-center ${fCls}">❌ 非</button>`;
+      return html + `</div></div>`;
+    }
+    window.handleTF = function(id, sel, ans) {
+      if (tfStates[id].selected !== null) return;
+      tfStates[id].selected = sel; render();
+      if (sel === ans) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { tfStates[id].selected = null; render(); }, 800);
+    }
+
+    // --- 升級版多格填空題產生器 ---
+    const fillStates = {};
+    function renderMiniFill(id, title, qPool, isCompleted, theme) {
+      if (!fillStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        const qRaw = qPool[varIdx];
+        const allOpts = [...qRaw.ans, ...qRaw.distractors];
+        const shuffledOpts = shuffleArray(allOpts);
+        const ansIndices = qRaw.ans.map(a => shuffledOpts.indexOf(a));
+        fillStates[id] = { selected: new Array(qRaw.ans.length).fill(null), opts: shuffledOpts, ansIndices: ansIndices, varIdx: varIdx };
+      }
+      const st = fillStates[id];
+      const qRaw = qPool[st.varIdx];
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let sentenceHtml = qRaw.qParts[0];
+      st.selected.forEach((selIdx, i) => {
+         let filledText = selIdx !== null ? st.opts[selIdx] : '　　　';
+         let blankClass = `inline-block min-w-[80px] border-b-4 text-center px-2 font-bold pb-1 mx-1 fade-transition cursor-pointer `;
+         
+         if (isCompleted) {
+           blankClass += `border-emerald-500 text-emerald-700 bg-emerald-100 rounded cursor-default`;
+           filledText = st.opts[st.ansIndices[i]];
+         } else if (selIdx !== null) {
+           let isAllFilled = st.selected.every(s => s !== null);
+           if (isAllFilled) {
+              blankClass += selIdx === st.ansIndices[i] ? `border-emerald-500 text-emerald-700 bg-emerald-100 rounded` : `border-rose-500 text-rose-700 bg-rose-100 rounded`;
+           } else {
+              blankClass += `border-${theme}-500 text-${theme}-700 bg-${theme}-100 rounded`;
+           }
+         } else {
+           blankClass += `border-${theme}-300 text-${theme}-500 bg-slate-50 rounded hover:bg-${theme}-50`;
+         }
+         
+         let clickHandler = isCompleted ? '' : `onclick="clearFillBlank('${id}', ${i})"`;
+         let titleText = (selIdx !== null && !isCompleted) ? ' title="點擊清除重新選擇"' : '';
+         sentenceHtml += `<span class="${blankClass}" ${clickHandler} ${titleText}>${filledText}</span>` + qRaw.qParts[i+1];
+      });
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-keyboard"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-xl md:text-2xl font-bold text-slate-800 mb-8 text-center leading-loose">${sentenceHtml}</p>
+          <div class="flex flex-wrap gap-4 justify-center">`;
+
+      st.opts.forEach((opt, idx) => {
+        let isSelected = st.selected.includes(idx);
+        let cls = "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700";
+        if (isCompleted) { 
+          cls = st.ansIndices.includes(idx) ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-slate-50 text-slate-400 border-slate-100 opacity-50"; 
+        } else if (isSelected) { 
+          let isAllFilled = st.selected.every(s => s !== null);
+          if (isAllFilled) {
+             let blankIndex = st.selected.indexOf(idx);
+             let isCorrectInBlank = st.ansIndices[blankIndex] === idx;
+             cls = isCorrectInBlank ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-rose-50 border-rose-300 text-rose-700";
+          } else {
+             cls = `bg-${theme}-100 border-${theme}-300 text-${theme}-800 opacity-50 cursor-not-allowed`;
+          }
+        }
+        let clickHandler = isCompleted || isSelected ? '' : `onclick="handleFill('${id}', ${idx})"`;
+        html += `<button ${clickHandler} ${isCompleted || isSelected ? 'disabled' : ''} class="px-6 py-3 rounded-2xl border-2 text-lg font-bold fade-transition shadow-sm ${cls}">${opt}</button>`;
+      });
+      return html + `</div></div>`;
+    }
+    
+    window.handleFill = function(id, optIdx) {
+      let st = fillStates[id];
+      let emptyIdx = st.selected.indexOf(null);
+      if (emptyIdx !== -1) {
+        st.selected[emptyIdx] = optIdx;
+        render();
+        if (st.selected.every(s => s !== null)) {
+          let isCorrect = st.selected.every((s, i) => s === st.ansIndices[i]);
+          if (isCorrect) {
+            setTimeout(() => { progressTask(id); }, 600);
+          } else {
+            setTimeout(() => { 
+              fillStates[id].selected.fill(null); 
+              render(); 
+            }, 1200);
+          }
+        }
+      }
+    }
+    
+    window.clearFillBlank = function(id, blankIdx) {
+      let st = fillStates[id];
+      if (st.selected[blankIdx] !== null) {
+        st.selected[blankIdx] = null;
+        render();
+      }
+    }
+
+    // --- 全局狀態推進 ---
+    window.progressTask = function(taskId) {
+      if (taskId.startsWith('intro')) introProgress++;
+      else if (taskId.startsWith('exp')) expProgress++;
+      else if (taskId.startsWith('app')) appProgress++;
+      render();
+    }
+
+    // 主渲染邏輯
+    function render() {
+      renderProgressBar();
+      const main = document.getElementById('main-content');
+      switch (steps[currentStepIndex]) {
+        case 'welcome': main.innerHTML = renderWelcome(); break;
+        case 'intro': main.innerHTML = renderIntro(); break;
+        case 'experiment': main.innerHTML = renderExperiment(); break;
+        case 'application': main.innerHTML = renderApplication(); break;
+        case 'quiz': main.innerHTML = renderQuiz(); break;
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>

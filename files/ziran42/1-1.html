@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>生活中的力：力的作用</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入 Phosphor Icons 做為圖示庫 -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    /* 隱藏捲軸但保留捲動功能 */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* 僅保留平緩的淡入淡出動畫，符合零干擾設計原則 */
+    .fade-transition {
+      transition: opacity 0.4s ease-in-out, background-color 0.3s ease-in-out, border-color 0.3s ease-in-out, color 0.3s ease-in-out, transform 0.3s ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 pb-16 min-h-screen">
+
+  <!-- 標題列：沉穩色系，取消 sticky 以最大化可視空間 -->
+  <header class="bg-slate-700 text-white p-4 shadow-md">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="ph ph-barbell text-3xl text-indigo-400"></i>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-wider">生活中的力：力的作用</h1>
+      </div>
+    </div>
+  </header>
+
+  <!-- 全解鎖導航列 -->
+  <div id="progress-container" class="max-w-4xl mx-auto px-4 pt-6 fade-transition">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border-2 border-slate-200 flex flex-wrap justify-between items-center gap-2 overflow-x-auto hide-scrollbar" id="progress-bar">
+      <!-- JS 渲染進度條 -->
+    </div>
+  </div>
+
+  <main id="main-content" class="max-w-4xl mx-auto p-4 mt-4 fade-transition">
+    <!-- JS 渲染內容 -->
+  </main>
+
+  <script>
+    // --- 實用的隨機洗牌函數 ---
+    function shuffleArray(array) {
+      const newArr = [...array];
+      for (let i = newArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+      }
+      return newArr;
+    }
+
+    // --- Tailwind 動態主題安全字典 ---
+    const themeColors = {
+      violet: { bg50: 'bg-violet-50', border200: 'border-violet-200', bg100: 'bg-violet-100', border400: 'border-violet-400', text800: 'text-violet-800', btnBg: 'bg-violet-500', btnHover: 'hover:bg-violet-600', btnBorder: 'border-violet-600', border300: 'border-violet-300' },
+      blue: { bg50: 'bg-blue-50', border200: 'border-blue-200', bg100: 'bg-blue-100', border400: 'border-blue-400', text800: 'text-blue-800', btnBg: 'bg-blue-500', btnHover: 'hover:bg-blue-600', btnBorder: 'border-blue-600', border300: 'border-blue-300' },
+      rose: { bg50: 'bg-rose-50', border200: 'border-rose-200', bg100: 'bg-rose-100', border400: 'border-rose-400', text800: 'text-rose-800', btnBg: 'bg-rose-500', btnHover: 'hover:bg-rose-600', btnBorder: 'border-rose-600', border300: 'border-rose-300' }
+    };
+
+    // --- 系統狀態管理 ---
+    const steps = ['welcome', 'observe', 'types', 'recover', 'quiz'];
+    let currentStepIndex = 0;
+    
+    let obsProgress = 0;      // 目標: 3
+    let typesProgress = 0;    // 目標: 3
+    let recoverProgress = 0;  // 目標: 3
+
+    // 互動實驗狀態 (包含 位置移動)
+    let interactionState = { shape: false, move: false, position: false };
+
+    // 分類遊戲狀態 (形狀恢復)
+    const baseSortItems = [
+      { id: 1, text: '拉長的橡皮筋', type: 'yes', emoji: '〰️' },
+      { id: 2, text: '撕破的色紙', type: 'no', emoji: '📄' },
+      { id: 3, text: '折斷的粉筆', type: 'no', emoji: '🖍️' },
+      { id: 4, text: '壓扁的油土', type: 'no', emoji: '🧆' },
+      { id: 5, text: '輕壓的海綿', type: 'yes', emoji: '🧽' },
+    ];
+    let sortItems = [];
+    let sortCurrentIndex = 0;
+    let sortFeedback = null;
+
+    // --- 最終測驗題庫池 ---
+    const rawQuizPools = [
+      [ { q: "我們能藉由什麼現象來觀察到「力」的作用？", options: ["只能透過聽到聲音", "物體形狀或運動情形的改變", "物體顏色的改變", "物體溫度的改變"], answer: 1 },
+        { q: "關於力的觀察，下列哪一個說法是正確的？", options: ["力是看不見的，所以完全無法觀察", "可以從物體開始移動或停下來觀察到", "只有改變形狀才算是有用力", "只有大人才能觀察到力"], answer: 1 } ],
+      [ { q: "下列哪個物體受力後，是屬於「運動情形」改變？", options: ["把橡皮筋拉長", "把油土壓扁", "把球丟出去", "把粉筆折斷"], answer: 2 },
+        { q: "用腳把滾動中的足球停下來，這是力改變了物體的什麼？", options: ["形狀", "運動情形", "重量", "顏色"], answer: 1 } ],
+      [ { q: "用駱駝在沙漠中載運物品，是屬於哪一種形式的力？", options: ["人力", "風力", "水力", "獸力"], answer: 3 },
+        { q: "小狗在地上挖洞，這是屬於什麼力的作用？", options: ["磁力", "獸力", "彈力", "風力"], answer: 1 } ],
+      [ { q: "下列哪個物體受到力的作用而改變形狀，當不再繼續對物體施力時，可以恢復先前的形狀？", options: ["拉長橡皮筋", "捏破氣球", "重壓黏土", "踩扁寶特瓶"], answer: 0 },
+        { q: "將下列哪一個物品輕輕壓扁後放開，它最容易恢復原本的形狀？", options: ["紙盒", "海綿", "黏土", "粉筆"], answer: 1 } ],
+      [ { q: "把色紙撕成兩半後，就算停止施力，色紙能自己恢復原來的形狀嗎？", options: ["可以，放著就會黏回去", "無法恢復原本的形狀", "只要用水塗一塗就會恢復", "可以，因為紙有彈性"], answer: 1 },
+        { q: "用力折斷粉筆後，不再用力時，粉筆會發生什麼事？", options: ["會自動接回去", "會變成橡皮擦", "無法恢復原狀", "會變得更長"], answer: 2 } ],
+      [ { q: "水車轉動主要是受到大自然的哪一種力作用？", options: ["水力", "磁力", "人力", "彈力"], answer: 0 },
+        { q: "雨傘被強風吹到翻過去變形，這是受到什麼力的影響？", options: ["獸力", "水力", "磁力", "風力"], answer: 3 } ],
+      [ { q: "原子筆的筆心可以伸縮，通常是受到裡面什麼東西的「彈力」影響？", options: ["磁鐵", "彈簧", "馬達", "橡皮擦"], answer: 1 },
+        { q: "拉長橡皮筋時，會感覺到一股拉力，這是什麼力的作用？", options: ["磁力", "浮力", "彈力", "獸力"], answer: 2 } ],
+      [ { q: "鐵製品可以被磁鐵吸起來，這是受到什麼力的作用？", options: ["彈力", "磁力", "風力", "水力"], answer: 1 },
+        { q: "磁鐵飛鏢玩具能黏在靶上，是應用了哪一種力？", options: ["人力", "磁力", "獸力", "浮力"], answer: 1 } ],
+      [ { q: "下列哪一個動作，主要是讓物體的「形狀」發生改變？", options: ["開窗戶", "把足球踢飛", "捏捏麵團或黏土", "騎腳踏車前進"], answer: 2 },
+        { q: "用手按壓膨脹的氣球，氣球會變扁，這證明了力可以做什麼？", options: ["改變物體的形狀", "讓物體飛上天", "改變物體的顏色", "讓物體變重"], answer: 0 } ],
+      [ { q: "關於「力」，下列敘述哪一個是錯誤的？", options: ["力看不見也摸不著", "物體受力後可能改變形狀", "物體受力後運動情形可能改變", "只有人才能產生力，大自然不行"], answer: 3 },
+        { q: "拖地覺得比較累、把球丟出去、捏黏土，這些行為都有一個共通點，是什麼？", options: ["都需要用到水", "都會用到力的作用", "都跟風力有關", "都無法改變物體形狀"], answer: 1 } ]
+    ];
+
+    let quizState = 'dashboard'; 
+    let quizData = [];
+    let quizCurrentQ = 0;
+    let quizScore = 0;
+    let quizSelectedOption = null;
+    let quizIsAnswered = false;
+    let quizStartTime = 0;
+    const LOCAL_STORAGE_KEY = '四下4-1-1翰林自然力的作用_v2'; 
+
+    function initQuizData() {
+      quizData = rawQuizPools.map(pool => {
+        const qRaw = pool[Math.floor(Math.random() * pool.length)];
+        const correctOpt = qRaw.options[qRaw.answer];
+        const shuffledOptions = shuffleArray(qRaw.options);
+        return { question: qRaw.q, options: shuffledOptions, answer: shuffledOptions.indexOf(correctOpt) };
+      });
+    }
+
+    function formatDuration(ms) {
+      const totalSecs = Math.floor(ms / 1000);
+      const mins = Math.floor(totalSecs / 60);
+      const secs = totalSecs % 60;
+      return `${mins}分 ${secs}秒`;
+    }
+
+    // --- 導航與進度條 ---
+    function jumpToStep(index) {
+      currentStepIndex = index;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function renderProgressBar() {
+      const bar = document.getElementById('progress-bar');
+      const stages = [
+        { name: '出發', icon: 'ph-flag-pennant', th: 'indigo' },
+        { name: '觀察力', icon: 'ph-eye', th: 'violet' },
+        { name: '力的種類', icon: 'ph-list-magnifying-glass', th: 'blue' },
+        { name: '形狀恢復', icon: 'ph-arrow-u-up-left', th: 'rose' },
+        { name: '最終測驗', icon: 'ph-file-question', th: 'indigo' },
+      ];
+
+      let html = '';
+      stages.forEach((stage, idx) => {
+        const isActive = currentStepIndex === idx;
+        const isPassed = (idx === 1 && obsProgress >= 3) || 
+                         (idx === 2 && typesProgress >= 3) || 
+                         (idx === 3 && recoverProgress >= 3);
+
+        let iconHtml = isPassed ? '<i class="ph-fill ph-check-circle text-xl"></i>' : `<i class="ph ${stage.icon} text-xl"></i>`;
+        let circleClass = `w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm fade-transition `;
+        
+        if (isActive) circleClass += `bg-${stage.th}-500 ring-4 ring-${stage.th}-200`;
+        else if (isPassed) circleClass += `bg-emerald-400`;
+        else circleClass += `bg-slate-300`;
+
+        let textClass = `text-xs font-bold whitespace-nowrap mt-1 ${isActive ? `text-${stage.th}-600` : 'text-slate-500'}`;
+
+        html += `
+          <div class="flex items-center">
+            <button onclick="jumpToStep(${idx})" class="flex flex-col items-center px-2 py-1 fade-transition cursor-pointer hover:bg-slate-50 rounded-lg">
+              <div class="${circleClass}">${iconHtml}</div>
+              <span class="${textClass}">${stage.name}</span>
+            </button>
+        `;
+        if (idx < stages.length - 1) {
+          html += `<div class="hidden sm:block w-8 md:w-12 h-1 rounded-full mx-1 ${isPassed ? 'bg-emerald-300' : 'bg-slate-200'}"></div>`;
+        }
+        html += `</div>`;
+      });
+      bar.innerHTML = html;
+    }
+
+    // --- 區塊渲染：0. 首頁 ---
+    function renderWelcome() {
+      return `
+        <div class="bg-white rounded-3xl p-8 md:p-12 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition">
+          <div class="inline-block bg-slate-100 p-6 rounded-full mb-6">
+            <i class="ph ph-hand-grabbing text-7xl text-indigo-500"></i>
+          </div>
+          <h2 class="text-4xl md:text-5xl font-bold text-slate-800 mb-6">探索「力」的奧祕</h2>
+          <p class="text-xl md:text-2xl text-slate-600 leading-relaxed mb-8 max-w-2xl mx-auto">
+            要怎麼讓物體動起來呢？有什麼方法可以讓物品的形體發生變化？<br/><br/>
+            「力」看不見也摸不著，但我們卻能在生活中到處發現它的蹤影。每一關都有三個小任務等你挑戰，準備好成為「力」的觀察家了嗎？
+          </p>
+          <button onclick="jumpToStep(1)" class="inline-flex items-center gap-3 bg-indigo-500 hover:bg-indigo-600 text-white px-8 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm">
+            <i class="ph-fill ph-play-circle text-3xl"></i> 開始探索！
+          </button>
+        </div>
+      `;
+    }
+
+    // --- 區塊渲染：1. 觀察力的現象 (Violet) ---
+    const obsFBData = {
+      text: ["我們能藉由物體", "、", "或是", "的改變，來觀察到", "的作用。"],
+      options: [
+        ["氣味", "位置", "材質"],
+        ["形狀", "溫度", "聲音"],
+        ["重量", "甜度", "運動情形"],
+        ["風", "光", "力"]
+      ],
+      correct: [1, 0, 2, 2] // 位置、形狀、運動情形、力
+    };
+
+    function renderObserve() {
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-violet-50 border-l-8 border-violet-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">👀</div>
+            <div>
+              <h3 class="font-bold text-violet-800 text-lg">觀察任務：力在哪裡？</h3>
+              <p class="text-violet-700">「力雖然看不見，但物體受力時會有變化！點擊下方按鈕施力，看看會發生什麼事。」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200 text-center">
+            <h2 class="text-3xl font-bold text-violet-600 mb-6 flex items-center justify-center gap-2">
+              <i class="ph-fill ph-magic-wand text-3xl"></i> 施力體驗區
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 justify-center items-center mb-6">
+              
+              <!-- 1. 形狀改變 -->
+              <div class="bg-slate-50 p-4 rounded-2xl border-2 border-slate-100 flex flex-col items-center h-48 justify-center fade-transition">
+                ${!interactionState.shape ? `
+                  <div class="text-6xl mb-2 drop-shadow-sm">🧊</div>
+                  <p class="text-slate-600 font-bold mb-4 text-sm md:text-base">這是一塊黏土</p>
+                  <button onclick="triggerInteraction('shape')" class="bg-violet-500 hover:bg-violet-600 text-white px-4 py-2 rounded-full font-bold shadow-sm fade-transition">用手捏它</button>
+                ` : `
+                  <div class="text-6xl mb-2 drop-shadow-sm scale-y-50 scale-x-125 transition-transform duration-500">🧆</div>
+                  <p class="text-violet-700 font-bold text-lg mt-4 bg-white/80 px-2 rounded">👉 形狀改變</p>
+                `}
+              </div>
+
+              <!-- 2. 位置移動 -->
+              <div class="bg-slate-50 p-4 rounded-2xl border-2 border-slate-100 flex flex-col items-center h-48 justify-center overflow-hidden fade-transition relative">
+                ${!interactionState.position ? `
+                  <div class="text-6xl mb-2 drop-shadow-sm">📦</div>
+                  <p class="text-slate-600 font-bold mb-4 text-sm md:text-base">這是一個紙箱</p>
+                  <button onclick="triggerInteraction('position')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-full font-bold shadow-sm fade-transition">用力推它</button>
+                ` : `
+                  <div class="text-6xl mb-2 drop-shadow-sm translate-x-8 md:translate-x-12 transition-transform duration-700">📦</div>
+                  <p class="text-emerald-700 font-bold text-lg mt-4 z-10 bg-white/90 px-2 rounded">👉 位置移動了</p>
+                `}
+              </div>
+
+              <!-- 3. 運動情形改變 -->
+              <div class="bg-slate-50 p-4 rounded-2xl border-2 border-slate-100 flex flex-col items-center h-48 justify-center overflow-hidden fade-transition relative">
+                ${!interactionState.move ? `
+                  <div class="text-6xl mb-2 drop-shadow-sm">⚽</div>
+                  <p class="text-slate-600 font-bold mb-4 text-sm md:text-base">這是一顆靜止的球</p>
+                  <button onclick="triggerInteraction('move')" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full font-bold shadow-sm fade-transition">用腳踢它</button>
+                ` : `
+                  <div class="text-6xl mb-2 drop-shadow-sm translate-x-8 md:translate-x-12 transition-transform duration-1000">⚽💨</div>
+                  <p class="text-blue-700 font-bold text-lg mt-4 z-10 bg-white/90 px-2 rounded">👉 運動情形改變</p>
+                `}
+              </div>
+
+            </div>
+          </div>
+      `;
+
+      if (obsProgress >= 0) {
+        content += renderMiniTF('obsTF', '任務一：觀念是非題', 
+          [ {q: '用腳把滾動中的足球停下來，讓它從運動變成靜止，這也是力的作用。', a: true},
+            {q: '我們完全無法知道有沒有「力」的存在，因為它看不見也摸不著。', a: false} ], obsProgress > 0, 'violet');
+      }
+      if (obsProgress >= 1) {
+        content += renderMiniMCQ('obsMCQ', '任務二：觀念選擇題', 
+          [ {q: '下列哪一個行為主要是讓物體的「運動情形」發生改變？', opts: ['把油土壓扁', '把氣球捏破', '開窗戶或丟球', '把色紙撕破'], a: 2},
+            {q: '我們能藉由什麼現象來觀察到「力」的作用？', opts: ['物體變安靜', '物體形狀或運動情形的改變', '物體的顏色變深', '物體變好吃了'], a: 1} ], obsProgress > 1, 'violet');
+      }
+      if (obsProgress >= 2) {
+        content += renderMiniFB('obsFB', '任務三：點擊填空題', obsFBData, obsProgress > 2, 'violet');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${obsProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(2)" class="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            觀察完畢！前往下一關 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      return content;
+    }
+
+    window.triggerInteraction = function(type) {
+      interactionState[type] = true;
+      render();
+    }
+
+    // --- 區塊渲染：2. 各式各樣的力 (Blue) ---
+    const typesFBData = {
+      text: ["帆船在水面上前進，主要是受到", "的作用；鐵釘被吸起來，是受到", "的作用；水車的轉動則是受到", "的作用。"],
+      options: [
+        ["獸力", "風力", "人力"],
+        ["磁力", "水力", "彈力"],
+        ["獸力", "水力", "風力"]
+      ],
+      correct: [1, 0, 1]
+    };
+
+    function renderTypes() {
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-blue-50 border-l-8 border-blue-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">🌪️</div>
+            <div>
+              <h3 class="font-bold text-blue-800 text-lg">探險任務：各式各樣的力</h3>
+              <p class="text-blue-700">「生活中有許多現象都與力有關，而且力有許多不同的形式喔！請完成以下三個任務。」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200">
+            <h2 class="text-3xl font-bold text-blue-600 mb-6 flex items-center gap-2">
+              <i class="ph-fill ph-list-magnifying-glass text-3xl"></i> 力的形式
+            </h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div class="bg-sky-50 p-4 rounded-xl text-center border border-sky-100"><div class="text-4xl mb-2">🌬️</div><b class="text-sky-800">風力</b><br><span class="text-sm text-sky-600">讓風車轉動</span></div>
+              <div class="bg-cyan-50 p-4 rounded-xl text-center border border-cyan-100"><div class="text-4xl mb-2">🌊</div><b class="text-cyan-800">水力</b><br><span class="text-sm text-cyan-600">推動水車</span></div>
+              <div class="bg-indigo-50 p-4 rounded-xl text-center border border-indigo-100"><div class="text-4xl mb-2">🧲</div><b class="text-indigo-800">磁力</b><br><span class="text-sm text-indigo-600">吸起鐵製品</span></div>
+              <div class="bg-orange-50 p-4 rounded-xl text-center border border-orange-100"><div class="text-4xl mb-2">🐪</div><b class="text-orange-800">獸力</b><br><span class="text-sm text-orange-600">動物載運物品</span></div>
+            </div>
+          </div>
+      `;
+
+      if (typesProgress >= 0) {
+        content += renderMatchingGame('typesMatch', '任務一：力的形式連連看', typesProgress > 0, 
+          [ {id:'animal', e:'🐕', t:'狗挖洞', c:'bg-orange-50'}, {id:'mag', e:'🎯', t:'磁鐵飛鏢', c:'bg-indigo-50'}, {id:'water', e:'🎡', t:'水車轉動', c:'bg-cyan-50'} ],
+          [ {id:'water', t:'這是水力的應用'}, {id:'animal', t:'這是獸力的作用'}, {id:'mag', t:'這是磁力的吸引'} ], 'blue'
+        );
+      }
+      if (typesProgress >= 1) {
+        content += renderMiniMCQ('typesMCQ', '任務二：觀念選擇題', 
+          [ {q: '用駱駝在沙漠中載運物品，主要是應用哪一種形式的力？', opts: ['人力', '獸力', '風力', '水力'], a: 1},
+            {q: '原子筆的筆心可以按壓伸縮，這是受到裡面什麼東西的「彈力」作用？', opts: ['磁鐵', '彈簧', '石頭', '水流'], a: 1} ], typesProgress > 1, 'blue');
+      }
+      if (typesProgress >= 2) {
+        content += renderMiniFB('typesFB', '任務三：點擊填空題', typesFBData, typesProgress > 2, 'blue');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${typesProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(3)" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            分類大師！前往形狀恢復區 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      return content;
+    }
+
+    // --- 區塊渲染：3. 形狀的恢復 (Rose) ---
+    const recoverFBData = {
+      text: ["受到力而改變形狀的物體，當不再", "時，有些物體", "恢復原來的形狀，例如海綿；有些物體則", "恢復，例如折斷的粉筆。"],
+      options: [
+        ["改變溫度", "繼續施力", "加上重量"],
+        ["可以", "無法", "一定會"],
+        ["可以", "無法", "一定會"]
+      ],
+      correct: [1, 0, 1]
+    };
+
+    function renderRecover() {
+      if (recoverProgress === 0 && sortItems.length === 0) {
+        sortItems = shuffleArray(baseSortItems);
+      }
+
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-rose-50 border-l-8 border-rose-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">↩️</div>
+            <div>
+              <h3 class="font-bold text-rose-800 text-lg">探險任務：回得去嗎？</h3>
+              <p class="text-rose-700">「有些靜止的物體受力會改變形狀，但不再施力時，它們都能恢復原狀嗎？請完成以下任務！」</p>
+            </div>
+          </div>
+
+          ${renderSortGame('任務一：形狀恢復分類賽', recoverProgress > 0)}
+      `;
+
+      if (recoverProgress >= 1) {
+        content += renderMiniTF('recoverTF', '任務二：觀念是非題', 
+          [ {q: '把色紙撕成兩半後，就算停止施力，色紙也無法自己恢復原來的形狀。', a: true},
+            {q: '用力折斷粉筆，只要不再用力，斷掉的粉筆就會自動接回去。', a: false} ], recoverProgress > 1, 'rose');
+      }
+      if (recoverProgress >= 2) {
+        content += renderMiniFB('recoverFB', '任務三：點擊填空題', recoverFBData, recoverProgress > 2, 'rose');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${recoverProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(4)" class="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            太棒了！迎接最終綜合測驗 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+      return content;
+    }
+
+    // --- 區塊渲染：4. 最終測驗 (Indigo) ---
+    function renderQuiz() {
+      if (quizState === 'dashboard') {
+        const history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+        let histHtml = history.length === 0 ? `<p class="text-slate-500 py-4">目前還沒有測驗紀錄，快來挑戰第一次吧！</p>` : `
+          <div class="overflow-x-auto w-full mt-4">
+            <table class="w-full text-left border-collapse min-w-[500px]">
+              <thead><tr class="bg-indigo-100 text-indigo-800 border-b-2 border-indigo-200"><th class="p-3 rounded-tl-xl">日期</th><th class="p-3">時間</th><th class="p-3">成績</th><th class="p-3 rounded-tr-xl">作答時長</th></tr></thead>
+              <tbody>${history.map(r => `<tr class="border-b border-slate-100 hover:bg-slate-50 fade-transition"><td class="p-3 text-slate-600">${r.date}</td><td class="p-3 text-slate-600">${r.time}</td><td class="p-3 font-bold ${r.score >= 80 ? 'text-emerald-600' : 'text-amber-600'}">${r.score} 分</td><td class="p-3 text-slate-500">${r.duration}</td></tr>`).join('')}</tbody>
+            </table>
+          </div>`;
+
+        return `
+          <div class="bg-white rounded-3xl p-8 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition max-w-2xl mx-auto">
+            <i class="ph-fill ph-medal text-6xl text-indigo-500 mb-4 block"></i>
+            <h2 class="text-3xl font-bold text-indigo-800 mb-2">最終綜合測驗</h2>
+            <p class="text-slate-600 mb-8">本測驗共有 10 題，將會從題庫中隨機抽選洗牌。</p>
+            <button onclick="startFinalQuiz()" class="inline-flex items-center justify-center w-full md:w-auto gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm mb-8">
+              <i class="ph-bold ph-pencil-simple"></i> 開始測驗
+            </button>
+            <div class="bg-slate-50 rounded-2xl p-6 border-2 border-slate-100 mb-4">
+              <h3 class="text-xl font-bold text-slate-700 flex items-center justify-center gap-2"><i class="ph-bold ph-clock-counter-clockwise"></i> 最近 5 次測驗紀錄</h3>
+              ${histHtml}
+            </div>
+          </div>
+        `;
+      }
+
+      if (quizState === 'result') {
+        let comment = quizScore >= 90 ? "太厲害了！你是完美過關的「力」學大師！" : (quizScore >= 70 ? "表現不錯喔！你已經成功掌握力的基礎知識了。" : "繼續加油，可以再複習一下喔！");
+        return `
+          <div class="bg-white rounded-3xl p-8 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition">
+            <h2 class="text-4xl font-bold text-indigo-600 mb-6">測驗結束！</h2>
+            <div class="text-8xl mb-6">🏆</div>
+            <p class="text-3xl font-bold mb-4">你的最終得分：<span class="${quizScore >= 80 ? 'text-emerald-500' : 'text-amber-500'}">${quizScore}</span> / 100</p>
+            <p class="text-2xl text-slate-600 mb-8">${comment}</p>
+            <button onclick="returnToQuizDashboard()" class="inline-flex items-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-700 px-8 py-4 rounded-full text-xl font-bold fade-transition"><i class="ph-bold ph-list-dashes"></i> 查看紀錄面板</button>
+          </div>
+        `;
+      }
+
+      const q = quizData[quizCurrentQ];
+      const optionLabels = ['A', 'B', 'C', 'D'];
+      let content = `
+        <div class="space-y-8 fade-transition">
+          <div class="bg-indigo-50 border-l-8 border-indigo-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">📝</div>
+            <div><h3 class="font-bold text-indigo-800 text-lg">營長考驗：最終總測驗</h3><p class="text-indigo-700">「展現你學到的知識，冷靜作答吧！」</p></div>
+          </div>
+          <div class="bg-white rounded-3xl p-6 md:p-10 shadow-sm border-2 border-slate-200">
+            <div class="flex justify-between items-center mb-8 pb-4 border-b-2 border-slate-100">
+              <h2 class="text-2xl md:text-3xl font-bold text-indigo-700">科學知識挑戰賽</h2>
+              <span class="text-lg md:text-xl font-bold bg-indigo-100 text-indigo-800 px-4 py-2 rounded-full">第 ${quizCurrentQ + 1} / ${quizData.length} 題</span>
+            </div>
+            <h3 class="text-xl md:text-2xl font-bold text-slate-800 mb-8 leading-relaxed flex items-start gap-3">
+              <i class="ph-fill ph-question text-indigo-500 text-3xl shrink-0 mt-1"></i><span>${q.question}</span>
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      `;
+
+      q.options.forEach((opt, idx) => {
+        let btnClass = "bg-slate-50 hover:bg-indigo-50 border-slate-200 text-slate-700";
+        let iconHtml = '';
+        if (quizIsAnswered) {
+          if (idx === q.answer) {
+            btnClass = "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold";
+            iconHtml = '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl shrink-0"></i>';
+          } else if (idx === quizSelectedOption) {
+            btnClass = "bg-red-50 border-red-300 text-red-700";
+            iconHtml = '<i class="ph-fill ph-x-circle text-red-500 text-2xl shrink-0"></i>';
+          } else {
+            btnClass = "bg-slate-50 border-slate-200 text-slate-400 opacity-50";
+          }
+        }
+        content += `
+          <button onclick="handleQuizAnswer(${idx})" ${quizIsAnswered ? 'disabled' : ''} class="p-4 md:p-5 text-left text-lg md:text-xl rounded-2xl border-2 fade-transition flex items-center justify-between gap-2 ${btnClass}">
+            <div class="flex items-center gap-3"><span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm border border-slate-200 text-indigo-600 font-bold text-base shrink-0">${optionLabels[idx]}</span><span>${opt}</span></div>
+            ${iconHtml}
+          </button>
+        `;
+      });
+      content += `</div></div></div>`;
+      return content;
+    }
+
+    window.startFinalQuiz = function() {
+      initQuizData(); 
+      quizCurrentQ = 0; quizScore = 0; quizIsAnswered = false; quizSelectedOption = null; quizStartTime = Date.now(); quizState = 'playing';
+      render();
+    }
+    window.handleQuizAnswer = function(idx) {
+      if (quizIsAnswered) return;
+      quizSelectedOption = idx; quizIsAnswered = true;
+      if (idx === quizData[quizCurrentQ].answer) quizScore += 10;
+      render();
+      setTimeout(() => {
+        if (quizCurrentQ + 1 < quizData.length) { quizCurrentQ++; quizSelectedOption = null; quizIsAnswered = false; } 
+        else { saveQuizRecord(quizScore, Date.now() - quizStartTime); quizState = 'result'; }
+        render();
+      }, 1200); 
+    }
+    function saveQuizRecord(score, durationMs) {
+      let history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+      const now = new Date();
+      history.unshift({ date: now.toLocaleDateString('zh-TW'), time: now.toLocaleTimeString('zh-TW', { hour12: false }), score: score, duration: formatDuration(durationMs) }); 
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(history.slice(0, 5)));
+    }
+    window.returnToQuizDashboard = function() { quizState = 'dashboard'; render(); }
+
+    // --- 共用小測驗產生器 (MCQ, TF, Fill-in-the-Blank, Matching, Sorting) ---
+    
+    // 1. MCQ (選擇)
+    const mcqStates = {};
+    function renderMiniMCQ(id, title, qPool, isCompleted, theme) {
+      if (!mcqStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        const qRaw = qPool[varIdx];
+        const correctOpt = qRaw.opts[qRaw.a];
+        const shuffledOpts = shuffleArray(qRaw.opts);
+        mcqStates[id] = { selected: null, opts: shuffledOpts, ansIdx: shuffledOpts.indexOf(correctOpt), varIdx: varIdx };
+      }
+      const st = mcqStates[id]; const qRaw = qPool[st.varIdx];
+      const th = `text-${theme}-700`; const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-question"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p><div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
+
+      st.opts.forEach((opt, idx) => {
+        let cls = "bg-slate-50 border-slate-200 hover:bg-slate-100";
+        if (isCompleted) cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-slate-50 text-slate-400 border-slate-100"; 
+        else if (st.selected === idx) cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-red-50 border-red-300 text-red-700"; 
+        html += `<button onclick="handleMCQ('${id}', ${idx}, ${st.ansIdx})" ${isCompleted ? 'disabled' : ''} class="p-4 rounded-2xl border-2 text-left text-lg font-bold fade-transition ${cls}">${opt}</button>`;
+      });
+      return html + `</div></div>`;
+    }
+    window.handleMCQ = function(id, selIdx, ansIdx) {
+      if (mcqStates[id].selected !== null) return;
+      mcqStates[id].selected = selIdx; render();
+      if (selIdx === ansIdx) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { mcqStates[id].selected = null; render(); }, 800);
+    }
+
+    // 2. True/False (是非)
+    const tfStates = {};
+    function renderMiniTF(id, title, qPool, isCompleted, theme) {
+      if (!tfStates[id]) tfStates[id] = { selected: null, varIdx: Math.floor(Math.random() * qPool.length) };
+      const st = tfStates[id]; const qRaw = qPool[st.varIdx];
+      const th = `text-${theme}-700`; const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-check-square-offset"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p><div class="flex gap-4 justify-center">`;
+      
+      const tCls = isCompleted ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === true ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-red-50 border-red-300 text-red-700") : `bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700`);
+      const fCls = isCompleted ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === false ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-red-50 border-red-300 text-red-700") : `bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700`);
+
+      html += `<button onclick="handleTF('${id}', true, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-6 rounded-2xl border-2 text-2xl font-bold fade-transition text-center ${tCls}">⭕ 是</button>`;
+      html += `<button onclick="handleTF('${id}', false, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-6 rounded-2xl border-2 text-2xl font-bold fade-transition text-center ${fCls}">❌ 非</button>`;
+      return html + `</div></div>`;
+    }
+    window.handleTF = function(id, sel, ans) {
+      if (tfStates[id].selected !== null) return;
+      tfStates[id].selected = sel; render();
+      if (sel === ans) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { tfStates[id].selected = null; render(); }, 800);
+    }
+
+    // 3. Fill-in-the-Blank (點擊式選單填空題)
+    const fbStates = {};
+    function renderMiniFB(id, title, data, isCompleted, theme) {
+      if (!fbStates[id]) fbStates[id] = { answers: Array(data.options.length).fill(''), activeSlot: 0, err: false, correct: data.correct };
+      const st = fbStates[id];
+      const t = themeColors[theme];
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? `${t.bg50} ${t.border200} opacity-80` : `border-slate-200`} ${st.err ? 'border-red-300 bg-red-50' : ''}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${t.text800}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-text-t"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <div class="text-lg md:text-xl font-bold text-slate-800 mb-6 leading-loose flex flex-wrap items-center gap-y-4 gap-x-1">`;
+
+      // 渲染句子與空格
+      data.text.forEach((txt, i) => {
+        html += `<span class="whitespace-pre-wrap">${txt}</span>`;
+        if (i < data.options.length) {
+          let isActive = st.activeSlot === i;
+          let ansIdx = st.answers[i];
+          let displayTxt = ansIdx !== '' ? data.options[i][ansIdx] : '（請選擇）';
+          if (isCompleted) displayTxt = data.options[i][data.correct[i]];
+
+          let btnClass = `px-3 py-1 font-bold rounded-lg border-b-4 transition-all duration-200 outline-none select-none `;
+          if (isCompleted) {
+             btnClass += `bg-emerald-50 border-emerald-200 text-emerald-700 underline decoration-emerald-400 decoration-4 underline-offset-4 pointer-events-none`;
+          } else if (isActive) {
+             btnClass += `${t.bg100} ${t.border400} ${t.text800} scale-110 shadow-sm`;
+          } else if (ansIdx !== '') {
+             btnClass += `bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200`;
+          } else {
+             btnClass += `bg-white border-slate-300 text-slate-400 hover:bg-slate-50 border-dashed`;
+          }
+
+          html += `<button onclick="setActiveFBSlot('${id}', ${i})" ${isCompleted ? 'disabled' : ''} class="${btnClass}">${displayTxt}</button>`;
+        }
+      });
+      html += `</div>`;
+
+      // 渲染詞庫選項面板
+      if (!isCompleted && st.activeSlot !== null) {
+        html += `<div class="mt-4 p-5 bg-slate-50 rounded-2xl border-2 border-slate-200 text-center fade-transition">
+                 <p class="text-sm font-bold text-slate-500 mb-3 flex justify-center items-center gap-1"><i class="ph-bold ph-hand-pointing"></i> 請點擊下方選項，填入發光的空格中：</p>
+                 <div class="flex flex-wrap justify-center gap-3">`;
+        data.options[st.activeSlot].forEach((opt, optIdx) => {
+           let isSelected = st.answers[st.activeSlot] === String(optIdx);
+           let optClass = isSelected ? `${t.btnBg} text-white ${t.btnBorder}` : `bg-white text-slate-700 border-slate-300 hover:${t.bg50} hover:${t.border300}`;
+           html += `<button onclick="handleFBClick('${id}', ${optIdx})" class="px-5 py-2 rounded-xl border-2 font-bold shadow-sm transition-all ${optClass}">${opt}</button>`;
+        });
+        html += `</div></div>`;
+      }
+
+      // 提交按鈕
+      if (!isCompleted) {
+         let allSelected = st.answers.every(a => a !== '');
+         html += `<div class="flex flex-col items-end gap-2 mt-6">
+            ${st.err ? '<span class="text-red-500 font-bold"><i class="ph-fill ph-warning-circle"></i> 答案有誤，請再檢查看看！</span>' : ''}
+            <button onclick="checkFB('${id}')" ${!allSelected ? 'disabled' : ''} class="${t.btnBg} ${t.btnHover} text-white px-8 py-3 rounded-xl font-bold shadow-sm fade-transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+              <i class="ph-bold ph-paper-plane-right"></i> 送出答案
+            </button>
+          </div>`;
+      }
+      return html + `</div>`;
+    }
+
+    window.setActiveFBSlot = function(id, index) {
+      fbStates[id].activeSlot = index;
+      render();
+    }
+    
+    window.handleFBClick = function(id, optIdx) {
+      const st = fbStates[id];
+      st.answers[st.activeSlot] = String(optIdx);
+      st.err = false;
+      // 填完後自動跳轉到下一個還沒填的空格
+      let nextSlot = st.answers.findIndex(a => a === '');
+      if (nextSlot !== -1) {
+          st.activeSlot = nextSlot;
+      }
+      render();
+    }
+
+    window.checkFB = function(id) {
+      const st = fbStates[id];
+      let isMatch = true;
+      for (let i = 0; i < st.correct.length; i++) {
+        if (String(st.answers[i]) !== String(st.correct[i])) { isMatch = false; break; }
+      }
+      if (isMatch) { st.err = false; st.activeSlot = null; progressTask(id); } 
+      else { st.err = true; render(); }
+    }
+
+    // 4. Matching Game (連連看)
+    const matchStates = {};
+    function renderMatchingGame(id, title, isCompleted, leftItems, rightItems, theme) {
+      if (!matchStates[id]) matchStates[id] = { selLeft: null, matches: [], err: false, left: shuffleArray(leftItems), right: shuffleArray(rightItems) };
+      const st = matchStates[id]; if (isCompleted && st.matches.length < st.left.length) st.matches = st.left.map(i=>i.id);
+      const th = `text-${theme}-700`; const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : 'border-slate-200'}">
+          <h3 class="text-xl font-bold ${th} mb-2 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-bold ph-link"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-slate-600 mb-6">點擊左邊的圖片，再點擊右邊對應的力連線起來！</p>
+          <div class="flex flex-col md:flex-row gap-4 justify-between"><div class="w-full md:w-2/5 flex flex-col gap-3">`;
+      
+      st.left.forEach(item => {
+        const isMatched = st.matches.includes(item.id); const isSelected = st.selLeft === item.id;
+        let cls = isMatched ? 'bg-slate-100 border-slate-200 opacity-50' : item.c;
+        cls += isSelected ? ' ring-4 border-transparent' : ' border-transparent hover:brightness-95';
+        if (isSelected && st.err) cls += ' bg-red-50 border-red-300';
+        html += `<button onclick="handleMatchLeft('${id}', '${item.id}')" ${isMatched||isCompleted?'disabled':''} class="flex items-center gap-4 p-4 rounded-2xl border-2 fade-transition text-xl font-bold ${cls}"><span class="text-4xl">${item.e}</span> ${item.t}${isMatched ? '<i class="ph-fill ph-check-circle ml-auto text-emerald-500 text-2xl"></i>' : ''}</button>`;
+      });
+
+      html += `</div><div class="w-full md:w-3/5 flex flex-col gap-3">`;
+      st.right.forEach(item => {
+        const isMatched = st.matches.includes(item.id);
+        let cls = isMatched ? 'bg-emerald-50 border-emerald-200 text-emerald-800 opacity-80' : `bg-slate-50 hover:bg-${theme}-50 border-slate-200 text-slate-700`;
+        if (!isMatched && st.selLeft) cls += ` ring-2 ring-${theme}-300 cursor-pointer shadow-md`;
+        html += `<button onclick="handleMatchRight('${id}', '${item.id}')" ${isMatched||isCompleted?'disabled':''} class="flex items-center p-4 min-h-[5rem] rounded-2xl border-2 fade-transition text-lg font-bold text-left ${cls}">${item.t}${isMatched ? '<i class="ph-fill ph-check-circle ml-auto text-emerald-500 text-2xl"></i>' : ''}</button>`;
+      });
+      return html + `</div></div></div>`;
+    }
+    window.handleMatchLeft = function(id, itemId) { if (!matchStates[id].matches.includes(itemId)) { matchStates[id].selLeft = itemId; matchStates[id].err = false; render(); } };
+    window.handleMatchRight = function(id, itemId) {
+      const st = matchStates[id]; if (!st.selLeft || st.matches.includes(itemId)) return;
+      if (st.selLeft === itemId) { st.matches.push(itemId); st.selLeft = null; render(); if (st.matches.length === st.left.length) setTimeout(() => progressTask(id), 500); } 
+      else { st.err = true; render(); setTimeout(() => { st.selLeft = null; st.err = false; render(); }, 800); }
+    };
+
+    // 5. Sort Game (分類)
+    function renderSortGame(title, isCompleted) {
+      if (isCompleted) sortCurrentIndex = sortItems.length;
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? 'bg-rose-50 border-rose-200 opacity-80' : 'border-slate-200'}">
+          <h2 class="text-xl font-bold text-rose-700 mb-6 flex items-center justify-between"><span class="flex items-center gap-2"><i class="ph-fill ph-basket"></i> ${title}</span>${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}</h2>`;
+
+      if (sortCurrentIndex < sortItems.length && !isCompleted) {
+        const cur = sortItems[sortCurrentIndex];
+        html += `<div class="flex flex-col items-center"><p class="text-slate-600 mb-4 font-bold">不再對這個物體施力時，它能恢復原本的形狀嗎？</p>
+            <div class="relative w-full max-w-md h-40 bg-slate-50 border-4 border-slate-200 rounded-3xl flex items-center justify-center mb-8 overflow-hidden fade-transition">`;
+        if (sortFeedback) {
+          html += `<div class="text-2xl font-bold flex items-center gap-2 ${sortFeedback.isCorrect ? 'text-emerald-600' : 'text-red-500'} px-4 text-center"><i class="ph-fill ${sortFeedback.isCorrect ? 'ph-check-circle' : 'ph-x-circle'} text-4xl shrink-0"></i> ${sortFeedback.text}</div>`;
+        } else {
+          html += `<div class="text-center px-4 fade-transition"><div class="text-5xl mb-2">${cur.emoji}</div><h3 class="text-2xl font-bold text-slate-700">${cur.text}</h3></div>`;
+        }
+        html += `</div><div class="w-full flex justify-center gap-4">`;
+        html += `<button onclick="handleSort('yes')" ${sortFeedback?'disabled':''} class="flex-1 max-w-[150px] bg-slate-50 hover:bg-emerald-50 border-b-4 border-slate-300 hover:border-emerald-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50 text-slate-700 hover:text-emerald-700"><div class="text-3xl mb-1">🔄</div><div class="text-base md:text-lg font-bold">可恢復原狀</div></button>`;
+        html += `<button onclick="handleSort('no')" ${sortFeedback?'disabled':''} class="flex-1 max-w-[150px] bg-slate-50 hover:bg-rose-50 border-b-4 border-slate-300 hover:border-rose-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50 text-slate-700 hover:text-rose-700"><div class="text-3xl mb-1">❌</div><div class="text-base md:text-lg font-bold">無法恢復</div></button>`;
+        html += `</div><div class="mt-6 text-slate-500 font-bold bg-slate-100 px-4 py-1 rounded-full">進度：${sortCurrentIndex + 1} / ${sortItems.length}</div></div>`;
+      } else {
+        html += `<div class="text-center py-4 fade-transition"><i class="ph-fill ph-check-circle text-6xl text-emerald-500 mb-4 block mx-auto"></i><h3 class="text-xl font-bold text-slate-800">分類完成！</h3></div>`;
+      }
+      return html + `</div>`;
+    }
+    window.handleSort = function(cat) {
+      if (sortFeedback) return;
+      const cur = sortItems[sortCurrentIndex];
+      if (cur.type === cat) sortFeedback = { isCorrect: true, text: '判斷正確！' };
+      else sortFeedback = { isCorrect: false, text: `判斷錯誤喔！再想一想。` };
+      render();
+      setTimeout(() => {
+        sortFeedback = null;
+        if (cur.type === cat) {
+          if (sortCurrentIndex + 1 < sortItems.length) sortCurrentIndex++;
+          else progressTask('recoverSort');
+        }
+        render();
+      }, 1000);
+    }
+
+    // --- 全局狀態推進 ---
+    window.progressTask = function(taskId) {
+      if (taskId.startsWith('obs')) obsProgress++;
+      else if (taskId.startsWith('types')) typesProgress++;
+      else if (taskId.startsWith('recover')) recoverProgress++;
+      render();
+    }
+
+    // 主渲染邏輯
+    function render() {
+      renderProgressBar();
+      const main = document.getElementById('main-content');
+      switch (steps[currentStepIndex]) {
+        case 'welcome': main.innerHTML = renderWelcome(); break;
+        case 'observe': main.innerHTML = renderObserve(); break;
+        case 'types': main.innerHTML = renderTypes(); break;
+        case 'recover': main.innerHTML = renderRecover(); break;
+        case 'quiz': main.innerHTML = renderQuiz(); break;
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>

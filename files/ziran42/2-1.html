@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>水的奇妙現象：連通管</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入 Phosphor Icons 做為圖示庫 -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    /* 隱藏捲軸但保留捲動功能 */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* 零干擾平滑動畫設計 */
+    .fade-transition {
+      transition: opacity 0.4s ease-in-out, background-color 0.3s ease-in-out, border-color 0.3s ease-in-out, color 0.3s ease-in-out, transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), height 0.4s ease-in-out;
+    }
+
+    /* 水瓶傾斜與水面補償動畫 */
+    .bottle-tilt-left { transform: rotate(-30deg); }
+    .bottle-tilt-right { transform: rotate(30deg); }
+    .bottle-tilt-none { transform: rotate(0deg); }
+    
+    .water-tilt-left { transform: rotate(30deg) scale(1.5); }
+    .water-tilt-right { transform: rotate(-30deg) scale(1.5); }
+    .water-tilt-none { transform: rotate(0deg) scale(1); }
+
+  </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 pb-16 min-h-screen">
+
+  <!-- 標題列：沉穩色系，取消 sticky 以最大化可視空間 -->
+  <header class="bg-slate-700 text-white p-4 shadow-md">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="ph ph-drop text-3xl text-cyan-400"></i>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-wider">水的奇妙現象：連通管</h1>
+      </div>
+    </div>
+  </header>
+
+  <!-- 全解鎖導航列 -->
+  <div id="progress-container" class="max-w-4xl mx-auto px-4 pt-6 fade-transition">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border-2 border-slate-200 flex flex-wrap justify-between items-center gap-2 overflow-x-auto hide-scrollbar" id="progress-bar">
+      <!-- JS 渲染進度條 -->
+    </div>
+  </div>
+
+  <main id="main-content" class="max-w-4xl mx-auto p-4 mt-4 fade-transition">
+    <!-- JS 渲染內容 -->
+  </main>
+
+  <script>
+    // --- 實用的隨機洗牌函數 (符合全域選項亂數洗牌原則) ---
+    function shuffleArray(array) {
+      const newArr = [...array];
+      for (let i = newArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+      }
+      return newArr;
+    }
+
+    // --- 系統狀態管理 ---
+    const steps = ['welcome', 'level', 'principle', 'application', 'quiz'];
+    let currentStepIndex = 0;
+    
+    // 各大關卡的細部任務進度 (每關需完成 3 個小測驗)
+    let levelProgress = 0;    
+    let principleProgress = 0;  
+    let appProgress = 0;   
+
+    // 互動實驗狀態
+    let levelState = { tilt: 'none', baselineTop: 55 }; // 'none', 'lift-left', 'lift-right', 以及基準線Y軸比例
+    let tubeState = { bOffset: 0 };    // B管的垂直位移 (-40, 0, 40)
+
+    // 分類遊戲狀態 (生活應用)
+    const baseSortItems = [
+      { id: 1, text: '茶壺', type: 'yes', emoji: '🫖', desc: '壺嘴與壺身相通' },
+      { id: 2, text: '熱水瓶水位視窗', type: 'yes', emoji: '💧', desc: '視窗與內部水槽相通' },
+      { id: 3, text: '洗手臺下方 U 形管', type: 'yes', emoji: '🚰', desc: '彎曲處會積水防臭' },
+      { id: 4, text: '用吸管喝水', type: 'no', emoji: '🥤', desc: '這是大氣壓力的應用' },
+      { id: 5, text: '塑膠管測量畫作水平', type: 'yes', emoji: '🖼️', desc: '管子兩端水面一樣高' },
+      { id: 6, text: '用塑膠管幫魚缸換水', type: 'no', emoji: '🐠', desc: '這是虹吸現象' }
+    ];
+    let sortItems = [];
+    let sortCurrentIndex = 0;
+    let sortFeedback = null;
+
+    // --- 最終測驗題庫池 ---
+    const rawQuizPools = [
+      [
+        { q: "將裝水的寶特瓶靜止平放，瓶內的水面會呈現什麼狀態？", options: ["波浪狀", "水平面", "斜面", "凸起來"], answer: 1 },
+        { q: "關於靜止的水面，下列哪一個說法是正確的？", options: ["水面會維持傾斜", "水面會高低不平", "水面就是水平面", "水面會變成圓形"], answer: 2 }
+      ],
+      [
+        { q: "把直立著裝水的寶特瓶向右傾斜，當水面靜止時，水面會如何？", options: ["保持水平面", "跟著瓶身傾斜", "瓶蓋的方向比較高", "忽高忽低"], answer: 0 },
+        { q: "把裝了半瓶水的容器其中一端墊高，靜止後的水面能不能和水平的基準線重疊？", options: ["可以重疊", "無法重疊", "有時候可以", "水會滿出來"], answer: 0 }
+      ],
+      [
+        { q: "將水倒入底部相通的容器，當水高於連通處且靜止時，容器中的水面會有什麼情形？", options: ["左邊水面比較高", "右邊水面比較高", "水面都一樣高", "都呈現波浪形"], answer: 2 },
+        { q: "水流相連通的容器裝水後，水會直到容器中的水面為同一個水平面時才停止流動，這稱為？", options: ["毛細現象", "虹吸現象", "連通管原理", "浮力原理"], answer: 2 }
+      ],
+      [
+        { q: "當左右兩個連接裝滿水的塑膠管容器水位一樣高時，容器裡的水會如何流動？", options: ["水往左邊流", "水往右邊流", "水靜止不流動", "左右來回流動"], answer: 2 },
+        { q: "用透明塑膠管連接兩個注射筒，如果將其中一邊的注射筒提高，靜止後兩邊的水面會如何？", options: ["提高的那邊水面較高", "降低的那邊水面較高", "兩邊水面一樣高", "水會全部流光"], answer: 2 }
+      ],
+      [
+        { q: "在連通管實驗中，如果把其中一個注射筒換成更粗的注射筒，靜止後兩邊的水面會如何？", options: ["粗的管子水面較低", "粗的管子水面較高", "兩邊水面還是一樣高", "細的管子水面會下降"], answer: 2 },
+        { q: "不管相連通的容器形狀、粗細如何改變，只要水靜止，各個容器的水面高度會？", options: ["都不一樣", "完全相同", "粗的比較高", "細的比較高"], answer: 1 }
+      ],
+      [
+        { q: "茶壺的壺身與壺嘴相通，這是應用了什麼原理？", options: ["毛細現象", "連通管原理", "虹吸現象", "光學原理"], answer: 1 },
+        { q: "茶壺能裝多少水而不溢出，主要是由哪一個部分的高度決定？", options: ["壺嘴的高度", "壺底的厚度", "手把的長度", "蓋子的大小"], answer: 0 }
+      ],
+      [
+        { q: "生活中，下列哪一種屬於連通管原理的應用？", options: ["用塑膠管幫水族箱換水", "毛筆沾墨水", "熱水瓶的水位視窗", "抹布吸水"], answer: 2 },
+        { q: "洗手臺下方的水管做成 U 形彎曲（會積水），這是應用了什麼原理來阻擋臭氣？", options: ["連通管原理", "虹吸現象", "毛細現象", "過濾原理"], answer: 0 }
+      ],
+      [
+        { q: "工人常用裝水的透明塑膠管來確認牆上的畫或窗框有沒有掛平，這是利用什麼原理？", options: ["虹吸現象", "連通管原理", "毛細現象", "熱脹冷縮"], answer: 1 },
+        { q: "我們可以使用裝水的透明塑膠管來測量什麼？", options: ["水溫", "水質", "兩端是否水平", "水流速度"], answer: 2 }
+      ],
+      [
+        { q: "建築物的樓頂常看見水塔，為什麼水塔通常會裝置在高處？", options: ["為了美觀", "容易看見", "藉著水會由高處往低處流送到各樓層", "為了安全"], answer: 2 },
+        { q: "大樓裡的水塔透過水管把水送到不同樓層住家的水龍頭，這也是哪一種原理的應用？", options: ["連通管原理", "毛細現象", "虹吸現象", "表面張力"], answer: 0 }
+      ],
+      [
+        { q: "「用裝滿水的塑膠管把魚缸的髒水引出來」和「茶壺的設計」，兩者使用的原理相同嗎？", options: ["相同，都是虹吸現象", "相同，都是連通管原理", "不同，魚缸是虹吸，茶壺是連通管", "不同，魚缸是連通管，茶壺是虹吸"], answer: 2 },
+        { q: "關於水的現象，下列敘述哪一個是錯誤的？", options: ["靜止的水面就是水平面", "連通管內的水靜止時高度相同", "要量物體的水平面可利用虹吸現象", "水塔裝置在高處是因為水往低處流"], answer: 2 }
+      ]
+    ];
+
+    let quizState = 'dashboard'; 
+    let quizData = [];
+    let quizCurrentQ = 0;
+    let quizScore = 0;
+    let quizSelectedOption = null;
+    let quizIsAnswered = false;
+    let quizStartTime = 0;
+    const LOCAL_STORAGE_KEY = '四下4-2-1翰林自然連通管';
+
+    // --- 全局拖曳事件處理 (紅色基準線) ---
+    let isDraggingBaseline = false;
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDraggingBaseline) return;
+      updateBaselinePos(e.clientY);
+    });
+
+    window.addEventListener('touchmove', (e) => {
+      if (!isDraggingBaseline) return;
+      updateBaselinePos(e.touches[0].clientY);
+    }, { passive: false }); 
+
+    window.addEventListener('mouseup', () => { isDraggingBaseline = false; });
+    window.addEventListener('touchend', () => { isDraggingBaseline = false; });
+
+    window.startDragBaseline = function(e) {
+      isDraggingBaseline = true;
+    };
+
+    window.updateBaselinePos = function(clientY) {
+      const container = document.getElementById('level-container');
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      let percentage = ((clientY - rect.top) / rect.height) * 100;
+      percentage = Math.max(10, Math.min(90, percentage)); 
+      levelState.baselineTop = percentage;
+      document.getElementById('red-baseline').style.top = percentage + '%';
+    };
+
+    // 初始化/隨機抽題函數
+    function initQuizData() {
+      quizData = rawQuizPools.map(pool => {
+        const qRaw = pool[Math.floor(Math.random() * pool.length)];
+        const correctOpt = qRaw.options[qRaw.answer];
+        const shuffledOptions = shuffleArray(qRaw.options);
+        return {
+          question: qRaw.q,
+          options: shuffledOptions,
+          answer: shuffledOptions.indexOf(correctOpt)
+        };
+      });
+    }
+
+    function formatDuration(ms) {
+      const totalSecs = Math.floor(ms / 1000);
+      const mins = Math.floor(totalSecs / 60);
+      const secs = totalSecs % 60;
+      return `${mins}分 ${secs}秒`;
+    }
+
+    // --- 導航與進度條 ---
+    function jumpToStep(index) {
+      currentStepIndex = index;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function renderProgressBar() {
+      const bar = document.getElementById('progress-bar');
+      const stages = [
+        { name: '出發', icon: 'ph-flag-pennant', th: 'cyan' },
+        { name: '水平面', icon: 'ph-ruler', th: 'sky' },
+        { name: '連通管原理', icon: 'ph-arrows-left-right', th: 'blue' },
+        { name: '生活應用', icon: 'ph-lightbulb', th: 'teal' },
+        { name: '最終測驗', icon: 'ph-file-question', th: 'indigo' },
+      ];
+
+      let html = '';
+      stages.forEach((stage, idx) => {
+        const isActive = currentStepIndex === idx;
+        // 每關需要完成 3 個任務才算通關 (進度達到 3)
+        const isPassed = (idx === 1 && levelProgress >= 3) || 
+                         (idx === 2 && principleProgress >= 3) || 
+                         (idx === 3 && appProgress >= 3);
+
+        let iconHtml = isPassed ? '<i class="ph-fill ph-check-circle text-xl"></i>' : `<i class="ph ${stage.icon} text-xl"></i>`;
+        
+        let circleClass = `w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm fade-transition `;
+        if (isActive) circleClass += `bg-${stage.th}-500 ring-4 ring-${stage.th}-200`;
+        else if (isPassed) circleClass += `bg-emerald-400`;
+        else circleClass += `bg-slate-300`;
+
+        let textClass = `text-xs font-bold whitespace-nowrap mt-1 ${isActive ? `text-${stage.th}-600` : 'text-slate-500'}`;
+
+        html += `
+          <div class="flex items-center">
+            <button onclick="jumpToStep(${idx})" class="flex flex-col items-center px-2 py-1 fade-transition cursor-pointer hover:bg-slate-50 rounded-lg">
+              <div class="${circleClass}">${iconHtml}</div>
+              <span class="${textClass}">${stage.name}</span>
+            </button>
+        `;
+        if (idx < stages.length - 1) {
+          html += `<div class="hidden sm:block w-8 md:w-12 h-1 rounded-full mx-1 ${isPassed ? 'bg-emerald-300' : 'bg-slate-200'}"></div>`;
+        }
+        html += `</div>`;
+      });
+      bar.innerHTML = html;
+    }
+
+    // --- 區塊渲染：0. 首頁 ---
+    function renderWelcome() {
+      return `
+        <div class="bg-white rounded-3xl p-8 md:p-12 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition">
+          <div class="inline-block bg-cyan-50 p-6 rounded-full mb-6">
+            <i class="ph ph-waves text-7xl text-cyan-500"></i>
+          </div>
+          <h2 class="text-4xl md:text-5xl font-bold text-slate-800 mb-6">水的奇妙現象</h2>
+          <p class="text-xl md:text-2xl text-slate-600 leading-relaxed mb-8 max-w-2xl mx-auto">
+            水除了會從高處往低處流、在細縫中移動之外，還有什麼奇妙的現象呢？<br/><br/>
+            為什麼不管杯子怎麼擺放，裡面的水面看起來總是一樣平？讓我們一起進入實驗室探索吧！
+          </p>
+          <button onclick="jumpToStep(1)" class="inline-flex items-center gap-3 bg-cyan-500 hover:bg-cyan-600 text-white px-8 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm">
+            <i class="ph-fill ph-play-circle text-3xl"></i> 開始探索！
+          </button>
+        </div>
+      `;
+    }
+
+    // --- 區塊渲染：1. 水平面 (Sky) ---
+    function renderLevel() {
+      let bottleClass = 'bottle-tilt-none';
+      let waterClass = 'water-tilt-none';
+      let feedback = '👉 觀察：平放桌面時，水面保持平面。';
+
+      if (levelState.tilt === 'lift-right') { 
+        bottleClass = 'bottle-tilt-left'; // CSS class rotates counter-clockwise (-30deg), right side is lifted
+        waterClass = 'water-tilt-left'; 
+        feedback = '👉 觀察：將右端墊高，靜止後水面仍和基準線重疊。';
+      }
+      if (levelState.tilt === 'lift-left') { 
+        bottleClass = 'bottle-tilt-right'; // CSS class rotates clockwise (30deg), left side is lifted
+        waterClass = 'water-tilt-right'; 
+        feedback = '👉 觀察：將左端墊高，靜止後水面仍和基準線重疊。';
+      }
+
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-sky-50 border-l-8 border-sky-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">📏</div>
+            <div>
+              <h3 class="font-bold text-sky-800 text-lg">觀察任務：水面會傾斜嗎？</h3>
+              <p class="text-sky-700">「請點擊按鈕改變水瓶的擺放方向。你也可以<b>拖曳紅色基準線</b>，核對看看靜止後的水面是不是平的？」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200 text-center">
+            <h2 class="text-2xl font-bold text-sky-600 mb-6 flex items-center justify-center gap-2">
+              <i class="ph-fill ph-hand-pointing text-3xl"></i> 容器傾斜實驗區
+            </h2>
+            
+            <div class="flex flex-col items-center mb-6">
+              
+              <div id="level-container" class="relative w-full max-w-md h-64 bg-slate-50 border-2 border-slate-100 rounded-2xl flex flex-col items-center justify-center mb-6 overflow-hidden">
+                <div id="red-baseline" class="absolute w-full border-t-4 border-dashed border-rose-500 z-20 cursor-ns-resize group touch-none" style="top: ${levelState.baselineTop}%;" onmousedown="startDragBaseline(event)" ontouchstart="startDragBaseline(event)">
+                  <span class="absolute -top-7 left-2 bg-rose-500 text-white text-xs px-2 py-1 rounded shadow-sm flex items-center gap-1 group-hover:bg-rose-600 transition-colors cursor-pointer select-none">
+                    <i class="ph-bold ph-arrows-out-line-vertical"></i> 拖曳對齊水面
+                  </span>
+                  <div class="absolute -top-4 w-full h-8 bg-transparent"></div>
+                </div>
+                
+                <div class="relative w-64 h-32 border-4 border-slate-300 rounded-lg overflow-hidden fade-transition flex items-end justify-center bg-white shadow-sm z-10 ${bottleClass}">
+                  <div class="absolute -right-5 top-1/2 -translate-y-1/2 w-6 h-10 bg-sky-700 rounded-r-md"></div>
+                  <div class="absolute bottom-0 w-[200%] h-[200%] origin-center fade-transition ${waterClass} flex flex-col justify-end items-center pointer-events-none">
+                     <div class="w-full h-1/2 bg-sky-400 opacity-80 border-t-4 border-sky-300"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 按鈕順序改為左到右的直覺對應 -->
+              <div class="flex flex-wrap justify-center gap-4">
+                <button onclick="interactLevel('lift-left')" class="bg-sky-500 hover:bg-sky-600 text-white px-6 py-3 rounded-xl font-bold shadow-sm fade-transition ${levelState.tilt === 'lift-left' ? 'ring-4 ring-sky-300' : ''}">墊高左端</button>
+                <button onclick="interactLevel('none')" class="bg-slate-500 hover:bg-slate-600 text-white px-6 py-3 rounded-xl font-bold shadow-sm fade-transition ${levelState.tilt === 'none' ? 'ring-4 ring-slate-300' : ''}">平放桌面</button>
+                <button onclick="interactLevel('lift-right')" class="bg-sky-500 hover:bg-sky-600 text-white px-6 py-3 rounded-xl font-bold shadow-sm fade-transition ${levelState.tilt === 'lift-right' ? 'ring-4 ring-sky-300' : ''}">墊高右端</button>
+              </div>
+              <p class="text-sky-800 bg-sky-100 font-bold mt-6 px-4 py-2 rounded-lg inline-block shadow-sm">${feedback}</p>
+              <p class="text-slate-600 font-bold mt-4 text-lg">💡 結論：不管容器怎麼擺放，靜止的水面都會保持<span class="text-rose-500 border-b-2 border-rose-500">平面</span>，這就稱為「水平面」。</p>
+            </div>
+          </div>
+      `;
+
+      // 關卡 1-1：是非題
+      if (levelProgress >= 0) {
+        content += renderMiniTF('levelTF', '任務一：觀念是非題', 
+          [
+            {q: '將裝了半瓶水的寶特瓶，把其中一端墊高，靜止後的水面仍會保持水平。', a: true},
+            {q: '不管容器怎麼擺放，靜止的水面都會跟著容器傾斜而變得高低不平。', a: false}
+          ], levelProgress > 0, 'sky');
+      }
+      // 關卡 1-2：選擇題
+      if (levelProgress >= 1) {
+        content += renderMiniMCQ('levelMCQ', '任務二：觀念選擇題', 
+          [
+            {q: '把直立著裝水的寶特瓶其中一端墊高，當水面靜止時，水面會如何？', opts: ['跟著瓶身傾斜', '瓶蓋的方向比較高', '保持水平面', '忽高忽低'], a: 2},
+            {q: '關於靜止的水面，下列哪一個說法是正確的？', opts: ['水面會高低不平', '水面就是水平面', '水面會維持傾斜', '水面會變成圓形'], a: 1}
+          ], levelProgress > 1, 'sky');
+      }
+      // 關卡 1-3：填空題 (基本觀念測驗 - 多格)
+      if (levelProgress >= 2) {
+        content += renderMiniFill('levelFill', '任務三：觀念填空題', 
+          [
+            { qParts: ["不管容器怎麼擺放，靜止的水面都會保持", "，這就稱為「", "」。"], ans: ["平面", "水平面"], distractors: ["波浪狀", "垂直面"] },
+            { qParts: ["裝了半瓶水的容器將一端墊高，靜止後的水面仍會保持「", "」，並且能和紅色的", "重疊。"], ans: ["水平面", "基準線"], distractors: ["斜面", "容器底"] }
+          ], levelProgress > 2, 'sky');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${levelProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(2)" class="inline-flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            掌握水平面了！前往連通管 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      return content;
+    }
+
+    window.interactLevel = function(tilt) {
+      levelState.tilt = tilt;
+      render();
+    }
+
+    // --- 區塊渲染：2. 連通管原理 (Blue) ---
+    function renderPrinciple() {
+      const bTranslateY = tubeState.bOffset; 
+      const baseWaterTop = 60; 
+      const bWaterTop = baseWaterTop - bTranslateY;
+
+      let feedbackText = tubeState.bOffset === 0 ? '兩邊注射筒一樣高' : '改變一邊注射筒高度';
+
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-blue-50 border-l-8 border-blue-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">🧪</div>
+            <div>
+              <h3 class="font-bold text-blue-800 text-lg">探險任務：兩邊的水會一樣高嗎？</h3>
+              <p class="text-blue-700">「用塑膠管連接兩個注射筒。試著升高或降低右邊的 B 注射筒，觀察水面何時會停止流動？」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200">
+            <h2 class="text-2xl font-bold text-blue-600 mb-6 flex items-center justify-center gap-2">
+              <i class="ph-fill ph-arrows-left-right text-3xl"></i> 連通管高度實驗
+            </h2>
+            
+            <div class="flex flex-col items-center">
+              
+              <div class="relative w-[320px] h-[300px] max-w-full mx-auto bg-slate-50 border-2 border-slate-100 rounded-2xl mb-6 overflow-hidden">
+                <div class="absolute w-full border-t-2 border-dashed border-rose-400 z-0 pointer-events-none" style="top: 100px;">
+                   <span class="absolute -top-6 right-2 text-rose-500 text-xs font-bold bg-white px-2 py-0.5 rounded shadow-sm opacity-80">水面基準線</span>
+                </div>
+
+                <svg class="absolute top-0 left-0 w-full h-full z-0 pointer-events-none" viewBox="0 0 320 300">
+                  <path d="M 70,158 C 70,270 250,270 250,${158 + bTranslateY}" fill="none" stroke="#94a3b8" stroke-width="24" stroke-linecap="butt" class="transition-all duration-500 ease-in-out"/>
+                  <path d="M 70,158 C 70,270 250,270 250,${158 + bTranslateY}" fill="none" stroke="#93c5fd" stroke-width="20" stroke-linecap="butt" class="transition-all duration-500 ease-in-out"/>
+                </svg>
+
+                <div class="absolute w-[60px] h-[120px] border-x-2 border-b-2 border-slate-400 bg-white rounded-b-xl z-10 flex flex-col items-center shadow-sm" style="left: 40px; top: 40px;">
+                  <div class="absolute -top-8 text-xl font-black text-blue-500">A</div>
+                  <div class="absolute left-1 top-2 bottom-2 w-2 border-r border-slate-300 flex flex-col justify-between py-1">
+                    <div class="w-2 border-t border-slate-400"></div><div class="w-2 border-t border-slate-400"></div><div class="w-2 border-t border-slate-400"></div>
+                  </div>
+                  <div class="absolute left-0 right-0 bottom-0 bg-blue-300 border-t-2 border-blue-400 transition-all duration-500 ease-in-out rounded-b-lg" style="top: ${baseWaterTop}px;"></div>
+                  <div class="absolute -bottom-[2px] left-1/2 w-[20px] h-[4px] bg-blue-300 -translate-x-1/2 z-20"></div>
+                </div>
+
+                <div class="absolute w-[60px] h-[120px] border-x-2 border-b-2 border-slate-400 bg-white rounded-b-xl z-10 flex flex-col items-center shadow-sm transition-all duration-500 ease-in-out" style="left: 220px; top: ${40 + bTranslateY}px;">
+                  <div class="absolute -top-8 text-xl font-black text-blue-500">B</div>
+                  <div class="absolute right-1 top-2 bottom-2 w-2 border-l border-slate-300 flex flex-col justify-between py-1 items-end">
+                    <div class="w-2 border-t border-slate-400"></div><div class="w-2 border-t border-slate-400"></div><div class="w-2 border-t border-slate-400"></div>
+                  </div>
+                  <div class="absolute left-0 right-0 bottom-0 bg-blue-300 border-t-2 border-blue-400 transition-all duration-500 ease-in-out rounded-b-lg" style="top: ${bWaterTop}px;"></div>
+                  <div class="absolute -bottom-[2px] left-1/2 w-[20px] h-[4px] bg-blue-300 -translate-x-1/2 z-20"></div>
+                </div>
+
+              </div>
+              
+              <div class="flex flex-wrap justify-center gap-3 mb-4">
+                <button onclick="interactTube(-40)" class="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2 rounded-xl font-bold shadow-sm fade-transition ${tubeState.bOffset === -40 ? 'ring-4 ring-blue-300' : ''}"><i class="ph-bold ph-arrow-up"></i> 提高 B 管</button>
+                <button onclick="interactTube(0)" class="bg-slate-500 hover:bg-slate-600 text-white px-5 py-2 rounded-xl font-bold shadow-sm fade-transition ${tubeState.bOffset === 0 ? 'ring-4 ring-slate-300' : ''}"><i class="ph-bold ph-equals"></i> 一樣高</button>
+                <button onclick="interactTube(40)" class="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2 rounded-xl font-bold shadow-sm fade-transition ${tubeState.bOffset === 40 ? 'ring-4 ring-blue-300' : ''}"><i class="ph-bold ph-arrow-down"></i> 降低 B 管</button>
+              </div>
+              <p class="text-blue-800 bg-blue-100 font-bold px-4 py-2 rounded-lg inline-block shadow-sm">👉 目前狀態：${feedbackText}</p>
+              
+              <p class="text-slate-600 font-bold mt-6 text-center max-w-md">💡 結論：水流相連通的容器裝水後，水會直到兩邊容器中的水面為<span class="text-blue-600 border-b-2 border-blue-400">同一個水平面</span>時才停止流動，這就是「連通管原理」。</p>
+            </div>
+          </div>
+      `;
+
+      // 關卡 2-1：是非題
+      if (principleProgress >= 0) {
+        content += renderMiniTF('principleTF', '任務一：觀念是非題', 
+          [
+            {q: '用透明塑膠管連接兩個注射筒，如果將其中一邊的注射筒提高，靜止後兩邊的水面還是會一樣高。', a: true},
+            {q: '將水倒入底部相通的容器，不管怎樣，水面永遠不會一樣高。', a: false}
+          ], principleProgress > 0, 'blue');
+      }
+      // 關卡 2-2：選擇題
+      if (principleProgress >= 1) {
+        content += renderMiniMCQ('principleMCQ', '任務二：觀念選擇題', 
+          [
+            {q: '當左右兩個連接裝滿水的塑膠管容器水位一樣高時，容器裡的水會如何流動？', opts: ['水往左邊流', '水往右邊流', '左右來回流動', '水靜止不流動'], a: 3},
+            {q: '如果把其中一個注射筒換成更粗的注射筒，靜止後兩邊的水面會如何？', opts: ['粗的管子水面較低', '粗的管子水面較高', '兩邊水面還是一樣高', '細的管子水面會下降'], a: 2}
+          ], principleProgress > 1, 'blue');
+      }
+      // 關卡 2-3：填空題 (基本觀念測驗 - 多格)
+      if (principleProgress >= 2) {
+        content += renderMiniFill('principleFill', '任務三：觀念填空題', 
+          [
+            { qParts: ["底部相通的容器裝水後，水會直到兩邊水面為", "", "時才停止流動，這就是連通管原理。"], ans: ["同一個", "水平面"], distractors: ["不同的", "垂直面"] },
+            { qParts: ["不管相連通的容器", "、", "如何改變，只要水靜止，各個容器的水面高度會完全相同。"], ans: ["形狀", "粗細"], distractors: ["顏色", "材質"] }
+          ], principleProgress > 2, 'blue');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${principleProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(3)" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            太神奇了！去看看生活應用 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      return content;
+    }
+
+    window.interactTube = function(offset) {
+      tubeState.bOffset = offset;
+      render();
+    }
+
+    // --- 區塊渲染：3. 生活應用 (Teal) ---
+    function renderApplication() {
+      if (appProgress === 0 && sortItems.length === 0) {
+        sortItems = shuffleArray(baseSortItems);
+      }
+
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-teal-50 border-l-8 border-teal-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">💡</div>
+            <div>
+              <h3 class="font-bold text-teal-800 text-lg">探險任務：生活中的連通管</h3>
+              <p class="text-teal-700">「連通管原理在我們生活中常常出現喔！請判斷下列物品是否應用了連通管原理？」</p>
+            </div>
+          </div>
+
+          ${renderSortGame('任務一：連通管應用雷達 (分類題)', appProgress > 0)}
+      `;
+
+      // 關卡 3-2：是非題
+      if (appProgress >= 1) {
+        content += renderMiniTF('appTF', '任務二：觀念是非題', 
+          [
+            {q: '洗手臺下方的水管做成 U 形彎曲（會積水），是應用了連通管原理來阻擋臭氣。', a: true},
+            {q: '用塑膠管幫魚缸換水，是生活中常見的連通管應用。', a: false}
+          ], appProgress > 1, 'teal');
+      }
+      // 關卡 3-3：填空題 (基本觀念測驗 - 多格)
+      if (appProgress >= 2) {
+        content += renderMiniFill('appFill', '任務三：觀念填空題', 
+          [
+            { qParts: ["建築物的樓頂常看見水塔，透過", "把水送到不同樓層，這是「", "」的應用。"], ans: ["水管", "連通管原理"], distractors: ["電線", "毛細現象"] },
+            { qParts: ["工人常用裝水的透明塑膠管來確認牆上的畫有沒有", "，這是為了測量兩端是否", "。"], ans: ["掛平", "水平"], distractors: ["掉落", "垂直"] }
+          ], appProgress > 2, 'teal');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${appProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(4)" class="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            分類大師！迎接最終測驗 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      return content;
+    }
+
+    function renderSortGame(title, isCompleted) {
+      if (isCompleted) sortCurrentIndex = sortItems.length;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? 'bg-teal-50 border-teal-200 opacity-80' : 'border-slate-200'}">
+          <h2 class="text-xl font-bold text-teal-700 mb-6 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-magnifying-glass"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h2>`;
+
+      if (sortCurrentIndex < sortItems.length && !isCompleted) {
+        const cur = sortItems[sortCurrentIndex];
+        html += `<div class="flex flex-col items-center">
+            <div class="relative w-full max-w-md bg-slate-50 border-4 border-slate-200 rounded-3xl flex flex-col items-center justify-center mb-8 py-8 px-4 fade-transition min-h-[200px]">`;
+        if (sortFeedback) {
+          html += `<div class="text-2xl font-bold flex items-center gap-2 ${sortFeedback.isCorrect ? 'text-emerald-600' : 'text-rose-500'} px-4 text-center">
+              <i class="ph-fill ${sortFeedback.isCorrect ? 'ph-check-circle' : 'ph-x-circle'} text-4xl shrink-0"></i> ${sortFeedback.text}
+            </div>`;
+        } else {
+          html += `<div class="text-center fade-transition">
+              <div class="text-6xl mb-4 drop-shadow-md">${cur.emoji}</div>
+              <h3 class="text-2xl font-bold text-slate-800 mb-2">${cur.text}</h3>
+              <p class="text-slate-500 font-bold bg-white px-3 py-1 rounded shadow-sm border border-slate-100">${cur.desc}</p>
+            </div>`;
+        }
+        html += `</div>
+            <p class="text-slate-600 mb-4 font-bold text-lg">這是「連通管原理」的應用嗎？</p>
+            <div class="w-full flex justify-center gap-4">`;
+        
+        html += `<button onclick="handleSort('yes')" ${sortFeedback?'disabled':''} class="w-full md:w-40 bg-slate-50 hover:bg-emerald-50 border-b-4 border-slate-300 hover:border-emerald-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50 text-slate-700 hover:text-emerald-700">
+            <div class="text-3xl mb-1">⭕</div><div class="font-bold text-lg">是連通管</div>
+          </button>`;
+        html += `<button onclick="handleSort('no')" ${sortFeedback?'disabled':''} class="w-full md:w-40 bg-slate-50 hover:bg-rose-50 border-b-4 border-slate-300 hover:border-rose-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50 text-slate-700 hover:text-rose-700">
+            <div class="text-3xl mb-1">❌</div><div class="font-bold text-lg">不是連通管</div>
+          </button>`;
+        
+        html += `</div><div class="mt-6 text-slate-500 font-bold bg-slate-100 px-4 py-1 rounded-full">鑑定進度：${sortCurrentIndex + 1} / ${sortItems.length}</div></div>`;
+      } else {
+        html += `<div class="text-center py-4 fade-transition"><i class="ph-fill ph-check-circle text-6xl text-emerald-500 mb-4 block mx-auto"></i><h3 class="text-xl font-bold text-slate-800">全數鑑定完成！</h3></div>`;
+      }
+      return html + `</div>`;
+    }
+
+    window.handleSort = function(cat) {
+      if (sortFeedback) return;
+      const cur = sortItems[sortCurrentIndex];
+      if (cur.type === cat) {
+        sortFeedback = { isCorrect: true, text: '答對了！' };
+      } else {
+        sortFeedback = { isCorrect: false, text: `哎呀，判斷錯誤囉！` };
+      }
+      render();
+      setTimeout(() => {
+        sortFeedback = null;
+        if (cur.type === cat) {
+          if (sortCurrentIndex + 1 < sortItems.length) sortCurrentIndex++;
+          else progressTask('appSort');
+        }
+        render();
+      }, 1000);
+    }
+
+    // --- 區塊渲染：4. 最終測驗 (Indigo) ---
+    function renderQuiz() {
+      if (quizState === 'dashboard') {
+        const history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+        
+        let histHtml = '';
+        if (history.length === 0) {
+          histHtml = `<p class="text-slate-500 py-4">目前還沒有測驗紀錄，快來挑戰第一次吧！</p>`;
+        } else {
+          histHtml = `
+            <div class="overflow-x-auto w-full mt-4">
+              <table class="w-full text-left border-collapse min-w-[500px]">
+                <thead>
+                  <tr class="bg-indigo-100 text-indigo-800 border-b-2 border-indigo-200">
+                    <th class="p-3 rounded-tl-xl">日期</th>
+                    <th class="p-3">時間</th>
+                    <th class="p-3">成績</th>
+                    <th class="p-3 rounded-tr-xl">作答時長</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${history.map(r => `
+                    <tr class="border-b border-slate-100 hover:bg-slate-50 fade-transition">
+                      <td class="p-3 text-slate-600">${r.date}</td>
+                      <td class="p-3 text-slate-600">${r.time}</td>
+                      <td class="p-3 font-bold ${r.score >= 80 ? 'text-emerald-600' : 'text-amber-600'}">${r.score} 分</td>
+                      <td class="p-3 text-slate-500">${r.duration}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="bg-white rounded-3xl p-8 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition max-w-2xl mx-auto">
+            <i class="ph-fill ph-medal text-6xl text-indigo-500 mb-4 block"></i>
+            <h2 class="text-3xl font-bold text-indigo-800 mb-2">最終綜合測驗</h2>
+            <p class="text-slate-600 mb-8">本測驗共有 10 題，將會從題庫中隨機抽選洗牌。</p>
+            
+            <button onclick="startFinalQuiz()" class="inline-flex items-center justify-center w-full md:w-auto gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm mb-8">
+              <i class="ph-bold ph-pencil-simple"></i> 開始測驗
+            </button>
+
+            <div class="bg-slate-50 rounded-2xl p-6 border-2 border-slate-100 mb-4">
+              <h3 class="text-xl font-bold text-slate-700 flex items-center justify-center gap-2">
+                <i class="ph-bold ph-clock-counter-clockwise"></i> 最近 5 次測驗紀錄
+              </h3>
+              ${histHtml}
+            </div>
+          </div>
+        `;
+      }
+
+      if (quizState === 'result') {
+        let comment = "繼續加油，可以再複習一下喔！";
+        if (quizScore >= 90) comment = "太厲害了！你是完美過關的連通管大師！";
+        else if (quizScore >= 70) comment = "表現不錯喔！你已經成功掌握水的奇妙現象了。";
+
+        return `
+          <div class="bg-white rounded-3xl p-8 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition">
+            <h2 class="text-4xl font-bold text-indigo-600 mb-6">測驗結束！</h2>
+            <div class="text-8xl mb-6">🏆</div>
+            <p class="text-3xl font-bold mb-4">你的最終得分：<span class="${quizScore >= 80 ? 'text-emerald-500' : 'text-amber-500'}">${quizScore}</span> / 100</p>
+            <p class="text-2xl text-slate-600 mb-8">${comment}</p>
+            <button onclick="returnToQuizDashboard()" class="inline-flex items-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-700 px-8 py-4 rounded-full text-xl font-bold fade-transition">
+              <i class="ph-bold ph-list-dashes"></i> 查看紀錄面板
+            </button>
+          </div>
+        `;
+      }
+
+      const q = quizData[quizCurrentQ];
+      const optionLabels = ['A', 'B', 'C', 'D'];
+      let content = `
+        <div class="space-y-8 fade-transition">
+          <div class="bg-indigo-50 border-l-8 border-indigo-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">📝</div>
+            <div>
+              <h3 class="font-bold text-indigo-800 text-lg">營長考驗：最終總測驗</h3>
+              <p class="text-indigo-700">「展現你學到的知識，冷靜作答吧！」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-10 shadow-sm border-2 border-slate-200">
+            <div class="flex justify-between items-center mb-8 pb-4 border-b-2 border-slate-100">
+              <h2 class="text-2xl md:text-3xl font-bold text-indigo-700">科學知識挑戰賽</h2>
+              <span class="text-lg md:text-xl font-bold bg-indigo-100 text-indigo-800 px-4 py-2 rounded-full">
+                第 ${quizCurrentQ + 1} / ${quizData.length} 題
+              </span>
+            </div>
+            
+            <h3 class="text-xl md:text-2xl font-bold text-slate-800 mb-8 leading-relaxed flex items-start gap-3">
+              <i class="ph-fill ph-question text-indigo-500 text-3xl shrink-0 mt-1"></i>
+              <span>${q.question}</span>
+            </h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      `;
+
+      q.options.forEach((opt, idx) => {
+        let btnClass = "bg-slate-50 hover:bg-indigo-50 border-slate-200 text-slate-700";
+        let iconHtml = '';
+        if (quizIsAnswered) {
+          if (idx === q.answer) {
+            btnClass = "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold";
+            iconHtml = '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl shrink-0"></i>';
+          } else if (idx === quizSelectedOption) {
+            btnClass = "bg-rose-50 border-rose-300 text-rose-700";
+            iconHtml = '<i class="ph-fill ph-x-circle text-rose-500 text-2xl shrink-0"></i>';
+          } else {
+            btnClass = "bg-slate-50 border-slate-200 text-slate-400 opacity-50";
+          }
+        }
+        
+        content += `
+          <button onclick="handleQuizAnswer(${idx})" ${quizIsAnswered ? 'disabled' : ''} class="p-4 md:p-5 text-left text-lg md:text-xl rounded-2xl border-2 fade-transition flex items-center justify-between gap-2 ${btnClass}">
+            <div class="flex items-center gap-3">
+              <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm border border-slate-200 text-indigo-600 font-bold text-base shrink-0">${optionLabels[idx]}</span>
+              <span>${opt}</span>
+            </div>
+            ${iconHtml}
+          </button>
+        `;
+      });
+      content += `</div></div></div>`;
+      return content;
+    }
+
+    window.startFinalQuiz = function() {
+      initQuizData(); 
+      quizCurrentQ = 0;
+      quizScore = 0;
+      quizIsAnswered = false;
+      quizSelectedOption = null;
+      quizStartTime = Date.now();
+      quizState = 'playing';
+      render();
+    }
+
+    window.handleQuizAnswer = function(idx) {
+      if (quizIsAnswered) return;
+      quizSelectedOption = idx; quizIsAnswered = true;
+      if (idx === quizData[quizCurrentQ].answer) quizScore += 10;
+      render();
+
+      setTimeout(() => {
+        if (quizCurrentQ + 1 < quizData.length) { 
+          quizCurrentQ++; quizSelectedOption = null; quizIsAnswered = false; 
+        } else { 
+          const durationMs = Date.now() - quizStartTime;
+          saveQuizRecord(quizScore, durationMs);
+          quizState = 'result'; 
+        }
+        render();
+      }, 1200); 
+    }
+
+    function saveQuizRecord(score, durationMs) {
+      let history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+      const now = new Date();
+      const record = {
+         date: now.toLocaleDateString('zh-TW'),
+         time: now.toLocaleTimeString('zh-TW', { hour12: false }),
+         score: score,
+         duration: formatDuration(durationMs)
+      };
+      history.unshift(record); 
+      history = history.slice(0, 5); // 僅保留最近 5 次
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(history));
+    }
+
+    window.returnToQuizDashboard = function() {
+      quizState = 'dashboard';
+      render();
+    }
+
+    // --- 共用小測驗產生器 (選擇題) ---
+    const mcqStates = {};
+    function renderMiniMCQ(id, title, qPool, isCompleted, theme) {
+      if (!mcqStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        const qRaw = qPool[varIdx];
+        const correctOpt = qRaw.opts[qRaw.a];
+        const shuffledOpts = shuffleArray(qRaw.opts);
+        const newAnsIdx = shuffledOpts.indexOf(correctOpt);
+        mcqStates[id] = { selected: null, opts: shuffledOpts, ansIdx: newAnsIdx, varIdx: varIdx };
+      }
+      const st = mcqStates[id];
+      const qRaw = qPool[st.varIdx];
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-question"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
+
+      st.opts.forEach((opt, idx) => {
+        let cls = "bg-slate-50 border-slate-200 hover:bg-slate-100";
+        if (isCompleted) { 
+          cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-slate-50 text-slate-400 border-slate-100"; 
+        } else if (st.selected === idx) { 
+          cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-rose-50 border-rose-300 text-rose-700"; 
+        }
+        html += `<button onclick="handleMCQ('${id}', ${idx}, ${st.ansIdx})" ${isCompleted ? 'disabled' : ''} class="p-4 rounded-2xl border-2 text-left text-lg font-bold fade-transition ${cls}">${opt}</button>`;
+      });
+      return html + `</div></div>`;
+    }
+    window.handleMCQ = function(id, selIdx, ansIdx) {
+      if (mcqStates[id].selected !== null) return;
+      mcqStates[id].selected = selIdx; render();
+      if (selIdx === ansIdx) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { mcqStates[id].selected = null; render(); }, 800);
+    }
+
+    // --- 共用小測驗產生器 (是非題) ---
+    const tfStates = {};
+    function renderMiniTF(id, title, qPool, isCompleted, theme) {
+      if (!tfStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        tfStates[id] = { selected: null, varIdx: varIdx };
+      }
+      const st = tfStates[id];
+      const qRaw = qPool[st.varIdx];
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-check-square-offset"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p>
+          <div class="flex gap-4 justify-center">`;
+      
+      const tCls = isCompleted ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === true ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-rose-50 border-rose-300 text-rose-700") : `bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700`);
+      const fCls = isCompleted ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === false ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-rose-50 border-rose-300 text-rose-700") : `bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700`);
+
+      html += `<button onclick="handleTF('${id}', true, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-6 rounded-2xl border-2 text-2xl font-bold fade-transition text-center ${tCls}">⭕ 是</button>`;
+      html += `<button onclick="handleTF('${id}', false, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-6 rounded-2xl border-2 text-2xl font-bold fade-transition text-center ${fCls}">❌ 非</button>`;
+      return html + `</div></div>`;
+    }
+    window.handleTF = function(id, sel, ans) {
+      if (tfStates[id].selected !== null) return;
+      tfStates[id].selected = sel; render();
+      if (sel === ans) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { tfStates[id].selected = null; render(); }, 800);
+    }
+
+    // --- 更新：升級版多格填空題產生器 ---
+    const fillStates = {};
+    function renderMiniFill(id, title, qPool, isCompleted, theme) {
+      if (!fillStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        const qRaw = qPool[varIdx];
+        // 將正確答案與干擾選項合併後洗牌
+        const allOpts = [...qRaw.ans, ...qRaw.distractors];
+        const shuffledOpts = shuffleArray(allOpts);
+        const ansIndices = qRaw.ans.map(a => shuffledOpts.indexOf(a));
+        // selected 陣列長度對應需要填的空格數量
+        fillStates[id] = { selected: new Array(qRaw.ans.length).fill(null), opts: shuffledOpts, ansIndices: ansIndices, varIdx: varIdx };
+      }
+      const st = fillStates[id];
+      const qRaw = qPool[st.varIdx];
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      // 構建帶有多個空格的句子
+      let sentenceHtml = qRaw.qParts[0];
+      st.selected.forEach((selIdx, i) => {
+         let filledText = selIdx !== null ? st.opts[selIdx] : '　　　';
+         let blankClass = `inline-block min-w-[80px] border-b-4 text-center px-2 font-bold pb-1 mx-1 fade-transition cursor-pointer `;
+         
+         if (isCompleted) {
+           blankClass += `border-emerald-500 text-emerald-700 bg-emerald-100 rounded cursor-default`;
+           filledText = st.opts[st.ansIndices[i]]; // 完成後強制顯示正確答案
+         } else if (selIdx !== null) {
+           let isAllFilled = st.selected.every(s => s !== null);
+           if (isAllFilled) {
+              // 檢查這個空格是否填對
+              blankClass += selIdx === st.ansIndices[i] ? `border-emerald-500 text-emerald-700 bg-emerald-100 rounded` : `border-rose-500 text-rose-700 bg-rose-100 rounded`;
+           } else {
+              blankClass += `border-${theme}-500 text-${theme}-700 bg-${theme}-100 rounded`;
+           }
+         } else {
+           // 空白狀態
+           blankClass += `border-${theme}-300 text-${theme}-500 bg-slate-50 rounded hover:bg-${theme}-50`;
+         }
+         
+         let clickHandler = isCompleted ? '' : `onclick="clearFillBlank('${id}', ${i})"`;
+         let titleText = (selIdx !== null && !isCompleted) ? ' title="點擊清除重新選擇"' : '';
+         sentenceHtml += `<span class="${blankClass}" ${clickHandler} ${titleText}>${filledText}</span>` + qRaw.qParts[i+1];
+      });
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-keyboard"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-xl md:text-2xl font-bold text-slate-800 mb-8 text-center leading-loose">${sentenceHtml}</p>
+          <div class="flex flex-wrap gap-4 justify-center">`;
+
+      // 渲染選項按鈕
+      st.opts.forEach((opt, idx) => {
+        let isSelected = st.selected.includes(idx);
+        let cls = "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700";
+        if (isCompleted) { 
+          cls = st.ansIndices.includes(idx) ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-slate-50 text-slate-400 border-slate-100 opacity-50"; 
+        } else if (isSelected) { 
+          let isAllFilled = st.selected.every(s => s !== null);
+          if (isAllFilled) {
+             let blankIndex = st.selected.indexOf(idx);
+             let isCorrectInBlank = st.ansIndices[blankIndex] === idx;
+             cls = isCorrectInBlank ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-rose-50 border-rose-300 text-rose-700";
+          } else {
+             // 剛被選取但還沒全填完的狀態，改為稍微暗沉表示已用掉
+             cls = `bg-${theme}-100 border-${theme}-300 text-${theme}-800 opacity-50 cursor-not-allowed`;
+          }
+        }
+        let clickHandler = isCompleted || isSelected ? '' : `onclick="handleFill('${id}', ${idx})"`;
+        html += `<button ${clickHandler} ${isCompleted || isSelected ? 'disabled' : ''} class="px-6 py-3 rounded-2xl border-2 text-lg font-bold fade-transition shadow-sm ${cls}">${opt}</button>`;
+      });
+      return html + `</div></div>`;
+    }
+    
+    // 填入空格邏輯
+    window.handleFill = function(id, optIdx) {
+      let st = fillStates[id];
+      // 尋找第一個還沒填入的空格
+      let emptyIdx = st.selected.indexOf(null);
+      if (emptyIdx !== -1) {
+        st.selected[emptyIdx] = optIdx;
+        render();
+        
+        // 如果全填滿了，檢查是否全對
+        if (st.selected.every(s => s !== null)) {
+          let isCorrect = st.selected.every((s, i) => s === st.ansIndices[i]);
+          if (isCorrect) {
+            setTimeout(() => { progressTask(id); }, 600);
+          } else {
+            // 答錯則於 1.2 秒後清空重來
+            setTimeout(() => { 
+              fillStates[id].selected.fill(null); 
+              render(); 
+            }, 1200);
+          }
+        }
+      }
+    }
+    
+    // 點擊空格取消填入邏輯
+    window.clearFillBlank = function(id, blankIdx) {
+      let st = fillStates[id];
+      if (st.selected[blankIdx] !== null) {
+        st.selected[blankIdx] = null;
+        render();
+      }
+    }
+
+    // --- 全局狀態推進 ---
+    window.progressTask = function(taskId) {
+      if (taskId.startsWith('level')) levelProgress++;
+      else if (taskId.startsWith('principle')) principleProgress++;
+      else if (taskId.startsWith('app')) appProgress++;
+      render();
+    }
+
+    // 主渲染邏輯
+    function render() {
+      renderProgressBar();
+      const main = document.getElementById('main-content');
+      switch (steps[currentStepIndex]) {
+        case 'welcome': main.innerHTML = renderWelcome(); break;
+        case 'level': main.innerHTML = renderLevel(); break;
+        case 'principle': main.innerHTML = renderPrinciple(); break;
+        case 'application': main.innerHTML = renderApplication(); break;
+        case 'quiz': main.innerHTML = renderQuiz(); break;
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>

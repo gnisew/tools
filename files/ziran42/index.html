@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>自然科學探索總部</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    /* 設定平滑的過渡動畫，讓按鈕互動更自然 */
+    .hover-float {
+      transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    .hover-float:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 min-h-screen flex flex-col">
+
+  <header class="bg-slate-700 text-white p-6 shadow-md text-center">
+    <div class="max-w-6xl mx-auto flex items-center justify-center gap-3">
+      <i class="ph-fill ph-rocket-launch text-4xl text-amber-400"></i>
+      <h1 class="text-3xl sm:text-4xl font-bold tracking-wider">自然科學探索總部</h1>
+    </div>
+  </header>
+
+  <main class="flex-grow max-w-6xl mx-auto p-6 md:p-8 w-full mt-4">
+    
+    <div class="bg-white rounded-3xl p-8 md:p-10 shadow-sm border-2 border-slate-200 text-center mb-10">
+      <h2 class="text-2xl md:text-3xl font-bold text-slate-700 mb-4">歡迎來到科學探索營！</h2>
+      <p class="text-lg text-slate-500 max-w-2xl mx-auto">
+        請選擇你想挑戰的單元。每一個單元都有豐富的互動實驗和知識測驗等著你，準備好成為科學大師了嗎？出發吧！
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+
+      <div class="bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-200">
+        <div class="flex items-center gap-3 mb-6 border-b-2 border-indigo-100 pb-4">
+          <div class="p-3 bg-indigo-100 text-indigo-600 rounded-2xl">
+            <i class="ph-fill ph-barbell text-3xl"></i>
+          </div>
+          <h2 class="text-2xl font-bold text-indigo-700">生活中的力</h2>
+        </div>
+        <div class="space-y-4">
+          <a href="1-1.html" class="block p-4 bg-indigo-50 border-2 border-indigo-200 rounded-2xl hover:bg-indigo-100 text-indigo-800 font-bold hover-float">
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-2"><i class="ph-bold ph-number-circle-one text-xl"></i> 力的作用</span>
+              <i class="ph-bold ph-caret-right text-indigo-400"></i>
+            </div>
+          </a>
+          <a href="1-2.html" class="block p-4 bg-indigo-50 border-2 border-indigo-200 rounded-2xl hover:bg-indigo-100 text-indigo-800 font-bold hover-float">
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-2"><i class="ph-bold ph-number-circle-two text-xl"></i> 力的比較與表示</span>
+              <i class="ph-bold ph-caret-right text-indigo-400"></i>
+            </div>
+          </a>
+          <a href="1-3.html" class="block p-4 bg-indigo-50 border-2 border-indigo-200 rounded-2xl hover:bg-indigo-100 text-indigo-800 font-bold hover-float">
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-2"><i class="ph-bold ph-number-circle-three text-xl"></i> 動力傳送</span>
+              <i class="ph-bold ph-caret-right text-indigo-400"></i>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-200">
+        <div class="flex items-center gap-3 mb-6 border-b-2 border-cyan-100 pb-4">
+          <div class="p-3 bg-cyan-100 text-cyan-600 rounded-2xl">
+            <i class="ph-fill ph-drop text-3xl"></i>
+          </div>
+          <h2 class="text-2xl font-bold text-cyan-700">水的奇妙現象</h2>
+        </div>
+        <div class="space-y-4">
+          <a href="2-1.html" class="block p-4 bg-cyan-50 border-2 border-cyan-200 rounded-2xl hover:bg-cyan-100 text-cyan-800 font-bold hover-float">
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-2"><i class="ph-bold ph-number-circle-one text-xl"></i> 連通管</span>
+              <i class="ph-bold ph-caret-right text-cyan-400"></i>
+            </div>
+          </a>
+          <a href="2-2.html" class="block p-4 bg-cyan-50 border-2 border-cyan-200 rounded-2xl hover:bg-cyan-100 text-cyan-800 font-bold hover-float">
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-2"><i class="ph-bold ph-number-circle-two text-xl"></i> 虹吸現象</span>
+              <i class="ph-bold ph-caret-right text-cyan-400"></i>
+            </div>
+          </a>
+          <a href="2-3.html" class="block p-4 bg-cyan-50 border-2 border-cyan-200 rounded-2xl hover:bg-cyan-100 text-cyan-800 font-bold hover-float">
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-2"><i class="ph-bold ph-number-circle-three text-xl"></i> 引水裝置</span>
+              <i class="ph-bold ph-caret-right text-cyan-400"></i>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-200">
+        <div class="flex items-center gap-3 mb-6 border-b-2 border-emerald-100 pb-4">
+          <div class="p-3 bg-emerald-100 text-emerald-600 rounded-2xl">
+            <i class="ph-fill ph-mountains text-3xl"></i>
+          </div>
+          <h2 class="text-2xl font-bold text-emerald-700">大地探險家</h2>
+        </div>
+        <div class="space-y-4">
+          <a href="3-1.html" class="block p-4 bg-emerald-50 border-2 border-emerald-200 rounded-2xl hover:bg-emerald-100 text-emerald-800 font-bold hover-float">
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-2"><i class="ph-bold ph-number-circle-one text-xl"></i> 我們的大地</span>
+              <i class="ph-bold ph-caret-right text-emerald-400"></i>
+            </div>
+          </a>
+          <a href="3-2.html" class="block p-4 bg-emerald-50 border-2 border-emerald-200 rounded-2xl hover:bg-emerald-100 text-emerald-800 font-bold hover-float">
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-2"><i class="ph-bold ph-number-circle-two text-xl"></i> 地表的變化</span>
+              <i class="ph-bold ph-caret-right text-emerald-400"></i>
+            </div>
+          </a>
+          <a href="3-3.html" class="block p-4 bg-emerald-50 border-2 border-emerald-200 rounded-2xl hover:bg-emerald-100 text-emerald-800 font-bold hover-float">
+            <div class="flex items-center justify-between">
+              <span class="flex items-center gap-2"><i class="ph-bold ph-number-circle-three text-xl"></i> 大地的災害</span>
+              <i class="ph-bold ph-caret-right text-emerald-400"></i>
+            </div>
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="text-center p-6 text-slate-400 text-sm mt-8">
+    <p>自然科學探索總部 © 準備好你的探險裝備了嗎？</p>
+  </footer>
+
+</body>
+</html>

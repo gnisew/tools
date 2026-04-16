@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>生活中的力：力的比較與表示</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入 Phosphor Icons 做為圖示庫 -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    /* 隱藏捲軸但保留捲動功能 */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* 僅保留平緩的淡入淡出動畫，符合零干擾設計原則 */
+    .fade-transition {
+      transition: opacity 0.4s ease-in-out, background-color 0.3s ease-in-out, border-color 0.3s ease-in-out, color 0.3s ease-in-out, transform 0.3s ease-out, width 0.3s ease-in-out, height 0.3s ease-in-out;
+    }
+    
+    /* 氣球形變動畫：讓長按的過程更平滑 */
+    .balloon-transition {
+      transition: transform 0.1s linear, border-radius 0.1s linear;
+    }
+
+    /* 物理球動畫：交由 JS 控制，取消 CSS 補間避免衝突 */
+    .physics-ball {
+      transition: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 pb-16 min-h-screen select-none">
+
+  <!-- 標題列：沉穩色系，取消 sticky 以最大化可視空間 -->
+  <header class="bg-slate-700 text-white p-4 shadow-md">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="ph ph-arrows-out-line-horizontal text-3xl text-teal-400"></i>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-wider">生活中的力：力的比較與表示</h1>
+      </div>
+    </div>
+  </header>
+
+  <!-- 全解鎖導航列 -->
+  <div id="progress-container" class="max-w-4xl mx-auto px-4 pt-6 fade-transition">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border-2 border-slate-200 flex flex-wrap justify-between items-center gap-2 overflow-x-auto hide-scrollbar" id="progress-bar">
+      <!-- JS 渲染進度條 -->
+    </div>
+  </div>
+
+  <main id="main-content" class="max-w-4xl mx-auto p-4 mt-4 fade-transition">
+    <!-- JS 渲染內容 -->
+  </main>
+
+  <script>
+    // --- 實用的隨機洗牌函數 ---
+    function shuffleArray(array) {
+      const newArr = [...array];
+      for (let i = newArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+      }
+      return newArr;
+    }
+
+    // --- Tailwind 動態主題安全字典 ---
+    const themeColors = {
+      teal: { bg50: 'bg-teal-50', border200: 'border-teal-200', bg100: 'bg-teal-100', border400: 'border-teal-400', text800: 'text-teal-800', btnBg: 'bg-teal-500', btnHover: 'hover:bg-teal-600', btnBorder: 'border-teal-600', border300: 'border-teal-300' },
+      amber: { bg50: 'bg-amber-50', border200: 'border-amber-200', bg100: 'bg-amber-100', border400: 'border-amber-400', text800: 'text-amber-800', btnBg: 'bg-amber-500', btnHover: 'hover:bg-amber-600', btnBorder: 'border-amber-600', border300: 'border-amber-300' },
+      fuchsia: { bg50: 'bg-fuchsia-50', border200: 'border-fuchsia-200', bg100: 'bg-fuchsia-100', border400: 'border-fuchsia-400', text800: 'text-fuchsia-800', btnBg: 'bg-fuchsia-500', btnHover: 'hover:bg-fuchsia-600', btnBorder: 'border-fuchsia-600', border300: 'border-fuchsia-300' },
+      indigo: { bg50: 'bg-indigo-50', border200: 'border-indigo-200', bg100: 'bg-indigo-100', border400: 'border-indigo-400', text800: 'text-indigo-800', btnBg: 'bg-indigo-500', btnHover: 'hover:bg-indigo-600', btnBorder: 'border-indigo-600', border300: 'border-indigo-300' }
+    };
+
+    // --- 系統狀態管理 ---
+    const steps = ['welcome', 'direction', 'magnitude', 'arrows', 'quiz'];
+    let currentStepIndex = 0;
+    
+    let dirProgress = 0;      // 目標: 3
+    let magProgress = 0;      // 目標: 3
+    let arrowProgress = 0;    // 目標: 3
+
+    // 互動實驗狀態
+    let dirState = { pushDir: 'left', pressure: 0 }; 
+    let magState = { weights: 0, type: 'magnet' }; // types: marble, magnet, clay
+    let arrowState = { size: 'small', dir: 'right' };
+
+    // 重物類型配置 (上限3個，調配拉長比例)
+    const weightConfigs = {
+      marble: { label: '彈珠', stretch: 8,  bg: 'bg-blue-400', txt: 'text-blue-900', h: 'h-5' },
+      magnet: { label: '磁鐵', stretch: 18, bg: 'bg-slate-700', txt: 'text-white', h: 'h-6' },
+      clay:   { label: '黏土', stretch: 32, bg: 'bg-amber-600', txt: 'text-amber-50', h: 'h-8' }
+    };
+
+    // 動畫防呆與全域清理
+    window.pressInterval = null;
+    window.releaseInterval = null;
+    window.animId = null;
+    window.isSimulating = false;
+
+    // --- 最終測驗題庫池 ---
+    const rawQuizPools = [
+      [ { q: "用手往右邊壓膨脹的氣球，氣球會往右變扁，這說明了力具有什麼特性？", options: ["重量", "顏色", "方向", "氣味"], answer: 2 },
+        { q: "看到原本圓形的球左側突然扁下去，你可以推斷發生了什麼事？", options: ["球失去重量了", "球變重了", "有從左向右的力作用在球上", "有從右向左的力作用在球上"], answer: 2 } ],
+      [ { q: "分別輕輕壓和用力壓同一個抱枕，哪一種情況抱枕凹陷會比較深？", options: ["凹陷程度一樣", "用力壓凹陷較深", "輕輕壓凹陷較深", "抱枕不會變形"], answer: 1 },
+        { q: "測量以下哪一個變化，最適合用來比較「受力的大小」？", options: ["橡皮筋的顏色改變", "橡皮筋伸長的長度", "橡皮筋的味道", "橡皮筋的材質"], answer: 1 } ],
+      [ { q: "用橡皮筋吊掛不同數量的重物時，橡皮筋的長度愈長代表什麼？", options: ["受力愈大", "受力愈小", "沒有受力", "不受影響"], answer: 0 },
+        { q: "用相同的橡皮筋掛物品，哪一個掛的物品最重？", options: ["橡皮筋沒有伸長", "橡皮筋伸長5公分", "橡皮筋伸長10公分", "橡皮筋伸長15公分"], answer: 3 } ],
+      [ { q: "將相同的橡皮筋分別拉長 20 公分與 15 公分，哪一個需要的施力比較大？", options: ["拉長 20 公分", "拉長 15 公分", "一樣大", "不需要施力"], answer: 0 },
+        { q: "拉橡皮筋時，若想讓橡皮筋伸長更多，應該怎麼做？", options: ["施加更小的拉力", "施加更大的拉力", "換一條顏色不同的", "放在水裡拉"], answer: 1 } ],
+      [ { q: "奇奇彈射紙飛機，第一次飛了30公分，第二次飛了15公分，哪一次施力比較大？", options: ["第一次", "第二次", "兩次一樣大", "無法比較"], answer: 0 },
+        { q: "用力推和輕輕推同一個空紙箱，哪一種情況下紙箱移動的距離通常比較遠？", options: ["輕輕推", "用力推", "移動距離一樣", "不會移動"], answer: 1 } ],
+      [ { q: "用箭號表示力的作用時，下列哪一個表示「施力較大」？", options: ["較短的箭號", "較長的箭號", "顏色較淺的箭號", "沒有箭頭的線"], answer: 1 },
+        { q: "在自然課本中，如果看到兩個推力方向相同，但一個箭號長、一個箭號短，代表什麼？", options: ["兩個推力一樣大", "長箭號的推力較大", "短箭號的推力較大", "推力會消失"], answer: 1 } ],
+      [ { q: "繪製力圖時，我們是用箭號的什麼來表示施力的大小？", options: ["箭號線條的長短", "箭號的顏色", "箭頭有沒有彎曲", "畫線的粗細"], answer: 0 },
+        { q: "繪製力圖時，箭號的『起點』（通常畫一個紅點），代表什麼意思？", options: ["力的大小", "力的方向", "受力點", "物體的重量"], answer: 2 } ],
+      [ { q: "關於用箭號標示力的說法，下列哪一個錯誤？", options: ["箭頭表示施力的方向", "箭號線條越長表示施力越大", "不管施力多大，箭號都要畫一樣長", "起點標示著受力點"], answer: 2 },
+        { q: "如果我想在圖中表示一個「往左邊推的強大力氣」，我應該畫什麼？", options: ["往左指的長箭號", "往右指的長箭號", "往左指的短箭號", "往右指的短箭號"], answer: 0 } ],
+      [ { q: "推動桌子時，如果我們用力往右推，桌子通常會往哪一個方向移動？", options: ["往左邊", "往右邊", "往上面", "往下面"], answer: 1 },
+        { q: "當球受到一個很大的力往右推，球的運動距離會比受到小力推時如何？", options: ["運動距離較短", "運動距離較遠", "不會移動", "直接消失"], answer: 1 } ],
+      [ { q: "關於「力的比較」，下列哪個敘述正確？", options: ["力是看不見的，所以絕對無法比較大小", "只能透過聲音比較力的大小", "可以觀察物體改變的程度或移動距離來比較力的大小", "力越大，物體一定會飛起來"], answer: 2 },
+        { q: "下列哪一個實驗現象「不能」用來比較施力的大小？", options: ["橡皮筋拉長的公分數", "彈珠滾動的距離", "抱枕被壓凹的深度", "橡皮筋的顏色是紅還是綠"], answer: 3 } ]
+    ];
+
+    let quizState = 'dashboard'; 
+    let quizData = [];
+    let quizCurrentQ = 0;
+    let quizScore = 0;
+    let quizSelectedOption = null;
+    let quizIsAnswered = false;
+    let quizStartTime = 0;
+    const LOCAL_STORAGE_KEY = '四下4-1-2翰林自然力與表示_v2'; 
+
+    function initQuizData() {
+      quizData = rawQuizPools.map(pool => {
+        const qRaw = pool[Math.floor(Math.random() * pool.length)];
+        const correctOpt = qRaw.options[qRaw.answer];
+        const shuffledOptions = shuffleArray(qRaw.options);
+        return { question: qRaw.q, options: shuffledOptions, answer: shuffledOptions.indexOf(correctOpt) };
+      });
+    }
+
+    function formatDuration(ms) {
+      const totalSecs = Math.floor(ms / 1000);
+      const mins = Math.floor(totalSecs / 60);
+      const secs = totalSecs % 60;
+      return `${mins}分 ${secs}秒`;
+    }
+
+    // 清理所有正在執行的動態物理與長按動畫
+    function clearAllAnimations() {
+        clearInterval(window.pressInterval);
+        clearInterval(window.releaseInterval);
+        cancelAnimationFrame(window.animId);
+        window.isSimulating = false;
+        dirState.pressure = 0;
+    }
+
+    // --- 導航與進度條 ---
+    function jumpToStep(index) {
+      clearAllAnimations();
+      currentStepIndex = index;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function renderProgressBar() {
+      const bar = document.getElementById('progress-bar');
+      const stages = [
+        { name: '出發', icon: 'ph-flag-pennant', th: 'teal' },
+        { name: '力的方向', icon: 'ph-compass', th: 'teal' },
+        { name: '力的大小', icon: 'ph-scales', th: 'amber' },
+        { name: '畫出力', icon: 'ph-arrow-right', th: 'fuchsia' },
+        { name: '最終測驗', icon: 'ph-file-question', th: 'indigo' },
+      ];
+
+      let html = '';
+      stages.forEach((stage, idx) => {
+        const isActive = currentStepIndex === idx;
+        const isPassed = (idx === 1 && dirProgress >= 3) || 
+                         (idx === 2 && magProgress >= 3) || 
+                         (idx === 3 && arrowProgress >= 3);
+
+        let iconHtml = isPassed ? '<i class="ph-fill ph-check-circle text-xl"></i>' : `<i class="ph ${stage.icon} text-xl"></i>`;
+        let circleClass = `w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm fade-transition `;
+        
+        if (isActive) circleClass += `bg-${stage.th}-500 ring-4 ring-${stage.th}-200`;
+        else if (isPassed) circleClass += `bg-emerald-400`;
+        else circleClass += `bg-slate-300`;
+
+        let textClass = `text-xs font-bold whitespace-nowrap mt-1 ${isActive ? `text-${stage.th}-600` : 'text-slate-500'}`;
+
+        html += `
+          <div class="flex items-center">
+            <button onclick="jumpToStep(${idx})" class="flex flex-col items-center px-2 py-1 fade-transition cursor-pointer hover:bg-slate-50 rounded-lg">
+              <div class="${circleClass}">${iconHtml}</div>
+              <span class="${textClass}">${stage.name}</span>
+            </button>
+        `;
+        if (idx < stages.length - 1) {
+          html += `<div class="hidden sm:block w-8 md:w-12 h-1 rounded-full mx-1 ${isPassed ? 'bg-emerald-300' : 'bg-slate-200'}"></div>`;
+        }
+        html += `</div>`;
+      });
+      bar.innerHTML = html;
+    }
+
+    // --- 區塊渲染：0. 首頁 ---
+    function renderWelcome() {
+      return `
+        <div class="bg-white rounded-3xl p-8 md:p-12 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition">
+          <div class="inline-block bg-teal-50 p-6 rounded-full mb-6">
+            <i class="ph ph-ruler text-7xl text-teal-500"></i>
+          </div>
+          <h2 class="text-4xl md:text-5xl font-bold text-slate-800 mb-6">測量與標示力</h2>
+          <p class="text-xl md:text-2xl text-slate-600 leading-relaxed mb-8 max-w-2xl mx-auto">
+            上一課我們知道「力」看不見也摸不著，但能改變物體。<br/><br/>
+            既然看不見，那我們怎麼知道力「有多大」？「往哪裡推」呢？這節課讓我們學會慢慢加壓觀察，並且精準地畫出力！
+          </p>
+          <button onclick="jumpToStep(1)" class="inline-flex items-center gap-3 bg-teal-500 hover:bg-teal-600 text-white px-8 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm">
+            <i class="ph-fill ph-play-circle text-3xl"></i> 開始探索！
+          </button>
+        </div>
+      `;
+    }
+
+    // --- 區塊渲染：1. 力的方向 (Teal) ---
+    const dirFBData = {
+      text: ["用手從不同的", "壓氣球，氣球凹陷的", "會不同，這表示力是有", "的。"],
+      options: [
+        ["方向", "時間", "顏色"],
+        ["重量", "位置", "材質"],
+        ["方向性", "彈性", "生命"]
+      ],
+      correct: [0, 1, 0] // 方向、位置、方向性
+    };
+
+    function renderDirection() {
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-teal-50 border-l-8 border-teal-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">🎈</div>
+            <div>
+              <h3 class="font-bold text-teal-800 text-lg">觀察任務：長按慢慢加壓</h3>
+              <p class="text-teal-700">「力是有方向性的。選擇方向後，按住『長按施力』按鈕慢慢加壓，看看氣球怎麼變扁！」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200 text-center">
+            <h2 class="text-2xl font-bold text-teal-600 mb-6 flex items-center justify-center gap-2">
+              <i class="ph-fill ph-hand-pointing text-3xl"></i> 按壓方向體驗區
+            </h2>
+            
+            <div class="flex flex-col items-center mb-6">
+              
+              <!-- 實驗顯示區 -->
+              <div class="relative w-full max-w-md h-64 bg-slate-50 border-2 border-slate-100 rounded-2xl flex items-center justify-center mb-6 overflow-hidden">
+                
+                <!-- 氣球本體 -->
+                <div id="dir-balloon" class="w-32 h-32 bg-rose-400 flex items-center justify-center text-white text-3xl shadow-md z-10 balloon-transition" 
+                     style="transform: translate(0px, 0px) scale(1, 1); border-radius: 50%;">
+                  氣球
+                </div>
+
+                <!-- 手部圖示 (左) -> 向右指 -->
+                <div id="dir-hand-left" class="absolute text-5xl text-teal-600 transition-opacity" 
+                     style="left: 10px; opacity: ${dirState.pushDir === 'left' ? 1 : 0};">👉</div>
+                <!-- 手部圖示 (右) -> 向左指 (使用 scale-x-[-1]) -->
+                <div id="dir-hand-right" class="absolute text-5xl text-teal-600 scale-x-[-1] transition-opacity" 
+                     style="right: 10px; opacity: ${dirState.pushDir === 'right' ? 1 : 0};">👉</div>
+                <!-- 手部圖示 (上) -> 向下指 -->
+                <div id="dir-hand-top" class="absolute text-5xl text-teal-600 rotate-90 transition-opacity" 
+                     style="top: 10px; opacity: ${dirState.pushDir === 'top' ? 1 : 0};">👉</div>
+              </div>
+
+              <!-- 方向切換按鈕 -->
+              <div class="flex flex-wrap justify-center gap-3 mb-8">
+                <button onclick="setPushDir('left')" class="px-5 py-2 rounded-xl font-bold transition-all ${dirState.pushDir === 'left' ? 'bg-teal-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">從左往右壓 👉</button>
+                <button onclick="setPushDir('top')" class="px-5 py-2 rounded-xl font-bold transition-all ${dirState.pushDir === 'top' ? 'bg-teal-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">從上往下壓 👇</button>
+                <button onclick="setPushDir('right')" class="px-5 py-2 rounded-xl font-bold transition-all ${dirState.pushDir === 'right' ? 'bg-teal-600 text-white shadow-md' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">👈 從右往左壓</button>
+              </div>
+
+              <!-- 壓力蓄力區 -->
+              <div class="w-full max-w-sm flex flex-col items-center gap-4">
+                 <button 
+                    onpointerdown="startPress(event)" 
+                    onpointerup="stopPress()" 
+                    onpointerleave="stopPress()"
+                    class="w-full bg-teal-500 hover:bg-teal-600 active:bg-teal-700 active:scale-95 text-white text-xl font-bold py-4 rounded-full shadow-md transition-all flex justify-center items-center gap-2 select-none touch-none">
+                    <i class="ph-bold ph-hand-pointing text-3xl"></i> 按住不放施力
+                 </button>
+                 
+                 <!-- 力量條 -->
+                 <div class="w-full bg-slate-200 h-6 rounded-full overflow-hidden shadow-inner border-2 border-slate-300 relative">
+                    <div id="dir-force-meter" class="h-full bg-gradient-to-r from-teal-400 to-rose-500 rounded-full" style="width: 0%"></div>
+                    <span class="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-600 mix-blend-color-burn">力的大小</span>
+                 </div>
+              </div>
+
+            </div>
+          </div>
+      `;
+
+      if (dirProgress >= 0) {
+        content += renderMiniTF('dirTF', '任務一：觀念是非題', 
+          [ {q: '氣球變扁的形狀和方向，會和我們施力的方向有關。', a: true},
+            {q: '不管從哪裡壓氣球，氣球變扁的方向都會一模一樣，力沒有方向性。', a: false} ], dirProgress > 0, 'teal');
+      }
+      if (dirProgress >= 1) {
+        content += renderMiniMCQ('dirMCQ', '任務二：觀念選擇題', 
+          [ {q: '當你看到一顆原本圓形的球，左側突然扁下去，你可以推斷發生了什麼事？', opts: ['有從左向右的力作用', '球變輕了', '有從右向左的力作用', '球自己融化了'], a: 0},
+            {q: '推動桌子時，如果我們用力往右推，桌子通常會往哪一個方向移動？', opts: ['往左邊', '往右邊', '往上面', '往下面'], a: 1} ], dirProgress > 1, 'teal');
+      }
+      if (dirProgress >= 2) {
+        content += renderMiniFB('dirFB', '任務三：點擊填空題', dirFBData, dirProgress > 2, 'teal');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${dirProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(2)" class="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            掌握方向了！前往下一關 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      // 每次重新渲染時重置壓力狀態
+      dirState.pressure = 0;
+      return content;
+    }
+
+    window.setPushDir = function(dir) {
+      dirState.pushDir = dir;
+      dirState.pressure = 0; // 切換方向時重置壓力
+      render();
+    }
+
+    // 長按蓄力邏輯
+    window.startPress = function(e) {
+      if(e) e.preventDefault(); // 防止手機端觸發原生拖曳
+      clearInterval(window.releaseInterval);
+      
+      window.pressInterval = setInterval(() => {
+        if (dirState.pressure < 100) {
+          dirState.pressure += 4; // 累積速度
+          updateBalloonDOM();
+        }
+      }, 30);
+    }
+
+    window.stopPress = function() {
+      clearInterval(window.pressInterval);
+      clearInterval(window.releaseInterval);
+      
+      // 平滑釋放力量
+      window.releaseInterval = setInterval(() => {
+        if (dirState.pressure > 0) {
+          dirState.pressure -= 6; // 釋放速度較快
+          if(dirState.pressure < 0) dirState.pressure = 0;
+          updateBalloonDOM();
+        } else {
+          clearInterval(window.releaseInterval);
+        }
+      }, 20);
+    }
+
+    // 即時更新氣球 DOM (避免重新 render 整頁)
+    window.updateBalloonDOM = function() {
+      const p = dirState.pressure;
+      const balloon = document.getElementById('dir-balloon');
+      const meter = document.getElementById('dir-force-meter');
+      const handL = document.getElementById('dir-hand-left');
+      const handR = document.getElementById('dir-hand-right');
+      const handT = document.getElementById('dir-hand-top');
+      
+      if(!balloon || !meter) return;
+
+      let scaleX = 1, scaleY = 1, tX = 0, tY = 0;
+      let br = '50%'; 
+
+      if (dirState.pushDir === 'left') { // 從左往右壓
+         scaleX = 1 - (p / 100 * 0.35); 
+         tX = (p / 100 * 40);          
+         if(handL) handL.style.left = `${10 + (p / 100 * 40)}px`;
+         br = `${50 + (p/100*15)}% ${50 - (p/100*15)}% ${50 - (p/100*15)}% ${50 + (p/100*15)}% / 50% 50% 50% 50%`;
+      } else if (dirState.pushDir === 'right') { // 從右往左壓
+         scaleX = 1 - (p / 100 * 0.35);
+         tX = -(p / 100 * 40);
+         if(handR) handR.style.right = `${10 + (p / 100 * 40)}px`;
+         br = `${50 - (p/100*15)}% ${50 + (p/100*15)}% ${50 + (p/100*15)}% ${50 - (p/100*15)}% / 50% 50% 50% 50%`;
+      } else if (dirState.pushDir === 'top') { // 從上往下壓
+         scaleY = 1 - (p / 100 * 0.35);
+         tY = (p / 100 * 40);
+         if(handT) handT.style.top = `${10 + (p / 100 * 40)}px`;
+         br = `50% 50% 50% 50% / ${50 + (p/100*15)}% ${50 + (p/100*15)}% ${50 - (p/100*15)}% ${50 - (p/100*15)}%`;
+      }
+
+      balloon.style.transform = `translate(${tX}px, ${tY}px) scale(${scaleX}, ${scaleY})`;
+      balloon.style.borderRadius = br;
+      meter.style.width = `${p}%`;
+    }
+
+    // --- 區塊渲染：2. 力的大小 (Amber) ---
+    const magFBData = {
+      text: ["掛愈多重物在橡皮筋上，橡皮筋的長度就愈", "，這表示它受到的力愈", "。我們可以用物體改變的", "來比較力的大小。"],
+      options: [
+        ["短", "長", "粗"],
+        ["小", "大", "輕"],
+        ["顏色", "氣味", "程度"]
+      ],
+      correct: [1, 1, 2] // 長、大、程度
+    };
+
+    function renderMagnitude() {
+      // 根據選擇的重物類型，取得設定
+      const conf = weightConfigs[magState.type];
+      // 橡皮筋長度：基礎 30px + (每個砝碼 * 該砝碼專屬的伸長量)
+      let rubberHeight = 30 + (magState.weights * conf.stretch);
+      
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-amber-50 border-l-8 border-amber-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">⚖️</div>
+            <div>
+              <h3 class="font-bold text-amber-800 text-lg">探險任務：力有多大？</h3>
+              <p class="text-amber-700">「改變重物的『種類』或『數量』，觀察細橡皮筋長度的變化！不同重量拉長的幅度一樣嗎？」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200">
+            <h2 class="text-2xl font-bold text-amber-600 mb-6 flex items-center justify-center gap-2">
+              <i class="ph-fill ph-scales text-3xl"></i> 橡皮筋伸長實驗
+            </h2>
+            
+            <div class="flex flex-col items-center">
+              
+              <!-- 類型選擇器 -->
+              <div class="flex bg-slate-100 p-1 rounded-xl mb-6">
+                <button onclick="changeWeightType('marble')" class="px-4 py-2 rounded-lg font-bold fade-transition ${magState.type === 'marble' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}">彈珠 (輕)</button>
+                <button onclick="changeWeightType('magnet')" class="px-4 py-2 rounded-lg font-bold fade-transition ${magState.type === 'magnet' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}">磁鐵 (中)</button>
+                <button onclick="changeWeightType('clay')" class="px-4 py-2 rounded-lg font-bold fade-transition ${magState.type === 'clay' ? 'bg-white shadow-sm text-amber-600' : 'text-slate-500 hover:text-slate-700'}">黏土 (重)</button>
+              </div>
+
+              <!-- 實驗區 (縮小比例尺高度 h-56) -->
+              <div class="relative w-full max-w-sm h-56 bg-slate-50 border-2 border-slate-100 rounded-t-2xl flex flex-col items-center pt-2">
+                <!-- 支架頂部 -->
+                <div class="w-3/4 h-2 bg-slate-400 rounded-full mb-1"></div>
+                <!-- 較細的橡皮筋 -->
+                <div class="w-1.5 bg-amber-500 fade-transition shadow-inner" style="height: ${rubberHeight}px"></div>
+                <!-- 掛勾與重物 (上限 3 個) -->
+                <div class="w-12 h-auto min-h-[1.5rem] border-b-4 border-x-4 border-slate-400 rounded-b-xl flex flex-col items-center justify-start pt-1 pb-2">
+                  ${Array.from({length: magState.weights}).map(() => `<div class="w-10 ${conf.h} ${conf.bg} rounded-sm ${conf.txt} text-xs flex items-center justify-center mt-1 shadow-sm font-bold border border-black/10">${conf.label}</div>`).join('')}
+                </div>
+                
+                <!-- 縮小的尺規刻度 -->
+                <div class="absolute left-8 top-2 bottom-0 w-8 border-r-2 border-slate-300 flex flex-col justify-between py-2 text-[10px] text-slate-400 font-bold h-full max-h-[12rem]">
+                   <div>0</div><div>-</div><div>10</div><div>-</div><div>20</div><div>-</div><div>30</div><div>-</div><div>40</div>
+                </div>
+              </div>
+              
+              <!-- 數量控制器 -->
+              <div class="bg-slate-100 w-full max-w-sm p-4 rounded-b-2xl border-x-2 border-b-2 border-slate-100 flex justify-center gap-4 mb-6">
+                <button onclick="interactMagnitude(-1)" ${magState.weights === 0 ? 'disabled' : ''} class="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"><i class="ph-bold ph-minus"></i> 減少數量</button>
+                <button onclick="interactMagnitude(1)" ${magState.weights === 3 ? 'disabled' : ''} class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"><i class="ph-bold ph-plus"></i> 增加數量</button>
+              </div>
+              
+              <p class="text-slate-600 font-bold mb-2">當前懸掛：<span class="text-amber-600 text-xl">${magState.weights}</span> 個 <span class="text-slate-800">${conf.label}</span> （最多 3 個）</p>
+              <p class="text-slate-500 text-sm">💡 觀察重點：越重的物體施力越大，橡皮筋伸長得越長！</p>
+            </div>
+          </div>
+      `;
+
+      if (magProgress >= 0) {
+        content += renderMiniTF('magTF', '任務一：觀念是非題', 
+          [ {q: '用橡皮筋分別吊掛不同數量的重物時，橡皮筋的長度愈長，代表受力愈大。', a: true},
+            {q: '分別輕輕壓和用力壓同一個抱枕，抱枕凹陷的深度一定會一模一樣。', a: false} ], magProgress > 0, 'amber');
+      }
+      if (magProgress >= 1) {
+        content += renderMiniMCQ('magMCQ', '任務二：觀念選擇題', 
+          [ {q: '奇奇彈射紙飛機，第一次飛了30公分，第二次飛了15公分，表示哪一次施力比較大？', opts: ['第一次施力比較大', '第二次施力比較大', '兩次施力一樣大', '無法得知'], a: 0},
+            {q: '測量以下哪一個變化，最適合用來比較「受力的大小」？', opts: ['橡皮筋伸長的長度', '橡皮筋的顏色改變', '橡皮筋的材質', '橡皮筋的味道'], a: 0} ], magProgress > 1, 'amber');
+      }
+      if (magProgress >= 2) {
+        content += renderMiniFB('magFB', '任務三：點擊填空題', magFBData, magProgress > 2, 'amber');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${magProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(3)" class="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            太棒了！去學怎麼畫出力 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      return content;
+    }
+
+    window.changeWeightType = function(type) {
+      magState.type = type;
+      magState.weights = 0; // 切換種類時重置數量，避免破圖
+      render();
+    }
+
+    window.interactMagnitude = function(change) {
+      let newW = magState.weights + change;
+      if (newW >= 0 && newW <= 3) { magState.weights = newW; render(); }
+    }
+
+    // --- 區塊渲染：3. 箭號表示法 (物理碰撞模擬球) ---
+    const arrowFBData = {
+      text: ["畫出力圖時，箭頭指的地方是力的", "，線條的長短代表力的", "，而箭號的出發點（紅點）叫做", "。"],
+      options: [
+        ["大小", "方向", "重量"],
+        ["方向", "大小", "受力點"],
+        ["終點", "受力點", "出發點"]
+      ],
+      correct: [1, 1, 1] // 方向、大小、受力點
+    };
+
+    function renderArrows() {
+      let isRightPush = arrowState.dir === 'right';
+      
+      // 動態設定球的初始位置：向右推放左邊，向左推放右邊
+      let ballAlignClass = isRightPush ? 'left-6' : 'right-6';
+      
+      // 受力點的定位與箭號旋轉 (完全綁定方向)
+      let dotLeft = isRightPush ? '0%' : '100%';
+      let arrowRotate = isRightPush ? 0 : 180;
+      let arrowWidth = arrowState.size === 'small' ? '5.5rem' : '9rem'; 
+      let textDesc = (isRightPush ? '向右推的' : '向左推的') + (arrowState.size === 'small' ? '較小力' : '較大力');
+
+      // 產生指示標籤的 Overlay (僅在未模擬時顯示)
+      let labelsOverlay = '';
+      if (!window.isSimulating) {
+        labelsOverlay = `
+        <div class="absolute inset-0 pointer-events-none z-40">
+           <!-- 作用點 (紅點上方) -->
+           <div class="absolute flex flex-col items-center" style="top: -40px; ${isRightPush ? 'left: -20px;' : 'right: -20px;'}">
+              <span class="bg-red-100 text-red-700 border border-red-300 text-xs px-1.5 py-0.5 rounded shadow-sm font-bold whitespace-nowrap mb-1">作用點</span>
+              <div class="w-0.5 h-4 bg-red-400"></div>
+           </div>
+           
+           <!-- 力的大小 (箭號線條下方) -->
+           <div class="absolute flex flex-col items-center" style="top: 70px; ${isRightPush ? 'left: 30px;' : 'right: 30px;'}">
+              <div class="w-0.5 h-4 bg-fuchsia-400 mb-1"></div>
+              <span class="bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-300 text-xs px-1.5 py-0.5 rounded shadow-sm font-bold whitespace-nowrap">力的大小 (長度)</span>
+           </div>
+
+           <!-- 力的方向 (箭頭前端上方) -->
+           <div class="absolute flex flex-col items-center" style="top: -40px; ${isRightPush ? (arrowState.size === 'small' ? 'left: 60px;' : 'left: 100px;') : (arrowState.size === 'small' ? 'right: 60px;' : 'right: 100px;')}">
+              <span class="bg-purple-100 text-purple-700 border border-purple-300 text-xs px-1.5 py-0.5 rounded shadow-sm font-bold whitespace-nowrap mb-1">力的方向 (箭頭)</span>
+              <div class="w-0.5 h-4 bg-purple-400"></div>
+           </div>
+        </div>
+        `;
+      }
+
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-fuchsia-50 border-l-8 border-fuchsia-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">🖍️</div>
+            <div>
+              <h3 class="font-bold text-fuchsia-800 text-lg">探險任務：畫出力的方法與實際運動</h3>
+              <p class="text-fuchsia-700">「請觀察圖中『力的方向』、『力的大小』與『作用點』。設定完成後，點擊『開始運動』看看球會飛多遠！」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200">
+             <h2 class="text-2xl font-bold text-fuchsia-600 mb-6 flex items-center justify-center gap-2">
+              <i class="ph-fill ph-magic-wand text-3xl"></i> 力學物理實驗室
+            </h2>
+
+            <div class="flex flex-col md:flex-row gap-6 items-center justify-center mb-6">
+              
+              <!-- 控制面板 -->
+              <div class="w-full md:w-1/2 space-y-4">
+                
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <h4 class="font-bold text-slate-700 mb-2">1. 選擇施力的「方向與位置」：</h4>
+                  <div class="grid grid-cols-1 gap-2">
+                    <button onclick="interactArrow('dir', 'right')" ${window.isSimulating?'disabled':''} class="py-2 rounded-lg font-bold border-2 fade-transition disabled:opacity-50 ${isRightPush ? 'bg-fuchsia-100 border-fuchsia-400 text-fuchsia-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}">從球的左側往右推 👉</button>
+                    <button onclick="interactArrow('dir', 'left')" ${window.isSimulating?'disabled':''} class="py-2 rounded-lg font-bold border-2 fade-transition disabled:opacity-50 ${!isRightPush ? 'bg-fuchsia-100 border-fuchsia-400 text-fuchsia-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}">👈 從球的右側往左推</button>
+                  </div>
+                </div>
+
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <h4 class="font-bold text-slate-700 mb-2">2. 選擇力的「大小」：</h4>
+                  <div class="flex gap-2">
+                    <button onclick="interactArrow('size', 'small')" ${window.isSimulating?'disabled':''} class="flex-1 py-2 rounded-lg font-bold border-2 fade-transition disabled:opacity-50 ${arrowState.size === 'small' ? 'bg-fuchsia-100 border-fuchsia-400 text-fuchsia-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}">較小的力</button>
+                    <button onclick="interactArrow('size', 'large')" ${window.isSimulating?'disabled':''} class="flex-1 py-2 rounded-lg font-bold border-2 fade-transition disabled:opacity-50 ${arrowState.size === 'large' ? 'bg-fuchsia-100 border-fuchsia-400 text-fuchsia-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}">較大的力</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 物理實驗顯示面板 -->
+              <div class="w-full md:w-1/2 flex flex-col items-center">
+                 <!-- 實驗軌道區 -->
+                 <div id="sim-track" class="w-full max-w-sm h-48 bg-slate-100 border-x-4 border-b-4 border-slate-400 rounded-b-xl flex flex-col justify-end relative mb-4 shadow-inner">
+                    <!-- 軌道底線 -->
+                    <div class="absolute bottom-0 w-full h-8 bg-slate-300 border-t border-slate-400 overflow-hidden"></div>
+
+                    <!-- 物理球 (動態決定初始置左或置右) -->
+                    <div id="sim-ball" class="absolute w-16 h-16 bg-gradient-to-br from-rose-400 to-rose-600 rounded-full shadow-md flex items-center justify-center physics-ball z-20 ${ballAlignClass}" 
+                         style="bottom: 32px; transform: translateX(0px);">
+                        
+                        <span class="text-white font-bold text-sm select-none z-30 relative">球</span>
+                        
+                        <!-- 指示標籤圖層 (與球綁定) -->
+                        ${labelsOverlay}
+
+                        <!-- 箭號與受力點容器 (精準定位旋轉原點) -->
+                        <div id="sim-arrow" class="absolute flex items-center transition-opacity duration-200 z-10" 
+                             style="left: ${dotLeft}; top: 50%; margin-top: -10px; height: 20px; transform: rotate(${arrowRotate}deg); transform-origin: left center;">
+                            
+                            <!-- 受力點 (紅點) -->
+                            <div class="absolute w-4 h-4 bg-red-600 rounded-full border-2 border-white shadow-sm z-20" style="left: 0; top: 50%; margin-top: -8px; margin-left: -8px;"></div>
+                            
+                            <!-- CSS 箭號 (長度決定力的大小) -->
+                            <div class="flex items-center text-fuchsia-600 drop-shadow-md z-10" style="width: ${arrowWidth};">
+                              <div class="h-2 bg-current flex-grow transition-all duration-300"></div>
+                              <div class="w-0 h-0 border-y-[10px] border-y-transparent border-l-[14px] border-l-current shrink-0 -ml-1"></div>
+                            </div>
+                        </div>
+                    </div>
+                 </div>
+
+                 <div class="flex gap-3 w-full max-w-sm">
+                    <button id="btn-sim-start" onclick="startSim()" ${window.isSimulating ? 'disabled' : ''} class="flex-1 bg-fuchsia-500 hover:bg-fuchsia-600 text-white py-3 rounded-xl font-bold shadow-sm fade-transition disabled:opacity-50">🚀 開始運動</button>
+                    <button id="btn-sim-reset" onclick="resetSim()" ${!window.isSimulating ? 'disabled' : ''} class="flex-1 bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded-xl font-bold shadow-sm fade-transition disabled:opacity-50">🔄 重設</button>
+                 </div>
+                 <span id="sim-notice" class="mt-4 bg-fuchsia-50 text-fuchsia-700 px-4 py-1 rounded-full font-bold shadow-sm text-sm border border-fuchsia-200">${textDesc}</span>
+              </div>
+            </div>
+          </div>
+      `;
+
+      if (arrowProgress >= 0) {
+        content += renderMiniTF('arrowTF', '任務一：觀念是非題', 
+          [ {q: '用箭號表示力的作用時，箭號的線條越長，表示施力越大。', a: true},
+            {q: '畫出力圖時，箭號畫在哪裡都可以，不需要標示「受力點」。', a: false} ], arrowProgress > 0, 'fuchsia');
+      }
+      if (arrowProgress >= 1) {
+        content += renderMiniMCQ('arrowMCQ', '任務二：觀念選擇題', 
+          [ {q: '繪製力圖時，箭號的『起點』（紅點），代表什麼意思？', opts: ['力的大小', '力的方向', '物體的重量', '受力點'], a: 3},
+            {q: '如果我想在圖中表示一個「往左邊推的強大力氣」，我應該畫什麼？', opts: ['往左指的長箭號', '往右指的長箭號', '往左指的短箭號', '往右指的短箭號'], a: 0} ], arrowProgress > 1, 'fuchsia');
+      }
+      if (arrowProgress >= 2) {
+        content += renderMiniFB('arrowFB', '任務三：點擊填空題', arrowFBData, arrowProgress > 2, 'fuchsia');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${arrowProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(4)" class="inline-flex items-center gap-2 bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            全部學會了！迎接最終測驗 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      if(window.isSimulating) {
+         window.isSimulating = false;
+         cancelAnimationFrame(window.animId);
+      }
+      return content;
+    }
+
+    window.interactArrow = function(type, val) {
+      if (type === 'size') arrowState.size = val;
+      if (type === 'dir') arrowState.dir = val;
+      render();
+    }
+
+    // 物理引擎邏輯
+    let ballX = 0;
+    let ballVx = 0;
+
+    window.startSim = function() {
+        if(window.isSimulating) return;
+        window.isSimulating = true;
+        
+        const track = document.getElementById('sim-track');
+        const ball = document.getElementById('sim-ball');
+        if(!track || !ball) return;
+
+        // 計算實際邊界 (Track 寬度 - 球寬度 - 起始預留空間)
+        window.trackWidth = track.offsetWidth;
+        window.ballWidth = ball.offsetWidth;
+        // 初始設定在 left-6 或 right-6 (24px)，保留 24px + 邊框厚度為牆壁
+        window.simBounds = window.trackWidth - window.ballWidth - 48; 
+
+        // 隱藏箭頭與標籤
+        const arrowEl = document.getElementById('sim-arrow');
+        if(arrowEl) arrowEl.style.opacity = '0';
+        
+        document.getElementById('btn-sim-start').disabled = true;
+        document.getElementById('btn-sim-reset').disabled = false;
+        document.getElementById('sim-notice').innerText = '觀察球移動的距離與速度！';
+
+        // 設定初始速度：小力道摩擦力大停得快，大力道輕易撞牆
+        let speed = arrowState.size === 'small' ? 14 : 28;
+        ballVx = arrowState.dir === 'right' ? speed : -speed;
+        ballX = 0; 
+
+        window.animId = requestAnimationFrame(physicsLoop);
+    }
+
+    function physicsLoop() {
+        if(!window.isSimulating) return;
+
+        ballX += ballVx;
+        
+        // 摩擦力 (調整阻力，確保小力道自然停止)
+        let friction = arrowState.size === 'small' ? 0.90 : 0.98;
+        ballVx *= friction; 
+
+        let isRightPush = arrowState.dir === 'right';
+        let hitWall = false;
+
+        // 邊界碰撞檢測：只有球體(ballX)碰到牆壁才反彈
+        if (isRightPush) {
+            if (ballX >= window.simBounds) {
+                ballX = window.simBounds;
+                ballVx *= -0.6; // 撞擊右牆反彈
+                hitWall = true;
+            }
+            if (ballX < 0) { ballX = 0; ballVx = 0; } // 不准反向超過起點
+        } else {
+            if (ballX <= -window.simBounds) {
+                ballX = -window.simBounds;
+                ballVx *= -0.6; // 撞擊左牆反彈
+                hitWall = true;
+            }
+            if (ballX > 0) { ballX = 0; ballVx = 0; } // 不准反向超過起點
+        }
+
+        const ball = document.getElementById('sim-ball');
+        if (ball) {
+            ball.style.transform = `translateX(${ballX}px)`;
+        }
+
+        // 停止條件
+        if (Math.abs(ballVx) < 0.3) {
+            window.isSimulating = false; 
+            let msg = hitWall ? '碰！球撞到牆壁反彈後停下來了。' : '球因為摩擦力慢慢停下來了。';
+            document.getElementById('sim-notice').innerText = msg;
+            return;
+        }
+
+        window.animId = requestAnimationFrame(physicsLoop);
+    }
+
+    window.resetSim = function() {
+        window.isSimulating = false;
+        cancelAnimationFrame(window.animId);
+        ballX = 0;
+        ballVx = 0;
+        
+        const ball = document.getElementById('sim-ball');
+        if(ball) ball.style.transform = `translateX(0px)`;
+        
+        const arrowEl = document.getElementById('sim-arrow');
+        if(arrowEl) arrowEl.style.opacity = '1';
+
+        document.getElementById('btn-sim-start').disabled = false;
+        document.getElementById('btn-sim-reset').disabled = true;
+        
+        let textDesc = arrowState.dir === 'right' ? '向右推的' : '向左推的';
+        textDesc += arrowState.size === 'small' ? '較小力' : '較大力';
+        document.getElementById('sim-notice').innerText = textDesc;
+        render(); 
+    }
+
+    // --- 區塊渲染：4. 最終測驗 (Indigo) ---
+    function renderQuiz() {
+      if (quizState === 'dashboard') {
+        const history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+        let histHtml = history.length === 0 ? `<p class="text-slate-500 py-4">目前還沒有測驗紀錄，快來挑戰第一次吧！</p>` : `
+          <div class="overflow-x-auto w-full mt-4">
+            <table class="w-full text-left border-collapse min-w-[500px]">
+              <thead><tr class="bg-indigo-100 text-indigo-800 border-b-2 border-indigo-200"><th class="p-3 rounded-tl-xl">日期</th><th class="p-3">時間</th><th class="p-3">成績</th><th class="p-3 rounded-tr-xl">作答時長</th></tr></thead>
+              <tbody>${history.map(r => `<tr class="border-b border-slate-100 hover:bg-slate-50 fade-transition"><td class="p-3 text-slate-600">${r.date}</td><td class="p-3 text-slate-600">${r.time}</td><td class="p-3 font-bold ${r.score >= 80 ? 'text-emerald-600' : 'text-amber-600'}">${r.score} 分</td><td class="p-3 text-slate-500">${r.duration}</td></tr>`).join('')}</tbody>
+            </table>
+          </div>`;
+
+        return `
+          <div class="bg-white rounded-3xl p-8 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition max-w-2xl mx-auto">
+            <i class="ph-fill ph-medal text-6xl text-indigo-500 mb-4 block"></i>
+            <h2 class="text-3xl font-bold text-indigo-800 mb-2">最終綜合測驗</h2>
+            <p class="text-slate-600 mb-8">本測驗共有 10 題，將會從題庫中隨機抽選洗牌。</p>
+            <button onclick="startFinalQuiz()" class="inline-flex items-center justify-center w-full md:w-auto gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm mb-8">
+              <i class="ph-bold ph-pencil-simple"></i> 開始測驗
+            </button>
+            <div class="bg-slate-50 rounded-2xl p-6 border-2 border-slate-100 mb-4">
+              <h3 class="text-xl font-bold text-slate-700 flex items-center justify-center gap-2"><i class="ph-bold ph-clock-counter-clockwise"></i> 最近 5 次測驗紀錄</h3>
+              ${histHtml}
+            </div>
+          </div>
+        `;
+      }
+
+      if (quizState === 'result') {
+        let comment = quizScore >= 90 ? "太厲害了！你是完美過關的「力」學大師！" : (quizScore >= 70 ? "表現不錯喔！你已經成功掌握力的基礎知識了。" : "繼續加油，可以再複習一下喔！");
+        return `
+          <div class="bg-white rounded-3xl p-8 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition">
+            <h2 class="text-4xl font-bold text-indigo-600 mb-6">測驗結束！</h2>
+            <div class="text-8xl mb-6">🏆</div>
+            <p class="text-3xl font-bold mb-4">你的最終得分：<span class="${quizScore >= 80 ? 'text-emerald-500' : 'text-amber-500'}">${quizScore}</span> / 100</p>
+            <p class="text-2xl text-slate-600 mb-8">${comment}</p>
+            <button onclick="returnToQuizDashboard()" class="inline-flex items-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-700 px-8 py-4 rounded-full text-xl font-bold fade-transition"><i class="ph-bold ph-list-dashes"></i> 查看紀錄面板</button>
+          </div>
+        `;
+      }
+
+      const q = quizData[quizCurrentQ];
+      const optionLabels = ['A', 'B', 'C', 'D'];
+      let content = `
+        <div class="space-y-8 fade-transition">
+          <div class="bg-indigo-50 border-l-8 border-indigo-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">📝</div>
+            <div><h3 class="font-bold text-indigo-800 text-lg">營長考驗：最終總測驗</h3><p class="text-indigo-700">「展現你學到的知識，冷靜作答吧！」</p></div>
+          </div>
+          <div class="bg-white rounded-3xl p-6 md:p-10 shadow-sm border-2 border-slate-200">
+            <div class="flex justify-between items-center mb-8 pb-4 border-b-2 border-slate-100">
+              <h2 class="text-2xl md:text-3xl font-bold text-indigo-700">科學知識挑戰賽</h2>
+              <span class="text-lg md:text-xl font-bold bg-indigo-100 text-indigo-800 px-4 py-2 rounded-full">第 ${quizCurrentQ + 1} / ${quizData.length} 題</span>
+            </div>
+            <h3 class="text-xl md:text-2xl font-bold text-slate-800 mb-8 leading-relaxed flex items-start gap-3">
+              <i class="ph-fill ph-question text-indigo-500 text-3xl shrink-0 mt-1"></i><span>${q.question}</span>
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      `;
+
+      q.options.forEach((opt, idx) => {
+        let btnClass = "bg-slate-50 hover:bg-indigo-50 border-slate-200 text-slate-700";
+        let iconHtml = '';
+        if (quizIsAnswered) {
+          if (idx === q.answer) {
+            btnClass = "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold";
+            iconHtml = '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl shrink-0"></i>';
+          } else if (idx === quizSelectedOption) {
+            btnClass = "bg-red-50 border-red-300 text-red-700";
+            iconHtml = '<i class="ph-fill ph-x-circle text-red-500 text-2xl shrink-0"></i>';
+          } else {
+            btnClass = "bg-slate-50 border-slate-200 text-slate-400 opacity-50";
+          }
+        }
+        content += `
+          <button onclick="handleQuizAnswer(${idx})" ${quizIsAnswered ? 'disabled' : ''} class="p-4 md:p-5 text-left text-lg md:text-xl rounded-2xl border-2 fade-transition flex items-center justify-between gap-2 ${btnClass}">
+            <div class="flex items-center gap-3"><span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-white shadow-sm border border-slate-200 text-indigo-600 font-bold text-base shrink-0">${optionLabels[idx]}</span><span>${opt}</span></div>
+            ${iconHtml}
+          </button>
+        `;
+      });
+      content += `</div></div></div>`;
+      return content;
+    }
+
+    window.startFinalQuiz = function() {
+      initQuizData(); 
+      quizCurrentQ = 0; quizScore = 0; quizIsAnswered = false; quizSelectedOption = null; quizStartTime = Date.now(); quizState = 'playing';
+      render();
+    }
+    window.handleQuizAnswer = function(idx) {
+      if (quizIsAnswered) return;
+      quizSelectedOption = idx; quizIsAnswered = true;
+      if (idx === quizData[quizCurrentQ].answer) quizScore += 10;
+      render();
+      setTimeout(() => {
+        if (quizCurrentQ + 1 < quizData.length) { quizCurrentQ++; quizSelectedOption = null; quizIsAnswered = false; } 
+        else { saveQuizRecord(quizScore, Date.now() - quizStartTime); quizState = 'result'; }
+        render();
+      }, 1200); 
+    }
+    function saveQuizRecord(score, durationMs) {
+      let history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+      const now = new Date();
+      history.unshift({ date: now.toLocaleDateString('zh-TW'), time: now.toLocaleTimeString('zh-TW', { hour12: false }), score: score, duration: formatDuration(durationMs) }); 
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(history.slice(0, 5)));
+    }
+    window.returnToQuizDashboard = function() { quizState = 'dashboard'; render(); }
+
+    // --- 共用小測驗產生器 (MCQ, TF, FB, Matching, Sorting) ---
+    
+    const mcqStates = {};
+    function renderMiniMCQ(id, title, qPool, isCompleted, theme) {
+      if (!mcqStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        const qRaw = qPool[varIdx];
+        const correctOpt = qRaw.opts[qRaw.a];
+        const shuffledOpts = shuffleArray(qRaw.opts);
+        mcqStates[id] = { selected: null, opts: shuffledOpts, ansIdx: shuffledOpts.indexOf(correctOpt), varIdx: varIdx };
+      }
+      const st = mcqStates[id]; const qRaw = qPool[st.varIdx];
+      const th = `text-${theme}-700`; const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-question"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p><div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
+
+      st.opts.forEach((opt, idx) => {
+        let cls = "bg-slate-50 border-slate-200 hover:bg-slate-100";
+        if (isCompleted) cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-slate-50 text-slate-400 border-slate-100"; 
+        else if (st.selected === idx) cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-red-50 border-red-300 text-red-700"; 
+        html += `<button onclick="handleMCQ('${id}', ${idx}, ${st.ansIdx})" ${isCompleted ? 'disabled' : ''} class="p-4 rounded-2xl border-2 text-left text-lg font-bold fade-transition ${cls}">${opt}</button>`;
+      });
+      return html + `</div></div>`;
+    }
+    window.handleMCQ = function(id, selIdx, ansIdx) {
+      if (mcqStates[id].selected !== null) return;
+      mcqStates[id].selected = selIdx; render();
+      if (selIdx === ansIdx) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { mcqStates[id].selected = null; render(); }, 800);
+    }
+
+    const tfStates = {};
+    function renderMiniTF(id, title, qPool, isCompleted, theme) {
+      if (!tfStates[id]) tfStates[id] = { selected: null, varIdx: Math.floor(Math.random() * qPool.length) };
+      const st = tfStates[id]; const qRaw = qPool[st.varIdx];
+      const th = `text-${theme}-700`; const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-check-square-offset"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p><div class="flex gap-4 justify-center">`;
+      
+      const tCls = isCompleted ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === true ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-red-50 border-red-300 text-red-700") : `bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700`);
+      const fCls = isCompleted ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === false ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-red-50 border-red-300 text-red-700") : `bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700`);
+
+      html += `<button onclick="handleTF('${id}', true, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-6 rounded-2xl border-2 text-2xl font-bold fade-transition text-center ${tCls}">⭕ 是</button>`;
+      html += `<button onclick="handleTF('${id}', false, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-6 rounded-2xl border-2 text-2xl font-bold fade-transition text-center ${fCls}">❌ 非</button>`;
+      return html + `</div></div>`;
+    }
+    window.handleTF = function(id, sel, ans) {
+      if (tfStates[id].selected !== null) return;
+      tfStates[id].selected = sel; render();
+      if (sel === ans) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { tfStates[id].selected = null; render(); }, 800);
+    }
+
+    const fbStates = {};
+    function renderMiniFB(id, title, data, isCompleted, theme) {
+      if (!fbStates[id]) fbStates[id] = { answers: Array(data.options.length).fill(''), activeSlot: 0, err: false, correct: data.correct };
+      const st = fbStates[id];
+      const t = themeColors[theme];
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? `${t.bg50} ${t.border200} opacity-80` : `border-slate-200`} ${st.err ? 'border-red-300 bg-red-50' : ''}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${t.text800}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-text-t"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <div class="text-lg md:text-xl font-bold text-slate-800 mb-6 leading-loose flex flex-wrap items-center gap-y-4 gap-x-1">`;
+
+      data.text.forEach((txt, i) => {
+        html += `<span class="whitespace-pre-wrap">${txt}</span>`;
+        if (i < data.options.length) {
+          let isActive = st.activeSlot === i;
+          let ansIdx = st.answers[i];
+          let displayTxt = ansIdx !== '' ? data.options[i][ansIdx] : '（請點擊選擇）';
+          if (isCompleted) displayTxt = data.options[i][data.correct[i]];
+
+          let btnClass = `px-3 py-1 font-bold rounded-lg border-b-4 transition-all duration-200 outline-none select-none mx-1 `;
+          if (isCompleted) {
+             btnClass += `bg-emerald-50 border-emerald-200 text-emerald-700 underline decoration-emerald-400 decoration-4 underline-offset-4 pointer-events-none`;
+          } else if (isActive) {
+             btnClass += `${t.bg100} ${t.border400} ${t.text800} scale-110 shadow-sm`;
+          } else if (ansIdx !== '') {
+             btnClass += `bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200`;
+          } else {
+             btnClass += `bg-white border-slate-300 text-slate-400 hover:bg-slate-50 border-dashed`;
+          }
+
+          html += `<button onclick="setActiveFBSlot('${id}', ${i})" ${isCompleted ? 'disabled' : ''} class="${btnClass}">${displayTxt}</button>`;
+        }
+      });
+      html += `</div>`;
+
+      if (!isCompleted && st.activeSlot !== null) {
+        html += `<div class="mt-4 p-5 bg-slate-50 rounded-2xl border-2 border-slate-200 text-center fade-transition">
+                 <p class="text-sm font-bold text-slate-500 mb-3 flex justify-center items-center gap-1"><i class="ph-bold ph-hand-pointing"></i> 點擊下方選項填入發光的空格：</p>
+                 <div class="flex flex-wrap justify-center gap-3">`;
+        data.options[st.activeSlot].forEach((opt, optIdx) => {
+           let isSelected = st.answers[st.activeSlot] === String(optIdx);
+           let optClass = isSelected ? `${t.btnBg} text-white ${t.btnBorder}` : `bg-white text-slate-700 border-slate-300 hover:${t.bg50} hover:${t.border300}`;
+           html += `<button onclick="handleFBClick('${id}', ${optIdx})" class="px-5 py-2 rounded-xl border-2 font-bold shadow-sm transition-all ${optClass}">${opt}</button>`;
+        });
+        html += `</div></div>`;
+      }
+
+      if (!isCompleted) {
+         let allSelected = st.answers.every(a => a !== '');
+         html += `<div class="flex flex-col items-end gap-2 mt-6">
+            ${st.err ? '<span class="text-red-500 font-bold"><i class="ph-fill ph-warning-circle"></i> 答案有誤，請再檢查看看！</span>' : ''}
+            <button onclick="checkFB('${id}')" ${!allSelected ? 'disabled' : ''} class="${t.btnBg} ${t.btnHover} text-white px-8 py-3 rounded-xl font-bold shadow-sm fade-transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+              <i class="ph-bold ph-paper-plane-right"></i> 送出答案
+            </button>
+          </div>`;
+      }
+      return html + `</div>`;
+    }
+
+    window.setActiveFBSlot = function(id, index) {
+      fbStates[id].activeSlot = index;
+      render();
+    }
+    
+    window.handleFBClick = function(id, optIdx) {
+      const st = fbStates[id];
+      st.answers[st.activeSlot] = String(optIdx);
+      st.err = false;
+      let nextSlot = st.answers.findIndex(a => a === '');
+      if (nextSlot !== -1) st.activeSlot = nextSlot;
+      render();
+    }
+
+    window.checkFB = function(id) {
+      const st = fbStates[id];
+      let isMatch = true;
+      for (let i = 0; i < st.correct.length; i++) {
+        if (String(st.answers[i]) !== String(st.correct[i])) { isMatch = false; break; }
+      }
+      if (isMatch) { st.err = false; st.activeSlot = null; progressTask(id); } 
+      else { st.err = true; render(); }
+    }
+
+    // --- 全局狀態推進 ---
+    window.progressTask = function(taskId) {
+      if (taskId.startsWith('dir')) dirProgress++;
+      else if (taskId.startsWith('mag')) magProgress++;
+      else if (taskId.startsWith('arrow')) arrowProgress++;
+      render();
+    }
+
+    // 主渲染邏輯
+    function render() {
+      renderProgressBar();
+      const main = document.getElementById('main-content');
+      switch (steps[currentStepIndex]) {
+        case 'welcome': main.innerHTML = renderWelcome(); break;
+        case 'direction': main.innerHTML = renderDirection(); break;
+        case 'magnitude': main.innerHTML = renderMagnitude(); break;
+        case 'arrows': main.innerHTML = renderArrows(); break;
+        case 'quiz': main.innerHTML = renderQuiz(); break;
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>
