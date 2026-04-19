@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>能源與電路：串聯和並聯</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入 Phosphor Icons 做為圖示庫 -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    /* 隱藏捲軸但保留捲動功能 */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* 零干擾平滑動畫設計 */
+    .fade-transition {
+      transition: opacity 0.4s ease-in-out, background-color 0.4s ease-in-out, border-color 0.4s ease-in-out, color 0.4s ease-in-out, transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), height 0.4s ease-in-out;
+    }
+
+    /* 電流流動動畫 (調慢速度) */
+    @keyframes circuit-flow {
+      from { stroke-dashoffset: 56; }
+      to { stroke-dashoffset: 0; }
+    }
+    .animate-circuit-flow {
+      animation: circuit-flow 8s linear infinite;
+    }
+	/* 電池串聯時的快速電流 */
+    .animate-circuit-flow-fast {
+      animation: circuit-flow 2s linear infinite; /* 把時間從 3.5s 縮短到 2s，速度變快！ */
+    }
+
+    /* 正常發光閃爍動畫 */
+    @keyframes glow-pulse {
+      0%, 100% { filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.6)); }
+      50% { filter: drop-shadow(0 0 25px rgba(250, 204, 21, 1)); }
+    }
+    .animate-glow {
+      animation: glow-pulse 2s ease-in-out infinite;
+    }
+    
+    /* 爆亮特效 (電池串聯時) */
+    @keyframes super-glow-pulse {
+      0%, 100% { filter: drop-shadow(0 0 25px rgba(250, 204, 21, 0.9)); }
+      50% { filter: drop-shadow(0 0 50px rgba(250, 204, 21, 1)); }
+    }
+    .animate-super-glow {
+      animation: super-glow-pulse 1.5s ease-in-out infinite;
+    }
+    
+    /* 黯淡特效 (燈泡串聯時) */
+    @keyframes dim-glow-pulse {
+      0%, 100% { filter: drop-shadow(0 0 5px rgba(250, 204, 21, 0.3)); }
+      50% { filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.5)); }
+    }
+    .animate-dim-glow {
+      animation: dim-glow-pulse 3s ease-in-out infinite;
+    }
+
+    /* 斷路/壞掉狀態 */
+    .broken-bulb {
+      color: #64748B;
+      filter: none;
+      transform: scale(0.95);
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 pb-16 min-h-screen">
+
+  <!-- 標題列：環保沉穩色系，取消 sticky 以最大化可視空間 -->
+  <header class="bg-slate-700 text-white p-4 shadow-md">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="ph-fill ph-plugs text-3xl text-amber-400"></i>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-wider">串聯和並聯</h1>
+      </div>
+    </div>
+  </header>
+
+  <!-- 全解鎖導航列 -->
+  <div id="progress-container" class="max-w-6xl mx-auto px-4 pt-6 fade-transition">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border-2 border-slate-200 flex flex-wrap justify-between items-center gap-2 overflow-x-auto hide-scrollbar" id="progress-bar">
+      <!-- JS 渲染進度條 -->
+    </div>
+  </div>
+
+  <main id="main-content" class="max-w-6xl mx-auto p-4 mt-4 fade-transition">
+    <!-- JS 渲染內容 -->
+  </main>
+
+  <script>
+    // --- 實用的隨機洗牌函數 ---
+    function shuffleArray(array) {
+      const newArr = [...array];
+      for (let i = newArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+      }
+      return newArr;
+    }
+
+    // --- 系統狀態管理 ---
+    const steps = ['welcome', 'battery', 'bulb', 'compare', 'quiz'];
+    let currentStepIndex = 0;
+    
+    // 各大關卡的細部任務進度
+    let batProgress = 0;    
+    let bulbProgress = 0;  
+    let compProgress = 0;   
+
+    // 電池實驗室狀態 (採用 BAK 的精緻模組)
+    let batState = { conn: '1', cond: 'normal' }; // conn: '1', 's', 'p'. cond: 'normal', 'cut', 'dead'
+    let batTestedS = false;
+    let batTestedP = false;
+
+    // 燈泡實驗室狀態 (採用 BAK 的精緻模組)
+    let bulbState = { conn: '1', cond: 'normal' }; // conn: '1', 's', 'p'. cond: 'normal', 'cut', 'dead'
+    let bulbTestedS = false;
+    let bulbTestedP = false;
+
+    // 分類遊戲狀態 (串聯 vs 並聯)
+    const baseSortItems = [
+      { id: 1, text: '電池：正極連接另一顆的負極', type: 'series', emoji: '🔋', desc: '這是一直線接下去的接法' },
+      { id: 2, text: '電池：讓燈泡變得更亮', type: 'series', emoji: '✨', desc: '電壓相加，燈泡非常亮' },
+      { id: 3, text: '電池：正接正、負接負', type: 'parallel', emoji: '🔋', desc: '並排連接的接法' },
+      { id: 4, text: '燈泡：一顆壞掉，全部都不亮', type: 'series', emoji: '❌', desc: '只有一條路，斷掉就沒電了' },
+      { id: 5, text: '燈泡：一顆壞掉，其他繼續亮', type: 'parallel', emoji: '💡', desc: '有不同的分支路線可以走' },
+      { id: 6, text: '日常：手電筒裡的電池接法', type: 'series', emoji: '🔦', desc: '為了讓手電筒夠亮' },
+      { id: 7, text: '日常：家裡電燈的接法', type: 'parallel', emoji: '🏠', desc: '客廳燈壞了，房間燈還是會亮' }
+    ];
+    let sortItems = [];
+    let sortCurrentIndex = 0;
+    let sortFeedback = null;
+
+    // --- 最終測驗題庫池 ---
+    const rawQuizPools = [
+      [ // 概念1：電池串聯
+        { q: "在通路中，把電池的『正極』連接另一顆電池的『負極』，這稱為什麼？", options: ["電池串聯", "電池並聯", "燈泡串聯", "燈泡並聯"], answer: 0 },
+        { q: "手電筒為了讓燈泡能發出更亮的光，裡面的電池通常是採用什麼連接方式？", options: ["電池串聯", "電池並聯", "燈泡並聯", "隨便亂塞"], answer: 0 }
+      ],
+      [ // 概念2：電池並聯
+        { q: "將兩顆電池的『正極接正極』、『負極接負極』，這稱為什麼？", options: ["電池並聯", "電池串聯", "燈泡串聯", "斷路"], answer: 0 },
+        { q: "關於『電池並聯』的特性，下列哪一個敘述是正確的？", options: ["拿掉其中一顆電池，燈泡依然會亮", "燈泡會變得超級無敵亮", "拿掉其中一顆電池，燈泡就不亮了", "正極必須接負極"], answer: 0 }
+      ],
+      [ // 概念3：燈泡串聯
+        { q: "將兩顆燈泡接在『同一條』通路上，如果其中一顆燈泡壞了，會發生什麼事？", options: ["另一顆燈泡也不會亮", "另一顆燈泡會變得更亮", "另一顆燈泡還是會繼續亮", "會發生爆炸"], answer: 0 },
+        { q: "下列關於『燈泡串聯』的敘述，哪一個是正確的？", options: ["只要有一顆燈泡壞掉，整個電路就會變成斷路", "燈泡是並排連接在不同的分支上", "其中一顆壞掉不影響其他的燈泡", "家裡的電燈都是串聯的"], answer: 0 }
+      ],
+      [ // 概念4：燈泡並聯
+        { q: "將兩顆燈泡分別接在『不同』的電線分支上，如果其中一顆燈泡壞了，另一顆會怎樣？", options: ["仍然會繼續發亮", "一定會跟著熄滅", "會一閃一閃的", "會變成其他顏色"], answer: 0 },
+        { q: "家裡的客廳電燈壞了，但房間的電燈還是可以正常發亮，這是因為家裡的電燈採用什麼連接方式？", options: ["燈泡並聯", "燈泡串聯", "電池串聯", "電池並聯"], answer: 0 }
+      ],
+      [ // 概念5：電池串並聯比較
+        { q: "在同樣只有一顆燈泡的電路中，『兩顆電池串聯』和『兩顆電池並聯』相比，哪一種接法會讓燈泡比較亮？", options: ["兩顆電池串聯比較亮", "兩顆電池並聯比較亮", "兩種接法一樣亮", "燈泡都不會亮"], answer: 0 },
+        { q: "關於電池連接的敘述，哪一個是錯誤的？", options: ["電池並聯可以讓燈泡變得更亮", "電池串聯是正極接負極", "電池並聯是正接正、負接負", "手電筒大多使用電池串聯"], answer: 0 }
+      ],
+      [ // 概念6：燈泡串並聯比較
+        { q: "如果想要在聖誕樹上掛很多燈泡，且希望『一顆燈泡壞掉時，其他的燈泡還能繼續亮』，應該採用什麼接法？", options: ["燈泡並聯", "燈泡串聯", "電池串聯", "都不接電線"], answer: 0 },
+        { q: "『燈泡串聯』和『燈泡並聯』最大的差別是什麼？", options: ["一顆壞掉時，另一顆會不會繼續亮", "燈泡的顏色會不會改變", "需不需要使用電池", "開關能不能控制燈泡"], answer: 0 }
+      ],
+      [ // 概念7：電池正負極常識
+        { q: "一般常見的乾電池，凸起的一端和扁平的一端分別稱為什麼？", options: ["凸起是正極，扁平是負極", "凸起是負極，扁平是正極", "兩端都是正極", "兩端都是負極"], answer: 0 },
+        { q: "將小燈泡、電池和電線連接形成電路，如果小燈泡發亮了，我們稱這個電路為什麼？", options: ["通路", "斷路", "短路", "死路"], answer: 0 }
+      ],
+      [ // 概念8：簡易開關與導體
+        { q: "如果想用生活中的物品製作簡易開關，下列哪一種物品最適合接在電路中讓電流通過？", options: ["鐵製的迴紋針", "塑膠尺", "木頭鉛筆", "橡皮擦"], answer: 0 },
+        { q: "鐵製迴紋針可以讓電流通過，所以我們稱它為什麼？", options: ["電的良導體", "電的不良導體", "絕緣體", "電池"], answer: 0 }
+      ],
+      [ // 概念9：綜合觀念
+        { q: "下列哪一種組合的電路，燈泡會最亮？", options: ["兩顆電池串聯，接一顆燈泡", "兩顆電池並聯，接一顆燈泡", "一顆電池，接一顆燈泡", "一顆電池，接兩顆串聯的燈泡"], answer: 0 },
+        { q: "在電路中增加電池的數量並採用『串聯』，會對電路造成什麼最明顯的影響？", options: ["燈泡變亮", "燈泡變暗", "燈泡一定會燒壞", "電路完全沒有變化"], answer: 0 }
+      ],
+      [ // 概念10：生活應用
+        { q: "電器如果沒有電就無法運作，所以日常生活中我們應該怎麼做？", options: ["節約用電，隨手關燈", "把家裡的燈全部打開", "冷氣開越冷越好", "冰箱門一直開著"], answer: 0 },
+        { q: "關於生活中的電路，下列哪一個敘述是『錯誤』的？", options: ["鐵絲是電的不良導體，不能用來接電線", "電線通常外面會包覆塑膠來絕緣防觸電", "開關可以控制電路形成通路或斷路", "燈泡發光表示電路形成通路"], answer: 0 }
+      ]
+    ];
+
+    let quizState = 'dashboard'; 
+    let quizData = [];
+    let quizCurrentQ = 0;
+    let quizScore = 0;
+    let quizSelectedOption = null;
+    let quizIsAnswered = false;
+    let quizStartTime = 0;
+    const LOCAL_STORAGE_KEY = '42hz43';
+
+    function initQuizData() {
+      quizData = rawQuizPools.map(pool => {
+        const qRaw = pool[Math.floor(Math.random() * pool.length)];
+        const correctOpt = qRaw.options[qRaw.answer];
+        const shuffledOptions = shuffleArray(qRaw.options);
+        return {
+          question: qRaw.q,
+          options: shuffledOptions,
+          answer: shuffledOptions.indexOf(correctOpt)
+        };
+      });
+    }
+
+    function formatDuration(ms) {
+      const totalSecs = Math.floor(ms / 1000);
+      const mins = Math.floor(totalSecs / 60);
+      const secs = totalSecs % 60;
+      return `${mins}分 ${secs}秒`;
+    }
+
+    function jumpToStep(index) {
+      currentStepIndex = index;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function renderProgressBar() {
+      const bar = document.getElementById('progress-bar');
+      const stages = [
+        { name: '出發', icon: 'ph-flag-pennant', th: 'emerald' },
+        { name: '電池實驗', icon: 'ph-battery-charging-vertical', th: 'amber' },
+        { name: '燈泡實驗', icon: 'ph-lightbulb', th: 'sky' },
+        { name: '綜合比較', icon: 'ph-scales', th: 'teal' },
+        { name: '最終測驗', icon: 'ph-file-question', th: 'indigo' },
+      ];
+
+      let html = '';
+      stages.forEach((stage, idx) => {
+        const isActive = currentStepIndex === idx;
+        const isPassed = (idx === 1 && batProgress >= 3) || 
+                         (idx === 2 && bulbProgress >= 3) || 
+                         (idx === 3 && compProgress >= 3);
+
+        let iconHtml = isPassed ? '<i class="ph-fill ph-check-circle text-xl"></i>' : `<i class="ph-fill ${stage.icon} text-xl"></i>`;
+        
+        let circleClass = `w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm fade-transition `;
+        if (isActive) circleClass += `bg-${stage.th}-500 ring-4 ring-${stage.th}-200`;
+        else if (isPassed) circleClass += `bg-emerald-400`;
+        else circleClass += `bg-slate-300`;
+
+        let textClass = `text-xs font-bold whitespace-nowrap mt-1 ${isActive ? `text-${stage.th}-600` : 'text-slate-500'}`;
+
+        html += `
+          <div class="flex items-center">
+            <button onclick="jumpToStep(${idx})" class="flex flex-col items-center px-2 py-1 fade-transition cursor-pointer hover:bg-slate-50 rounded-lg">
+              <div class="${circleClass}">${iconHtml}</div>
+              <span class="${textClass}">${stage.name}</span>
+            </button>
+        `;
+        if (idx < stages.length - 1) {
+          html += `<div class="hidden sm:block w-8 md:w-12 h-1 rounded-full mx-1 ${isPassed ? 'bg-emerald-300' : 'bg-slate-200'}"></div>`;
+        }
+        html += `</div>`;
+      });
+      bar.innerHTML = html;
+    }
+
+    // --- 共用 SVG 繪製函數 (From BAK) ---
+    function drawBattery(x, y, isDead=false) {
+        if (isDead) {
+            return `
+            <g transform="translate(${x-50}, ${y-30})" class="transition-all duration-500 opacity-60 grayscale">
+               <rect x="100" y="15" width="10" height="30" fill="#475569" rx="3"/>
+               <rect x="0" y="0" width="100" height="60" rx="8" fill="#cbd5e1" stroke="#94a3b8" stroke-width="5"/>
+               <text x="50" y="38" font-size="24" font-weight="bold" fill="#64748b" text-anchor="middle">沒電</text>
+            </g>
+            `;
+        }
+        return `
+        <g transform="translate(${x-50}, ${y-30})" class="transition-all duration-500">
+           <rect x="100" y="15" width="10" height="30" fill="#475569" rx="3"/>
+           <rect x="0" y="0" width="100" height="60" rx="8" fill="url(#bat-grad-h)" stroke="#334155" stroke-width="5"/>
+           <text x="25" y="40" font-size="32" font-weight="bold" fill="#1e293b" text-anchor="middle">-</text>
+           <text x="75" y="40" font-size="32" font-weight="bold" fill="#1e293b" text-anchor="middle">+</text>
+        </g>
+        `;
+    }
+
+    function drawBulb(x, y, brightness, isDead=false) {
+        // --- 1. 處理燈泡壞掉 (isDead) ---
+        if (isDead) {
+            return `
+            <g transform="translate(${x-50}, ${y-50})" class="transition-all duration-300">
+               <path d="M 30,85 L 70,85 L 70,40 L 50,60 L 30,40 Z" fill="#f8fafc" stroke="#cbd5e1" stroke-width="4"/>
+               <line x1="35" y1="85" x2="40" y2="40" stroke="#64748b" stroke-width="4"/>
+               <line x1="65" y1="85" x2="60" y2="40" stroke="#64748b" stroke-width="4"/>
+               <path d="M 40,40 L 45,25 M 55,25 L 60,40" fill="none" stroke="#94a3b8" stroke-width="4" stroke-linejoin="round"/>
+               <rect x="35" y="80" width="30" height="15" fill="#cbd5e1" stroke="#64748b" stroke-width="4"/>
+               <rect x="16" y="96" width="16" height="12" fill="#facc15" stroke="#ca8a04" stroke-width="4" rx="4"/>
+               <rect x="68" y="96" width="16" height="12" fill="#facc15" stroke="#ca8a04" stroke-width="4" rx="4"/>
+               <rect x="28" y="75" width="44" height="35" fill="#facc15" stroke="#ca8a04" stroke-width="4" rx="6"/>
+               <line x1="28" y1="88" x2="72" y2="88" stroke="#ca8a04" stroke-width="4" stroke-linecap="round"/>
+               <line x1="28" y1="98" x2="72" y2="98" stroke="#ca8a04" stroke-width="4" stroke-linecap="round"/>
+               <text x="50" y="10" font-size="32" text-anchor="middle" class="drop-shadow-md">💥</text>
+            </g>
+            `;
+        }
+
+        // --- 2. 處理正常發光 ---
+        let glowClass = '';
+        let fillClass = '#f8fafc';
+        let strokeClass = '#cbd5e1';
+        let filamentStroke = '#94a3b8';
+        let flowOpacity = brightness > 0 ? 1 : 0;
+        let rays = '';
+        
+        if (brightness > 0) {
+            // 🌟 這裡修改：串聯時的底色改得更淡 (#fefce8)
+            if (brightness === 1) { fillClass = '#fefce8'; filamentStroke = '#fbbf24'; glowClass = 'animate-dim-glow opacity-80'; }
+            if (brightness === 2) { fillClass = '#fde047'; filamentStroke = '#ea580c'; glowClass = 'animate-glow opacity-100'; }
+            if (brightness === 3) { fillClass = '#facc15'; filamentStroke = '#ea580c'; glowClass = 'animate-super-glow brightness-125'; strokeClass = '#fde047'; }
+            
+            const numRays = 12;
+            const radiusInner = 55;
+            // 🌟 這裡修改：串聯時 (brightness === 1) 的光線長度縮短到 61
+            const radiusOuter = brightness === 3 ? 100 : (brightness === 1 ? 61 : 80);
+            const rayStroke = brightness === 3 ? '#fbbf24' : '#fcd34d';
+            const rayWidth = brightness === 3 ? 4 : 3;
+            
+            for (let i = 0; i < numRays; i++) {
+                const angle = (i * 360 / numRays) * (Math.PI / 180);
+                const x1 = 50 + radiusInner * Math.cos(angle);
+                const y1 = 45 + radiusInner * Math.sin(angle);
+                const x2 = 50 + radiusOuter * Math.cos(angle);
+                const y2 = 45 + radiusOuter * Math.sin(angle);
+                rays += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${rayStroke}" stroke-width="${rayWidth}" stroke-linecap="round" class="${glowClass}"/>`;
+            }
+        }
+
+        return `
+        <g transform="translate(${x-50}, ${y-50})" class="transition-all duration-300">
+           ${rays}
+           <circle cx="50" cy="45" r="40" fill="${fillClass}" stroke="${strokeClass}" stroke-width="4" class="${glowClass}"/>
+           <line x1="35" y1="85" x2="40" y2="50" stroke="#64748b" stroke-width="4"/>
+           <line x1="65" y1="85" x2="60" y2="50" stroke="#64748b" stroke-width="4"/>
+           <path d="M 40,50 L 43,35 L 50,50 L 57,35 L 60,50" fill="none" stroke="${filamentStroke}" stroke-width="4" stroke-linejoin="round"/>
+           <path d="M 40,50 L 43,35 L 50,50 L 57,35 L 60,50" fill="none" stroke="#fef08a" stroke-width="2" stroke-dasharray="4 4" class="animate-circuit-flow" style="opacity: ${flowOpacity}"/>
+           
+           <rect x="35" y="80" width="30" height="15" fill="#cbd5e1" stroke="#64748b" stroke-width="4"/>
+           
+           <rect x="16" y="96" width="16" height="12" fill="#facc15" stroke="#ca8a04" stroke-width="4" rx="4"/>
+           <rect x="68" y="96" width="16" height="12" fill="#facc15" stroke="#ca8a04" stroke-width="4" rx="4"/>
+           <rect x="28" y="75" width="44" height="35" fill="#facc15" stroke="#ca8a04" stroke-width="4" rx="6"/>
+           
+           <line x1="28" y1="88" x2="72" y2="88" stroke="#ca8a04" stroke-width="4" stroke-linecap="round"/>
+           <line x1="28" y1="98" x2="72" y2="98" stroke="#ca8a04" stroke-width="4" stroke-linecap="round"/>
+        </g>
+        `;
+    }
+
+    // --- 區塊渲染：0. 首頁 ---
+    function renderWelcome() {
+      return `
+        <div class="bg-white rounded-3xl p-8 md:p-12 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition max-w-4xl mx-auto">
+          <div class="inline-block bg-amber-50 p-6 rounded-full mb-6">
+            <i class="ph-fill ph-plugs text-7xl text-amber-500"></i>
+          </div>
+          <h2 class="text-4xl md:text-5xl font-bold text-slate-800 mb-6">電路工程師</h2>
+          <p class="text-xl md:text-2xl text-slate-600 leading-relaxed mb-8 max-w-2xl mx-auto">
+            手電筒裡的電池是怎麼放的呢？為什麼客廳的電燈壞了一顆，旁邊的電燈還是會亮？<br/><br/>
+            電池和燈泡的連接方式有「串聯」和「並聯」兩種。讓我們進入實驗室，親自動手接線看看會發生什麼神奇的變化吧！
+          </p>
+          <button onclick="jumpToStep(1)" class="inline-flex items-center gap-3 bg-amber-500 hover:bg-amber-600 text-white px-8 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm">
+            <i class="ph-fill ph-play-circle text-3xl"></i> 進入實驗室！
+          </button>
+        </div>
+      `;
+    }
+
+    // --- 區塊渲染：1. 電池的連接 (Amber) ---
+    function renderBattery() {
+      let isCut = batState.cond === 'cut';
+      let b1Broken = batState.cond === 'dead';
+      let b2Broken = false; 
+      if (batState.cond === 'dead') {
+          if (batState.conn === 's' || batState.conn === 'p') b2Broken = true;
+      }
+
+      let paths = '';
+      let flow = '';
+      let bulbGlow = 0;
+      let flowClass = 'animate-circuit-flow';
+      
+      let message = '請點擊右方按鈕，切換連接方式並觀察結果。';
+      let msgColor = 'text-slate-500 bg-slate-100';
+
+      let bat1 = '', bat2 = '';
+
+      if (batState.conn === '1') {
+          bat1 = drawBattery(300, 400, b1Broken);
+          let circuitOk = !b1Broken && !isCut;
+          bulbGlow = circuitOk ? 2 : 0;
+          
+          if (isCut) {
+              // 把原本的 150 改成 100，450 改成 500，讓框框變寬
+              paths += `<path d="M 250,400 L 100,400 L 100,280 M 100,240 L 100,200 L 280,200" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+              paths += `<path d="M 360,400 L 500,400 L 500,200 L 320,200" fill="none" stroke="#3b82f6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+              paths += `<text x="100" y="265" font-size="36" text-anchor="middle">✂️</text>`;
+          } else {
+              paths += `<path d="M 250,400 L 100,400 L 100,200 L 280,200" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+              paths += `<path d="M 360,400 L 500,400 L 500,200 L 320,200" fill="none" stroke="#3b82f6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+          }
+          if (circuitOk) {
+              flow = `<path d="M 360,400 L 500,400 L 500,200 L 320,200 M 280,200 L 100,200 L 100,400 L 250,400" fill="none" stroke="#fef08a" stroke-width="6" stroke-dasharray="14 14" class="${flowClass}"/>`;
+          }
+
+          if (batState.cond === 'normal') { message = '✅ 只有一顆電池，燈泡正常發亮。可亮10天。'; msgColor = 'text-emerald-700 bg-emerald-50 border-emerald-200'; }
+          else if (isCut) { message = '❌ 斷路！電線斷開，燈泡熄滅了。'; msgColor = 'text-rose-700 bg-rose-50 border-rose-200'; }
+          else { message = '❌ 斷路！電池沒電了，無法提供電力。'; msgColor = 'text-rose-700 bg-rose-50 border-rose-200'; }
+      } 
+      else if (batState.conn === 's') {
+          bat1 = drawBattery(220, 400, false); 
+          bat2 = drawBattery(380, 400, b2Broken); 
+          let circuitOk = !b2Broken && !isCut;
+          bulbGlow = circuitOk ? 3 : 0; 
+          flowClass = 'animate-circuit-flow-fast';
+          
+          if (isCut) {
+              paths += `<path d="M 170,400 L 100,400 L 100,280 M 100,240 L 100,200 L 280,200" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+              paths += `<path d="M 280,400 L 330,400" fill="none" stroke="#94a3b8" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+              paths += `<path d="M 440,400 L 500,400 L 500,200 L 320,200" fill="none" stroke="#3b82f6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+              paths += `<text x="100" y="265" font-size="36" text-anchor="middle">✂️</text>`;
+          } else {
+              paths += `<path d="M 170,400 L 100,400 L 100,200 L 280,200" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+              paths += `<path d="M 280,400 L 330,400" fill="none" stroke="#94a3b8" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+              paths += `<path d="M 440,400 L 500,400 L 500,200 L 320,200" fill="none" stroke="#3b82f6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+          }
+          if (circuitOk) {
+              flow = `<path d="M 440,400 L 500,400 L 500,200 L 320,200 M 280,200 L 100,200 L 100,400 L 170,400 M 280,400 L 330,400" fill="none" stroke="#fef08a" stroke-width="6" stroke-dasharray="14 14" class="${flowClass}"/>`;
+          }
+
+          if (batState.cond === 'normal') { message = '🌟 電池串聯！電力相加，燈泡變得超級亮！可亮10天。'; msgColor = 'text-amber-700 bg-amber-100 border-amber-400 ring-2 ring-amber-200'; }
+          else if (isCut) { message = '❌ 斷路！串聯的電路只要斷線，就全部熄滅。'; msgColor = 'text-rose-700 bg-rose-50 border-rose-200'; }
+          else { message = '❌ 斷路！串聯電路中只要有一顆沒電，整體就無法導電。'; msgColor = 'text-rose-700 bg-rose-50 border-rose-200'; }
+      } 
+      else if (batState.conn === 'p') {
+          let isDead = batState.cond === 'dead'; // 判斷是否為「沒電」狀態
+          bat1 = drawBattery(300, 330, isDead);  // 沒電時，讓「上方」的電池變成灰色
+          bat2 = drawBattery(300, 430, false);   // 「下方」的電池永遠保持正常
+
+          let branch1Ok = !isDead; // 上方支路：只要電池有電就通
+          let branch2Ok = !isCut;  // 下方支路：只要沒被剪斷就通
+          let circuitOk = branch1Ok || branch2Ok; // 只要有一條支路通，外圍大圈就會有電
+          bulbGlow = circuitOk ? 2 : 0;
+
+          // 1. 畫外圍的大圈圈電線
+          paths += `<path d="M 180,380 L 100,380 L 100,200 L 280,200" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+          paths += `<path d="M 420,380 L 500,380 L 500,200 L 320,200" fill="none" stroke="#3b82f6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+
+          // 2. 畫上方電池的電線 (完整連接)
+          paths += `<path d="M 180,380 L 180,330 L 250,330" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+          paths += `<path d="M 360,330 L 420,330 L 420,380" fill="none" stroke="#3b82f6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+
+          // 3. 畫下方電池的電線 (包含剪斷的邏輯)
+          if (isCut) {
+              paths += `<path d="M 180,380 L 180,430 M 220,430 L 250,430" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+              paths += `<text x="200" y="440" font-size="30" text-anchor="middle">✂️</text>`;
+          } else {
+              paths += `<path d="M 180,380 L 180,430 L 250,430" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+          }
+          paths += `<path d="M 360,430 L 420,430 L 420,380" fill="none" stroke="#3b82f6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+          
+          // 4. 控制黃色電流動畫流動
+          flow = '';
+          if (circuitOk) {
+              // 外圍主幹線的電流
+              flow += `<path d="M 420,380 L 500,380 L 500,200 L 320,200 M 280,200 L 100,200 L 100,380 L 180,380" fill="none" stroke="#fef08a" stroke-width="6" stroke-dasharray="14 14" class="${flowClass}"/>`;
+              
+              // 上方支路的電流 (沒電時不會流動)
+              if (branch1Ok) {
+                  flow += `<path d="M 360,330 L 420,330 L 420,380 M 180,380 L 180,330 L 250,330" fill="none" stroke="#fef08a" stroke-width="6" stroke-dasharray="14 14" class="${flowClass}"/>`;
+              }
+              
+              // 下方支路的電流 (剪斷時不會流動)
+              if (branch2Ok) {
+                  flow += `<path d="M 360,430 L 420,430 L 420,380 M 180,380 L 180,430 L 250,430" fill="none" stroke="#fef08a" stroke-width="6" stroke-dasharray="14 14" class="${flowClass}"/>`;
+              }
+          }
+
+          // 5. 顯示對應的訊息
+          if (batState.cond === 'normal') { message = '🔋 電池並聯！亮度跟一顆時一樣，但電池可以使用更久喔！可亮20天。'; msgColor = 'text-emerald-700 bg-emerald-100 border-emerald-400'; }
+          else if (isCut) { message = '✅ 並聯！下方支路斷線，但上方仍有獨立通路，燈泡依然發亮。'; msgColor = 'text-emerald-700 bg-emerald-50 border-emerald-200'; }
+          else { message = '✅ 並聯！上方電池沒電，但下方仍有獨立通路，燈泡依然發亮。'; msgColor = 'text-emerald-700 bg-emerald-50 border-emerald-200'; }
+      }
+
+      let bulb = drawBulb(300, 150, bulbGlow, false);
+      let svgCanvas = `<svg viewBox="0 0 600 500" class="w-full h-full max-h-[500px] drop-shadow-sm" preserveAspectRatio="xMidYMid meet"><defs><linearGradient id="bat-grad-h" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#38bdf8" /><stop offset="100%" stop-color="#fcd34d" /></linearGradient></defs>${paths}${flow}${bat1}${bat2}${bulb}</svg>`;
+
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-amber-50 border-l-8 border-amber-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start max-w-4xl mx-auto">
+            <div class="text-4xl">🔋</div>
+            <div>
+              <h3 class="font-bold text-amber-800 text-lg">電池實驗室：串聯與並聯</h3>
+              <p class="text-amber-700">「兩顆電池不同的接法，會讓燈泡亮度不一樣喔！請親手接接看並點選不同的突發狀況。」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-4 md:p-5 shadow-sm border-2 border-slate-200">
+            <div class="flex flex-col lg:flex-row gap-6 lg:gap-8 items-stretch">
+              
+              <div class="flex-1 w-full bg-slate-50 rounded-3xl border-2 border-slate-200 relative overflow-hidden flex flex-col items-center justify-center min-h-[250px] lg:min-h-[350px] shadow-inner p-2">
+                 ${svgCanvas}
+              </div>
+              
+              <div class="w-full lg:w-[380px] flex-shrink-0 flex flex-col bg-white rounded-3xl border-2 border-slate-100 p-4 shadow-sm justify-center gap-3">
+                 <p class="text-slate-600 font-bold mb-1 text-lg">請選擇連接方式：</p>
+                 <button onclick="setBatConn('1')" class="py-2 px-5 rounded-xl font-bold border-2 fade-transition text-left flex justify-between items-center text-lg ${batState.conn==='1'?'bg-amber-100 border-amber-400 text-amber-800 ring-2 ring-amber-200':'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'}"><span>1️⃣ 一顆電池</span> ${batState.conn==='1'?'✅':''}</button>
+                 <button onclick="setBatConn('s')" class="py-2 px-5 rounded-xl font-bold border-2 fade-transition text-left flex justify-between items-center text-lg ${batState.conn==='s'?'bg-amber-100 border-amber-400 text-amber-800 ring-2 ring-amber-200':'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'}"><span>🔋 電池串聯</span> ${batState.conn==='s'?'✅':''}</button>
+                 <button onclick="setBatConn('p')" class="py-2 px-5 rounded-xl font-bold border-2 fade-transition text-left flex justify-between items-center text-lg ${batState.conn==='p'?'bg-amber-100 border-amber-400 text-amber-800 ring-2 ring-amber-200':'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'}"><span>🔋 電池並聯</span> ${batState.conn==='p'?'✅':''}</button>
+                 
+                 <div class="border-t-2 border-slate-100 my-2"></div>
+                 
+                 <div class="grid grid-cols-2 gap-3">
+                    <button onclick="setBatCond('normal')" class="py-3 px-2 rounded-xl font-bold border-2 fade-transition text-center text-sm md:text-base col-span-2 ${batState.cond==='normal'?'bg-emerald-500 text-white border-emerald-600 shadow-md':'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'}">✅ 恢復正常</button>
+                    <button onclick="setBatCond('cut')" class="py-3 px-2 rounded-xl font-bold border-2 fade-transition text-center text-sm md:text-base ${batState.cond==='cut'?'bg-rose-500 text-white border-rose-600 shadow-md':'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'}">✂️ 剪斷電線</button>
+                    <button onclick="setBatCond('dead')" class="py-3 px-2 rounded-xl font-bold border-2 fade-transition text-center text-sm md:text-base ${batState.cond==='dead'?'bg-rose-500 text-white border-rose-600 shadow-md':'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'}">🪫 電池沒電</button>
+                 </div>
+              </div>
+            </div>
+            <div class="p-4 mt-6 rounded-xl font-bold border-2 ${msgColor} transition-colors shadow-sm text-center text-lg md:text-xl">${message}</div>
+          </div>
+      `;
+
+      if (!(batTestedS && batTestedP)) {
+         content += `
+            <div class="bg-slate-100 border-2 border-dashed border-slate-300 text-slate-500 rounded-3xl p-8 text-center font-bold text-xl fade-transition max-w-4xl mx-auto">
+               <i class="ph-fill ph-lock-key text-4xl mb-2"></i><br/>請先完成「串聯」與「並聯」兩種接法的實驗，解鎖隨堂測驗！
+            </div>
+         </div>`;
+      } else {
+         content += `<div class="max-w-4xl mx-auto space-y-6">`;
+         if (batProgress >= 0) {
+          content += renderMiniFill('batFill', '任務一：觀念填空測驗', 
+            [
+              { qParts: ["把電池的", "連接另一顆電池的負極，稱為電池", "，可以讓燈泡變得更", "。"], ans: ["正極", "串聯", "亮"], distractors: ["負極", "並聯", "暗"] },
+              { qParts: ["把電池的正極接正極、負極接負極稱為", "。如果拿掉其中一顆電池，燈泡", "發亮。"], ans: ["並聯", "還是會"], distractors: ["串聯", "不會"] }
+            ], batProgress > 0, 'amber'
+          );
+        }
+        if (batProgress >= 1) {
+          content += renderMiniMCQ('batMCQ', '任務二：觀念選擇題', 
+            [
+              {q: '手電筒為了讓燈泡能發出更亮的光，裡面的電池通常是採用什麼連接方式？', opts: ['電池串聯', '電池並聯', '燈泡並聯', '只要有裝就好'], a: 0},
+              {q: '在同樣只有一顆燈泡的電路中，哪一種電池接法會讓燈泡比較亮？', opts: ['兩顆電池並聯', '兩顆電池串聯', '兩種接法一樣亮', '都不會亮'], a: 1}
+            ], batProgress > 1, 'amber');
+        }
+        if (batProgress >= 2) {
+          content += renderMiniTF('batTF', '任務三：觀念是非題', 
+            [
+              {q: '在電池並聯的通路中，如果拿掉其中一顆電池，燈泡就完全不會亮了。', a: false},
+              {q: '電池串聯是將一顆電池的正極連接到另一顆電池的負極。', a: true}
+            ], batProgress > 2, 'amber');
+        }
+
+        content += `
+          <div class="text-center fade-transition ${batProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+            <button onclick="jumpToStep(2)" class="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+              電池我懂了！前往燈泡實驗 <i class="ph-bold ph-arrow-right"></i>
+            </button>
+          </div>
+        </div></div>`;
+      }
+
+      return content;
+    }
+
+    window.setBatConn = function(type) {
+        batState.conn = type;
+        batState.cond = 'normal';
+        if (type === 's') batTestedS = true;
+        if (type === 'p') batTestedP = true;
+        render();
+    }
+    window.setBatCond = function(cond) { batState.cond = cond; render(); }
+
+    // --- 區塊渲染：2. 燈泡的連接 (Sky) ---
+    function renderBulb() {
+      let isCut = bulbState.cond === 'cut';
+      let b2Broken = bulbState.cond === 'dead'; 
+      let b1Broken = false;
+      if (bulbState.conn === '1' && bulbState.cond === 'dead') b1Broken = true;
+
+      let paths = '';
+      let flow = '';
+      let b1Glow = 0, b2Glow = 0;
+      let flowClass = 'animate-circuit-flow';
+      
+      let bat = drawBattery(300, 420, false);
+      let bulb1 = '', bulb2 = '';
+      let message = '請點擊右方按鈕，切換連接方式並觀察結果。';
+      let msgColor = 'text-slate-500 bg-slate-100';
+
+      if (bulbState.conn === '1') {
+          let circuitOk = !b1Broken && !isCut;
+          b1Glow = circuitOk ? 2 : 0;
+          if (isCut) {
+              // 把原本的 150 改成 100，450 改成 500，讓框框變寬
+              paths += `<path d="M 250,420 L 100,420 L 100,300 M 100,260 L 100,200 L 280,200" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+              paths += `<path d="M 360,420 L 500,420 L 500,200 L 320,200" fill="none" stroke="#3b82f6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+              paths += `<text x="100" y="285" font-size="36" text-anchor="middle">✂️</text>`;
+          } else {
+              paths += `<path d="M 250,420 L 100,420 L 100,200 L 280,200" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+              paths += `<path d="M 360,420 L 500,420 L 500,200 L 320,200" fill="none" stroke="#3b82f6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+          }
+          if (circuitOk) {
+              flow = `<path d="M 360,420 L 500,420 L 500,200 L 320,200 M 280,200 L 100,200 L 100,420 L 250,420" fill="none" stroke="#fef08a" stroke-width="6" stroke-dasharray="14 14" class="${flowClass}"/>`;
+          }
+          bulb1 = drawBulb(300, 150, b1Glow, b1Broken);
+
+          if (bulbState.cond === 'normal') { message = '✅ 只有一顆燈泡，正常發亮。可亮10天。'; msgColor = 'text-emerald-700 bg-emerald-50 border-emerald-200'; }
+          else if (isCut) { message = '❌ 斷路！電線斷開，無法形成迴圈。'; msgColor = 'text-rose-700 bg-rose-50 border-rose-200'; }
+          else { message = '❌ 斷路！燈泡燒壞了，電流無法通過鎢絲。'; msgColor = 'text-rose-700 bg-rose-50 border-rose-200'; }
+      } 
+      else if (bulbState.conn === 's') {
+          let circuitOk = !b2Broken && !isCut;
+          b1Glow = circuitOk ? 1 : 0; 
+          b2Glow = circuitOk ? 1 : 0; 
+          bulb1 = drawBulb(200, 150, b1Glow, false);
+          bulb2 = drawBulb(400, 150, b2Glow, b2Broken);
+
+          paths += `<path d="M 250,420 L 100,420 L 100,200 L 180,200" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+          if (isCut) {
+              paths += `<path d="M 220,200 L 280,200 M 320,200 L 380,200" fill="none" stroke="#94a3b8" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+              paths += `<text x="300" y="210" font-size="36" text-anchor="middle">✂️</text>`;
+          } else {
+              paths += `<path d="M 220,200 L 380,200" fill="none" stroke="#94a3b8" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+          }
+          paths += `<path d="M 420,200 L 500,200 L 500,420 L 360,420" fill="none" stroke="#3b82f6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+          
+          if (circuitOk) {
+              flow = `<path d="M 360,420 L 500,420 L 500,200 L 420,200 M 380,200 L 220,200 M 180,200 L 100,200 L 100,420 L 250,420" fill="none" stroke="#fef08a" stroke-width="6" stroke-dasharray="14 14" class="${flowClass}"/>`;
+          }
+
+          if (bulbState.cond === 'normal') { message = '🔅 燈泡串聯！電被分走了，兩顆燈泡都變得比較暗。可亮10幾天。'; msgColor = 'text-amber-700 bg-amber-50 border-amber-300'; }
+          else if (isCut) { message = '❌ 斷路！串聯的電線斷掉，全部燈泡都會熄滅。'; msgColor = 'text-rose-700 bg-rose-50 border-rose-200'; }
+          else { message = '❌ 斷路！串聯電路中只要有一顆壞掉，全部都不會亮。'; msgColor = 'text-rose-700 bg-rose-50 border-rose-200'; }
+      } 
+      else if (bulbState.conn === 'p') {
+          let isDead = bulbState.cond === 'dead'; // 判斷是否為「燈泡壞掉」狀態
+          
+          let branch1Ok = !isDead; // 上方支路：燈泡沒壞就會通
+          let branch2Ok = !isCut;  // 下方支路：電線沒剪斷就會通
+          let circuitOk = branch1Ok || branch2Ok; // 只要有一條支路通，主幹線就有電
+
+          b1Glow = branch1Ok ? 2 : 0; 
+          b2Glow = branch2Ok ? 2 : 0;
+          
+          // 上方燈泡綁定 isDead，下方燈泡永遠正常 (受電線剪斷影響)
+          bulb1 = drawBulb(300, 100, b1Glow, isDead); 
+          bulb2 = drawBulb(300, 240, b2Glow, false);
+          
+          // 1. 畫主幹與分支電線 (紅色左側負極，使用加寬的 100)
+          paths += `<path d="M 250,420 L 100,420 L 100,150 L 280,150" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+          if (isCut) {
+              paths += `<path d="M 100,290 L 190,290 M 230,290 L 280,290" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+              paths += `<text x="210" y="300" font-size="30" text-anchor="middle">✂️</text>`;
+          } else {
+              paths += `<path d="M 100,290 L 280,290" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+          }
+
+          // 2. 畫主幹與分支電線 (藍色右側正極，使用加寬的 500)
+          paths += `<path d="M 360,420 L 500,420 L 500,150 L 320,150" fill="none" stroke="#3b82f6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+          paths += `<path d="M 500,290 L 320,290" fill="none" stroke="#3b82f6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>`;
+          
+          // 3. 處理電流動畫
+          flow = '';
+          if (circuitOk) {
+              // 右側主幹線 (從電池正極出發，流到第一個分岔點)
+              flow += `<path d="M 360,420 L 500,420 L 500,290" fill="none" stroke="#fef08a" stroke-width="6" stroke-dasharray="14 14" class="${flowClass}"/>`;
+              // 左側主幹線 (從左側分岔點匯合，流回電池負極)
+              flow += `<path d="M 100,290 L 100,420 L 250,420" fill="none" stroke="#fef08a" stroke-width="6" stroke-dasharray="14 14" class="${flowClass}"/>`;
+
+              // 上方支路電流 (往上走，經過燈泡再往下匯合)
+              if (branch1Ok) {
+                  flow += `<path d="M 500,290 L 500,150 L 320,150 M 280,150 L 100,150 L 100,290" fill="none" stroke="#fef08a" stroke-width="6" stroke-dasharray="14 14" class="${flowClass}"/>`;
+              }
+              
+              // 下方支路電流 (直接平移經過燈泡)
+              if (branch2Ok) {
+                  flow += `<path d="M 500,290 L 320,290 M 280,290 L 100,290" fill="none" stroke="#fef08a" stroke-width="6" stroke-dasharray="14 14" class="${flowClass}"/>`;
+              }
+          }
+
+          // 4. 訊息提示更新
+          if (bulbState.cond === 'normal') { message = '💡💡 燈泡並聯！亮度不變，兩顆燈泡都非常明亮。可亮5天。'; msgColor = 'text-sky-700 bg-sky-100 border-sky-400 ring-2 ring-sky-200'; }
+          else if (isCut) { message = '✅ 並聯！下方電線斷了，但上方燈泡仍有獨立通路，依然發亮。'; msgColor = 'text-emerald-700 bg-emerald-50 border-emerald-200'; }
+          else { message = '✅ 並聯！上方燈泡壞了，但下方燈泡仍有獨立通路，依然正常發亮。'; msgColor = 'text-emerald-700 bg-emerald-50 border-emerald-200'; }
+      }
+
+      let svgCanvas = `<svg viewBox="0 0 600 500" class="w-full h-full max-h-[500px] drop-shadow-sm" preserveAspectRatio="xMidYMid meet"><defs><linearGradient id="bat-grad-h" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#38bdf8" /><stop offset="100%" stop-color="#fcd34d" /></linearGradient></defs>${paths}${flow}${bat}${bulb1}${bulb2}</svg>`;
+
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-sky-50 border-l-8 border-sky-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start max-w-4xl mx-auto">
+            <div class="text-4xl">💡</div>
+            <div>
+              <h3 class="font-bold text-sky-800 text-lg">燈泡實驗室：串聯與並聯</h3>
+              <p class="text-sky-700">「如果其中一顆燈泡壞掉了，另一顆會怎樣呢？請先切換接法，然後點擊按鈕測試看看！」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-4 md:p-5 shadow-sm border-2 border-slate-200">
+            <div class="flex flex-col lg:flex-row gap-6 lg:gap-8 items-stretch">
+              
+              <div class="flex-1 w-full bg-slate-50 rounded-3xl border-2 border-slate-200 relative overflow-hidden flex flex-col items-center justify-center min-h-[250px] lg:min-h-[350px] shadow-inner p-2">
+                 ${svgCanvas}
+              </div>
+
+              <div class="w-full lg:w-[380px] flex-shrink-0 flex flex-col bg-white rounded-3xl border-2 border-slate-100 p-4 shadow-sm justify-center gap-3">
+                 <p class="text-slate-600 font-bold mb-1 text-lg">請選擇連接方式：</p>
+                 <button onclick="setBulbConn('1')" class="py-2 px-5 rounded-xl font-bold border-2 fade-transition text-left flex justify-between items-center text-lg ${bulbState.conn==='1'?'bg-sky-100 border-sky-400 text-sky-800 ring-2 ring-sky-200':'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'}"><span>1️⃣ 一顆燈泡</span> ${bulbState.conn==='1'?'✅':''}</button>
+                 <button onclick="setBulbConn('s')" class="py-2 px-5 rounded-xl font-bold border-2 fade-transition text-left flex justify-between items-center text-lg ${bulbState.conn==='s'?'bg-sky-100 border-sky-400 text-sky-800 ring-2 ring-sky-200':'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'}"><span>💡 燈泡串聯</span> ${bulbState.conn==='s'?'✅':''}</button>
+                 <button onclick="setBulbConn('p')" class="py-2 px-5 rounded-xl font-bold border-2 fade-transition text-left flex justify-between items-center text-lg ${bulbState.conn==='p'?'bg-sky-100 border-sky-400 text-sky-800 ring-2 ring-sky-200':'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'}"><span>💡 燈泡並聯</span> ${bulbState.conn==='p'?'✅':''}</button>
+                 
+                 <div class="border-t-2 border-slate-100 my-2"></div>
+                 
+                 <div class="grid grid-cols-2 gap-3">
+                    <button onclick="setBulbCond('normal')" class="py-3 px-2 rounded-xl font-bold border-2 fade-transition text-center text-sm md:text-base col-span-2 ${bulbState.cond==='normal'?'bg-emerald-500 text-white border-emerald-600 shadow-md':'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'}">✅ 恢復正常</button>
+                    <button onclick="setBulbCond('cut')" class="py-3 px-2 rounded-xl font-bold border-2 fade-transition text-center text-sm md:text-base ${bulbState.cond==='cut'?'bg-rose-500 text-white border-rose-600 shadow-md':'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'}">✂️ 剪斷電線</button>
+                    <button onclick="setBulbCond('dead')" class="py-3 px-2 rounded-xl font-bold border-2 fade-transition text-center text-sm md:text-base ${bulbState.cond==='dead'?'bg-rose-500 text-white border-rose-600 shadow-md':'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'}">💥 燈泡壞掉</button>
+                 </div>
+              </div>
+            </div>
+            <div class="p-4 mt-6 rounded-xl font-bold border-2 ${msgColor} transition-colors shadow-sm text-center text-lg md:text-xl">${message}</div>
+          </div>
+      `;
+
+      if (!(bulbTestedS && bulbTestedP)) {
+         content += `
+            <div class="bg-slate-100 border-2 border-dashed border-slate-300 text-slate-500 rounded-3xl p-8 text-center font-bold text-xl fade-transition max-w-4xl mx-auto">
+               <i class="ph-fill ph-lock-key text-4xl mb-2"></i><br/>請在「串聯」與「並聯」模式下操作實驗，解鎖隨堂測驗！
+            </div>
+         </div>`;
+      } else {
+         content += `<div class="max-w-4xl mx-auto space-y-6">`;
+        if (bulbProgress >= 0) {
+          content += renderMiniFill('bulbFill', '任務一：觀念填空測驗', 
+            [
+              { qParts: ["將燈泡接在同一個通路上是燈泡", "，如果其中一顆壞掉，另一顆就", "。"], ans: ["串聯", "不會亮"], distractors: ["並聯", "還是會亮"] },
+              { qParts: ["將燈泡接在不同的分支上是燈泡", "，如果其中一顆壞掉，另一顆", "發亮。"], ans: ["並聯", "還是會"], distractors: ["串聯", "不會"] }
+            ], bulbProgress > 0, 'sky'
+          );
+        }
+        if (bulbProgress >= 1) {
+          content += renderMiniMCQ('bulbMCQ', '任務二：觀念選擇題', 
+            [
+              {q: '利用兩顆燈泡串聯的通路，如果其中一顆燈泡壞了，另一顆會發生什麼事？', opts: ['另一顆燈泡也不會亮', '另一顆燈泡會變得更亮', '另一顆燈泡還是會繼續亮', '會發生爆炸'], a: 0},
+              {q: '家裡的客廳電燈壞了，但房間的電燈還是可以正常發亮，這是因為家裡的電燈採用什麼連接方式？', opts: ['燈泡並聯', '燈泡串聯', '電池串聯', '電池並聯'], a: 0}
+            ], bulbProgress > 1, 'sky');
+        }
+        if (bulbProgress >= 2) {
+          content += renderMiniTF('bulbTF', '任務三：觀念是非題', 
+            [
+              {q: '不管燈泡是串聯還是並聯，只要有一顆壞掉，全部都不會亮。', a: false},
+              {q: '燈泡並聯的通路中，如果其中一個燈泡壞掉，也不會影響其他的燈泡。', a: true}
+            ], bulbProgress > 2, 'sky');
+        }
+
+        content += `
+          <div class="text-center fade-transition ${bulbProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+            <button onclick="jumpToStep(3)" class="inline-flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+              燈泡我也懂了！前往綜合比較 <i class="ph-bold ph-arrow-right"></i>
+            </button>
+          </div>
+        </div></div>`;
+      }
+
+      return content;
+    }
+
+    window.setBulbConn = function(type) {
+        bulbState.conn = type;
+        bulbState.cond = 'normal';
+        if (type === 's') bulbTestedS = true;
+        if (type === 'p') bulbTestedP = true;
+        render();
+    }
+    window.setBulbCond = function(cond) { bulbState.cond = cond; render(); }
+
+    // --- 區塊渲染：3. 綜合比較 (Teal) ---
+    function renderCompare() {
+      if (compProgress === 0 && sortItems.length === 0) {
+        sortItems = shuffleArray(baseSortItems);
+      }
+
+      let content = `
+        <div class="space-y-6 fade-transition max-w-4xl mx-auto">
+          <div class="bg-teal-50 border-l-8 border-teal-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">⚖️</div>
+            <div>
+              <h3 class="font-bold text-teal-800 text-lg">綜合挑戰：串聯家族 vs 並聯家族</h3>
+              <p class="text-teal-700">「串聯和並聯的特性各有不同。請幫忙把下列的敘述，分類到正確的家族中吧！」</p>
+            </div>
+          </div>
+
+          ${renderSortGame('任務一：特性大分類', compProgress > 0)}
+      `;
+
+      if (compProgress >= 1) {
+        content += renderMiniFill('compFill', '任務二：觀念填空測驗', 
+          [
+            { qParts: ["手電筒為了讓燈泡更亮，通常使用電池", "；而家裡的電燈為了避免一顆壞掉全都不亮，通常是", "。"], ans: ["串聯", "並聯"], distractors: ["短路", "斷路"] }
+          ], compProgress > 1, 'teal'
+        );
+      }
+
+      if (compProgress >= 2) {
+        content += renderMiniMCQ('compMCQ', '任務三：觀念選擇題', 
+          [
+            {q: '「電池串聯」和「燈泡並聯」的共同點是什麼？', opts: ['都沒有共同點，它們是不同的概念', '都會讓燈泡變得非常亮', '一顆壞掉全部都會停擺', '都是正極接正極'], a: 0},
+            {q: '如果想要在聖誕樹上掛很多燈泡，且希望「一顆燈泡壞掉時，其他的燈泡還能繼續亮」，應該採用什麼接法？', opts: ['燈泡並聯', '燈泡串聯', '電池串聯', '隨便接都可以'], a: 0}
+          ], compProgress > 2, 'teal');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${compProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(4)" class="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            我是電路大師！前往最終測驗 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      return content;
+    }
+
+    function renderSortGame(title, isCompleted) {
+      if (isCompleted) sortCurrentIndex = sortItems.length;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? 'bg-teal-50 border-teal-200 opacity-80' : 'border-slate-200'}">
+          <h2 class="text-xl font-bold text-teal-700 mb-6 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-list-checks"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h2>`;
+
+      if (sortCurrentIndex < sortItems.length && !isCompleted) {
+        const cur = sortItems[sortCurrentIndex];
+        html += `<div class="flex flex-col items-center">
+            <div class="relative w-full max-w-md bg-slate-50 border-4 border-slate-200 rounded-3xl flex flex-col items-center justify-center mb-8 py-8 px-4 fade-transition min-h-[200px]">`;
+        if (sortFeedback) {
+          html += `<div class="text-2xl font-bold flex items-center gap-2 ${sortFeedback.isCorrect ? 'text-emerald-600' : 'text-rose-500'} px-4 text-center">
+              <i class="ph-fill ${sortFeedback.isCorrect ? 'ph-check-circle' : 'ph-x-circle'} text-4xl shrink-0"></i> ${sortFeedback.text}
+            </div>`;
+        } else {
+          html += `<div class="text-center fade-transition">
+              <div class="text-6xl mb-4 drop-shadow-md">${cur.emoji}</div>
+              <h3 class="text-2xl font-bold text-slate-800 mb-2">${cur.text}</h3>
+              <p class="text-slate-500 font-bold bg-white px-3 py-1 rounded shadow-sm border border-slate-100">${cur.desc}</p>
+            </div>`;
+        }
+        html += `</div>
+            <div class="w-full flex justify-center gap-4">`;
+        
+        html += `<button onclick="handleSort('series')" ${sortFeedback?'disabled':''} class="w-full md:w-40 bg-slate-50 hover:bg-rose-50 border-b-4 border-slate-300 hover:border-rose-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50 text-slate-700 hover:text-rose-700">
+            <div class="text-3xl mb-1">🔗</div><div class="font-bold text-lg">屬於「串聯」</div>
+          </button>`;
+        html += `<button onclick="handleSort('parallel')" ${sortFeedback?'disabled':''} class="w-full md:w-40 bg-slate-50 hover:bg-sky-50 border-b-4 border-slate-300 hover:border-sky-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50 text-slate-700 hover:text-sky-700">
+            <div class="text-3xl mb-1">🛤️</div><div class="font-bold text-lg">屬於「並聯」</div>
+          </button>`;
+        
+        html += `</div><div class="mt-6 text-slate-500 font-bold bg-slate-100 px-4 py-1 rounded-full">分類進度：${sortCurrentIndex + 1} / ${sortItems.length}</div></div>`;
+      } else {
+        html += `<div class="text-center py-4 fade-transition"><i class="ph-fill ph-check-circle text-6xl text-emerald-500 mb-4 block mx-auto"></i><h3 class="text-xl font-bold text-slate-800">全數分類完成！</h3></div>`;
+      }
+      return html + `</div>`;
+    }
+
+    window.handleSort = function(cat) {
+      if (sortFeedback) return;
+      const cur = sortItems[sortCurrentIndex];
+      if (cur.type === cat) {
+        sortFeedback = { isCorrect: true, text: '判斷正確！' };
+      } else {
+        sortFeedback = { isCorrect: false, text: `判斷錯誤喔！再想一想。` };
+      }
+      render();
+      setTimeout(() => {
+        sortFeedback = null;
+        if (cur.type === cat) {
+          if (sortCurrentIndex + 1 < sortItems.length) sortCurrentIndex++;
+          else progressTask('compSort');
+        }
+        render();
+      }, 1000);
+    }
+
+
+    // --- 區塊渲染：4. 最終測驗 (Indigo) ---
+    function renderQuiz() {
+      if (quizState === 'dashboard') {
+        const history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+        let histHtml = '';
+        if (history.length === 0) {
+          histHtml = `<p class="text-slate-500 py-4 font-bold text-lg">目前還沒有測驗紀錄，快來挑戰第一次吧！</p>`;
+        } else {
+          histHtml = `<div class="overflow-x-auto w-full mt-4"><table class="w-full text-left border-collapse min-w-[500px]"><thead><tr class="bg-indigo-100 text-indigo-800 border-b-2 border-indigo-200"><th class="p-3 rounded-tl-xl text-lg">日期</th><th class="p-3 text-lg">時間</th><th class="p-3 text-lg">成績</th><th class="p-3 rounded-tr-xl text-lg">作答時長</th></tr></thead><tbody>`;
+          history.forEach(r => {
+             histHtml += `<tr class="border-b border-slate-100 hover:bg-slate-50 fade-transition"><td class="p-3 text-slate-600 text-lg">${r.date}</td><td class="p-3 text-slate-600 text-lg">${r.time}</td><td class="p-3 text-lg font-bold ${r.score >= 80 ? 'text-emerald-600' : 'text-amber-600'}">${r.score} 分</td><td class="p-3 text-slate-500 text-lg">${r.duration}</td></tr>`;
+          });
+          histHtml += `</tbody></table></div>`;
+        }
+
+        return `
+          <div class="bg-white rounded-3xl p-8 md:p-12 shadow-sm border-2 border-slate-200 text-center mt-4 fade-transition max-w-3xl mx-auto">
+            <i class="ph-fill ph-medal text-7xl text-indigo-500 mb-6 block"></i>
+            <h2 class="text-4xl font-bold text-indigo-800 mb-4">串聯與並聯總挑戰</h2>
+            <p class="text-slate-600 mb-8 text-xl">本測驗共有 10 題，將從題庫中隨機抽取洗牌。</p>
+            <button onclick="startFinalQuiz()" class="inline-flex items-center justify-center w-full md:w-auto gap-3 bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-5 rounded-full text-2xl font-bold fade-transition shadow-md mb-8">
+              <i class="ph-bold ph-pencil-simple"></i> 開始測驗
+            </button>
+            <div class="bg-slate-50 rounded-3xl p-6 border-2 border-slate-100">
+              <h3 class="text-2xl font-bold text-slate-700 flex items-center justify-center gap-2"><i class="ph-bold ph-clock-counter-clockwise"></i> 最近 5 次測驗紀錄</h3>
+              ${histHtml}
+            </div>
+          </div>
+        `;
+      }
+
+      if (quizState === 'result') {
+        let comment = "繼續加油，可以再回顧一下前面的觀念喔！";
+        if (quizScore >= 90) comment = "太厲害了！你是電路大師！";
+        else if (quizScore >= 70) comment = "表現不錯喔！你已經成功掌握電路概念了。";
+
+        return `
+          <div class="bg-white rounded-3xl p-8 md:p-12 shadow-sm border-2 border-slate-200 text-center mt-4 fade-transition max-w-4xl mx-auto">
+            <h2 class="text-5xl font-bold text-indigo-600 mb-6">測驗結束！</h2>
+            <div class="text-8xl mb-6 drop-shadow-md">🏆</div>
+            <p class="text-4xl font-bold mb-4">你的最終得分：<span class="${quizScore >= 80 ? 'text-emerald-500' : 'text-amber-500'}">${quizScore}</span> / 100</p>
+            <p class="text-2xl text-slate-600 mb-10">${comment}</p>
+            <button onclick="returnToQuizDashboard()" class="inline-flex items-center gap-3 bg-slate-200 hover:bg-slate-300 text-slate-700 px-8 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm">
+              <i class="ph-bold ph-list-dashes"></i> 查看紀錄面板
+            </button>
+          </div>
+        `;
+      }
+
+      const q = quizData[quizCurrentQ];
+      const optionLabels = ['A', 'B', 'C', 'D'];
+      let content = `
+        <div class="space-y-6 fade-transition max-w-4xl mx-auto">
+          <div class="bg-indigo-50 border-l-8 border-indigo-500 p-5 rounded-r-2xl shadow-sm flex gap-4 items-center">
+            <div class="text-4xl md:text-5xl">📝</div>
+            <div>
+              <h3 class="font-bold text-indigo-800 text-xl md:text-2xl">特攻隊考驗：最終總測驗</h3>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-10 shadow-sm border-2 border-slate-200">
+            <div class="flex justify-between items-center mb-6 pb-4 border-b-2 border-slate-100">
+              <h2 class="text-2xl md:text-3xl font-bold text-indigo-700">知識挑戰賽</h2>
+              <span class="text-lg md:text-xl font-bold bg-indigo-100 text-indigo-800 px-4 py-2 rounded-full shadow-sm">第 ${quizCurrentQ + 1} / ${quizData.length} 題</span>
+            </div>
+            <h3 class="text-xl md:text-2xl font-bold text-slate-800 mb-8 leading-relaxed flex items-start gap-3">
+              <i class="ph-fill ph-question text-indigo-500 text-3xl shrink-0 mt-1"></i>
+              <span>${q.question}</span>
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+      `;
+
+      q.options.forEach((opt, idx) => {
+        let btnClass = "bg-slate-50 hover:bg-indigo-50 border-slate-200 text-slate-700";
+        let iconHtml = '';
+        if (quizIsAnswered) {
+          if (idx === q.answer) {
+            btnClass = "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold ring-4 ring-emerald-200";
+            iconHtml = '<i class="ph-fill ph-check-circle text-emerald-500 text-3xl shrink-0"></i>';
+          } else if (idx === quizSelectedOption) {
+            btnClass = "bg-rose-50 border-rose-300 text-rose-700 ring-4 ring-rose-200";
+            iconHtml = '<i class="ph-fill ph-x-circle text-rose-500 text-3xl shrink-0"></i>';
+          } else {
+            btnClass = "bg-slate-50 border-slate-200 text-slate-400 opacity-50";
+          }
+        }
+        
+        content += `
+          <button onclick="handleQuizAnswer(${idx})" ${quizIsAnswered ? 'disabled' : ''} class="p-5 md:p-6 text-left text-xl rounded-2xl border-2 fade-transition flex items-center justify-between gap-3 shadow-sm ${btnClass}">
+            <div class="flex items-center gap-4">
+              <span class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white shadow border border-slate-200 text-indigo-600 font-bold text-lg shrink-0">${optionLabels[idx]}</span>
+              <span>${opt}</span>
+            </div>
+            ${iconHtml}
+          </button>
+        `;
+      });
+      content += `</div></div></div>`;
+      return content;
+    }
+
+    window.startFinalQuiz = function() {
+      initQuizData(); 
+      quizCurrentQ = 0;
+      quizScore = 0;
+      quizIsAnswered = false;
+      quizSelectedOption = null;
+      quizStartTime = Date.now();
+      quizState = 'playing';
+      render();
+    }
+
+    window.handleQuizAnswer = function(idx) {
+      if (quizIsAnswered) return;
+      quizSelectedOption = idx; quizIsAnswered = true;
+      if (idx === quizData[quizCurrentQ].answer) {
+          quizScore += 10;
+      }
+      render();
+
+      setTimeout(() => {
+        if (quizCurrentQ + 1 < quizData.length) { 
+          quizCurrentQ++; quizSelectedOption = null; quizIsAnswered = false; 
+        } else { 
+          const durationMs = Date.now() - quizStartTime;
+          saveQuizRecord(quizScore, durationMs);
+          quizState = 'result'; 
+        }
+        render();
+      }, 1500); 
+    }
+
+    function saveQuizRecord(score, durationMs) {
+      let history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+      const now = new Date();
+      const record = {
+         date: now.toLocaleDateString('zh-TW'),
+         time: now.toLocaleTimeString('zh-TW', { hour12: false }),
+         score: score,
+         duration: formatDuration(durationMs)
+      };
+      history.unshift(record); 
+      history = history.slice(0, 5);
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(history));
+    }
+
+    window.returnToQuizDashboard = function() {
+      quizState = 'dashboard';
+      render();
+    }
+
+    // --- 共用小測驗產生器 ---
+    const mcqStates = {};
+    function renderMiniMCQ(id, title, qPool, isCompleted, theme) {
+      if (!mcqStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        const qRaw = qPool[varIdx];
+        const correctOpt = qRaw.opts[qRaw.a];
+        const shuffledOpts = shuffleArray(qRaw.opts);
+        const newAnsIdx = shuffledOpts.indexOf(correctOpt);
+        mcqStates[id] = { selected: null, opts: shuffledOpts, ansIdx: newAnsIdx, varIdx: varIdx };
+      }
+      const st = mcqStates[id];
+      const qRaw = qPool[st.varIdx];
+      const th = 'text-' + theme + '-700';
+      const bgComp = 'bg-' + theme + '-50 border-' + theme + '-200 opacity-90';
+
+      let html = `<div class="bg-white rounded-2xl p-4 md:p-6 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : 'border-slate-200'}">
+          <h3 class="text-xl md:text-2xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-question"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-3xl"></i>' : ''}
+          </h3>
+          <p class="text-lg md:text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
+
+      st.opts.forEach((opt, idx) => {
+        let cls = "bg-slate-50 border-slate-200 hover:bg-slate-100 text-base md:text-lg shadow-sm";
+        if (isCompleted) { 
+          cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-slate-50 text-slate-400 border-slate-100"; 
+        } else if (st.selected === idx) { 
+          cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold ring-2 ring-emerald-200" : "bg-rose-50 border-rose-300 text-rose-700 ring-2 ring-rose-200"; 
+        }
+        html += `<button onclick="handleMCQ('${id}', ${idx}, ${st.ansIdx})" ${isCompleted ? 'disabled' : ''} class="p-4 rounded-xl border-2 text-left font-bold fade-transition ${cls}">${opt}</button>`;
+      });
+      return html + `</div></div>`;
+    }
+    window.handleMCQ = function(id, selIdx, ansIdx) {
+      if (mcqStates[id].selected !== null) return;
+      mcqStates[id].selected = selIdx; render();
+      if (selIdx === ansIdx) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { mcqStates[id].selected = null; render(); }, 1000);
+    }
+
+    const tfStates = {};
+    function renderMiniTF(id, title, qPool, isCompleted, theme) {
+      if (!tfStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        tfStates[id] = { selected: null, varIdx: varIdx };
+      }
+      const st = tfStates[id];
+      const qRaw = qPool[st.varIdx];
+      const th = 'text-' + theme + '-700';
+      const bgComp = 'bg-' + theme + '-50 border-' + theme + '-200 opacity-90';
+
+      let html = `<div class="bg-white rounded-2xl p-4 md:p-6 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : 'border-slate-200'}">
+          <h3 class="text-xl md:text-2xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-check-square-offset"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-3xl"></i>' : ''}
+          </h3>
+          <p class="text-lg md:text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p>
+          <div class="flex gap-4 justify-center">`;
+      
+      const tCls = isCompleted ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === true ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-rose-50 border-rose-300 text-rose-700") : "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700 shadow-sm");
+      const fCls = isCompleted ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === false ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-rose-50 border-rose-300 text-rose-700") : "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700 shadow-sm");
+
+      html += `<button onclick="handleTF('${id}', true, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-4 rounded-xl border-2 text-2xl font-bold fade-transition text-center ${tCls}">⭕ 是</button>`;
+      html += `<button onclick="handleTF('${id}', false, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-4 rounded-xl border-2 text-2xl font-bold fade-transition text-center ${fCls}">❌ 非</button>`;
+      return html + `</div></div>`;
+    }
+    window.handleTF = function(id, sel, ans) {
+      if (tfStates[id].selected !== null) return;
+      tfStates[id].selected = sel; render();
+      if (sel === ans) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { tfStates[id].selected = null; render(); }, 1000);
+    }
+
+    const fillStates = {};
+    function renderMiniFill(id, title, qPool, isCompleted, theme) {
+      if (!fillStates[id]) {
+        let bInit = {};
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        const qRaw = qPool[varIdx];
+        qRaw.ans.forEach((_, i) => { bInit['b'+(i+1)] = null; }); 
+        
+        let wordCards = [];
+        qRaw.ans.forEach((a, i) => wordCards.push({ id: 'a'+i, text: a, correctBlank: 'b'+(i+1), c: 'bg-' + theme + '-100 text-' + theme + '-800' }));
+        qRaw.distractors.forEach((d, i) => wordCards.push({ id: 'd'+i, text: d, correctBlank: 'none', c: 'bg-' + theme + '-100 text-' + theme + '-800' }));
+        
+        fillStates[id] = { b: bInit, sel: null, err: null, words: shuffleArray(wordCards), varIdx: varIdx, qRaw: qRaw };
+      }
+      const st = fillStates[id];
+      const qRaw = qPool[st.varIdx];
+      
+      if (isCompleted) {
+         st.qRaw.ans.forEach((a, i) => {
+             st.b['b'+(i+1)] = {text: a};
+         });
+      }
+      const th = 'text-' + theme + '-700';
+      const bgComp = 'bg-' + theme + '-50 border-' + theme + '-200 opacity-90';
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : 'border-slate-200'}">
+          <h3 class="text-xl md:text-2xl font-bold ${th} mb-4 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-puzzle-piece"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-3xl"></i>' : ''}
+          </h3>
+          <p class="text-slate-600 mb-6 text-base font-bold">點擊字卡拿起來，填入正確的空格中！</p>`;
+
+      if (!isCompleted) {
+        html += `<div class="flex flex-wrap justify-center gap-3 mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-200 min-h-[4rem]">`;
+        st.words.forEach(w => {
+          const isUsed = Object.values(st.b).some(v => v && v.id === w.id);
+          if (isUsed) { html += `<div class="w-20 opacity-0"></div>`; return; }
+          const isSelected = st.sel?.id === w.id;
+          let cls = `px-4 py-2 rounded-full font-bold text-lg md:text-xl transition-colors cursor-pointer shadow-sm ${w.c} ${isSelected ? 'ring-4 ring-' + theme + '-400' : 'hover:opacity-90'}`;
+          html += `<button onclick="handleFillWord('${id}', '${w.id}')" class="${cls}">${w.text}</button>`;
+        });
+        html += `</div>`;
+      }
+
+      let contentHtml = st.qRaw.qParts[0];
+      st.qRaw.ans.forEach((_, i) => {
+        const key = 'b'+(i+1);
+        const val = st.b[key];
+        let boxHtml = '';
+        if (val) {
+          boxHtml = `<span class="inline-block mx-2 px-4 py-1 rounded-full text-white bg-emerald-500 align-middle leading-none shadow-sm">${val.text}</span>`;
+        } else {
+          const isErr = st.err === key;
+          const isSel = !!st.sel && !isErr;
+          let cls = `inline-block mx-2 min-w-[80px] h-10 border-b-4 border-dashed align-middle transition-colors outline-none ${isErr ? 'border-rose-500 bg-rose-50' : 'border-' + theme + '-400 bg-white/50'} ${isSel ? 'hover:bg-' + theme + '-100 cursor-pointer border-' + theme + '-500' : ''}`;
+          boxHtml = `<button onclick="handleFillBox('${id}', '${key}')" class="${cls}"></button>`;
+        }
+        contentHtml += boxHtml + st.qRaw.qParts[i+1];
+      });
+
+      html += `<div class="text-xl md:text-2xl leading-loose font-bold text-slate-700 bg-${theme}-50 p-6 rounded-2xl border border-${theme}-200 shadow-inner">${contentHtml}</div></div>`;
+      return html;
+    }
+
+    window.handleFillWord = function(id, wordId) {
+      const st = fillStates[id];
+      const wordObj = st.words.find(w => w.id === wordId);
+      if (Object.values(st.b).some(v => v && v.id === wordId)) return;
+      st.sel = wordObj; render();
+    };
+    window.handleFillBox = function(id, boxKey) {
+      const st = fillStates[id];
+      if (!st.sel) return;
+      if (st.sel.correctBlank === boxKey) {
+        st.b[boxKey] = st.sel; st.sel = null; render();
+        if (Object.values(st.b).every(v => v !== null)) setTimeout(() => progressTask(id), 600);
+      } else {
+        st.err = boxKey; render(); setTimeout(() => { st.err = null; render(); }, 1000);
+      }
+    };
+
+    const matchStates = {};
+    function renderMatchingGame(id, title, isCompleted, leftItems, rightItems, theme) {
+      if (!matchStates[id]) {
+        matchStates[id] = { selLeft: null, matches: [], err: false, left: shuffleArray(leftItems), right: shuffleArray(rightItems) };
+      }
+      const st = matchStates[id];
+      if (isCompleted && st.matches.length < st.left.length) st.matches = st.left.map(i=>i.id);
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-90`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : 'border-slate-200'}">
+          <h3 class="text-xl font-bold ${th} mb-2 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-bold ph-link"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-slate-600 mb-6">點擊左邊的項目，再點擊右邊對應的說明連線起來！</p>
+          <div class="flex flex-col md:flex-row gap-4 justify-between">
+            <div class="w-full md:w-2/5 flex flex-col gap-3">`;
+      
+      st.left.forEach(item => {
+        const isMatched = st.matches.includes(item.id);
+        const isSelected = st.selLeft === item.id;
+        let cls = isMatched ? 'bg-slate-100 border-slate-200 opacity-50' : item.c;
+        cls += isSelected ? ' ring-4 border-transparent' : ' border-transparent hover:brightness-95';
+        if (isSelected && st.err) cls += ' bg-rose-100 border-rose-300';
+        html += `<button onclick="handleMatchLeft('${id}', '${item.id}')" ${isMatched||isCompleted?'disabled':''} class="flex items-center gap-4 p-4 rounded-2xl border-2 fade-transition text-xl font-bold ${cls}"><span class="text-4xl">${item.e}</span> ${item.t}${isMatched ? '<i class="ph-fill ph-check-circle ml-auto text-emerald-500 text-2xl"></i>' : ''}</button>`;
+      });
+
+      html += `</div><div class="w-full md:w-3/5 flex flex-col gap-3">`;
+
+      st.right.forEach(item => {
+        const isMatched = st.matches.includes(item.id);
+        let cls = isMatched ? 'bg-emerald-50 border-emerald-200 text-emerald-800 opacity-80' : `bg-slate-50 hover:bg-${theme}-50 border-slate-200 text-slate-700`;
+        if (!isMatched && st.selLeft) cls += ` ring-2 ring-${theme}-300 cursor-pointer`;
+        html += `<button onclick="handleMatchRight('${id}', '${item.id}')" ${isMatched||isCompleted?'disabled':''} class="flex items-center p-4 min-h-[5rem] rounded-2xl border-2 fade-transition text-lg font-bold text-left ${cls}">${item.t}${isMatched ? '<i class="ph-fill ph-check-circle ml-auto text-emerald-500 text-2xl"></i>' : ''}</button>`;
+      });
+      return html + `</div></div></div>`;
+    }
+    window.handleMatchLeft = function(id, itemId) {
+      if (!matchStates[id].matches.includes(itemId)) { matchStates[id].selLeft = itemId; matchStates[id].err = false; render(); }
+    };
+    window.handleMatchRight = function(id, itemId) {
+      const st = matchStates[id];
+      if (!st.selLeft || st.matches.includes(itemId)) return;
+      if (st.selLeft === itemId) {
+        st.matches.push(itemId); st.selLeft = null; render();
+        if (st.matches.length === 3) setTimeout(() => progressTask(id), 500);
+      } else {
+        st.err = true; render();
+        setTimeout(() => { st.selLeft = null; st.err = false; render(); }, 800);
+      }
+    };
+
+    function renderSortGame(title, isCompleted) {
+      if (isCompleted) sortCurrentIndex = sortItems.length;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? 'bg-teal-50 border-teal-200 opacity-80' : 'border-slate-200'}">
+          <h2 class="text-xl font-bold text-teal-700 mb-6 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-list-checks"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h2>`;
+
+      if (sortCurrentIndex < sortItems.length && !isCompleted) {
+        const cur = sortItems[sortCurrentIndex];
+        html += `<div class="flex flex-col items-center">
+            <div class="relative w-full max-w-md bg-slate-50 border-4 border-slate-200 rounded-3xl flex flex-col items-center justify-center mb-8 py-8 px-4 fade-transition min-h-[200px]">`;
+        if (sortFeedback) {
+          html += `<div class="text-2xl font-bold flex items-center gap-2 ${sortFeedback.isCorrect ? 'text-emerald-600' : 'text-rose-500'} px-4 text-center">
+              <i class="ph-fill ${sortFeedback.isCorrect ? 'ph-check-circle' : 'ph-x-circle'} text-4xl shrink-0"></i> ${sortFeedback.text}
+            </div>`;
+        } else {
+          html += `<div class="text-center fade-transition">
+              <div class="text-6xl mb-4 drop-shadow-md">${cur.emoji}</div>
+              <h3 class="text-2xl font-bold text-slate-800 mb-2">${cur.text}</h3>
+              <p class="text-slate-500 font-bold bg-white px-3 py-1 rounded shadow-sm border border-slate-100">${cur.desc}</p>
+            </div>`;
+        }
+        html += `</div>
+            <div class="w-full flex justify-center gap-4">`;
+        
+        html += `<button onclick="handleSort('series')" ${sortFeedback?'disabled':''} class="w-full md:w-40 bg-slate-50 hover:bg-rose-50 border-b-4 border-slate-300 hover:border-rose-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50 text-slate-700 hover:text-rose-700">
+            <div class="text-3xl mb-1">🔗</div><div class="font-bold text-lg">屬於「串聯」</div>
+          </button>`;
+        html += `<button onclick="handleSort('parallel')" ${sortFeedback?'disabled':''} class="w-full md:w-40 bg-slate-50 hover:bg-sky-50 border-b-4 border-slate-300 hover:border-sky-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50 text-slate-700 hover:text-sky-700">
+            <div class="text-3xl mb-1">🛤️</div><div class="font-bold text-lg">屬於「並聯」</div>
+          </button>`;
+        
+        html += `</div><div class="mt-6 text-slate-500 font-bold bg-slate-100 px-4 py-1 rounded-full">分類進度：${sortCurrentIndex + 1} / ${sortItems.length}</div></div>`;
+      } else {
+        html += `<div class="text-center py-4 fade-transition"><i class="ph-fill ph-check-circle text-6xl text-emerald-500 mb-4 block mx-auto"></i><h3 class="text-xl font-bold text-slate-800">全數分類完成！</h3></div>`;
+      }
+      return html + `</div>`;
+    }
+
+    window.handleSort = function(cat) {
+      if (sortFeedback) return;
+      const cur = sortItems[sortCurrentIndex];
+      if (cur.type === cat) {
+        sortFeedback = { isCorrect: true, text: '判斷正確！' };
+      } else {
+        sortFeedback = { isCorrect: false, text: `判斷錯誤喔！再想一想。` };
+      }
+      render();
+      setTimeout(() => {
+        sortFeedback = null;
+        if (cur.type === cat) {
+          if (sortCurrentIndex + 1 < sortItems.length) sortCurrentIndex++;
+          else progressTask('compSort');
+        }
+        render();
+      }, 1000);
+    }
+
+    // --- 全局狀態推進 ---
+    window.progressTask = function(taskId) {
+      if (taskId.startsWith('bat')) batProgress++;
+      else if (taskId.startsWith('bulb')) bulbProgress++;
+      else if (taskId.startsWith('comp')) compProgress++;
+      render();
+    }
+
+    // 主渲染邏輯
+    function render() {
+      renderProgressBar();
+      const main = document.getElementById('main-content');
+      switch (steps[currentStepIndex]) {
+        case 'welcome': main.innerHTML = renderWelcome(); break;
+        case 'battery': main.innerHTML = renderBattery(); break;
+        case 'bulb': main.innerHTML = renderBulb(); break;
+        case 'compare': main.innerHTML = renderCompare(); break;
+        case 'quiz': main.innerHTML = renderQuiz(); break;
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>能源與電路：燈泡亮了</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入 Phosphor Icons 做為圖示庫 -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    /* 隱藏捲軸但保留捲動功能 */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* 零干擾平滑動畫設計 */
+    .fade-transition {
+      transition: all 0.3s ease-in-out;
+    }
+
+    /* 電流流動動畫 (循環流動) */
+    @keyframes circuit-flow {
+      from { stroke-dashoffset: 40; }
+      to { stroke-dashoffset: 0; }
+    }
+    .animate-circuit-flow {
+      animation: circuit-flow 0.8s linear infinite;
+    }
+
+    /* 發光閃爍動畫 */
+    @keyframes glow-pulse {
+      0%, 100% { filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.6)); }
+      50% { filter: drop-shadow(0 0 30px rgba(250, 204, 21, 1)); }
+    }
+    .animate-glow {
+      animation: glow-pulse 2s ease-in-out infinite;
+    }
+
+    /* 預測正確的灑花特效 */
+    @keyframes confetti-out {
+      0% { transform: translate(0, 0) rotate(0deg) scale(0.5); opacity: 1; }
+      100% { transform: translate(var(--tx), var(--ty)) rotate(var(--rot)) scale(1.5); opacity: 0; }
+    }
+    .animate-confetti-out {
+      animation: confetti-out 1s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    }
+
+    /* 置中定位輔助類別 (用於圖形填空) */
+    .center-absolute {
+      transform: translate(-50%, -50%);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 pb-16 min-h-screen">
+
+  <!-- 標題列 -->
+  <header class="bg-slate-700 text-white p-3 shadow-md relative z-10">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="ph ph-lightbulb-filament text-3xl text-yellow-400"></i>
+        <h1 class="text-xl sm:text-2xl font-bold tracking-wider">燈泡亮了</h1>
+      </div>
+    </div>
+  </header>
+
+  <!-- 全解鎖導航列 -->
+  <div id="progress-container" class="max-w-6xl mx-auto px-4 pt-4 fade-transition">
+    <div class="bg-white p-3 rounded-2xl shadow-sm border-2 border-slate-200 flex flex-wrap justify-between items-center gap-2 overflow-x-auto hide-scrollbar" id="progress-bar">
+      <!-- JS 渲染進度條 -->
+    </div>
+  </div>
+
+  <main id="main-content" class="max-w-6xl mx-auto p-4 mt-2 fade-transition">
+    <!-- JS 渲染內容 -->
+  </main>
+
+  <script>
+    // --- 灑花特效函數 ---
+    window.triggerConfetti = function() {
+        const container = document.createElement('div');
+        container.className = 'fixed inset-0 pointer-events-none z-50 flex items-center justify-center overflow-hidden';
+        document.body.appendChild(container);
+        
+        const emojis = ['🎉', '✨', '🌟', '🎊', '💯', '💡'];
+        for(let i=0; i<40; i++) {
+            const el = document.createElement('div');
+            el.innerText = emojis[Math.floor(Math.random() * emojis.length)];
+            el.className = 'absolute text-3xl md:text-5xl animate-confetti-out';
+            const tx = (Math.random() - 0.5) * 600 + 'px';
+            const ty = (Math.random() - 0.5) * 600 + 'px';
+            const rot = Math.random() * 360 + 'deg';
+            el.style.setProperty('--tx', tx);
+            el.style.setProperty('--ty', ty);
+            el.style.setProperty('--rot', rot);
+            container.appendChild(el);
+        }
+        setTimeout(() => container.remove(), 1500);
+    }
+
+    // --- 實用的隨機洗牌函數 ---
+    function shuffleArray(array) {
+      const newArr = [...array];
+      for (let i = newArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+      }
+      return newArr;
+    }
+
+    // --- 系統狀態管理 ---
+    const steps = ['welcome', 'components', 'circuit', 'conductor', 'quiz'];
+    let currentStepIndex = 0;
+    
+    let compProgress = 0; 
+    let circuitProgress = 0;  
+    let condProgress = 0;   
+
+    let compExpState = null; 
+
+    // 電路模擬器狀態
+    let circuitStep = 'select'; // 'select', 'predict', 'result'
+    let currentCircuitIdx = -1;
+    let userPrediction = null; // 'lit' 或 'unlit'
+
+    // 導體檢測狀態
+    let condStep = 'select'; 
+    let currentCondIdx = -1;
+    let condPrediction = null; 
+
+    // 12種電路接線配置 (完美對齊大畫布 500x500 座標設計)
+    // 燈泡中心: x=250, y=80 (圓底140) -> 灰色接點中心(250,220), 螺紋左側(210,165), 螺紋右側(290,165)
+    // 直立電池中心: x=250, y=300 (總高460) -> 正極頂部(250,280), 負極底部(250,460)
+    // 橫放電池中心: x=250, y=380 (總寬160) -> 負極左側(170,380), 正極右側(350,380)
+    const circuitConfigs = [
+      {
+        id: 'c1', type: 'correct', bat: 'V',
+        red: "M 250,280 L 100,280 L 100,165 L 210,165",
+        blue: "M 250,220 L 250,250 L 400,250 L 400,460 L 250,460",
+        flow: "M 250,460 L 250,280 L 100,280 L 100,165 L 210,165 L 235,140 L 240,110 L 250,130 L 260,110 L 265,140 L 250,140 L 250,220 L 250,250 L 400,250 L 400,460 Z",
+        desc: "✅ 形成通路！電線正確連接正負極、螺紋與灰色接點。"
+      },
+      {
+        id: 'c2', type: 'correct', bat: 'H',
+        red: "M 350,380 L 420,380 L 420,165 L 290,165",
+        blue: "M 250,220 L 250,250 L 80,250 L 80,380 L 170,380",
+        flow: "M 170,380 L 350,380 L 420,380 L 420,165 L 290,165 L 265,140 L 260,110 L 250,130 L 240,110 L 235,140 L 250,140 L 250,220 L 250,250 L 80,250 L 80,380 Z",
+        desc: "✅ 形成通路！電池橫放，只要接點正確一樣能形成迴圈！"
+      },
+      {
+        id: 'c3', type: 'correct', bat: 'V',
+        red: "M 250,280 L 400,280 L 400,165 L 290,165", 
+        blue: "M 250,220 L 250,250 L 100,250 L 100,460 L 250,460", 
+        flow: "M 250,460 L 250,280 L 400,280 L 400,165 L 290,165 L 265,140 L 260,110 L 250,130 L 240,110 L 235,140 L 250,140 L 250,220 L 250,250 L 100,250 L 100,460 Z",
+        desc: "✅ 形成通路！交叉接線也會亮，因為燈泡無分正負極。"
+      },
+      {
+        id: 'c4', type: 'correct', bat: 'V',
+        red: "M 250,280 L 250,220",
+        blue: "M 210,165 L 100,165 L 100,460 L 250,460",
+        flow: "M 250,460 L 250,280 L 250,220 L 250,140 L 265,140 L 260,110 L 250,130 L 240,110 L 235,140 L 210,165 L 100,165 L 100,460 Z",
+        desc: "✅ 形成通路！灰色接點直觸正極，螺紋金屬體接負極也能亮！"
+      },
+      {
+        id: 'c5', type: 'correct', bat: 'V', 
+        red: "M 250,280 L 250,220",
+        blue: "M 290,165 L 400,165 L 400,460 L 250,460",
+        flow: "M 250,460 L 250,280 L 250,220 L 250,140 L 235,140 L 240,110 L 250,130 L 260,110 L 265,140 L 290,165 L 400,165 L 400,460 Z",
+        desc: "✅ 形成通路！這就是課本上的接法，只要接點正確就會亮！"
+      },
+      {
+        id: 'w1', type: 'wrong', bat: 'V',
+        red: "M 250,280 L 100,280 L 100,165 L 210,165",
+        blue: "M 250,220 L 250,250 L 400,250 L 400,320 M 400,380 L 400,460 L 250,460",
+        flow: "",
+        desc: "❌ 形成斷路！藍色電線中間斷掉了，電流無法通過。"
+      },
+      {
+        id: 'w2', type: 'wrong', bat: 'V',
+        red: "M 250,280 L 100,280 L 100,80 L 190,80",
+        blue: "M 250,220 L 250,250 L 400,250 L 400,460 L 250,460",
+        flow: "",
+        desc: "❌ 形成斷路！紅色電線接在不導電的「玻璃罩」上。"
+      },
+      {
+        id: 'w3', type: 'wrong', bat: 'V',
+        red: "M 250,280 L 100,280 L 100,225 L 245,225", 
+        blue: "M 255,225 L 400,225 L 400,460 L 250,460", 
+        flow: "",
+        desc: "❌ 形成短路！兩條電線都接在同一個「灰色接點」，沒有經過燈絲。"
+      },
+      {
+        id: 'w4', type: 'wrong', bat: 'V',
+        red: "M 250,280 L 100,280 L 100,165 L 210,165", 
+        blue: "M 290,165 L 400,165 L 400,460 L 250,460", 
+        flow: "",
+        desc: "❌ 形成斷路！兩條電線都接在「螺紋狀金屬體」，沒有經過燈絲。"
+      },
+      {
+        id: 'w5', type: 'wrong', bat: 'V',
+        red: "M 250,280 L 100,280 L 100,165 L 210,165", 
+        blue: "M 250,220 L 250,250 L 400,250 L 400,280 L 250,280", 
+        flow: "",
+        desc: "❌ 形成斷路！兩條電線都接在電池「正極」，無法形成迴圈。"
+      },
+      {
+        id: 'w6', type: 'wrong', bat: 'V',
+        red: "M 200,280 L 100,280 L 100,165 L 210,165", 
+        blue: "M 250,220 L 250,250 L 400,250 L 400,460 L 250,460",
+        flow: "",
+        desc: "❌ 形成斷路！紅色電線沒有碰到電池的正極凸起處。"
+      },
+      {
+        id: 'w7', type: 'wrong', bat: 'V',
+        red: "M 250,280 L 250,220",
+        blue: "M 190,80 L 100,80 L 100,460 L 250,460",
+        flow: "",
+        desc: "❌ 形成斷路！藍色電線連接在不導電的「玻璃罩」上。"
+      },
+      {
+        id: 'w8', type: 'wrong', bat: 'H',
+        red: "M 380,380 L 450,380 L 450,165 L 290,165", 
+        blue: "M 250,220 L 250,250 L 80,250 L 80,380 L 170,380",
+        flow: "",
+        desc: "❌ 形成斷路！紅色電線沒有碰到橫放電池的「正極凸起處」。"
+      }
+    ];
+
+    // 導體檢測項目陣列
+    const baseCondItems = [
+      { id: 'clip', name: '迴紋針', emoji: '📎', type: 'good' },
+      { id: 'coin', name: '銅硬幣', emoji: '🪙', type: 'good' },
+      { id: 'key', name: '鐵鑰匙', emoji: '🔑', type: 'good' },
+      { id: 'spoon', name: '鐵湯匙', emoji: '🥄', type: 'good' },
+      { id: 'nail', name: '鐵釘', emoji: '🔨', type: 'good' },
+      { id: 'eraser', name: '橡皮擦', emoji: '🧽', type: 'poor' },
+      { id: 'ruler', name: '塑膠尺', emoji: '📏', type: 'poor' },
+      { id: 'paper', name: '紙張', emoji: '📄', type: 'poor' },
+      { id: 'wood', name: '木塊', emoji: '🪵', type: 'poor' },
+      { id: 'glass', name: '玻璃杯', emoji: '🥛', type: 'poor' }
+    ];
+
+    // --- 最終測驗題庫池 ---
+    const rawQuizPools = [
+      [ 
+        { q: "電池凸起的一端和扁平的一端，分別稱為什麼？", options: ["凸起是負極，平的是正極", "凸起是正極，平的是負極", "兩端都是正極", "兩端都是負極"], answer: 1 },
+        { q: "連接 LED 燈泡時，長腳和短腳應該怎麼接才會發亮？", options: ["長腳接正極，短腳接負極", "長腳接負極，短腳接正極", "隨便接都會亮", "長腳短腳都要接在正極"], answer: 0 }
+      ],
+      [ 
+        { q: "鎢絲小燈泡的底部，有哪兩個重要的地方必須連接電線才會發亮？", options: ["玻璃和燈絲", "塑膠皮和銅線", "螺紋狀金屬體和灰色接點", "長腳和短腳"], answer: 2 },
+        { q: "通電形成通路後，鎢絲小燈泡裡面真正會發亮的地方是什麼？", options: ["玻璃罩", "灰色接點", "鎢絲(燈絲)", "螺紋狀金屬體"], answer: 2 }
+      ],
+      [ 
+        { q: "電線的構造中，外面包著一層什麼，裡面才是可以導電的銅線？", options: ["金屬皮", "玻璃皮", "塑膠皮", "木頭皮"], answer: 2 },
+        { q: "電線內部的線，通常是用什麼材質做成的？", options: ["塑膠或橡膠", "棉線或麻線", "銅線或鋁線", "玻璃或陶瓷"], answer: 2 }
+      ],
+      [ 
+        { q: "將電池、燈泡和電線正確連接，形成一個圈讓電流順利通過使燈泡發亮，這稱為什麼？", options: ["斷路", "短路", "迷路", "通路"], answer: 3 },
+        { q: "當電流可以順利通過整個電路，讓小燈泡亮起來，這種狀態叫做什麼？", options: ["通路", "斷路", "閉路", "開路"], answer: 0 }
+      ],
+      [ 
+        { q: "如果電路連接好後，燈泡卻「不會亮」，下列哪一個可能是原因？", options: ["電線太粗了", "電線斷掉或沒接好", "電池剛買的", "燈泡是新的"], answer: 1 },
+        { q: "下列哪一種情況會造成「斷路」，讓燈泡無法發亮？", options: ["電池有電", "電線外皮是紅色的", "電池沒電了", "螺紋有連接好"], answer: 2 }
+      ],
+      [ 
+        { q: "連接在電路中，可以形成通路使燈泡發亮的物品，稱為什麼？", options: ["電的不良導體", "電的良導體", "絕緣體", "發光體"], answer: 1 },
+        { q: "大部分的「電的良導體」，是用什麼材質製成的？", options: ["塑膠", "玻璃", "木頭", "金屬"], answer: 3 }
+      ],
+      [ 
+        { q: "如果在電路中接上一塊「橡皮擦」，燈泡不會發亮，這表示橡皮擦是？", options: ["電的良導體", "電的不良導體", "電池沒電了", "橡皮擦壞了"], answer: 1 },
+        { q: "下列哪一個物品連接在電路中，會造成「斷路」？", options: ["鐵製迴紋針", "銅板", "長尾夾的金屬部分", "塑膠直尺"], answer: 3 }
+      ],
+      [ 
+        { q: "手電筒上面的開關，主要功能是什麼？", options: ["讓手電筒變輕", "控制電路變成通路或斷路", "讓燈泡變大", "產生更多電力"], answer: 1 },
+        { q: "我們可以利用物品能導電或不能導電的性質，來設計什麼裝置？", options: ["簡易開關", "電池", "燈泡", "電線"], answer: 0 }
+      ],
+      [ 
+        { q: "小明把電線的兩端，分別接在電池的正極和負極，但只碰到燈泡的玻璃罩，燈泡會亮嗎？", options: ["會，因為有碰到燈泡", "會，因為電池有接好", "不會，沒有接在正確的接點上", "不會，因為電線太短"], answer: 2 },
+        { q: "想讓鎢絲小燈泡發亮，除了接在螺紋狀金屬體，另一端必須接在燈泡的哪裡？", options: ["底部的灰色接點", "玻璃的最高處", "燈絲的外面", "隨便一個地方"], answer: 0 }
+      ],
+      [ 
+        { q: "連接好電路後燈泡不亮，為了找出原因，下列哪一個做法是「不正確」的？", options: ["檢查電線有沒有接好", "換一顆新電池試試看", "換一顆新燈泡試試看", "用力把燈泡敲破檢查裡面"], answer: 3 },
+        { q: "在進行電路實驗前，老師說要「先預測再測試」，這樣做的主要目的是什麼？", options: ["為了浪費時間", "培養科學觀察與驗證的精神", "為了看誰猜得準就可以下課", "因為電池只有一顆"], answer: 1 }
+      ]
+    ];
+
+    let quizState = 'dashboard'; 
+    let quizData = [];
+    let quizCurrentQ = 0;
+    let quizScore = 0;
+    let quizSelectedOption = null;
+    let quizIsAnswered = false;
+    let quizStartTime = 0;
+    const LOCAL_STORAGE_KEY = '42hz42'; 
+
+    function initQuizData() {
+      quizData = rawQuizPools.map(pool => {
+        const qRaw = pool[Math.floor(Math.random() * pool.length)];
+        const correctOpt = qRaw.options[qRaw.answer];
+        const shuffledOptions = shuffleArray(qRaw.options);
+        return { question: qRaw.q, options: shuffledOptions, answer: shuffledOptions.indexOf(correctOpt) };
+      });
+    }
+
+    function formatDuration(ms) {
+      const totalSecs = Math.floor(ms / 1000);
+      const mins = Math.floor(totalSecs / 60);
+      const secs = totalSecs % 60;
+      return mins + '分 ' + secs + '秒';
+    }
+
+    function jumpToStep(index) {
+      currentStepIndex = index;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function renderProgressBar() {
+      const bar = document.getElementById('progress-bar');
+      const stages = [
+        { name: '出發', icon: 'ph-flag-pennant', color: 'amber' },
+        { name: '發亮構造', icon: 'ph-magnifying-glass', color: 'orange' },
+        { name: '電路連接', icon: 'ph-plug', color: 'sky' },
+        { name: '導體檢測', icon: 'ph-magnet', color: 'teal' },
+        { name: '最終測驗', icon: 'ph-file-question', color: 'indigo' },
+      ];
+
+      let html = '';
+      stages.forEach((stage, idx) => {
+        const isActive = currentStepIndex === idx;
+        const isPassed = (idx === 1 && compProgress >= 5) || 
+                         (idx === 2 && circuitProgress >= 3) || 
+                         (idx === 3 && condProgress >= 3);
+
+        let iconHtml = isPassed ? '<i class="ph-fill ph-check-circle text-xl"></i>' : '<i class="ph ' + stage.icon + ' text-xl"></i>';
+        
+        let circleClass = 'w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm fade-transition ';
+        if (isActive) circleClass += 'bg-' + stage.color + '-500 ring-4 ring-' + stage.color + '-200';
+        else if (isPassed) circleClass += 'bg-emerald-400';
+        else circleClass += 'bg-slate-300';
+
+        let textClass = 'text-xs font-bold whitespace-nowrap mt-1 ' + (isActive ? 'text-' + stage.color + '-600' : 'text-slate-500');
+
+        html += '<div class="flex items-center"><button onclick="jumpToStep(' + idx + ')" class="flex flex-col items-center px-2 py-1 fade-transition cursor-pointer hover:bg-slate-50 rounded-lg"><div class="' + circleClass + '">' + iconHtml + '</div><span class="' + textClass + '">' + stage.name + '</span></button>';
+        if (idx < stages.length - 1) {
+          html += '<div class="hidden sm:block w-8 md:w-12 h-1 rounded-full mx-1 ' + (isPassed ? 'bg-emerald-300' : 'bg-slate-200') + '"></div>';
+        }
+        html += '</div>';
+      });
+      bar.innerHTML = html;
+    }
+
+    function renderWelcome() {
+      return '<div class="bg-white rounded-3xl p-8 md:p-12 shadow-sm border-2 border-slate-200 text-center mt-4 fade-transition"><div class="inline-block bg-amber-50 p-6 rounded-full mb-6"><i class="ph ph-lightbulb-filament text-7xl text-amber-500"></i></div><h2 class="text-4xl md:text-5xl font-bold text-slate-800 mb-6">點亮燈泡的秘密</h2><p class="text-xl md:text-2xl text-slate-600 leading-relaxed mb-8 max-w-2xl mx-auto">手電筒和玩具為什麼會亮？原來裡面藏著電池、電線和小燈泡！<br/><br/>要怎麼連接它們才會形成「通路」呢？還有哪些神奇的物品可以像電線一樣導電？讓我們一起進入電路實驗室動手試試看吧！</p><button onclick="jumpToStep(1)" class="inline-flex items-center gap-3 bg-amber-500 hover:bg-amber-600 text-white px-8 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm"><i class="ph-fill ph-play-circle text-3xl"></i> 進入實驗室！</button></div>';
+    }
+
+    function renderComponents() {
+      let expTitle = '點擊上方按鈕，啟動透視掃描儀！';
+      let expContent = '';
+
+      if (compExpState === 'battery') {
+        expTitle = '🔋 電池的構造';
+        expContent = '<div class="flex flex-col md:flex-row items-center justify-center gap-8 text-left"><div class="w-32 h-48 border-4 border-slate-700 rounded-xl relative bg-gradient-to-b from-yellow-400 to-sky-500 flex flex-col justify-between items-center py-2 shadow-md"><div class="w-12 h-5 bg-slate-700 rounded-t-md absolute -top-5"></div><div class="text-slate-800 font-black text-5xl mt-2">+</div><div class="text-slate-800 font-black text-6xl mb-2">-</div></div><ul class="list-disc pl-6 text-slate-700 font-bold space-y-4 text-xl md:text-2xl"><li><span class="text-rose-500">凸起</span>的一端稱為<b class="text-rose-600 border-b-4 border-rose-300">正極 (+)</b></li><li><span class="text-blue-500">平坦</span>的一端稱為<b class="text-blue-600 border-b-4 border-blue-300">負極 (-)</b></li></ul></div>';
+      } else if (compExpState === 'wire') {
+        expTitle = '🔌 電線的構造';
+        expContent = '<div class="flex flex-col md:flex-row items-center justify-center gap-8 text-left"><div class="w-64 h-12 bg-red-400 rounded-full relative flex items-center border-4 border-red-500 shadow-md"><div class="w-20 h-5 bg-amber-600 absolute -right-10 rounded-r-full"></div></div><ul class="list-disc pl-8 text-slate-700 font-bold space-y-4 text-xl md:text-2xl"><li>外面是保護用的<b class="text-red-600 border-b-4 border-red-300">塑膠皮</b></li><li>裡面是真正導電的<b class="text-amber-700 border-b-4 border-amber-300">銅線或鋁線</b></li></ul></div>';
+      } else if (compExpState === 'led') {
+        expTitle = '🚥 LED 燈泡';
+        expContent = '<div class="flex flex-col md:flex-row items-center justify-center gap-8 text-left"><div class="relative flex flex-col items-center drop-shadow-md"><div class="w-24 h-28 bg-rose-400 rounded-t-full rounded-b-lg opacity-80 border-4 border-rose-500"></div><div class="flex gap-4 mt-2"><div class="w-3 h-32 bg-slate-400 rounded-full"></div><div class="w-3 h-24 bg-slate-400 rounded-full"></div></div></div><ul class="list-disc pl-6 text-slate-700 font-bold space-y-4 text-xl md:text-2xl"><li><span class="text-rose-500">長腳</span>要連接電池的<b class="text-rose-600 border-b-4 border-rose-300">正極</b></li><li><span class="text-blue-500">短腳</span>要連接電池的<b class="text-blue-600 border-b-4 border-blue-300">負極</b></li></ul></div>';
+      } else if (compExpState === 'bulb') {
+        expTitle = '💡 鎢絲小燈泡';
+        expContent = '<div class="flex flex-col md:flex-row items-center justify-center gap-8 text-left"><svg viewBox="0 0 500 500" class="w-[160px] h-[160px] md:w-[220px] md:h-[220px] drop-shadow-md flex-shrink-0"><circle cx="250" cy="120" r="100" fill="#f8fafc" stroke="#cbd5e1" stroke-width="4"/><line x1="220" y1="230" x2="230" y2="150" stroke="#64748b" stroke-width="6"/><line x1="280" y1="230" x2="270" y2="150" stroke="#64748b" stroke-width="6"/><path d="M 230,150 L 240,110 L 250,140 L 260,110 L 270,150" fill="none" stroke="#f59e0b" stroke-width="6" stroke-linejoin="round"/><rect x="180" y="230" width="140" height="90" fill="#cbd5e1" stroke="#64748b" stroke-width="4"/><line x1="180" y1="260" x2="320" y2="260" stroke="#64748b" stroke-width="4"/><line x1="180" y1="290" x2="320" y2="290" stroke="#64748b" stroke-width="4"/><path d="M 210,320 L 290,320 L 270,360 L 230,360 Z" fill="#475569"/></svg><ul class="list-disc pl-6 text-slate-700 font-bold space-y-3 text-xl md:text-2xl"><li>透明的<b class="text-sky-600">玻璃罩</b></li><li>發光用的<b class="text-orange-500">鎢絲</b></li><li>側邊較長的<b class="text-slate-500 border-b-4 border-slate-300">螺紋狀金屬體</b></li><li>最底部的<b class="text-slate-700 border-b-4 border-slate-400">灰色接點</b></li></ul></div>';
+      }
+
+      let content = '<div class="space-y-6 fade-transition"><div class="bg-white rounded-3xl p-5 md:p-8 shadow-sm border-2 border-slate-200 text-center"><div class="flex flex-col md:flex-row items-center justify-between mb-6 bg-orange-50 p-4 rounded-2xl border border-orange-100"><div class="flex items-center gap-4"><div class="text-4xl md:text-5xl">🔍</div><div class="text-left"><h2 class="text-2xl md:text-3xl font-bold text-orange-700 mb-1">探索任務：透視掃描儀</h2><p class="text-base md:text-lg text-orange-600">手電筒裡面藏了什麼？點擊觀察它們的秘密構造。</p></div></div></div><div class="flex flex-wrap justify-center gap-3 mb-6"><button onclick="triggerCompExp(\'battery\')" class="bg-slate-50 hover:bg-slate-100 border-2 border-slate-300 text-slate-800 px-5 py-3 rounded-xl font-bold fade-transition text-lg md:text-xl shadow-sm ' + (compExpState==='battery'?'ring-4 ring-slate-400 bg-slate-100':'') + '">🔋 電池</button><button onclick="triggerCompExp(\'wire\')" class="bg-red-50 hover:bg-red-100 border-2 border-red-300 text-red-800 px-5 py-3 rounded-xl font-bold fade-transition text-lg md:text-xl shadow-sm ' + (compExpState==='wire'?'ring-4 ring-red-400 bg-red-100':'') + '">🔌 電線</button><button onclick="triggerCompExp(\'led\')" class="bg-rose-50 hover:bg-rose-100 border-2 border-rose-300 text-rose-800 px-5 py-3 rounded-xl font-bold fade-transition text-lg md:text-xl shadow-sm ' + (compExpState==='led'?'ring-4 ring-rose-400 bg-rose-100':'') + '">🚥 LED 燈</button><button onclick="triggerCompExp(\'bulb\')" class="bg-yellow-50 hover:bg-yellow-100 border-2 border-yellow-300 text-yellow-800 px-5 py-3 rounded-xl font-bold fade-transition text-lg md:text-xl shadow-sm ' + (compExpState==='bulb'?'ring-4 ring-yellow-400 bg-yellow-100':'') + '">💡 鎢絲燈</button></div><div class="p-6 bg-slate-50 border-2 border-slate-200 rounded-3xl min-h-[300px] md:min-h-[400px] flex flex-col items-center justify-center fade-transition shadow-inner"><h4 class="text-2xl md:text-3xl font-bold text-slate-700 mb-8">' + expTitle + '</h4>' + expContent + '</div></div>';
+
+      if (compProgress >= 0) {
+        content += renderVisualDiagramFill('compBatFill', '任務一：電池構造', {
+          svg: '<svg viewBox="0 0 300 200" class="w-full max-w-[300px] mx-auto h-full drop-shadow-md"><rect x="135" y="40" width="30" height="10" fill="#475569" rx="2"/><rect x="110" y="50" width="80" height="120" fill="url(#bat-grad-v)" rx="5" stroke="#334155" stroke-width="4"/><text x="150" y="80" font-size="30" font-weight="bold" fill="#1e293b" text-anchor="middle">+</text><text x="150" y="150" font-size="30" font-weight="bold" fill="#1e293b" text-anchor="middle">-</text><path d="M 135,45 L 80,45" fill="none" stroke="#94a3b8" stroke-width="3" stroke-dasharray="4 4"/><path d="M 150,170 L 80,170" fill="none" stroke="#94a3b8" stroke-width="3" stroke-dasharray="4 4"/></svg>',
+          ans: ["正極", "負極"], distractors: ["電線", "玻璃"],
+          slots: [{ top: '22%', left: '15%' }, { top: '85%', left: '15%' }]
+        }, compProgress > 0, 'orange');
+      }
+      
+      if (compProgress >= 1) {
+        content += renderVisualDiagramFill('compWireFill', '任務二：電線構造', {
+          svg: '<svg viewBox="0 0 300 150" class="w-full max-w-[350px] mx-auto h-full drop-shadow-sm"><rect x="50" y="60" width="150" height="30" fill="#f87171" rx="15" stroke="#ef4444" stroke-width="2"/><rect x="180" y="70" width="60" height="10" fill="#d97706" rx="5"/><path d="M 100,60 L 100,30 L 70,30" fill="none" stroke="#94a3b8" stroke-width="3" stroke-dasharray="4 4"/><path d="M 210,70 L 210,30 L 240,30" fill="none" stroke="#94a3b8" stroke-width="3" stroke-dasharray="4 4"/></svg>',
+          ans: ["塑膠皮", "銅線"], distractors: ["玻璃皮", "鐵片"],
+          slots: [{ top: '20%', left: '15%' }, { top: '20%', right: '15%' }]
+        }, compProgress > 1, 'orange');
+      }
+
+      if (compProgress >= 2) {
+        content += renderVisualDiagramFill('compBulbFill', '任務三：鎢絲燈泡構造', {
+          svg: '<svg viewBox="0 0 500 500" class="w-full max-w-[400px] mx-auto h-full drop-shadow-md"><circle cx="250" cy="120" r="100" fill="#f8fafc" stroke="#cbd5e1" stroke-width="4"/><line x1="220" y1="230" x2="230" y2="150" stroke="#64748b" stroke-width="6"/><line x1="280" y1="230" x2="270" y2="150" stroke="#64748b" stroke-width="6"/><path d="M 230,150 L 240,110 L 250,140 L 260,110 L 270,150" fill="none" stroke="#f59e0b" stroke-width="6" stroke-linejoin="round"/><rect x="180" y="230" width="140" height="90" fill="#cbd5e1" stroke="#64748b" stroke-width="4"/><line x1="180" y1="260" x2="320" y2="260" stroke="#64748b" stroke-width="4"/><line x1="180" y1="290" x2="320" y2="290" stroke="#64748b" stroke-width="4"/><path d="M 210,320 L 290,320 L 270,360 L 230,360 Z" fill="#475569"/><path d="M 180,80 L 100,80" fill="none" stroke="#94a3b8" stroke-width="4" stroke-dasharray="6 6"/><path d="M 270,130 L 400,130" fill="none" stroke="#94a3b8" stroke-width="4" stroke-dasharray="6 6"/><path d="M 180,260 L 100,260" fill="none" stroke="#94a3b8" stroke-width="4" stroke-dasharray="6 6"/><path d="M 250,360 L 250,420 L 400,420" fill="none" stroke="#94a3b8" stroke-width="4" stroke-dasharray="6 6"/></svg>',
+          ans: ["玻璃罩", "鎢絲", "螺紋狀金屬體", "灰色接點"], distractors: ["塑膠皮"],
+          slots: [{ top: '16%', left: '10%' }, { top: '26%', left: '90%' }, { top: '52%', left: '10%' }, { top: '84%', left: '90%' }]
+        }, compProgress > 2, 'orange');
+      }
+
+      if (compProgress >= 3) {
+        content += renderMiniTF('compTF', '任務四：觀念是非題', 
+          [{q: '連接 LED 燈泡時，長腳一定要連接電池的正極，短腳連接負極，才會發亮。', a: true}, {q: '電線只有外面的塑膠皮可以導電，裡面的銅線是用來保護的。', a: false}], compProgress > 3, 'orange');
+      }
+
+      content += '<div class="text-center fade-transition ' + (compProgress === 4 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden') + '"><button onclick="jumpToStep(2)" class="inline-flex items-center gap-3 bg-orange-600 hover:bg-orange-700 text-white px-10 py-5 rounded-full text-2xl font-bold fade-transition shadow-md">構造全通關！前往電路連接 <i class="ph-bold ph-arrow-right"></i></button></div></div>';
+
+      return content;
+    }
+
+    window.triggerCompExp = function(type) {
+      compExpState = type;
+      render();
+    }
+
+    // --- 區塊渲染：2. 電路連接 (天空藍/Sky) ---
+    function renderCircuit() {
+      if (!window.shuffledCircuits) {
+        window.shuffledCircuits = shuffleArray(circuitConfigs);
+        window.testedCircuits = new Map();
+        window.circuitScore = 0;
+      }
+
+      let isLit = false;
+      let flowPath = "";
+      let redPath = "";
+      let bluePath = "";
+      let showHorizontal = false;
+      let conf = null;
+
+      if (circuitStep !== 'select') {
+        conf = window.shuffledCircuits[currentCircuitIdx];
+        redPath = conf.red;
+        bluePath = conf.blue;
+        showHorizontal = conf.bat === 'H';
+        if (circuitStep === 'result') {
+            isLit = conf.type === 'correct';
+            if (isLit) flowPath = conf.flow;
+        }
+      } else {
+        // 空白/未連接狀態
+        redPath = "M 250,280 L 100,280 L 100,165 L 180,165";
+        bluePath = "M 250,220 L 250,250 L 400,250 L 400,460 L 300,460";
+        showHorizontal = false;
+      }
+
+      let bulbClass = isLit ? 'bg-yellow-100 border-yellow-300' : 'bg-white/90 border-slate-300';
+      let filamentClass = isLit ? 'border-amber-500 shadow-sm' : 'border-slate-400';
+      let flowClass = isLit ? 'opacity-100 animate-circuit-flow' : 'opacity-0';
+
+      let controlPanel = '';
+      if (circuitStep === 'select') {
+        let isAllDone = window.testedCircuits.size === window.shuffledCircuits.length;
+        
+        let circuitGridHtml = '<div class="grid grid-cols-4 lg:grid-cols-3 gap-2 md:gap-3">';
+        window.shuffledCircuits.forEach((c, i) => {
+            let isTested = window.testedCircuits.has(i);
+            let predResult = window.testedCircuits.get(i);
+            let btnCls = isTested ? (predResult ? 'bg-emerald-50 border-emerald-300 text-emerald-700 opacity-60' : 'bg-rose-50 border-rose-300 text-rose-700 opacity-60') : 'bg-sky-50 hover:bg-sky-100 border-sky-300 text-sky-800 shadow-sm';
+            let icon = isTested ? (predResult ? '✅' : '❌') : '❓';
+            circuitGridHtml += '<button onclick="selectCircuit(' + i + ')" ' + (isTested ? 'disabled' : '') + ' class="py-2 md:py-3 px-1 rounded-xl font-bold border-2 fade-transition text-xs md:text-base ' + btnCls + '">接法' + (i+1) + '<br/>' + icon + '</button>';
+        });
+        circuitGridHtml += '</div>';
+
+        controlPanel = '<div class="flex-1 flex flex-col justify-center"><div class="flex justify-between items-center mb-4"><p class="text-slate-600 font-bold text-base md:text-lg">請選擇接法：</p><div class="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-lg text-sm md:text-base font-bold border border-indigo-200">得分：' + window.circuitScore + '</div></div>' + circuitGridHtml;
+        if (isAllDone) {
+            controlPanel += '<div class="mt-8 border-t-2 border-slate-200 text-center pt-6"><button onclick="restartCircuitGame()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-full font-bold text-lg fade-transition shadow-sm w-full"><i class="ph-bold ph-arrows-clockwise"></i> 重新開始預測</button></div>';
+        }
+        controlPanel += '</div>';
+      } else if (circuitStep === 'predict') {
+        let btnLit = userPrediction === 'lit' ? 'bg-emerald-100 border-emerald-500 text-emerald-800 ring-4 ring-emerald-300' : 'bg-slate-50 border-slate-300 text-slate-600 hover:bg-slate-100';
+        let btnUnlit = userPrediction === 'unlit' ? 'bg-rose-100 border-rose-500 text-rose-800 ring-4 ring-rose-300' : 'bg-slate-50 border-slate-300 text-slate-600 hover:bg-slate-100';
+        
+        controlPanel = '<div class="flex-1 flex flex-col justify-center"><div class="flex justify-between items-center mb-6"><p class="text-slate-600 font-bold text-lg md:text-xl">燈泡會發亮嗎？</p><div class="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-lg text-base font-bold border border-indigo-200">得分：' + window.circuitScore + '</div></div><div class="flex flex-col gap-4 mb-8"><button onclick="setCircuitPrediction(\'lit\')" class="w-full py-5 md:py-6 rounded-2xl font-bold border-2 fade-transition text-2xl flex flex-col items-center justify-center gap-2 ' + btnLit + '"><span class="text-5xl">💡</span> 會亮</button><button onclick="setCircuitPrediction(\'unlit\')" class="w-full py-5 md:py-6 rounded-2xl font-bold border-2 fade-transition text-2xl flex flex-col items-center justify-center gap-2 ' + btnUnlit + '"><span class="text-5xl">❌</span> 不會亮</button></div><div class="flex justify-center mt-auto"><button onclick="checkCircuitResult()" ' + (!userPrediction ? 'disabled' : '') + ' class="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 text-white px-8 py-4 rounded-full font-bold text-xl fade-transition shadow-sm w-full">確認結果</button></div></div>';
+      } else if (circuitStep === 'result') {
+        let isCorrectPred = window.testedCircuits.get(currentCircuitIdx);
+        let isAllDone = window.testedCircuits.size === window.shuffledCircuits.length;
+        
+        controlPanel = '<div class="flex-1 flex flex-col justify-center"><div class="flex justify-between items-center mb-4"><p class="text-slate-600 font-bold text-lg">檢查結果：</p><div class="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-lg text-base font-bold border border-indigo-200">得分：' + window.circuitScore + '</div></div><div class="p-6 mb-8 rounded-2xl font-bold border-2 ' + (isLit ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200') + ' transition-colors shadow-sm text-left flex-1"><div class="flex flex-col gap-3 border-b-2 ' + (isLit ? 'border-emerald-200' : 'border-rose-200') + ' pb-4 mb-4"><div class="flex items-center gap-2 text-lg"><span class="text-slate-700">預測：</span><span class="px-3 py-1 rounded bg-white border ' + (userPrediction === 'lit' ? 'border-amber-400 text-amber-600' : 'border-slate-400 text-slate-600') + '">' + (userPrediction === 'lit' ? '💡 會亮' : '❌ 不會亮') + '</span></div><span class="' + (isCorrectPred ? 'text-emerald-600 bg-emerald-100' : 'text-rose-600 bg-rose-100') + ' px-4 py-2 rounded-full text-base inline-block w-fit shadow-inner">' + (isCorrectPred ? '✅ 預測正確 (+10分)' : '❌ 預測錯誤') + '</span></div><p class="text-xl ' + (isLit ? 'text-emerald-700' : 'text-rose-700') + ' leading-relaxed">' + conf.desc + '</p></div><div class="flex justify-center mt-auto">';
+        
+        if (isAllDone) {
+            controlPanel += '<button onclick="restartCircuitGame()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-full font-bold text-lg fade-transition shadow-sm w-full"><i class="ph-bold ph-check-circle"></i> 完成！重新開始</button>';
+        } else {
+            controlPanel += '<button onclick="resetCircuitSelect()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 px-8 py-4 rounded-full font-bold text-lg fade-transition shadow-sm w-full"><i class="ph-bold ph-arrow-u-up-left"></i> 選擇其他接法</button>';
+        }
+        controlPanel += '</div></div>';
+      }
+
+      let content = '<div class="space-y-6 fade-transition"><div class="bg-white rounded-3xl p-5 md:p-8 shadow-sm border-2 border-slate-200"><div class="flex items-center gap-3 mb-6 bg-sky-50 p-4 rounded-2xl border border-sky-100 text-sky-700"><i class="ph-fill ph-plug text-3xl"></i><h2 class="text-2xl font-bold">探索任務：電路模擬器</h2><p class="text-lg text-sky-600 ml-auto hidden md:block">電路必須形成完整的圈才會亮喔！</p></div><div class="flex flex-col lg:flex-row gap-6 lg:gap-8 items-stretch"><div class="flex-1 w-full bg-slate-50 rounded-3xl border-2 border-slate-200 relative overflow-hidden flex items-center justify-center min-h-[400px] lg:min-h-[500px] shadow-inner"><svg viewBox="0 0 500 500" class="w-full h-full max-h-[600px] drop-shadow-sm" preserveAspectRatio="xMidYMid meet"><defs><linearGradient id="bat-grad-v" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#fcd34d" /><stop offset="100%" stop-color="#38bdf8" /></linearGradient><linearGradient id="bat-grad-h" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#38bdf8" /><stop offset="100%" stop-color="#fcd34d" /></linearGradient></defs><path d="' + redPath + '" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/><path d="' + bluePath + '" fill="none" stroke="#3b82f6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" class="transition-all duration-500"/>';
+      
+      if (isLit) {
+          content += '<path d="' + flowPath + '" fill="none" stroke="#fef08a" stroke-width="8" stroke-dasharray="16 16" class="animate-circuit-flow"/>';
+      }
+      
+      content += '<g class="' + (isLit ? 'animate-glow' : '') + ' transition-all duration-300"><circle cx="250" cy="80" r="60" fill="' + (isLit ? '#fef08a' : '#f8fafc') + '" stroke="#cbd5e1" stroke-width="4"/><line x1="235" y1="140" x2="240" y2="110" stroke="#64748b" stroke-width="4"/><line x1="265" y1="140" x2="260" y2="110" stroke="#64748b" stroke-width="4"/><path d="M 235,140 L 240,110 L 250,130 L 260,110 L 265,140" fill="none" stroke="' + (isLit ? '#f59e0b' : '#94a3b8') + '" stroke-width="5" stroke-linejoin="round"/><rect x="210" y="140" width="80" height="50" fill="#cbd5e1" stroke="#64748b" stroke-width="4"/><line x1="210" y1="155" x2="290" y2="155" stroke="#64748b" stroke-width="4"/><line x1="210" y1="170" x2="290" y2="170" stroke="#64748b" stroke-width="4"/><path d="M 230,190 L 270,190 L 260,220 L 240,220 Z" fill="#475569"/></g>';
+
+      if (showHorizontal) {
+          content += '<g transform="translate(0,0)" class="transition-all duration-500"><rect x="330" y="355" width="20" height="50" fill="#475569" rx="4"/><rect x="170" y="320" width="160" height="120" rx="12" fill="url(#bat-grad-h)" stroke="#334155" stroke-width="5"/><text x="210" y="395" font-size="40" font-weight="bold" fill="#1e293b" text-anchor="middle">-</text><text x="290" y="395" font-size="40" font-weight="bold" fill="#1e293b" text-anchor="middle">+</text></g>';
+      } else {
+          content += '<g transform="translate(0,0)" class="transition-all duration-500"><rect x="225" y="280" width="50" height="20" fill="#475569" rx="4"/><rect x="190" y="300" width="120" height="160" rx="12" fill="url(#bat-grad-v)" stroke="#334155" stroke-width="5"/><text x="250" y="350" font-size="40" font-weight="bold" fill="#1e293b" text-anchor="middle">+</text><text x="250" y="440" font-size="40" font-weight="bold" fill="#1e293b" text-anchor="middle">-</text></g>';
+      }
+      
+      content += '</svg></div><div class="w-full lg:w-[420px] flex-shrink-0 flex flex-col bg-white rounded-3xl border-2 border-slate-100 p-6 md:p-8 shadow-sm">' + controlPanel + '</div></div></div>';
+
+      if (circuitProgress >= 0) {
+        content += renderMiniFill('circuitFill1', '任務一：觀念填空測驗', [{ qParts: ["將電池、燈泡和電線正確連接，形成一個圈讓電流通過使燈泡發亮，稱為", "。"], ans: ["通路"], distractors: ["斷路", "迷路"] }], circuitProgress > 0, 'sky');
+      }
+      if (circuitProgress >= 1) {
+        content += renderMiniFill('circuitFill2', '任務二：觀念填空測驗', [{ qParts: ["當電線斷掉，或是沒有接對正確的接點，導致電流無法通過，就稱為", "。"], ans: ["斷路"], distractors: ["短路", "通路"] }], circuitProgress > 1, 'sky');
+      }
+      if (circuitProgress >= 2) {
+        content += renderMiniTF('circuitTF', '任務三：觀念是非題', 
+          [{q: '在測試電路時，如果燈泡不會亮，有可能是因為電池沒電或是燈泡壞了。', a: true}], circuitProgress > 2, 'sky');
+      }
+      
+      content += '<div class="text-center fade-transition ' + (circuitProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden') + '"><button onclick="jumpToStep(3)" class="inline-flex items-center gap-3 bg-sky-600 hover:bg-sky-700 text-white px-10 py-5 rounded-full text-2xl font-bold fade-transition shadow-md">掌握電路了！前往導體檢測 <i class="ph-bold ph-arrow-right"></i></button></div></div>';
+
+      return content;
+    }
+
+    window.selectCircuit = function(idx) {
+      currentCircuitIdx = idx;
+      circuitStep = 'predict';
+      userPrediction = null;
+      render();
+    };
+    window.setCircuitPrediction = function(val) {
+      userPrediction = val;
+      render();
+    };
+    window.checkCircuitResult = function() {
+      let conf = window.shuffledCircuits[currentCircuitIdx];
+      let isCorrectPred = (userPrediction === 'lit' && conf.type === 'correct') || (userPrediction === 'unlit' && conf.type === 'wrong');
+      
+      if (isCorrectPred) {
+          window.circuitScore += 10;
+          triggerConfetti();
+      }
+      
+      window.testedCircuits.set(currentCircuitIdx, isCorrectPred);
+      circuitStep = 'result';
+      
+      if (window.testedCircuits.size >= 3 && circuitProgress === 0) {
+        setTimeout(() => progressTask('circuitExp'), 800);
+      }
+      render();
+    };
+    window.resetCircuitSelect = function() {
+      circuitStep = 'select';
+      currentCircuitIdx = -1;
+      render();
+    };
+    window.restartCircuitGame = function() {
+      window.shuffledCircuits = null; 
+      circuitStep = 'select';
+      currentCircuitIdx = -1;
+      render();
+    };
+
+    // --- 區塊渲染：3. 導體檢測 (藍綠色/Teal) ---
+    function renderConductor() {
+      if (!window.shuffledCondBtns || window.shuffledCondBtns.length === 0) {
+         window.shuffledCondBtns = shuffleArray(baseCondItems);
+         window.testedConds = new Map();
+         window.condScore = 0;
+      }
+
+      let isLit = false;
+      let emoji = "";
+      let flowPath = "";
+      
+      let redPath = "M 250,280 L 100,280 L 100,165 L 210,165";
+      let bluePath1 = "M 250,220 L 250,250 L 400,250 L 400,320";
+      let bluePath2 = "M 400,380 L 400,460 L 250,460";
+      let match = null;
+
+      if (condStep !== 'select') {
+        match = window.shuffledCondBtns[currentCondIdx];
+        emoji = match.emoji;
+        if (condStep === 'result') {
+            isLit = match.type === 'good';
+            if (isLit) {
+               flowPath = "M 250,460 L 250,280 L 100,280 L 100,165 L 210,165 L 235,140 L 240,110 L 250,130 L 260,110 L 265,140 L 250,140 L 250,220 L 250,250 L 400,250 L 400,320 L 400,380 L 400,460 Z";
+            }
+        }
+      }
+
+      let bulbClass = isLit ? 'bg-yellow-100 border-yellow-300' : 'bg-white/90 border-slate-300';
+      let filamentClass = isLit ? 'border-amber-500 shadow-sm' : 'border-slate-400';
+      let flowClass = isLit ? 'opacity-100 animate-circuit-flow' : 'opacity-0';
+
+      let controlPanel = '';
+      if (condStep === 'select') {
+        let isAllDone = window.testedConds.size === window.shuffledCondBtns.length;
+        
+        let condGridHtml = '<div class="grid grid-cols-2 gap-3 w-full mx-auto">';
+        window.shuffledCondBtns.forEach((b, i) => {
+            let isTested = window.testedConds.has(i);
+            let predResult = window.testedConds.get(i);
+            let btnCls = isTested ? (predResult ? 'bg-emerald-50 border-emerald-300 text-emerald-700 opacity-60' : 'bg-rose-50 border-rose-300 text-rose-700 opacity-60') : 'bg-white hover:bg-slate-50 border-slate-300 text-slate-800 shadow-sm';
+            let icon = isTested ? (predResult ? '<span class="text-sm ml-auto">✅</span>' : '<span class="text-sm ml-auto">❌</span>') : '';
+            condGridHtml += '<button onclick="selectCond(' + i + ')" ' + (isTested ? 'disabled' : '') + ' class="p-3 rounded-xl font-bold border-2 fade-transition text-base flex items-center justify-start gap-3 ' + btnCls + '"><span class="text-3xl">' + b.emoji + '</span> <span>' + b.name + '</span>' + icon + '</button>';
+        });
+        condGridHtml += '</div>';
+
+        controlPanel = '<div class="flex-1 flex flex-col justify-center"><div class="flex justify-between items-center mb-4"><p class="text-slate-600 font-bold text-lg">請選擇測試物品：</p><div class="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-lg text-base font-bold border border-indigo-200">得分：' + window.condScore + '</div></div>' + condGridHtml;
+        if (isAllDone) {
+            controlPanel += '<div class="mt-6 border-t-2 border-slate-200 text-center pt-4"><button onclick="restartCondGame()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-full font-bold text-lg fade-transition shadow-sm w-full"><i class="ph-bold ph-arrows-clockwise"></i> 重新開始</button></div>';
+        }
+        controlPanel += '</div>';
+      } else if (condStep === 'predict') {
+        let btnLit = condPrediction === 'lit' ? 'bg-emerald-100 border-emerald-500 text-emerald-800 ring-4 ring-emerald-300' : 'bg-slate-50 border-slate-300 text-slate-600 hover:bg-slate-100';
+        let btnUnlit = condPrediction === 'unlit' ? 'bg-rose-100 border-rose-500 text-rose-800 ring-4 ring-rose-300' : 'bg-slate-50 border-slate-300 text-slate-600 hover:bg-slate-100';
+        
+        controlPanel = '<div class="flex-1 flex flex-col justify-center"><div class="flex justify-between items-center mb-6"><p class="text-slate-600 font-bold text-lg md:text-xl">接上「' + match.name + '」會亮嗎？</p><div class="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-lg text-base font-bold border border-indigo-200">得分：' + window.condScore + '</div></div><div class="flex flex-col gap-4 mb-8"><button onclick="setCondPrediction(\'lit\')" class="w-full py-5 md:py-6 rounded-2xl font-bold border-2 fade-transition text-2xl flex flex-col items-center justify-center gap-2 ' + btnLit + '"><span class="text-5xl">💡</span> 會亮</button><button onclick="setCondPrediction(\'unlit\')" class="w-full py-5 md:py-6 rounded-2xl font-bold border-2 fade-transition text-2xl flex flex-col items-center justify-center gap-2 ' + btnUnlit + '"><span class="text-5xl">❌</span> 不會亮</button></div><div class="flex justify-center mt-auto"><button onclick="checkCondResult()" ' + (!condPrediction ? 'disabled' : '') + ' class="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 text-white px-8 py-4 rounded-full font-bold text-xl fade-transition shadow-sm w-full">確認結果</button></div></div>';
+      } else if (condStep === 'result') {
+        let isCorrectPred = window.testedConds.get(currentCondIdx);
+        let isAllDone = window.testedConds.size === window.shuffledCondBtns.length;
+        let desc = isLit ? ('✅ 形成通路！' + match.name + '是「電的良導體」。') : ('❌ 形成斷路！' + match.name + '是「電的不良導體」。');
+        
+        controlPanel = '<div class="flex-1 flex flex-col justify-center"><div class="flex justify-between items-center mb-4"><p class="text-slate-600 font-bold text-lg">檢查結果：</p><div class="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-lg text-base font-bold border border-indigo-200">得分：' + window.condScore + '</div></div><div class="p-6 mb-8 rounded-2xl font-bold border-2 ' + (isLit ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200') + ' transition-colors shadow-sm text-left flex-1"><div class="flex flex-col gap-3 border-b-2 ' + (isLit ? 'border-emerald-200' : 'border-rose-200') + ' pb-4 mb-4"><div class="flex items-center gap-2 text-lg"><span class="text-slate-700">預測：</span><span class="px-3 py-1 rounded bg-white border ' + (condPrediction === 'lit' ? 'border-amber-400 text-amber-600' : 'border-slate-400 text-slate-600') + '">' + (condPrediction === 'lit' ? '💡 會亮' : '❌ 不會亮') + '</span></div><span class="' + (isCorrectPred ? 'text-emerald-600 bg-emerald-100' : 'text-rose-600 bg-rose-100') + ' px-4 py-2 rounded-full text-base inline-block w-fit shadow-inner">' + (isCorrectPred ? '✅ 預測正確 (+10分)' : '❌ 預測錯誤') + '</span></div><p class="text-xl ' + (isLit ? 'text-emerald-700' : 'text-rose-700') + ' leading-relaxed">' + desc + '</p></div><div class="flex justify-center mt-auto">';
+        
+        if (isAllDone) {
+            controlPanel += '<button onclick="restartCondGame()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-full font-bold text-lg fade-transition shadow-sm w-full"><i class="ph-bold ph-check-circle"></i> 完成！重新開始</button>';
+        } else {
+            controlPanel += '<button onclick="resetCondSelect()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 px-8 py-4 rounded-full font-bold text-lg fade-transition shadow-sm w-full"><i class="ph-bold ph-arrow-u-up-left"></i> 選擇其他物品</button>';
+        }
+        controlPanel += '</div></div>';
+      }
+
+      let content = '<div class="space-y-6 fade-transition"><div class="bg-white rounded-3xl p-5 md:p-8 shadow-sm border-2 border-slate-200"><div class="flex items-center gap-3 mb-6 bg-teal-50 p-4 rounded-2xl border border-teal-100 text-teal-700"><i class="ph-fill ph-magnet text-3xl"></i><h2 class="text-2xl font-bold">探索任務：導體檢測站</h2><p class="text-lg text-teal-600 ml-auto hidden md:block">大部分金屬是良導體，預測看看吧！</p></div><div class="flex flex-col lg:flex-row gap-6 lg:gap-8 items-stretch"><div class="flex-1 w-full bg-slate-50 rounded-3xl border-2 border-slate-200 relative overflow-hidden flex items-center justify-center min-h-[400px] lg:min-h-[500px] shadow-inner"><svg viewBox="0 0 500 500" class="w-full h-full max-h-[600px] drop-shadow-sm" preserveAspectRatio="xMidYMid meet"><defs><linearGradient id="bat-grad-v" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#fcd34d" /><stop offset="100%" stop-color="#38bdf8" /></linearGradient></defs><path d="' + redPath + '" fill="none" stroke="#ef4444" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><path d="' + bluePath1 + '" fill="none" stroke="#3b82f6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><path d="' + bluePath2 + '" fill="none" stroke="#3b82f6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>';
+      
+      if (isLit) {
+          content += '<path d="' + flowPath + '" fill="none" stroke="#fef08a" stroke-width="8" stroke-dasharray="16 16" class="animate-circuit-flow"/>';
+      }
+
+      content += '<g class="' + (isLit ? 'animate-glow' : '') + ' transition-all duration-300"><circle cx="250" cy="80" r="60" fill="' + (isLit ? '#fef08a' : '#f8fafc') + '" stroke="#cbd5e1" stroke-width="4"/><line x1="235" y1="140" x2="240" y2="110" stroke="#64748b" stroke-width="4"/><line x1="265" y1="140" x2="260" y2="110" stroke="#64748b" stroke-width="4"/><path d="M 235,140 L 240,110 L 250,130 L 260,110 L 265,140" fill="none" stroke="' + (isLit ? '#f59e0b' : '#94a3b8') + '" stroke-width="5" stroke-linejoin="round"/><rect x="210" y="140" width="80" height="50" fill="#cbd5e1" stroke="#64748b" stroke-width="4"/><line x1="210" y1="155" x2="290" y2="155" stroke="#64748b" stroke-width="4"/><line x1="210" y1="170" x2="290" y2="170" stroke="#64748b" stroke-width="4"/><path d="M 230,190 L 270,190 L 260,220 L 240,220 Z" fill="#475569"/></g><g transform="translate(0,0)"><rect x="225" y="280" width="50" height="20" fill="#475569" rx="4"/><rect x="190" y="300" width="120" height="160" rx="12" fill="url(#bat-grad-v)" stroke="#334155" stroke-width="5"/><text x="250" y="350" font-size="40" font-weight="bold" fill="#1e293b" text-anchor="middle">+</text><text x="250" y="440" font-size="40" font-weight="bold" fill="#1e293b" text-anchor="middle">-</text></g>';
+      
+      if (emoji) {
+          content += '<text x="400" y="350" font-size="64" text-anchor="middle" dominant-baseline="middle" class="drop-shadow-md transition-all duration-300">' + emoji + '</text>';
+      } else {
+          content += '<rect x="360" y="310" width="80" height="80" fill="none" stroke="#cbd5e1" stroke-width="4" stroke-dasharray="8 8" rx="8"/><text x="400" y="350" font-size="16" font-weight="bold" fill="#94a3b8" text-anchor="middle" dominant-baseline="middle">測試區</text>';
+      }
+
+      content += '</svg></div><div class="w-full lg:w-[420px] flex-shrink-0 flex flex-col bg-white rounded-3xl border-2 border-slate-100 p-6 md:p-8 shadow-sm">' + controlPanel + '</div></div></div>';
+
+      if (condProgress >= 0) {
+        content += renderMiniFill('condFill1', '任務一：觀念填空測驗', [{ qParts: ["可以讓電流順利通過，形成通路使燈泡發亮的物品，稱為", "。"], ans: ["良導體"], distractors: ["不良導體"] }], condProgress > 0, 'teal');
+      }
+      if (condProgress >= 1) {
+        content += renderMiniFill('condFill2', '任務二：觀念填空測驗', [{ qParts: ["無法讓電流通過，接在電路中會形成斷路使燈泡不亮的物品，稱為", "。"], ans: ["不良導體"], distractors: ["良導體"] }], condProgress > 1, 'teal');
+      }
+      if (condProgress >= 2) {
+        content += renderMiniTF('condTF', '任務三：觀念是非題', [{q: '鐵製的迴紋針和銅硬幣都可以讓電流順利通過，它們都是電的良導體。', a: true}], condProgress > 2, 'teal');
+      }
+
+      content += '<div class="text-center fade-transition ' + (condProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden') + '"><button onclick="jumpToStep(4)" class="inline-flex items-center gap-3 bg-teal-600 hover:bg-teal-700 text-white px-10 py-5 rounded-full text-2xl font-bold fade-transition shadow-md">檢測完畢！迎接最終測驗 <i class="ph-bold ph-arrow-right"></i></button></div></div>';
+
+      return content;
+    }
+
+    window.selectCond = function(idx) {
+      currentCondIdx = idx;
+      condStep = 'predict';
+      condPrediction = null;
+      render();
+    };
+    window.setCondPrediction = function(val) {
+      condPrediction = val;
+      render();
+    };
+    window.checkCondResult = function() {
+      let match = window.shuffledCondBtns[currentCondIdx];
+      let isCorrectPred = (condPrediction === 'lit' && match.type === 'good') || (condPrediction === 'unlit' && match.type === 'poor');
+      
+      if (isCorrectPred) {
+          window.condScore += 10;
+          triggerConfetti();
+      }
+      
+      window.testedConds.set(currentCondIdx, isCorrectPred);
+      condStep = 'result';
+      
+      if (window.testedConds.size >= 3 && condProgress === 0) {
+        setTimeout(() => progressTask('condExp'), 800);
+      }
+      render();
+    };
+    window.resetCondSelect = function() {
+      condStep = 'select';
+      currentCondIdx = -1;
+      render();
+    };
+    window.restartCondGame = function() {
+      window.shuffledCondBtns = null; 
+      condStep = 'select';
+      currentCondIdx = -1;
+      render();
+    };
+
+    // --- 區塊渲染：4. 最終測驗 (靛藍/Indigo) ---
+    function renderQuiz() {
+      if (quizState === 'dashboard') {
+        const history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+        let histHtml = '';
+        if (history.length === 0) {
+          histHtml = '<p class="text-slate-500 py-4 font-bold text-lg">目前還沒有測驗紀錄，快來挑戰第一次吧！</p>';
+        } else {
+          histHtml = '<div class="overflow-x-auto w-full mt-4"><table class="w-full text-left border-collapse min-w-[500px]"><thead><tr class="bg-indigo-100 text-indigo-800 border-b-2 border-indigo-200"><th class="p-3 rounded-tl-xl text-lg">日期</th><th class="p-3 text-lg">時間</th><th class="p-3 text-lg">成績</th><th class="p-3 rounded-tr-xl text-lg">作答時長</th></tr></thead><tbody>';
+          history.forEach(r => {
+             histHtml += '<tr class="border-b border-slate-100 hover:bg-slate-50 fade-transition"><td class="p-3 text-slate-600 text-lg">' + r.date + '</td><td class="p-3 text-slate-600 text-lg">' + r.time + '</td><td class="p-3 text-lg font-bold ' + (r.score >= 80 ? 'text-emerald-600' : 'text-amber-600') + '">' + r.score + ' 分</td><td class="p-3 text-slate-500 text-lg">' + r.duration + '</td></tr>';
+          });
+          histHtml += '</tbody></table></div>';
+        }
+
+        return '<div class="bg-white rounded-3xl p-8 md:p-12 shadow-sm border-2 border-slate-200 text-center mt-4 fade-transition max-w-3xl mx-auto"><i class="ph-fill ph-medal text-7xl text-indigo-500 mb-6 block"></i><h2 class="text-4xl font-bold text-indigo-800 mb-4">電路知識總挑戰</h2><p class="text-slate-600 mb-8 text-xl">本測驗共有 10 題，將從題庫中隨機抽取洗牌。</p><button onclick="startFinalQuiz()" class="inline-flex items-center justify-center w-full md:w-auto gap-3 bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-5 rounded-full text-2xl font-bold fade-transition shadow-md mb-8"><i class="ph-bold ph-pencil-simple"></i> 開始測驗</button><div class="bg-slate-50 rounded-3xl p-6 border-2 border-slate-100"><h3 class="text-2xl font-bold text-slate-700 flex items-center justify-center gap-2"><i class="ph-bold ph-clock-counter-clockwise"></i> 最近 5 次測驗紀錄</h3>' + histHtml + '</div></div>';
+      }
+
+      if (quizState === 'result') {
+        let comment = "繼續加油，可以再回顧一下前面的觀念喔！";
+        if (quizScore >= 90) comment = "太厲害了！你是電路接線大師！";
+        else if (quizScore >= 70) comment = "表現不錯喔！你已經成功掌握電路概念了。";
+
+        return '<div class="bg-white rounded-3xl p-8 md:p-12 shadow-sm border-2 border-slate-200 text-center mt-4 fade-transition"><h2 class="text-5xl font-bold text-indigo-600 mb-6">測驗結束！</h2><div class="text-8xl mb-6 drop-shadow-md">🏆</div><p class="text-4xl font-bold mb-4">你的最終得分：<span class="' + (quizScore >= 80 ? 'text-emerald-500' : 'text-amber-500') + '">' + quizScore + '</span> / 100</p><p class="text-2xl text-slate-600 mb-10">' + comment + '</p><button onclick="returnToQuizDashboard()" class="inline-flex items-center gap-3 bg-slate-200 hover:bg-slate-300 text-slate-700 px-8 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm"><i class="ph-bold ph-list-dashes"></i> 查看紀錄面板</button></div>';
+      }
+
+      const q = quizData[quizCurrentQ];
+      const optionLabels = ['A', 'B', 'C', 'D'];
+      let content = '<div class="space-y-6 fade-transition"><div class="bg-indigo-50 border-l-8 border-indigo-500 p-5 rounded-r-2xl shadow-sm flex gap-4 items-center"><div class="text-4xl md:text-5xl">📝</div><div><h3 class="font-bold text-indigo-800 text-xl md:text-2xl">電路大師考驗：最終總測驗</h3></div></div><div class="bg-white rounded-3xl p-6 md:p-10 shadow-sm border-2 border-slate-200"><div class="flex justify-between items-center mb-6 pb-4 border-b-2 border-slate-100"><h2 class="text-2xl md:text-3xl font-bold text-indigo-700">知識挑戰賽</h2><span class="text-lg md:text-xl font-bold bg-indigo-100 text-indigo-800 px-4 py-2 rounded-full shadow-sm">第 ' + (quizCurrentQ + 1) + ' / ' + quizData.length + ' 題</span></div><h3 class="text-xl md:text-2xl font-bold text-slate-800 mb-8 leading-relaxed flex items-start gap-3"><i class="ph-fill ph-question text-indigo-500 text-3xl shrink-0 mt-1"></i><span>' + q.question + '</span></h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">';
+
+      q.options.forEach((opt, idx) => {
+        let btnClass = "bg-slate-50 hover:bg-indigo-50 border-slate-200 text-slate-700";
+        let iconHtml = '';
+        if (quizIsAnswered) {
+          if (idx === q.answer) {
+            btnClass = "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold ring-4 ring-emerald-200";
+            iconHtml = '<i class="ph-fill ph-check-circle text-emerald-500 text-3xl shrink-0"></i>';
+          } else if (idx === quizSelectedOption) {
+            btnClass = "bg-rose-50 border-rose-300 text-rose-700 ring-4 ring-rose-200";
+            iconHtml = '<i class="ph-fill ph-x-circle text-rose-500 text-3xl shrink-0"></i>';
+          } else {
+            btnClass = "bg-slate-50 border-slate-200 text-slate-400 opacity-50";
+          }
+        }
+        
+        content += '<button onclick="handleQuizAnswer(' + idx + ')" ' + (quizIsAnswered ? 'disabled' : '') + ' class="p-5 md:p-6 text-left text-xl rounded-2xl border-2 fade-transition flex items-center justify-between gap-3 shadow-sm ' + btnClass + '"><div class="flex items-center gap-4"><span class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white shadow border border-slate-200 text-indigo-600 font-bold text-lg shrink-0">' + optionLabels[idx] + '</span><span>' + opt + '</span></div>' + iconHtml + '</button>';
+      });
+      content += '</div></div></div>';
+      return content;
+    }
+
+    window.startFinalQuiz = function() {
+      initQuizData(); 
+      quizCurrentQ = 0;
+      quizScore = 0;
+      quizIsAnswered = false;
+      quizSelectedOption = null;
+      quizStartTime = Date.now();
+      quizState = 'playing';
+      render();
+    }
+
+    window.handleQuizAnswer = function(idx) {
+      if (quizIsAnswered) return;
+      quizSelectedOption = idx; quizIsAnswered = true;
+      if (idx === quizData[quizCurrentQ].answer) {
+          quizScore += 10;
+          triggerConfetti();
+      }
+      render();
+
+      setTimeout(() => {
+        if (quizCurrentQ + 1 < quizData.length) { 
+          quizCurrentQ++; quizSelectedOption = null; quizIsAnswered = false; 
+        } else { 
+          const durationMs = Date.now() - quizStartTime;
+          saveQuizRecord(quizScore, durationMs);
+          quizState = 'result'; 
+        }
+        render();
+      }, 1500); 
+    }
+
+    function saveQuizRecord(score, durationMs) {
+      let history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+      const now = new Date();
+      const record = {
+         date: now.toLocaleDateString('zh-TW'),
+         time: now.toLocaleTimeString('zh-TW', { hour12: false }),
+         score: score,
+         duration: formatDuration(durationMs)
+      };
+      history.unshift(record); 
+      history = history.slice(0, 5);
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(history));
+    }
+
+    window.returnToQuizDashboard = function() {
+      quizState = 'dashboard';
+      render();
+    }
+
+    // --- 共用小測驗產生器 ---
+    const mcqStates = {};
+    function renderMiniMCQ(id, title, qPool, isCompleted, theme) {
+      if (!mcqStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        const qRaw = qPool[varIdx];
+        const correctOpt = qRaw.opts[qRaw.a];
+        const shuffledOpts = shuffleArray(qRaw.opts);
+        const newAnsIdx = shuffledOpts.indexOf(correctOpt);
+        mcqStates[id] = { selected: null, opts: shuffledOpts, ansIdx: newAnsIdx, varIdx: varIdx };
+      }
+      const st = mcqStates[id];
+      const qRaw = qPool[st.varIdx];
+      const th = 'text-' + theme + '-700';
+      const bgComp = 'bg-' + theme + '-50 border-' + theme + '-200 opacity-90';
+
+      let html = '<div class="bg-white rounded-2xl p-4 md:p-6 shadow-sm border-2 fade-transition ' + (isCompleted ? bgComp : 'border-slate-200') + '"><h3 class="text-xl md:text-2xl font-bold mb-4 flex items-center justify-between ' + th + '"><span class="flex items-center gap-2"><i class="ph-fill ph-question"></i> ' + title + '</span>' + (isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-3xl"></i>' : '') + '</h3><p class="text-lg md:text-xl font-bold text-slate-800 mb-6">' + qRaw.q + '</p><div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
+
+      st.opts.forEach((opt, idx) => {
+        let cls = "bg-slate-50 border-slate-200 hover:bg-slate-100 text-base md:text-lg shadow-sm";
+        if (isCompleted) { 
+          cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-slate-50 text-slate-400 border-slate-100"; 
+        } else if (st.selected === idx) { 
+          cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold ring-2 ring-emerald-200" : "bg-rose-50 border-rose-300 text-rose-700 ring-2 ring-rose-200"; 
+        }
+        html += '<button onclick="handleMCQ(\'' + id + '\', ' + idx + ', ' + st.ansIdx + ')" ' + (isCompleted ? 'disabled' : '') + ' class="p-4 rounded-xl border-2 text-left font-bold fade-transition ' + cls + '">' + opt + '</button>';
+      });
+      return html + '</div></div>';
+    }
+    window.handleMCQ = function(id, selIdx, ansIdx) {
+      if (mcqStates[id].selected !== null) return;
+      mcqStates[id].selected = selIdx; render();
+      if (selIdx === ansIdx) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { mcqStates[id].selected = null; render(); }, 1000);
+    }
+
+    const tfStates = {};
+    function renderMiniTF(id, title, qPool, isCompleted, theme) {
+      if (!tfStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        tfStates[id] = { selected: null, varIdx: varIdx };
+      }
+      const st = tfStates[id];
+      const qRaw = qPool[st.varIdx];
+      const th = 'text-' + theme + '-700';
+      const bgComp = 'bg-' + theme + '-50 border-' + theme + '-200 opacity-90';
+
+      let html = '<div class="bg-white rounded-2xl p-4 md:p-6 shadow-sm border-2 fade-transition ' + (isCompleted ? bgComp : 'border-slate-200') + '"><h3 class="text-xl md:text-2xl font-bold mb-4 flex items-center justify-between ' + th + '"><span class="flex items-center gap-2"><i class="ph-fill ph-check-square-offset"></i> ' + title + '</span>' + (isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-3xl"></i>' : '') + '</h3><p class="text-lg md:text-xl font-bold text-slate-800 mb-6">' + qRaw.q + '</p><div class="flex gap-4 justify-center">';
+      
+      const tCls = isCompleted ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === true ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-rose-50 border-rose-300 text-rose-700") : "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700 shadow-sm");
+      const fCls = isCompleted ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === false ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-rose-50 border-rose-300 text-rose-700") : "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700 shadow-sm");
+
+      html += '<button onclick="handleTF(\'' + id + '\', true, ' + qRaw.a + ')" ' + (isCompleted?'disabled':'') + ' class="flex-1 max-w-[200px] p-4 rounded-xl border-2 text-2xl font-bold fade-transition text-center ' + tCls + '">⭕ 是</button>';
+      html += '<button onclick="handleTF(\'' + id + '\', false, ' + qRaw.a + ')" ' + (isCompleted?'disabled':'') + ' class="flex-1 max-w-[200px] p-4 rounded-xl border-2 text-2xl font-bold fade-transition text-center ' + fCls + '">❌ 非</button>';
+      return html + '</div></div>';
+    }
+    window.handleTF = function(id, sel, ans) {
+      if (tfStates[id].selected !== null) return;
+      tfStates[id].selected = sel; render();
+      if (sel === ans) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { tfStates[id].selected = null; render(); }, 1000);
+    }
+
+    const fillStates = {};
+    function renderMiniFill(id, title, qPool, isCompleted, theme) {
+      if (!fillStates[id]) {
+        let bInit = {};
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        const qRaw = qPool[varIdx];
+        qRaw.ans.forEach((_, i) => { bInit['b'+(i+1)] = null; }); 
+        
+        let wordCards = [];
+        qRaw.ans.forEach((a, i) => wordCards.push({ id: 'a'+i, text: a, correctBlank: 'b'+(i+1), c: 'bg-' + theme + '-100 text-' + theme + '-800' }));
+        qRaw.distractors.forEach((d, i) => wordCards.push({ id: 'd'+i, text: d, correctBlank: 'none', c: 'bg-' + theme + '-100 text-' + theme + '-800' }));
+        
+        fillStates[id] = { b: bInit, sel: null, err: null, words: shuffleArray(wordCards), varIdx: varIdx, qRaw: qRaw };
+      }
+      const st = fillStates[id];
+      if (isCompleted) {
+         st.qRaw.ans.forEach((a, i) => {
+             st.b['b'+(i+1)] = {text: a};
+         });
+      }
+      const th = 'text-' + theme + '-700';
+      const bgComp = 'bg-' + theme + '-50 border-' + theme + '-200 opacity-90';
+
+      let html = '<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ' + (isCompleted ? bgComp : 'border-slate-200') + '"><h3 class="text-xl md:text-2xl font-bold ' + th + ' mb-4 flex items-center justify-between"><span class="flex items-center gap-2"><i class="ph-fill ph-puzzle-piece"></i> ' + title + '</span>' + (isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-3xl"></i>' : '') + '</h3><p class="text-slate-600 mb-6 text-base font-bold">點擊字卡拿起來，填入正確的空格中！</p>';
+
+      if (!isCompleted) {
+        html += '<div class="flex flex-wrap justify-center gap-3 mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-200 min-h-[4rem]">';
+        st.words.forEach(w => {
+          const isUsed = Object.values(st.b).some(v => v && v.id === w.id);
+          if (isUsed) { html += '<div class="w-20 opacity-0"></div>'; return; }
+          const isSelected = st.sel?.id === w.id;
+          let cls = 'px-4 py-2 rounded-full font-bold text-lg md:text-xl transition-colors cursor-pointer shadow-sm ' + w.c + ' ' + (isSelected ? 'ring-4 ring-' + theme + '-400' : 'hover:opacity-90');
+          html += '<button onclick="handleFillWord(\'' + id + '\', \'' + w.id + '\')" class="' + cls + '">' + w.text + '</button>';
+        });
+        html += '</div>';
+      }
+
+      let contentHtml = st.qRaw.qParts[0];
+      st.qRaw.ans.forEach((_, i) => {
+        const key = 'b'+(i+1);
+        const val = st.b[key];
+        let boxHtml = '';
+        if (val) {
+          boxHtml = '<span class="inline-block mx-2 px-4 py-1 rounded-full text-white bg-emerald-500 align-middle leading-none shadow-sm">' + val.text + '</span>';
+        } else {
+          const isErr = st.err === key;
+          const isSel = !!st.sel && !isErr;
+          let cls = 'inline-block mx-2 w-24 h-10 border-b-4 border-dashed align-middle transition-colors outline-none ' + (isErr ? 'border-rose-500 bg-rose-50' : 'border-' + theme + '-400 bg-white/50') + ' ' + (isSel ? 'hover:bg-' + theme + '-100 cursor-pointer border-' + theme + '-500' : '');
+          boxHtml = '<button onclick="handleFillBox(\'' + id + '\', \'' + key + '\')" class="' + cls + '"></button>';
+        }
+        contentHtml += boxHtml + st.qRaw.qParts[i+1];
+      });
+
+      html += '<div class="text-xl md:text-2xl leading-loose font-bold text-slate-700 bg-' + theme + '-50 p-6 rounded-2xl border border-' + theme + '-200 shadow-inner">' + contentHtml + '</div></div>';
+      return html;
+    }
+
+    window.handleFillWord = function(id, wordId) {
+      const st = fillStates[id];
+      const wordObj = st.words.find(w => w.id === wordId);
+      if (Object.values(st.b).some(v => v && v.id === wordId)) return;
+      st.sel = wordObj; render();
+    };
+    window.handleFillBox = function(id, boxKey) {
+      const st = fillStates[id];
+      if (!st.sel) return;
+      if (st.sel.correctBlank === boxKey) {
+        st.b[boxKey] = st.sel; st.sel = null; render();
+        if (Object.values(st.b).every(v => v !== null)) setTimeout(() => progressTask(id), 600);
+      } else {
+        st.err = boxKey; render(); setTimeout(() => { st.err = null; render(); }, 1000);
+      }
+    };
+
+    // --- 圖形視覺化填空題產生器 ---
+    const visFillStates = {};
+    function renderVisualDiagramFill(id, title, qData, isCompleted, theme) {
+      if (!visFillStates[id]) {
+        let opts = qData.ans.concat(qData.distractors || []);
+        let shuffled = shuffleArray(opts);
+        let ansIndices = qData.ans.map(a => shuffled.indexOf(a));
+        visFillStates[id] = {
+            blanks: new Array(qData.ans.length).fill(null),
+            opts: shuffled,
+            ansIndices: ansIndices,
+            sel: null,
+            err: null
+        };
+      }
+      const st = visFillStates[id];
+      const th = 'text-' + theme + '-700';
+      const bgComp = 'bg-' + theme + '-50 border-' + theme + '-200 opacity-95';
+
+      let html = '<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ' + (isCompleted ? bgComp : 'border-slate-200') + '"><h3 class="text-xl md:text-2xl font-bold ' + th + ' mb-4 flex items-center justify-between"><span class="flex items-center gap-2"><i class="ph-fill ph-intersect"></i> ' + title + '</span>' + (isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-3xl"></i>' : '') + '</h3><p class="text-slate-600 mb-6 text-base font-bold">點擊下方的名詞字卡，再點擊圖中的空格完成對應！</p>';
+
+      if (!isCompleted) {
+        html += '<div class="flex flex-wrap justify-center gap-3 mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-200 min-h-[4rem]">';
+        st.opts.forEach((opt, idx) => {
+          const isUsed = st.blanks.includes(idx);
+          if (isUsed) { html += '<div class="w-20 opacity-0"></div>'; return; }
+          const isSelected = st.sel === idx;
+          let cls = 'px-4 py-2 rounded-full font-bold text-lg md:text-xl transition-colors cursor-pointer shadow-sm bg-' + theme + '-100 text-' + theme + '-800 ' + (isSelected ? 'ring-4 ring-' + theme + '-400' : 'hover:opacity-90');
+          html += '<button onclick="handleVisFillWord(\'' + id + '\', ' + idx + ')" class="' + cls + '">' + opt + '</button>';
+        });
+        html += '</div>';
+      }
+
+      html += '<div class="relative w-full max-w-2xl mx-auto min-h-[300px] bg-slate-50 border-2 border-slate-200 rounded-2xl mb-4 flex items-center justify-center overflow-hidden shadow-inner py-6 px-4">' + qData.svg;
+
+      qData.slots.forEach((slot, i) => {
+        let valIdx = st.blanks[i];
+        let text = valIdx !== null ? st.opts[valIdx] : '點擊填寫';
+        let cls = '';
+        if (isCompleted) {
+            text = qData.ans[i]; 
+            cls = 'bg-emerald-100 text-emerald-800 border-emerald-500 font-bold';
+        } else if (valIdx !== null) {
+            let isAllFilled = st.blanks.every(s => s !== null);
+            if (isAllFilled) {
+                cls = valIdx === st.ansIndices[i] ? 'bg-emerald-100 text-emerald-800 border-emerald-500' : 'bg-rose-100 text-rose-800 border-rose-500';
+            } else {
+                cls = 'bg-' + theme + '-100 text-' + theme + '-800 border-' + theme + '-500';
+            }
+        } else {
+            let isErr = st.err === i;
+            let isSel = !!(st.sel !== null) && !isErr;
+            cls = isErr ? 'bg-rose-50 border-rose-500 text-rose-500' : 'bg-white border-' + theme + '-300 text-slate-500 ' + (isSel ? 'hover:bg-' + theme + '-50 border-' + theme + '-400 cursor-pointer' : '');
+        }
+        
+        let position = '';
+        if(slot.top) position += 'top: ' + slot.top + ';';
+        if(slot.left) position += 'left: ' + slot.left + ';';
+        if(slot.right) position += 'right: ' + slot.right + ';';
+        if(slot.bottom) position += 'bottom: ' + slot.bottom + ';';
+
+        let clickHandler = isCompleted ? '' : (valIdx !== null ? 'onclick="clearVisFillBlank(\'' + id + '\', ' + i + ')"' : 'onclick="handleVisFillBox(\'' + id + '\', ' + i + ')"');
+        let titleText = (valIdx !== null && !isCompleted) ? ' title="點擊清除"' : '';
+        html += '<button style="' + position + '" ' + clickHandler + ' ' + titleText + ' class="absolute center-absolute px-4 py-2 text-base md:text-xl border-b-4 rounded-xl shadow-md transition-colors whitespace-nowrap font-bold outline-none ' + cls + '">' + text + '</button>';
+      });
+
+      html += '</div></div>';
+      return html;
+    }
+
+    window.handleVisFillWord = function(id, optIdx) {
+      const st = visFillStates[id];
+      if (st.blanks.includes(optIdx)) return;
+      st.sel = optIdx; render();
+    };
+
+    window.handleVisFillBox = function(id, boxIdx) {
+      const st = visFillStates[id];
+      if (st.sel === null) return;
+      
+      st.blanks[boxIdx] = st.sel;
+      st.sel = null;
+      render();
+
+      if (st.blanks.every(v => v !== null)) {
+          let isCorrect = st.blanks.every((val, i) => val === st.ansIndices[i]);
+          if (isCorrect) {
+              setTimeout(() => progressTask(id), 600);
+          } else {
+              setTimeout(() => { 
+                  st.err = null;
+                  st.blanks.fill(null); 
+                  render(); 
+              }, 1200);
+          }
+      }
+    };
+
+    window.clearVisFillBlank = function(id, blankIdx) {
+      const st = visFillStates[id];
+      if (st.blanks[blankIdx] !== null) {
+        st.blanks[blankIdx] = null;
+        render();
+      }
+    };
+
+
+    // --- 全局狀態推進 ---
+    window.progressTask = function(taskId) {
+      if (taskId.startsWith('comp')) compProgress++;
+      else if (taskId.startsWith('circuit')) circuitProgress++;
+      else if (taskId.startsWith('cond')) condProgress++;
+      render();
+    }
+
+    // 主渲染邏輯
+    function render() {
+      renderProgressBar();
+      const main = document.getElementById('main-content');
+      switch (steps[currentStepIndex]) {
+        case 'welcome': main.innerHTML = renderWelcome(); break;
+        case 'components': main.innerHTML = renderComponents(); break;
+        case 'circuit': main.innerHTML = renderCircuit(); break;
+        case 'conductor': main.innerHTML = renderConductor(); break;
+        case 'quiz': main.innerHTML = renderQuiz(); break;
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>

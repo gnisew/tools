@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>能源與電路：節約能源</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入 Phosphor Icons 做為圖示庫 -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    /* 隱藏捲軸但保留捲動功能 */
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* 零干擾平滑動畫設計 */
+    .fade-transition {
+      transition: opacity 0.4s ease-in-out, background-color 0.4s ease-in-out, border-color 0.4s ease-in-out, color 0.4s ease-in-out, transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), height 0.4s ease-in-out;
+    }
+
+    /* 停電閃爍特效 */
+    @keyframes flicker {
+      0% { opacity: 1; }
+      10% { opacity: 0.5; }
+      20% { opacity: 1; }
+      80% { opacity: 1; }
+      90% { opacity: 0; }
+      100% { opacity: 0; }
+    }
+    .power-cut-anim {
+      animation: flicker 1s forwards;
+    }
+    
+    /* 電池浮動動畫 */
+    @keyframes float-anim {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+    .animate-float {
+      animation: float-anim 3s ease-in-out infinite;
+    }
+
+    /* 黑漆漆手電筒探照特效 */
+    .flashlight-overlay {
+      background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), transparent 50px, rgba(15, 23, 42, 0.98) 150px);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 pb-16 min-h-screen">
+
+  <!-- 標題列：環保沉穩色系，取消 sticky 以最大化可視空間 -->
+  <header class="bg-slate-700 text-white p-4 shadow-md">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <i class="ph ph-leaf text-3xl text-emerald-400"></i>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-wider">節約能源</h1>
+      </div>
+    </div>
+  </header>
+
+  <!-- 全解鎖導航列 -->
+  <div id="progress-container" class="max-w-4xl mx-auto px-4 pt-6 fade-transition">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border-2 border-slate-200 flex flex-wrap justify-between items-center gap-2 overflow-x-auto hide-scrollbar" id="progress-bar">
+      <!-- JS 渲染進度條 -->
+    </div>
+  </div>
+
+  <main id="main-content" class="max-w-4xl mx-auto p-4 mt-4 fade-transition">
+    <!-- JS 渲染內容 -->
+  </main>
+
+  <script>
+    // --- 實用的隨機洗牌函數 ---
+    function shuffleArray(array) {
+      const newArr = [...array];
+      for (let i = newArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+      }
+      return newArr;
+    }
+
+    // --- 系統狀態管理 ---
+    const steps = ['welcome', 'crisis', 'action', 'recycle', 'quiz'];
+    let currentStepIndex = 0;
+    
+    // 各大關卡的細部任務進度
+    let crisisProgress = 0;    
+    let actionProgress = 0;  
+    let recycleProgress = 0;   
+
+    // 停電危機互動狀態
+    let isPowerOn = true;
+    let powerOutageClicks = new Set();
+    let powerFeedback = '💡 燈光明亮，冷氣涼爽！點擊房間裡的電器看看吧！';
+
+    // 尋找廢電池互動狀態 (挖土遊戲)
+    let digSpots = [];
+    let batteriesFound = 0;
+    let recycleFeedback = '👉 點擊土堆挖掘，找出隱藏的 3 顆廢電池並回收！';
+    const pilePositions = [
+        { top: '15%', left: '15%' }, { top: '20%', left: '45%' }, { top: '10%', left: '75%' },
+        { top: '60%', left: '20%' }, { top: '65%', left: '50%' }, { top: '55%', left: '80%' }
+    ];
+
+    function initDigGame() {
+        let types = ['bat', 'bat', 'bat', 'bug', 'bug', 'bug'];
+        types = shuffleArray(types);
+        digSpots = types.map((t, i) => ({ id: i, type: t, dug: false, pos: pilePositions[i] }));
+        batteriesFound = 0;
+        recycleFeedback = '👉 有人亂丟廢電池！請點擊土堆挖掘，找出隱藏的 3 顆廢電池！';
+    }
+
+    // 分類遊戲狀態 (節能 vs 耗能)
+    const baseSortItems = [
+      { id: 1, text: '冷氣設定 26~28℃ 並搭配電風扇', type: 'eco', emoji: '❄️', desc: '溫度適中且空氣循環佳' },
+      { id: 2, text: '搭電梯只上下一個樓層', type: 'waste', emoji: '🛗', desc: '浪費電力，應該多走樓梯' },
+      { id: 3, text: '離開房間時隨手關燈', type: 'eco', emoji: '💡', desc: '避免不必要的電力浪費' },
+      { id: 4, text: '打開冰箱門想很久要吃什麼', type: 'waste', emoji: '🧊', desc: '冷氣外洩會非常耗電' },
+      { id: 5, text: '出門多搭乘捷運或公車', type: 'eco', emoji: '🚌', desc: '減少個人碳排放量' },
+      { id: 6, text: '把傳統燈泡換成 LED 燈泡', type: 'eco', emoji: '🚥', desc: 'LED 壽命長又省電' },
+      { id: 7, text: '購買沒有節能標章的電器', type: 'waste', emoji: '📺', desc: '老舊耗電設計會浪費能源' }
+    ];
+    let sortItems = [];
+    let sortCurrentIndex = 0;
+    let sortFeedback = null;
+
+    // --- 最終測驗題庫池 ---
+    const rawQuizPools = [
+      [ 
+        { q: "如果突然停電了，對我們的生活會有什麼影響？", options: ["交通號誌無法運作，影響安全", "冰箱食物會變得更新鮮", "電視畫面會變得很清楚", "電燈會自己亮起來"], answer: 0 },
+        { q: "關於停電的影響，下列哪一個敘述是「錯誤」的？", options: ["晚上街道會變得黑漆漆", "電梯無法使用", "可以更方便地用電烤箱烤肉", "無法順利使用冷氣"], answer: 2 }
+      ],
+      [ 
+        { q: "煤礦和石油在自然界中需要很長時間才能形成，屬於什麼樣的資源？", options: ["可以不斷再生的資源", "無法短時間補充的有限資源", "隨時會從天上掉下來的資源", "完全沒有用的資源"], answer: 1 },
+        { q: "下列哪一種能源在大自然中可以持續再生，被認為是比較環保的能源？", options: ["煤礦", "石油", "太陽能", "天然氣"], answer: 2 }
+      ],
+      [ 
+        { q: "為了節約用電，我們應該養成什麼好習慣？", options: ["離開房間時隨手關燈", "白天也把家裡所有的燈打開", "電視不看時也不用關", "冷氣開一整天不休息"], answer: 0 },
+        { q: "買新電器時，選擇貼有什麼圖案的產品可以幫助節約能源？", options: ["節能標章", "可愛動物貼紙", "卡通圖案", "越便宜越好的標籤"], answer: 0 }
+      ],
+      [ 
+        { q: "夏天開冷氣時，怎樣設定最節省能源？", options: ["設定 16℃ 吹到發抖", "設定 26~28℃ 並搭配電風扇", "打開窗戶吹冷氣", "冷氣和暖氣一起開"], answer: 1 },
+        { q: "關於使用冰箱的習慣，怎樣做比較節省能源？", options: ["打開冰箱門吹冷氣", "打開冰箱慢慢想今天想吃什麼", "減少開冰箱的次數和時間", "把熱呼呼的湯直接放進冰箱"], answer: 2 }
+      ],
+      [ 
+        { q: "出門時，下列哪一種交通方式最能達到節能減碳的效果？", options: ["爸爸開車載我一個人", "全家一人開一台車", "搭乘公車或捷運等大眾運輸", "每天都搭計程車"], answer: 2 },
+        { q: "如果只要上下一個樓層，我們應該怎麼做比較節省能源？", options: ["少搭電梯，多走樓梯", "不管幾樓都搭電梯", "請別人背我上去", "在樓下大聲呼叫"], answer: 0 }
+      ],
+      [ 
+        { q: "為了省電，我們最好把家裡的傳統鎢絲燈泡換成哪一種燈泡？", options: ["更亮更熱的鹵素燈泡", "不會發光的玻璃球", "壽命長又省電的 LED 燈泡", "會冒黑煙的電弧燈"], answer: 2 },
+        { q: "比起傳統鎢絲燈泡，LED 燈泡有什麼優點？", options: ["更耗電", "壽命更長且更省電", "容易燙傷人", "光線很暗看不清楚"], answer: 1 }
+      ],
+      [ 
+        { q: "如果發現遙控器裡的電池沒電了，應該怎麼處理？", options: ["隨手丟進一般垃圾桶", "丟進水溝裡", "拿去便利商店或資源回收車回收", "埋在公園的土裡"], answer: 2 },
+        { q: "為什麼我們不能將廢電池隨意丟棄在土壤裡？", options: ["會讓土裡長出新電池", "有毒物質會汙染土壤和地下水", "會讓土變得很香", "小蟲子會把它吃掉"], answer: 1 }
+      ],
+      [ 
+        { q: "下列哪一個行為符合「低碳生活」的觀念？", options: ["每天用很多塑膠袋", "買國外進口的昂貴水果", "使用環保餐具，選擇當地當季的食材", "出門都請司機開車接送"], answer: 2 },
+        { q: "「低碳生活」的主要目的是什麼？", options: ["為了多花一點錢", "為了讓生活變得很麻煩", "減少碳排放量，降低對環境的破壞", "為了製造更多垃圾"], answer: 2 }
+      ],
+      [ 
+        { q: "關於生活中的節約能源，下列敘述哪一個是「錯誤」的？", options: ["大自然的煤礦和石油是有限的，要珍惜使用", "個人節約的能源有限，所以不必節約能源", "多搭乘大眾運輸工具可以節能減碳", "電池回收可以保護環境"], answer: 1 },
+        { q: "為什麼我們要提倡節約能源？", options: ["因為電太多了用不完", "因為許多能源是有限的，且過度開發會危害環境", "因為大家都喜歡黑暗", "因為電費太便宜了"], answer: 1 }
+      ],
+      [ 
+        { q: "為了減少廢棄電池的數量，除了確實回收，我們還可以改用什麼電池？", options: ["可重複使用的充電電池", "比較大顆的電池", "比較便宜的碳鋅電池", "鈕扣電池"], answer: 0 },
+        { q: "關於電池的使用，下列哪一個「貼心小叮嚀」是正確的？", options: ["新舊電池可以混在一起用", "不同種類的電池可以一起用", "電池與燈泡要做好回收處理，不可隨意丟棄", "手電筒沒電時只要用力敲一敲就好"], answer: 2 }
+      ]
+    ];
+
+    let quizState = 'dashboard'; 
+    let quizData = [];
+    let quizCurrentQ = 0;
+    let quizScore = 0;
+    let quizSelectedOption = null;
+    let quizIsAnswered = false;
+    let quizStartTime = 0;
+    const LOCAL_STORAGE_KEY = '42hz44';
+
+    function initQuizData() {
+      quizData = rawQuizPools.map(pool => {
+        const qRaw = pool[Math.floor(Math.random() * pool.length)];
+        const correctOpt = qRaw.options[qRaw.answer];
+        const shuffledOptions = shuffleArray(qRaw.options);
+        return {
+          question: qRaw.q,
+          options: shuffledOptions,
+          answer: shuffledOptions.indexOf(correctOpt)
+        };
+      });
+    }
+
+    function formatDuration(ms) {
+      const totalSecs = Math.floor(ms / 1000);
+      const mins = Math.floor(totalSecs / 60);
+      const secs = totalSecs % 60;
+      return `${mins}分 ${secs}秒`;
+    }
+
+    function jumpToStep(index) {
+      currentStepIndex = index;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function renderProgressBar() {
+      const bar = document.getElementById('progress-bar');
+      const stages = [
+        { name: '出發', icon: 'ph-flag-pennant', th: 'emerald' },
+        { name: '能源危機', icon: 'ph-lightning-slash', th: 'amber' },
+        { name: '節能行動', icon: 'ph-lightbulb', th: 'teal' },
+        { name: '環保回收', icon: 'ph-recycle', th: 'emerald' },
+        { name: '最終測驗', icon: 'ph-file-question', th: 'indigo' },
+      ];
+
+      let html = '';
+      stages.forEach((stage, idx) => {
+        const isActive = currentStepIndex === idx;
+        const isPassed = (idx === 1 && crisisProgress >= 3) || 
+                         (idx === 2 && actionProgress >= 3) || 
+                         (idx === 3 && recycleProgress >= 3);
+
+        let iconHtml = isPassed ? '<i class="ph-fill ph-check-circle text-xl"></i>' : `<i class="ph ${stage.icon} text-xl"></i>`;
+        
+        let circleClass = `w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm fade-transition `;
+        if (isActive) circleClass += `bg-${stage.th}-500 ring-4 ring-${stage.th}-200`;
+        else if (isPassed) circleClass += `bg-emerald-400`;
+        else circleClass += `bg-slate-300`;
+
+        let textClass = `text-xs font-bold whitespace-nowrap mt-1 ${isActive ? `text-${stage.th}-600` : 'text-slate-500'}`;
+
+        html += `
+          <div class="flex items-center">
+            <button onclick="jumpToStep(${idx})" class="flex flex-col items-center px-2 py-1 fade-transition cursor-pointer hover:bg-slate-50 rounded-lg">
+              <div class="${circleClass}">${iconHtml}</div>
+              <span class="${textClass}">${stage.name}</span>
+            </button>
+        `;
+        if (idx < stages.length - 1) {
+          html += `<div class="hidden sm:block w-8 md:w-12 h-1 rounded-full mx-1 ${isPassed ? 'bg-emerald-300' : 'bg-slate-200'}"></div>`;
+        }
+        html += `</div>`;
+      });
+      bar.innerHTML = html;
+    }
+
+    // --- 區塊渲染：0. 首頁 ---
+    function renderWelcome() {
+      return `
+        <div class="bg-white rounded-3xl p-8 md:p-12 shadow-sm border-2 border-slate-200 text-center mt-8 fade-transition">
+          <div class="inline-block bg-emerald-50 p-6 rounded-full mb-6">
+            <i class="ph ph-leaf text-7xl text-emerald-500"></i>
+          </div>
+          <h2 class="text-4xl md:text-5xl font-bold text-slate-800 mb-6">節能小尖兵</h2>
+          <p class="text-xl md:text-2xl text-slate-600 leading-relaxed mb-8 max-w-2xl mx-auto">
+            生活中有許多方便的電器，但製造電力的能源（像是煤礦、石油）是有限的，有一天可能會用完！<br/><br/>
+            如果沒有電，生活會變成什麼樣子？我們又能在日常生活中做些什麼來保護地球呢？一起來挑戰節能任務吧！
+          </p>
+          <button onclick="jumpToStep(1)" class="inline-flex items-center gap-3 bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm">
+            <i class="ph-fill ph-play-circle text-3xl"></i> 接受任務！
+          </button>
+        </div>
+      `;
+    }
+
+    // 手電筒探照效果更新
+    window.updateFlashlight = function(e) {
+      if (isPowerOn) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      // 處理滑鼠與觸控事件
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+      e.currentTarget.style.setProperty('--mouse-x', `${x}px`);
+      e.currentTarget.style.setProperty('--mouse-y', `${y}px`);
+    }
+
+    // --- 區塊渲染：1. 能源危機 (Amber) ---
+    function renderCrisis() {
+      let roomClass = isPowerOn ? 'bg-amber-50 border-amber-200' : 'bg-slate-800 border-slate-900 cursor-crosshair';
+      let iconColor = isPowerOn ? 'text-slate-700 hover:scale-110' : 'text-slate-400 hover:scale-110 hover:text-white drop-shadow-md';
+      
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-amber-50 border-l-8 border-amber-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">🔌</div>
+            <div>
+              <h3 class="font-bold text-amber-800 text-lg">體驗任務：如果沒有電？</h3>
+              <p class="text-amber-700">「請按下總開關體驗停電。在黑暗中<b>移動你的探照光束</b>尋找電器並點擊，收集停電造成的各種不便吧！」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200 text-center">
+            <h2 class="text-2xl font-bold text-amber-600 mb-6 flex items-center justify-center gap-2">
+              <i class="ph-fill ph-flashlight"></i> 停電危機探索室
+            </h2>
+            
+            <div class="w-full max-w-lg mx-auto h-64 border-4 rounded-3xl flex flex-col items-center justify-center mb-6 shadow-inner transition-colors duration-700 relative overflow-hidden ${roomClass}"
+                 onmousemove="updateFlashlight(event)" ontouchmove="updateFlashlight(event)">
+              
+              <!-- 黑暗手電筒遮罩 -->
+              <div class="absolute inset-0 flashlight-overlay transition-opacity duration-500 z-10 ${isPowerOn ? 'opacity-0' : 'opacity-100'}"></div>
+
+              <!-- 燈泡裝飾 -->
+              <div class="absolute top-4 left-1/2 -translate-x-1/2 transition-opacity duration-300 z-0 ${isPowerOn ? 'opacity-100' : 'opacity-10'}">
+                 <i class="ph-fill ph-lightbulb text-5xl text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.8)]"></i>
+              </div>
+
+              <!-- 互動電器區 (提升 z-index 確保在遮罩上層可點擊) -->
+              <div class="flex gap-8 mt-8 z-20">
+                 <!-- 電視 -->
+                 <button onclick="clickAppliance('tv')" class="relative flex flex-col items-center transition-all duration-300 ${iconColor}">
+                    <i class="ph-fill ph-television text-6xl"></i>
+                    ${isPowerOn ? '<div class="absolute top-3 left-1/2 -translate-x-1/2 w-8 h-6 bg-sky-300 rounded shadow-inner animate-pulse"></div>' : ''}
+                    ${!isPowerOn && powerOutageClicks.has('tv') ? '<span class="absolute -top-6 text-2xl">💤</span>' : ''}
+                 </button>
+                 
+                 <!-- 電風扇 -->
+                 <button onclick="clickAppliance('fan')" class="flex flex-col items-center transition-all duration-300 ${iconColor}">
+                    <i class="ph-fill ph-fan text-6xl ${isPowerOn ? 'text-teal-600 animate-spin' : ''}"></i>
+                    ${!isPowerOn && powerOutageClicks.has('fan') ? '<span class="absolute -top-6 text-2xl">🥵</span>' : ''}
+                 </button>
+
+                 <!-- 冰箱 -->
+                 <button onclick="clickAppliance('fridge')" class="flex flex-col items-center transition-all duration-300 ${iconColor}">
+                    <div class="relative">
+                       <i class="ph-fill ph-door text-6xl"></i>
+                       ${isPowerOn ? '<div class="absolute bottom-1 right-1 text-sky-200 text-xl">❄️</div>' : ''}
+                    </div>
+                    ${!isPowerOn && powerOutageClicks.has('fridge') ? '<span class="absolute -top-6 text-2xl">💦</span>' : ''}
+                 </button>
+              </div>
+
+              <!-- 狀態回饋文字 -->
+              <div class="absolute bottom-4 left-0 right-0 px-6 z-20">
+                 <div class="bg-white/90 px-4 py-2 rounded-xl font-bold text-slate-800 shadow-sm transition-colors duration-500 w-full whitespace-normal text-sm md:text-base pointer-events-none">${powerFeedback}</div>
+              </div>
+            </div>
+
+            <div class="flex justify-center mb-4 relative z-30">
+              <button onclick="togglePower()" class="flex items-center gap-2 px-8 py-3 rounded-full font-bold text-lg shadow-sm fade-transition ${isPowerOn ? 'bg-rose-500 hover:bg-rose-600 text-white' : 'bg-emerald-500 hover:bg-emerald-600 text-white'}">
+                <i class="ph-bold ${isPowerOn ? 'ph-power' : 'ph-lightning'}"></i> 
+                ${isPowerOn ? '切斷總電源 (體驗停電)' : '恢復供電'}
+              </button>
+            </div>
+            
+            <div class="text-sm font-bold text-amber-600 ${(!isPowerOn && powerOutageClicks.size < 3) ? 'opacity-100 animate-pulse' : 'opacity-0'}">🔍 在黑暗中尋找並點擊 3 種電器收集不便體驗！</div>
+          </div>
+      `;
+
+      // 鎖定提示與測驗區
+      if (powerOutageClicks.size < 3) {
+         content += `
+            <div class="bg-slate-100 border-2 border-dashed border-slate-300 text-slate-500 rounded-3xl p-8 text-center font-bold text-xl fade-transition">
+               <i class="ph-fill ph-lock-key text-4xl mb-2"></i><br/>請先在黑暗中找出 3 種停電的不便，解鎖隨堂測驗！
+            </div>
+         </div>`;
+      } else {
+         if (crisisProgress >= 0) {
+          content += renderMiniFill('crisisFill', '任務一：觀念填空測驗', 
+            [
+              { qParts: ["大自然的", "和石油需要很長時間才能形成，是無法短時間補充的", "。"], ans: ["煤礦", "有限資源"], distractors: ["太陽能", "再生能源"] },
+              { qParts: ["太陽能、", "等能源在自然界可以持續", "，被認為是比較環保的能源。"], ans: ["風力", "再生"], distractors: ["煤礦", "消失"] }
+            ], crisisProgress > 0, 'amber'
+          );
+        }
+        if (crisisProgress >= 1) {
+          content += renderMiniMCQ('crisisMCQ', '任務二：觀念選擇題', 
+            [
+              {q: '大自然中的「煤礦」和「石油」是屬於什麼樣的資源？', opts: ['可以不斷再生的資源', '無法短時間補充的有限資源', '對環境完全沒有汙染的能源', '隨處可見，永遠用不完'], a: 1},
+              {q: '如果發生大停電，下列哪一件事情「不會」發生？', opts: ['交通號誌停擺，馬路大亂', '晚上街道變得黑漆漆', '電梯卡住無法使用', '冰箱裡的食物變得更新鮮'], a: 3}
+            ], crisisProgress > 1, 'amber');
+        }
+        if (crisisProgress >= 2) {
+          content += renderMiniTF('crisisTF', '任務三：觀念是非題', 
+            [
+              {q: '因為水力、風力和太陽能等能源在自然界可以持續再生，所以被稱為比較環保的能源。', a: true},
+              {q: '只要我們有付電費，地球上的煤礦和石油就會源源不絕地自動產生出來給我們用。', a: false}
+            ], crisisProgress > 2, 'amber');
+        }
+
+        content += `
+          <div class="text-center fade-transition ${crisisProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+            <button onclick="jumpToStep(2)" class="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+              了解危機了！前往節能行動 <i class="ph-bold ph-arrow-right"></i>
+            </button>
+          </div>
+        </div>`;
+      }
+
+      return content;
+    }
+
+    window.togglePower = function() {
+      isPowerOn = !isPowerOn;
+      if (isPowerOn) {
+         powerOutageClicks.clear();
+         powerFeedback = '💡 電來了！一切恢復正常。點擊電器看看！';
+      } else {
+         powerFeedback = '❌ 停電了！烏漆墨黑，快用探照燈找出房間裡的電器，看看發生什麼事？';
+      }
+      render();
+    }
+
+    window.clickAppliance = function(app) {
+      if (isPowerOn) {
+         if(app==='tv') powerFeedback = '📺 電視播著好看的卡通！有電真好。';
+         if(app==='fan') powerFeedback = '🌬️ 電風扇吹來涼爽的風！好舒服。';
+         if(app==='fridge') powerFeedback = '🧊 冰箱嗡嗡作響，冷藏著美味的食物與冰水。';
+      } else {
+         powerOutageClicks.add(app);
+         if(app==='tv') powerFeedback = '📺 螢幕黑漆漆的... 沒電不能看卡通了，好無聊！';
+         if(app==='fan') powerFeedback = '🥵 風扇停了... 越來越熱，熱得滿頭大汗！';
+         if(app==='fridge') powerFeedback = '💦 糟了！冰箱不冷了，裡面的冰淇淋要融化了！';
+         
+         if (powerOutageClicks.size >= 3) {
+            powerFeedback = '🚨 成功收集不便體驗！沒有電真的太麻煩了，往下解開測驗吧！';
+         }
+      }
+      render();
+    }
+
+    // --- 區塊渲染：2. 節能行動 (Teal) ---
+    function renderAction() {
+      if (actionProgress === 0 && sortItems.length === 0) {
+        sortItems = shuffleArray(baseSortItems);
+      }
+
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-teal-50 border-l-8 border-teal-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">👍</div>
+            <div>
+              <h3 class="font-bold text-teal-800 text-lg">行動任務：分辨節能好習慣</h3>
+              <p class="text-teal-700">「日常生活中有很多小動作都能幫助地球喔！請分辨下列行為是『節能好習慣』還是『浪費能源』？」</p>
+            </div>
+          </div>
+
+          ${renderSortGame('任務一：生活行為大分類', actionProgress > 0)}
+      `;
+
+      if (actionProgress >= 1) {
+        content += renderMiniFill('actionFill', '任務二：節能填空測驗', 
+          [
+            { qParts: ["夏天開冷氣時，最好將溫度設定在", "℃，並且搭配", "來輔助空氣循環。"], ans: ["26~28", "電風扇"], distractors: ["16", "暖氣機"] },
+            { qParts: ["為了節約電力，我們應該減少打開", "的次數，離開房間時也要隨手", "。"], ans: ["冰箱", "關燈"], distractors: ["冷氣", "開電視"] }
+          ], actionProgress > 1, 'teal'
+        );
+      }
+
+      if (actionProgress >= 2) {
+        content += renderMiniMCQ('actionMCQ', '任務三：觀念選擇題', 
+          [
+            {q: '為了省電，我們最好把家裡的傳統鎢絲燈泡換成哪一種燈泡？', opts: ['更亮更熱的鹵素燈泡', '不會發光的玻璃球', '壽命長又省電的 LED 燈泡', '會冒黑煙的電弧燈'], a: 2},
+            {q: '如果只要上下一個樓層，我們應該怎麼做比較節省能源？', opts: ['少搭電梯，多走樓梯', '不管幾樓都搭電梯', '請別人背我上去', '在樓下大聲呼叫'], a: 0}
+          ], actionProgress > 2, 'teal');
+      }
+
+      content += `
+        <div class="text-center fade-transition ${actionProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(3)" class="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+            我是節能高手！前往環保回收 <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>`;
+
+      return content;
+    }
+
+    function renderSortGame(title, isCompleted) {
+      if (isCompleted) sortCurrentIndex = sortItems.length;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? 'bg-teal-50 border-teal-200 opacity-80' : 'border-slate-200'}">
+          <h2 class="text-xl font-bold text-teal-700 mb-6 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-list-checks"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h2>`;
+
+      if (sortCurrentIndex < sortItems.length && !isCompleted) {
+        const cur = sortItems[sortCurrentIndex];
+        html += `<div class="flex flex-col items-center">
+            <div class="relative w-full max-w-md bg-slate-50 border-4 border-slate-200 rounded-3xl flex flex-col items-center justify-center mb-8 py-8 px-4 fade-transition min-h-[200px]">`;
+        if (sortFeedback) {
+          html += `<div class="text-2xl font-bold flex items-center gap-2 ${sortFeedback.isCorrect ? 'text-emerald-600' : 'text-rose-500'} px-4 text-center">
+              <i class="ph-fill ${sortFeedback.isCorrect ? 'ph-check-circle' : 'ph-x-circle'} text-4xl shrink-0"></i> ${sortFeedback.text}
+            </div>`;
+        } else {
+          html += `<div class="text-center fade-transition">
+              <div class="text-6xl mb-4 drop-shadow-md">${cur.emoji}</div>
+              <h3 class="text-2xl font-bold text-slate-800 mb-2">${cur.text}</h3>
+              <p class="text-slate-500 font-bold bg-white px-3 py-1 rounded shadow-sm border border-slate-100">${cur.desc}</p>
+            </div>`;
+        }
+        html += `</div>
+            <div class="w-full flex justify-center gap-4">`;
+        
+        html += `<button onclick="handleSort('eco')" ${sortFeedback?'disabled':''} class="w-full md:w-40 bg-slate-50 hover:bg-emerald-50 border-b-4 border-slate-300 hover:border-emerald-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50 text-slate-700 hover:text-emerald-700">
+            <div class="text-3xl mb-1">✅</div><div class="font-bold text-lg">節能好習慣</div>
+          </button>`;
+        html += `<button onclick="handleSort('waste')" ${sortFeedback?'disabled':''} class="w-full md:w-40 bg-slate-50 hover:bg-rose-50 border-b-4 border-slate-300 hover:border-rose-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50 text-slate-700 hover:text-rose-700">
+            <div class="text-3xl mb-1">❌</div><div class="font-bold text-lg">浪費能源</div>
+          </button>`;
+        
+        html += `</div><div class="mt-6 text-slate-500 font-bold bg-slate-100 px-4 py-1 rounded-full">鑑定進度：${sortCurrentIndex + 1} / ${sortItems.length}</div></div>`;
+      } else {
+        html += `<div class="text-center py-4 fade-transition"><i class="ph-fill ph-check-circle text-6xl text-emerald-500 mb-4 block mx-auto"></i><h3 class="text-xl font-bold text-slate-800">全數判斷完成！</h3></div>`;
+      }
+      return html + `</div>`;
+    }
+
+    window.handleSort = function(cat) {
+      if (sortFeedback) return;
+      const cur = sortItems[sortCurrentIndex];
+      if (cur.type === cat) {
+        sortFeedback = { isCorrect: true, text: '判斷正確！' };
+      } else {
+        sortFeedback = { isCorrect: false, text: `判斷錯誤喔！再想一想。` };
+      }
+      render();
+      setTimeout(() => {
+        sortFeedback = null;
+        if (cur.type === cat) {
+          if (sortCurrentIndex + 1 < sortItems.length) sortCurrentIndex++;
+          else progressTask('actionSort');
+        }
+        render();
+      }, 1000);
+    }
+
+
+    // --- 區塊渲染：3. 環保回收 (Emerald) ---
+    function renderRecycle() {
+      if (digSpots.length === 0) {
+         initDigGame();
+      }
+
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-emerald-50 border-l-8 border-emerald-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">⛏️</div>
+            <div>
+              <h3 class="font-bold text-emerald-800 text-lg">實踐任務：尋找漏網電池</h3>
+              <p class="text-emerald-700">「玩具裡沒電的廢電池如果亂丟在泥土裡，有毒物質會汙染土壤和地下水！請在公園的泥土中挖出 3 顆廢電池並回收。」</p>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200 text-center">
+            <h2 class="text-2xl font-bold text-emerald-600 mb-6 flex items-center justify-center gap-2">
+              <i class="ph-fill ph-magnifying-glass"></i> 廢電池挖掘任務
+            </h2>
+            
+            <div class="w-full max-w-lg mx-auto h-72 border-4 rounded-3xl mb-6 bg-amber-900 border-amber-950 relative overflow-hidden shadow-inner">
+              
+              <!-- 泥土背景圖紋 -->
+              <div class="absolute inset-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(#5f370e 2px, transparent 2px); background-size: 15px 15px;"></div>
+              
+              <!-- 回收桶 -->
+              <div class="absolute right-4 bottom-4 z-10 flex flex-col items-center">
+                 <div class="text-6xl drop-shadow-md">🗑️</div>
+                 <div class="bg-emerald-500 text-white text-xs font-bold px-2 py-1 rounded mt-1 shadow-sm">電池回收箱</div>
+              </div>
+
+              <!-- 隱藏的土堆與電池 -->
+              <div class="absolute inset-0 z-20">
+              ${digSpots.map(spot => {
+                 let contentHtml = '';
+                 let classes = '';
+                 let sTop = spot.pos.top;
+                 let sLeft = spot.pos.left;
+                 
+                 if (!spot.dug) {
+                    contentHtml = '🟤';
+                    classes = 'hover:scale-110 cursor-pointer active:scale-95 z-20';
+                 } else {
+                    if (spot.type === 'bat') {
+                       contentHtml = '🔋';
+                       // 已完成挖掘，若因為重繪進入這裡，確保圖示隱藏
+                       sTop = 'calc(100% - 6rem)';
+                       sLeft = 'calc(100% - 6rem)';
+                       classes = 'opacity-0 scale-50 pointer-events-none drop-shadow-md rotate-90 z-30';
+                    } else {
+                       contentHtml = '🐛';
+                       classes = 'drop-shadow-md z-10';
+                    }
+                 }
+                 // 加入 this 參數傳遞當前點擊的 DOM 元素
+                 return `<div onclick="digSpot(${spot.id}, this)" class="absolute text-5xl transition-all duration-1000 ease-in-out ${classes}" style="top: ${sTop}; left: ${sLeft};">${contentHtml}</div>`;
+              }).join('')}
+              </div>
+              
+              <!-- 些許雜草干擾 -->
+              <div class="absolute bottom-2 left-10 text-3xl opacity-80 pointer-events-none z-10">🌿</div>
+              <div class="absolute top-10 left-1/3 text-4xl opacity-80 pointer-events-none z-10">🍁</div>
+              <div class="absolute bottom-1/3 right-1/3 text-3xl opacity-80 pointer-events-none z-10">🍄</div>
+            </div>
+            
+            <div class="min-h-[3rem] flex items-center justify-center bg-emerald-100 font-bold px-4 py-3 rounded-lg shadow-sm border border-emerald-200">
+               <!-- 加上 ID，讓小遊戲只更新這段文字而不用整頁 render -->
+               <p id="recycle-feedback-text" class="text-emerald-800 transition-colors">${recycleFeedback}</p>
+            </div>
+            ${batteriesFound >= 3 ? `<button onclick="resetBatteryGame()" class="mt-4 text-sm text-slate-500 underline font-bold hover:text-emerald-600">重置遊戲</button>` : ''}
+          </div>
+      `;
+
+      // 必須收集完 3 顆電池才能解鎖後續測驗
+      if (batteriesFound < 3) {
+         content += `
+            <div class="bg-slate-100 border-2 border-dashed border-slate-300 text-slate-500 rounded-3xl p-8 text-center font-bold text-xl fade-transition">
+               <i class="ph-fill ph-lock-key text-4xl mb-2"></i><br/>請先挖出 3 顆廢電池並回收，解鎖隨堂測驗！
+            </div>
+         </div>`;
+      } else {
+        if (recycleProgress >= 0) {
+          content += renderMiniTF('recycleTF', '任務一：觀念是非題', 
+            [
+              {q: '電池如果隨意丟棄在泥土裡，裡面的有毒物質會滲出來，汙染土壤和地下水。', a: true},
+              {q: '為了方便，沒電的廢電池直接丟進一般垃圾桶裡也是可以的。', a: false}
+            ], recycleProgress > 0, 'emerald');
+        }
+        if (recycleProgress >= 1) {
+          content += renderMiniFill('recycleFill', '任務二：低碳填空測驗', 
+            [
+              { qParts: ["落實低碳生活，我們可以選擇", "及當地的食材，出門購物時也要記得攜帶", "。"], ans: ["當季", "環保袋"], distractors: ["昂貴", "塑膠袋"] },
+              { qParts: ["為了減少廢電池的數量，我們可以改用可", "的充電電池，降低對環境的", "。"], ans: ["重複使用", "汙染"], distractors: ["丟棄", "保護"] }
+            ], recycleProgress > 1, 'emerald'
+          );
+        }
+        if (recycleProgress >= 2) {
+          content += renderMiniMCQ('recycleMCQ', '任務三：觀念選擇題', 
+            [
+              {q: '下列哪一個行為符合「低碳生活」的觀念？', opts: ['每天用很多塑膠袋', '使用環保餐具，選擇當地當季食材', '買國外進口的昂貴水果', '出門都請父母開車接送'], a: 1},
+              {q: '「低碳生活」的主要目的是什麼？', opts: ['為了製造更多垃圾', '為了讓生活變得很麻煩', '減少碳排放量，降低對環境的破壞', '為了多花一點錢'], a: 2}
+            ], recycleProgress > 2, 'emerald');
+        }
+
+        content += `
+          <div class="text-center fade-transition ${recycleProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+            <button onclick="jumpToStep(4)" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+              任務全部達成！前往最終測驗 <i class="ph-bold ph-arrow-right"></i>
+            </button>
+          </div>
+        </div>`;
+      }
+
+      return content;
+    }
+
+    // 更新點擊後的處理，使用直接操作 DOM 元素取代完整 render，讓動畫能完整播完
+    // 更新點擊後的處理，使用直接操作 DOM 元素取代完整 render，讓動畫能完整播完
+    window.digSpot = function(id, element) {
+      let spot = digSpots[id];
+      if (spot.dug) return;
+      spot.dug = true;
+      
+      const fbText = document.getElementById('recycle-feedback-text');
+
+      if (spot.type === 'bat') {
+         batteriesFound++;
+         if (batteriesFound >= 3) {
+            recycleFeedback = '✅ 太棒了！成功找出並回收所有廢電池，保護了土壤！往下解開測驗吧。';
+         } else {
+            recycleFeedback = `👍 挖到廢電池了！已回收 ${batteriesFound}/3 顆。`;
+         }
+
+         // 操作 DOM：替換為電池圖示
+         element.innerHTML = '🔋';
+         element.className = 'absolute text-5xl transition-all duration-1000 ease-in-out drop-shadow-md z-30';
+         
+         // 使用 setTimeout 讓電池停頓 0.5 秒 (500毫秒) 後再移動
+         setTimeout(() => {
+             // 飛往右下角的回收桶座標
+             element.style.top = 'calc(100% - 6rem)';
+             element.style.left = 'calc(100% - 6rem)';
+             element.classList.add('opacity-0', 'scale-50', 'rotate-90');
+         }, 500);
+
+         if (fbText) fbText.innerText = recycleFeedback;
+
+         // 只有在完成所有收集時，等動畫播完才重新繪製以解鎖下方測驗
+         if (batteriesFound >= 3) {
+             // 為了配合前面增加的 0.5 秒延遲，這裡的等待時間也稍微加長為 1700 毫秒，確保動畫順利播完
+             setTimeout(() => {
+                 render();
+             }, 1700);
+         }
+      } else {
+         recycleFeedback = '🐛 哎呀！挖到小蟲子，繼續找！';
+         
+         // 小蟲子原地出現
+         element.innerHTML = '🐛';
+         element.className = 'absolute text-5xl transition-all duration-500 ease-in-out drop-shadow-md z-10';
+         if (fbText) fbText.innerText = recycleFeedback;
+      }
+    }
+    
+    window.resetBatteryGame = function() {
+      initDigGame();
+      render();
+    }
+
+    // --- 區塊渲染：4. 最終測驗 (Indigo) ---
+    function renderQuiz() {
+      if (quizState === 'dashboard') {
+        const history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+        let histHtml = '';
+        if (history.length === 0) {
+          histHtml = `<p class="text-slate-500 py-4 font-bold text-lg">目前還沒有測驗紀錄，快來挑戰第一次吧！</p>`;
+        } else {
+          histHtml = `<div class="overflow-x-auto w-full mt-4"><table class="w-full text-left border-collapse min-w-[500px]"><thead><tr class="bg-indigo-100 text-indigo-800 border-b-2 border-indigo-200"><th class="p-3 rounded-tl-xl text-lg">日期</th><th class="p-3 text-lg">時間</th><th class="p-3 text-lg">成績</th><th class="p-3 rounded-tr-xl text-lg">作答時長</th></tr></thead><tbody>`;
+          history.forEach(r => {
+             histHtml += `<tr class="border-b border-slate-100 hover:bg-slate-50 fade-transition"><td class="p-3 text-slate-600 text-lg">${r.date}</td><td class="p-3 text-slate-600 text-lg">${r.time}</td><td class="p-3 text-lg font-bold ${r.score >= 80 ? 'text-emerald-600' : 'text-amber-600'}">${r.score} 分</td><td class="p-3 text-slate-500 text-lg">${r.duration}</td></tr>`;
+          });
+          histHtml += `</tbody></table></div>`;
+        }
+
+        return `
+          <div class="bg-white rounded-3xl p-8 md:p-12 shadow-sm border-2 border-slate-200 text-center mt-4 fade-transition max-w-3xl mx-auto">
+            <i class="ph-fill ph-medal text-7xl text-indigo-500 mb-6 block"></i>
+            <h2 class="text-4xl font-bold text-indigo-800 mb-4">節能知識總挑戰</h2>
+            <p class="text-slate-600 mb-8 text-xl">本測驗共有 10 題，將從題庫中隨機抽取洗牌。</p>
+            <button onclick="startFinalQuiz()" class="inline-flex items-center justify-center w-full md:w-auto gap-3 bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-5 rounded-full text-2xl font-bold fade-transition shadow-md mb-8">
+              <i class="ph-bold ph-pencil-simple"></i> 開始測驗
+            </button>
+            <div class="bg-slate-50 rounded-3xl p-6 border-2 border-slate-100">
+              <h3 class="text-2xl font-bold text-slate-700 flex items-center justify-center gap-2"><i class="ph-bold ph-clock-counter-clockwise"></i> 最近 5 次測驗紀錄</h3>
+              ${histHtml}
+            </div>
+          </div>
+        `;
+      }
+
+      if (quizState === 'result') {
+        let comment = "繼續加油，可以再回顧一下前面的觀念喔！";
+        if (quizScore >= 90) comment = "太厲害了！你是環保節能大師！";
+        else if (quizScore >= 70) comment = "表現不錯喔！你已經成功掌握節能概念了。";
+
+        return `
+          <div class="bg-white rounded-3xl p-8 md:p-12 shadow-sm border-2 border-slate-200 text-center mt-4 fade-transition">
+            <h2 class="text-5xl font-bold text-indigo-600 mb-6">測驗結束！</h2>
+            <div class="text-8xl mb-6 drop-shadow-md">🏆</div>
+            <p class="text-4xl font-bold mb-4">你的最終得分：<span class="${quizScore >= 80 ? 'text-emerald-500' : 'text-amber-500'}">${quizScore}</span> / 100</p>
+            <p class="text-2xl text-slate-600 mb-10">${comment}</p>
+            <button onclick="returnToQuizDashboard()" class="inline-flex items-center gap-3 bg-slate-200 hover:bg-slate-300 text-slate-700 px-8 py-4 rounded-full text-2xl font-bold fade-transition shadow-sm">
+              <i class="ph-bold ph-list-dashes"></i> 查看紀錄面板
+            </button>
+          </div>
+        `;
+      }
+
+      const q = quizData[quizCurrentQ];
+      const optionLabels = ['A', 'B', 'C', 'D'];
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-indigo-50 border-l-8 border-indigo-500 p-5 rounded-r-2xl shadow-sm flex gap-4 items-center">
+            <div class="text-4xl md:text-5xl">📝</div>
+            <div>
+              <h3 class="font-bold text-indigo-800 text-xl md:text-2xl">特攻隊考驗：最終總測驗</h3>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-3xl p-6 md:p-10 shadow-sm border-2 border-slate-200">
+            <div class="flex justify-between items-center mb-6 pb-4 border-b-2 border-slate-100">
+              <h2 class="text-2xl md:text-3xl font-bold text-indigo-700">知識挑戰賽</h2>
+              <span class="text-lg md:text-xl font-bold bg-indigo-100 text-indigo-800 px-4 py-2 rounded-full shadow-sm">第 ${quizCurrentQ + 1} / ${quizData.length} 題</span>
+            </div>
+            <h3 class="text-xl md:text-2xl font-bold text-slate-800 mb-8 leading-relaxed flex items-start gap-3">
+              <i class="ph-fill ph-question text-indigo-500 text-3xl shrink-0 mt-1"></i>
+              <span>${q.question}</span>
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+      `;
+
+      q.options.forEach((opt, idx) => {
+        let btnClass = "bg-slate-50 hover:bg-indigo-50 border-slate-200 text-slate-700";
+        let iconHtml = '';
+        if (quizIsAnswered) {
+          if (idx === q.answer) {
+            btnClass = "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold ring-4 ring-emerald-200";
+            iconHtml = '<i class="ph-fill ph-check-circle text-emerald-500 text-3xl shrink-0"></i>';
+          } else if (idx === quizSelectedOption) {
+            btnClass = "bg-rose-50 border-rose-300 text-rose-700 ring-4 ring-rose-200";
+            iconHtml = '<i class="ph-fill ph-x-circle text-rose-500 text-3xl shrink-0"></i>';
+          } else {
+            btnClass = "bg-slate-50 border-slate-200 text-slate-400 opacity-50";
+          }
+        }
+        
+        content += `
+          <button onclick="handleQuizAnswer(${idx})" ${quizIsAnswered ? 'disabled' : ''} class="p-5 md:p-6 text-left text-xl rounded-2xl border-2 fade-transition flex items-center justify-between gap-3 shadow-sm ${btnClass}">
+            <div class="flex items-center gap-4">
+              <span class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white shadow border border-slate-200 text-indigo-600 font-bold text-lg shrink-0">${optionLabels[idx]}</span>
+              <span>${opt}</span>
+            </div>
+            ${iconHtml}
+          </button>
+        `;
+      });
+      content += `</div></div></div>`;
+      return content;
+    }
+
+    window.startFinalQuiz = function() {
+      initQuizData(); 
+      quizCurrentQ = 0;
+      quizScore = 0;
+      quizIsAnswered = false;
+      quizSelectedOption = null;
+      quizStartTime = Date.now();
+      quizState = 'playing';
+      render();
+    }
+
+    window.handleQuizAnswer = function(idx) {
+      if (quizIsAnswered) return;
+      quizSelectedOption = idx; quizIsAnswered = true;
+      if (idx === quizData[quizCurrentQ].answer) {
+          quizScore += 10;
+      }
+      render();
+
+      setTimeout(() => {
+        if (quizCurrentQ + 1 < quizData.length) { 
+          quizCurrentQ++; quizSelectedOption = null; quizIsAnswered = false; 
+        } else { 
+          const durationMs = Date.now() - quizStartTime;
+          saveQuizRecord(quizScore, durationMs);
+          quizState = 'result'; 
+        }
+        render();
+      }, 1500); 
+    }
+
+    function saveQuizRecord(score, durationMs) {
+      let history = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+      const now = new Date();
+      const record = {
+         date: now.toLocaleDateString('zh-TW'),
+         time: now.toLocaleTimeString('zh-TW', { hour12: false }),
+         score: score,
+         duration: formatDuration(durationMs)
+      };
+      history.unshift(record); 
+      history = history.slice(0, 5);
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(history));
+    }
+
+    window.returnToQuizDashboard = function() {
+      quizState = 'dashboard';
+      render();
+    }
+
+    // --- 共用小測驗產生器 ---
+    const mcqStates = {};
+    function renderMiniMCQ(id, title, qPool, isCompleted, theme) {
+      if (!mcqStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        const qRaw = qPool[varIdx];
+        const correctOpt = qRaw.opts[qRaw.a];
+        const shuffledOpts = shuffleArray(qRaw.opts);
+        const newAnsIdx = shuffledOpts.indexOf(correctOpt);
+        mcqStates[id] = { selected: null, opts: shuffledOpts, ansIdx: newAnsIdx, varIdx: varIdx };
+      }
+      const st = mcqStates[id];
+      const qRaw = qPool[st.varIdx];
+      const th = 'text-' + theme + '-700';
+      const bgComp = 'bg-' + theme + '-50 border-' + theme + '-200 opacity-90';
+
+      let html = `<div class="bg-white rounded-2xl p-4 md:p-6 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : 'border-slate-200'}">
+          <h3 class="text-xl md:text-2xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-question"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-3xl"></i>' : ''}
+          </h3>
+          <p class="text-lg md:text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
+
+      st.opts.forEach((opt, idx) => {
+        let cls = "bg-slate-50 border-slate-200 hover:bg-slate-100 text-base md:text-lg shadow-sm";
+        if (isCompleted) { 
+          cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-slate-50 text-slate-400 border-slate-100"; 
+        } else if (st.selected === idx) { 
+          cls = idx === st.ansIdx ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold ring-2 ring-emerald-200" : "bg-rose-50 border-rose-300 text-rose-700 ring-2 ring-rose-200"; 
+        }
+        html += `<button onclick="handleMCQ('${id}', ${idx}, ${st.ansIdx})" ${isCompleted ? 'disabled' : ''} class="p-4 rounded-xl border-2 text-left font-bold fade-transition ${cls}">${opt}</button>`;
+      });
+      return html + `</div></div>`;
+    }
+    window.handleMCQ = function(id, selIdx, ansIdx) {
+      if (mcqStates[id].selected !== null) return;
+      mcqStates[id].selected = selIdx; render();
+      if (selIdx === ansIdx) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { mcqStates[id].selected = null; render(); }, 1000);
+    }
+
+    const tfStates = {};
+    function renderMiniTF(id, title, qPool, isCompleted, theme) {
+      if (!tfStates[id]) {
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        tfStates[id] = { selected: null, varIdx: varIdx };
+      }
+      const st = tfStates[id];
+      const qRaw = qPool[st.varIdx];
+      const th = 'text-' + theme + '-700';
+      const bgComp = 'bg-' + theme + '-50 border-' + theme + '-200 opacity-90';
+
+      let html = `<div class="bg-white rounded-2xl p-4 md:p-6 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : 'border-slate-200'}">
+          <h3 class="text-xl md:text-2xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-check-square-offset"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-3xl"></i>' : ''}
+          </h3>
+          <p class="text-lg md:text-xl font-bold text-slate-800 mb-6">${qRaw.q}</p>
+          <div class="flex gap-4 justify-center">`;
+      
+      const tCls = isCompleted ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === true ? (qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-rose-50 border-rose-300 text-rose-700") : "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700 shadow-sm");
+      const fCls = isCompleted ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-slate-50 text-slate-400 border-slate-100") : (st.selected === false ? (!qRaw.a ? "bg-emerald-50 border-emerald-400 text-emerald-800" : "bg-rose-50 border-rose-300 text-rose-700") : "bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700 shadow-sm");
+
+      html += `<button onclick="handleTF('${id}', true, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-4 rounded-xl border-2 text-2xl font-bold fade-transition text-center ${tCls}">⭕ 是</button>`;
+      html += `<button onclick="handleTF('${id}', false, ${qRaw.a})" ${isCompleted?'disabled':''} class="flex-1 max-w-[200px] p-4 rounded-xl border-2 text-2xl font-bold fade-transition text-center ${fCls}">❌ 非</button>`;
+      return html + `</div></div>`;
+    }
+    window.handleTF = function(id, sel, ans) {
+      if (tfStates[id].selected !== null) return;
+      tfStates[id].selected = sel; render();
+      if (sel === ans) setTimeout(() => { progressTask(id); }, 600);
+      else setTimeout(() => { tfStates[id].selected = null; render(); }, 1000);
+    }
+
+    const fillStates = {};
+    function renderMiniFill(id, title, qPool, isCompleted, theme) {
+      if (!fillStates[id]) {
+        let bInit = {};
+        const varIdx = Math.floor(Math.random() * qPool.length);
+        const qRaw = qPool[varIdx];
+        qRaw.ans.forEach((_, i) => { bInit['b'+(i+1)] = null; }); 
+        
+        let wordCards = [];
+        qRaw.ans.forEach((a, i) => wordCards.push({ id: 'a'+i, text: a, correctBlank: 'b'+(i+1), c: 'bg-' + theme + '-100 text-' + theme + '-800' }));
+        qRaw.distractors.forEach((d, i) => wordCards.push({ id: 'd'+i, text: d, correctBlank: 'none', c: 'bg-' + theme + '-100 text-' + theme + '-800' }));
+        
+        fillStates[id] = { b: bInit, sel: null, err: null, words: shuffleArray(wordCards), varIdx: varIdx, qRaw: qRaw };
+      }
+      const st = fillStates[id];
+      const qRaw = qPool[st.varIdx];
+      
+      if (isCompleted) {
+         st.qRaw.ans.forEach((a, i) => {
+             st.b['b'+(i+1)] = {text: a};
+         });
+      }
+      const th = 'text-' + theme + '-700';
+      const bgComp = 'bg-' + theme + '-50 border-' + theme + '-200 opacity-90';
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : 'border-slate-200'}">
+          <h3 class="text-xl md:text-2xl font-bold ${th} mb-4 flex items-center justify-between">
+            <span class="flex items-center gap-2"><i class="ph-fill ph-puzzle-piece"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-3xl"></i>' : ''}
+          </h3>
+          <p class="text-slate-600 mb-6 text-base font-bold">點擊字卡拿起來，填入正確的空格中！</p>`;
+
+      if (!isCompleted) {
+        html += `<div class="flex flex-wrap justify-center gap-3 mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-200 min-h-[4rem]">`;
+        st.words.forEach(w => {
+          const isUsed = Object.values(st.b).some(v => v && v.id === w.id);
+          if (isUsed) { html += `<div class="w-20 opacity-0"></div>`; return; }
+          const isSelected = st.sel?.id === w.id;
+          let cls = `px-4 py-2 rounded-full font-bold text-lg md:text-xl transition-colors cursor-pointer shadow-sm ${w.c} ${isSelected ? 'ring-4 ring-' + theme + '-400' : 'hover:opacity-90'}`;
+          html += `<button onclick="handleFillWord('${id}', '${w.id}')" class="${cls}">${w.text}</button>`;
+        });
+        html += `</div>`;
+      }
+
+      let contentHtml = st.qRaw.qParts[0];
+      st.qRaw.ans.forEach((_, i) => {
+        const key = 'b'+(i+1);
+        const val = st.b[key];
+        let boxHtml = '';
+        if (val) {
+          boxHtml = `<span class="inline-block mx-2 px-4 py-1 rounded-full text-white bg-emerald-500 align-middle leading-none shadow-sm">${val.text}</span>`;
+        } else {
+          const isErr = st.err === key;
+          const isSel = !!st.sel && !isErr;
+          let cls = `inline-block mx-2 min-w-[80px] h-10 border-b-4 border-dashed align-middle transition-colors outline-none ${isErr ? 'border-rose-500 bg-rose-50' : 'border-' + theme + '-400 bg-white/50'} ${isSel ? 'hover:bg-' + theme + '-100 cursor-pointer border-' + theme + '-500' : ''}`;
+          boxHtml = `<button onclick="handleFillBox('${id}', '${key}')" class="${cls}"></button>`;
+        }
+        contentHtml += boxHtml + st.qRaw.qParts[i+1];
+      });
+
+      html += `<div class="text-xl md:text-2xl leading-loose font-bold text-slate-700 bg-${theme}-50 p-6 rounded-2xl border border-${theme}-200 shadow-inner">${contentHtml}</div></div>`;
+      return html;
+    }
+
+    window.handleFillWord = function(id, wordId) {
+      const st = fillStates[id];
+      const wordObj = st.words.find(w => w.id === wordId);
+      if (Object.values(st.b).some(v => v && v.id === wordId)) return;
+      st.sel = wordObj; render();
+    };
+    window.handleFillBox = function(id, boxKey) {
+      const st = fillStates[id];
+      if (!st.sel) return;
+      if (st.sel.correctBlank === boxKey) {
+        st.b[boxKey] = st.sel; st.sel = null; render();
+        if (Object.values(st.b).every(v => v !== null)) setTimeout(() => progressTask(id), 600);
+      } else {
+        st.err = boxKey; render(); setTimeout(() => { st.err = null; render(); }, 1000);
+      }
+    };
+
+    // --- 全局狀態推進 ---
+    window.progressTask = function(taskId) {
+      if (taskId.startsWith('crisis')) crisisProgress++;
+      else if (taskId.startsWith('action')) actionProgress++;
+      else if (taskId.startsWith('recycle')) recycleProgress++;
+      render();
+    }
+
+    // 主渲染邏輯
+    function render() {
+      renderProgressBar();
+      const main = document.getElementById('main-content');
+      switch (steps[currentStepIndex]) {
+        case 'welcome': main.innerHTML = renderWelcome(); break;
+        case 'crisis': main.innerHTML = renderCrisis(); break;
+        case 'action': main.innerHTML = renderAction(); break;
+        case 'recycle': main.innerHTML = renderRecycle(); break;
+        case 'quiz': main.innerHTML = renderQuiz(); break;
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>
