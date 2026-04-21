@@ -53,12 +53,15 @@
     }
 
     // --- 系統狀態管理 ---
-    const steps = ['welcome', 'water', 'river', 'disaster', 'quiz'];
+    const steps = ['welcome', 'water', 'wind', 'river', 'disaster', 'quiz'];
     let currentStepIndex = 0;
     
     let waterProgress = 0;    
+    let windProgress = 0;
+	let toggleStates = { human: false, plant: false };
+    let isScratchCompleted = false;
     let riverProgress = 0;  
-    let disasterProgress = 0;   
+    let disasterProgress = 0;
 
     // 災難模擬器狀態
     let simState = 'normal'; // 'normal', 'earthquake', 'typhoon'
@@ -166,6 +169,7 @@
       const stages = [
         { name: '出發', icon: 'ph-flag-pennant' },
         { name: '流水的魔法', icon: 'ph-drop' },
+        { name: '風與其他力量', icon: 'ph-wind' }, // 新增這行
         { name: '河流大探索', icon: 'ph-mountains' },
         { name: '劇烈變化', icon: 'ph-warning' },
         { name: '最終測驗', icon: 'ph-file-question' },
@@ -174,9 +178,11 @@
       let html = '';
       stages.forEach((stage, idx) => {
         const isActive = currentStepIndex === idx;
+        // 修正判斷邏輯：確保進度與對應的索引位置正確
         const isPassed = (idx === 1 && waterProgress >= 3) || 
-                         (idx === 2 && riverProgress >= 3) || 
-                         (idx === 3 && disasterProgress >= 3);
+                         (idx === 2 && windProgress >= 3) ||
+                         (idx === 3 && riverProgress >= 4) ||
+                         (idx === 4 && disasterProgress >= 4);
 
         let iconHtml = isPassed ? '<i class="ph-fill ph-check-circle text-xl"></i>' : `<i class="ph ${stage.icon} text-xl"></i>`;
         
@@ -278,8 +284,53 @@
       }
 
       content += `
-        <div class="text-center fade-transition ${waterProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
-          <button onclick="jumpToStep(2)" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+	   <div class="text-center fade-transition ${waterProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+	  	 <button onclick="jumpToStep(2)" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+		  完全明白！前往風與其他力量 <i class="ph-bold ph-arrow-right"></i>
+		 </button>
+	   </div>
+	  </div>`;
+
+      return content;
+    }
+
+	// --- 區塊渲染：風與其他力量 (紫色系) ---
+    function renderWind() {
+      let content = `
+        <div class="space-y-6 fade-transition">
+          <div class="bg-purple-50 border-l-8 border-purple-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+            <div class="text-4xl">💨</div>
+            <div>
+              <h3 class="font-bold text-purple-800 text-lg">局長提示：風與其他力量</h3>
+              <p class="text-purple-700">「除了流水，風力、生物和人類也會改變大地的樣貌喔！動手玩玩看，解鎖下一關吧！」</p>
+            </div>
+          </div>
+      `;
+
+      // 載入新開發的兩個互動模組
+      if (windProgress >= 0) {
+        content += renderScratchGame('windTask1', '任務一：風的魔術', windProgress > 0, 'purple');
+      }
+      
+      if (windProgress >= 1) {
+        content += renderToggleGame('windTask2', '任務二：生物與人類的影響', windProgress > 1, 'purple');
+      }
+
+      // 新增：風力關卡的觀念填空
+      if (windProgress >= 2) {
+        content += renderFillBlank('windBlank', '任務三：觀念填空', windProgress > 2, 
+          [
+            { id: 'wi1', text: '植物', correctBlank: 'wb1', c: 'bg-purple-100 text-purple-800' }, 
+            { id: 'wi2', text: '人類', correctBlank: 'wb2', c: 'bg-fuchsia-100 text-fuchsia-800' }
+          ],
+          `除了自然力量，<button id="wb1"></button>的根部生長會撐開岩石，而<button id="wb2"></button>為了生活建造的工程也會改變地表。`, 'purple'
+        );
+      }
+
+      // 注意：將這裡的 windProgress === 2 改成 === 3
+      content += `
+        <div class="text-center fade-transition ${windProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(3)" class="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
             完全明白！前往河流大探索 <i class="ph-bold ph-arrow-right"></i>
           </button>
         </div>
@@ -353,9 +404,22 @@
           ], riverProgress > 2, 'teal');
       }
 
+      // 新增：河流關卡的觀念填空
+      if (riverProgress >= 3) {
+        content += renderFillBlank('riverBlank', '任務四：特徵總結填空', riverProgress > 3,
+          [
+            { id: 'r1', text: '侵蝕', correctBlank: 'rb1', c: 'bg-teal-100 text-teal-800' },
+            { id: 'r2', text: '鵝卵石', correctBlank: 'rb2', c: 'bg-emerald-100 text-emerald-800' },
+            { id: 'r3', text: '堆積', correctBlank: 'rb3', c: 'bg-cyan-100 text-cyan-800' }
+          ],
+          `河流的上游水流急，主要發生<button id="rb1"></button>作用；中游常可見到圓圓的<button id="rb2"></button>；到了地勢平坦的下游，則以<button id="rb3"></button>作用為主。`, 'teal'
+        );
+      }
+
+      // 注意：將這裡的 riverProgress === 3 改成 === 4
       content += `
-        <div class="text-center fade-transition ${riverProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
-          <button onclick="jumpToStep(3)" class="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+        <div class="text-center fade-transition ${riverProgress === 4 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(4)" class="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
             調查完畢！前往災難模擬區 <i class="ph-bold ph-arrow-right"></i>
           </button>
         </div>
@@ -430,9 +494,21 @@
           ], disasterProgress > 2, 'orange');
       }
 
+      // 新增：災難關卡的觀念填空
+      if (disasterProgress >= 3) {
+        content += renderFillBlank('disasterBlank', '任務四：防救災填空', disasterProgress > 3,
+          [
+            { id: 'd1', text: '短時間', correctBlank: 'db1', c: 'bg-orange-100 text-orange-800' },
+            { id: 'd2', text: '土石流', correctBlank: 'db2', c: 'bg-red-100 text-red-800' }
+          ],
+          `地震和颱風會在<button id="db1"></button>內讓地表發生劇烈變化。颱風的豪雨如果沖刷大量泥沙，就容易引發可怕的<button id="db2"></button>災害。`, 'orange'
+        );
+      }
+
+      // 注意：將這裡的 disasterProgress === 3 改成 === 4
       content += `
-        <div class="text-center fade-transition ${disasterProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
-          <button onclick="jumpToStep(4)" class="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+        <div class="text-center fade-transition ${disasterProgress === 4 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+          <button onclick="jumpToStep(5)" class="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
             我準備好了！進行最終測驗 <i class="ph-bold ph-arrow-right"></i>
           </button>
         </div>
@@ -447,10 +523,10 @@
       render();
       
       if (hasTriedEQ && hasTriedTyphoon && disasterProgress === 0) {
-        setTimeout(() => { progressTask('disaster'); }, 1000);
+        setTimeout(() => { progressTask('disaster'); }, 3000);
       }
       
-      setTimeout(() => { simState = 'normal'; render(); }, 2500);
+      setTimeout(() => { simState = 'normal'; render(); }, 3000);
     }
 
     // --- 區塊渲染：4. 最終測驗 (靛藍色/Indigo) ---
@@ -632,6 +708,151 @@
       render();
     }
 
+	// --- 互動模組：狀態切換器 (Toggle UI) ---
+    function renderToggleGame(id, title, isCompleted, theme) {
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+      
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-bold ph-arrows-left-right"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-slate-600 mb-6">點擊下方按鈕，看看生物與人類是如何改變地表的！</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">`;
+
+      // 植物選項
+      const pState = toggleStates.plant;
+      html += `
+        <div class="border-2 ${pState ? `border-${theme}-400 bg-${theme}-50` : 'border-slate-200 bg-slate-50'} rounded-2xl p-4 text-center fade-transition">
+          <div class="text-6xl mb-4 transition-transform duration-500 ${pState ? 'scale-110' : ''}">${pState ? '🌳🪨' : '🌱'}</div>
+          <h4 class="font-bold text-lg mb-2">${pState ? '植物根部撐開岩石' : '小樹苗生長'}</h4>
+          <button onclick="handleToggle('plant')" ${isCompleted ? 'disabled' : ''} class="mt-2 px-6 py-2 bg-${theme}-500 hover:bg-${theme}-600 text-white rounded-full font-bold fade-transition shadow-sm">
+            ${pState ? '復原' : '經過許多年...'}
+          </button>
+        </div>`;
+
+      // 人類選項
+      const hState = toggleStates.human;
+      html += `
+        <div class="border-2 ${hState ? `border-${theme}-400 bg-${theme}-50` : 'border-slate-200 bg-slate-50'} rounded-2xl p-4 text-center fade-transition">
+          <div class="text-6xl mb-4 transition-transform duration-500 ${hState ? 'scale-110' : ''}">${hState ? '❤️🧱' : '🌊'}</div>
+          <h4 class="font-bold text-lg mb-2">${hState ? '建造雙心石滬' : '原本的海岸'}</h4>
+          <button onclick="handleToggle('human')" ${isCompleted ? 'disabled' : ''} class="mt-2 px-6 py-2 bg-${theme}-500 hover:bg-${theme}-600 text-white rounded-full font-bold fade-transition shadow-sm">
+            ${hState ? '復原' : '人類開始建造...'}
+          </button>
+        </div>`;
+
+      html += `</div></div>`;
+      return html;
+    }
+
+    window.handleToggle = function(type) {
+      toggleStates[type] = !toggleStates[type];
+      render();
+      // 如果兩個都切換過了，且還沒完成該任務，就推進進度
+      if (toggleStates.human && toggleStates.plant && windProgress === 1) {
+        setTimeout(() => { progressTask('windToggle'); }, 800);
+      }
+    }
+
+
+
+	// --- 互動模組：刮刮樂特效 (Canvas API) ---
+    function renderScratchGame(id, title, isCompleted, theme) {
+      const th = `text-${theme}-700`;
+      const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : `border-slate-200`}">
+          <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+            <span class="flex items-center gap-2"><i class="ph-bold ph-wind"></i> ${title}</span>
+            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+          </h3>
+          <p class="text-slate-600 mb-6">風力有時候像砂紙一樣！使用你的滑鼠或手指在框框內「刮一刮」，把沙子吹走看看底下是什麼。</p>
+          
+          <div class="relative w-full max-w-sm mx-auto h-64 bg-slate-100 rounded-3xl overflow-hidden border-4 border-slate-200 shadow-inner flex items-center justify-center">
+            <div class="absolute inset-0 flex flex-col items-center justify-center bg-slate-300">
+               <div class="text-8xl">🪨</div>
+               <div class="font-bold text-slate-600 mt-2">被風磨出稜角的風稜石</div>
+            </div>
+            ${!isCompleted ? `<canvas id="scratch-canvas" class="absolute inset-0 w-full h-full cursor-pointer z-10 touch-none"></canvas>` : ''}
+          </div>
+        </div>`;
+      return html;
+    }
+
+    // 初始化 Canvas (需要在 DOM 渲染後呼叫)
+    window.initScratchCanvas = function() {
+      const canvas = document.getElementById('scratch-canvas');
+      if (!canvas) return; // 如果找不到代表已過關或不在該頁面
+
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      // 設定實際解析度
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+
+      // 畫上沙子塗層
+      ctx.fillStyle = '#D2B48C'; // 沙子顏色
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // 加上提示文字
+      ctx.font = 'bold 20px sans-serif';
+      ctx.fillStyle = '#8B4513';
+      ctx.textAlign = 'center';
+      ctx.fillText('✨ 刮開沙子 ✨', canvas.width/2, canvas.height/2);
+
+      let isDrawing = false;
+
+      function getBrushPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: clientX - rect.left, y: clientY - rect.top };
+      }
+
+      function scratch(e) {
+        if (!isDrawing) return;
+        e.preventDefault(); // 防止手機螢幕滾動
+        const pos = getBrushPos(e);
+        
+        ctx.globalCompositeOperation = 'destination-out'; // 這是擦除的關鍵
+        ctx.beginPath();
+        ctx.arc(pos.x, pos.y, 25, 0, Math.PI * 2); // 25是擦除的筆刷大小
+        ctx.fill();
+        
+        checkWin();
+      }
+
+      function checkWin() {
+        if (isScratchCompleted) return;
+        // 計算擦除了多少像素
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        let transparentPixels = 0;
+        const totalPixels = imageData.data.length / 4;
+        
+        for (let i = 3; i < imageData.data.length; i += 4) {
+          if (imageData.data[i] === 0) transparentPixels++;
+        }
+        
+        // 如果擦除了超過 40% 的面積，就算過關
+        if (transparentPixels / totalPixels > 0.4) {
+          isScratchCompleted = true;
+          ctx.clearRect(0, 0, canvas.width, canvas.height); // 自動清除剩下的沙子
+          setTimeout(() => { progressTask('windScratch'); }, 600);
+        }
+      }
+
+      // 綁定事件
+      canvas.addEventListener('mousedown', (e) => { isDrawing = true; scratch(e); });
+      canvas.addEventListener('mousemove', scratch);
+      canvas.addEventListener('mouseup', () => isDrawing = false);
+      canvas.addEventListener('mouseleave', () => isDrawing = false);
+      
+      canvas.addEventListener('touchstart', (e) => { isDrawing = true; scratch(e); }, {passive: false});
+      canvas.addEventListener('touchmove', scratch, {passive: false});
+      canvas.addEventListener('touchend', () => isDrawing = false);
+    }
+
     // --- 共用小測驗產生器 (支援隨機題庫) ---
     // MCQ
     const mcqStates = {};
@@ -765,10 +986,7 @@
 
     // FillBlank
     const blankStates = {};
-    const globalWords = {
-      w1: { id: 'w1', text: '侵蝕', correctBlank: 'b1', c: 'bg-blue-100 text-blue-800' },
-      w2: { id: 'w2', text: '堆積', correctBlank: 'b2', c: 'bg-cyan-100 text-cyan-800' }
-    };
+
     function renderFillBlank(id, title, isCompleted, words, templateStr, theme) {
       if (!blankStates[id]) {
         let bInit = {};
@@ -820,8 +1038,11 @@
 
     window.handleBlankWord = function(id, wordKey) {
       const st = blankStates[id];
-      if (Object.values(st.b).some(v => v && v.correctBlank === globalWords[wordKey].correctBlank)) return;
-      st.sel = globalWords[wordKey]; render();
+      // 動態從該題目的專屬字卡堆中尋找對應的字卡，不再依賴全域變數
+      const wordObj = st.words.find(w => w.id === wordKey);
+      if (Object.values(st.b).some(v => v && v.correctBlank === wordObj.correctBlank)) return;
+      st.sel = wordObj; 
+      render();
     };
     window.handleBlankBox = function(id, boxKey) {
       const st = blankStates[id];
@@ -969,6 +1190,7 @@
     // --- 全局狀態推進 ---
     window.progressTask = function(taskId) {
       if (taskId.startsWith('water')) waterProgress++;
+      else if (taskId.startsWith('wind')) windProgress++;
       else if (taskId.startsWith('river')) riverProgress++;
       else if (taskId.startsWith('disaster')) disasterProgress++;
       render();
@@ -981,10 +1203,17 @@
       switch (steps[currentStepIndex]) {
         case 'welcome': main.innerHTML = renderWelcome(); break;
         case 'water': main.innerHTML = renderWater(); break;
+        case 'wind': main.innerHTML = renderWind(); break;
         case 'river': main.innerHTML = renderRiver(); break;
         case 'disaster': main.innerHTML = renderDisaster(); break;
         case 'quiz': main.innerHTML = renderQuiz(); break;
       }
+      
+      // 新增：每次渲染完畢後，檢查並啟動刮刮樂的 Canvas
+      // (使用 setTimeout 確保 DOM 已經被瀏覽器畫出來)
+      setTimeout(() => {
+        initScratchCanvas();
+      }, 50);
     }
 
     render();

@@ -61,6 +61,9 @@
     let magicProgress = 0;   
     let sortProgress = 0;
 
+	let erosionSelectedMaterial = 'rock'; // 預設選擇石頭
+    let erosionWaterPoured = false;       // 是否已經倒水
+
     // 觀察室狀態
     let observeSelectedMaterial = null;
     let observeSelectedTool = null;
@@ -126,6 +129,10 @@
       [ // 概念10：土壤的應用
         { q: "下列哪一個是人類運用「土壤」的例子？", options: ["雕刻成美麗的石獅子", "農夫種植一大片好吃的白蘿蔔", "在操場設置跳遠坑", "鋪設步道方便大家行走"], answer: 1 },
         { q: "陽台花盆裡能開出美麗的花朵，是因為裡面裝了什麼提供植物生長？", options: ["五顏六色的小石頭", "海邊撿來的細沙", "營養豐富的土壤", "純淨的自來水"], answer: 2 }
+      ],
+	  [ // 概念11：加水後的特徵
+        { q: "自然課時，老師請大家在土壤裡加一點水並用手揉捏，同學會發現土壤有什麼變化？", options: ["變成一顆大鑽石", "完全不吸水", "變得黏黏的，可以捏成形狀", "會立刻燃燒起來"], answer: 2 },
+        { q: "將水分別倒在沙子和土壤上，哪一種物質吸水後比較容易捏出有彈性的形狀？", options: ["土壤", "沙子", "石頭", "都會變成水"], answer: 0 }
       ]
     ];
 
@@ -304,16 +311,33 @@
 
     // --- 區塊渲染：2. 觀察室 (靛藍色/Indigo) ---
     function renderObserve() {
+      // 1. 更新觀察結果，加入 water (加水) 的反饋
       const getObsRes = () => {
         if (!observeSelectedMaterial || !observeSelectedTool) return "請點選上方的一種「物質」與一種「觀察工具」，看看會有什麼發現！";
         const results = {
-          rock: { eye: "看起來有很多種顏色，有大有小。", hand: "摸起來粗粗的、硬硬的，形狀不規則。", magnifier: "表面有很多坑洞，有不同顏色的小斑點。" },
-          sand: { eye: "顆粒非常小，一大片聚集在一起。", hand: "摸起來細細的、滑滑的，很容易從指縫流走。", magnifier: "每一粒沙子都是一顆超級小、閃閃發亮的小石頭！" },
-          soil: { eye: "顏色通常比較深，像是深咖啡色或黑色。", hand: "摸起來軟軟的、鬆鬆的，捏一捏可以結成一塊。", magnifier: "除了小土粒，還夾雜了枯掉的葉子、樹根、木屑呢！" }
+          rock: { 
+            eye: "看起來有很多種顏色，有大有小。", 
+            hand: "摸起來粗粗的、硬硬的，形狀不規則。", 
+            magnifier: "表面有很多坑洞，有不同顏色的小斑點。",
+            water: "水流過表面，石頭變得亮亮的，但形狀和硬度都沒有改變。"
+          },
+          sand: { 
+            eye: "顆粒非常小，一大片聚集在一起。", 
+            hand: "摸起來細細的、滑滑的，很容易從指縫流走。", 
+            magnifier: "每一粒沙子都是一顆超級小、閃閃發亮的小石頭！",
+            water: "水很快就流下去了，沙子變重了，雖然可以堆疊但還是很容易散開。"
+          },
+          soil: { 
+            eye: "顏色通常比較深，像是深咖啡色或黑色。", 
+            hand: "摸起來軟軟的、鬆鬆的，捏一捏可以結成一塊。", 
+            magnifier: "除了小土粒，還夾雜了枯掉的葉子、樹根、木屑呢！",
+            water: "土壤把水吸進去了！摸起來變得黏黏的，輕輕捏有彈性，很容易捏成各種形狀喔！"
+          }
         };
         return results[observeSelectedMaterial][observeSelectedTool];
       };
 
+      // 2. 找到原來的 mats 和 tools，在 tools 中新增「加一點水」
       const mats = [
         { id: 'rock', n: '石頭', e: '🪨', c: 'bg-slate-100 hover:bg-slate-200' },
         { id: 'sand', n: '沙子', e: '🏖️', c: 'bg-yellow-100 hover:bg-yellow-200' },
@@ -323,7 +347,9 @@
         { id: 'eye', n: '用眼睛看', i: 'ph-eye', c: 'bg-blue-100 hover:bg-blue-200' },
         { id: 'hand', n: '用手摸', i: 'ph-hand-palm', c: 'bg-pink-100 hover:bg-pink-200' },
         { id: 'magnifier', n: '用放大鏡', i: 'ph-magnifying-glass-plus', c: 'bg-purple-100 hover:bg-purple-200' },
+        { id: 'water', n: '加一點水', i: 'ph-drop', c: 'bg-cyan-100 hover:bg-cyan-200' }, 
       ];
+
 
       let content = `
         <div class="space-y-6 fade-transition">
@@ -392,10 +418,17 @@
         content += renderMiniMCQ('obsMCQ', '任務三：觀察金頭腦', 
           [
             {q: '經過剛才的觀察，下列哪一種物質的顆粒非常小，而且容易從指縫中流走？', opts: ["大石頭", "沙子", "植物的葉子", "巨大的岩石"], a: 1},
-            {q: '用放大鏡觀察「土壤」時，除了小土粒之外，通常還會看到什麼？', opts: ["閃亮亮的大鑽石", "微小的枯枝落葉或木屑", "塑膠碎片", "透明的玻璃球"], a: 1}
+            // 替換原本的題目，強調加水後的黏性特徵
+            {q: '如果在「土壤」中加入一點水，用手摸起來會有什麼感覺？', opts: ["會變得黏黏的、有彈性", "會馬上融化不見", "會變得像大岩石一樣堅硬", "完全不會吸水"], a: 0}
           ], observeProgress > 2, 'indigo');
       }
 
+      // 1. 在這裡呼叫並拼接實驗室畫面
+      if (observeProgress >= 3) {
+          content += renderErosionLab();
+      }
+
+      // 2. 最後才是原本的「前往下一關」按鈕和結尾標籤
       content += `
         <div class="text-center fade-transition ${observeProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
           <button onclick="jumpToStep(3)" class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
@@ -405,6 +438,48 @@
       </div>`;
       
       return content;
+    }
+
+	function renderErosionLab() {
+      // 根據不同物質設定倒水前後的畫面與提示文字
+      const materialData = {
+        rock: { name: '石頭', emoji: '🪨🪨🪨', resultEmoji: '🪨🪨🪨', resultText: '水流過去了，石頭很重，幾乎沒有被沖走！', bgColor: 'bg-slate-100' },
+        sand: { name: '沙子', emoji: '🏖️🏖️', resultEmoji: '🌊散開的沙🌊', resultText: '沙子被水沖散了！水把細小的沙粒帶走，變得有點混濁。', bgColor: 'bg-yellow-100' },
+        soil: { name: '土壤', emoji: '🌱🌱', resultEmoji: '🤎泥水四溢🤎', resultText: '土壤很容易就被沖刷掉！水變成了深色的泥水。', bgColor: 'bg-amber-100' }
+      };
+
+      const current = materialData[erosionSelectedMaterial];
+
+      return `
+        <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200 mt-8 fade-transition">
+          <h2 class="text-2xl font-bold text-blue-600 mb-6 flex items-center gap-2">
+            <i class="ph-fill ph-cloud-rain text-3xl"></i> 隱藏任務：水流沖刷實驗室
+          </h2>
+          <p class="text-slate-600 mb-6">點擊選擇一種物質堆，然後按下「開始下雨」，觀察看看誰最容易被水帶走呢？</p>
+          
+          <div class="flex gap-4 mb-6 justify-center">
+            <button onclick="setErosionMat('rock')" class="px-6 py-2 rounded-full font-bold transition-all border-2 ${erosionSelectedMaterial === 'rock' ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}">🪨 石頭</button>
+            <button onclick="setErosionMat('sand')" class="px-6 py-2 rounded-full font-bold transition-all border-2 ${erosionSelectedMaterial === 'sand' ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}">🏖️ 沙子</button>
+            <button onclick="setErosionMat('soil')" class="px-6 py-2 rounded-full font-bold transition-all border-2 ${erosionSelectedMaterial === 'soil' ? 'border-blue-500 bg-blue-50' : 'border-slate-200'}">🌱 土壤</button>
+          </div>
+
+          <div class="flex flex-col items-center justify-center p-8 rounded-2xl ${current.bgColor} transition-all duration-500 min-h-[250px] relative overflow-hidden">
+            ${erosionWaterPoured ? '<div class="absolute top-0 w-full text-center text-4xl animate-bounce">💧💧💧💧💧</div>' : ''}
+            
+            <div class="text-6xl mt-8 transition-all duration-700 ${erosionWaterPoured && erosionSelectedMaterial !== 'rock' ? 'opacity-50 scale-150' : 'scale-100'}">
+              ${erosionWaterPoured ? current.resultEmoji : current.emoji}
+            </div>
+            
+            ${erosionWaterPoured ? `<div class="mt-8 px-4 py-2 bg-white rounded-xl shadow-sm font-bold text-slate-700 animate-pulse">${current.resultText}</div>` : ''}
+          </div>
+
+          <div class="text-center mt-6">
+            <button onclick="pourWater()" ${erosionWaterPoured ? 'disabled' : ''} class="bg-blue-500 hover:bg-blue-600 disabled:bg-slate-300 text-white px-8 py-3 rounded-full text-xl font-bold shadow-sm transition-all">
+              <i class="ph-bold ph-drop"></i> 開始下雨！
+            </button>
+          </div>
+        </div>
+      `;
     }
 
     // --- 區塊渲染：3. 魔法陣遊戲 (琥珀色/Amber) ---
@@ -470,10 +545,13 @@
 
       if (magicGameFinished) {
         content += `
-          <div class="text-center mt-6 fade-transition">
+          <div class="text-center mt-6 fade-transition flex flex-col items-center gap-4">
             <div class="text-2xl font-bold text-amber-700 bg-white inline-flex items-center gap-2 px-8 py-4 rounded-2xl shadow-sm border-2 border-amber-200">
               <i class="ph-fill ph-check-circle text-emerald-500"></i> 實驗成功！你改變了岩石的樣貌！
             </div>
+            <button onclick="resetMagicGame()" class="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 px-6 py-2 rounded-full text-lg font-bold fade-transition shadow-sm border border-slate-300">
+              <i class="ph-bold ph-arrow-counter-clockwise"></i> 重新開始
+            </button>
           </div>
         `;
       }
@@ -686,6 +764,23 @@
       return content;
     }
 
+	window.setErosionMat = function(id) {
+      if (erosionWaterPoured) return; // 如果已經倒水了，先不要切換，需重置
+      erosionSelectedMaterial = id;
+      render(); // 重新渲染畫面
+    }
+
+    window.pourWater = function() {
+      erosionWaterPoured = true;
+      render(); // 觸發倒水後的畫面
+      
+      // 設定 3 秒後自動重置，讓學生可以測試下一個物質
+      setTimeout(() => {
+        erosionWaterPoured = false;
+        render();
+      }, 3000);
+    }
+
     // --- 內部邏輯處理 ---
     window.setObsMat = function(id) { observeSelectedMaterial = id; render(); checkObserveInit(); }
     window.setObsTool = function(id) { observeSelectedTool = id; render(); checkObserveInit(); }
@@ -712,6 +807,14 @@
         magicStage = 'soil'; magicLeaves = 0; magicGameFinished = true;
         if(magicProgress === 0) progressTask('magic');
       }
+      render();
+    }
+
+    window.resetMagicGame = function() {
+      magicStage = 'big_rock'; 
+      magicClicks = 0;
+      magicLeaves = 0;
+      magicGameFinished = false;
       render();
     }
 
