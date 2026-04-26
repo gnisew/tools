@@ -1,6 +1,5 @@
 const textModeContainer = document.getElementById('textModeContainer');
-const gameModes = ['flashcard', 'matching', 'quiz', 'sorting', 'typing', 'choice', 'arena'];
-
+const gameModes = ['flashcard', 'matching', 'quiz', 'sorting', 'typing', 'choice', 'arena', 'live'];
 window.currentLoadedBank = null;
 const tableModeContainer = document.getElementById('tableModeContainer');
 const editor = document.getElementById('editor');
@@ -368,6 +367,8 @@ const savedRowNumAlign = localStorage.getItem(ROW_NUM_ALIGN_KEY) || 'middle';
     // ✨ 優先判斷是否有 arena 空間代碼 (解決被踢出或重整跑掉的問題)
     if (urlParams.has('arena')) {
         initialTargetMode = 'arena';
+    } else if (urlParams.has('live')) {
+        initialTargetMode = 'live';
     } else if (urlParams.has('mode')) {
         const modeParam = urlParams.get('mode');
         if (modeParam === 'txt') initialTargetMode = 'text';
@@ -465,10 +466,12 @@ document.getElementById('dd-viewMode').addEventListener('change', (e) => switchM
 /* ==========================================
    網址參數同步功能
 ========================================== */
+//
 function updateUrlModeParam(internalMode) {
     const newUrl = new URL(window.location.href);
     
-    if (newUrl.searchParams.has('arena')) {
+    // ✨ 修改：如果已經有房間代碼（不論是 arena 還是 live），移除 mode 參數避免衝突
+    if (newUrl.searchParams.has('arena') || newUrl.searchParams.has('live')) {
         newUrl.searchParams.delete('mode');
         window.history.replaceState({}, '', newUrl);
         return;
@@ -477,7 +480,8 @@ function updateUrlModeParam(internalMode) {
     let urlMode = 'txt';
     if (internalMode === 'table') urlMode = 'sheet';
     else if (internalMode === 'chat') urlMode = 'chat';
-    else if (internalMode === 'bank') urlMode = 'bank'; // ✨ 修復：支援獨立題庫網址參數
+    else if (internalMode === 'bank') urlMode = 'bank';
+    else if (internalMode === 'live') urlMode = 'live';
     else if (gameModes.includes(internalMode)) urlMode = internalMode;
     
     if (newUrl.searchParams.get('mode') !== urlMode) {
@@ -578,8 +582,8 @@ function switchMode(mode, isForce = false) {
     }
 
 	// 💡 處理進入遊戲或連線模式的邏輯
-    if (mode === 'arena') {
-        // 啟動連線模式
+    if (mode === 'arena' || mode === 'live') {
+        // 啟動專屬容器
         if (arenaModeContainer) {
             arenaModeContainer.classList.remove('hidden');
             arenaModeContainer.style.display = 'block';
@@ -600,20 +604,23 @@ function switchMode(mode, isForce = false) {
             }
         }
 
-        if (typeof window.launchArenaMode === 'function') {
-            // 重新整理時自動從記憶體載入題庫設定
-            if (!window.currentGameConfigs) {
-                try {
-                    const savedConfigs = localStorage.getItem('wesing-game-configs');
-                    if (savedConfigs) window.currentGameConfigs = JSON.parse(savedConfigs);
-                } catch(e) {}
-            }
-            const configs = window.currentGameConfigs || { mcConfig: null };
+        // 重新整理時自動從記憶體載入設定
+        if (!window.currentGameConfigs) {
+            try {
+                const savedConfigs = localStorage.getItem('wesing-game-configs');
+                if (savedConfigs) window.currentGameConfigs = JSON.parse(savedConfigs);
+            } catch(e) {}
+        }
+        const configs = window.currentGameConfigs || { mcConfig: null };
+
+        if (mode === 'arena' && typeof window.launchArenaMode === 'function') {
             window.launchArenaMode(rawDataText, configs);
+        } else if (mode === 'live' && typeof window.launchLiveMode === 'function') {
+            window.launchLiveMode(rawDataText, configs);
         }
 
 		// 💡 處理進入遊戲模式的邏輯
-    } else if (gameModes.includes(mode)) {    
+    } else if (gameModes.includes(mode)) {
         if (gameModeContainer) {
             gameModeContainer.classList.remove('hidden');
             gameModeContainer.style.display = 'block';
@@ -6167,6 +6174,20 @@ function applyTextTool(action) {
         // 原生 toUpperCase 已完美支援 Unicode 拼音與擴充字元
         newText = textToProcess.toUpperCase();
     }
+	// 轉為全形
+    else if (action === 'to-fullwidth') {
+        newText = textToProcess.replace(/[!-~]/g, function(ch) {
+            // ASCII 字元位移 65248 轉為全形
+            return String.fromCharCode(ch.charCodeAt(0) + 65248);
+        }).replace(/ /g, '\u3000'); // 半形空白轉為全形空白
+    }
+    // 轉為半形
+    else if (action === 'to-halfwidth') {
+        newText = textToProcess.replace(/[！-～]/g, function(ch) {
+            // 全形字元反向位移 65248 轉回半形
+            return String.fromCharCode(ch.charCodeAt(0) - 65248);
+        }).replace(/\u3000/g, ' '); // 全形空白轉回半形空白
+    }
 
     // 將處理完的文字寫回編輯器
     if (hasSelection) {
@@ -6187,7 +6208,8 @@ function applyTextTool(action) {
         'sort-az': 'A-Z 排序完成', 'sort-za': 'Z-A 排序完成',
         'remove-dup': '重複行已移除', 'remove-empty': '空行已移除', 'trim-space': '首尾空格已移除',
 		'remove-trailing-empty': '文末空行已乾淨移除',
-        'capitalize': '句首已大寫', 'lowercase': '已轉為小寫', 'uppercase': '已轉為大寫'
+        'capitalize': '句首已大寫', 'lowercase': '已轉為小寫', 'uppercase': '已轉為大寫',
+		'to-fullwidth': '已轉為全形', 'to-halfwidth': '已轉為半形',
     };
     showToast(`🥷 ${msgs[action]}`);
 }
@@ -6204,7 +6226,9 @@ const textTools = [
     { id: 'btnTrimSpaces', action: 'trim-space' },
     { id: 'btnCapitalize', action: 'capitalize' },
     { id: 'btnLowercase', action: 'lowercase' },
-    { id: 'btnUppercase', action: 'uppercase' }
+    { id: 'btnUppercase', action: 'uppercase' },
+	{ id: 'btnToFullWidth', action: 'to-fullwidth' },
+    { id: 'btnToHalfWidth', action: 'to-halfwidth' }
 ];
 
 textTools.forEach(tool => {
@@ -10197,6 +10221,20 @@ if (btnStartGame) {
     }
         btnStartGame.addEventListener('click', () => {
             const selectedGame = document.querySelector('input[name="gameType"]:checked').value;
+            
+            if (selectedGame === 'live') {
+                closeGameModal();
+                updateUrlModeParam('live');
+                if (typeof window.launchLiveMode === 'function') {
+                    let currentData = editor.value;
+                    if (currentMode === 'table' && typeof extractTextFromTable === 'function') {
+                        currentData = extractTextFromTable();
+                    }
+                    window.launchLiveMode(currentData, window.currentGameConfigs || {});
+                }
+                return;
+            }
+
             const colCValue = parseInt(selGameColC.value, 10);
             
             // ✨ 新增：判斷要儲存哪一種設定格式
@@ -10461,6 +10499,20 @@ function renderGameMatchPairs() {
     }
 
     const selectedGameType = document.querySelector('input[name="gameType"]:checked').value;
+
+	// ✨ Live 模式專屬按鈕變身
+    const btnPlay = document.getElementById('btnStartGame');
+    if (selectedGameType === 'live') {
+        if (btnPlay) {
+            btnPlay.innerHTML = '開始';
+            btnPlay.className = "px-8 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-lg rounded-xl shadow-md transition-transform hover:-translate-y-1 cursor-pointer flex items-center justify-center gap-2";
+        }
+    } else {
+        if (btnPlay) {
+            btnPlay.innerHTML = '開始'; 
+            btnPlay.className = "px-8 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-lg rounded-xl shadow-md transition-transform hover:-translate-y-1 cursor-pointer flex items-center justify-center";
+        }
+    }
 
     // ✨ 新增：控制連線模式專屬開關的顯示與隱藏
     const arenaSourceSettings = document.getElementById('arenaSourceSettings');
@@ -11066,6 +11118,7 @@ function initBankFilters() {
     }
 }
 
+//
 window.renderBankTable = function() {
     if (!window.presetBank || window.presetBank.length === 0) {
         if(bankTableBody) bankTableBody.innerHTML = '<tr><td colspan="5" class="text-center py-12 text-gray-400 font-bold text-lg">目前沒有可用的線上題庫</td></tr>';
@@ -11118,7 +11171,11 @@ window.renderBankTable = function() {
                     ${p.name}
                 </td>
                 <td class="py-2.5 px-3 text-center whitespace-nowrap">
-                    <span class="px-2.5 py-0.5 rounded border ${p.type === '選擇' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-blue-50 text-blue-700 border-blue-200'} text-xs font-bold inline-block">${p.type || '配對'}</span>
+                    <span class="px-2.5 py-0.5 rounded border ${
+                        p.type === '選擇' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 
+                        p.type === '問答' ? 'bg-teal-50 text-teal-700 border-teal-200' : 
+                        'bg-blue-50 text-blue-700 border-blue-200'
+                    } text-xs font-bold inline-block">${p.type || '配對'}</span>
                 </td>
                 <td class="py-2.5 px-3 text-center text-gray-600 font-mono text-sm font-bold whitespace-nowrap">
                     ${getQCount(p.data)}
@@ -11182,6 +11239,7 @@ window.viewPresetBank = function(index) {
     showToast(`👀 已檢視題庫：${preset.name}`);
 };
 
+//
 // 載入按鈕：準備資料後直接彈出學習模式設定框
 window.playPresetBank = function(index) {
     const preset = window.presetBank[index];
@@ -11195,8 +11253,29 @@ window.playPresetBank = function(index) {
     renderSheetTabs();
     
     switchMode('table', true); // 先退回底層確保 UI 重置
+    
     const btnOpenGameModal = document.getElementById('btnOpenGameModal');
-    if (btnOpenGameModal) btnOpenGameModal.click();
+    if (btnOpenGameModal) {
+        btnOpenGameModal.click(); // 打開設定視窗
+        
+        // ✨ 智慧防呆：如果載入的題庫類型是「問答」，自動幫老師把遊戲模式切換過去！
+        setTimeout(() => {
+            if (preset.type === '問答') {
+                const liveRadio = document.querySelector('input[name="gameType"][value="live"]');
+                if (liveRadio && !liveRadio.checked) {
+                    liveRadio.checked = true;
+                    // 手動觸發 change 事件，讓下方的配對清單更新
+                    liveRadio.dispatchEvent(new Event('change')); 
+                }
+            } else if (preset.type === '選擇') {
+                const choiceRadio = document.querySelector('input[name="gameType"][value="choice"]');
+                if (choiceRadio && !choiceRadio.checked) {
+                    choiceRadio.checked = true;
+                    choiceRadio.dispatchEvent(new Event('change')); 
+                }
+            }
+        }, 50);
+    }
     showToast(`🚀 已載入並準備學習：${preset.name}`);
 };
 

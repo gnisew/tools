@@ -17,6 +17,7 @@ window.launchArenaMode = function(rawData, configs) {
     let currentQIndex = 0;  
     
     let questionTimer = null; 
+    let autoNextTimer = null; // ✨ 新增：自動翻頁計時器
     let isRevealing = false; 
     let currentSpaceCode = '';
 
@@ -40,15 +41,15 @@ window.launchArenaMode = function(rawData, configs) {
 
     function spawnFloatingEmoji(char) {
         const el = document.createElement('div');
-        el.className = 'absolute z-[9999] text-6xl md:text-7xl drop-shadow-xl pointer-events-none animate-float-emoji';
+        el.className = 'fixed z-[99999] text-6xl md:text-7xl drop-shadow-xl pointer-events-none animate-float-emoji';
         el.textContent = char;
         el.style.left = `${20 + Math.random() * 60}%`; 
-        el.style.bottom = '15%'; 
-        arenaContainer.appendChild(el);
+        el.style.bottom = '10%'; 
+        document.body.appendChild(el);
         setTimeout(() => el.remove(), 1500);
     }
 
-    // ✨ QR 碼視窗修正：防破版與比例縮放
+    // ✨ QR 碼視窗
     function getQrModalHtml(spaceCode) {
         if (!spaceCode) return '';
         const displayCode = spaceCode.substring(0, 2) + ' ' + spaceCode.substring(2);
@@ -70,11 +71,16 @@ window.launchArenaMode = function(rawData, configs) {
         `;
     }
 
+    // ✨ 點擊暫停功能更新
     window.toggleArenaPause = async function() {
         if (!currentSpaceCode) return;
         window.arenaIsPaused = !window.arenaIsPaused; 
-        const iconEl = document.getElementById('pause-icon-playing');
-        if (iconEl) iconEl.textContent = window.arenaIsPaused ? 'play_arrow' : 'pause';
+        
+        const pauseOverlay = document.getElementById('pause-overlay');
+        if (pauseOverlay) {
+            if (window.arenaIsPaused) pauseOverlay.classList.remove('opacity-0');
+            else pauseOverlay.classList.add('opacity-0');
+        }
         
         const spaceRef = db.collection(window.SPACES_COLLECTION).doc(currentSpaceCode);
         await spaceRef.update({ isPaused: window.arenaIsPaused });
@@ -85,6 +91,7 @@ window.launchArenaMode = function(rawData, configs) {
         if (unsubscribeSpace) unsubscribeSpace();
         if (unsubscribeStudentSelf) unsubscribeStudentSelf();
         if (questionTimer) clearInterval(questionTimer);
+        if (autoNextTimer) clearInterval(autoNextTimer); // ✨ 新增：清除自動計時
         if (window.currentStudentTimer) clearInterval(window.currentStudentTimer);
         
         window.arenaIsPaused = false;
@@ -146,47 +153,16 @@ window.launchArenaMode = function(rawData, configs) {
     const shapeIcons = ['change_history', 'diamond', 'circle', 'square'];
 
     // ----------------------------------------------------
-    // 畫面 1：身分選擇大廳
+    // 隱形路由中心：自動判斷是學生加入還是老師開課
     // ----------------------------------------------------
     function renderRoleSelection() {
         const urlParams = new URLSearchParams(window.location.search);
         const autoJoinCode = urlParams.get('arena');
-        if (autoJoinCode) return renderStudentJoinForm(autoJoinCode);
-
-        // ✨ 改用 overflow-y-auto 與 min-h-full 防止放大被切斷
-        arenaContainer.innerHTML = `
-            <div class="w-full h-full bg-[#f2f2f2] font-sans select-none overflow-y-auto">
-                <div class="min-h-full flex flex-col items-center justify-center p-4 py-10 w-full max-w-5xl mx-auto">
-                    
-                    <div class="w-full flex justify-start mb-4">
-                        <button id="btn-exit-arena" class="bg-white hover:bg-gray-100 text-gray-700 px-5 py-2.5 rounded-full flex items-center gap-2 transition-all font-bold shadow-sm border border-gray-200 cursor-pointer flex-shrink-0">
-                            <span class="material-symbols-outlined text-xl">arrow_back</span> 返回
-                        </button>
-                    </div>
-                    
-                    <div class="text-center mb-10 w-full mt-auto">
-                        <h1 class="text-5xl md:text-7xl font-extrabold mb-4 text-indigo-900 tracking-wide drop-shadow-sm break-words">烏衣行 ARENA</h1>
-                        <p class="text-lg md:text-xl text-gray-500 font-bold tracking-widest">互動連線學習平台</p>
-                    </div>
-                    
-                    <div class="flex flex-col md:flex-row gap-6 md:gap-8 w-full mb-auto">
-                        <div class="flex-1 bg-white border border-gray-200 p-8 md:p-12 rounded-3xl flex flex-col items-center hover:border-indigo-400 transition-all cursor-pointer shadow-md hover:shadow-lg group" id="btn-host-settings">
-                            <div class="w-24 h-24 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-indigo-100 transition-colors"><span class="material-symbols-outlined text-6xl text-indigo-600">co_present</span></div>
-                            <h2 class="text-3xl font-extrabold mb-3 text-gray-800">老師開課</h2>
-                            <p class="text-gray-500 text-center font-bold">設定遊戲條件<br>並在大螢幕投影空間代碼</p>
-                        </div>
-                        <div class="flex-1 bg-white border border-gray-200 p-8 md:p-12 rounded-3xl flex flex-col items-center hover:border-pink-400 transition-all cursor-pointer shadow-md hover:shadow-lg group" id="btn-join-game">
-                            <div class="w-24 h-24 bg-pink-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-pink-100 transition-colors"><span class="material-symbols-outlined text-6xl text-pink-500">sports_esports</span></div>
-                            <h2 class="text-3xl font-extrabold mb-3 text-gray-800">學生加入</h2>
-                            <p class="text-gray-500 text-center font-bold">輸入老師提供的代碼<br>與全班一起同樂</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        document.getElementById('btn-exit-arena').addEventListener('click', cleanupArena);
-        document.getElementById('btn-host-settings').addEventListener('click', renderHostSettings);
-        document.getElementById('btn-join-game').addEventListener('click', () => renderStudentJoinForm(''));
+        
+        if (autoJoinCode) {
+            return renderStudentJoinForm(autoJoinCode);
+        }
+        renderHostSettings();
     }
 
     // ----------------------------------------------------
@@ -226,33 +202,31 @@ window.launchArenaMode = function(rawData, configs) {
 
         arenaContainer.innerHTML = `
             <div class="w-full h-full bg-[#f4f4f5] font-sans select-none overflow-y-auto pb-12">
-                <div class="w-full max-w-5xl mx-auto flex flex-col px-4 sm:px-8 mt-6">
+                <div class="w-full max-w-5xl mx-auto flex flex-col px-4 sm:px-8 mt-6 sm:mt-8">
                     
-                    <div class="w-full flex justify-between items-start mb-6 flex-wrap gap-4 flex-shrink-0">
+                    <div class="w-full flex justify-between items-center mb-2 z-10 relative">
                         <button id="btn-back-role" class="bg-white hover:bg-gray-50 text-gray-700 px-5 py-2.5 rounded-full flex items-center gap-1 font-bold shadow-sm border border-gray-200 cursor-pointer transition-colors flex-shrink-0">
                             <span class="material-symbols-outlined text-xl">arrow_back</span> 返回
                         </button>
                         
-                        <div class="w-full max-w-4xl mt-10 mb-8 flex flex-col items-center text-center px-4">
-                    <h2 class="text-4xl font-extrabold text-slate-800 mb-2">空間設定</h2>
-                    
-                    <p id="arenaSettingsBankInfo" class="hidden text-indigo-600 font-bold mb-4 bg-indigo-50 px-4 py-1.5 rounded-full border border-indigo-100 shadow-sm"></p>
-                    <p class="text-slate-500 font-bold mb-6 arena-default-subtitle">調整你的課堂遊戲體驗</p>
-                    
-                    <div class="flex gap-3 flex-wrap justify-center">
-                        <button id="btn-share-arena" class="bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50 font-extrabold text-lg py-3 px-6 rounded-full shadow-sm transition-transform hover:-translate-y-1 cursor-pointer flex items-center gap-2">
-                            <span class="material-symbols-outlined">share</span> 分享此設定
-                        </button>
-                        <button id="btn-create-space-top" class="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-lg py-3 px-10 rounded-full shadow-md transition-transform hover:-translate-y-1 cursor-pointer flex items-center gap-2">
-                            <span class="material-symbols-outlined">rocket_launch</span> 建立空間
-                        </button>
-                    </div>
-                </div>
-                        
-                        <div class="w-[100px] hidden md:block"></div>
+                        <div class="flex items-center gap-3">
+                            <button id="btn-share-arena" class="bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50 w-11 h-11 rounded-full shadow-sm transition-transform hover:-translate-y-1 cursor-pointer flex items-center justify-center" title="分享此設定">
+                                <span class="material-symbols-outlined text-[20px]">share</span>
+                            </button>
+                            <button id="btn-create-space-top" class="bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-lg py-2.5 px-8 rounded-full shadow-md transition-transform hover:-translate-y-1 cursor-pointer flex items-center gap-2">
+                                <span class="material-symbols-outlined">rocket_launch</span> 建立空間
+                            </button>
+                        </div>
                     </div>
 
-                    <div class="w-full flex flex-col md:flex-row gap-6 mt-4 flex-shrink-0">
+                    <div class="w-full flex flex-col items-center justify-center mb-10 z-10 relative text-center">
+                        <h2 class="text-4xl md:text-5xl font-extrabold text-slate-800 mb-4 tracking-wide">空間設定</h2>
+                        
+                        <div id="arenaSettingsBankInfo" class="hidden text-indigo-600 font-bold text-sm md:text-base bg-indigo-50 px-5 py-2 rounded-full border border-indigo-100 shadow-sm items-center justify-center gap-1"></div>
+                        <p class="text-slate-500 font-bold arena-default-subtitle">調整你的課堂遊戲體驗</p>
+                    </div>
+
+                    <div class="w-full flex flex-col md:flex-row gap-6 flex-shrink-0">
                         <div class="flex-1 flex flex-col">
                             ${categoryHtml}
                             <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-5 overflow-hidden flex-shrink-0">
@@ -301,6 +275,66 @@ window.launchArenaMode = function(rawData, configs) {
                         <div class="flex-1 flex flex-col gap-5 flex-shrink-0">
                             <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-shrink-0">
                                 <div class="bg-[#eef2ff] px-4 py-3 border-b border-[#e0e7ff] flex items-center gap-2">
+                                    <span class="material-symbols-outlined text-indigo-600">desktop_windows</span>
+                                    <h3 class="font-bold text-indigo-900">大螢幕顯示與自動化</h3>
+                                </div>
+                                <div class="p-5 flex flex-col gap-5">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex flex-col pr-4">
+                                            <span class="font-bold text-gray-800 text-sm">顯示即時英雄榜</span>
+                                            <span class="text-xs text-gray-500 mt-1">每題答完顯示神速排行</span>
+                                        </div>
+                                        <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                            <input type="checkbox" id="host-show-scoreboard" class="sr-only peer" checked>
+                                            <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+                                        </label>
+                                    </div>
+                                    <hr class="border-gray-100">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex flex-col pr-4">
+                                            <span class="font-bold text-gray-800 text-sm">英雄榜顯示人數</span>
+                                        </div>
+                                        <select id="host-top-count" class="bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-indigo-400 font-bold text-gray-800 shrink-0 cursor-pointer">
+                                            <option value="3">3 人</option>
+                                            <option value="5" selected>5 人</option>
+                                            <option value="10">10 人</option>
+                                        </select>
+                                    </div>
+                                    <hr class="border-gray-100">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex flex-col pr-4">
+                                            <span class="font-bold text-gray-800 text-sm">自動翻頁 (公佈答案)</span>
+                                            <span class="text-xs text-gray-500 mt-1">公佈長條圖後自動前往下一頁</span>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <label class="relative inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" id="host-auto-reveal" class="sr-only peer">
+                                                <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-500"></div>
+                                            </label>
+                                            <input type="number" id="host-auto-reveal-time" value="10" min="3" class="w-14 border border-gray-300 rounded px-2 py-1 text-center text-sm font-bold outline-none focus:border-teal-400">
+                                            <span class="text-xs font-bold text-gray-400">秒</span>
+                                        </div>
+                                    </div>
+                                    <hr class="border-gray-100">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex flex-col pr-4">
+                                            <span class="font-bold text-gray-800 text-sm">自動下一題 (英雄榜)</span>
+                                            <span class="text-xs text-gray-500 mt-1">顯示排行後自動進入下一題</span>
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <label class="relative inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" id="host-auto-board" class="sr-only peer">
+                                                <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-500"></div>
+                                            </label>
+                                            <input type="number" id="host-auto-board-time" value="5" min="3" class="w-14 border border-gray-300 rounded px-2 py-1 text-center text-sm font-bold outline-none focus:border-teal-400">
+                                            <span class="text-xs font-bold text-gray-400">秒</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-shrink-0">
+                                <div class="bg-[#eef2ff] px-4 py-3 border-b border-[#e0e7ff] flex items-center gap-2">
                                     <span class="material-symbols-outlined text-indigo-600">smartphone</span>
                                     <h3 class="font-bold text-indigo-900">學生端設定</h3>
                                 </div>
@@ -308,7 +342,6 @@ window.launchArenaMode = function(rawData, configs) {
                                     <div class="flex items-center justify-between">
                                         <div class="flex flex-col pr-4">
                                             <span class="font-bold text-gray-800 text-sm">暱稱字數限制</span>
-                                            <span class="text-xs text-gray-500 mt-1">防止名稱過長</span>
                                         </div>
                                         <select id="host-name-limit" class="bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-indigo-400 font-bold text-gray-800 shrink-0 cursor-pointer">
                                             <option value="5">5 字</option>
@@ -322,7 +355,7 @@ window.launchArenaMode = function(rawData, configs) {
                                     <div class="flex items-center justify-between">
                                         <div class="flex flex-col pr-4">
                                             <span class="font-bold text-gray-800 text-sm">顯示選項文字</span>
-                                            <span class="text-xs text-gray-500 mt-1">學生手機直接顯示選項</span>
+                                            <span class="text-xs text-gray-500 mt-1">讓學生的手機直接顯示選項</span>
                                         </div>
                                         <label class="relative inline-flex items-center cursor-pointer shrink-0">
                                             <input type="checkbox" id="host-show-text" class="sr-only peer" checked>
@@ -352,43 +385,13 @@ window.launchArenaMode = function(rawData, configs) {
                                     </div>
                                 </div>
                             </div>
-
-                            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-shrink-0">
-                                <div class="bg-[#eef2ff] px-4 py-3 border-b border-[#e0e7ff] flex items-center gap-2">
-                                    <span class="material-symbols-outlined text-indigo-600">desktop_windows</span>
-                                    <h3 class="font-bold text-indigo-900">大螢幕顯示</h3>
-                                </div>
-                                <div class="p-5 flex flex-col gap-5">
-                                    <div class="flex items-center justify-between">
-                                        <div class="flex flex-col pr-4">
-                                            <span class="font-bold text-gray-800 text-sm">顯示即時英雄榜</span>
-                                            <span class="text-xs text-gray-500 mt-1">每題答完顯示神速排行</span>
-                                        </div>
-                                        <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                            <input type="checkbox" id="host-show-scoreboard" class="sr-only peer" checked>
-                                            <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
-                                        </label>
-                                    </div>
-                                    <hr class="border-gray-100">
-                                    <div class="flex items-center justify-between">
-                                        <div class="flex flex-col pr-4">
-                                            <span class="font-bold text-gray-800 text-sm">英雄榜顯示人數</span>
-                                        </div>
-                                        <select id="host-top-count" class="bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-indigo-400 font-bold text-gray-800 shrink-0 cursor-pointer">
-                                            <option value="3">3 人</option>
-                                            <option value="5" selected>5 人</option>
-                                            <option value="10">10 人</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         `;
 
-        document.getElementById('btn-back-role').addEventListener('click', renderRoleSelection);
+        document.getElementById('btn-back-role').addEventListener('click', cleanupArena);
         
         const catSelect = document.getElementById('host-category');
         if (catSelect) {
@@ -402,7 +405,7 @@ window.launchArenaMode = function(rawData, configs) {
                 if (parseInt(countInput.value) > newMax) countInput.value = newMax;
             });
         }
-		// ✨ 動態顯示題庫名稱，並隱藏原本的副標題
+
         const bankInfo = document.getElementById('arenaSettingsBankInfo');
         const defaultSubtitle = arenaContainer.querySelector('.arena-default-subtitle');
         if (window.currentLoadedBank && bankInfo) {
@@ -411,18 +414,17 @@ window.launchArenaMode = function(rawData, configs) {
             if (defaultSubtitle) defaultSubtitle.classList.add('hidden');
         }
 
-        // ✨ 綁定分享按鈕
         const btnShareArena = document.getElementById('btn-share-arena');
         if (btnShareArena) {
             btnShareArena.addEventListener('click', () => {
                 if (typeof window.generateGameShareLink === 'function') {
-                    // 分享的目標模式為 arena
                     window.generateGameShareLink('arena');
                 }
             });
         }
         
         document.getElementById('btn-create-space-top').addEventListener('click', async () => {
+            // ✨ 收集包含自動化設定的所有變數
             const hostSettings = {
                 filterCategory: catSelect ? catSelect.value : 'ALL',
                 qOrder: document.getElementById('host-q-order').value,
@@ -432,6 +434,10 @@ window.launchArenaMode = function(rawData, configs) {
                 topCount: parseInt(document.getElementById('host-top-count').value, 10), 
                 preReadTime: parseInt(document.getElementById('host-pre-read').value, 10),
                 showScoreboard: document.getElementById('host-show-scoreboard').checked,
+                autoNextReveal: document.getElementById('host-auto-reveal').checked,
+                autoNextRevealTime: parseInt(document.getElementById('host-auto-reveal-time').value, 10),
+                autoNextBoard: document.getElementById('host-auto-board').checked,
+                autoNextBoardTime: parseInt(document.getElementById('host-auto-board-time').value, 10),
                 showText: document.getElementById('host-show-text').checked,
                 allowEmoji: document.getElementById('host-allow-emoji').checked,
                 allowInteractiveEmoji: document.getElementById('host-allow-interactive-emoji').checked
@@ -487,7 +493,8 @@ window.launchArenaMode = function(rawData, configs) {
             const answerCountEl = document.getElementById('answer-count-display');
             if (answerCountEl && window.currentArenaState === 'playing') {
                 const answered = globalPlayers.filter(p => p.answeredQuestion === currentQIndex).length;
-                answerCountEl.innerHTML = `${answered}<span class="text-sm md:text-base mx-1 text-gray-300">/</span><span class="text-lg md:text-xl text-gray-200">${globalPlayers.length}</span>`;
+                
+                answerCountEl.innerHTML = `${answered} <span class="text-gray-500 mx-0.5">/</span> ${globalPlayers.length}`;
 
                 if (globalPlayers.length > 0 && answered === globalPlayers.length && !isRevealing) {
                     const btn = document.getElementById('btn-reveal-answer');
@@ -515,23 +522,25 @@ window.launchArenaMode = function(rawData, configs) {
                     <button id="btn-back-home" class="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full flex items-center gap-1 font-bold border border-white/20 cursor-pointer backdrop-blur-sm transition-colors"><span class="material-symbols-outlined text-lg">close</span> 關閉空間</button>
                 </div>
 
-                <div class="w-full flex justify-center mt-4 sm:mt-8 z-10 px-4 flex-shrink-0 relative">
-                    <div class="bg-white rounded-xl shadow-2xl flex flex-wrap sm:flex-nowrap overflow-hidden border-b-4 border-indigo-200 hover:scale-[1.02] transition-transform w-full max-w-lg sm:max-w-max" id="btn-copy-link">
-                        <div class="flex flex-col justify-center px-6 py-3 bg-gray-50 border-b sm:border-b-0 sm:border-r border-gray-200 cursor-pointer w-full sm:w-auto text-center sm:text-left" title="點擊複製加入網址">
-                            <span class="text-xs text-gray-500 font-bold tracking-wider mb-1">網址加入</span>
-                            <span class="text-sm text-gray-800 font-extrabold">${window.location.host}</span>
+                <div class="w-full flex justify-center mt-2 sm:mt-4 z-10 px-4 flex-shrink-0 relative">
+                    <div class="bg-white rounded-xl shadow-2xl flex flex-wrap sm:flex-nowrap overflow-hidden border-b-4 border-indigo-200 hover:scale-[1.02] transition-transform w-full max-w-sm sm:max-w-max" id="btn-copy-link">
+                        
+                        <div class="flex items-center justify-center px-6 py-4 bg-indigo-50 border-b sm:border-b-0 sm:border-r border-indigo-100 cursor-pointer w-full sm:w-auto transition-colors hover:bg-indigo-100" title="點擊複製加入網址">
+                            <span class="material-symbols-outlined text-3xl text-indigo-600">link</span>
                         </div>
-                        <div class="flex flex-col justify-center px-8 py-3 bg-white cursor-pointer w-full sm:w-auto text-center" title="點擊複製加入網址">
-                            <span class="text-xs text-gray-500 font-bold tracking-wider mb-1">空間代碼 PIN</span>
-                            <span class="text-5xl font-black text-indigo-950 tracking-widest">${displayCode}</span>
+                        
+                        <div class="flex flex-col justify-center px-10 py-3 bg-white cursor-pointer w-full sm:w-auto text-center" title="點擊複製加入網址">
+                            <span class="text-xs text-gray-400 font-bold tracking-wider mb-1">空間代碼 PIN</span>
+                            <span class="text-6xl font-black text-indigo-950 tracking-widest drop-shadow-sm">${displayCode}</span>
                         </div>
-                        <div class="p-2 bg-white border-t sm:border-t-0 sm:border-l border-gray-200 flex items-center justify-center w-full sm:w-auto">
-                            <span class="material-symbols-outlined text-4xl text-indigo-600 px-4 cursor-pointer hover:scale-110 transition-transform" onclick="document.getElementById('qr-modal').classList.remove('hidden')">qr_code_2</span>
+                        
+                        <div class="p-2 bg-white border-t sm:border-t-0 sm:border-l border-gray-100 flex items-center justify-center w-full sm:w-auto">
+                            <span class="material-symbols-outlined text-4xl text-indigo-600 px-5 cursor-pointer hover:scale-110 transition-transform" onclick="document.getElementById('qr-modal').classList.remove('hidden')">qr_code_2</span>
                         </div>
                     </div>
                 </div>
                 
-                <div class="flex-1 flex flex-col items-center mt-8 w-full max-w-6xl mx-auto px-6 pb-6 z-10 relative">
+                <div class="flex-1 flex flex-col items-center mt-6 w-full max-w-6xl mx-auto px-6 pb-6 z-10 relative">
                     <div class="flex justify-between items-center w-full mb-6 bg-black/20 px-6 py-3 rounded-2xl backdrop-blur-sm border border-white/10 flex-wrap gap-4">
                         <div class="flex items-center gap-3">
                             <span class="material-symbols-outlined text-3xl text-white">group</span>
@@ -539,7 +548,7 @@ window.launchArenaMode = function(rawData, configs) {
                         </div>
                         <button id="btn-start-battle" class="bg-indigo-500 hover:bg-indigo-400 text-white font-extrabold py-3 px-8 rounded-xl shadow-lg transition-colors opacity-50 cursor-not-allowed text-xl flex-shrink-0" disabled>開始遊戲</button>
                     </div>
-                    <div id="players-grid" class="flex flex-wrap gap-3 w-full content-start justify-center">
+                    <div id="players-grid" class="flex flex-wrap gap-3 w-full content-start justify-center overflow-y-auto scrollbar-thin pb-4">
                         <div class="text-indigo-300 font-bold text-xl mt-10 animate-pulse">正在等待玩家加入...</div>
                     </div>
                 </div>
@@ -599,7 +608,7 @@ window.launchArenaMode = function(rawData, configs) {
     }
 
     // ----------------------------------------------------
-    // 畫面 2-A：老師大螢幕 (讀題階段 - 完美彈性排版)
+    // 畫面 2-A：老師大螢幕 (讀題階段 - 支援暫停)
     // ----------------------------------------------------
     function renderTeacherReadingView(spaceCode, arenaSettings, preReadTime) {
         const qData = gameData[currentQIndex];
@@ -607,26 +616,30 @@ window.launchArenaMode = function(rawData, configs) {
         const displayCode = spaceCode.substring(0, 2) + ' ' + spaceCode.substring(2);
         
         arenaContainer.innerHTML = getQrModalHtml(spaceCode) + `
-            <div class="w-full h-full flex flex-col bg-[#f2f2f2] relative font-sans select-none overflow-y-auto">
-                <div class="w-full p-4 sm:p-6 flex justify-end z-50 flex-shrink-0 relative">
-                    <button id="btn-skip-reading" class="bg-white hover:bg-gray-100 border border-gray-200 text-gray-700 font-bold py-2 px-6 rounded shadow-sm transition-colors cursor-pointer text-sm md:text-base">略過</button>
-                </div>
-                
-                <div class="flex-1 flex flex-col items-center justify-center px-4 relative z-10 w-full">
-                     <div class="bg-white px-8 py-12 md:py-20 rounded-[1.5rem] shadow-sm text-center w-full max-w-4xl border-b-[3px] border-gray-200 flex flex-col items-center justify-center min-h-[40vh]">
+            <div class="w-full h-full flex flex-col bg-[#f2f2f2] relative font-sans select-none overflow-hidden">
+                <div class="w-full max-w-[98%] mx-auto px-2 mt-3 sm:mt-4 flex-1 flex flex-col min-h-0">
+                     <div class="w-full h-full bg-white px-8 py-8 rounded-[1.5rem] shadow-sm text-center border-b-[3px] border-gray-200 flex flex-col items-center justify-center">
                          <h2 class="text-4xl md:text-6xl lg:text-7xl font-extrabold text-[#111827] leading-tight break-words max-w-full">${qData.term}</h2>
-                     </div>
-                     <div class="mt-8 text-[6rem] md:text-[8rem] font-medium text-gray-400/80 leading-none" id="read-timer-display">
-                         ${timeLeft}
                      </div>
                 </div>
 
-                <div class="w-full bg-slate-200 flex justify-between items-center px-4 py-2 border-t border-gray-300 flex-shrink-0 mt-4">
-                    <div class="text-gray-700 font-bold text-sm md:text-base flex items-center gap-2 cursor-pointer hover:bg-gray-300 px-2 py-1 rounded transition" onclick="document.getElementById('qr-modal')?.classList.remove('hidden')">
-                        <span class="text-xs md:text-sm text-gray-500">PIN:</span> 
-                        <span class="text-xl tracking-widest font-black">${displayCode}</span>
+                <div class="w-full max-w-[98%] mx-auto px-2 my-2 sm:my-3 flex justify-between items-end flex-shrink-0">
+                     <div class="w-16"></div> 
+                     <div onclick="window.toggleArenaPause()" class="text-[6rem] md:text-[8rem] font-medium text-gray-400/80 leading-none cursor-pointer hover:text-indigo-400 transition-colors relative group" style="transform: translateY(15%);">
+                         <span id="reading-countdown">${timeLeft}</span>
+                         <div id="pause-overlay" class="absolute inset-0 flex items-center justify-center bg-black/10 rounded-full opacity-0 transition-opacity">
+                             <span class="material-symbols-outlined text-gray-600 text-6xl">pause</span>
+                         </div>
+                     </div>
+                     <button id="btn-skip-reading" class="bg-white hover:bg-gray-100 border border-gray-200 text-gray-700 font-bold py-1.5 px-5 rounded shadow-sm transition-colors cursor-pointer text-sm md:text-base">略過</button>
+                </div>
+
+                <div class="w-full bg-slate-200 flex justify-between items-center px-4 py-1 border-t border-gray-300 flex-shrink-0 mt-auto z-20">
+                    <div class="text-gray-700 font-bold text-xs sm:text-sm flex items-center gap-2 cursor-pointer hover:bg-gray-300 px-2 py-0.5 rounded transition" onclick="document.getElementById('qr-modal')?.classList.remove('hidden')">
+                        <span class="text-xs text-gray-500">PIN:</span> 
+                        <span class="text-base sm:text-lg tracking-widest font-black">${displayCode}</span>
                     </div>
-                    <div class="text-gray-600 font-bold text-sm bg-gray-300 px-3 py-1 rounded-lg">
+                    <div class="text-gray-500 font-bold text-xs sm:text-sm">
                         第 ${currentQIndex + 1} / ${gameData.length} 題
                     </div>
                 </div>
@@ -643,15 +656,24 @@ window.launchArenaMode = function(rawData, configs) {
         document.getElementById('btn-skip-reading').addEventListener('click', gotoPlaying);
 
         questionTimer = setInterval(() => {
+            // ✨ 檢查暫停狀態
+            const pauseOverlay = document.getElementById('pause-overlay');
+            if (window.arenaIsPaused) {
+                if (pauseOverlay) pauseOverlay.classList.remove('opacity-0');
+                return; 
+            } else {
+                if (pauseOverlay) pauseOverlay.classList.add('opacity-0');
+            }
+
             timeLeft--;
-            const timerEl = document.getElementById('read-timer-display');
+            const timerEl = document.getElementById('reading-countdown');
             if (timerEl) timerEl.textContent = timeLeft;
             if (timeLeft <= 0) gotoPlaying();
         }, 1000);
     }
 
     // ----------------------------------------------------
-    // 畫面 2-B：老師大螢幕 (遊戲作答中 - 排版重構防擠壓)
+    // 畫面 2-B：老師大螢幕 (遊戲作答中 - 完美滿版排版)
     // ----------------------------------------------------
     function renderTeacherGameView(spaceCode, arenaSettings) {
         const qData = gameData[currentQIndex];
@@ -692,35 +714,26 @@ window.launchArenaMode = function(rawData, configs) {
         };
 
         arenaContainer.innerHTML = getQrModalHtml(spaceCode) + `
-            <div class="w-full h-full flex flex-col bg-[#f2f2f2] relative font-sans select-none overflow-y-auto">
+            <div class="w-full h-full flex flex-col bg-[#f2f2f2] relative font-sans select-none overflow-hidden">
                 
-                <div class="w-full p-4 flex justify-between items-start z-50 flex-shrink-0 relative gap-4">
-                     <div class="flex items-center gap-3">
-                         <div class="bg-[#5a2a82] text-white w-14 h-14 md:w-20 md:h-20 rounded-full flex items-center justify-center shadow-md flex-shrink-0">
-                             <span class="text-2xl md:text-4xl font-black text-white" id="timer-display">${timeLeft}</span>
-                         </div>
-                         <button onclick="window.toggleArenaPause()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-full w-10 h-10 md:w-12 md:h-12 flex items-center justify-center transition-colors shadow-sm cursor-pointer flex-shrink-0" title="暫停/繼續">
-                             <span class="material-symbols-outlined text-2xl md:text-3xl" id="pause-icon-playing">pause</span>
-                         </button>
-                     </div>
-                     
-                     <button id="btn-reveal-answer" class="bg-white hover:bg-gray-100 border border-gray-200 text-gray-700 text-sm md:text-base font-bold py-2 px-4 rounded shadow-sm transition-colors cursor-pointer flex-shrink-0">略過</button>
-                </div>
-
-                <div class="flex-1 flex flex-col md:flex-row items-center justify-center px-4 sm:px-8 relative z-10 w-full max-w-6xl mx-auto gap-6 mb-4">
-                     <div class="flex-1 bg-white px-6 py-8 md:py-16 rounded-[1.5rem] shadow-sm text-center w-full border-b-[3px] border-gray-200 flex items-center justify-center min-h-[30vh]">
+                <div class="w-full max-w-[98%] mx-auto px-2 mt-3 sm:mt-4 flex-1 flex flex-col min-h-0">
+                     <div class="w-full h-full bg-white px-6 py-6 rounded-[1.5rem] shadow-sm text-center border-b-[3px] border-gray-200 flex items-center justify-center">
                          <h2 class="text-3xl md:text-5xl lg:text-6xl font-extrabold text-[#111827] leading-tight break-words max-w-full">${qData.term}</h2>
                      </div>
-                     
-                     <div class="flex flex-col items-center flex-shrink-0">
-                         <div class="bg-[#5a2a82] text-white w-16 h-16 md:w-24 md:h-24 rounded-full flex flex-col items-center justify-center shadow-md mb-2">
-                             <span class="text-xl md:text-2xl font-black mt-1" id="answer-count-display">${initialAnswered}<span class="text-sm md:text-base mx-1 text-gray-300">/</span><span class="text-lg md:text-xl text-gray-200">${globalPlayers.length}</span></span>
-                         </div>
-                         <span class="text-xs md:text-sm font-bold text-gray-500">已答/總數</span>
-                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full p-4 flex-shrink-0 min-h-[160px]">
+                <div class="w-full max-w-[98%] mx-auto px-2 my-2 sm:my-3 flex justify-between items-end flex-shrink-0">
+                     <div onclick="window.toggleArenaPause()" class="bg-[#5a2a82] text-white w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center shadow-md cursor-pointer hover:scale-105 transition-transform relative overflow-hidden group" title="點擊暫停/繼續">
+                         <span class="text-2xl md:text-3xl font-black text-white transition-opacity" id="timer-display">${timeLeft}</span>
+                         <div id="pause-overlay" class="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity">
+                             <span class="material-symbols-outlined text-white text-3xl">pause</span>
+                         </div>
+                     </div>
+
+                     <button id="btn-reveal-answer" class="bg-white hover:bg-gray-100 border border-gray-200 text-gray-700 text-sm md:text-base font-bold py-1.5 px-5 rounded shadow-sm transition-colors cursor-pointer">略過</button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-[98%] mx-auto px-2 flex-shrink-0 min-h-[140px] mb-3 relative z-20">
                     ${qData.options.map((opt, i) => `
                         <div class="${colorStyles[i]} rounded flex items-center px-4 py-3 md:py-4 shadow-sm text-white border-b-[4px]">
                             <span class="material-symbols-outlined text-4xl md:text-5xl mr-3 md:mr-4 drop-shadow-md flex-shrink-0">${shapeIcons[i]}</span>
@@ -729,12 +742,17 @@ window.launchArenaMode = function(rawData, configs) {
                     `).join('')}
                 </div>
 
-                <div class="w-full bg-slate-200 flex justify-between items-center px-4 py-1.5 border-t border-gray-300 flex-shrink-0 mt-auto">
-                    <div class="text-gray-700 font-bold text-sm md:text-base flex items-center gap-2 cursor-pointer hover:bg-gray-300 px-2 py-1 rounded transition" onclick="document.getElementById('qr-modal')?.classList.remove('hidden')">
-                        <span class="text-xs md:text-sm text-gray-500">PIN:</span> 
-                        <span class="text-xl tracking-widest font-black">${displayCode}</span>
+                <div class="w-full bg-slate-200 flex justify-between items-center px-4 py-1 border-t border-gray-300 flex-shrink-0 mt-auto z-20">
+                    <div class="text-gray-700 font-bold text-xs sm:text-sm flex items-center gap-2 cursor-pointer hover:bg-gray-300 px-2 py-0.5 rounded transition" onclick="document.getElementById('qr-modal')?.classList.remove('hidden')">
+                        <span class="text-xs text-gray-500">PIN:</span> 
+                        <span class="text-base sm:text-lg tracking-widest font-black">${displayCode}</span>
                     </div>
-                    <div class="text-gray-600 font-bold text-sm bg-gray-300 px-3 py-1 rounded-lg">
+                    
+                    <div class="font-bold text-gray-600 text-xs sm:text-sm flex items-center">
+                        已答：<span id="answer-count-display" class="text-gray-800 font-black ml-1">${initialAnswered} <span class="text-gray-500 mx-0.5">/</span> ${globalPlayers.length}</span>
+                    </div>
+
+                    <div class="text-gray-500 font-bold text-xs sm:text-sm">
                         第 ${currentQIndex + 1} / ${gameData.length} 題
                     </div>
                 </div>
@@ -744,7 +762,13 @@ window.launchArenaMode = function(rawData, configs) {
         document.getElementById('btn-reveal-answer').addEventListener('click', triggerReveal);
 
         questionTimer = setInterval(() => {
-            if (window.arenaIsPaused) return; 
+            const pauseOverlay = document.getElementById('pause-overlay');
+            if (window.arenaIsPaused) {
+                if (pauseOverlay) pauseOverlay.classList.remove('opacity-0');
+                return; 
+            } else {
+                if (pauseOverlay) pauseOverlay.classList.add('opacity-0');
+            }
 
             timeLeft--;
             const timerDisplay = document.getElementById('timer-display');
@@ -754,9 +778,11 @@ window.launchArenaMode = function(rawData, configs) {
     }
 
     // ----------------------------------------------------
-    // 畫面 2-C：老師大螢幕 (公佈長條圖與正確答案)
+    // 畫面 2-C：老師大螢幕 (公佈答案 - 支援自動下一頁)
     // ----------------------------------------------------
     function renderTeacherRevealedView(spaceCode, correctIdx, arenaSettings) {
+        if (autoNextTimer) clearInterval(autoNextTimer); // 確保沒有殘留的計時器
+        
         const qData = gameData[currentQIndex];
         const ansCounts = [0, 0, 0, 0];
         
@@ -768,58 +794,13 @@ window.launchArenaMode = function(rawData, configs) {
         const maxCount = Math.max(...ansCounts, 1);
         const displayCode = spaceCode.substring(0, 2) + ' ' + spaceCode.substring(2);
 
-        arenaContainer.innerHTML = getQrModalHtml(spaceCode) + `
-            <div class="w-full h-full flex flex-col bg-[#f2f2f2] relative font-sans select-none overflow-y-auto">
-                
-                <div class="w-full p-4 flex justify-end z-50 flex-shrink-0 relative">
-                    <button id="btn-next-question" class="bg-[#3b82f6] hover:bg-blue-500 text-white text-sm md:text-lg font-bold py-2 px-6 rounded shadow transition-colors cursor-pointer border-b-[3px] border-blue-700 active:border-b-0 active:translate-y-[3px]">
-                        下一頁
-                    </button>
-                </div>
-                
-                <div class="flex-1 flex flex-col items-center justify-center px-4 sm:px-8 relative z-10 w-full max-w-6xl mx-auto mb-4">
-                     <div class="bg-white px-6 py-6 md:py-8 rounded-[1.5rem] shadow-sm text-center w-full border-b-[3px] border-gray-200 flex items-center justify-center mb-4 relative z-20 flex-shrink-0 min-h-[15vh]">
-                         <h2 class="text-2xl md:text-4xl font-extrabold text-[#111827] leading-tight break-words max-w-full">${qData.term}</h2>
-                     </div>
-                     
-                     <div class="flex items-end justify-center gap-4 sm:gap-12 h-32 md:h-48 w-full max-w-2xl mt-4 z-20 flex-shrink-0">
-                        ${[0, 1, 2, 3].map(i => {
-                            const heightPct = maxCount === 0 ? 0 : (ansCounts[i] / maxCount) * 100;
-                            const isCorrect = (i === correctIdx);
-                            return `
-                            <div class="flex flex-col items-center justify-end h-full w-14 sm:w-24 relative">
-                                <span class="text-xl md:text-2xl font-black mb-1 ${isCorrect ? 'text-gray-800' : 'text-gray-500'} z-10">${ansCounts[i]}</span>
-                                <div class="w-full ${colorStyles[i].split(' ')[0]} rounded-t-sm transition-all duration-1000 ease-out flex items-start justify-center pt-2 shadow-sm" style="height: ${Math.max(heightPct, 2)}%; opacity: ${isCorrect ? '1' : '0.4'}">
-                                    ${isCorrect ? '<span class="material-symbols-outlined text-white text-xl md:text-2xl font-bold drop-shadow-md">check</span>' : ''}
-                                </div>
-                            </div>
-                            `;
-                        }).join('')}
-                    </div>
-                </div>
+        // ✨ 讀取自動翻頁設定
+        let autoTime = arenaSettings.autoNextRevealTime || 10;
+        const isAuto = arenaSettings.autoNextReveal === true;
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full p-4 flex-shrink-0 min-h-[160px] relative z-20">
-                    ${qData.options.map((opt, i) => {
-                        const isCorrect = (i === correctIdx);
-                        return `
-                        <div class="${colorStyles[i]} rounded flex items-center px-4 py-3 md:py-4 shadow-sm text-white border-b-[4px]" style="opacity: ${isCorrect ? '1' : '0.3'}">
-                            <span class="material-symbols-outlined text-4xl md:text-5xl mr-3 md:mr-4 drop-shadow-md flex-shrink-0">${shapeIcons[i]}</span>
-                            <span class="text-xl md:text-3xl font-bold break-words flex-1 leading-tight drop-shadow-lg">${opt}</span>
-                            ${isCorrect ? '<span class="material-symbols-outlined text-3xl md:text-4xl drop-shadow-md">check_circle</span>' : ''}
-                        </div>
-                    `}).join('')}
-                </div>
-
-                <div class="w-full bg-slate-200 flex justify-between items-center px-4 py-2 border-t border-gray-300 z-20 flex-shrink-0 mt-auto">
-                    <div class="text-gray-700 font-bold text-sm md:text-base flex items-center gap-2 cursor-pointer hover:bg-gray-300 px-2 py-1 rounded transition" onclick="document.getElementById('qr-modal')?.classList.remove('hidden')">
-                        <span class="text-xs md:text-sm text-gray-500">PIN:</span> 
-                        <span class="text-xl tracking-widest font-black">${displayCode}</span>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        document.getElementById('btn-next-question').addEventListener('click', async () => {
+        // 將前往下一頁的動作封裝，供按鈕與計時器共用
+        const goToNextAction = async () => {
+            clearInterval(autoNextTimer);
             if (arenaSettings.showScoreboard) {
                 window.currentArenaState = 'scoreboard';
                 await db.collection(window.SPACES_COLLECTION).doc(spaceCode).update({ status: 'scoreboard' });
@@ -834,13 +815,107 @@ window.launchArenaMode = function(rawData, configs) {
                     triggerNextQuestion(spaceCode, arenaSettings);
                 }
             }
-        });
+        };
+
+        arenaContainer.innerHTML = getQrModalHtml(spaceCode) + `
+            <div class="w-full h-full flex flex-col bg-[#f2f2f2] relative font-sans select-none overflow-hidden">
+                
+                <div class="w-full max-w-[98%] mx-auto px-2 mt-3 sm:mt-4 flex-shrink-0">
+                     <div class="w-full bg-white px-6 py-4 md:py-6 rounded-[1.5rem] shadow-sm text-center border-b-[3px] border-gray-200 flex items-center justify-center min-h-[10vh]">
+                         <h2 class="text-2xl md:text-4xl font-extrabold text-[#111827] leading-tight break-words max-w-full">${qData.term}</h2>
+                     </div>
+                </div>
+
+                <div class="w-full max-w-[98%] mx-auto px-2 my-2 flex-1 flex justify-between items-end min-h-0 z-20">
+                    <div class="w-20 sm:w-24">
+                        ${isAuto ? `
+                        <div onclick="window.toggleArenaPause()" class="flex flex-col items-center cursor-pointer hover:scale-110 transition-transform relative group">
+                            <span class="text-xs font-bold text-gray-400">自動翻頁</span>
+                            <span class="text-3xl font-black text-teal-600 transition-opacity" id="auto-reveal-timer">${autoTime}</span>
+                            <div id="pause-overlay" class="absolute inset-0 bg-white/50 opacity-0 flex items-center justify-center rounded-lg transition-opacity"><span class="material-symbols-outlined text-gray-600">pause</span></div>
+                        </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="flex-1 flex items-end justify-center gap-4 sm:gap-12 h-full py-2 z-20">
+                        ${[0, 1, 2, 3].map(i => {
+                            const heightPct = maxCount === 0 ? 0 : (ansCounts[i] / maxCount) * 80;
+                            const isCorrect = (i === correctIdx);
+                            const count = ansCounts[i];
+                            
+                            const checkColorClass = colorStyles[i].split(' ')[0].replace('bg-', 'text-');
+                            const checkAbove = (isCorrect && count === 0) 
+                                ? `<span class="material-symbols-outlined ${checkColorClass} text-4xl md:text-5xl mb-2 drop-shadow-md z-20">check_circle</span>` 
+                                : '';
+                            const checkInside = (isCorrect && count > 0)
+                                ? `<span class="material-symbols-outlined text-white text-xl md:text-2xl font-bold drop-shadow-md">check</span>`
+                                : '';
+                            
+                            return `
+                            <div class="flex flex-col items-center justify-end h-full w-12 sm:w-20 md:w-24 relative">
+                                ${checkAbove}
+                                <span class="text-xl md:text-2xl font-black mb-1 ${isCorrect ? 'text-gray-800' : 'text-gray-500'} z-10">${count}</span>
+                                <div class="w-full ${colorStyles[i].split(' ')[0]} rounded-t-sm transition-all duration-1000 ease-out flex items-start justify-center pt-2 shadow-sm" style="height: ${Math.max(heightPct, 2)}%; opacity: ${isCorrect ? '1' : '0.4'}">
+                                    ${checkInside}
+                                </div>
+                            </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    <button id="btn-next-question" class="bg-[#3b82f6] hover:bg-blue-500 text-white text-sm md:text-base font-bold py-1.5 px-5 rounded shadow transition-colors cursor-pointer border-b-[3px] border-blue-700 active:border-b-0 active:translate-y-[3px] mb-1">下一頁</button>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-[98%] mx-auto px-2 flex-shrink-0 min-h-[140px] mb-3 relative z-20">
+                    ${qData.options.map((opt, i) => {
+                        const isCorrect = (i === correctIdx);
+                        return `
+                        <div class="${colorStyles[i]} rounded flex items-center px-4 py-3 md:py-4 shadow-sm text-white border-b-[4px]" style="opacity: ${isCorrect ? '1' : '0.3'}">
+                            <span class="material-symbols-outlined text-4xl md:text-5xl mr-3 md:mr-4 drop-shadow-md flex-shrink-0">${shapeIcons[i]}</span>
+                            <span class="text-xl md:text-3xl font-bold break-words flex-1 leading-tight drop-shadow-lg">${opt}</span>
+                            ${isCorrect ? '<span class="material-symbols-outlined text-3xl md:text-4xl drop-shadow-md">check_circle</span>' : ''}
+                        </div>
+                    `}).join('')}
+                </div>
+
+                <div class="w-full bg-slate-200 flex justify-between items-center px-4 py-1 border-t border-gray-300 flex-shrink-0 mt-auto z-20">
+                    <div class="text-gray-700 font-bold text-xs sm:text-sm flex items-center gap-2 cursor-pointer hover:bg-gray-300 px-2 py-0.5 rounded transition" onclick="document.getElementById('qr-modal')?.classList.remove('hidden')">
+                        <span class="text-xs text-gray-500">PIN:</span> 
+                        <span class="text-base sm:text-lg tracking-widest font-black">${displayCode}</span>
+                    </div>
+                    <div class="text-gray-500 font-bold text-xs sm:text-sm">
+                        第 ${currentQIndex + 1} / ${gameData.length} 題
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('btn-next-question').addEventListener('click', goToNextAction);
+
+        // ✨ 啟動自動翻頁計時
+        if (isAuto) {
+            autoNextTimer = setInterval(() => {
+                const pauseOverlay = document.getElementById('pause-overlay');
+                if (window.arenaIsPaused) {
+                    if (pauseOverlay) pauseOverlay.classList.remove('opacity-0');
+                    return; 
+                } else {
+                    if (pauseOverlay) pauseOverlay.classList.add('opacity-0');
+                }
+
+                autoTime--;
+                const el = document.getElementById('auto-reveal-timer');
+                if (el) el.textContent = autoTime;
+                if (autoTime <= 0) goToNextAction();
+            }, 1000);
+        }
     }
 
     // ----------------------------------------------------
-    // ✨ 畫面 2-S：老師大螢幕 (答對神速記分板)
+    // 畫面 2-S：老師大螢幕 (英雄榜 - 支援自動下一題)
     // ----------------------------------------------------
     function renderTeacherScoreboardView(spaceCode, correctIdx, arenaSettings) {
+        if (autoNextTimer) clearInterval(autoNextTimer); // 確保沒有殘留的計時器
+        
         const topN = arenaSettings.topCount || 5;
 
         const currentCorrectPlayers = globalPlayers.filter(p => p.answeredQuestion === currentQIndex && p.lastAnswer === correctIdx);
@@ -874,11 +949,37 @@ window.launchArenaMode = function(rawData, configs) {
         const currentGridClass = topCurrent.length > 5 ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-3';
         const streakGridClass = topStreak.length > 5 ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-3';
         
+        // ✨ 讀取自動下一題設定
+        let autoTime = arenaSettings.autoNextBoardTime || 5;
+        const isAuto = arenaSettings.autoNextBoard === true;
+
+        const goToNextQuestionAction = async () => {
+            clearInterval(autoNextTimer);
+            currentQIndex++;
+            if (currentQIndex >= gameData.length) {
+                window.currentArenaState = 'finished';
+                await db.collection(window.SPACES_COLLECTION).doc(spaceCode).update({ status: 'finished' });
+                renderTeacherLeaderboard(spaceCode);
+            } else {
+                triggerNextQuestion(spaceCode, arenaSettings);
+            }
+        };
+
         arenaContainer.innerHTML = `
             <div class="w-full h-full flex flex-col bg-[#2d2a6b] relative font-sans overflow-y-auto select-none pb-8">
                 <div class="absolute inset-0 opacity-30 pointer-events-none" style="background-image: radial-gradient(circle at 15px 15px, #ffffff 1px, transparent 0); background-size: 50px 50px;"></div>
                 
-                <div class="w-full p-4 flex justify-end z-50 flex-shrink-0 relative">
+                <div class="w-full p-4 flex justify-between items-center z-50 flex-shrink-0 relative">
+                    <div class="w-32">
+                        ${isAuto ? `
+                        <div onclick="window.toggleArenaPause()" class="flex flex-col items-center bg-white/10 px-4 py-2 rounded-xl cursor-pointer hover:bg-white/20 transition-all relative group">
+                            <span class="text-xs font-bold text-indigo-200">下一題倒數</span>
+                            <span class="text-3xl font-black text-yellow-300 transition-opacity" id="auto-board-timer">${autoTime}</span>
+                            <div id="pause-overlay" class="absolute inset-0 bg-black/40 opacity-0 flex items-center justify-center rounded-xl transition-opacity"><span class="material-symbols-outlined text-white">pause</span></div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
                     <button id="btn-next-from-scoreboard" class="bg-[#3b82f6] hover:bg-blue-400 text-white text-sm md:text-base font-bold py-2.5 px-6 rounded shadow transition-colors cursor-pointer flex items-center gap-1">
                         ${currentQIndex === gameData.length - 1 ? '最終英雄榜' : '下一題'} <span class="material-symbols-outlined text-lg">arrow_forward</span>
                     </button>
@@ -936,20 +1037,29 @@ window.launchArenaMode = function(rawData, configs) {
             </div>
         `;
 
-        document.getElementById('btn-next-from-scoreboard').addEventListener('click', async () => {
-            currentQIndex++;
-            if (currentQIndex >= gameData.length) {
-                window.currentArenaState = 'finished';
-                await db.collection(window.SPACES_COLLECTION).doc(spaceCode).update({ status: 'finished' });
-                renderTeacherLeaderboard(spaceCode);
-            } else {
-                triggerNextQuestion(spaceCode, arenaSettings);
-            }
-        });
+        document.getElementById('btn-next-from-scoreboard').addEventListener('click', goToNextQuestionAction);
+
+        // ✨ 啟動自動下一題計時
+        if (isAuto) {
+            autoNextTimer = setInterval(() => {
+                const pauseOverlay = document.getElementById('pause-overlay');
+                if (window.arenaIsPaused) {
+                    if (pauseOverlay) pauseOverlay.classList.remove('opacity-0');
+                    return; 
+                } else {
+                    if (pauseOverlay) pauseOverlay.classList.add('opacity-0');
+                }
+
+                autoTime--;
+                const el = document.getElementById('auto-board-timer');
+                if (el) el.textContent = autoTime;
+                if (autoTime <= 0) goToNextQuestionAction();
+            }, 1000);
+        }
     }
 
     // ----------------------------------------------------
-    // ✨ 畫面 2-D：老師最終排行榜畫面 (站台高度修正)
+    // 畫面 2-D：老師最終排行榜畫面
     // ----------------------------------------------------
     function renderTeacherLeaderboard(spaceCode) {
         const sortedPlayers = [...globalPlayers].sort((a, b) => b.score - a.score);
@@ -1052,7 +1162,7 @@ window.launchArenaMode = function(rawData, configs) {
                         
                         <div class="w-full mb-4">
                             <label class="block text-sm font-bold text-gray-500 mb-1 pl-2">空間代碼 PIN</label>
-                            <input type="number" id="input-space-code" value="${prefillCode}" class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-5 py-4 text-center text-3xl font-black text-indigo-900 focus:border-indigo-400 outline-none transition-colors tracking-widest" placeholder="輸入 5 碼代碼">
+                            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" id="input-space-code" value="${prefillCode}" class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-5 py-4 text-center text-3xl font-black text-indigo-900 focus:border-indigo-400 outline-none transition-colors tracking-widest" placeholder="輸入 5 碼代碼">
                         </div>
 
                         <div class="w-full mb-6">
@@ -1060,8 +1170,10 @@ window.launchArenaMode = function(rawData, configs) {
                             <input type="text" id="input-player-name" class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-5 py-4 text-center text-xl font-bold text-gray-700 focus:border-indigo-400 outline-none transition-colors" placeholder="輸入暱稱" maxlength="20">
                         </div>
 
-                        <div class="w-full mb-8">
-                            <label class="block text-sm font-bold text-gray-500 mb-2 pl-2 text-center">選擇你的代表圖示</label>
+                        <button id="btn-submit-join" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xl py-4 rounded-xl shadow-md transition-transform hover:-translate-y-1 cursor-pointer mb-8">進入空間！</button>
+
+                        <div class="w-full">
+                            <label class="block text-sm font-bold text-gray-500 mb-3 text-center">選擇你的代表圖示</label>
                             <div class="flex flex-wrap justify-center gap-2" id="emoji-selector">
                                 ${randomEmojis.map((e, i) => `
                                     <div class="emoji-btn w-12 h-12 flex items-center justify-center text-2xl rounded-xl cursor-pointer transition-all ${i===0 ? 'bg-indigo-100 border-2 border-indigo-400 scale-110' : 'bg-gray-50 border border-gray-200 hover:bg-gray-100'}" data-emoji="${e}">
@@ -1071,7 +1183,6 @@ window.launchArenaMode = function(rawData, configs) {
                             </div>
                         </div>
                         
-                        <button id="btn-submit-join" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xl py-4 rounded-xl shadow-md transition-transform hover:-translate-y-1 cursor-pointer">進入空間！</button>
                     </div>
                 </div>
             </div>
@@ -1233,7 +1344,7 @@ window.launchArenaMode = function(rawData, configs) {
     }
 
     // ----------------------------------------------------
-    // ✨ 畫面 5：學生作答遙控器 (版面最佳化)
+    // 畫面 5：學生作答遙控器 
     // ----------------------------------------------------
     function renderStudentController(spaceCode, playerName, qIndex, qData, arenaSettings) {
         const showText = arenaSettings && arenaSettings.showText;
@@ -1265,7 +1376,7 @@ window.launchArenaMode = function(rawData, configs) {
         if (showText && qData) {
             questionHtml = `<div class="w-full bg-white px-4 py-8 rounded-[1.5rem] shadow-sm mb-3 text-center font-extrabold text-gray-800 text-2xl md:text-4xl border-b-[3px] border-gray-200 flex-1 flex items-center justify-center break-words min-h-[25vh]">${qData.term}</div>`;
         } else {
-            questionHtml = `<div class="flex-1"></div>`; // 佔位，把按鈕往下推
+            questionHtml = `<div class="flex-1"></div>`; 
         }
 
         arenaContainer.innerHTML = `
@@ -1274,7 +1385,7 @@ window.launchArenaMode = function(rawData, configs) {
                     ${questionHtml}
                     
                     <div class="w-full flex justify-between items-center mb-3 px-2 flex-shrink-0 mt-auto">
-                        <div class="bg-purple-800 text-white w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center shadow-md">
+                        <div class="bg-[#5a2a82] text-white w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center shadow-md">
                             <span class="text-2xl md:text-3xl font-black" id="student-timer-display">${localTimeLeft}</span>
                         </div>
                         <div class="bg-white border border-gray-200 px-4 py-2 rounded-xl shadow-sm flex items-center gap-2">
