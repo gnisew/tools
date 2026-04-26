@@ -254,6 +254,18 @@ window.launchLiveMode = function(rawData, configs) {
         `;
     }
 
+	// ✨ 學生專屬：右上角懸浮身分膠囊
+    function getStudentProfileBadge() {
+        const data = window.currentStudentData;
+        if (!data) return '';
+        return `
+            <div class="fixed top-3 right-3 sm:top-5 sm:right-5 z-[90] flex items-center gap-1.5 bg-white/70 backdrop-blur-md border border-teal-100/50 shadow-[0_2px_10px_rgba(0,0,0,0.05)] px-3 py-1.5 rounded-full select-none pointer-events-none transition-all">
+                <span class="text-[16px] leading-none drop-shadow-sm">${data.emoji || ''}</span>
+                <span class="text-xs font-extrabold text-teal-800 max-w-[100px] truncate drop-shadow-sm">${escapeHtml(data.name || '')}</span>
+            </div>
+        `;
+    }
+
     function bindFloatingReactionBar(spaceCode, playerName) {
         const picker = document.getElementById('reaction-picker');
         const btnToggle = document.getElementById('btn-toggle-reaction');
@@ -1943,6 +1955,7 @@ window.launchLiveMode = function(rawData, configs) {
                 </div>
             </div>
             ${getFloatingReactionHtml()}
+            ${getStudentProfileBadge()}
         `;
         bindFloatingReactionBar(spaceCode, playerName);
     }
@@ -2097,6 +2110,7 @@ window.launchLiveMode = function(rawData, configs) {
                 </div>
             </div>
             ${getFloatingReactionHtml()}
+            ${getStudentProfileBadge()}
         `;
 
         bindFloatingReactionBar(spaceCode, playerName);
@@ -2231,8 +2245,10 @@ window.launchLiveMode = function(rawData, configs) {
                 const textVal = document.getElementById('live-text-input').value.trim();
                 if (!textVal) return showToast('⚠️ 請輸入文字');
                 
-                const limit = parseQuestionLimit(qData);
-                const allowDup = qData.options && qData.options[1] === 'true';
+                // ✨ 即時抓取最新設定：從全域 window.currentSpaceData 中取得最新的 qData
+                const latestQData = window.currentSpaceData?.currentQuestionData || qData;
+                const limit = parseQuestionLimit(latestQData);
+                const allowDup = latestQData.options && latestQData.options[1] === 'true';
                 
                 const myData = window.currentStudentData || {};
                 let myTexts = myData[`text_${qId}`] || [];
@@ -2486,6 +2502,7 @@ window.launchLiveMode = function(rawData, configs) {
                 </div>
             </div>
             ${getFloatingReactionHtml()}
+            ${getStudentProfileBadge()}
         `;
         bindFloatingReactionBar(spaceCode, playerName);
     }
@@ -2500,6 +2517,7 @@ window.launchLiveMode = function(rawData, configs) {
                 </div>
             </div>
             ${getFloatingReactionHtml()}
+            ${getStudentProfileBadge()}
         `;
         bindFloatingReactionBar(spaceCode, playerName);
     }
