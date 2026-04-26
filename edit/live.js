@@ -39,9 +39,9 @@ window.launchLiveMode = function(rawData, configs) {
              .replace(/'/g, "&#039;");
     }
 
-	function generateUniqueId(index) {
-		return 'q_idx_' + index;
-	}
+	function generateUniqueId() {
+        return 'q_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 5);
+    }
 
     // ✨ 共用的安全次數解析器 (不是 0,1,2,3 就預設為 0)
     function parseQuestionLimit(qData) {
@@ -192,7 +192,8 @@ window.launchLiveMode = function(rawData, configs) {
             else if (type.includes('評分') || type.includes('星')) type = '評分';
             else if (type.includes('排序')) type = '排序';
             else if (type.includes('公告')) type = '公告'; 
-            else type = '單選'; 
+            else if (type.includes('白板') || type.includes('便條')) type = '白板';
+            else type = '單選';
 			const qId = generateUniqueId(i); // i 是目前的迴圈索引
 			if (question) parsed.push({ id: qId, type, question, options });
         }
@@ -216,7 +217,11 @@ window.launchLiveMode = function(rawData, configs) {
                 if(typeof saveAllTabsData === 'function') saveAllTabsData();
             }
         }
-    }
+
+		if (currentSpaceCode) {
+			sessionStorage.setItem(`live_data_cache_${currentSpaceCode}`, JSON.stringify(liveData));
+		}
+	}
 
     function getLiveQrModalHtml(spaceCode) {
         if (!spaceCode) return '';
@@ -334,7 +339,8 @@ window.launchLiveMode = function(rawData, configs) {
         if (unsubscribeStudentSelf) unsubscribeStudentSelf();
 
 		sessionStorage.removeItem('live_host_code');
-        
+        if (currentSpaceCode) sessionStorage.removeItem(`live_data_cache_${currentSpaceCode}`); 
+
         window.arenaIsPaused = false; 
         window.lastEmojiTs = {};
         document.body.classList.remove('is-playing-game');
@@ -354,7 +360,11 @@ window.launchLiveMode = function(rawData, configs) {
             url.searchParams.delete('mode');
             window.history.replaceState({}, document.title, url.href);
         }
-    }
+
+		if (currentSpaceCode) {
+			sessionStorage.removeItem(`live_data_cache_${currentSpaceCode}`);
+		}
+	}
 
     window.toggleLiveGlobalPause = async function() {
         if (!window.currentSpaceCode) return;
@@ -444,10 +454,10 @@ window.launchLiveMode = function(rawData, configs) {
                     <div class="mb-4">
                         <label class="block text-xs font-bold text-gray-500 mb-1.5">題型選擇</label>
                         <div class="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
-                            ${['單選', '多選', '排序', '評分', '文字', '問答', '公告'].map(t => `
+                            ${['單選', '多選', '排序', '評分', '文字', '問答', '白板', '公告'].map(t => `
                                 <label class="cursor-pointer">
                                     <input type="radio" name="newQType" value="${t}" class="peer sr-only" ${(!isEdit && t === '單選') || (isEdit && qData.type === t) ? 'checked' : ''}>
-                                    <div class="text-center py-1.5 border border-gray-200 rounded-lg peer-checked:border-teal-500 peer-checked:bg-teal-50 peer-checked:text-teal-700 font-bold transition-all text-[11px]">${t === '文字' ? '文字雲' : t === '問答' ? 'Q&A' : t === '公告' ? '公告' : t}</div>
+                                    <div class="text-center py-1.5 border border-gray-200 rounded-lg peer-checked:border-teal-500 peer-checked:bg-teal-50 peer-checked:text-teal-700 font-bold transition-all text-[11px]">${t === '文字' ? '文字雲' : t === '問答' ? 'Q&A' : t === '白板' ? '白板' : t === '公告' ? '公告' : t}</div>
                                 </label>
                             `).join('')}
                         </div>
@@ -497,8 +507,20 @@ window.launchLiveMode = function(rawData, configs) {
                 if (['單選', '多選', '排序', '公告'].includes(t)) optContainer.style.display = 'block';
                 else optContainer.style.display = 'none';
                 
-                if (['文字', '問答'].includes(t)) modal.querySelector('#new-q-limit-container').style.display = 'block';
-                else modal.querySelector('#new-q-limit-container').style.display = 'none';
+                if (['文字', '問答', '白板'].includes(t)) {
+                    modal.querySelector('#new-q-limit-container').style.display = 'block';
+                    
+                    if (!isEdit) {
+                        const limitSelect = modal.querySelector('#new-q-limit');
+                        if (t === '白板') {
+                            limitSelect.value = '0';
+                        } else {
+                            limitSelect.value = '1'; // 切換回文字或問答時，預設回 1 次
+                        }
+                    }
+                } else {
+                    modal.querySelector('#new-q-limit-container').style.display = 'none';
+                }
             });
         });
 
@@ -515,7 +537,7 @@ window.launchLiveMode = function(rawData, configs) {
             } else if (type === '公告') {
                 const rawOpts = modal.querySelector('#new-q-options').value;
                 options = [rawOpts]; 
-            } else if (['文字', '問答'].includes(type)) {
+            } else if (['文字', '問答', '白板'].includes(type)) {
                 options = [modal.querySelector('#new-q-limit').value];
             }
 
@@ -561,34 +583,34 @@ window.launchLiveMode = function(rawData, configs) {
         
         // 如果沒有學生加入代碼，但有房主代碼，嘗試恢復
         if (!autoJoinCode && savedHostCode) {
-            try {
-                const doc = await db.collection(window.SPACES_COLLECTION).doc(savedHostCode).get();
-                if (doc.exists && doc.data().status !== 'finished') {
-                    currentSpaceCode = savedHostCode;
-                    window.currentSpaceCode = savedHostCode;
+    try {
+        const doc = await db.collection(window.SPACES_COLLECTION).doc(savedHostCode).get();
+        if (doc.exists && doc.data().status !== 'finished') {
+            currentSpaceCode = savedHostCode;
+            window.currentSpaceCode = savedHostCode;
 
-                    // 重新解析題目資料（確保刷新後題目還在）
-                    const latestRawData = getLatestRawData(rawData);
-                    liveData = parseLiveData(latestRawData, configs.hasHeader);
-                    
-                    const data = doc.data();
-                    
-                    // ✨ 【關鍵修復】：必須在這裡重新啟動 Firebase 監聽器，才能把學生的作答資料抓回來！
-                    startGlobalPlayerListener(savedHostCode);
-                    
-                    if (data.status === 'waiting') {
-                        renderTeacherLiveLobby(savedHostCode, configs);
-                    } else if (data.status === 'playing') {
-                        currentQIndex = data.currentQuestion; // 從資料庫恢復索引
-                        // ✨ 增強防護：優先使用資料庫中的題目快取，確保重新整理後題目絕對吻合
-                        const restoredQData = data.currentQuestionData || liveData[currentQIndex]; 
-                        renderTeacherLiveQuestion(savedHostCode, restoredQData, configs.liveSettings);
-                    }
-                    return; // 成功恢復，跳出後續流程
-                } else {
-                    sessionStorage.removeItem('live_host_code');
-                }
-            } catch (err) {
+            // ✨ 修改：優先從暫存恢復完整題庫，解決動態題目在重新整理後消失的問題
+            const cachedLiveData = sessionStorage.getItem(`live_data_cache_${savedHostCode}`);
+            if (cachedLiveData) {
+                liveData = JSON.parse(cachedLiveData);
+            } else {
+                const latestRawData = getLatestRawData(rawData);
+                liveData = parseLiveData(latestRawData, configs.hasHeader);
+            }
+            
+            const data = doc.data();
+            window.currentSpaceData = data;
+            startGlobalPlayerListener(savedHostCode);
+            
+            if (data.status === 'playing') {
+                currentQIndex = data.currentQuestion;
+                // 確保優先使用資料庫備份的題目數據
+                const restoredQData = data.currentQuestionData || liveData[currentQIndex]; 
+                renderTeacherLiveQuestion(savedHostCode, restoredQData, configs.liveSettings);
+            }
+            return;
+		 }
+		} catch (err) {
                 sessionStorage.removeItem('live_host_code');
             }
         }
@@ -692,6 +714,7 @@ window.launchLiveMode = function(rawData, configs) {
             else if (q.type === '排序') typeIcon = 'sort';
             else if (q.type === '評分') typeIcon = 'star';
             else if (q.type === '公告') typeIcon = 'campaign';
+            else if (q.type === '白板') typeIcon = 'sticky_note_2';
 
             return `
                 <div class="sidebar-item group relative flex flex-col p-2.5 mx-2 my-1.5 rounded-xl cursor-pointer transition-all border-2 ${isActive ? 'bg-teal-50 border-teal-500 shadow-sm' : 'bg-white border-transparent hover:border-gray-200 hover:bg-gray-50 shadow-sm'}" data-idx="${idx}">
@@ -822,7 +845,7 @@ window.launchLiveMode = function(rawData, configs) {
 
         if (currentQIndex === -1) return; 
 
-        const qData = liveData[currentQIndex];
+        const qData = liveData[currentQIndex] || window.currentSpaceData.currentQuestionData;
         if (!qData) return;
 
         const qId = qData.id; 
@@ -1244,6 +1267,193 @@ window.launchLiveMode = function(rawData, configs) {
             }
             html += `</div>`;
             contentArea.innerHTML = html;
+		} else if (qData.type === '白板') {
+            if (headerArea) headerArea.classList.add('hidden');
+            
+            // 初始化畫布狀態 (平移與縮放)
+            if (typeof window.boardZoom === 'undefined') window.boardZoom = 1;
+            if (typeof window.boardPan === 'undefined') window.boardPan = { x: 0, y: 0 };
+            
+            const boardMods = window.currentSpaceData[`board_mods_${qId}`] || {};
+            let allNotes = [];
+            globalPlayers.forEach(p => {
+                const notes = p[`board_${qId}`] || [];
+                notes.forEach(n => {
+                    if (!boardMods[n.id]?.deleted) {
+                        const mod = boardMods[n.id] || {};
+                        allNotes.push({ ...n, author: p.name, text: mod.text || n.text });
+                        activeResponsesCount++;
+                    }
+                });
+            });
+            if (countDisplay) countDisplay.textContent = activeResponsesCount;
+
+            let canvas = document.getElementById('whiteboard-canvas');
+            if (!canvas) {
+                contentArea.innerHTML = `
+                    <div class="w-full flex justify-between items-center mb-2 px-2 mt-2 select-none">
+                        <div class="font-extrabold text-teal-800 text-xl flex items-center gap-2 min-w-0">
+                            <span class="material-symbols-outlined text-teal-500 flex-shrink-0">sticky_note_2</span> 
+                            <span class="truncate">${escapeHtml(qData.question)}</span>
+                        </div>
+                        <div class="flex items-center gap-2 bg-white border border-gray-200 rounded-lg p-1 shadow-sm flex-shrink-0 ml-2">
+                            <button onclick="window.updateBoardZoom(-0.1)" class="p-1 hover:bg-gray-100 rounded text-gray-500 cursor-pointer"><span class="material-symbols-outlined text-[18px]">remove</span></button>
+                            <span id="board-zoom-val" class="text-xs font-black text-gray-400 min-w-[40px] text-center">${Math.round(window.boardZoom * 100)}%</span>
+                            <button onclick="window.updateBoardZoom(0.1)" class="p-1 hover:bg-gray-100 rounded text-gray-500 cursor-pointer"><span class="material-symbols-outlined text-[18px]">add</span></button>
+                            <button onclick="window.resetBoardView()" class="p-1 hover:bg-gray-100 rounded text-teal-600 border-l border-gray-100 ml-1 cursor-pointer" title="重置視角"><span class="material-symbols-outlined text-[18px]">restart_alt</span></button>
+                        </div>
+                    </div>
+                    <div class="w-full flex-1 relative bg-slate-100 rounded-2xl shadow-[inset_0_2px_15px_rgba(0,0,0,0.05)] overflow-hidden border border-gray-200 min-w-0" id="whiteboard-canvas" style="cursor: grab;">
+                        <div id="board-content-layer" class="absolute inset-0 origin-top-left bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:32px_32px]"></div>
+                    </div>
+                `;
+                canvas = document.getElementById('whiteboard-canvas');
+                const contentLayer = document.getElementById('board-content-layer');
+
+                // 視角控制函數
+                window.updateBoardView = () => {
+                    contentLayer.style.transform = `translate(${window.boardPan.x}px, ${window.boardPan.y}px) scale(${window.boardZoom})`;
+                    const zoomVal = document.getElementById('board-zoom-val');
+                    if (zoomVal) zoomVal.textContent = Math.round(window.boardZoom * 100) + '%';
+                };
+
+                window.updateBoardZoom = (delta) => {
+                    window.boardZoom = Math.max(0.2, Math.min(3, window.boardZoom + delta));
+                    window.updateBoardView();
+                };
+
+                window.resetBoardView = () => {
+                    window.boardZoom = 1; window.boardPan = { x: 0, y: 0 };
+                    window.updateBoardView();
+                };
+
+                // ✨ 核心拖曳與畫布平移引擎
+                let isPanning = false;
+                let draggedNote = null;
+                let startPos = { x: 0, y: 0 };
+                let initialPan = { x: 0, y: 0 };
+                let noteOffset = { x: 0, y: 0 };
+
+                canvas.addEventListener('mousedown', (e) => {
+                    const note = e.target.closest('.sticky-note');
+                    if (note && !e.target.closest('button')) {
+                        // 拖曳便利貼
+                        draggedNote = note;
+                        const rect = note.getBoundingClientRect();
+                        // 考慮縮放修正偏移量
+                        noteOffset.x = (e.clientX - rect.left) / window.boardZoom;
+                        noteOffset.y = (e.clientY - rect.top) / window.boardZoom;
+                        note.style.zIndex = 1000;
+                    } else if (e.target === canvas || e.target === contentLayer) {
+                        // 平移畫布
+                        isPanning = true;
+                        canvas.style.cursor = 'grabbing';
+                        startPos = { x: e.clientX, y: e.clientY };
+                        initialPan = { ...window.boardPan };
+                    }
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (draggedNote) {
+                        const cRect = canvas.getBoundingClientRect();
+                        // ✨ 精確公式：(滑鼠位置 - 畫布起點 - 目前畫布平移量) / 縮放倍率 - 滑鼠在便利貼內的相對位移
+                        let x = (e.clientX - cRect.left - window.boardPan.x) / window.boardZoom - noteOffset.x;
+                        let y = (e.clientY - cRect.top - window.boardPan.y) / window.boardZoom - noteOffset.y;
+                        draggedNote.style.left = x + 'px';
+                        draggedNote.style.top = y + 'px';
+                    } else if (isPanning) {
+                        window.boardPan.x = initialPan.x + (e.clientX - startPos.x);
+                        window.boardPan.y = initialPan.y + (e.clientY - startPos.y);
+                        window.updateBoardView();
+                    }
+                });
+
+                document.addEventListener('mouseup', async () => {
+                    if (draggedNote) {
+                        const noteId = draggedNote.dataset.id;
+                        const currentMods = window.currentSpaceData[`board_mods_${qId}`] || {};
+                        currentMods[noteId] = { 
+                            ...currentMods[noteId], 
+                            x: parseFloat(draggedNote.style.left), 
+                            y: parseFloat(draggedNote.style.top) 
+                        };
+                        draggedNote.style.zIndex = 10;
+                        draggedNote = null;
+                        await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${qId}`]: currentMods });
+                    }
+                    if (isPanning) {
+                        isPanning = false;
+                        canvas.style.cursor = 'grab';
+                    }
+                });
+
+                window.updateBoardView(); // 初始套用
+            }
+
+
+            
+
+            // ✨ 擴充顏色映射表：加入白色與灰色
+            const colorMap = { 
+                'yellow': 'bg-yellow-100 border-yellow-200', 
+                'pink': 'bg-pink-100 border-pink-200', 
+                'blue': 'bg-blue-100 border-blue-200', 
+                'green': 'bg-green-100 border-green-200',
+                'white': 'bg-white border-gray-200 shadow-sm', 
+                'gray': 'bg-gray-200 border-gray-300' 
+            };
+            const contentLayer = document.getElementById('board-content-layer');
+			if (!contentLayer) return;
+
+            allNotes.forEach((note, index) => {
+                let noteEl = document.getElementById('note-' + note.id);
+                const mod = boardMods[note.id] || {};
+                const startX = mod.x !== undefined ? mod.x : 20 + ((index % 8) * 170);
+                const startY = mod.y !== undefined ? mod.y : 20 + (Math.floor(index / 8) * 110);
+
+                if (!noteEl) {
+                    noteEl = document.createElement('div');
+                    noteEl.id = 'note-' + note.id;
+                    noteEl.className = `sticky-note absolute p-3 shadow-sm rounded-lg border w-40 cursor-grab group transition-shadow hover:shadow-lg ${colorMap[note.color] || colorMap['yellow']}`;
+                    noteEl.dataset.id = note.id;
+                    noteEl.innerHTML = `
+                        <div class="flex justify-end gap-1 mb-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button class="edit-btn p-0.5 hover:text-blue-600 cursor-pointer"><span class="material-symbols-outlined text-[14px]">edit</span></button>
+                            <button class="delete-btn p-0.5 hover:text-red-600 cursor-pointer"><span class="material-symbols-outlined text-[14px]">close</span></button>
+                        </div>
+                        <div class="text-sm font-bold text-gray-800 break-words pointer-events-none select-text">${escapeHtml(note.text)}</div>
+                        <div class="mt-2 text-[10px] font-bold text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">${escapeHtml(note.author)}</div>
+                    `;
+                    contentLayer.appendChild(noteEl);
+
+                    // 綁定編輯與刪除
+                    noteEl.querySelector('.delete-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        showCustomConfirm("刪除點子", "確定要永久刪除此點子嗎？", "確認刪除", "bg-rose-500", async () => {
+                            const currentMods = window.currentSpaceData[`board_mods_${qId}`] || {};
+                            currentMods[note.id] = { ...currentMods[note.id], deleted: true };
+                            noteEl.remove();
+                            await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${qId}`]: currentMods });
+                        });
+                    });
+                    noteEl.querySelector('.edit-btn').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        showPrompt("編輯點子內容", note.text, async (newVal) => {
+                            if (newVal) {
+                                const currentMods = window.currentSpaceData[`board_mods_${qId}`] || {};
+                                currentMods[note.id] = { ...currentMods[note.id], text: newVal };
+                                await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${qId}`]: currentMods });
+                            }
+                        });
+                    });
+                }
+                
+                if (noteEl.style.cursor !== 'grabbing') {
+                    noteEl.style.left = startX + 'px';
+                    noteEl.style.top = startY + 'px';
+                    noteEl.querySelector('.text-sm').textContent = note.text;
+                }
+            });
         } else if (qData.type === '公告') {
             if (headerArea) headerArea.classList.add('hidden'); 
             
@@ -1393,6 +1603,8 @@ window.launchLiveMode = function(rawData, configs) {
                 liveData = parseLiveData(currentRawData, finalConfigs.hasHeader);
             }
             if (liveData.length === 0) return showToast('⚠️ 題庫解析失敗或無資料，請檢查表格！');
+            
+            sessionStorage.setItem(`live_data_cache_${spaceCode}`, JSON.stringify(liveData));
             
             currentQIndex = -1; 
             window.arenaIsPaused = false; 
@@ -1876,10 +2088,13 @@ window.launchLiveMode = function(rawData, configs) {
                 else {
                     window.currentStudentData = doc.data(); 
                     if (window.currentSpaceData && window.currentSpaceData.status === 'playing' && !window.currentSpaceData.isGlobalPaused) {
-                        if (window.currentSpaceData.currentQuestionData?.type === '文字') {
+                        const qType = window.currentSpaceData.currentQuestionData?.type;
+                        if (qType === '文字') {
                             updateStudentTextUI(playerName);
-                        } else if (window.currentSpaceData.currentQuestionData?.type === '問答') {
+                        } else if (qType === '問答') {
                             updateStudentQAUI(playerName);
+                        } else if (qType === '白板') {
+                            updateStudentBoardUI(playerName);
                         }
                     }
                 }
@@ -1923,9 +2138,11 @@ window.launchLiveMode = function(rawData, configs) {
             if (data.status === 'playing' && !data.isGlobalPaused) {
                 if (data.currentQuestionData?.type === '問答') {
                     updateStudentQAUI(playerName);
-                } else if (data.currentQuestionData?.type === '文字') {
-                    updateStudentTextUI(playerName);
-                }
+				} else if (data.currentQuestionData?.type === '文字') {
+						updateStudentTextUI(playerName);
+					} else if (data.currentQuestionData?.type === '白板') {
+						updateStudentBoardUI(playerName);
+					}
             }
         });
 
@@ -1935,10 +2152,13 @@ window.launchLiveMode = function(rawData, configs) {
             snapshot.forEach(doc => globalPlayers.push(doc.data()));
             
             if (window.currentSpaceData && window.currentSpaceData.status === 'playing' && !window.currentSpaceData.isGlobalPaused) {
-                if (window.currentSpaceData.currentQuestionData?.type === '問答') {
+                const qType = window.currentSpaceData.currentQuestionData?.type;
+                if (qType === '問答') {
                     updateStudentQAUI(playerName);
-                } else if (window.currentSpaceData.currentQuestionData?.type === '文字') {
+                } else if (qType === '文字') {
                     updateStudentTextUI(playerName);
+                } else if (qType === '白板') {
+                    updateStudentBoardUI(playerName);
                 }
             }
         });
@@ -2073,6 +2293,43 @@ window.launchLiveMode = function(rawData, configs) {
                     <div id="student-focus-banner" class="w-full"></div>
                     <div id="student-qa-list" class="flex-1 overflow-y-auto flex flex-col gap-3 pb-4 scrollbar-thin select-text">
                         <div class="text-center text-gray-400 font-bold mt-4 animate-pulse select-none">載入中...</div>
+                    </div>
+                </div>
+            `;
+		} else if (qData.type === '白板') {
+            const myData = window.currentStudentData || {};
+            const myNotes = myData[`board_${qId}`] || [];
+            
+            controlsHtml = `
+                <div class="flex flex-col gap-4 w-full max-w-md mx-auto h-full flex-1 overflow-hidden">
+                    <div id="student-board-input-area" class="bg-white p-4 rounded-3xl shadow-sm border border-gray-200 flex-shrink-0 flex flex-col gap-3 transition-all">
+                        <div class="flex justify-between items-center px-1">
+                            <span class="text-xs font-bold text-teal-600">新增便利貼</span>
+                            <span id="student-board-limit-status" class="text-[11px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full" style="display: none;"></span>
+                        </div>
+                        <textarea id="live-board-input" class="w-full bg-yellow-50 border-2 border-yellow-200 rounded-xl p-3 text-base font-bold text-gray-700 outline-none focus:border-yellow-400 transition-colors resize-none" rows="2" placeholder="寫下你的點子..."></textarea>
+                        <div class="flex justify-between items-center mt-1">
+                            <div class="flex flex-wrap gap-2" id="board-color-picker">
+                                <button class="board-color-btn active w-8 h-8 rounded-full bg-yellow-200 border-2 border-yellow-400 transform transition-transform scale-110 shadow-sm" data-color="yellow"></button>
+                                <button class="board-color-btn w-8 h-8 rounded-full bg-pink-200 border-2 border-transparent hover:border-pink-400 transform transition-transform" data-color="pink"></button>
+                                <button class="board-color-btn w-8 h-8 rounded-full bg-blue-200 border-2 border-transparent hover:border-blue-400 transform transition-transform" data-color="blue"></button>
+                                <button class="board-color-btn w-8 h-8 rounded-full bg-green-200 border-2 border-transparent hover:border-green-400 transform transition-transform" data-color="green"></button>
+                                <button class="board-color-btn w-8 h-8 rounded-full bg-white border-2 border-gray-200 hover:border-gray-400 transform transition-transform shadow-inner" data-color="white"></button>
+                                <button class="board-color-btn w-8 h-8 rounded-full bg-gray-200 border-2 border-transparent hover:border-gray-400 transform transition-transform" data-color="gray"></button>
+                            </div>
+                            <button id="btn-submit-live-board" class="bg-teal-600 hover:bg-teal-700 text-white font-extrabold px-4 py-2 rounded-xl shadow-sm transition-transform active:scale-95 cursor-pointer flex items-center gap-1">貼上 <span class="material-symbols-outlined text-[18px]">send</span></button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-1 overflow-y-auto pr-1">
+                        <p class="text-xs font-bold text-gray-400 mb-2 pl-2">我已貼出的內容：</p>
+                        <div class="flex flex-col gap-2">
+                            ${myNotes.length ? myNotes.slice().reverse().map(n => `
+                                <div class="bg-white border-l-4 border-l-${n.color === 'yellow' ? 'yellow-400' : n.color === 'pink' ? 'pink-400' : n.color === 'blue' ? 'blue-400' : 'green-400'} p-3 rounded-lg shadow-sm">
+                                    <span class="text-sm font-bold text-gray-700">${escapeHtml(n.text)}</span>
+                                </div>
+                            `).join('') : '<div class="text-center text-gray-300 py-4 font-bold">尚未貼出點子</div>'}
+                        </div>
                     </div>
                 </div>
             `;
@@ -2305,6 +2562,64 @@ window.launchLiveMode = function(rawData, configs) {
         if (qData.type === '文字') {
             updateStudentTextUI(playerName);
         }
+		// ✨ 白板便利貼送出與顏色選擇邏輯
+        if (qData.type === '白板') {
+            liveContainer.querySelectorAll('.board-color-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    // 重置所有按鈕狀態
+                    liveContainer.querySelectorAll('.board-color-btn').forEach(b => {
+                        b.classList.remove('active', 'border-yellow-400', 'border-pink-400', 'border-blue-400', 'border-green-400', 'border-gray-400', 'scale-110', 'shadow-sm');
+                        b.classList.add('border-transparent');
+                        if(b.dataset.color === 'white') b.classList.replace('border-transparent', 'border-gray-200'); // 白色保留預設邊框
+                    });
+                    
+                    // 設定選中狀態
+                    const color = e.target.dataset.color;
+                    const isWhite = color === 'white';
+                    const isGray = color === 'gray';
+                    
+                    const activeBorder = isWhite || isGray ? 'border-gray-400' : `border-${color}-400`;
+                    e.target.classList.add('active', activeBorder, 'scale-110', 'shadow-sm');
+                    e.target.classList.remove('border-transparent');
+
+                    // 改變輸入框樣式
+                    const inputEl = document.getElementById('live-board-input');
+                    if (isWhite) {
+                        inputEl.className = 'w-full bg-white border-2 border-gray-200 rounded-xl p-3 text-base font-bold text-gray-700 outline-none focus:border-gray-400 transition-colors resize-none';
+                    } else if (isGray) {
+                        inputEl.className = 'w-full bg-gray-50 border-2 border-gray-300 rounded-xl p-3 text-base font-bold text-gray-700 outline-none focus:border-gray-400 transition-colors resize-none';
+                    } else {
+                        inputEl.className = `w-full bg-${color}-50 border-2 border-${color}-200 rounded-xl p-3 text-base font-bold text-gray-700 outline-none focus:border-${color}-400 transition-colors resize-none`;
+                    }
+                });
+            });
+
+            const btnBoardSubmit = document.getElementById('btn-submit-live-board');
+            if (btnBoardSubmit) {
+                btnBoardSubmit.addEventListener('click', async () => {
+                    if (window.arenaIsPaused) return; 
+                    const inputEl = document.getElementById('live-board-input');
+                    const textVal = inputEl.value.trim();
+                    if (!textVal) return showToast('⚠️ 請輸入內容');
+                    
+                    const limit = parseQuestionLimit(qData);
+                    const myData = window.currentStudentData || {};
+                    let myNotes = myData[`board_${qId}`] || [];
+                    if (limit !== 0 && myNotes.length >= limit) return showToast('⚠️ 已達便利貼上限！');
+                    
+                    const color = document.querySelector('.board-color-btn.active')?.dataset.color || 'yellow';
+                    const newNote = { id: playerName + '_' + Date.now(), text: textVal, color: color, ts: Date.now() };
+
+                    inputEl.value = ''; 
+                    try {
+                        await db.collection(window.SPACES_COLLECTION).doc(spaceCode).collection("players").doc(playerName).update({
+                            [`board_${qId}`]: firebase.firestore.FieldValue.arrayUnion(newNote)
+                        });
+                        showToast('✅ 便利貼已貼上大螢幕！');
+                    } catch(e) {}
+                });
+            }
+        }
     }
 
     function updateStudentTextUI(playerName) {
@@ -2475,6 +2790,43 @@ window.launchLiveMode = function(rawData, configs) {
                 } catch (err) {}
             });
         });
+    }
+
+	// ✨ 專門處理白板學生介面的即時更新
+    function updateStudentBoardUI(playerName) {
+        const qData = window.currentSpaceData?.currentQuestionData;
+        if (!qData || qData.type !== '白板') return;
+        
+        const qId = qData.id;
+        const myData = window.currentStudentData || {};
+        const myNotes = myData[`board_${qId}`] || [];
+        
+        // 找到輸入框下方的歷史紀錄容器
+        const listArea = document.querySelector('#student-board-input-area + div'); 
+        if (listArea) {
+            const colorBorderMap = { 'yellow': 'yellow-400', 'pink': 'pink-400', 'blue': 'blue-400', 'green': 'green-400', 'white': 'gray-300', 'gray': 'gray-500' };
+            
+            const historyHtml = myNotes.length ? myNotes.slice().reverse().map(n => `
+                <div class="bg-white border-l-4 border-l-${colorBorderMap[n.color] || 'yellow-400'} p-3 rounded-lg shadow-sm animate-fade-in-up">
+                    <span class="text-sm font-bold text-gray-700">${escapeHtml(n.text)}</span>
+                </div>
+            `).join('') : '<div class="text-center text-gray-300 py-4 font-bold">尚未貼出點子</div>';
+            
+            listArea.innerHTML = `<p class="text-xs font-bold text-gray-400 mb-2 pl-2">我已貼出的內容：</p><div class="flex flex-col gap-2">${historyHtml}</div>`;
+        }
+
+        // 更新張貼數量進度 (防呆次數顯示)
+        const limit = parseQuestionLimit(qData);
+        const statusArea = document.getElementById('student-board-limit-status');
+        if (statusArea) {
+            if (limit === 0) {
+                statusArea.style.display = 'none';
+            } else {
+                statusArea.style.display = 'inline-block';
+                statusArea.textContent = `已貼 ${myNotes.length}/${limit}`;
+                statusArea.className = myNotes.length < limit ? 'text-[11px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full select-none' : 'text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full select-none';
+            }
+        }
     }
 
     function showStudentSubmittedScreen(spaceCode, playerName, submittedText = null) {
