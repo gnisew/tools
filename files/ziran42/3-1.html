@@ -88,6 +88,11 @@
     let sortCurrentIndex = 0;
     let sortFeedback = null;
 
+    let sortGameStarted = false; // 記錄遊戲是否已經按下開始
+    let sortStartTime = 0;       // 記錄按下開始時的時間
+    let sortTimeTaken = 0;       // 記錄過關花費的總秒數
+    let sortPlayCount = 0;       // 記錄遊玩次數（用來判斷要顯示「開始」還是「重新開始」）
+
     // --- 最終測驗題庫池 (包含多種替換題目) ---
     const rawQuizPools = [
       [ // 概念1：地表三大物質
@@ -1135,19 +1140,27 @@
     };
 
     function renderSortGame(title, isCompleted) {
-      if (isCompleted) sortCurrentIndex = sortItems.length;
-
       let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? 'bg-blue-50 border-blue-200 opacity-80' : 'border-slate-200'}">
           <h2 class="text-xl font-bold text-blue-700 mb-6 flex items-center justify-between">
             <span class="flex items-center gap-2"><i class="ph-fill ph-basket"></i> ${title}</span>
             ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
           </h2>`;
 
-      if (sortCurrentIndex < sortItems.length && !isCompleted) {
+      if (!sortGameStarted && sortPlayCount === 0) {
+        // 狀態 A：第一次進入，顯示「開始測驗」按鈕
+        html += `<div class="text-center py-8 fade-transition">
+            <p class="text-slate-600 mb-6 font-bold">準備好挑戰分類大師了嗎？系統將會為你計時喔！</p>
+            <button onclick="startSortGame()" class="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3 rounded-full text-xl font-bold transition-all shadow-sm">
+              <i class="ph-bold ph-play"></i> 開始測驗
+            </button>
+          </div>`;
+      } else if (sortGameStarted && sortCurrentIndex < sortItems.length) {
+        // 狀態 B：遊戲進行中，顯示題目卡片
         const cur = sortItems[sortCurrentIndex];
         html += `<div class="flex flex-col items-center">
             <p class="text-slate-600 mb-4 font-bold">這個應用主要是使用大自然的什麼材料呢？</p>
             <div class="relative w-full max-w-md h-40 bg-slate-50 border-4 border-slate-200 rounded-3xl flex items-center justify-center mb-8 overflow-hidden fade-transition">`;
+        
         if (sortFeedback) {
           html += `<div class="text-2xl font-bold flex items-center gap-2 ${sortFeedback.isCorrect ? 'text-emerald-600' : 'text-red-500'} px-4 text-center">
               <i class="ph-fill ${sortFeedback.isCorrect ? 'ph-check-circle' : 'ph-x-circle'} text-4xl shrink-0"></i> ${sortFeedback.text}
@@ -1172,10 +1185,28 @@
         
         html += `</div><div class="mt-6 text-slate-500 font-bold bg-slate-100 px-4 py-1 rounded-full">進度：${sortCurrentIndex + 1} / ${sortItems.length}</div></div>`;
       } else {
-        html += `<div class="text-center py-4 fade-transition"><i class="ph-fill ph-check-circle text-6xl text-emerald-500 mb-4 block mx-auto"></i><h3 class="text-xl font-bold text-slate-800">特徵分類完成！</h3></div>`;
+        // 狀態 C：遊戲完成，顯示花費秒數與「重新開始」按鈕
+        html += `<div class="text-center py-6 fade-transition">
+            <i class="ph-fill ph-check-circle text-6xl text-emerald-500 mb-4 block mx-auto"></i>
+            <h3 class="text-2xl font-bold text-slate-800 mb-2">特徵分類完成！</h3>
+            <p class="text-xl font-bold text-blue-600 mb-6">⏱️ 總共花費時間：${sortTimeTaken} 秒</p>
+            <button onclick="startSortGame()" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-6 py-2 rounded-full text-lg font-bold transition-all shadow-sm border border-blue-200">
+              <i class="ph-bold ph-arrow-counter-clockwise"></i> 重新開始
+            </button>
+          </div>`;
       }
       return html + `</div>`;
     }
+    // 👇👇👇 請加入這個全新的開始遊戲函式 👇👇👇
+    window.startSortGame = function() {
+      sortItems = shuffleArray(baseSortItems); // 重新洗牌題目
+      sortCurrentIndex = 0;
+      sortFeedback = null;
+      sortGameStarted = true;      // 狀態改為遊戲進行中
+      sortStartTime = Date.now();  // 記錄當下的時間戳記 (毫秒)
+      render();                    // 重新渲染畫面
+    }
+
     window.handleSort = function(cat) {
       if (sortFeedback) return;
       const cur = sortItems[sortCurrentIndex];
@@ -1185,11 +1216,20 @@
         sortFeedback = { isCorrect: false, text: `判斷錯誤喔！再想一想。` };
       }
       render();
+      
       setTimeout(() => {
         sortFeedback = null;
         if (cur.type === cat) {
-          if (sortCurrentIndex + 1 < sortItems.length) sortCurrentIndex++;
-          else progressTask('sort');
+          if (sortCurrentIndex + 1 < sortItems.length) {
+            sortCurrentIndex++;
+          } else {
+            // 🎉 全部答對了！計算總花費秒數
+            sortTimeTaken = Math.floor((Date.now() - sortStartTime) / 1000);
+            sortPlayCount++;         // 遊玩次數 +1
+            sortGameStarted = false; // 遊戲狀態結束
+            
+            if (sortProgress === 0) progressTask('sort'); // 如果是第一次過關，推進大關卡進度
+          }
         }
         render();
       }, 1000);
