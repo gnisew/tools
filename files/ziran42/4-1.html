@@ -88,6 +88,11 @@
     let sortCurrentIndex = 0;
     let sortFeedback = null;
 
+	let sortGameStarted = false; // 記錄遊戲是否已經按下開始
+    let sortStartTime = 0;       // 記錄按下開始時的時間
+    let sortTimeTaken = 0;       // 記錄過關花費的總秒數
+    let sortPlayCount = 0;       // 記錄遊玩次數（判斷顯示「開始」或「重新開始」）
+
     // --- 最終測驗題庫池 ---
     const rawQuizPools = [
       [ // 概念1：太陽能
@@ -496,15 +501,22 @@
     }
 
     function renderSortGame(title, isCompleted) {
-      if (isCompleted) sortCurrentIndex = sortItems.length;
-
       let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? 'bg-cyan-50 border-cyan-200 opacity-80' : 'border-slate-200'}">
           <h2 class="text-xl font-bold text-cyan-700 mb-6 flex items-center justify-between">
             <span class="flex items-center gap-2"><i class="ph-fill ph-basket"></i> ${title}</span>
             ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
           </h2>`;
 
-      if (sortCurrentIndex < sortItems.length && !isCompleted) {
+      if (!sortGameStarted && sortPlayCount === 0) {
+        // 狀態 A：第一次進入，顯示「開始測驗」按鈕
+        html += `<div class="text-center py-8 fade-transition">
+            <p class="text-slate-600 mb-6 font-bold text-lg">準備好挑戰電器變身雷達了嗎？系統將會為你計時喔！</p>
+            <button onclick="startSortGame()" class="bg-cyan-500 hover:bg-cyan-600 text-white px-8 py-3 rounded-full text-xl font-bold transition-all shadow-sm">
+              <i class="ph-bold ph-play"></i> 開始測驗
+            </button>
+          </div>`;
+      } else if (sortGameStarted && sortCurrentIndex < sortItems.length) {
+        // 狀態 B：遊戲進行中，顯示題目卡片
         const cur = sortItems[sortCurrentIndex];
         html += `<div class="flex flex-col items-center">
             <p class="text-slate-600 mb-4 font-bold text-lg">這個電器主要是把電轉換成什麼呢？</p>
@@ -535,9 +547,26 @@
         
         html += `</div><div class="mt-6 text-slate-500 font-bold bg-slate-100 px-4 py-1 rounded-full">鑑定進度：${sortCurrentIndex + 1} / ${sortItems.length}</div></div>`;
       } else {
-        html += `<div class="text-center py-4 fade-transition"><i class="ph-fill ph-check-circle text-6xl text-emerald-500 mb-4 block mx-auto"></i><h3 class="text-xl font-bold text-slate-800">變身雷達全數鑑定完成！</h3></div>`;
+        // 狀態 C：遊戲完成，顯示花費秒數與「重新開始」按鈕
+        html += `<div class="text-center py-6 fade-transition">
+            <i class="ph-fill ph-check-circle text-6xl text-emerald-500 mb-4 block mx-auto"></i>
+            <h3 class="text-2xl font-bold text-slate-800 mb-2">變身雷達全數鑑定完成！</h3>
+            <p class="text-xl font-bold text-cyan-600 mb-6">⏱️ 總共花費時間：${sortTimeTaken} 秒</p>
+            <button onclick="startSortGame()" class="bg-cyan-100 hover:bg-cyan-200 text-cyan-700 px-6 py-2 rounded-full text-lg font-bold transition-all shadow-sm border border-cyan-200">
+              <i class="ph-bold ph-arrow-counter-clockwise"></i> 重新開始
+            </button>
+          </div>`;
       }
       return html + `</div>`;
+    }
+
+    window.startSortGame = function() {
+      sortItems = shuffleArray(baseSortItems); // 重新洗牌題目
+      sortCurrentIndex = 0;
+      sortFeedback = null;
+      sortGameStarted = true;      // 狀態改為遊戲進行中
+      sortStartTime = Date.now();  // 記錄當下的時間戳記
+      render();                    // 重新渲染畫面
     }
 
     window.handleSort = function(cat) {
@@ -549,11 +578,20 @@
         sortFeedback = { isCorrect: false, text: `搞混囉！再仔細想想。` };
       }
       render();
+      
       setTimeout(() => {
         sortFeedback = null;
         if (cur.type === cat) {
-          if (sortCurrentIndex + 1 < sortItems.length) sortCurrentIndex++;
-          else progressTask('applySort');
+          if (sortCurrentIndex + 1 < sortItems.length) {
+             sortCurrentIndex++;
+          } else {
+             // 🎉 全部答對了！計算總花費秒數
+             sortTimeTaken = Math.floor((Date.now() - sortStartTime) / 1000);
+             sortPlayCount++;         // 遊玩次數 +1
+             sortGameStarted = false; // 遊戲結束
+             
+             if (applyProgress === 0) progressTask('applySort'); // 推進關卡大進度
+          }
         }
         render();
       }, 1000);

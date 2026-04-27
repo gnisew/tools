@@ -53,12 +53,13 @@
     }
 
     // --- 系統狀態管理 ---
-    const steps = ['welcome', 'intro', 'prepare', 'action', 'quiz'];
-    let currentStepIndex = 0;
-    
-    let introProgress = 0;    
-    let prepareProgress = 0;  
-    let actionProgress = 0;   
+    const steps = ['welcome', 'disasters', 'intro', 'prepare', 'action', 'quiz'];
+	let currentStepIndex = 0;
+
+	let disastersProgress = 0;
+	let introProgress = 0;    
+	let prepareProgress = 0;  
+	let actionProgress = 0; 
 
     // 避難演練模擬器狀態
     let drillState = 'idle'; 
@@ -164,49 +165,52 @@
     }
 
     function renderProgressBar() {
-      const container = document.getElementById('progress-container');
-      const bar = document.getElementById('progress-bar');
-      
-      const stages = [
-        { name: '出發', icon: 'ph-flag-pennant' },
-        { name: '認識地震', icon: 'ph-info' },
-        { name: '防震準備', icon: 'ph-backpack' },
-        { name: '避難演練', icon: 'ph-person-simple-walk' },
-        { name: '最終測驗', icon: 'ph-file-question' },
-      ];
+  const container = document.getElementById('progress-container');
+  const bar = document.getElementById('progress-bar');
+  
+  // 新增「其他災害」節點
+  const stages = [
+    { name: '出發', icon: 'ph-flag-pennant' },
+    { name: '其他災害', icon: 'ph-cloud-warning' },
+    { name: '認識地震', icon: 'ph-info' },
+    { name: '防震準備', icon: 'ph-backpack' },
+    { name: '避難演練', icon: 'ph-person-simple-walk' },
+    { name: '最終測驗', icon: 'ph-file-question' },
+  ];
 
-      let html = '';
-      stages.forEach((stage, idx) => {
-        const isActive = currentStepIndex === idx;
-        const isPassed = (idx === 1 && introProgress >= 2) || 
-                         (idx === 2 && prepareProgress >= 3) || 
-                         (idx === 3 && actionProgress >= 4);
+  let html = '';
+  stages.forEach((stage, idx) => {
+    const isActive = currentStepIndex === idx;
+    // 更新通關判定邏輯
+    const isPassed = (idx === 1 && disastersProgress >= 2) ||
+                     (idx === 2 && introProgress >= 3) ||
+                     (idx === 3 && prepareProgress >= 4) ||
+                     (idx === 4 && actionProgress >= 5);
 
-        let iconHtml = isPassed ? '<i class="ph-fill ph-check-circle text-xl"></i>' : `<i class="ph ${stage.icon} text-xl"></i>`;
-        
-        // 顏色主題：根據 isActive 狀態切換
-        let circleClass = `w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm fade-transition `;
-        if (isActive) circleClass += `bg-amber-500 ring-4 ring-amber-200`;
-        else if (isPassed) circleClass += `bg-emerald-400`;
-        else circleClass += `bg-slate-300`;
+    let iconHtml = isPassed ? '<i class="ph-fill ph-check-circle text-xl"></i>' : `<i class="ph ${stage.icon} text-xl"></i>`;
+    
+    // ... (保留你原本的樣式邏輯 circleClass 和 textClass)
+    let circleClass = `w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm fade-transition `;
+    if (isActive) circleClass += `bg-amber-500 ring-4 ring-amber-200`;
+    else if (isPassed) circleClass += `bg-emerald-400`;
+    else circleClass += `bg-slate-300`;
 
-        let textClass = `text-xs font-bold whitespace-nowrap mt-1 ${isActive ? 'text-amber-600' : 'text-slate-500'}`;
+    let textClass = `text-xs font-bold whitespace-nowrap mt-1 ${isActive ? 'text-amber-600' : 'text-slate-500'}`;
 
-        html += `
-          <div class="flex items-center">
-            <!-- 移除 disabled，讓所有按鈕都可以隨時點擊 -->
-            <button onclick="jumpToStep(${idx})" class="flex flex-col items-center px-2 py-1 fade-transition cursor-pointer hover:bg-slate-50 rounded-lg">
-              <div class="${circleClass}">${iconHtml}</div>
-              <span class="${textClass}">${stage.name}</span>
-            </button>
-        `;
-        if (idx < stages.length - 1) {
-          html += `<div class="hidden sm:block w-8 md:w-12 h-1 rounded-full mx-1 ${isPassed ? 'bg-emerald-300' : 'bg-slate-200'}"></div>`;
-        }
-        html += `</div>`;
-      });
-      bar.innerHTML = html;
+    html += `
+      <div class="flex items-center">
+        <button onclick="jumpToStep(${idx})" class="flex flex-col items-center px-2 py-1 fade-transition cursor-pointer hover:bg-slate-50 rounded-lg">
+          <div class="${circleClass}">${iconHtml}</div>
+          <span class="${textClass}">${stage.name}</span>
+        </button>
+    `;
+    if (idx < stages.length - 1) {
+      html += `<div class="hidden sm:block w-8 md:w-12 h-1 rounded-full mx-1 ${isPassed ? 'bg-emerald-300' : 'bg-slate-200'}"></div>`;
     }
+    html += `</div>`;
+  });
+  bar.innerHTML = html;
+}
 
     // --- 區塊渲染：0. 首頁 ---
     function renderWelcome() {
@@ -252,7 +256,7 @@
               <div class="p-6 bg-slate-50 rounded-2xl border-2 border-slate-100">
                 <div class="text-4xl mb-4">⛑️</div>
                 <h3 class="text-xl font-bold text-slate-700 mb-2">保護首要目標</h3>
-                <p class="text-slate-600">地震發生時，因為可能會有物品掉落，所以最重要的是**保護頭部**，避免受傷。</p>
+                <p class="text-slate-600">地震發生時，因為可能會有物品掉落，所以最重要的是「保護頭部」，避免受傷。</p>
               </div>
             </div>
           </div>
@@ -273,13 +277,19 @@
           ], introProgress > 1, 'blue');
       }
 
-      content += `
-        <div class="text-center fade-transition ${introProgress === 2 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
-          <button onclick="jumpToStep(2)" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
-            完全明白！前往防震準備 <i class="ph-bold ph-arrow-right"></i>
-          </button>
-        </div>
-      </div>`;
+	if (introProgress >= 2) {
+	  content += renderMultiFillInBlank('introFIB', '任務三：重點觀念填空', 
+		['地震發生時，為了避免被掉落的物品砸傷，我們首要保護的身體部位是', '。'],
+		['手腳', '肚子', '頭部'], [2], introProgress > 2, 'blue');
+	}
+
+	content += `
+	  <div class="text-center fade-transition ${introProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+		<button onclick="jumpToStep(3)" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+		  完全明白！前往防震準備 <i class="ph-bold ph-arrow-right"></i>
+		</button>
+	  </div>
+	</div>`;
 
       return content;
     }
@@ -329,14 +339,19 @@
             {q: '平時在家中，哪一種做法可以減少地震造成的傷害？', opts: ["將書櫃或衣櫃固定在牆上", "把逃生通道鎖起來", "睡在吊燈正下方", "把重物全部疊疊樂放在高處"], a: 0}
           ], prepareProgress > 2, 'teal');
       }
+		if (prepareProgress >= 3) {
+		  content += renderMultiFillInBlank('prepFIB', '任務四：重點觀念填空', 
+			['為了防止地震時家具倒塌，平時應該將沉重的物品放置在', '。'],
+			['櫃子的最上層', '櫃子的最下層', '逃生通道上'], [1], prepareProgress > 3, 'teal');
+		}
 
-      content += `
-        <div class="text-center fade-transition ${prepareProgress === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
-          <button onclick="jumpToStep(3)" class="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
-            準備妥當！前往避難演練 <i class="ph-bold ph-arrow-right"></i>
-          </button>
-        </div>
-      </div>`;
+		content += `
+		  <div class="text-center fade-transition ${prepareProgress === 4 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+			<button onclick="jumpToStep(4)" class="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+			  準備妥當！前往避難演練 <i class="ph-bold ph-arrow-right"></i>
+			</button>
+		  </div>
+		</div>`;
 
       return content;
     }
@@ -420,13 +435,19 @@
           ], actionProgress > 3, 'amber');
       }
 
-      content += `
-        <div class="text-center fade-transition ${actionProgress === 4 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
-          <button onclick="jumpToStep(4)" class="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
-            演練完畢！進行最終測驗 <i class="ph-bold ph-arrow-right"></i>
-          </button>
-        </div>
-      </div>`;
+	if (actionProgress >= 4) {
+	  content += renderMultiFillInBlank('actionFIB', '任務五：重點觀念填空', 
+		['在躲進堅固的桌子底下後，我們必須用雙手緊緊握住桌腳，這個動作稱之為「', '」。'],
+		['趴下', '掩護', '穩住'], [2], actionProgress > 4, 'amber');
+	}
+
+	content += `
+	  <div class="text-center fade-transition ${actionProgress === 5 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+		<button onclick="jumpToStep(5)" class="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+		  演練完畢！進行最終測驗 <i class="ph-bold ph-arrow-right"></i>
+		</button>
+	  </div>
+	</div>`;
       return content;
     }
 
@@ -632,6 +653,189 @@
       quizState = 'dashboard';
       render();
     }
+
+
+	// --- 區塊渲染：1. 大自然的災害 (紫色系/Purple) ---
+	function renderDisasters() {
+	  let content = `
+		<div class="space-y-6 fade-transition">
+		  <div class="bg-purple-50 border-l-8 border-purple-500 p-4 rounded-r-2xl shadow-sm flex gap-4 items-start">
+			<div class="text-4xl">🌪️</div>
+			<div>
+			  <h3 class="font-bold text-purple-800 text-lg">營長指示：認識大自然的災害</h3>
+			  <p class="text-purple-700">「地表會因為水力或風力的劇烈改變而形成災害。請找出正確的對應關係！」</p>
+			</div>
+		  </div>
+
+		  <div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 border-slate-200">
+			<h2 class="text-3xl font-bold text-purple-600 mb-6 flex items-center gap-2">
+			  <i class="ph-fill ph-warning text-3xl"></i> 常見的大地災害
+			</h2>
+			<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+			  <div class="p-6 bg-slate-50 rounded-2xl border-2 border-slate-100 text-center">
+				<div class="text-4xl mb-4">🌊</div>
+				<h3 class="text-xl font-bold text-slate-700 mb-2">洪水與淹水</h3>
+				<p class="text-slate-600 text-sm">短時間內大量雨水，可能將橋梁沖斷。</p>
+			  </div>
+			  <div class="p-6 bg-slate-50 rounded-2xl border-2 border-slate-100 text-center">
+				<div class="text-4xl mb-4">🪨</div>
+				<h3 class="text-xl font-bold text-slate-700 mb-2">土石流</h3>
+				<p class="text-slate-600 text-sm">洪水夾帶大量泥沙與岩石，沖毀樹木與建築。</p>
+			  </div>
+			  <div class="p-6 bg-slate-50 rounded-2xl border-2 border-slate-100 text-center">
+				<div class="text-4xl mb-4">💨</div>
+				<h3 class="text-xl font-bold text-slate-700 mb-2">強風</h3>
+				<p class="text-slate-600 text-sm">颱風帶來的強風，容易造成路樹倒塌。</p>
+			  </div>
+			</div>
+		  </div>
+	  `;
+
+	  // 呼叫你原本寫好的配對遊戲模組
+	  if (disastersProgress >= 0) {
+		content += renderMatchingGame('disasterMatch', '任務一：災害連連看', disastersProgress > 0,
+		  [
+			{id:'f', e:'🌊', t:'洪水', c:'bg-blue-50'}, 
+			{id:'m', e:'🪨', t:'土石流', c:'bg-amber-50'}, 
+			{id:'w', e:'💨', t:'強風', c:'bg-slate-100'}
+		  ],
+		  [
+			{id:'w', t:'造成路樹倒塌、招牌掉落'}, 
+			{id:'f', t:'水位暴漲，可能會將橋梁沖斷'}, 
+			{id:'m', t:'大雨夾帶大量土石往下衝，破壞力極強'}
+		  ], 'purple'
+		);
+	  }
+
+	  if (disastersProgress >= 1) {
+		content += renderMultiFillInBlank('disasterFIB', '任務二：重點觀念填空', 
+		  // 句子被空格切分成 3 段
+		  ['當短時間內降下大量', '，可能會夾帶大量泥沙與岩石往下衝，形成破壞力極強的', '。'],
+		  
+		  // 提供選項，包含正確答案與混淆答案
+		  ['土石流', '颱風', '龍捲風', '雨水', '走山'],
+		  
+		  // 設定正確答案在 options 陣列中的索引位置 (雨水是 3，土石流是 0)
+		  [3, 0], 
+		  
+		  disastersProgress > 1, 'purple');
+	  }
+
+	  content += `
+	  <div class="text-center fade-transition ${disastersProgress === 2 ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}">
+		<button onclick="jumpToStep(2)" class="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-8 py-4 rounded-full text-xl font-bold fade-transition shadow-sm">
+		  了解災害！接下來認識地震 <i class="ph-bold ph-arrow-right"></i>
+		</button>
+	  </div>
+	</div>`;
+
+	  return content;
+	}
+
+
+
+	// --- 多格重點觀念填空產生器 ---
+	const multiFibStates = {};
+
+	function renderMultiFillInBlank(id, title, sentenceParts, options, correctIndices, isCompleted, theme) {
+	  if (!multiFibStates[id]) {
+		// 初始化狀態：slots 陣列長度等於正確答案的數量，預設為 null
+		multiFibStates[id] = {
+		  slots: new Array(correctIndices.length).fill(null),
+		  correct: correctIndices,
+		  failed: false
+		};
+	  }
+	  const st = multiFibStates[id];
+	  const th = `text-${theme}-700`;
+	  const bgComp = `bg-${theme}-50 border-${theme}-200 opacity-80`;
+
+	  // 組合句子與空格
+	  let sentenceHtml = '';
+	  sentenceParts.forEach((part, i) => {
+		sentenceHtml += part;
+		if (i < correctIndices.length) {
+		  let slotVal = st.slots[i];
+		  let text = isCompleted ? options[correctIndices[i]] : (slotVal !== null ? options[slotVal] : "　　　");
+
+		  // 空格的樣式狀態
+		  let cls = `text-slate-400 border-b-4 border-dashed border-slate-400 cursor-pointer hover:bg-slate-100`;
+		  if (isCompleted) {
+			 cls = `text-emerald-600 font-bold border-b-4 border-emerald-500`; // 過關
+		  } else if (st.failed && slotVal !== null) {
+			 cls = `text-red-500 font-bold border-b-4 border-red-500 bg-red-50`; // 錯誤提示
+		  } else if (slotVal !== null) {
+			 cls = `text-indigo-600 font-bold border-b-4 border-indigo-500 bg-indigo-50`; // 已填入
+		  }
+
+		  // 點擊已填入的空格可以取消選擇
+		  let onclick = (!isCompleted && slotVal !== null) ? `onclick="handleMultiFibRemove('${id}', ${i})"` : '';
+		  sentenceHtml += `<span ${onclick} class="px-3 mx-1 inline-block text-center min-w-[80px] transition-all rounded ${cls}">${text}</span>`;
+		}
+	  });
+
+	  let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? bgComp : (st.failed ? 'border-red-300' : 'border-slate-200')}">
+		  <h3 class="text-xl font-bold mb-4 flex items-center justify-between ${th}">
+			<span class="flex items-center gap-2"><i class="ph-fill ph-text-t"></i> ${title}</span>
+			${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
+		  </h3>
+		  <p class="text-xl font-bold text-slate-800 mb-6 leading-relaxed">${sentenceHtml}</p>
+		  <div class="flex flex-wrap gap-4 justify-center">`;
+
+	  // 渲染下方選項按鈕
+	  options.forEach((opt, idx) => {
+		let isUsed = st.slots.includes(idx);
+		let cls = "bg-slate-50 border-slate-200 text-slate-700";
+
+		if (isCompleted) {
+		   cls = correctIndices.includes(idx) ? "bg-emerald-50 border-emerald-400 text-emerald-800 font-bold" : "bg-slate-50 text-slate-300 border-slate-100 opacity-50";
+		} else if (isUsed) {
+		   cls = "bg-slate-200 text-slate-400 border-slate-300 opacity-50 cursor-not-allowed"; // 已被填入的選項反灰
+		} else {
+		   cls = "bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-700 cursor-pointer font-bold shadow-sm";
+		}
+
+		html += `<button onclick="handleMultiFibAdd('${id}', ${idx})" ${isCompleted || isUsed ? 'disabled' : ''} class="px-6 py-3 rounded-2xl border-2 text-lg fade-transition ${cls}">${opt}</button>`;
+	  });
+	  return html + `</div></div>`;
+	}
+
+	// 點擊選項填入空格
+	window.handleMultiFibAdd = function(id, optIdx) {
+	  const st = multiFibStates[id];
+	  st.failed = false; 
+	  const emptySlot = st.slots.findIndex(s => s === null); // 找尋第一個空位
+	  
+	  if (emptySlot !== -1) {
+		st.slots[emptySlot] = optIdx;
+		render();
+
+		// 檢查是否全部格子都填滿了
+		if (!st.slots.includes(null)) {
+		  let isCorrect = st.slots.every((val, i) => val === st.correct[i]);
+		  if (isCorrect) {
+			setTimeout(() => { progressTask(id); }, 500); // 答對，推進進度
+		  } else {
+			st.failed = true; // 答錯，亮紅燈提示
+			render();
+			// 1秒後自動清空，讓學生重答
+			setTimeout(() => {
+			   st.slots.fill(null);
+			   st.failed = false;
+			   render();
+			}, 1200);
+		  }
+		}
+	  }
+	}
+
+	// 點擊空格取消填入
+	window.handleMultiFibRemove = function(id, slotIdx) {
+	  multiFibStates[id].slots[slotIdx] = null;
+	  multiFibStates[id].failed = false;
+	  render();
+	}
+
 
     // --- 共用小測驗產生器 (支援隨機題庫) ---
     // MCQ
@@ -895,25 +1099,26 @@
 
     // --- 全局狀態推進 ---
     window.progressTask = function(taskId) {
-      // 根據完成的任務 ID 增加進度
-      if (taskId.startsWith('intro')) introProgress++;
-      else if (taskId.startsWith('prep')) prepareProgress++;
-      else if (taskId.startsWith('action')) actionProgress++;
-      render();
-    }
+	  // 新增 disasters 任務判定
+	  if (taskId.startsWith('disaster')) disastersProgress++;
+	  else if (taskId.startsWith('intro')) introProgress++;
+	  else if (taskId.startsWith('prep')) prepareProgress++;
+	  else if (taskId.startsWith('action')) actionProgress++;
+	  render();
+	}
 
-    // 主渲染邏輯
-    function render() {
-      renderProgressBar();
-      const main = document.getElementById('main-content');
-      switch (steps[currentStepIndex]) {
-        case 'welcome': main.innerHTML = renderWelcome(); break;
-        case 'intro': main.innerHTML = renderIntro(); break;
-        case 'prepare': main.innerHTML = renderPrepare(); break;
-        case 'action': main.innerHTML = renderAction(); break;
-        case 'quiz': main.innerHTML = renderQuiz(); break;
-      }
-    }
+	function render() {
+	  renderProgressBar();
+	  const main = document.getElementById('main-content');
+	  switch (steps[currentStepIndex]) {
+		case 'welcome': main.innerHTML = renderWelcome(); break;
+		case 'disasters': main.innerHTML = renderDisasters(); break; // 新增這行
+		case 'intro': main.innerHTML = renderIntro(); break;
+		case 'prepare': main.innerHTML = renderPrepare(); break;
+		case 'action': main.innerHTML = renderAction(); break;
+		case 'quiz': main.innerHTML = renderQuiz(); break;
+	  }
+	}
 
     render();
   </script>
