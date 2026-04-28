@@ -192,13 +192,21 @@ window.launchLiveMode = function(rawData, configs) {
             .animate-periodic-wiggle { animation: periodicWiggle 3s infinite; }
             .hide-scrollbar::-webkit-scrollbar { display: none; }
             .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-            #live-sidebar-wrapper.animate-width { transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease; }
-            #live-sidebar-wrapper.collapsed { width: 0 !important; opacity: 0; border: none; pointer-events: none; }
+            #live-sidebar-wrapper.animate-width { transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+            #live-sidebar-wrapper.collapsed { width: 0 !important; border: none; pointer-events: none; }
             @media (max-width: 768px) {
-                #live-sidebar-wrapper { position: absolute; height: 100%; z-index: 50; box-shadow: 4px 0 25px rgba(0,0,0,0.1); width: 260px !important; }
-                #live-sidebar-wrapper.collapsed { width: 0 !important; opacity: 0; }
+                #live-sidebar-wrapper { position: absolute; height: 100%; z-index: 50; box-shadow: 4px 0 25px rgba(0,0,0,0.15); width: 280px !important; left: 0; top: 0; transform: translateX(0); opacity: 1; }
+                #live-sidebar-wrapper.collapsed { transform: translateX(-100%); opacity: 0; }
                 #live-sidebar-resizer { display: none !important; }
             }
+            [data-font-size="base"] .scalable-text { font-size: 100% !important; }
+            [data-font-size="md"] .scalable-text { font-size: 125% !important; line-height: 1.3; }
+            [data-font-size="lg"] .scalable-text { font-size: 155% !important; line-height: 1.4; }
+            [data-font-size="xl"] .scalable-text { font-size: 185% !important; line-height: 1.45; }
+            [data-font-size="base"] .scalable-q-text { font-size: 1.25rem !important; }
+            [data-font-size="md"] .scalable-q-text { font-size: 1.5rem !important; }
+            [data-font-size="lg"] .scalable-q-text { font-size: 1.875rem !important; }
+            [data-font-size="xl"] .scalable-q-text { font-size: 2.25rem !important; }
         `;
         document.head.appendChild(style);
     }
@@ -951,7 +959,7 @@ window.launchLiveMode = function(rawData, configs) {
                             <div class="flex flex-col items-center justify-end h-full w-16 md:w-28 relative group">
                                 <span class="text-2xl md:text-3xl font-black mb-2 text-gray-500 z-10 response-count select-text" data-opt="${i}">0</span>
                                 <div class="w-full ${optionColors[i % optionColors.length]} rounded-t-lg transition-all duration-700 ease-out shadow-sm flex flex-col justify-end overflow-hidden response-bar" data-opt="${i}" style="height: 2%; min-height: 2%;"></div>
-                                <span class="mt-3 font-bold text-gray-700 text-sm md:text-lg text-center w-full break-words leading-tight px-1 select-text">${escapeHtml(opt)}</span>
+                                <span class="mt-3 font-bold text-gray-700 text-sm md:text-lg text-center w-full break-words leading-tight px-1 select-text scalable-text">${escapeHtml(opt)}</span>
                             </div>
                         `).join('')}
                     </div>
@@ -1040,7 +1048,7 @@ window.launchLiveMode = function(rawData, configs) {
                             </div>
                             <div class="flex-1 flex flex-col justify-center">
                                 <div class="flex justify-between items-end mb-1">
-                                    <span class="font-extrabold text-gray-800 text-lg select-text">${escapeHtml(r.opt)}</span>
+                                    <span class="font-extrabold text-gray-800 text-lg select-text scalable-text">${escapeHtml(r.opt)}</span>
                                     <span class="font-bold text-gray-400 text-sm select-text">${r.score} 分</span>
                                 </div>
                                 <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
@@ -1292,7 +1300,7 @@ window.launchLiveMode = function(rawData, configs) {
                         </div>
                         <div class="flex flex-col flex-1 break-words">
                             <span class="text-[11px] font-bold text-gray-400 mb-0.5 select-text">${escapeHtml(q.author)} • ${new Date(q.ts).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                            <span class="text-sm font-bold text-gray-800 leading-snug select-text">${escapeHtml(q.text)}</span>
+                            <span class="text-sm font-bold text-gray-800 leading-snug select-text scalable-text">${escapeHtml(q.text)}</span>
                         </div>
                         <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity select-none shrink-0">
                             <button class="bg-white border border-gray-200 hover:bg-blue-50 text-gray-500 hover:text-blue-600 p-1.5 rounded-lg shadow-sm transition-colors cursor-pointer flex flex-col items-center gap-0.5" onclick="window.focusLiveQA('${q.id}')" title="在大螢幕聚焦顯示">
@@ -1391,7 +1399,7 @@ window.launchLiveMode = function(rawData, configs) {
                             <div class="absolute top-4 left-4 sm:left-6 z-[110] select-none">
                                 <div id="board-floating-header" class="bg-white/95 backdrop-blur-sm border border-gray-200 px-4 py-2 rounded-xl shadow-sm flex items-center gap-2 max-w-[300px] sm:max-w-[500px] transition-all">
                                     <span class="material-symbols-outlined text-teal-500 text-[20px] flex-shrink-0">sticky_note_2</span>
-                                    <div id="board-header-text" class="font-extrabold text-teal-900 truncate text-sm sm:text-base ${window.isBoardHeaderCollapsed ? 'hidden' : ''}">
+                                    <div id="board-header-text" class="font-extrabold text-teal-900 truncate text-sm sm:text-base ${window.isBoardHeaderCollapsed ? 'hidden' : ''} scalable-q-text">
                                         ${escapeHtml(qData.question)}
                                     </div>
                                     <button onclick="window.toggleBoardHeader()" class="p-0.5 hover:bg-gray-100 rounded text-gray-400 cursor-pointer pointer-events-auto flex items-center">
@@ -1424,20 +1432,17 @@ window.launchLiveMode = function(rawData, configs) {
                                 
                                 <div id="board-note-menu" class="hidden absolute z-[5000] flex-row items-center justify-center shadow-xl border border-gray-200 bg-white rounded-lg cursor-default transition-opacity duration-150 px-2 py-1.5 select-none h-12 gap-1 flex-nowrap whitespace-nowrap min-w-max">
                                     <button id="btn-bm-edit" class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 text-gray-700 rounded-md transition-colors" title="編輯內容"><span class="material-symbols-outlined text-[20px]">edit</span></button>
-                                    <div class="w-px h-6 bg-gray-200 mx-1.5"></div>
                                     
-                                    <div class="relative group">
-                                        <button class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 text-gray-700 rounded-md transition-colors" title="修改顏色"><span class="material-symbols-outlined text-[20px]">palette</span></button>
-                                        <div class="color-submenu-container hidden group-hover:flex absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white border border-gray-200 shadow-lg rounded-lg p-2 gap-2 z-50">
+                                    <div class="relative">
+                                        <button id="btn-bm-color-toggle" class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 text-gray-700 rounded-md transition-colors" title="修改顏色"><span class="material-symbols-outlined text-[20px]">palette</span></button>
+                                        <div id="bm-color-submenu" class="color-submenu-container hidden absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white border border-gray-200 shadow-lg rounded-lg p-2 gap-2 z-50">
                                             ${['yellow','pink','blue','green','white','gray'].map(c => `<div class="w-6 h-6 rounded-full cursor-pointer hover:scale-110 transition-transform ${colorMap[c].split(' ')[0]} border border-black/10 bm-color-dot shadow-sm flex items-center justify-center flex-shrink-0" data-color="${c}"></div>`).join('')}
                                         </div>
                                     </div>
                                     
-                                    <div class="w-px h-6 bg-gray-200 mx-1.5"></div>
-                                    
-                                    <div class="relative group">
-                                        <button class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 text-gray-700 rounded-md transition-colors" title="圖層順序"><span class="material-symbols-outlined text-[20px]">layers</span></button>
-                                        <div class="layer-submenu-container hidden group-hover:flex absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white border border-gray-200 shadow-lg rounded-lg p-1.5 flex-col gap-1 z-50 min-w-[90px]">
+                                    <div class="relative">
+                                        <button id="btn-bm-layer-toggle" class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 text-gray-700 rounded-md transition-colors" title="圖層順序"><span class="material-symbols-outlined text-[20px]">layers</span></button>
+                                        <div id="bm-layer-submenu" class="layer-submenu-container hidden absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white border border-gray-200 shadow-lg rounded-lg p-1.5 flex-col gap-1 z-50 min-w-[90px]">
                                             <button class="bm-layer-btn flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 text-gray-700 rounded-md text-sm w-full transition-colors font-bold" data-action="top"><span class="material-symbols-outlined text-[16px]">vertical_align_top</span> 置頂</button>
                                             <button class="bm-layer-btn flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 text-gray-700 rounded-md text-sm w-full transition-colors font-bold" data-action="up"><span class="material-symbols-outlined text-[16px]">arrow_upward</span> 上移</button>
                                             <button class="bm-layer-btn flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 text-gray-700 rounded-md text-sm w-full transition-colors font-bold" data-action="down"><span class="material-symbols-outlined text-[16px]">arrow_downward</span> 下移</button>
@@ -1445,7 +1450,7 @@ window.launchLiveMode = function(rawData, configs) {
                                         </div>
                                     </div>
                                     
-                                    <div class="w-px h-6 bg-gray-200 mx-1.5"></div>
+                                    
                                     <button id="btn-bm-delete" class="w-8 h-8 flex items-center justify-center hover:bg-rose-50 text-rose-600 rounded-md transition-colors" title="刪除"><span class="material-symbols-outlined text-[20px]">delete</span></button>
                                 </div>
 
@@ -1472,7 +1477,6 @@ window.launchLiveMode = function(rawData, configs) {
 
                 window.isBoardMaximized = false;
                 // ✨ 智慧全螢幕引擎：自動收合與恢復側邊欄
-                // ✨ 智慧全螢幕引擎 (修正無圓角版)
                 window.toggleBoardMaximize = () => {
                     window.isBoardMaximized = !window.isBoardMaximized;
                     const canvasEl = document.getElementById('whiteboard-canvas');
@@ -1491,12 +1495,14 @@ window.launchLiveMode = function(rawData, configs) {
                         
                         // 拔除相對定位，直接套用固定滿版
                         canvasEl.classList.remove('relative', 'flex-1');
-                        canvasEl.classList.add('fixed', 'inset-0', 'z-[99999]', 'w-screen', 'h-screen');
+                        canvasEl.classList.add('fixed', 'inset-0', 'w-screen', 'h-screen');
+                        canvasEl.style.zIndex = '99999'; // ✨ 強制使用原生 JS 設定最高層級，避免 Tailwind 漏編譯
                         icon.textContent = 'fullscreen_exit';
                     } else {
                         // 恢復相對定位
-                        canvasEl.classList.remove('fixed', 'inset-0', 'z-[99999]', 'w-screen', 'h-screen');
+                        canvasEl.classList.remove('fixed', 'inset-0', 'w-screen', 'h-screen');
                         canvasEl.classList.add('relative', 'flex-1');
+                        canvasEl.style.zIndex = ''; // ✨ 恢復預設層級
                         icon.textContent = 'fullscreen';
                         
                         if (window.tempHadSidebarOpen && sidebar && btnToggleSidebar) {
@@ -1598,7 +1604,16 @@ window.launchLiveMode = function(rawData, configs) {
                         const rect = note.getBoundingClientRect();
                         noteOffset.x = (e.clientX - rect.left) / window.boardZoom;
                         noteOffset.y = (e.clientY - rect.top) / window.boardZoom;
-                        note.style.zIndex = 1000;
+                        
+                        // ✨ 修正：把抓取瞬間的「真實圖層」記錄下來，然後強制置頂與鎖定渲染
+                        note.dataset.origZ = note.style.zIndex || 10;
+                        note.style.zIndex = '99999';
+                        note.style.cursor = 'grabbing';
+                        
+                        if (window.currentActiveNoteId !== note.dataset.id) {
+                            document.getElementById('board-note-menu')?.classList.add('hidden');
+                            document.querySelectorAll('.sticky-note').forEach(n => n.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1'));
+                        }
                     } else if (e.target === canvas || e.target === contentLayer) {
                         isPanning = true;
                         canvas.style.cursor = 'grabbing';
@@ -1626,6 +1641,32 @@ window.launchLiveMode = function(rawData, configs) {
                         window.updateBoardView();
                     }
                 });
+
+				// ✨ 點擊展開子選單邏輯 (解決 hover 死角與行動版無法操作的問題)
+                const colorToggle = document.getElementById('btn-bm-color-toggle');
+                const colorMenu = document.getElementById('bm-color-submenu');
+                const layerToggle = document.getElementById('btn-bm-layer-toggle');
+                const layerMenu = document.getElementById('bm-layer-submenu');
+
+                if (colorToggle && colorMenu) {
+                    colorToggle.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const isHidden = colorMenu.classList.contains('hidden');
+                        layerMenu.classList.add('hidden'); layerMenu.classList.remove('flex'); // 隱藏另一個
+                        if (isHidden) { colorMenu.classList.remove('hidden'); colorMenu.classList.add('flex'); }
+                        else { colorMenu.classList.add('hidden'); colorMenu.classList.remove('flex'); }
+                    });
+                }
+                
+                if (layerToggle && layerMenu) {
+                    layerToggle.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const isHidden = layerMenu.classList.contains('hidden');
+                        colorMenu.classList.add('hidden'); colorMenu.classList.remove('flex'); // 隱藏另一個
+                        if (isHidden) { layerMenu.classList.remove('hidden'); layerMenu.classList.add('flex'); }
+                        else { layerMenu.classList.add('hidden'); layerMenu.classList.remove('flex'); }
+                    });
+                }
 
                 // ✨ 圖層順序控制引擎
                 document.querySelectorAll('.bm-layer-btn').forEach(btn => {
@@ -1655,66 +1696,66 @@ window.launchLiveMode = function(rawData, configs) {
                     });
                 });
 
-                // ✨ 確保拖曳放開時，Z-index 會復原回資料庫裡的正確高度，而不是固定變回 10
                 document.addEventListener('mouseup', async (e) => {
                     if (draggedNote) {
                         const currentNote = draggedNote;
                         const noteId = currentNote.dataset.id;
                         const currentMods = window.currentSpaceData[`board_mods_${qId}`] || {};
                         
-                        // 復原正確高度
-                        currentNote.style.zIndex = currentMods[noteId]?.z !== undefined ? currentMods[noteId].z : 10;
+                        // ✨ 修正：放開時，直接從資料庫讀取並恢復它原本的圖層高度 (Z-index)
+                        const originalZ = currentMods[noteId]?.z !== undefined ? currentMods[noteId].z : 10;
+                        currentNote.style.zIndex = originalZ;
                         draggedNote = null;
                         
-                        if (!isDraggingNote) {
-                            window.currentActiveNoteId = noteId;
-                            
-                            // 藍色選取框
-                            document.querySelectorAll('.sticky-note').forEach(n => n.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1'));
-                            currentNote.classList.add('ring-2', 'ring-blue-500', 'ring-offset-1');
-                            
-                            const menu = document.getElementById('board-note-menu');
-                            const colorSub = menu.querySelector('.color-submenu-container');
-                            const layerSub = menu.querySelector('.layer-submenu-container');
+                        // 無論是「單純點擊」還是「拖曳放開」，都將這張卡片設為新焦點
+                        window.currentActiveNoteId = noteId;
+                        
+                        // 加上藍色選取框
+                        document.querySelectorAll('.sticky-note').forEach(n => n.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1'));
+                        currentNote.classList.add('ring-2', 'ring-blue-500', 'ring-offset-1');
+                        
+                        const menu = document.getElementById('board-note-menu');
+                        const colorSub = menu.querySelector('.color-submenu-container');
+                        const layerSub = menu.querySelector('.layer-submenu-container');
 
-                            menu.classList.remove('hidden');
-                            menu.classList.add('flex');
-                            
-                            // ✨ 邊界偵測引擎：計算上方是否足夠顯示工具列與次選單
-                            const cRect = canvas.getBoundingClientRect();
-                            const nRect = currentNote.getBoundingClientRect();
-                            
-                            // 將螢幕距離換算回畫布真實像素 (考慮縮放)
-                            const spaceAbove = (nRect.top - cRect.top) / window.boardZoom;
-                            
-                            // 計算 X 軸置中，但防止超出畫布左右邊緣
-                            let menuLeft = parseFloat(currentNote.style.left) + 70; 
-                            const menuWidth = 210; 
-                            const canvasRealWidth = cRect.width / window.boardZoom;
-                            if (menuLeft - menuWidth / 2 < 10) menuLeft = menuWidth / 2 + 10;
-                            if (menuLeft + menuWidth / 2 > canvasRealWidth - 10) menuLeft = canvasRealWidth - menuWidth / 2 - 10;
+                        // 顯示工具列
+                        menu.classList.remove('hidden');
+                        menu.classList.add('flex');
+                        
+                        // 邊界偵測與選單定位
+                        const cRect = canvas.getBoundingClientRect();
+                        const nRect = currentNote.getBoundingClientRect();
+                        const spaceAbove = (nRect.top - cRect.top) / window.boardZoom;
+                        
+                        let menuLeft = parseFloat(currentNote.style.left) + 70; 
+                        const menuWidth = 210; 
+                        const canvasRealWidth = cRect.width / window.boardZoom;
+                        if (menuLeft - menuWidth / 2 < 10) menuLeft = menuWidth / 2 + 10;
+                        if (menuLeft + menuWidth / 2 > canvasRealWidth - 10) menuLeft = canvasRealWidth - menuWidth / 2 - 10;
 
-                            if (spaceAbove < 130) {
-                                // ⚠️ 空間不足：工具列顯示在卡片「下方」，次選單「往下」展開
-                                menu.style.left = menuLeft + 'px';
-                                menu.style.top = (parseFloat(currentNote.style.top) + 140 + 8) + 'px';
-                                menu.style.transform = 'translate(-50%, 0)';
-                                
-                                colorSub.className = "color-submenu-container hidden group-hover:flex absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white border border-gray-200 shadow-lg rounded-lg p-2 gap-2 z-50";
-                                layerSub.className = "layer-submenu-container hidden group-hover:flex absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white border border-gray-200 shadow-lg rounded-lg p-1.5 flex-col gap-1 z-50 min-w-[90px]";
-                            } else {
-                                // ✅ 空間充足：工具列顯示在卡片「上方」，次選單「往上」展開 (預設)
-                                menu.style.left = menuLeft + 'px';
-                                menu.style.top = (parseFloat(currentNote.style.top) - 8) + 'px';
-                                menu.style.transform = 'translate(-50%, -100%)';
-                                
-                                colorSub.className = "color-submenu-container hidden group-hover:flex absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white border border-gray-200 shadow-lg rounded-lg p-2 gap-2 z-50";
-                                layerSub.className = "layer-submenu-container hidden group-hover:flex absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white border border-gray-200 shadow-lg rounded-lg p-1.5 flex-col gap-1 z-50 min-w-[90px]";
-                            }
+                        if (spaceAbove < 130) {
+                            menu.style.left = menuLeft + 'px';
+                            menu.style.top = (parseFloat(currentNote.style.top) + 140 + 8) + 'px';
+                            menu.style.transform = 'translate(-50%, 0)';
+                            colorSub.className = "color-submenu-container hidden absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white border border-gray-200 shadow-lg rounded-lg p-2 gap-2 z-50";
+                            layerSub.className = "layer-submenu-container hidden absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white border border-gray-200 shadow-lg rounded-lg p-1.5 flex-col gap-1 z-50 min-w-[90px]";
                         } else {
-                            const currentMods = window.currentSpaceData[`board_mods_${qId}`] || {};
-                            currentMods[noteId] = { ...currentMods[noteId], x: parseFloat(currentNote.style.left), y: parseFloat(currentNote.style.top) };
-                            try { await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${qId}`]: currentMods }); } catch (err) {}
+                            menu.style.left = menuLeft + 'px';
+                            menu.style.top = (parseFloat(currentNote.style.top) - 8) + 'px';
+                            menu.style.transform = 'translate(-50%, -100%)';
+                            colorSub.className = "color-submenu-container hidden absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white border border-gray-200 shadow-lg rounded-lg p-2 gap-2 z-50";
+                            layerSub.className = "layer-submenu-container hidden absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white border border-gray-200 shadow-lg rounded-lg p-1.5 flex-col gap-1 z-50 min-w-[90px]";
+                        }
+
+                        // ✨ 恢復：只存檔座標，不改變原有的 Z 值
+                        if (isDraggingNote) {
+                            const modsToUpdate = window.currentSpaceData[`board_mods_${qId}`] || {};
+                            modsToUpdate[noteId] = { 
+                                ...modsToUpdate[noteId], 
+                                x: parseFloat(currentNote.style.left), 
+                                y: parseFloat(currentNote.style.top)
+                            };
+                            try { await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${qId}`]: modsToUpdate }); } catch (err) {}
                         }
                     } 
                     
@@ -1732,7 +1773,7 @@ window.launchLiveMode = function(rawData, configs) {
 
                 document.getElementById('btn-bm-delete').addEventListener('click', () => {
                     const noteId = window.currentActiveNoteId;
-                    showCustomConfirm("刪除點子", "確定要永久刪除此點子嗎？", "確認刪除", "bg-rose-500", async () => {
+                    showCustomConfirm("刪除點子", "確定要永久刪除？", "確認刪除", "bg-rose-500", async () => {
                         const currentMods = window.currentSpaceData[`board_mods_${qId}`] || {};
                         currentMods[noteId] = { ...currentMods[noteId], deleted: true };
                         document.getElementById('board-note-menu').classList.add('hidden');
@@ -1745,14 +1786,22 @@ window.launchLiveMode = function(rawData, configs) {
                     const noteId = window.currentActiveNoteId;
                     const noteEl = document.getElementById('note-' + noteId);
                     if (!noteEl) return;
+                    
                     const currentText = noteEl.querySelector('.note-text-content').textContent;
+                    const targetNote = allNotes.find(n => n.id === noteId);
+                    const currentColor = targetNote ? targetNote.color : 'yellow';
+
                     document.getElementById('board-note-menu').classList.add('hidden');
                     
                     if (typeof showBoardPrompt === 'function') {
-                        showBoardPrompt("編輯點子內容", currentText, async (newVal) => {
-                            if (newVal && newVal !== currentText) {
+                        showBoardPrompt("編輯", currentText, currentColor, async (result) => {
+                            if (result && result.text) {
                                 const currentMods = window.currentSpaceData[`board_mods_${qId}`] || {};
-                                currentMods[noteId] = { ...currentMods[noteId], text: newVal };
+                                currentMods[noteId] = { 
+                                    ...currentMods[noteId], 
+                                    text: result.text,
+                                    color: result.color // 同步儲存編輯時可能修改的新顏色
+                                };
                                 await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${qId}`]: currentMods });
                             }
                         });
@@ -1791,7 +1840,7 @@ window.launchLiveMode = function(rawData, configs) {
                     
                     // ✨ 6. 名字移至便利貼右下角外部的「膠囊標籤」，加上強制隱藏/顯示邏輯
                     noteEl.innerHTML = `
-                        <div class="text-sm font-bold break-words pointer-events-none select-none leading-relaxed note-text-content text-center w-full max-h-full overflow-hidden"></div>
+                        <div class="text-sm font-bold break-words pointer-events-none select-none leading-relaxed note-text-content text-center w-full max-h-full overflow-hidden scalable-text"></div>
                         
                         <div class="absolute -bottom-2 -right-2 px-2 py-0.5 bg-gray-800 text-white text-[10px] font-bold rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-[100] note-author-container">
                             <span class="note-author-content"></span>
@@ -1805,11 +1854,10 @@ window.launchLiveMode = function(rawData, configs) {
                     noteEl.style.top = startY + 'px';
                     noteEl.dataset.author = note.author;
                     
-                    // ✨ 動態套用圖層高度
                     const z = mod.z !== undefined ? mod.z : 10;
-                    const isSelected = noteEl.classList.contains('ring-2');
+                    noteEl.style.zIndex = z;
                     
-                    noteEl.style.zIndex = isSelected ? 1000 : z;
+                    const isSelected = noteEl.classList.contains('ring-2');
                     
                     noteEl.className = `sticky-note absolute p-3 shadow-sm rounded-sm border w-[140px] h-[140px] cursor-pointer transition-shadow hover:shadow-lg group flex items-center justify-center ${colorMap[note.color] || colorMap['yellow']} ${isSelected ? 'ring-2 ring-blue-500 ring-offset-1' : ''}`;
                     noteEl.querySelector('.note-text-content').textContent = note.text;
@@ -1830,6 +1878,8 @@ window.launchLiveMode = function(rawData, configs) {
             flashcardHtml += `</div>`;
             contentArea.innerHTML = flashcardHtml;
         }
+
+        if(typeof window.applyLiveDisplayPrefs === 'function') window.applyLiveDisplayPrefs();
     }
 
     function startGlobalPlayerListener(spaceCode) {
@@ -2000,7 +2050,9 @@ window.launchLiveMode = function(rawData, configs) {
         liveContainer.innerHTML = getLiveQrModalHtml(spaceCode) + `
             <div class="w-full h-full flex bg-[#f8f9fa] font-sans select-none overflow-hidden relative">
                 
-                <div id="live-sidebar-wrapper" class="bg-gray-50 border-r border-gray-200 flex flex-col h-full flex-shrink-0 z-30 animate-width relative" style="width: ${window.isLiveSidebarOpen ? window.liveSidebarWidth + 'px' : '0px'}">
+                <div id="live-mobile-sidebar-backdrop" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[40] opacity-0 pointer-events-none transition-opacity duration-300 md:hidden"></div>
+
+                <div id="live-sidebar-wrapper" class="bg-gray-50 border-r border-gray-200 flex flex-col h-full flex-shrink-0 z-[50] animate-width relative overflow-hidden" style="width: ${window.isLiveSidebarOpen && window.innerWidth > 768 ? window.liveSidebarWidth + 'px' : '0px'}">
                     <div class="flex items-center justify-between px-3 py-2.5 bg-white border-b border-gray-200 flex-shrink-0 shadow-[0_2px_4px_rgba(0,0,0,0.02)] z-20">
                         <div class="font-extrabold text-gray-800 text-sm">總覽</div>
                         <div class="flex items-center gap-1">
@@ -2018,84 +2070,114 @@ window.launchLiveMode = function(rawData, configs) {
                 </div>
 
                 <div class="flex-1 flex flex-col h-full relative min-w-0 bg-white shadow-[-5px_0_15px_rgba(0,0,0,0.02)]">
-                    <div class="w-full px-3 py-1.5 sm:py-2 flex flex-wrap justify-between items-center bg-white shadow-[0_2px_10px_rgba(0,0,0,0.03)] z-20 gap-y-2 border-b border-gray-200 flex-shrink-0">
-                        <div class="flex items-center gap-2 sm:gap-3">
-                            <button id="btn-toggle-sidebar" class="text-gray-500 hover:text-teal-600 hover:bg-teal-50 p-1.5 rounded-lg transition-colors cursor-pointer ${window.isLiveSidebarOpen ? 'bg-teal-50 text-teal-600' : ''}" title="收合側欄">
-                                <span class="material-symbols-outlined">menu</span>
+                    
+                    <div class="w-full px-2 sm:px-3 py-1.5 sm:py-2 flex justify-between items-center bg-white shadow-[0_2px_10px_rgba(0,0,0,0.03)] z-20 gap-2 border-b border-gray-200 flex-shrink-0 overflow-x-auto hide-scrollbar">
+                        
+                        <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                            <button id="btn-toggle-sidebar" class="text-gray-500 hover:text-teal-600 hover:bg-teal-50 p-1.5 rounded-lg transition-colors cursor-pointer ${window.isLiveSidebarOpen ? 'bg-teal-50 text-teal-600' : ''}" title="收合/展開側欄">
+                                <span class="material-symbols-outlined text-[20px] sm:text-[24px]">menu</span>
                             </button>
-                            <div class="text-gray-700 font-bold text-sm flex items-center gap-1.5 px-2 py-1 rounded-md border border-gray-200 transition bg-gray-50">
-                                <span class="text-gray-400 hidden sm:inline cursor-pointer hover:text-gray-600" onclick="document.getElementById('live-qr-modal')?.classList.remove('hidden')" title="顯示 QR Code">代碼:</span>
-                                <span class="text-lg tracking-widest font-black text-teal-700 cursor-pointer hover:text-teal-900" onclick="document.getElementById('live-qr-modal')?.classList.remove('hidden')" title="顯示 QR Code">${displayCode}</span>
-                                <button id="btn-copy-code-link" class="text-gray-400 hover:text-teal-600 p-1 rounded hover:bg-gray-200 transition-colors ml-1" title="複製邀請網址"><span class="material-symbols-outlined text-[16px]">content_copy</span></button>
+                            <div class="text-gray-700 font-bold text-xs sm:text-sm flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded-md border border-gray-200 transition bg-gray-50 cursor-pointer hover:bg-gray-100" onclick="document.getElementById('live-qr-modal')?.classList.remove('hidden')" title="顯示 QR Code">
+                                <span class="text-[14px] sm:text-lg tracking-widest font-black text-teal-700">${displayCode}</span>
                             </div>
-                            <div class="font-bold text-teal-700 text-sm flex items-center bg-teal-50 border border-teal-100 px-2.5 py-1 rounded-full">
-                                已收 <span id="response-count-display" class="font-black ml-1">0</span>
+                            <div class="font-bold text-teal-700 text-[11px] sm:text-sm flex items-center bg-teal-50 border border-teal-100 px-2 py-1 rounded-full whitespace-nowrap">
+                                <span class="hidden sm:inline">已收</span><span class="sm:hidden">收</span> <span id="response-count-display" class="font-black ml-1">0</span>
                             </div>
                         </div>
 
                         ${currentQIndex >= 0 ? `
-                        <div class="flex items-center gap-1 sm:gap-2">
-                            ${['文字', '問答'].includes(qData.type) ? `
-                            <div class="relative mr-1 sm:mr-2">
-                                <button id="btn-limit-settings" class="flex items-center gap-1 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg px-2.5 py-1.5 transition-colors cursor-pointer" title="作答限制設定">
-                                    <span class="material-symbols-outlined text-[16px] text-gray-500">tune</span>
+                        <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">                        
+                            
+                            <button id="btn-clear-results" class="bg-gray-50 hover:bg-red-50 text-gray-600 hover:text-red-600 p-1.5 sm:px-3 sm:py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 border border-gray-200 hover:border-red-200" title="重新作答">
+                                <span class="material-symbols-outlined text-[18px]">refresh</span> <span class="hidden lg:inline text-sm font-bold">重新作答</span>
+                            </button>
+                            <button id="btn-toggle-pause" class="bg-gray-50 hover:bg-amber-50 text-gray-600 hover:text-amber-700 p-1.5 sm:px-3 sm:py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 border border-gray-200 hover:border-amber-200" onclick="window.toggleLivePause()" title="暫停/開放">
+                                <span class="material-symbols-outlined text-[18px]">pause</span> <span class="hidden lg:inline text-sm font-bold">暫停收件</span>
+                            </button>
+                            <button id="btn-toggle-results" class="bg-gray-50 hover:bg-indigo-50 text-gray-600 hover:text-indigo-700 p-1.5 sm:px-3 sm:py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 border border-gray-200 hover:border-indigo-200" title="隱藏/顯示結果">
+                                <span class="material-symbols-outlined text-[18px]">visibility_off</span> <span class="hidden lg:inline text-sm font-bold">隱藏結果</span>
+                            </button>
+                            
+                            <div class="flex items-center gap-0.5 sm:gap-1 bg-gray-50 rounded-lg p-0.5 border border-gray-200 ml-1 sm:ml-0">
+                                <button id="btn-prev-live" class="text-gray-500 hover:text-teal-600 hover:bg-teal-50 p-1 rounded transition-colors cursor-pointer disabled:opacity-30" ${currentQIndex === 0 ? 'disabled' : ''}>
+                                    <span class="material-symbols-outlined text-[18px] sm:text-[20px]">chevron_left</span>
                                 </button>
-                                <div id="limit-settings-menu" class="hidden absolute top-full mt-1 right-0 w-52 bg-white border border-gray-200 rounded-xl shadow-lg z-50 p-3 flex flex-col gap-3">
-                                    <div>
-                                        <span class="text-[11px] font-bold text-gray-400 mb-1.5 block">每人次數上限</span>
-                                        <div class="flex gap-1" id="live-limit-btns">
-                                            ${[1, 2, 3, 0].map(v => `<button class="flex-1 py-1 rounded text-xs font-bold border ${parseQuestionLimit(qData)===v ? 'bg-teal-50 border-teal-500 text-teal-700 active-limit' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}" data-val="${v}">${v===0?'不限':v}</button>`).join('')}
-                                        </div>
-                                    </div>
-                                    ${qData.type === '文字' ? `
-                                    <div class="flex items-center justify-between border-t border-gray-100 pt-2 mt-1">
-                                        <span class="text-[11px] font-bold text-gray-400">允許輸入重複詞</span>
-                                        <label class="relative inline-flex items-center cursor-pointer">
-                                            <input type="checkbox" id="live-allow-dup" class="sr-only peer" ${qData.options && qData.options[1] === 'true' ? 'checked' : ''}>
-                                            <div class="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
-                                        </label>
-                                    </div>
-                                    ` : ''}
-                                </div>
+                                <span class="text-gray-600 font-bold text-[11px] sm:text-sm min-w-[2rem] text-center select-none">${currentQIndex + 1}/${liveData.length}</span>
+                                <button id="btn-next-live" class="text-gray-500 hover:text-teal-600 hover:bg-teal-50 p-1 rounded transition-colors cursor-pointer disabled:opacity-30" ${currentQIndex === liveData.length - 1 ? 'disabled' : ''}>
+                                    <span class="material-symbols-outlined text-[18px] sm:text-[20px]">chevron_right</span>
+                                </button>
                             </div>
-                            ` : ''}
-                            <button id="btn-clear-results" class="bg-gray-50 hover:bg-red-50 text-gray-600 hover:text-red-600 text-xs sm:text-sm font-bold py-1.5 px-3 rounded-lg transition-colors cursor-pointer flex items-center gap-1 border border-gray-200 hover:border-red-200" title="清除此題作答紀錄">
-                                <span class="material-symbols-outlined text-[16px]">refresh</span> <span class="hidden xl:inline">重新作答</span>
-                            </button>
-                            <button id="btn-toggle-pause" class="bg-gray-50 hover:bg-amber-50 text-gray-600 hover:text-amber-700 text-xs sm:text-sm font-bold py-1.5 px-3 rounded-lg transition-colors cursor-pointer flex items-center gap-1 border border-gray-200 hover:border-amber-200" onclick="window.toggleLivePause()">
-                                <span class="material-symbols-outlined text-[16px]">pause</span> <span class="hidden xl:inline">暫停收件</span>
-                            </button>
-                            <button id="btn-toggle-results" class="bg-gray-50 hover:bg-indigo-50 text-gray-600 hover:text-indigo-700 text-xs sm:text-sm font-bold py-1.5 px-3 rounded-lg transition-colors cursor-pointer flex items-center gap-1 border border-gray-200 hover:border-indigo-200">
-                                <span class="material-symbols-outlined text-[16px]">visibility_off</span> <span class="hidden xl:inline">隱藏結果</span>
-                            </button>
-                        </div>
-                        <div class="flex items-center gap-1">
-                            <button id="btn-prev-live" class="text-gray-500 hover:text-teal-600 hover:bg-teal-50 p-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-30" ${currentQIndex === 0 ? 'disabled' : ''}>
-                                <span class="material-symbols-outlined">chevron_left</span>
-                            </button>
-                            <span class="text-gray-600 font-bold text-sm min-w-[2.5rem] text-center select-none">${currentQIndex + 1} / ${liveData.length}</span>
-                            <button id="btn-next-live" class="text-gray-500 hover:text-teal-600 hover:bg-teal-50 p-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-30" ${currentQIndex === liveData.length - 1 ? 'disabled' : ''}>
-                                <span class="material-symbols-outlined">chevron_right</span>
+							<button id="btn-live-settings" class="flex items-center gap-1 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg px-2 py-1.5 transition-colors cursor-pointer mr-0 sm:mr-1 shrink-0" title="互動設定">
+                                <span class="material-symbols-outlined text-[18px] text-gray-500">settings</span>
                             </button>
                         </div>
                         ` : `<div></div>`}
                     </div>
 
+                    ${currentQIndex >= 0 ? (() => {
+                        const prefs = JSON.parse(localStorage.getItem('live_display_prefs') || '{"q":"base", "c":"base"}');
+                        return `
+                        <div id="live-settings-menu" class="hidden absolute top-14 right-2 sm:right-10 w-72 bg-white border border-gray-200 rounded-xl shadow-2xl z-[100] flex-col overflow-hidden">
+                            
+                            <div class="p-4 bg-gray-50/50">
+                                <span class="text-xs font-extrabold text-teal-800 mb-3 flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">text_fields</span> 顯示設定 (僅限本機)</span>
+                                
+                                <div class="flex items-center justify-between mb-2.5">
+                                    <span class="text-[11px] font-bold text-gray-500">題目大小</span>
+                                    <div class="flex bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm">
+                                        <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs border-r border-gray-200 ${prefs.q === 'base' ? 'bg-teal-50 text-teal-700' : ''}" data-target="q" data-val="base">本</button>
+                                        <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs border-r border-gray-200 ${prefs.q === 'md' ? 'bg-teal-50 text-teal-700' : ''}" data-target="q" data-val="md">中</button>
+                                        <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs border-r border-gray-200 ${prefs.q === 'lg' ? 'bg-teal-50 text-teal-700' : ''}" data-target="q" data-val="lg">大</button>
+                                        <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs ${prefs.q === 'xl' ? 'bg-teal-50 text-teal-700' : ''}" data-target="q" data-val="xl">巨</button>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[11px] font-bold text-gray-500">內容大小</span>
+                                    <div class="flex bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm">
+                                        <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs border-r border-gray-200 ${prefs.c === 'base' ? 'bg-teal-50 text-teal-700' : ''}" data-target="c" data-val="base">本</button>
+                                        <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs border-r border-gray-200 ${prefs.c === 'md' ? 'bg-teal-50 text-teal-700' : ''}" data-target="c" data-val="md">中</button>
+                                        <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs border-r border-gray-200 ${prefs.c === 'lg' ? 'bg-teal-50 text-teal-700' : ''}" data-target="c" data-val="lg">大</button>
+                                        <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs ${prefs.c === 'xl' ? 'bg-teal-50 text-teal-700' : ''}" data-target="c" data-val="xl">巨</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            ${['文字', '問答', '白板'].includes(qData.type) ? `
+                            <div class="p-4 border-t border-gray-200 bg-white">
+                                <span class="text-xs font-extrabold text-teal-800 mb-3 flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">rule</span> 參與規則 (針對此題)</span>
+                                
+                                <div>
+                                    <span class="text-[11px] font-bold text-gray-400 mb-1.5 block">每人次數上限</span>
+                                    <div class="flex gap-1" id="live-limit-btns">
+                                        ${[1, 2, 3, 0].map(v => `<button class="flex-1 py-1.5 rounded text-xs font-bold border transition-colors ${parseQuestionLimit(qData)===v ? 'bg-teal-50 border-teal-500 text-teal-700 active-limit' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}" data-val="${v}">${v===0?'不限':v}</button>`).join('')}
+                                    </div>
+                                </div>
+                                ${qData.type === '文字' ? `
+                                <div class="flex items-center justify-between pt-3 mt-2 border-t border-gray-100">
+                                    <span class="text-[11px] font-bold text-gray-400">允許重複詞</span>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" id="live-allow-dup" class="sr-only peer" ${qData.options && qData.options[1] === 'true' ? 'checked' : ''}>
+                                        <div class="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
+                                    </label>
+                                </div>
+                                ` : ''}
+                            </div>
+                            ` : ''}
+                        </div>
+                        `;
+                    })() : ''}
+                    
                     ${currentQIndex >= 0 ? `
                         <div class="w-full max-w-[1000px] mx-auto px-4 sm:px-6 mt-3 sm:mt-4 flex-shrink-0 select-text" id="live-question-header">
                              <div class="w-full bg-white px-4 py-3 sm:py-4 rounded-[1rem] shadow-sm text-center border-t-4 border-teal-500 flex flex-col items-center justify-center min-h-[6vh]">
-                                 <h2 class="text-lg md:text-xl font-extrabold text-gray-800 leading-snug break-words max-w-full select-text">
+                                 <h2 class="text-lg md:text-xl font-extrabold text-gray-800 leading-snug break-words max-w-full select-text scalable-q-text">
                                     <span class="inline-block align-middle text-[11px] font-black bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full mr-2 border border-teal-100 transform -translate-y-0.5 select-none">${qData.type}</span>
                                     ${escapeHtml(qData.question)}
                                  </h2>
                              </div>
                         </div>
                         <div class="w-full max-w-[1000px] mx-auto px-4 sm:px-6 flex-1 flex flex-col min-h-0 z-20 transition-opacity duration-300 pb-4 sm:pb-6 mt-2 select-text" id="live-content-area"></div>
-                        <div class="sm:hidden w-full bg-white border-t border-gray-200 flex justify-between p-3 flex-shrink-0 z-20">
-                            <button id="btn-prev-mobile" class="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg font-bold" ${currentQIndex === 0 ? 'disabled style="opacity:0.5"' : ''}>上一題</button>
-                            <span class="font-bold text-gray-500 my-auto">${currentQIndex + 1} / ${liveData.length}</span>
-                            <button id="btn-next-mobile" class="px-4 py-2 bg-teal-600 text-white rounded-lg font-bold" ${currentQIndex === liveData.length - 1 ? 'disabled style="opacity:0.5"' : ''}>下一題</button>
-                        </div>
                     ` : `
                         <div class="flex-1 flex flex-col items-center justify-center h-full text-center p-6 animate-fade-in-up bg-gray-50/50">
                             <div class="w-32 h-32 bg-white rounded-full flex items-center justify-center mb-6 shadow-sm border border-gray-100">
@@ -2147,27 +2229,55 @@ window.launchLiveMode = function(rawData, configs) {
         }
 
         const btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
+        const mobileBackdrop = document.getElementById('live-mobile-sidebar-backdrop');
+
+        // ✨ 3. 智慧側邊欄狀態切換引擎
+        const applySidebarState = () => {
+            if (window.isLiveSidebarOpen) {
+                sidebar.classList.remove('collapsed');
+                sidebar.style.width = window.innerWidth > 768 ? window.liveSidebarWidth + 'px' : '280px';
+                btnToggleSidebar?.classList.add('bg-teal-50', 'text-teal-600');
+                if (window.innerWidth <= 768 && mobileBackdrop) {
+                    mobileBackdrop.classList.remove('opacity-0', 'pointer-events-none');
+                }
+            } else {
+                sidebar.classList.add('collapsed');
+                sidebar.style.width = '0px';
+                btnToggleSidebar?.classList.remove('bg-teal-50', 'text-teal-600');
+                if (mobileBackdrop) {
+                    mobileBackdrop.classList.add('opacity-0', 'pointer-events-none');
+                }
+            }
+        };
+
         if (btnToggleSidebar && sidebar) {
             btnToggleSidebar.addEventListener('click', () => {
                 window.isLiveSidebarOpen = !window.isLiveSidebarOpen;
-                if (window.isLiveSidebarOpen) {
-                    sidebar.classList.remove('collapsed');
-                    sidebar.style.width = window.liveSidebarWidth + 'px';
-                    btnToggleSidebar.classList.add('bg-teal-50', 'text-teal-600');
-                } else {
-                    sidebar.classList.add('collapsed');
-                    sidebar.style.width = '0px';
-                    btnToggleSidebar.classList.remove('bg-teal-50', 'text-teal-600');
-                }
+                applySidebarState();
             });
         }
         
-        document.getElementById('btn-close-sidebar-mobile')?.addEventListener('click', () => {
-            window.isLiveSidebarOpen = false;
-            sidebar.classList.add('collapsed');
-            sidebar.style.width = '0px';
-            btnToggleSidebar?.classList.remove('bg-teal-50', 'text-teal-600');
+        // 點擊暗色遮罩自動收合 (僅限手機)
+        if (mobileBackdrop) {
+            mobileBackdrop.addEventListener('click', () => {
+                window.isLiveSidebarOpen = false;
+                applySidebarState();
+            });
+        }
+
+        // 偵測螢幕翻轉或調整大小時，重置遮罩狀態
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 768 && mobileBackdrop) {
+                 mobileBackdrop.classList.add('opacity-0', 'pointer-events-none');
+                 if (window.isLiveSidebarOpen && sidebar) {
+                     sidebar.style.width = window.liveSidebarWidth + 'px';
+                 }
+            }
         });
+
+        // 初始化狀態
+        if (window.innerWidth <= 768) window.isLiveSidebarOpen = false;
+        applySidebarState();
 
         document.getElementById('btn-copy-code-link')?.addEventListener('click', () => {
             const joinUrl = window.location.origin + window.location.pathname + '?live=' + spaceCode;
@@ -2213,36 +2323,73 @@ window.launchLiveMode = function(rawData, configs) {
             });
         }
 
-        const btnLimitSettings = document.getElementById('btn-limit-settings');
-        const limitMenu = document.getElementById('limit-settings-menu');
-        if (btnLimitSettings && limitMenu) {
-            btnLimitSettings.addEventListener('click', (e) => {
+        // ✨ 全域套用顯示設定的函數
+        window.applyLiveDisplayPrefs = () => {
+            const prefs = JSON.parse(localStorage.getItem('live_display_prefs') || '{"q":"base", "c":"base"}');
+            const qHeader = document.getElementById('live-question-header');
+            const cArea = document.getElementById('live-content-area');
+            const boardHeader = document.getElementById('board-floating-header');
+            
+            if (qHeader) qHeader.setAttribute('data-font-size', prefs.q);
+            if (boardHeader) boardHeader.parentElement.setAttribute('data-font-size', prefs.q);
+            if (cArea) cArea.setAttribute('data-font-size', prefs.c);
+        };
+
+        const btnSettings = document.getElementById('btn-live-settings');
+        const settingsMenu = document.getElementById('live-settings-menu');
+        if (btnSettings && settingsMenu) {
+            btnSettings.addEventListener('click', (e) => {
                 e.stopPropagation();
-                limitMenu.classList.toggle('hidden');
+                settingsMenu.classList.toggle('hidden');
+                settingsMenu.classList.toggle('flex');
             });
             document.addEventListener('click', (e) => {
-                if (!limitMenu.contains(e.target) && e.target !== btnLimitSettings) limitMenu.classList.add('hidden');
+                if (!settingsMenu.contains(e.target) && e.target !== btnSettings) {
+                    settingsMenu.classList.add('hidden');
+                    settingsMenu.classList.remove('flex');
+                }
             });
 
+            // 引擎 A：處理字體大小切換 (即時預覽)
+            settingsMenu.querySelectorAll('.btn-font-scale').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const target = e.target.dataset.target; 
+                    const val = e.target.dataset.val; 
+                    
+                    let prefs = JSON.parse(localStorage.getItem('live_display_prefs') || '{"q":"base", "c":"base"}');
+                    prefs[target] = val;
+                    localStorage.setItem('live_display_prefs', JSON.stringify(prefs));
+                    
+                    settingsMenu.querySelectorAll(`.btn-font-scale[data-target="${target}"]`).forEach(b => b.classList.remove('bg-teal-50', 'text-teal-700'));
+                    e.target.classList.add('bg-teal-50', 'text-teal-700');
+                    
+                    window.applyLiveDisplayPrefs();
+                });
+            });
+
+            // 引擎 B：處理作答限制設定 (同步回 Firebase)
             const updateSettings = async () => {
-                const newLimit = limitMenu.querySelector('.active-limit')?.dataset.val || '1';
-                const allowDup = limitMenu.querySelector('#live-allow-dup')?.checked ? 'true' : 'false';
+                const newLimit = settingsMenu.querySelector('.active-limit')?.dataset.val || '1';
+                const allowDup = settingsMenu.querySelector('#live-allow-dup')?.checked ? 'true' : 'false';
                 qData.options = [newLimit, allowDup];
                 liveData[currentQIndex].options = [newLimit, allowDup];
                 syncLiveDataToEditor(); 
                 await db.collection(window.SPACES_COLLECTION).doc(spaceCode).update({ currentQuestionData: qData });
-                showToast('✅ 設定已即時更新');
+                showToast('✅ 規則已即時更新');
             };
 
-            limitMenu.querySelectorAll('#live-limit-btns button').forEach(btn => {
+            settingsMenu.querySelectorAll('#live-limit-btns button').forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    limitMenu.querySelectorAll('#live-limit-btns button').forEach(b => b.className = 'flex-1 py-1 rounded text-xs font-bold border bg-white border-gray-200 text-gray-500 hover:bg-gray-50');
-                    e.target.className = 'flex-1 py-1 rounded text-xs font-bold border bg-teal-50 border-teal-500 text-teal-700 active-limit';
+                    settingsMenu.querySelectorAll('#live-limit-btns button').forEach(b => b.className = 'flex-1 py-1.5 rounded text-xs font-bold border bg-white border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors');
+                    e.target.className = 'flex-1 py-1.5 rounded text-xs font-bold border bg-teal-50 border-teal-500 text-teal-700 active-limit transition-colors';
                     updateSettings();
                 });
             });
             document.getElementById('live-allow-dup')?.addEventListener('change', updateSettings);
         }
+
+        // 初始化套用文字大小
+        window.applyLiveDisplayPrefs();
 
         document.getElementById('btn-clear-results')?.addEventListener('click', async () => {
             showCustomConfirm("重新作答", "確定要清除「此題」的所有作答紀錄並重新開始嗎？", "確認清除", "bg-red-500 hover:bg-red-600", async () => {
@@ -3123,7 +3270,7 @@ window.launchLiveMode = function(rawData, configs) {
                     </button>
                     <div class="flex flex-col flex-1 break-words">
                         <span class="text-[10px] font-bold text-gray-400 mb-0.5 select-none">${escapeHtml(q.author)}</span>
-                        <span class="text-sm font-bold text-gray-800 leading-snug select-text">${escapeHtml(q.text)}</span>
+                        <span class="text-sm font-bold text-gray-800 leading-snug select-text scalable-text">${escapeHtml(q.text)}</span>
                     </div>
                 </div>
             `).join('');
@@ -3226,7 +3373,7 @@ window.launchLiveMode = function(rawData, configs) {
                 <div class="min-h-full flex flex-col items-center justify-center p-4 text-center">
                     <span class="material-symbols-outlined text-teal-400 text-7xl mb-4">forum</span>
                     <h2 class="text-4xl md:text-5xl font-extrabold mb-4 tracking-wide drop-shadow-md">互動問答結束</h2>
-                    <p class="text-lg text-teal-200 font-bold">謝謝你的參與！</p>
+                    <p class="text-lg text-teal-200 font-bold">謝謝你參與！</p>
                 </div>
             </div>
             ${getFloatingReactionHtml()}
