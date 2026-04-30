@@ -6416,10 +6416,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 1. 防止焦點轉移，保持編輯區反白 ---
     document.addEventListener('mousedown', (e) => {
         const isTranslator = e.target.closest('#floating-translator');
+        const isPinyinTool = e.target.closest('#floating-pinyin-tool'); // 新增：防止拼音工具搶走焦點
         const isToolbar = e.target.closest('.mb-3.flex') || e.target.closest('.dropdown-menu') || e.target.closest('.action-menu');
         const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
         
-        if ((isTranslator || isToolbar) && !isInput) {
+        // 將 isPinyinTool 加入判斷
+        if ((isTranslator || isPinyinTool || isToolbar) && !isInput) {
             if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
                 return;
             }
@@ -6680,7 +6682,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let hasSelection = false;
-        if (typeof currentMode !== 'undefined') {
+        // 智慧判斷：目前是否有任何輸入框正在編輯並選取文字
+        const activeEl = document.activeElement;
+        const isInputOrTextarea = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+
+        const activeNoteEl = window.currentActiveNoteId ? document.getElementById('note-' + window.currentActiveNoteId) : null;
+        const isLiveBoardNote = activeNoteEl && window.currentSpaceData?.currentQuestionData?.type === '白板';
+
+        if (isLiveBoardNote) {
+            hasSelection = true; // 只要有選取便利貼，就視為有選取目標，啟用轉換按鈕！
+        } else if (isInputOrTextarea) {
+            hasSelection = activeEl.selectionStart !== activeEl.selectionEnd;
+        } else if (typeof currentMode !== 'undefined') {
             if (currentMode === 'text') {
                 const editor = document.getElementById('editor');
                 if (editor) hasSelection = editor.selectionStart !== editor.selectionEnd;
@@ -6914,6 +6927,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+
     // 面板上的關閉按鈕 (✖)
     if(btnClose) {
         btnClose.addEventListener('click', closeTranslatorPanel);
@@ -6942,6 +6956,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 5. 核心輔助工具 (腳本載入與解析引擎) ---
     function loadScript(url) {
         return new Promise((resolve) => {
+            // 新增防呆：如果是拼音字典，且記憶體中已經有 regexLetter 變數，就代表載入過了！
+
             if (document.querySelector(`script[src="${url}"]`)) return resolve();
             const script = document.createElement('script');
             script.src = url;
@@ -7260,8 +7276,63 @@ document.addEventListener('DOMContentLoaded', () => {
                 const tableContainer = document.getElementById('tableModeContainer');
                 const isTableMode = tableContainer && window.getComputedStyle(tableContainer).display !== 'none';
 
-                // 文字模式處理：行後加 TAB
-                if (!isTableMode && editor) {
+                // ✨ 關鍵修正：在轉換開始前，先鎖定當前有焦點的元素與游標位置
+                const focusedEl = document.activeElement;
+                const isInputOrTextarea = focusedEl && (focusedEl.tagName === 'INPUT' || focusedEl.tagName === 'TEXTAREA');
+                
+                // 🌟 新增：檢查是否選取了 Live 模式的便利貼
+                const activeNoteEl = window.currentActiveNoteId ? document.getElementById('note-' + window.currentActiveNoteId) : null;
+                const isLiveBoardNote = activeNoteEl && window.currentSpaceData?.currentQuestionData?.type === '白板';
+
+                if (isLiveBoardNote) {
+                    let text = activeNoteEl.querySelector('.note-text-content').textContent;
+                    let lines = text.split('\n');
+                    let newLines = lines.map(line => {
+                        let word = line.trim();
+                        if (!word) return line;
+                        let matches = getMatches(word);
+                        if (matches.length > 0) return line + '\t' + matches.join('、');
+                        return line;
+                    });
+                    let newText = newLines.join('\n');
+                    
+                    activeNoteEl.querySelector('.note-text-content').textContent = newText;
+                    const activeQId = window.currentSpaceData.currentQuestionData.id;
+                    const currentMods = window.currentSpaceData[`board_mods_${activeQId}`] || {};
+                    if (currentMods[window.currentActiveNoteId]) {
+                        currentMods[window.currentActiveNoteId].text = newText;
+                        db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods }).catch(()=>{});
+                    }
+                    showToast('✅ 比對完成');
+                }
+                // 智慧處理：任何輸入框的處理 (包含 Live 模式與彈出視窗)
+                else if (isInputOrTextarea) {
+                    const start = focusedEl.selectionStart, end = focusedEl.selectionEnd;
+                    let text = (start !== end) ? focusedEl.value.substring(start, end) : focusedEl.value;
+                    
+                    let lines = text.split('\n');
+                    let newLines = lines.map(line => {
+                        let word = line.trim();
+                        if (!word) return line;
+                        let matches = getMatches(word);
+                        if (matches.length > 0) {
+                            return line + '\t' + matches.join('、');
+                        }
+                        return line;
+                    });
+                    let newText = newLines.join('\n');
+                    
+                    // 判斷是否為選取狀態，決定替換局部或全部覆寫
+                    if (start !== end) {
+                        focusedEl.setRangeText(newText, start, end, 'select');
+                    } else {
+                        focusedEl.value = newText;
+                    }
+                    focusedEl.dispatchEvent(new Event('input', { bubbles: true }));
+                    showToast('✅ 比對完成');
+                }
+                // 原本的主編輯器文字模式處理
+                else if (!isTableMode && editor) {
                     const start = editor.selectionStart, end = editor.selectionEnd;
                     let text = (start !== end) ? editor.value.substring(start, end) : editor.value;
                     let lines = text.split('\n');
@@ -7281,56 +7352,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     debouncedSaveHistory();
                     showToast('✅ 比對完成');
-                } 
-                // 表格模式處理：右側新增一欄
-                else if (isTableMode) {
-                    let selectedCells = Array.from(document.querySelectorAll('table#data-table td.sel-bg .td-inner'));
-                    if (selectedCells.length === 0) {
-                        let activeCell = document.activeElement.closest('.td-inner') || (document.activeElement.classList && document.activeElement.classList.contains('td-inner') ? document.activeElement : null);
-                        if (!activeCell) {
-                            const allTds = document.querySelectorAll('table#data-table td');
-                            const singleSelectedTd = Array.from(allTds).find(td => td.style.boxShadow && td.style.boxShadow.includes('inset'));
-                            if (singleSelectedTd) activeCell = singleSelectedTd.querySelector('.td-inner');
-                        }
-                        if (activeCell) selectedCells.push(activeCell);
-                    }
-                    if (selectedCells.length === 0) { alert("請先選取要比對的儲存格範圍！"); return; }
-
-                    // 找出所有被選取的欄位索引
-                    let colIndices = new Set();
-                    selectedCells.forEach(cell => {
-                        let td = cell.closest('td');
-                        let cIdx = Array.from(td.parentNode.children).indexOf(td) - 1;
-                        colIndices.add(cIdx);
-                    });
-                    
-                    // 由右至左處理，避免新增欄位時擠壓到原始索引
-                    let cols = Array.from(colIndices).sort((a,b) => b - a);
-
-                    for (let cIdx of cols) {
-                        insertColumnRightOf(cIdx);
-                        
-                        let tbodyRows = dataTable.querySelectorAll('tbody tr');
-                        for (let r = 0; r < tbodyRows.length; r++) {
-                            let tr = tbodyRows[r];
-                            let origInner = tr.children[cIdx + 1]?.querySelector('.td-inner');
-                            let newInner = tr.children[cIdx + 2]?.querySelector('.td-inner');
-                            
-                            if (origInner && newInner) {
-                                let word = origInner.innerText.trim();
-                                if (word) {
-                                    let matches = getMatches(word);
-                                    if (matches.length > 0) {
-                                        newInner.innerText = matches.join('、');
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    updateTableHeaders();
-                    saveColNames(); saveColWidths();
-                    debouncedSaveHistory();
-                    showToast('✅ 比對完成，已在右側新增比對結果');
                 }
                 return; // 結束執行，不走原本的整句翻譯流程
             }
@@ -7343,8 +7364,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     if (pyFile) {
                         prepareDummyDOM();
-                        await loadScript('https://gnisew.github.io/tools/turn/pinyin2/data-pinyin2pinyin.js');
-                        await loadScript('https://gnisew.github.io/tools/ruby/hanzitopinyin.js');
+                        // 加上 typeof 防呆檢查，避免重複載入引發 SyntaxError 中斷轉換
+
+                        if (typeof hanziToPinyin === 'undefined') {
+                            await loadScript('https://gnisew.github.io/tools/ruby/hanzitopinyin.js');
+                        }
 
                         if (target === 'pinyin') {
                             window.currentLanguageKey = langCode;
@@ -7535,7 +7559,44 @@ document.addEventListener('DOMContentLoaded', () => {
             const tableContainer = document.getElementById('tableModeContainer');
             const isTableMode = tableContainer && window.getComputedStyle(tableContainer).display !== 'none';
 
-            if (!isTableMode && editor) {
+            // ✨ 關鍵修正：在轉換開始前，鎖定當前有焦點的元素
+            const focusedEl = document.activeElement;
+            const isInputOrTextarea = focusedEl && (focusedEl.tagName === 'INPUT' || focusedEl.tagName === 'TEXTAREA');
+
+            // 🌟 新增：檢查是否選取了 Live 模式的便利貼
+            const activeNoteEl = window.currentActiveNoteId ? document.getElementById('note-' + window.currentActiveNoteId) : null;
+            const isLiveBoardNote = activeNoteEl && window.currentSpaceData?.currentQuestionData?.type === '白板';
+
+            if (isLiveBoardNote) {
+                let text = activeNoteEl.querySelector('.note-text-content').textContent;
+                text = await processText(text);
+                
+                activeNoteEl.querySelector('.note-text-content').textContent = text;
+                const activeQId = window.currentSpaceData.currentQuestionData.id;
+                const currentMods = window.currentSpaceData[`board_mods_${activeQId}`] || {};
+                if (currentMods[window.currentActiveNoteId]) {
+                    currentMods[window.currentActiveNoteId].text = text;
+                    db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods }).catch(()=>{});
+                }
+            }
+            // 智慧處理：任何輸入框的處理 (包含 Live 模式與彈出視窗)
+            else if (isInputOrTextarea) {
+                const start = focusedEl.selectionStart, end = focusedEl.selectionEnd;
+                let text = (start !== end) ? focusedEl.value.substring(start, end) : focusedEl.value;
+                
+                // 執行非同步轉換
+                text = await processText(text);
+                
+                // 寫回結果並觸發事件：判斷是否為選取狀態
+                if (start !== end) {
+                    focusedEl.setRangeText(text, start, end, 'select');
+                } else {
+                    focusedEl.value = text;
+                }
+                focusedEl.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            // 原本的主編輯器文字模式處理
+            else if (!isTableMode && editor) {
                 const start = editor.selectionStart, end = editor.selectionEnd;
                 let text = (start !== end) ? editor.value.substring(start, end) : editor.value;
                 text = await processText(text);
@@ -7699,8 +7760,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // C. 預載標音引擎與字典 (純轉拼音 或 翻譯後附帶拼音)
             if (target === 'pinyin' || (needPinyin && target !== 'pinyin')) {
                 const langToLoad = target === 'pinyin' ? source : target; 
-                await loadScript('https://gnisew.github.io/tools/turn/pinyin2/data-pinyin2pinyin.js');
-                await loadScript('https://gnisew.github.io/tools/ruby/hanzitopinyin.js');
+                // 加入 typeof 防呆，避免重複宣告報錯
+
+                if (typeof hanziToPinyin === 'undefined') {
+                    await loadScript('https://gnisew.github.io/tools/ruby/hanzitopinyin.js');
+                }
                 window.currentLanguageKey = langToLoad;
                 await loadRubyDictionary(langToLoad);
             }
@@ -9065,7 +9129,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!btnExecutePinyin) return;
         
         let hasSelection = false;
-        if (typeof currentMode !== 'undefined') {
+        // ✨ 新增：智慧判斷目前是否有任何輸入框正在編輯並選取文字
+        const activeEl = document.activeElement;
+        const isInputOrTextarea = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+
+        if (isInputOrTextarea) {
+            // 只要是輸入框且有反白，就視為有選取
+            hasSelection = activeEl.selectionStart !== activeEl.selectionEnd;
+        } else if (typeof currentMode !== 'undefined') {
             if (currentMode === 'text') {
                 const editor = document.getElementById('editor');
                 if (editor) hasSelection = editor.selectionStart !== editor.selectionEnd;
@@ -9323,7 +9394,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function onTouchMovePinyin(e) { if (!isDraggingPinyin) return; e.preventDefault(); dragPinyin(e.touches[0].clientX, e.touches[0].clientY); }
     function onTouchEndPinyin() { stopPinyinDrag(); document.removeEventListener('touchmove', onTouchMovePinyin); document.removeEventListener('touchend', onTouchEndPinyin); }
 
-    // 6. 執行轉換邏輯
+	// 6. 執行轉換邏輯
     btnExecutePinyin?.addEventListener('click', () => {
         const langId = pinyinState.lang;
         const sourceId = pinyinState.source;
@@ -9338,7 +9409,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            if (currentMode === 'text') {
+            const focusedEl = document.activeElement;
+            const isInputOrTextarea = focusedEl && (focusedEl.tagName === 'INPUT' || focusedEl.tagName === 'TEXTAREA');
+
+            // 🌟 新增：檢查是否選取了 Live 模式的便利貼
+            const activeNoteEl = window.currentActiveNoteId ? document.getElementById('note-' + window.currentActiveNoteId) : null;
+            const isLiveBoardNote = activeNoteEl && window.currentSpaceData?.currentQuestionData?.type === '白板';
+
+            if (isLiveBoardNote) {
+
+                // 處理 Live 模式便利貼
+                let text = activeNoteEl.querySelector('.note-text-content').textContent;
+                if (!text) { showToast('⚠️ 便利貼沒有文字'); return; }
+                
+                // 執行轉換
+                text = window[funcName](text);
+                
+                // 寫回便利貼並同步到 Firebase 資料庫
+                activeNoteEl.querySelector('.note-text-content').textContent = text;
+                const activeQId = window.currentSpaceData.currentQuestionData.id;
+                const currentMods = window.currentSpaceData[`board_mods_${activeQId}`] || {};
+                if (currentMods[window.currentActiveNoteId]) {
+                    currentMods[window.currentActiveNoteId].text = text;
+                    db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods }).catch(()=>{});
+                }
+            }
+            else if (isInputOrTextarea) {
+                // 處理一般輸入框與彈出視窗
+                const start = focusedEl.selectionStart, end = focusedEl.selectionEnd;
+                let text = (start !== end) ? focusedEl.value.substring(start, end) : focusedEl.value;
+                if (!text) { showToast('⚠️ 輸入框沒有文字'); return; }
+                
+                text = window[funcName](text);
+                
+                if (start !== end) {
+                    focusedEl.setRangeText(text, start, end, 'select');
+                } else {
+                    focusedEl.value = text;
+                }
+                focusedEl.dispatchEvent(new Event('input', { bubbles: true }));
+            } 
+            else if (currentMode === 'text') {
+                // 原有的主編輯器文字模式
                 const start = editor.selectionStart, end = editor.selectionEnd;
                 let text = (start !== end) ? editor.value.substring(start, end) : editor.value;
                 if (!text) { showToast('⚠️ 編輯區沒有文字'); return; }
@@ -9349,6 +9461,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 else editor.value = text;
             } 
             else if (currentMode === 'table') {
+                // 原有的表格模式
                 const sel = window.getSelection();
                 if (sel.toString().length > 0 && dataTable && dataTable.contains(sel.anchorNode)) {
                     let text = window[funcName](sel.toString());
@@ -9380,6 +9493,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
+            
             debouncedSaveHistory();
             showToast('✅ 拼音轉換完成！');
         } catch (err) {
@@ -9387,6 +9501,25 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast("❌ 轉換失敗，請檢查輸入內容", 3000);
         }
     });
+	// ✨ 專門監聽並解除拼音按鈕的禁用狀態 (支援 Live 模式便利貼)
+    function forceEnablePinyinBtnForLiveMode() {
+        const btn = document.getElementById('btnExecutePinyin');
+        if (!btn) return;
+
+        const activeNoteEl = window.currentActiveNoteId ? document.getElementById('note-' + window.currentActiveNoteId) : null;
+        const isLiveBoardNote = activeNoteEl && window.currentSpaceData?.currentQuestionData?.type === '白板';
+
+        if (isLiveBoardNote) {
+            // 如果目前選取了便利貼，強制啟用拼音轉換按鈕
+            btn.disabled = false;
+            // 移除 Tailwind 的半透明與禁用滑鼠樣式 (依據你實際使用的 class 調整)
+            btn.classList.remove('opacity-40', 'opacity-50', 'cursor-not-allowed'); 
+        }
+    }
+
+    // 將此檢查器綁定到滑鼠放開與選取變更事件上
+    document.addEventListener('mouseup', () => setTimeout(forceEnablePinyinBtnForLiveMode, 50));
+    document.addEventListener('selectionchange', forceEnablePinyinBtnForLiveMode);
 });
 
 

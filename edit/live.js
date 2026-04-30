@@ -69,9 +69,11 @@ window.launchLiveMode = function(rawData, configs) {
         
         const modal = document.createElement('div');
         modal.id = modalId;
-        modal.className = "fixed inset-0 bg-black/10 backdrop-blur-[2px] z-[100000] flex items-center justify-center p-4 opacity-0 transition-opacity duration-200";
+        // ✨ 修正：完全拔除隱形遮罩，並用原生 JS 強制設定 z-index=500，讓出圖層給輸入法的選字框
+        modal.className = "fixed inset-0 bg-transparent pointer-events-none flex items-center justify-center p-4 transition-opacity duration-200";
+        modal.style.zIndex = '6000';
         modal.innerHTML = `
-            <div class="relative bg-white rounded-2xl w-full max-w-sm p-5 shadow-2xl transform transition-transform scale-95 origin-center text-center border border-gray-200">
+            <div class="dialog-box relative bg-white rounded-2xl w-full max-w-sm p-5 shadow-2xl border border-gray-200 animate-fade-in-up pointer-events-auto" style="will-change: transform;">
                 <button id="btn-confirm-close-x" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors p-1"><span class="material-symbols-outlined text-[20px]">close</span></button>
                 <div class="flex flex-col items-center gap-2 mb-3">
                     <span class="material-symbols-outlined text-4xl text-gray-400">help</span>
@@ -84,7 +86,8 @@ window.launchLiveMode = function(rawData, configs) {
                 </div>
             </div>
         `;
-        document.body.appendChild(modal);
+        const container = document.getElementById('arenaModeContainer');
+        (container && container.style.display !== 'none' ? container : document.body).appendChild(modal);
         setTimeout(() => { modal.classList.remove('opacity-0'); modal.querySelector('div').classList.remove('scale-95'); }, 10);
 
         const close = () => {
@@ -110,10 +113,12 @@ window.launchLiveMode = function(rawData, configs) {
 
         const modal = document.createElement('div');
         modal.id = modalId;
-        // 背景保持防點擊穿透，但將 pointer-events 設定好以利拖曳
-        modal.className = "fixed inset-0 bg-white/5 z-[100000] flex items-center justify-center p-4";
+        modal.className = "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-4 transition-opacity duration-200 pointer-events-none";
+
+        // 明確設定 z-index 為 5000，確保在輸入法選字框之下
+        modal.style.zIndex = '5000'; 
         modal.innerHTML = `
-            <div class="dialog-box relative bg-white rounded-2xl w-full max-w-sm p-5 shadow-2xl border border-gray-200 animate-fade-in-up pointer-events-auto" style="will-change: transform;">
+            <div class="dialog-box relative bg-white rounded-2xl w-full min-w-[320px] max-w-sm p-5 shadow-2xl border border-gray-200 animate-fade-in-up pointer-events-auto" style="will-change: transform;">
                 
                 <div class="drag-handle flex items-center justify-between mb-3 cursor-move -mx-5 -mt-5 p-4 border-b border-gray-100 rounded-t-2xl bg-gray-50/50 hover:bg-gray-100/50 transition-colors">
                     <h3 class="text-lg font-extrabold text-gray-800 select-none pl-1">${title}</h3>
@@ -130,12 +135,12 @@ window.launchLiveMode = function(rawData, configs) {
                     </div>
                 </div>
 
-                <textarea id="prompt-input" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-base font-bold text-gray-700 focus:border-blue-400 outline-none transition-colors mb-3 resize-none" rows="3">${escapeHtml(defaultText)}</textarea>
+                <textarea id="prompt-input" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-base font-normal text-gray-700 focus:border-blue-400 outline-none transition-colors mb-3 resize-none" rows="3">${escapeHtml(defaultText)}</textarea>
                 
                 <div class="flex justify-between items-center mt-1">
                     <label class="flex items-center gap-1.5 cursor-pointer text-gray-500 hover:text-teal-600 transition-colors pl-1 select-none">
                         <input type="checkbox" id="prompt-batch-toggle" class="w-4 h-4 rounded border-gray-300 text-teal-500 focus:ring-teal-500 cursor-pointer">
-                        <span class="text-[13px] font-bold">批次新增 (依換行)</span>
+                        <span class="text-[13px] font-normal">批次新增 (依換行)</span>
                     </label>
                     
                     <div class="flex gap-2">
@@ -145,7 +150,8 @@ window.launchLiveMode = function(rawData, configs) {
                 </div>
             </div>
         `;
-        document.body.appendChild(modal);
+        const container = document.getElementById('arenaModeContainer');
+        (container && container.style.display !== 'none' ? container : document.body).appendChild(modal);
         
         // ✨ 新增：彈窗拖曳引擎 (Drag & Drop)
         const dialog = modal.querySelector('.dialog-box');
@@ -239,7 +245,7 @@ window.launchLiveMode = function(rawData, configs) {
             .note-scroll { 
                 overflow-y: auto; 
                 overscroll-behavior: contain; 
-                touch-action: pan-y;
+                touch-action: none;
                 scrollbar-width: thin;
                 scrollbar-color: transparent transparent;
             }
@@ -324,15 +330,15 @@ window.launchLiveMode = function(rawData, configs) {
             
             .btn-fold-note::before {
                 content: ''; position: absolute; top: 0; left: 0;
-                border-top: 14px solid rgba(0,0,0,0.15); border-right: 14px solid transparent;
+                border-top: 14px solid rgba(0,0,0,0.08); border-right: 14px solid transparent;
                 transition: border-color 0.2s;
             }
-            .sticky-note:hover .btn-fold-note::before { border-top-color: rgba(0,0,0,0.4); }
+            .sticky-note:hover .btn-fold-note::before { border-top-color: rgba(0,0,0,0.05); }
 
             .sticky-note.is-collapsed .btn-fold-note {
                 opacity: 1; width: 100%; height: 100%;
             }
-            .sticky-note.is-collapsed .btn-fold-note::before { border-top-color: rgba(0,0,0,0.3); }
+            .sticky-note.is-collapsed .btn-fold-note::before { border-top-color: rgba(0,0,0,0.15); }
 
         `;
         document.head.appendChild(style);
@@ -434,7 +440,8 @@ window.launchLiveMode = function(rawData, configs) {
         const joinUrl = window.location.origin + window.location.pathname + '?live=' + spaceCode;
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(joinUrl)}&bgcolor=ffffff&color=0f766e`;
         return `
-            <div id="live-qr-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[10000] hidden flex-col items-center justify-center cursor-pointer transition-opacity overflow-y-auto py-10 px-4" onclick="this.classList.add('hidden')">
+            <!-- 將 z-[10000] 改為 z-[5000] -->
+            <div id="live-qr-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[5000] hidden flex-col items-center justify-center cursor-pointer transition-opacity overflow-y-auto py-10 px-4" onclick="this.classList.add('hidden')">
                 <div class="bg-white p-6 md:p-8 rounded-[2rem] flex flex-col items-center gap-4 shadow-2xl transform transition-transform hover:scale-105 w-full max-w-sm m-auto cursor-default" onclick="event.stopPropagation()">
                     <h2 class="text-4xl md:text-5xl font-black text-teal-900 tracking-[0.2em] text-center w-full break-words">${displayCode}</h2>
                     <div class="bg-white p-2 rounded-xl shadow-inner border-2 border-teal-50 w-full max-w-[250px] aspect-square flex items-center justify-center">
@@ -645,7 +652,8 @@ window.launchLiveMode = function(rawData, configs) {
 
         const modal = document.createElement('div');
         modal.id = modalId;
-        modal.className = "fixed inset-0 bg-black/10 backdrop-blur-[2px] z-[100000] flex items-center justify-center p-4 opacity-0 transition-opacity duration-200";
+        // 將 z-[100000] 改為 z-[5000]，讓出空間給語言工具
+        modal.className = "fixed inset-0 bg-black/10 backdrop-blur-[2px] z-[5000] flex items-center justify-center p-4 opacity-0 transition-opacity duration-200";
         modal.innerHTML = `
             <div class="relative bg-white rounded-2xl w-full max-w-lg p-5 shadow-xl transform transition-transform scale-95 origin-center flex flex-col max-h-[85vh] border border-gray-200">
                 <button id="btn-close-modal-icon" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1"><span class="material-symbols-outlined text-[20px]">close</span></button>
@@ -696,7 +704,8 @@ window.launchLiveMode = function(rawData, configs) {
                 </div>
             </div>
         `;
-        document.body.appendChild(modal);
+        const container = document.getElementById('arenaModeContainer');
+        (container && container.style.display !== 'none' ? container : document.body).appendChild(modal);
         
         setTimeout(() => { modal.classList.remove('opacity-0'); modal.querySelector('.transform').classList.remove('scale-95'); }, 10);
 
@@ -1623,7 +1632,7 @@ window.launchLiveMode = function(rawData, configs) {
                         // 拔除相對定位，直接套用固定滿版
                         canvasEl.classList.remove('relative', 'flex-1');
                         canvasEl.classList.add('fixed', 'inset-0', 'w-screen', 'h-screen');
-                        canvasEl.style.zIndex = '99999'; // ✨ 強制使用原生 JS 設定最高層級，避免 Tailwind 漏編譯
+                        canvasEl.style.zIndex = '400';
                         icon.textContent = 'fullscreen_exit';
                     } else {
                         // 恢復相對定位
@@ -1785,6 +1794,11 @@ window.launchLiveMode = function(rawData, configs) {
                         isDraggingNote = false;
                         dragStartX = e.clientX;
                         dragStartY = e.clientY;
+                        
+                        if (typeof note.setPointerCapture === 'function') {
+                            note.setPointerCapture(e.pointerId);
+                        }
+
                         const rect = note.getBoundingClientRect();
                         noteOffset.x = (e.clientX - rect.left) / window.boardZoom;
                         noteOffset.y = (e.clientY - rect.top) / window.boardZoom;
@@ -1982,6 +1996,11 @@ window.launchLiveMode = function(rawData, configs) {
 
                     if (draggedNote) {
                         const currentNote = draggedNote;
+                        
+                        if (typeof currentNote.releasePointerCapture === 'function') {
+                            currentNote.releasePointerCapture(e.pointerId);
+                        }
+
                         const noteId = currentNote.dataset.id;
                         const currentMods = window.currentSpaceData[`board_mods_${qId}`] || {};
                         const isCollapsed = currentMods[noteId]?.collapsed;
@@ -2078,7 +2097,7 @@ window.launchLiveMode = function(rawData, configs) {
                     if (isPanning) {
                         isPanning = false;
                         canvas.style.cursor = 'grab';
-                    } else if (!e.target.closest('.sticky-note') && !e.target.closest('#board-note-menu') && !e.target.closest('#board-left-toolbar')) {
+                    } else if (!e.target.closest('.sticky-note') && !e.target.closest('#board-note-menu') && !e.target.closest('#board-left-toolbar') && !e.target.closest('.draggable-translator') && !e.target.closest('#global-lang-submenu') && !e.target.closest('#btn-global-lang-toggle')) {
                         document.getElementById('board-note-menu')?.classList.add('hidden');
                         document.getElementById('board-note-menu')?.classList.remove('flex');
                         document.querySelectorAll('.sticky-note').forEach(n => n.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1'));
@@ -2184,7 +2203,7 @@ window.launchLiveMode = function(rawData, configs) {
                     noteEl.innerHTML = `
                         <div class="note-body relative shadow-sm rounded-sm border transition-shadow group-hover:shadow-lg ${colorMap[note.color] || colorMap['yellow']}">
                             <div class="absolute inset-0 note-scroll flex flex-col p-2 cursor-grab active:cursor-grabbing">
-                                <div class="text-sm font-bold break-words select-none leading-relaxed note-text-content text-center w-full scalable-text whitespace-pre-wrap m-auto pb-1"></div>
+                                <div class="text-sm font-normal break-words select-none leading-relaxed note-text-content text-center w-full scalable-text whitespace-pre-wrap m-auto pb-1"></div>
                             </div>
                             <div class="resize-handle"></div>
                             <div class="btn-fold-note" title="收合/展開"></div>
@@ -2455,7 +2474,8 @@ window.launchLiveMode = function(rawData, configs) {
 
                 <div class="flex-1 flex flex-col h-full relative min-w-0 bg-white shadow-[-5px_0_15px_rgba(0,0,0,0.02)]">
                     
-                    <div class="w-full px-2 sm:px-3 py-1.5 sm:py-2 flex justify-between items-center bg-white shadow-[0_2px_10px_rgba(0,0,0,0.03)] z-20 gap-2 border-b border-gray-200 flex-shrink-0 overflow-x-auto hide-scrollbar">
+
+                    <div class="w-full px-2 sm:px-3 py-1.5 sm:py-2 flex justify-between items-center bg-white shadow-[0_2px_10px_rgba(0,0,0,0.03)] z-[5100] gap-2 border-b border-gray-200 flex-shrink-0 flex-wrap relative">
                         
                         <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                             <button id="btn-toggle-sidebar" class="text-gray-500 hover:text-teal-600 hover:bg-teal-50 p-1.5 rounded-lg transition-colors cursor-pointer ${window.isLiveSidebarOpen ? 'bg-teal-50 text-teal-600' : ''}" title="收合/展開側欄">
@@ -2474,6 +2494,27 @@ window.launchLiveMode = function(rawData, configs) {
 
                             <div class="font-bold text-teal-700 text-[11px] sm:text-sm flex items-center bg-teal-50 border border-teal-100 px-2 py-1 rounded-full whitespace-nowrap">
                                 <span class="hidden sm:inline">已收</span><span class="sm:hidden">收</span> <span id="response-count-display" class="font-black ml-1">0</span>
+                            </div>
+                            
+                            <!-- ✨ 新增：置頂的語文工具按鈕 (點擊觸發) -->
+                            <div class="relative flex-shrink-0 z-[200] ml-1 sm:ml-2">
+                                <button id="btn-global-lang-toggle" class="bg-gray-50 hover:bg-teal-50 text-gray-400 hover:text-teal-600 p-1 sm:p-1.5 rounded-lg transition-colors cursor-pointer flex items-center border border-gray-200" title="語文工具">
+                                    <span class="material-symbols-outlined text-[18px] sm:text-[20px]">language</span>
+                                </button>
+                                <div id="global-lang-submenu" class="absolute left-1/2 -translate-x-1/2 top-full mt-2 hidden flex-col gap-1 bg-white border border-gray-200 shadow-xl rounded-xl p-1.5 w-max">
+                                    <button class="ime-toggle-button flex items-center gap-2 px-3 py-2 hover:bg-teal-50 text-gray-700 hover:text-teal-700 rounded-lg text-sm transition-colors font-bold" title="啟用或關閉烏衣行輸入法">
+                                        <span class="material-symbols-outlined text-[18px] pointer-events-none" style="font-variation-settings: 'FILL' 0;">keyboard</span> <span class="pointer-events-none">全域輸入法</span>
+                                    </button>
+                                    <div class="h-px bg-gray-100 my-0.5 mx-2"></div>
+                                    
+                                    <!-- 新增：翻譯系統與拼音轉換按鈕 -->
+                                    <button onclick="document.getElementById('btn-toggle-translator').click()" class="flex items-center gap-2 px-3 py-2 hover:bg-teal-50 text-teal-700 rounded-lg text-sm transition-colors font-bold" title="開啟翻譯系統視窗">
+                                        <span class="material-symbols-outlined text-[18px]">translate</span> 翻譯系統
+                                    </button>
+                                    <button onclick="document.getElementById('btnOpenPinyinTool').click()" class="flex items-center gap-2 px-3 py-2 hover:bg-teal-50 text-teal-700 rounded-lg text-sm transition-colors font-bold" title="開啟拼音轉換視窗">
+                                        <span class="material-symbols-outlined text-[18px]">rotate_auto</span> 拼音轉換
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -2506,7 +2547,7 @@ window.launchLiveMode = function(rawData, configs) {
                     ${currentQIndex >= 0 ? (() => {
                         const prefs = JSON.parse(localStorage.getItem('live_display_prefs') || '{"q":"base", "c":"base"}');
                         return `
-                        <div id="live-settings-menu" class="hidden absolute top-14 right-2 sm:right-10 w-72 bg-white border border-gray-200 rounded-xl shadow-2xl z-[100] flex-col overflow-hidden">
+                        <div id="live-settings-menu" class="hidden absolute top-14 right-2 sm:right-10 w-72 bg-white border border-gray-200 rounded-xl shadow-2xl z-[5100] flex-col overflow-hidden">
                             
                             <div class="p-4 bg-gray-50/50">
                                 <span class="text-xs font-extrabold text-teal-800 mb-3 flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">text_fields</span> 顯示設定 (僅限本機)</span>
@@ -2757,6 +2798,27 @@ window.launchLiveMode = function(rawData, configs) {
             if (cArea) cArea.setAttribute('data-font-size', prefs.c);
         };
 
+        // ✨ 語文工具選單開關邏輯
+        const btnLangToggle = document.getElementById('btn-global-lang-toggle');
+        const langSubmenu = document.getElementById('global-lang-submenu');
+        if (btnLangToggle && langSubmenu) {
+            btnLangToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                langSubmenu.classList.toggle('hidden');
+                langSubmenu.classList.toggle('flex');
+            });
+            document.addEventListener('click', (e) => {
+                if (!langSubmenu.contains(e.target) && e.target !== btnLangToggle) {
+                    langSubmenu.classList.add('hidden');
+                    langSubmenu.classList.remove('flex');
+                }
+            });
+        }
+
+        // ✨ 確保上方工具列的新按鈕能順利綁定輸入法功能
+        if (typeof bindImeToggles === 'function') 
+		setTimeout(bindImeToggles, 100);
+
         const btnSettings = document.getElementById('btn-live-settings');
         const settingsMenu = document.getElementById('live-settings-menu');
         if (btnSettings && settingsMenu) {
@@ -2841,6 +2903,8 @@ window.launchLiveMode = function(rawData, configs) {
 
         // 初始化套用文字大小
         window.applyLiveDisplayPrefs();
+
+        if (typeof bindImeToggles === 'function') setTimeout(bindImeToggles, 100);
 
         document.getElementById('btn-clear-results')?.addEventListener('click', async () => {
             const settingsMenu = document.getElementById('live-settings-menu');
@@ -3287,7 +3351,7 @@ window.launchLiveMode = function(rawData, configs) {
                             <span class="text-xs font-bold text-teal-600">新增便利貼</span>
                             <span id="student-board-limit-status" class="text-[11px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full" style="display: none;"></span>
                         </div>
-                        <textarea id="live-board-input" class="w-full bg-yellow-50 border-2 border-yellow-200 rounded-xl p-3 text-base font-bold text-gray-700 outline-none focus:border-yellow-400 transition-colors resize-none" rows="2" placeholder="寫下你的點子..."></textarea>
+                        <textarea id="live-board-input" class="w-full bg-yellow-50 border-2 border-yellow-200 rounded-xl p-3 text-base font-normal text-gray-700 outline-none focus:border-yellow-400 transition-colors resize-none" rows="2" placeholder="寫下你的點子..."></textarea>
                         <div class="flex justify-between items-center mt-1">
                             <div class="flex flex-wrap gap-2" id="board-color-picker">
                                 <button class="board-color-btn active w-8 h-8 rounded-full bg-yellow-200 border-2 border-yellow-400 transform transition-transform scale-110 shadow-sm" data-color="yellow"></button>
