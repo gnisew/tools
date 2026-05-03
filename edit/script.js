@@ -2583,30 +2583,30 @@ document.addEventListener('paste', (e) => {
     }
 
     // --- 表格模式貼上處理 ---
-    if (currentMode === 'table') {
-        const data = parseTSV(text);
+        if (currentMode === 'table') {
+            const data = parseTSV(text);
 
-        const isMultiSelect = selectedRows.length > 0 || selectedCols.length > 0 || 
-                              selectedCellBlocks.length > 1 || 
-                              (selectedCellBlocks.length === 1 && (selectedCellBlocks[0].startR !== selectedCellBlocks[0].endR || selectedCellBlocks[0].startC !== selectedCellBlocks[0].endC));
+            const isMultiSelect = selectedRows.length > 0 || selectedCols.length > 0 || 
+                                  selectedCellBlocks.length > 1 || 
+                                  (selectedCellBlocks.length === 1 && (selectedCellBlocks[0].startR !== selectedCellBlocks[0].endR || selectedCellBlocks[0].startC !== selectedCellBlocks[0].endC));
 
-        // 單格內文字貼上放行
-        if ((isInsideTdInner || isCellEditor) && data.length <= 1 && (!data[0] || data[0].length <= 1) && !isMultiSelect) {
-            e.preventDefault();
-            document.execCommand('insertText', false, text);
-            return;
-        }
+            // 🌟 修正：只要游標在儲存格內閃爍（編輯狀態）且無多選，不論貼上幾行，一律全塞進同一格
+            if ((isInsideTdInner || isCellEditor) && !isMultiSelect) {
+                e.preventDefault();
+                document.execCommand('insertText', false, text);
+                return;
+            }
 
-        // 多格或多筆資料的智慧貼上
-        if (isMultiSelect || data.length > 1 || (data[0] && data[0].length > 1) || selectedCellBlocks.length > 0) {
-            e.preventDefault();
-            handleTablePaste(text); 
-            
-            if (isCellEditor) {
-                closeCellEditor(false);
+            // 🌟 否則（單擊藍框選取，或框選多格時），交給智慧貼上分配引擎
+            if (isMultiSelect || data.length > 1 || (data[0] && data[0].length > 1) || selectedCellBlocks.length > 0) {
+                e.preventDefault();
+                handleTablePaste(text); 
+                
+                if (isCellEditor) {
+                    closeCellEditor(false);
+                }
             }
         }
-    }
 });
 
 
