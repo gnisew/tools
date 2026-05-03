@@ -99,8 +99,8 @@ window.launchLiveMode = function(rawData, configs) {
         modal.querySelector('#btn-confirm-ok').addEventListener('click', () => { close(); onConfirm(); });
     }
 
-	// ✨ 升級版：極簡緊湊版面 + 可拖曳標頭 + 隨機平均色 + 批次新增功能的編輯彈窗
-    function showBoardPrompt(title, defaultText, defaultColor = 'yellow', onConfirm) {
+	// 💡 新增：加入 extraOptions 參數
+    function showBoardPrompt(title, defaultText, defaultColor = 'yellow', onConfirm, extraOptions = null) {
         const modalId = "live-board-prompt";
         if (document.getElementById(modalId)) document.getElementById(modalId).remove();
         
@@ -115,7 +115,6 @@ window.launchLiveMode = function(rawData, configs) {
         modal.id = modalId;
         modal.className = "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-4 transition-opacity duration-200 pointer-events-none";
 
-        // 明確設定 z-index 為 5000，確保在輸入法選字框之下
         modal.style.zIndex = '5000'; 
         modal.innerHTML = `
             <div class="dialog-box relative bg-white rounded-2xl w-full min-w-[320px] max-w-sm p-5 shadow-2xl border border-gray-200 animate-fade-in-up pointer-events-auto" style="will-change: transform;">
@@ -140,10 +139,24 @@ window.launchLiveMode = function(rawData, configs) {
                 <div class="flex justify-between items-center mt-1">
                     <label class="flex items-center gap-1.5 cursor-pointer text-gray-500 hover:text-teal-600 transition-colors pl-1 select-none">
                         <input type="checkbox" id="prompt-batch-toggle" class="w-4 h-4 rounded border-gray-300 text-teal-500 focus:ring-teal-500 cursor-pointer">
-                        <span class="text-[13px] font-normal">批次新增 (依換行)</span>
+                        <span class="text-[13px] font-normal">分行新增</span>
                     </label>
                     
-                    <div class="flex gap-2">
+                    <div class="flex gap-2 items-center">
+                        <!-- 🌟 新增：隱藏的刪除與圖層工具區 -->
+                        <div id="prompt-extra-actions" class="hidden flex items-center gap-1 mr-1 border-r border-gray-200 pr-2">
+                            <div class="relative">
+                                <button id="btn-prompt-layer" class="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-md transition-colors" title="圖層順序"><span class="material-symbols-outlined text-[18px]">layers</span></button>
+                                <div id="prompt-layer-submenu" class="hidden absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white border border-gray-200 shadow-lg rounded-lg p-1.5 flex-col gap-1 z-[5100] min-w-[90px]">
+                                    <button class="prompt-layer-btn flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 text-gray-700 rounded-md text-sm w-full transition-colors font-bold" data-action="top"><span class="material-symbols-outlined text-[16px]">vertical_align_top</span> 置頂</button>
+                                    <button class="prompt-layer-btn flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 text-gray-700 rounded-md text-sm w-full transition-colors font-bold" data-action="up"><span class="material-symbols-outlined text-[16px]">arrow_upward</span> 上移</button>
+                                    <button class="prompt-layer-btn flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 text-gray-700 rounded-md text-sm w-full transition-colors font-bold" data-action="down"><span class="material-symbols-outlined text-[16px]">arrow_downward</span> 下移</button>
+                                    <button class="prompt-layer-btn flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 text-gray-700 rounded-md text-sm w-full transition-colors font-bold" data-action="bottom"><span class="material-symbols-outlined text-[16px]">vertical_align_bottom</span> 置底</button>
+                                </div>
+                            </div>
+                            <button id="btn-prompt-delete" class="w-8 h-8 flex items-center justify-center text-rose-500 hover:bg-rose-50 rounded-md transition-colors" title="刪除"><span class="material-symbols-outlined text-[18px]">delete</span></button>
+                        </div>
+                        
                         <button id="btn-prompt-cancel" class="px-4 py-2 rounded-lg font-bold text-gray-500 hover:bg-gray-100 text-sm transition-colors cursor-pointer">取消</button>
                         <button id="btn-prompt-ok" class="px-5 py-2 rounded-lg font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md text-sm transition-colors cursor-pointer">儲存</button>
                     </div>
@@ -153,19 +166,17 @@ window.launchLiveMode = function(rawData, configs) {
         const container = document.getElementById('arenaModeContainer');
         (container && container.style.display !== 'none' ? container : document.body).appendChild(modal);
         
-        // ✨ 新增：彈窗拖曳引擎 (Drag & Drop)
         const dialog = modal.querySelector('.dialog-box');
         const handle = modal.querySelector('.drag-handle');
         let isDragging = false, startX, startY, currentX = 0, currentY = 0;
 
         handle.addEventListener('pointerdown', (e) => {
-            // 如果點到的是顏色球或關閉按鈕，不要觸發拖曳
             if (e.target.closest('.color-opt') || e.target.closest('button')) return;
             isDragging = true;
             startX = e.clientX - currentX;
             startY = e.clientY - currentY;
             handle.setPointerCapture(e.pointerId);
-            dialog.classList.remove('animate-fade-in-up'); // 移除動畫避免與拖曳的 transform 衝突
+            dialog.classList.remove('animate-fade-in-up'); 
         });
 
         handle.addEventListener('pointermove', (e) => {
@@ -195,6 +206,43 @@ window.launchLiveMode = function(rawData, configs) {
         const close = () => modal.remove();
         modal.querySelector('#btn-prompt-close-x').addEventListener('click', close);
         modal.querySelector('#btn-prompt-cancel').addEventListener('click', close);
+        
+        // 🌟 新增：綁定 Extra Options 的事件 (如果有傳入)
+        if (extraOptions) {
+            modal.querySelector('#prompt-extra-actions').classList.remove('hidden');
+            
+            // 綁定刪除按鈕
+            modal.querySelector('#btn-prompt-delete').addEventListener('click', () => {
+                close();
+                if (extraOptions.onDelete) extraOptions.onDelete();
+            });
+
+            // 綁定圖層按鈕與選單
+            const layerToggle = modal.querySelector('#btn-prompt-layer');
+            const layerMenu = modal.querySelector('#prompt-layer-submenu');
+            layerToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                layerMenu.classList.toggle('hidden');
+                layerMenu.classList.toggle('flex');
+            });
+
+            modal.querySelectorAll('.prompt-layer-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    close();
+                    if (extraOptions.onLayer) extraOptions.onLayer(e.currentTarget.dataset.action);
+                });
+            });
+
+            // 點擊選單外關閉子選單
+            modal.addEventListener('click', (e) => {
+                if (!layerMenu.contains(e.target) && e.target !== layerToggle) {
+                    layerMenu.classList.add('hidden');
+                    layerMenu.classList.remove('flex');
+                }
+            });
+        }
+
         modal.querySelector('#btn-prompt-ok').addEventListener('click', () => {
             const val = input.value.trim();
             const isBatch = modal.querySelector('#prompt-batch-toggle').checked;
@@ -323,7 +371,8 @@ window.launchLiveMode = function(rawData, configs) {
             }
             
             .btn-fold-note {
-                position: absolute; top: 0; left: 0; width: 24px; height: 24px;
+                position: absolute; top: 0; left: 0; width: 16px; height: 16px;
+                clip-path: polygon(0 0, 100% 0, 0 100%);
                 cursor: pointer; z-index: 110; opacity: 0; transition: opacity 0.2s;
             }
             .sticky-note:hover .btn-fold-note { opacity: 1; }
@@ -337,8 +386,15 @@ window.launchLiveMode = function(rawData, configs) {
 
             .sticky-note.is-collapsed .btn-fold-note {
                 opacity: 1; width: 100%; height: 100%;
+                clip-path: none;
             }
             .sticky-note.is-collapsed .btn-fold-note::before { border-top-color: rgba(0,0,0,0.15); }
+
+            .sticky-note[data-show-author="none"] .note-author-container { display: none !important; }
+            .sticky-note[data-show-author="always"] .note-author-container { display: block !important; opacity: 1 !important; }
+            .sticky-note[data-show-author="hover"] .note-author-container { display: block !important; opacity: 0; }
+            .sticky-note[data-show-author="hover"]:hover .note-author-container,
+            .sticky-note[data-show-author="hover"].ring-2 .note-author-container { opacity: 1; }
 
         `;
         document.head.appendChild(style);
@@ -1530,7 +1586,7 @@ window.launchLiveMode = function(rawData, configs) {
                 contentArea.innerHTML = `
                     <div id="board-wrapper-main" class="flex-1 w-full relative h-full transition-all duration-300 flex flex-col z-10">
                         
-                        <div class="w-full flex-1 relative bg-[#F4F4F4] overflow-hidden transition-all duration-300 shadow-[inset_0_2px_10px_rgba(0,0,0,0.02)]" id="whiteboard-canvas" style="cursor: grab;">
+                        <div class="w-full flex-1 relative bg-[#F4F4F4] overflow-hidden shadow-[inset_0_2px_10px_rgba(0,0,0,0.02)] ${(!qData.options || qData.options[6] !== 'solid') ? 'bg-[radial-gradient(#D5D5D5_1px,transparent_1px)]' : ''}" id="whiteboard-canvas" style="cursor: grab; touch-action: none; background-size: 24px 24px;">
                             
                             <div class="absolute top-4 left-4 sm:left-6 z-[110] select-none">
                                 <div id="board-floating-header" class="bg-white/95 backdrop-blur-sm border border-gray-200 px-4 py-2 rounded-xl shadow-sm flex items-center gap-2 max-w-[300px] sm:max-w-[500px] transition-all">
@@ -1546,12 +1602,13 @@ window.launchLiveMode = function(rawData, configs) {
                                 </div>
                             </div>
 
-                            <div id="board-left-toolbar" class="absolute left-4 sm:left-6 top-1/2 transform -translate-y-1/2 bg-white/95 backdrop-blur-sm rounded-xl shadow-md border border-gray-200 flex flex-col p-1.5 gap-1.5 z-[120] select-none">
-                                <button class="p-2 bg-blue-50 text-blue-600 rounded-lg cursor-pointer transition-colors" title="選取"><span class="material-symbols-outlined text-[20px] block">near_me</span></button>
-                                <button class="p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 rounded-lg cursor-pointer transition-colors" title="新增老師便利貼" onclick="window.addTeacherNote()"><span class="material-symbols-outlined text-[20px] block">add_box</span></button>
-                                <div class="w-6 h-px bg-gray-200 mx-auto my-0.5"></div>
-                                <button class="p-2 text-gray-500 hover:bg-rose-50 hover:text-rose-600 rounded-lg cursor-pointer transition-colors" title="清空畫布" onclick="window.clearBoardNotes()"><span class="material-symbols-outlined text-[20px] block">delete_sweep</span></button>
-                            </div>
+							<div id="board-left-toolbar" class="absolute left-4 sm:left-6 top-1/2 transform -translate-y-1/2 bg-white/95 backdrop-blur-sm rounded-xl shadow-md border border-gray-200 flex flex-col p-1.5 gap-1.5 z-[120] select-none">
+								<!-- ✨ 新增：框選/多選切換按鈕 (模擬 Shift 鍵) -->
+								<button id="btn-board-multiselect" class="p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 rounded-lg cursor-pointer transition-colors" title="啟用框選與多選模式"><span class="material-symbols-outlined text-[20px] block">tab_unselected</span></button>
+								<div class="w-6 h-px bg-gray-200 mx-auto my-0.5"></div>
+								<button class="p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 rounded-lg cursor-pointer transition-colors" title="新增老師便利貼" onclick="window.addTeacherNote()"><span class="material-symbols-outlined text-[20px] block">add_box</span></button>
+								<button class="p-2 text-gray-500 hover:bg-rose-50 hover:text-rose-600 rounded-lg cursor-pointer transition-colors" title="清空畫布" onclick="window.clearBoardNotes()"><span class="material-symbols-outlined text-[20px] block">delete_sweep</span></button>
+							</div>
 
                             <div class="absolute bottom-4 right-4 sm:right-6 z-[120] flex items-center gap-1 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl p-1 shadow-md select-none">
                                 <button onclick="window.updateBoardZoom(-0.1)" class="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 cursor-pointer transition-colors"><span class="material-symbols-outlined text-[20px]">remove</span></button>
@@ -1564,7 +1621,8 @@ window.launchLiveMode = function(rawData, configs) {
                                 </button>
                             </div>
 
-                            <div id="board-content-layer" class="absolute inset-0 origin-top-left bg-[radial-gradient(#D5D5D5_1px,transparent_1px)] [background-size:24px_24px]">
+                            <div id="board-content-layer" class="absolute inset-0 origin-top-left">
+								<div id="board-selection-box" class="absolute border border-blue-500 bg-blue-500/20 z-[9999] hidden pointer-events-none"></div>
                                 
                                 <div id="board-note-menu" class="hidden absolute z-[5000] flex-row items-center justify-center shadow-xl border border-gray-200 bg-white rounded-lg cursor-default transition-opacity duration-150 px-2 py-1.5 select-none h-12 gap-1 flex-nowrap whitespace-nowrap min-w-max">
                                     <button id="btn-bm-edit" class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 text-gray-700 rounded-md transition-colors" title="編輯內容"><span class="material-symbols-outlined text-[20px]">edit</span></button>
@@ -1591,6 +1649,14 @@ window.launchLiveMode = function(rawData, configs) {
                                 </div>
 
                             </div>
+                            
+                            <div id="board-scrollbar-x" class="absolute bottom-2 left-6 right-6 h-1.5 bg-gray-200/30 rounded-full z-[150] opacity-0 transition-opacity duration-300 pointer-events-none">
+                                <div id="board-scrollthumb-x" class="absolute top-0 h-full bg-gray-300/60 rounded-full"></div>
+                            </div>
+                            <div id="board-scrollbar-y" class="absolute right-2 top-6 bottom-6 w-1.5 bg-gray-200/30 rounded-full z-[150] opacity-0 transition-opacity duration-300 pointer-events-none">
+                                <div id="board-scrollthumb-y" class="absolute left-0 w-full bg-gray-300/60 rounded-full"></div>
+                            </div>
+                            
                         </div>
                     </div>
                 `;
@@ -1652,7 +1718,7 @@ window.launchLiveMode = function(rawData, configs) {
                 window.addTeacherNote = () => {
                     if (typeof showBoardPrompt === 'function') {
                         // 預設選擇 'random'
-                        showBoardPrompt("新增便利貼", "", "random", async (result) => {
+                        showBoardPrompt("新增", "", "random", async (result) => {
                             if (result && result.text) {
                                 const currentMods = window.currentSpaceData[`board_mods_${qId}`] || {};
                                 
@@ -1718,9 +1784,76 @@ window.launchLiveMode = function(rawData, configs) {
                 };
 
                 window.updateBoardView = () => {
+                    contentLayer.style.transformOrigin = "0 0";
                     contentLayer.style.transform = `translate(${window.boardPan.x}px, ${window.boardPan.y}px) scale(${window.boardZoom})`;
                     const zoomVal = document.getElementById('board-zoom-val');
                     if (zoomVal) zoomVal.textContent = Math.round(window.boardZoom * 100) + '%';
+
+                    if (canvas) {
+                        const bgSize = 24 * window.boardZoom;
+                        canvas.style.backgroundSize = `${bgSize}px ${bgSize}px`;
+                        canvas.style.backgroundPosition = `${window.boardPan.x}px ${window.boardPan.y}px`;
+                    }
+                    
+                    const scrollX = document.getElementById('board-scrollbar-x');
+                    const scrollY = document.getElementById('board-scrollbar-y');
+                    const thumbX = document.getElementById('board-scrollthumb-x');
+                    const thumbY = document.getElementById('board-scrollthumb-y');
+                    
+                    if (scrollX && scrollY && thumbX && thumbY) {
+                        const vw = canvas.clientWidth / window.boardZoom;
+                        const vh = canvas.clientHeight / window.boardZoom;
+                        const vx = -window.boardPan.x / window.boardZoom;
+                        const vy = -window.boardPan.y / window.boardZoom;
+
+                        let minContentX = vx, maxContentX = vx + vw;
+                        let minContentY = vy, maxContentY = vy + vh;
+                        
+                        const notes = contentLayer.querySelectorAll('.sticky-note');
+                        if (notes.length > 0) {
+                            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                            notes.forEach(note => {
+                                const x = parseFloat(note.style.left) || 0;
+                                const y = parseFloat(note.style.top) || 0;
+                                const body = note.querySelector('.note-body');
+                                const w = body ? body.offsetWidth : 140;
+                                const h = body ? body.offsetHeight : 140;
+                                if (x < minX) minX = x;
+                                if (x + w > maxX) maxX = x + w;
+                                if (y < minY) minY = y;
+                                if (y + h > maxY) maxY = y + h;
+                            });
+                            minContentX = Math.min(vx, minX - 500);
+                            maxContentX = Math.max(vx + vw, maxX + 500);
+                            minContentY = Math.min(vy, minY - 500);
+                            maxContentY = Math.max(vy + vh, maxY + 500);
+                        }
+
+                        const totalW = maxContentX - minContentX;
+                        const totalH = maxContentY - minContentY;
+                        
+                        const thumbW = Math.max(5, (vw / totalW) * 100);
+                        let thumbLeft = ((vx - minContentX) / totalW) * 100;
+                        thumbLeft = Math.max(0, Math.min(100 - thumbW, thumbLeft)); 
+                        
+                        const thumbH = Math.max(5, (vh / totalH) * 100);
+                        let thumbTop = ((vy - minContentY) / totalH) * 100;
+                        thumbTop = Math.max(0, Math.min(100 - thumbH, thumbTop));
+
+                        thumbX.style.width = `${thumbW}%`;
+                        thumbX.style.left = `${thumbLeft}%`;
+                        thumbY.style.height = `${thumbH}%`;
+                        thumbY.style.top = `${thumbTop}%`;
+
+                        scrollX.style.opacity = '1';
+                        scrollY.style.opacity = '1';
+                        
+                        clearTimeout(window.boardScrollbarTimeout);
+                        window.boardScrollbarTimeout = setTimeout(() => {
+                            scrollX.style.opacity = '0';
+                            scrollY.style.opacity = '0';
+                        }, 1000); 
+                    }
                 };
                 window.updateBoardZoom = (delta) => { window.boardZoom = Math.max(0.2, Math.min(3, window.boardZoom + delta)); window.updateBoardView(); };
                 window.resetBoardView = () => { window.boardZoom = 1; window.boardPan = { x: 0, y: 0 }; window.updateBoardView(); };
@@ -1740,9 +1873,48 @@ window.launchLiveMode = function(rawData, configs) {
 
                 window.currentResizedNote = null;
 
+                window.selectedNotes = new Set(); 
+                let isMarquee = false; 
+                let marqueeStart = { x: 0, y: 0 };
+                // ✨ 新增：虛擬 Shift 狀態 (多選/框選模式)
+                window.isBoardMultiSelectMode = false;
+
+                // ✨ 綁定切換按鈕事件
+                document.getElementById('btn-board-multiselect')?.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    window.isBoardMultiSelectMode = !window.isBoardMultiSelectMode;
+                    if (window.isBoardMultiSelectMode) {
+                        this.className = 'p-2 bg-blue-50 text-blue-600 rounded-lg cursor-pointer transition-colors';
+                        if (typeof showToast === 'function') showToast('✅ 已啟用「框選/多選」模式');
+                    } else {
+                        this.className = 'p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 rounded-lg cursor-pointer transition-colors';
+                        if (typeof showToast === 'function') showToast('❌ 已關閉多選 (恢復平移)');
+                    }
+                });
+
                 canvas.style.touchAction = 'none';
 
                 canvas.addEventListener('pointerdown', (e) => {
+                    // 0. 防呆：點擊 UI 介面不處理
+                    if (e.target.closest('button') || e.target.closest('#board-left-toolbar') || e.target.closest('#board-floating-header') || e.target.closest('.z-\\[120\\]') || e.target.closest('#board-note-menu')) {
+                        return;
+                    }
+                    
+                    // ✨ 統整判斷：是否有按下 Shift/Ctrl 或是啟用了介面上的多選按鈕
+                    const isMultiSelectIntent = e.shiftKey || e.ctrlKey || e.metaKey || window.isBoardMultiSelectMode;
+
+                    // 1. 中鍵/右鍵 永遠是平移
+                    if (e.button === 1 || e.button === 2) {
+                        isPanning = true;
+                        if (typeof canvas.setPointerCapture === 'function') canvas.setPointerCapture(e.pointerId);
+                        canvas.style.cursor = 'grabbing';
+                        startPos = { x: e.clientX, y: e.clientY };
+                        initialPan = { ...window.boardPan };
+                        document.getElementById('board-note-menu')?.classList.add('hidden');
+                        return;
+                    }
+
+                    // 2. 點擊改變尺寸把手
                     const rHandle = e.target.closest('.resize-handle');
                     if (rHandle) {
                         e.stopPropagation();
@@ -1763,7 +1935,9 @@ window.launchLiveMode = function(rawData, configs) {
                         return;
                     }
 
+                    // 3. 處理隨游標黏貼
                     if (stuckNote) {
+                        // ... 原有邏輯保持不變 ...
                         const noteId = stuckNote.dataset.id;
                         const activeQId = window.currentSpaceData?.currentQuestionData?.id || qId;
                         const currentMods = window.currentSpaceData[`board_mods_${activeQId}`] || {};
@@ -1778,26 +1952,25 @@ window.launchLiveMode = function(rawData, configs) {
                         stuckNote.style.cursor = '';
                         stuckNote.style.pointerEvents = ''; // 恢復可點擊
                         
-                        // 設定為當前焦點並顯示工具列 (沿用已有的 mouseup 焦點邏輯)
                         window.currentActiveNoteId = noteId;
                         document.querySelectorAll('.sticky-note').forEach(n => n.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1'));
                         stuckNote.classList.add('ring-2', 'ring-blue-500', 'ring-offset-1');
                         
                         stuckNote = null;
                         db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods }).catch(()=>{});
-                        return; // 放下後就結束這次點擊，不執行後面的拖曳判定
+                        return; 
                     }
 
+                    // ✨ 4. 點擊到便利貼
                     const note = e.target.closest('.sticky-note');
                     if (note && !e.target.closest('#board-note-menu')) {
                         draggedNote = note;
                         isDraggingNote = false;
                         dragStartX = e.clientX;
                         dragStartY = e.clientY;
-                        
-                        if (typeof note.setPointerCapture === 'function') {
-                            note.setPointerCapture(e.pointerId);
-                        }
+                        draggedNote._clickedFoldBtn = !!e.target.closest('.btn-fold-note');
+
+                        if (typeof note.setPointerCapture === 'function') note.setPointerCapture(e.pointerId);
 
                         const rect = note.getBoundingClientRect();
                         noteOffset.x = (e.clientX - rect.left) / window.boardZoom;
@@ -1807,17 +1980,55 @@ window.launchLiveMode = function(rawData, configs) {
                         note.style.zIndex = '99999';
                         note.style.cursor = 'grabbing';
                         
-                        if (window.currentActiveNoteId !== note.dataset.id) {
-                            document.getElementById('board-note-menu')?.classList.add('hidden');
-                            document.querySelectorAll('.sticky-note').forEach(n => n.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1'));
+                        // ✨ 點擊選取邏輯 (支援 Shift 或 Ctrl 多選)
+                        if (isMultiSelectIntent) {
+                            if (window.selectedNotes.has(note.dataset.id)) {
+                                window.selectedNotes.delete(note.dataset.id);
+                                note.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1');
+                            } else {
+                                window.selectedNotes.add(note.dataset.id);
+                                note.classList.add('ring-2', 'ring-blue-500', 'ring-offset-1');
+                            }
+                        } else {
+                            // 如果點到的便利貼已經在多選群組內，不要清除群組 (這樣才能拖曳整個群組)
+                            if (!window.selectedNotes.has(note.dataset.id)) {
+                                window.selectedNotes.clear();
+                                document.querySelectorAll('.sticky-note').forEach(n => n.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1'));
+                                window.selectedNotes.add(note.dataset.id);
+                                note.classList.add('ring-2', 'ring-blue-500', 'ring-offset-1');
+                            }
                         }
+                        window.currentActiveNoteId = note.dataset.id;
+
                     } else if (e.target === canvas || e.target === contentLayer) {
-                        isPanning = true;
-                        canvas.style.cursor = 'grabbing';
-                        startPos = { x: e.clientX, y: e.clientY };
-                        initialPan = { ...window.boardPan };
-                        document.getElementById('board-note-menu').classList.add('hidden');
-                        document.querySelectorAll('.sticky-note').forEach(n => n.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1'));
+                        // ✨ 5. 點擊空白畫布
+                        if (isMultiSelectIntent) {
+                            // 按住 Shift 點空白處 ➡️ 拉框選取
+                            isMarquee = true;
+                            if (typeof canvas.setPointerCapture === 'function') canvas.setPointerCapture(e.pointerId);
+                            
+                            const cRect = canvas.getBoundingClientRect();
+                            marqueeStart.x = (e.clientX - cRect.left - window.boardPan.x) / window.boardZoom;
+                            marqueeStart.y = (e.clientY - cRect.top - window.boardPan.y) / window.boardZoom;
+                            
+                            const selBox = document.getElementById('board-selection-box');
+                            if (selBox) {
+                                selBox.style.left = marqueeStart.x + 'px';
+                                selBox.style.top = marqueeStart.y + 'px';
+                                selBox.style.width = '0px';
+                                selBox.style.height = '0px';
+                                selBox.classList.remove('hidden');
+                            }
+                            document.getElementById('board-note-menu')?.classList.add('hidden');
+                        } else {
+                            // 單純點空白處 ➡️ 平移畫布
+                            isPanning = true;
+                            if (typeof canvas.setPointerCapture === 'function') canvas.setPointerCapture(e.pointerId);
+                            canvas.style.cursor = 'grabbing';
+                            startPos = { x: e.clientX, y: e.clientY };
+                            initialPan = { ...window.boardPan };
+                            document.getElementById('board-note-menu')?.classList.add('hidden');
+                        }
                     }
                 });
 
@@ -1843,16 +2054,67 @@ window.launchLiveMode = function(rawData, configs) {
                         return;
                     }
 
-                    if (draggedNote) {
+                    // ✨ 加入框選 (Marquee) 繪製與即時碰撞偵測
+                    if (isMarquee) {
+                        const cRect = canvas.getBoundingClientRect();
+                        const curX = (e.clientX - cRect.left - window.boardPan.x) / window.boardZoom;
+                        const curY = (e.clientY - cRect.top - window.boardPan.y) / window.boardZoom;
+
+                        const left = Math.min(marqueeStart.x, curX);
+                        const top = Math.min(marqueeStart.y, curY);
+                        const width = Math.abs(curX - marqueeStart.x);
+                        const height = Math.abs(curY - marqueeStart.y);
+
+                        const selBox = document.getElementById('board-selection-box');
+                        if (selBox) {
+                            selBox.style.left = left + 'px';
+                            selBox.style.top = top + 'px';
+                            selBox.style.width = width + 'px';
+                            selBox.style.height = height + 'px';
+                            selBox.classList.remove('hidden');
+                        }
+
+                        // 即時計算碰撞與選取
+                        document.querySelectorAll('.sticky-note').forEach(note => {
+                            const nx = parseFloat(note.style.left);
+                            const ny = parseFloat(note.style.top);
+                            const bodyEl = note.querySelector('.note-body');
+                            const nw = bodyEl ? bodyEl.offsetWidth : 140; 
+                            const nh = bodyEl ? bodyEl.offsetHeight : 140;
+
+                            if (nx < left + width && nx + nw > left && ny < top + height && ny + nh > top) {
+                                window.selectedNotes.add(note.dataset.id);
+                                note.classList.add('ring-2', 'ring-blue-500', 'ring-offset-1');
+                            } else if (!e.shiftKey && !window.isBoardMultiSelectMode) { 
+                                window.selectedNotes.delete(note.dataset.id);
+                                note.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1');
+                            }
+                        });
+                    } else if (draggedNote) {
                         if (Math.abs(e.clientX - dragStartX) > 3 || Math.abs(e.clientY - dragStartY) > 3) {
                             isDraggingNote = true;
-                            document.getElementById('board-note-menu').classList.add('hidden'); 
+                            document.getElementById('board-note-menu')?.classList.add('hidden'); 
                         }
                         const cRect = canvas.getBoundingClientRect();
-                        let x = (e.clientX - cRect.left - window.boardPan.x) / window.boardZoom - noteOffset.x;
-                        let y = (e.clientY - cRect.top - window.boardPan.y) / window.boardZoom - noteOffset.y;
-                        draggedNote.style.left = x + 'px';
-                        draggedNote.style.top = y + 'px';
+                        let newX = (e.clientX - cRect.left - window.boardPan.x) / window.boardZoom - noteOffset.x;
+                        let newY = (e.clientY - cRect.top - window.boardPan.y) / window.boardZoom - noteOffset.y;
+                        
+                        // ✨ 群組拖曳引擎
+                        const dx = newX - parseFloat(draggedNote.style.left);
+                        const dy = newY - parseFloat(draggedNote.style.top);
+
+                        if (window.selectedNotes.has(draggedNote.dataset.id)) {
+                            window.selectedNotes.forEach(id => {
+                                const n = document.getElementById('note-' + id);
+                                if (n) {
+                                    n.style.left = (parseFloat(n.style.left) + dx) + 'px';
+                                    n.style.top = (parseFloat(n.style.top) + dy) + 'px';
+                                }
+                            });
+                        } else {
+                            draggedNote.style.left = newX + 'px';
+                            draggedNote.style.top = newY + 'px';
+                        }
                     } else if (isPanning) {
                         window.boardPan.x = initialPan.x + (e.clientX - startPos.x);
                         window.boardPan.y = initialPan.y + (e.clientY - startPos.y);
@@ -1861,6 +2123,8 @@ window.launchLiveMode = function(rawData, configs) {
                 });
 
                 canvas.addEventListener('dblclick', (e) => {
+                    // 直接移除防呆，現在隨時可以雙擊編輯
+
                     const note = e.target.closest('.sticky-note');
                     if (note && !e.target.closest('#board-note-menu')) {
                         if (note.classList.contains('is-collapsed')) return;
@@ -1876,22 +2140,86 @@ window.launchLiveMode = function(rawData, configs) {
                             document.getElementById('board-note-menu')?.classList.add('hidden');
                             
                             if (typeof showBoardPrompt === 'function') {
-                                showBoardPrompt("編輯內容", currentText, currentColor, async (result) => {
-                                    if (result && result.text) {
+                                // 🌟 新增：將刪除與圖層邏輯打包傳入
+                                const extraOpts = {
+                                    onDelete: () => {
+                                        showCustomConfirm("刪除點子", "確定要永久刪除？", "確認刪除", "bg-rose-500", async () => {
+                                            const currentMods = window.currentSpaceData[`board_mods_${activeQId}`] || {};
+                                            currentMods[noteId] = { ...currentMods[noteId], deleted: true };
+                                            document.getElementById('note-' + noteId)?.remove();
+                                            await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods });
+                                        });
+                                    },
+                                    onLayer: async (action) => {
                                         const currentMods = window.currentSpaceData[`board_mods_${activeQId}`] || {};
-                                        currentMods[noteId] = { ...currentMods[noteId], text: result.text, color: result.color };
-                                        
-                                        // 樂觀更新 UI
-                                        note.querySelector('.note-text-content').textContent = result.text;
-                                        note.dataset.color = result.color;
-                                        const bodyEl = note.querySelector('.note-body');
-                                        if (bodyEl) {
-                                            bodyEl.className = `note-body relative shadow-sm rounded-sm border transition-shadow group-hover:shadow-lg ${colorMap[result.color] || colorMap['yellow']}`;
-                                            bodyEl.setAttribute('data-first-char', (result.text || '').trim().charAt(0) || '');
-                                        }
+                                        const currentZ = currentMods[noteId]?.z !== undefined ? currentMods[noteId].z : 10;
+                                        let newZ = currentZ;
+                                        let allZs = allNotes.map(n => {
+                                            const m = currentMods[n.id] || {};
+                                            return m.z !== undefined ? m.z : 10;
+                                        });
+                                        if (action === 'top') newZ = Math.max(...allZs, 10) + 1;
+                                        else if (action === 'bottom') newZ = Math.min(...allZs, 10) - 1;
+                                        else if (action === 'up') newZ = currentZ + 1;
+                                        else if (action === 'down') newZ = currentZ - 1;
+                                        currentMods[noteId] = { ...currentMods[noteId], z: newZ };
                                         await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods });
                                     }
-                                });
+                                };
+
+                                showBoardPrompt("編輯", currentText, currentColor, async (result) => {
+                                    if (result && result.text) {
+                                        const currentMods = window.currentSpaceData[`board_mods_${activeQId}`] || {};
+                                        
+                                        // ✨ 依據是否勾選批次新增來切分陣列
+                                        const texts = result.isBatch ? result.text.split('\n').map(t => t.trim()).filter(t => t) : [result.text];
+                                        if (texts.length === 0) return;
+
+                                        let colorBag = [];
+                                        const getRandomColor = () => {
+                                            if (colorBag.length === 0) colorBag = ['yellow', 'pink', 'blue', 'green'].sort(() => Math.random() - 0.5);
+                                            return colorBag.pop();
+                                        };
+
+                                        // 1. 更新原本的第一張便利貼
+                                        const firstColor = result.color === 'random' ? getRandomColor() : result.color;
+                                        currentMods[noteId] = { ...currentMods[noteId], text: texts[0], color: firstColor };
+                                        
+                                        // 樂觀更新 UI
+                                        note.querySelector('.note-text-content').textContent = texts[0];
+                                        note.dataset.color = firstColor;
+                                        const bodyEl = note.querySelector('.note-body');
+                                        if (bodyEl) {
+                                            bodyEl.className = `note-body relative shadow-sm rounded-sm border transition-shadow group-hover:shadow-lg ${colorMap[firstColor] || colorMap['yellow']}`;
+                                            bodyEl.setAttribute('data-first-char', (texts[0] || '').trim().charAt(0) || '');
+                                        }
+
+                                        // 2. 如果有換行拆解出多張，產生新的便利貼
+                                        if (texts.length > 1) {
+                                            const origX = parseFloat(note.style.left) || 100;
+                                            const origY = parseFloat(note.style.top) || 100;
+                                            const origAuthor = note.dataset.author || '老師';
+                                            const baseZ = currentMods[noteId].z !== undefined ? currentMods[noteId].z : 10;
+
+                                            for (let i = 1; i < texts.length; i++) {
+                                                const newNoteId = 'split_' + Date.now() + '_' + i;
+                                                const c = result.color === 'random' ? getRandomColor() : result.color;
+                                                
+                                                currentMods[newNoteId] = { 
+                                                    isTeacher: true, 
+                                                    text: texts[i], 
+                                                    color: c, 
+                                                    x: origX + (i % 5) * 30, 
+                                                    y: origY + Math.floor(i / 5) * 30 + 30, 
+                                                    author: origAuthor,
+                                                    z: baseZ + i
+                                                };
+                                            }
+                                        }
+
+                                        await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods });
+                                    }
+                                }, extraOpts);
                             }
                         } else if (action === 'stick') {
                             // 執行：隨游標黏貼
@@ -1974,133 +2302,167 @@ window.launchLiveMode = function(rawData, configs) {
                     if (isResizingNote && resizedNote) {
                         const noteId = resizedNote.dataset.id;
                         const bodyEl = resizedNote.querySelector('.note-body');
-                        
                         resizedNote.style.zIndex = resizedNote.dataset.origZ || 10;
                         
                         const activeQId = window.currentSpaceData?.currentQuestionData?.id || qId;
                         const currentMods = window.currentSpaceData[`board_mods_${activeQId}`] || {};
-                        
                         currentMods[noteId] = { 
-                            ...currentMods[noteId], 
-                            w: bodyEl.offsetWidth, 
-                            h: bodyEl.offsetHeight 
+                            ...currentMods[noteId], w: bodyEl.offsetWidth, h: bodyEl.offsetHeight 
                         };
                         
                         isResizingNote = false;
                         resizedNote = null;
                         window.currentResizedNote = null;
-                        
                         db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods }).catch(()=>{});
                         return;
                     }
 
                     if (draggedNote) {
                         const currentNote = draggedNote;
-                        
                         if (typeof currentNote.releasePointerCapture === 'function') {
                             currentNote.releasePointerCapture(e.pointerId);
                         }
 
+                        const activeQId = window.currentSpaceData?.currentQuestionData?.id || qId;
                         const noteId = currentNote.dataset.id;
-                        const currentMods = window.currentSpaceData[`board_mods_${qId}`] || {};
+                        const currentMods = window.currentSpaceData[`board_mods_${activeQId}`] || {};
                         const isCollapsed = currentMods[noteId]?.collapsed;
                         
-                        // ✨ 修正：放開時，直接從資料庫讀取並恢復它原本的圖層高度 (Z-index)
                         const originalZ = currentMods[noteId]?.z !== undefined ? currentMods[noteId].z : 10;
                         currentNote.style.zIndex = originalZ;
                         draggedNote = null;
                         
-                        // ✨ 智慧點擊判斷：如果「沒有發生拖曳」，且點擊了摺疊鈕或已摺疊的小方塊，則執行摺疊/展開
                         if (!isDraggingNote) {
-                            const fBtn = e.target.closest('.btn-fold-note');
-                            if (fBtn || isCollapsed) {
+                            const fBtnClicked = currentNote._clickedFoldBtn;
+                            if (fBtnClicked || isCollapsed) {
                                 currentMods[noteId] = { ...currentMods[noteId], collapsed: !isCollapsed };
-                                
                                 if (!isCollapsed) currentNote.classList.add('is-collapsed');
                                 else currentNote.classList.remove('is-collapsed');
                                 
                                 document.getElementById('board-note-menu')?.classList.add('hidden');
-                                document.getElementById('board-note-menu')?.classList.remove('flex');
                                 document.querySelectorAll('.sticky-note').forEach(n => n.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1'));
-                                
-                                try { await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${qId}`]: currentMods }); } catch (err) {}
-                                return; // 結束動作，不顯示工具列
+                                try { await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods }); } catch (err) {}
+                                return;
                             }
                         }
-                        
-                        // 無論是「單純點擊」還是「拖曳放開」，都將這張卡片設為新焦點
-                        window.currentActiveNoteId = noteId;
-                        
-                        // 加上藍色選取框
-                        document.querySelectorAll('.sticky-note').forEach(n => n.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1'));
-                        currentNote.classList.add('ring-2', 'ring-blue-500', 'ring-offset-1');
                         
                         const menu = document.getElementById('board-note-menu');
-                        const colorSub = menu.querySelector('.color-submenu-container');
-                        const layerSub = menu.querySelector('.layer-submenu-container');
+                        const showToolbar = window.currentSpaceData?.currentQuestionData?.options?.[3] === 'true';
 
-                        const showToolbar = !(window.currentSpaceData?.currentQuestionData?.options?.[3] === 'false');
+                        // ✨ 僅在「單選」的情況下，才顯示編輯工具列
+                        if (window.selectedNotes.size <= 1) {
+                            window.currentActiveNoteId = noteId;
+                            document.querySelectorAll('.sticky-note').forEach(n => n.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1'));
+                            currentNote.classList.add('ring-2', 'ring-blue-500', 'ring-offset-1');
 
-                        // ✨ 修正：刪除重複宣告的 isCollapsed，直接沿用最外層讀取的值
-                        if (showToolbar && !isCollapsed) {
-                            // 顯示工具列
-                            menu.classList.remove('hidden');
-                            menu.classList.add('flex');
-                            
-                            // 邊界偵測與選單定位
-                            const cRect = canvas.getBoundingClientRect();
-                            const nRect = currentNote.getBoundingClientRect(); 
-                            const spaceAbove = (nRect.top - cRect.top) / window.boardZoom;
-                            
-                            // ✨ 修正：動態讀取便利貼目前的真實寬度與高度，取代寫死的 140 與 70
-                            const bodyEl = currentNote.querySelector('.note-body');
-                            const noteW = bodyEl ? bodyEl.offsetWidth : 140;
-                            const noteH = bodyEl ? bodyEl.offsetHeight : 140;
-                            
-                            let menuLeft = parseFloat(currentNote.style.left) + (noteW / 2); 
-                            const menuWidth = 210; 
-                            const canvasRealWidth = cRect.width / window.boardZoom;
-                            if (menuLeft - menuWidth / 2 < 10) menuLeft = menuWidth / 2 + 10;
-                            if (menuLeft + menuWidth / 2 > canvasRealWidth - 10) menuLeft = canvasRealWidth - menuWidth / 2 - 10;
+                            const colorSub = menu?.querySelector('.color-submenu-container');
+                            const layerSub = menu?.querySelector('.layer-submenu-container');
 
-                            if (spaceAbove < 130) {
-                                menu.style.left = menuLeft + 'px';
-                                menu.style.top = (parseFloat(currentNote.style.top) + noteH + 8) + 'px';
-                                menu.style.transform = 'translate(-50%, 0)';
-                                colorSub.className = "color-submenu-container hidden absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white border border-gray-200 shadow-lg rounded-lg p-2 gap-2 z-50";
-                                layerSub.className = "layer-submenu-container hidden absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white border border-gray-200 shadow-lg rounded-lg p-1.5 flex-col gap-1 z-50 min-w-[90px]";
-                            } else {
-                                menu.style.left = menuLeft + 'px';
-                                menu.style.top = (parseFloat(currentNote.style.top) - 8) + 'px';
-                                menu.style.transform = 'translate(-50%, -100%)';
-                                colorSub.className = "color-submenu-container hidden absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white border border-gray-200 shadow-lg rounded-lg p-2 gap-2 z-50";
-                                layerSub.className = "layer-submenu-container hidden absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white border border-gray-200 shadow-lg rounded-lg p-1.5 flex-col gap-1 z-50 min-w-[90px]";
+                            if (showToolbar && !isCollapsed && menu) {
+                                menu.classList.remove('hidden');
+                                menu.classList.add('flex');
+                                
+                                const cRect = canvas.getBoundingClientRect();
+                                const nRect = currentNote.getBoundingClientRect(); 
+                                const spaceAbove = (nRect.top - cRect.top) / window.boardZoom;
+                                
+                                const bodyEl = currentNote.querySelector('.note-body');
+                                const noteW = bodyEl ? bodyEl.offsetWidth : 140;
+                                const noteH = bodyEl ? bodyEl.offsetHeight : 140;
+                                
+                                let menuLeft = parseFloat(currentNote.style.left) + (noteW / 2); 
+                                const menuWidth = 210; 
+                                const canvasRealWidth = cRect.width / window.boardZoom;
+                                if (menuLeft - menuWidth / 2 < 10) menuLeft = menuWidth / 2 + 10;
+                                if (menuLeft + menuWidth / 2 > canvasRealWidth - 10) menuLeft = canvasRealWidth - menuWidth / 2 - 10;
+
+                                if (spaceAbove < 130) {
+                                    menu.style.left = menuLeft + 'px';
+                                    menu.style.top = (parseFloat(currentNote.style.top) + noteH + 8) + 'px';
+                                    menu.style.transform = 'translate(-50%, 0)';
+                                    if(colorSub) colorSub.className = "color-submenu-container hidden absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white border border-gray-200 shadow-lg rounded-lg p-2 gap-2 z-50";
+                                    if(layerSub) layerSub.className = "layer-submenu-container hidden absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white border border-gray-200 shadow-lg rounded-lg p-1.5 flex-col gap-1 z-50 min-w-[90px]";
+                                } else {
+                                    menu.style.left = menuLeft + 'px';
+                                    menu.style.top = (parseFloat(currentNote.style.top) - 8) + 'px';
+                                    menu.style.transform = 'translate(-50%, -100%)';
+                                    if(colorSub) colorSub.className = "color-submenu-container hidden absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white border border-gray-200 shadow-lg rounded-lg p-2 gap-2 z-50";
+                                    if(layerSub) layerSub.className = "layer-submenu-container hidden absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white border border-gray-200 shadow-lg rounded-lg p-1.5 flex-col gap-1 z-50 min-w-[90px]";
+                                }
+                            } else if (menu) {
+                                menu.classList.add('hidden');
+                                menu.classList.remove('flex');
                             }
                         } else {
-                            // 老師設定不顯示工具列，則將其隱藏
-                            menu.classList.add('hidden');
-                            menu.classList.remove('flex');
+                            if (menu) {
+                                menu.classList.add('hidden');
+                                menu.classList.remove('flex');
+                            }
                         }
 
-                        // ✨ 恢復：只存檔座標，不改變原有的 Z 值
+                        // ✨ 將拖曳後的最新群組座標寫回資料庫
                         if (isDraggingNote) {
-                            const modsToUpdate = window.currentSpaceData[`board_mods_${qId}`] || {};
-                            modsToUpdate[noteId] = { 
-                                ...modsToUpdate[noteId], 
-                                x: parseFloat(currentNote.style.left), 
-                                y: parseFloat(currentNote.style.top)
-                            };
-                            try { await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${qId}`]: modsToUpdate }); } catch (err) {}
+                            const modsToUpdate = window.currentSpaceData[`board_mods_${activeQId}`] || {};
+                            if (window.selectedNotes.has(noteId)) {
+                                window.selectedNotes.forEach(id => {
+                                    const n = document.getElementById('note-' + id);
+                                    if (n) {
+                                        modsToUpdate[id] = { 
+                                            ...modsToUpdate[id], 
+                                            x: parseFloat(n.style.left), 
+                                            y: parseFloat(n.style.top)
+                                        };
+                                    }
+                                });
+                            } else {
+                                modsToUpdate[noteId] = { 
+                                    ...modsToUpdate[noteId], 
+                                    x: parseFloat(currentNote.style.left), 
+                                    y: parseFloat(currentNote.style.top)
+                                };
+                            }
+                            try { await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: modsToUpdate }); } catch (err) {}
                         }
+                        return; // 結束拖曳便利貼流程
                     } 
+                    
+                    // ✨ 處理框選與平移的釋放邏輯
+                    let wasMarquee = isMarquee;
+                    if (isMarquee) {
+                        isMarquee = false;
+                        if (typeof canvas.releasePointerCapture === 'function') canvas.releasePointerCapture(e.pointerId);
+                        
+                        const selBox = document.getElementById('board-selection-box');
+                        if (selBox) selBox.classList.add('hidden');
+                        
+                        if (window.selectedNotes.size === 1) {
+                            window.currentActiveNoteId = Array.from(window.selectedNotes)[0];
+                        }
+                    }
                     
                     if (isPanning) {
                         isPanning = false;
-                        canvas.style.cursor = 'grab';
-                    } else if (!e.target.closest('.sticky-note') && !e.target.closest('#board-note-menu') && !e.target.closest('#board-left-toolbar') && !e.target.closest('.draggable-translator') && !e.target.closest('#global-lang-submenu') && !e.target.closest('#btn-global-lang-toggle')) {
+                        if (typeof canvas.releasePointerCapture === 'function') {
+                            canvas.releasePointerCapture(e.pointerId);
+                        }
+                        canvas.style.cursor = 'default'; 
+
+                        // ✨ 智慧判定：如果滑鼠放開時，位置跟按下去時幾乎一樣 (單純點擊而非拖曳平移)
+                        if (Math.abs(e.clientX - startPos.x) < 5 && Math.abs(e.clientY - startPos.y) < 5) {
+                            // 點擊空白處，取消所有選取！
+                            document.getElementById('board-note-menu')?.classList.add('hidden');
+                            document.getElementById('board-note-menu')?.classList.remove('flex');
+                            document.querySelectorAll('.sticky-note').forEach(n => n.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1'));
+                            window.selectedNotes.clear();
+                            window.currentActiveNoteId = null;
+                        }
+                    } else if (!wasMarquee && !e.target.closest('.sticky-note') && !e.target.closest('#board-note-menu') && !e.target.closest('#board-left-toolbar') && !e.target.closest('.draggable-translator') && !e.target.closest('#global-lang-submenu') && !e.target.closest('#btn-global-lang-toggle')) {
+                        // 防呆底線：其他情況下的空白處點擊清除選取
                         document.getElementById('board-note-menu')?.classList.add('hidden');
                         document.getElementById('board-note-menu')?.classList.remove('flex');
                         document.querySelectorAll('.sticky-note').forEach(n => n.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1'));
+                        window.selectedNotes.clear();
+                        window.currentActiveNoteId = null;
                     }
                 });
 
@@ -2130,27 +2492,88 @@ window.launchLiveMode = function(rawData, configs) {
                     document.getElementById('board-note-menu').classList.add('hidden');
                     
                     if (typeof showBoardPrompt === 'function') {
+                        // 🌟 新增：將刪除與圖層邏輯打包傳入
+                        const activeQId = window.currentSpaceData?.currentQuestionData?.id || qId;
+                        const extraOpts = {
+                            onDelete: () => {
+                                showCustomConfirm("刪除點子", "確定要永久刪除？", "確認刪除", "bg-rose-500", async () => {
+                                    const currentMods = window.currentSpaceData[`board_mods_${activeQId}`] || {};
+                                    currentMods[noteId] = { ...currentMods[noteId], deleted: true };
+                                    document.getElementById('note-' + noteId)?.remove();
+                                    await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods });
+                                });
+                            },
+                            onLayer: async (action) => {
+                                const currentMods = window.currentSpaceData[`board_mods_${activeQId}`] || {};
+                                const currentZ = currentMods[noteId]?.z !== undefined ? currentMods[noteId].z : 10;
+                                let newZ = currentZ;
+                                let allZs = allNotes.map(n => {
+                                    const m = currentMods[n.id] || {};
+                                    return m.z !== undefined ? m.z : 10;
+                                });
+                                if (action === 'top') newZ = Math.max(...allZs, 10) + 1;
+                                else if (action === 'bottom') newZ = Math.min(...allZs, 10) - 1;
+                                else if (action === 'up') newZ = currentZ + 1;
+                                else if (action === 'down') newZ = currentZ - 1;
+                                currentMods[noteId] = { ...currentMods[noteId], z: newZ };
+                                await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods });
+                            }
+                        };
+
                         showBoardPrompt("編輯", currentText, currentColor, async (result) => {
                             if (result && result.text) {
                                 const activeQId = window.currentSpaceData?.currentQuestionData?.id || qId;
                                 const currentMods = window.currentSpaceData[`board_mods_${activeQId}`] || {};
-                                currentMods[noteId] = { 
-                                    ...currentMods[noteId], 
-                                    text: result.text,
-                                    color: result.color 
+                                
+                                // ✨ 依據是否勾選批次新增來切分陣列
+                                const texts = result.isBatch ? result.text.split('\n').map(t => t.trim()).filter(t => t) : [result.text];
+                                if (texts.length === 0) return;
+
+                                let colorBag = [];
+                                const getRandomColor = () => {
+                                    if (colorBag.length === 0) colorBag = ['yellow', 'pink', 'blue', 'green'].sort(() => Math.random() - 0.5);
+                                    return colorBag.pop();
                                 };
+
+                                // 1. 更新原本的第一張便利貼
+                                const firstColor = result.color === 'random' ? getRandomColor() : result.color;
+                                currentMods[noteId] = { ...currentMods[noteId], text: texts[0], color: firstColor };
                                 
-                                noteEl.querySelector('.note-text-content').textContent = result.text;
-                                noteEl.dataset.color = result.color;
-                                
+                                // 樂觀更新 UI
+                                noteEl.querySelector('.note-text-content').textContent = texts[0];
+                                noteEl.dataset.color = firstColor;
                                 const bodyEl = noteEl.querySelector('.note-body');
                                 if (bodyEl) {
-                                    bodyEl.className = `note-body relative shadow-sm rounded-sm border transition-shadow group-hover:shadow-lg ${colorMap[result.color] || colorMap['yellow']}`;
-                                    bodyEl.setAttribute('data-first-char', (result.text || '').trim().charAt(0) || '');
+                                    bodyEl.className = `note-body relative shadow-sm rounded-sm border transition-shadow group-hover:shadow-lg ${colorMap[firstColor] || colorMap['yellow']}`;
+                                    bodyEl.setAttribute('data-first-char', (texts[0] || '').trim().charAt(0) || '');
                                 }
 
-                                await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods });                            }
-                        });
+                                // 2. 如果有換行拆解出多張，產生新的便利貼
+                                if (texts.length > 1) {
+                                    const origX = parseFloat(noteEl.style.left) || 100;
+                                    const origY = parseFloat(noteEl.style.top) || 100;
+                                    const origAuthor = noteEl.dataset.author || '老師';
+                                    const baseZ = currentMods[noteId].z !== undefined ? currentMods[noteId].z : 10;
+
+                                    for (let i = 1; i < texts.length; i++) {
+                                        const newNoteId = 'split_' + Date.now() + '_' + i;
+                                        const c = result.color === 'random' ? getRandomColor() : result.color;
+                                        
+                                        currentMods[newNoteId] = { 
+                                            isTeacher: true, 
+                                            text: texts[i], 
+                                            color: c, 
+                                            x: origX + (i % 5) * 30, 
+                                            y: origY + Math.floor(i / 5) * 30 + 30, 
+                                            author: origAuthor,
+                                            z: baseZ + i
+                                        };
+                                    }
+                                }
+
+                                await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods });
+                            }
+                        }, extraOpts);
                     }
                 });
 
@@ -2191,14 +2614,17 @@ window.launchLiveMode = function(rawData, configs) {
                     noteEl.id = 'note-' + note.id;
                     
                     const sizeMode = qData.options?.[5] || 'fixed';
-                    noteEl.setAttribute('data-size', sizeMode);
+                    // 為了向下相容舊資料 (true/false) 所做的轉換
+                    const rawShowAuthor = qData.options?.[2] || 'none';
+                    const mappedShowAuthor = rawShowAuthor === 'true' ? 'always' : (rawShowAuthor === 'false' ? 'none' : rawShowAuthor);
                     
-                    // ✨ 外層只負責絕對定位與透明容器，沒有超出隱藏的限制
-                    noteEl.className = `sticky-note absolute cursor-pointer group`;
+                    noteEl.setAttribute('data-size', sizeMode);
+                    noteEl.setAttribute('data-show-author', mappedShowAuthor);
+                    
+                    const isCollapsedInit = mod.collapsed ? 'is-collapsed' : '';
+                    noteEl.className = `sticky-note absolute cursor-pointer group ${isCollapsedInit}`;
                     noteEl.dataset.id = note.id;
                     noteEl.dataset.author = note.author;
-
-					const showAuthor = qData.options && qData.options[2] === 'true';
                     
                     noteEl.innerHTML = `
                         <div class="note-body relative shadow-sm rounded-sm border transition-shadow group-hover:shadow-lg ${colorMap[note.color] || colorMap['yellow']}">
@@ -2209,17 +2635,11 @@ window.launchLiveMode = function(rawData, configs) {
                             <div class="btn-fold-note" title="收合/展開"></div>
                         </div>
                         
-                        <div class="absolute -bottom-2 -left-2 px-2 py-0.5 bg-gray-800 text-white text-[10px] font-bold rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-[100] note-author-container ${showAuthor ? '' : 'hidden'}">
+                        <div class="absolute -bottom-2 -left-2 px-2 py-0.5 bg-slate-500 text-white text-[10px] font-normal rounded shadow-sm transition-opacity duration-200 pointer-events-none whitespace-nowrap z-[100] note-author-container">
                             <span class="note-author-content"></span>
                         </div>
                     `;
                     contentLayer.appendChild(noteEl);
-                }
-
-                const authorContainer = noteEl.querySelector('.note-author-container');
-                if (authorContainer) {
-                    const showAuthor = qData.options && qData.options[2] === 'true';
-                    authorContainer.classList.toggle('hidden', !showAuthor);
                 }
                 
                 if (noteEl.style.cursor !== 'grabbing' && noteEl !== window.currentResizedNote) {
@@ -2498,21 +2918,23 @@ window.launchLiveMode = function(rawData, configs) {
                             
                             <!-- ✨ 新增：置頂的語文工具按鈕 (點擊觸發) -->
                             <div class="relative flex-shrink-0 z-[200] ml-1 sm:ml-2">
-                                <button id="btn-global-lang-toggle" class="bg-gray-50 hover:bg-teal-50 text-gray-400 hover:text-teal-600 p-1 sm:p-1.5 rounded-lg transition-colors cursor-pointer flex items-center border border-gray-200" title="語文工具">
+                                <button id="btn-global-lang-toggle" onmousedown="event.preventDefault();" class="bg-gray-50 hover:bg-teal-50 text-gray-400 hover:text-teal-600 p-1 sm:p-1.5 rounded-lg transition-colors cursor-pointer flex items-center border border-gray-200" title="語文工具">
                                     <span class="material-symbols-outlined text-[18px] sm:text-[20px]">language</span>
                                 </button>
                                 <div id="global-lang-submenu" class="absolute left-1/2 -translate-x-1/2 top-full mt-2 hidden flex-col gap-1 bg-white border border-gray-200 shadow-xl rounded-xl p-1.5 w-max">
-                                    <button class="ime-toggle-button flex items-center gap-2 px-3 py-2 hover:bg-teal-50 text-gray-700 hover:text-teal-700 rounded-lg text-sm transition-colors font-bold" title="啟用或關閉烏衣行輸入法">
-                                        <span class="material-symbols-outlined text-[18px] pointer-events-none" style="font-variation-settings: 'FILL' 0;">keyboard</span> <span class="pointer-events-none">全域輸入法</span>
-                                    </button>
-                                    <div class="h-px bg-gray-100 my-0.5 mx-2"></div>
-                                    
-                                    <!-- 新增：翻譯系統與拼音轉換按鈕 -->
-                                    <button onclick="document.getElementById('btn-toggle-translator').click()" class="flex items-center gap-2 px-3 py-2 hover:bg-teal-50 text-teal-700 rounded-lg text-sm transition-colors font-bold" title="開啟翻譯系統視窗">
+                                    <button onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('btn-toggle-translator').click(); document.getElementById('global-lang-submenu').classList.add('hidden');" class="flex items-center gap-2 px-3 py-2 hover:bg-teal-50 text-teal-700 rounded-lg text-sm transition-colors font-bold" title="開啟翻譯系統視窗">
                                         <span class="material-symbols-outlined text-[18px]">translate</span> 翻譯系統
                                     </button>
-                                    <button onclick="document.getElementById('btnOpenPinyinTool').click()" class="flex items-center gap-2 px-3 py-2 hover:bg-teal-50 text-teal-700 rounded-lg text-sm transition-colors font-bold" title="開啟拼音轉換視窗">
+                                    <button onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('btnOpenPinyinTool').click(); document.getElementById('global-lang-submenu').classList.add('hidden');" class="flex items-center gap-2 px-3 py-2 hover:bg-teal-50 text-teal-700 rounded-lg text-sm transition-colors font-bold" title="開啟拼音轉換視窗">
                                         <span class="material-symbols-outlined text-[18px]">rotate_auto</span> 拼音轉換
+                                    </button>
+                                    <button class="ime-toggle-button flex items-center gap-2 px-3 py-2 hover:bg-teal-50 text-gray-700 hover:text-teal-700 rounded-lg text-sm transition-colors font-bold !justify-start" title="啟用或關閉烏衣行輸入法">
+                                        <span class="material-symbols-outlined text-[18px] pointer-events-none" style="font-variation-settings: 'FILL' 0;">keyboard</span> <span class="pointer-events-none">烏衣行輸入法</span>
+                                    </button>
+                                    
+                                    <div class="h-px bg-gray-100 my-0.5 mx-2 md:hidden"></div>
+                                    <button onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('btnToggleKeyboardMobile').click(); document.getElementById('global-lang-submenu').classList.add('hidden');" class="flex items-center justify-between gap-2 px-3 py-2 hover:bg-teal-50 text-teal-700 rounded-lg text-sm transition-colors font-bold md:hidden" title="開啟或關閉手機系統鍵盤">
+                                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-[18px]">keyboard_off</span> 開關手機鍵盤</div>
                                     </button>
                                 </div>
                             </div>
@@ -2547,81 +2969,99 @@ window.launchLiveMode = function(rawData, configs) {
                     ${currentQIndex >= 0 ? (() => {
                         const prefs = JSON.parse(localStorage.getItem('live_display_prefs') || '{"q":"base", "c":"base"}');
                         return `
-                        <div id="live-settings-menu" class="hidden absolute top-14 right-2 sm:right-10 w-72 bg-white border border-gray-200 rounded-xl shadow-2xl z-[5100] flex-col overflow-hidden">
+                        <div id="live-settings-menu" class="hidden absolute top-14 right-2 sm:right-10 w-72 max-h-[85vh] bg-white border border-gray-200 rounded-xl shadow-2xl z-[5100] flex-col overflow-hidden">
                             
-                            <div class="p-4 bg-gray-50/50">
-                                <span class="text-xs font-extrabold text-teal-800 mb-3 flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">text_fields</span> 顯示設定 (僅限本機)</span>
-                                
-                                <div class="flex items-center justify-between mb-2.5">
-                                    <span class="text-[11px] font-bold text-gray-500">題目大小</span>
-                                    <div class="flex bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm">
-                                        <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs border-r border-gray-200 ${prefs.q === 'base' ? 'bg-teal-50 text-teal-700' : ''}" data-target="q" data-val="base">本</button>
-                                        <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs border-r border-gray-200 ${prefs.q === 'md' ? 'bg-teal-50 text-teal-700' : ''}" data-target="q" data-val="md">中</button>
-                                        <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs border-r border-gray-200 ${prefs.q === 'lg' ? 'bg-teal-50 text-teal-700' : ''}" data-target="q" data-val="lg">大</button>
-                                        <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs ${prefs.q === 'xl' ? 'bg-teal-50 text-teal-700' : ''}" data-target="q" data-val="xl">巨</button>
+                            <div class="flex-1 overflow-y-auto scrollbar-thin flex flex-col">
+                                <div class="p-4 bg-gray-50/50 flex-shrink-0">
+                                    <span class="text-xs font-extrabold text-teal-800 mb-3 flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">text_fields</span> 顯示設定 (僅限本機)</span>
+                                    
+                                    <div class="flex items-center justify-between mb-2.5">
+                                        <span class="text-[11px] font-bold text-gray-500">題目大小</span>
+                                        <div class="flex bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm">
+                                            <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs border-r border-gray-200 ${prefs.q === 'base' ? 'bg-teal-50 text-teal-700' : ''}" data-target="q" data-val="base">本</button>
+                                            <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs border-r border-gray-200 ${prefs.q === 'md' ? 'bg-teal-50 text-teal-700' : ''}" data-target="q" data-val="md">中</button>
+                                            <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs border-r border-gray-200 ${prefs.q === 'lg' ? 'bg-teal-50 text-teal-700' : ''}" data-target="q" data-val="lg">大</button>
+                                            <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs ${prefs.q === 'xl' ? 'bg-teal-50 text-teal-700' : ''}" data-target="q" data-val="xl">巨</button>
+                                        </div>
                                     </div>
-                                </div>
-                                
-                                <div class="flex items-center justify-between">
-                                    <span class="text-[11px] font-bold text-gray-500">內容大小</span>
-                                    <div class="flex bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm">
-                                        <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs border-r border-gray-200 ${prefs.c === 'base' ? 'bg-teal-50 text-teal-700' : ''}" data-target="c" data-val="base">本</button>
-                                        <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs border-r border-gray-200 ${prefs.c === 'md' ? 'bg-teal-50 text-teal-700' : ''}" data-target="c" data-val="md">中</button>
-                                        <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs border-r border-gray-200 ${prefs.c === 'lg' ? 'bg-teal-50 text-teal-700' : ''}" data-target="c" data-val="lg">大</button>
-                                        <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs ${prefs.c === 'xl' ? 'bg-teal-50 text-teal-700' : ''}" data-target="c" data-val="xl">巨</button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            ${['文字', '問答', '白板'].includes(qData.type) ? `
-                            <div class="p-4 border-t border-gray-200 bg-white">
-                                <span class="text-xs font-extrabold text-teal-800 mb-3 flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">rule</span> 參與規則 (針對此題)</span>
-                                
-                                <div>
-                                    <span class="text-[11px] font-bold text-gray-400 mb-1.5 block">每人次數上限</span>
-                                    <div class="flex gap-1" id="live-limit-btns">
-                                        ${[1, 2, 3, 0].map(v => `<button class="flex-1 py-1.5 rounded text-xs font-bold border transition-colors ${parseQuestionLimit(qData)===v ? 'bg-teal-50 border-teal-500 text-teal-700 active-limit' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}" data-val="${v}">${v===0?'不限':v}</button>`).join('')}
-                                    </div>
-                                </div>
-                                ${qData.type === '文字' ? `
-                                <div class="flex items-center justify-between pt-3 mt-2 border-t border-gray-100">
-                                    <span class="text-[11px] font-bold text-gray-400">允許重複詞</span>
-                                    <label class="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" id="live-allow-dup" class="sr-only peer" ${qData.options && qData.options[1] === 'true' ? 'checked' : ''}>
-                                        <div class="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
-                                    </label>
-                                </div>
-                                ` : ''}
-                                ${qData.type === '白板' ? `
-                                <div class="flex flex-col gap-3 pt-3 mt-2 border-t border-gray-100">
+                                    
                                     <div class="flex items-center justify-between">
-                                        <span class="text-[11px] font-bold text-gray-400">顯示便利貼作者</span>
+                                        <span class="text-[11px] font-bold text-gray-500">內容大小</span>
+                                        <div class="flex bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm">
+                                            <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs border-r border-gray-200 ${prefs.c === 'base' ? 'bg-teal-50 text-teal-700' : ''}" data-target="c" data-val="base">本</button>
+                                            <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs border-r border-gray-200 ${prefs.c === 'md' ? 'bg-teal-50 text-teal-700' : ''}" data-target="c" data-val="md">中</button>
+                                            <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs border-r border-gray-200 ${prefs.c === 'lg' ? 'bg-teal-50 text-teal-700' : ''}" data-target="c" data-val="lg">大</button>
+                                            <button class="btn-font-scale px-3 py-1 hover:bg-gray-50 text-gray-600 font-bold text-xs ${prefs.c === 'xl' ? 'bg-teal-50 text-teal-700' : ''}" data-target="c" data-val="xl">巨</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                ${['文字', '問答', '白板'].includes(qData.type) ? `
+                                <div class="p-4 border-t border-gray-200 bg-white flex-shrink-0">
+                                    <span class="text-xs font-extrabold text-teal-800 mb-3 flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">rule</span> 參與規則 (針對此題)</span>
+                                    
+                                    <div>
+                                        <span class="text-[11px] font-bold text-gray-400 mb-1.5 block">每人次數上限</span>
+                                        <div class="flex gap-1" id="live-limit-btns">
+                                            ${[1, 2, 3, 0].map(v => `<button class="flex-1 py-1.5 rounded text-xs font-bold border transition-colors ${parseQuestionLimit(qData)===v ? 'bg-teal-50 border-teal-500 text-teal-700 active-limit' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}" data-val="${v}">${v===0?'不限':v}</button>`).join('')}
+                                        </div>
+                                    </div>
+                                    ${qData.type === '文字' ? `
+                                    <div class="flex items-center justify-between pt-3 mt-2 border-t border-gray-100">
+                                        <span class="text-[11px] font-bold text-gray-400">允許重複詞</span>
                                         <label class="relative inline-flex items-center cursor-pointer">
-                                            <input type="checkbox" id="live-show-author" class="sr-only peer" ${qData.options && qData.options[2] === 'true' ? 'checked' : ''}>
+                                            <input type="checkbox" id="live-allow-dup" class="sr-only peer" ${qData.options && qData.options[1] === 'true' ? 'checked' : ''}>
                                             <div class="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
                                         </label>
                                     </div>
-                                    <div class="flex items-center justify-between pt-1">
-                                        <span class="text-[11px] font-bold text-gray-400">雙擊便利貼動作</span>
-                                        <select id="live-dblclick-action" class="bg-gray-50 border border-gray-200 text-gray-700 text-[11px] rounded px-2 py-1 outline-none focus:border-teal-400">
-                                            <option value="edit" ${(!qData.options || qData.options[4] !== 'stick') ? 'selected' : ''}>編輯內容 (預設)</option>
-                                            <option value="stick" ${qData.options && qData.options[4] === 'stick' ? 'selected' : ''}>隨游標黏貼</option>
-                                        </select>
+                                    ` : ''}
+                                    ${qData.type === '白板' ? `
+                                    <div class="flex flex-col gap-3 pt-3 mt-2 border-t border-gray-100">
+                                        <div class="flex items-center justify-between pt-1">
+                                            <span class="text-[11px] font-bold text-gray-400">顯示便利貼作者</span>
+                                            <select id="live-show-author" class="bg-gray-50 border border-gray-200 text-gray-700 text-[11px] rounded px-2 py-1 outline-none focus:border-teal-400">
+                                                <option value="none" ${(!qData.options || qData.options[2] === 'none' || qData.options[2] === 'false') ? 'selected' : ''}>不顯示 (預設)</option>
+                                                <option value="hover" ${qData.options && qData.options[2] === 'hover' ? 'selected' : ''}>選取顯示</option>
+                                                <option value="always" ${qData.options && (qData.options[2] === 'always' || qData.options[2] === 'true') ? 'selected' : ''}>一律顯示</option>
+                                            </select>
+                                        </div>
+                                        <div class="flex items-center justify-between pt-1">
+                                            <span class="text-[11px] font-bold text-gray-400">顯示便利貼工具</span>
+                                            <label class="relative inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" id="live-show-toolbar" class="sr-only peer" ${qData.options && qData.options[3] === 'true' ? 'checked' : ''}>
+                                                <div class="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
+                                            </label>
+                                        </div>
+                                        <div class="flex items-center justify-between pt-1">
+                                            <span class="text-[11px] font-bold text-gray-400">雙擊便利貼動作</span>
+                                            <select id="live-dblclick-action" class="bg-gray-50 border border-gray-200 text-gray-700 text-[11px] rounded px-2 py-1 outline-none focus:border-teal-400">
+                                                <option value="edit" ${(!qData.options || qData.options[4] !== 'stick') ? 'selected' : ''}>編輯內容 (預設)</option>
+                                                <option value="stick" ${qData.options && qData.options[4] === 'stick' ? 'selected' : ''}>隨游標黏貼</option>
+                                            </select>
+                                        </div>
+                                        <div class="flex items-center justify-between pt-1">
+                                            <span class="text-[11px] font-bold text-gray-400">便利貼尺寸模式</span>
+                                            <select id="live-size-mode" class="bg-gray-50 border border-gray-200 text-gray-700 text-[11px] rounded px-2 py-1 outline-none focus:border-teal-400">
+                                                <option value="fixed" ${(!qData.options || qData.options[5] === 'fixed') ? 'selected' : ''}>固定尺寸 (140x140)</option>
+                                                <option value="auto" ${qData.options && qData.options[5] === 'auto' ? 'selected' : ''}>自動貼合 (緊湊)</option>
+                                                <option value="resize" ${qData.options && qData.options[5] === 'resize' ? 'selected' : ''}>手動調整 (自由拉伸)</option>
+                                            </select>
+                                        </div>
+                                        <div class="flex items-center justify-between pt-1">
+                                            <span class="text-[11px] font-bold text-gray-400">畫布背景</span>
+                                            <select id="live-board-bg" class="bg-gray-50 border border-gray-200 text-gray-700 text-[11px] rounded px-2 py-1 outline-none focus:border-teal-400">
+                                                <option value="dots" ${(!qData.options || qData.options[6] !== 'solid') ? 'selected' : ''}>點狀網格 (預設)</option>
+                                                <option value="solid" ${qData.options && qData.options[6] === 'solid' ? 'selected' : ''}>純色背景</option>
+                                            </select>
+                                        </div>
                                     </div>
-                                    <div class="flex items-center justify-between pt-1">
-                                        <span class="text-[11px] font-bold text-gray-400">便利貼尺寸模式</span>
-                                        <select id="live-size-mode" class="bg-gray-50 border border-gray-200 text-gray-700 text-[11px] rounded px-2 py-1 outline-none focus:border-teal-400">
-                                            <option value="fixed" ${(!qData.options || qData.options[5] === 'fixed') ? 'selected' : ''}>固定尺寸 (140x140)</option>
-                                            <option value="auto" ${qData.options && qData.options[5] === 'auto' ? 'selected' : ''}>自動貼合 (緊湊)</option>
-                                            <option value="resize" ${qData.options && qData.options[5] === 'resize' ? 'selected' : ''}>手動調整 (自由拉伸)</option>
-                                        </select>
-                                    </div>
+                                    ` : ''}
                                 </div>
                                 ` : ''}
                             </div>
-                            ` : ''}
                             
-                            <div class="p-3 border-t border-gray-100 bg-gray-50/50 mt-auto">
+                            <!-- 底部按鈕區 (固定在最下方不跟隨滾動) -->
+                            <div class="p-3 border-t border-gray-100 bg-gray-50/50 mt-auto flex-shrink-0 z-10">
                                 <button id="btn-clear-results" class="w-full flex items-center justify-center gap-1.5 bg-white hover:bg-rose-50 text-rose-500 font-bold border border-rose-200 rounded-lg px-3 py-2 transition-colors cursor-pointer text-xs shadow-sm">
                                     <span class="material-symbols-outlined text-[16px]">delete_sweep</span> 清除所有作答紀錄
                                 </button>
@@ -2798,7 +3238,8 @@ window.launchLiveMode = function(rawData, configs) {
             if (cArea) cArea.setAttribute('data-font-size', prefs.c);
         };
 
-        // ✨ 語文工具選單開關邏輯
+        // 【新的程式碼】
+        // ✨ 語文工具選單開關邏輯 (修復事件重複綁定問題)
         const btnLangToggle = document.getElementById('btn-global-lang-toggle');
         const langSubmenu = document.getElementById('global-lang-submenu');
         if (btnLangToggle && langSubmenu) {
@@ -2807,12 +3248,20 @@ window.launchLiveMode = function(rawData, configs) {
                 langSubmenu.classList.toggle('hidden');
                 langSubmenu.classList.toggle('flex');
             });
-            document.addEventListener('click', (e) => {
-                if (!langSubmenu.contains(e.target) && e.target !== btnLangToggle) {
-                    langSubmenu.classList.add('hidden');
-                    langSubmenu.classList.remove('flex');
-                }
-            });
+            
+            // 使用全域標記，確保這個監聽器在整個生命週期中只綁定一次
+            if (!window._liveLangMenuHandler) {
+                window._liveLangMenuHandler = (e) => {
+                    // 動態重新抓取 DOM，確保切換題目後仍能抓到最新的選單元素
+                    const currentSubmenu = document.getElementById('global-lang-submenu');
+                    const currentBtn = document.getElementById('btn-global-lang-toggle');
+                    if (currentSubmenu && currentBtn && !currentSubmenu.contains(e.target) && e.target !== currentBtn) {
+                        currentSubmenu.classList.add('hidden');
+                        currentSubmenu.classList.remove('flex');
+                    }
+                };
+                document.addEventListener('click', window._liveLangMenuHandler);
+            }
         }
 
         // ✨ 確保上方工具列的新按鈕能順利綁定輸入法功能
@@ -2857,12 +3306,13 @@ window.launchLiveMode = function(rawData, configs) {
                 const allowDup = settingsMenu.querySelector('#live-allow-dup')?.checked ? 'true' : 'false';
                 
                 // ✨ 抓取所有最新設定
-                const showAuthor = settingsMenu.querySelector('#live-show-author') ? (settingsMenu.querySelector('#live-show-author').checked ? 'true' : 'false') : (qData.options?.[2] || 'false');
-                const showToolbar = settingsMenu.querySelector('#live-show-toolbar') ? (settingsMenu.querySelector('#live-show-toolbar').checked ? 'true' : 'false') : (qData.options?.[3] || 'true');
+                const showAuthor = settingsMenu.querySelector('#live-show-author') ? settingsMenu.querySelector('#live-show-author').value : (qData.options?.[2] || 'none');
+                const showToolbar = settingsMenu.querySelector('#live-show-toolbar') ? (settingsMenu.querySelector('#live-show-toolbar').checked ? 'true' : 'false') : (qData.options?.[3] || 'false');
                 const dblClickAction = settingsMenu.querySelector('#live-dblclick-action') ? settingsMenu.querySelector('#live-dblclick-action').value : (qData.options?.[4] || 'edit');
                 const sizeMode = settingsMenu.querySelector('#live-size-mode') ? settingsMenu.querySelector('#live-size-mode').value : (qData.options?.[5] || 'fixed');
+                const bgMode = settingsMenu.querySelector('#live-board-bg') ? settingsMenu.querySelector('#live-board-bg').value : (qData.options?.[6] || 'dots');
 
-                const newOptions = [newLimit, allowDup, showAuthor, showToolbar, dblClickAction, sizeMode];
+                const newOptions = [newLimit, allowDup, showAuthor, showToolbar, dblClickAction, sizeMode, bgMode];
                 
                 // 1. 更新本機變數
                 qData.options = newOptions;
@@ -2871,11 +3321,18 @@ window.launchLiveMode = function(rawData, configs) {
                 // 2. ✨ 樂觀更新：立即套用到所有畫面上已存在的便利貼 (尺寸與作者顯示)
                 document.querySelectorAll('.sticky-note').forEach(el => {
                     el.setAttribute('data-size', sizeMode);
-                    const authorTag = el.querySelector('.note-author-container');
-                    if (authorTag) {
-                        authorTag.classList.toggle('hidden', showAuthor !== 'true');
-                    }
+                    el.setAttribute('data-show-author', showAuthor);
                 });
+                
+                // ✨ 樂觀更新背景：即時切換網格與純色
+                const canvasEl = document.getElementById('whiteboard-canvas');
+                if (canvasEl) {
+                    if (bgMode === 'solid') {
+                        canvasEl.classList.remove('bg-[radial-gradient(#D5D5D5_1px,transparent_1px)]');
+                    } else {
+                        canvasEl.classList.add('bg-[radial-gradient(#D5D5D5_1px,transparent_1px)]');
+                    }
+                }
                 
                 // 3. 強制執行一次渲染更新，確保其他細節 (如工具列狀態) 同步
                 updateTeacherCharts(); 
@@ -2899,6 +3356,7 @@ window.launchLiveMode = function(rawData, configs) {
             document.getElementById('live-show-toolbar')?.addEventListener('change', updateSettings);
             document.getElementById('live-dblclick-action')?.addEventListener('change', updateSettings);
             document.getElementById('live-size-mode')?.addEventListener('change', updateSettings);
+			document.getElementById('live-board-bg')?.addEventListener('change', updateSettings);
         }
 
         // 初始化套用文字大小
