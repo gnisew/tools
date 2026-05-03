@@ -90,16 +90,31 @@ window.launchLiveMode = function(rawData, configs) {
         (container && container.style.display !== 'none' ? container : document.body).appendChild(modal);
         setTimeout(() => { modal.classList.remove('opacity-0'); modal.querySelector('div').classList.remove('scale-95'); }, 10);
 
+        // 🌟 新增：專屬的鍵盤監聽器，支援 Enter 確認與 Esc 取消
+        const handleModalKeydown = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault(); // 阻擋預設行為（避免觸發底下其他元素的點擊）
+                close();
+                onConfirm();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                close();
+            }
+        };
+        document.addEventListener('keydown', handleModalKeydown);
+
         const close = () => {
+            document.removeEventListener('keydown', handleModalKeydown);
             modal.classList.add('opacity-0'); modal.querySelector('div').classList.add('scale-95');
             setTimeout(() => modal.remove(), 200);
         };
+        
         modal.querySelector('#btn-confirm-close-x').addEventListener('click', close);
         modal.querySelector('#btn-confirm-cancel').addEventListener('click', close);
         modal.querySelector('#btn-confirm-ok').addEventListener('click', () => { close(); onConfirm(); });
     }
 
-	// 💡 新增：加入 extraOptions 參數
+
     function showBoardPrompt(title, defaultText, defaultColor = 'yellow', onConfirm, extraOptions = null) {
         const modalId = "live-board-prompt";
         if (document.getElementById(modalId)) document.getElementById(modalId).remove();
@@ -143,7 +158,6 @@ window.launchLiveMode = function(rawData, configs) {
                     </label>
                     
                     <div class="flex gap-2 items-center">
-                        <!-- 🌟 新增：隱藏的刪除與圖層工具區 -->
                         <div id="prompt-extra-actions" class="hidden flex items-center gap-1 mr-1 border-r border-gray-200 pr-2">
                             <div class="relative">
                                 <button id="btn-prompt-layer" class="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 rounded-md transition-colors" title="圖層順序"><span class="material-symbols-outlined text-[18px]">layers</span></button>
@@ -194,6 +208,11 @@ window.launchLiveMode = function(rawData, configs) {
         const input = modal.querySelector('#prompt-input');
         input.focus();
         input.setSelectionRange(input.value.length, input.value.length);
+
+        if (typeof defaultText === 'string' && defaultText.includes('\n')) {
+            const batchToggle = modal.querySelector('#prompt-batch-toggle');
+            if (batchToggle) batchToggle.checked = true;
+        }
 
         modal.querySelectorAll('.color-opt').forEach(opt => {
             opt.addEventListener('click', (e) => {
@@ -1723,10 +1742,11 @@ window.launchLiveMode = function(rawData, configs) {
                     }
                 };
 
-                window.addTeacherNote = () => {
+                window.addTeacherNote = (defaultText = "") => {
                     if (typeof showBoardPrompt === 'function') {
+                        const initText = typeof defaultText === 'string' ? defaultText : "";
                         // 預設選擇 'random'
-                        showBoardPrompt("新增", "", "random", async (result) => {
+                        showBoardPrompt("新增", initText, "random", async (result) => {
                             if (result && result.text) {
                                 const currentMods = window.currentSpaceData[`board_mods_${qId}`] || {};
                                 
@@ -2526,18 +2546,141 @@ window.launchLiveMode = function(rawData, configs) {
 
                 window.updateBoardView(); 
 
-                document.getElementById('btn-bm-delete').addEventListener('click', () => {
-                    const noteId = window.currentActiveNoteId;
-                    showCustomConfirm("刪除點子", "確定要永久刪除？", "確認刪除", "bg-rose-500", async () => {
-                        // ✨ 修正：動態取得目前的題目 ID，解決切換白板題目時的錯位問題
+                // ✨ 獨立出刪除邏輯，讓按鈕與鍵盤 Delete 鍵共用，並完美支援「多選刪除」
+                const deleteSelectedNotes = () => {
+                    if (!window.selectedNotes || window.selectedNotes.size === 0) return;
+                    
+                    const count = window.selectedNotes.size;
+                    const msg = count > 1 ? `確定要永久刪除這 ${count} 個點子嗎？` : "確定要永久刪除？";
+
+                    // 🌟 關鍵修復：先將要刪除的 ID 存下來，避免點擊確認視窗時觸發「點擊空白處取消選取」的防呆機制，導致名單被清空
+                    const notesToDelete = Array.from(window.selectedNotes);
+
+                    showCustomConfirm("刪除點子", msg, "確認刪除", "bg-rose-500", async () => {
                         const activeQId = window.currentSpaceData?.currentQuestionData?.id || qId;
                         const currentMods = window.currentSpaceData[`board_mods_${activeQId}`] || {};
-                        currentMods[noteId] = { ...currentMods[noteId], deleted: true };
-                        document.getElementById('board-note-menu').classList.add('hidden');
-                        document.getElementById('note-' + noteId)?.remove();
+                        
+                        // 批次標記刪除並移除 DOM，使用剛才備份的名單
+                        notesToDelete.forEach(noteId => {
+                            currentMods[noteId] = { ...currentMods[noteId], deleted: true };
+                            document.getElementById('note-' + noteId)?.remove();
+                        });
+                        
+                        document.getElementById('board-note-menu')?.classList.add('hidden');
+                        window.selectedNotes.clear();
+                        window.currentActiveNoteId = null;
+                        
                         await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods });
                     });
-                });
+                };
+
+                // 1. 綁定原本的垃圾桶按鈕
+                document.getElementById('btn-bm-delete').addEventListener('click', deleteSelectedNotes);
+
+                // 2. ✨ 新增：鍵盤 Delete / Backspace 刪除支援
+                if (window.boardKeydownHandler) {
+                    document.removeEventListener('keydown', window.boardKeydownHandler);
+                }
+                window.boardKeydownHandler = (e) => {
+                    // 若按下的不是 Delete 或 Backspace，不處理
+                    if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+                    
+                    // 確保白板正在畫面上
+                    if (!document.getElementById('board-wrapper-main')) return;
+
+                    // 防呆 1：若焦點在輸入框內，讓使用者正常刪除文字，不觸發便利貼刪除
+                    const activeEl = document.activeElement;
+                    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
+                    
+                    // 防呆 2：若有跳出的對話框 (如確認刪除視窗、編輯視窗)，避免誤觸連刪
+                    if (document.getElementById('live-confirm-modal') || document.getElementById('live-board-prompt')) return;
+
+                    deleteSelectedNotes();
+                };
+                document.addEventListener('keydown', window.boardKeydownHandler);
+
+                // 3. ✨ 新增：白板的專屬 Copy (複製) 事件
+                if (window.boardCopyHandler) document.removeEventListener('copy', window.boardCopyHandler);
+                window.boardCopyHandler = (e) => {
+                    if (!document.getElementById('board-wrapper-main')) return;
+                    
+                    // 若焦點在輸入框內，或有反白文字，交給瀏覽器原生處理
+                    const activeEl = document.activeElement;
+                    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
+                    if (window.getSelection().toString().length > 0) return; 
+
+                    if (window.selectedNotes && window.selectedNotes.size > 0) {
+                        e.preventDefault(); // 攔截預設複製
+                        const texts = Array.from(window.selectedNotes).map(id => {
+                            const note = document.getElementById('note-' + id);
+                            return note ? note.querySelector('.note-text-content').textContent : '';
+                        }).filter(t => t);
+                        
+                        if (texts.length > 0) {
+                            e.clipboardData.setData('text/plain', texts.join('\n'));
+                            if (typeof showToast === 'function') showToast(`✅ 已複製 ${texts.length} 個點子`);
+                        }
+                    }
+                };
+                document.addEventListener('copy', window.boardCopyHandler);
+
+                // 4. ✨ 新增：白板的專屬 Paste (智慧貼上) 事件
+                if (window.boardPasteHandler) document.removeEventListener('paste', window.boardPasteHandler);
+                window.boardPasteHandler = async (e) => {
+                    if (!document.getElementById('board-wrapper-main')) return;
+                    
+                    // 若焦點在輸入框內，交給瀏覽器原生處理
+                    const activeEl = document.activeElement;
+                    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
+
+                    const rawText = (e.originalEvent || e).clipboardData.getData('text/plain');
+                    if (!rawText) return;
+
+                    e.preventDefault(); // 攔截預設貼上
+                    
+                    // 消除跨平台與 Excel 複製帶來的雜訊與尾部空行
+                    let text = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimEnd();
+                    if (text.includes('\n\n') && text.split('\n\n').join('').indexOf('\n') === -1) {
+                        text = text.replace(/\n\n/g, '\n');
+                    }
+
+                    if (text.includes('\n')) {
+                        // 🌟 情境 A：包含多行 -> 開啟新增視窗，讓使用者有機會編修
+                        if (typeof window.addTeacherNote === 'function') window.addTeacherNote(text);
+                    } else {
+                        // 🌟 情境 B：單行文字 -> 直接在畫面正中央建立一張便利貼
+                        const activeQId = window.currentSpaceData?.currentQuestionData?.id || qId;
+                        const currentMods = window.currentSpaceData[`board_mods_${activeQId}`] || {};
+                        
+                        const colors = ['yellow', 'pink', 'blue', 'green'];
+                        const c = colors[Math.floor(Math.random() * colors.length)];
+                        
+                        // 計算出目前畫布視野的正中央
+                        const canvas = document.getElementById('whiteboard-canvas');
+                        const cRect = canvas.getBoundingClientRect();
+                        const centerX = (cRect.width / 2 - window.boardPan.x) / window.boardZoom;
+                        const centerY = (cRect.height / 2 - window.boardPan.y) / window.boardZoom;
+                        
+                        const noteId = 'teacher_' + Date.now() + '_0';
+                        
+                        let allZs = Object.values(currentMods).map(m => m.z || 10);
+                        let maxZ = allZs.length > 0 ? Math.max(...allZs) : 10;
+                        
+                        currentMods[noteId] = { 
+                            isTeacher: true, 
+                            text: text, 
+                            color: c, 
+                            x: centerX - 70, 
+                            y: centerY - 70, 
+                            author: '老師',
+                            z: maxZ + 1
+                        };
+                        
+                        await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods });
+                        if (typeof showToast === 'function') showToast('✅ 已貼上新點子');
+                    }
+                };
+                document.addEventListener('paste', window.boardPasteHandler);
 
                 document.getElementById('btn-bm-edit').addEventListener('click', () => {
                     const noteId = window.currentActiveNoteId;
