@@ -1589,16 +1589,16 @@ window.launchLiveMode = function(rawData, configs) {
                         <div class="w-full flex-1 relative bg-[#F4F4F4] overflow-hidden shadow-[inset_0_2px_10px_rgba(0,0,0,0.02)] ${(!qData.options || qData.options[6] !== 'solid') ? 'bg-[radial-gradient(#D5D5D5_1px,transparent_1px)]' : ''}" id="whiteboard-canvas" style="cursor: grab; touch-action: none; background-size: 24px 24px;">
                             
                             <div class="absolute top-4 left-4 sm:left-6 z-[110] select-none">
-                                <div id="board-floating-header" class="bg-white/95 backdrop-blur-sm border border-gray-200 px-4 py-2 rounded-xl shadow-sm flex items-center gap-2 max-w-[300px] sm:max-w-[500px] transition-all">
+                                <div id="board-floating-header" onclick="window.toggleBoardHeader()" class="bg-white/95 backdrop-blur-sm border border-gray-200 px-4 py-2 rounded-xl shadow-sm flex items-center gap-2 max-w-[300px] sm:max-w-[500px] transition-all cursor-pointer pointer-events-auto hover:bg-gray-50">
                                     <span class="material-symbols-outlined text-teal-500 text-[20px] flex-shrink-0">sticky_note_2</span>
                                     <div id="board-header-text" class="font-extrabold text-teal-900 truncate text-sm sm:text-base ${window.isBoardHeaderCollapsed ? 'hidden' : ''} scalable-q-text">
                                         ${escapeHtml(qData.question)}
                                     </div>
-                                    <button onclick="window.toggleBoardHeader()" class="p-0.5 hover:bg-gray-100 rounded text-gray-400 cursor-pointer pointer-events-auto flex items-center">
+                                    <div class="p-0.5 text-gray-400 flex items-center">
                                         <span id="board-header-toggle-icon" class="material-symbols-outlined text-[18px]">
                                             ${window.isBoardHeaderCollapsed ? 'keyboard_arrow_right' : 'keyboard_arrow_left'}
                                         </span>
-                                    </button>
+                                    </div>
                                 </div>
                             </div>
 
