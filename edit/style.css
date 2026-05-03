@@ -92,6 +92,7 @@ table#data-table td {
     vertical-align: top; 
     transition: none; /* 移除背景色漸變，讓選取反應零延遲 */
     overflow: hidden; 
+    height: 1px;
 }
 table#data-table th { 
     border-right: 1px solid #cbd5e1; 
@@ -132,6 +133,8 @@ table#data-table th.sticky-corner { position: sticky; top: 0; left: 0; z-index: 
 .td-inner {
     padding: 0.5rem 0; /* 左右 padding 交由 td 處理 */
     min-height: calc(var(--editor-line-height) * 1em + 1rem); 
+    height: 100%;
+    cursor: text;
     outline: none;
     white-space: var(--table-white-space);
     word-break: break-all;
