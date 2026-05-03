@@ -277,7 +277,7 @@ window.launchLiveMode = function(rawData, configs) {
             #live-sidebar-wrapper.animate-width { transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
             #live-sidebar-wrapper.collapsed { width: 0 !important; border: none; pointer-events: none; }
             @media (max-width: 768px) {
-                #live-sidebar-wrapper { position: absolute; height: 100%; z-index: 50; box-shadow: 4px 0 25px rgba(0,0,0,0.15); width: 280px !important; left: 0; top: 0; transform: translateX(0); opacity: 1; }
+                #live-sidebar-wrapper { position: absolute; height: 100%; z-index: 6010; box-shadow: 4px 0 25px rgba(0,0,0,0.15); width: 280px !important; left: 0; top: 0; transform: translateX(0); opacity: 1; }
                 #live-sidebar-wrapper.collapsed { transform: translateX(-100%); opacity: 0; }
                 #live-sidebar-resizer { display: none !important; }
             }
@@ -285,10 +285,10 @@ window.launchLiveMode = function(rawData, configs) {
             [data-font-size="md"] .scalable-text { font-size: 125% !important; line-height: 1.3; }
             [data-font-size="lg"] .scalable-text { font-size: 155% !important; line-height: 1.4; }
             [data-font-size="xl"] .scalable-text { font-size: 185% !important; line-height: 1.45; }
-            [data-font-size="base"] .scalable-q-text { font-size: 1.25rem !important; }
-            [data-font-size="md"] .scalable-q-text { font-size: 1.5rem !important; }
-            [data-font-size="lg"] .scalable-q-text { font-size: 1.875rem !important; }
-            [data-font-size="xl"] .scalable-q-text { font-size: 2.25rem !important; }
+            [data-font-size="base"] .scalable-q-text { font-size: 1.25rem !important; line-height: 1.35 !important; }
+            [data-font-size="md"] .scalable-q-text { font-size: 1.5rem !important; line-height: 1.35 !important; }
+            [data-font-size="lg"] .scalable-q-text { font-size: 1.875rem !important; line-height: 1.35 !important; }
+            [data-font-size="xl"] .scalable-q-text { font-size: 2.25rem !important; line-height: 1.35 !important; }
 
             .note-scroll { 
                 overflow-y: auto; 
@@ -1603,14 +1603,14 @@ window.launchLiveMode = function(rawData, configs) {
                             </div>
 
 							<div id="board-left-toolbar" class="absolute left-4 sm:left-6 top-1/2 transform -translate-y-1/2 bg-white/95 backdrop-blur-sm rounded-xl shadow-md border border-gray-200 flex flex-col p-1.5 gap-1.5 z-[120] select-none">
-								<!-- ✨ 新增：框選/多選切換按鈕 (模擬 Shift 鍵) -->
 								<button id="btn-board-multiselect" class="p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 rounded-lg cursor-pointer transition-colors" title="啟用框選與多選模式"><span class="material-symbols-outlined text-[20px] block">tab_unselected</span></button>
-								<div class="w-6 h-px bg-gray-200 mx-auto my-0.5"></div>
+                                <button id="btn-board-panmode" class="p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 rounded-lg cursor-pointer transition-colors" title="純檢視/平移模式 (防誤觸)"><span class="material-symbols-outlined text-[20px] block">pan_tool</span></button>
+
 								<button class="p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 rounded-lg cursor-pointer transition-colors" title="新增老師便利貼" onclick="window.addTeacherNote()"><span class="material-symbols-outlined text-[20px] block">add_box</span></button>
 								<button class="p-2 text-gray-500 hover:bg-rose-50 hover:text-rose-600 rounded-lg cursor-pointer transition-colors" title="清空畫布" onclick="window.clearBoardNotes()"><span class="material-symbols-outlined text-[20px] block">delete_sweep</span></button>
 							</div>
 
-                            <div class="absolute bottom-4 right-4 sm:right-6 z-[120] flex items-center gap-1 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl p-1 shadow-md select-none">
+                            <div class="absolute bottom-20 sm:bottom-6 right-4 sm:right-6 z-[120] flex items-center gap-1 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl p-1 shadow-md select-none">
                                 <button onclick="window.updateBoardZoom(-0.1)" class="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 cursor-pointer transition-colors"><span class="material-symbols-outlined text-[20px]">remove</span></button>
                                 <span id="board-zoom-val" class="text-xs font-black text-gray-600 min-w-[45px] text-center">${Math.round(window.boardZoom * 100)}%</span>
                                 <button onclick="window.updateBoardZoom(0.1)" class="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 cursor-pointer transition-colors"><span class="material-symbols-outlined text-[20px]">add</span></button>
@@ -1683,9 +1683,9 @@ window.launchLiveMode = function(rawData, configs) {
                     window.isBoardMaximized = !window.isBoardMaximized;
                     const canvasEl = document.getElementById('whiteboard-canvas');
                     const icon = document.getElementById('board-max-icon');
-                    
                     const sidebar = document.getElementById('live-sidebar-wrapper');
                     const btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
+                    const contentArea = document.getElementById('live-content-area'); // 🌟 新增：取得外層容器
                     
                     if (window.isBoardMaximized) {
                         window.tempHadSidebarOpen = window.isLiveSidebarOpen;
@@ -1697,14 +1697,22 @@ window.launchLiveMode = function(rawData, configs) {
                         
                         // 拔除相對定位，直接套用固定滿版
                         canvasEl.classList.remove('relative', 'flex-1');
-                        canvasEl.classList.add('fixed', 'inset-0', 'w-screen', 'h-screen');
-                        canvasEl.style.zIndex = '400';
+                        canvasEl.classList.add('fixed', 'inset-0', 'w-full', 'h-[100dvh]');
+                        canvasEl.style.zIndex = '5200';
+                        
+                        // 🌟 核心修正：將外層容器的 z-index 也提高，打破原本 z-[20] 被頂部工具列 z-[5100] 壓制的限制
+                        if (contentArea) contentArea.style.zIndex = '5200';
+                        
                         icon.textContent = 'fullscreen_exit';
                     } else {
                         // 恢復相對定位
-                        canvasEl.classList.remove('fixed', 'inset-0', 'w-screen', 'h-screen');
+                        canvasEl.classList.remove('fixed', 'inset-0', 'w-full', 'h-[100dvh]', 'w-screen', 'h-screen');
                         canvasEl.classList.add('relative', 'flex-1');
-                        canvasEl.style.zIndex = ''; // ✨ 恢復預設層級
+                        canvasEl.style.zIndex = ''; 
+                        
+                        // 🌟 恢復外層容器的預設 z-index
+                        if (contentArea) contentArea.style.zIndex = '';
+                        
                         icon.textContent = 'fullscreen';
                         
                         if (window.tempHadSidebarOpen && sidebar && btnToggleSidebar) {
@@ -1878,17 +1886,55 @@ window.launchLiveMode = function(rawData, configs) {
                 let marqueeStart = { x: 0, y: 0 };
                 // ✨ 新增：虛擬 Shift 狀態 (多選/框選模式)
                 window.isBoardMultiSelectMode = false;
+                // 🌟 新增：純檢視/平移模式狀態
+                window.isBoardPanMode = false;
 
                 // ✨ 綁定切換按鈕事件
                 document.getElementById('btn-board-multiselect')?.addEventListener('click', function(e) {
                     e.stopPropagation();
                     window.isBoardMultiSelectMode = !window.isBoardMultiSelectMode;
+                    
                     if (window.isBoardMultiSelectMode) {
                         this.className = 'p-2 bg-blue-50 text-blue-600 rounded-lg cursor-pointer transition-colors';
+                        
+                        // 🌟 手動安全關閉純檢視模式，避免迴圈衝突
+                        if (window.isBoardPanMode) {
+                            window.isBoardPanMode = false;
+                            const panBtn = document.getElementById('btn-board-panmode');
+                            if (panBtn) panBtn.className = 'p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 rounded-lg cursor-pointer transition-colors';
+                        }
                         if (typeof showToast === 'function') showToast('✅ 已啟用「框選/多選」模式');
                     } else {
                         this.className = 'p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 rounded-lg cursor-pointer transition-colors';
-                        if (typeof showToast === 'function') showToast('❌ 已關閉多選 (恢復平移)');
+                        if (typeof showToast === 'function') showToast('❌ 已關閉多選 (恢復一般選取)');
+                    }
+                });
+
+                // 🌟 綁定純檢視/平移按鈕事件
+                document.getElementById('btn-board-panmode')?.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    window.isBoardPanMode = !window.isBoardPanMode;
+                    
+                    if (window.isBoardPanMode) {
+                        this.className = 'p-2 bg-amber-50 text-amber-600 rounded-lg cursor-pointer transition-colors';
+                        
+                        // 🌟 手動安全關閉多選模式，避免迴圈衝突
+                        if (window.isBoardMultiSelectMode) {
+                            window.isBoardMultiSelectMode = false;
+                            const multiBtn = document.getElementById('btn-board-multiselect');
+                            if (multiBtn) multiBtn.className = 'p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 rounded-lg cursor-pointer transition-colors';
+                        }
+                        
+                        // 強制取消所有現有的選取
+                        document.getElementById('board-note-menu')?.classList.add('hidden');
+                        document.querySelectorAll('.sticky-note').forEach(n => n.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1'));
+                        window.selectedNotes.clear();
+                        window.currentActiveNoteId = null;
+                        
+                        if (typeof showToast === 'function') showToast('✋ 已啟用純檢視 (僅能平移與縮放)');
+                    } else {
+                        this.className = 'p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 rounded-lg cursor-pointer transition-colors';
+                        if (typeof showToast === 'function') showToast('👆 已恢復一般選取與編輯模式');
                     }
                 });
 
@@ -1900,18 +1946,29 @@ window.launchLiveMode = function(rawData, configs) {
                         return;
                     }
                     
-                    // ✨ 統整判斷：是否有按下 Shift/Ctrl 或是啟用了介面上的多選按鈕
-                    const isMultiSelectIntent = e.shiftKey || e.ctrlKey || e.metaKey || window.isBoardMultiSelectMode;
-
-                    // 1. 中鍵/右鍵 永遠是平移
-                    if (e.button === 1 || e.button === 2) {
+                    // 🌟 新增：如果啟用純檢視/平移模式，強制全部轉為平移，不執行後續選取與拖曳判斷
+                    if (window.isBoardPanMode) {
                         isPanning = true;
                         if (typeof canvas.setPointerCapture === 'function') canvas.setPointerCapture(e.pointerId);
                         canvas.style.cursor = 'grabbing';
                         startPos = { x: e.clientX, y: e.clientY };
                         initialPan = { ...window.boardPan };
                         document.getElementById('board-note-menu')?.classList.add('hidden');
-                        return;
+                        return; // 直接中斷
+                    }
+
+                    // ✨ 統整判斷：保留 Shift 或是啟用了介面上的多選按鈕 (將 Ctrl/Cmd 拔除)
+                    const isMultiSelectIntent = e.shiftKey || window.isBoardMultiSelectMode;
+
+                    // 1. 中鍵/右鍵，或是按住 Ctrl / Cmd 鍵，永遠強制轉為平移畫布
+                    if (e.button === 1 || e.button === 2 || e.ctrlKey || e.metaKey) {
+                        isPanning = true;
+                        if (typeof canvas.setPointerCapture === 'function') canvas.setPointerCapture(e.pointerId);
+                        canvas.style.cursor = 'grabbing';
+                        startPos = { x: e.clientX, y: e.clientY };
+                        initialPan = { ...window.boardPan };
+                        document.getElementById('board-note-menu')?.classList.add('hidden');
+                        return; // 提早結束，不觸發選取或拖曳便利貼
                     }
 
                     // 2. 點擊改變尺寸把手
@@ -2123,7 +2180,8 @@ window.launchLiveMode = function(rawData, configs) {
                 });
 
                 canvas.addEventListener('dblclick', (e) => {
-                    // 直接移除防呆，現在隨時可以雙擊編輯
+                    // 🌟 新增：純檢視模式下禁止雙擊編輯
+                    if (window.isBoardPanMode) return;
 
                     const note = e.target.closest('.sticky-note');
                     if (note && !e.target.closest('#board-note-menu')) {
@@ -2873,9 +2931,9 @@ window.launchLiveMode = function(rawData, configs) {
         liveContainer.innerHTML = getLiveQrModalHtml(spaceCode) + `
             <div class="w-full h-full flex bg-[#f8f9fa] font-sans select-none overflow-hidden relative">
                 
-                <div id="live-mobile-sidebar-backdrop" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[40] opacity-0 pointer-events-none transition-opacity duration-300 md:hidden"></div>
+                <div id="live-mobile-sidebar-backdrop" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[6000] opacity-0 pointer-events-none transition-opacity duration-300 md:hidden"></div>
 
-                <div id="live-sidebar-wrapper" class="bg-gray-50 border-r border-gray-200 flex flex-col h-full flex-shrink-0 z-[50] animate-width relative overflow-hidden" style="width: ${window.isLiveSidebarOpen && window.innerWidth > 768 ? window.liveSidebarWidth + 'px' : '0px'}">
+                <div id="live-sidebar-wrapper" class="bg-gray-50 border-r border-gray-200 flex flex-col h-full flex-shrink-0 z-[6010] animate-width relative overflow-hidden" style="width: ${window.isLiveSidebarOpen && window.innerWidth > 768 ? window.liveSidebarWidth + 'px' : '0px'}">
                     <div class="flex items-center justify-between px-3 py-2.5 bg-white border-b border-gray-200 flex-shrink-0 shadow-[0_2px_4px_rgba(0,0,0,0.02)] z-20">
                         <div class="font-extrabold text-gray-800 text-sm">總覽</div>
                         <div class="flex items-center gap-1">
