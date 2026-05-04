@@ -1605,7 +1605,8 @@ window.launchLiveMode = function(rawData, configs) {
                 contentArea.innerHTML = `
                     <div id="board-wrapper-main" class="flex-1 w-full relative h-full transition-all duration-300 flex flex-col z-10">
                         
-                        <div class="w-full flex-1 relative bg-[#F4F4F4] overflow-hidden shadow-[inset_0_2px_10px_rgba(0,0,0,0.02)] ${(!qData.options || qData.options[6] !== 'solid') ? 'bg-[radial-gradient(#D5D5D5_1px,transparent_1px)]' : ''}" id="whiteboard-canvas" style="cursor: grab; touch-action: none; background-size: 24px 24px;">
+                        <!-- 🌟 拔除所有靜態背景設定，統一交給 updateBoardView 引擎處理 -->
+                        <div class="w-full flex-1 relative bg-[#F4F4F4] overflow-hidden shadow-[inset_0_2px_10px_rgba(0,0,0,0.02)]" id="whiteboard-canvas" style="cursor: grab; touch-action: none;">
                             
                             <div class="absolute top-4 left-4 sm:left-6 z-[110] select-none">
                                 <div id="board-floating-header" onclick="window.toggleBoardHeader()" class="bg-white/95 backdrop-blur-sm border border-gray-200 px-4 py-2 rounded-xl shadow-sm flex items-center gap-2 max-w-[300px] sm:max-w-[500px] transition-all cursor-pointer pointer-events-auto hover:bg-gray-50">
@@ -1818,7 +1819,26 @@ window.launchLiveMode = function(rawData, configs) {
                     if (zoomVal) zoomVal.textContent = Math.round(window.boardZoom * 100) + '%';
 
                     if (canvas) {
-                        const bgSize = 24 * window.boardZoom;
+                        // ✨ 智慧網格引擎 (LOD: Level of Detail)
+                        // 1. 動態計算格線間距，當縮小時自動合併格子，避免密集恐懼症
+                        let baseStep = 24;
+                        while (baseStep * window.boardZoom < 16) {
+                            baseStep *= 2; // 若視覺間距小於 16px，將格子放大兩倍 (24 -> 48 -> 96...)
+                        }
+                        const bgSize = baseStep * window.boardZoom;
+                        
+                        // 2. 取得目前的背景模式
+                        const currentBgMode = qData.options?.[6] || 'dots';
+                        
+                        // 3. 專業白板色彩風格
+                        if (currentBgMode === 'dots') {
+                            canvas.style.backgroundImage = `radial-gradient(circle, rgba(9, 30, 66, 0.12) 1.2px, transparent 2px)`;
+                        } else if (currentBgMode === 'grid') {
+                            canvas.style.backgroundImage = `linear-gradient(rgba(9, 30, 66, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(9, 30, 66, 0.05) 1px, transparent 1px)`;
+                        } else {
+                            canvas.style.backgroundImage = 'none';
+                        }
+
                         canvas.style.backgroundSize = `${bgSize}px ${bgSize}px`;
                         canvas.style.backgroundPosition = `${window.boardPan.x}px ${window.boardPan.y}px`;
                     }
@@ -1883,8 +1903,71 @@ window.launchLiveMode = function(rawData, configs) {
                         }, 1000); 
                     }
                 };
-                window.updateBoardZoom = (delta) => { window.boardZoom = Math.max(0.2, Math.min(3, window.boardZoom + delta)); window.updateBoardView(); };
-                window.resetBoardView = () => { window.boardZoom = 1; window.boardPan = { x: 0, y: 0 }; window.updateBoardView(); };
+                // ✨ 升級「重置視角」：智能計算所有便利貼範圍，完美縮放與平移以顯示所有內容 (Zoom to Fit)
+                window.resetBoardView = () => {
+                    const notes = document.querySelectorAll('.sticky-note');
+                    const canvas = document.getElementById('whiteboard-canvas');
+                    if (!canvas || notes.length === 0) {
+                        // 畫布上沒有東西時，單純回到原點
+                        window.boardZoom = 1;
+                        window.boardPan = { x: 0, y: 0 };
+                        window.updateBoardView();
+                        return;
+                    }
+
+                    // 1. 找出所有便利貼的極限邊界 (Bounding Box)
+                    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                    notes.forEach(note => {
+                        const x = parseFloat(note.style.left) || 0;
+                        const y = parseFloat(note.style.top) || 0;
+                        const body = note.querySelector('.note-body');
+                        const w = body ? body.offsetWidth : 140;
+                        const h = body ? body.offsetHeight : 140;
+                        if (x < minX) minX = x;
+                        if (x + w > maxX) maxX = x + w;
+                        if (y < minY) minY = y;
+                        if (y + h > maxY) maxY = y + h;
+                    });
+
+                    // 2. 計算內容的總寬高與中心點
+                    const contentWidth = maxX - minX;
+                    const contentHeight = maxY - minY;
+                    const contentCenterX = minX + contentWidth / 2;
+                    const contentCenterY = minY + contentHeight / 2;
+
+                    // 3. 計算最佳縮放比例 (保留 60px 的安全邊距，避免太貼齊邊緣)
+                    const padding = 60;
+                    const canvasW = canvas.clientWidth;
+                    const canvasH = canvas.clientHeight;
+                    
+                    let targetZoom = 1;
+                    if (contentWidth > 0 && contentHeight > 0) {
+                        const zoomX = (canvasW - padding * 2) / contentWidth;
+                        const zoomY = (canvasH - padding * 2) / contentHeight;
+                        targetZoom = Math.min(zoomX, zoomY, 1.5); // 最大不超過 1.5 倍，避免少量便利貼變得太巨大
+                        targetZoom = Math.max(targetZoom, 0.2);   // 最小不低於 0.2 倍
+                    }
+
+                    // 4. 計算並設定置中的平移座標
+                    window.boardZoom = targetZoom;
+                    window.boardPan.x = (canvasW / 2) - (contentCenterX * targetZoom);
+                    window.boardPan.y = (canvasH / 2) - (contentCenterY * targetZoom);
+
+                    // 5. 加上平滑動畫 (過場飛行效果)
+                    const contentLayer = document.getElementById('board-content-layer');
+                    if (contentLayer) {
+                        contentLayer.style.transition = 'transform 0.4s cubic-bezier(0.25, 1, 0.5, 1)';
+                        window.updateBoardView();
+                        
+                        // 動畫結束後拔除 transition，避免影響後續手動拖曳的流暢度
+                        clearTimeout(window.boardResetTimeout);
+                        window.boardResetTimeout = setTimeout(() => {
+                            contentLayer.style.transition = 'none';
+                        }, 400);
+                    } else {
+                        window.updateBoardView();
+                    }
+                };
 
                 let isPanning = false;
                 let draggedNote = null;
@@ -2176,6 +2259,12 @@ window.launchLiveMode = function(rawData, configs) {
                         let newX = (e.clientX - cRect.left - window.boardPan.x) / window.boardZoom - noteOffset.x;
                         let newY = (e.clientY - cRect.top - window.boardPan.y) / window.boardZoom - noteOffset.y;
                         
+                        if (qData.options?.[7] === 'true') {
+                            const snapSize = 12; // ✨ 改為 12px，允許貼齊點與點的正中間
+                            newX = Math.round(newX / snapSize) * snapSize;
+                            newY = Math.round(newY / snapSize) * snapSize;
+                        }
+
                         // ✨ 群組拖曳引擎
                         const dx = newX - parseFloat(draggedNote.style.left);
                         const dy = newY - parseFloat(draggedNote.style.top);
@@ -2198,6 +2287,35 @@ window.launchLiveMode = function(rawData, configs) {
                         window.updateBoardView();
                     }
                 });
+
+                // ✨ 綁定滑鼠滾輪事件 (完美實作：以游標為中心縮放)
+                canvas.addEventListener('wheel', (e) => {
+                    e.preventDefault(); // 阻止網頁預設的上下滾動
+
+                    // 取得游標在畫布上的真實座標
+                    const rect = canvas.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+
+                    const oldZoom = window.boardZoom;
+
+                    // 判斷縮放幅度：觸控板捏合(含 Ctrl) 或是 一般滑鼠滾輪
+                    let zoomDelta = 0;
+                    if (e.ctrlKey) {
+                        zoomDelta = -e.deltaY * 0.01; // 觸控板平滑縮放
+                    } else {
+                        zoomDelta = e.deltaY > 0 ? -0.1 : 0.1; // 滑鼠滾輪階段性縮放
+                    }
+
+                    window.boardZoom = Math.max(0.2, Math.min(3, window.boardZoom + zoomDelta));
+                    const newZoom = window.boardZoom;
+
+                    // ✨ 核心數學：讓滑鼠游標指著的點，在縮放後依然維持在原地 (Zoom to Pointer)
+                    window.boardPan.x = mouseX - (mouseX - window.boardPan.x) * (newZoom / oldZoom);
+                    window.boardPan.y = mouseY - (mouseY - window.boardPan.y) * (newZoom / oldZoom);
+
+                    window.updateBoardView();
+                }, { passive: false });
 
                 canvas.addEventListener('dblclick', (e) => {
                     // 🌟 新增：純檢視模式下禁止雙擊編輯
@@ -3251,9 +3369,18 @@ window.launchLiveMode = function(rawData, configs) {
                                         <div class="flex items-center justify-between pt-1">
                                             <span class="text-[11px] font-bold text-gray-400">畫布背景</span>
                                             <select id="live-board-bg" class="bg-gray-50 border border-gray-200 text-gray-700 text-[11px] rounded px-2 py-1 outline-none focus:border-teal-400">
-                                                <option value="dots" ${(!qData.options || qData.options[6] !== 'solid') ? 'selected' : ''}>點狀網格 (預設)</option>
+                                                <option value="dots" ${(!qData.options || qData.options[6] === 'dots' || !['solid', 'grid'].includes(qData.options[6])) ? 'selected' : ''}>點狀網格 (預設)</option>
+                                                <option value="grid" ${qData.options && qData.options[6] === 'grid' ? 'selected' : ''}>線條網格 (Miro風)</option>
                                                 <option value="solid" ${qData.options && qData.options[6] === 'solid' ? 'selected' : ''}>純色背景</option>
                                             </select>
+                                        </div>
+                                        <!-- ✨ 新增：貼齊格線選項 -->
+                                        <div class="flex items-center justify-between pt-1">
+                                            <span class="text-[11px] font-bold text-gray-400">貼齊格線 (Snap to Grid)</span>
+                                            <label class="relative inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" id="live-snap-grid" class="sr-only peer" ${qData.options && qData.options[7] === 'true' ? 'checked' : ''}>
+                                                <div class="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
+                                            </label>
                                         </div>
                                     </div>
                                     ` : ''}
@@ -3512,8 +3639,10 @@ window.launchLiveMode = function(rawData, configs) {
                 const dblClickAction = settingsMenu.querySelector('#live-dblclick-action') ? settingsMenu.querySelector('#live-dblclick-action').value : (qData.options?.[4] || 'edit');
                 const sizeMode = settingsMenu.querySelector('#live-size-mode') ? settingsMenu.querySelector('#live-size-mode').value : (qData.options?.[5] || 'fixed');
                 const bgMode = settingsMenu.querySelector('#live-board-bg') ? settingsMenu.querySelector('#live-board-bg').value : (qData.options?.[6] || 'dots');
+                // 🌟 新增抓取「貼齊格線」狀態
+                const snapGrid = settingsMenu.querySelector('#live-snap-grid') ? (settingsMenu.querySelector('#live-snap-grid').checked ? 'true' : 'false') : (qData.options?.[7] || 'false');
 
-                const newOptions = [newLimit, allowDup, showAuthor, showToolbar, dblClickAction, sizeMode, bgMode];
+                const newOptions = [newLimit, allowDup, showAuthor, showToolbar, dblClickAction, sizeMode, bgMode, snapGrid];
                 
                 // 1. 更新本機變數
                 qData.options = newOptions;
@@ -3525,15 +3654,12 @@ window.launchLiveMode = function(rawData, configs) {
                     el.setAttribute('data-show-author', showAuthor);
                 });
                 
-                // ✨ 樂觀更新背景：即時切換網格與純色
+                // ✨ 樂觀更新背景：移除舊有靜態賦值，直接呼叫 updateBoardView
                 const canvasEl = document.getElementById('whiteboard-canvas');
                 if (canvasEl) {
-                    if (bgMode === 'solid') {
-                        canvasEl.classList.remove('bg-[radial-gradient(#D5D5D5_1px,transparent_1px)]');
-                    } else {
-                        canvasEl.classList.add('bg-[radial-gradient(#D5D5D5_1px,transparent_1px)]');
-                    }
+                    canvasEl.classList.remove('bg-[radial-gradient(#D5D5D5_1px,transparent_1px)]'); // 相容清理舊版樣式
                 }
+                window.updateBoardView();
                 
                 // 3. 強制執行一次渲染更新，確保其他細節 (如工具列狀態) 同步
                 updateTeacherCharts(); 
@@ -3558,6 +3684,7 @@ window.launchLiveMode = function(rawData, configs) {
             document.getElementById('live-dblclick-action')?.addEventListener('change', updateSettings);
             document.getElementById('live-size-mode')?.addEventListener('change', updateSettings);
 			document.getElementById('live-board-bg')?.addEventListener('change', updateSettings);
+            document.getElementById('live-snap-grid')?.addEventListener('change', updateSettings);
         }
 
         // 初始化套用文字大小
