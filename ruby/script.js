@@ -1976,16 +1976,45 @@ body{font-size:14pt;line-height:${bodyLineHeight};font-family:"台灣楷體", tw
 }
 
 
-
+/**
+ * 建立匯出的 HTML 檔案字串
+ * @param {Object} options - 包含漢字、拼音、樣式與模式等參數
+ * @returns {string} 完整的 HTML 檔案內容
+ */
 function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode, phoneticDisplayMode }) {
+    // 處理跳脫字元，避免破壞生成的 JavaScript 字串
     const escapedHanzi = hanzi.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
     const escapedPinyin = pinyin.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
     const escapedAnnotationMode = annotationMode;
     const escapedDisplayMode = phoneticDisplayMode || 'pinyin'; // 預設值
-	const cssRtStyle = (phoneticDisplayMode === 'vertical-zhuyin') 
-    ? 'display: none;' // 網頁下載版直接隱藏最乾淨
+    
+    // 決定 rt 標籤的顯示樣式
+    const cssRtStyle = (phoneticDisplayMode === 'vertical-zhuyin') 
+    ? 'display: none;' // 直注音模式下網頁下載版直接隱藏最乾淨
     : 'font-size: calc(var(--rt-scale) * 1em); color: var(--pinyin-color); display: block;';
 
+    // ========================================================================
+    // 【核心改善】：動態載入共用邏輯
+    // 這裡利用函數的 .toString() 方法，自動抓取主程式當下的程式碼。
+    // 以後只要在主程式修改斷詞邏輯，這裡生成的 HTML 就會自動同步，不需要再改兩次！
+    // ========================================================================
+    const sharedLogicScript = `
+    const PUNCTS = new Set(['，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '—', '…', '－', '‧', '·', '﹑', ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…']);
+    const ENDERS = new Set(['。', '！', '？', '?', '!', '．', '.']);
+    const WHITESPACES = new Set([' ', '\\t', '\\u3000']);
+
+    // 動態載入箭頭函數
+    const toCharArray = ${toCharArray.toString()};
+    const isPunct = ${isPunct.toString()};
+    const isWhitespace = ${isWhitespace.toString()};
+    const isLineBreak = ${isLineBreak.toString()};
+
+    // 動態載入一般函數
+    ${segmentHanziByClauses.toString()}
+    ${segmentPinyinRawByClauses.toString()}
+    ${tokenizeSyls.toString()}
+    ${tokenizeHanziWithAlphanum.toString()}
+    `;
 
     // 返回一個包含完整邏輯的 HTML 字串
     return `<!DOCTYPE html>
@@ -1996,7 +2025,7 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode, pho
     <title>客語標註結果</title>
     <link href="https://oikasu1.github.io/kasuexam/kasu/fonts/twhei.css" rel="stylesheet">
     <style>
-        /* --- CSS 樣式區 (未來可獨立為 style.css) --- */
+        /* --- CSS 樣式區 --- */
         :root {
             --rt-scale: ${String(rtScale).trim() || 0.68};
             --text-color: #333;
@@ -2014,7 +2043,7 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode, pho
             color: var(--text-color);
             font-size: ${fontSize || '18px'};
             line-height: 2.2;
-            -webkit-text-size-adjust: 100%; /* 防止手機旋轉時字體大小改變 */
+            -webkit-text-size-adjust: 100%;
         }
         .container {
             max-width: 800px;
@@ -2043,13 +2072,13 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode, pho
             word-break: break-all;
         }
         .pinyin-hidden rt {
-            visibility: hidden; /* 使用 visibility 以維持排版高度 */
+            visibility: hidden;
         }
         ruby {
             ruby-position: over;
             text-align: center;
             display: inline-flex;
-            flex-direction: column-reverse; /* 讓 rb 在 rt 下方 */
+            flex-direction: column-reverse;
             vertical-align: middle;
             margin: 0 0.05em;
         }
@@ -2064,7 +2093,6 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode, pho
             display: inline-block;
             vertical-align: middle;
         }
-        /* 行動裝置優化 */
         @media (max-width: 600px) {
             body {
                 padding: 1rem;
@@ -2085,115 +2113,25 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode, pho
     </div>
 
     <script>
-    // --- JavaScript 邏輯區 (未來可獨立為 script.js) ---
-
-
     // --- 步驟 1: 資料定義 ---
     const hanzi = \`${escapedHanzi}\`;
     const pinyin = \`${escapedPinyin}\`;
     const annotationMode = \`${escapedAnnotationMode}\`;
     const phoneticDisplayMode = \`${escapedDisplayMode}\`;
 
-
-    // --- 步驟 2: 標註工具的核心函式 (從原工具複製而來) ---
-	const PUNCTS = new Set([
-		'，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '—', '…', '－', '‧', '·', '﹑',
-		',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…'
-	]);
-
-	const ENDERS = new Set(['。', '！', '？', '?', '!', '．', '.']); 
-
-	const WHITESPACES = new Set([' ', '\t', '\u3000']);
-    const toCharArray = (str) => Array.from(str || '');
-    const isPunct = (ch) => PUNCTS.has(ch);
-    const isWhitespace = (ch) => WHITESPACES.has(ch);
-    const isLineBreak = (ch) => ch === '\\r' || ch === '\\n';
-
-    function segmentHanziByClauses(str) {
-        const segs = []; let buf = '';
-        for (const ch of toCharArray(str || '')) {
-            if (isLineBreak(ch)) {
-                if (buf) { segs.push({ type: 'seg', text: buf }); buf = ''; }
-                segs.push({ type: 'br' }); continue;
-            }
-            buf += ch;
-            if (isPunct(ch) && ENDERS.has(ch)) {
-                segs.push({ type: 'seg', text: buf }); buf = '';
-            }
-        }
-        if (buf) segs.push({ type: 'seg', text: buf });
-        return segs;
-    }
-
-    function segmentPinyinRawByClauses(str) {
-        const segs = []; let buf = '';
-        for (const ch of toCharArray(str || '')) {
-            if (isLineBreak(ch)) {
-                if (buf.length) { segs.push({ type: 'seg', text: buf.trim() }); buf = ''; }
-                segs.push({ type: 'br' }); continue;
-            }
-            buf += ch;
-            if (isPunct(ch) && ENDERS.has(ch)) {
-                segs.push({ type: 'seg', text: buf.trim() }); buf = '';
-            }
-        }
-        if (buf.length) segs.push({ type: 'seg', text: buf.trim() });
-        return segs;
-    }
-
-	// 斷詞：拼音音節（不含標點/換行）
-	// 斷詞：拼音音節（不含標點/換行）
-	function tokenizeSyls(raw) {
-		const syls = [];
-		let token = '';
-		for (const ch of toCharArray(raw || '')) {
-			// 【核心修正】在判斷是否為標點時，排除連字號 '-' 和兩種中間點 '·', '‧'
-			if (isLineBreak(ch) || isWhitespace(ch) || (isPunct(ch) && ch !== '-' && ch !== '·' && ch !== '‧')) {
-				if (token.trim()) {
-					syls.push(token.trim());
-					token = '';
-				}
-				continue;
-			}
-			// 【修正】如果遇到漢字，強制斷開為獨立音節，避免與前後英文數字黏合
-			if (/\p{Script=Han}/u.test(ch)) {
-				if (token.trim()) {
-					syls.push(token.trim());
-				}
-				syls.push(ch);
-				token = '';
-				continue;
-			}
-			token += ch;
-		}
-		if (token.trim()) syls.push(token.trim());
-		return syls;
-	} 
-	
-	function tokenizeHanziWithAlphanum(text) {
-		if (!text) return [];
-		const regex = /([a-zA-Z0-9_\-#]+|[^\s\p{Script=Han}\p{P}]+|.)/gu;
-		return text.match(regex) || [];
-	}
-
+    // --- 步驟 2: 標註工具的核心函式 (動態載入，與主程式保持同步) ---
+    ${sharedLogicScript}
 
     // --- 步驟 3: 動態內容生成函式 ---
-
     function renderContent() {
         const contentDiv = document.getElementById('content');
         if (!contentDiv) return;
 
-        // 【新增】取得目前的顯示模式 (從後端傳入的變數)
-        // 注意：這裡需要您在 buildExportHtml 的開頭變數定義區加入 phoneticDisplayMode
-        // 但因為這裡是字串模板，我們直接在生成 HTML 時判斷即可
-        
         const processClause = (hTokens, pSegSyls) => {
             let clauseHtml = '';
             let h_idx = 0;
             let p_idx = 0;
 
-            // 【輔助】取得 RT 內容
-            // 這裡讀取外部變數 phoneticDisplayMode
             const getRtContent = (pText) => {
                 if (phoneticDisplayMode === 'vertical-zhuyin') return '';
                 return pText;
@@ -2214,13 +2152,13 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode, pho
                     continue;
                 }
 
-				const pToken = pSegSyls[p_idx];            
-				let pSubSyls;
-				if (hToken === pToken) {
-					pSubSyls = [pToken];
-				} else {
-					pSubSyls = pToken.split(/--?|=/); 
-				}
+                const pToken = pSegSyls[p_idx];            
+                let pSubSyls;
+                if (hToken === pToken) {
+                    pSubSyls = [pToken];
+                } else {
+                    pSubSyls = pToken.split(/--?|=/); 
+                }
 
                 if (pSubSyls.length > 1) {
                     const wordLen = pSubSyls.length;
@@ -2229,32 +2167,27 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode, pho
 
                     if (hWordTokens.length === wordLen) {
                         if (annotationMode === 'word') {
-                            // 【修改】使用 getRtContent
                             clauseHtml += \`<ruby><rb>\${hWord}</rb><rt>\${getRtContent(pToken)}</rt></ruby>\`;
                         } else {
                             for (let i = 0; i < wordLen; i++) {
-                                // 【修改】使用 getRtContent
                                 clauseHtml += \`<ruby><rb>\${hTokens[h_idx + i]}</rb><rt>\${getRtContent(pSubSyls[i])}</rt></ruby>\`;
                             }
                         }
                         h_idx += wordLen;
                         p_idx++;
                     } else {
-                        // 【修改】使用 getRtContent
                         clauseHtml += \`<ruby><rb>\${hToken}</rb><rt>\${getRtContent(pToken)}</rt></ruby>\`;
                         h_idx++;
                         p_idx++;
                     }
                 } else {
                     if (hToken === pToken) {
-                        // 注意：這裡的反引號和錢字號前面都加上了反斜線 \
-                        if (/[\p{Script=Han}a-zA-Z0-9]/u.test(hToken)) {
+                        if (/[\\p{Script=Han}a-zA-Z0-9]/u.test(hToken)) {
                             clauseHtml += \`<ruby><rb>\${hToken}</rb><rt>&nbsp;</rt></ruby>\`;
                         } else {
                             clauseHtml += \`<span class="punct">\${hToken}</span>\`;
                         }
                     } else {
-                        // 這裡的反引號和錢字號也同樣需要加上反斜線 \
                         clauseHtml += \`<ruby><rb>\${hToken}</rb><rt>\${getRtContent(pToken) || '&nbsp;'}</rt></ruby>\`;
                     }
                     h_idx++;
@@ -2300,10 +2233,8 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode, pho
 
     // --- 步驟 4: 頁面載入後執行 ---
     document.addEventListener('DOMContentLoaded', () => {
-        // 渲染內容
         renderContent();
 
-        // 設定按鈕功能
         const toggleBtn = document.getElementById('togglePinyinBtn');
         const contentDiv = document.getElementById('content');
         if (toggleBtn && contentDiv) {
