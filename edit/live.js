@@ -2161,8 +2161,8 @@ window.launchLiveMode = function(rawData, configs) {
                 canvas.style.touchAction = 'none';
 
                 canvas.addEventListener('pointerdown', (e) => {
-                    // 0. 防呆：點擊 UI 介面不處理
-                    if (e.target.closest('button') || e.target.closest('#board-left-toolbar') || e.target.closest('#board-floating-header') || e.target.closest('#board-zoom-toolbar') || e.target.closest('#board-note-menu')) {
+                    // 0. 防呆：點擊 UI 介面不處理 (✨ 加入翻譯工具的防呆排除)
+                    if (e.target.closest('button') || e.target.closest('#board-left-toolbar') || e.target.closest('#board-floating-header') || e.target.closest('#board-zoom-toolbar') || e.target.closest('#board-note-menu') || e.target.closest('.draggable-translator')) {
                         return;
                     }
                     
@@ -2763,6 +2763,9 @@ window.launchLiveMode = function(rawData, configs) {
                             }
                         });
 
+                        // ✨ 觸發 selectionchange，強制喚醒翻譯工具更新按鈕狀態！
+                        document.dispatchEvent(new Event('selectionchange'));
+
                         const colorSub = menu.querySelector('.color-submenu-container');
                         const layerSub = menu.querySelector('.layer-submenu-container');
                         const alignSub = menu.querySelector('.align-submenu-container');
@@ -2952,6 +2955,10 @@ window.launchLiveMode = function(rawData, configs) {
                         document.querySelectorAll('.sticky-note').forEach(n => n.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1'));
                         window.selectedNotes.clear();
                         window.currentActiveNoteId = null;
+
+                        // ✨ 觸發 selectionchange，通知翻譯工具取消選取狀態
+                        document.dispatchEvent(new Event('selectionchange'));
+
                     }
                 });
 
@@ -3198,48 +3205,54 @@ window.launchLiveMode = function(rawData, configs) {
                     }
                 });
 
+                // ✨ 升級：支援多選批次改色與轉文字
                 document.querySelectorAll('.bm-color-dot').forEach(dot => {
                     dot.addEventListener('click', async (e) => {
+                        e.stopPropagation(); // 防止點擊穿透導致選單關閉
                         const newColor = e.currentTarget.dataset.color;
-                        const noteId = window.currentActiveNoteId;
                         const activeQId = window.currentSpaceData?.currentQuestionData?.id || qId;
                         const currentMods = window.currentSpaceData[`board_mods_${activeQId}`] || {};
-                        currentMods[noteId] = { ...currentMods[noteId], color: newColor };
                         
-                        const noteEl = document.getElementById('note-' + noteId);
-                        if (noteEl) {
-                            noteEl.dataset.color = newColor;
-                            const bodyEl = noteEl.querySelector('.note-body');
-                            if (bodyEl) {
-                                const isText = newColor === 'text';
-                                noteEl.classList.toggle('is-text-mode', isText);
-                                const shadowCls = isText ? '' : 'shadow-sm rounded-sm border group-hover:shadow-lg';
-                                bodyEl.className = `note-body relative transition-shadow ${shadowCls} ${colorMap[newColor] || colorMap['yellow']}`;
-                                
-                                const textContent = noteEl.querySelector('.note-text-content');
-                                if (textContent) {
-                                    if (isText) { textContent.classList.add('text-left', 'font-extrabold', 'text-lg'); textContent.classList.remove('text-center'); }
-                                    else { textContent.classList.remove('text-left', 'font-extrabold', 'text-lg'); textContent.classList.add('text-center'); }
-                                }
-                                const foldBtn = noteEl.querySelector('.btn-fold-note');
-                                if (foldBtn) foldBtn.style.display = isText ? 'none' : '';
+                        if (!window.selectedNotes || window.selectedNotes.size === 0) return;
 
-                                if (isText) {
-                                    bodyEl.style.height = 'auto';
-                                    if (!bodyEl.style.width || bodyEl.style.width === '140px') {
-                                        bodyEl.style.width = 'max-content';
-                                        bodyEl.style.maxWidth = '300px';
+                        window.selectedNotes.forEach(noteId => {
+                            currentMods[noteId] = { ...currentMods[noteId], color: newColor };
+                            
+                            const noteEl = document.getElementById('note-' + noteId);
+                            if (noteEl) {
+                                noteEl.dataset.color = newColor;
+                                const bodyEl = noteEl.querySelector('.note-body');
+                                if (bodyEl) {
+                                    const isText = newColor === 'text';
+                                    noteEl.classList.toggle('is-text-mode', isText);
+                                    const shadowCls = isText ? '' : 'shadow-sm rounded-sm border group-hover:shadow-lg';
+                                    bodyEl.className = `note-body relative transition-shadow ${shadowCls} ${colorMap[newColor] || colorMap['yellow']}`;
+                                    
+                                    const textContent = noteEl.querySelector('.note-text-content');
+                                    if (textContent) {
+                                        if (isText) { textContent.classList.add('text-left', 'font-extrabold', 'text-lg'); textContent.classList.remove('text-center'); }
+                                        else { textContent.classList.remove('text-left', 'font-extrabold', 'text-lg'); textContent.classList.add('text-center'); }
                                     }
-                                } else {
-                                    const sizeMode = noteEl.getAttribute('data-size') || 'fixed';
-                                    if (sizeMode !== 'resize') {
-                                        bodyEl.style.width = '';
-                                        bodyEl.style.height = '';
-                                        bodyEl.style.maxWidth = '';
+                                    const foldBtn = noteEl.querySelector('.btn-fold-note');
+                                    if (foldBtn) foldBtn.style.display = isText ? 'none' : '';
+
+                                    if (isText) {
+                                        bodyEl.style.height = 'auto';
+                                        if (!bodyEl.style.width || bodyEl.style.width === '140px') {
+                                            bodyEl.style.width = 'max-content';
+                                            bodyEl.style.maxWidth = '300px';
+                                        }
+                                    } else {
+                                        const sizeMode = noteEl.getAttribute('data-size') || 'fixed';
+                                        if (sizeMode !== 'resize') {
+                                            bodyEl.style.width = '';
+                                            bodyEl.style.height = '';
+                                            bodyEl.style.maxWidth = '';
+                                        }
                                     }
                                 }
                             }
-                        }
+                        });
 
                         await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods });
                     });
@@ -3308,10 +3321,11 @@ window.launchLiveMode = function(rawData, configs) {
                     const z = mod.z !== undefined ? mod.z : 10;
                     noteEl.style.zIndex = z;
                     
-                    // ✨ 智慧選取引擎：透過記憶的選取名單嚴格判斷，確保新產生的物件一出生就能被選取！
                     const isSelected = window.selectedNotes && window.selectedNotes.has(note.id);
+                    const isCollapsedInit = mod.collapsed ? 'is-collapsed' : '';
                     
-                    noteEl.className = `sticky-note absolute cursor-pointer group ${isSelected ? 'ring-2 ring-blue-500 ring-offset-1 rounded-sm' : ''} ${isText ? 'is-text-mode' : ''}`;
+                    // ✨ 修復：確保摺疊狀態 (is-collapsed) 被正確保留
+                    noteEl.className = `sticky-note absolute cursor-pointer group ${isSelected ? 'ring-2 ring-blue-500 ring-offset-1 rounded-sm' : ''} ${isText ? 'is-text-mode' : ''} ${isCollapsedInit}`;
                     
                     const bodyEl = noteEl.querySelector('.note-body');
                     if (bodyEl) {

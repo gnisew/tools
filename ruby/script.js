@@ -240,7 +240,9 @@ actBracket?.addEventListener('click', () => {
 function segmentHanziByClauses(str) {
     const segs = [];
     let buf = '';
-    for (const ch of toCharArray(str || '')) {
+    // 新增：統一過濾掉 Windows 的 \r\n 或單獨的 \r 避免變成兩行
+    str = (str || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    for (const ch of toCharArray(str)) {
         if (isLineBreak(ch)) {
             if (buf) {
                 segs.push({
@@ -274,7 +276,9 @@ function segmentHanziByClauses(str) {
 function segmentPinyinRawByClauses(str) {
     const segs = [];
     let buf = '';
-    for (const ch of toCharArray(str || '')) {
+    // 新增：統一過濾掉 Windows 的 \r\n 或單獨的 \r 避免變成兩行
+    str = (str || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    for (const ch of toCharArray(str)) {
         if (isLineBreak(ch)) {
             if (buf.length) {
                 segs.push({
@@ -315,6 +319,15 @@ function tokenizeSyls(raw) {
                 syls.push(token.trim());
                 token = '';
             }
+            continue;
+        }
+        // 【修正】如果遇到漢字，強制斷開為獨立音節，避免與前後英文數字黏合
+        if (/\p{Script=Han}/u.test(ch)) {
+            if (token.trim()) {
+                syls.push(token.trim());
+            }
+            syls.push(ch);
+            token = '';
             continue;
         }
         token += ch;
@@ -505,10 +518,21 @@ function alignByClauses({
             } 
             else {
                 if (hToken === pToken) {
-                    const span = document.createElement('span');
-                    span.className = 'glyph punct'; 
-                    span.textContent = hToken;
-                    fragment.appendChild(span);
+                    // 【修正】確保未翻譯的漢字與英數字使用 ruby 包覆，並給予空 rt 以維持底部對齊
+                    if (/[\p{Script=Han}a-zA-Z0-9]/u.test(hToken)) {
+                        const ruby = document.createElement('ruby');
+                        // 若為漢字加上 missing 類別提示未標音，其餘則為一般 glyph
+                        ruby.className = /\p{Script=Han}/u.test(hToken) ? 'glyph missing' : 'glyph';
+                        ruby.dataset.hanzi = hToken;
+                        ruby.dataset.pinyin = pToken;
+                        ruby.innerHTML = `<rt></rt><rb>${hToken}</rb>`;
+                        fragment.appendChild(ruby);
+                    } else {
+                        const span = document.createElement('span');
+                        span.className = 'glyph punct'; 
+                        span.textContent = hToken;
+                        fragment.appendChild(span);
+                    }
                 } else {
                     const ruby = document.createElement('ruby');
                     ruby.className = 'glyph';
@@ -2118,6 +2142,7 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode, pho
     }
 
 	// 斷詞：拼音音節（不含標點/換行）
+	// 斷詞：拼音音節（不含標點/換行）
 	function tokenizeSyls(raw) {
 		const syls = [];
 		let token = '';
@@ -2130,11 +2155,20 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode, pho
 				}
 				continue;
 			}
+			// 【修正】如果遇到漢字，強制斷開為獨立音節，避免與前後英文數字黏合
+			if (/\p{Script=Han}/u.test(ch)) {
+				if (token.trim()) {
+					syls.push(token.trim());
+				}
+				syls.push(ch);
+				token = '';
+				continue;
+			}
 			token += ch;
 		}
 		if (token.trim()) syls.push(token.trim());
 		return syls;
-	}  
+	} 
 	
 	function tokenizeHanziWithAlphanum(text) {
 		if (!text) return [];
@@ -2212,11 +2246,16 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode, pho
                         p_idx++;
                     }
                 } else {
-                    if (hToken === pToken && /[a-zA-Z0-9]/.test(hToken)) {
-                       clauseHtml += \`<span class="alphanum">\${hToken}</span>\`;
+                    if (hToken === pToken) {
+                        // 注意：這裡的反引號和錢字號前面都加上了反斜線 \
+                        if (/[\p{Script=Han}a-zA-Z0-9]/u.test(hToken)) {
+                            clauseHtml += \`<ruby><rb>\${hToken}</rb><rt>&nbsp;</rt></ruby>\`;
+                        } else {
+                            clauseHtml += \`<span class="punct">\${hToken}</span>\`;
+                        }
                     } else {
-                       // 【修改】使用 getRtContent
-                       clauseHtml += \`<ruby><rb>\${hToken}</rb><rt>\${getRtContent(pToken) || '&nbsp;'}</rt></ruby>\`;
+                        // 這裡的反引號和錢字號也同樣需要加上反斜線 \
+                        clauseHtml += \`<ruby><rb>\${hToken}</rb><rt>\${getRtContent(pToken) || '&nbsp;'}</rt></ruby>\`;
                     }
                     h_idx++;
                     p_idx++;
