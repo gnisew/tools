@@ -64,11 +64,11 @@ function loadSetting(key, defaultValue) {
 
 
 // 符號集合
-    const PUNCTS = new Set(['，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '—', '…', '－', '‧', '·', '﹑', ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…']);
+	const PUNCTS = new Set(['，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '—', '…', '－', '‧', '·', '﹑', ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…', '＿', '―', '─', '━', '﹏', '~', '～', '_']);
     
     const ENDERS = new Set(['。', '！', '？', '?', '!', '．', '.']);
 
-    const WHITESPACES = new Set([' ', '\\t', '\\u3000']);
+    const WHITESPACES = new Set([' ', '\t', '\u3000']);
 
 // DOM 快捷
 const $ = (sel) => document.querySelector(sel);
@@ -344,12 +344,7 @@ function tokenizeSyls(raw) {
  */
 function tokenizeHanziWithAlphanum(text) {
     if (!text) return [];
-    
-    // 修正寫法：加入 \p{P}，排除標點符號被黏合
-    // 【修改重點】：前綴增加 [a-zA-Z0-9_\-#]+ 優先匹配，允許英數字與特定的連接符號（如 -, _, #）相連，避免 2-1, 3_1 等被切斷
-    // 必須加上 u 旗標 (Unicode) 才能讓 \p{Script=Han} 生效
-    const regex = /([a-zA-Z0-9_\-#]+|[^\s\p{Script=Han}\p{P}]+|.)/gu;
-    
+    const regex = /([a-zA-Z0-9\-#]+|[^\s\p{Script=Han}\p{P}]+|.)/gu;
     return text.match(regex) || [];
 }
 
@@ -1999,9 +1994,9 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode, pho
     // 以後只要在主程式修改斷詞邏輯，這裡生成的 HTML 就會自動同步，不需要再改兩次！
     // ========================================================================
     const sharedLogicScript = `
-    const PUNCTS = new Set(['，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '—', '…', '－', '‧', '·', '﹑', ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…']);
+    const PUNCTS = new Set(['，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '—', '…', '－', '‧', '·', '﹑', ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…', '＿', '―', '─', '━', '﹏', '~', '～', '_']);
     const ENDERS = new Set(['。', '！', '？', '?', '!', '．', '.']);
-    const WHITESPACES = new Set([' ', '\\t', '\\u3000']);
+    const WHITESPACES = new Set([' ', '\t', '\u3000']);
 
     // 動態載入箭頭函數
     const toCharArray = ${toCharArray.toString()};

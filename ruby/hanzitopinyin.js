@@ -72,12 +72,13 @@ function hanziToPinyin(mode) {
 
 
     // -----------------------------------------------------------
-    // 1：保護原始空格
+    // 1：保護原始空格與 Tab
     // -----------------------------------------------------------
-    // 使用一個特殊字元 (Unit Separator \u001F) 來暫時替換使用者輸入的空格
-    // 這樣它就不會被後續的 "空白合併" 邏輯給吃掉
     const spaceMarker = '\u001F';
-    const textToConvert = normalizedText.replace(/ /g, spaceMarker);
+    const tabMarker = '\u001E'; // 新增 Tab 保護標記
+    
+    // 同時保護空格與 Tab
+    const textToConvert = normalizedText.replace(/ /g, spaceMarker).replace(/\t/g, tabMarker);
 
     // 注意：這裡改成使用 textToConvert 來進行轉換
     const pinyinText = textToConvert.replace(masterRegex, (matchedWord) => {
@@ -91,12 +92,14 @@ function hanziToPinyin(mode) {
     const lines = pinyinText.split('\n');
     
     // -----------------------------------------------------------
-    // 2：還原空格並處理間距
+    // 2：還原空格與 Tab 並處理間距
     // -----------------------------------------------------------
     const processedLines = lines.map(line => {
-        let processed = line.replace(/\s+/g, ' ').trim();
+        // 【修正】將 \s+ 改為 / +/，只壓縮普通空格，避免誤傷 Tab 
+        let processed = line.replace(/ +/g, ' ').trim();
         processed = processed.replace(new RegExp(` ${spaceMarker} `, 'g'), '  ');
         processed = processed.replace(new RegExp(spaceMarker, 'g'), ' ');
+        processed = processed.replace(new RegExp(tabMarker, 'g'), '\t'); // 還原 Tab
         
         return processed;
     });
