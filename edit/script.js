@@ -6424,19 +6424,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     // --- 1. 防止焦點轉移，保持編輯區反白 ---
-    document.addEventListener('mousedown', (e) => {
-        // 修正：同時保護翻譯工具與拼音工具，以及 Live 模式的上方選單
-        const isTranslator = e.target.closest('#floating-translator') || e.target.closest('#floating-pinyin-tool');
-        const isToolbar = e.target.closest('.mb-3.flex') || e.target.closest('.dropdown-menu') || e.target.closest('.action-menu') || e.target.closest('#global-lang-submenu') || e.target.closest('#btn-global-lang-toggle');
-        const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
-        
-        if ((isTranslator || isToolbar) && !isInput) {
-            if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
-                return;
+        document.addEventListener('mousedown', (e) => {
+            const isTranslator = e.target.closest('#floating-translator') || e.target.closest('#floating-pinyin-tool');
+            
+            // ✨ 擴大保護範圍：包含主工具列 (.mb-1.flex.flex-wrap)、所有下拉選單與操作按鈕
+            const isToolbar = e.target.closest('.mb-1.flex.flex-wrap') || 
+                              e.target.closest('.mb-3.flex') || 
+                              e.target.closest('.dropdown-container') || 
+                              e.target.closest('.dropdown-menu') || 
+                              e.target.closest('.action-menu') || 
+                              e.target.closest('.action-dropdown') || 
+                              e.target.closest('.icon-btn') || 
+                              e.target.closest('#chatControls') ||
+                              e.target.closest('#global-lang-submenu') || 
+                              e.target.closest('#btn-global-lang-toggle');
+                              
+            // ✨ 嚴格判定文字輸入區域 (排除 Checkbox/Radio，避免它們被誤當作輸入框而導致編輯器失焦)
+            const isTextInput = (e.target.tagName === 'INPUT' && (e.target.type === 'text' || e.target.type === 'number' || e.target.type === 'search')) || e.target.tagName === 'TEXTAREA';
+            
+            if ((isTranslator || isToolbar) && !isTextInput) {
+                // 手機版保留原有的點擊順暢度
+                if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+                    return;
+                }
+                
+                // 強制阻擋失去焦點
+                e.preventDefault(); 
+                
+                // 手動修復 Label + Checkbox/Radio 的點擊事件 (因為 preventDefault 會吃掉預設的狀態切換)
+                const label = e.target.closest('label');
+                if (label) {
+                    const input = label.querySelector('input');
+                    if (input) {
+                        if (input.type === 'radio' && input.checked) return;
+                        input.checked = input.type === 'radio' ? true : !input.checked;
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
             }
-            e.preventDefault(); 
-        }
-    });
+        });
 
     if (typeof setupDictionaries === 'undefined') {
         const script = document.createElement('script');
@@ -11543,6 +11569,969 @@ window.playPresetBank = function(index) {
 
 
 
+
+
+
+
+
+
+
+
+
+// =================================================================
+// 語文處理核心引擎 (Text Processing Engine)
+// =================================================================
+window.TextToolsEngine = {
+    // 使用 Spread Operator 完美處理包含擴充漢字的真實長度
+    getLength(txt) { return [...(txt || '')].length; },
+    getRandomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; },
+
+    // 1. 併單音節
+    combineCharacter(input) {
+        const lines = input.split('\n');
+        let finalLines = [];
+        lines.forEach(line => {
+            if (line.trim() === '' || line.trim() === '\t') { finalLines.push(line); return; }
+            const [chinese, pinyin] = line.split('\t');
+            if (!chinese && !pinyin) { finalLines.push(line); return; }
+            
+            let pinyinProcessed = (pinyin || '').replace(/([。，、；：【】「」『』（）─？！…﹏《 》〈 〉＿．—～~／\(\)\[\]{}\/,.?;:!"'“”‘’·])/g, ' $1 ')
+                                    .replace(/\s+/g, ' ').replace(/(=)/g, ' =').replace(/(-+)/g, ' $1').trim();
+            
+            const chineseChars = [...(chinese || '').replace(/[\s|_]+/g, '')];
+            const pinyinParts = pinyinProcessed.split(' ').filter(Boolean);
+
+            let pinyinIndex = 0;
+            let currentOutput = '';
+            chineseChars.forEach(char => {
+                if (char.trim() !== '') {
+                    currentOutput += char + '\\' + (pinyinParts[pinyinIndex] || '') + ' ';
+                    pinyinIndex++;
+                }
+            });
+            
+            // ✨ 加入檢核標記
+            const cLen = chineseChars.length;
+            const pLen = pinyinParts.length;
+            const marker = cLen > pLen ? 'X' : (cLen === pLen ? 'O' : 'Y');
+            
+            finalLines.push(currentOutput.trim() + '\t' + `${cLen}\\${pLen}` + '\t' + marker);
+        });
+        return finalLines.join('\n');
+    },
+
+    // 2. 併多音節
+    combineHyphen(input) {
+        const lines = input.split('\n');
+        let output = '';
+        const punctuationRegex = /[。，、；：【】「」『』（）─？！…﹏《》〈〉＿．—～~／\“\”\(\)\[\]{}\/,.?;:!"'""''·]/;
+
+        lines.forEach(line => {
+            if (line.trim() === '' || line.trim() === '\t') { output += line + '\n'; return; }
+            const parts = line.split('\t').map(part => part.trim());
+            const chinese = parts[0] || '';
+            const pinyin = parts[1] || '';
+            if (!chinese || !pinyin) { output += line + '\n'; return; }
+
+            let currentOutput = '';
+            const splitChineseWithDigits = (text) => {
+                let joinedText = [...text].join('ˉ'); 
+                joinedText = joinedText.replace(/\d(ˉ\d)+/g, match => match.replace(/ˉ/g, ''));
+                return joinedText.split('ˉ');
+            };
+
+            const chineseChars = splitChineseWithDigits(chinese);
+            let processedPinyin = pinyin.replace(/([。，、；：【】「」『』（）─？！…﹏《》〈〉＿．—～~／\“\”\(\)\[\]{}\/,.?;:!"'""''·])/g, ' $1 ');
+            const pinyinGroups = processedPinyin.split(' ').filter(g => g.length > 0);
+            
+            let chineseIndex = 0, pinyinIndex = 0, chineseCount = 0, pinyinCount = 0;
+            
+            while (chineseIndex < chineseChars.length || pinyinIndex < pinyinGroups.length) {
+                while (chineseIndex < chineseChars.length && punctuationRegex.test(chineseChars[chineseIndex])) {
+                    currentOutput += chineseChars[chineseIndex] + ' ';
+                    chineseIndex++; chineseCount++;
+                }
+                while (pinyinIndex < pinyinGroups.length && punctuationRegex.test(pinyinGroups[pinyinIndex])) {
+                    currentOutput += ` ${pinyinGroups[pinyinIndex]} `;
+                    pinyinIndex++; pinyinCount++;
+                }
+                if (chineseIndex < chineseChars.length && pinyinIndex < pinyinGroups.length) {
+                    const currentPinyin = pinyinGroups[pinyinIndex];
+                    if (!punctuationRegex.test(currentPinyin)) {
+                        if (currentPinyin.includes('-')) {
+                            const charCount = currentPinyin.split(/-+/).length;
+                            const relevantChars = chineseChars.slice(chineseIndex, chineseIndex + charCount).filter(char => !punctuationRegex.test(char)).join('');
+                            currentOutput += `${relevantChars}\\${currentPinyin} `;
+                            chineseIndex += charCount; chineseCount++;
+                        } else {
+                            currentOutput += `${chineseChars[chineseIndex]}\\${currentPinyin} `;
+                            chineseIndex++; chineseCount++;
+                        }
+                        pinyinIndex++; pinyinCount++;
+                    } else {
+                        currentOutput += ` ${currentPinyin} `;
+                        pinyinIndex++; pinyinCount++;
+                    }
+                } else if (chineseIndex < chineseChars.length) {
+                    const currentChar = chineseChars[chineseIndex];
+                    if (!punctuationRegex.test(currentChar)) {
+                        currentOutput += `${currentChar}\\${currentChar} `;
+                        chineseCount++;
+                    } else { currentOutput += currentChar + ' '; }
+                    chineseIndex++;
+                } else if (pinyinIndex < pinyinGroups.length) {
+                    const currentPinyin = pinyinGroups[pinyinIndex];
+                    if (!punctuationRegex.test(currentPinyin)) {
+                        currentOutput += `${currentPinyin}\\${currentPinyin} `;
+                        pinyinCount++;
+                    } else { currentOutput += ` ${currentPinyin} `; }
+                    pinyinIndex++;
+                }
+            }
+            currentOutput = currentOutput.replace(/\s+/g, ' ').trim();
+            let compareMarker = chineseCount > pinyinCount ? 'X' : (chineseCount === pinyinCount ? 'O' : 'Y');
+            output += currentOutput + '\t' + `${chineseCount}\\${pinyinCount}` + '\t' + compareMarker + '\n';
+        });
+        return output.trim();
+    },
+
+    // 3. 詞音合併
+    combineWords(input) {
+        const lines = input.split('\n');
+        let finalLines = [];
+        lines.forEach(line => {
+            if (line.trim() === '' || line.trim() === '\t') { finalLines.push(line); return; }
+            const [chinesePart, pinyinPart] = line.split('\t');
+            if (!chinesePart && !pinyinPart) { finalLines.push(line); return; }
+
+            const chineseProcessed = (chinesePart||'').replace(/[\s|_]+/g, ' ').trim();
+            const chineseLength = [...chineseProcessed.replace(/[\s|_]+/g, '')].length;
+            let pinyinProcessed = (pinyinPart||'').replace(/([。，、；：【】「」『』（）─？！…﹏《 》〈 〉＿．—～~／\(\)\[\]{}\/,.?;:!"'“”‘’·])/g, ' $1 ').replace(/([-=]+)/g, ' $1').replace(/\s+/g, ' ').trim();
+            
+            const pinyinGroups = pinyinProcessed.split(' ').filter(Boolean);
+            const pinyinLength = pinyinGroups.length;
+            const chineseGroups = chineseProcessed.split(' ').filter(Boolean);
+
+            let pinyinIndex = 0;
+            let groupOutputs = [];
+            chineseGroups.forEach(group => {
+                let pinyinGroup = '';
+                let groupLength = [...group].length;
+                for (let i = 0; i < groupLength; i++) {
+                    if (pinyinIndex < pinyinGroups.length) {
+                        pinyinGroup += (i > 0 ? ' ' : '') + pinyinGroups[pinyinIndex++];
+                    }
+                }
+                groupOutputs.push(group + '\\' + pinyinGroup);
+            });
+            
+            // ✨ 加入檢核標記
+            const marker = chineseLength > pinyinLength ? 'X' : (chineseLength === pinyinLength ? 'O' : 'Y');
+            const resultLine = groupOutputs.join('_') + '\t' + `${chineseLength}\\${pinyinLength}` + '\t' + marker;
+            finalLines.push(resultLine);
+        });
+        return finalLines.map(line => line.trim() ? "_" + line : line).join('\n');
+    },
+
+    // 4. 詞音交錯
+    combineWordsPinyin(input) {
+        const lines = input.split('\n');
+        let finalLines = [];
+        lines.forEach(line => {
+            if (line.trim() === '' || line.trim() === '\t') { finalLines.push(line); return; }
+            const [chinesePart, pinyinPart] = line.split('\t');
+            if (!chinesePart && !pinyinPart) { finalLines.push(line); return; }
+
+            const chineseProcessed = (chinesePart||'').replace(/\s+/g, ' ').trim();
+            const pinyinProcessed = (pinyinPart||'').replace(/([。，、；：【】「」『』（）─？！…﹏《 》〈 〉＿．—～~／\(\)\[\]{}\/,.?;:!"'“”‘’·])/g, ' $1 ').replace(/([-=]+)/g, ' $1').replace(/\s+/g, ' ').trim();
+
+            const chineseLength = [...chineseProcessed.replace(/[\s|_]+/g, '')].length;
+            const pinyinGroups = pinyinProcessed.split(' ').filter(Boolean);
+            const pinyinLength = pinyinGroups.length;
+            const chineseGroups = chineseProcessed.split(' ').filter(Boolean);
+
+            let pinyinIndex = 0;
+            let groupOutputs = [];
+            chineseGroups.forEach((group) => {
+                let currentGroup = '';
+                [...group].forEach((char, charIndex) => {
+                    if (charIndex > 0) currentGroup += ' ';
+                    currentGroup += char + '\\' + (pinyinGroups[pinyinIndex] || '');
+                    pinyinIndex++;
+                });
+                groupOutputs.push(currentGroup);
+            });
+            
+            // ✨ 加入檢核標記
+            const marker = chineseLength > pinyinLength ? 'X' : (chineseLength === pinyinLength ? 'O' : 'Y');
+            finalLines.push(groupOutputs.join('_') + '\t' + `${chineseLength}\\${pinyinLength}` + '\t' + marker);
+        });
+        return finalLines.join('\n');
+    },
+
+    // 5. 標點同步 (相同注音)
+    samePunctuation(input) {
+        const lines = input.split('\n');
+        const processedLines = [];
+        const isHanziRegex = /\p{Script=Han}/u;
+        const isPunctuationRegex = /[^\p{L}\p{N}]/u;
+        const punctCaptureRegex = /([^\p{L}\p{N}])/gu;
+
+        const extractContentAndPunctuation = (tokens, isContentCondition) => {
+            const content = [];
+            const punctuationMap = new Map();
+            let currentPunctuation = [];
+
+            for (const token of tokens) {
+                const isContent = (typeof isContentCondition === 'function') ? isContentCondition(token) : isContentCondition.test(token);
+                if (isContent) {
+                    if (currentPunctuation.length > 0) {
+                        punctuationMap.set(content.length, currentPunctuation);
+                        currentPunctuation = [];
+                    }
+                    content.push(token);
+                } else {
+                    currentPunctuation.push(token);
+                }
+            }
+            if (currentPunctuation.length > 0) {
+                punctuationMap.set(content.length, currentPunctuation);
+            }
+            return { content, punctuationMap };
+        };
+
+        for (const line of lines) {
+            if (line.trim() === '') { processedLines.push(''); continue; }
+            
+            const parts = line.split('\t');
+            if (parts.length < 2) { processedLines.push(line); continue; }
+
+            const [hanziPart, pinyinPart] = parts;
+            const hanziTokens = [...hanziPart];
+            const pinyinTokens = pinyinPart.trim().replace(punctCaptureRegex, ' $1 ').split(/\s+/).filter(Boolean);
+
+            const { content: hanziContent, punctuationMap: hanziPunctuationMap } = extractContentAndPunctuation(hanziTokens, isHanziRegex);
+            const { content: pinyinContent, punctuationMap: pinyinPunctuationMap } = extractContentAndPunctuation(pinyinTokens, (token) => !isPunctuationRegex.test(token));
+
+            let newHanziString = '';
+            let newPinyinString = '';
+            const maxContentLength = Math.max(hanziContent.length, pinyinContent.length);
+
+            for (let i = 0; i <= maxContentLength; i++) {
+                const puncFromHanzi = hanziPunctuationMap.get(i) || [];
+                const puncFromPinyin = pinyinPunctuationMap.get(i) || [];
+                
+                const finalPunctuationTokens = puncFromHanzi.length > 0 ? puncFromHanzi : puncFromPinyin;
+                
+                if (finalPunctuationTokens.length > 0) {
+                    newHanziString += finalPunctuationTokens.join('');
+                    const pinyinPunctuationString = finalPunctuationTokens.join(' ');
+                    if (newPinyinString.length > 0 && !newPinyinString.endsWith(' ')) {
+                         newPinyinString += ' ';
+                    }
+                    newPinyinString += pinyinPunctuationString + ' ';
+                }
+
+                if (i < hanziContent.length) { newHanziString += hanziContent[i]; }
+                if (i < pinyinContent.length) { newPinyinString += pinyinContent[i] + ' '; }
+            }
+            
+            // ✨ 加入檢核標記
+            const cLen = hanziContent.length;
+            const pLen = pinyinContent.length;
+            const marker = cLen > pLen ? 'X' : (cLen === pLen ? 'O' : 'Y');
+
+            let resultLine = `${newHanziString.trim()}\t${newPinyinString.trim()}\t${cLen}\\${pLen}\t${marker}`;
+            processedLines.push(resultLine);
+        }
+        return processedLines.join('\n');
+    },
+
+    // 6. 字音詞音
+    arrangeText(input) {
+        return input.split(/\r?\n/).map(line => {
+            if (!line.trim()) return '';
+            return line.split(/([；、，：。！])/g).map(segment => {
+                if (!segment.trim() || /^[；、，：。！]$/.test(segment)) return segment;
+                const pairs = segment.trim().split(/\s+/);
+                if (!pairs[0]) return '';
+                const characters = [], pronunciations = [];
+                pairs.forEach(pair => {
+                    let char, pron;
+                    if (pair.includes('\\')) {
+                        [char, pron] = pair.split('\\');
+                    } else {
+                        const pinyinStart = pair.search(/[a-zA-Z]/);
+                        if (pinyinStart !== -1) {
+                            char = pair.slice(0, pinyinStart);
+                            pron = pair.slice(pinyinStart);
+                        }
+                    }
+                    if (char && pron) { characters.push(char); pronunciations.push(pron); }
+                });
+                return characters.length > 0 ? `${characters.join('')}\\${pronunciations.join(' ')}` : '';
+            }).join('');
+        }).join('\n');
+    },
+
+    // 7. 詞音字音 (✨ 升級支援行內動態計數與檢核)
+    reverseArrangeText(input) {
+        const lines = input.split(/\r?\n/);
+        return lines.map(line => {
+            if (!line.trim()) return '';
+            
+            // 使用更廣泛的標點符號進行段落切割，避免漏算字數
+            const segments = line.split(/([。，、；：！？「」『』（）《》〈〉…—])/); 
+            
+            let cLen = 0, pLen = 0;
+            let isTargetLine = false;
+
+            const processedStr = segments.map(segment => {
+                if (/^[。，、；：！？「」『』（）《》〈〉…—]$/.test(segment)) return segment;
+                if (!segment.trim()) return segment;
+
+                if (!segment.includes('\\')) {
+                    const hanziRegex = /\p{Script=Han}/gu; 
+                    const hanziMatches = segment.match(hanziRegex) || [];
+                    let remainingText = segment;
+                    hanziMatches.forEach(hanzi => { remainingText = remainingText.replace(hanzi, ''); });
+                    const pronMatches = remainingText.trim().split(/\s+/).filter(Boolean);
+                    
+                    if (hanziMatches.length > 0 || pronMatches.length > 0) {
+                        isTargetLine = true;
+                        cLen += hanziMatches.length;
+                        pLen += pronMatches.length;
+                        if (hanziMatches.length === pronMatches.length && pronMatches.length > 0) {
+                            return hanziMatches.map((char, i) => `${char}\\${pronMatches[i]}`).join(' ');
+                        }
+                    }
+                    return segment;
+                } else {
+                    isTargetLine = true;
+                    let parts = segment.trim().split('\\');
+                    let chars = parts[0] || '';
+                    let prons = parts[1] || '';
+                    
+                    const charArray = [...chars]; 
+                    const pronArray = prons.split(/\s+/).filter(Boolean);
+                    
+                    cLen += charArray.length;
+                    pLen += pronArray.length;
+
+                    if (charArray.length === pronArray.length && pronArray.length > 0) {
+                        return charArray.map((char, i) => `${char}\\${pronArray[i]}`).join(' ');
+                    }
+                    return segment;
+                }
+            }).join('');
+
+            // ✨ 如果這行有處理到詞音，就在最右方附上檢核結果
+            if (isTargetLine) {
+                const marker = cLen > pLen ? 'X' : (cLen === pLen ? 'O' : 'Y');
+                return `${processedStr}\t${cLen}\\${pLen}\t${marker}`;
+            }
+            return processedStr;
+        }).join('\n');
+    },
+
+    // 8. 字音字形
+    examText(input) {
+        const lines = input.trim().split('\n').filter(line => line.trim() !== '');
+        let output = '', isTwoColumnFormat = false;
+        if (lines.length > 0 && lines[0].split('\t').length === 2) isTwoColumnFormat = true;
+
+        lines.forEach(line => {
+            let num, chars, pinyin;
+            if (isTwoColumnFormat) { [chars, pinyin] = line.split('\t'); num = 0; } 
+            else { [num, chars, pinyin] = line.split('\t'); }
+            chars = chars.replace(/\s+/g, '');
+            pinyin = pinyin.replace(/([\s-=])+/g, '_$1');
+
+            let numInt = parseInt(num);
+            const charLength = this.getLength(chars);
+            const pinyinArray = pinyin.split('_');
+            
+            if (isTwoColumnFormat || !num || numInt === 0) numInt = this.getRandomInt(1, charLength);
+            
+            if (numInt <= charLength && charLength === pinyinArray.length) {
+                const selectedCharIndex = numInt - 1;
+                const selectedChar = [...chars][selectedCharIndex]; 
+                let selectedPinyin = pinyinArray[selectedCharIndex];
+                const newChars = [...chars].map((c, index) => index === selectedCharIndex ? `「${c}」` : c).join('');
+                let pinyinParts = pinyinArray.map((part, index) => index === selectedCharIndex ? `「${part}」` : part).join('');
+                pinyinParts = pinyinParts.replace(/(「)(-+)/g, '$2$1').replace(/( )(「)/g, '$2').replace(/(」)( )/g, '$1');
+                selectedPinyin = selectedPinyin.replace(/-+/g, '');
+                output += `${numInt}\t${newChars}\t${selectedPinyin.trim()}\t${pinyinParts}\t${selectedChar}\n`;
+            } else {
+                output += line + '\t(錯誤: 長度不符)\n';
+            }
+        });
+        return output.trim();
+    },
+
+    // 9. 「字」標數
+    examWhichWord(input) {
+        return input.trim().split(/\r?\n/).map(line => {
+            const cleanChars = [...line.replace(/\s+/g, '')]; 
+            const match = line.match(/「(.*?)」/);
+            if (!match) return line;
+            const targetChar = match[1];
+            let count = 0, position = -1;
+            for (let i = 0; i < cleanChars.length; i++) {
+                const ch = cleanChars[i];
+                if (ch === '「' || ch === '」') continue;
+                count++;
+                if (ch === targetChar) { position = count; break; }
+            }
+            return `${position}\t${line}`;
+        }).join("\n");
+    },
+
+    // 10. 「yin」標數
+    examWhichPinyin(input) {
+        return input.trim().split('\n').map(line => {
+            line = line.replace(/\s+/g, ' ').trim().replace(/「\s*/g, '「').replace(/\s*」/g, '」');
+            const count = line.startsWith('「') ? 1 : 2;
+            return `${count}\t${line}`;
+        }).join('\n');
+    },
+
+    // 11. 比對字音 (檢核字音數量是否一致)
+    compareCharPinyin(input) {
+        const lines = input.split('\n');
+        let finalLines = [];
+        lines.forEach(line => {
+            if (line.trim() === '' || line.trim() === '\t') { finalLines.push(line); return; }
+            const parts = line.split('\t');
+            const chinese = parts[0] || '';
+            const pinyin = parts[1] || '';
+            
+            if (!chinese && !pinyin) { finalLines.push(line); return; }
+            
+            // 處理拼音 (將標點符號與連字符獨立切開，確保計算基準一致)
+            let pinyinProcessed = pinyin.replace(/([。，、；：【】「」『』（）─？！…﹏《 》〈 〉＿．—～~／\(\)\[\]{}\/,.?;:!"'“”‘’·])/g, ' $1 ')
+                                    .replace(/\s+/g, ' ').replace(/(=)/g, ' =').replace(/(-+)/g, ' $1').trim();
+            
+            // 處理漢字 (無視空白，並使用展開運算子安全支援擴充漢字)
+            const chineseChars = [...chinese.replace(/[\s|_]+/g, '')];
+            const pinyinParts = pinyinProcessed.split(' ').filter(Boolean);
+
+            const cLen = chineseChars.length;
+            const pLen = pinyinParts.length;
+            const marker = cLen > pLen ? 'X' : (cLen === pLen ? 'O' : 'Y');
+            
+            // 將檢核結果直接附加在原文右側
+            finalLines.push(`${line}\t${cLen}\\${pLen}\t${marker}`);
+        });
+        return finalLines.join('\n');
+    }
+};
+
+// =================================================================
+// 語文工具統一調度器 (完美支援文字模式與表格模式選取轉換)
+// =================================================================
+window.executeTextTool = async function(toolName) {
+    if (!window.TextToolsEngine || typeof window.TextToolsEngine[toolName] !== 'function') {
+        console.error("找不到該語文工具或引擎遺失:", toolName);
+        if (typeof showToast === 'function') showToast('❌ 找不到核心引擎，請確認程式碼是否完整貼上');
+        return;
+    }
+
+    const isTableMode = currentMode === 'table';
+    const chkKeep = document.getElementById('chkKeepTextOriginal');
+    
+    // ✨ 表格模式預設為 true (強制保留原文，往右側擴充)；文字模式則看面板上的勾選狀態
+    let keepOriginal = isTableMode ? true : (chkKeep ? chkKeep.checked : false);
+
+    try {
+        if (!isTableMode) {
+            // ==========================================
+            // 情境 1：文字模式 (Textarea 處理)
+            // ==========================================
+            const editor = document.getElementById('editor');
+            if (!editor || !editor.value) return;
+
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            const isPartial = start !== end;
+            
+            let textToProcess = isPartial ? editor.value.substring(start, end) : editor.value;
+            let convertedText = "";
+
+            if (keepOriginal) {
+                // 保留原文，將轉換結果用 Tab 拼接到原行後方
+                const lines = textToProcess.split('\n');
+                const newLines = lines.map(line => {
+                    if (line.replace(/\t/g, '').trim() === '') return line; 
+                    return line + '\t' + window.TextToolsEngine[toolName](line);
+                });
+                convertedText = newLines.join('\n');
+            } else {
+                convertedText = window.TextToolsEngine[toolName](textToProcess);
+            }
+            
+            if (isPartial) {
+                let processedText = editor.value.substring(0, start) + convertedText + editor.value.substring(end);
+                editor.value = processedText;
+                editor.setSelectionRange(start, start + convertedText.length);
+                editor.blur(); editor.focus();
+            } else {
+                editor.value = convertedText;
+            }
+
+            if (typeof debouncedUpdateLineNumbers === 'function') debouncedUpdateLineNumbers();
+
+        } else {
+            // ==========================================
+            // 情境 2：表格模式 (精準選取擷取與右側擴張寫入)
+            // ==========================================
+            
+            // 1. 取得目前的選取範圍邊界
+            let minR = Infinity, maxR = -1, minC = Infinity, maxC = -1;
+            if (selectedCellBlocks && selectedCellBlocks.length > 0) {
+                selectedCellBlocks.forEach(b => {
+                    minR = Math.min(minR, b.startR, b.endR); maxR = Math.max(maxR, b.startR, b.endR);
+                    minC = Math.min(minC, b.startC, b.endC); maxC = Math.max(maxC, b.startC, b.endC);
+                });
+            } else if (selectedRows && selectedRows.length > 0) {
+                minR = Math.min(...selectedRows); maxR = Math.max(...selectedRows);
+                minC = 0; maxC = document.querySelector('#data-table thead tr').children.length - 2;
+            } else if (selectedCols && selectedCols.length > 0) {
+                minR = 0; maxR = document.querySelectorAll('#data-table tbody tr').length - 1;
+                minC = Math.min(...selectedCols); maxC = Math.max(...selectedCols);
+            } else if (lastClickedCell) {
+                minR = maxR = lastClickedCell.r;
+                minC = maxC = lastClickedCell.c;
+            } else {
+                return showToast('⚠️ 請先選取要轉換的儲存格範圍 (例如左欄漢字、右欄拼音)');
+            }
+
+            const tbodyRows = document.querySelectorAll('#data-table tbody tr');
+            
+            // 2. 讀取選取範圍內的資料，組合成 TSV 字串
+            let extractedLines = [];
+            for (let r = minR; r <= maxR; r++) {
+                let rowParts = [];
+                for (let c = minC; c <= maxC; c++) {
+                    const inner = tbodyRows[r]?.children[c + 1]?.querySelector('.td-inner');
+                    let cellText = inner ? (inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : inner.innerText) : "";
+                    rowParts.push(cellText);
+                }
+                extractedLines.push(rowParts.join('\t'));
+            }
+            const textToProcess = extractedLines.join('\n');
+
+            // 3. 送入核心引擎轉換
+            let convertedText = "";
+            if (keepOriginal) {
+                const lines = textToProcess.split('\n');
+                const newLines = lines.map(line => {
+                    if (line.replace(/\t/g, '').trim() === '') return line; 
+                    return line + '\t' + window.TextToolsEngine[toolName](line);
+                });
+                convertedText = newLines.join('\n');
+            } else {
+                convertedText = window.TextToolsEngine[toolName](textToProcess);
+            }
+            
+            // 4. 解析結果字串回二維陣列
+            const convertedData = typeof parseTSV === 'function' ? parseTSV(convertedText) : convertedText.split('\n').map(l => l.split('\t'));
+            
+            // 5. 確保表格右側欄位數量足夠寫入新資料
+            const resultWidth = convertedData[0] ? convertedData[0].length : 1;
+            const theadTr = document.querySelector('#data-table thead tr');
+            const currentCols = theadTr.children.length - 1;
+            const requiredCols = minC + resultWidth;
+
+            // 若欄位不夠，自動往右側擴張 (新增欄位)
+            if (requiredCols > currentCols) {
+                if (typeof insertColAt === 'function') {
+                    insertColAt(currentCols - 1, -1, requiredCols - currentCols);
+                }
+            }
+
+            // 重新抓取列集合 (因為 insertColAt 可能重繪了部分 DOM)
+            const updatedRows = document.querySelectorAll('#data-table tbody tr');
+
+            // 6. 原位覆寫 (包含新產生的右側結果)
+            for (let i = 0; i < convertedData.length; i++) {
+                const r = minR + i;
+                for (let j = 0; j < convertedData[i].length; j++) {
+                    const targetInner = updatedRows[r]?.children[minC + j + 1]?.querySelector('.td-inner');
+                    if (targetInner) {
+                        targetInner.removeAttribute('data-formula');
+                        targetInner.innerText = convertedData[i][j];
+                    }
+                }
+            }
+            
+            // 7. 清除多餘殘留資料 (當不保留原文，且新資料欄位小於原本選取欄位時)
+            const originalWidth = maxC - minC + 1;
+            if (!keepOriginal && resultWidth < originalWidth) {
+                for (let i = 0; i < convertedData.length; i++) {
+                    const r = minR + i;
+                    for (let j = resultWidth; j < originalWidth; j++) {
+                        const targetInner = updatedRows[r]?.children[minC + j + 1]?.querySelector('.td-inner');
+                        if (targetInner) {
+                            targetInner.removeAttribute('data-formula');
+                            targetInner.innerText = '';
+                        }
+                    }
+                }
+            }
+
+            if (typeof recalculateAllFormulas === 'function') recalculateAllFormulas();
+        }
+
+        // 統一存檔與提示
+        if (typeof debouncedSaveHistory === 'function') debouncedSaveHistory();
+        if (typeof saveAllTabsData === 'function') saveAllTabsData();
+        if (typeof showToast === 'function') showToast('✅ 轉換與檢核完成！');
+
+    } catch (err) {
+        console.error("轉換失敗:", err);
+        if (typeof showToast === 'function') showToast('❌ 轉換失敗，請檢查資料格式');
+    }
+};
+
+
+
+// =================================================================
+// 語文工具統一調度器 (完美支援文字模式與表格模式選取轉換)
+// =================================================================
+window.executeTextTool = async function(toolName) {
+    if (!window.TextToolsEngine || typeof window.TextToolsEngine[toolName] !== 'function') {
+        console.error("找不到該語文工具或引擎遺失:", toolName);
+        if (typeof showToast === 'function') showToast('❌ 找不到核心引擎，請確認程式碼是否完整貼上');
+        return;
+    }
+
+    const isTableMode = currentMode === 'table';
+    const chkKeep = document.getElementById('chkKeepTextOriginal');
+    
+    // ✨ 表格模式預設為 true (強制保留原文，往右側擴充)；文字模式則看面板上的勾選狀態
+    let keepOriginal = isTableMode ? true : (chkKeep ? chkKeep.checked : false);
+
+    try {
+        if (!isTableMode) {
+            // ==========================================
+            // 情境 1：文字模式 (Textarea 處理)
+            // ==========================================
+            const editor = document.getElementById('editor');
+            if (!editor || !editor.value) return;
+
+            const start = editor.selectionStart;
+            const end = editor.selectionEnd;
+            const isPartial = start !== end;
+            
+            let textToProcess = isPartial ? editor.value.substring(start, end) : editor.value;
+            let convertedText = "";
+
+            if (keepOriginal) {
+                // 保留原文，將轉換結果用 Tab 拼接到原行後方
+                const lines = textToProcess.split('\n');
+                const newLines = lines.map(line => {
+                    if (line.replace(/\t/g, '').trim() === '') return line; 
+                    return line + '\t' + window.TextToolsEngine[toolName](line);
+                });
+                convertedText = newLines.join('\n');
+            } else {
+                convertedText = window.TextToolsEngine[toolName](textToProcess);
+            }
+            
+            if (isPartial) {
+                let processedText = editor.value.substring(0, start) + convertedText + editor.value.substring(end);
+                editor.value = processedText;
+                editor.setSelectionRange(start, start + convertedText.length);
+                editor.blur(); editor.focus();
+            } else {
+                editor.value = convertedText;
+            }
+
+            if (typeof debouncedUpdateLineNumbers === 'function') debouncedUpdateLineNumbers();
+
+        } else {
+            // ==========================================
+            // 情境 2：表格模式 (精準選取擷取與右側擴張寫入)
+            // ==========================================
+            
+            // 1. 取得目前的選取範圍邊界
+            let minR = Infinity, maxR = -1, minC = Infinity, maxC = -1;
+            if (selectedCellBlocks && selectedCellBlocks.length > 0) {
+                selectedCellBlocks.forEach(b => {
+                    minR = Math.min(minR, b.startR, b.endR); maxR = Math.max(maxR, b.startR, b.endR);
+                    minC = Math.min(minC, b.startC, b.endC); maxC = Math.max(maxC, b.startC, b.endC);
+                });
+            } else if (selectedRows && selectedRows.length > 0) {
+                minR = Math.min(...selectedRows); maxR = Math.max(...selectedRows);
+                minC = 0; maxC = document.querySelector('#data-table thead tr').children.length - 2;
+            } else if (selectedCols && selectedCols.length > 0) {
+                minR = 0; maxR = document.querySelectorAll('#data-table tbody tr').length - 1;
+                minC = Math.min(...selectedCols); maxC = Math.max(...selectedCols);
+            } else if (lastClickedCell) {
+                minR = maxR = lastClickedCell.r;
+                minC = maxC = lastClickedCell.c;
+            } else {
+                return showToast('⚠️ 請先選取要轉換的儲存格範圍 (例如左欄漢字、右欄拼音)');
+            }
+
+            const tbodyRows = document.querySelectorAll('#data-table tbody tr');
+            
+            // 2. 讀取選取範圍內的資料，組合成 TSV 字串
+            let extractedLines = [];
+            for (let r = minR; r <= maxR; r++) {
+                let rowParts = [];
+                for (let c = minC; c <= maxC; c++) {
+                    const inner = tbodyRows[r]?.children[c + 1]?.querySelector('.td-inner');
+                    let cellText = inner ? (inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : inner.innerText) : "";
+                    rowParts.push(cellText);
+                }
+                extractedLines.push(rowParts.join('\t'));
+            }
+            const textToProcess = extractedLines.join('\n');
+
+            // 3. 送入核心引擎轉換
+            let convertedText = "";
+            if (keepOriginal) {
+                const lines = textToProcess.split('\n');
+                const newLines = lines.map(line => {
+                    if (line.replace(/\t/g, '').trim() === '') return line; 
+                    return line + '\t' + window.TextToolsEngine[toolName](line);
+                });
+                convertedText = newLines.join('\n');
+            } else {
+                convertedText = window.TextToolsEngine[toolName](textToProcess);
+            }
+            
+            // 4. 解析結果字串回二維陣列
+            const convertedData = typeof parseTSV === 'function' ? parseTSV(convertedText) : convertedText.split('\n').map(l => l.split('\t'));
+            
+            // 5. 確保表格右側欄位數量足夠寫入新資料
+            const resultWidth = convertedData[0] ? convertedData[0].length : 1;
+            const theadTr = document.querySelector('#data-table thead tr');
+            const currentCols = theadTr.children.length - 1;
+            const requiredCols = minC + resultWidth;
+
+            // 若欄位不夠，自動往右側擴張 (新增欄位)
+            if (requiredCols > currentCols) {
+                if (typeof insertColAt === 'function') {
+                    insertColAt(currentCols - 1, -1, requiredCols - currentCols);
+                }
+            }
+
+            // 重新抓取列集合 (因為 insertColAt 可能重繪了部分 DOM)
+            const updatedRows = document.querySelectorAll('#data-table tbody tr');
+
+            // 6. 原位覆寫 (包含新產生的右側結果)
+            for (let i = 0; i < convertedData.length; i++) {
+                const r = minR + i;
+                for (let j = 0; j < convertedData[i].length; j++) {
+                    const targetInner = updatedRows[r]?.children[minC + j + 1]?.querySelector('.td-inner');
+                    if (targetInner) {
+                        targetInner.removeAttribute('data-formula');
+                        targetInner.innerText = convertedData[i][j];
+                    }
+                }
+            }
+            
+            // 7. 清除多餘殘留資料 (當不保留原文，且新資料欄位小於原本選取欄位時)
+            const originalWidth = maxC - minC + 1;
+            if (!keepOriginal && resultWidth < originalWidth) {
+                for (let i = 0; i < convertedData.length; i++) {
+                    const r = minR + i;
+                    for (let j = resultWidth; j < originalWidth; j++) {
+                        const targetInner = updatedRows[r]?.children[minC + j + 1]?.querySelector('.td-inner');
+                        if (targetInner) {
+                            targetInner.removeAttribute('data-formula');
+                            targetInner.innerText = '';
+                        }
+                    }
+                }
+            }
+
+            if (typeof recalculateAllFormulas === 'function') recalculateAllFormulas();
+        }
+
+        // 統一存檔與提示
+        if (typeof debouncedSaveHistory === 'function') debouncedSaveHistory();
+        if (typeof saveAllTabsData === 'function') saveAllTabsData();
+        if (typeof showToast === 'function') showToast('✅ 轉換與檢核完成！');
+
+    } catch (err) {
+        console.error("轉換失敗:", err);
+        if (typeof showToast === 'function') showToast('❌ 轉換失敗，請檢查資料格式');
+    }
+};
+
+
+
+
+// =================================================================
+// 視覺化語文工具箱 (修復點擊失焦 + 新增保留原文選項)
+// =================================================================
+window.showTextToolsModal = function() {
+    const modalId = "text-tools-floating-panel";
+    const existingModal = document.getElementById(modalId);
+    
+    if (existingModal) {
+        existingModal.classList.add('opacity-0');
+        setTimeout(() => existingModal.remove(), 200);
+        return;
+    }
+
+    const toolCategories = [
+        {
+            category: "基礎字音整併 (左字 \t 右音)",
+            icon: "join",
+            tools: [
+                { id: 'compareCharPinyin', name: '比對字音', desc: '檢核字數音數', in: '大家\ttai ga', out: '大家\ttai ga\t2\\2\tO' },
+                { id: 'combineCharacter', name: '併單音節', desc: '一字一音', in: '大 家\ttai gav', out: '大\\tai 家\\gav' },
+                { id: 'combineHyphen', name: '併多音節', desc: '連字符號', in: '大家\ttai-gav', out: '大家\\tai-gav' },
+                { id: 'combineWords', name: '詞音合併', desc: '以詞為單位', in: '大家 好\ttai gav hox', out: '大家\\tai gav_好\\hox' },
+                { id: 'combineWordsPinyin', name: '詞音交錯', desc: '詞內交錯', in: '大家 好\ttai gav hox', out: '大\\tai 家\\gav_好\\hox' },
+                { id: 'samePunctuation', name: '標點同步', desc: '雙邊符號一致', in: '大，家\ttai gav', out: '大，家\ttai ， gav' }
+            ]
+        },
+        {
+            category: "格式雙向轉換",
+            icon: "transform",
+            tools: [
+                { id: 'arrangeText', name: '字音轉詞音', desc: '空格轉斜線', in: '大tai 家gav', out: '大家\\tai gav' },
+                { id: 'reverseArrangeText', name: '詞音轉字音', desc: '斜線轉空格', in: '大家\\tai gav', out: '大tai 家gav' }
+            ]
+        },
+        {
+            category: "測驗與標記",
+            icon: "quiz",
+            tools: [
+                { id: 'examText', name: '字音字形', desc: '隨機挖空', in: '大 家\ttai gav', out: '1\t「大」家\ttai\t「tai」 gav\t大' },
+                { id: 'examWhichWord', name: '「字」標數', desc: '目標字位置', in: '文「字」', out: '2\t文「字」' },
+                { id: 'examWhichPinyin', name: '「yin」標數', desc: '目標音位置', in: 'pin「yin」', out: '2\tpin「yin」' }
+            ]
+        }
+    ];
+
+    const panel = document.createElement('div');
+    panel.id = modalId;
+    panel.className = "fixed w-[340px] bg-[#f8f9fa] rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.2)] flex flex-col border border-gray-200 z-[6000] overflow-hidden transition-opacity duration-200 opacity-0";
+    panel.style.top = '80px';
+    panel.style.right = '32px';
+
+    let html = `
+        <div id="text-tools-drag-handle" class="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 flex-shrink-0 cursor-move hover:bg-teal-50/50 transition-colors">
+            <div class="flex items-center gap-2 pointer-events-none">
+                <span class="material-symbols-outlined text-teal-600 text-[20px]">build_circle</span>
+                <div><h3 class="font-extrabold text-gray-800 text-sm leading-tight">語文工具箱</h3></div>
+            </div>
+            <div class="flex items-center gap-3">
+                <!-- ✨ 新增：保留原文選項 -->
+                <label class="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-teal-700 hover:text-teal-800 bg-teal-50 px-2 py-1 rounded-md border border-teal-100 transition-colors">
+                    <input type="checkbox" id="chkKeepTextOriginal" class="accent-teal-600 w-3 h-3 cursor-pointer">
+                    保留原文
+                </label>
+                <button id="btn-close-text-tools" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-lg transition-colors cursor-pointer" title="關閉面板"><span class="material-symbols-outlined text-[18px] block">close</span></button>
+            </div>
+        </div>
+        <div class="flex-1 overflow-y-auto p-3 scrollbar-thin max-h-[70vh]">
+            <div class="flex flex-col gap-5">
+    `;
+
+    toolCategories.forEach(cat => {
+        html += `<div><h4 class="text-xs font-extrabold text-teal-800 mb-2.5 flex items-center gap-1.5 pl-1"><span class="material-symbols-outlined text-[16px]">${cat.icon}</span> ${cat.category}</h4><div class="grid grid-cols-1 gap-2">`;
+        cat.tools.forEach(tool => {
+            html += `
+                <div class="text-tool-card group bg-white border border-gray-200 rounded-lg p-3 cursor-pointer hover:border-teal-400 hover:shadow-sm transition-all active:scale-[0.98]" data-action="${tool.id}">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-extrabold text-gray-800 text-sm group-hover:text-teal-700 transition-colors">${tool.name}</span>
+                        <span class="text-[10px] font-bold text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">${tool.desc}</span>
+                    </div>
+                    <div class="bg-gray-50 rounded p-2 font-mono text-[11px] border border-gray-100/50 flex flex-col gap-1">
+                        <div class="flex items-start gap-1.5 text-gray-500">
+                            <span class="bg-gray-200 text-gray-600 text-[9px] px-1 py-0.5 rounded font-bold shrink-0 select-none mt-0.5">輸入</span>
+                            <span class="break-all whitespace-pre-wrap">${escapeHtml(tool.in).replace(/\\t/g, '<span class="text-teal-300 mx-0.5">⇥</span>')}</span>
+                        </div>
+                        <div class="flex items-start gap-1.5 text-teal-800 font-bold">
+                            <span class="bg-teal-100 text-teal-700 text-[9px] px-1 py-0.5 rounded font-bold shrink-0 select-none mt-0.5">輸出</span>
+                            <span class="break-all whitespace-pre-wrap">${escapeHtml(tool.out)}</span>
+                        </div>
+                    </div>
+                </div>`;
+        });
+        html += `</div></div>`;
+    });
+    html += `</div></div>`;
+
+    panel.innerHTML = html;
+    document.body.appendChild(panel);
+
+    function escapeHtml(unsafe) {
+        return (unsafe || '').toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    requestAnimationFrame(() => panel.classList.remove('opacity-0'));
+
+    const closePanel = () => {
+        panel.classList.add('opacity-0');
+        setTimeout(() => panel.remove(), 200);
+    };
+    panel.querySelector('#btn-close-text-tools').addEventListener('click', closePanel);
+
+    panel.addEventListener('mousedown', (e) => {
+        // 只有「文字輸入框」才允許偷走焦點，其餘元素 (包含按鈕、標籤、核取方塊) 一律阻擋失焦！
+        const isTextInput = e.target.tagName === 'INPUT' && e.target.type === 'text';
+        const isTextArea = e.target.tagName === 'TEXTAREA';
+        
+        if (!isTextInput && !isTextArea) {
+            e.preventDefault(); 
+        }
+    });
+
+    const chkLabel = panel.querySelector('label');
+    const chkInput = panel.querySelector('#chkKeepTextOriginal');
+    if (chkLabel && chkInput) {
+        chkLabel.addEventListener('click', (e) => {
+            // 如果點擊的是文字標籤，手動反轉打勾狀態
+            if (e.target !== chkInput) {
+                e.preventDefault();
+                chkInput.checked = !chkInput.checked;
+            }
+        });
+    }
+
+    const dragHandle = panel.querySelector('#text-tools-drag-handle');
+    let isDragging = false, startX, startY, initialLeft, initialTop;
+
+    dragHandle.addEventListener('pointerdown', (e) => {
+        // ✨ 核心修復 2：排除點擊到 label 與 input，確保核取方塊可以正常被點擊
+        if (e.target.closest('button, input, label')) return; 
+        isDragging = true;
+        const rect = panel.getBoundingClientRect();
+        initialLeft = rect.left; initialTop = rect.top;
+        startX = e.clientX; startY = e.clientY;
+        panel.style.right = 'auto'; panel.style.bottom = 'auto';
+        panel.style.left = initialLeft + 'px'; panel.style.top = initialTop + 'px';
+        panel.style.margin = '0';
+        dragHandle.setPointerCapture(e.pointerId);
+    });
+
+    dragHandle.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        panel.style.left = `${initialLeft + (e.clientX - startX)}px`;
+        panel.style.top = `${initialTop + (e.clientY - startY)}px`;
+    });
+
+    dragHandle.addEventListener('pointerup', (e) => {
+        isDragging = false;
+        dragHandle.releasePointerCapture(e.pointerId);
+    });
+
+    panel.querySelectorAll('.text-tool-card').forEach(card => {
+        card.addEventListener('click', (e) => {
+            const action = e.currentTarget.dataset.action;
+            if (typeof window.executeTextTool === 'function') window.executeTextTool(action);
+        });
+    });
+};
 
 
 

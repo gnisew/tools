@@ -64,12 +64,16 @@ window.launchLiveMode = function(rawData, configs) {
     }
 
     function showCustomConfirm(title, message, confirmText, confirmClass, onConfirm) {
+        if (window.innerWidth <= 768 && window.isLiveSidebarOpen) {
+            const mobileBackdrop = document.getElementById('live-mobile-sidebar-backdrop');
+            if (mobileBackdrop) mobileBackdrop.click();
+        }
+
         const modalId = "live-confirm-modal";
         if (document.getElementById(modalId)) document.getElementById(modalId).remove();
         
         const modal = document.createElement('div');
         modal.id = modalId;
-        // ✨ 修正：完全拔除隱形遮罩，並用原生 JS 強制設定 z-index=500，讓出圖層給輸入法的選字框
         modal.className = "fixed inset-0 bg-transparent pointer-events-none flex items-center justify-center p-4 transition-opacity duration-200";
         modal.style.zIndex = '6000';
         modal.innerHTML = `
@@ -453,6 +457,12 @@ window.launchLiveMode = function(rawData, configs) {
             .sticky-note.is-text-mode.ring-2 .resize-handle-right:hover::after,
             .sticky-note.is-text-mode.ring-2 .resize-handle-right:active::after { opacity: 1; }
 
+            .sticky-note:not(.is-text-mode) .note-scroll::before,
+            .sticky-note:not(.is-text-mode) .note-scroll::after {
+                content: '';
+                margin: auto;
+            }
+
         `;
         document.head.appendChild(style);
     }
@@ -754,6 +764,11 @@ window.launchLiveMode = function(rawData, configs) {
     };
 
     function showQuestionModal(spaceCode, liveSettings, editIdx = -1) {
+        if (window.innerWidth <= 768 && window.isLiveSidebarOpen) {
+            const mobileBackdrop = document.getElementById('live-mobile-sidebar-backdrop');
+            if (mobileBackdrop) mobileBackdrop.click();
+        }
+
         const modalId = "live-add-q-modal";
         if (document.getElementById(modalId)) return;
 
@@ -3291,8 +3306,8 @@ window.launchLiveMode = function(rawData, configs) {
                     
                     noteEl.innerHTML = `
                         <div class="note-body relative transition-shadow ${shadowCls} ${colorMap[note.color] || colorMap['yellow']}">
-                            <div class="absolute inset-0 note-scroll flex flex-col p-2 cursor-grab active:cursor-grabbing ${isText ? '' : 'justify-center'}">
-                                <div class="text-sm font-normal break-words select-none leading-relaxed note-text-content ${isText ? 'text-left font-extrabold text-lg' : 'text-center'} w-full scalable-text whitespace-pre-wrap m-auto pb-1"></div>
+                            <div class="absolute inset-0 note-scroll flex flex-col p-2 cursor-grab active:cursor-grabbing">
+                                <div class="text-sm font-normal break-words select-none leading-relaxed note-text-content ${isText ? 'text-left font-extrabold text-lg' : 'text-center'} w-full scalable-text whitespace-pre-wrap pb-1 shrink-0"></div>
                             </div>
                             <div class="resize-handle"></div>
                             <div class="resize-handle-right" title="調整寬度"></div>
