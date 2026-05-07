@@ -64,7 +64,7 @@ function loadSetting(key, defaultValue) {
 
 
 // 符號集合
-	const PUNCTS = new Set(['，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '—', '…', '－', '‧', '·', '﹑', ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…', '＿', '―', '─', '━', '﹏', '~', '～', '_']);
+	const PUNCTS = new Set(['，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '【', '】', '〔', '〕', '—', '…', '－', '‧', '·', '﹑', ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…', '＿', '―', '─', '━', '﹏', '~', '～', '_']);
     
     const ENDERS = new Set(['。', '！', '？', '?', '!', '．', '.']);
 
@@ -1994,7 +1994,7 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode, pho
     // 以後只要在主程式修改斷詞邏輯，這裡生成的 HTML 就會自動同步，不需要再改兩次！
     // ========================================================================
     const sharedLogicScript = `
-    const PUNCTS = new Set(['，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '—', '…', '－', '‧', '·', '﹑', ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…', '＿', '―', '─', '━', '﹏', '~', '～', '_']);
+    const PUNCTS = new Set(['，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '【', '】', '〔', '〕', '—', '…', '－', '‧', '·', '﹑', ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…', '＿', '―', '─', '━', '﹏', '~', '～', '_']);
     const ENDERS = new Set(['。', '！', '？', '?', '!', '．', '.']);
     const WHITESPACES = new Set([' ', '\t', '\u3000']);
 
@@ -3080,3 +3080,140 @@ document.getElementById('btnHanziToPinyin').addEventListener('click', () => {
 		menu.classList.add('hidden');
 	});
 })();
+
+
+
+
+
+
+
+
+
+// 取得拆分按鈕
+const btnSplitPinyin = document.getElementById('btnSplitPinyin');
+
+if (btnSplitPinyin) {
+    btnSplitPinyin.addEventListener('click', () => {
+        // 【智慧偵測來源】
+        let sourceText = "";
+        if (typeof inputMode !== 'undefined' && inputMode === 'hanzi-to-pinyin') {
+            sourceText = hanziInput.value.trim() || pinyinInput.value.trim();
+        } else if (typeof inputMode !== 'undefined') {
+            sourceText = pinyinInput.value.trim() || hanziInput.value.trim();
+        } else {
+            sourceText = hanziInput.value.trim();
+        }
+
+        if (!sourceText) return;
+
+        // 聲調預處理：洗淨帶有空格的聲調符號
+        const preNormalize = (t) => {
+            return t.normalize('NFD')
+                    .replace(/\s*[\u0300ˋ̀]/g, 'ˋ')
+                    .replace(/\s*[\u0301ˊ́]/g, 'ˊ')
+                    .replace(/\s*[\u030cˇ̌]/g, 'ˇ')
+                    .replace(/\s*[\u0302ˆ̂^]/g, 'ˆ')
+                    .replace(/\s*[\u0323⁺+]/g, '⁺');
+        };
+
+        sourceText = preNormalize(sourceText);
+
+        let hanziOutput = '';
+        let pinyinOutput = '';
+        
+        // ==========================================
+        // 【核心終極擴充】：支援「漢字+注音+(括號)」的優先權匹配
+        // match[1] = 漢字/英數字
+        // match[2] = 兩者皆有時的 PUA 注音
+        // match[3] = 兩者皆有時的 括號內容
+        // match[4] = 只有括號時的 括號內容
+        // match[5] = 只有注音時的 PUA 注音
+        // ==========================================
+        const regex = /([\p{Script=Han}]+|[a-zA-Z0-9\-]+)\s*(?:([ㄅ-ㆷ\uE000-\uF8FFˋˊˇˆ⁺]+)\s*[(（]([^)）]*)[)）]|[(（]([^)）]+)[)）]|([ㄅ-ㆷ\uE000-\uF8FFˋˊˇˆ⁺]+))/gu;
+        
+        let lastIndex = 0;
+        let match;
+        
+        while ((match = regex.exec(sourceText)) !== null) {
+            const textBetween = sourceText.slice(lastIndex, match.index);
+            
+            // 漢字區：過濾多餘空白
+            hanziOutput += textBetween.replace(/[ \t]+/g, '');
+            
+            // 整理四種可能的匹配結果
+            let pua = match[2] || match[5];
+            let bracket = match[3] || match[4];
+
+            // 清理括號內容（移除零寬字元 \u200B）
+            let cleanBracket = bracket ? bracket.replace(/[\u200B]/g, '').trim() : '';
+
+            // 【優先權邏輯】：若括號內有實質內容則優先採用（如 henˋ），否則採用注音
+            let pinyinText = cleanBracket || pua || '';
+            
+            // 判斷是否包含注音或 PUA 碼
+            const hasBpm = /[ㄅ-ㆷ\uE000-\uF8FF]/.test(pinyinText);
+            
+            if (hasBpm) {
+                pinyinText = preNormalize(pinyinText);
+                const lang = typeof currentLang !== 'undefined' ? currentLang : 'kasu';
+
+                // ==========================================
+                // 【依需求修改】：改為呼叫 Pinyin 與 Tone 函數
+                // ==========================================
+                if (lang === 'kasu' && typeof kasuBpmSmallPinyin === 'function') {
+                    pinyinText = kasuBpmSmallPinyin(pinyinText);
+                } 
+                else if (lang === 'matsu' && typeof matsuBpmPinyinTone === 'function') {
+                    pinyinText = matsuBpmPinyinTone(pinyinText);
+                } 
+                else {
+                    // 通用轉譯邏輯
+                    if (typeof bpmTinyToSmall === 'function' && /[ㄅ-ㆷ\uE000-\uF8FF]/.test(pinyinText)) pinyinText = bpmTinyToSmall(pinyinText);
+                    if (typeof bpmSmallToBig === 'function') pinyinText = bpmSmallToBig(pinyinText);
+                    if (typeof hakkaBpmToPinyin === 'function') pinyinText = hakkaBpmToPinyin(pinyinText);
+                    if (typeof hakkaToneToZvs === 'function') pinyinText = hakkaToneToZvs(pinyinText);
+
+                    if (lang === 'holo') {
+                        if (typeof holoPojToTailo === 'function') pinyinText = holoPojToTailo(pinyinText);
+                        if (typeof holoZvsToNumber === 'function') pinyinText = holoZvsToNumber(pinyinText);
+                        if (typeof holoNumberToTone === 'function') pinyinText = holoNumberToTone(pinyinText);
+                    }
+                }
+            }
+
+            // 拼音區：加入轉換後的拼音
+            pinyinOutput += textBetween + ' ' + pinyinText + ' '; 
+            hanziOutput += match[1];
+            
+            lastIndex = regex.lastIndex;
+        }
+        
+        // 加上剩餘文字
+        const remaining = sourceText.slice(lastIndex);
+        hanziOutput += remaining.replace(/[ \t]+/g, '');
+        pinyinOutput += remaining;
+        
+        // --- 整理拼音區排版 ---
+        pinyinOutput = pinyinOutput.replace(/ +/g, ' ');
+        pinyinOutput = pinyinOutput.replace(/^ +| +$/gm, ''); // 清理每行開頭/結尾的空格
+        
+        // 全形標點：緊貼
+        pinyinOutput = pinyinOutput.replace(/ +([，。、；：！？「」『』（）—…])/g, '$1');
+        pinyinOutput = pinyinOutput.replace(/([，。、；：！？「」『』（）—…]) +/g, '$1');
+
+        // 半形標點：右空
+        pinyinOutput = pinyinOutput.replace(/ +([.,;:!?\])>}])/g, '$1');
+        pinyinOutput = pinyinOutput.replace(/([.,;:!?\])>}])(?=[^\s])/g, '$1 ');
+        
+        // 半形標點：左空
+        pinyinOutput = pinyinOutput.replace(/([\[<{(]) +/g, '$1');
+        pinyinOutput = pinyinOutput.replace(/([^\s])([\[<{(])/g, '$1 $2');
+
+        // 填回輸入框
+        if (typeof hanziInput !== 'undefined') hanziInput.value = hanziOutput.trim();
+        if (typeof pinyinInput !== 'undefined') pinyinInput.value = pinyinOutput;
+        
+        // 自動執行標註渲染
+        if (typeof render === 'function') render(); 
+    });
+}

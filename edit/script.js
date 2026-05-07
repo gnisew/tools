@@ -3650,167 +3650,211 @@ function executeFind(isDown) {
 
     if (currentMode === 'text') {
         const text = editor.value;
-        const cursor = isDown ? editor.selectionEnd : editor.selectionStart;
-        const searchSpace = isDown ? text.substring(cursor) : text.substring(0, cursor);
+        const globalRegex = buildSearchRegex(true); // 取得全域正則以計算總數
+        const matchIndices = [];
+        let m;
         
-        const globalRegex = buildSearchRegex(true);
-        let match, lastMatch = null;
-        while ((match = globalRegex.exec(searchSpace)) !== null) { lastMatch = match; }
-
-        const finalMatch = isDown ? searchSpace.match(regex) : lastMatch;
-
-        if (finalMatch) {
-            const matchStart = isDown ? cursor + finalMatch.index : finalMatch.index;
-            const matchEnd = matchStart + finalMatch[0].length;
-            
-            // 選取文字並聚焦
-            editor.setSelectionRange(matchStart, matchEnd);
-            editor.focus();
-            
-            const style = window.getComputedStyle(editor);
-            mirror.style.fontFamily = style.fontFamily; 
-            mirror.style.fontSize = style.fontSize;
-            mirror.style.lineHeight = style.lineHeight; 
-            mirror.style.whiteSpace = style.whiteSpace; 
-            mirror.style.wordBreak = style.wordBreak;
-            // 扣除左右 padding，確保測量寬度與真實 textarea 內部完全一致
-            mirror.style.width = `${editor.clientWidth - parseFloat(style.paddingLeft || 0) - parseFloat(style.paddingRight || 0)}px`;
-            
-            // 將尋找點之前的文字放入 mirror，並在尾端加一個字元 'A'，確保最後的換行高度被正確計算
-            mirror.textContent = editor.value.substring(0, matchStart) + 'A';
-            
-            const lineHeightStr = style.lineHeight;
-            const lineHeight = lineHeightStr === 'normal' ? 24 : parseFloat(lineHeightStr);
-            const paddingTop = parseFloat(style.paddingTop || 0);
-            
-            // 取得精準的文字頂部與底部 Y 座標 (補回 paddingTop)
-            const bottomY = mirror.scrollHeight + paddingTop;
-            const topY = bottomY - lineHeight;
-            
-            const currentScroll = editor.scrollTop;
-            const clientHeight = editor.clientHeight;
-
-            // 判斷是否超出可視範圍 (上半部被遮住，或是下半部被遮住)
-            if (topY < currentScroll || bottomY > currentScroll + clientHeight) {
-                // 只有確定超出範圍時，才滾動畫面讓目標置中
-                const targetScrollTop = topY - (clientHeight / 2);
-                editor.scrollTop = Math.max(0, targetScrollTop);
-            }
-
-
-            showFRMsg('找到符合項目', false);
-        } else {
-            showFRMsg('找不到目標');
+        // 1. 預先掃描所有符合的目標位置
+        while ((m = globalRegex.exec(text)) !== null) {
+            matchIndices.push({ start: m.index, end: m.index + m[0].length });
+            if (m.index === globalRegex.lastIndex) globalRegex.lastIndex++; // 防呆，避免無窮迴圈
         }
+
+        const totalMatches = matchIndices.length;
+        if (totalMatches === 0) {
+            showFRMsg('找不到目標');
+            return;
+        }
+
+        const cursor = isDown ? editor.selectionEnd : editor.selectionStart;
+        let targetIndex = -1;
+        let isWrapped = false;
+        let isFirstSearch = (editor.selectionStart === editor.selectionEnd && editor.selectionStart === 0);
+
+        // 2. 智慧尋找「下一個」或「上一個」目標
+        if (isDown) {
+            // 往下找：尋找結束位置「大於」目前游標的目標
+            targetIndex = matchIndices.findIndex(match => match.end > cursor);
+            if (targetIndex === -1) {
+                targetIndex = 0; // 循環回第一個
+                if (!isFirstSearch) isWrapped = true;
+            }
+        } else {
+            // 往上找：尋找起始位置「小於」目前游標的目標
+            for (let i = matchIndices.length - 1; i >= 0; i--) {
+                if (matchIndices[i].start < cursor) {
+                    targetIndex = i;
+                    break;
+                }
+            }
+            if (targetIndex === -1) {
+                targetIndex = matchIndices.length - 1; // 循環回最後一個
+                if (!isFirstSearch) isWrapped = true;
+            }
+        }
+
+        // 3. 取得最終目標並計算 X/Y 進度
+        const finalMatch = matchIndices[targetIndex];
+        const matchStart = finalMatch.start;
+        const matchEnd = finalMatch.end;
+        const currentIndexDisplay = targetIndex + 1; // 第幾個目標
+
+        // 4. 選取文字並聚焦
+        editor.setSelectionRange(matchStart, matchEnd);
+        editor.focus();
+        
+        const style = window.getComputedStyle(editor);
+        mirror.style.fontFamily = style.fontFamily; 
+        mirror.style.fontSize = style.fontSize;
+        mirror.style.lineHeight = style.lineHeight; 
+        mirror.style.whiteSpace = style.whiteSpace; 
+        mirror.style.wordBreak = style.wordBreak;
+        mirror.style.width = `${editor.clientWidth - parseFloat(style.paddingLeft || 0) - parseFloat(style.paddingRight || 0)}px`;
+        
+        // 測量文字高度以精準捲動置中
+        mirror.textContent = editor.value.substring(0, matchStart) + 'A';
+        const lineHeightStr = style.lineHeight;
+        const lineHeight = lineHeightStr === 'normal' ? 24 : parseFloat(lineHeightStr);
+        const paddingTop = parseFloat(style.paddingTop || 0);
+        const bottomY = mirror.scrollHeight + paddingTop;
+        const topY = bottomY - lineHeight;
+        const currentScroll = editor.scrollTop;
+        const clientHeight = editor.clientHeight;
+
+        if (topY < currentScroll || bottomY > currentScroll + clientHeight) {
+            const targetScrollTop = topY - (clientHeight / 2);
+            editor.scrollTop = Math.max(0, targetScrollTop);
+        }
+
+        // ✨ 顯示 X/Y 提示訊息
+        const msgPrefix = isWrapped ? '重找：' : '找到：';
+        showFRMsg(`${msgPrefix}${currentIndexDisplay}/${totalMatches}`, false);
+
     } else {
         const cells = getTargetCells();
         if (cells.length === 0) return;
 
-        let currentIdx = -1;
+        const isFormulaMatch = document.getElementById('chkFormulaMatch')?.checked;
+        const matchedIndices = [];
         
+        // 1. 預先掃描表格內所有符合的儲存格
+        for (let i = 0; i < cells.length; i++) {
+            const cell = cells[i];
+            let textToSearch = cell.inner.innerText;
+            if (isFormulaMatch && cell.inner.hasAttribute('data-formula')) {
+                textToSearch = cell.inner.getAttribute('data-formula');
+            }
+            // 每次建立獨立的 Regex 以策安全
+            const freshRegex = buildSearchRegex(); 
+            if (freshRegex.test(textToSearch)) {
+                matchedIndices.push(i);
+            }
+        }
+
+        const totalMatches = matchedIndices.length;
+        if (totalMatches === 0) {
+            showFRMsg('找不到目標');
+            return;
+        }
+
+        // 2. 決定目前的起點索引
+        let currentIdx = -1;
         if (lastMatchedCell) {
-            // 如果是連續點擊「下一個」，就接續上一次找到的儲存格
             currentIdx = cells.findIndex(c => c.inner === lastMatchedCell);
         } else {
-            // 優先看有沒有正在編輯的儲存格 (文字游標閃爍中)
             let targetInner = document.activeElement.closest('.td-inner');
-            
-            // 如果沒有 (因為你剛點了尋找按鈕，焦點被按鈕搶走了)，就去抓「你最後點擊的那一格」
             if (!targetInner && lastClickedCell) {
                 const rows = dataTable.querySelectorAll('tbody tr');
                 if (rows[lastClickedCell.r]) {
                     targetInner = rows[lastClickedCell.r].children[lastClickedCell.c + 1]?.querySelector('.td-inner');
                 }
             }
-            
-            // 找到起點後，取得它在搜尋陣列中的索引
             if (targetInner) {
                 currentIdx = cells.findIndex(c => c.inner === targetInner);
             }
         }
-        
-        // 如果都沒選，預設從頭(或尾)開始找
-        if (currentIdx === -1) currentIdx = isDown ? -1 : 0; 
-        
-        let found = false;
-        for (let i = 1; i <= cells.length; i++) {
-            let step = isDown ? i : -i;
-            let checkIdx = (currentIdx + step) % cells.length;
-            if (checkIdx < 0) checkIdx += cells.length;
-            
-            const cell = cells[checkIdx];
-			const isFormulaMatch = document.getElementById('chkFormulaMatch')?.checked;
-            // 優先抓取公式，如果沒有公式或沒勾選，就抓取表面文字
-            let textToSearch = cell.inner.innerText;
-            if (isFormulaMatch && cell.inner.hasAttribute('data-formula')) {
-                textToSearch = cell.inner.getAttribute('data-formula');
+
+        // 3. 智慧尋找「下一個」或「上一個」目標
+        let targetMatchIndex = -1;
+        let isWrapped = false;
+        let isFirstSearch = (currentIdx === -1);
+
+        if (isDown) {
+            targetMatchIndex = matchedIndices.findIndex(idx => idx > currentIdx);
+            if (targetMatchIndex === -1) {
+                targetMatchIndex = 0; // 循環回第一個
+                if (!isFirstSearch) isWrapped = true;
             }
-            if (regex.test(cell.inner.innerText)) {
-                lastMatchedCell = cell.inner;
-                
-                // 利用 nearest 屬性，只有在該儲存格超出畫面時才會滾動
-                lastMatchedCell.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-                
-                // 1. 讓找到的儲存格獲得焦點
-                cell.inner.focus();
-
-                // 2. 將游標強制設定在文字最前方，確實取消所有文字反白
-                const sel = window.getSelection();
-                const range = document.createRange();
-                range.selectNodeContents(cell.inner);
-                range.collapse(true);
-                sel.removeAllRanges();
-                sel.addRange(range);
-
-                // 3. 處理視覺選取狀態
-                const context = getSelectionContext();
-                
-                // 清除之前的 outline 標記 (如果有的話)
-                if (window.lastFoundTd) {
-                    window.lastFoundTd.style.removeProperty('background-color');
-                    window.lastFoundTd.style.removeProperty('outline');
-                    window.lastFoundTd.style.removeProperty('outline-offset');
-                    window.lastFoundTd = null;
+        } else {
+            for (let j = matchedIndices.length - 1; j >= 0; j--) {
+                if (matchedIndices[j] < currentIdx) {
+                    targetMatchIndex = j;
+                    break;
                 }
-
-                if (!context.hasSelection) {
-                    // 【單格/全域搜尋模式】：直接將系統的選取焦點移動到找到的這一格
-                    lastClickedCell = { r: cell.row, c: cell.col };
-                    selectedCellBlocks = [{ startR: cell.row, startC: cell.col, endR: cell.row, endC: cell.col }];
-                    selectedRows = []; 
-                    selectedCols = [];
-                    applySelectionVisuals(); // 呼叫你原本的系統，畫出標準單格藍色選取框
-                } else {
-                    // 【多選範圍模式】：保留多選底色，改用 outline 強調這一格
-                    const activeTd = cell.inner.closest('td');
-                    if (activeTd) {
-                        activeTd.style.setProperty('background-color', '#ffffff', 'important');
-                        activeTd.style.setProperty('outline', '2px solid #3b82f6', 'important');
-                        activeTd.style.setProperty('outline-offset', '-2px', 'important');
-                        window.lastFoundTd = activeTd;
-                    }
-
-                    if (!window.hasFindClickClear) {
-                        document.addEventListener('mousedown', (e) => {
-                            if (!e.target.closest('#findReplaceModal') && window.lastFoundTd) {
-                                window.lastFoundTd.style.removeProperty('background-color');
-                                window.lastFoundTd.style.removeProperty('outline');
-                                window.lastFoundTd.style.removeProperty('outline-offset');
-                                window.lastFoundTd = null;
-                            }
-                        });
-                        window.hasFindClickClear = true;
-                    }
-                }
-
-                found = true;
-                showFRMsg('找到符合項目', false);
-                break;
+            }
+            if (targetMatchIndex === -1) {
+                targetMatchIndex = matchedIndices.length - 1; // 循環回最後一個
+                if (!isFirstSearch) isWrapped = true;
             }
         }
-        if (!found) {
-            showFRMsg('找不到目標');
+
+        // 4. 取得最終目標並計算 X/Y 進度
+        const checkIdx = matchedIndices[targetMatchIndex];
+        const cell = cells[checkIdx];
+        const currentIndexDisplay = targetMatchIndex + 1;
+
+        // 5. 畫面滾動與視覺狀態標記
+        lastMatchedCell = cell.inner;
+        lastMatchedCell.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+        
+        cell.inner.focus();
+
+        const sel = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(cell.inner);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+
+        const context = getSelectionContext();
+        if (window.lastFoundTd) {
+            window.lastFoundTd.style.removeProperty('background-color');
+            window.lastFoundTd.style.removeProperty('outline');
+            window.lastFoundTd.style.removeProperty('outline-offset');
+            window.lastFoundTd = null;
         }
+
+        if (!context.hasSelection) {
+            lastClickedCell = { r: cell.row, c: cell.col };
+            selectedCellBlocks = [{ startR: cell.row, startC: cell.col, endR: cell.row, endC: cell.col }];
+            selectedRows = []; 
+            selectedCols = [];
+            applySelectionVisuals(); 
+        } else {
+            const activeTd = cell.inner.closest('td');
+            if (activeTd) {
+                activeTd.style.setProperty('background-color', '#ffffff', 'important');
+                activeTd.style.setProperty('outline', '2px solid #3b82f6', 'important');
+                activeTd.style.setProperty('outline-offset', '-2px', 'important');
+                window.lastFoundTd = activeTd;
+            }
+
+            if (!window.hasFindClickClear) {
+                document.addEventListener('mousedown', (e) => {
+                    if (!e.target.closest('#findReplaceModal') && window.lastFoundTd) {
+                        window.lastFoundTd.style.removeProperty('background-color');
+                        window.lastFoundTd.style.removeProperty('outline');
+                        window.lastFoundTd.style.removeProperty('outline-offset');
+                        window.lastFoundTd = null;
+                    }
+                });
+                window.hasFindClickClear = true;
+            }
+        }
+
+        // ✨ 顯示 X/Y 提示訊息
+        const msgPrefix = isWrapped ? '重找：' : '找到：';
+        showFRMsg(`${msgPrefix}${currentIndexDisplay}/${totalMatches}`, false);
     }
 }
 
@@ -5926,7 +5970,7 @@ document.getElementById('btnApplyAutoSplit').addEventListener('click', () => {
     const requiredCols = maxC + maxSplitLength; 
     
     if (requiredCols > currentCols) {
-        insertColAt(currentCols - 1, -1, requiredCols - currentCols);
+        insertColAt(currentCols, -1, requiredCols - currentCols);
     }
 
     // 第三階段：覆寫資料到畫面上
@@ -6417,13 +6461,14 @@ editor.addEventListener('input', updateWordCountWidget);
 // 編輯器專屬：浮動翻譯工具整合模組 (新增 字〔yin〕華 混合功能)
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-    window.lastFocusedInput = null;
-    document.addEventListener('focusin', (e) => {
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-            window.lastFocusedInput = e.target;
-        }
-    });
-    // --- 1. 防止焦點轉移，保持編輯區反白 ---
+        window.lastFocusedInput = null;
+        document.addEventListener('focusin', (e) => {
+            const isTextInput = e.target.tagName === 'TEXTAREA' || (e.target.tagName === 'INPUT' && ['text', 'search', 'number', 'password', 'url', 'tel'].includes(e.target.type));
+            if (isTextInput) {
+                window.lastFocusedInput = e.target;
+            }
+        });
+        // --- 1. 防止焦點轉移，保持編輯區反白 ---
         document.addEventListener('mousedown', (e) => {
             const isTranslator = e.target.closest('#floating-translator') || e.target.closest('#floating-pinyin-tool');
             
@@ -6738,16 +6783,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 const hasDivSelection = sel && sel.toString().trim().length > 0;
                 
                 let activeEl = document.activeElement;
-                let isInputTarget = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+                let isInputTarget = activeEl && (activeEl.tagName === 'TEXTAREA' || (activeEl.tagName === 'INPUT' && ['text', 'search', 'number', 'password', 'url', 'tel'].includes(activeEl.type)));
 
                 if (selectedNotes.length > 0) {
                     hasSelection = true; // 只要有選取便利貼，直接判定為有選取
                 } else if (hasDivSelection) {
                     hasSelection = true;
                 } else if (isInputTarget) {
-                    hasSelection = activeEl.selectionStart !== activeEl.selectionEnd;
+                    try { hasSelection = activeEl.selectionStart !== activeEl.selectionEnd; } catch(e) {}
                 } else if (window.lastFocusedInput && document.body.contains(window.lastFocusedInput)) {
-                    hasSelection = window.lastFocusedInput.selectionStart !== window.lastFocusedInput.selectionEnd;
+                    try { hasSelection = window.lastFocusedInput.selectionStart !== window.lastFocusedInput.selectionEnd; } catch(e) {}
                 }
             }
         }
@@ -7660,18 +7705,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 let currentMods = {};
                 if (activeQId) currentMods = window.currentSpaceData[`board_mods_${activeQId}`] || {};
 
-                for (const note of selectedNotes) {
+                // 🚀 高效能批次處理引擎 (一次性將所有便利貼文字打包送出)
+                const SAFE_SEP = '\n\uFDD0\n';
+                const DUMMY_PREFIX = '\uFDD1';
+                const DUMMY_SUFFIX = '\uFDD2';
+
+                const notesArray = Array.from(selectedNotes);
+                const originalTexts = notesArray.map(note => {
+                    const contentEl = note.querySelector('.note-text-content');
+                    return contentEl ? (contentEl.innerText || contentEl.textContent) : '';
+                });
+
+                const combinedText = DUMMY_PREFIX + originalTexts.join(SAFE_SEP) + DUMMY_SUFFIX;
+                
+                // ⚡ 只 await 一次！
+                let processedCombined = await processText(combinedText);
+
+                if (processedCombined.startsWith(DUMMY_PREFIX)) processedCombined = processedCombined.substring(DUMMY_PREFIX.length);
+                if (processedCombined.endsWith(DUMMY_SUFFIX)) processedCombined = processedCombined.substring(0, processedCombined.length - DUMMY_SUFFIX.length);
+
+                const processedTexts = processedCombined.split(SAFE_SEP);
+
+                // 將轉換結果一次性寫回 DOM 與 Firebase 暫存物件
+                for (let i = 0; i < notesArray.length; i++) {
+                    const note = notesArray[i];
                     const contentEl = note.querySelector('.note-text-content');
                     if (contentEl) {
-                        let originalText = contentEl.innerText || contentEl.textContent;
-                        let newText = await processText(originalText);
-                        contentEl.innerText = newText; // 畫面更新
+                        let newText = processedTexts[i] !== undefined ? processedTexts[i] : await processText(originalTexts[i]);
+                        contentEl.innerText = newText; 
                         
-                        // 更新便利貼摺疊時顯示的第一個字
                         const bodyEl = note.querySelector('.note-body');
                         if (bodyEl) bodyEl.setAttribute('data-first-char', (newText || '').trim().charAt(0) || '');
 
-                        // 準備寫入資料庫
                         const noteId = note.dataset.id;
                         if (activeQId && noteId) {
                             currentMods[noteId] = { ...currentMods[noteId], text: newText };
@@ -7679,21 +7744,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // 同步到 Firebase
-                if (activeQId && window.currentSpaceCode) {
-                    await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods });
+                // 批次寫入資料庫
+                if (activeQId && window.currentSpaceCode && typeof db !== 'undefined') {
+                    db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods }).catch(()=>{});
                 }
                 if (typeof debouncedSaveHistory === 'function') debouncedSaveHistory();
                 showToast('✅ 便利貼翻譯完成');
-                return; // 結束執行，直接進入 finally 區塊恢復按鈕狀態
+                return; 
             }
 
-            // 先取得畫面上的反白選取狀態
+            // ====== ✨ 確保變數完美定義 (修復 ReferenceError) ======
             const sel = window.getSelection();
             const hasDivSelection = sel && sel.toString().trim().length > 0;
 
             let activeEl = document.activeElement; 
-            let isInputTarget = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+            let isInputTarget = activeEl && (activeEl.tagName === 'TEXTAREA' || (activeEl.tagName === 'INPUT' && ['text', 'search', 'number', 'password', 'url', 'tel'].includes(activeEl.type)));
 
             // 💡 修正 1：如果畫面上有純文字反白，優先使用反白文字，忽略歷史輸入框綁架
             if (!hasDivSelection && !isInputTarget && window.lastFocusedInput && document.body.contains(window.lastFocusedInput)) {
@@ -7703,23 +7768,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 💡 修正 2：優先處理任何彈出視窗或介面上的輸入框 (例如：白板便利貼的視窗)
             if (isInputTarget && activeEl !== editor) {
-                const start = activeEl.selectionStart, end = activeEl.selectionEnd;
+                let start = 0, end = 0;
+                try { start = activeEl.selectionStart; end = activeEl.selectionEnd; } catch(e) {}
                 let text = (start !== end) ? activeEl.value.substring(start, end) : activeEl.value;
                 text = await processText(text);
                 
-                if (start !== end) activeEl.setRangeText(text, start, end, 'select'); 
-                else activeEl.value = text;
-                
+                if (start !== end) {
+                    try { activeEl.setRangeText(text, start, end, 'select'); } catch(e) { activeEl.value = text; }
+                } else {
+                    activeEl.value = text;
+                }
                 activeEl.dispatchEvent(new Event('input', { bubbles: true }));
             } 
             // 處理純文字模式 (主編輯器)
             else if (currentMode === 'text' && editor) {
-                const start = editor.selectionStart, end = editor.selectionEnd;
+                let start = 0, end = 0;
+                try { start = editor.selectionStart; end = editor.selectionEnd; } catch(e) {}
                 let text = (start !== end) ? editor.value.substring(start, end) : editor.value;
                 text = await processText(text);
                 
-                if (start !== end) editor.setRangeText(text, start, end, 'select'); 
-                else editor.value = text;
+                if (start !== end) {
+                    try { editor.setRangeText(text, start, end, 'select'); } catch(e) { editor.value = text; }
+                } else {
+                    editor.value = text;
+                }
             } 
             // 處理 Live 等其他模式的畫面純文字反白
             else if (hasDivSelection && !isTableMode) {
@@ -7733,8 +7805,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 處理表格模式 (當沒有選取任何輸入框時，才去抓表格)
             else if (isTableMode) {
                 const tableContainer = document.getElementById('tableModeContainer');
-                const sel = window.getSelection();
-                if (sel.toString().length > 0 && tableContainer && tableContainer.contains(sel.anchorNode)) {
+                if (hasDivSelection && tableContainer && tableContainer.contains(sel.anchorNode)) {
                     let text = await processText(sel.toString());
                     const range = sel.getRangeAt(0); 
                     range.deleteContents(); 
@@ -7752,19 +7823,34 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     if (selectedCells.length === 0) { alert("請先選取要處理的文字或儲存格！"); return; }
                     
-                    for (const cell of selectedCells) {
-                        let text = cell.innerText || cell.textContent;
-                        cell.innerText = await processText(text);
+                    const SAFE_SEP = '\n\uFDD0\n';
+					const DUMMY_PREFIX = '\uFDD1';
+					const DUMMY_SUFFIX = '\uFDD2';         
+                    const originalTexts = selectedCells.map(cell => cell.innerText || cell.textContent);
+                    const combinedText = DUMMY_PREFIX + originalTexts.join(SAFE_SEP) + DUMMY_SUFFIX;
+                    
+                    let processedCombined = await processText(combinedText);
+                    
+                    // 移除頭尾的安全防護罩
+                    if (processedCombined.startsWith(DUMMY_PREFIX)) processedCombined = processedCombined.substring(DUMMY_PREFIX.length);
+                    if (processedCombined.endsWith(DUMMY_SUFFIX)) processedCombined = processedCombined.substring(0, processedCombined.length - DUMMY_SUFFIX.length);
+                    
+                    const processedTexts = processedCombined.split(SAFE_SEP);
+                    
+                    // 一次性寫回所有資料
+                    for (let i = 0; i < selectedCells.length; i++) {
+                        const cell = selectedCells[i];
+                        // 雙重保險防呆：如果因不明原因分割失敗，該格降級回單獨處理
+                        const newText = processedTexts[i] !== undefined ? processedTexts[i] : await processText(originalTexts[i]);
+                        cell.innerText = newText;
                         if (cell.hasAttribute('data-formula')) cell.removeAttribute('data-formula');
                     }
                 }
-            } 
+            }
             // 其他模式的純選取文字處理
             else {
-                const sel = window.getSelection();
-                if (sel && sel.toString().trim().length > 0) {
+                if (hasDivSelection) {
                     const originalText = sel.toString();
-                    
                     let text = await processText(originalText);
                     
                     const range = sel.getRangeAt(0); 
@@ -9281,7 +9367,7 @@ function checkPinyinButtonState() {
     const hasDivSelection = sel && sel.toString().trim().length > 0;
     
     let activeEl = document.activeElement;
-    let isInputTarget = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+    let isInputTarget = activeEl && (activeEl.tagName === 'TEXTAREA' || (activeEl.tagName === 'INPUT' && ['text', 'search', 'number', 'password', 'url', 'tel'].includes(activeEl.type)));
 
     // 智慧判定優先順序：便利貼 -> 畫面反白 -> 目前的輸入框 -> 剛失去焦點的輸入框
     if (selectedNotes.length > 0) {
@@ -9289,9 +9375,9 @@ function checkPinyinButtonState() {
     } else if (hasDivSelection) {
         hasSelection = true;
     } else if (isInputTarget) {
-        hasSelection = activeEl.selectionStart !== activeEl.selectionEnd;
+        try { hasSelection = activeEl.selectionStart !== activeEl.selectionEnd; } catch(e) {}
     } else if (window.lastFocusedInput && document.body.contains(window.lastFocusedInput)) {
-        hasSelection = window.lastFocusedInput.selectionStart !== window.lastFocusedInput.selectionEnd;
+        try { hasSelection = window.lastFocusedInput.selectionStart !== window.lastFocusedInput.selectionEnd; } catch(e) {}
     }
 
     if (hasSelection) {
@@ -9581,14 +9667,29 @@ function checkPinyinButtonState() {
                         return; 
                     }
                     
-                    for (const cell of selectedCells) {
-                        let text = cell.innerText || cell.textContent;
-                        cell.innerText = window[funcName](text);
+                    const SAFE_SEP = '\n\uFDD0\n';
+					const DUMMY_PREFIX = '\uFDD1';
+					const DUMMY_SUFFIX = '\uFDD2';
+                    
+                    const originalTexts = selectedCells.map(cell => cell.innerText || cell.textContent);
+                    const combinedText = DUMMY_PREFIX + originalTexts.join(SAFE_SEP) + DUMMY_SUFFIX;
+                    
+                    let processedCombined = window[funcName](combinedText);
+                    
+                    if (processedCombined.startsWith(DUMMY_PREFIX)) processedCombined = processedCombined.substring(DUMMY_PREFIX.length);
+                    if (processedCombined.endsWith(DUMMY_SUFFIX)) processedCombined = processedCombined.substring(0, processedCombined.length - DUMMY_SUFFIX.length);
+                    
+                    const processedTexts = processedCombined.split(SAFE_SEP);
+                    
+                    for (let i = 0; i < selectedCells.length; i++) {
+                        const cell = selectedCells[i];
+                        const newText = processedTexts[i] !== undefined ? processedTexts[i] : window[funcName](originalTexts[i]);
+                        cell.innerText = newText;
                         if (cell.hasAttribute('data-formula')) cell.removeAttribute('data-formula');
                     }
                 }
             } else {
-                // =============== 你要修改的這裡：Live 模式等其他模式 ===============
+                // =============== 處理：Live 模式等其他模式 ===============
                 const selectedNotes = document.querySelectorAll('.sticky-note.ring-2');
 
                 // 🌟 新增：優先處理選取的便利貼 (支援多選)
@@ -9597,13 +9698,32 @@ function checkPinyinButtonState() {
                     let currentMods = {};
                     if (activeQId) currentMods = window.currentSpaceData[`board_mods_${activeQId}`] || {};
 
-                    for (const note of selectedNotes) {
+                    // 🚀 高效能批次處理引擎 (降低大量迴圈造成的效能耗損)
+                    const SAFE_SEP = '\n\uFDD0\n';
+                    const DUMMY_PREFIX = '\uFDD1';
+                    const DUMMY_SUFFIX = '\uFDD2';
+
+                    const notesArray = Array.from(selectedNotes);
+                    const originalTexts = notesArray.map(note => {
+                        const contentEl = note.querySelector('.note-text-content');
+                        return contentEl ? (contentEl.innerText || contentEl.textContent) : '';
+                    });
+
+                    const combinedText = DUMMY_PREFIX + originalTexts.join(SAFE_SEP) + DUMMY_SUFFIX;
+                    
+                    // ⚡ 一次性運算！
+                    let processedCombined = window[funcName](combinedText);
+
+                    if (processedCombined.startsWith(DUMMY_PREFIX)) processedCombined = processedCombined.substring(DUMMY_PREFIX.length);
+                    if (processedCombined.endsWith(DUMMY_SUFFIX)) processedCombined = processedCombined.substring(0, processedCombined.length - DUMMY_SUFFIX.length);
+
+                    const processedTexts = processedCombined.split(SAFE_SEP);
+
+                    for (let i = 0; i < notesArray.length; i++) {
+                        const note = notesArray[i];
                         const contentEl = note.querySelector('.note-text-content');
                         if (contentEl) {
-                            let originalText = contentEl.innerText || contentEl.textContent;
-                            
-                            let newText = window[funcName](originalText);
-                            
+                            let newText = processedTexts[i] !== undefined ? processedTexts[i] : window[funcName](originalTexts[i]);
                             contentEl.innerText = newText;
 
                             const bodyEl = note.querySelector('.note-body');
@@ -9616,18 +9736,23 @@ function checkPinyinButtonState() {
                         }
                     }
 
-                   
+                    // 將結果同步回 Firebase (若有權限的話)
+                    if (activeQId && window.currentSpaceCode && typeof db !== 'undefined') {
+                        db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods }).catch(()=>{});
+                    }
                     debouncedSaveHistory();
                     showToast('✅ 拼音轉換完成！');
-                    return; // 結束執行
+                    return; 
                 }
+
+                // ====== ✨ 確保變數完美定義 ======
                 const sel = window.getSelection();
                 const hasDivSelection = sel && sel.toString().trim().length > 0;
 
                 let activeEl = document.activeElement; 
-                let isInputTarget = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+                let isInputTarget = activeEl && (activeEl.tagName === 'TEXTAREA' || (activeEl.tagName === 'INPUT' && ['text', 'search', 'number', 'password', 'url', 'tel'].includes(activeEl.type)));
 
-                // 找回真正選取文字的輸入框 (解決點擊按鈕失去焦點的問題)
+                // 找回真正選取文字的輸入框
                 if (!hasDivSelection && !isInputTarget && window.lastFocusedInput && document.body.contains(window.lastFocusedInput)) {
                     activeEl = window.lastFocusedInput;
                     isInputTarget = true;
@@ -9635,28 +9760,24 @@ function checkPinyinButtonState() {
 
                 if (isInputTarget) {
                     // 1. 處理輸入框 (如 Live 模式的便利貼)
-                    const start = activeEl.selectionStart;
-                    const end = activeEl.selectionEnd;
+                    let start = 0, end = 0;
+                    try { start = activeEl.selectionStart; end = activeEl.selectionEnd; } catch(e) {}
                     let text = (start !== end) ? activeEl.value.substring(start, end) : activeEl.value;
 
                     if (!text) { showToast('⚠️ 沒有選取文字'); return; }
                     text = window[funcName](text);
 
                     if (start !== end) {
-                        activeEl.setRangeText(text, start, end, 'select');
+                        try { activeEl.setRangeText(text, start, end, 'select'); } catch(e) { activeEl.value = text; }
                     } else {
                         activeEl.value = text;
                     }
-                    
-                    // 觸發 input 事件，讓 Live 模式的 textarea 高度或按鈕狀態正確更新
                     activeEl.dispatchEvent(new Event('input', { bubbles: true }));
 
                 } else if (hasDivSelection) {
-                    // 2. 處理畫面純文字反白 (如 Live 模式的題目)
+                    // 2. 處理畫面純文字反白
                     const originalText = sel.toString();
-                    
                     let text = window[funcName](originalText);
-                    
                     const range = sel.getRangeAt(0); 
                     range.deleteContents(); 
                     range.insertNode(document.createTextNode(text));
@@ -9664,7 +9785,7 @@ function checkPinyinButtonState() {
                     showToast("請先選取要轉換的文字！"); 
                     return; 
                 }
-			}
+            }
             debouncedSaveHistory();
             showToast('✅ 拼音轉換完成！');
         } catch (err) {
@@ -11579,12 +11700,26 @@ window.playPresetBank = function(index) {
 
 
 // =================================================================
-// 語文處理核心引擎 (Text Processing Engine)
+// 語文處理核心引擎 (Text Processing Engine) - 支援動態比對開關
 // =================================================================
 window.TextToolsEngine = {
-    // 使用 Spread Operator 完美處理包含擴充漢字的真實長度
     getLength(txt) { return [...(txt || '')].length; },
     getRandomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; },
+
+    // ✨ 取得比對結果綴詞的共用引擎 (判斷核取方塊是否開啟)
+    getCompareSuffix(cLen, pLen) {
+        const chk = document.getElementById('chkAppendCompare');
+        let needCompare = true;
+        if (chk) {
+            needCompare = chk.checked;
+        } else {
+            // 如果面板沒打開，則讀取使用者的歷史偏好 (預設為開啟)
+            needCompare = localStorage.getItem('wesing-append-compare') !== 'false';
+        }
+        if (!needCompare) return '';
+        const marker = cLen > pLen ? 'X' : (cLen === pLen ? 'O' : 'Y');
+        return `\t${cLen}\\${pLen}\t${marker}`;
+    },
 
     // 1. 併單音節
     combineCharacter(input) {
@@ -11610,12 +11745,9 @@ window.TextToolsEngine = {
                 }
             });
             
-            // ✨ 加入檢核標記
-            const cLen = chineseChars.length;
-            const pLen = pinyinParts.length;
-            const marker = cLen > pLen ? 'X' : (cLen === pLen ? 'O' : 'Y');
-            
-            finalLines.push(currentOutput.trim() + '\t' + `${cLen}\\${pLen}` + '\t' + marker);
+            // ✨ 呼叫引擎判斷是否要附加比對字串
+            const suffix = window.TextToolsEngine.getCompareSuffix(chineseChars.length, pinyinParts.length);
+            finalLines.push(currentOutput.trim() + suffix);
         });
         return finalLines.join('\n');
     },
@@ -11689,8 +11821,10 @@ window.TextToolsEngine = {
                 }
             }
             currentOutput = currentOutput.replace(/\s+/g, ' ').trim();
-            let compareMarker = chineseCount > pinyinCount ? 'X' : (chineseCount === pinyinCount ? 'O' : 'Y');
-            output += currentOutput + '\t' + `${chineseCount}\\${pinyinCount}` + '\t' + compareMarker + '\n';
+            
+            // ✨ 呼叫引擎判斷是否要附加比對字串
+            const suffix = window.TextToolsEngine.getCompareSuffix(chineseCount, pinyinCount);
+            output += currentOutput + suffix + '\n';
         });
         return output.trim();
     },
@@ -11725,10 +11859,9 @@ window.TextToolsEngine = {
                 groupOutputs.push(group + '\\' + pinyinGroup);
             });
             
-            // ✨ 加入檢核標記
-            const marker = chineseLength > pinyinLength ? 'X' : (chineseLength === pinyinLength ? 'O' : 'Y');
-            const resultLine = groupOutputs.join('_') + '\t' + `${chineseLength}\\${pinyinLength}` + '\t' + marker;
-            finalLines.push(resultLine);
+            // ✨ 呼叫引擎判斷是否要附加比對字串
+            const suffix = window.TextToolsEngine.getCompareSuffix(chineseLength, pinyinLength);
+            finalLines.push(groupOutputs.join('_') + suffix);
         });
         return finalLines.map(line => line.trim() ? "_" + line : line).join('\n');
     },
@@ -11762,9 +11895,9 @@ window.TextToolsEngine = {
                 groupOutputs.push(currentGroup);
             });
             
-            // ✨ 加入檢核標記
-            const marker = chineseLength > pinyinLength ? 'X' : (chineseLength === pinyinLength ? 'O' : 'Y');
-            finalLines.push(groupOutputs.join('_') + '\t' + `${chineseLength}\\${pinyinLength}` + '\t' + marker);
+            // ✨ 呼叫引擎判斷是否要附加比對字串
+            const suffix = window.TextToolsEngine.getCompareSuffix(chineseLength, pinyinLength);
+            finalLines.push(groupOutputs.join('_') + suffix);
         });
         return finalLines.join('\n');
     },
@@ -11836,13 +11969,9 @@ window.TextToolsEngine = {
                 if (i < pinyinContent.length) { newPinyinString += pinyinContent[i] + ' '; }
             }
             
-            // ✨ 加入檢核標記
-            const cLen = hanziContent.length;
-            const pLen = pinyinContent.length;
-            const marker = cLen > pLen ? 'X' : (cLen === pLen ? 'O' : 'Y');
-
-            let resultLine = `${newHanziString.trim()}\t${newPinyinString.trim()}\t${cLen}\\${pLen}\t${marker}`;
-            processedLines.push(resultLine);
+            // ✨ 呼叫引擎判斷是否要附加比對字串
+            const suffix = window.TextToolsEngine.getCompareSuffix(hanziContent.length, pinyinContent.length);
+            processedLines.push(`${newHanziString.trim()}\t${newPinyinString.trim()}${suffix}`);
         }
         return processedLines.join('\n');
     },
@@ -11874,13 +12003,12 @@ window.TextToolsEngine = {
         }).join('\n');
     },
 
-    // 7. 詞音字音 (✨ 升級支援行內動態計數與檢核)
+    // 7. 詞音字音
     reverseArrangeText(input) {
         const lines = input.split(/\r?\n/);
         return lines.map(line => {
             if (!line.trim()) return '';
             
-            // 使用更廣泛的標點符號進行段落切割，避免漏算字數
             const segments = line.split(/([。，、；：！？「」『』（）《》〈〉…—])/); 
             
             let cLen = 0, pLen = 0;
@@ -11925,10 +12053,10 @@ window.TextToolsEngine = {
                 }
             }).join('');
 
-            // ✨ 如果這行有處理到詞音，就在最右方附上檢核結果
+            // ✨ 呼叫引擎判斷是否要附加比對字串
             if (isTargetLine) {
-                const marker = cLen > pLen ? 'X' : (cLen === pLen ? 'O' : 'Y');
-                return `${processedStr}\t${cLen}\\${pLen}\t${marker}`;
+                const suffix = window.TextToolsEngine.getCompareSuffix(cLen, pLen);
+                return `${processedStr}${suffix}`;
             }
             return processedStr;
         }).join('\n');
@@ -11996,7 +12124,7 @@ window.TextToolsEngine = {
         }).join('\n');
     },
 
-    // 11. 比對字音 (檢核字音數量是否一致)
+    // 11. 比對字音 (抓錯專用工具，必定顯示比對結果)
     compareCharPinyin(input) {
         const lines = input.split('\n');
         let finalLines = [];
@@ -12008,11 +12136,9 @@ window.TextToolsEngine = {
             
             if (!chinese && !pinyin) { finalLines.push(line); return; }
             
-            // 處理拼音 (將標點符號與連字符獨立切開，確保計算基準一致)
             let pinyinProcessed = pinyin.replace(/([。，、；：【】「」『』（）─？！…﹏《 》〈 〉＿．—～~／\(\)\[\]{}\/,.?;:!"'“”‘’·])/g, ' $1 ')
                                     .replace(/\s+/g, ' ').replace(/(=)/g, ' =').replace(/(-+)/g, ' $1').trim();
             
-            // 處理漢字 (無視空白，並使用展開運算子安全支援擴充漢字)
             const chineseChars = [...chinese.replace(/[\s|_]+/g, '')];
             const pinyinParts = pinyinProcessed.split(' ').filter(Boolean);
 
@@ -12020,180 +12146,12 @@ window.TextToolsEngine = {
             const pLen = pinyinParts.length;
             const marker = cLen > pLen ? 'X' : (cLen === pLen ? 'O' : 'Y');
             
-            // 將檢核結果直接附加在原文右側
             finalLines.push(`${line}\t${cLen}\\${pLen}\t${marker}`);
         });
         return finalLines.join('\n');
     }
 };
 
-// =================================================================
-// 語文工具統一調度器 (完美支援文字模式與表格模式選取轉換)
-// =================================================================
-window.executeTextTool = async function(toolName) {
-    if (!window.TextToolsEngine || typeof window.TextToolsEngine[toolName] !== 'function') {
-        console.error("找不到該語文工具或引擎遺失:", toolName);
-        if (typeof showToast === 'function') showToast('❌ 找不到核心引擎，請確認程式碼是否完整貼上');
-        return;
-    }
-
-    const isTableMode = currentMode === 'table';
-    const chkKeep = document.getElementById('chkKeepTextOriginal');
-    
-    // ✨ 表格模式預設為 true (強制保留原文，往右側擴充)；文字模式則看面板上的勾選狀態
-    let keepOriginal = isTableMode ? true : (chkKeep ? chkKeep.checked : false);
-
-    try {
-        if (!isTableMode) {
-            // ==========================================
-            // 情境 1：文字模式 (Textarea 處理)
-            // ==========================================
-            const editor = document.getElementById('editor');
-            if (!editor || !editor.value) return;
-
-            const start = editor.selectionStart;
-            const end = editor.selectionEnd;
-            const isPartial = start !== end;
-            
-            let textToProcess = isPartial ? editor.value.substring(start, end) : editor.value;
-            let convertedText = "";
-
-            if (keepOriginal) {
-                // 保留原文，將轉換結果用 Tab 拼接到原行後方
-                const lines = textToProcess.split('\n');
-                const newLines = lines.map(line => {
-                    if (line.replace(/\t/g, '').trim() === '') return line; 
-                    return line + '\t' + window.TextToolsEngine[toolName](line);
-                });
-                convertedText = newLines.join('\n');
-            } else {
-                convertedText = window.TextToolsEngine[toolName](textToProcess);
-            }
-            
-            if (isPartial) {
-                let processedText = editor.value.substring(0, start) + convertedText + editor.value.substring(end);
-                editor.value = processedText;
-                editor.setSelectionRange(start, start + convertedText.length);
-                editor.blur(); editor.focus();
-            } else {
-                editor.value = convertedText;
-            }
-
-            if (typeof debouncedUpdateLineNumbers === 'function') debouncedUpdateLineNumbers();
-
-        } else {
-            // ==========================================
-            // 情境 2：表格模式 (精準選取擷取與右側擴張寫入)
-            // ==========================================
-            
-            // 1. 取得目前的選取範圍邊界
-            let minR = Infinity, maxR = -1, minC = Infinity, maxC = -1;
-            if (selectedCellBlocks && selectedCellBlocks.length > 0) {
-                selectedCellBlocks.forEach(b => {
-                    minR = Math.min(minR, b.startR, b.endR); maxR = Math.max(maxR, b.startR, b.endR);
-                    minC = Math.min(minC, b.startC, b.endC); maxC = Math.max(maxC, b.startC, b.endC);
-                });
-            } else if (selectedRows && selectedRows.length > 0) {
-                minR = Math.min(...selectedRows); maxR = Math.max(...selectedRows);
-                minC = 0; maxC = document.querySelector('#data-table thead tr').children.length - 2;
-            } else if (selectedCols && selectedCols.length > 0) {
-                minR = 0; maxR = document.querySelectorAll('#data-table tbody tr').length - 1;
-                minC = Math.min(...selectedCols); maxC = Math.max(...selectedCols);
-            } else if (lastClickedCell) {
-                minR = maxR = lastClickedCell.r;
-                minC = maxC = lastClickedCell.c;
-            } else {
-                return showToast('⚠️ 請先選取要轉換的儲存格範圍 (例如左欄漢字、右欄拼音)');
-            }
-
-            const tbodyRows = document.querySelectorAll('#data-table tbody tr');
-            
-            // 2. 讀取選取範圍內的資料，組合成 TSV 字串
-            let extractedLines = [];
-            for (let r = minR; r <= maxR; r++) {
-                let rowParts = [];
-                for (let c = minC; c <= maxC; c++) {
-                    const inner = tbodyRows[r]?.children[c + 1]?.querySelector('.td-inner');
-                    let cellText = inner ? (inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : inner.innerText) : "";
-                    rowParts.push(cellText);
-                }
-                extractedLines.push(rowParts.join('\t'));
-            }
-            const textToProcess = extractedLines.join('\n');
-
-            // 3. 送入核心引擎轉換
-            let convertedText = "";
-            if (keepOriginal) {
-                const lines = textToProcess.split('\n');
-                const newLines = lines.map(line => {
-                    if (line.replace(/\t/g, '').trim() === '') return line; 
-                    return line + '\t' + window.TextToolsEngine[toolName](line);
-                });
-                convertedText = newLines.join('\n');
-            } else {
-                convertedText = window.TextToolsEngine[toolName](textToProcess);
-            }
-            
-            // 4. 解析結果字串回二維陣列
-            const convertedData = typeof parseTSV === 'function' ? parseTSV(convertedText) : convertedText.split('\n').map(l => l.split('\t'));
-            
-            // 5. 確保表格右側欄位數量足夠寫入新資料
-            const resultWidth = convertedData[0] ? convertedData[0].length : 1;
-            const theadTr = document.querySelector('#data-table thead tr');
-            const currentCols = theadTr.children.length - 1;
-            const requiredCols = minC + resultWidth;
-
-            // 若欄位不夠，自動往右側擴張 (新增欄位)
-            if (requiredCols > currentCols) {
-                if (typeof insertColAt === 'function') {
-                    insertColAt(currentCols - 1, -1, requiredCols - currentCols);
-                }
-            }
-
-            // 重新抓取列集合 (因為 insertColAt 可能重繪了部分 DOM)
-            const updatedRows = document.querySelectorAll('#data-table tbody tr');
-
-            // 6. 原位覆寫 (包含新產生的右側結果)
-            for (let i = 0; i < convertedData.length; i++) {
-                const r = minR + i;
-                for (let j = 0; j < convertedData[i].length; j++) {
-                    const targetInner = updatedRows[r]?.children[minC + j + 1]?.querySelector('.td-inner');
-                    if (targetInner) {
-                        targetInner.removeAttribute('data-formula');
-                        targetInner.innerText = convertedData[i][j];
-                    }
-                }
-            }
-            
-            // 7. 清除多餘殘留資料 (當不保留原文，且新資料欄位小於原本選取欄位時)
-            const originalWidth = maxC - minC + 1;
-            if (!keepOriginal && resultWidth < originalWidth) {
-                for (let i = 0; i < convertedData.length; i++) {
-                    const r = minR + i;
-                    for (let j = resultWidth; j < originalWidth; j++) {
-                        const targetInner = updatedRows[r]?.children[minC + j + 1]?.querySelector('.td-inner');
-                        if (targetInner) {
-                            targetInner.removeAttribute('data-formula');
-                            targetInner.innerText = '';
-                        }
-                    }
-                }
-            }
-
-            if (typeof recalculateAllFormulas === 'function') recalculateAllFormulas();
-        }
-
-        // 統一存檔與提示
-        if (typeof debouncedSaveHistory === 'function') debouncedSaveHistory();
-        if (typeof saveAllTabsData === 'function') saveAllTabsData();
-        if (typeof showToast === 'function') showToast('✅ 轉換與檢核完成！');
-
-    } catch (err) {
-        console.error("轉換失敗:", err);
-        if (typeof showToast === 'function') showToast('❌ 轉換失敗，請檢查資料格式');
-    }
-};
-
 
 
 // =================================================================
@@ -12312,14 +12270,12 @@ window.executeTextTool = async function(toolName) {
             const currentCols = theadTr.children.length - 1;
             const requiredCols = minC + resultWidth;
 
-            // 若欄位不夠，自動往右側擴張 (新增欄位)
             if (requiredCols > currentCols) {
                 if (typeof insertColAt === 'function') {
-                    insertColAt(currentCols - 1, -1, requiredCols - currentCols);
+                    insertColAt(currentCols, -1, requiredCols - currentCols);
                 }
             }
 
-            // 重新抓取列集合 (因為 insertColAt 可能重繪了部分 DOM)
             const updatedRows = document.querySelectorAll('#data-table tbody tr');
 
             // 6. 原位覆寫 (包含新產生的右側結果)
@@ -12367,7 +12323,7 @@ window.executeTextTool = async function(toolName) {
 
 
 // =================================================================
-// 視覺化語文工具箱 (修復點擊失焦 + 新增保留原文選項)
+// 視覺化語文工具箱 (支援 100% 絕對生效的核取方塊切換)
 // =================================================================
 window.showTextToolsModal = function() {
     const modalId = "text-tools-floating-panel";
@@ -12378,6 +12334,9 @@ window.showTextToolsModal = function() {
         setTimeout(() => existingModal.remove(), 200);
         return;
     }
+
+    // 讀取使用者的比對開關偏好
+    const isCompareChecked = localStorage.getItem('wesing-append-compare') !== 'false';
 
     const toolCategories = [
         {
@@ -12413,34 +12372,37 @@ window.showTextToolsModal = function() {
 
     const panel = document.createElement('div');
     panel.id = modalId;
-    panel.className = "fixed w-[340px] bg-[#f8f9fa] rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.2)] flex flex-col border border-gray-200 z-[6000] overflow-hidden transition-opacity duration-200 opacity-0";
+    panel.className = "fixed w-[280px] bg-[#f8f9fa] rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.2)] flex flex-col border border-gray-200 z-[6000] overflow-hidden transition-opacity duration-200 opacity-0";
     panel.style.top = '80px';
     panel.style.right = '32px';
 
     let html = `
-        <div id="text-tools-drag-handle" class="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 flex-shrink-0 cursor-move hover:bg-teal-50/50 transition-colors">
+        <div id="text-tools-drag-handle" class="flex items-center justify-between px-3 py-2 bg-white border-b border-gray-200 flex-shrink-0 cursor-move hover:bg-teal-50/50 transition-colors">
             <div class="flex items-center gap-2 pointer-events-none">
                 <span class="material-symbols-outlined text-teal-600 text-[20px]">build_circle</span>
-                <div><h3 class="font-extrabold text-gray-800 text-sm leading-tight">語文工具箱</h3></div>
+                <div><h3 class="font-extrabold text-gray-800 text-sm leading-tight">整併字音</h3></div>
             </div>
-            <div class="flex items-center gap-3">
-                <!-- ✨ 新增：保留原文選項 -->
-                <label class="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-teal-700 hover:text-teal-800 bg-teal-50 px-2 py-1 rounded-md border border-teal-100 transition-colors">
-                    <input type="checkbox" id="chkKeepTextOriginal" class="accent-teal-600 w-3 h-3 cursor-pointer">
-                    保留原文
+            <div class="flex items-center gap-2">
+                <label class="flex items-center gap-1 cursor-pointer text-[11px] font-bold text-teal-700 hover:text-teal-800 bg-teal-50 px-1.5 py-1 rounded-md border border-teal-100 transition-colors">
+                    <input type="checkbox" id="chkAppendCompare" class="accent-teal-600 w-3 h-3 pointer-events-none" ${isCompareChecked ? 'checked' : ''}>
+                    比對
+                </label>
+                <label class="flex items-center gap-1 cursor-pointer text-[11px] font-bold text-teal-700 hover:text-teal-800 bg-teal-50 px-1.5 py-1 rounded-md border border-teal-100 transition-colors">
+                    <input type="checkbox" id="chkKeepTextOriginal" class="accent-teal-600 w-3 h-3 pointer-events-none">
+                    留原文
                 </label>
                 <button id="btn-close-text-tools" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-lg transition-colors cursor-pointer" title="關閉面板"><span class="material-symbols-outlined text-[18px] block">close</span></button>
             </div>
         </div>
-        <div class="flex-1 overflow-y-auto p-3 scrollbar-thin max-h-[70vh]">
-            <div class="flex flex-col gap-5">
+        <div class="flex-1 overflow-y-auto p-2.5 scrollbar-thin max-h-[70vh]">
+            <div class="flex flex-col gap-4">
     `;
 
     toolCategories.forEach(cat => {
-        html += `<div><h4 class="text-xs font-extrabold text-teal-800 mb-2.5 flex items-center gap-1.5 pl-1"><span class="material-symbols-outlined text-[16px]">${cat.icon}</span> ${cat.category}</h4><div class="grid grid-cols-1 gap-2">`;
+        html += `<div><h4 class="text-[11px] font-extrabold text-teal-800 mb-2 flex items-center gap-1.5 pl-1"><span class="material-symbols-outlined text-[14px]">${cat.icon}</span> ${cat.category}</h4><div class="grid grid-cols-1 gap-1.5">`;
         cat.tools.forEach(tool => {
             html += `
-                <div class="text-tool-card group bg-white border border-gray-200 rounded-lg p-3 cursor-pointer hover:border-teal-400 hover:shadow-sm transition-all active:scale-[0.98]" data-action="${tool.id}">
+                <div class="text-tool-card group bg-white border border-gray-200 rounded-lg p-2.5 cursor-pointer hover:border-teal-400 hover:shadow-sm transition-all active:scale-[0.98]" data-action="${tool.id}">
                     <div class="flex justify-between items-center mb-2">
                         <span class="font-extrabold text-gray-800 text-sm group-hover:text-teal-700 transition-colors">${tool.name}</span>
                         <span class="text-[10px] font-bold text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">${tool.desc}</span>
@@ -12477,32 +12439,34 @@ window.showTextToolsModal = function() {
     panel.querySelector('#btn-close-text-tools').addEventListener('click', closePanel);
 
     panel.addEventListener('mousedown', (e) => {
-        // 只有「文字輸入框」才允許偷走焦點，其餘元素 (包含按鈕、標籤、核取方塊) 一律阻擋失焦！
+        if (e.target.closest('button')) return;
         const isTextInput = e.target.tagName === 'INPUT' && e.target.type === 'text';
         const isTextArea = e.target.tagName === 'TEXTAREA';
-        
         if (!isTextInput && !isTextArea) {
             e.preventDefault(); 
         }
     });
 
-    const chkLabel = panel.querySelector('label');
-    const chkInput = panel.querySelector('#chkKeepTextOriginal');
-    if (chkLabel && chkInput) {
-        chkLabel.addEventListener('click', (e) => {
-            // 如果點擊的是文字標籤，手動反轉打勾狀態
-            if (e.target !== chkInput) {
-                e.preventDefault();
-                chkInput.checked = !chkInput.checked;
-            }
-        });
-    }
+    // ✨ 支援雙重核取方塊的連動與偏好記憶 (100% 防失靈版)
+    panel.querySelectorAll('label').forEach(lbl => {
+        const inp = lbl.querySelector('input[type="checkbox"]');
+        if (inp) {
+            lbl.addEventListener('click', (e) => {
+                // 阻擋瀏覽器不可預期的預設點擊行為，改由我們手動完全控制
+                e.preventDefault(); 
+                inp.checked = !inp.checked; 
+                
+                if (inp.id === 'chkAppendCompare') {
+                    localStorage.setItem('wesing-append-compare', inp.checked);
+                }
+            });
+        }
+    });
 
     const dragHandle = panel.querySelector('#text-tools-drag-handle');
-    let isDragging = false, startX, startY, initialLeft, initialTop;
+    let isDragging = false, startX = 0, startY = 0, initialLeft = 0, initialTop = 0;
 
-    dragHandle.addEventListener('pointerdown', (e) => {
-        // ✨ 核心修復 2：排除點擊到 label 與 input，確保核取方塊可以正常被點擊
+    dragHandle.addEventListener('mousedown', (e) => {
         if (e.target.closest('button, input, label')) return; 
         isDragging = true;
         const rect = panel.getBoundingClientRect();
@@ -12511,18 +12475,44 @@ window.showTextToolsModal = function() {
         panel.style.right = 'auto'; panel.style.bottom = 'auto';
         panel.style.left = initialLeft + 'px'; panel.style.top = initialTop + 'px';
         panel.style.margin = '0';
-        dragHandle.setPointerCapture(e.pointerId);
+        document.body.style.userSelect = 'none'; 
     });
 
-    dragHandle.addEventListener('pointermove', (e) => {
+    document.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
         panel.style.left = `${initialLeft + (e.clientX - startX)}px`;
         panel.style.top = `${initialTop + (e.clientY - startY)}px`;
     });
 
-    dragHandle.addEventListener('pointerup', (e) => {
+    document.addEventListener('mouseup', () => {
         isDragging = false;
-        dragHandle.releasePointerCapture(e.pointerId);
+        document.body.style.userSelect = '';
+    });
+
+    dragHandle.addEventListener('touchstart', (e) => {
+        if (e.target.closest('button, input, label')) return; 
+        const touch = e.touches[0];
+        isDragging = true;
+        const rect = panel.getBoundingClientRect();
+        initialLeft = rect.left; initialTop = rect.top;
+        startX = touch.clientX; startY = touch.clientY;
+        panel.style.right = 'auto'; panel.style.bottom = 'auto';
+        panel.style.left = initialLeft + 'px'; panel.style.top = initialTop + 'px';
+        panel.style.margin = '0';
+        
+        if (!e.target.closest('input, label')) e.preventDefault();
+    }, { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        const touch = e.touches[0];
+        panel.style.left = `${initialLeft + (touch.clientX - startX)}px`;
+        panel.style.top = `${initialTop + (touch.clientY - startY)}px`;
+        e.preventDefault(); 
+    }, { passive: false });
+
+    document.addEventListener('touchend', () => {
+        isDragging = false;
     });
 
     panel.querySelectorAll('.text-tool-card').forEach(card => {
