@@ -105,6 +105,7 @@
 
 				  <!-- 下拉選單 -->
 				  <div id="menuPunctuation" class="hidden absolute top-full right-0 mt-2 w-40 bg-white rounded-xl shadow-xl border border-slate-200 z-50 p-1 overflow-hidden origin-top-right">
+
 					 
 					 <button id="actTogglePunctuation" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors">
 						<span class="material-symbols-outlined text-[18px]">swap_horiz</span> 
@@ -276,6 +277,15 @@
                   </div>
                 </div>
               </div>
+
+
+				<button id="btnToggleWrap" class="text-xs font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 flex items-center gap-1 px-3 py-1.5 rounded-full transition-colors" title="換行：自然 / 區塊">
+					<span class="material-symbols-outlined text-[18px]">wrap_text</span>
+					<span class="btn-label">連字</span>
+				</button>
+
+				
+
               
               <div class="relative">
                 <button id="btnFontFamily" class="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full px-3 py-1.5">
@@ -300,6 +310,9 @@
                   <div id="menuMore" class="absolute mt-2 w-52 bg-white border border-slate-200 rounded-lg shadow hidden z-10" style="right: 0;">
                     <button id="actCopyAnnotated" class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2">
                       <span class="material-symbols-outlined text-[18px]">content_copy</span> 複製標註
+                    </button>
+                    <button id="actCopyBlock" class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2">
+                      <span class="material-symbols-outlined text-[18px]">grid_view</span> 複製區塊
                     </button>
                     <button id="actCopy" class="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2">
                       <span class="material-symbols-outlined text-[18px]">code</span> 複製HTML

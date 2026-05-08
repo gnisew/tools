@@ -446,6 +446,11 @@ function alignByClauses({
                 span.textContent = hToken;
                 fragment.appendChild(span);
                 h_idx++;
+                
+                if (p_idx < pSegSyls.length && pSegSyls[p_idx] === hToken) {
+                    p_idx++;
+                }
+                
                 continue;
             }
 
@@ -561,8 +566,27 @@ function alignByClauses({
         const pSegSyls = tokenizeSyls(pText);
         clause.appendChild(processClause(hTokens, pSegSyls));
 
-        const finalHanCount = hTokens.filter(t => !(isPunct(t) || isWhitespace(t))).length;
-        const finalPyCount = pSegSyls.reduce((acc, syl) => acc + syl.split(/--?|=/).length, 0);
+        // 【修正】：智慧計算實際的標音配對數，消除誤判警告
+        let finalHanCount = 0;
+        hTokens.forEach(t => {
+            // 過濾掉獨立的標點與空白
+            if (!(t.length === 1 && (isPunct(t) || isWhitespace(t)))) {
+                finalHanCount++;
+            }
+        });
+
+        let finalPyCount = 0;
+        pSegSyls.forEach(syl => {
+            // 如果拼音是獨立標點 (例如被保護的連字號 "-")，不計入音節
+            if (syl.length === 1 && (isPunct(syl) || isWhitespace(syl))) return; 
+            
+            const isMatchedExact = hTokens.some(t => t.toLowerCase() === syl.toLowerCase());
+            if (isMatchedExact) {
+                finalPyCount += 1;
+            } else {
+                finalPyCount += syl.split(/--?|=/).length;
+            }
+        });
 
         if (showWarnings && finalHanCount !== finalPyCount) {
             clause.classList.add('clause-warn');
@@ -1787,9 +1811,9 @@ btnClear.addEventListener('click', () => {
 });
 
 
-// 主按鈕：點擊左側「複製標註」執行主要動作
+// 主按鈕：點擊左側「複製標註」執行主要動作 (預設：自然換行)
 btnPrimary.addEventListener('click', async () => {
-    await copyAnnotated();
+    await copyAnnotated('natural');
 });
 
 // 主按鈕：點擊右側小三角展開選單
@@ -1822,12 +1846,19 @@ document.addEventListener('click', (e) => {
     if (!within) menuMore.classList.add('hidden');
 });
 
-// 新選單：複製標註（預設）
 const actCopyAnnotated = document.getElementById('actCopyAnnotated');
 actCopyAnnotated.addEventListener('click', async () => {
-    await copyAnnotated();
+    await copyAnnotated('natural');
     menuMore.classList.add('hidden');
 });
+
+const actCopyBlock = document.getElementById('actCopyBlock');
+if (actCopyBlock) {
+    actCopyBlock.addEventListener('click', async () => {
+        await copyAnnotated('block');
+        menuMore.classList.add('hidden');
+    });
+}
 
 
 // 複製HTML
@@ -1870,7 +1901,7 @@ actDownload.addEventListener('click', () => {
 
 
 // 複製標註
-async function copyAnnotated() {
+async function copyAnnotated(copyMode = 'natural') {
     // 以重新渲染的檢視模式內容為輸出來源
     const hanzi = hanziInput.value;
     const pinyin = pinyinInput.value;
@@ -1904,15 +1935,42 @@ async function copyAnnotated() {
 
     const tempWrap = document.createElement('div');
     tempWrap.appendChild(outputContainer);
+
+    // ==================================================
+    // 根據複製模式處理 HTML 外殼
+    // ==================================================
+    if (copyMode === 'natural') {
+        // 自然換行模式：把 .clause 和 .word-unit 的外殼剝掉
+        const wrappers = tempWrap.querySelectorAll('.clause, .word-unit');
+        wrappers.forEach(w => {
+            while (w.firstChild) {
+                w.parentNode.insertBefore(w.firstChild, w);
+            }
+            w.parentNode.removeChild(w);
+        });
+        // 移除軟換行點
+        const wbrs = tempWrap.querySelectorAll('wbr');
+        wbrs.forEach(el => el.remove());
+    } else if (copyMode === 'block') {
+        // 區塊模式：保留外殼，並強制加上不換行與間距屬性
+        const wrappers = tempWrap.querySelectorAll('.clause, .word-unit');
+        wrappers.forEach(w => {
+            w.style.display = 'inline-block';
+            w.style.whiteSpace = 'nowrap'; // 確保 Word 視為不可分割區塊
+            w.style.margin = '2px';        // 補回區塊外距
+            w.style.padding = '2px 4px';   // 補回區塊內距
+        });
+        // 區塊模式也必須移除軟換行點，否則 Word 還是會從中間切斷
+        const wbrs = tempWrap.querySelectorAll('wbr');
+        wbrs.forEach(el => el.remove());
+    }
     
     // 定義變數
     let rtStyle = '';
     let bodyLineHeight = '1.5';
-    let rbLineHeight = '1.5'; // 新增：控制漢字區的行高
+    let rbLineHeight = '1.5'; 
     
     if (phoneticDisplayMode === 'vertical-zhuyin') {
-        // 直注音模式：
-        // 1. RT 隱藏
         tempWrap.querySelectorAll('rt').forEach(rt => {
             rt.textContent = '\u200B'; 
         });
@@ -1921,7 +1979,6 @@ async function copyAnnotated() {
         bodyLineHeight = '18pt'; 
         rbLineHeight = '1.0';    
     } else {
-        // 一般模式：正常顯示
         rtStyle = `font-size: 0.68em; color: #334155; letter-spacing: .02em; display: block; margin-bottom: .06em; text-align: center; font-family: "台灣楷體", twkai;`;
         bodyLineHeight = '1.5';
         rbLineHeight = '1.5';
@@ -1934,7 +1991,13 @@ async function copyAnnotated() {
         rubies.forEach((ruby, i) => {
             const next = ruby.nextSibling;
             if (next && next.nodeType === Node.ELEMENT_NODE && next.tagName === 'RUBY') {
-                ruby.parentNode.insertBefore(document.createTextNode('\u00A0'), next);
+                if (copyMode === 'natural') {
+                    // 自然模式：插入「零寬空格+不換行空格」，允許 Word 跨行但保持字距
+                    ruby.parentNode.insertBefore(document.createTextNode('\u200B\u00A0'), next);
+                } else {
+                    // 區塊模式：只插入「不換行空格」，讓 Word 區塊死死黏在一起
+                    ruby.parentNode.insertBefore(document.createTextNode('\u00A0'), next);
+                }
             }
         });
     }
@@ -1946,30 +2009,23 @@ async function copyAnnotated() {
 <html><head><meta charset="UTF-8"><style>
 *{font-family:"台灣楷體", twkai;box-shadow:none!important;outline:none!important;border:none!important;background:transparent!important}
 ruby{ruby-position:over;ruby-align:center;font-family:"台灣楷體", twkai;}
-/* 使用 rbLineHeight 變數 */
 rb{display:inline;font-family:"台灣楷體", twkai; line-height: ${rbLineHeight};}
 rt{${rtStyle}}
 ${phoneticDisplayMode === 'vertical-zhuyin' ? 'ruby{margin:0!important;}' : ''}
 p { margin: 0; padding: 0; }
-/* 使用 bodyLineHeight 變數 */
 body{font-size:14pt;line-height:${bodyLineHeight};font-family:"台灣楷體", twkai;}
 </style></head><body>${body}</body></html>`;
 
     try {
-        const blob = new Blob([html], {
-            type: 'text/html'
-        });
-        const data = [new ClipboardItem({
-            'text/html': blob
-        })];
+        const blob = new Blob([html], { type: 'text/html' });
+        const data = [new ClipboardItem({ 'text/html': blob })];
         await navigator.clipboard.write(data);
-        toast('已複製標註（富文本）');
+        toast(copyMode === 'natural' ? '已複製標註 (自然換行)' : '已複製標註 (區塊模式)');
     } catch (err) {
         await navigator.clipboard.writeText(html);
-        toast('已複製標註（HTML文字）');
+        toast('已複製標註 (HTML文字)');
     }
 }
-
 
 /**
  * 建立匯出的 HTML 檔案字串
@@ -2133,13 +2189,21 @@ function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode, pho
             };
 
             while (h_idx < hTokens.length) {
-                const hToken = hTokens[h_idx];
+            const hToken = hTokens[h_idx];
 
-                if (hToken.length === 1 && (isWhitespace(hToken) || isPunct(hToken))) {
-                    clauseHtml += \`<span class="punct">\${hToken}</span>\`;
-                    h_idx++;
-                    continue;
+            if (hToken.length === 1 && (isWhitespace(hToken) || isPunct(hToken))) {
+                const span = document.createElement('span');
+                span.className = 'glyph punct';
+                span.textContent = hToken;
+                fragment.appendChild(span);
+                h_idx++;
+                
+                if (p_idx < pSegSyls.length && pSegSyls[p_idx] === hToken) {
+                    p_idx++;
                 }
+                
+                continue;
+            }
 
                 if (p_idx >= pSegSyls.length) {
                     clauseHtml += \`<ruby><rb>\${hToken}</rb><rt>&nbsp;</rt></ruby>\`;
@@ -3089,6 +3153,14 @@ document.getElementById('btnHanziToPinyin').addEventListener('click', () => {
 
 
 
+
+
+
+
+
+
+
+
 // 取得拆分按鈕
 const btnSplitPinyin = document.getElementById('btnSplitPinyin');
 
@@ -3216,4 +3288,127 @@ if (btnSplitPinyin) {
         // 自動執行標註渲染
         if (typeof render === 'function') render(); 
     });
+}
+
+
+
+
+
+
+// ==========================================
+// 【排版功能】：兩種換行模式切換與自動注入軟換行點
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    // --- 1. 按鈕切換邏輯 ---
+    const btnToggleWrap = document.getElementById('btnToggleWrap');
+    if (btnToggleWrap) {
+        let isBlockMode = false; 
+
+        btnToggleWrap.addEventListener('click', () => {
+            isBlockMode = !isBlockMode;
+            const textLabel = btnToggleWrap.querySelector('.btn-label');
+            const iconSpan = btnToggleWrap.querySelector('.material-symbols-outlined');
+
+            if (isBlockMode) {
+                // 切換為區塊模式 (從灰色變成紫色)
+                document.body.classList.add('mode-block');
+                iconSpan.textContent = 'format_textdirection_l_to_r';
+                textLabel.textContent = '區塊';
+                
+                btnToggleWrap.classList.replace('bg-gray-200', 'bg-purple-100');
+                btnToggleWrap.classList.replace('text-gray-700', 'text-purple-800');
+                btnToggleWrap.classList.replace('hover:bg-gray-300', 'hover:bg-purple-200');
+            } else {
+                // 切換為自然斷行 (從紫色變回灰色)
+                document.body.classList.remove('mode-block');
+                iconSpan.textContent = 'wrap_text';
+                textLabel.textContent = '連字';
+
+                btnToggleWrap.classList.replace('bg-purple-100', 'bg-gray-200');
+                btnToggleWrap.classList.replace('text-purple-800', 'text-gray-700');
+                btnToggleWrap.classList.replace('hover:bg-purple-200', 'hover:bg-gray-300');
+            }
+        });
+    }
+
+    // --- 2. 自動注入軟換行點 (<wbr>) ---
+    const resultArea = document.getElementById('resultArea');
+    if (!resultArea) return;
+
+    const injectWbr = () => {
+        // 尋找所有的 ruby (標音字) 與 span (獨立標點)
+        const elements = resultArea.querySelectorAll('ruby, span.punct, span.alphanum');
+        elements.forEach(el => {
+            // 檢查後方是否已經有 wbr，若無則補上
+            const next = el.nextSibling;
+            if (!next || (next.nodeName !== 'WBR' && next.className !== 'wrap-fix')) {
+                const wbr = document.createElement('wbr');
+                wbr.className = 'wrap-fix';
+                el.after(wbr);
+            }
+        });
+    };
+
+    // 使用 MutationObserver 監聽，只要一生成標註內容就自動補上換行點
+    const observer = new MutationObserver(() => {
+        observer.disconnect(); // 暫停監聽以防無限迴圈
+        injectWbr();           // 執行注入
+        observer.observe(resultArea, { childList: true, subtree: true }); // 恢復監聽
+    });
+
+    observer.observe(resultArea, { childList: true, subtree: true });
+});
+
+
+
+
+
+
+
+
+
+
+// ==========================================
+// 全面保護英數字與連字號攔截器
+// ==========================================
+if (typeof window.hanziToPinyin === 'function' && !window.hanziToPinyin.isProtected) {
+    // 備份原始的轉換函數
+    const originalHanziToPinyin = window.hanziToPinyin;
+    
+    // 覆寫為帶有「全面保護機制」的新函數
+    window.hanziToPinyin = function(mode) {
+        const hInput = document.getElementById('hanziInput');
+        const pInput = document.getElementById('pinyinInput');
+        
+        if (!hInput || !pInput) return originalHanziToPinyin(mode);
+
+        const originalText = hInput.value;
+        const protectedTokens = [];
+        
+        // 1. 轉換前：將所有的 [英文字母、數字、連字號] 獨立打包
+        // 替換為 Unicode 隱形替身，讓底層引擎完全看不到這些英文
+        hInput.value = originalText.replace(/[a-zA-Z0-9\-]+/g, (match) => {
+            protectedTokens.push(match);
+            return String.fromCharCode(0xFB50 + protectedTokens.length - 1);
+        });
+        
+        // 2. 執行原始的底層轉換引擎
+        originalHanziToPinyin(mode);
+        
+        // 3. 轉換結束後：立刻將漢字區復原為原文
+        hInput.value = originalText;
+        
+        // 4. 將拼音區的隱形替身，精準替換回原本的英數字與連字號
+        let restoredPinyin = pInput.value;
+        protectedTokens.forEach((token, index) => {
+            const marker = String.fromCharCode(0xFB50 + index);
+            // 完美還原，不影響排版間距
+            restoredPinyin = restoredPinyin.replace(new RegExp(marker, 'g'), token);
+        });
+        
+        pInput.value = restoredPinyin;
+    };
+    
+    // 加上標記，防止重複覆寫
+    window.hanziToPinyin.isProtected = true; 
 }

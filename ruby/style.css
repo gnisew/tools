@@ -79,12 +79,16 @@ rt:empty::before {
 }
 
 .clause {
-    display: inline-block;
-    padding: 0.06rem 0.12rem;
-    border-radius: 0.45rem;
     position: relative;
-    margin-right: 0.08rem;
-    scroll-margin: 96px;
+    display: inline; 
+    padding: 0.2rem 0; 
+    margin: 0;         
+    border-radius: 6px;
+    background-color: transparent;
+    transition: background-color 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
 }
 
 .clause-warn {
@@ -609,4 +613,48 @@ section.is-collapsed .title-text {
 .mode-vertical-zhuyin ruby {
     margin: 0; 
     padding: 0;
+}
+
+.word-unit {
+    position: relative;
+    display: inline; /* 【關鍵修改】：解開連字號詞彙的鐵板，允許跨行 */
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.2s;
+
+    /* 讓跨行斷開時，詞彙兩端都能保有圓角與背景色 */
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+}
+
+/* ==========================================
+   換行模式控制 
+   ========================================== */
+/* 讓 resultArea 裡面的所有標註字都可以自然斷行 */
+#resultArea {
+    line-break: anywhere;
+    word-break: break-all;
+}
+
+/* 預設：顯示軟換行點 */
+wbr.wrap-fix {
+    display: inline;
+}
+
+/* --- 區塊模式 (點擊按鈕後發動) --- */
+/* 將句子與詞彙變回鐵板，恢復「以標點為塊」的整塊換行模式 */
+body.mode-block .clause,
+body.mode-block .word-unit {
+    display: inline-block;
+}
+
+/* 【修正】：在區塊模式下，把原本的按鈕間距加回來 */
+body.mode-block .clause {
+    padding: 0.2rem 0.4rem;
+    margin: 0.2rem;
+}
+
+/* 隱藏軟換行點 */
+body.mode-block wbr.wrap-fix {
+    display: none;
 }
