@@ -11182,8 +11182,16 @@ const btnExitMaximize = document.getElementById('btnExitMaximize');
 function toggleMaximizeMode(isMaximized) {
     if (isMaximized) {
         document.body.classList.add('maximized-mode');
-        btnExitMaximize.classList.remove('hidden');
-        showToast('🧘 已進入極致滿版模式 (可按 Esc 退出)');
+        
+        // ✨ 判斷是否為「學習/遊戲模式」
+        if (document.body.classList.contains('is-playing-game')) {
+            // 學習模式下：隱藏左上角的預設退出按鈕 (因為有專屬的返回鈕)，且不顯示提示訊息
+            btnExitMaximize.classList.add('hidden');
+        } else {
+            // 一般編輯模式下手動放大：顯示左上角按鈕與提示訊息
+            btnExitMaximize.classList.remove('hidden');
+            showToast('🧘 已進入極致滿版模式 (可按 Esc 退出)');
+        }
     } else {
         document.body.classList.remove('maximized-mode');
         document.body.classList.remove('is-playing-game'); 
@@ -11222,6 +11230,9 @@ if (btnExitMaximize) {
 // 監聽鍵盤：按下 Esc 鍵退出滿版
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && document.body.classList.contains('maximized-mode')) {
+        // ✨ 學習模式下「不允許」按 Esc 退出滿版
+        if (document.body.classList.contains('is-playing-game')) return;
+        
         toggleMaximizeMode(false);
     }
 });
@@ -12323,7 +12334,7 @@ window.executeTextTool = async function(toolName) {
 
 
 // =================================================================
-// 視覺化語文工具箱 (支援 100% 絕對生效的核取方塊切換)
+// 視覺化語文工具箱
 // =================================================================
 window.showTextToolsModal = function() {
     const modalId = "text-tools-floating-panel";
@@ -12373,28 +12384,38 @@ window.showTextToolsModal = function() {
     const panel = document.createElement('div');
     panel.id = modalId;
     panel.className = "fixed w-[280px] bg-[#f8f9fa] rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.2)] flex flex-col border border-gray-200 z-[6000] overflow-hidden transition-opacity duration-200 opacity-0";
-    panel.style.top = '80px';
-    panel.style.right = '32px';
+    
+    // ✨ 智慧判斷初始位置：手機版置中且偏上，避免擋住鍵盤或被截斷
+    if (window.innerWidth <= 768) {
+        const leftPos = (window.innerWidth - 280) / 2;
+        panel.style.left = `${Math.max(5, leftPos)}px`;
+        panel.style.top = '60px'; 
+        panel.style.right = 'auto';
+    } else {
+        panel.style.top = '80px';
+        panel.style.right = '32px';
+        panel.style.left = 'auto';
+    }
 
     let html = `
         <div id="text-tools-drag-handle" class="flex items-center justify-between px-3 py-2 bg-white border-b border-gray-200 flex-shrink-0 cursor-move hover:bg-teal-50/50 transition-colors">
-            <div class="flex items-center gap-2 pointer-events-none">
-                <span class="material-symbols-outlined text-teal-600 text-[20px]">build_circle</span>
-                <div><h3 class="font-extrabold text-gray-800 text-sm leading-tight">整併字音</h3></div>
+            <div class="flex items-center gap-1.5 pointer-events-none">
+                <span class="material-symbols-outlined text-teal-600 text-[18px]">build_circle</span>
+                <div><h3 class="font-extrabold text-gray-800 text-sm leading-tight">字音整併</h3></div>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1.5">
                 <label class="flex items-center gap-1 cursor-pointer text-[11px] font-bold text-teal-700 hover:text-teal-800 bg-teal-50 px-1.5 py-1 rounded-md border border-teal-100 transition-colors">
                     <input type="checkbox" id="chkAppendCompare" class="accent-teal-600 w-3 h-3 pointer-events-none" ${isCompareChecked ? 'checked' : ''}>
                     比對
                 </label>
                 <label class="flex items-center gap-1 cursor-pointer text-[11px] font-bold text-teal-700 hover:text-teal-800 bg-teal-50 px-1.5 py-1 rounded-md border border-teal-100 transition-colors">
                     <input type="checkbox" id="chkKeepTextOriginal" class="accent-teal-600 w-3 h-3 pointer-events-none">
-                    留原文
+                    原文
                 </label>
                 <button id="btn-close-text-tools" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1 rounded-lg transition-colors cursor-pointer" title="關閉面板"><span class="material-symbols-outlined text-[18px] block">close</span></button>
             </div>
         </div>
-        <div class="flex-1 overflow-y-auto p-2.5 scrollbar-thin max-h-[70vh]">
+        <div class="flex-1 overflow-y-auto p-2.5 scrollbar-thin max-h-[50vh] sm:max-h-[70vh]">
             <div class="flex flex-col gap-4">
     `;
 
@@ -12447,12 +12468,10 @@ window.showTextToolsModal = function() {
         }
     });
 
-    // ✨ 支援雙重核取方塊的連動與偏好記憶 (100% 防失靈版)
     panel.querySelectorAll('label').forEach(lbl => {
         const inp = lbl.querySelector('input[type="checkbox"]');
         if (inp) {
             lbl.addEventListener('click', (e) => {
-                // 阻擋瀏覽器不可預期的預設點擊行為，改由我們手動完全控制
                 e.preventDefault(); 
                 inp.checked = !inp.checked; 
                 
@@ -12522,7 +12541,6 @@ window.showTextToolsModal = function() {
         });
     });
 };
-
 
 
 

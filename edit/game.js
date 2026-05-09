@@ -2216,7 +2216,7 @@ function renderSortingGame(data, container) {
 
 
 // =================================================================
-// 遊戲渲染區：打字遊戲 (Typing Game) - 優化美化版
+// 遊戲渲染區：打字遊戲 (Typing Game)
 // =================================================================
 function renderTypingGame(data, container) {
     let subMode = 'single'; // 'single', 'multi', 'continuous'
@@ -2224,6 +2224,9 @@ function renderTypingGame(data, container) {
     let winConditionType = 'none'; // 'none', 'time', 'count'
     let timeLimit = 0;
     let targetCount = 10;
+    
+    let isCaseInsensitive = true; 
+    let typingHintLevel = localStorage.getItem('wesing-typing-hint') || 'hide-1';
     
     let isPlaying = false;
     let currentData = [];
@@ -2233,6 +2236,17 @@ function renderTypingGame(data, container) {
     let remainingSeconds = 0;
 
     if (window.currentTypingTimer) clearInterval(window.currentTypingTimer);
+
+    // 智慧寬容比對引擎：處理多餘空格與聲調符號轉字母
+    const normalizeTypingText = (text) => {
+        if (!text) return '';
+        return text.replace(/\s+/g, ' ')  // 壓縮多餘空白
+                   .replace(/ˊ/g, 'z')
+                   .replace(/ˇ/g, 'v')
+                   .replace(/ˋ/g, 's')
+                   .replace(/[\^ˆ]/g, 'x') // 包含標準與上標
+                   .replace(/[+⁺]/g, 'f'); // 包含標準與上標
+    };
 
     // 1. 介面佈局渲染
     container.innerHTML = `
@@ -2265,6 +2279,31 @@ function renderTypingGame(data, container) {
                                 <option value="count-20">20 題</option>
                             </optgroup>
                         </select>
+
+						<select id="typing-hint-level" class="bg-white border border-gray-300 text-gray-700 py-1.5 px-2 rounded-lg text-sm cursor-pointer outline-none relative z-50">
+                            <option value="none">無提示 (進階)</option>
+                            <optgroup label="字數隱藏">
+                                <option value="hide-1">隱藏 1 字</option>
+                                <option value="hide-2">隱藏 2 字</option>
+                                <option value="hide-3">隱藏 3 字</option>
+                                <option value="hide-half">隱藏一半</option>
+                            </optgroup>
+                            <optgroup label="拼音/結構隱藏">
+                                <option value="hide-vowel">隱藏母音 (a,e...)</option>
+                                <option value="hide-cons">隱藏子音 (b,p...)</option>
+                                <option value="hide-init-c">藏前子音 (_ang)</option>
+                                <option value="hide-final-c">藏後子音 (ba__)</option>
+                                <option value="hide-back-vc">藏後母子 (b___)</option>
+                                <option value="hide-front-cv">藏前子母 (__ng)</option>
+                                <option value="hide-tone">隱藏聲調 (bang_)</option>
+                            </optgroup>
+                            <option value="show-all">完整顯示 (新手)</option>
+                        </select>
+
+                        <label class="flex items-center gap-1.5 cursor-pointer text-sm font-bold text-gray-600 bg-white border border-gray-300 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors z-50 select-none">
+                            <input type="checkbox" id="typing-case-insensitive" class="accent-teal-600 w-4 h-4 cursor-pointer" checked>
+                            忽略大小寫
+                        </label>
 
                         <button id="btn-start-typing" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg transition-colors text-sm flex items-center gap-1 min-w-[80px] justify-center cursor-pointer">
                             <span class="material-symbols-outlined text-[18px]">play_arrow</span> <span id="btn-start-text">開始</span>
@@ -2312,8 +2351,45 @@ function renderTypingGame(data, container) {
     const submodeSelect = document.getElementById('typing-submode');
     const orderSelect = document.getElementById('typing-order');
     const conditionSelect = document.getElementById('typing-win-condition');
+    const caseCheckbox = document.getElementById('typing-case-insensitive');
 
-    [submodeSelect, orderSelect, conditionSelect].forEach(el => {
+	const hintSelect = document.getElementById('typing-hint-level');
+    if (hintSelect) {
+        hintSelect.value = typingHintLevel;
+        hintSelect.addEventListener('change', (e) => {
+            typingHintLevel = e.target.value;
+            localStorage.setItem('wesing-typing-hint', typingHintLevel);
+        });
+    }
+
+    [submodeSelect, orderSelect, conditionSelect, caseCheckbox, hintSelect].forEach(el => {
+        if (el) {
+            el.addEventListener('mousedown', e => e.stopPropagation());
+            el.addEventListener('touchstart', e => e.stopPropagation());
+            el.addEventListener('click', e => e.stopPropagation());
+            
+            el.addEventListener('change', () => {
+                if (isPlaying) resetToIdle();
+            });
+        }
+    });
+
+
+
+    // ✨ 讀取歷史偏好設定
+    const savedCasePref = localStorage.getItem('wesing-typing-case');
+    if (savedCasePref !== null) {
+        isCaseInsensitive = savedCasePref === 'true';
+        caseCheckbox.checked = isCaseInsensitive;
+    }
+    
+    // ✨ 監聽大小寫選項變更
+    caseCheckbox.addEventListener('change', (e) => {
+        isCaseInsensitive = e.target.checked;
+        localStorage.setItem('wesing-typing-case', isCaseInsensitive);
+    });
+
+    [submodeSelect, orderSelect, conditionSelect, caseCheckbox].forEach(el => {
         el.addEventListener('mousedown', e => e.stopPropagation());
         el.addEventListener('touchstart', e => e.stopPropagation());
         el.addEventListener('click', e => e.stopPropagation());
@@ -2402,7 +2478,7 @@ function renderTypingGame(data, container) {
         else if (subMode === 'continuous') renderContinuous();
     }
 
-    // --- 模式 A: 單題闖關 ---
+    // --- 模式 A: 單題闖關 (支援多段提示難度與智慧同欄位隱藏) ---
     function renderSingleQuestion() {
         if (currentIndex >= currentData.length) { endGame(true); return; }
         const item = currentData[currentIndex];
@@ -2412,15 +2488,109 @@ function renderTypingGame(data, container) {
             displayTotal = Math.min(targetCount, currentData.length);
         }
 
+        // ✨ 核心遮蔽演算法 (升級支援拼音/結構遮蔽與多音節處理)
+        function generateMaskedWord(word, level) {
+            if (level === 'none') return '';
+            if (level === 'show-all') return word;
+
+            // 1. 原有的隨機字數隱藏模式
+            if (['hide-1', 'hide-2', 'hide-3', 'hide-half'].includes(level)) {
+                let chars = [...word];
+                let validIndices = [];
+                for (let i = 0; i < chars.length; i++) {
+                    if (/[a-zA-Z0-9\u4e00-\u9fa5]/.test(chars[i])) validIndices.push(i);
+                }
+
+                let hideCount = 0;
+                if (level === 'hide-1') hideCount = 1;
+                else if (level === 'hide-2') hideCount = 2;
+                else if (level === 'hide-3') hideCount = 3;
+                else if (level === 'hide-half') hideCount = Math.ceil(validIndices.length / 2);
+
+                hideCount = Math.min(hideCount, validIndices.length);
+                validIndices.sort(() => Math.random() - 0.5);
+                for (let i = 0; i < hideCount; i++) chars[validIndices[i]] = '_';
+                return chars.join('');
+            }
+            
+            // 2. 拼音/結構遮蔽模式 (針對每個音節獨立處理)
+            // 將詞彙切分為音節：(字母連續區段) + (可選的聲調符號)
+            return word.replace(/([a-zA-Z]+)([ˊˇˋ^+ˆ⁺]*)/g, (match, letters, tone) => {
+                
+                // 將拼音字母區段完美拆解為：前子音(可空) + 母音(可空) + 後子音(可空)
+                const sylMatch = letters.match(/^([bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ]*)([aeiouAEIOU]*)([bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ]*)$/);
+                
+                // 防呆：如果文字不符合標準拼音結構 (例如夾雜奇怪的排列)，則使用簡單的母音/子音全局替換
+                if (!sylMatch) {
+                    if (level === 'hide-vowel') return letters.replace(/[aeiouAEIOU]/g, '_') + tone;
+                    if (['hide-cons', 'hide-init-c', 'hide-final-c', 'hide-front-cv', 'hide-back-vc'].includes(level)) {
+                        return letters.replace(/[bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ]/g, '_') + tone;
+                    }
+                    if (level === 'hide-tone') return letters + (tone ? '_'.repeat(tone.length) : '');
+                    return match;
+                }
+
+                let [_, initC, vowel, finalC] = sylMatch;
+
+                switch (level) {
+                    case 'hide-vowel': 
+                        vowel = '_'.repeat(vowel.length); 
+                        break;
+                    case 'hide-cons': 
+                        initC = '_'.repeat(initC.length); 
+                        finalC = '_'.repeat(finalC.length); 
+                        break;
+                    case 'hide-init-c': 
+                        initC = '_'.repeat(initC.length); 
+                        break;
+                    case 'hide-final-c': 
+                        finalC = '_'.repeat(finalC.length); 
+                        break;
+                    case 'hide-back-vc': 
+                        vowel = '_'.repeat(vowel.length); 
+                        finalC = '_'.repeat(finalC.length); 
+                        break;
+                    case 'hide-front-cv': 
+                        initC = '_'.repeat(initC.length); 
+                        vowel = '_'.repeat(vowel.length); 
+                        break;
+                    case 'hide-tone': 
+                        tone = tone.length > 0 ? '_'.repeat(tone.length) : ''; 
+                        break;
+                }
+                return initC + vowel + finalC + tone;
+            });
+        }
+
+        const maskedWord = generateMaskedWord(item.definition, typingHintLevel);
+        
+        // ✨ 智慧判定：如果題目跟答案設定成同一個，就啟用「本體遮蔽模式」
+        const isSameTermDef = item.term.trim() === item.definition.trim();
+
         mainContent.innerHTML = `
             <div class="absolute top-4 left-4 text-gray-400 font-bold text-sm sm:text-base tracking-widest z-10 select-none bg-gray-50 px-2 py-1 rounded-lg border border-gray-100">
                 ${currentIndex + 1}/${displayTotal}
             </div>
 
+            <button id="btn-hint-single" class="absolute top-4 right-4 text-gray-400 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 px-3 py-1.5 rounded-lg border border-gray-200 hover:border-blue-200 transition-colors font-bold text-sm sm:text-base flex items-center gap-1 z-10 cursor-pointer shadow-sm">
+                <span class="material-symbols-outlined text-[18px]">lightbulb</span> 解答
+            </button>
+
             <div class="w-full max-w-2xl flex flex-col items-center gap-6 sm:gap-8 py-4 relative my-auto">
                 <div id="single-feedback" class="h-10 w-full flex items-center justify-center text-xl transition-all duration-300"></div>
                 
-                <div class="text-4xl md:text-5xl text-gray-800 text-center leading-tight px-4 break-words w-full">${item.term}</div>
+                ${isSameTermDef ? `
+                    <div id="main-question-display" class="text-4xl md:text-5xl text-gray-800 text-center leading-tight px-4 break-words w-full font-mono tracking-widest transition-colors duration-300 select-none">
+                        ${escapeHtml(maskedWord)}
+                    </div>
+                ` : `
+                    <div id="fixed-hint-display" class="text-2xl md:text-3xl text-teal-600/80 font-mono font-bold tracking-[0.25em] transition-all duration-300 pointer-events-none select-none mb-[-1rem] h-10 flex items-center justify-center w-full">
+                        ${escapeHtml(maskedWord)}
+                    </div>
+                    <div id="main-question-display" class="text-4xl md:text-5xl text-gray-800 text-center leading-tight px-4 break-words w-full transition-colors duration-300">
+                        ${escapeHtml(item.term)}
+                    </div>
+                `}
                 
                 <div class="relative w-full max-w-[320px] sm:max-w-md mt-2">
                     
@@ -2428,9 +2598,9 @@ function renderTypingGame(data, container) {
                         <span class="material-symbols-outlined text-[24px]">close</span>
                     </button>
 
-                    <input type="text" id="typing-input" 
-                        class="w-full text-center text-3xl md:text-4xl py-3 sm:py-4 px-12 sm:px-14 border-b-4 border-gray-200 bg-gray-50 hover:bg-gray-100 outline-none focus:border-teal-500 focus:bg-teal-50 transition-colors font-normal rounded-t-2xl" 
-                        autocomplete="off" spellcheck="false" placeholder="">
+                    <textarea id="typing-input" rows="1"
+                        class="w-full h-[60px] md:h-[76px] text-center text-3xl md:text-4xl pt-2 sm:pt-3 px-12 sm:px-14 border-b-4 border-gray-200 bg-gray-50 hover:bg-gray-100 outline-none focus:border-teal-500 focus:bg-teal-50 transition-colors font-normal rounded-t-2xl resize-none overflow-hidden whitespace-nowrap" 
+                        autocomplete="off" spellcheck="false" placeholder=""></textarea>
                     
                     <button id="btn-submit-single" class="absolute right-2 top-1/2 -translate-y-1/2 text-teal-600 hover:text-teal-800 w-10 h-10 flex items-center justify-center cursor-pointer transition-colors bg-transparent rounded-full z-10">
                         <span class="material-symbols-outlined text-[28px]">send</span>
@@ -2443,9 +2613,45 @@ function renderTypingGame(data, container) {
         const btnSubmit = document.getElementById('btn-submit-single');
         const btnClear = document.getElementById('btn-clear-single');
         const fb = document.getElementById('single-feedback');
+        
+        const btnHint = document.getElementById('btn-hint-single');         
+        const hintDisplay = document.getElementById('fixed-hint-display'); 
+        const mainDisplay = document.getElementById('main-question-display');
+
         input.focus();
 
+        // ✨ 小燈泡功能：智慧判斷替換哪個區塊的文字 (改用柔和藍色)
+        btnHint.addEventListener('click', () => {
+            if (isSameTermDef) {
+                mainDisplay.textContent = item.definition;
+                mainDisplay.classList.replace('text-gray-800', 'text-blue-600');
+            } else {
+                if (hintDisplay) {
+                    hintDisplay.textContent = item.definition;
+                    hintDisplay.classList.replace('text-teal-600/80', 'text-blue-600');
+                }
+            }
+        });
+
+        // ✨ 打字或點擊時，自動縮回成遮蔽狀態
+        const revertHint = () => {
+            if (isSameTermDef) {
+                if (mainDisplay.textContent !== maskedWord) {
+                    mainDisplay.textContent = maskedWord;
+                    mainDisplay.classList.replace('text-blue-600', 'text-gray-800');
+                }
+            } else {
+                if (hintDisplay && hintDisplay.textContent !== maskedWord) {
+                    hintDisplay.textContent = maskedWord;
+                    hintDisplay.classList.replace('text-blue-600', 'text-teal-600/80');
+                }
+            }
+        };
+        input.addEventListener('focus', revertHint);
+        input.addEventListener('click', revertHint);
+
         input.addEventListener('input', () => {
+            revertHint();
             if (input.value.length > 0) {
                 btnClear.classList.remove('hidden');
             } else {
@@ -2460,13 +2666,22 @@ function renderTypingGame(data, container) {
         });
 
         const checkAnswer = () => {
-            const userVal = input.value.trim();
-            const targetVal = item.definition.trim();
+            let userVal = input.value.trim();
+            let targetVal = item.definition.trim();
+
+            // ✨ 智慧寬容比對：壓縮多餘空格，並將聲調符號轉為字母 (支援 z, v, s, x, f 替代)
+            userVal = normalizeTypingText(userVal);
+            targetVal = normalizeTypingText(targetVal);
+            
+            if (typeof isCaseInsensitive !== 'undefined' && isCaseInsensitive) {
+                userVal = userVal.toLowerCase();
+                targetVal = targetVal.toLowerCase();
+            }
             
             if (userVal === targetVal) {
                 correctCount++;
                 scoreEl.textContent = correctCount;
-                fb.innerHTML = `<span class="text-green-500 font-bold">✅ 正確！</span>`;
+                fb.innerHTML = `<span class="text-green-500 font-bold">🎉 正確！</span>`;
                 
                 input.classList.remove('border-gray-200', 'border-red-400', 'text-red-500', 'bg-red-50', 'focus:border-teal-500', 'focus:bg-teal-50');
                 input.classList.add('text-green-600', 'border-green-500', 'bg-green-50');
@@ -2474,6 +2689,8 @@ function renderTypingGame(data, container) {
                 input.disabled = true;
                 btnSubmit.disabled = true;
                 btnClear.classList.add('hidden'); 
+                btnHint.disabled = true;
+                btnHint.classList.add('opacity-50', 'cursor-not-allowed');
 
                 if (winConditionType === 'count') {
                     progressBar.style.width = `${Math.min(100, (correctCount / targetCount) * 100)}%`;
@@ -2495,7 +2712,10 @@ function renderTypingGame(data, container) {
         };
 
         input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') checkAnswer();
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                checkAnswer();
+            }
             else {
                 input.classList.remove('text-red-500', 'border-red-400', 'bg-red-50');
                 input.classList.add('border-gray-200');
@@ -2503,6 +2723,15 @@ function renderTypingGame(data, container) {
             }
         });
         btnSubmit.addEventListener('click', checkAnswer);
+        
+        function escapeHtml(unsafe) {
+            return (unsafe || '').toString()
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        }
     }
 
     // --- 模式 B: 多題檢查 (雙欄 Grid + 緊接排版) ---
@@ -2530,7 +2759,7 @@ function renderTypingGame(data, container) {
                             <span class="bg-gray-100 text-gray-400 font-mono text-sm font-bold px-2 py-1 rounded select-none flex-shrink-0">${String(i + 1).padStart(2, '0')}</span>
                             <span class="text-lg text-gray-800 font-bold whitespace-nowrap flex-shrink-0 max-w-[40%] truncate" title="${item.term}">${item.term}</span>
                             <div class="relative flex-1 min-w-0">
-                                <input type="text" data-idx="${i}" class="multi-typing-input w-full py-1.5 px-2 pr-8 text-lg border-b-2 border-gray-200 bg-gray-50 focus:bg-teal-50 outline-none focus:border-teal-500 rounded-t font-normal transition-colors" autocomplete="off" spellcheck="false">
+                                <input type="text" data-idx="${i}" class="multi-typing-input w-full h-[46px] px-2 pr-8 text-lg border-b-2 border-gray-200 bg-gray-50 focus:bg-teal-50 outline-none focus:border-teal-500 rounded-t font-normal transition-colors" autocomplete="off" spellcheck="false">
                                 <span class="fb-icon absolute right-2 top-1/2 -translate-y-1/2 text-xl z-10 pointer-events-none"></span>
                             </div>
                         </div>
@@ -2612,7 +2841,7 @@ function renderTypingGame(data, container) {
                         </button>
 
                         <input type="text" id="continuous-input" 
-                            class="w-full text-center text-3xl md:text-4xl py-3 sm:py-4 px-12 sm:px-14 border-b-4 border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-t-2xl outline-none focus:border-teal-500 focus:bg-teal-50 transition-colors font-normal" 
+                            class="w-full h-[60px] md:h-[76px] text-center text-3xl md:text-4xl px-12 sm:px-14 border-b-4 border-gray-200 bg-gray-50 hover:bg-gray-100 rounded-t-2xl outline-none focus:border-teal-500 focus:bg-teal-50 transition-colors font-normal" 
                             autocomplete="off" spellcheck="false" placeholder="">
                         
                         <button id="btn-submit-continuous" class="absolute right-2 top-1/2 -translate-y-1/2 text-teal-600 hover:text-teal-800 w-10 h-10 flex items-center justify-center cursor-pointer transition-colors bg-transparent rounded-full z-10">
@@ -2649,12 +2878,21 @@ function renderTypingGame(data, container) {
         });
 
         const checkContinuousAnswer = () => {
-            const userVal = input.value.trim();
+            let userVal = input.value.trim();
             if (!userVal) return;
+
+            // ✨ 智慧寬容比對：壓縮多餘空格，並將聲調符號轉為字母
+            userVal = normalizeTypingText(userVal);
+            
+            if (typeof isCaseInsensitive !== 'undefined' && isCaseInsensitive) userVal = userVal.toLowerCase();
 
             let matchIndex = -1;
             for (let i = 0; i < fullTextArray.length; i++) {
-                if (fullTextArray[i] === userVal && !foundIndices.has(i)) {
+                let targetVal = fullTextArray[i].trim();
+                targetVal = normalizeTypingText(targetVal);
+                if (typeof isCaseInsensitive !== 'undefined' && isCaseInsensitive) targetVal = targetVal.toLowerCase();
+                
+                if (targetVal === userVal && !foundIndices.has(i)) {
                     matchIndex = i;
                     break;
                 }
@@ -2752,11 +2990,24 @@ function renderTypingGame(data, container) {
 
                 inputs.forEach(input => {
                     const idx = parseInt(input.dataset.idx);
-                    const userVal = input.value.trim();
-                    const targetVal = displayData[idx].definition.trim();
+                    let userVal = input.value.trim();
+                    let targetVal = displayData[idx].definition.trim();
                     const fbIcon = input.nextElementSibling;
+
+                    // ✨ 智慧寬容比對：壓縮多餘空格，並將聲調符號轉為字母
+                    userVal = normalizeTypingText(userVal);
+                    targetVal = normalizeTypingText(targetVal);
                     
-                    if (userVal === targetVal && userVal !== '') {
+                    let isMatch = false;
+                    if (userVal !== '') {
+                        if (isCaseInsensitive) {
+                            isMatch = userVal.toLowerCase() === targetVal.toLowerCase();
+                        } else {
+                            isMatch = userVal === targetVal;
+                        }
+                    }
+                    
+                    if (isMatch) {
                         correct++;
                         fbIcon.innerHTML = '✅';
                         input.classList.add('text-green-600', 'border-green-400', 'bg-green-50');
