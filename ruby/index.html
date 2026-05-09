@@ -59,7 +59,7 @@
                 <div class="flex items-center gap-2">
 				<button id="btnPinyinToHanzi" class="text-xs font-medium text-blue-800 bg-blue-100 hover:bg-blue-200 flex items-center gap-1 px-3 py-1.5 rounded-full transition-colors">
 				  <span class="material-symbols-outlined text-[18px]">arrow_downward</span>
-				  拼音轉字
+				  音轉字
 				</button>
                   <button id="btnSample" class="hidden text-xs text-blue-700 hover:text-blue-900 flex items-center gap-1">
                     <span class="material-symbols-outlined text-[18px]">dataset</span> 塞入範例
@@ -84,10 +84,6 @@
                 </span>
                 <div class="flex items-center gap-4">
 
-				<button id="btnSplitPinyin" class="text-xs font-medium text-gray-800 bg-gray-100 hover:bg-gray-200 flex items-center gap-1 px-3 py-1.5 rounded-full transition-colors" title="從括號拆分漢字與拼音">
-					<span class="material-symbols-outlined text-[18px]">call_split</span>
-					拆字(音)
-				</button>
                   
 
 				<div id="btnPunctuationContainer" class="inline-flex rounded-full shadow relative group bg-white border border-slate-200">
@@ -136,7 +132,7 @@
 				  <!-- 左側主按鈕：維持原本的漢字轉拼音功能 -->
 				  <button id="btnHanziToPinyin" class="text-xs font-medium text-blue-800 bg-blue-100 hover:bg-blue-200 flex items-center gap-1 pl-3 pr-2 py-1.5 rounded-l-full transition-colors border-r border-blue-200">
 					<span class="material-symbols-outlined text-[18px]">arrow_downward</span>
-					字轉拼音
+					字轉音
 				  </button>
 				  
 				  <!-- 右側小三角形：點擊展開選單 -->
@@ -171,9 +167,13 @@
 							<span>空格分詞</span>
 						</button>
 
+
+						<button id="btnSplitPinyin" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors" title="從括號拆分漢字與拼音">
+							<span class="material-symbols-outlined text-[18px] text-green-500">call_split</span>
+							拆分 字(音)
+						</button>
+
 					</div>
-
-
 
 				</div>
 
@@ -217,7 +217,7 @@
 						<span class="material-symbols-outlined text-[18px]">translate</span>
 						<span class="text-sm hidden @[380px]:inline">標音</span>
 					</button>
-					<div id="phoneticsMenu" class="popover hidden" style="width: 160px; padding: 6px; right: 0;">
+					<div id="phoneticsMenu" class="popover hidden" style="width: 160px; padding: 6px; right: auto; left: -10px;">
 						<button id="actWordTones" class="w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50 flex items-center gap-2">
 							<span class="material-symbols-outlined text-[18px]">imagesearch_roller</span> Word聲調
 						</button>
@@ -252,51 +252,68 @@
             <div id="resultArea" class="scroll-area border border-slate-200 p-4 mode-view" style="font-size:14pt; --rt-scale:0.68;">
               <div class="text-slate-400 text-sm">標註結果會出現在這裡…</div>
             </div>
+
             <div class="mt-4 flex items-center gap-2 justify-end">
-              <div class="relative">
-                <button id="btnTypography" class="inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full px-3 py-1.5">
-                  <span class="material-symbols-outlined text-[18px]">format_size</span>
-                  <span id="fontVal" class="text-sm">18</span>
-                </button>
-                <div id="typoPopover" class="popover hidden">
-                  <div class="flex items-center justify-between mb-2">
-                    <div class="text-slate-700 font-medium">字級調整</div>
-                    <button id="btnResetFont" class="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700">預設</button>
-                  </div>
-                  <div class="number-row">
-                    <span class="text-sm text-slate-600">整體</span>
-                    <button class="btn-ghost" data-dec="font">－</button>
-                    <span id="fontShow" class="px-2 py-1 bg-slate-50 rounded-md text-slate-700 min-w-[36px] text-center">18</span>
-                    <button class="btn-ghost" data-inc="font">＋</button>
-                  </div>
-                  <div class="number-row mt-2">
-                    <span class="text-sm text-slate-600">拼音</span>
-                    <button class="btn-ghost" data-dec="rt">－</button>
-                    <span id="rtShow" class="px-2 py-1 bg-slate-50 rounded-md text-slate-700 min-w-[36px] text-center">0.68</span>
-                    <button class="btn-ghost" data-inc="rt">＋</button>
-                  </div>
-                </div>
-              </div>
-
-
-				<button id="btnToggleWrap" class="text-xs font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 flex items-center gap-1 px-3 py-1.5 rounded-full transition-colors" title="換行：自然 / 區塊">
-					<span class="material-symbols-outlined text-[18px]">wrap_text</span>
-					<span class="btn-label">連字</span>
-				</button>
-
-				
-
               
               <div class="relative">
-                <button id="btnFontFamily" class="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full px-3 py-1.5">
-                  <span class="material-symbols-outlined text-[18px]">font_download</span>
-                  <span class="text-sm">字體</span>
+                <button id="btnDisplaySettings" class="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full px-4 py-1.5 transition-colors">
+                  <span class="material-symbols-outlined text-[18px]">palette</span>
+                  <span class="text-sm font-medium">排版</span>
                 </button>
-                <div id="fontFamilyPopover" class="popover hidden" style="width: 120px; padding: 6px;">
-                    <button data-font="hei" class="font-choice active w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50">黑體</button>
-                    <button data-font="kai" class="font-choice w-full text-left px-3 py-2 text-sm rounded hover:bg-slate-50">楷體</button>
+                
+                <div id="displaySettingsPopover" class="popover hidden w-64 p-4 origin-bottom-right">
+                  <div class="mb-3">
+                    <div class="flex items-center justify-between mb-2">
+                      <div class="text-slate-700 font-medium text-sm">字級大小</div>
+                      <button id="btnResetFont" class="text-[11px] px-2 py-0.5 rounded border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors">預設</button>
+                    </div>
+                    <div class="number-row">
+                      <span class="text-sm text-slate-600">整體</span>
+                      <button class="btn-ghost" data-dec="font">－</button>
+                      <span id="fontShow" class="px-2 py-1 bg-slate-50 rounded-md text-slate-700 min-w-[36px] text-center text-sm">18</span>
+                      <button class="btn-ghost" data-inc="font">＋</button>
+                    </div>
+                    <div class="number-row mt-2">
+                      <span class="text-sm text-slate-600">拼音</span>
+                      <button class="btn-ghost" data-dec="rt">－</button>
+                      <span id="rtShow" class="px-2 py-1 bg-slate-50 rounded-md text-slate-700 min-w-[36px] text-center text-sm">0.68</span>
+                      <button class="btn-ghost" data-inc="rt">＋</button>
+                    </div>
+                  </div>
+                  
+                  <hr class="my-3 border-slate-100">
+
+                  <div class="mb-3">
+                    <div class="text-slate-700 font-medium text-sm mb-2">字體</div>
+                    <div class="flex rounded-lg bg-slate-100 p-1 gap-1">
+                      <button data-font="hei" class="font-choice active bg-white shadow-sm text-blue-700 flex-1 text-center py-1 text-sm rounded-md transition-all">黑體</button>
+                      <button data-font="kai" class="font-choice text-slate-600 hover:text-slate-900 flex-1 text-center py-1 text-sm rounded-md transition-all">楷體</button>
+                    </div>
+                  </div>
+
+                  <hr class="my-3 border-slate-100">
+
+                  <div>
+                    <div class="text-slate-700 font-medium text-sm mb-2">換行模式</div>
+                    <div class="flex rounded-lg bg-slate-100 p-1 gap-1">
+                      <button data-wrap="natural" class="wrap-choice active bg-white shadow-sm text-blue-700 flex-1 text-center py-1 text-sm rounded-md transition-all">自然斷行</button>
+                      <button data-wrap="block" class="wrap-choice text-slate-600 hover:text-slate-900 flex-1 text-center py-1 text-sm rounded-md transition-all">區塊換行</button>
+                    </div>
+                  </div>
+
+                  <hr class="my-3 border-slate-100">
+
+                  <div>
+                    <div class="text-slate-700 font-medium text-sm mb-2">首行縮排</div>
+                    <div class="flex rounded-lg bg-slate-100 p-1 gap-1">
+                      <button data-indent="0" class="indent-choice text-slate-600 hover:text-slate-900 flex-1 text-center py-1 text-sm rounded-md transition-all">無</button>
+                      <button data-indent="1" class="indent-choice text-slate-600 hover:text-slate-900 flex-1 text-center py-1 text-sm rounded-md transition-all">1 字元</button>
+                      <button data-indent="2.5" class="indent-choice active bg-white shadow-sm text-blue-700 flex-1 text-center py-1 text-sm rounded-md transition-all">2 字元</button>
+                    </div>
+                  </div>
                 </div>
               </div>
+              
               <div class="relative">
                   <div id="btnPrimaryContainer" class="inline-flex rounded-full shadow">
                       <button id="btnPrimary" class="inline-flex items-center gap-2 bg-emerald-600 text-white rounded-l-full pl-4 pr-3 py-2.5 hover:bg-emerald-700 transition-colors focus:outline-none text-sm">
@@ -391,6 +408,10 @@ if (headerEmoji) {
         sparkle.remove();
       }, 800);
     }
+
+    if (typeof toggleAutoSave === 'function') {
+        toggleAutoSave();
+    }
   });
 }
 /*
@@ -409,6 +430,7 @@ https://gnisew.github.io/tools/turn/pinyin2/data-pinyin2pinyin.js
 
   <script>let c, d, ccc, ddd;</script>
   <script src="hanzitopinyin.js"></script>
+  <script src="export.js"></script>
   <script src="script.js"></script>
 
 

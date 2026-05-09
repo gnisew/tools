@@ -24,7 +24,10 @@ const AppConfig = {
     storageKeys: {
         TONE_CONVERSION_DEFAULT: 'toneConversionDefault',
         SELECTED_LANGUAGE: 'selectedLanguage',
-		INPUT_MODE: 'inputMode'
+        INPUT_MODE: 'inputMode',
+        AUTO_SAVE_ENABLED: 'autoSaveEnabled',
+        SAVED_HANZI: 'savedHanzi',
+        SAVED_PINYIN: 'savedPinyin'
     }
 };
 
@@ -64,9 +67,12 @@ function loadSetting(key, defaultValue) {
 
 
 // 符號集合
-	const PUNCTS = new Set(['，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '【', '】', '〔', '〕', '—', '…', '－', '‧', '·', '﹑', ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…', '＿', '―', '─', '━', '﹏', '~', '～', '_']);
-    
-    const ENDERS = new Set(['。', '！', '？', '?', '!', '．', '.']);
+	// 符號集合 (補齊斜線與特殊符號)
+	const PUNCTS = new Set(['，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '【', '】', '〔', '〕', '—', '…', '－', '‧', '·', '﹑', ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…', '＿', '―', '─', '━', '﹏', '~', '～', '_', '/', '\\', '<', '>', '|', '@', '#', '$', '%', '^', '&', '*', '+', '=']);
+		
+	// 【核心防護機制】：將逗號、頓號、分號全部加入斷點。
+	// 這樣一來，每一小句話都是獨立的。即使前面有配對錯誤，遇到標點符號就會瞬間重置對齊，錯誤絕不會蔓延！
+	const ENDERS = new Set(['。', '！', '？', '?', '!', '．', '.', '，', ',', '、', '；', ';', '：', ':']);
 
     const WHITESPACES = new Set([' ', '\t', '\u3000']);
 
@@ -123,14 +129,12 @@ const menuMore = document.getElementById('menuMore');
 const actCopy = document.getElementById('actCopy');
 const actDownload = document.getElementById('actDownload');
 
-// 字級
-const btnTypography = document.getElementById('btnTypography');
-const typoPopover = document.getElementById('typoPopover');
+// 排版
+const btnDisplaySettings = document.getElementById('btnDisplaySettings');
+const displaySettingsPopover = document.getElementById('displaySettingsPopover');
 const btnResetFont = document.getElementById('btnResetFont');
-const fontVal = document.getElementById('fontVal');
 const fontShow = document.getElementById('fontShow');
 const rtShow = document.getElementById('rtShow');
-
 
 
 // ==================================================================
@@ -206,6 +210,43 @@ let CC_SEG = {
     map: []
 };
 let inputMode = 'hanzi-to-pinyin'; // 'hanzi-to-pinyin' | 'pinyin-to-hanzi'
+let isAutoSaveEnabled = loadSetting(AppConfig.storageKeys.AUTO_SAVE_ENABLED, false);
+
+// 暫存功能：將輸入區資料寫入 Local Storage
+function saveInputData() {
+    if (isAutoSaveEnabled) {
+        saveSetting(AppConfig.storageKeys.SAVED_HANZI, hanziInput.value);
+        saveSetting(AppConfig.storageKeys.SAVED_PINYIN, pinyinInput.value);
+    }
+}
+
+// 暫存功能：彩蛋開關觸發器
+function toggleAutoSave() {
+    isAutoSaveEnabled = !isAutoSaveEnabled;
+    saveSetting(AppConfig.storageKeys.AUTO_SAVE_ENABLED, isAutoSaveEnabled);
+    
+    // 切換 Emoji 顯示
+    const emojiEl = document.getElementById('headerEmoji');
+    if (emojiEl) {
+        emojiEl.textContent = isAutoSaveEnabled ? '✨' : '🥷';
+    }
+    
+    if (isAutoSaveEnabled) {
+        saveInputData(); // 啟用時立刻存一次目前的內容
+        toast('已啟用自動暫存 ✨');
+    } else {
+        // 關閉時徹底清除已儲存的資料
+        localStorage.removeItem(AppConfig.STORAGE_PREFIX + AppConfig.storageKeys.SAVED_HANZI);
+        localStorage.removeItem(AppConfig.STORAGE_PREFIX + AppConfig.storageKeys.SAVED_PINYIN);
+        toast('已關閉暫存並清除資料 🥷');
+    }
+}
+
+window.addEventListener('beforeunload', saveInputData);
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') saveInputData();
+});
+
 let PROBLEMS = [];
 let problemIdx = -1;
 let mode = 'view'; // 'view' | 'edit'
@@ -217,6 +258,7 @@ const DEFAULT_FONT = 18;
 const DEFAULT_RT = 0.68;
 let fontSize = DEFAULT_FONT;
 let rtScale = DEFAULT_RT;
+let paragraphIndent = '2.5';
 
 let defaultToneConversionType = loadSetting(AppConfig.storageKeys.TONE_CONVERSION_DEFAULT, 'letter');
 let currentLanguageKey = loadSetting(AppConfig.storageKeys.SELECTED_LANGUAGE, 'kasu'); // 預設為詔安 'kasu'
@@ -242,33 +284,29 @@ function segmentHanziByClauses(str) {
     let buf = '';
     // 新增：統一過濾掉 Windows 的 \r\n 或單獨的 \r 避免變成兩行
     str = (str || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    for (const ch of toCharArray(str)) {
+    const chars = toCharArray(str);
+    for (let i = 0; i < chars.length; i++) {
+        const ch = chars[i];
         if (isLineBreak(ch)) {
-            if (buf) {
-                segs.push({
-                    type: 'seg',
-                    text: buf
-                });
-                buf = '';
-            }
-            segs.push({
-                type: 'br'
-            });
+            if (buf) { segs.push({ type: 'seg', text: buf }); buf = ''; }
+            segs.push({ type: 'br' });
             continue;
         }
         buf += ch;
         if (isPunct(ch) && ENDERS.has(ch)) {
-            segs.push({
-                type: 'seg',
-                text: buf
-            });
+            // 【網址保護強化】：防止把 URL (如 .com 或 ?v=) 從中間切斷
+            // 確保前面是純英數字，後面也是英數字，才視為網址
+            if (i + 1 < chars.length) {
+                const nextCh = chars[i + 1];
+                if (/[a-zA-Z0-9]/.test(nextCh) && /[a-zA-Z0-9_.@:\/#?=&%-]+$/.test(buf)) {
+                    continue; 
+                }
+            }
+            segs.push({ type: 'seg', text: buf });
             buf = '';
         }
     }
-    if (buf) segs.push({
-        type: 'seg',
-        text: buf
-    });
+    if (buf) segs.push({ type: 'seg', text: buf });
     return segs;
 }
 
@@ -278,54 +316,49 @@ function segmentPinyinRawByClauses(str) {
     let buf = '';
     // 新增：統一過濾掉 Windows 的 \r\n 或單獨的 \r 避免變成兩行
     str = (str || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    for (const ch of toCharArray(str)) {
+    const chars = toCharArray(str);
+    for (let i = 0; i < chars.length; i++) {
+        const ch = chars[i];
         if (isLineBreak(ch)) {
-            if (buf.length) {
-                segs.push({
-                    type: 'seg',
-                    text: buf.trim()
-                });
-                buf = '';
-            }
-            segs.push({
-                type: 'br'
-            });
+            if (buf.length) { segs.push({ type: 'seg', text: buf.trim() }); buf = ''; }
+            segs.push({ type: 'br' });
             continue;
         }
         buf += ch;
         if (isPunct(ch) && ENDERS.has(ch)) {
-            segs.push({
-                type: 'seg',
-                text: buf.trim()
-            });
+            // 【網址保護強化】：防止把 URL 或小數點從中間切斷
+            if (i + 1 < chars.length) {
+                const nextCh = chars[i + 1];
+                const prevTokens = buf.trim().split(/\s+/);
+                const lastToken = prevTokens[prevTokens.length - 1] || '';
+                if (/[a-zA-Z0-9]/.test(nextCh) && /^[a-zA-Z0-9_.@:\/#?=&%-]+$/.test(lastToken)) {
+                    continue; 
+                }
+            }
+            segs.push({ type: 'seg', text: buf.trim() });
             buf = '';
         }
     }
-    if (buf.length) segs.push({
-        type: 'seg',
-        text: buf.trim()
-    });
+    if (buf.length) segs.push({ type: 'seg', text: buf.trim() });
     return segs;
 }
+
 
 // 斷詞：拼音音節（不含標點/換行）
 function tokenizeSyls(raw) {
     const syls = [];
     let token = '';
     for (const ch of toCharArray(raw || '')) {
-        // 【核心修正】在判斷是否為標點時，排除連字號 '-' 和兩種中間點 '·', '‧'
-        if (isLineBreak(ch) || isWhitespace(ch) || (isPunct(ch) && ch !== '-' && ch !== '·' && ch !== '‧')) {
+        // 【核心修正】：只排除連字號 '-'，讓中間點 '·' 及其他所有符號都能正常斷開，作為對齊錨點
+        if (isLineBreak(ch) || isWhitespace(ch) || (isPunct(ch) && ch !== '-')) {
             if (token.trim()) {
                 syls.push(token.trim());
                 token = '';
             }
             continue;
         }
-        // 【修正】如果遇到漢字，強制斷開為獨立音節，避免與前後英文數字黏合
         if (/\p{Script=Han}/u.test(ch)) {
-            if (token.trim()) {
-                syls.push(token.trim());
-            }
+            if (token.trim()) syls.push(token.trim());
             syls.push(ch);
             token = '';
             continue;
@@ -338,13 +371,12 @@ function tokenizeSyls(raw) {
 
 /**
  * 切分漢字字串，將連續的非漢字、非空白字元視為一個詞
- * e.g., "臺灣#1客語AI" -> ["臺", "灣", "#1", "客", "語", "AI"]
  * @param {string} text - 原始漢字字串
  * @returns {string[]} 包含漢字、英數字詞、標點的陣列
  */
 function tokenizeHanziWithAlphanum(text) {
     if (!text) return [];
-    const regex = /([a-zA-Z0-9\-#]+|[^\s\p{Script=Han}\p{P}]+|.)/gu;
+    const regex = /([a-zA-Z0-9\-#ˇˋˊˆ⁺´]+|[^\s\p{Script=Han}\p{P}\p{S}]+|.)/gu;
     return text.match(regex) || [];
 }
 
@@ -597,12 +629,26 @@ function alignByClauses({
 
     let hSegIndex = 0;
     let pSegIndex = 0;
+
+    // 【新增】：簡潔的縮排空白產生器 (網頁與 HTML 下載用)
+    const insertIndentSpacer = () => {
+        if (paragraphIndent === '1' || paragraphIndent === '2.5') {
+            const spacer = document.createElement('span');
+            spacer.className = 'indent-spacer';
+            spacer.style.display = 'inline-block';
+            spacer.style.width = paragraphIndent + 'em';
+            container.appendChild(spacer);
+        }
+    };
+    insertIndentSpacer(); // 第一行開頭預先加入縮排
+
     while (hSegIndex < hSegs.length || pSegIndex < pSegRaws.length) {
         const hSeg = hSegs[hSegIndex];
         const pSeg = pSegRaws[pSegIndex];
 
         if (hSeg && hSeg.type === 'br') {
             container.appendChild(document.createElement('br'));
+            insertIndentSpacer(); // 換行後的新段落開頭加入縮排
             hSegIndex++;
             if (pSeg && pSeg.type === 'br') pSegIndex++;
             continue;
@@ -1020,64 +1066,73 @@ function preprocessAndSplitInput() {
                                     .map(line => line.trim())
                                     .filter(line => line.length > 0);
 
-        const hanziParts = [];
-        const pinyinParts = [];
-        let i = 0;
-        
-        // --- START: 已修復的解析迴圈 ---
-        while (i < lines.length) {
-            const currentLine = lines[i];
-
-            // 情況 1: 目前這一行是獨立的標點符號。
-            if (currentLine.length === 1 && PUNCTS.has(currentLine)) {
-                hanziParts.push(currentLine);
-                pinyinParts.push(currentLine);
-                i++;
-                continue;
+        // 【防呆防錯機制】：判斷這是否真的是「拼音 + 漢字」交錯格式
+        // 檢查第一個有實質內容的行：如果它包含漢字，代表這只是普通的「多段落中文」，絕對不能切開！
+        let isInterleaved = false;
+        for (let line of lines) {
+            if (line.length === 1 && PUNCTS.has(line)) continue; // 跳過獨立標點
+            if (!/\p{Script=Han}/u.test(line) && /[a-zA-Z]/.test(line)) {
+                isInterleaved = true; // 不含漢字且含有英文，才視為拼音行
             }
+            break; // 只看第一行
+        }
+
+        // 只有在確認是交錯格式時，才執行拆分邏輯
+        if (isInterleaved) {
+            const hanziParts = [];
+            const pinyinParts = [];
+            let i = 0;
             
-            // 情況 2: 還沒到最後一行。
-            if (i + 1 < lines.length) {
-                const nextLine = lines[i + 1];
-                
-                // 情況 2a: 下一行是標點符號。
-                // 這代表目前這行是一個沒有對應漢字的拼音。
-                if (nextLine.length === 1 && PUNCTS.has(nextLine)) {
-                    pinyinParts.push(currentLine); // 只加入拼音
-                    i++; // 指標前進 1，讓下一次迴圈處理標點符號
-                } 
-                // 情況 2b: 下一行不是標點符號。
-                // 將兩行視為一組「拼音-漢字」。
-                else {
-                    pinyinParts.push(currentLine); // 拼音
-                    hanziParts.push(nextLine);   // 漢字
-                    i += 2; // 指標前進 2
+            // --- START: 已修復的解析迴圈 ---
+            while (i < lines.length) {
+                const currentLine = lines[i];
+
+                // 情況 1: 目前這一行是獨立的標點符號。
+                if (currentLine.length === 1 && PUNCTS.has(currentLine)) {
+                    hanziParts.push(currentLine);
+                    pinyinParts.push(currentLine);
+                    i++;
+                    continue;
                 }
-            } 
-            // 情況 3: 已經是最後一行了。
-            // 這代表它是一個結尾多出來的拼音。
-            else {
-                pinyinParts.push(currentLine);
-                i++;
+                
+                // 情況 2: 還沒到最後一行。
+                if (i + 1 < lines.length) {
+                    const nextLine = lines[i + 1];
+                    
+                    // 情況 2a: 下一行是標點符號。
+                    if (nextLine.length === 1 && PUNCTS.has(nextLine)) {
+                        pinyinParts.push(currentLine); 
+                        i++; 
+                    } 
+                    // 情況 2b: 下一行不是標點符號。
+                    else {
+                        pinyinParts.push(currentLine); // 拼音
+                        hanziParts.push(nextLine);   // 漢字
+                        i += 2; 
+                    }
+                } 
+                // 情況 3: 已經是最後一行了。
+                else {
+                    pinyinParts.push(currentLine);
+                    i++;
+                }
             }
-        }
-        // --- END: 已修復的解析迴圈 ---
+            // --- END: 已修復的解析迴圈 ---
 
-        // 如果成功解析，則更新輸入框
-        if (hanziParts.length > 0) {
-            hanziInput.value = hanziParts.join('');
-            
-            let formattedPinyin = pinyinParts.join(' ');
-            // 清理標點前的多餘空格
-            formattedPinyin = formattedPinyin.replace(/\s+([，。、；：！？.,;:!?])/g, '$1');
-            // 將常見的全形標點轉為半形，以符合期望的輸出格式
-            formattedPinyin = formattedPinyin.replace(/，/g, ',').replace(/？/g, '?').replace(/。/g, '.').replace(/！/g, '!').replace(/；/g, ';').replace(/：/g, ':').replace(/、/g, ',');
+            // 如果成功解析，則更新輸入框
+            if (hanziParts.length > 0) {
+                hanziInput.value = hanziParts.join('');
+                
+                let formattedPinyin = pinyinParts.join(' ');
+                formattedPinyin = formattedPinyin.replace(/\s+([，。、；：！？.,;:!?])/g, '$1');
+                formattedPinyin = formattedPinyin.replace(/，/g, ',').replace(/？/g, '?').replace(/。/g, '.').replace(/！/g, '!').replace(/；/g, ';').replace(/：/g, ':').replace(/、/g, ',');
 
-            pinyinInput.value = formattedPinyin;
-        } else {
-            hanziInput.value = normalizedHanzi; // 解析失敗，還原
+                pinyinInput.value = formattedPinyin;
+            } else {
+                hanziInput.value = normalizedHanzi; 
+            }
+            return; // 完成模式二，退出
         }
-        return; // 完成模式二，退出
     }
 
     // 如果所有解析模式都不匹配，僅更新漢字區為正規化後的版本
@@ -1671,11 +1726,10 @@ function convertTonesInNode(root) {
     });
 }
 
-// 字級調整
+// 排版設定統整邏輯
 function applyTypography() {
     resultArea.style.fontSize = fontSize + 'px';
     resultArea.style.setProperty('--rt-scale', String(rtScale));
-    if (fontVal) fontVal.textContent = String(fontSize);
     if (fontShow) fontShow.textContent = String(fontSize);
     if (rtShow) rtShow.textContent = String(rtScale.toFixed(2)).replace(/\.?0+$/, '');
 }
@@ -1685,55 +1739,93 @@ function clamp(v, min, max, step = 1) {
     return Math.min(max, Math.max(min, n));
 }
 
-// 字級彈窗
-btnTypography.addEventListener('click', (e) => {
-    e.stopPropagation();
-    typoPopover.classList.remove('drop-up');
-    typoPopover.classList.toggle('hidden');
-    if (!typoPopover.classList.contains('hidden')) {
-        const rect = typoPopover.getBoundingClientRect();
-        if (rect.bottom > window.innerHeight) {
-            typoPopover.classList.add('drop-up');
+// 排版設定選單事件處理
+if (displaySettingsPopover) {
+    displaySettingsPopover.addEventListener('click', (e) => {
+        const t = e.target;
+        
+        // 功能 1：字級調整 (+ / -)
+        const inc = t.closest('[data-inc]');
+        const dec = t.closest('[data-dec]');
+        if (inc) {
+            const type = inc.getAttribute('data-inc');
+            if (type === 'font') {
+                fontSize = clamp(fontSize + 1, 12, 32);
+                applyTypography();
+            }
+            if (type === 'rt') {
+                rtScale = clamp(rtScale + 0.02, 0.50, 1.00, 0.01);
+                applyTypography();
+            }
         }
-    }
-});
-document.addEventListener('click', (e) => {
-    if (!typoPopover.classList.contains('hidden')) {
-        const inside = typoPopover.contains(e.target) || btnTypography.contains(e.target);
-        if (!inside) typoPopover.classList.add('hidden');
-    }
-});
-typoPopover.addEventListener('click', (e) => {
-    const t = e.target;
-    if (!(t instanceof HTMLElement)) return;
-    if (t.hasAttribute('data-inc')) {
-        const type = t.getAttribute('data-inc');
-        if (type === 'font') {
-            fontSize = clamp(fontSize + 1, 12, 32);
+        if (dec) {
+            const type = dec.getAttribute('data-dec');
+            if (type === 'font') {
+                fontSize = clamp(fontSize - 1, 12, 32);
+                applyTypography();
+            }
+            if (type === 'rt') {
+                rtScale = clamp(rtScale - 0.02, 0.50, 1.00, 0.01);
+                applyTypography();
+            }
+        }
+
+        // 功能 2：重設字級
+        if (t.closest('#btnResetFont')) {
+            fontSize = DEFAULT_FONT;
+            rtScale = DEFAULT_RT;
             applyTypography();
         }
-        if (type === 'rt') {
-            rtScale = clamp(rtScale + 0.02, 0.50, 1.00, 0.01);
-            applyTypography();
+
+        // 功能 3：字體選擇
+        if (t.classList.contains('font-choice')) {
+            const selectedFont = t.dataset.font;
+            displaySettingsPopover.querySelectorAll('.font-choice').forEach(b => {
+                b.classList.remove('active', 'bg-white', 'shadow-sm', 'text-blue-700');
+                b.classList.add('text-slate-600', 'hover:text-slate-900');
+            });
+            t.classList.add('active', 'bg-white', 'shadow-sm', 'text-blue-700');
+            t.classList.remove('text-slate-600', 'hover:text-slate-900');
+
+            if (selectedFont === 'kai') {
+                resultArea.classList.add('font-kai');
+            } else {
+                resultArea.classList.remove('font-kai'); 
+            }
         }
-    }
-    if (t.hasAttribute('data-dec')) {
-        const type = t.getAttribute('data-dec');
-        if (type === 'font') {
-            fontSize = clamp(fontSize - 1, 12, 32);
-            applyTypography();
+
+        // 功能 4：換行模式選擇
+        if (t.classList.contains('wrap-choice')) {
+            const mode = t.dataset.wrap;
+            displaySettingsPopover.querySelectorAll('.wrap-choice').forEach(b => {
+                b.classList.remove('active', 'bg-white', 'shadow-sm', 'text-blue-700');
+                b.classList.add('text-slate-600', 'hover:text-slate-900');
+            });
+            t.classList.add('active', 'bg-white', 'shadow-sm', 'text-blue-700');
+            t.classList.remove('text-slate-600', 'hover:text-slate-900');
+
+            if (mode === 'block') {
+                document.body.classList.add('mode-block');
+            } else {
+                document.body.classList.remove('mode-block');
+            }
         }
-        if (type === 'rt') {
-            rtScale = clamp(rtScale - 0.02, 0.50, 1.00, 0.01);
-            applyTypography();
+
+        // 功能 5：首行縮排
+        if (t.classList.contains('indent-choice')) {
+            const indentMode = t.dataset.indent;
+            displaySettingsPopover.querySelectorAll('.indent-choice').forEach(b => {
+                b.classList.remove('active', 'bg-white', 'shadow-sm', 'text-blue-700');
+                b.classList.add('text-slate-600', 'hover:text-slate-900');
+            });
+            t.classList.add('active', 'bg-white', 'shadow-sm', 'text-blue-700');
+            t.classList.remove('text-slate-600', 'hover:text-slate-900');
+
+            paragraphIndent = indentMode;
+            render(); // 重新渲染畫面以產生空白撐點
         }
-    }
-});
-btnResetFont.addEventListener('click', () => {
-    fontSize = DEFAULT_FONT;
-    rtScale = DEFAULT_RT;
-    applyTypography();
-});
+    });
+}
 
 // 綁定模式切換與提示（集中一次綁定，避免重複宣告）
 (function bindModeControls() {
@@ -1886,18 +1978,16 @@ actCopy.addEventListener('click', async () => {
 
 // 下載HTML
 actDownload.addEventListener('click', () => {
-    const exportHtml = buildExportHtml({
+    exportToHtml('hakka-annotated.html', {
         hanzi: hanziInput.value,
         pinyin: pinyinInput.value,
-        fontSize: '14pt',
-        rtScale: getComputedStyle(resultArea).getPropertyValue('--rt-scale') || '0.68',
         annotationMode: annotationMode,
-        phoneticDisplayMode: phoneticDisplayMode
+        phoneticDisplayMode: phoneticDisplayMode,
+        fontSize: fontSize,
+        rtScale: rtScale
     });
-    fallbackDownload('hakka-annotated.html', exportHtml);
     menuMore.classList.add('hidden');
 });
-
 
 
 // 複製標註
@@ -1914,11 +2004,17 @@ async function copyAnnotated(copyMode = 'natural') {
         phoneticDisplayMode: phoneticDisplayMode 
     });
 
+    // 【拔除隱形空白】：準備貼進 Word 前，拔除網頁用的視覺撐點
+    node.querySelectorAll('.indent-spacer').forEach(el => el.remove());
+
     const outputContainer = document.createElement('div');
     let currentP = document.createElement('p');
     
-    // 清除段落 margin
+    // 【Word 原生縮排】：直接賦予段落首行縮排設定
     currentP.style.cssText = 'margin: 0;'; 
+    if (paragraphIndent === '1' || paragraphIndent === '2.5') {
+        currentP.style.textIndent = paragraphIndent + 'em';
+    }
     
     while (node.firstChild) {
         const child = node.firstChild;
@@ -1926,6 +2022,9 @@ async function copyAnnotated(copyMode = 'natural') {
             outputContainer.appendChild(currentP);
             currentP = document.createElement('p');
             currentP.style.cssText = 'margin: 0;'; 
+            if (paragraphIndent === '1' || paragraphIndent === '2.5') {
+                currentP.style.textIndent = paragraphIndent + 'em';
+            }
             child.remove(); 
         } else {
             currentP.appendChild(child);
@@ -2027,286 +2126,6 @@ body{font-size:14pt;line-height:${bodyLineHeight};font-family:"台灣楷體", tw
     }
 }
 
-/**
- * 建立匯出的 HTML 檔案字串
- * @param {Object} options - 包含漢字、拼音、樣式與模式等參數
- * @returns {string} 完整的 HTML 檔案內容
- */
-function buildExportHtml({ hanzi, pinyin, fontSize, rtScale, annotationMode, phoneticDisplayMode }) {
-    // 處理跳脫字元，避免破壞生成的 JavaScript 字串
-    const escapedHanzi = hanzi.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
-    const escapedPinyin = pinyin.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
-    const escapedAnnotationMode = annotationMode;
-    const escapedDisplayMode = phoneticDisplayMode || 'pinyin'; // 預設值
-    
-    // 決定 rt 標籤的顯示樣式
-    const cssRtStyle = (phoneticDisplayMode === 'vertical-zhuyin') 
-    ? 'display: none;' // 直注音模式下網頁下載版直接隱藏最乾淨
-    : 'font-size: calc(var(--rt-scale) * 1em); color: var(--pinyin-color); display: block;';
-
-    // ========================================================================
-    // 【核心改善】：動態載入共用邏輯
-    // 這裡利用函數的 .toString() 方法，自動抓取主程式當下的程式碼。
-    // 以後只要在主程式修改斷詞邏輯，這裡生成的 HTML 就會自動同步，不需要再改兩次！
-    // ========================================================================
-    const sharedLogicScript = `
-    const PUNCTS = new Set(['，', '。', '、', '；', '：', '！', '？', '（', '）', '「', '」', '『', '』', '《', '》', '〈', '〉', '【', '】', '〔', '〕', '—', '…', '－', '‧', '·', '﹑', ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', "'", '-', '…', '＿', '―', '─', '━', '﹏', '~', '～', '_']);
-    const ENDERS = new Set(['。', '！', '？', '?', '!', '．', '.']);
-    const WHITESPACES = new Set([' ', '\t', '\u3000']);
-
-    // 動態載入箭頭函數
-    const toCharArray = ${toCharArray.toString()};
-    const isPunct = ${isPunct.toString()};
-    const isWhitespace = ${isWhitespace.toString()};
-    const isLineBreak = ${isLineBreak.toString()};
-
-    // 動態載入一般函數
-    ${segmentHanziByClauses.toString()}
-    ${segmentPinyinRawByClauses.toString()}
-    ${tokenizeSyls.toString()}
-    ${tokenizeHanziWithAlphanum.toString()}
-    `;
-
-    // 返回一個包含完整邏輯的 HTML 字串
-    return `<!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>客語標註結果</title>
-    <link href="https://oikasu1.github.io/kasuexam/kasu/fonts/twhei.css" rel="stylesheet">
-    <style>
-        /* --- CSS 樣式區 --- */
-        :root {
-            --rt-scale: ${String(rtScale).trim() || 0.68};
-            --text-color: #333;
-            --pinyin-color: #555;
-            --bg-color: #fdfdfd;
-            --border-color: #e5e7eb;
-            --button-bg: #f1f5f9;
-            --button-hover-bg: #e2e8f0;
-        }
-        body {
-            font-family: twhei-s, TWHEI, "台灣黑體", system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, "PingFang TC", "Microsoft JhengHei", sans-serif;
-            margin: 0;
-            padding: 1.5rem;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            font-size: ${fontSize || '18px'};
-            line-height: 2.2;
-            -webkit-text-size-adjust: 100%;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .controls {
-            margin-bottom: 1.5rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--border-color);
-            text-align: center;
-        }
-        #togglePinyinBtn {
-            font-size: 1rem;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            background-color: var(--button-bg);
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        #togglePinyinBtn:hover {
-            background-color: var(--button-hover-bg);
-        }
-        #content {
-            text-align: justify;
-            word-break: break-all;
-        }
-        .pinyin-hidden rt {
-            visibility: hidden;
-        }
-        ruby {
-            ruby-position: over;
-            text-align: center;
-            display: inline-flex;
-            flex-direction: column-reverse;
-            vertical-align: middle;
-            margin: 0 0.05em;
-        }
-        rb {
-            display: inline;
-            line-height: 1.1;
-        }
-        rt {
-            ${cssRtStyle}
-        }
-        .punct, .alphanum {
-            display: inline-block;
-            vertical-align: middle;
-        }
-        @media (max-width: 600px) {
-            body {
-                padding: 1rem;
-                font-size: 16px;
-                line-height: 2.3;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <header class="controls">
-            <button id="togglePinyinBtn">隱藏拼音</button>
-        </header>
-        <main id="content">
-            <p>正在生成內容...</p>
-        </main>
-    </div>
-
-    <script>
-    // --- 步驟 1: 資料定義 ---
-    const hanzi = \`${escapedHanzi}\`;
-    const pinyin = \`${escapedPinyin}\`;
-    const annotationMode = \`${escapedAnnotationMode}\`;
-    const phoneticDisplayMode = \`${escapedDisplayMode}\`;
-
-    // --- 步驟 2: 標註工具的核心函式 (動態載入，與主程式保持同步) ---
-    ${sharedLogicScript}
-
-    // --- 步驟 3: 動態內容生成函式 ---
-    function renderContent() {
-        const contentDiv = document.getElementById('content');
-        if (!contentDiv) return;
-
-        const processClause = (hTokens, pSegSyls) => {
-            let clauseHtml = '';
-            let h_idx = 0;
-            let p_idx = 0;
-
-            const getRtContent = (pText) => {
-                if (phoneticDisplayMode === 'vertical-zhuyin') return '';
-                return pText;
-            };
-
-            while (h_idx < hTokens.length) {
-            const hToken = hTokens[h_idx];
-
-            if (hToken.length === 1 && (isWhitespace(hToken) || isPunct(hToken))) {
-                const span = document.createElement('span');
-                span.className = 'glyph punct';
-                span.textContent = hToken;
-                fragment.appendChild(span);
-                h_idx++;
-                
-                if (p_idx < pSegSyls.length && pSegSyls[p_idx] === hToken) {
-                    p_idx++;
-                }
-                
-                continue;
-            }
-
-                if (p_idx >= pSegSyls.length) {
-                    clauseHtml += \`<ruby><rb>\${hToken}</rb><rt>&nbsp;</rt></ruby>\`;
-                    h_idx++;
-                    continue;
-                }
-
-                const pToken = pSegSyls[p_idx];            
-                let pSubSyls;
-                if (hToken === pToken) {
-                    pSubSyls = [pToken];
-                } else {
-                    pSubSyls = pToken.split(/--?|=/); 
-                }
-
-                if (pSubSyls.length > 1) {
-                    const wordLen = pSubSyls.length;
-                    const hWordTokens = hTokens.slice(h_idx, h_idx + wordLen);
-                    const hWord = hWordTokens.join('');
-
-                    if (hWordTokens.length === wordLen) {
-                        if (annotationMode === 'word') {
-                            clauseHtml += \`<ruby><rb>\${hWord}</rb><rt>\${getRtContent(pToken)}</rt></ruby>\`;
-                        } else {
-                            for (let i = 0; i < wordLen; i++) {
-                                clauseHtml += \`<ruby><rb>\${hTokens[h_idx + i]}</rb><rt>\${getRtContent(pSubSyls[i])}</rt></ruby>\`;
-                            }
-                        }
-                        h_idx += wordLen;
-                        p_idx++;
-                    } else {
-                        clauseHtml += \`<ruby><rb>\${hToken}</rb><rt>\${getRtContent(pToken)}</rt></ruby>\`;
-                        h_idx++;
-                        p_idx++;
-                    }
-                } else {
-                    if (hToken === pToken) {
-                        if (/[\\p{Script=Han}a-zA-Z0-9]/u.test(hToken)) {
-                            clauseHtml += \`<ruby><rb>\${hToken}</rb><rt>&nbsp;</rt></ruby>\`;
-                        } else {
-                            clauseHtml += \`<span class="punct">\${hToken}</span>\`;
-                        }
-                    } else {
-                        clauseHtml += \`<ruby><rb>\${hToken}</rb><rt>\${getRtContent(pToken) || '&nbsp;'}</rt></ruby>\`;
-                    }
-                    h_idx++;
-                    p_idx++;
-                }
-            }
-
-            if (p_idx < pSegSyls.length) {
-                const extraPinyin = pSegSyls.slice(p_idx).join(' ');
-                clauseHtml += \`<ruby><rb>&nbsp;</rb><rt>\${extraPinyin}</rt></ruby>\`;
-            }
-            return clauseHtml;
-        };
-        
-        let html = '';
-        const hSegs = segmentHanziByClauses(hanzi || '');
-        const pSegRaws = segmentPinyinRawByClauses(pinyin || '');
-        
-        let hSegIndex = 0;
-        let pSegIndex = 0;
-        while (hSegIndex < hSegs.length || pSegIndex < pSegRaws.length) {
-            const hSeg = hSegs[hSegIndex];
-            const pSeg = pSegRaws[pSegIndex];
-
-            if (hSeg && hSeg.type === 'br') {
-                html += '<br>';
-                hSegIndex++;
-                if (pSeg && pSeg.type === 'br') pSegIndex++;
-                continue;
-            }
-
-            const currentHSegText = hSeg?.text || '';
-            const currentPSegText = pSeg?.text || '';
-
-            html += processClause(tokenizeHanziWithAlphanum(currentHSegText), tokenizeSyls(currentPSegText));
-
-            hSegIndex++;
-            pSegIndex++;
-        }
-
-        contentDiv.innerHTML = html;
-    }
-
-    // --- 步驟 4: 頁面載入後執行 ---
-    document.addEventListener('DOMContentLoaded', () => {
-        renderContent();
-
-        const toggleBtn = document.getElementById('togglePinyinBtn');
-        const contentDiv = document.getElementById('content');
-        if (toggleBtn && contentDiv) {
-            toggleBtn.addEventListener('click', () => {
-                const isHidden = contentDiv.classList.toggle('pinyin-hidden');
-                toggleBtn.textContent = isHidden ? '顯示拼音' : '隱藏拼音';
-            });
-        }
-    });
-    <\/script>
-</body>
-</html>`;
-}
 
 
 function fallbackDownload(filename, content) {
@@ -2355,11 +2174,11 @@ btnSample?.addEventListener('click', () => {
 document.addEventListener('click', (e) => {
     const target = e.target;
 
-    // --- 1. 處理「轉調號」與「字體」相關的所有點擊 ---
+    // --- 1. 處理「轉調號」與「排版」相關的所有點擊 ---
     const toggleBtn = target.closest('.btn-toggle-tone-converter');
     const setDefaultBtn = target.closest('.btn-set-tone-default');
     const convertBtn = target.closest('.btn-convert-default-tone');
-    const fontBtn = target.closest('#btnFontFamily'); // 新增：偵測字體按鈕
+    const displayBtn = target.closest('#btnDisplaySettings');
 
     if (toggleBtn) { // 點擊「變更預設模式」
         e.stopPropagation();
@@ -2378,9 +2197,9 @@ document.addEventListener('click', (e) => {
                 }
             }
         }
-    } else if (fontBtn) { // 新增：點擊「字體」按鈕
+    } else if (displayBtn) { // 新增：點擊「排版」按鈕
         e.stopPropagation();
-        const menu = document.getElementById('fontFamilyPopover');
+        const menu = document.getElementById('displaySettingsPopover');
         if (menu) {
             menu.classList.remove('drop-up');
             const isHidden = menu.classList.contains('hidden');
@@ -2397,7 +2216,7 @@ document.addEventListener('click', (e) => {
                 }
             }
         }
-    } else if (setDefaultBtn) { // 點擊設定預設模式的按鈕
+    } else if (setDefaultBtn) {
         const newType = setDefaultBtn.dataset.type;
         if (newType && (newType === 'letter' || newType === 'number')) {
             defaultToneConversionType = newType;
@@ -2418,15 +2237,14 @@ document.addEventListener('click', (e) => {
     }
 
     // --- 2. 處理頁面其他地方的點擊 ---
+    document.querySelectorAll('.popover, #menuMore').forEach(menu => {
+        if (!menu.classList.contains('hidden')) {
+            if (!menu.parentElement.contains(target)) {
+                menu.classList.add('hidden');
+            }
+        }
+    });
 
-    // a) 如果點擊的不是任何彈出選單的觸發區域，則關閉所有開啟的選單
-    if (!target.closest('.relative') && !target.closest('#languageSwitcher')) {
-        document.querySelectorAll('.popover, #menuMore').forEach(menu => {
-            menu.classList.add('hidden');
-        });
-    }
-
-    // b) 關閉單詞編輯器 (如果點擊在外部)
     const wordEditor = document.querySelector('.word-editor');
     if (wordEditor && !wordEditor.contains(target) && !target.closest('ruby.glyph')) {
         closeWordEditor();
@@ -2593,28 +2411,47 @@ function switchLanguage(newLangKey) {
         return; 
     }
 
+    // 【新增】：切換語言前，若有開啟暫存就先存檔
+    saveInputData();
+
     currentLanguageKey = newLangKey;
     saveSetting(AppConfig.storageKeys.SELECTED_LANGUAGE, newLangKey);
     
-    // --- START: 修改的 URL 處理邏輯 ---
-    // 1. 取得目前的模式，並決定對應的 URL 參數值
     const modeParam = (inputMode === 'pinyin-to-hanzi') ? 'p2h' : 'h2p';
-
-    // 2. 使用 URLSearchParams 來安全地建立新的查詢字串
     const url = new URL(window.location);
     url.searchParams.set('lang', newLangKey);
     url.searchParams.set('mode', modeParam);
-
-    // 3. 使用 history.pushState 來更新網址，這樣不會觸發頁面重整
     window.history.pushState({path: url.href}, '', url.href);
-    // --- END: 修改的 URL 處理邏輯 ---
 
     updateLanguageUI();
     updateTitles();
     loadLanguageDatabase(newLangKey); 
-	updateRawButtonVisibility();
+    updateRawButtonVisibility();
     
-    btnClear.click();
+    // 根據暫存狀態決定如何處理畫面
+    if (!isAutoSaveEnabled) {
+        // 沒開啟暫存：全面清空（包含輸入區與標註區）
+        btnClear.click();
+    } else {
+        // 開啟暫存：保留輸入區的文字，但「不自動標註」
+        // 僅清空下方標註區，避免前一個語言的舊結果殘留
+        const resultArea = document.getElementById('resultArea');
+        if (resultArea) resultArea.innerHTML = '<div class="text-slate-400 text-sm">標註結果會出現在這裡…</div>';
+        
+        // 重置問題導覽列的狀態
+        PROBLEMS = [];
+        problemIdx = -1;
+        const issueBar = document.getElementById('issueBar');
+        if (issueBar) issueBar.classList.add('hidden');
+        if (typeof updateIssueBar === 'function') updateIssueBar();
+        
+        const segControl = document.getElementById('modeToggleContainer');
+        if (segControl) {
+            segControl.classList.remove('bg-rose-100');
+            segControl.classList.add('bg-slate-100');
+        }
+    }
+    
     toast(`已切換至 ${LANGUAGES[newLangKey].name}`);
     languageMenu.classList.add('hidden');
 }
@@ -2629,6 +2466,17 @@ function switchLanguage(newLangKey) {
 
     // --- START: 網站啟動邏輯修改 ---
     const urlParams = new URLSearchParams(window.location.search);
+    
+    // 【新增】：啟動時檢查是否啟用暫存，若啟用則恢復資料與變更 Emoji
+    if (isAutoSaveEnabled) {
+        const savedH = loadSetting(AppConfig.storageKeys.SAVED_HANZI, '');
+        const savedP = loadSetting(AppConfig.storageKeys.SAVED_PINYIN, '');
+        if (savedH) hanziInput.value = savedH;
+        if (savedP) pinyinInput.value = savedP;
+        
+        const emojiEl = document.getElementById('headerEmoji');
+        if (emojiEl) emojiEl.textContent = '✨';
+    }
     
     // 1. 讀取語言設定 (優先順序: URL > Local Storage > 預設值)
     const langFromUrl = urlParams.get('lang');
@@ -2753,51 +2601,6 @@ function switchLanguage(newLangKey) {
 
 
  
-
-    // --- START: 字體切換功能 (最終修復版) ---
-    if (btnFontFamily && fontFamilyPopover) {
-
-        // 步驟 1: 處理「字體」按鈕的點擊，直接切換選單的顯示狀態
-        btnFontFamily.addEventListener('click', (e) => {
-            e.stopPropagation(); // 阻止事件向上傳播，避免干擾
-            fontFamilyPopover.classList.toggle('hidden');
-        });
-
-        // 步驟 2: 處理選單內「黑體/楷體」選項的點擊
-        fontFamilyPopover.querySelectorAll('.font-choice').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation(); // 同樣阻止事件傳播
-                const selectedFont = btn.dataset.font;
-
-                // 移除所有選項的 'active' 樣式，再為被點擊的選項加上
-                fontFamilyPopover.querySelectorAll('.font-choice').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-
-                // 根據選擇來新增或移除 'font-kai' class
-                if (selectedFont === 'kai') {
-                    resultArea.classList.add('font-kai');
-                } else {
-                    resultArea.classList.remove('font-kai'); // 選擇黑體時，移除楷體樣式，恢復預設
-                }
-
-                // 選擇後，自動關閉選單
-                fontFamilyPopover.classList.add('hidden');
-            });
-        });
-
-        // 步驟 3: 監聽整個頁面的點擊，如果點在選單和按鈕以外的區域，就關閉選單
-        document.addEventListener('click', (e) => {
-            // 檢查選單是否可見，以及點擊事件是否發生在選單或按鈕之外
-            const isMenuOpen = !fontFamilyPopover.classList.contains('hidden');
-            const clickedOutside = !btnFontFamily.contains(e.target) && !fontFamilyPopover.contains(e.target);
-
-            if (isMenuOpen && clickedOutside) {
-                fontFamilyPopover.classList.add('hidden');
-            }
-        });
-    }
-    // --- END: 字體切換功能 ---
-
 
 	// ==========================================
 	// 下拉選單與空格斷詞 (FMM演算法)
@@ -3299,37 +3102,6 @@ if (btnSplitPinyin) {
 // 【排版功能】：兩種換行模式切換與自動注入軟換行點
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-    // --- 1. 按鈕切換邏輯 ---
-    const btnToggleWrap = document.getElementById('btnToggleWrap');
-    if (btnToggleWrap) {
-        let isBlockMode = false; 
-
-        btnToggleWrap.addEventListener('click', () => {
-            isBlockMode = !isBlockMode;
-            const textLabel = btnToggleWrap.querySelector('.btn-label');
-            const iconSpan = btnToggleWrap.querySelector('.material-symbols-outlined');
-
-            if (isBlockMode) {
-                // 切換為區塊模式 (從灰色變成紫色)
-                document.body.classList.add('mode-block');
-                iconSpan.textContent = 'format_textdirection_l_to_r';
-                textLabel.textContent = '區塊';
-                
-                btnToggleWrap.classList.replace('bg-gray-200', 'bg-purple-100');
-                btnToggleWrap.classList.replace('text-gray-700', 'text-purple-800');
-                btnToggleWrap.classList.replace('hover:bg-gray-300', 'hover:bg-purple-200');
-            } else {
-                // 切換為自然斷行 (從紫色變回灰色)
-                document.body.classList.remove('mode-block');
-                iconSpan.textContent = 'wrap_text';
-                textLabel.textContent = '連字';
-
-                btnToggleWrap.classList.replace('bg-purple-100', 'bg-gray-200');
-                btnToggleWrap.classList.replace('text-purple-800', 'text-gray-700');
-                btnToggleWrap.classList.replace('hover:bg-purple-200', 'hover:bg-gray-300');
-            }
-        });
-    }
 
     // --- 2. 自動注入軟換行點 (<wbr>) ---
     const resultArea = document.getElementById('resultArea');
@@ -3369,7 +3141,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 // ==========================================
-// 全面保護英數字與連字號攔截器
+// 【排版美容升級版】：全面保護英數字與連字號攔截器
 // ==========================================
 if (typeof window.hanziToPinyin === 'function' && !window.hanziToPinyin.isProtected) {
     // 備份原始的轉換函數
@@ -3385,9 +3157,9 @@ if (typeof window.hanziToPinyin === 'function' && !window.hanziToPinyin.isProtec
         const originalText = hInput.value;
         const protectedTokens = [];
         
-        // 1. 轉換前：將所有的 [英文字母、數字、連字號] 獨立打包
-        // 替換為 Unicode 隱形替身，讓底層引擎完全看不到這些英文
-        hInput.value = originalText.replace(/[a-zA-Z0-9\-]+/g, (match) => {
+        // 1. 轉換前：將所有的 [英文字母、數字、網址符號以及客語聲調] 獨立打包
+        // 替換為 Unicode 隱形替身，讓底層引擎完全看不到這些字元
+        hInput.value = originalText.replace(/([a-zA-Z0-9ˇˋˊˆ⁺´](?:[a-zA-Z0-9_.@:\/#?=&%-]*[a-zA-Z0-9ˇˋˊˆ⁺´])?)/g, (match) => {
             protectedTokens.push(match);
             return String.fromCharCode(0xFB50 + protectedTokens.length - 1);
         });
@@ -3398,8 +3170,32 @@ if (typeof window.hanziToPinyin === 'function' && !window.hanziToPinyin.isProtec
         // 3. 轉換結束後：立刻將漢字區復原為原文
         hInput.value = originalText;
         
-        // 4. 將拼音區的隱形替身，精準替換回原本的英數字與連字號
+        // 4. 【排版美容】：在還原受保護的網址/文字之前，將標點符號與前後的拼音文字強制拆開
         let restoredPinyin = pInput.value;
+        // 定義需要被空格隔開的文字字元 (英數、隱形替身、客語聲調、漢字)
+        const textChar = '[a-zA-Z0-9\\uFB50-\\uFBFFˇˋˊˆ⁺´\\p{Script=Han}]';
+        
+        // 後方需要空格的標點 (如：逗號、句號、問號、驚嘆號、右括號等)
+        const rightSpacePunct = '[,.;:!?，。、；：！？）」』】〕>]';
+        const regexRight = new RegExp(`(${rightSpacePunct})(${textChar})`, 'gu');
+        restoredPinyin = restoredPinyin.replace(regexRight, '$1 $2');
+        
+        // 前方需要空格的標點 (如：左括號等)
+        const leftSpacePunct = '[（「『【〔<]';
+        const regexLeft = new RegExp(`(${textChar})(${leftSpacePunct})`, 'gu');
+        restoredPinyin = restoredPinyin.replace(regexLeft, '$1 $2');
+        
+        // 中間點兩側都需要空格
+        const midPunct = '[·‧]';
+        const regexMid1 = new RegExp(`([^\\s])(${midPunct})`, 'gu');
+        restoredPinyin = restoredPinyin.replace(regexMid1, '$1 $2');
+        const regexMid2 = new RegExp(`(${midPunct})([^\\s])`, 'gu');
+        restoredPinyin = restoredPinyin.replace(regexMid2, '$1 $2');
+        
+        // 清除多餘的連續空格
+        restoredPinyin = restoredPinyin.replace(/ +/g, ' ');
+
+        // 5. 將拼音區的隱形替身，精準替換回原本的英數字與連字號
         protectedTokens.forEach((token, index) => {
             const marker = String.fromCharCode(0xFB50 + index);
             // 完美還原，不影響排版間距

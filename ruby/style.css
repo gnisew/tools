@@ -530,12 +530,7 @@ section.is-collapsed .title-text {
     font-weight: 600; /* 文字加粗 */
 }
 
-/* --- START: 字體選擇樣式 (新增) --- */
-.font-choice.active {
-    background-color: #eef2ff; /* 淺藍色背景 */
-    color: #4338ca; /* 深藍色文字 */
-    font-weight: 600; /* 文字加粗 */
-}
+
 
 /* 當 resultArea 套用 .font-kai 時，改變其內部字體 */
 #resultArea.font-kai,
