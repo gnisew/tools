@@ -2715,8 +2715,29 @@ function renderTypingGame(data, container) {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 checkAnswer();
+            } else if (e.key === ' ') {
+                // ✨ 智慧空白鍵：比對當前題目答案
+                let userVal = input.value.trim();
+                if (!userVal) return;
+
+                let targetVal = item.definition.trim();
+                userVal = normalizeTypingText(userVal);
+                targetVal = normalizeTypingText(targetVal);
+                
+                if (typeof isCaseInsensitive !== 'undefined' && isCaseInsensitive) {
+                    userVal = userVal.toLowerCase();
+                    targetVal = targetVal.toLowerCase();
+                }
+
+                if (userVal === targetVal) {
+                    e.preventDefault();
+                    checkAnswer();
+                    return; // 完全命中並送出後，結束執行
+                }
             }
-            else {
+            
+            // 只要不是 Enter 且沒有被空白鍵成功攔截送出，就清除錯誤的紅框狀態
+            if (e.key !== 'Enter') {
                 input.classList.remove('text-red-500', 'border-red-400', 'bg-red-50');
                 input.classList.add('border-gray-200');
                 fb.innerHTML = '';
@@ -2755,12 +2776,11 @@ function renderTypingGame(data, container) {
 
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-4 w-full">
                     ${displayData.map((item, i) => `
-                        <div class="flex items-center p-2 sm:p-3 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow gap-3">
-                            <span class="bg-gray-100 text-gray-400 font-mono text-sm font-bold px-2 py-1 rounded select-none flex-shrink-0">${String(i + 1).padStart(2, '0')}</span>
+                        <div class="flex items-center p-2 sm:p-3 bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow gap-3 hover:border-teal-200 transition-colors">
+                            <span id="multi-num-${i}" class="w-8 h-8 rounded bg-gray-100 text-gray-500 font-mono text-sm font-bold flex items-center justify-center select-none flex-shrink-0 transition-colors duration-300">${String(i + 1).padStart(2, '0')}</span>
                             <span class="text-lg text-gray-800 font-bold whitespace-nowrap flex-shrink-0 max-w-[40%] truncate" title="${item.term}">${item.term}</span>
                             <div class="relative flex-1 min-w-0">
-                                <input type="text" data-idx="${i}" class="multi-typing-input w-full h-[46px] px-2 pr-8 text-lg border-b-2 border-gray-200 bg-gray-50 focus:bg-teal-50 outline-none focus:border-teal-500 rounded-t font-normal transition-colors" autocomplete="off" spellcheck="false">
-                                <span class="fb-icon absolute right-2 top-1/2 -translate-y-1/2 text-xl z-10 pointer-events-none"></span>
+                                <input type="text" data-idx="${i}" class="multi-typing-input w-full h-[46px] px-3 text-lg border-b-2 border-gray-200 bg-gray-50 focus:bg-teal-50 outline-none focus:border-teal-500 rounded-t font-normal transition-colors" autocomplete="off" spellcheck="false">
                             </div>
                         </div>
                     `).join('')}
@@ -2815,6 +2835,16 @@ function renderTypingGame(data, container) {
         const fullTextArray = displayData.map(d => d.definition.trim());
         let foundIndices = new Set();
 
+        // ✨ 補上缺少的 escapeHtml 輔助函數 (防止特殊符號破壞排版)
+        function escapeHtml(unsafe) {
+            return (unsafe || '').toString()
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        }
+
         mainContent.innerHTML = `
             <div class="w-full max-w-4xl flex flex-col items-center gap-6 py-6 h-full justify-start my-auto">
                 
@@ -2829,11 +2859,15 @@ function renderTypingGame(data, container) {
                     </div>
                 </div>
 
-                <div id="article-display" class="w-full text-2xl md:text-3xl text-gray-700 leading-relaxed text-justify break-all p-5 bg-white border border-gray-200 rounded-xl shadow-sm scrollbar-thin min-h-[150px] max-h-[50vh] overflow-y-auto">
-                    ${fullTextArray.map((w, i) => `<span id="word-${i}" class="transition-all duration-300 inline-block mx-1 px-1 rounded border border-transparent">${w}</span>`).join('')}
+                <div id="article-display" class="w-full text-2xl md:text-3xl text-gray-700 text-justify break-all p-5 bg-white border border-gray-200 rounded-xl shadow-sm scrollbar-thin min-h-[150px] max-h-[50vh] overflow-y-auto leading-[2.2]">
+                    ${fullTextArray.map((w, i) => `<span id="word-${i}" data-term="${escapeHtml(displayData[i].term)}" class="transition-all duration-300 inline-block mx-1 my-1 px-3 py-1 rounded-xl bg-gray-50 border-2 border-gray-200 shadow-sm text-gray-800 cursor-pointer hover:border-blue-400 hover:bg-blue-50 active:scale-95">${escapeHtml(w)}</span>`).join('')}
                 </div>
                 
-                <div id="continuous-input-area" class="w-full flex flex-col items-center gap-4 mt-2">
+                <div id="continuous-input-area" class="w-full flex flex-col items-center gap-2 mt-2">
+                    
+                    <div id="continuous-hint-display" class="text-xl md:text-2xl text-blue-600 font-bold opacity-0 transition-opacity duration-300 pointer-events-none select-none h-8 flex items-center justify-center w-full tracking-wider">
+                    </div>
+
                     <div class="relative w-full max-w-[320px] sm:max-w-md">
                         
                         <button id="btn-clear-continuous" class="hidden absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 w-10 h-10 flex items-center justify-center cursor-pointer transition-colors bg-transparent rounded-full z-10">
@@ -2861,9 +2895,43 @@ function renderTypingGame(data, container) {
         const btnSubmit = document.getElementById('btn-submit-continuous');
         const btnClear = document.getElementById('btn-clear-continuous');
         const btnRestart = document.getElementById('btn-restart-continuous');
+        
+        // ✨ 取得文章顯示區與提示區的 DOM
+        const articleDisplay = document.getElementById('article-display');
+        const hintDisplay = document.getElementById('continuous-hint-display');
+        
         input.focus();
 
+        // ✨ 點擊字卡顯示提示的邏輯
+        articleDisplay.addEventListener('click', (e) => {
+            const span = e.target.closest('span[id^="word-"]');
+            // 如果點到的是字卡，且還沒被劃掉 (還沒答對)
+            if (span && !span.classList.contains('line-through')) {
+                const term = span.dataset.term;
+                if (term) {
+                    hintDisplay.textContent = term;
+                    hintDisplay.classList.remove('opacity-0');
+                    hintDisplay.classList.add('opacity-100');
+                    
+                    // 讓點擊的字卡閃爍一下給予回饋
+                    span.classList.add('ring-2', 'ring-blue-500');
+                    setTimeout(() => span.classList.remove('ring-2', 'ring-blue-500'), 200);
+                }
+            }
+        });
+
+        // ✨ 隱藏提示的共用邏輯
+        const hideHint = () => {
+            hintDisplay.classList.remove('opacity-100');
+            hintDisplay.classList.add('opacity-0');
+        };
+
+        // 點擊輸入框、重新獲取焦點時自動隱藏提示
+        input.addEventListener('focus', hideHint);
+        input.addEventListener('click', hideHint);
+
         input.addEventListener('input', () => {
+            hideHint(); // 開始打字也隱藏提示
             if (input.value.length > 0) {
                 btnClear.classList.remove('hidden');
             } else {
@@ -2902,8 +2970,9 @@ function renderTypingGame(data, container) {
                 foundIndices.add(matchIndex);
                 const span = document.getElementById(`word-${matchIndex}`);
                 if (span) {
-                    span.classList.add('line-through', 'text-gray-300', 'bg-gray-100', 'border-gray-200');
-                    span.classList.remove('text-gray-700', 'border-transparent');
+                    // 答對時：加上刪除線、變淡，並移除立體陰影與深色邊框
+                    span.classList.add('line-through', 'text-gray-300', 'bg-gray-100', 'border-gray-100', 'shadow-none');
+                    span.classList.remove('text-gray-800', 'bg-gray-50', 'border-gray-200', 'shadow-sm', 'border-2');
                 }
                 
                 correctCount++;
@@ -2927,6 +2996,32 @@ function renderTypingGame(data, container) {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 checkContinuousAnswer();
+            } else if (e.key === ' ') {
+                // ✨ 智慧空白鍵：先檢查目前打的字是否已經完全命中答案
+                let userVal = input.value.trim();
+                if (!userVal) return;
+                
+                userVal = normalizeTypingText(userVal);
+                if (typeof isCaseInsensitive !== 'undefined' && isCaseInsensitive) userVal = userVal.toLowerCase();
+
+                let isExactMatch = false;
+                for (let i = 0; i < fullTextArray.length; i++) {
+                    let targetVal = fullTextArray[i].trim();
+                    targetVal = normalizeTypingText(targetVal);
+                    if (typeof isCaseInsensitive !== 'undefined' && isCaseInsensitive) targetVal = targetVal.toLowerCase();
+                    
+                    if (targetVal === userVal && !foundIndices.has(i)) {
+                        isExactMatch = true;
+                        break;
+                    }
+                }
+
+                // 如果已經全對，攔截空白字元並直接送出！
+                // 如果還沒對，放行空白字元，讓使用者可以繼續打下一個拼音
+                if (isExactMatch) {
+                    e.preventDefault();
+                    checkContinuousAnswer();
+                }
             }
         });
         
@@ -2934,7 +3029,7 @@ function renderTypingGame(data, container) {
         btnRestart.addEventListener('click', resetToIdle);
     }
 
-    // 🌟 全域統整版的結算邏輯
+    // 全域統整版的結算邏輯
     function endGame(isSuccess) {
         isPlaying = false;
         clearInterval(window.currentTypingTimer);
@@ -2990,17 +3085,21 @@ function renderTypingGame(data, container) {
 
                 inputs.forEach(input => {
                     const idx = parseInt(input.dataset.idx);
-                    let userVal = input.value.trim();
-                    let targetVal = displayData[idx].definition.trim();
-                    const fbIcon = input.nextElementSibling;
+                    
+                    // ✨ 儲存「原始」的輸入與答案，用來顯示在畫面上
+                    const originalUserVal = input.value.trim();
+                    const originalTargetVal = displayData[idx].definition.trim();
+                    
+                    // ✨ 抓取題號外框
+                    const numBadge = document.getElementById(`multi-num-${idx}`);
 
-                    // ✨ 智慧寬容比對：壓縮多餘空格，並將聲調符號轉為字母
-                    userVal = normalizeTypingText(userVal);
-                    targetVal = normalizeTypingText(targetVal);
+                    // ✨ 智慧寬容比對：壓縮多餘空格，並將聲調符號轉為字母 (僅用於底層比對)
+                    let userVal = normalizeTypingText(originalUserVal);
+                    let targetVal = normalizeTypingText(originalTargetVal);
                     
                     let isMatch = false;
                     if (userVal !== '') {
-                        if (isCaseInsensitive) {
+                        if (typeof isCaseInsensitive !== 'undefined' && isCaseInsensitive) {
                             isMatch = userVal.toLowerCase() === targetVal.toLowerCase();
                         } else {
                             isMatch = userVal === targetVal;
@@ -3009,18 +3108,32 @@ function renderTypingGame(data, container) {
                     
                     if (isMatch) {
                         correct++;
-                        fbIcon.innerHTML = '✅';
+                        // ✨ 答對：題號變換為「綠底白字」
+                        if (numBadge) {
+                            numBadge.classList.replace('bg-gray-100', 'bg-green-500');
+                            numBadge.classList.replace('text-gray-500', 'text-white');
+                        }
                         input.classList.add('text-green-600', 'border-green-400', 'bg-green-50');
-                        input.classList.remove('focus:border-teal-500', 'bg-gray-50');
-                    } else if (userVal !== '') {
-                        fbIcon.innerHTML = '❌';
+                        input.classList.remove('focus:border-teal-500', 'bg-gray-50');                        
+                        input.value = originalTargetVal; 
+                    } else if (originalUserVal !== '') {
+                        // ✨ 答錯：題號變換為「紅底白字」
+                        if (numBadge) {
+                            numBadge.classList.replace('bg-gray-100', 'bg-red-500');
+                            numBadge.classList.replace('text-gray-500', 'text-white');
+                        }
                         input.classList.add('text-red-500', 'border-red-400', 'bg-red-50');
                         input.classList.remove('focus:border-teal-500', 'bg-gray-50');
-                        input.value = `${userVal} (${targetVal})`;
+                        // 答錯時，顯示原始輸入的錯字 + 括號內顯示「原始」的正確解答
+                        input.value = `${originalUserVal} (${originalTargetVal})`;
                     } else {
-                        fbIcon.innerHTML = '❌';
+                        // ✨ 未作答：題號變換為「淺紅底白字」
+                        if (numBadge) {
+                            numBadge.classList.replace('bg-gray-100', 'bg-red-400');
+                            numBadge.classList.replace('text-gray-500', 'text-white');
+                        }
                         input.classList.add('text-red-400', 'bg-red-50');
-                        input.value = `(${targetVal})`;
+                        input.value = `(${originalTargetVal})`;
                     }
                     input.disabled = true;
                 });
