@@ -112,7 +112,16 @@ window.launchArenaMode = function(rawData, configs) {
             url.searchParams.delete('arena');
             window.history.replaceState({}, document.title, url.href);
         }
-        if (typeof switchMode === 'function') switchMode('table');
+        if (typeof switchMode === 'function') {
+			const urlParams = new URLSearchParams(window.location.search);
+			// ✨ 簡單規則：有 bank 就回題庫
+			if (urlParams.has('bank')) {
+				switchMode('bank');
+			} else {
+				const targetMode = window.originModeForGame || 'table';
+				switchMode(targetMode);
+			}
+		}
     }
 
     function prepareQuizData(isJustCounting = false, hostSettings = null) {

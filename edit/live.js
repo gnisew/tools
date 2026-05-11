@@ -690,7 +690,16 @@ window.launchLiveMode = function(rawData, configs) {
         }
 
         if (typeof window.switchMode === 'function') {
-            window.switchMode('table');
+            if (typeof switchMode === 'function') {
+				const urlParams = new URLSearchParams(window.location.search);
+				// ✨ 簡單規則：有 bank 就回題庫
+				if (urlParams.has('bank')) {
+					switchMode('bank');
+				} else {
+					const targetMode = window.originModeForGame || 'table';
+					switchMode(targetMode);
+				}
+			}
         } else {
             url.searchParams.delete('mode');
             window.history.replaceState({}, document.title, url.href);

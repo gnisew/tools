@@ -278,14 +278,22 @@ function setDropdownValue(id, value) {
 /* 系統初始化與記憶設定讀取 */
 function init() {
     initDropdowns();
-// 綁定退出遊戲的按鈕
-const btnExitGame = document.getElementById('btnExitGame');
-if (btnExitGame) {
-    btnExitGame.addEventListener('click', () => {
-        switchMode('table'); // 預設強制回到表格模式
-    });
-}
-const savedRowNumAlign = localStorage.getItem(ROW_NUM_ALIGN_KEY) || 'middle';
+	// 綁定退出遊戲的按鈕
+    const btnExitGame = document.getElementById('btnExitGame');
+    if (btnExitGame) {
+        btnExitGame.addEventListener('click', () => {
+            // ✨ 採用您的「簡單規則」：優先檢查網址是否有 bank 參數
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('bank')) {
+                switchMode('bank');
+            } else {
+                // 如果沒有題庫參數，則回歸原本的來源記憶或預設回表格
+                const targetMode = window.originModeForGame || 'table';
+                switchMode(targetMode); 
+            }
+        });
+    }
+	const savedRowNumAlign = localStorage.getItem(ROW_NUM_ALIGN_KEY) || 'middle';
     document.documentElement.style.setProperty('--row-num-valign', savedRowNumAlign);
     setDropdownValue('dd-rowNumAlign', savedRowNumAlign);
     const rowNumIcon = document.getElementById('rowNumAlignIcon');
@@ -347,22 +355,46 @@ const savedRowNumAlign = localStorage.getItem(ROW_NUM_ALIGN_KEY) || 'middle';
     
     // 載入當前作用中的頁籤內容
     editor.value = sheetTabs[activeSheetIndex].content;
-    // 讀取網址參數，決定初始模式 
+    // 讀取網址參數
     const urlParams = new URLSearchParams(window.location.search);
     let initialTargetMode = currentMode; 
+    let hasBankAutoLoaded = false; 
 
-    // ✨ 優先判斷是否有指定載入線上題庫 (?bank=xxx)
+    // ✨ 1. 優先處理題庫直接載入 (?bank=xxx)
     if (urlParams.has('bank') && window.presetBank) {
         const bankId = urlParams.get('bank');
-        const preset = window.presetBank.find(p => p.id === bankId);
-        if (preset) {
-            window.currentLoadedBank = { id: preset.id, name: preset.name };
-            editor.value = preset.data;
-            if (sheetTabs[activeSheetIndex]) {
-                sheetTabs[activeSheetIndex].content = preset.data;
-                sheetTabs[activeSheetIndex].name = preset.name;
+        const bankIdx = window.presetBank.findIndex(p => p.id === bankId);
+        
+        if (bankIdx !== -1) {
+            // 抓取網址上的目標模式 (例如 mode=sorting)
+            let forcedMode = null;
+            const urlModeParam = urlParams.get('mode');
+            if (urlModeParam && urlModeParam !== 'bank') {
+                forcedMode = urlModeParam === 'sheet' ? 'table' : (urlModeParam === 'txt' ? 'text' : urlModeParam);
             }
+            
+            // ✨ 將網址上的目標模式一併傳給題庫引擎
+            playPresetBank(bankIdx, forcedMode); 
+            hasBankAutoLoaded = true;
         }
+    }
+
+    // ✨ 2. 若沒載入題庫，才執行原有的 mode 切換邏輯
+    if (!hasBankAutoLoaded) {
+        if (urlParams.has('arena')) {
+            initialTargetMode = 'arena';
+        } else if (urlParams.has('live')) {
+            initialTargetMode = 'live';
+        } else if (urlParams.has('mode')) {
+            const modeParam = urlParams.get('mode');
+            if (modeParam === 'txt') initialTargetMode = 'text';
+            else if (modeParam === 'sheet') initialTargetMode = 'table';
+            else if (modeParam === 'chat') initialTargetMode = 'chat';
+            else if (modeParam === 'bank') initialTargetMode = 'bank';
+            else if (gameModes.includes(modeParam)) initialTargetMode = modeParam;
+        }
+        
+        switchMode(initialTargetMode, true);
     }
 
     // ✨ 優先判斷是否有 arena 空間代碼 (解決被踢出或重整跑掉的問題)
@@ -467,11 +499,12 @@ document.getElementById('dd-viewMode').addEventListener('change', (e) => switchM
 /* ==========================================
    網址參數同步功能
 ========================================== */
-//
+/* ==========================================
+   網址參數同步功能 (升級版：支援題庫 ID 同步)
+========================================== */
 function updateUrlModeParam(internalMode) {
     const newUrl = new URL(window.location.href);
     
-    // ✨ 修改：如果已經有房間代碼（不論是 arena 還是 live），移除 mode 參數避免衝突
     if (newUrl.searchParams.has('arena') || newUrl.searchParams.has('live')) {
         newUrl.searchParams.delete('mode');
         window.history.replaceState({}, '', newUrl);
@@ -485,232 +518,210 @@ function updateUrlModeParam(internalMode) {
     else if (internalMode === 'live') urlMode = 'live';
     else if (gameModes.includes(internalMode)) urlMode = internalMode;
     
+    let urlChanged = false;
+
+    // 1. 同步 mode 參數
     if (newUrl.searchParams.get('mode') !== urlMode) {
         newUrl.searchParams.set('mode', urlMode);
+        urlChanged = true;
+    }
+
+    // ✨ 2. 新增：智慧同步題庫 ID (bank 參數)
+    if (window.currentLoadedBank && window.currentLoadedBank.id) {
+        if (newUrl.searchParams.get('bank') !== window.currentLoadedBank.id) {
+            newUrl.searchParams.set('bank', window.currentLoadedBank.id);
+            urlChanged = true;
+        }
+    } else {
+        // 如果目前沒有載入題庫 (例如使用者自己打字)，則清除 bank 參數保持網址乾淨
+        if (newUrl.searchParams.has('bank')) {
+            newUrl.searchParams.delete('bank');
+            urlChanged = true;
+        }
+    }
+
+    if (urlChanged) {
         window.history.replaceState({}, '', newUrl);
     }
 }
 
-/* ==========================================
-   全域模式切換核心 (支援無縫資料轉移)
-========================================== */
-function switchMode(mode, isForce = false) {
+// ==========================================
+// 資料夾網址參數控制模組
+// ==========================================
+
+/**
+ * 1. 更新網址參數 (當點擊進入資料夾時呼叫)
+ * @param {string} folderName - 中文資料夾名稱
+ */
+function updateFolderUrl(folderName) {
+    const url = new URL(window.location);
+    // 使用 encodeURIComponent 將中文安全轉換為網址格式
+    url.searchParams.set('folder', encodeURIComponent(folderName));
+    // pushState 可以更改網址列，但不會觸發網頁重新整理！
+    window.history.pushState({}, '', url);
+}
+
+/**
+ * 2. 清除網址參數 (當點擊「返回」或回到主目錄時呼叫)
+ */
+function clearFolderUrl() {
+    const url = new URL(window.location);
+    url.searchParams.delete('folder');
+    window.history.pushState({}, '', url);
+}
+
+/**
+ * 3. 檢查網址是否有資料夾參數 (通常在網頁一載入時呼叫)
+ * @returns {string|null} - 傳回解碼後的資料夾名稱，若無則傳回 null
+ */
+function getFolderFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const folderParam = urlParams.get('folder');
+    
+    if (folderParam) {
+        // 將網址參數解碼回中文
+        return decodeURIComponent(folderParam);
+    }
+    return null;
+}
+
+
+
+
+
+
+
+
+// ✨ 修正版：解決直接連結進入後「返回」路徑錯誤的問題
+function switchMode(mode, isForce = false, dataOverride = null, configOverride = null) {
     if (currentMode === mode && !isForce) return;
 
-    // 核心：離開特定模式時的資料提取與無縫轉移
-    if (!isForce) {
+    // 1. 數據提取與轉移：只有在「非注入模式」下才需要自動存檔，避免覆蓋
+    if (!isForce && !dataOverride) {
         if (currentMode === 'table' && mode !== 'table') {
             editor.value = extractTextFromTable();
         } else if (currentMode === 'chat' && mode !== 'chat') {
-            // 離開對話模式時，將對話紀錄轉為 TSV 表格格式
             const chatExtracted = extractTextFromChat();
             if (chatExtracted && chatExtracted.trim() !== '') {
                 editor.value = chatExtracted;
-                debouncedSaveHistory(); // 存檔，讓轉換後的表格支援復原
+                debouncedSaveHistory();
             }
         }
     }
 
+    // ✨ 核心修復：記下進入遊戲前的「來源模式」
+    // 只有在「不是遊戲模式」互切，且「沒有外部注入資料 (dataOverride)」時才更新來源
+    if (!gameModes.includes(currentMode) && currentMode !== 'arena' && currentMode !== 'live') {
+        if (!dataOverride) {
+            window.originModeForGame = currentMode;
+        }
+    }
+
+    // 記下切換前的模式
+    const previousMode = currentMode;
     currentMode = mode; 
-	// 💡 如果是遊戲模式，不將 mode 寫入 LocalStorage，確保重新整理網頁時，預設回到編輯/表格模式
-    if (!gameModes.includes(mode)) {
+
+    // 遊戲/連線模式不存入 LocalStorage
+    if (!gameModes.includes(mode) && mode !== 'arena' && mode !== 'live') {
         localStorage.setItem(MODE_KEY, mode);
     }
 
-	updateUrlModeParam(mode);
-    
-    hideFloatingTool(); 
-    clearTableSelection();
-
-    const gameModeContainer = document.getElementById('gameModeContainer');
-
-
-    localStorage.setItem(MODE_KEY, mode);
     updateUrlModeParam(mode);
     hideFloatingTool(); 
     clearTableSelection();
 
+    // --- 2. UI 容器顯隱邏輯 ---
+    const containers = {
+        text: document.getElementById('textModeContainer'),
+        table: document.getElementById('tableModeContainer'),
+        chat: document.getElementById('chatModeContainer'),
+        game: document.getElementById('gameModeContainer'),
+        arena: document.getElementById('arenaModeContainer'),
+        bank: document.getElementById('bankModeContainer')
+    };
+    Object.values(containers).forEach(c => { if(c) { c.style.display = 'none'; c.classList.add('hidden'); } });
+
+    // --- 3. 工具列細節控制 ---
     const ddTextTool = document.getElementById('dd-textTool');
-    const btnToggleLineNumbersTextMode = document.getElementById('btnToggleLineNumbersTextMode');
-    const chatModeContainer = document.getElementById('chatModeContainer');
-    
-    // 抓取表格與對話工具列
     const tableControls = document.getElementById('tableControls');
     const chatControls = document.getElementById('chatControls');
-
+    const ddLanguageTools = document.getElementById('dd-languageTools');
     const btnFindReplace = document.getElementById('btnFindReplace');
     const ddClipboardGroup = document.getElementById('dd-clipboard-group');
-	const ddLanguageTools = document.getElementById('dd-languageTools');
+    const btnToggleLineNumbers = document.getElementById('btnToggleLineNumbersTextMode');
 
-    // 先隱藏所有容器
-    textModeContainer.style.display = 'none'; 
-    tableModeContainer.style.display = 'none';
-    chatModeContainer.classList.add('hidden');
-    chatModeContainer.style.display = 'none';
-    if (gameModeContainer) {
-        gameModeContainer.classList.add('hidden');
-        gameModeContainer.style.display = 'none';
-    }
-	const arenaModeContainer = document.getElementById('arenaModeContainer');
-    const bankModeContainer = document.getElementById('bankModeContainer');
-    if (arenaModeContainer) {
-        arenaModeContainer.classList.add('hidden');
-        arenaModeContainer.style.display = 'none';
-    }
+    if (ddLanguageTools) ddLanguageTools.classList.remove('hidden');
+    if (btnFindReplace) btnFindReplace.classList.remove('hidden');
+    if (ddClipboardGroup) ddClipboardGroup.classList.remove('hidden');
 
-	// ✨ 處理進入題庫中心的邏輯
-    if (mode === 'bank') {
-        if (bankModeContainer) {
-            bankModeContainer.classList.remove('hidden');
-            bankModeContainer.style.display = 'flex';
-            // 每次進入題庫中心時，確保資料有初始化
-            if (typeof initBankFilters === 'function') {
-                initBankFilters();
-                renderBankTable();
+    // --- 4. 根據模式執行特定邏輯 ---
+    if (mode === 'arena' || mode === 'live' || gameModes.includes(mode)) {
+        const targetContainer = (mode === 'arena' || mode === 'live') ? containers.arena : containers.game;
+        if (targetContainer) { targetContainer.classList.remove('hidden'); targetContainer.style.display = 'block'; }
+
+        [tableControls, chatControls, ddTextTool, btnToggleLineNumbers].forEach(el => el?.classList.add('hidden'));
+
+        document.querySelectorAll('#gameCurrentTitle').forEach(el => {
+            el.textContent = window.currentLoadedBank ? window.currentLoadedBank.name : '自訂測驗';
+        });
+
+        // 決定遊戲資料來源
+        let rawDataText = dataOverride;
+        if (!rawDataText) {
+            if (gameModes.includes(previousMode) || previousMode === 'arena' || previousMode === 'live') {
+                rawDataText = window.lastGameData || editor.value;
+            } else if (containers.table.style.display !== 'none') {
+                rawDataText = extractTextFromTable();
+            } else {
+                rawDataText = editor.value;
             }
         }
-        // 隱藏其他所有東西
-        if (tableControls) tableControls.classList.add('hidden');
-        if (chatControls) chatControls.classList.add('hidden');
-        if (ddTextTool) ddTextTool.classList.add('hidden');
-        if (arenaModeContainer) arenaModeContainer.style.display = 'none';
-        return; // 提早結束，不執行下方的遊戲或編輯器邏輯
-    } 
-    else if (bankModeContainer) {
-        // 如果切換到其他模式，確保題庫中心被隱藏
-        bankModeContainer.classList.add('hidden');
-        bankModeContainer.style.display = 'none';
-    }
+        window.lastGameData = rawDataText;
 
-	// 💡 處理進入遊戲或連線模式的邏輯
-    if (mode === 'arena' || mode === 'live') {
-        // 啟動專屬容器
-        if (arenaModeContainer) {
-            arenaModeContainer.classList.remove('hidden');
-            arenaModeContainer.style.display = 'block';
-        }
-        if (tableControls) { tableControls.classList.add('hidden'); tableControls.classList.remove('flex'); }
-        if (chatControls) { chatControls.classList.add('hidden'); chatControls.classList.remove('flex'); }
-        if (ddTextTool) ddTextTool.classList.add('hidden');
-
-        let rawDataText = editor.value;
-        if (document.getElementById('tableModeContainer').style.display !== 'none') {
-            rawDataText = extractTextFromTable();
-        }
-
-        // ✨ 關鍵修復：如果畫面還沒渲染完導致抓不到資料，直接從記憶體分頁中提款！
-        if (!rawDataText || rawDataText.trim() === '') {
-            if (typeof sheetTabs !== 'undefined' && sheetTabs[activeSheetIndex]) {
-                rawDataText = sheetTabs[activeSheetIndex].content || '';
-            }
-        }
-
-        // 重新整理時自動從記憶體載入設定
-        if (!window.currentGameConfigs) {
-            try {
-                const savedConfigs = localStorage.getItem('wesing-game-configs');
-                if (savedConfigs) window.currentGameConfigs = JSON.parse(savedConfigs);
-            } catch(e) {}
-        }
-        const configs = window.currentGameConfigs || { mcConfig: null };
+        const configs = configOverride || window.currentGameConfigs || { matchPairs: [{ id: 1, termCol: 0, defCol: 1, customName: '' }] };
 
         if (mode === 'arena' && typeof window.launchArenaMode === 'function') {
             window.launchArenaMode(rawDataText, configs);
         } else if (mode === 'live' && typeof window.launchLiveMode === 'function') {
             window.launchLiveMode(rawDataText, configs);
-        }
-
-		// 💡 處理進入遊戲模式的邏輯
-    } else if (gameModes.includes(mode)) {
-        if (gameModeContainer) {
-            gameModeContainer.classList.remove('hidden');
-            gameModeContainer.style.display = 'block';
-        }
-        
-        // 隱藏原有的編輯工具列
-        if (tableControls) { tableControls.classList.add('hidden'); tableControls.classList.remove('flex'); }
-        if (chatControls) { chatControls.classList.add('hidden'); chatControls.classList.remove('flex'); }
-        if (ddTextTool) ddTextTool.classList.add('hidden');
-        
-        let rawDataText = editor.value;
-        if (document.getElementById('tableModeContainer').style.display !== 'none') {
-            rawDataText = extractTextFromTable();
-        }
-
-        // 啟動外部獨立的遊戲模組
-        if (typeof window.launchGameMode === 'function') {
-            if (!window.currentGameConfigs) {
-                try {
-                    const savedConfigs = localStorage.getItem('wesing-game-configs');
-                    if (savedConfigs) window.currentGameConfigs = JSON.parse(savedConfigs);
-                } catch(e) {}
-            }
-            
-            // 給予安全的預設值，支援全新的 matchPairs 陣列
-            const configs = window.currentGameConfigs || { 
-                activeBankCols: [0, 1],
-                matchPairs: [{ id: 1, termCol: 0, defCol: 1, customName: '' }],
-                hasHeader: false, hasCategory: false, colC: -1, filterCategory: 'ALL' 
-            };
+        } else if (typeof window.launchGameMode === 'function') {
             window.launchGameMode(mode, rawDataText, configs);
         }
+
+    } else if (mode === 'bank') {
+        if (containers.bank) { containers.bank.classList.remove('hidden'); containers.bank.style.display = 'flex'; }
+        [tableControls, chatControls, ddTextTool, btnToggleLineNumbers].forEach(el => el?.classList.add('hidden'));
+        // ✨ 修正：呼叫正確的初始化函數
+        if (typeof initBankCenter === 'function') { initBankCenter(); }
 
     } else if (mode === 'table') {
         renderTableFromText(editor.value);
         applyFreeze();
-        tableModeContainer.style.display = 'block';
-
-		if (ddLanguageTools) ddLanguageTools.classList.remove('hidden');
-        
-        if (tableControls) { tableControls.classList.remove('hidden'); tableControls.classList.add('flex'); }
-        if (chatControls) { chatControls.classList.add('hidden'); chatControls.classList.remove('flex'); }
-        
+        containers.table.style.display = 'block';
+        if (tableControls) tableControls.classList.replace('hidden', 'flex');
         if (ddTextTool) ddTextTool.classList.add('hidden');
-        if (btnToggleLineNumbersTextMode) btnToggleLineNumbersTextMode.classList.add('hidden');
-
-        // 表格模式：顯示尋找與取代、複製按鈕
-        if (btnFindReplace) btnFindReplace.classList.remove('hidden');
-        if (ddClipboardGroup) ddClipboardGroup.classList.remove('hidden');
+        if (btnToggleLineNumbers) btnToggleLineNumbers.classList.add('hidden');
 
     } else if (mode === 'chat') {
-        chatModeContainer.classList.remove('hidden');
-        chatModeContainer.style.display = 'flex';
-
-		if (ddLanguageTools) ddLanguageTools.classList.add('hidden');
-        
-        if (tableControls) { tableControls.classList.add('hidden'); tableControls.classList.remove('flex'); }
-        if (chatControls) { chatControls.classList.remove('hidden'); chatControls.classList.add('flex'); }
-        
-        if (ddTextTool) ddTextTool.classList.add('hidden');
-        if (btnToggleLineNumbersTextMode) btnToggleLineNumbersTextMode.classList.add('hidden');
-        setTimeout(() => document.getElementById('chatInput').focus(), 100);
-        
-        // 👇 新增：對話模式：隱藏尋找與取代、複製按鈕 👇
+        containers.chat.classList.remove('hidden');
+        containers.chat.style.display = 'flex';
+        if (chatControls) chatControls.classList.replace('hidden', 'flex');
+        if (ddLanguageTools) ddLanguageTools.classList.add('hidden');
         if (btnFindReplace) btnFindReplace.classList.add('hidden');
         if (ddClipboardGroup) ddClipboardGroup.classList.add('hidden');
-
+        if (ddTextTool) ddTextTool.classList.add('hidden');
+        
+        setTimeout(() => document.getElementById('chatInput')?.focus(), 100);
         if (typeof updateChatPivotOptions === 'function') updateChatPivotOptions();
-        
-        if (typeof window.renderChatFromText === 'function') {
-            window.renderChatFromText(editor.value);
-        }
+        if (typeof window.renderChatFromText === 'function') window.renderChatFromText(editor.value);
+
     } else {
-        textModeContainer.style.display = 'flex';
-
-		if (ddLanguageTools) ddLanguageTools.classList.remove('hidden');
-        
-        if (tableControls) { tableControls.classList.add('hidden'); tableControls.classList.remove('flex'); }
-        if (chatControls) { chatControls.classList.add('hidden'); chatControls.classList.remove('flex'); }
-        
+        containers.text.style.display = 'flex';
         if (ddTextTool) ddTextTool.classList.remove('hidden');
-        if (btnToggleLineNumbersTextMode) btnToggleLineNumbersTextMode.classList.remove('hidden');
-        
-        // 文字模式：顯示尋找與取代、複製按鈕
-        if (btnFindReplace) btnFindReplace.classList.remove('hidden');
-        if (ddClipboardGroup) ddClipboardGroup.classList.remove('hidden');
-
+        if (btnToggleLineNumbers) btnToggleLineNumbers.classList.remove('hidden');
         updateLineNumbers();
     }
+    
     setDropdownValue('dd-viewMode', mode);
 }
 
@@ -11487,225 +11498,6 @@ async function removeArenaPlayer(spaceCode, playerName) {
 
 
 
-// ==========================================
-// 全螢幕題庫中心引擎 (Google Drive 檔案總管版)
-// ==========================================
-const bankSearchInput = document.getElementById('bankSearchInput');
-const btnClearBankSearch = document.getElementById('btnClearBankSearch');
-const bankCategoryFilter = document.getElementById('bankCategoryFilter');
-const bankTypeFilter = document.getElementById('bankTypeFilter');
-const bankCountDisplay = document.getElementById('bankCountDisplay');
-const bankTableBody = document.getElementById('bankTableBody');
-
-// 狀態管理
-let bankState = {
-    search: '',
-    category: 'ALL',
-    type: 'ALL',
-    sortCol: 'folder', 
-    sortAsc: true
-};
-
-function getQCount(dataStr) {
-    if (!dataStr) return 0;
-    const lines = dataStr.split('\n').filter(l => l.trim() !== '');
-    return Math.max(0, lines.length - 1);
-}
-
-function initBankFilters() {
-    if (!window.presetBank || window.presetBank.length === 0) return;
-    
-    window.presetBank.forEach((p, idx) => p._originalIndex = idx);
-
-    const categories = new Set();
-    const types = new Set();
-
-    window.presetBank.forEach(p => {
-        if (p.folder) categories.add(p.folder);
-        if (p.type) types.add(p.type);
-    });
-
-    if (bankCategoryFilter) {
-        bankCategoryFilter.innerHTML = '<option value="ALL">所有分類</option>' + 
-            Array.from(categories).sort().map(c => `<option value="${c}">${c}</option>`).join('');
-    }
-    if (bankTypeFilter) {
-        bankTypeFilter.innerHTML = '<option value="ALL">所有題型</option>' + 
-            Array.from(types).sort().map(t => `<option value="${t}">${t}</option>`).join('');
-    }
-}
-
-//
-window.renderBankTable = function() {
-    if (!window.presetBank || window.presetBank.length === 0) {
-        if(bankTableBody) bankTableBody.innerHTML = '<tr><td colspan="5" class="text-center py-12 text-gray-400 font-bold text-lg">目前沒有可用的線上題庫</td></tr>';
-        if(bankCountDisplay) bankCountDisplay.textContent = '共 0 筆';
-        return;
-    }
-
-    let filtered = window.presetBank.filter(p => {
-        const matchSearch = p.name.toLowerCase().includes(bankState.search.toLowerCase()) || 
-                            (p.folder && p.folder.toLowerCase().includes(bankState.search.toLowerCase()));
-        const matchCat = bankState.category === 'ALL' || p.folder === bankState.category;
-        const matchType = bankState.type === 'ALL' || p.type === bankState.type;
-        return matchSearch && matchCat && matchType;
-    });
-
-    filtered.sort((a, b) => {
-        let valA, valB;
-        if (bankState.sortCol === 'folder') { valA = a.folder || ''; valB = b.folder || ''; }
-        else if (bankState.sortCol === 'name') { valA = a.name || ''; valB = b.name || ''; }
-        else if (bankState.sortCol === 'type') { valA = a.type || ''; valB = b.type || ''; }
-        else if (bankState.sortCol === 'count') { valA = getQCount(a.data); valB = getQCount(b.data); }
-
-        if (valA < valB) return bankState.sortAsc ? -1 : 1;
-        if (valA > valB) return bankState.sortAsc ? 1 : -1;
-        return 0;
-    });
-
-    document.querySelectorAll('#bankModeContainer th[data-sort]').forEach(th => {
-        const icon = th.querySelector('.sort-icon');
-        if (th.dataset.sort === bankState.sortCol) {
-            icon.textContent = bankState.sortAsc ? 'arrow_downward' : 'arrow_upward';
-            icon.classList.remove('opacity-0');
-        } else {
-            icon.classList.add('opacity-0');
-        }
-    });
-
-    if (filtered.length === 0) {
-        if(bankTableBody) bankTableBody.innerHTML = '<tr><td colspan="5" class="text-center py-10 text-gray-400 font-bold text-base">找不到符合條件的題庫</td></tr>';
-    } else {
-        if(bankTableBody) bankTableBody.innerHTML = filtered.map(p => `
-            <tr class="hover:bg-gray-50 transition-colors cursor-default border-b border-gray-200">
-                <td class="py-2.5 px-4 sm:px-6 text-gray-500 font-bold truncate max-w-[180px]" title="${p.folder || '未分類'}">
-                    <div class="flex items-center gap-2 whitespace-nowrap">
-                        <span class="material-symbols-outlined text-[18px] text-gray-400">folder_open</span> 
-                        ${p.folder || '未分類'}
-                    </div>
-                </td>
-                <td class="py-2.5 px-4 sm:px-6 text-gray-800 font-extrabold truncate max-w-[400px]" title="${p.name}">
-                    ${p.name}
-                </td>
-                <td class="py-2.5 px-3 text-center whitespace-nowrap">
-                    <span class="px-2.5 py-0.5 rounded border ${
-                        p.type === '選擇' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 
-                        p.type === '問答' ? 'bg-teal-50 text-teal-700 border-teal-200' : 
-                        'bg-blue-50 text-blue-700 border-blue-200'
-                    } text-xs font-bold inline-block">${p.type || '配對'}</span>
-                </td>
-                <td class="py-2.5 px-3 text-center text-gray-600 font-mono text-sm font-bold whitespace-nowrap">
-                    ${getQCount(p.data)}
-                </td>
-                <td class="py-2.5 px-3 text-center whitespace-nowrap w-32">
-                    <div class="flex items-center justify-center gap-1.5">
-                        <button class="bg-white border border-gray-300 text-gray-600 hover:bg-gray-100 px-3 py-1.5 rounded text-xs font-bold transition-colors cursor-pointer" onclick="viewPresetBank(${p._originalIndex})">
-                            檢視
-                        </button>
-                        <button class="bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 px-3 py-1.5 rounded text-xs font-bold transition-colors cursor-pointer" onclick="playPresetBank(${p._originalIndex})">
-                            載入
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `).join('');
-    }
-    
-    if(bankCountDisplay) bankCountDisplay.textContent = `共 ${filtered.length} 筆`;
-};
-
-if (bankSearchInput) {
-    bankSearchInput.addEventListener('input', (e) => { 
-        bankState.search = e.target.value; 
-        if (e.target.value.length > 0) btnClearBankSearch.classList.remove('hidden');
-        else btnClearBankSearch.classList.add('hidden');
-        renderBankTable(); 
-    });
-    btnClearBankSearch.addEventListener('click', () => {
-        bankSearchInput.value = '';
-        bankState.search = '';
-        btnClearBankSearch.classList.add('hidden');
-        bankSearchInput.focus();
-        renderBankTable();
-    });
-}
-if (bankCategoryFilter) bankCategoryFilter.addEventListener('change', (e) => { bankState.category = e.target.value; renderBankTable(); });
-if (bankTypeFilter) bankTypeFilter.addEventListener('change', (e) => { bankState.type = e.target.value; renderBankTable(); });
-
-document.querySelectorAll('#bankModeContainer th[data-sort]').forEach(th => {
-    th.addEventListener('click', () => {
-        const col = th.dataset.sort;
-        if (bankState.sortCol === col) bankState.sortAsc = !bankState.sortAsc; 
-        else { bankState.sortCol = col; bankState.sortAsc = true; }
-        renderBankTable();
-    });
-});
-
-// 檢視按鈕：進入表格模式
-window.viewPresetBank = function(index) {
-    const preset = window.presetBank[index];
-    if (!preset) return;
-    
-    window.currentLoadedBank = { id: preset.id, name: preset.name };
-    editor.value = preset.data;
-    sheetTabs[activeSheetIndex].name = preset.name;
-    
-    switchMode('table', true); 
-    saveAllTabsData();
-    renderSheetTabs();
-    showToast(`👀 已檢視題庫：${preset.name}`);
-};
-
-//
-// 載入按鈕：準備資料後直接彈出學習模式設定框
-window.playPresetBank = function(index) {
-    const preset = window.presetBank[index];
-    if (!preset) return;
-    
-    window.currentLoadedBank = { id: preset.id, name: preset.name };
-    editor.value = preset.data;
-    sheetTabs[activeSheetIndex].name = preset.name;
-    
-    saveAllTabsData();
-    renderSheetTabs();
-    
-    switchMode('table', true); // 先退回底層確保 UI 重置
-    
-    const btnOpenGameModal = document.getElementById('btnOpenGameModal');
-    if (btnOpenGameModal) {
-        btnOpenGameModal.click(); // 打開設定視窗
-        
-        // ✨ 智慧防呆：如果載入的題庫類型是「問答」，自動幫老師把遊戲模式切換過去！
-        setTimeout(() => {
-            if (preset.type === '問答') {
-                const liveRadio = document.querySelector('input[name="gameType"][value="live"]');
-                if (liveRadio && !liveRadio.checked) {
-                    liveRadio.checked = true;
-                    // 手動觸發 change 事件，讓下方的配對清單更新
-                    liveRadio.dispatchEvent(new Event('change')); 
-                }
-            } else if (preset.type === '選擇') {
-                const choiceRadio = document.querySelector('input[name="gameType"][value="choice"]');
-                if (choiceRadio && !choiceRadio.checked) {
-                    choiceRadio.checked = true;
-                    choiceRadio.dispatchEvent(new Event('change')); 
-                }
-            }
-        }, 50);
-    }
-    showToast(`🚀 已載入並準備學習：${preset.name}`);
-};
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -12545,13 +12337,415 @@ window.showTextToolsModal = function() {
 
 
 
+/* ==========================================
+   題庫中心模組 (Google Drive 階層版)
+   ========================================== */
+const bankModeContainer = document.getElementById('bankModeContainer');
+const bankSearchInput = document.getElementById('bankSearchInput');
+const btnClearBankSearch = document.getElementById('btnClearBankSearch');
+const bankTableBody = document.getElementById('bankTableBody');
+const bankSidebar = document.getElementById('bankSidebar');
+const bankSidebarOverlay = document.getElementById('bankSidebarOverlay');
+const bankFoldersGrid = document.getElementById('bankFoldersGrid');
+const bankSidebarMenu = document.getElementById('bankSidebarMenu');
 
+// 狀態管理：確保只宣告一次
+let bankState = {
+    search: '',
+    category: 'ALL',
+    type: 'ALL',
+    sortCol: 'name',
+    sortAsc: true
+};
 
+// 大分類網址參數對照表
+const categoryAliasMap = {
+    "國小自然": "el_science",
+    "國小英文": "el_english",
+    "國中國文": "jh_chinese",
+    "班級經營": "class_mgt",
+    "課程回饋": "course_fb",
+    "互動體驗": "interactive"
+};
 
+// 自動反轉對照表，供讀取網址時使用
+const reverseCategoryAliasMap = Object.fromEntries(
+    Object.entries(categoryAliasMap).map(([key, value]) => [value, key])
+);
 
+// 2. 輔助函數：真實且簡短的 UTF-8 Base64 轉換引擎 (Url Safe)
+function encodeBase64UrlSafe(str) {
+    // 1. 使用 TextEncoder 將中文直接轉為真實的 UTF-8 位元組 (不會暴增長度)
+    const bytes = new TextEncoder().encode(str);
+    let binaryStr = '';
+    for (let i = 0; i < bytes.length; i++) {
+        binaryStr += String.fromCharCode(bytes[i]);
+    }
+    // 2. 轉為 Base64 並替換網址安全符號
+    return btoa(binaryStr).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 
+function decodeBase64UrlSafe(base64Str) {
+    try {
+        // 1. 還原網址安全符號與長度
+        let base64 = base64Str.replace(/-/g, '+').replace(/_/g, '/');
+        while (base64.length % 4) { base64 += '='; }
+        
+        // 2. 解開 Base64 還原為二進位字串
+        const binaryStr = atob(base64);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+            bytes[i] = binaryStr.charCodeAt(i);
+        }
+        
+        // 3. 使用 TextDecoder 解碼回中文
+        return new TextDecoder().decode(bytes);
+    } catch (e) {
+        return base64Str; // 解碼失敗退回原字串以防崩潰
+    }
+}
 
+// 輔助函數：計算題數
+function getQCount(dataStr) {
+    if (!dataStr) return 0;
+    const lines = dataStr.split('\n').filter(l => l.trim() !== '');
+    return Math.max(0, lines.length - 1);
+}
 
+// 1. 初始化題庫資料與篩選器
+function initBankCenter() {
+    if (!window.presetBank) return;
+    window.presetBank.forEach((p, idx) => p._originalIndex = idx);
+    
+    // ✨ 補全：從網址讀取分類參數 (自動處理 英文/Base64)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('cat')) {
+        const catParam = urlParams.get('cat');
+        let realCat = reverseCategoryAliasMap[catParam];
+        if (!realCat) {
+            realCat = decodeBase64UrlSafe(catParam);
+        }
+        
+        const validCategories = [...new Set(window.presetBank.map(p => p.folder))];
+        if (validCategories.includes(realCat)) {
+            bankState.category = realCat;
+        }
+    }
+
+    // 初始化題型下拉選單
+    const types = [...new Set(window.presetBank.map(p => p.type))].filter(Boolean);
+    const filter = document.getElementById('bankTypeFilter');
+    if (filter) {
+        filter.innerHTML = '<option value="ALL">所有題型</option>' + 
+            types.map(t => `<option value="${t}">${t}</option>`).join('');
+    }
+    renderBankSidebar();
+    renderBankContent();
+}
+
+// 2. 側邊欄渲染
+function renderBankSidebar() {
+    const categories = [...new Set(window.presetBank.map(p => p.folder))].filter(Boolean).sort();
+    if (!bankSidebarMenu) return;
+
+    bankSidebarMenu.innerHTML = `
+        <button class="w-full text-left px-4 py-2.5 rounded-full flex items-center gap-3 transition-all ${bankState.category === 'ALL' ? 'bg-indigo-100 text-indigo-800 font-bold' : 'text-gray-600 hover:bg-gray-200'}" onclick="setBankCategory('ALL')">
+            <span class="material-symbols-outlined text-[20px]">database</span> 總題庫
+        </button>
+        <div class="text-[11px] font-bold text-gray-400 mt-4 mb-2 px-4 tracking-wider uppercase">分類資料夾</div>
+    ` + categories.map(cat => `
+        <button class="w-full text-left px-4 py-2 rounded-full flex items-center gap-3 transition-all ${bankState.category === cat ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-gray-600 hover:bg-gray-100'}" onclick="setBankCategory('${cat}')">
+            <span class="material-symbols-outlined text-[18px]">${bankState.category === cat ? 'folder_open' : 'folder'}</span>
+            <span class="truncate">${cat}</span>
+        </button>
+    `).join('');
+}
+
+// 3. 設定分類路徑並重新渲染 (包含回到頂端)
+window.setBankCategory = function(cat) {
+    bankState.category = cat;
+    bankState.search = '';
+    if (bankSearchInput) bankSearchInput.value = '';
+    if (btnClearBankSearch) btnClearBankSearch.classList.add('hidden');
+    
+    renderBankSidebar();
+    renderBankContent();
+    
+    // ✨ 補全：將當前分類同步到網址中
+    const newUrl = new URL(window.location.href);
+    if (cat === 'ALL') {
+        newUrl.searchParams.delete('cat'); 
+    } else {
+        const alias = categoryAliasMap[cat];
+        if (alias) {
+            newUrl.searchParams.set('cat', alias); 
+        } else {
+            newUrl.searchParams.set('cat', encodeBase64UrlSafe(cat)); 
+        }
+    }
+    window.history.replaceState({}, '', newUrl);
+
+    setTimeout(() => {
+        // 1. 抓取所有題庫區塊可能的捲動容器 (包含主容器與內部列表)
+        const scrollContainers = document.querySelectorAll('#bankModeContainer, #bankModeContainer .flex-1, #bankModeContainer .overflow-y-auto, .overflow-y-auto, #mainContainer');
+        
+        scrollContainers.forEach(container => {
+            // 平滑捲動回頂部 (如果瀏覽器支援的話)
+            if (typeof container.scrollTo === 'function') {
+                container.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                container.scrollTop = 0;
+            }
+        });
+        
+        // 2. 雙重保險：確保整個網頁視窗也回到最上方
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+    }, 50); // 給予 50 毫秒的緩衝，確保畫面高度已經計算完畢
+    
+    if (window.innerWidth < 768) window.closeBankSidebar();
+};
+
+// 4. 側邊欄開關邏輯 (使用 width 切換，防止排版錯亂)
+function toggleBankSidebar() {
+    if (window.innerWidth >= 768) {
+        // 電腦版：縮放寬度
+        const isCollapsed = bankSidebar.classList.contains('md:w-0');
+        if (!isCollapsed) {
+            bankSidebar.classList.replace('w-64', 'md:w-0');
+            bankSidebar.classList.add('border-none');
+        } else {
+            bankSidebar.classList.replace('md:w-0', 'w-64');
+            bankSidebar.classList.remove('border-none');
+        }
+    } else {
+        // 手機版：遮罩滑出
+        if (bankSidebarOverlay.classList.contains('hidden')) {
+            bankSidebarOverlay.classList.remove('hidden');
+            setTimeout(() => {
+                bankSidebarOverlay.classList.remove('opacity-0');
+                bankSidebar.classList.remove('-translate-x-full');
+            }, 10);
+        } else {
+            window.closeBankSidebar();
+        }
+    }
+}
+
+window.closeBankSidebar = function() {
+    if (window.innerWidth >= 768) return; // 電腦版點選項不自動收合
+    if (bankSidebarOverlay) bankSidebarOverlay.classList.add('opacity-0');
+    if (bankSidebar) bankSidebar.classList.add('-translate-x-full');
+    setTimeout(() => {
+        if (bankSidebarOverlay) bankSidebarOverlay.classList.add('hidden');
+    }, 300);
+};
+
+// 5. 內容渲染 (麵包屑 + 網格 + 清單)
+window.renderBankContent = function() {
+    const breadcrumbs = document.getElementById('bankBreadcrumbs');
+    const foldersView = document.getElementById('bankFoldersView');
+    const filesView = document.getElementById('bankFilesView');
+
+    // 麵包屑導覽 (層次引導)
+    if (breadcrumbs) {
+        breadcrumbs.innerHTML = bankState.category === 'ALL' 
+            ? '<b>總題庫</b>' 
+            : `<span class="text-gray-400 cursor-pointer hover:underline" onclick="setBankCategory('ALL')">總題庫</span> <span class="text-gray-300 mx-2">/</span> <b>${bankState.category}</b>`;
+    }
+
+    // 過濾邏輯
+    let filtered = window.presetBank.filter(p => {
+        const mSearch = p.name.toLowerCase().includes(bankState.search.toLowerCase());
+        const mCat = bankState.category === 'ALL' || p.folder === bankState.category;
+        const mType = bankState.type === 'ALL' || p.type === bankState.type;
+        return mSearch && mCat && mType;
+    });
+
+    // 排序邏輯
+    filtered.sort((a, b) => {
+        let valA = a[bankState.sortCol] || '';
+        let valB = b[bankState.sortCol] || '';
+        if (bankState.sortCol === 'count') { valA = getQCount(a.data); valB = getQCount(b.data); }
+
+        if (valA < valB) return bankState.sortAsc ? -1 : 1;
+        if (valA > valB) return bankState.sortAsc ? 1 : -1;
+        return 0;
+    });
+
+    // 更新表頭排序圖示
+    document.querySelectorAll('#bankModeContainer th[data-sort]').forEach(th => {
+        const icon = th.querySelector('.sort-icon');
+        if (icon) { // 確保有找到圖示元素才去更改它
+            if (th.dataset.sort === bankState.sortCol) {
+                icon.textContent = bankState.sortAsc ? 'arrow_downward' : 'arrow_upward';
+                icon.classList.remove('opacity-0');
+            } else {
+                icon.classList.add('opacity-0');
+            }
+        }
+    });
+
+    // 在「總題庫」且沒搜尋時，顯示分類資料夾
+    if (bankState.category === 'ALL' && !bankState.search) {
+        foldersView.classList.remove('hidden');
+        const cats = [...new Set(window.presetBank.map(p => p.folder))].filter(Boolean).sort();
+        bankFoldersGrid.innerHTML = cats.map(c => `
+            <div class="bg-[#f0f4f9] hover:bg-[#e1e5ea] p-4 rounded-xl flex items-center gap-3 cursor-pointer transition-all border border-transparent hover:border-gray-300 group" onclick="setBankCategory('${c}')">
+                <span class="material-symbols-outlined text-indigo-500 text-3xl group-hover:scale-110 transition-transform">folder</span>
+                <span class="font-bold text-gray-700 truncate">${c}</span>
+            </div>
+        `).join('');
+    } else {
+        foldersView.classList.add('hidden');
+    }
+
+    // 渲染檔案列表
+    filesView.classList.remove('hidden');
+    if (filtered.length === 0) {
+        bankTableBody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-gray-400 font-bold bg-white">找不到符合條件的題庫</td></tr>`;
+    } else {
+        bankTableBody.innerHTML = filtered.map(p => `
+            <tr class="hover:bg-blue-50/50 transition-colors group border-b border-gray-100">
+                <td class="py-3 px-4 flex items-center gap-3 cursor-pointer" ondblclick="playPresetBank(${p._originalIndex})" title="連按兩下直接載入">
+                    <span class="material-symbols-outlined text-gray-400 group-hover:text-indigo-500">description</span>
+                    <span class="font-bold truncate max-w-[200px] sm:max-w-[400px] select-none">${p.name}</span>
+                </td>
+                <td class="py-3 px-3 text-center text-xs text-gray-500">${p.type}</td>
+                <td class="py-3 px-3 text-center font-mono text-gray-400">${getQCount(p.data)}</td>
+                <td class="py-3 px-4 text-right">
+                    <div class="opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                        <button class="text-indigo-600 hover:bg-indigo-100 px-3 py-1 rounded-full text-xs font-bold" onclick="viewPresetBank(${p._originalIndex})">檢視</button>
+                        <button class="bg-indigo-600 text-white px-4 py-1 rounded-full text-xs font-bold ml-1 shadow-sm hover:bg-indigo-700" onclick="playPresetBank(${p._originalIndex})">載入</button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    const countDisplay = document.getElementById('bankCountDisplay');
+    if (countDisplay) countDisplay.textContent = `共 ${filtered.length} 筆`;
+}
+
+// 6. 綁定事件監聽器
+if (bankSearchInput) {
+    bankSearchInput.addEventListener('input', (e) => {
+        bankState.search = e.target.value;
+        if (btnClearBankSearch) btnClearBankSearch.classList.toggle('hidden', e.target.value === '');
+        renderBankContent();
+    });
+    if (btnClearBankSearch) {
+        btnClearBankSearch.addEventListener('click', () => {
+            bankSearchInput.value = '';
+            bankState.search = '';
+            btnClearBankSearch.classList.add('hidden');
+            bankSearchInput.focus();
+            renderBankContent();
+        });
+    }
+}
+
+const typeFilter = document.getElementById('bankTypeFilter');
+if (typeFilter) {
+    typeFilter.addEventListener('change', (e) => {
+        bankState.type = e.target.value;
+        renderBankContent();
+    });
+}
+
+document.querySelectorAll('#bankModeContainer th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+        const col = th.dataset.sort;
+        if (bankState.sortCol === col) bankState.sortAsc = !bankState.sortAsc; 
+        else { bankState.sortCol = col; bankState.sortAsc = true; }
+        renderBankContent();
+    });
+});
+
+document.getElementById('btnOpenBankSidebar')?.addEventListener('click', toggleBankSidebar);
+document.getElementById('bankSidebarOverlay')?.addEventListener('click', window.closeBankSidebar);
+document.getElementById('btnCloseBankSidebar')?.addEventListener('click', window.closeBankSidebar);
+
+// 7. 攔截 switchMode (加入啟動時初始化題庫功能)
+const originalSwitchMode = window.switchMode;
+window.switchMode = function(mode, isForce = false) {
+    if (mode === 'bank') {
+        initBankCenter();
+    }
+    if (typeof originalSwitchMode === 'function') originalSwitchMode(mode, isForce);
+};
+
+// 8. 檢視與載入按鈕邏輯
+window.viewPresetBank = function(index) {
+    const preset = window.presetBank[index];
+    if (!preset) return;
+    window.currentLoadedBank = { id: preset.id, name: preset.name };
+    editor.value = preset.data;
+    sheetTabs[activeSheetIndex].name = preset.name;
+    switchMode('table', true); 
+    saveAllTabsData();
+    renderSheetTabs();
+    showToast(`👀 已檢視題庫：${preset.name}`);
+};
+
+// ✨ 修正版：明確標記來源，防止返回路徑遺失
+window.playPresetBank = function(index, forcedMode = null) {
+    const preset = window.presetBank[index];
+    if (!preset) return;
+
+    // ✨ 重要：手動強制標記來源為題庫中心
+    window.originModeForGame = 'bank';
+
+    // 1. 備份使用者原本的資料
+    const backupText = editor.value;
+
+    // 2. 注入題庫資料並背景渲染表格
+    editor.value = preset.data;
+    window.currentLoadedBank = { id: preset.id, name: preset.name };
+    renderTableFromText(preset.data);
+
+    // 3. 設定遊戲模式
+    let targetMode = 'matching'; 
+    if (preset.type === '問答') targetMode = 'live';
+    else if (preset.type === '選擇') targetMode = 'choice';
+
+    showToast(`🚀 啟動線上題庫：${preset.name}...`);
+
+    setTimeout(() => {
+        if (typeof initGameColOptions === 'function') initGameColOptions();
+        
+        let mcConfig = null;
+        if (targetMode === 'choice' && window.currentGameConfigs && window.currentGameConfigs.mcConfig) {
+            mcConfig = window.currentGameConfigs.mcConfig;
+        }
+        
+        let matchPairs = typeof gameMatchPairs !== 'undefined' ? gameMatchPairs : [];
+        if (!matchPairs || matchPairs.length === 0) {
+            matchPairs = [{ id: Date.now(), termCol: 0, defCol: 1, customName: '' }];
+        }
+        
+        window.currentGameConfigs = {
+            activeBankCols: typeof gameActiveBankCols !== 'undefined' ? gameActiveBankCols : [0, 1],
+            matchPairs: matchPairs,
+            mcConfig: mcConfig,
+            hasHeader: (typeof chkHasHeader !== 'undefined' && chkHasHeader) ? chkHasHeader.checked : true, 
+            hasCategory: false, 
+            colC: -1, 
+            filterCategory: 'ALL',
+            validColsSignature: window.currentGameConfigs ? window.currentGameConfigs.validColsSignature : ''
+        };
+        localStorage.setItem('wesing-game-configs', JSON.stringify(window.currentGameConfigs));
+        
+        // 進入遊戲模式
+        switchMode(targetMode, true);
+
+        // 4. 恢復編輯器原始文字     
+		switchMode(targetMode, true, preset.data);
+        editor.value = backupText;
+    }, 100); 
+};
+
+// 系統啟動進入點
 document.addEventListener('DOMContentLoaded', () => {
     init();
 });
