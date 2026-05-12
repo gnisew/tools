@@ -1429,7 +1429,8 @@
                     </button>
                     <div class="flex items-center gap-2 text-indigo-700 font-bold ml-1 cursor-pointer hover:opacity-75 transition-opacity" onclick="setBankCategory('ALL')" title="回到總題庫">
                         <span class="material-symbols-outlined text-[24px] hidden sm:block">cloud</span>
-                        <span class="text-lg whitespace-nowrap tracking-wide">烏衣行題庫</span>
+
+						<h2 class="text-xl font-black text-indigo-950 tracking-tighter cursor-pointer hover:text-indigo-600 transition-colors" onclick="setBankCategory('ALL')" title="回題庫首頁">烏衣行題庫</h2>
                     </div>
                 </div>
 
@@ -1462,24 +1463,15 @@
                     </div>
                     <div class="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                         <table class="w-full text-left border-collapse text-sm">
-                            <thead class="bg-gray-50 border-b border-gray-200">
-                                <tr class="text-gray-600">
-                                    <th class="py-3.5 px-4 font-bold cursor-pointer hover:bg-gray-100 transition-colors" data-sort="name">
-                                        <div class="flex items-center gap-1 text-[13px] whitespace-nowrap">
-                                            名稱 <span class="sort-icon material-symbols-outlined text-[16px] text-indigo-600 transition-opacity opacity-0">arrow_downward</span>
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-gray-200">
+                                    <th class="py-3 px-3 md:px-5 font-bold text-gray-500 cursor-pointer hover:text-indigo-600 transition-colors w-full" onclick="sortBank('name')">
+                                        <div class="flex items-center gap-1">
+                                            題庫資訊
+                                            <span id="sort-icon-name" class="sort-icon material-symbols-outlined text-[16px] opacity-0 text-indigo-600 transition-opacity">arrow_downward</span>
                                         </div>
                                     </th>
-                                    <th class="py-3.5 px-3 font-bold cursor-pointer hover:bg-gray-100 text-center w-24 transition-colors" data-sort="type">
-                                        <div class="flex items-center justify-center gap-1 text-[13px] whitespace-nowrap">
-                                            題型 <span class="sort-icon material-symbols-outlined text-[16px] opacity-0 text-indigo-600 transition-opacity">arrow_downward</span>
-                                        </div>
-                                    </th>
-                                    <th class="py-3.5 px-3 font-bold cursor-pointer hover:bg-gray-100 text-center w-24 transition-colors" data-sort="count">
-                                        <div class="flex items-center justify-center gap-1 text-[13px] whitespace-nowrap">
-                                            題數 <span class="sort-icon material-symbols-outlined text-[16px] opacity-0 text-indigo-600 transition-opacity">arrow_downward</span>
-                                        </div>
-                                    </th>
-                                    <th class="py-3.5 px-4 font-bold text-right w-32 text-[13px] whitespace-nowrap">操作</th>
+                                    <th class="py-3 px-3 md:px-5 font-bold text-right w-[1%] text-[12px] md:text-[13px] whitespace-nowrap">操作</th>
                                 </tr>
                             </thead>
                             <tbody id="bankTableBody" class="text-gray-700 bg-white">

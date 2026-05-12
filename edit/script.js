@@ -1319,6 +1319,98 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
+// ==========================================
+// ✨ 智慧格式解析引擎 (Auto-Detector)
+// 自動判定任何題庫格式的欄位配置
+// ==========================================
+window.analyzeTableHeaders = function(dataText) {
+    if (!dataText) return null;
+    const lines = dataText.trim().split('\n');
+    if (lines.length === 0) return null;
+
+    // 取得第一行並清除引號
+    const headers = lines[0].split('\t').map(s => s.trim().replace(/"/g, ''));
+    const maxCols = lines.reduce((max, l) => Math.max(max, l.split('\t').length), headers.length);
+    const activeCols = Array.from({length: maxCols}, (_, i) => i);
+
+    let qCol = -1, ansCol = -1, catCol = -1;
+    let optCols = [];
+    let isFixed = false;
+    let matchTermCol = -1, matchDefCol = -1;
+
+    // 1. 關鍵字智慧比對
+    headers.forEach((h, i) => {
+        const text = h.toLowerCase();
+        
+        if (text.includes('分類') || text.includes('單元') || text.includes('主題')) {
+            catCol = i;
+        } 
+        else if ((text.includes('題') || text.includes('問')) && !text.includes('題數') && qCol === -1 && !text.includes('答')) {
+            qCol = i;
+            matchTermCol = i; // 配對遊戲的題目
+        } 
+        else if (text === '答案' || text === '解答' || text === '答' || text === '正解') {
+            ansCol = i;
+            if (matchDefCol === -1) matchDefCol = i;
+        } 
+        else if (text.includes('正確') || text === '正') {
+            optCols.push(i);
+            // 如果遇到「正確選項」，代表答案是固定的某個選項
+            if (!isFixed) {
+                ansCol = 'fixed_' + optCols.length; // 例如第一個找到的選項，就是 fixed_1
+                isFixed = true;
+                if (matchDefCol === -1) matchDefCol = i;
+            }
+        } 
+        else if (text.includes('錯') || text.includes('選項') || /^[a-d1-4]$/i.test(text)) {
+            // 包含「錯誤」、「選項」或是單純寫 A, B, C, D 的欄位
+            optCols.push(i);
+        }
+    });
+
+    // 2. 找不到關鍵字時的「盲猜補全邏輯」
+    if (qCol === -1) { qCol = 0; matchTermCol = 0; }
+    if (matchDefCol === -1) matchDefCol = 1;
+
+    // 若沒有明確寫出「選項」，就把除了題目、答案、分類以外的欄位全當作選項
+    if (optCols.length === 0) {
+        for (let i = 0; i < maxCols; i++) {
+            if (i !== qCol && i !== (typeof ansCol === 'number' ? ansCol : -1) && i !== catCol) {
+                optCols.push(i);
+            }
+        }
+    }
+
+    // ✨ 核心修正：將 ansCol 轉為系統認得的字串格式 (col_X 或 fixed_X)
+    if (ansCol === -1) {
+        ansCol = optCols.length > 0 ? 'fixed_1' : 'col_1'; 
+    } else if (typeof ansCol === 'number') {
+        ansCol = 'col_' + ansCol;
+    }
+
+    // 確保產生 4 個選項對應 (即使資料欄位不足，也不會讓系統當機)
+    const o1 = optCols.length > 0 ? optCols[0] : (maxCols > 1 ? 1 : 0);
+    const o2 = optCols.length > 1 ? optCols[1] : (maxCols > 2 ? 2 : o1);
+    const o3 = optCols.length > 2 ? optCols[2] : (maxCols > 3 ? 3 : o2);
+    const o4 = optCols.length > 3 ? optCols[3] : (maxCols > 4 ? 4 : o3);
+
+    // 判斷這行到底是不是標題
+    const isLikelyHeader = /題|答|選|正|錯|分|單元|主題/.test(headers.join(''));
+
+    return {
+        hasHeader: isLikelyHeader,
+        activeCols: activeCols,
+        catCol: catCol,
+        mcConfig: { qCol, o1Col: o1, o2Col: o2, o3Col: o3, o4Col: o4, ansCol },
+        matchConfig: { termCol: matchTermCol, defCol: matchDefCol }
+    };
+};
+
+
+
+
+
+
 
 
 /* ---------------------------------
@@ -10318,8 +10410,34 @@ function switchSheet(index) {
 // 刪除工作表
 function deleteSheet(index) {
     if (sheetTabs.length <= 1) {
-        return showToast('⚠️ 至少需保留一個工作表');
+        showConfirm('清空工作表', `目前僅剩一個工作表，刪除將會「清空」目前所有內容並保留結構。你確定嗎？`, () => {
+            // 1. 清空編輯器的純文字資料
+            editor.value = '';
+            
+            // 2. 根據目前所在的模式，立即重置畫面
+            if (currentMode === 'text') {
+                updateLineNumbers();
+            } else if (currentMode === 'table') {
+                renderTableFromText(''); // 表格模式下重繪空表格
+            } else if (currentMode === 'chat') {
+                const chatArea = document.getElementById('chatMessagesArea');
+                if (chatArea) chatArea.innerHTML = ''; // 清空對話氣泡
+            }
+            
+            // 3. 儲存至歷史紀錄與分頁資料
+            saveHistoryState();
+            saveAllTabsData();
+            
+            // 4. ✨ 額外加分：清空後自動重新命名為「工作表1」，保持介面整潔
+            sheetTabs[0].name = '工作表1';
+            renderSheetTabs();
+            
+            showToast('🗑️ 工作表內容已完全清空');
+        });
+        return;
     }
+
+    // 原有的多頁籤刪除邏輯
     showConfirm('刪除工作表', `確定要刪除「${sheetTabs[index].name}」嗎？此操作無法復原。`, () => {
         sheetTabs.splice(index, 1);
         if (activeSheetIndex >= sheetTabs.length) {
@@ -10327,6 +10445,7 @@ function deleteSheet(index) {
         }
         
         const newTab = sheetTabs[activeSheetIndex];
+        if (!newTab.history) newTab.history = [newTab.content];
         historyStack = newTab.history;
         editor.value = newTab.content;
 
@@ -10880,6 +10999,46 @@ function initGameColOptions() {
     }
 
     renderGameMatchPairs();
+	// ==========================================
+        // ✨ 附加：開啟設定時，自動偵測並選取正確的下拉選單
+        // ==========================================
+        let currentText = editor.value;
+        const tableContainer = document.getElementById('tableModeContainer');
+        if (tableContainer && tableContainer.style.display !== 'none') {
+            currentText = extractTextFromTable(); // 如果在表格模式，抓表格最新資料
+        }
+
+        const analysis = analyzeTableHeaders(currentText);
+        if (analysis) {
+            // 幫使用者打勾「首列為標題」
+            const chkHasHeader = document.getElementById('chkHasHeader');
+            if (chkHasHeader) chkHasHeader.checked = analysis.hasHeader;
+
+            // 自動選取「分類」
+            const ddCategory = document.getElementById('dd-category-col');
+            if (ddCategory) ddCategory.value = analysis.catCol;
+
+            // 自動選取「配對遊戲」欄位
+            const ddMatchTerm = document.getElementById('dd-match-term-1');
+            const ddMatchDef = document.getElementById('dd-match-def-1');
+            if (ddMatchTerm) ddMatchTerm.value = analysis.matchConfig.termCol;
+            if (ddMatchDef) ddMatchDef.value = analysis.matchConfig.defCol;
+
+            // 自動選取「選擇題」欄位
+            const ddMcQ = document.getElementById('dd-mc-q');
+            const ddMcO1 = document.getElementById('dd-mc-o1');
+            const ddMcO2 = document.getElementById('dd-mc-o2');
+            const ddMcO3 = document.getElementById('dd-mc-o3');
+            const ddMcO4 = document.getElementById('dd-mc-o4');
+            const ddMcAns = document.getElementById('dd-mc-ans');
+            
+            if (ddMcQ) ddMcQ.value = analysis.mcConfig.qCol;
+            if (ddMcO1) ddMcO1.value = analysis.mcConfig.o1Col;
+            if (ddMcO2) ddMcO2.value = analysis.mcConfig.o2Col;
+            if (ddMcO3) ddMcO3.value = analysis.mcConfig.o3Col;
+            if (ddMcO4) ddMcO4.value = analysis.mcConfig.o4Col;
+            if (ddMcAns) ddMcAns.value = analysis.mcConfig.ansCol;
+        }
 }
 
 // 根據題庫重新渲染分類與匹配清單
@@ -12471,8 +12630,12 @@ window.setBankCategory = function(cat) {
     renderBankSidebar();
     renderBankContent();
     
-    // ✨ 補全：將當前分類同步到網址中
+    // ✨ 核心修改：只要使用者點擊分類或標題，就清除題庫載入記憶與網址參數
+    window.currentLoadedBank = null; 
+    
     const newUrl = new URL(window.location.href);
+    newUrl.searchParams.delete('bank'); // 清除 bank 參數
+    
     if (cat === 'ALL') {
         newUrl.searchParams.delete('cat'); 
     } else {
@@ -12485,25 +12648,9 @@ window.setBankCategory = function(cat) {
     }
     window.history.replaceState({}, '', newUrl);
 
-    setTimeout(() => {
-        // 1. 抓取所有題庫區塊可能的捲動容器 (包含主容器與內部列表)
-        const scrollContainers = document.querySelectorAll('#bankModeContainer, #bankModeContainer .flex-1, #bankModeContainer .overflow-y-auto, .overflow-y-auto, #mainContainer');
-        
-        scrollContainers.forEach(container => {
-            // 平滑捲動回頂部 (如果瀏覽器支援的話)
-            if (typeof container.scrollTo === 'function') {
-                container.scrollTo({ top: 0, behavior: 'smooth' });
-            } else {
-                container.scrollTop = 0;
-            }
-        });
-        
-        // 2. 雙重保險：確保整個網頁視窗也回到最上方
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        
-    }, 50); // 給予 50 毫秒的緩衝，確保畫面高度已經計算完畢
-    
-    if (window.innerWidth < 768) window.closeBankSidebar();
+    // 切換分類時，右側內容捲動回頂端
+    const bankRightContent = document.getElementById('bankRightContent');
+    if (bankRightContent) bankRightContent.scrollTop = 0;
 };
 
 // 4. 側邊欄開關邏輯 (使用 width 切換，防止排版錯亂)
@@ -12603,20 +12750,48 @@ window.renderBankContent = function() {
     // 渲染檔案列表
     filesView.classList.remove('hidden');
     if (filtered.length === 0) {
-        bankTableBody.innerHTML = `<tr><td colspan="4" class="text-center py-10 text-gray-400 font-bold bg-white">找不到符合條件的題庫</td></tr>`;
+        bankTableBody.innerHTML = `<tr><td colspan="2" class="text-center py-10 text-gray-400 font-bold bg-white">找不到符合條件的題庫</td></tr>`;
     } else {
         bankTableBody.innerHTML = filtered.map(p => `
-            <tr class="hover:bg-blue-50/50 transition-colors group border-b border-gray-100">
-                <td class="py-3 px-4 flex items-center gap-3 cursor-pointer" ondblclick="playPresetBank(${p._originalIndex})" title="連按兩下直接載入">
-                    <span class="material-symbols-outlined text-gray-400 group-hover:text-indigo-500">description</span>
-                    <span class="font-bold truncate max-w-[200px] sm:max-w-[400px] select-none">${p.name}</span>
+            <tr class="hover:bg-blue-50/50 transition-colors border-b border-gray-100 group">
+                
+                <td class="py-3 px-3 md:px-5 cursor-pointer w-full max-w-0" ondblclick="playPresetBank(${p._originalIndex})">
+                    <div class="flex items-center">
+                        <span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-50 text-indigo-600 shrink-0 border border-indigo-100/50 shadow-sm mr-2">${p.type}</span>
+                        
+                        <div class="flex items-center min-w-0 flex-1 overflow-hidden">
+                            <span class="font-bold truncate text-gray-800 text-sm md:text-base">${p.name}</span>
+                            
+                            <span class="text-xs font-mono text-gray-400 ml-1 whitespace-nowrap group-hover:hidden">(${getQCount(p.data)}題)</span>
+                        </div>
+
+                        <div class="hidden group-hover:flex shrink-0 ml-2">
+                            <button class="bg-indigo-600 text-white px-3 py-0.5 rounded-full text-[11px] font-bold shadow-sm hover:bg-indigo-700 whitespace-nowrap" onclick="playPresetBank(${p._originalIndex})">載入</button>
+                        </div>
+                    </div>
                 </td>
-                <td class="py-3 px-3 text-center text-xs text-gray-500">${p.type}</td>
-                <td class="py-3 px-3 text-center font-mono text-gray-400">${getQCount(p.data)}</td>
-                <td class="py-3 px-4 text-right">
-                    <div class="opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                        <button class="text-indigo-600 hover:bg-indigo-100 px-3 py-1 rounded-full text-xs font-bold" onclick="viewPresetBank(${p._originalIndex})">檢視</button>
-                        <button class="bg-indigo-600 text-white px-4 py-1 rounded-full text-xs font-bold ml-1 shadow-sm hover:bg-indigo-700" onclick="playPresetBank(${p._originalIndex})">載入</button>
+                
+                <td class="py-2 px-3 md:px-5 text-right whitespace-nowrap w-[1%]">
+                    <div class="relative shrink-0">
+                        <button class="p-1 text-gray-400 hover:text-indigo-600 rounded-full hover:bg-indigo-50 transition-colors focus:outline-none" onclick="toggleBankMenu(event, this)">
+                            <span class="material-symbols-outlined text-xl block">more_vert</span>
+                        </button>
+                        
+                        <div class="bank-action-menu hidden absolute right-0 top-full mt-1 w-36 bg-white rounded-lg shadow-xl border border-gray-100 z-[100]">
+                            <div class="py-1">
+                                <button class="w-full text-left px-4 py-2.5 text-sm font-bold text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-3 transition-colors" onclick="viewPresetBank(${p._originalIndex})">
+                                    <span class="material-symbols-outlined text-[18px]">visibility</span>
+                                    檢視題庫
+                                </button>
+                                
+                                ${p.type !== '問答' ? `
+                                <button class="w-full text-left px-4 py-2.5 text-sm font-bold text-pink-600 hover:bg-pink-50 flex items-center gap-3 transition-colors border-t border-gray-50" onclick="playPresetBank(${p._originalIndex}, 'arena')">
+                                    <span class="material-symbols-outlined text-[18px]">sports_esports</span>
+                                    連線對戰
+                                </button>
+                                ` : ''}
+                            </div>
+                        </div>
                     </div>
                 </td>
             </tr>
@@ -12626,6 +12801,54 @@ window.renderBankContent = function() {
     const countDisplay = document.getElementById('bankCountDisplay');
     if (countDisplay) countDisplay.textContent = `共 ${filtered.length} 筆`;
 }
+// ==========================================
+// 題庫中心：三個點選單控制與智慧定位邏輯
+// ==========================================
+window.toggleBankMenu = function(event, btn) {
+    event.stopPropagation(); // 防止點擊事件往上傳遞
+    
+    const menu = btn.nextElementSibling;
+    const isHidden = menu.classList.contains('hidden');
+    
+    // 1. 先把畫面上所有打開的選單都關閉，並將方向重置為「向下」
+    document.querySelectorAll('.bank-action-menu').forEach(m => {
+        m.classList.add('hidden');
+        m.classList.remove('bottom-full', 'mb-1'); // 移除向上長出的設定
+        m.classList.add('top-full', 'mt-1');       // 恢復向下長出的預設
+    });
+    
+    // 2. 如果原本是關閉的，就打開並計算空間
+    if (isHidden) {
+        menu.classList.remove('hidden'); // 先顯示，才能抓到真實高度
+        
+        // 取得按鈕在螢幕上的位置座標
+        const rect = btn.getBoundingClientRect();
+        // 取得選單展開後的實際高度
+        const menuHeight = menu.offsetHeight;
+        // 取得目前瀏覽器視窗的總高度
+        const windowHeight = window.innerHeight;
+        
+        if (windowHeight - rect.bottom < menuHeight + 20) {
+            // 空間不夠！把 Tailwind 的類別反轉，讓選單「往上展開」
+            menu.classList.remove('top-full', 'mt-1');
+            menu.classList.add('bottom-full', 'mb-1');
+        }
+    }
+};
+
+// 點擊網頁任意空白處時，自動關閉所有打開的選單
+document.addEventListener('click', () => {
+    document.querySelectorAll('.bank-action-menu').forEach(m => {
+        m.classList.add('hidden');
+        m.classList.remove('bottom-full', 'mb-1');
+        m.classList.add('top-full', 'mt-1');
+    });
+});
+
+
+
+
+
 
 // 6. 綁定事件監聽器
 if (bankSearchInput) {
@@ -12688,12 +12911,12 @@ window.viewPresetBank = function(index) {
     showToast(`👀 已檢視題庫：${preset.name}`);
 };
 
-// ✨ 修正版：明確標記來源，防止返回路徑遺失
+// ✨ 修正版：支援 forcedMode 網址啟動，並完美支援 Arena 連線捷徑
 window.playPresetBank = function(index, forcedMode = null) {
     const preset = window.presetBank[index];
     if (!preset) return;
 
-    // ✨ 重要：手動強制標記來源為題庫中心
+    // 手動強制標記來源為題庫中心
     window.originModeForGame = 'bank';
 
     // 1. 備份使用者原本的資料
@@ -12704,44 +12927,47 @@ window.playPresetBank = function(index, forcedMode = null) {
     window.currentLoadedBank = { id: preset.id, name: preset.name };
     renderTableFromText(preset.data);
 
-    // 3. 設定遊戲模式
-    let targetMode = 'matching'; 
-    if (preset.type === '問答') targetMode = 'live';
-    else if (preset.type === '選擇') targetMode = 'choice';
+    // 3. 設定遊戲模式 (✨ 優先套用網址或捷徑傳入的 forcedMode)
+    let targetMode = forcedMode || 'matching'; 
+    if (!forcedMode) {
+        if (preset.type === '問答') targetMode = 'live';
+        else if (preset.type === '選擇') targetMode = 'choice';
+    }
 
     showToast(`🚀 啟動線上題庫：${preset.name}...`);
 
     setTimeout(() => {
+        // 呼叫智慧分析引擎，瞬間破解題庫格式！
+        const analysis = analyzeTableHeaders(preset.data);
+
+        // 如果原系統有初始化選項的函數，先呼叫它
         if (typeof initGameColOptions === 'function') initGameColOptions();
         
-        let mcConfig = null;
-        if (targetMode === 'choice' && window.currentGameConfigs && window.currentGameConfigs.mcConfig) {
-            mcConfig = window.currentGameConfigs.mcConfig;
-        }
-        
-        let matchPairs = typeof gameMatchPairs !== 'undefined' ? gameMatchPairs : [];
-        if (!matchPairs || matchPairs.length === 0) {
-            matchPairs = [{ id: Date.now(), termCol: 0, defCol: 1, customName: '' }];
-        }
-        
+        // 直接將分析結果寫入系統設定
         window.currentGameConfigs = {
-            activeBankCols: typeof gameActiveBankCols !== 'undefined' ? gameActiveBankCols : [0, 1],
-            matchPairs: matchPairs,
-            mcConfig: mcConfig,
-            hasHeader: (typeof chkHasHeader !== 'undefined' && chkHasHeader) ? chkHasHeader.checked : true, 
-            hasCategory: false, 
-            colC: -1, 
+            activeBankCols: analysis.activeCols,
+            matchPairs: [{ 
+                id: Date.now(), 
+                termCol: analysis.matchConfig.termCol, 
+                defCol: analysis.matchConfig.defCol, 
+                customName: '' 
+            }],
+            // ✨ 核心修正：不再限制只有 choice 才能存入 mcConfig，讓 arena 也能讀取到選擇題配置
+            mcConfig: analysis.mcConfig,
+            hasHeader: analysis.hasHeader,
+            hasCategory: analysis.catCol !== -1, 
+            colC: analysis.catCol, 
             filterCategory: 'ALL',
-            validColsSignature: window.currentGameConfigs ? window.currentGameConfigs.validColsSignature : ''
+            validColsSignature: analysis.activeCols.join(',')
         };
         localStorage.setItem('wesing-game-configs', JSON.stringify(window.currentGameConfigs));
         
         // 進入遊戲模式
-        switchMode(targetMode, true);
+        switchMode(targetMode, true, preset.data);
 
-        // 4. 恢復編輯器原始文字     
-		switchMode(targetMode, true, preset.data);
+        // 4. 恢復編輯器原始文字
         editor.value = backupText;
+        
     }, 100); 
 };
 
