@@ -6890,7 +6890,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const hasMultiCells = document.querySelectorAll('#data-table td.sel-bg').length > 0;
                     const hasSingleCellOutline = document.querySelectorAll('#data-table td[style*="inset"]').length > 0;
                     const isEditing = document.activeElement && document.activeElement.classList.contains('td-inner');
-                    if (!isEditing && (hasMultiCells || hasSingleCellOutline)) hasSelection = true;
+                    if (hasMultiCells || hasSingleCellOutline || isEditing) hasSelection = true;
                 }
             } else {
                 // 💡 加入便利貼的選取判定
@@ -7814,119 +7814,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const editor = document.getElementById('editor');
             const isTableMode = currentMode === 'table';
 
-            // 🌟 新增：優先攔截並處理白板便利貼的「多選」轉換 (支援主翻譯流程)
-            let selectedNotes = document.querySelectorAll('.sticky-note.ring-2');
-            if (selectedNotes.length > 0) {
-                const activeQId = window.currentSpaceData?.currentQuestionData?.id;
-                let currentMods = {};
-                if (activeQId) currentMods = window.currentSpaceData[`board_mods_${activeQId}`] || {};
-
-                // 🚀 高效能批次處理引擎 (一次性將所有便利貼文字打包送出)
-                const SAFE_SEP = '\n\uFDD0\n';
-                const DUMMY_PREFIX = '\uFDD1';
-                const DUMMY_SUFFIX = '\uFDD2';
-
-                const notesArray = Array.from(selectedNotes);
-                const originalTexts = notesArray.map(note => {
-                    const contentEl = note.querySelector('.note-text-content');
-                    return contentEl ? (contentEl.innerText || contentEl.textContent) : '';
-                });
-
-                const combinedText = DUMMY_PREFIX + originalTexts.join(SAFE_SEP) + DUMMY_SUFFIX;
-                
-                // ⚡ 只 await 一次！
-                let processedCombined = await processText(combinedText);
-
-                if (processedCombined.startsWith(DUMMY_PREFIX)) processedCombined = processedCombined.substring(DUMMY_PREFIX.length);
-                if (processedCombined.endsWith(DUMMY_SUFFIX)) processedCombined = processedCombined.substring(0, processedCombined.length - DUMMY_SUFFIX.length);
-
-                const processedTexts = processedCombined.split(SAFE_SEP);
-
-                // 將轉換結果一次性寫回 DOM 與 Firebase 暫存物件
-                for (let i = 0; i < notesArray.length; i++) {
-                    const note = notesArray[i];
-                    const contentEl = note.querySelector('.note-text-content');
-                    if (contentEl) {
-                        let newText = processedTexts[i] !== undefined ? processedTexts[i] : await processText(originalTexts[i]);
-                        contentEl.innerText = newText; 
-                        
-                        const bodyEl = note.querySelector('.note-body');
-                        if (bodyEl) bodyEl.setAttribute('data-first-char', (newText || '').trim().charAt(0) || '');
-
-                        const noteId = note.dataset.id;
-                        if (activeQId && noteId) {
-                            currentMods[noteId] = { ...currentMods[noteId], text: newText };
-                        }
-                    }
-                }
-
-                // 批次寫入資料庫
-                if (activeQId && window.currentSpaceCode && typeof db !== 'undefined') {
-                    db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods }).catch(()=>{});
-                }
-                if (typeof debouncedSaveHistory === 'function') debouncedSaveHistory();
-                showToast('✅ 便利貼翻譯完成');
-                return; 
-            }
-
-            // ====== ✨ 確保變數完美定義 (修復 ReferenceError) ======
-            const sel = window.getSelection();
-            const hasDivSelection = sel && sel.toString().trim().length > 0;
-
-            let activeEl = document.activeElement; 
-            let isInputTarget = activeEl && (activeEl.tagName === 'TEXTAREA' || (activeEl.tagName === 'INPUT' && ['text', 'search', 'number', 'password', 'url', 'tel'].includes(activeEl.type)));
-
-            // 💡 修正 1：如果畫面上有純文字反白，優先使用反白文字，忽略歷史輸入框綁架
-            if (!hasDivSelection && !isInputTarget && window.lastFocusedInput && document.body.contains(window.lastFocusedInput)) {
-                activeEl = window.lastFocusedInput;
-                isInputTarget = true;
-            }
-
-            // 💡 修正 2：優先處理任何彈出視窗或介面上的輸入框 (例如：白板便利貼的視窗)
-            if (isInputTarget && activeEl !== editor) {
-                let start = 0, end = 0;
-                try { start = activeEl.selectionStart; end = activeEl.selectionEnd; } catch(e) {}
-                let text = (start !== end) ? activeEl.value.substring(start, end) : activeEl.value;
-                text = await processText(text);
-                
-                if (start !== end) {
-                    try { activeEl.setRangeText(text, start, end, 'select'); } catch(e) { activeEl.value = text; }
-                } else {
-                    activeEl.value = text;
-                }
-                activeEl.dispatchEvent(new Event('input', { bubbles: true }));
-            } 
-            // 處理純文字模式 (主編輯器)
-            else if (currentMode === 'text' && editor) {
-                let start = 0, end = 0;
-                try { start = editor.selectionStart; end = editor.selectionEnd; } catch(e) {}
-                let text = (start !== end) ? editor.value.substring(start, end) : editor.value;
-                text = await processText(text);
-                
-                if (start !== end) {
-                    try { editor.setRangeText(text, start, end, 'select'); } catch(e) { editor.value = text; }
-                } else {
-                    editor.value = text;
-                }
-            } 
-            // 處理 Live 等其他模式的畫面純文字反白
-            else if (hasDivSelection && !isTableMode) {
-                const originalText = sel.toString();
-                let text = await processText(originalText);
-                
-                const range = sel.getRangeAt(0); 
-                range.deleteContents(); 
-                range.insertNode(document.createTextNode(text));
-            }
-            // 處理表格模式 (當沒有選取任何輸入框時，才去抓表格)
-            else if (isTableMode) {
+            // =======================================================
+            // ✨ 核心修正：嚴格依據模式隔離執行邏輯，防止焦點互相綁架
+            // =======================================================
+            if (isTableMode) {
+                // --- 表格模式專屬處理 ---
                 const tableContainer = document.getElementById('tableModeContainer');
+                const sel = window.getSelection();
+                const hasDivSelection = sel && sel.toString().trim().length > 0;
+
                 if (hasDivSelection && tableContainer && tableContainer.contains(sel.anchorNode)) {
+                    // 處理儲存格內的「純文字反白」
                     let text = await processText(sel.toString());
                     const range = sel.getRangeAt(0); 
                     range.deleteContents(); 
                     range.insertNode(document.createTextNode(text));
                 } else {
+                    // 處理單一或多個「儲存格選取」
                     let selectedCells = Array.from(document.querySelectorAll('table#data-table td.sel-bg .td-inner'));
                     if (selectedCells.length === 0) {
                         let activeCell = document.activeElement.closest('.td-inner') || (document.activeElement.classList && document.activeElement.classList.contains('td-inner') ? document.activeElement : null);
@@ -7940,35 +7844,116 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (selectedCells.length === 0) { alert("請先選取要處理的文字或儲存格！"); return; }
                     
                     const SAFE_SEP = '\n\uFDD0\n';
-					const DUMMY_PREFIX = '\uFDD1';
-					const DUMMY_SUFFIX = '\uFDD2';         
+                    const DUMMY_PREFIX = '\uFDD1';
+                    const DUMMY_SUFFIX = '\uFDD2';         
                     const originalTexts = selectedCells.map(cell => cell.innerText || cell.textContent);
                     const combinedText = DUMMY_PREFIX + originalTexts.join(SAFE_SEP) + DUMMY_SUFFIX;
                     
                     let processedCombined = await processText(combinedText);
                     
-                    // 移除頭尾的安全防護罩
                     if (processedCombined.startsWith(DUMMY_PREFIX)) processedCombined = processedCombined.substring(DUMMY_PREFIX.length);
                     if (processedCombined.endsWith(DUMMY_SUFFIX)) processedCombined = processedCombined.substring(0, processedCombined.length - DUMMY_SUFFIX.length);
                     
                     const processedTexts = processedCombined.split(SAFE_SEP);
                     
-                    // 一次性寫回所有資料
                     for (let i = 0; i < selectedCells.length; i++) {
                         const cell = selectedCells[i];
-                        // 雙重保險防呆：如果因不明原因分割失敗，該格降級回單獨處理
                         const newText = processedTexts[i] !== undefined ? processedTexts[i] : await processText(originalTexts[i]);
                         cell.innerText = newText;
                         if (cell.hasAttribute('data-formula')) cell.removeAttribute('data-formula');
                     }
                 }
-            }
-            // 其他模式的純選取文字處理
+            } 
+            else if (currentMode === 'text' && editor) {
+                // --- 文字模式專屬處理 ---
+                let start = 0, end = 0;
+                try { start = editor.selectionStart; end = editor.selectionEnd; } catch(e) {}
+                let text = (start !== end) ? editor.value.substring(start, end) : editor.value;
+                text = await processText(text);
+                
+                if (start !== end) {
+                    try { editor.setRangeText(text, start, end, 'select'); } catch(e) { editor.value = text; }
+                } else {
+                    editor.value = text;
+                }
+            } 
             else {
-                if (hasDivSelection) {
+                // --- 其他模式處理 (Live / Chat / 便利貼) ---
+                let selectedNotes = document.querySelectorAll('.sticky-note.ring-2');
+                if (selectedNotes.length > 0) {
+                    const activeQId = window.currentSpaceData?.currentQuestionData?.id;
+                    let currentMods = {};
+                    if (activeQId) currentMods = window.currentSpaceData[`board_mods_${activeQId}`] || {};
+
+                    const SAFE_SEP = '\n\uFDD0\n';
+                    const DUMMY_PREFIX = '\uFDD1';
+                    const DUMMY_SUFFIX = '\uFDD2';
+
+                    const notesArray = Array.from(selectedNotes);
+                    const originalTexts = notesArray.map(note => {
+                        const contentEl = note.querySelector('.note-text-content');
+                        return contentEl ? (contentEl.innerText || contentEl.textContent) : '';
+                    });
+
+                    const combinedText = DUMMY_PREFIX + originalTexts.join(SAFE_SEP) + DUMMY_SUFFIX;
+                    let processedCombined = await processText(combinedText);
+
+                    if (processedCombined.startsWith(DUMMY_PREFIX)) processedCombined = processedCombined.substring(DUMMY_PREFIX.length);
+                    if (processedCombined.endsWith(DUMMY_SUFFIX)) processedCombined = processedCombined.substring(0, processedCombined.length - DUMMY_SUFFIX.length);
+
+                    const processedTexts = processedCombined.split(SAFE_SEP);
+
+                    for (let i = 0; i < notesArray.length; i++) {
+                        const note = notesArray[i];
+                        const contentEl = note.querySelector('.note-text-content');
+                        if (contentEl) {
+                            let newText = processedTexts[i] !== undefined ? processedTexts[i] : await processText(originalTexts[i]);
+                            contentEl.innerText = newText; 
+                            
+                            const bodyEl = note.querySelector('.note-body');
+                            if (bodyEl) bodyEl.setAttribute('data-first-char', (newText || '').trim().charAt(0) || '');
+
+                            const noteId = note.dataset.id;
+                            if (activeQId && noteId) {
+                                currentMods[noteId] = { ...currentMods[noteId], text: newText };
+                            }
+                        }
+                    }
+                    if (activeQId && window.currentSpaceCode && typeof db !== 'undefined') {
+                        db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({ [`board_mods_${activeQId}`]: currentMods }).catch(()=>{});
+                    }
+                    if (typeof debouncedSaveHistory === 'function') debouncedSaveHistory();
+                    showToast('✅ 便利貼翻譯完成');
+                    return; 
+                }
+
+                const sel = window.getSelection();
+                const hasDivSelection = sel && sel.toString().trim().length > 0;
+
+                let activeEl = document.activeElement; 
+                let isInputTarget = activeEl && (activeEl.tagName === 'TEXTAREA' || (activeEl.tagName === 'INPUT' && ['text', 'search', 'number', 'password', 'url', 'tel'].includes(activeEl.type)));
+
+                if (!hasDivSelection && !isInputTarget && window.lastFocusedInput && document.body.contains(window.lastFocusedInput)) {
+                    activeEl = window.lastFocusedInput;
+                    isInputTarget = true;
+                }
+
+                if (isInputTarget && activeEl !== editor) {
+                    let start = 0, end = 0;
+                    try { start = activeEl.selectionStart; end = activeEl.selectionEnd; } catch(e) {}
+                    let text = (start !== end) ? activeEl.value.substring(start, end) : activeEl.value;
+                    text = await processText(text);
+                    
+                    if (start !== end) {
+                        try { activeEl.setRangeText(text, start, end, 'select'); } catch(e) { activeEl.value = text; }
+                    } else {
+                        activeEl.value = text;
+                    }
+                    activeEl.dispatchEvent(new Event('input', { bubbles: true }));
+                } 
+                else if (hasDivSelection) {
                     const originalText = sel.toString();
                     let text = await processText(originalText);
-                    
                     const range = sel.getRangeAt(0); 
                     range.deleteContents(); 
                     range.insertNode(document.createTextNode(text));
@@ -9471,41 +9456,55 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnExecutePinyin = document.getElementById('btnExecutePinyin');
 
 	// 拼音工具的選取狀態檢查引擎
-function checkPinyinButtonState() {
-    const btnExecutePinyin = document.getElementById('btnExecutePinyin');
-    if (!btnExecutePinyin) return;
+	function checkPinyinButtonState() {
+		const btnExecutePinyin = document.getElementById('btnExecutePinyin');
+		if (!btnExecutePinyin) return;
 
-    let hasSelection = false;
+		let hasSelection = false;
 
-    // 💡 取得選取的便利貼
-    const selectedNotes = document.querySelectorAll('.sticky-note.ring-2');
-    const sel = window.getSelection();
-    const hasDivSelection = sel && sel.toString().trim().length > 0;
-    
-    let activeEl = document.activeElement;
-    let isInputTarget = activeEl && (activeEl.tagName === 'TEXTAREA' || (activeEl.tagName === 'INPUT' && ['text', 'search', 'number', 'password', 'url', 'tel'].includes(activeEl.type)));
+		// ✨ 修正：補上表格模式的判定
+		if (typeof currentMode !== 'undefined' && currentMode === 'table') {
+			const sel = window.getSelection();
+			if (sel && sel.toString().trim().length > 0) {
+				hasSelection = true;
+			} else {
+				const hasMultiCells = document.querySelectorAll('#data-table td.sel-bg').length > 0;
+				const hasSingleCellOutline = document.querySelectorAll('#data-table td[style*="inset"]').length > 0;
+				const isEditing = document.activeElement && document.activeElement.classList.contains('td-inner');
+				if (hasMultiCells || hasSingleCellOutline || isEditing) {
+					hasSelection = true;
+				}
+			}
+		} else {
+			// 💡 取得選取的便利貼或其他模式
+			const selectedNotes = document.querySelectorAll('.sticky-note.ring-2');
+			const sel = window.getSelection();
+			const hasDivSelection = sel && sel.toString().trim().length > 0;
+			
+			let activeEl = document.activeElement;
+			let isInputTarget = activeEl && (activeEl.tagName === 'TEXTAREA' || (activeEl.tagName === 'INPUT' && ['text', 'search', 'number', 'password', 'url', 'tel'].includes(activeEl.type)));
 
-    // 智慧判定優先順序：便利貼 -> 畫面反白 -> 目前的輸入框 -> 剛失去焦點的輸入框
-    if (selectedNotes.length > 0) {
-        hasSelection = true;
-    } else if (hasDivSelection) {
-        hasSelection = true;
-    } else if (isInputTarget) {
-        try { hasSelection = activeEl.selectionStart !== activeEl.selectionEnd; } catch(e) {}
-    } else if (window.lastFocusedInput && document.body.contains(window.lastFocusedInput)) {
-        try { hasSelection = window.lastFocusedInput.selectionStart !== window.lastFocusedInput.selectionEnd; } catch(e) {}
-    }
+			if (selectedNotes.length > 0) {
+				hasSelection = true;
+			} else if (hasDivSelection) {
+				hasSelection = true;
+			} else if (isInputTarget) {
+				try { hasSelection = activeEl.selectionStart !== activeEl.selectionEnd; } catch(e) {}
+			} else if (window.lastFocusedInput && document.body.contains(window.lastFocusedInput)) {
+				try { hasSelection = window.lastFocusedInput.selectionStart !== window.lastFocusedInput.selectionEnd; } catch(e) {}
+			}
+		}
 
-    if (hasSelection) {
-        btnExecutePinyin.disabled = false;
-        btnExecutePinyin.classList.remove('opacity-50', 'cursor-not-allowed');
-        btnExecutePinyin.title = "";
-    } else {
-        btnExecutePinyin.disabled = true;
-        btnExecutePinyin.classList.add('opacity-50', 'cursor-not-allowed');
-        btnExecutePinyin.title = "請先選取要轉換的文字、儲存格或便利貼";
-    }
-}
+		if (hasSelection) {
+			btnExecutePinyin.disabled = false;
+			btnExecutePinyin.classList.remove('opacity-50', 'cursor-not-allowed');
+			btnExecutePinyin.title = "";
+		} else {
+			btnExecutePinyin.disabled = true;
+			btnExecutePinyin.classList.add('opacity-50', 'cursor-not-allowed');
+			btnExecutePinyin.title = "請先選取要轉換的文字、儲存格或便利貼";
+		}
+	}
 
     // 綁定事件，確保隨時偵測選取狀態
     document.addEventListener('selectionchange', checkPinyinButtonState);

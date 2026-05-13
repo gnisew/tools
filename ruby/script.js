@@ -3185,13 +3185,21 @@ if (typeof window.hanziToPinyin === 'function' && !window.hanziToPinyin.isProtec
         const regexLeft = new RegExp(`(${textChar})(${leftSpacePunct})`, 'gu');
         restoredPinyin = restoredPinyin.replace(regexLeft, '$1 $2');
         
-        // 中間點兩側都需要空格
+        /// 中間點兩側都需要空格
         const midPunct = '[·‧]';
         const regexMid1 = new RegExp(`([^\\s])(${midPunct})`, 'gu');
         restoredPinyin = restoredPinyin.replace(regexMid1, '$1 $2');
         const regexMid2 = new RegExp(`(${midPunct})([^\\s])`, 'gu');
         restoredPinyin = restoredPinyin.replace(regexMid2, '$1 $2');
         
+        // 【新增】：詔安腔專屬修正 - 將零聲母的 o (包含 oz, o2, oˊ 等) 自動升級為 oo
+        if (typeof currentLanguageKey !== 'undefined' && currentLanguageKey === 'kasu') {
+            // \b 精準鎖定單獨的 o，並兼容可能殘留的調號字母或數字
+            restoredPinyin = restoredPinyin.replace(/\bo([zvsxf1-9]?)\b/gi, (match, p1) => {
+                return match[0] === 'O' ? 'Oo' + p1 : 'oo' + p1;
+            });
+        }
+
         // 清除多餘的連續空格
         restoredPinyin = restoredPinyin.replace(/ +/g, ' ');
 
