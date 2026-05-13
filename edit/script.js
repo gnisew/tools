@@ -69,6 +69,19 @@ const ENTER_DIRECTION_KEY = 'wesing-enter-direction';
 
 const FONT_FAMILY_KEY = 'wesing-font-family';
 
+
+// ==========================================
+// 觸控防誤觸機制 (防止 Hover 瞬間引發的點擊穿透)
+// ==========================================
+if (typeof window.lastGlobalTouchTime === 'undefined') {
+    window.lastGlobalTouchTime = 0;
+    // 只要手指碰到螢幕，就記錄當下時間
+    document.addEventListener('touchstart', () => { 
+        window.lastGlobalTouchTime = Date.now(); 
+    }, { passive: true, capture: true });
+}
+
+
 /* 工具列元件初始化 */
 function initDropdowns() {
     // 共用的邊界偵測函數
@@ -655,15 +668,15 @@ function switchMode(mode, isForce = false, dataOverride = null, configOverride =
     if (ddClipboardGroup) ddClipboardGroup.classList.remove('hidden');
 
     // --- 4. 根據模式執行特定邏輯 ---
-    if (mode === 'arena' || mode === 'live' || gameModes.includes(mode)) {
-        const targetContainer = (mode === 'arena' || mode === 'live') ? containers.arena : containers.game;
-        if (targetContainer) { targetContainer.classList.remove('hidden'); targetContainer.style.display = 'block'; }
+	if (mode === 'arena' || mode === 'live' || gameModes.includes(mode)) {
+		const targetContainer = (mode === 'arena' || mode === 'live') ? containers.arena : containers.game;
+		if (targetContainer) { targetContainer.classList.remove('hidden'); targetContainer.style.display = 'block'; }
 
-        [tableControls, chatControls, ddTextTool, btnToggleLineNumbers].forEach(el => el?.classList.add('hidden'));
+		[tableControls, chatControls, ddTextTool, btnToggleLineNumbers].forEach(el => el?.classList.add('hidden'));
 
-        document.querySelectorAll('#gameCurrentTitle').forEach(el => {
-            el.textContent = window.currentLoadedBank ? window.currentLoadedBank.name : '自訂測驗';
-        });
+		document.querySelectorAll('#gameCurrentTitle').forEach(el => {
+			el.textContent = window.currentLoadedBank ? window.currentLoadedBank.name : '自訂測驗';
+		});
 
         // 決定遊戲資料來源
         let rawDataText = dataOverride;
@@ -12766,7 +12779,11 @@ window.renderBankContent = function() {
                         </div>
 
                         <div class="hidden group-hover:flex shrink-0 ml-2">
-                            <button class="bg-indigo-600 text-white px-3 py-0.5 rounded-full text-[11px] font-bold shadow-sm hover:bg-indigo-700 whitespace-nowrap" onclick="playPresetBank(${p._originalIndex})">載入</button>
+                            <button class="bg-indigo-600 text-white px-3 py-0.5 rounded-full text-[11px] font-bold shadow-sm hover:bg-indigo-700 whitespace-nowrap" 
+                                    ontouchstart="this.dataset.valid='1'; setTimeout(() => this.dataset.valid='', 500);"
+                                    onclick="event.stopPropagation(); if(Date.now() - window.lastGlobalTouchTime < 500 && !this.dataset.valid) return; playPresetBank(${p._originalIndex})">
+                                載入
+                            </button>
                         </div>
                     </div>
                 </td>

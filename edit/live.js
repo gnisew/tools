@@ -990,6 +990,9 @@ window.launchLiveMode = function(rawData, configs) {
                         <button id="btn-back-to-editor" class="bg-white hover:bg-gray-50 text-gray-700 px-5 py-2.5 rounded-full flex items-center gap-1 font-bold shadow-sm border border-gray-200 cursor-pointer transition-colors flex-shrink-0">
                             <span class="material-symbols-outlined text-xl">arrow_back</span> 返回
                         </button>
+						<span class="text-teal-700 font-bold bg-white/50 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm border border-teal-200/50 truncate max-w-[200px] ml-2">
+							${window.currentLoadedBank ? window.currentLoadedBank.name : '互動問答'}
+						</span>
                         <div class="flex items-center gap-3">
                             <button id="btn-create-live-space" class="bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-lg py-2.5 px-8 rounded-full shadow-md transition-transform hover:-translate-y-1 cursor-pointer flex items-center gap-2">
                                 <span class="material-symbols-outlined">rocket_launch</span> 建立問答空間
