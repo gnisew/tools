@@ -63,14 +63,8 @@ window.launchGameMode = function(mode, rawData, configs) {
                 <button id="btn-exit-game" class="flex items-center gap-1 text-gray-600 hover:text-purple-600 font-bold px-2 py-1.5 md:px-3 md:py-2 rounded-xl hover:bg-purple-50 transition-colors">
                     <span class="material-symbols-outlined">arrow_back</span>
                     返回
-                </button>
-                
-                <div class="hidden md:block h-6 w-px bg-gray-300"></div> 
-                
-                <div id="game-dynamic-filters-area" class="flex gap-2 flex-wrap">
-                    ${matchSelectorHTML}
-                </div>
-                
+                </button>                
+               
                 <div class="flex bg-gray-100 p-1 rounded-xl gap-1 overflow-x-auto">
                     <button class="mode-switch-btn px-3 py-1.5 md:px-5 md:py-1.5 rounded-lg font-bold text-sm transition-colors ${mode === 'flashcard' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-800'}" data-mode="flashcard">字卡</button>
                     <button class="mode-switch-btn px-3 py-1.5 md:px-5 md:py-1.5 rounded-lg font-bold text-sm transition-colors ${mode === 'matching' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-800'}" data-mode="matching">配對</button>
@@ -78,6 +72,12 @@ window.launchGameMode = function(mode, rawData, configs) {
                     <button class="mode-switch-btn px-3 py-1.5 md:px-5 md:py-1.5 rounded-lg font-bold text-sm transition-colors ${mode === 'sorting' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-800'}" data-mode="sorting">排序</button>
 					<button class="mode-switch-btn px-3 py-1.5 md:px-5 md:py-1.5 rounded-lg font-bold text-sm transition-colors ${mode === 'typing' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-800'}" data-mode="typing">打字</button>
                 </div>
+
+				<div id="game-dynamic-filters-area" class="flex gap-2 flex-wrap">
+                    ${matchSelectorHTML}
+                </div>
+				<span id="gameCurrentTitle" class="text-gray-600 font-bold bg-white/80 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm border border-gray-200/50"></span>
+
             </div>
         </div>
         
@@ -87,6 +87,12 @@ window.launchGameMode = function(mode, rawData, configs) {
     gameArea.innerHTML = toolbarHTML;
     const container = document.getElementById('game-content-area');
     const filtersArea = document.getElementById('game-dynamic-filters-area');
+
+    // ✨ 修正：在 HTML 重新渲染後，從全域變數抓取並顯示題庫名稱
+    const titleEl = document.getElementById('gameCurrentTitle');
+    if (titleEl) {
+        titleEl.textContent = window.currentLoadedBank ? window.currentLoadedBank.name : '自訂測驗';
+    }
 
     // 綁定基礎事件
     document.getElementById('btn-exit-game').addEventListener('click', () => {
@@ -1286,9 +1292,9 @@ function renderQuizGame(data, container) {
                 <div class="flex-1 flex flex-col min-h-0 relative items-center w-full" style="z-index: 20;">
                     <div class="w-full mb-6 mt-4 flex items-center justify-center">
                         <div class="flex items-center text-center gap-3 max-w-4xl px-4">
-                            <span id="quiz-question-number" class="text-2xl sm:text-3xl font-bold text-red-700"></span>
-                            <h3 id="quiz-question-text" class="text-2xl sm:text-3xl lg:text-4xl font-bold text-red-800 leading-tight"></h3>
-                        </div>
+							<span id="quiz-question-number" class="text-2xl sm:text-3xl font-bold text-gray-700"></span>
+							<h3 id="quiz-question-text" class="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 leading-tight"></h3>
+						</div>
                     </div>
 
                     <div id="quiz-options-container" class="w-full max-w-4xl px-2"></div>
@@ -1763,9 +1769,9 @@ function renderSortingGame(data, container) {
                     
                     <div class="w-full mb-4 mt-2 flex items-center justify-center">
                         <div class="flex items-center text-center gap-3 max-w-4xl px-4">
-                            <span id="sort-question-number" class="text-2xl sm:text-3xl font-bold text-indigo-700"></span>
-                            <h3 id="sort-question-text" class="text-2xl sm:text-3xl lg:text-4xl font-bold text-indigo-800 leading-tight"></h3>
-                        </div>
+							<span id="sort-question-number" class="text-2xl sm:text-3xl font-bold text-gray-700"></span>
+							<h3 id="sort-question-text" class="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-800 leading-tight"></h3>
+						</div>
                     </div>
 
                     <div class="w-full max-w-4xl bg-gray-50 rounded-2xl p-4 sm:p-6 mb-6 min-h-[100px] border border-gray-200 shadow-inner flex items-center justify-center">

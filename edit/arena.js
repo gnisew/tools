@@ -217,6 +217,7 @@ window.launchArenaMode = function(rawData, configs) {
                         <button id="btn-back-role" class="bg-white hover:bg-gray-50 text-gray-700 px-5 py-2.5 rounded-full flex items-center gap-1 font-bold shadow-sm border border-gray-200 cursor-pointer transition-colors flex-shrink-0">
                             <span class="material-symbols-outlined text-xl">arrow_back</span> 返回
                         </button>
+
                         
                         <div class="flex items-center gap-3">
                             <button id="btn-share-arena" class="bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50 w-11 h-11 rounded-full shadow-sm transition-transform hover:-translate-y-1 cursor-pointer flex items-center justify-center" title="分享此設定">
