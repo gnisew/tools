@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>題庫資料轉換與視覺編輯器</title>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; transition: padding 0.3s ease; }
+        textarea { resize: none; }
+        .scrollbar-hide::-webkit-scrollbar { width: 6px; height: 6px; }
+        .scrollbar-hide::-webkit-scrollbar-track { background: transparent; }
+        .scrollbar-hide::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 4px; }
+        .scrollbar-hide::-webkit-scrollbar-thumb:hover { background: #d1d5db; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        
+        table { border-spacing: 0; }
+        body.is-maximized { padding: 0 !important; }
+        body.is-maximized #mainHeader { display: none !important; }
+        body.is-maximized #jsPanel { display: none !important; }
+        body.is-maximized main { max-width: 100% !important; border-radius: 0 !important; border: none !important; }
+
+        .bank-item { transition: all 0.2s ease; }
+        .bank-item.active { background-color: #eff6ff; border-left-color: #2563eb; color: #1d4ed8; }
+        .edit-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+        
+        /* 專業試算表樣式 */
+        .excel-table { border-collapse: separate; border-spacing: 0; table-layout: fixed; min-width: 100%; }
+        .excel-th { background-color: #f3f4f6; border-right: 1px solid #d1d5db; border-bottom: 1px solid #d1d5db; position: relative; user-select: none; transition: background-color 0.1s; }
+        .excel-td { border-right: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; padding: 0; position: relative; background-color: #fff; }
+        
+        .cell-input { width: 100%; height: 100%; padding: 8px 10px; outline: none; background: transparent; position: relative; z-index: 1; }
+        .cell-input:focus { box-shadow: inset 0 0 0 2px #1a73e8; z-index: 2; background-color: #fff !important; }
+        
+        .resize-handle { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; background-color: transparent; z-index: 10; }
+        .resize-handle:hover, .resize-handle:active { background-color: #1a73e8; }
+        
+        /* 選取狀態的高亮 */
+        .selected-header { background-color: #dbeafe !important; color: #1e3a8a !important; font-weight: 900 !important; }
+        .selected-cell { background-color: #e8f0fe !important; }
+        .selected-cell .cell-input { background-color: #e8f0fe; }
+        
+        @keyframes modalPop { 0% { transform: scale(0.95); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .modal-animate { animation: modalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    </style>
+</head>
+<body class="h-screen flex flex-col p-3 md:p-6">
+
+    <header id="mainHeader" class="flex items-center gap-3 mb-4 max-w-[95rem] mx-auto w-full px-2 transition-all shrink-0">
+        <span class="material-symbols-outlined text-blue-600 text-3xl">transform</span>
+        <h1 class="text-2xl text-gray-700 tracking-wide font-bold">題庫資料轉換器</h1>
+    </header>
+
+    <main class="bg-white rounded-xl shadow-sm border border-gray-200 flex-1 flex flex-col overflow-hidden max-w-[95rem] mx-auto w-full transition-all relative">
+        <div class="flex flex-col md:flex-row flex-1 overflow-hidden">
+            
+            <div class="flex-1 flex flex-col w-full border-b md:border-b-0 md:border-r border-gray-200 focus-within:ring-1 focus-within:ring-blue-500 transition-shadow relative overflow-hidden">
+                
+                <div class="px-4 py-3 flex items-center justify-between border-b border-gray-200 bg-white z-[40] shrink-0">
+                    <div class="flex items-center gap-2">
+                        <span class="text-blue-600 font-bold text-sm md:text-base hidden xl:inline whitespace-nowrap mr-2">資料面板</span>
+                        <div class="flex bg-gray-100 rounded-lg p-1" id="leftTabsContainer">
+                            <button onclick="switchLeftTab('text')" id="tab-text" class="px-3 py-1 text-xs md:text-sm rounded-md bg-white shadow-sm text-gray-800 font-bold transition flex items-center gap-1">文字</button>
+                            <button onclick="switchLeftTab('overview')" id="tab-overview" class="px-3 py-1 text-xs md:text-sm rounded-md text-gray-500 hover:text-gray-800 font-medium transition flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">visibility</span>概覽</button>
+                            <button onclick="switchLeftTab('editor')" id="tab-editor" class="px-3 py-1 text-xs md:text-sm rounded-md text-gray-500 hover:text-gray-800 font-medium transition flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">edit_document</span>編輯</button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2 md:gap-3">
+                        <div class="flex bg-gray-100 rounded-lg p-1">
+                            <button onclick="copyText('excelInput')" class="p-1 text-gray-500 hover:text-blue-600 hover:bg-white rounded shadow-sm transition flex items-center" title="複製內容"><span class="material-symbols-outlined text-[18px]">content_copy</span></button>
+                            <button onclick="clearText('excelInput')" class="p-1 text-gray-500 hover:text-red-600 hover:bg-white rounded shadow-sm transition flex items-center" title="清除內容"><span class="material-symbols-outlined text-[18px]">delete</span></button>
+                        </div>
+                        <button onclick="convertToJS()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1 shadow-sm text-sm whitespace-nowrap">
+                            <span class="material-symbols-outlined text-[16px] hidden md:inline">arrow_forward</span>
+                            <span class="material-symbols-outlined text-[16px] md:hidden">arrow_downward</span> 自動清理並轉 JS
+                        </button>
+                        <div class="w-px h-6 bg-gray-300 mx-1"></div>
+                        <button onclick="toggleMaximize()" class="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition border border-transparent hover:border-blue-200 flex items-center" title="滿版檢視">
+                            <span id="maximizeIcon" class="material-symbols-outlined text-[20px]">open_in_full</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex-1 relative w-full overflow-hidden">
+                    <textarea id="excelInput" class="absolute inset-0 w-full h-full p-6 outline-none text-gray-700 text-sm font-mono scrollbar-hide bg-transparent" placeholder="在此貼上 Excel 表格資料...&#10;欄位順序：id [Tab] folder [Tab] name [Tab] type [Tab] data"></textarea>
+                    
+                    <div id="overviewContainer" class="absolute inset-0 w-full h-full overflow-auto scrollbar-hide bg-[#fbfcfd] hidden">
+                        <table class="w-full text-left text-sm whitespace-nowrap">
+                            <thead class="bg-gray-100 sticky top-0 shadow-sm z-10" id="overviewHead"></thead>
+                            <tbody class="divide-y divide-gray-200 bg-white" id="overviewBody"></tbody>
+                        </table>
+                        <div id="overviewEmptyState" class="hidden flex-col items-center justify-center h-full text-gray-400">
+                            <span class="material-symbols-outlined text-4xl mb-2 opacity-50">info</span>
+                            <p>沒有資料可以預覽，請先貼上內容或新增題庫。</p>
+                        </div>
+                    </div>
+
+                    <div id="visualEditorContainer" class="absolute inset-0 w-full h-full bg-white hidden flex">
+                        <div class="w-1/3 md:w-56 border-r border-gray-200 bg-gray-50 flex flex-col z-[35] shrink-0">
+                            <div class="flex-1 overflow-y-auto scrollbar-hide" id="editorListContainer"></div>
+                            <div class="p-3 border-t border-gray-200 shrink-0">
+                                <button onclick="addNewBank()" class="w-full flex items-center justify-center gap-1 bg-white border border-gray-300 hover:bg-gray-50 hover:text-blue-600 text-gray-700 py-2 rounded-lg text-sm font-bold transition shadow-sm">
+                                    <span class="material-symbols-outlined text-[18px]">add</span> 新增題庫
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="flex-1 flex flex-col min-w-0 bg-[#f8f9fa] relative h-full">
+                            
+                            <div class="flex justify-between items-center px-5 py-2.5 bg-white border-b border-gray-200 z-[30] shrink-0 shadow-sm">
+                                <label class="block text-sm font-bold text-gray-600 flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">table_chart</span> 題庫內容</label>
+                                
+                                <div class="flex items-center gap-2">
+                                    <div id="dataToolbar" class="flex items-center gap-1"></div>
+                                    <div class="w-px h-4 bg-gray-300 mx-1" id="dataToolbarDivider"></div>
+                                    <div class="flex bg-gray-100 rounded-lg p-0.5" id="dataModeToggle">
+                                        <button onclick="switchDataEditMode('table')" id="data-tab-table" class="px-3 py-1 text-[11px] rounded-md bg-white shadow-sm text-gray-800 font-bold transition flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">grid_on</span> 表格</button>
+                                        <button onclick="switchDataEditMode('text')" id="data-tab-text" class="px-3 py-1 text-[11px] rounded-md text-gray-500 hover:text-gray-800 font-medium transition flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">notes</span> 文字</button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div id="editorDetailContainer" class="flex-1 overflow-auto relative p-6">
+                                </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="jsPanel" class="flex-1 flex flex-col w-full bg-[#fafafa] focus-within:bg-white focus-within:ring-1 focus-within:ring-blue-500 transition-colors relative overflow-hidden">
+                <div class="px-4 py-3 flex items-center justify-between border-b border-gray-200 bg-white z-[40] shrink-0">
+                    <div class="flex items-center gap-2 md:gap-4">
+                        <span class="text-blue-600 font-bold text-sm md:text-base hidden xl:inline whitespace-nowrap">JS 程式碼</span>
+                        <div class="flex bg-gray-100 rounded-lg p-1">
+							<button onclick="triggerFilePicker()" class="p-1 text-gray-500 hover:text-indigo-600 hover:bg-white rounded shadow-sm transition flex items-center" title="載入 .js 檔案">
+									<span class="material-symbols-outlined text-[18px]">folder_open</span>
+							</button>
+                            <button onclick="copyText('jsInput')" class="p-1 text-gray-500 hover:text-blue-600 hover:bg-white rounded shadow-sm transition flex items-center" title="複製內容"><span class="material-symbols-outlined text-[18px]">content_copy</span></button>
+                            <button onclick="clearText('jsInput')" class="p-1 text-gray-500 hover:text-red-600 hover:bg-white rounded shadow-sm transition flex items-center" title="清除內容"><span class="material-symbols-outlined text-[18px]">delete</span></button>
+                        </div>
+                        <button onclick="convertToExcel()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1 shadow-sm text-sm whitespace-nowrap">
+                            <span class="material-symbols-outlined text-[16px] hidden md:inline">arrow_back</span>
+                            <span class="material-symbols-outlined text-[16px] md:hidden">arrow_upward</span> 解析至左側
+                        </button>
+                    </div>
+                    <label class="flex items-center gap-1.5 text-xs md:text-sm text-gray-600 cursor-pointer hover:text-blue-600 transition">
+                        <input type="checkbox" id="wrapPresetBank" checked class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer accent-blue-600">
+                        包裝 presetBank
+                    </label>
+                </div>
+                <textarea id="jsInput" class="flex-1 w-full p-6 outline-none text-gray-700 text-sm font-mono scrollbar-hide bg-transparent" placeholder="在此貼上 window.presetBank = [...] 或單筆 { id: '...' }"></textarea>
+            </div>
+
+        </div>
+    </main>
+
+    <div id="toast" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg transition-all duration-300 opacity-0 pointer-events-none translate-y-4 text-sm font-medium z-[100]">
+        操作成功！
+    </div>
+
+    <div id="customConfirmDialog" class="fixed inset-0 bg-transparent hidden items-center justify-center z-[200]">
+        <div class="bg-white rounded-xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.4)] border border-gray-200 w-[320px] max-w-[90%] overflow-hidden modal-animate">
+            <div class="p-5">
+                <div class="flex items-center gap-3 mb-2 text-red-600">
+                    <span class="material-symbols-outlined text-2xl">warning</span>
+                    <h3 class="font-bold text-lg text-gray-800">確認操作</h3>
+                </div>
+                <p id="confirmMessage" class="text-sm text-gray-600 leading-relaxed pl-9">確定要執行此操作嗎？</p>
+            </div>
+            <div class="bg-gray-50 px-5 py-3 flex justify-end gap-2 border-t border-gray-100">
+                <button onclick="closeConfirm(false)" class="px-4 py-1.5 text-sm font-bold text-gray-600 hover:bg-gray-200 rounded-md transition">取消</button>
+                <button onclick="closeConfirm(true)" id="confirmBtn" class="px-4 py-1.5 text-sm font-bold text-white bg-red-500 hover:bg-red-600 rounded-md transition shadow-sm">確認刪除</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.style.opacity = '1'; toast.style.transform = 'translate(-50%, 0)';
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translate(-50%, 1rem)'; }, 2000);
+        }
+
+        let confirmCallback = null;
+        function showConfirm(message, callback, btnText = "確認刪除") {
+            document.getElementById('confirmMessage').innerHTML = message;
+            document.getElementById('confirmBtn').textContent = btnText;
+            const dialog = document.getElementById('customConfirmDialog');
+            dialog.classList.remove('hidden'); dialog.classList.add('flex');
+            confirmCallback = callback;
+        }
+        function closeConfirm(result) {
+            const dialog = document.getElementById('customConfirmDialog');
+            dialog.classList.add('hidden'); dialog.classList.remove('flex');
+            if (result && confirmCallback) confirmCallback();
+        }
+
+        function copyText(elementId) {
+            const el = document.getElementById(elementId);
+            if (!el.value.trim()) return showToast('沒有內容可複製');
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(el.value).then(() => showToast('已複製！')).catch(() => fallbackCopyTextToClipboard(el));
+            } else { fallbackCopyTextToClipboard(el); }
+        }
+        function fallbackCopyTextToClipboard(el) {
+            const wasHidden = el.classList.contains('hidden');
+            if (wasHidden) el.classList.remove('hidden'); 
+            el.select(); document.execCommand('copy'); window.getSelection().removeAllRanges(); 
+            if (wasHidden) el.classList.add('hidden'); 
+            showToast('已複製！');
+        }
+
+        function clearText(elementId) {
+            document.getElementById(elementId).value = '';
+            if (elementId === 'excelInput') {
+                if (currentLeftTab === 'overview') renderOverviewTable();
+                if (currentLeftTab === 'editor') { editorData = []; renderEditorList(); }
+            }
+            document.getElementById(elementId).focus();
+        }
+
+        function toggleMaximize() {
+            const body = document.body;
+            const icon = document.getElementById('maximizeIcon');
+            body.classList.toggle('is-maximized');
+            if (body.classList.contains('is-maximized')) {
+                if (currentLeftTab === 'text') switchLeftTab('overview');
+                icon.textContent = 'close_fullscreen';
+            } else { icon.textContent = 'open_in_full'; }
+        }
+
+        function escapeHTML(str) { return (str||'').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+        function escapeQuotes(str) { return (str||'').replace(/"/g, '&quot;'); }
+
+        let currentLeftTab = 'text';
+
+        function switchLeftTab(mode) {
+            currentLeftTab = mode;
+            const tabs = { 'text': document.getElementById('tab-text'), 'overview': document.getElementById('tab-overview'), 'editor': document.getElementById('tab-editor') };
+            const containers = { 'text': document.getElementById('excelInput'), 'overview': document.getElementById('overviewContainer'), 'editor': document.getElementById('visualEditorContainer') };
+
+            Object.values(tabs).forEach(t => t.className = "px-3 py-1 text-xs md:text-sm rounded-md text-gray-500 hover:text-gray-800 font-medium transition flex items-center gap-1");
+            tabs[mode].className = "px-3 py-1 text-xs md:text-sm rounded-md bg-white shadow-sm text-gray-800 font-bold transition flex items-center gap-1";
+
+            Object.values(containers).forEach(c => c.classList.add('hidden'));
+            containers[mode].classList.remove('hidden');
+
+            if (mode === 'overview') renderOverviewTable();
+            if (mode === 'editor') loadExcelToEditor();
+        }
+
+        function renderOverviewTable() {
+            const data = document.getElementById('excelInput').value.trim();
+            const tHead = document.getElementById('overviewHead');
+            const tBody = document.getElementById('overviewBody');
+            const emptyState = document.getElementById('overviewEmptyState');
+            tHead.innerHTML = ''; tBody.innerHTML = '';
+            if (!data) { emptyState.classList.remove('hidden'); emptyState.classList.add('flex'); return; }
+            emptyState.classList.add('hidden'); emptyState.classList.remove('flex');
+            const lines = data.split('\n');
+            lines.forEach((line, index) => {
+                if (!line.trim()) return; 
+                const cols = line.split('\t');
+                const tr = document.createElement('tr');
+                cols.forEach(col => {
+                    const cell = document.createElement(index === 0 ? 'th' : 'td');
+                    cell.innerHTML = escapeHTML(col).replace(/\\n/g, '<br>').replace(/\\t/g, '<span class="mx-2 text-blue-300 font-bold select-none">|</span>');
+                    cell.className = index === 0 ? 'px-4 py-3 font-bold text-gray-600 border-b-2 border-gray-200 bg-gray-50 sticky top-0' : 'px-4 py-3 text-gray-700 align-top whitespace-normal break-words min-w-[80px]';
+                    tr.appendChild(cell);
+                });
+                if (index === 0) tHead.appendChild(tr);
+                else { tr.className = "hover:bg-blue-50/50 transition-colors"; tBody.appendChild(tr); }
+            });
+        }
+
+        // =====================================
+        // ✨ 專業視覺編輯器引擎
+        // =====================================
+        let editorData = [];
+        let currentEditIndex = -1;
+        let dataEditMode = 'table'; 
+        let colWidths = {}; 
+        
+        let selRows = new Set();
+        let selCols = new Set();
+        let lastSelRow = -1;
+        let lastSelCol = -1;
+
+        function loadExcelToEditor() {
+            let str = document.getElementById('excelInput').value.trim();
+            editorData = []; currentEditIndex = -1; colWidths = {};
+            if (str) {
+                let lines = str.split('\n');
+                let start = lines[0].toLowerCase().startsWith('id') ? 1 : 0;
+                for (let i = start; i < lines.length; i++) {
+                    let cols = lines[i].split('\t');
+                    if (cols.length < 5 && !cols[0].trim()) continue; 
+                    let rawData = cols.slice(4).join('\t') || '';
+                    let restoredData = rawData.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+                    editorData.push({ id: cols[0] || '', folder: cols[1] || '', name: cols[2] || '', type: cols[3] || '', data: restoredData });
+                }
+            }
+            renderEditorList();
+        }
+
+        function saveEditorToExcel() {
+            let out = "id\tfolder\tname\ttype\tdata\n";
+            editorData.forEach(item => {
+                let safeData = (item.data || '').replace(/\n/g, '\\n').replace(/\t/g, '\\t');
+                out += `${item.id || ''}\t${item.folder || ''}\t${item.name || ''}\t${item.type || ''}\t${safeData}\n`;
+            });
+            document.getElementById('excelInput').value = out.trim();
+        }
+
+        function renderEditorList() {
+            const listContainer = document.getElementById('editorListContainer');
+            const detailContainer = document.getElementById('editorDetailContainer');
+            if (editorData.length === 0) {
+                listContainer.innerHTML = '';
+                detailContainer.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-gray-400 mt-20"><span class="material-symbols-outlined text-4xl mb-2 opacity-50">edit_note</span><p>目前沒有資料，請點擊左側「新增題庫」</p></div>`;
+                updateToolbarUI();
+                return;
+            }
+            listContainer.innerHTML = editorData.map((bank, index) => `
+                <div class="bank-item px-4 py-3 border-b border-gray-100 border-l-4 border-l-transparent cursor-pointer hover:bg-gray-100 text-sm flex flex-col gap-1" onclick="selectEditorBank(${index}, this)">
+                    <span class="font-bold text-gray-800 truncate" title="${bank.name || '未命名'}">${bank.name || '未命名'}</span>
+                    <span class="text-xs text-gray-400 truncate">${bank.id || 'No ID'}</span>
+                </div>
+            `).join('');
+            let indexToSelect = currentEditIndex !== -1 && currentEditIndex < editorData.length ? currentEditIndex : 0;
+            selectEditorBank(indexToSelect, listContainer.children[indexToSelect]);
+        }
+
+        function selectEditorBank(index, element) {
+            currentEditIndex = index;
+            selRows.clear(); selCols.clear(); 
+            document.querySelectorAll('.bank-item').forEach(el => el.classList.remove('active'));
+            if(element) element.classList.add('active');
+
+            const bank = editorData[index];
+            const detailContainer = document.getElementById('editorDetailContainer');
+
+            // ✨ 將 Properties 與 Table 分開。
+            // Properties 給予 id，且在 Text 模式會被隱藏
+            detailContainer.innerHTML = `
+                <div class="flex flex-col h-full animate-[fadeIn_0.2s_ease-out]">
+                    
+                    <div id="editorPropertiesPanel" class="flex flex-wrap gap-4 items-end bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6 shrink-0 transition-all duration-300">
+                        <div class="flex-1 min-w-[150px]">
+                            <label class="block text-[11px] font-bold text-gray-500 mb-0.5">題庫名稱 (Name)</label>
+                            <input type="text" id="edit-name" class="edit-input w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm text-gray-800 font-bold bg-gray-50" value="${escapeQuotes(bank.name)}" oninput="updateField('name', this.value)">
+                        </div>
+                        <div class="w-28">
+                            <label class="block text-[11px] font-bold text-gray-500 mb-0.5">ID</label>
+                            <input type="text" id="edit-id" class="edit-input w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm text-gray-700 bg-gray-50" value="${escapeQuotes(bank.id)}" oninput="updateField('id', this.value)">
+                        </div>
+                        <div class="w-32">
+                            <label class="block text-[11px] font-bold text-gray-500 mb-0.5">目錄 (Folder)</label>
+                            <input type="text" id="edit-folder" class="edit-input w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm text-gray-700 bg-gray-50" value="${escapeQuotes(bank.folder)}" oninput="updateField('folder', this.value)">
+                        </div>
+                        <div class="w-24">
+                            <label class="block text-[11px] font-bold text-gray-500 mb-0.5">類型 (Type)</label>
+                            <input type="text" id="edit-type" class="edit-input w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm text-gray-700 bg-gray-50" value="${escapeQuotes(bank.type)}" oninput="updateField('type', this.value)">
+                        </div>
+                        <button onclick="deleteCurrentBank()" class="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-md transition mb-0.5 border border-transparent hover:border-red-100" title="刪除此題庫">
+                            <span class="material-symbols-outlined text-[20px]">delete</span>
+                        </button>
+                    </div>
+
+                    <div id="dataEditorArea" class="flex-1 bg-white border border-gray-300 shadow-sm rounded-lg overflow-hidden flex flex-col min-h-[300px]"></div>
+                </div>
+            `;
+            switchDataEditMode(dataEditMode);
+        }
+
+        function updateField(field, value) {
+            if (currentEditIndex === -1) return;
+            editorData[currentEditIndex][field] = value;
+            saveEditorToExcel(); 
+            
+            // Sync Left Menu
+            if (field === 'id' || field === 'name') {
+                const listItems = document.getElementById('editorListContainer').children;
+                if(listItems[currentEditIndex]) {
+                    listItems[currentEditIndex].querySelector('span:first-child').textContent = value || '未命名';
+                    listItems[currentEditIndex].querySelector('span:last-child').textContent = editorData[currentEditIndex].id || 'No ID';
+                }
+            }
+
+            // Sync Textarea if currently in text mode
+            if (dataEditMode === 'text') {
+                const ta = document.getElementById('singleBankTextarea');
+                if (ta && document.activeElement !== ta) {
+                    const bank = editorData[currentEditIndex];
+                    ta.value = `id\t${bank.id || ''}\nfolder\t${bank.folder || ''}\nname\t${bank.name || ''}\ntype\t${bank.type || ''}\ndata\n${bank.data || ''}`;
+                }
+            }
+        }
+
+        // ✨ 智慧文字模式核心 Parser
+        function updateBankFromText(val) {
+            if (currentEditIndex === -1) return;
+            let lines = val.split('\n');
+            let bank = { id: '', folder: '', name: '', type: '', data: '' };
+            let dataLines = [];
+            let inData = false;
+            
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i];
+                if (!inData) {
+                    let parts = line.split('\t');
+                    // 為了支援手動輸入，若無 Tab 且有空格，容許用第一個空格當作分隔
+                    if (parts.length === 1 && line.indexOf(' ') !== -1) {
+                        let firstSpace = line.indexOf(' ');
+                        parts = [line.substring(0, firstSpace), line.substring(firstSpace + 1)];
+                    }
+                    let key = (parts[0] || '').trim().toLowerCase();
+                    
+                    if (key === 'id') bank.id = parts.slice(1).join('\t').trim();
+                    else if (key === 'folder') bank.folder = parts.slice(1).join('\t').trim();
+                    else if (key === 'name') bank.name = parts.slice(1).join('\t').trim();
+                    else if (key === 'type') bank.type = parts.slice(1).join('\t').trim();
+                    else if (key === 'data') inData = true;
+                    else {
+                        // 若遇到無法辨識的 key，視為進入 data 區塊以防遺失資料
+                        inData = true; dataLines.push(line);
+                    }
+                } else {
+                    dataLines.push(line);
+                }
+            }
+            bank.data = dataLines.join('\n');
+            
+            editorData[currentEditIndex].id = bank.id;
+            editorData[currentEditIndex].folder = bank.folder;
+            editorData[currentEditIndex].name = bank.name;
+            editorData[currentEditIndex].type = bank.type;
+            editorData[currentEditIndex].data = bank.data;
+            saveEditorToExcel(); 
+            
+            // Sync Top Inputs
+            const nameInput = document.getElementById('edit-name'); if(nameInput && document.activeElement !== nameInput) nameInput.value = bank.name;
+            const idInput = document.getElementById('edit-id'); if(idInput && document.activeElement !== idInput) idInput.value = bank.id;
+            const folderInput = document.getElementById('edit-folder'); if(folderInput && document.activeElement !== folderInput) folderInput.value = bank.folder;
+            const typeInput = document.getElementById('edit-type'); if(typeInput && document.activeElement !== typeInput) typeInput.value = bank.type;
+            
+            // Sync Left List
+            const listItems = document.getElementById('editorListContainer').children;
+            if(listItems[currentEditIndex]) {
+                listItems[currentEditIndex].querySelector('span:first-child').textContent = bank.name || '未命名';
+                listItems[currentEditIndex].querySelector('span:last-child').textContent = bank.id || 'No ID';
+            }
+        }
+
+        function switchDataEditMode(mode) {
+            dataEditMode = mode;
+            selRows.clear(); selCols.clear(); 
+            
+            const tableTab = document.getElementById('data-tab-table');
+            const textTab = document.getElementById('data-tab-text');
+            const dtb = document.getElementById('dataToolbar');
+            const divi = document.getElementById('dataToolbarDivider');
+            const propPanel = document.getElementById('editorPropertiesPanel');
+
+            if (mode === 'table') {
+                tableTab.className = "px-3 py-1 text-[11px] rounded-md bg-white shadow-sm text-gray-800 font-bold transition flex items-center gap-1";
+                textTab.className = "px-3 py-1 text-[11px] rounded-md text-gray-500 hover:text-gray-800 font-medium transition flex items-center gap-1";
+                if(dtb) dtb.style.display = 'flex';
+                if(divi) divi.style.display = 'block';
+                if(propPanel) propPanel.classList.remove('hidden');
+            } else {
+                textTab.className = "px-3 py-1 text-[11px] rounded-md bg-white shadow-sm text-gray-800 font-bold transition flex items-center gap-1";
+                tableTab.className = "px-3 py-1 text-[11px] rounded-md text-gray-500 hover:text-gray-800 font-medium transition flex items-center gap-1";
+                if(dtb) dtb.style.display = 'none';
+                if(divi) divi.style.display = 'none';
+                if(propPanel) propPanel.classList.add('hidden'); // ✨ 隱藏上方屬性面板，完全沉浸於文字
+            }
+            renderDataEditorArea();
+        }
+
+        function getParsedDataGrid(str) {
+            if (!str) return [['', '']];
+            return str.split('\n').map(line => line.split('\t'));
+        }
+        function saveParsedDataGrid(grid) { return grid.map(row => row.join('\t')).join('\n'); }
+
+        // ✨ 拖曳多選邏輯
+        let isDraggingHeader = false; let dragType = ''; let dragStartIndex = -1;
+
+        function handleHeaderMouseDown(type, index, e) {
+            if(e.target.classList.contains('resize-handle')) return;
+            isDraggingHeader = true; dragType = type; dragStartIndex = index;
+            
+            if (type === 'row') {
+                selCols.clear(); 
+                if (e.shiftKey && lastSelRow !== -1) {
+                    let min = Math.min(index, lastSelRow), max = Math.max(index, lastSelRow);
+                    for(let i=min; i<=max; i++) selRows.add(i);
+                } else if (e.ctrlKey || e.metaKey) {
+                    if (selRows.has(index)) selRows.delete(index); else selRows.add(index);
+                    lastSelRow = index;
+                } else {
+                    selRows.clear(); selRows.add(index); lastSelRow = index;
+                }
+            } else {
+                selRows.clear(); 
+                if (e.shiftKey && lastSelCol !== -1) {
+                    let min = Math.min(index, lastSelCol), max = Math.max(index, lastSelCol);
+                    for(let i=min; i<=max; i++) selCols.add(i);
+                } else if (e.ctrlKey || e.metaKey) {
+                    if (selCols.has(index)) selCols.delete(index); else selCols.add(index);
+                    lastSelCol = index;
+                } else {
+                    selCols.clear(); selCols.add(index); lastSelCol = index;
+                }
+            }
+            renderSelectionUI();
+        }
+
+        function handleHeaderMouseEnter(type, index, e) {
+            if (!isDraggingHeader || dragType !== type) return;
+            if (e.buttons !== 1) { isDraggingHeader = false; return; }
+            
+            if (type === 'row') {
+                selRows.clear();
+                let min = Math.min(dragStartIndex, index), max = Math.max(dragStartIndex, index);
+                for(let i=min; i<=max; i++) selRows.add(i);
+                lastSelRow = index;
+            } else {
+                selCols.clear();
+                let min = Math.min(dragStartIndex, index), max = Math.max(dragStartIndex, index);
+                for(let i=min; i<=max; i++) selCols.add(i);
+                lastSelCol = index;
+            }
+            renderSelectionUI();
+        }
+
+        window.addEventListener('mouseup', () => { isDraggingHeader = false; });
+
+        function selectAll() {
+            let grid = getParsedDataGrid(editorData[currentEditIndex].data);
+            selCols.clear(); selRows.clear();
+            grid.forEach((_, i) => selRows.add(i)); 
+            renderSelectionUI();
+        }
+
+        function handleCellFocus() {
+            if(selRows.size > 0 || selCols.size > 0) {
+                selRows.clear(); selCols.clear();
+                renderSelectionUI();
+            }
+        }
+
+        function renderSelectionUI() {
+            document.querySelectorAll('.selected-header').forEach(el => el.classList.remove('selected-header'));
+            document.querySelectorAll('.selected-cell').forEach(el => el.classList.remove('selected-cell'));
+
+            if(currentEditIndex === -1) return;
+            let grid = getParsedDataGrid(editorData[currentEditIndex].data);
+            let maxCols = Math.max(...grid.map(r => r.length), 2);
+
+            selRows.forEach(r => {
+                let h = document.querySelector(`.header-row-${r}`);
+                if(h) h.classList.add('selected-header');
+                for(let c=0; c<maxCols; c++) {
+                    let cell = document.querySelector(`.cell-r${r}-c${c}`);
+                    if(cell) cell.classList.add('selected-cell');
+                }
+            });
+
+            selCols.forEach(c => {
+                let h = document.querySelector(`.header-col-${c}`);
+                if(h) h.classList.add('selected-header');
+                for(let r=0; r<grid.length; r++) {
+                    let cell = document.querySelector(`.cell-r${r}-c${c}`);
+                    if(cell) cell.classList.add('selected-cell');
+                }
+            });
+            updateToolbarUI();
+        }
+
+        function updateToolbarUI() {
+            const tb = document.getElementById('dataToolbar');
+            if(!tb) return;
+
+            let html = ``;
+            if (currentEditIndex !== -1 && dataEditMode === 'table' && (selRows.size > 0 || selCols.size > 0)) {
+                let isRow = selRows.size > 0;
+                let count = isRow ? selRows.size : selCols.size;
+
+                html += `
+                    <button onclick="deleteSelected()" class="text-[12px] bg-red-50 border border-red-200 text-red-600 px-3 py-1.5 rounded-md hover:bg-red-100 font-bold transition flex items-center gap-1 shadow-sm">
+                        <span class="material-symbols-outlined text-[14px]">delete</span> 刪除 (${count})
+                    </button>
+                    <button onclick="copySelected()" class="text-[12px] bg-blue-50 border border-blue-200 text-blue-600 px-3 py-1.5 rounded-md hover:bg-blue-100 font-bold transition flex items-center gap-1 shadow-sm">
+                        <span class="material-symbols-outlined text-[14px]">content_copy</span> 複製 (${count})
+                    </button>
+                    <div class="w-px h-4 bg-gray-300 mx-1 self-center"></div>
+                `;
+            }
+
+            if (currentEditIndex !== -1 && dataEditMode === 'table') {
+                html += `
+                    <button onclick="addDataRow()" class="text-[12px] bg-gray-50 border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-100 font-bold transition flex items-center gap-1 shadow-sm"><span class="material-symbols-outlined text-[14px]">add</span> 列(Row)</button>
+                    <button onclick="addDataCol()" class="text-[12px] bg-gray-50 border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-100 font-bold transition flex items-center gap-1 shadow-sm"><span class="material-symbols-outlined text-[14px]">add</span> 欄(Col)</button>
+                `;
+            }
+            tb.innerHTML = html;
+        }
+
+        function renderDataEditorArea() {
+            const container = document.getElementById('dataEditorArea');
+            if (!container || currentEditIndex === -1) {
+                updateToolbarUI(); return;
+            }
+            const bank = editorData[currentEditIndex];
+
+            if (dataEditMode === 'text') {
+                // ✨ 智慧文字模式：匯出完整 Key-Value 格式
+                let textValue = `id\t${bank.id || ''}\nfolder\t${bank.folder || ''}\nname\t${bank.name || ''}\ntype\t${bank.type || ''}\ndata\n${bank.data || ''}`;
+                container.innerHTML = `<textarea id="singleBankTextarea" class="w-full h-full flex-1 p-5 bg-transparent outline-none resize-none font-mono text-sm leading-relaxed whitespace-pre" oninput="updateBankFromText(this.value)" onkeydown="handleTextareaTab(event)" placeholder="請輸入題庫內容 (支援 Tab 分隔)...">${escapeHTML(textValue)}</textarea>`;
+                updateToolbarUI();
+            } else {
+                let grid = getParsedDataGrid(bank.data);
+                let maxCols = Math.max(...grid.map(r => r.length), 2);
+
+                let tableHtml = `<div class="overflow-x-auto w-full flex-1"><table class="excel-table select-none min-w-full bg-white">`;
+                
+                tableHtml += `<thead class="sticky top-0 z-[25] bg-gray-100 shadow-sm outline outline-1 outline-gray-200"><tr>`;
+                tableHtml += `<th class="w-12 excel-th bg-gray-200 z-[30] sticky left-0 cursor-pointer border-r border-b border-gray-300" onclick="selectAll()"></th>`;
+                for(let c = 0; c < maxCols; c++) {
+                    let w = colWidths[c] || 150;
+                    tableHtml += `
+                    <th class="excel-th text-center font-bold text-xs text-gray-500 py-1.5 cursor-pointer header-col-${c}" 
+                        style="min-width:${w}px; width:${w}px" 
+                        onmousedown="handleHeaderMouseDown('col', ${c}, event)" 
+                        onmouseenter="handleHeaderMouseEnter('col', ${c}, event)">
+                        Col ${c+1}
+                        <div class="resize-handle" onmousedown="startColResize(event, ${c})"></div>
+                    </th>`;
+                }
+                tableHtml += `</tr></thead><tbody>`;
+                
+                grid.forEach((row, rIndex) => {
+                    tableHtml += `<tr>`;
+                    tableHtml += `<th class="excel-th text-center font-bold text-xs text-gray-500 cursor-pointer sticky left-0 z-[20] bg-gray-100 border-r border-b border-gray-300 header-row-${rIndex}" 
+                        onmousedown="handleHeaderMouseDown('row', ${rIndex}, event)" 
+                        onmouseenter="handleHeaderMouseEnter('row', ${rIndex}, event)">
+                        ${rIndex + 1}
+                    </th>`;
+                    
+                    for(let c = 0; c < maxCols; c++) {
+                        let val = row[c] !== undefined ? row[c] : '';
+                        tableHtml += `
+                        <td class="excel-td cell-r${rIndex}-c${c}">
+                            <input type="text" class="cell-input text-gray-800 text-sm" value="${escapeQuotes(val)}" 
+                                oninput="updateDataCell(${rIndex}, ${c}, this.value)"
+                                onfocus="handleCellFocus()">
+                        </td>`;
+                    }
+                    tableHtml += `</tr>`;
+                });
+                tableHtml += `</tbody></table></div>`;
+                
+                container.innerHTML = tableHtml;
+                renderSelectionUI(); 
+            }
+        }
+
+        let resizingCol = -1; let startX = 0; let startWidth = 0;
+        function startColResize(e, colIndex) {
+            e.preventDefault(); e.stopPropagation();
+            resizingCol = colIndex; startX = e.clientX;
+            const th = e.target.closest('th');
+            startWidth = th.offsetWidth;
+            document.addEventListener('mousemove', doColResize);
+            document.addEventListener('mouseup', stopColResize);
+            document.body.style.cursor = 'col-resize';
+        }
+        function doColResize(e) {
+            if (resizingCol === -1) return;
+            const diff = e.clientX - startX;
+            let newWidth = Math.max(80, startWidth + diff); 
+            colWidths[resizingCol] = newWidth;
+            const ths = document.querySelectorAll(`th[data-col="${resizingCol}"]`);
+            ths.forEach(th => { th.style.minWidth = newWidth + 'px'; th.style.width = newWidth + 'px'; });
+        }
+        function stopColResize() {
+            resizingCol = -1; document.removeEventListener('mousemove', doColResize); document.removeEventListener('mouseup', stopColResize); document.body.style.cursor = 'default';
+        }
+
+        function updateDataCell(r, c, val) {
+            let grid = getParsedDataGrid(editorData[currentEditIndex].data);
+            if (!grid[r]) grid[r] = []; grid[r][c] = val;
+            editorData[currentEditIndex].data = saveParsedDataGrid(grid);
+            saveEditorToExcel(); 
+        }
+
+        function addDataRow() {
+            let grid = getParsedDataGrid(editorData[currentEditIndex].data);
+            grid.push(Array(grid[0] ? grid[0].length : 2).fill(''));
+            editorData[currentEditIndex].data = saveParsedDataGrid(grid);
+            saveEditorToExcel(); selRows.clear(); selCols.clear(); renderDataEditorArea();
+        }
+
+        function addDataCol() {
+            let grid = getParsedDataGrid(editorData[currentEditIndex].data);
+            grid.forEach(row => row.push('')); 
+            editorData[currentEditIndex].data = saveParsedDataGrid(grid);
+            saveEditorToExcel(); selRows.clear(); selCols.clear(); renderDataEditorArea();
+        }
+
+        function deleteSelected() {
+            let isRow = selRows.size > 0;
+            let count = isRow ? selRows.size : selCols.size;
+            let typeStr = isRow ? '列 (Row)' : '欄位 (Column)';
+            
+            showConfirm(`確定要刪除選取的 <b>${count}</b> 個${typeStr}嗎？`, () => {
+                let grid = getParsedDataGrid(editorData[currentEditIndex].data);
+                if (isRow) {
+                    let rowsToDelete = Array.from(selRows).sort((a,b)=>b-a);
+                    rowsToDelete.forEach(r => grid.splice(r, 1));
+                    if (grid.length === 0) grid.push(['']);
+                } else {
+                    let colsToDelete = Array.from(selCols).sort((a,b)=>b-a);
+                    grid.forEach(row => colsToDelete.forEach(c => row.splice(c, 1)));
+                    if (grid[0].length === 0) grid.forEach(row => row.push(''));
+                }
+                editorData[currentEditIndex].data = saveParsedDataGrid(grid);
+                saveEditorToExcel(); selRows.clear(); selCols.clear(); renderDataEditorArea();
+            });
+        }
+
+        function copySelected() {
+            let grid = getParsedDataGrid(editorData[currentEditIndex].data);
+            if (selRows.size > 0) {
+                let rowsToCopy = Array.from(selRows).sort((a,b)=>a-b);
+                let newRows = rowsToCopy.map(r => [...grid[r]]);
+                let maxIdx = Math.max(...rowsToCopy);
+                grid.splice(maxIdx + 1, 0, ...newRows); 
+            } else if (selCols.size > 0) {
+                let colsToCopy = Array.from(selCols).sort((a,b)=>a-b);
+                let maxIdx = Math.max(...colsToCopy);
+                grid.forEach(row => {
+                    let newCells = colsToCopy.map(c => row[c] !== undefined ? row[c] : '');
+                    row.splice(maxIdx + 1, 0, ...newCells);
+                });
+            }
+            editorData[currentEditIndex].data = saveParsedDataGrid(grid);
+            saveEditorToExcel(); selRows.clear(); selCols.clear(); renderDataEditorArea();
+            showToast('複製成功！');
+        }
+
+        function addNewBank() {
+            const newId = `new_bank_${Date.now().toString().slice(-4)}`;
+            editorData.push({ id: newId, folder: '新目錄', name: '新題庫', type: '問答', data: '' });
+            saveEditorToExcel(); renderEditorList();
+            const listItems = document.getElementById('editorListContainer').children;
+            selectEditorBank(editorData.length - 1, listItems[editorData.length - 1]);
+        }
+
+        function deleteCurrentBank() {
+            if (currentEditIndex === -1) return;
+            showConfirm("確定要刪除整個題庫嗎？此操作無法復原。", () => {
+                editorData.splice(currentEditIndex, 1);
+                currentEditIndex = -1;
+                saveEditorToExcel(); renderEditorList();
+            });
+        }
+
+        function handleTextareaTab(e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                let start = e.target.selectionStart, end = e.target.selectionEnd;
+                e.target.value = e.target.value.substring(0, start) + "\t" + e.target.value.substring(end);
+                e.target.selectionStart = e.target.selectionEnd = start + 1;
+                
+                // ✨ 判斷是否為智慧文字模式的輸入框
+                if (e.target.id === 'singleBankTextarea') {
+                    updateBankFromText(e.target.value);
+                } else {
+                    updateField('data', e.target.value); 
+                }
+            }
+        }
+
+        function cleanAllExcelData() {
+            let str = document.getElementById('excelInput').value.trim();
+            if (!str) return;
+            let lines = str.split('\n');
+            let start = lines[0].toLowerCase().startsWith('id') ? 1 : 0;
+            let header = start === 1 ? lines[0] + '\n' : '';
+            
+            let cleanedBanks = [];
+            for (let i = start; i < lines.length; i++) {
+                let cols = lines[i].split('\t');
+                if (cols.length < 5 && !cols[0].trim()) continue; 
+                
+                let id = cols[0] || ''; let folder = cols[1] || ''; let name = cols[2] || ''; let type = cols[3] || '';
+                let rawData = cols.slice(4).join('\t') || '';
+                let grid = rawData.split('\\n').map(r => r.split('\\t'));
+                
+                grid = grid.filter(row => row.some(cell => cell.trim() !== ''));
+                if(grid.length === 0) grid = [['']]; 
+                
+                let maxCol = 0;
+                grid.forEach(row => {
+                    for(let c = row.length - 1; c >= 0; c--) {
+                        if(row[c].trim() !== '') { maxCol = Math.max(maxCol, c); break; }
+                    }
+                });
+                grid = grid.map(row => row.slice(0, maxCol + 1));
+                
+                let cleanData = grid.map(r => r.join('\\t')).join('\\n');
+                cleanedBanks.push(`${id}\t${folder}\t${name}\t${type}\t${cleanData}`);
+            }
+            document.getElementById('excelInput').value = header + cleanedBanks.join('\n');
+        }
+
+        function convertToJS() {
+            cleanAllExcelData(); 
+            if(currentLeftTab === 'editor') loadExcelToEditor();
+            if(currentLeftTab === 'overview') renderOverviewTable();
+
+            let excelStr = document.getElementById('excelInput').value.trim();
+            if (!excelStr) return showToast('左側沒有資料可以轉換！');
+
+            let lines = excelStr.split('\n');
+            let resultData = [];
+            let startIndex = lines[0].toLowerCase().startsWith('id') ? 1 : 0;
+
+            for (let i = startIndex; i < lines.length; i++) {
+                let cols = lines[i].split('\t');
+                if (cols.length < 5 && !cols[0].trim()) continue; 
+                let id = cols[0] || '', folder = cols[1] || '', name = cols[2] || '', type = cols[3] || '';
+                let rawData = cols.slice(4).join('\t') || ''; 
+
+                let finalDataStr = "";
+                if (rawData.startsWith('[') && rawData.endsWith(']')) {
+                    finalDataStr = rawData; 
+                } else {
+                    let dataLines = rawData.split('\\n');
+                    if (dataLines.length > 1) {
+                        let formattedLines = dataLines.map(line => `            "${line.replace(/"/g, '\\"')}"`);
+                        finalDataStr = `[\n${formattedLines.join(',\n')}\n        ].join('\\n')`;
+                    } else {
+                        finalDataStr = `"${rawData.replace(/"/g, '\\"')}"`;
+                    }
+                }
+                resultData.push(`    {\n        id: '${id}',\n        folder: '${folder}',\n        name: '${name}',\n        type: '${type}',\n        data: ${finalDataStr}\n    }`);
+            }
+
+            if (resultData.length === 0) return showToast('找不到有效的資料！');
+
+            let isWrapped = document.getElementById('wrapPresetBank').checked;
+            let joinedData = resultData.join(',\n') + ',';
+            document.getElementById('jsInput').value = isWrapped ? `window.presetBank = [\n${joinedData}\n];` : joinedData;
+            
+            if (document.body.classList.contains('is-maximized')) toggleMaximize();
+            showToast('已自動清理空白並成功轉換為 JS！');
+        }
+
+        function convertToExcel() {
+            let jsStr = document.getElementById('jsInput').value.trim();
+            if (!jsStr) return showToast('請先輸入 JS 程式碼！');
+            jsStr = jsStr.replace(/window\.presetBank\s*=\s*/, '');
+            if (jsStr.endsWith(';')) jsStr = jsStr.slice(0, -1);
+            jsStr = jsStr.replace(/,+$/, '');
+
+            try {
+                let parsedData = new Function("return " + jsStr)();
+                if (!Array.isArray(parsedData)) parsedData = [parsedData];
+                let excelOutput = "id\tfolder\tname\ttype\tdata\n";
+                parsedData.forEach(item => {
+                    let id = item.id || '', folder = item.folder || '', name = item.name || '', type = item.type || '';
+                    let data = '';
+                    if (Array.isArray(item.data)) data = JSON.stringify(item.data); 
+                    else if (typeof item.data === 'string') data = item.data.replace(/\n/g, '\\n').replace(/\t/g, '\\t');
+                    excelOutput += `${id}\t${folder}\t${name}\t${type}\t${data}\n`;
+                });
+                document.getElementById('excelInput').value = excelOutput.trim();
+                if (currentLeftTab === 'overview') renderOverviewTable();
+                if (currentLeftTab === 'editor') loadExcelToEditor();
+                showToast('解析成功！已匯入左側面板');
+            } catch (err) {
+                console.error(err); alert("JS 格式解析失敗，請確認語法是否正確。\n錯誤資訊: " + err.message);
+            }
+        }
+				// ✨ 觸發隱藏的檔案選取器
+		function triggerFilePicker() {
+			document.getElementById('jsFilePicker').click();
+		}
+
+		// ✨ 處理檔案讀取邏輯
+		function handleFileSelect(event) {
+			const file = event.target.files[0];
+			if (!file) return;
+
+			const reader = new FileReader();
+			reader.onload = function(e) {
+				const content = e.target.result;
+				// 將內容填入右側編輯區
+				document.getElementById('jsInput').value = content;
+				
+				// 提示使用者
+				showToast(`已成功載入：${file.name}`);
+				
+				// 自動執行一次「解析至左側」，讓視覺編輯器同步更新
+				// 如果你希望載入後立刻看到表格，可以取消註解下一行
+				// convertToExcel(); 
+				
+				// 清除 input 數值，確保同一個檔案可重複觸發載入
+				event.target.value = '';
+			};
+			
+			reader.onerror = function() {
+				showToast('檔案讀取失敗！');
+			};
+
+			reader.readAsText(file);
+		}
+    </script>
+	<input type="file" id="jsFilePicker" accept=".js" class="hidden" onchange="handleFileSelect(event)">
+</body>
+</html>
