@@ -653,3 +653,31 @@ body.mode-block .clause {
 body.mode-block wbr.wrap-fix {
     display: none;
 }
+
+
+
+/* ==========================================
+   滿版檢視模式 (Zen Mode)
+   ========================================== */
+#resultSection.is-fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
+    margin: 0;
+    border-radius: 0;
+    /* 蓋掉原本的半透明模糊，改為乾淨的純白底色，提高專注度 */
+    background-color: #fdfdfd; 
+    backdrop-filter: none;
+    max-width: none;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 滿版模式下，讓滾動區域無限延伸填滿剩餘高度 */
+#resultSection.is-fullscreen .scroll-area {
+    max-height: none;
+    flex-grow: 1;
+}

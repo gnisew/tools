@@ -1903,6 +1903,39 @@ btnClear.addEventListener('click', () => {
 });
 
 
+// ==========================================
+// 標註區：滿版模式切換
+// ==========================================
+const btnFullscreen = document.getElementById('btnFullscreen');
+const resultSection = document.getElementById('resultSection');
+
+if (btnFullscreen && resultSection) {
+    btnFullscreen.addEventListener('click', () => {
+        // 切換滿版 class
+        const isFull = resultSection.classList.toggle('is-fullscreen');
+        const icon = btnFullscreen.querySelector('.material-symbols-outlined');
+        
+        if (isFull) {
+            icon.textContent = 'fullscreen_exit';
+            btnFullscreen.title = '退出滿版';
+            // 鎖定背景網頁不准滾動
+            document.body.style.overflow = 'hidden'; 
+        } else {
+            icon.textContent = 'fullscreen';
+            btnFullscreen.title = '滿版檢視';
+            // 恢復背景網頁滾動
+            document.body.style.overflow = ''; 
+        }
+    });
+
+    // 貼心功能：在滿版模式下按 ESC 鍵也可以退出
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && resultSection.classList.contains('is-fullscreen')) {
+            btnFullscreen.click(); 
+        }
+    });
+}
+
 // 主按鈕：點擊左側「複製標註」執行主要動作 (預設：自然換行)
 btnPrimary.addEventListener('click', async () => {
     await copyAnnotated('natural');
