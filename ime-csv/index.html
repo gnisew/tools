@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>線上客語拼音輸入法</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link href="https://tauhu.tw/tauhu-oo.css" rel="stylesheet">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="bg-white rounded-xl shadow-lg w-full max-w-3xl p-6 flex flex-col gap-6">
+        
+        <div class="flex flex-col gap-2">
+            <div class="flex justify-between items-end">
+                <label for="editor" id="editorLabel" class="text-lg font-bold text-blue-800">烏衣行客語輸入法</label>
+                <div class="flex gap-2">
+                    <label for="csvUpload" class="px-3 py-1 bg-green-100 text-green-700 rounded-md text-sm hover:bg-green-200 transition cursor-pointer">
+                        匯入字典(CSV)
+                    </label>
+                    <input type="file" id="csvUpload" accept=".csv" class="hidden">
+                    
+                    <button id="copyBtn" class="px-3 py-1 bg-blue-100 text-blue-700 rounded-md text-sm hover:bg-blue-200 transition">
+                        複製文字
+                    </button>
+                    <button id="clearBtn" class="px-3 py-1 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200 transition">
+                        清除全部
+                    </button>
+                </div>
+            </div>
+            <textarea id="editor" 
+                      class="w-full h-64 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y text-lg shadow-inner"
+                      placeholder="在這裡撰寫你的文章..."></textarea>
+        </div>
+
+<div class="relative w-full mt-2">
+    <div id="candidateWindow" class="absolute bottom-full left-0 mb-2 w-full bg-white border border-blue-200 rounded-xl shadow-2xl z-50 hidden overflow-hidden">
+        <div id="candidateArea" class="p-2 flex flex-wrap gap-1 overflow-y-auto max-h-[180px] scroll-smooth">
+            </div>
+    </div>
+
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div class="flex-1 w-full">
+            <input type="text" id="pinyinInput" 
+                   class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-base shadow-sm transition"
+                   placeholder="輸入拼音如 ngai" autocomplete="off">
+        </div>
+
+        <div id="candidateControls" class="flex items-center gap-1 hidden">
+            <button id="prevPageBtn" class="text-[11px] px-2 py-1.5 bg-white border border-gray-300 rounded hover:bg-blue-50 disabled:opacity-50 transition">上一頁(,)</button>
+            <span id="pageIndicator" class="text-[11px] text-gray-600 font-mono mx-1">1/1</span>
+            <button id="nextPageBtn" class="text-[11px] px-2 py-1.5 bg-white border border-gray-300 rounded hover:bg-blue-50 disabled:opacity-50 transition">下一頁(.)</button>
+            <button id="toggleExpandBtn" class="text-[11px] px-2 py-1.5 bg-blue-50 text-blue-700 font-bold border border-blue-100 rounded hover:bg-blue-100 transition">展開(/)</button>
+        </div>
+    </div>
+</div>
+
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

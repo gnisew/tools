@@ -1,0 +1,43 @@
+body {
+    font-family: 'tauhu-oo', PingFangTC-Regular, "Microsoft JhengHei", sans-serif;
+    background-color: #f3f4f6;
+}
+
+/* 編輯區字體加大 */
+#editor {
+    font-family: 'tauhu-oo', sans-serif;
+}
+
+/* 自訂滾動條 */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #f1f1f1; 
+}
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1; 
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8; 
+}
+
+/* 預設候選區域高度較低，僅容納 2 排左右 */
+#candidateArea {
+    transition: max-height 0.3s ease;
+}
+
+/* 當候選視窗標記為 expanded 時，擴大視窗高度並允許捲動 */
+#candidateWindow.expanded-view #candidateArea {
+    max-height: 300px; /* 擴展後的視窗高度 */
+}
+
+/* 美化捲動條 */
+#candidateArea::-webkit-scrollbar {
+    width: 6px;
+}
+#candidateArea::-webkit-scrollbar-thumb {
+    background: #dbeafe;
+    border-radius: 10px;
+}
