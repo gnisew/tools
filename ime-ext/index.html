@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>烏衣行輸入法</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link href="https://tauhu.tw/tauhu-oo.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+
+    
+    <script src="https://gnisew.github.io/tools/translate/translate.js"></script>
+	<script src="https://gnisew.github.io/tools/ime/ime-dict.js"></script>
+	<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-3 sm:p-4">
+
+    <div class="bg-white rounded-xl shadow-lg w-full max-w-3xl p-4 sm:p-6 flex flex-col gap-4 sm:gap-6">
+        
+        <div class="flex flex-col gap-2">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3">
+                
+                <div class="flex items-center gap-1.5">
+                    <button id="ninjaBtn" class="text-2xl hover:scale-110 transition-transform cursor-pointer outline-none select-none" title="">🥷</button>
+                    <label for="editor" id="editorLabel" class="text-lg font-bold text-blue-800">烏衣行輸入法</label>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-1 sm:gap-2">
+                    <input type="file" id="csvUpload" accept=".csv" class="hidden">
+                    <button id="copyBtn" class="flex items-center justify-center w-8 h-8 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition outline-none" title="複製文字">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75" />
+                        </svg>
+                    </button>
+                    <button id="clearBtn" class="flex items-center justify-center w-8 h-8 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition outline-none" title="清除全部">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <textarea id="editor" 
+                      class="w-full h-52 sm:h-64 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y text-lg shadow-inner"
+                      placeholder="在這裡撰寫你的文章..."></textarea>
+        </div>
+
+        <div class="relative w-full mt-1">
+            <div id="candidateWindow" class="absolute bottom-full left-0 mb-2 w-full bg-slate-100 rounded-xl shadow-2xl z-50 hidden flex-col overflow-hidden border border-slate-200">
+                <button id="closeCandidateBtn" class="absolute top-1.5 right-1.5 w-6 h-6 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-200/60 rounded transition font-bold text-xs z-10 outline-none" title="關閉 (Esc)">✕</button>
+                
+                <div id="candidateArea" class="p-2 pr-8 flex flex-wrap gap-2 overflow-y-auto max-h-[220px] scroll-smooth"></div>
+            </div>
+
+            <div class="relative w-full flex items-center bg-white border border-gray-300 rounded-xl focus-within:ring-2 focus-within:ring-blue-500 shadow-sm transition-all z-40">
+                
+                <div class="relative flex items-center shrink-0">
+                    <button id="langToggleBtn" class="h-12 px-2.5 sm:px-4 flex items-center gap-0.5 sm:gap-1 text-gray-700 font-bold hover:text-blue-600 hover:bg-gray-50 rounded-l-xl transition outline-none whitespace-nowrap">
+                    </button>
+                    <div id="langMenu" class="absolute bottom-full left-0 mb-2 w-32 bg-white border border-gray-200 rounded-lg shadow-xl z-50 hidden flex-col py-1 max-h-64 overflow-y-auto">
+                        <button class="lang-option w-full text-left px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 transition" data-lang="sixian">四縣</button>                        
+                        <button class="lang-option w-full text-left px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 transition" data-lang="hailu">海陸</button>
+                        <button class="lang-option w-full text-left px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 transition" data-lang="dapu">大埔</button>
+                        <button class="lang-option w-full text-left px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 transition" data-lang="raoping">饒平</button>
+                        <button class="lang-option w-full text-left px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 transition" data-lang="kasu">詔安</button>
+						<button class="lang-option w-full text-left px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 transition" data-lang="sixiannan">南四縣</button>
+                        <button class="lang-option w-full text-left px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 transition" data-lang="holo">和樂</button>
+                        <button class="lang-option w-full text-left px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 transition" data-lang="jinmen">金門</button>
+                        <button class="lang-option w-full text-left px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 transition" data-lang="matsu">馬祖</button>
+                        <button class="lang-option w-full text-left px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 transition" data-lang="cangjie">倉頡</button>
+                        <button class="lang-option w-full text-left px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 transition" data-lang="xiami">蝦米</button>
+                        <button class="lang-option w-full text-left px-4 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 transition" data-lang="hanglie">行列</button>
+                    </div>
+                </div>
+
+                <div class="w-px h-5 bg-gray-300 shrink-0"></div>
+                
+                <button id="modeToggleBtn" class="h-12 px-2.5 sm:px-4 shrink-0 text-blue-700 font-bold hover:bg-blue-50 transition outline-none whitespace-nowrap">
+                    漢
+                </button>
+
+                <div class="w-px h-5 bg-gray-300 shrink-0"></div>
+                
+                <input type="text" id="pinyinInput" 
+                       class="flex-1 w-full min-w-[30px] h-12 px-2.5 sm:px-3 bg-transparent outline-none text-base sm:text-lg text-gray-800 placeholder-gray-400"
+                       placeholder="輸入拼音或中文查詞..." autocomplete="off">
+
+                <button id="openSettingsBtn" class="shrink-0 flex items-center justify-center w-10 h-10 mr-1 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition outline-none" title="設定">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854-.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71-.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                </button>
+                       
+                <div id="inlineControls" class="shrink-0 flex items-center pr-1 hidden bg-white rounded-r-xl">
+                    <button id="prevPageBtn" class="w-7 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-md transition disabled:opacity-30 disabled:cursor-not-allowed font-bold text-lg" title="上一頁 (,)">&lt;</button>
+                    <button id="toggleExpandBtn" class="text-xs font-mono font-bold text-slate-400 hover:text-slate-800 hover:bg-slate-100 px-1.5 sm:px-2 h-7 mx-0.5 rounded transition tracking-wider flex items-center justify-center" title="展開全部 (/)">1/1</button>
+                    <button id="nextPageBtn" class="w-7 h-9 flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-md transition disabled:opacity-30 disabled:cursor-not-allowed font-bold text-lg" title="下一頁 (.)">&gt;</button>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <div id="settingsModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center hidden z-[100] p-4 sm:p-6 transition-opacity">
+        <div class="bg-gray-50 rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden border border-gray-200/60">
+            
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-white">
+                <h2 class="text-xl font-bold text-gray-800 tracking-wide">⚙️ 偏好設定</h2>
+                <button id="closeSettingsBtn" class="text-gray-400 hover:text-gray-600 transition text-2xl leading-none">&times;</button>
+            </div>
+
+            <div class="p-6 overflow-y-auto flex-1 custom-scrollbar">
+                <div class="space-y-5">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex flex-col gap-1">
+                            <label for="set_fontSize" class="block text-sm font-medium text-gray-700 mb-1">編輯區字體大小</label>
+                            <select id="set_fontSize" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                                <option value="text-base">小 (Base)</option>
+                                <option value="text-lg">中 (Large)</option>
+                                <option value="text-xl">大 (XL)</option>
+                                <option value="text-2xl">特大 (2XL)</option>
+                            </select>
+                        </div>
+
+                        <div class="flex flex-col gap-1">
+                            <label for="set_pageSize" class="block text-sm font-medium text-gray-700 mb-1">每頁候選字數量</label>
+                            <select id="set_pageSize" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                                <option value="5">5 個</option>
+                                <option value="10">10 個</option>
+                            </select>
+                        </div>
+
+                        <div class="flex flex-col gap-1">
+                            <label for="set_layoutMode" class="block text-sm font-medium text-gray-700 mb-1">候選視窗排版</label>
+                            <select id="set_layoutMode" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                                <option value="single">單排顯示 (依序排列)</option>
+                                <option value="double">雙排顯示 (5字折行)</option>
+                            </select>
+                        </div>
+
+                        <div class="flex flex-col gap-1">
+                            <label for="set_clearAction" class="block text-sm font-medium text-gray-700 mb-1">編輯區清除快捷鍵</label>
+                            <select id="set_clearAction" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                                <option value="esc">僅 Esc 鍵</option>
+                                <option value="esc_quote">Esc 或 反斜線 \ 鍵</option>
+                            </select>
+                        </div>
+                    </div>
+
+					<div class="flex flex-col gap-1">
+						<label for="set_kasuSpelling" class="block text-sm font-medium text-gray-700 mb-1">詔安腔輸入規則</label>
+						<select id="set_kasuSpelling" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+							<option value="mixed">簡繁混打 (預設: r=rh, v=bb, o=oo)</option>
+							<option value="simplified">僅限簡拼 (r, v, o)</option>
+							<option value="traditional">僅限繁拼 (rh, bb, oo)</option>
+						</select>
+					</div>
+
+					<div class="flex flex-col gap-2 mt-1 border-t border-slate-200/60 pt-3">
+						<label class="flex items-center gap-2 cursor-pointer group">
+                            <input type="checkbox" id="set_saveEditorContent" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                            <span class="text-sm text-gray-700 group-hover:text-gray-900">自動記憶編輯區文字 (重新載入不遺失)</span>
+                        </label>
+						<label class="flex items-center gap-2 cursor-pointer group">
+                            <input type="checkbox" id="set_showRuby" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                            <span class="text-sm text-gray-700 group-hover:text-gray-900">在「漢」模式上方顯示拼音</span>
+                        </label>
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" id="set_enablePredictiveText" class="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500 cursor-pointer">
+                            <label for="set_enablePredictiveText" class="text-sm font-medium text-gray-700 cursor-pointer select-none">啟用關聯詞 (聯想詞預測)</label>
+                        </div>
+                        
+                        <div class="pl-6 flex flex-col gap-1.5 mt-0.5">
+                            <label class="text-[11px] font-bold text-slate-500">字形輸入法專用關聯詞庫：</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-[11px] text-gray-600 w-6">倉頡</span>
+                                    <select id="set_predCangjie" class="flex-1 p-1 bg-white border border-gray-200 rounded text-xs outline-none focus:border-emerald-400 text-gray-700 shadow-sm">
+                                        <option value="none">無關聯詞</option>
+                                        <option value="sixian">四縣</option><option value="sixiannan">南四縣</option>
+                                        <option value="hailu">海陸</option><option value="dapu">大埔</option>
+                                        <option value="raoping">饒平</option><option value="kasu">詔安</option>
+                                        <option value="holo">台語(和樂)</option><option value="jinmen">金門</option>
+                                        <option value="matsu">馬祖</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-[11px] text-gray-600 w-6">蝦米</span>
+                                    <select id="set_predXiami" class="flex-1 p-1 bg-white border border-gray-200 rounded text-xs outline-none focus:border-emerald-400 text-gray-700 shadow-sm">
+                                        <option value="none">無關聯詞</option>
+                                        <option value="sixian">四縣</option><option value="sixiannan">南四縣</option>
+                                        <option value="hailu">海陸</option><option value="dapu">大埔</option>
+                                        <option value="raoping">饒平</option><option value="kasu">詔安</option>
+                                        <option value="holo">台語(和樂)</option><option value="jinmen">金門</option>
+                                        <option value="matsu">馬祖</option>
+                                    </select>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <span class="text-[11px] text-gray-600 w-6">行列</span>
+                                    <select id="set_predHanglie" class="flex-1 p-1 bg-white border border-gray-200 rounded text-xs outline-none focus:border-emerald-400 text-gray-700 shadow-sm">
+                                        <option value="none">無關聯詞</option>
+                                        <option value="sixian">四縣</option><option value="sixiannan">南四縣</option>
+                                        <option value="hailu">海陸</option><option value="dapu">大埔</option>
+                                        <option value="raoping">饒平</option><option value="kasu">詔安</option>
+                                        <option value="holo">台語(和樂)</option><option value="jinmen">金門</option>
+                                        <option value="matsu">馬祖</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <div id="quickModeContainer" class="col-span-1 md:col-span-2 bg-slate-50 border border-slate-200 rounded-xl p-4 mt-1 shadow-sm">
+    <h4 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-1.5">
+        <span class="text-lg leading-none">🚀</span> 常用輸入模式 (一鍵切換)
+    </h4>
+    
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <button id="modeBasicBtn" class="py-2.5 px-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-bold hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition shadow-sm flex flex-col items-center justify-center gap-1 outline-none cursor-pointer">
+            <span class="text-sm">✅ 基本模式</span>
+            <span class="text-[10px] text-slate-400 font-normal">單字加調 / 首音簡打</span>
+        </button>
+        <button id="modeSingleBtn" class="py-2.5 px-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-bold hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition shadow-sm flex flex-col items-center justify-center gap-1 outline-none cursor-pointer">
+            <span class="text-sm">🔤 單字模式</span>
+            <span class="text-[10px] text-slate-400 font-normal">單字加調 / 僅打單字</span>
+        </button>
+        <button id="modeContinuousBtn" class="py-2.5 px-2 bg-white border border-slate-200 rounded-lg text-slate-700 font-bold hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition shadow-sm flex flex-col items-center justify-center gap-1 outline-none cursor-pointer">
+            <span class="text-sm">💨 連打模式</span>
+            <span class="text-[10px] text-slate-400 font-normal">字皆無調 / 支援分音</span>
+        </button>
+    </div>
+    
+    <div class="border-t border-slate-200/80 pt-3">
+        <details id="advRulesDetails" class="group">
+            <summary class="text-xs font-bold text-slate-500 cursor-pointer hover:text-blue-600 transition flex items-center gap-1 outline-none select-none [&::-webkit-details-marker]:hidden list-none">
+                ⚙️ 展開進階輸入規則 (手動微調)
+                <span class="text-[10px] group-open:rotate-180 transition-transform duration-200">▼</span>
+            </summary>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-4 mt-3 p-3 bg-white/60 rounded-lg border border-slate-100">
+                
+                <div class="flex flex-col gap-3">
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="set_reqToneSingle" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer">
+                        <label for="set_reqToneSingle" class="text-sm font-medium text-gray-700 cursor-pointer select-none">單字必須輸入聲調</label>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="set_reqToneMulti" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer">
+                        <label for="set_reqToneMulti" class="text-sm font-medium text-gray-700 cursor-pointer select-none">多字詞必須輸入聲調</label>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="set_allowAbbrMulti" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer">
+                        <label for="set_allowAbbrMulti" class="text-sm font-medium text-gray-700 cursor-pointer select-none">允許首音縮打 (簡拼)</label>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col gap-3">
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" id="set_singleCharMode" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer">
+                        <label for="set_singleCharMode" class="text-sm font-medium text-gray-700 cursor-pointer select-none">僅限單字模式</label>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex items-center gap-2">
+                            <input type="checkbox" id="set_continuousMode" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer">
+                            <label for="set_continuousMode" class="text-sm font-bold text-emerald-600 cursor-pointer select-none">開啟連續拼音連打模式</label>
+                        </div>
+                        <div class="flex items-center gap-2 pl-6 border-l-2 border-slate-200/60 ml-2">
+                            <input type="checkbox" id="set_allowToneInContinuous" class="w-3.5 h-3.5 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer">
+                            <label for="set_allowToneInContinuous" class="text-[12px] font-medium text-gray-500 cursor-pointer hover:text-blue-600 transition-colors select-none">
+                                連打時允許字母聲調 <span class="text-xs text-rose-400 font-normal">(易產生切詞歧義)</span>
+                            </label>
+                        </div>
+                    </div>                   
+
+                </div>
+                
+            </div>
+        </details>
+    </div>
+</div>
+
+                    <details class="mt-2 border border-amber-200 bg-amber-50/40 rounded-xl shadow-sm group">
+                        <summary class="list-none cursor-pointer px-4 py-3 text-sm font-bold text-amber-800 flex justify-between items-center focus:outline-none rounded-xl group-open:rounded-b-none group-open:border-b group-open:border-amber-200 [&::-webkit-details-marker]:hidden">
+                            <span>⌨️ 快捷鍵與操作指南</span>
+                            <span class="text-amber-500 group-open:rotate-180 transition-transform duration-200">▼</span>
+                        </summary>
+                        <div class="px-4 py-3 text-[13px] text-gray-700 space-y-3 leading-relaxed bg-white/50 rounded-b-xl">
+                            <div>
+                                <strong class="text-amber-900">📌 基本選字與換頁：</strong><br>
+                                <span class="inline-block mt-1">
+                                    • <kbd class="px-1.5 py-0.5 bg-white border border-gray-300 rounded shadow-sm font-mono text-xs">空白鍵</kbd>：直接輸出第一個候選字<br>
+                                    • <kbd class="px-1.5 py-0.5 bg-white border border-gray-300 rounded shadow-sm font-mono text-xs">.</kbd> <kbd class="px-1.5 py-0.5 bg-white border border-gray-300 rounded shadow-sm font-mono text-xs">,</kbd> 或 <kbd class="px-1.5 py-0.5 bg-white border border-gray-300 rounded shadow-sm font-mono text-xs">+</kbd> <kbd class="px-1.5 py-0.5 bg-white border border-gray-300 rounded shadow-sm font-mono text-xs">-</kbd>：候選清單上下換頁<br>
+                                    • <kbd class="px-1.5 py-0.5 bg-white border border-gray-300 rounded shadow-sm font-mono text-xs">/</kbd> 或 <kbd class="px-1.5 py-0.5 bg-white border border-gray-300 rounded shadow-sm font-mono text-xs">?</kbd>：展開 / 收合全部候選字<br>
+                                    • <kbd class="px-1.5 py-0.5 bg-white border border-gray-300 rounded shadow-sm font-mono text-xs">;</kbd> 或 <kbd class="px-1.5 py-0.5 bg-white border border-gray-300 rounded shadow-sm font-mono text-xs">:</kbd>：進入「字母選字模式」(A~L 對應 1~9)
+                                </span>
+                            </div>
+                            <div>
+                                <strong class="text-amber-900">🚀 專家盲打快捷鍵：</strong><br>
+                                <span class="inline-block mt-1">
+                                    • <kbd class="px-1.5 py-0.5 bg-white border border-gray-300 rounded shadow-sm font-mono text-xs">Shift</kbd> + <kbd class="px-1.5 py-0.5 bg-white border border-gray-300 rounded shadow-sm font-mono text-xs">J</kbd>：刪除最後一個拼音/字根 (等同 Backspace)<br>
+                                    • <kbd class="px-1.5 py-0.5 bg-white border border-gray-300 rounded shadow-sm font-mono text-xs">Shift</kbd> + <kbd class="px-1.5 py-0.5 bg-white border border-gray-300 rounded shadow-sm font-mono text-xs">Y</kbd> / <kbd class="px-1.5 py-0.5 bg-white border border-gray-300 rounded shadow-sm font-mono text-xs">H</kbd>：快速切換「漢 / 音」模式<br>
+                                    • <kbd class="px-1.5 py-0.5 bg-white border border-gray-300 rounded shadow-sm font-mono text-xs">Shift</kbd> + <kbd class="px-1.5 py-0.5 bg-white border border-gray-300 rounded shadow-sm font-mono text-xs">U</kbd>：將游標焦點跳轉至大編輯區
+                                </span>
+                            </div>
+                            <div>
+                                <strong class="text-amber-900">🔗 關聯詞操作 (漢模式下)：</strong><br>
+                                <span class="inline-block mt-1 text-gray-600">
+                                    當進入「字母選字模式」或按下 <kbd class="px-1 bg-white border border-gray-300 rounded shadow-sm font-mono text-xs">Shift</kbd> 時：<br>
+                                    • 按 <kbd class="px-1.5 py-0.5 bg-white border border-gray-300 rounded shadow-sm text-green-700 font-mono text-xs font-bold">Q~P</kbd> (上排鍵) 展開對應的綠色 <span class="text-green-700 font-bold">相似詞</span>。<br>
+                                    • 按 <kbd class="px-1.5 py-0.5 bg-white border border-gray-300 rounded shadow-sm text-red-600 font-mono text-xs font-bold">Z~?</kbd> (下排鍵) 展開對應的紅色 <span class="text-red-600 font-bold">相反詞</span>。
+                                </span>
+                            </div>
+                        </div>
+                    </details>
+
+
+                    <details class="mt-4 border border-emerald-200/70 bg-emerald-50/30 rounded-2xl shadow-sm group">
+                        <summary class="list-none cursor-pointer px-5 py-4 text-sm font-bold text-emerald-800 flex justify-between items-center focus:outline-none rounded-2xl group-open:rounded-b-none group-open:border-b group-open:border-emerald-200/70 [&::-webkit-details-marker]:hidden transition-colors hover:bg-emerald-50/50">
+                            <span class="tracking-wide flex items-center gap-1.5">
+                                <span class="flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+                                📥 匯入詞庫
+                            </span>
+                            <span class="text-emerald-500 group-open:rotate-180 transition-transform duration-200 text-xs">▼</span>
+                        </summary>
+                        
+                        <div class="p-5 flex flex-col gap-3.5 bg-white rounded-b-2xl border-t border-emerald-100">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-[11px] font-bold text-slate-500 pl-0.5">選擇匯入方式</label>
+                                    <select id="importSourceType" class="w-full p-2.5 bg-emerald-50/40 border border-emerald-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm font-medium text-emerald-950 shadow-sm transition-all">
+                                        <option value="paste">📝 快速貼上表格</option>
+                                        <option value="csv">📄 上傳 Excel ODS CSV</option>
+                                        <option value="js">📦 上傳 JS 備份檔</option>
+                                    </select>
+                                </div>
+
+                                <div id="importLangContainer" class="flex flex-col gap-1">
+                                    <div class="flex justify-between items-center pl-0.5 pr-0.5">
+                                        <label class="text-[11px] font-bold text-slate-500">選擇目標語言</label>
+                                    </div>
+                                    <select id="importTargetLang" class="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm font-medium text-slate-800 shadow-sm transition-all">
+                                        <option value="sixian">四縣腔 (Sixian)</option>
+                                        <option value="sixiannan">南四縣腔 (South Sixian)</option>
+                                        <option value="hailu">海陸腔 (Hailu)</option>
+                                        <option value="dapu">大埔腔 (Dapu)</option>
+                                        <option value="raoping">饒平腔 (Raoping)</option>
+                                        <option value="kasu">詔安腔 (Kasu)</option>
+                                        <option value="holo">台語 / 和樂 (Holo)</option>
+                                        <option value="jinmen">金門話 (Jinmen)</option>
+                                        <option value="matsu">馬祖語 (Matsu)</option>
+                                        <option value="cangjie">倉頡 (Cangjie)</option>
+                                        <option value="xiami">蝦米 (Xiami)</option>
+                                        <option value="hanglie">行列 (Hanglie)</option>
+                                    </select>
+                                    <div id="singleLangDictCount" class="text-xs font-semibold mt-1 text-blue-600 pl-0.5">內建 0 筆，新增 0 筆</div>
+                                </div>
+                            </div>
+
+                            <div id="importJsLangSelector" class="hidden p-3.5 bg-slate-50 border border-slate-200 rounded-xl shadow-inner">
+                                <span class="block text-xs font-bold text-slate-700 mb-2.5 flex items-center gap-1">
+                                    ✅ 請勾選要從 JS 備份檔中提取匯入的語言：
+                                </span>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-sm" id="importJsCheckboxes">
+                                    </div>
+                            </div>
+
+                            <div id="importInputArea" class="flex flex-col gap-2">
+								<div class="relative w-full">
+									<textarea id="dictPasteArea" rows="3" class="w-full p-3 pr-10 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm resize-y shadow-inner placeholder-slate-400 leading-relaxed transition-all" placeholder="請將 Excel、Google 試算表或文字矩陣內容直接貼上至此..."></textarea>
+									<button id="clearPasteAreaBtn" class="absolute top-2 right-2 w-7 h-7 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors outline-none" title="清空內容">✕</button>
+								</div>
+							<div class="relative w-full">
+                                    <input type="file" id="dictFileInput" accept=".csv" class="hidden w-full p-2.5 text-sm text-slate-600 border border-slate-200 rounded-xl bg-slate-50/50 file:mr-4 file:py-1.5 file:px-3.5 file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 file:cursor-pointer shadow-sm">
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col gap-3 mt-1 border-t border-slate-100 pt-3">
+                                <div class="flex gap-2.5 items-center">
+                                    <div class="flex flex-col gap-0.5 shrink-0">
+                                        <select id="pasteDelimiter" class="p-2.5 border border-slate-200 rounded-lg text-sm bg-white outline-none w-[115px] shadow-sm font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all">
+                                            <option value="tab">Tab 分隔</option>
+                                            <option value=",">逗號 , 分隔</option>
+                                            <option value=";">分號 ; 分隔</option>
+                                            <option value="/">斜線 / 分隔</option>
+                                            <option value="\">反斜 \ 分隔</option>
+                                            <option value="_">底線 _ 分隔</option>
+                                            <option value="=">等號 = 分隔</option>
+                                        </select>
+                                    </div>
+                                    <button id="executeImportBtn" class="flex-1 bg-emerald-600 text-white font-bold py-2.5 rounded-lg hover:bg-emerald-700 active:scale-[0.99] transition shadow-md shadow-emerald-600/10 tracking-wide outline-none text-sm">
+                                        開始執行匯入庫
+                                    </button>
+                                </div>
+                                
+                                <button id="openDictManagerBtn" class="w-full bg-teal-600 text-white font-bold py-2.5 rounded-lg hover:bg-teal-700 active:scale-[0.99] transition shadow-md shadow-teal-600/10 tracking-wide outline-none text-sm flex items-center justify-center gap-1.5">
+                                    <span class="text-lg leading-none">📖</span> 開啟自訂詞庫管理中心
+                                </button>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details class="mt-3 border border-amber-200/70 bg-amber-50/30 rounded-2xl shadow-sm group">
+                        <summary class="list-none cursor-pointer px-5 py-4 text-sm font-bold text-amber-800 flex justify-between items-center focus:outline-none rounded-2xl group-open:rounded-b-none group-open:border-b group-open:border-amber-200/70 [&::-webkit-details-marker]:hidden transition-colors hover:bg-amber-50/50">
+                            <span class="tracking-wide flex items-center gap-1.5">
+                                <span class="flex h-2.5 w-2.5 rounded-full bg-amber-500"></span>
+                                📤 匯出擴充與自訂詞庫
+                            </span>
+                            <span class="text-amber-500 group-open:rotate-180 transition-transform duration-200 text-xs">▼</span>
+                        </summary>
+                        
+                        <div class="p-5 flex flex-col gap-3.5 bg-white rounded-b-2xl border-t border-amber-100">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-[11px] font-bold text-slate-500 pl-0.5">選擇匯出格式</label>
+                                    <select id="exportFormatType" class="w-full p-2.5 bg-amber-50/40 border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm font-medium text-amber-950 shadow-sm transition-all">
+                                        <option value="js">JS 備份檔</option>
+                                        <option value="csv">CSV 試算表</option>
+                                    </select>
+                                </div>
+
+                                <div class="flex flex-col gap-1">
+                                    <select id="exportTargetLang" class="w-full mt-5 p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm font-medium text-slate-800 shadow-sm transition-all hidden">
+                                        </select>
+                                </div>
+                            </div>
+
+                            <div id="exportJsLangSelector" class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl shadow-inner">
+                                <span class="block text-xs font-bold text-slate-700 mb-2.5 flex items-center gap-1">
+                                    ✅ 請勾選要合併備份導出的語言腔調：
+                                </span>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-sm" id="exportJsCheckboxes">
+                                    </div>
+                            </div>
+
+                            <div class="flex gap-2.5 mt-1 border-t border-slate-100 pt-3">
+                                <button id="executeExportBtn" class="flex-1 bg-amber-500 text-white font-bold py-2.5 rounded-lg hover:bg-amber-600 active:scale-[0.99] transition shadow-md shadow-amber-500/10 tracking-wide outline-none text-sm">
+                                    📦 開始執行打包匯出
+                                </button>
+                            </div>
+                        </div>
+                    </details>
+
+                    <details class="mt-3 border border-rose-200/70 bg-rose-50/30 rounded-2xl shadow-sm group">
+                        <summary class="list-none cursor-pointer px-5 py-4 text-sm font-bold text-rose-800 flex justify-between items-center focus:outline-none rounded-2xl group-open:rounded-b-none group-open:border-b group-open:border-rose-200/70 [&::-webkit-details-marker]:hidden transition-colors hover:bg-rose-50/50">
+                            <span class="tracking-wide flex items-center gap-1.5">
+                                <span class="flex h-2.5 w-2.5 rounded-full bg-rose-500"></span>
+                                🗑️ 清除自訂詞庫
+                            </span>
+                            <span class="text-rose-500 group-open:rotate-180 transition-transform duration-200 text-xs">▼</span>
+                        </summary>
+                        
+                        <div class="p-5 flex flex-col gap-3.5 bg-white rounded-b-2xl border-t border-rose-100">
+                            <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl shadow-inner">
+                                <span class="block text-xs font-bold text-slate-700 mb-2.5 flex items-center gap-1">
+                                    ✅ 請勾選要清空自訂詞彙的語言腔調：
+                                </span>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-sm" id="clearJsCheckboxes">
+                                    </div>
+                            </div>
+
+                            <div class="flex gap-2.5 mt-1 border-t border-slate-100 pt-3">
+                                <button id="executeClearBtn" class="flex-1 bg-rose-600 text-white font-bold py-2.5 rounded-lg hover:bg-rose-700 active:scale-[0.99] transition shadow-md shadow-rose-600/10 tracking-wide outline-none text-sm">
+                                    ⚠️ 執行清空勾選的語言
+                                </button>
+                            </div>
+                        </div>
+                    </details>
+					<details class="mt-3 border border-indigo-200/70 bg-indigo-50/30 rounded-2xl shadow-sm group">
+                        <summary class="list-none cursor-pointer px-5 py-4 text-sm font-bold text-indigo-800 flex justify-between items-center focus:outline-none rounded-2xl group-open:rounded-b-none group-open:border-b group-open:border-indigo-200/70 [&::-webkit-details-marker]:hidden transition-colors hover:bg-indigo-50/50">
+                            <span class="tracking-wide flex items-center gap-1.5">
+                                <span class="flex h-2.5 w-2.5 rounded-full bg-indigo-500"></span>
+                                ⚡ 無聲調字頻擴充產生器
+                            </span>
+                            <span class="text-indigo-500 group-open:rotate-180 transition-transform duration-200 text-xs">▼</span>
+                        </summary>
+                        
+                        <div class="p-5 flex flex-col gap-3.5 bg-white rounded-b-2xl border-t border-indigo-100">
+                            
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[11px] font-bold text-slate-500 pl-0.5">選擇目標語言</label>
+                                <select id="freqGenLang" class="w-full p-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm font-medium text-slate-800 shadow-sm transition-all">
+                                    <option value="sixian">四縣腔 (Sixian)</option>
+                                    <option value="sixiannan">南四縣腔 (South Sixian)</option>
+                                    <option value="hailu">海陸腔 (Hailu)</option>
+                                    <option value="dapu">大埔腔 (Dapu)</option>
+                                    <option value="raoping">饒平腔 (Raoping)</option>
+                                    <option value="kasu" selected>詔安腔 (Kasu)</option>
+                                    <option value="holo">台語 / 和樂 (Holo)</option>
+                                    <option value="jinmen">金門話 (Jinmen)</option>
+                                    <option value="matsu">馬祖語 (Matsu)</option>
+                                </select>
+                            </div>
+
+                            <div class="flex flex-col gap-2 mt-1">
+								<label class="text-[11px] font-bold text-slate-500 pl-0.5">請貼上單字次數表 (格式：次數 Tab 單字 Tab 拼音)</label>
+								<div class="relative w-full">
+									<textarea id="freqInputArea" rows="4" class="w-full p-3 pr-10 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm resize-y shadow-inner placeholder-slate-400 leading-relaxed transition-all" placeholder="範例：\n839  人  ngins\n772  个  ef"></textarea>
+									<button id="clearFreqInputBtn" class="absolute top-2 right-2 w-7 h-7 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors outline-none" title="清空內容">✕</button>
+								</div>
+							</div>
+
+                            <div class="flex gap-2.5 mt-1 border-t border-slate-100 pt-3">
+								<button id="generateFreqBtn" class="flex-1 bg-indigo-600 text-white font-bold py-2.5 rounded-lg hover:bg-indigo-700 active:scale-[0.99] transition shadow-md shadow-indigo-600/10 tracking-wide outline-none text-sm flex items-center justify-center gap-1">
+									📥 下載 JS 檔案
+								</button>
+								<button id="copyFreqBtn" class="flex-1 bg-slate-600 text-white font-bold py-2.5 rounded-lg hover:bg-slate-700 active:scale-[0.99] transition shadow-md shadow-slate-600/10 tracking-wide outline-none text-sm flex items-center justify-center gap-1">
+									📋 複製 程式碼
+								</button>
+							</div>
+                        </div>
+                    </details>
+
+
+                </div>
+            </div>
+
+            <div class="px-6 py-4 bg-gray-100 border-t border-gray-200 flex justify-end gap-3">
+                <button id="saveSettingsBtn" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-bold shadow-md shadow-blue-500/20">儲存設定</button>
+            </div>
+            
+        </div>
+    </div>
+
+    <div id="customDialogModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center hidden z-[200] p-4 sm:p-6 transition-opacity opacity-0 duration-200">
+        <div id="customDialogBox" class="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col overflow-hidden border border-gray-100 transform scale-95 transition-transform duration-200">
+            <div class="px-6 py-4 border-b border-gray-50 flex items-center gap-3 bg-gray-50/50">
+                <span id="customDialogIcon" class="text-2xl drop-shadow-sm"></span>
+                <h3 id="customDialogTitle" class="text-lg font-bold text-gray-800 tracking-wide">提示</h3>
+            </div>
+            <div class="px-6 py-5 text-gray-600 text-sm leading-relaxed" id="customDialogMessage">
+            </div>
+            <div class="px-6 py-4 bg-gray-50 flex justify-end gap-3 border-t border-gray-100">
+                <button id="customDialogCancelBtn" class="px-5 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition font-medium text-sm hidden shadow-sm">取消</button>
+                <button id="customDialogConfirmBtn" class="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium shadow-md shadow-blue-500/20 text-sm">確定</button>
+            </div>
+        </div>
+    </div>
+
+	<div id="dictManagerModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center hidden z-[150] p-4 transition-opacity">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 shrink-0">
+                <h2 class="text-xl font-bold text-gray-800 tracking-wide">📖 自訂詞庫管理中心</h2>
+                <button id="closeDictManagerBtn" class="text-gray-400 hover:text-gray-600 transition text-2xl leading-none">&times;</button>
+            </div>
+            <div class="px-6 py-3 bg-white border-b border-gray-200 flex flex-col sm:flex-row gap-3 justify-between items-center shrink-0">
+                <div class="flex gap-2 w-full sm:w-auto flex-1">
+                    <select id="dictManagerLangFilter" class="p-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm focus:ring-2 focus:ring-emerald-500 text-gray-700">
+                        <option value="all">全語系</option>
+                    </select>
+                    <input type="text" id="dictManagerSearch" placeholder="搜尋詞目或拼音..." class="flex-1 min-w-[150px] p-2 bg-gray-50 border border-gray-200 rounded-lg outline-none text-sm focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <button id="addNewDictEntryBtn" class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition shadow-md shadow-blue-500/20 text-sm whitespace-nowrap">
+                    ＋ 新增詞彙
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto bg-white custom-scrollbar">
+                <div id="dictManagerList" class="flex flex-col divide-y divide-gray-100">
+                    </div>
+            </div>
+
+            <div class="px-6 py-3 bg-gray-50 border-t border-gray-200 flex justify-between items-center shrink-0">
+                <div class="text-sm font-bold text-gray-500 tracking-wide" id="dictManagerPageInfo">共 0 筆，第 1 / 1 頁</div>
+                <div class="flex gap-2">
+                    <button id="dictPrevPageBtn" class="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-md hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm font-bold shadow-sm">上一頁</button>
+                    <button id="dictNextPageBtn" class="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-md hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm font-bold shadow-sm">下一頁</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+ <div id="dictEditModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center hidden z-[160] p-4 transition-opacity opacity-0 scale-95 duration-200">
+     <div class="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden border border-gray-200">
+         <div class="px-5 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+             <h3 id="dictEditTitle" class="text-lg font-bold text-gray-800">編輯詞彙</h3>
+             <button id="closeDictEditBtn" class="text-gray-400 hover:text-gray-600 transition text-xl leading-none">&times;</button>
+         </div>
+         <div class="p-5 flex flex-col gap-3">
+             <input type="hidden" id="editEntryIndex" value="-1">
+             <div class="flex flex-col gap-1">
+                 <label class="text-xs font-bold text-gray-500">語言腔調</label>
+                 <select id="editEntryLang" class="w-full p-2 border border-gray-200 rounded-md outline-none focus:border-blue-500 text-sm bg-gray-50"></select>
+             </div>
+             <div class="flex gap-3">
+                    <div class="flex flex-col gap-1 flex-1">
+                        <label class="text-xs font-bold text-gray-500">詞目 (必填)</label>
+                        <input type="text" id="editEntryWord" class="w-full p-2 border border-gray-200 rounded-md outline-none focus:border-blue-500 text-sm" placeholder="例如：水火">
+                    </div>
+                    <div class="flex flex-col gap-1 flex-1">
+                        <div class="flex justify-between items-end">
+                            <label class="text-xs font-bold text-gray-500">拼音 (必填)</label>
+                            <button id="convertToneBtn" class="text-[10px] font-bold bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-2 py-0.5 rounded shadow-sm transition active:scale-95 outline-none">
+                                🔤 轉數字調
+                            </button>
+                        </div>
+                        <input type="text" id="editEntryPinyin" class="w-full p-2 border border-gray-200 rounded-md outline-none focus:border-blue-500 text-sm font-mono transition-colors duration-300" placeholder="例如：fi31 fo31">
+                    </div>
+                </div>
+             <div class="flex flex-col gap-1">
+                 <label class="text-xs font-bold text-gray-500">相似詞 (分號分隔)</label>
+                 <input type="text" id="editEntrySyn" class="w-full p-2 border border-gray-200 rounded-md outline-none focus:border-blue-500 text-sm" placeholder="例如：水火不容;冤家">
+             </div>
+             <div class="flex flex-col gap-1">
+                 <label class="text-xs font-bold text-gray-500">相反詞 (分號分隔)</label>
+                 <input type="text" id="editEntryAnt" class="w-full p-2 border border-gray-200 rounded-md outline-none focus:border-blue-500 text-sm" placeholder="例如：水乳交融">
+             </div>
+         </div>
+         <div class="px-5 py-3 bg-gray-50 flex justify-end gap-2 border-t border-gray-100">
+             <button id="cancelDictEditBtn" class="px-4 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-100 transition text-sm font-medium shadow-sm">取消</button>
+             <button id="saveDictEditBtn" class="px-4 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm font-medium shadow-md shadow-blue-500/20">儲存</button>
+         </div>
+     </div>
+ </div>
+
+    
+	<script src="ext-phrase.js"></script>
+	<script src="ext-toneless.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
