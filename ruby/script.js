@@ -1457,7 +1457,14 @@ function showWordUnitEditor(wordUnitEl) {
         
         // ... (後續回填 input 與 render 邏輯不變) ...
         const finalHanziText = hanziParts.join('');
-        const finalPinyinText = pinyinParts.join(' ').replace(/\s+/g, ' ').replace(/\s+([,.;:!?])/g, '$1').trim();
+        
+        let finalPinyinText = pinyinParts.join(' ');
+        // 處理右側標點 (前面不留白)
+        finalPinyinText = finalPinyinText.replace(/\s+([,.;:!?，。、；：！？）」』】〕>])/g, '$1');
+        // 處理左側標點 (後面不留白)
+        finalPinyinText = finalPinyinText.replace(/([（「『【〔<])\s+/g, '$1');
+        // 清除多餘連續空格與換行旁的空格
+        finalPinyinText = finalPinyinText.replace(/ +/g, ' ').replace(/ \n /g, '\n').replace(/\n /g, '\n').replace(/ \n/g, '\n').trim();
         
         hanziInput.value = finalHanziText;
         pinyinInput.value = finalPinyinText;
@@ -1575,29 +1582,22 @@ function showWordEditor(rubyEl, hIndex, wordIndex) {
             });
         }
 
-        const finalHanziText = hanziParts.join('').replace(/\n /g, '\n').trim();
-        const puncMap = { '，':' ,', '。':' .', '、':' ,', '；':' ;', '：':' :', '！':' !', '？':' ?' };
-        let finalPinyinText = '';
-        for (let i = 0; i < pinyinParts.length; i++) {
-            let part = pinyinParts[i];
-            if (part === '\n') {
-                finalPinyinText += '\n';
-                continue;
-            }
-            if (puncMap[part]) part = puncMap[part];
-            finalPinyinText += part;
-            const nextPart = pinyinParts[i + 1];
-            if (nextPart && nextPart !== '\n' && !puncMap[nextPart]) {
-                 finalPinyinText += ' ';
-            }
-        }
-        finalPinyinText = finalPinyinText.replace(/\s+/g, ' ').replace(/\s+([,.;:!?])/g, '$1').trim();
+        const finalHanziText = hanziParts.join('').replace(/ \n /g, '\n').replace(/\n /g, '\n').replace(/ \n/g, '\n').trim();
+        
+        let finalPinyinText = pinyinParts.join(' ');
+        // 【修正】：不強制轉換為半形，保留原始全半形標點，避免對齊引擎錯亂
+        // 處理右側標點 (前面不留白)
+        finalPinyinText = finalPinyinText.replace(/\s+([,.;:!?，。、；：！？）」』】〕>])/g, '$1');
+        // 處理左側標點 (後面不留白)
+        finalPinyinText = finalPinyinText.replace(/([（「『【〔<])\s+/g, '$1');
+        // 清除多餘連續空格與換行旁的空格
+        finalPinyinText = finalPinyinText.replace(/ +/g, ' ').replace(/ \n /g, '\n').replace(/\n /g, '\n').replace(/ \n/g, '\n').trim();
         
         hanziInput.value = finalHanziText;
         pinyinInput.value = finalPinyinText;
 
         closeWordEditor();
-        render(); 
+        render();
         toast('內容已更新');
     });
 }
