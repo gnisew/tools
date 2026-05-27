@@ -26,7 +26,29 @@
 
         <!-- 極簡圖示工具列 -->
 		<div class="mb-1 flex items-center flex-wrap gap-0.5 bg-[#f0f4f9] px-3 py-1.5 rounded-full relative overflow-visible select-none">
-            
+
+			<div class="relative dropdown-container" id="dd-viewMode">
+                <button class="dropdown-btn flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-full font-bold text-sm transition-colors" title="切換編輯模式">
+                    <span class="material-symbols-outlined text-[18px]" id="currentModeIcon">description</span>
+                    <span id="currentModeText">文字</span>
+                    <span class="material-symbols-outlined text-[16px]">arrow_drop_down</span>
+                </button>
+                <div class="dropdown-menu absolute left-0 mt-1 bg-white shadow-xl rounded border border-gray-200 w-36 z-50 py-1">
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700" data-value="text">
+                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base text-blue-600">description</span>烏衣行 文字</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span>
+                    </button>
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700" data-value="table">
+                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base text-green-600">table_view</span>烏衣行 表格</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
+                    </button>
+					<button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700" data-value="chat">
+						<div class="flex items-center gap-2"><span class="material-symbols-outlined text-base text-emerald-500">forum</span>烏衣行 對話</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
+					</button>
+					<button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700" id="btnStudyMode">
+						<div class="flex items-center gap-2"><span class="material-symbols-outlined text-base text-purple-600">style</span>烏衣行 學習</div>
+					</button>
+				</div>
+            </div>
+
             <div class="relative dropdown-container" id="dd-fileMenu">
                 <button class="dropdown-btn icon-btn" title="檔案管理">
                     <span class="material-symbols-outlined">folder_open</span>
@@ -102,31 +124,7 @@
 
                             </div>
                     </div>
-                    <div class="relative group/submenu" id="dd-viewMode">
-                        <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
-                            <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base" id="viewModeIconMenu">edit_document</span>編輯模式</div>
-                            <span class="material-symbols-outlined text-base">arrow_right</span>
-                        </div>
-                        <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1">
-                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="text">
-                                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">edit_document</span>文字模式</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span>
-                            </button>
-                            <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="table">
-                                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">table_chart</span>表格模式</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
-                            </button>
-							<button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="chat">
-								<div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">forum</span>對話模式</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
-							</button>
-							<div class="h-px bg-gray-200 my-1 mx-2"></div>
-							<button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" id="btnOpenGameModal">
-								<div class="flex items-center gap-2"><span class="material-symbols-outlined text-base text-purple-600">school</span>學習模式</div>
-							</button>
 
-
-
-
-                        </div>
-                    </div>
                     <div class="h-px bg-gray-200 my-1 mx-2 hidden md:block"></div>
                     <button class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 md:hidden" id="btnToggleKeyboardMobile">
                         <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">keyboard_off</span>關閉鍵盤</div>
@@ -369,6 +367,31 @@
                         </button>
 
                         <div class="h-px bg-gray-200 my-1 mx-2"></div>
+
+                        <button id="btnToggleAutoSum" class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 transition-colors" title="選取數字時顯示加總、平均與數量">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-base">functions</span>
+                                <span>自動加總</span>
+                            </div>
+                            <span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active" id="iconAutoSumCheck">check</span>
+                        </button>
+
+						<div class="h-px bg-gray-200 my-1 mx-2"></div>
+
+                        <div class="relative group/submenu" id="dd-editTrigger">
+                            <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
+                                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base" id="editTriggerIcon">mouse</span>編輯觸發方式</div>
+                                <span class="material-symbols-outlined text-base">arrow_right</span>
+                            </div>
+                            <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1">
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="double">
+                                    <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">mouse</span>點兩下編輯</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span>
+                                </button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="single">
+                                    <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">touch_app</span>點一下編輯</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
+                                </button>
+                            </div>
+                        </div>
 
                         <div class="relative group/submenu" id="dd-enterAction">
                             <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
@@ -993,6 +1016,15 @@
         <button id="btnCloseWordCount" class="text-gray-400 hover:text-red-500 flex items-center justify-center transition cursor-pointer">
             <span class="material-symbols-outlined" style="font-size: 16px;">close</span>
         </button>
+    </div>
+
+	<div id="autoSumWidget" class="fixed bottom-5 right-5 bg-white border border-gray-200 shadow-md rounded-full px-4 py-2 text-sm text-gray-600 flex items-center gap-3 z-50 hidden code-text transition-all duration-200 pointer-events-none">
+        <span class="material-symbols-outlined text-green-600" style="font-size: 18px;">functions</span>
+        <div id="autoSumDisplay" class="font-bold text-gray-800 tracking-wide flex gap-4">
+            <span id="asCount">項: 0</span>
+            <span id="asSum">總: 0</span>
+            <span id="asAvg">均: 0</span>
+        </div>
     </div>
 
 

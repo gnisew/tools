@@ -66,8 +66,12 @@ let saveTimeout;
 
 const ENTER_ACTION_KEY = 'wesing-enter-action';
 const ENTER_DIRECTION_KEY = 'wesing-enter-direction';
+const EDIT_TRIGGER_KEY = 'wesing-edit-trigger';
 
 const FONT_FAMILY_KEY = 'wesing-font-family';
+
+// 讀取記憶設定 (預設為 Excel 的點兩下)
+let currentEditTrigger = localStorage.getItem(EDIT_TRIGGER_KEY) || 'double';
 
 
 // ==========================================
@@ -249,6 +253,12 @@ function initDropdowns() {
     setDropdownValue('dd-enterDirection', savedEnterDirection);
     const dirIconMap = { 'down': 'arrow_downward', 'right': 'arrow_forward', 'stay': 'pan_tool' };
     document.getElementById('enterDirectionIcon').textContent = dirIconMap[savedEnterDirection];
+
+    setDropdownValue('dd-editTrigger', currentEditTrigger);
+    const triggerIconMap = { 'double': 'mouse', 'single': 'touch_app' };
+    if (document.getElementById('editTriggerIcon')) {
+        document.getElementById('editTriggerIcon').textContent = triggerIconMap[currentEditTrigger];
+    }
 
 
 // 行動版多選模式按鈕切換邏輯 (結合至設定選單)
@@ -605,7 +615,7 @@ function getFolderFromUrl() {
 
 
 
-// ✨ 修正版：解決直接連結進入後「返回」路徑錯誤的問題
+// 解決直接連結進入後「返回」路徑錯誤的問題
 function switchMode(mode, isForce = false, dataOverride = null, configOverride = null) {
     if (currentMode === mode && !isForce) return;
 
@@ -621,8 +631,18 @@ function switchMode(mode, isForce = false, dataOverride = null, configOverride =
             }
         }
     }
+	
+	const btnStudyMode = document.getElementById('btnStudyMode');
+    
+    // 只有在 mode 為 'table' 時才顯示「學習模式」按鈕
+    if (mode === 'table') {
+        btnStudyMode.style.display = 'flex'; // 顯示
+    } else {
+        btnStudyMode.style.display = 'none';  // 隱藏
+    }
 
-    // ✨ 核心修復：記下進入遊戲前的「來源模式」
+
+    // 記下進入遊戲前的「來源模式」
     // 只有在「不是遊戲模式」互切，且「沒有外部注入資料 (dataOverride)」時才更新來源
     if (!gameModes.includes(currentMode) && currentMode !== 'arena' && currentMode !== 'live') {
         if (!dataOverride) {
@@ -667,6 +687,11 @@ function switchMode(mode, isForce = false, dataOverride = null, configOverride =
     if (btnFindReplace) btnFindReplace.classList.remove('hidden');
     if (ddClipboardGroup) ddClipboardGroup.classList.remove('hidden');
 
+	if (chatControls) {
+        chatControls.classList.remove('flex');
+        chatControls.classList.add('hidden');
+    }
+
     // --- 4. 根據模式執行特定邏輯 ---
 	if (mode === 'arena' || mode === 'live' || gameModes.includes(mode)) {
 		const targetContainer = (mode === 'arena' || mode === 'live') ? containers.arena : containers.game;
@@ -704,7 +729,6 @@ function switchMode(mode, isForce = false, dataOverride = null, configOverride =
     } else if (mode === 'bank') {
         if (containers.bank) { containers.bank.classList.remove('hidden'); containers.bank.style.display = 'flex'; }
         [tableControls, chatControls, ddTextTool, btnToggleLineNumbers].forEach(el => el?.classList.add('hidden'));
-        // ✨ 修正：呼叫正確的初始化函數
         if (typeof initBankCenter === 'function') { initBankCenter(); }
 
     } else if (mode === 'table') {
@@ -736,7 +760,43 @@ function switchMode(mode, isForce = false, dataOverride = null, configOverride =
     }
     
     setDropdownValue('dd-viewMode', mode);
+	updateModeButtonUI(mode);
 }
+
+
+// 模式按鈕動態切換引擎
+function updateModeButtonUI(mode) {
+    const btn = document.querySelector('#dd-viewMode .dropdown-btn');
+    const icon = document.getElementById('currentModeIcon');
+    const text = document.getElementById('currentModeText');
+    if (!btn || !icon || !text) return;
+
+    // 清除舊有的顏色
+    btn.classList.remove('bg-blue-100', 'text-blue-700', 'hover:bg-blue-200',
+                         'bg-green-100', 'text-green-700', 'hover:bg-green-200',
+                         'bg-emerald-100', 'text-emerald-700', 'hover:bg-emerald-200',
+                         'bg-purple-100', 'text-purple-700', 'hover:bg-purple-200');
+
+    // 依據模式賦予專屬顏色、圖示與短名稱
+    if (mode === 'text') {
+        icon.textContent = 'description';
+        text.textContent = '文字';
+        btn.classList.add('bg-blue-100', 'text-blue-700', 'hover:bg-blue-200');
+    } else if (mode === 'table') {
+        icon.textContent = 'table_view';
+        text.textContent = '表格';
+        btn.classList.add('bg-green-100', 'text-green-700', 'hover:bg-green-200');
+    } else if (mode === 'chat') {
+        icon.textContent = 'forum';
+        text.textContent = '對話';
+        btn.classList.add('bg-emerald-100', 'text-emerald-700', 'hover:bg-emerald-200');
+    } else if (gameModes.includes(mode) || mode === 'arena' || mode === 'live' || mode === 'bank') {
+        icon.textContent = 'style';
+        text.textContent = '學習';
+        btn.classList.add('bg-purple-100', 'text-purple-700', 'hover:bg-purple-200');
+    }
+}
+
 
 /* 復原系統 (Undo) */
 function debouncedSaveHistory() {
@@ -921,6 +981,20 @@ function renderTableFromText(text) {
     let maxCols = 1; 
     parsedRows.forEach(row => { if (row.length > maxCols) maxCols = row.length; });
 
+    // 若小於 5欄 10列，則自動補足
+    if (maxCols < 5) maxCols = 5;
+    
+    // 補足列數 (至少 10 列)
+    while (parsedRows.length < 10) {
+        parsedRows.push([]);
+    }
+    
+    parsedRows.forEach(row => {
+        while (row.length < maxCols) {
+            row.push('');
+        }
+    });
+
     const savedNames = loadColNames();
     const savedWidths = loadColWidths();
 
@@ -1006,7 +1080,10 @@ function extractTextFromTable() {
         }).join('\t');
     }).join('\n');
 
-    return textLines;
+    let resultText = textLines;
+    resultText = resultText.replace(/[\t ]+(?=\n|$)/g, '').trimEnd();
+
+    return resultText;
 }
 
 // ==========================================
@@ -1785,10 +1862,9 @@ function insertColsFromTop(count) {
 function promptInsertCols() { showPrompt('輸入新增欄數', '5', (val) => { const count = parseInt(val); if (count > 0) insertColsFromTop(count); }); }
 
 /* ---------------------------------
-   多選與剪貼簿核心功能 (外圍藍框實作 - 極速優化版)
+   多選與剪貼簿核心功能
    --------------------------------- */
 function applySelectionVisuals() {
-    // 【優化 1：精準清除】
     // 不要掃描全表，直接找出有標記的節點清除
     document.querySelectorAll('.selected-header').forEach(el => el.classList.remove('selected-header'));
     document.querySelectorAll('.sel-bg').forEach(el => {
@@ -1801,10 +1877,10 @@ function applySelectionVisuals() {
     if (!tbody || !theadTr) return;
 
     const R = tbody.children.length;
-    const C = theadTr.children.length - 1; // 扣掉左上角的全選區
+    const C = theadTr.children.length - 1;
     
-    // 如果沒有任何選取，直接結束
     if (selectedRows.length === 0 && selectedCols.length === 0 && selectedCellBlocks.length === 0) {
+        if (typeof updateAutoSum === 'function') updateAutoSum(new Set());
         return;
     }
 
@@ -1882,6 +1958,10 @@ function applySelectionVisuals() {
         
         td.classList.add('sel-bg');
     });
+
+    if (typeof updateAutoSum === 'function') {
+        updateAutoSum(selMap);
+    }
 }
 
 function clearTableSelection(resetArrays = true) {
@@ -2854,9 +2934,9 @@ dataTable.addEventListener('click', (e) => {
                 window.lastFoundTd = td; // 記錄下來，下次點擊時才能自動清除
             }
 
-            // 4. 處理獨立編輯器的開啟 (將 !isClickOnPaddingGap 替換為 isClickOnInner)
+            // 4. 處理獨立編輯器的開啟
             if (dataTable.classList.contains('table-nowrap') && !e.shiftKey && !e.ctrlKey && !e.metaKey && isClickOnInner) {
-                openCellEditor(td);
+                if (currentEditTrigger === 'single') openCellEditor(td);
             }
             
             return; // 提早結束，防止原本的選取範圍被清空
@@ -2870,7 +2950,33 @@ dataTable.addEventListener('click', (e) => {
 
         // 修改：如果不換行模式且沒有按住特殊鍵 (包含多選模式)，點擊文字區才開啟編輯器
         if (dataTable.classList.contains('table-nowrap') && !e.shiftKey && !isCtrl && isClickOnInner) {
+            if (currentEditTrigger === 'single') openCellEditor(td);
+        }
+    }
+});
+
+// 雙擊表格進入編輯模式
+dataTable.addEventListener('dblclick', (e) => {
+    if (currentMode !== 'table') return;
+    
+    const td = e.target.closest('td');
+    if (td) {
+        // 情境 1：不換行模式，雙擊直接開啟浮動獨立編輯器
+        if (dataTable.classList.contains('table-nowrap')) {
             openCellEditor(td);
+            return;
+        }
+
+        // 情境 2：一般模式，雙擊強制讓該格獲得焦點，並將游標移至文字最後方
+        const inner = td.querySelector('.td-inner');
+        if (inner && document.activeElement !== inner) {
+            inner.focus();
+            const range = document.createRange();
+            const sel = window.getSelection();
+            range.selectNodeContents(inner);
+            range.collapse(false);
+            sel.removeAllRanges();
+            sel.addRange(range);
         }
     }
 });
@@ -3295,6 +3401,15 @@ document.getElementById('dd-enterDirection').addEventListener('change', (e) => {
     localStorage.setItem(ENTER_DIRECTION_KEY, e.detail.value);
     const dirIconMap = { 'down': 'arrow_downward', 'right': 'arrow_forward', 'stay': 'pan_tool' };
     document.getElementById('enterDirectionIcon').textContent = dirIconMap[e.detail.value];
+});
+
+// 編輯觸發方式切換
+document.getElementById('dd-editTrigger')?.addEventListener('change', (e) => {
+    currentEditTrigger = e.detail.value;
+    localStorage.setItem(EDIT_TRIGGER_KEY, currentEditTrigger);
+    const iconMap = { 'double': 'mouse', 'single': 'touch_app' };
+    document.getElementById('editTriggerIcon').textContent = iconMap[currentEditTrigger];
+    showToast(`設定已變更：儲存格改為 [${currentEditTrigger === 'double' ? '點兩下' : '點一下'}] 編輯`);
 });
 
 document.getElementById('dd-wordWrap').addEventListener('change', (e) => { 
@@ -6426,8 +6541,12 @@ dataTable.addEventListener('mousedown', (e) => {
 
     const td = e.target.closest('td');
     if (td && currentMode === 'table') {
-        // 如果游標正在這格裡面閃爍 (打字中)，放行讓使用者可以點擊反白文字，不觸發拖曳選取
-        if (document.activeElement === td.querySelector('.td-inner')) return;
+        const inner = td.querySelector('.td-inner');
+        if (document.activeElement === inner) return;
+
+        if (currentEditTrigger === 'double' && e.target.closest('.td-inner')) {
+            e.preventDefault();
+        }
         
         if (isSelectionLocked) return;
 
@@ -6568,6 +6687,110 @@ function updateWordCountWidget() {
 editor.addEventListener('input', updateWordCountWidget);
 // ==============================================
 
+/* ==========================================
+   表格模式專屬：自動加總提示視窗模組
+========================================== */
+const SHOW_AUTO_SUM_KEY = 'wesing-show-auto-sum';
+let isShowAutoSum = localStorage.getItem(SHOW_AUTO_SUM_KEY) !== 'false'; // 預設開啟
+
+function applyAutoSumState() {
+    const icon = document.getElementById('iconAutoSumCheck');
+    if (icon) {
+        if (isShowAutoSum) icon.classList.add('active');
+        else icon.classList.remove('active');
+    }
+    const widget = document.getElementById('autoSumWidget');
+    if (!isShowAutoSum && widget) {
+        widget.classList.add('hidden');
+    }
+}
+
+function updateAutoSum(selMap) {
+    const autoSumWidget = document.getElementById('autoSumWidget');
+    if (!autoSumWidget) return;
+    
+    // 當選取數量少於 2 格，隱藏視窗 (仿效 Excel 原生行為)
+    if (!isShowAutoSum || currentMode !== 'table' || !selMap || selMap.size < 2) {
+        autoSumWidget.classList.add('hidden');
+        return;
+    }
+
+    const tbody = dataTable.querySelector('tbody');
+    let count = 0;
+    let sum = 0;
+    let numCount = 0;
+
+    // 遍歷當下選取的儲存格坐標
+    selMap.forEach(coord => {
+        const [rStr, cStr] = coord.split(',');
+        const r = parseInt(rStr, 10);
+        const c = parseInt(cStr, 10);
+        
+        const tr = tbody.children[r];
+        if (!tr) return;
+        const td = tr.children[c + 1];
+        if (!td) return;
+
+        const inner = td.querySelector('.td-inner');
+        if (!inner) return;
+
+        let val = inner.textContent.trim();
+        
+        if (val !== '') {
+            count++;
+            // 清理數值格式 (例如千分位符號 1,000.5)
+            let cleanVal = val;
+            if (/^-?[\d,]+(\.\d+)?$/.test(val)) {
+                cleanVal = val.replace(/,/g, '');
+            }
+            const num = parseFloat(cleanVal);
+            if (!isNaN(num)) {
+                sum += num;
+                numCount++;
+            }
+        }
+    });
+
+    if (count > 0) {
+        document.getElementById('asCount').textContent = `項目: ${count}`;
+        if (numCount > 0) {
+            // 處理浮點數精度，最多保留四位小數避免 IEEE 754 誤差
+            const roundedSum = Math.round(sum * 10000) / 10000;
+            const avg = sum / numCount;
+            const roundedAvg = Math.round(avg * 10000) / 10000;
+            
+            document.getElementById('asSum').textContent = `加總: ${roundedSum}`;
+            document.getElementById('asSum').style.display = 'inline-block';
+            document.getElementById('asAvg').textContent = `平均: ${roundedAvg}`;
+            document.getElementById('asAvg').style.display = 'inline-block';
+        } else {
+            // 若範圍內全為純文字，則隱藏加總與平均，只顯示項目數量
+            document.getElementById('asSum').style.display = 'none';
+            document.getElementById('asAvg').style.display = 'none';
+        }
+        autoSumWidget.classList.remove('hidden');
+    } else {
+        autoSumWidget.classList.add('hidden'); // 全都是空格就不顯示
+    }
+}
+
+// 綁定設定選單事件
+document.addEventListener('DOMContentLoaded', () => {
+    applyAutoSumState();
+    const btnToggleAutoSum = document.getElementById('btnToggleAutoSum');
+    if (btnToggleAutoSum) {
+        btnToggleAutoSum.addEventListener('click', (e) => {
+            e.stopPropagation();
+            isShowAutoSum = !isShowAutoSum;
+            localStorage.setItem(SHOW_AUTO_SUM_KEY, isShowAutoSum);
+            applyAutoSumState();
+            showToast(isShowAutoSum ? '✅ 已顯示自動加總' : '❌ 已隱藏自動加總');
+            
+            // 觸發重新繪製以即時更新面板
+            if(typeof applySelectionVisuals === 'function') applySelectionVisuals();
+        });
+    }
+});
 
 
 
@@ -6595,7 +6818,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('mousedown', (e) => {
             const isTranslator = e.target.closest('#floating-translator') || e.target.closest('#floating-pinyin-tool');
             
-            // ✨ 擴大保護範圍：包含主工具列 (.mb-1.flex.flex-wrap)、所有下拉選單與操作按鈕
+            // 擴大保護範圍：包含主工具列 (.mb-1.flex.flex-wrap)、所有下拉選單與操作按鈕
             const isToolbar = e.target.closest('.mb-1.flex.flex-wrap') || 
                               e.target.closest('.mb-3.flex') || 
                               e.target.closest('.dropdown-container') || 
@@ -6607,7 +6830,7 @@ document.addEventListener('DOMContentLoaded', () => {
                               e.target.closest('#global-lang-submenu') || 
                               e.target.closest('#btn-global-lang-toggle');
                               
-            // ✨ 嚴格判定文字輸入區域 (排除 Checkbox/Radio，避免它們被誤當作輸入框而導致編輯器失焦)
+            // 嚴格判定文字輸入區域 (排除 Checkbox/Radio，避免它們被誤當作輸入框而導致編輯器失焦)
             const isTextInput = (e.target.tagName === 'INPUT' && (e.target.type === 'text' || e.target.type === 'number' || e.target.type === 'search')) || e.target.tagName === 'TEXTAREA';
             
             if ((isTranslator || isToolbar) && !isTextInput) {
@@ -9041,7 +9264,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     btnBatchViewTable.addEventListener('click', () => {
-        renderBatchTable(); // 根據當前分隔符號重新繪製表格
+        renderBatchTable();
         batchInputTextarea.classList.add('hidden');
         batchInputTableWrapper.classList.remove('hidden');
         btnBatchViewTable.classList.replace('text-gray-400', 'text-blue-600');
@@ -9054,10 +9277,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     batchTableBody.addEventListener('keydown', (e) => {
-        // 表格檢視下，阻擋 Enter 鍵換行
         if (e.key === 'Enter') {
             e.preventDefault();
-            e.target.blur(); // 按下 Enter 時自動失去焦點並同步
+            e.target.blur();
         }
     });
 
@@ -9111,7 +9333,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         
-        syncTableToTextarea(); // 貼上完畢後立刻同步到文字快取
+        syncTableToTextarea();
         showFRMsg('✅ 表格資料已貼上', false);
     });
 
@@ -12963,7 +13185,7 @@ window.playPresetBank = function(index, forcedMode = null) {
     window.currentLoadedBank = { id: preset.id, name: preset.name };
     renderTableFromText(preset.data);
 
-    // 3. 設定遊戲模式 (✨ 優先套用網址或捷徑傳入的 forcedMode)
+    // 3. 設定遊戲模式 (優先套用網址或捷徑傳入的 forcedMode)
     let targetMode = forcedMode || 'matching'; 
     if (!forcedMode) {
         if (preset.type === '問答') targetMode = 'live';
