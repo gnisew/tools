@@ -376,7 +376,7 @@ const imeToneMappings = {
         longPhrase: false,           // 預設是否啟用連打模式
         candidatesPerPage: 5,       // 每頁顯示的候選字數量
         maxCompositionLength: 30,   // 編碼區最大字元數
-        storagePrefix: 'webime_7_',   // 用於 localStorage 的前綴
+        storagePrefix: 'webime_6_',   // 用於 localStorage 的前綴
 		enablePrediction: false,
 		outputMode: 'pinyin', 
     },
@@ -725,11 +725,7 @@ imeInit(userConfig = {}) {
         longPhrase: false,
         fullWidthPunctuation: true,
         outputEnabled: false,
-        outputMode: 'pinyin_mode',
-		enableRuby: false,
-		rubyAlignment: 'char',
-        candidatesPerPage: 5,
-        candidateLayout: 'horizontal'
+        outputMode: 'pinyin_mode'
     };
     let fromStorage = {};
     try {
@@ -1113,44 +1109,6 @@ imeCreateUI() {
 	});
 	rightControls.appendChild(this.queryBtn);
 
-
-    // --- 【檢視全部按鈕 (田)】 ---
-    this.viewAllBtn = document.createElement("button");
-    this.viewAllBtn.type = "button";
-    this.viewAllBtn.className = "ime-page-button";
-    this.viewAllBtn.title = "檢視與複製全部結果";
-    this.viewAllBtn.innerHTML = '<span class="material-icons" style="font-size: 20px; color: #1a73e8;">apps</span>';
-    this.viewAllBtn.style.display = 'none'; // 預設隱藏
-    this.viewAllBtn.addEventListener("click", () => {
-        if (!this.viewAllModal || this.allCandidates.length === 0) return;
-        this.openViewAllModal(); 
-    });
-    rightControls.appendChild(this.viewAllBtn);
-    // ----------------------------------------
-
-    // --- 【正則快捷面板按鈕 (⚡)】 ---
-    this.regexHelpBtn = document.createElement("button");
-    this.regexHelpBtn.type = "button";
-    this.regexHelpBtn.className = "ime-page-button";
-    this.regexHelpBtn.title = "正則符號與代碼表";
-    this.regexHelpBtn.innerHTML = '<span class="material-icons" style="font-size: 20px; color: #f5b400;">bolt</span>';
-    this.regexHelpBtn.style.display = 'none'; // 預設隱藏
-    this.regexHelpBtn.addEventListener("click", () => {
-        if (!this.regexModal) return;
-        
-        if (this.regexModal.style.display === 'none' || this.regexModal.style.display === '') {
-            this.regexModal.style.display = 'block';
-        } else {
-            this.regexModal.style.display = 'none';
-        }
-        
-        if (this.activeElement && !this.isMobile) {
-            this.activeElement.focus();
-        }
-    });
-    rightControls.appendChild(this.regexHelpBtn);
-    // ----------------------------------------
-
 	const pagination = document.createElement("div");
 	pagination.className = "ime-pagination";
 	this.prevPageBtn = document.createElement("button");
@@ -1185,8 +1143,6 @@ imeCreateUI() {
     settingsContainer.appendChild(settingsBtn);
 
     this.imeCreateSettingsModal();
-    this.imeCreateRegexHelpModal(); 
-    this.imeCreateViewAllModal();
     document.body.appendChild(this.candidatesContainer);
     this.imeUpdateUIState();
 },
@@ -1371,14 +1327,14 @@ imeCreateSettingsModal() {
     const featureContainer = document.createElement('div');
     featureContainer.className = 'keymap-settings-container';
 
+    // 移除 features 陣列中的 pinyinOnlyMode
     const features = [
         { id: 'singleCharMode', text: '單字模式', default: false },
         { id: 'prediction', text: '聯想詞 (Ctrl \\)', default: false },
         { id: 'numericTone', text: '數字鍵調(Ctrl Shiht ") (預設zvs)', default: true },
         { id: 'longPhrase', text: '長詞連打', default: false },
         { id: 'fullWidthPunctuation', text: '全形標點 (Ctrl Shiht >)', default: true },
-        { id: 'outputEnabled', text: '字音輸出 (Ctrl Shiht <)', default: false, hasSelect: true },
-        { id: 'enableRuby', text: 'Ruby 標音 (顯示編碼)', default: false, isRubySelect: true }
+        { id: 'outputEnabled', text: '字音輸出 (Ctrl Shiht <)', default: false, hasSelect: true }
     ];
 
     features.forEach(feature => {
@@ -1427,93 +1383,15 @@ imeCreateSettingsModal() {
             });
             settingRow.appendChild(outputModeSelect);
         }
-
-        if (feature.isRubySelect) {
-            const rubySelect = document.createElement('select');
-            rubySelect.id = 'feature-rubyAlignment-select';
-            rubySelect.style.marginLeft = '10px';
-            rubySelect.style.display = checkbox.checked ? 'inline-block' : 'none';
-
-            const options = [
-                { value: 'char', text: '1字1音' },
-                { value: 'word', text: '詞對音' }
-            ];
-            options.forEach(opt => {
-                const option = document.createElement('option');
-                option.value = opt.value;
-                option.textContent = opt.text;
-                rubySelect.appendChild(option);
-            });
-            rubySelect.onchange = () => this.imeSaveFeatureSettings();
-            checkbox.addEventListener('change', () => {
-                rubySelect.style.display = checkbox.checked ? 'inline-block' : 'none';
-            });
-            settingRow.appendChild(rubySelect);
-        }
         featureContainer.appendChild(settingRow);
     });
-
-	// 候選字數量選單 ---
-    const candidateCountRow = document.createElement('div');
-    candidateCountRow.className = 'keymap-setting-row';
-    const candidateCountLabel = document.createElement('label');
-    candidateCountLabel.className = 'keymap-label-text';
-    candidateCountLabel.textContent = '候選數：';
-    
-    const candidateCountSelect = document.createElement('select');
-    candidateCountSelect.id = 'feature-candidatesPerPage-select';
-    candidateCountSelect.style.cssText = 'border: 1px solid #ccc; border-radius: 4px; padding: 4px 8px; background-color: #f8f9fa; cursor: pointer;';
-    
-    [5, 9].forEach(num => {
-        const opt = document.createElement('option');
-        opt.value = num;
-        opt.textContent = `${num} 個`;
-        candidateCountSelect.appendChild(opt);
-    });
-
-    // 當選單改變時，儲存設定
-    candidateCountSelect.onchange = () => this.imeSaveFeatureSettings();
-    
-    candidateCountRow.appendChild(candidateCountLabel);
-    candidateCountRow.appendChild(candidateCountSelect);
-    featureContainer.appendChild(candidateCountRow);
-
     featureSettingsSection.appendChild(featureContainer);
-	// --- 新的程式碼 (貼在 featureContainer 結尾前) ---
-    // --- 新增：排版方向選單 ---
-    const layoutRow = document.createElement('div');
-    layoutRow.className = 'keymap-setting-row';
-    const layoutLabel = document.createElement('label');
-    layoutLabel.className = 'keymap-label-text';
-    layoutLabel.textContent = '候選字排版：';
-    
-    const layoutSelect = document.createElement('select');
-    layoutSelect.id = 'feature-candidateLayout-select';
-    layoutSelect.style.cssText = 'border: 1px solid #ccc; border-radius: 4px; padding: 4px 8px; background-color: #f8f9fa; cursor: pointer;';
-    
-    const layoutOptions = [
-        { value: 'horizontal', text: '橫排 (預設)' },
-        { value: 'vertical', text: '直排' }
-    ];
-    layoutOptions.forEach(opt => {
-        const option = document.createElement('option');
-        option.value = opt.value;
-        option.textContent = opt.text;
-        layoutSelect.appendChild(option);
-    });
-
-    layoutSelect.onchange = () => this.imeSaveFeatureSettings();
-    
-    layoutRow.appendChild(layoutLabel);
-    layoutRow.appendChild(layoutSelect);
-    featureContainer.appendChild(layoutRow);
-    // ------------------------------------
     modalBody.appendChild(featureSettingsSection);
     
 	// --- 【聯想詞來源設定區塊】 ---
     const predictionMappingSection = document.createElement('div');
     predictionMappingSection.className = 'settings-section';
-    predictionMappingSection.innerHTML = '<h4>聯想詞來源</h4><p style="font-size:13px; color:#666; margin-top:-8px; margin-bottom:10px;">為形碼輸入法指定一個拼音詞庫作為聯想詞來源。</p>';
+    predictionMappingSection.innerHTML = '<h4>聯想詞來源設定</h4><p style="font-size:13px; color:#666; margin-top:-8px; margin-bottom:10px;">為形碼輸入法指定一個拼音詞庫作為聯想詞來源。</p>';
     
     const mappingContainer = document.createElement('div');
     mappingContainer.className = 'keymap-settings-container';
@@ -1605,7 +1483,7 @@ imeCreateSettingsModal() {
     // --- 【快速鍵設定區塊 - 修改開始】 ---
     const keyMapSettingsSection = document.createElement('div');
     keyMapSettingsSection.className = 'settings-section';
-    keyMapSettingsSection.innerHTML = '<h4>快速鍵</h4>';
+    keyMapSettingsSection.innerHTML = '<h4>快速鍵設定</h4>';
     const keyMapContainer = document.createElement('div');
     keyMapContainer.className = 'keymap-settings-container';
     const configurableKeys = {
@@ -1754,601 +1632,6 @@ imeCreateSettingsModal() {
     // **新增呼叫**: 根據初始載入的模式，設定UI的初始狀態
     this._updateSettingsUIForCurrentMode();
 },
-
-
-
-
-/**
- * 建立正則快捷面板
- */
-imeCreateRegexHelpModal() {
-    this.regexModal = document.createElement('div');
-    this.regexModal.id = 'web-ime-regex-modal';
-
-    const preventFocusLoss = () => { this.isClickingInside = true; };
-    this.regexModal.addEventListener('mousedown', preventFocusLoss);
-    this.regexModal.addEventListener('touchstart', preventFocusLoss, { passive: true });
-
-    const modalContent = document.createElement('div');
-    modalContent.className = 'web-ime-modal-content';
-
-    const modalHeader = document.createElement('div');
-    modalHeader.className = 'modal-header';
-    modalHeader.style.cursor = 'move'; 
-    modalHeader.innerHTML = `<h3 style="margin: 0; font-size: 16px; color: #333; display: flex; align-items: center;"><span class="material-icons" style="margin-right: 8px; color:#f5b400;">bolt</span>快捷代碼與符號</h3>`;
-    
-    const headerBtns = document.createElement('div');
-    headerBtns.style.display = 'flex';
-    
-    // 1. 摺疊/展開按鈕
-    const toggleBtn = document.createElement('button');
-    toggleBtn.innerHTML = '−'; 
-    toggleBtn.style.cssText = 'background:none; border:none; font-size:24px; cursor:pointer; color:#555; padding: 0 10px; font-weight:bold; line-height:1; font-family: monospace;';
-    
-    // 2. 關閉按鈕
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'close-button';
-    closeBtn.innerHTML = '&times;';
-    closeBtn.style.cssText = 'background:none; border:none; font-size:26px; cursor:pointer; color:#888; padding: 0 4px; line-height:1;';
-    
-    headerBtns.appendChild(toggleBtn);
-    headerBtns.appendChild(closeBtn);
-    modalHeader.appendChild(headerBtns);
-    modalContent.appendChild(modalHeader);
-
-
-    let isDragging = false;
-    let startX, startY, initialLeft, initialTop;
-
-    const onDragStart = (e) => {
-        if (e.target.closest('button')) return; // 點擊關閉按鈕時不觸發拖曳
-        isDragging = true;
-        
-        // 取得當前位置並移除 transform 置中效果，改用絕對 left/top 定位確保拖曳不亂跳
-        const rect = this.regexModal.getBoundingClientRect();
-        this.regexModal.style.transform = 'none';
-        this.regexModal.style.left = `${rect.left}px`;
-        this.regexModal.style.top = `${rect.top}px`;
-        this.regexModal.style.right = 'auto';
-        this.regexModal.style.bottom = 'auto';
-
-        const touch = e.touches ? e.touches[0] : null;
-        startX = touch ? touch.clientX : e.clientX;
-        startY = touch ? touch.clientY : e.clientY;
-        initialLeft = rect.left;
-        initialTop = rect.top;
-
-        window.addEventListener('mousemove', onDragMove);
-        window.addEventListener('touchmove', onDragMove, { passive: false });
-        window.addEventListener('mouseup', onDragEnd);
-        window.addEventListener('touchend', onDragEnd);
-    };
-
-    const onDragMove = (e) => {
-        if (!isDragging) return;
-        if (e.cancelable) e.preventDefault(); // 防止拖曳時網頁跟著滾動
-        const touch = e.touches ? e.touches[0] : null;
-        const currentX = touch ? touch.clientX : e.clientX;
-        const currentY = touch ? touch.clientY : e.clientY;
-
-        this.regexModal.style.left = `${initialLeft + (currentX - startX)}px`;
-        this.regexModal.style.top = `${initialTop + (currentY - startY)}px`;
-    };
-
-    const onDragEnd = () => {
-        isDragging = false;
-        window.removeEventListener('mousemove', onDragMove);
-        window.removeEventListener('touchmove', onDragMove);
-        window.removeEventListener('mouseup', onDragEnd);
-        window.removeEventListener('touchend', onDragEnd);
-    };
-
-    // 將拖曳事件綁定在 Header 上
-    modalHeader.addEventListener('mousedown', onDragStart);
-    modalHeader.addEventListener('touchstart', onDragStart, { passive: false });
-
-    const modalBody = document.createElement('div');
-    modalBody.className = 'modal-body';
-    this.imePreventModalOverscroll(modalBody);
-
-    let isMinimized = false;
-    toggleBtn.onclick = (e) => { 
-        e.stopPropagation(); // 防止觸發拖曳
-        isMinimized = !isMinimized;
-        modalBody.style.display = isMinimized ? 'none' : 'block';
-        toggleBtn.innerHTML = isMinimized ? '+' : '-';
-        // 摺疊時讓標題列下方也變圓角，比較美觀
-        modalHeader.style.borderRadius = isMinimized ? '8px' : '8px 8px 0 0';
-    };
-
-    closeBtn.onclick = (e) => { 
-        e.stopPropagation(); 
-        this.regexModal.style.display = 'none'; 
-    };
-
-    // 帶有詳細說明的資料結構
-    const macroGroups = [
-        { 
-            title: '特殊控制符號', 
-            items: [
-                { val: '^', desc: '開頭 (必須以此開始)' },
-                { val: '$', desc: '結尾 (必須以此結束)' },
-                { val: '.*', desc: '任意長度的任意字元' },
-                { val: '?', desc: '前面的字元可有可無' },
-                { val: '|', desc: '「或者」的意思' },
-                { val: '()', desc: '群組 (點擊後游標會退一格)', offset: -1 },
-                { val: '[]', desc: '字元集合 (點擊後游標退一格)', offset: -1 }
-            ] 
-        },
-        { 
-            title: '疊詞/版型 (自動匹配音節)', 
-            items: [
-                { val: '{AA}', desc: '兩個音節相同 (如: angv angv)' },
-                { val: '{ABB}', desc: '三個音節，後兩同 (tai angv angv)' },
-                { val: '{AABB}', desc: '四個音節，前後同 (tai tai angv angv)' },
-                { val: '{AABC}', desc: '四個音節，前兩同 (tai tai as angv)' },
-                { val: '{ABCC}', desc: '四個音節，後兩同 (tai gav angv angv)' },
-                { val: '{ABAC}', desc: '四個音節，1/3同 (tai gav tai angv)' },
-                { val: '{ABAB}', desc: '四個音節，交替同 (siit log siit log)' }
-            ] 
-        },
-        { 
-            title: '完整音節/組合', 
-            items: [
-                { val: '{w}', desc: '任意非空白的完整音節' },
-                { val: '{syd}', desc: '完整音節：聲+韻+調' },
-                { val: '{z}', desc: '完整音節：聲+韻+調 (同 syd)' },
-                { val: '{yd}', desc: '零聲母音節：韻+調' },
-                { val: '{sv}', desc: '聲母+單一母音 (無收音/無調)' },
-                { val: '{svv}', desc: '聲母+母音組合 (無收音/無調)' },
-                { val: '{sy}', desc: '聲母+韻母 (無調)' }
-            ] 
-        },
-        { 
-            title: '基礎聲母與韻母', 
-            items: [
-                { val: '{s}', desc: '所有聲母 (包含複合聲母)' },
-                { val: '{v}', desc: '單母音或複合母音字元組' },
-                { val: '{vv}', desc: '母音的組合 (出現 1 次以上)' },
-                { val: '{y}', desc: '韻母 (單母音組合+可有可無收音)' },
-                { val: '{d}', desc: '聲調 (可有可無的 zvsxfl)' }
-            ] 
-        },
-        { 
-            title: '收音限制', 
-            items: [
-                { val: '{ru}', desc: '入聲收音 (ptkh 與 bdg)' },
-                { val: '{ptkh}', desc: '結尾為 p, t, k, h' },
-                { val: '{bdg}', desc: '結尾為 b, d, g (排除 ng)' },
-                { val: '{mng}', desc: '結尾為 n, m, nn, ng' },
-                { val: '{bi}', desc: '結尾為 n, m, nn, ng (同 mng)' }
-            ] 
-        },
-        { 
-            title: '母音精確控制', 
-            items: [
-                { val: '{vd}', desc: '單個母音+聲調 (可有可無)' },
-                { val: '{vvd}', desc: '母音組合+聲調 (可有可無)' },
-                { val: '{v2}', desc: '剛好兩個母音組合 (無收音/無調)' },
-                { val: '{v3}', desc: '剛好三個母音組合 (無收音/無調)' },
-                { val: '{v2d}', desc: '剛好兩個母音組合+聲調' },
-                { val: '{v3d}', desc: '剛好三個母音組合+聲調' }
-            ] 
-        }
-    ];
-
-    macroGroups.forEach(group => {
-        const groupDiv = document.createElement('div');
-        groupDiv.className = 'regex-macro-group';
-        groupDiv.innerHTML = `<h5>${group.title}</h5>`;
-        
-        const listDiv = document.createElement('div');
-        listDiv.className = 'regex-macro-list';
-
-        group.items.forEach(item => {
-            const itemContainer = document.createElement('div');
-            itemContainer.className = 'regex-macro-item';
-
-            const btn = document.createElement('button');
-            btn.textContent = item.val; 
-            
-            // 【再加一層防護】：強制阻止按鈕按下時偷走焦點，避免手機鍵盤被收起
-            const preventFocus = (e) => { e.preventDefault(); };
-            btn.addEventListener('mousedown', preventFocus);
-            btn.addEventListener('touchstart', preventFocus, { passive: false });
-
-            const descSpan = document.createElement('span');
-            descSpan.textContent = item.desc;
-
-            // 點擊事件：插入字串 (使用原本的 click)
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.imeInsertRegexText(item.val, item.offset || 0);
-            });
-            
-            itemContainer.appendChild(btn);
-            itemContainer.appendChild(descSpan);
-            listDiv.appendChild(itemContainer);
-        });
-        
-        groupDiv.appendChild(listDiv);
-        modalBody.appendChild(groupDiv);
-    });
-
-    modalContent.appendChild(modalBody);
-    this.regexModal.appendChild(modalContent);
-    document.body.appendChild(this.regexModal);
-},
-
-/**
- * 建立並管理候選字全覽
- */
-
-imeCreateViewAllModal() {
-    this.viewAllModal = document.createElement('div');
-    this.viewAllModal.id = 'web-ime-viewall-modal';
-    this.viewAllModal.style.display = 'none';
-
-    const preventFocusLoss = (e) => { 
-        if (e.target.closest('input')) return; 
-        this.isClickingInside = true; 
-    };
-    this.viewAllModal.addEventListener('mousedown', preventFocusLoss);
-    this.viewAllModal.addEventListener('touchstart', preventFocusLoss, { passive: true });
-
-    const modalContent = document.createElement('div');
-    modalContent.className = 'web-ime-modal-content';
-
-    // --- Header (極簡化：圖示 + 輸入框 + 按鈕) ---
-    const modalHeader = document.createElement('div');
-    modalHeader.className = 'modal-header';
-    
-    // 拖曳圖示 (取代原本的文字標題)
-    const dragIcon = document.createElement('span');
-    dragIcon.className = 'material-icons';
-    dragIcon.style.cssText = 'color:#1a73e8; font-size:24px; flex-shrink:0; user-select:none;';
-    dragIcon.textContent = 'apps';
-    
-    // 搜尋框直接放入 Header
-    this.viewAllSearchInput = document.createElement('input');
-    this.viewAllSearchInput.type = 'text';
-    this.viewAllSearchInput.id = 'viewall-search-input';
-    this.viewAllSearchInput.className = 'viewall-search-input';
-    this.viewAllSearchInput.placeholder = '在此修改或輸入編碼...';
-    
-    const headerBtns = document.createElement('div');
-    headerBtns.style.display = 'flex';
-    headerBtns.style.flexShrink = '0'; // 防止被輸入框擠壓
-    
-    const toggleBtn = document.createElement('button');
-    toggleBtn.innerHTML = '−'; 
-    toggleBtn.style.cssText = 'background:none; border:none; font-size:24px; cursor:pointer; color:#555; padding: 0 6px; font-weight:bold; line-height:1; font-family: monospace;';
-    
-    const closeBtn = document.createElement('button');
-    closeBtn.innerHTML = '&times;';
-    closeBtn.style.cssText = 'background:none; border:none; font-size:26px; cursor:pointer; color:#888; padding: 0 4px; line-height:1;';
-    
-    headerBtns.appendChild(toggleBtn);
-    headerBtns.appendChild(closeBtn);
-    
-    modalHeader.appendChild(dragIcon);
-    modalHeader.appendChild(this.viewAllSearchInput);
-    modalHeader.appendChild(headerBtns);
-    modalContent.appendChild(modalHeader);
-
-    // --- 拖曳邏輯 ---
-    let isDragging = false;
-    let startX, startY, initialLeft, initialTop;
-
-    const onDragStart = (e) => {
-        // 如果點擊到輸入框或按鈕，就不要觸發拖曳
-        if (e.target.closest('button, input')) return; 
-        isDragging = true;
-        const rect = this.viewAllModal.getBoundingClientRect();
-        this.viewAllModal.style.transform = 'none';
-        this.viewAllModal.style.left = `${rect.left}px`;
-        this.viewAllModal.style.top = `${rect.top}px`;
-        const touch = e.touches ? e.touches[0] : null;
-        startX = touch ? touch.clientX : e.clientX;
-        startY = touch ? touch.clientY : e.clientY;
-        initialLeft = rect.left;
-        initialTop = rect.top;
-        window.addEventListener('mousemove', onDragMove);
-        window.addEventListener('touchmove', onDragMove, { passive: false });
-        window.addEventListener('mouseup', onDragEnd);
-        window.addEventListener('touchend', onDragEnd);
-    };
-    const onDragMove = (e) => {
-        if (!isDragging) return;
-        if (e.cancelable) e.preventDefault(); 
-        const touch = e.touches ? e.touches[0] : null;
-        this.viewAllModal.style.left = `${initialLeft + ((touch ? touch.clientX : e.clientX) - startX)}px`;
-        this.viewAllModal.style.top = `${initialTop + ((touch ? touch.clientY : e.clientY) - startY)}px`;
-    };
-    const onDragEnd = () => {
-        isDragging = false;
-        window.removeEventListener('mousemove', onDragMove);
-        window.removeEventListener('touchmove', onDragMove);
-        window.removeEventListener('mouseup', onDragEnd);
-        window.removeEventListener('touchend', onDragEnd);
-    };
-
-    modalHeader.addEventListener('mousedown', onDragStart);
-    modalHeader.addEventListener('touchstart', onDragStart, { passive: false });
-
-    // --- Body ---
-    const modalBody = document.createElement('div');
-    modalBody.className = 'viewall-body';
-    this.imePreventModalOverscroll(modalBody);
-    const gridContainer = document.createElement('div');
-    gridContainer.className = 'viewall-grid';
-    modalBody.appendChild(gridContainer);
-    modalContent.appendChild(modalBody);
-
-    // --- Footer ---
-    const modalFooter = document.createElement('div');
-    modalFooter.className = 'viewall-footer';
-    
-    const paginationCtrl = document.createElement('div');
-    paginationCtrl.className = 'viewall-pagination';
-    const prevBtn = document.createElement('button');
-    prevBtn.className = 'viewall-btn'; prevBtn.textContent = '上一頁';
-    const nextBtn = document.createElement('button');
-    nextBtn.className = 'viewall-btn'; nextBtn.textContent = '下一頁';
-    
-    const pageInfo = document.createElement('span');
-
-    paginationCtrl.appendChild(prevBtn);
-    paginationCtrl.appendChild(pageInfo);
-    paginationCtrl.appendChild(nextBtn);
-
-    const actionCtrl = document.createElement('div');
-    actionCtrl.className = 'viewall-actions';
-
-    const multiSelectLabel = document.createElement('label');
-    multiSelectLabel.className = 'viewall-multi-select-label';
-    const multiSelectCb = document.createElement('input');
-    multiSelectCb.type = 'checkbox';
-    multiSelectLabel.appendChild(multiSelectCb);
-    multiSelectLabel.appendChild(document.createTextNode(' 跨頁多選'));
-
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'viewall-btn copy-btn';
-    
-    actionCtrl.appendChild(multiSelectLabel);
-    actionCtrl.appendChild(copyBtn);
-
-    modalFooter.appendChild(paginationCtrl);
-    modalFooter.appendChild(actionCtrl);
-    modalContent.appendChild(modalFooter);
-    this.viewAllModal.appendChild(modalContent);
-    document.body.appendChild(this.viewAllModal);
-
-    // --- 內部狀態與邏輯 ---
-    this.viewAllCandidates = [];
-    let currentViewPage = 0;
-    const itemsPerPage = 50; 
-    let isMultiSelectMode = false;
-    let selectedItems = new Set(); 
-
-    // 打字時呼叫獨立引擎
-    this.viewAllSearchInput.addEventListener('input', (e) => {
-        isMultiSelectMode = false;
-        multiSelectCb.checked = false;
-        selectedItems.clear();
-
-        const query = e.target.value;
-        if (query.length > 0) {
-            this.viewAllCandidates = this.imeGetCandidatesForQuery(query);
-        } else {
-            this.viewAllCandidates = [];
-        }
-        this.renderViewAllPage(0);
-    });
-
-    // 摺疊與關閉功能
-    let isMinimized = false;
-    toggleBtn.onclick = (e) => { 
-        e.stopPropagation(); 
-        isMinimized = !isMinimized;
-        // 摺疊時，標題列(包含輸入框)仍然保留，只隱藏主體和底部
-        modalBody.style.display = isMinimized ? 'none' : 'block';
-        modalFooter.style.display = isMinimized ? 'none' : 'flex';
-        toggleBtn.innerHTML = isMinimized ? '＋' : '−';
-        modalHeader.style.borderRadius = isMinimized ? '8px' : '8px 8px 0 0';
-    };
-
-    closeBtn.onclick = (e) => { 
-        e.preventDefault(); 
-        this.viewAllModal.style.display = 'none'; 
-        
-        // 確保焦點回到原編輯器
-        if (this.activeElement && !this.isMobile) {
-            this.activeElement.focus();
-        }
-    };
-
-    const updateCopyButtonState = () => {
-        if (isMultiSelectMode) {
-            const count = selectedItems.size;
-            copyBtn.innerHTML = `<span class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:4px;">content_copy</span>複製已選 (${count})`;
-            copyBtn.disabled = count === 0;
-        } else {
-            copyBtn.innerHTML = `<span class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:4px;">content_copy</span>複製全部`;
-            copyBtn.disabled = this.viewAllCandidates.length === 0;
-        }
-    };
-
-    multiSelectCb.onchange = (e) => {
-        isMultiSelectMode = e.target.checked;
-        if (!isMultiSelectMode) selectedItems.clear();
-        this.renderViewAllPage(currentViewPage); 
-        updateCopyButtonState();
-    };
-
-    this.renderViewAllPage = (pageIndex) => {
-        const totalItems = this.viewAllCandidates.length;
-        const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
-        currentViewPage = pageIndex;
-
-        // 【修改點】：將數量移到頁碼資訊旁顯示，而不是在標題列
-        pageInfo.innerHTML = `第 ${pageIndex + 1} / ${totalPages} 頁 <span style="font-size:13px; color:#888; margin-left:6px;">(共 ${totalItems} 筆)</span>`;
-        
-        gridContainer.innerHTML = '';
-        updateCopyButtonState();
-
-        const start = pageIndex * itemsPerPage;
-        const end = Math.min(start + itemsPerPage, totalItems);
-        const pageItems = this.viewAllCandidates.slice(start, end);
-
-        pageItems.forEach((candidate, idx) => {
-            const absoluteIndex = start + idx; 
-            
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'viewall-item';
-            if (selectedItems.has(absoluteIndex)) itemDiv.classList.add('selected');
-            
-            itemDiv.innerHTML = `<span class="index">${absoluteIndex + 1}</span><span class="word">${candidate.word}</span>`;
-            
-            const preventFocus = (e) => e.preventDefault();
-            itemDiv.addEventListener('mousedown', preventFocus);
-            itemDiv.addEventListener('touchstart', preventFocus, { passive: false });
-            
-            itemDiv.addEventListener('click', (e) => {
-                e.preventDefault();
-                if (isMultiSelectMode) {
-                    if (selectedItems.has(absoluteIndex)) {
-                        selectedItems.delete(absoluteIndex);
-                        itemDiv.classList.remove('selected');
-                    } else {
-                        selectedItems.add(absoluteIndex);
-                        itemDiv.classList.add('selected');
-                    }
-                    updateCopyButtonState();
-                } else {
-                    const candidateObj = this.viewAllCandidates[absoluteIndex];
-                    const textToCommit = this.imeGetOutputTextForCandidate(candidateObj);
-                    
-                    this.imeCommitText(textToCommit); 
-                    this.viewAllSearchInput.focus();
-                }
-            });
-            gridContainer.appendChild(itemDiv);
-        });
-
-        prevBtn.disabled = pageIndex === 0;
-        nextBtn.disabled = pageIndex >= totalPages - 1;
-        modalBody.scrollTop = 0; 
-    };
-
-    prevBtn.onclick = (e) => { 
-        e.preventDefault();
-        if (currentViewPage > 0) this.renderViewAllPage(currentViewPage - 1); 
-    };
-    nextBtn.onclick = (e) => { 
-        e.preventDefault();
-        if (currentViewPage < Math.ceil(this.viewAllCandidates.length / itemsPerPage) - 1) this.renderViewAllPage(currentViewPage + 1); 
-    };
-
-    copyBtn.onclick = async (e) => {
-        e.preventDefault();
-        let itemsToCopy = [];
-        if (isMultiSelectMode) {
-            if (selectedItems.size === 0) return;
-            const sortedIndices = Array.from(selectedItems).sort((a, b) => a - b);
-            itemsToCopy = sortedIndices.map(idx => this.viewAllCandidates[idx].word);
-        } else {
-            if (this.viewAllCandidates.length === 0) return;
-            itemsToCopy = this.viewAllCandidates.map(c => c.word);
-        }
-        const textToCopy = itemsToCopy.join('\n');
-        
-        try {
-            if (navigator.clipboard && window.isSecureContext) {
-                await navigator.clipboard.writeText(textToCopy);
-            } else {
-                const textArea = document.createElement("textarea");
-                textArea.value = textToCopy;
-                textArea.style.position = "fixed";
-                textArea.style.opacity = "0";
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-            }
-            const originalText = copyBtn.innerHTML;
-            copyBtn.innerHTML = '<span class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:4px;">check</span>成功！';
-            copyBtn.style.backgroundColor = '#188038'; 
-            setTimeout(() => { copyBtn.innerHTML = originalText; copyBtn.style.backgroundColor = ''; }, 2000);
-        } catch (err) { alert('複製失敗'); }
-    };
-
-    this.openViewAllModal = () => {
-        if (this.activeElement && this.activeElement.isContentEditable) {
-            const sel = window.getSelection();
-            if (sel.rangeCount > 0) this.savedRange = sel.getRangeAt(0).cloneRange();
-        }
-        
-        this.viewAllSearchInput.value = this.compositionBuffer;
-        this.viewAllCandidates = [...this.allCandidates];
-        
-        this.compositionBuffer = '';
-        this.compositionCursorPos = 0;
-        this.imeClearCandidates(); 
-        
-        isMultiSelectMode = false;
-        multiSelectCb.checked = false;
-        selectedItems.clear();
-        
-        this.renderViewAllPage(0);
-        this.viewAllModal.style.display = 'flex';
-        
-        this.isClickingInside = true;
-        setTimeout(() => { 
-            this.viewAllSearchInput.focus(); 
-            this.isClickingInside = false;
-        }, 50);
-    };
-},
-
-
-
-/**
- * 將指定的文字插入到目前的編碼區游標位置
- * @param {string} text - 要插入的文字
- * @param {number} cursorOffset - 插入後游標的位移 (預設為 0，例如輸入 () 後位移 -1 可讓游標停在括號中間)
- */
-imeInsertRegexText(text, cursorOffset = 0) {
-    if (!this.compositionBuffer || !this.compositionBuffer.startsWith('`')) {
-        return; 
-    }
-
-    const buffer = this.compositionBuffer;
-    const pos = this.compositionCursorPos;
-    
-    this.compositionBuffer = buffer.substring(0, pos) + text + buffer.substring(pos);
-    
-    // 游標推進文字長度後，再加上自訂的位移
-    this.compositionCursorPos += text.length + cursorOffset; 
-    
-    this.imeUpdateCandidates(); 
-
-    if (!this.isMobile && this.activeElement) {
-        this.activeElement.focus();
-    }
-},
-
-
-
-
-
-
-
-
-
-
-
-
 	
 /**
  * 儲存到 localStorage，並同步 UI 介面。
@@ -2366,18 +1649,6 @@ _syncFeatureSettings(features) {
 
     // 步驟 2: 使用這個經過邏輯清理後的 `features` 物件來更新核心設定。
     this.config.features = features;
-	// 同步候選字數量與排版設定到系統核心 ---
-    this.config.candidatesPerPage = parseInt(features.candidatesPerPage || 5, 10);
-    this.config.features.candidateLayout = features.candidateLayout || 'horizontal';
-    
-    if (this.candidatesList) {
-        this.candidatesList.classList.toggle('ime-layout-vertical', this.config.features.candidateLayout === 'vertical');
-    }
-    if (this.candidatesContainer) {
-        this.candidatesContainer.classList.toggle('ime-layout-vertical-container', this.config.features.candidateLayout === 'vertical');
-    }
-
-	
 
     // 步驟 3: 根據這個**已確保邏輯正確**的設定來更新即時狀態變數和 UI Class。
     this.isLongPhraseEnabled = this.config.features.longPhrase;
@@ -2405,7 +1676,6 @@ _syncFeatureSettings(features) {
 
     // 步驟 5: 同步設定視窗的 UI 介面。
     if (this.settingsModal) {
-
         for (const key in this.config.features) {
             const checkbox = this.settingsModal.querySelector(`#feature-${key}`);
             if (checkbox) {
@@ -2418,17 +1688,6 @@ _syncFeatureSettings(features) {
             select.style.display = this.config.features.outputEnabled ? 'inline-block' : 'none';
         }
 
-			const rubySelect = this.settingsModal.querySelector('#feature-rubyAlignment-select');
-            if (rubySelect) {
-                rubySelect.value = this.config.features.rubyAlignment || 'char';
-                rubySelect.style.display = this.config.features.enableRuby ? 'inline-block' : 'none';
-            }
-
-			const candidateSelect = this.settingsModal.querySelector('#feature-candidatesPerPage-select');
-            if (candidateSelect) {
-                candidateSelect.value = this.config.candidatesPerPage;
-            }
-
         const singleCharCheckbox = this.settingsModal.querySelector('#feature-singleCharMode');
         const longPhraseCheckbox = this.settingsModal.querySelector('#feature-longPhrase');
         const predictionCheckbox = this.settingsModal.querySelector('#feature-prediction');
@@ -2438,10 +1697,6 @@ _syncFeatureSettings(features) {
             const isDisabled = singleCharCheckbox.checked;
             longPhraseCheckbox.disabled = isDisabled;
             predictionCheckbox.disabled = isDisabled;
-        }
-		const layoutSelect = this.settingsModal.querySelector('#feature-candidateLayout-select');
-            if (layoutSelect) {
-                layoutSelect.value = this.config.features.candidateLayout;
         }
     }
 },
@@ -2457,11 +1712,7 @@ imeLoadFeatureSettings() {
         longPhrase: false,
         fullWidthPunctuation: true,
         outputEnabled: false,
-        outputMode: 'pinyin_mode',
-		enableRuby: false,
-		rubyAlignment: 'char',
-        candidatesPerPage: 5,
-        candidateLayout: 'horizontal'
+        outputMode: 'pinyin_mode' // 將預設值改為 'pinyin_mode'
     };
 
     let savedSettings = {};
@@ -2498,21 +1749,6 @@ imeSaveFeatureSettings() {
     if (select) {
         newSettings.outputMode = select.value;
     }
-	const rubySelect = this.settingsModal.querySelector('#feature-rubyAlignment-select');
-    if (rubySelect) {
-        newSettings.rubyAlignment = rubySelect.value;
-    }
-
-	const candidateSelect = this.settingsModal.querySelector('#feature-candidatesPerPage-select');
-    if (candidateSelect) {
-        newSettings.candidatesPerPage = parseInt(candidateSelect.value, 10);
-    }
-
-    const layoutSelect = this.settingsModal.querySelector('#feature-candidateLayout-select');
-    if (layoutSelect) {
-        newSettings.candidateLayout = layoutSelect.value;
-    }
-
 
     // 呼叫輔助函式來統一處理套用與儲存
     this._syncFeatureSettings(newSettings);
@@ -2726,8 +1962,6 @@ imeAttachEventListeners() {
     this.candidatesContainer.addEventListener('touchstart', onImeInteractionStart, { passive: true });
 
     this.handleFocusIn = (e) => {
-        if (e.target.id === 'viewall-search-input') return; 
-
         if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) {
             this.imeActivate(e.target);
         }
@@ -2742,12 +1976,6 @@ imeAttachEventListeners() {
             return;
         }
         const nextFocusTarget = e.relatedTarget;
-        
-        if (nextFocusTarget && nextFocusTarget.id === 'viewall-search-input') {
-            return;
-        }
-        // -------------------------------------------------------------------------
-
         if (nextFocusTarget && (nextFocusTarget.tagName === "INPUT" || nextFocusTarget.tagName === "TEXTAREA" || nextFocusTarget.isContentEditable)) {
             this.imeDeactivate();
             return;
@@ -2849,81 +2077,85 @@ imeDeactivate() {
 },
 
 imeHandleInput(e) {
-    if (this.isCommittingText) {
-        return;
-    }
-    
-    if (!this.isMobile) {
-        if (this.compositionBuffer) {
-            this.compositionBuffer = '';
-            this.imeUpdateCandidates();
-        }
-        return;
-    }
-
-    const target = e.target;
-    const currentVal = target.isContentEditable ? target.textContent : target.value;
-    
-    let selectionStart = target.selectionStart;
-    if (target.isContentEditable) {
-        const sel = window.getSelection();
-        if (sel.rangeCount > 0) {
-            selectionStart = sel.focusOffset;
-        } else {
-            selectionStart = currentVal.length;
-        }
-    }
-
-    if (currentVal.length > this.lastInputValue.length) {
-        const insertedLength = currentVal.length - this.lastInputValue.length;
-        const insertionStart = selectionStart - insertedLength;
-        let diff = currentVal.substring(insertionStart, selectionStart);
-        
-        // 判斷是否即將進入正則模式
-        const isRegexMode = this.compositionBuffer.startsWith('`') || diff === '`';
-
-        // 如果一次輸入超過1個字元(例如貼上)
-        // 一般模式下，只允許英數字和空白；正則模式下，允許 ASCII 符號
-        const isValidChar = isRegexMode ? /^[\x20-\x7E]$/.test(diff) : /^[a-zA-Z0-9 ]$/.test(diff);
-        
-        if (insertedLength > 1 || !isValidChar) {
-            this.lastInputValue = currentVal;
-            this.compositionBuffer = '';
-            this.compositionCursorPos = 0;
-            this.imeUpdateCandidates();
+        // 如果是我們自己觸發的 input 事件，就直接忽略
+        if (this.isCommittingText) {
             return;
         }
         
-        const restoreVal = this.lastInputValue;
-        const restoreCursorPos = insertionStart;
-        this.isCommittingText = true;
-        
-        if (target.isContentEditable) {
-            target.textContent = restoreVal;
-            const sel = window.getSelection();
-            const range = document.createRange();
-            if (target.childNodes.length > 0) {
-                const textNode = target.childNodes[0];
-                range.setStart(textNode, Math.min(restoreCursorPos, textNode.length));
-                range.collapse(true);
-            } else {
-                range.selectNodeContents(target);
-                range.collapse(false);
+        if (!this.isMobile) {
+            if (this.compositionBuffer) {
+                this.compositionBuffer = '';
+                this.imeUpdateCandidates();
             }
-            sel.removeAllRanges();
-            sel.addRange(range);
-        } else {
-            target.value = restoreVal;
-            target.setSelectionRange(restoreCursorPos, restoreCursorPos);
+            return;
         }
-        this.isCommittingText = false;
-        this.lastInputValue = restoreVal;
 
+        const target = e.target;
+        const currentVal = target.isContentEditable ? target.textContent : target.value;
+        
+        let selectionStart = target.selectionStart;
+        if (target.isContentEditable) {
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+                selectionStart = sel.focusOffset;
+            } else {
+                selectionStart = currentVal.length;
+            }
+        }
+
+        // 偵測輸入 (文字變長)
+        if (currentVal.length > this.lastInputValue.length) {
+            
+            // 透過游標位置，精準計算出新插入的字元，不再假設只在末尾輸入
+            const insertedLength = currentVal.length - this.lastInputValue.length;
+            const insertionStart = selectionStart - insertedLength;
+            let diff = currentVal.substring(insertionStart, selectionStart);
+
+            // 如果一次輸入超過1個字元(例如貼上)，或者不是英文/數字/空格，就直接接受，並重設輸入法狀態
+            // 將 `\s` 修改為明確的空格 ` `，避免比對到換行符 `\n`
+            if (insertedLength > 1 || !/^[a-zA-Z0-9 ]$/.test(diff)) {
+                this.lastInputValue = currentVal;
+                this.compositionBuffer = '';
+                this.compositionCursorPos = 0;
+                this.imeUpdateCandidates();
+                return;
+            }
+            
+            // --- 攔截與還原輸入框 ---
+            const restoreVal = this.lastInputValue;
+            const restoreCursorPos = insertionStart;
+            this.isCommittingText = true;
+            
+            if (target.isContentEditable) {
+                target.textContent = restoreVal;
+                
+                // 【修正 2】：安全還原 contenteditable 的游標位置
+                const sel = window.getSelection();
+                const range = document.createRange();
+                if (target.childNodes.length > 0) {
+                    const textNode = target.childNodes[0];
+                    range.setStart(textNode, Math.min(restoreCursorPos, textNode.length));
+                    range.collapse(true);
+                } else {
+                    range.selectNodeContents(target);
+                    range.collapse(false);
+                }
+                sel.removeAllRanges();
+                sel.addRange(range);
+                
+            } else {
+                target.value = restoreVal;
+                target.setSelectionRange(restoreCursorPos, restoreCursorPos);
+            }
+            this.isCommittingText = false;
+            this.lastInputValue = restoreVal;
+
+        // 當輸入的是空白鍵時
         if (diff === ' ') {
             const hasBuffer = this.compositionBuffer.length > 0;
             const hasCandidates = this.allCandidates.length > 0;
 
-            if (hasCandidates && !isRegexMode) {
+            if (hasCandidates) {
                 this.imeSelectCandidate(this.highlightedIndex);
             } else if (hasBuffer) {
                 this.compositionBuffer = '';
@@ -2937,7 +2169,7 @@ imeHandleInput(e) {
         
         const hasComposition = this.compositionBuffer && this.allCandidates.length > 0;
         const currentToneMode = this.imeGetCurrentToneMode();
-        const isNumberSelect = currentToneMode === 'alphabetic' && diff.match(/^[1-9]$/) && hasComposition && !isRegexMode;
+        const isNumberSelect = currentToneMode === 'alphabetic' && diff.match(/^[1-9]$/) && hasComposition;
         const langProps = imeLanguageProperties[this.currentMode] || {};
         const isTransformEnabled = langProps.enableToneTransform !== false;
         const isWTransform = diff.toLowerCase() === 'w' && this.compositionBuffer && isTransformEnabled;
@@ -2948,7 +2180,7 @@ imeHandleInput(e) {
                 if (index < this.candidatesList.children.length) {
                     this.imeSelectCandidate(index);
                 }
-            } else { 
+            } else { // isWTransform
                 let transformedText = this.compositionBuffer;
                 if (window.imeToneTransformFunctions && typeof window.imeToneTransformFunctions[this.currentMode] === 'function') {
                     transformedText = window.imeToneTransformFunctions[this.currentMode](transformedText);
@@ -2969,25 +2201,27 @@ imeHandleInput(e) {
             return;
         }
         
+        // --- 正常的編碼輸入 ---
         const isNumericToneMode = currentToneMode === 'numeric' && langProps.numericToneMap;
 
-        if (isNumericToneMode && diff.match(/^[0-9]$/) && !isRegexMode) {
+        if (isNumericToneMode && diff.match(/^[0-9]$/)) {
             const mappedChar = langProps.numericToneMap[diff];
             if (mappedChar) {
                 diff = mappedChar; 
             }
         }
         
-        // --- 新增：當手機版輸入 ` 時，自動補上 ^ 變成 `^ ---
-        if (diff === '`' && this.compositionBuffer.length === 0) {
-            diff = '`^';
+        // 只有在完全滿足所有指定條件時，才在開始輸入新編碼前補上空格。
+        if (this.isPredictionState && this.compositionBuffer === '' && this.config.features.outputEnabled && this.config.outputMode === 'pinyin_mode') {
+            this.imeCommitText(' ');
         }
-       
+        
         this.compositionBuffer += diff;
         this.compositionCursorPos += diff.length;
         this.imeUpdateCandidates();
 
     } else if (currentVal.length < this.lastInputValue.length) {
+        // 處理刪除 (Backspace)
          if (this.compositionBuffer) {
             this.compositionBuffer = this.compositionBuffer.slice(0, -1);
             this.compositionCursorPos = this.compositionBuffer.length;
@@ -2995,6 +2229,7 @@ imeHandleInput(e) {
         }
         this.lastInputValue = currentVal;
     } else {
+        // 處理游標移動等其他情況
         this.lastInputValue = currentVal;
     }
 },
@@ -3058,28 +2293,16 @@ imeHandleKeyDown(e) {
 
     const hasComposition = this.compositionBuffer.length > 0;
     const hasCandidates = this.allCandidates.length > 0;
-    const isRegexMode = this.compositionBuffer.startsWith('`');
-
-    // --- 新增：強制保留 ESC 鍵的清除功能 (最高優先權) ---
-    if (e.key === 'Escape') {
-        if (hasComposition || hasCandidates || this.isPredictionState) {
-            e.preventDefault();
-            this.compositionBuffer = '';
-            this.compositionCursorPos = 0;
-            this.isPredictionState = false;
-            this.lastCommittedWord = '';
-            this.imeUpdateCandidates();
-            return;
-        }
-    }
 
     if (!hasComposition && this.currentMode !== 'hanglie') {
         const key = e.key;
+        // 1. 處理 / 鍵：無論全形半形，都直接輸出半形 /
         if (key === '/') {
             e.preventDefault();
             this.imeCommitText('/');
             return;
         }
+        // 2. 處理 - ; : " 鍵：僅在半形模式下直接輸出
         if (['-', ';', ':', '"'].includes(key) && !this.isFullWidthMode) {
             e.preventDefault();
             this.imeCommitText(key);
@@ -3106,6 +2329,7 @@ imeHandleKeyDown(e) {
         }
     }
 
+    // 根據使用者設定移除被停用的快速鍵
     const configurableKeys = ['backspaceWithCandidates', 'clearComposition', 'transformTone', 'reverseLookup'];
     configurableKeys.forEach(action => {
         const isEnabled = this.config.userKeyMapStates?.[action] ?? !(action === 'transformTone' || action === 'reverseLookup');
@@ -3117,12 +2341,6 @@ imeHandleKeyDown(e) {
     const reverseKeyMap = {};
     for (const action in keyMap) {
         keyMap[action].forEach(key => {
-            // 【方案 C】：在正則模式下，讓空白鍵變成純文字輸入
-            if (isRegexMode && key.length === 1) {
-                if (action !== 'moveCursorLeft' && action !== 'moveCursorRight') {
-                    return; 
-                }
-            }
             reverseKeyMap[key] = action;
         });
     }
@@ -3151,20 +2369,15 @@ imeHandleKeyDown(e) {
                 }
                 return;
             
-            case 'commitComposition':
+                case 'commitComposition':
                 if (!hasComposition) {
                     break;
                 }
                 e.preventDefault();
-                // 【方案 C】：如果在正則模式且有候選字，讓 Enter 鍵發揮「選擇候選字」的功能
-                if (isRegexMode && hasCandidates) {
-                    this.imeSelectCandidate(this.highlightedIndex);
-                } else {
-                    this.imeCommitText(this.compositionBuffer);
-                    this.compositionBuffer = '';
-                    this.compositionCursorPos = 0;
-                    this.imeUpdateCandidates();
-                }
+                this.imeCommitText(this.compositionBuffer);
+                this.compositionBuffer = '';
+                this.compositionCursorPos = 0;
+                this.imeUpdateCandidates();
                 return;
 
             case 'clearComposition':
@@ -3178,8 +2391,8 @@ imeHandleKeyDown(e) {
                 break;
             
             case 'backspaceWithCandidates':
+                e.preventDefault();
                 if (hasComposition) {
-                    e.preventDefault();
                     if (this.compositionCursorPos > 0) {
                         const buffer = this.compositionBuffer;
                         const pos = this.compositionCursorPos;
@@ -3187,15 +2400,12 @@ imeHandleKeyDown(e) {
                         this.compositionCursorPos--;
                         this.imeUpdateCandidates();
                     }
-                    return;
                 } else if (this.isPredictionState) {
-                    e.preventDefault();
                     this.isPredictionState = false;
                     this.lastCommittedWord = '';
                     this.imeUpdateCandidates();
-                    return;
                 }
-                break;
+                return;
             
             case 'reverseLookup':
                 if (this.isQueryMode || hasCandidates) {
@@ -3307,7 +2517,7 @@ imeHandleKeyDown(e) {
 
     if (hasCandidates) {
         const currentToneMode = this.imeGetCurrentToneMode();
-        if (currentToneMode === 'alphabetic' && e.key >= '1' && e.key <= '9' && !isRegexMode) {
+        if (currentToneMode === 'alphabetic' && e.key >= '1' && e.key <= '9') {
             e.preventDefault();
             const index = parseInt(e.key, 10) - 1;
             if (index < this.candidatesList.children.length) {
@@ -3315,7 +2525,7 @@ imeHandleKeyDown(e) {
                 return;
             }
         }
-        if (e.shiftKey && e.code.startsWith('Digit') && !isRegexMode) {
+        if (e.shiftKey && e.code.startsWith('Digit')) {
             const num = e.code.slice(5);
             if (num >= '1' && num <= '9') {
                 const index = parseInt(num, 10) - 1;
@@ -3347,33 +2557,34 @@ imeHandleKeyDown(e) {
         return;
     }
 
-    if ((e.key === '+' || e.key === '=') && !isRegexMode) {
+    if (e.key === '+' || e.key === '=' ) {
         return;
     }
     
     if (!this.isMobile && e.key.length === 1 && !reverseKeyMap[e.key]) {
         e.preventDefault();
         
-        let character = e.key;
-
-        if (character === '`' && this.compositionBuffer.length === 0) {
-            character = '`^';
+        // --- 【*** 關鍵修改處 ***】 ---
+        // 只有在完全滿足所有指定條件時，才在開始輸入新編碼前補上空格。
+        if (this.isPredictionState && this.compositionBuffer === '' && this.config.features.outputEnabled && this.config.outputMode === 'pinyin_mode') {
+            this.imeCommitText(' ');
         }
         
+        let character = e.key;
         const currentToneMode = this.imeGetCurrentToneMode();
         const isNumericToneMode = currentToneMode === 'numeric' && langProps.numericToneMap;
         
-        if (isNumericToneMode && character.match(/^[0-9]$/) && !isRegexMode) {
+        if (isNumericToneMode && character.match(/^[0-9]$/)) {
             if (character in langProps.numericToneMap) {
                 character = langProps.numericToneMap[character];
             }
         }
 
-        if (isRegexMode || character === '`^' || this.compositionBuffer.length < this.config.maxCompositionLength) {
+        if (this.compositionBuffer.length < this.config.maxCompositionLength) {
             const buffer = this.compositionBuffer;
             const pos = this.compositionCursorPos;
             this.compositionBuffer = buffer.substring(0, pos) + character + buffer.substring(pos);
-            this.compositionCursorPos += character.length; 
+            this.compositionCursorPos++;
             this.imeUpdateCandidates();
         }
     }
@@ -3397,189 +2608,6 @@ imeGetCurrentToneMode() {
 },
 
 
-
-
-
-
-/**
- * [核心引擎] 獨立搜尋函式：根據傳入的字串，回傳符合的候選字陣列
- */
-imeGetCandidatesForQuery(buffer) {
-    if (!buffer) return [];
-    let activeBuffer = buffer;
-    const isRegexMode = activeBuffer.startsWith('`');
-    if (!isRegexMode) activeBuffer = activeBuffer.toLowerCase();
-
-    let candidates = [];
-    
-    // --- 正則模式 ---
-    if (isRegexMode) {
-        let regexStr = activeBuffer.substring(1).replace(/'/g, ' ');
-        // 這裡包含你所有的自訂代碼
-        const regexMacros = {
-            's': '(?:tsh|zh|ch|sh|rh|bb|ph|th|kh|ng|[bpmfvdtnlgkhzcsrjqx])',
-            'v': '(?:ee|er|or|oo|oe|[aeiouy])',
-            'vv': '(?:ee|er|or|oo|oe|[aeiouy])+',
-            'y': '(?:ee|er|or|oo|oe|[aeiouy])+(?:nn|ng|[mnbdptkgh])?',
-            'd': '[zvsxfl]?',
-            'sv': '(?:tsh|zh|ch|sh|rh|bb|ph|th|kh|ng|[bpmfvdtnlgkhzcsrjqx])?(?:ee|er|or|oo|oe|[aeiouy])',
-            'svv': '(?:tsh|zh|ch|sh|rh|bb|ph|th|kh|ng|[bpmfvdtnlgkhzcsrjqx])?(?:ee|er|or|oo|oe|[aeiouy])+',
-            'sy': '(?:tsh|zh|ch|sh|rh|bb|ph|th|kh|ng|[bpmfvdtnlgkhzcsrjqx])?(?:ee|er|or|oo|oe|[aeiouy])+(?:nn|ng|[mnbdptkgh])?',
-            'syd': '(?:tsh|zh|ch|sh|rh|bb|ph|th|kh|ng|[bpmfvdtnlgkhzcsrjqx])?(?:ee|er|or|oo|oe|[aeiouy])+(?:nn|ng|[mnbdptkgh])?[zvsxfl]?',	
-            'z': '(?:tsh|zh|ch|sh|rh|bb|ph|th|kh|ng|[bpmfvdtnlgkhzcsrjqx])?(?:ee|er|or|oo|oe|[aeiouy])+(?:nn|ng|[mnbdptkgh])?[zvsxfl]?',            
-            'w': '\\S+',
-            'mng': '(?:nn|ng|[nm])',
-            'bi': '(?:nn|ng|[nm])',
-            'bdg': '(?:(?<!n)g|[bd])', 
-            'ptkh': '[ptkh]',
-            'ru': '(?:(?<!n)g|[ptkhbd])',
-            'yd': '(?:ee|er|or|oo|oe|[aeiouy])+(?:nn|ng|[mnbdptkgh])?[zvsxfl]?',
-            'vd': '(?:ee|er|or|oo|oe|[aeiouy])[zvsxfl]?',
-            'vvd': '(?:ee|er|or|oo|oe|[aeiouy])+[zvsxfl]?',
-            'v2': '(?:ee|er|or|oo|oe|[aeiouy]){2}',
-            'v3': '(?:ee|er|or|oo|oe|[aeiouy]){3}',
-            'v2d': '(?:ee|er|or|oo|oe|[aeiouy]){2}[zvsxfl]?',
-            'v3d': '(?:ee|er|or|oo|oe|[aeiouy]){3}[zvsxfl]?',
-            'AA': '(\\S+) \\1',
-            'ABB': '(\\S+) (\\S+) \\2',
-            'AABB': '(\\S+) \\1 (\\S+) \\2',
-            'AABC': '(\\S+) \\1 (\\S+) (\\S+)',
-            'ABCC': '(\\S+) (\\S+) (\\S+) \\3',
-            'ABAC': '(\\S+) (\\S+) \\1 (\\S+)',
-            'ABAB': '(\\S+) (\\S+) \\1 \\2'
-        };
-
-        regexStr = regexStr.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, macroName) => {
-            return regexMacros[macroName] || match; 
-        });
-
-        if (regexStr.length > 0) {
-            try {
-                const regex = new RegExp(regexStr, 'i'); 
-                const dictionary = dictionaries[this.currentMode];
-                for (const key in dictionary) {
-                    if (regex.test(key) || dictionary[key].split(' ').some(w => regex.test(w))) {
-                        dictionary[key].split(' ').forEach(word => {
-                            candidates.push({ word: word, originalWord: key, consumed: activeBuffer });
-                        });
-                    }
-                }
-            } catch (e) {}
-        }
-    } 
-    // --- 拼音直接輸出模式 ---
-    else if (this.config.features.outputEnabled && this.config.outputMode === 'pinyin_mode') {
-        const directPinyinResults = this.imeFindDirectPinyinCandidates(activeBuffer);
-        const abbreviationResults = this.imeFindPinyinAbbreviationCandidates(activeBuffer);
-        const combinedResults = new Set([...directPinyinResults, ...abbreviationResults]);
-
-        candidates = Array.from(combinedResults).map(pinyinCode => ({
-            word: this.imeTransformQueryCode(pinyinCode, this.currentMode),
-            originalWord: pinyinCode, consumed: activeBuffer
-        }));
-    } 
-    // --- 一般漢字搜尋模式 ---
-    else {
-        const dictionary = dictionaries[this.currentMode];
-        if (this.config.features.singleCharMode) {
-            const exactResult = dictionary[activeBuffer];
-            if (exactResult) {
-                const singleCharWords = exactResult.split(' ').filter(word => [...word].length === 1);
-                candidates = singleCharWords.map(word => ({ word: word, consumed: activeBuffer }));
-            }
-        } else {
-            if (this.isLongPhraseEnabled) {
-                for (let i = activeBuffer.length; i > 0; i--) {
-                    const prefixToSearch = activeBuffer.substring(0, i);
-                    let foundCandidatesForPrefix = [];
-                    const exactResult = dictionary[prefixToSearch];
-                    if (exactResult) {
-                        exactResult.split(' ').forEach(word => {
-                            foundCandidatesForPrefix.push({ word: word, consumed: prefixToSearch });
-                        });
-                    }
-                    this.imeFindPhraseCandidates(prefixToSearch).forEach(word => {
-                        foundCandidatesForPrefix.push({ word: word, consumed: prefixToSearch });
-                    });
-                    this.imeFindSimplePrefixCandidates(prefixToSearch).forEach(word => {
-                        foundCandidatesForPrefix.push({ word: word, consumed: prefixToSearch });
-                    });
-                    if (foundCandidatesForPrefix.length > 0) {
-                        candidates = foundCandidatesForPrefix;
-                        break;
-                    }
-                }
-            } else {
-                const exactResult = dictionary[activeBuffer];
-                if (exactResult) {
-                    exactResult.split(' ').forEach(word => { candidates.push({ word: word, consumed: activeBuffer }); });
-                }
-                this.imeFindSimplePrefixCandidates(activeBuffer).forEach(word => { candidates.push({ word: word, consumed: activeBuffer }); });
-                this.imeFindAbbreviationCandidates(activeBuffer).forEach(word => { candidates.push({ word: word, consumed: activeBuffer }); });
-            }
-        }
-    }
-
-    // 去重複
-    const uniqueCandidates = new Map();
-    candidates.forEach(c => {
-        if (!uniqueCandidates.has(c.word)) {
-            uniqueCandidates.set(c.word, c);
-        }
-    });
-    return Array.from(uniqueCandidates.values());
-},
-
-/**
- * [核心引擎] 獨立文字轉換函式：根據傳入的候選字物件與目前設定，產生最終輸出的字串
- */
-imeGetOutputTextForCandidate(candidateObj) {
-    let textToCommit;
-    
-    if (this.config.outputMode === 'pinyin_mode') {
-        textToCommit = candidateObj.word;
-    } else {
-        const selectedWord = candidateObj.originalWord || candidateObj.word;
-        textToCommit = selectedWord; 
-
-        if (this.config.outputModeActive) {
-            const nonPinyinModes = ['cangjie', 'xiami', 'hanglie'];
-            if (!nonPinyinModes.includes(this.currentMode)) {
-                const isSingleCharForced = this.config.features.singleCharMode;
-                const wordForProcessing = isSingleCharForced ? [...selectedWord][0] : selectedWord;
-
-                const possibleCodes = this.reverseDicts[this.currentMode]?.[wordForProcessing];
-                if (possibleCodes && possibleCodes.length > 0) {
-                    let bestMatchCode = possibleCodes[0];
-                    if (possibleCodes.length > 1 && candidateObj.consumed) {
-                        const simplifiedUserInput = this.imeSimplifyKey(candidateObj.consumed, this.currentMode);
-                        let foundMatch = possibleCodes.find(code => this.imeSimplifyKey(code, this.currentMode) === simplifiedUserInput);
-                        if (!foundMatch) foundMatch = possibleCodes.find(code => this.imeSimplifyKey(code, this.currentMode).startsWith(simplifiedUserInput));
-                        if (foundMatch) bestMatchCode = foundMatch;
-                    }
-                    
-                    const transformedPinyin = this.imeTransformQueryCode(bestMatchCode, this.currentMode);
-                    switch (this.config.outputMode) {
-                        case 'pinyin': textToCommit = transformedPinyin; break;
-                        case 'word_pinyin': textToCommit = `${wordForProcessing}(${transformedPinyin})`; break;
-                        case 'word_pinyin2': textToCommit = `${wordForProcessing}［${transformedPinyin}］`; break;
-                    }
-                }
-            }
-        }
-    }
-
-    if (this.config.features.outputEnabled && ['pinyin_mode', 'pinyin'].includes(this.config.outputMode)) {
-        const prevChar = this.imeGetPrecedingCharacter();
-        if (prevChar && !/[\p{Script=Han}\u3000-\u303F\uFF00-\uFFEF\u2010-\u2027\s]/u.test(prevChar)) {
-            textToCommit = ' ' + textToCommit;
-        }
-    }
-    return textToCommit;
-},
-
-
-
 /**
  * 更新候選字列表。
  * - 在一般模式下，搜尋符合的漢字詞彙。
@@ -3589,11 +2617,7 @@ imeUpdateCandidates() {
     this.isPredictionState = false;
     this.lastCommittedWord = '';
 
-    let activeBuffer = this.compositionBuffer.substring(0, this.compositionCursorPos);
-    const isRegexMode = activeBuffer.startsWith('`');
-    if (!isRegexMode) {
-        activeBuffer = activeBuffer.toLowerCase();
-    }
+    const activeBuffer = this.compositionBuffer.substring(0, this.compositionCursorPos).toLowerCase();
 
     this.imeUpdateUIState();
     this.imeUpdateCompositionDisplay();
@@ -3603,158 +2627,25 @@ imeUpdateCandidates() {
         return;
     }
 
-    // --- 正則表達式搜尋模式 ---
-    if (isRegexMode) {
-        // 先將輸入的字串取出，並把單引號 ' 當作空白的替身 (方便不按 Enter 的操作習慣)
-        let regexStr = activeBuffer.substring(1).replace(/'/g, ' ');
-
-        const regexMacros = {
-            // {s}: 聲母。複合聲母必須放在單一字母前面，依長度由長到短排序
-            's': '(?:tsh|zh|ch|sh|rh|bb|ph|th|kh|ng|[bpmfvdtnlgkhzcsrjqx])',
-
-            // {v}: 單母音或複合母音字元組
-            'v': '(?:ee|er|or|oo|oe|[aeiouy])',
-
-            // {vv}: 母音的組合（出現 1 次以上）
-            'vv': '(?:ee|er|or|oo|oe|[aeiouy])+',
-
-            // {y}: 韻母。單母音組合後，後面可接或不接 nn/ng/m/n/b/d/g/p/t/k/h
-            'y': '(?:ee|er|or|oo|oe|[aeiouy])+(?:nn|ng|[mnbdptkgh])?',
-
-            // {d}: 聲調。可有可無的 z, v, s, x, f, l
-            'd': '[zvsxfl]?',
-
-            // {sv}: 聲母(可有可無) + 單一母音 (無收音、無聲調)
-            'sv': '(?:tsh|zh|ch|sh|rh|bb|ph|th|kh|ng|[bpmfvdtnlgkhzcsrjqx])?(?:ee|er|or|oo|oe|[aeiouy])',
-
-            // {svv}: 聲母(可有可無) + 母音組合 (無收音、無聲調)
-            'svv': '(?:tsh|zh|ch|sh|rh|bb|ph|th|kh|ng|[bpmfvdtnlgkhzcsrjqx])?(?:ee|er|or|oo|oe|[aeiouy])+',
-
-            // {sy}: 聲母(可有可無) + 韻母(包含母音與可有可無的收音) (無聲調)
-            'sy': '(?:tsh|zh|ch|sh|rh|bb|ph|th|kh|ng|[bpmfvdtnlgkhzcsrjqx])?(?:ee|er|or|oo|oe|[aeiouy])+(?:nn|ng|[mnbdptkgh])?',
-            
-            // {syt}: 完整音節：聲母(可有可無) + 韻母 + 聲調(可有可無)
-            'syd': '(?:tsh|zh|ch|sh|rh|bb|ph|th|kh|ng|[bpmfvdtnlgkhzcsrjqx])?(?:ee|er|or|oo|oe|[aeiouy])+(?:nn|ng|[mnbdptkgh])?[zvsxfl]?',	
-           // {syt}: 完整音節：聲母(可有可無) + 韻母 + 聲調(可有可無)
-            'z': '(?:tsh|zh|ch|sh|rh|bb|ph|th|kh|ng|[bpmfvdtnlgkhzcsrjqx])?(?:ee|er|or|oo|oe|[aeiouy])+(?:nn|ng|[mnbdptkgh])?[zvsxfl]?',            
-            // {w}: 任意非空白的完整音節 (用來取代生硬的 \S+)
-            'w': '\\S+',
-                        
-            // {mng}: 匹配結尾為 n, m, nn, ng
-            'mng': '(?:nn|ng|[nm])',
-			'bi': '(?:nn|ng|[nm])',
-            	
-            // {bdg}: 匹配結尾為 b, d, g (排除 ng)
-            'bdg': '(?:(?<!n)g|[bd])', 
-
-            // {ptkh}: 匹配結尾為 p, t, k, h
-            'ptkh': '[ptkh]',
-            
-            // {ru}: 入聲收音 (合併 ptkh 與 bdg，跨方言查入聲字超好用)
-            'ru': '(?:(?<!n)g|[ptkhbd])',
-
-            // {yd}: 零聲母音節 (直接由 韻母 + 可有可無的聲調 組成)
-            'yd': '(?:ee|er|or|oo|oe|[aeiouy])+(?:nn|ng|[mnbdptkgh])?[zvsxfl]?',
-
-			// {vd}: 單個母音 + 聲調 (可有可無，以兼容不標調的第一聲)
-            'vd': '(?:ee|er|or|oo|oe|[aeiouy])[zvsxfl]?',
-
-            // {vvd}: 母音組合 + 聲調 (可有可無，以兼容不標調的第一聲)
-            'vvd': '(?:ee|er|or|oo|oe|[aeiouy])+[zvsxfl]?',
-            	
-            // {v2}: 剛好兩個母音組合 (無收音、無聲調)
-            'v2': '(?:ee|er|or|oo|oe|[aeiouy]){2}',
-
-            // {v3}: 剛好三個母音組合 (無收音、無聲調)
-            'v3': '(?:ee|er|or|oo|oe|[aeiouy]){3}',
-
-            // {v2d}: 剛好兩個母音組合 + 聲調 (可有可無)
-            'v2d': '(?:ee|er|or|oo|oe|[aeiouy]){2}[zvsxfl]?',
-
-            // {v3d}: 剛好三個母音組合 + 聲調 (可有可無)
-            'v3d': '(?:ee|er|or|oo|oe|[aeiouy]){3}[zvsxfl]?',
-
-
-            // {AA}: 兩個音節相同 (如: angv angv)
-            'AA': '(\\S+) \\1',
-
-            // {ABB}: 三個音節，後兩個相同 (如: tai angv angv)
-            'ABB': '(\\S+) (\\S+) \\2',
-
-            // {AABB}: 四個音節，前兩後兩分別相同 (如: tai tai angv angv)
-            'AABB': '(\\S+) \\1 (\\S+) \\2',
-
-            // {AABC}: 四個音節，只有前兩個相同 (如: tai tai as angv)
-            'AABC': '(\\S+) \\1 (\\S+) (\\S+)',
-
-            // {ABCC}: 四個音節，只有後兩個相同 (如: tai gav angv angv)
-            'ABCC': '(\\S+) (\\S+) (\\S+) \\3',
-
-            // {ABAC}: 四個音節，第1、3個相同 (如: tai gav tai angv)
-            'ABAC': '(\\S+) (\\S+) \\1 (\\S+)',
-
-            // {ABAB}: 四個音節，交替相同 (如: siit log siit log)
-            'ABAB': '(\\S+) (\\S+) \\1 \\2',
-
-        };
-
-
-
-        // 核心引擎：自動掃描字串中的 {代號}，並替換為字典中真正的正則語法
-        regexStr = regexStr.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, macroName) => {
-            return regexMacros[macroName] || match; // 如果字典裡有就替換，沒有就保留原字串
-        });
-        // ---------------------------------------------------
-
-        let candidates = [];
-        
-        if (regexStr.length > 0) {
-            try {
-                const regex = new RegExp(regexStr, 'i'); 
-                const dictionary = dictionaries[this.currentMode];
-                
-                for (const key in dictionary) {
-                    if (regex.test(key) || dictionary[key].split(' ').some(w => regex.test(w))) {
-                        dictionary[key].split(' ').forEach(word => {
-                            candidates.push({ 
-                                word: word, 
-                                originalWord: key,
-                                consumed: activeBuffer 
-                            });
-                        });
-                    }
-                }
-            } catch (e) {
-                // 正則語法尚未輸入完成時忽略錯誤
-            }
-        }
-        
-        const uniqueCandidates = new Map();
-        candidates.forEach(c => {
-            if (!uniqueCandidates.has(c.word)) {
-                uniqueCandidates.set(c.word, c);
-            }
-        });
-        
-        this.allCandidates = Array.from(uniqueCandidates.values());
-        this.currentPage = 0;
-        this.highlightedIndex = 0;
-        this.imeRenderCandidates();
-        this.imeReposition();
-        return; 
-    }
-
     // 判斷是否為「拼音模式」，若是，則執行全新的直接搜尋拼音邏輯
     if (this.config.features.outputEnabled && this.config.outputMode === 'pinyin_mode') {
+        
+        // 步驟 1: 執行完整的拼音前綴搜尋
         const directPinyinResults = this.imeFindDirectPinyinCandidates(activeBuffer);
+        
+        // 步驟 2: 執行拼音首字母縮寫搜尋
         const abbreviationResults = this.imeFindPinyinAbbreviationCandidates(activeBuffer);
+
+        // 步驟 3: 合併兩種搜尋結果，並用 Set 去除重複項
         const combinedResults = new Set([...directPinyinResults, ...abbreviationResults]);
 
+        // 步驟 4: 將結果轉換為候選字物件
         this.allCandidates = Array.from(combinedResults).map(pinyinCode => ({
             word: this.imeTransformQueryCode(pinyinCode, this.currentMode),
             originalWord: pinyinCode,
             consumed: activeBuffer
         }));
+
     } else {
         // --- 如果不是拼音模式，則維持原有的「搜尋漢字」邏輯 ---
         let candidates = [];
@@ -3804,27 +2695,17 @@ imeUpdateCandidates() {
             }
         }
 
-        // --- 新的程式碼 ---
         const uniqueCandidates = new Map();
         candidates.forEach(c => {
             if (!uniqueCandidates.has(c.word)) {
                 uniqueCandidates.set(c.word, c);
             }
         });
+        
         this.allCandidates = Array.from(uniqueCandidates.values());
     }
 
-    // --- 【注入「啟用正則」指令候選字】 ---
-    if (activeBuffer === 're' && !isRegexMode) {
-        this.allCandidates.unshift({
-            word: '⚡啟用正則', 
-            originalWord: 're',
-            consumed: 're',
-            isCommand: 'enterRegex' // 加上一個特殊標記，用來在選字時辨識
-        });
-    }
-    // ---------------------------------------------
-
+    // --- 統一的結尾處理 ---
     this.currentPage = 0;
     this.highlightedIndex = 0;
     this.imeRenderCandidates();
@@ -3971,7 +2852,8 @@ imeFindPinyinAbbreviationCandidates(buffer) {
 },
 
 /**
- * 透過拼音首字母縮寫尋找候選字。
+ * [優化版] 透過拼音首字母縮寫尋找候選字。
+ * @param {string} buffer - 使用者輸入的緩衝字串
  * @returns {string[]} - 候選字陣列
  */
 imeFindAbbreviationCandidates(buffer) {
@@ -4017,112 +2899,16 @@ imeRenderCandidates() {
     const startIndex = this.currentPage * this.config.candidatesPerPage;
     const pageCandidates = this.allCandidates.slice(startIndex, startIndex + this.config.candidatesPerPage);
 
-    // --- 修正後的程式碼 ---
     pageCandidates.forEach((candidateObj, index) => {
         const li = document.createElement('li');
         if (index === this.highlightedIndex) li.classList.add('highlighted');
         const indexSpan = document.createElement('span');
         indexSpan.className = 'candidate-index';
         indexSpan.innerHTML = `<sup>${index + 1}</sup>`;
-        
         const textSpan = document.createElement('span');
         textSpan.className = 'candidate-text';
-
-        let rubyText = '';
-        if (this.config.features.enableRuby && !this.isQueryMode) {
-            if (this.config.features.outputEnabled && this.config.outputMode === 'pinyin_mode') {
-                // 1. 拼音模式：直接將原始拼音碼轉換為輸出聲調
-                if (candidateObj.originalWord) {
-                    rubyText = this.imeTransformQueryCode(candidateObj.originalWord, this.currentMode);
-                }
-            } else {
-                // 2. 漢字模式：利用反向字典 (reverseDicts) 撈出資料庫中的完整編碼
-                const currentWord = candidateObj.word;
-                const possibleCodes = this.reverseDicts[this.currentMode]?.[currentWord];
-                
-                if (possibleCodes && possibleCodes.length > 0) {
-                    let bestMatchCode = possibleCodes[0];
-                    
-                    // 如果該字有多個讀音，根據使用者目前已輸入的編碼 (consumed) 進行智慧篩選
-                    if (possibleCodes.length > 1 && candidateObj.consumed) {
-                        const simplifiedUserInput = this.imeSimplifyKey(candidateObj.consumed, this.currentMode);
-                        let foundMatch = possibleCodes.find(code => this.imeSimplifyKey(code, this.currentMode) === simplifiedUserInput);
-                        if (!foundMatch) {
-                            // 支援前綴匹配篩選
-                            foundMatch = possibleCodes.find(code => this.imeSimplifyKey(code, this.currentMode).startsWith(simplifiedUserInput));
-                        }
-                        if (foundMatch) {
-                            bestMatchCode = foundMatch;
-                        }
-                    }
-                    // 將資料庫的完整編碼送入轉換器，將 zvsx 轉為 ˊˇˋˆ 符號
-                    rubyText = this.imeTransformQueryCode(bestMatchCode, this.currentMode);
-                }
-            }
-        }
-
-        // 判斷是否需要直排縮寫 (超過 6 個字)
-        const isVertical = this.config.features.candidateLayout === 'vertical';
-        const wordCharsArray = Array.from(candidateObj.word); // 支援 Unicode 擴充字元
-        const needsTruncation = isVertical && wordCharsArray.length > 6;
-
-        if (rubyText) {
-            let isCharAligned = false;
-            let wordChars = [];
-            let rubySyllables = [];
-
-            if (this.config.features.rubyAlignment === 'char') {
-                wordChars = Array.from(candidateObj.word);
-                rubySyllables = rubyText.trim().split(/[\s-]+/);
-                if (wordChars.length === rubySyllables.length && wordChars.length > 0) {
-                    isCharAligned = true;
-                }
-            }
-
-            if (isCharAligned) {
-                // 【字音對齊模式】
-                let displayChars = wordChars;
-                let displayRubys = rubySyllables;
-
-                // 進行截斷：前 4 個 + "~" + 最後 2 個
-                if (needsTruncation) {
-                    displayChars = [...displayChars.slice(0, 4), '~', ...displayChars.slice(-2)];
-                    displayRubys = [...displayRubys.slice(0, 4), '~', ...displayRubys.slice(-2)];
-                }
-
-                let alignedHtml = '';
-                for (let i = 0; i < displayChars.length; i++) {
-                    // 若遇到縮寫符號，其拼音以透明或空白代替
-                    const rtText = displayRubys[i] === '~' ? '&nbsp;' : displayRubys[i];
-                    alignedHtml += `<ruby>${displayChars[i]}<rt>${rtText}</rt></ruby>`;
-                }
-                textSpan.innerHTML = alignedHtml;
-            } else {
-                // 【全詞對全音模式】
-                let displayW = candidateObj.word;
-                let rArr = rubyText.trim().split(/[\s-]+/);
-                
-                // 進行截斷
-                if (needsTruncation) {
-                    displayW = [...wordCharsArray.slice(0, 4), '~', ...wordCharsArray.slice(-2)].join('');
-                    if (rArr.length > 6) {
-                        rArr = [...rArr.slice(0, 4), '~', ...rArr.slice(-2)];
-                    }
-                }
-                const compressedRubyText = rArr.join('\u2006');
-                textSpan.innerHTML = `<ruby>${displayW}<rt>${compressedRubyText}</rt></ruby>`;
-            }
-        } else {
-            let displayW = candidateObj.word;
-            if (needsTruncation) {
-                // 進行截斷
-                displayW = [...wordCharsArray.slice(0, 4), '~', ...wordCharsArray.slice(-2)].join('');
-            }
-            textSpan.textContent = displayW;
-        }
-        // --------------------------------------------------
-        // --------------------------------------------------
-
+        // 從物件中讀取 word 屬性來顯示
+        textSpan.textContent = candidateObj.word;
         li.appendChild(indexSpan); li.appendChild(textSpan);
         li.addEventListener('mousedown', (e) => { e.preventDefault(); this.imeSelectCandidate(index); });
         this.candidatesList.appendChild(li);
@@ -4136,41 +2922,24 @@ imeClearCandidates() {
 },
 
 imeCommitText(text) {
-         if (!this.activeElement) return;
+     if (!this.activeElement) return;
 
-         this.isCommittingText = true;
+     // --- NEW: 設定旗標，通知 input listener 這是程式觸發的更動 ---
+     this.isCommittingText = true;
 
-         if (this.activeElement.isContentEditable) {
-             const sel = window.getSelection();
-             let range;
-             
-             // --- 【新增：使用 savedRange 確保焦點在全覽視窗時，也能正確把字打進編輯器】 ---
-             if (this.savedRange && document.activeElement !== this.activeElement) {
-                 range = this.savedRange;
-             } else if (sel.rangeCount > 0) {
-                 range = sel.getRangeAt(0);
-             } else {
-                 range = document.createRange();
-                 range.selectNodeContents(this.activeElement);
-                 range.collapse(false);
-             }
-             // ----------------------------------------------------------------------------
-
+     if (this.activeElement.isContentEditable) {
+         const sel = window.getSelection();
+         if (sel.rangeCount > 0) {
+             const range = sel.getRangeAt(0);
              range.deleteContents();
              const textNode = document.createTextNode(text);
              range.insertNode(textNode);
              range.setStartAfter(textNode);
              range.setEndAfter(textNode);
-             
-             // 更新儲存的 Range，讓連續點擊輸出時字能接續排列
-             this.savedRange = range.cloneRange();
-             
-             // 只有在焦點真的在編輯器上時，才更新瀏覽器的反白選取區 (避免搶走全覽視窗焦點)
-             if (document.activeElement === this.activeElement) {
-                 sel.removeAllRanges();
-                 sel.addRange(range);
-             }
-         } else {
+             sel.removeAllRanges();
+             sel.addRange(range);
+         }
+     } else {
          const start = this.activeElement.selectionStart;
          const end = this.activeElement.selectionEnd;
          this.activeElement.value = this.activeElement.value.substring(0, start) + text + this.activeElement.value.substring(end);
@@ -4188,89 +2957,73 @@ imeCommitText(text) {
 
 
 /**
- * 取得游標前的一個字元，用於判斷是否需要自動加空白
- */
-imeGetPrecedingCharacter() {
-    if (!this.activeElement) return '';
-
-    if (this.activeElement.isContentEditable) {
-        const sel = window.getSelection();
-        if (sel.rangeCount > 0) {
-            const range = sel.getRangeAt(0);
-            // 透過 cloneRange 完美抓取游標前所有的內容，避免被 span 標籤或 br 截斷
-            const cloneRange = range.cloneRange();
-            cloneRange.selectNodeContents(this.activeElement);
-            cloneRange.setEnd(range.startContainer, range.startOffset);
-            const textBefore = cloneRange.toString();
-            const chars = Array.from(textBefore); // 使用 Array.from 確保正確讀取擴展區漢字 (Surrogate Pairs)
-            return chars.length > 0 ? chars[chars.length - 1] : '';
-        }
-    } else {
-        // 處理一般的 INPUT 或 TEXTAREA
-        const pos = this.activeElement.selectionStart;
-        if (pos > 0) {
-            const textBefore = this.activeElement.value.substring(0, pos);
-            const chars = Array.from(textBefore);
-            return chars.length > 0 ? chars[chars.length - 1] : '';
-        }
-    }
-    return '';
-},
-
-/**
- * 更新主輸入法候選字列表\
- */
-imeUpdateCandidates() {
-    this.isPredictionState = false;
-    this.lastCommittedWord = '';
-
-    let activeBuffer = this.compositionBuffer.substring(0, this.compositionCursorPos);
-    
-    this.imeUpdateUIState();
-    this.imeUpdateCompositionDisplay();
-
-    if (activeBuffer.length === 0) {
-        this.imeClearCandidates();
-        return;
-    }
-
-    // --- 直接呼叫獨立搜尋引擎 ---
-    this.allCandidates = this.imeGetCandidatesForQuery(activeBuffer);
-
-    // 注入「啟用正則」指令候選字
-    if (activeBuffer === 're' && !activeBuffer.startsWith('`')) {
-        this.allCandidates.unshift({
-            word: '⚡啟用正則', originalWord: 're', consumed: 're', isCommand: 'enterRegex'
-        });
-    }
-
-    this.currentPage = 0;
-    this.highlightedIndex = 0;
-    this.imeRenderCandidates();
-    this.imeReposition();
-},
-
-/**
- * 處理主輸入法選擇候選字的邏輯 (大幅精簡版)
+ * 已整合對形碼輸入法的聯想詞修正
+ * 處理使用者選擇候選字的邏輯。
+ * 修正了原先會錯誤判斷聯想模式的問題，現在會根據當前輸入法類型決定使用漢字聯想或拼音聯想。
  */
 imeSelectCandidate(indexOnPage) {
     const wasInQueryMode = this.isQueryMode;
     const startIndex = this.currentPage * this.config.candidatesPerPage;
     const selectedCandidate = this.allCandidates[startIndex + indexOnPage];
-    
     if (!selectedCandidate) return;
 
-    if (selectedCandidate.isCommand === 'enterRegex') {
-        this.compositionBuffer = '`^';
-        this.compositionCursorPos = 2;
-        this.isPredictionState = false;
-        this.lastCommittedWord = '';
-        this.imeUpdateCandidates();
-        return; 
+    let textToCommit;
+
+    // --- 拼音模式優先處理 ---
+    if (this.config.outputMode === 'pinyin_mode') {
+        textToCommit = selectedCandidate.word;
+    } else {
+        // --- 非拼音模式的漢字與字音輸出處理 ---
+        const selectedWord = selectedCandidate.originalWord || selectedCandidate.word;
+        textToCommit = selectedWord; // 預設提交整個詞
+
+        if (this.config.outputModeActive) {
+            const nonPinyinModes = ['cangjie', 'xiami', 'hanglie'];
+            const isPinyinOutputAvailable = !nonPinyinModes.includes(this.currentMode);
+
+            if (isPinyinOutputAvailable) {
+                const isSingleCharForced = this.config.features.singleCharMode;
+                const wordForProcessing = isSingleCharForced ? [...selectedWord][0] : selectedWord;
+
+                const possibleCodes = this.reverseDicts[this.currentMode]?.[wordForProcessing];
+                if (possibleCodes && possibleCodes.length > 0) {
+                    let bestMatchCode = possibleCodes[0];
+                    if (possibleCodes.length > 1) {
+                        const consumedBuffer = this.isPredictionState ? selectedWord : selectedCandidate.consumed;
+                        const simplifiedUserInput = this.imeSimplifyKey(consumedBuffer, this.currentMode);
+                        let foundMatch = possibleCodes.find(code => this.imeSimplifyKey(code, this.currentMode) === simplifiedUserInput);
+                        if (!foundMatch) {
+                            foundMatch = possibleCodes.find(code => this.imeSimplifyKey(code, this.currentMode).startsWith(simplifiedUserInput));
+                        }
+                        if (foundMatch) {
+                            bestMatchCode = foundMatch;
+                        }
+                    }
+                    
+                    const transformedPinyin = this.imeTransformQueryCode(bestMatchCode, this.currentMode);
+                    
+                    switch (this.config.outputMode) {
+                        case 'pinyin':
+                            textToCommit = transformedPinyin;
+                            break;
+                        case 'word_pinyin':
+                            textToCommit = `${wordForProcessing}(${transformedPinyin})`;
+                            break;
+                        case 'word_pinyin2':
+                            textToCommit = `${wordForProcessing}［${transformedPinyin}］`;
+                            break;
+                    }
+                }
+            }
+        }
     }
 
-    // --- 直接呼叫獨立文字轉換引擎 ---
-    const textToCommit = this.imeGetOutputTextForCandidate(selectedCandidate);
+    // --- 【*** 核心修正邏輯：精簡判斷條件 ***】 ---
+    // 只有當處於「聯想詞狀態」、且「字音輸出已啟用」、且模式為「拼音模式」時，才在前面補上空格。
+    if (this.isPredictionState && this.config.features.outputEnabled && this.config.outputMode === 'pinyin_mode') {
+        textToCommit = ' ' + textToCommit;
+    }
+
     this.imeCommitText(textToCommit);
 
     const consumedBuffer = this.isPredictionState ? selectedCandidate.word : selectedCandidate.consumed;
@@ -4383,26 +3136,26 @@ imeUpdateCompositionDisplay() {
 
         const textSpan = document.createElement('span');
         textSpan.textContent = this.compositionBuffer;
-        textSpan.style.whiteSpace = 'pre';
-
+        // --- 新增開始 ---
         // 只有當有文字時，才讓文字的 span 顯示可點擊的指標
         if (this.compositionBuffer) {
             textSpan.style.cursor = 'pointer';
         }
+        // --- 新增結束 ---
 
         const measureSpan = document.createElement('span');
         measureSpan.style.visibility = 'hidden';
         measureSpan.style.position = 'absolute';
-        measureSpan.style.fontSize = '18px';      
-        measureSpan.style.letterSpacing = '0px';   
-        measureSpan.style.whiteSpace = 'pre';
+        measureSpan.style.fontFamily = '"Consolas", "Courier New", monospace';
+        measureSpan.style.fontSize = '16px';
+        measureSpan.style.letterSpacing = '1px';
         measureSpan.textContent = preCursorText;
         document.body.appendChild(measureSpan);
         const textWidth = measureSpan.offsetWidth;
         document.body.removeChild(measureSpan);
 
         this.compositionDisplay.appendChild(textSpan);
-        this.compositionDisplay.style.setProperty('--cursor-offset', `${textWidth + 4}px`);
+        this.compositionDisplay.style.setProperty('--cursor-offset', `${textWidth}px`);
     }
 },
 
@@ -4425,27 +3178,18 @@ imeUpdateUIState() {
 
         this.queryBtn.style.display = showQueryButton ? 'flex' : 'none';
         
-        // --- 【新增：控制 ⚡ 按鈕的顯示狀態】 ---
-        const isRegexMode = this.compositionBuffer.startsWith('`');
-        this.regexHelpBtn.style.display = isRegexMode ? 'flex' : 'none';
-        
-        // --- 【新增：控制「檢視全部」按鈕的顯示狀態】 ---
-        // 只要候選字數量大於每頁可顯示數量(通常是5)，就顯示全覽按鈕
-        this.viewAllBtn.style.display = (this.allCandidates.length > this.config.candidatesPerPage) ? 'flex' : 'none';
-
     } else {
         this.candidatesContainer.style.display = 'none';
         if (this.compositionDisplay) {
             this.compositionDisplay.style.display = 'none';
         }
+        // 同時隱藏查詢按鈕
         this.queryBtn.style.display = 'none';
-        this.regexHelpBtn.style.display = 'none'; 
-        this.viewAllBtn.style.display = 'none'; 
     }
 },
 
 /**
- * 根據語言規則轉換查詢到的字根編碼，並保留原始分隔符。
+ * [升級版] 根據語言規則轉換查詢到的字根編碼，並保留原始分隔符。
  * 1. 優先檢查並使用專門的轉換函式 (如 holo)。
  * 2. 對於規則轉換，會將多音節拆開逐一處理，解決 `$` 結尾符號的問題。
  * @param {string} code - 原始編碼 (可能包含多個音節，以 ' ', '-', '--' 分隔)
@@ -5404,13 +4148,3 @@ window.imeToneTransformFunctions = {
     'jinmen': imeHoloZvsToTone,
     'kasu': imeKasuRovToRhoobb
 };
-
-// 選取頁面上所有的 input 和 textarea 中關閉自動大寫
-const imeInputs = document.querySelectorAll('input[type="text"], textarea');
-
-imeInputs.forEach(input => {
-    // 修正：對迴圈內的單一元素 (input) 設定屬性
-    input.setAttribute('autocapitalize', 'none');
-    input.setAttribute('autocorrect', 'off');
-    input.setAttribute('spellcheck', 'false');
-});

@@ -5,7 +5,7 @@
     display: block;
     width: fit-content; 
     max-width: 90vw; 
-    padding: 2px 6px;
+    padding: 4px 8px;
 }
 
 /* 2. 候選字容器 */
@@ -25,10 +25,9 @@
 #web-ime-top-bar {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
     user-select: none;
 }
-
 
 #web-ime-top-bar .ime-logo {
     font-size: 18px;
@@ -151,34 +150,15 @@
 .ime-page-button:hover:not(:disabled) { background-color: #f0f0f0; border-color: #e0e0e0; }
 .ime-page-button:disabled { color: #bdbdbd; cursor: default; }
 
-
-/* 候選字列表 (改為 grid 排版以強制每行 5 個) */
+/* 候選字列表 */
 #web-ime-candidates {
     list-style: none; margin: 0; padding: 0;
-    display: grid;
-    grid-template-columns: repeat(5, max-content); /* 強制每行 5 個，寬度依內容自動調整 */
-    gap: 4px 6px; /* 垂直間距 4px，水平間距 6px */
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
     border-top: 1px solid #f0f0f0;
     margin-top: 5px;
     padding-top: 5px;
-    justify-content: start; /* 靠左對齊 */
-}
-
-#web-ime-candidates-container.ime-layout-vertical-container {
-    min-width: 120px !important;  /* 強制解除原本 240px 的限制 */
-    width: max-content !important; /* 讓外框寬度根據「輸入碼」和「候選字」自動往內收縮 */
-}
-
-/* 2. 直排模式：強制單欄並移除網格間距 */
-#web-ime-candidates.ime-layout-vertical {
-    grid-template-columns: 1fr;
-    gap: 0; /* 移除項目之間的預設空隙，讓排版更緊湊 */
-}
-
-/* 3. 針對直排模式的個別項目 (li) 微調內邊距 */
-#web-ime-candidates.ime-layout-vertical li {
-    padding: 2px 8px; /* 上下內邊距縮小為 3px，左右保持 8px */
-    margin-bottom: 0px; /* 留一點點極微小的空間避免過度擁擠 */
 }
 
 #web-ime-candidates li {
@@ -189,35 +169,7 @@
 #web-ime-candidates li.highlighted { background-color: #e8f0fe; color: #1967d2; }
 #web-ime-candidates li .candidate-index { color: #888; margin-right: 4px; line-height: 1; }
 #web-ime-candidates li .candidate-index sup { font-size: 12px; font-weight: 500; }
-
-/* --- 新的程式碼 --- */
-#web-ime-candidates li .candidate-text { 
-    font-size: 16px; 
-    line-height: 1.2; /* 確保加上標音後高度不至於太擁擠 */
-}
-
-/* 新增 Ruby 標音樣式 */
-#web-ime-candidates li ruby {
-    ruby-align: center;
-}
-
-/* --- 新的程式碼 --- */
-#web-ime-candidates li rt {
-    font-size: 13px;
-    color: #833; 
-    transform: translateY(0px); 
-    letter-spacing: -0.5px; /* 1. 稍微壓縮字母間距，讓整體變窄 */
-    word-spacing: -1px;     /* 2. 稍微壓縮單字(音節)間距 */
-}
-
-/* 針對字音對齊的微調：讓每個漢字的 ruby 區塊之間有一點點微小間距，避免相鄰的拼音黏合 */
-#web-ime-candidates li ruby {
-    ruby-align: center;
-    margin-right: 2px;
-}
-#web-ime-candidates li ruby:last-child {
-    margin-right: 0;
-}
+#web-ime-candidates li .candidate-text { font-size: 16px; }
 
 /* 釘選按鈕 */
 .web-ime-base.pinned { position: fixed; }
@@ -244,11 +196,11 @@
 
 #web-ime-settings-modal .web-ime-modal-content {
     background-color: #fefefe;
-    padding: 16px 20px; /* 稍微縮減上下內邊距 */
+    padding: 20px;
     border: 1px solid #888;
     border-radius: 8px;
     width: 90%;
-    max-width: 340px;
+    max-width: 400px;
     box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     position: relative;
     display: flex;
@@ -288,25 +240,21 @@
 }
 
 #web-ime-settings-modal .settings-section {
-    margin-bottom: 8px;
+    margin-bottom: 15px;
 }
 
 #web-ime-settings-modal .settings-section h4 {
-    margin: 0 0 8px 0;
-    padding-bottom: 6px;
-    font-size: 15px;
-    font-weight: 600;
-    color: #1a73e8;
-    border-bottom: 1px solid #e8f0fe;
+    margin: 0 0 10px 0;
+    font-size: 16px;
+    color: #555;
 }
 
 #web-ime-settings-modal .settings-section label {
-	display: flex;
+    display: flex;
     align-items: center;
     cursor: pointer;
-    padding: 2px 0;
+    padding: 5px 0;
     font-size: 14px;
-    line-height: 1.3;
 }
 
 #web-ime-settings-modal .settings-section input[type="checkbox"] {
@@ -423,7 +371,19 @@
 }
 
 
+#web-ime-settings-modal .keymap-setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start; /* 從左邊開始對齊 */
+    gap: 8px; /* 元件之間的間距 */
+    padding: 5px 0; /* 增加垂直間距 */
+}
 
+#web-ime-settings-modal .keymap-label-text {
+    flex-grow: 1; /* 讓文字標籤佔據多餘的空間，將輸入框推到右邊 */
+    text-align: left;
+    font-size: 14px;
+}
 
 /* 取代舊的 label 樣式，確保對齊 */
 #web-ime-settings-modal .keymap-settings-container label {
@@ -449,9 +409,9 @@
 
 /* --- 設定視窗分隔線 --- */
 #web-ime-settings-modal .settings-section + .settings-section {
-	border-top: 4px solid #f1f3f4;
-    margin-top: 12px;
-    padding-top: 12px;
+    border-top: 1px solid #e9ecef;
+    margin-top: 15px;
+    padding-top: 15px;
 }
 
 /* --- 設定視窗中的輸出模式選項微調--- */
@@ -565,62 +525,61 @@
 
 /* 開關的軌道 */
 .ime-enable-label {
-display: block;
-    width: 34px;
-    height: 18px;
-    background-color: #bdbdbd;
-    border-radius: 18px;
+    display: block;
+    width: 40px;
+    height: 22px;
+    background-color: #bdbdbd; /* 停用時的顏色 */
+    border-radius: 22px;
     cursor: pointer;
     transition: background-color 0.2s ease-in-out;
     position: relative;
 }
+
 /* 開關的滑塊 */
 .ime-enable-label span {
     display: block;
     position: absolute;
     top: 2px;
     left: 2px;
-    width: 14px;
-    height: 14px;
+    width: 18px;
+    height: 18px;
     background-color: white;
     border-radius: 50%;
     transition: left 0.2s ease-in-out;
     box-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
-
+/* 【修改後】當 checkbox 被選中時 (預設啟用狀態)，改變軌道顏色為藍色 */
 .ime-enable-toggle:checked + .ime-enable-label {
-    background-color: #1a73e8;
+    background-color: #1a73e8; /* 預設啟用顏色 (Google Blue) */
 }
 
 .ime-enable-toggle:checked + .ime-enable-label span {
-    left: 18px;
+    left: 20px; /* 軌道寬度(40) - 滑塊寬度(18) - 右側邊距(2) */
 }
 
+/* --- 修改：調整工具列頂部佈局 --- */
+#web-ime-top-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px; /* 增加元件間距 */
+    user-select: none;
+}
 
-
-
+/* --- 設定視窗中的新功能設定樣式 --- */
 #web-ime-settings-modal .keymap-settings-container {
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 
-
 #web-ime-settings-modal .keymap-setting-row {
     display: flex;
     align-items: center;
     justify-content: flex-start;
     gap: 8px;
-    padding: 2px 0;
+    padding: 5px 0;
 }
-
-#web-ime-settings-modal .keymap-label-text {
-    flex-grow: 1; /* 讓文字標籤佔據多餘的空間，將輸入框推到右邊 */
-    text-align: left;
-    font-size: 14px;
-}
-
 
 #web-ime-settings-modal .keymap-setting-row label.checkbox-label {
     flex-grow: 1;
@@ -655,238 +614,3 @@ display: block;
 .ime-external-toolbar.output-mode-active .ime-enable-toggle:checked + .ime-enable-label {
     background-color: #dc3545; /* 字音輸出模式啟用時的紅色 */
 }
-
-
-
-
-/* --- 正則快捷面板樣式 (升級版) --- */
-#web-ime-regex-modal {
-    display: none;
-    position: fixed;
-    z-index: 10005;
-    /* 移除滿版遮罩，改為浮動在畫面上方居中 */
-    top: 10vh; /* 距離頂部一點空間，避免擋住手機鍵盤 */
-    left: 50%;
-    transform: translateX(-50%);
-    pointer-events: none; /* 讓容器不阻擋背後點擊 */
-}
-
-#web-ime-regex-modal .web-ime-modal-content {
-    background-color: #fefefe;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-    width: 340px; 
-    max-width: 90vw; /* 處理手機螢幕寬度 */
-    max-height: 60vh; /* 處理超出視窗高度問題，最高佔畫面 60% */
-    display: flex;
-    flex-direction: column;
-    pointer-events: auto; /* 恢復面板本身的點擊能力 */
-}
-
-#web-ime-regex-modal .modal-header {
-    padding: 12px 16px;
-    border-bottom: 1px solid #eee;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: #fafafa;
-    border-radius: 8px 8px 0 0;
-}
-
-#web-ime-regex-modal .modal-header h3 {
-    margin: 0; font-size: 16px; color: #333;
-}
-
-#web-ime-regex-modal .modal-body {
-    padding: 12px 16px;
-    overflow-y: auto; /* 內容過多時可垂直捲動 */
-}
-
-.regex-macro-group {
-    margin-bottom: 16px;
-}
-
-.regex-macro-group h5 {
-    margin: 0 0 8px 0;
-    font-size: 14px;
-    font-weight: 600;
-    color: #1a73e8;
-    border-bottom: 2px solid #e8f0fe;
-    padding-bottom: 4px;
-}
-
-/* 將按鈕與說明改為單行列表排版 */
-.regex-macro-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.regex-macro-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: #f8f9fa;
-    border: 1px solid #e8eaed;
-    padding: 4px 8px;
-    border-radius: 6px;
-}
-
-.regex-macro-item button {
-    flex-shrink: 0;
-    min-width: 65px;
-    background-color: #fff;
-    border: 1px solid #dadce0;
-    border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 14px;
-    font-family: "Consolas", "Courier New", monospace;
-    color: #1a73e8;
-    cursor: pointer;
-    text-align: center;
-    transition: all 0.2s;
-}
-
-.regex-macro-item button:hover, .regex-macro-item button:active {
-    background-color: #e8f0fe;
-    border-color: #1a73e8;
-}
-
-.regex-macro-item span {
-    font-size: 13px;
-    color: #555;
-    line-height: 1.3;
-}
-
-
-
-/* --- 候選字全覽視窗樣式 --- */
-/* --- 候選字全覽視窗樣式 (無遮罩、可拖曳、多選支援) --- */
-#web-ime-viewall-modal {
-    display: none; position: fixed; z-index: 10005;
-    /* 移除遮罩，改為浮動定位 */
-    top: 5vh; left: 50%; transform: translateX(-50%);
-    pointer-events: none; /* 讓容器不阻擋背後點擊 */
-}
-
-#web-ime-viewall-modal .web-ime-modal-content {
-    background-color: #fefefe; border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-    width: 95vw; max-width: 600px;
-    max-height: 85vh; /* 讓高度能隨內容收縮，但有最大限制 */
-    display: flex; flex-direction: column;
-    pointer-events: auto; /* 恢復視窗本體的點擊能力 */
-}
-
-#web-ime-viewall-modal .modal-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 8px 12px; border-bottom: 1px solid #ccc;
-    background-color: #f1f3f4; border-radius: 8px 8px 0 0;
-    cursor: move; /* 讓整個頂端列都可以拖曳 */
-}
-
-.viewall-body {
-    flex-grow: 1; overflow-y: auto; padding: 12px; background: #f8f9fa;
-}
-
-/* --- 候選字全覽視窗 - 搜尋列與彈性網格 --- */
-.viewall-search-bar {
-    padding: 10px 12px;
-    border-bottom: 1px solid #e0e0e0;
-    background: #f1f3f4;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.viewall-search-input {
-    flex-grow: 1;
-    margin: 0 12px;
-    padding: 6px 12px;
-    border: 1px solid #c0c0c0;
-    border-radius: 4px;
-    font-family: "Consolas", "Courier New", monospace;
-    font-size: 16px;
-    outline: none;
-    transition: border-color 0.2s;
-    cursor: text; /* 確保輸入框游標正常 */
-}
-.viewall-search-input:focus {
-    border-color: #1a73e8;
-    box-shadow: 0 0 0 2px rgba(26,115,232,0.2);
-}
-
-.viewall-body {
-    flex-grow: 1; overflow-y: auto; padding: 12px; background: #f8f9fa;
-}
-
-.viewall-grid {
-    display: flex;
-    flex-wrap: wrap; /* 改用 Flexbox 自動換行，支援字數自動寬度 */
-    gap: 10px;
-}
-
-.viewall-item {
-    position: relative; 
-    flex: 0 0 auto; /* 寬度由內容(字數)決定 */
-    min-width: 50px; /* 避免單字太擠 */
-    background: #fff; border: 1px solid #dadce0; border-radius: 6px;
-    padding: 18px 8px 6px 8px; /* 左右留白加寬，適應不同字數 */
-    text-align: center; font-size: 18px; color: #222;
-    cursor: pointer; transition: all 0.2s;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-    display: flex; align-items: center; justify-content: center;
-    white-space: nowrap; /* 確保長詞不會自己斷行 */
-    user-select: none;
-}
-
-.viewall-item:hover, .viewall-item:active {
-    background: #e8f0fe; border-color: #1a73e8; color: #1a73e8;
-}
-
-/* 多選模式被選取的樣式 */
-.viewall-item.selected {
-    background-color: #e6f4ea; border-color: #34a853; color: #137333;
-}
-
-.viewall-item .index {
-    position: absolute; top: 3px; left: 5px; 
-    font-size: 11px; color: #9aa0a6; line-height: 1;
-}
-
-.viewall-footer {
-    padding: 10px 12px; border-top: 1px solid #eee; display: flex;
-    justify-content: space-between; align-items: center;
-    background-color: #fff; border-radius: 0 0 8px 8px;
-    flex-wrap: wrap; gap: 10px;
-}
-
-.viewall-pagination {
-    display: flex; align-items: center; gap: 8px; font-size: 14px; color: #555;
-}
-
-.viewall-actions {
-    display: flex; align-items: center; gap: 12px;
-}
-
-/* 多選模式開關 */
-.viewall-multi-select-label {
-    display: flex; align-items: center; gap: 4px; font-size: 14px; cursor: pointer; color: #444;
-}
-.viewall-multi-select-label input { cursor: pointer; }
-
-.viewall-btn {
-    padding: 6px 12px; border: 1px solid #ccc; background: #fff;
-    border-radius: 4px; cursor: pointer; font-size: 14px;
-}
-
-.viewall-btn:hover:not(:disabled) { background: #f0f0f0; }
-.viewall-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.viewall-btn.copy-btn { background: #1a73e8; color: white; border: none; font-weight: bold; }
-.viewall-btn.copy-btn:hover:not(:disabled) { background: #1557b0; color: white; }
-
-
-.copy-all-btn { background: #1a73e8; color: white; border: none; font-weight: bold; }
-.copy-all-btn:hover { background: #1557b0; }
