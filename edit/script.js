@@ -6351,6 +6351,11 @@ function applyTextTool(action) {
             // 全形字元反向位移 65248 轉回半形
             return String.fromCharCode(ch.charCodeAt(0) - 65248);
         }).replace(/\u3000/g, ' '); // 全形空白轉回半形空白
+    }else if (action === 'line-char-count') {
+        newText = textToProcess.split('\n').map(line => {
+            // 使用 [...line] 可正確解析 Unicode 擴充漢字（例如「𠊎」算作 1 個字）
+            return `${[...line].length}\t${line}`;
+        }).join('\n');
     }
 
     // 將處理完的文字寫回編輯器
@@ -6374,6 +6379,7 @@ function applyTextTool(action) {
 		'remove-trailing-empty': '文末空行已乾淨移除',
         'capitalize': '句首已大寫', 'lowercase': '已轉為小寫', 'uppercase': '已轉為大寫',
 		'to-fullwidth': '已轉為全形', 'to-halfwidth': '已轉為半形',
+		'line-char-count': '已計算並輸出每行字數',
     };
     showToast(`🥷 ${msgs[action]}`);
 }
@@ -6392,7 +6398,8 @@ const textTools = [
     { id: 'btnLowercase', action: 'lowercase' },
     { id: 'btnUppercase', action: 'uppercase' },
 	{ id: 'btnToFullWidth', action: 'to-fullwidth' },
-    { id: 'btnToHalfWidth', action: 'to-halfwidth' }
+    { id: 'btnToHalfWidth', action: 'to-halfwidth' },
+	{ id: 'btnLineCharCount', action: 'line-char-count' },
 ];
 
 textTools.forEach(tool => {
@@ -12793,7 +12800,7 @@ window.renderBankContent = function() {
                             <span class="material-symbols-outlined text-xl block">more_vert</span>
                         </button>
                         
-                        <div class="bank-action-menu hidden absolute right-0 top-full mt-1 w-36 bg-white rounded-lg shadow-xl border border-gray-100 z-[100]">
+                        <div class="bank-action-menu hidden fixed w-36 bg-white rounded-lg shadow-xl border border-gray-100 z-[9999]">
                             <div class="py-1">
                                 <button class="w-full text-left px-4 py-2.5 text-sm font-bold text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-3 transition-colors" onclick="viewPresetBank(${p._originalIndex})">
                                     <span class="material-symbols-outlined text-[18px]">visibility</span>
@@ -12818,7 +12825,7 @@ window.renderBankContent = function() {
     if (countDisplay) countDisplay.textContent = `共 ${filtered.length} 筆`;
 }
 // ==========================================
-// 題庫中心：三個點選單控制與智慧定位邏輯
+// 題庫中心：三個點選單控制與智慧定位邏輯 (Fixed 突破邊界版)
 // ==========================================
 window.toggleBankMenu = function(event, btn) {
     event.stopPropagation(); // 防止點擊事件往上傳遞
@@ -12826,31 +12833,44 @@ window.toggleBankMenu = function(event, btn) {
     const menu = btn.nextElementSibling;
     const isHidden = menu.classList.contains('hidden');
     
-    // 1. 先把畫面上所有打開的選單都關閉，並將方向重置為「向下」
-    document.querySelectorAll('.bank-action-menu').forEach(m => {
-        m.classList.add('hidden');
-        m.classList.remove('bottom-full', 'mb-1'); // 移除向上長出的設定
-        m.classList.add('top-full', 'mt-1');       // 恢復向下長出的預設
-    });
+    // 1. 先把畫面上所有打開的選單都關閉
+    document.querySelectorAll('.bank-action-menu').forEach(m => m.classList.add('hidden'));
     
-    // 2. 如果原本是關閉的，就打開並計算空間
+    // 2. 如果原本是關閉的，就打開並動態計算精準位置
     if (isHidden) {
-        menu.classList.remove('hidden'); // 先顯示，才能抓到真實高度
+        // 先顯示選單，才能取得實際寬高
+        menu.classList.remove('hidden'); 
         
-        // 取得按鈕在螢幕上的位置座標
+        // 取得觸發按鈕在視窗中的絕對座標
         const rect = btn.getBoundingClientRect();
-        // 取得選單展開後的實際高度
         const menuHeight = menu.offsetHeight;
-        // 取得目前瀏覽器視窗的總高度
+        const menuWidth = menu.offsetWidth;
         const windowHeight = window.innerHeight;
         
-        if (windowHeight - rect.bottom < menuHeight + 20) {
-            // 空間不夠！把 Tailwind 的類別反轉，讓選單「往上展開」
-            menu.classList.remove('top-full', 'mt-1');
-            menu.classList.add('bottom-full', 'mb-1');
+        // 預設在按鈕的右下方展開 (往下位移 4px)
+        let top = rect.bottom + 4;
+        let left = rect.right - menuWidth; 
+        
+        // 邊界防護：如果下方空間不夠，改為向上展開 (往上位移 4px)
+        if (top + menuHeight + 10 > windowHeight) {
+            top = rect.top - menuHeight - 4;
         }
+        
+        // 套用 fixed 座標
+        menu.style.top = `${top}px`;
+        menu.style.left = `${left}px`;
     }
 };
+
+// 點擊網頁任意空白處時，自動關閉所有打開的選單
+document.addEventListener('click', () => {
+    document.querySelectorAll('.bank-action-menu').forEach(m => m.classList.add('hidden'));
+});
+
+// 加入滾動監聽：當滾動畫面 (表格或整個網頁) 時，自動收起懸浮選單，維持畫面整潔
+document.addEventListener('scroll', () => {
+    document.querySelectorAll('.bank-action-menu:not(.hidden)').forEach(m => m.classList.add('hidden'));
+}, true);
 
 // 點擊網頁任意空白處時，自動關閉所有打開的選單
 document.addEventListener('click', () => {
