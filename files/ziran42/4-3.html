@@ -64,6 +64,16 @@
       transform: scale(0.95);
       opacity: 0.5;
     }
+	/* 錯誤時的震動動畫 */
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      50% { transform: translateX(5px); }
+      75% { transform: translateX(-5px); }
+    }
+    .animate-shake {
+      animation: shake 0.4s ease-in-out;
+    }
   </style>
 </head>
 <body class="bg-slate-50 font-sans text-slate-800 pb-16 min-h-screen">
@@ -120,6 +130,7 @@
     let bulbTestedP = false;
 
     // 分類遊戲狀態 (串聯 vs 並聯)
+    // 分類遊戲狀態 (串聯 vs 並聯)
     const baseSortItems = [
       { id: 1, text: '電池：正極連接另一顆的負極', type: 'series', emoji: '🔋', desc: '這是一直線接下去的接法' },
       { id: 2, text: '電池：讓燈泡變得更亮', type: 'series', emoji: '✨', desc: '電壓相加，燈泡非常亮' },
@@ -131,12 +142,15 @@
     ];
     let sortItems = [];
     let sortCurrentIndex = 0;
-    let sortFeedback = null;
+    
+    // 替換掉原本的 sortFeedback
+    let sortErrorCat = null;     
+    let sortCorrectCat = null;   
 
-	let sortGameStarted = false; // 記錄遊戲是否已經按下開始
-    let sortStartTime = 0;       // 記錄按下開始時的時間
-    let sortTimeTaken = 0;       // 記錄過關花費的總秒數
-    let sortPlayCount = 0;       // 記錄遊玩次數（用來判斷顯示「開始」或「重新開始」）
+    let sortGameStarted = false; 
+    let sortStartTime = 0;       
+    let sortTimeTaken = 0;       
+    let sortPlayCount = 0;
 
     // --- 最終測驗題庫池 ---
     const rawQuizPools = [
@@ -782,6 +796,7 @@
     window.setBulbCond = function(cond) { bulbState.cond = cond; render(); }
 
     // --- 區塊渲染：3. 綜合比較 (Teal) ---
+    // --- 區塊渲染：3. 綜合比較 (Teal) ---
     function renderCompare() {
       if (compProgress === 0 && sortItems.length === 0) {
         sortItems = shuffleArray(baseSortItems);
@@ -828,81 +843,117 @@
     }
 
     function renderSortGame(title, isCompleted) {
-      if (isCompleted) sortCurrentIndex = sortItems.length;
-
-      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? 'bg-teal-50 border-teal-200 opacity-80' : 'border-slate-200'}">
+      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? 'bg-teal-50 border-teal-200 opacity-90' : 'border-slate-200'}">
           <h2 class="text-xl font-bold text-teal-700 mb-6 flex items-center justify-between">
             <span class="flex items-center gap-2"><i class="ph-fill ph-list-checks"></i> ${title}</span>
             ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
           </h2>`;
 
-      if (sortCurrentIndex < sortItems.length && !isCompleted) {
+      if (!sortGameStarted && sortPlayCount === 0) {
+        // 狀態 A：尚未開始（計時首頁）
+        html += `<div class="text-center py-10 fade-transition">
+            <i class="ph-fill ph-timer text-6xl text-teal-400 mb-4 block"></i>
+            <p class="text-slate-600 mb-6 font-bold text-lg">準備好挑戰特性大分類了嗎？系統將會為你計時喔！</p>
+            <button onclick="startSortGame()" class="inline-flex items-center gap-2 bg-teal-500 hover:bg-teal-600 text-white px-8 py-3 rounded-full text-xl font-bold transition-all shadow-md hover:scale-105">
+              <i class="ph-bold ph-play"></i> 開始計時挑戰
+            </button>
+          </div>`;
+      } else if (sortGameStarted && sortCurrentIndex < sortItems.length) {
+        // 狀態 B：遊戲進行中（題目卡片恆亮，回饋顯示在按鈕上）
         const cur = sortItems[sortCurrentIndex];
         html += `<div class="flex flex-col items-center">
-            <div class="relative w-full max-w-md bg-slate-50 border-4 border-slate-200 rounded-3xl flex flex-col items-center justify-center mb-8 py-8 px-4 fade-transition min-h-[200px]">`;
-        if (sortFeedback) {
-          html += `<div class="text-2xl font-bold flex items-center gap-2 ${sortFeedback.isCorrect ? 'text-emerald-600' : 'text-rose-500'} px-4 text-center">
-              <i class="ph-fill ${sortFeedback.isCorrect ? 'ph-check-circle' : 'ph-x-circle'} text-4xl shrink-0"></i> ${sortFeedback.text}
-            </div>`;
-        } else {
-          html += `<div class="text-center fade-transition">
-              <div class="text-6xl mb-4 drop-shadow-md">${cur.emoji}</div>
-              <h3 class="text-2xl font-bold text-slate-800 mb-2">${cur.text}</h3>
-              <p class="text-slate-500 font-bold bg-white px-3 py-1 rounded shadow-sm border border-slate-100">${cur.desc}</p>
-            </div>`;
-        }
-        html += `</div>
+            <div class="relative w-full max-w-md bg-slate-50 border-4 border-slate-200 rounded-3xl flex flex-col items-center justify-center mb-8 py-8 px-4 fade-transition min-h-[200px]">
+              <div class="text-center fade-transition">
+                <div class="text-6xl mb-4 drop-shadow-md">${cur.emoji}</div>
+                <h3 class="text-2xl font-bold text-slate-800 mb-2">${cur.text}</h3>
+                <p class="text-slate-500 font-bold bg-white px-3 py-1 rounded shadow-sm border border-slate-100">${cur.desc}</p>
+              </div>
+            </div>
             <div class="w-full flex justify-center gap-4">`;
         
-        html += `<button onclick="handleSort('series')" ${sortFeedback?'disabled':''} class="w-full md:w-40 bg-slate-50 hover:bg-rose-50 border-b-4 border-slate-300 hover:border-rose-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50 text-slate-700 hover:text-rose-700">
+        // 按鈕預設樣式
+        let seriesBtnCls = "bg-slate-50 hover:bg-rose-50 border-slate-300 hover:border-rose-400 text-slate-700 hover:text-rose-700";
+        let parallelBtnCls = "bg-slate-50 hover:bg-sky-50 border-slate-300 hover:border-sky-400 text-slate-700 hover:text-sky-700";
+
+        // 動態附加正確與錯誤的樣式及震動特效
+        if (sortErrorCat === 'series') seriesBtnCls = "bg-rose-500 text-white border-rose-600 animate-shake";
+        else if (sortCorrectCat === 'series') seriesBtnCls = "bg-emerald-500 text-white border-emerald-600 shadow-md scale-105";
+
+        if (sortErrorCat === 'parallel') parallelBtnCls = "bg-rose-500 text-white border-rose-600 animate-shake";
+        else if (sortCorrectCat === 'parallel') parallelBtnCls = "bg-emerald-500 text-white border-emerald-600 shadow-md scale-105";
+
+        // 動畫播放期間鎖定按鈕防呆
+        let isDisabled = (sortErrorCat !== null || sortCorrectCat !== null) ? 'disabled' : '';
+
+        html += `<button onclick="handleSort('series')" ${isDisabled} class="w-full md:w-40 border-b-4 p-4 rounded-2xl text-center fade-transition ${seriesBtnCls}">
             <div class="text-3xl mb-1">🔗</div><div class="font-bold text-lg">屬於「串聯」</div>
           </button>`;
-        html += `<button onclick="handleSort('parallel')" ${sortFeedback?'disabled':''} class="w-full md:w-40 bg-slate-50 hover:bg-sky-50 border-b-4 border-slate-300 hover:border-sky-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50 text-slate-700 hover:text-sky-700">
+        html += `<button onclick="handleSort('parallel')" ${isDisabled} class="w-full md:w-40 border-b-4 p-4 rounded-2xl text-center fade-transition ${parallelBtnCls}">
             <div class="text-3xl mb-1">🛤️</div><div class="font-bold text-lg">屬於「並聯」</div>
           </button>`;
         
         html += `</div><div class="mt-6 text-slate-500 font-bold bg-slate-100 px-4 py-1 rounded-full">分類進度：${sortCurrentIndex + 1} / ${sortItems.length}</div></div>`;
       } else {
-        html += `<div class="text-center py-4 fade-transition"><i class="ph-fill ph-check-circle text-6xl text-emerald-500 mb-4 block mx-auto"></i><h3 class="text-xl font-bold text-slate-800">全數分類完成！</h3></div>`;
+        // 狀態 C：遊戲完成（顯示成績與重玩按鈕）
+        html += `<div class="text-center py-6 fade-transition">
+            <div class="flex flex-col items-center justify-center gap-4 mb-6">
+              <div class="text-center text-emerald-600 font-bold text-xl bg-emerald-50 py-3 px-8 rounded-xl border border-emerald-200 shadow-sm">
+                ✅ 分類完成！總共花費時間：${sortTimeTaken} 秒
+              </div>
+              <button onclick="startSortGame()" class="inline-flex items-center gap-2 bg-white hover:bg-teal-50 text-teal-600 border-2 border-teal-200 px-6 py-2 rounded-full font-bold transition-all shadow-sm hover:scale-105">
+                <i class="ph-bold ph-arrow-counter-clockwise"></i> 再玩一次
+              </button>
+            </div>
+          </div>`;
       }
       return html + `</div>`;
     }
 
     window.startSortGame = function() {
-      sortItems = shuffleArray(baseSortItems); // 重新洗牌題目
+      sortItems = shuffleArray(baseSortItems);
       sortCurrentIndex = 0;
-      sortFeedback = null;
-      sortGameStarted = true;      // 狀態改為遊戲進行中
-      sortStartTime = Date.now();  // 記錄當下的時間戳記
-      render();                    // 重新渲染畫面
+      sortErrorCat = null;
+      sortCorrectCat = null;
+      sortGameStarted = true;
+      sortStartTime = Date.now();
+      render();
     }
 
     window.handleSort = function(cat) {
-      if (sortFeedback) return;
+      if (sortErrorCat || sortCorrectCat) return; // 防呆
       const cur = sortItems[sortCurrentIndex];
+
       if (cur.type === cat) {
-        sortFeedback = { isCorrect: true, text: '判斷正確！' };
-      } else {
-        sortFeedback = { isCorrect: false, text: `判斷錯誤喔！再想一想。` };
-      }
-      render();
-      
-      setTimeout(() => {
-        sortFeedback = null;
-        if (cur.type === cat) {
+        sortCorrectCat = cat; // 紀錄正確的分類觸發動畫
+        render();
+        setTimeout(() => {
+          sortCorrectCat = null;
           if (sortCurrentIndex + 1 < sortItems.length) {
             sortCurrentIndex++;
           } else {
-            // 🎉 全部答對了！計算總花費秒數
             sortTimeTaken = Math.floor((Date.now() - sortStartTime) / 1000);
-            sortPlayCount++;         // 遊玩次數 +1
-            sortGameStarted = false; // 遊戲結束
-            
-            if (compProgress === 0) progressTask('compSort'); // 推進關卡大進度
+            sortPlayCount++;
+            sortGameStarted = false;
+            if (compProgress === 0) progressTask('compSort');
           }
-        }
+          render();
+        }, 500); // 答對動畫延遲 0.5 秒
+      } else {
+        sortErrorCat = cat; // 紀錄錯誤的分類觸發震動
         render();
-      }, 1000);
+        setTimeout(() => {
+          sortErrorCat = null;
+          
+          // 💡 答錯時，將包含當前這題在內的「剩餘題目」重新洗牌
+          let remainingItems = sortItems.slice(sortCurrentIndex);
+          remainingItems = shuffleArray(remainingItems);
+          for (let i = 0; i < remainingItems.length; i++) {
+            sortItems[sortCurrentIndex + i] = remainingItems[i];
+          }
+          
+          render();
+        }, 500); // 答錯動畫延遲 0.5 秒
+      }
     }
 
 
@@ -1266,81 +1317,6 @@
       }
     };
 
-    // 👇👇👇 替換整個 renderSortGame 函式 👇👇👇
-    function renderSortGame(title, isCompleted) {
-      let html = `<div class="bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 fade-transition ${isCompleted ? 'bg-teal-50 border-teal-200 opacity-80' : 'border-slate-200'}">
-          <h2 class="text-xl font-bold text-teal-700 mb-6 flex items-center justify-between">
-            <span class="flex items-center gap-2"><i class="ph-fill ph-list-checks"></i> ${title}</span>
-            ${isCompleted ? '<i class="ph-fill ph-check-circle text-emerald-500 text-2xl"></i>' : ''}
-          </h2>`;
-
-      if (!sortGameStarted && sortPlayCount === 0) {
-        // 狀態 A：第一次進入，顯示「開始測驗」按鈕
-        html += `<div class="text-center py-8 fade-transition">
-            <p class="text-slate-600 mb-6 font-bold text-lg">準備好挑戰特性大分類了嗎？系統將會為你計時喔！</p>
-            <button onclick="startSortGame()" class="bg-teal-500 hover:bg-teal-600 text-white px-8 py-3 rounded-full text-xl font-bold transition-all shadow-sm">
-              <i class="ph-bold ph-play"></i> 開始測驗
-            </button>
-          </div>`;
-      } else if (sortGameStarted && sortCurrentIndex < sortItems.length) {
-        // 狀態 B：遊戲進行中，顯示題目卡片
-        const cur = sortItems[sortCurrentIndex];
-        html += `<div class="flex flex-col items-center">
-            <div class="relative w-full max-w-md bg-slate-50 border-4 border-slate-200 rounded-3xl flex flex-col items-center justify-center mb-8 py-8 px-4 fade-transition min-h-[200px]">`;
-        if (sortFeedback) {
-          html += `<div class="text-2xl font-bold flex items-center gap-2 ${sortFeedback.isCorrect ? 'text-emerald-600' : 'text-rose-500'} px-4 text-center">
-              <i class="ph-fill ${sortFeedback.isCorrect ? 'ph-check-circle' : 'ph-x-circle'} text-4xl shrink-0"></i> ${sortFeedback.text}
-            </div>`;
-        } else {
-          html += `<div class="text-center fade-transition">
-              <div class="text-6xl mb-4 drop-shadow-md">${cur.emoji}</div>
-              <h3 class="text-2xl font-bold text-slate-800 mb-2">${cur.text}</h3>
-              <p class="text-slate-500 font-bold bg-white px-3 py-1 rounded shadow-sm border border-slate-100">${cur.desc}</p>
-            </div>`;
-        }
-        html += `</div>
-            <div class="w-full flex justify-center gap-4">`;
-        
-        html += `<button onclick="handleSort('series')" ${sortFeedback?'disabled':''} class="w-full md:w-40 bg-slate-50 hover:bg-rose-50 border-b-4 border-slate-300 hover:border-rose-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50 text-slate-700 hover:text-rose-700">
-            <div class="text-3xl mb-1">🔗</div><div class="font-bold text-lg">屬於「串聯」</div>
-          </button>`;
-        html += `<button onclick="handleSort('parallel')" ${sortFeedback?'disabled':''} class="w-full md:w-40 bg-slate-50 hover:bg-sky-50 border-b-4 border-slate-300 hover:border-sky-400 p-4 rounded-2xl text-center fade-transition disabled:opacity-50 text-slate-700 hover:text-sky-700">
-            <div class="text-3xl mb-1">🛤️</div><div class="font-bold text-lg">屬於「並聯」</div>
-          </button>`;
-        
-        html += `</div><div class="mt-6 text-slate-500 font-bold bg-slate-100 px-4 py-1 rounded-full">分類進度：${sortCurrentIndex + 1} / ${sortItems.length}</div></div>`;
-      } else {
-        // 狀態 C：遊戲完成，顯示花費秒數與「重新開始」按鈕
-        html += `<div class="text-center py-6 fade-transition">
-            <i class="ph-fill ph-check-circle text-6xl text-emerald-500 mb-4 block mx-auto"></i>
-            <h3 class="text-2xl font-bold text-slate-800 mb-2">全數分類完成！</h3>
-            <p class="text-xl font-bold text-teal-600 mb-6">⏱️ 總共花費時間：${sortTimeTaken} 秒</p>
-            <button onclick="startSortGame()" class="bg-teal-100 hover:bg-teal-200 text-teal-700 px-6 py-2 rounded-full text-lg font-bold transition-all shadow-sm border border-teal-200">
-              <i class="ph-bold ph-arrow-counter-clockwise"></i> 重新開始
-            </button>
-          </div>`;
-      }
-      return html + `</div>`;
-    }
-
-    window.handleSort = function(cat) {
-      if (sortFeedback) return;
-      const cur = sortItems[sortCurrentIndex];
-      if (cur.type === cat) {
-        sortFeedback = { isCorrect: true, text: '判斷正確！' };
-      } else {
-        sortFeedback = { isCorrect: false, text: `判斷錯誤喔！再想一想。` };
-      }
-      render();
-      setTimeout(() => {
-        sortFeedback = null;
-        if (cur.type === cat) {
-          if (sortCurrentIndex + 1 < sortItems.length) sortCurrentIndex++;
-          else progressTask('compSort');
-        }
-        render();
-      }, 1000);
-    }
 
     // --- 全局狀態推進 ---
     window.progressTask = function(taskId) {
