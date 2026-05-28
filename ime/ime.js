@@ -1114,13 +1114,13 @@ imeCreateUI() {
 	rightControls.appendChild(this.queryBtn);
 
 
-    // --- 【檢視全部按鈕 (田)】 ---
+    // --- 【檢視全部】 ---
     this.viewAllBtn = document.createElement("button");
     this.viewAllBtn.type = "button";
     this.viewAllBtn.className = "ime-page-button";
-    this.viewAllBtn.title = "檢視與複製全部結果";
-    this.viewAllBtn.innerHTML = '<span class="material-icons" style="font-size: 20px; color: #1a73e8;">apps</span>';
-    this.viewAllBtn.style.display = 'none'; // 預設隱藏
+    this.viewAllBtn.title = "檢視全部";
+    this.viewAllBtn.innerHTML = '<span class="material-icons" style="font-size: 20px; color: #88a;">arrow_drop_down</span>';
+    this.viewAllBtn.style.display = 'none';
     this.viewAllBtn.addEventListener("click", () => {
         if (!this.viewAllModal || this.allCandidates.length === 0) return;
         this.openViewAllModal(); 
@@ -1853,11 +1853,23 @@ imeCreateRegexHelpModal() {
 
     let isMinimized = false;
     toggleBtn.onclick = (e) => { 
-        e.stopPropagation(); // 防止觸發拖曳
+        e.stopPropagation(); 
         isMinimized = !isMinimized;
         modalBody.style.display = isMinimized ? 'none' : 'block';
-        toggleBtn.innerHTML = isMinimized ? '+' : '-';
-        // 摺疊時讓標題列下方也變圓角，比較美觀
+        
+        // 縮到最小：只留下標題列的圖示和按鈕
+        const contentDiv = this.regexModal.querySelector('.web-ime-modal-content');
+        if (isMinimized) {
+            contentDiv.style.width = 'max-content';
+            contentDiv.style.minWidth = '0';
+            contentDiv.style.minHeight = '0';
+        } else {
+            contentDiv.style.width = '340px'; /* 恢復正則視窗原本的寬度 */
+            contentDiv.style.minWidth = 'auto';
+            contentDiv.style.minHeight = 'auto';
+        }
+
+        toggleBtn.innerHTML = isMinimized ? '＋' : '−';
         modalHeader.style.borderRadius = isMinimized ? '8px' : '8px 8px 0 0';
     };
 
@@ -1999,15 +2011,13 @@ imeCreateViewAllModal() {
     const modalContent = document.createElement('div');
     modalContent.className = 'web-ime-modal-content';
 
-    // --- Header (極簡化：圖示 + 輸入框 + 按鈕) ---
     const modalHeader = document.createElement('div');
     modalHeader.className = 'modal-header';
     
-    // 拖曳圖示 (取代原本的文字標題)
     const dragIcon = document.createElement('span');
     dragIcon.className = 'material-icons';
-    dragIcon.style.cssText = 'color:#1a73e8; font-size:24px; flex-shrink:0; user-select:none;';
-    dragIcon.textContent = 'apps';
+    dragIcon.style.cssText = 'color:#5f6368; font-size:24px; flex-shrink:0; user-select:none; cursor:move;';
+    dragIcon.textContent = 'grid_view';
     
     // 搜尋框直接放入 Header
     this.viewAllSearchInput = document.createElement('input');
@@ -2015,6 +2025,13 @@ imeCreateViewAllModal() {
     this.viewAllSearchInput.id = 'viewall-search-input';
     this.viewAllSearchInput.className = 'viewall-search-input';
     this.viewAllSearchInput.placeholder = '在此修改或輸入編碼...';
+    
+    this.viewAllSearchInput.setAttribute('inputmode', 'email');
+    this.viewAllSearchInput.setAttribute('autocapitalize', 'none');
+    this.viewAllSearchInput.setAttribute('autocomplete', 'off');
+    this.viewAllSearchInput.setAttribute('spellcheck', 'false');
+    this.viewAllSearchInput.setAttribute('data-ignore-ime', 'true');
+    this.viewAllSearchInput.style.imeMode = 'disabled';
     
     const headerBtns = document.createElement('div');
     headerBtns.style.display = 'flex';
@@ -2092,9 +2109,14 @@ imeCreateViewAllModal() {
     const paginationCtrl = document.createElement('div');
     paginationCtrl.className = 'viewall-pagination';
     const prevBtn = document.createElement('button');
-    prevBtn.className = 'viewall-btn'; prevBtn.textContent = '上一頁';
+    prevBtn.className = 'viewall-btn'; 
+    prevBtn.title = '上一頁';
+    prevBtn.innerHTML = '<span class="material-icons" style="font-size:20px; vertical-align:middle;">chevron_left</span>';
+    
     const nextBtn = document.createElement('button');
-    nextBtn.className = 'viewall-btn'; nextBtn.textContent = '下一頁';
+    nextBtn.className = 'viewall-btn'; 
+    nextBtn.title = '下一頁';
+    nextBtn.innerHTML = '<span class="material-icons" style="font-size:20px; vertical-align:middle;">chevron_right</span>';
     
     const pageInfo = document.createElement('span');
 
@@ -2110,13 +2132,42 @@ imeCreateViewAllModal() {
     const multiSelectCb = document.createElement('input');
     multiSelectCb.type = 'checkbox';
     multiSelectLabel.appendChild(multiSelectCb);
-    multiSelectLabel.appendChild(document.createTextNode(' 跨頁多選'));
+    multiSelectLabel.appendChild(document.createTextNode(' 多選')); // 改為「多選」
 
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'viewall-btn copy-btn';
+    const copyGroup = document.createElement('div');
+    copyGroup.className = 'copy-split-btn-group';
+
+    const copyMainBtn = document.createElement('button');
+    copyMainBtn.className = 'copy-main-btn';
     
+    const copyDropdownBtn = document.createElement('button');
+    copyDropdownBtn.className = 'copy-dropdown-btn';
+    copyDropdownBtn.innerHTML = '<span class="material-icons" style="font-size:18px;">arrow_drop_up</span>';
+    
+    const copyMenu = document.createElement('div');
+    copyMenu.className = 'copy-dropdown-menu';
+    
+    const copyItemPinyin = document.createElement('div');
+    copyItemPinyin.className = 'copy-dropdown-item';
+    copyItemPinyin.innerHTML = '<span class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:6px;">sort_by_alpha</span>複製文字與拼音';
+    copyMenu.appendChild(copyItemPinyin);
+    
+    copyGroup.appendChild(copyMainBtn);
+    copyGroup.appendChild(copyDropdownBtn);
+    copyGroup.appendChild(copyMenu);
+
+    copyDropdownBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        copyMenu.style.display = copyMenu.style.display === 'flex' ? 'none' : 'flex';
+    };
+    
+    document.addEventListener('click', (e) => {
+        if (!copyGroup.contains(e.target)) copyMenu.style.display = 'none';
+    });
+
     actionCtrl.appendChild(multiSelectLabel);
-    actionCtrl.appendChild(copyBtn);
+    actionCtrl.appendChild(copyGroup);
 
     modalFooter.appendChild(paginationCtrl);
     modalFooter.appendChild(actionCtrl);
@@ -2151,9 +2202,26 @@ imeCreateViewAllModal() {
     toggleBtn.onclick = (e) => { 
         e.stopPropagation(); 
         isMinimized = !isMinimized;
-        // 摺疊時，標題列(包含輸入框)仍然保留，只隱藏主體和底部
         modalBody.style.display = isMinimized ? 'none' : 'block';
         modalFooter.style.display = isMinimized ? 'none' : 'flex';
+        this.viewAllSearchInput.style.display = isMinimized ? 'none' : 'block'; // 收合時隱藏輸入框
+        
+        // 縮到最小：只留下圖示和按鈕
+        const contentDiv = this.viewAllModal.querySelector('.web-ime-modal-content');
+        if (isMinimized) {
+            contentDiv.style.width = 'auto';
+            contentDiv.style.height = 'auto';
+            contentDiv.style.minWidth = '0';
+            contentDiv.style.minHeight = '0';
+            contentDiv.style.resize = 'none';
+        } else {
+            contentDiv.style.width = '95vw';
+            contentDiv.style.height = 'auto';
+            contentDiv.style.minWidth = '200px';
+            contentDiv.style.minHeight = '150px';
+            contentDiv.style.resize = 'both';
+        }
+
         toggleBtn.innerHTML = isMinimized ? '＋' : '−';
         modalHeader.style.borderRadius = isMinimized ? '8px' : '8px 8px 0 0';
     };
@@ -2171,11 +2239,13 @@ imeCreateViewAllModal() {
     const updateCopyButtonState = () => {
         if (isMultiSelectMode) {
             const count = selectedItems.size;
-            copyBtn.innerHTML = `<span class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:4px;">content_copy</span>複製已選 (${count})`;
-            copyBtn.disabled = count === 0;
+            copyMainBtn.innerHTML = `<span class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:4px;">content_copy</span><span class="copy-text">複製 (${count})</span>`;
+            copyMainBtn.disabled = count === 0;
+            copyDropdownBtn.disabled = count === 0;
         } else {
-            copyBtn.innerHTML = `<span class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:4px;">content_copy</span>複製全部`;
-            copyBtn.disabled = this.viewAllCandidates.length === 0;
+            copyMainBtn.innerHTML = `<span class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:4px;">content_copy</span><span class="copy-text">複製</span>`;
+            copyMainBtn.disabled = this.viewAllCandidates.length === 0;
+            copyDropdownBtn.disabled = this.viewAllCandidates.length === 0;
         }
     };
 
@@ -2191,8 +2261,8 @@ imeCreateViewAllModal() {
         const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
         currentViewPage = pageIndex;
 
-        // 【修改點】：將數量移到頁碼資訊旁顯示，而不是在標題列
-        pageInfo.innerHTML = `第 ${pageIndex + 1} / ${totalPages} 頁 <span style="font-size:13px; color:#888; margin-left:6px;">(共 ${totalItems} 筆)</span>`;
+        // --- 修改：分頁文字格式 ---
+        pageInfo.innerHTML = `${pageIndex + 1} / ${totalPages} <span style="font-size:13px; color:#888; margin-left:6px;">(${totalItems})</span>`;
         
         gridContainer.innerHTML = '';
         updateCopyButtonState();
@@ -2203,12 +2273,53 @@ imeCreateViewAllModal() {
 
         pageItems.forEach((candidate, idx) => {
             const absoluteIndex = start + idx; 
-            
             const itemDiv = document.createElement('div');
             itemDiv.className = 'viewall-item';
             if (selectedItems.has(absoluteIndex)) itemDiv.classList.add('selected');
             
-            itemDiv.innerHTML = `<span class="index">${absoluteIndex + 1}</span><span class="word">${candidate.word}</span>`;
+            let wordHtml = candidate.word;
+            if (this.config.features.enableRuby) {
+                let rubyText = '';
+                if (this.config.features.outputEnabled && this.config.outputMode === 'pinyin_mode') {
+                    if (candidate.originalWord) rubyText = this.imeTransformQueryCode(candidate.originalWord, this.currentMode);
+                } else {
+                    const possibleCodes = this.reverseDicts[this.currentMode]?.[candidate.word];
+                    if (possibleCodes && possibleCodes.length > 0) {
+                        let bestMatchCode = possibleCodes[0];
+                        if (possibleCodes.length > 1 && candidate.consumed) {
+                            const simplifiedUserInput = this.imeSimplifyKey(candidate.consumed, this.currentMode);
+                            let foundMatch = possibleCodes.find(code => this.imeSimplifyKey(code, this.currentMode) === simplifiedUserInput);
+                            if (!foundMatch) foundMatch = possibleCodes.find(code => this.imeSimplifyKey(code, this.currentMode).startsWith(simplifiedUserInput));
+                            if (foundMatch) bestMatchCode = foundMatch;
+                        }
+                        rubyText = this.imeTransformQueryCode(bestMatchCode, this.currentMode);
+                    }
+                }
+
+                if (rubyText) {
+                    let isCharAligned = false;
+                    let wordChars = [];
+                    let rubySyllables = [];
+                    if (this.config.features.rubyAlignment === 'char') {
+                        wordChars = Array.from(candidate.word);
+                        rubySyllables = rubyText.trim().split(/[\s-]+/);
+                        if (wordChars.length === rubySyllables.length && wordChars.length > 0) isCharAligned = true;
+                    }
+
+                    if (isCharAligned) {
+                        let alignedHtml = '';
+                        for (let i = 0; i < wordChars.length; i++) {
+                            const rtText = rubySyllables[i] === '~' ? '&nbsp;' : rubySyllables[i];
+                            alignedHtml += `<ruby>${wordChars[i]}<rt>${rtText}</rt></ruby>`;
+                        }
+                        wordHtml = alignedHtml;
+                    } else {
+                        const compressedRubyText = rubyText.trim().split(/[\s-]+/).join('\u2006');
+                        wordHtml = `<ruby>${candidate.word}<rt>${compressedRubyText}</rt></ruby>`;
+                    }
+                }
+            }
+            itemDiv.innerHTML = `<span class="candidate-index"><sup>${absoluteIndex + 1}</sup></span><span class="word">${wordHtml}</span>`;
             
             const preventFocus = (e) => e.preventDefault();
             itemDiv.addEventListener('mousedown', preventFocus);
@@ -2228,7 +2339,6 @@ imeCreateViewAllModal() {
                 } else {
                     const candidateObj = this.viewAllCandidates[absoluteIndex];
                     const textToCommit = this.imeGetOutputTextForCandidate(candidateObj);
-                    
                     this.imeCommitText(textToCommit); 
                     this.viewAllSearchInput.focus();
                 }
@@ -2241,27 +2351,44 @@ imeCreateViewAllModal() {
         modalBody.scrollTop = 0; 
     };
 
-    prevBtn.onclick = (e) => { 
-        e.preventDefault();
-        if (currentViewPage > 0) this.renderViewAllPage(currentViewPage - 1); 
-    };
-    nextBtn.onclick = (e) => { 
-        e.preventDefault();
-        if (currentViewPage < Math.ceil(this.viewAllCandidates.length / itemsPerPage) - 1) this.renderViewAllPage(currentViewPage + 1); 
-    };
-
-    copyBtn.onclick = async (e) => {
-        e.preventDefault();
+	const performCopy = async (includePinyin) => {
         let itemsToCopy = [];
         if (isMultiSelectMode) {
             if (selectedItems.size === 0) return;
             const sortedIndices = Array.from(selectedItems).sort((a, b) => a - b);
-            itemsToCopy = sortedIndices.map(idx => this.viewAllCandidates[idx].word);
+            itemsToCopy = sortedIndices.map(idx => this.viewAllCandidates[idx]);
         } else {
             if (this.viewAllCandidates.length === 0) return;
-            itemsToCopy = this.viewAllCandidates.map(c => c.word);
+            itemsToCopy = this.viewAllCandidates;
         }
-        const textToCopy = itemsToCopy.join('\n');
+
+        let textToCopy = '';
+        if (includePinyin) {
+            textToCopy = itemsToCopy.map(c => {
+                const word = c.word;
+                let pinyin = '';
+                // 抓取拼音的邏輯與渲染拼音時相同
+                if (this.config.features.outputEnabled && this.config.outputMode === 'pinyin_mode') {
+                    pinyin = this.imeTransformQueryCode(c.originalWord, this.currentMode) || '';
+                } else {
+                    const possibleCodes = this.reverseDicts[this.currentMode]?.[word];
+                    if (possibleCodes && possibleCodes.length > 0) {
+                        let bestMatchCode = possibleCodes[0];
+                        if (possibleCodes.length > 1 && c.consumed) {
+                            const simplifiedUserInput = this.imeSimplifyKey(c.consumed, this.currentMode);
+                            let foundMatch = possibleCodes.find(code => this.imeSimplifyKey(code, this.currentMode) === simplifiedUserInput);
+                            if (!foundMatch) foundMatch = possibleCodes.find(code => this.imeSimplifyKey(code, this.currentMode).startsWith(simplifiedUserInput));
+                            if (foundMatch) bestMatchCode = foundMatch;
+                        }
+                        pinyin = this.imeTransformQueryCode(bestMatchCode, this.currentMode);
+                    }
+                }
+                // 使用 Tab (\t) 分隔
+                return `${word}\t${pinyin}`;
+            }).join('\n');
+        } else {
+            textToCopy = itemsToCopy.map(c => c.word).join('\n');
+        }
         
         try {
             if (navigator.clipboard && window.isSecureContext) {
@@ -2276,12 +2403,33 @@ imeCreateViewAllModal() {
                 document.execCommand('copy');
                 document.body.removeChild(textArea);
             }
-            const originalText = copyBtn.innerHTML;
-            copyBtn.innerHTML = '<span class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:4px;">check</span>成功！';
-            copyBtn.style.backgroundColor = '#188038'; 
-            setTimeout(() => { copyBtn.innerHTML = originalText; copyBtn.style.backgroundColor = ''; }, 2000);
+            
+            const originalText = copyMainBtn.innerHTML;
+            copyMainBtn.innerHTML = '<span class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:4px;">check</span>成功！';
+            copyMainBtn.style.backgroundColor = '#188038'; 
+            copyDropdownBtn.style.backgroundColor = '#188038'; 
+            setTimeout(() => { 
+                copyMainBtn.innerHTML = originalText; 
+                copyMainBtn.style.backgroundColor = ''; 
+                copyDropdownBtn.style.backgroundColor = ''; 
+            }, 2000);
         } catch (err) { alert('複製失敗'); }
     };
+
+    copyMainBtn.onclick = (e) => { e.preventDefault(); performCopy(false); };
+    copyItemPinyin.onclick = (e) => { e.preventDefault(); copyMenu.style.display = 'none'; performCopy(true); };
+
+
+    prevBtn.onclick = (e) => { 
+        e.preventDefault();
+        if (currentViewPage > 0) this.renderViewAllPage(currentViewPage - 1); 
+    };
+    nextBtn.onclick = (e) => { 
+        e.preventDefault();
+        if (currentViewPage < Math.ceil(this.viewAllCandidates.length / itemsPerPage) - 1) this.renderViewAllPage(currentViewPage + 1); 
+    };
+
+
 
     this.openViewAllModal = () => {
         if (this.activeElement && this.activeElement.isContentEditable) {
@@ -2726,7 +2874,11 @@ imeAttachEventListeners() {
     this.candidatesContainer.addEventListener('touchstart', onImeInteractionStart, { passive: true });
 
     this.handleFocusIn = (e) => {
-        if (e.target.id === 'viewall-search-input') return; 
+        if (e.target.getAttribute('data-ignore-ime') === 'true' || 
+            e.target.classList.contains('viewall-search-input') || 
+            e.target.id === 'viewall-search-input') {
+            return; 
+        }
 
         if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable) {
             this.imeActivate(e.target);
@@ -2743,10 +2895,13 @@ imeAttachEventListeners() {
         }
         const nextFocusTarget = e.relatedTarget;
         
-        if (nextFocusTarget && nextFocusTarget.id === 'viewall-search-input') {
+        if (nextFocusTarget && (
+            nextFocusTarget.getAttribute('data-ignore-ime') === 'true' ||
+            nextFocusTarget.classList.contains('viewall-search-input') ||
+            nextFocusTarget.id === 'viewall-search-input'
+        )) {
             return;
         }
-        // -------------------------------------------------------------------------
 
         if (nextFocusTarget && (nextFocusTarget.tagName === "INPUT" || nextFocusTarget.tagName === "TEXTAREA" || nextFocusTarget.isContentEditable)) {
             this.imeDeactivate();
