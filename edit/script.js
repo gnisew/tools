@@ -1,3 +1,36 @@
+
+// ==========================================
+// Firebase Firestore 雲端資料庫設定
+// ==========================================
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyAuXpz1xu9whyIbtpFUP9_DbyQDAvdTuVY",
+    authDomain: "wesing-editor.firebaseapp.com",
+    projectId: "wesing-editor",
+    storageBucket: "wesing-editor.firebasestorage.app",
+    messagingSenderId: "1055094283651",
+    appId: "1:1055094283651:web:75c96be4540073d081eab6",
+    measurementId: "G-BNK2JP5HE5"
+  };
+
+	/*
+	const firebaseConfig = {
+	  apiKey: "AIzaSyAa-xAVmHlO_anFgB_SxGKZaTbZ0gq4Bns",
+	  authDomain: "wesing-editor02.firebaseapp.com",
+	  projectId: "wesing-editor02",
+	  storageBucket: "wesing-editor02.firebasestorage.app",
+	  messagingSenderId: "1094145877566",
+	  appId: "1:1094145877566:web:c6056ecc77b83206a0d36f",
+	  measurementId: "G-7YZLD07X8R"
+	};
+	*/
+
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
 const textModeContainer = document.getElementById('textModeContainer');
 const gameModes = ['flashcard', 'matching', 'quiz', 'sorting', 'typing', 'choice', 'arena', 'live'];
 window.currentLoadedBank = null;
@@ -2328,6 +2361,13 @@ document.addEventListener('focusin', (e) => {
     if (typeof WebIME !== 'undefined' && WebIME.isInitialized) {
         
         const target = e.target;
+
+        // 如果是檢視全部的編碼框 (viewall-search-input) 或帶有 data-ignore-ime 屬性，就直接放行，不啟動輸入法
+        if (target.getAttribute('data-ignore-ime') === 'true' || 
+            target.id === 'viewall-search-input' || 
+            target.classList.contains('viewall-search-input')) {
+            return; 
+        }
         
         // 判斷獲得焦點的元素是否為「可輸入區域」
         // 包含：一般的 input/textarea，以及我們表格中的 .td-inner 儲存格
@@ -10867,9 +10907,9 @@ document.addEventListener('click', () => {
 
 
 // ==========================================
-// 學習模式設定視窗邏輯 (升級版：題庫與多重配對)
+// 學習模式設定視窗邏輯
 // ==========================================
-const btnOpenGameModal = document.getElementById('btnOpenGameModal');
+const btnStudyMode = document.getElementById('btnStudyMode'); 
 const gameSettingsModal = document.getElementById('gameSettingsModal');
 const btnCancelGameModal = document.getElementById('btnCancelGameModal');
 const btnStartGame = document.getElementById('btnStartGame');
@@ -10884,10 +10924,12 @@ let gameValidCols = [];       // 含有資料的所有欄位
 let gameActiveBankCols = [];  // 被勾選啟用的題庫欄位
 let gameMatchPairs = [];      // 匹配形式清單: [{ id, termCol, defCol, customName }]
 
-if (btnOpenGameModal) {
-    btnOpenGameModal.addEventListener('click', (e) => {
+// 💡 修正：綁定到正確的按鈕 btnStudyMode 上
+if (btnStudyMode) {
+    btnStudyMode.addEventListener('click', (e) => {
         e.stopPropagation();
-		// ✨ 動態顯示題庫名稱
+        
+        // ✨ 動態顯示題庫名稱
         const bankInfo = document.getElementById('gameSettingsBankInfo');
         if (window.currentLoadedBank && bankInfo) {
             document.getElementById('gameSettingsBankName').textContent = window.currentLoadedBank.name;
@@ -10895,6 +10937,8 @@ if (btnOpenGameModal) {
         } else if (bankInfo) {
             bankInfo.classList.add('hidden');
         }
+        
+        // 點擊後，強制關閉所有已經打開的工具列選單
         document.querySelectorAll('.dropdown-menu, .group\\/submenu').forEach(m => m.classList.remove('show'));
         
         // 載入先前的設定
@@ -11658,10 +11702,8 @@ document.addEventListener('keydown', (e) => {
 document.getElementById('btnShareLink')?.addEventListener('click', async () => {
     document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
     
-    let currentContent = editor.value;
-    if (currentMode === 'table') {
-        currentContent = extractTextFromTable();
-    } else if (currentMode === 'chat') {
+    let currentContent = currentMode === 'text' ? editor.value : extractTextFromTable();
+    if (currentMode === 'chat') {
         currentContent = typeof extractTextFromChat === 'function' ? extractTextFromChat() : editor.value;
     }
 
@@ -11669,16 +11711,33 @@ document.getElementById('btnShareLink')?.addEventListener('click', async () => {
         return showToast('⚠️ 目前沒有內容可以分享');
     }
 
+    // 2. 檢查使用者是否已經登入
+    let currentUser = auth.currentUser;
+
+    // 3. 若未登入，觸發 Google 彈窗登入
+    if (!currentUser) {
+        try {
+            showToast('⏳ 正在開啟 Google 登入...');
+            const result = await auth.signInWithPopup(googleProvider);
+            currentUser = result.user;
+            showToast(`✅ 登入成功！歡迎，${currentUser.displayName}`);
+        } catch (error) {
+            console.error('Google 登入失敗:', error);
+            showToast('❌ 登入失敗或已取消');
+            return; // 登入失敗就中止分享動作
+        }
+    }
+
+    // 4. 登入成功，繼續執行產生短網址的邏輯
     try {
         showToast('⏳ 正在產生雲端連結，請稍候...');
         const compressedData = compressDataForUrl(currentContent);
         
-        // ✨ 將壓縮資料丟給 Firebase，換取短 ID
+        // 這裡的 saveToFirebase 會受 Firestore 安全規則保護
         const docId = await saveToFirebase(compressedData);
         
         if (!docId) throw new Error("取得 ID 失敗");
 
-        // ✨ 現在網址參數改成 ?id=短ID，網址會變得超級短！
         const shareUrl = new URL(window.location.href);
         shareUrl.searchParams.set('id', docId); 
         
@@ -11756,25 +11815,6 @@ function decompressDataFromUrl(base64UrlSafe) {
 
 
 
-// ==========================================
-// Firebase Firestore 雲端資料庫設定
-// ==========================================
-
-  // Your web app's Firebase configuration
-  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-  const firebaseConfig = {
-    apiKey: "AIzaSyAuXpz1xu9whyIbtpFUP9_DbyQDAvdTuVY",
-    authDomain: "wesing-editor.firebaseapp.com",
-    projectId: "wesing-editor",
-    storageBucket: "wesing-editor.firebasestorage.app",
-    messagingSenderId: "1055094283651",
-    appId: "1:1055094283651:web:75c96be4540073d081eab6",
-    measurementId: "G-BNK2JP5HE5"
-  };
-
-  // Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
 
 // 1. 儲存壓縮資料到 Firebase，取得短 ID
 async function saveToFirebase(compressedData) {

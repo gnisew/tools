@@ -51,7 +51,7 @@ Bird\t鳥\t魚\t大象\t獅子`
     {
         id: 'live_demo_001',
         folder: '互動體驗',
-        name: '全方位題型展示 (Slido 旗艦版)',
+        name: '全方位題型展示',
         type: '問答', // 標記為問答，載入時系統就會自動切換到 Live 模式
         data: [
             // 格式：題型 [Tab] 題目 [Tab] 選項1 [Tab] 選項2 ...
