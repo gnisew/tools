@@ -5477,7 +5477,7 @@ function evaluateFormula(formulaStr) {
     }
     
     // 判斷是否為函數模式：找尋 函數名(參數)
-    const match = cleanFormula.match(/^([a-zA-Z]+)\((.*)\)$/);
+    const match = cleanFormula.match(/^([a-zA-Z][a-zA-Z0-9_]*)\((.*)\)$/);
     
     // 如果不是函數，嘗試作為基礎運算式執行 (例如 A1+B1, C2&"測試")
     if (!match) {
@@ -5686,7 +5686,7 @@ function shiftFormula(formula, rowOffset, colOffset) {
     if (!formula.startsWith('=')) return formula;
 
     // 尋找大寫字母配上數字的組合 (例如 A1, Z99)
-    return formula.replace(/[A-Z]+\d+/g, (match) => {
+    return formula.replace(/([A-Z]+)(\d+)\b(?!\()/g, (match) => {
         return shiftCellReference(match, rowOffset, colOffset);
     });
 }
@@ -5742,7 +5742,7 @@ autoFormulaSelect.addEventListener('change', (e) => {
         const rowOffset = startR;
         
         // 使用正則表達式尋找所有「字母+數字」的組合 (例如 A1, B1, A5)
-        formulaStr = formulaStr.replace(/([A-Z]+)(\d+)\b/g, (match, col, row) => {
+        formulaStr = formulaStr.replace(/([A-Z]+)(\d+)\b(?!\()/g, (match, col, row) => {
             const originalRow = parseInt(row, 10);
             // 將原本的數字加上位移量 (例如起點在第 3 列，A1 會變成 A3，A5 會變成 A7)
             return col + (originalRow + rowOffset);
@@ -6113,7 +6113,7 @@ function adjustFormulasForColMove(oldIdx, newIdx) {
     // 群組1: (["'].*?["']) -> 抓取引號內的字串 (保護不替換)
     // 群組2,3: ([a-zA-Z]+)(\d+)\b -> 抓取單格座標如 A1, B2
     // 群組4,5: ([a-zA-Z]+):([a-zA-Z]+)\b -> 抓取整欄座標如 A:B
-    const regex = /(["'].*?["'])|([a-zA-Z]+)(\d+)\b|([a-zA-Z]+):([a-zA-Z]+)\b/g;
+    const regex = /(["'].*?["'])|([a-zA-Z]+)(\d+)\b(?!\()|([a-zA-Z]+):([a-zA-Z]+)\b/g;
 
     const cells = dataTable.querySelectorAll('.td-inner');
     
