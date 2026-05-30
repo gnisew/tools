@@ -6510,59 +6510,59 @@ function applyTextTool(action) {
             const joined = paragraphs.map(p => p.replace(/([a-zA-Z0-9])\n([a-zA-Z0-9])/g, '$1 $2').replace(/\n/g, ''));
             newText = joined.join('\n\n');
         }
-    }
+
     // ======== 新增的 8 個排版功能 ========
-    else if (action === 'sort-az') {
+    }else if (action === 'sort-az') {
         newText = textToProcess.split('\n').sort((a, b) => a.localeCompare(b, 'zh-TW', { numeric: true })).join('\n');
-    }
-    else if (action === 'sort-za') {
+
+    }else if (action === 'sort-za') {
         newText = textToProcess.split('\n').sort((a, b) => b.localeCompare(a, 'zh-TW', { numeric: true })).join('\n');
     }
     else if (action === 'remove-dup') {
         // 先過濾掉所有的空行，再使用 Set 資料結構過濾重複行
         newText = [...new Set(textToProcess.split('\n').filter(line => line.trim() !== ''))].join('\n');
-    }
-    else if (action === 'remove-empty') {
+
+    }else if (action === 'remove-empty') {
         // 過濾掉全空白或無字元的行
         newText = textToProcess.split('\n').filter(line => line.trim() !== '').join('\n');
-    }
-	else if (action === 'remove-trailing-empty') {
+
+	}else if (action === 'remove-trailing-empty') {
         // 匹配字串尾端連續的「換行符號 + 任意空白/Tab/全形空白」，並將其清除
         newText = textToProcess.replace(/(?:\r?\n[\t \u3000]*)+$/g, '');
     }
     else if (action === 'trim-space') {
         // 移除每行字首字尾的半形空白、全形空白(\u3000)、TAB(\t)
         newText = textToProcess.split('\n').map(line => line.replace(/^[\s\u3000]+|[\s\u3000]+$/g, '')).join('\n');
-    }
-    else if (action === 'capitalize') {
+    
+    }else if (action === 'capitalize') {
         // 句首大寫引擎：在「每行開頭」或「句尾標點 + 引號/空白」之後的第一個拉丁字母進行大寫轉換
         // 注意：在 u 旗標下，方括號內的 . ! ? 不需要也不可以加斜線跳脫
         newText = textToProcess.replace(/(^|[。！？.!?"'「『]\s*)([\p{sc=Latn}])/gmu, (match, prefix, letter) => {
             return prefix + letter.toUpperCase();
         });
-    }
-    else if (action === 'lowercase') {
+    
+    }else if (action === 'lowercase') {
         // 原生 toLowerCase 已完美支援 Unicode 拼音與擴充字元
         newText = textToProcess.toLowerCase();
-    }
-    else if (action === 'uppercase') {
+    
+    }else if (action === 'uppercase') {
         // 原生 toUpperCase 已完美支援 Unicode 拼音與擴充字元
         newText = textToProcess.toUpperCase();
-    }
+    
 	// 轉為全形
-    else if (action === 'to-fullwidth') {
+    }else if (action === 'to-fullwidth') {
         newText = textToProcess.replace(/[!-~]/g, function(ch) {
             // ASCII 字元位移 65248 轉為全形
             return String.fromCharCode(ch.charCodeAt(0) + 65248);
         }).replace(/ /g, '\u3000'); // 半形空白轉為全形空白
-    }
+    
     // 轉為半形
-    else if (action === 'to-halfwidth') {
+    }else if (action === 'to-halfwidth') {
         newText = textToProcess.replace(/[！-～]/g, function(ch) {
             // 全形字元反向位移 65248 轉回半形
             return String.fromCharCode(ch.charCodeAt(0) - 65248);
         }).replace(/\u3000/g, ' '); // 全形空白轉回半形空白
-    else if (action === 'line-char-count') {
+    }else if (action === 'line-char-count') {
         newText = textToProcess.split('\n').map(line => {
             return `${[...line].length}\t${line}`;
         }).join('\n');
