@@ -249,6 +249,9 @@
 					<div class="h-px bg-gray-200 my-1 mx-2"></div>
                     <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnToFullWidth"><span class="material-symbols-outlined text-base">width_full</span>轉為全形</button>
                     <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnToHalfWidth"><span class="material-symbols-outlined text-base">width_normal</span>轉為半形</button>
+					<div class="h-px bg-gray-200 my-1 mx-2"></div>
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnBase64Encode"><span class="material-symbols-outlined text-base">code</span>轉為 Base64</button>
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm hover:bg-blue-50 text-gray-800 flex items-center gap-2 code-text" id="btnBase64Decode"><span class="material-symbols-outlined text-base">data_object</span>Base64 解碼</button>
                 </div>
             </div>
 
@@ -539,8 +542,13 @@
 					<button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-red-600 font-bold flex items-center gap-2 code-text" onclick="document.getElementById('btnFullDelete').click()"><span class="material-symbols-outlined text-base">delete_sweep</span>完全刪除</button>
 					<div class="h-px bg-gray-200 my-1"></div>
 					<button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-purple-600 font-bold flex items-center gap-2 code-text" onclick="document.getElementById('btnClearCache').click()"><span class="material-symbols-outlined text-base">cleaning_services</span>清空記憶</button>
-				</div>
-            </div>
+         
+					 <div class="h-px bg-gray-200 my-1 admin-only hidden"></div>
+					 <button id="btnAdminCleanup" class="w-full text-left px-4 py-2 text-sm hover:bg-red-50 text-red-600 font-bold flex items-center gap-2 code-text admin-only hidden" onclick="adminCleanupOldShares()">
+						 <span class="material-symbols-outlined text-base">cloud_sync</span>清除資料庫
+					 </button>
+					 </div>
+			 </div>
 
             <button id="btnFullDelete" class="hidden"></button>
             <button id="btnClearCache" class="hidden"></button>
@@ -911,6 +919,8 @@
                 <option value="=RAND(1, 100)">=RAND(1, 100) (RD範圍整數)</option>
                 <option value='=REGEXEXTRACT(A1, "[0-9]+")'>=REGEXEXTRACT(A1, "正則") (RE正則擷取)</option>
                 <option value='=REPLACE(A1, 1, 2, "X")'>=REPLACE(A1, 1, 2, "X") (RP取代位置字元)</option>
+				<option value="=BASE64(A1)">=BASE64(A1) (B64編碼)</option>
+                <option value="=BASE64DEC(A1)">=BASE64DEC(A1) (B64D解碼)</option>
             </select>
         </div>
         

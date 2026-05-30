@@ -33,6 +33,32 @@
   const auth = firebase.auth();
   const googleProvider = new firebase.auth.GoogleAuthProvider();
 
+// Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const auth = firebase.auth();
+  const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+	// 💀 監聽登入狀態，控制按鈕顯示/隱藏
+  auth.onAuthStateChanged((user) => {
+      const adminElements = document.querySelectorAll('.admin-only');
+      if (user) {
+          // 將使用者的信箱轉為 Base64，與我們加密後的字串做比對
+          // 'uioiu9420@gmail.com' 的 Base64 是 'dWlvaXU5NDIwQGdtYWlsLmNvbQ=='
+          if (btoa(user.email) === 'dWlvaXU5NDIwQGdtYWlsLmNvbQ==') {
+              adminElements.forEach(el => el.classList.remove('hidden'));
+          } else {
+              adminElements.forEach(el => el.classList.add('hidden'));
+          }
+      } else {
+          // 未登入時隱藏
+          adminElements.forEach(el => el.classList.add('hidden'));
+      }
+  });
+
+
+
+
 const textModeContainer = document.getElementById('textModeContainer');
 const gameModes = ['flashcard', 'matching', 'quiz', 'sorting', 'typing', 'choice', 'arena', 'live'];
 window.currentLoadedBank = null;
@@ -5378,6 +5404,38 @@ const formulaFunctions = {
         return results.join(separator);
     },
 
+	// Base64 編碼：=BASE64(A1) 或 =BASE64("測試")
+    BASE64: (args) => {
+        if (args.length < 1) return "錯誤: 參數不足";
+        const resolveArg = (arg) => {
+            const cell = parseCellReference(arg);
+            return cell ? String(getCellValue(cell.row, cell.col)) : arg.replace(/^["']|["']$/g, "");
+        };
+        const text = resolveArg(args[0]);
+        try {
+            // 處理 Unicode (中文字) 的 Base64 編碼
+            return btoa(unescape(encodeURIComponent(text)));
+        } catch (e) {
+            return "#VALUE!";
+        }
+    },
+
+    // Base64 解碼：=BASE64DEC(A1)
+    BASE64DEC: (args) => {
+        if (args.length < 1) return "錯誤: 參數不足";
+        const resolveArg = (arg) => {
+            const cell = parseCellReference(arg);
+            return cell ? String(getCellValue(cell.row, cell.col)) : arg.replace(/^["']|["']$/g, "");
+        };
+        const text = resolveArg(args[0]);
+        try {
+            // 處理 Unicode (中文字) 的 Base64 解碼
+            return decodeURIComponent(escape(atob(text.trim())));
+        } catch (e) {
+            return "#VALUE!"; // 若格式錯誤則回傳 #VALUE!
+        }
+    },
+
     // 條件計數：=COUNTIF(A1:A5, ">10") 或 =COUNTIF(A1:A5, "蘋果")
     COUNTIF: (args) => {
         if (args.length < 2) return "錯誤: 參數不足";
@@ -5502,6 +5560,8 @@ function evaluateFormula(formulaStr) {
         'RE': 'REGEXEXTRACT',
         'RP': 'REPLACE',
 		'RD': 'RAND',
+		'B64': 'BASE64',
+        'B64D': 'BASE64DEC',
     };
     
     if (aliases[funcName]) {
@@ -6508,11 +6568,26 @@ function applyTextTool(action) {
             // 全形字元反向位移 65248 轉回半形
             return String.fromCharCode(ch.charCodeAt(0) - 65248);
         }).replace(/\u3000/g, ' '); // 全形空白轉回半形空白
-    }else if (action === 'line-char-count') {
+    else if (action === 'line-char-count') {
         newText = textToProcess.split('\n').map(line => {
-            // 使用 [...line] 可正確解析 Unicode 擴充漢字（例如「𠊎」算作 1 個字）
             return `${[...line].length}\t${line}`;
         }).join('\n');
+    }
+    else if (action === 'base64-encode') {
+        try {
+            newText = btoa(unescape(encodeURIComponent(textToProcess)));
+        } catch (e) {
+            showToast('❌ Base64 編碼失敗');
+            return;
+        }
+    }
+    else if (action === 'base64-decode') {
+        try {
+            newText = decodeURIComponent(escape(atob(textToProcess.trim())));
+        } catch (e) {
+            showToast('❌ 解碼失敗，請確認內容是否為正確的 Base64 格式');
+            return;
+        }
     }
 
     // 將處理完的文字寫回編輯器
@@ -6537,6 +6612,8 @@ function applyTextTool(action) {
         'capitalize': '句首已大寫', 'lowercase': '已轉為小寫', 'uppercase': '已轉為大寫',
 		'to-fullwidth': '已轉為全形', 'to-halfwidth': '已轉為半形',
 		'line-char-count': '已計算並輸出每行字數',
+		'base64-encode': '已編碼為 Base64',
+        'base64-decode': 'Base64 已解碼為文字',
     };
     showToast(`🥷 ${msgs[action]}`);
 }
@@ -6557,6 +6634,8 @@ const textTools = [
 	{ id: 'btnToFullWidth', action: 'to-fullwidth' },
     { id: 'btnToHalfWidth', action: 'to-halfwidth' },
 	{ id: 'btnLineCharCount', action: 'line-char-count' },
+	{ id: 'btnBase64Encode', action: 'base64-encode' },
+    { id: 'btnBase64Decode', action: 'base64-decode' },
 ];
 
 textTools.forEach(tool => {
@@ -13275,3 +13354,51 @@ window.playPresetBank = function(index, forcedMode = null) {
 document.addEventListener('DOMContentLoaded', () => {
     init();
 });
+
+
+// ==========================================
+// 站長專屬：一鍵清除 30 天前的過期分享網址
+// ==========================================
+async function adminCleanupOldShares() {
+    // 再次雙重驗證前端權限 (比對 Base64 編碼的信箱)
+    const user = auth.currentUser;
+    if (!user || btoa(user.email) !== 'dWlvaXU5NDIwQGdtYWlsLmNvbQ==') {
+        showToast('⚠️ 權限不足，無法執行此操作');
+        return;
+    }
+
+    // 呼叫編輯器內建的自訂確認視窗 (showConfirm)
+    showConfirm('確認清除雲端舊資料', '這將會永久刪除資料庫中所有「超過 30 天」的分享網址，空間將會釋放。此操作無法復原，確定要執行嗎？', async () => {
+        showToast('⏳ 正在掃描並清理過期資料...');
+        
+        // 計算 30 天前的精確時間點
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        try {
+            // 前往雲端撈出建立時間早於 30 天前的舊文件
+            const snapshot = await db.collection("shared_docs")
+                .where("timestamp", "<", thirtyDaysAgo)
+                .get();
+
+            if (snapshot.empty) {
+                showToast('✅ 檢查完成：目前沒有超過 30 天的過期網址。');
+                return;
+            }
+
+            // 使用 Firestore 批量刪除機制 (Batch)
+            const batch = db.batch();
+            snapshot.docs.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
+
+            // 提交刪除指令到雲端
+            await batch.commit();
+            showToast(`🎉 成功清除 ${snapshot.size} 筆過期資料！空間已釋放。`);
+
+        } catch (error) {
+            console.error("站長資料清理失敗:", error);
+            showToast('❌ 清理失敗，請檢查網路或雲端安全規則設定。');
+        }
+    });
+}
