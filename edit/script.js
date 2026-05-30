@@ -33,12 +33,6 @@
   const auth = firebase.auth();
   const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-// Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
-  const auth = firebase.auth();
-  const googleProvider = new firebase.auth.GoogleAuthProvider();
-
 	// 💀 監聽登入狀態，控制按鈕顯示/隱藏
   auth.onAuthStateChanged((user) => {
       const adminElements = document.querySelectorAll('.admin-only');
