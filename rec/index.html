@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>專業線上錄音與編輯工具 (簡潔版)</title>
+    
+    <!-- 引入 Tailwind CSS 進行響應式排版與美化 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 引入 FontAwesome 圖示庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- 引入 Wavesurfer.js 核心與所需插件 -->
+    <script src="https://unpkg.com/wavesurfer.js@7.7.0/dist/wavesurfer.min.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7.7.0/dist/plugins/record.min.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7.7.0/dist/plugins/regions.min.js"></script>
+
+    <style>
+        /* 自定義波形容器的樣式 */
+        #waveform {
+            width: 100%;
+            height: 180px; /* 稍微加高一點 */
+            background-color: #1e293b;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex flex-col font-sans antialiased">
+
+    <!-- 頂部導覽列 -->
+    <header class="bg-slate-800 p-4 shadow-md flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="bg-blue-500 p-2 rounded-lg">
+                <i class="fa-solid fa-wave-square text-xl"></i>
+            </div>
+            <h1 class="text-xl font-bold tracking-wide">AudioPro Simpli</h1>
+        </div>
+        <div class="text-sm text-slate-400">
+            <span id="status-text">準備就緒 (請確保在安全環境下執行)</span>
+        </div>
+    </header>
+
+    <!-- 主要內容區 -->
+    <main class="flex-grow flex flex-col items-center justify-center p-4 md:p-8 w-full max-w-3xl mx-auto gap-8">
+        
+        <!-- 時間顯示 -->
+        <div class="text-6xl md:text-7xl font-mono font-light text-blue-400 tracking-wider transition-colors" id="time-display">
+            00:00.0
+        </div>
+
+        <!-- 波形圖容器 -->
+        <div id="waveform" class="w-full relative border border-slate-700 ring-2 ring-transparent transition-all"></div>
+
+        <!-- 簡化後的控制按鈕區 (兩個主要按鈕) -->
+        <div class="flex items-center justify-center gap-8 w-full p-4">
+            
+            <!-- 錄音/停止按鈕 (動態切換) -->
+            <button id="btn-record-toggle" class="group flex flex-col items-center justify-center w-24 h-24 bg-red-500 hover:bg-red-600 rounded-full shadow-[0_0_20px_rgba(239,68,68,0.3)] transition-all transform hover:scale-105 active:scale-95 text-white">
+                <!-- 圖示與文字會透過 JS 動態更換 -->
+                <i id="record-icon" class="fa-solid fa-microphone text-3xl mb-1"></i>
+                <span id="record-label" class="text-xs font-semibold tracking-wider">錄音</span>
+            </button>
+
+            <!-- 播放/暫停按鈕 (動態切換，預設禁用) -->
+            <button id="btn-play-toggle" class="flex flex-col items-center justify-center w-24 h-24 bg-blue-500 hover:bg-blue-600 rounded-full shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all transform hover:scale-105 active:scale-95 text-white disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none" disabled>
+                <i id="play-icon" class="fa-solid fa-play text-3xl mb-1 pl-1"></i>
+                <span id="play-label" class="text-xs font-semibold tracking-wider">播放</span>
+            </button>
+        </div>
+
+        <!-- 編輯與下載區 (錄音完成後顯示) -->
+        <div id="edit-controls" class="hidden w-full flex flex-col md:flex-row items-center justify-between bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 backdrop-blur-sm gap-4 transition-all">
+            <div class="flex items-center gap-2 text-sm text-slate-400">
+                <i class="fa-solid fa-hand-pointer animate-bounce"></i>
+                <span>提示：拖曳波形上的綠色區域來選擇裁切範圍。</span>
+            </div>
+            <div class="flex gap-3 w-full md:w-auto">
+                <button id="btn-trim" class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5 rounded-lg transition-colors font-medium text-white shadow-lg shadow-emerald-900/20 active:scale-95">
+                    <i class="fa-solid fa-scissors"></i> 裁切選取範圍
+                </button>
+                <button id="btn-download" class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 px-5 py-2.5 rounded-lg transition-colors font-medium text-white shadow-lg shadow-indigo-900/20 active:scale-95">
+                    <i class="fa-solid fa-download"></i> 下載 WAV
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <footer class="text-center p-4 text-slate-600 text-sm">
+        &copy; 2026 AudioPro Simpli.
+    </footer>
+
+    <script>
+        // === 1. 全域變數與 UI 元素參考 ===
+        let wavesurfer;
+        let recordPlugin;
+        let regionsPlugin;
+        let currentAudioBlob = null;
+        
+        // 狀態標記
+        let isRecording = false;
+        let isPlaying = false;
+        let recordingTimerInterval = null;
+        let recordingMs = 0;
+
+        // UI 元素
+        const btnRecordToggle = document.getElementById('btn-record-toggle');
+        const recordIcon = document.getElementById('record-icon');
+        const recordLabel = document.getElementById('record-label');
+
+        const btnPlayToggle = document.getElementById('btn-play-toggle');
+        const playIcon = document.getElementById('play-icon');
+        const playLabel = document.getElementById('play-label');
+
+        const timeDisplay = document.getElementById('time-display');
+        const statusText = document.getElementById('status-text');
+        const editControls = document.getElementById('edit-controls');
+        const waveformContainer = document.getElementById('waveform');
+
+        const btnTrim = document.getElementById('btn-trim');
+        const btnDownload = document.getElementById('btn-download');
+
+        // === 2. 初始化 Wavesurfer 及其插件 ===
+        function initWavesurfer() {
+            // 如果已存在則銷毀，避免重複建立
+            if (wavesurfer) {
+                wavesurfer.destroy();
+            }
+
+            // 建立 Regions 插件 (用於選取範圍)
+            regionsPlugin = WaveSurfer.Regions.create();
+
+            // 建立主體實例
+            wavesurfer = WaveSurfer.create({
+                container: '#waveform',
+                waveColor: '#94a3b8', // 尚未播放時的波形顏色 (灰色)
+                progressColor: '#3b82f6', // 播放過的波形顏色 (藍色)
+                cursorColor: '#f87171', // 游標顏色
+                barWidth: 3, // 波形條寬度
+                barGap: 2,   // 波形條間距
+                barRadius: 3, // 圓角
+                height: 180,
+                normalize: false, // 🛑 修正：關閉音量正規化。這可以避免麥克風靜音時，將微小雜訊放大成滿版色塊
+                plugins: [regionsPlugin]
+            });
+
+            // 初始化錄音插件
+            recordPlugin = wavesurfer.registerPlugin(WaveSurfer.Record.create({
+                scrollingWaveform: true, // 讓錄音時波形會滾動
+                renderRecordedAudio: false // 🛑 修正：關閉自動載入，由我們手動載入，避免衝突
+            }));
+
+            // --- 事件監聽 ---
+
+            // 錄音結束時觸發
+            recordPlugin.on('record-end', (blob) => {
+                currentAudioBlob = blob;
+                statusText.textContent = "錄音完成，處理波形中...";
+                // 錄音完成後，載入音訊以供編輯和播放
+                loadAudioToEditor(blob);
+            });
+
+            // 播放時更新時間顯示
+            wavesurfer.on('audioprocess', (currentTime) => {
+                if (!isRecording) {
+                    updateTimeDisplay(currentTime * 1000);
+                }
+            });
+
+            // 播放結束時觸發
+            wavesurfer.on('finish', () => {
+                // 重置播放按鈕狀態
+                isPlaying = false;
+                updatePlayButtonUI();
+                wavesurfer.seekTo(0); // 回到開頭
+                updateTimeDisplay(0);
+                btnRecordToggle.disabled = false; // 允許再次錄音
+            });
+            
+             // 確保只有一個選取範圍
+            regionsPlugin.on('region-created', (region) => {
+                regionsPlugin.getRegions().forEach(r => {
+                    if (r.id !== region.id) r.remove();
+                });
+            });
+        }
+
+        // === 3. 時間顯示與計時器 ===
+        function updateTimeDisplay(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+            const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+            // 顯示一位小數即可，比較簡潔
+            const deciseconds = Math.floor((ms % 1000) / 100);
+            timeDisplay.textContent = `${minutes}:${seconds}.${deciseconds}`;
+        }
+
+        function startRecordingTimer() {
+            recordingMs = 0;
+            clearInterval(recordingTimerInterval);
+            recordingTimerInterval = setInterval(() => {
+                recordingMs += 100;
+                updateTimeDisplay(recordingMs);
+            }, 100);
+        }
+
+        function stopRecordingTimer() {
+            clearInterval(recordingTimerInterval);
+        }
+
+        // === 4. 核心邏輯：錄音按鈕切換 ===
+        async function toggleRecording() {
+            if (!wavesurfer) initWavesurfer();
+
+            if (!isRecording) {
+                // --- 開始錄音 ---
+                try {
+                    // 檢查瀏覽器支援
+                    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                        throw new Error("您的瀏覽器不支援麥克風存取，或未在安全環境(HTTPS/localhost)下執行。");
+                    }
+                    
+                    // 🛑 修正：直接讓 recordPlugin 處理麥克風存取與串流，避免自訂 stream 造成的雙重啟動問題
+                    await recordPlugin.startRecording();
+
+                    isRecording = true;
+                    startRecordingTimer();
+                    
+                    // 更新 UI 狀態
+                    updateRecordButtonUI();
+                    btnPlayToggle.disabled = true; // 錄音時禁止播放
+                    editControls.classList.add('hidden'); // 隱藏編輯區
+                    regionsPlugin.clearRegions(); // 清除舊範圍
+                    
+                    statusText.textContent = "正在錄音... (請說話測試波形)";
+                    statusText.className = "text-red-400 animate-pulse";
+                    timeDisplay.classList.add('text-red-500');
+                    waveformContainer.classList.add('ring-red-500/30');
+
+                } catch (err) {
+                    console.error("錄音失敗:", err);
+                    let errorMsg = "無法開始錄音。\n\n";
+                    if (err.name === 'NotAllowedError' || err.name === 'SecurityError' || err.message.includes('Permission denied')) {
+                        errorMsg += "🛑 原因：瀏覽器或目前的線上預覽環境「封鎖了麥克風權限」。\n\n👉 解決方案：線上預覽視窗通常無法使用麥克風。請將此檔案存到電腦中，並使用 VS Code 的 Live Server 擴充功能開啟測試。";
+                    } else if (err.name === 'NotFoundError') {
+                        errorMsg += "🛑 原因：找不到麥克風設備。請確認您的電腦有連接麥克風。";
+                    } else {
+                        errorMsg += "🛑 詳細錯誤：" + err.message;
+                    }
+                    alert(errorMsg);
+                    statusText.textContent = "錄音啟動失敗 (權限遭封鎖)";
+                    statusText.className = "text-red-500 font-bold";
+                }
+            } else {
+                // --- 停止錄音 ---
+                recordPlugin.stopRecording();
+                isRecording = false;
+                stopRecordingTimer();
+
+                // 更新 UI 狀態
+                updateRecordButtonUI();
+                // 播放按鈕會在音訊載入完成後 (loadAudioToEditor) 解鎖
+                
+                statusText.textContent = "處理錄音資料中...";
+                statusText.className = "text-slate-400";
+                timeDisplay.classList.remove('text-red-500');
+                waveformContainer.classList.remove('ring-red-500/30');
+            }
+        }
+
+        // 更新錄音按鈕的樣式與圖示
+        function updateRecordButtonUI() {
+            if (isRecording) {
+                // 變成「停止」按鈕 (灰色方塊)
+                btnRecordToggle.classList.replace('bg-red-500', 'bg-slate-600');
+                btnRecordToggle.classList.replace('hover:bg-red-600', 'hover:bg-slate-500');
+                btnRecordToggle.classList.replace('shadow-[0_0_20px_rgba(239,68,68,0.3)]', 'shadow-none');
+                recordIcon.className = "fa-solid fa-stop text-3xl mb-1";
+                recordLabel.textContent = "停止";
+            } else {
+                // 變回「錄音」按鈕 (紅色麥克風)
+                btnRecordToggle.classList.replace('bg-slate-600', 'bg-red-500');
+                btnRecordToggle.classList.replace('hover:bg-slate-500', 'hover:bg-red-600');
+                btnRecordToggle.classList.add('shadow-[0_0_20px_rgba(239,68,68,0.3)]');
+                recordIcon.className = "fa-solid fa-microphone text-3xl mb-1";
+                recordLabel.textContent = "錄音";
+            }
+        }
+
+        // === 5. 核心邏輯：播放按鈕切換 ===
+        function togglePlayback() {
+            if (!wavesurfer || isRecording) return;
+
+            if (!isPlaying) {
+                // --- 開始播放 ---
+                // 如果有選取範圍，優先播放範圍
+                const regions = regionsPlugin.getRegions();
+                if (regions.length > 0) {
+                    regions[0].play();
+                } else {
+                    wavesurfer.play();
+                }
+                isPlaying = true;
+                btnRecordToggle.disabled = true; // 播放時禁止錄音
+            } else {
+                // --- 暫停播放 ---
+                wavesurfer.pause();
+                isPlaying = false;
+                btnRecordToggle.disabled = false; // 恢復錄音功能
+            }
+            updatePlayButtonUI();
+        }
+
+        // 更新播放按鈕的樣式與圖示
+        function updatePlayButtonUI() {
+            if (isPlaying) {
+                // 變成「暫停」按鈕 (黃色)
+                btnPlayToggle.classList.replace('bg-blue-500', 'bg-amber-500');
+                btnPlayToggle.classList.replace('hover:bg-blue-600', 'hover:bg-amber-600');
+                btnPlayToggle.classList.replace('shadow-[0_0_20px_rgba(59,130,246,0.3)]', 'shadow-[0_0_20px_rgba(245,158,11,0.3)]');
+                playIcon.className = "fa-solid fa-pause text-3xl mb-1";
+                playLabel.textContent = "暫停";
+            } else {
+                // 變回「播放」按鈕 (藍色)
+                btnPlayToggle.classList.replace('bg-amber-500', 'bg-blue-500');
+                btnPlayToggle.classList.replace('hover:bg-amber-600', 'hover:bg-blue-600');
+                btnPlayToggle.classList.replace('shadow-[0_0_20px_rgba(245,158,11,0.3)]', 'shadow-[0_0_20px_rgba(59,130,246,0.3)]');
+                playIcon.className = "fa-solid fa-play text-3xl mb-1 pl-1";
+                playLabel.textContent = "播放";
+            }
+        }
+
+
+        // === 6. 輔助功能：載入音訊與裁切 ===
+        
+        // 將錄製好的 Blob 載入到編輯器中
+        function loadAudioToEditor(blob) {
+            const objectUrl = URL.createObjectURL(blob);
+            wavesurfer.load(objectUrl);
+            
+            wavesurfer.once('ready', () => {
+                // 音訊載入完成
+                statusText.textContent = "準備就緒 (可播放或編輯)";
+                statusText.className = "text-emerald-400";
+                btnPlayToggle.disabled = false; // 解鎖播放按鈕
+                btnRecordToggle.disabled = false;
+                editControls.classList.remove('hidden'); // 顯示編輯區
+
+                // 預設建立一個全選的綠色區域
+                regionsPlugin.clearRegions();
+                regionsPlugin.addRegion({
+                    start: 0.1, // 稍微留點邊
+                    end: wavesurfer.getDuration() - 0.1,
+                    color: 'rgba(16, 185, 129, 0.2)', // Emerald 顏色，半透明
+                    drag: true,
+                    resize: true
+                });
+                updateTimeDisplay(wavesurfer.getDuration() * 1000);
+            });
+        }
+
+        // 裁切功能 (維持原樣，邏輯正確)
+        btnTrim.addEventListener('click', async () => {
+            const regions = regionsPlugin.getRegions();
+            if (regions.length === 0) {
+                alert("請先在波形圖上拖曳選擇要保留的範圍！");
+                return;
+            }
+
+            const region = regions[0];
+            // 簡單防呆：如果範圍太小視為無效
+            if (region.end - region.start < 0.1) {
+                alert("選取範圍太短。");
+                return;
+            }
+
+            statusText.textContent = "正在裁切音訊...";
+            
+            try {
+                const originalBuffer = wavesurfer.getDecodedData();
+                const sampleRate = originalBuffer.sampleRate;
+                const channels = originalBuffer.numberOfChannels;
+                
+                const startSample = Math.floor(region.start * sampleRate);
+                const endSample = Math.floor(region.end * sampleRate);
+                const frameCount = endSample - startSample;
+
+                const offlineCtx = new OfflineAudioContext(channels, frameCount, sampleRate);
+                const newBuffer = offlineCtx.createBuffer(channels, frameCount, sampleRate);
+
+                for (let i = 0; i < channels; i++) {
+                    const channelData = originalBuffer.getChannelData(i);
+                    const newChannelData = newBuffer.getChannelData(i);
+                    for (let j = 0; j < frameCount; j++) {
+                        newChannelData[j] = channelData[startSample + j] || 0; // 加個 fallback 避免邊界問題
+                    }
+                }
+
+                const wavBlob = bufferToWave(newBuffer, frameCount);
+                currentAudioBlob = wavBlob;
+                
+                loadAudioToEditor(wavBlob);
+                statusText.textContent = "裁切完成！";
+                
+            } catch (error) {
+                console.error("裁切失敗", error);
+                alert("裁切處理發生錯誤，請重試。");
+                statusText.textContent = "裁切失敗";
+            }
+        });
+
+        // 下載功能 (維持原樣)
+        btnDownload.addEventListener('click', () => {
+            if (!currentAudioBlob) return;
+            const url = window.URL.createObjectURL(currentAudioBlob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19); // 簡化時間戳
+            a.download = `Record_${timestamp}.wav`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        });
+
+        // WAV 轉換工具函數 (維持原樣)
+        function bufferToWave(abuffer, len) {
+            const numOfChan = abuffer.numberOfChannels;
+            const length = len * numOfChan * 2 + 44;
+            const buffer = new ArrayBuffer(length);
+            const view = new DataView(buffer);
+            const channels = [];
+            let i, sample, offset = 0, pos = 0;
+
+            setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157);
+            setUint32(0x20746d66); setUint32(16); setUint16(1); setUint16(numOfChan);
+            setUint32(abuffer.sampleRate); setUint32(abuffer.sampleRate * 2 * numOfChan);
+            setUint16(numOfChan * 2); setUint16(16); setUint32(0x61746164);
+            setUint32(length - pos - 4);
+
+            for (i = 0; i < abuffer.numberOfChannels; i++) channels.push(abuffer.getChannelData(i));
+
+            while (pos < length) {
+                for (i = 0; i < numOfChan; i++) {
+                    sample = Math.max(-1, Math.min(1, channels[i][offset])); 
+                    sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0; 
+                    view.setInt16(pos, sample, true); 
+                    pos += 2;
+                }
+                offset++;
+            }
+            return new Blob([buffer], { type: "audio/wav" });
+            function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
+            function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
+        }
+
+        // === 7. 綁定按鈕事件 ===
+        btnRecordToggle.addEventListener('click', toggleRecording);
+        btnPlayToggle.addEventListener('click', togglePlayback);
+
+        // 初始化
+        initWavesurfer();
+    </script>
+</body>
+</html>
