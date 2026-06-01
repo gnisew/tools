@@ -3,196 +3,742 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>專業線上錄音與編輯工具 (簡潔版)</title>
+    <title>專業線上錄音與編輯工具 (專業功能版)</title>
     
-    <!-- 引入 Tailwind CSS 進行響應式排版與美化 -->
+    <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- 引入 FontAwesome 圖示庫 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- 引入 Wavesurfer.js 核心與所需插件 -->
+    <!-- 引入 Wavesurfer.js 核心與插件 -->
     <script src="https://unpkg.com/wavesurfer.js@7.7.0/dist/wavesurfer.min.js"></script>
     <script src="https://unpkg.com/wavesurfer.js@7.7.0/dist/plugins/record.min.js"></script>
     <script src="https://unpkg.com/wavesurfer.js@7.7.0/dist/plugins/regions.min.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7.7.0/dist/plugins/timeline.min.js"></script>
+    
+    <!-- 引入 LameJS 供 MP3 轉檔使用 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
+
 
     <style>
-        /* 自定義波形容器的樣式 */
-        #waveform {
-            width: 100%;
-            height: 180px; /* 稍微加高一點 */
-            background-color: #1e293b;
-            border-radius: 0.75rem;
-            overflow: hidden;
-            box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.05);
+        /* 全局深色質感滾動條 */
+        ::-webkit-scrollbar {
+            height: 12px;
+            width: 12px;
         }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 6px;
+            border: 2px solid #0f172a;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        /* 針對 Wavesurfer Shadow DOM 滾動層的樣式覆寫 */
+        #waveform ::part(scroll) {
+            scrollbar-width: thin;
+            scrollbar-color: #64748b #0f172a;
+            height: 100% !important;
+        }
+        #waveform ::part(scroll)::-webkit-scrollbar {
+            height: 14px; 
+        }
+        #waveform ::part(scroll)::-webkit-scrollbar-track {
+            background: #0f172a; 
+            border-radius: 0 0 12px 12px;
+        }
+        #waveform ::part(scroll)::-webkit-scrollbar-thumb {
+            background: #64748b;
+            border-radius: 7px;
+            border: 3px solid #0f172a; 
+        }
+        #waveform ::part(scroll)::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        #waveform ::part(cursor) {
+            background-color: #ef4444 !important;
+            width: 2px !important;
+            z-index: 50 !important;
+            opacity: 1 !important;
+        }
+
+        /* 縮放滑桿美化 */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px; width: 14px;
+            border-radius: 50%;
+            background: #60a5fa;
+            cursor: pointer;
+            margin-top: -5px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 2px;
+        }
+
+        /* 按鈕點擊效果 */
+        .active-scale:active { transform: scale(0.95); }
     </style>
 </head>
-<body class="bg-slate-900 text-white min-h-screen flex flex-col font-sans antialiased">
+<body class="bg-slate-900 text-white h-screen flex flex-col font-sans antialiased overflow-hidden">
 
-    <!-- 頂部導覽列 -->
-    <header class="bg-slate-800 p-4 shadow-md flex items-center justify-between">
-        <div class="flex items-center gap-3">
-            <div class="bg-blue-500 p-2 rounded-lg">
-                <i class="fa-solid fa-wave-square text-xl"></i>
-            </div>
-            <h1 class="text-xl font-bold tracking-wide">AudioPro Simpli</h1>
+    <!-- ================= 浮動提示 (Toast Notification) ================= -->
+    <div id="toast-message" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 transform -translate-y-10 opacity-0 pointer-events-none">
+        <div class="px-5 py-2.5 rounded-full shadow-2xl backdrop-blur-md border flex items-center gap-2" id="toast-content">
+            <i id="toast-icon" class="fa-solid fa-circle-info"></i>
+            <span id="toast-text" class="text-sm font-bold tracking-wide"></span>
         </div>
-        <div class="text-sm text-slate-400">
-            <span id="status-text">準備就緒 (請確保在安全環境下執行)</span>
+    </div>
+
+    <!-- ================= 頂端工具列 ================= -->
+    <header class="bg-slate-800 h-16 shadow-md flex items-center justify-between px-4 border-b border-slate-700 shrink-0 relative z-20">
+        
+        <!-- 左側：標誌與基礎工具 -->
+        <div class="flex items-center gap-1 md:gap-3">
+            <div class="bg-blue-500 p-2 rounded-lg shadow-lg shadow-blue-500/20 mr-1 shrink-0">
+                <i class="fa-solid fa-wave-square text-white"></i>
+            </div>
+            
+            <div class="w-px h-6 bg-slate-600 mx-1 hidden md:block"></div>
+
+            <!-- 💡 新增：操作模式切換 (選取 / 手形拖曳) -->
+            <div class="flex items-center bg-slate-900 p-1 rounded-lg border border-slate-700 shadow-inner mr-2">
+				<button id="btn-mode-select" class="p-1.5 px-3 rounded-md bg-slate-700 text-blue-400 transition-colors shadow-sm" title="選取工具 (I)">
+					<i class="fa-solid fa-i-cursor"></i>
+				</button>
+				<button id="btn-mode-move" class="p-1.5 px-3 rounded-md text-slate-400 hover:text-white transition-colors" title="移動片段工具 (V)">
+					<i class="fa-solid fa-arrows-up-down-left-right"></i>
+				</button>
+				<button id="btn-mode-pan" class="p-1.5 px-3 rounded-md text-slate-400 hover:text-white transition-colors" title="手形平移工具 (H)">
+					<i class="fa-solid fa-hand"></i>
+				</button>
+			</div>
+
+            <!-- 基礎選取工具 -->
+            <div class="relative flex items-center justify-center group hidden sm:flex">
+                <button id="btn-set-start" class="edit-tool p-2 text-emerald-400 hover:bg-slate-700 rounded transition-colors active-scale disabled:opacity-30 disabled:cursor-not-allowed" disabled>
+                    <i class="fa-solid fa-flag text-[16px]"></i>
+                </button>
+                <div class="absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900 border border-slate-700 text-xs text-slate-300 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">設為起點</div>
+            </div>
+
+            <div class="relative flex items-center justify-center group hidden sm:flex">
+                <button id="btn-set-end" class="edit-tool p-2 text-rose-400 hover:bg-slate-700 rounded transition-colors active-scale disabled:opacity-30 disabled:cursor-not-allowed" disabled>
+                    <i class="fa-solid fa-flag-checkered text-[16px]"></i>
+                </button>
+                <div class="absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900 border border-slate-700 text-xs text-slate-300 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">設為終點</div>
+            </div>
+
+            <div class="relative flex items-center justify-center group">
+                <button id="btn-clear-region" class="edit-tool p-2 text-slate-400 hover:bg-slate-700 rounded transition-colors active-scale disabled:opacity-30 disabled:cursor-not-allowed" disabled>
+                    <i class="fa-solid fa-xmark text-[16px]"></i>
+                </button>
+                <div class="absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900 border border-slate-700 text-xs text-slate-300 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">取消選取</div>
+            </div>
+        </div>
+        
+        <!-- 右側：檔案匯入/匯出與 Help -->
+        <div class="flex items-center justify-end gap-1 md:gap-2">
+            
+            <div class="relative">
+                <button id="btn-help" class="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors active-scale" title="操作說明">
+                    <i class="fa-solid fa-circle-question text-[16px]"></i>
+                </button>
+                <!-- Help 說明選單 -->
+                <div id="help-menu" class="hidden absolute top-full right-0 mt-2 bg-slate-800 border border-slate-600 shadow-2xl rounded-xl p-5 z-50 text-sm text-slate-300 w-80">
+                    <h3 class="text-white font-bold mb-3 border-b border-slate-700 pb-2"><i class="fa-solid fa-book text-blue-400 mr-2"></i>操作說明</h3>
+                    <ul class="space-y-3">
+                        <li class="flex items-start gap-3"><i class="fa-solid fa-i-cursor text-blue-400 mt-1"></i> <p><b>選取模式：</b> 在波形上按住滑鼠拖曳可建立選取範圍。</p></li>
+                        <li class="flex items-start gap-3"><i class="fa-solid fa-hand text-emerald-400 mt-1"></i> <p><b>平移模式：</b> 按住波形可左右滑動檢視 (或使用 Shift+滾輪)。</p></li>
+                        <li class="flex items-start gap-3"><i class="fa-solid fa-scissors text-rose-500 mt-1"></i> <p><b>移動音檔：</b> 選取範圍後點擊「剪下」，將游標移至新位置點擊「貼上」。</p></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="w-px h-6 bg-slate-600 mx-1 hidden sm:block"></div>
+
+            <input type="file" id="file-upload" accept="audio/*" class="hidden">
+            <div class="relative flex items-center justify-center group">
+                <label for="file-upload" class="cursor-pointer p-2 text-blue-400 hover:bg-slate-700 rounded transition-colors active-scale">
+                    <i class="fa-solid fa-folder-open text-[16px]"></i>
+                </label>
+                <div class="absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900 border border-slate-700 text-xs text-slate-300 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">匯入音檔</div>
+            </div>
+
+            <!-- 匯出格式與下載 -->
+            <div class="flex items-center bg-slate-900 rounded border border-slate-700 ml-1">
+                <select id="export-format" class="bg-transparent text-slate-300 text-xs focus:outline-none cursor-pointer px-2 py-1.5 appearance-none">
+                    <option value="mp3">MP3</option>
+                    <option value="wav">WAV</option>
+                </select>
+                <div class="w-px h-4 bg-slate-700 mx-1"></div>
+                <button id="btn-download" class="edit-tool p-1.5 px-3 text-indigo-400 hover:text-indigo-300 hover:bg-slate-800 rounded transition-colors active-scale disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2" disabled>
+                    <i class="fa-solid fa-download text-sm"></i> <span class="text-xs font-bold hidden sm:inline">匯出</span>
+                </button>
+                
+                <div class="w-px h-4 bg-slate-700 mx-1"></div>
+                
+                <button id="btn-share" class="edit-tool p-1.5 px-3 text-emerald-400 hover:text-emerald-300 hover:bg-slate-800 rounded transition-colors active-scale disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2" disabled>
+                    <i class="fa-solid fa-share-nodes text-sm"></i> <span class="text-xs font-bold hidden sm:inline">分享</span>
+                </button>
+            </div>
         </div>
     </header>
 
-    <!-- 主要內容區 -->
-    <main class="flex-grow flex flex-col items-center justify-center p-4 md:p-8 w-full max-w-3xl mx-auto gap-8">
+    <!-- ================= 次要工具列 (剪貼與編輯) ================= -->
+    <!-- 💡 新增：進階編輯工具列 (剪下/複製/貼上/刪除/保留) -->
+    <div class="bg-slate-800/80 px-4 py-2 border-b border-slate-700 flex items-center justify-center sm:justify-start gap-4 overflow-x-auto">
+        <span class="text-xs text-slate-500 font-bold shrink-0 hidden sm:inline"><i class="fa-solid fa-screwdriver-wrench mr-1"></i> 編輯操作</span>
         
-        <!-- 時間顯示 -->
-        <div class="text-6xl md:text-7xl font-mono font-light text-blue-400 tracking-wider transition-colors" id="time-display">
-            00:00.0
+        <div class="flex items-center bg-slate-900/50 p-1 rounded-lg border border-slate-700">
+            <button id="btn-copy" class="edit-tool p-1.5 px-3 text-blue-400 hover:bg-slate-700 rounded transition-colors active-scale disabled:opacity-30 text-sm font-medium" disabled>
+                <i class="fa-regular fa-copy mr-1"></i> 複製
+            </button>
+            <div class="w-px h-4 bg-slate-600 mx-1"></div>
+            <button id="btn-cut" class="edit-tool p-1.5 px-3 text-rose-400 hover:bg-slate-700 rounded transition-colors active-scale disabled:opacity-30 text-sm font-medium" disabled>
+                <i class="fa-solid fa-scissors mr-1"></i> 剪下
+            </button>
+            <div class="w-px h-4 bg-slate-600 mx-1"></div>
+            <button id="btn-split" class="edit-tool p-1.5 px-3 text-purple-400 hover:bg-slate-700 rounded transition-colors active-scale disabled:opacity-30 text-sm font-medium" disabled>
+                <i class="fa-solid fa-arrows-split-up-and-left mr-1"></i> 分割
+            </button>
+            <div class="w-px h-4 bg-slate-600 mx-1"></div>
+            <button id="btn-paste" class="edit-tool p-1.5 px-3 text-emerald-400 hover:bg-slate-700 rounded transition-colors active-scale disabled:opacity-30 text-sm font-medium" disabled>
+                <i class="fa-regular fa-clipboard mr-1"></i> 貼上
+            </button>
         </div>
 
-        <!-- 波形圖容器 -->
-        <div id="waveform" class="w-full relative border border-slate-700 ring-2 ring-transparent transition-all"></div>
+        <div class="flex items-center bg-slate-900/50 p-1 rounded-lg border border-slate-700">
+            <button id="btn-trim-delete" class="edit-tool p-1.5 px-3 text-slate-300 hover:bg-slate-700 rounded transition-colors active-scale disabled:opacity-30 text-sm font-medium" disabled>
+                <i class="fa-solid fa-eraser mr-1"></i> 刪除選取
+            </button>
+            <div class="w-px h-4 bg-slate-600 mx-1"></div>
+            <button id="btn-trim-keep" class="edit-tool p-1.5 px-3 text-slate-300 hover:bg-slate-700 rounded transition-colors active-scale disabled:opacity-30 text-sm font-medium" disabled>
+                <i class="fa-solid fa-crop-simple mr-1"></i> 保留選取
+            </button>
+        </div>
+    </div>
 
-        <!-- 簡化後的控制按鈕區 (兩個主要按鈕) -->
-        <div class="flex items-center justify-center gap-8 w-full p-4">
+    <!-- ================= 主要編輯區 ================= -->
+    <main class="flex-1 flex flex-col min-h-0 bg-slate-900 p-4 relative">
+        <div class="flex-1 w-full bg-[#0f172a] rounded-xl border border-slate-700 shadow-xl flex flex-col relative overflow-hidden">
             
-            <!-- 錄音/停止按鈕 (動態切換) -->
-            <button id="btn-record-toggle" class="group flex flex-col items-center justify-center w-24 h-24 bg-red-500 hover:bg-red-600 rounded-full shadow-[0_0_20px_rgba(239,68,68,0.3)] transition-all transform hover:scale-105 active:scale-95 text-white">
-                <!-- 圖示與文字會透過 JS 動態更換 -->
-                <i id="record-icon" class="fa-solid fa-microphone text-3xl mb-1"></i>
-                <span id="record-label" class="text-xs font-semibold tracking-wider">錄音</span>
-            </button>
-
-            <!-- 播放/暫停按鈕 (動態切換，預設禁用) -->
-            <button id="btn-play-toggle" class="flex flex-col items-center justify-center w-24 h-24 bg-blue-500 hover:bg-blue-600 rounded-full shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all transform hover:scale-105 active:scale-95 text-white disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:shadow-none" disabled>
-                <i id="play-icon" class="fa-solid fa-play text-3xl mb-1 pl-1"></i>
-                <span id="play-label" class="text-xs font-semibold tracking-wider">播放</span>
-            </button>
-        </div>
-
-        <!-- 編輯與下載區 (錄音完成後顯示) -->
-        <div id="edit-controls" class="hidden w-full flex flex-col md:flex-row items-center justify-between bg-slate-800/50 p-4 rounded-xl border border-slate-700/50 backdrop-blur-sm gap-4 transition-all">
-            <div class="flex items-center gap-2 text-sm text-slate-400">
-                <i class="fa-solid fa-hand-pointer animate-bounce"></i>
-                <span>提示：拖曳波形上的綠色區域來選擇裁切範圍。</span>
+            <!-- 波形與時間軸共用容器 -->
+            <div class="flex-1 relative w-full h-full focus:outline-none" id="waveform-container" tabindex="0">
+                <div id="waveform" class="absolute inset-0 w-full h-full"></div>
             </div>
-            <div class="flex gap-3 w-full md:w-auto">
-                <button id="btn-trim" class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 px-5 py-2.5 rounded-lg transition-colors font-medium text-white shadow-lg shadow-emerald-900/20 active:scale-95">
-                    <i class="fa-solid fa-scissors"></i> 裁切選取範圍
-                </button>
-                <button id="btn-download" class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 px-5 py-2.5 rounded-lg transition-colors font-medium text-white shadow-lg shadow-indigo-900/20 active:scale-95">
-                    <i class="fa-solid fa-download"></i> 下載 WAV
-                </button>
-            </div>
+            
         </div>
     </main>
 
-    <footer class="text-center p-4 text-slate-600 text-sm">
-        &copy; 2026 AudioPro Simpli.
+    <!-- ================= 底部控制列 ================= -->
+    <footer class="h-20 bg-slate-800 border-t border-slate-700 flex items-center justify-between px-6 shrink-0 relative z-20">
+        
+        <!-- 左側：錄音與播放 -->
+        <div class="flex items-center gap-4">
+            <button id="btn-record-toggle" class="flex items-center justify-center w-12 h-12 bg-red-500 hover:bg-red-600 rounded-full shadow-[0_0_15px_rgba(239,68,68,0.3)] transition-all active-scale text-white shrink-0">
+                <i id="record-icon" class="fa-solid fa-microphone text-lg"></i>
+            </button>
+
+            <button id="btn-play-toggle" class="edit-tool flex items-center justify-center w-12 h-12 bg-blue-500 hover:bg-blue-600 rounded-full shadow-[0_0_15px_rgba(59,130,246,0.3)] transition-all active-scale text-white disabled:opacity-30 disabled:cursor-not-allowed shrink-0" disabled>
+                <i id="play-icon" class="fa-solid fa-play text-lg pl-1"></i>
+            </button>
+            
+            <!-- 數位時間 -->
+            <div class="text-3xl md:text-4xl font-mono font-light text-blue-400 tracking-wider w-[140px] text-left ml-2 shrink-0" id="time-display">
+                00:00.0
+            </div>
+        </div>
+
+        <!-- 右側：縮放控制 -->
+        <div class="flex items-center justify-end gap-2 w-[180px] sm:w-[250px]">
+            
+            <!-- 縮小按鈕 -->
+            <div class="relative flex items-center justify-center group shrink-0">
+                <button id="btn-zoom-out" class="edit-tool bg-slate-700 hover:bg-slate-600 text-slate-300 p-2.5 rounded-lg border border-slate-600 active-scale disabled:opacity-30 disabled:cursor-not-allowed" disabled>
+                    <i class="fa-solid fa-magnifying-glass-minus text-sm"></i>
+                </button>
+                <div class="absolute bottom-full mb-2 right-0 px-2 py-1 bg-slate-900 border border-slate-700 text-xs text-slate-300 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">縮小波形</div>
+            </div>
+
+            <!-- 放大按鈕 -->
+            <div class="relative flex items-center justify-center group shrink-0">
+                <button id="btn-zoom-in" class="edit-tool bg-slate-700 hover:bg-slate-600 text-slate-300 p-2.5 rounded-lg border border-slate-600 active-scale disabled:opacity-30 disabled:cursor-not-allowed" disabled>
+                    <i class="fa-solid fa-magnifying-glass-plus text-sm"></i>
+                </button>
+                <div class="absolute bottom-full mb-2 right-0 px-2 py-1 bg-slate-900 border border-slate-700 text-xs text-slate-300 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">放大波形</div>
+            </div>
+            
+            <div class="w-px h-6 bg-slate-600 mx-1 hidden sm:block"></div>
+
+            <!-- 檢視選取 -->
+            <div class="relative flex items-center justify-center group shrink-0">
+                <button id="btn-zoom-selection" class="edit-tool bg-slate-700 hover:bg-slate-600 text-blue-400 p-2.5 rounded-lg border border-slate-600 active-scale disabled:opacity-30 disabled:cursor-not-allowed" disabled>
+                    <i class="fa-solid fa-expand text-sm"></i>
+                </button>
+                <div class="absolute bottom-full mb-2 right-0 px-2 py-1 bg-slate-900 border border-slate-700 text-xs text-slate-300 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">縮放至選取範圍</div>
+            </div>
+        </div>
     </footer>
 
     <script>
-        // === 1. 全域變數與 UI 元素參考 ===
+        // === 全域變數與 UI 元素 ===
         let wavesurfer;
         let recordPlugin;
         let regionsPlugin;
-        let currentAudioBlob = null;
+        let timelinePlugin;
+        let dragSelectionUnsubscribe = null;
+        let clipboardBuffer = null;
+		let virtualClips = [];
+        let clipCounter = 0;
+		let currentBlobUrl = null;
         
-        // 狀態標記
+        // 🎨 專業軟體色彩設定
+        const COLOR_WAVE_BASE = '#cbd5e1'; 
+        const COLOR_WAVE_PLAYED = '#3b82f6'; 
+        const COLOR_REGION = 'rgba(255, 255, 255, 0.25)'; 
+        
         let isRecording = false;
         let isPlaying = false;
         let recordingTimerInterval = null;
         let recordingMs = 0;
+        let toastTimeout = null;
+        
+        // 🛠️ 編輯模式控制
+        let currentMode = 'select'; // 'select' 或 'pan'
+        let isPanning = false;
+        let panStartX = 0;
+        let panStartScrollLeft = 0;
 
-        // UI 元素
+        // 🔍 縮放控制變數
+        let currentZoom = 0;
+        const ZOOM_STEP = 30; 
+        const MAX_ZOOM = 400;
+
         const btnRecordToggle = document.getElementById('btn-record-toggle');
         const recordIcon = document.getElementById('record-icon');
-        const recordLabel = document.getElementById('record-label');
-
         const btnPlayToggle = document.getElementById('btn-play-toggle');
         const playIcon = document.getElementById('play-icon');
-        const playLabel = document.getElementById('play-label');
-
         const timeDisplay = document.getElementById('time-display');
-        const statusText = document.getElementById('status-text');
-        const editControls = document.getElementById('edit-controls');
-        const waveformContainer = document.getElementById('waveform');
+        
+        const fileUpload = document.getElementById('file-upload');
+        const btnZoomIn = document.getElementById('btn-zoom-in');
+        const btnZoomOut = document.getElementById('btn-zoom-out');
+        const btnZoomSelection = document.getElementById('btn-zoom-selection');
+        
+        const btnModeSelect = document.getElementById('btn-mode-select');
+		const btnModeMove = document.getElementById('btn-mode-move');
+        const btnModePan = document.getElementById('btn-mode-pan');
 
-        const btnTrim = document.getElementById('btn-trim');
+        const btnSetStart = document.getElementById('btn-set-start');
+        const btnSetEnd = document.getElementById('btn-set-end');
+        const btnClearRegion = document.getElementById('btn-clear-region');
+        
+        const btnCopy = document.getElementById('btn-copy');
+        const btnCut = document.getElementById('btn-cut');
+        const btnPaste = document.getElementById('btn-paste');
+        const btnTrimKeep = document.getElementById('btn-trim-keep');
+        const btnTrimDelete = document.getElementById('btn-trim-delete');
+        
         const btnDownload = document.getElementById('btn-download');
+        const exportFormat = document.getElementById('export-format');
+		const btnShare = document.getElementById('btn-share');
 
-        // === 2. 初始化 Wavesurfer 及其插件 ===
-        function initWavesurfer() {
-            // 如果已存在則銷毀，避免重複建立
-            if (wavesurfer) {
-                wavesurfer.destroy();
+        const btnHelp = document.getElementById('btn-help');
+        const helpMenu = document.getElementById('help-menu');
+
+        const editTools = document.querySelectorAll('.edit-tool');
+
+
+
+        // 隱藏/顯示 Help 菜單
+        btnHelp.addEventListener('click', (e) => {
+            e.stopPropagation();
+            helpMenu.classList.toggle('hidden');
+        });
+        document.addEventListener('click', (e) => {
+            if (!helpMenu.contains(e.target) && !btnHelp.contains(e.target)) {
+                helpMenu.classList.add('hidden');
+            }
+        });
+
+        // 浮動提示 (Toast)
+        function updateStatus(text, type = 'normal') {
+            const toast = document.getElementById('toast-message');
+            const toastContent = document.getElementById('toast-content');
+            const toastText = document.getElementById('toast-text');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastText.textContent = text;
+            
+            toastContent.className = 'px-5 py-2.5 rounded-full shadow-2xl backdrop-blur-md border flex items-center gap-2 transition-colors ';
+            if (type === 'recording') {
+                toastContent.className += 'bg-red-900/90 border-red-500/50 text-red-100';
+                toastIcon.className = 'fa-solid fa-microphone animate-pulse text-red-400';
+            } else if (type === 'success') {
+                toastContent.className += 'bg-emerald-900/90 border-emerald-500/50 text-emerald-100';
+                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400';
+            } else {
+                toastContent.className += 'bg-slate-800/90 border-slate-600/50 text-slate-100';
+                toastIcon.className = 'fa-solid fa-circle-info text-blue-400';
             }
 
-            // 建立 Regions 插件 (用於選取範圍)
-            regionsPlugin = WaveSurfer.Regions.create();
+            toast.classList.remove('-translate-y-10', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
 
-            // 建立主體實例
-            wavesurfer = WaveSurfer.create({
-                container: '#waveform',
-                waveColor: '#94a3b8', // 尚未播放時的波形顏色 (灰色)
-                progressColor: '#3b82f6', // 播放過的波形顏色 (藍色)
-                cursorColor: '#f87171', // 游標顏色
-                barWidth: 3, // 波形條寬度
-                barGap: 2,   // 波形條間距
-                barRadius: 3, // 圓角
-                height: 180,
-                normalize: false, // 🛑 修正：關閉音量正規化。這可以避免麥克風靜音時，將微小雜訊放大成滿版色塊
-                plugins: [regionsPlugin]
-            });
-
-            // 初始化錄音插件
-            recordPlugin = wavesurfer.registerPlugin(WaveSurfer.Record.create({
-                scrollingWaveform: true, // 讓錄音時波形會滾動
-                renderRecordedAudio: false // 🛑 修正：關閉自動載入，由我們手動載入，避免衝突
-            }));
-
-            // --- 事件監聽 ---
-
-            // 錄音結束時觸發
-            recordPlugin.on('record-end', (blob) => {
-                currentAudioBlob = blob;
-                statusText.textContent = "錄音完成，處理波形中...";
-                // 錄音完成後，載入音訊以供編輯和播放
-                loadAudioToEditor(blob);
-            });
-
-            // 播放時更新時間顯示
-            wavesurfer.on('audioprocess', (currentTime) => {
-                if (!isRecording) {
-                    updateTimeDisplay(currentTime * 1000);
-                }
-            });
-
-            // 播放結束時觸發
-            wavesurfer.on('finish', () => {
-                // 重置播放按鈕狀態
-                isPlaying = false;
-                updatePlayButtonUI();
-                wavesurfer.seekTo(0); // 回到開頭
-                updateTimeDisplay(0);
-                btnRecordToggle.disabled = false; // 允許再次錄音
-            });
+            clearTimeout(toastTimeout);
             
-             // 確保只有一個選取範圍
-            regionsPlugin.on('region-created', (region) => {
-                regionsPlugin.getRegions().forEach(r => {
-                    if (r.id !== region.id) r.remove();
-                });
+            if (type !== 'recording') {
+                toastTimeout = setTimeout(() => {
+                    toast.classList.remove('translate-y-0', 'opacity-100');
+                    toast.classList.add('-translate-y-10', 'opacity-0');
+                }, 3000);
+            }
+        }
+
+        function enableEditTools() {
+            editTools.forEach(btn => {
+                // 貼上按鈕需要等剪貼簿有內容才啟用
+                if (btn.id === 'btn-paste' && !clipboardBuffer) return;
+                btn.disabled = false;
             });
         }
 
-        // === 3. 時間顯示與計時器 ===
+        // 模式切換邏輯
+        // 模式切換邏輯 (嚴格分離工具功能)
+        function setInteractionMode(mode) {
+            currentMode = mode;
+            const wrapper = wavesurfer ? wavesurfer.getWrapper() : null;
+            const scrollLayer = wrapper && wrapper.shadowRoot ? wrapper.shadowRoot.querySelector('div') : wrapper;
+
+            // 1. 重設所有按鈕樣式為未選取狀態
+            btnModeSelect.classList.remove('bg-slate-700', 'text-blue-400');
+            btnModeSelect.classList.add('text-slate-400');
+            btnModeMove.classList.remove('bg-slate-700', 'text-blue-400');
+            btnModeMove.classList.add('text-slate-400');
+            btnModePan.classList.remove('bg-slate-700', 'text-blue-400');
+            btnModePan.classList.add('text-slate-400');
+
+            // 2. 根據當前模式套用高亮樣式
+            if (mode === 'select') {
+                btnModeSelect.classList.add('bg-slate-700', 'text-blue-400');
+                btnModeSelect.classList.remove('text-slate-400');
+            } else if (mode === 'move') {
+                btnModeMove.classList.add('bg-slate-700', 'text-blue-400');
+                btnModeMove.classList.remove('text-slate-400');
+            } else if (mode === 'pan') {
+                btnModePan.classList.add('bg-slate-700', 'text-blue-400');
+                btnModePan.classList.remove('text-slate-400');
+            }
+
+            // 3. 處理「選取工具」：先強制解除舊綁定，再重新綁定，確保錄音後不失效！
+            if (dragSelectionUnsubscribe) {
+                dragSelectionUnsubscribe();
+                dragSelectionUnsubscribe = null;
+            }
+            if (mode === 'select' && regionsPlugin) {
+                dragSelectionUnsubscribe = regionsPlugin.enableDragSelection({ color: COLOR_REGION });
+            }
+
+            // 4. 處理「移動片段工具」：決定音軌片段是否可以被拖曳
+            if (regionsPlugin) {
+                regionsPlugin.getRegions().forEach(r => {
+                    if (r.id.startsWith('clip_')) {
+                        // 只有在 Move 模式下，才能拖拉音軌片段
+                        r.setOptions({ drag: (mode === 'move') });
+                        
+                        if (r.element) {
+                            r.element.style.pointerEvents = (mode === 'move') ? 'auto' : 'none';
+                        }
+                    }
+                });
+            }
+
+            // 5. 處理「手形平移工具」：關閉點擊互動，防止游標亂跳
+            if (wavesurfer) {
+                wavesurfer.setOptions({
+                    interact: (mode !== 'pan'),
+                    cursorColor: '#ef4444',
+                    cursorWidth: 2
+                });
+            }
+
+            // 6. 根據工具改變滑鼠指標的外觀 (UX 優化)
+            if (scrollLayer) {
+                if (mode === 'pan') {
+                    scrollLayer.style.cursor = 'grab';      // 手形
+                } else if (mode === 'select') {
+                    scrollLayer.style.cursor = 'text';      // 類似輸入文字的游標，提示可以選取範圍
+                } else {
+                    scrollLayer.style.cursor = 'default';   // 移動模式為一般箭頭
+                }
+            }
+        }
+
+		// 記得綁定新按鈕的點擊事件
+		btnModeSelect.addEventListener('click', () => setInteractionMode('select'));
+		btnModeMove.addEventListener('click', () => setInteractionMode('move'));
+		btnModePan.addEventListener('click', () => setInteractionMode('pan'));
+
+        // === 初始化 Wavesurfer ===
+        function initWavesurfer() {
+            if (wavesurfer) wavesurfer.destroy();
+
+            regionsPlugin = WaveSurfer.Regions.create();
+            
+            timelinePlugin = WaveSurfer.Timeline.create({
+                height: 32, 
+                insertPosition: 'beforebegin', 
+                primaryColor: '#ffffff', 
+                secondaryColor: '#cbd5e1',
+                style: { 
+                    fontSize: '12px', color: '#ffffff', fontWeight: 'bold', fontFamily: 'monospace' 
+                },
+                formatTimeCallback: (seconds) => {
+                    const mins = Math.floor(seconds / 60);
+                    const secs = Math.floor(seconds % 60);
+                    const ms = Math.floor((seconds % 1) * 1000);
+                    if (currentZoom > 50) {
+                        return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+                    }
+                    return `${mins}:${secs.toString().padStart(2, '0')}`;
+                }
+            });
+
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=pcm') 
+                ? 'audio/webm;codecs=pcm' 
+                : (MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : '');
+
+            recordPlugin = WaveSurfer.Record.create({
+                scrollingWaveform: true,
+                renderRecordedAudio: false,
+                // 💡 強制指定最高音質的錄音格式
+                mimeType: mimeType, 
+                // 💡 將位元率拉到極限 (320kbps)，防止任何壓縮失真
+                audioBitsPerSecond: 320000 
+            });
+
+            wavesurfer = WaveSurfer.create({
+                container: '#waveform',
+                waveColor: COLOR_WAVE_BASE,
+                progressColor: COLOR_WAVE_PLAYED,
+                cursorColor: '#ef4444', 
+                cursorWidth: 2,
+                barWidth: 2,
+                barGap: 1,
+                barRadius: 2,
+                height: '100%', 
+                normalize: false, 
+                minPxPerSec: 0, 
+                plugins: [regionsPlugin, timelinePlugin, recordPlugin]
+            });
+
+            // 初始化選取模式
+            dragSelectionUnsubscribe = regionsPlugin.enableDragSelection({ color: COLOR_REGION });
+            setInteractionMode(currentMode); // 確保套用正確的游標與狀態
+
+            const waveformContainer = document.getElementById('waveform-container');
+            waveformContainer.addEventListener('mouseenter', () => waveformContainer.focus());
+
+            // 💡 手形平移 (Pan) 的拖曳邏輯 (完美 1:1 滾動條手感)
+            // 💡 手形平移 (Pan) 的拖曳邏輯 (終極順暢版)
+            waveformContainer.addEventListener('mousedown', (e) => {
+                if (currentMode !== 'pan') return;
+                
+                // 🌟 關鍵修復 1：強制阻止瀏覽器預設的反白與原生拖曳行為！
+                e.preventDefault(); 
+                
+                isPanning = true;
+                panStartX = e.clientX; 
+                
+                const wrapper = wavesurfer.getWrapper();
+                // 🌟 關鍵修復 2：更精準抓取 Wavesurfer 底層專門負責滾動的元素
+                const scrollContainer = wrapper.shadowRoot ? (wrapper.shadowRoot.querySelector('[part="scroll"]') || wrapper.shadowRoot.querySelector('div')) : wrapper;
+                
+                if (scrollContainer) {
+                    panStartScrollLeft = scrollContainer.scrollLeft;
+                    scrollContainer.style.cursor = 'grabbing';
+                }
+            });
+
+            window.addEventListener('mouseup', () => {
+                isPanning = false;
+                if (currentMode === 'pan' && wavesurfer) {
+                    const wrapper = wavesurfer.getWrapper();
+                    const scrollContainer = wrapper.shadowRoot ? (wrapper.shadowRoot.querySelector('[part="scroll"]') || wrapper.shadowRoot.querySelector('div')) : wrapper;
+                    if (scrollContainer) scrollContainer.style.cursor = 'grab';
+                }
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isPanning || currentMode !== 'pan' || !wavesurfer) return;
+                
+                // 確保移動過程中也不會觸發其他原生事件
+                e.preventDefault();
+                
+                const wrapper = wavesurfer.getWrapper();
+                const scrollContainer = wrapper.shadowRoot ? (wrapper.shadowRoot.querySelector('[part="scroll"]') || wrapper.shadowRoot.querySelector('div')) : wrapper;
+                
+                if (scrollContainer) {
+                    // 計算滑鼠移動的絕對距離
+                    const deltaX = e.clientX - panStartX; 
+                    
+                    // 執行「抓手畫布」檢視邏輯 (滑鼠往左拉，音軌跟著往左退)
+                    scrollContainer.scrollLeft = panStartScrollLeft - deltaX; 
+                }
+            });
+            // Shift+滾輪橫向捲動
+            waveformContainer.addEventListener('wheel', (e) => {
+                if (e.shiftKey) {
+                    e.preventDefault(); 
+                    const wrapper = wavesurfer.getWrapper();
+                    const scrollContainer = wrapper.shadowRoot ? wrapper.shadowRoot.querySelector('div') : wrapper;
+                    if (scrollContainer) {
+                        const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+                        const sign = (e.deltaY !== 0) ? Math.sign(e.deltaY) : Math.sign(e.deltaX);
+                        scrollContainer.scrollLeft += sign * Math.abs(delta) * 1.5; 
+                    }
+                }
+            }, { passive: false });
+
+            regionsPlugin.on('region-created', (region) => {
+                if (region.id.startsWith('clip_')) return;
+                regionsPlugin.getRegions().forEach(r => {
+                    if (r.id !== region.id && !r.id.startsWith('clip_')) r.remove();
+                });
+            });
+
+            // ✅ 修正：Wavesurfer v7 正確的拖曳放開事件是 'region-updated'
+            // 💡 新增全域變數用來控制捲動計時器
+            let autoScrollInterval = null;
+
+            // ✅ 新增：監聽「拖曳中」事件，實現邊緣自動捲動 (Auto-Scroll)
+            regionsPlugin.on('region-update', (region) => {
+                if (!region.id.startsWith('clip_')) return;
+                
+                const wrapper = wavesurfer.getWrapper();
+                const scrollContainer = wrapper.shadowRoot ? wrapper.shadowRoot.querySelector('div') : wrapper;
+                if (!scrollContainer) return;
+
+                const pxPerSec = scrollContainer.scrollWidth / wavesurfer.getDuration();
+                const regionRightPx = region.end * pxPerSec;
+                const regionLeftPx = region.start * pxPerSec;
+                const viewLeft = scrollContainer.scrollLeft;
+                const viewRight = viewLeft + scrollContainer.clientWidth;
+
+                // 每次移動時先清除舊的計時器
+                clearInterval(autoScrollInterval);
+
+                // 如果區塊右側靠近畫面右邊緣 50px 內
+                if (regionRightPx > viewRight - 50) {
+                    autoScrollInterval = setInterval(() => {
+                        scrollContainer.scrollLeft += 15; // 持續平滑向右捲動
+                    }, 20);
+                } 
+                // 如果區塊左側靠近畫面左邊緣 50px 內
+                else if (regionLeftPx < viewLeft + 50) {
+                    autoScrollInterval = setInterval(() => {
+                        scrollContainer.scrollLeft -= 15; // 持續平滑向左捲動
+                    }, 20);
+                }
+            });
+
+            // ✅ 修正：拖曳放開時，處理各種邏輯
+            regionsPlugin.on('region-updated', (region) => {
+                clearInterval(autoScrollInterval); // 放開滑鼠時停止捲動
+                
+                if (region.id.startsWith('clip_')) {
+                    // 如果是拖曳音軌片段，執行重排邏輯
+                    const clip = virtualClips.find(c => c.id === region.id);
+                    if (clip) {
+                        clip.startTime = Math.max(0, region.start);
+                        rebuildAudioFromClips(); 
+                    }
+                } else {
+                    // 🌟 新增：選取工具的「邊緣磁吸」功能 (Snap to Edge)
+                    // 如果你正在拉紫色選取框，放開滑鼠時會自動檢查是否靠近邊緣
+                    const SNAP_THRESHOLD = 0.15; // 磁吸範圍：0.15 秒以內自動貼齊
+                    let newStart = region.start;
+                    let newEnd = region.end;
+                    let shouldSnap = false;
+
+                    // 1. 開頭磁吸：只要靠近 0 秒，就自動貼齊 0:00.000
+                    if (newStart > 0 && newStart < SNAP_THRESHOLD) {
+                        newStart = 0;
+                        shouldSnap = true;
+                    }
+
+                    // 2. 結尾磁吸：順便幫你處理尾巴！只要靠近音檔最尾端，也自動貼齊
+                    const duration = wavesurfer.getDuration();
+                    if (newEnd < duration && (duration - newEnd) < SNAP_THRESHOLD) {
+                        newEnd = duration;
+                        shouldSnap = true;
+                    }
+
+                    // 如果觸發了磁吸，就立刻更新選取框的位置
+                    if (shouldSnap) {
+                        region.setOptions({ start: newStart, end: newEnd });
+                    }
+                }
+            });
+
+            recordPlugin.on('record-end', (blob) => {
+                updateStatus("處理波形中...");
+                loadAudioBlob(blob);
+            });
+
+            wavesurfer.on('audioprocess', (currentTime) => {
+                if (!isRecording) updateTimeDisplay(currentTime * 1000);
+            });
+
+            wavesurfer.on('timeupdate', (currentTime) => {
+                if (!isRecording) updateTimeDisplay(currentTime * 1000);
+
+                if (isPlaying) {
+                    // 🌟 修復：讓循環播放只對白色選取範圍生效
+                    const regions = regionsPlugin.getRegions().filter(r => !r.id.startsWith('clip_'));
+                    if (regions.length > 0) {
+                        const region = regions[0];
+                        if (currentTime >= region.end) {
+                            wavesurfer.pause();
+                            wavesurfer.setTime(region.start);
+                            isPlaying = false;
+                            updatePlayButtonUI();
+                            btnRecordToggle.disabled = false;
+                            btnRecordToggle.classList.remove('opacity-30');
+                        }
+                    }
+                }
+            });
+
+            wavesurfer.on('finish', () => {
+                isPlaying = false;
+                updatePlayButtonUI();
+                const regions = regionsPlugin.getRegions();
+                if (regions.length === 0) {
+                    wavesurfer.seekTo(0);
+                    updateTimeDisplay(0);
+                }
+                btnRecordToggle.disabled = false;
+            });
+        }
+
         function updateTimeDisplay(ms) {
             const totalSeconds = Math.floor(ms / 1000);
             const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
             const seconds = (totalSeconds % 60).toString().padStart(2, '0');
-            // 顯示一位小數即可，比較簡潔
             const deciseconds = Math.floor((ms % 1000) / 100);
             timeDisplay.textContent = `${minutes}:${seconds}.${deciseconds}`;
         }
@@ -206,227 +752,585 @@
             }, 100);
         }
 
-        function stopRecordingTimer() {
-            clearInterval(recordingTimerInterval);
+        fileUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            if (!wavesurfer) initWavesurfer();
+            updateStatus("正在載入音檔...");
+            loadAudioBlob(file);
+        });
+
+        function loadAudioBlob(blob, isRebuild = false) {
+			let previousScrollLeft = 0;
+			if (isRebuild && wavesurfer) {
+				const wrapper = wavesurfer.getWrapper();
+				const scrollContainer = wrapper.shadowRoot ? wrapper.shadowRoot.querySelector('div') : wrapper;
+				if (scrollContainer) previousScrollLeft = scrollContainer.scrollLeft;
+			}
+
+			if (currentBlobUrl) {
+				URL.revokeObjectURL(currentBlobUrl);
+			}
+			currentBlobUrl = URL.createObjectURL(blob);
+			wavesurfer.load(currentBlobUrl);
+            
+            wavesurfer.once('ready', () => {
+                if (!isRebuild) {
+                    const buffer = wavesurfer.getDecodedData();
+                    virtualClips = [{
+                        id: `clip_${clipCounter++}`,
+                        startTime: 0,
+                        buffer: buffer
+                    }];
+                    
+                    updateStatus("音檔已載入，準備就緒！", 'success');
+                    enableEditTools();
+                    currentZoom = 0; 
+                    regionsPlugin.clearRegions();
+                    updateTimeDisplay(0);
+
+                    rebuildAudioFromClips();
+                    return; // 提早結束，讓重組後的畫面接手渲染
+                }
+                
+                wavesurfer.zoom(currentZoom);
+
+                if (isRebuild) {
+                    setTimeout(() => {
+                        const wrapper = wavesurfer.getWrapper();
+                        const scrollContainer = wrapper.shadowRoot ? wrapper.shadowRoot.querySelector('div') : wrapper;
+                        if (scrollContainer) scrollContainer.scrollLeft = previousScrollLeft;
+                    }, 10);
+                }
+                
+                renderClipRegions();
+                
+                setInteractionMode(currentMode);
+            });
         }
 
-        // === 4. 核心邏輯：錄音按鈕切換 ===
+        // ================= 縮放控制 (專業比例縮放版) =================
+        const ZOOM_FACTOR = 1.2; // (你可以修改這個數字，越小越平滑，例如 1.2)
+
+        btnZoomIn.addEventListener('click', () => {
+            if (!wavesurfer || wavesurfer.getDuration() === 0) return;
+            
+            const containerWidth = document.getElementById('waveform').clientWidth;
+            const fitZoom = containerWidth / wavesurfer.getDuration();
+            
+            if (currentZoom === 0) {
+                currentZoom = fitZoom;
+            }
+
+            currentZoom = Math.min(currentZoom * ZOOM_FACTOR, MAX_ZOOM);
+            wavesurfer.zoom(currentZoom);
+        });
+
+        btnZoomOut.addEventListener('click', () => {
+            if (!wavesurfer || wavesurfer.getDuration() === 0) return;
+            
+            const containerWidth = document.getElementById('waveform').clientWidth;
+            const fitZoom = containerWidth / wavesurfer.getDuration();
+            
+            if (currentZoom === 0) {
+                currentZoom = fitZoom;
+            }
+
+            currentZoom = currentZoom / ZOOM_FACTOR;
+
+            if (currentZoom <= fitZoom) {
+                currentZoom = 0;
+            }
+            
+            wavesurfer.zoom(currentZoom);
+        });
+
+        btnZoomSelection.addEventListener('click', () => {
+            if (!wavesurfer) return;
+            // 🌟 修復：過濾紫色片段
+            const regions = regionsPlugin.getRegions().filter(r => !r.id.startsWith('clip_'));
+            if (regions.length === 0) {
+                updateStatus("請先在波形上拖曳選取範圍！", "normal");
+                return;
+            }
+            
+            const region = regions[0];
+            const duration = region.end - region.start;
+            if (duration <= 0) return;
+
+            const containerWidth = document.getElementById('waveform').clientWidth;
+            const pxPerSec = (containerWidth / duration) * 0.9;
+            
+            currentZoom = Math.min(pxPerSec, MAX_ZOOM);
+            wavesurfer.zoom(currentZoom);
+            
+            wavesurfer.setTime(region.start);
+            updateTimeDisplay(region.start * 1000);
+        });
+
+        // 選取範圍標記
+        btnSetStart.addEventListener('click', () => {
+            if(!wavesurfer) return;
+            const currentTime = wavesurfer.getCurrentTime();
+            // 🌟 修復：過濾紫色片段
+            let regions = regionsPlugin.getRegions().filter(r => !r.id.startsWith('clip_'));
+            
+            if(regions.length === 0) {
+                regionsPlugin.addRegion({ start: currentTime, end: Math.min(currentTime + 1, wavesurfer.getDuration()), color: COLOR_REGION });
+            } else {
+                let currentEnd = regions[0].end;
+                if(currentTime >= currentEnd) currentEnd = Math.min(currentTime + 1, wavesurfer.getDuration());
+                regions[0].setOptions({ start: currentTime, end: currentEnd });
+            }
+        });
+
+        btnSetEnd.addEventListener('click', () => {
+            if(!wavesurfer) return;
+            const currentTime = wavesurfer.getCurrentTime();
+            let regions = regionsPlugin.getRegions().filter(r => !r.id.startsWith('clip_'));
+            
+            if(regions.length === 0) {
+                regionsPlugin.addRegion({ start: Math.max(currentTime - 1, 0), end: currentTime, color: COLOR_REGION });
+            } else {
+                let currentStart = regions[0].start;
+                if(currentTime <= currentStart) currentStart = Math.max(currentTime - 1, 0);
+                regions[0].setOptions({ start: currentStart, end: currentTime });
+            }
+        });
+
+        btnClearRegion.addEventListener('click', () => {
+            if(regionsPlugin) regionsPlugin.clearRegions();
+        });
+
+        // 錄音與播放
         async function toggleRecording() {
             if (!wavesurfer) initWavesurfer();
-
             if (!isRecording) {
-                // --- 開始錄音 ---
+                // 💡 先備份瀏覽器原始的麥克風 API
+                let originalGetUserMedia;
+                
                 try {
-                    // 檢查瀏覽器支援
-                    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                        throw new Error("您的瀏覽器不支援麥克風存取，或未在安全環境(HTTPS/localhost)下執行。");
-                    }
+                    // 💡 終極破解法：攔截 API，強制注入「錄音室級別」的無損參數
+                    originalGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
                     
-                    // 🛑 修正：直接讓 recordPlugin 處理麥克風存取與串流，避免自訂 stream 造成的雙重啟動問題
-                    await recordPlugin.startRecording();
+                    navigator.mediaDevices.getUserMedia = async function(constraints) {
+                        const audioConstraints = typeof constraints.audio === 'object' ? constraints.audio : {};
+                        
+                        // 1. 呼叫原始 API 取得麥克風 (這時畫面會跳出「允許」視窗)
+                        const stream = await originalGetUserMedia({
+                            ...constraints,
+                            audio: {
+                                ...audioConstraints,
+                                // 強制關閉所有通話濾波器
+                                echoCancellation: false,
+                                noiseSuppression: false,
+                                autoGainControl: false,
+                                // 強制開啟雙聲道高解析模式
+                                channelCount: 2, 
+                                sampleRate: 48000,
+                                // 強制關閉 WebRTC 底層隱藏的降噪引擎
+                                googEchoCancellation: false,
+                                googAutoGainControl: false,
+                                googNoiseSuppression: false,
+                                googHighpassFilter: false,
+                                googTypingNoiseDetection: false,
+                                googNoiseReduction: false
+                            }
+                        });
 
+                        // 🌟 關鍵修復：取得授權並啟動硬體後，強制等待 300 毫秒 (0.3秒)！
+                        // 讓麥克風通電的突波 (Pop) 與滑鼠點擊聲完全消散，再把串流交給錄音外掛
+                        await new Promise(resolve => setTimeout(resolve, 300));
+
+                        return stream;
+                    };
+
+                    // 開始錄音 (此時外掛拿到 stream 時，爆音已經過去了)
+                    await recordPlugin.startRecording();
+                    
+                    // 錄音成功啟動後，立刻將瀏覽器的 API 恢復原狀
+                    navigator.mediaDevices.getUserMedia = originalGetUserMedia;
+                    
                     isRecording = true;
                     startRecordingTimer();
-                    
-                    // 更新 UI 狀態
                     updateRecordButtonUI();
-                    btnPlayToggle.disabled = true; // 錄音時禁止播放
-                    editControls.classList.add('hidden'); // 隱藏編輯區
-                    regionsPlugin.clearRegions(); // 清除舊範圍
                     
-                    statusText.textContent = "正在錄音... (請說話測試波形)";
-                    statusText.className = "text-red-400 animate-pulse";
-                    timeDisplay.classList.add('text-red-500');
-                    waveformContainer.classList.add('ring-red-500/30');
-
+                    editTools.forEach(btn => btn.disabled = true);
+                    regionsPlugin.clearRegions();
+                    updateStatus("正在錄音 (專業純淨模式)...", 'recording');
                 } catch (err) {
-                    console.error("錄音失敗:", err);
-                    let errorMsg = "無法開始錄音。\n\n";
-                    if (err.name === 'NotAllowedError' || err.name === 'SecurityError' || err.message.includes('Permission denied')) {
-                        errorMsg += "🛑 原因：瀏覽器或目前的線上預覽環境「封鎖了麥克風權限」。\n\n👉 解決方案：線上預覽視窗通常無法使用麥克風。請將此檔案存到電腦中，並使用 VS Code 的 Live Server 擴充功能開啟測試。";
-                    } else if (err.name === 'NotFoundError') {
-                        errorMsg += "🛑 原因：找不到麥克風設備。請確認您的電腦有連接麥克風。";
-                    } else {
-                        errorMsg += "🛑 詳細錯誤：" + err.message;
+                    alert("無法開始錄音：" + err.message); 
+                    // 發生錯誤時也要確保 API 被恢復
+                    if (originalGetUserMedia && navigator.mediaDevices.getUserMedia !== originalGetUserMedia) {
+                        navigator.mediaDevices.getUserMedia = originalGetUserMedia;
                     }
-                    alert(errorMsg);
-                    statusText.textContent = "錄音啟動失敗 (權限遭封鎖)";
-                    statusText.className = "text-red-500 font-bold";
                 }
             } else {
-                // --- 停止錄音 ---
                 recordPlugin.stopRecording();
                 isRecording = false;
-                stopRecordingTimer();
-
-                // 更新 UI 狀態
+                clearInterval(recordingTimerInterval);
                 updateRecordButtonUI();
-                // 播放按鈕會在音訊載入完成後 (loadAudioToEditor) 解鎖
-                
-                statusText.textContent = "處理錄音資料中...";
-                statusText.className = "text-slate-400";
-                timeDisplay.classList.remove('text-red-500');
-                waveformContainer.classList.remove('ring-red-500/30');
+                updateStatus("錄音結束，處理中...");
             }
         }
 
-        // 更新錄音按鈕的樣式與圖示
         function updateRecordButtonUI() {
             if (isRecording) {
-                // 變成「停止」按鈕 (灰色方塊)
                 btnRecordToggle.classList.replace('bg-red-500', 'bg-slate-600');
                 btnRecordToggle.classList.replace('hover:bg-red-600', 'hover:bg-slate-500');
-                btnRecordToggle.classList.replace('shadow-[0_0_20px_rgba(239,68,68,0.3)]', 'shadow-none');
-                recordIcon.className = "fa-solid fa-stop text-3xl mb-1";
-                recordLabel.textContent = "停止";
+                recordIcon.className = "fa-solid fa-stop text-lg";
             } else {
-                // 變回「錄音」按鈕 (紅色麥克風)
                 btnRecordToggle.classList.replace('bg-slate-600', 'bg-red-500');
                 btnRecordToggle.classList.replace('hover:bg-slate-500', 'hover:bg-red-600');
-                btnRecordToggle.classList.add('shadow-[0_0_20px_rgba(239,68,68,0.3)]');
-                recordIcon.className = "fa-solid fa-microphone text-3xl mb-1";
-                recordLabel.textContent = "錄音";
+                recordIcon.className = "fa-solid fa-microphone text-lg";
             }
         }
 
-        // === 5. 核心邏輯：播放按鈕切換 ===
         function togglePlayback() {
             if (!wavesurfer || isRecording) return;
-
             if (!isPlaying) {
-                // --- 開始播放 ---
-                // 如果有選取範圍，優先播放範圍
-                const regions = regionsPlugin.getRegions();
+                // 🌟 修復：避免播放時被紫色片段干擾
+                const regions = regionsPlugin.getRegions().filter(r => !r.id.startsWith('clip_'));
                 if (regions.length > 0) {
-                    regions[0].play();
-                } else {
-                    wavesurfer.play();
+                    const currentTime = wavesurfer.getCurrentTime();
+                    if (currentTime < regions[0].start || currentTime >= regions[0].end) {
+                        wavesurfer.setTime(regions[0].start);
+                    }
                 }
+                wavesurfer.play();
                 isPlaying = true;
-                btnRecordToggle.disabled = true; // 播放時禁止錄音
+                btnRecordToggle.disabled = true;
+                btnRecordToggle.classList.add('opacity-30');
             } else {
-                // --- 暫停播放 ---
                 wavesurfer.pause();
                 isPlaying = false;
-                btnRecordToggle.disabled = false; // 恢復錄音功能
+                btnRecordToggle.disabled = false;
+                btnRecordToggle.classList.remove('opacity-30');
             }
             updatePlayButtonUI();
         }
 
-        // 更新播放按鈕的樣式與圖示
         function updatePlayButtonUI() {
             if (isPlaying) {
-                // 變成「暫停」按鈕 (黃色)
                 btnPlayToggle.classList.replace('bg-blue-500', 'bg-amber-500');
                 btnPlayToggle.classList.replace('hover:bg-blue-600', 'hover:bg-amber-600');
-                btnPlayToggle.classList.replace('shadow-[0_0_20px_rgba(59,130,246,0.3)]', 'shadow-[0_0_20px_rgba(245,158,11,0.3)]');
-                playIcon.className = "fa-solid fa-pause text-3xl mb-1";
-                playLabel.textContent = "暫停";
+                playIcon.className = "fa-solid fa-pause text-lg";
+                playIcon.classList.remove('pl-1');
             } else {
-                // 變回「播放」按鈕 (藍色)
                 btnPlayToggle.classList.replace('bg-amber-500', 'bg-blue-500');
                 btnPlayToggle.classList.replace('hover:bg-amber-600', 'hover:bg-blue-600');
-                btnPlayToggle.classList.replace('shadow-[0_0_20px_rgba(245,158,11,0.3)]', 'shadow-[0_0_20px_rgba(59,130,246,0.3)]');
-                playIcon.className = "fa-solid fa-play text-3xl mb-1 pl-1";
-                playLabel.textContent = "播放";
+                playIcon.className = "fa-solid fa-play text-lg pl-1";
             }
         }
 
-
-        // === 6. 輔助功能：載入音訊與裁切 ===
-        
-        // 將錄製好的 Blob 載入到編輯器中
-        function loadAudioToEditor(blob) {
-            const objectUrl = URL.createObjectURL(blob);
-            wavesurfer.load(objectUrl);
+        // ================= 進階編輯核心邏輯 (複製/剪下/貼上/刪除/保留) =================
+        function getValidRegion() {
+            const regions = regionsPlugin.getRegions().filter(r => !r.id.startsWith('clip_'));
             
-            wavesurfer.once('ready', () => {
-                // 音訊載入完成
-                statusText.textContent = "準備就緒 (可播放或編輯)";
-                statusText.className = "text-emerald-400";
-                btnPlayToggle.disabled = false; // 解鎖播放按鈕
-                btnRecordToggle.disabled = false;
-                editControls.classList.remove('hidden'); // 顯示編輯區
+            if (regions.length === 0) { 
+                updateStatus("請先拉出白色的選取範圍！"); 
+                return null; 
+            }
+            if (regions[0].end - regions[0].start < 0.01) { 
+                updateStatus("選取範圍太短。"); 
+                return null; 
+            }
+            return regions[0];
+        }
 
-                // 預設建立一個全選的綠色區域
-                regionsPlugin.clearRegions();
-                regionsPlugin.addRegion({
-                    start: 0.1, // 稍微留點邊
-                    end: wavesurfer.getDuration() - 0.1,
-                    color: 'rgba(16, 185, 129, 0.2)', // Emerald 顏色，半透明
-                    drag: true,
-                    resize: true
-                });
-                updateTimeDisplay(wavesurfer.getDuration() * 1000);
+        // 複製 (Copy)
+        btnCopy.addEventListener('click', () => {
+            const region = getValidRegion(); if (!region) return;
+            const originalBuffer = wavesurfer.getDecodedData();
+            const sampleRate = originalBuffer.sampleRate;
+            const channels = originalBuffer.numberOfChannels;
+            
+            const startSample = Math.floor(region.start * sampleRate);
+            const endSample = Math.floor(region.end * sampleRate);
+            const frameCount = endSample - startSample;
+
+            const offlineCtx = new OfflineAudioContext(channels, frameCount, sampleRate);
+            clipboardBuffer = offlineCtx.createBuffer(channels, frameCount, sampleRate);
+            
+            for (let i = 0; i < channels; i++) {
+                clipboardBuffer.getChannelData(i).set(originalBuffer.getChannelData(i).subarray(startSample, endSample));
+            }
+            
+            btnPaste.disabled = false;
+            updateStatus("已複製選取段落", 'success');
+        });
+
+        // 剪下 (Cut)
+        btnCut.addEventListener('click', () => {
+            const region = getValidRegion(); if (!region) return;
+            updateStatus("正在剪下...");
+            
+            const originalBuffer = wavesurfer.getDecodedData();
+            const sampleRate = originalBuffer.sampleRate;
+            const channels = originalBuffer.numberOfChannels;
+            
+            const startSample = Math.floor(region.start * sampleRate);
+            const endSample = Math.floor(region.end * sampleRate);
+            const frameCount = endSample - startSample;
+
+            // 先備份到剪貼簿
+            const offlineCtx = new OfflineAudioContext(channels, frameCount, sampleRate);
+            clipboardBuffer = offlineCtx.createBuffer(channels, frameCount, sampleRate);
+            for (let i = 0; i < channels; i++) {
+                clipboardBuffer.getChannelData(i).set(originalBuffer.getChannelData(i).subarray(startSample, endSample));
+            }
+            btnPaste.disabled = false;
+
+            // 執行刪除與拼接
+            const newLength = originalBuffer.length - frameCount;
+            if (newLength <= 0) return updateStatus("不能刪除全部音訊！");
+            
+            const newBufferCtx = new OfflineAudioContext(channels, newLength, sampleRate);
+            const newBuffer = newBufferCtx.createBuffer(channels, newLength, sampleRate);
+
+            for (let i = 0; i < channels; i++) {
+                const origData = originalBuffer.getChannelData(i);
+                const newData = newBuffer.getChannelData(i);
+                newData.set(origData.subarray(0, startSample), 0);
+                newData.set(origData.subarray(endSample), startSample);
+            }
+            
+
+            loadAudioBlob(bufferToWave32Bit(newBuffer, newLength));
+            updateStatus("已剪下段落", 'success');
+        });
+
+        // 貼上 (Paste)
+        btnPaste.addEventListener('click', () => {
+            if (!clipboardBuffer || !wavesurfer) return;
+            updateStatus("正在貼上...");
+            
+            const originalBuffer = wavesurfer.getDecodedData();
+            const sampleRate = originalBuffer.sampleRate;
+            const channels = originalBuffer.numberOfChannels;
+            
+            const insertTime = wavesurfer.getCurrentTime();
+            const insertSample = Math.floor(insertTime * sampleRate);
+            const newLength = originalBuffer.length + clipboardBuffer.length;
+
+            const offlineCtx = new OfflineAudioContext(channels, newLength, sampleRate);
+            const newBuffer = offlineCtx.createBuffer(channels, newLength, sampleRate);
+
+            for (let i = 0; i < channels; i++) {
+                const origData = originalBuffer.getChannelData(i);
+                const clipData = clipboardBuffer.getChannelData(i);
+                const newData = newBuffer.getChannelData(i);
+                
+                newData.set(origData.subarray(0, insertSample), 0);
+                newData.set(clipData, insertSample);
+                newData.set(origData.subarray(insertSample), insertSample + clipData.length);
+            }
+            
+            // ✅ 改為 32-bit 無損輸出
+            loadAudioBlob(bufferToWave32Bit(newBuffer, newLength));
+            updateStatus("已貼上音訊", 'success');
+        });
+
+        // 保留選取 (Trim Keep)
+        btnTrimKeep.addEventListener('click', () => {
+            const region = getValidRegion(); if (!region) return;
+            try {
+                updateStatus("正在剪輯...");
+                const originalBuffer = wavesurfer.getDecodedData();
+                const channels = originalBuffer.numberOfChannels;
+                const sampleRate = originalBuffer.sampleRate;
+                const startSample = Math.floor(region.start * sampleRate);
+                const frameCount = Math.floor(region.end * sampleRate) - startSample;
+
+                const newBuffer = new OfflineAudioContext(channels, frameCount, sampleRate).createBuffer(channels, frameCount, sampleRate);
+                for (let i = 0; i < channels; i++) {
+                    newBuffer.getChannelData(i).set(originalBuffer.getChannelData(i).subarray(startSample, startSample + frameCount));
+                }
+                // ✅ 改為 32-bit 無損輸出
+                loadAudioBlob(bufferToWave32Bit(newBuffer, frameCount));
+            } catch (e) { updateStatus("編輯失敗"); }
+        });
+
+        // 刪除選取 (Trim Delete)
+        btnTrimDelete.addEventListener('click', () => {
+            const region = getValidRegion(); if (!region) return;
+            try {
+                updateStatus("正在剪輯...");
+                const originalBuffer = wavesurfer.getDecodedData();
+                const channels = originalBuffer.numberOfChannels;
+                const sampleRate = originalBuffer.sampleRate;
+                const startSample = Math.floor(region.start * sampleRate);
+                const endSample = Math.floor(region.end * sampleRate);
+                const newLength = originalBuffer.length - (endSample - startSample);
+                
+                if (newLength <= 0) return updateStatus("不能刪除全部！");
+                const newBuffer = new OfflineAudioContext(channels, newLength, sampleRate).createBuffer(channels, newLength, sampleRate);
+
+                for (let i = 0; i < channels; i++) {
+                    const origData = originalBuffer.getChannelData(i);
+                    const newData = newBuffer.getChannelData(i);
+                    newData.set(origData.subarray(0, startSample), 0);
+                    newData.set(origData.subarray(endSample), startSample);
+                }
+                // ✅ 改為 32-bit 無損輸出
+                loadAudioBlob(bufferToWave32Bit(newBuffer, newLength));
+            } catch (e) { updateStatus("編輯失敗"); }
+        });
+		// ================= 💡 新增：取得精確的音訊內容 (去除尾部所有空白) =================
+        function getExactAudioBuffer() {
+            if (virtualClips.length === 0) return wavesurfer.getDecodedData();
+
+            // 找出所有片段中，最晚結束的時間點
+            let maxTime = 0;
+            virtualClips.forEach(c => {
+                if (c.startTime + c.buffer.duration > maxTime) maxTime = c.startTime + c.buffer.duration;
+            });
+
+            const originalBuffer = wavesurfer.getDecodedData();
+            const sampleRate = originalBuffer.sampleRate;
+            const channels = originalBuffer.numberOfChannels;
+            
+            // 計算實際結束的幀數 (Frames)
+            const exactFrames = Math.min(Math.ceil(maxTime * sampleRate), originalBuffer.length);
+            if (exactFrames <= 0) return originalBuffer;
+
+            // 建立一個剛好符合實際長度的新 Buffer
+            const exactBuffer = new AudioBuffer({
+                length: exactFrames,
+                numberOfChannels: channels,
+                sampleRate: sampleRate
+            });
+
+            // 完美複製到實際結束點為止
+            for (let c = 0; c < channels; c++) {
+                exactBuffer.getChannelData(c).set(originalBuffer.getChannelData(c).subarray(0, exactFrames));
+            }
+            return exactBuffer;
+        }
+
+        // ================= 匯出邏輯 =================
+        btnDownload.addEventListener('click', () => {
+            const format = exportFormat.value;
+            updateStatus("正在處理並匯出檔案中...", 'recording');
+            
+            setTimeout(() => {
+                // 🌟 修正 2：改用 getExactAudioBuffer()，確保下載的檔案是 0 空白
+                const buffer = getExactAudioBuffer();
+                
+                let blob = (format === 'mp3') ? bufferToMp3(buffer) : bufferToWave(buffer, buffer.length);
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                a.download = `AudioPro_${timestamp}.${format}`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                updateStatus("匯出完成！", 'success');
+            }, 100);
+        });
+
+        if (btnShare) {
+            btnShare.addEventListener('click', async () => {
+                if (!wavesurfer) return;
+
+                const CLOUD_NAME = "djzsecpbw"; 
+                const UPLOAD_PRESET = "wesing-audio"; 
+
+                const format = exportFormat.value; 
+                updateStatus("正在準備音檔，準備上傳至 Cloudinary...", "recording");
+                btnShare.disabled = true;
+
+                try {
+                    // 1. 取得精準的無空白音軌
+                    const buffer = getExactAudioBuffer();
+                    
+                    // 2. 轉換為 Blob (根據下拉選單決定格式)
+                    let blob = (format === 'mp3') ? bufferToMp3(buffer) : bufferToWave32Bit(buffer, buffer.length);
+                    
+                    // ==========================================
+                    // 🌟 新增：前端檔案大小限制 (這裡設定為 20MB)
+                    // ==========================================
+                    const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20 MB (以 Bytes 為單位)
+                    
+                    if (blob.size > MAX_FILE_SIZE) {
+                        updateStatus("❌ 檔案過大 (超過 20MB)，請縮短音軌長度後再分享！", "normal");
+                        btnShare.disabled = false;
+                        return; // 提早結束，停止上傳
+                    }
+
+                    // 3. 建立不重複的檔案名稱
+                    const timestamp = new Date().getTime();
+                    const fileName = `shared_audio_${timestamp}.${format}`;
+                    
+                    // 4. 打包資料準備發送給 Cloudinary (使用 FormData)
+                    const formData = new FormData();
+                    formData.append('file', blob, fileName);
+                    formData.append('upload_preset', UPLOAD_PRESET);
+                    
+                    updateStatus("正在上傳中，請稍候...", "recording");
+
+                    // 5. 呼叫 Cloudinary API 執行上傳
+                    // 注意：Cloudinary 統一將音訊與影片放在 video 或 auto 端點處理
+                    const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`上傳失敗，狀態碼：${response.status}`);
+                    }
+
+                    const data = await response.json();
+
+                    // 6. 取得 Cloudinary 回傳的 https 加密公開網址
+                    const downloadURL = data.secure_url;
+
+                    // 7. 將網址自動複製到使用者的剪貼簿
+                    await navigator.clipboard.writeText(downloadURL);
+
+                    updateStatus("✅ 上傳成功！網址已複製到剪貼簿", "success");
+                    
+                } catch (error) {
+                    console.error("上傳失敗細節:", error);
+                    updateStatus("❌ 上傳失敗，請檢查 Cloud Name 或 Preset 設定", "normal");
+                } finally {
+                    // 恢復按鈕狀態
+                    btnShare.disabled = false;
+                }
             });
         }
 
-        // 裁切功能 (維持原樣，邏輯正確)
-        btnTrim.addEventListener('click', async () => {
-            const regions = regionsPlugin.getRegions();
-            if (regions.length === 0) {
-                alert("請先在波形圖上拖曳選擇要保留的範圍！");
-                return;
-            }
+        function bufferToMp3(abuffer) {
+            const channels = abuffer.numberOfChannels;
+            const sampleRate = abuffer.sampleRate;
+            const mp3encoder = new lamejs.Mp3Encoder(channels, sampleRate, 128); 
+            const mp3Data = [];
+            const left = abuffer.getChannelData(0);
+            const right = channels > 1 ? abuffer.getChannelData(1) : left;
+            const sampleBlockSize = 1152;
+            const leftInt = new Int16Array(sampleBlockSize);
+            const rightInt = new Int16Array(sampleBlockSize);
 
-            const region = regions[0];
-            // 簡單防呆：如果範圍太小視為無效
-            if (region.end - region.start < 0.1) {
-                alert("選取範圍太短。");
-                return;
-            }
-
-            statusText.textContent = "正在裁切音訊...";
-            
-            try {
-                const originalBuffer = wavesurfer.getDecodedData();
-                const sampleRate = originalBuffer.sampleRate;
-                const channels = originalBuffer.numberOfChannels;
-                
-                const startSample = Math.floor(region.start * sampleRate);
-                const endSample = Math.floor(region.end * sampleRate);
-                const frameCount = endSample - startSample;
-
-                const offlineCtx = new OfflineAudioContext(channels, frameCount, sampleRate);
-                const newBuffer = offlineCtx.createBuffer(channels, frameCount, sampleRate);
-
-                for (let i = 0; i < channels; i++) {
-                    const channelData = originalBuffer.getChannelData(i);
-                    const newChannelData = newBuffer.getChannelData(i);
-                    for (let j = 0; j < frameCount; j++) {
-                        newChannelData[j] = channelData[startSample + j] || 0; // 加個 fallback 避免邊界問題
-                    }
+            for (let i = 0; i < left.length; i += sampleBlockSize) {
+                const limit = Math.min(sampleBlockSize, left.length - i);
+                for(let j=0; j<limit; j++) {
+                    let sL = Math.max(-1, Math.min(1, left[i+j])); leftInt[j] = sL < 0 ? sL * 0x8000 : sL * 0x7FFF;
+                    let sR = Math.max(-1, Math.min(1, right[i+j])); rightInt[j] = sR < 0 ? sR * 0x8000 : sR * 0x7FFF;
                 }
-
-                const wavBlob = bufferToWave(newBuffer, frameCount);
-                currentAudioBlob = wavBlob;
-                
-                loadAudioToEditor(wavBlob);
-                statusText.textContent = "裁切完成！";
-                
-            } catch (error) {
-                console.error("裁切失敗", error);
-                alert("裁切處理發生錯誤，請重試。");
-                statusText.textContent = "裁切失敗";
+                const leftChunk = leftInt.subarray(0, limit);
+                const rightChunk = rightInt.subarray(0, limit);
+                let mp3buf = (channels === 1) ? mp3encoder.encodeBuffer(leftChunk) : mp3encoder.encodeBuffer(leftChunk, rightChunk);
+                if (mp3buf.length > 0) mp3Data.push(mp3buf);
             }
-        });
+            const mp3buf = mp3encoder.flush();
+            if (mp3buf.length > 0) mp3Data.push(mp3buf);
+            return new Blob(mp3Data, {type: 'audio/mp3'});
+        }
 
-        // 下載功能 (維持原樣)
-        btnDownload.addEventListener('click', () => {
-            if (!currentAudioBlob) return;
-            const url = window.URL.createObjectURL(currentAudioBlob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19); // 簡化時間戳
-            a.download = `Record_${timestamp}.wav`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-        });
-
-        // WAV 轉換工具函數 (維持原樣)
         function bufferToWave(abuffer, len) {
             const numOfChan = abuffer.numberOfChannels;
             const length = len * numOfChan * 2 + 44;
@@ -438,17 +1342,14 @@
             setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157);
             setUint32(0x20746d66); setUint32(16); setUint16(1); setUint16(numOfChan);
             setUint32(abuffer.sampleRate); setUint32(abuffer.sampleRate * 2 * numOfChan);
-            setUint16(numOfChan * 2); setUint16(16); setUint32(0x61746164);
-            setUint32(length - pos - 4);
+            setUint16(numOfChan * 2); setUint16(16); setUint32(0x61746164); setUint32(length - pos - 4);
 
             for (i = 0; i < abuffer.numberOfChannels; i++) channels.push(abuffer.getChannelData(i));
-
             while (pos < length) {
                 for (i = 0; i < numOfChan; i++) {
                     sample = Math.max(-1, Math.min(1, channels[i][offset])); 
                     sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0; 
-                    view.setInt16(pos, sample, true); 
-                    pos += 2;
+                    view.setInt16(pos, sample, true); pos += 2;
                 }
                 offset++;
             }
@@ -457,12 +1358,193 @@
             function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
         }
 
-        // === 7. 綁定按鈕事件 ===
         btnRecordToggle.addEventListener('click', toggleRecording);
         btnPlayToggle.addEventListener('click', togglePlayback);
+		// ================= 分割與拖曳核心邏輯 =================
+        
+        // 畫出對應的紫色可拖曳區塊 (加入實體邊框與標籤)
+        function renderClipRegions() {
+            // 先清除畫面上舊的 clip 區塊
+            regionsPlugin.getRegions().forEach(r => {
+                if (r.id.startsWith('clip_')) r.remove();
+            });
 
-        // 初始化
-        initWavesurfer();
+            // 依據背景紀錄畫出區塊
+            virtualClips.forEach((clip, index) => {
+                const clipBox = document.createElement('div');
+                clipBox.innerHTML = `<i class="fa-solid fa-grip-lines mr-1"></i> 片段 ${index + 1}`;
+                clipBox.style.color = '#ffffff';
+                clipBox.style.fontSize = '12px';
+                clipBox.style.padding = '4px 8px';
+                clipBox.style.fontWeight = 'bold';
+                clipBox.style.userSelect = 'none';
+                clipBox.style.textShadow = '1px 1px 2px rgba(0,0,0,0.8)';
+                // 標籤左側保留明顯的紫色邊線，方便辨識片段開頭
+                clipBox.style.borderLeft = '3px solid #8b5cf6'; 
+                clipBox.style.height = '100%';
+                clipBox.style.boxSizing = 'border-box';
+                clipBox.style.pointerEvents = 'none'; 
+
+                const newRegion = regionsPlugin.addRegion({
+                    id: clip.id,
+                    start: clip.startTime,
+                    end: clip.startTime + clip.buffer.duration,
+                    color: 'rgba(139, 92, 246, 0.05)', 
+                    drag: (currentMode === 'move'), 
+                    resize: false, 
+                    content: clipBox 
+                });
+
+                if (newRegion.element) {
+                    newRegion.element.style.pointerEvents = (currentMode === 'move') ? 'auto' : 'none';
+                }
+            });
+        }
+
+        // 重新依據各個片段的時間點，重組出帶有間隙的新音軌
+        async function rebuildAudioFromClips() {
+            if (virtualClips.length === 0) return;
+            updateStatus("正在重新排版音軌...");
+
+            if (currentZoom === 0 && wavesurfer.getDuration() > 0) {
+                const containerWidth = document.getElementById('waveform').clientWidth;
+                currentZoom = containerWidth / wavesurfer.getDuration();
+            }
+
+            let maxTime = 0;
+            virtualClips.forEach(c => {
+                if (c.startTime + c.buffer.duration > maxTime) maxTime = c.startTime + c.buffer.duration;
+            });
+            
+            const PADDING_SECONDS = 2;
+            const totalDuration = maxTime + PADDING_SECONDS;
+
+            const sampleRate = virtualClips[0].buffer.sampleRate;
+            const channels = virtualClips[0].buffer.numberOfChannels;
+            const totalFrames = Math.ceil(totalDuration * sampleRate);
+
+            // 改用原生的 AudioBuffer，完全避開 OfflineAudioContext，確保 100% 原始資料拷貝
+            const newBuffer = new AudioBuffer({
+                length: totalFrames,
+                numberOfChannels: channels,
+                sampleRate: sampleRate
+            });
+
+            // 注入「極微弱底噪 (Dither)」徹底破解系統破音地雷！
+            for (let c = 0; c < channels; c++) {
+                const channelData = newBuffer.getChannelData(c);
+                for (let i = 0; i < totalFrames; i++) {
+                    // 約 -100dB 的極小數值。人耳完全聽不見，但能騙過 Windows 保持最高音質
+                    channelData[i] = (Math.random() - 0.5) * 0.00001; 
+                }
+            }
+
+            virtualClips.forEach(clip => {
+                const startSample = Math.floor(clip.startTime * sampleRate);
+                for (let c = 0; c < channels; c++) {
+                    // 完全零損耗的數據覆寫
+                    newBuffer.getChannelData(c).set(clip.buffer.getChannelData(c), startSample);
+                }
+            });
+
+            const blob = bufferToWave32Bit(newBuffer, totalFrames);
+            loadAudioBlob(blob, true);
+        }
+
+        // 綁定「分割」按鈕事件
+        const btnSplit = document.getElementById('btn-split');
+        if (btnSplit) {
+            btnSplit.addEventListener('click', () => {
+                const currentTime = wavesurfer.getCurrentTime();
+                
+                const targetIndex = virtualClips.findIndex(clip => 
+                    currentTime > clip.startTime && currentTime < (clip.startTime + clip.buffer.duration)
+                );
+
+                if (targetIndex === -1) {
+                    updateStatus("請將游標點擊在欲分割的音軌片段上！");
+                    return;
+                }
+
+                const clip = virtualClips[targetIndex];
+                const splitOffsetTime = currentTime - clip.startTime;
+                
+                const sampleRate = clip.buffer.sampleRate;
+                const channels = clip.buffer.numberOfChannels;
+                const splitSample = Math.floor(splitOffsetTime * sampleRate);
+                const frame2 = clip.buffer.length - splitSample;
+
+                if (splitSample <= 0 || frame2 <= 0) return;
+
+                const buf1 = new AudioBuffer({ length: splitSample, numberOfChannels: channels, sampleRate: sampleRate });
+                const buf2 = new AudioBuffer({ length: frame2, numberOfChannels: channels, sampleRate: sampleRate });
+
+                for (let c = 0; c < channels; c++) {
+                    const origData = clip.buffer.getChannelData(c);
+                    buf1.getChannelData(c).set(origData.subarray(0, splitSample));
+                    buf2.getChannelData(c).set(origData.subarray(splitSample));
+                }
+
+                const exactSplitTime = clip.startTime + (splitSample / sampleRate);
+                const clip1 = { id: `clip_${clipCounter++}`, startTime: clip.startTime, buffer: buf1 };
+                const clip2 = { id: `clip_${clipCounter++}`, startTime: exactSplitTime, buffer: buf2 };
+                
+                virtualClips.splice(targetIndex, 1, clip1, clip2);
+                
+                updateStatus("分割完成！", 'success');
+                
+                // 🌟 修正 4：分割後立刻觸發重組，讓系統為後面的片段撐開畫布拖曳空間！
+                rebuildAudioFromClips(); 
+            });
+        }
+
+// ================= 錄音室級別 32-bit Float 無損生成 =================
+function bufferToWave32Bit(abuffer, totalFrames) {
+    const numOfChan = abuffer.numberOfChannels;
+    const dataSize = totalFrames * numOfChan * 4;
+    const length = 58 + dataSize;
+    const buffer = new ArrayBuffer(length);
+    const view = new DataView(buffer);
+    let pos = 0;
+
+    // 1. RIFF chunk
+    setUint32(0x46464952); // "RIFF"
+    setUint32(length - 8); 
+    setUint32(0x45564157); // "WAVE"
+
+    // 2. fmt chunk (大小必須是 18 bytes)
+    setUint32(0x20746d66); // "fmt "
+    setUint32(18); // chunk size
+    setUint16(3);  // 格式代碼 3 (IEEE Float)
+    setUint16(numOfChan);
+    setUint32(abuffer.sampleRate);
+    setUint32(abuffer.sampleRate * 4 * numOfChan); // byte rate
+    setUint16(numOfChan * 4); // block align
+    setUint16(32); // 32-bit
+    setUint16(0);  // cbSize = 0 (標準規定不可省略)
+
+    // 3. fact chunk (Float 格式必備)
+    setUint32(0x66616374); // "fact"
+    setUint32(4);          // chunk size
+    setUint32(totalFrames);// sample count
+
+    // 4. data chunk
+    setUint32(0x61746164); // "data"
+    setUint32(dataSize);
+
+    // 直接完美寫入記憶體中的原始浮點數，0 運算、0 損耗
+    for (let i = 0; i < totalFrames; i++) {
+        for (let c = 0; c < numOfChan; c++) {
+            view.setFloat32(pos, abuffer.getChannelData(c)[i], true);
+            pos += 4;
+        }
+    }
+
+    return new Blob([buffer], { type: "audio/wav" });
+    
+    function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
+    function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
+}
     </script>
 </body>
 </html>

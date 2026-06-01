@@ -2788,9 +2788,17 @@ function switchLanguage(newLangKey) {
 		}, 20); // 延遲 20ms 啟動，確保 UI 不會卡死
 	}
 
-    // 加入拼音轉漢字的初始化與事件綁定
-    initializeImeDicts();
-    // 將事件綁定到正確的按鈕上 (因為 HTML 中有兩個同功能按鈕)
+    // 加入拼音轉漢字的初始化與事件綁定：使用輪詢機制等待動態載入完成
+    function tryInitializeImeDicts() {
+        if (typeof dictionaries !== 'undefined') {
+            // 如果 dictionaries 已經存在，就執行初始化
+            initializeImeDicts();
+        } else {
+            // 如果還沒載入好，等 100 毫秒後再檢查一次
+            setTimeout(tryInitializeImeDicts, 100);
+        }
+    }
+    tryInitializeImeDicts(); // 啟動檢查機制
     document.querySelector('#btnPinyinToHanzi').addEventListener('click', pinyinToHanzi);
 	updateRawButtonVisibility();
 })();
