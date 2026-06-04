@@ -461,10 +461,34 @@
         circuitGridHtml += '</div>';
 
         controlPanel = '<div class="flex-1 flex flex-col justify-center"><div class="flex justify-between items-center mb-4"><p class="text-slate-600 font-bold text-base md:text-lg">請選擇接法：</p><div class="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-lg text-sm md:text-base font-bold border border-indigo-200">得分：' + window.circuitScore + '</div></div>' + circuitGridHtml;
+        
+        // 【修改】全部完成時，顯示總分與歷史紀錄
         if (isAllDone) {
-            controlPanel += '<div class="mt-8 border-t-2 border-slate-200 text-center pt-6"><button onclick="restartCircuitGame()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-full font-bold text-lg fade-transition shadow-sm w-full"><i class="ph-bold ph-arrows-clockwise"></i> 重新開始預測</button></div>';
+            controlPanel += '<div class="mt-8 border-t-2 border-slate-200 text-center pt-6 bg-slate-50 -mx-5 md:-mx-6 -mb-5 md:-mb-6 p-5 md:p-6 rounded-b-3xl">';
+            controlPanel += '<h3 class="text-2xl font-bold text-indigo-700 mb-2">🎉 探索完成！</h3>';
+            controlPanel += '<p class="text-slate-600 mb-4 font-bold text-lg">本次總得分：<span class="text-3xl text-emerald-600">' + window.circuitScore + '</span> 分</p>';
+            controlPanel += '<button onclick="restartCircuitGame()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-3 rounded-full font-bold text-lg fade-transition shadow-sm flex items-center justify-center gap-2 mx-auto"><i class="ph-bold ph-arrows-clockwise text-xl"></i> 重新開始預測</button>';
+            controlPanel += renderMiniHistoryBar('circuitHistory'); // 呼叫精簡紀錄
+            controlPanel += '</div>';
         }
         controlPanel += '</div>';
+      } else if (circuitStep === 'predict') {
+        let btnLit = userPrediction === 'lit' ? 'bg-emerald-100 border-emerald-500 text-emerald-800 ring-4 ring-emerald-300' : 'bg-slate-50 border-slate-300 text-slate-600 hover:bg-slate-100';
+        let btnUnlit = userPrediction === 'unlit' ? 'bg-rose-100 border-rose-500 text-rose-800 ring-4 ring-rose-300' : 'bg-slate-50 border-slate-300 text-slate-600 hover:bg-slate-100';
+        
+        controlPanel = '<div class="flex-1 flex flex-col justify-center"><div class="flex justify-between items-center mb-6"><p class="text-slate-600 font-bold text-lg md:text-xl">燈泡會發亮嗎？</p><div class="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-lg text-base font-bold border border-indigo-200">得分：' + window.circuitScore + '</div></div><div class="grid grid-cols-2 gap-3 mb-6"><button onclick="setCircuitPrediction(\'lit\')" class="w-full py-3 md:py-4 rounded-xl font-bold border-2 fade-transition text-lg md:text-xl flex flex-col xl:flex-row items-center justify-center gap-2 ' + btnLit + '"><span class="text-3xl md:text-4xl">💡</span> 會亮</button><button onclick="setCircuitPrediction(\'unlit\')" class="w-full py-3 md:py-4 rounded-xl font-bold border-2 fade-transition text-lg md:text-xl flex flex-col xl:flex-row items-center justify-center gap-2 ' + btnUnlit + '"><span class="text-3xl md:text-4xl">❌</span> 不會亮</button></div><div class="flex justify-center mt-auto"><button onclick="checkCircuitResult()" ' + (!userPrediction ? 'disabled' : '') + ' class="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 text-white px-8 py-4 rounded-full font-bold text-xl fade-transition shadow-sm w-full">確認結果</button></div></div>';
+      } else if (circuitStep === 'result') {
+        let isCorrectPred = window.testedCircuits.get(currentCircuitIdx);
+        let isAllDone = window.testedCircuits.size === window.shuffledCircuits.length;
+        
+        controlPanel = '<div class="flex-1 flex flex-col justify-center"><div class="flex justify-between items-center mb-4"><p class="text-slate-600 font-bold text-lg">檢查結果：</p><div class="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-lg text-base font-bold border border-indigo-200">得分：' + window.circuitScore + '</div></div><div class="p-6 mb-8 rounded-2xl font-bold border-2 ' + (isLit ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200') + ' transition-colors shadow-sm text-left flex-1"><div class="flex flex-col gap-3 border-b-2 ' + (isLit ? 'border-emerald-200' : 'border-rose-200') + ' pb-4 mb-4"><div class="flex items-center gap-2 text-lg"><span class="text-slate-700">預測：</span><span class="px-3 py-1 rounded bg-white border ' + (userPrediction === 'lit' ? 'border-amber-400 text-amber-600' : 'border-slate-400 text-slate-600') + '">' + (userPrediction === 'lit' ? '💡 會亮' : '❌ 不會亮') + '</span></div><span class="' + (isCorrectPred ? 'text-emerald-600 bg-emerald-100' : 'text-rose-600 bg-rose-100') + ' px-4 py-2 rounded-full text-base inline-block w-fit shadow-inner">' + (isCorrectPred ? '✅ 預測正確 (+10分)' : '❌ 預測錯誤') + '</span></div><p class="text-xl ' + (isLit ? 'text-emerald-700' : 'text-rose-700') + ' leading-relaxed">' + conf.desc + '</p></div><div class="flex justify-center mt-auto">';
+        
+        if (isAllDone) {
+            controlPanel += '<button onclick="resetCircuitSelect()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-full font-bold text-lg fade-transition shadow-sm w-full"><i class="ph-bold ph-list-magnifying-glass"></i> 查看總結與成績</button>';
+        } else {
+            controlPanel += '<button onclick="resetCircuitSelect()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 px-8 py-4 rounded-full font-bold text-lg fade-transition shadow-sm w-full"><i class="ph-bold ph-arrow-u-up-left"></i> 選擇其他接法</button>';
+        }
+        controlPanel += '</div></div>';
       } else if (circuitStep === 'predict') {
         let btnLit = userPrediction === 'lit' ? 'bg-emerald-100 border-emerald-500 text-emerald-800 ring-4 ring-emerald-300' : 'bg-slate-50 border-slate-300 text-slate-600 hover:bg-slate-100';
         let btnUnlit = userPrediction === 'unlit' ? 'bg-rose-100 border-rose-500 text-rose-800 ring-4 ring-rose-300' : 'bg-slate-50 border-slate-300 text-slate-600 hover:bg-slate-100';
@@ -537,6 +561,10 @@
       window.testedCircuits.set(currentCircuitIdx, isCorrectPred);
       circuitStep = 'result';
       
+      if (window.testedCircuits.size === window.shuffledCircuits.length) {
+          saveMiniGameRecord('circuitHistory', window.circuitScore);
+      }
+
       if (window.testedCircuits.size >= 3 && circuitProgress === 0) {
         setTimeout(() => progressTask('circuitExp'), 800);
       }
@@ -590,7 +618,8 @@
       if (condStep === 'select') {
         let isAllDone = window.testedConds.size === window.shuffledCondBtns.length;
         
-        let condGridHtml = '<div class="grid grid-cols-2 md:grid-cols-3 gap-2 w-full mx-auto">';         window.shuffledCondBtns.forEach((b, i) => {
+        let condGridHtml = '<div class="grid grid-cols-2 md:grid-cols-3 gap-2 w-full mx-auto">';         
+        window.shuffledCondBtns.forEach((b, i) => {
             let isTested = window.testedConds.has(i);
             let predResult = window.testedConds.get(i);
             let btnCls = isTested ? (predResult ? 'bg-emerald-50 border-emerald-300 text-emerald-700 opacity-60' : 'bg-rose-50 border-rose-300 text-rose-700 opacity-60') : 'bg-white hover:bg-slate-50 border-slate-300 text-slate-800 shadow-sm';
@@ -599,10 +628,52 @@
         condGridHtml += '</div>';
 
         controlPanel = '<div class="flex-1 flex flex-col justify-center"><div class="flex justify-between items-center mb-4"><p class="text-slate-600 font-bold text-lg">請選擇測試物品：</p><div class="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-lg text-base font-bold border border-indigo-200">得分：' + window.condScore + '</div></div>' + condGridHtml;
+        
+        // 【修改】全部完成時，顯示總分與歷史紀錄
         if (isAllDone) {
-            controlPanel += '<div class="mt-6 border-t-2 border-slate-200 text-center pt-4"><button onclick="restartCondGame()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-full font-bold text-lg fade-transition shadow-sm w-full"><i class="ph-bold ph-arrows-clockwise"></i> 重新開始</button></div>';
+            controlPanel += '<div class="mt-8 border-t-2 border-slate-200 text-center pt-6 bg-slate-50 -mx-5 md:-mx-6 -mb-5 md:-mb-6 p-5 md:p-6 rounded-b-3xl">';
+            controlPanel += '<h3 class="text-2xl font-bold text-teal-700 mb-2">🎉 檢測完成！</h3>';
+            controlPanel += '<p class="text-slate-600 mb-4 font-bold text-lg">本次總得分：<span class="text-3xl text-emerald-600">' + window.condScore + '</span> 分</p>';
+            controlPanel += '<button onclick="restartCondGame()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-3 rounded-full font-bold text-lg fade-transition shadow-sm flex items-center justify-center gap-2 mx-auto"><i class="ph-bold ph-arrows-clockwise text-xl"></i> 重新開始檢測</button>';
+            controlPanel += renderMiniHistoryBar('condHistory'); // 呼叫精簡紀錄
+            controlPanel += '</div>';
         }
         controlPanel += '</div>';
+      } else if (condStep === 'predict') {
+        let btnLit = condPrediction === 'lit' ? 'bg-emerald-100 border-emerald-500 text-emerald-800 ring-4 ring-emerald-300' : 'bg-slate-50 border-slate-300 text-slate-600 hover:bg-slate-100';
+        let btnUnlit = condPrediction === 'unlit' ? 'bg-rose-100 border-rose-500 text-rose-800 ring-4 ring-rose-300' : 'bg-slate-50 border-slate-300 text-slate-600 hover:bg-slate-100';
+        
+        controlPanel = '<div class="flex-1 flex flex-col justify-center"><div class="flex justify-between items-center mb-6"><p class="text-slate-600 font-bold text-lg md:text-xl">接上「' + match.name + '」會亮嗎？</p><div class="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-lg text-base font-bold border border-indigo-200">得分：' + window.condScore + '</div></div><div class="grid grid-cols-2 gap-3 mb-6"><button onclick="setCondPrediction(\'lit\')" class="w-full py-3 md:py-4 rounded-xl font-bold border-2 fade-transition text-lg md:text-xl flex flex-col xl:flex-row items-center justify-center gap-2 ' + btnLit + '"><span class="text-3xl md:text-4xl">💡</span> 會亮</button><button onclick="setCondPrediction(\'unlit\')" class="w-full py-3 md:py-4 rounded-xl font-bold border-2 fade-transition text-lg md:text-xl flex flex-col xl:flex-row items-center justify-center gap-2 ' + btnUnlit + '"><span class="text-3xl md:text-4xl">❌</span> 不會亮</button></div><div class="flex justify-center mt-auto"><button onclick="checkCondResult()" ' + (!condPrediction ? 'disabled' : '') + ' class="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 text-white px-8 py-4 rounded-full font-bold text-xl fade-transition shadow-sm w-full">確認結果</button></div></div>';
+      } else if (condStep === 'result') {
+        let isCorrectPred = window.testedConds.get(currentCondIdx);
+        let isAllDone = window.testedConds.size === window.shuffledCondBtns.length;
+        let desc = isLit ? ('✅ 形成通路！' + match.name + '是「電的良導體」。') : ('❌ 形成斷路！' + match.name + '是「電的不良導體」。');
+        
+        controlPanel = '<div class="flex-1 flex flex-col justify-center"><div class="flex justify-between items-center mb-4"><p class="text-slate-600 font-bold text-lg">檢查結果：</p><div class="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-lg text-base font-bold border border-indigo-200">得分：' + window.condScore + '</div></div><div class="p-6 mb-8 rounded-2xl font-bold border-2 ' + (isLit ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200') + ' transition-colors shadow-sm text-left flex-1"><div class="flex flex-col gap-3 border-b-2 ' + (isLit ? 'border-emerald-200' : 'border-rose-200') + ' pb-4 mb-4"><div class="flex items-center gap-2 text-lg"><span class="text-slate-700">預測：</span><span class="px-3 py-1 rounded bg-white border ' + (condPrediction === 'lit' ? 'border-amber-400 text-amber-600' : 'border-slate-400 text-slate-600') + '">' + (condPrediction === 'lit' ? '💡 會亮' : '❌ 不會亮') + '</span></div><span class="' + (isCorrectPred ? 'text-emerald-600 bg-emerald-100' : 'text-rose-600 bg-rose-100') + ' px-4 py-2 rounded-full text-base inline-block w-fit shadow-inner">' + (isCorrectPred ? '✅ 預測正確 (+10分)' : '❌ 預測錯誤') + '</span></div><p class="text-xl ' + (isLit ? 'text-emerald-700' : 'text-rose-700') + ' leading-relaxed">' + desc + '</p></div><div class="flex justify-center mt-auto">';
+        
+        if (isAllDone) {
+            controlPanel += '<button onclick="resetCondSelect()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-full font-bold text-lg fade-transition shadow-sm w-full"><i class="ph-bold ph-list-magnifying-glass"></i> 查看總結與成績</button>';
+        } else {
+            controlPanel += '<button onclick="resetCondSelect()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 px-8 py-4 rounded-full font-bold text-lg fade-transition shadow-sm w-full"><i class="ph-bold ph-arrow-u-up-left"></i> 選擇其他物品</button>';
+        }
+        controlPanel += '</div></div>';
+      } else if (circuitStep === 'predict') {
+        let btnLit = userPrediction === 'lit' ? 'bg-emerald-100 border-emerald-500 text-emerald-800 ring-4 ring-emerald-300' : 'bg-slate-50 border-slate-300 text-slate-600 hover:bg-slate-100';
+        let btnUnlit = userPrediction === 'unlit' ? 'bg-rose-100 border-rose-500 text-rose-800 ring-4 ring-rose-300' : 'bg-slate-50 border-slate-300 text-slate-600 hover:bg-slate-100';
+        
+        controlPanel = '<div class="flex-1 flex flex-col justify-center"><div class="flex justify-between items-center mb-6"><p class="text-slate-600 font-bold text-lg md:text-xl">燈泡會發亮嗎？</p><div class="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-lg text-base font-bold border border-indigo-200">得分：' + window.circuitScore + '</div></div><div class="grid grid-cols-2 gap-3 mb-6"><button onclick="setCircuitPrediction(\'lit\')" class="w-full py-3 md:py-4 rounded-xl font-bold border-2 fade-transition text-lg md:text-xl flex flex-col xl:flex-row items-center justify-center gap-2 ' + btnLit + '"><span class="text-3xl md:text-4xl">💡</span> 會亮</button><button onclick="setCircuitPrediction(\'unlit\')" class="w-full py-3 md:py-4 rounded-xl font-bold border-2 fade-transition text-lg md:text-xl flex flex-col xl:flex-row items-center justify-center gap-2 ' + btnUnlit + '"><span class="text-3xl md:text-4xl">❌</span> 不會亮</button></div><div class="flex justify-center mt-auto"><button onclick="checkCircuitResult()" ' + (!userPrediction ? 'disabled' : '') + ' class="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 text-white px-8 py-4 rounded-full font-bold text-xl fade-transition shadow-sm w-full">確認結果</button></div></div>';
+      } else if (circuitStep === 'result') {
+        let isCorrectPred = window.testedCircuits.get(currentCircuitIdx);
+        let isAllDone = window.testedCircuits.size === window.shuffledCircuits.length;
+        
+        controlPanel = '<div class="flex-1 flex flex-col justify-center"><div class="flex justify-between items-center mb-4"><p class="text-slate-600 font-bold text-lg">檢查結果：</p><div class="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-lg text-base font-bold border border-indigo-200">得分：' + window.circuitScore + '</div></div><div class="p-6 mb-8 rounded-2xl font-bold border-2 ' + (isLit ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200') + ' transition-colors shadow-sm text-left flex-1"><div class="flex flex-col gap-3 border-b-2 ' + (isLit ? 'border-emerald-200' : 'border-rose-200') + ' pb-4 mb-4"><div class="flex items-center gap-2 text-lg"><span class="text-slate-700">預測：</span><span class="px-3 py-1 rounded bg-white border ' + (userPrediction === 'lit' ? 'border-amber-400 text-amber-600' : 'border-slate-400 text-slate-600') + '">' + (userPrediction === 'lit' ? '💡 會亮' : '❌ 不會亮') + '</span></div><span class="' + (isCorrectPred ? 'text-emerald-600 bg-emerald-100' : 'text-rose-600 bg-rose-100') + ' px-4 py-2 rounded-full text-base inline-block w-fit shadow-inner">' + (isCorrectPred ? '✅ 預測正確 (+10分)' : '❌ 預測錯誤') + '</span></div><p class="text-xl ' + (isLit ? 'text-emerald-700' : 'text-rose-700') + ' leading-relaxed">' + conf.desc + '</p></div><div class="flex justify-center mt-auto">';
+        
+        if (isAllDone) {
+            controlPanel += '<button onclick="resetCircuitSelect()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-4 rounded-full font-bold text-lg fade-transition shadow-sm w-full"><i class="ph-bold ph-list-magnifying-glass"></i> 查看總結與成績</button>';
+        } else {
+            controlPanel += '<button onclick="resetCircuitSelect()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 px-8 py-4 rounded-full font-bold text-lg fade-transition shadow-sm w-full"><i class="ph-bold ph-arrow-u-up-left"></i> 選擇其他接法</button>';
+        }
+        controlPanel += '</div></div>';
       } else if (condStep === 'predict') {
         let btnLit = condPrediction === 'lit' ? 'bg-emerald-100 border-emerald-500 text-emerald-800 ring-4 ring-emerald-300' : 'bg-slate-50 border-slate-300 text-slate-600 hover:bg-slate-100';
         let btnUnlit = condPrediction === 'unlit' ? 'bg-rose-100 border-rose-500 text-rose-800 ring-4 ring-rose-300' : 'bg-slate-50 border-slate-300 text-slate-600 hover:bg-slate-100';
@@ -640,10 +711,10 @@
       content += '</svg></div><div class="flex-1 w-full flex flex-col bg-white rounded-3xl border-2 border-slate-100 p-5 md:p-6 shadow-sm">' + controlPanel + '</div></div></div>';
 
       if (condProgress >= 0) {
-        content += renderMiniFill('condFill1', '任務一：觀念填空測驗', [{ qParts: ["可以讓電流順利通過，形成通路使燈泡發亮的物品，稱為", "。"], ans: ["良導體"], distractors: ["不良導體"] }], condProgress > 0, 'teal');
+        content += renderMiniFill('condFill1', '任務一：觀念填空測驗', [{ qParts: ["可以讓電流順利通過，形成通路，使燈泡發亮的物品，稱為", "。"], ans: ["良導體"], distractors: ["不良導體"] }], condProgress > 0, 'teal');
       }
       if (condProgress >= 1) {
-        content += renderMiniFill('condFill2', '任務二：觀念填空測驗', [{ qParts: ["無法讓電流通過，接在電路中會形成斷路使燈泡不亮的物品，稱為", "。"], ans: ["不良導體"], distractors: ["良導體"] }], condProgress > 1, 'teal');
+        content += renderMiniFill('condFill2', '任務二：觀念填空測驗', [{ qParts: ["無法讓電流通過，接在電路中會形成斷路，使燈泡不亮的物品，稱為", "。"], ans: ["不良導體"], distractors: ["良導體"] }], condProgress > 1, 'teal');
       }
       if (condProgress >= 2) {
         content += renderMiniTF('condTF', '任務三：觀念是非題', [{q: '鐵製的迴紋針和銅硬幣都可以讓電流順利通過，它們都是電的良導體。', a: true}], condProgress > 2, 'teal');
@@ -676,6 +747,10 @@
       window.testedConds.set(currentCondIdx, isCorrectPred);
       condStep = 'result';
       
+      if (window.testedConds.size === window.shuffledCondBtns.length) {
+          saveMiniGameRecord('condHistory', window.condScore);
+      }
+
       if (window.testedConds.size >= 3 && condProgress === 0) {
         setTimeout(() => progressTask('condExp'), 800);
       }
@@ -793,6 +868,38 @@
     window.returnToQuizDashboard = function() {
       quizState = 'dashboard';
       render();
+    }
+
+	// --- 儲存小遊戲(電路/導體)紀錄 ---
+    function saveMiniGameRecord(storageKey, score) {
+      let history = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      const now = new Date();
+      // 格式化時間：MM/DD HH:mm
+      const dateStr = (now.getMonth()+1) + '/' + now.getDate() + ' ' + 
+                      now.getHours().toString().padStart(2, '0') + ':' + 
+                      now.getMinutes().toString().padStart(2, '0');
+      history.unshift({ time: dateStr, score: score });
+      history = history.slice(0, 5); // 只保留最近 5 次
+      localStorage.setItem(storageKey, JSON.stringify(history));
+    }
+
+    // --- 產生精簡版最近5次紀錄的 UI ---
+    function renderMiniHistoryBar(storageKey) {
+      let history = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      if (history.length === 0) return '';
+      
+      let html = '<div class="mt-5 flex flex-wrap justify-center items-center gap-2 text-sm">';
+      html += '<span class="text-slate-500 font-bold flex items-center gap-1"><i class="ph-bold ph-clock-counter-clockwise"></i> 最近5次：</span>';
+      
+      history.forEach((rec) => {
+          let scoreColor = rec.score >= (10 * 6) ? 'text-emerald-600' : 'text-amber-600'; // 假設大於一半算高分
+          html += '<span class="bg-white border border-slate-200 px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1">';
+          html += '<span class="font-bold ' + scoreColor + '">' + rec.score + '分</span>';
+          html += '<span class="text-xs text-slate-400">(' + rec.time + ')</span>';
+          html += '</span>';
+      });
+      html += '</div>';
+      return html;
     }
 
     // --- 共用小測驗產生器 ---

@@ -119,6 +119,109 @@
     let bulbProgress = 0;  
     let compProgress = 0;   
 
+
+    // --- 實驗室遊戲化狀態與題庫 ---
+    let batMode = 'demo'; 
+    let batGameScore = 0;
+    let batMissionIdx = 0;
+    let batMissionFeedback = ''; 
+    const baseBatMissions = [
+      { text: "在黑暗的洞穴，我需要最亮的光！", targetConn: 's', targetCond: 'normal' },
+      { text: "設計一個備用電源，就算一顆電池突然沒電，鬧鐘也不能停。", targetConn: 'p', targetCond: 'dead' },
+      { text: "老闆要求只要一顆電池沒電，整個玩具就必須動不了的接法。", targetConn: 's', targetCond: 'dead' },
+      { text: "露營燈亮度一般沒關係，但電池壽命要撐越久越好！", targetConn: 'p', targetCond: 'normal' },
+      { text: "機器就算小老鼠咬斷了其中一條電線，還是能順利供電。", targetConn: 'p', targetCond: 'cut' }
+    ];
+    let batMissions = [];
+
+    let bulbMode = 'demo';
+    let bulbGameScore = 0;
+    let bulbMissionIdx = 0;
+    let bulbMissionFeedback = '';
+	const baseBulbMissions = [
+      { text: "客廳電燈，就算其中一顆燈泡燒壞，另一顆也要能繼續亮。", targetConn: 'p', targetCond: 'dead' },
+      { text: "只要小偷剪斷一根電線，所有的燈都要立刻熄滅！", targetConn: 's', targetCond: 'cut' },
+      { text: "開車時，左邊車燈壞了，右邊車燈必須還能發亮保命。", targetConn: 'p', targetCond: 'dead' },
+      { text: "兩顆燈泡都發出「微弱」的光線就好。", targetConn: 's', targetCond: 'normal' },
+      { text: "聖誕樹上燈串，有一顆燈泡燒壞，但整串都還會亮。", targetConn: 'p', targetCond: 'dead' }
+    ];
+    let bulbMissions = [];
+
+    window.switchBatMode = function(mode) { 
+      batMode = mode; 
+      batMissionFeedback = ''; 
+      if (mode === 'game') {
+          batState.cond = 'normal';
+          if (batState.conn === '1') batState.conn = 's';
+      }
+      if (mode === 'game' && batMissions.length === 0) {
+         window.restartBatGame();
+         return; 
+      }
+      render(); 
+    };
+
+    window.switchBulbMode = function(mode) { 
+      bulbMode = mode; 
+      bulbMissionFeedback = ''; 
+      if (mode === 'game') {
+          bulbState.cond = 'normal';
+          if (bulbState.conn === '1') bulbState.conn = 's';
+      }
+      if (mode === 'game' && bulbMissions.length === 0) {
+         window.restartBulbGame();
+         return;
+      }
+      render(); 
+    };
+
+    // 重新挑戰的洗牌函式
+    window.restartBatGame = function() {
+      batMissions = shuffleArray(baseBatMissions);
+      batMissionIdx = 0;
+      batGameScore = 0;
+      batMissionFeedback = '';
+      render();
+    };
+
+    window.restartBulbGame = function() {
+      bulbMissions = shuffleArray(baseBulbMissions);
+      bulbMissionIdx = 0;
+      bulbGameScore = 0;
+      bulbMissionFeedback = '';
+      render();
+    };
+
+    // 驗證電池任務
+    window.checkBatMission = function() {
+      let m = batMissions[batMissionIdx];
+      if (batState.conn === m.targetConn) {
+          batGameScore += 10;
+          batMissionIdx++;
+          batMissionFeedback = '✅ 挑戰成功！太厲害了！(+10分)';
+          batTestedS = true; batTestedP = true; 
+      } else {
+          batMissionFeedback = '❌ 電路接法不太對喔，請觀察電路圖再試試看！';
+      }
+      render();
+      setTimeout(() => { batMissionFeedback = ''; render(); }, 2000);
+    };
+
+    // 驗證燈泡任務
+    window.checkBulbMission = function() {
+      let m = bulbMissions[bulbMissionIdx];
+      if (bulbState.conn === m.targetConn) {
+          bulbGameScore += 10;
+          bulbMissionIdx++;
+          bulbMissionFeedback = '✅ 挑戰成功！你是電路大師！(+10分)';
+          bulbTestedS = true; bulbTestedP = true; 
+      } else {
+          bulbMissionFeedback = '❌ 接法好像沒有符合任務需求喔！';
+      }
+      render();
+      setTimeout(() => { bulbMissionFeedback = ''; render(); }, 2000);
+    };
+
     // 電池實驗室狀態 (採用 BAK 的精緻模組)
     let batState = { conn: '1', cond: 'normal' }; // conn: '1', 's', 'p'. cond: 'normal', 'cut', 'dead'
     let batTestedS = false;
@@ -520,22 +623,46 @@
                  ${svgCanvas}
               </div>
               
-              <div class="w-full lg:w-[380px] flex-shrink-0 flex flex-col bg-white rounded-3xl border-2 border-slate-100 p-4 shadow-sm justify-center gap-3">
-                 <p class="text-slate-600 font-bold mb-1 text-lg">請選擇連接方式：</p>
-                 <button onclick="setBatConn('1')" class="py-2 px-5 rounded-xl font-bold border-2 fade-transition text-left flex justify-between items-center text-lg ${batState.conn==='1'?'bg-amber-100 border-amber-400 text-amber-800 ring-2 ring-amber-200':'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'}"><span>1️⃣ 一顆電池</span> ${batState.conn==='1'?'✅':''}</button>
-                 <button onclick="setBatConn('s')" class="py-2 px-5 rounded-xl font-bold border-2 fade-transition text-left flex justify-between items-center text-lg ${batState.conn==='s'?'bg-amber-100 border-amber-400 text-amber-800 ring-2 ring-amber-200':'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'}"><span>🔋 電池串聯</span> ${batState.conn==='s'?'✅':''}</button>
-                 <button onclick="setBatConn('p')" class="py-2 px-5 rounded-xl font-bold border-2 fade-transition text-left flex justify-between items-center text-lg ${batState.conn==='p'?'bg-amber-100 border-amber-400 text-amber-800 ring-2 ring-amber-200':'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'}"><span>🔋 電池並聯</span> ${batState.conn==='p'?'✅':''}</button>
+              <div class="w-full lg:w-[380px] flex-shrink-0 flex flex-col bg-white rounded-3xl border-2 border-slate-100 p-4 shadow-sm justify-start gap-3">
                  
-                 <div class="border-t-2 border-slate-100 my-2"></div>
-                 
-                 <div class="grid grid-cols-2 gap-3">
-                    <button onclick="setBatCond('normal')" class="py-3 px-2 rounded-xl font-bold border-2 fade-transition text-center text-sm md:text-base col-span-2 ${batState.cond==='normal'?'bg-emerald-500 text-white border-emerald-600 shadow-md':'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'}">✅ 恢復正常</button>
-                    <button onclick="setBatCond('cut')" class="py-3 px-2 rounded-xl font-bold border-2 fade-transition text-center text-sm md:text-base ${batState.cond==='cut'?'bg-rose-500 text-white border-rose-600 shadow-md':'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'}">✂️ 剪斷電線</button>
-                    <button onclick="setBatCond('dead')" class="py-3 px-2 rounded-xl font-bold border-2 fade-transition text-center text-sm md:text-base ${batState.cond==='dead'?'bg-rose-500 text-white border-rose-600 shadow-md':'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'}">🪫 電池沒電</button>
+                 <div class="flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+                    <button onclick="switchBatMode('demo')" class="flex-1 py-1.5 rounded-lg text-sm font-bold fade-transition ${batMode==='demo'?'bg-white text-amber-600 shadow-sm':'text-slate-500 hover:text-slate-700'}">🔍 自由探索</button>
+                    <button onclick="switchBatMode('game')" class="flex-1 py-1.5 rounded-lg text-sm font-bold fade-transition ${batMode==='game'?'bg-white text-amber-600 shadow-sm':'text-slate-500 hover:text-slate-700'}">🎯 任務挑戰</button>
                  </div>
+
+                 ${ batMode === 'game' ? `
+                 <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-col gap-2 shadow-inner">
+                    ${ batMissionIdx < batMissions.length ? `
+                       <div class="text-amber-900 font-bold text-sm leading-snug">🎯 任務 ${batMissionIdx + 1}：<br>${batMissions[batMissionIdx].text}</div>
+                       ${ batMissionFeedback ? `<div class="text-xs text-rose-600 bg-white px-2 py-1 rounded border border-rose-200 animate-shake">${batMissionFeedback}</div>` : '' }
+                       <div class="flex justify-between items-center mt-1">
+                          <span class="text-xs font-bold text-amber-600 bg-amber-100 px-2 py-1 rounded-md">得分: ${batGameScore}</span>
+                          <button onclick="checkBatMission()" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold shadow-sm transition-transform hover:scale-105">確認接線</button>
+                       </div>
+                    ` : `
+                       <div class="text-emerald-700 font-bold text-sm text-center py-1">🎉 恭喜！電池任務全數通關！<br>總得分：${batGameScore}</div>
+                       <div class="text-center mt-1"><button onclick="restartBatGame()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold shadow-sm transition-transform hover:scale-105">🔁 重新挑戰</button></div>
+                    `}
+                 </div>` : '' }
+
+                 <p class="text-slate-600 font-bold text-sm mt-1">電路設定面板：</p>
+                 
+                 ${ batMode === 'demo' ? `<button onclick="setBatConn('1')" class="py-2 px-4 rounded-xl font-bold border-2 fade-transition text-left flex justify-between items-center text-base ${batState.conn==='1'?'bg-amber-100 border-amber-400 text-amber-800 ring-2 ring-amber-200':'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'}"><span>1️⃣ 一顆電池</span> ${batState.conn==='1'?'✅':''}</button>` : '' }
+                 
+                 <button onclick="setBatConn('s')" class="py-2 px-4 rounded-xl font-bold border-2 fade-transition text-left flex justify-between items-center text-base ${batState.conn==='s'?'bg-amber-100 border-amber-400 text-amber-800 ring-2 ring-amber-200':'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'}"><span>🔋 電池串聯</span> ${batState.conn==='s'?'✅':''}</button>
+                 <button onclick="setBatConn('p')" class="py-2 px-4 rounded-xl font-bold border-2 fade-transition text-left flex justify-between items-center text-base ${batState.conn==='p'?'bg-amber-100 border-amber-400 text-amber-800 ring-2 ring-amber-200':'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'}"><span>🔋 電池並聯</span> ${batState.conn==='p'?'✅':''}</button>
+                 
+                 ${ batMode === 'demo' ? `
+                 <div class="border-t-2 border-slate-100 my-1"></div>
+                 <div class="grid grid-cols-2 gap-2">
+                    <button onclick="setBatCond('normal')" class="py-2 px-2 rounded-xl font-bold border-2 fade-transition text-center text-xs col-span-2 ${batState.cond==='normal'?'bg-emerald-500 text-white border-emerald-600 shadow-sm':'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'}">✅ 恢復正常</button>
+                    <button onclick="setBatCond('cut')" class="py-2 px-2 rounded-xl font-bold border-2 fade-transition text-center text-xs ${batState.cond==='cut'?'bg-rose-500 text-white border-rose-600 shadow-sm':'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'}">✂️ 剪斷電線</button>
+                    <button onclick="setBatCond('dead')" class="py-2 px-2 rounded-xl font-bold border-2 fade-transition text-center text-xs ${batState.cond==='dead'?'bg-rose-500 text-white border-rose-600 shadow-sm':'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'}">🪫 電池沒電</button>
+                 </div>` : '' }
               </div>
             </div>
-            <div class="p-4 mt-6 rounded-xl font-bold border-2 ${msgColor} transition-colors shadow-sm text-center text-lg md:text-xl">${message}</div>
+            
+            <div class="p-4 mt-6 rounded-xl font-bold border-2 ${msgColor} transition-colors shadow-sm text-center text-base md:text-lg">${message}</div>
           </div>
       `;
 
@@ -584,12 +711,20 @@
 
     window.setBatConn = function(type) {
         batState.conn = type;
-        batState.cond = 'normal';
         if (type === 's') batTestedS = true;
         if (type === 'p') batTestedP = true;
         render();
     }
     window.setBatCond = function(cond) { batState.cond = cond; render(); }
+
+    // (這段通常在 renderBulb 函式的下方)
+    window.setBulbConn = function(type) {
+        bulbState.conn = type;
+        if (type === 's') bulbTestedS = true;
+        if (type === 'p') bulbTestedP = true;
+        render();
+    }
+    window.setBulbCond = function(cond) { bulbState.cond = cond; render(); }
 
     // --- 區塊渲染：2. 燈泡的連接 (Sky) ---
     function renderBulb() {
@@ -724,22 +859,46 @@
                  ${svgCanvas}
               </div>
 
-              <div class="w-full lg:w-[380px] flex-shrink-0 flex flex-col bg-white rounded-3xl border-2 border-slate-100 p-4 shadow-sm justify-center gap-3">
-                 <p class="text-slate-600 font-bold mb-1 text-lg">請選擇連接方式：</p>
-                 <button onclick="setBulbConn('1')" class="py-2 px-5 rounded-xl font-bold border-2 fade-transition text-left flex justify-between items-center text-lg ${bulbState.conn==='1'?'bg-sky-100 border-sky-400 text-sky-800 ring-2 ring-sky-200':'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'}"><span>1️⃣ 一顆燈泡</span> ${bulbState.conn==='1'?'✅':''}</button>
-                 <button onclick="setBulbConn('s')" class="py-2 px-5 rounded-xl font-bold border-2 fade-transition text-left flex justify-between items-center text-lg ${bulbState.conn==='s'?'bg-sky-100 border-sky-400 text-sky-800 ring-2 ring-sky-200':'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'}"><span>💡 燈泡串聯</span> ${bulbState.conn==='s'?'✅':''}</button>
-                 <button onclick="setBulbConn('p')" class="py-2 px-5 rounded-xl font-bold border-2 fade-transition text-left flex justify-between items-center text-lg ${bulbState.conn==='p'?'bg-sky-100 border-sky-400 text-sky-800 ring-2 ring-sky-200':'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'}"><span>💡 燈泡並聯</span> ${bulbState.conn==='p'?'✅':''}</button>
+              <div class="w-full lg:w-[380px] flex-shrink-0 flex flex-col bg-white rounded-3xl border-2 border-slate-100 p-4 shadow-sm justify-start gap-3">
                  
-                 <div class="border-t-2 border-slate-100 my-2"></div>
-                 
-                 <div class="grid grid-cols-2 gap-3">
-                    <button onclick="setBulbCond('normal')" class="py-3 px-2 rounded-xl font-bold border-2 fade-transition text-center text-sm md:text-base col-span-2 ${bulbState.cond==='normal'?'bg-emerald-500 text-white border-emerald-600 shadow-md':'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'}">✅ 恢復正常</button>
-                    <button onclick="setBulbCond('cut')" class="py-3 px-2 rounded-xl font-bold border-2 fade-transition text-center text-sm md:text-base ${bulbState.cond==='cut'?'bg-rose-500 text-white border-rose-600 shadow-md':'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'}">✂️ 剪斷電線</button>
-                    <button onclick="setBulbCond('dead')" class="py-3 px-2 rounded-xl font-bold border-2 fade-transition text-center text-sm md:text-base ${bulbState.cond==='dead'?'bg-rose-500 text-white border-rose-600 shadow-md':'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'}">💥 燈泡壞掉</button>
+                 <div class="flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+                    <button onclick="switchBulbMode('demo')" class="flex-1 py-1.5 rounded-lg text-sm font-bold fade-transition ${bulbMode==='demo'?'bg-white text-sky-600 shadow-sm':'text-slate-500 hover:text-slate-700'}">🔍 自由探索</button>
+                    <button onclick="switchBulbMode('game')" class="flex-1 py-1.5 rounded-lg text-sm font-bold fade-transition ${bulbMode==='game'?'bg-white text-sky-600 shadow-sm':'text-slate-500 hover:text-slate-700'}">🎯 任務挑戰</button>
                  </div>
+
+                 ${ bulbMode === 'game' ? `
+                 <div class="bg-sky-50 border border-sky-200 rounded-xl p-3 flex flex-col gap-2 shadow-inner">
+                    ${ bulbMissionIdx < bulbMissions.length ? `
+                       <div class="text-sky-900 font-bold text-sm leading-snug">🎯 任務 ${bulbMissionIdx + 1}：<br>${bulbMissions[bulbMissionIdx].text}</div>
+                       ${ bulbMissionFeedback ? `<div class="text-xs text-rose-600 bg-white px-2 py-1 rounded border border-rose-200 animate-shake">${bulbMissionFeedback}</div>` : '' }
+                       <div class="flex justify-between items-center mt-1">
+                          <span class="text-xs font-bold text-sky-600 bg-sky-100 px-2 py-1 rounded-md">得分: ${bulbGameScore}</span>
+                          <button onclick="checkBulbMission()" class="bg-sky-500 hover:bg-sky-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold shadow-sm transition-transform hover:scale-105">確認接線</button>
+                       </div>
+                    ` : `
+                       <div class="text-emerald-700 font-bold text-sm text-center py-1">🎉 恭喜！燈泡任務全數通關！<br>總得分：${bulbGameScore}</div>
+                       <div class="text-center mt-1"><button onclick="restartBulbGame()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold shadow-sm transition-transform hover:scale-105">🔁 重新挑戰</button></div>
+                    `}
+                 </div>` : '' }
+
+                 <p class="text-slate-600 font-bold text-sm mt-1">電路設定面板：</p>
+                 
+                 ${ bulbMode === 'demo' ? `<button onclick="setBulbConn('1')" class="py-2 px-4 rounded-xl font-bold border-2 fade-transition text-left flex justify-between items-center text-base ${bulbState.conn==='1'?'bg-sky-100 border-sky-400 text-sky-800 ring-2 ring-sky-200':'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'}"><span>1️⃣ 一顆燈泡</span> ${bulbState.conn==='1'?'✅':''}</button>` : '' }
+                 
+                 <button onclick="setBulbConn('s')" class="py-2 px-4 rounded-xl font-bold border-2 fade-transition text-left flex justify-between items-center text-base ${bulbState.conn==='s'?'bg-sky-100 border-sky-400 text-sky-800 ring-2 ring-sky-200':'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'}"><span>💡 燈泡串聯</span> ${bulbState.conn==='s'?'✅':''}</button>
+                 <button onclick="setBulbConn('p')" class="py-2 px-4 rounded-xl font-bold border-2 fade-transition text-left flex justify-between items-center text-base ${bulbState.conn==='p'?'bg-sky-100 border-sky-400 text-sky-800 ring-2 ring-sky-200':'bg-slate-50 border-slate-200 hover:bg-slate-100 text-slate-700'}"><span>💡 燈泡並聯</span> ${bulbState.conn==='p'?'✅':''}</button>
+                 
+                 ${ bulbMode === 'demo' ? `
+                 <div class="border-t-2 border-slate-100 my-1"></div>
+                 <div class="grid grid-cols-2 gap-2">
+                    <button onclick="setBulbCond('normal')" class="py-2 px-2 rounded-xl font-bold border-2 fade-transition text-center text-xs col-span-2 ${bulbState.cond==='normal'?'bg-emerald-500 text-white border-emerald-600 shadow-sm':'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'}">✅ 恢復正常</button>
+                    <button onclick="setBulbCond('cut')" class="py-2 px-2 rounded-xl font-bold border-2 fade-transition text-center text-xs ${bulbState.cond==='cut'?'bg-rose-500 text-white border-rose-600 shadow-sm':'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'}">✂️ 剪斷電線</button>
+                    <button onclick="setBulbCond('dead')" class="py-2 px-2 rounded-xl font-bold border-2 fade-transition text-center text-xs ${bulbState.cond==='dead'?'bg-rose-500 text-white border-rose-600 shadow-sm':'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-300'}">💥 燈泡壞掉</button>
+                 </div>` : '' }
               </div>
             </div>
-            <div class="p-4 mt-6 rounded-xl font-bold border-2 ${msgColor} transition-colors shadow-sm text-center text-lg md:text-xl">${message}</div>
+            
+            <div class="p-4 mt-6 rounded-xl font-bold border-2 ${msgColor} transition-colors shadow-sm text-center text-base md:text-lg">${message}</div>
           </div>
       `;
 
@@ -795,12 +954,13 @@
     }
     window.setBulbCond = function(cond) { bulbState.cond = cond; render(); }
 
-    // --- 區塊渲染：3. 綜合比較 (Teal) ---
+
     // --- 區塊渲染：3. 綜合比較 (Teal) ---
     function renderCompare() {
       if (compProgress === 0 && sortItems.length === 0) {
-        sortItems = shuffleArray(baseSortItems);
-      }
+		  // 加上 requiredCorrect 與 btnReversed 屬性，預設每題只要答對 1 次，並隨機決定按鈕是否反轉
+		  sortItems = shuffleArray(baseSortItems.map(item => ({...item, requiredCorrect: 1, btnReversed: Math.random() > 0.5})));
+		}
 
       let content = `
         <div class="space-y-6 fade-transition max-w-4xl mx-auto">
@@ -885,14 +1045,23 @@
         // 動畫播放期間鎖定按鈕防呆
         let isDisabled = (sortErrorCat !== null || sortCorrectCat !== null) ? 'disabled' : '';
 
-        html += `<button onclick="handleSort('series')" ${isDisabled} class="w-full md:w-40 border-b-4 p-4 rounded-2xl text-center fade-transition ${seriesBtnCls}">
-            <div class="text-3xl mb-1">🔗</div><div class="font-bold text-lg">屬於「串聯」</div>
-          </button>`;
-        html += `<button onclick="handleSort('parallel')" ${isDisabled} class="w-full md:w-40 border-b-4 p-4 rounded-2xl text-center fade-transition ${parallelBtnCls}">
-            <div class="text-3xl mb-1">🛤️</div><div class="font-bold text-lg">屬於「並聯」</div>
-          </button>`;
-        
-        html += `</div><div class="mt-6 text-slate-500 font-bold bg-slate-100 px-4 py-1 rounded-full">分類進度：${sortCurrentIndex + 1} / ${sortItems.length}</div></div>`;
+        let seriesBtnHtml = `<button onclick="handleSort('series')" ${isDisabled} class="w-full md:w-40 border-b-4 p-4 rounded-2xl text-center fade-transition ${seriesBtnCls}">
+    <div class="text-3xl mb-1">🔗</div><div class="font-bold text-lg">屬於「串聯」</div>
+  </button>`;
+		let parallelBtnHtml = `<button onclick="handleSort('parallel')" ${isDisabled} class="w-full md:w-40 border-b-4 p-4 rounded-2xl text-center fade-transition ${parallelBtnCls}">
+			<div class="text-3xl mb-1">🛤️</div><div class="font-bold text-lg">屬於「並聯」</div>
+		  </button>`;
+
+		// 根據該題的隨機屬性決定按鈕左右順序
+		if (cur.btnReversed) {
+		  html += parallelBtnHtml + seriesBtnHtml;
+		} else {
+		  html += seriesBtnHtml + parallelBtnHtml;
+		}
+
+		// 確保畫面顯示的進度不會超過總題數，且總數鎖定為 baseSortItems.length
+		const displayIndex = Math.min(sortCurrentIndex + 1, baseSortItems.length);
+		html += `</div><div class="mt-6 text-slate-500 font-bold bg-slate-100 px-4 py-1 rounded-full">分類進度：${displayIndex} / ${baseSortItems.length}</div></div>`;
       } else {
         // 狀態 C：遊戲完成（顯示成績與重玩按鈕）
         html += `<div class="text-center py-6 fade-transition">
@@ -910,8 +1079,9 @@
     }
 
     window.startSortGame = function() {
-      sortItems = shuffleArray(baseSortItems);
-      sortCurrentIndex = 0;
+	  // 重新洗牌題目，並確保重新賦予 requiredCorrect: 1 與 btnReversed 屬性
+	  sortItems = shuffleArray(baseSortItems.map(item => ({...item, requiredCorrect: 1, btnReversed: Math.random() > 0.5})));
+	  sortCurrentIndex = 0;
       sortErrorCat = null;
       sortCorrectCat = null;
       sortGameStarted = true;
@@ -920,41 +1090,64 @@
     }
 
     window.handleSort = function(cat) {
-      if (sortErrorCat || sortCorrectCat) return; // 防呆
-      const cur = sortItems[sortCurrentIndex];
+	  if (sortErrorCat || sortCorrectCat) return; // 防呆
+	  const cur = sortItems[sortCurrentIndex];
 
-      if (cur.type === cat) {
-        sortCorrectCat = cat; // 紀錄正確的分類觸發動畫
-        render();
-        setTimeout(() => {
-          sortCorrectCat = null;
-          if (sortCurrentIndex + 1 < sortItems.length) {
-            sortCurrentIndex++;
-          } else {
-            sortTimeTaken = Math.floor((Date.now() - sortStartTime) / 1000);
-            sortPlayCount++;
-            sortGameStarted = false;
-            if (compProgress === 0) progressTask('compSort');
-          }
-          render();
-        }, 500); // 答對動畫延遲 0.5 秒
-      } else {
-        sortErrorCat = cat; // 紀錄錯誤的分類觸發震動
-        render();
-        setTimeout(() => {
-          sortErrorCat = null;
-          
-          // 💡 答錯時，將包含當前這題在內的「剩餘題目」重新洗牌
-          let remainingItems = sortItems.slice(sortCurrentIndex);
-          remainingItems = shuffleArray(remainingItems);
-          for (let i = 0; i < remainingItems.length; i++) {
-            sortItems[sortCurrentIndex + i] = remainingItems[i];
-          }
-          
-          render();
-        }, 500); // 答錯動畫延遲 0.5 秒
-      }
-    }
+	  if (cur.type === cat) {
+		sortCorrectCat = cat; // 紀錄正確的分類觸發動畫
+		render();
+		setTimeout(() => {
+		  sortCorrectCat = null;
+		  
+		  // 答對了，扣除需要的正確次數
+		  cur.requiredCorrect--;
+		  
+		  if (cur.requiredCorrect <= 0) {
+			// 這題完全過關了，進度推進
+			sortCurrentIndex++;
+		  } else {
+			// 這是之前答錯過的題目（還欠一次正確），將它隨機塞回後面的題目陣列中
+			const remainingCount = sortItems.length - sortCurrentIndex;
+			if (remainingCount > 1) {
+			  const itemToMove = sortItems.splice(sortCurrentIndex, 1)[0];
+			  itemToMove.btnReversed = Math.random() > 0.5; // 重新亂數按鈕位置
+			  const randomOffset = 1 + Math.floor(Math.random() * (remainingCount - 1));
+			  sortItems.splice(sortCurrentIndex + randomOffset, 0, itemToMove);
+			}
+		  }
+
+		  if (sortCurrentIndex >= sortItems.length) {
+			// 🎉 全部答對了！計算總花費秒數
+			sortTimeTaken = Math.floor((Date.now() - sortStartTime) / 1000);
+			sortPlayCount++;         // 遊玩次數 +1
+			sortGameStarted = false; // 遊戲結束
+			if (compProgress === 0) progressTask('compSort');
+		  }
+		  render();
+		}, 500); // 答對動畫延遲 0.5 秒
+	  } else {
+		sortErrorCat = cat; // 紀錄錯誤的分類觸發震動
+		render();
+		
+		setTimeout(() => {
+		  sortErrorCat = null;
+		  
+		  // 💡 累加懲罰機制：每答錯一次，該題需要答對的次數就加 1
+		  cur.requiredCorrect++;
+		  
+		  // 將當前這題隨機塞入後面的剩餘題目中
+		  const remainingCount = sortItems.length - sortCurrentIndex;
+		  if (remainingCount > 1) {
+			const itemToMove = sortItems.splice(sortCurrentIndex, 1)[0];
+			itemToMove.btnReversed = Math.random() > 0.5; // 重新亂數按鈕位置
+			const randomOffset = 1 + Math.floor(Math.random() * (remainingCount - 1));
+			sortItems.splice(sortCurrentIndex + randomOffset, 0, itemToMove);
+		  }
+		  
+		  render();
+		}, 500); // 答錯動畫延遲 0.5 秒
+	  }
+	}
 
 
     // --- 區塊渲染：4. 最終測驗 (Indigo) ---
