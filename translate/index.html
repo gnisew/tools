@@ -23,7 +23,11 @@
             <h1>🥷 烏衣行翻譯</h1>
             
             <div class="header-group header-right">
+                <div class="mode-toggle-container">
+                    <button id="btnModeTranslate" class="mode-tab active" title="切換至翻譯模式">🌐翻譯</button>
+                    <button id="btnModeSearch" class="mode-tab" title="切換至查詢模式">🔍查詢</button>
                 </div>
+            </div>
         </div>
     </header>
 
@@ -97,6 +101,29 @@
                 </div>
             </section>
         </div>
+		<section id="searchContainer" class="search-wrapper">
+            <div class="search-bar-row">
+                <input type="text" id="searchInput" placeholder="...">
+                <button id="btnSearchAction" class="search-action-btn">
+                    <span class="material-symbols-outlined">search</span>搜尋
+                </button>
+            </div>
+            
+            <div id="searchResultsCount" class="results-count"></div>
+            
+            <div id="searchResultsGrid" class="search-results-grid">
+                </div>
+            
+            <div id="paginationContainer" class="pagination-container hidden">
+                <button id="btnPrevPage" class="page-btn" title="上一頁" disabled>
+                    <span class="material-symbols-outlined">chevron_left</span>
+                </button>
+                <span id="pageInfo">第 1 / 1 頁</span>
+                <button id="btnNextPage" class="page-btn" title="下一頁" disabled>
+                    <span class="material-symbols-outlined">chevron_right</span>
+                </button>
+            </div>
+        </section>
         
     </main>
 	<div id="settingsBackdrop" class="backdrop hidden"></div>

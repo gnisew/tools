@@ -170,10 +170,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let langRight = DEFAULT_RIGHT;
     let isInstantTranslate = true;
     let currentTranslateAction = 'translate'; // 'translate', 'segment', 'space'
+	let currentMode = 'translate'; // 儲存目前模式：'translate'(翻譯) 或 'search'(查詢)
 
     // --- 新增：字典快取與載入狀態 ---
     let dictionaryCache = {}; 
     let scriptLoadPromises = {};
+	
+	// --- 查詢模式專用狀態 ---
+    let currentSearchResults = [];
+    let currentPage = 1;
+    const ITEMS_PER_PAGE = 24; // 每頁顯示 24 筆，適合在各種螢幕尺寸排列網格
 
     // --- 3. DOM 元素 ---
 
@@ -206,6 +212,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	const pivotLangContainer = document.getElementById('pivotLangContainer');
     const selectPivotLang = document.getElementById('selectPivotLang');
+    const btnModeTranslate = document.getElementById('btnModeTranslate');
+    const btnModeSearch = document.getElementById('btnModeSearch');
+    const searchInput = document.getElementById('searchInput');
+    const btnSearchAction = document.getElementById('btnSearchAction');
+
+	const searchResultsGrid = document.getElementById('searchResultsGrid');
+    const searchResultsCount = document.getElementById('searchResultsCount');
+    const paginationContainer = document.getElementById('paginationContainer');
+    const btnPrevPage = document.getElementById('btnPrevPage');
+    const btnNextPage = document.getElementById('btnNextPage');
+    const pageInfo = document.getElementById('pageInfo');
+
 
     // --- 4. 核心函式 ---
 
@@ -233,10 +251,12 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             localStorage.setItem(STORAGE_PREFIX + 'langLeft', langLeft);
             localStorage.setItem(STORAGE_PREFIX + 'langRight', langRight);
+            localStorage.setItem(STORAGE_PREFIX + 'currentMode', currentMode); // 新增：儲存模式快取
             
             const params = new URLSearchParams(window.location.search);
             params.set('from', langLeft);
             params.set('to', langRight);
+            params.set('mode', currentMode); // 新增：同步網址參數 ?mode=
             window.history.pushState({ path: `?${params.toString()}` }, '', `?${params.toString()}`);
         } catch (e) {
             console.error("無法儲存狀態:", e);
@@ -250,45 +270,44 @@ document.addEventListener('DOMContentLoaded', () => {
         const params = new URLSearchParams(window.location.search);
         const urlFrom = params.get('from');
         const urlTo = params.get('to');
+        const urlMode = params.get('mode'); // 新增：讀取網址模式
 
         const localFrom = localStorage.getItem(STORAGE_PREFIX + 'langLeft');
         const localTo = localStorage.getItem(STORAGE_PREFIX + 'langRight');
         const localInstant = localStorage.getItem(STORAGE_PREFIX + 'isInstant');
+        const localMode = localStorage.getItem(STORAGE_PREFIX + 'currentMode'); // 新增：讀取快取模式
         
         const validateLang = (key) => LANGUAGES[key] ? key : null;
 
-        // 載入語言
+        // 1. 載入模式 (優先使用網址參數，次之為本地快取，預設為 translate)
+        currentMode = urlMode === 'search' || localMode === 'search' ? 'search' : 'translate';
+
+        // 2. 載入語言
         langLeft = validateLang(urlFrom) || validateLang(localFrom) || DEFAULT_LEFT;
         langRight = validateLang(urlTo) || validateLang(localTo) || DEFAULT_RIGHT;
 
         // 載入即時翻譯設定 (預設為 true)
         isInstantTranslate = (localInstant === null) ? true : (localInstant === 'true');
 
-        // 狀態校正
-        if (langLeft === langRight) {
-            if (langLeft === PIVOT_LANG) {
+        // 翻譯模式下的同語言狀態校正
+        if (currentMode === 'translate' && langLeft === langRight) {
+            if (langLeft === DEFAULT_PIVOT) {
                 langRight = DEFAULT_RIGHT;
             } else {
-                langRight = PIVOT_LANG;
+                langRight = DEFAULT_PIVOT;
             }
         }
         
-        saveState(); // 將校正後的 L/R 狀態存回
-        
         // 更新即時翻譯 UI
         updateInstantTranslateUI();
-		// 載入分隔符號設定
+
+        // 載入分隔符號設定
         const localDelimiter = localStorage.getItem(STORAGE_PREFIX + 'delimiter');
         translationDelimiter = (localDelimiter === null) ? DEFAULT_DELIMITER : localDelimiter;
-        inputDelimiter.value = translationDelimiter;
+        if (inputDelimiter) inputDelimiter.value = translationDelimiter;
 
-        // 載入中介語言偏好 (但不立刻設定，交給 update... 函式決定)
-        //const localPivot = localStorage.getItem(STORAGE_PREFIX + 'pivotLang');
-        
-        // 更新中介語言選單 (在 L/R 語言都確定後)
-        // 傳入 localPivot，使其能優先選擇使用者的偏好
-        //updatePivotLangSelector(langLeft, langRight, localPivot);
-		updatePivotLangSelector(langLeft, langRight);
+        // 執行模式與 UI 初始化切換
+        switchMode(currentMode);
     }
 
     /**
@@ -443,20 +462,39 @@ document.addEventListener('DOMContentLoaded', () => {
         popoverRight.innerHTML = '';
 
         Object.entries(LANGUAGES).forEach(([key, { name }]) => {
-            // --- 左側選單 (新邏輯) ---
+            // --- 左側選單 ---
             const btnLeft = document.createElement('button');
             btnLeft.dataset.lang = key;
             btnLeft.textContent = name;
             if (key === langLeft) btnLeft.classList.add('active');
-            // 【已移除】: 不再禁用右側已選的語言 (if (key === langRight) btnLeft.disabled = true;)
             popoverLeft.appendChild(btnLeft);
 
-            // --- 右側選單 (舊邏輯不變) ---
+            // --- 右側選單 ---
             const btnRight = document.createElement('button');
             btnRight.dataset.lang = key;
             btnRight.textContent = name;
             if (key === langRight) btnRight.classList.add('active');
-            if (key === langLeft) btnRight.disabled = true; // 右側不能選左側已選的
+            
+            // 判斷是否要禁用右側按鈕
+            if (currentMode === 'search') {
+                // 【查詢模式】: 右側只能點選與左側「有直接資料庫」的語言
+                let isDirect = false;
+                if (langLeft === 'chinese' && LANGUAGES[key].file) {
+                    isDirect = true; // 華語對應有 file 的客語/本土語言
+                } else if (key === 'chinese' && LANGUAGES[langLeft].file) {
+                    isDirect = true; // 本土語言對應華語
+                } else if (DIRECT_PAIRS[`${langLeft}-${key}`] || DIRECT_PAIRS[`${key}-${langLeft}`]) {
+                    isDirect = true; // 存在直接方言對應
+                }
+                
+                // 如果沒有直接對應，或者是相同語言，則禁用
+                if (!isDirect || key === langLeft) {
+                    btnRight.disabled = true;
+                }
+            } else {
+                // 【翻譯模式】: 右側不能選左側已選的 (原本邏輯)
+                if (key === langLeft) btnRight.disabled = true;
+            }
             popoverRight.appendChild(btnRight);
         });
     }
@@ -482,29 +520,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const newLang = btn.dataset.lang;
 
         if (side === 'left') {
-            // --- 【新邏輯】 ---
             langLeft = newLang;
             
-            // 左側選單具有優先權。
-            // 1. 如果左側選的是「華語」，則右側自動設為「詔安」(DEFAULT_RIGHT)。
-            
-            // --- 【修正】 PIVOT_LANG -> DEFAULT_PIVOT ---
-            if (langLeft === DEFAULT_PIVOT) { 
-                langRight = DEFAULT_RIGHT;
-            } 
-            // 2. 如果左側選的是任何其他語言，則右側自動設為「華語」。
-            else {
-                // --- 【修正】 PIVOT_LANG -> DEFAULT_PIVOT ---
-                langRight = DEFAULT_PIVOT; 
+            if (currentMode === 'search') {
+                // 【查詢模式智慧預設】
+                // 1. 如果左側選的是「華語」，則右側智慧設為「詔安」(DEFAULT_RIGHT)
+                if (langLeft === 'chinese') { 
+                    langRight = 'kasu';
+                } 
+                // 2. 如果左側選的是任何其他本土語言，則右側自動預設查「華語」
+                else {
+                    langRight = 'chinese'; 
+                }
+            } else {
+                // 【翻譯模式原本邏輯】
+                if (langLeft === DEFAULT_PIVOT) { 
+                    langRight = DEFAULT_RIGHT;
+                } else {
+                    langRight = DEFAULT_PIVOT; 
+                }
             }
-            // --- 【新邏輯結束】 ---
-
-        } else { // side === 'right'
-            // --- 【新邏輯】 ---
-            // 右側選單僅變更右側語言。
-            // (左側語言不能選的邏輯已在 populatePopovers 中處理)
+        } else { 
+            // 右側選單變更
             langRight = newLang;
-            // --- 【新邏輯結束】 ---
         }
 
         updateLanguageButtons();
@@ -513,10 +551,7 @@ document.addEventListener('DOMContentLoaded', () => {
         saveState();
         triggerTranslation();
 
-        // (以下為 步驟13 中新增的程式碼，保持不變)
         preloadDictionaries(langLeft, langRight);
-        
-        // (以下為 步驟14 中新增的程式碼，保持不變)
         updatePivotLangSelector(langLeft, langRight);
     }
 
@@ -557,6 +592,56 @@ document.addEventListener('DOMContentLoaded', () => {
         popoverLeft.classList.add('hidden');
         popoverRight.classList.add('hidden');
         popoverTranslateOptions.classList.add('hidden');
+    }
+
+	/**
+     * 新增：執行模式切換 (控制 UI、校正語言、儲存狀態)
+     * @param {string} mode - 'translate' 或 'search'
+     */
+    function switchMode(mode) {
+        currentMode = mode;
+        
+        // 1. 切換 body 類別，觸發 CSS 的介面顯示/隱藏
+        document.body.classList.toggle('search-mode', currentMode === 'search');
+        
+        // 2. 更新 Header 頁籤的 active 狀態
+        if (btnModeTranslate && btnModeSearch) {
+            btnModeTranslate.classList.toggle('active', currentMode === 'translate');
+            btnModeSearch.classList.toggle('active', currentMode === 'search');
+        }
+        
+        // 3. 查詢模式專屬的語言有效性校正 (確保兩者有直接資料庫對應)
+        if (currentMode === 'search') {
+            let isDirect = false;
+            // 檢查是否能直接與華語互查，或者在 DIRECT_PAIRS 中
+            if (langLeft === 'chinese' && LANGUAGES[langRight]?.file) isDirect = true;
+            if (langRight === 'chinese' && LANGUAGES[langLeft]?.file) isDirect = true;
+            if (DIRECT_PAIRS[`${langLeft}-${langRight}`] || DIRECT_PAIRS[`${langRight}-${langLeft}`]) isDirect = true;
+            
+            // 如果當前組合沒有直接資料庫，執行智慧預設規則
+            if (!isDirect) {
+                if (langLeft === 'chinese') {
+                    langRight = 'kasu'; // 華語預設查 詔安
+                } else {
+                    langRight = 'chinese'; // 客語/閩南語預設查 華語
+                }
+            }
+        }
+        
+        // 4. 刷新語言按鈕文字與選單內容
+        updateLanguageButtons();
+        populatePopovers();
+        
+        // 5. 更新中介語言選單 (若是查詢模式，這個選單會被 CSS 自動隱藏)
+        updatePivotLangSelector(langLeft, langRight);
+        
+        // 6. 同步狀態與網址
+        saveState();
+        
+        // 7. 預載當前組合的字典檔
+        preloadDictionaries(langLeft, langRight);
+        
+        console.log(`[Mode] 已成功切換至: ${currentMode} 模式`);
     }
 
     /**
@@ -965,7 +1050,165 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
+	/**
+     * 執行搜尋的核心邏輯 (包含精確/模糊比對與排序)
+     */
+    async function performSearch() {
+        const keyword = searchInput.value.trim();
+        if (!keyword) {
+            showToast("請輸入要查詢的語詞");
+            return;
+        }
+
+        // 初始化搜尋狀態
+        searchResultsGrid.innerHTML = '';
+        searchResultsCount.textContent = "🔍 搜尋中...";
+        paginationContainer.classList.add('hidden');
+
+        try {
+            // 1. 取得當前方向與對應的字典
+            const direction = determineDirection(langLeft, langRight);
+            const dicts = await loadDictionaryForPair(langLeft, langRight);
+            const rawList = dicts.rawList; // 從 translate.js 取得的原始陣列
+
+            if (!rawList) throw new Error("字典資料不完整，無法執行查詢");
+
+            // 2. 設定比對索引 
+            // 原始資料格式: [count(詞頻), stringA(本土語言), stringB(華語)]
+            // KG(客->華): 搜A(index 1), 顯示B(index 2)
+            // GK(華->客): 搜B(index 2), 顯示A(index 1)
+            let searchIndex = direction === 'GK' ? 2 : 1;
+            let targetIndex = direction === 'GK' ? 1 : 2;
+
+            // 3. 過濾與評分機制
+            const results = [];
+            const keywordLower = keyword.toLowerCase();
+
+            rawList.forEach(item => {
+                const sourceText = item[searchIndex] || '';
+                const targetText = item[targetIndex] || '';
+
+                if (!sourceText || !targetText) return;
+
+                const sourceLower = sourceText.toLowerCase();
+                let score = 0;
+
+                // 評分標準：完全符合 (3) > 開頭符合 (2) > 包含字串 (1)
+                if (sourceLower === keywordLower) {
+                    score = 3; 
+                } else if (sourceLower.startsWith(keywordLower)) {
+                    score = 2; 
+                } else if (sourceLower.includes(keywordLower)) {
+                    score = 1; 
+                }
+
+                if (score > 0) {
+                    results.push({
+                        source: sourceText,
+                        target: targetText,
+                        score: score,
+                        count: item[0] // 記錄詞頻，用於同分時的排序
+                    });
+                }
+            });
+
+            // 4. 排序邏輯：分數(降冪) -> 詞頻(降冪) -> 字串長度(升冪)
+            results.sort((a, b) => {
+                if (a.score !== b.score) return b.score - a.score;
+                if (a.count !== b.count) return b.count - a.count;
+                return a.source.length - b.source.length;
+            });
+
+            // 5. 過濾重複結果 (確保畫面上不出現完全相同的翻譯卡片)
+            const uniqueResults = [];
+            const seen = new Set();
+            results.forEach(item => {
+                const key = `${item.source}-${item.target}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    uniqueResults.push(item);
+                }
+            });
+
+            // 6. 更新狀態並呼叫渲染函式
+            currentSearchResults = uniqueResults;
+            currentPage = 1;
+            renderSearchResults();
+
+        } catch (err) {
+            console.error("搜尋錯誤:", err);
+            searchResultsCount.textContent = "搜尋發生錯誤，請稍後再試。";
+            showToast(err.message || "搜尋失敗");
+        }
+    }
+
+    /**
+     * 渲染搜尋結果與分頁 UI
+     */
+    function renderSearchResults() {
+        const totalItems = currentSearchResults.length;
+        
+        // 處理無結果的情況
+        if (totalItems === 0) {
+            searchResultsCount.textContent = "歹勢，無尋著 🥲";
+            searchResultsGrid.innerHTML = '';
+            paginationContainer.classList.add('hidden');
+            return;
+        }
+
+        // 處理有結果的情況
+        searchResultsCount.textContent = `找到 ${totalItems} 筆結果`;
+
+        // 計算分頁
+        const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalItems);
+        const pageItems = currentSearchResults.slice(startIndex, endIndex);
+
+        searchResultsGrid.innerHTML = '';
+
+        const leftLangName = LANGUAGES[langLeft].name;
+        const rightLangName = LANGUAGES[langRight].name;
+
+        // 動態生成 HTML 卡片
+        pageItems.forEach((item, index) => {
+            const isExact = item.score === 3;
+            
+            // 計算跨頁的絕對編號 (例如：第 2 頁的第 1 筆，若每頁 24 筆，編號就是 25)
+            const globalIndex = startIndex + index + 1; 
+            
+            const card = document.createElement('div');
+            card.className = `search-card ${isExact ? 'exact-match' : ''}`;
+            
+            // 加入卡片結構，新增 card-index 元素
+            card.innerHTML = `
+                <div class="card-index">${globalIndex}</div>
+                <div class="card-source">${item.source}</div>
+                <div class="card-target">${item.target}</div>
+            `;
+            searchResultsGrid.appendChild(card);
+        });
+
+        // 更新分頁按鈕狀態
+        if (totalPages > 1) {
+            paginationContainer.classList.remove('hidden');
+            pageInfo.textContent = `第 ${currentPage} / ${totalPages} 頁`;
+            btnPrevPage.disabled = currentPage === 1;
+            btnNextPage.disabled = currentPage === totalPages;
+        } else {
+            paginationContainer.classList.add('hidden');
+        }
+    }
+
+
     // --- 5. 事件綁定 ---
+	// --- 頁籤模式切換事件監聽 ---
+    if (btnModeTranslate) {
+        btnModeTranslate.addEventListener('click', () => switchMode('translate'));
+    }
+    if (btnModeSearch) {
+        btnModeSearch.addEventListener('click', () => switchMode('search'));
+    }
 
     btnLangLeft.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1112,6 +1355,46 @@ document.addEventListener('DOMContentLoaded', () => {
         savePivotLangState();
         console.log(`[Pivot] 中介語言變更為: ${currentPivotLang}`);
     });
+
+
+	// --- 查詢模式事件監聽 ---
+    if (btnSearchAction) {
+        btnSearchAction.addEventListener('click', performSearch);
+    }
+
+    if (searchInput) {
+        // 讓使用者按下 Enter 鍵也能觸發搜尋
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                performSearch();
+            }
+        });
+    }
+
+    // 上一頁
+    if (btnPrevPage) {
+        btnPrevPage.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderSearchResults();
+                // 翻頁後自動捲動回搜尋結果頂部
+                document.getElementById('searchContainer').scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+    }
+
+    // 下一頁
+    if (btnNextPage) {
+        btnNextPage.addEventListener('click', () => {
+            const totalPages = Math.ceil(currentSearchResults.length / ITEMS_PER_PAGE);
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderSearchResults();
+                document.getElementById('searchContainer').scrollIntoView({ behavior: 'smooth' });
+            }
+        });
+    }
 
     // --- 6. 初始化 ---
 

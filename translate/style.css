@@ -700,3 +700,265 @@ textarea#textOutput {
         padding: 0.6rem 0.25rem;
     }
 }
+
+
+
+
+
+
+
+
+/* ==========================================================================
+   查詢模式 (Search Mode) 全新樣式
+   ========================================================================== */
+
+/* --- 1. Header 模式切換頁籤 --- */
+.mode-toggle-container {
+    display: flex;
+    background-color: #ededed;
+    padding: 0.25rem;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+}
+
+.mode-tab {
+    border: none;
+    background: none;
+    padding: 0.35rem 0.8rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    color: var(--text-secondary);
+}
+
+.mode-tab:hover {
+    color: var(--text-primary);
+}
+
+.mode-tab.active {
+    background-color: var(--panel-bg);
+    color: var(--brand-color);
+    font-weight: 600;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* --- 2. 模式顯示/隱藏 切換邏輯 --- */
+/* 預設狀態 (翻譯模式) */
+.search-wrapper {
+    display: none; /* 隱藏查詢介面 */
+}
+
+/* 當 body 切換為查詢模式時 (由 JS 加上 .search-mode) */
+body.search-mode .panels-wrapper {
+    display: none !important; /* 隱藏原有的雙翻譯面板 */
+}
+
+body.search-mode .search-wrapper {
+    display: flex; /* 顯示查詢介面 */
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* --- 3. 查詢介面佈局 --- */
+.search-bar-row {
+    display: flex;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+#searchInput {
+    flex-grow: 1;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1.05rem;
+    outline: none;
+    background-color: var(--panel-bg);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: border-color 0.2s;
+}
+
+#searchInput:focus {
+    border-color: var(--brand-color);
+}
+
+.search-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.75rem 1.5rem;
+    background-color: var(--brand-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    white-space: nowrap;
+}
+
+.search-action-btn:hover {
+    background-color: #0056b3;
+}
+
+.search-action-btn .material-symbols-outlined {
+    font-size: 20px;
+}
+
+.results-count {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    min-height: 1.5rem;
+}
+
+/* --- 4. 字典結果卡片網格 (極簡乾淨版) --- */
+.search-results-grid {
+    display: grid;
+    /* 電腦版自動填滿欄位，每欄最小 220px (稍微縮小一點讓排列更緊湊) */
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+    width: 100%;
+}
+
+.search-card {
+    background-color: var(--panel-bg);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center; /* 垂直置中 */
+    justify-content: space-between; /* 左右對齊分開 */
+    border: 1px solid transparent;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+	position: relative;
+}
+
+.search-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+    border-color: rgba(0, 123, 255, 0.2);
+}
+
+/* 小小淡淡的編號樣式 */
+.card-index {
+    position: absolute;
+    top: 0.35rem;
+    left: 0.45rem;
+    font-size: 0.65rem;
+    color: #c0c0c0; /* 淡淡的淺灰色 */
+    font-family: monospace; /* 數字使用等寬字體，排版更整齊 */
+    
+    /* 貼心細節：防止使用者反白複製詞彙時，不小心複製到編號 */
+    user-select: none; 
+}
+
+/* 「完全符合」結果的精緻特殊樣式 */
+.search-card.exact-match {
+    border-left: 4px solid var(--brand-color);
+    background-color: #fdfeff;
+}
+
+.search-card.exact-match .card-index {
+    left: 0.6rem;
+}
+/* 來源詞 (例如：我) - 較小、次要顏色 */
+.card-source {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+}
+
+/* 目標詞 (例如：𠊎) - 較大、主要顏色、加粗 */
+.card-target {
+    font-size: 1.2rem;
+    color: var(--text-primary);
+}
+
+/* 完全符合的目標詞，給予品牌藍色強調 */
+.search-card.exact-match .card-target {
+    color: var(--brand-color);
+}
+/* --- 5. 分頁 UI 樣式 --- */
+.pagination-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
+    margin-top: 1rem;
+    user-select: none;
+}
+
+.pagination-container.hidden {
+    display: none !important;
+}
+
+.page-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border-color);
+    background-color: var(--panel-bg);
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--text-primary);
+    transition: all 0.2s;
+}
+
+.page-btn:hover:not(:disabled) {
+    background-color: #f0f0f0;
+    border-color: var(--text-secondary);
+}
+
+.page-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+#pageInfo {
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+/* --- 6. 行動版 RWD 覆蓋樣式 --- */
+@media (max-width: 768px) {
+    .mode-toggle-container {
+        padding: 0.15rem;
+    }
+    
+    .mode-tab {
+        padding: 0.25rem 0.6rem;
+        font-size: 0.85rem;
+    }
+    
+    .search-bar-row {
+        gap: 0.5rem;
+    }
+    
+    #searchInput {
+        padding: 0.6rem 1rem;
+        font-size: 1rem;
+    }
+    
+    .search-action-btn {
+        padding: 0.6rem 1rem;
+        font-size: 0.95rem;
+    }
+
+    .search-results-grid {
+        grid-template-columns: 1fr; /* 手機版改為單欄滿版排列 */
+        gap: 0.75rem;
+    }
+    
+    .search-card {
+        padding: 0.85rem 1rem;
+    }
+}
