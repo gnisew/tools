@@ -913,7 +913,8 @@ function convertToFullMark(t) {
 
 // 馬祖拼音轉注音
 const matsuPinyinToBpm = (function() {
-    const consonantData = `tsh	ㄘ_ph	ㄆ_th	ㄊ_kh	ㄎ_ts	ㄗ_p	ㄅ_m	ㄇ_t	ㄉ_n	ㄋ_l	ㄌ_k	ㄍ_h	ㄏ_j	ㄖ_s	ㄙ_b	勺`;
+    // 💡 修正重點：在最後面加上了 _ng\t兀，讓程式能識別 ng 聲母
+    const consonantData = `tsh	ㄘ_ph	ㄆ_th	ㄊ_kh	ㄎ_ts	ㄗ_p	ㄅ_m	ㄇ_t	ㄉ_n	ㄋ_l	ㄌ_k	ㄍ_h	ㄏ_j	ㄖ_s	ㄙ_b	勺_ng	兀`;
     const vowelData = `oeyng	廿ㄩㄥ_aing	ㄞㄥ_aung	ㄠㄥ_eing	ㄟㄥ_iang	ㄧㄤ_ieng	ㄧㄝㄥ_oeyh	廿ㄩㄏ_oeyk	廿ㄩㄍ_oeym	廿ㄩㄇ_oeyn	廿ㄩㄣ_oeyp	廿ㄩㄅ_oeyt	廿ㄩㄉ_oung	ㄡㄥ_oyng	ㄛㄩㄥ_uang	ㄨㄤ_uong	ㄨㄛㄥ_yong	ㄩㄛㄥ_aih	ㄞㄏ_aik	ㄞㄍ_aim	ㄞㄇ_ain	ㄞㄣ_aip	ㄞㄅ_ait	ㄞㄉ_ang	ㄤ_auh	ㄠㄏ_auk	ㄠㄍ_aum	ㄠㄇ_aun	ㄠㄣ_aup	ㄠㄅ_aut	ㄠㄉ_eih	ㄟㄏ_eik	ㄟㄍ_eim	ㄟㄇ_ein	ㄟㄣ_eip	ㄟㄅ_eit	ㄟㄉ_iah	ㄧㄚㄏ_iak	ㄧㄚㄍ_iam	ㄧㄚㄇ_ian	ㄧㄢ_iap	ㄧㄚㄅ_iat	ㄧㄚㄉ_iau	ㄧㄠ_ieh	ㄧㄝㄏ_iek	ㄧㄝㄍ_iem	ㄧㄝㄇ_ien	ㄧㄝㄣ_iep	ㄧㄝㄅ_iet	ㄧㄝㄉ_ieu	ㄧㄝㄨ_ing	ㄧㄥ_oeh	廿ㄏ_oek	廿ㄍ_oep	廿ㄅ_oet	廿ㄉ_oey	廿ㄩ_ong	ㄛㄥ_ouh	ㄡㄏ_ouk	ㄡㄍ_oum	ㄡㄇ_oun	ㄡㄣ_oup	ㄡㄅ_out	ㄡㄉ_oyh	ㄛㄩㄏ_oyk	ㄛㄩㄍ_oym	ㄛㄩㄇ_oyn	ㄛㄩㄣ_oyp	ㄛㄩㄅ_oyt	ㄛㄩㄉ_uah	ㄨㄚㄏ_uai	ㄨㄞ_uak	ㄨㄚㄍ_uam	ㄨㄚㄇ_uan	ㄨㄢ_uap	ㄨㄚㄅ_uat	ㄨㄚㄉ_ung	ㄨㄥ_uoh	ㄨㄛㄏ_uok	ㄨㄛㄍ_uom	ㄨㄛㄇ_uon	ㄨㄛㄣ_uop	ㄨㄛㄅ_uot	ㄨㄛㄉ_yng	ㄩㄥ_yoh	ㄩㄛㄏ_yok	ㄩㄛㄍ_yom	ㄩㄛㄇ_yon	ㄩㄛㄣ_yop	ㄩㄛㄅ_yot	ㄩㄛㄉ_ah	ㄚㄏ_ai	ㄞ_ak	ㄚㄍ_am	ㄚㄇ_an	ㄢ_ap	ㄚㄅ_at	ㄚㄉ_au	ㄠ_eh	ㄝㄏ_ei	ㄟ_ek	ㄝㄍ_ep	ㄝㄅ_et	ㄝㄉ_ia	ㄧㄚ_ie	ㄧㄝ_ih	ㄧㄏ_ik	ㄧㄍ_im	ㄧㄇ_in	ㄧㄣ_ip	ㄧㄅ_it	ㄧㄉ_iu	ㄧㄨ_oe	廿_oh	ㄛㄏ_ok	ㄛㄍ_om	ㄛㄇ_on	ㄛㄣ_op	ㄛㄅ_ot	ㄛㄉ_ou	ㄡ_oy	ㄛㄩ_ua	ㄨㄚ_uh	ㄨㄏ_ui	ㄨㄧ_uk	ㄨㄍ_um	ㄨㄇ_un	ㄨㄣ_uo	ㄨㄛ_up	ㄨㄅ_ut	ㄨㄉ_yh	ㄩㄏ_yk	ㄩㄍ_ym	ㄩㄇ_yn	ㄩㄣ_yo	ㄩㄛ_yp	ㄩㄅ_yt	ㄩㄉ_ng	兀_a	ㄚ_e	ㄝ_i	ㄧ_o	ㄛ_u	ㄨ_y	ㄩ_`;
 
     // 聲調對應表
@@ -1048,16 +1049,19 @@ const matsuZvsToTone = (function() {
 })();
 
 // 馬祖字母調轉數字調
+// 馬祖字母調轉數字調
 const matsuZvsToNumber = (function() {
 
     const toneMap = { f: '2', v: '3', z: '4', s: '5', x: '7' };
     
     // 基本模式
     const basePattern = `\\b(tsh|ph|th|kh|ts|ng|[pmtnlkhjsb])?([aeiouy]{1,3})`;    
+    
+    // 💡 修正重點：在 \b 後面加上 (?![⁺ˇˊˋˆ+^])，遇到已經帶有符號調的字就跳過不轉換
     // 鼻音結尾正則
-    const nasalRegex = new RegExp(`${basePattern}(ng|[mn]?)([fvzsx]?)\\b`, 'gi');    
+    const nasalRegex = new RegExp(`${basePattern}(ng|[mn]?)([fvzsx]?)\\b(?![⁺ˇˊˋˆ+^])`, 'gi');    
     // 塞音結尾正則
-    const stopRegex = new RegExp(`${basePattern}([ptkh])([fvzsx]?)\\b`, 'gi');
+    const stopRegex = new RegExp(`${basePattern}([ptkh])([fvzsx]?)\\b(?![⁺ˇˊˋˆ+^])`, 'gi');
     
     return function(text) {
         if (!text || typeof text !== 'string') {
@@ -1252,13 +1256,13 @@ const matsuToneToNumber = (function() {
 const mstsuToneToFX = (text) => {
    const toneMap = {'+':'⁺', '^':'ˆ'};
    
-   return text?.replace(/(?<!\w)(?:tsh|ph|th|kh|ts|ng|[pmtnlkhjsb])?[aeiouy]{1,3}(?:ng|[mnptkh])?([ˆ+^])(?!\w)/gi, 
+   // 💡 修正重點：將原本的 ([ˆ+^]) 改成了 ([+^])
+   return text?.replace(/(?<!\w)(?:tsh|ph|th|kh|ts|ng|[pmtnlkhjsb])?[aeiouy]{1,3}(?:ng|[mnptkh])?([+^])(?!\w)/gi, 
        (match, tone) => {
            const toneSymbol = toneMap[tone];
            return match.replace(new RegExp(tone.replace(/[+^]/g, '\\$&') + '$'), toneSymbol);
        }) || '';
 };
-
 
 
 
@@ -1293,28 +1297,28 @@ const mstsuToneToFX = (text) => {
 
 
 	//變調
-    t=t.replace(/([aeiouymg])([vx]{0,1})(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([s]{0,1})(\b)/gi,'$1⁺$3$4$5$6$7');
-    t=t.replace(/(h)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([s]{0,1})(\b)/gi,'⁺$2$3$4$5$6');
-    t=t.replace(/([aeiouymg])([vx]{0,1})(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([fvzx]{0,1})(\b)/gi,'$1ˋ$3$4$5$6$7');
-    t=t.replace(/(h)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([fvzx]{0,1})(\b)/gi,'ˋ$2$3$4$5$6');
+    // 💡 修正重點：把 ⁺, ˇ, ˋ, ˊ 改回正確的字母調 f, v, s, z，並修復了不存在的 $7 錯誤
+    t=t.replace(/([aeiouymg])([vx]{0,1})(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([s]{0,1})(\b)/gi,'$1f$3$4$5$6$7');
+    t=t.replace(/(h)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([s]{0,1})(\b)/gi,'f$2$3$4$5$6');
+    t=t.replace(/([aeiouymg])([vx]{0,1})(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([fvzx]{0,1})(\b)/gi,'$1s$3$4$5$6$7');
+    t=t.replace(/(h)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([fvzx]{0,1})(\b)/gi,'s$2$3$4$5$6');
 
-    t=t.replace(/([aeiouymg])(f)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([s]{0,1})(\b)/gi,'$1ˇ$3$4$5$6$7');
-    t=t.replace(/(h)(z)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([s]{0,1})(\b)/gi,'ˇ$3$4$5$6$7');
+    t=t.replace(/([aeiouymg])(f)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([s]{0,1})(\b)/gi,'$1v$3$4$5$6$7');
+    t=t.replace(/(h)(z)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([s]{0,1})(\b)/gi,'v$3$4$5$6$7');
     t=t.replace(/([aeiouymg])(f)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([vzx])(\b)/gi,'$1$3$4$5$6$7');
     t=t.replace(/(h)(z)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([vzx])(\b)/gi,'$3$4$5$6$7');
-    t=t.replace(/([aeiouymg])(f)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([f])(\b)/gi,'$1ˊ$3$4$5$6$7');
-    t=t.replace(/(h)(z)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([f])(\b)/gi,'ˊ$3$4$5$6$7');
+    t=t.replace(/([aeiouymg])(f)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([f])(\b)/gi,'$1z$3$4$5$6$7');
+    t=t.replace(/(h)(z)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([f])(\b)/gi,'z$3$4$5$6$7');
 
-    t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouyng]{1,5})(\b)/gi,'$1⁺$3$4$5$6$7');
-    t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouyng]{1,5})([fvzsx])(\b)/gi,'$1ˇ$3$4$5$6$7');
-    t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouyng]{1,5})([hk])(\b)/gi,'$1ˇ$3$4$5$6$7');
+    t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouyng]{1,5})(\b)/gi,'$1f$3$4$5$6'); // 解決 $7 印出錯誤
+    t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouyng]{1,5})([fvzsx])(\b)/gi,'$1v$3$4$5$6$7');
+    t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouyng]{1,5})([hk])(\b)/gi,'$1v$3$4$5$6$7');
 
-
-    t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouyng]{1,5})()(\b)/gi,'$1⁺$3$4$5$6$7');
-    t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouyng]{1,5})(s)(\b)/gi,'$1ˇ$3$4$5$6$7');
-    t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([hk])()(\b)/gi,'$1ˇ$3$4$5$6$7');
-    t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouyng]{1,5})(f)(\b)/gi,'$1⁺$3$4$5$6$7');
-    t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([vxz])(\b)/gi,'$1ˇ$3$4$5$6$7');
+    t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouyng]{1,5})()(\b)/gi,'$1f$3$4$5$6$7');
+    t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouyng]{1,5})(s)(\b)/gi,'$1v$3$4$5$6$7');
+    t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([hk])()(\b)/gi,'$1v$3$4$5$6$7');
+    t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouyng]{1,5})(f)(\b)/gi,'$1f$3$4$5$6$7');
+    t=t.replace(/([aeiouymg])(s)(--|-| )(tsh|ts|ph|th|kh|ng|p|m|t|n|l|k|h|s{0,1})([aeiouynghk]{1,5})([vxz])(\b)/gi,'$1v$3$4$5$6$7');
 
 
 	//變聲
@@ -1470,19 +1474,21 @@ function zvsToLetter(t) {
 	t = t.replace(/(i)([mngr]{0,4})([ptkhbdg]{0,1})(f)(?!\w)/g, 'ī$2$3');
 	t = t.replace(/(i)([mngr]{0,4})([ptkhbdg]{0,1})(l)(?!\w)/g, 'i̍$2$3');
 
+	// 💡 修正：輸出標準的預組字元 (NFC)，確保顯示與後續處理正確
 	t = t.replace(/(Y)(ng{0,1}|[mnptkhbdg]{0,1})(zz)(?!\w)/g, 'Y̋$2');
-	t = t.replace(/(Y)(ng{0,1}|[mnptkhbdg]{0,1})(z)(?!\w)/g, 'Ý$2');
-	t = t.replace(/(Y)(ng{0,1}|[mnptkhbdg]{0,1})(s)(?!\w)/g, 'Ỳ$2');
-	t = t.replace(/(Y)(ng{0,1}|[mnptkhbdg]{0,1})(x)(?!\w)/g, 'Ŷ$2');
-	t = t.replace(/(Y)(ng{0,1}|[mnptkhbdg]{0,1})(v)(?!\w)/g, 'Y̌$2');
-	t = t.replace(/(Y)(ng{0,1}|[mnptkhbdg]{0,1})(f)(?!\w)/g, 'Ȳ$2');
+	t = t.replace(/(Y)(ng{0,1}|[mnptkhbdg]{0,1})(z)(?!\w)/g, 'Ý$2');
+	t = t.replace(/(Y)(ng{0,1}|[mnptkhbdg]{0,1})(s)(?!\w)/g, 'Ỳ$2');
+	t = t.replace(/(Y)(ng{0,1}|[mnptkhbdg]{0,1})(x)(?!\w)/g, 'Ŷ$2');
+	t = t.replace(/(Y)(ng{0,1}|[mnptkhbdg]{0,1})(v)(?!\w)/g, 'Y̌$2'); // Y̌ 無 NFC，維持原樣
+	t = t.replace(/(Y)(ng{0,1}|[mnptkhbdg]{0,1})(f)(?!\w)/g, 'Ȳ$2');
 	t = t.replace(/(Y)(ng{0,1}|[mnptkhbdg]{0,1})(l)(?!\w)/g, 'Y̍$2');
+	
 	t = t.replace(/(y)(ng{0,1}|[mnptkhbdg]{0,1})(zz)(?!\w)/g, 'y̋$2');
-	t = t.replace(/(y)(ng{0,1}|[mnptkhbdg]{0,1})(z)(?!\w)/g, 'ý$2');
-	t = t.replace(/(y)(ng{0,1}|[mnptkhbdg]{0,1})(s)(?!\w)/g, 'ỳ$2');
-	t = t.replace(/(y)(ng{0,1}|[mnptkhbdg]{0,1})(x)(?!\w)/g, 'ŷ$2');
-	t = t.replace(/(y)(ng{0,1}|[mnptkhbdg]{0,1})(v)(?!\w)/g, 'y̌$2');
-	t = t.replace(/(y)(ng{0,1}|[mnptkhbdg]{0,1})(f)(?!\w)/g, 'ȳ$2');
+	t = t.replace(/(y)(ng{0,1}|[mnptkhbdg]{0,1})(z)(?!\w)/g, 'ý$2');
+	t = t.replace(/(y)(ng{0,1}|[mnptkhbdg]{0,1})(s)(?!\w)/g, 'ỳ$2');
+	t = t.replace(/(y)(ng{0,1}|[mnptkhbdg]{0,1})(x)(?!\w)/g, 'ŷ$2');
+	t = t.replace(/(y)(ng{0,1}|[mnptkhbdg]{0,1})(v)(?!\w)/g, 'y̌$2'); // y̌ 無 NFC，維持原樣
+	t = t.replace(/(y)(ng{0,1}|[mnptkhbdg]{0,1})(f)(?!\w)/g, 'ȳ$2');
 	t = t.replace(/(y)(ng{0,1}|[mnptkhbdg]{0,1})(l)(?!\w)/g, 'y̍$2');
 
 	t = t.replace(/(M)(zz)(?!\w)/g, 'M̋');
@@ -1639,20 +1645,21 @@ function letterToZvs(t) {
 	t = t.replace(/(ǹ)([aeioumngptkhr]{0,5})(?!\w)/g, 'n$2s');
 
 	t = t.replace(/(y̋)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2zz');
-	t = t.replace(/(ý)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2z');
+	t = t.replace(/(ý|ý)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2z');
 	t = t.replace(/(y̌)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2v');
-	t = t.replace(/(ỳ)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2s');
-	t = t.replace(/(ŷ)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2x');
-	t = t.replace(/(ȳ)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2f');
+	t = t.replace(/(ỳ|ỳ)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2s');
+	t = t.replace(/(ŷ|ŷ)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2x');
+	t = t.replace(/(ȳ|ȳ)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2f');
 	t = t.replace(/(y̍)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2l');
 
-	t = t.replace(/(Y̋)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2zz');
-	t = t.replace(/(Ý)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2z');
-	t = t.replace(/(Y̌)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2v');
-	t = t.replace(/(Ỳ)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2s');
-	t = t.replace(/(Ŷ)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2x');
-	t = t.replace(/(Ȳ)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2f');
-	t = t.replace(/(Y̍)([aeioumngptkhr]{0,5})(?!\w)/g, 'y$2l');
+	t = t.replace(/(Y̋)([aeioumngptkhr]{0,5})(?!\w)/g, 'Y$2zz');
+	t = t.replace(/(Ý|Ý)([aeioumngptkhr]{0,5})(?!\w)/g, 'Y$2z');
+	t = t.replace(/(Y̌)([aeioumngptkhr]{0,5})(?!\w)/g, 'Y$2v');
+	t = t.replace(/(Ỳ|Ỳ)([aeioumngptkhr]{0,5})(?!\w)/g, 'Y$2s');
+	t = t.replace(/(Ŷ|Ŷ)([aeioumngptkhr]{0,5})(?!\w)/g, 'Y$2x');
+	t = t.replace(/(Ȳ|Ȳ)([aeioumngptkhr]{0,5})(?!\w)/g, 'Y$2f');
+	t = t.replace(/(Y̍)([aeioumngptkhr]{0,5})(?!\w)/g, 'Y$2l');
+
 	return t;
 }
 
@@ -3635,9 +3642,19 @@ function matsuBpmPinyinZvs(t){
 	return t; 
 }
 
+// 馬祖注音 轉 拼音(字中調)
 function matsuBpmPinyinLetter(t){ 
-	t=matsuBpmToPinyin(t);
-	t=matsuToneToZvs(t);
+	// 1. 💡 新增：檢查是否包含小注音，若有則先轉換為標準大注音
+	if (regexBpmSmall.test(t)) { 
+		t = bpmSmallToBig(t); 
+	}
+	
+	// 2. 💡 新增：將鍵盤輸入的符號調 (+, ^) 標準化為正確排版符號 (⁺, ˆ)
+	t = mstsuToneToFX(t);
+	
+	// 3. 原有邏輯：注音轉拼音 -> 轉字母調 -> 轉字中調
+	t = matsuBpmToPinyin(t);
+	t = matsuToneToZvs(t);
 	return zvsToLetter(t); 
 }
 
