@@ -51,7 +51,8 @@
   });
 
 
-
+let isAutoSaveEnabled = true; // 控制自動儲存是否啟用的旗標
+let autoSaveTimeout = null;   // 用來存放防抖計時器的變數
 
 const textModeContainer = document.getElementById('textModeContainer');
 const gameModes = ['flashcard', 'matching', 'quiz', 'sorting', 'typing', 'choice', 'arena', 'live'];
@@ -9386,10 +9387,30 @@ document.addEventListener('DOMContentLoaded', () => {
         btnBatchViewText.classList.replace('text-blue-600', 'text-gray-400');
     });
 
+	/*
     // 儲存文字框輸入
     batchInputTextarea.addEventListener('input', () => {
         localStorage.setItem(BATCH_DATA_KEY, batchInputTextarea.value);
     });
+	*/
+	// 新的寫法：整合開關控制與防抖優化（停止輸入 1.5 秒後才儲存）
+	textarea.addEventListener('input', () => {
+		// 檢查：若使用者關閉了自動儲存，則直接跳出不執行
+		if (!isAutoSaveEnabled) return;
+
+		// 防抖核心邏輯：
+		// 如果在 1.5 秒內使用者又打了字，就清除上一次的計時器，重新計算時間
+		clearTimeout(autoSaveTimeout);
+
+		// 重新設定計時器，1500 毫秒（1.5 秒）後才真正執行儲存
+		autoSaveTimeout = setTimeout(() => {
+			// 呼叫你原本負責儲存的函式（請換成你專案中實際的儲存函式名稱）
+			saveToLocalStorage(); 
+			
+			// 可選：在畫面邊角顯示一個精簡提示，讓使用者知道背景剛存好了
+			console.log('--- 系統已在背景完成自動儲存 ---');
+		}, 1500); 
+	});
 
     batchTableBody.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
@@ -10913,6 +10934,37 @@ document.getElementById('btnSaveFile')?.addEventListener('click', () => {
         showToast(`💾 檔案已儲存：${filename}`);
     });
 });
+
+// 控制自動儲存開關點擊
+const btnToggleAutoSave = document.getElementById('btnToggleAutoSave');
+if (btnToggleAutoSave) {
+    btnToggleAutoSave.addEventListener('click', (e) => {
+        // 防止點擊選單項目時，選單立刻被關閉（如果原本有這邏輯的話）
+        e.stopPropagation(); 
+        
+        // 切換狀態
+        isAutoSaveEnabled = !isAutoSaveEnabled;
+        
+        // 更新 UI 顯示
+        const statusText = document.getElementById('autoSaveStatusText');
+        const icon = document.getElementById('autoSaveIcon');
+        
+        if (isAutoSaveEnabled) {
+            statusText.textContent = '開啟';
+            statusText.className = 'text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold';
+            icon.textContent = 'sync';
+            showToast('已開啟自動儲存');
+        } else {
+            statusText.textContent = '關閉';
+            statusText.className = 'text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded font-bold';
+            icon.textContent = 'sync_disabled';
+            showToast('已關閉自動儲存');
+        }
+    });
+}
+
+
+
 
 /* ==========================================
    表格欄位名稱管理工具 (首列設欄名 / 移除欄名)
