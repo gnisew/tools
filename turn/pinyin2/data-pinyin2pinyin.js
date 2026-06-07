@@ -3624,6 +3624,227 @@ function matsuPinyinZvs(t){
 	return t;
 }
 
+
+
+
+// ==========================================
+// 馬祖拼音轉國際音標 (IPA)
+// ==========================================
+const matsuPinyinToIpaRaw = (function() {
+    const initMap = {'p':'p', 'ph':'pʰ', 'm':'m', 't':'t', 'th':'tʰ', 'n':'n', 'l':'l', 'k':'k', 'kh':'kʰ', 'ng':'ŋ', 'h':'h', 'ts':'ʦ', 'tsh':'ʦʰ', 's':'s', 'b':'β', 'j':'ʒ'};
+    const finMap = {
+        'a':'a', 'i':'i', 'u':'u', 'e':'ɛ', 'o':'o', 'y':'y', 'oe':'œ', 'ai':'ai', 'au':'au', 'ia':'ia', 'iu':'iu', 'ie':'iɛ', 'ua':'ua', 'ui':'ui', 'ue':'ue', 'uo':'uɔ', 'ei':'ɛi', 'ou':'ou', 'oy':'ɔy', 'yo':'yɔ', 'oey':'øy', 'iau':'iau', 'ieu':'ieu', 'uai':'uai', 'uei':'uei',
+        'ang':'aŋ', 'ing':'iŋ', 'ung':'uŋ', 'ong':'ɔŋ', 'yng':'yŋ', 'aing':'aiŋ', 'aung':'auŋ', 'iang':'iaŋ', 'ieng':'iɛŋ', 'iong':'iɔŋ', 'uang':'uaŋ', 'uong':'uɔŋ', 'eing':'ɛiŋ', 'oung':'ouŋ', 'oyng':'ɔyŋ', 'yong':'yɔŋ', 'oeyng':'øyŋ',
+        'ah':'aʔ', 'ak':'ak', 'ih':'iʔ', 'ik':'ik', 'uh':'uʔ', 'uk':'uk', 'eh':'ɛʔ', 'ek':'ɛk', 'oh':'ɔh', 'ok':'ɔk', 'yh':'yʔ', 'yk':'yk', 'oeh':'œʔ', 'oek':'œk', 'aih':'aiʔ', 'aik':'aik', 'auh':'auʔ', 'auk':'auk', 'iah':'iaʔ', 'iak':'iak', 'ieh':'iɛʔ', 'iek':'iɛk', 'uah':'uaʔ', 'uak':'uak', 'uoh':'uɔʔ', 'uok':'uɔk', 'eih':'ɛiʔ', 'eik':'ɛik', 'ouh':'ouʔ', 'ouk':'ouk', 'oyh':'ɔyʔ', 'oyk':'ɔyk', 'yoh':'yɔʔ', 'yok':'yɔk', 'oeyh':'øyʔ', 'oeyk':'øyk'
+    };
+    // 數字調轉上標
+    const toneSuperscriptMap = {'1':'¹', '2':'²', '3':'³', '4':'⁴', '5':'⁵', '6':'⁶', '7':'⁷', '8':'⁸'};
+    
+    // 依長度排序以確保精準匹配 (例如 tsh 不會被 t 搶走)
+    const initKeys = Object.keys(initMap).sort((a,b) => b.length - a.length);
+    const finKeys = Object.keys(finMap).sort((a,b) => b.length - a.length);
+    
+    // 嚴格邊界正則：(聲母)? + (韻母)? + (數字調)?
+    const regex = new RegExp(`(?<![a-zA-Z])(${initKeys.join('|')})?(${finKeys.join('|')})?([1-8])?(?![a-zA-Z])`, 'gi');
+    
+    return function(text) {
+        if (!text) return '';
+        return text.replace(regex, (match, init, fin, tone) => {
+            if (!init && !fin) return match; // 若都不是，保持原樣
+            
+            const i = init ? (initMap[init.toLowerCase()] || init.toLowerCase()) : '';
+            const f = fin ? (finMap[fin.toLowerCase()] || fin.toLowerCase()) : '';
+            const t = tone ? (toneSuperscriptMap[tone] || tone) : '';
+            
+            return i + f + t; 
+        });
+    };
+})();
+
+// 給外部呼叫的介面 (處理格式預整理)
+function matsuPinyinIpa(t){
+    if (regexLetter.test(t)) {t = letterToZvs(t) }
+    if (regexTone.test(t)) {t = matsuToneToZvs(t) }
+    // 統一先轉成最乾淨的「數字調」，再丟入底層轉換
+    t = matsuZvsToNumber(t);
+    return matsuPinyinToIpaRaw(t);
+}
+
+
+// ==========================================
+// 馬祖拼音轉簡化標音
+// ==========================================
+const matsuPinyinToSimplifiedRaw = (function() {
+    const initMap = {'p':'b', 'ph':'p', 'm':'m', 't':'d', 'th':'t', 'n':'n', 'l':'l', 'k':'g', 'kh':'k', 'ng':'q', 'h':'h', 'ts':'z', 'tsh':'c', 's':'s', 'b':'v', 'j':'r'};
+    const finMap = {
+        'a':'a', 'i':'i', 'u':'u', 'e':'e', 'o':'o', 'y':'y', 'oe':'oe', 'ai':'ai', 'au':'au', 'ia':'ia', 'iu':'iu', 'ie':'ie', 'ua':'ua', 'ui':'ui', 'ue':'ue', 'uo':'uo', 'ei':'ei', 'ou':'ou', 'oy':'oy', 'yo':'yo', 'oey':'oey', 'iau':'iau', 'ieu':'ieu', 'uai':'uai', 'uei':'uei',
+        'ang':'aq', 'ing':'iq', 'ung':'uq', 'ong':'oq', 'yng':'yq', 'aing':'aiq', 'aung':'auq', 'iang':'iaq', 'ieng':'ieq', 'iong':'ioq', 'uang':'uaq', 'uong':'uoq', 'eing':'eiq', 'oung':'ouq', 'oyng':'oyq', 'yong':'yoq', 'oeyng':'eyq',
+        'ah':'ah', 'ak':'ag', 'ih':'ih', 'ik':'ig', 'uh':'uh', 'uk':'ug', 'eh':'eh', 'ek':'eg', 'oh':'oh', 'ok':'og', 'yh':'yh', 'yk':'yg', 'oeh':'oeh', 'oek':'oeg', 'aih':'aih', 'aik':'aig', 'auh':'auh', 'auk':'aug', 'iah':'iah', 'iak':'iag', 'ieh':'ieh', 'iek':'ieg', 'uah':'uah', 'uak':'uag', 'uoh':'uoh', 'uok':'uog', 'eih':'eih', 'eik':'eig', 'ouh':'ouh', 'ouk':'oug', 'oyh':'oyh', 'oyk':'oyg', 'yoh':'yoh', 'yok':'yog', 'oeyh':'eyh', 'oeyk':'eyg'
+    };
+    
+    const initKeys = Object.keys(initMap).sort((a,b) => b.length - a.length);
+    const finKeys = Object.keys(finMap).sort((a,b) => b.length - a.length);
+    
+    // 嚴格邊界正則：(聲母)? + (韻母)? + (字母調 f,v,z,s,x)?
+    const regex = new RegExp(`(?<![a-zA-Z])(${initKeys.join('|')})?(${finKeys.join('|')})?([fvzsx]?)(?![a-zA-Z])`, 'gi');
+
+    // 負責保留首字大寫的輔助小工具
+    const matchCase = (original, target) => {
+        if (!original) return target;
+        if (original === original.toUpperCase() && original.length > 1) return target.toUpperCase();
+        if (original[0] === original[0].toUpperCase()) return target.charAt(0).toUpperCase() + target.slice(1);
+        return target;
+    }
+    
+    return function(text) {
+        if (!text) return '';
+        return text.replace(regex, (match, init, fin, tone) => {
+            if (!init && !fin) return match;
+            
+            let i = init ? (initMap[init.toLowerCase()] || init.toLowerCase()) : '';
+            let f = fin ? (finMap[fin.toLowerCase()] || fin.toLowerCase()) : '';
+            
+            // 處理大小寫還原
+            if (init) {
+                i = matchCase(init, i);
+                if (init === init.toUpperCase() && fin && fin === fin.toUpperCase()) {
+                     f = f.toUpperCase();
+                }
+            } else if (fin) {
+                f = matchCase(fin, f);
+            }
+
+            const t = tone ? tone.toLowerCase() : '';
+            return i + f + t; 
+        });
+    };
+})();
+
+// 給外部呼叫的介面 (處理格式預整理)
+function matsuPinyinSimplified(t){
+    if (regexLetter.test(t)) {t = letterToZvs(t) }
+    if (regexTone.test(t)) {t = matsuToneToZvs(t) }
+    if (regexNumber.test(t)) {t = matsuNumberToZvs(t) }
+    // 統一先轉成「字母調 (ZVS)」，再丟入底層轉換
+    return matsuPinyinToSimplifiedRaw(t);
+}
+
+
+// ==========================================
+// 國際音標 (IPA) 轉 馬祖拼音 核心與外接函式
+// ==========================================
+const matsuIpaToPinyinRaw = (function() {
+    const initMap = {'p':'p', 'pʰ':'ph', 'm':'m', 't':'t', 'tʰ':'th', 'n':'n', 'l':'l', 'k':'k', 'kʰ':'kh', 'ŋ':'ng', 'h':'h', 'ʦ':'ts', 'ʦʰ':'tsh', 's':'s', 'β':'b', 'ʒ':'j'};
+    const finMap = {
+        'aiŋ':'aing', 'auŋ':'aung', 'iaŋ':'iang', 'iɛŋ':'ieng', 'iɔŋ':'iong', 'uaŋ':'uang', 'uɔŋ':'uong', 'ɛiŋ':'eing', 'ouŋ':'oung', 'ɔyŋ':'oyng', 'yɔŋ':'yong', 'øyŋ':'oeyng',
+        'aiʔ':'aih', 'aik':'aik', 'auʔ':'auh', 'auk':'auk', 'iaʔ':'iah', 'iak':'iak', 'iɛʔ':'ieh', 'iɛk':'iek', 'uaʔ':'uah', 'uak':'uak', 'uɔʔ':'uoh', 'uok':'uok', 'ɛiʔ':'eih', 'ɛik':'eik', 'ouʔ':'ouh', 'ouk':'ouk', 'ɔyʔ':'oyh', 'ɔyk':'oyk', 'yɔʔ':'yoh', 'yɔk':'yok', 'øyʔ':'oeyh', 'øyk':'oeyk',
+        'aŋ':'ang', 'iŋ':'ing', 'uŋ':'ung', 'ɔŋ':'ong', 'yŋ':'yng',
+        'aʔ':'ah', 'ak':'ak', 'iʔ':'ih', 'ik':'ik', 'uʔ':'uh', 'uk':'uk', 'ɛʔ':'eh', 'ɛk':'ek', 'ɔh':'oh', 'ɔk':'ok', 'yʔ':'yh', 'yk':'yk', 'œʔ':'oeh', 'œk':'oek',
+        'iau':'iau', 'ieu':'ieu', 'uai':'uai', 'uei':'uei',
+        'œ':'oe', 'ai':'ai', 'au':'au', 'ia':'ia', 'iu':'iu', 'iɛ':'ie', 'ua':'ua', 'ui':'ui', 'ue':'ue', 'uɔ':'uo', 'ɛi':'ei', 'ou':'ou', 'ɔy':'oy', 'yɔ':'yo', 'øy':'oey',
+        'a':'a', 'i':'i', 'u':'u', 'ɛ':'e', 'o':'o', 'y':'y'
+    };
+    const superToToneMap = {'¹':'1', '²':'2', '³':'3', '⁴':'4', '⁵':'5', '⁶':'6', '⁷':'7', '⁸':'8'};
+    
+    const initKeys = Object.keys(initMap).sort((a,b) => b.length - a.length);
+    const finKeys = Object.keys(finMap).sort((a,b) => b.length - a.length);
+    const regex = new RegExp(`(?<![a-zA-Z])(${initKeys.join('|')})?(${finKeys.join('|')})?([¹²³⁴⁵⁶⁷⁸])?(?![a-zA-Z])`, 'gi');
+    
+    return function(text) {
+        if (!text) return '';
+        return text.replace(regex, (match, init, fin, tone) => {
+            if (!init && !fin) return match;
+            const i = init ? (initMap[init.toLowerCase()] || init) : '';
+            const f = fin ? (finMap[fin.toLowerCase()] || fin) : '';
+            const t = tone ? (superToToneMap[tone] || '') : '';
+            return i + f + t;
+        });
+    };
+})();
+
+// 國際音標 轉 拼音(數字調)
+function matsuIpaPinyinNumber(t) {
+    return matsuIpaToPinyinRaw(t);
+}
+
+// 國際音標 轉 拼音(尾調型)
+function matsuIpaPinyinTone(t) {
+    let pinyinNum = matsuIpaToPinyinRaw(t);
+    return matsuNumberToTone(pinyinNum);
+}
+
+
+// ==========================================
+// 簡化標音 轉 馬祖拼音 核心與外接函式
+// ==========================================
+const matsuSimplifiedToPinyinRaw = (function() {
+    const initMap = {'b':'p', 'p':'ph', 'm':'m', 'd':'t', 't':'th', 'n':'n', 'l':'l', 'g':'k', 'k':'kh', 'q':'ng', 'h':'h', 'z':'ts', 'c':'tsh', 's':'s', 'v':'b', 'r':'j'};
+    const finMap = {
+        'aiq':'aing', 'auq':'aung', 'iaq':'iang', 'ieq':'ieng', 'ioq':'iong', 'uaq':'uang', 'uoq':'uong', 'eiq':'eing', 'ouq':'oung', 'oyq':'oyng', 'yoq':'yong', 'eyq':'oeyng',
+        'iah':'iah', 'iag':'iak', 'ieh':'ieh', 'ieg':'iek', 'uah':'uah', 'uag':'uak', 'uoh':'uoh', 'uog':'uok', 'eih':'eih', 'eig':'eik', 'ouh':'ouh', 'oug':'ouk', 'oyh':'oyh', 'oyg':'oyk', 'yoh':'yoh', 'yog':'yok', 'eyh':'oeyh', 'eyg':'oeyk',
+        'aih':'aih', 'aig':'aik', 'auh':'auh', 'aug':'auk', 'oeh':'oeh', 'oeg':'oek',
+        'aq':'ang', 'iq':'ing', 'uq':'ung', 'oq':'ong', 'yq':'yng',
+        'ah':'ah', 'ag':'ak', 'ih':'ih', 'ig':'ik', 'uh':'uh', 'ug':'uk', 'eh':'eh', 'eg':'ek', 'oh':'oh', 'og':'ok', 'yh':'yh', 'yg':'yk',
+        'iau':'iau', 'ieu':'ieu', 'uai':'uai', 'uei':'uei',
+        'oe':'oe', 'ai':'ai', 'au':'au', 'ia':'ia', 'iu':'iu', 'ie':'ie', 'ua':'ua', 'ui':'ui', 'ue':'ue', 'uo':'uo', 'ei':'ei', 'ou':'ou', 'oy':'oy', 'yo':'yo', 'oey':'oey',
+        'a':'a', 'i':'i', 'u':'u', 'e':'e', 'o':'o', 'y':'y'
+    };
+    
+    const initKeys = Object.keys(initMap).sort((a,b) => b.length - a.length);
+    const finKeys = Object.keys(finMap).sort((a,b) => b.length - a.length);
+    const regex = new RegExp(`(?<![a-zA-Z])(${initKeys.join('|')})?(${finKeys.join('|')})?([fvzsx]?)(?![a-zA-Z])`, 'gi');
+    
+    const matchCase = (original, target) => {
+        if (!original) return target;
+        if (original === original.toUpperCase() && original.length > 1) return target.toUpperCase();
+        if (original[0] === original[0].toUpperCase()) return target.charAt(0).toUpperCase() + target.slice(1);
+        return target.toLowerCase();
+    };
+
+    return function(text) {
+        if (!text) return '';
+        return text.replace(regex, (match, init, fin, tone) => {
+            if (!init && !fin) return match;
+            let i = init ? (initMap[init.toLowerCase()] || init.toLowerCase()) : '';
+            let f = fin ? (finMap[fin.toLowerCase()] || fin.toLowerCase()) : '';
+            
+            if (init) {
+                i = matchCase(init, i);
+                if (init === init.toUpperCase() && fin && fin === fin.toUpperCase()) {
+                    f = f.toUpperCase();
+                }
+            } else if (fin) {
+                f = matchCase(fin, f);
+            }
+            const t = tone ? tone.toLowerCase() : '';
+            return i + f + t;
+        });
+    };
+})();
+
+// 簡化標音 轉 拼音(字母調)
+function matsuSimplifiedPinyinZvs(t) {
+    return matsuSimplifiedToPinyinRaw(t);
+}
+
+// 簡化標音 轉 拼音(尾調型)
+function matsuSimplifiedPinyinTone(t) {
+    let zvs = matsuSimplifiedToPinyinRaw(t);
+    return matsuZvsToTone(zvs);
+}
+
+// 簡化標音 轉 拼音(數字調)
+function matsuSimplifiedPinyinNumber(t) {
+    let zvs = matsuSimplifiedToPinyinRaw(t);
+    return matsuZvsToNumber(zvs);
+}
+
+// 簡化標音 轉 拼音(字中調)
+function matsuSimplifiedPinyinLetter(t) {
+    let zvs = matsuSimplifiedToPinyinRaw(t);
+    return zvsToLetter(zvs);
+}
+
 function matsuBpmPinyinTone(t){ 
 	 if (regexBpmSmall.test(t)) {t = bpmSmallToBig(t) }
 	 t = mstsuToneToFX(t);
@@ -3764,4 +3985,403 @@ function hakkaPinyinBpmTiny(t){
 	t = hakkaPinyinBpmSmall(t);
     t = bpmSmallToTiny(t);
 	return t;
+}
+
+
+
+
+
+
+
+
+
+
+
+// ==========================================
+// 馬祖簡拼本變 核心解析引擎
+// ==========================================
+const matsuCombToSimpRaw = (function() {
+    // 1. 整詞例外對照表
+    const exceptions = [
+        ["nuohx85xuai74", "nuoh8 xuai7", "nuai4"], ["xiaq52gxiaq2", "xiaq5 giaq2", "xiaq2"],
+        ["nuohx85xuai7", "nuoh8 xuai7", "nuai7"], ["snuohx85xa7", "suoh8 xa7", "na7"],
+        ["sluohx85xa7", "suoh8 xa7", "la7"], ["sduohx8xa7", "suoh8 xa7", "da7"],
+        ["sduohx85xa7", "suoh8 xa7", "da7"], ["sluohx8xa7", "suoh8 xa7", "la7"],
+        ["zeih4suoh85", "zeih4 suoh8", "zuoh5"], ["zeih4suoh82", "zeih4 suoh8", "zuoh2"],
+        ["dae75xeigh4", "da7 xeig4", "dei4"], ["huo1zuq21", "huo1 zung2", "houng1"],
+        ["huo1zuq24", "huo1 zung2", "houng4"], ["nie5gxiaq24", "nie5 giaq2", "niang4"],
+        ["nie5gxiaq23", "nie5 giaq2", "niang3"], ["hu1kuaei34", "hu1 kuai3", "huei4"],
+        ["zi23hxui5", "zi2 hui5", "zui5"], ["hu1kuai34", "hu1 kuai3", "huai4"],
+        ["zu1kuai34", "zu1 kuai3", "zuai4"], ["huo1zyq24", "huo1 zyq2", "houq4"],
+        ["siu1gouq5", "siu1 gouq5", "souq5"], ["suoh8xa7", "suoh8 xa7", "sa7"],
+        ["hu12gxi5", "hu1 gi5", "hui5"], ["duai7ga1", "duai7 ga1", "de1 xia1"]
+    ];
+
+    // 2. 聲母/韻母/聲調 組合對照表
+    const mappings = [
+        ["dluaiey", "duai", "ley"], ["duaiey", "duai", "dey"], ["uaiei", "uai", "ei"], ["iaeu", "iau", "ieu"],
+        ["uaei", "uai", "uei"], ["aeiq", "aiq", "eiq"], ["aouq", "auq", "ouq"], ["eiiq", "eiq", "iq"],
+        ["eyyq", "eyq", "yq"], ["ouuq", "ouq", "uq"], ["oeyq", "oyq", "eyq"], ["aeih", "aih", "eih"],
+        ["aouh", "auh", "ouh"], ["eiih", "eih", "ih"], ["eyyh", "eyh", "yh"], ["ouuh", "ouh", "uh"],
+        ["oeyh", "oyh", "eyh"], ["iexu", "ieu", "iu"], ["uaix", "uai", "ua"], ["iaua", "iau", "ia"],
+        ["aei", "ai", "ei"], ["aeu", "au", "eu"], ["aou", "au", "ou"], ["eii", "ei", "i"],
+        ["eyy", "ey", "y"], ["ooe", "o", "oe"], ["ouu", "ou", "u"], ["oey", "oy", "ey"],
+        ["uoi", "uo", "ui"], ["iae", "ia", "ie"], ["n/l", "n", "l"], ["l/n", "l", "n"],
+        ["aua", "au", "a"], ["aia", "ai", "i"], ["oeo", "oe", "o"], ["ae", "a", "e"],
+        ["bm", "b", "m"], ["pm", "p", "m"], ["dn", "d", "n"], ["tn", "t", "n"],
+        ["gq", "g", "q"], ["kq", "k", "q"], ["hq", "h", "q"], ["xq", "x", "q"],
+        ["bv", "b", "v"], ["pv", "p", "v"], ["dl", "d", "l"], ["tl", "t", "l"],
+        ["gx", "g", "x"], ["kx", "k", "x"], ["hx", "h", "x"], ["zn", "z", "n"],
+        ["cn", "c", "n"], ["sn", "s", "n"], ["zr", "z", "r"], ["sr", "s", "r"],
+        ["cr", "c", "r"], ["sl", "s", "l"], ["zl", "z", "l"], ["cl", "c", "l"],
+        ["zx", "z", "x"], ["cx", "c", "x"], ["sx", "s", "x"], ["qn", "q", "n"],
+        ["qm", "q", "m"], ["gv", "g", "v"], ["sv", "s", "v"], ["dg", "d", "g"],
+        ["kg", "k", "g"], ["xg", "x", "g"], ["xn", "x", "n"], ["sd", "s", "d"],
+        ["hk", "h", "k"], ["gh", "g", "h"], ["hl", "h", "l"], ["hv", "h", "v"],
+        ["bx", "b", "x"], ["xh", "x", "h"], ["xl", "x", "l"], ["ld", "l", "d"],
+        ["11","1","1"], ["21","2","1"], ["31","3","1"], ["41","4","1"], ["51","5","1"], ["71","7","1"], ["81","8","1"],
+        ["12","1","2"], ["22","2","2"], ["32","3","2"], ["42","4","2"], ["52","5","2"], ["72","7","2"], ["82","8","2"],
+        ["13","1","3"], ["23","2","3"], ["33","3","3"], ["43","4","3"], ["53","5","3"], ["73","7","3"], ["83","8","3"],
+        ["14","1","4"], ["24","2","4"], ["34","3","4"], ["44","4","4"], ["54","5","4"], ["74","7","4"], ["84","8","4"],
+        ["15","1","5"], ["25","2","5"], ["35","3","5"], ["45","4","5"], ["55","5","5"], ["75","7","5"], ["85","8","5"],
+        ["17","1","7"], ["27","2","7"], ["37","3","7"], ["47","4","7"], ["57","5","7"], ["77","7","7"], ["87","8","7"],
+        ["18","1","8"], ["28","2","8"], ["38","3","8"], ["48","4","8"], ["58","5","8"], ["78","7","8"], ["88","8","8"],
+        ["10","1","0"], ["20","2","0"], ["30","3","0"], ["40","4","0"], ["50","5","0"], ["70","7","0"], ["80","8","0"]
+    ];
+
+    // 依長度排序確保長規則優先匹配 (例如 dluaiey 優先於 dl)
+    const keys = mappings.map(m => m[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).sort((a,b) => b.length - a.length);
+    const regex = new RegExp(`(${keys.join('|')})`, 'gi');
+    
+    const baseMap = new Map();
+    const changeMap = new Map();
+    mappings.forEach(m => {
+        baseMap.set(m[0].toLowerCase(), m[1]);
+        changeMap.set(m[0].toLowerCase(), m[2]);
+    });
+
+    const matchCase = (original, target) => {
+        if (!original) return target;
+        if (original === original.toUpperCase() && original.length > 1) return target.toUpperCase();
+        if (original[0] === original[0].toUpperCase()) return target.charAt(0).toUpperCase() + target.slice(1);
+        return target.toLowerCase();
+    };
+
+    return function(text, isBase) {
+        if (!text) return '';
+        let t = text;
+
+        // 1. 優先處理整詞例外
+        exceptions.forEach(ex => {
+            const search = new RegExp(ex[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+            t = t.replace(search, isBase ? ex[1] : ex[2]);
+        });
+
+        // 2. 處理字串中的組合變音
+        t = t.replace(regex, (match) => {
+            const lower = match.toLowerCase();
+            return isBase ? matchCase(match, baseMap.get(lower) || match) : matchCase(match, changeMap.get(lower) || match);
+        });
+
+        // 3. 將連接號替換為空白
+        t = t.replace(/-/g, ' ');
+
+        // 4. 💡 刪除多餘的 x (開頭零聲母 / 結尾無)
+        t = t.replace(/x/gi, '');
+
+        return t;
+    };
+})();
+
+// ==========================================
+// 簡拼(數字調) 轉 標準拼音(數字調) 輔助引擎
+// ==========================================
+const matsuSimpNumberToPinyinRaw = (function() {
+    const initMap = {'b':'p', 'p':'ph', 'm':'m', 'd':'t', 't':'th', 'n':'n', 'l':'l', 'g':'k', 'k':'kh', 'q':'ng', 'h':'h', 'z':'ts', 'c':'tsh', 's':'s', 'v':'b', 'r':'j'};
+    const finMap = {
+        'aiq':'aing', 'auq':'aung', 'iaq':'iang', 'ieq':'ieng', 'ioq':'iong', 'uaq':'uang', 'uoq':'uong', 'eiq':'eing', 'ouq':'oung', 'oyq':'oyng', 'yoq':'yong', 'eyq':'oeyng',
+        'iah':'iah', 'iag':'iak', 'ieh':'ieh', 'ieg':'iek', 'uah':'uah', 'uag':'uak', 'uoh':'uoh', 'uog':'uok', 'eih':'eih', 'eig':'eik', 'ouh':'ouh', 'oug':'ouk', 'oyh':'oyh', 'oyg':'oyk', 'yoh':'yoh', 'yog':'yok', 'eyh':'oeyh', 'eyg':'oeyk',
+        'aih':'aih', 'aig':'aik', 'auh':'auh', 'aug':'auk', 'oeh':'oeh', 'oeg':'oek',
+        'aq':'ang', 'iq':'ing', 'uq':'ung', 'oq':'ong', 'yq':'yng',
+        'ah':'ah', 'ag':'ak', 'ih':'ih', 'ig':'ik', 'uh':'uh', 'ug':'uk', 'eh':'eh', 'eg':'ek', 'oh':'oh', 'og':'ok', 'yh':'yh', 'yg':'yk',
+        'iau':'iau', 'ieu':'ieu', 'uai':'uai', 'uei':'uei',
+        'oe':'oe', 'ai':'ai', 'au':'au', 'ia':'ia', 'iu':'iu', 'ie':'ie', 'ua':'ua', 'ui':'ui', 'ue':'ue', 'uo':'uo', 'ei':'ei', 'ou':'ou', 'oy':'oy', 'yo':'yo', 'ey':'oey',
+        'a':'a', 'i':'i', 'u':'u', 'e':'e', 'o':'o', 'y':'y'
+    };
+    const initKeys = Object.keys(initMap).sort((a,b) => b.length - a.length);
+    const finKeys = Object.keys(finMap).sort((a,b) => b.length - a.length);
+    const regex = new RegExp(`(?<![a-zA-Z])(${initKeys.join('|')})?(${finKeys.join('|')})?([0-9]?)(?![a-zA-Z])`, 'gi');
+
+    return function(text) {
+        if (!text) return '';
+        return text.replace(regex, (match, init, fin, tone) => {
+            if (!init && !fin) return match;
+            
+            const i = init ? (initMap[init.toLowerCase()] || init) : '';
+            const f = fin ? (finMap[fin.toLowerCase()] || fin) : '';
+            const t = tone || '';
+            return i + f + t;
+        });
+    };
+})();
+
+function matsuCombSimpBaseNumber(t) { return matsuCombToSimpRaw(t, true); }
+function matsuCombSimpChangeNumber(t) { return matsuCombToSimpRaw(t, false); }
+
+function matsuCombPinyinBaseNumber(t) { return matsuSimpNumberToPinyinRaw(matsuCombSimpBaseNumber(t)); }
+function matsuCombPinyinChangeNumber(t) { return matsuSimpNumberToPinyinRaw(matsuCombSimpChangeNumber(t)); }
+
+function matsuCombPinyinBaseTone(t) { return matsuNumberToTone(matsuCombPinyinBaseNumber(t)); }
+function matsuCombPinyinChangeTone(t) { return matsuNumberToTone(matsuCombPinyinChangeNumber(t)); }
+
+function matsuCombPinyinBaseZvs(t) { return matsuNumberToZvs(matsuCombPinyinBaseNumber(t)); }
+function matsuCombPinyinChangeZvs(t) { return matsuNumberToZvs(matsuCombPinyinChangeNumber(t)); }
+
+
+
+
+// ==========================================
+// 拼音(數字調) 轉 簡拼(數字調)
+// ==========================================
+const matsuPinyinToSimpNumberRaw = (function() {
+    const initMap = {'p':'b', 'ph':'p', 'm':'m', 't':'d', 'th':'t', 'n':'n', 'l':'l', 'k':'g', 'kh':'k', 'ng':'q', 'h':'h', 'ts':'z', 'tsh':'c', 's':'s', 'b':'v', 'j':'r'};
+    const finMap = {
+        'aing':'aiq', 'aung':'auq', 'iang':'iaq', 'ieng':'ieq', 'iong':'ioq', 'uang':'uaq', 'uong':'uoq', 'eing':'eiq', 'oung':'ouq', 'oyng':'oyq', 'yong':'yoq', 'oeyng':'eyq',
+        'iah':'iah', 'iak':'iag', 'ieh':'ieh', 'iek':'ieg', 'uah':'uah', 'uak':'uag', 'uoh':'uoh', 'uok':'uog', 'eih':'eih', 'eik':'eig', 'ouh':'ouh', 'ouk':'oug', 'oyh':'oyh', 'oyk':'oyg', 'yoh':'yoh', 'yok':'yog', 'oeyh':'eyh', 'oeyk':'eyg',
+        'aih':'aih', 'aig':'aig', 'auh':'auh', 'auk':'aug', 'oeh':'oeh', 'oek':'oeg',
+        'ang':'aq', 'ing':'iq', 'ung':'uq', 'ong':'oq', 'yng':'yq',
+        'ah':'ah', 'ak':'ag', 'ih':'ih', 'ik':'ig', 'uh':'uh', 'uk':'ug', 'eh':'eh', 'ek':'eg', 'oh':'oh', 'ok':'og', 'yh':'yh', 'yk':'yg',
+        'iau':'iau', 'ieu':'ieu', 'uai':'uai', 'uei':'uei',
+        'oe':'oe', 'ai':'ai', 'au':'au', 'ia':'ia', 'iu':'iu', 'ie':'ie', 'ua':'ua', 'ui':'ui', 'ue':'ue', 'uo':'uo', 'ei':'ei', 'ou':'ou', 'oy':'oy', 'yo':'yo', 'oey':'ey',
+        'a':'a', 'i':'i', 'u':'u', 'e':'e', 'o':'o', 'y':'y'
+    };
+    const initKeys = Object.keys(initMap).sort((a,b) => b.length - a.length);
+    const finKeys = Object.keys(finMap).sort((a,b) => b.length - a.length);
+    const regex = new RegExp(`(?<![a-zA-Z])(${initKeys.join('|')})?(${finKeys.join('|')})?([0-9]?)(?![a-zA-Z])`, 'gi');
+
+    return function(text) {
+        if (!text) return '';
+        return text.replace(regex, (match, init, fin, tone) => {
+            if (!init && !fin) return match;
+            const i = init ? (initMap[init.toLowerCase()] || init) : '';
+            const f = fin ? (finMap[fin.toLowerCase()] || fin) : '';
+            const t = tone || '';
+            return i + f + t;
+        });
+    };
+})();
+
+// ==========================================
+// 逆向引擎：本音 + 變音 -> 重組為 簡拼本變
+// ==========================================
+// ==========================================
+// 逆向引擎：本音 + 變音 -> 重組為 簡拼本變
+// ==========================================
+const matsuSimpToCombRaw = (function() {
+    const exceptions = [
+        ["nuohx85xuai74", "nuoh8 xuai7", "nuai4"], ["xiaq52gxiaq2", "xiaq5 giaq2", "xiaq2"],
+        ["nuohx85xuai7", "nuoh8 xuai7", "nuai7"], ["snuohx85xa7", "suoh8 xa7", "na7"],
+        ["sluohx85xa7", "suoh8 xa7", "la7"], ["sduohx8xa7", "suoh8 xa7", "da7"],
+        ["sduohx85xa7", "suoh8 xa7", "da7"], ["sluohx8xa7", "suoh8 xa7", "la7"],
+        ["zeih4suoh85", "zeih4 suoh8", "zuoh5"], ["zeih4suoh82", "zeih4 suoh8", "zuoh2"],
+        ["dae75xeigh4", "da7 xeig4", "dei4"], ["huo1zuq21", "huo1 zung2", "houng1"],
+        ["huo1zuq24", "huo1 zung2", "houng4"], ["nie5gxiaq24", "nie5 giaq2", "niang4"],
+        ["nie5gxiaq23", "nie5 giaq2", "niang3"], ["hu1kuaei34", "hu1 kuai3", "huei4"],
+        ["zi23hxui5", "zi2 hui5", "zui5"], ["hu1kuai34", "hu1 kuai3", "huai4"],
+        ["zu1kuai34", "zu1 kuai3", "zuai4"], ["huo1zyq24", "huo1 zyq2", "houq4"],
+        ["siu1gouq5", "siu1 gouq5", "souq5"], ["suoh8xa7", "suoh8 xa7", "sa7"],
+        ["hu12gxi5", "hu1 gi5", "hui5"], ["duai7ga1", "duai7 ga1", "de1 xia1"]
+    ];
+
+    const mappings = [
+        ["dluaiey", "duai", "ley"], ["duaiey", "duai", "dey"], ["uaiei", "uai", "ei"], ["iaeu", "iau", "ieu"],
+        ["uaei", "uai", "uei"], ["aeiq", "aiq", "eiq"], ["aouq", "auq", "ouq"], ["eiiq", "eiq", "iq"],
+        ["eyyq", "eyq", "yq"], ["ouuq", "ouq", "uq"], ["oeyq", "oyq", "eyq"], ["aeih", "aih", "eih"],
+        ["aouh", "auh", "ouh"], ["eiih", "eih", "ih"], ["eyyh", "eyh", "yh"], ["ouuh", "ouh", "uh"],
+        ["oeyh", "oyh", "eyh"], ["iexu", "ieu", "iu"], ["uaix", "uai", "ua"], ["iaua", "iau", "ia"],
+        ["aei", "ai", "ei"], ["aeu", "au", "eu"], ["aou", "au", "ou"], ["eii", "ei", "i"],
+        ["eyy", "ey", "y"], ["ooe", "o", "oe"], ["ouu", "ou", "u"], ["oey", "oy", "ey"],
+        ["uoi", "uo", "ui"], ["iae", "ia", "ie"], ["n/l", "n", "l"], ["l/n", "l", "n"],
+        ["aua", "au", "a"], ["aia", "ai", "i"], ["oeo", "oe", "o"], ["ae", "a", "e"],
+        ["bm", "b", "m"], ["pm", "p", "m"], ["dn", "d", "n"], ["tn", "t", "n"],
+        ["gq", "g", "q"], ["kq", "k", "q"], ["hq", "h", "q"], ["xq", "x", "q"],
+        ["bv", "b", "v"], ["pv", "p", "v"], ["dl", "d", "l"], ["tl", "t", "l"],
+        ["gx", "g", "x"], ["kx", "k", "x"], ["hx", "h", "x"], ["zn", "z", "n"],
+        ["cn", "c", "n"], ["sn", "s", "n"], ["zr", "z", "r"], ["sr", "s", "r"],
+        ["cr", "c", "r"], ["sl", "s", "l"], ["zl", "z", "l"], ["cl", "c", "l"],
+        ["zx", "z", "x"], ["cx", "c", "x"], ["sx", "s", "x"], ["qn", "q", "n"],
+        ["qm", "q", "m"], ["gv", "g", "v"], ["sv", "s", "v"], ["dg", "d", "g"],
+        ["kg", "k", "g"], ["xg", "x", "g"], ["xn", "x", "n"], ["sd", "s", "d"],
+        ["hk", "h", "k"], ["gh", "g", "h"], ["hl", "h", "l"], ["hv", "h", "v"],
+        ["bx", "b", "x"], ["xh", "x", "h"], ["xl", "x", "l"], ["ld", "l", "d"],
+        ["11","1","1"], ["21","2","1"], ["31","3","1"], ["41","4","1"], ["51","5","1"], ["71","7","1"], ["81","8","1"],
+        ["12","1","2"], ["22","2","2"], ["32","3","2"], ["42","4","2"], ["52","5","2"], ["72","7","2"], ["82","8","2"],
+        ["13","1","3"], ["23","2","3"], ["33","3","3"], ["43","4","3"], ["53","5","3"], ["73","7","3"], ["83","8","3"],
+        ["14","1","4"], ["24","2","4"], ["34","3","4"], ["44","4","4"], ["54","5","4"], ["74","7","4"], ["84","8","4"],
+        ["15","1","5"], ["25","2","5"], ["35","3","5"], ["45","4","5"], ["55","5","5"], ["75","7","5"], ["85","8","5"],
+        ["17","1","7"], ["27","2","7"], ["37","3","7"], ["47","4","7"], ["57","5","7"], ["77","7","7"], ["87","8","7"],
+        ["18","1","8"], ["28","2","8"], ["38","3","8"], ["48","4","8"], ["58","5","8"], ["78","7","8"], ["88","8","8"],
+        ["10","1","0"], ["20","2","0"], ["30","3","0"], ["40","4","0"], ["50","5","0"], ["70","7","0"], ["80","8","0"]
+    ];
+
+    const simpInitials = ['b','p','m','d','t','n','l','g','k','q','h','z','c','s','v','r','x'];
+    const simpInitRegex = `^(${simpInitials.join('|')})?`;
+
+    const parseSyllable = (syl) => {
+        let init = '', fin = '', tone = '';
+        const toneMatch = syl.match(/[0-9]+$/);
+        if (toneMatch) {
+            tone = toneMatch[0];
+            syl = syl.slice(0, -toneMatch[0].length);
+        }
+        const initMatch = syl.match(new RegExp(simpInitRegex, 'i'));
+        if (initMatch && initMatch[1]) {
+            init = initMatch[1];
+            syl = syl.slice(init.length);
+        }
+        fin = syl; 
+        return { init, fin, tone };
+    };
+
+    const revSylMap = {};
+    const revInitMap = {};
+    const revFinMap = {};
+    const revToneMap = {};
+
+    mappings.forEach(([comb, b, c]) => {
+        if (/^[0-9]+$/.test(comb)) {
+            revToneMap[b + '_' + c] = comb;
+        } else if (simpInitials.includes(b) || b === 'x' || simpInitials.includes(c) || c === 'x' || comb.includes('/')) {
+            let bKey = b === 'x' ? '' : b; 
+            let cKey = c === 'x' ? '' : c;
+            revInitMap[bKey.toLowerCase() + '_' + cKey.toLowerCase()] = comb;
+        } else {
+            revFinMap[b.toLowerCase() + '_' + c.toLowerCase()] = comb;
+            revSylMap[b.toLowerCase() + '_' + c.toLowerCase()] = comb;
+        }
+    });
+
+    return function(text) {
+        if (!text) return '';
+        
+        const lines = text.split('\n');
+        const resultLines = lines.map(line => {
+            const parts = line.split(/\t| {2,}/);
+            if (parts.length < 2) return line; 
+
+            let baseStr = parts[0].trim();
+            let changeStr = parts[1].trim();
+
+            // 💡 修正 1：如果本音與變音完全相同，直接回傳同一個，不再加連字符號
+            if (baseStr.toLowerCase() === changeStr.toLowerCase()) {
+                return baseStr;
+            }
+
+            for (let ex of exceptions) {
+                if (baseStr.toLowerCase() === ex[1].toLowerCase() && changeStr.toLowerCase() === ex[2].toLowerCase()) {
+                    return ex[0];
+                }
+            }
+
+            const baseSyls = baseStr.split(/[\s-]+/);
+            const changeSyls = changeStr.split(/[\s-]+/);
+            const maxLen = Math.max(baseSyls.length, changeSyls.length);
+            const combSyls = [];
+
+            for (let i = 0; i < maxLen; i++) {
+                const bSyl = baseSyls[i] || '';
+                const cSyl = changeSyls[i] || '';
+
+                if (bSyl === cSyl) {
+                    combSyls.push(bSyl);
+                    continue;
+                }
+
+                const bParts = parseSyllable(bSyl);
+                const cParts = parseSyllable(cSyl);
+
+                let bSylNoTone = bSyl.replace(/[0-9]+$/, '');
+                let cSylNoTone = cSyl.replace(/[0-9]+$/, '');
+                if (bSylNoTone !== cSylNoTone && revSylMap[bSylNoTone + '_' + cSylNoTone]) {
+                    let combTone = bParts.tone;
+                    if (bParts.tone !== cParts.tone) {
+                        combTone = revToneMap[bParts.tone + '_' + cParts.tone] || (bParts.tone + cParts.tone);
+                    }
+                    combSyls.push(revSylMap[bSylNoTone + '_' + cSylNoTone] + combTone);
+                    continue;
+                }
+
+                let cInit = bParts.init;
+                if (bParts.init.toLowerCase() !== cParts.init.toLowerCase()) {
+                    const key = bParts.init.toLowerCase() + '_' + cParts.init.toLowerCase();
+                    cInit = revInitMap[key] || (bParts.init + cParts.init);
+                }
+                
+                if (cInit === '') cInit = 'x';
+
+                let cFin = bParts.fin;
+                if (bParts.fin.toLowerCase() !== cParts.fin.toLowerCase()) {
+                    const key = bParts.fin.toLowerCase() + '_' + cParts.fin.toLowerCase();
+                    
+                    const bFinSplit = bParts.fin.match(/^(.*?)([qhg]?)$/i);
+                    const cFinSplit = cParts.fin.match(/^(.*?)([qhg]?)$/i);
+                    
+                    if (bFinSplit && cFinSplit && bFinSplit[1].toLowerCase() === cFinSplit[1].toLowerCase() && bFinSplit[2] !== cFinSplit[2]) {
+                        const codaKey = bFinSplit[2].toLowerCase() + '_' + cFinSplit[2].toLowerCase();
+                        const combinedCoda = revInitMap[codaKey] || (bFinSplit[2] + cFinSplit[2]);
+                        cFin = bFinSplit[1] + combinedCoda; 
+                    } else {
+                        cFin = revFinMap[key] || (bParts.fin + cParts.fin); 
+                    }
+                }
+
+                let cTone = bParts.tone;
+                if (bParts.tone !== cParts.tone) {
+                    const key = bParts.tone + '_' + cParts.tone;
+                    cTone = revToneMap[key] || (bParts.tone + cParts.tone);
+                }
+
+                combSyls.push(cInit + cFin + cTone);
+            }
+
+            return combSyls.join('-');
+        });
+
+        return resultLines.join('\n');
+    };
+})();
+
+// ==========================================
+// 給外部呼叫的重組接口
+// ==========================================
+// 處理：簡拼本音 + 變音 -> 簡拼本變
+function matsuRecombineSimp(t) {
+    return matsuSimpToCombRaw(t);
+}
+
+// 處理：標準拼音本音 + 變音 -> 簡拼本變
+function matsuRecombinePinyin(t) {
+    if (!t) return '';
+    const lines = t.split('\n');
+    const resultLines = lines.map(line => {
+        const parts = line.split(/\t| {2,}/);
+        if (parts.length < 2) return line;
+        
+        let baseStr = parts[0].trim();
+        let changeStr = parts[1].trim();
+
+        // 💡 修正 2：如果標準拼音的本音與變音完全相同，直接轉為簡拼格式並回傳（不加連字符號）
+        if (baseStr.toLowerCase() === changeStr.toLowerCase()) {
+            return matsuPinyinToSimpNumberRaw(matsuPinyinNumber(baseStr));
+        }
+        
+        let bNum = matsuPinyinNumber(baseStr);
+        let cNum = matsuPinyinNumber(changeStr);
+        
+        let bSimp = matsuPinyinToSimpNumberRaw(bNum);
+        let cSimp = matsuPinyinToSimpNumberRaw(cNum);
+        
+        return matsuSimpToCombRaw(`${bSimp}\t${cSimp}`);
+    });
+    return resultLines.join('\n');
 }

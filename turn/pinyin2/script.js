@@ -558,7 +558,7 @@ function toggleDropdown(id) {
 
 // 轉換文字
 function convertText() {
-    const inputText = elements.inputText.value;
+    const inputText = elements.inputText.value.normalize('NFC');
 
     if (!inputText.trim()) {
         const key = `${currentLeftLang}-${currentRightLang}`;

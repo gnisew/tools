@@ -197,6 +197,24 @@ const langMatsu = `
 拼音(字母調)	尾調形	matsuZvsTone	maf tsuf	ma⁺ tsu⁺
 拼音(字母調)	字中調	zvsToLetter	maf tsuf	mā tsū
 拼音(字母調)	數字調	matsuZvsNumber	maf tsuf	ma2 tsu2
+拼音	國際音標	matsuPinyinIpa	ma⁺ tsu⁺	ma² ʦu²
+拼音	簡化標音	matsuPinyinSimplified	ma⁺ tsu⁺	maf zuf
+國際音標	拼音(尾調形)	matsuIpaPinyinTone	ma² ʦu²	ma⁺ tsu⁺
+國際音標	拼音(數字調)	matsuIpaPinyinNumber	ma² ʦu²	ma2 tsu2
+簡化標音	拼音(尾調形)	matsuSimplifiedPinyinTone	maf zuf	ma⁺ tsu⁺
+簡化標音	拼音(數字調)	matsuSimplifiedPinyinNumber	maf zuf	ma2 tsu2
+簡化標音	拼音(字母調)	matsuSimplifiedPinyinZvs	maf zuf	maf tsuf
+簡化標音	拼音(字中調)	matsuSimplifiedPinyinLetter	maf zuf	mā tsū
+簡拼本變	簡拼本音(數字調)	matsuCombSimpBaseNumber	ziq1-sna1	ziq1 sa1
+簡拼本變	簡拼變音(數字調)	matsuCombSimpChangeNumber	ziq1-sna1	ziq1 na1
+簡拼本變	拼音本音(數字調)	matsuCombPinyinBaseNumber	ziq1-sna1	tsing1 sa1
+簡拼本變	拼音變音(數字調)	matsuCombPinyinChangeNumber	ziq1-sna1	tsing1 na1
+簡拼本變	拼音本音(字尾調)	matsuCombPinyinBaseTone	ziq1-sna1	tsing sa
+簡拼本變	拼音變音(字尾調)	matsuCombPinyinChangeTone	ziq1-sna1	tsing na
+簡拼本變	拼音本音(字母調)	matsuCombPinyinBaseZvs	ziq1-sna1	tsing sa
+簡拼本變	拼音變音(字母調)	matsuCombPinyinChangeZvs	ziq1-sna1	tsing na
+簡拼本變(復原)	簡拼本變	matsuRecombineSimp	ziq1 sa1  ziq1 na1	ziq1-sna1
+拼音本變(復原)	簡拼本變	matsuRecombinePinyin	tsing1 sa1  tsing1 na1	ziq1-sna1
 `;
 
 
