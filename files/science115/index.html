@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>趣味科學挑戰日</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入灑花特效庫 -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <style>
+    /* 引入 ㄅ字嗨注音黑體 */
+    @font-face {
+        font-family: 'BpmfZihiSans-Regular';
+        src: local('BpmfZihiSans-Regular'),
+             url('https://oikasu1.github.io/fonts/BpmfZihiSans-Regular.woff2') format('woff2'),
+             url('https://oikasu1.github.io/fonts/BpmfZihiSans-Regular.woff') format('woff');
+        font-display: swap;
+    }
+    
+    .hei-bpmf {
+        font-family: 'BpmfZihiSans-Regular', ui-sans-serif, system-ui, sans-serif !important;
+        line-height: 1.8;
+    }
+
+    /* 強制取消粗體，防止注音字體黏在一起 */
+    .hei-bpmf * {
+        font-weight: normal !important;
+    }
+
+    .fade-in {
+      animation: fadeIn 0.4s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800 min-h-screen hei-bpmf">
+
+  <header class="bg-indigo-600 text-white shadow-md relative z-50">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center">
+        <!-- 放大按鈕內距，移除 pointer-events-none，加入 touch-manipulation 提升觸控靈敏度 -->
+        <button 
+          id="header-back-btn" 
+          class="hidden mr-4 px-5 py-3 hover:bg-indigo-700 rounded-full transition-colors flex items-center justify-center cursor-pointer min-h-[56px] select-none touch-manipulation"
+          aria-label="返回首頁"
+          onclick="goHome()"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m15 18-6-6 6-6"/>
+          </svg>
+          <span class="ml-2 hidden sm:inline text-2xl tracking-wide">返回首頁</span>
+        </button>
+        <h1 class="text-2xl md:text-3xl tracking-wider py-2">
+          🧪 趣味科學挑戰日
+        </h1>
+      </div>
+
+      <button 
+        id="zhuyin-toggle" 
+        onclick="toggleZhuyin()" 
+        class="flex items-center justify-center gap-4 cursor-pointer bg-indigo-700 hover:bg-indigo-800 px-6 py-3 rounded-full transition-colors border border-indigo-500 min-h-[56px] select-none touch-manipulation"
+        title="切換注音字體"
+      >
+        <span class="text-xl md:text-2xl hidden sm:inline tracking-wide">注音顯示</span>
+        <span class="text-xl sm:hidden tracking-wide">注音</span>
+        <div id="zhuyin-track" class="w-12 h-6 bg-emerald-400 rounded-full relative transition-colors">
+          <div id="zhuyin-thumb" class="w-6 h-6 bg-white rounded-full absolute left-6 shadow-sm transition-all duration-300"></div>
+        </div>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-10">
+    <div id="home-view">
+      <div class="text-center mb-12">
+        <h2 class="text-4xl text-slate-800 mb-6 tracking-wide">10 個好玩的科學小實驗</h2>
+        <p class="text-slate-600 text-2xl">點擊下方的卡片，開始探索神奇的科學原理吧！</p>
+      </div>
+      <!-- 調整為適合平板的網格大小 (1欄 -> 2欄 -> 3欄)，讓卡片變大 -->
+      <div id="cards-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+      </div>
+    </div>
+
+    <div id="detail-view" class="hidden fade-in bg-white rounded-3xl shadow-lg overflow-hidden border border-slate-100 max-w-4xl mx-auto">
+      <div id="detail-header" class="px-8 py-12 flex flex-col md:flex-row items-center gap-8 relative overflow-hidden">
+        <div id="detail-icon-bg" class="absolute opacity-10 scale-[5] right-0 bottom-0 text-8xl"></div>
+        <div class="flex-1 flex flex-col items-center md:items-start text-center md:text-left relative z-10">
+          <div class="bg-white p-6 rounded-full shadow-md mb-6 text-6xl select-none" id="detail-icon"></div>
+          <h2 id="detail-title" class="text-5xl text-slate-800 mb-4 tracking-wide"></h2>
+          <div id="detail-badge" class="bg-slate-800 text-white text-xl px-6 py-2 rounded-full inline-block select-none tracking-widest"></div>
+        </div>
+        <div class="flex-1 w-full relative z-10 flex justify-center md:justify-end select-none">
+          <div class="w-full max-w-md bg-white/60 backdrop-blur-sm rounded-2xl border-2 border-white/50 shadow-lg flex flex-col items-center justify-center overflow-hidden p-3">
+            <img id="detail-image" src="" alt="示意圖" class="w-full h-auto max-h-[300px] object-contain rounded-xl" onerror="this.style.display='none'; document.getElementById('detail-image-fallback').style.display='flex';" />
+            <div id="detail-image-fallback" class="hidden flex-col items-center justify-center w-full py-12 text-center">
+               <div id="detail-image-icon" class="text-6xl mb-4 text-slate-400"></div>
+               <p class="text-slate-600 text-xl">尚未載入圖片</p>
+               <p class="text-slate-500 text-lg mt-2">請確認同資料夾下有對應檔案</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-8 md:p-10">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+          <div class="space-y-8">
+            <section>
+              <div class="flex items-center text-indigo-600 mb-3 border-b-2 border-indigo-100 pb-2 select-none">
+                <svg class="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <h3 class="text-2xl">主要材料</h3>
+              </div>
+              <p id="detail-materials" class="text-xl md:text-2xl text-slate-700 bg-indigo-50/50 p-5 rounded-xl leading-relaxed"></p>
+            </section>
+            <section>
+              <div class="flex items-center text-emerald-600 mb-3 border-b-2 border-emerald-100 pb-2 select-none">
+                <svg class="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+                <h3 class="text-2xl">操作步驟</h3>
+              </div>
+              <ul id="detail-steps" class="space-y-4 text-xl md:text-2xl leading-relaxed"></ul>
+            </section>
+          </div>
+          <div class="space-y-6">
+            <section class="bg-amber-50 p-6 rounded-3xl border border-amber-100">
+              <div class="flex items-center text-amber-600 mb-2 select-none">
+                <svg class="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                <h3 class="text-2xl">科學原理</h3>
+              </div>
+              <p id="detail-principle" class="text-xl md:text-2xl text-slate-700 ml-11 leading-relaxed"></p>
+            </section>
+            <section class="bg-rose-50 p-6 rounded-3xl border border-rose-100">
+              <div class="flex items-center text-rose-600 mb-2 select-none">
+                <svg class="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>
+                <h3 class="text-2xl">過關條件</h3>
+              </div>
+              <p id="detail-condition" class="text-xl md:text-2xl text-slate-700 ml-11 leading-relaxed"></p>
+            </section>
+            <section class="bg-cyan-50 p-6 rounded-3xl border border-cyan-100">
+              <div class="flex items-center text-cyan-600 mb-2 select-none">
+                <svg class="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                <h3 class="text-2xl">想一想．觀察</h3>
+              </div>
+              <p id="detail-observation" class="text-xl md:text-2xl text-slate-700 ml-11 leading-relaxed"></p>
+            </section>
+            <section class="bg-slate-100 p-6 rounded-3xl border border-slate-200">
+              <div class="flex items-center text-slate-600 mb-2 select-none">
+                <svg class="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                <h3 class="text-2xl">注意事項</h3>
+              </div>
+              <p id="detail-notice" class="text-xl md:text-2xl text-slate-700 ml-11 leading-relaxed"></p>
+            </section>
+          </div>
+        </div>
+
+        <!-- 動動腦小測驗區塊 (大字體、好點擊) -->
+        <div class="mt-10 bg-sky-50 p-6 md:p-8 rounded-[2rem] border-4 border-sky-100 select-none shadow-sm">
+          <div class="flex flex-col sm:flex-row sm:items-center text-sky-600 mb-6 border-b-2 border-sky-200 pb-4 gap-4">
+            <div class="flex items-center">
+              <svg class="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              <h3 class="text-3xl tracking-wide">小測驗</h3>
+            </div>
+            <div id="detail-quiz-progress" class="sm:ml-auto text-sky-700 bg-sky-200 px-4 py-2 rounded-full text-xl inline-block self-start sm:self-auto tracking-widest"></div>
+          </div>
+          
+          <p id="detail-quiz-question" class="text-2xl md:text-3xl text-slate-800 mb-6 leading-relaxed"></p>
+          
+          <!-- 選項區域放大 -->
+          <div id="detail-quiz-options" class="grid grid-cols-1 gap-4">
+          </div>
+          
+          <!-- 下一步按鈕區域放大 -->
+          <div class="mt-8 flex justify-center gap-4">
+            <button id="quiz-next-btn" onclick="nextQuestion()" class="hidden bg-sky-500 text-white px-10 py-4 rounded-full text-2xl hover:bg-sky-600 shadow-md transition-all flex items-center select-none touch-manipulation">
+              下一題 <svg class="w-8 h-8 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </button>
+            <button id="quiz-restart-btn" onclick="restartQuiz()" class="hidden bg-emerald-500 text-white px-10 py-4 rounded-full text-2xl hover:bg-emerald-600 shadow-md transition-all flex items-center select-none touch-manipulation">
+              <svg class="w-8 h-8 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> 重新挑戰
+            </button>
+          </div>
+        </div>
+        
+        <div class="mt-12 flex justify-center">
+          <button 
+            onclick="goHome()"
+            class="bg-indigo-600 text-white px-10 py-4 rounded-full text-2xl hover:bg-indigo-700 hover:shadow-lg transition-all flex items-center justify-center select-none min-h-[64px] touch-manipulation"
+          >
+            <svg class="w-8 h-8 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            <span>回選單</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let isZhuyinEnabled = true;
+
+    function toggleZhuyin() {
+      isZhuyinEnabled = !isZhuyinEnabled;
+      const body = document.body;
+      const track = document.getElementById('zhuyin-track');
+      const thumb = document.getElementById('zhuyin-thumb');
+
+      if (isZhuyinEnabled) {
+        body.classList.add('hei-bpmf');
+        track.classList.replace('bg-slate-400', 'bg-emerald-400');
+        thumb.classList.replace('left-1', 'left-6');
+      } else {
+        body.classList.remove('hei-bpmf');
+        track.classList.replace('bg-emerald-400', 'bg-slate-400');
+        thumb.classList.replace('left-6', 'left-1');
+      }
+    }
+
+    const experiments = [
+      {
+        id: 1,
+        title: "磁轉小花",
+        icon: "🌸",
+        color: "bg-pink-100",
+        materials: "竹筷、磁鐵、紙花、紙板",
+        steps: ["將磁鐵固定在竹筷上。", "紙花中央黏上磁鐵。", "紙花放在紙板上。", "用竹筷在紙板下方移動磁鐵。", "觀察紙花是否轉動。"],
+        principle: "磁鐵隔著紙板也能產生磁力，帶動紙花旋轉。",
+        condition: "讓紙花持續旋轉。",
+        notice: "磁鐵不要靠近電子產品。",
+        observation: "磁鐵移動速度和紙花轉速有什麼關係？",
+        quizzes: [
+          { question: "想一想，紙花為什麼會跟著轉動呢？", options: ["旁邊有風吹", "磁鐵有磁力", "紙花自己動"], answer: 1 },
+          { question: "把磁鐵黏在竹筷上是為了什麼？", options: ["竹筷變漂亮", "方便在下面移動", "夾起小紙花"], answer: 1 },
+          { question: "把紙板換成很厚的木板，紙花還會轉嗎？", options: ["不會，磁力變弱", "會，而且轉更快", "一樣轉得很順"], answer: 0 }
+        ]
+      },
+      {
+        id: 2,
+        title: "磁化迴紋針",
+        icon: "📎",
+        color: "bg-blue-100",
+        materials: "磁鐵、迴紋針2個",
+        steps: ["用磁鐵朝同一方向摩擦迴紋針。", "持續摩擦約30下。", "用磁化迴紋針吸另一個迴紋針。"],
+        principle: "磁鐵可以讓鐵製品暫時具有磁性。",
+        condition: "成功吸起另一個迴紋針。",
+        notice: "摩擦時要保持同一方向。",
+        observation: "摩擦次數不同，吸力有差別嗎？",
+        quizzes: [
+          { question: "摩擦迴紋針的時候，怎樣做才是對的？", options: ["只能同方向擦", "隨便來回亂擦", "輕輕敲一敲"], answer: 0 },
+          { question: "摩擦完的迴紋針會變得像什麼一樣？", options: ["像磁鐵能吸鐵", "像黏土軟軟的", "像冰塊冷冷的"], answer: 0 },
+          { question: "如果只摩擦兩三下，迴紋針能吸起來嗎？", options: ["可以，吸力超強", "不行，摩擦太少", "迴紋針會斷掉"], answer: 1 }
+        ]
+      },
+      {
+        id: 3,
+        title: "浮力蹺蹺板",
+        icon: "⚖️",
+        color: "bg-green-100",
+        materials: "透明杯、水、木條、木塊",
+        steps: ["在兩端放裝水的杯子。", "觀察哪邊較重。", "將手放進其中一杯水中。", "觀察蹺蹺板變化。"],
+        principle: "手放入水中時，會改變杯子受到的力量。",
+        condition: "觀察蹺蹺板上下移動。",
+        notice: "手不要碰到杯子。",
+        observation: "不同深度時，蹺蹺板變化一樣嗎？",
+        quizzes: [
+          { question: "把手伸進其中一個水杯裡，那邊會變怎樣？", options: ["會變重下沉", "會變輕上翹", "完全不改變"], answer: 0 },
+          { question: "手放進水裡的時候，可以碰到杯子嗎？", options: ["沒關係都可以", "小心不要碰到", "緊緊抓住杯子"], answer: 1 },
+          { question: "為什麼手放進水裡，那一邊就變重了呢？", options: ["把水變多了", "往下壓的力量", "手上有髒東西"], answer: 1 }
+        ]
+      },
+      {
+        id: 4,
+        title: "神奇不倒翁",
+        icon: "🎯",
+        color: "bg-purple-100",
+        materials: "牙籤、金屬線",
+        steps: ["將金屬線固定在牙籤下方。", "左右調整成對稱。", "將牙籤放在手指上。"],
+        principle: "重心越低，物體越容易保持平衡。",
+        condition: "平衡棒站立5秒以上。",
+        notice: "左右重量要平均。",
+        observation: "改變金屬線位置會發生什麼事？",
+        quizzes: [
+          { question: "怎麼做可以讓不倒翁站得最穩？", options: ["上面重一點", "下面重一點", "把它折斷一半"], answer: 1 },
+          { question: "如果左右兩邊重量不一樣，會發生什麼事？", options: ["歪一邊掉下", "直接飛起來", "會站得更久"], answer: 0 },
+          { question: "我們要怎麼放牙籤，才知道它有沒有平衡？", options: ["平放在桌上", "丟進水裡面", "直立放手指上"], answer: 2 }
+        ]
+      },
+      {
+        id: 5,
+        title: "風火輪",
+        icon: "🎡",
+        color: "bg-red-100",
+        materials: "卡紙、棉線",
+        steps: ["可在紙盤上畫圖案。", "穿入棉線並綁好。", "雙手拉線旋轉紙盤20圈。", "拉緊與放鬆棉線。"],
+        principle: "棉線扭轉後儲存能量，放開時帶動紙盤旋轉。",
+        condition: "持續旋轉5秒以上。",
+        notice: "拉線時不要太用力。",
+        observation: "快速旋轉後顏色有什麼變化？",
+        quizzes: [
+          { question: "放開雙手的時候，是誰帶著紙盤轉動的？", options: ["旁邊的風", "裡面的電池", "轉緊的棉線"], answer: 2 },
+          { question: "要怎麼做才能讓棉線變得緊緊的？", options: ["往外拉拉看", "拿線繞圈圈", "用剪刀剪斷"], answer: 1 },
+          { question: "紙盤快速轉動時，圖案看起來會怎樣？", options: ["變成黑色的", "混出新顏色", "變成立體的"], answer: 1 }
+        ]
+      },
+      {
+        id: 6,
+        title: "杯中圓周運動",
+        icon: "🪙",
+        color: "bg-yellow-100",
+        materials: "塑膠杯、硬幣",
+        steps: ["硬幣依軌道滑入杯子。", "觀察硬幣運動。"],
+        principle: "硬幣會沿著杯壁繞圈圈移動。",
+        condition: "硬幣持續旋轉數秒。",
+        notice: "動作要流暢。",
+        observation: "不同大小硬幣，旋轉時間會一樣嗎？",
+        quizzes: [
+          { question: "硬幣掉進杯子裡的時候，是怎麼動的？", options: ["直直掉下去", "沿邊緣轉圈", "碰一下就停"], answer: 1 },
+          { question: "如果不順著杯子滑直接往下丟，會怎樣？", options: ["掉到杯底", "飛出杯子", "變成兩個"], answer: 0 },
+          { question: "這個遊戲要用什麼形狀的杯子比較容易成功？", options: ["四方形杯子", "軟軟的紙盤", "圓圓的杯子"], answer: 2 }
+        ]
+      },
+      {
+        id: 7,
+        title: "硬幣掉杯子",
+        icon: "🔽",
+        color: "bg-teal-100",
+        materials: "硬幣、紙卡、杯子",
+        steps: ["將紙卡放在杯口。", "硬幣放在紙卡中央。", "快速彈開紙卡。"],
+        principle: "靜止的物體會維持原來的狀態。",
+        condition: "硬幣掉進杯子裡。",
+        notice: "紙卡要快速彈開。",
+        observation: "慢慢拉開紙卡會怎樣？",
+        quizzes: [
+          { question: "把紙片彈開後，為什麼硬幣會掉進杯子裡？", options: ["想停在原處", "想跟著飛走", "紙片太滑了"], answer: 0 },
+          { question: "如果我們「慢慢」把紙片拉開，硬幣會怎樣？", options: ["掉進杯子裡", "跟著被拉走", "飛到半空中"], answer: 1 },
+          { question: "紙片要怎麼拿走，硬幣才最容易掉進杯子？", options: ["輕輕慢慢拉", "快速彈開它", "用剪刀剪破"], answer: 1 }
+        ]
+      },
+      {
+        id: 8,
+        title: "滑輪大力士",
+        icon: "💪",
+        color: "bg-orange-100",
+        materials: "童軍繩、塑膠環",
+        steps: ["將繩子在兩個環之間來回繞。", "一人拉繩。", "一人拉環。", "比較施力大小。"],
+        principle: "多條繩子一起分擔力量，可以讓拉動變得比較省力。",
+        condition: "成功拉動系統。",
+        notice: "雙方都要握緊繩子。",
+        observation: "繩子繞越多圈有什麼變化？",
+        quizzes: [
+          { question: "把繩子多繞好幾圈，拉起來會覺得怎樣？", options: ["比較費力", "比較省力", "完全拉不動"], answer: 1 },
+          { question: "兩個人在拉繩子的時候，要怎樣才安全？", options: ["把繩子握緊", "突然放開手", "閉著眼拉繩"], answer: 0 },
+          { question: "為什麼繩子繞多一點會比較輕鬆？", options: ["繩子變長了", "繩子幫忙分擔", "繩子變滑了"], answer: 1 }
+        ]
+      },
+      {
+        id: 9,
+        title: "棉線水渠",
+        icon: "💧",
+        color: "bg-cyan-100",
+        materials: "塑膠杯2個、棉線、水",
+        steps: ["將棉線固定在兩個杯子中。", "棉線先沾濕。", "將水沿棉線慢慢倒出。"],
+        principle: "水會沿著棉線表面流動。",
+        condition: "成功把水倒進另一個杯子。",
+        notice: "線不要太平或太直。",
+        observation: "哪個角度水流最順暢？",
+        quizzes: [
+          { question: "倒水的時候，水是順著哪裡跑到另一個杯子？", options: ["順著棉線面", "順著風吹過", "順著桌子滴"], answer: 0 },
+          { question: "棉線如果拉得太直或太水平，會發生什麼事？", options: ["水流得快", "水容易滴出", "杯子會破掉"], answer: 1 },
+          { question: "開始倒水之前，棉線要先做什麼準備？", options: ["先剪斷它", "先用水沾濕", "先塗上膠水"], answer: 1 }
+        ]
+      },
+      {
+        id: 10,
+        title: "氣球吉他",
+        icon: "🎸",
+        color: "bg-indigo-100",
+        materials: "圓氣球、長條氣球",
+        steps: ["將長條氣球固定在圓氣球上。", "拉緊長條氣球。", "用手撥動長條氣球。"],
+        principle: "氣球振動會產生聲音，大氣球可以讓聲音更明顯。",
+        condition: "發出清楚聲音。",
+        notice: "不要把氣球拉得太緊。",
+        observation: "拉緊程度不同，聲音有什麼變化？",
+        quizzes: [
+          { question: "撥動的時候，聲音是怎麼跑出來的？", options: ["氣球快破了", "風吹過聲音", "氣球皮震動"], answer: 2 },
+          { question: "大大的圓形氣球有什麼神奇的功用？", options: ["讓聲音變大", "當作鼓來敲", "為了看著美"], answer: 0 },
+          { question: "如果把長條氣球拉得超緊超緊，會發生什麼事？", options: ["聲音超好聽", "氣球會破掉", "完全沒聲音"], answer: 1 }
+        ]
+      }
+    ];
+
+    const homeView = document.getElementById('home-view');
+    const detailView = document.getElementById('detail-view');
+    const headerBackBtn = document.getElementById('header-back-btn');
+    const cardsContainer = document.getElementById('cards-container');
+
+    function initCards() {
+      experiments.forEach(exp => {
+        const card = document.createElement('div');
+        card.className = `${exp.color} rounded-[2rem] p-8 shadow-sm hover:shadow-xl hover:-translate-y-2 transition-all duration-300 cursor-pointer flex flex-col items-center text-center border-2 border-transparent hover:border-white/50 touch-manipulation`;
+        card.onclick = () => showDetail(exp.id);
+        card.innerHTML = `
+          <div class="bg-white p-6 rounded-full shadow-inner mb-6 text-6xl">
+            ${exp.icon}
+          </div>
+          <div class="bg-slate-800 text-white text-lg px-6 py-2 rounded-full mb-4 tracking-widest">
+            第 ${exp.id} 關
+          </div>
+          <h3 class="text-3xl text-slate-800 tracking-wide">${exp.title}</h3>
+        `;
+        cardsContainer.appendChild(card);
+      });
+    }
+
+    let currentExpId = null;
+    let quizQuestions = [];
+    let currentQuizIndex = 0;
+    let correctCount = 0; 
+    
+    function shuffleArray(array) {
+      let currentIndex = array.length, randomIndex;
+      while (currentIndex != 0) {
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex--;
+        [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+      }
+      return array;
+    }
+
+    function startQuiz(expId) {
+      currentExpId = expId;
+      const exp = experiments.find(e => e.id === expId);
+      correctCount = 0; 
+      quizQuestions = shuffleArray([...exp.quizzes]);
+      currentQuizIndex = 0;
+      
+      document.getElementById('quiz-restart-btn').classList.add('hidden');
+      renderQuestion();
+    }
+
+    function renderQuestion() {
+      const q = quizQuestions[currentQuizIndex];
+      document.getElementById('detail-quiz-progress').innerText = `${currentQuizIndex + 1} / ${quizQuestions.length}`;
+      document.getElementById('detail-quiz-question').innerText = q.question;
+      
+      const optionsContainer = document.getElementById('detail-quiz-options');
+      optionsContainer.innerHTML = '';
+      document.getElementById('quiz-next-btn').classList.add('hidden');
+
+      const optionsObj = q.options.map((text, idx) => ({ text, isCorrect: idx === q.answer }));
+      const shuffledOptions = shuffleArray(optionsObj);
+
+      const optionLabels = ["A", "B", "C"];
+      shuffledOptions.forEach((opt, idx) => {
+        const btn = document.createElement('button');
+        // 選項按鈕放大 p-5 text-xl/2xl
+        btn.className = "quiz-option flex items-center bg-white border-2 border-sky-200 text-slate-700 text-xl md:text-2xl p-5 md:p-6 rounded-3xl hover:bg-white hover:border-sky-400 transition-all cursor-pointer shadow-sm hover:shadow-md transform hover:-translate-y-1 text-left w-full touch-manipulation";
+        btn.innerHTML = `
+          <span class="flex-shrink-0 w-10 h-10 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center mr-4 text-xl">${optionLabels[idx]}</span>
+          <span class="leading-relaxed">${opt.text}</span>
+        `;
+        btn.onclick = () => checkAnswer(opt.isCorrect, btn, shuffledOptions);
+        optionsContainer.appendChild(btn);
+      });
+    }
+
+    function checkAnswer(isCorrect, selectedBtn, shuffledOptions) {
+      const optionsNodes = document.querySelectorAll('.quiz-option');
+
+      optionsNodes.forEach((optNode, index) => {
+        optNode.onclick = null;
+        optNode.classList.replace('cursor-pointer', 'cursor-not-allowed');
+        optNode.classList.replace('hover:bg-white', 'hover:bg-transparent');
+        optNode.classList.replace('hover:shadow-md', 'shadow-none');
+        optNode.classList.replace('hover:-translate-y-1', 'translate-y-0');
+        
+        if (shuffledOptions[index].isCorrect) {
+          optNode.classList.add('bg-green-100', 'border-green-400', 'text-green-800', 'shadow-inner');
+        } else if (optNode === selectedBtn && !isCorrect) {
+          optNode.classList.add('bg-red-50', 'border-red-300', 'text-red-400', 'opacity-60');
+        } else {
+          optNode.classList.add('opacity-50');
+        }
+      });
+
+      if (isCorrect) correctCount++;
+
+      if (currentQuizIndex < quizQuestions.length - 1) {
+        document.getElementById('quiz-next-btn').classList.remove('hidden');
+      } else {
+        document.getElementById('quiz-restart-btn').classList.remove('hidden');
+        
+        if (correctCount === quizQuestions.length) {
+          confetti({
+            particleCount: 200,
+            spread: 90,
+            origin: { y: 0.5 },
+            colors: ['#34D399', '#60A5FA', '#F472B6', '#FBBF24'],
+            zIndex: 100
+          });
+        }
+      }
+    }
+
+    function nextQuestion() {
+      currentQuizIndex++;
+      renderQuestion();
+    }
+
+    function restartQuiz() {
+      startQuiz(currentExpId);
+    }
+
+    function showDetail(id) {
+      const exp = experiments.find(e => e.id === id);
+      if (!exp) return;
+
+      document.getElementById('detail-header').className = `${exp.color} px-8 py-12 flex flex-col md:flex-row items-center gap-10 relative overflow-hidden`;
+      document.getElementById('detail-icon-bg').innerText = exp.icon;
+      document.getElementById('detail-icon').innerText = exp.icon;
+      document.getElementById('detail-title').innerText = exp.title;
+      document.getElementById('detail-badge').innerText = `挑戰 ${exp.id} / 10`;
+      
+      const imgElement = document.getElementById('detail-image');
+      const fallbackElement = document.getElementById('detail-image-fallback');
+      
+      imgElement.src = `${exp.id}.jpg`;
+      imgElement.alt = `${exp.title} 示意圖`;
+      imgElement.style.display = 'block';
+      fallbackElement.style.display = 'none';
+      
+      document.getElementById('detail-image-icon').innerText = exp.icon;
+      document.getElementById('detail-materials').innerText = exp.materials;
+      
+      const stepsList = document.getElementById('detail-steps');
+      stepsList.innerHTML = '';
+      exp.steps.forEach((step, idx) => {
+        const li = document.createElement('li');
+        li.className = "flex items-start";
+        li.innerHTML = `
+          <span class="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mr-3 border border-emerald-200 text-lg mt-1">
+            ${idx + 1}
+          </span>
+          <span class="text-xl md:text-2xl text-slate-700 leading-relaxed">${step}</span>
+        `;
+        stepsList.appendChild(li);
+      });
+
+      document.getElementById('detail-principle').innerText = exp.principle;
+      document.getElementById('detail-condition').innerText = exp.condition;
+      document.getElementById('detail-observation').innerText = `「${exp.observation}」`;
+      document.getElementById('detail-notice').innerText = exp.notice;
+
+      startQuiz(exp.id);
+
+      homeView.classList.add('hidden');
+      detailView.classList.remove('hidden');
+      headerBackBtn.classList.remove('hidden');
+      
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function goHome() {
+      detailView.classList.add('hidden');
+      homeView.classList.remove('hidden');
+      headerBackBtn.classList.add('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    initCards();
+  </script>
+</body>
+</html>
