@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>烏衣行文字比對WeSingDiff</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#fafbfc;--surface:#fff;--surface2:#f3f4f6;--border:#e5e7eb;
+  --text:#111827;--text-dim:#6b7280;--text-muted:#9ca3af;
+  --red:#dc2626;--red-bg:rgba(220,38,38,.06);--red-text:#991b1b;
+  --green:#16a34a;--green-bg:rgba(22,163,74,.06);--green-text:#166534;
+  --blue:#2563eb;--blue-bg:rgba(37,99,235,.06);
+  --yellow:#d97706;--yellow-bg:rgba(217,119,6,.05);
+  --font-ui:'Inter',system-ui,-apple-system,sans-serif;
+  --font-mono:'JetBrains Mono','SF Mono','Menlo','Consolas',monospace;
+  --diff-font-size:13px;--diff-line-height:24px;
+  --radius:8px;--radius-sm:6px;
+}
+[data-theme="dark"]{
+  --bg:#0f1117;--surface:#181a20;--surface2:#1e2028;--border:#2a2d37;
+  --text:#e4e5e7;--text-dim:#9ca3af;--text-muted:#6b7280;
+  --red:#f87171;--red-bg:rgba(248,113,113,.08);--red-text:#fca5a5;
+  --green:#4ade80;--green-bg:rgba(74,222,128,.08);--green-text:#86efac;
+  --blue:#60a5fa;--blue-bg:rgba(96,165,250,.08);
+  --yellow:#fbbf24;--yellow-bg:rgba(251,191,36,.06);
+}
+html,body{height:100%;overflow:hidden;font-family:var(--font-ui);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:14px;height:14px}
+::-webkit-scrollbar-track{background:var(--surface2);margin:2px}
+::-webkit-scrollbar-thumb{background:var(--text-muted);border-radius:7px;border:3px solid var(--surface2);min-height:40px;cursor:default}
+::-webkit-scrollbar-thumb:hover{background:var(--text-dim)}
+.app{display:flex;flex-direction:column;height:100vh}
+header{display:flex;align-items:center;justify-content:center;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--surface);gap:8px;position:relative}
+.logo{position:absolute;left:16px;font-size:14px;font-weight:600;color:var(--text);letter-spacing:-.3px}
+.toolbar{display:flex;align-items:center;gap:6px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:6px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text-dim);font-size:13px;font-family:var(--font-ui);cursor:pointer;transition:all .15s;white-space:nowrap;line-height:1}
+.btn:hover{background:var(--surface2);color:var(--text);border-color:var(--text-muted)}
+.btn.active{background:var(--blue-bg);border-color:var(--blue);color:var(--blue)}
+.btn-primary{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:500}
+.btn-primary:hover{opacity:.9;background:var(--blue);color:#fff}
+.btn-icon{width:34px;height:34px;padding:0;border-radius:var(--radius-sm)}
+.btn svg{width:16px;height:16px;flex-shrink:0}
+.stats-bar{position:absolute;right:16px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-muted)}
+.stat{display:inline-flex;align-items:center;gap:3px}
+.stat-add{color:var(--green)}
+.stat-del{color:var(--red)}
+.stat-mod{color:var(--yellow)}
+
+.workspace{flex:1;display:flex;overflow:hidden;min-height:0}
+.col{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.col+.col{border-left:1px solid var(--border)}
+.col-head{display:flex;align-items:center;padding:8px 14px;font-size:12px;color:var(--text-dim);gap:8px;border-bottom:1px solid var(--border);background:var(--surface)}
+.col-label{font-weight:500;color:var(--text);font-size:12px}
+.col-meta{margin-left:auto;font-size:11px;color:var(--text-muted)}
+textarea.input-area{flex:1;width:100%;border:none;outline:none;resize:none;padding:12px 14px;font-family:var(--font-mono);font-size:var(--diff-font-size);line-height:var(--diff-line-height);background:var(--surface);color:var(--text);tab-size:2}
+textarea.input-area::placeholder{color:var(--text-muted)}
+
+.diff-scroll{flex:1;overflow:auto;display:none}
+.diff-scroll.visible{display:block}
+.line{display:flex;min-height:var(--diff-line-height);line-height:var(--diff-line-height);font-size:var(--diff-font-size);font-family:var(--font-mono);position:relative}
+.line-num{width:48px;min-width:48px;text-align:right;padding-right:10px;color:var(--text-muted);user-select:none;font-size:11px;display:flex;justify-content:flex-end;align-items:center}
+.line-num[data-side]{cursor:pointer}
+.line-num[data-side]:hover{color:var(--text)}
+.line-content{flex:1;padding:0 14px;white-space:pre;font-variant-ligatures:none;min-width:0;overflow:hidden;cursor:text}
+.line-content.wrap{white-space:pre-wrap;word-break:break-all}
+.line.added{background:var(--green-bg)}
+.line.removed{background:var(--red-bg)}
+.line.modified{background:var(--yellow-bg)}
+.line.equal .line-content{color:var(--text-dim)}
+.char-del{background:var(--red-bg);color:var(--red-text);border-radius:2px;padding:0 1px}
+.char-ins{background:var(--green-bg);color:var(--green-text);border-radius:2px;padding:0 1px}
+[data-theme="dark"] .char-del{color:var(--red)}
+[data-theme="dark"] .char-ins{color:var(--green)}
+.line-content[contenteditable="true"]{outline:none;cursor:text}
+.line-content[contenteditable="true"]:focus{box-shadow:inset 0 0 0 2px var(--blue-bg);border-radius:2px}
+.line-content.editing{background:rgba(37,99,235,.04)}
+
+.options-row{display:flex;align-items:center;gap:12px;padding:6px 14px;border-top:1px solid var(--border);background:var(--surface);font-size:12px;color:var(--text-dim);flex-wrap:wrap}
+.opt{display:inline-flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap}
+.opt input[type=checkbox]{accent-color:var(--blue);width:14px;height:14px}
+.opt-label{font-size:11px;color:var(--text-muted)}
+.opt select{appearance:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:2px 6px;font-size:11px;font-family:var(--font-ui);color:var(--text);cursor:pointer;height:22px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);padding:8px 18px;background:var(--text);color:var(--bg);border-radius:var(--radius);font-size:13px;opacity:0;transition:all .25s;z-index:100;pointer-events:none;white-space:nowrap}
+.toast.visible{opacity:1;transform:translateX(-50%) translateY(0)}
+.file-drop{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .2s}
+.file-drop.visible{opacity:.95;pointer-events:all}
+.file-drop-inner{border:2px dashed var(--blue);border-radius:16px;padding:60px;text-align:center;color:var(--blue);font-size:15px;font-weight:500}
+.input-wrap{flex:1;position:relative;overflow:hidden}
+.input-wrap .input-area{position:absolute;inset:0}
+.input-wrap .ln-gutter{position:absolute;left:0;top:0;bottom:0;width:48px;background:var(--surface2);border-right:1px solid var(--border);overflow:hidden;pointer-events:none;z-index:1;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);display:none;padding:12px 0}
+.input-wrap .ln-gutter.visible{display:block}
+.input-wrap .ln-gutter .ln-line{height:var(--diff-line-height);display:flex;align-items:center;justify-content:flex-end;padding-right:10px}
+.input-wrap .input-area.with-gutter{padding-left:58px}
+.placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px;text-align:center;padding:40px;font-family:var(--font-ui)}
+.hidden-input{display:none}
+.export-menu{display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:50;min-width:140px;overflow:hidden}
+.export-menu.visible{display:block}
+.export-item{padding:8px 14px;font-size:12px;color:var(--text);cursor:pointer;transition:background .1s}
+.export-item:hover{background:var(--surface2)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">烏衣行比對</div>
+    <div class="toolbar">
+      <button class="btn btn-icon" onclick="swapTexts()" title="交換 A/B">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16l-4-4 4-4"/><path d="M3 12h18"/><path d="M17 8l4 4-4 4"/></svg>
+      </button>
+      <button class="btn active" id="btnSide" onclick="setView('side')">並排</button>
+      <button class="btn" id="btnInline" onclick="setView('inline')">行內</button>
+      <button class="btn btn-primary" id="btnDiff" onclick="toggleDiff()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <span id="btnDiffLabel">比對</span>
+      </button>
+      <button class="btn btn-icon" onclick="clearAll()" title="清除">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></svg>
+      </button>
+      <div style="position:relative">
+        <button class="btn btn-icon" onclick="toggleExport(event)" title="匯出">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+        <div class="export-menu" id="exportMenu">
+          <div class="export-item" onclick="exportAs('txt')">純文字 (.txt)</div>
+          <div class="export-item" onclick="exportAs('html')">HTML (.html)</div>
+          <div class="export-item" onclick="exportAs('rtf')">RTF (.rtf)</div>
+        </div>
+      </div>
+      <button class="btn btn-icon" onclick="toggleTheme()" title="切換主題">
+        <svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        <svg id="iconMoon" style="display:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      </button>
+    </div>
+    <div class="stats-bar" id="stats"></div>
+  </header>
+  <div class="workspace">
+    <div class="col" id="colLeft">
+      <div class="col-head">
+        <span class="col-label">A — 原始</span>
+        <button class="btn" style="padding:3px 10px;font-size:11px" onclick="loadFile('left')">載入檔案</button>
+        <span class="col-meta" id="metaLeft"></span>
+      </div>
+      <div class="input-wrap" id="wrapLeft">
+        <div class="ln-gutter" id="gutterLeft"></div>
+        <textarea class="input-area" id="inputLeft" wrap="off" placeholder="貼上原始文字，或拖放檔案..." spellcheck="false"></textarea>
+      </div>
+      <div class="diff-scroll" id="scrollLeft"></div>
+    </div>
+    <div class="col" id="colRight">
+      <div class="col-head">
+        <span class="col-label">B — 修改</span>
+        <button class="btn" style="padding:3px 10px;font-size:11px" onclick="loadFile('right')">載入檔案</button>
+        <span class="col-meta" id="metaRight"></span>
+      </div>
+      <div class="input-wrap" id="wrapRight">
+        <div class="ln-gutter" id="gutterRight"></div>
+        <textarea class="input-area" id="inputRight" wrap="off" placeholder="貼上修改後的文字..." spellcheck="false"></textarea>
+      </div>
+      <div class="diff-scroll" id="scrollRight"></div>
+    </div>
+  </div>
+  <div class="options-row">
+    <label class="opt"><input type="checkbox" id="optCharDiff" checked>字元級差異</label>
+    <label class="opt"><input type="checkbox" id="optLineNum" checked>行號</label>
+    <label class="opt"><input type="checkbox" id="optTrim" checked>忽略行尾空白</label>
+    <label class="opt"><input type="checkbox" id="optWrap">自動換行</label>
+    <label class="opt"><input type="checkbox" id="optIgnoreEmpty">忽略空行</label>
+    <label class="opt"><input type="checkbox" id="optDiffTop">差異行置頂</label>
+    <label class="opt"><input type="checkbox" id="optAutoSave">自動暫存</label>
+    <label class="opt"><input type="checkbox" id="optInlineExpand">行內展開相同行</label>
+    <label class="opt"><input type="checkbox" id="optSelectMode">選取模式</label>
+    <label class="opt">字體<select id="optFontFamily"><option value="default">預設</option><optgroup label="注音符號"><option value="BpmfZihiSerif-Regular">注音宋</option><option value="BpmfZihiKaiStd-Regular">注音楷書</option><option value="BpmfZihiSans-Regular">注音黑體</option><option value="BpmfZihiBox-R">注音方體</option><option value="BpmfZihiOnly-R">注音符號</option></optgroup><optgroup label="台語字型"><option value="TaigiGenRyuM-TL-R">台語明體</option><option value="TaigiGenRyuM-TLHI-R">台語明體TLHI</option><option value="TaigiGenRyuM-HI-R">台語明體HI</option><option value="TaigiKaiStd-TL-R">台語楷書</option><option value="TaigiKaiStd-TLHI-R">台語楷書TLHI</option><option value="TaigiKaiStd-HI-R">台語楷書HI</option><option value="TaigiGenSekiG-TL-R">台語黑體</option><option value="TaigiGenSekiG-TLHI-R">台語黑體TLHI</option><option value="TaigiGenSekiG-HI-R">台語黑體HI</option><option value="TaigiGenSenR-TL-R">台語圓體</option><option value="TaigiGenSenR-TLHI-R">台語圓體TLHI</option><option value="TaigiGenSenR-HI-R">台語圓體HI</option></optgroup><optgroup label="其他"><option value="EngTRESSA">英文花體A</option><option value="EngTRESSB">英文花體B</option><option value="Tauhu-Oo">豆腐字</option><option value="ToneOZ-Pinyin-Kai-Traditional">拼音楷書</option></optgroup></select></label>
+    <label class="opt">大小<select id="optFontSize"><option value="12">12</option><option value="13" selected>13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="18">18</option><option value="20">20</option><option value="24">24</option></select></label>
+    <span class="opt-label">Ctrl+Enter 快速比對</span>
+  </div>
+</div>
+<input type="file" class="hidden-input" id="fileInput" accept=".txt,.md,.js,.ts,.py,.java,.c,.cpp,.h,.css,.html,.json,.xml,.yaml,.yml,.csv,.sql,.rb,.go,.rs,.vue,.jsx,.tsx">
+<div class="toast" id="toast"></div>
+<div class="file-drop" id="fileDrop"><div class="file-drop-inner">拖放檔案到此處</div></div>
+<script>
+let view='side',diffResult=null,leftText='',rightText='';
+let leftLines=[],rightLines=[];
+let toastTimer=null;
+let inputMode=true;
+
+function $(id){return document.getElementById(id)}
+function getOpt(k){const el=$('opt'+k[0].toUpperCase()+k.slice(1));return el?el.checked:false;}
+function showToast(msg,ms){
+  if(toastTimer)clearTimeout(toastTimer);
+  const t=$('toast');t.textContent=msg;t.classList.add('visible');
+  toastTimer=setTimeout(()=>{t.classList.remove('visible');toastTimer=null;},ms||2000);
+}
+function toggleTheme(){
+  const d=document.documentElement;
+  const isDark=d.getAttribute('data-theme')==='dark';
+  d.setAttribute('data-theme',isDark?'light':'dark');
+  localStorage.setItem('diffpro-theme',isDark?'light':'dark');
+  $('iconSun').style.display=isDark?'block':'none';
+  $('iconMoon').style.display=isDark?'none':'block';
+}
+(function(){
+  const t=localStorage.getItem('diffpro-theme')||'light';
+  document.documentElement.setAttribute('data-theme',t);
+  if(t==='dark'){$('iconSun').style.display='none';$('iconMoon').style.display='block';}
+})();
+
+function saveDraft(){
+  if(!$('optAutoSave').checked)return;
+  localStorage.setItem('diffpro-left',$('inputLeft').value);
+  localStorage.setItem('diffpro-right',$('inputRight').value);
+}
+(function(){
+  $('optAutoSave').checked=localStorage.getItem('diffpro-autosave')==='1';
+  $('optAutoSave').addEventListener('change',()=>{
+    localStorage.setItem('diffpro-autosave',$('optAutoSave').checked?'1':'0');
+    if($('optAutoSave').checked)saveDraft();else{localStorage.removeItem('diffpro-left');localStorage.removeItem('diffpro-right');}
+  });
+  if($('optAutoSave').checked){
+    const l=localStorage.getItem('diffpro-left')||'';
+    const r=localStorage.getItem('diffpro-right')||'';
+    if(l||r){$('inputLeft').value=l;$('inputRight').value=r;leftText=l;rightText=r;updateMeta('left');updateMeta('right');refreshGutters();}
+  }
+  $('inputLeft').addEventListener('input',saveDraft);
+  $('inputRight').addEventListener('input',saveDraft);
+})();
+
+const displayOpts=['optCharDiff','optLineNum','optWrap','optDiffTop','optInlineExpand','optSelectMode'];
+const computeOpts=['optTrim','optIgnoreEmpty'];
+displayOpts.forEach(id=>{$(id).addEventListener('change',()=>{if(diffResult&&!inputMode)rediff();});});
+computeOpts.forEach(id=>{$(id).addEventListener('change',()=>{if(leftText||rightText)runDiff();});});
+$('optWrap').addEventListener('change',function(){
+  const v=this.checked?'soft':'off';
+  $('inputLeft').setAttribute('wrap',v);
+  $('inputRight').setAttribute('wrap',v);
+  if(inputMode)refreshGutters();
+});
+
+function setView(v){
+  view=v;
+  $('btnSide').classList.toggle('active',v==='side');
+  $('btnInline').classList.toggle('active',v==='inline');
+  if(diffResult&&!inputMode){
+    showDiff();
+    renderDiff();
+  }
+}
+
+function showInput(){
+  inputMode=true;
+  $('wrapLeft').style.display='';$('wrapRight').style.display='';
+  $('scrollLeft').classList.remove('visible');$('scrollRight').classList.remove('visible');
+  $('scrollLeft').innerHTML='';$('scrollRight').innerHTML='';
+  $('colRight').style.display='';
+  $('stats').innerHTML='';
+  $('btnDiffLabel').textContent='比對';
+  $('btnDiff').classList.add('btn-primary');
+  refreshGutters();
+}
+
+function showDiff(){
+  inputMode=false;
+  $('wrapLeft').style.display='none';$('wrapRight').style.display='none';
+  $('scrollLeft').classList.add('visible');
+  if(view==='side'){$('scrollRight').classList.add('visible');$('colRight').style.display='';}
+  else{$('scrollRight').classList.remove('visible');$('colRight').style.display='none';}
+  $('btnDiffLabel').textContent='退出';
+  $('btnDiff').classList.remove('btn-primary');
+}
+
+function loadFile(side){
+  const input=$('fileInput');
+  input.value='';
+  input.onchange=function handler(e){
+    input.onchange=null;
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=function(ev){
+      const text=ev.target.result;
+      $(side==='left'?'inputLeft':'inputRight').value=text;
+      if(side==='left')leftText=text;else rightText=text;
+      updateMeta(side);
+      saveDraft();
+      if(diffResult){showInput();runDiff();}
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function updateMeta(side){
+  const text=side==='left'?leftText:rightText;
+  const el=$('meta'+(side==='left'?'Left':'Right'));
+  if(text){const lines=text.split('\n').length;el.textContent=lines+' 行 · '+text.length+' 字元';}
+  else el.textContent='';
+}
+
+function toggleDiff(){
+  if(inputMode)runDiff();else showInput();
+}
+
+function swapTexts(){
+  const tmp=leftText;leftText=rightText;rightText=tmp;
+  $('inputLeft').value=leftText;$('inputRight').value=rightText;
+  updateMeta('left');updateMeta('right');
+  if(diffResult){showInput();runDiff();}
+}
+
+function clearAll(){
+  leftText='';rightText='';diffResult=null;leftLines=[];rightLines=[];
+  $('inputLeft').value='';$('inputRight').value='';
+  showInput();
+  $('metaLeft').textContent='';$('metaRight').textContent='';
+  localStorage.removeItem('diffpro-left');localStorage.removeItem('diffpro-right');
+}
+
+function applyOpts(lines){
+  if(getOpt('trim'))lines=lines.map(l=>l.replace(/\s+$/,''));
+  if(getOpt('ignoreEmpty'))lines=lines.map(l=>l.trim()===''?'':l);
+  return lines;
+}
+
+function runDiff(){
+  if(!inputMode)showInput();
+  leftText=$('inputLeft').value;rightText=$('inputRight').value;
+  if(!leftText&&!rightText){showToast('請先輸入文字');return;}
+  updateMeta('left');updateMeta('right');
+  leftLines=applyOpts(leftText.split('\n'));
+  rightLines=applyOpts(rightText.split('\n'));
+  diffResult=computeLineDiff(leftLines,rightLines);
+  showDiff();renderDiff();updateStats();
+  showToast('比對完成');
+}
+
+function updateStats(){
+  if(!diffResult)return;
+  const s=diffResult.stats;
+  $('stats').innerHTML=`<span class="stat stat-add">+${s.added}</span><span class="stat stat-del">-${s.removed}</span><span class="stat stat-mod">~${s.modified}</span>`;
+}
+
+function computeLineDiff(a,b){
+  const m=a.length,n=b.length;
+  if(m===0&&n===0)return{ops:[],stats:{added:0,removed:0,modified:0,total:0}};
+  if(m===0){const ops=[];for(let i=0;i<n;i++)ops.push({type:'added',leftNum:null,rightNum:i+1,leftText:'',rightText:b[i]});return{ops,stats:{added:n,removed:0,modified:0,total:n}};}
+  if(n===0){const ops=[];for(let i=0;i<m;i++)ops.push({type:'removed',leftNum:i+1,rightNum:null,leftText:a[i],rightText:''});return{ops,stats:{added:0,removed:m,modified:0,total:m}};}
+  if(m*n>5e5)return computeLineDiffLCS(a,b);
+  const max=m+n,off=max,maxD=Math.min(max,500);
+  const V=new Array(2*max+1);
+  const trace=[];
+  for(let d=0;d<=maxD;d++){
+    trace.push(V.slice());
+    for(let k=-d;k<=d;k+=2){
+      let x;
+      if(k===-d||(k!==d&&V[k-1+off]<V[k+1+off]))x=V[k+1+off]||0;
+      else x=(V[k-1+off]||0)+1;
+      let y=x-k;
+      while(x<m&&y<n&&a[x]===b[y]){x++;y++;}
+      V[k+off]=x;
+      if(x>=m&&y>=n)return myersBacktrace(trace,V,a,b,off,m,n);
+    }
+  }
+  return computeLineDiffLCS(a,b);
+}
+function myersBacktrace(trace,Vfinal,a,b,off,m,n){
+  const rawOps=[];let x=m,y=n;
+  let Vcur=Vfinal;
+  for(let d=trace.length-1;d>=0;d--){
+    const Vprev=trace[d];
+    const k=x-y;
+    let pk;
+    if(k===-d)pk=k+1;else if(k===d)pk=k-1;
+    else pk=(Vprev[k-1+off]||0)>=(Vprev[k+1+off]||0)?k-1:k+1;
+    const px=Vprev[pk+off]||0,py=px-pk;
+    while(x>px&&y>py){x--;y--;rawOps.push({type:'equal',left:x,right:y});}
+    if(d>0){
+      if(x===px){y--;rawOps.push({type:'add',right:y});}
+      else{x--;rawOps.push({type:'remove',left:x});}
+    }
+  }
+  rawOps.reverse();
+  return groupOps(rawOps,a,b);
+}
+function computeLineDiffLCS(a,b){
+  const m=a.length,n=b.length;
+  const dp=Array.from({length:m+1},()=>new Uint32Array(n+1));
+  for(let i=1;i<=m;i++)for(let j=1;j<=n;j++){
+    if(a[i-1]===b[j-1])dp[i][j]=dp[i-1][j-1]+1;
+    else dp[i][j]=Math.max(dp[i-1][j],dp[i][j-1]);
+  }
+  const ops=[];let i=m,j=n;
+  while(i>0||j>0){
+    if(i>0&&j>0&&a[i-1]===b[j-1]){ops.push({type:'equal',left:i-1,right:j-1});i--;j--;}
+    else if(j>0&&(i===0||dp[i][j-1]>=dp[i-1][j])){ops.push({type:'add',right:j-1});j--;}
+    else{ops.push({type:'remove',left:i-1});i--;}
+  }
+  ops.reverse();
+  return groupOps(ops,a,b);
+}
+function groupOps(rawOps,a,b){
+  const grouped=[];let gi=-1;
+  for(const op of rawOps){
+    if(op.type==='equal'){grouped.push({...op,group:'equal'});gi=-1;}
+    else{if(gi<0||grouped[gi].group!=='change'){grouped.push({group:'change',items:[]});gi=grouped.length-1;}grouped[gi].items.push(op);}
+  }
+  const result=[];let stats={added:0,removed:0,modified:0,total:0};
+  for(const g of grouped){
+    if(g.group==='equal'){result.push({type:'equal',leftNum:g.left+1,rightNum:g.right+1,leftText:a[g.left],rightText:b[g.right]});}
+    else{
+      const rm=[],ad=[];
+      for(const x of g.items){if(x.type==='remove')rm.push(x);else ad.push(x);}
+      const mx=Math.max(rm.length,ad.length);
+      stats.modified+=Math.min(rm.length,ad.length);
+      stats.removed+=Math.max(0,rm.length-ad.length);
+      stats.added+=Math.max(0,ad.length-rm.length);
+      for(let k=0;k<mx;k++){
+        if(rm[k]&&ad[k])result.push({type:'modified',leftNum:rm[k].left+1,rightNum:ad[k].right+1,leftText:a[rm[k].left],rightText:b[ad[k].right]});
+        else if(rm[k])result.push({type:'removed',leftNum:rm[k].left+1,rightNum:null,leftText:a[rm[k].left],rightText:''});
+        else result.push({type:'added',leftNum:null,rightNum:ad[k].right+1,leftText:'',rightText:b[ad[k].right]});
+      }
+    }
+  }
+  stats.total=result.length;
+  return{ops:result,stats};
+}
+
+function computeCharDiff(s,t){
+  const a=[...s],b=[...t];
+  const m=a.length,n=b.length;
+  const dp=Array.from({length:m+1},()=>new Uint32Array(n+1));
+  for(let i=1;i<=m;i++)for(let j=1;j<=n;j++){
+    if(a[i-1]===b[j-1])dp[i][j]=dp[i-1][j-1]+1;else dp[i][j]=Math.max(dp[i-1][j],dp[i][j-1]);
+  }
+  const del=new Set(),ins=new Set();let i=m,j=n;
+  while(i>0||j>0){
+    if(i>0&&j>0&&a[i-1]===b[j-1]){i--;j--;}
+    else if(j>0&&(i===0||dp[i][j-1]>=dp[i-1][j])){ins.add(j-1);j--;}
+    else{del.add(i-1);i--;}
+  }
+  const old=[],newArr=[];
+  for(let k=0;k<m;k++)old.push({ch:a[k],type:del.has(k)?'del':'same'});
+  for(let k=0;k<n;k++)newArr.push({ch:b[k],type:ins.has(k)?'ins':'same'});
+  return{old,new:newArr};
+}
+
+function renderDiff(){
+  if(!diffResult)return;
+  try{
+  if(getOpt('diffTop')){
+    const orig=diffResult.ops;
+    const sorted=orig.slice().sort((a,b)=>{const o={removed:0,modified:1,added:2,equal:3};return(o[a.type]??3)-(o[b.type]??3);});
+    diffResult.ops=sorted;
+    if(view==='side')renderSideBySide();else renderInline();
+    diffResult.ops=orig;
+  }else{
+    if(view==='side')renderSideBySide();else renderInline();
+  }
+  setupLineNumClick();
+  }catch(e){console.error('renderDiff error:',e);}
+}
+
+function renderSideBySide(){
+  const showLN=getOpt('lineNum'),charDiff=getOpt('charDiff'),wrap=getOpt('wrap');
+  const wc=wrap?' wrap':'';
+  let leftHTML='',rightHTML='';
+  for(const op of diffResult.ops){
+    if(op.type==='equal'){
+      leftHTML+=`<div class="line equal">${lnNum(op.leftNum,showLN,'left')}<div class="line-content${wc}" data-side="left" data-ln="${op.leftNum}">${esc(op.leftText)||' '}</div></div>`;
+      rightHTML+=`<div class="line equal">${lnNum(op.rightNum,showLN,'right')}<div class="line-content${wc}" data-side="right" data-ln="${op.rightNum}">${esc(op.rightText)||' '}</div></div>`;
+    }else if(op.type==='modified'){
+      let l=esc(op.leftText)||' ',r=esc(op.rightText)||' ';
+      if(charDiff){const cd=computeCharDiff(op.leftText,op.rightText);l=renderChars(cd.old);r=renderChars(cd.new);if(!l)l=' ';if(!r)r=' ';}
+      leftHTML+=`<div class="line modified">${lnNum(op.leftNum,showLN,'left')}<div class="line-content${wc}" data-side="left" data-ln="${op.leftNum}">${l}</div></div>`;
+      rightHTML+=`<div class="line modified">${lnNum(op.rightNum,showLN,'right')}<div class="line-content${wc}" data-side="right" data-ln="${op.rightNum}">${r}</div></div>`;
+    }else if(op.type==='removed'){
+      leftHTML+=`<div class="line removed">${lnNum(op.leftNum,showLN,'left')}<div class="line-content${wc}" data-side="left" data-ln="${op.leftNum}">${esc(op.leftText)}</div></div>`;
+      rightHTML+=`<div class="line removed">${lnNumEmpty(showLN)}<div class="line-content${wc}"> </div></div>`;
+    }else if(op.type==='added'){
+      leftHTML+=`<div class="line added">${lnNumEmpty(showLN)}<div class="line-content${wc}"> </div></div>`;
+      rightHTML+=`<div class="line added">${lnNum(op.rightNum,showLN,'right')}<div class="line-content${wc}" data-side="right" data-ln="${op.rightNum}">${esc(op.rightText)}</div></div>`;
+    }
+  }
+  $('scrollLeft').innerHTML=leftHTML||'<div class="placeholder">兩側文字完全相同</div>';
+  $('scrollRight').innerHTML=rightHTML||'<div class="placeholder">兩側文字完全相同</div>';
+  setupSelectable();setupSyncScroll();syncRowHeights();
+}
+
+function syncRowHeights(){
+  if(view!=='side')return;
+  const lLines=$('scrollLeft').querySelectorAll('.line');
+  const rLines=$('scrollRight').querySelectorAll('.line');
+  const len=Math.min(lLines.length,rLines.length);
+  for(let i=0;i<len;i++){
+    lLines[i].style.minHeight='';
+    rLines[i].style.minHeight='';
+  }
+  for(let i=0;i<len;i++){
+    const h=Math.max(lLines[i].offsetHeight,rLines[i].offsetHeight);
+    lLines[i].style.minHeight=h+'px';
+    rLines[i].style.minHeight=h+'px';
+  }
+}
+
+function renderInline(){
+  const showLN=getOpt('lineNum'),charDiff=getOpt('charDiff'),wrap=getOpt('wrap'),expand=getOpt('inlineExpand');
+  const wc=wrap?' wrap':'';
+  let html='';
+  for(const op of diffResult.ops){
+    if(op.type==='equal'){
+      if(expand){
+        const lnL=showLN?`<div class="line-num" data-side="left" data-ln="${op.leftNum}">${op.leftNum}</div><div class="line-num"></div>`:'';
+        const lnR=showLN?`<div class="line-num"></div><div class="line-num" data-side="right" data-ln="${op.rightNum}">${op.rightNum}</div>`:'';
+        html+=`<div class="line equal">${lnL}<div class="line-content${wc}" data-side="left" data-ln="${op.leftNum}">${esc(op.leftText)||' '}</div></div>`;
+        html+=`<div class="line equal">${lnR}<div class="line-content${wc}" data-side="right" data-ln="${op.rightNum}">${esc(op.rightText)||' '}</div></div>`;
+      }else{
+        const ln=showLN?`<div class="line-num" data-side="left" data-ln="${op.leftNum}">${op.leftNum}</div><div class="line-num" data-side="right" data-ln="${op.rightNum}">${op.rightNum}</div>`:'';
+        html+=`<div class="line equal">${ln}<div class="line-content${wc}" data-side="left" data-ln="${op.leftNum}">${esc(op.leftText)||' '}</div></div>`;
+      }
+    }else if(op.type==='modified'){
+      let l=esc(op.leftText)||' ',r=esc(op.rightText)||' ';
+      if(charDiff){const cd=computeCharDiff(op.leftText,op.rightText);l=renderChars(cd.old);r=renderChars(cd.new);if(!l)l=' ';if(!r)r=' ';}
+      const lnL=showLN?`<div class="line-num" style="color:var(--red)" data-side="left" data-ln="${op.leftNum}">${op.leftNum}</div>`:'';
+      const lnR=showLN?`<div class="line-num" style="color:var(--green)" data-side="right" data-ln="${op.rightNum}">${op.rightNum}</div>`:'';
+      html+=`<div class="line removed">${lnL}${lnR}<div class="line-content${wc}" data-side="left" data-ln="${op.leftNum}">${l}</div></div>`;
+      html+=`<div class="line added">${lnL}${lnR}<div class="line-content${wc}" data-side="right" data-ln="${op.rightNum}">${r}</div></div>`;
+    }else if(op.type==='removed'){
+      const ln=showLN?`<div class="line-num" style="color:var(--red)" data-side="left" data-ln="${op.leftNum}">${op.leftNum}</div><div class="line-num"></div>`:'';
+      html+=`<div class="line removed">${ln}<div class="line-content${wc}" data-side="left" data-ln="${op.leftNum}">${esc(op.leftText)}</div></div>`;
+    }else if(op.type==='added'){
+      const ln=showLN?`<div class="line-num"></div><div class="line-num" style="color:var(--green)" data-side="right" data-ln="${op.rightNum}">${op.rightNum}</div>`:'';
+      html+=`<div class="line added">${ln}<div class="line-content${wc}" data-side="right" data-ln="${op.rightNum}">${esc(op.rightText)}</div></div>`;
+    }
+  }
+  $('scrollLeft').innerHTML=html||'<div class="placeholder">兩側文字完全相同</div>';
+  setupSelectable();
+}
+
+function setupLineNumClick(){
+  document.querySelectorAll('.diff-scroll.visible .line-num[data-side]').forEach(el=>{
+    if(el.dataset.lnBound)return;
+    el.dataset.lnBound='1';
+    el.style.cursor='pointer';
+    el.addEventListener('click',()=>{
+      const side=el.dataset.side;
+      const ln=parseInt(el.dataset.ln);
+      if(isNaN(ln))return;
+      const scrollEl=side==='left'?$('scrollLeft'):$('scrollRight');
+      const contentEl=scrollEl.querySelector(`.line-content[data-side="${side}"][data-ln="${ln}"]`);
+      if(!contentEl)return;
+      contentEl.focus();
+      const range=document.createRange();
+      range.selectNodeContents(contentEl);
+      const sel=window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    });
+  });
+}
+
+function lnNum(v,show,side){return show?`<div class="line-num" data-side="${side}" data-ln="${v}">${v}</div>`:'';}
+function lnNumEmpty(show){return show?`<div class="line-num"></div>`:'';}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function renderChars(segs){return segs.map(s=>s.type==='same'?esc(s.ch):`<span class="char-${s.type==='del'?'del':'ins'}">${esc(s.ch)}</span>`).join('');}
+
+function setupSyncScroll(){
+  if(view!=='side')return;
+  const sl=$('scrollLeft'),sr=$('scrollRight');
+  let syncing=false;
+  sl.onscroll=()=>{if(!syncing&&getOpt('charDiff')===undefined||true){syncing=true;sr.scrollTop=sl.scrollTop;syncing=false;}};
+  sr.onscroll=()=>{if(!syncing){syncing=true;sl.scrollTop=sr.scrollTop;syncing=false;}};
+  if(window._rowHeightRO)window._rowHeightRO.disconnect();
+  window._rowHeightRO=new ResizeObserver(()=>syncRowHeights());
+  window._rowHeightRO.observe(sl);
+}
+
+let _keyHandled=false;
+let _editLineEl=null;
+
+function rediff(){
+  diffResult=computeLineDiff(leftLines,rightLines);
+  renderDiff();updateStats();
+}
+
+function getSelectedText(el,range){
+  const pre=document.createRange();
+  pre.selectNodeContents(el);
+  pre.setEnd(range.startContainer,range.startOffset);
+  const before=pre.toString();
+  const post=document.createRange();
+  post.selectNodeContents(el);
+  post.setStart(range.endContainer,range.endOffset);
+  const after=post.toString();
+  return{before,after};
+}
+
+function enterEditMode(el){
+  if(_editLineEl===el)return;
+  exitEditMode();
+  _editLineEl=el;
+  el.contentEditable='true';
+  el.spellcheck=false;
+  el.dataset.orig=el.textContent;
+  el.classList.add('editing');
+  el.focus();
+  el.addEventListener('blur',_onEditBlur);
+  el.addEventListener('keydown',_onEditKeydown);
+}
+
+function exitEditMode(){
+  if(!_editLineEl)return;
+  const el=_editLineEl;
+  _editLineEl=null;
+  el.removeEventListener('blur',_onEditBlur);
+  el.removeEventListener('keydown',_onEditKeydown);
+  if(el.isConnected){el.contentEditable='false';el.classList.remove('editing');onEdit(el);}
+}
+
+function onEdit(el){
+  if(!el.isConnected)return;
+  const side=el.dataset.side,ln=parseInt(el.dataset.ln),newText=el.textContent;
+  if(isNaN(ln))return;
+  const arr=side==='left'?leftLines:rightLines;
+  const old=arr[ln-1]||'';
+  if(newText===old)return;
+  arr[ln-1]=newText;
+  el.dataset.orig=newText;
+  syncArrays();rediff();
+}
+
+function syncArrays(){
+  leftText=leftLines.join('\n');rightText=rightLines.join('\n');
+  $('inputLeft').value=leftText;$('inputRight').value=rightText;
+}
+
+function _onEditBlur(){setTimeout(()=>{if(_editLineEl)exitEditMode();},0);}
+
+function _onEditKeydown(e){
+  const el=_editLineEl||e.target;
+  if(!el||!el.dataset.side)return;
+  const side=el.dataset.side,ln=parseInt(el.dataset.ln);
+  if(isNaN(ln))return;
+  const arr=side==='left'?leftLines:rightLines;
+  if(e.key==='Escape'){
+    e.preventDefault();
+    el.textContent=el.dataset.orig||'';
+    exitEditMode();
+    return;
+  }
+  if(e.key==='Enter'&&!e.shiftKey){
+    e.preventDefault();
+    _keyHandled=true;
+    const sel=window.getSelection();
+    const range=sel.getRangeAt(0);
+    const{before,after}=getSelectedText(el,range);
+    arr[ln-1]=before;
+    arr.splice(ln,0,after);
+    syncArrays();rediff();
+    setTimeout(()=>{
+      _keyHandled=false;
+      const newEl=document.querySelector(`.line-content[data-side="${side}"][data-ln="${ln+1}"]`);
+      if(newEl)enterEditMode(newEl);
+    },0);
+    return;
+  }
+  if(e.key==='Backspace'){
+    const sel=window.getSelection();
+    const range=sel.getRangeAt(0);
+    if(!range.collapsed){
+      e.preventDefault();
+      _keyHandled=true;
+      const{before,after}=getSelectedText(el,range);
+      const newText=before+after;
+      const old=arr[ln-1]||'';
+      if(newText!==old){arr[ln-1]=newText;syncArrays();rediff();}
+      setTimeout(()=>{_keyHandled=false;},0);
+      return;
+    }
+    const pre=range.cloneRange();
+    pre.selectNodeContents(el);
+    pre.setEnd(range.startContainer,range.startOffset);
+    if(pre.toString().length===0&&ln>1){
+      e.preventDefault();
+      _keyHandled=true;
+      const prevText=arr[ln-2]||'';
+      const curText=el.textContent;
+      arr[ln-2]=prevText+curText;
+      arr.splice(ln-1,1);
+      syncArrays();rediff();
+      setTimeout(()=>{
+        _keyHandled=false;
+        const newEl=document.querySelector(`.line-content[data-side="${side}"][data-ln="${ln-1}"]`);
+        if(newEl)enterEditMode(newEl);
+      },0);
+    }
+  }
+  if(e.key==='Delete'){
+    const sel=window.getSelection();
+    const range=sel.getRangeAt(0);
+    if(!range.collapsed){
+      e.preventDefault();
+      _keyHandled=true;
+      const{before,after}=getSelectedText(el,range);
+      const newText=before+after;
+      const old=arr[ln-1]||'';
+      if(newText!==old){arr[ln-1]=newText;syncArrays();rediff();}
+      setTimeout(()=>{_keyHandled=false;},0);
+      return;
+    }
+    const pre=range.cloneRange();
+    pre.selectNodeContents(el);
+    pre.setEnd(range.endContainer,range.endOffset);
+    if(pre.toString().length===el.textContent.length&&ln<arr.length){
+      e.preventDefault();
+      _keyHandled=true;
+      const curText=el.textContent;
+      const nextText=arr[ln]||'';
+      arr[ln-1]=curText+nextText;
+      arr.splice(ln,1);
+      syncArrays();rediff();
+      setTimeout(()=>{
+        _keyHandled=false;
+        const newEl=document.querySelector(`.line-content[data-side="${side}"][data-ln="${ln}"]`);
+        if(newEl)enterEditMode(newEl);
+      },0);
+    }
+  }
+}
+
+function setupSelectable(){
+  const selectMode=getOpt('selectMode');
+  document.querySelectorAll('.diff-scroll.visible .line-content[data-side]').forEach(el=>{
+    if(el.dataset.selBound)return;
+    el.dataset.selBound='1';
+    if(selectMode){
+      el.contentEditable='false';
+      el.addEventListener('dblclick',()=>{enterEditMode(el);});
+    }else{
+      el.contentEditable='true';el.spellcheck=false;
+      el.dataset.orig=el.textContent;
+      const side=el.dataset.side,ln=parseInt(el.dataset.ln);
+      const arr=side==='left'?leftLines:rightLines;
+      el.addEventListener('input',()=>{
+        if(!el.isConnected)return;
+        arr[ln-1]=el.textContent;
+        el.dataset.orig=el.textContent;
+        syncArrays();
+      });
+      el.addEventListener('blur',()=>{
+        if(!el.isConnected)return;
+        rediff();
+      });
+    }
+  });
+}
+
+function setupLineNumClick(){
+  document.querySelectorAll('.diff-scroll.visible .line-num[data-side]').forEach(el=>{
+    if(el.dataset.lnBound)return;
+    el.dataset.lnBound='1';
+    el.style.cursor='pointer';
+    el.addEventListener('click',()=>{
+      const side=el.dataset.side;
+      const ln=parseInt(el.dataset.ln);
+      if(isNaN(ln))return;
+      const scrollEl=side==='left'?$('scrollLeft'):$('scrollRight');
+      const contentEl=scrollEl.querySelector(`.line-content[data-side="${side}"][data-ln="${ln}"]`);
+      if(!contentEl)return;
+      const range=document.createRange();
+      range.selectNodeContents(contentEl);
+      const sel=window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    });
+  });
+}
+
+function getSelectedText(el,range){
+  const pre=document.createRange();
+  pre.selectNodeContents(el);
+  pre.setEnd(range.startContainer,range.startOffset);
+  const before=pre.toString();
+  const post=document.createRange();
+  post.selectNodeContents(el);
+  post.setStart(range.endContainer,range.endOffset);
+  const after=post.toString();
+  return{before,after};
+}
+
+function updateGutter(side){
+  const ta=side==='left'?$('inputLeft'):$('inputRight');
+  const gutter=side==='left'?$('gutterLeft'):$('gutterRight');
+  const show=getOpt('lineNum');
+  gutter.classList.toggle('visible',show&&inputMode);
+  ta.classList.toggle('with-gutter',show&&inputMode);
+  if(!show||!inputMode)return;
+  const lines=(ta.value||'').split('\n');
+  const n=lines.length||1;
+  const lineH=Math.max((ta.scrollHeight-24)/n,1);
+  let h='';
+  for(let i=1;i<=lines.length;i++){
+    h+=`<div class="ln-line" style="height:${lineH}px;line-height:${lineH}px">${i}</div>`;
+  }
+  gutter.innerHTML=h;
+  gutter.scrollTop=ta.scrollTop;
+}
+
+function syncGutterScroll(side){
+  const ta=side==='left'?$('inputLeft'):$('inputRight');
+  const gutter=side==='left'?$('gutterLeft'):$('gutterRight');
+  gutter.scrollTop=ta.scrollTop;
+}
+['inputLeft','inputRight'].forEach(id=>{
+  $(id).addEventListener('input',()=>{updateGutter(id==='inputLeft'?'left':'right');});
+  $(id).addEventListener('scroll',()=>{syncGutterScroll(id==='inputLeft'?'left':'right');});
+});
+function refreshGutters(){updateGutter('left');updateGutter('right');}
+displayOpts.concat(['optLineNum']).forEach(id=>{$(id).addEventListener('change',()=>{if(inputMode)refreshGutters();});});
+</script>
+</body>
+</html>
