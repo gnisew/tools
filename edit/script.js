@@ -748,6 +748,11 @@ function switchMode(mode, isForce = false, dataOverride = null, configOverride =
         chatControls.classList.add('hidden');
     }
 
+    if (tableControls) {
+        tableControls.classList.remove('flex');
+        tableControls.classList.add('hidden');
+    }
+
     // --- 4. 根據模式執行特定邏輯 ---
 	if (mode === 'arena' || mode === 'live' || gameModes.includes(mode)) {
 		const targetContainer = (mode === 'arena' || mode === 'live') ? containers.arena : containers.game;
@@ -9394,7 +9399,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 	*/
 	// 新的寫法：整合開關控制與防抖優化（停止輸入 1.5 秒後才儲存）
-	textarea.addEventListener('input', () => {
+	batchInputTextarea.addEventListener('input', () => {
 		// 檢查：若使用者關閉了自動儲存，則直接跳出不執行
 		if (!isAutoSaveEnabled) return;
 
@@ -9541,10 +9546,32 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!text) return text;
             let tempText = text;
             
-            // 階段一：把所有命中的字串變成佔位符
-            rules.forEach(rule => {
-                tempText = tempText.replace(rule.regex, rule.placeholder);
-            });
+			rules.forEach(rule => {
+				if (!rule.find) return; // 忽略空白規則
+
+				let searchPattern = rule.find;
+				
+				const useRegex = isRegex; 
+
+				if (useRegex) {
+					try {
+						// 建立 RegExp 物件 (g: 全域, m: 多行)
+						const regex = new RegExp(searchPattern, 'gm'); 
+						
+						tempText = tempText.replace(regex, rule.replace); 
+						
+					} catch (err) {
+						console.error("正則語法錯誤:", err);
+					}
+				} else {
+
+					// 將所有正則特殊符號跳脫，視為純文字比對
+					searchPattern = searchPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+					const regex = new RegExp(searchPattern, 'gm');
+					
+					tempText = tempText.replace(regex, () => rule.replace);
+				}
+			});
 
             // 階段二：將佔位符還原為最終結果
             const finalRegex = new RegExp(`${PL_START}(\\d+)${PL_END}`, 'g');
@@ -10375,25 +10402,30 @@ document.getElementById('btnApplyWordStats')?.addEventListener('click', () => {
     
     // 如果有選取則統計選取範圍，否則統計全文
     let textToProcess = hasSelection ? editor.value.substring(start, end) : editor.value;
-
     if (!textToProcess.trim()) return showToast('⚠️ 沒有文字可供統計');
 
-    // (1) 文字篩選：使用 u 旗標配合 Unicode 特性來排除標點符號與符號
-    if (filterMode === 'no_punct') {
-        textToProcess = textToProcess.replace(/[\p{P}\p{S}]/gu, '');
-    }
-
-    // (2) 執行分詞
+    // ================= 修改開始：對調分詞與篩選的順序 =================
+    
+    // (1) 先執行分詞
     let tokens = [];
     if (sepMode === 'char') {
         // 使用展開運算子 [...] 可完美處理含有代理對 (Surrogate Pairs) 的擴充漢字
         tokens = [...textToProcess].filter(t => !/^\s$/.test(t)); // 預設排除純空白字元
     } else if (sepMode === '_') {
+        // 先用底線與換行將文字切開
         tokens = textToProcess.split(/[_\n\r]+/).map(t => t.trim()).filter(t => t !== '');
     } else {
         // 空格分詞 (預設，\s 已經包含換行與空格)
         tokens = textToProcess.split(/\s+/).filter(t => t !== '');
     }
+
+    // (2) 再執行文字篩選：排除標點符號與符號
+    if (filterMode === 'no_punct') {
+        // 針對切好的每個詞彙，單獨清除裡面的標點符號，並過濾掉變成空字串的項目
+        tokens = tokens.map(t => t.replace(/[\p{P}\p{S}]/gu, '')).filter(t => t !== '');
+    }
+    
+    // ================= 修改結束 =================
 
     if (tokens.length === 0) return showToast('⚠️ 沒有可統計的詞彙');
 
