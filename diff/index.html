@@ -12,7 +12,7 @@
   --bg:#fafbfc;--surface:#fff;--surface2:#f3f4f6;--border:#e5e7eb;
   --text:#111827;--text-dim:#6b7280;--text-muted:#9ca3af;
   --red:#dc2626;--red-bg:rgba(220,38,38,.06);--red-text:#991b1b;
-  --green:#16a34a;--green-bg:rgba(22,163,74,.06);--green-text:#166534;
+  --green:#16a34a;--green-bg:rgba(22,163,74,.035);--green-text:#14532d;
   --blue:#2563eb;--blue-bg:rgba(37,99,235,.06);
   --yellow:#d97706;--yellow-bg:rgba(217,119,6,.05);
   --font-ui:'Inter',system-ui,-apple-system,sans-serif;
@@ -24,7 +24,7 @@
   --bg:#0f1117;--surface:#181a20;--surface2:#1e2028;--border:#2a2d37;
   --text:#e4e5e7;--text-dim:#9ca3af;--text-muted:#6b7280;
   --red:#f87171;--red-bg:rgba(248,113,113,.08);--red-text:#fca5a5;
-  --green:#4ade80;--green-bg:rgba(74,222,128,.08);--green-text:#86efac;
+  --green:#4ade80;--green-bg:rgba(74,222,128,.05);--green-text:#86efac;
   --blue:#60a5fa;--blue-bg:rgba(96,165,250,.08);
   --yellow:#fbbf24;--yellow-bg:rgba(251,191,36,.06);
 }
@@ -42,6 +42,8 @@ header{display:flex;align-items:center;justify-content:center;padding:10px 16px;
 .btn.active{background:var(--blue-bg);border-color:var(--blue);color:var(--blue)}
 .btn-primary{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:500}
 .btn-primary:hover{opacity:.9;background:var(--blue);color:#fff}
+.btn-exit{background:var(--yellow-bg);border-color:var(--yellow);color:var(--yellow);font-weight:500}
+.btn-exit:hover{background:var(--yellow);color:#fff}
 .btn-icon{width:34px;height:34px;padding:0;border-radius:var(--radius-sm)}
 .btn svg{width:16px;height:16px;flex-shrink:0}
 .stats-bar{position:absolute;right:16px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-muted)}
@@ -59,22 +61,22 @@ header{display:flex;align-items:center;justify-content:center;padding:10px 16px;
 textarea.input-area{flex:1;width:100%;border:none;outline:none;resize:none;padding:12px 14px;font-family:var(--font-mono);font-size:var(--diff-font-size);line-height:var(--diff-line-height);background:var(--surface);color:var(--text);tab-size:2}
 textarea.input-area::placeholder{color:var(--text-muted)}
 
-.diff-scroll{flex:1;overflow:auto;display:none}
+.diff-scroll{flex:1;overflow:auto;display:none;min-height:0}
 .diff-scroll.visible{display:block}
 .line{display:flex;min-height:var(--diff-line-height);line-height:var(--diff-line-height);font-size:var(--diff-font-size);font-family:var(--font-mono);position:relative}
 .line-num{width:48px;min-width:48px;text-align:right;padding-right:10px;color:var(--text-muted);user-select:none;font-size:11px;display:flex;justify-content:flex-end;align-items:center}
 .line-num[data-side]{cursor:pointer}
 .line-num[data-side]:hover{color:var(--text)}
-.line-content{flex:1;padding:0 14px;white-space:pre;font-variant-ligatures:none;min-width:0;overflow:hidden;cursor:text}
+.line-content{flex:1;padding:0 14px;white-space:pre;font-variant-ligatures:none;min-width:0;cursor:text}
 .line-content.wrap{white-space:pre-wrap;word-break:break-all}
 .line.added{background:var(--green-bg)}
 .line.removed{background:var(--red-bg)}
 .line.modified{background:var(--yellow-bg)}
 .line.equal .line-content{color:var(--text-dim)}
 .char-del{background:var(--red-bg);color:var(--red-text);border-radius:2px;padding:0 1px}
-.char-ins{background:var(--green-bg);color:var(--green-text);border-radius:2px;padding:0 1px}
+.char-ins{background:rgba(22,163,74,.12);color:var(--green-text);border-radius:2px;padding:0 1px}
 [data-theme="dark"] .char-del{color:var(--red)}
-[data-theme="dark"] .char-ins{color:var(--green)}
+[data-theme="dark"] .char-ins{background:rgba(74,222,128,.15);color:var(--green)}
 .line-content[contenteditable="true"]{outline:none;cursor:text}
 .line-content[contenteditable="true"]:focus{box-shadow:inset 0 0 0 2px var(--blue-bg);border-radius:2px}
 .line-content.editing{background:rgba(37,99,235,.04)}
@@ -101,6 +103,12 @@ textarea.input-area::placeholder{color:var(--text-muted)}
 .export-menu.visible{display:block}
 .export-item{padding:8px 14px;font-size:12px;color:var(--text);cursor:pointer;transition:background .1s}
 .export-item:hover{background:var(--surface2)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:300;opacity:0;pointer-events:none;transition:opacity .15s}
+.modal-overlay.visible{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;min-width:260px;max-width:340px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.modal-msg{font-size:13px;color:var(--text);margin-bottom:16px;line-height:1.5}
+.modal-btns{display:flex;justify-content:flex-end;gap:8px}
+.modal-btns .btn{min-width:64px}
 </style>
 </head>
 <body>
@@ -108,14 +116,16 @@ textarea.input-area::placeholder{color:var(--text-muted)}
   <header>
     <div class="logo">烏衣行比對</div>
     <div class="toolbar">
-      <button class="btn btn-icon" onclick="swapTexts()" title="交換 A/B">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16l-4-4 4-4"/><path d="M3 12h18"/><path d="M17 8l4 4-4 4"/></svg>
-      </button>
-      <button class="btn active" id="btnSide" onclick="setView('side')">並排</button>
-      <button class="btn" id="btnInline" onclick="setView('inline')">行內</button>
       <button class="btn btn-primary" id="btnDiff" onclick="toggleDiff()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         <span id="btnDiffLabel">比對</span>
+      </button>
+      <span id="viewBtns" style="display:none">
+        <button class="btn active" id="btnSide" onclick="setView('side')">並排</button>
+        <button class="btn" id="btnInline" onclick="setView('inline')">行內</button>
+      </span>
+      <button class="btn btn-icon" onclick="swapTexts()" title="交換 A/B">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16l-4-4 4-4"/><path d="M3 12h18"/><path d="M17 8l4 4-4 4"/></svg>
       </button>
       <button class="btn btn-icon" onclick="clearAll()" title="清除">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></svg>
@@ -172,7 +182,7 @@ textarea.input-area::placeholder{color:var(--text-muted)}
     <label class="opt"><input type="checkbox" id="optDiffTop">差異行置頂</label>
     <label class="opt"><input type="checkbox" id="optAutoSave">自動暫存</label>
     <label class="opt"><input type="checkbox" id="optInlineExpand">行內展開相同行</label>
-    <label class="opt"><input type="checkbox" id="optSelectMode">選取模式</label>
+    <label class="opt" id="optSelectModeWrap" style="display:none"><input type="checkbox" id="optSelectMode">選取模式</label>
     <label class="opt">字體<select id="optFontFamily"><option value="default">預設</option><optgroup label="注音符號"><option value="BpmfZihiSerif-Regular">注音宋</option><option value="BpmfZihiKaiStd-Regular">注音楷書</option><option value="BpmfZihiSans-Regular">注音黑體</option><option value="BpmfZihiBox-R">注音方體</option><option value="BpmfZihiOnly-R">注音符號</option></optgroup><optgroup label="台語字型"><option value="TaigiGenRyuM-TL-R">台語明體</option><option value="TaigiGenRyuM-TLHI-R">台語明體TLHI</option><option value="TaigiGenRyuM-HI-R">台語明體HI</option><option value="TaigiKaiStd-TL-R">台語楷書</option><option value="TaigiKaiStd-TLHI-R">台語楷書TLHI</option><option value="TaigiKaiStd-HI-R">台語楷書HI</option><option value="TaigiGenSekiG-TL-R">台語黑體</option><option value="TaigiGenSekiG-TLHI-R">台語黑體TLHI</option><option value="TaigiGenSekiG-HI-R">台語黑體HI</option><option value="TaigiGenSenR-TL-R">台語圓體</option><option value="TaigiGenSenR-TLHI-R">台語圓體TLHI</option><option value="TaigiGenSenR-HI-R">台語圓體HI</option></optgroup><optgroup label="其他"><option value="EngTRESSA">英文花體A</option><option value="EngTRESSB">英文花體B</option><option value="Tauhu-Oo">豆腐字</option><option value="ToneOZ-Pinyin-Kai-Traditional">拼音楷書</option></optgroup></select></label>
     <label class="opt">大小<select id="optFontSize"><option value="12">12</option><option value="13" selected>13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="18">18</option><option value="20">20</option><option value="24">24</option></select></label>
     <span class="opt-label">Ctrl+Enter 快速比對</span>
@@ -181,6 +191,15 @@ textarea.input-area::placeholder{color:var(--text-muted)}
 <input type="file" class="hidden-input" id="fileInput" accept=".txt,.md,.js,.ts,.py,.java,.c,.cpp,.h,.css,.html,.json,.xml,.yaml,.yml,.csv,.sql,.rb,.go,.rs,.vue,.jsx,.tsx">
 <div class="toast" id="toast"></div>
 <div class="file-drop" id="fileDrop"><div class="file-drop-inner">拖放檔案到此處</div></div>
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(false)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-msg" id="modalMsg"></div>
+    <div class="modal-btns">
+      <button class="btn" onclick="closeModal(false)">取消</button>
+      <button class="btn btn-primary" onclick="closeModal(true)" id="modalOk" style="background:var(--red);border-color:var(--red)">確定清除</button>
+    </div>
+  </div>
+</div>
 <script>
 let view='side',diffResult=null,leftText='',rightText='';
 let leftLines=[],rightLines=[];
@@ -238,6 +257,17 @@ $('optWrap').addEventListener('change',function(){
   $('inputRight').setAttribute('wrap',v);
   if(inputMode)refreshGutters();
 });
+$('optFontFamily').addEventListener('change',function(){
+  const v=this.value;
+  const fam=v==='default'?'var(--font-mono)':`'${v}',var(--font-mono)`;
+  document.documentElement.style.setProperty('--font-mono',fam);
+});
+$('optFontSize').addEventListener('change',function(){
+  document.documentElement.style.setProperty('--diff-font-size',this.value+'px');
+  const lh=Math.round(parseInt(this.value)*24/13);
+  document.documentElement.style.setProperty('--diff-line-height',lh+'px');
+  refreshGutters();
+});
 
 function setView(v){
   view=v;
@@ -257,7 +287,10 @@ function showInput(){
   $('colRight').style.display='';
   $('stats').innerHTML='';
   $('btnDiffLabel').textContent='比對';
+  $('btnDiff').classList.remove('btn-exit');
   $('btnDiff').classList.add('btn-primary');
+  $('viewBtns').style.display='none';
+  $('optSelectModeWrap').style.display='none';
   refreshGutters();
 }
 
@@ -269,6 +302,9 @@ function showDiff(){
   else{$('scrollRight').classList.remove('visible');$('colRight').style.display='none';}
   $('btnDiffLabel').textContent='退出';
   $('btnDiff').classList.remove('btn-primary');
+  $('btnDiff').classList.add('btn-exit');
+  $('viewBtns').style.display='';
+  $('optSelectModeWrap').style.display='';
 }
 
 function loadFile(side){
@@ -303,13 +339,30 @@ function toggleDiff(){
 }
 
 function swapTexts(){
-  const tmp=leftText;leftText=rightText;rightText=tmp;
-  $('inputLeft').value=leftText;$('inputRight').value=rightText;
+  const l=$('inputLeft').value,r=$('inputRight').value;
+  $('inputLeft').value=r;$('inputRight').value=l;
+  leftText=r;rightText=l;
   updateMeta('left');updateMeta('right');
   if(diffResult){showInput();runDiff();}
 }
 
+let _modalResolve=null;
+function showModal(msg,okText){
+  $('modalMsg').textContent=msg;
+  $('modalOk').textContent=okText||'確定';
+  $('modalOverlay').classList.add('visible');
+  return new Promise(r=>{_modalResolve=r;});
+}
+function closeModal(v){
+  $('modalOverlay').classList.remove('visible');
+  if(_modalResolve){_modalResolve(v);_modalResolve=null;}
+}
 function clearAll(){
+  const hasText=!!($('inputLeft').value||$('inputRight').value);
+  if(!hasText){doClear();return;}
+  showModal('確定要清除所有內容嗎？','確定清除').then(ok=>{if(ok)doClear();});
+}
+function doClear(){
   leftText='';rightText='';diffResult=null;leftLines=[];rightLines=[];
   $('inputLeft').value='';$('inputRight').value='';
   showInput();
@@ -796,8 +849,7 @@ function updateGutter(side){
   ta.classList.toggle('with-gutter',show&&inputMode);
   if(!show||!inputMode)return;
   const lines=(ta.value||'').split('\n');
-  const n=lines.length||1;
-  const lineH=Math.max((ta.scrollHeight-24)/n,1);
+  const lineH=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--diff-line-height'))||24;
   let h='';
   for(let i=1;i<=lines.length;i++){
     h+=`<div class="ln-line" style="height:${lineH}px;line-height:${lineH}px">${i}</div>`;
