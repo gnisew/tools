@@ -9386,7 +9386,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		const hasContent = lines.some(line => line.trim() !== '');
 
 		if (!hasContent) {
-			// ✨ 核心修改：如果完全沒內容，預設產生 10 列空表格方便打字
+			// 如果完全沒內容，預設產生 3 列空表格方便打字
 			for (let i = 0; i < 3; i++) {
 				addBatchRow('', '', i);
 			}
