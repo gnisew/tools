@@ -9328,51 +9328,89 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function syncTableToTextarea() {
-        const delim = getDelimiter();
-        const rows = [];
-        batchTableBody.querySelectorAll('tr').forEach(tr => {
-            const cols = Array.from(tr.querySelectorAll('td')).map(td => td.innerText.trim());
-            // 只要其中一格有文字，就保留這一列
-            if (cols.length > 0 && cols.some(text => text !== '')) rows.push(cols.join(delim));
-        });
-        batchInputTextarea.value = rows.join('\n');
-        localStorage.setItem(BATCH_DATA_KEY, batchInputTextarea.value);
-    }
+		const delim = getDelimiter();
+		const rows = [];
+		
+		batchTableBody.querySelectorAll('tr').forEach(tr => {
+			const cols = Array.from(tr.querySelectorAll('td')).map(td => td.innerText.trim());
+			rows.push(cols.join(delim));
+		});
+
+		// ✨ 核心修改：移除末端沒有內容的空行
+		while (rows.length > 0) {
+			const lastRowCols = rows[rows.length - 1].split(delim);
+			// 如果最後一行的每一格都是空的，就把它從陣列末端移除
+			if (lastRowCols.every(text => text.trim() === '')) {
+				rows.pop();
+			} else {
+				break; // 遇到有內容的行就停止檢查，保留中間的空行
+			}
+		}
+
+		batchInputTextarea.value = rows.join('\n');
+		localStorage.setItem(BATCH_DATA_KEY, batchInputTextarea.value);
+	}
+
+	function addBatchRow(col1Text = '', col2Text = '', idx = -1) {
+		const tr = document.createElement('tr');
+		// 如果沒有傳入索引，就以目前的列數作為索引，維持顏色交替
+		if (idx === -1) idx = batchTableBody.children.length; 
+		
+		tr.className = (idx % 2 === 0 ? 'bg-white' : 'bg-gray-50') + ' border-b border-gray-200';
+		
+		const td1 = document.createElement('td');
+		td1.className = 'border-r border-gray-200 px-3 py-1.5 outline-none focus:bg-blue-50 break-all w-1/2 cursor-default';
+		td1.contentEditable = true;
+		td1.innerText = col1Text;
+
+		const td2 = document.createElement('td');
+		td2.className = 'px-3 py-1.5 outline-none focus:bg-blue-50 break-all w-1/2 cursor-default';
+		td2.contentEditable = true;
+		td2.innerText = col2Text;
+
+		// 綁定編輯事件同步回 Textarea
+		td1.addEventListener('blur', syncTableToTextarea);
+		td2.addEventListener('blur', syncTableToTextarea);
+
+		tr.appendChild(td1);
+		tr.appendChild(td2);
+		batchTableBody.appendChild(tr);
+	}
 
     function renderBatchTable() {
-        const delim = getDelimiter();
-        const lines = batchInputTextarea.value.split('\n');
-        batchTableBody.innerHTML = '';
-        
-        lines.forEach((line, idx) => {
-            if (line.trim() === '') return; // 跳過空行
-            const parts = line.split(delim);
-            if (parts.length >= 1) {
-                const tr = document.createElement('tr');
-                tr.className = (idx % 2 === 0 ? 'bg-white' : 'bg-gray-50') + ' border-b border-gray-200';
-                
-                // 第一欄 (加上 cursor-default 讓游標變成一般箭頭指標)
-                const td1 = document.createElement('td');
-                td1.className = 'border-r border-gray-200 px-3 py-1.5 outline-none focus:bg-blue-50 break-all w-1/2 cursor-default';
-                td1.contentEditable = true;
-                td1.innerText = parts[0] || '';
-                
-                // 第二欄 (加上 cursor-default 讓游標變成一般箭頭指標)
-                const td2 = document.createElement('td');
-                td2.className = 'px-3 py-1.5 outline-none focus:bg-blue-50 break-all w-1/2 cursor-default';
-                td2.contentEditable = true;
-                td2.innerText = parts[1] || '';
+		const delim = getDelimiter();
+		const lines = batchInputTextarea.value.split('\n');
+		batchTableBody.innerHTML = '';
+		
+		// 檢查目前是否為「全空」狀態
+		const hasContent = lines.some(line => line.trim() !== '');
 
-                // 綁定編輯事件同步回 Textarea
-                td1.addEventListener('blur', syncTableToTextarea);
-                td2.addEventListener('blur', syncTableToTextarea);
+		if (!hasContent) {
+			// ✨ 核心修改：如果完全沒內容，預設產生 10 列空表格方便打字
+			for (let i = 0; i < 3; i++) {
+				addBatchRow('', '', i);
+			}
+		} else {
+			// 若有內容，則逐行渲染顯示
+			lines.forEach((line, idx) => {
+				const parts = line.split(delim);
+				addBatchRow(parts[0] || '', parts[1] || '', idx);
+			});
+		}
+	}
 
-                tr.appendChild(td1);
-                tr.appendChild(td2);
-                batchTableBody.appendChild(tr);
-            }
-        });
-    }
+	// 綁定增加一列的按鈕事件
+	const btnBatchAddRow = document.getElementById('btnBatchAddRow');
+	if (btnBatchAddRow) {
+		btnBatchAddRow.addEventListener('click', () => {
+			addBatchRow('', ''); // 在表格末端新增一列空資料
+			syncTableToTextarea(); // 新增後立刻同步，確保資料一致
+			
+			// 自動將視窗往下滾動，讓使用者立刻看到剛新增的那一行
+			const wrapper = document.getElementById('batchInputTableWrapper');
+			if (wrapper) wrapper.scrollTop = wrapper.scrollHeight;
+		});
+	}
 
     btnBatchViewText.addEventListener('click', () => {
         if (!batchInputTableWrapper.classList.contains('hidden')) {
