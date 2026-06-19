@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		//'raoping': { name: '饒平', file: 'data-raoping-chinese.js' },
         'kasu': { name: '詔安', file: 'data-kasu-chinese.js' },
         'sixiannan': { name: '南四縣', file: '' },
-		// 'sixiannan': { name: '南四縣', file: 'data-sixiannan-chinese.js' },
+		'sixiannan': { name: '南四縣', file: 'data-sixiannan-chinese.js' },
         'holo': { name: '和樂', file: 'data-holo-chinese.js' },
         'matsu': { name: '馬祖', file: 'data-matsu-chinese.js' },
     };
@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'data-dapu-chinese.js': ['chinese-dapu', 'dapu-chinese'],
         //'data-raoping-chinese.js': ['chinese-raoping', 'raoping-chinese'],
         'data-kasu-chinese.js': ['chinese-kasu', 'kasu-chinese'],
-        //'data-sixiannan-chinese.js': ['chinese-sixiannan', 'sixiannan-chinese'],
+        'data-sixiannan-chinese.js': ['chinese-sixiannan', 'sixiannan-chinese'],
         'data-holo-chinese.js': ['chinese-holo', 'holo-chinese'],
         'data-matsu-chinese.js': ['chinese-matsu', 'matsu-chinese'],
         
