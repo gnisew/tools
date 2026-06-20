@@ -12,7 +12,7 @@
   --bg:#fafbfc;--surface:#fff;--surface2:#f3f4f6;--border:#e5e7eb;
   --text:#111827;--text-dim:#6b7280;--text-muted:#9ca3af;
   --red:#dc2626;--red-bg:rgba(220,38,38,.06);--red-text:#991b1b;
-  --green:#16a34a;--green-bg:rgba(22,163,74,.035);--green-text:#14532d;
+  --green:#2563eb;--green-bg:rgba(37,99,235,.06);--green-text:#1e40af;
   --blue:#2563eb;--blue-bg:rgba(37,99,235,.06);
   --yellow:#d97706;--yellow-bg:rgba(217,119,6,.05);
   --font-ui:'Inter',system-ui,-apple-system,sans-serif;
@@ -24,7 +24,7 @@
   --bg:#0f1117;--surface:#181a20;--surface2:#1e2028;--border:#2a2d37;
   --text:#e4e5e7;--text-dim:#9ca3af;--text-muted:#6b7280;
   --red:#f87171;--red-bg:rgba(248,113,113,.08);--red-text:#fca5a5;
-  --green:#4ade80;--green-bg:rgba(74,222,128,.05);--green-text:#86efac;
+  --green:#60a5fa;--green-bg:rgba(96,165,250,.08);--green-text:#93c5fd;
   --blue:#60a5fa;--blue-bg:rgba(96,165,250,.08);
   --yellow:#fbbf24;--yellow-bg:rgba(251,191,36,.06);
 }
@@ -35,15 +35,7 @@ html,body{height:100%;height:100dvh;overflow:hidden;font-family:var(--font-ui);b
 ::-webkit-scrollbar-thumb:hover{background:var(--text-dim)}
 .app{display:flex;flex-direction:column;height:100vh;height:100dvh;padding-bottom:env(safe-area-inset-bottom)}
 header{display:flex;align-items:center;justify-content:center;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--surface);gap:8px;position:relative;width:100%}
-.collapsible-wrap{position:relative;min-height:18px}
-.collapsible-inner{transition:max-height .25s ease,padding .25s ease,opacity .15s ease}
-.collapsible-wrap.collapsed .collapsible-inner{overflow:hidden;max-height:0!important;padding:0!important;border-color:transparent!important;opacity:0;pointer-events:none}
-.collapsible-wrap .collapse-toggle{position:absolute;left:50%;transform:translateX(-50%);bottom:-1px;z-index:10;display:inline-flex;align-items:center;justify-content:center;width:28px;height:18px;border:1px solid var(--border);border-bottom:none;border-radius:var(--radius-sm) var(--radius-sm) 0 0;background:var(--surface);color:var(--text-muted);cursor:pointer;transition:all .15s;padding:0}
-.collapsible-wrap.collapsed .collapse-toggle{bottom:0;border-bottom:1px solid var(--border);border-radius:var(--radius-sm)}
-.collapsible-wrap .collapse-toggle:hover{background:var(--surface2);color:var(--text);border-color:var(--text-muted)}
-.collapsible-wrap .collapse-toggle svg{width:12px;height:12px;transition:transform .2s ease}
-.collapsible-wrap.collapsed .collapse-toggle svg{transform:rotate(180deg)}
-.logo{position:absolute;left:16px;font-size:14px;font-weight:600;color:var(--text);letter-spacing:-.3px}
+
 .toolbar{display:flex;align-items:center;gap:6px}
 .toolbar-right{position:absolute;right:16px;display:flex;align-items:center;gap:6px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:6px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);color:var(--text-dim);font-size:13px;font-family:var(--font-ui);cursor:pointer;transition:all .15s;white-space:nowrap;line-height:1}
@@ -58,7 +50,7 @@ header{display:flex;align-items:center;justify-content:center;padding:10px 16px;
 .dropdown-group{position:relative}
 .dropdown-toggle svg{margin-left:2px;transition:transform .15s}
 .dropdown-group.open .dropdown-toggle svg{transform:rotate(180deg)}
-.dropdown-menu{display:none;position:absolute;top:100%;left:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:50;min-width:170px;padding:6px 0;max-height:70vh;overflow-y:auto}
+.dropdown-menu{display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:50;min-width:170px;padding:6px 0;max-height:70vh;overflow-y:auto}
 .dropdown-group.open .dropdown-menu{display:block}
 .dropdown-item{display:flex;align-items:center;gap:6px;padding:6px 14px;font-size:12px;color:var(--text);cursor:pointer;transition:background .1s;white-space:nowrap}
 .dropdown-item:hover{background:var(--surface2)}
@@ -95,9 +87,10 @@ textarea.input-area::placeholder{color:var(--text-muted)}
 .line.modified{background:var(--yellow-bg)}
 .line.equal .line-content{color:var(--text-dim)}
 .char-del{background:var(--red-bg);color:var(--red-text);border-radius:2px;padding:0 1px}
-.char-ins{background:rgba(22,163,74,.12);color:var(--green-text);border-radius:2px;padding:0 1px}
+.char-ins{background:rgba(37,99,235,.12);color:var(--green-text);border-radius:2px;padding:0 1px}
+.bold-diff .char-del,.bold-diff .char-ins{font-weight:700}
 [data-theme="dark"] .char-del{color:var(--red)}
-[data-theme="dark"] .char-ins{background:rgba(74,222,128,.15);color:var(--green)}
+[data-theme="dark"] .char-ins{background:rgba(96,165,250,.15);color:var(--green)}
 .line-content[contenteditable="true"]{outline:none;cursor:text}
 .line-content[contenteditable="true"]:focus{box-shadow:inset 0 0 0 2px var(--blue-bg);border-radius:2px}
 .line-content.editing{background:rgba(37,99,235,.04)}
@@ -114,10 +107,7 @@ textarea.input-area::placeholder{color:var(--text-muted)}
 .input-wrap .input-area.with-gutter{padding-left:58px}
 .placeholder{display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);font-size:13px;text-align:center;padding:40px;font-family:var(--font-ui)}
 .hidden-input{display:none}
-.export-menu{display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 4px 12px rgba(0,0,0,.1);z-index:50;min-width:140px;overflow:visible}
-.export-menu.visible{display:block}
-.export-item{padding:8px 14px;font-size:12px;color:var(--text);cursor:pointer;transition:background .1s}
-.export-item:hover{background:var(--surface2)}
+
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:300;opacity:0;pointer-events:none;transition:opacity .15s}
 .modal-overlay.visible{opacity:1;pointer-events:all}
 .modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;padding-bottom:calc(20px + env(safe-area-inset-bottom));min-width:260px;max-width:340px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
@@ -129,7 +119,6 @@ textarea.input-area::placeholder{color:var(--text-muted)}
   .col+.col{border-left:none;border-top:1px solid var(--border)}
   .col{min-height:0}
   header{padding:8px 12px}
-  .logo{font-size:13px;left:12px}
   .btn{padding:6px 10px;font-size:12px}
   .btn-icon{width:36px;height:36px}
   .col-head{padding:6px 10px}
@@ -154,79 +143,59 @@ textarea.input-area::placeholder{color:var(--text-muted)}
 </head>
 <body>
 <div class="app">
-  <div class="collapsible-wrap" id="headerBar">
-    <button class="collapse-toggle" onclick="toggleCollapse('headerBar')" title="摺疊工具列">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-    </button>
-    <header class="collapsible-inner">
-      <div class="logo">烏衣行比對</div>
-      <div class="toolbar">
-        <button class="btn btn-primary" id="btnDiff" onclick="toggleDiff()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          <span id="btnDiffLabel">比對</span>
+  <header>
+      <button class="btn btn-icon" id="btnWrap" onclick="toggleWrap()" title="換行" style="position:absolute;left:16px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M3 12h15a3 3 0 110 6h-4"/><polyline points="13 16 11 18 13 20"/><path d="M3 18h4"/></svg>
+      </button>
+      <button class="btn btn-icon" id="btnSelectMode" onclick="toggleSelectMode()" title="選取模式" style="display:none;position:absolute;left:56px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/></svg>
+      </button>
+      <button class="btn btn-primary" id="btnDiff" onclick="toggleDiff()">
+        <svg id="iconPlay" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <svg id="iconStop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+        <span id="btnDiffLabel">烏衣行比對</span>
+      </button>
+      <div class="toolbar-right">
+        <button class="btn btn-icon" id="btnSearchToggle" onclick="openSearch()" title="尋找取代 (Ctrl+F)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
-        <div class="dropdown-group" id="ddCompare">
-          <button class="btn dropdown-toggle" onclick="toggleDropdown('ddCompare')">
-            比對選項<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="dropdown-menu">
-            <label class="dropdown-item"><input type="checkbox" id="optCharDiff" checked>字元級差異</label>
-            <label class="dropdown-item"><input type="checkbox" id="optTrim" checked>忽略行尾空白</label>
-            <label class="dropdown-item"><input type="checkbox" id="optIgnoreEmpty">忽略空行</label>
-            <div class="dropdown-item" style="cursor:default">忽略字元<input type="text" id="optIgnoreChars" placeholder="如 _/ 空格" style="width:80px;padding:2px 6px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:11px;font-family:var(--font-ui);color:var(--text);background:var(--surface);margin-left:4px"></div>
-          </div>
-        </div>
-        <div class="dropdown-group" id="ddDisplay">
-          <button class="btn dropdown-toggle" onclick="toggleDropdown('ddDisplay')">
-            顯示<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><polyline points="6 9 12 15 18 9"/></svg>
+        <button class="btn btn-icon" onclick="clearAll()" title="清除">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></svg>
+        </button>
+        <div class="dropdown-group" id="ddSettings">
+          <button class="btn dropdown-toggle" onclick="toggleDropdown('ddSettings')">
+            設定<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
           <div class="dropdown-menu">
             <label class="dropdown-item"><input type="checkbox" id="optAutoSave">暫存</label>
-            <label class="dropdown-item" id="optSelectModeWrap" style="display:none"><input type="checkbox" id="optSelectMode">選取模式</label>
             <label class="dropdown-item"><input type="checkbox" id="optLineNum" checked>行號</label>
-            <label class="dropdown-item"><input type="checkbox" id="optWrap">換行</label>
             <label class="dropdown-item" id="optInlineViewWrap" style="display:none"><input type="checkbox" id="optInlineView" onchange="setView(this.checked?'inline':'side')">行內檢視</label>
             <label class="dropdown-item"><input type="checkbox" id="optInlineExpand">行內展開</label>
+			<label class="dropdown-item"><input type="checkbox" id="optBoldDiff">差異加粗</label>
             <label class="dropdown-item"><input type="checkbox" id="optDiffTop">差異置頂</label>
-          </div>
-        </div>
-        <div class="dropdown-group" id="ddFont">
-          <button class="btn dropdown-toggle" onclick="toggleDropdown('ddFont')">
-            字體<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><polyline points="6 9 12 15 18 9"/></svg>
-          </button>
-          <div class="dropdown-menu">
+			<div class="dropdown-item" style="cursor:default">忽略字元<input type="text" id="optIgnoreChars" placeholder="如 _/ 空格" style="width:80px;padding:2px 6px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:11px;font-family:var(--font-ui);color:var(--text);background:var(--surface);margin-left:4px"></div>
+            <div class="dropdown-sep"></div>
+            <label class="dropdown-item"><input type="checkbox" id="optShowA" checked>顯示 🅰️ 欄</label>
+            <label class="dropdown-item"><input type="checkbox" id="optShowB" checked>顯示 🅱️ 欄</label>
+            <div class="dropdown-sep"></div>
+            <div class="dropdown-item" onclick="swapTexts()">交換 🅰️/🅱️</div>
+            <div class="dropdown-item" onclick="toggleTheme()">切換主題</div>
+            <div class="dropdown-sep"></div>
+            <div class="dropdown-item" onclick="exportAs('txt')">匯出 .txt</div>
+            <div class="dropdown-item" onclick="exportAs('html')">匯出 .html</div>
+            <div class="dropdown-item" onclick="exportAs('rtf')">匯出 .rtf</div>
+            <div class="dropdown-sep"></div>
+            <label class="dropdown-item"><input type="checkbox" id="optCharDiff" checked>字元級差異</label>
+            <label class="dropdown-item"><input type="checkbox" id="optTrim" checked>忽略行尾空白</label>
+            <label class="dropdown-item"><input type="checkbox" id="optIgnoreEmpty">忽略空行</label>
+            <div class="dropdown-sep"></div>
+
             <div class="dropdown-item" style="cursor:default">字型<select id="optFontFamily" style="margin-left:4px"><option value="default">預設</option><optgroup label="注音符號"><option value="BpmfZihiSerif-Regular">注音宋</option><option value="BpmfZihiKaiStd-Regular">注音楷書</option><option value="BpmfZihiSans-Regular">注音黑體</option><option value="BpmfZihiBox-R">注音方體</option><option value="BpmfZihiOnly-R">注音符號</option></optgroup><optgroup label="台語字型"><option value="TaigiGenRyuM-TL-R">台語明體</option><option value="TaigiGenRyuM-TLHI-R">台語明體TLHI</option><option value="TaigiGenRyuM-HI-R">台語明體HI</option><option value="TaigiKaiStd-TL-R">台語楷書</option><option value="TaigiKaiStd-TLHI-R">台語楷書TLHI</option><option value="TaigiKaiStd-HI-R">台語楷書HI</option><option value="TaigiGenSekiG-TL-R">台語黑體</option><option value="TaigiGenSekiG-TLHI-R">台語黑體TLHI</option><option value="TaigiGenSekiG-HI-R">台語黑體HI</option><option value="TaigiGenSenR-TL-R">台語圓體</option><option value="TaigiGenSenR-TLHI-R">台語圓體TLHI</option><option value="TaigiGenSenR-HI-R">台語圓體HI</option></optgroup><optgroup label="其他"><option value="EngTRESSA">英文花體A</option><option value="EngTRESSB">英文花體B</option><option value="Tauhu-Oo">豆腐字</option><option value="ToneOZ-Pinyin-Kai-Traditional">拼音楷書</option></optgroup></select></div>
             <div class="dropdown-item" style="cursor:default">大小<select id="optFontSize" style="margin-left:4px"><option value="12">12</option><option value="13" selected>13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="18">18</option><option value="20">20</option><option value="24">24</option></select></div>
           </div>
         </div>
-        <div class="toolbar-right">
-          <button class="btn btn-icon" id="btnSearchToggle" onclick="openSearch()" title="尋找取代 (Ctrl+F)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </button>
-          <button class="btn btn-icon" onclick="swapTexts()" title="交換 A/B">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16l-4-4 4-4"/><path d="M3 12h18"/><path d="M17 8l4 4-4 4"/></svg>
-          </button>
-          <button class="btn btn-icon" onclick="clearAll()" title="清除">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></svg>
-          </button>
-          <div style="position:relative">
-            <button class="btn btn-icon" onclick="toggleExport(event)" title="匯出">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            </button>
-            <div class="export-menu" id="exportMenu">
-              <div class="export-item" onclick="exportAs('txt')">純文字 (.txt)</div>
-              <div class="export-item" onclick="exportAs('html')">HTML (.html)</div>
-              <div class="export-item" onclick="exportAs('rtf')">RTF (.rtf)</div>
-            </div>
-          </div>
-          <button class="btn btn-icon" onclick="toggleTheme()" title="切換主題">
-            <svg id="iconSun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-          <svg id="iconMoon" style="display:none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
-          </button>
-        </div>
       </div>
     </header>
-  </div>
   <div class="search-bar" id="searchBar" style="display:none">
     <label class="search-opt"><input type="checkbox" id="searchScopeA" checked>🅰️</label>
     <label class="search-opt"><input type="checkbox" id="searchScopeB" checked>🅱️</label>
@@ -274,6 +243,7 @@ textarea.input-area::placeholder{color:var(--text-muted)}
   </div>
 </div>
 <input type="file" class="hidden-input" id="fileInput" accept=".txt,.md,.js,.ts,.py,.java,.c,.cpp,.h,.css,.html,.json,.xml,.yaml,.yml,.csv,.sql,.rb,.go,.rs,.vue,.jsx,.tsx">
+<input type="checkbox" id="optWrap" class="hidden-input" checked>
 <div class="toast" id="toast"></div>
 <div class="file-drop" id="fileDrop"><div class="file-drop-inner">拖放檔案到此處</div></div>
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal(false)">
@@ -301,29 +271,6 @@ let inputMode=true;
 
 function $(id){return document.getElementById(id)}
 
-function toggleCollapse(id){
-  const wrap=$(id);
-  const inner=wrap.querySelector('.collapsible-inner');
-  wrap.classList.toggle('collapsed');
-  localStorage.setItem('diffpro-collapse-'+id,wrap.classList.contains('collapsed')?'1':'0');
-}
-(function(){
-  ['headerBar'].forEach(id=>{
-    const wrap=$(id);
-    const inner=wrap.querySelector('.collapsible-inner');
-    inner.style.maxHeight=inner.scrollHeight+'px';
-    if(localStorage.getItem('diffpro-collapse-'+id)==='1')wrap.classList.add('collapsed');
-  });
-  window.addEventListener('resize',()=>{
-    ['headerBar'].forEach(id=>{
-      const wrap=$(id);
-      if(!wrap.classList.contains('collapsed')){
-        const inner=wrap.querySelector('.collapsible-inner');
-        inner.style.maxHeight=inner.scrollHeight+'px';
-      }
-    });
-  });
-})();
 function getOpt(k){const el=$('opt'+k[0].toUpperCase()+k.slice(1));return el?el.checked:false;}
 function showToast(msg,ms){
   if(toastTimer)clearTimeout(toastTimer);
@@ -335,8 +282,24 @@ function toggleTheme(){
   const isDark=d.getAttribute('data-theme')==='dark';
   d.setAttribute('data-theme',isDark?'light':'dark');
   localStorage.setItem('diffpro-theme',isDark?'light':'dark');
-  $('iconSun').style.display=isDark?'block':'none';
-  $('iconMoon').style.display=isDark?'none':'block';
+}
+let _selectMode=false;
+function toggleSelectMode(){
+  _selectMode=!_selectMode;
+  $('btnSelectMode').classList.toggle('active',_selectMode);
+  if(diffResult&&!inputMode){showInput();runDiff();}
+}
+function getSelectMode(){return _selectMode;}
+function toggleWrap(){
+  $('optWrap').checked=!$('optWrap').checked;
+  applyWrapState();
+  $('optWrap').dispatchEvent(new Event('change'));
+}
+function applyWrapState(){
+  const v=$('optWrap').checked?'soft':'off';
+  $('inputLeft').setAttribute('wrap',v);
+  $('inputRight').setAttribute('wrap',v);
+  $('btnWrap').classList.toggle('active',$('optWrap').checked);
 }
 function toggleDropdown(id){
   const el=$(id);
@@ -353,7 +316,6 @@ document.addEventListener('click',e=>{
 (function(){
   const t=localStorage.getItem('diffpro-theme')||'light';
   document.documentElement.setAttribute('data-theme',t);
-  if(t==='dark'){$('iconSun').style.display='none';$('iconMoon').style.display='block';}
 })();
 let _searchMatches=[],_searchIdx=-1,_searchTerm='',_searchTimer=null,_searchFocused=false,_searchMarkEls=[];
 function getScopeSides(){
@@ -650,20 +612,22 @@ function saveDraft(){
   $('inputRight').addEventListener('input',saveDraft);
 })();
 
-const displayOpts=['optCharDiff','optLineNum','optWrap','optDiffTop','optInlineExpand','optSelectMode'];
+const displayOpts=['optCharDiff','optLineNum','optWrap','optDiffTop','optInlineExpand','optBoldDiff'];
 const computeOpts=['optTrim','optIgnoreEmpty'];
+function isShowSide(side){return side==='left'?$('optShowA').checked:$('optShowB').checked;}
 displayOpts.forEach(id=>{$(id).addEventListener('change',()=>{if(diffResult&&!inputMode)rediff();});});
 computeOpts.forEach(id=>{$(id).addEventListener('change',()=>{if(!inputMode&&(leftText||rightText))runDiff();});});
 $('optIgnoreChars').addEventListener('blur',()=>{if(!inputMode&&(leftText||rightText))runDiff();});
 $('optWrap').addEventListener('change',function(){
-  const v=this.checked?'soft':'off';
-  $('inputLeft').setAttribute('wrap',v);
-  $('inputRight').setAttribute('wrap',v);
+  applyWrapState();
   if(inputMode)refreshGutters();
 });
+applyWrapState();
+$('optBoldDiff').addEventListener('change',function(){document.documentElement.classList.toggle('bold-diff',this.checked);});
+const _origFontMono="'JetBrains Mono','SF Mono','Menlo','Consolas',monospace";
 $('optFontFamily').addEventListener('change',function(){
   const v=this.value;
-  const fam=v==='default'?'var(--font-mono)':`'${v}',var(--font-mono)`;
+  const fam=v==='default'?_origFontMono:`'${v}',${_origFontMono}`;
   document.documentElement.style.setProperty('--font-mono',fam);
 });
 $('optFontSize').addEventListener('change',function(){
@@ -687,15 +651,19 @@ function showInput(){
   $('wrapLeft').style.display='';$('wrapRight').style.display='';
   $('scrollLeft').classList.remove('visible');$('scrollRight').classList.remove('visible');
   $('scrollLeft').innerHTML='';$('scrollRight').innerHTML='';
-  $('colRight').style.display='';
+  $('colLeft').style.display=isShowSide('left')?'':'none';
+  $('colRight').style.display=isShowSide('right')?'':'none';
   $('colLeft').querySelector('.col-head').style.display='';
   $('colRight').querySelector('.col-head').style.display='';
-  $('btnDiffLabel').textContent='比對';
+  $('btnDiffLabel').textContent='烏衣行比對';
   $('btnDiff').classList.remove('btn-exit');
   $('btnDiff').classList.add('btn-primary');
+  $('iconPlay').style.display='';
+  $('iconStop').style.display='none';
   $('optInlineViewWrap').style.display='none';
-  $('optSelectModeWrap').style.display='none';
+  $('btnSelectMode').style.display='none';
   refreshGutters();
+  updateMeta('left');updateMeta('right');
 }
 
 function showDiff(){
@@ -703,18 +671,22 @@ function showDiff(){
   $('wrapLeft').style.display='none';$('wrapRight').style.display='none';
   $('scrollLeft').classList.add('visible');
   if(view==='side'){
-    $('scrollRight').classList.add('visible');$('colRight').style.display='';
+    $('scrollRight').classList.add('visible');
+    $('colLeft').style.display=isShowSide('left')?'':'none';
+    $('colRight').style.display=isShowSide('right')?'':'none';
     $('colLeft').querySelector('.col-head').style.display='';
     $('colRight').querySelector('.col-head').style.display='';
   }else{
     $('scrollRight').classList.remove('visible');$('colRight').style.display='none';
     $('colLeft').querySelector('.col-head').style.display='none';
   }
-  $('btnDiffLabel').textContent='退出';
+  $('btnDiffLabel').textContent='烏衣行比對';
   $('btnDiff').classList.remove('btn-primary');
   $('btnDiff').classList.add('btn-exit');
+  $('iconPlay').style.display='none';
+  $('iconStop').style.display='';
   $('optInlineViewWrap').style.display='';
-  $('optSelectModeWrap').style.display='';
+  $('btnSelectMode').style.display='';
 }
 
 function loadFile(side){
@@ -740,7 +712,8 @@ function loadFile(side){
 function updateMeta(side){
   const text=side==='left'?leftText:rightText;
   const el=$('meta'+(side==='left'?'Left':'Right'));
-  if(text){const lines=text.split('\n').length;el.textContent=lines+' 行 · '+[...text].length+' 字元';}
+  if(!isShowSide(side)){el.textContent='';return;}
+  if(text){const lines=text.split('\n').length;el.textContent=lines+' 行 · '+[...text].length+' 字';}
   else el.textContent='';
 }
 
@@ -773,6 +746,31 @@ function clearAll(){
   showModal('確定要清除所有內容嗎？','確定清除').then(ok=>{if(ok)doClear();});
 }
 function copyText(side){
+  if(!inputMode&&diffResult){
+    const scrollEl=side==='left'?$('scrollLeft'):$('scrollRight');
+    const lines=scrollEl.querySelectorAll('.line');
+    if(!lines.length){showToast('無內容可複製');return;}
+    const stash=[];
+    Array.from(scrollEl.childNodes).forEach(n=>{
+      if(n.nodeType===3){stash.push({parent:scrollEl,node:n,next:n.nextSibling});scrollEl.removeChild(n);}
+    });
+    lines.forEach(l=>{
+      l.querySelectorAll('.line-num').forEach(el=>{el.style.display='none';stash.push({node:el});});
+      Array.from(l.childNodes).forEach(n=>{
+        if(n.nodeType===3&&n.textContent.trim()===''){stash.push({parent:l,node:n,next:n.nextSibling});l.removeChild(n);}
+      });
+    });
+    const range=document.createRange();
+    range.selectNodeContents(scrollEl);
+    const sel=window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    document.execCommand('copy');
+    sel.removeAllRanges();
+    stash.forEach(e=>{if(e.parent){if(e.next&&e.next.parentNode===e.parent)e.parent.insertBefore(e.node,e.next);else e.parent.appendChild(e.node);}else{e.node.style.display='';}});
+    showToast('已複製');
+    return;
+  }
   const text=side==='left'?$('inputLeft').value:$('inputRight').value;
   if(!text){showToast('無內容可複製');return;}
   navigator.clipboard.writeText(text).then(()=>showToast('已複製')).catch(()=>showToast('複製失敗'));
@@ -1313,7 +1311,7 @@ document.addEventListener('keydown',e=>{
 },true);
 
 function setupSelectable(){
-  const selectMode=getOpt('selectMode');
+  const selectMode=getSelectMode();
   document.querySelectorAll('.diff-scroll.visible .line-content[data-side]').forEach(el=>{
     if(el.dataset.selBound)return;
     el.dataset.selBound='1';
@@ -1405,16 +1403,25 @@ function syncGutterScroll(side){
 });
 function refreshGutters(){updateGutter('left');updateGutter('right');}
 displayOpts.concat(['optLineNum']).forEach(id=>{$(id).addEventListener('change',()=>{if(inputMode)refreshGutters();});});
-
-function toggleExport(e){
-  e.stopPropagation();
-  const m=$('exportMenu');
-  m.classList.toggle('visible');
-}
-document.addEventListener('click',(e)=>{if(!e.target.closest('.export-menu'))$('exportMenu').classList.remove('visible');});
+['optShowA','optShowB'].forEach(id=>{
+  $(id).addEventListener('change',function(){
+    const other=id==='optShowA'?'optShowB':'optShowA';
+    if(!this.checked&&!$(other).checked){this.checked=true;showToast('至少顯示一欄');return;}
+    localStorage.setItem('diffpro-'+id,this.checked?'1':'0');
+    if(inputMode){$('colLeft').style.display=isShowSide('left')?'':'none';$('colRight').style.display=isShowSide('right')?'':'none';refreshGutters();}
+    else{if(view==='side'){$('colLeft').style.display=isShowSide('left')?'':'none';$('colRight').style.display=isShowSide('right')?'':'none';}rediff();}
+    updateMeta('left');updateMeta('right');
+  });
+});
+(function(){
+  if(localStorage.getItem('diffpro-optShowA')==='0')$('optShowA').checked=false;
+  if(localStorage.getItem('diffpro-optShowB')==='0')$('optShowB').checked=false;
+  if(isShowSide('left')===false)$('colLeft').style.display='none';
+  if(isShowSide('right')===false)$('colRight').style.display='none';
+})();
 
 function exportAs(fmt){
-  $('exportMenu').classList.remove('visible');
+  closeAllDropdowns();
   if(!diffResult){showToast('請先比對');return;}
   let content='';
   if(fmt==='txt'){
