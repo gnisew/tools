@@ -55,6 +55,24 @@ header{display:flex;align-items:center;justify-content:center;padding:10px 16px;
 .btn-exit:hover{background:var(--yellow);color:#fff}
 .btn-icon{width:34px;height:34px;padding:0;border-radius:var(--radius-sm)}
 .btn svg{width:16px;height:16px;flex-shrink:0}
+.dropdown-group{position:relative}
+.dropdown-toggle svg{margin-left:2px;transition:transform .15s}
+.dropdown-group.open .dropdown-toggle svg{transform:rotate(180deg)}
+.dropdown-menu{display:none;position:absolute;top:100%;left:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:50;min-width:170px;padding:6px 0;max-height:70vh;overflow-y:auto}
+.dropdown-group.open .dropdown-menu{display:block}
+.dropdown-item{display:flex;align-items:center;gap:6px;padding:6px 14px;font-size:12px;color:var(--text);cursor:pointer;transition:background .1s;white-space:nowrap}
+.dropdown-item:hover{background:var(--surface2)}
+.dropdown-item input[type=checkbox]{accent-color:var(--blue);width:14px;height:14px;flex-shrink:0}
+.dropdown-sep{height:1px;background:var(--border);margin:4px 0}
+.search-bar{display:flex;align-items:center;gap:6px;padding:6px 14px;border-bottom:1px solid var(--border);background:var(--surface);flex-wrap:wrap}
+.search-bar input[type=text]{padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;font-family:var(--font-ui);background:var(--surface);color:var(--text);outline:none}
+.search-bar input[type=text]:focus{border-color:var(--blue)}
+.btn-sm{padding:3px 8px;font-size:11px;min-width:28px}
+.search-count{font-size:11px;color:var(--text-muted);white-space:nowrap}
+.search-opt{display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--text-dim);cursor:pointer;white-space:nowrap}
+.search-opt input{accent-color:var(--blue);width:13px;height:13px}
+.search-match-current{background:var(--yellow)!important;border-radius:2px;outline:2px solid var(--yellow);outline-offset:-1px}
+.search-match{background:rgba(217,119,6,.25);border-radius:2px}
 .workspace{flex:1;display:flex;overflow:hidden;min-height:0}
 .col{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
 .col+.col{border-left:1px solid var(--border)}
@@ -83,14 +101,6 @@ textarea.input-area::placeholder{color:var(--text-muted)}
 .line-content[contenteditable="true"]{outline:none;cursor:text}
 .line-content[contenteditable="true"]:focus{box-shadow:inset 0 0 0 2px var(--blue-bg);border-radius:2px}
 .line-content.editing{background:rgba(37,99,235,.04)}
-
-.options-row{display:flex;align-items:center;gap:12px;padding:6px 14px;border-top:1px solid var(--border);background:var(--surface);font-size:12px;color:var(--text-dim);flex-wrap:wrap}
-.opt-group-label{font-size:11px;font-weight:600;color:var(--text);letter-spacing:.3px;text-transform:uppercase;user-select:none}
-.opt-sep{width:1px;height:14px;background:var(--border);flex-shrink:0}
-.opt{display:inline-flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap}
-.opt input[type=checkbox]{accent-color:var(--blue);width:14px;height:14px}
-.opt-label{font-size:11px;color:var(--text-muted)}
-.opt select{appearance:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:2px 6px;font-size:11px;font-family:var(--font-ui);color:var(--text);cursor:pointer;height:22px}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);padding:8px 18px;background:var(--text);color:var(--bg);border-radius:var(--radius);font-size:13px;opacity:0;transition:all .25s;z-index:100;pointer-events:none;white-space:nowrap}
 .toast.visible{opacity:1;transform:translateX(-50%) translateY(0)}
 .file-drop{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .2s}
@@ -124,9 +134,9 @@ textarea.input-area::placeholder{color:var(--text-muted)}
   .btn-icon{width:36px;height:36px}
   .col-head{padding:6px 10px}
   textarea.input-area{padding:8px 10px}
-  .options-row{overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;padding:6px 10px;padding-bottom:calc(6px + env(safe-area-inset-bottom))}
-  .options-row::-webkit-scrollbar{display:none}
-  .opt{font-size:11px}
+  .dropdown-toggle{padding:6px 8px;font-size:11px}
+  .dropdown-menu{min-width:150px}
+  .dropdown-item{padding:5px 12px;font-size:11px}
   .line-num{width:36px;min-width:36px;padding-right:6px;font-size:10px}
   .input-wrap .ln-gutter{width:36px}
   .input-wrap .input-area.with-gutter{padding-left:44px}
@@ -136,11 +146,11 @@ textarea.input-area::placeholder{color:var(--text-muted)}
 @media(max-height:500px){
   header{padding:6px 10px}
   .col-head{padding:4px 10px}
-  .options-row{padding:4px 10px}
   .btn{padding:4px 8px;font-size:11px}
   .btn-icon{width:30px;height:30px}
 }
 </style>
+<script src="https://gnisew.github.io/tools/ime/ime-button.js"></script>
 </head>
 <body>
 <div class="app">
@@ -155,7 +165,44 @@ textarea.input-area::placeholder{color:var(--text-muted)}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           <span id="btnDiffLabel">比對</span>
         </button>
+        <div class="dropdown-group" id="ddCompare">
+          <button class="btn dropdown-toggle" onclick="toggleDropdown('ddCompare')">
+            比對選項<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="dropdown-menu">
+            <label class="dropdown-item"><input type="checkbox" id="optCharDiff" checked>字元級差異</label>
+            <label class="dropdown-item"><input type="checkbox" id="optTrim" checked>忽略行尾空白</label>
+            <label class="dropdown-item"><input type="checkbox" id="optIgnoreEmpty">忽略空行</label>
+            <div class="dropdown-item" style="cursor:default">忽略字元<input type="text" id="optIgnoreChars" placeholder="如 _/ 空格" style="width:80px;padding:2px 6px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:11px;font-family:var(--font-ui);color:var(--text);background:var(--surface);margin-left:4px"></div>
+          </div>
+        </div>
+        <div class="dropdown-group" id="ddDisplay">
+          <button class="btn dropdown-toggle" onclick="toggleDropdown('ddDisplay')">
+            顯示<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="dropdown-menu">
+            <label class="dropdown-item"><input type="checkbox" id="optAutoSave">暫存</label>
+            <label class="dropdown-item" id="optSelectModeWrap" style="display:none"><input type="checkbox" id="optSelectMode">選取模式</label>
+            <label class="dropdown-item"><input type="checkbox" id="optLineNum" checked>行號</label>
+            <label class="dropdown-item"><input type="checkbox" id="optWrap">換行</label>
+            <label class="dropdown-item" id="optInlineViewWrap" style="display:none"><input type="checkbox" id="optInlineView" onchange="setView(this.checked?'inline':'side')">行內檢視</label>
+            <label class="dropdown-item"><input type="checkbox" id="optInlineExpand">行內展開</label>
+            <label class="dropdown-item"><input type="checkbox" id="optDiffTop">差異置頂</label>
+          </div>
+        </div>
+        <div class="dropdown-group" id="ddFont">
+          <button class="btn dropdown-toggle" onclick="toggleDropdown('ddFont')">
+            字體<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="dropdown-menu">
+            <div class="dropdown-item" style="cursor:default">字型<select id="optFontFamily" style="margin-left:4px"><option value="default">預設</option><optgroup label="注音符號"><option value="BpmfZihiSerif-Regular">注音宋</option><option value="BpmfZihiKaiStd-Regular">注音楷書</option><option value="BpmfZihiSans-Regular">注音黑體</option><option value="BpmfZihiBox-R">注音方體</option><option value="BpmfZihiOnly-R">注音符號</option></optgroup><optgroup label="台語字型"><option value="TaigiGenRyuM-TL-R">台語明體</option><option value="TaigiGenRyuM-TLHI-R">台語明體TLHI</option><option value="TaigiGenRyuM-HI-R">台語明體HI</option><option value="TaigiKaiStd-TL-R">台語楷書</option><option value="TaigiKaiStd-TLHI-R">台語楷書TLHI</option><option value="TaigiKaiStd-HI-R">台語楷書HI</option><option value="TaigiGenSekiG-TL-R">台語黑體</option><option value="TaigiGenSekiG-TLHI-R">台語黑體TLHI</option><option value="TaigiGenSekiG-HI-R">台語黑體HI</option><option value="TaigiGenSenR-TL-R">台語圓體</option><option value="TaigiGenSenR-TLHI-R">台語圓體TLHI</option><option value="TaigiGenSenR-HI-R">台語圓體HI</option></optgroup><optgroup label="其他"><option value="EngTRESSA">英文花體A</option><option value="EngTRESSB">英文花體B</option><option value="Tauhu-Oo">豆腐字</option><option value="ToneOZ-Pinyin-Kai-Traditional">拼音楷書</option></optgroup></select></div>
+            <div class="dropdown-item" style="cursor:default">大小<select id="optFontSize" style="margin-left:4px"><option value="12">12</option><option value="13" selected>13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="18">18</option><option value="20">20</option><option value="24">24</option></select></div>
+          </div>
+        </div>
         <div class="toolbar-right">
+          <button class="btn btn-icon" id="btnSearchToggle" onclick="openSearch()" title="尋找取代 (Ctrl+F)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </button>
           <button class="btn btn-icon" onclick="swapTexts()" title="交換 A/B">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16l-4-4 4-4"/><path d="M3 12h18"/><path d="M17 8l4 4-4 4"/></svg>
           </button>
@@ -180,11 +227,28 @@ textarea.input-area::placeholder{color:var(--text-muted)}
       </div>
     </header>
   </div>
+  <div class="search-bar" id="searchBar" style="display:none">
+    <label class="search-opt"><input type="checkbox" id="searchScopeA" checked>🅰️</label>
+    <label class="search-opt"><input type="checkbox" id="searchScopeB" checked>🅱️</label>
+    <input type="text" id="searchInput" placeholder="尋找..." style="flex:0 0 160px">
+    <button class="btn btn-sm" onclick="doSearch()" title="尋找 (Enter)">尋找</button>
+    <input type="text" id="replaceInput" placeholder="取代..." style="flex:0 0 120px">
+    <button class="btn btn-sm" id="btnSearchPrev" onclick="searchPrev()" title="上一個 (Shift+Enter)">◂</button>
+    <button class="btn btn-sm" id="btnSearchNext" onclick="searchNext()" title="下一個 (Enter)">▸</button>
+    <span class="search-count" id="searchCount"></span>
+    <button class="btn btn-sm" onclick="searchReplace()" title="取代">取代</button>
+    <button class="btn btn-sm" onclick="searchReplaceAll()" title="全部取代">全部取代</button>
+    <label class="search-opt"><input type="checkbox" id="searchRegex" onchange="onSearchChange()">正則</label>
+    <label class="search-opt"><input type="checkbox" id="searchCjk" onchange="onSearchChange()">漢字</label>
+    <label class="search-opt"><input type="checkbox" id="searchTop">置頂</label>
+  </div>
   <div class="workspace">
     <div class="col" id="colLeft">
       <div class="col-head">
-        <span class="col-label">A — 原始</span>
-        <button class="btn" style="padding:3px 10px;font-size:11px" onclick="loadFile('left')">載入檔案</button>
+        <span class="col-label">🅰️</span>
+        <button class="btn" style="padding:3px 8px;font-size:11px" onclick="loadFile('left')">載入</button>
+        <button class="btn" style="padding:3px 8px;font-size:11px" onclick="copyText('left')">複製</button>
+        <button class="btn" style="padding:3px 8px;font-size:11px" onclick="clearSide('left')">清除</button>
         <span class="col-meta" id="metaLeft"></span>
       </div>
       <div class="input-wrap" id="wrapLeft">
@@ -195,8 +259,10 @@ textarea.input-area::placeholder{color:var(--text-muted)}
     </div>
     <div class="col" id="colRight">
       <div class="col-head">
-        <span class="col-label">B — 修改</span>
-        <button class="btn" style="padding:3px 10px;font-size:11px" onclick="loadFile('right')">載入檔案</button>
+        <span class="col-label">🅱️</span>
+        <button class="btn" style="padding:3px 8px;font-size:11px" onclick="loadFile('right')">載入</button>
+        <button class="btn" style="padding:3px 8px;font-size:11px" onclick="copyText('right')">複製</button>
+        <button class="btn" style="padding:3px 8px;font-size:11px" onclick="clearSide('right')">清除</button>
         <span class="col-meta" id="metaRight"></span>
       </div>
       <div class="input-wrap" id="wrapRight">
@@ -204,31 +270,6 @@ textarea.input-area::placeholder{color:var(--text-muted)}
         <textarea class="input-area" id="inputRight" wrap="off" placeholder="貼上修改後的文字..." spellcheck="false"></textarea>
       </div>
       <div class="diff-scroll" id="scrollRight"></div>
-    </div>
-  </div>
-  <div class="collapsible-wrap" id="optionsBar">
-    <button class="collapse-toggle" onclick="toggleCollapse('optionsBar')" title="摺疊選項">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-    </button>
-    <div class="options-row collapsible-inner">
-      <span class="opt-group-label">比對</span>
-      <label class="opt"><input type="checkbox" id="optCharDiff" checked>字元級差異</label>
-      <label class="opt"><input type="checkbox" id="optTrim" checked>忽略行尾空白</label>
-      <label class="opt"><input type="checkbox" id="optIgnoreEmpty">忽略空行</label>
-      <label class="opt">忽略字元<input type="text" id="optIgnoreChars" placeholder="如 _/ 空格" style="width:80px;padding:2px 6px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:11px;font-family:var(--font-ui);color:var(--text);background:var(--surface)"></label>
-      <span class="opt-sep"></span>
-      <span class="opt-group-label">顯示</span>
-      <label class="opt"><input type="checkbox" id="optAutoSave">暫存</label>
-      <label class="opt" id="optSelectModeWrap" style="display:none"><input type="checkbox" id="optSelectMode">選取</label>
-      <label class="opt"><input type="checkbox" id="optLineNum" checked>行號</label>
-      <label class="opt"><input type="checkbox" id="optWrap">換行</label>
-      <label class="opt" id="optInlineViewWrap" style="display:none"><input type="checkbox" id="optInlineView" onchange="setView(this.checked?'inline':'side')">行內</label>
-      <label class="opt"><input type="checkbox" id="optInlineExpand">行內展開</label>
-      <label class="opt"><input type="checkbox" id="optDiffTop">差異置頂</label>
-      <span class="opt-sep"></span>
-      <span class="opt-group-label">外觀</span>
-      <label class="opt">字體<select id="optFontFamily"><option value="default">預設</option><optgroup label="注音符號"><option value="BpmfZihiSerif-Regular">注音宋</option><option value="BpmfZihiKaiStd-Regular">注音楷書</option><option value="BpmfZihiSans-Regular">注音黑體</option><option value="BpmfZihiBox-R">注音方體</option><option value="BpmfZihiOnly-R">注音符號</option></optgroup><optgroup label="台語字型"><option value="TaigiGenRyuM-TL-R">台語明體</option><option value="TaigiGenRyuM-TLHI-R">台語明體TLHI</option><option value="TaigiGenRyuM-HI-R">台語明體HI</option><option value="TaigiKaiStd-TL-R">台語楷書</option><option value="TaigiKaiStd-TLHI-R">台語楷書TLHI</option><option value="TaigiKaiStd-HI-R">台語楷書HI</option><option value="TaigiGenSekiG-TL-R">台語黑體</option><option value="TaigiGenSekiG-TLHI-R">台語黑體TLHI</option><option value="TaigiGenSekiG-HI-R">台語黑體HI</option><option value="TaigiGenSenR-TL-R">台語圓體</option><option value="TaigiGenSenR-TLHI-R">台語圓體TLHI</option><option value="TaigiGenSenR-HI-R">台語圓體HI</option></optgroup><optgroup label="其他"><option value="EngTRESSA">英文花體A</option><option value="EngTRESSB">英文花體B</option><option value="Tauhu-Oo">豆腐字</option><option value="ToneOZ-Pinyin-Kai-Traditional">拼音楷書</option></optgroup></select></label>
-      <label class="opt">大小<select id="optFontSize"><option value="12">12</option><option value="13" selected>13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="18">18</option><option value="20">20</option><option value="24">24</option></select></label>
     </div>
   </div>
 </div>
@@ -250,6 +291,8 @@ let leftLines=[],rightLines=[];
 let leftLinesOrig=[],rightLinesOrig=[];
 let toastTimer=null;
 let _metaTimer=null;
+let _rediffTimer=null;
+let _rendering=false;
 function updateMetaDebounced(){
   if(_metaTimer)clearTimeout(_metaTimer);
   _metaTimer=setTimeout(()=>{updateMeta('left');updateMeta('right');_metaTimer=null;},300);
@@ -265,14 +308,14 @@ function toggleCollapse(id){
   localStorage.setItem('diffpro-collapse-'+id,wrap.classList.contains('collapsed')?'1':'0');
 }
 (function(){
-  ['headerBar','optionsBar'].forEach(id=>{
+  ['headerBar'].forEach(id=>{
     const wrap=$(id);
     const inner=wrap.querySelector('.collapsible-inner');
     inner.style.maxHeight=inner.scrollHeight+'px';
     if(localStorage.getItem('diffpro-collapse-'+id)==='1')wrap.classList.add('collapsed');
   });
   window.addEventListener('resize',()=>{
-    ['headerBar','optionsBar'].forEach(id=>{
+    ['headerBar'].forEach(id=>{
       const wrap=$(id);
       if(!wrap.classList.contains('collapsed')){
         const inner=wrap.querySelector('.collapsible-inner');
@@ -295,11 +338,297 @@ function toggleTheme(){
   $('iconSun').style.display=isDark?'block':'none';
   $('iconMoon').style.display=isDark?'none':'block';
 }
+function toggleDropdown(id){
+  const el=$(id);
+  const wasOpen=el.classList.contains('open');
+  document.querySelectorAll('.dropdown-group.open').forEach(d=>d.classList.remove('open'));
+  if(!wasOpen)el.classList.add('open');
+}
+function closeAllDropdowns(){
+  document.querySelectorAll('.dropdown-group.open').forEach(d=>d.classList.remove('open'));
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.dropdown-group'))closeAllDropdowns();
+});
 (function(){
   const t=localStorage.getItem('diffpro-theme')||'light';
   document.documentElement.setAttribute('data-theme',t);
   if(t==='dark'){$('iconSun').style.display='none';$('iconMoon').style.display='block';}
 })();
+let _searchMatches=[],_searchIdx=-1,_searchTerm='',_searchTimer=null,_searchFocused=false,_searchMarkEls=[];
+function getScopeSides(){
+  const s=[];
+  if($('searchScopeA').checked)s.push('left');
+  if($('searchScopeB').checked)s.push('right');
+  return s;
+}
+function buildSearchRegex(pattern){
+  if(!pattern)return null;
+  let p=pattern;
+  if($('searchCjk').checked)p=p.replace(/\\p\{Han\}/gu,'\\p{Script=Han}').replace(/\\p\{Han\}(?!)/g,'\\p{Script=Han}');
+  const flags=$('searchRegex').checked?'gu':'giu';
+  try{return new RegExp(p,flags);}catch(e){return null;}
+}
+function openSearch(){
+  if($('searchBar').style.display!=='none'){closeSearch();return;}
+  $('btnSearchToggle').classList.add('active');
+  const sel=window.getSelection();
+  const selText=sel?sel.toString().trim():'';
+  if(selText&&selText.length<200)$('searchInput').value=selText;
+  if(inputMode){
+    const focused=document.activeElement;
+    if(focused===$('inputLeft')){$('searchScopeA').checked=true;$('searchScopeB').checked=false;}
+    else if(focused===$('inputRight')){$('searchScopeA').checked=false;$('searchScopeB').checked=true;}
+    else if(selText&&sel.rangeCount>0){
+      const range=sel.getRangeAt(0);
+      const inL=range.startContainer.closest&&range.startContainer.closest('#wrapLeft');
+      const inR=range.startContainer.closest&&range.startContainer.closest('#wrapRight');
+      if(inL){$('searchScopeA').checked=true;$('searchScopeB').checked=false;}
+      else if(inR){$('searchScopeA').checked=false;$('searchScopeB').checked=true;}
+      else{$('searchScopeA').checked=true;$('searchScopeB').checked=true;}
+    }else{$('searchScopeA').checked=true;$('searchScopeB').checked=true;}
+  }else{
+    if(selText&&sel.rangeCount>0){
+      const range=sel.getRangeAt(0);
+      const inL=range.startContainer.closest&&range.startContainer.closest('#scrollLeft');
+      const inR=range.startContainer.closest&&range.startContainer.closest('#scrollRight');
+      if(inL){$('searchScopeA').checked=true;$('searchScopeB').checked=false;}
+      else if(inR){$('searchScopeA').checked=false;$('searchScopeB').checked=true;}
+      else{$('searchScopeA').checked=true;$('searchScopeB').checked=true;}
+    }else{
+      const lActive=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('#scrollLeft');
+      if(lActive){$('searchScopeA').checked=true;$('searchScopeB').checked=false;}
+      else{$('searchScopeA').checked=false;$('searchScopeB').checked=true;}
+    }
+  }
+  $('searchBar').style.display='flex';
+  if(selText&&selText.length<200)$('searchInput').select();
+  else $('searchInput').focus();
+}
+function closeSearch(){
+  $('searchBar').style.display='none';
+  $('btnSearchToggle').classList.remove('active');
+  clearHighlights();
+  _searchMatches=[];_searchIdx=-1;_searchTerm='';_searchMarkEls=[];
+  $('searchCount').textContent='';
+  if(!inputMode&&diffResult)rediff();
+}
+function clearHighlights(){
+  document.querySelectorAll('.search-match,.search-match-current').forEach(el=>{
+    const p=el.parentNode;if(p)p.replaceChild(document.createTextNode(el.textContent),el);p.normalize();
+  });
+}
+function findAllInput(term){
+  const re=buildSearchRegex(term);if(!re)return[];
+  const matches=[];
+  for(const side of getScopeSides()){
+    const ta=side==='left'?$('inputLeft'):$('inputRight');
+    const text=ta.value;if(!text)continue;
+    const lines=text.split('\n');
+    for(let i=0;i<lines.length;i++){
+      let m;re.lastIndex=0;
+      let offset=0;
+      for(let j=0;j<i;j++)offset+=lines[j].length+1;
+      while((m=re.exec(lines[i]))!==null){
+        matches.push({el:ta,ln:i+1,side,start:offset+m.index,end:offset+m.index+m[0].length,text:m[0],isTextarea:true});
+        if(m[0].length===0)re.lastIndex++;
+      }
+    }
+  }
+  return matches;
+}
+function findAllDiff(term){
+  const re=buildSearchRegex(term);if(!re)return[];
+  const matches=[];
+  for(const side of getScopeSides()){
+    const pane=getSearchPane(side);
+    pane.querySelectorAll('.line-content').forEach(el=>{
+      const text=el.textContent;const ln=parseInt(el.dataset.ln);
+      let m;re.lastIndex=0;
+      while((m=re.exec(text))!==null){
+        matches.push({el,ln,side,start:m.index,end:m.index+m[0].length,text:m[0]});
+        if(m[0].length===0)re.lastIndex++;
+      }
+    });
+  }
+  return matches;
+}
+function doSearch(){
+  const term=$('searchInput').value;
+  _searchTerm=term;_searchMatches=[];_searchIdx=-1;_searchMarkEls=[];
+  clearHighlights();
+  if(!term){$('searchCount').textContent='';return;}
+  if(!getScopeSides().length){$('searchCount').textContent='請勾選範圍';return;}
+  _searchMatches=inputMode?findAllInput(term):findAllDiff(term);
+  if(_searchMatches.length>0){
+    _searchIdx=0;
+    if(!inputMode)highlightDiff();
+    focusCurrent();
+  }
+  $('searchCount').textContent=_searchMatches.length?`1 / ${_searchMatches.length}`:'無符合';
+}
+function charPosToRange(el,start,end){
+  const tw=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,null);
+  let tn,off=0,sn=null,so=0,en=null,eo=0;
+  while(tn=tw.nextNode()){
+    const l=tn.textContent.length;
+    if(!sn&&off+l>start){sn=tn;so=start-off;}
+    if(off+l>=end){en=tn;eo=end-off;break;}
+    off+=l;
+  }
+  if(!sn||!en)return null;
+  const r=document.createRange();
+  r.setStart(sn,so);r.setEnd(en,eo);
+  return r;
+}
+function getSearchPane(side){
+  if(view==='inline')return $('scrollLeft');
+  return side==='left'?$('scrollLeft'):$('scrollRight');
+}
+function highlightDiff(){
+  clearHighlights();
+  _searchMarkEls=[];
+  const re=buildSearchRegex(_searchTerm);if(!re)return;
+  for(const side of getScopeSides()){
+    const pane=getSearchPane(side);
+    pane.querySelectorAll('.line-content').forEach(el=>{
+      const text=el.textContent;
+      let m;re.lastIndex=0;
+      while((m=re.exec(text))!==null){
+        const r=charPosToRange(el,m.index,m.index+m[0].length);
+        if(r){
+          const mk=document.createElement('mark');mk.className='search-match';
+          try{r.surroundContents(mk);_searchMarkEls.push(mk);}catch(e){}
+        }
+        if(m[0].length===0)re.lastIndex++;
+      }
+    });
+  }
+  updateCurrentMark();
+}
+function updateCurrentMark(){
+  for(const mk of _searchMarkEls){
+    if(mk.parentNode)mk.className='search-match';
+  }
+  if(_searchIdx>=0&&_searchIdx<_searchMarkEls.length){
+    const mk=_searchMarkEls[_searchIdx];
+    if(mk&&mk.parentNode)mk.className='search-match-current';
+  }
+}
+function focusCurrent(){
+  if(_searchIdx<0||_searchIdx>=_searchMatches.length)return;
+  const m=_searchMatches[_searchIdx];
+  if(m.isTextarea){
+    m.el.focus();
+    m.el.setSelectionRange(m.start,m.end);
+    const lh=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--diff-line-height'))||24;
+    const top=(m.ln-1)*lh;
+    if(top<m.el.scrollTop||top+lh>m.el.scrollTop+m.el.clientHeight){m.el.scrollTop=top-lh*3;}
+  }else{
+    const pane=getSearchPane(m.side);
+    const lineEl=m.el.closest('.line');
+    if(lineEl){
+      const top=lineEl.offsetTop-pane.offsetTop;
+      if(top<pane.scrollTop||top+lineEl.offsetHeight>pane.scrollTop+pane.clientHeight){pane.scrollTop=top-pane.offsetHeight/2+lineEl.offsetHeight/2;}
+    }
+    updateCurrentMark();
+    const mark=pane.querySelector('.search-match-current');
+    if(mark){
+      const sel=window.getSelection();sel.removeAllRanges();
+      const r=document.createRange();r.selectNodeContents(mark);sel.addRange(r);
+    }
+  }
+  $('searchCount').textContent=`${_searchIdx+1} / ${_searchMatches.length}`;
+}
+function searchNext(){
+  if(!_searchMatches.length){if($('searchInput').value)doSearch();return;}
+  _searchIdx=(_searchIdx+1)%_searchMatches.length;
+  focusCurrent();
+}
+function searchPrev(){
+  if(!_searchMatches.length){if($('searchInput').value)doSearch();return;}
+  _searchIdx=(_searchIdx-1+_searchMatches.length)%_searchMatches.length;
+  focusCurrent();
+}
+function searchReplace(){
+  if(!_searchMatches.length){if($('searchInput').value)doSearch();return;}
+  const m=_searchMatches[_searchIdx];
+  const replacement=$('replaceInput').value;
+  if(m.isTextarea){
+    const ta=m.el;
+    const oldText=ta.value;
+    ta.value=oldText.substring(0,m.start)+replacement+oldText.substring(m.end);
+    if(m.side==='left')leftText=ta.value;else rightText=ta.value;
+    const lines=ta.value.split('\n');
+    const arr=m.side==='left'?leftLinesOrig:rightLinesOrig;
+    const arrProc=m.side==='left'?leftLines:rightLines;
+    arr.length=0;arr.push(...lines);
+    arrProc.length=0;for(const l of lines)arrProc.push(applyOpts([l])[0]);
+    updateMetaDebounced();
+    _searchMatches=findAllInput(_searchTerm);
+    _searchIdx=Math.min(_searchIdx,_searchMatches.length-1);
+    if(_searchIdx>=0)focusCurrent();
+    $('searchCount').textContent=_searchMatches.length?`${_searchIdx+1} / ${_searchMatches.length}`:'無符合';
+    return;
+  }
+  const arr=m.side==='left'?leftLinesOrig:rightLinesOrig;
+  const arrProc=m.side==='left'?leftLines:rightLines;
+  arr[m.ln-1]=arr[m.ln-1].substring(0,m.start)+replacement+arr[m.ln-1].substring(m.end);
+  arrProc[m.ln-1]=applyOpts([arr[m.ln-1]])[0];
+  syncArrays();updateMetaDebounced();
+  _searchMatches=[];_searchIdx=-1;clearHighlights();_searchMarkEls=[];
+  rediff();
+  if($('searchBar').style.display!=='none'&&_searchTerm){
+    _searchMatches=findAllDiff(_searchTerm);
+    _searchIdx=_searchMatches.length>0?0:-1;
+    highlightDiff();
+    focusCurrent();
+  }
+  $('searchCount').textContent=_searchMatches.length?`${_searchIdx+1} / ${_searchMatches.length}`:'無符合';
+}
+function searchReplaceAll(){
+  if(!_searchMatches.length){if($('searchInput').value)doSearch();if(!_searchMatches.length)return;}
+  const replacement=$('replaceInput').value;
+  const term=$('searchInput').value;
+  const re=buildSearchRegex(term);if(!re)return;
+  let count=0;
+  for(const side of getScopeSides()){
+    const arr=side==='left'?leftLinesOrig:rightLinesOrig;
+    const arrProc=side==='left'?leftLines:rightLines;
+    for(let i=0;i<arr.length;i++){
+      re.lastIndex=0;
+      const newText=arr[i].replace(re,replacement);
+      if(newText!==arr[i]){arr[i]=newText;arrProc[i]=applyOpts([arr[i]])[0];count++;}
+    }
+  }
+  syncArrays();updateMetaDebounced();
+  _searchMatches=[];_searchIdx=-1;clearHighlights();
+  if(!inputMode)rediff();
+  showToast(`已取代 ${count} 行`);
+  $('searchCount').textContent='';
+}
+$('searchScopeA').addEventListener('change',doSearch);
+$('searchScopeB').addEventListener('change',doSearch);
+$('searchTop').addEventListener('change',()=>{if(!inputMode&&diffResult)rediff();});
+['searchInput','replaceInput'].forEach(id=>{
+  $(id).addEventListener('focus',()=>{_searchFocused=true;});
+  $(id).addEventListener('blur',()=>{_searchFocused=false;});
+});
+$('searchInput').addEventListener('keydown',e=>{
+  if(e.isComposing)return;
+  if(e.key==='Enter'){e.preventDefault();doSearch();}
+  if(e.key==='Escape'){e.preventDefault();closeSearch();}
+});
+$('replaceInput').addEventListener('keydown',e=>{
+  if(e.isComposing)return;
+  if(e.key==='Enter'){e.preventDefault();searchReplace();}
+  if(e.key==='Escape'){e.preventDefault();closeSearch();}
+});
+document.addEventListener('keydown',e=>{
+  if(e.isComposing)return;
+  if((e.ctrlKey||e.metaKey)&&e.key==='f'){e.preventDefault();openSearch();}
+  if(e.key==='Escape'&&$('searchBar').style.display!=='none'){e.preventDefault();closeSearch();}
+},true);
 
 function saveDraft(){
   if(!$('optAutoSave').checked)return;
@@ -359,6 +688,8 @@ function showInput(){
   $('scrollLeft').classList.remove('visible');$('scrollRight').classList.remove('visible');
   $('scrollLeft').innerHTML='';$('scrollRight').innerHTML='';
   $('colRight').style.display='';
+  $('colLeft').querySelector('.col-head').style.display='';
+  $('colRight').querySelector('.col-head').style.display='';
   $('btnDiffLabel').textContent='比對';
   $('btnDiff').classList.remove('btn-exit');
   $('btnDiff').classList.add('btn-primary');
@@ -371,8 +702,14 @@ function showDiff(){
   inputMode=false;
   $('wrapLeft').style.display='none';$('wrapRight').style.display='none';
   $('scrollLeft').classList.add('visible');
-  if(view==='side'){$('scrollRight').classList.add('visible');$('colRight').style.display='';}
-  else{$('scrollRight').classList.remove('visible');$('colRight').style.display='none';}
+  if(view==='side'){
+    $('scrollRight').classList.add('visible');$('colRight').style.display='';
+    $('colLeft').querySelector('.col-head').style.display='';
+    $('colRight').querySelector('.col-head').style.display='';
+  }else{
+    $('scrollRight').classList.remove('visible');$('colRight').style.display='none';
+    $('colLeft').querySelector('.col-head').style.display='none';
+  }
   $('btnDiffLabel').textContent='退出';
   $('btnDiff').classList.remove('btn-primary');
   $('btnDiff').classList.add('btn-exit');
@@ -434,6 +771,23 @@ function clearAll(){
   const hasText=!!($('inputLeft').value||$('inputRight').value);
   if(!hasText){doClear();return;}
   showModal('確定要清除所有內容嗎？','確定清除').then(ok=>{if(ok)doClear();});
+}
+function copyText(side){
+  const text=side==='left'?$('inputLeft').value:$('inputRight').value;
+  if(!text){showToast('無內容可複製');return;}
+  navigator.clipboard.writeText(text).then(()=>showToast('已複製')).catch(()=>showToast('複製失敗'));
+}
+function clearSide(side){
+  const el=side==='left'?$('inputLeft'):$('inputRight');
+  if(!el.value){return;}
+  showModal('確定要清除'+(side==='left'?'🅰️':'🅱️')+'的內容嗎？','確定清除').then(ok=>{
+    if(!ok)return;
+    el.value='';
+    if(side==='left'){leftText='';leftLines=[];leftLinesOrig=[];}
+    else{rightText='';rightLines=[];rightLinesOrig=[];}
+    updateMeta(side);saveDraft();refreshGutters();
+    if(diffResult){showInput();runDiff();}
+  });
 }
 function doClear(){
   leftText='';rightText='';diffResult=null;leftLines=[];rightLines=[];leftLinesOrig=[];rightLinesOrig=[];
@@ -595,15 +949,26 @@ function computeCharDiff(s,t){
 function renderDiff(){
   if(!diffResult)return;
   try{
-  if(getOpt('diffTop')){
-    const orig=diffResult.ops;
+  const orig=diffResult.ops;
+  let used=false;
+  if($('searchBar').style.display!=='none'&&$('searchTop').checked&&_searchMatches.length>0){
+    const matchSet=new Set();
+    for(const m of _searchMatches){
+      if(m.side==='left')matchSet.add('left:'+m.ln);
+      else matchSet.add('right:'+m.ln);
+    }
+    const sorted=orig.slice().sort((a,b)=>{
+      const aM=matchSet.has('left:'+a.leftNum)||matchSet.has('right:'+a.rightNum);
+      const bM=matchSet.has('left:'+b.leftNum)||matchSet.has('right:'+b.rightNum);
+      return(aM?0:1)-(bM?0:1);
+    });
+    diffResult.ops=sorted;used=true;
+  }else if(getOpt('diffTop')){
     const sorted=orig.slice().sort((a,b)=>{const o={removed:0,modified:1,added:2,equal:3};return(o[a.type]??3)-(o[b.type]??3);});
-    diffResult.ops=sorted;
-    if(view==='side')renderSideBySide();else renderInline();
-    diffResult.ops=orig;
-  }else{
-    if(view==='side')renderSideBySide();else renderInline();
+    diffResult.ops=sorted;used=true;
   }
+  if(view==='side')renderSideBySide();else renderInline();
+  if(used)diffResult.ops=orig;
   setupLineNumClick();
   }catch(e){console.error('renderDiff error:',e);}
 }
@@ -726,9 +1091,25 @@ let _keyHandled=false;
 let _editLineEl=null;
 let _editSwitching=false;
 
+function scheduleRediff(delay){
+  if(_searchFocused)return;
+  if(_rediffTimer)clearTimeout(_rediffTimer);
+  _rediffTimer=setTimeout(()=>{_rediffTimer=null;rediff();},delay||300);
+}
+
 function rediff(){
+  if(_rediffTimer){clearTimeout(_rediffTimer);_rediffTimer=null;}
+  _rendering=true;
   diffResult=computeLineDiff(leftLines,rightLines,leftLinesOrig,rightLinesOrig);
   renderDiff();
+  _rendering=false;
+  if(!inputMode&&$('searchBar').style.display!=='none'&&_searchTerm){
+    _searchMatches=findAllDiff(_searchTerm);
+    _searchIdx=_searchMatches.length>0?Math.min(_searchIdx,_searchMatches.length-1):-1;
+    highlightDiff();
+    if(_searchIdx>=0)focusCurrent();
+    $('searchCount').textContent=_searchMatches.length?`${_searchIdx+1} / ${_searchMatches.length}`:'無符合';
+  }
 }
 
 function getSelectedText(el,range){
@@ -778,7 +1159,8 @@ function onEdit(el){
   arrOrig[ln-1]=newText;
   arr[ln-1]=applyOpts([newText])[0];
   el.dataset.orig=newText;
-  syncArrays();rediff();updateMetaDebounced();
+  syncArrays();updateMetaDebounced();
+  if($('searchBar').style.display==='none')rediff();else scheduleRediff(500);
 }
 
 function syncArrays(){
@@ -786,7 +1168,7 @@ function syncArrays(){
   $('inputLeft').value=leftText;$('inputRight').value=rightText;
 }
 
-function _onEditBlur(){setTimeout(()=>{if(!_editSwitching&&_editLineEl)exitEditMode();},0);}
+function _onEditBlur(){setTimeout(()=>{if(!_editSwitching&&!_searchFocused&&_editLineEl&&$('searchBar').style.display==='none')exitEditMode();},0);}
 
 function _onEditKeydown(e){
   const el=_editLineEl||e.target;
@@ -811,7 +1193,8 @@ function _onEditKeydown(e){
     arr.splice(ln,0,after);
     arrProc[ln-1]=applyOpts([before])[0];
     arrProc.splice(ln,0,applyOpts([after])[0]);
-    syncArrays();rediff();updateMetaDebounced();
+    syncArrays();updateMetaDebounced();
+    if($('searchBar').style.display==='none')rediff();else scheduleRediff(500);
     setTimeout(()=>{
       _keyHandled=false;
       const newEl=document.querySelector(`.line-content[data-side="${side}"][data-ln="${ln+1}"]`);
@@ -828,7 +1211,7 @@ function _onEditKeydown(e){
       const{before,after}=getSelectedText(el,range);
       const newText=before+after;
       const old=arr[ln-1]||'';
-      if(newText!==old){arr[ln-1]=newText;arrProc[ln-1]=applyOpts([newText])[0];syncArrays();rediff();updateMetaDebounced();}
+      if(newText!==old){arr[ln-1]=newText;arrProc[ln-1]=applyOpts([newText])[0];syncArrays();updateMetaDebounced();if($('searchBar').style.display==='none')rediff();else scheduleRediff(500);}
       setTimeout(()=>{_keyHandled=false;},0);
       return;
     }
@@ -844,7 +1227,7 @@ function _onEditKeydown(e){
       arr.splice(ln-1,1);
       arrProc[ln-2]=applyOpts([prevText+curText])[0];
       arrProc.splice(ln-1,1);
-      syncArrays();rediff();updateMetaDebounced();
+      syncArrays();updateMetaDebounced();if($('searchBar').style.display==='none')rediff();else scheduleRediff(500);
       setTimeout(()=>{
         _keyHandled=false;
         const newEl=document.querySelector(`.line-content[data-side="${side}"][data-ln="${ln-1}"]`);
@@ -861,7 +1244,7 @@ function _onEditKeydown(e){
       const{before,after}=getSelectedText(el,range);
       const newText=before+after;
       const old=arr[ln-1]||'';
-      if(newText!==old){arr[ln-1]=newText;arrProc[ln-1]=applyOpts([newText])[0];syncArrays();rediff();updateMetaDebounced();}
+      if(newText!==old){arr[ln-1]=newText;arrProc[ln-1]=applyOpts([newText])[0];syncArrays();updateMetaDebounced();if($('searchBar').style.display==='none')rediff();else scheduleRediff(500);}
       setTimeout(()=>{_keyHandled=false;},0);
       return;
     }
@@ -877,7 +1260,7 @@ function _onEditKeydown(e){
       arr.splice(ln,1);
       arrProc[ln-1]=applyOpts([curText+nextText])[0];
       arrProc.splice(ln,1);
-      syncArrays();rediff();updateMetaDebounced();
+      syncArrays();updateMetaDebounced();if($('searchBar').style.display==='none')rediff();else scheduleRediff(500);
       setTimeout(()=>{
         _keyHandled=false;
         const newEl=document.querySelector(`.line-content[data-side="${side}"][data-ln="${ln}"]`);
@@ -886,6 +1269,48 @@ function _onEditKeydown(e){
     }
   }
 }
+
+function insertLineAfter(side,ln){
+  const arr=side==='left'?leftLinesOrig:rightLinesOrig;
+  const arrProc=side==='left'?leftLines:rightLines;
+  arr.splice(ln,0,'');
+  arrProc.splice(ln,0,'');
+  syncArrays();updateMetaDebounced();scheduleRediff(300);
+  setTimeout(()=>{
+    const newEl=document.querySelector(`.line-content[data-side="${side}"][data-ln="${ln+1}"]`);
+    if(newEl){enterEditMode(newEl);}
+  },50);
+}
+
+function deleteLine(side,ln){
+  const arr=side==='left'?leftLinesOrig:rightLinesOrig;
+  const arrProc=side==='left'?leftLines:rightLines;
+  if(arr.length<=1)return;
+  arr.splice(ln-1,1);
+  arrProc.splice(ln-1,1);
+  syncArrays();updateMetaDebounced();scheduleRediff(300);
+  setTimeout(()=>{
+    const focusLn=Math.min(ln,arr.length);
+    const newEl=document.querySelector(`.line-content[data-side="${side}"][data-ln="${focusLn}"]`);
+    if(newEl)enterEditMode(newEl);
+  },50);
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.isComposing)return;
+  if(!e.ctrlKey&&!e.metaKey)return;
+  const el=document.activeElement;
+  if(!el||!el.classList.contains('line-content'))return;
+  const side=el.dataset.side,ln=parseInt(el.dataset.ln);
+  if(isNaN(ln)||!side)return;
+  if(e.key==='Enter'){
+    e.preventDefault();e.stopPropagation();
+    insertLineAfter(side,ln);
+  }else if(e.key==='Delete'){
+    e.preventDefault();e.stopPropagation();
+    deleteLine(side,ln);
+  }
+},true);
 
 function setupSelectable(){
   const selectMode=getOpt('selectMode');
@@ -908,9 +1333,11 @@ function setupSelectable(){
         arrProc[ln-1]=applyOpts([el.textContent])[0];
         el.dataset.orig=el.textContent;
         syncArrays();updateMetaDebounced();
+        scheduleRediff(300);
       });
       el.addEventListener('blur',()=>{
-        if(!el.isConnected)return;
+        if(!el.isConnected||_rendering||_searchFocused)return;
+        if($('searchBar').style.display!=='none')return;
         if(!_editSwitching)rediff();
       });
     }
@@ -1016,34 +1443,29 @@ function exportAs(fmt){
 '.toolbar input[type=checkbox]{accent-color:#2563eb;width:14px;height:14px}',
 '.toolbar select{background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:2px 6px;font-size:12px;font-family:system-ui;color:#111827;cursor:pointer}',
 '.content{flex:1;overflow:auto}',
-'.wrap{display:flex;height:100%}',
-'.pane{flex:1;overflow:auto}',
-'.sep{width:1px;background:#e5e7eb;flex-shrink:0}',
-'table{border-collapse:collapse;width:100%}',
-'td{padding:0 8px;vertical-align:top;white-space:pre;font-family:Consolas,monospace;font-size:var(--fs,13px);line-height:var(--lh,24px)}',
-'.ln{width:40px;text-align:right;color:#9ca3af;user-select:none;line-height:var(--lh,24px)}',
-'.line{display:flex;min-height:var(--lh,24px)}',
-'.line .ln{padding-right:8px;line-height:var(--lh,24px)}',
-'.line span:last-child{flex:1}',
-'.added{background:rgba(22,163,74,.035)}',
-'.removed{background:rgba(220,38,38,.06)}',
-'.modified{background:rgba(217,119,6,.05)}',
-'.equal span:last-child{color:#6b7280}',
+'table{border-collapse:collapse;width:100%;table-layout:fixed}',
+'td{padding:0 8px;vertical-align:top;white-space:pre-wrap;word-break:break-all;font-family:Consolas,monospace;font-size:var(--fs,13px);line-height:var(--lh,24px)}',
+'td.ln{width:40px;white-space:nowrap;text-align:right;color:#9ca3af;user-select:none;line-height:var(--lh,24px)}',
+'.added{background:none}',
+'.removed{background:none}',
+'.modified{background:none}',
+'.equal td{color:inherit}',
 '.char-del{background:rgba(220,38,38,.1);color:#991b1b;border-radius:2px;padding:0 1px}',
-'.char-ins{background:rgba(22,163,74,.12);color:#14532d;border-radius:2px;padding:0 1px}',
+'.char-ins{background:rgba(37,99,235,.1);color:#1d4ed8;border-radius:2px;padding:0 1px}',
 '</style>','</head><body>',
 '<div class="toolbar">',
 '  <label><input type="checkbox" id="optInline"> 行內</label>',
 '  <label><input type="checkbox" id="optExpandEqual"> 行內展開相同行</label>',
 '  <label><input type="checkbox" id="optLineNum" checked> 行號</label>',
 '  <label>大小<select id="optSize"><option value="12">12</option><option value="13" selected>13</option><option value="14">14</option><option value="16">16</option><option value="18">18</option><option value="20">20</option></select></label>',
+'  <label><input type="checkbox" id="optBoldDiff"> 差異字加粗</label>',
 '</div>',
 '<div class="content" id="content"></div>',
 '<script>',
 'const OPS='+data+';',
 'const $=id=>document.getElementById(id);',
-'function esc(s){return s.split("&").join("&amp;").split("<").join("&lt;").split(">").join("&gt;").split(\'"\').join("&quot;");}',
-'function renderChars(segs){return segs.map(function(s){return s.type==="same"?esc(s.ch):\'<span class="char-\'+(s.type==="del"?"del":"ins")+\'">\' + esc(s.ch) + \'</span>\';}).join("");}',
+'function esc(s){return s.split("&").join("&amp;").split("<").join("&lt;").split(">").join("&gt;").split(\'"\').join("&quot;").split("\\\'").join("&#39;");}',
+'function renderChars(segs){var b=$("optBoldDiff")&&$("optBoldDiff").checked?";font-weight:bold":"";return segs.map(function(s){return s.type==="same"?esc(s.ch):s.type==="del"?\'<span style="background:rgba(220,38,38,.1);color:#991b1b\'+b+\'">\'+esc(s.ch)+\'</span>\':\'<span style="background:rgba(37,99,235,.1);color:#1d4ed8\'+b+\'">\'+esc(s.ch)+\'</span>\';}).join("");}',
 'var T={td:"<"+"/td>",tr:"<"+"/tr>",table:"<"+"/table>",div:"<"+"/div>",span:"<"+"/span>",ln:"<"+"/span>"};',
 'function render(){',
 '  var inline=$("optInline").checked;',
@@ -1078,35 +1500,42 @@ function exportAs(fmt){
 '    h+=T.table;',
 '    c.innerHTML=h;',
 '  }else{',
-'    var left="",right="";',
+'    var h="<table class=\\"side-by-side\\">";',
 '    for(var i=0;i<OPS.length;i++){',
 '      var op=OPS[i];',
 '      if(op.type==="equal"){',
-'        left+=\'<div class="line equal">\'+(showLn?\'<span class="ln">\'+op.leftNum+"</span>":"")+\'<span>\'+esc(op.leftText||" ")+"</span>"+T.div;',
-'        right+=\'<div class="line equal">\'+(showLn?\'<span class="ln">\'+op.rightNum+"</span>":"")+\'<span>\'+esc(op.rightText||" ")+"</span>"+T.div;',
+'        h+="<tr class=\\"equal\\">";',
+'        if(showLn)h+="<td class=\\"ln\\">"+(op.leftNum||"")+"</td>";',
+'        h+="<td>"+esc(op.leftText||" ")+"</td>";',
+'        if(showLn)h+="<td class=\\"ln\\">"+(op.rightNum||"")+"</td>";',
+'        h+="<td>"+esc(op.rightText||" ")+"</td></tr>";',
 '      }else if(op.type==="removed"){',
-'        left+=\'<div class="line removed">\'+(showLn?\'<span class="ln">\'+op.leftNum+"</span>":"")+\'<span>\'+esc(op.leftText)+"</span>"+T.div;',
-'        right+=\'<div class="line">\'+(showLn?\'<span class="ln"></span>\':"")+\'<span> </span>\'+T.div;',
+'        h+="<tr class=\\"removed\\">";',
+'        if(showLn)h+="<td class=\\"ln\\">"+(op.leftNum||"")+"</td>";',
+'        h+="<td>"+esc(op.leftText)+"</td>";',
+'        if(showLn)h+="<td class=\\"ln\\"></td>";',
+'        h+="<td></td></tr>";',
 '      }else if(op.type==="added"){',
-'        left+=\'<div class="line">\'+(showLn?\'<span class="ln"></span>\':"")+\'<span> </span>\'+T.div;',
-'        right+=\'<div class="line added">\'+(showLn?\'<span class="ln">\'+op.rightNum+"</span>":"")+\'<span>\'+esc(op.rightText)+"</span>"+T.div;',
+'        h+="<tr class=\\"added\\">";',
+'        if(showLn)h+="<td class=\\"ln\\"></td>";',
+'        h+="<td></td>";',
+'        if(showLn)h+="<td class=\\"ln\\">"+(op.rightNum||"")+"</td>";',
+'        h+="<td>"+esc(op.rightText)+"</td></tr>";',
 '      }else if(op.type==="modified"){',
-'        left+=\'<div class="line modified">\'+(showLn?\'<span class="ln">\'+op.leftNum+"</span>":"")+\'<span>\'+renderChars(op.charOld)+"</span>"+T.div;',
-'        right+=\'<div class="line modified">\'+(showLn?\'<span class="ln">\'+op.rightNum+"</span>":"")+\'<span>\'+renderChars(op.charNew)+"</span>"+T.div;',
+'        h+="<tr class=\\"modified\\">";',
+'        if(showLn)h+="<td class=\\"ln\\">"+(op.leftNum||"")+"</td>";',
+'        h+="<td>"+renderChars(op.charOld)+"</td>";',
+'        if(showLn)h+="<td class=\\"ln\\">"+(op.rightNum||"")+"</td>";',
+'        h+="<td>"+renderChars(op.charNew)+"</td></tr>";',
 '      }',
 '    }',
-'    c.innerHTML=\'<div class="wrap"><div class="pane">\'+left+\'</div><div class="sep"></div><div class="pane">\'+right+"</div>"+T.div;',
+'    h+=T.table;',
+'    c.innerHTML=h;',
 '  }',
-'}',
-'function syncScroll(){',
-'  var panes=document.querySelectorAll(".pane");',
-'  if(panes.length<2)return;',
-'  var syncing=false;',
-'  panes[0].onscroll=function(){if(!syncing){syncing=true;panes[1].scrollTop=panes[0].scrollTop;syncing=false;}};',
-'  panes[1].onscroll=function(){if(!syncing){syncing=true;panes[0].scrollTop=panes[1].scrollTop;syncing=false;}};',
 '}',
 '["optInline","optExpandEqual","optLineNum"].forEach(function(id){$(id).addEventListener("change",render);});',
 '$("optSize").addEventListener("change",render);',
+'$("optBoldDiff").addEventListener("change",render);',
 'render();',
 CS,
 '</body></html>'];
