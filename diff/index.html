@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>烏衣行文字比對WeSingDiff</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -28,12 +28,12 @@
   --blue:#60a5fa;--blue-bg:rgba(96,165,250,.08);
   --yellow:#fbbf24;--yellow-bg:rgba(251,191,36,.06);
 }
-html,body{height:100%;overflow:hidden;font-family:var(--font-ui);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+html,body{height:100%;height:100dvh;overflow:hidden;font-family:var(--font-ui);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
 ::-webkit-scrollbar{width:14px;height:14px}
 ::-webkit-scrollbar-track{background:var(--surface2);margin:2px}
 ::-webkit-scrollbar-thumb{background:var(--text-muted);border-radius:7px;border:3px solid var(--surface2);min-height:40px;cursor:default}
 ::-webkit-scrollbar-thumb:hover{background:var(--text-dim)}
-.app{display:flex;flex-direction:column;height:100vh}
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh;padding-bottom:env(safe-area-inset-bottom)}
 header{display:flex;align-items:center;justify-content:center;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--surface);gap:8px;position:relative;width:100%}
 .collapsible-wrap{position:relative;min-height:18px}
 .collapsible-inner{transition:max-height .25s ease,padding .25s ease,opacity .15s ease}
@@ -110,10 +110,36 @@ textarea.input-area::placeholder{color:var(--text-muted)}
 .export-item:hover{background:var(--surface2)}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:300;opacity:0;pointer-events:none;transition:opacity .15s}
 .modal-overlay.visible{opacity:1;pointer-events:all}
-.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;min-width:260px;max-width:340px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;padding-bottom:calc(20px + env(safe-area-inset-bottom));min-width:260px;max-width:340px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
 .modal-msg{font-size:13px;color:var(--text);margin-bottom:16px;line-height:1.5}
 .modal-btns{display:flex;justify-content:flex-end;gap:8px}
 .modal-btns .btn{min-width:64px}
+@media(max-width:768px){
+  .workspace{flex-direction:column}
+  .col+.col{border-left:none;border-top:1px solid var(--border)}
+  .col{min-height:0}
+  header{padding:8px 12px}
+  .logo{font-size:13px;left:12px}
+  .btn{padding:6px 10px;font-size:12px}
+  .btn-icon{width:36px;height:36px}
+  .col-head{padding:6px 10px}
+  textarea.input-area{padding:8px 10px}
+  .options-row{overflow-x:auto;overflow-y:hidden;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;padding:6px 10px;padding-bottom:calc(6px + env(safe-area-inset-bottom))}
+  .options-row::-webkit-scrollbar{display:none}
+  .opt{font-size:11px}
+  .line-num{width:36px;min-width:36px;padding-right:6px;font-size:10px}
+  .input-wrap .ln-gutter{width:36px}
+  .input-wrap .input-area.with-gutter{padding-left:44px}
+  .placeholder{font-size:12px;padding:20px}
+  .toast{bottom:calc(24px + env(safe-area-inset-bottom))}
+}
+@media(max-height:500px){
+  header{padding:6px 10px}
+  .col-head{padding:4px 10px}
+  .options-row{padding:4px 10px}
+  .btn{padding:4px 8px;font-size:11px}
+  .btn-icon{width:30px;height:30px}
+}
 </style>
 </head>
 <body>
@@ -192,19 +218,17 @@ textarea.input-area::placeholder{color:var(--text-muted)}
       <label class="opt">忽略字元<input type="text" id="optIgnoreChars" placeholder="如 _/ 空格" style="width:80px;padding:2px 6px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:11px;font-family:var(--font-ui);color:var(--text);background:var(--surface)"></label>
       <span class="opt-sep"></span>
       <span class="opt-group-label">顯示</span>
+      <label class="opt"><input type="checkbox" id="optAutoSave">暫存</label>
+      <label class="opt" id="optSelectModeWrap" style="display:none"><input type="checkbox" id="optSelectMode">選取</label>
       <label class="opt"><input type="checkbox" id="optLineNum" checked>行號</label>
-      <label class="opt"><input type="checkbox" id="optWrap">自動換行</label>
-      <label class="opt"><input type="checkbox" id="optInlineExpand">行內展開相同行</label>
-      <label class="opt"><input type="checkbox" id="optDiffTop">差異行置頂</label>
-      <label class="opt" id="optInlineViewWrap" style="display:none"><input type="checkbox" id="optInlineView" onchange="setView(this.checked?'inline':'side')">行內模式</label>
-      <label class="opt" id="optSelectModeWrap" style="display:none"><input type="checkbox" id="optSelectMode">選取模式</label>
+      <label class="opt"><input type="checkbox" id="optWrap">換行</label>
+      <label class="opt" id="optInlineViewWrap" style="display:none"><input type="checkbox" id="optInlineView" onchange="setView(this.checked?'inline':'side')">行內</label>
+      <label class="opt"><input type="checkbox" id="optInlineExpand">行內展開</label>
+      <label class="opt"><input type="checkbox" id="optDiffTop">差異置頂</label>
       <span class="opt-sep"></span>
       <span class="opt-group-label">外觀</span>
       <label class="opt">字體<select id="optFontFamily"><option value="default">預設</option><optgroup label="注音符號"><option value="BpmfZihiSerif-Regular">注音宋</option><option value="BpmfZihiKaiStd-Regular">注音楷書</option><option value="BpmfZihiSans-Regular">注音黑體</option><option value="BpmfZihiBox-R">注音方體</option><option value="BpmfZihiOnly-R">注音符號</option></optgroup><optgroup label="台語字型"><option value="TaigiGenRyuM-TL-R">台語明體</option><option value="TaigiGenRyuM-TLHI-R">台語明體TLHI</option><option value="TaigiGenRyuM-HI-R">台語明體HI</option><option value="TaigiKaiStd-TL-R">台語楷書</option><option value="TaigiKaiStd-TLHI-R">台語楷書TLHI</option><option value="TaigiKaiStd-HI-R">台語楷書HI</option><option value="TaigiGenSekiG-TL-R">台語黑體</option><option value="TaigiGenSekiG-TLHI-R">台語黑體TLHI</option><option value="TaigiGenSekiG-HI-R">台語黑體HI</option><option value="TaigiGenSenR-TL-R">台語圓體</option><option value="TaigiGenSenR-TLHI-R">台語圓體TLHI</option><option value="TaigiGenSenR-HI-R">台語圓體HI</option></optgroup><optgroup label="其他"><option value="EngTRESSA">英文花體A</option><option value="EngTRESSB">英文花體B</option><option value="Tauhu-Oo">豆腐字</option><option value="ToneOZ-Pinyin-Kai-Traditional">拼音楷書</option></optgroup></select></label>
       <label class="opt">大小<select id="optFontSize"><option value="12">12</option><option value="13" selected>13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="18">18</option><option value="20">20</option><option value="24">24</option></select></label>
-      <span class="opt-sep"></span>
-      <label class="opt"><input type="checkbox" id="optAutoSave">自動暫存</label>
-      <span class="opt-label">Ctrl+Enter 快速比對</span>
     </div>
   </div>
 </div>
@@ -225,6 +249,11 @@ let view='side',diffResult=null,leftText='',rightText='';
 let leftLines=[],rightLines=[];
 let leftLinesOrig=[],rightLinesOrig=[];
 let toastTimer=null;
+let _metaTimer=null;
+function updateMetaDebounced(){
+  if(_metaTimer)clearTimeout(_metaTimer);
+  _metaTimer=setTimeout(()=>{updateMeta('left');updateMeta('right');_metaTimer=null;},300);
+}
 let inputMode=true;
 
 function $(id){return document.getElementById(id)}
@@ -374,7 +403,7 @@ function loadFile(side){
 function updateMeta(side){
   const text=side==='left'?leftText:rightText;
   const el=$('meta'+(side==='left'?'Left':'Right'));
-  if(text){const lines=text.split('\n').length;el.textContent=lines+' 行 · '+text.length+' 字元';}
+  if(text){const lines=text.split('\n').length;el.textContent=lines+' 行 · '+[...text].length+' 字元';}
   else el.textContent='';
 }
 
@@ -749,7 +778,7 @@ function onEdit(el){
   arrOrig[ln-1]=newText;
   arr[ln-1]=applyOpts([newText])[0];
   el.dataset.orig=newText;
-  syncArrays();rediff();
+  syncArrays();rediff();updateMetaDebounced();
 }
 
 function syncArrays(){
@@ -782,7 +811,7 @@ function _onEditKeydown(e){
     arr.splice(ln,0,after);
     arrProc[ln-1]=applyOpts([before])[0];
     arrProc.splice(ln,0,applyOpts([after])[0]);
-    syncArrays();rediff();
+    syncArrays();rediff();updateMetaDebounced();
     setTimeout(()=>{
       _keyHandled=false;
       const newEl=document.querySelector(`.line-content[data-side="${side}"][data-ln="${ln+1}"]`);
@@ -799,7 +828,7 @@ function _onEditKeydown(e){
       const{before,after}=getSelectedText(el,range);
       const newText=before+after;
       const old=arr[ln-1]||'';
-      if(newText!==old){arr[ln-1]=newText;arrProc[ln-1]=applyOpts([newText])[0];syncArrays();rediff();}
+      if(newText!==old){arr[ln-1]=newText;arrProc[ln-1]=applyOpts([newText])[0];syncArrays();rediff();updateMetaDebounced();}
       setTimeout(()=>{_keyHandled=false;},0);
       return;
     }
@@ -815,7 +844,7 @@ function _onEditKeydown(e){
       arr.splice(ln-1,1);
       arrProc[ln-2]=applyOpts([prevText+curText])[0];
       arrProc.splice(ln-1,1);
-      syncArrays();rediff();
+      syncArrays();rediff();updateMetaDebounced();
       setTimeout(()=>{
         _keyHandled=false;
         const newEl=document.querySelector(`.line-content[data-side="${side}"][data-ln="${ln-1}"]`);
@@ -832,7 +861,7 @@ function _onEditKeydown(e){
       const{before,after}=getSelectedText(el,range);
       const newText=before+after;
       const old=arr[ln-1]||'';
-      if(newText!==old){arr[ln-1]=newText;arrProc[ln-1]=applyOpts([newText])[0];syncArrays();rediff();}
+      if(newText!==old){arr[ln-1]=newText;arrProc[ln-1]=applyOpts([newText])[0];syncArrays();rediff();updateMetaDebounced();}
       setTimeout(()=>{_keyHandled=false;},0);
       return;
     }
@@ -848,7 +877,7 @@ function _onEditKeydown(e){
       arr.splice(ln,1);
       arrProc[ln-1]=applyOpts([curText+nextText])[0];
       arrProc.splice(ln,1);
-      syncArrays();rediff();
+      syncArrays();rediff();updateMetaDebounced();
       setTimeout(()=>{
         _keyHandled=false;
         const newEl=document.querySelector(`.line-content[data-side="${side}"][data-ln="${ln}"]`);
@@ -878,7 +907,7 @@ function setupSelectable(){
         arr[ln-1]=el.textContent;
         arrProc[ln-1]=applyOpts([el.textContent])[0];
         el.dataset.orig=el.textContent;
-        syncArrays();
+        syncArrays();updateMetaDebounced();
       });
       el.addEventListener('blur',()=>{
         if(!el.isConnected)return;

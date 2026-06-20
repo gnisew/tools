@@ -1328,21 +1328,26 @@ function closeWordEditor() {
  * 「詞彙」編輯器
  * @param {HTMLElement} wordUnitEl - 被點擊的 .word-unit <span> 元素
  */
-function showWordUnitEditor(wordUnitEl) {
-    closeWordEditor(); // 先關閉其他已開啟的編輯器
+function showWordEditor(rubyEl, hIndex, wordIndex) {
+    closeWordEditor(); 
 
-    const originalHanzi = wordUnitEl.dataset.hanzi || '';
-    const originalPinyin = wordUnitEl.dataset.pinyin || '';
+    // 1. 取得乾淨的漢字
+    let originalHanzi = rubyEl.querySelector('rb')?.textContent || '';
+    const cleanerRegex = window.regexBpmTiny || /[-]/g;
+    originalHanzi = originalHanzi.replace(new RegExp(cleanerRegex, 'g'), '');
+
+    // 2. 取得拼音 (dataset 或 rt 內容)
+    const originalPinyin = rubyEl.dataset.pinyin || rubyEl.querySelector('rt')?.textContent || '';
 
     const editor = document.createElement('div');
     editor.className = 'word-editor';
     editor.style.position = 'absolute';
-    editor.style.zIndex = '10';
+    editor.style.zIndex = '50'; // 同樣設定 50 即可
 
     editor.innerHTML = `
         <div class="space-y-2">
-            <input type="text" class="ed-h-word" value="${escapeAttr(originalHanzi)}" placeholder="詞彙" spellcheck="false" autocorrect="off" autocapitalize="off">
-            <input type="text" class="ed-p-word" value="${escapeAttr(originalPinyin)}" placeholder="拼音" spellcheck="false" autocorrect="off" autocapitalize="off">
+            <input type="text" class="ed-h-word" value="${escapeAttr(originalHanzi)}" placeholder="字" spellcheck="false" autocorrect="off" autocapitalize="off">
+            <input type="text" class="ed-p-word" value="${escapeAttr(originalPinyin)}" placeholder="音" spellcheck="false" autocorrect="off" autocapitalize="off">
         </div>
         <div class="actions">
             ${createToneConverterHTML()} 
@@ -1351,12 +1356,16 @@ function showWordUnitEditor(wordUnitEl) {
         </div>
     `;
 
-    document.body.appendChild(editor);
-    updateAllToneConverterUIs();
+    // ⬇️ 【核心修改】：改掛載到結果渲染區，並將該區域宣告為相對定位基準
+    const container = document.getElementById('resultArea');
+    container.style.position = 'relative'; 
+    container.appendChild(editor);
 
-    const rect = wordUnitEl.getBoundingClientRect();
-    editor.style.left = `${window.scrollX + rect.left}px`;
-    editor.style.top = `${window.scrollY + rect.bottom + 8}px`;
+    // ⬇️ 【智慧座標】：計算單字相對於結果區的精準距離，並補上滾動條的高度量
+    const rect = rubyEl.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    editor.style.left = `${rect.left - containerRect.left + container.scrollLeft}px`;
+    editor.style.top = `${rect.bottom - containerRect.top + container.scrollTop + 8}px`;
 
     const pinyinField = editor.querySelector('.ed-p-word');
     pinyinField.focus();
@@ -1508,8 +1517,22 @@ function showWordEditor(rubyEl, hIndex, wordIndex) {
     updateAllToneConverterUIs();
 
     const rect = rubyEl.getBoundingClientRect();
-    editor.style.left = `${window.scrollX + rect.left}px`;
-    editor.style.top = `${window.scrollY + rect.bottom + 8}px`;
+    
+    editor.style.position = 'fixed';
+    editor.style.zIndex = '99999'; // 確保絕對在滿版 (9999) 之上
+
+    let leftPos = rect.left;
+    if (leftPos + 220 > window.innerWidth) { 
+        leftPos = window.innerWidth - 240; 
+    }
+    
+    let topPos = rect.bottom + 8;
+    if (topPos + 150 > window.innerHeight) { 
+        topPos = rect.top - 120; // 改為顯示在單字上方
+    }
+
+    editor.style.left = `${leftPos}px`;
+    editor.style.top = `${topPos}px`;
 
     const pinyinField = editor.querySelector('.ed-p-word');
     pinyinField.focus();

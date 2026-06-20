@@ -676,8 +676,28 @@ body.mode-block wbr.wrap-fix {
     flex-direction: column;
 }
 
-/* 滿版模式下，讓滾動區域無限延伸填滿剩餘高度 */
+
+#resultSection.is-fullscreen .collapsible-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+
 #resultSection.is-fullscreen .scroll-area {
+    flex: 1;
     max-height: none;
-    flex-grow: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+
+#resultSection.is-fullscreen #resultArea + div {
+    display: none !important;
+}
+
+
+#resultSection.is-fullscreen .collapsible-content {
+    padding-bottom: 0 !important;
 }
