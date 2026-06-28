@@ -2667,6 +2667,7 @@ function switchLanguage(newLangKey) {
 	const menuHanzi = document.getElementById('menuHanziToPinyin');
 	const actSpaceSeg = document.getElementById('actSpaceSegmentation');
 	const actDefault = document.getElementById('actHanziToPinyin');
+	const actFilterNewWords = document.getElementById('actFilterNewWords');
 
 	// 點擊小三角形切換選單顯示
 	btnMenuToggle?.addEventListener('click', (e) => {
@@ -2693,6 +2694,11 @@ function switchLanguage(newLangKey) {
 		if (menuHanzi && !menuHanzi.contains(e.target) && !btnMenuToggle.contains(e.target)) {
 			menuHanzi.classList.add('hidden');
 		}
+	});
+
+	actFilterNewWords?.addEventListener('click', () => {
+		filterNewWords(); // 篩選函數
+		menuHanzi.classList.add('hidden');
 	});
 
 	// 取得新按鈕
@@ -2809,6 +2815,45 @@ function switchLanguage(newLangKey) {
 			//toast(`斷詞完成！(耗時 ${duration} 秒)`);
 
 		}, 20); // 延遲 20ms 啟動，確保 UI 不會卡死
+	}
+
+
+	// 篩選新詞核心函數�
+	function filterNewWords() {
+		const text = hanziInput.value;
+		const pinyinOutput = document.getElementById('pinyinInput');
+
+		// 1. 安全地獲取目前語言的資料庫
+		const map = window.pinyinMap || (typeof pinyinMap !== 'undefined' ? pinyinMap : null);
+
+		// 2. 基本防呆檢查
+		if (!text) {
+			toast('請先在漢字區輸入要篩選的詞彙（每行一詞）');
+			return;
+		}
+
+		if (!map || map.size === 0) {
+			toast('錯誤：語言資料庫尚未載入，無法比對。');
+			return;
+		}
+
+		// 3. 核心邏輯：清理空白 -> 去除重複 -> 比對字典
+		
+		// 步驟 A：將文字以斷行分割，去除每行首尾空白，並把空行過濾掉
+		const rawLines = text.split('\n')
+			.map(line => line.trim())
+			.filter(line => line.length > 0);
+			
+		// 步驟 B：利用 Set 的特性自動去除重複的詞彙，再轉回陣列
+		const uniqueWords = [...new Set(rawLines)]; 
+		
+		// 步驟 C：篩選出字典裡沒有的新詞
+		const newWords = uniqueWords.filter(word => !map.has(word));
+
+		// 4. 輸出結果到拼音區，並顯示提示
+		if (pinyinOutput) {
+			pinyinOutput.value = newWords.join('\n');
+		}
 	}
 
     // 加入拼音轉漢字的初始化與事件綁定：使用輪詢機制等待動態載入完成

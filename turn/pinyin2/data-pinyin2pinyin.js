@@ -4385,3 +4385,257 @@ function matsuRecombinePinyin(t) {
     });
     return resultLines.join('\n');
 }
+
+
+
+
+
+
+
+
+// ==========================================
+// 1. 詔安客語：本變字母調 處理器 (支援 5字以上 及 各式分隔符號)
+// ==========================================
+const kasuSandhiProcessor = (function() {
+    function parseSyllable(syl) {
+        if (!syl) return { base: '', tone: '', full: '' };
+        const match = syl.match(/^(.*?)([zvsxcf]?)$/i);
+        return { base: match[1], tone: match[2].toLowerCase(), full: syl };
+    }
+
+    function isAeioumng(base, tone) {
+        return tone === '' && /[aeioumng]$/i.test(base);
+    }
+
+    function applyTwoSyllableRule(s1, s2) {
+        const p1 = parseSyllable(s1);
+        const p2 = parseSyllable(s2);
+        let newS1 = s1;
+
+        if (isAeioumng(p1.base, p1.tone)) {
+            newS1 = (s1 === s2) ? s1 : s1 + 'f';
+        } else if (p1.tone === 'z') {
+            newS1 = p1.base + 'zc';
+        } else if (p1.tone === 'v') {
+            newS1 = (s1 === s2) ? p1.base + 'vc' : s1;
+        } else if (p1.tone === 's') {
+            newS1 = (s1 === s2) ? p1.base + 'sc' : p1.base + 'sf';
+        } else if (p1.tone === 'x') {
+            newS1 = (p2.tone === 'x') ? p1.base + 'xc' : p1.base + 'xv';
+        }
+        return [newS1, s2]; 
+    }
+
+    return function(text) {
+        if (!text || typeof text !== 'string') return '';
+
+        let processedText = text;
+        // 若含有字尾調符號則先轉字母調
+        if (/([ˊˇˋˆ⁺\^\+])/i.test(text)) {
+            processedText = typeof hakkaToneToZvs === 'function' ? hakkaToneToZvs(text) : text;
+        }
+
+        const lines = processedText.split('\n');
+        const resultLines = lines.map(line => {
+            // 【已修正】移除錯誤的反斜線 \] ，正確匹配空白、減號與等號
+            const parts = line.split(/([\s\-=]+)/);
+            const sylIndices = [];
+            
+            for (let i = 0; i < parts.length; i++) {
+                // 【已修正】同步修正這裡的正規表達式
+                if (!/^[\s\-=]+$/.test(parts[i]) && parts[i] !== '') {
+                    sylIndices.push(i);
+                }
+            }
+
+            let syls = sylIndices.map(idx => parts[idx]);
+            if (syls.length === 0) return line;
+
+            // 依據音節數量套用規則
+            if (syls.length === 2) {
+                syls = applyTwoSyllableRule(syls[0], syls[1]);
+            } else if (syls.length === 3) {
+                const p1 = parseSyllable(syls[0]), p2 = parseSyllable(syls[1]), p3 = parseSyllable(syls[2]);
+                if (syls[0] === syls[1] && syls[1] === syls[2]) {
+                    if (['z', 'v', 's', 'x'].includes(p1.tone)) syls[0] = p1.base + p1.tone + 'c';
+                    syls[1] = syls[1] + 'f';
+                } else if (p1.tone === 'x' && p2.tone === 'x' && p3.tone === 'x') {
+                    syls[0] = p1.base + 'xv'; syls[1] = p2.base + 'xc';
+                } else if (p1.tone === 'x' && p2.tone === 'x' && p3.tone !== 'x') {
+                    syls[0] = p1.base + 'xc'; syls[1] = p2.base + 'xv';
+                } else {
+                    syls[0] = applyTwoSyllableRule(syls[0], syls[1])[0];
+                    syls[1] = applyTwoSyllableRule(syls[1], syls[2])[0];
+                }
+            } else if (syls.length === 4) {
+                const pair1 = applyTwoSyllableRule(syls[0], syls[1]);
+                const pair2 = applyTwoSyllableRule(syls[2], syls[3]);
+                syls = [pair1[0], pair1[1], pair2[0], pair2[1]];
+            } else if (syls.length >= 5) {
+                // 5個字含以上，只有最後一個不變，其餘照2字詞變
+                for (let i = 0; i < syls.length - 1; i++) {
+                    syls[i] = applyTwoSyllableRule(syls[i], syls[i+1])[0];
+                }
+            }
+
+            for (let i = 0; i < sylIndices.length; i++) {
+                parts[sylIndices[i]] = syls[i];
+            }
+            return parts.join('');
+        });
+
+        return resultLines.join('\n');
+    };
+})();
+
+function kasuToneToSandhiZvs(t) { return kasuSandhiProcessor(t); }
+function kasuZvsToSandhiZvs(t) { return kasuSandhiProcessor(t); }
+
+// ==========================================
+// 2. 詔安客語：本變提取 (留本、留變、安變合音)
+// ==========================================
+
+// 本變字母調 轉 本調字母調 (詔安留本)
+function kasuSandhiToBaseZvs(t) {
+    if (!t) return '';
+    t = t.replace(/([aeioumngbdzvsxfc])(=)([a-z])/gi, '$1-$3');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])([zvsxc])([zvsxfc])/gi, '$1$2$3');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])([cf])/gi, '$1$2');
+    return t;
+}
+
+// 本變字母調 轉 變調字母調 (詔安留變)
+function kasuSandhiToChangeZvs(t) {
+    if (!t) return '';
+    t = t.replace(/([aeioumngbdzvsxfc])(=)([a-z])/gi, '$1-$3');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])([zvsxc])([zvsxfc])/gi, '$1$2$4');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])([c])/gi, '$1$2');
+    return t;
+}
+
+// 本變字母調 轉 合音字母調 (安變合音)
+function kasuSandhiToMergedZvs(t) {
+    if (!t) return '';
+    // 移植自 zxvToneToChangeOralFn
+    const kasuOral = `
+        taif-ciensf=haf-ngidzc\ttaif-cia-ngid
+        fanxv=heemsf-viens\tfanv-teemf-viens
+        cinv=gav-miv-gungv\tciangv-miv-gungv
+        ciensf=haf-ngidzc\tcia-ngid
+        cidzc=censf-teebz\tciens-teebz
+        cinv=gav-miv-pos\tciangv-miv-pos
+        cinv=gav-miv-mas\tciangv-miv-mas
+        losf-vuzc=zongv\tlof-vud-zongv
+        fixv=pienf-teus\tfenv-teus
+        chav=lienxv-pun\tchienv-pun
+        zoxv=ridzc=ha\tzua
+        lizv-ziazc=vi\tliv-zi
+        gazv-ziazc=vi\tgav-zi
+        zoxv=ridz-ha\tzoz-ha
+        nif-ziazc=vi\tnif-zi
+        duzc=hmzc-fe\tdung-fe
+        dedzc=nginsz\tdinz
+        dedzc=nginsf\tdinf
+        dedzc=ngaisz\tdaiz
+        dedzc=ngaisf\tdaif
+        cinv=gav-miv\tciangv-miv
+        dedzc=guisz\tduiz
+        zamxv=rensf\tzamv-menf
+        loisf=kuixf\tluif
+        dedzc=ngins\tdins
+        dedzc=ngais\tdais
+        dedzc=hensz\tdenz
+        dedzc=hensf\tdenf
+        dedzc=guisf\tduif
+        loisf=kuix\tluix
+        hef-mv=hef\thef-mv-mef
+        dedzc=hens\tdens
+        dedzc=guis\tduis
+        he-mv=hecv\the-mev
+        shixc=dux\tshid-dux
+        rinv=vuiv\tvinv-vuiv
+        libzc=pos\tli-pos
+        gixc=dov\tgiof
+        guanv=hev\tguanv-tev
+        he-mv=he\the-mv-me
+        fusf=lis\tfuif-lis
+        fusf=kis\tfuif-kis
+        buzc=cis\tbud-cis
+        cinv=gav\tciangv
+        gixv=haf\tgiaf
+        ziv=gav\tziav
+        mv=voif\tmv-moif
+        mf=hoxv\tmf-mov
+        m=hoxc\tmf-mo
+        mv=voi\tmv-moi
+        mv=hef\tmv-mef
+        mf=hox\tmf-mox
+        mv=he\tmv-me
+        vozc=gaix\tvais
+    `;
+    let mappings = kasuOral.trim().split('\n').map(line => {
+        let parts = line.split('\t');
+        return [parts[0].trim(), parts[1].trim()];
+    });
+    for (let [original, replacement] of mappings) {
+        let regex = new RegExp(original, 'g');
+        t = t.replace(regex, replacement);
+    }
+    
+    // 套用留變邏輯
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])([zvsxc])([zvsxfc])/gi, '$1$2$4');
+    t = t.replace(/([a-z]{0,4})([mngbdgaeiou])([c])/gi, '$1$2');
+    return t;
+}
+
+// ==========================================
+// 3. 詔安客語：教拼 與 簡拼 轉換處理器
+// ==========================================
+
+// 核心處理器：教拼轉簡拼 (rhoobbToROV)
+function kasuEduToSimp(t) {
+    if (!t) return '';
+    t = t.replace(/\b([bpfdtlgkhzcs]|bb|zh|ch|sh|rh)(oo)([czvsxf]\b|[ˇˋˊ⁺ˆ^]|\b)/gi, '$1o$3');
+    t = t.replace(/(\b)(bb)([aeiou])/gi, '$1v$3');
+    t = t.replace(/(\b)(rh)([aeiou])/gi, '$1r$3');
+    t = t.replace(/(\b)(o)([czvsxf]\b|[ˇˋˊ⁺ˆ^]|\b)/gi, '$1ȫ$3');
+    t = t.replace(/(\b)(oo)([czvsxf]\b|[ˇˋˊ⁺ˆ^]|\b)/gi, '$1o$3');
+    t = t.replace(/ȫ/g, 'oo');
+    return t;
+}
+
+// 核心處理器：簡拼轉教拼 (rovToRHOOBB)
+function kasuSimpToEdu(t) {
+    if (!t) return '';
+    t = t.replace(/\b(oo)([czvsxf]\b|[ˇˋˊ⁺ˆ^]|\b)/gi, 'ȫ$2');
+    t = t.replace(/\b(o)([czvsxf]\b|[ˇˋˊ⁺ˆ^]|\b)/gi, 'oo$2');
+    t = t.replace(/ȫ/g, 'o');
+    t = t.replace(/(rh)([aeiou])/gi, 'r$2');
+    t = t.replace(/(bb)([aeiou])/gi, 'v$2');
+    t = t.replace(/(v)([aeiou])/gi, 'bb$2');
+    t = t.replace(/(r)([aeiou])/gi, 'rh$2');
+    t = t.replace(/\b([bpfdtlgkhzcs]|bb|zh|ch|sh|rh)(o)([czvsxf]\b|[ˇˋˊ⁺ˆ^]|\b)/gi, '$1oo$3');
+    return t;
+}
+
+// 字尾調 轉 簡拼字母調
+function kasuToneToSimpZvs(t) {
+    let zvs = typeof hakkaToneToZvs === 'function' ? hakkaToneToZvs(t) : t;
+    return kasuEduToSimp(zvs);
+}
+
+// 字母調 轉 簡拼字母調
+function kasuZvsToSimpZvs(t) {
+    return kasuEduToSimp(t);
+}
+
+// 字尾調 轉 教拼字尾調
+function kasuToneToEduTone(t) {
+    return kasuSimpToEdu(t);
+}
+
+// 字母調 轉 教拼字尾調
+function kasuZvsToEduTone(t) {
+    let eduZvs = kasuSimpToEdu(t);
+    return typeof hakkaZvsToTone === 'function' ? hakkaZvsToTone(eduZvs) : eduZvs;
+}

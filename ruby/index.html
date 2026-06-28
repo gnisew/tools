@@ -149,11 +149,10 @@
 							<span class="material-symbols-outlined text-[18px] text-blue-600">arrow_downward</span> 
 							<span>漢字轉拼音</span>
 						</button>
-						
-						<!-- 按鈕 2 (預設隱藏) -->
-						<button id="actHanziToPinyinRaw" class="hidden w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors">
-							<span class="material-symbols-outlined text-[18px] text-teal-600">raw_on</span> 
-							<span>Bunxc-bienx</span>
+
+						<button id="btnSplitPinyin" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors" title="從括號拆分漢字與拼音">
+							<span class="material-symbols-outlined text-[18px] text-green-500">call_split</span>
+							拆分 字(音)
 						</button>
 
 						<button id="actHanziPinyinBracket" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors">
@@ -167,11 +166,18 @@
 							<span>空格分詞</span>
 						</button>
 
-
-						<button id="btnSplitPinyin" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors" title="從括號拆分漢字與拼音">
-							<span class="material-symbols-outlined text-[18px] text-green-500">call_split</span>
-							拆分 字(音)
+						<!-- 按鈕 2 (預設隱藏) -->
+						<button id="actHanziToPinyinRaw" class="hidden w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors">
+							<span class="material-symbols-outlined text-[18px] text-teal-600">raw_on</span> 
+							<span>Bunxc-bienx</span>
 						</button>
+
+						<button id="actFilterNewWords" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors" title="每行一個詞，比對字典篩選出新詞">
+							<span class="material-symbols-outlined text-[18px] text-indigo-500">filter_alt</span> 
+							<span>篩選新詞</span>
+						</button>
+
+
 
 					</div>
 

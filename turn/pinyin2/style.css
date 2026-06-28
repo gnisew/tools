@@ -634,3 +634,37 @@ body {
         padding: 16px;
     }
 }
+
+/* ========== 自訂常用取代選單 ========== */
+.quick-replace-menu {
+    position: absolute;
+    bottom: 100%;       /* 讓選單向上彈出 */
+    right: 0;
+    margin-bottom: 8px; /* 與按鈕保持一點距離 */
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    list-style: none;
+    padding: 8px 0;
+    min-width: 130px;
+    display: none;      /* 預設隱藏 */
+    z-index: 100;
+}
+
+.quick-replace-menu.show {
+    display: block;     /* 加上 .show 時顯示 */
+}
+
+.quick-replace-menu li {
+    padding: 8px 16px;
+    font-size: 14px;
+    color: #3c4043;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    white-space: nowrap;
+}
+
+.quick-replace-menu li:hover {
+    background: #f1f3f4;
+}

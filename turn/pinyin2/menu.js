@@ -147,6 +147,15 @@ const langKasu = `
 字中調	字尾調	hakkaLetterTone	á ǎ à â ā	aˊ aˇ aˋ aˆ a⁺
 字中調	字母調	hakkaLetterZvs	á ǎ à â ā	az av as ax af
 詞彙本調	詞彙變調	kasuPinyinChange	kaˊ su	ka su
+字尾調	本變字母調	kasuToneToSandhiZvs	gudz teus	gudzc teus
+字母調	本變字母調	kasuZvsToSandhiZvs	gudz teus	gudzc teus
+本變字母調	本調字母調	kasuSandhiToBaseZvs	gudzc teus	gudz teus
+本變字母調	變調字母調	kasuSandhiToChangeZvs	gudzc teus	gudc teus
+本變字母調	合音字母調	kasuSandhiToMergedZvs	vozc=gaix	vais
+字尾調	簡拼字母調	kasuToneToSimpZvs	looˊ	loz
+字母調	簡拼字母調	kasuZvsToSimpZvs	looz	loz
+字尾調	教拼字尾調	kasuToneToEduTone	loˊ	looˊ
+字母調	教拼字尾調	kasuZvsToEduTone	loz	looˊ
 `;
 
 

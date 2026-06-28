@@ -962,3 +962,68 @@ if (document.readyState === 'loading') {
 } else {
     init();
 }
+
+
+
+
+
+// ==========================================
+// 輸入框：常用取代功能
+// ==========================================
+
+// 控制選單的展開與收合
+function toggleQuickReplaceMenu(event) {
+    if (event) event.stopPropagation(); // 阻止事件冒泡，避免點擊圖示時立刻觸發 document 點擊事件
+    const menu = document.getElementById('quickReplaceMenu');
+    if (menu) {
+        menu.classList.toggle('show');
+    }
+}
+
+// 點擊畫面其他地方時，自動關閉選單
+document.addEventListener('click', function(event) {
+    const menu = document.getElementById('quickReplaceMenu');
+    const container = event.target.closest('.quick-replace-container');
+    // 如果點擊的不是這個選單容器本身，就隱藏它
+    if (menu && menu.classList.contains('show') && !container) {
+        menu.classList.remove('show');
+    }
+});
+
+// 執行對應的原地替換邏輯
+function executeQuickReplace(action) {
+    const inputEl = document.getElementById('inputText');
+    if (!inputEl) return;
+
+    let text = inputEl.value;
+    if (!text) {
+        toggleQuickReplaceMenu(); // 沒有文字時，純粹關閉選單就好
+        return;
+    }
+
+    // 根據選擇的項目執行取代
+    switch(action) {
+        case 'spaceToDash':
+            text = text.replace(/[  \t]+/g, '-');
+            break;
+        case 'dashToSpace':
+            text = text.replace(/-+/g, ' ');
+            break;
+        case 'spaceToUnderscore':
+            text = text.replace(/[  \t]+/g, '_');
+            break;
+        case 'underscoreToSpace':
+            text = text.replace(/_+/g, ' ');
+            break;
+    }
+
+    inputEl.value = text;
+    
+    // 關閉選單
+    const menu = document.getElementById('quickReplaceMenu');
+    if (menu) menu.classList.remove('show');
+
+    // 觸發即時轉換與行號更新
+    if (typeof handleInput === 'function') handleInput();
+    if (typeof updateLineNumbers === 'function') updateLineNumbers('input');
+}

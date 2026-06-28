@@ -120,6 +120,20 @@ const htmlData = `
                         <button class="icon-btn convert-btn" onclick="convertText()" id="convertBtn" style="display: none;" title="轉換">
                             <i class="fas fa-arrow-right"></i>
                         </button>
+                        
+                        <!-- 新增：自訂常用取代選單容器 (放置於右下角) -->
+                        <div class="quick-replace-container" style="position: absolute; bottom: 12px; right: 10px; z-index: 20;">
+                            <button class="icon-btn" onclick="toggleQuickReplaceMenu(event)" style="position: relative; top: auto; right: auto; bottom: auto; left: auto;" title="常用取代">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                            <ul id="quickReplaceMenu" class="quick-replace-menu">
+                                <li onclick="executeQuickReplace('spaceToDash')">空格 ➔ -</li>
+                                <li onclick="executeQuickReplace('dashToSpace')">- ➔ 空格</li>
+                                <li onclick="executeQuickReplace('spaceToUnderscore')">空格 ➔ _</li>
+                                <li onclick="executeQuickReplace('underscoreToSpace')">_ ➔ 空格</li>
+                            </ul>
+                        </div>
+                        
                     </div>
                 </div>
 
