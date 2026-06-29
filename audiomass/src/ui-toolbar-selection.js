@@ -1,7 +1,7 @@
 (function ( w, d, PKAE ) {
 	'use strict';
 
-	function _toolbarSelection ( UI, app, btn_clear_selection ) {
+	function _toolbarSelection ( UI, app, btn_clear_selection, copy_btn, cut_btn ) {
 		var t = PKLocale.t;
 		var selection = d.createElement( 'div' );
 		selection.className = 'pk_selection';

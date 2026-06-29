@@ -58,8 +58,12 @@
 		btn_clear_selection.className = 'pk_btn icon-clearsel pk_inact';
 		btn_clear_selection.innerHTML = '<span>' + t('toolbar.clear_sel') + '</span>';
 		btn_clear_selection.onclick = function () { UI.fireEvent( 'RequestRegionClear'); this.blur (); };
-
-		return { actions: actions, btn_clear_selection: btn_clear_selection };
+		return { 
+			actions: actions, 
+			btn_clear_selection: btn_clear_selection,
+			copy_btn: copy_btn,
+			cut_btn: cut_btn
+		};
 	}
 
 	PKAE._deps._toolbarActions = _toolbarActions;

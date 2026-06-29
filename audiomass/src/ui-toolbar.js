@@ -319,7 +319,7 @@
 		}
 
 		// Selection
-		var selection = PKAE._deps._toolbarSelection ( UI, app, btn_clear_selection );
+		var selection = PKAE._deps._toolbarSelection ( UI, app, btn_clear_selection, actResult.copy_btn, actResult.cut_btn );
 
 		// Assembly
 		toolbar.appendChild ( timingResult.timing );
