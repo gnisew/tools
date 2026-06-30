@@ -6551,6 +6551,24 @@ function applyTextTool(action) {
     }else if (action === 'lowercase') {
         // 原生 toLowerCase 已完美支援 Unicode 拼音與擴充字元
         newText = textToProcess.toLowerCase();
+
+	} else if (action === 'number-superscript') {
+        // 數字轉上標：利用對照表，將所有文字中的數字 (0-9) 替換為上標字元
+        const superMap = {'0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹'};
+        newText = textToProcess.replace(/[0-9]/g, match => superMap[match]);
+        
+    } else if (action === 'pinyin-superscript') {
+        // 拼音尾數轉上標：利用 \p{Script=Latin} 和 \p{M} 匹配拉丁字母(含國際音標)與聲調符號，後方緊接數字時才進行轉換
+        const superMap = {'0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹'};
+        newText = textToProcess.replace(/([\p{Script=Latin}\p{M}]+)([0-9]+)/gu, (match, letters, digits) => {
+            const superDigits = digits.split('').map(d => superMap[d]).join('');
+            return letters + superDigits;
+        });
+
+    } else if (action === 'remove-superscript') {
+        // 取消上標：將所有上標字元還原為一般數字
+        const normalMap = {'⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9'};
+        newText = textToProcess.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, match => normalMap[match]);
     
     }else if (action === 'uppercase') {
         // 原生 toUpperCase 已完美支援 Unicode 拼音與擴充字元
@@ -6611,6 +6629,9 @@ function applyTextTool(action) {
         'remove-dup': '重複行已移除', 'remove-empty': '空行已移除', 'trim-space': '首尾空格已移除',
 		'remove-trailing-empty': '文末空行已乾淨移除',
         'capitalize': '句首已大寫', 'lowercase': '已轉為小寫', 'uppercase': '已轉為大寫',
+		'number-superscript': '已將數字轉為上標',
+        'pinyin-superscript': '已將拼音尾數轉為上標',
+        'remove-superscript': '已取消數字上標',
 		'to-fullwidth': '已轉為全形', 'to-halfwidth': '已轉為半形',
 		'line-char-count': '已計算並輸出每行字數',
 		'base64-encode': '已編碼為 Base64',
@@ -6632,6 +6653,9 @@ const textTools = [
     { id: 'btnCapitalize', action: 'capitalize' },
     { id: 'btnLowercase', action: 'lowercase' },
     { id: 'btnUppercase', action: 'uppercase' },
+	{ id: 'btnNumberSuperscript', action: 'number-superscript' },
+	{ id: 'btnPinyinSuperscript', action: 'pinyin-superscript' },
+	{ id: 'btnRemoveSuperscript', action: 'remove-superscript' },
 	{ id: 'btnToFullWidth', action: 'to-fullwidth' },
     { id: 'btnToHalfWidth', action: 'to-halfwidth' },
 	{ id: 'btnLineCharCount', action: 'line-char-count' },
