@@ -2802,9 +2802,10 @@ document.addEventListener('paste', (e) => {
     const isCellEditor = activeEl && activeEl.id === 'cellEditor';
     const isInsideTdInner = activeEl && activeEl.classList.contains('td-inner');
     const isMainEditor = activeEl && activeEl.id === 'editor';
+    
+    const isFindReplaceModal = activeEl && activeEl.closest('#findReplaceModal') !== null;
 
-    // 如果焦點在其他輸入框 (例如：尋找與取代輸入框)，不攔截，放行原生貼上
-    if (isInput && !isCellEditor && !isMainEditor) return;
+    if ((isInput && !isCellEditor && !isMainEditor) || isFindReplaceModal) return;
 
     const rawText = (e.originalEvent || e).clipboardData.getData('text/plain');
     if (!rawText) return;
@@ -7794,18 +7795,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (results.length === 0 && mapForward.has(word)) {
                             results.push(mapForward.get(word).split(/[\s、，,]+/)[0]);
                         }
-                    } else if (actionMode === 'all') {
-                        // 所有符合：掃描反向字典取得完整對應清單 (保留資料庫原始優先順序)
-                        for (let [k, v] of mapBackward.entries()) {
-                            if (v === word || v.split(/[\s、，,]+/).includes(word)) {
-                                results.push(...k.split(/[\s、，,]+/));
-                            }
-                        }
-                        // 補上正向字典中可能的遺漏
-                        if (mapForward.has(word)) {
-                            results.push(...mapForward.get(word).split(/[\s、，,]+/));
-                        }
-                    } else if (actionMode === 'fuzzy') {
+
+
+					} else if (actionMode === 'all') {
+						for (let [k, v] of mapBackward.entries()) {
+							if (v === word || (v.includes(word) && v.split(/[\s、，,]+/).includes(word))) {
+								results.push(...k.split(/[\s、，,]+/));
+							}
+						}
+						if (mapForward.has(word)) {
+							results.push(...mapForward.get(word).split(/[\s、，,]+/));
+						}
+					} else if (actionMode === 'fuzzy') {
                         // 模糊符合
                         for (let [k, v] of mapBackward.entries()) {
                             if (v.includes(word) || word.includes(v)) {
@@ -9463,16 +9464,30 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     batchTableBody.addEventListener('paste', (e) => {
-        e.preventDefault();
-        const text = (e.originalEvent || e).clipboardData.getData('text/plain');
-        if (!text) return;
-        
-        // Excel 複製出來的資料必定是以 \t (欄) 和 \n (列) 分隔
-        const rows = text.split(/\r?\n/);
-        const activeTd = document.activeElement.closest('td');
-        if (!activeTd || !batchTableBody.contains(activeTd)) return;
+    e.preventDefault();
+    const text = (e.originalEvent || e).clipboardData.getData('text/plain');
+    if (!text) return;
 
-        const startTr = activeTd.closest('tr');
+    // Excel 複製出來的資料必定是以 \t (欄) 和 \n (列) 分隔
+    const rows = text.split(/\r?\n/);
+    const activeTd = document.activeElement.closest('td');
+    if (!activeTd || !batchTableBody.contains(activeTd)) return;
+
+    const isMultiCell = text.includes('\t') || (rows.length > 1 && !(rows.length === 2 && rows[1] === ''));
+    
+    if (!isMultiCell) {
+        // 消除從 Excel 單格複製時，尾端可能附帶的隱形換行符號
+        let insertTextStr = text;
+        if (insertTextStr.endsWith('\n')) insertTextStr = insertTextStr.slice(0, -1);
+        if (insertTextStr.endsWith('\r')) insertTextStr = insertTextStr.slice(0, -1);
+        
+        // 使用 insertText 讓文字安插在游標目前的位置
+        document.execCommand('insertText', false, insertTextStr);
+        syncTableToTextarea();
+        return; // 提早結束，不執行下方的表格擴充邏輯
+    }
+
+    const startTr = activeTd.closest('tr');
         let startRowIdx = Array.from(batchTableBody.children).indexOf(startTr);
         let startColIdx = Array.from(startTr.children).indexOf(activeTd);
 
