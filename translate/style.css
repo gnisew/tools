@@ -590,8 +590,13 @@ textarea#textOutput {
         gap: 0.5rem; /* 縮小標題與按鈕的間距 */
     }
 
-    header h1 {
+	header h1 {
         font-size: 1.25rem;
+        text-align: left;        /* 1. 將標題改為靠左對齊 */
+        margin-left: 0.5rem;     /* 2. 與左側漢堡選單保持適當間距 */
+        white-space: nowrap;     /* 3. 強制文字不換行 */
+        overflow: hidden;        /* 4. 隱藏超出範圍的文字 */
+        text-overflow: ellipsis; /* 5. 若空間不夠，用省略號 (...) 顯示 */
     }
 
 	.header-group {
@@ -943,9 +948,11 @@ body.search-mode .search-wrapper {
         gap: 0.5rem;
     }
     
-    #searchInput {
+	#searchInput {
         padding: 0.6rem 1rem;
         font-size: 1rem;
+        min-width: 0;
+        width: 100%;
     }
     
     .search-action-btn {
