@@ -13557,3 +13557,63 @@ async function adminCleanupOldShares() {
         }
     });
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ==========================================
+// 行動版：鍵盤高度校正與對話介面優化模組
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    const sheetTabBar = document.getElementById('sheetTabBar');
+    const chatInput = document.getElementById('chatInput');
+
+    // 1. 解決手機版鍵盤彈出時，下方產生不必要空白的 Bug
+    if (window.visualViewport) {
+        const adjustViewport = () => {
+            // 將 body 的高度嚴格鎖定為扣除鍵盤後的「真實可視高度」
+            document.body.style.height = `${window.visualViewport.height}px`;
+            
+            // 強制重置瀏覽器的捲動偏移量，把被往上推的畫面拉回來，消除底部白邊
+            window.scrollTo(0, 0);
+            document.documentElement.scrollTop = 0;
+        };
+
+        // 當視窗大小改變 (鍵盤彈出/收起) 或發生滾動時，即時校正
+        window.visualViewport.addEventListener('resize', adjustViewport);
+        window.visualViewport.addEventListener('scroll', adjustViewport);
+        
+        // 初始化時先執行一次
+        adjustViewport();
+    }
+
+    // 2. UX 優化：打字時自動隱藏底部工作表頁籤 (達成第二張圖的乾淨版面)
+    if (chatInput && sheetTabBar) {
+        chatInput.addEventListener('focus', () => {
+            // 僅在手機版尺寸 (寬度 <= 768px) 時觸發
+            if (window.innerWidth <= 768) {
+                sheetTabBar.style.display = 'none';
+            }
+        });
+        
+        chatInput.addEventListener('blur', () => {
+            // 失去焦點 (鍵盤收起) 時，恢復顯示工作表頁籤
+            sheetTabBar.style.display = '';
+        });
+    }
+});
