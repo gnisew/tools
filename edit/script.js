@@ -13577,43 +13577,71 @@ async function adminCleanupOldShares() {
 
 
 // ==========================================
-// 行動版：鍵盤高度校正與對話介面優化模組
+// 行動版：鍵盤高度校正與對話介面
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     const sheetTabBar = document.getElementById('sheetTabBar');
     const chatInput = document.getElementById('chatInput');
 
-    // 1. 解決手機版鍵盤彈出時，下方產生不必要空白的 Bug
     if (window.visualViewport) {
         const adjustViewport = () => {
-            // 將 body 的高度嚴格鎖定為扣除鍵盤後的「真實可視高度」
-            document.body.style.height = `${window.visualViewport.height}px`;
-            
-            // 強制重置瀏覽器的捲動偏移量，把被往上推的畫面拉回來，消除底部白邊
-            window.scrollTo(0, 0);
-            document.documentElement.scrollTop = 0;
+            // 使用 requestAnimationFrame 讓程式「等一下」，確保抓到的是鍵盤完全彈出後的最終高度
+            requestAnimationFrame(() => {
+                const vv = window.visualViewport;
+                
+                // 1. 將 body 高度嚴格設定為真正的可視高度
+                document.body.style.height = `${vv.height}px`;
+                
+                // 2. 修正 Safari/Chrome 鍵盤彈出時的視窗推擠位移
+                if (vv.offsetTop > 0) {
+                    // 若瀏覽器將畫面往上推，我們強制利用 transform 將畫面往下補齊差距
+                    document.body.style.transform = `translateY(${vv.offsetTop}px)`;
+                } else {
+                    document.body.style.transform = `translateY(0px)`;
+                }
+                
+                // 3. 強制歸零捲動軸
+                window.scrollTo(0, 0);
+            });
         };
 
         // 當視窗大小改變 (鍵盤彈出/收起) 或發生滾動時，即時校正
         window.visualViewport.addEventListener('resize', adjustViewport);
         window.visualViewport.addEventListener('scroll', adjustViewport);
         
-        // 初始化時先執行一次
+        // 初始執行
         adjustViewport();
     }
 
-    // 2. UX 優化：打字時自動隱藏底部工作表頁籤 (達成第二張圖的乾淨版面)
+    // UX 優化：打字時自動隱藏底部工作表頁籤，並鎖定畫面
     if (chatInput && sheetTabBar) {
         chatInput.addEventListener('focus', () => {
-            // 僅在手機版尺寸 (寬度 <= 768px) 時觸發
             if (window.innerWidth <= 768) {
+                // 隱藏頁籤
                 sheetTabBar.style.display = 'none';
+                
+                // 關鍵修正：鎖定 body 位置，避免原生瀏覽器預設的彈性推擠干擾
+                document.body.style.position = 'fixed';
+                document.body.style.top = '0';
+                document.body.style.left = '0';
+                document.body.style.width = '100%';
+                
+                // 主動觸發一次視窗校正
+                if (window.visualViewport) {
+                    window.visualViewport.dispatchEvent(new Event('resize'));
+                }
             }
         });
         
         chatInput.addEventListener('blur', () => {
-            // 失去焦點 (鍵盤收起) 時，恢復顯示工作表頁籤
+            // 失去焦點 (收起鍵盤) 時，恢復所有預設狀態
             sheetTabBar.style.display = '';
+            document.body.style.position = '';
+            document.body.style.top = '';
+            document.body.style.left = '';
+            document.body.style.width = '';
+            document.body.style.height = '100dvh'; // 恢復使用 dvh
+            document.body.style.transform = '';
         });
     }
 });
