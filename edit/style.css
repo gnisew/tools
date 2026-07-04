@@ -625,7 +625,9 @@ body.full-width-mode .editor-wrapper {
 #chatModeContainer:not(.show-delete) .chat-btn-delete {
     display: none !important;
 }
-
+#chatModeContainer:focus-within ~ #sheetTabBar {
+    display: none !important;
+}
 
 /* ================= 極致滿版 (Zen Mode) ================= */
 body.maximized-mode {

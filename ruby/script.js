@@ -1325,166 +1325,115 @@ function closeWordEditor() {
 
 
 /**
- * 「詞彙」編輯器
- * @param {HTMLElement} wordUnitEl - 被點擊的 .word-unit <span> 元素
+ * 詔安拼音格式化函數：將字典原始格式轉為使用者顯示格式
  */
-function showWordEditor(rubyEl, hIndex, wordIndex) {
-    closeWordEditor(); 
+/**
+ * 修正後的詔安拼音格式化函數
+ */
+function formatKasuPinyin(py) {
+    if (typeof zxvToTone !== 'function') return py;
+    
+    // 1. 先處理聲調符號轉換 (zxvToTone)
+    let t = zxvToTone(py);
+    
+    // 2. 處理特殊的變形規則
+    // 修正：使用更精準的 Regex，保護前面的聲母不被誤觸
+    return t
+        // 修正零聲母變形：只針對獨立的 o 進行處理，不吃掉前面的聲母
+        .replace(/\b([bpfvdtlgkhzcs]|zh|ch|sh|rh|bb)o([zvsx]?)\b/gi, (match, p1, p2) => {
+            // 如果前面有聲母(p1)，只將後面的 o 變為 oo
+            return p1 + 'oo' + p2;
+        })
+        .replace(/\bo([zvsx]?)\b/gi, (match, p1) => {
+            // 如果是獨立的 o，變為 oo
+            return 'oo' + p1;
+        })
+        // 其餘規則保持不變
+        .replace(/(\b)(r)([aeiou])/g, '$1rh$3')
+        .replace(/(\b)(v)([aeiou])/g, '$1bb$3')
+        .replace(/(\b)(ji)/g, '$1zi')
+        .replace(/(\b)(qi)/g, '$1ci')
+        .replace(/(\b)(xi)/g, '$1si');
+}
 
-    // 1. 取得乾淨的漢字
-    let originalHanzi = rubyEl.querySelector('rb')?.textContent || '';
-    const cleanerRegex = window.regexBpmTiny || /[-]/g;
-    originalHanzi = originalHanzi.replace(new RegExp(cleanerRegex, 'g'), '');
-
-    // 2. 取得拼音 (dataset 或 rt 內容)
-    const originalPinyin = rubyEl.dataset.pinyin || rubyEl.querySelector('rt')?.textContent || '';
-
-    const editor = document.createElement('div');
-    editor.className = 'word-editor';
-    editor.style.position = 'absolute';
-    editor.style.zIndex = '50'; // 同樣設定 50 即可
-
-    editor.innerHTML = `
-        <div class="space-y-2">
-            <input type="text" class="ed-h-word" value="${escapeAttr(originalHanzi)}" placeholder="字" spellcheck="false" autocorrect="off" autocapitalize="off">
-            <input type="text" class="ed-p-word" value="${escapeAttr(originalPinyin)}" placeholder="音" spellcheck="false" autocorrect="off" autocapitalize="off">
-        </div>
-        <div class="actions">
-            ${createToneConverterHTML()} 
-            <button type="button" class="btn cancel">取消</button>
-            <button type="button" class="btn save">儲存</button>
-        </div>
-    `;
-
-    // ⬇️ 【核心修改】：改掛載到結果渲染區，並將該區域宣告為相對定位基準
-    const container = document.getElementById('resultArea');
-    container.style.position = 'relative'; 
-    container.appendChild(editor);
-
-    // ⬇️ 【智慧座標】：計算單字相對於結果區的精準距離，並補上滾動條的高度量
-    const rect = rubyEl.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
-    editor.style.left = `${rect.left - containerRect.left + container.scrollLeft}px`;
-    editor.style.top = `${rect.bottom - containerRect.top + container.scrollTop + 8}px`;
-
-    const pinyinField = editor.querySelector('.ed-p-word');
-    pinyinField.focus();
-
-    editor.querySelector('.cancel').addEventListener('click', (e) => {
-        e.stopPropagation();
-        closeWordEditor();
-    });
-
-    // 儲存邏輯
-
-    // 儲存邏輯
-    editor.querySelector('.save').addEventListener('click', (e) => {
-        e.stopPropagation();
-        const newHanzi = editor.querySelector('.ed-h-word').value;
-        const newPinyin = pinyinField.value.trim();
-
-        // 1. 更新 word-unit 元素的 dataset
-        wordUnitEl.dataset.hanzi = newHanzi;
-        wordUnitEl.dataset.pinyin = newPinyin;
-
-        // 2. 重新生成內部 HTML
-        const hanziChars = toCharArray(newHanzi);
-        const pinyinSyls = newPinyin.split(/--?|=/);
-        let newInnerHTML = '';
-        const len = Math.max(hanziChars.length, pinyinSyls.length);
-
-        for (let i = 0; i < len; i++) {
-            const h = hanziChars[i] || '';
-            const p = pinyinSyls[i] || '';
-            
-            // 【關鍵修改】：若在雙顯模式，要在這裡生成 rb 內容
-            let rbContent = h;
-            if (phoneticDisplayMode === 'pinyin-zhuyin' && typeof kasuPinyinBpmTiny === 'function') {
-                rbContent += kasuPinyinBpmTiny(p);
-            }
-            
-            // 注意：rt 的顯示也要符合當前模式
-            // 由於 getDisplayText 是在 alignByClauses 內部定義的，這裡無法直接呼叫
-            // 但我們可以簡單判斷：如果是 kasu，詞彙編輯器通常是輸入拼音，所以顯示拼音即可
-            // 若需要嚴謹，可以把 getDisplayText 移到全域，或在這裡複製一份邏輯
-            // 這裡假設直接顯示拼音 (符合使用者編輯時的需求)
-            newInnerHTML += `
-                <ruby class="glyph">
-                    <rt>${p}</rt>
-                    <rb>${rbContent}</rb>
-                </ruby>
-            `;
+// 取得漢字的多音字列表輔助函數
+// 1. 修改查找函數，將轉換工作交給 formatKasuPinyin
+function getPronunciationsForHanzi(hanzi) {
+    if (!hanzi || typeof dictionaries === 'undefined' || !dictionaries[currentLanguageKey]) return [];
+    
+    const dict = dictionaries[currentLanguageKey];
+    const results = new Set();
+    
+    for (const pinyin in dict) {
+        if (dict[pinyin].split(' ').includes(hanzi)) {
+            results.add(pinyin); // 存入原始格式，供邏輯運算
         }
-        wordUnitEl.innerHTML = newInnerHTML;
-
-        // 3. 從結果回寫 (Logic Copy from showWordEditor with Cleaner)
-        const hanziParts = [];
-        const pinyinParts = [];
-        const lineWrap = resultArea.querySelector('.line-wrap');
-        const cleanerRegex = window.regexBpmTiny || /[-]/g; // 清除器
-
-        if (lineWrap) {
-            lineWrap.childNodes.forEach(node => {
-                if (node.nodeName === 'BR') {
-                    hanziParts.push('\n');
-                    pinyinParts.push('\n');
-                } else if (node.classList && node.classList.contains('clause')) {
-                    node.childNodes.forEach(glyphNode => {
-                        // 處理 word-unit
-                        if (glyphNode.classList && glyphNode.classList.contains('word-unit')) {
-                            // word-unit 的 dataset 應該是乾淨的，直接用 dataset 比較安全
-                            hanziParts.push(glyphNode.dataset.hanzi);
-                            pinyinParts.push(glyphNode.dataset.pinyin);
-                        } 
-                        // 處理普通 ruby
-                        else if (glyphNode.nodeName === 'RUBY') {
-                            let hanzi = glyphNode.querySelector('rb')?.textContent || '';
-                            const pinyin = glyphNode.querySelector('rt')?.textContent || '';
-                            
-                            // 【關鍵清除】
-                            hanzi = hanzi.replace(new RegExp(cleanerRegex, 'g'), '');
-
-                            if (hanzi) hanziParts.push(hanzi);
-                            if (pinyin) pinyinParts.push(pinyin);
-                        } 
-                        // ... 其他類型 (span, punct) 處理同上 ...
-                        else if (glyphNode.classList && glyphNode.classList.contains('punct')) {
-                            const punct = glyphNode.textContent || '';
-                            hanziParts.push(punct);
-                            pinyinParts.push(punct);
-                        } else if (glyphNode.nodeName === 'SPAN' && glyphNode.classList.contains('glyph')) {
-                            const token = glyphNode.textContent || '';
-                            if (token) {
-                                hanziParts.push(token);
-                                pinyinParts.push(token);
-                            }
-                        }
-                    });
-                }
-            });
-        }
-        
-        // ... (後續回填 input 與 render 邏輯不變) ...
-        const finalHanziText = hanziParts.join('');
-        
-        let finalPinyinText = pinyinParts.join(' ');
-        // 處理右側標點 (前面不留白)
-        finalPinyinText = finalPinyinText.replace(/\s+([,.;:!?，。、；：！？）」』】〕>])/g, '$1');
-        // 處理左側標點 (後面不留白)
-        finalPinyinText = finalPinyinText.replace(/([（「『【〔<])\s+/g, '$1');
-        // 清除多餘連續空格與換行旁的空格
-        finalPinyinText = finalPinyinText.replace(/ +/g, ' ').replace(/ \n /g, '\n').replace(/\n /g, '\n').replace(/ \n/g, '\n').trim();
-        
-        hanziInput.value = finalHanziText;
-        pinyinInput.value = finalPinyinText;
-
-        closeWordEditor();
-        render();
-        toast('詞彙內容已更新');
-    });
+    }
+    return Array.from(results);
 }
 
 
+
+
+/**
+ * 根據輸入的拼音查詢同音字列表（已包含自動去重功能與格式轉換）
+ * @param {string} rawPinyin - 使用者在輸入框目前的拼音
+ * @returns {string[]} 不含重複字的漢字陣列
+ */
+function getHanziListForPinyin(rawPinyin) {
+    if (!rawPinyin || typeof dictionaries === 'undefined' || !dictionaries[currentLanguageKey]) {
+        return [];
+    }
+    
+    const dict = dictionaries[currentLanguageKey];
+    let py = rawPinyin.trim().toLowerCase();
+    
+    // 1. 先嘗試直接查字典
+    let matchedHanziStr = dict[py];
+    
+    // 2. 如果沒找到，進行「拼音格式逆向轉換」後再查字典
+    if (!matchedHanziStr) {
+        let convertedPy = py;
+        
+        // 將調號（ˊˇˋˆ⁺）轉換為字母調 ZVS 格式
+        if (typeof hakkaToneToZvs === 'function') {
+            convertedPy = hakkaToneToZvs(convertedPy);
+        }
+        
+        // 針對詔安 (kasu) 等特殊語言的逆向格式還原
+        if (currentLanguageKey === 'kasu') {
+            convertedPy = convertedPy
+                .replace(/([bpfvdtlgkhzcsi])oo([zvsx]?)\b/g, '$1o$2')
+                .replace(/(\b)(rh)([aeiou])/g, '$1r$3')
+                .replace(/(\b)(bb)([aeiou])/g, '$1v$3')
+                .replace(/(\b)(ji)/g, '$1zi')
+                .replace(/(\b)(qi)/g, '$1ci')
+                .replace(/(\b)(xi)/g, '$1si');
+        } else if (currentLanguageKey === 'holo' || currentLanguageKey === 'jinmen') {
+            if (typeof holoPojToTailo === 'function') convertedPy = holoPojToTailo(convertedPy);
+            if (typeof holoPinyinZvs === 'function') convertedPy = holoPinyinZvs(convertedPy);
+        } else if (currentLanguageKey === 'matsu') {
+            if (typeof matsuPinyinZvs === 'function') convertedPy = matsuPinyinZvs(convertedPy);
+        }
+        
+        matchedHanziStr = dict[convertedPy];
+    }
+    
+    // 3. 【去重核心修改】將切開的字元陣列送入 Set 自動移除重複字，再轉回陣列
+    if (matchedHanziStr) {
+        const rawList = matchedHanziStr.split(/\s+/).filter(Boolean);
+        return [...new Set(rawList)];
+    }
+    
+    return [];
+}
+
+
+/**
+ * 「詞彙」編輯器
+ * @param {HTMLElement} wordUnitEl - 被點擊的 .word-unit <span> 元素
+ */
+
 function showWordEditor(rubyEl, hIndex, wordIndex) {
     closeWordEditor(); 
 
@@ -1493,7 +1442,7 @@ function showWordEditor(rubyEl, hIndex, wordIndex) {
     const cleanerRegex = window.regexBpmTiny || /[-]/g;
     originalHanzi = originalHanzi.replace(new RegExp(cleanerRegex, 'g'), '');
 
-    // 2. 取得拼音 (dataset 或 rt 內容)
+    // 2. 取得拼音
     const originalPinyin = rubyEl.dataset.pinyin || rubyEl.querySelector('rt')?.textContent || '';
 
     const editor = document.createElement('div');
@@ -1501,10 +1450,36 @@ function showWordEditor(rubyEl, hIndex, wordIndex) {
     editor.style.position = 'absolute';
     editor.style.zIndex = '10';
 
+    // ⬇️ 修改：漢字區與拼音區雙雙加入 relative 容器與下拉選單按鈕
     editor.innerHTML = `
-        <div class="space-y-2">
-            <input type="text" class="ed-h-word" value="${escapeAttr(originalHanzi)}" placeholder="字" spellcheck="false" autocorrect="off" autocapitalize="off">
-            <input type="text" class="ed-p-word" value="${escapeAttr(originalPinyin)}" placeholder="音" spellcheck="false" autocorrect="off" autocapitalize="off">
+        <div class="flex items-center gap-2 mb-2">
+            <!-- 漢字輸入框容器 -->
+            <div class="relative flex w-24">
+                <input type="text" class="ed-h-word w-full px-2 py-1.5 border border-slate-300 rounded pr-6 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" value="${escapeAttr(originalHanzi)}" placeholder="字" spellcheck="false" autocorrect="off" autocapitalize="off">
+                
+                <!-- 漢字展開同音字按鈕 -->
+                <button type="button" class="btn-hanzi-dropdown absolute right-0 inset-y-0 my-auto flex items-center justify-center px-1.5 text-slate-400 hover:text-slate-600 transition-colors" title="展開同音字">
+                    <span class="material-symbols-outlined text-[18px]">expand_more</span>
+                </button>
+                
+                <!-- 同音字下拉選單容器 -->
+                <div class="hanzi-options-menu hidden absolute top-full left-0 mt-1 w-44 bg-white border border-slate-200 shadow-lg rounded-md z-[100] max-h-36 overflow-y-auto p-1">
+                </div>
+            </div>
+            
+            <!-- 拼音輸入框容器 -->
+            <div class="relative flex flex-1">
+                <input type="text" class="ed-p-word w-full px-2 py-1.5 border border-slate-300 rounded pr-8 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" value="${escapeAttr(originalPinyin)}" placeholder="音" spellcheck="false" autocorrect="off" autocapitalize="off">
+                
+                <!-- 拼音多音字下拉按鈕 -->
+                <button type="button" class="btn-pinyin-dropdown absolute right-0 inset-y-0 my-auto flex items-center justify-center px-2 text-slate-400 hover:text-slate-600 transition-colors" title="展開多音字">
+                    <span class="material-symbols-outlined text-[18px]">expand_more</span>
+                </button>
+                
+                <!-- 多音字下拉選單容器 -->
+                <div class="pinyin-options-menu hidden absolute top-full right-0 left-0 mt-1 bg-white border border-slate-200 shadow-lg rounded-md z-[100] max-h-36 overflow-y-auto">
+                </div>
+            </div>
         </div>
         <div class="actions">
             ${createToneConverterHTML()} 
@@ -1519,41 +1494,130 @@ function showWordEditor(rubyEl, hIndex, wordIndex) {
     const rect = rubyEl.getBoundingClientRect();
     
     editor.style.position = 'fixed';
-    editor.style.zIndex = '99999'; // 確保絕對在滿版 (9999) 之上
+    editor.style.zIndex = '99999';
+    editor.style.maxWidth = 'calc(100vw - 48px)';
 
-    let leftPos = rect.left;
-    if (leftPos + 220 > window.innerWidth) { 
-        leftPos = window.innerWidth - 240; 
+    const editorWidth = editor.offsetWidth || 320;
+    const editorHeight = editor.offsetHeight || 140;
+    const safePadding = 32;
+
+    let leftPos = rect.left + (rect.width / 2) - (editorWidth / 2);
+    if (leftPos + editorWidth + safePadding > window.innerWidth) { 
+        leftPos = window.innerWidth - editorWidth - safePadding; 
+    }
+    if (leftPos < safePadding) {
+        leftPos = safePadding;
     }
     
     let topPos = rect.bottom + 8;
-    if (topPos + 150 > window.innerHeight) { 
-        topPos = rect.top - 120; // 改為顯示在單字上方
+    if (topPos + editorHeight + safePadding > window.innerHeight) { 
+        topPos = rect.top - editorHeight - 8;
+    }
+    if (topPos < safePadding) {
+        topPos = safePadding;
     }
 
     editor.style.left = `${leftPos}px`;
     editor.style.top = `${topPos}px`;
 
     const pinyinField = editor.querySelector('.ed-p-word');
+    const hanziField = editor.querySelector('.ed-h-word');
+    const btnPinyinDropdown = editor.querySelector('.btn-pinyin-dropdown');
+    const menuPinyinDropdown = editor.querySelector('.pinyin-options-menu');
+    const btnHanziDropdown = editor.querySelector('.btn-hanzi-dropdown');
+    const menuHanziDropdown = editor.querySelector('.hanzi-options-menu');
+
     pinyinField.focus();
+
+    // ⬇️ 新增：漢字「>」按鈕展開同音字選單邏輯
+    btnHanziDropdown.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuPinyinDropdown.classList.add('hidden'); // 確保關閉另一個選單
+
+        const isHidden = menuHanziDropdown.classList.contains('hidden');
+        if (isHidden) {
+            const currentPinyin = pinyinField.value.trim();
+            const hanziOptions = getHanziListForPinyin(currentPinyin);
+            
+            if (hanziOptions.length === 0) {
+                menuHanziDropdown.innerHTML = `<div class="p-2 text-xs text-slate-500 text-center">查無同音字</div>`;
+            } else {
+                // 以網格排版 (每列顯示 5 個字)，方便快速點選
+                menuHanziDropdown.innerHTML = `<div class="grid grid-cols-5 gap-1 p-1">` + 
+                    hanziOptions.map(hz => `
+                        <button type="button" class="hanzi-option py-1 text-sm bg-slate-50 hover:bg-blue-100 text-slate-800 rounded font-medium transition-colors" data-val="${escapeAttr(hz)}">
+                            ${escapeAttr(hz)}
+                        </button>
+                    `).join('') + `</div>`;
+                
+                menuHanziDropdown.querySelectorAll('.hanzi-option').forEach(item => {
+                    item.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        hanziField.value = item.dataset.val;
+                        menuHanziDropdown.classList.add('hidden');
+                        hanziField.focus();
+                    });
+                });
+            }
+            menuHanziDropdown.classList.remove('hidden');
+        } else {
+            menuHanziDropdown.classList.add('hidden');
+        }
+    });
+
+    // 拼音下拉選單邏輯
+    btnPinyinDropdown.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuHanziDropdown.classList.add('hidden'); // 確保關閉另一個選單
+
+        const isHidden = menuPinyinDropdown.classList.contains('hidden');
+        if (isHidden) {
+            const currentHanzi = hanziField.value.trim();
+            const options = getPronunciationsForHanzi(currentHanzi);
+            
+            if (options.length === 0) {
+                menuPinyinDropdown.innerHTML = `<div class="p-2 text-xs text-slate-500 text-center">無其他讀音</div>`;
+            } else {
+                menuPinyinDropdown.innerHTML = options.map(py => {
+                    const displayPy = (currentLanguageKey === 'kasu') ? formatKasuPinyin(py) : py;
+                    return `
+                        <div class="pinyin-option px-3 py-1.5 text-sm hover:bg-blue-50 cursor-pointer text-slate-700" data-val="${escapeAttr(py)}">
+                            ${escapeAttr(displayPy)}
+                        </div>
+                    `;
+                }).join('');
+                
+                menuPinyinDropdown.querySelectorAll('.pinyin-option').forEach(item => {
+                    item.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        pinyinField.value = item.dataset.val;
+                        menuPinyinDropdown.classList.add('hidden');
+                        pinyinField.focus();
+                    });
+                });
+            }
+            menuPinyinDropdown.classList.remove('hidden');
+        } else {
+            menuPinyinDropdown.classList.add('hidden');
+        }
+    });
+
+    hanziField.addEventListener('input', () => menuPinyinDropdown.classList.add('hidden'));
+    pinyinField.addEventListener('input', () => menuHanziDropdown.classList.add('hidden'));
 
     editor.querySelector('.cancel').addEventListener('click', (e) => {
         e.stopPropagation();
         closeWordEditor();
     });
 
-    // 儲存邏輯
     editor.querySelector('.save').addEventListener('click', (e) => {
         e.stopPropagation();
-        const newHanzi = editor.querySelector('.ed-h-word').value;
+        const newHanzi = hanziField.value;
         const newPinyin = pinyinField.value.trim();
 
-        // 1. 更新 dataset
         rubyEl.dataset.hanzi = newHanzi;
         rubyEl.dataset.pinyin = newPinyin;
 
-        // 2. 視覺更新
-        // 處理 RB (若在需要微型注音的模式，則附加注音)
         let displayRbContent = newHanzi;
         if ((phoneticDisplayMode === 'pinyin-zhuyin' || phoneticDisplayMode === 'vertical-zhuyin') && typeof kasuPinyinBpmTiny === 'function') {
             displayRbContent = newHanzi + kasuPinyinBpmTiny(newPinyin);
@@ -1563,11 +1627,8 @@ function showWordEditor(rubyEl, hIndex, wordIndex) {
         const targetRt = rubyEl.querySelector('rt');
         
         if (targetRb) targetRb.textContent = displayRbContent;
-        
-        // 【關鍵】這裡一律更新為拼音，CSS 會負責隱藏它
         if (targetRt) targetRt.textContent = newPinyin;
 
-        // 3. 回寫 Input (略，保持原樣)
         const hanziParts = [];
         const pinyinParts = [];
         const lineWrap = resultArea.querySelector('.line-wrap');
@@ -1583,12 +1644,10 @@ function showWordEditor(rubyEl, hIndex, wordIndex) {
                         if (glyph.nodeName === 'RUBY') {
                             let hanzi = glyph.querySelector('rb')?.textContent || '';
                             const pinyin = glyph.dataset.pinyin || glyph.querySelector('rt')?.textContent || '';
-                            
                             hanzi = hanzi.replace(new RegExp(cleanerRegexLoop, 'g'), '');
 
                             if (hanzi) hanziParts.push(hanzi);
                             if (pinyin) pinyinParts.push(pinyin);
-
                         } else if (glyph.classList && glyph.classList.contains('punct')) {
                             const punct = glyph.textContent || '';
                             hanziParts.push(punct);
@@ -1606,14 +1665,9 @@ function showWordEditor(rubyEl, hIndex, wordIndex) {
         }
 
         const finalHanziText = hanziParts.join('').replace(/ \n /g, '\n').replace(/\n /g, '\n').replace(/ \n/g, '\n').trim();
-        
         let finalPinyinText = pinyinParts.join(' ');
-        // 【修正】：不強制轉換為半形，保留原始全半形標點，避免對齊引擎錯亂
-        // 處理右側標點 (前面不留白)
         finalPinyinText = finalPinyinText.replace(/\s+([,.;:!?，。、；：！？）」』】〕>])/g, '$1');
-        // 處理左側標點 (後面不留白)
         finalPinyinText = finalPinyinText.replace(/([（「『【〔<])\s+/g, '$1');
-        // 清除多餘連續空格與換行旁的空格
         finalPinyinText = finalPinyinText.replace(/ +/g, ' ').replace(/ \n /g, '\n').replace(/\n /g, '\n').replace(/ \n/g, '\n').trim();
         
         hanziInput.value = finalHanziText;
@@ -2817,8 +2871,7 @@ function switchLanguage(newLangKey) {
 		}, 20); // 延遲 20ms 啟動，確保 UI 不會卡死
 	}
 
-
-	// 篩選新詞核心函數�
+	// 篩選新詞核心函數
 	function filterNewWords() {
 		const text = hanziInput.value;
 		const pinyinOutput = document.getElementById('pinyinInput');
@@ -2828,7 +2881,7 @@ function switchLanguage(newLangKey) {
 
 		// 2. 基本防呆檢查
 		if (!text) {
-			toast('請先在漢字區輸入要篩選的詞彙（每行一詞）');
+			toast('請先在漢字區輸入要篩選的詞彙');
 			return;
 		}
 
@@ -2837,17 +2890,19 @@ function switchLanguage(newLangKey) {
 			return;
 		}
 
-		// 3. 核心邏輯：清理空白 -> 去除重複 -> 比對字典
+		// 3. 核心邏輯：刪除非漢字 -> 空格/換行分詞 -> 去除重複 -> 比對字典
 		
-		// 步驟 A：將文字以斷行分割，去除每行首尾空白，並把空行過濾掉
-		const rawLines = text.split('\n')
-			.map(line => line.trim())
-			.filter(line => line.length > 0);
+		// 步驟 A：將所有非漢字（包含拼音、標點、英數字等）替換為一個空格
+		// \p{Script=Han} 匹配所有漢字（包含擴充漢字），^ 代表反向選擇，u 代表啟用 Unicode 支援
+		const cleanText = text.replace(/[^\p{Script=Han}]+/gu, ' ');
+		
+		// 步驟 B：使用正規表示式 \s+ (代表一個或多個空白、換行符號) 來分割字串，並過濾掉空字串
+		const wordsArray = cleanText.split(/\s+/).filter(word => word.length > 0);
 			
-		// 步驟 B：利用 Set 的特性自動去除重複的詞彙，再轉回陣列
-		const uniqueWords = [...new Set(rawLines)]; 
+		// 步驟 C：利用 Set 的特性自動去除重複的詞彙，再轉回陣列
+		const uniqueWords = [...new Set(wordsArray)]; 
 		
-		// 步驟 C：篩選出字典裡沒有的新詞
+		// 步驟 D：篩選出字典裡沒有的新詞
 		const newWords = uniqueWords.filter(word => !map.has(word));
 
 		// 4. 輸出結果到拼音區，並顯示提示

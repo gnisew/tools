@@ -244,6 +244,15 @@ function initDropdowns() {
                         });
                     }
                     submenu.classList.toggle('mobile-open');
+
+                    if (submenu.classList.contains('mobile-open') && parentMenu) {
+                        setTimeout(() => {
+                            parentMenu.scrollTo({ 
+                                top: submenu.offsetTop - 10,
+                                behavior: 'smooth' 
+                            });
+                        }, 50); 
+                    }
                 }
             });
         }
@@ -7001,11 +7010,87 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+
+	/*
     if (typeof setupDictionaries === 'undefined') {
         const script = document.createElement('script');
         script.src = 'https://gnisew.github.io/tools/translate/translate.js';
         document.head.appendChild(script);
     }
+	*/
+
+	/**
+	 * 動態載入烏衣行翻譯系統的核心模組
+	 * 確保按順序載入，避免變數找不到的錯誤
+	 */
+	async function loadTranslatorModules() {
+		const baseUrl = "https://gnisew.github.io/tools/translate/";
+		
+		// 定義需要載入的檔案陣列（請依照必須執行的先後順序排列）
+		const scriptsToLoad = [
+			"translate.js",
+			"grammar-engine.js"
+		];
+
+		console.log("🔄 開始載入翻譯系統模組...");
+
+		for (const filename of scriptsToLoad) {
+			const fullUrl = baseUrl + filename;
+
+			await new Promise((resolve, reject) => {
+				// 防呆機制：如果網頁中已經有這個腳本，就直接跳過，避免重複載入
+				if (document.querySelector(`script[src="${fullUrl}"]`)) {
+					console.log(`⏩ 已存在，跳過載入: ${filename}`);
+					return resolve();
+				}
+
+				// 建立 script 標籤 (這就是你寫的邏輯)
+				const script = document.createElement('script');
+				script.src = fullUrl;
+				
+				// 確保腳本按插入的順序執行
+				script.async = false; 
+
+				// 監聽載入成功與失敗的事件
+				script.onload = () => {
+					console.log(`✅ 載入成功: ${filename}`);
+					resolve(); // 告訴 Promise 這支檔案搞定了，可以換下一個
+				};
+				
+				script.onerror = () => {
+					const errorMsg = `❌ 載入失敗: ${filename}`;
+					console.error(errorMsg);
+					reject(new Error(errorMsg)); // 發生錯誤時中斷流程
+				};
+
+				// 正式注入到網頁中
+				document.head.appendChild(script);
+			});
+		}
+		
+		console.log("🚀 所有翻譯模組載入完畢，系統已就緒！");
+	}
+
+	// ==========================================
+	// 如何使用這個載入器？
+	// ==========================================
+
+	// 呼叫函式，並利用 .then() 確保載入完畢後才執行後續程式
+	loadTranslatorModules()
+		.then(() => {
+			// 這裡的程式碼，保證是在三個 js 檔案都完全載入後才會執行
+			console.log("開始執行主程式的翻譯邏輯...");
+			
+			// 例如：這時候呼叫 executeReorder 絕對不會報錯
+			// let result = executeReorder(...); 
+		})
+		.catch((error) => {
+			// 如果有任何一個檔案載入失敗，會跳來這裡
+			console.error("系統啟動失敗，請檢查網路或網址設定。", error);
+		});
+
+
+
 
     // 準備全域變數，供拼音字典腳本使用
     window.ccc = ''; window.ddd = ''; window.c = []; window.d = [];

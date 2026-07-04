@@ -1,7 +1,67 @@
-document.addEventListener('DOMContentLoaded', () => {
+// ==========================================
+// 系統自動載入器 (Auto-Loader)
+// ==========================================
+async function initTranslatorSystem() {
+    const dependencies = [
+        "translate.js",
+        "grammar-engine.js"
+    ];
+
+    console.log("[系統] 正在自動載入核心翻譯引擎與相依模組...");
+
+    for (const src of dependencies) {
+        await new Promise((resolve, reject) => {
+            if (document.querySelector(`script[src="${src}"]`)) return resolve();
+
+            const script = document.createElement('script');
+            script.src = src;
+            script.async = false; // 確保循序載入
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error(`載入失敗: ${src}`));
+            document.head.appendChild(script);
+        });
+    }
+
+    console.log("[系統] 所有模組載入完畢！啟動烏衣行核心...");
+    startMainApplication(); 
+}
+
+initTranslatorSystem();
+
+
+// ==========================================
+// script.js 的核心邏輯
+// ==========================================
+function startMainApplication() {
+
+// --- 1. 資料定義 ---
+    
+    // 💡 全域字典版本控制：
+    // 只要更改這個版號 (例如改為 'v1.1')，系統就會自動清除所有舊快取，並重新下載所有檔案！
+    const GLOBAL_DICT_VERSION = 'v1.0'; 
+
+    // 自動清理舊版快取的輔助函式
+    async function cleanOldCaches() {
+        const currentCacheName = `oikasu-dicts-${GLOBAL_DICT_VERSION}`;
+        try {
+            const cacheNames = await caches.keys();
+            for (const name of cacheNames) {
+                // 如果快取名稱是我們建立的，且版號與現在不同，就把它整包刪除
+                if (name.startsWith('oikasu-dicts-') && name !== currentCacheName) {
+                    console.log(`[Cache] 偵測到全域版號更新，已清除舊版快取資料夾: ${name}`);
+                    await caches.delete(name);
+                }
+            }
+        } catch (e) {
+            console.error("[Cache] 清理舊快取失敗", e);
+        }
+    }
+
+    // 在應用程式啟動時，立刻呼叫清理機制
+    cleanOldCaches();
+
 
     // --- 1. 資料定義 ---
-
     const LANGUAGES = {
         'chinese': { name: '華語' },
         'sixian': { name: '四縣', file: 'data-sixian-chinese.js' },
@@ -545,15 +605,23 @@ document.addEventListener('DOMContentLoaded', () => {
             langRight = newLang;
         }
 
-        updateLanguageButtons();
-        populatePopovers(); // 重新整理選單的 disabled 和 active 狀態
+		updateLanguageButtons();
+        populatePopovers(); 
         closeAllPopovers();
+
+        updatePivotLangSelector(langLeft, langRight);
+        preloadDictionaries(langLeft, langRight);
+
         saveState();
         triggerTranslation();
-
-        preloadDictionaries(langLeft, langRight);
-        updatePivotLangSelector(langLeft, langRight);
     }
+
+
+
+
+
+
+
 
     /**
      * 交換左右語言
@@ -650,74 +718,112 @@ document.addEventListener('DOMContentLoaded', () => {
      * @param {string} dataFile - 要載入的 .js 檔案 (例如 'data-kasu-chinese.js')
      * @returns {Promise<object>} 包含 { reGK, mapGK, ... } 的字典物件
      */
+    /**
+     * 動態載入 data-*.js 檔案並建立字典 (全域版號與本地快取能力)
+     */
+    /**
+     * 動態載入 data-*.js 檔案並建立字典 
+     * (智慧雙模：支援離線 file:// 模式與線上 Cache 模式)
+     */
     function loadDictionary(pairKey, dataFile) {
-        // 1. 檢查快取
         if (dictionaryCache[pairKey]) {
-            console.log(`[Cache] 使用快取的字典: ${pairKey}`);
+            console.log(`[Cache] 使用記憶體的字典: ${pairKey}`);
             return Promise.resolve(dictionaryCache[pairKey]);
         }
         
-        // 2. 檢查是否有正在進行的載入
         if (scriptLoadPromises[dataFile]) {
-            console.log(`[Loading] 等待 ${dataFile} 載入...`);
-            // 等待該檔案載入完成，然後從快取中取得
             return scriptLoadPromises[dataFile].then(() => dictionaryCache[pairKey]);
         }
 
-        console.log(`[Network] 載入新字典: ${dataFile} (for ${pairKey})`);
+        // --- 💡 核心機制：偵測是否為本地端純離線開啟 (file://) ---
+        const isOfflineMode = window.location.protocol === 'file:';
+        const versionedUrl = `${dataFile}?v=${GLOBAL_DICT_VERSION}`;
 
-        // 3. 執行載入
-        const promise = new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = dataFile;
-            
-            script.onload = () => {
-                console.log(`[Loaded] ${dataFile} 載入完成.`);
+        let promise;
+
+        if (isOfflineMode) {
+            // ==========================================
+            // 模式 A：純離線模式 (避開 CORS 錯誤)
+            // ==========================================
+            console.log(`[System] 離線模式：直接載入本地檔案 ${versionedUrl}`);
+            promise = new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = versionedUrl;
                 
-                // data-*.js 載入後，全域變數 'ww' 會被設定
-                if (typeof ww === 'undefined') {
-                    console.error(`[Error] ${dataFile} 已載入，但未定義 'ww' 變數。`);
-                    return reject(new Error(`檔案 ${dataFile} 格式錯誤。`));
-                }
-
-                // 呼叫 translate.js 的函式來建立字典
-                try {
-                    // setupDictionaries 是由 translate.js 提供的
-                    const dictionaries = setupDictionaries(ww);
-                    
-                    // 優化：一次載入，儲存所有相關的語言對
-                    const keysToCache = DATA_FILE_MAP[dataFile] || [pairKey];
-                    
-                    keysToCache.forEach(key => {
-                         dictionaryCache[key] = dictionaries;
-                         console.log(`[Cache] 已儲存字典: ${key}`);
-                    });
-                    
-                    resolve(dictionaries);
-                    
-                } catch (e) {
-                    console.error(`[Error] setupDictionaries 執行失敗:`, e);
-                    reject(new Error('字典建立失敗。'));
-                } finally {
-                    // 清理全域 ww
-                    if (typeof ww !== 'undefined') {
-                        ww = undefined; 
+                script.onload = () => {
+                    try {
+                        if (typeof ww === 'undefined') {
+                            throw new Error(`檔案 ${dataFile} 格式錯誤，未定義 'ww' 變數。`);
+                        }
+                        // 建立字典
+                        const dictionaries = setupDictionaries(ww);
+                        const keysToCache = DATA_FILE_MAP[dataFile] || [pairKey];
+                        keysToCache.forEach(key => dictionaryCache[key] = dictionaries);
+                        
+                        // 清理環境
+                        ww = undefined;
+                        script.remove();
+                        resolve(dictionaries);
+                    } catch (e) {
+                        reject(e);
                     }
-                    script.remove(); // 移除 script 標籤
-                }
-            };
-            
-            script.onerror = () => {
-                console.error(`[Error] 載入 ${dataFile} 失敗.`);
-                reject(new Error(`無法載入語言資料: ${dataFile}`));
-                scriptLoadPromises[dataFile] = undefined; // 允許重試
-                script.remove();
-            };
+                };
+                
+                script.onerror = () => {
+                    reject(new Error(`無法載入語言資料: ${dataFile}`));
+                };
+                
+                document.body.appendChild(script);
+            });
 
-            document.body.appendChild(script);
+        } else {
+            // ==========================================
+            // 模式 B：線上/伺服器模式 (保留 Cache API 高效能)
+            // ==========================================
+            promise = (async () => {
+                try {
+                    const cacheName = `oikasu-dicts-${GLOBAL_DICT_VERSION}`; 
+                    const cache = await caches.open(cacheName);
+                    let response = await cache.match(versionedUrl);
+                    
+                    if (!response) {
+                        console.log(`[Network] 檔案更新或無快取，從網路下載: ${versionedUrl}`);
+                        response = await fetch(versionedUrl);
+                        if (!response.ok) throw new Error(`網路回應錯誤: ${response.status}`);
+                        await cache.put(versionedUrl, response.clone());
+                    } else {
+                        console.log(`[Local Cache] 從瀏覽器快取秒速讀取: ${versionedUrl}`);
+                    }
+
+                    const scriptText = await response.text();
+                    const script = document.createElement('script');
+                    script.textContent = scriptText; 
+                    document.body.appendChild(script);
+
+                    if (typeof ww === 'undefined') {
+                        throw new Error(`檔案 ${dataFile} 格式錯誤，未定義 'ww' 變數。`);
+                    }
+
+                    const dictionaries = setupDictionaries(ww);
+                    const keysToCache = DATA_FILE_MAP[dataFile] || [pairKey];
+                    keysToCache.forEach(key => dictionaryCache[key] = dictionaries);
+                    
+                    ww = undefined; 
+                    script.remove(); 
+
+                    return dictionaries;
+                } catch (e) {
+                    console.error(`[Error] 線上載入 ${dataFile} 失敗:`, e);
+                    throw e;
+                }
+            })();
+        }
+
+        // 若載入失敗，清除 Promise 紀錄以允許使用者稍後重試
+        promise.catch(e => {
+            scriptLoadPromises[dataFile] = undefined; 
         });
 
-        // 儲存 promise，防止重複載入
         scriptLoadPromises[dataFile] = promise;
         return promise;
     }
@@ -808,11 +914,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-/**
-     * [REVISED] 根據來源/目標語言和動作，取得字典和要執行的函式
+	/**
+     * 根據來源/目標語言和動作，取得字典和要執行的函式
      * @param {string} from - 來源語言
      * @param {string} to - 目標語言
-     * @param {string} action - 'translate', 'segment', 'space'
+     * @param {string} action - 'translate', 'space', 'search_contains'
      * @returns {Promise<object>} { dicts, actionFn, sourceText }
      */
     async function getDictionaryAndAction(from, to, action) {
@@ -820,10 +926,213 @@ document.addEventListener('DOMContentLoaded', () => {
         const sourceText = textInput.value;
         const delimiter = translationDelimiter;
 
-        // --- 1. 處理斷詞 (邏輯不變) ---
-        if (action === 'space' || action === 'segment') {
-            // ... (此區塊邏輯不變，請保留您原有的程式碼) ...
-            console.log(`[Segment] 執行斷詞: ${from}`);
+        // --- ✨ 新增：處理「篩選新詞」邏輯 ---
+        if (action === 'filter_new') {
+            console.log(`[Filter] 執行篩選新詞: ${from}`);
+            
+            // 載入當前語言對應的字典
+            const dicts = await loadDictionaryForPair(from, to);
+            const direction = determineDirection(from, to);
+            
+            // 判斷要比對的索引位置 (看左邊是華語還是本土語言)
+            const searchIndex = direction === 'GK' ? 2 : 1; 
+            const rawList = dicts.rawList;
+
+            // 預先將字典內的所有詞彙提取成一個 Set，大幅加速後續比對效能
+            const dictionaryWords = new Set();
+            rawList.forEach(item => {
+                const word = item[searchIndex];
+                if (word) dictionaryWords.add(word);
+            });
+
+            const actionFn = (text) => {
+                // 1. 將輸入的資料依空格或換行進行分詞，並過濾掉空字串
+                const rawWords = text.split(/\s+/).filter(w => w.trim() !== '');
+                
+                // 用來裝真正「新詞」的集合 (使用 Set 自動避免重複的新詞)
+                const newWordsSet = new Set();
+
+                rawWords.forEach(rawWord => {
+                    // 2. 清除標點、字母等非漢字，保留所有漢字（含擴充漢字）
+                    // \p{Han} 匹配所有漢字，u 標記確保正確處理擴充字元
+                    const cleanWord = rawWord.replace(/[^\u4E00-\u9FFF\u3400-\u4DBF\u{20000}-\u{3FFFF}]/gu, '');
+                    
+                    // 3. 如果清完後還有字，且字典裡面「沒有」這個詞，就加入新詞集合
+                    if (cleanWord && !dictionaryWords.has(cleanWord)) {
+                        newWordsSet.add(cleanWord);
+                    }
+                });
+
+                // 4. 將新詞集合轉為陣列，並以斷行 (\n) 連接輸出
+                if (newWordsSet.size > 0) {
+                    return Array.from(newWordsSet).join('\n');
+                } else {
+                    return '(無新詞，所有詞彙皆已在字典中)';
+                }
+            };
+            
+            return { dicts: null, actionFn: actionFn, sourceText: sourceText };
+        }
+
+        // --- 新增：處理「查包含詞」邏輯 ---
+        if (action === 'search_contains') {
+            console.log(`[Search] 執行包含詞查詢: ${from}`);
+            
+            // 載入當前語言對應的字典
+            const dicts = await loadDictionaryForPair(from, to);
+            const direction = determineDirection(from, to);
+            
+            // 判斷要搜尋的索引位置：GK(華轉客)則搜華語(2)，否則搜本土語言(1)
+            const searchIndex = direction === 'GK' ? 2 : 1; 
+            const rawList = dicts.rawList;
+
+            const actionFn = (text) => {
+                // 將輸入的文字按斷行切開，逐行處理
+                const lines = text.split('\n');
+                const outLines = lines.map(line => {
+                    let keyword = line.trim();
+                    if (!keyword) return ''; 
+                    
+                    // 保留使用者輸入的原始字串，作為最後顯示的標題
+                    let displayKeyword = keyword; 
+
+                    let isSugar = false;
+                    let targetWord = '';
+                    let minLen = 1;
+                    let maxLen = ''; 
+
+                    // --- ✨ 特殊疊詞結構查詢 (AA, ABB, AABB, ABAC, ABCB 等) ---
+                    let isPatternSearch = false;
+                    let patternArr = [];
+                    
+                    // 只要全是 2~6 個大寫英文字母，就會自動啟動結構查詢
+                    if (/^[A-Z]{2,6}$/.test(keyword)) {
+                        isPatternSearch = true;
+                        patternArr = Array.from(keyword);
+                        console.log(`[Search] 啟用特殊疊詞查詢: ${displayKeyword}`);
+                    }
+                    // --- ✨ 快捷語法 (支援範圍與字數) ---
+                    // 解析 1: N < 詞 < M (例如: 2<搞<5)
+                    else if (match = keyword.match(/^(\d+)\s*<\s*(.+?)\s*<\s*(\d+)$/)) {
+                        minLen = parseInt(match[1]) + 1;
+                        targetWord = match[2];
+                        maxLen = parseInt(match[3]) - 1;
+                        isSugar = true;
+                    } 
+                    // 解析 2: 詞 < M (例如: 搞<3)
+                    else if (match = keyword.match(/^(.+?)\s*<\s*(\d+)$/)) {
+                        targetWord = match[1];
+                        maxLen = parseInt(match[2]) - 1;
+                        isSugar = true;
+                    } 
+                    // 解析 3: 詞 > N (例如: 搞>2)
+                    else if (match = keyword.match(/^(.+?)\s*>\s*(\d+)$/)) {
+                        targetWord = match[1];
+                        minLen = parseInt(match[2]) + 1;
+                        isSugar = true;
+                    } 
+                    // 解析 4: N < 詞 (例如: 2<搞)
+                    else if (match = keyword.match(/^(\d+)\s*<\s*(.+)$/)) {
+                        minLen = parseInt(match[1]) + 1;
+                        targetWord = match[2];
+                        isSugar = true;
+                    } 
+                    // 解析 5: 詞 = N (例如: 搞=3)
+                    else if (match = keyword.match(/^(.+?)\s*=\s*(\d+)$/)) {
+                        targetWord = match[1];
+                        minLen = parseInt(match[2]);
+                        maxLen = parseInt(match[2]);
+                        isSugar = true;
+                    }
+
+                    // 如果匹配到快捷語法，轉換為正則表達式
+                    if (isSugar) {
+                        keyword = `^(?=.*${targetWord}).{${minLen},${maxLen}}$`;
+                        console.log(`[Search] 快捷轉換: ${displayKeyword} -> ${keyword}`);
+                    }
+                    // --------------------------------------------------
+
+                    let regex;
+                    if (!isPatternSearch) {
+                        try {
+                            // 加上 'u' 標記確保支援擴充漢字 (例如：𠊎)
+                            regex = new RegExp(keyword, 'u');
+                        } catch (e) {
+                            regex = null;
+                        }
+                    }
+
+                    const matches = new Set();
+                    
+                    // 遍歷字典陣列尋找符合的詞
+                    rawList.forEach(item => {
+                        const word = item[searchIndex];
+                        if (!word) return;
+
+                        let isMatch = false;
+                        
+                        // 【分支 1】執行特殊疊詞結構比對演算法
+                        if (isPatternSearch) {
+                            const wordArr = Array.from(word);
+                            
+                            // 字數必須與結構長度相同
+                            if (wordArr.length === patternArr.length) {
+                                isMatch = true;
+                                const pToW = new Map(); 
+                                const wToP = new Map(); 
+                                
+                                for (let i = 0; i < patternArr.length; i++) {
+                                    const pChar = patternArr[i];
+                                    const wChar = wordArr[i];
+                                    
+                                    // 檢查映射是否衝突，確保如 A 和 B 代表不同的字，且相同字母對應相同字
+                                    if (pToW.has(pChar) && pToW.get(pChar) !== wChar) {
+                                        isMatch = false; break;
+                                    }
+                                    if (wToP.has(wChar) && wToP.get(wChar) !== pChar) {
+                                        isMatch = false; break;
+                                    }
+                                    
+                                    pToW.set(pChar, wChar);
+                                    wToP.set(wChar, pChar);
+                                }
+                            }
+                        } 
+                        // 【分支 2】執行一般的正則或字串包含比對
+                        else {
+                            if (regex) {
+                                isMatch = regex.test(word);
+                            } else {
+                                isMatch = word.includes(keyword);
+                            }
+                        }
+
+                        // 如果完全符合條件，加入 Set 中以過濾重複
+                        if (isMatch) {
+                            matches.add(word);
+                        }
+                    });
+                    
+                    // 輸出結果組裝與長度排序
+                    if (matches.size > 0) {
+                        const sortedMatches = Array.from(matches).sort((a, b) => {
+                            return Array.from(a).length - Array.from(b).length;
+                        });
+                        return `${displayKeyword}：${sortedMatches.join(', ')}`;
+                    } else {
+                        return `${displayKeyword}`;
+                    }
+                });
+                return outLines.join('\n');
+            };
+            
+            // 回傳設定好的函式，系統會自動將結果原地輸出至左側輸入框
+            return { dicts: null, actionFn: actionFn, sourceText: sourceText };
+        }
+
+        // --- 1. 處理語詞加空格 ---
+        if (action === 'space') {
+            console.log(`[Space] 執行語詞加空格: ${from}`);
             const proxyFromTarget = getProxyTarget(from);
             const segmentSourceLang = proxyFromTarget || from; 
             let dataFile, segmentPairKey;
@@ -851,14 +1160,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (segmentSourceLang === langB) reSegment = dicts.reGK; 
                 else reSegment = dicts.reKG; 
             }
-            if (action === 'space') {
-                return { dicts: dicts, actionFn: (text, d) => TonvBasic(text, reSegment, d.reVariant, d.mapVariant), sourceText: sourceText };
-            } else {
-                return { dicts: dicts, actionFn: (text, d) => TonvSegment(text, reSegment, d.reVariant, d.mapVariant), sourceText: sourceText };
-            }
+            
+            return { dicts: dicts, actionFn: (text, d) => TonvBasic(text, reSegment, d.reVariant, d.mapVariant), sourceText: sourceText };
         }
         
-        // --- 2. 處理翻譯 ---
+        // --- 2. 處理翻譯 (以下邏輯保持不變) ---
         let currentText = sourceText;
         let currentFrom = from;
         let currentTo = to;
@@ -881,7 +1187,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const effectiveTo = (proxyToTarget && currentFrom !== proxyToTarget) ? proxyToTarget : currentTo;
 
         let mainResultText;
-        // 【核心修正】: 使用更明確的判斷
         const usePivot = (currentPivotLang && currentPivotLang !== DIRECT_TRANSLATE_KEY);
 
         if (usePivot) {
@@ -906,14 +1211,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Step 5: 返回一個立即執行的函式 ---
         return {
             dicts: null,
-            actionFn: () => finalResultText, // 直接返回已計算好的結果
+            actionFn: () => finalResultText,
             sourceText: sourceText
         };
     }
 
 
-	// --- 執行單步翻譯的輔助函式 ---
-    /**
+	/**
      * 執行一步 A -> B 的翻譯
      * @param {string} from
      * @param {string} to
@@ -927,8 +1231,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const dicts = await loadDictionaryForPair(from, to);
         const direction = determineDirection(from, to);
         
+        // ==========================================
+        // 模組三 攔截與分句邏輯
+        // ==========================================
+        let processedText = text;
+        
+        // 只有在「華語 翻 本土語言」時 ( direction === 'GK' )，才需要處理句法結構
+        if (direction === 'GK') {
+            const activeRules = typeof getActiveRulesForLanguage === 'function' ? getActiveRulesForLanguage(to) : [];
+            
+            // 如果該目標語言有設定語法規則，就進行巡邏
+            if (activeRules.length > 0) {
+                processedText = await processSentencesWithRules(text, activeRules);
+            }
+        }
+        // ==========================================
+
         const result = GoixBasic(
-            text,
+            processedText, // 這裡丟入加工後的文字
             direction === 'GK' ? dicts.reGK : dicts.reKG,
             direction === 'GK' ? dicts.mapGK : dicts.mapKG,
             dicts.reVariant,
@@ -936,6 +1256,68 @@ document.addEventListener('DOMContentLoaded', () => {
             delimiter
         );
         return result.trim(); // 每一步都 trim
+    }
+
+    // ==========================================
+    // 處理句子的輔助函式 (放置於 executeTranslation 下方)
+    // ==========================================
+    // ==========================================
+    // 處理句子的輔助函式 (放置於 executeTranslation 下方)
+    // ==========================================
+    async function processSentencesWithRules(text, activeRules) {
+        const segments = text.split(/([。！？\n，、]+)/); // 加入逗號與頓號切分，更細膩
+        let finalText = "";
+
+        for (let segment of segments) {
+            if (!segment.trim()) {
+                finalText += segment;
+                continue;
+            }
+
+            let matchedRule = null;
+            for (const rule of activeRules) {
+                if (shouldTriggerRule(segment, rule)) {
+                    matchedRule = rule;
+                    break; 
+                }
+            }
+
+            if (matchedRule) {
+                console.log(`[AI 攔截] 派發任務:【${matchedRule.name}】 | 原句: ${segment}`);
+                
+                // 💡 【修正重點在此】：這裡不再呼叫 callAIWorker，而是直接呼叫 window.analyzeSentence
+                const triggerStr = matchedRule.triggerRegex.source;
+                const aiResult = window.analyzeSentence(segment, matchedRule.aiTask, triggerStr);
+
+                // 套用 Excel 設定的客語句法模板進行重組
+                let reorderedSegment = window.executeReorder(matchedRule.template, matchedRule.aiTask, aiResult);
+
+                // 把標點符號補回去
+                reorderedSegment += aiResult.punctuation;
+                
+                console.log(`[AI 重組完成] 骨架轉換為: ${reorderedSegment}`);
+                finalText += reorderedSegment; 
+            } else {
+                finalText += segment;
+            }
+        }
+        return finalText;
+    }
+
+
+    function shouldTriggerRule(sentence, rule) {
+        let tempSentence = sentence;
+        // 1. 執行例外遮罩 (Masking)
+        if (rule.exceptions && rule.exceptions.length > 0) {
+            for (let exc of rule.exceptions) {
+                tempSentence = tempSentence.split(exc).join("██");
+            }
+        }
+        
+        // 2. 檢查遮蔽後的句子是否還有觸發關鍵字
+        // 重置正則表達式的搜尋索引，避免重複比對時出錯
+        rule.triggerRegex.lastIndex = 0; 
+        return rule.triggerRegex.test(tempSentence);
     }
 
 
@@ -1050,8 +1432,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
-	/**
-     * 執行搜尋的核心邏輯 (包含精確/模糊比對與排序)
+    /**
+     * 執行搜尋的核心邏輯 (包含精確/模糊比對、正則表達式、快捷語法、疊詞結構與排序)
      */
     async function performSearch() {
         const keyword = searchInput.value.trim();
@@ -1069,20 +1451,65 @@ document.addEventListener('DOMContentLoaded', () => {
             // 1. 取得當前方向與對應的字典
             const direction = determineDirection(langLeft, langRight);
             const dicts = await loadDictionaryForPair(langLeft, langRight);
-            const rawList = dicts.rawList; // 從 translate.js 取得的原始陣列
+            const rawList = dicts.rawList; 
 
             if (!rawList) throw new Error("字典資料不完整，無法執行查詢");
 
             // 2. 設定比對索引 
-            // 原始資料格式: [count(詞頻), stringA(本土語言), stringB(華語)]
-            // KG(客->華): 搜A(index 1), 顯示B(index 2)
-            // GK(華->客): 搜B(index 2), 顯示A(index 1)
             let searchIndex = direction === 'GK' ? 2 : 1;
             let targetIndex = direction === 'GK' ? 1 : 2;
 
-            // 3. 過濾與評分機制
+            // --- ✨ 3. 核心升級：解析快捷語法與疊詞結構 ---
+            let isSugar = false;
+            let targetWord = '';
+            let minLen = 1;
+            let maxLen = ''; 
+
+            let isPatternSearch = false;
+            let patternArr = [];
+            let parsedKeyword = keyword; // 存放轉換後的正則字串
+            let match; // 用於正則匹配
+
+            // 判斷是否為疊詞結構查詢 (AA, ABB, AABB 等)
+            if (/^[A-Z]{2,6}$/.test(keyword)) {
+                isPatternSearch = true;
+                patternArr = Array.from(keyword);
+            }
+            // 解析快捷字數範圍
+            else if (match = keyword.match(/^(\d+)\s*<\s*(.+?)\s*<\s*(\d+)$/)) {
+                minLen = parseInt(match[1]) + 1; targetWord = match[2]; maxLen = parseInt(match[3]) - 1; isSugar = true;
+            } 
+            else if (match = keyword.match(/^(.+?)\s*<\s*(\d+)$/)) {
+                targetWord = match[1]; maxLen = parseInt(match[2]) - 1; isSugar = true;
+            } 
+            else if (match = keyword.match(/^(.+?)\s*>\s*(\d+)$/)) {
+                targetWord = match[1]; minLen = parseInt(match[2]) + 1; isSugar = true;
+            } 
+            else if (match = keyword.match(/^(\d+)\s*<\s*(.+)$/)) {
+                minLen = parseInt(match[1]) + 1; targetWord = match[2]; isSugar = true;
+            } 
+            else if (match = keyword.match(/^(.+?)\s*=\s*(\d+)$/)) {
+                targetWord = match[1]; minLen = parseInt(match[2]); maxLen = parseInt(match[2]); isSugar = true;
+            }
+
+            // 如果匹配到快捷語法，轉換為正則表達式
+            if (isSugar) {
+                parsedKeyword = `^(?=.*${targetWord}).{${minLen},${maxLen}}$`;
+            }
+
+            // 建立正則表達式物件 (支援 unicode 擴充漢字)
+            let regex;
+            if (!isPatternSearch) {
+                try {
+                    regex = new RegExp(parsedKeyword, 'u');
+                } catch (e) {
+                    regex = null;
+                }
+            }
+            // --------------------------------------------------
+
+            // 4. 過濾與評分機制
             const results = [];
-            const keywordLower = keyword.toLowerCase();
 
             rawList.forEach(item => {
                 const sourceText = item[searchIndex] || '';
@@ -1090,16 +1517,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (!sourceText || !targetText) return;
 
-                const sourceLower = sourceText.toLowerCase();
                 let score = 0;
 
-                // 評分標準：完全符合 (3) > 開頭符合 (2) > 包含字串 (1)
-                if (sourceLower === keywordLower) {
-                    score = 3; 
-                } else if (sourceLower.startsWith(keywordLower)) {
-                    score = 2; 
-                } else if (sourceLower.includes(keywordLower)) {
-                    score = 1; 
+                // 【分支 A】執行特殊疊詞結構比對演算法
+                if (isPatternSearch) {
+                    const wordArr = Array.from(sourceText);
+                    if (wordArr.length === patternArr.length) {
+                        let isMatch = true;
+                        const pToW = new Map(); 
+                        const wToP = new Map(); 
+                        for (let i = 0; i < patternArr.length; i++) {
+                            const pChar = patternArr[i];
+                            const wChar = wordArr[i];
+                            if (pToW.has(pChar) && pToW.get(pChar) !== wChar) { isMatch = false; break; }
+                            if (wToP.has(wChar) && wToP.get(wChar) !== pChar) { isMatch = false; break; }
+                            pToW.set(pChar, wChar);
+                            wToP.set(wChar, pChar);
+                        }
+                        if (isMatch) score = 1; // 結構符合給予基礎分
+                    }
+                } 
+                // 【分支 B】執行一般的正則或字串包含比對
+                else {
+                    let isMatch = false;
+                    if (regex) {
+                        isMatch = regex.test(sourceText);
+                    } else {
+                        isMatch = sourceText.includes(keyword);
+                    }
+
+                    if (isMatch) {
+                        // 評分標準：完全符合 (3) > 開頭符合 (2) > 包含字串/正則符合 (1)
+                        if (sourceText === keyword) {
+                            score = 3; 
+                        } else if (sourceText.startsWith(keyword)) {
+                            score = 2; 
+                        } else {
+                            score = 1; 
+                        }
+                    }
                 }
 
                 if (score > 0) {
@@ -1112,14 +1568,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // 4. 排序邏輯：分數(降冪) -> 詞頻(降冪) -> 字串長度(升冪)
+            // 5. 排序邏輯：分數(降冪) -> 詞頻(降冪) -> 字串長度(升冪)
             results.sort((a, b) => {
                 if (a.score !== b.score) return b.score - a.score;
                 if (a.count !== b.count) return b.count - a.count;
-                return a.source.length - b.source.length;
+                // 【關鍵修正】使用 Array.from() 確保擴充漢字長度計算正確
+                return Array.from(a.source).length - Array.from(b.source).length;
             });
 
-            // 5. 過濾重複結果 (確保畫面上不出現完全相同的翻譯卡片)
+            // 6. 過濾重複結果 (確保畫面上不出現完全相同的翻譯卡片)
             const uniqueResults = [];
             const seen = new Set();
             results.forEach(item => {
@@ -1130,7 +1587,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // 6. 更新狀態並呼叫渲染函式
+            // 7. 更新狀態並呼叫渲染函式
             currentSearchResults = uniqueResults;
             currentPage = 1;
             renderSearchResults();
@@ -1231,12 +1688,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-	// 即時翻譯事件
+
+    // --- 防抖 (Debounce) 計時器變數 ---
+    let typingTimer;
+    const doneTypingInterval = 600; // 設定等待時間為 600 毫秒 (你可以依喜好微調這個數字)
+
+    // 即時翻譯事件
     textInput.addEventListener('input', () => {
+        // 讓輸入框高度自動調整（這部分需要使用者一打字就立即反應，所以放在計時器外面）
         autoResizeTextarea(textInput);
         
         if (isInstantTranslate) {
-            triggerTranslation('translate');
+            // 1. 每次使用者打字時，先清除上一次尚未執行的翻譯任務
+            clearTimeout(typingTimer);
+            
+            // 2. 重新設定計時器，等待 600 毫秒後如果沒有新的輸入，才正式執行翻譯
+            typingTimer = setTimeout(() => {
+                triggerTranslation('translate');
+            }, doneTypingInterval);
         }
     });
 
@@ -1403,6 +1872,11 @@ document.addEventListener('DOMContentLoaded', () => {
     populatePopovers(); // 產生選單
 	preloadDictionaries(langLeft, langRight); // 預先載入預設語言
 
+	// 啟動語法規則引擎，讀取 Excel/CSV
+    if (typeof initializeGrammarRules === 'function') {
+        initializeGrammarRules();
+    }
+
 	// --- 頁面載入時和視窗大小改變時，重設高度 ---
     // 延遲執行，確保字體和佈局載入完成
     setTimeout(() => {
@@ -1420,4 +1894,4 @@ document.addEventListener('DOMContentLoaded', () => {
         // 延遲一點執行，確保字典載入函式已準備好
         setTimeout(() => triggerTranslation('translate'), 100);
     }
-});
+}
