@@ -712,4 +712,9 @@ body.maximized-mode.is-playing-game #tableModeContainer {
         margin-top: 4px !important;
         padding-left: 0.5rem !important; /* 稍微向右縮排 */
     }
+	#mainContainer {
+        flex-grow: 1 !important;
+        height: 100% !important;
+    }
 }
+

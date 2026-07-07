@@ -13699,58 +13699,62 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     //  這是全新升級的通用型優化程式碼
-if (sheetTabBar) {
-    let blurTimeout;
+	if (sheetTabBar) {
+		let blurTimeout;
 
-    // 處理鍵盤彈出：隱藏頁籤、鎖定畫面防止空白間隙
-    const handleFocusIn = (e) => {
-        if (window.innerWidth <= 768) {
-            const target = e.target;
-            // 只要聚焦的是文字方塊、輸入框、或可編輯的表格單元格
-            if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.hasAttribute('contenteditable')) {
-                // 如果是連續切換輸入框（例如表格換下一格），清除即將恢復的排版排程
-                if (blurTimeout) clearTimeout(blurTimeout);
+		// 處理鍵盤彈出：隱藏頁籤、重置捲動、鎖定畫面
+		const handleFocusIn = (e) => {
+			if (window.innerWidth <= 768) {
+				const target = e.target;
+				if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.hasAttribute('contenteditable')) {
+					if (blurTimeout) clearTimeout(blurTimeout);
 
-                // 隱藏底部工作表頁籤
-                sheetTabBar.style.display = 'none';
-                
-                // 關鍵鎖定：消除瀏覽器彈性推擠，消滅鍵盤上方的神祕空白
-                document.body.style.position = 'fixed';
-                document.body.style.top = '0';
-                document.body.style.left = '0';
-                document.body.style.width = '100%';
-                
-                // 即時觸發視窗重繪與校正
-                if (window.visualViewport) {
-                    window.visualViewport.dispatchEvent(new Event('resize'));
-                }
-            }
-        }
-    };
+					// 1. 隱藏底部工作表頁籤
+					sheetTabBar.style.display = 'none';
+					
+					window.scrollTo(0, 0);
+					
+					// 3. 取得目前精確的可視高度 (扣除鍵盤後的高度)
+					const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+					
+					// 4. 鎖定畫面，並強制將高度設定為剛好貼齊鍵盤的尺寸
+					document.body.style.position = 'fixed';
+					document.body.style.top = '0';
+					document.body.style.left = '0';
+					document.body.style.width = '100%';
+					document.body.style.height = `${vh}px`; 
+					
+					if (window.visualViewport) {
+						window.visualViewport.dispatchEvent(new Event('resize'));
+					}
+				}
+			}
+		};
 
-    // 處理鍵盤收起：恢復原狀
-    const handleFocusOut = (e) => {
-        if (window.innerWidth <= 768) {
-            const target = e.target;
-            if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.hasAttribute('contenteditable')) {
-                // 使用 setTimeout 延遲 100 毫秒，避免在表格模式「切換格子」時畫面產生劇烈閃爍
-                blurTimeout = setTimeout(() => {
-                    sheetTabBar.style.display = '';
-                    document.body.style.position = '';
-                    document.body.style.top = '';
-                    document.body.style.left = '';
-                    document.body.style.width = '';
-                    
-                    if (window.visualViewport) {
-                        window.visualViewport.dispatchEvent(new Event('resize'));
-                    }
-                }, 100);
-            }
-        }
-    };
+		// 處理鍵盤收起：恢復原狀
+		const handleFocusOut = (e) => {
+			if (window.innerWidth <= 768) {
+				const target = e.target;
+				if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.hasAttribute('contenteditable')) {
+					blurTimeout = setTimeout(() => {
+						sheetTabBar.style.display = '';
+						document.body.style.position = '';
+						document.body.style.top = '';
+						document.body.style.left = '';
+						document.body.style.width = '';
+						
+						// 解除高度鎖定，讓瀏覽器接手
+						document.body.style.height = ''; 
+						
+						if (window.visualViewport) {
+							window.visualViewport.dispatchEvent(new Event('resize'));
+						}
+					}, 100);
+				}
+			}
+		};
 
-    // 使用 focusin 與 focusout 進行事件代理，能完美捕捉包含動態生成的表格輸入格
-    document.addEventListener('focusin', handleFocusIn);
-    document.addEventListener('focusout', handleFocusOut);
+		document.addEventListener('focusin', handleFocusIn);
+		document.addEventListener('focusout', handleFocusOut);
 	}
 });
