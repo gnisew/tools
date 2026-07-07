@@ -690,7 +690,7 @@ body.maximized-mode.is-playing-game #tableModeContainer {
     /* 1. 限制所有下拉選單的尺寸，防止超出螢幕 */
     .dropdown-menu {
         /* 使用 50dvh (動態視窗高度的 50%)，確保即使手機鍵盤彈出，選單也不會太長 */
-        max-height: 50dvh !important; 
+        max-height: 70dvh !important; 
         
         /* 限制最大寬度為螢幕的 90%，防止選單太寬超出左右邊界 */
         max-width: 90vw !important;   
@@ -711,6 +711,9 @@ body.maximized-mode.is-playing-game #tableModeContainer {
         background-color: #f9fafb !important; /* 給予一點淡灰色背景，區分主次階層 */
         margin-top: 4px !important;
         padding-left: 0.5rem !important; /* 稍微向右縮排 */
+    }
+	html, body {
+        overscroll-behavior-y: none !important;
     }
 	#mainContainer {
         flex-grow: 1 !important;

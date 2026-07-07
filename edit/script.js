@@ -13698,63 +13698,72 @@ document.addEventListener('DOMContentLoaded', () => {
         adjustViewport();
     }
 
-    //  這是全新升級的通用型優化程式碼
-	if (sheetTabBar) {
-		let blurTimeout;
+    if (sheetTabBar) {
+    let blurTimeout;
 
-		// 處理鍵盤彈出：隱藏頁籤、重置捲動、鎖定畫面
-		const handleFocusIn = (e) => {
-			if (window.innerWidth <= 768) {
-				const target = e.target;
-				if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.hasAttribute('contenteditable')) {
-					if (blurTimeout) clearTimeout(blurTimeout);
+    // 👇 1. 新增：獨立抽出一個同步高度的函式，讓視窗在鍵盤動畫期間能隨時修正
+    const syncViewportHeight = () => {
+        if (document.body.style.position === 'fixed' && window.visualViewport) {
+            document.body.style.height = `${window.visualViewport.height}px`;
+            window.scrollTo(0, 0); // 持續抵銷推擠
+        }
+    };
 
-					// 1. 隱藏底部工作表頁籤
-					sheetTabBar.style.display = 'none';
-					
-					window.scrollTo(0, 0);
-					
-					// 3. 取得目前精確的可視高度 (扣除鍵盤後的高度)
-					const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-					
-					// 4. 鎖定畫面，並強制將高度設定為剛好貼齊鍵盤的尺寸
-					document.body.style.position = 'fixed';
-					document.body.style.top = '0';
-					document.body.style.left = '0';
-					document.body.style.width = '100%';
-					document.body.style.height = `${vh}px`; 
-					
-					if (window.visualViewport) {
-						window.visualViewport.dispatchEvent(new Event('resize'));
-					}
-				}
-			}
-		};
+    // 處理鍵盤彈出
+    const handleFocusIn = (e) => {
+        if (window.innerWidth <= 768) {
+            const target = e.target;
+            if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.hasAttribute('contenteditable')) {
+                if (blurTimeout) clearTimeout(blurTimeout);
 
-		// 處理鍵盤收起：恢復原狀
-		const handleFocusOut = (e) => {
-			if (window.innerWidth <= 768) {
-				const target = e.target;
-				if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.hasAttribute('contenteditable')) {
-					blurTimeout = setTimeout(() => {
-						sheetTabBar.style.display = '';
-						document.body.style.position = '';
-						document.body.style.top = '';
-						document.body.style.left = '';
-						document.body.style.width = '';
-						
-						// 解除高度鎖定，讓瀏覽器接手
-						document.body.style.height = ''; 
-						
-						if (window.visualViewport) {
-							window.visualViewport.dispatchEvent(new Event('resize'));
-						}
-					}, 100);
-				}
-			}
-		};
+                sheetTabBar.style.display = 'none';
+                
+                document.body.style.position = 'fixed';
+                document.body.style.top = '0';
+                document.body.style.left = '0';
+                document.body.style.width = '100%';
+                
+                // 初始擷取高度
+                const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+                document.body.style.height = `${vh}px`; 
+                window.scrollTo(0, 0);
+                
+                // 👇 2. 【關鍵修復】：綁定 resize 事件，精準捕捉鍵盤滑動過程中的高度變化
+                if (window.visualViewport) {
+                    window.visualViewport.addEventListener('resize', syncViewportHeight);
+                }
+            }
+        }
+    };
 
-		document.addEventListener('focusin', handleFocusIn);
-		document.addEventListener('focusout', handleFocusOut);
-	}
+    // 處理鍵盤收起
+    const handleFocusOut = (e) => {
+        if (window.innerWidth <= 768) {
+            const target = e.target;
+            if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.hasAttribute('contenteditable')) {
+                blurTimeout = setTimeout(() => {
+                    
+                    // 👇 3. 【關鍵修復】：鍵盤收合後，務必解除監聽，把主導權還給系統
+                    if (window.visualViewport) {
+                        window.visualViewport.removeEventListener('resize', syncViewportHeight);
+                    }
+
+                    sheetTabBar.style.display = '';
+                    document.body.style.position = '';
+                    document.body.style.top = '';
+                    document.body.style.left = '';
+                    document.body.style.width = '';
+                    document.body.style.height = ''; 
+                    
+                    if (window.visualViewport) {
+                        window.visualViewport.dispatchEvent(new Event('resize'));
+                    }
+                }, 100);
+            }
+        }
+    };
+
+    document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('focusout', handleFocusOut);
+}
 });
