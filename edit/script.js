@@ -13698,35 +13698,59 @@ document.addEventListener('DOMContentLoaded', () => {
         adjustViewport();
     }
 
-    // UX 優化：打字時自動隱藏底部工作表頁籤，並鎖定畫面
-    if (chatInput && sheetTabBar) {
-        chatInput.addEventListener('focus', () => {
-            if (window.innerWidth <= 768) {
-                // 隱藏頁籤
+    //  這是全新升級的通用型優化程式碼
+if (sheetTabBar) {
+    let blurTimeout;
+
+    // 處理鍵盤彈出：隱藏頁籤、鎖定畫面防止空白間隙
+    const handleFocusIn = (e) => {
+        if (window.innerWidth <= 768) {
+            const target = e.target;
+            // 只要聚焦的是文字方塊、輸入框、或可編輯的表格單元格
+            if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.hasAttribute('contenteditable')) {
+                // 如果是連續切換輸入框（例如表格換下一格），清除即將恢復的排版排程
+                if (blurTimeout) clearTimeout(blurTimeout);
+
+                // 隱藏底部工作表頁籤
                 sheetTabBar.style.display = 'none';
                 
-                // 關鍵修正：鎖定 body 位置，避免原生瀏覽器預設的彈性推擠干擾
+                // 關鍵鎖定：消除瀏覽器彈性推擠，消滅鍵盤上方的神祕空白
                 document.body.style.position = 'fixed';
                 document.body.style.top = '0';
                 document.body.style.left = '0';
                 document.body.style.width = '100%';
                 
-                // 主動觸發一次視窗校正
+                // 即時觸發視窗重繪與校正
                 if (window.visualViewport) {
                     window.visualViewport.dispatchEvent(new Event('resize'));
                 }
             }
-        });
-        
-        chatInput.addEventListener('blur', () => {
-            // 失去焦點 (收起鍵盤) 時，恢復所有預設狀態
-            sheetTabBar.style.display = '';
-            document.body.style.position = '';
-            document.body.style.top = '';
-            document.body.style.left = '';
-            document.body.style.width = '';
-            document.body.style.height = '100dvh'; // 恢復使用 dvh
-            document.body.style.transform = '';
-        });
-    }
+        }
+    };
+
+    // 處理鍵盤收起：恢復原狀
+    const handleFocusOut = (e) => {
+        if (window.innerWidth <= 768) {
+            const target = e.target;
+            if (target.tagName === 'TEXTAREA' || target.tagName === 'INPUT' || target.hasAttribute('contenteditable')) {
+                // 使用 setTimeout 延遲 100 毫秒，避免在表格模式「切換格子」時畫面產生劇烈閃爍
+                blurTimeout = setTimeout(() => {
+                    sheetTabBar.style.display = '';
+                    document.body.style.position = '';
+                    document.body.style.top = '';
+                    document.body.style.left = '';
+                    document.body.style.width = '';
+                    
+                    if (window.visualViewport) {
+                        window.visualViewport.dispatchEvent(new Event('resize'));
+                    }
+                }, 100);
+            }
+        }
+    };
+
+    // 使用 focusin 與 focusout 進行事件代理，能完美捕捉包含動態生成的表格輸入格
+    document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('focusout', handleFocusOut);
+	}
 });
