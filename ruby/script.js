@@ -1901,6 +1901,11 @@ if (displaySettingsPopover) {
             paragraphIndent = indentMode;
             render(); // 重新渲染畫面以產生空白撐點
         }
+
+		// 功能 6：關閉按鈕
+		if (t.closest('#btnCloseSettings')) {
+            displaySettingsPopover.classList.add('hidden');
+        }
     });
 }
 
@@ -2233,6 +2238,20 @@ body{font-size:14pt;line-height:${bodyLineHeight};font-family:"台灣楷體", tw
     } catch (err) {
         await navigator.clipboard.writeText(html);
         toast('已複製標註 (HTML文字)');
+    }
+
+    // 迷你模式下，複製完自動聚焦輸入框並全選文字，方便輸入下一個字
+    if (typeof isMiniMode !== 'undefined' && isMiniMode) {
+        // 給予一點微小的延遲，確保瀏覽器已經處理完複製動作與 Toast 顯示
+        setTimeout(() => {
+            if (typeof inputMode !== 'undefined' && inputMode === 'pinyin-to-hanzi') {
+                pinyinInput.focus();
+                pinyinInput.select(); // 全選拼音，一打字就會覆蓋舊內容
+            } else {
+                hanziInput.focus();
+                hanziInput.select();  // 全選漢字，一打字就會覆蓋舊內容
+            }
+        }, 50);
     }
 }
 
@@ -3379,4 +3398,125 @@ if (typeof window.hanziToPinyin === 'function' && !window.hanziToPinyin.isProtec
     
     // 加上標記，防止重複覆寫
     window.hanziToPinyin.isProtected = true; 
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ==========================================
+// 迷你模式與防抖自動處理邏輯
+// ==========================================
+
+// 1. 防抖函數 (Debounce)
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// 2. 狀態與按鈕綁定
+let isMiniMode = false;
+let previousIndent = '2.5'; // 新增：用來記錄進入迷你模式前的縮排設定
+const btnMiniModeToggle = document.getElementById('btnMiniModeToggle');
+
+if (btnMiniModeToggle) {
+    btnMiniModeToggle.addEventListener('click', () => {
+        isMiniMode = !isMiniMode;
+        document.body.classList.toggle('mini-mode', isMiniMode);
+
+        const icon = btnMiniModeToggle.querySelector('.material-symbols-outlined');
+        if (isMiniMode) {
+            icon.textContent = 'expand'; // 變成展開圖示
+            btnMiniModeToggle.title = '切換標準模式';
+            toast('已啟用迷你模式 (支援即時自動標註)');
+            
+            // 進入迷你模式：記錄當前縮排，並強制設為 0 (無)
+            previousIndent = paragraphIndent;
+            paragraphIndent = '0';
+        } else {
+            icon.textContent = 'compress'; // 變成縮小圖示
+            btnMiniModeToggle.title = '切換迷你模式';
+            toast('已恢復標準模式');
+            
+            // 退出迷你模式：恢復原本的縮排設定
+            paragraphIndent = previousIndent;
+        }
+
+        // 同步更新排版選單中的「首行縮排」按鈕 UI 狀態
+        const displaySettingsPopover = document.getElementById('displaySettingsPopover');
+        if (displaySettingsPopover) {
+            displaySettingsPopover.querySelectorAll('.indent-choice').forEach(b => {
+                b.classList.remove('active', 'bg-white', 'shadow-sm', 'text-blue-700');
+                b.classList.add('text-slate-600', 'hover:text-slate-900');
+                if (b.dataset.indent === paragraphIndent) {
+                    b.classList.add('active', 'bg-white', 'shadow-sm', 'text-blue-700');
+                    b.classList.remove('text-slate-600', 'hover:text-slate-900');
+                }
+            });
+        }
+
+        // 重新渲染標註區，套用新的縮排設定
+        if (typeof render === 'function') {
+            render();
+        }
+    });
+}
+// 3. 自動執行轉換與標註的邏輯
+const handleAutoProcess = debounce(() => {
+    if (!isMiniMode) return;
+
+    // 根據目前的輸入模式決定呼叫哪個轉換函數
+    if (typeof inputMode !== 'undefined') {
+        if (inputMode === 'hanzi-to-pinyin' && typeof hanziToPinyin === 'function') {
+            hanziToPinyin();
+        } else if (inputMode === 'pinyin-to-hanzi' && typeof pinyinToHanzi === 'function') {
+            pinyinToHanzi();
+        }
+    } else {
+        // 如果 inputMode 變數不存在，預設執行字轉音
+        if (typeof hanziToPinyin === 'function') hanziToPinyin();
+    }
+
+    // 轉換完成後，自動呼叫標註渲染
+    if (typeof render === 'function') {
+        render();
+    }
+}, 400); // 設定 400 毫秒的防抖延遲
+
+// 4. 監聽輸入框的輸入事件
+const hanziInputEl = document.getElementById('hanziInput');
+const pinyinInputEl = document.getElementById('pinyinInput');
+
+if (hanziInputEl) {
+    hanziInputEl.addEventListener('input', () => {
+        // 只有在迷你模式且為「字轉音」模式下，打漢字才會自動觸發
+        if (isMiniMode && inputMode === 'hanzi-to-pinyin') {
+            handleAutoProcess();
+        }
+    });
+}
+
+if (pinyinInputEl) {
+    pinyinInputEl.addEventListener('input', () => {
+        // 只有在迷你模式且為「音轉字」模式下，打拼音才會自動觸發
+        if (isMiniMode && inputMode === 'pinyin-to-hanzi') {
+            handleAutoProcess();
+        }
+    });
 }

@@ -701,3 +701,89 @@ body.mode-block wbr.wrap-fix {
 #resultSection.is-fullscreen .collapsible-content {
     padding-bottom: 0 !important;
 }
+
+
+
+
+
+
+
+
+
+/* 迷你模式樣式設定 */
+body.mini-mode #hanziInput,
+body.mini-mode #pinyinInput {
+    min-height: 48px !important;
+    height: 48px !important;
+    resize: none !important;
+    white-space: nowrap !important; /* 強制單行 */
+    overflow-x: auto !important;    /* 允許左右滾動 */
+    overflow-y: hidden !important;  /* 隱藏上下滾動 */
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+}
+
+body.mini-mode #resultArea {
+    min-height: 60px !important;
+    max-height: 120px !important;
+    overflow-y: auto;
+}
+
+body.mini-mode #displaySettingsPopover {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    right: auto !important;
+    bottom: auto !important;
+    margin: 0 !important;
+    z-index: 99999 !important;
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1) !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+/* 手機版 (寬度 < 640px) 或 迷你模式時，排版選單強制改為螢幕中央顯示 */
+@media (max-width: 640px) {
+    #displaySettingsPopover {
+        position: fixed !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        right: auto !important;
+        bottom: auto !important;
+        margin: 0 !important;
+        z-index: 99999 !important;
+        box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1) !important;
+        border: 1px solid #e2e8f0 !important;
+        width: 280px !important; /* 手機版稍微限縮寬度，確保不會超出邊界 */
+    }
+}
+
+/* 確保迷你模式也維持一樣的置中設定 */
+body.mini-mode #displaySettingsPopover {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    right: auto !important;
+    bottom: auto !important;
+    margin: 0 !important;
+    z-index: 99999 !important;
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1) !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+/* 1. 讓容器在寬度變化時，擁有平滑的動畫過渡效果 */
+header > div.max-w-6xl, 
+#mainGrid {
+    transition: max-width 0.3s ease-in-out;
+}
+
+/* 2. 迷你模式：強制縮減整體最大寬度，讓版面更緊湊 */
+body.mini-mode header > div.max-w-6xl,
+body.mini-mode #mainGrid {
+    max-width: 900px !important; /* 從原本的 1152px 縮減，集中視覺焦點 */
+}
+body.mini-mode #btnFullscreen {
+    display: none !important;
+}

@@ -39,14 +39,19 @@
             <span class="title-text">輸入</span>
           </h2>
 
-			
-          <div id="inputModeToggle" class="seg bg-slate-100">
-		  	<button class="toolbar-btn-text ime-toggle-button" title="輸入法">
-				<span class="material-icons">keyboard</span>
-				<span class="btn-text"></span>				
-			</button>	
-            <button id="btnModeHanziToPinyin" class="active">字轉音</button>
-            <button id="btnModePinyinToHanzi">音轉字</button>
+          <div class="flex items-center gap-2">
+            <button id="btnMiniModeToggle" class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors" title="切換迷你模式">
+                <span class="material-symbols-outlined text-[20px]">compress</span>
+            </button>
+            
+            <div id="inputModeToggle" class="seg bg-slate-100">
+                <button class="toolbar-btn-text ime-toggle-button" title="輸入法">
+                    <span class="material-icons">keyboard</span>
+                    <span class="btn-text"></span>				
+                </button>	
+                <button id="btnModeHanziToPinyin" class="active">字⭢音</button>
+                <button id="btnModePinyinToHanzi">音⭢字</button>
+            </div>
           </div>
         </div>
 
@@ -276,7 +281,12 @@
                   <div class="mb-3">
                     <div class="flex items-center justify-between mb-2">
                       <div class="text-slate-700 font-medium text-sm">字級大小</div>
-                      <button id="btnResetFont" class="text-[11px] px-2 py-0.5 rounded border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors">預設</button>
+                      <div class="flex items-center gap-2">
+                        <button id="btnResetFont" class="text-[11px] px-2 py-0.5 rounded border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors">預設</button>
+                        <button id="btnCloseSettings" class="text-slate-400 hover:text-slate-600 flex items-center justify-center p-0.5 rounded-full hover:bg-slate-100 transition-colors" title="關閉">
+                          <span class="material-symbols-outlined text-[18px]">close</span>
+                        </button>
+                      </div>
                     </div>
                     <div class="number-row">
                       <span class="text-sm text-slate-600">整體</span>
