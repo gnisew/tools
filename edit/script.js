@@ -1109,7 +1109,7 @@ function renderTableFromText(text) {
                                     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 
                 // 直接指派 innerHTML 比一再 createElement 更快
-                td.innerHTML = `<div class="td-inner" contenteditable="true">${safeText}</div>`;
+				td.innerHTML = `<div class="td-inner" contenteditable="true" spellcheck="false">${safeText}</div>`;
                 tr.appendChild(td);
             }
             fragment.appendChild(tr);
@@ -1604,6 +1604,7 @@ function insertColAt(index, copyFromIndex = -1, count = 1) {
             const inner = document.createElement('div');
             inner.className = 'td-inner';
             inner.contentEditable = "true";
+			inner.spellcheck = false;
             if (copyFromIndex !== -1 && tr.children[copyFromIndex + 1]) {
                 const copyInner = tr.children[copyFromIndex + 1].querySelector('.td-inner');
                 if (copyInner) inner.innerHTML = copyInner.innerHTML;
@@ -1636,6 +1637,7 @@ function insertRowAt(index, copyFromIndex = -1, count = 1) {
             const inner = document.createElement('div');
             inner.className = 'td-inner';
             inner.contentEditable = "true";
+			inner.spellcheck = false;
             if (copyFromIndex !== -1 && tbody.children[copyFromIndex]) {
                 const copyInner = tbody.children[copyFromIndex].querySelectorAll('.td-inner')[i];
                 if (copyInner) inner.innerHTML = copyInner.innerHTML;
@@ -5928,8 +5930,7 @@ document.addEventListener('touchmove', (e) => {
 }, { passive: false });
 document.addEventListener('touchend', () => { isDraggingRDM = false; });
 
-// 輔助函數：在指定欄位右側精準插入一欄 (修復標題空白問題)
-// 輔助函數：在指定欄位右側精準插入一欄 (修復標題空白與格式問題)
+// 輔助函數：在指定欄位右側精準插入一欄
 function insertColumnRightOf(colIdx) {
     const theadTr = dataTable.querySelector('thead tr');
     const newTh = document.createElement('th');
@@ -5955,6 +5956,7 @@ function insertColumnRightOf(colIdx) {
         inner.className = 'td-inner';
         inner.contentEditable = "true";
         newTd.appendChild(inner);
+		inner.spellcheck = false;
         
         if (colIdx + 2 < tr.children.length) {
             tr.insertBefore(newTd, tr.children[colIdx + 2]);
