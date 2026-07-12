@@ -33,7 +33,7 @@
   const auth = firebase.auth();
   const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-	// 💀 監聽登入狀態，控制按鈕顯示/隱藏
+	// 監聽登入狀態，控制按鈕顯示/隱藏
   auth.onAuthStateChanged((user) => {
       const adminElements = document.querySelectorAll('.admin-only');
       if (user) {
@@ -131,7 +131,7 @@ let currentEditTrigger = localStorage.getItem(EDIT_TRIGGER_KEY) || 'double';
 
 
 // ==========================================
-// 觸控防誤觸機制 (防止 Hover 瞬間引發的點擊穿透)
+// 觸控防誤觸機制
 // ==========================================
 if (typeof window.lastGlobalTouchTime === 'undefined') {
     window.lastGlobalTouchTime = 0;
@@ -1139,21 +1139,17 @@ function renderTableFromText(text) {
 
 function extractTextFromTable() {
     if (!dataTable.querySelector('tbody')) return '';
-    
+
     const textLines = Array.from(dataTable.querySelectorAll('tbody tr')).map(row => {
         return Array.from(row.querySelectorAll('.td-inner')).map(cell => {
             // 優先抓取公式，如果沒有公式再抓取畫面上的文字
-			let text = cell.hasAttribute('data-formula') ? cell.getAttribute('data-formula') : cell.innerText;
+            let text = cell.hasAttribute('data-formula') ? cell.getAttribute('data-formula') : cell.innerText;
             if (text.endsWith('\n')) text = text.slice(0, -1);
             if (text.includes('"') || text.includes('\n') || text.includes('\t')) return '"' + text.replace(/"/g, '""') + '"';
             return text;
         }).join('\t');
     }).join('\n');
-
-    let resultText = textLines;
-    resultText = resultText.replace(/[\t ]+(?=\n|$)/g, '').trimEnd();
-
-    return resultText;
+    return textLines;
 }
 
 // ==========================================

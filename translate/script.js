@@ -925,8 +925,63 @@ function startMainApplication() {
         
         const sourceText = textInput.value;
         const delimiter = translationDelimiter;
+		
+		// 「查對應詞」邏輯 ---
+        if (action === 'exact_match') {
+            console.log(`[Exact Match] 執行查對應詞: ${from} -> ${to}`);
+            
+            // 載入當前語言對應的字典
+            const dicts = await loadDictionaryForPair(from, to);
+            const direction = determineDirection(from, to);
+            
+            // 判斷要比對的索引位置 (A語言搜 searchIndex，B語言輸出 targetIndex)
+            const searchIndex = direction === 'GK' ? 2 : 1; 
+            const targetIndex = direction === 'GK' ? 1 : 2;
+            const rawList = dicts.rawList;
 
-        // --- ✨ 新增：處理「篩選新詞」邏輯 ---
+            const actionFn = (text) => {
+                // 將輸入的文字按斷行切開，逐行處理
+                const lines = text.split('\n');
+                const outLines = lines.map(line => {
+                    const keyword = line.trim();
+                    if (!keyword) return ''; // 保持空行不變
+                    
+                    const matches = [];
+                    const seen = new Set();
+                    
+                    // 遍歷字典尋找完全符合的詞
+                    rawList.forEach(item => {
+                        const sWord = item[searchIndex];
+                        const tWord = item[targetIndex];
+                        
+                        // 完全符合，且 B 語言有對應的詞，且尚未被加入過
+                        if (sWord === keyword && tWord && !seen.has(tWord)) {
+                            seen.add(tWord);
+                            matches.push({
+                                word: tWord,
+                                count: item[0] || 0 // 取得詞頻，若無則為 0
+                            });
+                        }
+                    });
+                    
+                    // 依照次數 (count) 由多到少排序 (降冪)
+                    matches.sort((a, b) => b.count - a.count);
+                    
+                    if (matches.length > 0) {
+                        // 提取排序後的單詞，並用逗號加空格分隔
+                        return matches.map(m => m.word).join(', ');
+                    } else {
+                        return '';//(無對應詞)
+                    }
+                });
+                return outLines.join('\n');
+            };
+            
+            // 回傳設定好的函式
+            return { dicts: null, actionFn: actionFn, sourceText: sourceText };
+        }
+
+        // 處理「篩選新詞」邏輯 ---
         if (action === 'filter_new') {
             console.log(`[Filter] 執行篩選新詞: ${from}`);
             
@@ -1363,44 +1418,41 @@ function startMainApplication() {
 
 
     /**
-     * 觸發翻譯
+     * 觸發翻譯與各種動作
      */
     function triggerTranslation(actionOverride = null) {
-        // 決定要執行的動作：優先使用傳入的 actionOverride，
-        // 否則使用全域的 currentTranslateAction (用於即時翻譯)
+        // 決定要執行的動作
         const actionToPerform = actionOverride || currentTranslateAction;
 
-        // 如果執行的動作是 'translate' (無論是點擊主按鈕或即時翻譯)
-        // 我們都重設全域狀態並更新選單 UI
         if (actionToPerform === 'translate') {
             currentTranslateAction = 'translate';
             popoverTranslateOptions.querySelectorAll('button').forEach(b => b.classList.remove('active'));
             popoverTranslateOptions.querySelector('button[data-action="translate"]').classList.add('active');
         }
 
-        const text = textInput.value; // 保留頭尾空格
+        const text = textInput.value; 
         
         if (text.trim() === '') {
-            if (actionToPerform === 'translate') {
+            if (actionToPerform === 'translate' || actionToPerform === 'exact_match') {
                 textOutput.value = '';
             } else {
-                textOutput.value = ''; // 斷詞時也清空右欄
+                textOutput.value = ''; 
             }
-			autoResizeTextarea(textOutput);
+            autoResizeTextarea(textOutput);
             return;
         }
 
         console.log(`準備執行動作: ${actionToPerform} (從 ${langLeft} 到 ${langRight})`);
         
-        if (actionToPerform === 'translate') {
+        // 💡 關鍵修改 1：如果是翻譯或查對應詞，右邊顯示「處理中...」
+        if (actionToPerform === 'translate' || actionToPerform === 'exact_match') {
             textOutput.value = "處理中...";
-			autoResizeTextarea(textOutput);
+            autoResizeTextarea(textOutput);
         } else {
             textOutput.value = ''; // 確保右欄為空
-			autoResizeTextarea(textOutput);
+            autoResizeTextarea(textOutput);
         }
         
-        // 檢查核心庫是否載入
         if (typeof setupDictionaries !== 'function') {
              console.error("translate.js 尚未載入");
              showToast("錯誤：核心翻譯庫尚未載入。");
@@ -1408,27 +1460,26 @@ function startMainApplication() {
              return;
         }
         
-        // 使用 actionToPerform 取得字典
         getDictionaryAndAction(langLeft, langRight, actionToPerform)
             .then(({ dicts, actionFn, sourceText }) => {
                 const result = actionFn(sourceText, dicts);
 
-                // 根據 actionToPerform 決定輸出位置
-                if (actionToPerform === 'translate') {
+                // 💡 關鍵修改 2：根據 actionToPerform 決定輸出位置
+                if (actionToPerform === 'translate' || actionToPerform === 'exact_match') {
                     textOutput.value = result.trim();
-					autoResizeTextarea(textOutput);
+                    autoResizeTextarea(textOutput);
                 } else {
                     textInput.value = result.trim();
                     textOutput.value = ''; 
-					autoResizeTextarea(textInput);
-					autoResizeTextarea(textOutput);
+                    autoResizeTextarea(textInput);
+                    autoResizeTextarea(textOutput);
                 }
             })
             .catch(err => {
                 console.error("翻譯/斷詞處理失敗:", err);
                 showToast(err.message || "處理失敗");
                 textOutput.value = "處理錯誤";
-				autoResizeTextarea(textOutput);
+                autoResizeTextarea(textOutput);
             });
     }
 
