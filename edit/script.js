@@ -12336,7 +12336,9 @@ window.TextToolsEngine = {
 
             const chineseChars = splitChineseWithDigits(chinese);
             let processedPinyin = pinyin.replace(/([。，、；：【】「」『』（）─？！…﹏《》〈〉＿．—～~／\“\”\(\)\[\]{}\/,.?;:!"'""''·])/g, ' $1 ');
-            const pinyinGroups = processedPinyin.split(' ').filter(g => g.length > 0);
+            
+            // ✨ 核心修正點：將 .split(' ') 升級為 .split(/\s+/) 來通殺所有形式的空白字元
+            const pinyinGroups = processedPinyin.split(/\s+/).filter(g => g.length > 0);
             
             let chineseIndex = 0, pinyinIndex = 0, chineseCount = 0, pinyinCount = 0;
             
@@ -12353,7 +12355,8 @@ window.TextToolsEngine = {
                     const currentPinyin = pinyinGroups[pinyinIndex];
                     if (!punctuationRegex.test(currentPinyin)) {
                         if (currentPinyin.includes('-')) {
-                            const charCount = currentPinyin.split(/-+/).length;
+                            // 保留上一次的除錯：加上 filter(Boolean) 處理 --ah 這種輕聲詞綴
+                            const charCount = currentPinyin.split(/-+/).filter(Boolean).length; 
                             const relevantChars = chineseChars.slice(chineseIndex, chineseIndex + charCount).filter(char => !punctuationRegex.test(char)).join('');
                             currentOutput += `${relevantChars}\\${currentPinyin} `;
                             chineseIndex += charCount; chineseCount++;
@@ -12384,7 +12387,6 @@ window.TextToolsEngine = {
             }
             currentOutput = currentOutput.replace(/\s+/g, ' ').trim();
             
-            // ✨ 呼叫引擎判斷是否要附加比對字串
             const suffix = window.TextToolsEngine.getCompareSuffix(chineseCount, pinyinCount);
             output += currentOutput + suffix + '\n';
         });
