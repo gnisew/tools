@@ -687,7 +687,7 @@ function switchMode(mode, isForce = false, dataOverride = null, configOverride =
     // 1. 數據提取與轉移：只有在「非注入模式」下才需要自動存檔，避免覆蓋
     if (!isForce && !dataOverride) {
         if (currentMode === 'table' && mode !== 'table') {
-            editor.value = extractTextFromTable();
+            editor.value = extractTextFromTable(true);
         } else if (currentMode === 'chat' && mode !== 'chat') {
             const chatExtracted = extractTextFromChat();
             if (chatExtracted && chatExtracted.trim() !== '') {
@@ -779,7 +779,7 @@ function switchMode(mode, isForce = false, dataOverride = null, configOverride =
             if (gameModes.includes(previousMode) || previousMode === 'arena' || previousMode === 'live') {
                 rawDataText = window.lastGameData || editor.value;
             } else if (containers.table.style.display !== 'none') {
-                rawDataText = extractTextFromTable();
+                rawDataText = extractTextFromTable(true);
             } else {
                 rawDataText = editor.value;
             }
@@ -1137,19 +1137,62 @@ function renderTableFromText(text) {
     renderChunk();
 }
 
-function extractTextFromTable() {
+function extractTextFromTable(trimTrailing = false) {
     if (!dataTable.querySelector('tbody')) return '';
 
-    const textLines = Array.from(dataTable.querySelectorAll('tbody tr')).map(row => {
+    // 1. 抓取表格所有資料並組成二維陣列
+    let grid = Array.from(dataTable.querySelectorAll('tbody tr')).map(row => {
         return Array.from(row.querySelectorAll('.td-inner')).map(cell => {
-            // 優先抓取公式，如果沒有公式再抓取畫面上的文字
             let text = cell.hasAttribute('data-formula') ? cell.getAttribute('data-formula') : cell.innerText;
             if (text.endsWith('\n')) text = text.slice(0, -1);
-            if (text.includes('"') || text.includes('\n') || text.includes('\t')) return '"' + text.replace(/"/g, '""') + '"';
+            return text;
+        });
+    });
+
+    // 2. 只有在指定需要清理時 (例如手動切換到文字模式)，才移除邊緣的空欄與空列
+    if (trimTrailing) {
+        // 從底部往上檢查，移除完全空白的列
+        while (grid.length > 0) {
+            const lastRow = grid[grid.length - 1];
+            const isEmptyRow = lastRow.every(cell => !cell || String(cell).trim() === '');
+            if (isEmptyRow) {
+                grid.pop();
+            } else {
+                break; // 遇到有資料的列就停止
+            }
+        }
+
+        // 檢查每一列，找出最右邊有資料的欄位索引，藉此清除右側多餘空欄
+        if (grid.length > 0) {
+            let maxColWithData = -1;
+            for (let r = 0; r < grid.length; r++) {
+                const row = grid[r];
+                for (let c = row.length - 1; c >= 0; c--) {
+                    if (row[c] && String(row[c]).trim() !== '') {
+                        if (c > maxColWithData) maxColWithData = c;
+                        break;
+                    }
+                }
+            }
+
+            const validColCount = maxColWithData + 1;
+            for (let r = 0; r < grid.length; r++) {
+                if (grid[r].length > validColCount) {
+                    grid[r] = grid[r].slice(0, validColCount);
+                }
+            }
+        }
+    }
+
+    // 3. 轉為 TSV 文字格式 (支援跳脫字元)
+    return grid.map(row => {
+        return row.map(text => {
+            if (text.includes('"') || text.includes('\n') || text.includes('\t')) {
+                return '"' + text.replace(/"/g, '""') + '"';
+            }
             return text;
         }).join('\t');
     }).join('\n');
-    return textLines;
 }
 
 // ==========================================
@@ -6957,7 +7000,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 // ==========================================
-// 編輯器專屬：浮動翻譯工具整合模組 (新增 字〔yin〕華 混合功能)
+// 編輯器專屬：浮動翻譯工具整合模組
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
         window.lastFocusedInput = null;
@@ -7847,12 +7890,60 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function doSegmentText(text, dicts, isSourceChinese, separator = ' ') {
         if (!text || !dicts) return text;
+        
+        // 1. 替換異體字
         let result = text.replace(dicts.reVariant, (match) => dicts.mapVariant.get(match));
-        const marker = ""; 
         const re = isSourceChinese ? dicts.reTonv : dicts.reKG;
-        result = result.replace(re, (match) => marker + match + marker);
-        // 將原本寫死的 ' ' 替換為 separator
-        return result.replace(new RegExp(marker + '{1,2}', 'g'), separator).trim();
+        
+        // 2. 從正則表達式中還原已經完美排序（長度 > 次數）的詞彙表
+        const sortedWords = re.source.split('|').map(s => s.replace(/\\(.)/g, '$1'));
+
+        // 3. 陣列分塊切割法 (全域最長詞優先)
+        let chunks = [{ text: result, isWord: false }];
+        
+        for (let word of sortedWords) {
+            let hasMatch = false;
+            for (let chunk of chunks) {
+                if (!chunk.isWord && chunk.text.includes(word)) {
+                    hasMatch = true;
+                    break;
+                }
+            }
+            if (!hasMatch) continue;
+
+            let newChunks = [];
+            for (let chunk of chunks) {
+                if (chunk.isWord) {
+                    newChunks.push(chunk); 
+                    continue;
+                }
+                
+                let parts = chunk.text.split(word);
+                for (let j = 0; j < parts.length; j++) {
+                    if (parts[j].length > 0) {
+                        newChunks.push({ text: parts[j], isWord: false });
+                    }
+                    if (j < parts.length - 1) {
+                        newChunks.push({ text: word, isWord: true });
+                    }
+                }
+            }
+            chunks = newChunks;
+        }
+        
+        // 4. 重組字串並加上標記
+        const marker = "";
+        result = chunks.map(c => c.isWord ? marker + c.text + marker : c.text).join('');
+        
+        // 5. 將標記符替換為外部傳入的分隔符號 (separator)
+        result = result.replace(new RegExp(marker + '{1,2}', 'g'), separator);
+        
+        // 6. 清理頭尾多餘的分隔符號
+        // 為了防止 separator 是正則特殊符號 (如 . 或 *)，先進行逸脫處理
+        const escapeSeparator = separator.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        result = result.replace(new RegExp('^' + escapeSeparator + '|' + escapeSeparator + '$', 'g'), '');
+
+        return result.trim();
     }
 
     // --- 6. 抽出轉換核心執行器 ---
@@ -12318,7 +12409,7 @@ window.TextToolsEngine = {
     combineHyphen(input) {
         const lines = input.split('\n');
         let output = '';
-        const punctuationRegex = /[。，、；：【】「」『』（）─？！…﹏《》〈〉＿．—～~／\“\”\(\)\[\]{}\/,.?;:!"'""''·]/;
+        const punctuationRegex = /[。，、；：【】「」『』（）─？！…﹏《》〈〉＿．—～~／\“\”\‘\’\(\)\[\]{}\/,.?;:!"'·]/;
 
         lines.forEach(line => {
             if (line.trim() === '' || line.trim() === '\t') { output += line + '\n'; return; }
@@ -12328,38 +12419,125 @@ window.TextToolsEngine = {
             if (!chinese || !pinyin) { output += line + '\n'; return; }
 
             let currentOutput = '';
+            
             const splitChineseWithDigits = (text) => {
                 let joinedText = [...text].join('ˉ'); 
                 joinedText = joinedText.replace(/\d(ˉ\d)+/g, match => match.replace(/ˉ/g, ''));
+                joinedText = joinedText.replace(/(…)(ˉ…)+/g, match => match.replace(/ˉ/g, '')); 
+                joinedText = joinedText.replace(/(—)(ˉ—)+/g, match => match.replace(/ˉ/g, '')); 
+                joinedText = joinedText.replace(/(─)(ˉ─)+/g, match => match.replace(/ˉ/g, '')); 
+                
+                const latinRegex = /([a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF\u0300-\u036F\u207F\-]+(ˉ[a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF\u0300-\u036F\u207F\-]+)+)/g;
+                joinedText = joinedText.replace(latinRegex, match => match.replace(/ˉ/g, ''));
+
                 return joinedText.split('ˉ');
             };
 
             const chineseChars = splitChineseWithDigits(chinese);
-            let processedPinyin = pinyin.replace(/([。，、；：【】「」『』（）─？！…﹏《》〈〉＿．—～~／\“\”\(\)\[\]{}\/,.?;:!"'""''·])/g, ' $1 ');
             
-            // ✨ 核心修正點：將 .split(' ') 升級為 .split(/\s+/) 來通殺所有形式的空白字元
+            let processedPinyin = pinyin.replace(/\.+/g, match => ` ⚑${match.length}⚑ `);
+            processedPinyin = processedPinyin.replace(/([。，、；：【】「」『』（）─？！…﹏《》〈〉＿．—～~／\“\”\‘\’\(\)\[\]{}\/,.?;:!"'·])/g, ' $1 ');
+            processedPinyin = processedPinyin.replace(/⚑(\d+)⚑/g, (match, p1) => '.'.repeat(parseInt(p1)));
+            
             const pinyinGroups = processedPinyin.split(/\s+/).filter(g => g.length > 0);
             
             let chineseIndex = 0, pinyinIndex = 0, chineseCount = 0, pinyinCount = 0;
             
             while (chineseIndex < chineseChars.length || pinyinIndex < pinyinGroups.length) {
-                while (chineseIndex < chineseChars.length && punctuationRegex.test(chineseChars[chineseIndex])) {
-                    currentOutput += chineseChars[chineseIndex] + ' ';
-                    chineseIndex++; chineseCount++;
+                let hasPunc = false;
+                while (
+                    (chineseIndex < chineseChars.length && punctuationRegex.test(chineseChars[chineseIndex])) ||
+                    (pinyinIndex < pinyinGroups.length && punctuationRegex.test(pinyinGroups[pinyinIndex]))
+                ) {
+                    hasPunc = true;
+                    let cPunc = '';
+                    let pPunc = '';
+                    
+                    if (chineseIndex < chineseChars.length && punctuationRegex.test(chineseChars[chineseIndex])) {
+                        cPunc = chineseChars[chineseIndex];
+                        chineseIndex++; chineseCount++;
+                    }
+                    
+                    if (pinyinIndex < pinyinGroups.length && punctuationRegex.test(pinyinGroups[pinyinIndex])) {
+                        pPunc = pinyinGroups[pinyinIndex];
+                        pinyinIndex++; pinyinCount++;
+                    }
+                    
+                    if (cPunc && pPunc) {
+                        currentOutput += `${cPunc} ${pPunc} `; 
+                    } else if (cPunc) {
+                        currentOutput += `${cPunc} `;          
+                    } else if (pPunc) {
+                        currentOutput += ` ${pPunc} `;         
+                    }
                 }
-                while (pinyinIndex < pinyinGroups.length && punctuationRegex.test(pinyinGroups[pinyinIndex])) {
-                    currentOutput += ` ${pinyinGroups[pinyinIndex]} `;
-                    pinyinIndex++; pinyinCount++;
-                }
+                
+                if (hasPunc) continue; 
+                
                 if (chineseIndex < chineseChars.length && pinyinIndex < pinyinGroups.length) {
                     const currentPinyin = pinyinGroups[pinyinIndex];
                     if (!punctuationRegex.test(currentPinyin)) {
+                        
+                        // ✨ 核心修正點：音節動態分配器
                         if (currentPinyin.includes('-')) {
-                            // 保留上一次的除錯：加上 filter(Boolean) 處理 --ah 這種輕聲詞綴
-                            const charCount = currentPinyin.split(/-+/).filter(Boolean).length; 
-                            const relevantChars = chineseChars.slice(chineseIndex, chineseIndex + charCount).filter(char => !punctuationRegex.test(char)).join('');
-                            currentOutput += `${relevantChars}\\${currentPinyin} `;
-                            chineseIndex += charCount; chineseCount++;
+                            const pinyinParts = currentPinyin.split(/-+/).filter(Boolean);
+                            const pSyllables = pinyinParts.length;
+
+                            let matchGroup = [];
+                            let matchSyllables = 0;
+                            let tempIndex = chineseIndex;
+                            let hasLatin = false;
+                            const latinCheckRegex = /[a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]/;
+
+                            // 1. 抓取滿足音節數量的文字群組
+                            while (matchSyllables < pSyllables && tempIndex < chineseChars.length) {
+                                let char = chineseChars[tempIndex];
+                                if (punctuationRegex.test(char)) break;
+                                matchGroup.push(char);
+                                if (latinCheckRegex.test(char)) {
+                                    hasLatin = true;
+                                    matchSyllables += char.split(/-+/).filter(Boolean).length;
+                                } else {
+                                    matchSyllables += 1;
+                                }
+                                tempIndex++;
+                            }
+
+                            if (matchGroup.length === 0) {
+                                currentOutput += `\\${currentPinyin} `;
+                            } else if (!hasLatin) {
+                                // 2A. 純中文模式：合併整個群組
+                                const relevantChars = matchGroup.join('');
+                                currentOutput += `${relevantChars}\\${currentPinyin} `;
+                                chineseIndex += matchGroup.length;
+                                chineseCount++;
+                            } else {
+                                // 2B. 中英夾雜模式：切割拼音並依序分配
+                                const regex = /(-*)([^-]+)/g;
+                                let match;
+                                let parsedPinyin = [];
+                                while ((match = regex.exec(currentPinyin)) !== null) {
+                                    parsedPinyin.push({ sep: match[1], text: match[2] });
+                                }
+
+                                let pParsedIndex = 0;
+                                for (let i = 0; i < matchGroup.length; i++) {
+                                    let char = matchGroup[i];
+                                    let sCount = latinCheckRegex.test(char) ? char.split(/-+/).filter(Boolean).length : 1;
+                                    let piece = '';
+                                    
+                                    for (let s = 0; s < sCount; s++) {
+                                        if (pParsedIndex < parsedPinyin.length) {
+                                            let part = parsedPinyin[pParsedIndex];
+                                            piece += part.sep + part.text;
+                                            pParsedIndex++;
+                                        }
+                                    }
+                                    currentOutput += `${char}\\${piece} `;
+                                    chineseCount++;
+                                }
+                                chineseIndex += matchGroup.length;
+                            }
                         } else {
                             currentOutput += `${chineseChars[chineseIndex]}\\${currentPinyin} `;
                             chineseIndex++; chineseCount++;
@@ -12392,7 +12570,6 @@ window.TextToolsEngine = {
         });
         return output.trim();
     },
-
     // 3. 詞音合併
     combineWords(input) {
         const lines = input.split('\n');
