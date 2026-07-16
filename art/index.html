@@ -13,270 +13,116 @@
             --border-color: #dcdde1;
             --highlight: #2980b9;
         }
-        html {
-            font-size: 24px; 
-            transition: font-size 0.2s ease;
-        }
+        html { font-size: 24px; transition: font-size 0.2s ease; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--primary-color);
-            margin: 0;
-            padding: 1rem 0.5rem 6rem 0.5rem; 
-            line-height: 1.5;
+            background-color: var(--bg-color); color: var(--primary-color);
+            margin: 0; padding: 1rem 0.5rem 6rem 0.5rem; line-height: 1.5;
         }
         
-        /* 頂部縮放按鈕 */
-        .header-top {
-            display: flex;
-            justify-content: flex-end;
-            margin-bottom: 0.5rem;
-        }
+        .header-top { display: flex; justify-content: flex-end; margin-bottom: 0.5rem; }
         .zoom-btn {
-            background-color: #34495e;
-            color: white;
-            border: none;
-            border-radius: 0.3rem;
-            width: 2.5rem;
-            height: 2.5rem;
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin-left: 0.5rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 0.2rem 0.3rem rgba(0,0,0,0.1);
+            background-color: #34495e; color: white; border: none; border-radius: 0.3rem;
+            width: 2.5rem; height: 2.5rem; font-size: 1.5rem; font-weight: bold;
+            margin-left: 0.5rem; cursor: pointer; display: flex; align-items: center;
+            justify-content: center; box-shadow: 0 0.2rem 0.3rem rgba(0,0,0,0.1);
         }
 
-        h1 {
-            text-align: center;
-            font-size: 1.6rem;
-            color: var(--primary-color);
-            margin-top: 0;
-            margin-bottom: 1.2rem;
-        }
+        h1 { text-align: center; font-size: 1.6rem; color: var(--primary-color); margin-top: 0; margin-bottom: 1.2rem; }
         
         .section {
-            background: var(--card-bg);
-            border-radius: 0.6rem;
-            padding: 1rem;
-            margin-bottom: 1.2rem;
-            box-shadow: 0 0.2rem 0.4rem rgba(0,0,0,0.05);
-            border: 0.1rem solid var(--border-color);
+            background: var(--card-bg); border-radius: 0.6rem; padding: 1rem; margin-bottom: 1.2rem;
+            box-shadow: 0 0.2rem 0.4rem rgba(0,0,0,0.05); border: 0.1rem solid var(--border-color);
         }
         .section-title {
-            font-size: 1.3rem;
-            font-weight: bold;
-            color: var(--highlight);
-            border-bottom: 0.15rem solid var(--highlight);
-            padding-bottom: 0.5rem;
-            margin-top: 0;
-            margin-bottom: 1rem;
+            font-size: 1.3rem; font-weight: bold; color: var(--highlight);
+            border-bottom: 0.15rem solid var(--highlight); padding-bottom: 0.5rem; margin-top: 0; margin-bottom: 1rem;
         }
 
-        input {
-            font-family: inherit;
+        /* 幾何圖解專用 CSS */
+        .diagram-container {
+            display: flex; flex-direction: column; align-items: center; margin: 1.5rem 0; font-size: 0.95rem;
         }
-        .input-group {
-            margin-bottom: 1rem;
-            display: flex;
-            flex-direction: column;
+        .diagram-back { text-align: center; font-weight: bold; color: #e74c3c; margin-bottom: 0.5rem; }
+        .diagram-middle { display: flex; align-items: center; justify-content: center; width: 100%; }
+        .diagram-side-left { writing-mode: vertical-rl; transform: rotate(180deg); margin-right: 0.8rem; font-weight: bold; color: #2980b9; text-align: center;}
+        .diagram-side-right { writing-mode: vertical-rl; margin-left: 0.8rem; font-weight: bold; color: #2980b9; text-align: center;}
+        .diagram-box {
+            width: 50%; max-width: 150px; height: 220px; background: #ecf0f1;
+            border-left: 6px solid #2980b9; border-right: 6px solid #2980b9;
+            border-top: 6px dashed #e74c3c; border-bottom: 4px dotted #7f8c8d;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
         }
-        .input-group label {
-            font-weight: bold;
-            margin-bottom: 0.4rem;
-            color: var(--secondary-color);
-            font-size: 1rem;
-        }
+        .diagram-front { text-align: center; font-weight: bold; color: #7f8c8d; margin-top: 0.5rem; }
+
+        input { font-family: inherit; }
+        .input-group { margin-bottom: 1rem; display: flex; flex-direction: column; }
+        .input-group label { font-weight: bold; margin-bottom: 0.4rem; color: var(--secondary-color); font-size: 1rem; }
         .input-group input {
-            font-size: 1.2rem; 
-            font-weight: bold;
-            padding: 0.6rem;
-            border: 0.1rem solid var(--border-color);
-            border-radius: 0.4rem;
-            width: 100%;
-            box-sizing: border-box;
-            background-color: #fdfdfd;
-            color: #2c3e50;
+            font-size: 1.2rem; font-weight: bold; padding: 0.6rem; border: 0.1rem solid var(--border-color);
+            border-radius: 0.4rem; width: 100%; box-sizing: border-box; background-color: #fdfdfd; color: #2c3e50;
         }
+        .input-inline { display: flex; gap: 0.5rem; }
+        .input-inline .input-group { flex: 1; }
 
         .deduction-group {
-            background-color: #fdfdfd;
-            padding: 0.8rem;
-            border-radius: 0.4rem;
-            border-left: 0.3rem solid #7f8c8d;
-            margin-bottom: 1rem;
-            border: 1px solid #e1e8ed;
-            border-left-width: 0.3rem;
+            background-color: #fff0f0; padding: 0.8rem; border-radius: 0.4rem;
+            border-left: 0.3rem solid #e74c3c; margin-bottom: 1rem; border: 1px solid #fadbd8; border-left-width: 0.4rem;
         }
         .net-area-box {
-            background-color: #e8f6f3;
-            color: #16a085;
-            padding: 0.8rem;
-            border-radius: 0.4rem;
-            font-weight: bold;
-            text-align: right;
-            font-size: 1.1rem;
-            border: 0.1rem solid #1abc9c;
+            background-color: #e8f6f3; color: #16a085; padding: 0.8rem; border-radius: 0.4rem;
+            font-weight: bold; text-align: center; font-size: 1.1rem; border: 0.1rem solid #1abc9c; margin-bottom: 1rem;
         }
 
         .item-card {
-            background-color: #f8f9fa;
-            border-left: 0.3rem solid var(--highlight);
-            padding: 0.8rem;
-            margin-bottom: 1rem;
-            border-radius: 0.4rem;
-            border: 1px solid #e1e8ed;
-            border-left-width: 0.3rem;
+            background-color: #f8f9fa; border-left: 0.3rem solid var(--highlight); padding: 0.8rem;
+            margin-bottom: 1rem; border-radius: 0.4rem; border: 1px solid #e1e8ed; border-left-width: 0.3rem;
         }
-        .item-title {
-            font-size: 1.15rem;
-            font-weight: bold;
-            margin-bottom: 0.6rem;
-            color: #2c3e50;
-        }
-        .item-flex {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.6rem;
-            font-size: 1rem;
-        }
-        .item-flex label {
-            flex: 1;
-            font-weight: bold;
-        }
-        .item-flex input {
-            font-size: 1.2rem; 
-            flex: 1;
-            max-width: 7rem;
-            text-align: right;
-            padding: 0.4rem;
-        }
+        .item-title { font-size: 1.15rem; font-weight: bold; margin-bottom: 0.6rem; color: #2c3e50; }
+        .item-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; font-size: 1rem; }
+        .item-flex label { flex: 1; font-weight: bold; }
+        .item-flex input { font-size: 1.2rem; flex: 1; max-width: 7rem; text-align: right; padding: 0.4rem; }
         .result-row {
-            display: flex;
-            justify-content: space-between;
-            background-color: #ecf0f1;
-            padding: 0.6rem;
-            border-radius: 0.3rem;
-            margin-top: 0.3rem;
-            font-size: 1.1rem;
-            font-weight: bold;
+            display: flex; justify-content: space-between; background-color: #ecf0f1; padding: 0.6rem;
+            border-radius: 0.3rem; margin-top: 0.3rem; font-size: 1.1rem; font-weight: bold;
         }
-        .total-price {
-            color: #c0392b;
-            font-size: 1.2rem;
-        }
+        .total-price { color: #c0392b; font-size: 1.2rem; }
         .formula-box {
-            background-color: #fdf5e6;
-            color: #d35400;
-            font-size: 0.95rem;
-            font-weight: bold;
-            padding: 0.8rem;
-            margin-top: 0.6rem;
-            border-radius: 0.4rem;
-            border: 0.1rem solid #fad390;
-            line-height: 1.5;
-            word-break: break-all;
+            background-color: #fdf5e6; color: #d35400; font-size: 0.9rem; font-weight: bold;
+            padding: 0.8rem; margin-top: 0.6rem; border-radius: 0.4rem; border: 0.1rem solid #fad390;
+            line-height: 1.5; word-break: break-all;
         }
-        .formula-box::before {
-            content: '📋 算式: ';
-            color: #e67e22;
-            display: block;
-            margin-bottom: 0.2rem;
-        }
+        .formula-box::before { content: '📋 算式: '; color: #e67e22; display: block; margin-bottom: 0.2rem; }
 
-        /* 比較表專用樣式 */
         .compare-section { border-color: #7f8c8d; }
         .compare-title { color: #2c3e50; border-bottom-color: #2c3e50; }
         .sub-title {
-            font-size: 1.1rem;
-            font-weight: bold;
-            margin: 1.2rem 0 0.5rem 0;
-            color: #34495e;
-            background: #ecf0f1;
-            padding: 0.4rem;
-            border-radius: 0.3rem;
-            text-align: center;
+            font-size: 1.1rem; font-weight: bold; margin: 1.2rem 0 0.5rem 0; color: #34495e;
+            background: #ecf0f1; padding: 0.4rem; border-radius: 0.3rem; text-align: center;
         }
-        .compare-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.95rem;
-            margin-top: 0.5rem;
-        }
-        .compare-table th, .compare-table td {
-            border: 0.1rem solid #bdc3c7;
-            padding: 0.4rem;
-            text-align: right;
-        }
+        .compare-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; margin-top: 0.5rem; }
+        .compare-table th, .compare-table td { border: 0.1rem solid #bdc3c7; padding: 0.4rem; text-align: right; }
         .compare-table th { background: #e1e8ed; text-align: center; color: #2c3e50; }
         .compare-table td:first-child { text-align: left; font-weight: bold; }
         .summary-compare {
-            background-color: #f8f9fa;
-            border: 0.15rem solid #bdc3c7;
-            border-radius: 0.5rem;
-            padding: 1rem;
-            margin-top: 1rem;
-            text-align: center;
+            background-color: #f8f9fa; border: 0.15rem solid #bdc3c7; border-radius: 0.5rem;
+            padding: 1rem; margin-top: 1rem; text-align: center;
         }
 
-        /* 驗證反推區塊樣式 */
-        .proof-section {
-            border-color: #16a085;
-            background-color: #f4fbf9;
-        }
-        .proof-title {
-            color: #16a085;
-            border-bottom-color: #16a085;
-        }
-        .proof-step {
-            margin-bottom: 1rem;
-            font-size: 0.95rem;
-            color: #2c3e50;
-        }
-        .proof-step-title {
-            font-weight: bold;
-            color: #16a085;
-            margin-bottom: 0.3rem;
-        }
-        .proof-calc {
-            background: #fff;
-            padding: 0.6rem;
-            border: 1px solid #bdc3c7;
-            border-radius: 0.3rem;
-            font-family: monospace;
-            font-size: 0.9rem;
-        }
-        .proof-result {
-            background: #16a085;
-            color: white;
-            padding: 0.8rem;
-            border-radius: 0.4rem;
-            text-align: center;
-            font-size: 1.1rem;
-            font-weight: bold;
-            margin-top: 1rem;
-        }
-
+        .proof-section { border-color: #16a085; background-color: #f4fbf9; }
+        .proof-title { color: #16a085; border-bottom-color: #16a085; }
+        .proof-step { margin-bottom: 1rem; font-size: 0.95rem; color: #2c3e50; }
+        .proof-step-title { font-weight: bold; color: #16a085; margin-bottom: 0.3rem; }
+        .proof-calc { background: #fff; padding: 0.6rem; border: 1px solid #bdc3c7; border-radius: 0.3rem; font-family: monospace; font-size: 0.9rem; }
+        
         .grand-total-card {
-            background-color: var(--primary-color);
-            color: white;
-            padding: 0.2rem;
-            text-align: center;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            box-shadow: 0 -0.2rem 0.5rem rgba(0,0,0,0.3);
-            z-index: 1000;
+            background-color: var(--primary-color); color: white; padding: 0.2rem; text-align: center;
+            position: fixed; bottom: 0; left: 0; right: 0; box-shadow: 0 -0.2rem 0.5rem rgba(0,0,0,0.3); z-index: 1000;
         }
-        .grand-total-amount {
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #ecf0f1;
-        }
+        .grand-total-amount { font-size: 1.2rem; font-weight: bold; color: #ecf0f1; }
+        
+        .note-text { font-size: 0.9rem; color: #e74c3c; font-weight: bold; margin-top: -0.5rem; margin-bottom: 0.8rem; }
     </style>
 </head>
 <body>
@@ -294,14 +140,7 @@
         
         <div class="sub-title">1. 原始估價單明細</div>
         <table class="compare-table">
-            <thead>
-                <tr>
-                    <th>工項</th>
-                    <th>數量</th>
-                    <th>單價</th>
-                    <th>金額</th>
-                </tr>
-            </thead>
+            <thead><tr><th>工項</th><th>數量</th><th>單價</th><th>金額</th></tr></thead>
             <tbody>
                 <tr><td>紅磚</td><td>45,400塊</td><td>12</td><td>$544,800</td></tr>
                 <tr><td>打底粉光</td><td>680 m²</td><td>560</td><td>$380,800</td></tr>
@@ -313,9 +152,7 @@
 
         <div class="sub-title">2. 數量核對</div>
         <table class="compare-table">
-            <thead>
-                <tr><th>工項</th><th>原估數量</th><th>實作數量</th></tr>
-            </thead>
+            <thead><tr><th>工項</th><th>原估數量</th><th>實作數量</th></tr></thead>
             <tbody>
                 <tr><td>紅磚</td><td>45,400 塊</td><td id="comp_qty_brick">0 塊</td></tr>
                 <tr><td>打底粉光</td><td>680 m²</td><td id="comp_qty_plaster">0 m²</td></tr>
@@ -326,9 +163,7 @@
 
         <div class="sub-title">3. 金額核對</div>
         <table class="compare-table">
-            <thead>
-                <tr><th>工項</th><th>原估金額</th><th>實作金額</th></tr>
-            </thead>
+            <thead><tr><th>工項</th><th>原估金額</th><th>實作金額</th></tr></thead>
             <tbody>
                 <tr><td>紅磚</td><td>$544,800</td><td id="comp_amt_brick">$0</td></tr>
                 <tr><td>打底粉光</td><td>$380,800</td><td id="comp_amt_plaster">$0</td></tr>
@@ -345,47 +180,69 @@
         </div>
     </div>
 
-    <!-- 1. 參數設定 -->
+    <!-- 1. 幾何基礎圖解 -->
     <div class="section">
-        <h2 class="section-title">⚙️ 參數設定</h2>
-        <div class="input-group">
-            <label>施工耗損率 (%)</label>
-            <input type="number" id="loss_rate" value="10" step="1" oninput="calculate()">
+        <h2 class="section-title">📐 建築幾何圖解與基礎數據</h2>
+        <div class="diagram-container">
+            <div class="diagram-back">後牆 (半B磚) <br> <span id="diag_w">3.88</span> m</div>
+            <div class="diagram-middle">
+                <div class="diagram-side-left">左側牆 (1B磚)<br><span id="diag_l1">20.5</span> m</div>
+                <div class="diagram-box">
+                    <span style="font-size:1.1rem; font-weight:bold; color:#2c3e50;">主建築體</span>
+                    <span style="font-size:0.9rem; color:#7f8c8d; margin-top:5px;">牆高: <span id="diag_h">3.9</span> m</span>
+                </div>
+                <div class="diagram-side-right">右側牆 (1B磚)<br><span id="diag_l2">20.5</span> m</div>
+            </div>
+            <div class="diagram-front">前牆 (無砌磚) <br> <span id="diag_w2">3.88</span> m</div>
+        </div>
+        
+        <div class="input-inline">
+            <div class="input-group">
+                <label>建築長度 (m)</label>
+                <input type="number" id="dim_length" value="20.5" step="0.1" oninput="calculate()">
+            </div>
+            <div class="input-group">
+                <label>建築寬度 (m)</label>
+                <input type="number" id="dim_width" value="3.88" step="0.1" oninput="calculate()">
+            </div>
+            <div class="input-group">
+                <label>牆面高度 (m)</label>
+                <input type="number" id="dim_height" value="3.9" step="0.1" oninput="calculate()">
+            </div>
         </div>
     </div>
 
-    <!-- 2. 面積設定 -->
+    <!-- 2. 面積扣除與內部牆體 -->
     <div class="section">
-        <h2 class="section-title">📐 實作面積丈量</h2>
-        <div class="input-group">
-            <label>主建築外牆 (總面積 m²)</label>
-            <input type="number" id="area_wall_total" value="189.46" step="0.01" oninput="calculate()">
-        </div>
-
+        <h2 class="section-title">➖ 實作開口扣除與內牆設定</h2>
+        
         <div class="deduction-group">
-            <div class="input-group" style="margin-bottom: 0.5rem;">
-                <label>➖ 扣除：未施作烤漆板區 (m²)</label>
-                <input type="number" id="area_steel" value="76" step="0.1" oninput="calculate()">
-            </div>
-            <div class="input-group" style="margin-bottom: 0;">
-                <label>➖ 扣除：大門與窗戶開口 (m²)</label>
-                <input type="number" id="area_doors" value="0" step="0.1" placeholder="填入實際開口面積" oninput="calculate()">
-            </div>
+            <label style="display:block; margin-bottom:5px;">【側牆扣除】(烤漆板、側窗等)</label>
+            <input type="number" id="deduct_side" value="76" step="0.1" placeholder="側牆扣除面積" oninput="calculate()">
+        </div>
+        
+        <div class="deduction-group" style="border-left-color:#e67e22; background-color:#fef5e7; border-color:#fad7a1;">
+            <label style="display:block; margin-bottom:5px; color:#d35400;">【後牆扣除】(後門、後窗等)</label>
+            <input type="number" id="deduct_back" value="0" step="0.1" placeholder="後牆扣除面積" oninput="calculate()">
         </div>
 
         <div class="net-area-box">
-            外牆實作淨面積 ＝ <span id="display_net_wall">113.46</span> m²
+            側牆(1B)淨面積：<span id="display_net_side">0</span> m² <br>
+            後牆(半B)淨面積：<span id="display_net_back">0</span> m²
         </div>
 
         <hr style="border: 0; border-top: 0.1rem dashed #dcdde1; margin: 1.2rem 0;">
 
-        <div class="input-group">
-            <label>廁所隔間牆面積 (m²)</label>
-            <input type="number" id="area_toilet" value="18.14" step="0.01" oninput="calculate()">
-        </div>
-        <div class="input-group">
-            <label>戶外圍牆面積 (m²)</label>
-            <input type="number" id="area_boundary" value="21.25" step="0.01" oninput="calculate()">
+        <div class="note-text">※ 註：因廁所無粉光，故已自打底粉光及批土項目中剔除。</div>
+        <div class="input-inline">
+            <div class="input-group">
+                <label>廁所隔間 (m²)</label>
+                <input type="number" id="area_toilet" value="18.14" step="0.01" oninput="calculate()">
+            </div>
+            <div class="input-group">
+                <label>戶外圍牆 (m²)</label>
+                <input type="number" id="area_boundary" value="21.25" step="0.01" oninput="calculate()">
+            </div>
         </div>
     </div>
 
@@ -393,71 +250,42 @@
     <div class="section">
         <h2 class="section-title">💰 實作計算明細</h2>
         
+        <div class="input-group" style="background:#ecf0f1; padding:0.5rem; border-radius:0.4rem;">
+            <label style="margin:0; display:flex; justify-content:space-between; align-items:center;">
+                全域施工耗損率 (%)
+                <input type="number" id="loss_rate" value="10" step="1" style="width:4rem; padding:0.2rem; text-align:center;" oninput="calculate()">
+            </label>
+        </div>
+
         <div class="item-card">
-            <div class="item-title">1. 紅磚 (外1B / 內半B)</div>
-            <div class="item-flex">
-                <label>單價 (元/塊)</label>
-                <input type="number" id="price_brick" value="12" step="1" oninput="calculate()">
-            </div>
-            <div class="result-row">
-                <span>實作數量(含耗損)</span>
-                <span id="qty_brick">0 塊</span>
-            </div>
-            <div class="result-row">
-                <span>實作金額</span>
-                <span class="total-price" id="total_brick">$0</span>
-            </div>
+            <div class="item-title">1. 紅磚 (側1B / 後內圍半B)</div>
+            <div class="item-flex"><label>單價 (元/塊)</label><input type="number" id="price_brick" value="12" step="1" oninput="calculate()"></div>
+            <div class="result-row"><span>實作數量(含耗損)</span><span id="qty_brick">0 塊</span></div>
+            <div class="result-row"><span>實作金額</span><span class="total-price" id="total_brick">$0</span></div>
             <div class="formula-box" id="formula_brick"></div>
         </div>
 
         <div class="item-card">
             <div class="item-title">2. 打底, 粉光 (內外雙面)</div>
-            <div class="item-flex">
-                <label>單價 (元/m²)</label>
-                <input type="number" id="price_plaster" value="560" step="10" oninput="calculate()">
-            </div>
-            <div class="result-row">
-                <span>實作面積(含耗損)</span>
-                <span id="qty_plaster">0 m²</span>
-            </div>
-            <div class="result-row">
-                <span>實作金額</span>
-                <span class="total-price" id="total_plaster">$0</span>
-            </div>
+            <div class="item-flex"><label>單價 (元/m²)</label><input type="number" id="price_plaster" value="560" step="10" oninput="calculate()"></div>
+            <div class="result-row"><span>實作面積(含耗損)</span><span id="qty_plaster">0 m²</span></div>
+            <div class="result-row"><span>實作金額</span><span class="total-price" id="total_plaster">$0</span></div>
             <div class="formula-box" id="formula_plaster"></div>
         </div>
 
         <div class="item-card">
-            <div class="item-title">3. 內牆批土 (廁所僅外側)</div>
-            <div class="item-flex">
-                <label>單價 (元/坪)</label>
-                <input type="number" id="price_putty" value="100" step="10" oninput="calculate()">
-            </div>
-            <div class="result-row">
-                <span>實作坪數(含耗損)</span>
-                <span id="qty_putty">0 坪</span>
-            </div>
-            <div class="result-row">
-                <span>實作金額</span>
-                <span class="total-price" id="total_putty">$0</span>
-            </div>
+            <div class="item-title">3. 內牆批土</div>
+            <div class="item-flex"><label>單價 (元/坪)</label><input type="number" id="price_putty" value="100" step="10" oninput="calculate()"></div>
+            <div class="result-row"><span>實作坪數(含耗損)</span><span id="qty_putty">0 坪</span></div>
+            <div class="result-row"><span>實作金額</span><span class="total-price" id="total_putty">$0</span></div>
             <div class="formula-box" id="formula_putty"></div>
         </div>
 
         <div class="item-card">
             <div class="item-title">4&5. 外牆面漆+水泥漆</div>
-            <div class="item-flex">
-                <label>單價加總 (元/坪)</label>
-                <input type="number" id="price_paint" value="1330" step="10" oninput="calculate()">
-            </div>
-            <div class="result-row">
-                <span>實作坪數(含耗損)</span>
-                <span id="qty_paint">0 坪</span>
-            </div>
-            <div class="result-row">
-                <span>實作金額</span>
-                <span class="total-price" id="total_paint">$0</span>
-            </div>
+            <div class="item-flex"><label>單價加總 (元/坪)</label><input type="number" id="price_paint" value="1330" step="10" oninput="calculate()"></div>
+            <div class="result-row"><span>實作坪數(含耗損)</span><span id="qty_paint">0 坪</span></div>
+            <div class="result-row"><span>實作金額</span><span class="total-price" id="total_paint">$0</span></div>
             <div class="formula-box" id="formula_paint"></div>
         </div>
     </div>
@@ -487,7 +315,6 @@
 
     <!-- 底部總價 -->
     <div class="grand-total-card">
-
         <div class="grand-total-amount" id="grand_total">$0</div>
     </div>
 
@@ -501,27 +328,46 @@
         }
 
         function calculate() {
+            // 基礎數據與圖面連動
+            let L = parseFloat(document.getElementById('dim_length').value) || 0;
+            let W = parseFloat(document.getElementById('dim_width').value) || 0;
+            let H = parseFloat(document.getElementById('dim_height').value) || 0;
+            document.getElementById('diag_l1').innerText = L;
+            document.getElementById('diag_l2').innerText = L;
+            document.getElementById('diag_w').innerText = W;
+            document.getElementById('diag_w2').innerText = W;
+            document.getElementById('diag_h').innerText = H;
+
+            // 耗損
             let loss_rate = parseFloat(document.getElementById('loss_rate').value) || 0;
             let loss_multiplier = 1 + (loss_rate / 100);
 
-            let area_wall_total = parseFloat(document.getElementById('area_wall_total').value) || 0;
-            let area_steel = parseFloat(document.getElementById('area_steel').value) || 0;
-            let area_doors = parseFloat(document.getElementById('area_doors').value) || 0;
+            // 面積計算
+            let deduct_side = parseFloat(document.getElementById('deduct_side').value) || 0;
+            let deduct_back = parseFloat(document.getElementById('deduct_back').value) || 0;
             let area_toilet = parseFloat(document.getElementById('area_toilet').value) || 0;
             let area_boundary = parseFloat(document.getElementById('area_boundary').value) || 0;
 
-            let area_wall_net = Math.max(0, area_wall_total - area_steel - area_doors);
-            document.getElementById('display_net_wall').innerText = area_wall_net.toFixed(2);
+            let gross_side = L * H * 2; // 兩側
+            let gross_back = W * H;     // 後牆
+            // 前牆無磚 = 0
 
+            let net_side = Math.max(0, gross_side - deduct_side);
+            let net_back = Math.max(0, gross_back - deduct_back);
+            
+            document.getElementById('display_net_side').innerText = net_side.toFixed(2);
+            document.getElementById('display_net_back').innerText = net_back.toFixed(2);
+
+            // 單價
             let p_brick = parseFloat(document.getElementById('price_brick').value) || 0;
             let p_plaster = parseFloat(document.getElementById('price_plaster').value) || 0;
             let p_putty = parseFloat(document.getElementById('price_putty').value) || 0;
             let p_paint = parseFloat(document.getElementById('price_paint').value) || 0;
 
-            // 1. 紅磚計算
-            let brick_wall = area_wall_net * 150;
-            let brick_inner = (area_toilet + area_boundary) * 75;
-            let net_bricks = brick_wall + brick_inner;
+            // 1. 紅磚計算 (側牆150, 其他75)
+            let brick_side = net_side * 150;
+            let brick_half = (net_back + area_toilet + area_boundary) * 75;
+            let net_bricks = brick_side + brick_half;
             let final_bricks = Math.ceil(net_bricks * loss_multiplier);
             let cost_brick = final_bricks * p_brick;
             
@@ -529,10 +375,11 @@
             document.getElementById('comp_qty_brick').innerText = final_bricks.toLocaleString() + " 塊";
             document.getElementById('total_brick').innerText = "$" + cost_brick.toLocaleString();
             document.getElementById('comp_amt_brick').innerText = "$" + cost_brick.toLocaleString();
-            document.getElementById('formula_brick').innerText = `[外牆 ${area_wall_net.toFixed(2)}m² × 150塊/m²]\n＋ [內/圍牆 ${(area_toilet+area_boundary).toFixed(2)}m² × 75塊/m²]\n＝ 淨需求 ${net_bricks.toFixed(0)} 塊\n× ${loss_multiplier} 耗損 ＝ ${final_bricks.toLocaleString()} 塊`;
+            document.getElementById('formula_brick').innerText = `[側牆 ${net_side.toFixed(2)}m² × 150塊]\n＋ [後/內/圍牆 ${(net_back+area_toilet+area_boundary).toFixed(2)}m² × 75塊]\n＝ 淨需求 ${net_bricks.toFixed(0)} 塊\n× ${loss_multiplier} 耗損 ＝ ${final_bricks.toLocaleString()} 塊`;
 
-            // 2. 打底粉光
-            let net_plaster = (area_wall_net + area_toilet + area_boundary) * 2;
+            // 2. 打底粉光 (剃除廁所)
+            let net_plaster_area = net_side + net_back + area_boundary;
+            let net_plaster = net_plaster_area * 2; // 雙面
             let final_plaster = net_plaster * loss_multiplier;
             let cost_plaster = Math.round(final_plaster) * p_plaster;
             
@@ -540,10 +387,10 @@
             document.getElementById('comp_qty_plaster').innerText = final_plaster.toFixed(2) + " m²";
             document.getElementById('total_plaster').innerText = "$" + cost_plaster.toLocaleString();
             document.getElementById('comp_amt_plaster').innerText = "$" + cost_plaster.toLocaleString();
-            document.getElementById('formula_plaster').innerText = `(外牆+內牆+圍牆 總計 ${(area_wall_net+area_toilet+area_boundary).toFixed(2)}m²)\n× 雙面(2) ＝ 淨需求 ${net_plaster.toFixed(2)} m²\n× ${loss_multiplier} 耗損 ＝ ${final_plaster.toFixed(2)} m²`;
+            document.getElementById('formula_plaster').innerText = `(側牆+後牆+圍牆 總計 ${net_plaster_area.toFixed(2)}m²)\n× 雙面(2) ＝ 淨需求 ${net_plaster.toFixed(2)} m²\n× ${loss_multiplier} 耗損 ＝ ${final_plaster.toFixed(2)} m²`;
 
-            // 3. 內牆批土
-            let net_putty_m2 = area_wall_net + area_toilet;
+            // 3. 內牆批土 (剃除廁所，僅算室內側單面)
+            let net_putty_m2 = net_side + net_back;
             let final_putty_ping = (net_putty_m2 * 0.3025) * loss_multiplier;
             let cost_putty = Math.round(final_putty_ping) * p_putty;
             
@@ -551,10 +398,10 @@
             document.getElementById('comp_qty_putty').innerText = final_putty_ping.toFixed(2) + " 坪";
             document.getElementById('total_putty').innerText = "$" + cost_putty.toLocaleString();
             document.getElementById('comp_amt_putty').innerText = "$" + cost_putty.toLocaleString();
-            document.getElementById('formula_putty').innerText = `(外牆內側 ${area_wall_net.toFixed(2)}m² + 廁所外側 ${area_toilet.toFixed(2)}m²)\n× 0.3025 ＝ 淨需求 ${(net_putty_m2*0.3025).toFixed(2)} 坪\n× ${loss_multiplier} 耗損 ＝ ${final_putty_ping.toFixed(2)} 坪`;
+            document.getElementById('formula_putty').innerText = `(側牆內側+後牆內側 ${net_putty_m2.toFixed(2)}m²)\n× 0.3025 ＝ 淨需求 ${(net_putty_m2*0.3025).toFixed(2)} 坪\n× ${loss_multiplier} 耗損 ＝ ${final_putty_ping.toFixed(2)} 坪`;
 
-            // 4&5. 外牆漆類
-            let net_paint_m2 = area_wall_net;
+            // 4&5. 外牆漆類 (僅算室外側單面)
+            let net_paint_m2 = net_side + net_back;
             let final_paint_ping = (net_paint_m2 * 0.3025) * loss_multiplier;
             let cost_paint = Math.round(final_paint_ping) * p_paint;
             
@@ -562,7 +409,7 @@
             document.getElementById('comp_qty_paint').innerText = final_paint_ping.toFixed(2) + " 坪";
             document.getElementById('total_paint').innerText = "$" + cost_paint.toLocaleString();
             document.getElementById('comp_amt_paint').innerText = "$" + cost_paint.toLocaleString();
-            document.getElementById('formula_paint').innerText = `外牆單面 ${area_wall_net.toFixed(2)}m²\n× 0.3025 ＝ 淨需求 ${(net_paint_m2*0.3025).toFixed(2)} 坪\n× ${loss_multiplier} 耗損 ＝ ${final_paint_ping.toFixed(2)} 坪`;
+            document.getElementById('formula_paint').innerText = `外牆外側總和 ${net_paint_m2.toFixed(2)}m²\n× 0.3025 ＝ 淨需求 ${(net_paint_m2*0.3025).toFixed(2)} 坪\n× ${loss_multiplier} 耗損 ＝ ${final_paint_ping.toFixed(2)} 坪`;
 
             // 實作總計
             let grand_total = cost_brick + cost_plaster + cost_putty + cost_paint;
@@ -571,7 +418,6 @@
 
             // 基準驗證區塊計算
             let vendor_deduct = parseFloat(document.getElementById('vendor_deduct_amt').value) || 0;
-            
             let m2_brick_cost = 150 * p_brick;
             let m2_plaster_cost = 2 * p_plaster;
             let m2_putty_cost = 1 * 0.3025 * p_putty;
@@ -579,7 +425,7 @@
             let m2_total_cost = m2_brick_cost + m2_plaster_cost + m2_putty_cost + m2_paint_cost;
 
             document.getElementById('proof_m2_cost').innerHTML = 
-                `磚塊：150塊 × $${p_brick} = $${m2_brick_cost}<br>` +
+                `磚塊(1B)：150塊 × $${p_brick} = $${m2_brick_cost}<br>` +
                 `粉光：2面 × $${p_plaster} = $${m2_plaster_cost}<br>` +
                 `批土：1面 × 0.3025 × $${p_putty} = $${m2_putty_cost.toFixed(1)}<br>` +
                 `漆類：1面 × 0.3025 × $${p_paint} = $${m2_paint_cost.toFixed(1)}<br>` +
@@ -591,7 +437,7 @@
                 `＝ <strong style="color:#2980b9;">${reverse_area.toFixed(2)} m²</strong>`;
 
             document.getElementById('proof_final_msg').innerHTML = 
-                `✅ 原先扣款邏輯等同於<br>【扣除面積 ${reverse_area.toFixed(2)} m²】及<br>【每m²使用 150塊磚】`;
+                `✅ 原先扣款邏輯等同於<br>【側牆扣除面積 ${reverse_area.toFixed(2)} m²】及<br>【每m²使用 150塊磚】`;
         }
 
         window.onload = calculate;
