@@ -10996,7 +10996,6 @@ function renameTab(index) {
 }
 
 // 頁籤專屬選單操作邏輯
-// 頁籤專屬選單操作邏輯
 document.getElementById('tabMenu')?.addEventListener('click', (e) => {
     const btn = e.target.closest('button');
     if (!btn) return;
@@ -13081,6 +13080,13 @@ window.showTextToolsModal = function() {
 
     const toolCategories = [
         {
+            category: "詞彙整併與統計",
+            icon: "rule_folder",
+            tools: [
+                { id: 'compareWords', name: '詞詞整併', desc: '比對兩欄詞數與統計', in: '_大_家_\t_大_家_', out: '2\\2\tO\t次數\t大\t大' }
+            ]
+        },
+        {
             category: "基礎字音整併 (左字 \t 右音)",
             icon: "join",
             tools: [
@@ -13272,7 +13278,181 @@ window.showTextToolsModal = function() {
     });
 };
 
+// =================================================================
+// 視覺化語文工具箱：執行核心邏輯
+// =================================================================
+window.executeTextTool = function(action) {
+    
+    // ==========================================
+    // 工具一：併多音節 (combineHyphen)
+    // ==========================================
+    if (action === 'combineHyphen') {
+        // ... (請將我們之前討論過的 combineHyphen 完整邏輯貼在這裡) ...
+        return; // 執行完畢後結束函數
+    }
 
+    // ==========================================
+    // 工具二：詞詞整併 (compareWords)
+    // ==========================================
+    if (action === 'compareWords') {
+        if (currentMode !== 'table') {
+            showToast('⚠️ 詞詞整併僅能在表格模式使用');
+            return;
+        }
+
+        // 1. 取得選取範圍的邊界
+        let minR = Infinity, maxR = -1, minC = Infinity, maxC = -1;
+        if (selectedCellBlocks.length > 0) {
+            selectedCellBlocks.forEach(b => {
+                minR = Math.min(minR, b.startR, b.endR); maxR = Math.max(maxR, b.startR, b.endR);
+                minC = Math.min(minC, b.startC, b.endC); maxC = Math.max(maxC, b.startC, b.endC);
+            });
+        } else if (selectedRows.length > 0) {
+            minR = Math.min(...selectedRows); maxR = Math.max(...selectedRows);
+            minC = 0; maxC = dataTable.querySelector('thead tr').children.length - 2;
+        } else if (selectedCols.length > 0) {
+            minR = 0; maxR = dataTable.querySelectorAll('tbody tr').length - 1;
+            minC = Math.min(...selectedCols); maxC = Math.max(...selectedCols);
+        } else if (lastClickedCell) {
+            minR = maxR = lastClickedCell.r;
+            minC = maxC = lastClickedCell.c;
+        }
+
+        // 確保至少選取了兩欄
+        if (minC === Infinity || maxC - minC < 1) {
+            showToast('⚠️ 請至少選取包含兩欄的範圍 (如 A 欄與 B 欄)');
+            return;
+        }
+
+        // 定義相對輸出的欄位索引
+        const col1 = minC;           // 左欄 (A)
+        const col2 = minC + 1;       // 右欄 (B)
+        const outColC = minC + 2;    // 分詞數比較 (如 7\7)
+        const outColD = minC + 3;    // O / X / Y
+        const outColE = minC + 4;    // 統計次數
+        const outColF = minC + 5;    // A欄的詞
+        const outColG = minC + 6;    // B欄的詞
+
+        // 2. 檢查欄數是否足夠，不足則動態新增
+        const theadTr = dataTable.querySelector('thead tr');
+        const currentCols = theadTr.children.length - 1; 
+        if (outColG >= currentCols) {
+            insertColAt(currentCols - 1, -1, outColG - currentCols + 1);
+        }
+
+        const tbodyRows = dataTable.querySelectorAll('tbody tr');
+        let mismatchCount = 0;
+        const pairStats = new Map();
+
+        // 3. 逐列處理比對與統計
+        for (let r = minR; r <= maxR; r++) {
+            const inner1 = tbodyRows[r]?.children[col1 + 1]?.querySelector('.td-inner');
+            const inner2 = tbodyRows[r]?.children[col2 + 1]?.querySelector('.td-inner');
+
+            const text1 = inner1 ? (inner1.hasAttribute('data-formula') ? inner1.getAttribute('data-formula') : inner1.innerText) : '';
+            const text2 = inner2 ? (inner2.hasAttribute('data-formula') ? inner2.getAttribute('data-formula') : inner2.innerText) : '';
+
+            // 以 '_' 分詞，並過濾掉空字串
+            const tokens1 = text1.split('_').filter(t => t.trim() !== '');
+            const tokens2 = text2.split('_').filter(t => t.trim() !== '');
+
+            const count1 = tokens1.length;
+            const count2 = tokens2.length;
+
+            // 寫入 C 欄 (分詞數比較)
+            const innerC = tbodyRows[r]?.children[outColC + 1]?.querySelector('.td-inner');
+            if (innerC) {
+                innerC.removeAttribute('data-formula');
+                innerC.innerText = `${count1}\\${count2}`;
+            }
+
+            // 判斷狀態並寫入 D 欄
+            let status = 'O';
+            if (count1 > count2) status = 'X';
+            else if (count2 > count1) status = 'Y';
+            
+            const innerD = tbodyRows[r]?.children[outColD + 1]?.querySelector('.td-inner');
+            if (innerD) {
+                innerD.removeAttribute('data-formula');
+                innerD.innerText = status;
+            }
+
+            // 紀錄不一致的數量
+            if (status !== 'O') mismatchCount++;
+
+            // 組合兩欄詞彙進行統計 (使用 ❖ 作為內部安全分隔符)
+            const maxLen = Math.max(count1, count2);
+            for (let i = 0; i < maxLen; i++) {
+                const w1 = tokens1[i] || '';
+                const w2 = tokens2[i] || '';
+                if (w1 || w2) { // 確保不是兩個都空
+                    const key = `${w1}❖${w2}`;
+                    pairStats.set(key, (pairStats.get(key) || 0) + 1);
+                }
+            }
+        }
+
+        // 4. 將 Map 轉為陣列並排序 (依出現次數由大到小)
+        const statsArray = Array.from(pairStats.entries()).sort((a, b) => b[1] - a[1]);
+
+        // 檢查列數是否足夠容納統計資料，不足則動態新增
+        if (statsArray.length > tbodyRows.length) {
+            insertRowAt(tbodyRows.length, -1, statsArray.length - tbodyRows.length);
+        }
+
+        // 重新抓取一次可能擴充過的 rows
+        const updatedRows = dataTable.querySelectorAll('tbody tr');
+
+        // 5. 將統計結果由第 1 列開始寫入 E, F, G 欄
+        for (let r = 0; r < updatedRows.length; r++) {
+            const innerE = updatedRows[r]?.children[outColE + 1]?.querySelector('.td-inner');
+            const innerF = updatedRows[r]?.children[outColF + 1]?.querySelector('.td-inner');
+            const innerG = updatedRows[r]?.children[outColG + 1]?.querySelector('.td-inner');
+
+            if (!innerE || !innerF || !innerG) continue;
+
+            innerE.removeAttribute('data-formula');
+            innerF.removeAttribute('data-formula');
+            innerG.removeAttribute('data-formula');
+
+            if (r < statsArray.length) {
+                // 有統計資料的列，寫入次數與詞彙
+                const [key, count] = statsArray[r];
+                const [w1, w2] = key.split('❖');
+                innerE.innerText = count.toString();
+                innerF.innerText = w1;
+                innerG.innerText = w2;
+            } else {
+                // 如果該列沒有統計資料，則將儲存格清空
+                innerE.innerText = '';
+                innerF.innerText = '';
+                innerG.innerText = '';
+            }
+        }
+
+        // 更新畫面狀態並儲存歷史紀錄
+        if (typeof recalculateAllFormulas === 'function') recalculateAllFormulas();
+        if (typeof debouncedSaveHistory === 'function') debouncedSaveHistory();
+
+        // 6. 執行完畢，通知不一致的數量
+        showToast(`✅ 詞詞整併完成！發現 ${mismatchCount} 列數量不一致。`);
+        
+        // 如果工具面板還開著，自動把它關閉
+        const modalId = "text-tools-floating-panel";
+        const existingModal = document.getElementById(modalId);
+        if (existingModal) {
+            existingModal.classList.add('opacity-0');
+            setTimeout(() => existingModal.remove(), 200);
+        }
+
+        return; // 執行完畢後結束函數
+    }
+
+    // ==========================================
+    // 未來如果你有其他新增的工具，都可以依照上面的格式，
+    // 寫成 if (action === '工具ID') { ... } 依序往下放！
+    // ==========================================
+};
 
 
 /* ==========================================
