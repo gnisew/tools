@@ -139,6 +139,33 @@ textarea.input-area::placeholder{color:var(--text-muted)}
   .btn{padding:4px 8px;font-size:11px}
   .btn-icon{width:30px;height:30px}
 }
+
+
+/* 表格檢視專用樣式 --- */
+.diff-table { border-collapse: collapse; width: 100%; table-layout: fixed; border-top: 1px solid var(--border); }
+.diff-table td { padding: 0; vertical-align: top; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
+.diff-table td.td-num { width: 48px; background: var(--surface2); }
+.diff-table td:last-child { border-right: none; }
+.diff-table .line-num { display: flex; justify-content: flex-end; align-items: center; min-height: var(--diff-line-height); line-height: var(--diff-line-height); padding-right: 10px; height: 100%; color: var(--text-muted); font-size: 11px; user-select: none; }
+.diff-table .line-content { padding: 4px 14px; min-height: var(--diff-line-height); line-height: var(--diff-line-height); white-space: pre-wrap; word-break: break-all; font-family: var(--font-mono); font-size: var(--diff-font-size); }
+.diff-table tr.added { background: var(--green-bg); }
+.diff-table tr.removed { background: var(--red-bg); }
+.diff-table tr.modified { background: var(--yellow-bg); }
+.diff-table tr.equal .line-content { color: var(--text-dim); }
+
+/* --- 分段標記連動專用樣式 --- */
+.seg-marked { 
+  background: rgba(168, 85, 247, 0.15); 
+  color: #9333ea; 
+  font-weight: bold; 
+  border-radius: 2px; 
+  padding: 0 2px; 
+}
+[data-theme="dark"] .seg-marked { 
+  background: rgba(168, 85, 247, 0.25); 
+  color: #c084fc; 
+}
+/* ----------------------------- */
 </style>
 <script src="https://gnisew.github.io/tools/ime/ime-button.js"></script>
 </head>
@@ -170,7 +197,8 @@ textarea.input-area::placeholder{color:var(--text-muted)}
           <div class="dropdown-menu">
             <label class="dropdown-item"><input type="checkbox" id="optAutoSave">暫存</label>
             <label class="dropdown-item"><input type="checkbox" id="optLineNum" checked>行號</label>
-            <label class="dropdown-item" id="optInlineViewWrap" style="display:none"><input type="checkbox" id="optInlineView" onchange="setView(this.checked?'inline':'side')">行內檢視</label>
+            <label class="dropdown-item" id="optTableViewWrap" style="display:none"><input type="checkbox" id="optTableView" onchange="setView(this.checked?'table':($('optInlineView').checked?'inline':'side'))">表格檢視</label>
+			<label class="dropdown-item" id="optInlineViewWrap" style="display:none"><input type="checkbox" id="optInlineView" onchange="setView(this.checked?'inline':'side')">行內檢視</label>
             <label class="dropdown-item"><input type="checkbox" id="optInlineExpand">行內展開</label>
 			<label class="dropdown-item"><input type="checkbox" id="optBoldDiff">差異加粗</label>
             <label class="dropdown-item"><input type="checkbox" id="optDiffTop">差異置頂</label>
@@ -186,6 +214,12 @@ textarea.input-area::placeholder{color:var(--text-muted)}
             <div class="dropdown-item" onclick="exportAs('html')">匯出 .html</div>
             <div class="dropdown-item" onclick="exportAs('rtf')">匯出 .rtf</div>
             <div class="dropdown-sep"></div>
+			<div class="dropdown-item" style="cursor:default">
+              <label style="display:flex;align-items:center;gap:4px;">
+                <input type="checkbox" id="optSegmentSync">分段標記連動
+              </label>
+              <input type="text" id="optSegmentMarker" value="W" title="觸發連動的標記字元" style="width:30px;padding:2px 4px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:11px;font-family:var(--font-ui);color:var(--text);background:var(--surface);margin-left:auto">
+            </div>
             <label class="dropdown-item"><input type="checkbox" id="optCharDiff" checked>字元級差異</label>
             <label class="dropdown-item"><input type="checkbox" id="optTrim" checked>忽略行尾空白</label>
             <label class="dropdown-item"><input type="checkbox" id="optIgnoreEmpty">忽略空行</label>
@@ -445,7 +479,7 @@ function charPosToRange(el,start,end){
   return r;
 }
 function getSearchPane(side){
-  if(view==='inline')return $('scrollLeft');
+  if(view!=='side')return $('scrollLeft');
   return side==='left'?$('scrollLeft'):$('scrollRight');
 }
 function highlightDiff(){
@@ -489,7 +523,7 @@ function focusCurrent(){
     if(top<m.el.scrollTop||top+lh>m.el.scrollTop+m.el.clientHeight){m.el.scrollTop=top-lh*3;}
   }else{
     const pane=getSearchPane(m.side);
-    const lineEl=m.el.closest('.line');
+    const lineEl=m.el.closest('.line') || m.el.closest('tr');
     if(lineEl){
       const top=lineEl.offsetTop-pane.offsetTop;
       if(top<pane.scrollTop||top+lineEl.offsetHeight>pane.scrollTop+pane.clientHeight){pane.scrollTop=top-pane.offsetHeight/2+lineEl.offsetHeight/2;}
@@ -640,6 +674,7 @@ $('optFontSize').addEventListener('change',function(){
 
 function setView(v){
   view=v;
+  $('optTableView').checked=(v==='table');
   $('optInlineView').checked=(v==='inline');
   if(diffResult&&!inputMode){
     showDiff();
@@ -662,6 +697,7 @@ function showInput(){
   $('iconPlay').style.display='';
   $('iconStop').style.display='none';
   $('optInlineViewWrap').style.display='none';
+  $('optTableViewWrap').style.display='none';
   $('btnSelectMode').style.display='none';
   refreshGutters();
   updateMeta('left');updateMeta('right');
@@ -687,6 +723,7 @@ function showDiff(){
   $('iconPlay').style.display='none';
   $('iconStop').style.display='';
   $('optInlineViewWrap').style.display='';
+  $('optTableViewWrap').style.display='';
   $('btnSelectMode').style.display='';
 }
 
@@ -948,28 +985,95 @@ function computeCharDiff(s,t){
 function renderDiff(){
   if(!diffResult)return;
   try{
-  const orig=diffResult.ops;
-  let used=false;
-  if($('searchBar').style.display!=='none'&&$('searchTop').checked&&_searchMatches.length>0){
-    const matchSet=new Set();
-    for(const m of _searchMatches){
-      if(m.side==='left')matchSet.add('left:'+m.ln);
-      else matchSet.add('right:'+m.ln);
+    const orig=diffResult.ops;
+    let used=false;
+    if($('searchBar').style.display!=='none'&&$('searchTop').checked&&_searchMatches.length>0){
+      const matchSet=new Set();
+      for(const m of _searchMatches){
+        if(m.side==='left')matchSet.add('left:'+m.ln);
+        else matchSet.add('right:'+m.ln);
+      }
+      const sorted=orig.slice().sort((a,b)=>{
+        const aM=matchSet.has('left:'+a.leftNum)||matchSet.has('right:'+a.rightNum);
+        const bM=matchSet.has('left:'+b.leftNum)||matchSet.has('right:'+b.rightNum);
+        return(aM?0:1)-(bM?0:1);
+      });
+      diffResult.ops=sorted;used=true;
+    }else if(getOpt('diffTop')){
+      const sorted=orig.slice().sort((a,b)=>{const o={removed:0,modified:1,added:2,equal:3};return(o[a.type]??3)-(o[b.type]??3);});
+      diffResult.ops=sorted;used=true;
     }
-    const sorted=orig.slice().sort((a,b)=>{
-      const aM=matchSet.has('left:'+a.leftNum)||matchSet.has('right:'+a.rightNum);
-      const bM=matchSet.has('left:'+b.leftNum)||matchSet.has('right:'+b.rightNum);
-      return(aM?0:1)-(bM?0:1);
-    });
-    diffResult.ops=sorted;used=true;
-  }else if(getOpt('diffTop')){
-    const sorted=orig.slice().sort((a,b)=>{const o={removed:0,modified:1,added:2,equal:3};return(o[a.type]??3)-(o[b.type]??3);});
-    diffResult.ops=sorted;used=true;
-  }
-  if(view==='side')renderSideBySide();else renderInline();
-  if(used)diffResult.ops=orig;
-  setupLineNumClick();
+    
+    // 根據目前的 view 變數選擇對應的渲染方式
+    if(view==='side')renderSideBySide();
+    else if(view==='table')renderTable();
+    else renderInline();
+    
+    if(used)diffResult.ops=orig;
+    setupLineNumClick();
   }catch(e){console.error('renderDiff error:',e);}
+}
+
+function renderTable(){
+  const showLN=getOpt('lineNum'),charDiff=getOpt('charDiff');
+  let html='<table class="diff-table">';
+  
+  for(const op of diffResult.ops){
+    let l=esc(op.leftText)||' ', r=esc(op.rightText)||' ';
+    let lContent = '', rContent = '';
+    
+    if(op.type==='equal'){
+      lContent = `<div class="line-content" data-side="left" data-ln="${op.leftNum}">${l}</div>`;
+      rContent = `<div class="line-content" data-side="right" data-ln="${op.rightNum}">${r}</div>`;
+      html+=`<tr class="equal">`;
+      html+=showLN?`<td class="td-num"><div class="line-num" data-side="left" data-ln="${op.leftNum}">${op.leftNum}</div></td>`:'';
+      html+=`<td class="td-content">${lContent}</td>`;
+      html+=showLN?`<td class="td-num"><div class="line-num" data-side="right" data-ln="${op.rightNum}">${op.rightNum}</div></td>`:'';
+      html+=`<td class="td-content">${rContent}</td></tr>`;
+    }else if(op.type==='modified'){
+      const syncEnabled = $('optSegmentSync') && $('optSegmentSync').checked;
+      
+      // 如果啟用標記連動，優先執行分段檢查；否則才執行一般的字元級差異
+      if (syncEnabled && (op.leftText.includes('_') || op.rightText.includes('_'))) {
+        const marker = $('optSegmentMarker') ? $('optSegmentMarker').value : 'W';
+        const res = computeSegmentSync(op.leftText, op.rightText, marker);
+        l = res.left || ' '; 
+        r = res.right || ' ';
+      } else if(charDiff) {
+        const cd=computeCharDiff(op.leftText,op.rightText);
+        l=renderChars(cd.old);r=renderChars(cd.new);
+        if(!l)l=' ';if(!r)r=' ';
+      }
+      
+      lContent = `<div class="line-content" data-side="left" data-ln="${op.leftNum}">${l}</div>`;
+      rContent = `<div class="line-content" data-side="right" data-ln="${op.rightNum}">${r}</div>`;
+      html+=`<tr class="modified">`;
+      html+=showLN?`<td class="td-num"><div class="line-num" data-side="left" data-ln="${op.leftNum}">${op.leftNum}</div></td>`:'';
+      html+=`<td class="td-content">${lContent}</td>`;
+      html+=showLN?`<td class="td-num"><div class="line-num" data-side="right" data-ln="${op.rightNum}">${op.rightNum}</div></td>`:'';
+      html+=`<td class="td-content">${rContent}</td></tr>`;
+    }else if(op.type==='removed'){
+      lContent = `<div class="line-content" data-side="left" data-ln="${op.leftNum}">${l}</div>`;
+      rContent = `<div class="line-content"> </div>`;
+      html+=`<tr class="removed">`;
+      html+=showLN?`<td class="td-num"><div class="line-num" data-side="left" data-ln="${op.leftNum}">${op.leftNum}</div></td>`:'';
+      html+=`<td class="td-content">${lContent}</td>`;
+      html+=showLN?`<td class="td-num"><div class="line-num"></div></td>`:'';
+      html+=`<td class="td-content">${rContent}</td></tr>`;
+    }else if(op.type==='added'){
+      lContent = `<div class="line-content"> </div>`;
+      rContent = `<div class="line-content" data-side="right" data-ln="${op.rightNum}">${r}</div>`;
+      html+=`<tr class="added">`;
+      html+=showLN?`<td class="td-num"><div class="line-num"></div></td>`:'';
+      html+=`<td class="td-content">${lContent}</td>`;
+      html+=showLN?`<td class="td-num"><div class="line-num" data-side="right" data-ln="${op.rightNum}">${op.rightNum}</div></td>`:'';
+      html+=`<td class="td-content">${rContent}</td></tr>`;
+    }
+  }
+  
+  html+='</table>';
+  $('scrollLeft').innerHTML=html||'<div class="placeholder">兩側文字完全相同</div>';
+  setupSelectable(); // 綁定文字選取及編輯功能
 }
 
 function renderSideBySide(){
@@ -982,7 +1086,31 @@ function renderSideBySide(){
       rightHTML+=`<div class="line equal">${lnNum(op.rightNum,showLN,'right')}<div class="line-content${wc}" data-side="right" data-ln="${op.rightNum}">${esc(op.rightText)||' '}</div></div>`;
     }else if(op.type==='modified'){
       let l=esc(op.leftText)||' ',r=esc(op.rightText)||' ';
-      if(charDiff){const cd=computeCharDiff(op.leftText,op.rightText);l=renderChars(cd.old);r=renderChars(cd.new);if(!l)l=' ';if(!r)r=' ';}
+      
+      const syncEnabled = $('optSegmentSync') && $('optSegmentSync').checked;
+      // 如果啟用標記連動，優先執行分段檢查；否則才執行一般的字元級差異
+      if (syncEnabled && (op.leftText.includes('_') || op.rightText.includes('_'))) {
+        const marker = $('optSegmentMarker') ? $('optSegmentMarker').value : 'W';
+        const res = computeSegmentSync(op.leftText, op.rightText, marker);
+        l = res.left || ' '; 
+        r = res.right || ' ';
+      } else if (charDiff) {
+        const cd=computeCharDiff(op.leftText,op.rightText);
+        l=renderChars(cd.old); r=renderChars(cd.new);
+        if(!l)l=' '; if(!r)r=' ';
+      }
+      
+      // 如果啟用標記連動，優先執行分段檢查；否則才執行一般的字元級差異
+      if (syncEnabled && (op.leftText.includes('_') || op.rightText.includes('_'))) {
+        const marker = $('optSegmentMarker') ? $('optSegmentMarker').value : 'W';
+        const res = computeSegmentSync(op.leftText, op.rightText, marker);
+        l = res.left || ' '; 
+        r = res.right || ' ';
+      } else if (charDiff) {
+        const cd=computeCharDiff(op.leftText,op.rightText);
+        l=renderChars(cd.old); r=renderChars(cd.new);
+        if(!l)l=' '; if(!r)r=' ';
+      }
       leftHTML+=`<div class="line modified">${lnNum(op.leftNum,showLN,'left')}<div class="line-content${wc}" data-side="left" data-ln="${op.leftNum}">${l}</div></div>`;
       rightHTML+=`<div class="line modified">${lnNum(op.rightNum,showLN,'right')}<div class="line-content${wc}" data-side="right" data-ln="${op.rightNum}">${r}</div></div>`;
     }else if(op.type==='removed'){
@@ -1570,6 +1698,49 @@ function download(name,content,type){
   URL.revokeObjectURL(a.href);
 }
 function escRtf(s){return s.replace(/\\/g,'\\\\').replace(/{/g,'\\{').replace(/}/g,'\\}').replace(/\n/g,'\\par ');}
+
+
+
+
+
+// --- 新增：處理 _ 分段與自訂標記連動的函數 ---
+function computeSegmentSync(leftStr, rightStr, marker) {
+  if (!leftStr) leftStr = '';
+  if (!rightStr) rightStr = '';
+  
+  const lSegs = leftStr.split('_');
+  const rSegs = rightStr.split('_');
+  const maxLen = Math.max(lSegs.length, rSegs.length);
+  let lRes = [], rRes = [];
+
+  for (let i = 0; i < maxLen; i++) {
+    let l = lSegs[i] !== undefined ? lSegs[i] : '';
+    let r = rSegs[i] !== undefined ? rSegs[i] : '';
+
+    // 如果左右任一方的該區段以指定的標記開頭，則兩邊都套用高亮標籤
+    if ((marker && l.startsWith(marker)) || (marker && r.startsWith(marker))) {
+      lRes.push(`<span class="seg-marked">${esc(l)}</span>`);
+      rRes.push(`<span class="seg-marked">${esc(r)}</span>`);
+    } else {
+      lRes.push(esc(l));
+      rRes.push(esc(r));
+    }
+  }
+  return {
+    left: lRes.join('_'),
+    right: rRes.join('_')
+  };
+}
+
+// 綁定設定改變時重新渲染
+document.addEventListener('DOMContentLoaded', () => {
+  $('optSegmentSync').addEventListener('change', () => { if(!inputMode) rediff(); });
+  $('optSegmentMarker').addEventListener('blur', () => { if($('optSegmentSync').checked && !inputMode) rediff(); });
+});
+
+
+
+
 </script>
 </body>
 </html>
