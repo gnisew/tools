@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文字轉表格小工具 (極致純淨版)</title>
+    <style>
+        /* --- CSS 介面設計 --- */
+        body {
+            /* 這是網頁的背景色，等等會在複製瞬間被隱藏 */
+            background-color: #f4f7f6;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        }
+        h2 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 15px;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            font-size: 16px;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+        }
+        .button-group {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 12px 24px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #copyButton {
+            background-color: #27ae60; 
+            display: none; 
+        }
+        #copyButton:hover {
+            background-color: #219653;
+        }
+        
+        /* 畫面顯示用的表格樣式 (完全不會影響複製到 Excel 的內容) */
+        #outputArea {
+            margin-top: 30px;
+            overflow-x: auto;
+        }
+        #resultTable {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        #resultTable th, #resultTable td {
+            border: 1px solid #dcdde1;
+            padding: 12px;
+            text-align: left;
+            line-height: 1.6;
+        }
+        #resultTable th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+
+        /* --- 自動消失的通知框 (Toast) 樣式 --- */
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.4s, bottom 0.4s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+            bottom: 50px;
+        }
+
+        /* 隱藏的複製區域 */
+        #hiddenCopyArea {
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>📝 文字轉表格轉換器</h2>
+        <p>請將包含左右欄位（以 Tab 鍵分隔）及底線（_）標示的文字貼在下方：</p>
+        
+        <textarea id="inputText" placeholder="請在此貼上您的範例文字..."></textarea>
+        
+        <div class="button-group">
+            <button onclick="processText()">轉換成表格</button>
+            <button id="copyButton" onclick="copyTable()">📋 一鍵複製表格 (純淨無框版)</button>
+        </div>
+        
+        <div id="outputArea"></div>
+    </div>
+
+    <!-- 隱藏複製區與通知元件 -->
+    <div id="hiddenCopyArea"></div>
+    <div id="toast">✨ 表格已成功複製！</div>
+
+    <script>
+        function processText() {
+            const inputText = document.getElementById('inputText').value;
+            const outputArea = document.getElementById('outputArea');
+            const copyButton = document.getElementById('copyButton');
+            
+            if (!inputText.trim()) {
+                outputArea.innerHTML = '<p style="color: #e74c3c;">請先貼上文字資料喔！</p>';
+                copyButton.style.display = 'none';
+                return;
+            }
+
+            const lines = inputText.split('\n');
+            
+            let htmlBuffer = [
+                '<table id="resultTable">',
+                '<thead><tr><th>左欄</th><th>右欄</th></tr></thead>',
+                '<tbody>'
+            ];
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (!line.trim()) continue; 
+
+                const columns = line.split('\t');
+                const leftStr = columns[0] || '';
+                const rightStr = columns[1] || '';
+
+                let leftSegments = leftStr.split('_');
+                let rightSegments = rightStr.split('_');
+                const maxSegments = Math.max(leftSegments.length, rightSegments.length);
+
+                for (let j = 0; j < maxSegments; j++) {
+                    const lSeg = leftSegments[j] || '';
+                    const rSeg = rightSegments[j] || '';
+
+                    if (lSeg.startsWith('W') || rSeg.startsWith('W')) {
+                        if (leftSegments[j] !== undefined) {
+                            leftSegments[j] = `<span style="color: red;">${lSeg}</span>`;
+                        }
+                        if (rightSegments[j] !== undefined) {
+                            rightSegments[j] = `<span style="color: red;">${rSeg}</span>`;
+                        }
+                    }
+                }
+
+                const finalLeft = leftSegments.join('_');
+                const finalRight = rightSegments.join('_');
+                htmlBuffer.push(`<tr><td>${finalLeft}</td><td>${finalRight}</td></tr>`);
+            }
+
+            htmlBuffer.push('</tbody></table>');
+            outputArea.innerHTML = htmlBuffer.join('');
+            
+            copyButton.style.display = 'block';
+        }
+
+        // --- 全新優化：強制無框線、無底色的極致純淨複製功能 ---
+        function copyTable() {
+            const resultTable = document.getElementById('resultTable');
+            const hiddenCopyArea = document.getElementById('hiddenCopyArea');
+            
+            if (!resultTable) return;
+
+            // 1. 手工打造純淨表格字串，明確賦予 inline style 強制去邊框與底色
+            let cleanHTML = '<table style="border-collapse: collapse; border: none; background: transparent;"><tbody>';
+            const rows = resultTable.querySelectorAll('tbody tr');
+            
+            rows.forEach(row => {
+                cleanHTML += '<tr>';
+                const cells = row.querySelectorAll('td');
+                cells.forEach(cell => {
+                    // 這裡的 style 確保 Excel 絕對不會畫出任何框線和底色
+                    cleanHTML += `<td style="border: none; background: transparent; padding: 0;">${cell.innerHTML}</td>`;
+                });
+                cleanHTML += '</tr>';
+            });
+            cleanHTML += '</tbody></table>';
+
+            // 將純淨表格放入隱藏區域
+            hiddenCopyArea.innerHTML = cleanHTML;
+
+            // 2. 反白隱藏區域的內容
+            const range = document.createRange();
+            range.selectNodeContents(hiddenCopyArea);
+            const windowSelection = window.getSelection();
+            windowSelection.removeAllRanges();
+            windowSelection.addRange(range);
+
+            // 3. 【防呆關鍵】暫時將網頁本身的 body 背景設為透明，避免被 Excel 一併吸走
+            const originalBodyBg = document.body.style.backgroundColor;
+            document.body.style.backgroundColor = 'transparent';
+
+            // 4. 執行複製指令
+            try {
+                document.execCommand('copy');
+                showToast('✨ 複製成功！保證無外框、無底色');
+            } catch (err) {
+                showToast('複製失敗，請重試。');
+            }
+
+            // 5. 瞬間恢復網頁背景色，並清除反白與隱藏區垃圾，維持介面乾淨
+            document.body.style.backgroundColor = originalBodyBg;
+            windowSelection.removeAllRanges();
+            hiddenCopyArea.innerHTML = '';
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById("toast");
+            toast.innerText = message;
+            toast.className = "show"; 
+            
+            setTimeout(function() { 
+                toast.className = toast.className.replace("show", ""); 
+            }, 2500);
+        }
+    </script>
+
+</body>
+</html>
