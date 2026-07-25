@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>雲林詔安客日常</title>
+    <link href="https://tauhu.tw/tauhu-oo.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 頂部導覽列 -->
+    <header class="main-header">
+        <div class="header-left">
+            <button id="menuBtn" class="icon-btn"><span class="material-icons">menu</span></button>
+            <h1 id="logo">雲林詔安客日常</h1>
+        </div>
+        <div class="header-right" id="headerRight">
+            <div class="search-wrapper" id="searchWrapper">
+                <input type="text" id="searchInput" class="search-input" placeholder="搜尋文章...">
+                <button id="searchIconBtn" class="icon-btn"><span class="material-icons">search</span></button>
+            </div>
+            <button id="toggleRubyBtn" class="text-btn toggle-ruby-btn" style="display: none;">標音</button>
+            <div id="fontSizeControls" class="font-controls" style="display: none;">
+                <button id="fontSizeMinusBtn" class="icon-btn"><span class="material-icons">remove</span></button>
+                <button id="fontSizePlusBtn" class="icon-btn"><span class="material-icons">add</span></button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 側邊欄與遮罩 -->
+    <div id="sidebarOverlay" class="overlay"></div>
+    <aside id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2>網站導覽</h2>
+            <button id="closeSidebarBtn" class="icon-btn"><span class="material-icons">close</span></button>
+        </div>
+        <ul class="sidebar-menu">
+            <li id="navAbout" class="sidebar-static-link"><span class="material-icons">info</span> 關於本站</li>
+        </ul>
+        <div class="sidebar-divider"></div>
+        <ul id="sidebarList" class="sidebar-list">
+            <!-- JS 動態生成的文章目錄 -->
+        </ul>
+    </aside>
+
+    <!-- 滿版橫幅 -->
+    <div id="homeBanner" class="full-width-banner"></div>
+
+    <!-- 主要內容區：首頁目錄 -->
+    <main id="homeView" class="view-section">
+        <div id="directoryGrid" class="directory-grid"></div>
+        <div id="searchResults" class="search-results"></div>
+    </main>
+
+    <!-- 主要內容區：靜態資訊頁 -->
+    <main id="aboutView" class="view-section" style="display: none;">
+        <div class="article-header">
+            <h2>關於本站</h2>
+        </div>
+        <div class="article-content">
+            <h3>序 / 前言</h3>
+            <p>這是一個專為雲林詔安客語設計的學習與記錄平台。我們希望透過文字與聲音，將珍貴的語言文化傳承下去。</p>
+            <h3>作者介紹</h3>
+            <p>本站內容由熱愛詔安客語的團隊共同編寫，致力於打造最友善的學習環境，以清淡優雅的介面陪伴您每一天的學習。</p>
+        </div>
+    </main>
+
+    <!-- 主要內容區：文章閱讀頁 -->
+    <main id="articleView" class="view-section" style="display: none;">
+        <div class="article-header article-header-flex">
+            <h2 id="articleTitle">文章標題</h2>
+            <span id="articleLevel" class="article-stars">☆☆★★</span>
+        </div>
+        
+        <img id="articleImage" class="article-hero-image" src="" alt="文章插圖" style="display: none;">
+        
+        <div id="articleContent" class="article-content"></div>
+        <div class="vocabulary-section">
+            <h3>詞彙學習</h3>
+            <ol id="articleVocab"></ol>
+        </div>
+    </main>
+
+    <!-- 頁尾 -->
+    <footer class="site-footer">
+        <p>詔安客語教學資源中心</p>
+    </footer>
+
+    <!-- 毛玻璃播放器 -->
+    <div id="audioPlayer" class="audio-player-compact" style="display: none;">
+        <input type="range" id="progressBar" class="progress-bar" value="0" max="100" step="0.1">
+        <div class="player-controls">
+            <button id="playPauseBtn" class="player-action"><span class="material-icons" id="playIcon">play_arrow</span></button>
+            <button id="trackToggleBtn" class="track-btn">人聲</button>
+            <button id="closePlayerBtn" class="close-player"><span class="material-icons">close</span></button>
+        </div>
+        <audio id="audioVoice" preload="metadata"></audio>
+        <audio id="audioBgm" preload="metadata" muted></audio>
+    </div>
+
+    <!-- 懸浮音樂按鈕 -->
+    <button id="showPlayerFab" class="fab" style="display: none;">
+        <span class="material-icons">music_note</span>
+    </button>
+
+
+    <script src="data.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
