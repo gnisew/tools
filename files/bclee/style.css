@@ -443,3 +443,23 @@ mark {
     color: #FFFFFF !important; 
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
+
+
+
+/* ================= 頁尾 ================= */
+.site-footer {
+    background-color: #eee; color: #C0C0C0; text-align: center; 
+    padding: 8px; font-size: 0.8rem; margin-top: 20px;
+}
+.site-footer p { margin: 0; letter-spacing: 1px;}
+
+
+.site-footer a {
+    color: #C0C0C0;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+.site-footer a:hover {
+    color: var(--primary-light);
+    text-decoration: none;
+}
