@@ -11,22 +11,17 @@
 <body>
     <!-- 頂部導覽列 -->
     <header class="main-header">
-        <div class="header-left">
-            <button id="menuBtn" class="icon-btn"><span class="material-icons">menu</span></button>
-            <h1 id="logo">雲林詔安客日常</h1>
-        </div>
-        <div class="header-right" id="headerRight">
-            <div class="search-wrapper" id="searchWrapper">
-                <input type="text" id="searchInput" class="search-input" placeholder="搜尋文章...">
-                <button id="searchIconBtn" class="icon-btn"><span class="material-icons">search</span></button>
-            </div>
-            <button id="toggleRubyBtn" class="text-btn toggle-ruby-btn" style="display: none;">標音</button>
-            <div id="fontSizeControls" class="font-controls" style="display: none;">
-                <button id="fontSizeMinusBtn" class="icon-btn"><span class="material-icons">remove</span></button>
-                <button id="fontSizePlusBtn" class="icon-btn"><span class="material-icons">add</span></button>
-            </div>
-        </div>
-    </header>
+		<div class="header-left">
+			<button id="menuBtn" class="icon-btn"><span class="material-icons">menu</span></button>
+			<h1 id="logo">雲林詔安客日常</h1>
+		</div>
+		<div class="header-right" id="headerRight">
+			<div class="search-wrapper" id="searchWrapper">
+				<input type="text" id="searchInput" class="search-input" placeholder="搜尋文章...">
+				<button id="searchIconBtn" class="icon-btn"><span class="material-icons">search</span></button>
+			</div>
+		</div>
+	</header>
 
     <!-- 側邊欄與遮罩 -->
     <div id="sidebarOverlay" class="overlay"></div>
@@ -68,13 +63,24 @@
 
     <!-- 主要內容區：文章閱讀頁 -->
     <main id="articleView" class="view-section" style="display: none;">
-        <div class="article-header article-header-flex">
-            <h2 id="articleTitle">文章標題</h2>
-            <span id="articleLevel" class="article-stars">☆☆★★</span>
-        </div>
-        
-        <img id="articleImage" class="article-hero-image" src="" alt="文章插圖" style="display: none;">
-        
+		<div class="article-header article-header-flex">
+		<button id="backBtn" class="icon-btn back-btn"><span class="material-icons">arrow_back</span></button>
+			<h2 id="articleTitle">文章標題</h2>
+			<span id="articleLevel" class="article-stars">☆☆★★</span>
+		</div>
+
+		<img id="articleImage" class="article-hero-image" src="" alt="文章插圖" style="display: none;">
+		
+		<div class="article-tools">					
+			<button id="toggleRubyBtn" class="toggle-ruby-btn active">字音</button>
+			<button id="toggleViewModeBtn" class="toggle-ruby-btn active">段落</button>	
+			<div id="fontSizeControls" class="font-controls">
+				<button id="fontSizeMinusBtn" class="tool-btn"><span class="material-icons">remove</span></button>
+				<button id="fontSizePlusBtn" class="tool-btn"><span class="material-icons">add</span></button>
+			</div>
+			<button id="toggleLangBtn" class="toggle-ruby-btn active">客語</button>
+		</div>
+		
         <div id="articleContent" class="article-content"></div>
         <div class="vocabulary-section">
             <h3>詞彙學習</h3>
