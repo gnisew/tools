@@ -439,7 +439,6 @@ function performSearch(keyword) {
     homeView.style.display = 'block'; 
     directoryGrid.style.display = 'none';
     
-    // ★ 關鍵修復：明確將搜尋結果區塊顯示出來 ★
     searchResults.style.display = 'block'; 
     
     let resultsHTML = '';
@@ -650,14 +649,22 @@ articleContent.addEventListener('click', (e) => {
         
         // 確保這句話有翻譯才進行切換
         if (data && data.mandarin && data.mandarin !== data.hakka) {
-            // 切換狀態
+            // 1. 切換該句語言狀態
             data.current = data.current === 'hakka' ? 'mandarin' : 'hakka';
             
-            // 抽換該句的 HTML
+            // 2. 抽換該句的 HTML
             block.innerHTML = data[data.current];
             
-            // 切換徽章的深色狀態
-            block.classList.toggle('is-translated', data.current === 'mandarin');
+            // =======================================================
+            // 取得目前「整篇文章」的全域語言狀態
+            const globalLang = isTranslateMode ? 'mandarin' : 'hakka';
+            
+            // 如果這句話的語言「不等於」全域語言，代表它被手動特別切換了
+            const isManuallyToggled = data.current !== globalLang;
+            
+            // 根據是否被手動切換，決定要不要加上深色樣式
+            block.classList.toggle('is-translated', isManuallyToggled);
+            // =======================================================
             
             // 如果剛好有搜尋關鍵字，為這句單獨補上高亮
             const keyword = searchInput.value.trim();
