@@ -1,6 +1,6 @@
 /* ================= 明亮清新色系 ================= */
 :root {
-    --base-font-size: 18px;
+    --base-font-size: 20px;
     --primary-color: #00897B; 
     --primary-light: #4DB6AC; 
     --primary-dark: #00695C;  
@@ -12,7 +12,6 @@
 }
 
 body {
-    font-family: 'tauhu-oo', sans-serif;
     font-size: var(--base-font-size);
     background-color: var(--bg-color);
     color: var(--text-main);
@@ -430,3 +429,17 @@ mark {
     font-weight: bold;
 }
 
+
+
+/* 單句翻譯 */
+.mode-sentence .sentence-block::before {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 2;
+}
+
+.mode-sentence .sentence-block.is-translated::before {
+    background-color: #00897B !important;
+    color: #FFFFFF !important; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}

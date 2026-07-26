@@ -39,6 +39,8 @@ const playIcon = document.getElementById('playIcon');
 const trackToggleBtn = document.getElementById('trackToggleBtn');
 const progressBar = document.getElementById('progressBar');
 
+const sentenceDataMap = new Map(); // 儲存 A01: { hakka: '...', mandarin: '...', current: 'hakka' }
+
 const toggleViewModeBtn = document.getElementById('toggleViewModeBtn');
 let isSentenceMode = false;
 
@@ -101,32 +103,34 @@ initUI();
 // ================= 語言切換 (客語 / 華語) =================
 toggleLangBtn.addEventListener('click', function() {
     isTranslateMode = !isTranslateMode;
+    const targetLang = isTranslateMode ? 'mandarin' : 'hakka';
     
     if (isTranslateMode) {
-        // 【切換為華語】
         toggleLangBtn.textContent = '華語';
-        toggleLangBtn.classList.remove('active'); // 空心樣式
-        toggleRubyBtn.classList.add('disabled');  // 停用字音按鈕
-        
-        // 替換內容 (共用相同的斷句解析器)
-        articleContent.innerHTML = parseTextToRuby(currentArticleData.translate);
+        toggleLangBtn.classList.remove('active'); 
+        toggleRubyBtn.classList.add('disabled');  
     } else {
-        // 【切換回客語】
         toggleLangBtn.textContent = '客語';
-        toggleLangBtn.classList.add('active');    // 實心樣式
-        toggleRubyBtn.classList.remove('disabled'); // 啟用字音按鈕
-        
-        // 替換內容
-        articleContent.innerHTML = parseTextToRuby(currentArticleData.content);
+        toggleLangBtn.classList.add('active');    
+        toggleRubyBtn.classList.remove('disabled'); 
     }
     
-    // 如果目前有搜尋關鍵字，重新套用高亮效果
+    document.querySelectorAll('.sentence-block').forEach(block => {
+        const label = block.getAttribute('data-label');
+        const data = sentenceDataMap.get(label);
+        if (data) {
+            data.current = targetLang;
+            block.innerHTML = data[targetLang];
+            // 處理單句深色徽章的樣式復原
+            if (isTranslateMode) {
+                block.classList.remove('is-translated');
+            }
+        }
+    });
+    
     const keyword = searchInput.value.trim();
-    if (keyword) {
-        highlightArticle(articleContent, keyword);
-    }
+    if (keyword) highlightArticle(articleContent, keyword);
 });
-
 
 
 
@@ -290,7 +294,7 @@ function loadArticle(id, pushHistory = true) {
         articleImage.style.display = 'none';
     }
 
-    articleContent.innerHTML = parseTextToRuby(article.content);
+    articleContent.innerHTML = parseTextToRuby(article.content, article.translate);
     
     const keyword = searchInput.value.trim();
     if (keyword) {
@@ -308,36 +312,48 @@ function loadArticle(id, pushHistory = true) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// 解析函式
-function parseTextToRuby(rawText) {
-    // 1. 將文章切分成段落
+// 單一句子解析輔助函式
+function parseSingleSentence(sentence) {
+    if (!sentence) return '';
+    const rubyRegex = /([^\(\s，。、！？；：「」『』,.\?!]+)\(([^)]+)\)/g;
+    let sentHTML = sentence.replace(rubyRegex, function(match, char, pinyin) {
+        let normalizedPinyin = normalizeToneMarks(pinyin);
+        return `<ruby><rb>${char}</rb><rt>${normalizedPinyin}</rt></ruby>`;
+    });
+    return sentHTML.replace(/<\/ruby>\s+<ruby>/g, '</ruby><ruby>');
+}
+
+
+
+function parseTextToRuby(rawText, rawTranslateText = '') {
+    sentenceDataMap.clear(); // 清空舊的對照表
+
     const rawParagraphs = rawText.split('\n').filter(p => p.trim() !== '');
-    
+    const transParagraphs = rawTranslateText ? rawTranslateText.split('\n').filter(p => p.trim() !== '') : [];
+    const sentenceRegex = /.+?(?:[，。：；！？、,.\?!「」『』]\s*)+|.+?$/g;
+
     const paragraphsHTML = rawParagraphs.map((para, paraIndex) => {
-        // 產生段落的英文字母 (A, B, C...)
         const paraLetter = String.fromCharCode(65 + paraIndex); 
-        
-        // 2. 智慧斷句邏輯：比對到標點符號為止，或者直到結尾
-        const sentenceRegex = /.+?(?:[，。：；！？、,.\?!「」『』]\s*)+|.+?$/g;
         const sentences = para.match(sentenceRegex) || [para];
+        // 抓出對應的華語段落進行斷句
+        const transSentences = transParagraphs[paraIndex] ? transParagraphs[paraIndex].match(sentenceRegex) || [] : [];
         
-        // 3. 處理每一句短句
         const sentencesHTML = sentences.map((sentence, sentIndex) => {
             const sentNumber = String(sentIndex + 1).padStart(2, '0');
-            const label = `${paraLetter}${sentNumber}`; // 組合出 A01, A02
+            const label = `${paraLetter}${sentNumber}`; 
             
-            // 處理客語拼音
-            const rubyRegex = /([^\(\s，。、！？；：「」『』,.\?!]+)\(([^)]+)\)/g;
-            let sentHTML = sentence.replace(rubyRegex, function(match, char, pinyin) {
-                let normalizedPinyin = normalizeToneMarks(pinyin);
-                return `<ruby><rb>${char}</rb><rt>${normalizedPinyin}</rt></ruby>`;
+            // 分別解析客語與華語的 HTML
+            const hakkaHTML = parseSingleSentence(sentence);
+            const mandarinHTML = transSentences[sentIndex] ? parseSingleSentence(transSentences[sentIndex]) : hakkaHTML;
+            
+            // 將結果存入記憶體地圖中
+            sentenceDataMap.set(label, {
+                hakka: hakkaHTML,
+                mandarin: mandarinHTML,
+                current: 'hakka' // 預設顯示客語
             });
             
-            // 移除拼音間的多餘空白
-            sentHTML = sentHTML.replace(/<\/ruby>\s+<ruby>/g, '</ruby><ruby>');
-            
-            // 將短句用 span 包裝起來，並寫入 data-label 編號
-            return `<span class="sentence-block" data-label="${label}">${sentHTML}</span>`;
+            return `<span class="sentence-block" data-label="${label}">${hakkaHTML}</span>`;
         }).join('');
         
         return `<p>${sentencesHTML}</p>`;
@@ -345,7 +361,6 @@ function parseTextToRuby(rawText) {
     
     return paragraphsHTML.join('');
 }
-
 
 
 function getPureText(rawText) { 
@@ -610,5 +625,43 @@ window.addEventListener('popstate', (event) => {
         
         // 確保搜尋框被關閉
         if (typeof closeSearch === 'function') closeSearch();
+    }
+});
+
+
+
+// ================= 斷句模式：點擊編號單句切換 =================
+articleContent.addEventListener('click', (e) => {
+    // 只有在斷句模式下才啟動這個魔法
+    if (!isSentenceMode) return;
+    
+    // 尋找被點擊的句子區塊
+    const block = e.target.closest('.sentence-block');
+    if (!block) return;
+    
+    // 計算點擊位置：我們設定徽章寬度 26px，留白 34px。
+    // 如果點擊相對於句子最左側的 X 座標小於 40px，代表點中了徽章！
+    const rect = block.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    
+    if (clickX <= 40) {
+        const label = block.getAttribute('data-label');
+        const data = sentenceDataMap.get(label);
+        
+        // 確保這句話有翻譯才進行切換
+        if (data && data.mandarin && data.mandarin !== data.hakka) {
+            // 切換狀態
+            data.current = data.current === 'hakka' ? 'mandarin' : 'hakka';
+            
+            // 抽換該句的 HTML
+            block.innerHTML = data[data.current];
+            
+            // 切換徽章的深色狀態
+            block.classList.toggle('is-translated', data.current === 'mandarin');
+            
+            // 如果剛好有搜尋關鍵字，為這句單獨補上高亮
+            const keyword = searchInput.value.trim();
+            if (keyword) highlightArticle(block, keyword);
+        }
     }
 });
