@@ -257,12 +257,13 @@ rb {
 }
 rt { 
     color: var(--primary-dark); 
-    font-size: 0.65em; 
+    font-size: 0.71em; 
     line-height: 1;
     white-space: nowrap;
     text-align: center;
     display: block;
     margin-bottom: 0.1em; 
+	letter-spacing: -0.3px;
 }
 
 

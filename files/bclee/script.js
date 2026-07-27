@@ -323,26 +323,73 @@ function parseSingleSentence(sentence) {
     return sentHTML.replace(/<\/ruby>\s+<ruby>/g, '</ruby><ruby>');
 }
 
+// ================= 智慧斷句輔助函式 =================
+function splitIntoSentences(para) {
+    if (!para) return [];
+    let sentences = [];
+    let current = '';
+    let inBrackets = false;
 
+    for (let i = 0; i < para.length; i++) {
+        let char = para[i];
+        current += char;
+
+        if (char === '[') inBrackets = true;
+        if (char === ']') inBrackets = false;
+
+        if (!inBrackets && /[，。：；！？、「」『』?!.,]/.test(char)) {
+            let isDecimal = false;
+            // 保護數學符號 1.3 或千位符號 1,000
+            if ((char === '.' || char === ',') && i > 0 && i < para.length - 1) {
+                if (/\d/.test(para[i-1]) && /\d/.test(para[i+1])) {
+                    isDecimal = true;
+                }
+            }
+
+            if (!isDecimal) {
+                // 吸收後續連著的標點或空白
+                while (i + 1 < para.length && /[，。：；！？、「」『』?!.,\s]/.test(para[i+1])) {
+                    let nextChar = para[i+1];
+                    if (nextChar === '[') break; 
+                    if ((nextChar === '.' || nextChar === ',') && /\d/.test(para[i]) && i + 2 < para.length && /\d/.test(para[i+2])) {
+                        break;
+                    }
+                    current += nextChar;
+                    i++;
+                }
+                if (current.trim()) sentences.push(current.trim());
+                current = '';
+            }
+        }
+    }
+    if (current.trim()) sentences.push(current.trim());
+    if (sentences.length === 0) sentences = [para];
+    
+    return sentences;
+}
 
 function parseTextToRuby(rawText, rawTranslateText = '') {
     sentenceDataMap.clear(); // 清空舊的對照表
 
-    const rawParagraphs = rawText.split('\n').filter(p => p.trim() !== '');
-    const transParagraphs = rawTranslateText ? rawTranslateText.split('\n').filter(p => p.trim() !== '') : [];
-    const sentenceRegex = /.+?(?:[，。：；！？、,.\?!「」『』]\s*)+|.+?$/g;
+    // 1. 強制將純文字的 \n 替換為真實的換行符號
+    const processedRawText = rawText.replace(/\\n/g, '\n');
+    const processedTransText = rawTranslateText ? rawTranslateText.replace(/\\n/g, '\n') : '';
+
+    const rawParagraphs = processedRawText.split(/\r?\n/).filter(p => p.trim() !== '');
+    const transParagraphs = processedTransText ? processedTransText.split(/\r?\n/).filter(p => p.trim() !== '') : [];
 
     const paragraphsHTML = rawParagraphs.map((para, paraIndex) => {
         const paraLetter = String.fromCharCode(65 + paraIndex); 
-        const sentences = para.match(sentenceRegex) || [para];
-        // 抓出對應的華語段落進行斷句
-        const transSentences = transParagraphs[paraIndex] ? transParagraphs[paraIndex].match(sentenceRegex) || [] : [];
+        
+        const sentences = splitIntoSentences(para);
+        // 抓出對應的華語段落進行智慧斷句
+        const transSentences = transParagraphs[paraIndex] ? splitIntoSentences(transParagraphs[paraIndex]) : [];
         
         const sentencesHTML = sentences.map((sentence, sentIndex) => {
             const sentNumber = String(sentIndex + 1).padStart(2, '0');
             const label = `${paraLetter}${sentNumber}`; 
             
-            // 分別解析客語與華語的 HTML
+            // 分別解析客語與華語的 HTML (處理拼音括號等)
             const hakkaHTML = parseSingleSentence(sentence);
             const mandarinHTML = transSentences[sentIndex] ? parseSingleSentence(transSentences[sentIndex]) : hakkaHTML;
             
@@ -367,7 +414,7 @@ function getPureText(rawText) {
     return rawText.replace(/\([^)]+\)/g, '').replace(/\s+/g, ''); 
 }
 
-// ★ 新增：文章內容高亮核心邏輯 ★
+
 function highlightArticle(container, keyword) {
     if (!keyword) return;
     
@@ -547,11 +594,11 @@ toggleRubyBtn.addEventListener('click', function() {
 });
 
 document.getElementById('fontSizePlusBtn').addEventListener('click', () => {
-    if (currentFontSize < 30) currentFontSize += 2;
+    if (currentFontSize < 32) currentFontSize += 2;
     document.documentElement.style.setProperty('--base-font-size', currentFontSize + 'px');
 });
 document.getElementById('fontSizeMinusBtn').addEventListener('click', () => {
-    if (currentFontSize > 14) currentFontSize -= 2;
+    if (currentFontSize > 16) currentFontSize -= 2;
     document.documentElement.style.setProperty('--base-font-size', currentFontSize + 'px');
 });
 
