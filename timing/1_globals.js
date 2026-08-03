@@ -12,6 +12,9 @@ const audioPlayer = document.getElementById('audioPlayer');
 const audioTimeDisplay = document.getElementById('audioTimeDisplay'); 
 const listPanel = document.getElementById('listPanel');
 
+const autoSegmentRegionBtn = document.getElementById('autoSegmentRegionBtn');
+let targetAutoSegmentRange = null
+
 const mainTitleDisplay = document.getElementById('mainTitleDisplay');
 const setupPanel = document.getElementById('setupPanel');
 const setupPanelHeader = document.getElementById('setupPanelHeader');
@@ -50,6 +53,12 @@ const outputArea = document.getElementById('outputArea');
 
 const importAudacityBtn = document.getElementById('importAudacityBtn');
 const importAudacityInput = document.getElementById('importAudacityInput');
+
+const toggleScriptModeBtn = document.getElementById('toggleScriptModeBtn');
+const scriptEditorContainer = document.getElementById('scriptEditorContainer');
+const scriptGutter = document.getElementById('scriptGutter');
+const scriptTextarea = document.getElementById('scriptTextarea');
+let isScriptMode = false;
 
 const toggleModeBtn = document.getElementById('toggleModeBtn');
 const modeText = document.getElementById('modeText');
@@ -181,50 +190,108 @@ function updateToolbarButtons() {
     const hasTemp = tempRegion !== null;
     const hasActive = currentActiveLabel !== null && timeDataMap[currentActiveLabel] !== undefined;
 
-    if (tagRegionBtn) {
-        if (!isEditMode) { tagRegionBtn.style.display = 'none'; } 
-        else {
+    let isOverlapping = false;
+    if (hasTemp) {
+        const tStart = tempRegion.start;
+        const tEnd = tempRegion.end;
+        for (let i = 0; i < allLabelsOrdered.length; i++) {
+            const label = allLabelsOrdered[i];
+            if (timeDataMap[label]) {
+                const times = typeof getCalculatedTimes === 'function' ? getCalculatedTimes(label) : null;
+                if (times && tStart < (times.end - 0.01) && tEnd > (times.start + 0.01)) {
+                    isOverlapping = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    // 設定安全旗標：有藍色選取框，而且「沒有」重疊時，才允許執行新增類型的動作
+    const canAddSafe = hasTemp && !isOverlapping;
+
+    // 2. 更新「新增標記 (Enter)」按鈕狀態
+    if (typeof tagRegionBtn !== 'undefined' && tagRegionBtn) {
+        if (!isEditMode) { 
+            tagRegionBtn.style.display = 'none'; 
+        } else {
             tagRegionBtn.style.display = '';
-            tagRegionBtn.disabled = !hasTemp;
-            tagRegionBtn.style.opacity = hasTemp ? '1' : '0.3';
-            tagRegionBtn.style.cursor = hasTemp ? 'pointer' : 'not-allowed';
+            tagRegionBtn.disabled = !canAddSafe;
+            tagRegionBtn.style.opacity = canAddSafe ? '1' : '0.3';
+            tagRegionBtn.style.cursor = canAddSafe ? 'pointer' : 'not-allowed';
+            
+            if (hasTemp && isOverlapping) {
+                tagRegionBtn.title = "標記範圍重疊，請縮小邊界";
+            } else {
+                tagRegionBtn.title = "將選取範圍套用至目前句子 (Enter)";
+            }
+        }
+    }
+
+    // 3. 更新「局部自動斷句」按鈕狀態
+    const autoSegmentRegionBtn = document.getElementById('autoSegmentRegionBtn');
+    if (autoSegmentRegionBtn) {
+        if (!isEditMode) { 
+            autoSegmentRegionBtn.style.display = 'none'; 
+        } else {
+            autoSegmentRegionBtn.style.display = '';
+            
+            const hasSelection = typeof selectedLabels !== 'undefined' && selectedLabels.length > 0;
+            
+            // ★ 新增：檢查是否完全沒有標記
+            const hasNoMarkers = typeof allLabelsOrdered === 'undefined' || allLabelsOrdered.length === 0;
+            
+            // ★ 修改：允許在「無標記」時啟用 (canAutoSegment 為 true)
+            const canAutoSegment = canAddSafe || hasSelection || hasNoMarkers;
+            autoSegmentRegionBtn.disabled = !canAutoSegment;
+            autoSegmentRegionBtn.style.opacity = canAutoSegment ? '1' : '0.3';
+            autoSegmentRegionBtn.style.cursor = canAutoSegment ? 'pointer' : 'not-allowed';
+            
+            // 動態提示
+            if (hasSelection) {
+                autoSegmentRegionBtn.title = `針對選取的 ${selectedLabels.length} 個標記範圍重新自動斷句`;
+            } else if (hasTemp && isOverlapping) {
+                autoSegmentRegionBtn.title = "標記範圍重疊，無法執行局部自動斷句";
+            } else if (hasNoMarkers) {
+                // ★ 新增：無標記時的專屬提示文字
+                autoSegmentRegionBtn.title = "自動全選並依靜音斷句"; 
+            } else {
+                autoSegmentRegionBtn.title = "選取的範圍依靜音自動斷句";
+            }
         }
     }
     
-    if (clearRegionBtn) {
-        if (!isEditMode) { clearRegionBtn.style.display = 'none'; } 
-        else {
+    // 4. 其他工具列按鈕更新
+    if (typeof clearRegionBtn !== 'undefined' && clearRegionBtn) {
+        if (!isEditMode) { 
+            clearRegionBtn.style.display = 'none'; 
+        } else {
             clearRegionBtn.style.display = '';
-            clearRegionBtn.disabled = !hasActive;
-            clearRegionBtn.style.opacity = hasActive ? '1' : '0.3';
-            clearRegionBtn.style.cursor = hasActive ? 'pointer' : 'not-allowed';
+            const canClear = hasActive || (typeof selectedLabels !== 'undefined' && selectedLabels.length > 0);
+            clearRegionBtn.disabled = !canClear;
+            clearRegionBtn.style.opacity = canClear ? '1' : '0.3';
+            clearRegionBtn.style.cursor = canClear ? 'pointer' : 'not-allowed';
         }
     }
 	
-    if (splitRegionBtn) {
+    if (typeof splitRegionBtn !== 'undefined' && splitRegionBtn) {
         if (!isEditMode) { 
             splitRegionBtn.style.display = 'none'; 
         } else {
             splitRegionBtn.style.display = '';
-            
-            // 核心判斷：有選取當前句，且總選取數量不超過 1
-            const canSplit = hasActive && selectedLabels.length <= 1; 
-            
+            const canSplit = hasActive && (typeof selectedLabels === 'undefined' || selectedLabels.length <= 1); 
             splitRegionBtn.disabled = !canSplit;
             splitRegionBtn.style.opacity = canSplit ? '1' : '0.3';
             splitRegionBtn.style.cursor = canSplit ? 'pointer' : 'not-allowed';
         }
     }
 	
-    if (mergeRegionBtn) {
+    if (typeof mergeRegionBtn !== 'undefined' && mergeRegionBtn) {
         if (!isEditMode) { 
             mergeRegionBtn.style.display = 'none'; 
         } else {
             mergeRegionBtn.style.display = '';
-            
-            // 判斷是否連續選取
             let isContinuousSelection = false;
-            if (selectedLabels.length > 1) {
+            if (typeof selectedLabels !== 'undefined' && selectedLabels.length > 1) {
                 let sortedSelected = [...selectedLabels].sort((a, b) => allLabelsOrdered.indexOf(a) - allLabelsOrdered.indexOf(b));
                 isContinuousSelection = true;
                 for (let i = 0; i < sortedSelected.length - 1; i++) {
@@ -233,16 +300,14 @@ function updateToolbarButtons() {
                     }
                 }
             }
-            
-            // 依據連續性決定是否鎖定按鈕
             mergeRegionBtn.disabled = !isContinuousSelection;
             mergeRegionBtn.style.opacity = isContinuousSelection ? '1' : '0.3';
             mergeRegionBtn.style.cursor = isContinuousSelection ? 'pointer' : 'not-allowed';
         }
     }
 
-    if (downloadActiveRegionBtn) {
-        const canDownload = selectedLabels.length > 0 || (currentActiveLabel !== null && timeDataMap[currentActiveLabel] !== undefined);
+    if (typeof downloadActiveRegionBtn !== 'undefined' && downloadActiveRegionBtn) {
+        const canDownload = (typeof selectedLabels !== 'undefined' && selectedLabels.length > 0) || (currentActiveLabel !== null && timeDataMap[currentActiveLabel] !== undefined) || hasTemp;
         downloadActiveRegionBtn.disabled = !canDownload;
         downloadActiveRegionBtn.style.opacity = canDownload ? '1' : '0.3';
         downloadActiveRegionBtn.style.cursor = canDownload ? 'pointer' : 'not-allowed';
@@ -340,17 +405,24 @@ function showToast(message, type = 'normal') {
     clearTimeout(toastTimeout); toastTimeout = setTimeout(() => { toast.classList.remove("show"); }, 3000);
 }
 
-// ================= 修改優化：自訂對話框渲染修正 =================
+
+
+
+let modalAltCallback = null;
+let modalCancelCallback = null;
+
 function showCustomDialog(options) {
     const overlay = document.getElementById('customModalOverlay');
     const titleEl = document.getElementById('customModalTitle');
     const messageEl = document.getElementById('customModalMessage');
     const inputEl = document.getElementById('customModalInput');
+    const confirmBtn = document.getElementById('customModalConfirmBtn');
+    const cancelBtn = document.getElementById('customModalCancelBtn');
+    const altBtn = document.getElementById('customModalAltBtn');
     
     if (!overlay || !titleEl || !messageEl) return;
 
     titleEl.textContent = options.title || '提示';
-    
     messageEl.innerHTML = options.message || ''; 
     
     if (options.isPrompt) {
@@ -362,11 +434,31 @@ function showCustomDialog(options) {
         inputEl.value = '';
     }
     
+    // 自訂按鈕文字
+    confirmBtn.textContent = options.confirmText || '確定';
+    cancelBtn.textContent = options.cancelText || '取消';
+    
+    if (options.altText) {
+        altBtn.style.display = 'inline-block';
+        altBtn.textContent = options.altText;
+    } else {
+        altBtn.style.display = 'none';
+    }
+    
     modalConfirmCallback = options.onConfirm || null;
+    modalAltCallback = options.onAlt || null;
+    modalCancelCallback = options.onCancel || null;
+    
     overlay.classList.add('show');
 }
-// =========================================================================
-function closeCustomDialog() { modalOverlay.classList.remove('show'); modalConfirmCallback = null; }
+
+function closeCustomDialog() { 
+    const overlay = document.getElementById('customModalOverlay');
+    if (overlay) overlay.classList.remove('show'); 
+    modalConfirmCallback = null; 
+    modalAltCallback = null;
+    modalCancelCallback = null;
+}
 
 function sanitizeFilename(name) { return name.replace(/[\\/:*?"<>|]/g, '_').trim(); }
 function formatTime(seconds) {
@@ -481,3 +573,20 @@ function applyHistoryState(state) {
     if (typeof renderAllRegions === 'function') renderAllRegions();
     if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
 }
+
+
+window.snapWaveformToTop = function() {
+    const stickyPanel = document.getElementById('stickyPanel');
+    if (!stickyPanel) return;
+    
+    // 使用 offsetTop 取得面板在網頁中最原始的絕對 Y 座標 (不受 sticky 浮動干擾)
+    const targetY = stickyPanel.offsetTop - 15;
+    
+    // 取得目前視窗的捲動位置
+    const currentY = window.scrollY || document.documentElement.scrollTop;
+    
+    // 只有當視窗還沒往下捲過聲波圖時 (代表面板還沒吸頂)，才往下捲動
+    if (currentY < targetY) {
+        window.scrollTo({ top: targetY, behavior: 'smooth' });
+    }
+};

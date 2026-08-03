@@ -1,49 +1,36 @@
 // ================= 修改優化：動態按鈕顯示與隱藏防呆邏輯 =================
+// ================= 修改優化：動態按鈕顯示與隱藏防呆邏輯 =================
 function checkButtonVisibility() {
-    const hasAudio = audioPlayer.src && audioPlayer.src !== "" && audioPlayer.src !== window.location.href;
+    const hasRegions = typeof allLabelsOrdered !== 'undefined' && allLabelsOrdered.length > 0;
+    const hasActiveRegion = (typeof activeRegion !== 'undefined' && activeRegion) || (typeof tempRegion !== 'undefined' && tempRegion);
     
-    // 處理「自動斷句」按鈕
-    if (autoSegmentBtn) {
-        autoSegmentBtn.style.display = hasAudio ? 'inline-flex' : 'none';
+    const autoSegmentRegionBtn = document.getElementById('autoSegmentRegionBtn'); 
+    if (autoSegmentRegionBtn) {
+        autoSegmentRegionBtn.disabled = !(hasActiveRegion || !hasRegions);
     }
 
-    // 處理「恢復標記」按鈕
-    if (restoreTagsBtn) {
-        let hasBackup = false;
-        try {
-            // 核心修復：直接檢查 localStorage 內是否有真實的歷史備份
-            const savedTimeData = localStorage.getItem('tagger_timeDataMap');
-            if (savedTimeData) {
-                const parsedData = JSON.parse(savedTimeData);
-                if (parsedData && Object.keys(parsedData).length > 0) {
-                    hasBackup = true;
-                }
-            }
-        } catch (e) {
-            console.error('檢查暫存備份失敗：', e);
-        }
-
-        // 只有在「有載入音檔」且「有實質備份」時，才顯示恢復按鈕
-        if (hasAudio && hasBackup) {
-            restoreTagsBtn.style.display = 'inline-flex'; 
-        } else {
-            restoreTagsBtn.style.display = 'none';
-        }
+    const hasAudio = localStorage.getItem('tagger_audioUrl') || localStorage.getItem('tagger_localFileName');
+    const mainTitleDisplay = document.getElementById('mainTitleDisplay');
+    
+    if (!hasAudio && !hasRegions) {
+        document.body.classList.add('is-empty-state');
+        if (mainTitleDisplay) mainTitleDisplay.contentEditable = "false"; // ★ 進入首頁時，禁止編輯
+    } else {
+        document.body.classList.remove('is-empty-state');
+        if (mainTitleDisplay) mainTitleDisplay.contentEditable = "true";  // ★ 開始工作時，恢復可編輯
     }
 }
 // =========================================================================
-
 function saveToStorage() {
     localStorage.setItem('tagger_allLabels', JSON.stringify(allLabelsOrdered));
     localStorage.setItem('tagger_textMap', JSON.stringify(sentenceTextMap));
     localStorage.setItem('tagger_timeDataMap', JSON.stringify(timeDataMap));
-    localStorage.setItem('tagger_audioUrl', audioUrlInput.value);
     localStorage.setItem('tagger_parseMode', currentParseMode); 
-    checkButtonVisibility();
+    if (typeof checkButtonVisibility === 'function') checkButtonVisibility();
 }
 
 function loadFromStorage() {
-    loadShortcuts();
+    if (typeof loadShortcuts === 'function') loadShortcuts();
     const savedLabels = localStorage.getItem('tagger_allLabels');
     const savedTextMap = localStorage.getItem('tagger_textMap');
     const savedMap = localStorage.getItem('tagger_timeDataMap');
@@ -53,24 +40,59 @@ function loadFromStorage() {
     const localFileName = localStorage.getItem('tagger_localFileName');
 
     const savedScrollAlign = localStorage.getItem('tagger_scrollAlign');
-    if (savedScrollAlign && scrollAlignSelect) scrollAlignSelect.value = savedScrollAlign;
+    if (savedScrollAlign && typeof scrollAlignSelect !== 'undefined' && scrollAlignSelect) {
+        scrollAlignSelect.value = savedScrollAlign;
+    }
     if (savedParseMode) currentParseMode = savedParseMode;
     
-    if (audioType === 'local' && localFileName) {
-        localFileHint.innerHTML = `<span class="material-icons" style="font-size: 1rem;">warning</span> 上次音檔：「${localFileName}」，請重新選取`;
-        localFileHint.style.display = 'inline-flex';
-    } else if (savedUrl) {
-        audioUrlInput.value = savedUrl; audioPlayer.src = savedUrl; initWaveSurfer(); 
-    }
-
     if (savedMap) { try { timeDataMap = JSON.parse(savedMap); } catch (e) { timeDataMap = {}; } }
     if (savedLabels && savedTextMap) {
         try {
-            allLabelsOrdered = JSON.parse(savedLabels); sentenceTextMap = JSON.parse(savedTextMap);
-            if (allLabelsOrdered.length > 0) renderSentenceList(); 
+            allLabelsOrdered = JSON.parse(savedLabels); 
+            sentenceTextMap = JSON.parse(savedTextMap);
         } catch (e) { console.error('還原資料失敗', e); }
     }
-    checkButtonVisibility();
+
+    // ★ 核心修復 1：不管有沒有標記，只要有音檔紀錄就強制渲染列表
+    if ((allLabelsOrdered.length > 0 || localFileName || savedUrl) && typeof renderSentenceList === 'function') {
+        renderSentenceList(); 
+    }
+
+    // ★ 核心修復 2：處理本地端音檔遺失的防呆介面 (附件圖三的設計)
+    if (audioType === 'local' && localFileName) {
+        const localFileHint = document.getElementById('localFileHint');
+        if (localFileHint) {
+            localFileHint.innerHTML = `<span class="material-icons" style="font-size: 1rem;">warning</span> 上次音檔：「${localFileName}」，請重新選取`;
+            localFileHint.style.display = 'inline-flex';
+        }
+
+        const missingAudioWarning = document.getElementById('missingAudioWarning');
+        const missingAudioName = document.getElementById('missingAudioName');
+        const stickyPanel = document.getElementById('stickyPanel');
+        const compactControls = document.getElementById('compactControls');
+        const waveform = document.getElementById('waveform');
+
+        if (missingAudioWarning && missingAudioName && stickyPanel) {
+            missingAudioName.textContent = localFileName;
+            missingAudioWarning.style.display = 'block';
+            stickyPanel.style.display = 'block'; // 展開吸頂面板
+            
+            if (waveform) waveform.style.display = 'none'; // 隱藏空白聲波圖
+            if (compactControls) {
+                compactControls.style.display = 'flex';
+                compactControls.style.opacity = '0.4'; // 控制列變半透明
+                compactControls.style.pointerEvents = 'none'; // 禁用控制列點擊
+            }
+        }
+    } else if (savedUrl) {
+        const modalSingleUrlInput = document.getElementById('modalSingleUrlInput');
+        if (modalSingleUrlInput) modalSingleUrlInput.value = savedUrl; 
+        
+        audioPlayer.src = savedUrl; 
+        if (typeof initWaveSurfer === 'function') initWaveSurfer(); 
+    }
+
+    if (typeof checkButtonVisibility === 'function') checkButtonVisibility();
 }
 
 function executeParsing() {
@@ -260,6 +282,7 @@ function executeExportText() {
     });
     if (currentPara.length > 0) paragraphs.push(currentPara);
     const format = currentExportFormat; let resultText = '';
+    
     if (format === 'para') resultText = paragraphs.map(para => para.map(label => sentenceTextMap[label]).join('')).join('\n');
     else if (format === 'para-slash-n') resultText = paragraphs.map(para => para.map(label => sentenceTextMap[label]).join('')).join('\\n');
     else if (format === 'sent-no-para') resultText = allLabelsOrdered.map(label => sentenceTextMap[label]).join('\n');
@@ -268,7 +291,11 @@ function executeExportText() {
         const outLines = []; paragraphs.forEach(para => { outLines.push('######'); para.forEach(label => outLines.push(sentenceTextMap[label])); outLines.push('######'); });
         resultText = outLines.join('\n');
     }
-    exportWrapper.style.display = 'block'; outputArea.value = resultText;
+    
+    const modalOutputArea = document.getElementById('modalOutputArea');
+    if (modalOutputArea) {
+        modalOutputArea.value = resultText;
+    }
 }
 
 // 新增：跨行多項選取合併的演算法 

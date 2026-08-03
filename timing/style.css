@@ -1,9 +1,12 @@
+/* ================= 烏衣行打點時間 - 樣式表 (整理純淨版) ================= */
+
 :root { 
     --sentence-font-size: 16px; 
     --color-p0: #00897B; --color-p1: #1E88E5; --color-p2: #43A047; --color-p3: #F4511E; --color-p4: #8E24AA; 
     --color-p5: #D81B60; --color-p6: #E53935; --color-p7: #3949AB; --color-p8: #00ACC1; --color-p9: #FDD835; 
 }
 
+/* ================= 1. 全域與版面基礎 ================= */
 body { 
     font-family: sans-serif; 
     padding: 15px; 
@@ -14,16 +17,31 @@ body {
     padding-bottom: 80px; 
 }
 h2 { color: #00897B; text-align: center; }
-.panel { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
 
+/* 基礎面板 */
+.panel { 
+    background: white; 
+    padding: 15px; 
+    border-radius: 8px; 
+    margin-bottom: 15px; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
+}
 .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .panel-header h3 { margin: 0; }
-
 .setup-section { margin-bottom: 20px; }
 .section-title { font-weight: bold; color: #00695C; display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 1.05rem;}
 
-.btn-small { padding: 6px 12px; font-size: 0.85rem; min-width: auto; flex: none; height: 32px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;}
-.btn-small .material-icons { font-size: 1rem; }
+/* ================= 2. 表單與輸入框 ================= */
+input[type="text"], input[type="number"], select, textarea {
+    outline: none !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* 點擊時的綠色柔和光暈 */
+input[type="text"]:focus, input[type="number"]:focus, select:focus, textarea:focus {
+    border-color: #00897B !important;
+    box-shadow: 0 0 0 3px rgba(0, 137, 123, 0.2) !important;
+}
 
 .textarea-wrapper { position: relative; margin-bottom: 10px; }
 textarea { width: 100%; box-sizing: border-box; padding: 10px; padding-right: 75px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; height: 100px; resize: vertical; display: block;}
@@ -32,23 +50,54 @@ textarea { width: 100%; box-sizing: border-box; padding: 10px; padding-right: 75
 .tool-btn:hover { background: #E0F2F1; color: #00897B; border-color: #00897B; }
 .tool-btn .material-icons { font-size: 1.2rem; }
 
+/* 智慧伸縮輸入框 */
+#rawTextInput { height: 45px; min-height: 45px; overflow-y: auto; resize: none; transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-sizing: border-box; width: 100%; padding: 10px; }
+#rawTextInput:focus, #rawTextInput:not(:placeholder-shown) { height: 130px; }
+
 .audio-input-section { display: flex; flex-direction: column; gap: 10px; background: #FAFAFA; padding: 10px; border-radius: 6px; border: 1px solid #E0E0E0; }
 .audio-input-section input[type="text"] { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; margin: 0;}
 .file-input-wrapper { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .audio-input-section input[type="file"] { display: block; font-size: 0.95rem; cursor: pointer; flex: none;}
-.local-file-hint { 
-    color: #E65100; 
-    font-size: 0.85rem; 
-    display: flex; 
-    align-items: flex-start;
-    gap: 4px; 
-    line-height: 1.5;
-    word-break: break-word;
-}
+.local-file-hint { color: #E65100; font-size: 0.85rem; display: flex; align-items: flex-start; gap: 4px; line-height: 1.5; word-break: break-word;}
+.local-file-hint .material-icons { margin-top: 2px; }
 
-.local-file-hint .material-icons {
-    margin-top: 2px;
-}
+/* ================= 3. 按鈕系統 ================= */
+.btn-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch;}
+button { flex: 1; min-width: 100px; padding: 10px; font-size: 0.95rem; cursor: pointer; border: none; border-radius: 8px; background: #00897B; color: white; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.2s; }
+button:active { background: #00695C; }
+
+.btn-small { padding: 6px 12px; font-size: 0.85rem; min-width: auto; flex: none; height: 32px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;}
+.btn-small .material-icons { font-size: 1rem; }
+
+/* 實心主按鈕懸浮特效 */
+.btn-primary { background-color: #00897B !important; color: white !important; transition: all 0.2s ease; }
+.btn-primary:hover { background-color: #00695C !important; box-shadow: 0 2px 6px rgba(0, 137, 123, 0.3) !important; }
+
+/* 輕量化外框按鈕 */
+.btn-outline { background-color: transparent !important; border: 1px solid #00897B; color: #00897B; transition: all 0.2s ease; }
+.btn-outline:hover { background-color: #E0F2F1 !important; color: #00695C !important; border-color: #00695C !important; }
+.btn-outline:active { background-color: #B2DFDB !important; }
+
+/* 破壞性操作按鈕 */
+.btn-danger { background-color: transparent !important; color: #DC2626 !important; border: 1px solid #DC2626 !important; transition: all 0.2s ease; }
+.btn-danger:hover { background-color: #FEF2F2 !important; color: #B91C1C !important; border-color: #B91C1C !important; box-shadow: none !important; }
+.btn-danger:active { background-color: #FEE2E2 !important; }
+
+/* 無邊框純文字按鈕 */
+.btn-text { background: transparent; border: none; box-shadow: none; padding: 6px 12px; font-size: 0.9rem; font-weight: bold; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s ease; flex: none; min-width: auto; }
+.btn-text:hover { background: #E2E8F0; }
+.btn-text .material-icons { font-size: 1.15rem; }
+
+/* 各式匯出專用顏色 */
+.btn-srt { background: #673AB7; color: white; border: 1px solid #512DA8; }
+.btn-srt:active { background: #512DA8; }
+.btn-excel { background: #107C41; color: white; border: 1px solid #0B5C30; }
+.btn-excel:active { background: #0B5C30; }
+.btn-secondary { background: #FF7043; }
+.btn-audacity { background: #1976D2; }
+.btn-audacity-outline { background: transparent; border: 1px solid #1976D2; color: #1976D2; }
+
+/* 膠囊按鈕 */
 .action-section { display: flex; gap: 10px; align-items: center; justify-content: flex-start; flex-wrap: wrap;}
 .capsule-wrapper { position: relative; display: inline-flex; }
 .capsule-group { display: inline-flex; align-items: stretch; background: #00897B; border-radius: 24px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.15); white-space: nowrap; }
@@ -61,122 +110,199 @@ textarea { width: 100%; box-sizing: border-box; padding: 10px; padding-right: 75
 .capsule-toggle:hover { background: rgba(255,255,255,0.2); }
 .capsule-toggle .material-icons { font-size: 1.2rem; } 
 
+/* 方形外框分割按鈕 */
+.split-btn-group { display: inline-flex; align-items: stretch; background: transparent; border: 1px solid #00897B; border-radius: 6px; overflow: hidden; height: 32px; }
+.split-btn-group .main-btn, .split-btn-group .drop-btn { background: transparent; color: #00897B; border: none; font-size: 0.85rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s ease; border-radius: 0; min-width: auto; white-space: nowrap; flex: none; }
+.split-btn-group .main-btn { padding: 0 12px; }
+.split-btn-group .drop-btn { padding: 0 2px; border-left: 1px solid #00897B; }
+.split-btn-group .drop-btn .material-icons { font-size: 1.2rem; }
+.split-btn-group .main-btn:hover, .split-btn-group .drop-btn:hover { background-color: #E0F2F1; color: #00695C; }
+.split-btn-group .main-btn:active, .split-btn-group .drop-btn:active { background-color: #B2DFDB; }
+
+/* 下拉選單 */
 .custom-dropdown-menu { position: absolute; left: 0; margin-top: 8px; background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1); min-width: 160px; z-index: 1000; display: none; flex-direction: column; padding: 8px 0; }
 .custom-dropdown-menu.show { display: flex; } 
 .custom-dropdown-menu.upwards { top: auto; bottom: 100%; margin-top: 0; margin-bottom: 8px; }
-.custom-dropdown-item { padding: 10px 16px; color: #333; font-size: 0.95rem; cursor: pointer; user-select: none; }
+
+.custom-dropdown-item { 
+    padding: 10px 16px; color: #333; font-size: 0.95rem; cursor: pointer; user-select: none; 
+    display: flex; align-items: center; gap: 8px; /* ★ 新增 Flex 對齊 */
+}
 .custom-dropdown-item:hover { background: #F0F4F8; color: #00897B; }
+.custom-dropdown-item .material-icons { font-size: 1.2rem; } /* ★ 確保 Icon 大小一致 */
 
-.btn-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch;}
-button { flex: 1; min-width: 100px; padding: 10px; font-size: 0.95rem; cursor: pointer; border: none; border-radius: 8px; background: #00897B; color: white; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.2s; }
-button:active { background: #00695C; }
+/* ================= 4. 動態標題編輯與首頁變身特效 ================= */
+/* 可編輯標題專屬互動特效 (底線風格) */
+.editable-title {
+    display: inline-block; padding: 4px 8px; cursor: text;
+    outline: none !important; border-bottom: 2px dashed transparent; transition: all 0.2s ease;
+}
+.editable-title:hover { border-bottom: 2px dashed #B2DFDB; }
+.editable-title:focus { background-color: rgba(224, 242, 241, 0.3); border-bottom: 2px solid #00897B; }
 
-.btn-srt { background: #673AB7; color: white; border: 1px solid #512DA8; }
-.btn-srt:active { background: #512DA8; }
-.btn-excel { background: #107C41; color: white; border: 1px solid #0B5C30; }
-.btn-excel:active { background: #0B5C30; }
-.btn-secondary { background: #FF7043; }
-.btn-outline { background: transparent; border: 1px solid #00897B; color: #00897B; }
-.btn-outline:hover { background: rgba(0,137,123,0.05); }
-.btn-danger { background: #E53935; }
-.btn-audacity { background: #1976D2; }
-.btn-audacity-outline { background: transparent; border: 1px solid #1976D2; color: #1976D2; }
+/* 首頁空狀態標題禁止修改 */
+body.is-empty-state #mainTitleDisplay { pointer-events: none; }
 
+/* 歡迎容器動態排版 */
+.welcome-container { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); }
+body.is-empty-state .welcome-container { justify-content: center; min-height: 75vh; }
+
+
+#mainTitleDisplay { transition: font-size 0.4s ease, margin 0.4s ease; }
+body.is-empty-state #mainTitleDisplay { font-size: 3.2rem; margin-bottom: 25px !important; }
+
+body:not(.is-empty-state) #mainTitleDisplay { 
+    font-size: 1.8rem; 
+    margin-top: 60px !important; 
+    margin-bottom: 20px !important; 
+    padding: 0 15px;
+}
+/* 頂部圖示：空狀態才顯示 */
+.welcome-icon { font-size: 5rem; margin-bottom: 10px; display: none; }
+body.is-empty-state .welcome-icon { display: block; animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+@keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+.action-buttons-container { display: flex; gap: 12px; align-items: center; transition: all 0.4s ease; }
+body.is-empty-state .action-buttons-container { justify-content: center; }
+body:not(.is-empty-state) .action-buttons-container {
+    position: fixed; top: 20px; right: 20px; z-index: 2000;
+    background: transparent; backdrop-filter: none; padding: 0; border-radius: 0; box-shadow: none; border: none;
+    gap: 4px; /* ★ 修改：縮小在右上角時，按鈕之間的間距 */
+}
+
+/* 1. 無邊框幽靈按鈕 (次要動作專用) */
+.btn-ghost {
+    background-color: transparent !important;
+    border: 1px solid transparent !important; /* 佔位防止跳動 */
+    color: #5F6368 !important; /* Google 經典灰 */
+    transition: all 0.2s ease;
+}
+.btn-ghost:hover {
+    background-color: #F1F3F4 !important; /* 懸浮時的淺灰色 */
+    color: #202124 !important;
+}
+
+/* 2. 無邊框危險按鈕 (清除全部專用) */
+.btn-ghost-danger {
+    background-color: transparent !important;
+    border: 1px solid transparent !important;
+    color: #5F6368 !important; /* 預設也是低調灰色，不搶眼 */
+    transition: all 0.2s ease;
+}
+.btn-ghost-danger:hover {
+    background-color: #FCE8E6 !important; /* 懸浮時的淺紅色 */
+    color: #D93025 !important; /* Google 警告紅 */
+}
+
+/* ================= ★ 動作按鈕群組 (定位控制) ★ ================= */
+.action-buttons-container { 
+    display: flex; gap: 12px; align-items: center; transition: all 0.4s ease; 
+}
+
+/* 首頁空狀態：置中 */
+body.is-empty-state .action-buttons-container { 
+    justify-content: center; 
+}
+
+/* 工作狀態：移至右上角並跟隨網頁滾動 (絕對不可用 fixed) */
+body:not(.is-empty-state) .action-buttons-container {
+    position: absolute; /* 關鍵：讓按鈕跟著網頁一起滾動 */
+    top: 20px; right: 20px; z-index: 2000;
+    background: transparent; backdrop-filter: none; padding: 0; border-radius: 0; box-shadow: none; border: none;
+    gap: 4px; /* 縮小在右上角時的按鈕間距 */
+}
+
+/* 動作按鈕全體套用現代膠囊形狀 (Pill Shape) */
+.action-btn {
+    font-weight: bold; 
+    justify-content: center; 
+    border-radius: 24px !important; 
+    transition: all 0.3s ease; 
+    white-space: nowrap;
+    box-shadow: none !important; 
+}
+
+/* 首頁空狀態時的巨大按鈕 */
+body.is-empty-state .action-btn {
+    padding: 10px 24px; font-size: 1.05rem;
+}
+
+body:not(.is-empty-state) .action-btn {
+    padding: 4px 12px; font-size: 0.85rem; 
+}
+body:not(.is-empty-state) .action-btn .material-icons {
+    font-size: 1.1rem; /* 一併縮小圖示 */
+}
+
+body:not(.is-empty-state) .action-buttons-container .btn-primary {
+    background-color: #E0F2F1 !important; /* 極淡的綠色背景 */
+    color: #00695C !important; /* 深綠色文字 */
+}
+body:not(.is-empty-state) .action-buttons-container .btn-primary:hover {
+    background-color: #B2DFDB !important; /* 懸浮時稍微加深 */
+}
+
+/* 隱藏左側選單與清除按鈕 (空狀態時) */
+#openSidebarBtn { transition: all 0.3s ease; }
+body.is-empty-state #openSidebarBtn { opacity: 0; pointer-events: none; transform: scale(0.8); }
+body.is-empty-state #clearStorageBtn { display: none !important; }
+body.is-empty-state #openExportModalBtn { display: none !important; }
+
+/* ================= 5. 聲波圖面板 ================= */
 .sticky-panel {
-    position: sticky; 
-    top: 0; 
-    z-index: 100; 
-    padding: 16px !important;
-    background-color: #ffffff !important;
-    border: none !important;
-    border-radius: 16px !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important; 
-    margin-bottom: 20px !important;
-
-    width: var(--wave-width, 100%);
-    max-width: 96vw;
-    margin-left: calc((100% - min(var(--wave-width, 100%), 96vw)) / 2) !important;
-    box-sizing: border-box; 
-    
+    position: sticky; top: 0; z-index: 100; padding: 16px !important; background-color: #ffffff !important;
+    border: 1px solid #F1F5F9 !important; border-radius: 16px !important; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.03) !important; 
+    margin-bottom: 8px !important; width: var(--wave-width, 100%); max-width: 96vw;
+    margin-left: calc((100% - min(var(--wave-width, 100%), 96vw)) / 2) !important; box-sizing: border-box; 
     transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), margin-left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
-.list-panel { position: relative; padding-top: 0; }
-.list-header-container { position: sticky; z-index: 90; background: rgba(255,255,255,0.95); backdrop-filter: blur(4px); padding: 15px 0 10px 0; border-bottom: 2px solid #E0F2F1; margin-bottom: 10px;}
 
-#waveform { 
-    margin-bottom: 10px; 
-    border-radius: 4px; 
-    overflow: hidden; 
-    background: #F0F4F8; 
-    display: none;
-    /* 外層容器維持預設箭頭 */
-    cursor: default !important; 
-}
+#waveform { margin-bottom: 10px; border-radius: 4px; overflow: hidden; background: #F0F4F8; display: none; cursor: default !important; }
+#waveform ::part(wrapper) { cursor: default !important; }
 
-/* 僅針對 WaveSurfer 的「空白背景畫布」強制設定為箭頭 */
-#waveform ::part(wrapper) {
-    cursor: default !important;
-}
-
-.controls-compact { 
-    display: flex; 
-    align-items: center; 
-    gap: 2px;
-    flex-wrap: wrap;
-    padding: 4px 0;
-    background: transparent; 
-    border-radius: 0; 
-    box-shadow: none;
-    justify-content: flex-start;
-    margin-top: 12px;
-}
-/* 隱藏水平捲軸保持視覺美觀 */
+.controls-compact { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; padding: 4px 0; background: transparent; border-radius: 0; box-shadow: none; justify-content: flex-start; margin-top: 12px; }
 .controls-compact::-webkit-scrollbar { display: none; }
-
-.controls-compact .btn-icon {
-    margin: 0 !important;
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-}
+.controls-compact .btn-icon { margin: 0 !important; width: 36px; height: 36px; min-width: 36px; }
 .btn-icon { flex: 0 0 36px; width: 36px; height: 36px; padding: 0; min-width: auto; border-radius: 50%; background: #4DB6AC; }
 
 .audio-timer { font-family: monospace; font-size: 0.95rem; font-weight: bold; color: #00897B; background: #E0F2F1; padding: 4px 10px; border-radius: 12px; margin: 0 5px;}
 .speed-select { height: 36px; border-radius: 20px; padding: 0 10px; flex: 0 0 auto; border: 1px solid #4DB6AC; color: #00897B; font-weight: bold; outline: none; cursor: pointer; background: white;}
 .zoom-controls { flex: 1; display: flex; align-items: center; gap: 5px; background: #F0F4F8; padding: 0 10px; border-radius: 20px; height: 36px; color: #00897B; min-width: 120px; }
-
-
-
 input[type="range"] { flex: 1; accent-color: #00897B; }
 
-
-
+/* ================= 6. 清單列表區塊 ================= */
+.list-panel { position: relative; padding-top: 0; }
+.list-header-container { position: sticky; z-index: 90; background: rgba(255,255,255,0.95); backdrop-filter: blur(4px); padding: 12px 0 10px 0; border-bottom: 2px solid #E0F2F1; margin-bottom: 10px;}
 .list-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
 .list-header h3 { margin: 0; }
+.header-tools {  flex-wrap: wrap; background: transparent !important; border: none !important; box-shadow: none !important; padding: 4px 0 !important; display: inline-flex !important; align-items: center; gap: 2px !important; }
 
-.header-btn { padding: 6px 12px; min-width: auto; height: 34px; font-size: 0.85rem; border-radius: 17px; background: #F0F4F8; color: #00897B; white-space: nowrap; display: flex; align-items: center; gap: 4px; }
-.header-btn .material-icons { font-size: 1.1rem; }
+.header-btn { padding: 6px 12px; min-width: auto; height: 34px; font-size: 0.85rem; border-radius: 17px; background: transparent; color: #555; white-space: nowrap; display: flex; align-items: center; gap: 4px; border: none; transition: all 0.2s ease; }
+.header-btn .material-icons { font-size: 1.1rem; color: #00897B; transition: color 0.2s ease; }
+.header-btn:hover { background: #E0F2F1; color: #00695C; }
+.header-btn:hover .material-icons { color: #00695C; }
 .header-btn.toggle-btn.active { background: #00897B; color: white; }
-.toggle-mode-btn { background: #FFF3E0; color: #E65100; border: 1px solid #FFB74D; }
+.header-btn.toggle-btn.active .material-icons { color: white; }
 
+#toggleScriptModeBtn { background: #E0F2F1; color: #00897B; font-weight: bold; }
+#toggleScriptModeBtn:hover { background: #B2DFDB; }
+.toggle-mode-btn { background: #FFF3E0; color: #E65100; border: 1px solid #FFB74D; font-weight: bold; }
+.toggle-mode-btn:hover { background: #FFE0B2; }
+.toggle-mode-btn .material-icons { color: #E65100; }
+
+.vertical-divider { width: 1px; height: 20px; background-color: #dadce0; margin: 0 4px; display: inline-block; vertical-align: middle;}
+
+/* 列表項目 */
 #sentenceList { display: flex; flex-direction: column; gap: 0; }
-
-.sentence-item { 
-    background: transparent; border-bottom: 1px dashed #CCC; border-left: 4px solid transparent; 
-    padding: 15px 10px; display: flex; justify-content: space-between; align-items: center; 
-    scroll-margin-top: 150px; transition: background-color 0.2s, box-shadow 0.2s; cursor: pointer;
-}
+.sentence-item { background: transparent; border-bottom: 1px dashed #CCC; border-left: 4px solid transparent; padding: 15px 10px; display: flex; justify-content: space-between; align-items: center; scroll-margin-top: 150px; transition: background-color 0.2s, box-shadow 0.2s; cursor: pointer;}
 .sentence-item:last-child { border-bottom: none; }
 .sentence-item:hover { background-color: #FAFAFA; } 
-
 .sentence-item.tagged { border-left: 4px solid #B2DFDB; }
-.sentence-item.playing { 
-    background: #F2F9F8; border-left: 4px solid #00897B; border-bottom: 1px solid #E0F2F1;
-    box-shadow: 0 2px 8px rgba(0, 137, 123, 0.06); border-radius: 4px;
-}
+.sentence-item.playing { background: #F2F9F8; border-left: 4px solid #00897B; border-bottom: 1px solid #E0F2F1; box-shadow: 0 2px 8px rgba(0, 137, 123, 0.06); border-radius: 4px; }
+.sentence-item.selected-row { background-color: #E3F2FD !important; border-left: 4px solid #1976D2 !important;}
 
-.is-view-mode .sentence-item.tagged { border-left: 4px solid transparent; }
-.is-view-mode .sentence-item.playing { border-left: 4px solid #00897B; }
+body.is-view-mode .sentence-item.tagged { border-left: 4px solid transparent; }
+body.is-view-mode .sentence-item.playing { border-left: 4px solid #00897B; }
 
 .sentence-content { display: flex; align-items: center; flex: 1; gap: 10px; position: relative; } 
 .sentence-label { font-family: monospace; font-weight: bold; }
@@ -186,7 +312,6 @@ input[type="range"] { flex: 1; accent-color: #00897B; }
 .sentence-text-display.is-editable:focus { border: 1px solid transparent; background-color: #FFF; outline: none; }
 
 .sentence-actions { display: flex; align-items: center; gap: 8px; position: relative; }
-
 .sentence-time { font-family: monospace; font-weight: bold; color: #00897B; font-size: 0.9em; text-align: right; min-width: 60px; margin: 0 4px; padding: 4px 8px; border-radius: 4px; transition: background 0.2s; cursor: pointer;}
 .sentence-time:hover { background: #E0F2F1; }
 
@@ -204,7 +329,6 @@ input[type="range"] { flex: 1; accent-color: #00897B; }
 .inline-delete-btn .material-icons { font-size: 1.1rem; }
 
 body.is-view-mode .inline-delete-btn { display: none !important; }
-
 .more-options-btn { display: none; background: transparent; color: #666; }
 .more-options-btn:hover { background: #EEE; color: #333; }
 .show-more-btns .sentence-item .more-options-btn { display: flex; } 
@@ -216,13 +340,36 @@ body.is-view-mode .inline-delete-btn { display: none !important; }
 .is-edit-mode .sentence-item .tag-time-btn { display: flex; }
 .show-clear-btns .sentence-item.tagged .clear-tag-btn { display: flex; }
 .show-shift-btns .sentence-item.tagged .shift-time-btn { display: flex; }
-
 body.is-view-mode .hide-in-view { display: none !important; }
 .is-view-mode .sentence-item .tag-time-btn { display: none !important; }
 .is-view-mode .sentence-item .clear-tag-btn, .is-view-mode .sentence-item .shift-time-btn { display: none !important; }
 .is-view-mode .sentence-item .more-options-btn { display: none !important; } 
 
-#toast { visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; border-radius: 8px; padding: 12px 20px; position: fixed; z-index: 1000; left: 50%; bottom: 30px; transform: translateX(-50%); font-size: 1rem; opacity: 0; transition: opacity 0.3s, bottom 0.3s; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+/* ================= 7. 劇本編輯器 (Script Mode) ================= */
+#scriptEditorContainer {
+    display: flex; background: #ffffff; border: 1px solid #dadce0; border-radius: 8px; height: 55vh; min-height: 400px;
+    overflow: hidden; box-shadow: inset 0 1px 4px rgba(0,0,0,0.06); margin-top: 10px;
+}
+#scriptGutter {
+    width: 55px; background: #f8f9fa; border-right: 1px solid #dadce0; padding: 16px 0 !important;
+    font-family: Consolas, "Courier New", monospace !important; font-size: var(--sentence-font-size) !important;
+    line-height: 1.8 !important; color: #90a4ae; text-align: center; overflow-y: hidden; user-select: none; box-sizing: border-box !important;
+}
+.gutter-line { height: 1.8em; line-height: 1.8em; box-sizing: border-box; cursor: pointer; transition: background 0.1s; }
+.gutter-line:hover { background: #e0f2f1; color: #00897b; }
+.gutter-line.active { background: #00897b; color: white; font-weight: bold; }
+.gutter-line.para { color: #78909c; font-size: inherit; font-weight: bold; background: #eceff1; cursor: default; }
+
+#scriptTextarea {
+    flex: 1; height: 100% !important; min-height: 100% !important; border: none !important; border-radius: 0 !important;
+    box-shadow: none !important; background: transparent !important; margin: 0 !important; padding: 16px !important;
+    font-family: Consolas, "Courier New", monospace !important; font-size: var(--sentence-font-size) !important;
+    line-height: 1.8 !important; resize: none !important; outline: none !important; white-space: pre !important; 
+    overflow: auto !important; color: #333; box-sizing: border-box !important;
+}
+
+/* ================= 8. 共用元件 (Toast / Modal / Sidebar) ================= */
+#toast { visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; border-radius: 8px; padding: 12px 20px; position: fixed; z-index: 3000; left: 50%; bottom: 30px; transform: translateX(-50%); font-size: 1rem; opacity: 0; transition: opacity 0.3s, bottom 0.3s; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
 #toast.show { visibility: visible; opacity: 1; bottom: 50px; }
 #toast.error { background-color: #E53935; }
 #toast.success { background-color: #43A047; }
@@ -245,10 +392,24 @@ body.is-view-mode .hide-in-view { display: none !important; }
 .btn-modal-confirm { background: #00897B; }
 .btn-modal-cancel { background: #80DEEA; color: #006064; }
 
-.floating-setting-btn { position: fixed; top: 20px; left: 20px; z-index: 1000; background: white; color: #00897B; border: 1px solid #E0E0E0; width: 48px; height: 48px; min-width: 48px; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; transition: all 0.2s; padding:0; display:flex; justify-content:center; align-items:center;}
-.floating-setting-btn:hover { background: #E0F2F1; transform: scale(1.05); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+/* 側邊欄與相關按鈕 */
+.floating-setting-btn {
+    position: fixed; top: 20px; left: 20px; z-index: 1000;
+    background: transparent; color: #00897B; border: none;
+    box-shadow: none; cursor: pointer; transition: all 0.2s;
+    padding: 0; display: flex; align-items: center; gap: 8px;
+}
+.floating-setting-btn:hover { background: transparent; transform: scale(1.05); }
+.floating-setting-btn .material-icons { font-size: 2rem; }
+#topLeftTitle { 
+    font-size: 1.25rem; font-weight: bold; color: #00695C; 
+    transition: opacity 0.3s ease; 
+}
+#topLeftTitle.is-scrolled { 
+    opacity: 0; pointer-events: none; 
+}
 
-.sidebar { position: fixed; top: 0; left: -320px; width: 300px; height: 100%; background: #FAFAFA; box-shadow: 2px 0 15px rgba(0,0,0,0.1); z-index: 2001; transition: left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); display: flex; flex-direction: column; overflow-y: auto;}
+.sidebar { overscroll-behavior: contain; position: fixed; top: 0; left: -320px; width: 300px; height: 100%; background: #FAFAFA; box-shadow: 2px 0 15px rgba(0,0,0,0.1); z-index: 2001; transition: left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); display: flex; flex-direction: column; overflow-y: auto;}
 .sidebar.open { left: 0; }
 .sidebar-header { background: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E0E0E0; position: sticky; top:0; z-index: 10;}
 .sidebar-header h3 { margin: 0; color: #00897B; display: flex; align-items: center; gap: 8px; font-size: 1.1rem;}
@@ -261,181 +422,30 @@ body.is-view-mode .hide-in-view { display: none !important; }
 .shortcut-input { width: 120px; text-align: center; padding: 4px 8px; font-size: 0.8rem; font-family: monospace; font-weight: bold; color: #00897B; background: #E0F2F1; border: 1px solid #B2DFDB; border-radius: 4px; cursor: pointer; outline: none; transition: all 0.2s; }
 .shortcut-input:focus { background: #FFF; border-color: #00897B; box-shadow: 0 0 5px rgba(0, 137, 123, 0.3); }
 
-input[type="text"]:focus,
-        input[type="number"]:focus,
-        textarea:focus {
-            outline: none !important;
-            border-color: #00897B !important;
-            box-shadow: 0 0 0 3px rgba(0, 137, 123, 0.2) !important;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
-        }
-        
-/* ==========================================
-   現代化工具列 (Material Design 3 風格) 
-   ========================================== */
-.header-tools {  flex-wrap: wrap; }
-
-/* 1. 將工具列容器改為膠囊狀 */
-.header-tools {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 4px 0 !important;
-    display: inline-flex !important;
-    align-items: center;
-    gap: 2px !important;
+.rotating {
+    animation: spin 1.5s linear infinite;
+}
+@keyframes spin {
+    100% { transform: rotate(360deg); }
 }
 
-/* 新增：特別強調「檢視/編輯」模式切換按鈕 */
-.header-tools #toggleModeBtn {
-    background-color: #FFF3E0 !important;
-    color: #E65100 !important;
-    border: 1px solid #FFCC80 !important;
-    border-radius: 8px !important;
-    margin-left: 4px !important;
+/* ================= ★ 手機版 (Mobile) 專屬優化 ★ ================= */
+@media (max-width: 768px) {
+    /* 1. 隱藏左上角標題，節省空間 */
+    #topLeftTitle { display: none !important; }
+
+    /* 2. 進入工作狀態時，隱藏右上角的三個按鈕 (改由側邊欄操作) */
+    body:not(.is-empty-state) .action-buttons-container {
+        display: none !important;
+    }
+
+    /* 3. 因為按鈕隱藏了，標題不需要留 60px 的頂部空間，恢復適當距離 */
+    body:not(.is-empty-state) #mainTitleDisplay {
+        margin-top: 20px !important;
+    }
 }
 
-.header-tools #toggleModeBtn:hover {
-    background-color: #FFE0B2 !important; 
+/* 桌面版時，隱藏側邊欄裡面的重複按鈕區塊 */
+@media (min-width: 769px) {
+    .hide-on-mobile-menu { display: none !important; }
 }
-
-/* 確保強調按鈕內的圖示顏色也跟著改變 */
-.header-tools #toggleModeBtn .material-icons {
-    color: #E65100 !important;
-}
-
-/* 2. 幽靈按鈕 (Ghost Button) 覆寫 */
-.header-tools .header-btn {
-    background: transparent !important;
-    color: #444746 !important; /* 深灰色文字 */
-    border-radius: 4px !important; /* 微圓角 */
-    border: none !important;
-    padding: 6px 10px !important;
-    transition: background-color 0.2s, color 0.2s;
-}
-
-/* 滑過時顯示淺灰底色 */
-.header-tools .header-btn:hover {
-    background: #f1f3f4 !important;
-    color: #1f1f1f !important;
-}
-
-/* 針對按鈕被啟用的狀態 (Active) */
-.header-tools .header-btn.active, 
-.header-tools .toggle-btn.active {
-    background: #e3e3e3 !important;
-    color: #1f1f1f !important;
-}
-
-/* 確保圖示顏色與文字一致 */
-.header-tools .header-btn .material-icons {
-    color: #444746 !important;
-}
-
-/* 3. 垂直分隔線 */
-.vertical-divider {
-    width: 1px;
-    height: 20px;
-    background-color: #dadce0;
-    margin: 0 4px;
-    display: inline-block;
-    vertical-align: middle;
-}
-
-/* 4. 下拉選單 MD3 升級 */
-.custom-dropdown-menu {
-    border-radius: 8px !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
-    border: 1px solid #dadce0;
-}
-.custom-dropdown-item {
-    color: #3c4043 !important;
-}
-.custom-dropdown-item:hover {
-    background: #f1f3f4 !important;
-    color: #1f1f1f !important;
-}
-
-
-/* ==========================================
-           聲波圖控制列現代化升級 (MD3 風格) 
-           ========================================== */
-
-        /* 1. 聲波圖外框容器：去除邊框，加上柔和陰影 */
-        .sticky-panel {
-            border: none !important;
-            border-radius: 16px !important;
-            background-color: #ffffff !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08) !important; 
-            padding: 16px !important;
-            margin-bottom: 20px !important;
-        }
-
-        /* 2. 控制列排版間距微調 */
-        .controls-compact {            
-            justify-content: flex-start;
-            margin-top: 12px;
-        }
-
-
-        .controls-compact .btn-icon {
-            background: transparent !important;
-            color: #5f6368 !important;
-            border: none !important;
-            box-shadow: none !important;
-            transition: background-color 0.2s, color 0.2s, transform 0.1s;
-        }
-
-        .controls-compact .btn-icon:hover {
-            background-color: #f1f3f4 !important;
-            color: #202124 !important;
-        }
-
-        .controls-compact .btn-icon:active {
-            transform: scale(0.92);
-        }
-
-        #playPauseBtn {
-            background-color: #e3f2fd !important;
-            color: #0b57d0 !important;
-        }
-        #playPauseBtn:hover {
-            background-color: #c2e7ff !important;
-        }
-
-        #tagRegionBtn:hover { color: #137333 !important; background-color: #e6f4ea !important; }
-        #clearRegionBtn:hover { color: #c5221f !important; background-color: #fce8e6 !important; }
-
-        /* 4. 時間顯示與播放速度 (膠囊化) */
-        .audio-timer {
-            background-color: #f8f9fa !important;
-            border: 1px solid #dadce0 !important;
-            color: #3c4043 !important;
-            border-radius: 16px !important;
-            font-weight: 500 !important;
-            padding: 4px 12px !important;
-        }
-        .speed-select {
-            background-color: #f8f9fa !important;
-            border: 1px solid #dadce0 !important;
-            color: #3c4043 !important;
-            border-radius: 16px !important;
-            padding: 0 10px !important;
-        }
-
-        /* 5. 縮放控制區塊整理 */
-        .zoom-controls {
-            background-color: #ffffff !important;
-            border: 1px solid #dadce0 !important;
-            border-radius: 24px !important;
-            padding: 4px 12px !important;
-            gap: 8px !important;
-        }
-        
-        /* 隱藏選單原本的邊框，讓它融入縮放區塊 */
-        #zoomPresetSelect {
-            background-color: transparent !important;
-            border: none !important;
-            color: #5f6368 !important;
-            font-weight: 500;
-        }

@@ -13,7 +13,15 @@ function togglePlayPause() {
     if (audioPlayer.paused) {
         if (tempRegion) {
             if (audioPlayer.currentTime < tempRegion.start || audioPlayer.currentTime >= tempRegion.end) { audioPlayer.currentTime = tempRegion.start; }
-            verifyEndTime = tempRegion.end; verifyingLabel = null; 
+            
+            let targetEnd = tempRegion.end;
+            if (document.getElementById('enableMaxPlayCheck')?.checked) {
+                const maxSec = parseFloat(document.getElementById('maxPlaySecondsInput')?.value) || 2;
+                targetEnd = Math.min(tempRegion.end, tempRegion.start + maxSec);
+            }
+            verifyEndTime = targetEnd; 
+            
+            verifyingLabel = null; 
             isContinuousSortedPlay = false; 
         } else if ((currentSortMode !== 'default' || continuousPlayMode === 'skip') && currentActiveLabel && timeDataMap[currentActiveLabel]) {
             const times = getCalculatedTimes(currentActiveLabel);
@@ -21,7 +29,15 @@ function togglePlayPause() {
                 // 加入前置緩衝
                 audioPlayer.currentTime = Math.max(0, times.start - playPadding);
             }
-            verifyEndTime = times.end;
+            
+            // ★ 攔截：動態設定最大播放時間
+            let targetEnd = times.end;
+            if (document.getElementById('enableMaxPlayCheck')?.checked) {
+                const maxSec = parseFloat(document.getElementById('maxPlaySecondsInput')?.value) || 2;
+                targetEnd = Math.min(times.end, times.start + maxSec);
+            }
+            verifyEndTime = targetEnd;
+            
             verifyingLabel = currentActiveLabel;
             isContinuousSortedPlay = true; 
         }
@@ -97,7 +113,22 @@ function renderAllRegions() {
 }
 
 function initWaveSurfer() {
-    if (wavesurfer) wavesurfer.destroy();
+    // ★ 新增：當音檔成功載入時，確保警告隱藏，控制列與聲波圖恢復正常
+    const warning = document.getElementById('missingAudioWarning');
+    if (warning) warning.style.display = 'none';
+    const waveform = document.getElementById('waveform');
+    if (waveform) waveform.style.display = 'block';
+    const compactControls = document.getElementById('compactControls');
+    if (compactControls) {
+        compactControls.style.opacity = '1';
+        compactControls.style.pointerEvents = 'auto';
+    }
+
+    if (typeof wavesurfer !== 'undefined' && wavesurfer !== null) {
+        wavesurfer.load(audioPlayer.src);
+        return; 
+    }
+    
     document.getElementById('stickyPanel').style.display = 'block';
     document.getElementById('waveform').style.display = 'block'; compactControls.style.display = 'flex'; 
     wavesurfer = WaveSurfer.create({ 
@@ -109,8 +140,11 @@ function initWaveSurfer() {
         height: currentWaveHeight,
         media: audioPlayer,
         autoScroll: true, 
-        autoCenter: autoScrollMode === 'center' 
-    });
+        autoCenter: autoScrollMode === 'center',
+		});
+
+    const isMinimapEnabled = localStorage.getItem('tagger_enableMinimap') === 'true';
+    if (typeof toggleMinimap === 'function') toggleMinimap(isMinimapEnabled);
     wsRegions = wavesurfer.registerPlugin(WaveSurfer.Regions.create());
     wsRegions.enableDragSelection({ color: 'rgba(33, 150, 243, 0.3)' });
 
@@ -171,12 +205,19 @@ function initWaveSurfer() {
 
             document.querySelectorAll('.sentence-item').forEach(el => el.classList.remove('playing')); 
             itemDiv.classList.add('playing'); 
+            
             if (currentSortMode === 'default') {
-                if(typeof smartScrollTo === 'function') smartScrollTo(itemDiv); 
+                if (typeof isScriptMode !== 'undefined' && isScriptMode) {
+                } else {
+                    if(typeof smartScrollTo === 'function') smartScrollTo(itemDiv); 
+                }
             }
         }
+        
+        if (typeof snapWaveformToTop === 'function') setTimeout(snapWaveformToTop, 50);
     });
-
+	
+	
     wavesurfer.on('click', (relativeX) => {
         const clickTime = relativeX * audioPlayer.duration;
         if (isShiftPressed && lastClickTime !== null) {
@@ -191,6 +232,7 @@ function initWaveSurfer() {
         }
         lastClickTime = clickTime;
         updateToolbarButtons(); 
+        if (typeof snapWaveformToTop === 'function') snapWaveformToTop();
     });
 
     wavesurfer.on('ready', () => { 
@@ -313,11 +355,15 @@ function precisionLoop() {
         if (finalLabel) { 
             const currentItemDiv = document.getElementById(`item-${finalLabel}`); 
             if (currentItemDiv && currentSortMode === 'default') {
-                if(typeof smartScrollTo === 'function') smartScrollTo(currentItemDiv.nextElementSibling); 
+                if (typeof isScriptMode !== 'undefined' && isScriptMode) {
+                    if (typeof snapWaveformToTop === 'function') setTimeout(snapWaveformToTop, 50);
+                } else {
+                    if(typeof smartScrollTo === 'function') smartScrollTo(currentItemDiv.nextElementSibling); 
+                }
             }
             verifyingLabel = null; 
         }
-        return; 
+        return;
     }
     precisionRafId = requestAnimationFrame(precisionLoop);
 }
@@ -366,11 +412,15 @@ audioPlayer.addEventListener('timeupdate', () => {
         if (item.id.replace('item-', '') === activeLabel) {
             if (!item.classList.contains('playing')) { 
                 item.classList.add('playing'); 
+                
                 if (currentSortMode === 'default') {
-                    const rect = item.getBoundingClientRect(); 
-                    const headerHeight = (stickyPanel ? stickyPanel.offsetHeight : 0) + (listHeaderContainer ? listHeaderContainer.offsetHeight : 0); 
-                    if (rect.top < headerHeight || rect.bottom > window.innerHeight - 50) {
-                        if(typeof smartScrollTo === 'function') smartScrollTo(item); 
+                    if (typeof isScriptMode !== 'undefined' && isScriptMode) {
+                    } else {
+                        const rect = item.getBoundingClientRect(); 
+                        const headerHeight = (stickyPanel ? stickyPanel.offsetHeight : 0) + (listHeaderContainer ? listHeaderContainer.offsetHeight : 0); 
+                        if (rect.top < headerHeight || rect.bottom > window.innerHeight - 50) {
+                            if(typeof smartScrollTo === 'function') smartScrollTo(item); 
+                        }
                     }
                 }
             }
@@ -378,6 +428,19 @@ audioPlayer.addEventListener('timeupdate', () => {
             item.classList.remove('playing');
         }
     });
+    if (isScriptMode && scriptGutter && activeLabel) {
+        // 移除所有行號的高亮
+        document.querySelectorAll('.gutter-line').forEach(el => el.classList.remove('active'));
+        
+        const activeGutterEl = document.getElementById(`gutter-${activeLabel}`);
+        if (activeGutterEl) {
+            activeGutterEl.classList.add('active'); // 加上深綠色高亮
+            
+            // 讓文字框自動捲動跟隨目前播放進度 (保持在中間偏上)
+            const scrollTarget = activeGutterEl.offsetTop - 100; 
+            scriptTextarea.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+        }
+    }
 });
 
 window.addEventListener('DOMContentLoaded', () => { 
@@ -445,4 +508,44 @@ waveformContainer?.addEventListener('wheel', (e) => {
         if(typeof updateZoom === 'function') updateZoom(currentZoom);
     }
 }, { passive: false }); 
+
+// ================= ★ 新增：Minimap 動態控制引擎 (包含防遮擋修復) ★ =================
+window.minimapPlugin = null; // 儲存 Minimap 實例的變數
+
+window.toggleMinimap = function(enable) {
+    const container = document.getElementById('wave-minimap');
+    if (!container) return;
+
+    if (enable) {
+        // 顯示容器
+        container.style.display = 'block';
+        // 如果主聲波存在，且 Minimap 還沒建立，就動態掛載它
+        if (typeof wavesurfer !== 'undefined' && wavesurfer && !window.minimapPlugin) {
+            window.minimapPlugin = wavesurfer.registerPlugin(WaveSurfer.Minimap.create({
+                container: '#wave-minimap',
+                height: 40,
+                waveColor: '#B2DFDB',
+                progressColor: '#00897B',
+                cursorColor: '#00695C',
+                cursorWidth: 2,
+                overlay: true
+            }));
+        }
+    } else {
+        // 隱藏容器
+        container.style.display = 'none';
+        // 如果 Minimap 存在，將其銷毀以釋放資源與記憶體
+        if (window.minimapPlugin) {
+            window.minimapPlugin.destroy();
+            window.minimapPlugin = null;
+        }
+        container.innerHTML = ''; 
+    }
+
+    // ★ 關鍵修復：在開關導航圖後，延遲 50 毫秒 (等待畫面渲染完畢)，
+    // 重新計算下方列表區塊的吸頂高度，防止列表工具列被遮擋！
+    if (typeof updateStickyOffsets === 'function') {
+        setTimeout(updateStickyOffsets, 50);
+    }
+};
 // =========================================================================

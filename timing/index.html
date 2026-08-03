@@ -6,6 +6,7 @@
     <title>烏衣行打點時間</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.min.js"></script>
+	<script src="https://unpkg.com/wavesurfer.js@7/dist/plugins/minimap.min.js"></script>
     <script src="https://unpkg.com/wavesurfer.js@7/dist/plugins/regions.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.all.min.js"></script>
@@ -37,94 +38,42 @@
 </head>
 <body>
 
-    <button id="openSidebarBtn" class="floating-setting-btn" title="主選單"><span class="material-icons">menu</span></button>
-
-    <h2 id="mainTitleDisplay" style="color: #00695C; margin-bottom: 10px;">烏衣行打點時間</h2>
-
-    <div class="panel" id="setupPanel">
-        <div class="panel-header" id="setupPanelHeader" style="cursor: pointer;" title="點擊展開/收合">
-            <h3 style="display: flex; align-items: center; margin: 0;"><span id="setupToggleIcon" class="material-icons">expand_less</span> 準備資料</h3>
-            <button id="clearStorageBtn" class="btn-danger btn-small" title="清除所有暫存資料"><span class="material-icons">delete_forever</span> 清除全部</button>
-        </div>
+    <button id="openSidebarBtn" class="floating-setting-btn" title="主選單">
+        <span class="material-icons">menu</span>
+        <span id="topLeftTitle" style="display: none;">烏衣行打點時間</span>
+    </button>
+    <div id="welcomeContainer" class="welcome-container">
         
-        <div id="setupPanelBody">
-            <div class="setup-section">
-                <div class="section-title"><span class="material-icons">title</span> 專案標題</div>
-                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-                    <input type="text" id="projectTitleInput" placeholder="請輸入專案標題 (未填則預設顯示音檔名稱)" style="flex-grow: 1; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;">
-                    <button id="importProjectBtn" class="btn-outline" style="white-space: nowrap; border-color: #00897B; color: #00897B; font-weight: bold;"><span class="material-icons">folder_open</span> 匯入專案檔</button>
-                    <input type="file" id="importProjectInput" accept=".json" style="display: none;">
-                </div>
-            </div>
+        <!-- 歡迎圖示 (可隨意替換 Emoji) -->
+        <div class="welcome-icon">🥷</div>
+        
+        <div style="text-align: center; margin-bottom: 15px; z-index: 10;">
+            <h2 id="mainTitleDisplay" class="editable-title" contenteditable="true" spellcheck="false" title="點擊直接修改專案名稱" style="color: #00695C; margin: 0;">烏衣行打點時間</h2>
+        </div>
 
-            <div class="setup-section">
-                <div class="section-title"><span class="material-icons">audio_file</span> 載入音檔</div>
-                
-                <div class="audio-input-section">
-                    <!-- 第一行：網址框、載入按鈕、選擇檔案按鈕 -->
-                    <div style="display: flex; gap: 10px; width: 100%; align-items: stretch;">
-                        <input type="text" id="audioUrlInput" placeholder="貼上線上 mp3 網址，或點擊右側選擇本機檔案" style="flex-grow: 1; margin: 0; min-width: 0;">
-                        <button id="loadOnlineAudioBtn" class="btn-outline" style="white-space: nowrap; border-color: #00897B; color: #00897B; font-weight: bold; padding: 0 16px; border-radius: 4px;"><span class="material-icons">cloud_download</span> 載入</button>
-                        
-                        <!-- 自訂外觀的選擇檔案按鈕，並隱藏原生 input -->
-                        <button id="triggerAudioUploadBtn" class="btn-outline" style="white-space: nowrap; color: #333; border-color: #ccc; font-weight: bold; padding: 0 16px; border-radius: 4px; background: #f8f9fa;">選擇檔案</button>
-                        <input type="file" id="audioUpload" accept="audio/*" style="display: none;">
-                    </div>
-                    <span id="localFileHint" class="local-file-hint" style="display: none;"></span>
-
-                    <!-- 第二行：進階動作按鈕 (靠左對齊) -->
-                    <div style="display: flex; gap: 8px; justify-content: flex-start; margin-top: 10px;">
-                        <button id="restoreTagsBtn" class="btn-small btn-outline" style="display: none; color: #E65100; border-color: #FFE0B2; background: #FFF3E0; font-weight: bold;"><span class="material-icons" style="font-size: 1.1rem;">restore</span> 恢復標記</button>
-                        <button id="autoSegmentBtn" class="btn-small btn-outline" style="display: none; color: #1976D2; border-color: #1976D2; font-weight: bold;"><span class="material-icons" style="font-size: 1.1rem;">auto_awesome</span> 依靜音自動斷句</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="setup-section">
-                <div class="section-title"><span class="material-icons">text_snippet</span> 載入文字</div>
-                <div class="textarea-wrapper">
-                    <!-- 修改：移除行內的複雜樣式設定，全交給 CSS 控制 -->
-                    <textarea id="rawTextInput" placeholder="請貼上文章 (或 Excel 的 TSV 資料)。成功解析後此處會清空以保護您的編輯進度。"></textarea>
-                    <div class="textarea-tools">
-                        <button id="copyTextBtn" title="複製文章" class="tool-btn"><span class="material-icons">content_copy</span></button>
-                        <button id="clearTextBtn" title="清空輸入框" class="tool-btn"><span class="material-icons">delete_sweep</span></button>
-                    </div>
-                </div>
-                
-                <div class="action-section">
-                    <div class="capsule-wrapper">
-                        <div class="capsule-group">
-                            <button id="parseBtn" class="capsule-btn" title="使用當前模式解析"><span class="material-icons">article</span> 解析載入</button>
-                            <button id="parseToggleBtn" class="capsule-toggle"><span class="material-icons">arrow_drop_down</span></button>
-                        </div>
-                        <div class="custom-dropdown-menu" id="parseMenu">
-                            <div class="custom-dropdown-item" data-value="punct">標點斷句</div>
-                            <div class="custom-dropdown-item" data-value="newline">換行斷句</div>
-                            <div class="custom-dropdown-item" data-value="newline-para">換行斷句(空行分段)</div>
-                        </div>
-                    </div>
-
-                    <div class="capsule-wrapper">
-                        <div class="capsule-group outline">
-                            <button id="importAudacityBtn" class="capsule-btn"><span class="material-icons">upload_file</span> 匯入 Audacity</button>
-                            <input type="file" id="importAudacityInput" accept=".txt" style="display: none;">
-                        </div>
-                    </div>
-                    
-                    <div class="capsule-wrapper">
-                        <div class="capsule-group outline">
-                            <button id="importSrtBtn" class="capsule-btn" style="color: #673AB7; border-color: #673AB7;"><span class="material-icons">subtitles</span> 匯入 SRT</button>
-                            <input type="file" id="importSrtInput" accept=".srt" style="display: none;">
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div id="actionButtons" class="action-buttons-container">
+            <button id="openAudioModalBtn" class="btn-primary action-btn"><span class="material-icons">library_music</span> 選擇音檔</button>
+            
+            <button id="openDataModalBtn" class="btn-ghost action-btn"><span class="material-icons">drive_folder_upload</span> 匯入資料</button>
+            
+            <button id="openExportModalBtn" class="btn-ghost action-btn" style="color: #1976D2;"><span class="material-icons">ios_share</span> 匯出</button>
+            
+            <button id="clearStorageBtn" class="btn-ghost-danger action-btn" title="清除所有暫存資料"><span class="material-icons">delete_forever</span> 清除全部</button>
         </div>
     </div>
 
     <!-- 吸頂面板 -->
     <div class="panel sticky-panel" id="stickyPanel" style="display: none;">
+		
+		<div id="missingAudioWarning" style="display: none; background: #FFF8E1; border: 1px dashed #FFB74D; border-radius: 8px; padding: 30px 20px; text-align: center; margin-bottom: 10px; cursor: pointer; transition: background 0.2s;">
+            <span style="color: #E65100; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 1.05rem;">
+                <span class="material-icons">warning</span> 上次音檔：「<span id="missingAudioName"></span>」，請重新選取
+            </span>
+        </div>
+        
         <div id="waveform"></div>
+		<div id="wave-minimap" style="display: none; width: 100%; height: 40px; margin-top: 8px; border-radius: 4px; overflow: hidden; background: #f8f9fa; border: 1px solid #e0e0e0; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);"></div>
+		
         <div class="controls-compact" id="compactControls">
             <button id="playPauseBtn" class="btn-icon" title="播放/暫停 (Space)"><span class="material-icons">play_arrow</span></button>
             <button id="stopBtn" class="btn-icon" title="停止並回到開頭"><span class="material-icons">stop</span></button>
@@ -150,8 +99,11 @@
             <button id="locateCurrentBtn" class="btn-icon" style="background: #E3F2FD; color: #1565C0; border: 1px solid #BBDEFB;" title="定位回到目前選取的句子 (Shift + Space)"><span class="material-icons">gps_fixed</span></button>
             <button id="tagRegionBtn" class="btn-icon" style="background: #E8F5E9; color: #2E7D32; border: 1px solid #C8E6C9;" title="將選取範圍套用至目前句子 (Enter)"><span class="material-icons">bookmark_add</span></button>
             <button id="clearRegionBtn" class="btn-icon" style="background: #FFEBEE; color: #C62828; border: 1px solid #FFCDD2;" title="清除目前句子的時間標記 (Delete)"><span class="material-icons">bookmark_remove</span></button>
-            <button id="splitRegionBtn" class="btn-icon" style="background: #FFF3E0; color: #E65100; border: 1px solid #FFE0B2;" title="在游標處一鍵切割 (Ctrl+I)"><span class="material-icons">content_cut</span></button>
-            <button id="mergeRegionBtn" class="btn-icon" style="background: #F3E5F5; color: #7B1FA2; border: 1px solid #E1BEE7; opacity: 0.3; cursor: not-allowed;" title="合併選取的連續句子 (Ctrl+J)" disabled><span class="material-icons">merge_type</span></button>
+            <button id="splitRegionBtn" class="btn-icon" style="background: #FFF3E0; color: #E65100; border: 1px solid #FFE0B2;" title="在游標處切割 (Ctrl+I)"><span class="material-icons">content_cut</span></button>
+            <button id="mergeRegionBtn" class="btn-icon" style="background: #F3E5F5; color: #7B1FA2; border: 1px solid #E1BEE7; opacity: 0.3; cursor: not-allowed;" title="合併選取 (Ctrl+J)" disabled><span class="material-icons">merge_type</span></button>
+			<button id="autoSegmentRegionBtn" class="btn-icon" style="background: #E3F2FD; color: #1976D2; border: 1px solid #BBDEFB; opacity: 0.3; cursor: not-allowed;" title="選取的範圍依靜音自動斷句" disabled>
+                <span class="material-icons">auto_awesome</span>
+            </button>
 
             <button id="downloadActiveRegionBtn" class="btn-icon" style="background: #4DB6AC; color: white; border: none;" title="下載目前選取的句段音檔"><span class="material-icons">download</span></button>
             <div style="position: relative; display: inline-flex; align-items: center; background: #f1f3f4; border-radius: 16px; margin-left: 8px; padding: 2px;">
@@ -183,30 +135,33 @@
                 </div>
             </div>
 
-            <!-- ★ 修改 2：更多按鈕 (三個點) 獨立於縮放之外，放在最右側 ★ -->
             <div style="position: relative; display: inline-flex; align-items: center; margin-left: 2px;">
                 <button id="waveMoreBtn" class="btn-icon" style="background: transparent; color: #5f6368; width: 32px; height: 32px; padding: 0;" title="選取操作說明與功能">
                     <span class="material-icons" style="font-size: 1.2rem;">more_vert</span>
                 </button>
                 
-                <div class="custom-dropdown-menu upwards" id="waveMoreMenu" style="right: 0; left: auto; min-width: 180px; z-index: 1000; margin-bottom: 8px; padding: 8px 0; cursor: default;">
+                <div class="custom-dropdown-menu" id="waveMoreMenu" style="right: 0; left: auto; min-width: 240px; z-index: 1000; padding: 8px 0; cursor: default;">
                     <!-- 純提示項目 -->
                     <div class="custom-dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color:#5f6368; font-weight:bold;">多選</span> 
+                        <span style="color:#5f6368; font-weight:bold;">多選標記</span> 
                         <span style="background:#f1f3f4; padding:2px 6px; border-radius:4px; font-size:0.8em; font-family:monospace; color:#3c4043; border: 1px solid #dadce0;">Ctrl + 點擊</span>
                     </div>
                     <div class="custom-dropdown-item" style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color:#5f6368; font-weight:bold;">連選</span> 
+                        <span style="color:#5f6368; font-weight:bold;">連選標記</span> 
                         <span style="background:#f1f3f4; padding:2px 6px; border-radius:4px; font-size:0.8em; font-family:monospace; color:#3c4043; border: 1px solid #dadce0;">Shift + 點擊</span>
                     </div>
                     <hr style="margin: 4px 0; border: none; border-bottom: 1px solid #EEE;">
                     <!-- 可點擊的功能按鈕 -->
                     <div class="custom-dropdown-item" id="waveSelectAllBtn" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
-                        <span style="color:#1976D2; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">done_all</span>全選</span> 
+                        <span style="color:#1976D2; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">done_all</span>全選標記</span> 
                         <span style="background:#f1f3f4; padding:2px 6px; border-radius:4px; font-size:0.8em; font-family:monospace; color:#1976D2; border: 1px solid #BBDEFB;">Ctrl + A</span>
                     </div>
+                    <div class="custom-dropdown-item" id="waveSelectAllAudioBtn" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                        <span style="color:#00897B; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">graphic_eq</span>全選</span> 
+                        <span style="background:#f1f3f4; padding:2px 6px; border-radius:4px; font-size:0.8em; font-family:monospace; color:#00897B; border: 1px solid #B2DFDB;">Ctrl + Shift + A</span>
+                    </div>
                     <div class="custom-dropdown-item" id="waveCancelSelectBtn" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
-                        <span style="color:#E53935; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">deselect</span>取消</span> 
+                        <span style="color:#E53935; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">deselect</span>取消選取</span> 
                         <span style="background:#f1f3f4; padding:2px 6px; border-radius:4px; font-size:0.8em; font-family:monospace; color:#E53935; border: 1px solid #FFCDD2;">Esc</span>
                     </div>
                 </div>
@@ -220,75 +175,75 @@
         <div id="listHeaderContainer" class="list-header-container">
             <div class="list-header">
                 <h3>列表</h3>
-                <div class="header-tools">
-				    <button id="clearAllTagsBtn" class="header-btn hide-in-view"><span class="material-icons">delete_sweep</span> 清空</button>
-				    <button id="mergeSelectedBtn" class="header-btn hide-in-view" style="display: none;"><span class="material-icons">merge_type</span> 合併</button>
-					<button id="adjustPaddingBtn" class="header-btn hide-in-view" style="display: none;"><span class="material-icons">settings_ethernet</span> 邊界</button>
-				    
-				    <!-- 插入分隔線 -->
-				    <div class="vertical-divider hide-in-view"></div> 
-				    
-				    <div style="position: relative; display: inline-block;">
-				        <button id="sortToggleBtn" class="header-btn toggle-btn"><span class="material-icons">sort</span> 排序</button>
-				        <div class="custom-dropdown-menu" id="sortMenu" style="top: 100%; right: 0; min-width: 160px; z-index: 100;">
-				            <div class="custom-dropdown-item" data-value="default"><span class="material-icons" style="font-size:1.1rem; margin-right:6px; color:#555;">format_list_numbered</span> 預設 (時間/編號)</div>
-				            <div class="custom-dropdown-item" data-value="duration-asc"><span class="material-icons" style="font-size:1.1rem; margin-right:6px; color:#555;">short_text</span> 時長 (短到長)</div>
-				            <div class="custom-dropdown-item" data-value="duration-desc"><span class="material-icons" style="font-size:1.1rem; margin-right:6px; color:#555; transform: scaleY(-1);">short_text</span> 時長 (長到短)</div>
-				            <div class="custom-dropdown-item" data-value="text"><span class="material-icons" style="font-size:1.1rem; margin-right:6px; color:#555;">sort_by_alpha</span> 內容文字</div>
-				        </div>
-				    </div>
-				    
-				    <!-- 插入分隔線 -->
-				    <div class="vertical-divider hide-in-view"></div> 
-				    
-				    <button id="toggleMoreBtnsBtn" class="header-btn toggle-btn hide-in-view"><span class="material-icons">more_vert</span> 更多</button>
-				    <button id="toggleClearBtnsBtn" class="header-btn toggle-btn hide-in-view"><span class="material-icons">backspace</span> 清除</button>
-				    <button id="toggleShiftBtnsBtn" class="header-btn toggle-btn hide-in-view"><span class="material-icons">update</span> 平移</button>
-				    
-				    <!-- 插入分隔線 -->
-				    <div class="vertical-divider hide-in-view"></div> 
-				    
-				    <button id="timeDisplayToggleBtn" class="header-btn"><span class="material-icons">schedule</span> 完整</button>
-				    <button id="fontToggleBtn" class="header-btn"><span class="material-icons">format_size</span> 16</button>
-				    <button id="toggleModeBtn" class="header-btn toggle-mode-btn"><span class="material-icons">lock</span> <span id="modeText">檢視</span></button>
-				</div>
+                <div class="header-tools" style="gap: 12px; display: flex; align-items: center;">
+                    
+                    <!-- 1. 編輯選單 -->
+                    <div style="position: relative; display: inline-block;">
+                        <button class="header-btn" id="editMenuBtn"><span class="material-icons">edit</span> 編輯</button>
+                        <div class="custom-dropdown-menu" id="editMenu" style="top: 100%; left: 0; min-width: 180px; z-index: 100;">
+                            <div class="custom-dropdown-item hide-in-view" id="localAiTranscribeBtn"><span class="material-icons" style="color: #1976D2;">translate</span> AI 批次填詞</div>
+                            <div class="custom-dropdown-item hide-in-view" id="localAiSubtitleBtn"><span class="material-icons" style="color: #00897B;">auto_awesome</span> 一鍵 AI 字幕</div>
+                            <div class="custom-dropdown-item hide-in-view" id="openBatchReplaceBtn"><span class="material-icons" style="color: #E65100;">find_replace</span> 尋找取代</div>
+                            
+                            <div class="custom-dropdown-item hide-in-view" id="adjustPaddingBtn" style="display: none;"><span class="material-icons">settings_ethernet</span> 調整邊界</div>
+                            <div class="custom-dropdown-item hide-in-view" id="mergeSelectedBtn" style="display: none;"><span class="material-icons">merge_type</span> 合併標記</div>
+                            <div class="custom-dropdown-item hide-in-view" id="clearAllTagsBtn"><span class="material-icons" style="color: #E53935;">delete_sweep</span> 清除時間標記</div>
+                            
+                            <div style="border-top: 1px solid #E0E0E0; margin: 4px 0;"></div>
+                            
+                            <div class="custom-dropdown-item hide-in-view" id="clearListTextBtn"><span class="material-icons" style="color: #FF9800;">text_format</span> 清除列表文字</div>
+                            <div class="custom-dropdown-item hide-in-view" id="resetAllDataBtn"><span class="material-icons" style="color: #D32F2F;">restart_alt</span> 重置文字與標記</div>
+                        </div>
+                    </div>
+
+                    <!-- 2. 檢視選單 -->
+                    <div style="position: relative; display: inline-block;">
+                        <button class="header-btn" id="viewMenuBtn"><span class="material-icons">visibility</span> 檢視</button>
+                        <div class="custom-dropdown-menu" id="viewMenu" style="top: 100%; left: 0; min-width: 180px; z-index: 100;">
+                            <div class="custom-dropdown-item" id="toggleScriptModeBtn"><span class="material-icons">swap_horiz</span> 切換單句 / 全文</div>
+                            
+                            <!-- ★ 從原本標記選單移過來的檢視操作 -->
+                            <div class="custom-dropdown-item" id="timeDisplayToggleBtn"><span class="material-icons">schedule</span> 時間標記 (完整)</div>
+                            
+                            <div class="custom-dropdown-item" id="fontToggleBtn"><span class="material-icons">format_size</span> 字體大小 (16)</div>
+                            <div class="custom-dropdown-item" id="sortMenuToggleBtn"><span class="material-icons">sort</span> 單句排序</div>
+                        </div>
+                        <!-- 排序子選單 -->
+                        <div class="custom-dropdown-menu" id="sortMenu" style="top: 0; left: 100%; min-width: 180px; z-index: 101;">
+                            <div class="custom-dropdown-item" data-value="default"><span class="material-icons" style="font-size:1.1rem; margin-right:6px; color:#555;">format_list_numbered</span> 預設 (時間/編號)</div>
+                            <div class="custom-dropdown-item" data-value="duration-asc"><span class="material-icons" style="font-size:1.1rem; margin-right:6px; color:#555;">short_text</span> 時長 (短到長)</div>
+                            <div class="custom-dropdown-item" data-value="duration-desc"><span class="material-icons" style="font-size:1.1rem; margin-right:6px; color:#555; transform: scaleY(-1);">short_text</span> 時長 (長到短)</div>
+                            <div class="custom-dropdown-item" data-value="text"><span class="material-icons" style="font-size:1.1rem; margin-right:6px; color:#555;">sort_by_alpha</span> 內容文字</div>
+                        </div>
+                    </div>
+
+                    <!-- ★ 原本的「3. 標記選單」區塊已經完全刪除 -->
+
+                    <!-- 3. 按鈕選單 -->
+                    <div style="position: relative; display: inline-block;" id="btnMenuContainer">
+                        <button class="header-btn" id="btnMenuBtn"><span class="material-icons">smart_button</span> 按鈕</button>
+                        <div class="custom-dropdown-menu" id="btnMenu" style="top: 100%; left: 0; min-width: 180px; z-index: 100;">
+                            <div class="custom-dropdown-item" id="toggleShiftBtnsBtn"><span class="material-icons">update</span> 平移按鈕</div>
+                            <div class="custom-dropdown-item" id="toggleClearBtnsBtn"><span class="material-icons">backspace</span> 清除按鈕</div>
+                            <div class="custom-dropdown-item" id="toggleMoreBtnsBtn"><span class="material-icons">more_vert</span> 其他按鈕</div>
+                        </div>
+                    </div>
+
+                    <div class="vertical-divider"></div> 
+
+                    <!-- 4. 鎖定按鈕 -->
+                    <button id="toggleModeBtn" class="header-btn toggle-mode-btn"><span class="material-icons">lock_open</span> <span id="modeText">解鎖</span></button>
+                </div>
             </div>
         </div>
         
         <div id="sentenceList" class="is-edit-mode"></div>
         
-        <div class="btn-group" style="margin-top: 20px;">
-            <div class="capsule-wrapper">
-                <div class="capsule-group">
-                    <button id="exportTextBtn" class="capsule-btn" title="使用當前模式匯出"><span class="material-icons">text_snippet</span> 匯出文字</button>
-                    <button id="exportToggleBtn" class="capsule-toggle"><span class="material-icons">arrow_drop_down</span></button>
-                </div>
-                <div class="custom-dropdown-menu upwards" id="exportMenu">
-                    <div class="custom-dropdown-item" data-value="para">段落文字</div>
-                    <div class="custom-dropdown-item" data-value="para-slash-n">\n分段落</div>
-                    <div class="custom-dropdown-item" data-value="sent-no-para">斷句(不分段)</div>
-                    <div class="custom-dropdown-item" data-value="sent-empty-line">換行斷句(空行分段)</div>
-                    <div class="custom-dropdown-item" data-value="sent-hash">換行斷句(##分段)</div>
-                </div>
-            </div>
-            
-            <button id="exportTsvBtn" class="btn-excel"><span class="material-icons">table_chart</span> 匯出試算表</button>
-            <button id="exportJsonBtn" class="btn-secondary"><span class="material-icons">data_object</span> 匯出 JSON</button>
-            <button id="exportSrtBtn" class="btn-srt"><span class="material-icons">subtitles</span> 匯出 SRT</button>
-            <button id="exportAudacityBtn" class="btn-audacity"><span class="material-icons">audio_file</span> 匯出 Audacity</button>
-            <button id="exportAudioZipBtn" class="btn-outline" style="border: 2px solid #00897B; color: #00897B; background: transparent;"><span class="material-icons">folder_zip</span> 打包音檔</button>
-        </div>
-        
-        <div id="exportWrapper" style="display: none; margin-top: 15px; background: #FAFAFA; border: 1px solid #E0E0E0; border-radius: 8px; padding: 10px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <strong style="color: #00897B;"><span class="material-icons" style="font-size: 1.1rem; vertical-align: middle;">terminal</span> 匯出資料</strong>
-                <div style="display: flex; gap: 8px;">
-                    <button id="copyExportBtn" class="btn-small btn-outline"><span class="material-icons" style="font-size: 1rem;">content_copy</span> 複製</button>
-                    <button id="closeExportBtn" class="btn-small btn-danger"><span class="material-icons" style="font-size: 1rem;">close</span> 關閉</button>
-                </div>
-            </div>
-            <textarea id="outputArea" style="height: 150px; margin-bottom: 0;"></textarea>
-        </div>
+        <div id="scriptEditorContainer" style="display: none;">
+            <div id="scriptGutter"></div>
+            <!-- wrap="off" 關閉自動換行，確保行號完美對齊 -->
+            <textarea id="scriptTextarea" spellcheck="false" wrap="off" placeholder="在此輸入文字，按下 Enter 換行將自動對應下一個聲波標記..."></textarea>
+        </div>       
     </div>
 
     <!-- 側邊欄 -->
@@ -298,6 +253,14 @@
             <button id="closeSidebarBtn" class="btn-icon" style="background:transparent; color:#333;"><span class="material-icons">close</span></button>
         </div>
         <div class="sidebar-content">
+			<div class="sidebar-group hide-on-mobile-menu">
+                <h4>專案操作</h4>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button id="sidebarAudioBtn" class="btn-primary" style="width: 100%; border-radius: 8px;"><span class="material-icons">library_music</span> 選擇音檔</button>
+                    <button id="sidebarDataBtn" class="btn-outline" style="width: 100%; border-radius: 8px;"><span class="material-icons">drive_folder_upload</span> 匯入資料</button>
+                    <button id="sidebarClearBtn" class="btn-danger" style="width: 100%; border-radius: 8px;"><span class="material-icons">delete_forever</span> 清除全部</button>
+                </div>
+            </div>
             <div class="sidebar-group">
                 <h4>音訊匯出格式</h4>
                 <select id="exportAudioFormatSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
@@ -322,17 +285,17 @@
                     <span style="font-size: 0.8rem; color: #666;">填寫 0 表示無限次循環</span>
                 </div>
             </div>
-			<!-- 波形跟隨模式設定 -->
-                <div style="margin-bottom: 15px;">
+ 
+			<!-- 播放與跳轉設定區塊 -->
+            <div class="sidebar-group">
+                <h4>播放與跳轉設定</h4>
+				<div style="margin-bottom: 15px;">
                     <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">波形跟隨模式 (放大時)</label>
                     <select id="autoScrollModeSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
                         <option value="center" selected>置中跟隨 (預設)</option>
                         <option value="page">邊緣翻頁</option>
                     </select>
                 </div>
-			<!-- 播放與跳轉設定區塊 -->
-            <div class="sidebar-group">
-                <h4>播放與跳轉設定</h4>
                 <div style="margin-bottom: 15px;">
                     <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">連續播放模式 (預設排序時)</label>
                     <select id="continuousPlayModeSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
@@ -345,9 +308,23 @@
                     <input type="number" id="playPaddingInput" class="input-select" value="0.2" min="0" max="2" step="0.1" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold; box-sizing: border-box; padding: 6px; border-radius: 4px;">
                     <span style="font-size: 0.8rem; color: #666;">設定略過無標記時，提早幾秒開始播放</span>
                 </div>
+				<div style="margin-bottom: 15px;">
+					<label style="display: flex; align-items: center; cursor: pointer; font-size: 0.95em; color: #333;">
+						<input type="checkbox" id="enableMaxPlayCheck" style="margin-right: 8px; width: 16px; height: 16px;">
+						有標記的片段 最多只播
+						<input type="number" id="maxPlaySecondsInput" value="2" min="0.5" step="0.5" style="width: 60px; margin: 0 8px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px;">
+						秒
+					</label>
+				</div>
             </div>
             <div class="sidebar-group">
                 <h4>介面與檢視</h4>
+				<div style="margin-bottom: 15px;">
+					<label style="display: flex; align-items: center; cursor: pointer; font-size: 0.95em; color: #333;">
+						<input type="checkbox" id="enableMinimapCheck" style="margin-right: 8px; width: 16px; height: 16px;">
+						顯示全局迷你導航圖 (Minimap)
+					</label>
+				</div>
                 <div style="margin-bottom: 15px;">
                     <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">點擊聲波時的列表定位</label>
                     <select id="scrollAlignSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
@@ -413,7 +390,11 @@
     <div id="customModalOverlay" class="modal-overlay">
         <div class="custom-modal">
             <h4 id="customModalTitle">提示</h4><p id="customModalMessage">這是一則訊息</p><input type="text" id="customModalInput" style="display: none;">
-            <div class="modal-buttons"><button id="customModalConfirmBtn" class="btn-modal-confirm">確定</button><button id="customModalCancelBtn" class="btn-modal-cancel">取消</button></div>
+            <div class="modal-buttons">
+                <button id="customModalConfirmBtn" class="btn-modal-confirm">確定</button>
+                <button id="customModalAltBtn" class="btn-outline" style="display: none; background: white; border: 1px solid #00897B; color: #00897B;">替代</button>
+                <button id="customModalCancelBtn" class="btn-modal-cancel">取消</button>
+            </div>
         </div>
     </div>
 
@@ -465,11 +446,288 @@
     <div id="toast"></div>
     <button id="scrollToTopBtn" title="回到頂端"><span class="material-icons">expand_less</span></button>
 
+
+
+<!-- ================= ★ 修改：極簡版音檔載入視窗 (固定尺寸防跳動) ★ ================= -->
+    <div id="audioLoadModalOverlay" class="modal-overlay">
+        <!-- 關鍵修正：加入 height: 400px 強制固定高度，確保切換頁籤時視窗不會忽大忽小 -->
+        <div class="custom-modal" style="width: 90%; max-width: 600px; height: 400px; padding: 0; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px;">
+            
+            <!-- 1. 滿版頁籤列 -->
+            <div style="display: flex; background: #FAFAFA; border-bottom: 1px solid #E0E0E0; flex-shrink: 0;">
+                <button id="tabLocalLoad" style="flex: 1; padding: 18px; border: none; background: white; color: #00897B; font-weight: bold; font-size: 1.05rem; border-bottom: 3px solid #00897B; cursor: pointer; border-radius: 12px 0 0 0; display: flex; align-items: center; justify-content: center;">
+                    <span class="material-icons" style="margin-right: 6px;">folder_zip</span> 本機檔案 / ZIP
+                </button>
+                <button id="tabOnlineLoad" style="flex: 1; padding: 18px; border: none; background: transparent; color: #666; font-weight: bold; font-size: 1.05rem; border-bottom: 3px solid transparent; cursor: pointer; border-radius: 0 12px 0 0; display: flex; align-items: center; justify-content: center;">
+                    <span class="material-icons" style="margin-right: 6px;">link</span> 線上網址
+                </button>
+            </div>
+
+            <!-- 2. 中間可滾動內容區塊 -->
+            <div style="padding: 24px; overflow-y: auto; flex-grow: 1; background: white;">
+                
+                <!-- 區塊 A：本機檔案與 ZIP -->
+                <div id="sectionLocalLoad" style="display: block;">
+                    <label style="font-weight: bold; font-size: 0.95rem; color: #333; display: block; margin-bottom: 8px;">請選擇單一音檔、多個音檔 或 ZIP 壓縮檔：</label>
+                    <input type="file" id="modalLocalFilesInput" accept="audio/*, video/*, .zip" multiple style="width: 100%; padding: 12px; border: 1px dashed #ccc; border-radius: 6px; background: #FAFAFA; box-sizing: border-box; cursor: pointer;">
+                    
+                    <span id="localFileHint" class="local-file-hint" style="display: none; margin-top: 8px; align-items: center;"></span>
+                </div>
+
+                <!-- 區塊 B：線上網址 -->
+                <div id="sectionOnlineLoad" style="display: none;">
+                    <div style="margin-bottom: 16px; display: flex; gap: 20px;">
+                        <label style="cursor: pointer; font-weight: bold; color: #333; font-size: 0.95rem; display: flex; align-items: center;">
+                            <input type="radio" name="onlineMode" value="single" checked style="accent-color: #00897B; transform: scale(1.2); margin-right: 8px;"> 單一網址
+                        </label>
+                        <label style="cursor: pointer; font-weight: bold; color: #333; font-size: 0.95rem; display: flex; align-items: center;">
+                            <input type="radio" name="onlineMode" value="batch" style="accent-color: #00897B; transform: scale(1.2); margin-right: 8px;"> 批次串接
+                        </label>
+                    </div>
+
+                    <!-- 單一網址區塊 (關鍵修正：移除標題，極簡化) -->
+                    <div id="onlineSingleBlock">
+                        <input type="text" id="modalSingleUrlInput" placeholder="https://example.com/audio.mp3" style="width: 100%; margin-top: 8px; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                    </div>
+
+                    <!-- 批次網址區塊 -->
+                    <div id="onlineBatchBlock" style="display: none;">
+                        <div style="margin-bottom: 12px;">
+                            <label style="font-size: 0.85rem; font-weight: bold; color: #333;">上層共用網址 (例如：https://example.com/audio/)</label>
+                            <input type="text" id="batchBaseUrl" placeholder="請輸入結尾帶有 / 的網址" style="width: 100%; margin-top: 4px; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+                            <div style="flex: 1;">
+                                <label style="font-size: 0.85rem; font-weight: bold; color: #333;">副檔名</label>
+                                <input type="text" id="batchExtension" value=".mp3" placeholder="例如：.mp3" style="width: 100%; margin-top: 4px; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                            </div>
+                            <div style="flex: 1;">
+                                <label style="font-size: 0.85rem; font-weight: bold; color: #333;">分隔符號</label>
+                                <select id="batchSeparator" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-top: 4px; box-sizing: border-box; background: white; outline: none;">
+                                    <option value="\n">換行符號 (預設)</option>
+                                    <option value=",">逗號 (,)</option>
+                                    <option value=";">分號 (;)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.85rem; font-weight: bold; color: #333;">檔名清單 (不含副檔名)</label>
+                            <textarea id="batchFilenameList" placeholder="A01&#10;A02&#10;B01..." style="height: 100px; resize: vertical; width: 100%; margin-top: 4px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 共用設定：靜音緩衝與解析規則 -->
+                <div id="mergeSettingsBlock" style="display: none; background: #FFF8E1; padding: 16px; border-radius: 8px; border: 1px solid #FFE0B2; margin-top: 20px;">
+				    <h5 style="margin: 0 0 12px 0; color: #E65100; font-size: 0.95rem;">批次合併設定 (僅載入多檔案時生效)</h5>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.9rem; color: #333; font-weight: bold;">
+                            <input type="checkbox" id="batchEnablePaddingCheck" style="margin-right: 8px; width: 16px; height: 16px; accent-color: #00897B;">
+                            檔案間插入空白時長 (秒)
+                        </label>
+                        <input type="number" id="batchSilencePadding" value="1.0" min="0.1" max="5" step="0.1" disabled style="width: 80px; margin-bottom: 0; padding: 6px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; background: #f0f0f0;">
+                    </div>
+                    <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.9rem; color: #333; font-weight: bold;">
+                        <input type="checkbox" id="batchAutoParaCheck" checked style="margin-right: 8px; width: 16px; height: 16px; accent-color: #00897B;">
+                        依據檔名字首 (A, B, C...) 自動區分段落
+                    </label>
+                </div>
+            </div>
+
+            <!-- 3. 底部固定按鈕列 -->
+            <div class="modal-buttons" style="padding: 16px 24px; border-top: 1px solid #E0E0E0; background: #FAFAFA; border-radius: 0 0 12px 12px; flex-shrink: 0; margin-top: 0;">
+                <button id="audioLoadConfirmBtn" style="background: #00897B; color: white; padding: 10px 24px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer;">確定載入</button>
+                <button id="audioLoadCancelBtn" style="background: #E2E8F0; color: #333; padding: 10px 24px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer;">取消</button>
+            </div>
+        </div>
+    </div>
+    <!-- ========================================================================= -->
+
+
+
+<!-- ================= ★ 新增：匯入資料專屬視窗 (優化尺寸與排版) ★ ================= -->
+    <div id="dataImportModalOverlay" class="modal-overlay">
+        <div class="custom-modal" style="width: 90%; max-width: 600px; height: 400px; padding: 0; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px;">
+
+            <!-- 1. 滿版頁籤列 -->
+            <div style="display: flex; background: #FAFAFA; border-bottom: 1px solid #E0E0E0; flex-shrink: 0;">
+                <button id="tabPasteText" style="flex: 1; padding: 16px; border: none; background: white; color: #00897B; font-weight: bold; font-size: 1.05rem; border-bottom: 3px solid #00897B; cursor: pointer; border-radius: 12px 0 0 0; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
+                    <span class="material-icons" style="margin-right: 6px;">text_snippet</span> 貼上文字解析
+                </button>
+                <button id="tabImportFile" style="flex: 1; padding: 16px; border: none; background: transparent; color: #666; font-weight: bold; font-size: 1.05rem; border-bottom: 3px solid transparent; cursor: pointer; border-radius: 0 12px 0 0; display: flex; align-items: center; justify-content: center; transition: background 0.2s;">
+                    <span class="material-icons" style="margin-right: 6px;">upload_file</span> 選擇外部檔案
+                </button>
+            </div>
+
+            <!-- 2. 中間內容區塊 -->
+            <div style="padding: 20px; overflow-y: auto; flex-grow: 1; background: white; position: relative;">
+
+                <!-- 區塊 A：貼上文字 -->
+                <div id="sectionPasteText" style="display: flex; flex-direction: column; height: 100%;">
+                    <div class="textarea-wrapper" style="flex-grow: 1; margin-bottom: 12px; display: flex; flex-direction: column;">
+                        <textarea id="rawTextInput" placeholder="請貼上文章 (或 Excel 的 TSV 資料)。點擊下方「解析文字」可原地預覽結果。" style="flex-grow: 1; min-height: 130px; resize: none;"></textarea>
+                        <div class="textarea-tools">
+                            <button id="copyTextBtn" title="複製文章" class="tool-btn"><span class="material-icons">content_copy</span></button>
+                            <button id="clearTextBtn" title="清空輸入框" class="tool-btn"><span class="material-icons">delete_sweep</span></button>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; background: #F4F7F6; padding: 10px 16px; border-radius: 8px; flex-shrink: 0;">
+                        <!-- ★ 左側：解析文字按鈕 -->
+                        <button id="previewParseBtn" class="btn-primary" style="padding: 6px 16px; font-size: 0.95rem; border-radius: 6px; box-shadow: none;"><span class="material-icons">auto_fix_high</span> 解析文字</button>
+                        
+                        <!-- ★ 右側：解析條件 -->
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="color: #333; font-size: 0.9rem; font-weight: bold;"></span>
+                            <select id="parseModeSelect" class="input-select" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; outline: none; cursor: pointer; background: white;">
+                                <option value="punct">標點斷句</option>
+                                <option value="newline">換行斷句</option>
+                                <option value="newline-para">換行斷句 (空行分段)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 區塊 B：選擇檔案 (單一輸入框與格式提示) -->
+                <div id="sectionImportFile" style="display: none; height: 100%; flex-direction: column;">
+                    <label style="font-weight: bold; font-size: 0.95rem; color: #333; display: block; margin-bottom: 8px;">請選擇單一資料檔：</label>
+                    
+                    <!-- 單一通用輸入框，利用 accept 限制格式 -->
+                    <input type="file" id="modalDataFileInput" accept=".json, .srt, .txt, .tsv" style="width: 100%; padding: 12px; border: 1px dashed #ccc; border-radius: 6px; background: #FAFAFA; box-sizing: border-box; cursor: pointer; font-size: 0.95rem;">
+                    
+                    <!-- ★ 上次載入提示 (預設隱藏) -->
+                    <span id="localDataFileHint" class="local-file-hint" style="display: none; margin-top: 10px; align-items: center; color: #E65100; font-size: 0.85rem; font-weight: bold;"></span>
+
+                    <!-- 支援格式說明區塊 -->
+                    <div style="margin-top: 16px; padding: 16px; background: #F0F8FF; border-radius: 8px; border: 1px solid #BBDEFB; flex-grow: 1;">
+                        <span style="font-weight: bold; color: #1976D2; font-size: 0.95rem; display: flex; align-items: center; margin-bottom: 10px;">
+                            <span class="material-icons" style="font-size: 1.2rem; margin-right: 6px;">info</span> 支援的檔案格式
+                        </span>
+                        <ul style="margin: 0; padding-left: 24px; font-size: 0.9rem; color: #444; line-height: 1.8;">
+                            <li><strong>本專案檔 (.json)</strong>：包含完整時間標記與文字的備份檔。</li>
+                            <li><strong>SRT 字幕檔 (.srt)</strong>：自動匯入時間標記與字幕文字。</li>
+                            <li><strong>Audacity 標籤 (.txt)</strong>：支援時間與文字精準對齊。</li>
+                            <li><strong>純文字 (.txt)</strong>：僅匯入文字內容進行解析。</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- 保留原本的隱藏輸入框，用來承接 JS 的路由派發 -->
+                    <input type="file" id="importProjectInput" accept=".json" style="display: none;">
+                    <input type="file" id="importSrtInput" accept=".srt" style="display: none;">
+                    <input type="file" id="importAudacityInput" accept=".txt" style="display: none;">
+                </div>
+            </div>
+
+            <!-- 3. 底部確定與取消按鈕 -->
+            <div class="modal-buttons" style="padding: 12px 20px; border-top: 1px solid #E0E0E0; background: #FAFAFA; border-radius: 0 0 12px 12px; flex-shrink: 0; margin-top: 0; justify-content: flex-end; display: flex; gap: 10px;">
+                <button id="dataLoadConfirmBtn" style="background: #00897B; color: white; padding: 8px 20px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; font-size: 0.95rem;">確定載入</button>
+                <button id="closeDataModalBtn" style="background: #E2E8F0; color: #333; padding: 8px 20px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; font-size: 0.95rem;">取消</button>
+            </div>
+        </div>
+    </div>
+
+<!-- ================= ★ 尋找與取代視窗 ★ ================= -->
+    <div id="batchReplaceModalOverlay" class="modal-overlay">
+        <div class="custom-modal">
+            <h4 style="color:#E65100;"><span class="material-icons" style="vertical-align: middle;">find_replace</span> 尋找與取代</h4>
+            <p style="font-size:0.9rem; color:#666; margin-bottom: 20px;">支援純文字與正規表達式。可套用於單句列表或劇本模式。</p>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">尋找目標：</label>
+                <input type="text" id="findTextInput" placeholder="要尋找的文字" style="width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 6px;">
+                
+                <label style="display: flex; align-items: center; margin-top: 8px; cursor: pointer; font-size: 0.85rem; color: #555;">
+                    <input type="checkbox" id="useRegexCheck" style="margin-right: 6px; accent-color: #E65100;">
+                    使用正規表達式 (Regular Expression)
+                </label>
+            </div>
+            
+            <div style="margin-bottom: 25px;">
+                <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">取代為：</label>
+                <input type="text" id="replaceTextInput" placeholder="要替換的文字" style="width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 6px;">
+            </div>
+
+            <div class="modal-buttons">
+                <button id="batchReplaceConfirmBtn" class="btn-modal-confirm" style="background:#E65100;">全部取代</button>
+                <button id="batchReplaceCancelBtn" class="btn-modal-cancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+<!-- ================= ★ 重新設計：精簡優雅版匯出視窗 ★ ================= -->
+    <div id="exportModalOverlay" class="modal-overlay">
+        <!-- 固定高度 400px，使用 Flex 讓文字框自動填滿剩餘空間 -->
+        <div class="custom-modal" style="width: 90%; max-width: 550px; height: 400px; display: flex; flex-direction: column; padding: 20px; position: relative; overflow: hidden;">
+            
+            <!-- 右上角 X 關閉按鈕 -->
+            <button id="closeExportModalBtn" title="關閉視窗" style="position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: #999; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 4px; border-radius: 50%; transition: background 0.2s; z-index: 10;">
+                <span class="material-icons" style="font-size: 1.5rem;">close</span>
+            </button>
+
+            <!-- 標題 -->
+            <h4 style="color:#00897B; margin: 0 0 15px 0; flex-shrink: 0;"><span class="material-icons" style="vertical-align: middle;">ios_share</span> 匯出專案資料</h4>
+            
+            <!-- 1. 直接下載按鈕群 (2欄等寬網格排列) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; flex-shrink: 0;">
+                <button id="exportJsonBtn" class="btn-secondary" style="margin: 0; padding: 8px;"><span class="material-icons" style="font-size: 1.1rem;">data_object</span> JSON 專案</button>
+                <button id="exportTsvBtn" class="btn-excel" style="margin: 0; padding: 8px;"><span class="material-icons" style="font-size: 1.1rem;">table_chart</span> 試算表 (TSV)</button>
+                
+                <button id="exportSrtBtn" class="btn-srt" style="margin: 0; padding: 8px;"><span class="material-icons" style="font-size: 1.1rem;">subtitles</span> 字幕 (SRT)</button>
+                <button id="exportAudacityBtn" class="btn-audacity" style="margin: 0; padding: 8px;"><span class="material-icons" style="font-size: 1.1rem;">audio_file</span> Audacity 標籤</button>
+                
+                <button id="exportAudioZipBtn" class="btn-outline" style="border: 2px solid #00897B; color: #00897B; margin: 0; padding: 8px;"><span class="material-icons" style="font-size: 1.1rem;">folder_zip</span> 打包音檔</button>
+                <button id="downloadTextFileBtn" class="btn-primary" style="background: #00695C; margin: 0; padding: 8px;"><span class="material-icons" style="font-size: 1.1rem;">download</span> 下載目前文字</button>
+            </div>
+
+            <!-- 分隔線 -->
+            <hr style="border: none; border-top: 1px dashed #E0E0E0; margin: 0 0 12px 0; flex-shrink: 0;">
+
+            <!-- 2. 產生純文字控制列 -->
+            <div style="display: flex; gap: 10px; align-items: stretch; margin-bottom: 10px; flex-shrink: 0; height: 36px;">
+                <button id="exportTextBtn" class="btn-primary" style="flex: 1; margin: 0; height: 100%; padding: 0;"><span class="material-icons" style="font-size: 1.1rem;">text_snippet</span> 產生純文字</button>
+                <select id="exportTextFormatSelect" class="input-select" style="flex: 1.5; padding: 0 10px; border: 1px solid #ccc; border-radius: 6px; font-weight: bold; color: #333; outline: none; cursor: pointer; margin: 0; height: 100%; box-sizing: border-box;">
+                    <optgroup label="一般文字排版">
+                        <option value="para">段落文字</option>
+                        <option value="para-slash-n">\n分段落</option>
+                        <option value="sent-no-para">斷句 (不分段)</option>
+                        <option value="sent-empty-line">換行斷句 (空行分段)</option>
+                        <option value="sent-hash">換行斷句 (##分段)</option>
+                    </optgroup>
+                    <optgroup label="專業格式預覽">
+                        <option value="json">JSON 專案</option>
+                        <option value="tsv">試算表 (TSV)</option>
+                        <option value="srt">字幕 (SRT)</option>
+                        <option value="audacity">Audacity 標籤</option>
+                    </optgroup>
+                </select>
+            </div>
+
+            <!-- 3. 文字框預覽區 (自動填滿剩餘的全部空間) -->
+            <div style="position: relative; display: flex; flex-direction: column; flex-grow: 1; min-height: 0;">
+                <textarea id="modalOutputArea" readonly placeholder="選擇格式並點擊上方「產生純文字」按鈕，結果將顯示於此..." style="width: 100%; height: 100%; resize: none; background: #F4F7F6; border: 1px solid #E0E0E0; border-radius: 6px; font-size: 0.95rem; padding: 10px; box-sizing: border-box; margin: 0; font-family: inherit; color: #333;"></textarea>
+                
+                <!-- 複製與清除按鈕 -->
+                <div style="position: absolute; top: 10px; right: 10px; display: flex; gap: 6px;">
+                    <button id="modalCopyExportBtn" title="複製文字" class="tool-btn" style="background: rgba(255,255,255,0.9); border: 1px solid #ddd; padding: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                        <span class="material-icons" style="font-size: 1.1rem;">content_copy</span>
+                    </button>
+                    <button id="modalClearExportBtn" title="清除文字" class="tool-btn" style="background: rgba(255,255,255,0.9); border: 1px solid #ddd; padding: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); color: #E53935;">
+                        <span class="material-icons" style="font-size: 1.1rem;">delete_sweep</span>
+                    </button>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+
     <script src="1_globals.js"></script>
     <script src="2_audio_engine.js"></script>
     <script src="3_data_core.js"></script>
     <script src="4_ui_events.js"></script>
     <script src="5_list_renderer.js"></script>
     <script src="6_wave_controller.js"></script>
+	<script src="7_worker_whisper.js"></script>
+	
 </body>
 </html>

@@ -123,7 +123,9 @@ function updateAllTimeDisplays() {
 }
 
 function renderSentenceList() {
-    listPanel.style.display = allLabelsOrdered.length > 0 ? 'block' : 'none';
+    const hasAudio = localStorage.getItem('tagger_audioUrl') || localStorage.getItem('tagger_localFileName');
+    listPanel.style.display = (allLabelsOrdered.length > 0 || hasAudio) ? 'block' : 'none';
+    
     sentenceList.innerHTML = '';
     if (showClearBtns) sentenceList.classList.add('show-clear-btns'); if (showShiftBtns) sentenceList.classList.add('show-shift-btns'); if (showMoreBtns) sentenceList.classList.add('show-more-btns');
 
@@ -317,15 +319,24 @@ function renderSentenceList() {
             if (times) { 
                 if(typeof applyCurrentPlaybackSpeed === 'function') applyCurrentPlaybackSpeed(); 
                 
-                // 核心修改：當不是預設排序，或是開啟了「略過模式」時，啟動連續播放
+                // ★ 核心攔截：計算最大播放時間
+                let targetEnd = times.end;
+                const isMaxPlayEnabled = document.getElementById('enableMaxPlayCheck')?.checked;
+                if (isMaxPlayEnabled) {
+                    const maxSec = parseFloat(document.getElementById('maxPlaySecondsInput')?.value) || 2;
+                    targetEnd = Math.min(times.end, times.start + maxSec);
+                }
+
+                // 判斷是否為連續播放模式
                 if (currentSortMode !== 'default' || continuousPlayMode === 'skip') {
                     isContinuousSortedPlay = true; 
-                    verifyEndTime = times.end; 
+                    verifyEndTime = targetEnd; 
                     verifyingLabel = label;
                 } else {
                     isContinuousSortedPlay = false; 
-                    verifyEndTime = null; 
-                    verifyingLabel = null;
+                    // 如果有開啟限制秒數，就設定停止時間；否則維持 null (讓它自然播到底)
+                    verifyEndTime = isMaxPlayEnabled ? targetEnd : null; 
+                    verifyingLabel = isMaxPlayEnabled ? label : null;
                 }
                 
                 audioPlayer.currentTime = times.start; 
@@ -340,9 +351,23 @@ function renderSentenceList() {
             if (typeof currentLoopCounter !== 'undefined') currentLoopCounter = 0; 
             
             const times = getCalculatedTimes(label);
-            isContinuousSortedPlay = false; verifyEndTime = times.end; verifyingLabel = label; 
-            if(typeof applyCurrentPlaybackSpeed === 'function') applyCurrentPlaybackSpeed(); 
-            audioPlayer.currentTime = times.start; audioPlayer.play(); updateSelectionUI();
+            if (times) {
+                // ★ 核心攔截：計算最大播放時間
+                let targetEnd = times.end;
+                if (document.getElementById('enableMaxPlayCheck')?.checked) {
+                    const maxSec = parseFloat(document.getElementById('maxPlaySecondsInput')?.value) || 2;
+                    targetEnd = Math.min(times.end, times.start + maxSec);
+                }
+
+                isContinuousSortedPlay = false; 
+                verifyEndTime = targetEnd; 
+                verifyingLabel = label; 
+                
+                if(typeof applyCurrentPlaybackSpeed === 'function') applyCurrentPlaybackSpeed(); 
+                audioPlayer.currentTime = times.start; 
+                audioPlayer.play(); 
+                updateSelectionUI();
+            }
         });
         sentenceList.appendChild(div);
     });
