@@ -127,8 +127,12 @@ function renderSentenceList() {
     listPanel.style.display = (allLabelsOrdered.length > 0 || hasAudio) ? 'block' : 'none';
     
     sentenceList.innerHTML = '';
-    if (showClearBtns) sentenceList.classList.add('show-clear-btns'); if (showShiftBtns) sentenceList.classList.add('show-shift-btns'); if (showMoreBtns) sentenceList.classList.add('show-more-btns');
-
+	if (showClearBtns) sentenceList.classList.add('show-clear-btns'); 
+    if (showShiftBtns) sentenceList.classList.add('show-shift-btns'); 
+    if (showMoreBtns) sentenceList.classList.add('show-more-btns'); 
+    if (typeof showAiBtns !== 'undefined' && showAiBtns) sentenceList.classList.add('show-ai-btns');
+    if (typeof showTagBtns !== 'undefined' && showTagBtns) sentenceList.classList.add('show-tag-btns');
+    if (showClearBtns) sentenceList.classList.add('show-clear-btns'); if (showShiftBtns) sentenceList.classList.add('show-shift-btns'); if (showMoreBtns) sentenceList.classList.add('show-more-btns'); if (showAiBtns) sentenceList.classList.add('show-ai-btns');
     currentSortedLabels = [...allLabelsOrdered];
     
     if (currentSortMode !== 'default') {
@@ -175,6 +179,7 @@ function renderSentenceList() {
                 <button class="inline-delete-btn" id="inline-del-${label}" style="${text.trim() === '' ? 'display:flex;' : 'display:none;'}"><span class="material-icons">delete</span> 刪除</button>
             </div>
             <div class="sentence-actions">
+				<button class="action-icon-btn ai-transcribe-btn" id="ai-btn-${label}" title="單句 AI 填詞"><span class="material-icons">auto_fix_high</span></button>
                 <button class="action-icon-btn shift-time-btn" title="批次平移時間"><span class="material-icons">update</span></button>
                 <span class="sentence-time" id="time-${label}" title="從該句播放">--:--</span>
                 <button class="action-icon-btn clear-tag-btn" title="清除時間"><span class="material-icons">clear</span></button>
@@ -232,7 +237,16 @@ function renderSentenceList() {
                 updateSelectionUI(); 
             }
         });
-        
+		div.querySelector(`#ai-btn-${label}`)?.addEventListener('click', (e) => {
+            e.stopPropagation(); 
+            if (!isEditMode) return;
+            if (!timeDataMap[label]) return showToast('請先標記時間，AI 才知道要聽哪一段！', 'error');
+            
+            // 呼叫 2_audio_engine.js 中現成的強大批次引擎，並只傳入這「單一句子」
+            if (typeof startLocalAiBatchTranscribe === 'function') {
+                startLocalAiBatchTranscribe([label]);
+            }
+        });        
         textDisplay.addEventListener('click', (e) => {
             if (e.ctrlKey || e.metaKey || e.shiftKey) return; 
             currentActiveLabel = label; 

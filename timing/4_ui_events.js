@@ -277,20 +277,7 @@ clearTextBtn.addEventListener('click', () => {
 
 
 
-clearAllTagsBtn.addEventListener('click', () => { 
-    if (Object.keys(timeDataMap).length === 0) return showToast('無標記', 'error'); 
-    showCustomDialog({ 
-        title: '清空標記', 
-        message: '清除所有時間？', 
-        onConfirm: () => { 
-            if(typeof saveState === 'function') saveState(); // 紀錄狀態
-            timeDataMap = {}; 
-            saveToStorage(); 
-            if(typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays(); 
-            showToast('已清除', 'success'); 
-        } 
-    }); 
-});
+
 
 
 // ================= ★ 萬能音檔載入控制中心 ★ =================
@@ -630,6 +617,17 @@ document.getElementById('toggleClearBtnsBtn')?.addEventListener('click', (e) => 
     sentenceList.classList.toggle('show-clear-btns', showClearBtns); 
     updateBtnMenuItem('toggleClearBtnsBtn', showClearBtns, 'backspace', '清除按鈕');
 });
+document.getElementById('toggleTagBtnsBtn')?.addEventListener('click', (e) => { 
+    e.stopPropagation(); 
+    showTagBtns = !showTagBtns; 
+    sentenceList.classList.toggle('show-tag-btns', showTagBtns); 
+    updateBtnMenuItem('toggleTagBtnsBtn', showTagBtns, 'add_alarm', '標記按鈕');
+});
+document.getElementById('toggleAiBtnsBtn')?.addEventListener('click', (e) => { 
+    e.stopPropagation(); showAiBtns = !showAiBtns; 
+    sentenceList.classList.toggle('show-ai-btns', showAiBtns); 
+    updateBtnMenuItem('toggleAiBtnsBtn', showAiBtns, 'auto_fix_high', 'AI 填詞按鈕');
+});
 document.getElementById('toggleShiftBtnsBtn')?.addEventListener('click', (e) => { 
     e.stopPropagation(); showShiftBtns = !showShiftBtns; 
     sentenceList.classList.toggle('show-shift-btns', showShiftBtns); 
@@ -667,6 +665,7 @@ document.getElementById('toggleModeBtn')?.addEventListener('click', () => {
         if(showClearBtns) document.getElementById('toggleClearBtnsBtn')?.click(); 
         if(showShiftBtns) document.getElementById('toggleShiftBtnsBtn')?.click(); 
         if(showMoreBtns) document.getElementById('toggleMoreBtnsBtn')?.click(); 
+		if(showAiBtns) document.getElementById('toggleAiBtnsBtn')?.click();
         setupPanel.style.display = 'none';
     }
     
@@ -1463,7 +1462,26 @@ waveMoreMenu?.addEventListener('click', (e) => {
     e.stopPropagation(); 
 });
 
+// ================= ★ 新增：AI 辨識語言設定事件 ★ =================
+const transcribeLangSelect = document.getElementById('transcribeLangSelect');
 
+if (transcribeLangSelect) {
+    // 網頁載入時，從暫存讀取上一次設定的語言 (預設為 zh-TW)
+    const savedLang = localStorage.getItem('tagger_aiLanguage') || 'zh-TW';
+    transcribeLangSelect.value = savedLang;
+    
+    // 當使用者切換選單時
+    transcribeLangSelect.addEventListener('change', (e) => {
+        const selectedLang = e.target.value;
+        localStorage.setItem('tagger_aiLanguage', selectedLang); // 記住設定
+        
+        let langName = '繁體中文';
+        if (selectedLang === 'en') langName = '英文';
+        if (selectedLang === 'ja') langName = '日文';
+        
+        showToast(`AI 辨識語言已切換為：${langName}`, 'success');
+    });
+}
 
 // ================= 時間顯示精確度設定事件  =================
 const timeDecimalSelect = document.getElementById('timeDecimalSelect');
@@ -2673,66 +2691,133 @@ if (oldToggleBtn) {
         }
     });
 }
-// =========================================================================
 
-// ================= ★ 新增：清除文字與重置資料功能 (帶確認提示) ★ =================
 
-// 1. 清除列表文字 (只清空文字內容，保留標記時間)
-document.getElementById('clearListTextBtn')?.addEventListener('click', () => {
-    document.getElementById('editMenu')?.classList.remove('show');
-    if (allLabelsOrdered.length === 0) return showToast('目前沒有任何資料', 'error');
-    
-    if (confirm('確定要清除所有列表文字嗎？（時間標記將會保留）')) {
-        // 將所有句子的文字清空
-        sentenceTextMap = {};
-        allLabelsOrdered.forEach(label => { sentenceTextMap[label] = ""; });
-        
-        if (typeof saveState === 'function') saveState();
-        if (typeof saveToStorage === 'function') saveToStorage();
-        if (typeof renderSentenceList === 'function') renderSentenceList();
-        if (typeof populateScriptEditor === 'function' && typeof isScriptMode !== 'undefined' && isScriptMode) {
-            populateScriptEditor();
-        }
-        
-        showToast('已清除所有列表文字', 'success');
+
+// ================= ★ 全新：三大清除與刪除功能模組 (防幽靈事件版) ★ =================
+
+// 實用小工具：清除按鈕上所有舊的幽靈事件，再綁定新事件 (絕對不會跳兩次視窗)
+function cleanAndBindEvent(btnId, callback) {
+    const oldBtn = document.getElementById(btnId);
+    if (oldBtn) {
+        const newBtn = oldBtn.cloneNode(true);
+        oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+        newBtn.addEventListener('click', callback);
     }
+}
+
+// 1. 清除時間標記 (自動判斷是否刪除空行)
+cleanAndBindEvent('clearTimeTagsBtn', () => {
+    document.getElementById('editMenu')?.classList.remove('show');
+    if (Object.keys(timeDataMap).length === 0) return showToast('目前沒有時間資料', 'error');
+    
+    showCustomDialog({
+        title: '清除時間標記',
+        message: '確定要清除所有時間標記嗎？<br><br><span style="color:#666; font-size:0.9em;">(列表與聲波上的標記皆會清除。<strong style="color:#C62828;">若列表句子無文字，將會一併刪除該列</strong>)</span>',
+        onConfirm: () => {
+            if (typeof saveState === 'function') saveState(); 
+            
+            // 清除聲波區塊
+            if (typeof wavesurfer !== 'undefined' && wavesurfer && wavesurfer.regions) {
+                wavesurfer.regions.clear(); 
+            }
+
+            let rowDeleted = false;
+            const labelsToProcess = [...allLabelsOrdered]; 
+            
+            labelsToProcess.forEach(label => {
+                const text = sentenceTextMap[label] || '';
+                
+                // 條件 A：沒有文字 -> 連同標記整列刪除
+                if (text.trim() === '') {
+                    const idx = allLabelsOrdered.indexOf(label);
+                    if (idx > -1) {
+                        allLabelsOrdered.splice(idx, 1);
+                        delete sentenceTextMap[label];
+                        delete timeDataMap[label];
+                        rowDeleted = true;
+                    }
+                } 
+                // 條件 B：有文字 -> 保留該列，只清除時間
+                else {
+                    if (timeDataMap[label]) {
+                        delete timeDataMap[label];
+                    }
+                }
+            });
+
+            // 如果有刪除整列，呼叫重新排號並重繪畫面
+            if (rowDeleted && typeof reassignLabels === 'function') {
+                reassignLabels(); 
+            } else {
+                saveToStorage();
+                if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
+                if (typeof renderSentenceList === 'function') renderSentenceList();
+            }
+            
+            showToast('已清除時間標記', 'success');
+        }
+    });
 });
 
-// 2. 重置文字與標記 (清除時間標記、列表文字與聲波標記)
-document.getElementById('resetAllDataBtn')?.addEventListener('click', () => {
+// 2. 清空列表文字 (保留時間)
+cleanAndBindEvent('clearListTextBtn', () => {
     document.getElementById('editMenu')?.classList.remove('show');
-    if (allLabelsOrdered.length === 0 && Object.keys(timeDataMap).length === 0) return showToast('目前沒有任何資料', 'error');
+    if (allLabelsOrdered.length === 0) return showToast('目前沒有資料', 'error');
     
-    if (confirm('⚠️ 警告：確定要「重置文字與標記」嗎？\n\n這將會完全清除所有時間標記、列表文字與聲波標記，且無法復原！')) {
-        // 清空所有核心資料結構
-        timeDataMap = {};
-        sentenceTextMap = {};
-        allLabelsOrdered = [];
-        
-        // 清除 Wavesurfer 上的區間標記 (若有使用 regions 插件)
-        if (typeof wavesurfer !== 'undefined' && wavesurfer) {
-            if (wavesurfer.regions && typeof wavesurfer.regions.clear === 'function') {
+    showCustomDialog({
+        title: '清空列表文字',
+        message: '確定要清空列表文字嗎？<br><br><span style="color:#666; font-size:0.9em;">(將會清空所有句子的文字內容，但會<strong style="color:#00897B;">完全保留您的時間標記與聲波區塊</strong>)</span>',
+        onConfirm: () => {
+            if (typeof saveState === 'function') saveState();
+            
+            sentenceTextMap = {};
+            allLabelsOrdered.forEach(label => { sentenceTextMap[label] = ""; });
+            
+            saveToStorage();
+            if (typeof renderSentenceList === 'function') renderSentenceList();
+            if (typeof populateScriptEditor === 'function' && typeof isScriptMode !== 'undefined' && isScriptMode) {
+                populateScriptEditor();
+            }
+            showToast('已清空列表文字', 'success');
+        }
+    });
+});
+
+// 3. 刪除列表與標記 (徹底重置)
+cleanAndBindEvent('deleteAllDataBtn', () => {
+    document.getElementById('editMenu')?.classList.remove('show');
+    if (allLabelsOrdered.length === 0 && Object.keys(timeDataMap).length === 0) return showToast('目前沒有資料', 'error');
+    
+    showCustomDialog({
+        title: '刪除列表與標記',
+        message: '<span style="color:#C62828; font-weight:bold; font-size:1.1em;">⚠️ 嚴重警告</span><br><br>確定要刪除整個列表與標記嗎？<br><br>這將會徹底清空您的文字、時間數據與聲波標記，讓專案回到最初的空白狀態！',
+        confirmText: '確定刪除',
+        onConfirm: () => {
+            if (typeof saveState === 'function') saveState();
+            
+            timeDataMap = {};
+            sentenceTextMap = {};
+            allLabelsOrdered = [];
+            
+            if (typeof wavesurfer !== 'undefined' && wavesurfer && wavesurfer.regions) {
                 wavesurfer.regions.clear();
             }
+            
+            localStorage.removeItem('tagger_allLabels');
+            localStorage.removeItem('tagger_textMap');
+            localStorage.removeItem('tagger_timeDataMap');
+            
+            saveToStorage();
+            if (typeof renderSentenceList === 'function') renderSentenceList();
+            if (typeof checkButtonVisibility === 'function') checkButtonVisibility();
+            
+            if (typeof isScriptMode !== 'undefined' && isScriptMode) {
+                document.getElementById('toggleScriptModeBtn')?.click();
+            }
+            
+            showToast('已徹底刪除列表與標記', 'success');
         }
-        
-        // 清除本地儲存相關暫存
-        localStorage.removeItem('tagger_allLabels');
-        localStorage.removeItem('tagger_textMap');
-        localStorage.removeItem('tagger_timeDataMap');
-        
-        if (typeof saveState === 'function') saveState();
-        if (typeof saveToStorage === 'function') saveToStorage();
-        if (typeof renderSentenceList === 'function') renderSentenceList();
-        if (typeof checkButtonVisibility === 'function') checkButtonVisibility();
-        
-        // 如果目前剛好在全文模式，強制切回單句模式避免畫面異常
-        if (typeof isScriptMode !== 'undefined' && isScriptMode) {
-            const toggleBtn = document.getElementById('toggleScriptModeBtn');
-            if (toggleBtn) toggleBtn.click();
-        }
-        
-        showToast('已完全重置文字與標記', 'success');
-    }
+    });
 });
 // =========================================================================

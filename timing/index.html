@@ -187,12 +187,16 @@
                             
                             <div class="custom-dropdown-item hide-in-view" id="adjustPaddingBtn" style="display: none;"><span class="material-icons">settings_ethernet</span> 調整邊界</div>
                             <div class="custom-dropdown-item hide-in-view" id="mergeSelectedBtn" style="display: none;"><span class="material-icons">merge_type</span> 合併標記</div>
-                            <div class="custom-dropdown-item hide-in-view" id="clearAllTagsBtn"><span class="material-icons" style="color: #E53935;">delete_sweep</span> 清除時間標記</div>
+                            
+                            <!-- ★ 更新為全新的三個清除/刪除按鈕 -->
+                            <div style="border-top: 1px solid #E0E0E0; margin: 4px 0;"></div>
+                            
+                            <div class="custom-dropdown-item hide-in-view" id="clearTimeTagsBtn"><span class="material-icons" style="color: #F57F17;">timer_off</span> 清除時間標記</div>
+                            <div class="custom-dropdown-item hide-in-view" id="clearListTextBtn"><span class="material-icons" style="color: #E65100;">format_clear</span> 清空列表文字</div>
                             
                             <div style="border-top: 1px solid #E0E0E0; margin: 4px 0;"></div>
                             
-                            <div class="custom-dropdown-item hide-in-view" id="clearListTextBtn"><span class="material-icons" style="color: #FF9800;">text_format</span> 清除列表文字</div>
-                            <div class="custom-dropdown-item hide-in-view" id="resetAllDataBtn"><span class="material-icons" style="color: #D32F2F;">restart_alt</span> 重置文字與標記</div>
+                            <div class="custom-dropdown-item hide-in-view" id="deleteAllDataBtn"><span class="material-icons" style="color: #D32F2F;">delete_forever</span> 刪除列表與標記</div>
                         </div>
                     </div>
 
@@ -217,12 +221,16 @@
                         </div>
                     </div>
 
-                    <!-- ★ 原本的「3. 標記選單」區塊已經完全刪除 -->
-
                     <!-- 3. 按鈕選單 -->
                     <div style="position: relative; display: inline-block;" id="btnMenuContainer">
                         <button class="header-btn" id="btnMenuBtn"><span class="material-icons">smart_button</span> 按鈕</button>
                         <div class="custom-dropdown-menu" id="btnMenu" style="top: 100%; left: 0; min-width: 180px; z-index: 100;">
+                            
+                            <div class="custom-dropdown-item" id="toggleTagBtnsBtn" style="background-color: #E0F2F1; color: #00897B;">
+                                <span class="material-icons" style="color: #00897B;">add_alarm</span> 標記按鈕 <span class="material-icons" style="margin-left:auto; color:#00897B; font-size:1.1rem;">check</span>
+                            </div>
+
+                            <div class="custom-dropdown-item" id="toggleAiBtnsBtn"><span class="material-icons" style="color: #1976D2;">auto_fix_high</span> AI 填詞按鈕</div>
                             <div class="custom-dropdown-item" id="toggleShiftBtnsBtn"><span class="material-icons">update</span> 平移按鈕</div>
                             <div class="custom-dropdown-item" id="toggleClearBtnsBtn"><span class="material-icons">backspace</span> 清除按鈕</div>
                             <div class="custom-dropdown-item" id="toggleMoreBtnsBtn"><span class="material-icons">more_vert</span> 其他按鈕</div>
@@ -267,6 +275,19 @@
                     <option value="mp3">MP3 壓縮檔 (輕巧快速)</option>
                     <option value="wav" selected>WAV 無損原始檔</option>
                 </select>
+            </div>
+			<div class="sidebar-group">
+                <h4>AI 語音辨識設定</h4>
+                <div style="margin-bottom: 5px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">辨識語言</label>
+                    <select id="transcribeLangSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
+                        <option value="zh-TW" selected>繁體中文 (預設)</option>
+                        <option value="en">英文 (English)</option>
+                        <option value="ja">日文 (日本語)</option>
+
+                    </select>
+                    <span style="font-size: 0.8rem; color: #666; display: block; margin-top: 6px; line-height: 1.4;">設定適用於「一鍵 AI 字幕」與「AI 批次填詞」</span>
+                </div>
             </div>
 			<!-- 循環播放設定區塊 -->
             <div class="sidebar-group">

@@ -173,6 +173,8 @@ let currentLoopCounter = 0;
 let showShiftBtns = false;
 let showClearBtns = false;
 let showMoreBtns = false; 
+let showAiBtns = false;
+let showTagBtns = true;
 
 const waveHeights = [60, 100, 140]; 
 const fontSizes = [16, 18, 20, 22, 24];

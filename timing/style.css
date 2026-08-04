@@ -324,6 +324,10 @@ body.is-view-mode .sentence-item.playing { border-left: 4px solid #00897B; }
 .clear-tag-btn { display: none; background: #FFEBEE; color: #C62828; border: 1px solid #EF9A9A; width: 24px; height: 24px; flex: 0 0 24px; }
 .clear-tag-btn .material-icons { font-size: 1rem; }
 
+.ai-transcribe-btn { display: none; background: #E3F2FD; color: #1976D2; border: 1px solid #BBDEFB; }
+.show-ai-btns .sentence-item.tagged .ai-transcribe-btn { display: flex; }
+body.is-view-mode .sentence-item .ai-transcribe-btn { display: none !important; }
+
 .inline-delete-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #FFEBEE; color: #C62828; border: 1px solid #EF9A9A; border-radius: 4px; padding: 6px 10px; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 4px; z-index: 10; min-width: auto; font-weight: bold;}
 .inline-delete-btn:hover { background: #FFCDD2; }
 .inline-delete-btn .material-icons { font-size: 1.1rem; }
@@ -337,7 +341,7 @@ body.is-view-mode .inline-delete-btn { display: none !important; }
 .item-more-menu hr { margin: 4px 0; border: none; border-bottom: 1px solid #EEE; }
 .item-more-menu .custom-dropdown-item { padding: 8px 16px; display: flex; align-items: center; gap: 8px;}
 
-.is-edit-mode .sentence-item .tag-time-btn { display: flex; }
+.show-tag-btns .sentence-item .tag-time-btn { display: flex; }
 .show-clear-btns .sentence-item.tagged .clear-tag-btn { display: flex; }
 .show-shift-btns .sentence-item.tagged .shift-time-btn { display: flex; }
 body.is-view-mode .hide-in-view { display: none !important; }

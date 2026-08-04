@@ -754,7 +754,8 @@ async function startLocalAiBatchTranscribe(targetLabels) {
     
     // 語言轉換設定
     const langSelect = document.getElementById('transcribeLangSelect');
-    const langCode = langSelect ? langSelect.value : 'zh-TW';
+    const langCode = langSelect ? langSelect.value : (localStorage.getItem('tagger_aiLanguage') || 'zh-TW');
+    
     let modelLang = 'chinese';
     if (langCode.includes('en')) modelLang = 'english';
     if (langCode.includes('ja')) modelLang = 'japanese';
@@ -828,12 +829,21 @@ async function startLocalAiBatchTranscribe(targetLabels) {
 
     if (typeof saveState === 'function') saveState(); // 紀錄狀態以便 Undo
 
+    // =====================================
+    // 讀取 UI 設定的語言
+    // =====================================
+    const langSelect = document.getElementById('transcribeLangSelect');
+    const langCode = langSelect ? langSelect.value : (localStorage.getItem('tagger_aiLanguage') || 'zh-TW');
+    
+    let modelLang = 'chinese'; // 預設傳給 AI 的參數
+    if (langCode.includes('en')) modelLang = 'english';
+    if (langCode.includes('ja')) modelLang = 'japanese';
+
     // 啟動 Worker
-    whisperWorker.postMessage({
-        type: 'transcribe_batch',
-        audioData: audio16kHzData,
-        language: modelLang,
-        segments: segmentsData
+    whisperWorker.postMessage({ 
+        type: 'transcribe', 
+        audioData: audio16kHzData, 
+        language: modelLang // 套用選擇的語言
     });
 }
 // =========================================================================
