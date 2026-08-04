@@ -284,9 +284,29 @@
                         <option value="zh-TW" selected>繁體中文 (預設)</option>
                         <option value="en">英文 (English)</option>
                         <option value="ja">日文 (日本語)</option>
-
+                        <option value="nan">台灣閩南語 (台語)</option>
+                        
+                        <!-- 擴充：客語專屬腔調群組 -->
+                        <optgroup label="台灣客語 (Whisper Large V3)">
+                            <option value="htia_sixian">客語 - 四縣腔</option>
+                            <option value="htia_hailu">客語 - 海陸腔</option>
+                            <option value="htia_dapu">客語 - 大埔腔</option>
+                            <option value="htia_raoping">客語 - 饒平腔</option>
+                            <option value="htia_zhaoan">客語 - 詔安腔</option>
+                            <option value="htia_nansixian">客語 - 南四縣腔</option>
+                        </optgroup>
                     </select>
                     <span style="font-size: 0.8rem; color: #666; display: block; margin-top: 6px; line-height: 1.4;">設定適用於「一鍵 AI 字幕」與「AI 批次填詞」</span>
+                </div>
+                
+                <!-- 擴充：離線模型主動下載區塊 -->
+                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed #E0E0E0;">
+                    <button id="downloadModelBtn" class="btn-outline" style="width: 100%; border-radius: 6px; margin-bottom: 8px;">
+                        <span class="material-icons">cloud_download</span> 預先下載離線模型
+                    </button>
+                    <div id="modelDownloadStatus" style="font-size: 0.85rem; color: #00897B; text-align: center; font-weight: bold; display: none;">
+                        準備下載...
+                    </div>
                 </div>
             </div>
 			<!-- 循環播放設定區塊 -->
