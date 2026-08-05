@@ -1,41 +1,18 @@
 // ================= 7_worker_whisper.js: 本地端 AI 語音辨識引擎 =================
 import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.16.0';
 
-// ★ 核心設定：完美的離線 AI 機制
-env.allowLocalModels = false;    
-env.allowRemoteModels = true;    
-env.useBrowserCache = true;      // ★ 強制啟用瀏覽器快取！模型下載後永久存於本機
-
+env.allowLocalModels = false;
 let transcriber = null;
-let currentModelId = null;
 
 self.onmessage = async (e) => {
-    // 接收從主程式傳來的指令、音檔、語言與模型 ID
-    const { type, audioData, language, segments, modelId, isLocal } = e.data;
+    // 新增接收 segments (時間片段陣列)
+    const { type, audioData, language, segments } = e.data;
 
     try {
-        // 1. 初始化或切換模型
-        // 如果使用者切換了語言導致模型不同，必須清空記憶體重新載入
-        if (transcriber && currentModelId !== modelId) {
-            transcriber = null;
-        }
-
+        // 1. 初始化模型
         if (!transcriber) {
             self.postMessage({ status: 'loading', percent: 0 });
-            currentModelId = modelId || 'Xenova/whisper-tiny';
-
-            // 動態切換讀取策略 (支援未來你自己轉好的 ONNX 模型)
-            if (isLocal) {
-                env.allowLocalModels = true;
-                env.allowRemoteModels = false;
-                env.localModelPath = './models/'; 
-            } else {
-                env.allowLocalModels = false;
-                env.allowRemoteModels = true;
-            }
-
-            // 啟動 pipeline：若本機沒快取就會去下載；有快取則瞬間載入
-            transcriber = await pipeline('automatic-speech-recognition', currentModelId, {
+            transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny', {
                 progress_callback: data => {
                     if (data.status === 'progress') {
                         let percent = 0;
@@ -48,14 +25,6 @@ self.onmessage = async (e) => {
         }
 
         // ==============================================================
-        // 模式 C：純下載模型 (Preload)，不做語音辨識
-        // ==============================================================
-        if (type === 'preload') {
-            self.postMessage({ status: 'preload_complete' });
-            return; // 任務結束
-        }
-
-        // ==============================================================
         // 模式 A：一鍵全自動 (AI 自己斷句 + 聽打)
         // ==============================================================
         if (type === 'transcribe') {
@@ -63,7 +32,7 @@ self.onmessage = async (e) => {
             const result = await transcriber(audioData, {
                 chunk_length_s: 30,      
                 stride_length_s: 5,      
-                return_timestamps: true, 
+                return_timestamps: true, // 開啟 AI 時間標記
                 language: language || 'chinese',
                 task: 'transcribe'
             });
@@ -76,20 +45,24 @@ self.onmessage = async (e) => {
         else if (type === 'transcribe_batch') {
             self.postMessage({ status: 'processing', message: '模型就緒！開始批次填詞...' });
             
+            // 針對每一句切出音軌，單獨交給 AI
             for (let i = 0; i < segments.length; i++) {
                 const seg = segments[i];
                 
+                // 16kHz 取樣率，將秒數轉為陣列索引 (Index)
                 const startSample = Math.floor(seg.start * 16000);
                 const endSample = Math.floor(seg.end * 16000);
-                const slice = audioData.slice(startSample, endSample);
+                const slice = audioData.slice(startSample, endSample); // 切割 Float32Array
 
                 if (slice.length > 0) {
+                    // return_timestamps: false 讓模型專注於聽打，速度極快！
                     const result = await transcriber(slice, {
                         language: language || 'chinese',
                         task: 'transcribe',
                         return_timestamps: false 
                     });
 
+                    // 每完成一句，就即時回傳給主畫面更新 UI
                     self.postMessage({
                         status: 'progress_batch',
                         label: seg.label,
@@ -99,6 +72,7 @@ self.onmessage = async (e) => {
                     });
                 }
             }
+            // 全數處理完畢
             self.postMessage({ status: 'complete_batch' });
         }
 

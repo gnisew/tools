@@ -574,7 +574,9 @@ window.processBatchLocalFiles = async function(fileList, paddingSec, autoPara) {
     };
 };
 
+
 // ================= ★ 本地端 WebAssembly Whisper AI 引擎 ★ =================
+
 async function resampleAudioTo16kHz(audioBuffer) {
     const targetSampleRate = 16000;
     const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(
@@ -591,158 +593,174 @@ async function resampleAudioTo16kHz(audioBuffer) {
 const localAiSubtitleBtn = document.getElementById('localAiSubtitleBtn');
 
 localAiSubtitleBtn?.addEventListener('click', async () => {
-    if (!wavesurfer || !wavesurfer.getDecodedData()) return showToast('請先載入音檔並等待分析完成', 'error');
+    if (!wavesurfer || !wavesurfer.getDecodedData()) {
+        return showToast('請先載入音檔並等待分析完成', 'error');
+    }
 
-    // ★ 更新：清楚說明離線模型下載機制的對話框
-    const dialogMessage = '即將啟動 AI 語音辨識。<br><br><span style="color:#1976D2; font-weight:bold;">💡 離線模型機制：</span><br>初次使用此語言將自動下載模型並永久儲存於本機。<strong style="color:#00897B;">下載完成後，未來即可完全離線使用！</strong><br><br>' + (allLabelsOrdered.length > 0 ? '<span style="color:#C62828;">注意：此動作將會清空並覆蓋您目前的進度。</span><br><br>' : '') + '確定繼續嗎？';
-
-    showCustomDialog({
-        title: '執行全自動 AI 字幕',
-        message: dialogMessage,
-        confirmText: '確定執行',
-        onConfirm: () => startLocalAiTranscription()
-    });
+    if (allLabelsOrdered.length > 0) {
+        showCustomDialog({
+            title: '執行全自動 AI 字幕',
+            message: '此操作將呼叫本地端 AI 進行全自動聽打與時間標記。<br>初次使用將自動下載模型(約150MB)。<br><strong style="color:#C62828;">此動作將會清空並覆蓋您目前的進度。</strong><br><br>確定繼續嗎？',
+            onConfirm: () => startLocalAiTranscription()
+        });
+    } else {
+        startLocalAiTranscription();
+    }
 });
 
 async function startLocalAiTranscription() {
     const audioBuffer = wavesurfer.getDecodedData();
-    const originalBtnHtml = localAiSubtitleBtn.innerHTML; 
+    const originalBtnHtml = localAiSubtitleBtn.innerHTML; // 記住按鈕原本的長相
     
+    // UI 狀態：鎖定按鈕避免重複點擊
     localAiSubtitleBtn.style.pointerEvents = 'none';
     localAiSubtitleBtn.innerHTML = `<span class="material-icons rotating">hourglass_empty</span> 準備音訊中...`;
     
     let audio16kHzData;
-    try { audio16kHzData = await resampleAudioTo16kHz(audioBuffer); } 
-    catch (err) { localAiSubtitleBtn.innerHTML = originalBtnHtml; localAiSubtitleBtn.style.pointerEvents = 'auto'; return showToast('音訊轉換失敗', 'error'); }
-
-    const whisperWorker = new Worker('7_worker_whisper_2.js', { type: 'module' });
-
-    // =====================================
-    // ★ 路由邏輯：判斷模型與腔調
-    // =====================================
-    const langSelect = document.getElementById('transcribeLangSelect');
-    const langCode = langSelect ? langSelect.value : (localStorage.getItem('tagger_aiLanguage') || 'zh-TW');
-    
-    let modelLang = 'chinese';
-    let targetModelId = 'Xenova/whisper-tiny'; 
-    let isLocalModel = false;
-    
-    // 定義客語的 6 種腔調 ID
-    const hakkaDialects = ['htia_sixian', 'htia_hailu', 'htia_dapu', 'htia_raoping', 'htia_zhaoan', 'htia_nansixian'];
-
-    if (langCode.includes('en')) modelLang = 'english';
-    if (langCode.includes('ja')) modelLang = 'japanese';
-    
-    // 若為客語，語言傳遞腔調 ID，並切換至 formospeech 模型
-    if (hakkaDialects.includes(langCode)) { 
-        modelLang = langCode; 
-        targetModelId = 'formospeech/whisper-large-v3-taiwanese-hakka'; 
-    } else if (langCode === 'nan') { 
-        modelLang = 'chinese'; 
-        targetModelId = 'whisper-small-nan'; 
-        isLocalModel = true; 
+    try {
+        audio16kHzData = await resampleAudioTo16kHz(audioBuffer);
+    } catch (err) {
+        localAiSubtitleBtn.innerHTML = originalBtnHtml;
+        localAiSubtitleBtn.style.pointerEvents = 'auto';
+        return showToast('音訊格式轉換失敗', 'error');
     }
-    // =====================================
+
+    // ★ 關鍵修復點：必須加上 { type: 'module' } 且檔名需完全對應
+    const whisperWorker = new Worker('7_worker_whisper.js', { type: 'module' });
 
     whisperWorker.onmessage = function(e) {
         const data = e.data;
+        
         if (data.status === 'loading') {
-            localAiSubtitleBtn.innerHTML = `<span class="material-icons rotating">cloud_download</span> 下載模型 ${data.percent || 0}%`;
+            // UI 動態更新：顯示下載進度
+            const percent = data.percent || 0;
+            localAiSubtitleBtn.innerHTML = `<span class="material-icons rotating">cloud_download</span> 下載 AI 模型 ${percent}%`;
+            
         } else if (data.status === 'processing') {
+            // UI 動態更新：下載完成，開始語音辨識
             localAiSubtitleBtn.innerHTML = `<span class="material-icons rotating">sync</span> 正在聽打與標記...`;
             showToast(data.message, 'normal');
+            
         } else if (data.status === 'error') {
-            showToast('AI 處理失敗，請查看控制台', 'error'); console.error(data.message);
-            localAiSubtitleBtn.innerHTML = originalBtnHtml; localAiSubtitleBtn.style.pointerEvents = 'auto'; whisperWorker.terminate();
+            showToast('AI 處理失敗，請查看控制台', 'error');
+            console.error(data.message);
+            // 恢復 UI 狀態
+            localAiSubtitleBtn.innerHTML = originalBtnHtml;
+            localAiSubtitleBtn.style.pointerEvents = 'auto';
+            whisperWorker.terminate();
+            
         } else if (data.status === 'complete') {
             const chunks = data.result; 
-            if (!chunks || chunks.length === 0) { showToast('AI 聽不到任何內容', 'error'); localAiSubtitleBtn.innerHTML = originalBtnHtml; localAiSubtitleBtn.style.pointerEvents = 'auto'; whisperWorker.terminate(); return; }
+            
+            if (!chunks || chunks.length === 0) {
+                showToast('AI 聽不到任何內容', 'error');
+                localAiSubtitleBtn.innerHTML = originalBtnHtml;
+                localAiSubtitleBtn.style.pointerEvents = 'auto';
+                whisperWorker.terminate(); return;
+            }
 
             if (typeof saveState === 'function') saveState();
+
+            // 匯入資料邏輯
             allLabelsOrdered = []; sentenceTextMap = {}; timeDataMap = {};
             chunks.forEach((chunk, index) => {
                 const startTime = chunk.timestamp[0];
-                let endTime = chunk.timestamp[1] || audioPlayer.duration;
-                const label = `${String.fromCharCode(65 + Math.floor(index / 99))}${(index % 99 + 1).toString().padStart(2, '0')}`;
-                allLabelsOrdered.push(label); sentenceTextMap[label] = chunk.text.trim();
+                let endTime = chunk.timestamp[1];
+                if (endTime === null || endTime === undefined) endTime = audioPlayer.duration;
+
+                const group = Math.floor(index / 99);
+                const num = (index % 99) + 1;
+                const prefix = String.fromCharCode(65 + group);
+                const label = `${prefix}${num.toString().padStart(2, '0')}`;
+
+                allLabelsOrdered.push(label);
+                sentenceTextMap[label] = chunk.text.trim();
                 timeDataMap[label] = { start: parseFloat(startTime.toFixed(3)), end: parseFloat(endTime.toFixed(3)) };
             });
 
             saveToStorage();
             if (typeof renderSentenceList === 'function') renderSentenceList();
             if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
-            if (typeof populateScriptEditor === 'function' && typeof isScriptMode !== 'undefined' && isScriptMode) populateScriptEditor();
+            if (typeof isScriptMode !== 'undefined' && isScriptMode && typeof populateScriptEditor === 'function') {
+                populateScriptEditor();
+            }
             
             showToast(`一鍵 AI 字幕完成！共生成 ${chunks.length} 句。`, 'success');
-            localAiSubtitleBtn.innerHTML = originalBtnHtml; localAiSubtitleBtn.style.pointerEvents = 'auto'; whisperWorker.terminate(); 
+            
+            // 恢復 UI 狀態
+            localAiSubtitleBtn.innerHTML = originalBtnHtml;
+            localAiSubtitleBtn.style.pointerEvents = 'auto';
+            whisperWorker.terminate(); 
         }
     };
 
-    whisperWorker.postMessage({ type: 'transcribe', audioData: audio16kHzData, language: modelLang, modelId: targetModelId, isLocal: isLocalModel });
+    // 啟動 Worker
+    whisperWorker.postMessage({ type: 'transcribe', audioData: audio16kHzData, language: 'chinese' });
 }
 
-// ================= ★ AI 批次填詞 (單句與多句) ★ =================
+// ================= ★ 新增：AI 批次填詞 (保留標記，僅轉文字) ★ =================
 const localAiTranscribeBtn = document.getElementById('localAiTranscribeBtn');
 
 localAiTranscribeBtn?.addEventListener('click', async () => {
-    if (!wavesurfer || !wavesurfer.getDecodedData()) return showToast('請先載入音檔並等待分析完成', 'error');
+    if (!wavesurfer || !wavesurfer.getDecodedData()) {
+        return showToast('請先載入音檔並等待分析完成', 'error');
+    }
 
+    // 1. 篩選出目前「有時間標記」的句子
     const labelsWithTime = allLabelsOrdered.filter(label => timeDataMap[label] !== undefined);
-    if (labelsWithTime.length === 0) return showToast('目前沒有任何時間標記，請先進行斷句或標記', 'error');
+    if (labelsWithTime.length === 0) {
+        return showToast('目前沒有任何時間標記，請先進行斷句或標記', 'error');
+    }
 
+    // 2. 篩選出「沒有文字」的句子
     let targetLabels = labelsWithTime.filter(label => !(sentenceTextMap[label] || '').trim());
-    if (targetLabels.length === 0) targetLabels = labelsWithTime; // 若無空白，則覆寫全部
 
-    // ★ 更新：清楚說明離線模型下載機制的對話框
-    showCustomDialog({
-        title: 'AI 批次填詞',
-        message: `將使用 AI 為 <strong style="color:#1976D2;">${targetLabels.length}</strong> 個標記填寫文字，並保留您原本的時間斷點。<br><br><span style="color:#1976D2; font-weight:bold;">💡 離線模型機制：</span><br>初次使用將自動下載模型至本機，未來即可完全離線辨識。<br><br>確定繼續嗎？`,
-        confirmText: '確定執行',
-        onConfirm: () => startLocalAiBatchTranscribe(targetLabels)
-    });
+    if (targetLabels.length === 0) {
+        // 如果全部都有文字了，詢問是否要覆寫全部
+        showCustomDialog({
+            title: '覆寫文字確認',
+            message: '目前所有的標記都已經有文字了。<br>您要使用 AI 重新聽打並<strong style="color:#C62828;">覆寫所有句子的文字</strong>嗎？<br>(不會更改您的時間標記)',
+            onConfirm: () => startLocalAiBatchTranscribe(labelsWithTime)
+        });
+    } else {
+        // 正常狀態：幫空白的標記填入文字
+        showCustomDialog({
+            title: 'AI 批次填詞',
+            message: `將使用本地端 AI 為 <strong style="color:#1976D2;">${targetLabels.length}</strong> 個空白標記填入文字。<br>系統將保留您原本精準的時間斷點。<br><br>確定繼續嗎？`,
+            onConfirm: () => startLocalAiBatchTranscribe(targetLabels)
+        });
+    }
 });
 
 async function startLocalAiBatchTranscribe(targetLabels) {
     const audioBuffer = wavesurfer.getDecodedData();
-    
-    if (localAiTranscribeBtn) {
-        localAiTranscribeBtn.style.pointerEvents = 'none';
-        localAiTranscribeBtn.innerHTML = `<span class="material-icons rotating">hourglass_empty</span> 準備音訊中...`;
-    }
+    const originalBtnHtml = localAiTranscribeBtn.innerHTML;
 
+    // 鎖定 UI 狀態
+    localAiTranscribeBtn.style.pointerEvents = 'none';
+    localAiTranscribeBtn.innerHTML = `<span class="material-icons rotating">hourglass_empty</span> 準備音訊中...`;
+
+    // 重採樣為 16kHz
     let audio16kHzData;
-    try { audio16kHzData = await resampleAudioTo16kHz(audioBuffer); } 
-    catch (err) { 
-        if(localAiTranscribeBtn) { localAiTranscribeBtn.innerHTML = `<span class="material-icons" style="color: #1976D2;">translate</span> AI 批次填詞`; localAiTranscribeBtn.style.pointerEvents = 'auto'; }
-        return showToast('音訊格式轉換失敗', 'error'); 
+    try {
+        audio16kHzData = await resampleAudioTo16kHz(audioBuffer);
+    } catch (err) {
+        localAiTranscribeBtn.innerHTML = originalBtnHtml;
+        localAiTranscribeBtn.style.pointerEvents = 'auto';
+        return showToast('音訊格式轉換失敗', 'error');
     }
 
-    const whisperWorker = new Worker('7_worker_whisper_2.js', { type: 'module' });
+    const whisperWorker = new Worker('7_worker_whisper.js', { type: 'module' });
     
-    // =====================================
-    // ★ 路由邏輯：判斷模型與腔調
-    // =====================================
+    // 語言轉換設定
     const langSelect = document.getElementById('transcribeLangSelect');
     const langCode = langSelect ? langSelect.value : (localStorage.getItem('tagger_aiLanguage') || 'zh-TW');
     
     let modelLang = 'chinese';
-    let targetModelId = 'Xenova/whisper-tiny'; 
-    let isLocalModel = false;
-    const hakkaDialects = ['htia_sixian', 'htia_hailu', 'htia_dapu', 'htia_raoping', 'htia_zhaoan', 'htia_nansixian'];
-
     if (langCode.includes('en')) modelLang = 'english';
     if (langCode.includes('ja')) modelLang = 'japanese';
-    
-    if (hakkaDialects.includes(langCode)) { 
-        modelLang = langCode; 
-        targetModelId = 'formospeech/whisper-large-v3-taiwanese-hakka'; 
-    } else if (langCode === 'nan') { 
-        modelLang = 'chinese'; 
-        targetModelId = 'whisper-small-nan'; 
-        isLocalModel = true; 
-    }
-    // =====================================
 
+    // 打包時間資料給 Worker
     const segmentsData = targetLabels.map(label => {
         const times = getCalculatedTimes(label);
         return { label: label, start: times.start, end: times.end };
@@ -750,38 +768,79 @@ async function startLocalAiBatchTranscribe(targetLabels) {
 
     whisperWorker.onmessage = function(e) {
         const data = e.data;
+
         if (data.status === 'loading') {
-            if(localAiTranscribeBtn) localAiTranscribeBtn.innerHTML = `<span class="material-icons rotating">cloud_download</span> 模型 ${data.percent || 0}%`;
-        } else if (data.status === 'processing') {
-            if(localAiTranscribeBtn) localAiTranscribeBtn.innerHTML = `<span class="material-icons rotating">sync</span> 辨識中...`;
+            const percent = data.percent || 0;
+            localAiTranscribeBtn.innerHTML = `<span class="material-icons rotating">cloud_download</span> 模型 ${percent}%`;
+        } 
+        else if (data.status === 'processing') {
+            localAiTranscribeBtn.innerHTML = `<span class="material-icons rotating">sync</span> 辨識中...`;
             showToast(data.message, 'normal');
-        } else if (data.status === 'progress_batch') {
-            if(localAiTranscribeBtn) localAiTranscribeBtn.innerHTML = `<span class="material-icons rotating">sync</span> 辨識 ${data.current}/${data.total}`;
-            sentenceTextMap[data.label] = data.text; 
-            const itemDiv = document.getElementById(`item-${data.label}`);
+        } 
+        else if (data.status === 'progress_batch') {
+            // 即時動態回饋：更新單一句子的文字並捲動畫面
+            localAiTranscribeBtn.innerHTML = `<span class="material-icons rotating">sync</span> 辨識 ${data.current}/${data.total}`;
+            
+            const label = data.label;
+            const text = data.text;
+            sentenceTextMap[label] = text; // 寫入資料
+
+            // 即時更新畫面上的文字框
+            const itemDiv = document.getElementById(`item-${label}`);
             if (itemDiv) {
                 const textDisplay = itemDiv.querySelector('.sentence-text-display');
-                if (textDisplay) textDisplay.textContent = data.text;
-                itemDiv.dataset.rawText = data.text;
+                if (textDisplay) textDisplay.textContent = text;
+                itemDiv.dataset.rawText = text;
+                
                 const deleteBtn = Array.from(itemDiv.querySelectorAll('button')).find(btn => btn.textContent.includes('刪除'));
-                if (deleteBtn) deleteBtn.remove();
-                if (currentSortMode === 'default' && typeof smartScrollTo === 'function') smartScrollTo(itemDiv);
+                if (deleteBtn) {
+                    deleteBtn.remove();
+                }
+                
+                // 畫面智慧捲動跟隨
+                if (currentSortMode === 'default' && typeof smartScrollTo === 'function') {
+                    smartScrollTo(itemDiv);
+                }
             }
+            
             saveToStorage();
-            if (typeof isScriptMode !== 'undefined' && isScriptMode && typeof populateScriptEditor === 'function') populateScriptEditor();
-        } else if (data.status === 'error') {
+            
+            // 如果在大編輯框模式，同步更新
+            if (typeof isScriptMode !== 'undefined' && isScriptMode && typeof populateScriptEditor === 'function') {
+                populateScriptEditor();
+            }
+        } 
+        else if (data.status === 'error') {
             showToast('AI 處理失敗，請查看控制台', 'error');
-            if(localAiTranscribeBtn) { localAiTranscribeBtn.innerHTML = `<span class="material-icons" style="color: #1976D2;">translate</span> AI 批次填詞`; localAiTranscribeBtn.style.pointerEvents = 'auto'; }
+            localAiTranscribeBtn.innerHTML = originalBtnHtml;
+            localAiTranscribeBtn.style.pointerEvents = 'auto';
             whisperWorker.terminate();
-        } else if (data.status === 'complete_batch') {
-            showToast(`AI 填詞完成！共填入 ${segmentsData.length} 句。`, 'success');
-            if(localAiTranscribeBtn) { localAiTranscribeBtn.innerHTML = `<span class="material-icons" style="color: #1976D2;">translate</span> AI 批次填詞`; localAiTranscribeBtn.style.pointerEvents = 'auto'; }
+        } 
+        else if (data.status === 'complete_batch') {
+            showToast(`AI 批次填詞完成！共填入 ${segmentsData.length} 句。`, 'success');
+            localAiTranscribeBtn.innerHTML = originalBtnHtml;
+            localAiTranscribeBtn.style.pointerEvents = 'auto';
+            
             if (typeof renderSentenceList === 'function') renderSentenceList();
+            
             whisperWorker.terminate();
         }
     };
 
-    if (typeof saveState === 'function') saveState(); 
-    whisperWorker.postMessage({ type: 'transcribe_batch', audioData: audio16kHzData, language: modelLang, segments: segmentsData, modelId: targetModelId, isLocal: isLocalModel });
+    if (typeof saveState === 'function') saveState(); // 紀錄狀態以便 Undo
+
+    // =====================================
+    // 讀取 UI 設定的語言
+    // =====================================
+
+    if (langCode.includes('en')) modelLang = 'english';
+    if (langCode.includes('ja')) modelLang = 'japanese';
+
+    // 啟動 Worker
+    whisperWorker.postMessage({ 
+        type: 'transcribe', 
+        audioData: audio16kHzData, 
+        language: modelLang // 套用選擇的語言
+    });
 }
 // =========================================================================

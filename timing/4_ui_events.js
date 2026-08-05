@@ -1462,6 +1462,26 @@ waveMoreMenu?.addEventListener('click', (e) => {
     e.stopPropagation(); 
 });
 
+// ================= ★ 新增：AI 辨識語言設定事件 ★ =================
+const transcribeLangSelect = document.getElementById('transcribeLangSelect');
+
+if (transcribeLangSelect) {
+    // 網頁載入時，從暫存讀取上一次設定的語言 (預設為 zh-TW)
+    const savedLang = localStorage.getItem('tagger_aiLanguage') || 'zh-TW';
+    transcribeLangSelect.value = savedLang;
+    
+    // 當使用者切換選單時
+    transcribeLangSelect.addEventListener('change', (e) => {
+        const selectedLang = e.target.value;
+        localStorage.setItem('tagger_aiLanguage', selectedLang); // 記住設定
+        
+        let langName = '繁體中文';
+        if (selectedLang === 'en') langName = '英文';
+        if (selectedLang === 'ja') langName = '日文';
+        
+        showToast(`AI 辨識語言已切換為：${langName}`, 'success');
+    });
+}
 
 // ================= 時間顯示精確度設定事件  =================
 const timeDecimalSelect = document.getElementById('timeDecimalSelect');
@@ -2799,87 +2819,5 @@ cleanAndBindEvent('deleteAllDataBtn', () => {
             showToast('已徹底刪除列表與標記', 'success');
         }
     });
-});
-// =========================================================================
-
-// ================= ★ 新增：AI 辨識語言設定事件與下載引擎 ★ =================
-const transcribeLangSelect = document.getElementById('transcribeLangSelect');
-
-if (transcribeLangSelect) {
-    // 網頁載入時，從暫存讀取上一次設定的語言 (預設為 zh-TW)
-    const savedLang = localStorage.getItem('tagger_aiLanguage') || 'zh-TW';
-    transcribeLangSelect.value = savedLang;
-    
-    // 當使用者切換選單時
-    transcribeLangSelect.addEventListener('change', (e) => {
-        const selectedLang = e.target.value;
-        localStorage.setItem('tagger_aiLanguage', selectedLang); // 記住設定
-        
-        // 判定顯示的語言名稱
-        const langNames = {
-            'zh-TW': '繁體中文', 'en': '英文', 'ja': '日文', 'nan': '台灣閩南語',
-            'htia_sixian': '客語 (四縣腔)', 'htia_hailu': '客語 (海陸腔)', 
-            'htia_dapu': '客語 (大埔腔)', 'htia_raoping': '客語 (饒平腔)', 
-            'htia_zhaoan': '客語 (詔安腔)', 'htia_nansixian': '客語 (南四縣腔)'
-        };
-        const langName = langNames[selectedLang] || selectedLang;
-        showToast(`AI 辨識語言已切換為：${langName}`, 'success');
-    });
-}
-
-// ================= 離線模型預先下載引擎 =================
-const downloadModelBtn = document.getElementById('downloadModelBtn');
-const modelDownloadStatus = document.getElementById('modelDownloadStatus');
-
-downloadModelBtn?.addEventListener('click', () => {
-    const langSelect = document.getElementById('transcribeLangSelect');
-    const langCode = langSelect ? langSelect.value : 'zh-TW';
-
-    let targetModelId = 'Xenova/whisper-tiny'; 
-    let isLocalModel = false;
-    
-    const hakkaDialects = ['htia_sixian', 'htia_hailu', 'htia_dapu', 'htia_raoping', 'htia_zhaoan', 'htia_nansixian'];
-
-    // 路由：判斷是否為客語模型
-    if (hakkaDialects.includes(langCode)) { 
-        // ★ 未來若你自己轉檔上傳，請替換為 '你的帳號名稱/你的模型名稱'
-        targetModelId = 'formospeech/whisper-large-v3-taiwanese-hakka'; 
-    } else if (langCode === 'nan') {
-        targetModelId = 'whisper-small-nan'; 
-        isLocalModel = true; // 假設台語是放本地資料夾
-    }
-
-    // 鎖定按鈕，顯示進度 UI
-    downloadModelBtn.disabled = true;
-    downloadModelBtn.style.opacity = '0.5';
-    modelDownloadStatus.style.display = 'block';
-    modelDownloadStatus.innerHTML = '<span class="material-icons rotating" style="font-size:1rem; vertical-align:middle;">sync</span> 連線中...';
-
-    // 呼叫 Worker 進行純下載
-    const whisperWorker = new Worker('7_worker_whisper.js', { type: 'module' });
-
-    whisperWorker.onmessage = function(e) {
-        const data = e.data;
-        if (data.status === 'loading') {
-            const percent = data.percent || 0;
-            modelDownloadStatus.innerHTML = `<span class="material-icons" style="font-size:1rem; vertical-align:middle;">cloud_download</span> 下載進度：${percent}%`;
-        } else if (data.status === 'preload_complete') {
-            modelDownloadStatus.innerHTML = `<span class="material-icons" style="font-size:1rem; vertical-align:middle; color:#43A047;">check_circle</span> 下載完成！已存入本機`;
-            modelDownloadStatus.style.color = '#43A047';
-            downloadModelBtn.disabled = false;
-            downloadModelBtn.style.opacity = '1';
-            showToast('模型已成功存入瀏覽器快取，可離線使用！', 'success');
-            whisperWorker.terminate();
-        } else if (data.status === 'error') {
-            modelDownloadStatus.innerHTML = `<span class="material-icons" style="font-size:1rem; vertical-align:middle; color:#E53935;">error</span> 載入失敗`;
-            modelDownloadStatus.style.color = '#E53935';
-            downloadModelBtn.disabled = false;
-            downloadModelBtn.style.opacity = '1';
-            showToast('模型下載或載入失敗', 'error');
-            whisperWorker.terminate();
-        }
-    };
-
-    whisperWorker.postMessage({ type: 'preload', modelId: targetModelId, isLocal: isLocalModel });
 });
 // =========================================================================
