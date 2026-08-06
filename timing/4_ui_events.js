@@ -115,52 +115,96 @@ document.getElementById('audioTimeTotal')?.addEventListener('click', () => {
 });
 
 // 3. 改寫「定位按鈕」為「僅播放選取範圍」
-// (修復：直接使用原本已存在的 locateCurrentBtn 變數，不重複宣告也不替換 DOM)
-locateCurrentBtn?.addEventListener('click', () => {
-    if (typeof selectedLabels === 'undefined' || selectedLabels.length === 0) {
-        // 防呆：如果沒多選，但有「作用中」的單句，就播放單句
-        if (currentActiveLabel && timeDataMap[currentActiveLabel]) {
-            const times = getCalculatedTimes(currentActiveLabel);
-            if (times) {
-                verifyEndTime = times.end;
-                verifyingLabel = null; // null 代表播完就停，不觸發自動下一句
-                isContinuousSortedPlay = false;
-                
-                audioPlayer.currentTime = times.start;
-                audioPlayer.play();
-                showToast(`播放單句：${currentActiveLabel}`, 'success');
+const oldLocateBtn = document.getElementById('locateCurrentBtn');
+if (oldLocateBtn) {
+    const newLocateBtn = oldLocateBtn.cloneNode(true);
+    oldLocateBtn.parentNode.replaceChild(newLocateBtn, oldLocateBtn);
+
+    newLocateBtn.addEventListener('click', (e) => {
+        if(e) e.preventDefault();
+        if(e && e.currentTarget) e.currentTarget.blur(); // 強制防連點與解除焦點
+
+        // 若正在播放中，按此按鈕就執行「暫停」並直接結束
+        if (!audioPlayer.paused) {
+            audioPlayer.pause();
+            return; 
+        }
+
+        // ★ 統一功能 1：套用目前的播放速度
+        if(typeof applyCurrentPlaybackSpeed === 'function') applyCurrentPlaybackSpeed(); 
+
+        let targetStart = 0;
+        let targetEnd = 0;
+        let targetLabel = null; 
+
+        // 優先度 A：如果有藍色選取框 (tempRegion)，優先播放藍框
+        if (typeof tempRegion !== 'undefined' && tempRegion !== null) {
+            targetStart = tempRegion.start;
+            targetEnd = tempRegion.end;
+            targetLabel = null;
+        }
+        // 優先度 B & C：使用多重選取，或目前作用中的單句
+        else {
+            const labelsToPlay = (typeof selectedLabels !== 'undefined' && selectedLabels.length > 0) 
+                ? selectedLabels 
+                : (currentActiveLabel ? [currentActiveLabel] : []);
+
+            if (labelsToPlay.length === 0) {
+                return showToast('請先選取要播放的標記範圍', 'error');
             }
-        } else {
-            showToast('請先選取要播放的標記範圍', 'error');
+
+            let minStart = Infinity;
+            let maxEnd = 0;
+
+            labelsToPlay.forEach(label => {
+                const times = getCalculatedTimes(label);
+                if (times) {
+                    minStart = Math.min(minStart, times.start);
+                    maxEnd = Math.max(maxEnd, times.end !== null ? times.end : minStart);
+                }
+            });
+
+            if (minStart === Infinity) return showToast('選取的標記沒有時間資料', 'error');
+
+            targetStart = minStart;
+            targetEnd = maxEnd;
+            // 若只有單一句子，賦予 label 讓計時器知道正在播哪句 (與單句小按鈕功能一致)
+            targetLabel = labelsToPlay.length === 1 ? labelsToPlay[0] : null; 
         }
-        return;
-    }
 
-    // 核心邏輯：計算所有選取範圍的「極左頭」與「極右尾」
-    let minStart = Infinity;
-    let maxEnd = 0;
-
-    selectedLabels.forEach(label => {
-        const times = getCalculatedTimes(label);
-        if (times) {
-            minStart = Math.min(minStart, times.start);
-            maxEnd = Math.max(maxEnd, times.end !== null ? times.end : minStart);
+        // ★ 統一功能 2：處理「有標記的片段 最多只播 X 秒」設定
+        if (document.getElementById('enableMaxPlayCheck')?.checked) {
+            const maxSec = parseFloat(document.getElementById('maxPlaySecondsInput')?.value) || 2;
+            targetEnd = Math.min(targetEnd, targetStart + maxSec);
         }
-    });
 
-    if (minStart !== Infinity) {
-        verifyEndTime = maxEnd;     // 設定終點煞車
-        verifyingLabel = null;      // 不觸發下一句
-        isContinuousSortedPlay = false; 
+        // 如果游標不在範圍內，或已經快到終點了，就重置回起點
+        if (audioPlayer.currentTime < targetStart || audioPlayer.currentTime >= targetEnd - 0.05) {
+            audioPlayer.currentTime = targetStart;
+        }
+
+        // ★ 統一功能 3：防護罩，確保煞車時間絕對大於目前時間
+        verifyEndTime = Math.max(audioPlayer.currentTime + 0.1, targetEnd);
+        verifyingLabel = targetLabel;
+        isContinuousSortedPlay = false;
+
+        // 如果有選取單句，同步更新介面高亮
+        if (targetLabel && typeof updateSelectionUI === 'function') {
+            updateSelectionUI();
+        }
+
+        // 執行播放並捕捉潛在錯誤
+        const playPromise = audioPlayer.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(err => { 
+                if (err.name !== 'AbortError') console.warn(err); 
+            });
+        }
         
-        audioPlayer.currentTime = minStart;
-        audioPlayer.play();
-        showToast(`播放選取範圍：${selectedLabels.length} 句`, 'success');
-    } else {
-        showToast('選取的標記沒有時間資料', 'error');
-    }
-});
-// =========================================================================
+        showToast('播放選取範圍', 'success');
+    });
+}
+
 mergeSelectedBtn?.addEventListener('click', () => {
     if (selectedLabels.length < 2) return;
     selectedLabels.sort((a, b) => allLabelsOrdered.indexOf(a) - allLabelsOrdered.indexOf(b));
@@ -881,7 +925,13 @@ document.addEventListener('keydown', (e) => {
 
     if (e.code === 'Space' && !isInputActive) { 
         e.preventDefault(); 
-        if (e.shiftKey) { locateCurrentBtn?.click(); } else { if(typeof togglePlayPause === 'function') togglePlayPause(); }
+        if (document.activeElement) document.activeElement.blur();
+        
+        if (e.shiftKey) { 
+            document.getElementById('locateCurrentBtn')?.click(); 
+        } else { 
+            if(typeof togglePlayPause === 'function') togglePlayPause(); 
+        }
         return; 
     }
     
