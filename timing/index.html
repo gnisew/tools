@@ -80,7 +80,10 @@
             <button id="rewindBtn" class="btn-icon" title="退 2 秒"><span class="material-icons">fast_rewind</span></button>
             <button id="forwardBtn" class="btn-icon" title="進 2 秒"><span class="material-icons">fast_forward</span></button>
             
-            <span id="audioTimeDisplay" class="audio-timer">0:00 / 0:00</span>
+            <span id="audioTimeDisplay" class="audio-timer" style="user-select: none;">
+                <span id="audioTimeCurrent" style="cursor: pointer;" title="跳至選取標記或目前游標位置">0:00</span> / 
+                <span id="audioTimeTotal" style="cursor: pointer;" title="全選 / 取消全選">0:00</span>
+            </span>
             
             <div style="position: relative; display: inline-block; margin: 0 4px;">
                 <button id="speedMenuToggleBtn" style="background: transparent; border: 1px solid #dadce0; color: #3c4043; border-radius: 12px; padding: 0 8px; font-weight: bold; font-size: 0.85rem; height: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; min-width: 40px; outline: none;">
@@ -96,7 +99,7 @@
                 </div>
             </div>
 
-            <button id="locateCurrentBtn" class="btn-icon" style="background: #E3F2FD; color: #1565C0; border: 1px solid #BBDEFB;" title="定位回到目前選取的句子 (Shift + Space)"><span class="material-icons">gps_fixed</span></button>
+            <button id="locateCurrentBtn" class="btn-icon" style="background: #E3F2FD; color: #1565C0; border: 1px solid #BBDEFB;" title="僅播放目前選取的標記範圍"><span class="material-icons">play_circle</span></button>
             <button id="tagRegionBtn" class="btn-icon" style="background: #E8F5E9; color: #2E7D32; border: 1px solid #C8E6C9;" title="將選取範圍套用至目前句子 (Enter)"><span class="material-icons">bookmark_add</span></button>
             <button id="clearRegionBtn" class="btn-icon" style="background: #FFEBEE; color: #C62828; border: 1px solid #FFCDD2;" title="清除目前句子的時間標記 (Delete)"><span class="material-icons">bookmark_remove</span></button>
             <button id="splitRegionBtn" class="btn-icon" style="background: #FFF3E0; color: #E65100; border: 1px solid #FFE0B2;" title="在游標處切割 (Ctrl+I)"><span class="material-icons">content_cut</span></button>
@@ -386,7 +389,7 @@
                 <h4 style="margin-bottom: 10px;">預設快速鍵 (參考學習)</h4>
                 <ul style="font-size:0.85rem; color:#555; padding-left: 20px; margin-bottom: 20px; line-height: 1.6;">
                     <li><strong>Space 空白鍵</strong>：播放 / 暫停</li>
-                    <li><strong>Shift + Space</strong>：定位回到目前句子</li>
+                    <li><strong>Shift + Space</strong>：僅播放目前選取的範圍</li>
                     <li><strong>Tab 鍵</strong>：完成編輯並跳至下一句</li>
                     <li><strong>Enter 鍵</strong>：將選取範圍新增為標記 (自動建列)</li>
                     <li><strong>Delete 鍵</strong>：移除標記 (若無文字則刪除列)</li>

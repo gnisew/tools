@@ -1,6 +1,7 @@
 // ================= 6_wave_controller.js: 聲波圖與高精度播放核心 =================
+window.lastToggleTime = 0; // 防連點雙擊計時器
+
 function applyCurrentPlaybackSpeed() { 
-    // 改為從新的按鈕文字中讀取速度數值 (移除 'x' 符號)
     const speedDisplay = document.getElementById('speedDisplay');
     const speedText = speedDisplay ? speedDisplay.textContent.replace('x', '') : '1.0';
     const speed = parseFloat(speedText); 
@@ -10,9 +11,17 @@ function applyCurrentPlaybackSpeed() {
 }
 
 function togglePlayPause() {
+    // ★ 終極防護 1：防禦 200 毫秒內的重複觸發 (防呆雙擊/幽靈鍵盤事件)
+    const now = Date.now();
+    if (now - window.lastToggleTime < 200) return; 
+    window.lastToggleTime = now;
+
     if (audioPlayer.paused) {
         if (tempRegion) {
-            if (audioPlayer.currentTime < tempRegion.start || audioPlayer.currentTime >= tempRegion.end) { audioPlayer.currentTime = tempRegion.start; }
+            // ★ 終極防護 2：加入安全緩衝，防止讀取時間殘留導致瞬間暫停
+            if (audioPlayer.currentTime < tempRegion.start || audioPlayer.currentTime >= tempRegion.end - 0.05) { 
+                audioPlayer.currentTime = tempRegion.start; 
+            }
             
             let targetEnd = tempRegion.end;
             if (document.getElementById('enableMaxPlayCheck')?.checked) {
@@ -25,12 +34,10 @@ function togglePlayPause() {
             isContinuousSortedPlay = false; 
         } else if ((currentSortMode !== 'default' || continuousPlayMode === 'skip') && currentActiveLabel && timeDataMap[currentActiveLabel]) {
             const times = getCalculatedTimes(currentActiveLabel);
-            if (audioPlayer.currentTime < times.start || audioPlayer.currentTime >= times.end) {
-                // 加入前置緩衝
+            if (audioPlayer.currentTime < times.start || audioPlayer.currentTime >= times.end - 0.05) {
                 audioPlayer.currentTime = Math.max(0, times.start - playPadding);
             }
             
-            // ★ 攔截：動態設定最大播放時間
             let targetEnd = times.end;
             if (document.getElementById('enableMaxPlayCheck')?.checked) {
                 const maxSec = parseFloat(document.getElementById('maxPlaySecondsInput')?.value) || 2;
@@ -40,15 +47,34 @@ function togglePlayPause() {
             
             verifyingLabel = currentActiveLabel;
             isContinuousSortedPlay = true; 
+        } else {
+            // ★ 終極防護 3：一般播放時，徹底清除上一句殘留的煞車點
+            verifyEndTime = null;
+            verifyingLabel = null;
+            isContinuousSortedPlay = false;
         }
-        audioPlayer.play();
-    } else { audioPlayer.pause(); }
+        
+        // ★ 終極防護 4：安全捕獲瀏覽器的 Promise 錯誤 (攔截 AbortError)
+        const playPromise = audioPlayer.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(err => {
+                if (err.name !== 'AbortError') console.warn("播放系統防護:", err);
+            });
+        }
+    } else { 
+        audioPlayer.pause(); 
+    }
+
+    // ★ 終極防護 5：強制解除焦點 blur()，防止 Space 鍵同時觸發鍵盤與點擊！
+    if (document.activeElement === playPauseBtn) {
+        playPauseBtn.blur();
+    }
 }
 
-playPauseBtn.addEventListener('click', () => { togglePlayPause(); });
-stopBtn.addEventListener('click', () => { audioPlayer.pause(); audioPlayer.currentTime = 0; if(wavesurfer) wavesurfer.seekTo(0); });
-document.getElementById('rewindBtn').addEventListener('click', () => { audioPlayer.currentTime -= 2; });
-document.getElementById('forwardBtn').addEventListener('click', () => { audioPlayer.currentTime += 2; });
+playPauseBtn.addEventListener('click', (e) => { if(e && e.currentTarget) e.currentTarget.blur(); togglePlayPause(); });
+stopBtn.addEventListener('click', (e) => { if(e && e.currentTarget) e.currentTarget.blur(); verifyEndTime = null; audioPlayer.pause(); audioPlayer.currentTime = 0; if(wavesurfer) wavesurfer.seekTo(0); });
+document.getElementById('rewindBtn').addEventListener('click', (e) => { if(e && e.currentTarget) e.currentTarget.blur(); verifyEndTime = null; audioPlayer.currentTime -= 2; });
+document.getElementById('forwardBtn').addEventListener('click', (e) => { if(e && e.currentTarget) e.currentTarget.blur(); verifyEndTime = null; audioPlayer.currentTime += 2; });
 
 function updateZoom(value) {
     if (!wavesurfer) return;
@@ -113,7 +139,6 @@ function renderAllRegions() {
 }
 
 function initWaveSurfer() {
-    // ★ 新增：當音檔成功載入時，確保警告隱藏，控制列與聲波圖恢復正常
     const warning = document.getElementById('missingAudioWarning');
     if (warning) warning.style.display = 'none';
     const waveform = document.getElementById('waveform');
@@ -153,7 +178,7 @@ function initWaveSurfer() {
         if (tempRegion && tempRegion !== region) tempRegion.remove(); 
         region.setOptions({ color: 'rgba(33, 150, 243, 0.3)' }); 
         tempRegion = region;
-        updateToolbarButtons(); 
+        if(typeof updateToolbarButtons === 'function') updateToolbarButtons(); 
     });
 
     wsRegions.on('region-updated', (region) => {
@@ -192,14 +217,11 @@ function initWaveSurfer() {
                 const wrapper = wavesurfer.getWrapper();
                 const rect = wrapper.getBoundingClientRect();
                 
-                // 計算點擊位置 X 座標佔整個聲波圖的比例
                 const relativeX = (e.clientX - rect.left) / rect.width;
                 const clickTime = relativeX * audioPlayer.duration;
                 
-                // 設定播放時間，並使用 Math.max 與 Math.min 確保點擊邊緣時不會超出區塊範圍
                 audioPlayer.currentTime = Math.max(region.start, Math.min(clickTime, region.end));
             } else {
-                // 備用方案：如果無法取得座標，則退回原先的區塊開頭
                 audioPlayer.currentTime = region.start;
             }
 
@@ -231,16 +253,19 @@ function initWaveSurfer() {
             document.querySelectorAll('.sentence-item.playing').forEach(el => el.classList.remove('playing'));
         }
         lastClickTime = clickTime;
-        updateToolbarButtons(); 
+        if(typeof updateToolbarButtons === 'function') updateToolbarButtons(); 
         if (typeof snapWaveformToTop === 'function') snapWaveformToTop();
     });
 
     wavesurfer.on('ready', () => { 
         applyCurrentPlaybackSpeed(); 
         if(typeof updateStickyOffsets === 'function') updateStickyOffsets(); 
-        audioTimeDisplay.textContent = `0:00 / ${formatTime(audioPlayer.duration)}`; 
-        renderAllRegions(); 
-        updateToolbarButtons(); 
+        
+        const elTot = document.getElementById('audioTimeTotal');
+        if(elTot) elTot.textContent = formatTime(audioPlayer.duration); 
+        
+        renderAllRegions();
+        if(typeof updateToolbarButtons === 'function') updateToolbarButtons(); 
         updateZoom(zoomPresetSelect ? zoomPresetSelect.value : 10);
         
         if(typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
@@ -250,15 +275,18 @@ function initWaveSurfer() {
 function precisionLoop() {
     if (audioPlayer.paused) return;
     
+    // ★ 終極防護 6：當音訊正在跳轉 (seeking) 時，暫停所有煞車判斷，避免讀取到舊的 currentTime 導致誤觸暫停
+    if (audioPlayer.seeking) {
+        precisionRafId = requestAnimationFrame(precisionLoop);
+        return;
+    }
+
     const currentT = audioPlayer.currentTime;
     if (verifyEndTime !== null && currentT >= verifyEndTime) {
         
-        // ===============================================================
-        // 1. 單句循環 (Single Loop)
-        // ===============================================================
         if (loopMode === 'single' && verifyingLabel) {
             if (loopCount === 0 || currentLoopCounter < loopCount) {
-                if (loopCount > 0) currentLoopCounter++; // 只有非無限循環才增加計數
+                if (loopCount > 0) currentLoopCounter++; 
                 const times = getCalculatedTimes(verifyingLabel);
                 if (times) {
                     audioPlayer.currentTime = Math.max(0, times.start - playPadding);
@@ -266,13 +294,10 @@ function precisionLoop() {
                     return; 
                 }
             } else {
-                currentLoopCounter = 0; // 次數到達，重置計數並允許程式往下執行
+                currentLoopCounter = 0; 
             }
         }
 
-        // ===============================================================
-        // 2. 尋找下一句 (Continuous Play / Skip Silence)
-        // ===============================================================
         if (isContinuousSortedPlay && verifyingLabel) {
             const currentIndex = currentSortedLabels.indexOf(verifyingLabel);
             if (currentIndex !== -1 && currentIndex + 1 < currentSortedLabels.length) {
@@ -290,7 +315,7 @@ function precisionLoop() {
                 }
 
                 if (nextTimes) {
-                    currentLoopCounter = 0; // 成功切換下一句時，循環計數歸零
+                    currentLoopCounter = 0; 
                     audioPlayer.currentTime = Math.max(0, nextTimes.start - playPadding);
                     verifyEndTime = nextTimes.end;
                     verifyingLabel = nextLabel;
@@ -304,14 +329,10 @@ function precisionLoop() {
                 }
             }
             
-            // ===============================================================
-            // 3. 全部循環 (All Loop) - 當找不到下一句 (代表列表到底了)
-            // ===============================================================
             if (loopMode === 'all') {
                 if (loopCount === 0 || currentLoopCounter < loopCount) {
                     if (loopCount > 0) currentLoopCounter++;
                     
-                    // 尋找列表中的「第一句有標記的時間」
                     let firstLabel = null;
                     let firstTimes = null;
                     for (let i = 0; i < currentSortedLabels.length; i++) {
@@ -337,14 +358,11 @@ function precisionLoop() {
                         return;
                     }
                 } else {
-                    currentLoopCounter = 0; // 列表循環次數達成
+                    currentLoopCounter = 0; 
                 }
             }
         }
         
-        // ===============================================================
-        // 4. 停止播放 (重置所有狀態)
-        // ===============================================================
         currentLoopCounter = 0; 
         audioPlayer.pause(); 
         audioPlayer.currentTime = verifyEndTime; 
@@ -381,7 +399,12 @@ audioPlayer.addEventListener('pause', () => {
 
 audioPlayer.addEventListener('timeupdate', () => {
     const currentT = audioPlayer.currentTime;
-    if(audioPlayer.duration) audioTimeDisplay.textContent = `${formatTime(currentT)} / ${formatTime(audioPlayer.duration)}`;
+    if(audioPlayer.duration) {
+        const elCurr = document.getElementById('audioTimeCurrent');
+        const elTot = document.getElementById('audioTimeTotal');
+        if (elCurr) elCurr.textContent = formatTime(currentT);
+        if (elTot) elTot.textContent = formatTime(audioPlayer.duration);
+    }
     
     let activeLabel = null;
     for (let i = 0; i < allLabelsOrdered.length; i++) {
@@ -391,7 +414,7 @@ audioPlayer.addEventListener('timeupdate', () => {
     
     if (activeLabel && activeLabel !== currentActiveLabel) {
         currentActiveLabel = activeLabel;
-        updateToolbarButtons();
+        if(typeof updateToolbarButtons === 'function') updateToolbarButtons();
     }
 
     if (wsRegions) { 
@@ -429,14 +452,12 @@ audioPlayer.addEventListener('timeupdate', () => {
         }
     });
     if (isScriptMode && scriptGutter && activeLabel) {
-        // 移除所有行號的高亮
         document.querySelectorAll('.gutter-line').forEach(el => el.classList.remove('active'));
         
         const activeGutterEl = document.getElementById(`gutter-${activeLabel}`);
         if (activeGutterEl) {
-            activeGutterEl.classList.add('active'); // 加上深綠色高亮
+            activeGutterEl.classList.add('active'); 
             
-            // 讓文字框自動捲動跟隨目前播放進度 (保持在中間偏上)
             const scrollTarget = activeGutterEl.offsetTop - 100; 
             scriptTextarea.scrollTo({ top: scrollTarget, behavior: 'smooth' });
         }
@@ -453,55 +474,34 @@ window.addEventListener('DOMContentLoaded', () => {
     if(typeof updateStickyOffsets === 'function') setTimeout(updateStickyOffsets, 500); 
 });
 
-
-
-
-
-// ================= 終極優化：進階聲波圖滾輪控制 (Alt=Zoom, Shift=Pan) =================
 const waveformContainer = document.getElementById('waveform');
 
 waveformContainer?.addEventListener('wheel', (e) => {
-    // 如果沒有按 Alt 或 Shift，完全放行，讓網頁順暢上下捲動
     if (!e.altKey && !e.shiftKey) return;
     
-    // 有按組合鍵時，才攔截瀏覽器預設行為
     e.preventDefault(); 
-    
     if (!wavesurfer) return;
 
     if (e.shiftKey) {
-        // ==========================================
-        // 模式 A：Shift + 滾輪 -> 左右平移時間軸 (Pan)
-        // ==========================================
         const wrapper = wavesurfer.getWrapper(); 
         let scrollContainer = wrapper;
         
-        // 終極解謎：WaveSurfer 7 真正的捲軸其實是 wrapper 的「父元素」！
         if (wrapper && wrapper.parentElement) {
             scrollContainer = wrapper.parentElement;
         }
         
         if (scrollContainer) {
-            // 完美相容所有瀏覽器與作業系統的滾動訊號
             const scrollAmount = e.deltaX || e.deltaY;
-            
-            // 執行左右捲動 (乘上 1.5 增加滑鼠手感與順暢度)
             scrollContainer.scrollLeft += scrollAmount * 1.5; 
         }
     } else if (e.altKey) {
-        // ==========================================
-        // 模式 B：Alt + 滾輪 -> 放大縮小聲波圖 (Zoom)
-        // ==========================================
         let currentZoom = Number(zoomSlider.value);
         const zoomStep = 5; 
-        
         const scrollAmount = e.deltaY || e.deltaX;
         
         if (scrollAmount < 0) {
-            // 往上滾：放大
             currentZoom = Math.min(200, currentZoom + zoomStep);
         } else {
-            // 往下滾：縮小
             currentZoom = Math.max(1, currentZoom - zoomStep);
         }
         
@@ -509,17 +509,14 @@ waveformContainer?.addEventListener('wheel', (e) => {
     }
 }, { passive: false }); 
 
-// ================= ★ 新增：Minimap 動態控制引擎 (包含防遮擋修復) ★ =================
-window.minimapPlugin = null; // 儲存 Minimap 實例的變數
+window.minimapPlugin = null; 
 
 window.toggleMinimap = function(enable) {
     const container = document.getElementById('wave-minimap');
     if (!container) return;
 
     if (enable) {
-        // 顯示容器
         container.style.display = 'block';
-        // 如果主聲波存在，且 Minimap 還沒建立，就動態掛載它
         if (typeof wavesurfer !== 'undefined' && wavesurfer && !window.minimapPlugin) {
             window.minimapPlugin = wavesurfer.registerPlugin(WaveSurfer.Minimap.create({
                 container: '#wave-minimap',
@@ -532,9 +529,7 @@ window.toggleMinimap = function(enable) {
             }));
         }
     } else {
-        // 隱藏容器
         container.style.display = 'none';
-        // 如果 Minimap 存在，將其銷毀以釋放資源與記憶體
         if (window.minimapPlugin) {
             window.minimapPlugin.destroy();
             window.minimapPlugin = null;
@@ -542,10 +537,7 @@ window.toggleMinimap = function(enable) {
         container.innerHTML = ''; 
     }
 
-    // ★ 關鍵修復：在開關導航圖後，延遲 50 毫秒 (等待畫面渲染完畢)，
-    // 重新計算下方列表區塊的吸頂高度，防止列表工具列被遮擋！
     if (typeof updateStickyOffsets === 'function') {
         setTimeout(updateStickyOffsets, 50);
     }
 };
-// =========================================================================

@@ -75,38 +75,92 @@ resetShortcutsBtn?.addEventListener('click', () => {
     showToast('已恢復預設快速鍵', 'success');
 });
 
-locateCurrentBtn?.addEventListener('click', () => {
-    // 情況 1：如果有選取的標記句子，跳轉到該句子的列表位置
-    if (currentActiveLabel) {
+// 1. 點擊「目前時間」：回到選取標記或游標位置 (接管原定位按鈕功能)
+document.getElementById('audioTimeCurrent')?.addEventListener('click', () => {
+    if (currentActiveLabel && timeDataMap[currentActiveLabel]) {
+        // 有選取標記，回到該句子的列表與聲波位置
         const itemDiv = document.getElementById(`item-${currentActiveLabel}`);
-        if (itemDiv) {
-            if(typeof smartScrollTo === 'function') smartScrollTo(itemDiv);
-            if(typeof getCalculatedTimes === 'function') {
-                const times = getCalculatedTimes(currentActiveLabel);
-                if (times) { audioPlayer.currentTime = times.start; }
+        if (itemDiv && typeof smartScrollTo === 'function') smartScrollTo(itemDiv);
+        
+        const times = getCalculatedTimes(currentActiveLabel);
+        if (times) {
+            audioPlayer.currentTime = times.start;
+            if (typeof wavesurfer !== 'undefined' && wavesurfer && audioPlayer.duration) {
+                wavesurfer.seekTo(times.start / audioPlayer.duration);
             }
-            showToast(`已定位至 ${currentActiveLabel}`, 'success');
         }
-    } 
-    // 情況 2：如果沒有選取句子，則將畫面與聲波圖對齊回到「目前的游標所在」
-    else {
-        // 1. 將網頁往上捲動至聲波面板
-        if (typeof snapWaveformToTop === 'function') {
-            snapWaveformToTop();
-        } else {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-        
-        // 2. 迫使聲波圖內的水平捲軸對齊目前的游標時間
+        showToast(`已定位至 ${currentActiveLabel}`, 'success');
+    } else {
+        // 沒標記，將畫面與聲波圖對齊目前的游標所在
+        if (typeof snapWaveformToTop === 'function') snapWaveformToTop();
         if (typeof wavesurfer !== 'undefined' && wavesurfer && audioPlayer && audioPlayer.duration) {
-            const currentProgress = audioPlayer.currentTime / audioPlayer.duration;
-            wavesurfer.seekTo(currentProgress);
+            wavesurfer.seekTo(audioPlayer.currentTime / audioPlayer.duration);
         }
-        
-        showToast('已回到目前游標位置', 'success');
+        showToast('已回到游標位置', 'success');
     }
 });
 
+// 2. 點擊「全部時間」：全選 / 取消全選
+document.getElementById('audioTimeTotal')?.addEventListener('click', () => {
+    if (typeof selectedLabels !== 'undefined' && selectedLabels.length > 0) {
+        // 若已有選取，視同取消全選
+        if (typeof clearSelection === 'function') clearSelection();
+        showToast('已取消選取', 'normal');
+    } else {
+        // 沒選取時，全選所有有時間的標記
+        selectedLabels = allLabelsOrdered.filter(label => timeDataMap[label] !== undefined);
+        if (typeof updateSelectionUI === 'function') updateSelectionUI();
+        showToast(`已全選 ${selectedLabels.length} 個標記`, 'success');
+    }
+});
+
+// 3. 改寫「定位按鈕」為「僅播放選取範圍」
+// (修復：直接使用原本已存在的 locateCurrentBtn 變數，不重複宣告也不替換 DOM)
+locateCurrentBtn?.addEventListener('click', () => {
+    if (typeof selectedLabels === 'undefined' || selectedLabels.length === 0) {
+        // 防呆：如果沒多選，但有「作用中」的單句，就播放單句
+        if (currentActiveLabel && timeDataMap[currentActiveLabel]) {
+            const times = getCalculatedTimes(currentActiveLabel);
+            if (times) {
+                verifyEndTime = times.end;
+                verifyingLabel = null; // null 代表播完就停，不觸發自動下一句
+                isContinuousSortedPlay = false;
+                
+                audioPlayer.currentTime = times.start;
+                audioPlayer.play();
+                showToast(`播放單句：${currentActiveLabel}`, 'success');
+            }
+        } else {
+            showToast('請先選取要播放的標記範圍', 'error');
+        }
+        return;
+    }
+
+    // 核心邏輯：計算所有選取範圍的「極左頭」與「極右尾」
+    let minStart = Infinity;
+    let maxEnd = 0;
+
+    selectedLabels.forEach(label => {
+        const times = getCalculatedTimes(label);
+        if (times) {
+            minStart = Math.min(minStart, times.start);
+            maxEnd = Math.max(maxEnd, times.end !== null ? times.end : minStart);
+        }
+    });
+
+    if (minStart !== Infinity) {
+        verifyEndTime = maxEnd;     // 設定終點煞車
+        verifyingLabel = null;      // 不觸發下一句
+        isContinuousSortedPlay = false; 
+        
+        audioPlayer.currentTime = minStart;
+        audioPlayer.play();
+        showToast(`播放選取範圍：${selectedLabels.length} 句`, 'success');
+    } else {
+        showToast('選取的標記沒有時間資料', 'error');
+    }
+});
+// =========================================================================
 mergeSelectedBtn?.addEventListener('click', () => {
     if (selectedLabels.length < 2) return;
     selectedLabels.sort((a, b) => allLabelsOrdered.indexOf(a) - allLabelsOrdered.indexOf(b));
