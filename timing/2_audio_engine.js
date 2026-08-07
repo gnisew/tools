@@ -169,9 +169,9 @@ exportAudioZipBtn?.addEventListener('click', () => {
     }, 100);
 });
 
-// ================= 自動靜音斷句核心引擎 =================
+// ================= 自動靜音斷句核心引擎 (動態切片與階段進度版) =================
 
-// 【引擎 A】全域自動斷句引擎 (對應左側藍色按鈕)
+// 【引擎 A】全域自動斷句引擎
 async function performAutoSegmentation() {
     if (!wavesurfer || !wavesurfer.getDecodedData()) {
         return showToast('請先載入音檔並等待分析完成', 'error');
@@ -194,7 +194,7 @@ async function performAutoSegmentation() {
     const threshold = parseFloat(asThreshold.value) / 100;
     const minSilence = parseFloat(asSilence.value);
     const padding = parseFloat(asPadding.value);
-	const minSegment = asMinSegment ? parseFloat(asMinSegment.value) : 0.5;
+    const minSegment = asMinSegment ? parseFloat(asMinSegment.value) : 0.5;
     
     const step = Math.floor(sampleRate / 100); 
     
@@ -203,135 +203,22 @@ async function performAutoSegmentation() {
     let silenceStart = 0;
     let segmentStart = -1;
 
-    showToast('正在分析全域音訊，請稍候... 0%', 'normal');
+    if (asConfirmBtn) asConfirmBtn.disabled = true;
+    showToast('1/3 正在分析全域波形... 0%', 'normal');
+
+    // ★ 動態時間切片：追蹤系統時間
+    let lastYieldTime = Date.now();
 
     for (let i = 0; i < length; i += step) {
         let maxAmp = 0;
-        for (let j = 0; j < step && (i + j) < length; j++) {
-            let localMax = 0;
+        const localEnd = Math.min(i + step, length);
+        
+        // 尋找最大振幅
+        for (let j = i; j < localEnd; j++) {
             for (let c = 0; c < numChannels; c++) {
-                const amp = Math.abs(channels[c][i + j]);
-                if (amp > localMax) localMax = amp;
+                const amp = Math.abs(channels[c][j]);
+                if (amp > maxAmp) maxAmp = amp;
             }
-            if (localMax > maxAmp) maxAmp = localMax;
-        }
-
-        const currentTime = (i / sampleRate) * timeRatio;
-
-		if (maxAmp < threshold) {
-            if (!isSilence) {
-                isSilence = true;
-                silenceStart = currentTime;
-            } else if (currentTime - silenceStart >= minSilence && segmentStart !== -1) {
-                if (silenceStart - segmentStart >= minSegment) {
-                    segments.push({ start: segmentStart, end: silenceStart });
-                }
-                segmentStart = -1;
-            }
-        } else {
-            if (isSilence) {
-                isSilence = false;
-                if (segmentStart === -1) segmentStart = currentTime;
-            }
-        }
-
-        if (i % (sampleRate * 5) === 0) {
-            const percent = Math.round((i / length) * 100);
-            showToast(`正在分析全域音訊，請稍候... ${percent}%`, 'normal');
-            await new Promise(resolve => setTimeout(resolve, 0));
-        }
-    }
-
-    if (segmentStart !== -1) {
-        const finalEnd = isSilence ? silenceStart : mediaDuration;
-        if (finalEnd - segmentStart >= minSegment) {
-            segments.push({ start: segmentStart, end: finalEnd });
-        }
-    }
-
-    if (segments.length === 0) {
-        return showToast('找不到符合條件的斷句，請調高門檻或縮短時長', 'error');
-    }
-
-    if (allLabelsOrdered.length === 0) {
-        for (let i = 0; i < segments.length; i++) {
-            const group = Math.floor(i / 99);
-            const num = (i % 99) + 1;
-            const prefix = String.fromCharCode(65 + group);
-            const label = `${prefix}${num.toString().padStart(2, '0')}`;
-            allLabelsOrdered.push(label);
-            sentenceTextMap[label] = '';
-        }
-        if (typeof renderSentenceList === 'function') renderSentenceList(); 
-    }
-
-    timeDataMap = {};
-    let segIndex = 0;
-    
-    for (let i = 0; i < allLabelsOrdered.length; i++) {
-        if (segIndex >= segments.length) break;
-        
-        const label = allLabelsOrdered[i];
-        let s = segments[segIndex].start - padding;
-        let e = segments[segIndex].end + padding;
-        
-        s = Math.max(0, s);
-        e = Math.min(mediaDuration, e);
-        
-        timeDataMap[label] = { 
-            start: parseFloat(s.toFixed(3)), 
-            end: parseFloat(e.toFixed(3)) 
-        };
-        segIndex++;
-    }
-
-    saveToStorage();
-    if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
-    showToast(`自動斷句完成！共精準標記 ${segIndex} 句`, 'success');
-}
-
-
-// 【引擎 B】局部範圍自動斷句引擎 (對應聲波圖魔法棒按鈕)
-async function performRegionAutoSegmentation(startTime, endTime) {
-    if (!wavesurfer || !wavesurfer.getDecodedData()) return showToast('請先載入音檔', 'error');
-
-    const buffer = wavesurfer.getDecodedData();
-    const sampleRate = buffer.sampleRate;
-    
-    const numChannels = buffer.numberOfChannels;
-    const channels = [];
-    for (let c = 0; c < numChannels; c++) channels.push(buffer.getChannelData(c));
-
-    const webAudioDuration = buffer.duration;
-    const mediaDuration = audioPlayer.duration || webAudioDuration;
-    const timeRatio = mediaDuration / webAudioDuration;
-
-    const startSample = Math.floor((startTime / timeRatio) * sampleRate);
-    const endSample = Math.floor((endTime / timeRatio) * sampleRate);
-
-    const threshold = parseFloat(asThreshold.value) / 100;
-    const minSilence = parseFloat(asSilence.value);
-    const padding = parseFloat(asPadding.value);
-    const minSegment = asMinSegment ? parseFloat(asMinSegment.value) : 0.5;
-    
-    const step = Math.floor(sampleRate / 100); 
-    
-    let segments = [];
-    let isSilence = true;
-    let silenceStart = startTime;
-    let segmentStart = -1;
-
-    showToast('正在分析局部音訊，請稍候...', 'normal');
-
-    for (let i = startSample; i < endSample; i += step) {
-        let maxAmp = 0;
-        for (let j = 0; j < step && (i + j) < endSample; j++) {
-            let localMax = 0;
-            for (let c = 0; c < numChannels; c++) {
-                const amp = Math.abs(channels[c][i + j]);
-                if (amp > localMax) localMax = amp;
-            }
-            if (localMax > maxAmp) maxAmp = localMax;
         }
 
         const currentTime = (i / sampleRate) * timeRatio;
@@ -353,8 +240,143 @@ async function performRegionAutoSegmentation(startTime, endTime) {
             }
         }
 
-        if (i % (sampleRate * 5) === 0) {
-            await new Promise(resolve => setTimeout(resolve, 0)); 
+        // ★ 每經過 40 毫秒 (約 25fps)，強制瀏覽器更新畫面一次
+        if (Date.now() - lastYieldTime > 40) {
+            // 將波形分析階段設定為 0% ~ 85%
+            const percent = Math.round((i / length) * 85);
+            showToast(`1/3 正在分析全域波形... ${percent}%`, 'normal');
+            await new Promise(resolve => setTimeout(resolve, 0));
+            lastYieldTime = Date.now();
+        }
+    }
+
+    if (segmentStart !== -1) {
+        const finalEnd = isSilence ? silenceStart : mediaDuration;
+        if (finalEnd - segmentStart >= minSegment) {
+            segments.push({ start: segmentStart, end: finalEnd });
+        }
+    }
+
+    if (segments.length === 0) {
+        if (asConfirmBtn) asConfirmBtn.disabled = false;
+        return showToast('找不到符合條件的斷句，請調高門檻或縮短時長', 'error');
+    }
+
+    // ================= 階段 2：生成與分配標記資料 (85% ~ 95%) =================
+    showToast('2/3 正在生成標記資料... 85%', 'normal');
+    await new Promise(resolve => setTimeout(resolve, 10)); // 暫停一下讓 UI 更新
+
+    if (allLabelsOrdered.length === 0) {
+        for (let i = 0; i < segments.length; i++) {
+            const group = Math.floor(i / 99);
+            const num = (i % 99) + 1;
+            const prefix = String.fromCharCode(65 + group);
+            const label = `${prefix}${num.toString().padStart(2, '0')}`;
+            allLabelsOrdered.push(label);
+            sentenceTextMap[label] = '';
+        }
+    }
+
+    timeDataMap = {};
+    let segIndex = 0;
+    
+    for (let i = 0; i < allLabelsOrdered.length; i++) {
+        if (segIndex >= segments.length) break;
+        const label = allLabelsOrdered[i];
+        let s = segments[segIndex].start - padding;
+        let e = segments[segIndex].end + padding;
+        
+        timeDataMap[label] = { 
+            start: parseFloat(Math.max(0, s).toFixed(3)), 
+            end: parseFloat(Math.min(mediaDuration, e).toFixed(3)) 
+        };
+        segIndex++;
+    }
+
+    saveToStorage();
+
+    // ================= 階段 3：畫面渲染 (95% ~ 100%) =================
+    showToast('3/3 正在渲染畫面與波形... 95%', 'normal');
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    // 統一在最後渲染一次，徹底解決畫面凍結
+    if (typeof renderSentenceList === 'function') renderSentenceList();
+    if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
+
+    if (asConfirmBtn) asConfirmBtn.disabled = false;
+    showToast(`自動斷句完成！共精準標記 ${segIndex} 句`, 'success');
+}
+
+
+// 【引擎 B】局部範圍自動斷句引擎
+async function performRegionAutoSegmentation(startTime, endTime) {
+    if (!wavesurfer || !wavesurfer.getDecodedData()) return showToast('請先載入音檔', 'error');
+
+    const buffer = wavesurfer.getDecodedData();
+    const sampleRate = buffer.sampleRate;
+    const numChannels = buffer.numberOfChannels;
+    const channels = [];
+    for (let c = 0; c < numChannels; c++) channels.push(buffer.getChannelData(c));
+
+    const webAudioDuration = buffer.duration;
+    const mediaDuration = audioPlayer.duration || webAudioDuration;
+    const timeRatio = mediaDuration / webAudioDuration;
+
+    const startSample = Math.floor((startTime / timeRatio) * sampleRate);
+    const endSample = Math.floor((endTime / timeRatio) * sampleRate);
+    const totalSamples = endSample - startSample;
+
+    const threshold = parseFloat(asThreshold.value) / 100;
+    const minSilence = parseFloat(asSilence.value);
+    const padding = parseFloat(asPadding.value);
+    const minSegment = asMinSegment ? parseFloat(asMinSegment.value) : 0.5;
+    
+    const step = Math.floor(sampleRate / 100); 
+    
+    let segments = [];
+    let isSilence = true;
+    let silenceStart = startTime;
+    let segmentStart = -1;
+
+    showToast('1/3 正在分析局部波形... 0%', 'normal');
+    let lastYieldTime = Date.now();
+
+    for (let i = startSample; i < endSample; i += step) {
+        let maxAmp = 0;
+        const localEnd = Math.min(i + step, endSample);
+        for (let j = i; j < localEnd; j++) {
+            for (let c = 0; c < numChannels; c++) {
+                const amp = Math.abs(channels[c][j]);
+                if (amp > maxAmp) maxAmp = amp;
+            }
+        }
+
+        const currentTime = (i / sampleRate) * timeRatio;
+
+        if (maxAmp < threshold) {
+            if (!isSilence) {
+                isSilence = true;
+                silenceStart = currentTime;
+            } else if (currentTime - silenceStart >= minSilence && segmentStart !== -1) {
+                if (silenceStart - segmentStart >= minSegment) {
+                    segments.push({ start: segmentStart, end: silenceStart });
+                }
+                segmentStart = -1;
+            }
+        } else {
+            if (isSilence) {
+                isSilence = false;
+                if (segmentStart === -1) segmentStart = currentTime;
+            }
+        }
+
+        // 動態時間切片
+        if (Date.now() - lastYieldTime > 40) {
+            const processed = i - startSample;
+            const percent = Math.round((processed / totalSamples) * 85);
+            showToast(`1/3 正在分析局部波形... ${percent}%`, 'normal');
+            await new Promise(resolve => setTimeout(resolve, 0));
+            lastYieldTime = Date.now();
         }
     }
 
@@ -366,23 +388,57 @@ async function performRegionAutoSegmentation(startTime, endTime) {
     }
 
     if (segments.length === 0) {
-        return showToast('此範圍內找不到符合條件的斷句，請調高門檻或縮短時長', 'error');
+        return showToast('此範圍內找不到符合條件的斷句', 'error');
     }
+
+    // ================= 階段 2：批次寫入資料 (85% ~ 95%) =================
+    showToast('2/3 正在寫入與排版資料... 85%', 'normal');
+    await new Promise(resolve => setTimeout(resolve, 10));
 
     if (typeof saveState === 'function') saveState(); 
 
-    segments.forEach(seg => {
+    // ★ 核心優化：移除原本呼叫 N 次 insertRowChronologically 的災難級效能瓶頸
+    // 改為一次性找到插入點，並批次推入陣列中
+    let insertIndex = allLabelsOrdered.length;
+    for (let i = 0; i < allLabelsOrdered.length; i++) {
+        const lbl = allLabelsOrdered[i];
+        if (timeDataMap[lbl]) {
+            const lblStart = typeof timeDataMap[lbl] === 'object' ? timeDataMap[lbl].start : timeDataMap[lbl];
+            if (lblStart > startTime) { insertIndex = i; break; }
+        }
+    }
+
+    let prefix = 'A';
+    if (insertIndex > 0) { 
+        prefix = allLabelsOrdered[insertIndex - 1].charAt(0); 
+    } else if (allLabelsOrdered.length > 0) { 
+        prefix = allLabelsOrdered[0].charAt(0); 
+    }
+
+    segments.forEach((seg, idx) => {
         let s = Math.max(startTime, seg.start - padding);
         let e = Math.min(endTime, seg.end + padding);
-        if (typeof insertRowChronologically === 'function') insertRowChronologically(s, e);
+        
+        // 產生安全的暫存標籤
+        const tempLabel = prefix + '_TEMP_AUTO_' + Date.now() + '_' + idx;
+        
+        allLabelsOrdered.splice(insertIndex + idx, 0, tempLabel);
+        timeDataMap[tempLabel] = { start: parseFloat(s.toFixed(3)), end: parseFloat(e.toFixed(3)) };
+        sentenceTextMap[tempLabel] = '';
     });
+
+    // ================= 階段 3：畫面渲染 (95% ~ 100%) =================
+    showToast('3/3 正在重新渲染畫面... 95%', 'normal');
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    // 呼叫重新排號 (內含 renderSentenceList)，僅執行「一次」DOM 繪製
+    if (typeof reassignLabels === 'function') reassignLabels();
     
     if (tempRegion) { tempRegion.remove(); tempRegion = null; }
     if (typeof updateToolbarButtons === 'function') updateToolbarButtons();
     
     showToast(`局部斷句完成！共新增 ${segments.length} 句`, 'success');
 }
-
 
 // ================= 多重音訊處理引擎 (打包與合併) =================
 window.processAdvancedDownload = async function(labels, mode, silenceSeconds) {

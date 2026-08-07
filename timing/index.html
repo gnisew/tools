@@ -99,7 +99,6 @@
                 </div>
             </div>
 
-            <button id="locateCurrentBtn" class="btn-icon" style="background: #E3F2FD; color: #1565C0; border: 1px solid #BBDEFB;" title="僅播放目前選取的標記範圍"><span class="material-icons">play_circle</span></button>
             <button id="tagRegionBtn" class="btn-icon" style="background: #E8F5E9; color: #2E7D32; border: 1px solid #C8E6C9;" title="將選取範圍套用至目前句子 (Enter)"><span class="material-icons">bookmark_add</span></button>
             <button id="clearRegionBtn" class="btn-icon" style="background: #FFEBEE; color: #C62828; border: 1px solid #FFCDD2;" title="清除目前句子的時間標記 (Delete)"><span class="material-icons">bookmark_remove</span></button>
             <button id="splitRegionBtn" class="btn-icon" style="background: #FFF3E0; color: #E65100; border: 1px solid #FFE0B2;" title="在游標處切割 (Ctrl+I)"><span class="material-icons">content_cut</span></button>
@@ -310,36 +309,49 @@
                 </div>
             </div>
  
-			<!-- 播放與跳轉設定區塊 -->
-            <div class="sidebar-group">
+			<div class="sidebar-group">
                 <h4>播放與跳轉設定</h4>
-				<div style="margin-bottom: 15px;">
-                    <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">波形跟隨模式 (放大時)</label>
-                    <select id="autoScrollModeSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
-                        <option value="center" selected>置中跟隨 (預設)</option>
-                        <option value="page">邊緣翻頁</option>
-                    </select>
-                </div>
+                
+                <!-- ★ 新增：主播放模式選擇 -->
                 <div style="margin-bottom: 15px;">
-                    <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">連續播放模式 (預設排序時)</label>
-                    <select id="continuousPlayModeSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
-                        <option value="normal" selected>一般播放 (預設：不略過空白)</option>
-                        <option value="skip">略過無標記片段 (僅依序播放標記)</option>
+                    <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">播放模式 (Space)</label>
+                    <select id="playbackModeSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
+                        <option value="continuous" selected>連續播放 (預設)</option>
+                        <option value="single">單句 / 區段播放 (播完即停)</option>
                     </select>
                 </div>
-                <div>
-                    <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">跳轉前置緩衝 (秒)</label>
-                    <input type="number" id="playPaddingInput" class="input-select" value="0.2" min="0" max="2" step="0.1" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold; box-sizing: border-box; padding: 6px; border-radius: 4px;">
-                    <span style="font-size: 0.8rem; color: #666;">設定略過無標記時，提早幾秒開始播放</span>
+
+                <!-- ★ 新增：連續播放的專屬設定群組 (用 div 包起來以便動態隱藏) -->
+                <div id="continuousSettingsBlock" style="padding-left: 10px; border-left: 3px solid #E0F2F1; margin-bottom: 15px;">
+                    <div style="margin-bottom: 15px;">
+                        <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">波形跟隨模式 (放大時)</label>
+                        <select id="autoScrollModeSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
+                            <option value="center" selected>置中跟隨 (預設)</option>
+                            <option value="page">邊緣翻頁</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 15px;">
+                        <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">連續播放：處理無標記片段</label>
+                        <select id="continuousPlayModeSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
+                            <option value="normal" selected>一般播放 (預設：不略過空白)</option>
+                            <option value="skip">略過無標記片段 (僅依序播放標記)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">跳轉前置緩衝 (秒)</label>
+                        <input type="number" id="playPaddingInput" class="input-select" value="0.2" min="0" max="2" step="0.1" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold; box-sizing: border-box; padding: 6px; border-radius: 4px;">
+                        <span style="font-size: 0.8rem; color: #666;">設定略過無標記時，提早幾秒開始播放</span>
+                    </div>
                 </div>
-				<div style="margin-bottom: 15px;">
-					<label style="display: flex; align-items: center; cursor: pointer; font-size: 0.95em; color: #333;">
-						<input type="checkbox" id="enableMaxPlayCheck" style="margin-right: 8px; width: 16px; height: 16px;">
-						有標記的片段 最多只播
-						<input type="number" id="maxPlaySecondsInput" value="2" min="0.5" step="0.5" style="width: 60px; margin: 0 8px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px;">
-						秒
-					</label>
-				</div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.95em; color: #333;">
+                        <input type="checkbox" id="enableMaxPlayCheck" style="margin-right: 8px; width: 16px; height: 16px;">
+                        有標記的片段 最多只播
+                        <input type="number" id="maxPlaySecondsInput" value="2" min="0.5" step="0.5" style="width: 60px; margin: 0 8px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px;">
+                        秒
+                    </label>
+                </div>
             </div>
             <div class="sidebar-group">
                 <h4>介面與檢視</h4>
@@ -388,8 +400,7 @@
             <div class="sidebar-group">
                 <h4 style="margin-bottom: 10px;">預設快速鍵 (參考學習)</h4>
                 <ul style="font-size:0.85rem; color:#555; padding-left: 20px; margin-bottom: 20px; line-height: 1.6;">
-                    <li><strong>Space 空白鍵</strong>：播放 / 暫停</li>
-                    <li><strong>Shift + Space</strong>：僅播放目前選取的範圍</li>
+                    <li><strong>Space 空白鍵</strong>：依照側邊欄模式 播放/暫停</li>
                     <li><strong>Tab 鍵</strong>：完成編輯並跳至下一句</li>
                     <li><strong>Enter 鍵</strong>：將選取範圍新增為標記 (自動建列)</li>
                     <li><strong>Delete 鍵</strong>：移除標記 (若無文字則刪除列)</li>

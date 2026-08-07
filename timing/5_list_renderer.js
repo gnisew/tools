@@ -324,6 +324,7 @@ function renderSentenceList() {
             timeDataMap[label] = { start: finalTime, end: null }; saveToStorage(); updateAllTimeDisplays(); scrollToKeepMouseSteady(div.nextElementSibling); 
         });
 
+        // 1. 修正「時間標籤」的點擊播放事件
         div.querySelector('.sentence-time').addEventListener('click', (e) => {
             e.stopPropagation(); clearSelection(); lastSelectedLabel = label; currentActiveLabel = label; 
             
@@ -333,7 +334,7 @@ function renderSentenceList() {
             if (times) { 
                 if(typeof applyCurrentPlaybackSpeed === 'function') applyCurrentPlaybackSpeed(); 
                 
-                // ★ 核心攔截：計算最大播放時間
+                // 計算最大播放時間
                 let targetEnd = times.end;
                 const isMaxPlayEnabled = document.getElementById('enableMaxPlayCheck')?.checked;
                 if (isMaxPlayEnabled) {
@@ -348,17 +349,31 @@ function renderSentenceList() {
                     verifyingLabel = label;
                 } else {
                     isContinuousSortedPlay = false; 
-                    // 如果有開啟限制秒數，就設定停止時間；否則維持 null (讓它自然播到底)
                     verifyEndTime = isMaxPlayEnabled ? targetEnd : null; 
                     verifyingLabel = isMaxPlayEnabled ? label : null;
                 }
                 
-                audioPlayer.currentTime = times.start; 
-                audioPlayer.play(); 
+                // ★ 修正核心：加入跳轉鎖，並優先使用 wavesurfer.setTime
+                window.jumpLockTime = Date.now();
+                if (typeof wavesurfer !== 'undefined' && wavesurfer) {
+                    wavesurfer.setTime(times.start);
+                } else {
+                    audioPlayer.currentTime = times.start;
+                }
+
+                // 加入 50 毫秒延遲，確保 WaveSurfer 與 Audio 引擎同步後再播放
+                setTimeout(() => {
+                    const playPromise = (typeof wavesurfer !== 'undefined' && wavesurfer) ? wavesurfer.play() : audioPlayer.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(err => { if (err.name !== 'AbortError') console.warn(err); });
+                    }
+                }, 50);
+
                 updateSelectionUI();
             } 
         });
 
+        // 2. 修正「喇叭圖示 (播放該句)」的點擊播放事件
         div.querySelector('.verify-btn').addEventListener('click', (e) => {
             e.stopPropagation(); currentActiveLabel = label; 
             
@@ -366,7 +381,7 @@ function renderSentenceList() {
             
             const times = getCalculatedTimes(label);
             if (times) {
-                // ★ 核心攔截：計算最大播放時間
+                // 計算最大播放時間
                 let targetEnd = times.end;
                 if (document.getElementById('enableMaxPlayCheck')?.checked) {
                     const maxSec = parseFloat(document.getElementById('maxPlaySecondsInput')?.value) || 2;
@@ -378,8 +393,22 @@ function renderSentenceList() {
                 verifyingLabel = label; 
                 
                 if(typeof applyCurrentPlaybackSpeed === 'function') applyCurrentPlaybackSpeed(); 
-                audioPlayer.currentTime = times.start; 
-                audioPlayer.play(); 
+
+                // ★ 修正核心：加入跳轉鎖，並優先使用 wavesurfer.setTime
+                window.jumpLockTime = Date.now();
+                if (typeof wavesurfer !== 'undefined' && wavesurfer) {
+                    wavesurfer.setTime(times.start);
+                } else {
+                    audioPlayer.currentTime = times.start;
+                }
+
+                setTimeout(() => {
+                    const playPromise = (typeof wavesurfer !== 'undefined' && wavesurfer) ? wavesurfer.play() : audioPlayer.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(err => { if (err.name !== 'AbortError') console.warn(err); });
+                    }
+                }, 50);
+
                 updateSelectionUI();
             }
         });

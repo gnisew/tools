@@ -114,94 +114,35 @@ document.getElementById('audioTimeTotal')?.addEventListener('click', () => {
     }
 });
 
-// 3. 改寫「定位按鈕」為「僅播放選取範圍」
+// 3. 改寫為「切換：僅播放選取範圍」模式按鈕
+function togglePlaySelectionMode() {
+    isPlaySelectionOnlyMode = !isPlaySelectionOnlyMode;
+    const btn = document.getElementById('locateCurrentBtn');
+    if (btn) {
+        if (isPlaySelectionOnlyMode) {
+            btn.style.background = '#1565C0'; // 啟用時：深藍底
+            btn.style.color = 'white';        // 啟用時：白字
+            btn.title = "已啟用：僅播放選取範圍 (Shift + Space)";
+            showToast('已啟用：僅播放選取範圍', 'success');
+        } else {
+            btn.style.background = '#E3F2FD'; // 關閉時：淺藍底
+            btn.style.color = '#1565C0';      // 關閉時：藍字
+            btn.title = "已切換：一般連續播放 (Shift + Space)";
+            showToast('已切換：一般連續播放', 'normal');
+        }
+    }
+}
+
 const oldLocateBtn = document.getElementById('locateCurrentBtn');
 if (oldLocateBtn) {
     const newLocateBtn = oldLocateBtn.cloneNode(true);
     oldLocateBtn.parentNode.replaceChild(newLocateBtn, oldLocateBtn);
-
+    
+    // 點擊按鈕時觸發開關
     newLocateBtn.addEventListener('click', (e) => {
         if(e) e.preventDefault();
-        if(e && e.currentTarget) e.currentTarget.blur(); // 強制防連點與解除焦點
-
-        // 若正在播放中，按此按鈕就執行「暫停」並直接結束
-        if (!audioPlayer.paused) {
-            audioPlayer.pause();
-            return; 
-        }
-
-        // ★ 統一功能 1：套用目前的播放速度
-        if(typeof applyCurrentPlaybackSpeed === 'function') applyCurrentPlaybackSpeed(); 
-
-        let targetStart = 0;
-        let targetEnd = 0;
-        let targetLabel = null; 
-
-        // 優先度 A：如果有藍色選取框 (tempRegion)，優先播放藍框
-        if (typeof tempRegion !== 'undefined' && tempRegion !== null) {
-            targetStart = tempRegion.start;
-            targetEnd = tempRegion.end;
-            targetLabel = null;
-        }
-        // 優先度 B & C：使用多重選取，或目前作用中的單句
-        else {
-            const labelsToPlay = (typeof selectedLabels !== 'undefined' && selectedLabels.length > 0) 
-                ? selectedLabels 
-                : (currentActiveLabel ? [currentActiveLabel] : []);
-
-            if (labelsToPlay.length === 0) {
-                return showToast('請先選取要播放的標記範圍', 'error');
-            }
-
-            let minStart = Infinity;
-            let maxEnd = 0;
-
-            labelsToPlay.forEach(label => {
-                const times = getCalculatedTimes(label);
-                if (times) {
-                    minStart = Math.min(minStart, times.start);
-                    maxEnd = Math.max(maxEnd, times.end !== null ? times.end : minStart);
-                }
-            });
-
-            if (minStart === Infinity) return showToast('選取的標記沒有時間資料', 'error');
-
-            targetStart = minStart;
-            targetEnd = maxEnd;
-            // 若只有單一句子，賦予 label 讓計時器知道正在播哪句 (與單句小按鈕功能一致)
-            targetLabel = labelsToPlay.length === 1 ? labelsToPlay[0] : null; 
-        }
-
-        // ★ 統一功能 2：處理「有標記的片段 最多只播 X 秒」設定
-        if (document.getElementById('enableMaxPlayCheck')?.checked) {
-            const maxSec = parseFloat(document.getElementById('maxPlaySecondsInput')?.value) || 2;
-            targetEnd = Math.min(targetEnd, targetStart + maxSec);
-        }
-
-        // 如果游標不在範圍內，或已經快到終點了，就重置回起點
-        if (audioPlayer.currentTime < targetStart || audioPlayer.currentTime >= targetEnd - 0.05) {
-            audioPlayer.currentTime = targetStart;
-        }
-
-        // ★ 統一功能 3：防護罩，確保煞車時間絕對大於目前時間
-        verifyEndTime = Math.max(audioPlayer.currentTime + 0.1, targetEnd);
-        verifyingLabel = targetLabel;
-        isContinuousSortedPlay = false;
-
-        // 如果有選取單句，同步更新介面高亮
-        if (targetLabel && typeof updateSelectionUI === 'function') {
-            updateSelectionUI();
-        }
-
-        // 執行播放並捕捉潛在錯誤
-        const playPromise = audioPlayer.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(err => { 
-                if (err.name !== 'AbortError') console.warn(err); 
-            });
-        }
-        
-        showToast('播放選取範圍', 'success');
+        if(e && e.currentTarget) e.currentTarget.blur();
+        togglePlaySelectionMode();
     });
 }
 
@@ -750,7 +691,11 @@ document.getElementById('toggleModeBtn')?.addEventListener('click', () => {
         sentenceList.className = 'is-edit-mode'; 
         showToast('已解鎖'); 
         document.querySelectorAll('.sentence-text-display').forEach(el => { el.contentEditable = true; el.classList.add('is-editable'); });
-        setupPanel.style.display = 'block';
+        
+        // ★ 加入防呆檢查：確認 setupPanel 存在才去更改樣式
+        if (setupPanel) {
+            setupPanel.style.display = 'block';
+        }
     } else { 
         document.body.classList.add('is-view-mode'); 
         modeText.textContent = '鎖定'; 
@@ -760,15 +705,19 @@ document.getElementById('toggleModeBtn')?.addEventListener('click', () => {
         document.querySelectorAll('.sentence-text-display').forEach(el => { el.contentEditable = false; el.classList.remove('is-editable'); }); 
         
         // 鎖定時自動關閉這些按鈕狀態
-        if(showClearBtns) document.getElementById('toggleClearBtnsBtn')?.click(); 
-        if(showShiftBtns) document.getElementById('toggleShiftBtnsBtn')?.click(); 
-        if(showMoreBtns) document.getElementById('toggleMoreBtnsBtn')?.click(); 
-		if(showAiBtns) document.getElementById('toggleAiBtnsBtn')?.click();
-        setupPanel.style.display = 'none';
+        if (showClearBtns) document.getElementById('toggleClearBtnsBtn')?.click(); 
+        if (showShiftBtns) document.getElementById('toggleShiftBtnsBtn')?.click(); 
+        if (showMoreBtns) document.getElementById('toggleMoreBtnsBtn')?.click(); 
+		if (showAiBtns) document.getElementById('toggleAiBtnsBtn')?.click();
+        
+        // ★ 加入防呆檢查：確認 setupPanel 存在才去更改樣式
+        if (setupPanel) {
+            setupPanel.style.display = 'none';
+        }
     }
     
-    if(typeof updateToolbarButtons === 'function') updateToolbarButtons();
-    if(typeof renderAllRegions === 'function') renderAllRegions();
+    if (typeof updateToolbarButtons === 'function') updateToolbarButtons();
+    if (typeof renderAllRegions === 'function') renderAllRegions();
 
     // 處理全文模式的編輯框
     const scriptTextarea = document.getElementById('scriptTextarea');
@@ -925,13 +874,9 @@ document.addEventListener('keydown', (e) => {
 
     if (e.code === 'Space' && !isInputActive) { 
         e.preventDefault(); 
-        if (document.activeElement) document.activeElement.blur();
+        if (document.activeElement) document.activeElement.blur(); 
         
-        if (e.shiftKey) { 
-            document.getElementById('locateCurrentBtn')?.click(); 
-        } else { 
-            if(typeof togglePlayPause === 'function') togglePlayPause(); 
-        }
+        if(typeof togglePlayPause === 'function') togglePlayPause(); 
         return; 
     }
     
@@ -1678,6 +1623,26 @@ restoreTagsBtn?.addEventListener('click', () => {
 });
 
 
+// ================= 新增：播放模式與側邊欄動態連動 =================
+if (playbackModeSelect) {
+    playbackModeSelect.value = playbackMode;
+    
+    // 定義動態顯示隱藏的邏輯
+    const toggleContinuousSettings = () => {
+        if (continuousSettingsBlock) {
+            continuousSettingsBlock.style.display = playbackModeSelect.value === 'continuous' ? 'block' : 'none';
+        }
+    };
+    toggleContinuousSettings(); // 載入時先執行一次
+
+    playbackModeSelect.addEventListener('change', (e) => {
+        playbackMode = e.target.value;
+        localStorage.setItem('tagger_playbackMode', playbackMode);
+        toggleContinuousSettings(); // 切換時自動隱藏/顯示
+        showToast(`已切換為：${playbackMode === 'single' ? '單句/區段' : '連續'}播放模式`, 'success');
+    });
+}
+
 // ================= 播放與跳轉設定事件 =================
 if (continuousPlayModeSelect) {
     continuousPlayModeSelect.value = continuousPlayMode;
@@ -1954,34 +1919,45 @@ scriptTextarea?.addEventListener('scroll', () => {
 });
 
 
-// ================= ★ 修改：大編輯框行號點擊 (加入限制秒數邏輯) ★ =================
+// 修改：大編輯框行號點擊 (加入限制秒數邏輯與同步修正)
 scriptGutter?.addEventListener('click', (e) => {
     if (e.target.classList.contains('gutter-line') && !e.target.classList.contains('para')) {
         const label = e.target.dataset.label;
         currentActiveLabel = label;
         
-        // 重置循環計數 (若使用者有開啟單句循環的話)
+        // 重置循環計數
         if (typeof currentLoopCounter !== 'undefined') currentLoopCounter = 0; 
         
         const times = getCalculatedTimes(label);
         if (times) {
             isContinuousSortedPlay = false; 
             
-            // ★ 攔截：動態設定最大播放時間
+            // 動態設定最大播放時間
             let targetEnd = times.end;
             if (document.getElementById('enableMaxPlayCheck')?.checked) {
                 const maxSec = parseFloat(document.getElementById('maxPlaySecondsInput')?.value) || 2;
                 targetEnd = Math.min(times.end, times.start + maxSec);
             }
             verifyEndTime = targetEnd; 
-            
             verifyingLabel = label; 
             
             // 確保套用目前的播放速度
             if(typeof applyCurrentPlaybackSpeed === 'function') applyCurrentPlaybackSpeed(); 
             
-            audioPlayer.currentTime = times.start;
-            audioPlayer.play();
+            // ★ 修正核心：加入跳轉鎖與引擎同步
+            window.jumpLockTime = Date.now();
+            if (typeof wavesurfer !== 'undefined' && wavesurfer) {
+                wavesurfer.setTime(times.start);
+            } else {
+                audioPlayer.currentTime = times.start;
+            }
+
+            setTimeout(() => {
+                const playPromise = (typeof wavesurfer !== 'undefined' && wavesurfer) ? wavesurfer.play() : audioPlayer.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(err => { if (err.name !== 'AbortError') console.warn(err); });
+                }
+            }, 50);
         }
         
         // 點擊時觸發置頂

@@ -41,7 +41,8 @@ const mergeRegionBtn = document.getElementById('mergeRegionBtn');
 const hkMerge = document.getElementById('hkMerge');
 const mergeSelectedBtn = document.getElementById('mergeSelectedBtn');
 const adjustPaddingBtn = document.getElementById('adjustPaddingBtn');
-const locateCurrentBtn = document.getElementById('locateCurrentBtn'); 
+const playbackModeSelect = document.getElementById('playbackModeSelect');
+const continuousSettingsBlock = document.getElementById('continuousSettingsBlock');
 
 const sortToggleBtn = document.getElementById('sortToggleBtn');
 const sortMenu = document.getElementById('sortMenu');
@@ -59,6 +60,7 @@ const scriptEditorContainer = document.getElementById('scriptEditorContainer');
 const scriptGutter = document.getElementById('scriptGutter');
 const scriptTextarea = document.getElementById('scriptTextarea');
 let isScriptMode = false;
+let isPlaySelectionOnlyMode = false;
 
 const toggleModeBtn = document.getElementById('toggleModeBtn');
 const modeText = document.getElementById('modeText');
@@ -158,6 +160,7 @@ let wsRegions = null;
 let isDraggingRegion = false;
 let regionDragTimeout = null;
 
+let playbackMode = localStorage.getItem('tagger_playbackMode') || 'continuous';
 let continuousPlayMode = localStorage.getItem('tagger_continuousPlayMode') || 'normal';
 let currentAppWidth = localStorage.getItem('tagger_appWidth') || '100%';
 if (currentAppWidth === '800px') { currentAppWidth = '100%'; }

@@ -10,62 +10,257 @@ function applyCurrentPlaybackSpeed() {
     if (wavesurfer) wavesurfer.setPlaybackRate(speed); 
 }
 
-// ★ 徹底重構：Space 鍵專屬的「一般播放」，不再強制跳轉游標
+// 全域跳轉保護鎖，防止時間差導致誤判暫停
+window.jumpLockTime = 0; 
+
 function togglePlayPause() {
+    // 1. 防呆檢查：確認是否有載入有效音檔
+    if (!audioPlayer || !audioPlayer.src || audioPlayer.src === window.location.href) {
+        if (typeof showToast === 'function') showToast('請先載入音檔再進行播放喔！', 'error');
+        return;
+    }
+    if (audioPlayer.readyState === 0) {
+        if (typeof showToast === 'function') showToast('音檔正在載入或解碼中，請稍候...', 'normal');
+        return;
+    }
+
     const now = Date.now();
-    if (now - window.lastToggleTime < 200) return; 
+    if (now - window.lastToggleTime < 200) return;
     window.lastToggleTime = now;
 
-    if (audioPlayer.paused) {
-        let targetEnd = null;
+    // 優先以 WaveSurfer 的狀態為主
+    const wsAvailable = (typeof wavesurfer !== 'undefined' && wavesurfer);
+    const isCurrentlyPlaying = wsAvailable ? wavesurfer.isPlaying() : !audioPlayer.paused;
 
-        // 1. 若有啟用「限制最高播放秒數」
-        if (document.getElementById('enableMaxPlayCheck')?.checked) {
-            const maxSec = parseFloat(document.getElementById('maxPlaySecondsInput')?.value) || 2;
-            targetEnd = audioPlayer.currentTime + maxSec;
-        }
+    if (isCurrentlyPlaying) {
+        if (wsAvailable) wavesurfer.pause();
+        else audioPlayer.pause();
+        verifyEndTime = null;
+        isContinuousSortedPlay = false;
+        return;
+    }
 
-        // 2. 若啟用「略過無標記片段」
-        if (continuousPlayMode === 'skip') {
-            let activeLabel = null;
-            for (let i = 0; i < allLabelsOrdered.length; i++) {
-                const label = allLabelsOrdered[i];
-                if (timeDataMap[label]) {
+    if (typeof applyCurrentPlaybackSpeed === 'function') applyCurrentPlaybackSpeed();
+
+    // ★ 終極修正：直接讀取畫面上的 UI 選單，杜絕變數錯亂
+    const modeSelect = document.getElementById('playbackModeSelect');
+    const realMode = modeSelect ? modeSelect.value : (typeof playbackMode !== 'undefined' ? playbackMode : 'continuous');
+
+    const currentT = audioPlayer.currentTime;
+    const duration = audioPlayer.duration || 0;
+
+    let targetStart = null;
+    let targetEnd = null;
+    let targetLabel = null;
+    let willSetContinuousSorted = false;
+    let jumpTo = null;
+
+    // =========================================================
+    // 模式 A：單句 / 區段播放模式 (播完即停)
+    // =========================================================
+    if (realMode === 'single') {
+        if (typeof tempRegion !== 'undefined' && tempRegion !== null) {
+            targetStart = tempRegion.start;
+            targetEnd = tempRegion.end;
+        } else {
+            const labelsToPlay = (typeof selectedLabels !== 'undefined' && selectedLabels.length > 0) 
+                ? selectedLabels : (currentActiveLabel ? [currentActiveLabel] : []);
+            
+            if (labelsToPlay.length > 0) {
+                let minStart = Infinity; let maxEnd = 0;
+                labelsToPlay.forEach(label => {
                     const times = getCalculatedTimes(label);
-                    if (audioPlayer.currentTime >= times.start && audioPlayer.currentTime < times.end) {
-                        activeLabel = label; break;
+                    if (times) {
+                        minStart = Math.min(minStart, times.start);
+                        maxEnd = Math.max(maxEnd, times.end !== null ? times.end : (minStart + 1));
                     }
+                });
+                if (minStart !== Infinity) {
+                    targetStart = minStart;
+                    targetEnd = maxEnd;
+                    targetLabel = labelsToPlay.length === 1 ? labelsToPlay[0] : null;
                 }
             }
-            if (activeLabel) {
-                const times = getCalculatedTimes(activeLabel);
-                targetEnd = targetEnd ? Math.min(targetEnd, times.end) : times.end;
-                verifyingLabel = activeLabel;
-                isContinuousSortedPlay = true;
-            } else {
-                verifyingLabel = null;
-                isContinuousSortedPlay = false;
-            }
-        } else {
-            verifyingLabel = null;
-            isContinuousSortedPlay = false;
+        }
+        
+        if (targetStart !== null) {
+            // 如果游標不在範圍內，或已經在結尾了，跳回開頭
+            if (currentT < targetStart || currentT >= targetEnd - 0.05) jumpTo = targetStart;
+            verifyEndTime = targetEnd;
         }
 
-        verifyEndTime = targetEnd;
-
-        const playPromise = audioPlayer.play();
-        if (playPromise !== undefined) playPromise.catch(err => { if (err.name !== 'AbortError') console.warn(err); });
-    } else { 
-        audioPlayer.pause(); 
+    // =========================================================
+    // 模式 B：連續播放模式 (播到底)
+    // =========================================================
+    } else {
+        if (typeof tempRegion !== 'undefined' && tempRegion !== null) {
+            // 有藍色選取框時，優先播放框內範圍並暫停
+            targetStart = tempRegion.start;
+            targetEnd = tempRegion.end;
+            if (currentT < targetStart || currentT >= targetEnd - 0.05) jumpTo = targetStart;
+            verifyEndTime = targetEnd;
+        } else {
+            // 檢查是否開啟了「略過無標記片段」
+            const skipSelect = document.getElementById('continuousPlayModeSelect');
+            const skipMode = skipSelect ? skipSelect.value : (typeof continuousPlayMode !== 'undefined' ? continuousPlayMode : 'normal');
+            
+            if (skipMode === 'skip' && currentActiveLabel && timeDataMap[currentActiveLabel]) {
+                const times = getCalculatedTimes(currentActiveLabel);
+                if (times) {
+                    targetStart = Math.max(0, times.start - (typeof playPadding !== 'undefined' ? playPadding : 0.2));
+                    targetEnd = times.end !== null ? times.end : duration;
+                    targetLabel = currentActiveLabel;
+                    willSetContinuousSorted = true;
+                    if (currentT < targetStart || currentT >= targetEnd - 0.05) jumpTo = targetStart;
+                    verifyEndTime = targetEnd;
+                }
+            } else {
+                // ★ 最純粹的一般連續播放：絕對不會被暫停！
+                if (duration && currentT >= duration - 0.1) jumpTo = 0; // 如果播到底了，才回到 0
+                verifyEndTime = null; // 設定為 null，系統巡邏迴圈就會無視它，順暢播到底！
+            }
+        }
     }
+
+    // ★ 最大播放秒數限制檢查
+    if (verifyEndTime !== null && document.getElementById('enableMaxPlayCheck')?.checked) {
+        const maxSec = parseFloat(document.getElementById('maxPlaySecondsInput')?.value) || 2;
+        const startRef = targetStart !== null ? targetStart : currentT;
+        verifyEndTime = Math.min(verifyEndTime, startRef + maxSec);
+    }
+
+    verifyingLabel = targetLabel;
+    isContinuousSortedPlay = willSetContinuousSorted;
+
+    // 如果需要跳轉，先跳轉，並上「時間保護鎖」
+    if (jumpTo !== null) {
+        window.jumpLockTime = Date.now();
+        if (wsAvailable) wavesurfer.setTime(jumpTo);
+        else audioPlayer.currentTime = jumpTo;
+    }
+
+    // 延遲 50 毫秒執行播放，確保瀏覽器時間已確實更新
+    setTimeout(() => {
+        const playPromise = wsAvailable ? wavesurfer.play() : audioPlayer.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(err => { if (err.name !== 'AbortError') console.warn("播放器保護機制:", err); });
+        }
+    }, 50);
 
     if (document.activeElement === playPauseBtn) playPauseBtn.blur();
 }
 
-playPauseBtn.addEventListener('click', (e) => { if(e) e.preventDefault(); if(e && e.currentTarget) e.currentTarget.blur(); togglePlayPause(); });
-stopBtn.addEventListener('click', (e) => { if(e) e.preventDefault(); if(e && e.currentTarget) e.currentTarget.blur(); verifyEndTime = null; audioPlayer.pause(); audioPlayer.currentTime = 0; if(wavesurfer) wavesurfer.seekTo(0); });
-document.getElementById('rewindBtn').addEventListener('click', (e) => { if(e) e.preventDefault(); if(e && e.currentTarget) e.currentTarget.blur(); verifyEndTime = null; audioPlayer.currentTime -= 2; });
-document.getElementById('forwardBtn').addEventListener('click', (e) => { if(e) e.preventDefault(); if(e && e.currentTarget) e.currentTarget.blur(); verifyEndTime = null; audioPlayer.currentTime += 2; });
+
+function precisionLoop() {
+    if (!audioPlayer || audioPlayer.paused) return;
+    
+    // 防護 1：剛下達跳轉指令的 300 毫秒內，不進行暫停判定
+    if (Date.now() - (window.jumpLockTime || 0) < 300) {
+        precisionRafId = requestAnimationFrame(precisionLoop);
+        return;
+    }
+
+    // 防護 2：瀏覽器原生正在緩衝跳轉中
+    if (audioPlayer.seeking) {
+        precisionRafId = requestAnimationFrame(precisionLoop);
+        return;
+    }
+
+    const currentT = audioPlayer.currentTime;
+    const wsAvailable = (typeof wavesurfer !== 'undefined' && wavesurfer);
+
+    // ★ 只有當 verifyEndTime 不是 null 時，才會觸發自動暫停或切換句子的邏輯
+    if (verifyEndTime !== null && currentT >= verifyEndTime) {
+        
+        if (typeof loopMode !== 'undefined' && loopMode === 'single' && verifyingLabel) {
+            if (typeof loopCount !== 'undefined' && (loopCount === 0 || currentLoopCounter < loopCount)) {
+                if (loopCount > 0) currentLoopCounter++; 
+                const times = getCalculatedTimes(verifyingLabel);
+                if (times) {
+                    window.jumpLockTime = Date.now();
+                    const jumpTo = Math.max(0, times.start - (typeof playPadding !== 'undefined' ? playPadding : 0.2));
+                    if (wsAvailable) wavesurfer.setTime(jumpTo); else audioPlayer.currentTime = jumpTo;
+                    precisionRafId = requestAnimationFrame(precisionLoop);
+                    return; 
+                }
+            } else {
+                if (typeof currentLoopCounter !== 'undefined') currentLoopCounter = 0; 
+            }
+        }
+
+        if (isContinuousSortedPlay && verifyingLabel) {
+            const currentIndex = currentSortedLabels.indexOf(verifyingLabel);
+            if (currentIndex !== -1 && currentIndex + 1 < currentSortedLabels.length) {
+                let nextLabel = null; let nextTimes = null;
+                for (let i = currentIndex + 1; i < currentSortedLabels.length; i++) {
+                    const tempLabel = currentSortedLabels[i];
+                    const tempTimes = getCalculatedTimes(tempLabel);
+                    if (tempTimes) { nextLabel = tempLabel; nextTimes = tempTimes; break; }
+                }
+
+                if (nextTimes) {
+                    if (typeof currentLoopCounter !== 'undefined') currentLoopCounter = 0; 
+                    window.jumpLockTime = Date.now();
+                    const jumpTo = Math.max(0, nextTimes.start - (typeof playPadding !== 'undefined' ? playPadding : 0.2));
+                    if (wsAvailable) wavesurfer.setTime(jumpTo); else audioPlayer.currentTime = jumpTo;
+                    
+                    verifyEndTime = nextTimes.end;
+                    verifyingLabel = nextLabel;
+                    currentActiveLabel = nextLabel;
+                    if (typeof updateToolbarButtons === 'function') updateToolbarButtons();
+                    const nextItemDiv = document.getElementById(`item-${nextLabel}`);
+                    if (nextItemDiv && typeof smartScrollTo === 'function') smartScrollTo(nextItemDiv); 
+                    precisionRafId = requestAnimationFrame(precisionLoop);
+                    return; 
+                }
+            }
+        }
+        
+        if (typeof currentLoopCounter !== 'undefined') currentLoopCounter = 0; 
+        
+        // 觸發暫停
+        if (wsAvailable) wavesurfer.pause(); else audioPlayer.pause(); 
+        if (wsAvailable) wavesurfer.setTime(verifyEndTime); else audioPlayer.currentTime = verifyEndTime; 
+        
+        const finalLabel = verifyingLabel;
+        verifyEndTime = null; 
+        isContinuousSortedPlay = false; 
+        
+        if (finalLabel) { 
+            const currentItemDiv = document.getElementById(`item-${finalLabel}`); 
+            if (currentItemDiv && currentSortMode === 'default') {
+                if (typeof isScriptMode !== 'undefined' && isScriptMode) {
+                    if (typeof snapWaveformToTop === 'function') setTimeout(snapWaveformToTop, 50);
+                } else {
+                    if(typeof smartScrollTo === 'function') smartScrollTo(currentItemDiv.nextElementSibling); 
+                }
+            }
+            verifyingLabel = null; 
+        }
+        return;
+    }
+    
+    precisionRafId = requestAnimationFrame(precisionLoop);
+}
+
+playPauseBtn.addEventListener('click', (e) => { if(e && e.currentTarget) e.currentTarget.blur(); togglePlayPause(); });
+stopBtn.addEventListener('click', (e) => { if(e && e.currentTarget) e.currentTarget.blur(); verifyEndTime = null; audioPlayer.pause(); audioPlayer.currentTime = 0; if(wavesurfer) wavesurfer.seekTo(0); });
+document.getElementById('rewindBtn').addEventListener('click', (e) => { if(e && e.currentTarget) e.currentTarget.blur(); verifyEndTime = null; audioPlayer.currentTime -= 2; });
+document.getElementById('forwardBtn').addEventListener('click', (e) => { if(e && e.currentTarget) e.currentTarget.blur(); verifyEndTime = null; audioPlayer.currentTime += 2; });
+
+// =========== 移除原本對 locateCurrentBtn 的圖示更新 ============
+audioPlayer.addEventListener('play', () => { 
+    if(playPauseBtn) playPauseBtn.querySelector('.material-icons').textContent = 'pause'; 
+    if (precisionRafId) cancelAnimationFrame(precisionRafId);
+    precisionRafId = requestAnimationFrame(precisionLoop);
+});
+
+audioPlayer.addEventListener('pause', () => { 
+    if(playPauseBtn) playPauseBtn.querySelector('.material-icons').textContent = 'play_arrow'; 
+    if (precisionRafId) cancelAnimationFrame(precisionRafId);
+});
+
+
 
 function updateZoom(value) {
     if (!wavesurfer) return;
@@ -97,8 +292,18 @@ zoomInBtn?.addEventListener('click', () => updateZoom(Math.min(200, Number(zoomS
 
 function renderAllRegions() {
     if (!wsRegions) return;
-    isRendering = true; wsRegions.clearRegions();
-    if (tempRegion) tempRegion = wsRegions.addRegion({ start: tempRegion.start, end: tempRegion.end, color: 'rgba(33, 150, 243, 0.3)', drag: isEditMode, resize: isEditMode });
+    
+    // ★ 核心修復：加入「等待音檔就緒」保護鎖
+    // 當音檔尚未載入完成 (長度未知) 時，絕對不要提早繪製標記！
+    // 否則 WaveSurfer 會把所有標記強制擠壓到 0 秒的位置並損毀資料。
+    if (!wavesurfer || !audioPlayer || !audioPlayer.duration || audioPlayer.duration < 0.1) return;
+
+    isRendering = true; 
+    wsRegions.clearRegions();
+    
+    if (tempRegion) {
+        tempRegion = wsRegions.addRegion({ start: tempRegion.start, end: tempRegion.end, color: 'rgba(33, 150, 243, 0.3)', drag: isEditMode, resize: isEditMode });
+    }
     
     allLabelsOrdered.forEach(label => {
         const times = getCalculatedTimes(label);
@@ -141,12 +346,19 @@ function initWaveSurfer() {
     }
 
     if (typeof wavesurfer !== 'undefined' && wavesurfer !== null) {
+        // ★ 關鍵修復 1：載入新音檔前，先上鎖並清空舊標記，防止被強制歸零
+        isRendering = true;
+        if (wsRegions) wsRegions.clearRegions();
+        isRendering = false;
+        
         wavesurfer.load(audioPlayer.src);
         return; 
     }
     
     document.getElementById('stickyPanel').style.display = 'block';
-    document.getElementById('waveform').style.display = 'block'; compactControls.style.display = 'flex'; 
+    document.getElementById('waveform').style.display = 'block'; 
+    compactControls.style.display = 'flex'; 
+    
     wavesurfer = WaveSurfer.create({ 
         container: '#waveform', 
         waveColor: '#B2DFDB', 
@@ -157,7 +369,7 @@ function initWaveSurfer() {
         media: audioPlayer,
         autoScroll: true, 
         autoCenter: autoScrollMode === 'center',
-		});
+    });
 
     const isMinimapEnabled = localStorage.getItem('tagger_enableMinimap') === 'true';
     if (typeof toggleMinimap === 'function') toggleMinimap(isMinimapEnabled);
@@ -173,13 +385,18 @@ function initWaveSurfer() {
     });
 
     wsRegions.on('region-updated', (region) => {
+        // ★ 關鍵修復 2：加上多重保護鎖，如果音檔尚未準備好，絕對不允許存檔
+        if (isRendering) return; 
+        if (!audioPlayer || !audioPlayer.duration || audioPlayer.duration < 0.1) return; 
+
         if (region === tempRegion) return; 
         isDraggingRegion = true;
         if (timeDataMap[region.id]) {
             timeDataMap[region.id].start = parseFloat(region.start.toFixed(3)); 
             timeDataMap[region.id].end = parseFloat(region.end.toFixed(3));
             if(typeof updateSingleTimeDisplay === 'function') updateSingleTimeDisplay(region.id); 
-            clearTimeout(regionDragTimeout); regionDragTimeout = setTimeout(() => { isDraggingRegion = false; saveToStorage(); }, 500);
+            clearTimeout(regionDragTimeout); 
+            regionDragTimeout = setTimeout(() => { isDraggingRegion = false; saveToStorage(); }, 500);
         }
     });
 
@@ -204,16 +421,19 @@ function initWaveSurfer() {
         if(typeof updateSelectionUI === 'function') updateSelectionUI(); 
         
         if (itemDiv) { 
+            let targetTime = region.start;
             if (wavesurfer && audioPlayer.duration) {
                 const wrapper = wavesurfer.getWrapper();
                 const rect = wrapper.getBoundingClientRect();
-                
                 const relativeX = (e.clientX - rect.left) / rect.width;
                 const clickTime = relativeX * audioPlayer.duration;
-                
-                audioPlayer.currentTime = Math.max(region.start, Math.min(clickTime, region.end));
+                targetTime = Math.max(region.start, Math.min(clickTime, region.end));
+            }
+
+            if (typeof wavesurfer !== 'undefined' && wavesurfer) {
+                wavesurfer.setTime(targetTime);
             } else {
-                audioPlayer.currentTime = region.start;
+                audioPlayer.currentTime = targetTime;
             }
 
             document.querySelectorAll('.sentence-item').forEach(el => el.classList.remove('playing')); 
@@ -229,8 +449,7 @@ function initWaveSurfer() {
         
         if (typeof snapWaveformToTop === 'function') setTimeout(snapWaveformToTop, 50);
     });
-	
-	
+    
     wavesurfer.on('click', (relativeX) => {
         const clickTime = relativeX * audioPlayer.duration;
         if (isShiftPressed && lastClickTime !== null) {
@@ -263,203 +482,7 @@ function initWaveSurfer() {
     });
 }
 
-function precisionLoop() {
-    if (audioPlayer.paused) return;
-    
-    // ★ 終極防護 6：當音訊正在跳轉 (seeking) 時，暫停所有煞車判斷，避免讀取到舊的 currentTime 導致誤觸暫停
-    if (audioPlayer.seeking) {
-        precisionRafId = requestAnimationFrame(precisionLoop);
-        return;
-    }
 
-    const currentT = audioPlayer.currentTime;
-    if (verifyEndTime !== null && currentT >= verifyEndTime) {
-        
-        if (loopMode === 'single' && verifyingLabel) {
-            if (loopCount === 0 || currentLoopCounter < loopCount) {
-                if (loopCount > 0) currentLoopCounter++; 
-                const times = getCalculatedTimes(verifyingLabel);
-                if (times) {
-                    audioPlayer.currentTime = Math.max(0, times.start - playPadding);
-                    precisionRafId = requestAnimationFrame(precisionLoop);
-                    return; 
-                }
-            } else {
-                currentLoopCounter = 0; 
-            }
-        }
-
-        if (isContinuousSortedPlay && verifyingLabel) {
-            const currentIndex = currentSortedLabels.indexOf(verifyingLabel);
-            if (currentIndex !== -1 && currentIndex + 1 < currentSortedLabels.length) {
-                
-                let nextLabel = null;
-                let nextTimes = null;
-                for (let i = currentIndex + 1; i < currentSortedLabels.length; i++) {
-                    const tempLabel = currentSortedLabels[i];
-                    const tempTimes = getCalculatedTimes(tempLabel);
-                    if (tempTimes) {
-                        nextLabel = tempLabel;
-                        nextTimes = tempTimes;
-                        break; 
-                    }
-                }
-
-                if (nextTimes) {
-                    currentLoopCounter = 0; 
-                    audioPlayer.currentTime = Math.max(0, nextTimes.start - playPadding);
-                    verifyEndTime = nextTimes.end;
-                    verifyingLabel = nextLabel;
-                    currentActiveLabel = nextLabel;
-                    if(typeof updateToolbarButtons === 'function') updateToolbarButtons();
-                    
-                    const nextItemDiv = document.getElementById(`item-${nextLabel}`);
-                    if (nextItemDiv && typeof smartScrollTo === 'function') smartScrollTo(nextItemDiv); 
-                    precisionRafId = requestAnimationFrame(precisionLoop);
-                    return; 
-                }
-            }
-            
-            if (loopMode === 'all') {
-                if (loopCount === 0 || currentLoopCounter < loopCount) {
-                    if (loopCount > 0) currentLoopCounter++;
-                    
-                    let firstLabel = null;
-                    let firstTimes = null;
-                    for (let i = 0; i < currentSortedLabels.length; i++) {
-                        const tempLabel = currentSortedLabels[i];
-                        const tempTimes = getCalculatedTimes(tempLabel);
-                        if (tempTimes) {
-                            firstLabel = tempLabel;
-                            firstTimes = tempTimes;
-                            break; 
-                        }
-                    }
-
-                    if (firstTimes) {
-                        audioPlayer.currentTime = Math.max(0, firstTimes.start - playPadding);
-                        verifyEndTime = firstTimes.end;
-                        verifyingLabel = firstLabel;
-                        currentActiveLabel = firstLabel;
-                        if(typeof updateToolbarButtons === 'function') updateToolbarButtons();
-                        
-                        const firstItemDiv = document.getElementById(`item-${firstLabel}`);
-                        if (firstItemDiv && typeof smartScrollTo === 'function') smartScrollTo(firstItemDiv); 
-                        precisionRafId = requestAnimationFrame(precisionLoop);
-                        return;
-                    }
-                } else {
-                    currentLoopCounter = 0; 
-                }
-            }
-        }
-        
-        currentLoopCounter = 0; 
-        audioPlayer.pause(); 
-        audioPlayer.currentTime = verifyEndTime; 
-        const finalLabel = verifyingLabel;
-        verifyEndTime = null; 
-        isContinuousSortedPlay = false; 
-        
-        if (finalLabel) { 
-            const currentItemDiv = document.getElementById(`item-${finalLabel}`); 
-            if (currentItemDiv && currentSortMode === 'default') {
-                if (typeof isScriptMode !== 'undefined' && isScriptMode) {
-                    if (typeof snapWaveformToTop === 'function') setTimeout(snapWaveformToTop, 50);
-                } else {
-                    if(typeof smartScrollTo === 'function') smartScrollTo(currentItemDiv.nextElementSibling); 
-                }
-            }
-            verifyingLabel = null; 
-        }
-        return;
-    }
-    precisionRafId = requestAnimationFrame(precisionLoop);
-}
-
-audioPlayer.addEventListener('play', () => { 
-    if(playPauseBtn) playPauseBtn.querySelector('.material-icons').textContent = 'pause'; 
-    const locateBtn = document.getElementById('locateCurrentBtn');
-    if (locateBtn) locateBtn.querySelector('.material-icons').textContent = 'pause_circle';
-
-    if (precisionRafId) cancelAnimationFrame(precisionRafId);
-    precisionRafId = requestAnimationFrame(precisionLoop);
-});
-
-audioPlayer.addEventListener('pause', () => { 
-    if(playPauseBtn) playPauseBtn.querySelector('.material-icons').textContent = 'play_arrow'; 
-    const locateBtn = document.getElementById('locateCurrentBtn');
-    if (locateBtn) locateBtn.querySelector('.material-icons').textContent = 'play_circle';
-
-    if (precisionRafId) cancelAnimationFrame(precisionRafId);
-});
-
-audioPlayer.addEventListener('timeupdate', () => {
-    const currentT = audioPlayer.currentTime;
-    if(audioPlayer.duration) {
-        const elCurr = document.getElementById('audioTimeCurrent');
-        const elTot = document.getElementById('audioTimeTotal');
-        if (elCurr) elCurr.textContent = formatTime(currentT);
-        if (elTot) elTot.textContent = formatTime(audioPlayer.duration);
-    }
-    
-    let activeLabel = null;
-    for (let i = 0; i < allLabelsOrdered.length; i++) {
-        const label = allLabelsOrdered[i]; if(timeDataMap[label] === undefined) continue;
-        const times = getCalculatedTimes(label); if (currentT >= times.start && currentT < times.end) { activeLabel = label; break; }
-    }
-    
-    if (activeLabel && activeLabel !== currentActiveLabel) {
-        currentActiveLabel = activeLabel;
-        if(typeof updateToolbarButtons === 'function') updateToolbarButtons();
-    }
-
-    if (wsRegions) { 
-        wsRegions.getRegions().forEach(region => { 
-            if (region !== tempRegion) {
-                if (selectedLabels.includes(region.id)) {
-                    region.setOptions({ color: 'rgba(25, 118, 210, 0.25)' });
-                } else if (region.id === currentActiveLabel) {
-                    region.setOptions({ color: 'rgba(255, 112, 67, 0.15)' });
-                } else {
-                    region.setOptions({ color: 'rgba(0, 137, 123, 0.1)' });
-                }
-            }
-        }); 
-    }
-    
-    document.querySelectorAll('.sentence-item').forEach(item => {
-        if (item.id.replace('item-', '') === activeLabel) {
-            if (!item.classList.contains('playing')) { 
-                item.classList.add('playing'); 
-                
-                if (currentSortMode === 'default') {
-                    if (typeof isScriptMode !== 'undefined' && isScriptMode) {
-                    } else {
-                        const rect = item.getBoundingClientRect(); 
-                        const headerHeight = (stickyPanel ? stickyPanel.offsetHeight : 0) + (listHeaderContainer ? listHeaderContainer.offsetHeight : 0); 
-                        if (rect.top < headerHeight || rect.bottom > window.innerHeight - 50) {
-                            if(typeof smartScrollTo === 'function') smartScrollTo(item); 
-                        }
-                    }
-                }
-            }
-        } else {
-            item.classList.remove('playing');
-        }
-    });
-    if (isScriptMode && scriptGutter && activeLabel) {
-        document.querySelectorAll('.gutter-line').forEach(el => el.classList.remove('active'));
-        
-        const activeGutterEl = document.getElementById(`gutter-${activeLabel}`);
-        if (activeGutterEl) {
-            activeGutterEl.classList.add('active'); 
-            
-            const scrollTarget = activeGutterEl.offsetTop - 100; 
-            scriptTextarea.scrollTo({ top: scrollTarget, behavior: 'smooth' });
-        }
-    }
-});
 
 window.addEventListener('DOMContentLoaded', () => { 
     if (projectTitleInput) {
@@ -538,3 +561,23 @@ window.toggleMinimap = function(enable) {
         setTimeout(updateStickyOffsets, 50);
     }
 };
+
+
+
+
+
+
+
+
+
+// ================= 時間顯示即時更新 =================
+// 綁定原生音訊的時間更新事件，讓左下角的時間隨播放與點擊連動
+if (audioPlayer) {
+    audioPlayer.addEventListener('timeupdate', () => {
+        const timeCurrentEl = document.getElementById('audioTimeCurrent');
+        // 確保時間為有效數字，並使用 1_globals.js 中的 formatTime 轉換格式
+        if (timeCurrentEl && !isNaN(audioPlayer.currentTime)) {
+            timeCurrentEl.textContent = formatTime(audioPlayer.currentTime);
+        }
+    });
+}
