@@ -102,15 +102,27 @@ document.getElementById('audioTimeCurrent')?.addEventListener('click', () => {
 
 // 2. 點擊「全部時間」：全選 / 取消全選
 document.getElementById('audioTimeTotal')?.addEventListener('click', () => {
-    if (typeof selectedLabels !== 'undefined' && selectedLabels.length > 0) {
-        // 若已有選取，視同取消全選
+    // ★ 核心修復：檢查是否有選取的標記，或是「有藍色暫存選取框 (例如全選音檔產生的)」
+    const hasSelection = (typeof selectedLabels !== 'undefined' && selectedLabels.length > 0) || 
+                         (typeof tempRegion !== 'undefined' && tempRegion !== null);
+
+    if (hasSelection) {
+        // 若已有選取，視同取消全選 (清除標記選取狀態，並移除藍色框)
         if (typeof clearSelection === 'function') clearSelection();
+        if (typeof tempRegion !== 'undefined' && tempRegion) {
+            tempRegion.remove();
+            tempRegion = null;
+        }
+        // 更新工具列狀態
+        if (typeof updateToolbarButtons === 'function') updateToolbarButtons();
         showToast('已取消選取', 'normal');
     } else {
         // 沒選取時，全選所有有時間的標記
-        selectedLabels = allLabelsOrdered.filter(label => timeDataMap[label] !== undefined);
-        if (typeof updateSelectionUI === 'function') updateSelectionUI();
-        showToast(`已全選 ${selectedLabels.length} 個標記`, 'success');
+        if (typeof allLabelsOrdered !== 'undefined') {
+            selectedLabels = allLabelsOrdered.filter(label => timeDataMap[label] !== undefined);
+            if (typeof updateSelectionUI === 'function') updateSelectionUI();
+            showToast(`已全選 ${selectedLabels.length} 個標記`, 'success');
+        }
     }
 });
 
@@ -847,6 +859,15 @@ document.addEventListener('keydown', e => { if(e.key === 'Shift') isShiftPressed
 document.addEventListener('keyup', e => { if(e.key === 'Shift') isShiftPressed = false; });
 document.addEventListener('keydown', (e) => {
     const isInputActive = (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT' || e.target.isContentEditable);
+	if ((e.ctrlKey || e.metaKey) && e.code === 'KeyF') {
+        e.preventDefault();
+        
+        const findBtn = document.getElementById('openBatchReplaceBtn');
+        if (findBtn) {
+            findBtn.click();
+        }
+        return; 
+    }
     
     // 歷史紀錄快捷鍵 (Undo: Ctrl+Z, Redo: Ctrl+Y 或是 Ctrl+Shift+Z) 
     // 如果正在打字，讓瀏覽器原生接管打字的復原；否則觸發全域狀態復原
@@ -1417,15 +1438,36 @@ autoSegmentRegionBtn?.addEventListener('click', () => {
 
 asCancelBtn?.addEventListener('click', () => asModal?.classList.remove('show'));
 
-// 3. 執行分析
+// ================= 自動斷句 Modal 雙頁籤與按鈕事件 =================
+const tabAutoSilence = document.getElementById('tabAutoSilence');
+const tabAutoTime = document.getElementById('tabAutoTime');
+const sectionAutoSilence = document.getElementById('sectionAutoSilence');
+const sectionAutoTime = document.getElementById('sectionAutoTime');
+
+// 頁籤切換動畫與顯示邏輯
+tabAutoSilence?.addEventListener('click', () => {
+    tabAutoSilence.style.background = 'white'; tabAutoSilence.style.color = '#1976D2'; tabAutoSilence.style.borderBottom = '3px solid #1976D2';
+    tabAutoTime.style.background = 'transparent'; tabAutoTime.style.color = '#666'; tabAutoTime.style.borderBottom = '3px solid transparent';
+    sectionAutoSilence.style.display = 'block'; sectionAutoTime.style.display = 'none';
+});
+
+tabAutoTime?.addEventListener('click', () => {
+    tabAutoTime.style.background = 'white'; tabAutoTime.style.color = '#1976D2'; tabAutoTime.style.borderBottom = '3px solid #1976D2';
+    tabAutoSilence.style.background = 'transparent'; tabAutoSilence.style.color = '#666'; tabAutoSilence.style.borderBottom = '3px solid transparent';
+    sectionAutoTime.style.display = 'block'; sectionAutoSilence.style.display = 'none';
+});
+
+// 3. 執行分析 (分流：靜音引擎 vs 等長時間引擎)
 asConfirmBtn?.addEventListener('click', () => { 
     asModal?.classList.remove('show'); 
+    
+    // 檢查目前在哪個頁籤
+    const isTimeMode = sectionAutoTime && sectionAutoTime.style.display !== 'none';
     
     if (targetAutoSegmentRange) {
         if (typeof saveState === 'function') saveState(); // 紀錄狀態以便反悔
 
-        // ★ 重點防護：若是針對現有標記重新斷句，先清除它們的時間(釋放空間)避免重疊！
-        // (註：我們只清除時間，不刪除文字，保護使用者的心血)
+        // 若是針對現有標記重新斷句，先清除它們的時間(釋放空間)避免重疊！
         if (targetAutoSegmentRange.labelsToClear && targetAutoSegmentRange.labelsToClear.length > 0) {
             targetAutoSegmentRange.labelsToClear.forEach(label => {
                 if (timeDataMap[label]) delete timeDataMap[label];
@@ -1434,17 +1476,21 @@ asConfirmBtn?.addEventListener('click', () => {
             if (typeof clearSelection === 'function') clearSelection();
         }
 
-        // 空間清理完畢後，執行局部範圍斷句
-        if (typeof performRegionAutoSegmentation === 'function') {
-            performRegionAutoSegmentation(targetAutoSegmentRange.start, targetAutoSegmentRange.end);
+        // 分流：呼叫對應的局部斷句引擎
+        if (isTimeMode) {
+            if (typeof performTimeSegmentation === 'function') performTimeSegmentation(targetAutoSegmentRange);
+        } else {
+            if (typeof performRegionAutoSegmentation === 'function') {
+                performRegionAutoSegmentation(targetAutoSegmentRange.start, targetAutoSegmentRange.end);
+            }
         }
     } else {
-        // 執行全域斷句
-        if (typeof performAutoSegmentation === 'function') {
-            if(typeof saveState === 'function') saveState(); 
-            performAutoSegmentation(); 
+        // 分流：呼叫對應的全域斷句引擎
+        if (typeof saveState === 'function') saveState(); 
+        if (isTimeMode) {
+            if (typeof performTimeSegmentation === 'function') performTimeSegmentation(null);
         } else {
-            showToast('找不到斷句引擎，請確認 2_audio_engine.js 已載入', 'error');
+            if (typeof performAutoSegmentation === 'function') performAutoSegmentation(); 
         }
     }
 });

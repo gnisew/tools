@@ -900,3 +900,75 @@ async function startLocalAiBatchTranscribe(targetLabels) {
     });
 }
 // =========================================================================
+
+// ================= 【引擎 C】等長無縫自動斷句引擎 (支援全域與局部) =================
+window.performTimeSegmentation = async function(targetRange) {
+    if (!audioPlayer || !audioPlayer.duration) return showToast('無法取得音檔長度，請先載入音檔', 'error');
+
+    // ★ 核心修復：讀取「分」與「秒」的值，並換算為總秒數
+    const minutes = parseFloat(document.getElementById('asFixedTimeMinutes').value) || 0;
+    const seconds = parseFloat(document.getElementById('asFixedTimeSeconds').value) || 0;
+    const fixedLength = (minutes * 60) + seconds;
+
+    // 防呆檢查：如果輸入的時間為 0 或負數，阻擋執行
+    if (fixedLength <= 0) return showToast('請設定有效的標記長度', 'error');
+
+    const mediaDuration = audioPlayer.duration;
+
+    let segments = [];
+    let startTime = targetRange ? targetRange.start : 0;
+    let endTime = targetRange ? targetRange.end : mediaDuration;
+
+    // 核心演算法：無縫切割，每段結尾等於下一段開頭
+    for (let t = startTime; t < endTime; t += fixedLength) {
+        segments.push({ start: t, end: Math.min(t + fixedLength, endTime) });
+    }
+
+    if (segments.length === 0) return showToast('範圍太小，無法進行切割', 'error');
+
+    if (targetRange) {
+        // ================= 局部範圍：插入新標籤 =================
+        let insertIndex = allLabelsOrdered.length;
+        for (let i = 0; i < allLabelsOrdered.length; i++) {
+            const lbl = allLabelsOrdered[i];
+            if (timeDataMap[lbl]) {
+                const lblStart = typeof timeDataMap[lbl] === 'object' ? timeDataMap[lbl].start : timeDataMap[lbl];
+                if (lblStart > startTime) { insertIndex = i; break; }
+            }
+        }
+
+        let prefix = 'A';
+        if (insertIndex > 0) prefix = allLabelsOrdered[insertIndex - 1].charAt(0);
+        else if (allLabelsOrdered.length > 0) prefix = allLabelsOrdered[0].charAt(0);
+
+        segments.forEach((seg, idx) => {
+            const tempLabel = prefix + '_TEMP_TIME_' + Date.now() + '_' + idx;
+            allLabelsOrdered.splice(insertIndex + idx, 0, tempLabel);
+            timeDataMap[tempLabel] = { start: parseFloat(seg.start.toFixed(3)), end: parseFloat(seg.end.toFixed(3)) };
+            sentenceTextMap[tempLabel] = '';
+        });
+
+        if (typeof reassignLabels === 'function') reassignLabels();
+        if (typeof tempRegion !== 'undefined' && tempRegion) { tempRegion.remove(); tempRegion = null; }
+        if (typeof updateToolbarButtons === 'function') updateToolbarButtons();
+        showToast(`局部等長斷句完成！共無縫切出 ${segments.length} 句`, 'success');
+
+    } else {
+        // ================= 全域模式：洗掉重來 =================
+        allLabelsOrdered = []; sentenceTextMap = {}; timeDataMap = {};
+        segments.forEach((seg, idx) => {
+            const group = Math.floor(idx / 99);
+            const num = (idx % 99) + 1;
+            const prefix = String.fromCharCode(65 + group);
+            const label = `${prefix}${num.toString().padStart(2, '0')}`;
+            allLabelsOrdered.push(label);
+            sentenceTextMap[label] = '';
+            timeDataMap[label] = { start: parseFloat(seg.start.toFixed(3)), end: parseFloat(seg.end.toFixed(3)) };
+        });
+
+        saveToStorage();
+        if (typeof renderSentenceList === 'function') renderSentenceList();
+        if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
+        showToast(`全域等長斷句完成！共無縫切出 ${segments.length} 句`, 'success');
+    }
+};

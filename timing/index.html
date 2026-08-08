@@ -291,7 +291,7 @@
                 <div>
                     <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">循環次數</label>
                     <input type="number" id="loopCountInput" class="input-select" value="0" min="0" max="99" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold; box-sizing: border-box; padding: 6px; border-radius: 4px;">
-                    <span style="font-size: 0.8rem; color: #666;">填寫 0 表示無限次循環</span>
+                    <span style="font-size: 0.8rem; color: #666;">0 = 無限次</span>
                 </div>
             </div>
  
@@ -306,23 +306,23 @@
                 </div>
                 <div id="continuousSettingsBlock" style="padding-left: 10px; border-left: 3px solid #E0F2F1; margin-bottom: 15px;">
                     <div style="margin-bottom: 15px;">
-                        <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">波形跟隨模式 (放大時)</label>
+                        <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">波形跟隨模式</label>
                         <select id="autoScrollModeSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
-                            <option value="center" selected>置中跟隨 (預設)</option>
+                            <option value="center" selected>置中跟隨</option>
                             <option value="page">邊緣翻頁</option>
                         </select>
                     </div>
                     <div style="margin-bottom: 15px;">
-                        <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">連續播放：處理無標記片段</label>
+                        <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">播放模式</label>
                         <select id="continuousPlayModeSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
-                            <option value="normal" selected>一般播放 (預設：不略過空白)</option>
-                            <option value="skip">略過無標記片段 (僅依序播放標記)</option>
+                            <option value="normal" selected>預設播放</option>
+                            <option value="skip">僅依序播放標記</option>
                         </select>
                     </div>
                     <div>
                         <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">跳轉前置緩衝 (秒)</label>
                         <input type="number" id="playPaddingInput" class="input-select" value="0.2" min="0" max="2" step="0.1" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold; box-sizing: border-box; padding: 6px; border-radius: 4px;">
-                        <span style="font-size: 0.8rem; color: #666;">設定略過無標記時，提早幾秒開始播放</span>
+                        <span style="font-size: 0.8rem; color: #666;">略過無標記時，提早幾秒</span>
                     </div>
                 </div>
 
@@ -337,19 +337,28 @@
             </div>
             <div class="sidebar-group">
                 <h4>介面與檢視</h4>
-				<div style="margin-bottom: 15px;">
-					<label style="display: flex; align-items: center; cursor: pointer; font-size: 0.95em; color: #333;">
-						<input type="checkbox" id="enableMinimapCheck" style="margin-right: 8px; width: 16px; height: 16px;">
-						顯示迷你導航
-					</label>
+                
+                <!-- 第一個區塊：導航與聲波文字開關 -->
+                <div style="margin-bottom: 15px;">
+                    <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.95em; color: #333; margin-bottom: 8px;">
+                        <input type="checkbox" id="enableMinimapCheck" style="margin-right: 8px; width: 16px; height: 16px;">
+                        顯示迷你導航
+                    </label>
                     <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.95em; color: #333; margin-bottom: 5px;">
                         <input type="checkbox" id="showRegionTextCheck" style="margin-right: 8px; width: 16px; height: 16px; accent-color: #00897B;">
                         聲波圖顯示列表文字
                     </label>
-				</div>
-				<div style="margin-bottom: 15px;">
+                    <div id="regionTextLengthBlock" style="padding-left: 24px; display: none;">
+                        <label style="font-size: 0.85rem; color: #555; display: flex; align-items: center; gap: 6px;">
+                            字數(0=全部)
+                            <input type="number" id="regionTextLengthInput" value="4" min="0" max="100" style="width: 60px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px;">
+                        </label>
+                    </div>
+                </div>
 
-                    <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">列表編號顯示方式</label>
+                <!-- 第二個區塊：列表編號顯示方式 -->
+                <div style="margin-bottom: 15px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">列表編號</label>
                     <select id="labelDisplayModeSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
                         <option value="default" selected>預設 (A01, B01... 自動分段)</option>
                         <option value="continuous">連續數字 (1, 2, 3...)</option>
@@ -374,15 +383,7 @@
                         </div>
                     </div>
                 </div>
-				<div style="margin-bottom: 15px;">
 
-                    <div id="regionTextLengthBlock" style="padding-left: 24px; display: none;">
-                        <label style="font-size: 0.85rem; color: #555; display: flex; align-items: center; gap: 6px;">
-                            顯示字數 (填 0 顯示全部)
-                            <input type="number" id="regionTextLengthInput" value="4" min="0" max="100" style="width: 60px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px;">
-                        </label>
-                    </div>
-                </div>
                 <div style="margin-bottom: 15px;">
                     <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">點擊聲波時的列表定位</label>
                     <select id="scrollAlignSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
@@ -436,19 +437,20 @@
                         <option value="ja">日文 (日本語)</option>
 
                     </select>
-                    <span style="font-size: 0.8rem; color: #666; display: block; margin-top: 6px; line-height: 1.4;">設定適用於「一鍵 AI 字幕」與「AI 批次填詞」</span>
+                    <span style="font-size: 0.8rem; color: #666; display: block; margin-top: 6px; line-height: 1.4;">用於 AI 字幕</span>
                 </div>
             </div>
             <div class="sidebar-group">
                 <h4 style="margin-bottom: 10px;">預設快速鍵 (參考學習)</h4>
                 <ul style="font-size:0.85rem; color:#555; padding-left: 20px; margin-bottom: 20px; line-height: 1.6;">
-                    <li><strong>Space 空白鍵</strong>：依照側邊欄模式 播放/暫停</li>
-                    <li><strong>Tab 鍵</strong>：完成編輯並跳至下一句</li>
-                    <li><strong>Enter 鍵</strong>：將選取範圍新增為標記 (自動建列)</li>
-                    <li><strong>Delete 鍵</strong>：移除標記 (若無文字則刪除列)</li>
-                    <li><strong>ESC 鍵</strong>：取消選取或清除暫存範圍</li>
-                    <li><strong>Shift + 點擊清單</strong>：連續多選範圍合併</li>
-                    <li><strong>Alt + 方向鍵</strong>：微調邊界 (0.01秒)，搭配 Shift 為 0.1秒</li>
+                    <li><strong>Space 空白鍵</strong>：播放/暫停</li>
+                    <li><strong>Tab 鍵</strong>：跳至下一句</li>
+                    <li><strong>Enter 鍵</strong>：將選取範圍新增為標記/列)</li>
+                    <li><strong>Delete 鍵</strong>：移除標記</li>
+                    <li><strong>ESC 鍵</strong>：取消選取</li>
+                    <li><strong>Shift + 左鍵</strong>：連續多選範圍</li>
+                    <li><strong>Alt + 左右鍵</strong>：微調前邊界 (0.01秒)，搭配 Shift 為 0.1秒</li>
+					<li><strong>Alt + 上下鍵</strong>：微調後邊界 (0.01秒)，搭配 Shift 為 0.1秒</li>
                 </ul>
 
                 <h4 style="margin-bottom: 10px; border-top: 1px dashed #E0F2F1; padding-top: 10px;">自訂導航快速鍵</h4>
@@ -476,18 +478,63 @@
     </div>
 
     <div id="autoSegmentModalOverlay" class="modal-overlay">
-        <div class="custom-modal">
-            <h4 style="color:#1976D2;"><span class="material-icons" style="vertical-align: middle;">auto_awesome</span> 執行自動斷句</h4>
-            <p style="font-size:0.9rem; color:#666; margin-bottom: 20px;">將依照參數掃描音檔。若已有進度，此動作會覆寫所有資料。</p>
-            <div style="margin-bottom: 20px;"><label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">音量門檻 <span id="asThresholdVal" style="color:#1976D2; font-weight:normal;">(5%)</span></label><input type="range" id="asThreshold" min="1" max="50" value="5" style="width:100%; accent-color: #1976D2;"></div>
-            <div style="margin-bottom: 20px;"><label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">最短靜音時長 <span id="asSilenceVal" style="color:#1976D2; font-weight:normal;">(0.8s)</span></label><input type="range" id="asSilence" min="0.1" max="3.0" step="0.1" value="0.8" style="width:100%; accent-color: #1976D2;"></div>
-            <div style="margin-bottom: 20px;">
-                <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">最短有效句段 <span id="asMinSegmentVal" style="color:#1976D2; font-weight:normal;">(0.5 秒)</span></label>
-                <input type="range" id="asMinSegment" min="0.1" max="2.0" step="0.1" value="0.5" style="width:100%; accent-color: #1976D2;">
-                <span style="font-size: 0.8rem; color: #666; margin-top: 4px; display: block;">低於此長度的短暫突發雜音將被略過</span>
+        <!-- ★ 核心修復：加上固定高度 480px，並使用 flex 排版確保切換頁籤時視窗不會跳動 -->
+        <div class="custom-modal" style="padding: 0; overflow: hidden; width: 90%; max-width: 450px; height: 480px; display: flex; flex-direction: column;">
+            
+            <!-- 1. 滿版頁籤列 (固定於頂部) -->
+            <div style="display: flex; background: #FAFAFA; border-bottom: 1px solid #E0E0E0; flex-shrink: 0;">
+                <button id="tabAutoSilence" style="flex: 1; padding: 16px; border: none; background: white; color: #1976D2; font-weight: bold; font-size: 1.05rem; border-bottom: 3px solid #1976D2; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                    <span class="material-icons" style="margin-right: 6px;">graphic_eq</span> 依靜音斷句
+                </button>
+                <button id="tabAutoTime" style="flex: 1; padding: 16px; border: none; background: transparent; color: #666; font-weight: bold; font-size: 1.05rem; border-bottom: 3px solid transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                    <span class="material-icons" style="margin-right: 6px;">timer</span> 依等長時間
+                </button>
             </div>
-			<div style="margin-bottom: 25px;"><label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">前後留白時間 <span id="asPaddingVal" style="color:#1976D2; font-weight:normal;">(0.2s)</span></label><input type="range" id="asPadding" min="0" max="1.0" step="0.1" value="0.2" style="width:100%; accent-color: #1976D2;"></div>
-            <div class="modal-buttons"><button id="asConfirmBtn" class="btn-modal-confirm" style="background:#1976D2;">開始分析</button><button id="asCancelBtn" class="btn-modal-cancel">取消</button></div>
+
+            <!-- 2. 中間內容區 (設定可滾動，佔滿剩餘空間) -->
+            <div style="padding: 24px; flex-grow: 1; overflow-y: auto;">
+                
+                <!-- 區塊 A：依靜音斷句 -->
+                <div id="sectionAutoSilence">
+                    <!-- ★ 已經依據您的需求，刪除原本的提示文字 -->
+                    <div style="margin-bottom: 20px;"><label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">音量門檻 <span id="asThresholdVal" style="color:#1976D2; font-weight:normal;">(5%)</span></label><input type="range" id="asThreshold" min="1" max="50" value="5" style="width:100%; accent-color: #1976D2;"></div>
+                    <div style="margin-bottom: 20px;"><label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">最短靜音時長 <span id="asSilenceVal" style="color:#1976D2; font-weight:normal;">(0.8s)</span></label><input type="range" id="asSilence" min="0.1" max="3.0" step="0.1" value="0.8" style="width:100%; accent-color: #1976D2;"></div>
+                    <div style="margin-bottom: 20px;">
+                        <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">最短有效句段 <span id="asMinSegmentVal" style="color:#1976D2; font-weight:normal;">(0.5 秒)</span></label>
+                        <input type="range" id="asMinSegment" min="0.1" max="2.0" step="0.1" value="0.5" style="width:100%; accent-color: #1976D2;">
+                        <span style="font-size: 0.8rem; color: #666; margin-top: 4px; display: block;">低於此長度的短暫突發雜音將被略過</span>
+                    </div>
+                    <div style="margin-bottom: 25px;"><label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">前後留白時間 <span id="asPaddingVal" style="color:#1976D2; font-weight:normal;">(0.2s)</span></label><input type="range" id="asPadding" min="0" max="1.0" step="0.1" value="0.2" style="width:100%; accent-color: #1976D2;"></div>
+                </div>
+
+                <!-- 區塊 B：依時間斷句 -->
+                <div id="sectionAutoTime" style="display: none;">
+                    <!-- ★ 已經依據您的需求，精簡提示文字 -->
+                    <p style="font-size:0.9rem; color:#666; margin-bottom: 20px;">不考慮音量，每隔固定時間切出一個標記。</p>
+                    <div style="margin-bottom: 25px;">
+                        <label style="display:block; margin-bottom:10px; font-weight:bold; font-size:0.9rem;">每段標記長度</label>
+                        
+                        <!-- ★ 核心修復：將輸入框拆分為「分」與「秒」 -->
+                        <div style="display: flex; gap: 15px; align-items: center;">
+                            <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                                <input type="number" id="asFixedTimeMinutes" value="0" min="0" style="width:100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 1rem; color:#1976D2; font-weight:bold; outline: none; text-align: center;">
+                                <span style="font-weight:bold; color:#555; white-space: nowrap;">分</span>
+                            </div>
+                            <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                                <input type="number" id="asFixedTimeSeconds" value="5.0" min="0" step="0.1" style="width:100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 1rem; color:#1976D2; font-weight:bold; outline: none; text-align: center;">
+                                <span style="font-weight:bold; color:#555; white-space: nowrap;">秒</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 3. 底部按鈕 (固定於底部) -->
+            <div class="modal-buttons" style="margin-top: 0; padding: 16px 24px; border-top: 1px solid #E0E0E0; background: #FAFAFA; flex-shrink: 0; justify-content: flex-end;">
+                <button id="asConfirmBtn" class="btn-modal-confirm" style="background:#1976D2;">開始分析</button>
+                <button id="asCancelBtn" class="btn-modal-cancel">取消</button>
+            </div>
         </div>
     </div>
 
@@ -718,16 +765,49 @@
         .floating-search-panel button { min-width: 0 !important; flex: none !important; margin: 0 !important; }
         
         /* 加入相對定位，用來放置右側的計數器 */
-        .search-input-wrapper { position: relative; display: flex; align-items: center; }
+        .search-input-wrapper { 
+            position: relative; display: flex; align-items: center; 
+            width: 150px; /* 預設寬度 */
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Ｑ彈伸縮動畫 */
+        }
         .search-match-count { position: absolute; right: 6px; font-size: 0.75rem; color: #9AA0A6; pointer-events: none; display: none; }
         
         /* 尋找輸入框加長，並為右側計數器留出 padding */
         .search-input-mini {
-            width: 150px !important; padding: 0 8px !important; border: 1px solid #DADCE0; border-radius: 4px;
-            font-size: 0.85rem; outline: none; transition: border-color 0.2s; height: 28px !important; box-sizing: border-box;
+            width: 100% !important;
+            padding: 0 8px !important; border: 1px solid #DADCE0; border-radius: 4px;
+            font-size: 0.85rem; outline: none; 
+            transition: border-color 0.2s, box-shadow 0.2s; 
+            height: 28px !important; box-sizing: border-box;
         }
-        #replaceTextInput.search-input-mini { width: 110px !important; }
-        .search-input-mini:focus { border-color: #E65100; box-shadow: 0 0 0 2px rgba(230,81,0,0.1); }
+        
+        #replaceTextInput.search-input-mini { 
+            width: 110px !important; 
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s, box-shadow 0.2s; 
+        }
+
+        .search-input-mini:focus { 
+            border-color: #00897B !important; 
+            box-shadow: 0 0 0 2px rgba(0,137,123,0.1) !important; 
+        }
+
+        /* ================= ★ 動態寬度伸縮魔法 (使用 :has 選擇器) ★ ================= */
+        
+        /* 狀況一：當尋找框被聚焦 -> 尋找變寬(170px)，取代變窄(90px) */
+        .search-row:has(#findTextInput:focus) .search-input-wrapper {
+            width: 170px;
+        }
+        .search-row:has(#findTextInput:focus) #replaceTextInput.search-input-mini {
+            width: 90px !important;
+        }
+
+        /* 狀況二：當取代框被聚焦 -> 取代變寬(170px)，尋找變窄(90px) */
+        .search-row:has(#replaceTextInput:focus) .search-input-wrapper {
+            width: 90px;
+        }
+        .search-row:has(#replaceTextInput:focus) #replaceTextInput.search-input-mini {
+            width: 170px !important;
+        }
         .search-icon-btn {
             background: #FFFFFF; border: 1px solid #DADCE0 !important; border-radius: 4px; color: #5F6368 !important;
             cursor: pointer; display: flex; align-items: center; justify-content: center;

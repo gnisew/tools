@@ -181,7 +181,7 @@ body.is-empty-state #mainTitleDisplay { font-size: 3.2rem; margin-bottom: 25px !
 body:not(.is-empty-state) #mainTitleDisplay { 
     font-size: 1.8rem; 
     margin-top: 60px !important; 
-    margin-bottom: 20px !important; 
+    margin-bottom: 4px !important; 
     padding: 0 15px;
 }
 /* 頂部圖示：空狀態才顯示 */
@@ -278,9 +278,12 @@ body.is-empty-state #openExportModalBtn { display: none !important; }
 body:not(.is-empty-state) #openAudioModalBtn {
     display: none !important;
 }
+
 /* ================= 5. 聲波圖面板 ================= */
 .sticky-panel {
-    position: sticky; top: 0; z-index: 100; padding: 16px !important; background-color: #ffffff !important;
+    position: sticky; top: 0; z-index: 100; 
+    padding: 16px 16px 4px 16px !important; 
+    background-color: #ffffff !important;
     border: 1px solid #F1F5F9 !important; border-radius: 16px !important; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.03) !important; 
     margin-bottom: 8px !important; width: var(--wave-width, 100%); max-width: 96vw;
     margin-left: calc((100% - min(var(--wave-width, 100%), 96vw)) / 2) !important; box-sizing: border-box; 
@@ -290,7 +293,11 @@ body:not(.is-empty-state) #openAudioModalBtn {
 #waveform { margin-bottom: 10px; border-radius: 4px; overflow: hidden; background: #F0F4F8; display: none; cursor: default !important; }
 #waveform ::part(wrapper) { cursor: default !important; }
 
-.controls-compact { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; padding: 4px 0; background: transparent; border-radius: 0; box-shadow: none; justify-content: flex-start; margin-top: 12px; }
+.controls-compact { 
+    display: flex; align-items: center; gap: 2px; flex-wrap: wrap; padding: 4px 0; 
+    background: transparent; border-radius: 0; box-shadow: none; justify-content: flex-start; 
+    margin-top: 6px; 
+}
 .controls-compact::-webkit-scrollbar { display: none; }
 .controls-compact .btn-icon { margin: 0 !important; width: 36px; height: 36px; min-width: 36px; }
 .btn-icon { flex: 0 0 36px; width: 36px; height: 36px; padding: 0; min-width: auto; border-radius: 50%; background: #4DB6AC; }
@@ -344,7 +351,12 @@ input[type="range"] { flex: 1; accent-color: #00897B; }
 
 /* ================= 6. 清單列表區塊 ================= */
 .list-panel { position: relative; padding-top: 0; }
-.list-header-container { position: sticky; z-index: 90; background: rgba(255,255,255,0.95); backdrop-filter: blur(4px); padding: 12px 0 10px 0; border-bottom: 2px solid #E0F2F1; margin-bottom: 10px;}
+.list-header-container { 
+    position: sticky; z-index: 90; background: rgba(255,255,255,0.95); backdrop-filter: blur(4px); 
+    padding: 6px 0 6px 0; 
+    border-bottom: 2px solid #E0F2F1; 
+    margin-bottom: 4px;
+}
 .list-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
 .list-header h3 { margin: 0; }
 .header-tools {  flex-wrap: wrap; background: transparent !important; border: none !important; box-shadow: none !important; padding: 4px 0 !important; display: inline-flex !important; align-items: center; gap: 2px !important; }
