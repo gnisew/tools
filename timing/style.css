@@ -542,6 +542,34 @@ body.is-view-mode .hide-in-view { display: none !important; }
 
 /* ================= ★ 手機版 (Mobile) 專屬優化 ★ ================= */
 @media (max-width: 768px) {
+    /* ==============================================
+       ★ 版面極致擴張：釋放手機螢幕左右邊界
+       ============================================== */
+    body { 
+        /* 縮小網頁最外層左右留白為 4px，保留底部 80px 給回到頂端按鈕 */
+        padding: 10px 4px 80px 4px !important; 
+    }
+    
+    .panel { 
+        /* 縮小列表區塊的內邊距 */
+        padding: 10px 6px !important; 
+        border-radius: 12px !important; /* 稍微縮小圓角讓版面更俐落 */
+    }
+    
+    .sticky-panel {
+        /* 縮小聲波圖區塊的內邊距，並解除電腦版的寬度限制 */
+        padding: 10px 6px !important; 
+        border-radius: 12px !important;
+        max-width: 100% !important; 
+        margin-left: 0 !important;
+    }
+
+    .list-header-container {
+        /* 縮緊列表標題列的上下空間 */
+        padding: 8px 0 6px 0 !important; 
+    }
+
+
     /* 1. 隱藏左上角標題，節省空間 */
     #topLeftTitle { display: none !important; }
 
@@ -621,8 +649,4 @@ body.is-view-mode .hide-in-view { display: none !important; }
 @media (min-width: 769px) {
     .hide-on-mobile-menu { display: none !important; }
 }
-
-
-
-
 
