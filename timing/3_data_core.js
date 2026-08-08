@@ -21,13 +21,30 @@ function checkButtonVisibility() {
     }
 }
 // =========================================================================
+// ================= ★ 效能優化：存檔防抖機制 (Debounce) ★ =================
+let saveStorageTimeout = null;
+
 function saveToStorage() {
-    localStorage.setItem('tagger_allLabels', JSON.stringify(allLabelsOrdered));
-    localStorage.setItem('tagger_textMap', JSON.stringify(sentenceTextMap));
-    localStorage.setItem('tagger_timeDataMap', JSON.stringify(timeDataMap));
-    localStorage.setItem('tagger_parseMode', currentParseMode); 
-    if (typeof checkButtonVisibility === 'function') checkButtonVisibility();
+    clearTimeout(saveStorageTimeout);
+    saveStorageTimeout = setTimeout(() => {
+        localStorage.setItem('tagger_allLabels', JSON.stringify(allLabelsOrdered));
+        localStorage.setItem('tagger_textMap', JSON.stringify(sentenceTextMap));
+        localStorage.setItem('tagger_timeDataMap', JSON.stringify(timeDataMap));
+        localStorage.setItem('tagger_parseMode', currentParseMode); 
+        if (typeof checkButtonVisibility === 'function') checkButtonVisibility();
+    }, 500); 
 }
+
+// 防護機制：確保使用者直接關閉分頁時，如果還有在倒數中的存檔，能強制寫入
+window.addEventListener('beforeunload', () => {
+    if (saveStorageTimeout) {
+        clearTimeout(saveStorageTimeout);
+        localStorage.setItem('tagger_allLabels', JSON.stringify(allLabelsOrdered));
+        localStorage.setItem('tagger_textMap', JSON.stringify(sentenceTextMap));
+        localStorage.setItem('tagger_timeDataMap', JSON.stringify(timeDataMap));
+        localStorage.setItem('tagger_parseMode', currentParseMode); 
+    }
+});
 
 function loadFromStorage() {
     if (typeof loadShortcuts === 'function') loadShortcuts();

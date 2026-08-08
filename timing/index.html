@@ -689,7 +689,7 @@
                 <!-- 區塊 A：貼上文字 -->
                 <div id="sectionPasteText" style="display: flex; flex-direction: column; height: 100%;">
                     <div class="textarea-wrapper" style="flex-grow: 1; margin-bottom: 12px; display: flex; flex-direction: column;">
-                        <textarea id="rawTextInput" placeholder="請貼上文章 (或 Excel 的 TSV 資料)。點擊下方「解析文字」可原地預覽結果。" style="flex-grow: 1; min-height: 130px; resize: none;"></textarea>
+                        <textarea id="rawTextInput" spellcheck="false" placeholder="請貼上文章 (或 Excel 的 TSV 資料)。點擊下方「解析文字」可原地預覽結果。" style="flex-grow: 1; min-height: 130px; resize: none;"></textarea>
                         <div class="textarea-tools">
                             <button id="copyTextBtn" title="複製文章" class="tool-btn"><span class="material-icons">content_copy</span></button>
                             <button id="clearTextBtn" title="清空輸入框" class="tool-btn"><span class="material-icons">delete_sweep</span></button>
@@ -697,10 +697,8 @@
                     </div>
 
                     <div style="display: flex; justify-content: space-between; align-items: center; background: #F4F7F6; padding: 10px 16px; border-radius: 8px; flex-shrink: 0;">
-                        <!-- ★ 左側：解析文字按鈕 -->
                         <button id="previewParseBtn" class="btn-primary" style="padding: 6px 16px; font-size: 0.95rem; border-radius: 6px; box-shadow: none;"><span class="material-icons">auto_fix_high</span> 解析文字</button>
                         
-                        <!-- ★ 右側：解析條件 -->
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span style="color: #333; font-size: 0.9rem; font-weight: bold;"></span>
                             <select id="parseModeSelect" class="input-select" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; outline: none; cursor: pointer; background: white;">
@@ -716,13 +714,10 @@
                 <div id="sectionImportFile" style="display: none; height: 100%; flex-direction: column;">
                     <label style="font-weight: bold; font-size: 0.95rem; color: #333; display: block; margin-bottom: 8px;">請選擇單一資料檔：</label>
                     
-                    <!-- 單一通用輸入框，利用 accept 限制格式 -->
                     <input type="file" id="modalDataFileInput" accept=".json, .srt, .txt, .tsv" style="width: 100%; padding: 12px; border: 1px dashed #ccc; border-radius: 6px; background: #FAFAFA; box-sizing: border-box; cursor: pointer; font-size: 0.95rem;">
                     
-                    <!-- ★ 上次載入提示 (預設隱藏) -->
                     <span id="localDataFileHint" class="local-file-hint" style="display: none; margin-top: 10px; align-items: center; color: #E65100; font-size: 0.85rem; font-weight: bold;"></span>
 
-                    <!-- 支援格式說明區塊 -->
                     <div style="margin-top: 16px; padding: 16px; background: #F0F8FF; border-radius: 8px; border: 1px solid #BBDEFB; flex-grow: 1;">
                         <span style="font-weight: bold; color: #1976D2; font-size: 0.95rem; display: flex; align-items: center; margin-bottom: 10px;">
                             <span class="material-icons" style="font-size: 1.2rem; margin-right: 6px;">info</span> 支援的檔案格式

@@ -489,12 +489,15 @@ function parseSrtTime(timeStr) {
 }
 
 // 核心升級：精確度提升至 1 毫秒 (toFixed(3)) 
-function getCalculatedTimes(label) {
+// ★ 效能優化：加入 optionalIndex，解除大陣列的 O(N^2) 效能瓶頸
+function getCalculatedTimes(label, optionalIndex = -1) {
     let data = timeDataMap[label]; if (!data) return null;
     let start = typeof data === 'object' ? data.start : data;
     let end = (typeof data === 'object' && data.end !== null) ? data.end : null;
     if (end === null) {
-        const currentIndex = allLabelsOrdered.indexOf(label); let nextStart = null;
+        // 如果有傳入索引就直接用，省去耗時的 indexOf 搜尋
+        const currentIndex = optionalIndex !== -1 ? optionalIndex : allLabelsOrdered.indexOf(label); 
+        let nextStart = null;
         for (let i = currentIndex + 1; i < allLabelsOrdered.length; i++) {
             const nextData = timeDataMap[allLabelsOrdered[i]];
             if (nextData) { nextStart = typeof nextData === 'object' ? nextData.start : nextData; break; }

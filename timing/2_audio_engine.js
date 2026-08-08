@@ -750,8 +750,10 @@ async function startLocalAiTranscription() {
         }
     };
 
-    // 啟動 Worker
-    whisperWorker.postMessage({ type: 'transcribe', audioData: audio16kHzData, language: 'chinese' });
+    whisperWorker.postMessage(
+        { type: 'transcribe', audioData: audio16kHzData, language: 'chinese' }, 
+        [audio16kHzData.buffer] 
+    );
 }
 
 // ================= ★ 新增：AI 批次填詞 (保留標記，僅轉文字) ★ =================
@@ -892,12 +894,12 @@ async function startLocalAiBatchTranscribe(targetLabels) {
     if (langCode.includes('en')) modelLang = 'english';
     if (langCode.includes('ja')) modelLang = 'japanese';
 
-    // 啟動 Worker
     whisperWorker.postMessage({ 
-        type: 'transcribe', 
+        type: 'transcribe_batch',
         audioData: audio16kHzData, 
-        language: modelLang // 套用選擇的語言
-    });
+        language: modelLang,
+        segments: segmentsData 
+    }, [audio16kHzData.buffer]);
 }
 // =========================================================================
 

@@ -290,65 +290,69 @@ zoomPresetSelect?.addEventListener('change', (e) => updateZoom(e.target.value));
 zoomOutBtn?.addEventListener('click', () => updateZoom(Math.max(1, Number(zoomSlider.value) - 10)));
 zoomInBtn?.addEventListener('click', () => updateZoom(Math.min(200, Number(zoomSlider.value) + 10)));
 
+let renderRegionsTimeout = null;
+
 function renderAllRegions() {
     if (!wsRegions) return;
     
     // 等待音檔就緒保護鎖
     if (!wavesurfer || !audioPlayer || !audioPlayer.duration || audioPlayer.duration < 0.1) return;
 
-    isRendering = true; 
-    wsRegions.clearRegions();
+    clearTimeout(renderRegionsTimeout);
     
-    if (tempRegion) {
-        tempRegion = wsRegions.addRegion({ start: tempRegion.start, end: tempRegion.end, color: 'rgba(33, 150, 243, 0.3)', drag: isEditMode, resize: isEditMode });
-    }
-    
-    allLabelsOrdered.forEach(label => {
-        const times = getCalculatedTimes(label);
-        if (times && timeDataMap[label]) { 
-            const contentEl = document.createElement('div'); 
- 
-	         const displayLabel = typeof window.getDisplayLabel === 'function' ? window.getDisplayLabel(label) : label;
-	         let displayText = displayLabel;
+    renderRegionsTimeout = setTimeout(() => {
+        isRendering = true; 
+        wsRegions.clearRegions();
+        
+        if (tempRegion) {
+            tempRegion = wsRegions.addRegion({ start: tempRegion.start, end: tempRegion.end, color: 'rgba(33, 150, 243, 0.3)', drag: isEditMode, resize: isEditMode });
+        }
+        
+        allLabelsOrdered.forEach((label, idx) => {
+			const times = getCalculatedTimes(label, idx);
+			if (times && timeDataMap[label]) {
+                const contentEl = document.createElement('div'); 
+     
+                 const displayLabel = typeof window.getDisplayLabel === 'function' ? window.getDisplayLabel(label) : label;
+                 let displayText = displayLabel;
 
 	         if (typeof window.showRegionText !== 'undefined' && window.showRegionText) {
-	             let rawText = sentenceTextMap[label] || '';
-	             if (rawText.trim() !== '') {
-	                 let textArray = Array.from(rawText.trim());
-	                 let limit = window.regionTextLength;
-	                 let snippet = (limit === 0) ? rawText.trim() : textArray.slice(0, limit).join('');
-	                 displayText = `${displayLabel} ${snippet}`;
-	             }
-	         }
+                     let rawText = sentenceTextMap[label] || '';
+                     if (rawText.trim() !== '') {
+                         let textArray = Array.from(rawText.trim());
+                         let limit = window.regionTextLength;
+                         let snippet = (limit === 0) ? rawText.trim() : textArray.slice(0, limit).join('');
+                         displayText = `${displayLabel} ${snippet}`;
+                     }
+                 }
 
-            contentEl.textContent = displayText; 
-            contentEl.style.fontWeight = 'bold'; 
-            contentEl.style.color = '#00695C'; 
-            contentEl.style.fontSize = '0.8rem'; 
-            contentEl.style.textShadow = '1px 1px 0px white, -1px -1px 0px white, 1px -1px 0px white, -1px 1px 0px white, 0px 0px 3px rgba(255,255,255,0.8)'; 
-            contentEl.style.pointerEvents = 'none'; 
-            
-            // ★ 核心優化：限制最大寬度，加上隱藏與刪節號 (防止文字覆蓋到下一個區塊)
-            contentEl.style.maxWidth = 'calc(100% - 8px)';
-            contentEl.style.whiteSpace = 'nowrap';
-            contentEl.style.overflow = 'hidden';
-            contentEl.style.textOverflow = 'ellipsis';
-            
-            // 黏性定位 (保持在左側邊緣)
-            contentEl.style.position = 'sticky';
-            contentEl.style.left = '4px';  
-            contentEl.style.top = '2px';
-            contentEl.style.display = 'inline-block';
-            contentEl.style.zIndex = '10'; 
-            
-            let regionColor = 'rgba(0, 137, 123, 0.1)';
-            if (selectedLabels.includes(label)) regionColor = 'rgba(25, 118, 210, 0.25)';
-            else if (label === currentActiveLabel) regionColor = 'rgba(255, 112, 67, 0.15)';
+                contentEl.textContent = displayText; 
+                contentEl.style.fontWeight = 'bold'; 
+                contentEl.style.color = '#00695C'; 
+                contentEl.style.fontSize = '0.8rem'; 
+                contentEl.style.textShadow = '1px 1px 0px white, -1px -1px 0px white, 1px -1px 0px white, -1px 1px 0px white, 0px 0px 3px rgba(255,255,255,0.8)'; 
+                contentEl.style.pointerEvents = 'none'; 
+                
+                contentEl.style.maxWidth = 'calc(100% - 8px)';
+                contentEl.style.whiteSpace = 'nowrap';
+                contentEl.style.overflow = 'hidden';
+                contentEl.style.textOverflow = 'ellipsis';
+                
+                contentEl.style.position = 'sticky';
+                contentEl.style.left = '4px';  
+                contentEl.style.top = '2px';
+                contentEl.style.display = 'inline-block';
+                contentEl.style.zIndex = '10'; 
+                
+                let regionColor = 'rgba(0, 137, 123, 0.1)';
+                if (selectedLabels.includes(label)) regionColor = 'rgba(25, 118, 210, 0.25)';
+                else if (label === currentActiveLabel) regionColor = 'rgba(255, 112, 67, 0.15)';
 
-            wsRegions.addRegion({ id: label, start: times.start, end: times.end, content: contentEl, color: regionColor, drag: isEditMode, resize: isEditMode });
-        }
-    });
-    isRendering = false;
+                wsRegions.addRegion({ id: label, start: times.start, end: times.end, content: contentEl, color: regionColor, drag: isEditMode, resize: isEditMode });
+            }
+        });
+        isRendering = false;
+    }, 100); // 結束計時器區塊
 }
 
 // ================= ★ 新增：即時更新單一標記文字 (搭配防抖) ★ =================
@@ -435,10 +439,46 @@ function initWaveSurfer() {
 
         if (region === tempRegion) return; 
         isDraggingRegion = true;
+        
+        const snapTolerance = 0.15; // 設定 0.15 秒的磁吸範圍
+        let newStart = region.start;
+        let newEnd = region.end;
+        let snapped = false;
+
+        const currentIndex = allLabelsOrdered.indexOf(region.id);
+        
+        // 1. 檢查左側：是否與上一句的結尾足夠靠近？
+        if (currentIndex > 0) {
+            const prevLabel = allLabelsOrdered[currentIndex - 1];
+            if (timeDataMap[prevLabel]) {
+                const prevEnd = typeof timeDataMap[prevLabel] === 'object' ? timeDataMap[prevLabel].end : null;
+                if (prevEnd !== null && Math.abs(newStart - prevEnd) < snapTolerance) {
+                    newStart = prevEnd; // 強制貼齊
+                    snapped = true;
+                }
+            }
+        }
+        
+        // 2. 檢查右側：是否與下一句的開頭足夠靠近？
+        if (currentIndex !== -1 && currentIndex < allLabelsOrdered.length - 1) {
+            const nextLabel = allLabelsOrdered[currentIndex + 1];
+            if (timeDataMap[nextLabel]) {
+                const nextStart = typeof timeDataMap[nextLabel] === 'object' ? timeDataMap[nextLabel].start : timeDataMap[nextLabel];
+                if (nextStart !== null && Math.abs(newEnd - nextStart) < snapTolerance) {
+                    newEnd = nextStart; // 強制貼齊
+                    snapped = true;
+                }
+            }
+        }
+
+        // 若觸發磁吸，強制覆寫區域的畫面表現
+        if (snapped) {
+            region.setOptions({ start: newStart, end: newEnd });
+        }
         if (timeDataMap[region.id]) {
             timeDataMap[region.id].start = parseFloat(region.start.toFixed(3)); 
             timeDataMap[region.id].end = parseFloat(region.end.toFixed(3));
-            if(typeof updateSingleTimeDisplay === 'function') updateSingleTimeDisplay(region.id); 
+            if(typeof updateSingleTimeDisplay === 'function') updateSingleTimeDisplay(region.id, currentIndex); 
             clearTimeout(regionDragTimeout); 
             regionDragTimeout = setTimeout(() => { isDraggingRegion = false; saveToStorage(); }, 500);
         }

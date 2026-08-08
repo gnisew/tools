@@ -1,13 +1,15 @@
 // ================= 5_list_renderer.js: 清單渲染與選取邏輯 =================
 
 function updateSelectionUI() {
-    document.querySelectorAll('.sentence-item').forEach(item => {
-        const lbl = item.id.replace('item-', '');
-        if (selectedLabels.includes(lbl)) {
-            item.classList.add('selected-row');
-        } else {
-            item.classList.remove('selected-row');
-        }
+    // 1. 先拔除畫面上所有已選取的樣式 (極快速的 DOM 查詢)
+    document.querySelectorAll('.sentence-item.selected-row').forEach(item => {
+        item.classList.remove('selected-row');
+    });
+    
+    // 2. 只針對有被選取的標籤，精準加上樣式 (免除全體掃描)
+    selectedLabels.forEach(lbl => {
+        const item = document.getElementById(`item-${lbl}`);
+        if (item) item.classList.add('selected-row');
     });
     
     if (wsRegions) {
@@ -77,14 +79,14 @@ function clearSelection() {
     updateSelectionUI();
 }
 
-function updateSingleTimeDisplay(label) {
+function updateSingleTimeDisplay(label, optionalIndex = -1) {
     const timeSpan = document.getElementById(`time-${label}`); 
     const verifyBtn = document.getElementById(`verify-${label}`); 
     const itemDiv = document.getElementById(`item-${label}`);
     
     if (!timeSpan || !itemDiv) return;
     
-    const times = getCalculatedTimes(label);
+    const times = getCalculatedTimes(label, optionalIndex);
     if (times) {
         itemDiv.classList.add('tagged'); 
         const mode = timeModes[currentTimeModeIndex].id;
@@ -127,9 +129,15 @@ function updateSingleTimeDisplay(label) {
 }
 
 
+let updateTimeDisplaysTimeout = null;
+
 function updateAllTimeDisplays() { 
-    allLabelsOrdered.forEach(label => updateSingleTimeDisplay(label)); 
-    if (!isDraggingRegion && typeof renderAllRegions === 'function') renderAllRegions(); 
+    clearTimeout(updateTimeDisplaysTimeout);
+    
+    updateTimeDisplaysTimeout = setTimeout(() => {
+        allLabelsOrdered.forEach((label, idx) => updateSingleTimeDisplay(label, idx));
+        if (!isDraggingRegion && typeof renderAllRegions === 'function') renderAllRegions(); 
+    }, 100);
 }
 
 function renderSentenceList() {
@@ -174,6 +182,9 @@ function renderSentenceList() {
         });
     }
 
+    // 在迴圈開始前，建立一個虛擬容器 (DocumentFragment)
+    const fragment = document.createDocumentFragment();
+
     currentSortedLabels.forEach(label => {
         const text = sentenceTextMap[label]; const paraIndex = label.charCodeAt(0) - 65; const colorVar = `var(--color-p${paraIndex % 10})`;
         const displayLabel = typeof window.getDisplayLabel === 'function' ? window.getDisplayLabel(label) : label;
@@ -186,7 +197,9 @@ function renderSentenceList() {
             <div class="sentence-content">
                 <button class="action-icon-btn verify-btn" id="verify-${label}" title="播放該句"><span class="material-icons">volume_up</span></button>
                 <span class="sentence-label" style="color: ${colorVar};">${displayLabel}</span>
-                <span class="sentence-text-display ${isEditMode ? 'is-editable' : ''}" ${isEditMode ? 'contenteditable="true"' : ''}>${text}</span>
+
+                <span class="sentence-text-display ${isEditMode ? 'is-editable' : ''}" ${isEditMode ? 'contenteditable="true"' : ''} spellcheck="false">${text}</span>
+                
                 <button class="inline-delete-btn" id="inline-del-${label}" title="刪除空白句" style="${text.trim() === '' ? 'display:flex;' : 'display:none;'}"><span class="material-icons">delete</span></button>
             </div>
             <div class="sentence-actions">
@@ -445,9 +458,11 @@ function renderSentenceList() {
                 updateSelectionUI();
             }
         });
-        sentenceList.appendChild(div);
+        fragment.appendChild(div);
     });
     
+    sentenceList.appendChild(fragment);
+
     if (mergeSelectedBtn) mergeSelectedBtn.style.display = selectedLabels.length > 1 ? 'inline-flex' : 'none';
     
     updateAllTimeDisplays(); if(typeof updateStickyOffsets === 'function') updateStickyOffsets();

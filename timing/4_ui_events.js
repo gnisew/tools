@@ -786,8 +786,18 @@ document.getElementById('toggleScriptModeBtn')?.addEventListener('click', () => 
 // =========================================================================
 
 
-function updateStickyOffsets() { if (stickyPanel && listHeaderContainer) { listHeaderContainer.style.top = stickyPanel.offsetHeight + 'px'; } }
-window.addEventListener('resize', updateStickyOffsets);
+function updateStickyOffsets() { 
+    if (stickyPanel && listHeaderContainer) { 
+        listHeaderContainer.style.top = stickyPanel.offsetHeight + 'px'; 
+    } 
+}
+
+let resizeTimeout = null;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(updateStickyOffsets, 150);
+});
+
 function toggleWaveHeight() { if (typeof wavesurfer === 'undefined' || !wavesurfer) return; currentWaveHeightIndex = (currentWaveHeightIndex + 1) % waveHeights.length; wavesurfer.setOptions({ height: waveHeights[currentWaveHeightIndex] }); showToast(`聲波高度切換為 ${waveHeights[currentWaveHeightIndex]}px`, 'success'); setTimeout(updateStickyOffsets, 50); }
 
 const modalAltBtn = document.getElementById('customModalAltBtn');
@@ -813,20 +823,26 @@ modalInput?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') modalConfirmBtn.click(); 
 });
 // =========================================================================
-
-// ================= 滾動與定位控制 =================
+// ================= 滾動與定位控制 (效能優化版) =================
+let isScrolling = false;
 window.addEventListener('scroll', () => { 
-    // 控制回到頂端按鈕
-    if (window.scrollY > 400) scrollToTopBtn.classList.add('visible'); 
-    else scrollToTopBtn.classList.remove('visible'); 
+    if (!isScrolling) {
+        window.requestAnimationFrame(() => {
+            // 控制回到頂端按鈕
+            if (window.scrollY > 400) scrollToTopBtn.classList.add('visible'); 
+            else scrollToTopBtn.classList.remove('visible'); 
 
-    const topLeftTitle = document.getElementById('topLeftTitle');
-    if (topLeftTitle) {
-        if (window.scrollY > 20) {
-            topLeftTitle.classList.add('is-scrolled');
-        } else {
-            topLeftTitle.classList.remove('is-scrolled');
-        }
+            const topLeftTitle = document.getElementById('topLeftTitle');
+            if (topLeftTitle) {
+                if (window.scrollY > 20) {
+                    topLeftTitle.classList.add('is-scrolled');
+                } else {
+                    topLeftTitle.classList.remove('is-scrolled');
+                }
+            }
+            isScrolling = false;
+        });
+        isScrolling = true;
     }
 });
 
@@ -886,6 +902,13 @@ document.addEventListener('keydown', (e) => {
 
     if (e.code === 'Escape') {
         if (isInputActive) e.target.blur(); 
+        
+        const searchPanel = document.getElementById('batchReplaceModalOverlay');
+        if (searchPanel && searchPanel.classList.contains('show')) {
+            document.getElementById('batchReplaceCancelBtn')?.click();
+            return;
+        }
+
         if(typeof clearSelection === 'function') clearSelection(); 
         if (tempRegion) { tempRegion.remove(); tempRegion = null; }
         currentActiveLabel = null;
@@ -2620,13 +2643,21 @@ function renderHighlights() {
 
 // 清除所有高亮痕跡 (保護原始資料)
 function clearAllHighlights() {
-    document.querySelectorAll('.sentence-item').forEach(item => {
-        const label = item.id.replace('item-', '');
-        const display = item.querySelector('.sentence-text-display');
-        if (display && display.innerHTML.includes('<mark')) {
-            display.textContent = sentenceTextMap[label] || '';
-        }
-    });
+    if (searchEngine && searchEngine.matches) {
+        // 使用 Set 來排除重複的標籤 (因為一句話可能有多個關鍵字)
+        const affectedLabels = new Set(searchEngine.matches.map(m => m.label));
+        
+        affectedLabels.forEach(label => {
+            if (!label) return; // 劇本模式沒有 label
+            const display = document.querySelector(`#item-${label} .sentence-text-display`);
+            if (display) {
+                // 直接從原始資料還原文字，消除 <mark>
+                display.textContent = sentenceTextMap[label] || '';
+            }
+        });
+    }
+    
+    // 處理劇本模式的背景
     const backdrop = document.getElementById('scriptBackdrop');
     if (backdrop) backdrop.innerHTML = '';
 }
@@ -2652,8 +2683,15 @@ function scrollToCurrentMatch() {
     }
 }
 
-// 綁定輸入即時搜尋
-findTextInput?.addEventListener('input', () => { updateSearchMatches(); scrollToCurrentMatch(); });
+let searchInputTimeout = null;
+findTextInput?.addEventListener('input', () => { 
+    clearTimeout(searchInputTimeout);
+    searchInputTimeout = setTimeout(() => {
+        updateSearchMatches(); 
+        scrollToCurrentMatch(); 
+    }, 500);
+});
+
 useRegexCheck?.addEventListener('change', () => { updateSearchMatches(); scrollToCurrentMatch(); });
 
 // 上下步切換
