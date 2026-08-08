@@ -339,7 +339,7 @@ function handleSingleLocalFile(file) {
         
         if(typeof renderSentenceList === 'function') renderSentenceList(); 
         
-        showToast('本機音檔載入成功', 'success'); 
+        showToast(`正在載入音檔：「${actualFileName}」...`, 'normal'); 
         if(typeof checkButtonVisibility === 'function') checkButtonVisibility(); 
     };
 
@@ -395,7 +395,7 @@ function handleSingleOnlineUrl(url) {
         
         if(typeof renderSentenceList === 'function') renderSentenceList(); 
         
-        showToast('線上音檔載入成功', 'success'); 
+        showToast('正在載入線上音檔...', 'normal'); 
         if (typeof checkButtonVisibility === 'function') checkButtonVisibility();
     };
 
@@ -1807,7 +1807,8 @@ function renderGutterAndSyncData() {
             isFirstParaMarker = false; 
         } else {
             const label = String.fromCharCode(paraChar) + String(sentenceCount).padStart(2, '0');
-            html += `<div class="gutter-line" id="gutter-${label}" data-label="${label}">${label}</div>`;
+            const displayLabel = typeof window.getDisplayLabel === 'function' ? window.getDisplayLabel(label) : label;
+			html += `<div class="gutter-line" id="gutter-${label}" data-label="${label}">${displayLabel}</div>`;
             
             // 將文字寫入標籤
             newAllLabels.push(label);
@@ -1897,42 +1898,101 @@ toggleScriptModeBtnEl?.addEventListener('click', (e) => {
 });
 // =========================================================================
 
-// 宣告一個變數來儲存計時器
-let scriptInputTimeout;
+// ================= ★ 全文模式 (劇本) 游標與事件連動引擎 ★ =================
 
-// 當大編輯框文字改變時 (打字、按Enter換行、刪除)
-scriptTextarea?.addEventListener('input', () => {
-    // 每次打字時，先清除上一次的計時器
-    clearTimeout(scriptInputTimeout);
+// 獨立功能：根據編輯框目前的游標位置，自動算出對應的標籤並亮起聲波圖顏色
+function syncActiveLabelFromCursor() {
+    if (!scriptTextarea) return null;
+    const pos = scriptTextarea.selectionStart;
+    const textUpToCursor = scriptTextarea.value.substring(0, pos);
+    const lineIndex = textUpToCursor.split('\n').length - 1;
+
+    const rawLines = scriptTextarea.value.split('\n');
+    let paraChar = 65; // 'A' 的 ASCII
+    let sentenceCount = 1;
+    let targetLabel = null;
+
+    for (let i = 0; i <= lineIndex; i++) {
+        if (/^#{6,}$/.test(rawLines[i].trim())) {
+            if (sentenceCount > 1) paraChar++;
+            sentenceCount = 1;
+        } else {
+            targetLabel = String.fromCharCode(paraChar) + String(sentenceCount).padStart(2, '0');
+            sentenceCount++;
+        }
+    }
+
+    if (targetLabel && targetLabel !== currentActiveLabel) {
+        currentActiveLabel = targetLabel;
+        // ★ 核心修復：只要游標移動到新句子，立刻更新聲波圖顏色 (變為橘紅色)
+        if (typeof updateSelectionUI === 'function') updateSelectionUI();
+    }
+    return targetLabel;
+}
+
+// 1. 處理游標用鍵盤移動 (上下左右)、確保顏色跟著跑
+scriptTextarea?.addEventListener('keyup', (e) => {
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+        syncActiveLabelFromCursor();
+    }
+});
+
+// 2. 處理滑鼠點擊內文：不僅要更新顏色，還要同步跳轉音檔 (取消自動播放)
+scriptTextarea?.addEventListener('click', () => {
+    const targetLabel = syncActiveLabelFromCursor();
     
-    // 重新設定計時器：等待使用者停止打字 300 毫秒後，才執行高耗能的渲染與存檔
+    // 找到標籤後，執行跳轉與置頂 (暫停播放)
+    if (targetLabel && timeDataMap[targetLabel]) {
+        const times = getCalculatedTimes(targetLabel);
+        if (times) {
+            audioPlayer.currentTime = times.start;
+            audioPlayer.pause(); 
+        }
+        
+        if (typeof snapWaveformToTop === 'function') {
+            setTimeout(snapWaveformToTop, 50);
+        }
+    }
+});
+
+// 3. 當大編輯框文字改變時 (打字、按Enter換行、刪除)
+let scriptInputTimeout;
+scriptTextarea?.addEventListener('input', () => {
+    clearTimeout(scriptInputTimeout);
     scriptInputTimeout = setTimeout(() => {
         if (typeof renderGutterAndSyncData === 'function') {
             renderGutterAndSyncData();
         }
+        syncActiveLabelFromCursor(); // 重繪完畢後，確保顏色正確歸位
+        
+        if (typeof updateSearchMatches === 'function') {
+            updateSearchMatches();
+        }
     }, 500);
 });
-
-// 捲動連動 (文字框捲動時，行號跟著捲動)
+// 4. 捲動連動 (文字框捲動時，行號與高亮背板跟著捲動)
 scriptTextarea?.addEventListener('scroll', () => {
     scriptGutter.scrollTop = scriptTextarea.scrollTop;
+    const backdrop = document.getElementById('scriptBackdrop');
+    if (backdrop) {
+        backdrop.scrollTop = scriptTextarea.scrollTop;
+        backdrop.scrollLeft = scriptTextarea.scrollLeft;
+    }
 });
 
-
-// 修改：大編輯框行號點擊 (加入限制秒數邏輯與同步修正)
+// 5. 大編輯框左側「行號」點擊事件 (點擊行號 = 播放該句)
 scriptGutter?.addEventListener('click', (e) => {
     if (e.target.classList.contains('gutter-line') && !e.target.classList.contains('para')) {
         const label = e.target.dataset.label;
         currentActiveLabel = label;
         
-        // 重置循環計數
+        // ★ 核心修復：點擊行號時也立刻更新顏色
+        if (typeof updateSelectionUI === 'function') updateSelectionUI();
         if (typeof currentLoopCounter !== 'undefined') currentLoopCounter = 0; 
         
         const times = getCalculatedTimes(label);
         if (times) {
             isContinuousSortedPlay = false; 
-            
-            // 動態設定最大播放時間
             let targetEnd = times.end;
             if (document.getElementById('enableMaxPlayCheck')?.checked) {
                 const maxSec = parseFloat(document.getElementById('maxPlaySecondsInput')?.value) || 2;
@@ -1941,10 +2001,8 @@ scriptGutter?.addEventListener('click', (e) => {
             verifyEndTime = targetEnd; 
             verifyingLabel = label; 
             
-            // 確保套用目前的播放速度
             if(typeof applyCurrentPlaybackSpeed === 'function') applyCurrentPlaybackSpeed(); 
             
-            // ★ 修正核心：加入跳轉鎖與引擎同步
             window.jumpLockTime = Date.now();
             if (typeof wavesurfer !== 'undefined' && wavesurfer) {
                 wavesurfer.setTime(times.start);
@@ -1960,46 +2018,7 @@ scriptGutter?.addEventListener('click', (e) => {
             }, 50);
         }
         
-        // 點擊時觸發置頂
         if (typeof snapWaveformToTop === 'function') snapWaveformToTop();
-    }
-});
-
-scriptTextarea?.addEventListener('click', () => {
-    // 1. 取得目前游標位置，並計算出游標前面有幾個換行符號 (得知所在行數)
-    const pos = scriptTextarea.selectionStart;
-    const textUpToCursor = scriptTextarea.value.substring(0, pos);
-    const lineIndex = textUpToCursor.split('\n').length - 1;
-
-    // 2. 重新模擬排號邏輯，找出這行對應的標籤 (略過 ###### 段落行)
-    const rawLines = scriptTextarea.value.split('\n');
-    let paraChar = 65; // 'A' 的 ASCII
-    let sentenceCount = 1;
-    let targetLabel = null;
-
-    for (let i = 0; i <= lineIndex; i++) {
-        // ★ 這裡也要同步改為彈性正則判斷，確保點擊游標時能算出正確的標籤
-        if (/^#{6,}$/.test(rawLines[i].trim())) {
-            if (sentenceCount > 1) paraChar++;
-            sentenceCount = 1;
-        } else {
-            targetLabel = String.fromCharCode(paraChar) + String(sentenceCount).padStart(2, '0');
-            sentenceCount++;
-        }
-    }
-
-    // 3. 找到標籤後，執行跳轉與置頂 (取消自動播放)
-    if (targetLabel && timeDataMap[targetLabel]) {
-        currentActiveLabel = targetLabel;
-        const times = getCalculatedTimes(targetLabel);
-        if (times) {
-            audioPlayer.currentTime = times.start;
-            audioPlayer.pause(); 
-        }
-        
-        if (typeof snapWaveformToTop === 'function') {
-            setTimeout(snapWaveformToTop, 50);
-        }
     }
 });
 
@@ -2413,114 +2432,254 @@ autoCloseInputs.forEach(id => {
 });
 // =========================================================================
 
-
-// ================= ★ 批次尋找與取代引擎 (支援劇本模式與正則) ★ =================
+// ================= ★ Chrome級：即時高亮搜尋與取代引擎 ★ =================
 const openBatchReplaceBtn = document.getElementById('openBatchReplaceBtn');
 const batchReplaceModal = document.getElementById('batchReplaceModalOverlay');
 const batchReplaceConfirmBtn = document.getElementById('batchReplaceConfirmBtn');
 const batchReplaceCancelBtn = document.getElementById('batchReplaceCancelBtn');
+const findPrevBtn = document.getElementById('findPrevBtn');
+const findNextBtn = document.getElementById('findNextBtn');
+const replaceSingleBtn = document.getElementById('replaceSingleBtn');
 const findTextInput = document.getElementById('findTextInput');
 const replaceTextInput = document.getElementById('replaceTextInput');
 const useRegexCheck = document.getElementById('useRegexCheck');
+const searchMatchCount = document.getElementById('searchMatchCount');
 
+// 搜尋狀態機
+let searchEngine = { query: '', useRegex: false, matches: [], currentIndex: -1 };
+
+// 開啟視窗與關閉視窗
 openBatchReplaceBtn?.addEventListener('click', () => {
     batchReplaceModal.classList.add('show');
-    findTextInput.value = ''; replaceTextInput.value = '';
-    if (useRegexCheck) useRegexCheck.checked = false; 
-    setTimeout(() => findTextInput.focus(), 100); 
+    setTimeout(() => { findTextInput.focus(); findTextInput.select(); }, 100); 
+});
+batchReplaceCancelBtn?.addEventListener('click', () => {
+    batchReplaceModal.classList.remove('show');
+    searchEngine.query = ''; 
+    clearAllHighlights(); // 關閉時清除高亮
 });
 
-batchReplaceCancelBtn?.addEventListener('click', () => batchReplaceModal.classList.remove('show'));
-
-batchReplaceConfirmBtn?.addEventListener('click', () => {
+// 核心：掃描並更新所有符合的字串位置
+function updateSearchMatches() {
     const findStr = findTextInput.value;
-    const replaceStr = replaceTextInput.value;
     const useRegex = useRegexCheck ? useRegexCheck.checked : false;
+    searchEngine.matches = [];
+    searchEngine.query = findStr;
+    searchEngine.useRegex = useRegex;
 
-    if (!findStr) return showToast('請輸入要尋找的目標文字', 'error');
+    if (!findStr) { renderHighlights(); return; }
 
     let searchRegex = null;
     if (useRegex) {
-        try { searchRegex = new RegExp(findStr, 'g'); } 
-        catch (e) { return showToast('正規表達式語法錯誤，請檢查！', 'error'); }
+        try { searchRegex = new RegExp(findStr, 'g'); } catch(e) { renderHighlights(); return; }
     }
 
-    if (typeof saveState === 'function') saveState(); // 紀錄 Undo 快照
-
-    let matchCount = 0;
-
-    // 【情境 A：目前在劇本模式 (大編輯框)】
     if (typeof isScriptMode !== 'undefined' && isScriptMode) {
-        const scriptTextarea = document.getElementById('scriptTextarea');
-        if (!scriptTextarea) return;
-
-        let text = scriptTextarea.value;
+        // 劇本模式：計算 textarea 內的文字索引
+        const text = document.getElementById('scriptTextarea')?.value || '';
         if (useRegex) {
-            const matches = text.match(searchRegex);
-            if (matches) {
-                matchCount = matches.length;
-                text = text.replace(searchRegex, replaceStr);
+            let match;
+            while ((match = searchRegex.exec(text)) !== null) {
+                if (match[0].length === 0) { searchRegex.lastIndex++; continue; }
+                searchEngine.matches.push({ start: match.index, end: match.index + match[0].length });
             }
         } else {
-            if (text.includes(findStr)) {
-                matchCount = text.split(findStr).length - 1;
-                text = text.split(findStr).join(replaceStr);
+            let idx = text.indexOf(findStr);
+            while (idx !== -1) {
+                searchEngine.matches.push({ start: idx, end: idx + findStr.length });
+                idx = text.indexOf(findStr, idx + findStr.length);
             }
         }
-
-        if (matchCount > 0) {
-            scriptTextarea.value = text;
-            // 強制觸發劇本模式的同步引擎，將大框文字寫回個別句子陣列
-            if (typeof renderGutterAndSyncData === 'function') renderGutterAndSyncData();
-        }
-    } 
-    // 【情境 B：目前在單句列表模式】
-    else {
-        let modifiedSentences = 0;
+    } else {
+        // 單句模式：計算所有標籤內的文字索引
         allLabelsOrdered.forEach(label => {
-            let text = sentenceTextMap[label] || '';
-            let hasMatch = false; let newText = text; let localMatchCount = 0;
-
+            const text = sentenceTextMap[label] || '';
             if (useRegex) {
-                const matches = text.match(searchRegex);
-                if (matches && matches.length > 0) {
-                    hasMatch = true; localMatchCount = matches.length;
-                    newText = text.replace(searchRegex, replaceStr);
+                searchRegex.lastIndex = 0;
+                let match;
+                while ((match = searchRegex.exec(text)) !== null) {
+                    if (match[0].length === 0) { searchRegex.lastIndex++; continue; }
+                    searchEngine.matches.push({ label, start: match.index, end: match.index + match[0].length });
                 }
             } else {
-                if (text.includes(findStr)) {
-                    hasMatch = true; localMatchCount = text.split(findStr).length - 1;
-                    newText = text.split(findStr).join(replaceStr);
-                }
-            }
-
-            if (hasMatch) {
-                matchCount += localMatchCount; modifiedSentences++;
-                sentenceTextMap[label] = newText;
-                const itemDiv = document.getElementById(`item-${label}`);
-                if (itemDiv) {
-                    const textDisplay = itemDiv.querySelector('.sentence-text-display');
-                    if (textDisplay) textDisplay.textContent = newText;
-                    itemDiv.dataset.rawText = newText;
+                let idx = text.indexOf(findStr);
+                while (idx !== -1) {
+                    searchEngine.matches.push({ label, start: idx, end: idx + findStr.length });
+                    idx = text.indexOf(findStr, idx + findStr.length);
                 }
             }
         });
-        if (matchCount > 0) saveToStorage();
     }
 
-    if (matchCount > 0) {
-        batchReplaceModal.classList.remove('show');
-        showToast(`替換完成！共替換了 ${matchCount} 處。`, 'success');
-    } else {
-        showToast('找不到符合的文字', 'normal');
+    if (searchEngine.currentIndex >= searchEngine.matches.length) searchEngine.currentIndex = Math.max(0, searchEngine.matches.length - 1);
+    else if (searchEngine.currentIndex === -1 && searchEngine.matches.length > 0) searchEngine.currentIndex = 0;
+
+    renderHighlights();
+}
+
+// 核心：在畫面上塗上黃色與橘色高亮
+function renderHighlights() {
+    if (!searchEngine.query || searchEngine.matches.length === 0) {
+        searchMatchCount.style.display = 'none';
+        clearAllHighlights();
+        return;
     }
+
+    searchMatchCount.style.display = 'block';
+    searchMatchCount.textContent = `${searchEngine.currentIndex + 1}/${searchEngine.matches.length}`;
+    clearAllHighlights(); 
+
+    if (typeof isScriptMode !== 'undefined' && isScriptMode) {
+        const textarea = document.getElementById('scriptTextarea');
+        const backdrop = document.getElementById('scriptBackdrop');
+        if (!textarea || !backdrop) return;
+        
+        const text = textarea.value;
+        let html = ''; let lastIdx = 0;
+        
+        searchEngine.matches.forEach((m, idx) => {
+            html += escapeHtml(text.substring(lastIdx, m.start));
+            const markClass = idx === searchEngine.currentIndex ? 'backdrop-mark active' : 'backdrop-mark';
+            html += `<mark class="${markClass}">${escapeHtml(text.substring(m.start, m.end))}</mark>`;
+            lastIdx = m.end;
+        });
+        html += escapeHtml(text.substring(lastIdx));
+        backdrop.innerHTML = html;
+    } else {
+        const labelMatches = {};
+        searchEngine.matches.forEach((m, idx) => {
+            if (!labelMatches[m.label]) labelMatches[m.label] = [];
+            labelMatches[m.label].push({ ...m, globalIdx: idx });
+        });
+        
+        for (const label in labelMatches) {
+            const itemDiv = document.getElementById(`item-${label}`);
+            const display = itemDiv?.querySelector('.sentence-text-display');
+            if (!display) continue;
+            
+            const text = sentenceTextMap[label] || '';
+            let html = ''; let lastIdx = 0;
+            
+            labelMatches[label].forEach(m => {
+                html += escapeHtml(text.substring(lastIdx, m.start));
+                const markClass = m.globalIdx === searchEngine.currentIndex ? 'list-mark active' : 'list-mark';
+                html += `<mark class="${markClass}">${escapeHtml(text.substring(m.start, m.end))}</mark>`;
+                lastIdx = m.end;
+            });
+            html += escapeHtml(text.substring(lastIdx));
+            display.innerHTML = html;
+        }
+    }
+}
+
+// 清除所有高亮痕跡 (保護原始資料)
+function clearAllHighlights() {
+    document.querySelectorAll('.sentence-item').forEach(item => {
+        const label = item.id.replace('item-', '');
+        const display = item.querySelector('.sentence-text-display');
+        if (display && display.innerHTML.includes('<mark')) {
+            display.textContent = sentenceTextMap[label] || '';
+        }
+    });
+    const backdrop = document.getElementById('scriptBackdrop');
+    if (backdrop) backdrop.innerHTML = '';
+}
+
+function escapeHtml(unsafe) {
+    return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// 捲動並選取目標
+function scrollToCurrentMatch() {
+    if (searchEngine.currentIndex === -1 || searchEngine.matches.length === 0) return;
+    const match = searchEngine.matches[searchEngine.currentIndex];
+    
+    if (typeof isScriptMode !== 'undefined' && isScriptMode) {
+        const textarea = document.getElementById('scriptTextarea');
+        textarea.focus();
+        textarea.setSelectionRange(match.start, match.end);
+    } else {
+        currentActiveLabel = match.label;
+        if (typeof updateSelectionUI === 'function') updateSelectionUI();
+        const itemDiv = document.getElementById(`item-${match.label}`);
+        if (itemDiv && typeof smartScrollTo === 'function') smartScrollTo(itemDiv);
+    }
+}
+
+// 綁定輸入即時搜尋
+findTextInput?.addEventListener('input', () => { updateSearchMatches(); scrollToCurrentMatch(); });
+useRegexCheck?.addEventListener('change', () => { updateSearchMatches(); scrollToCurrentMatch(); });
+
+// 上下步切換
+function stepMatch(direction) {
+    if (searchEngine.matches.length === 0) return;
+    searchEngine.currentIndex += direction;
+    if (searchEngine.currentIndex >= searchEngine.matches.length) searchEngine.currentIndex = 0;
+    if (searchEngine.currentIndex < 0) searchEngine.currentIndex = searchEngine.matches.length - 1;
+    renderHighlights(); scrollToCurrentMatch();
+}
+findNextBtn?.addEventListener('click', () => stepMatch(1));
+findPrevBtn?.addEventListener('click', () => stepMatch(-1));
+findTextInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') stepMatch(1); });
+
+// 單步取代
+replaceSingleBtn?.addEventListener('click', () => {
+    if (searchEngine.matches.length === 0 || searchEngine.currentIndex === -1) return;
+    const replaceStr = replaceTextInput.value;
+    if (typeof saveState === 'function') saveState();
+
+    if (typeof isScriptMode !== 'undefined' && isScriptMode) {
+        const match = searchEngine.matches[searchEngine.currentIndex];
+        const textarea = document.getElementById('scriptTextarea');
+        const text = textarea.value;
+        textarea.value = text.substring(0, match.start) + replaceStr + text.substring(match.end);
+        if (typeof renderGutterAndSyncData === 'function') renderGutterAndSyncData();
+    } else {
+        const match = searchEngine.matches[searchEngine.currentIndex];
+        let text = sentenceTextMap[match.label] || '';
+        text = text.substring(0, match.start) + replaceStr + text.substring(match.end);
+        sentenceTextMap[match.label] = text;
+        const itemDiv = document.getElementById(`item-${match.label}`);
+        if (itemDiv) { itemDiv.querySelector('.sentence-text-display').textContent = text; itemDiv.dataset.rawText = text; }
+        saveToStorage();
+    }
+    updateSearchMatches(); scrollToCurrentMatch();
 });
 
-replaceTextInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') batchReplaceConfirmBtn.click(); });
-findTextInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') replaceTextInput.focus(); });
+// 全部取代
+batchReplaceConfirmBtn?.addEventListener('click', () => {
+    if (searchEngine.matches.length === 0) return;
+    const replaceStr = replaceTextInput.value;
+    if (typeof saveState === 'function') saveState();
+    let count = searchEngine.matches.length;
+
+    if (typeof isScriptMode !== 'undefined' && isScriptMode) {
+        const textarea = document.getElementById('scriptTextarea');
+        let text = textarea.value; let offset = 0;
+        searchEngine.matches.forEach(m => {
+            text = text.substring(0, m.start + offset) + replaceStr + text.substring(m.end + offset);
+            offset += replaceStr.length - (m.end - m.start);
+        });
+        textarea.value = text;
+        if (typeof renderGutterAndSyncData === 'function') renderGutterAndSyncData();
+    } else {
+        const labelOffsetMap = {};
+        searchEngine.matches.forEach(m => {
+            if (!labelOffsetMap[m.label]) labelOffsetMap[m.label] = 0;
+            let text = sentenceTextMap[m.label];
+            const offset = labelOffsetMap[m.label];
+            text = text.substring(0, m.start + offset) + replaceStr + text.substring(m.end + offset);
+            sentenceTextMap[m.label] = text;
+            labelOffsetMap[m.label] += replaceStr.length - (m.end - m.start);
+            const itemDiv = document.getElementById(`item-${m.label}`);
+            if (itemDiv) { itemDiv.querySelector('.sentence-text-display').textContent = text; itemDiv.dataset.rawText = text; }
+        });
+        saveToStorage();
+    }
+    showToast(`替換完成！共替換了 ${count} 處。`, 'success');
+    searchEngine.query = ''; findTextInput.value = ''; updateSearchMatches();
+});
 // =========================================================================
-
-
 
 // 點擊後，先關閉側邊欄，稍微延遲 300 毫秒等動畫結束，再彈出目標視窗，讓體驗更滑順
 document.getElementById('sidebarAudioBtn')?.addEventListener('click', () => {
@@ -2531,6 +2690,11 @@ document.getElementById('sidebarAudioBtn')?.addEventListener('click', () => {
 document.getElementById('sidebarDataBtn')?.addEventListener('click', () => {
     document.getElementById('closeSidebarBtn')?.click();
     setTimeout(() => document.getElementById('openDataModalBtn')?.click(), 300);
+});
+
+document.getElementById('sidebarExportBtn')?.addEventListener('click', () => {
+    document.getElementById('closeSidebarBtn')?.click();
+    setTimeout(() => document.getElementById('openExportModalBtn')?.click(), 300);
 });
 
 document.getElementById('sidebarClearBtn')?.addEventListener('click', () => {
@@ -2718,8 +2882,6 @@ document.getElementById('modalClearExportBtn')?.addEventListener('click', () => 
     showToast('文字已清除', 'normal');
 });
 // =========================================================================
-
-
 // ================= ★ 終極修復：切換單句/全文模式 ★ =================
 // 使用 cloneNode 技巧，徹底洗掉舊的、會互相打架的幽靈監聽器！
 const oldToggleBtn = document.getElementById('toggleScriptModeBtn');
@@ -2735,10 +2897,16 @@ if (oldToggleBtn) {
         // 點擊後自動關閉檢視選單
         document.getElementById('viewMenu')?.classList.remove('show');
         
+        // ★ 取得列表標題容器，準備動態調整底線
+        const listHeaderContainer = document.getElementById('listHeaderContainer');
+        
         if (isScriptMode) {
             // 【切換為全文大編輯框】
             document.getElementById('sentenceList').style.display = 'none';
             document.getElementById('scriptEditorContainer').style.display = 'flex';
+            
+            // ★ 隱藏標題底線，解決雙重線條的視覺干擾
+            if (listHeaderContainer) listHeaderContainer.style.borderBottom = 'none';
             
             if (typeof saveState === 'function') saveState(); 
             if (typeof populateScriptEditor === 'function') populateScriptEditor();
@@ -2752,6 +2920,9 @@ if (oldToggleBtn) {
             // 【切換回單句列表】
             document.getElementById('sentenceList').style.display = 'flex';
             document.getElementById('scriptEditorContainer').style.display = 'none';
+            
+            // ★ 恢復標題的淺藍色底線
+            if (listHeaderContainer) listHeaderContainer.style.borderBottom = '2px solid #E0F2F1';
             
             if (typeof renderSentenceList === 'function') renderSentenceList();
             showToast('已切換為：單句模式 (列表)', 'normal');
@@ -2769,10 +2940,43 @@ if (oldToggleBtn) {
             if (scriptTextarea) scriptTextarea.readOnly = !isEditMode;
             if (editorContainer) editorContainer.style.background = isEditMode ? '#ffffff' : '#f8f9fa';
         }
+
+        // 核心修復：切換模式後，給予 100ms 讓畫面排版完成，然後執行追蹤與高亮
+        setTimeout(() => {
+            // 1. 強制重新掃描搜尋高亮
+            if (typeof updateSearchMatches === 'function') {
+                updateSearchMatches();
+            }
+
+            // 2. 視角錨點追蹤 (View Tracking)
+            if (currentActiveLabel) {
+                if (isScriptMode) {
+                    // 【單句 -> 全文】：捲動大編輯框，讓目標行號出現在視野中
+                    const targetGutter = document.getElementById(`gutter-${currentActiveLabel}`);
+                    if (targetGutter && scriptTextarea) {
+                        // 將捲動軸移至該行，減去 40px 的緩衝空間避免貼齊頂部太有壓迫感
+                        scriptTextarea.scrollTop = targetGutter.offsetTop - 40;
+                        
+                        // 將透明高亮背板同步捲動
+                        const backdrop = document.getElementById('scriptBackdrop');
+                        if (backdrop) backdrop.scrollTop = scriptTextarea.scrollTop;
+                    }
+                } else {
+                    // 【全文 -> 單句】：讓網頁捲動到對應的句子區塊
+                    const itemDiv = document.getElementById(`item-${currentActiveLabel}`);
+                    if (itemDiv && typeof smartScrollTo === 'function') {
+                        smartScrollTo(itemDiv);
+                    }
+                }
+            }
+            
+            // 3. 確保如果正在搜尋，跳回當前的搜尋目標
+            if (typeof scrollToCurrentMatch === 'function') {
+                scrollToCurrentMatch();
+            }
+        }, 100);
     });
 }
-
-
 
 // ================= ★ 全新：三大清除與刪除功能模組 (防幽靈事件版) ★ =================
 
@@ -2901,3 +3105,133 @@ cleanAndBindEvent('deleteAllDataBtn', () => {
     });
 });
 // =========================================================================
+// ================= ★ 新增：聲波圖顯示文字與字數設定 ★ =================
+const showRegionTextCheck = document.getElementById('showRegionTextCheck');
+const regionTextLengthInput = document.getElementById('regionTextLengthInput');
+const regionTextLengthBlock = document.getElementById('regionTextLengthBlock');
+
+// 1. 讀取儲存的設定 (預設為不顯示，字數預設為 4)
+window.showRegionText = localStorage.getItem('tagger_showRegionText') === 'true';
+window.regionTextLength = parseInt(localStorage.getItem('tagger_regionTextLength'));
+if (isNaN(window.regionTextLength)) window.regionTextLength = 4;
+
+if (showRegionTextCheck && regionTextLengthInput) {
+    // 2. 初始化介面狀態
+    showRegionTextCheck.checked = window.showRegionText;
+    regionTextLengthInput.value = window.regionTextLength;
+    if (regionTextLengthBlock) regionTextLengthBlock.style.display = window.showRegionText ? 'block' : 'none';
+
+    // 3. 監聽開關改變
+    showRegionTextCheck.addEventListener('change', (e) => {
+        window.showRegionText = e.target.checked;
+        localStorage.setItem('tagger_showRegionText', window.showRegionText ? 'true' : 'false');
+        if (regionTextLengthBlock) regionTextLengthBlock.style.display = window.showRegionText ? 'block' : 'none';
+        
+        // 即時重新繪製聲波圖標記
+        if (typeof renderAllRegions === 'function') renderAllRegions();
+    });
+
+    // 4. 監聽字數改變
+    regionTextLengthInput.addEventListener('change', (e) => {
+        let val = parseInt(e.target.value) || 0;
+        if (val < 0) val = 0; // 防止負數
+        window.regionTextLength = val;
+        e.target.value = val;
+        localStorage.setItem('tagger_regionTextLength', window.regionTextLength);
+        
+        // 即時重新繪製聲波圖標記
+        if (typeof renderAllRegions === 'function') renderAllRegions();
+    });
+}
+
+
+// ================= ★ 新增：列表編號顯示方式 (顯示映射引擎) ★ =================
+const labelDisplayModeSelect = document.getElementById('labelDisplayModeSelect');
+const continuousLabelSettings = document.getElementById('continuousLabelSettings');
+const labelPrefixInput = document.getElementById('labelPrefixInput');
+const labelStartNumInput = document.getElementById('labelStartNumInput');
+const labelDigitsSelect = document.getElementById('labelDigitsSelect');
+
+// 1. 讀取儲存的設定
+window.labelDisplayMode = localStorage.getItem('tagger_labelMode') || 'default';
+window.labelPrefix = localStorage.getItem('tagger_labelPrefix') || '';
+window.labelStartNum = parseInt(localStorage.getItem('tagger_labelStartNum'));
+if (isNaN(window.labelStartNum)) window.labelStartNum = 1;
+window.labelDigits = parseInt(localStorage.getItem('tagger_labelDigits'));
+if (isNaN(window.labelDigits)) window.labelDigits = 3;
+
+// 2. 核心翻譯函式：負責把 A01 轉換成使用者設定的格式
+window.getDisplayLabel = function(originalLabel) {
+    if (window.labelDisplayMode !== 'continuous') return originalLabel;
+    
+    // 取得該句子在所有資料中的絕對順序
+    const index = allLabelsOrdered.indexOf(originalLabel);
+    if (index === -1) return originalLabel; // 防呆
+    
+    // 計算連續數字並補零
+    const num = window.labelStartNum + index;
+    const numStr = String(num).padStart(window.labelDigits, '0');
+    return `${window.labelPrefix}${numStr}`;
+};
+
+// 3. 極致優化的即時更新引擎 (不重新繪製 DOM，只替換文字)
+window.refreshAllDisplayLabels = function() {
+    // 更新單句列表
+    document.querySelectorAll('.sentence-item').forEach(item => {
+        const label = item.id.replace('item-', '');
+        const labelSpan = item.querySelector('.sentence-label');
+        if (labelSpan) labelSpan.textContent = window.getDisplayLabel(label);
+    });
+    
+    // 更新劇本模式行號
+    document.querySelectorAll('.gutter-line:not(.para)').forEach(el => {
+        const label = el.dataset.label;
+        if (label) el.textContent = window.getDisplayLabel(label);
+    });
+
+    // 更新聲波圖上的標籤
+    allLabelsOrdered.forEach(label => {
+        const rawText = sentenceTextMap[label] || '';
+        if (typeof updateRegionTextDisplay === 'function') {
+            updateRegionTextDisplay(label, rawText);
+        }
+    });
+};
+
+if (labelDisplayModeSelect) {
+    // 綁定介面初始值
+    labelDisplayModeSelect.value = window.labelDisplayMode;
+    labelPrefixInput.value = window.labelPrefix;
+    labelStartNumInput.value = window.labelStartNum;
+    labelDigitsSelect.value = window.labelDigits;
+    continuousLabelSettings.style.display = window.labelDisplayMode === 'continuous' ? 'block' : 'none';
+
+    // 監聽各種設定改變，並呼叫即時更新引擎
+    labelDisplayModeSelect.addEventListener('change', (e) => {
+        window.labelDisplayMode = e.target.value;
+        localStorage.setItem('tagger_labelMode', window.labelDisplayMode);
+        continuousLabelSettings.style.display = window.labelDisplayMode === 'continuous' ? 'block' : 'none';
+        window.refreshAllDisplayLabels();
+    });
+
+    labelPrefixInput.addEventListener('input', (e) => {
+        window.labelPrefix = e.target.value;
+        localStorage.setItem('tagger_labelPrefix', window.labelPrefix);
+        window.refreshAllDisplayLabels();
+    });
+
+    labelStartNumInput.addEventListener('change', (e) => {
+        let val = parseInt(e.target.value);
+        if (isNaN(val) || val < 0) val = 1;
+        window.labelStartNum = val;
+        e.target.value = val;
+        localStorage.setItem('tagger_labelStartNum', window.labelStartNum);
+        window.refreshAllDisplayLabels();
+    });
+
+    labelDigitsSelect.addEventListener('change', (e) => {
+        window.labelDigits = parseInt(e.target.value);
+        localStorage.setItem('tagger_labelDigits', window.labelDigits);
+        window.refreshAllDisplayLabels();
+    });
+}

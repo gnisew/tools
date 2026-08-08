@@ -293,9 +293,7 @@ zoomInBtn?.addEventListener('click', () => updateZoom(Math.min(200, Number(zoomS
 function renderAllRegions() {
     if (!wsRegions) return;
     
-    // ★ 核心修復：加入「等待音檔就緒」保護鎖
-    // 當音檔尚未載入完成 (長度未知) 時，絕對不要提早繪製標記！
-    // 否則 WaveSurfer 會把所有標記強制擠壓到 0 秒的位置並損毀資料。
+    // 等待音檔就緒保護鎖
     if (!wavesurfer || !audioPlayer || !audioPlayer.duration || audioPlayer.duration < 0.1) return;
 
     isRendering = true; 
@@ -309,20 +307,39 @@ function renderAllRegions() {
         const times = getCalculatedTimes(label);
         if (times && timeDataMap[label]) { 
             const contentEl = document.createElement('div'); 
-            contentEl.textContent = label; 
+ 
+	         const displayLabel = typeof window.getDisplayLabel === 'function' ? window.getDisplayLabel(label) : label;
+	         let displayText = displayLabel;
+
+	         if (typeof window.showRegionText !== 'undefined' && window.showRegionText) {
+	             let rawText = sentenceTextMap[label] || '';
+	             if (rawText.trim() !== '') {
+	                 let textArray = Array.from(rawText.trim());
+	                 let limit = window.regionTextLength;
+	                 let snippet = (limit === 0) ? rawText.trim() : textArray.slice(0, limit).join('');
+	                 displayText = `${displayLabel} ${snippet}`;
+	             }
+	         }
+
+            contentEl.textContent = displayText; 
             contentEl.style.fontWeight = 'bold'; 
             contentEl.style.color = '#00695C'; 
             contentEl.style.fontSize = '0.8rem'; 
             contentEl.style.textShadow = '1px 1px 0px white, -1px -1px 0px white, 1px -1px 0px white, -1px 1px 0px white, 0px 0px 3px rgba(255,255,255,0.8)'; 
             contentEl.style.pointerEvents = 'none'; 
+            
+            // ★ 核心優化：限制最大寬度，加上隱藏與刪節號 (防止文字覆蓋到下一個區塊)
+            contentEl.style.maxWidth = 'calc(100% - 8px)';
             contentEl.style.whiteSpace = 'nowrap';
             contentEl.style.overflow = 'hidden';
             contentEl.style.textOverflow = 'ellipsis';
-            contentEl.style.position = 'absolute';
-            contentEl.style.top = '2px';
+            
+            // 黏性定位 (保持在左側邊緣)
+            contentEl.style.position = 'sticky';
             contentEl.style.left = '4px';  
-            contentEl.style.width = 'calc(100% - 8px)';
-            contentEl.style.boxSizing = 'border-box';
+            contentEl.style.top = '2px';
+            contentEl.style.display = 'inline-block';
+            contentEl.style.zIndex = '10'; 
             
             let regionColor = 'rgba(0, 137, 123, 0.1)';
             if (selectedLabels.includes(label)) regionColor = 'rgba(25, 118, 210, 0.25)';
@@ -334,19 +351,47 @@ function renderAllRegions() {
     isRendering = false;
 }
 
+// ================= ★ 新增：即時更新單一標記文字 (搭配防抖) ★ =================
+window.updateRegionTextDisplay = function(label, rawText) {
+    if (!wsRegions) return;
+
+    // 從 WaveSurfer 中找出對應的標記區塊
+    const targetRegion = wsRegions.getRegions().find(r => r.id === label);
+
+    if (targetRegion && targetRegion.content) {
+        // 1. 套用連續編號映射
+        const displayLabel = typeof window.getDisplayLabel === 'function' ? window.getDisplayLabel(label) : label;
+        let displayText = displayLabel;
+
+        // 2. 處理文字與字數限制
+        if (typeof window.showRegionText !== 'undefined' && window.showRegionText) {
+            if (rawText && rawText.trim() !== '') {
+                let textArray = Array.from(rawText.trim());
+                let limit = window.regionTextLength;
+                let snippet = (limit === 0) ? rawText.trim() : textArray.slice(0, limit).join('');
+                displayText = `${displayLabel} ${snippet}`;
+            }
+        }
+        
+        targetRegion.content.textContent = displayText;
+    }
+};
+
 function initWaveSurfer() {
     const warning = document.getElementById('missingAudioWarning');
     if (warning) warning.style.display = 'none';
     const waveform = document.getElementById('waveform');
     if (waveform) waveform.style.display = 'block';
+    
     const compactControls = document.getElementById('compactControls');
     if (compactControls) {
-        compactControls.style.opacity = '1';
-        compactControls.style.pointerEvents = 'auto';
+        // ★ 核心修改 1：開始載入聲波前，先鎖定控制面板，防止誤觸
+        compactControls.style.opacity = '0.5';
+        compactControls.style.pointerEvents = 'none';
     }
 
     if (typeof wavesurfer !== 'undefined' && wavesurfer !== null) {
-        // ★ 關鍵修復 1：載入新音檔前，先上鎖並清空舊標記，防止被強制歸零
+        // 載入新音檔前，先上鎖並清空舊標記
         isRendering = true;
         if (wsRegions) wsRegions.clearRegions();
         isRendering = false;
@@ -357,7 +402,7 @@ function initWaveSurfer() {
     
     document.getElementById('stickyPanel').style.display = 'block';
     document.getElementById('waveform').style.display = 'block'; 
-    compactControls.style.display = 'flex'; 
+    if (compactControls) compactControls.style.display = 'flex'; 
     
     wavesurfer = WaveSurfer.create({ 
         container: '#waveform', 
@@ -385,7 +430,6 @@ function initWaveSurfer() {
     });
 
     wsRegions.on('region-updated', (region) => {
-        // ★ 關鍵修復 2：加上多重保護鎖，如果音檔尚未準備好，絕對不允許存檔
         if (isRendering) return; 
         if (!audioPlayer || !audioPlayer.duration || audioPlayer.duration < 0.1) return; 
 
@@ -467,6 +511,7 @@ function initWaveSurfer() {
         if (typeof snapWaveformToTop === 'function') snapWaveformToTop();
     });
 
+    // ★ 核心修改 2：當聲波圖解碼完成、正式繪製出來時觸發
     wavesurfer.on('ready', () => { 
         applyCurrentPlaybackSpeed(); 
         if(typeof updateStickyOffsets === 'function') updateStickyOffsets(); 
@@ -479,10 +524,24 @@ function initWaveSurfer() {
         updateZoom(zoomPresetSelect ? zoomPresetSelect.value : 10);
         
         if(typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
+
+        // ★ 解鎖控制按鈕列
+        if (compactControls) {
+            compactControls.style.opacity = '1';
+            compactControls.style.pointerEvents = 'auto';
+        }
+
+        // ★ 提示載入成功
+        const audioType = localStorage.getItem('tagger_audioType');
+        if (audioType === 'local') {
+            showToast('本機音檔載入成功', 'success');
+        } else if (audioType === 'online') {
+            showToast('線上音檔載入成功', 'success');
+        } else {
+            showToast('音檔載入成功', 'success');
+        }
     });
 }
-
-
 
 window.addEventListener('DOMContentLoaded', () => { 
     if (projectTitleInput) {

@@ -79,11 +79,12 @@
             <button id="stopBtn" class="btn-icon" title="停止並回到開頭"><span class="material-icons">stop</span></button>
             <button id="rewindBtn" class="btn-icon" title="退 2 秒"><span class="material-icons">fast_rewind</span></button>
             <button id="forwardBtn" class="btn-icon" title="進 2 秒"><span class="material-icons">fast_forward</span></button>
+            <button id="downloadActiveRegionBtn" class="btn-icon" style="background: #4DB6AC; color: white; border: none;" title="下載目前選取的句段音檔"><span class="material-icons">download</span></button>
             
-            <span id="audioTimeDisplay" class="audio-timer" style="user-select: none;">
-                <span id="audioTimeCurrent" style="cursor: pointer;" title="跳至選取標記或目前游標位置">0:00</span> / 
+            <div id="audioTimeDisplay" class="audio-timer" style="user-select: none;">
+                <span id="audioTimeCurrent" style="cursor: pointer;" title="跳至選取標記或目前游標位置">0:00</span>
                 <span id="audioTimeTotal" style="cursor: pointer;" title="全選 / 取消全選">0:00</span>
-            </span>
+            </div>
             
             <div style="position: relative; display: inline-block; margin: 0 4px;">
                 <button id="speedMenuToggleBtn" style="background: transparent; border: 1px solid #dadce0; color: #3c4043; border-radius: 12px; padding: 0 8px; font-weight: bold; font-size: 0.85rem; height: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; min-width: 40px; outline: none;">
@@ -99,15 +100,16 @@
                 </div>
             </div>
 
+			<button id="autoSegmentRegionBtn" class="btn-icon" style="background: #E3F2FD; color: #1976D2; border: 1px solid #BBDEFB; opacity: 0.3; cursor: not-allowed;" title="選取的範圍依靜音自動斷句" disabled>
+                <span class="material-icons">auto_awesome</span>
+            </button>
             <button id="tagRegionBtn" class="btn-icon" style="background: #E8F5E9; color: #2E7D32; border: 1px solid #C8E6C9;" title="將選取範圍套用至目前句子 (Enter)"><span class="material-icons">bookmark_add</span></button>
             <button id="clearRegionBtn" class="btn-icon" style="background: #FFEBEE; color: #C62828; border: 1px solid #FFCDD2;" title="清除目前句子的時間標記 (Delete)"><span class="material-icons">bookmark_remove</span></button>
             <button id="splitRegionBtn" class="btn-icon" style="background: #FFF3E0; color: #E65100; border: 1px solid #FFE0B2;" title="在游標處切割 (Ctrl+I)"><span class="material-icons">content_cut</span></button>
             <button id="mergeRegionBtn" class="btn-icon" style="background: #F3E5F5; color: #7B1FA2; border: 1px solid #E1BEE7; opacity: 0.3; cursor: not-allowed;" title="合併選取 (Ctrl+J)" disabled><span class="material-icons">merge_type</span></button>
-			<button id="autoSegmentRegionBtn" class="btn-icon" style="background: #E3F2FD; color: #1976D2; border: 1px solid #BBDEFB; opacity: 0.3; cursor: not-allowed;" title="選取的範圍依靜音自動斷句" disabled>
-                <span class="material-icons">auto_awesome</span>
-            </button>
 
-            <button id="downloadActiveRegionBtn" class="btn-icon" style="background: #4DB6AC; color: white; border: none;" title="下載目前選取的句段音檔"><span class="material-icons">download</span></button>
+
+            
             <div style="position: relative; display: inline-flex; align-items: center; background: #f1f3f4; border-radius: 16px; margin-left: 8px; padding: 2px;">
                 <button id="zoomOutBtn" class="btn-icon" style="background: transparent; color: #5f6368; width: 24px; height: 24px; padding: 0;" title="縮小">
                     <span class="material-icons" style="font-size: 1.1rem;">zoom_out</span>
@@ -249,11 +251,14 @@
         
         <div id="sentenceList" class="is-edit-mode"></div>
         
-        <div id="scriptEditorContainer" style="display: none;">
+        <div id="scriptEditorContainer" style="display: none; position: relative;">
             <div id="scriptGutter"></div>
-            <!-- wrap="off" 關閉自動換行，確保行號完美對齊 -->
-            <textarea id="scriptTextarea" spellcheck="false" wrap="off" placeholder="在此輸入文字，按下 Enter 換行將自動對應下一個聲波標記..."></textarea>
-        </div>       
+            <!-- 加上一層外框來包覆背板與編輯器 -->
+            <div style="position: relative; flex: 1; overflow: hidden; display: flex;">
+                <div id="scriptBackdrop"></div>
+                <textarea id="scriptTextarea" spellcheck="false" wrap="off" placeholder="在此輸入文字，按下 Enter 換行將自動對應下一個聲波標記..."></textarea>
+            </div>
+        </div>    
     </div>
 
     <!-- 側邊欄 -->
@@ -268,27 +273,8 @@
                 <div style="display: flex; flex-direction: column; gap: 10px;">
                     <button id="sidebarAudioBtn" class="btn-primary" style="width: 100%; border-radius: 8px;"><span class="material-icons">library_music</span> 選擇音檔</button>
                     <button id="sidebarDataBtn" class="btn-outline" style="width: 100%; border-radius: 8px;"><span class="material-icons">drive_folder_upload</span> 匯入資料</button>
+                    <button id="sidebarExportBtn" class="btn-outline" style="width: 100%; border-radius: 8px; border-color: #1976D2; color: #1976D2;"><span class="material-icons">ios_share</span> 匯出專案</button>
                     <button id="sidebarClearBtn" class="btn-danger" style="width: 100%; border-radius: 8px;"><span class="material-icons">delete_forever</span> 清除全部</button>
-                </div>
-            </div>
-            <div class="sidebar-group">
-                <h4>音訊匯出格式</h4>
-                <select id="exportAudioFormatSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
-                    <option value="mp3">MP3 壓縮檔 (輕巧快速)</option>
-                    <option value="wav" selected>WAV 無損原始檔</option>
-                </select>
-            </div>
-			<div class="sidebar-group">
-                <h4>AI 語音辨識設定</h4>
-                <div style="margin-bottom: 5px;">
-                    <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">辨識語言</label>
-                    <select id="transcribeLangSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
-                        <option value="zh-TW" selected>繁體中文 (預設)</option>
-                        <option value="en">英文 (English)</option>
-                        <option value="ja">日文 (日本語)</option>
-
-                    </select>
-                    <span style="font-size: 0.8rem; color: #666; display: block; margin-top: 6px; line-height: 1.4;">設定適用於「一鍵 AI 字幕」與「AI 批次填詞」</span>
                 </div>
             </div>
 			<!-- 循環播放設定區塊 -->
@@ -311,8 +297,6 @@
  
 			<div class="sidebar-group">
                 <h4>播放與跳轉設定</h4>
-                
-                <!-- ★ 新增：主播放模式選擇 -->
                 <div style="margin-bottom: 15px;">
                     <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">播放模式 (Space)</label>
                     <select id="playbackModeSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
@@ -320,8 +304,6 @@
                         <option value="single">單句 / 區段播放 (播完即停)</option>
                     </select>
                 </div>
-
-                <!-- ★ 新增：連續播放的專屬設定群組 (用 div 包起來以便動態隱藏) -->
                 <div id="continuousSettingsBlock" style="padding-left: 10px; border-left: 3px solid #E0F2F1; margin-bottom: 15px;">
                     <div style="margin-bottom: 15px;">
                         <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">波形跟隨模式 (放大時)</label>
@@ -347,7 +329,7 @@
                 <div style="margin-bottom: 15px;">
                     <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.95em; color: #333;">
                         <input type="checkbox" id="enableMaxPlayCheck" style="margin-right: 8px; width: 16px; height: 16px;">
-                        有標記的片段 最多只播
+                        標記只播
                         <input type="number" id="maxPlaySecondsInput" value="2" min="0.5" step="0.5" style="width: 60px; margin: 0 8px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px;">
                         秒
                     </label>
@@ -358,9 +340,49 @@
 				<div style="margin-bottom: 15px;">
 					<label style="display: flex; align-items: center; cursor: pointer; font-size: 0.95em; color: #333;">
 						<input type="checkbox" id="enableMinimapCheck" style="margin-right: 8px; width: 16px; height: 16px;">
-						顯示全局迷你導航圖 (Minimap)
+						顯示迷你導航
 					</label>
+                    <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.95em; color: #333; margin-bottom: 5px;">
+                        <input type="checkbox" id="showRegionTextCheck" style="margin-right: 8px; width: 16px; height: 16px; accent-color: #00897B;">
+                        聲波圖顯示列表文字
+                    </label>
 				</div>
+				<div style="margin-bottom: 15px;">
+
+                    <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">列表編號顯示方式</label>
+                    <select id="labelDisplayModeSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
+                        <option value="default" selected>預設 (A01, B01... 自動分段)</option>
+                        <option value="continuous">連續數字 (1, 2, 3...)</option>
+                    </select>
+                    <div id="continuousLabelSettings" style="display: none; background: #F4F7F6; padding: 12px; border-radius: 6px; margin-top: 8px; border: 1px dashed #B2DFDB;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                            <span style="font-size:0.85rem; color:#555; font-weight:bold;">開頭字元</span>
+                            <input type="text" id="labelPrefixInput" value="" placeholder="無" style="width:70px; padding:4px 6px; border:1px solid #ccc; border-radius:4px; font-size:0.85rem; text-align:center;">
+                        </div>
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                            <span style="font-size:0.85rem; color:#555; font-weight:bold;">起始數字</span>
+                            <input type="number" id="labelStartNumInput" value="1" min="0" style="width:70px; padding:4px 6px; border:1px solid #ccc; border-radius:4px; font-size:0.85rem; text-align:center;">
+                        </div>
+                        <div style="display:flex; align-items:center; justify-content:space-between;">
+                            <span style="font-size:0.85rem; color:#555; font-weight:bold;">位數補零</span>
+                            <select id="labelDigitsSelect" class="input-select" style="width:84px; padding:4px; border:1px solid #ccc; border-radius:4px; font-size:0.85rem;">
+                                <option value="1">1 位</option>
+                                <option value="2">2 位 (01)</option>
+                                <option value="3" selected>3 位 (001)</option>
+                                <option value="4">4 位</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+				<div style="margin-bottom: 15px;">
+
+                    <div id="regionTextLengthBlock" style="padding-left: 24px; display: none;">
+                        <label style="font-size: 0.85rem; color: #555; display: flex; align-items: center; gap: 6px;">
+                            顯示字數 (填 0 顯示全部)
+                            <input type="number" id="regionTextLengthInput" value="4" min="0" max="100" style="width: 60px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 4px;">
+                        </label>
+                    </div>
+                </div>
                 <div style="margin-bottom: 15px;">
                     <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">點擊聲波時的列表定位</label>
                     <select id="scrollAlignSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
@@ -397,6 +419,26 @@
                     </select>
                 </div>
             </div>
+                        <div class="sidebar-group">
+                <h4>音訊匯出格式</h4>
+                <select id="exportAudioFormatSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
+                    <option value="mp3">MP3 壓縮檔 (輕巧快速)</option>
+                    <option value="wav" selected>WAV 無損原始檔</option>
+                </select>
+            </div>
+			<div class="sidebar-group">
+                <h4>AI 語音辨識設定</h4>
+                <div style="margin-bottom: 5px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">辨識語言</label>
+                    <select id="transcribeLangSelect" class="input-select" style="width:100%; border: 1px solid #00897B; color:#00897B; font-weight:bold;">
+                        <option value="zh-TW" selected>繁體中文 (預設)</option>
+                        <option value="en">英文 (English)</option>
+                        <option value="ja">日文 (日本語)</option>
+
+                    </select>
+                    <span style="font-size: 0.8rem; color: #666; display: block; margin-top: 6px; line-height: 1.4;">設定適用於「一鍵 AI 字幕」與「AI 批次填詞」</span>
+                </div>
+            </div>
             <div class="sidebar-group">
                 <h4 style="margin-bottom: 10px;">預設快速鍵 (參考學習)</h4>
                 <ul style="font-size:0.85rem; color:#555; padding-left: 20px; margin-bottom: 20px; line-height: 1.6;">
@@ -411,12 +453,12 @@
 
                 <h4 style="margin-bottom: 10px; border-top: 1px dashed #E0F2F1; padding-top: 10px;">自訂導航快速鍵</h4>
                 <p style="font-size:0.8rem; color:#888; margin-bottom:10px;">點擊框框並按下組合鍵設定。</p>
-                <div class="shortcut-setting-row"><label>倒退 2 秒並播放</label><input type="text" id="hkRewind" class="shortcut-input" readonly value="Ctrl+ArrowLeft"></div>
-                <div class="shortcut-setting-row"><label>前進 2 秒並播放</label><input type="text" id="hkForward" class="shortcut-input" readonly value="Ctrl+ArrowRight"></div>
+                <div class="shortcut-setting-row"><label>倒退 2 秒</label><input type="text" id="hkRewind" class="shortcut-input" readonly value="Ctrl+ArrowLeft"></div>
+                <div class="shortcut-setting-row"><label>前進 2 秒</label><input type="text" id="hkForward" class="shortcut-input" readonly value="Ctrl+ArrowRight"></div>
                 <div class="shortcut-setting-row"><label>跳至上一句</label><input type="text" id="hkPrev" class="shortcut-input" readonly value="Ctrl+ArrowUp"></div>
                 <div class="shortcut-setting-row"><label>跳至下一句</label><input type="text" id="hkNext" class="shortcut-input" readonly value="Ctrl+ArrowDown"></div>
-				<div class="shortcut-setting-row"><label>游標處一鍵切割</label><input type="text" id="hkSplit" class="shortcut-input" readonly value="Ctrl+I"></div>
-                <div class="shortcut-setting-row"><label>合併選取的句子</label><input type="text" id="hkMerge" class="shortcut-input" readonly value="Ctrl+J"></div>
+				<div class="shortcut-setting-row"><label>切割游標處</label><input type="text" id="hkSplit" class="shortcut-input" readonly value="Ctrl+I"></div>
+                <div class="shortcut-setting-row"><label>合併選取</label><input type="text" id="hkMerge" class="shortcut-input" readonly value="Ctrl+J"></div>
                 <div style="margin-top: 10px; display: flex; justify-content: flex-end;"><button id="resetShortcutsBtn" class="btn-small btn-outline">恢復預設</button></div>
             </div>
         </div>
@@ -661,33 +703,98 @@
         </div>
     </div>
 
-<!-- ================= ★ 尋找與取代視窗 ★ ================= -->
-    <div id="batchReplaceModalOverlay" class="modal-overlay">
-        <div class="custom-modal">
-            <h4 style="color:#E65100;"><span class="material-icons" style="vertical-align: middle;">find_replace</span> 尋找與取代</h4>
-            <p style="font-size:0.9rem; color:#666; margin-bottom: 20px;">支援純文字與正規表達式。可套用於單句列表或劇本模式。</p>
-            
-            <div style="margin-bottom: 15px;">
-                <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">尋找目標：</label>
-                <input type="text" id="findTextInput" placeholder="要尋找的文字" style="width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 6px;">
-                
-                <label style="display: flex; align-items: center; margin-top: 8px; cursor: pointer; font-size: 0.85rem; color: #555;">
-                    <input type="checkbox" id="useRegexCheck" style="margin-right: 6px; accent-color: #E65100;">
-                    使用正規表達式 (Regular Expression)
-                </label>
-            </div>
-            
-            <div style="margin-bottom: 25px;">
-                <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">取代為：</label>
-                <input type="text" id="replaceTextInput" placeholder="要替換的文字" style="width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 6px;">
-            </div>
 
-            <div class="modal-buttons">
-                <button id="batchReplaceConfirmBtn" class="btn-modal-confirm" style="background:#E65100;">全部取代</button>
-                <button id="batchReplaceCancelBtn" class="btn-modal-cancel">取消</button>
+<!-- ================= ★ Chrome 級高亮版：尋找與取代浮動視窗 ★ ================= -->
+    <style>
+        .floating-search-panel {
+            display: none; position: fixed; top: 15px; right: 15px; z-index: 3000;
+            background: white; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border: 1px solid #DADCE0; padding: 10px 12px; font-family: sans-serif; width: max-content;
+        }
+        .floating-search-panel.show { display: block; animation: slideDown 0.15s ease-out; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .search-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+        .search-row:last-child { margin-bottom: 0; }
+        .floating-search-panel button { min-width: 0 !important; flex: none !important; margin: 0 !important; }
+        
+        /* 加入相對定位，用來放置右側的計數器 */
+        .search-input-wrapper { position: relative; display: flex; align-items: center; }
+        .search-match-count { position: absolute; right: 6px; font-size: 0.75rem; color: #9AA0A6; pointer-events: none; display: none; }
+        
+        /* 尋找輸入框加長，並為右側計數器留出 padding */
+        .search-input-mini {
+            width: 150px !important; padding: 0 8px !important; border: 1px solid #DADCE0; border-radius: 4px;
+            font-size: 0.85rem; outline: none; transition: border-color 0.2s; height: 28px !important; box-sizing: border-box;
+        }
+        #replaceTextInput.search-input-mini { width: 110px !important; }
+        .search-input-mini:focus { border-color: #E65100; box-shadow: 0 0 0 2px rgba(230,81,0,0.1); }
+        .search-icon-btn {
+            background: #FFFFFF; border: 1px solid #DADCE0 !important; border-radius: 4px; color: #5F6368 !important;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            padding: 0 !important; width: 36px !important; height: 28px !important; transition: all 0.2s; box-sizing: border-box;
+        }
+        .search-icon-btn:hover { background: #F8F9FA !important; color: #202124 !important; border-color: #BDBDBD !important; }
+        .search-action-btn {
+            background: #E65100 !important; color: white !important; border: none !important; 
+            padding: 0 10px !important; height: 28px !important; border-radius: 4px; 
+            font-size: 0.8rem; font-weight: bold; cursor: pointer; transition: background 0.2s; 
+            display: flex; align-items: center; justify-content: center;
+        }
+        .search-action-btn:hover { background: #F57C00 !important; }
+        .search-close-btn { 
+            background: transparent !important; border: none !important; color: #5F6368 !important; cursor: pointer; 
+            width: 24px !important; height: 24px !important; padding: 0 !important; border-radius: 50% !important; 
+            display: flex; align-items: center; justify-content: center; transition: background 0.2s; margin-left: auto !important; 
+        }
+        .search-close-btn:hover { background: #F1F3F4 !important; color: #202124 !important; }
+
+        /* ================= 高亮專屬樣式 ================= */
+        mark.list-mark { background-color: #FDE293; color: inherit; padding: 2px 0; border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);}
+        mark.list-mark.active { background-color: #FF9800; color: white; }
+        
+        #scriptBackdrop {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0; 
+            padding: 16px !important; font-family: Consolas, "Courier New", monospace !important; 
+            font-size: var(--sentence-font-size) !important; line-height: 1.8 !important; 
+            color: transparent; white-space: pre !important; overflow: hidden !important; 
+            pointer-events: none; z-index: 1; box-sizing: border-box !important;
+        }
+        mark.backdrop-mark { background-color: #FDE293; color: transparent; border-radius: 2px; }
+        mark.backdrop-mark.active { background-color: #FF9800; color: transparent; }
+        #scriptTextarea { position: relative; z-index: 2; background: transparent !important; }
+    </style>
+
+    <div id="batchReplaceModalOverlay" class="floating-search-panel">
+        <div class="search-row">
+            <div class="search-input-wrapper">
+                <input type="text" id="findTextInput" class="search-input-mini" placeholder="尋找目標..." style="padding-right: 40px !important;">
+                <span id="searchMatchCount" class="search-match-count">0/0</span>
+            </div>
+            <input type="text" id="replaceTextInput" class="search-input-mini" placeholder="取代為...">
+            <button id="batchReplaceCancelBtn" class="search-close-btn" title="關閉">
+                <span class="material-icons" style="font-size: 1.1rem;">close</span>
+            </button>
+        </div>
+        
+        <div class="search-row">
+            <label style="font-size: 0.8rem; color: #5F6368; display: flex; align-items: center; cursor: pointer; margin-right: auto; white-space: nowrap;">
+                <input type="checkbox" id="useRegexCheck" style="margin-right: 4px; accent-color: #E65100; transform: scale(0.9); margin-top: 0;"> 正則
+            </label>
+            <div style="display: flex; gap: 4px;">
+                <button id="findPrevBtn" class="search-icon-btn" title="上一個"><span class="material-icons" style="font-size:1.2rem;">expand_less</span></button>
+                <button id="findNextBtn" class="search-icon-btn" title="下一個"><span class="material-icons" style="font-size:1.2rem;">expand_more</span></button>
+            </div>
+            <div style="display: flex; gap: 4px; margin-left: 2px;">
+                <button id="replaceSingleBtn" class="search-action-btn">取代</button>
+                <button id="batchReplaceConfirmBtn" class="search-action-btn">全部取代</button>
             </div>
         </div>
     </div>
+
+
+
+
+
 
 <!-- ================= ★ 重新設計：精簡優雅版匯出視窗 ★ ================= -->
     <div id="exportModalOverlay" class="modal-overlay">

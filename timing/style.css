@@ -120,16 +120,43 @@ button:active { background: #00695C; }
 .split-btn-group .main-btn:active, .split-btn-group .drop-btn:active { background-color: #B2DFDB; }
 
 /* 下拉選單 */
-.custom-dropdown-menu { position: absolute; left: 0; margin-top: 8px; background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1); min-width: 160px; z-index: 1000; display: none; flex-direction: column; padding: 8px 0; }
+.custom-dropdown-menu { 
+    position: absolute; left: 0; margin-top: 8px; background: white; 
+    border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1); 
+    min-width: 160px; z-index: 1000; display: none; flex-direction: column; padding: 8px 0; 
+    
+    /* ★ 核心修正：限制最大高度並允許垂直滾動 */
+    max-height: 50vh; /* 最高只佔螢幕高度的 50% */
+    overflow-y: auto; 
+    scrollbar-width: thin; /* 針對 Firefox 的細滾動條設定 */
+}
 .custom-dropdown-menu.show { display: flex; } 
 .custom-dropdown-menu.upwards { top: auto; bottom: 100%; margin-top: 0; margin-bottom: 8px; }
 
+/* ★ 核心修正：為 Chrome/Edge/Safari 設計專屬極細滾動條 */
+.custom-dropdown-menu::-webkit-scrollbar {
+    width: 6px; /* 極細的寬度 */
+}
+.custom-dropdown-menu::-webkit-scrollbar-track {
+    background: transparent; /* 滾動軌道保持透明，視覺更乾淨 */
+    margin: 4px 0; /* 上下保留一點呼吸空間 */
+}
+.custom-dropdown-menu::-webkit-scrollbar-thumb {
+    background: #CFD8DC; /* 淡淡的優雅灰色 */
+    border-radius: 10px; /* 圓角設計 */
+}
+.custom-dropdown-menu::-webkit-scrollbar-thumb:hover {
+    background: #90A4AE; /* 滑鼠經過時稍微加深，增加互動感 */
+}
+
 .custom-dropdown-item { 
     padding: 10px 16px; color: #333; font-size: 0.95rem; cursor: pointer; user-select: none; 
-    display: flex; align-items: center; gap: 8px; /* ★ 新增 Flex 對齊 */
+    display: flex; align-items: center; gap: 8px; 
+    flex-shrink: 0; /* 防止項目被擠壓變形 */
 }
 .custom-dropdown-item:hover { background: #F0F4F8; color: #00897B; }
-.custom-dropdown-item .material-icons { font-size: 1.2rem; } /* ★ 確保 Icon 大小一致 */
+.custom-dropdown-item .material-icons { font-size: 1.2rem; }
+
 
 /* ================= 4. 動態標題編輯與首頁變身特效 ================= */
 /* 可編輯標題專屬互動特效 (底線風格) */
@@ -248,6 +275,9 @@ body.is-empty-state #openSidebarBtn { opacity: 0; pointer-events: none; transfor
 body.is-empty-state #clearStorageBtn { display: none !important; }
 body.is-empty-state #openExportModalBtn { display: none !important; }
 
+body:not(.is-empty-state) #openAudioModalBtn {
+    display: none !important;
+}
 /* ================= 5. 聲波圖面板 ================= */
 .sticky-panel {
     position: sticky; top: 0; z-index: 100; padding: 16px !important; background-color: #ffffff !important;
@@ -265,7 +295,49 @@ body.is-empty-state #openExportModalBtn { display: none !important; }
 .controls-compact .btn-icon { margin: 0 !important; width: 36px; height: 36px; min-width: 36px; }
 .btn-icon { flex: 0 0 36px; width: 36px; height: 36px; padding: 0; min-width: auto; border-radius: 50%; background: #4DB6AC; }
 
-.audio-timer { font-family: monospace; font-size: 0.95rem; font-weight: bold; color: #00897B; background: #E0F2F1; padding: 4px 10px; border-radius: 12px; margin: 0 5px;}
+
+/* ========================================================
+   ★ 時間顯示區塊 (無斜線、上下排列、大小風格一致)
+   ======================================================== */
+.audio-timer { 
+    font-family: monospace; 
+    background: #E0F2F1; 
+    margin: 0 5px;
+    
+    /* Flexbox 讓文字上下堆疊並置中 */
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    
+    /* 調整方塊內邊距與圓角 */
+    padding: 4px 10px; 
+    border-radius: 8px; 
+    line-height: 1.2;
+    font-size: 0.9rem; /* ★ 統一在此設定字體大小，讓上下兩行保持一致 */
+}
+
+/* ★ 目前時間 (跳動中)：僅套用紅色 */
+#audioTimeCurrent {
+    color: #E53935; 
+}
+
+/* ★ 全部時間 (固定總長)：僅套用綠色 */
+#audioTimeTotal {
+    color: #388E3C; 
+}
+
+#audioTimeCurrent {
+    color: #E53935;
+    font-size: 0.95rem;
+}
+
+#audioTimeTotal {
+    color: #388E3C; 
+    opacity: 0.9;
+}
+
+
 .speed-select { height: 36px; border-radius: 20px; padding: 0 10px; flex: 0 0 auto; border: 1px solid #4DB6AC; color: #00897B; font-weight: bold; outline: none; cursor: pointer; background: white;}
 .zoom-controls { flex: 1; display: flex; align-items: center; gap: 5px; background: #F0F4F8; padding: 0 10px; border-radius: 20px; height: 36px; color: #00897B; min-width: 120px; }
 input[type="range"] { flex: 1; accent-color: #00897B; }
@@ -294,7 +366,13 @@ input[type="range"] { flex: 1; accent-color: #00897B; }
 
 /* 列表項目 */
 #sentenceList { display: flex; flex-direction: column; gap: 0; }
-.sentence-item { background: transparent; border-bottom: 1px dashed #CCC; border-left: 4px solid transparent; padding: 15px 10px; display: flex; justify-content: space-between; align-items: center; scroll-margin-top: 150px; transition: background-color 0.2s, box-shadow 0.2s; cursor: pointer;}
+/* 列表項目 */
+.sentence-item { 
+    background: transparent; border-bottom: 1px dashed #CCC; border-left: 4px solid transparent; 
+    padding: 10px 10px; 
+    display: flex; justify-content: space-between; align-items: center; 
+    scroll-margin-top: 150px; transition: background-color 0.2s, box-shadow 0.2s; cursor: pointer;
+}
 .sentence-item:last-child { border-bottom: none; }
 .sentence-item:hover { background-color: #FAFAFA; } 
 .sentence-item.tagged { border-left: 4px solid #B2DFDB; }
@@ -312,7 +390,13 @@ body.is-view-mode .sentence-item.playing { border-left: 4px solid #00897B; }
 .sentence-text-display.is-editable:focus { border: 1px solid transparent; background-color: #FFF; outline: none; }
 
 .sentence-actions { display: flex; align-items: center; gap: 8px; position: relative; }
-.sentence-time { font-family: monospace; font-weight: bold; color: #00897B; font-size: 0.9em; text-align: right; min-width: 60px; margin: 0 4px; padding: 4px 8px; border-radius: 4px; transition: background 0.2s; cursor: pointer;}
+.sentence-time { 
+    font-family: monospace; font-weight: bold; color: #00897B; font-size: 0.9em; 
+    text-align: left; min-width: 60px; margin: 0 4px; padding: 4px 8px; 
+    border-radius: 4px; transition: background 0.2s; cursor: pointer;
+    display: flex; flex-direction: column; justify-content: center; align-items: flex-end;
+    line-height: 1.25;
+}
 .sentence-time:hover { background: #E0F2F1; }
 
 .action-icon-btn { display: flex; border-radius: 4px; width: 30px; height: 30px; flex: 0 0 30px; align-items: center; justify-content: center; cursor: pointer; padding: 0; min-width: auto; }
@@ -328,9 +412,30 @@ body.is-view-mode .sentence-item.playing { border-left: 4px solid #00897B; }
 .show-ai-btns .sentence-item.tagged .ai-transcribe-btn { display: flex; }
 body.is-view-mode .sentence-item .ai-transcribe-btn { display: none !important; }
 
-.inline-delete-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: #FFEBEE; color: #C62828; border: 1px solid #EF9A9A; border-radius: 4px; padding: 6px 10px; font-size: 0.85rem; cursor: pointer; display: flex; align-items: center; gap: 4px; z-index: 10; min-width: auto; font-weight: bold;}
-.inline-delete-btn:hover { background: #FFCDD2; }
-.inline-delete-btn .material-icons { font-size: 1.1rem; }
+/* 列表內嵌刪除按鈕 (極簡純圖示版 - 修正橢圓變形問題) */
+.inline-delete-btn { 
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%); 
+    background: transparent; color: #C62828; border: none; border-radius: 50%; 
+    
+    /* ★ 核心修復：強制設定固定尺寸，並解除全域按鈕的寬度限制 */
+    width: 36px !important; 
+    height: 36px !important; 
+    min-width: 36px !important; 
+    flex: none !important; 
+    padding: 0 !important; 
+    
+    display: flex; align-items: center; justify-content: center; 
+    cursor: pointer; z-index: 10; transition: background 0.2s ease; box-shadow: none;
+}
+
+.inline-delete-btn:hover { 
+    background: #FFEBEE; 
+}
+
+.inline-delete-btn .material-icons { 
+    font-size: 1.3rem; 
+    margin: 0; /* 確保圖示不受外距干擾，完美置中 */
+}
 
 body.is-view-mode .inline-delete-btn { display: none !important; }
 .more-options-btn { display: none; background: transparent; color: #666; }
@@ -433,6 +538,8 @@ body.is-view-mode .hide-in-view { display: none !important; }
     100% { transform: rotate(360deg); }
 }
 
+
+
 /* ================= ★ 手機版 (Mobile) 專屬優化 ★ ================= */
 @media (max-width: 768px) {
     /* 1. 隱藏左上角標題，節省空間 */
@@ -447,12 +554,75 @@ body.is-view-mode .hide-in-view { display: none !important; }
     body:not(.is-empty-state) #mainTitleDisplay {
         margin-top: 20px !important;
     }
+
+    /* ==============================================
+       ★ 列表區塊極致瘦身：釋放左右空間
+       ============================================== */
+    
+    /* 縮小列表項目的左右內邊距 */
+    .sentence-item { 
+        padding: 10px 6px !important; 
+    }
+    
+    /* 縮小左側播放按鈕與文字之間的距離 */
+    .sentence-content { 
+        gap: 6px !important; 
+    }
+    
+    /* 縮小右側工具按鈕群的間距 */
+    .sentence-actions { 
+        gap: 4px !important; 
+    }
+
+    /* ==============================================
+       ★ 「刪除」按鈕極簡化：純圖示、無邊框
+       ============================================== */
+    .inline-delete-btn {
+        background: transparent !important;
+        border: none !important;
+        padding: 4px !important;
+        min-width: auto !important;
+        box-shadow: none !important;
+        /* 神奇魔法：字體設為 0，隱藏文字 */
+        font-size: 0 !important; 
+        right: 4px !important; /* 靠右一點 */
+    }
+    .inline-delete-btn .material-icons {
+        /* 單獨把圖示放大，保持點擊手感 */
+        font-size: 1.4rem !important; 
+        color: #D32F2F !important;
+    }
+    .inline-delete-btn:hover {
+        background: #FFEBEE !important;
+        border-radius: 50% !important;
+    }
+
+    /* ==============================================
+       ★ 縮小時間標籤與圓形小按鈕
+       ============================================== */
+    .sentence-time {
+        font-size: 0.8rem !important;
+        padding: 2px 4px !important;
+        min-width: auto !important;
+        margin: 0 !important;
+    }
+    
+    .action-icon-btn {
+        width: 26px !important;
+        height: 26px !important;
+        flex: 0 0 26px !important;
+    }
+    .action-icon-btn .material-icons {
+        font-size: 1.1rem !important;
+    }
 }
 
 /* 桌面版時，隱藏側邊欄裡面的重複按鈕區塊 */
 @media (min-width: 769px) {
     .hide-on-mobile-menu { display: none !important; }
 }
+
+
 
 
 

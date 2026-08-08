@@ -95,15 +95,25 @@ function updateSingleTimeDisplay(label) {
         const endStr = `<span style="color: #388E3C;">${times.end.toFixed(d)}</span>`;     // 綠色 (Green 700)
         const durStr = `<span style="color: #757575; font-size: 0.85em;">(${times.duration.toFixed(d)})</span>`; // 灰色 (Grey 600)
         
-        // 依據顯示模式組合彩色文字
+        // ★ 核心修復：完美還原設計！左側放上下時間，右側放垂直置中的時長
         if (mode === 'start') {
             timeSpan.innerHTML = startStr; 
-        } else if (mode === 'range') {
-            timeSpan.innerHTML = `${startStr} - ${endStr}`; 
         } else if (mode === 'duration') {
             timeSpan.innerHTML = durStr; 
+        } else if (mode === 'range') {
+            // 只有頭尾時，分為上下兩個 div
+            timeSpan.innerHTML = `<div>${startStr}</div><div>${endStr}</div>`; 
         } else {
-            timeSpan.innerHTML = `${startStr} - ${endStr} ${durStr}`;
+            // 完整模式：左邊垂直排列時間，右邊垂直置中放時長
+            timeSpan.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <div style="display: flex; flex-direction: column; align-items: flex-end;">
+                        <div>${startStr}</div>
+                        <div>${endStr}</div>
+                    </div>
+                    <div>${durStr}</div>
+                </div>
+            `;
         }
         
         if(verifyBtn) verifyBtn.style.display = 'flex';
@@ -166,6 +176,7 @@ function renderSentenceList() {
 
     currentSortedLabels.forEach(label => {
         const text = sentenceTextMap[label]; const paraIndex = label.charCodeAt(0) - 65; const colorVar = `var(--color-p${paraIndex % 10})`;
+        const displayLabel = typeof window.getDisplayLabel === 'function' ? window.getDisplayLabel(label) : label;
         const div = document.createElement('div'); div.className = 'sentence-item'; div.id = `item-${label}`; div.dataset.rawText = text; 
         
         if (selectedLabels.includes(label)) div.classList.add('selected-row');
@@ -174,9 +185,9 @@ function renderSentenceList() {
         div.innerHTML = `
             <div class="sentence-content">
                 <button class="action-icon-btn verify-btn" id="verify-${label}" title="播放該句"><span class="material-icons">volume_up</span></button>
-                <span class="sentence-label" style="color: ${colorVar};">${label}</span>
+                <span class="sentence-label" style="color: ${colorVar};">${displayLabel}</span>
                 <span class="sentence-text-display ${isEditMode ? 'is-editable' : ''}" ${isEditMode ? 'contenteditable="true"' : ''}>${text}</span>
-                <button class="inline-delete-btn" id="inline-del-${label}" style="${text.trim() === '' ? 'display:flex;' : 'display:none;'}"><span class="material-icons">delete</span> 刪除</button>
+                <button class="inline-delete-btn" id="inline-del-${label}" title="刪除空白句" style="${text.trim() === '' ? 'display:flex;' : 'display:none;'}"><span class="material-icons">delete</span></button>
             </div>
             <div class="sentence-actions">
 				<button class="action-icon-btn ai-transcribe-btn" id="ai-btn-${label}" title="單句 AI 填詞"><span class="material-icons">auto_fix_high</span></button>
@@ -260,16 +271,38 @@ function renderSentenceList() {
             } else e.stopPropagation(); 
         });
 
-        textDisplay.addEventListener('input', () => { inlineDelBtn.style.display = textDisplay.textContent.trim() === '' ? 'flex' : 'none'; });
+        // ★ 核心修復：加入防抖計時器
+        let rowInputTimeout = null;
+
+        textDisplay.addEventListener('input', () => {
+            // 原本的功能：切換刪除按鈕顯示狀態
+            inlineDelBtn.style.display = textDisplay.textContent.trim() === '' ? 'flex' : 'none';
+
+            clearTimeout(rowInputTimeout);
+            rowInputTimeout = setTimeout(() => {
+                const tempText = textDisplay.textContent.trim().replace(/\([^)]+\)/g, '');
+                if (typeof updateRegionTextDisplay === 'function') {
+                    updateRegionTextDisplay(label, tempText);
+                }
+            }, 500);
+        });
         
-        // 當修改完文字移開焦點時，紀錄狀態
+        // 當修改完文字移開焦點時，正式紀錄狀態並存檔
         textDisplay.addEventListener('blur', () => {
             const newText = textDisplay.textContent.trim();
             if (newText !== div.dataset.rawText) { 
-                if(typeof saveState === 'function') saveState(); // 紀錄狀態
+                if(typeof saveState === 'function') saveState(); // 紀錄歷史狀態
                 div.dataset.rawText = newText; 
-                sentenceTextMap[label] = newText.replace(/\([^)]+\)/g, ''); 
+                
+                // 去除可能干擾的括號後存檔
+                const cleanText = newText.replace(/\([^)]+\)/g, '');
+                sentenceTextMap[label] = cleanText; 
                 saveToStorage(); 
+
+                // 終極防護：確保失去焦點時，聲波圖文字必定是最新狀態
+                if (typeof updateRegionTextDisplay === 'function') {
+                    updateRegionTextDisplay(label, cleanText);
+                }
             }
         });
 
