@@ -46,6 +46,27 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
+window.showMissingAudioUI = function(fileName) {
+    const missingAudioWarning = document.getElementById('missingAudioWarning');
+    const missingAudioName = document.getElementById('missingAudioName');
+    const stickyPanel = document.getElementById('stickyPanel');
+    const compactControls = document.getElementById('compactControls');
+    const waveform = document.getElementById('waveform');
+
+    if (missingAudioWarning && missingAudioName && stickyPanel) {
+        missingAudioName.textContent = fileName;
+        missingAudioWarning.style.display = 'block';
+        stickyPanel.style.display = 'block'; // 展開吸頂面板
+        
+        if (waveform) waveform.style.display = 'none'; // 隱藏空白聲波圖
+        if (compactControls) {
+            compactControls.style.display = 'flex';
+            compactControls.style.opacity = '0.4'; // 控制列變半透明
+            compactControls.style.pointerEvents = 'none'; // 禁用控制列點擊
+        }
+    }
+};
+
 function loadFromStorage() {
     if (typeof loadShortcuts === 'function') loadShortcuts();
     const savedLabels = localStorage.getItem('tagger_allLabels');
@@ -70,37 +91,20 @@ function loadFromStorage() {
         } catch (e) { console.error('還原資料失敗', e); }
     }
 
-    // ★ 核心修復 1：不管有沒有標記，只要有音檔紀錄就強制渲染列表
     if ((allLabelsOrdered.length > 0 || localFileName || savedUrl) && typeof renderSentenceList === 'function') {
         renderSentenceList(); 
     }
 
-    // ★ 核心修復 2：處理本地端音檔遺失的防呆介面 (附件圖三的設計)
+    // ★ 修改：呼叫我們剛剛寫好的共用引擎
     if (audioType === 'local' && localFileName) {
         const localFileHint = document.getElementById('localFileHint');
         if (localFileHint) {
             localFileHint.innerHTML = `<span class="material-icons" style="font-size: 1rem;">warning</span> 上次音檔：「${localFileName}」，請重新選取`;
             localFileHint.style.display = 'inline-flex';
         }
-
-        const missingAudioWarning = document.getElementById('missingAudioWarning');
-        const missingAudioName = document.getElementById('missingAudioName');
-        const stickyPanel = document.getElementById('stickyPanel');
-        const compactControls = document.getElementById('compactControls');
-        const waveform = document.getElementById('waveform');
-
-        if (missingAudioWarning && missingAudioName && stickyPanel) {
-            missingAudioName.textContent = localFileName;
-            missingAudioWarning.style.display = 'block';
-            stickyPanel.style.display = 'block'; // 展開吸頂面板
-            
-            if (waveform) waveform.style.display = 'none'; // 隱藏空白聲波圖
-            if (compactControls) {
-                compactControls.style.display = 'flex';
-                compactControls.style.opacity = '0.4'; // 控制列變半透明
-                compactControls.style.pointerEvents = 'none'; // 禁用控制列點擊
-            }
-        }
+        
+        window.showMissingAudioUI(localFileName);
+        
     } else if (savedUrl) {
         const modalSingleUrlInput = document.getElementById('modalSingleUrlInput');
         if (modalSingleUrlInput) modalSingleUrlInput.value = savedUrl; 
@@ -113,12 +117,16 @@ function loadFromStorage() {
 }
 
 function executeParsing() {
-    let rawText = rawTextInput.value.trim(); rawText = rawText.replace(/\\n/g, '\n'); const parseMode = currentParseMode;
-    sentenceTextMap = {}; allLabelsOrdered = [];
-    const rawLines = rawText.split(/\r?\n/).filter(p => p.trim() !== ''); const isTSV = rawLines.some(line => /^[A-Z]\d{2,}\t/.test(line));
+    let rawText = rawTextInput.value.trim(); 
+    rawText = rawText.replace(/\\n/g, '\n'); 
+    const parseMode = currentParseMode;
+    const rawLines = rawText.split(/\r?\n/).filter(p => p.trim() !== ''); 
+    const isTSV = rawLines.some(line => /^[A-Z]\d{2,}\t/.test(line));
 
     if (isTSV) {
-        timeDataMap = {}; let currentParaLetter = ''; let paraIndex = -1;
+        // TSV 本身包含時間與文字，所以直接覆寫全部資料
+        sentenceTextMap = {}; allLabelsOrdered = []; timeDataMap = {};
+        let currentParaLetter = ''; let paraIndex = -1;
         rawLines.forEach((line) => {
             if (!/^[A-Z]\d{2,}\t/.test(line)) return; 
             const parts = line.split('\t');
@@ -130,47 +138,140 @@ function executeParsing() {
                 allLabelsOrdered.push(label); sentenceTextMap[label] = text.replace(/\([^)]+\)/g, '');
                 if (!isNaN(start)) timeDataMap[label] = { start: start, end: isNaN(end) ? null : end };
             }
-        }); showToast('已成功載入試算表資料！', 'success');
-    } else if (parseMode === 'newline') {
-        rawLines.forEach((line, index) => { const label = String(index + 1).padStart(2, '0'); allLabelsOrdered.push(label); sentenceTextMap[label] = line.replace(/\([^)]+\)/g, ''); });
-    } else if (parseMode === 'newline-para') {
-        const rawFullLines = rawText.split(/\r?\n/); let paragraphs = []; let currentPara = [];
-        for (let i = 0; i < rawFullLines.length; i++) {
-            const line = rawFullLines[i].trim();
-            if (line === '' || /^#+$/.test(line)) { if (currentPara.length > 0) { paragraphs.push(currentPara); currentPara = []; } } else currentPara.push(line);
-        }
-        if (currentPara.length > 0) paragraphs.push(currentPara);
-        paragraphs.forEach((paraLines, paraIndex) => {
-            const paraLetter = String.fromCharCode(65 + paraIndex); 
-            paraLines.forEach((sentence, sentIndex) => { const sentNumber = String(sentIndex + 1).padStart(2, '0'); const label = `${paraLetter}${sentNumber}`; allLabelsOrdered.push(label); sentenceTextMap[label] = sentence.replace(/\([^)]+\)/g, ''); });
-        });
+        }); 
+        showToast('已成功載入試算表資料！', 'success');
     } else {
-        const paragraphs = rawText.split(/\r?\n/).filter(p => p.trim() !== '');
-        paragraphs.forEach((para, paraIndex) => {
-            const paraLetter = String.fromCharCode(65 + paraIndex); 
-            let sentences = []; let current = ''; let inBrackets = false;
-            for (let i = 0; i < para.length; i++) {
-                let char = para[i]; current += char;
-                if (char === '[') inBrackets = true; if (char === ']') inBrackets = false;
-                if (!inBrackets && /[，。：；！？、「」『』?!.,]/.test(char)) {
-                    let isDecimal = false;
-                    if ((char === '.' || char === ',') && i > 0 && i < para.length - 1) { if (/\d/.test(para[i-1]) && /\d/.test(para[i+1])) isDecimal = true; }
-                    if (!isDecimal) {
-                        while (i + 1 < para.length && /[，。：；！？、「」『』?!.,\s]/.test(para[i+1])) {
-                            let nextChar = para[i+1]; if (nextChar === '[') break; 
-                            if ((nextChar === '.' || nextChar === ',') && /\d/.test(para[i]) && i + 2 < para.length && /\d/.test(para[i+2])) break;
-                            current += nextChar; i++;
+        // ★ 一般文字解析：先「循序」備份現有的時間標記
+        const existingMarkers = allLabelsOrdered
+            .map(lbl => ({ time: timeDataMap[lbl] }))
+            .filter(m => m.time !== undefined);
+
+        let newLabels = [];
+        let newTextMap = {};
+
+        // 進行文字解析...
+        if (parseMode === 'newline') {
+            rawLines.forEach((line, index) => { 
+                const label = String(index + 1).padStart(2, '0'); 
+                newLabels.push(label); 
+                newTextMap[label] = line.replace(/\([^)]+\)/g, ''); 
+            });
+        } else if (parseMode === 'newline-para') {
+            const rawFullLines = rawText.split(/\r?\n/); let paragraphs = []; let currentPara = [];
+            for (let i = 0; i < rawFullLines.length; i++) {
+                const line = rawFullLines[i].trim();
+                if (line === '' || /^#+$/.test(line)) { if (currentPara.length > 0) { paragraphs.push(currentPara); currentPara = []; } } else currentPara.push(line);
+            }
+            if (currentPara.length > 0) paragraphs.push(currentPara);
+            paragraphs.forEach((paraLines, paraIndex) => {
+                const paraLetter = String.fromCharCode(65 + paraIndex); 
+                paraLines.forEach((sentence, sentIndex) => { 
+                    const sentNumber = String(sentIndex + 1).padStart(2, '0'); 
+                    const label = `${paraLetter}${sentNumber}`; 
+                    newLabels.push(label); 
+                    newTextMap[label] = sentence.replace(/\([^)]+\)/g, ''); 
+                });
+            });
+        } else { // punct 模式
+            const paragraphs = rawLines;
+            paragraphs.forEach((para, paraIndex) => {
+                const paraLetter = String.fromCharCode(65 + paraIndex); 
+                let sentences = []; let current = ''; let inBrackets = false;
+                
+                for (let i = 0; i < para.length; i++) {
+                    let char = para[i]; current += char;
+                    if (char === '[') inBrackets = true; if (char === ']') inBrackets = false;
+                    
+                    if (!inBrackets && /[，。：；！？、．―─「」【】『』《》?!.,]/.test(char)) {
+                        let isDecimal = false;
+                        if ((char === '.' || char === ',') && i > 0 && i < para.length - 1) { 
+                            if (/\d/.test(para[i-1]) && /\d/.test(para[i+1])) isDecimal = true; 
                         }
-                        if (current.trim()) sentences.push(current.trim()); current = '';
+                        
+                        if (!isDecimal) {
+                            // 貪婪吸收後續的連續標點符號與空白，確保 ？」 或 ：「 不會被拆開
+                            while (i + 1 < para.length && /[，。：；！？、．―─「」【】『』《》"”'’?!.,\s]/.test(para[i+1])) {
+                                let nextChar = para[i+1]; if (nextChar === '[') break; 
+                                if ((nextChar === '.' || nextChar === ',') && /\d/.test(para[i]) && i + 2 < para.length && /\d/.test(para[i+2])) break;
+                                current += nextChar; i++;
+                            }
+                            
+                            // ★ 核心修復：防呆檢查
+                            if (current.trim()) {
+                                // 利用 Unicode 特性，如果這段字串「全是標點符號或空白」，就不斷句，繼續收集下一個字
+                                if (/^[\p{P}\p{S}\s]+$/u.test(current)) {
+                                    // 保留 current，什麼都不做
+                                } else {
+                                    sentences.push(current.trim()); 
+                                    current = '';
+                                }
+                            }
+                        }
                     }
                 }
+                
+                // 將段落最後剩下的文字處理好
+                if (current.trim()) {
+                    if (/^[\p{P}\p{S}\s]+$/u.test(current) && sentences.length > 0) {
+                        // 如果最後只剩標點，接回上一句
+                        sentences[sentences.length - 1] += current.trim();
+                    } else {
+                        sentences.push(current.trim()); 
+                    }
+                }
+                if (sentences.length === 0) sentences = [para];
+                
+                // 依序寫入資料庫
+                sentences.forEach((sentence, sentIndex) => { 
+                    const sentNumber = String(sentIndex + 1).padStart(2, '0'); 
+                    const label = `${paraLetter}${sentNumber}`; 
+                    newLabels.push(label); 
+                    newTextMap[label] = sentence.replace(/\([^)]+\)/g, ''); 
+                });
+            });
+        }
+
+        // ★ 核心修復：將備份的舊時間，循序貼上新生成的句子
+        let newTimeMap = {};
+        let markerIndex = 0;
+
+        for (let i = 0; i < newLabels.length; i++) {
+            if (markerIndex < existingMarkers.length) {
+                newTimeMap[newLabels[i]] = existingMarkers[markerIndex].time;
+                markerIndex++;
             }
-            if (current.trim()) sentences.push(current.trim()); if (sentences.length === 0) sentences = [para];
-            sentences.forEach((sentence, sentIndex) => { const sentNumber = String(sentIndex + 1).padStart(2, '0'); const label = `${paraLetter}${sentNumber}`; allLabelsOrdered.push(label); sentenceTextMap[label] = sentence.replace(/\([^)]+\)/g, ''); });
-        });
+        }
+
+        // ★ 極致防呆：如果舊時間比較多（新文字比較少），創建空白標記來保留時間，確保聲波圖完全不遺失
+        if (markerIndex < existingMarkers.length) {
+            let lastLabel = newLabels.length > 0 ? newLabels[newLabels.length - 1] : 'A00';
+            let paraChar = lastLabel.charCodeAt(0);
+            let sentenceCount = parseInt(lastLabel.slice(1), 10) + 1;
+
+            while (markerIndex < existingMarkers.length) {
+                const label = String.fromCharCode(paraChar) + String(sentenceCount).padStart(2, '0');
+                newLabels.push(label);
+                newTextMap[label] = '';
+                newTimeMap[label] = existingMarkers[markerIndex].time;
+                sentenceCount++;
+                markerIndex++;
+            }
+        }
+
+        // 寫入全域變數
+        allLabelsOrdered = newLabels;
+        sentenceTextMap = newTextMap;
+        timeDataMap = newTimeMap;
+        showToast('文章解析完成！時間標記已完美保留。', 'success');
     }
-    renderSentenceList(); saveToStorage(); rawTextInput.value = ''; showToast('文章解析完成！', 'success');
+    
+    // 渲染畫面並存檔
+    renderSentenceList(); 
+    if (typeof renderAllRegions === 'function') renderAllRegions(); // 確保聲波圖也跟著更新標籤顯示
+    saveToStorage(); 
+    rawTextInput.value = ''; 
 }
+
 
 function triggerParseAction() {
     if (!rawTextInput.value.trim()) return showToast('請先輸入文章！', 'error');
@@ -213,18 +314,53 @@ function insertRowChronologically(start, end) {
 function handleClearTag(label) {
     if (!timeDataMap[label]) return showToast('此句尚未標記！', 'error');
     const text = sentenceTextMap[label] || '';
+    const idx = allLabelsOrdered.indexOf(label);
+
     if (text.trim() === '') {
-        deleteSentence(label); showToast('已刪除空標記列', 'success');
+        deleteSentence(label); 
+        showToast('已刪除空標記列', 'success');
     } else {
-        delete timeDataMap[label]; saveToStorage(); updateAllTimeDisplays(); showToast(`已清除 ${label} 的時間標記`, 'success');
+        delete timeDataMap[label]; 
+        
+        let extractedTimes = [];
+        // ★ 核心修復：無條件收集後續「所有」的時間標記，不再受限於段落
+        for (let i = idx + 1; i < allLabelsOrdered.length; i++) {
+            const lbl = allLabelsOrdered[i];
+            if (timeDataMap[lbl]) {
+                extractedTimes.push(timeDataMap[lbl]);
+                delete timeDataMap[lbl];
+            }
+        }
+        
+        // ★ 依序填回：跨越段落，無縫往前補齊
+        let assignIdx = idx;
+        for (let i = 0; i < extractedTimes.length; i++) {
+            if (assignIdx < allLabelsOrdered.length) {
+                timeDataMap[allLabelsOrdered[assignIdx]] = extractedTimes[i];
+                assignIdx++;
+            }
+        }
+
+        saveToStorage(); 
+        updateAllTimeDisplays(); 
+        if (typeof renderAllRegions === 'function') renderAllRegions();
+        showToast(`已清除標記，後續聲波已無縫往前遞補`, 'success');
     }
 }
 
 function reassignLabels() {
     clearSelection(); // 排號改變前必須清除多選狀態，以免 UI 錯亂
+    
+    // 清除可能殘留的暫存藍色選取框
+    if (typeof tempRegion !== 'undefined' && tempRegion !== null) {
+        tempRegion.remove();
+        tempRegion = null;
+    }
+
     const newAllLabels = []; const newTextMap = {}; const newTimeMap = {};
     let currentParaLetter = ''; let currentParaItems = []; let paragraphs = [];
 
+    // 1. 將現有的標籤依字母分段
     allLabelsOrdered.forEach(label => {
         const letter = label.charAt(0);
         if (letter !== currentParaLetter) {
@@ -235,18 +371,57 @@ function reassignLabels() {
     });
     if (currentParaItems.length > 0) paragraphs.push({ letter: currentParaLetter, items: currentParaItems });
 
+    // ★ 核心修復 1：無條件抽出所有的時間標記 (打破舊有的死板對齊限制)
+    const validOldTimes = allLabelsOrdered
+        .filter(lbl => timeDataMap[lbl] !== undefined)
+        .map(lbl => timeDataMap[lbl]);
+        
+    let timeAssignIdx = 0;
+
+    // 2. 重新排號，並依序賦予時間標記 (無縫跨段落遞補)
     paragraphs.forEach(para => {
         const letter = para.letter;
         para.items.forEach((oldLabel, index) => {
             const newLabel = letter + String(index + 1).padStart(2, '0');
             newAllLabels.push(newLabel);
             newTextMap[newLabel] = sentenceTextMap[oldLabel] || '';
-            if (timeDataMap[oldLabel]) newTimeMap[newLabel] = timeDataMap[oldLabel];
+            
+            // 只要還有時間標記，就依序貼上，填滿所有空隙
+            if (timeAssignIdx < validOldTimes.length) {
+                newTimeMap[newLabel] = validOldTimes[timeAssignIdx];
+                timeAssignIdx++;
+            }
         });
     });
+    
+    // ★ 核心修復 2：如果時間標記比文字句子多，自動產生空句子來承接，防止時間遺失
+    if (timeAssignIdx < validOldTimes.length) {
+        let lastLabel = newAllLabels.length > 0 ? newAllLabels[newAllLabels.length - 1] : 'A00';
+        let pChar = lastLabel.charAt(0);
+        let sentenceCount = parseInt(lastLabel.slice(1), 10) + 1;
+        
+        while (timeAssignIdx < validOldTimes.length) {
+            const newLabel = pChar + String(sentenceCount).padStart(2, '0');
+            newAllLabels.push(newLabel);
+            newTextMap[newLabel] = '';
+            newTimeMap[newLabel] = validOldTimes[timeAssignIdx];
+            timeAssignIdx++;
+            sentenceCount++;
+        }
+    }
 
-    allLabelsOrdered = newAllLabels; sentenceTextMap = newTextMap; timeDataMap = newTimeMap;
-    saveToStorage(); renderSentenceList(); 
+    // 3. 寫入全域資料並存檔
+    allLabelsOrdered = newAllLabels; 
+    sentenceTextMap = newTextMap; 
+    timeDataMap = newTimeMap;
+    
+    saveToStorage(); 
+    renderSentenceList(); 
+
+    // 4. 強制更新畫面與聲波圖
+    if (typeof updateAllTimeDisplays === 'function') {
+        updateAllTimeDisplays();
+    }
 }
 
 window.insertUp = function(label) {
@@ -269,25 +444,45 @@ window.deleteSentence = function(label) {
 };
 
 window.mergeUp = function(label) {
-    const idx = allLabelsOrdered.indexOf(label); if (idx === 0) return showToast('已經是第一句', 'error');
+    const idx = allLabelsOrdered.indexOf(label); 
+    if (idx === 0) return showToast('已經是第一句', 'error');
     const prevLabel = allLabelsOrdered[idx - 1];
-    sentenceTextMap[prevLabel] += sentenceTextMap[label]; 
+    
+    if (typeof saveState === 'function') saveState(); // 紀錄狀態
+    
+    // ★ 取消文字合併，保留原本文字
     if (timeDataMap[label]) {
         if (!timeDataMap[prevLabel]) timeDataMap[prevLabel] = { start: timeDataMap[label].start };
         timeDataMap[prevLabel].end = timeDataMap[label].end;
     }
-    allLabelsOrdered.splice(idx, 1); delete sentenceTextMap[label]; delete timeDataMap[label]; reassignLabels(); showToast('已向上合併', 'success');
+    
+    // ★ 取消刪除整列，僅清除時間
+    delete timeDataMap[label]; 
+    
+    reassignLabels(); // 呼叫全域無縫遞補引擎
+    showToast('已向上合併時間', 'success');
 };
+
 window.mergeDown = function(label) {
-    const idx = allLabelsOrdered.indexOf(label); if (idx === allLabelsOrdered.length - 1) return showToast('已經是最後一句', 'error');
+    const idx = allLabelsOrdered.indexOf(label); 
+    if (idx === allLabelsOrdered.length - 1) return showToast('已經是最後一句', 'error');
     const nextLabel = allLabelsOrdered[idx + 1];
-    sentenceTextMap[label] += sentenceTextMap[nextLabel];
+    
+    if (typeof saveState === 'function') saveState(); // 紀錄狀態
+    
+    // ★ 取消文字合併，保留原本文字
     if (timeDataMap[nextLabel]) {
         if (!timeDataMap[label]) timeDataMap[label] = { start: timeDataMap[nextLabel].start };
         timeDataMap[label].end = timeDataMap[nextLabel].end;
     }
-    allLabelsOrdered.splice(idx + 1, 1); delete sentenceTextMap[nextLabel]; delete timeDataMap[nextLabel]; reassignLabels(); showToast('已向下合併', 'success');
+    
+    // ★ 取消刪除整列，僅清除時間
+    delete timeDataMap[nextLabel]; 
+    
+    reassignLabels(); // 呼叫全域無縫遞補引擎
+    showToast('已向下合併時間', 'success');
 };
+
 
 function executeExportText() {
     if (allLabelsOrdered.length === 0) return showToast('目前沒有任何句子！', 'error');
@@ -319,7 +514,7 @@ function executeExportText() {
 mergeSelectedBtn?.addEventListener('click', () => {
     if (selectedLabels.length < 2) return;
     
-    // 依據原始陣列重新排序選取的項目 (確保不因點選順序出錯)
+    // 依據原始陣列重新排序選取的項目
     selectedLabels.sort((a, b) => allLabelsOrdered.indexOf(a) - allLabelsOrdered.indexOf(b));
     
     // 檢查是否連續
@@ -331,14 +526,12 @@ mergeSelectedBtn?.addEventListener('click', () => {
     }
     if (!isContinuous) return showToast('合併失敗：選取的項目必須是連續的！', 'error');
 
-    // 頭尾時間與文字結合
+    if (typeof saveState === 'function') saveState();
+
     const firstLabel = selectedLabels[0];
     const lastLabel = selectedLabels[selectedLabels.length - 1];
     
-    let mergedText = '';
-    selectedLabels.forEach(lbl => { mergedText += sentenceTextMap[lbl]; });
-    sentenceTextMap[firstLabel] = mergedText;
-
+    // ★ 取消文字合併，直接處理時間
     let finalStart = null, finalEnd = null;
     if (timeDataMap[firstLabel]) finalStart = typeof timeDataMap[firstLabel] === 'object' ? timeDataMap[firstLabel].start : timeDataMap[firstLabel];
     if (timeDataMap[lastLabel]) finalEnd = typeof timeDataMap[lastLabel] === 'object' ? timeDataMap[lastLabel].end : null;
@@ -347,16 +540,14 @@ mergeSelectedBtn?.addEventListener('click', () => {
         timeDataMap[firstLabel] = { start: finalStart, end: finalEnd };
     }
 
-    // 殺掉被合併掉的句子
+    // ★ 取消刪除整列與文字，僅清除被合併掉的時間
     for (let i = 1; i < selectedLabels.length; i++) {
         const lbl = selectedLabels[i];
-        allLabelsOrdered.splice(allLabelsOrdered.indexOf(lbl), 1);
-        delete sentenceTextMap[lbl];
         delete timeDataMap[lbl];
     }
     
-    reassignLabels(); // 裡面已經包含 clearSelection()
-    showToast('合併成功！', 'success');
+    reassignLabels(); 
+    showToast('合併成功！時間已重新對齊', 'success');
 });
 
 function splitRegionAtPlayhead() {
@@ -371,7 +562,6 @@ function splitRegionAtPlayhead() {
         const label = allLabelsOrdered[i];
         if (timeDataMap[label]) {
             const times = getCalculatedTimes(label);
-            // 允許一點微小的誤差，確保不會切在邊緣導致長度為 0
             if (times && currentTime > (times.start + 0.05) && currentTime < (times.end - 0.05)) {
                 targetLabel = label;
                 targetTimes = times;
@@ -380,38 +570,53 @@ function splitRegionAtPlayhead() {
         }
     }
 
-    if (!targetLabel) {
-        return showToast('游標位置不在任何可切割的句子範圍內', 'error');
-    }
+    if (!targetLabel) return showToast('游標位置不在任何可切割的句子範圍內', 'error');
 
-    // 2. 紀錄 Undo 狀態
     if (typeof saveState === 'function') saveState();
 
-    // 3. 智慧分配文字內容 (依據時間比例切割字串)
-    const originalText = sentenceTextMap[targetLabel] || '';
-    const timeRatio = (currentTime - targetTimes.start) / targetTimes.duration;
-    const splitIndex = Math.floor(originalText.length * timeRatio);
-    
-    const text1 = originalText.substring(0, splitIndex);
-    const text2 = originalText.substring(splitIndex);
-
-    // 4. 產生暫時標籤並寫入陣列
-    const targetIdx = allLabelsOrdered.indexOf(targetLabel);
-    const prefix = targetLabel.charAt(0);
-    const newLabel = prefix + '_TEMP_' + Date.now();
-    
-    allLabelsOrdered.splice(targetIdx + 1, 0, newLabel);
-    
-    // 5. 更新兩句話的文字與時間
-    sentenceTextMap[targetLabel] = text1;
-    sentenceTextMap[newLabel] = text2;
-    
+    // ★ 核心步驟 1：將目前句子的時間，縮短到游標切割處 (保留前半段)
     timeDataMap[targetLabel] = { start: targetTimes.start, end: parseFloat(currentTime.toFixed(3)) };
-    timeDataMap[newLabel] = { start: parseFloat(currentTime.toFixed(3)), end: targetTimes.end };
 
-    // 6. 重新排號並渲染畫面 (reassignLabels 內已包含存檔與清單重繪)
-    reassignLabels(); 
-    if (typeof renderAllRegions === 'function') renderAllRegions();
+    const targetIdx = allLabelsOrdered.indexOf(targetLabel);
+
+    // ★ 核心步驟 2：收集即將要往後塞的「所有時間標記」
+    let timesToReassign = [];
     
-    showToast('已成功在游標處切割句子', 'success');
+    // 第一個要往後塞的，就是剛剛切出來的「後半段時間」
+    timesToReassign.push({ start: parseFloat(currentTime.toFixed(3)), end: targetTimes.end });
+
+    // 接著，把目標句子後方的「所有現有時間標記」也收集起來，並先從原地拔除
+    for (let i = targetIdx + 1; i < allLabelsOrdered.length; i++) {
+        const lbl = allLabelsOrdered[i];
+        if (timeDataMap[lbl]) {
+            timesToReassign.push(timeDataMap[lbl]);
+            delete timeDataMap[lbl];
+        }
+    }
+
+    // ★ 核心步驟 3：骨牌推移！從下一個句子開始，把收集到的時間依序貼回去
+    let assignIdx = targetIdx + 1;
+    let overflowCount = 0;
+    
+    for (let i = 0; i < timesToReassign.length; i++) {
+        // 只要列表還有句子，就依序貼上時間
+        if (assignIdx < allLabelsOrdered.length) {
+            timeDataMap[allLabelsOrdered[assignIdx]] = timesToReassign[i];
+            assignIdx++;
+        } else {
+            // 防呆：如果時間標記被往後擠，但列表已經沒有句子了，只好捨棄溢出的標記
+            overflowCount++;
+        }
+    }
+
+    // 更新畫面與提示
+    if (overflowCount > 0) {
+        showToast(`已切割並往後推移！但句子不足，末端 ${overflowCount} 個標記已擠出捨棄`, 'normal');
+    } else {
+        showToast('已切割聲波！後方時間標記已依序往後推移', 'success');
+    }
+
+    saveToStorage();
+    if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
+    if (typeof renderAllRegions === 'function') renderAllRegions();
 }

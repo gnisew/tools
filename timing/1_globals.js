@@ -77,6 +77,7 @@ const closeSidebarBtn = document.getElementById('closeSidebarBtn');
 const settingsSidebar = document.getElementById('settingsSidebar');
 const sidebarOverlay = document.getElementById('sidebarOverlay');
 const exportAudioFormatSelect = document.getElementById('exportAudioFormatSelect');
+const scrollFineTuneInput = document.getElementById('scrollFineTuneInput');
 const scrollAlignSelect = document.getElementById('scrollAlignSelect');
 
 const appWidthSelect = document.getElementById('appWidthSelect');
@@ -166,6 +167,7 @@ let currentAppWidth = localStorage.getItem('tagger_appWidth') || '100%';
 if (currentAppWidth === '800px') { currentAppWidth = '100%'; }
 let currentWaveHeight = parseInt(localStorage.getItem('tagger_waveHeight')) || 80;
 
+let currentScrollFineTune = parseInt(localStorage.getItem('tagger_scrollFineTune')) || 0;
 let autoScrollMode = localStorage.getItem('tagger_autoScrollMode') || 'center';
 let playPadding = parseFloat(localStorage.getItem('tagger_playPadding')) || 0.2;
 
@@ -175,9 +177,9 @@ let currentLoopCounter = 0;
 
 let showShiftBtns = false;
 let showClearBtns = false;
-let showMoreBtns = false; 
+let showMoreBtns = true; 
 let showAiBtns = false;
-let showTagBtns = true;
+let showTagBtns = false;
 
 const waveHeights = [60, 100, 140]; 
 const fontSizes = [16, 18, 20, 22, 24];
@@ -283,7 +285,27 @@ function updateToolbarButtons() {
             splitRegionBtn.style.display = 'none'; 
         } else {
             splitRegionBtn.style.display = '';
-            const canSplit = hasActive && (typeof selectedLabels === 'undefined' || selectedLabels.length <= 1); 
+            
+            // ★ 核心防呆：檢查游標是否在合法切割範圍內 (非開頭、非結尾)
+            let isPlayheadSplittable = false;
+            if (typeof audioPlayer !== 'undefined' && audioPlayer && audioPlayer.src) {
+                const currentTime = audioPlayer.currentTime;
+                for (let i = 0; i < allLabelsOrdered.length; i++) {
+                    const label = allLabelsOrdered[i];
+                    if (timeDataMap[label]) {
+                        const times = typeof getCalculatedTimes === 'function' ? getCalculatedTimes(label) : null;
+                        // 加上 0.05 秒的誤差保護，若游標在標記最邊緣則視為不可切割
+                        if (times && currentTime > (times.start + 0.05) && currentTime < (times.end - 0.05)) {
+                            isPlayheadSplittable = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 條件：必須有可切割的游標位置，且沒有選取多個標記
+            const canSplit = isPlayheadSplittable && (typeof selectedLabels === 'undefined' || selectedLabels.length <= 1); 
+            
             splitRegionBtn.disabled = !canSplit;
             splitRegionBtn.style.opacity = canSplit ? '1' : '0.3';
             splitRegionBtn.style.cursor = canSplit ? 'pointer' : 'not-allowed';
@@ -368,10 +390,15 @@ function loadShortcuts() {
         try { activeShortcuts = { ...defaultShortcuts, ...JSON.parse(saved) }; } 
         catch (e) { activeShortcuts = { ...defaultShortcuts }; }
     }
+    
+    // 將儲存的快速鍵寫回畫面上的輸入框
     if (hkRewind) hkRewind.value = activeShortcuts.rewind;
     if (hkForward) hkForward.value = activeShortcuts.forward;
     if (hkPrev) hkPrev.value = activeShortcuts.prev;
     if (hkNext) hkNext.value = activeShortcuts.next;
+    
+    if (hkSplit) hkSplit.value = activeShortcuts.split;
+    if (hkMerge) hkMerge.value = activeShortcuts.merge;
 }
 
 function attachKeyCatcher(inputEl, keyName) {

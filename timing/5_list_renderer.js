@@ -210,6 +210,7 @@ function renderSentenceList() {
                 <button class="action-icon-btn tag-time-btn" title="標記時間"><span class="material-icons">add_alarm</span></button>
                 <button class="action-icon-btn more-options-btn" title="更多選項"><span class="material-icons">more_vert</span></button>
                 <div class="custom-dropdown-menu item-more-menu" id="menu-${label}">
+					<div class="custom-dropdown-item" onclick="if(typeof saveState==='function') saveState(); syncToPlayheadAndShift('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px; color:#00897B;">sync_alt</span> 對齊游標並平移後續</div>
                     <div class="custom-dropdown-item" onclick="if(typeof saveState==='function') saveState(); insertUp('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">arrow_upward</span> 向上新增一列</div>
                     <div class="custom-dropdown-item" onclick="if(typeof saveState==='function') saveState(); insertDown('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">arrow_downward</span> 向下新增一列</div><hr>
                     <div class="custom-dropdown-item" onclick="if(typeof saveState==='function') saveState(); mergeUp('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">merge_type</span> 向上合併</div>
@@ -302,7 +303,17 @@ function renderSentenceList() {
         
         // 當修改完文字移開焦點時，正式紀錄狀態並存檔
         textDisplay.addEventListener('blur', () => {
-            const newText = textDisplay.textContent.trim();
+            // 取得目前的輸入內容，並利用 trim() 濾掉頭尾空白
+            const rawInput = textDisplay.textContent;
+            const newText = rawInput.trim();
+            
+            // ★ 高效清除空白：只要發現有不小心的頭尾空白，就在畫面上立刻幫他清除掉
+            // 這不需要存取全域迴圈，直接修改 DOM，極度節省效能！
+            if (rawInput !== newText) {
+                textDisplay.textContent = newText;
+            }
+
+            // 檢查真正的文字內容是否有被修改過
             if (newText !== div.dataset.rawText) { 
                 if(typeof saveState === 'function') saveState(); // 紀錄歷史狀態
                 div.dataset.rawText = newText; 
@@ -321,7 +332,12 @@ function renderSentenceList() {
 
         textDisplay.addEventListener('keydown', (e) => { 
             if (e.key === 'Enter') { e.preventDefault(); textDisplay.blur(); } 
-            if (e.key === 'Tab') { e.preventDefault(); jumpToRegion(1); }
+            
+            // ★ 支援 Shift + Tab 往回跳
+            if (e.key === 'Tab') { 
+                e.preventDefault(); 
+                jumpToRegion(e.shiftKey ? -1 : 1); 
+            }
         });
 
         div.querySelector('.more-options-btn').addEventListener('click', (e) => {

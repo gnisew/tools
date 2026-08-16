@@ -657,8 +657,4 @@ body.is-view-mode .hide-in-view { display: none !important; }
     }
 }
 
-/* 桌面版時，隱藏側邊欄裡面的重複按鈕區塊 */
-@media (min-width: 769px) {
-    .hide-on-mobile-menu { display: none !important; }
-}
 

@@ -208,8 +208,15 @@ function precisionLoop() {
                     verifyingLabel = nextLabel;
                     currentActiveLabel = nextLabel;
                     if (typeof updateToolbarButtons === 'function') updateToolbarButtons();
+                    
+                    document.querySelectorAll('.sentence-item').forEach(el => el.classList.remove('playing'));
                     const nextItemDiv = document.getElementById(`item-${nextLabel}`);
-                    if (nextItemDiv && typeof smartScrollTo === 'function') smartScrollTo(nextItemDiv); 
+                    
+                    if (nextItemDiv) {
+                        nextItemDiv.classList.add('playing'); // 標記為正在播放
+                        if (typeof smartScrollTo === 'function') smartScrollTo(nextItemDiv); // 執行捲動定位
+                    }
+                    
                     precisionRafId = requestAnimationFrame(precisionLoop);
                     return; 
                 }
@@ -432,56 +439,161 @@ function initWaveSurfer() {
         tempRegion = region;
         if(typeof updateToolbarButtons === 'function') updateToolbarButtons(); 
     });
+	let isSyncingMultiDrag = false; // ★ 避免多重平移時引發無窮迴圈的鎖
+    let currentDragSession = null;  // ★ 紀錄拖曳初始狀態與極限值
 
-    wsRegions.on('region-updated', (region) => {
-        if (isRendering) return; 
+    // ★ 將原本邏輯升級為強大的防撞牆引擎 (純淨物理碰撞，移除黏滯磁吸)
+    const handleRegionMove = (region, isEnd) => {
+        if (isRendering || isSyncingMultiDrag) return; 
         if (!audioPlayer || !audioPlayer.duration || audioPlayer.duration < 0.1) return; 
 
-        if (region === tempRegion) return; 
+        // ★ 處理藍色暫存框 (單純放行，不套用防撞限制)
+        if (region === tempRegion) {
+            isDraggingRegion = true;
+            if (isEnd) {
+                if(typeof updateToolbarButtons === 'function') updateToolbarButtons();
+                isDraggingRegion = false;
+            }
+            return;
+        }
+
         isDraggingRegion = true;
-        
-        const snapTolerance = 0.15; // 設定 0.15 秒的磁吸範圍
-        let newStart = region.start;
-        let newEnd = region.end;
-        let snapped = false;
 
-        const currentIndex = allLabelsOrdered.indexOf(region.id);
-        
-        // 1. 檢查左側：是否與上一句的結尾足夠靠近？
-        if (currentIndex > 0) {
-            const prevLabel = allLabelsOrdered[currentIndex - 1];
-            if (timeDataMap[prevLabel]) {
-                const prevEnd = typeof timeDataMap[prevLabel] === 'object' ? timeDataMap[prevLabel].end : null;
-                if (prevEnd !== null && Math.abs(newStart - prevEnd) < snapTolerance) {
-                    newStart = prevEnd; // 強制貼齊
-                    snapped = true;
-                }
+        // ==========================================
+        // ★ 1. 建立對話：紀錄群組初始位置與「防撞極限」
+        // ==========================================
+        if (!currentDragSession || currentDragSession.id !== region.id) {
+            let dragGroup = [region.id];
+            if (typeof selectedLabels !== 'undefined' && selectedLabels.includes(region.id) && selectedLabels.length > 1) {
+                dragGroup = [...selectedLabels]; // 包含多選群組拖曳
             }
-        }
-        
-        // 2. 檢查右側：是否與下一句的開頭足夠靠近？
-        if (currentIndex !== -1 && currentIndex < allLabelsOrdered.length - 1) {
-            const nextLabel = allLabelsOrdered[currentIndex + 1];
-            if (timeDataMap[nextLabel]) {
-                const nextStart = typeof timeDataMap[nextLabel] === 'object' ? timeDataMap[nextLabel].start : timeDataMap[nextLabel];
-                if (nextStart !== null && Math.abs(newEnd - nextStart) < snapTolerance) {
-                    newEnd = nextStart; // 強制貼齊
-                    snapped = true;
+
+            currentDragSession = {
+                id: region.id,
+                group: dragGroup,
+                offsets: {}
+            };
+
+            let maxNegativeDelta = -Infinity; // 往左最大位移極限 (負數)
+            let maxPositiveDelta = Infinity;  // 往右最大位移極限 (正數)
+            const allRegions = wsRegions.getRegions();
+
+            dragGroup.forEach(lbl => {
+                if (timeDataMap[lbl]) {
+                    const tStart = typeof timeDataMap[lbl] === 'object' ? timeDataMap[lbl].start : timeDataMap[lbl];
+                    const tEnd = typeof timeDataMap[lbl] === 'object' ? timeDataMap[lbl].end : null;
+                    const realEnd = tEnd !== null ? tEnd : tStart + 0.1;
+                    
+                    currentDragSession.offsets[lbl] = { start: tStart, end: realEnd, duration: realEnd - tStart };
+
+                    // 掃描所有「未選取」標記，精準計算防撞牆
+                    allRegions.forEach(other => {
+                        if (dragGroup.includes(other.id) || other === tempRegion) return;
+
+                        if (other.end <= tStart + 0.005) { // 牆在左邊
+                            const allowedNeg = other.end - tStart;
+                            if (allowedNeg > maxNegativeDelta) maxNegativeDelta = allowedNeg;
+                        }
+                        if (other.start >= realEnd - 0.005) { // 牆在右邊
+                            const allowedPos = other.start - realEnd;
+                            if (allowedPos < maxPositiveDelta) maxPositiveDelta = allowedPos;
+                        }
+                    });
+
+                    // 音檔本身的頭尾也是一堵牆 (不可推到 <0秒 或超過總長度)
+                    if (-tStart > maxNegativeDelta) maxNegativeDelta = -tStart;
+                    if (audioPlayer.duration - realEnd < maxPositiveDelta) maxPositiveDelta = audioPlayer.duration - realEnd;
                 }
-            }
+            });
+
+            currentDragSession.maxNeg = maxNegativeDelta;
+            currentDragSession.maxPos = maxPositiveDelta;
         }
 
-        // 若觸發磁吸，強制覆寫區域的畫面表現
-        if (snapped) {
+        const initData = currentDragSession.offsets[region.id];
+        if (!initData) return;
+
+        // 判斷目前的動作是「拉伸邊界」還是「整體移動」
+        const isResizing = Math.abs((region.end - region.start) - initData.duration) > 0.005;
+
+        // ==========================================
+        // ★ 2. 邊緣防撞演算 (拔除磁吸，手感更滑順)
+        // ==========================================
+        isSyncingMultiDrag = true; // 上鎖，避免修改 UI 時引發無窮迴圈
+
+        if (isResizing) {
+            // 【模式 A：單邊縮放 (Resize)】只針對滑鼠正在拉動的該塊邊界計算
+            let newStart = region.start;
+            let newEnd = region.end;
+
+            let minStart = initData.start + currentDragSession.maxNeg;
+            let maxEnd = initData.end + currentDragSession.maxPos;
+
+            // 左側極限與右側極限防護 (碰到牆壁就停，不會黏住)
+            if (newStart < minStart) newStart = minStart;
+            if (newEnd > maxEnd) newEnd = maxEnd;
+
+            // 套用最新極限
             region.setOptions({ start: newStart, end: newEnd });
+            if (timeDataMap[region.id]) {
+                timeDataMap[region.id].start = parseFloat(newStart.toFixed(3));
+                timeDataMap[region.id].end = parseFloat(newEnd.toFixed(3));
+                if(typeof updateSingleTimeDisplay === 'function') updateSingleTimeDisplay(region.id, allLabelsOrdered.indexOf(region.id));
+            }
+
+        } else {
+            // 【模式 B：整體平移 (Drag)】含多選群組同步
+            const proposedDelta = region.start - initData.start;
+            
+            // 核心：被防撞牆卡住！強制將位移量限制在安全範圍內，不多也不少
+            const clampedDelta = Math.max(currentDragSession.maxNeg, Math.min(currentDragSession.maxPos, proposedDelta));
+
+            // 同步將最終位移量套用給群組內的所有標記
+            currentDragSession.group.forEach(lbl => {
+                const iData = currentDragSession.offsets[lbl];
+                if (iData) {
+                    const tRegion = wsRegions.getRegions().find(r => r.id === lbl);
+                    const nStart = iData.start + clampedDelta;
+                    const nEnd = iData.end + clampedDelta;
+
+                    if (tRegion) tRegion.setOptions({ start: nStart, end: nEnd });
+                    
+                    if (timeDataMap[lbl]) {
+                        timeDataMap[lbl].start = parseFloat(nStart.toFixed(3));
+                        if (timeDataMap[lbl].end !== null) timeDataMap[lbl].end = parseFloat(nEnd.toFixed(3));
+                    }
+                    if (typeof updateSingleTimeDisplay === 'function') updateSingleTimeDisplay(lbl, allLabelsOrdered.indexOf(lbl));
+                }
+            });
         }
-        if (timeDataMap[region.id]) {
-            timeDataMap[region.id].start = parseFloat(region.start.toFixed(3)); 
-            timeDataMap[region.id].end = parseFloat(region.end.toFixed(3));
-            if(typeof updateSingleTimeDisplay === 'function') updateSingleTimeDisplay(region.id, currentIndex); 
-            clearTimeout(regionDragTimeout); 
-            regionDragTimeout = setTimeout(() => { isDraggingRegion = false; saveToStorage(); }, 500);
+
+        isSyncingMultiDrag = false; // 解鎖
+
+        // ==========================================
+        // ★ 3. 結束與存檔處理
+        // ==========================================
+        if (isEnd) {
+            isDraggingRegion = false;
+            currentDragSession = null;
+            saveToStorage();
+        } else {
+            // 防止意外中斷時卡在拖曳狀態的安全機制
+            clearTimeout(regionDragTimeout);
+            regionDragTimeout = setTimeout(() => {
+                isDraggingRegion = false;
+                currentDragSession = null;
+                saveToStorage();
+            }, 500);
         }
+    };
+
+    // ★ 雙重監聽：拖曳中 (即時畫面防撞更新) 與 拖曳結束 (確認存檔)
+    wsRegions.on('region-update', (region) => {
+        handleRegionMove(region, false);
+    });
+
+    wsRegions.on('region-updated', (region) => {
+        handleRegionMove(region, true);
     });
 
     wsRegions.on('region-clicked', (region, e) => {
@@ -677,6 +789,10 @@ if (audioPlayer) {
         // 確保時間為有效數字，並使用 1_globals.js 中的 formatTime 轉換格式
         if (timeCurrentEl && !isNaN(audioPlayer.currentTime)) {
             timeCurrentEl.textContent = formatTime(audioPlayer.currentTime);
+        }
+        
+        if (typeof updateToolbarButtons === 'function') {
+            updateToolbarButtons();
         }
     });
 }

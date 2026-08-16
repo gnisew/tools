@@ -55,11 +55,38 @@ if (mainTitleDisplay) {
 }
 // =========================================================================
 
-
 clearStorageBtn.addEventListener('click', (e) => { 
     e.stopPropagation();
-    showCustomDialog({ title: '清除暫存', message: '確定清除所有文章與暫存？', onConfirm: () => { localStorage.clear(); location.reload(); } });
+    showCustomDialog({ 
+        title: '清除專案資料', 
+        message: '確定清除所有的句子、時間標記與音檔紀錄嗎？<br><br><span style="color:#00897B; font-weight:bold;">(您的偏好設定將會被保留)</span>', 
+        onConfirm: () => { 
+            // 1. 阻斷防呆存檔：將計時器清空並設為 null
+            if (typeof saveStorageTimeout !== 'undefined') {
+                clearTimeout(saveStorageTimeout);
+                saveStorageTimeout = null; 
+            }
+            
+            // 2. 清空記憶體陣列
+            allLabelsOrdered = [];
+            sentenceTextMap = {};
+            timeDataMap = {};
+            
+            // 3. 建立「專案資料」專屬清單，並精準刪除
+            const projectKeys = [
+                'tagger_allLabels', 'tagger_textMap', 'tagger_timeDataMap',
+                'tagger_projectTitle', 'tagger_audioUrl', 'tagger_localFileName',
+                'tagger_audioType', 'tagger_lastDataFile'
+            ];
+            
+            projectKeys.forEach(key => localStorage.removeItem(key));
+            
+            // 4. 重新整理網頁
+            location.reload(); 
+        } 
+    });
 });
+
 
 attachKeyCatcher(hkRewind, 'rewind');
 attachKeyCatcher(hkForward, 'forward');
@@ -69,10 +96,33 @@ attachKeyCatcher(hkSplit, 'split');
 attachKeyCatcher(hkMerge, 'merge');
 
 resetShortcutsBtn?.addEventListener('click', () => {
-    activeShortcuts = { ...defaultShortcuts };
-    localStorage.setItem('tagger_shortcuts', JSON.stringify(activeShortcuts));
-    loadShortcuts();
-    showToast('已恢復預設快速鍵', 'success');
+    showCustomDialog({
+        title: '恢復預設設定',
+        message: '確定要將所有「偏好設定」(包含快速鍵、顯示模式、播放速度等) 恢復為預設值嗎？<br><br><span style="color:#00897B; font-weight:bold;">(您的文章與標記進度將會安全保留)</span>',
+        onConfirm: () => {
+            // 1. 定義要被「保護」的專案資料清單
+            const projectKeys = [
+                'tagger_allLabels', 'tagger_textMap', 'tagger_timeDataMap',
+                'tagger_projectTitle', 'tagger_audioUrl', 'tagger_localFileName',
+                'tagger_audioType', 'tagger_lastDataFile'
+            ];
+
+            // 2. 智慧掃描：找出所有是 tagger_ 開頭，但「不是」專案資料的設定
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('tagger_') && !projectKeys.includes(key)) {
+                    keysToRemove.push(key);
+                }
+            }
+
+            // 3. 執行清除設定
+            keysToRemove.forEach(key => localStorage.removeItem(key));
+
+            // 4. 重新整理套用預設值
+            location.reload();
+        }
+    });
 });
 
 // 1. 點擊「目前時間」：回到選取標記或游標位置 (接管原定位按鈕功能)
@@ -172,25 +222,21 @@ mergeSelectedBtn?.addEventListener('click', () => {
     const firstLabel = selectedLabels[0];
     const lastLabel = selectedLabels[selectedLabels.length - 1];
     
-    let mergedText = '';
-    selectedLabels.forEach(lbl => { mergedText += sentenceTextMap[lbl]; });
-    sentenceTextMap[firstLabel] = mergedText;
-
+    // ★ 取消文字合併
     let finalStart = null, finalEnd = null;
     if (timeDataMap[firstLabel]) finalStart = typeof timeDataMap[firstLabel] === 'object' ? timeDataMap[firstLabel].start : timeDataMap[firstLabel];
     if (timeDataMap[lastLabel]) finalEnd = typeof timeDataMap[lastLabel] === 'object' ? timeDataMap[lastLabel].end : null;
 
     if (finalStart !== null) timeDataMap[firstLabel] = { start: finalStart, end: finalEnd };
 
+    // ★ 取消刪除整列
     for (let i = 1; i < selectedLabels.length; i++) {
         const lbl = selectedLabels[i];
-        allLabelsOrdered.splice(allLabelsOrdered.indexOf(lbl), 1);
-        delete sentenceTextMap[lbl]; delete timeDataMap[lbl];
+        delete timeDataMap[lbl];
     }
     if(typeof reassignLabels === 'function') reassignLabels(); 
-    showToast('合併成功！', 'success');
+    showToast('合併成功！時間已重新對齊', 'success');
 });
-
 adjustPaddingBtn?.addEventListener('click', () => {
     if (selectedLabels.length === 0) return;
     
@@ -278,6 +324,24 @@ adjustPaddingBtn?.addEventListener('click', () => {
 openSidebarBtn.addEventListener('click', () => { settingsSidebar.classList.add('open'); sidebarOverlay.classList.add('show'); });
 closeSidebarBtn.addEventListener('click', () => { settingsSidebar.classList.remove('open'); sidebarOverlay.classList.remove('show');});
 sidebarOverlay.addEventListener('click', () => { settingsSidebar.classList.remove('open'); sidebarOverlay.classList.remove('show'); });
+
+// 綁定高度微調事件與即時預覽
+if (scrollFineTuneInput) {
+    scrollFineTuneInput.value = currentScrollFineTune;
+    scrollFineTuneInput.addEventListener('change', (e) => {
+        let val = parseInt(e.target.value) || -30;
+        currentScrollFineTune = val;
+        e.target.value = val;
+        localStorage.setItem('tagger_scrollFineTune', currentScrollFineTune);
+        showToast(`捲動微調已更新為 ${val}px`, 'success');
+        
+        // 即時預覽：如果目前有鎖定某個句子，立刻重新捲動讓使用者看效果
+        if (currentActiveLabel) {
+            const itemDiv = document.getElementById(`item-${currentActiveLabel}`);
+            if (itemDiv) smartScrollTo(itemDiv);
+        }
+    });
+}
 scrollAlignSelect?.addEventListener('change', (e) => { localStorage.setItem('tagger_scrollAlign', e.target.value); showToast('已更新列表捲動定位方式', 'success'); });
 
 sortToggleBtn?.addEventListener('click', (e) => {
@@ -360,7 +424,9 @@ function handleSingleLocalFile(file) {
             showCustomDialog({
                 title: '音檔名稱不符警告',
                 message: `您選擇的檔案與專案紀錄不一致！<br><br>專案：<b>${expectedFileName}</b><br>您選擇：<b style="color:#C62828;">${actualFileName}</b><br><br>確定載入？`,
-                onConfirm: () => processAudioFile(false, fileData) 
+                // ★ 核心修復：當使用者確定要載入新音檔時，將原本寫死的 false 改為 updateProj (true)
+                // 這樣系統就會把新的檔名 (B.mp3) 正式寫入暫存記憶體中！
+                onConfirm: () => processAudioFile(updateProj, fileData) 
             });
         } else { processAudioFile(updateProj, fileData); }
     };
@@ -848,27 +914,129 @@ window.addEventListener('scroll', () => {
 
 scrollToTopBtn.addEventListener('click', () => { window.scrollTo({ top: 0, behavior: 'smooth' }); });
 
+// ================= ★ 升級版：智慧捲動與定位引擎 ★ =================
 function smartScrollTo(element) {
-	if (typeof isScriptMode !== 'undefined' && isScriptMode) return;
+    if (typeof isScriptMode !== 'undefined' && isScriptMode) return;
     if (!element) return;
+
+    // 1. 計算頂部吸頂面板的總高度
     const headerHeight = (stickyPanel ? stickyPanel.offsetHeight : 0) + (listHeaderContainer ? listHeaderContainer.offsetHeight : 0);
-    const alignMode = scrollAlignSelect ? scrollAlignSelect.value : 'top';
-    let offset = 10; 
-    if (alignMode === 'second') { const prev = element.previousElementSibling; if (prev) offset = prev.offsetHeight + 15; else offset = 80; }
+
+    // 2. ★ 核心修復：強制從 DOM 即時讀取選單值，避免讀到舊的暫存變數
+    const alignSelectDOM = document.getElementById('scrollAlignSelect');
+    const alignMode = alignSelectDOM ? alignSelectDOM.value : 'top';
+
+    let offset = 15; // 預設給予 15px 的呼吸空間
+
+    if (alignMode === 'second') {
+        // 3. ★ 核心修復：使用更穩健的方式尋找「上一句」
+        let prev = element.previousElementSibling;
+
+        // 防呆：如果 DOM 結構有異，改用陣列資料來找上一句，保證不會出錯
+        if (!prev || !prev.classList.contains('sentence-item')) {
+            const currentLabel = element.id.replace('item-', '');
+            if (typeof currentSortedLabels !== 'undefined') {
+                const idx = currentSortedLabels.indexOf(currentLabel);
+                if (idx > 0) {
+                    prev = document.getElementById(`item-${currentSortedLabels[idx - 1]}`);
+                }
+            }
+        }
+
+        // 4. 精準加上「前一句」的高度，留出完美空間
+        if (prev) {
+            offset = prev.offsetHeight + 15;
+        } else {
+            offset = 80; // 如果剛好是第一句，預設推下 80px
+        }
+    }
+
+    // 5. 加上使用者的自訂微調高度
+    offset += (typeof currentScrollFineTune !== 'undefined' ? currentScrollFineTune : 0);
+
+    // 6. 執行精準的平滑捲動
     window.scrollTo({ top: window.scrollY + element.getBoundingClientRect().top - headerHeight - offset, behavior: 'smooth' });
 }
+
 function scrollToKeepMouseSteady(currentItemDiv) {
     const nextItemDiv = currentItemDiv.nextElementSibling;
     if (nextItemDiv) window.scrollBy({ top: nextItemDiv.getBoundingClientRect().top - currentItemDiv.getBoundingClientRect().top, behavior: 'smooth' });
 }
+
 function jumpToRegion(direction) {
-    if (!currentActiveLabel) return;
-    const nextIdx = allLabelsOrdered.indexOf(currentActiveLabel) + direction;
-    if (nextIdx >= 0 && nextIdx < allLabelsOrdered.length) {
-        const itemDiv = document.getElementById(`item-${allLabelsOrdered[nextIdx]}`);
-        if (itemDiv) { const textDisplay = itemDiv.querySelector('.sentence-text-display'); textDisplay.click(); textDisplay.focus(); }
+    // 1. 判斷目前焦點是否在輸入框內 (包含單句模式與劇本模式)
+    const activeEl = document.activeElement;
+    const isInputActive = activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT' || activeEl.isContentEditable);
+
+    let targetLabel = null;
+
+    // 2. 決定下一個要跳轉的標籤 (如果沒選取，預設跳第一句)
+    if (!currentActiveLabel) {
+        if (allLabelsOrdered.length > 0) targetLabel = allLabelsOrdered[0];
+    } else {
+        const nextIdx = allLabelsOrdered.indexOf(currentActiveLabel) + direction;
+        if (nextIdx >= 0 && nextIdx < allLabelsOrdered.length) {
+            targetLabel = allLabelsOrdered[nextIdx];
+        }
+    }
+
+    // 3. 執行跳轉與焦點分離邏輯
+    if (targetLabel) {
+        // A. 更新全域狀態與視覺選取
+        currentActiveLabel = targetLabel;
+        lastSelectedLabel = targetLabel;
+        if (typeof clearSelection === 'function') clearSelection();
+        if (typeof updateSelectionUI === 'function') updateSelectionUI();
+
+        // B. 手動移動游標 (不再依賴文字框的 focus 事件)
+        const times = typeof getCalculatedTimes === 'function' ? getCalculatedTimes(targetLabel) : null;
+        if (times) {
+            if (typeof wavesurfer !== 'undefined' && wavesurfer && audioPlayer.duration) {
+                wavesurfer.setTime(times.start);
+            } else if (typeof audioPlayer !== 'undefined' && audioPlayer) {
+                audioPlayer.currentTime = times.start;
+            }
+        }
+
+        const isScript = (typeof isScriptMode !== 'undefined' && isScriptMode);
+        
+        // C. 情境感知：根據目前狀態決定焦點去留
+        if (isInputActive) {
+            // 【情境 A】目前在打字：焦點必須跟著文字走
+            if (isScript) {
+                const scriptTextarea = document.getElementById('scriptTextarea');
+                if (scriptTextarea) scriptTextarea.focus();
+            } else {
+                const itemDiv = document.getElementById(`item-${targetLabel}`);
+                if (itemDiv) {
+                    if (typeof smartScrollTo === 'function') smartScrollTo(itemDiv);
+                    const textDisplay = itemDiv.querySelector('.sentence-text-display');
+                    if (textDisplay) textDisplay.focus();
+                }
+            }
+        } else {
+            // 【情境 B】目前在操作聲波：清除焦點，確保 Space 鍵能播放！
+            if (activeEl) activeEl.blur(); 
+            
+            if (isScript) {
+                const targetGutter = document.getElementById(`gutter-${targetLabel}`);
+                const scriptTextarea = document.getElementById('scriptTextarea');
+                if (targetGutter && scriptTextarea) {
+                    scriptTextarea.scrollTop = Math.max(0, targetGutter.offsetTop - 40);
+                    const backdrop = document.getElementById('scriptBackdrop');
+                    if (backdrop) backdrop.scrollTop = scriptTextarea.scrollTop;
+                }
+            } else {
+                const itemDiv = document.getElementById(`item-${targetLabel}`);
+                if (itemDiv && typeof smartScrollTo === 'function') smartScrollTo(itemDiv);
+            }
+            
+            // 讓波形吸頂生效
+            if (typeof snapWaveformToTop === 'function') setTimeout(snapWaveformToTop, 50);
+        }
     }
 }
+
 
 // 鍵盤快速鍵核心監聽器
 document.addEventListener('keydown', e => { if(e.key === 'Shift') isShiftPressed = true; });
@@ -883,6 +1051,15 @@ document.addEventListener('keydown', (e) => {
             findBtn.click();
         }
         return; 
+    }
+    
+    if (e.code === 'Tab' && !isInputActive) {
+        e.preventDefault(); // 阻止瀏覽器預設的焦點切換
+        if (typeof jumpToRegion === 'function') {
+            // 支援 Shift + Tab 往回跳！
+            jumpToRegion(e.shiftKey ? -1 : 1);
+        }
+        return;
     }
     
     // 歷史紀錄快捷鍵 (Undo: Ctrl+Z, Redo: Ctrl+Y 或是 Ctrl+Shift+Z) 
@@ -1146,15 +1323,15 @@ tagRegionBtn?.addEventListener('click', () => {
     if (tagRegionBtn.disabled || !isEditMode) return; 
     
     if (tempRegion) {
-        const tStart = tempRegion.start;
-        const tEnd = tempRegion.end;
+        const tStart = parseFloat(tempRegion.start.toFixed(3));
+        const tEnd = parseFloat(tempRegion.end.toFixed(3));
         let overlapLabels = [];
 
         // 掃描所有有效的標記，檢查是否與目前的藍色選取框重疊
         for (let i = 0; i < allLabelsOrdered.length; i++) {
             const label = allLabelsOrdered[i];
             if (timeDataMap[label]) {
-                const times = getCalculatedTimes(label);
+                const times = typeof getCalculatedTimes === 'function' ? getCalculatedTimes(label) : null;
                 if (times) {
                     // 檢查重疊 (容許 0.01 秒的邊界貼齊，大於此數值才算重疊)
                     if (tStart < (times.end - 0.01) && tEnd > (times.start + 0.01)) {
@@ -1170,27 +1347,70 @@ tagRegionBtn?.addEventListener('click', () => {
                 title: '標記範圍重疊',
                 message: `您選取的範圍與現有的標記（包含 <strong style="color:#C62828;">${overlapLabels[0]}</strong>）發生重疊！<br><br>為避免句子順序與時間錯亂，系統已阻擋此次新增。<br><br><span style="color:#00897B; font-weight:bold;">💡 建議作法：</span><br>1. 若要重新標記，請先點選原有標記並按 <b>Delete</b> 清除。<br>2. 若要將多個句子連在一起，請選取它們後使用 <b>合併 (Ctrl+J)</b> 功能。`,
                 onConfirm: () => {
-                    // 使用者按下確定後，自動清除這個會惹麻煩的藍色選取框
                     if (tempRegion) { tempRegion.remove(); tempRegion = null; }
                     if (typeof updateToolbarButtons === 'function') updateToolbarButtons();
                 }
             });
-            return; // 終止後續的寫入動作
+            return; 
         }
-        // ----------------------------------------------------
 
-        // 若無重疊，則執行原本的正常寫入邏輯
+        // 若無重疊，則執行寫入邏輯
         if(typeof saveState === 'function') saveState(); // 紀錄狀態
         
+        // 1. 如果有明確選中某個「尚未標記時間」的句子，優先套用給它
         if (currentActiveLabel && !timeDataMap[currentActiveLabel]) { 
-            timeDataMap[currentActiveLabel] = { start: parseFloat(tempRegion.start.toFixed(3)), end: parseFloat(tempRegion.end.toFixed(3)) }; 
-            saveToStorage(); 
-            if(typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays(); 
+            timeDataMap[currentActiveLabel] = { start: tStart, end: tEnd }; 
             showToast(`已套用至 ${currentActiveLabel}`, 'success'); 
         } 
         else { 
-            if(typeof insertRowChronologically === 'function') insertRowChronologically(tempRegion.start, tempRegion.end); 
+            // 2. 否則，執行「骨牌推移 (Domino Shift)」插入邏輯
+            // 尋找這個新時間應該安插在哪一個位置 (依據時間先後順序)
+            let insertIdx = allLabelsOrdered.length;
+            for (let i = 0; i < allLabelsOrdered.length; i++) {
+                const lbl = allLabelsOrdered[i];
+                if (timeDataMap[lbl]) {
+                    const lblStart = typeof timeDataMap[lbl] === 'object' ? timeDataMap[lbl].start : timeDataMap[lbl];
+                    if (lblStart > tStart) {
+                        insertIdx = i;
+                        break;
+                    }
+                }
+            }
+
+            // 收集要往後推的現有時間標記 (包含新加入的這個)
+            let timesToReassign = [{ start: tStart, end: tEnd }];
+            for (let i = insertIdx; i < allLabelsOrdered.length; i++) {
+                const lbl = allLabelsOrdered[i];
+                if (timeDataMap[lbl]) {
+                    timesToReassign.push(timeDataMap[lbl]);
+                    delete timeDataMap[lbl]; // 先從原地拔除
+                }
+            }
+
+            // 依序貼回句子上
+            let assignIdx = insertIdx;
+            let overflowCount = 0;
+            
+            for (let i = 0; i < timesToReassign.length; i++) {
+                if (assignIdx < allLabelsOrdered.length) {
+                    timeDataMap[allLabelsOrdered[assignIdx]] = timesToReassign[i];
+                    assignIdx++;
+                } else {
+                    overflowCount++; // 如果句子不夠了，只能捨棄溢出的標記
+                }
+            }
+
+            if (overflowCount > 0) {
+                showToast(`已新增標記並推移！但句子不足，末端 ${overflowCount} 個標記已捨棄`, 'normal');
+            } else {
+                const targetLabel = allLabelsOrdered[insertIdx];
+                showToast(`已新增標記！套用至 ${targetLabel}，後方標記已順延`, 'success');
+            }
         }
+        
+        saveToStorage(); 
+        if(typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays(); 
+        if(typeof renderAllRegions === 'function') renderAllRegions(); // 確保重新繪製聲波圖，讓編號正確顯示
         
         tempRegion.remove(); 
         tempRegion = null;
@@ -1199,6 +1419,7 @@ tagRegionBtn?.addEventListener('click', () => {
     if(typeof updateToolbarButtons === 'function') updateToolbarButtons(); 
 });
 
+
 clearRegionBtn?.addEventListener('click', () => { 
     if (clearRegionBtn.disabled || !isEditMode) return; 
     
@@ -1206,19 +1427,19 @@ clearRegionBtn?.addEventListener('click', () => {
     if (typeof selectedLabels !== 'undefined' && selectedLabels.length > 1) {
         showCustomDialog({
             title: '批次清除時間標記',
-            message: `確定要清除選取的 <strong style="color:#C62828;">${selectedLabels.length}</strong> 個時間標記嗎？<br><br><span style="font-size: 0.85em; color: #666;">(註：此動作僅會清除聲波時間，您的文字內容不會被刪除)</span>`,
+            message: `確定要清除選取的 <strong style="color:#C62828;">${selectedLabels.length}</strong> 個時間標記嗎？<br><br><span style="font-size: 0.85em; color: #666;">(清除後，後續所有的標記將會無條件跨段落往前遞補)</span>`,
             onConfirm: () => {
-                if (typeof saveState === 'function') saveState(); // 紀錄 Undo 狀態
+                if (typeof saveState === 'function') saveState();
                 
                 let clearedCount = 0;
-                let rowDeleted = false; // 追蹤是否有因為空列而直接刪除
-
+                let rowDeleted = false; 
+                let minIdx = allLabelsOrdered.length; // 記錄最上面被刪除的位置
+                
                 selectedLabels.forEach(label => {
                     const text = sentenceTextMap[label] || '';
+                    const idx = allLabelsOrdered.indexOf(label);
                     
-                    // 若文字為空，我們連同整列刪除 (保持與單一清除行為一致)
                     if (text.trim() === '') {
-                        const idx = allLabelsOrdered.indexOf(label);
                         if (idx > -1) {
                             allLabelsOrdered.splice(idx, 1);
                             delete sentenceTextMap[label];
@@ -1226,31 +1447,47 @@ clearRegionBtn?.addEventListener('click', () => {
                             rowDeleted = true;
                             clearedCount++;
                         }
-                    } 
-                    // 否則只刪除時間標記
-                    else if (timeDataMap[label]) {
+                    } else if (timeDataMap[label]) {
                         delete timeDataMap[label];
+                        if (idx < minIdx) minIdx = idx;
                         clearedCount++;
                     }
                 });
 
                 if (rowDeleted) {
-                    // 若有刪除行，需重新排號 (reassignLabels 內已包含存檔與重繪)
                     if(typeof reassignLabels === 'function') reassignLabels(); 
                 } else {
-                    // 若只是清除時間，直接存檔並重繪
+                    // ★ 核心修復：從最上面被刪掉的位置，把後面所有時間像接龍一樣往前拉
+                    if (minIdx < allLabelsOrdered.length) {
+                        let extractedTimes = [];
+                        for (let i = minIdx; i < allLabelsOrdered.length; i++) {
+                            const lbl = allLabelsOrdered[i];
+                            if (timeDataMap[lbl]) {
+                                extractedTimes.push(timeDataMap[lbl]);
+                                delete timeDataMap[lbl];
+                            }
+                        }
+                        
+                        let assignIdx = minIdx;
+                        for (let i = 0; i < extractedTimes.length; i++) {
+                            if (assignIdx < allLabelsOrdered.length) {
+                                timeDataMap[allLabelsOrdered[assignIdx]] = extractedTimes[i];
+                                assignIdx++;
+                            }
+                        }
+                    }
+
                     saveToStorage(); 
                     if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays(); 
-                    if (typeof clearSelection === 'function') clearSelection(); // 取消選取狀態
+                    if (typeof renderAllRegions === 'function') renderAllRegions(); 
+                    if (typeof clearSelection === 'function') clearSelection(); 
                 }
                 
                 if (typeof updateToolbarButtons === 'function') updateToolbarButtons(); 
-                showToast(`成功清除了 ${clearedCount} 個時間標記`, 'success');
+                showToast(`成功清除並遞補了 ${clearedCount} 個標記`, 'success');
             }
         });
-    } 
-    // 2. 單一清除 (維持原本邏輯，不需確認直接刪除)
-    else if (currentActiveLabel) {
+    } else if (currentActiveLabel) {
         if (typeof saveState === 'function') saveState();
         if (typeof handleClearTag === 'function') handleClearTag(currentActiveLabel); 
         if (typeof clearSelection === 'function') clearSelection(); 
@@ -1271,34 +1508,6 @@ mergeRegionBtn?.addEventListener('click', () => {
     if (listMergeBtn) listMergeBtn.click();
 });
 
-// JSON 匯出與匯入系統
-exportJsonBtn?.addEventListener('click', () => {
-    if (allLabelsOrdered.length === 0 && !rawTextInput.value) return showToast('目前沒有資料可以匯出喔！', 'error');
-    
-    // ★ 修正：改從 LocalStorage 或新標題讀取專案名稱
-    const currentTitle = localStorage.getItem('tagger_projectTitle') || mainTitleDisplay.textContent;
-    
-    const projectData = {
-        version: "1.0",
-        title: currentTitle,
-        audioUrl: localStorage.getItem('tagger_audioUrl') || "",
-        localFileName: localStorage.getItem('tagger_localFileName') || "",
-        rawText: rawTextInput.value,
-        allLabelsOrdered: allLabelsOrdered,
-        sentenceTextMap: sentenceTextMap,
-        timeDataMap: timeDataMap,
-        settings: { currentParseMode: currentParseMode, currentSortMode: currentSortMode }
-    };
-    const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const downloadLink = document.createElement('a');
-    downloadLink.href = url;
-    
-    // ★ 修正：檔名改用新標題
-    downloadLink.download = `${currentTitle.trim() || "烏衣行打點專案"}.json`;
-    document.body.appendChild(downloadLink); downloadLink.click(); document.body.removeChild(downloadLink); URL.revokeObjectURL(url); 
-    showToast('專案檔下載成功！', 'success');
-});
 
 // 2. 匯入專案檔 (Import JSON) - 無縫熱更新版
 importProjectBtn?.addEventListener('click', () => importProjectInput.click());
@@ -1321,7 +1530,6 @@ importProjectInput?.addEventListener('change', (e) => {
                 sentenceTextMap = data.sentenceTextMap;
                 timeDataMap = data.timeDataMap || {};
                 
-                // ★ 修正：將匯入的標題直接寫入 LocalStorage，不再丟給舊輸入框
                 if (data.title) {
                     localStorage.setItem('tagger_projectTitle', data.title);
                 } else {
@@ -1338,18 +1546,30 @@ importProjectInput?.addEventListener('change', (e) => {
 
                 localStorage.setItem('tagger_audioUrl', data.audioUrl || '');
                 localStorage.setItem('tagger_localFileName', data.localFileName || '');
+                
+                // ★ 確保匯入時設定正確的音檔類型，讓系統能辨識
+                if (data.localFileName) {
+                    localStorage.setItem('tagger_audioType', 'local');
+                } else if (data.audioUrl) {
+                    localStorage.setItem('tagger_audioType', 'online');
+                }
+
                 saveToStorage();
 
                 if(typeof updateMainTitleDisplay === 'function') updateMainTitleDisplay();
                 if(typeof renderSentenceList === 'function') renderSentenceList(); 
                 if(typeof renderAllRegions === 'function') renderAllRegions();
                 
+                // ★ 核心修改：使用共用的 UI 引擎展開聲波面板與警告，取代原本的對話框
                 if (data.localFileName && (!audioPlayer.src || !audioPlayer.src.includes('blob:'))) {
-                    showCustomDialog({
-                        title: '專案文字與標記載入成功！',
-                        message: `您的文字清單與時間標記已完整還原。<br><br><span style="color:#C62828; font-weight:bold;">【重要提醒】</span><br>基於瀏覽器安全限制，我們無法自動讀取您的硬碟檔案。<br>請點擊上方的「選擇檔案」重新載入您的音檔：<br><b>${data.localFileName}</b><br><br>載入後，聲波圖就會立刻與這些標記完美對齊！`,
-                        onConfirm: () => {}
-                    });
+                    if (typeof window.showMissingAudioUI === 'function') {
+                        window.showMissingAudioUI(data.localFileName);
+                    }
+                    // 使用輕量化的 Toast 提示，不打斷使用者流程
+                    showToast('專案載入成功！請點擊上方橘色區塊重新選取音檔', 'normal');
+                } else if (data.audioUrl) {
+                    // 若是線上網址，可考慮自動載入 (此處保留原邏輯，不自動播放以省流量)
+                    showToast('專案檔讀取成功！畫面已還原', 'success');
                 } else {
                     showToast('專案檔讀取成功！畫面已還原', 'success');
                 }
@@ -1373,12 +1593,39 @@ importProjectInput?.addEventListener('change', (e) => {
     }
 });
 
-// 自動斷句 Modal 與按鈕事件
-asThreshold?.addEventListener('input', (e) => { if(asThresholdVal) asThresholdVal.textContent = `(${e.target.value}%)`; });
-asSilence?.addEventListener('input', (e) => { if(asSilenceVal) asSilenceVal.textContent = `(${parseFloat(e.target.value).toFixed(1)} 秒)`; });
-asMinSegment?.addEventListener('input', (e) => { if(asMinSegmentVal) asMinSegmentVal.textContent = `(${parseFloat(e.target.value).toFixed(1)} 秒)`; });
-asPadding?.addEventListener('input', (e) => { if(asPaddingVal) asPaddingVal.textContent = `(${parseFloat(e.target.value).toFixed(1)} 秒)`; });
+// ================= 自動斷句 Modal 設定與記憶 =================
+function initAutoSegmentSetting(inputId, displayId, storageKey, formatFn) {
+    const inputEl = document.getElementById(inputId);
+    const displayEl = displayId ? document.getElementById(displayId) : null;
+    if (!inputEl) return;
 
+    // 1. 網頁載入時，先讀取暫存的設定
+    const savedValue = localStorage.getItem(storageKey);
+    if (savedValue !== null) {
+        inputEl.value = savedValue;
+    }
+
+    // 2. 初始化畫面上的文字顯示
+    if (displayEl && formatFn) {
+        displayEl.textContent = formatFn(inputEl.value);
+    }
+
+    // 3. 監聽使用者操作：滑動時即時更新畫面，並存入 localStorage
+    inputEl.addEventListener('input', (e) => {
+        if (displayEl && formatFn) displayEl.textContent = formatFn(e.target.value);
+        localStorage.setItem(storageKey, e.target.value);
+    });
+}
+
+// 綁定「依靜音斷句」的四個滑桿
+initAutoSegmentSetting('asThreshold', 'asThresholdVal', 'tagger_asThreshold', v => `(${v}%)`);
+initAutoSegmentSetting('asSilence', 'asSilenceVal', 'tagger_asSilence', v => `(${parseFloat(v).toFixed(1)} 秒)`);
+initAutoSegmentSetting('asMinSegment', 'asMinSegmentVal', 'tagger_asMinSegment', v => `(${parseFloat(v).toFixed(1)} 秒)`);
+initAutoSegmentSetting('asPadding', 'asPaddingVal', 'tagger_asPadding', v => `(${parseFloat(v).toFixed(1)} 秒)`);
+
+// 順便綁定「依等長時間」的兩個輸入框
+initAutoSegmentSetting('asFixedTimeMinutes', null, 'tagger_asFixedTimeMinutes', null);
+initAutoSegmentSetting('asFixedTimeSeconds', null, 'tagger_asFixedTimeSeconds', null);
 
 // 1. 全域自動斷句 (左側清單按鈕)
 autoSegmentBtn?.addEventListener('click', () => { 
@@ -1402,7 +1649,7 @@ autoSegmentRegionBtn?.addEventListener('click', () => {
             return showToast('請先載入音檔', 'error');
         }
 
-        // 建立一個涵蓋全音檔的藍色選取框
+        // 建立一個涵蓋全音檔的藍色選取框作為視覺提示
         if (typeof clearSelection === 'function') clearSelection();
         if (typeof tempRegion !== 'undefined' && tempRegion) { tempRegion.remove(); tempRegion = null; }
 
@@ -1416,8 +1663,10 @@ autoSegmentRegionBtn?.addEventListener('click', () => {
             });
         }
 
-        // 設定斷句範圍並開啟視窗
-        targetAutoSegmentRange = { start: 0, end: audioPlayer.duration, labelsToClear: [] };
+        // ★ 核心修復：將目標範圍設定為 null！
+        // 這樣確認送出時，系統就會知道要呼叫「全域斷句引擎 (performAutoSegmentation)」，進而幫你產生新句子！
+        targetAutoSegmentRange = null; 
+        
         if (typeof asModal !== 'undefined' && asModal) asModal.classList.add('show');
         if (typeof updateToolbarButtons === 'function') updateToolbarButtons();
         return; // 結束執行
@@ -1826,92 +2075,124 @@ if (appWidthSelect) {
 
 // ================= ★ 大編輯框 (純文字對齊模式) 核心引擎 ★ =================
 
-// 1. 載入文字到大編輯框 (加入 ######)
+// 1. 載入文字到大編輯框 (加入 ######) 並自動觸發同步
 function populateScriptEditor() {
     let textLines = [];
     let currentPara = allLabelsOrdered.length > 0 ? allLabelsOrdered[0].charAt(0) : 'A';
     
-    allLabelsOrdered.forEach((label, index) => {
+    // 開頭強制補上第一段的段落標記
+    if (allLabelsOrdered.length > 0) {
+        textLines.push('######');
+    }
+
+    allLabelsOrdered.forEach((label) => {
         const p = label.charAt(0);
-        if (p !== currentPara || (index === 0 && allLabelsOrdered.length > 0)) {
-            if (index !== 0) textLines.push('######');
+        // 當開頭字母改變時，插入新的段落標記 ######
+        if (p !== currentPara) {
+            textLines.push('######');
             currentPara = p;
         }
-        if (index === 0 && textLines.length === 0) textLines.push('######'); // 開頭強制補上段落
-        textLines.push(sentenceTextMap[label] || '');
+        
+        // 防呆核心：強制將句子內容的換行符號替換為空白
+        let safeText = (sentenceTextMap[label] || '').replace(/\r?\n/g, ' ');
+        textLines.push(safeText);
     });
+    
+    // 將結果寫入畫面大編輯框
     scriptTextarea.value = textLines.join('\n');
-    renderGutterAndSyncData();
+    
+    // ★ 核心修復：自動觸發同步引擎！
+    // 這裡的效果就等同於你手動「全選 -> 剪下 -> 貼上」，
+    // 它會負責重新計算行號、生成左側的 A01/B01 標籤，並要求聲波圖同步更新。
+    if (typeof renderGutterAndSyncData === 'function') {
+        renderGutterAndSyncData();
+    }
 }
 
 // 2. 解析大編輯框文字，依序對應給現有時間標記，並渲染行號
 function renderGutterAndSyncData() {
-    const rawLines = scriptTextarea.value.split('\n');
-    let html = '';
-    let paraChar = 65; // 'A' 的 ASCII
-    let sentenceCount = 1;
-    let isFirstParaMarker = true; // 用來追蹤是否為第一段的開頭
+    let rawLines = scriptTextarea.value.split('\n');
     
-    // ★ 關鍵修復：把計算時間標記的游標變數宣告補回來！
-    let markerIndex = 0; 
+    // 移除尾部多餘的空行
+    while (rawLines.length > 0 && rawLines[rawLines.length - 1].trim() === '') {
+        rawLines.pop();
+    }
 
-    // 擷取現存有效的時間標記 (時間流)
-    const existingMarkers = allLabelsOrdered.map(lbl => ({
-        label: lbl, time: timeDataMap[lbl]
-    })).filter(m => m.time !== undefined);
+    // ★ 核心修復：全域收集有效時間標記，不再被段落侷限
+    const validOldTimes = allLabelsOrdered
+        .filter(lbl => timeDataMap[lbl] !== undefined)
+        .map(lbl => timeDataMap[lbl]);
 
     let newAllLabels = [];
     let newTextMap = {};
     let newTimeMap = {};
+    let gutterRenderData = [];
+
+    let paraCharIdx = 65; // 'A' 的 ASCII 碼
+    let currentParaChar = 'A';
+    let isFirstParaMarker = true;
+    let sentenceCountInPara = 1;
+    let timeAssignIdx = 0; // 全域時間分配游標
 
     rawLines.forEach((line) => {
-        // ★ 使用正則表達式 /^#{6,}$/，只要是連續 6 個以上的 # 都會過關
         if (/^#{6,}$/.test(line.trim())) {
-            // 如果這不是第一段的開頭，而且上一段已經有句子了，就先進位！
-            if (!isFirstParaMarker && sentenceCount > 1) {
-                paraChar++;
+            if (!isFirstParaMarker) {
+                paraCharIdx++;
+                currentParaChar = String.fromCharCode(paraCharIdx);
             }
-            html += `<div class="gutter-line para">${String.fromCharCode(paraChar)}</div>`;
-            sentenceCount = 1;
-            isFirstParaMarker = false; 
+            isFirstParaMarker = false;
+            sentenceCountInPara = 1;
+            gutterRenderData.push({ type: 'para', char: currentParaChar });
         } else {
-            const label = String.fromCharCode(paraChar) + String(sentenceCount).padStart(2, '0');
-            const displayLabel = typeof window.getDisplayLabel === 'function' ? window.getDisplayLabel(label) : label;
-			html += `<div class="gutter-line" id="gutter-${label}" data-label="${label}">${displayLabel}</div>`;
-            
-            // 將文字寫入標籤
+            if (isFirstParaMarker) {
+                gutterRenderData.push({ type: 'para', char: currentParaChar });
+                isFirstParaMarker = false;
+            }
+
+            const label = currentParaChar + String(sentenceCountInPara).padStart(2, '0');
             newAllLabels.push(label);
             newTextMap[label] = line.trim();
 
-            // 循序賦予現有的時間標記
-            if (markerIndex < existingMarkers.length) {
-                newTimeMap[label] = existingMarkers[markerIndex].time;
+            // ★ 循序貼上時間，無縫跨越所有段落
+            if (timeAssignIdx < validOldTimes.length) {
+                newTimeMap[label] = validOldTimes[timeAssignIdx];
+                timeAssignIdx++;
             }
-            sentenceCount++;
-            markerIndex++;
-            isFirstParaMarker = false; 
+
+            gutterRenderData.push({ type: 'text', label: label });
+            sentenceCountInPara++;
         }
     });
 
-    // 將多餘的空白標記保留在最後 (防呆)
-    while (markerIndex < existingMarkers.length) {
-        const label = String.fromCharCode(paraChar) + String(sentenceCount).padStart(2, '0');
+    // ★ 防呆：如果時間標記比文字多，產生空句子把時間保留下來
+    while (timeAssignIdx < validOldTimes.length) {
+        const label = currentParaChar + String(sentenceCountInPara).padStart(2, '0');
         newAllLabels.push(label);
         newTextMap[label] = '';
-        newTimeMap[label] = existingMarkers[markerIndex].time;
-        sentenceCount++;
-        markerIndex++;
+        newTimeMap[label] = validOldTimes[timeAssignIdx];
+        timeAssignIdx++;
+        sentenceCountInPara++;
     }
 
-    scriptGutter.innerHTML = html;
-    
-    // 更新全域資料
     allLabelsOrdered = newAllLabels;
     sentenceTextMap = newTextMap;
     timeDataMap = newTimeMap;
     saveToStorage();
+
+    let html = '';
+    gutterRenderData.forEach(item => {
+        if (item.type === 'para') {
+            html += `<div class="gutter-line para">${item.char}</div>`;
+        } else {
+            const displayLabel = typeof window.getDisplayLabel === 'function' ? window.getDisplayLabel(item.label) : item.label;
+            html += `<div class="gutter-line" id="gutter-${item.label}" data-label="${item.label}">${displayLabel}</div>`;
+        }
+    });
+
+    scriptGutter.innerHTML = html;
     if (!isRendering && typeof renderAllRegions === 'function') renderAllRegions();
 }
+
 
 // ================= ★ 6. 全文模式防呆切換引擎 (單句/全文切換) ★ =================
 const toggleScriptModeBtnEl = document.getElementById('toggleScriptModeBtn');
@@ -2378,20 +2659,39 @@ previewParseBtn?.addEventListener('click', () => {
             for (let i = 0; i < para.length; i++) {
                 let char = para[i]; current += char;
                 if (char === '[') inBrackets = true; if (char === ']') inBrackets = false;
-                if (!inBrackets && /[，。：；！？、「」『』?!.,]/.test(char)) {
+                
+                if (!inBrackets && /[，。：；！？、．─「」【】『』《》?!.,]/.test(char)) {
                     let isDecimal = false;
                     if ((char === '.' || char === ',') && i > 0 && i < para.length - 1) { if (/\d/.test(para[i-1]) && /\d/.test(para[i+1])) isDecimal = true; }
+                    
                     if (!isDecimal) {
-                        while (i + 1 < para.length && /[，。：；！？、「」『』?!.,\s]/.test(para[i+1])) {
+                        // 貪婪吸收後續的標點符號
+                        while (i + 1 < para.length && /[，。：；！？、．─「」【】『』《》"”'’?!.,\s]/.test(para[i+1])) {
                             let nextChar = para[i+1]; if (nextChar === '[') break; 
                             if ((nextChar === '.' || nextChar === ',') && /\d/.test(para[i]) && i + 2 < para.length && /\d/.test(para[i+2])) break;
                             current += nextChar; i++;
                         }
-                        if (current.trim()) sentences.push(current.trim()); current = '';
+                        
+                        if (current.trim()) {
+                            // 同步套用 Unicode 防呆機制
+                            if (!/^[\p{P}\p{S}\s]+$/u.test(current)) {
+                                sentences.push(current.trim()); 
+                                current = '';
+                            }
+                        }
                     }
                 }
             }
-            if (current.trim()) sentences.push(current.trim()); if (sentences.length === 0) sentences = [para];
+            
+            if (current.trim()) {
+                if (/^[\p{P}\p{S}\s]+$/u.test(current) && sentences.length > 0) {
+                    sentences[sentences.length - 1] += current.trim();
+                } else {
+                    sentences.push(current.trim()); 
+                }
+            }
+            
+            if (sentences.length === 0) sentences = [para];
             sentences.forEach((sentence, sentIndex) => { 
                 const label = `${paraLetter}${String(sentIndex + 1).padStart(2, '0')}`; 
                 tempLabels.push(label); tempTexts[label] = sentence.replace(/\([^)]+\)/g, ''); 
@@ -2724,7 +3024,16 @@ replaceSingleBtn?.addEventListener('click', () => {
         text = text.substring(0, match.start) + replaceStr + text.substring(match.end);
         sentenceTextMap[match.label] = text;
         const itemDiv = document.getElementById(`item-${match.label}`);
-        if (itemDiv) { itemDiv.querySelector('.sentence-text-display').textContent = text; itemDiv.dataset.rawText = text; }
+        if (itemDiv) { 
+            itemDiv.querySelector('.sentence-text-display').textContent = text; 
+            itemDiv.dataset.rawText = text; 
+        }
+        
+        // ★ 效能優化：精準只更新這一個聲波圖標記的文字
+        if (typeof updateRegionTextDisplay === 'function') {
+            updateRegionTextDisplay(match.label, text);
+        }
+        
         saveToStorage();
     }
     updateSearchMatches(); scrollToCurrentMatch();
@@ -2748,6 +3057,8 @@ batchReplaceConfirmBtn?.addEventListener('click', () => {
         if (typeof renderGutterAndSyncData === 'function') renderGutterAndSyncData();
     } else {
         const labelOffsetMap = {};
+        const affectedLabels = new Set(); // ★ 使用 Set 收集受影響的標籤，自動排除重複
+
         searchEngine.matches.forEach(m => {
             if (!labelOffsetMap[m.label]) labelOffsetMap[m.label] = 0;
             let text = sentenceTextMap[m.label];
@@ -2755,9 +3066,22 @@ batchReplaceConfirmBtn?.addEventListener('click', () => {
             text = text.substring(0, m.start + offset) + replaceStr + text.substring(m.end + offset);
             sentenceTextMap[m.label] = text;
             labelOffsetMap[m.label] += replaceStr.length - (m.end - m.start);
+            
             const itemDiv = document.getElementById(`item-${m.label}`);
-            if (itemDiv) { itemDiv.querySelector('.sentence-text-display').textContent = text; itemDiv.dataset.rawText = text; }
+            if (itemDiv) { 
+                itemDiv.querySelector('.sentence-text-display').textContent = text; 
+                itemDiv.dataset.rawText = text; 
+            }
+            affectedLabels.add(m.label); // 記錄被修改過的句子
         });
+        
+        // ★ 效能優化：批次精準更新聲波圖文字，每句最多只更新一次
+        affectedLabels.forEach(label => {
+            if (typeof updateRegionTextDisplay === 'function') {
+                updateRegionTextDisplay(label, sentenceTextMap[label]);
+            }
+        });
+
         saveToStorage();
     }
     showToast(`替換完成！共替換了 ${count} 處。`, 'success');
@@ -3319,3 +3643,86 @@ if (labelDisplayModeSelect) {
         window.refreshAllDisplayLabels();
     });
 }
+
+// ================= ★ 新增：刪除音訊與匯出完整音訊事件 ★ =================
+
+// 1. 綁定刪除音訊事件 (聲波圖右上角的「三個點」更多選單內)
+document.getElementById('waveCutAudioBtn')?.addEventListener('click', () => {
+    const waveMoreMenu = document.getElementById('waveMoreMenu');
+    if (waveMoreMenu) waveMoreMenu.classList.remove('show');
+    
+    if (!tempRegion) {
+        return showToast('請先用滑鼠在聲波圖上框選要刪除的範圍 (藍色框)', 'error');
+    }
+    
+    showCustomDialog({
+        title: '刪除音檔區段',
+        message: `<span style="color:#C62828; font-weight:bold;">警告：此動作會修改原始音檔！</span><br><br>系統將會刪除您選取的這段聲音，並將後方所有的聲音與標記<strong style="color:#00897B;">自動往前平移遞補</strong>。<br><br>確定要執行嗎？`,
+        onConfirm: () => {
+            if (typeof cutAudioRegion === 'function') {
+                cutAudioRegion(tempRegion.start, tempRegion.end);
+            }
+        }
+    });
+});
+
+// 2. 綁定匯出完整音檔事件
+document.getElementById('exportFullAudioBtn')?.addEventListener('click', () => {
+    if (!audioPlayer || !audioPlayer.duration) return showToast('沒有可匯出的音檔', 'error');
+    if (typeof downloadTimeRangeAudio === 'function') {
+        // 利用既有的下載引擎，範圍設定為 0 到音檔總長度
+        downloadTimeRangeAudio(0, audioPlayer.duration, "完整音檔");
+    }
+});
+
+// ================= ★ 新增：一鍵錨點對齊與平移引擎 ★ =================
+window.syncToPlayheadAndShift = function(label) {
+    if (!audioPlayer || !audioPlayer.src) return showToast('請先載入音檔', 'error');
+    if (!timeDataMap[label]) return showToast('此句尚未標記時間', 'error');
+
+    // 1. 取得目標游標時間與原始時間，計算誤差值 (Offset)
+    const currentTime = audioPlayer.currentTime;
+    const originalStart = typeof timeDataMap[label] === 'object' ? timeDataMap[label].start : timeDataMap[label];
+    const offset = currentTime - originalStart;
+
+    if (Math.abs(offset) < 0.005) return showToast('游標與標記時間幾乎相同，無需平移', 'normal');
+
+    const offsetSec = parseFloat(offset.toFixed(3));
+
+    // 2. 彈出確認視窗，讓使用者知道即將平移多少時間
+    showCustomDialog({
+        title: '對齊游標並平移後續',
+        message: `將以此句為基準，自動與目前的游標時間對齊。<br><br>計算出的時間差為：<strong style="color:#00897B;">${offsetSec > 0 ? '+' : ''}${offsetSec} 秒</strong><br><br>此句與<strong style="color:#C62828;">後方所有的時間標記</strong>都會同步平移此秒數。確定執行嗎？`,
+        onConfirm: () => {
+            if (typeof saveState === 'function') saveState(); // 紀錄 Undo 狀態
+
+            const startIndex = allLabelsOrdered.indexOf(label);
+            let modifiedCount = 0;
+
+            // 3. 骨牌式平移：更新該句與後面所有句子的時間
+            for (let i = startIndex; i < allLabelsOrdered.length; i++) {
+                const curLabel = allLabelsOrdered[i];
+                if (timeDataMap[curLabel] !== undefined) {
+                    let newStart = (typeof timeDataMap[curLabel] === 'object' ? timeDataMap[curLabel].start : timeDataMap[curLabel]) + offset;
+                    if (newStart < 0) newStart = 0; 
+                    
+                    let newEnd = (typeof timeDataMap[curLabel] === 'object' && timeDataMap[curLabel].end !== null) 
+                        ? Math.max(0, timeDataMap[curLabel].end + offset) 
+                        : null;
+                    
+                    timeDataMap[curLabel] = { 
+                        start: parseFloat(newStart.toFixed(3)), 
+                        end: newEnd !== null ? parseFloat(newEnd.toFixed(3)) : null 
+                    };
+                    modifiedCount++;
+                }
+            }
+
+            // 4. 存檔並重繪畫面
+            saveToStorage();
+            if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
+            if (typeof renderAllRegions === 'function') renderAllRegions();
+            showToast(`成功對齊！共平移了 ${modifiedCount} 句`, 'success');
+        }
+    });
+};
