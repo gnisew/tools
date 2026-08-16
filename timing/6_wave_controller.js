@@ -290,6 +290,8 @@ function updateZoom(value) {
         else { zoomPresetSelect.value = 'custom'; }
     }
     wavesurfer.zoom(numValue);
+    
+    localStorage.setItem('tagger_zoomLevel', value);
 }
 
 zoomSlider?.addEventListener('input', (e) => updateZoom(e.target.value));
@@ -673,17 +675,71 @@ function initWaveSurfer() {
         
         renderAllRegions();
         if(typeof updateToolbarButtons === 'function') updateToolbarButtons(); 
-        updateZoom(zoomPresetSelect ? zoomPresetSelect.value : 10);
+        
+        // 讀取上次的縮放比例，若沒有則預設為 10x
+        const savedZoom = localStorage.getItem('tagger_zoomLevel') || (zoomPresetSelect ? zoomPresetSelect.value : 10);
+        updateZoom(savedZoom);
         
         if(typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
 
-        // ★ 解鎖控制按鈕列
+        // 解鎖控制按鈕列
         if (compactControls) {
             compactControls.style.opacity = '1';
             compactControls.style.pointerEvents = 'auto';
         }
 
-        // ★ 提示載入成功
+        // =========================================================================
+        // ★ 終極修復：讀取上次選取的標記並自動跳轉 (加入分段延遲與抗干擾機制)
+        // =========================================================================
+        const savedActiveLabel = localStorage.getItem('tagger_lastActiveLabel');
+        if (savedActiveLabel && timeDataMap[savedActiveLabel]) {
+            currentActiveLabel = savedActiveLabel;
+            lastSelectedLabel = savedActiveLabel;
+            if (typeof updateSelectionUI === 'function') updateSelectionUI();
+            
+            const times = getCalculatedTimes(savedActiveLabel);
+            
+            // 【第一段延遲：等待音訊引擎穩固】100ms 後再指揮 WaveSurfer 跳轉時間
+            setTimeout(() => {
+                if (times) {
+                    if (typeof wavesurfer !== 'undefined' && wavesurfer) {
+                        wavesurfer.setTime(times.start);
+                    } else if (audioPlayer) {
+                        audioPlayer.currentTime = times.start;
+                    }
+                }
+            }, 100);
+            
+            // 【第二段延遲：避開瀏覽器原生捲動】600ms 後再執行畫面捲動，確保我們贏得控制權
+            setTimeout(() => {
+                // 1. 強制清除舊的高亮，並替目標句子加上綠色背景，讓視覺更明確
+                document.querySelectorAll('.sentence-item').forEach(el => el.classList.remove('playing'));
+                const itemDiv = document.getElementById(`item-${savedActiveLabel}`);
+                
+                // 2. 判斷目前是列表模式還是劇本(全文)模式，分別執行捲動
+                if (typeof isScriptMode !== 'undefined' && isScriptMode) {
+                    const targetGutter = document.getElementById(`gutter-${savedActiveLabel}`);
+                    const scriptTextarea = document.getElementById('scriptTextarea');
+                    if (targetGutter && scriptTextarea) {
+                        scriptTextarea.scrollTop = Math.max(0, targetGutter.offsetTop - 40);
+                        const backdrop = document.getElementById('scriptBackdrop');
+                        if (backdrop) backdrop.scrollTop = scriptTextarea.scrollTop;
+                    }
+                } else {
+                    if (itemDiv) {
+                        itemDiv.classList.add('playing');
+                        if (typeof smartScrollTo === 'function') {
+                            smartScrollTo(itemDiv);
+                        }
+                    }
+                }
+                
+                // 3. 確保聲波圖吸頂並重繪
+                if (typeof snapWaveformToTop === 'function') snapWaveformToTop();
+            }, 600);
+        }
+
+        // 提示載入成功
         const audioType = localStorage.getItem('tagger_audioType');
         if (audioType === 'local') {
             showToast('本機音檔載入成功', 'success');

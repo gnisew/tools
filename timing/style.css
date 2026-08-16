@@ -18,6 +18,19 @@ body {
 }
 h2 { color: #00897B; text-align: center; }
 
+button, 
+.material-icons, 
+.list-header h3, 
+.sentence-label,
+#speedDisplay, 
+#zoomDisplay,
+label {
+    user-select: none; /* 標準語法 */
+    -webkit-user-select: none; /* 支援 Safari/Chrome */
+    -moz-user-select: none; /* 支援 Firefox */
+    -ms-user-select: none; /* 支援舊版 Edge/IE */
+}
+
 /* 基礎面板 */
 .panel { 
     background: white; 

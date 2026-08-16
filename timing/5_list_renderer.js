@@ -12,6 +12,11 @@ function updateSelectionUI() {
         if (item) item.classList.add('selected-row');
     });
     
+    // ★ 新增：每次更新選取狀態時，順便將目前的游標標記存入暫存
+    if (currentActiveLabel) {
+        localStorage.setItem('tagger_lastActiveLabel', currentActiveLabel);
+    }
+
     if (wsRegions) {
         wsRegions.getRegions().forEach(r => {
             if (r === tempRegion) return;

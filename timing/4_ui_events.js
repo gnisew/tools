@@ -988,6 +988,13 @@ function jumpToRegion(direction) {
         if (typeof clearSelection === 'function') clearSelection();
         if (typeof updateSelectionUI === 'function') updateSelectionUI();
 
+        // ★ 核心修復：強制更新列表的綠色高亮底色 (playing class)
+        document.querySelectorAll('.sentence-item').forEach(el => el.classList.remove('playing'));
+        const targetItemDiv = document.getElementById(`item-${targetLabel}`);
+        if (targetItemDiv) {
+            targetItemDiv.classList.add('playing');
+        }
+
         // B. 手動移動游標 (不再依賴文字框的 focus 事件)
         const times = typeof getCalculatedTimes === 'function' ? getCalculatedTimes(targetLabel) : null;
         if (times) {
@@ -1007,10 +1014,9 @@ function jumpToRegion(direction) {
                 const scriptTextarea = document.getElementById('scriptTextarea');
                 if (scriptTextarea) scriptTextarea.focus();
             } else {
-                const itemDiv = document.getElementById(`item-${targetLabel}`);
-                if (itemDiv) {
-                    if (typeof smartScrollTo === 'function') smartScrollTo(itemDiv);
-                    const textDisplay = itemDiv.querySelector('.sentence-text-display');
+                if (targetItemDiv) {
+                    if (typeof smartScrollTo === 'function') smartScrollTo(targetItemDiv);
+                    const textDisplay = targetItemDiv.querySelector('.sentence-text-display');
                     if (textDisplay) textDisplay.focus();
                 }
             }
@@ -1027,8 +1033,7 @@ function jumpToRegion(direction) {
                     if (backdrop) backdrop.scrollTop = scriptTextarea.scrollTop;
                 }
             } else {
-                const itemDiv = document.getElementById(`item-${targetLabel}`);
-                if (itemDiv && typeof smartScrollTo === 'function') smartScrollTo(itemDiv);
+                if (targetItemDiv && typeof smartScrollTo === 'function') smartScrollTo(targetItemDiv);
             }
             
             // 讓波形吸頂生效
