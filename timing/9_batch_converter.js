@@ -1,19 +1,24 @@
 // ================= 9_batch_converter.js: 萬能批次轉檔引擎 =================
-
 const sidebarBatchConvertBtn = document.getElementById('sidebarBatchConvertBtn');
+const homeBatchConvertBtn = document.getElementById('homeBatchConvertBtn'); // ★ 新增：首頁轉檔按鈕
 const batchConvertModalOverlay = document.getElementById('batchConvertModalOverlay');
 const closeBatchConvertBtn = document.getElementById('closeBatchConvertBtn');
 const startBatchConvertBtn = document.getElementById('startBatchConvertBtn');
 const batchConvertInput = document.getElementById('batchConvertInput');
 const batchConvertTargetFormat = document.getElementById('batchConvertTargetFormat');
 
-// 開關視窗邏輯
+// 開關視窗邏輯：側邊欄的按鈕 (需要先關閉側邊欄再開視窗)
 sidebarBatchConvertBtn?.addEventListener('click', () => {
-    document.getElementById('closeSidebarBtn')?.click(); // 關閉側邊欄
+    document.getElementById('closeSidebarBtn')?.click(); 
     setTimeout(() => {
         batchConvertModalOverlay.classList.add('show');
         document.body.style.overflow = 'hidden';
     }, 300);
+});
+
+homeBatchConvertBtn?.addEventListener('click', () => {
+    batchConvertModalOverlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
 });
 
 closeBatchConvertBtn?.addEventListener('click', () => {

@@ -223,20 +223,7 @@ body:not(.is-empty-state) .action-buttons-container {
 
 /* ================= ★ 動作按鈕群組 (定位控制) ★ ================= */
 .action-buttons-container { 
-    display: flex; gap: 12px; align-items: center; transition: all 0.4s ease; 
-}
-
-/* 首頁空狀態：置中 */
-body.is-empty-state .action-buttons-container { 
-    justify-content: center; 
-}
-
-/* 工作狀態：移至右上角並跟隨網頁滾動 (絕對不可用 fixed) */
-body:not(.is-empty-state) .action-buttons-container {
-    position: absolute; /* 關鍵：讓按鈕跟著網頁一起滾動 */
-    top: 20px; right: 20px; z-index: 2000;
-    background: transparent; backdrop-filter: none; padding: 0; border-radius: 0; box-shadow: none; border: none;
-    gap: 4px; /* 縮小在右上角時的按鈕間距 */
+    display: flex; align-items: center; transition: all 0.4s ease; 
 }
 
 /* 動作按鈕全體套用現代膠囊形狀 (Pill Shape) */
@@ -247,26 +234,56 @@ body:not(.is-empty-state) .action-buttons-container {
     transition: all 0.3s ease; 
     white-space: nowrap;
     box-shadow: none !important; 
+    
+    /* ★ 核心修復：解除全域 button 的 100px 限制，讓按鈕寬度完全貼合文字 */
+    min-width: auto !important; 
+    flex: none !important;
 }
 
-/* 首頁空狀態時的巨大按鈕 */
+/* ================= 【狀態 A】首頁空狀態：置中與專屬大小 ================= */
+body.is-empty-state .action-buttons-container { 
+    justify-content: center; 
+    gap: 16px; /* 讓首頁的按鈕之間有舒適的呼吸空間 */
+}
+
+/* 首頁的次要按鈕 (兩個字) */
 body.is-empty-state .action-btn {
-    padding: 10px 24px; font-size: 1.05rem;
+    padding: 8px 16px; 
+    font-size: 1.05rem;
 }
 
+/* ★ 首頁的主按鈕 (選擇音檔)：給予專屬的寬度與氣勢 */
+body.is-empty-state #openAudioModalBtn {
+    padding: 10px 32px; 
+    font-size: 1.15rem;
+}
+
+
+/* ================= 【狀態 B】工作狀態：移至右上角並縮小 ================= */
+body:not(.is-empty-state) .action-buttons-container {
+    position: absolute; /* 跟隨網頁滾動 */
+    top: 20px; right: 20px; z-index: 2000;
+    background: transparent; backdrop-filter: none; padding: 0; border-radius: 0; box-shadow: none; border: none;
+    gap: 6px; /* ★ 右上角維持緊湊的間距 */
+}
+
+/* 右上角的所有按鈕：統一縮小並貼合 */
 body:not(.is-empty-state) .action-btn {
-    padding: 4px 12px; font-size: 0.85rem; 
-}
-body:not(.is-empty-state) .action-btn .material-icons {
-    font-size: 1.1rem; /* 一併縮小圖示 */
+    padding: 6px 8px; 
+    font-size: 0.85rem; 
 }
 
+body:not(.is-empty-state) .action-btn .material-icons {
+    font-size: 1.1rem; /* 圖示跟著縮小 */
+}
+
+/* 右上角的特殊配色 */
 body:not(.is-empty-state) .action-buttons-container .btn-primary {
-    background-color: #E0F2F1 !important; /* 極淡的綠色背景 */
-    color: #00695C !important; /* 深綠色文字 */
+    background-color: #E0F2F1 !important; 
+    color: #00695C !important; 
 }
 body:not(.is-empty-state) .action-buttons-container .btn-primary:hover {
-    background-color: #B2DFDB !important; /* 懸浮時稍微加深 */
+    background-color: #B2DFDB !important; 
 }
 
 /* 隱藏左側選單與清除按鈕 (空狀態時) */
