@@ -1,28 +1,27 @@
 // ================= ★ 核心升級：專業無損音訊處理引擎 ★ =================
 
-// ★ 核心修復：安全地在記憶體中建立乾淨的音訊容器，絕對不喚醒硬體音效卡！
+// ================= ★ 核心升級：專業無損音訊處理引擎 ★ =================
+
+// 安全地在記憶體中建立乾淨的音訊容器
 function createBufferSafe(channels, length, sampleRate) {
     if (window.AudioBuffer) {
         try {
             return new AudioBuffer({ numberOfChannels: channels, length: length, sampleRate: sampleRate });
         } catch (e) {}
     }
-    // 備用方案：使用不綁定硬體的 OfflineAudioContext
     const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(channels, length, sampleRate);
     return offlineCtx.createBuffer(channels, length, sampleRate);
 }
 
-// ================= ★ 錄音室母帶級：32-bit Float 無損剪裁引擎 ★ =================
-// 徹底放棄整數轉換與音訊平滑，採用 AudioMass 的純淨陣列拼接法，達成 100% 零失真
-
-function audioBufferToWav32Bit(buffer) {
+// ================= ★ 核心修復：標準 16-bit PCM WAV 產生器 (100% 瀏覽器相容) ★ =================
+function audioBufferToWav(buffer) {
     const numChannels = buffer.numberOfChannels;
     const sampleRate = buffer.sampleRate;
     const length = buffer.length;
     
-    const format = 3; // 3 = IEEE Float (32-bit 浮點數，保證不爆音、不失真)
-    const bitDepth = 32; 
-    const bytesPerSample = 4;
+    const format = 1; // 1 = PCM (標準 WAV，瀏覽器相容性最高)
+    const bitDepth = 16; 
+    const bytesPerSample = 2;
     const blockAlign = numChannels * bytesPerSample;
     const byteRate = sampleRate * blockAlign;
     const dataSize = length * blockAlign;
@@ -31,36 +30,54 @@ function audioBufferToWav32Bit(buffer) {
     const view = new DataView(wavBuffer);
     let pos = 0;
 
-    function writeString(s) { for(let i=0; i<s.length; i++) view.setUint8(pos++, s.charCodeAt(i)); }
+    // 嚴格推進 byte 指標，確保標頭絕不錯位
+    function writeString(s) { 
+        for (let i = 0; i < s.length; i++) {
+            view.setUint8(pos++, s.charCodeAt(i));
+        }
+    }
+    function writeUint16(d) { 
+        view.setUint16(pos, d, true); 
+        pos += 2; 
+    }
+    function writeUint32(d) { 
+        view.setUint32(pos, d, true); 
+        pos += 4; 
+    }
 
-    writeString('RIFF');
-    view.setUint32(4, 36 + dataSize, true);
-    writeString('WAVE');
-    writeString('fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, format, true);
-    view.setUint16(22, numChannels, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, byteRate, true);
-    view.setUint16(32, blockAlign, true);
-    view.setUint16(34, bitDepth, true);
-    writeString('data');
-    view.setUint32(40, dataSize, true);
+    // 1. RIFF Chunk Descriptor
+    writeString('RIFF');              // pos: 0 -> 4
+    writeUint32(36 + dataSize);       // pos: 4 -> 8 (檔案總大小 - 8)
+    writeString('WAVE');              // pos: 8 -> 12
 
-    // 直接將浮點數寫入 (100% 無損，無 Clipping)
+    // 2. "fmt " sub-chunk
+    writeString('fmt ');              // pos: 12 -> 16
+    writeUint32(16);                  // pos: 16 -> 20 (PCM 標頭固定長度 16 bytes)
+    writeUint16(format);              // pos: 20 -> 22 (1 = PCM)
+    writeUint16(numChannels);         // pos: 22 -> 24
+    writeUint32(sampleRate);          // pos: 24 -> 28
+    writeUint32(byteRate);            // pos: 28 -> 32 (ByteRate = SampleRate * BlockAlign)
+    writeUint16(blockAlign);          // pos: 32 -> 34 (BlockAlign = Channels * BytesPerSample)
+    writeUint16(bitDepth);            // pos: 34 -> 36 (16 bits)
+
+    // 3. "data" sub-chunk
+    writeString('data');              // pos: 36 -> 40
+    writeUint32(dataSize);            // pos: 40 -> 44
+
+    // 4. 寫入 PCM 數據 (精確 16-bit 轉換與安全夾斷防爆音)
     for (let i = 0; i < length; i++) {
         for (let ch = 0; ch < numChannels; ch++) {
-            view.setFloat32(pos, buffer.getChannelData(ch)[i], true);
-            pos += 4;
+            let sample = buffer.getChannelData(ch)[i];
+            // 防削波 (Clipping) 夾斷在 [-1.0, 1.0]
+            sample = Math.max(-1, Math.min(1, sample));
+            // 轉換為 16-bit 整數 (-32768 ~ 32767)
+            let intSample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+            view.setInt16(pos, intSample, true);
+            pos += 2;
         }
     }
 
     return new Blob([wavBuffer], { type: 'audio/wav' });
-}
-
-// 替換舊的 WAV 產生器與輔助工具
-function audioBufferToWav(buffer) {
-    return audioBufferToWav32Bit(buffer);
 }
 
 function sliceAudioBuffer(buffer, startTime, endTime) {
@@ -95,7 +112,7 @@ function appendAudioBuffers(buf1, buf2) {
     return newBuffer;
 }
 
-// ================= ★ 原有 MP3 轉換器保留區塊 ★ =================
+// ================= ★ MP3 轉換器保留區塊 ★ =================
 function audioBufferToMp3(buffer) {
     if (!window.lamejs) {
         alert("無法載入 MP3 轉換套件，將降級為 WAV 格式。");
@@ -144,39 +161,32 @@ function audioBufferToMp3(buffer) {
     return new Blob(mp3Data, {type: 'audio/mp3'});
 }
 
-// ================= ★ 剪裁引擎：完美陣列拼接 (100% 原始數據對接) ★ =================
+// ================= ★ 剪裁引擎：純記憶體無損拼接 ★ =================
 window.cutAudioRegion = async function(start, end) {
     if (!wavesurfer || !wavesurfer.getDecodedData()) return showToast('無有效音檔', 'error');
     const buffer = wavesurfer.getDecodedData();
-    showToast('正在執行純淨無損剪裁...', 'normal');
+    showToast('正在執行剪裁...', 'normal');
     
     const sampleRate = buffer.sampleRate;
     const numChannels = buffer.numberOfChannels;
     
-    // 精準計算下刀的採樣點
     const startSample = Math.max(0, Math.floor(start * sampleRate));
     const endSample = Math.min(buffer.length, Math.floor(end * sampleRate));
     const newLength = buffer.length - (endSample - startSample);
     
-    // 建立新的空白 AudioBuffer
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const newBuffer = audioCtx.createBuffer(numChannels, newLength, sampleRate);
     
-    // ★ 完全不改變任何波形，直接將陣列頭尾相接
     for (let i = 0; i < numChannels; i++) {
         const oldData = buffer.getChannelData(i);
         const newData = newBuffer.getChannelData(i);
-        
-        // 複製被剪裁位置「之前」的聲音
         newData.set(oldData.subarray(0, startSample), 0);
-        // 複製被剪裁位置「之後」的聲音，緊貼上去
         newData.set(oldData.subarray(endSample), startSample);
     }
     
-    // 封裝為 32-bit Float WAV
-    const wavBlob = audioBufferToWav32Bit(newBuffer);
+    const wavBlob = audioBufferToWav(newBuffer);
     
-    // ★ 釋放舊的 Blob URL，解決記憶體阻塞導致的瀏覽器播放變差問題
+    // 釋放舊的 Blob URL 避免記憶體洩漏
     const oldSrc = audioPlayer.src;
     if (oldSrc && oldSrc.startsWith('blob:')) {
         URL.revokeObjectURL(oldSrc);
@@ -184,7 +194,7 @@ window.cutAudioRegion = async function(start, end) {
 
     const newUrl = URL.createObjectURL(wavBlob);
     
-    // 標記時間平移
+    // 標記時間平移 (Ripple Edit)
     const diff = (endSample - startSample) / sampleRate;
     if (typeof saveState === 'function') saveState(); 
     
@@ -216,7 +226,7 @@ window.cutAudioRegion = async function(start, end) {
     if (tempRegion) { tempRegion.remove(); tempRegion = null; }
     if (typeof updateToolbarButtons === 'function') updateToolbarButtons();
     
-    showToast('剪裁完成！已保留最高原始音質。', 'success');
+    showToast('剪裁完成！已保留清晰音質。', 'success');
 };
 
 window.downloadSingleAudio = function(label) {
@@ -451,13 +461,8 @@ async function performAutoSegmentation() {
     if (tempRegion) { tempRegion.remove(); tempRegion = null; }
     if (typeof updateToolbarButtons === 'function') updateToolbarButtons();
     
-    if (mappedCount < segments.length) {
-        showToast(`局部斷句完成！但句子不夠，僅套用了 ${mappedCount} 句`, 'normal');
-    } else {
-        showToast(`局部斷句完成！共精準套用 ${mappedCount} 句`, 'success');
-    }
-
-
+    // ★ 核心修復：移除錯誤的 mappedCount 判斷，改為正確的全域成功提示
+    showToast(`全域斷句完成！共精準切出 ${segments.length} 句`, 'success');
 }
 
 

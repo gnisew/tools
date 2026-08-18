@@ -155,7 +155,7 @@ function renderSentenceList() {
     if (showMoreBtns) sentenceList.classList.add('show-more-btns'); 
     if (typeof showAiBtns !== 'undefined' && showAiBtns) sentenceList.classList.add('show-ai-btns');
     if (typeof showTagBtns !== 'undefined' && showTagBtns) sentenceList.classList.add('show-tag-btns');
-    if (showClearBtns) sentenceList.classList.add('show-clear-btns'); if (showShiftBtns) sentenceList.classList.add('show-shift-btns'); if (showMoreBtns) sentenceList.classList.add('show-more-btns'); if (showAiBtns) sentenceList.classList.add('show-ai-btns');
+	if (showAiBtns) sentenceList.classList.add('show-ai-btns');
     currentSortedLabels = [...allLabelsOrdered];
     
     if (currentSortMode !== 'default') {

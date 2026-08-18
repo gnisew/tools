@@ -398,26 +398,24 @@ function initWaveSurfer() {
     
     const compactControls = document.getElementById('compactControls');
     if (compactControls) {
-        // ★ 核心修改 1：開始載入聲波前，先鎖定控制面板，防止誤觸
         compactControls.style.opacity = '0.5';
         compactControls.style.pointerEvents = 'none';
     }
 
+    // ★ 核心修復 1：不要重複使用舊實體！徹底摧毀舊的聲波圖，避免長度與快取錯亂
     if (typeof wavesurfer !== 'undefined' && wavesurfer !== null) {
-        // 載入新音檔前，先上鎖並清空舊標記
-        isRendering = true;
-        if (wsRegions) wsRegions.clearRegions();
-        isRendering = false;
-        
-        wavesurfer.load(audioPlayer.src);
-        return; 
+        wavesurfer.destroy();
+        wavesurfer = null;
+        wsRegions = null;
+        if (window.minimapPlugin) window.minimapPlugin = null;
+        if (waveform) waveform.innerHTML = ''; // 清空原本的容器內容
     }
     
     document.getElementById('stickyPanel').style.display = 'block';
     document.getElementById('waveform').style.display = 'block'; 
     if (compactControls) compactControls.style.display = 'flex'; 
     
-    wavesurfer = WaveSurfer.create({ 
+    wavesurfer = WaveSurfer.create({
         container: '#waveform', 
         waveColor: '#B2DFDB', 
         progressColor: '#00897B', 

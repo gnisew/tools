@@ -397,18 +397,31 @@ clearTextBtn.addEventListener('click', () => {
 
 // ================= ★ 萬能音檔載入控制中心 ★ =================
 
-// 1. 單一檔案處理引擎 (移植自舊版)
+// ================= ★ 萬能音檔載入控制中心 ★ =================
+
+// 1. 單一檔案處理引擎 (加入 MP3 防雷機制與記憶體回收)
 function handleSingleLocalFile(file) {
     const expectedFileName = localStorage.getItem('tagger_localFileName');
     const actualFileName = file.name;
     const isVideo = file.type.startsWith('video/') || actualFileName.toLowerCase().match(/\.(mp4|m4v|mov|webm)$/);
+    
+    // ★ 核心修復 2：偵測 MP3，準備進行無損轉換
+    const isMp3 = actualFileName.toLowerCase().match(/\.(mp3)$/); 
 
     const processAudioFile = (updateProjectName = true, fileToLoad = file) => {
+        // =========================================================
+        // ★ 記憶體優化 1：在指派新音檔前，先釋放舊的 Blob 網址
+        // =========================================================
+        const oldSrc = audioPlayer.src;
+        if (oldSrc && oldSrc.startsWith('blob:')) {
+            URL.revokeObjectURL(oldSrc);
+        }
+
         audioPlayer.src = URL.createObjectURL(fileToLoad); 
         audioPlayer.load();
         if (updateProjectName) localStorage.setItem('tagger_localFileName', actualFileName); 
         localStorage.setItem('tagger_audioType', 'local'); 
-        if (localFileHint) localFileHint.style.display = 'none'; 
+        if (typeof localFileHint !== 'undefined' && localFileHint) localFileHint.style.display = 'none'; 
         saveToStorage(); 
         if(typeof updateMainTitleDisplay === 'function') updateMainTitleDisplay(); 
         if(typeof initWaveSurfer === 'function') initWaveSurfer(); 
@@ -424,32 +437,52 @@ function handleSingleLocalFile(file) {
             showCustomDialog({
                 title: '音檔名稱不符警告',
                 message: `您選擇的檔案與專案紀錄不一致！<br><br>專案：<b>${expectedFileName}</b><br>您選擇：<b style="color:#C62828;">${actualFileName}</b><br><br>確定載入？`,
-                // ★ 核心修復：當使用者確定要載入新音檔時，將原本寫死的 false 改為 updateProj (true)
-                // 這樣系統就會把新的檔名 (B.mp3) 正式寫入暫存記憶體中！
                 onConfirm: () => processAudioFile(updateProj, fileData) 
             });
         } else { processAudioFile(updateProj, fileData); }
     };
 
-    if (isVideo) {
+    if (isVideo || isMp3) {
+        let typeName = isVideo ? '影片檔' : 'MP3 壓縮檔';
+        let warnMsg = isVideo 
+            ? `建議將影片轉為純音訊檔以確保效能。<br>若原專案使用影片檔，請選「直接載入」。`
+            : `MP3 格式 (特別是 VBR 變動位元率) 會導致瀏覽器計算時間偏移，造成<strong style="color:#C62828;">游標與聲波不同步</strong>！<br><br><span style="color:#00897B;">強烈建議讓系統在記憶體中將其無損解碼為 WAV 格式，以確保標記完美對齊。</span>`;
+            
         showCustomDialog({
-            title: '偵測到影片檔',
-            message: `建議將影片轉為純音訊檔以確保效能。<br>若原專案使用影片檔，請選「直接載入」。`,
-            confirmText: '轉存音檔 (建議)', altText: '直接載入影片', cancelText: '取消',
+            title: `偵測到 ${typeName}`,
+            message: warnMsg,
+            confirmText: '轉存無損 WAV (強烈建議)', altText: `直接載入原檔`, cancelText: '取消',
             onConfirm: async () => {
-                showToast('轉檔中，請稍候...', 'normal');
+                showToast('高音質解碼同步中，請稍候...', 'normal');
                 try {
                     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                     const arrayBuffer = await file.arrayBuffer();
                     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-                    const wavBlob = audioBufferToWav(audioBuffer);
                     
-                    const url = URL.createObjectURL(wavBlob);
-                    const a = document.createElement('a'); a.style.display = 'none'; a.href = url;
-                    a.download = actualFileName.replace(/\.[^/.]+$/, "") + "_音軌.wav";
-                    document.body.appendChild(a); a.click(); setTimeout(() => document.body.removeChild(a), 100);
+                    // 使用我們升級過的無損轉換引擎
+                    const wavBlob = typeof audioBufferToWav === 'function' ? audioBufferToWav(audioBuffer) : file;
+                    
+                    // 若是影片，維持下載音軌的設計；若是 MP3，就在記憶體默默替換，確保同步
+                    if (isVideo) {
+                        const url = URL.createObjectURL(wavBlob);
+                        const a = document.createElement('a'); a.style.display = 'none'; a.href = url;
+                        a.download = actualFileName.replace(/\.[^/.]+$/, "") + "_音軌.wav";
+                        document.body.appendChild(a); a.click(); 
+                        
+                        // =========================================================
+                        // ★ 記憶體優化 2：影片音軌下載觸發後，釋放暫存網址
+                        // =========================================================
+                        setTimeout(() => {
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        }, 100);
+                    }
+                    
                     checkNameAndLoad(true, wavBlob);
-                } catch (err) { showToast('轉檔失敗，請手動轉檔', 'error'); }
+                } catch (err) { 
+                    showToast('解碼失敗，將直接載入原檔', 'error'); 
+                    checkNameAndLoad(true, file); 
+                }
             },
             onAlt: () => checkNameAndLoad(true, file)
         });
