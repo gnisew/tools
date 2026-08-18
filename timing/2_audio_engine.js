@@ -426,21 +426,34 @@ async function performAutoSegmentation() {
 
     timeDataMap = {};
     let segIndex = 0;
-    const gapMargin = 0.005; // ★ 安全防撞距離 (強制拉開 0.01 秒的空隙)
+    const gapMargin = 0.005; // ★ 安全防撞距離 (強制拉開 0.005 秒的空隙)
     
     for (let i = 0; i < allLabelsOrdered.length; i++) {
         if (segIndex >= segments.length) break;
         const label = allLabelsOrdered[i];
         
-        // ★ 核心修復：加入安全間距，絕對杜絕邊界重疊與貼齊
-        const limitPrev = segIndex > 0 ? ((segments[segIndex - 1].end + segments[segIndex].start) / 2) + gapMargin : 0;
-        const limitNext = segIndex < segments.length - 1 ? ((segments[segIndex].end + segments[segIndex + 1].start) / 2) - gapMargin : mediaDuration;
+        // ★ 核心升級：動態彈性留白計算 (空間不夠就自動縮小)
+        let currentPaddingStart = padding;
+        let currentPaddingEnd = padding;
 
-        let s = segments[segIndex].start - padding;
-        let e = segments[segIndex].end + padding;
+        // 檢查與「前一段」的距離，如果空間不夠，就把留白縮小為距離的一半
+        if (segIndex > 0) {
+            const prevGap = segments[segIndex].start - segments[segIndex - 1].end;
+            currentPaddingStart = Math.min(padding, (prevGap / 2) - gapMargin);
+        }
         
-        s = Math.max(limitPrev, s);
-        e = Math.min(limitNext, e);
+        // 檢查與「後一段」的距離
+        if (segIndex < segments.length - 1) {
+            const nextGap = segments[segIndex + 1].start - segments[segIndex].end;
+            currentPaddingEnd = Math.min(padding, (nextGap / 2) - gapMargin);
+        }
+
+        // 防呆：確保留白不會變成負數
+        currentPaddingStart = Math.max(0, currentPaddingStart);
+        currentPaddingEnd = Math.max(0, currentPaddingEnd);
+
+        let s = segments[segIndex].start - currentPaddingStart;
+        let e = segments[segIndex].end + currentPaddingEnd;
         
         timeDataMap[label] = { 
             start: parseFloat(Math.max(0, s).toFixed(3)), 
@@ -586,19 +599,41 @@ async function performRegionAutoSegmentation(startTime, endTime) {
     const gapMargin = 0.005; // ★ 安全防撞距離
 
     segments.forEach((seg, idx) => {
-        // ★ 核心修復：加入雙重邊界防護與安全間距
-        const limitPrev = idx > 0 ? ((segments[idx - 1].end + segments[idx].start) / 2) + gapMargin : Math.max(startTime, globalPrevEnd + gapMargin);
-        const limitNext = idx < segments.length - 1 ? ((segments[idx].end + segments[idx + 1].start) / 2) - gapMargin : Math.min(endTime, globalNextStart - gapMargin);
+        // ★ 核心升級：動態彈性留白計算
+        let currentPaddingStart = padding;
+        let currentPaddingEnd = padding;
 
-        let s = seg.start - padding;
-        let e = seg.end + padding;
+        // 計算與「前一個段落」或「全域外圍標記」的距離
+        if (idx > 0) {
+            const prevGap = seg.start - segments[idx - 1].end;
+            currentPaddingStart = Math.min(padding, (prevGap / 2) - gapMargin);
+        } else {
+            const prevGap = seg.start - globalPrevEnd;
+            currentPaddingStart = Math.min(padding, prevGap - gapMargin);
+        }
 
-        s = Math.max(limitPrev, s);
-        e = Math.min(limitNext, e);
+        // 計算與「後一個段落」或「全域外圍標記」的距離
+        if (idx < segments.length - 1) {
+            const nextGap = segments[idx + 1].start - seg.end;
+            currentPaddingEnd = Math.min(padding, (nextGap / 2) - gapMargin);
+        } else {
+            const nextGap = globalNextStart - seg.end;
+            currentPaddingEnd = Math.min(padding, nextGap - gapMargin);
+        }
+
+        // 防呆保護
+        currentPaddingStart = Math.max(0, currentPaddingStart);
+        currentPaddingEnd = Math.max(0, currentPaddingEnd);
+
+        let s = seg.start - currentPaddingStart;
+        let e = seg.end + currentPaddingEnd;
         
         if (idx < labelsToUse.length) {
             const label = labelsToUse[idx];
-            timeDataMap[label] = { start: parseFloat(Math.max(0, s).toFixed(3)), end: parseFloat(Math.min(mediaDuration, e).toFixed(3)) };
+            timeDataMap[label] = { 
+                start: parseFloat(Math.max(0, s).toFixed(3)), 
+                end: parseFloat(Math.min(mediaDuration, e).toFixed(3)) 
+            };
             mappedCount++;
         }
     });
