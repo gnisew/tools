@@ -1579,7 +1579,20 @@ function showWordEditor(rubyEl, hIndex, wordIndex) {
                 menuPinyinDropdown.innerHTML = `<div class="p-2 text-xs text-slate-500 text-center">無其他讀音</div>`;
             } else {
                 menuPinyinDropdown.innerHTML = options.map(py => {
-                    const displayPy = (currentLanguageKey === 'kasu') ? formatKasuPinyin(py) : py;
+                    let displayPy = py;
+                    if (currentLanguageKey === 'kasu') {
+                        // 詔安：字尾字母 → 標在字母上的調號（含詔安特有變形規則）
+                        displayPy = formatKasuPinyin(py);
+                    } else if (currentLanguageKey === 'holo' || currentLanguageKey === 'jinmen') {
+                        // 和樂／金門：字尾字母(zvs) → 標在母音上的調號（來自 data-pinyin2pinyin.js）
+                        displayPy = (typeof holoZvsToTone === 'function') ? holoZvsToTone(py) : py;
+                    } else if (currentLanguageKey === 'matsu') {
+                        // 馬祖：字尾字母(zvs) → 標在母音上的調號（來自 data-pinyin2pinyin.js）
+                        displayPy = (typeof zvsToLetter === 'function') ? zvsToLetter(py) : py;
+                    } else if (typeof hakkaZvsToLetter === 'function') {
+                        // 四縣／海陸／大埔／饒平／南四：客語專用字尾字母轉調號函式
+                        displayPy = hakkaZvsToLetter(py);
+                    }
                     return `
                         <div class="pinyin-option px-3 py-1.5 text-sm hover:bg-blue-50 cursor-pointer text-slate-700" data-val="${escapeAttr(py)}">
                             ${escapeAttr(displayPy)}
