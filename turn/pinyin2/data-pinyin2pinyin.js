@@ -1935,20 +1935,24 @@ const sixianPojConsonantToEdu = (function() {
 
         // ========== 4. 韻尾變換與其他 ==========
         result = result.replace(compiled.pToB, function(match, p1) {
-            return match.replace(p1, 'b');
+            // 使用 /p(l?)$/i 確保只替換結尾的 p（或 p 接著 l）
+            return match.replace(/p(l?)$/i, 'b$1');
         });
         result = result.replace(compiled.tToD, function(match, t1) {
-            return match.replace(t1, 'd');
+            // 確保只替換結尾的 t（或 t 接著 l）
+            return match.replace(/t(l?)$/i, 'd$1');
         });
         result = result.replace(compiled.kToG, function(match, k1) {
-            return match.replace(k1, 'g');
+            // 確保只替換結尾的 k（或 k 接著 l）
+            return match.replace(/k(l?)$/i, 'g$1');
         });
 
         result = result.replace(compiled.addS, function(match, bdg) {
             return match + 's';
         });
         result = result.replace(compiled.removeL, function(match, l) {
-            return match.replace(l, '');
+            // 使用 /l$/i 確保只移除字串最結尾的 l
+            return match.replace(/l$/i, '');
         });
 
         return result;

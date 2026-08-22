@@ -425,6 +425,10 @@ function initWaveSurfer() {
         media: audioPlayer,
         autoScroll: true, 
         autoCenter: autoScrollMode === 'center',
+        // ★ 修復音質問題：WaveSurfer 內部解碼 (getDecodedData) 若不指定 sampleRate，
+        // 預設只會用 8000Hz（電話等級音質）解碼，而剪裁/下載功能都是讀這份資料，
+        // 導致剪裁與下載出來的音檔悶悶的、品質很差。這裡指定 48000Hz 避免被強制降頻。
+        sampleRate: 48000,
     });
 
     const isMinimapEnabled = localStorage.getItem('tagger_enableMinimap') === 'true';

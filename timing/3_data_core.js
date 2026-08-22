@@ -46,15 +46,18 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
-window.showMissingAudioUI = function(fileName) {
+window.showMissingAudioUI = function(fileName, isTrimmed = false) {
     const missingAudioWarning = document.getElementById('missingAudioWarning');
     const missingAudioName = document.getElementById('missingAudioName');
+    const missingAudioTrimmedNote = document.getElementById('missingAudioTrimmedNote');
     const stickyPanel = document.getElementById('stickyPanel');
     const compactControls = document.getElementById('compactControls');
     const waveform = document.getElementById('waveform');
 
     if (missingAudioWarning && missingAudioName && stickyPanel) {
         missingAudioName.textContent = fileName;
+        // ★ 新增：有修剪過的話，額外顯示「（有修剪）」註記
+        if (missingAudioTrimmedNote) missingAudioTrimmedNote.textContent = isTrimmed ? '（有修剪）' : '';
         missingAudioWarning.style.display = 'block';
         stickyPanel.style.display = 'block'; // 展開吸頂面板
         
@@ -76,6 +79,9 @@ function loadFromStorage() {
     const savedParseMode = localStorage.getItem('tagger_parseMode');
     const audioType = localStorage.getItem('tagger_audioType');
     const localFileName = localStorage.getItem('tagger_localFileName');
+    // ★ 新增：優先使用原始檔名（不受剪裁影響），並讀取是否修剪過的標記
+    const originalFileName = localStorage.getItem('tagger_originalFileName') || localFileName;
+    const isTrimmed = localStorage.getItem('tagger_isTrimmed') === 'true';
 
     const savedScrollAlign = localStorage.getItem('tagger_scrollAlign');
     if (savedScrollAlign && typeof scrollAlignSelect !== 'undefined' && scrollAlignSelect) {
@@ -99,11 +105,12 @@ function loadFromStorage() {
     if (audioType === 'local' && localFileName) {
         const localFileHint = document.getElementById('localFileHint');
         if (localFileHint) {
-            localFileHint.innerHTML = `<span class="material-icons" style="font-size: 1rem;">warning</span> 上次音檔：「${localFileName}」，請重新選取`;
+            const trimmedNote = isTrimmed ? '（有修剪）' : '';
+            localFileHint.innerHTML = `<span class="material-icons" style="font-size: 1rem;">warning</span> 上次音檔：「${originalFileName}」${trimmedNote}，請重新選取`;
             localFileHint.style.display = 'inline-flex';
         }
         
-        window.showMissingAudioUI(localFileName);
+        window.showMissingAudioUI(originalFileName, isTrimmed);
         
     } else if (savedUrl) {
         const modalSingleUrlInput = document.getElementById('modalSingleUrlInput');

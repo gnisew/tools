@@ -7,7 +7,8 @@ function updateMainTitleDisplay() {
     if (document.activeElement === mainTitleDisplay) return;
 
     const customTitle = localStorage.getItem('tagger_projectTitle');
-    const localFile = localStorage.getItem('tagger_localFileName');
+    // ★ 修改：優先用原始檔名當標題，剪裁後也不會變成「剪裁後音檔」
+    const localFile = localStorage.getItem('tagger_originalFileName') || localStorage.getItem('tagger_localFileName');
     const onlineUrl = localStorage.getItem('tagger_audioUrl');
 
     let displayText = "烏衣行打點時間";
@@ -76,6 +77,7 @@ clearStorageBtn.addEventListener('click', (e) => {
             const projectKeys = [
                 'tagger_allLabels', 'tagger_textMap', 'tagger_timeDataMap',
                 'tagger_projectTitle', 'tagger_audioUrl', 'tagger_localFileName',
+                'tagger_originalFileName', 'tagger_isTrimmed',
                 'tagger_audioType', 'tagger_lastDataFile'
             ];
             
@@ -104,6 +106,7 @@ resetShortcutsBtn?.addEventListener('click', () => {
             const projectKeys = [
                 'tagger_allLabels', 'tagger_textMap', 'tagger_timeDataMap',
                 'tagger_projectTitle', 'tagger_audioUrl', 'tagger_localFileName',
+                'tagger_originalFileName', 'tagger_isTrimmed',
                 'tagger_audioType', 'tagger_lastDataFile'
             ];
 
@@ -401,7 +404,9 @@ clearTextBtn.addEventListener('click', () => {
 
 // 1. 單一檔案處理引擎 (加入 MP3 防雷機制與記憶體回收)
 function handleSingleLocalFile(file) {
-    const expectedFileName = localStorage.getItem('tagger_localFileName');
+    // ★ 修改：優先用「原始檔名」比對，避免剪裁後 tagger_localFileName 變成
+    // 「剪裁後音檔.wav」，導致使用者重新選取原本的檔案時，誤跳出「檔名不符」警告
+    const expectedFileName = localStorage.getItem('tagger_originalFileName') || localStorage.getItem('tagger_localFileName');
     const actualFileName = file.name;
     const isVideo = file.type.startsWith('video/') || actualFileName.toLowerCase().match(/\.(mp4|m4v|mov|webm)$/);
     
@@ -419,7 +424,14 @@ function handleSingleLocalFile(file) {
 
         audioPlayer.src = URL.createObjectURL(fileToLoad); 
         audioPlayer.load();
-        if (updateProjectName) localStorage.setItem('tagger_localFileName', actualFileName); 
+        if (updateProjectName) {
+            localStorage.setItem('tagger_localFileName', actualFileName); 
+            // ★ 新增：另外記錄一份「原始檔名」，之後剪裁時只會更新 tagger_localFileName，
+            // 不會動到這個欄位，讓「全選下載」永遠找得到真正的原始檔名
+            localStorage.setItem('tagger_originalFileName', actualFileName);
+            // ★ 新增：載入全新檔案，清除舊專案可能留下的「已修剪」標記
+            localStorage.removeItem('tagger_isTrimmed');
+        }
         localStorage.setItem('tagger_audioType', 'local'); 
         if (typeof localFileHint !== 'undefined' && localFileHint) localFileHint.style.display = 'none'; 
         saveToStorage(); 

@@ -170,8 +170,21 @@ window.cutAudioRegion = async function(start, end) {
     const sampleRate = buffer.sampleRate;
     const numChannels = buffer.numberOfChannels;
     
-    const startSample = Math.max(0, Math.floor(start * sampleRate));
-    const endSample = Math.min(buffer.length, Math.floor(end * sampleRate));
+    // ★ 核心修正：start/end 是「播放器時間」(media time，跟畫面上的秒數、標記時間一致)，
+    // 但 buffer 是 WaveSurfer 內部解碼出來的「buffer 時間」(webAudioDuration)。
+    // MP3 常因編碼延遲/填塞樣本，這兩者秒數會有些微落差；若直接拿 media time 乘上
+    // sampleRate 去換算 buffer 裡的 sample 位置，剪到的樣本點會跟畫面上選取的範圍對不齊，
+    // 且後面用來平移其他標記的 diff 也會跟著算錯，導致越剪標記越飄。
+    // 這裡採用跟「自動靜音斷句」引擎完全相同的換算方式，確保兩邊時間基準一致。
+    const webAudioDuration = buffer.duration;
+    const mediaDuration = audioPlayer.duration || webAudioDuration;
+    const timeRatio = mediaDuration / webAudioDuration; // media time / buffer time
+
+    const bufferStart = start / timeRatio; // 還原成 buffer 時間，才能對應正確的 sample
+    const bufferEnd = end / timeRatio;
+
+    const startSample = Math.max(0, Math.floor(bufferStart * sampleRate));
+    const endSample = Math.min(buffer.length, Math.floor(bufferEnd * sampleRate));
     const newLength = buffer.length - (endSample - startSample);
     
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -186,16 +199,16 @@ window.cutAudioRegion = async function(start, end) {
     
     const wavBlob = audioBufferToWav(newBuffer);
     
-    // 釋放舊的 Blob URL 避免記憶體洩漏
+    // ★ 延後註銷：先記住舊網址，但不要馬上砍，等新音檔真正載入成功後再釋放，
+    // 避免 WaveSurfer 內部還在非同步讀取舊網址時就被提前註銷，導致 fetch 失敗
     const oldSrc = audioPlayer.src;
-    if (oldSrc && oldSrc.startsWith('blob:')) {
-        URL.revokeObjectURL(oldSrc);
-    }
-
     const newUrl = URL.createObjectURL(wavBlob);
     
     // 標記時間平移 (Ripple Edit)
-    const diff = (endSample - startSample) / sampleRate;
+    // ★ 核心修正：(endSample - startSample) / sampleRate 算出來的是「buffer 時間」的秒數差，
+    // 但 timeDataMap 裡的標記時間是「media time」，兩者要用 timeRatio 換算成同一個基準，
+    // 否則每剪一次，後面的標記就會多出一個小小的誤差，越剪越飄。
+    const diff = ((endSample - startSample) / sampleRate) * timeRatio;
     if (typeof saveState === 'function') saveState(); 
     
     allLabelsOrdered.forEach(label => {
@@ -217,16 +230,44 @@ window.cutAudioRegion = async function(start, end) {
     });
     
     audioPlayer.src = newUrl;
+    audioPlayer.load(); // ★ 核心修正：強制立刻觸發載入，不要讓瀏覽器排程延後切換
+
+    // ★ 延後註銷：等新音檔（newUrl）確定載入成功後，才安全釋放舊的 Blob 網址
+    if (oldSrc && oldSrc.startsWith('blob:')) {
+        let revoked = false;
+        const revokeOldBlob = () => {
+            if (revoked) return;
+            revoked = true;
+            URL.revokeObjectURL(oldSrc);
+            audioPlayer.removeEventListener('loadeddata', revokeOldBlob);
+        };
+        audioPlayer.addEventListener('loadeddata', revokeOldBlob, { once: true });
+        // 保險機制：萬一 loadeddata 事件因故沒觸發，5 秒後強制釋放，避免記憶體一直卡住
+        setTimeout(revokeOldBlob, 5000);
+    }
+
     localStorage.setItem('tagger_localFileName', '剪裁後音檔.wav');
+    localStorage.setItem('tagger_isTrimmed', 'true'); // ★ 新增：標記音檔已被剪裁過
     localStorage.setItem('tagger_audioType', 'local');
     saveToStorage();
     
-    if (typeof initWaveSurfer === 'function') initWaveSurfer();
-    if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
-    if (tempRegion) { tempRegion.remove(); tempRegion = null; }
-    if (typeof updateToolbarButtons === 'function') updateToolbarButtons();
-    
-    showToast('剪裁完成！已保留清晰音質。', 'success');
+    // ★ 核心修正：等瀏覽器確定切換到「剪裁後的新音檔」(loadedmetadata) 後，
+    // 才重新初始化 WaveSurfer。如果緊接著同步呼叫，WaveSurfer 有機率讀到
+    // 還沒切換過去的舊音檔，畫面/資料就會看起來像是「刪除的那段還在」。
+    let waveSurferReinitDone = false;
+    const reinitWaveSurfer = () => {
+        if (waveSurferReinitDone) return;
+        waveSurferReinitDone = true;
+        audioPlayer.removeEventListener('loadedmetadata', reinitWaveSurfer);
+        if (typeof initWaveSurfer === 'function') initWaveSurfer();
+        if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
+        if (tempRegion) { tempRegion.remove(); tempRegion = null; }
+        if (typeof updateToolbarButtons === 'function') updateToolbarButtons();
+        showToast('剪裁完成！已保留清晰音質。', 'success');
+    };
+    audioPlayer.addEventListener('loadedmetadata', reinitWaveSurfer, { once: true });
+    // 保險機制：萬一 loadedmetadata 事件因故沒觸發，1.5 秒後還是強制執行，避免卡死不更新
+    setTimeout(reinitWaveSurfer, 1500);
 };
 
 window.downloadSingleAudio = function(label) {
@@ -270,7 +311,13 @@ window.downloadTimeRangeAudio = function(start, end, filenamePrefix) {
         
         // 組合聰明的檔名
         let filename = `${filenamePrefix}_${formatTime(start).replace(':', '')}至${formatTime(end).replace(':', '')}${ext}`;
-        if (filenamePrefix === "完整音檔") filename = `完整音檔備份${ext}`;
+        if (filenamePrefix === "完整音檔") {
+            // ★ 修改：優先使用「原始檔名」(即使中途剪裁過也不會被覆蓋)，
+            // 找不到才退回用目前的 tagger_localFileName，最後才用「完整音檔備份」保底
+            const originalName = localStorage.getItem('tagger_originalFileName') || localStorage.getItem('tagger_localFileName');
+            const baseName = originalName ? originalName.replace(/\.[^/.]+$/, '') : '完整音檔備份';
+            filename = `${baseName}${ext}`;
+        }
         
         const url = URL.createObjectURL(finalBlob);
         const a = document.createElement('a');
