@@ -1594,7 +1594,7 @@ function showWordEditor(rubyEl, hIndex, wordIndex) {
                         displayPy = hakkaZvsToTone(py);
                     }
                     return `
-                        <div class="pinyin-option px-3 py-1.5 text-sm hover:bg-blue-50 cursor-pointer text-slate-700" data-val="${escapeAttr(py)}">
+                        <div class="pinyin-option px-3 py-1.5 text-sm hover:bg-blue-50 cursor-pointer text-slate-700" data-val="${escapeAttr(displayPy)}">
                             ${escapeAttr(displayPy)}
                         </div>
                     `;
