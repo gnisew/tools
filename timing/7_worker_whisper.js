@@ -55,18 +55,39 @@ self.onmessage = async (e) => {
                 const slice = audioData.slice(startSample, endSample); // 切割 Float32Array
 
                 if (slice.length > 0) {
-                    // return_timestamps: false 讓模型專注於聽打，速度極快！
-                    const result = await transcriber(slice, {
-                        language: language || 'chinese',
-                        task: 'transcribe',
-                        return_timestamps: false 
-                    });
+                    // ★ 修補：每句獨立包一層 try/catch，單句失敗不會中斷整批處理
+                    try {
+                        // return_timestamps: false 讓模型專注於聽打，速度極快！
+                        const result = await transcriber(slice, {
+                            language: language || 'chinese',
+                            task: 'transcribe',
+                            return_timestamps: false 
+                        });
 
-                    // 每完成一句，就即時回傳給主畫面更新 UI
+                        // 每完成一句，就即時回傳給主畫面更新 UI
+                        self.postMessage({
+                            status: 'progress_batch',
+                            label: seg.label,
+                            text: result.text.trim(),
+                            current: i + 1,
+                            total: segments.length
+                        });
+                    } catch (segError) {
+                        // 單句辨識失敗：回報錯誤但繼續處理下一句，不中斷整批
+                        self.postMessage({
+                            status: 'progress_batch_error',
+                            label: seg.label,
+                            message: segError.toString(),
+                            current: i + 1,
+                            total: segments.length
+                        });
+                    }
+                } else {
+                    // 空片段：同樣要更新進度，避免前端進度卡住不動
                     self.postMessage({
                         status: 'progress_batch',
                         label: seg.label,
-                        text: result.text.trim(),
+                        text: '',
                         current: i + 1,
                         total: segments.length
                     });

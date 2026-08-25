@@ -430,6 +430,10 @@ function initWaveSurfer() {
         // 導致剪裁與下載出來的音檔悶悶的、品質很差。這裡指定 48000Hz 避免被強制降頻。
         sampleRate: 48000,
     });
+	wavesurfer.on('error', (err) => {
+		showToast('音檔載入失敗，請確認檔案格式或網址是否正確', 'error');
+		console.error(err);
+	});
 
     const isMinimapEnabled = localStorage.getItem('tagger_enableMinimap') === 'true';
     if (typeof toggleMinimap === 'function') toggleMinimap(isMinimapEnabled);
@@ -741,15 +745,16 @@ function initWaveSurfer() {
             }, 600);
         }
 
-        // 提示載入成功
-        const audioType = localStorage.getItem('tagger_audioType');
-        if (audioType === 'local') {
-            showToast('本機音檔載入成功', 'success');
-        } else if (audioType === 'online') {
-            showToast('線上音檔載入成功', 'success');
-        } else {
-            showToast('音檔載入成功', 'success');
-        }
+        // ★ 新增：載入成功提示（依音檔來源類型，顯示對應名稱）
+		const audioType = localStorage.getItem('tagger_audioType');
+		let displayName = '音檔';
+		if (audioType === 'local') {
+			displayName = localStorage.getItem('tagger_localFileName') || '本機音檔';
+		} else if (audioType === 'online') {
+			const url = localStorage.getItem('tagger_audioUrl');
+			displayName = url ? decodeURIComponent(url.split('/').pop()) : '線上音檔';
+		}
+		showToast(`「${displayName}」載入成功！`, 'success');
     });
 }
 

@@ -124,6 +124,7 @@ const fontToggleBtn = document.getElementById('fontToggleBtn');
 const asModal = document.getElementById('autoSegmentModalOverlay');
 const asThreshold = document.getElementById('asThreshold');
 const asThresholdVal = document.getElementById('asThresholdVal');
+const asDetectionMode = document.getElementById('asDetectionMode');
 const asSilence = document.getElementById('asSilence');
 const asSilenceVal = document.getElementById('asSilenceVal');
 const asMinSegment = document.getElementById('asMinSegment');
@@ -344,35 +345,13 @@ function updateToolbarButtons() {
 let selectedLabels = [];
 let lastSelectedLabel = null;
 
-
-
-function toggleSelection(label) {
-    const idx = selectedLabels.indexOf(label);
-    if (idx > -1) selectedLabels.splice(idx, 1);
-    else selectedLabels.push(label);
-    updateSelectionUI();
-}
-
-function selectRange(startLabel, endLabel) {
-    if (!startLabel || !allLabelsOrdered.includes(startLabel)) {
-        startLabel = currentActiveLabel || allLabelsOrdered[0];
-    }
-    const startIdx = allLabelsOrdered.indexOf(startLabel);
-    const endIdx = allLabelsOrdered.indexOf(endLabel);
-    const minIdx = Math.min(startIdx, endIdx);
-    const maxIdx = Math.max(startIdx, endIdx);
-    
-    selectedLabels = [];
-    for (let i = minIdx; i <= maxIdx; i++) {
-        selectedLabels.push(allLabelsOrdered[i]);
-    }
-    updateSelectionUI();
-}
-
-function clearSelection() {
-    selectedLabels = [];
-    updateSelectionUI();
-}
+// ★ 修正：toggleSelection / selectRange / clearSelection 原本在這裡跟
+// 5_list_renderer.js 各自重複定義了一次（內容完全相同）。因為是一般 function
+// 宣告，實際運作時後載入的 5_list_renderer.js 會直接覆蓋掉這裡的版本，結果
+// 「恰巧」正確，但屬於「靠載入順序僥倖正常運作」的隱性風險——一旦有人調整
+// index.html 裡 <script> 的順序，行為就會靜默改變且難以排查。
+// 已將這三個函式的實作統一移至 5_list_renderer.js（負責清單渲染與選取狀態
+// 的專屬檔案），這裡只保留上面的全域狀態變數宣告。
 
 const defaultShortcuts = { 
     rewind: 'Ctrl+ArrowLeft', 
@@ -507,6 +486,59 @@ function formatSrtTime(seconds) {
     const ms = Math.round((seconds - Math.floor(seconds)) * 1000).toString().padStart(3, '0');
     return `${h}:${m}:${s},${ms}`;
 }
+// ================= ★ 共用：格式產生器 (items -> TSV/SRT/Audacity 字串) ★ =================
+// 統一格式：items = [{ label, start, end, text }, ...]
+// 原本 4g_ui_export.js（單一專案匯出）跟 9_batch_converter.js（批次轉檔）
+// 各寫了一份幾乎相同的 TSV/SRT/Audacity 產生邏輯，改一處常常忘了改另一處。
+// 現在統一放在這裡，兩邊都呼叫同一份。
+function buildStandardToAny(items, targetExt, originalFilename) {
+    let content = "";
+    if (items.length === 0) return null;
+
+    if (targetExt === 'tsv') {
+        content = "標籤\t開始時間\t結束時間\t文字內容\n";
+        items.forEach(item => {
+            content += `${item.label}\t${item.start}\t${item.end !== null ? item.end : ''}\t${item.text}\n`;
+        });
+    }
+    else if (targetExt === 'srt') {
+        items.forEach((item, index) => {
+            if (item.end !== null) {
+                const sStart = formatSrtTime(item.start);
+                const sEnd = formatSrtTime(item.end);
+                content += `${index + 1}\n${sStart} --> ${sEnd}\n${item.text}\n\n`;
+            }
+        });
+    }
+    else if (targetExt === 'audacity') {
+        items.forEach(item => {
+            content += `${item.start}\t${item.end !== null ? item.end : item.start}\t${item.text || item.label}\n`;
+        });
+    }
+    else if (targetExt === 'txt') {
+        items.forEach(item => {
+            if (item.text) content += `${item.text}\n`;
+        });
+    }
+    else if (targetExt === 'json') {
+        const outData = {
+            version: "1.0",
+            title: (originalFilename || '').replace(/\.[^/.]+$/, ""),
+            allLabelsOrdered: [],
+            sentenceTextMap: {},
+            timeDataMap: {}
+        };
+        items.forEach(item => {
+            outData.allLabelsOrdered.push(item.label);
+            outData.sentenceTextMap[item.label] = item.text;
+            outData.timeDataMap[item.label] = { start: item.start, end: item.end };
+        });
+        content = JSON.stringify(outData, null, 2);
+    }
+
+    return content;
+}
+
 function parseSrtTime(timeStr) {
     const parts = timeStr.split(':'); if (parts.length !== 3) return 0;
     const h = parseInt(parts[0], 10); const m = parseInt(parts[1], 10);

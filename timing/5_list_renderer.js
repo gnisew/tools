@@ -200,35 +200,35 @@ function renderSentenceList() {
         // 修改：在選單的各個破壞性操作中，插入 saveState(); 
         div.innerHTML = `
             <div class="sentence-content">
-                <button class="action-icon-btn verify-btn" id="verify-${label}" title="播放該句"><span class="material-icons">volume_up</span></button>
+                <button class="action-icon-btn verify-btn" id="verify-${label}" title="播放該句" aria-label="播放該句"><span class="material-icons">volume_up</span></button>
                 <span class="sentence-label" style="color: ${colorVar};">${displayLabel}</span>
 
-                <span class="sentence-text-display ${isEditMode ? 'is-editable' : ''}" ${isEditMode ? 'contenteditable="true"' : ''} spellcheck="false">${text}</span>
+                <span class="sentence-text-display ${isEditMode ? 'is-editable' : ''}" ${isEditMode ? 'contenteditable="true" role="textbox" aria-multiline="false" aria-label="字幕文字，可點擊編輯"' : ''} spellcheck="false">${escapeHtml(text)}</span>
                 
-                <button class="inline-delete-btn" id="inline-del-${label}" title="刪除空白句" style="${text.trim() === '' ? 'display:flex;' : 'display:none;'}"><span class="material-icons">delete</span></button>
+                <button class="inline-delete-btn" id="inline-del-${label}" title="刪除空白句" aria-label="刪除空白句" style="${text.trim() === '' ? 'display:flex;' : 'display:none;'}"><span class="material-icons">delete</span></button>
             </div>
             <div class="sentence-actions">
-				<button class="action-icon-btn ai-transcribe-btn" id="ai-btn-${label}" title="單句 AI 填詞"><span class="material-icons">auto_fix_high</span></button>
-                <button class="action-icon-btn shift-time-btn" title="批次平移時間"><span class="material-icons">update</span></button>
+				<button class="action-icon-btn ai-transcribe-btn" id="ai-btn-${label}" title="單句 AI 填詞" aria-label="單句 AI 填詞"><span class="material-icons">auto_fix_high</span></button>
+                <button class="action-icon-btn shift-time-btn" title="批次平移時間" aria-label="批次平移時間"><span class="material-icons">update</span></button>
                 <span class="sentence-time" id="time-${label}" title="從該句播放">--:--</span>
-                <button class="action-icon-btn clear-tag-btn" title="清除時間"><span class="material-icons">clear</span></button>
-                <button class="action-icon-btn tag-time-btn" title="標記時間"><span class="material-icons">add_alarm</span></button>
-                <button class="action-icon-btn more-options-btn" title="更多選項"><span class="material-icons">more_vert</span></button>
+                <button class="action-icon-btn clear-tag-btn" title="清除時間" aria-label="清除時間"><span class="material-icons">clear</span></button>
+                <button class="action-icon-btn tag-time-btn" title="標記時間" aria-label="標記時間"><span class="material-icons">add_alarm</span></button>
+                <button class="action-icon-btn more-options-btn" title="更多選項" aria-label="更多選項"><span class="material-icons">more_vert</span></button>
                 <div class="custom-dropdown-menu item-more-menu" id="menu-${label}">
-					<div class="custom-dropdown-item" onclick="if(typeof saveState==='function') saveState(); syncToPlayheadAndShift('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px; color:#00897B;">sync_alt</span> 對齊游標並平移後續</div>
-                    <div class="custom-dropdown-item" onclick="if(typeof saveState==='function') saveState(); insertUp('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">arrow_upward</span> 向上新增一列</div>
-                    <div class="custom-dropdown-item" onclick="if(typeof saveState==='function') saveState(); insertDown('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">arrow_downward</span> 向下新增一列</div><hr>
-                    <div class="custom-dropdown-item" onclick="if(typeof saveState==='function') saveState(); mergeUp('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">merge_type</span> 向上合併</div>
-                    <div class="custom-dropdown-item" onclick="if(typeof saveState==='function') saveState(); mergeDown('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px; transform: rotate(180deg);">merge_type</span> 向下合併</div><hr>
+					<div class="custom-dropdown-item" onclick="syncToPlayheadAndShift('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px; color:#00897B;">sync_alt</span> 對齊游標並平移後續</div>
+                    <div class="custom-dropdown-item" onclick="insertUp('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">arrow_upward</span> 向上新增一列</div>
+                    <div class="custom-dropdown-item" onclick="insertDown('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">arrow_downward</span> 向下新增一列</div><hr>
+                    <div class="custom-dropdown-item" onclick="mergeUp('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">merge_type</span> 向上合併</div>
+                    <div class="custom-dropdown-item" onclick="mergeDown('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px; transform: rotate(180deg);">merge_type</span> 向下合併</div><hr>
                     <div class="custom-dropdown-item" onclick="downloadSingleAudio('${label}')" style="color: #1976D2;"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">music_note</span> 匯出音檔</div><hr>
-                    <div class="custom-dropdown-item" style="color: #E53935;" onclick="if(typeof saveState==='function') saveState(); deleteSentence('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">delete</span> 刪除此句</div>
+                    <div class="custom-dropdown-item" style="color: #E53935;" onclick="deleteSentence('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">delete</span> 刪除此句</div>
                 </div>
             </div>
         `;
         const textDisplay = div.querySelector('.sentence-text-display'); const inlineDelBtn = div.querySelector(`#inline-del-${label}`);
         inlineDelBtn.addEventListener('click', (e) => { 
             e.stopPropagation(); 
-            if(typeof saveState === 'function') saveState(); // 紀錄狀態
+            // ★ 集中化：deleteSentence 內部已會呼叫 saveState()，這裡不必重複
             deleteSentence(label); 
         });
 
@@ -375,7 +375,7 @@ function renderSentenceList() {
 
         div.querySelector('.clear-tag-btn').addEventListener('click', (e) => { 
             e.stopPropagation(); if (!isEditMode) return; 
-            if(typeof saveState === 'function') saveState(); // 紀錄狀態
+            // ★ 集中化：handleClearTag 內部已會呼叫 saveState()，這裡不必重複
             handleClearTag(label); 
         });
         

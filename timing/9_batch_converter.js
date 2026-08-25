@@ -114,56 +114,8 @@ function parseAnyToStandard(text, ext, filename) {
 
 // ================= 核心：萬能產生器 (Generator) =================
 // 負責將統一 Array 轉換為目標格式字串
-function buildStandardToAny(items, targetExt, originalFilename) {
-    let content = "";
-    
-    if (items.length === 0) return null;
-
-    if (targetExt === 'tsv') {
-        content = "標籤\t開始時間\t結束時間\t文字內容\n";
-        items.forEach(item => {
-            content += `${item.label}\t${item.start}\t${item.end !== null ? item.end : ''}\t${item.text}\n`;
-        });
-    } 
-    else if (targetExt === 'srt') {
-        items.forEach((item, index) => {
-            if (item.end !== null) {
-                // 利用 1_globals.js 中的 formatSrtTime
-                const sStart = typeof formatSrtTime === 'function' ? formatSrtTime(item.start) : "00:00:00,000";
-                const sEnd = typeof formatSrtTime === 'function' ? formatSrtTime(item.end) : "00:00:00,000";
-                content += `${index + 1}\n${sStart} --> ${sEnd}\n${item.text}\n\n`;
-            }
-        });
-    } 
-    else if (targetExt === 'audacity') {
-        items.forEach(item => {
-            content += `${item.start}\t${item.end !== null ? item.end : item.start}\t${item.text || item.label}\n`;
-        });
-    } 
-    else if (targetExt === 'txt') {
-        // 純文字段落 (每句一行)
-        items.forEach(item => {
-            if (item.text) content += `${item.text}\n`;
-        });
-    }
-    else if (targetExt === 'json') {
-        const outData = {
-            version: "1.0",
-            title: originalFilename.replace(/\.[^/.]+$/, ""),
-            allLabelsOrdered: [],
-            sentenceTextMap: {},
-            timeDataMap: {}
-        };
-        items.forEach(item => {
-            outData.allLabelsOrdered.push(item.label);
-            outData.sentenceTextMap[item.label] = item.text;
-            outData.timeDataMap[item.label] = { start: item.start, end: item.end };
-        });
-        content = JSON.stringify(outData, null, 2);
-    }
-    
-    return content;
-}
+// ★ 已移至 1_globals.js 的 buildStandardToAny()，跟 4g_ui_export.js 共用同一份，
+//   這裡不再重複定義（1_globals.js 會比這個檔案更早載入）。
 
 // ================= 執行批次處理與打包 =================
 startBatchConvertBtn?.addEventListener('click', async () => {
@@ -183,6 +135,13 @@ startBatchConvertBtn?.addEventListener('click', async () => {
     document.body.style.overflow = '';
     showToast('開始批次轉換，請稍候...', 'normal');
 
+    // ★ 新增：記錄「解析不到資料」的檔案，結束後明確告知使用者是哪些檔案、為什麼，
+    // 而不是只給一個總數或完全靜默跳過。
+    // 常見情境：匯出功能的「純文字段落」跟「Audacity 標籤檔」都用 .txt 副檔名，
+    // 但這裡的 .txt 解析邏輯固定當作 Audacity 格式（要求 tab 分欄），如果拿純文字
+    // 的 .txt 回來匯入，會直接解析成 0 筆、卻看不出原因——這裡把原因講清楚。
+    const skippedFiles = [];
+
     try {
         // 幫助函式：處理單一文字內容
         const processFileContent = (contentStr, filename, originalExt) => {
@@ -193,8 +152,15 @@ startBatchConvertBtn?.addEventListener('click', async () => {
                     const baseName = filename.replace(/\.[^/.]+$/, ""); // 去除舊副檔名
                     outputZip.file(`${baseName}.${outExt}`, outputStr);
                     processedCount++;
+                    return;
                 }
             }
+
+            let reason = '找不到可辨識的資料';
+            if (originalExt === 'txt' && !contentStr.includes('\t')) {
+                reason = '看起來是純文字（無時間標記），不是 Audacity 標籤格式的 .txt';
+            }
+            skippedFiles.push(`${filename}（${reason}）`);
         };
 
         // 逐一讀取檔案
@@ -222,6 +188,14 @@ startBatchConvertBtn?.addEventListener('click', async () => {
         }
 
         if (processedCount === 0) {
+            if (skippedFiles.length > 0 && typeof showCustomDialog === 'function') {
+                const list = skippedFiles.slice(0, 10).map(s => escapeHtml(s)).join('<br>');
+                const more = skippedFiles.length > 10 ? `<br>...等共 ${skippedFiles.length} 個檔案` : '';
+                showCustomDialog({
+                    title: '轉換失敗',
+                    message: `找不到可支援轉換的有效資料：<br><br>${list}${more}`
+                });
+            }
             return showToast('轉換失敗：找不到可支援轉換的有效資料', 'error');
         }
 
@@ -236,7 +210,11 @@ startBatchConvertBtn?.addEventListener('click', async () => {
         a.click();
         setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
 
-        showToast(`成功轉換 ${processedCount} 個檔案並打包下載！`, 'success');
+        if (skippedFiles.length > 0) {
+            showToast(`成功轉換 ${processedCount} 個檔案，但有 ${skippedFiles.length} 個檔案無法解析已略過`, 'normal');
+        } else {
+            showToast(`成功轉換 ${processedCount} 個檔案並打包下載！`, 'success');
+        }
 
     } catch (err) {
         console.error(err);

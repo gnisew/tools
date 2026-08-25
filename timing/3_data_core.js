@@ -27,10 +27,16 @@ let saveStorageTimeout = null;
 function saveToStorage() {
     clearTimeout(saveStorageTimeout);
     saveStorageTimeout = setTimeout(() => {
-        localStorage.setItem('tagger_allLabels', JSON.stringify(allLabelsOrdered));
-        localStorage.setItem('tagger_textMap', JSON.stringify(sentenceTextMap));
-        localStorage.setItem('tagger_timeDataMap', JSON.stringify(timeDataMap));
-        localStorage.setItem('tagger_parseMode', currentParseMode); 
+        try {
+            localStorage.setItem('tagger_allLabels', JSON.stringify(allLabelsOrdered));
+            localStorage.setItem('tagger_textMap', JSON.stringify(sentenceTextMap));
+            localStorage.setItem('tagger_timeDataMap', JSON.stringify(timeDataMap));
+            localStorage.setItem('tagger_parseMode', currentParseMode); 
+        } catch (err) {
+            // ★ 修補：容量爆滿或其他寫入失敗時，明確提示使用者，避免編輯內容悄悄遺失
+            console.error('存檔失敗：', err);
+            if (typeof showToast === 'function') showToast('存檔失敗！瀏覽器儲存空間可能已滿，請盡快匯出備份', 'error');
+        }
         if (typeof checkButtonVisibility === 'function') checkButtonVisibility();
     }, 500); 
 }
@@ -39,10 +45,14 @@ function saveToStorage() {
 window.addEventListener('beforeunload', () => {
     if (saveStorageTimeout) {
         clearTimeout(saveStorageTimeout);
-        localStorage.setItem('tagger_allLabels', JSON.stringify(allLabelsOrdered));
-        localStorage.setItem('tagger_textMap', JSON.stringify(sentenceTextMap));
-        localStorage.setItem('tagger_timeDataMap', JSON.stringify(timeDataMap));
-        localStorage.setItem('tagger_parseMode', currentParseMode); 
+        try {
+            localStorage.setItem('tagger_allLabels', JSON.stringify(allLabelsOrdered));
+            localStorage.setItem('tagger_textMap', JSON.stringify(sentenceTextMap));
+            localStorage.setItem('tagger_timeDataMap', JSON.stringify(timeDataMap));
+            localStorage.setItem('tagger_parseMode', currentParseMode); 
+        } catch (err) {
+            console.error('關閉頁面前強制存檔失敗：', err);
+        }
     }
 });
 
@@ -104,14 +114,36 @@ function loadFromStorage() {
     // ★ 修改：呼叫我們剛剛寫好的共用引擎
     if (audioType === 'local' && localFileName) {
         const localFileHint = document.getElementById('localFileHint');
-        if (localFileHint) {
-            const trimmedNote = isTrimmed ? '（有修剪）' : '';
-            localFileHint.innerHTML = `<span class="material-icons" style="font-size: 1rem;">warning</span> 上次音檔：「${originalFileName}」${trimmedNote}，請重新選取`;
-            localFileHint.style.display = 'inline-flex';
+
+        // 找不到 IndexedDB 備份時的最終備援：顯示「請重新選取」的防呆畫面
+        const fallbackToReselect = () => {
+            if (localFileHint) {
+                const trimmedNote = isTrimmed ? '（有修剪）' : '';
+                localFileHint.innerHTML = `<span class="material-icons" style="font-size: 1rem;">warning</span> 上次音檔：「${escapeHtml(originalFileName)}」${trimmedNote}，請重新選取`;
+                localFileHint.style.display = 'inline-flex';
+            }
+            window.showMissingAudioUI(originalFileName, isTrimmed);
+        };
+
+        // ★ 新增：先嘗試從 IndexedDB 背景讀回音檔本體。讀到就直接自動掛回播放器，
+        // 使用者完全不需要重新選檔；讀不到（例如這是加入本功能前就存在的舊專案、
+        // 無痕模式、或使用者手動清過瀏覽器資料）才退回原本「請重新選取」的畫面。
+        if (typeof AudioStore !== 'undefined' && AudioStore.isSupported()) {
+            AudioStore.load().then(rec => {
+                if (rec && rec.blob) {
+                    audioPlayer.src = URL.createObjectURL(rec.blob);
+                    audioPlayer.load();
+                    if (typeof initWaveSurfer === 'function') initWaveSurfer();
+                    if (localFileHint) localFileHint.style.display = 'none';
+                    showToast('已自動還原上次的音檔', 'success');
+                } else {
+                    fallbackToReselect();
+                }
+            }).catch(fallbackToReselect);
+        } else {
+            fallbackToReselect();
         }
-        
-        window.showMissingAudioUI(originalFileName, isTrimmed);
-        
+
     } else if (savedUrl) {
         const modalSingleUrlInput = document.getElementById('modalSingleUrlInput');
         if (modalSingleUrlInput) modalSingleUrlInput.value = savedUrl; 
@@ -302,7 +334,7 @@ function insertRowChronologically(start, end) {
     const tempLabel = prefix + '_TEMP_' + Date.now();
 
     allLabelsOrdered.splice(insertIndex, 0, tempLabel);
-    timeDataMap[tempLabel] = { start: parseFloat(start.toFixed(2)), end: parseFloat(end.toFixed(2)) };
+    timeDataMap[tempLabel] = { start: parseFloat(start.toFixed(3)), end: parseFloat(end.toFixed(3)) };
     sentenceTextMap[tempLabel] = '';
     reassignLabels(); 
     
@@ -324,9 +356,10 @@ function handleClearTag(label) {
     const idx = allLabelsOrdered.indexOf(label);
 
     if (text.trim() === '') {
-        deleteSentence(label); 
+        deleteSentence(label); // ★ deleteSentence 自己已會呼叫 saveState()，這裡不必重複
         showToast('已刪除空標記列', 'success');
     } else {
+        if (typeof saveState === 'function') saveState(); // ★ 集中化：這個分支不會經過 deleteSentence，需要自己保護
         delete timeDataMap[label]; 
         
         let extractedTimes = [];
@@ -432,16 +465,19 @@ function reassignLabels() {
 }
 
 window.insertUp = function(label) {
+    if (typeof saveState === 'function') saveState(); // ★ 集中化：改由函式自己保護，呼叫端不必再記得加
     const idx = allLabelsOrdered.indexOf(label); const tempLabel = label.charAt(0) + '_TEMP_' + Date.now();
     allLabelsOrdered.splice(idx, 0, tempLabel); sentenceTextMap[tempLabel] = ''; reassignLabels(); showToast('已向上新增空白句', 'success');
 };
 window.insertDown = function(label) {
+    if (typeof saveState === 'function') saveState(); // ★ 集中化：改由函式自己保護，呼叫端不必再記得加
     const idx = allLabelsOrdered.indexOf(label); const tempLabel = label.charAt(0) + '_TEMP_' + Date.now();
     allLabelsOrdered.splice(idx + 1, 0, tempLabel); sentenceTextMap[tempLabel] = ''; reassignLabels(); showToast('已向下新增空白句', 'success');
 };
 
 // 修復：徹底拔除時間吸收邏輯，現在只負責刪除自己 
 window.deleteSentence = function(label) {
+    if (typeof saveState === 'function') saveState(); // ★ 集中化：改由函式自己保護，呼叫端不必再記得加
     const idx = allLabelsOrdered.indexOf(label);
     allLabelsOrdered.splice(idx, 1); 
     delete sentenceTextMap[label]; 
@@ -581,49 +617,32 @@ function splitRegionAtPlayhead() {
 
     if (typeof saveState === 'function') saveState();
 
-    // ★ 核心步驟 1：將目前句子的時間，縮短到游標切割處 (保留前半段)
-    timeDataMap[targetLabel] = { start: targetTimes.start, end: parseFloat(currentTime.toFixed(3)) };
+    const splitPoint = parseFloat(currentTime.toFixed(3));
 
+    // ★ 核心步驟 1：目前句子縮短到切割點，保留前半段時間
+    timeDataMap[targetLabel] = { start: targetTimes.start, end: splitPoint };
+
+    // ★ 核心步驟 2：在目標句子「後面」新插入一列空白句子，承接後半段時間，
+    // 再交給 reassignLabels() 統一重排。
+    //
+    // 舊寫法在此自行實作「骨牌推移」：把後半段時間、以及後方所有既有時間標記，
+    // 依序覆蓋貼到後方的文字列上——但完全不管那些文字列「原本有沒有時間」，
+    // 可能把時間貼到不相干的句子上、造成文字與時間對不齊；句子數不夠時還會直接
+    // 捨棄溢出的時間標記。
+    //
+    // 改為新增一列＋呼叫 reassignLabels()，就能跟 insertUp / insertDown /
+    // mergeUp / mergeDown / handleClearTag 用的是同一套、已經驗證過的重排引擎：
+    // 只重新排「有時間」的標記本身的順序（順序不變，只是多插了一個），不會覆蓋到
+    // 本來沒有時間的文字列；句子數不夠時也會自動補空白列承接，不會遺失資料。
     const targetIdx = allLabelsOrdered.indexOf(targetLabel);
+    const tempLabel = targetLabel.charAt(0) + '_TEMP_' + Date.now();
+    allLabelsOrdered.splice(targetIdx + 1, 0, tempLabel);
+    sentenceTextMap[tempLabel] = '';
+    timeDataMap[tempLabel] = { start: splitPoint, end: targetTimes.end };
 
-    // ★ 核心步驟 2：收集即將要往後塞的「所有時間標記」
-    let timesToReassign = [];
-    
-    // 第一個要往後塞的，就是剛剛切出來的「後半段時間」
-    timesToReassign.push({ start: parseFloat(currentTime.toFixed(3)), end: targetTimes.end });
+    reassignLabels(); // 統一重新排號、重新對齊所有時間標記（saveToStorage/renderSentenceList 已內含）
 
-    // 接著，把目標句子後方的「所有現有時間標記」也收集起來，並先從原地拔除
-    for (let i = targetIdx + 1; i < allLabelsOrdered.length; i++) {
-        const lbl = allLabelsOrdered[i];
-        if (timeDataMap[lbl]) {
-            timesToReassign.push(timeDataMap[lbl]);
-            delete timeDataMap[lbl];
-        }
-    }
+    showToast('已切割聲波！新句子已插入，後續時間已依序對齊', 'success');
 
-    // ★ 核心步驟 3：骨牌推移！從下一個句子開始，把收集到的時間依序貼回去
-    let assignIdx = targetIdx + 1;
-    let overflowCount = 0;
-    
-    for (let i = 0; i < timesToReassign.length; i++) {
-        // 只要列表還有句子，就依序貼上時間
-        if (assignIdx < allLabelsOrdered.length) {
-            timeDataMap[allLabelsOrdered[assignIdx]] = timesToReassign[i];
-            assignIdx++;
-        } else {
-            // 防呆：如果時間標記被往後擠，但列表已經沒有句子了，只好捨棄溢出的標記
-            overflowCount++;
-        }
-    }
-
-    // 更新畫面與提示
-    if (overflowCount > 0) {
-        showToast(`已切割並往後推移！但句子不足，末端 ${overflowCount} 個標記已擠出捨棄`, 'normal');
-    } else {
-        showToast('已切割聲波！後方時間標記已依序往後推移', 'success');
-    }
-
-    saveToStorage();
-    if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
     if (typeof renderAllRegions === 'function') renderAllRegions();
 }

@@ -87,8 +87,7 @@ function sliceAudioBuffer(buffer, startTime, endTime) {
     const endSample = Math.min(buffer.length, Math.floor(endTime * sampleRate));
     const newLength = endSample - startSample;
 
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const newBuffer = audioCtx.createBuffer(channels, newLength, sampleRate);
+    const newBuffer = createBufferSafe(channels, newLength, sampleRate);
     for (let i = 0; i < channels; i++) {
         newBuffer.getChannelData(i).set(buffer.getChannelData(i).subarray(startSample, endSample));
     }
@@ -100,8 +99,7 @@ function appendAudioBuffers(buf1, buf2) {
     const sampleRate = buf1.sampleRate;
     const totalLength = buf1.length + buf2.length;
     
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const newBuffer = audioCtx.createBuffer(numChannels, totalLength, sampleRate);
+    const newBuffer = createBufferSafe(numChannels, totalLength, sampleRate);
     for (let i = 0; i < numChannels; i++) {
         const channelData = newBuffer.getChannelData(i);
         const data1 = buf1.numberOfChannels > i ? buf1.getChannelData(i) : buf1.getChannelData(0);
@@ -112,16 +110,32 @@ function appendAudioBuffers(buf1, buf2) {
     return newBuffer;
 }
 
+// ================= ★ 新增：匯出 MP3 位元率，自動比照原始上傳檔案 ★ =================
+// 原本這裡永遠寫死 320kbps，不管原始檔是 128kbps 還是 320kbps，剪裁/下載都會重壓
+// 成 320kbps —— 音質不會變好（上限早被原始壓縮鎖死），檔案卻白白比原本更大。
+// 現在改讀 4b_ui_audio_loader.js 的 recordOriginalBitrate() 在載入音檔當下量到的
+// 原始位元率；量不到（例如原始檔本來就是 WAV/FLAC 無損格式、或用線上網址載入）
+// 才退回 320kbps 保底，維持原本的最高音質行為。
+function getTargetMp3Kbps() {
+    const saved = parseInt(localStorage.getItem('tagger_originalBitrateKbps'), 10);
+    if (!isNaN(saved) && saved >= 32 && saved <= 320) return saved;
+    return 320;
+}
+
 // ================= ★ MP3 轉換器保留區塊 ★ =================
 function audioBufferToMp3(buffer) {
     if (!window.lamejs) {
-        alert("無法載入 MP3 轉換套件，將降級為 WAV 格式。");
+        if (typeof showToast === 'function') showToast('無法載入 MP3 轉換套件，將降級為 WAV 格式。', 'error');
+        // ★ 修復：showToast 尚未就緒時的保底方案，原本用 alert() 會跳出瀏覽器
+        // 原生阻斷式彈窗，體驗跟其餘一律用 showToast/showCustomDialog 的風格不一致，
+        // 改為在 console 留下紀錄即可，不打斷使用者操作。
+        else console.warn('[audioBufferToMp3] 無法載入 MP3 轉換套件，將降級為 WAV 格式。');
         return audioBufferToWav(buffer);
     }
     
     const channels = buffer.numberOfChannels;
     const sampleRate = buffer.sampleRate;
-    const kbps = 320; 
+    const kbps = getTargetMp3Kbps(); 
     
     const mp3encoder = new lamejs.Mp3Encoder(channels, sampleRate, kbps); 
     const mp3Data = [];
@@ -187,8 +201,7 @@ window.cutAudioRegion = async function(start, end) {
     const endSample = Math.min(buffer.length, Math.floor(bufferEnd * sampleRate));
     const newLength = buffer.length - (endSample - startSample);
     
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const newBuffer = audioCtx.createBuffer(numChannels, newLength, sampleRate);
+    const newBuffer = createBufferSafe(numChannels, newLength, sampleRate);
     
     for (let i = 0; i < numChannels; i++) {
         const oldData = buffer.getChannelData(i);
@@ -249,6 +262,14 @@ window.cutAudioRegion = async function(start, end) {
     localStorage.setItem('tagger_localFileName', '剪裁後音檔.wav');
     localStorage.setItem('tagger_isTrimmed', 'true'); // ★ 新增：標記音檔已被剪裁過
     localStorage.setItem('tagger_audioType', 'local');
+    // ★ 新增：剪裁後的新 WAV 本體同步存進 IndexedDB。這是最關鍵的一步——
+    // 剪裁會讓所有時間標記整批對齊到「剪裁後」的新時長，若重新整理網頁後
+    // 使用者照舊提示重新選回「剪裁前」的原始檔，時間標記會整組對不上音檔。
+    // 有了這份 IndexedDB 備份，重新整理後會直接自動讀回剪裁後的版本，不會
+    // 再發生這個問題。
+    if (typeof AudioStore !== 'undefined' && AudioStore.isSupported()) {
+        AudioStore.save(wavBlob, { name: '剪裁後音檔.wav' });
+    }
     saveToStorage();
     
     // ★ 核心修正：等瀏覽器確定切換到「剪裁後的新音檔」(loadedmetadata) 後，
@@ -389,7 +410,8 @@ async function performAutoSegmentation() {
     const minSilence = parseFloat(asSilence.value);
     const padding = parseFloat(asPadding.value);
     const minSegment = asMinSegment ? parseFloat(asMinSegment.value) : 0.5;
-    
+    const detectionMode = asDetectionMode ? asDetectionMode.value : 'peak'; // ★ 新增：預設 'peak'，與修改前行為完全相同
+
     const step = Math.floor(sampleRate / 100); 
     
     let segments = [];
@@ -405,19 +427,26 @@ async function performAutoSegmentation() {
 
     for (let i = 0; i < length; i += step) {
         let maxAmp = 0;
+        let sumSquares = 0; // ★ 新增：用於 RMS 模式的累加器
         const localEnd = Math.min(i + step, length);
+        const blockSampleCount = (localEnd - i) * numChannels;
         
-        // 尋找最大振幅
+        // 尋找最大振幅（peak 模式）／累加平方和（rms 模式）
         for (let j = i; j < localEnd; j++) {
             for (let c = 0; c < numChannels; c++) {
                 const amp = Math.abs(channels[c][j]);
                 if (amp > maxAmp) maxAmp = amp;
+                if (detectionMode === 'rms') sumSquares += amp * amp;
             }
         }
+        // ★ RMS 模式：用均方根取代峰值，較不受單一突波影響；peak 模式維持原本行為
+        const level = (detectionMode === 'rms' && blockSampleCount > 0)
+            ? Math.sqrt(sumSquares / blockSampleCount)
+            : maxAmp;
 
         const currentTime = (i / sampleRate) * timeRatio;
 
-        if (maxAmp < threshold) {
+        if (level < threshold) {
             if (!isSilence) {
                 isSilence = true;
                 silenceStart = currentTime;
@@ -460,6 +489,12 @@ async function performAutoSegmentation() {
     showToast('2/3 正在生成標記資料... 85%', 'normal');
     await new Promise(resolve => setTimeout(resolve, 10)); // 暫停一下讓 UI 更新
 
+    // ★ 修復：記錄這次是否有「從 0 開始新增列」，稍後要強制重繪列表，
+    // 否則新增出來的空白句子只會存在資料裡，畫面上的列表不會出現，
+    // 要等到使用者之後隨便做一個會觸發 renderSentenceList() 的操作
+    // （例如刪除某一列），才會「一次全部冒出來」，看起來像是刪除動作
+    // 自動生出了一堆句子。
+    let didCreateNewLabels = false;
     if (allLabelsOrdered.length === 0) {
         for (let i = 0; i < segments.length; i++) {
             const group = Math.floor(i / 99);
@@ -469,12 +504,18 @@ async function performAutoSegmentation() {
             allLabelsOrdered.push(label);
             sentenceTextMap[label] = '';
         }
+        didCreateNewLabels = true;
     }
 
     timeDataMap = {};
     let segIndex = 0;
     const gapMargin = 0.005; // ★ 安全防撞距離 (強制拉開 0.005 秒的空隙)
     
+    // ★ 修復：記錄列表原本已有句子、但句子數量不足以承接全部靜音段的情況，
+    // 之前這裡超出的段落會被下面迴圈的 break 直接跳過，完全沒有任何提示，
+    // 使用者不會知道自己其實少標了幾句。
+    const hadExistingLabelsBeforeThisRun = !didCreateNewLabels;
+
     for (let i = 0; i < allLabelsOrdered.length; i++) {
         if (segIndex >= segments.length) break;
         const label = allLabelsOrdered[i];
@@ -509,20 +550,38 @@ async function performAutoSegmentation() {
         segIndex++;
     }
 
+    // ★ 修復：句子數量不夠承接的段落數（只在「列表本來就有句子」時才會發生，
+    // 因為列表原本是空的話，上面已經依段落數量自動新增了對應的句子）
+    const discardedSegmentCount = segments.length - segIndex;
+
     saveToStorage();
 
     // ================= 階段 3：畫面渲染 (95% ~ 100%) =================
     showToast('3/3 正在重新渲染畫面... 95%', 'normal');
     await new Promise(resolve => setTimeout(resolve, 10));
 
+    // ★ 修復：如果剛才是從空列表新增出一整批句子，updateAllTimeDisplays()
+    // 只會逐一去抓「已存在畫面上」的 DOM 元素來更新時間，全新的列根本沒有
+    // 對應的 DOM，所以必須改呼叫 renderSentenceList() 整份重繪，句子才會
+    // 立刻出現在下方列表，而不是要等下一次刪除/重排才被動出現。
+    if (didCreateNewLabels && typeof renderSentenceList === 'function') {
+        renderSentenceList();
+    }
     if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
     if (typeof renderAllRegions === 'function') renderAllRegions();
     
     if (tempRegion) { tempRegion.remove(); tempRegion = null; }
     if (typeof updateToolbarButtons === 'function') updateToolbarButtons();
-    
-    // ★ 核心修復：移除錯誤的 mappedCount 判斷，改為正確的全域成功提示
-    showToast(`全域斷句完成！共精準切出 ${segments.length} 句`, 'success');
+
+    // ★ 修復：明確告知使用者有多少段靜音段落因為句子數不夠而被捨棄，
+    // 不再讓資料無聲流失；同時避免下面的成功訊息把這則警示立刻蓋掉，
+    // 所以句子數不足時改用警示文字取代原本的成功訊息，而不是兩則都跳。
+    if (hadExistingLabelsBeforeThisRun && discardedSegmentCount > 0) {
+        showToast(`偵測到 ${segments.length} 段，但列表句子數不足，有 ${discardedSegmentCount} 段未套用時間（可先新增空白句子列再重新斷句）`, 'error');
+    } else {
+        // ★ 核心修復：移除錯誤的 mappedCount 判斷，改為正確的全域成功提示
+        showToast(`全域斷句完成！共精準切出 ${segments.length} 句`, 'success');
+    }
 }
 
 
@@ -548,6 +607,7 @@ async function performRegionAutoSegmentation(startTime, endTime) {
     const minSilence = parseFloat(asSilence.value);
     const padding = parseFloat(asPadding.value);
     const minSegment = asMinSegment ? parseFloat(asMinSegment.value) : 0.5;
+    const detectionMode = asDetectionMode ? asDetectionMode.value : 'peak'; // ★ 新增：預設 'peak'，與修改前行為完全相同
     
     const step = Math.floor(sampleRate / 100); 
     
@@ -561,17 +621,23 @@ async function performRegionAutoSegmentation(startTime, endTime) {
 
     for (let i = startSample; i < endSample; i += step) {
         let maxAmp = 0;
+        let sumSquares = 0; // ★ 新增：用於 RMS 模式的累加器
         const localEnd = Math.min(i + step, endSample);
+        const blockSampleCount = (localEnd - i) * numChannels;
         for (let j = i; j < localEnd; j++) {
             for (let c = 0; c < numChannels; c++) {
                 const amp = Math.abs(channels[c][j]);
                 if (amp > maxAmp) maxAmp = amp;
+                if (detectionMode === 'rms') sumSquares += amp * amp;
             }
         }
+        const level = (detectionMode === 'rms' && blockSampleCount > 0)
+            ? Math.sqrt(sumSquares / blockSampleCount)
+            : maxAmp;
 
         const currentTime = (i / sampleRate) * timeRatio;
 
-        if (maxAmp < threshold) {
+        if (level < threshold) {
             if (!isSilence) {
                 isSilence = true;
                 silenceStart = currentTime;
@@ -910,6 +976,50 @@ async function resampleAudioTo16kHz(audioBuffer) {
     return renderedBuffer.getChannelData(0); 
 }
 
+// ================= ★ 共用：Whisper Worker 生命週期管理 ★ =================
+// 「一鍵全自動」跟「批次填詞」原本各自建立 worker、鎖定/還原按鈕、處理
+// loading/processing/error 這幾種共同狀態，兩邊寫法幾乎一樣，只是各改各的、
+// 容易顧此失彼。抽成共用函式，只留下真正不同的部分（complete / complete_batch
+// 等各自專屬的訊息處理）交給呼叫端。
+function runWhisperWorker(btnEl, originalBtnHtml, postPayload, transferList, handlers) {
+    btnEl.style.pointerEvents = 'none';
+
+    const worker = new Worker('7_worker_whisper.js', { type: 'module' });
+    const restoreBtn = () => {
+        btnEl.innerHTML = originalBtnHtml;
+        btnEl.style.pointerEvents = 'auto';
+    };
+
+    worker.onmessage = function(e) {
+        const data = e.data;
+
+        if (data.status === 'loading') {
+            const percent = data.percent || 0;
+            btnEl.innerHTML = `<span class="material-icons rotating">cloud_download</span> ${handlers.loadingLabel || '下載 AI 模型'} ${percent}%`;
+            return;
+        }
+        if (data.status === 'processing') {
+            btnEl.innerHTML = `<span class="material-icons rotating">sync</span> ${handlers.processingLabel || '辨識中...'}`;
+            if (data.message) showToast(data.message, 'normal');
+            return;
+        }
+        if (data.status === 'error') {
+            showToast('AI 處理失敗，請查看控制台', 'error');
+            console.error(data.message);
+            restoreBtn();
+            worker.terminate();
+            return;
+        }
+        // 其餘狀態（complete / complete_batch / progress_batch / progress_batch_error…）
+        // 是兩種模式各自獨有的，交給呼叫端處理
+        handlers.onMessage(data, { worker, restoreBtn });
+    };
+
+    worker.postMessage(postPayload, transferList);
+    return worker;
+}
+// =========================================================================
+
 const localAiSubtitleBtn = document.getElementById('localAiSubtitleBtn');
 
 localAiSubtitleBtn?.addEventListener('click', async () => {
@@ -945,78 +1055,56 @@ async function startLocalAiTranscription() {
         return showToast('音訊格式轉換失敗', 'error');
     }
 
-    // ★ 關鍵修復點：必須加上 { type: 'module' } 且檔名需完全對應
-    const whisperWorker = new Worker('7_worker_whisper.js', { type: 'module' });
+    runWhisperWorker(
+        localAiSubtitleBtn,
+        originalBtnHtml,
+        { type: 'transcribe', audioData: audio16kHzData, language: 'chinese' },
+        [audio16kHzData.buffer],
+        {
+            loadingLabel: '下載 AI 模型',
+            processingLabel: '正在聽打與標記...',
+            onMessage: (data, { worker, restoreBtn }) => {
+                if (data.status !== 'complete') return;
+                const chunks = data.result;
 
-    whisperWorker.onmessage = function(e) {
-        const data = e.data;
-        
-        if (data.status === 'loading') {
-            // UI 動態更新：顯示下載進度
-            const percent = data.percent || 0;
-            localAiSubtitleBtn.innerHTML = `<span class="material-icons rotating">cloud_download</span> 下載 AI 模型 ${percent}%`;
-            
-        } else if (data.status === 'processing') {
-            // UI 動態更新：下載完成，開始語音辨識
-            localAiSubtitleBtn.innerHTML = `<span class="material-icons rotating">sync</span> 正在聽打與標記...`;
-            showToast(data.message, 'normal');
-            
-        } else if (data.status === 'error') {
-            showToast('AI 處理失敗，請查看控制台', 'error');
-            console.error(data.message);
-            // 恢復 UI 狀態
-            localAiSubtitleBtn.innerHTML = originalBtnHtml;
-            localAiSubtitleBtn.style.pointerEvents = 'auto';
-            whisperWorker.terminate();
-            
-        } else if (data.status === 'complete') {
-            const chunks = data.result; 
-            
-            if (!chunks || chunks.length === 0) {
-                showToast('AI 聽不到任何內容', 'error');
-                localAiSubtitleBtn.innerHTML = originalBtnHtml;
-                localAiSubtitleBtn.style.pointerEvents = 'auto';
-                whisperWorker.terminate(); return;
+                if (!chunks || chunks.length === 0) {
+                    showToast('AI 聽不到任何內容', 'error');
+                    restoreBtn();
+                    worker.terminate();
+                    return;
+                }
+
+                if (typeof saveState === 'function') saveState();
+
+                // 匯入資料邏輯
+                allLabelsOrdered = []; sentenceTextMap = {}; timeDataMap = {};
+                chunks.forEach((chunk, index) => {
+                    const startTime = chunk.timestamp[0];
+                    let endTime = chunk.timestamp[1];
+                    if (endTime === null || endTime === undefined) endTime = audioPlayer.duration;
+
+                    const group = Math.floor(index / 99);
+                    const num = (index % 99) + 1;
+                    const prefix = String.fromCharCode(65 + group);
+                    const label = `${prefix}${num.toString().padStart(2, '0')}`;
+
+                    allLabelsOrdered.push(label);
+                    sentenceTextMap[label] = chunk.text.trim();
+                    timeDataMap[label] = { start: parseFloat(startTime.toFixed(3)), end: parseFloat(endTime.toFixed(3)) };
+                });
+
+                saveToStorage();
+                if (typeof renderSentenceList === 'function') renderSentenceList();
+                if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
+                if (typeof isScriptMode !== 'undefined' && isScriptMode && typeof populateScriptEditor === 'function') {
+                    populateScriptEditor();
+                }
+
+                showToast(`一鍵 AI 字幕完成！共生成 ${chunks.length} 句。`, 'success');
+                restoreBtn();
+                worker.terminate();
             }
-
-            if (typeof saveState === 'function') saveState();
-
-            // 匯入資料邏輯
-            allLabelsOrdered = []; sentenceTextMap = {}; timeDataMap = {};
-            chunks.forEach((chunk, index) => {
-                const startTime = chunk.timestamp[0];
-                let endTime = chunk.timestamp[1];
-                if (endTime === null || endTime === undefined) endTime = audioPlayer.duration;
-
-                const group = Math.floor(index / 99);
-                const num = (index % 99) + 1;
-                const prefix = String.fromCharCode(65 + group);
-                const label = `${prefix}${num.toString().padStart(2, '0')}`;
-
-                allLabelsOrdered.push(label);
-                sentenceTextMap[label] = chunk.text.trim();
-                timeDataMap[label] = { start: parseFloat(startTime.toFixed(3)), end: parseFloat(endTime.toFixed(3)) };
-            });
-
-            saveToStorage();
-            if (typeof renderSentenceList === 'function') renderSentenceList();
-            if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
-            if (typeof isScriptMode !== 'undefined' && isScriptMode && typeof populateScriptEditor === 'function') {
-                populateScriptEditor();
-            }
-            
-            showToast(`一鍵 AI 字幕完成！共生成 ${chunks.length} 句。`, 'success');
-            
-            // 恢復 UI 狀態
-            localAiSubtitleBtn.innerHTML = originalBtnHtml;
-            localAiSubtitleBtn.style.pointerEvents = 'auto';
-            whisperWorker.terminate(); 
         }
-    };
-
-    whisperWorker.postMessage(
-        { type: 'transcribe', audioData: audio16kHzData, language: 'chinese' }, 
-        [audio16kHzData.buffer] 
     );
 }
 
@@ -1072,12 +1160,10 @@ async function startLocalAiBatchTranscribe(targetLabels) {
         return showToast('音訊格式轉換失敗', 'error');
     }
 
-    const whisperWorker = new Worker('7_worker_whisper.js', { type: 'module' });
-    
     // 語言轉換設定
     const langSelect = document.getElementById('transcribeLangSelect');
     const langCode = langSelect ? langSelect.value : (localStorage.getItem('tagger_aiLanguage') || 'zh-TW');
-    
+
     let modelLang = 'chinese';
     if (langCode.includes('en')) modelLang = 'english';
     if (langCode.includes('ja')) modelLang = 'japanese';
@@ -1088,82 +1174,64 @@ async function startLocalAiBatchTranscribe(targetLabels) {
         return { label: label, start: times.start, end: times.end };
     });
 
-    whisperWorker.onmessage = function(e) {
-        const data = e.data;
-
-        if (data.status === 'loading') {
-            const percent = data.percent || 0;
-            localAiTranscribeBtn.innerHTML = `<span class="material-icons rotating">cloud_download</span> 模型 ${percent}%`;
-        } 
-        else if (data.status === 'processing') {
-            localAiTranscribeBtn.innerHTML = `<span class="material-icons rotating">sync</span> 辨識中...`;
-            showToast(data.message, 'normal');
-        } 
-        else if (data.status === 'progress_batch') {
-            // 即時動態回饋：更新單一句子的文字並捲動畫面
-            localAiTranscribeBtn.innerHTML = `<span class="material-icons rotating">sync</span> 辨識 ${data.current}/${data.total}`;
-            
-            const label = data.label;
-            const text = data.text;
-            sentenceTextMap[label] = text; // 寫入資料
-
-            // 即時更新畫面上的文字框
-            const itemDiv = document.getElementById(`item-${label}`);
-            if (itemDiv) {
-                const textDisplay = itemDiv.querySelector('.sentence-text-display');
-                if (textDisplay) textDisplay.textContent = text;
-                itemDiv.dataset.rawText = text;
-                
-                const deleteBtn = Array.from(itemDiv.querySelectorAll('button')).find(btn => btn.textContent.includes('刪除'));
-                if (deleteBtn) {
-                    deleteBtn.remove();
-                }
-                
-                // 畫面智慧捲動跟隨
-                if (currentSortMode === 'default' && typeof smartScrollTo === 'function') {
-                    smartScrollTo(itemDiv);
-                }
-            }
-            
-            saveToStorage();
-            
-            // 如果在大編輯框模式，同步更新
-            if (typeof isScriptMode !== 'undefined' && isScriptMode && typeof populateScriptEditor === 'function') {
-                populateScriptEditor();
-            }
-        } 
-        else if (data.status === 'error') {
-            showToast('AI 處理失敗，請查看控制台', 'error');
-            localAiTranscribeBtn.innerHTML = originalBtnHtml;
-            localAiTranscribeBtn.style.pointerEvents = 'auto';
-            whisperWorker.terminate();
-        } 
-        else if (data.status === 'complete_batch') {
-            showToast(`AI 批次填詞完成！共填入 ${segmentsData.length} 句。`, 'success');
-            localAiTranscribeBtn.innerHTML = originalBtnHtml;
-            localAiTranscribeBtn.style.pointerEvents = 'auto';
-            
-            if (typeof renderSentenceList === 'function') renderSentenceList();
-            
-            whisperWorker.terminate();
-        }
-    };
-
     if (typeof saveState === 'function') saveState(); // 紀錄狀態以便 Undo
 
-    // =====================================
-    // 讀取 UI 設定的語言
-    // =====================================
+    runWhisperWorker(
+        localAiTranscribeBtn,
+        originalBtnHtml,
+        { type: 'transcribe_batch', audioData: audio16kHzData, language: modelLang, segments: segmentsData },
+        [audio16kHzData.buffer],
+        {
+            loadingLabel: '模型',
+            processingLabel: '辨識中...',
+            onMessage: (data, { worker, restoreBtn }) => {
+                if (data.status === 'progress_batch') {
+                    // 即時動態回饋：更新單一句子的文字並捲動畫面
+                    localAiTranscribeBtn.innerHTML = `<span class="material-icons rotating">sync</span> 辨識 ${data.current}/${data.total}`;
 
-    if (langCode.includes('en')) modelLang = 'english';
-    if (langCode.includes('ja')) modelLang = 'japanese';
+                    const label = data.label;
+                    const text = data.text;
+                    sentenceTextMap[label] = text; // 寫入資料
 
-    whisperWorker.postMessage({ 
-        type: 'transcribe_batch',
-        audioData: audio16kHzData, 
-        language: modelLang,
-        segments: segmentsData 
-    }, [audio16kHzData.buffer]);
+                    // 即時更新畫面上的文字框
+                    const itemDiv = document.getElementById(`item-${label}`);
+                    if (itemDiv) {
+                        const textDisplay = itemDiv.querySelector('.sentence-text-display');
+                        if (textDisplay) textDisplay.textContent = text;
+                        itemDiv.dataset.rawText = text;
+
+                        const deleteBtn = Array.from(itemDiv.querySelectorAll('button')).find(btn => btn.textContent.includes('刪除'));
+                        if (deleteBtn) {
+                            deleteBtn.remove();
+                        }
+
+                        // 畫面智慧捲動跟隨
+                        if (currentSortMode === 'default' && typeof smartScrollTo === 'function') {
+                            smartScrollTo(itemDiv);
+                        }
+                    }
+
+                    saveToStorage();
+
+                    // 如果在大編輯框模式，同步更新
+                    if (typeof isScriptMode !== 'undefined' && isScriptMode && typeof populateScriptEditor === 'function') {
+                        populateScriptEditor();
+                    }
+                }
+                else if (data.status === 'progress_batch_error') {
+                    // ★ 修補：單句辨識失敗，提示使用者但不中斷整批（其餘句子繼續處理）
+                    showToast(`第 ${data.current}/${data.total} 句（${data.label}）辨識失敗，已略過`, 'error');
+                    localAiTranscribeBtn.innerHTML = `<span class="material-icons rotating">sync</span> 辨識 ${data.current}/${data.total}`;
+                }
+                else if (data.status === 'complete_batch') {
+                    showToast(`AI 批次填詞完成！共填入 ${segmentsData.length} 句。`, 'success');
+                    restoreBtn();
+                    if (typeof renderSentenceList === 'function') renderSentenceList();
+                    worker.terminate();
+                }
+            }
+        }
+    );
 }
 // =========================================================================
 
