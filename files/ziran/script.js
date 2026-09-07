@@ -8,6 +8,7 @@
 		let currentCourseTitle = '';
         let currentCourse = '';
         let currentQuestions = [];
+        let baseQuestionCount = 0; // 正式計分的題目數量，不含附加的間隔複習題
         let currentQuestionIndex = 0;
         let userAnswers = {};
         let showingExplanation = false;
@@ -29,6 +30,19 @@
         let originalAnswersBackup = {};   // 備份原始答案
 
 		let isQuizMode = false; // 預設為練習模式
+
+		// 獨立「複習錯題」模式（跨課程彙整所有到期未訂正的錯題，不算正式測驗）
+		let isSpacedReviewSession = false;
+		const MAX_SPACED_REVIEW_SESSION_QUESTIONS = 20; // 一次複習最多幾題，避免一次全部跳出來太多
+
+		// 🙂 小助手提示功能的狀態
+		let hintTokensRemaining = 0;          // 這次測驗/複習還剩幾點提示額度
+		let hintUnlockedQuestions = new Set(); // 已經解鎖提示的題目（同一題重複點擊不再扣點）
+		let hintMoodInterval = null;           // 表情自動輪替的計時器
+		let hintBubbleTimeout = null;          // 提示泡泡自動淡出的計時器
+		const HINT_MOOD_EMOJIS = ['🙂', '🤔', '😊', '😌'];
+		const HINT_SLEEP_EMOJI = '😴';
+		const HINT_MOOD_CYCLE_MS = 6000; // 每 6 秒自動換一次表情
         
         // 頭像分類
         const avatarCategories = {
@@ -41,6 +55,124 @@
             other: ['🌍', '🌎', '🌏', '🌐', '🗺️', '🗾', '🧭', '🏔️', '⛰️', '🌋', '🗻', '🏕️', '🏖️', '🏜️', '🏝️', '🏞️', '🏟️', '🏛️', '🏗️', '🧱', '🪨', '🪵', '🛖', '🏘️', '🏚️', '🏠', '🏡', '🏢', '🏣', '🏤', '🏥', '🏦', '🏨', '🏩', '🏪', '🏫', '🏬', '🏭', '🏯', '🏰', '🗼', '🗽', '⛪', '🕌', '🛕', '🕍', '⛩️', '🕋', '⛲', '⛺', '🌁', '🌃', '🏙️', '🌄', '🌅', '🌆', '🌇', '🌉', '♨️', '🎠', '🎡', '🎢', '💈', '🎪', '🚂', '🚃', '🚄', '🚅', '🚆', '🚇', '🚈', '🚉', '🚊', '🚝', '🚞', '🚋', '🚌', '🚍', '🚎', '🚐', '🚑', '🚒', '🚓', '🚔', '🚕', '🚖', '🚗', '🚘', '🚙', '🚚', '🚛', '🚜', '🏎️', '🏍️', '🛵', '🦽', '🦼', '🛴', '🚲', '🛹', '🛼', '🚁', '🛸', '✈️', '🛩️', '🛫', '🛬', '🪂', '💺', '🚀', '🛰️', '🚢', '⛵', '🛶', '🚤', '🛥️', '🛳️', '⛴️', '⚓', '⛽', '🚧', '🚨', '🚥', '🚦', '🛑', '🚏', '🗺️', '🗿', '🗽', '🗼', '🏛️', '🏟️', '🏞️', '🏜️', '🏝️', '🏖️', '⛱️', '🏔️', '⛰️', '🌋', '🗻']
         };
 
+        // ========================================
+        // 🌟 積分與頭像解鎖系統
+        // 因為測驗機是共用裝置（同一台電腦/平板可能給不同學生輪流用），
+        // 積分跟解鎖紀錄都用「班號_姓名」當 key 分開存，避免大家共用同一包積分
+        // ========================================
+
+        function getStudentKey(name, classNum) {
+            return `${(classNum || '').trim()}_${(name || '').trim()}`;
+        }
+
+        function getPointsData() {
+            try {
+                const raw = localStorage.getItem(`${QUIZ_ID}_points`);
+                const parsed = raw ? JSON.parse(raw) : {};
+                return (parsed && typeof parsed === 'object') ? parsed : {};
+            } catch (error) {
+                return {};
+            }
+        }
+
+        function savePointsData(data) {
+            try {
+                localStorage.setItem(`${QUIZ_ID}_points`, JSON.stringify(data));
+            } catch (error) {
+                console.log('儲存積分時發生錯誤');
+            }
+        }
+
+        function getPoints(name, classNum) {
+            const data = getPointsData();
+            return data[getStudentKey(name, classNum)] || 0;
+        }
+
+        function addPoints(name, classNum, amount) {
+            if (!amount || amount <= 0) return;
+            const data = getPointsData();
+            const key = getStudentKey(name, classNum);
+            data[key] = (data[key] || 0) + amount;
+            savePointsData(data);
+        }
+
+        // 扣點成功回傳 true；積分不夠回傳 false，不會扣成負數
+        function spendPoints(name, classNum, amount) {
+            const data = getPointsData();
+            const key = getStudentKey(name, classNum);
+            const current = data[key] || 0;
+            if (current < amount) return false;
+            data[key] = current - amount;
+            savePointsData(data);
+            return true;
+        }
+
+        function getUnlockedAvatarsData() {
+            try {
+                const raw = localStorage.getItem(`${QUIZ_ID}_unlockedAvatars`);
+                const parsed = raw ? JSON.parse(raw) : {};
+                return (parsed && typeof parsed === 'object') ? parsed : {};
+            } catch (error) {
+                return {};
+            }
+        }
+
+        function saveUnlockedAvatarsData(data) {
+            try {
+                localStorage.setItem(`${QUIZ_ID}_unlockedAvatars`, JSON.stringify(data));
+            } catch (error) {
+                console.log('儲存頭像解鎖紀錄時發生錯誤');
+            }
+        }
+
+        // 預設頭像永遠是解鎖的，其餘頭像要看是否已經兌換過
+        function isAvatarUnlocked(name, classNum, avatar) {
+            if (avatar === DEFAULT_AVATAR) return true;
+            const data = getUnlockedAvatarsData();
+            const list = data[getStudentKey(name, classNum)] || [];
+            return list.includes(avatar);
+        }
+
+        function unlockAvatarForStudent(name, classNum, avatar) {
+            const data = getUnlockedAvatarsData();
+            const key = getStudentKey(name, classNum);
+            if (!data[key]) data[key] = [];
+            if (!data[key].includes(avatar)) data[key].push(avatar);
+            saveUnlockedAvatarsData(data);
+        }
+
+        // 依測驗分數換算這次可以拿到幾點積分（依 SCORE_POINTS_RULES 由高到低比對）
+        function getPointsForScore(percentage) {
+            if (!ENABLE_POINTS_SYSTEM) return 0;
+            const rule = SCORE_POINTS_RULES.find(r => percentage >= r.minScore);
+            return rule ? rule.points : 0;
+        }
+
+        // 更新「個人資訊」區塊裡的積分顯示，依目前輸入框裡的姓名/班號查詢
+        function updatePointsDisplay() {
+            const display = document.getElementById('studentPointsDisplay');
+            if (!display) return;
+            const name = (document.getElementById('studentName')?.value || '').trim();
+            const classNum = (document.getElementById('studentClass')?.value || '').trim();
+            const points = (name && classNum) ? getPoints(name, classNum) : 0;
+            display.textContent = `🌟 積分 ${points} 點`;
+        }
+
+
+        // 如果 localStorage 裡的資料損毀（非合法 JSON），不會讓整頁程式當機，
+        // 而是自動清除壞掉的資料、回傳空陣列，讓功能可以繼續運作
+        function getHistory() {
+            const raw = localStorage.getItem(`${QUIZ_ID}_history`);
+            if (!raw) return [];
+            try {
+                const parsed = JSON.parse(raw);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (error) {
+                console.log('歷史紀錄資料損毀，已自動清除並重置為空紀錄');
+                localStorage.removeItem(`${QUIZ_ID}_history`);
+                return [];
+            }
+        }
 
 function loginUser(name, classNum, avatar, quizCode) {
             studentName = name;
@@ -88,7 +220,7 @@ function loginUser(name, classNum, avatar, quizCode) {
 
         // 檢查是否有歷史紀錄
         function hasHistory() {
-            const history = JSON.parse(localStorage.getItem(`${QUIZ_ID}_history`) || '[]');
+            const history = getHistory();
             return history.length > 0;
         }
 
@@ -112,6 +244,8 @@ function loginUser(name, classNum, avatar, quizCode) {
 
 		// 初始化課別選單
 		function initCourseSelection() {
+			updateSpacedReviewEntry();
+
 			const courseButtonsContainer = document.getElementById('courseButtons');
 			courseButtonsContainer.innerHTML = ''; // 清空現有內容
 
@@ -135,6 +269,8 @@ function loginUser(name, classNum, avatar, quizCode) {
 
 			// 4. 渲染每一個分類區塊
 			Object.keys(groupedCourses).forEach((category, index) => {
+				const coursesInCategory = groupedCourses[category];
+
 				// 建立分類大區塊
 				const categoryBlock = document.createElement('div');
 				categoryBlock.className = 'bg-white rounded-xl shadow-md overflow-hidden transition-all duration-300'; 
@@ -146,18 +282,25 @@ function loginUser(name, classNum, avatar, quizCode) {
 				
                 // 左側標題群組
                 const titleGroup = document.createElement('div');
-                titleGroup.className = 'flex items-center';
+                titleGroup.className = 'flex items-center flex-wrap gap-y-1';
 
 				const titleIcon = document.createElement('span');
 				titleIcon.className = 'material-icons-outlined text-purple-600 mr-2';
-				titleIcon.textContent = 'folder'; // 資料夾圖示
+				titleIcon.textContent = getCategoryIcon(category);
 				
 				const title = document.createElement('h2');
 				title.className = 'text-lg font-bold text-purple-800'; 
 				title.textContent = category;
+
+				// 分類進度摘要：N 個測驗・已完成 M 個
+				const summary = document.createElement('span');
+				summary.className = 'ml-3 text-xs px-2 py-1 rounded-full bg-white text-purple-600';
+				const completedInCategory = coursesInCategory.filter(c => getPracticeCount(c.id) > 0).length;
+				summary.textContent = `${coursesInCategory.length} 個測驗・已完成 ${completedInCategory} 個`;
 				
                 titleGroup.appendChild(titleIcon);
                 titleGroup.appendChild(title);
+                titleGroup.appendChild(summary);
 
                 // 右側折疊圖示 (預設顯示 "展開更多" 的箭頭)
                 const toggleIcon = document.createElement('span');
@@ -174,7 +317,7 @@ function loginUser(name, classNum, avatar, quizCode) {
 				gridContainer.className = 'p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 hidden bg-gray-50/50'; 
 
 				// 生成該分類下的所有課程按鈕
-				groupedCourses[category].forEach((course, idx) => {
+				coursesInCategory.forEach((course, idx) => {
 					// 這裡要注意：原本的 index 是全域迴圈的，現在我們在內部迴圈
                     // 如果您希望按鈕上的編號是連續的，可能需要調整。
                     // 這裡先維持用該分類下的順序+1顯示，或是使用原本邏輯
@@ -204,24 +347,49 @@ function loginUser(name, classNum, avatar, quizCode) {
 				courseButtonsContainer.appendChild(categoryBlock);
 			});
 		}
+		// 依分類名稱挑選一個貼切的圖示，找不到對應關鍵字就用預設的資料夾圖示
+		function getCategoryIcon(category) {
+			if (/月|太陽|星|天文/.test(category)) return 'nightlight';
+			if (/水|海|魚|生物/.test(category)) return 'water_drop';
+			if (/物質|化學|變|實驗/.test(category)) return 'science';
+			if (/力|運動|磁|電/.test(category)) return 'bolt';
+			if (/植物|生態/.test(category)) return 'eco';
+			return 'folder';
+		}
+
 		// 獨立出來的按鈕建立函數，避免程式碼重複
 		function createCourseButton(course, index) {
 			const button = document.createElement('button');
-			button.className = 'bg-gradient-to-r from-purple-100 to-blue-100 hover:from-purple-200 hover:to-blue-200 text-gray-800 px-4 py-4 rounded-lg font-medium text-base transition-all text-left w-full shadow hover:shadow-md transform hover:scale-102'; 
-			
-			// 傳入 course.id 來取得數據
+			button.className = 'bg-white border border-gray-200 hover:border-purple-300 hover:shadow-md text-gray-800 px-4 py-3 rounded-lg font-medium text-base transition-all text-left w-full flex flex-col gap-2';
+
 			const practiceCount = getPracticeCount(course.id);
 			const avgScore = getAverageScore(course.id);
-			const starColor = getStarColor(avgScore);
-			
+			const hasDueReview = getAllDueReviewItems().some(item => item.courseId === course.id);
+
+			// 決定狀態標籤：已完成 / 複習 / 尚未挑戰
+			let statusBadge, statusDetail;
+			if (hasDueReview) {
+				statusBadge = `<span class="text-xs px-2 py-0.5 rounded-full" style="background-color: var(--color-warning-light); color: var(--color-warning-dark);">複習</span>`;
+				statusDetail = `<span class="text-xs" style="color: var(--color-warning-dark);">${avgScore} 分・有錯題待複習</span>`;
+			} else if (practiceCount > 0) {
+				statusBadge = `<span class="text-xs px-2 py-0.5 rounded-full" style="background-color: var(--color-accent-light); color: var(--color-accent-dark);">已完成</span>`;
+				statusDetail = `<span class="text-xs" style="color: var(--color-accent-dark);">平均 ${avgScore} 分・練習 ${practiceCount} 次</span>`;
+			} else {
+				statusBadge = `<span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">尚未挑戰</span>`;
+				statusDetail = '';
+			}
+
 			button.innerHTML = `
 				<div class="flex justify-between items-center">
-					<div class="text-lg text-black">${index + 1}. ${course.title}</div>
-					<div class="flex items-center space-x-2">
-						<button class="text-xl ${starColor} hover:scale-110 transition-transform" onclick="event.stopPropagation(); showCourseStats('${course.id}', '${course.title}', ${avgScore})" title="點擊查看練習紀錄">${practiceCount > 0 ? '★' : '☆'}</button>
-						<span class="text-base font-medium text-black">${practiceCount}</span>
-					</div>
+					<span class="text-xs text-gray-400">測驗 ${index + 1}</span>
+					${statusBadge}
 				</div>
+				<div class="text-base text-black">${course.title}</div>
+				${(statusDetail || practiceCount > 0) ? `
+				<div class="flex items-center justify-between">
+					${statusDetail}
+					${practiceCount > 0 ? `<button class="text-xs text-purple-500 hover:text-purple-700 underline flex-shrink-0" onclick="event.stopPropagation(); showCourseStats('${course.id}', '${course.title}', ${avgScore})">查看紀錄</button>` : ''}
+				</div>` : ''}
 			`;
 			button.onclick = () => startQuiz(course.id);
 			return button;
@@ -229,14 +397,14 @@ function loginUser(name, classNum, avatar, quizCode) {
 
         // 計算練習次數（只計算完成的）
 		function getPracticeCount(courseId) {
-			const history = JSON.parse(localStorage.getItem(`${QUIZ_ID}_history`) || '[]');
+			const history = getHistory();
 			// 檢查 record.courseId
 			return history.filter(record => record.courseId === courseId && record.completed).length;
 		}
 
         // 計算平均成績
 		function getAverageScore(courseId) {
-			const history = JSON.parse(localStorage.getItem(`${QUIZ_ID}_history`) || '[]');
+			const history = getHistory();
 			const completedRecords = history.filter(record => record.courseId === courseId && record.completed);
 			if (completedRecords.length === 0) return 0;
 			
@@ -244,19 +412,12 @@ function loginUser(name, classNum, avatar, quizCode) {
 			return Math.round(totalScore / completedRecords.length);
 		}
 
-        // 根據成績決定星號顏色
-        function getStarColor(score) {
-            if (score >= 90) return 'text-yellow-500'; // 黃色
-            if (score >= 80) return 'text-blue-500';   // 藍色
-            if (score >= 70) return 'text-green-500';  // 綠色
-            if (score >= 60) return 'text-gray-500';   // 灰色
-            return 'text-black';                       // 黑色
-        }
+        // 根據成績決定星號顏色（供「查看紀錄」彈窗使用）
 
 		// 顯示課程統計 (接收 ID 和 Title)
 		function showCourseStats(courseId, courseTitle, avgScore) {
             // 1. 取得該課程的所有歷史紀錄
-            const history = JSON.parse(localStorage.getItem(`${QUIZ_ID}_history`) || '[]');
+            const history = getHistory();
             const records = history.filter(record => record.courseId === courseId && record.completed);
             
             // 2. 計算各分數段的次數
@@ -313,6 +474,24 @@ function loginUser(name, classNum, avatar, quizCode) {
 				}
 			}
 			document.getElementById('statsModalStars').innerHTML = starsHtml;
+
+			// 分數趨勢折線圖：依作答時間由舊到新排序，重用學習歷程/跨測驗趨勢用的同一份繪圖邏輯
+			const trendContainer = document.getElementById('statsTrendChart');
+			if (trendContainer) {
+				if (practiceCount === 0) {
+					trendContainer.classList.add('hidden');
+				} else {
+					trendContainer.classList.remove('hidden');
+					const chartData = [...records]
+						.sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
+						.map(r => {
+							const d = new Date(r.startTime);
+							const label = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+							return { score: r.score, courseTitle: label };
+						});
+					renderTrendChart(chartData, 'statsTrendChart');
+				}
+			}
 
 			// 設定評語 (鼓勵文字)
 			const commentEl = document.getElementById('statsModalComment');
@@ -538,7 +717,11 @@ function loginUser(name, classNum, avatar, quizCode) {
             }
 
             // 3. 測驗模式按鈕 & 終止測驗按鈕 (維持原邏輯)
-            if (isInQuiz) {
+            // 複習錯題不是正式測驗，不顯示「測驗模式」切換與「終止測驗」
+            if (isInQuiz && isSpacedReviewSession) {
+                quizModeBtn.classList.add('hidden');
+                exitQuizBtn.classList.add('hidden');
+            } else if (isInQuiz) {
                 quizModeBtn.classList.remove('hidden');
                 
                 // 檢查是否已經開始作答 (防止作答中途切換模式)
@@ -577,6 +760,375 @@ function loginUser(name, classNum, avatar, quizCode) {
             }
         }
 		// 開始測驗
+		// 找出這個課程「間隔複習」該附加的題目（只回傳題目物件陣列，可能是空陣列）
+		function getSpacedReviewQuestions(courseObj) {
+			const history = getHistory();
+			const now = new Date();
+			const msPerDay = 24 * 60 * 60 * 1000;
+
+			// 找出這個課程過去「完成」且「有錯題」、且已經超過設定天數的紀錄
+			const pastAttempts = history.filter(r =>
+				r.courseId === courseObj.id &&
+				r.completed &&
+				Array.isArray(r.wrongQuestionIndices) &&
+				r.wrongQuestionIndices.length > 0 &&
+				(now - new Date(r.endTime)) >= SPACED_REVIEW_DAYS * msPerDay
+			);
+
+			if (pastAttempts.length === 0) return [];
+
+			// 取最近一次符合條件的紀錄
+			pastAttempts.sort((a, b) => new Date(b.endTime) - new Date(a.endTime));
+			const wrongIndices = [...new Set(pastAttempts[0].wrongQuestionIndices)]
+				.slice(0, MAX_SPACED_REVIEW_QUESTIONS);
+
+			return wrongIndices
+				.map(qNum => courseObj.questions[qNum - 1])
+				.filter(q => q) // 避免題庫已修改導致索引超出範圍
+				.map(q => ({
+					course: courseObj.title,
+					question: q.question,
+					option1: q.options[0] || "",
+					option2: q.options[1] || "",
+					option3: q.options[2] || "",
+					option4: q.options[3] || "",
+					correctAnswer: q.answer,
+					explanation: q.explanation || "",
+					isReviewQuestion: true
+				}));
+		}
+
+		// ========================================
+		// 🔁 獨立「複習錯題」模式
+		// 跨所有課程彙整目前「到期未訂正」的錯題，讓學生可以直接訂正，
+		// 不需要重新做一次整份測驗
+		// ========================================
+
+		// 彙整所有課程裡到期未訂正的錯題
+		// 回傳的每個項目都記得自己來自哪一筆歷史紀錄、原本是第幾題，
+		// 訂正正確後才能準確地把它從「錯題清單」裡移除
+		function getAllDueReviewItems() {
+			const history = getHistory();
+			const now = new Date();
+			const msPerDay = 24 * 60 * 60 * 1000;
+
+			// 每個課程只取「最近一次已完成且有錯題」的紀錄來判斷是否到期，
+			// 避免同一題因為好幾次舊紀錄而重複出現
+			const latestByCourse = {};
+			history.forEach((record, historyIndex) => {
+				if (!record.completed || !Array.isArray(record.wrongQuestionIndices) || record.wrongQuestionIndices.length === 0) return;
+				const existing = latestByCourse[record.courseId];
+				if (!existing || new Date(record.endTime) > new Date(existing.endTime)) {
+					latestByCourse[record.courseId] = { ...record, historyIndex };
+				}
+			});
+
+			const items = [];
+			Object.values(latestByCourse).forEach(record => {
+				if ((now - new Date(record.endTime)) < SPACED_REVIEW_DAYS * msPerDay) return;
+
+				const course = quizData.find(c => c.id === record.courseId);
+				if (!course) return;
+
+				record.wrongQuestionIndices.forEach(qNum => {
+					const q = course.questions[qNum - 1];
+					if (!q) return; // 題庫已修改導致索引超出範圍，跳過
+					items.push({
+						historyIndex: record.historyIndex,
+						courseId: record.courseId,
+						courseTitle: course.title,
+						questionNumber: qNum,
+						course: course.title,
+						question: q.question,
+						option1: q.options[0] || "",
+						option2: q.options[1] || "",
+						option3: q.options[2] || "",
+						option4: q.options[3] || "",
+						correctAnswer: q.answer,
+						explanation: q.explanation || "",
+						isReviewQuestion: true
+					});
+				});
+			});
+
+			return items;
+		}
+
+		// 更新首頁「複習錯題」入口的顯示狀態與題數
+		function updateSpacedReviewEntry() {
+			const entry = document.getElementById('spacedReviewEntry');
+			if (!entry) return;
+
+			if (!ENABLE_SPACED_REVIEW) {
+				entry.classList.add('hidden');
+				return;
+			}
+
+			const dueCount = getAllDueReviewItems().length;
+			if (dueCount === 0) {
+				entry.classList.add('hidden');
+				return;
+			}
+
+			entry.classList.remove('hidden');
+			document.getElementById('spacedReviewCount').textContent = dueCount;
+		}
+
+		// 開始獨立的複習錯題模式
+		function startSpacedReviewSession() {
+			const items = getAllDueReviewItems();
+			if (items.length === 0) {
+				alert('目前沒有需要複習的錯題，太棒了！🎉');
+				return;
+			}
+
+			isQuizMode = false;
+			isReviewMode = false;
+			isSpacedReviewSession = true;
+			originalQuestionsBackup = [];
+			originalAnswersBackup = {};
+
+			currentCourseId = null;
+			currentCourseTitle = '複習錯題';
+			// 題目順序打散，避免每次都照課程順序出現
+			currentQuestions = [...items].sort(() => Math.random() - 0.5)
+				.slice(0, MAX_SPACED_REVIEW_SESSION_QUESTIONS);
+			baseQuestionCount = currentQuestions.length;
+
+			currentQuestionIndex = 0;
+			userAnswers = {};
+			showingExplanation = false;
+			startTime = new Date();
+
+			document.getElementById('mainTitle').textContent = '🔁 複習錯題';
+
+			const headerArea = document.getElementById('headerArea');
+			const mainTitle = document.getElementById('mainTitle');
+			headerArea.classList.remove('mb-8');
+			headerArea.classList.add('mb-2');
+			mainTitle.classList.remove('text-2xl', 'md:text-4xl');
+			mainTitle.classList.add('text-xl', 'md:text-2xl');
+
+			document.getElementById('userInfo').style.cursor = 'default';
+			document.getElementById('userInfo').onclick = null;
+
+			document.getElementById('courseSelection').classList.add('hidden');
+			document.getElementById('quizArea').classList.remove('hidden');
+			document.getElementById('resultArea').classList.add('hidden');
+			document.getElementById('reviewArea').classList.add('hidden');
+			document.getElementById('historyArea').classList.add('hidden');
+			// 複習錯題不是正式測驗，不需要「終止測驗」按鈕
+			document.getElementById('exitQuizBtn').classList.add('hidden');
+
+			window.scrollTo(0, 0);
+
+			updateHeaderButtonsVisibility();
+			initQuestionNavigation();
+			showQuestion();
+			updateProgress();
+			maybeShowOnboardingTip();
+			resetHintMascot();
+		}
+
+		// 複習錯題session結束：把訂正成功的題目從原始歷史紀錄的錯題清單移除，
+		// 這樣下次就不會再被抽到；答錯的題目維持原樣，之後還是會被抽到繼續複習
+		function finishSpacedReviewSession() {
+			const history = getHistory();
+			let correct = 0;
+
+			currentQuestions.forEach((q, index) => {
+				const isCorrect = userAnswers[index] === q.correctAnswer;
+				if (isCorrect) correct++;
+
+				const record = history[q.historyIndex];
+				if (record && Array.isArray(record.wrongQuestionIndices) && isCorrect) {
+					record.wrongQuestionIndices = record.wrongQuestionIndices.filter(n => n !== q.questionNumber);
+				}
+			});
+
+			try {
+				localStorage.setItem(`${QUIZ_ID}_history`, JSON.stringify(history));
+			} catch (error) {
+				console.log('更新複習紀錄時發生錯誤');
+			}
+
+			isSpacedReviewSession = false;
+			showSpacedReviewResult(correct, currentQuestions.length);
+		}
+
+		// 顯示複習錯題的簡易結果畫面（重用結果頁的星星/統計方塊，但不計入正式成績、不送出 Google 表單）
+		function showSpacedReviewResult(correct, total) {
+			const wrong = total - correct;
+			const percentage = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+			let stars = '';
+			const fullStars = Math.floor(percentage / 20);
+			const hasHalfStar = (percentage % 20) >= 10;
+			const starClass = 'material-icons text-yellow-400';
+			for (let i = 0; i < fullStars; i++) stars += `<span class="${starClass}">star</span>`;
+			if (hasHalfStar && fullStars < 5) stars += `<span class="${starClass}">star_half</span>`;
+			const totalSymbols = fullStars + (hasHalfStar ? 1 : 0);
+			for (let i = totalSymbols; i < 5; i++) stars += `<span class="${starClass}">star_border</span>`;
+
+			document.getElementById('starRating').innerHTML = stars;
+			document.getElementById('scoreText').textContent = `這次複習訂正對了 ${correct} / ${total} 題`;
+			document.getElementById('correctCount').textContent = correct;
+			document.getElementById('wrongCount').textContent = wrong;
+			document.getElementById('totalCount').textContent = total;
+
+			document.getElementById('quizArea').classList.add('hidden');
+			document.getElementById('exitQuizBtn').classList.add('hidden');
+			document.getElementById('resultArea').classList.remove('hidden');
+
+			updateHeaderButtonsVisibility();
+		}
+
+		// 新手提示：只在學生「第一次」進入測驗畫面時顯示一次，
+		// 提醒他工具列裡的朗讀／注音功能，看過一次後就不再出現
+		function maybeShowOnboardingTip() {
+			const seenKey = `${QUIZ_ID}_onboardingSeen`;
+			let alreadySeen;
+			try {
+				alreadySeen = localStorage.getItem(seenKey);
+			} catch (error) {
+				return; // 讀取 localStorage 失敗就乾脆不顯示，避免影響正常作答
+			}
+			if (alreadySeen) return;
+
+			const tip = document.getElementById('onboardingTip');
+			const overlay = document.getElementById('onboardingOverlay');
+			const dismissBtn = document.getElementById('onboardingTipDismiss');
+			if (!tip || !overlay || !dismissBtn) return;
+
+			overlay.classList.remove('hidden');
+			tip.classList.remove('hidden');
+
+			const dismiss = () => {
+				overlay.classList.add('hidden');
+				tip.classList.add('hidden');
+				try {
+					localStorage.setItem(seenKey, 'true');
+				} catch (error) {
+					// 存不進去就算了，下次還會再顯示一次，不影響功能
+				}
+			};
+
+			overlay.onclick = dismiss;
+			dismissBtn.onclick = dismiss;
+		}
+
+		// ========================================
+		// 🙂 小助手提示功能
+		// 只在練習模式（含獨立複習模式）出現，測驗模式完全不顯示
+		// ========================================
+
+		// 這次測驗/複習有幾點提示額度可以用
+		// 現在固定回傳設定值，之後要接「積分換額度」的話，改這裡就好，其他地方都不用動
+		function getHintTokenCount() {
+			return HINT_TOKENS_PER_SESSION;
+		}
+
+		// 開始一份新的練習/複習時呼叫：重置額度、清空已解鎖題目、開始表情輪替
+		function resetHintMascot() {
+			if (!ENABLE_HINT_MASCOT) return;
+			hintTokensRemaining = getHintTokenCount();
+			hintUnlockedQuestions = new Set();
+			hideHintBubble();
+			updateHintMascotUI();
+			startHintMoodCycle();
+		}
+
+		// 離開測驗畫面時呼叫：停止表情輪替計時器，避免背景一直空轉
+		function stopHintMascot() {
+			if (hintMoodInterval) {
+				clearInterval(hintMoodInterval);
+				hintMoodInterval = null;
+			}
+			hideHintBubble();
+		}
+
+		function startHintMoodCycle() {
+			if (hintMoodInterval) clearInterval(hintMoodInterval);
+			if (hintTokensRemaining <= 0) return; // 額度用完就不用轉了，直接維持睡臉
+			hintMoodInterval = setInterval(() => {
+				const emoji = HINT_MOOD_EMOJIS[Math.floor(Math.random() * HINT_MOOD_EMOJIS.length)];
+				const emojiEl = document.getElementById('hintMascotEmoji');
+				if (emojiEl) emojiEl.textContent = emoji;
+			}, HINT_MOOD_CYCLE_MS);
+		}
+
+		// 根據目前是不是練習模式，決定小助手要不要出現（呼叫時機：每次 showQuestion）
+		function updateHintMascotVisibility() {
+			const mascot = document.getElementById('hintMascot');
+			if (!mascot) return;
+			const shouldShow = ENABLE_HINT_MASCOT && !isQuizMode && !isReviewMode;
+			mascot.classList.toggle('hidden', !shouldShow);
+			if (!shouldShow) hideHintBubble();
+		}
+
+		// 更新徽章數字跟表情（額度用完就固定顯示睡臉、停止輪替）
+		function updateHintMascotUI() {
+			const badge = document.getElementById('hintMascotBadge');
+			const emojiEl = document.getElementById('hintMascotEmoji');
+			if (badge) badge.textContent = hintTokensRemaining;
+
+			if (hintTokensRemaining <= 0) {
+				if (hintMoodInterval) {
+					clearInterval(hintMoodInterval);
+					hintMoodInterval = null;
+				}
+				if (emojiEl) emojiEl.textContent = HINT_SLEEP_EMOJI;
+			} else if (!hintMoodInterval) {
+				startHintMoodCycle();
+			}
+		}
+
+		// 點擊小助手：同一題重複點只顯示快取內容不扣點；額度用完就顯示睡著訊息
+		function onHintMascotClick() {
+			const qIndex = currentQuestionIndex;
+			const question = currentQuestions[qIndex];
+			if (!question) return;
+
+			if (hintUnlockedQuestions.has(qIndex)) {
+				showHintBubble(question.explanation || '這一題沒有提供解析喔！');
+				return;
+			}
+
+			if (hintTokensRemaining <= 0) {
+				showHintBubble('小助手睡著了，這次沒有提示囉，下次再來找我吧！😴');
+				return;
+			}
+
+			hintTokensRemaining--;
+			hintUnlockedQuestions.add(qIndex);
+			updateHintMascotUI();
+			showHintBubble(question.explanation || '這一題沒有提供解析喔！');
+		}
+
+		function showHintBubble(text) {
+			const bubble = document.getElementById('hintBubble');
+			const bubbleText = document.getElementById('hintBubbleText');
+			if (!bubble || !bubbleText) return;
+
+			bubbleText.textContent = text;
+			// 跟題目一致：套用目前選擇的字體大小，注音模式開啟時也套用注音字體
+			bubbleText.style.fontSize = FONT_SIZES[fontSizeIndex] + 'px';
+			bubbleText.classList.toggle('zhuyin-font', zhuyinMode);
+			bubble.classList.remove('hidden');
+
+			if (hintBubbleTimeout) clearTimeout(hintBubbleTimeout);
+			hintBubbleTimeout = setTimeout(hideHintBubble, 8000); // 8 秒後自動淡出
+		}
+
+		function hideHintBubble() {
+			const bubble = document.getElementById('hintBubble');
+			if (bubble) bubble.classList.add('hidden');
+			if (hintBubbleTimeout) {
+				clearTimeout(hintBubbleTimeout);
+				hintBubbleTimeout = null;
+			}
+		}
+
 		function startQuiz(courseId, pushHistory = true) {
 			isReviewMode = false; 
 			originalQuestionsBackup = [];
@@ -610,6 +1162,16 @@ function loginUser(name, classNum, avatar, quizCode) {
 					explanation: q.explanation || ""
 				};
 			});
+
+			baseQuestionCount = currentQuestions.length;
+
+			// 間隔複習：只在「練習模式」附加，測驗模式維持原本標準題目，不受影響
+			if (ENABLE_SPACED_REVIEW && !isQuizMode) {
+				const reviewQuestions = getSpacedReviewQuestions(courseObj);
+				if (reviewQuestions.length > 0) {
+					currentQuestions = currentQuestions.concat(reviewQuestions);
+				}
+			}
 
 			currentQuestionIndex = 0;
 			userAnswers = {};
@@ -647,11 +1209,14 @@ function loginUser(name, classNum, avatar, quizCode) {
 			initQuestionNavigation();
 			showQuestion();
 			updateProgress();
+			maybeShowOnboardingTip();
+			resetHintMascot();
 		}
 
 		// 統一的返回首頁 UI 處理函式
 		function returnToHomeUI() {
 			isReviewMode = false;
+			stopHintMascot();
 			// 恢復標題
 			document.getElementById('mainTitle').textContent = QUIZ_TITLE;
 
@@ -704,9 +1269,9 @@ function loginUser(name, classNum, avatar, quizCode) {
 		}
 
         // 歷史紀錄管理
-		function saveHistory(score, completed = true) {
+		function saveHistory(score, completed = true, wrongQuestionIndices = []) {
 			const endTime = new Date();
-			const history = JSON.parse(localStorage.getItem(`${QUIZ_ID}_history`) || '[]');
+			const history = getHistory();
 			
 			const record = {
 				studentName: studentName,
@@ -716,7 +1281,8 @@ function loginUser(name, classNum, avatar, quizCode) {
 				startTime: startTime.toISOString(),
 				endTime: endTime.toISOString(),
 				score: completed ? score : null,
-				completed: completed
+				completed: completed,
+				wrongQuestionIndices: completed ? wrongQuestionIndices : [] // 供「間隔複習」功能使用
 			};
 			
 			history.unshift(record); // 最新的在前面
@@ -724,7 +1290,7 @@ function loginUser(name, classNum, avatar, quizCode) {
 		}
 
 		function cleanExpiredHistory() {
-            const history = JSON.parse(localStorage.getItem(`${QUIZ_ID}_history`) || '[]');
+            const history = getHistory();
             
             const now = new Date();
             // 1. 先取得目前的年份
@@ -754,7 +1320,7 @@ function loginUser(name, classNum, avatar, quizCode) {
 
         // 更新相同姓名的歷史紀錄頭像
         function updateHistoryAvatarsByName(name, newAvatar) {
-            const history = JSON.parse(localStorage.getItem(`${QUIZ_ID}_history`) || '[]');
+            const history = getHistory();
             let updated = false;
             
             history.forEach(record => {
@@ -770,12 +1336,43 @@ function loginUser(name, classNum, avatar, quizCode) {
         }
 
 		// 新的 showHistory 函式
+		// 計算並呈現「我的學習歷程」整體表現摘要與趨勢圖
+		function renderHistoryStats(history) {
+			const statsSection = document.getElementById('historyStatsSection');
+			const completed = history.filter(r => r.completed && typeof r.score === 'number');
+
+			if (completed.length === 0) {
+				statsSection.classList.add('hidden');
+				return;
+			}
+
+			statsSection.classList.remove('hidden');
+
+			const avgScore = Math.round(completed.reduce((sum, r) => sum + r.score, 0) / completed.length);
+			document.getElementById('historyCompletedCount').textContent = completed.length;
+			document.getElementById('historyAverageScore').textContent = avgScore;
+
+			// 依作答時間由舊到新排序，畫出分數變化趨勢
+			const chartData = [...completed]
+				.sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
+				.map(r => ({ courseTitle: r.courseTitle || r.course || '測驗', score: r.score }));
+
+			renderTrendChart(chartData, 'historyTrendChart');
+		}
+
 		function showHistory() {
-			const history = JSON.parse(localStorage.getItem(`${QUIZ_ID}_history`) || '[]');
+			const history = getHistory();
 			const historyList = document.getElementById('historyList');
+
+			renderHistoryStats(history);
 			
 			if (history.length === 0) {
-				historyList.innerHTML = '<p class="text-center text-gray-600">尚無測驗紀錄</p>';
+				historyList.innerHTML = `
+					<div class="flex flex-col items-center justify-center py-10 text-gray-400">
+						<span class="material-icons-outlined text-5xl mb-2">inbox</span>
+						<p class="text-gray-500">尚無測驗紀錄</p>
+					</div>
+				`;
 			} else {
 				historyList.innerHTML = history.map((record, index) => {
 					const startTime = new Date(record.startTime);
@@ -787,20 +1384,24 @@ function loginUser(name, classNum, avatar, quizCode) {
 					const displayName = record.studentName || '未知';
 					// 使用 record.courseTitle
 					const displayTitle = record.courseTitle || record.course || '未知課程';
+					const statusClass = record.completed ? 'text-[var(--color-accent-dark)]' : 'text-[var(--color-warning-dark)]';
+					const statusText = record.completed ? `得分 ${record.score}` : '未完成';
 					
 					return `
-						<div class="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
-							<div class="flex items-center space-x-3 flex-1">
-								<span class="text-2xl">${displayAvatar}</span>
-								<span class="font-medium">${displayName}</span>
-								<span class="text-gray-600">${displayTitle}</span>
-								<span class="text-sm ${record.completed ? 'text-green-600' : 'text-red-600'}">
-									${record.completed ? `得分 ${record.score}` : '未完成'}
-								</span>
-								<span class="text-sm text-gray-500">${startStr} - ${endStr}</span>
+						<div class="bg-gray-50 p-3 rounded-lg flex items-center justify-between gap-2">
+							<div class="min-w-0 flex-1">
+								<div class="flex items-center space-x-2">
+									<span class="text-2xl flex-shrink-0">${displayAvatar}</span>
+									<span class="font-medium truncate">${displayName}</span>
+									<span class="text-gray-500 truncate">・${displayTitle}</span>
+								</div>
+								<div class="flex items-center flex-wrap gap-x-3 mt-1 pl-9 text-sm">
+									<span class="font-semibold ${statusClass}">${statusText}</span>
+									<span class="text-gray-400">${startStr} - ${endStr}</span>
+								</div>
 							</div>
-							<button onclick="deleteHistoryRecord(${index})" class="bg-red-500 hover:bg-red-600 text-white w-6 h-6 rounded-full text-xs font-bold transition-colors">
-								✕
+							<button onclick="deleteHistoryRecord(${index})" class="btn-tool btn-tool-danger flex-shrink-0" title="刪除這筆紀錄">
+								<span class="material-icons-outlined text-lg">delete</span>
 							</button>
 						</div>
 					`;
@@ -909,6 +1510,8 @@ function loginUser(name, classNum, avatar, quizCode) {
 		// 顯示題目
         function showQuestion() {
             if (isReading) stopReading();
+            updateHintMascotVisibility();
+            hideHintBubble();
             
             const question = currentQuestions[currentQuestionIndex];
             const isTrue = question.option1 === '○' && question.option2 === '╳';
@@ -916,6 +1519,8 @@ function loginUser(name, classNum, avatar, quizCode) {
             // 標題顯示邏輯
             if (isReviewMode) {
                 document.getElementById('questionTitle').textContent = `錯題 ${currentQuestionIndex + 1}`;
+            } else if (question.isReviewQuestion) {
+                document.getElementById('questionTitle').textContent = `${studentAvatar} ${currentQuestionIndex + 1} 🔁 複習題（不計分，多練習一次）`;
             } else {
                 document.getElementById('questionTitle').textContent = `${studentAvatar} ${currentQuestionIndex + 1}`;
             }
@@ -1179,6 +1784,13 @@ function loginUser(name, classNum, avatar, quizCode) {
             const total = currentQuestions.length;
             
             document.getElementById('progressText').textContent = `${answered}/${total}`;
+
+            // 更新視覺進度條
+            const progressBarFill = document.getElementById('progressBarFill');
+            if (progressBarFill) {
+                const percent = total > 0 ? Math.round((answered / total) * 100) : 0;
+                progressBarFill.style.width = `${percent}%`;
+            }
             
             // 檢查是否所有題目都已完成
             if (answered === total) {
@@ -1295,24 +1907,34 @@ function loginUser(name, classNum, avatar, quizCode) {
 
         // 顯示結果
 		function showResult() {
+            stopHintMascot();
+
             if (isReviewMode) {
                 exitReviewMode();
                 return;
             }
 
+            if (isSpacedReviewSession) {
+                finishSpacedReviewSession();
+                return;
+            }
+
             // 交卷後，自動結束測驗模式
+            const wasQuizMode = isQuizMode; // 先記住，因為底下馬上會被重置成 false
             if (isQuizMode) {
                 isQuizMode = false;
                 updateUrlForQuiz(currentCourseId);
             }
 
-            const total = currentQuestions.length;
-            const answered = Object.keys(userAnswers).length;
+            // 只計算原始題目的分數，最後附加的「複習題」不計分、不影響成績
+            const total = baseQuestionCount || currentQuestions.length;
+            const scoringQuestions = currentQuestions.slice(0, total);
+            const answered = scoringQuestions.filter((q, i) => userAnswers[i] !== undefined).length;
             let correct = 0;
             
             let wrongQuestionsList = [];
             
-            currentQuestions.forEach((question, index) => {
+            scoringQuestions.forEach((question, index) => {
                 if (userAnswers[index] === question.correctAnswer) {
                     correct++;
                 } else {
@@ -1322,28 +1944,42 @@ function loginUser(name, classNum, avatar, quizCode) {
             
             const wrong = answered - correct;
             const percentage = Math.round((correct / total) * 100);
+
+            // 🌟 只有「測驗模式」交卷才會給積分，練習模式不給（避免無限重練刷積分）
+            let earnedPoints = 0;
+            if (wasQuizMode) {
+                earnedPoints = getPointsForScore(percentage);
+                if (earnedPoints > 0) {
+                    addPoints(studentName, studentClass, earnedPoints);
+                }
+            }
             
             // 將錯題陣列轉為字串
             const wrongString = wrongQuestionsList.join(',');
 
-            // 儲存歷史紀錄
-            saveHistory(percentage, true);
+            // 儲存歷史紀錄（含錯題清單，供下次「間隔複習」使用）
+            saveHistory(percentage, true, wrongQuestionsList);
             
             // 【修正 2】確保 100 分也能送出
             // 只要啟用開關且代碼正確，無論幾分都要送
             if (ENABLE_GOOGLE_FORM_SUBMIT && studentQuizCode === QUIZ_CODE) {
-                sendScoreToGoogleForm(
-                    studentName, 
-                    studentClass, 
-                    percentage, 
-                    studentQuizCode,
-                    currentCourseId,
-                    currentCourseTitle,
-                    wrongString 
+                // 依題目原始順序打包作答內容（未作答記為 null），
+                // 讓伺服器可以用「官方答案」重新計分，避免分數被瀏覽器端偽造
+                const answersForVerification = currentQuestions.map((q, idx) =>
+                    userAnswers[idx] !== undefined ? userAnswers[idx] : null
                 );
-                
-                // 只有在真的送出資料時，才顯示成功提示
-                showSubmissionSuccessAlert(); 
+
+                submitScoreForVerification({
+                    name: studentName,
+                    classNum: studentClass,
+                    quizCode: studentQuizCode,
+                    courseId: currentCourseId,
+                    courseTitle: currentCourseTitle,
+                    answers: answersForVerification,
+                    clientPercentage: percentage, // 僅供尚未部署驗證 API 時的過渡使用
+                    wrongString
+                });
+                // 提示改為在 submitScoreForVerification 實際知道結果（成功/離線/失敗）後才顯示
             }
             
             // 計算星級 (UI顯示)
@@ -1365,6 +2001,17 @@ function loginUser(name, classNum, avatar, quizCode) {
             
             document.getElementById('starRating').innerHTML = stars;
             document.getElementById('scoreText').textContent = `得分：${percentage}分`;
+
+            const pointsNotice = document.getElementById('pointsEarnedNotice');
+            if (pointsNotice) {
+                if (earnedPoints > 0) {
+                    pointsNotice.textContent = `🌟 太棒了！獲得 ${earnedPoints} 點積分`;
+                    pointsNotice.classList.remove('hidden');
+                } else {
+                    pointsNotice.classList.add('hidden');
+                }
+            }
+
             document.getElementById('correctCount').textContent = correct;
             document.getElementById('wrongCount').textContent = wrong;
             document.getElementById('totalCount').textContent = total;
@@ -1376,8 +2023,88 @@ function loginUser(name, classNum, avatar, quizCode) {
             updateHeaderButtonsVisibility();
         }
         
+        // 待補送資料的 localStorage 鍵值
+        const PENDING_SUBMISSION_KEY = `${QUIZ_ID}_pendingSubmissions`;
+
+        // 將尚未送出的成績暫存起來，之後可自動或手動重新補送
+        function savePendingSubmission(payload) {
+            try {
+                const pending = JSON.parse(localStorage.getItem(PENDING_SUBMISSION_KEY) || '[]');
+                pending.push(payload);
+                localStorage.setItem(PENDING_SUBMISSION_KEY, JSON.stringify(pending));
+            } catch (error) {
+                console.log('儲存待補送成績時發生錯誤');
+            }
+        }
+
+        // 送出成績以供伺服器驗證
+        // - 若已設定 SCORE_API_URL：送到會「重新計分」的 Apps Script API，
+        //   伺服器會用官方答案重算分數，不採信瀏覽器端算出的分數，可防止分數被偽造。
+        // - 若尚未部署（SCORE_API_URL 為空字串）：自動退回舊的 Google表單直接傳送方式，
+        //   維持過渡期間網站仍可正常使用（此模式下分數仍是由瀏覽器端計算，未經驗證）。
+        function submitScoreForVerification(data) {
+            if (!SCORE_API_URL) {
+                sendScoreToGoogleForm(
+                    data.name,
+                    data.classNum,
+                    data.clientPercentage,
+                    data.quizCode,
+                    data.courseId,
+                    data.courseTitle,
+                    data.wrongString
+                );
+                return;
+            }
+
+            const payload = {
+                name: data.name,
+                classNum: data.classNum,
+                quizCode: data.quizCode,
+                courseId: data.courseId,
+                courseTitle: data.courseTitle,
+                answers: data.answers
+            };
+
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+                savePendingSubmission(payload);
+                showSubmissionFailureAlert();
+                return;
+            }
+
+            fetch(SCORE_API_URL, {
+                method: "POST",
+                // 用 text/plain 避免瀏覽器對 Apps Script 發出 CORS 預檢請求而被擋下
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify(payload)
+            }).then(res => res.json())
+              .then(result => {
+                if (result && result.success) {
+                    console.log(`成績已由伺服器驗證並記錄: ${result.score}分`);
+                    showSubmissionSuccessAlert();
+                } else {
+                    console.log('伺服器拒絕這筆成績:', result && result.message);
+                    savePendingSubmission(payload);
+                    showSubmissionFailureAlert();
+                }
+            }).catch(error => {
+                console.log('成績送出失敗 (已存入待補送清單)');
+                savePendingSubmission(payload);
+                showSubmissionFailureAlert();
+            });
+        }
+
         // 傳送成績到Google表單
+        // 回傳值僅供內部使用，實際成功/失敗提示會在確定結果後才顯示
         function sendScoreToGoogleForm(name, classNum, score, quizCode, courseId, courseTitle, wrongList) {
+            const payload = { name, classNum, score, quizCode, courseId, courseTitle, wrongList };
+
+            // 離線時不必嘗試送出，直接記錄為待補送並提示使用者
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+                savePendingSubmission(payload);
+                showSubmissionFailureAlert();
+                return;
+            }
+
             try {
                 const formData = new URLSearchParams();
                 formData.append(GOOGLE_FORM_CONFIG.nameField, name);
@@ -1403,18 +2130,62 @@ function loginUser(name, classNum, avatar, quizCode) {
                 }
 
                 // 自動送出
+                // 注意：mode: "no-cors" 下瀏覽器無法讀取伺服器實際回應狀態，
+                // .then() 只代表「請求有送出去」，不代表 Google 表單真的收到資料，
+                // 但至少能透過 .catch() 攔截離線、DNS 失敗等網路層級的錯誤。
                 fetch(GOOGLE_FORM_CONFIG.formUrl, {
                     method: "POST",
                     mode: "no-cors",
                     body: formData
                 }).then(() => {
                     console.log(`成績傳送成功: ${score}分`);
+                    showSubmissionSuccessAlert();
                 }).catch(error => {
-                    console.log('成績傳送發生錯誤 (但不影響作答結果)');
+                    console.log('成績傳送發生錯誤 (已存入待補送清單)');
+                    savePendingSubmission(payload);
+                    showSubmissionFailureAlert();
                 });
             } catch (error) {
-                console.log('成績傳送過程中發生錯誤');
+                console.log('成績傳送過程中發生錯誤 (已存入待補送清單)');
+                savePendingSubmission(payload);
+                showSubmissionFailureAlert();
             }
+        }
+
+        // 嘗試重新補送所有待補送的成績（例如重新連上網路後）
+        function resendPendingSubmissions() {
+            let pending;
+            try {
+                pending = JSON.parse(localStorage.getItem(PENDING_SUBMISSION_KEY) || '[]');
+            } catch (error) {
+                localStorage.removeItem(PENDING_SUBMISSION_KEY);
+                return;
+            }
+            if (!pending.length) return;
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+
+            // 先清空，重送過程中若又失敗，會透過 savePendingSubmission 重新加回去
+            localStorage.removeItem(PENDING_SUBMISSION_KEY);
+            pending.forEach(p => {
+                if (p && p.answers) {
+                    // 新格式（驗證 API）：直接用 fetch 重送，避免又被當成新提交重複打包
+                    if (!SCORE_API_URL) {
+                        savePendingSubmission(p); // 尚未設定 API，先留著等設定好再送
+                        return;
+                    }
+                    fetch(SCORE_API_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "text/plain;charset=utf-8" },
+                        body: JSON.stringify(p)
+                    }).then(res => res.json())
+                      .then(result => {
+                        if (!(result && result.success)) savePendingSubmission(p);
+                    }).catch(() => savePendingSubmission(p));
+                } else {
+                    // 舊格式（Google表單）
+                    sendScoreToGoogleForm(p.name, p.classNum, p.score, p.quizCode, p.courseId, p.courseTitle, p.wrongList);
+                }
+            });
         }
 
         // 檢視錯題
@@ -1574,6 +2345,14 @@ function loginUser(name, classNum, avatar, quizCode) {
             showHistory();
         };
 
+        // 複習錯題按鈕事件
+        const startSpacedReviewBtnEl = document.getElementById('startSpacedReviewBtn');
+        if (startSpacedReviewBtnEl) {
+            startSpacedReviewBtnEl.onclick = () => {
+                startSpacedReviewSession();
+            };
+        }
+
 		// 返回歷史紀錄按鈕事件
 		document.getElementById('backFromHistoryBtn').onclick = () => {
 			hideAllAreas();
@@ -1688,8 +2467,59 @@ window.addEventListener('beforeunload', () => {
             }
         };
 
+		// 通用朗讀函式：優先使用 Google 線上語音（音質較自然），
+		// 若朗讀失敗（例如離線、字數過長、暫時被封鎖等），自動改用瀏覽器原生的 Web Speech API 朗讀
+		function speakText(text, onEnd) {
+			const player = { audio: null, usingNative: false };
+
+			const useNativeSpeech = () => {
+				if (!('speechSynthesis' in window)) {
+					alert('朗讀功能暫時無法使用');
+					if (onEnd) onEnd();
+					return;
+				}
+				player.usingNative = true;
+				const utterance = new SpeechSynthesisUtterance(text);
+				utterance.lang = 'zh-TW';
+				utterance.onend = () => { if (onEnd) onEnd(); };
+				utterance.onerror = () => {
+					alert('朗讀功能暫時無法使用');
+					if (onEnd) onEnd();
+				};
+				window.speechSynthesis.cancel(); // 避免與前一段語音重疊
+				window.speechSynthesis.speak(utterance);
+			};
+
+			const encodedText = encodeURIComponent(text);
+			const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=zh-tw&client=tw-ob&q=${encodedText}`;
+			const audio = new Audio(audioUrl);
+			audio.onended = () => { if (onEnd) onEnd(); };
+			audio.onerror = () => {
+				// Google 朗讀失敗，改用瀏覽器原生語音朗讀
+				useNativeSpeech();
+			};
+			player.audio = audio;
+			audio.play().catch(() => useNativeSpeech());
+
+			player.stop = () => {
+				if (player.audio) {
+					player.audio.onended = null;
+					player.audio.onerror = null;
+					player.audio.pause();
+				}
+				if ('speechSynthesis' in window) {
+					window.speechSynthesis.cancel();
+				}
+			};
+
+			return player;
+		}
+
 		function startReading() {
 			// 如果解析正在朗讀，就先停止它
+			if (currentAudio) {
+				stopReading();
+			}
 			if (currentExplanationAudio) {
 				stopExplanationReading();
 			}
@@ -1709,38 +2539,24 @@ window.addEventListener('beforeunload', () => {
 				textToRead += `。選項：${options}`;
 			}
 
-			const encodedText = encodeURIComponent(textToRead);
-			const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=zh-tw&client=tw-ob&q=${encodedText}`;
-
-			currentAudio = new Audio(audioUrl);
-			currentAudio.onended = () => {
-				stopReading();
-			};
-			currentAudio.onerror = () => {
-				stopReading();
-				alert('朗讀功能暫時無法使用');
-			};
-
-			currentAudio.play();
+			currentAudio = speakText(textToRead, () => stopReading());
 			isReading = true;
 
 			const btn = document.getElementById('readBtn');
 			btn.innerHTML = '<span class="material-icons-outlined">stop</span>';
-			btn.classList.remove('bg-green-100', 'text-green-700');
-			btn.classList.add('bg-red-100', 'text-red-700');
+			btn.classList.add('is-playing');
 		}
 
         function stopReading() {
             if (currentAudio) {
-                currentAudio.pause();
+                currentAudio.stop();
                 currentAudio = null;
             }
             isReading = false;
             
             const btn = document.getElementById('readBtn');
             btn.innerHTML = '<span class="material-icons-outlined">volume_up</span>';
-            btn.classList.remove('bg-red-100', 'text-red-700');
-            btn.classList.add('bg-green-100', 'text-green-700');
+            btn.classList.remove('is-playing');
         }
         
         // 開始朗讀解析
@@ -1752,52 +2568,58 @@ window.addEventListener('beforeunload', () => {
 
 			const explanationText = document.getElementById('explanationText').textContent;
 
-			const encodedText = encodeURIComponent(explanationText);
-			const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=zh-tw&client=tw-ob&q=${encodedText}`;
-
-			currentExplanationAudio = new Audio(audioUrl);
-			currentExplanationAudio.onended = () => {
-				stopExplanationReading();
-			};
-			currentExplanationAudio.onerror = () => {
-				stopExplanationReading();
-				alert('朗讀功能暫時無法使用');
-			};
-
-			currentExplanationAudio.play();
+			currentExplanationAudio = speakText(explanationText, () => stopExplanationReading());
 
 			const btn = document.getElementById('readExplanationBtn');
-			btn.innerHTML = '<span class="material-icons-outlined">stop</span>';
-			btn.classList.remove('bg-green-100', 'text-green-700');
-			btn.classList.add('bg-red-100', 'text-red-700');
+			btn.innerHTML = '<span class="material-icons-outlined text-base">stop</span>';
+			btn.classList.add('is-playing');
 		}
         
         // 停止朗讀解析
         function stopExplanationReading() {
             if (currentExplanationAudio) {
-                currentExplanationAudio.pause();
+                currentExplanationAudio.stop();
                 currentExplanationAudio = null;
             }
             
             const btn = document.getElementById('readExplanationBtn');
-            btn.innerHTML = '<span class="material-icons-outlined">volume_up</span>';
-            btn.classList.remove('bg-red-100', 'text-red-700');
-            btn.classList.add('bg-green-100', 'text-green-700');
+            btn.innerHTML = '<span class="material-icons-outlined text-base">volume_up</span>';
+            btn.classList.remove('is-playing');
         }
 
         // 注音模式切換
         document.getElementById('zhuyinBtn').onclick = () => {
             zhuyinMode = !zhuyinMode;
             const btn = document.getElementById('zhuyinBtn');
-            if (zhuyinMode) {
-                btn.classList.remove('bg-blue-100', 'text-blue-700');
-                btn.classList.add('bg-blue-500', 'text-white');
-            } else {
-                btn.classList.remove('bg-blue-500', 'text-white');
-                btn.classList.add('bg-blue-100', 'text-blue-700');
-            }
+            btn.classList.toggle('is-active', zhuyinMode);
             showQuestion(); // 重新顯示題目以應用字體
         };
+
+        // 🙂 小助手提示按鈕
+        const hintMascotBtnEl = document.getElementById('hintMascotBtn');
+        if (hintMascotBtnEl) {
+            hintMascotBtnEl.onclick = (e) => {
+                e.stopPropagation();
+                onHintMascotClick();
+            };
+        }
+        // 點提示泡泡本身不應該把泡泡關掉（避免點裡面的文字時意外觸發外層關閉邏輯）
+        const hintBubbleEl = document.getElementById('hintBubble');
+        if (hintBubbleEl) {
+            hintBubbleEl.onclick = (e) => e.stopPropagation();
+        }
+        // 提示泡泡的關閉按鈕
+        const hintBubbleCloseBtnEl = document.getElementById('hintBubbleCloseBtn');
+        if (hintBubbleCloseBtnEl) {
+            hintBubbleCloseBtnEl.onclick = (e) => {
+                e.stopPropagation();
+                hideHintBubble();
+            };
+        }
+        // 點畫面其他地方時，順便把提示泡泡收起來
+        document.addEventListener('click', () => {
+            hideHintBubble();
+        });
 
         // 字體大小控制 (五級：18, 20, 22, 24, 26)
         document.getElementById('fontSizeUp').onclick = () => {
@@ -1836,12 +2658,13 @@ window.addEventListener('beforeunload', () => {
 
         // 更新排版按鈕顯示
         function updateLayoutButton() {
+            const icon = document.getElementById('layoutBtnIcon');
             const btn = document.getElementById('layoutBtn');
             if (layoutMode === 'grid') {
-                btn.textContent = '⚏';
+                icon.textContent = 'view_module';
                 btn.title = '左右排版';
             } else {
-                btn.textContent = '☰';
+                icon.textContent = 'view_agenda';
                 btn.title = '上下排版';
             }
         }
@@ -1869,26 +2692,88 @@ window.addEventListener('beforeunload', () => {
             
             // 預設顯示動物分類
             showAvatarCategory('animals');
-            
+            updatePointsDisplay();
+
             // 監聽名字和班號輸入
-            document.getElementById('studentName').addEventListener('input', checkStudentInfo);
-            document.getElementById('studentClass').addEventListener('input', checkStudentInfo);
+            document.getElementById('studentName').addEventListener('input', () => {
+                checkStudentInfo();
+                updatePointsDisplay();
+                showAvatarCategory(activeAvatarCategory); // 換人時，重新檢查頭像解鎖狀態
+            });
+            document.getElementById('studentClass').addEventListener('input', () => {
+                checkStudentInfo();
+                updatePointsDisplay();
+                showAvatarCategory(activeAvatarCategory);
+            });
             document.getElementById('studentQuizCode').addEventListener('input', checkStudentInfo); // 【新增】
         }
         
         // 顯示指定分類的頭像
+        let activeAvatarCategory = 'animals'; // 記住目前顯示哪個頭像分類，方便兌換後重新渲染同一頁
+
         function showAvatarCategory(category) {
+            activeAvatarCategory = category;
             const avatarSelection = document.getElementById('avatarSelection');
             avatarSelection.innerHTML = '';
-            
+
+            const name = document.getElementById('studentName').value.trim();
+            const classNum = document.getElementById('studentClass').value.trim();
+
             const avatars = avatarCategories[category] || [];
             avatars.forEach(avatar => {
+                const unlocked = isAvatarUnlocked(name, classNum, avatar) || avatar === studentAvatar;
                 const button = document.createElement('button');
-                button.className = 'text-xl p-1 rounded-lg border-2 border-gray-200 hover:border-purple-400 hover:bg-purple-50 transition-all';
-                button.textContent = avatar;
-                button.onclick = () => selectAvatar(avatar, button);
+                button.className = 'relative text-xl p-1 rounded-lg border-2 border-gray-200 hover:border-purple-400 hover:bg-purple-50 transition-all';
+                if (unlocked) {
+                    button.textContent = avatar;
+                } else {
+                    button.innerHTML = `<span style="opacity: 0.35;">${avatar}</span><span style="position: absolute; bottom: -2px; right: -2px; font-size: 10px;">🔒</span>`;
+                }
+                if (avatar === studentAvatar) {
+                    button.classList.remove('border-gray-200');
+                    button.classList.add('border-purple-500', 'bg-purple-100');
+                }
+                button.onclick = () => handleAvatarClick(avatar, button, unlocked);
                 avatarSelection.appendChild(button);
             });
+        }
+
+        // 點頭像時的分流：已解鎖直接選；沒解鎖就走積分兌換流程
+        function handleAvatarClick(avatar, button, unlocked) {
+            if (unlocked) {
+                selectAvatar(avatar, button);
+                return;
+            }
+
+            const name = document.getElementById('studentName').value.trim();
+            const classNum = document.getElementById('studentClass').value.trim();
+            if (!name || !classNum) {
+                alert('請先輸入姓名和班號，才能查詢你的積分喔！');
+                return;
+            }
+
+            const points = getPoints(name, classNum);
+            if (points < AVATAR_UNLOCK_COST) {
+                alert(`積分不夠喔！這個頭像需要 ${AVATAR_UNLOCK_COST} 點，你目前有 ${points} 點，還差 ${AVATAR_UNLOCK_COST - points} 點。`);
+                return;
+            }
+
+            const confirmed = confirm(`要用 ${AVATAR_UNLOCK_COST} 點積分兌換這個頭像 ${avatar} 嗎？\n目前積分：${points} 點，兌換後剩：${points - AVATAR_UNLOCK_COST} 點`);
+            if (!confirmed) return;
+
+            if (spendPoints(name, classNum, AVATAR_UNLOCK_COST)) {
+                unlockAvatarForStudent(name, classNum, avatar);
+                updatePointsDisplay();
+                showAvatarCategory(activeAvatarCategory); // 重新渲染，把鎖頭打開
+
+                // 重新渲染後原本的 button 參照已經失效，要找新的按鈕再選取
+                const refreshedButtons = document.querySelectorAll('#avatarSelection button');
+                refreshedButtons.forEach(btn => {
+                    if (btn.textContent === avatar) {
+                        selectAvatar(avatar, btn);
+                    }
+                });
+            }
         }
 
         function selectAvatar(avatar, button) {
@@ -1993,6 +2878,7 @@ function checkStudentInfo() {
             document.getElementById('cancelEditBtn').classList.remove('hidden');
             document.getElementById('resetBtn').classList.remove('hidden');
             document.getElementById('backFromEditBtn').classList.remove('hidden'); // 顯示返回按鈕
+            updatePointsDisplay();
             
             // 找到當前頭像所在的分類並切換到該分類
             let currentCategory = 'animals';
@@ -2141,7 +3027,7 @@ function checkStudentInfo() {
 				needsPassword: true,
 				onConfirm: (password) => {
 					if (password && password.toLowerCase() === ADMIN_PASSWORD) {
-						const history = JSON.parse(localStorage.getItem(`${QUIZ_ID}_history`) || '[]');
+						const history = getHistory();
 						history.splice(index, 1);
 						localStorage.setItem(`${QUIZ_ID}_history`, JSON.stringify(history));
 						showHistory();
@@ -2160,7 +3046,7 @@ function checkStudentInfo() {
 				message: '將會刪除所有「未完成」的測驗紀錄，此操作無法復原。',
 				needsPassword: false,
 				onConfirm: () => {
-					const history = JSON.parse(localStorage.getItem(`${QUIZ_ID}_history`) || '[]');
+					const history = getHistory();
 					const completedHistory = history.filter(record => record.completed);
 					localStorage.setItem(`${QUIZ_ID}_history`, JSON.stringify(completedHistory));
 					showHistory();
@@ -2268,6 +3154,42 @@ function checkStudentInfo() {
             }, 3000);
         }
 
+        // 顯示成績傳送失敗提示（例如離線、網路錯誤）
+        function showSubmissionFailureAlert() {
+            const alertBox = document.createElement('div');
+            alertBox.style.position = 'fixed';
+            alertBox.style.top = '20px';
+            alertBox.style.left = '50%';
+            alertBox.style.transform = 'translateX(-50%)';
+            alertBox.style.padding = '12px 24px';
+            alertBox.style.backgroundColor = '#dc3545'; // 紅色背景
+            alertBox.style.color = 'white';
+            alertBox.style.borderRadius = '8px';
+            alertBox.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)';
+            alertBox.style.zIndex = '9999';
+            alertBox.style.opacity = '0';
+            alertBox.style.transition = 'opacity 0.5s ease, top 0.5s ease';
+            alertBox.innerHTML = `
+                <span style="font-size: 1.2em; margin-right: 8px;">⚠️</span>
+                <span style="font-weight: bold;">成績尚未送出，請確認網路連線，稍後會自動重試</span>
+            `;
+
+            document.body.appendChild(alertBox);
+
+            setTimeout(() => {
+                alertBox.style.opacity = '1';
+                alertBox.style.top = '40px';
+            }, 100);
+
+            setTimeout(() => {
+                alertBox.style.opacity = '0';
+                alertBox.style.top = '20px';
+                setTimeout(() => {
+                    document.body.removeChild(alertBox);
+                }, 500);
+            }, 4000);
+        }
+
 
 		// 初始化區塊
 		document.addEventListener('DOMContentLoaded', function() {
@@ -2298,11 +3220,15 @@ function checkStudentInfo() {
 			loadSavedUserInfo();
 			updateHeaderButtonsVisibility();
 
+			// 頁面載入時，先嘗試補送之前失敗/離線未送出的成績
+			resendPendingSubmissions();
+			// 網路恢復連線時，也自動嘗試補送
+			window.addEventListener('online', resendPendingSubmissions);
+
 			const zhuyinBtn = document.getElementById('zhuyinBtn');
 				if (zhuyinMode) {
 					// 如果預設開啟，將按鈕變為「啟用狀態」(深色背景)
-					zhuyinBtn.classList.remove('bg-blue-100', 'text-blue-700');
-					zhuyinBtn.classList.add('bg-blue-500', 'text-white');
+					zhuyinBtn.classList.add('is-active');
 			}
 
 
@@ -2409,6 +3335,10 @@ function clearAnalysisInput() {
 }
 
 // 執行分析 (核心功能)
+// 暫存最後一次分析的資料，供「匯出 CSV」使用
+let lastAnalysisRecords = [];
+let lastAnalysisCourse = null;
+
 function performAnalysis() {
     const rawInput = document.getElementById('analysisInput').value.trim();
     if (!rawInput) {
@@ -2457,11 +3387,18 @@ function performAnalysis() {
     // 3. 顯示結果區域
     document.getElementById('analysisResultArea').classList.remove('hidden');
 
+    // 記錄這次分析的原始資料，供「匯出 CSV」使用
+    lastAnalysisRecords = records;
+    lastAnalysisCourse = targetCourse;
+
     // --- 分析一：錯題排行榜 ---
     renderErrorRanking(records, targetCourse);
 
     // --- 分析二：學生作答矩陣 ---
     renderStudentMatrix(records, targetCourse);
+
+    // --- 分析三：學生分數趨勢（若資料裡包含多個不同測驗代號才會顯示）---
+    renderScoreTrend(records);
 }
 
 // 渲染錯題排行榜
@@ -2639,4 +3576,201 @@ function showSingleQuestionDetail(qData, qNum) {
 
 function closeQuickQuestionModal() {
     document.getElementById('quickQuestionModal').style.display = 'none';
+}
+
+// ========================================
+// 📤 匯出 CSV / 列印
+// ========================================
+
+// 把一格內容包成合法的 CSV 欄位（處理逗號、換行、雙引號）
+function toCsvField(value) {
+    const text = String(value ?? '');
+    if (/[",\n]/.test(text)) {
+        return `"${text.replace(/"/g, '""')}"`;
+    }
+    return text;
+}
+
+// 產生分析結果的表格資料（二維陣列），CSV 與 TAB 純文字共用同一份資料，
+// 避免同一份邏輯要維護兩次
+function buildAnalysisRows() {
+    const course = lastAnalysisCourse;
+    const records = lastAnalysisRecords.filter(r => r.quizId === course.id);
+    const rows = [];
+
+    // 區塊一：錯題排行榜
+    rows.push([`測驗代號：${course.id}`, `測驗名稱：${course.title}`]);
+    rows.push([]);
+    rows.push(['題號', '題目', '答錯人次']);
+    course.questions.forEach((q, idx) => {
+        const count = records.reduce((sum, r) => sum + (r.wrongList.includes(idx + 1) ? 1 : 0), 0);
+        rows.push([idx + 1, q.question, count]);
+    });
+
+    rows.push([]);
+
+    // 區塊二：學生作答矩陣
+    const header = ['座號'];
+    for (let i = 1; i <= course.questions.length; i++) header.push(`第${i}題`);
+    rows.push(header);
+
+    [...records].sort((a, b) => parseInt(a.studentId) - parseInt(b.studentId)).forEach(record => {
+        const row = [record.studentId];
+        for (let i = 1; i <= course.questions.length; i++) {
+            row.push(record.wrongList.includes(i) ? 'X' : 'O');
+        }
+        rows.push(row);
+    });
+
+    return { course, rows };
+}
+
+// 觸發瀏覽器下載檔案的共用小工具
+function downloadTextFile(content, filename, mimeType) {
+    // 加上 UTF-8 BOM，避免 Excel／記事本開啟中文亂碼
+    const blob = new Blob(['\uFEFF' + content], { type: `${mimeType};charset=utf-8;` });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function exportAnalysisCSV() {
+    if (!lastAnalysisCourse || lastAnalysisRecords.length === 0) {
+        alert('請先按「開始分析」產生結果，才能匯出。');
+        return;
+    }
+
+    const { course, rows } = buildAnalysisRows();
+    const csvContent = rows.map(row => row.map(toCsvField).join(',')).join('\r\n');
+    downloadTextFile(csvContent, `${course.title}_作答分析.csv`, 'text/csv');
+}
+
+// 匯出成 TAB 分隔的純文字檔（.txt），貼到記事本或 Excel 都能直接對齊欄位
+function exportAnalysisText() {
+    if (!lastAnalysisCourse || lastAnalysisRecords.length === 0) {
+        alert('請先按「開始分析」產生結果，才能匯出。');
+        return;
+    }
+
+    const { course, rows } = buildAnalysisRows();
+    // TAB 分隔不需要像 CSV 一樣處理逗號/引號，但欄位裡如果剛好有 TAB 或換行，
+    // 還是要換成空白，避免把欄位對齊撐壞
+    const sanitize = (value) => String(value ?? '').replace(/[\t\n\r]+/g, ' ');
+    const textContent = rows.map(row => row.map(sanitize).join('\t')).join('\r\n');
+    downloadTextFile(textContent, `${course.title}_作答分析.txt`, 'text/plain');
+}
+
+
+function printAnalysisResults() {
+    if (!lastAnalysisCourse) {
+        alert('請先按「開始分析」產生結果，才能列印。');
+        return;
+    }
+    window.print();
+}
+
+// ========================================
+// 📈 學生跨測驗分數趨勢
+// ========================================
+
+// 依 quizData 裡課程出現的順序，當作測驗的時間先後順序
+function getStudentScoreTrends(records) {
+    const quizOrder = quizData.map(c => c.id);
+    const byStudent = {};
+
+    records.forEach(r => {
+        const course = quizData.find(c => c.id === r.quizId);
+        if (!course || course.questions.length === 0) return;
+
+        const total = course.questions.length;
+        const wrongCount = r.wrongList.length;
+        const score = Math.round(((total - wrongCount) / total) * 100);
+
+        if (!byStudent[r.studentId]) byStudent[r.studentId] = [];
+        // 避免同一位學生、同一場測驗重複貼上造成重複點
+        if (byStudent[r.studentId].some(item => item.quizId === r.quizId)) return;
+
+        byStudent[r.studentId].push({ quizId: r.quizId, courseTitle: course.title, score });
+    });
+
+    Object.keys(byStudent).forEach(studentId => {
+        byStudent[studentId].sort((a, b) => quizOrder.indexOf(a.quizId) - quizOrder.indexOf(b.quizId));
+    });
+
+    return byStudent;
+}
+
+function renderScoreTrend(records) {
+    const trends = getStudentScoreTrends(records);
+    const studentIds = Object.keys(trends)
+        // 只保留有 2 次以上測驗紀錄的學生，才有「趨勢」可言
+        .filter(id => trends[id].length >= 2)
+        .sort((a, b) => parseInt(a) - parseInt(b));
+
+    const section = document.getElementById('trendSection');
+    const select = document.getElementById('trendStudentSelect');
+
+    if (studentIds.length === 0) {
+        section.classList.add('hidden');
+        return;
+    }
+
+    section.classList.remove('hidden');
+    select.innerHTML = studentIds.map(id => `<option value="${id}">${id} 號</option>`).join('');
+    select.onchange = () => renderTrendChart(trends[select.value]);
+
+    renderTrendChart(trends[studentIds[0]]);
+}
+
+function renderTrendChart(data, containerId = 'trendChartContainer') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    if (!data || data.length < 2) {
+        container.innerHTML = '<p class="text-gray-400 text-sm text-center py-6">測驗次數不足，還看不出趨勢</p>';
+        return;
+    }
+
+    const width = 600, height = 200, padLeft = 36, padRight = 20, padTop = 24, padBottom = 34;
+    const plotW = width - padLeft - padRight;
+    const plotH = height - padTop - padBottom;
+    const stepX = data.length > 1 ? plotW / (data.length - 1) : 0;
+
+    const points = data.map((d, i) => ({
+        x: padLeft + i * stepX,
+        y: padTop + plotH - (d.score / 100) * plotH,
+        score: d.score,
+        title: d.courseTitle
+    }));
+
+    const polyline = points.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+
+    const gridLines = [0, 50, 100].map(v => {
+        const y = padTop + plotH - (v / 100) * plotH;
+        return `<line x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}" stroke="#e2e8f0" stroke-width="1"/>
+                 <text x="${padLeft - 8}" y="${y + 4}" font-size="10" text-anchor="end" fill="#94a3b8">${v}</text>`;
+    }).join('');
+
+    const dots = points.map(p => `
+        <circle cx="${p.x}" cy="${p.y}" r="4" fill="var(--color-primary)"></circle>
+        <text x="${p.x}" y="${p.y - 10}" font-size="11" text-anchor="middle" font-weight="bold" fill="var(--color-primary-dark)">${p.score}</text>
+    `).join('');
+
+    const labels = points.map(p => {
+        const shortTitle = p.title.length > 6 ? p.title.slice(0, 6) + '…' : p.title;
+        return `<text x="${p.x}" y="${height - 10}" font-size="10" text-anchor="middle" fill="#64748b">${shortTitle}</text>`;
+    }).join('');
+
+    container.innerHTML = `
+        <svg viewBox="0 0 ${width} ${height}" class="w-full h-auto" style="max-height: 220px;">
+            ${gridLines}
+            <polyline points="${polyline}" fill="none" stroke="var(--color-primary)" stroke-width="2"/>
+            ${dots}
+            ${labels}
+        </svg>
+    `;
 }

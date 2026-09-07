@@ -1,4 +1,90 @@
 
+        /* ========================================
+           🎨 色彩系統 (Design Tokens)
+           統一定義品牌色，之後若要換色只需改這裡
+           ======================================== */
+        :root {
+            --color-primary: #7C3AED;        /* 主色：紫色，用於標題、主要按鈕、進度條 */
+            --color-primary-dark: #6D28D9;
+            --color-primary-light: #EDE9FE;
+
+            --color-accent: #10B981;         /* 強調色：薄荷綠，用於答對、成功、確認 */
+            --color-accent-dark: #059669;
+            --color-accent-light: #D1FAE5;
+
+            --color-warning: #F59E0B;        /* 警示色：珊瑚橘，用於答錯、提醒（語氣溫和） */
+            --color-warning-dark: #D97706;
+            --color-warning-light: #FEF3C7;
+
+            --color-danger: #EF4444;         /* 危險色：只用於真正需要小心的動作（終止測驗、全部清除） */
+            --color-danger-dark: #DC2626;
+            --color-danger-light: #FEE2E2;
+
+            --color-neutral-bg: #F1F5F9;     /* 中性色：所有工具型按鈕的預設底色 */
+            --color-neutral-text: #475569;
+            --color-neutral-hover: #E2E8F0;
+        }
+
+        /* 工具型按鈕（朗讀、注音、字體大小、排版切換等）統一樣式 */
+        .btn-tool {
+            width: 2.5rem;
+            height: 2.5rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            background-color: var(--color-neutral-bg);
+            color: var(--color-neutral-text);
+            font-weight: 600;
+            transition: background-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
+        }
+        .btn-tool:hover {
+            background-color: var(--color-primary-light);
+            color: var(--color-primary);
+        }
+        .btn-tool:active {
+            transform: scale(0.92);
+        }
+        /* 工具按鈕的「開啟中」狀態（例如注音開啟、朗讀播放中） */
+        .btn-tool.is-active {
+            background-color: var(--color-primary);
+            color: #ffffff;
+        }
+        .btn-tool.is-active:hover {
+            background-color: var(--color-primary-dark);
+            color: #ffffff;
+        }
+        /* 朗讀按鈕播放中：用強調色而非危險色，因為停止朗讀不是危險動作 */
+        .btn-tool.is-playing {
+            background-color: var(--color-accent-light);
+            color: var(--color-accent-dark);
+        }
+        .btn-tool.is-playing:hover {
+            background-color: var(--color-accent);
+            color: #ffffff;
+        }
+        /* 危險操作的工具按鈕（例如刪除歷史紀錄） */
+        .btn-tool.btn-tool-danger {
+            background-color: var(--color-danger-light);
+            color: var(--color-danger-dark);
+        }
+        .btn-tool.btn-tool-danger:hover {
+            background-color: var(--color-danger);
+            color: #ffffff;
+        }
+        /* 需要顯示文字的工具按鈕（如「注音」），改用自動寬度的膠囊形狀 */
+        .btn-tool-pill {
+            width: auto;
+            height: 2.5rem;
+            padding: 0 1rem;
+            font-size: 0.875rem;
+        }
+        /* 行內小型工具按鈕（例如解析旁的朗讀鈕） */
+        .btn-tool-sm {
+            width: 1.75rem;
+            height: 1.75rem;
+        }
+
         @font-face {
             font-family: 'BpmfZihiSans-Regular';
             src: url('https://oikasu1.github.io/fonts/BpmfZihiSans-Regular.woff2') format('woff2'),
