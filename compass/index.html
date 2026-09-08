@@ -162,8 +162,8 @@ button{font-family:inherit;}
   align-items:start;
 }
 @media (max-width: 980px){
-  .layout{ grid-template-columns: 1fr; }
-  .col-compass{ order: 1; }
+  .layout{ grid-template-columns: 1fr; gap: 10px; }
+  .col-compass{ order: 1; margin-bottom: -4px; }
   #colRight{ order: 2; }
   #colLeft{ order: 3; }
 }
@@ -203,6 +203,26 @@ button{font-family:inherit;}
 .mini-toggle-btn:hover{ border-color: var(--accent); }
 .mini-toggle-btn svg{ width:13px;height:13px; }
 .mini-toggle-btn.active{
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+/* 新增：追蹤開關改用清楚的文字（追蹤：開／關），比純圖示更容易理解 */
+.tracking-toggle-btn{
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text-faint);
+  font-size: 12.5px;
+  font-weight:700;
+  cursor:pointer;
+  flex-shrink:0;
+  white-space:nowrap;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.tracking-toggle-btn:hover{ border-color: var(--accent); }
+.tracking-toggle-btn.active{
   border-color: var(--accent);
   color: var(--accent);
   background: var(--accent-soft);
@@ -395,6 +415,18 @@ button{font-family:inherit;}
   z-index: 60;
   padding: 8px;
 }
+/* 修改：手機版通知面板改為固定在視窗上方、左右貼邊，不再跟著鈴鐺圖示的位置往外延伸而超出畫面 */
+@media (max-width: 480px){
+  .notif-panel{
+    position: fixed;
+    top: 68px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-height: min(70vh, 480px);
+    overflow-y: auto;
+  }
+}
 .notif-panel-header{
   font-family: var(--font-mono);
   font-size: 11px;
@@ -486,9 +518,25 @@ button{font-family:inherit;}
 .sm-icon.letter{ font-weight:700; font-size:13px; font-family: var(--font-ui); }
 .sm-info{ flex:1; min-width:0; }
 .sm-title{ font-size:13px; font-weight:600; }
+.sm-title-riseset{ font-family: var(--font-mono); font-size:11px; font-weight:500; color: var(--text-faint); }
 .sm-sub{ font-size:11.5px; color: var(--text-faint); font-family: var(--font-mono); }
 .sm-value{ text-align:right; font-family: var(--font-mono); font-size:15px; font-weight:700; }
 .sm-value small{ display:block; font-size:10.5px; color:var(--text-faint); font-weight:500; }
+/* 修改：只有天體「圖示」可點擊切換追蹤，不是整個區塊 */
+.sm-icon-track{
+  cursor:pointer;
+  transition: transform .12s, box-shadow .12s;
+}
+.sm-icon-track:hover{ transform: scale(1.08); box-shadow: 0 0 0 3px var(--panel-2); }
+.sm-icon-track:active{ transform: scale(0.95); }
+.sm-row.tracked{
+  margin: 0 -8px;
+  padding-left: 8px; padding-right: 8px;
+  border-radius: var(--radius-s);
+  background: var(--accent-soft);
+}
+.sm-row.tracked .sm-title{ color: var(--accent); }
+.sm-row.tracked .sm-icon-track{ box-shadow: 0 0 0 2px var(--accent); }
 
 .declination-row{
   display:flex; align-items:center; gap:8px; margin-top:8px;
@@ -634,6 +682,7 @@ button{font-family:inherit;}
   background: var(--panel-2);
   color: var(--text);
 }
+.time-range-sep{ color: var(--text-faint); font-weight:700; }
 .time-slider-row{
   width:100%;
   display:flex; flex-direction:column; align-items:center;
@@ -695,6 +744,8 @@ button{font-family:inherit;}
       <!-- 新增：磁北／真北 參考基準切換圖示（原本在指北針下方的長按鈕列） -->
       <button class="icon-btn" id="refToggleBtn" type="button" title="">
       </button>
+      <!-- 新增：錶面方位文字語言切換（中文／字母），預設中文 -->
+      <button class="tracking-toggle-btn" id="dialLangToggle" type="button" title="切換錶面方位文字：中文／字母">方位：中文</button>
       <button class="icon-btn" id="fullscreenBtn" title="全螢幕">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 4H5a1 1 0 0 0-1 1v4M15 4h4a1 1 0 0 1 1 1v4M9 20H5a1 1 0 0 1-1-1v-4M15 20h4a1 1 0 0 0 1-1v-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
@@ -824,9 +875,7 @@ button{font-family:inherit;}
       <div class="panel" data-panel-id="bodies">
         <div class="panel-label-row">
           <p class="panel-label">天體方位 CELESTIAL BODIES</p>
-          <button class="mini-toggle-btn" id="trackingToggleBtn" type="button" aria-pressed="false" title="啟用追蹤：關閉（在錶面顯示所選天體方位）">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" stroke-linecap="round"/></svg>
-          </button>
+          <button class="tracking-toggle-btn" id="trackingToggleBtn" type="button" aria-pressed="false" title="開啟後會在錶面顯示所選天體方位">追蹤：關</button>
         </div>
 
         <!-- 修改：天體選擇改為靠左的選單按鈕，方位說明改顯示在同一行右側；僅在啟用追蹤後顯示 -->
@@ -862,14 +911,14 @@ button{font-family:inherit;}
             <span class="time-slider-label" id="timeSliderLabel">—</span>
           </div>
           <div class="time-range-row" id="timeRangeRow" style="display:none;">
-            <span>從</span><input type="time" id="timeRangeStart" value="18:00">
-            <span>到</span><input type="time" id="timeRangeEnd" value="22:00">
+            <input type="time" id="timeRangeStart" value="18:00">
+            <span class="time-range-sep">–</span>
+            <input type="time" id="timeRangeEnd" value="22:00">
           </div>
         </div>
 
+        <!-- 修改：升/落時間已直接標示在各天體名稱後，不再另外列出日出/日落清單 -->
         <div id="bodyList"><!-- 七個天體的列表由 JS 動態產生 --></div>
-        <!-- 修改：日出/日落改為動態列表，預設顯示太陽＋月亮，若追蹤其他天體則一併顯示其升/落 -->
-        <div id="riseSetList"><!-- 由 JS 動態產生 --></div>
       </div>
     </div>
 
@@ -911,6 +960,8 @@ button{font-family:inherit;}
     timeRangeEnd: null,     // 新增：目前時段終點（Date）
     timeInstant: null,      // 新增：非即時模式下，目前滑桿指向的時間點（Date）
     moonTrueOrientation: false, // 新增：是否依時間/地點旋轉月相圖示以呈現概略的真實朝向
+    dialLabelLang: 'zh',    // 新增：錶面方位文字語言，'zh' 中文 | 'en' 字母，預設中文
+    lastComputeNow: null,   // 新增：最近一次 computeCelestial 使用的時間，供天體清單計算升/落時重複使用
   };
 
   // 新增：可追蹤的天體清單（太陽、月亮由 SunCalc 計算；行星／恆星由下方簡化天文演算法計算）
@@ -926,6 +977,11 @@ button{font-family:inherit;}
   function bodyById(id){ return BODIES.find(b=>b.id===id); }
 
   const DIRS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  // 修改：8 方位文字對照表（中文／字母），供錶面繪製與方位語言切換按鈕共用
+  const CARDINAL_LABELS = {
+    zh: {N:'北', E:'東', S:'南', W:'西', NE:'東北', SE:'東南', SW:'西南', NW:'西北'},
+    en: {N:'N', E:'E', S:'S', W:'W', NE:'NE', SE:'SE', SW:'SW', NW:'NW'}
+  };
   function dirLabel(deg){
     return DIRS[Math.round(((deg%360)+360)%360 / 22.5) % 16];
   }
@@ -995,15 +1051,26 @@ button{font-family:inherit;}
       }
     }
 
-    // Cardinal letters N E S W
-    const cardinals = [{d:0,l:'N',c:'var(--needle-n)'},{d:90,l:'E',c:'var(--text)'},{d:180,l:'S',c:'var(--needle-s)'},{d:270,l:'W',c:'var(--text)'}];
+    // 修改：8 方位文字（東西南北 + 東北東南西北西南），可切換中文／字母，預設中文
+    const cardinals = [
+      {d:0,   key:'N',  c:'var(--needle-n)', size:26, rt:R-56},
+      {d:45,  key:'NE', c:'var(--text-dim)', size:14, rt:R-42},
+      {d:90,  key:'E',  c:'var(--text)',     size:26, rt:R-56},
+      {d:135, key:'SE', c:'var(--text-dim)', size:14, rt:R-42},
+      {d:180, key:'S',  c:'var(--needle-s)', size:26, rt:R-56},
+      {d:225, key:'SW', c:'var(--text-dim)', size:14, rt:R-42},
+      {d:270, key:'W',  c:'var(--text)',     size:26, rt:R-56},
+      {d:315, key:'NW', c:'var(--text-dim)', size:14, rt:R-42},
+    ];
+    const dialLangGroup = svgEl('g', {id:'dialLangGroup'});
+    g.appendChild(dialLangGroup);
     cardinals.forEach(c=>{
       const rad = (c.d-90)*Math.PI/180;
-      const rt = R - 56;
-      const x = CX + rt*Math.cos(rad), y = CY + rt*Math.sin(rad);
-      const t = svgEl('text',{x,y,'text-anchor':'middle','dominant-baseline':'middle',fill:c.c,'font-size':26,'font-weight':700,'font-family':'var(--font-ui)'});
-      t.textContent = c.l;
-      g.appendChild(t);
+      const x = CX + c.rt*Math.cos(rad), y = CY + c.rt*Math.sin(rad);
+      const t = svgEl('text',{x,y,'text-anchor':'middle','dominant-baseline':'middle',fill:c.c,'font-size':c.size,'font-weight':700,'font-family':'var(--font-ui)'});
+      t.textContent = CARDINAL_LABELS[state.dialLabelLang][c.key];
+      t.dataset.cardinalKey = c.key;
+      dialLangGroup.appendChild(t);
     });
 
     // inner degree ring line
@@ -1124,7 +1191,7 @@ button{font-family:inherit;}
       state.trackedId = b.id;
       updateBodySelectUI();
       closeBodyMenu();
-      renderRiseSet(state.timeMode === 'live' ? new Date() : (state.timeInstant || new Date()));
+      renderBodyList(state.lastComputeNow || new Date());
       render();
     });
     bodySelectMenu.appendChild(opt);
@@ -1149,7 +1216,9 @@ button{font-family:inherit;}
   function updateTrackingToggleUI(){
     const on = state.trackingEnabled;
     trackingToggleBtn.classList.toggle('active', on);
-    trackingToggleBtn.title = on ? '啟用追蹤：開啟（點擊關閉，錶面將不再顯示天體方位）' : '啟用追蹤：關閉（點擊開啟，於錶面顯示所選天體方位）';
+    trackingToggleBtn.textContent = on ? '追蹤：開' : '追蹤：關';
+    trackingToggleBtn.setAttribute('aria-pressed', String(on));
+    trackingToggleBtn.title = on ? '已開啟追蹤（點擊關閉，錶面將不再顯示天體方位）' : '開啟後會在錶面顯示所選天體方位';
   }
   function setTracking(enabled){
     state.trackingEnabled = enabled;
@@ -1193,6 +1262,25 @@ button{font-family:inherit;}
     toast(state.refMode === 'true' ? '已切換為真北基準' : '已切換為磁北基準');
   });
   updateRefToggleUI();
+
+  // 新增：錶面方位文字語言切換（中文／字母），預設中文
+  const dialLangToggle = $('dialLangToggle');
+  function updateDialLangToggleUI(){
+    dialLangToggle.textContent = state.dialLabelLang === 'zh' ? '方位：中文' : '方位：字母';
+    dialLangToggle.classList.toggle('active', state.dialLabelLang === 'en');
+  }
+  function updateDialLangLabels(){
+    document.querySelectorAll('#dialLangGroup text').forEach(t=>{
+      t.textContent = CARDINAL_LABELS[state.dialLabelLang][t.dataset.cardinalKey];
+    });
+  }
+  dialLangToggle.addEventListener('click', ()=>{
+    state.dialLabelLang = state.dialLabelLang === 'zh' ? 'en' : 'zh';
+    updateDialLangLabels();
+    updateDialLangToggleUI();
+    toast(state.dialLabelLang === 'zh' ? '錶面方位已切換為中文' : '錶面方位已切換為字母');
+  });
+  updateDialLangToggleUI();
 
   /* ============================================================
      新增：拖曳錶面手動旋轉（滑鼠 / 觸控），適合桌機或未啟用感測器時使用
@@ -1749,8 +1837,8 @@ button{font-family:inherit;}
       state.bodies[id] = equatorialToHorizontal(b.ra, b.dec, state.lat, lst);
     });
 
-    renderBodyList();
-    renderRiseSet(now);
+    state.lastComputeNow = now;
+    renderBodyList(now);
     renderMoonPhasePanel(now, mi);
 
     render();
@@ -1904,71 +1992,67 @@ button{font-family:inherit;}
   });
 
   // 新增：於右側面板產生 7 個天體的方位清單
-  function renderBodyList(){
+  // 修改：天體名稱後直接標示升/落時間（05:44 ~ 18:13），不用再另外列出日出/日落清單
+  function fmtTime(d){
+    return d instanceof Date && !isNaN(d) ? d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false}) : '—';
+  }
+  function riseSetInlineLabel(bodyId, now){
+    if(state.lat === null) return '';
+    if(bodyId === 'sun'){
+      const t = SunCalc.getTimes(now, state.lat, state.lon);
+      return `(${fmtTime(t.sunrise)} ~ ${fmtTime(t.sunset)})`;
+    }
+    if(bodyId === 'moon'){
+      const t = SunCalc.getMoonTimes(now, state.lat, state.lon, true);
+      if(t.alwaysUp) return '(整日可見)';
+      if(t.alwaysDown) return '(整日不可見)';
+      return `(${fmtTime(t.rise)} ~ ${fmtTime(t.set)})`;
+    }
+    const b = bodyById(bodyId);
+    let ra, dec;
+    if(b.kind === 'star'){ ra = b.ra; dec = b.dec; }
+    else { const rd = planetRADec(b.id, now); ra = rd.ra; dec = rd.dec; }
+    const dateOnly = new Date(now); dateOnly.setHours(0,0,0,0);
+    const rs = riseSetForRaDec(ra, dec, dateOnly, state.lat, state.lon);
+    if(rs.never === 'circumpolar') return '(整日可見)';
+    if(rs.never === 'below') return '(終年不可見)';
+    return `(${fmtTime(rs.rise)} ~ ${fmtTime(rs.set)})`;
+  }
+  function renderBodyList(now){
     const list = $('bodyList');
     list.innerHTML = '';
     BODIES.forEach(b=>{
       const bd = state.bodies[b.id];
       const row = document.createElement('div');
-      row.className = 'sm-row';
+      row.className = 'sm-row' + (state.trackingEnabled && state.trackedId===b.id ? ' tracked' : '');
+      row.dataset.bodyId = b.id;
       const sub = b.id==='moon' && state.moonPhase!==null
         ? '月相 ' + moonPhaseLabel(state.moonPhase)
         : (bd ? '仰角 ' + (bd.alt>=0?'+':'') + bd.alt.toFixed(1) + '°' + (bd.alt<0?'（地平線下）':'') : '—');
+      const riseSet = now ? riseSetInlineLabel(b.id, now) : '';
       row.innerHTML = `
-        <div class="sm-icon letter" style="background:${b.color}22;color:${b.color};">${b.short}</div>
+        <div class="sm-icon letter sm-icon-track" style="background:${b.color}22;color:${b.color};" title="點擊追蹤${b.name}">${b.short}</div>
         <div class="sm-info">
-          <div class="sm-title">${b.name}</div>
+          <div class="sm-title">${b.name} <span class="sm-title-riseset">${riseSet}</span></div>
           <div class="sm-sub">${sub}</div>
         </div>
         <div class="sm-value">${bd? Math.round((bd.az+360)%360)+'°' : '—°'}<small>${bd? dirLabel(bd.az) : '—'}</small></div>`;
       list.appendChild(row);
     });
   }
-  // 新增：升/落資訊列表 — 預設顯示太陽、月亮，若目前追蹤其他天體則一併顯示該天體的升/落
-  const RISE_ICONS = {
-    sun: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-    moon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" stroke-linejoin="round"/></svg>`,
-  };
-  function fmtTime(d){
-    return d instanceof Date && !isNaN(d) ? d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false}) : '—';
-  }
-  function riseSetRowHTML(iconHTML, title, sub){
-    return `<div class="sm-row">
-      <div class="sm-icon" style="background:transparent;color:var(--text-faint);">${iconHTML}</div>
-      <div class="sm-info">
-        <div class="sm-title">${title}</div>
-        <div class="sm-sub">${sub}</div>
-      </div>
-    </div>`;
-  }
-  function renderRiseSet(now){
-    if(state.lat === null){ $('riseSetList').innerHTML = ''; return; }
-    const times = SunCalc.getTimes(now, state.lat, state.lon);
-    const moonTimes = SunCalc.getMoonTimes(now, state.lat, state.lon, true);
-    let html = riseSetRowHTML(RISE_ICONS.sun, '日出 / 日落', fmtTime(times.sunrise) + ' / ' + fmtTime(times.sunset));
-
-    let moonSub;
-    if(moonTimes.alwaysUp) moonSub = '整日可見（不落下）';
-    else if(moonTimes.alwaysDown) moonSub = '整日不可見';
-    else moonSub = fmtTime(moonTimes.rise) + ' / ' + fmtTime(moonTimes.set);
-    html += riseSetRowHTML(RISE_ICONS.moon, '月出 / 月落', moonSub);
-
-    // 追蹤太陽／月亮以外的天體時，額外顯示該天體的升/落時間
-    if(state.trackedId !== 'sun' && state.trackedId !== 'moon'){
-      const b = bodyById(state.trackedId);
-      let ra, dec;
-      if(b.kind === 'star'){ ra = b.ra; dec = b.dec; }
-      else { const rd = planetRADec(b.id, now); ra = rd.ra; dec = rd.dec; }
-      const dateOnly = new Date(now); dateOnly.setHours(0,0,0,0);
-      const rs = riseSetForRaDec(ra, dec, dateOnly, state.lat, state.lon);
-      let sub;
-      if(rs.never === 'circumpolar') sub = '整日可見（不落下）';
-      else if(rs.never === 'below') sub = '本地緯度終年不可見';
-      else sub = fmtTime(rs.rise) + ' / ' + fmtTime(rs.set);
-      html += riseSetRowHTML(`<span style="font-weight:700;">${b.short}</span>`, b.name + ' 升 / 落', sub);
-    }
-    $('riseSetList').innerHTML = html;
-  }
+  // 修改：只有點擊天體「圖示（代號字）」才會切換追蹤，不是點整個區塊都會觸發
+  $('bodyList').addEventListener('click', (e)=>{
+    const icon = e.target.closest('.sm-icon-track');
+    if(!icon) return;
+    const row = icon.closest('.sm-row');
+    const id = row.dataset.bodyId;
+    state.trackedId = id;
+    updateBodySelectUI();
+    if(!state.trackingEnabled) setTracking(true);
+    else render();
+    renderBodyList(state.lastComputeNow || new Date());
+    toast('已切換追蹤：' + bodyById(id).name);
+  });
 
   setInterval(()=>{ if(state.timeMode === 'live') computeCelestial(); }, 30000);
 
