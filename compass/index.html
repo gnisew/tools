@@ -22,7 +22,6 @@
 }
 :root[data-theme="dark"]{
   --bg: #0A1120;
-  --bg-glow: radial-gradient(circle at 50% 0%, #101d38 0%, #0A1120 55%);
   --panel: #121b30;
   --panel-2: #0e1626;
   --border: #24304c;
@@ -46,7 +45,6 @@
 }
 :root[data-theme="light"]{
   --bg: #eef0f6;
-  --bg-glow: radial-gradient(circle at 50% 0%, #ffffff 0%, #eef0f6 60%);
   --panel: #ffffff;
   --panel-2: #f7f8fb;
   --border: #e0e4ee;
@@ -75,7 +73,7 @@ body{
   margin:0;
   min-height:100dvh;
   font-family: var(--font-ui);
-  background: var(--bg-glow), var(--bg);
+  background: var(--bg);
   color: var(--text);
   -webkit-tap-highlight-color: transparent;
   overflow-x:hidden;
@@ -471,6 +469,52 @@ button{font-family:inherit;}
 }
 .notif-item-close:hover{ color: var(--text); }
 
+/* 新增：右下角「尚未啟用指南針」持續提醒卡片 */
+.enable-reminder{
+  position: fixed;
+  right: 18px; bottom: 18px;
+  z-index: 70;
+  display:flex; align-items:flex-start; gap:10px;
+  max-width: min(320px, calc(100vw - 36px));
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  animation: reminder-pop .25s ease-out;
+}
+@keyframes reminder-pop{
+  from{ opacity:0; transform: translateY(10px); }
+  to{ opacity:1; transform: translateY(0); }
+}
+.enable-reminder svg{ width:20px;height:20px; color:var(--accent); flex-shrink:0; margin-top:2px; }
+.enable-reminder-body{ flex:1; min-width:0; }
+.enable-reminder-title{ font-size:13.5px; font-weight:700; color:var(--text); margin-bottom:3px; }
+.enable-reminder-text{ font-size:12px; color:var(--text-dim); line-height:1.5; margin-bottom:10px; }
+.enable-reminder-btn{
+  width:100%;
+  padding: 9px 12px;
+  border-radius: 999px;
+  border: none;
+  background: var(--accent);
+  color: var(--panel);
+  font-size:13px; font-weight:700;
+  cursor:pointer;
+}
+:root[data-theme="light"] .enable-reminder-btn{ color:#fffaf0; }
+:root[data-theme="dark"] .enable-reminder-btn{ color:#1b1204; }
+.enable-reminder-btn:hover{ filter:brightness(1.06); }
+.enable-reminder-close{
+  border:none; background:none; cursor:pointer;
+  color: var(--text-faint);
+  font-size:13px; line-height:1;
+  padding:3px; flex-shrink:0;
+}
+.enable-reminder-close:hover{ color: var(--text); }
+@media (max-width: 480px){
+  .enable-reminder{ left:12px; right:12px; max-width:none; bottom:12px; }
+}
+
 /* Toast */
 .toast{
   position: fixed;
@@ -646,6 +690,44 @@ button{font-family:inherit;}
 .stage.drag-on{ cursor: grab; touch-action: none; }
 .stage.drag-on:active{ cursor: grabbing; }
 
+/* 新增：指北針下方的相機實景圖層 */
+.camera-layer{
+  position: relative;
+  width:100%;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius-m);
+  overflow:hidden;
+  border: 1px solid var(--border);
+  background: #05060a;
+}
+.camera-layer video{
+  width:100%; height:100%;
+  object-fit: cover;
+  display:block;
+}
+.camera-crosshair{
+  position:absolute; left:50%; top:50%;
+  width:34px; height:34px;
+  transform: translate(-50%,-50%);
+  pointer-events:none;
+}
+.camera-crosshair span{
+  position:absolute; background: rgba(255,255,255,0.85);
+  box-shadow: 0 0 3px rgba(0,0,0,0.6);
+}
+.camera-crosshair span:first-child{ left:50%; top:0; width:2px; height:100%; margin-left:-1px; }
+.camera-crosshair span:last-child{ top:50%; left:0; height:2px; width:100%; margin-top:-1px; }
+.camera-heading{
+  position:absolute; left:50%; top:10px; transform: translateX(-50%);
+  background: rgba(0,0,0,0.5);
+  color:#fff;
+  font-family: var(--font-mono);
+  font-size:13px; font-weight:700;
+  padding: 5px 12px;
+  border-radius: 999px;
+  pointer-events:none;
+}
+
 /* 修改：天體追蹤時間控制面板（全天／白天／晚上／自訂／即時）— 縮減垂直間距 */
 .time-panel{
   width:100%;
@@ -738,14 +820,13 @@ button{font-family:inherit;}
       <button class="icon-btn" id="manualBadge" type="button" title="手動旋轉中，點此回到即時感測" style="display:none;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 9-9" stroke-linecap="round"/><path d="M3 12l3-3M3 12l3 3" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
-      <button class="icon-btn" id="calibrateBtn" title="校準指南針">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 4a8 8 0 1 0 8 8" stroke-linecap="round"/><path d="M12 4l2.5 2.5L12 9" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </button>
-      <!-- 新增：磁北／真北 參考基準切換圖示（原本在指北針下方的長按鈕列） -->
-      <button class="icon-btn" id="refToggleBtn" type="button" title="">
-      </button>
+      <!-- 修改：校準指南針已移至通知清單中的固定選項；磁北/真北已移至航向 Heading 資料格內 -->
       <!-- 新增：錶面方位文字語言切換（中文／字母），預設中文 -->
       <button class="tracking-toggle-btn" id="dialLangToggle" type="button" title="切換錶面方位文字：中文／字母">方位：中文</button>
+      <!-- 新增：啟用相機（開啟後於指北針下方顯示實景圖層） -->
+      <button class="icon-btn" id="cameraToggleBtn" type="button" title="啟用相機">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8a2 2 0 0 1 2-2h1.2l1-1.6A1.5 1.5 0 0 1 9.5 3.6h5a1.5 1.5 0 0 1 1.3.8l1 1.6H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.4"/></svg>
+      </button>
       <button class="icon-btn" id="fullscreenBtn" title="全螢幕">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 4H5a1 1 0 0 0-1 1v4M15 4h4a1 1 0 0 1 1 1v4M9 20H5a1 1 0 0 1-1-1v-4M15 20h4a1 1 0 0 0 1-1v-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
@@ -761,7 +842,10 @@ button{font-family:inherit;}
         <p class="panel-label">即時資訊 LIVE DATA</p>
         <div class="data-grid">
           <div class="data-cell span2">
-            <div class="data-cell-label">航向 Heading</div>
+            <div class="data-cell-label-row">
+              <div class="data-cell-label">航向 Heading</div>
+              <button class="tracking-toggle-btn" id="refToggleBtn" type="button" title="">磁北</button>
+            </div>
             <div class="data-cell-value" id="dHeading">— </div>
           </div>
           <div class="data-cell">
@@ -782,11 +866,21 @@ button{font-family:inherit;}
             <div class="data-cell-value" id="dPosition">尚未取得</div>
           </div>
           <div class="data-cell">
-            <div class="data-cell-label">緯度 Latitude</div>
+            <div class="data-cell-label-row">
+              <div class="data-cell-label">緯度 Latitude</div>
+              <button class="mini-copy-btn" id="latCopyBtn" type="button" title="複製緯度">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10" stroke-linecap="round"/></svg>
+              </button>
+            </div>
             <div class="data-cell-value dim" id="dLat">—</div>
           </div>
           <div class="data-cell">
-            <div class="data-cell-label">經度 Longitude</div>
+            <div class="data-cell-label-row">
+              <div class="data-cell-label">經度 Longitude</div>
+              <button class="mini-copy-btn" id="lonCopyBtn" type="button" title="複製經度">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10" stroke-linecap="round"/></svg>
+              </button>
+            </div>
             <div class="data-cell-value dim" id="dLon">—</div>
           </div>
           <div class="data-cell">
@@ -840,6 +934,15 @@ button{font-family:inherit;}
       <div class="stage" id="stage">
         <div class="lubber"></div>
         <svg viewBox="0 0 400 400" id="svg"></svg>
+      </div>
+
+      <!-- 新增：相機實景圖層，點擊右上角「啟用相機」後顯示於指北針下方 -->
+      <div class="camera-layer" id="cameraLayer" style="display:none;">
+        <video id="cameraVideo" autoplay playsinline muted></video>
+        <div class="camera-crosshair">
+          <span></span><span></span>
+        </div>
+        <div class="camera-heading" id="cameraHeading">0° 北</div>
       </div>
 
       <!-- 修改：拖曳開關、手動旋轉復原、感測器狀態提示、啟用指南針均已移至右上角圖示列 / 通知中心 -->
@@ -911,9 +1014,9 @@ button{font-family:inherit;}
             <span class="time-slider-label" id="timeSliderLabel">—</span>
           </div>
           <div class="time-range-row" id="timeRangeRow" style="display:none;">
-            <input type="time" id="timeRangeStart" value="18:00">
+            <input type="time" id="timeRangeStart" value="18:00" lang="en-GB">
             <span class="time-range-sep">–</span>
-            <input type="time" id="timeRangeEnd" value="22:00">
+            <input type="time" id="timeRangeEnd" value="22:00" lang="en-GB">
           </div>
         </div>
 
@@ -928,6 +1031,17 @@ button{font-family:inherit;}
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- 修改：右下角持續提醒「尚未啟用指南針」，可個別關閉（避免與通知面板同時展開時互相干擾）；關閉後仍可從右上角通知鈴鐺重新叫出啟用選項 -->
+<div class="enable-reminder" id="enableReminder" style="display:none;">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.5L11 13l-3.5.5L11 9l3.5.5z" fill="currentColor" stroke="none"/></svg>
+  <div class="enable-reminder-body">
+    <div class="enable-reminder-title">尚未啟用指南針</div>
+    <div class="enable-reminder-text">需要「動作與方向」及「定位」權限才能使用本頁面</div>
+    <button class="enable-reminder-btn" id="enableReminderBtn" type="button">啟用指南針</button>
+  </div>
+  <button class="enable-reminder-close" id="enableReminderClose" type="button" aria-label="關閉">✕</button>
+</div>
 
 <script>
 (function(){
@@ -977,13 +1091,17 @@ button{font-family:inherit;}
   function bodyById(id){ return BODIES.find(b=>b.id===id); }
 
   const DIRS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  // 新增：16 方位中文對照，供 dirLabel() 依錶面方位語言設定切換顯示
+  const DIRS_ZH = ['北','北北東','東北','東北東','東','東南東','東南','南南東','南','南南西','西南','西南西','西','西北西','西北','北北西'];
   // 修改：8 方位文字對照表（中文／字母），供錶面繪製與方位語言切換按鈕共用
   const CARDINAL_LABELS = {
     zh: {N:'北', E:'東', S:'南', W:'西', NE:'東北', SE:'東南', SW:'西南', NW:'西北'},
     en: {N:'N', E:'E', S:'S', W:'W', NE:'NE', SE:'SE', SW:'SW', NW:'NW'}
   };
+  // 修改：方位縮寫依目前錶面方位語言設定（中文／字母）顯示
   function dirLabel(deg){
-    return DIRS[Math.round(((deg%360)+360)%360 / 22.5) % 16];
+    const idx = Math.round(((deg%360)+360)%360 / 22.5) % 16;
+    return state.dialLabelLang === 'zh' ? DIRS_ZH[idx] : DIRS[idx];
   }
   function fmtDeg(deg){
     return Math.round(((deg%360)+360)%360) + '°';
@@ -1168,6 +1286,48 @@ button{font-family:inherit;}
   });
 
   /* ============================================================
+     新增：相機實景圖層 — 啟用後於指北針下方顯示即時鏡頭畫面
+  ============================================================ */
+  let cameraStream = null;
+  const cameraToggleBtn = $('cameraToggleBtn');
+  const cameraLayer = $('cameraLayer');
+  const cameraVideo = $('cameraVideo');
+  const cameraHeadingEl = $('cameraHeading');
+  async function toggleCamera(){
+    if(cameraStream){
+      cameraStream.getTracks().forEach(t=> t.stop());
+      cameraStream = null;
+      cameraVideo.srcObject = null;
+      cameraLayer.style.display = 'none';
+      cameraToggleBtn.classList.remove('active');
+      cameraToggleBtn.title = '啟用相機';
+      return;
+    }
+    if(!isSecureOK()){
+      toast('需要在 HTTPS 或 localhost 環境下才能使用相機'); return;
+    }
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      toast('此瀏覽器不支援相機功能'); return;
+    }
+    try{
+      cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      cameraVideo.srcObject = cameraStream;
+      cameraLayer.style.display = 'block';
+      cameraToggleBtn.classList.add('active');
+      cameraToggleBtn.title = '關閉相機';
+      updateCameraHeading();
+    }catch(e){
+      toast('無法啟用相機：請確認已允許相機權限');
+    }
+  }
+  function updateCameraHeading(){
+    if(!cameraStream) return;
+    const h = currentDisplayHeading();
+    cameraHeadingEl.textContent = fmtDeg(h) + ' ' + dirLabel(h);
+  }
+  cameraToggleBtn.addEventListener('click', toggleCamera);
+
+  /* ============================================================
      VIEW MODE / REFERENCE TOGGLES
   ============================================================ */
   const bodySelectRow = $('bodySelectRow');
@@ -1240,15 +1400,11 @@ button{font-family:inherit;}
   });
   updateTrackingToggleUI();
 
-  // 新增：磁北／真北 圖示（依狀態切換圖示與提示文字）
-  const ICONS_REF = {
-    magnetic: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M8 7l4-4 4 4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-    true: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l2.6 6.6L21 11l-6.4 2.4L12 20l-2.6-6.6L3 11l6.4-2.4L12 2z"/></svg>`
-  };
+  // 修改：磁北／真北 改為清楚文字按鈕，放進「航向 Heading」資料格內
   const refToggleBtn = $('refToggleBtn');
   function updateRefToggleUI(){
     const isTrue = state.refMode === 'true';
-    refToggleBtn.innerHTML = isTrue ? ICONS_REF.true : ICONS_REF.magnetic;
+    refToggleBtn.textContent = isTrue ? '真北' : '磁北';
     refToggleBtn.classList.toggle('active', isTrue);
     refToggleBtn.title = isTrue ? '目前：真北基準（點擊切換為磁北）' : '目前：磁北基準（點擊切換為真北）';
   }
@@ -1257,7 +1413,8 @@ button{font-family:inherit;}
     updateRefToggleUI();
     render();
   }
-  refToggleBtn.addEventListener('click', ()=>{
+  refToggleBtn.addEventListener('click', (e)=>{
+    e.stopPropagation();
     setRefMode(state.refMode === 'magnetic' ? 'true' : 'magnetic');
     toast(state.refMode === 'true' ? '已切換為真北基準' : '已切換為磁北基準');
   });
@@ -1494,6 +1651,7 @@ button{font-family:inherit;}
   const NOTIF_ICONS = {
     info: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.8h.01" stroke-linecap="round"/></svg>`,
     warn: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4M12 16.5h.01" stroke-linecap="round"/><path d="M10.3 3.9 2.6 17.5a1.8 1.8 0 0 0 1.6 2.7h15.6a1.8 1.8 0 0 0 1.6-2.7L13.7 3.9a1.8 1.8 0 0 0-3.4 0z" stroke-linejoin="round"/></svg>`,
+    calib: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 4a8 8 0 1 0 8 8" stroke-linecap="round"/><path d="M12 4l2.5 2.5L12 9" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   };
   NOTIF_ICONS.danger = NOTIF_ICONS.warn;
 
@@ -1507,16 +1665,30 @@ button{font-family:inherit;}
     currentStatusKind = null;
     renderNotifPanel();
   }
+
+  // 修改：右下角「尚未啟用指南針」持續提醒 — 在成功偵測到方向資料前顯示，可點 X 關閉（避免與通知面板同時干擾）
+  const enableReminder = $('enableReminder');
+  let enableReminderDismissed = false;
+  function updateEnableReminder(){
+    enableReminder.style.display = (state.orientationActive || enableReminderDismissed) ? 'none' : 'flex';
+  }
+  $('enableReminderBtn').addEventListener('click', ()=> enableAll());
+  $('enableReminderClose').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    enableReminderDismissed = true;
+    updateEnableReminder();
+  });
+
   function renderNotifPanel(){
     let html = '';
     if(currentStatusKind){
+      // 修改：狀態通知（如尚未啟用指南針）不可被刪除，只有實際解決（如成功偵測到方向）才會消失
       html += `<div class="notif-item ${currentStatusKind}">
         ${NOTIF_ICONS[currentStatusKind] || NOTIF_ICONS.info}
         <div class="notif-item-body">
           <div class="notif-item-text">${currentStatusText}</div>
           <button class="notif-item-action" data-action="enable">${currentActionLabel}</button>
         </div>
-        <button class="notif-item-close" data-dismiss="status" aria-label="關閉">✕</button>
       </div>`;
     }
     if(!infoDismissed){
@@ -1526,8 +1698,16 @@ button{font-family:inherit;}
         <button class="notif-item-close" data-dismiss="info" aria-label="關閉">✕</button>
       </div>`;
     }
-    notifList.innerHTML = html || `<div class="notif-empty">目前沒有通知</div>`;
-    notifBadge.style.display = (currentStatusKind || !infoDismissed) ? 'block' : 'none';
+    // 修改：校準指南針改為通知清單中的固定選項，一律顯示、不可關閉
+    html += `<div class="notif-item calib">
+      ${NOTIF_ICONS.calib}
+      <div class="notif-item-body">
+        <div class="notif-item-text">訊號不準時，可將手機以「8 字形」在空中緩慢移動幾次進行校準</div>
+        <button class="notif-item-action" data-action="calibrate">校準指南針</button>
+      </div>
+    </div>`;
+    notifList.innerHTML = html;
+    notifBadge.style.display = currentStatusKind ? 'block' : 'none';
   }
   function openNotifPanel(){ notifPanel.style.display = 'block'; }
   function closeNotifPanel(){ notifPanel.style.display = 'none'; }
@@ -1536,11 +1716,15 @@ button{font-family:inherit;}
     if(notifPanel.style.display === 'block') closeNotifPanel(); else openNotifPanel();
   });
   notifList.addEventListener('click', (e)=>{
-    const actionBtn = e.target.closest('[data-action="enable"]');
-    if(actionBtn){ closeNotifPanel(); enableAll(); return; }
+    const actionBtn = e.target.closest('[data-action]');
+    if(actionBtn && actionBtn.dataset.action === 'enable'){ closeNotifPanel(); enableAll(); return; }
+    if(actionBtn && actionBtn.dataset.action === 'calibrate'){
+      calibHint.classList.add('show');
+      toast('請將手機以「8 字形」在空中緩慢移動幾次進行校準');
+      return;
+    }
     const dismissBtn = e.target.closest('[data-dismiss]');
     if(dismissBtn){
-      if(dismissBtn.dataset.dismiss === 'status') currentStatusKind = null;
       if(dismissBtn.dataset.dismiss === 'info') infoDismissed = true;
       renderNotifPanel();
     }
@@ -1550,6 +1734,7 @@ button{font-family:inherit;}
   });
 
   function isSecureOK(){
+    if(typeof window.isSecureContext === 'boolean') return window.isSecureContext;
     return location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   }
 
@@ -1633,6 +1818,7 @@ button{font-family:inherit;}
     $('sMagText').textContent = state.orientationAbsolute ? '正常' : '未校準／無磁力計';
 
     clearStatus();
+    updateEnableReminder();
 
     // calibration hint
     const needsCalib = (state.accuracy === null) || (state.accuracy !== null && state.accuracy > 15) || !state.orientationAbsolute;
@@ -1692,6 +1878,7 @@ button{font-family:inherit;}
 
     // rotate the dial: we want the group rotated by -h so that current facing direction points to lubber (top)
     applyDialRotation(h);
+    updateCameraHeading();
 
     // 新增：天體追蹤模式下，於錶面畫出選定天體的指向線；指南針模式則隱藏
     if(state.trackingEnabled){
@@ -2112,11 +2299,17 @@ button{font-family:inherit;}
       toast('複製失敗，請手動選取');
     }
   });
-
-  $('calibrateBtn').addEventListener('click', ()=>{
-    calibHint.classList.add('show');
-    toast('請將手機以「8 字形」在空中緩慢移動幾次進行校準');
-  });
+  async function copyCoordPart(value, label){
+    if(state.lat === null){ toast('尚未取得座標'); return; }
+    try{
+      await navigator.clipboard.writeText(value.toFixed(6));
+      toast(label + '已複製：' + value.toFixed(6));
+    }catch(e){
+      toast('複製失敗，請手動選取');
+    }
+  }
+  $('latCopyBtn').addEventListener('click', ()=> copyCoordPart(state.lat, '緯度'));
+  $('lonCopyBtn').addEventListener('click', ()=> copyCoordPart(state.lon, '經度'));
 
   /* ============================================================
      新增：左右區塊「收合／拖曳調整順序或搬移左右欄位」
@@ -2247,9 +2440,9 @@ button{font-family:inherit;}
   initCollapsiblePanels();
   restorePanelPrefs();
 
-  // 新增：進站時提示一次「啟用指南針」（右上角圖示 + 可關閉橫幅），取代原本常駐的大區塊
+  // 修改：進站時設定「啟用指南針」通知內容，但不自動展開通知面板 — 右下角提醒卡片已足夠顯眼，避免兩處同時彈出互相干擾
   setStatus('info', '需要「動作與方向」及「定位」權限，資料僅在裝置上使用，不會上傳。', '啟用指南針');
-  openNotifPanel();
+  updateEnableReminder();
 
   /* ============================================================
      INIT
