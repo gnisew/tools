@@ -52,7 +52,10 @@
             people: ['👶', '🧒', '👦', '👧', '🧑', '👨', '👩', '🧓', '👴', '👵', '👨‍🎓', '👩‍🎓', '👨‍🏫', '👩‍🏫', '👨‍⚕️', '👩‍⚕️', '👨‍🌾', '👩‍🌾', '👨‍🍳', '👩‍🍳', '👨‍🔧', '👩‍🔧', '👨‍🏭', '👩‍🏭', '👨‍💼', '👩‍💼', '👨‍🔬', '👩‍🔬', '👨‍💻', '👩‍💻', '👨‍🎤', '👩‍🎤', '👨‍🎨', '👩‍🎨', '👨‍✈️', '👩‍✈️', '👨‍🚀', '👩‍🚀', '👨‍🚒', '👩‍🚒', '👮‍♂️', '👮‍♀️', '🕵️‍♂️', '🕵️‍♀️', '💂‍♂️', '💂‍♀️', '👷‍♂️', '👷‍♀️', '🤴', '👸', '👳‍♂️', '👳‍♀️', '👲', '🧕', '🤵', '👰', '🤰', '🤱', '👼', '🎅', '🤶', '🦸‍♂️', '🦸‍♀️', '🦹‍♂️', '🦹‍♀️', '🧙‍♂️', '🧙‍♀️', '🧚‍♂️', '🧚‍♀️', '🧛‍♂️', '🧛‍♀️', '🧜‍♂️', '🧜‍♀️', '🧝‍♂️', '🧝‍♀️', '🧞‍♂️', '🧞‍♀️', '🧟‍♂️', '🧟‍♀️'],
             faces: ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '☺️', '😚', '😙', '🥲', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '🥸', '😎', '🤓', '🧐', '😕', '😟', '🙁', '☹️', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾'],
             transport: ['🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚐', '🛻', '🚚', '🚛', '🚜', '🏍️', '🛵', '🚲', '🛴', '🛹', '🛼', '🚁', '🛸', '✈️', '🛩️', '🛫', '🛬', '🪂', '💺', '🚀', '🛰️', '🚢', '⛵', '🛶', '🚤', '🛥️', '🛳️', '⛴️', '🚂', '🚃', '🚄', '🚅', '🚆', '🚇', '🚈', '🚉', '🚊', '🚝', '🚞', '🚋', '🚌', '🚍', '🚎', '🚐', '🚑', '🚒', '🚓', '🚔', '🚕', '🚖', '🚗', '🚘', '🚙', '🚚', '🚛', '🚜'],
-            other: ['🌍', '🌎', '🌏', '🌐', '🗺️', '🗾', '🧭', '🏔️', '⛰️', '🌋', '🗻', '🏕️', '🏖️', '🏜️', '🏝️', '🏞️', '🏟️', '🏛️', '🏗️', '🧱', '🪨', '🪵', '🛖', '🏘️', '🏚️', '🏠', '🏡', '🏢', '🏣', '🏤', '🏥', '🏦', '🏨', '🏩', '🏪', '🏫', '🏬', '🏭', '🏯', '🏰', '🗼', '🗽', '⛪', '🕌', '🛕', '🕍', '⛩️', '🕋', '⛲', '⛺', '🌁', '🌃', '🏙️', '🌄', '🌅', '🌆', '🌇', '🌉', '♨️', '🎠', '🎡', '🎢', '💈', '🎪', '🚂', '🚃', '🚄', '🚅', '🚆', '🚇', '🚈', '🚉', '🚊', '🚝', '🚞', '🚋', '🚌', '🚍', '🚎', '🚐', '🚑', '🚒', '🚓', '🚔', '🚕', '🚖', '🚗', '🚘', '🚙', '🚚', '🚛', '🚜', '🏎️', '🏍️', '🛵', '🦽', '🦼', '🛴', '🚲', '🛹', '🛼', '🚁', '🛸', '✈️', '🛩️', '🛫', '🛬', '🪂', '💺', '🚀', '🛰️', '🚢', '⛵', '🛶', '🚤', '🛥️', '🛳️', '⛴️', '⚓', '⛽', '🚧', '🚨', '🚥', '🚦', '🛑', '🚏', '🗺️', '🗿', '🗽', '🗼', '🏛️', '🏟️', '🏞️', '🏜️', '🏝️', '🏖️', '⛱️', '🏔️', '⛰️', '🌋', '🗻']
+            other: ['🌍', '🌎', '🌏', '🌐', '🗺️', '🗾', '🧭', '🏔️', '⛰️', '🌋', '🗻', '🏕️', '🏖️', '🏜️', '🏝️', '🏞️', '🏟️', '🏛️', '🏗️', '🧱', '🪨', '🪵', '🛖', '🏘️', '🏚️', '🏠', '🏡', '🏢', '🏣', '🏤', '🏥', '🏦', '🏨', '🏩', '🏪', '🏫', '🏬', '🏭', '🏯', '🏰', '🗼', '🗽', '⛪', '🕌', '🛕', '🕍', '⛩️', '🕋', '⛲', '⛺', '🌁', '🌃', '🏙️', '🌄', '🌅', '🌆', '🌇', '🌉', '♨️', '🎠', '🎡', '🎢', '💈', '🎪', '🚂', '🚃', '🚄', '🚅', '🚆', '🚇', '🚈', '🚉', '🚊', '🚝', '🚞', '🚋', '🚌', '🚍', '🚎', '🚐', '🚑', '🚒', '🚓', '🚔', '🚕', '🚖', '🚗', '🚘', '🚙', '🚚', '🚛', '🚜', '🏎️', '🏍️', '🛵', '🦽', '🦼', '🛴', '🚲', '🛹', '🛼', '🚁', '🛸', '✈️', '🛩️', '🛫', '🛬', '🪂', '💺', '🚀', '🛰️', '🚢', '⛵', '🛶', '🚤', '🛥️', '🛳️', '⛴️', '⚓', '⛽', '🚧', '🚨', '🚥', '🚦', '🛑', '🚏', '🗺️', '🗿', '🗽', '🗼', '🏛️', '🏟️', '🏞️', '🏜️', '🏝️', '🏖️', '⛱️', '🏔️', '⛰️', '🌋', '🗻'],
+            treasure: ['💎', '👑', '💰', '🏆', '🎁', '🔑', '🗝️', '💍', '🪙', '🎖️', '🥇', '🥈', '🥉', '🔮', '💠', '🧿', '📿', '🏺', '🪄', '🧸', '🎗️', '💌', '🧧'],
+            weapons: ['⚔️', '🛡️', '🗡️', '🏹', '🪃', '🔱', '🪓', '💣', '🧨', '💥', '🔫'],
+            aircraft: ['✈️', '🛩️', '🛫', '🛬', '🚀', '🛸', '🚁', '🪂', '🛰️', '🎈', '🪁']
         };
 
         // ========================================
@@ -125,20 +128,70 @@
             }
         }
 
-        // 預設頭像永遠是解鎖的，其餘頭像要看是否已經兌換過
+        // 預設頭像永遠是解鎖的；其餘頭像要看有沒有兌換過，而且兌換時間要在 AVATAR_UNLOCK_DAYS 天內
+        // （資料格式：{ [學生key]: { [avatar]: 兌換時的timestamp } }）
         function isAvatarUnlocked(name, classNum, avatar) {
             if (avatar === DEFAULT_AVATAR) return true;
             const data = getUnlockedAvatarsData();
-            const list = data[getStudentKey(name, classNum)] || [];
-            return list.includes(avatar);
+            const record = data[getStudentKey(name, classNum)];
+            const unlockedAt = record && record[avatar];
+            if (!unlockedAt) return false;
+            const durationMs = AVATAR_UNLOCK_DAYS * 24 * 60 * 60 * 1000;
+            return (Date.now() - unlockedAt) < durationMs;
         }
 
+        // 這個頭像還剩幾天效期（沒兌換過或已過期回傳 0）
+        function getAvatarDaysLeft(name, classNum, avatar) {
+            if (avatar === DEFAULT_AVATAR) return null; // 預設頭像沒有效期概念
+            const data = getUnlockedAvatarsData();
+            const record = data[getStudentKey(name, classNum)];
+            const unlockedAt = record && record[avatar];
+            if (!unlockedAt) return 0;
+            const durationMs = AVATAR_UNLOCK_DAYS * 24 * 60 * 60 * 1000;
+            const msLeft = durationMs - (Date.now() - unlockedAt);
+            return Math.max(0, Math.ceil(msLeft / (24 * 60 * 60 * 1000)));
+        }
+
+        // 兌換頭像：記錄「現在」這個時間點，效期從這一刻開始算 3 天
         function unlockAvatarForStudent(name, classNum, avatar) {
             const data = getUnlockedAvatarsData();
             const key = getStudentKey(name, classNum);
-            if (!data[key]) data[key] = [];
-            if (!data[key].includes(avatar)) data[key].push(avatar);
+            if (!data[key]) data[key] = {};
+            data[key][avatar] = Date.now();
             saveUnlockedAvatarsData(data);
+        }
+
+        // 有沒有一則「頭像剛過期」的通知還沒顯示給學生看
+        let avatarExpiryNoticePending = false;
+
+        // 檢查目前使用中的頭像是不是已經過期，過期就自動變回預設頭像
+        // 回傳 true 代表有被重置（呼叫端可以視需要更新畫面/提示使用者）
+        function checkAndApplyAvatarExpiry() {
+            if (studentAvatar && studentAvatar !== DEFAULT_AVATAR && !isAvatarUnlocked(studentName, studentClass, studentAvatar)) {
+                studentAvatar = DEFAULT_AVATAR;
+                avatarExpiryNoticePending = true; // 記下來，下次打開個人資訊畫面時提醒學生
+                try {
+                    localStorage.setItem(`${QUIZ_ID}_studentAvatar`, studentAvatar);
+                } catch (error) {
+                    console.log('更新頭像效期時發生錯誤');
+                }
+                const avatarEl = document.getElementById('userAvatar');
+                if (avatarEl) avatarEl.textContent = studentAvatar;
+                return true;
+            }
+            return false;
+        }
+
+        // 如果有「頭像剛過期」的待通知訊息，顯示一次就清掉，不會重複跳出
+        function maybeShowAvatarExpiryNotice() {
+            const notice = document.getElementById('avatarExpiryNotice');
+            if (!notice) return;
+            if (avatarExpiryNoticePending) {
+                notice.classList.remove('hidden');
+                avatarExpiryNoticePending = false;
+            } else {
+                notice.classList.add('hidden');
+            }
         }
 
         // 依測驗分數換算這次可以拿到幾點積分（依 SCORE_POINTS_RULES 由高到低比對）
@@ -156,6 +209,196 @@
             const classNum = (document.getElementById('studentClass')?.value || '').trim();
             const points = (name && classNum) ? getPoints(name, classNum) : 0;
             display.textContent = `🌟 積分 ${points} 點`;
+
+            // 順便更新目前頭像的效期倒數
+            const expiryDisplay = document.getElementById('avatarExpiryDisplay');
+            if (expiryDisplay) {
+                if (name && classNum && studentAvatar && studentAvatar !== DEFAULT_AVATAR) {
+                    const daysLeft = getAvatarDaysLeft(name, classNum, studentAvatar);
+                    expiryDisplay.textContent = `⏳ 頭像剩 ${daysLeft} 天`;
+                    expiryDisplay.classList.remove('hidden');
+                } else {
+                    expiryDisplay.classList.add('hidden');
+                }
+            }
+        }
+
+        // ========================================
+        // 🎉 灑花特效：用積分兌換的消耗性道具
+        // 跟頭像不同，這個是「次數」，用完了要再花積分買，不是買一次就永久擁有
+        // ========================================
+
+        function getConfettiUsesData() {
+            try {
+                const raw = localStorage.getItem(`${QUIZ_ID}_confettiUses`);
+                const parsed = raw ? JSON.parse(raw) : {};
+                return (parsed && typeof parsed === 'object') ? parsed : {};
+            } catch (error) {
+                return {};
+            }
+        }
+
+        function saveConfettiUsesData(data) {
+            try {
+                localStorage.setItem(`${QUIZ_ID}_confettiUses`, JSON.stringify(data));
+            } catch (error) {
+                console.log('儲存灑花特效次數時發生錯誤');
+            }
+        }
+
+        function getConfettiUses(name, classNum) {
+            const data = getConfettiUsesData();
+            return data[getStudentKey(name, classNum)] || 0;
+        }
+
+        function addConfettiUses(name, classNum, amount) {
+            if (!amount || amount <= 0) return;
+            const data = getConfettiUsesData();
+            const key = getStudentKey(name, classNum);
+            data[key] = (data[key] || 0) + amount;
+            saveConfettiUsesData(data);
+        }
+
+        // 用掉 1 次灑花特效額度，成功回傳 true；沒額度回傳 false
+        function useConfettiCharge(name, classNum) {
+            const data = getConfettiUsesData();
+            const key = getStudentKey(name, classNum);
+            const current = data[key] || 0;
+            if (current <= 0) return false;
+            data[key] = current - 1;
+            saveConfettiUsesData(data);
+            return true;
+        }
+
+        // 依目前登入的學生，更新灑花按鈕上的次數徽章
+        function updateConfettiButtonUI() {
+            const badge = document.getElementById('confettiButtonBadge');
+            if (!badge) return;
+            const uses = getConfettiUses(studentName, studentClass);
+            badge.textContent = uses;
+        }
+
+        // 灑花按鈕只在「作答中」或「結果頁」出現，其他畫面（首頁、個人資料）不顯示
+        function updateConfettiButtonVisibility(visible) {
+            const btn = document.getElementById('confettiButton');
+            if (!btn) return;
+            if (!ENABLE_CONFETTI_EFFECT) {
+                btn.classList.add('hidden');
+                return;
+            }
+            btn.classList.toggle('hidden', !visible);
+            if (visible) updateConfettiButtonUI();
+        }
+
+        // 點擊灑花按鈕：有額度就直接灑花並扣 1 次；沒額度就跳出兌換視窗
+        // 點灑花按鈕：只會顯示目前還有幾次機會、以及不夠的話能不能兌換，
+        // 不會直接播放特效——特效只有測驗/練習拿到高分時才會自動播放，這樣才有「值得」的感覺
+        function onConfettiButtonClick() {
+            const uses = getConfettiUses(studentName, studentClass);
+            const points = getPoints(studentName, studentClass);
+            const statusLine = `剩餘機會：${uses} 次（90 分以上自動播放）`;
+
+            if (points < CONFETTI_BUNDLE_COST) {
+                showGenericAlert(
+                    '🎉 灑花特效',
+                    `${statusLine}\n兌換 ${CONFETTI_BUNDLE_USES} 次需要 ${CONFETTI_BUNDLE_COST} 點，還差 ${CONFETTI_BUNDLE_COST - points} 點`
+                );
+                return;
+            }
+
+            showGenericConfirm({
+                title: '🎉 灑花特效',
+                message: `${statusLine}\n\n花 ${CONFETTI_BUNDLE_COST} 點兌換 ${CONFETTI_BUNDLE_USES} 次？兌換後剩 ${points - CONFETTI_BUNDLE_COST} 點`,
+                theme: 'default',
+                confirmText: '兌換',
+                onConfirm: () => {
+                    if (spendPoints(studentName, studentClass, CONFETTI_BUNDLE_COST)) {
+                        addConfettiUses(studentName, studentClass, CONFETTI_BUNDLE_USES);
+                        updatePointsDisplay();
+                        updateConfettiButtonUI();
+                    }
+                    closeGenericDialog();
+                }
+            });
+        }
+
+        // 實際播放灑花特效：一群彩色紙片/表情符號從畫面上方灑落，邊落邊轉邊淡出
+        // 實際播放灑花特效：每次觸發都會隨機挑選不同的灑花模式跟主題，
+        // 數量拉高到滿版效果，讓學習者覺得這個很值得、每次看到都有新鮮感
+        function triggerConfettiEffect() {
+            const pieceCount = 100; // 滿版效果，比原本的40片多很多
+
+            const emojiThemes = [
+                ['🎉', '🎊', '✨', '⭐', '🌟'],
+                ['🎈', '🎇', '🎆', '💫', '🌈'],
+                ['🥳', '🏆', '👏', '💯', '🎯']
+            ];
+            const colorThemes = [
+                ['#f87171', '#fbbf24', '#34d399', '#60a5fa', '#a78bfa', '#f472b6'],
+                ['#fb7185', '#facc15', '#4ade80', '#38bdf8', '#c084fc', '#fb923c']
+            ];
+            const emojis = emojiThemes[Math.floor(Math.random() * emojiThemes.length)];
+            const colors = colorThemes[Math.floor(Math.random() * colorThemes.length)];
+
+            // 每次隨機挑一種灑花模式，讓學習者每次看到的效果都不太一樣
+            // rain：滿版雨降（一開始就佈滿整個畫面，不用等落下）
+            // burst：從畫面中心往四面八方炸開
+            // sides：左右兩側往上噴發
+            const patterns = ['rain', 'burst', 'sides'];
+            const pattern = patterns[Math.floor(Math.random() * patterns.length)];
+
+            for (let i = 0; i < pieceCount; i++) {
+                const piece = document.createElement('div');
+                const useEmoji = Math.random() < 0.4;
+
+                if (useEmoji) {
+                    piece.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+                    piece.style.fontSize = (14 + Math.random() * 16) + 'px';
+                } else {
+                    const size = 6 + Math.random() * 8;
+                    piece.style.width = size + 'px';
+                    piece.style.height = size + 'px';
+                    piece.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    piece.style.borderRadius = Math.random() < 0.5 ? '50%' : '2px';
+                }
+
+                piece.style.position = 'fixed';
+                piece.style.zIndex = '9999';
+                piece.style.pointerEvents = 'none';
+
+                const duration = 1.6 + Math.random() * 1.4;
+
+                if (pattern === 'rain') {
+                    // 滿版雨降：一開始就灑滿整個畫面（不只是上緣），馬上有「滿版」的感覺
+                    piece.style.left = Math.random() * 100 + 'vw';
+                    piece.style.top = (Math.random() * 60 - 20) + 'vh';
+                    const drift = (Math.random() - 0.5) * 220;
+                    piece.style.setProperty('--confetti-drift', drift + 'px');
+                    piece.style.animation = `confettiFall ${duration}s ease-in forwards`;
+                } else if (pattern === 'burst') {
+                    // 從畫面中心往四面八方炸開
+                    piece.style.left = '50vw';
+                    piece.style.top = '45vh';
+                    const angle = Math.random() * Math.PI * 2;
+                    const distance = 120 + Math.random() * 260;
+                    piece.style.setProperty('--confetti-dx', (Math.cos(angle) * distance) + 'px');
+                    piece.style.setProperty('--confetti-dy', (Math.sin(angle) * distance - 40) + 'px');
+                    piece.style.animation = `confettiBurst ${duration}s ease-out forwards`;
+                } else {
+                    // 左右兩側往上噴發
+                    const fromLeft = Math.random() < 0.5;
+                    piece.style.left = (fromLeft ? Math.random() * 15 : 85 + Math.random() * 15) + 'vw';
+                    piece.style.top = '95vh';
+                    const dx = (fromLeft ? 1 : -1) * (80 + Math.random() * 200);
+                    const dy = -(200 + Math.random() * 300);
+                    piece.style.setProperty('--confetti-dx', dx + 'px');
+                    piece.style.setProperty('--confetti-dy', dy + 'px');
+                    piece.style.animation = `confettiBurst ${duration}s ease-out forwards`;
+                }
+
+                document.body.appendChild(piece);
+                setTimeout(() => piece.remove(), duration * 1000 + 150);
+            }
         }
 
 
@@ -179,6 +422,9 @@ function loginUser(name, classNum, avatar, quizCode) {
             studentClass = classNum;
             studentAvatar = avatar;
             studentQuizCode = quizCode; // 【新增】
+
+            // 🕒 頭像效期檢查：兌換來的頭像只能維持 AVATAR_UNLOCK_DAYS 天，過期就自動變回預設頭像
+            checkAndApplyAvatarExpiry();
 
             // 儲存使用者資訊到localStorage (加上 QUIZ_ID 前綴)
             localStorage.setItem(`${QUIZ_ID}_studentName`, studentName);
@@ -244,6 +490,7 @@ function loginUser(name, classNum, avatar, quizCode) {
 
 		// 初始化課別選單
 		function initCourseSelection() {
+			checkAndApplyAvatarExpiry();
 			updateSpacedReviewEntry();
 
 			const courseButtonsContainer = document.getElementById('courseButtons');
@@ -358,22 +605,44 @@ function loginUser(name, classNum, avatar, quizCode) {
 		}
 
 		// 獨立出來的按鈕建立函數，避免程式碼重複
+		// 產生星星 HTML（0~100分對應0~5顆星），供課程卡片跟統計彈窗共用
+		function buildStarsHtml(score, sizeClass) {
+			const starClass = `${sizeClass} text-yellow-400 material-icons`;
+			const emptyStarClass = `${sizeClass} text-gray-200 material-icons`;
+			let html = '';
+
+			if (!score || score <= 0) {
+				for (let i = 0; i < 5; i++) html += `<span class="${emptyStarClass}">star</span>`;
+				return html;
+			}
+
+			const starCount = Math.floor(score / 20);
+			const hasHalfStar = (score % 20) >= 10;
+			for (let i = 0; i < starCount; i++) html += `<span class="${starClass}">star</span>`;
+			if (hasHalfStar && starCount < 5) html += `<span class="${starClass}">star_half</span>`;
+			const filledStars = starCount + (hasHalfStar ? 1 : 0);
+			for (let i = filledStars; i < 5; i++) html += `<span class="${emptyStarClass}">star</span>`;
+			return html;
+		}
+
 		function createCourseButton(course, index) {
 			const button = document.createElement('button');
 			button.className = 'bg-white border border-gray-200 hover:border-purple-300 hover:shadow-md text-gray-800 px-4 py-3 rounded-lg font-medium text-base transition-all text-left w-full flex flex-col gap-2';
 
 			const practiceCount = getPracticeCount(course.id);
-			const avgScore = getAverageScore(course.id);
+			const bestScore = getBestScore(course.id);
 			const hasDueReview = getAllDueReviewItems().some(item => item.courseId === course.id);
+			const smallStarsHtml = buildStarsHtml(bestScore, 'text-xs');
 
-			// 決定狀態標籤：已完成 / 複習 / 尚未挑戰
+			// 決定狀態標籤：完成N次 / 複習 / 尚未挑戰
+			// 用「最高分」而不是「平均分」來鼓勵學生——只要曾經考差一次，平均分就永遠回不去100分，容易讓人洩氣
 			let statusBadge, statusDetail;
 			if (hasDueReview) {
 				statusBadge = `<span class="text-xs px-2 py-0.5 rounded-full" style="background-color: var(--color-warning-light); color: var(--color-warning-dark);">複習</span>`;
-				statusDetail = `<span class="text-xs" style="color: var(--color-warning-dark);">${avgScore} 分・有錯題待複習</span>`;
+				statusDetail = `<span class="text-xs" style="color: var(--color-warning-dark);">最高 ${bestScore} 分・有錯題待複習</span>`;
 			} else if (practiceCount > 0) {
-				statusBadge = `<span class="text-xs px-2 py-0.5 rounded-full" style="background-color: var(--color-accent-light); color: var(--color-accent-dark);">已完成</span>`;
-				statusDetail = `<span class="text-xs" style="color: var(--color-accent-dark);">平均 ${avgScore} 分・練習 ${practiceCount} 次</span>`;
+				statusBadge = `<button class="text-xs px-2 py-0.5 rounded-full hover:opacity-80 transition-opacity" style="background-color: var(--color-accent-light); color: var(--color-accent-dark);" onclick="event.stopPropagation(); showCourseStats('${course.id}', '${course.title}', ${bestScore})">完成 ${practiceCount} 次</button>`;
+				statusDetail = `<span class="text-xs" style="color: var(--color-accent-dark);">最高 ${bestScore} 分</span>`;
 			} else {
 				statusBadge = `<span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">尚未挑戰</span>`;
 				statusDetail = '';
@@ -381,15 +650,14 @@ function loginUser(name, classNum, avatar, quizCode) {
 
 			button.innerHTML = `
 				<div class="flex justify-between items-center">
-					<span class="text-xs text-gray-400">測驗 ${index + 1}</span>
+					<div class="flex items-center gap-1.5">
+						<span class="text-xs text-gray-400">測驗 ${index + 1}</span>
+						<span class="flex items-center">${smallStarsHtml}</span>
+					</div>
 					${statusBadge}
 				</div>
 				<div class="text-base text-black">${course.title}</div>
-				${(statusDetail || practiceCount > 0) ? `
-				<div class="flex items-center justify-between">
-					${statusDetail}
-					${practiceCount > 0 ? `<button class="text-xs text-purple-500 hover:text-purple-700 underline flex-shrink-0" onclick="event.stopPropagation(); showCourseStats('${course.id}', '${course.title}', ${avgScore})">查看紀錄</button>` : ''}
-				</div>` : ''}
+				${statusDetail ? `<div>${statusDetail}</div>` : ''}
 			`;
 			button.onclick = () => startQuiz(course.id);
 			return button;
@@ -403,6 +671,14 @@ function loginUser(name, classNum, avatar, quizCode) {
 		}
 
         // 計算平均成績
+		// 計算最高成績（用最高分而不是平均分來鼓勵學生，避免曾經考差一次就永遠看起來很低分）
+		function getBestScore(courseId) {
+			const history = getHistory();
+			const completedRecords = history.filter(record => record.courseId === courseId && record.completed);
+			if (completedRecords.length === 0) return 0;
+			return Math.max(...completedRecords.map(record => record.score));
+		}
+
 		function getAverageScore(courseId) {
 			const history = getHistory();
 			const completedRecords = history.filter(record => record.courseId === courseId && record.completed);
@@ -415,7 +691,7 @@ function loginUser(name, classNum, avatar, quizCode) {
         // 根據成績決定星號顏色（供「查看紀錄」彈窗使用）
 
 		// 顯示課程統計 (接收 ID 和 Title)
-		function showCourseStats(courseId, courseTitle, avgScore) {
+		function showCourseStats(courseId, courseTitle, bestScore) {
             // 1. 取得該課程的所有歷史紀錄
             const history = getHistory();
             const records = history.filter(record => record.courseId === courseId && record.completed);
@@ -450,30 +726,8 @@ function loginUser(name, classNum, avatar, quizCode) {
             document.getElementById('statsCount80').textContent = count80;
             document.getElementById('statsCountOther').textContent = countOther;
 
-			// 生成星星 (邏輯保持不變，依照傳入的平均分 avgScore 繪製)
-            // 這樣雖然不顯示平均分數字，但星星依然代表整體實力
-			let starsHtml = '';
-			const starClass = 'text-3xl text-yellow-400 drop-shadow-sm material-icons'; 
-			const emptyStarClass = 'text-3xl text-gray-200 material-icons'; 
-			
-			const starCount = Math.floor(avgScore / 20);
-			const hasHalfStar = (avgScore % 20) >= 10;
-
-			if (practiceCount === 0) {
-				for(let i=0; i<5; i++) starsHtml += `<span class="${emptyStarClass}">star</span>`;
-			} else {
-				for (let i = 0; i < starCount; i++) {
-					starsHtml += `<span class="${starClass}">star</span>`;
-				}
-				if (hasHalfStar && starCount < 5) {
-					starsHtml += `<span class="${starClass}">star_half</span>`;
-				}
-				const filledStars = starCount + (hasHalfStar ? 1 : 0);
-				for (let i = filledStars; i < 5; i++) {
-					starsHtml += `<span class="${emptyStarClass}">star</span>`;
-				}
-			}
-			document.getElementById('statsModalStars').innerHTML = starsHtml;
+			// 生成星星：跟課程卡片用同一份共用邏輯
+			document.getElementById('statsModalStars').innerHTML = buildStarsHtml(bestScore, 'text-3xl');
 
 			// 分數趨勢折線圖：依作答時間由舊到新排序，重用學習歷程/跨測驗趨勢用的同一份繪圖邏輯
 			const trendContainer = document.getElementById('statsTrendChart');
@@ -981,6 +1235,7 @@ function loginUser(name, classNum, avatar, quizCode) {
 			document.getElementById('resultArea').classList.remove('hidden');
 
 			updateHeaderButtonsVisibility();
+			updateConfettiButtonVisibility(true);
 		}
 
 		// 新手提示：只在學生「第一次」進入測驗畫面時顯示一次，
@@ -1217,6 +1472,7 @@ function loginUser(name, classNum, avatar, quizCode) {
 		function returnToHomeUI() {
 			isReviewMode = false;
 			stopHintMascot();
+			updateConfettiButtonVisibility(false);
 			// 恢復標題
 			document.getElementById('mainTitle').textContent = QUIZ_TITLE;
 
@@ -1511,6 +1767,7 @@ function loginUser(name, classNum, avatar, quizCode) {
         function showQuestion() {
             if (isReading) stopReading();
             updateHintMascotVisibility();
+            updateConfettiButtonVisibility(true);
             hideHintBubble();
             
             const question = currentQuestions[currentQuestionIndex];
@@ -1953,6 +2210,12 @@ function loginUser(name, classNum, avatar, quizCode) {
                     addPoints(studentName, studentClass, earnedPoints);
                 }
             }
+
+            // 🎉 不管測驗或練習，只要分數達標就自動灑花一次（會消耗 1 次灑花額度，沒額度就不會自動觸發）
+            let autoConfettiTriggered = false;
+            if (ENABLE_CONFETTI_EFFECT && percentage >= CONFETTI_AUTO_TRIGGER_SCORE) {
+                autoConfettiTriggered = useConfettiCharge(studentName, studentClass);
+            }
             
             // 將錯題陣列轉為字串
             const wrongString = wrongQuestionsList.join(',');
@@ -2021,6 +2284,10 @@ function loginUser(name, classNum, avatar, quizCode) {
             document.getElementById('resultArea').classList.remove('hidden');
 
             updateHeaderButtonsVisibility();
+            updateConfettiButtonVisibility(true);
+            if (autoConfettiTriggered) {
+                setTimeout(triggerConfettiEffect, 300); // 稍微延遲，等結果頁畫面切換完成再灑花
+            }
         }
         
         // 待補送資料的 localStorage 鍵值
@@ -2603,6 +2870,22 @@ window.addEventListener('beforeunload', () => {
                 onHintMascotClick();
             };
         }
+
+        // 🎉 灑花特效按鈕
+        const confettiButtonBtnEl = document.getElementById('confettiButtonBtn');
+        if (confettiButtonBtnEl) {
+            confettiButtonBtnEl.onclick = (e) => {
+                e.stopPropagation();
+                onConfettiButtonClick();
+            };
+        }
+        // 頭像到期通知的關閉按鈕
+        const avatarExpiryNoticeCloseEl = document.getElementById('avatarExpiryNoticeClose');
+        if (avatarExpiryNoticeCloseEl) {
+            avatarExpiryNoticeCloseEl.onclick = () => {
+                document.getElementById('avatarExpiryNotice').classList.add('hidden');
+            };
+        }
         // 點提示泡泡本身不應該把泡泡關掉（避免點裡面的文字時意外觸發外層關閉邏輯）
         const hintBubbleEl = document.getElementById('hintBubble');
         if (hintBubbleEl) {
@@ -2748,32 +3031,41 @@ window.addEventListener('beforeunload', () => {
             const name = document.getElementById('studentName').value.trim();
             const classNum = document.getElementById('studentClass').value.trim();
             if (!name || !classNum) {
-                alert('請先輸入姓名和班號，才能查詢你的積分喔！');
+                showGenericAlert('🌟 還不能兌換喔', '請先輸入姓名和班號，才能查詢你的積分喔！');
                 return;
             }
 
             const points = getPoints(name, classNum);
             if (points < AVATAR_UNLOCK_COST) {
-                alert(`積分不夠喔！這個頭像需要 ${AVATAR_UNLOCK_COST} 點，你目前有 ${points} 點，還差 ${AVATAR_UNLOCK_COST - points} 點。`);
+                showGenericAlert(
+                    '🌟 積分不夠喔',
+                    `這個頭像需要 ${AVATAR_UNLOCK_COST} 點，你目前有 ${points} 點，還差 ${AVATAR_UNLOCK_COST - points} 點。多完成幾次測驗就可以了！`
+                );
                 return;
             }
 
-            const confirmed = confirm(`要用 ${AVATAR_UNLOCK_COST} 點積分兌換這個頭像 ${avatar} 嗎？\n目前積分：${points} 點，兌換後剩：${points - AVATAR_UNLOCK_COST} 點`);
-            if (!confirmed) return;
+            showGenericConfirm({
+                title: `${avatar} 要兌換這個頭像嗎？`,
+                message: `需要花費 ${AVATAR_UNLOCK_COST} 點積分，這個頭像可以用 ${AVATAR_UNLOCK_DAYS} 天，到期後會自動變回預設頭像。\n目前積分：${points} 點，兌換後剩：${points - AVATAR_UNLOCK_COST} 點`,
+                theme: 'default',
+                confirmText: '兌換',
+                onConfirm: () => {
+                    if (spendPoints(name, classNum, AVATAR_UNLOCK_COST)) {
+                        unlockAvatarForStudent(name, classNum, avatar);
+                        showAvatarCategory(activeAvatarCategory); // 重新渲染，把鎖頭打開
 
-            if (spendPoints(name, classNum, AVATAR_UNLOCK_COST)) {
-                unlockAvatarForStudent(name, classNum, avatar);
-                updatePointsDisplay();
-                showAvatarCategory(activeAvatarCategory); // 重新渲染，把鎖頭打開
-
-                // 重新渲染後原本的 button 參照已經失效，要找新的按鈕再選取
-                const refreshedButtons = document.querySelectorAll('#avatarSelection button');
-                refreshedButtons.forEach(btn => {
-                    if (btn.textContent === avatar) {
-                        selectAvatar(avatar, btn);
+                        // 重新渲染後原本的 button 參照已經失效，要找新的按鈕再選取
+                        const refreshedButtons = document.querySelectorAll('#avatarSelection button');
+                        refreshedButtons.forEach(btn => {
+                            if (btn.textContent === avatar) {
+                                selectAvatar(avatar, btn);
+                            }
+                        });
+                        updatePointsDisplay(); // 放在 selectAvatar 之後，效期倒數才會抓到新頭像
                     }
-                });
-            }
+                    closeGenericDialog();
+                }
+            });
         }
 
         function selectAvatar(avatar, button) {
@@ -2869,6 +3161,8 @@ function checkStudentInfo() {
             if (!document.getElementById('historyArea').classList.contains('hidden')) {
                 return;
             }
+            updateConfettiButtonVisibility(false);
+            maybeShowAvatarExpiryNotice();
             
             document.getElementById('studentInfoTitle').textContent = '🦋 個人資訊';
             document.getElementById('studentName').value = studentName;
@@ -2971,10 +3265,30 @@ function checkStudentInfo() {
 		let genericConfirmCallback = null;
 
 		// 顯示通用對話框
-		function showGenericConfirm({ title, message, needsPassword, onConfirm }) {
+		// theme: 'danger'（預設，紅色，用於刪除等危險操作）或 'default'（紫色，用於一般確認，如積分兌換）
+		// hideCancel: true 時只顯示一個按鈕，當作單純的提示訊息用（取代原生 alert）
+		function showGenericConfirm({ title, message, needsPassword, onConfirm, theme = 'danger', confirmText = '確認', hideCancel = false }) {
 			genericDialogTitle.textContent = title;
 			genericDialogMessage.textContent = message;
-			
+
+			if (theme === 'default') {
+				genericDialogTitle.className = 'text-2xl font-bold mb-4';
+				genericDialogTitle.style.color = 'var(--color-primary)';
+				genericConfirmBtn.className = 'text-white px-8 py-3 rounded-full font-medium transition-colors transform hover:scale-105';
+				genericConfirmBtn.style.backgroundColor = 'var(--color-primary)';
+				genericConfirmBtn.onmouseenter = () => { genericConfirmBtn.style.backgroundColor = 'var(--color-primary-dark)'; };
+				genericConfirmBtn.onmouseleave = () => { genericConfirmBtn.style.backgroundColor = 'var(--color-primary)'; };
+			} else {
+				genericDialogTitle.className = 'text-2xl font-bold text-red-600 mb-4';
+				genericDialogTitle.style.color = '';
+				genericConfirmBtn.className = 'bg-red-500 hover:bg-red-600 text-white px-8 py-3 rounded-full font-medium transition-colors transform hover:scale-105';
+				genericConfirmBtn.style.backgroundColor = '';
+				genericConfirmBtn.onmouseenter = null;
+				genericConfirmBtn.onmouseleave = null;
+			}
+			genericConfirmBtn.textContent = confirmText;
+			genericCancelBtn.classList.toggle('hidden', hideCancel);
+
 			if (needsPassword) {
 				genericDialogPasswordWrapper.classList.remove('hidden');
 				genericDialogPasswordInput.value = ''; // 清空密碼
@@ -2991,6 +3305,18 @@ function checkStudentInfo() {
 				genericDialogContent.classList.add('scale-100', 'opacity-100');
 				if(needsPassword) genericDialogPasswordInput.focus();
 			}, 10);
+		}
+
+		// 單純的提示訊息（取代原生 alert，只有一個按鈕可以按）
+		function showGenericAlert(title, message, theme = 'default') {
+			showGenericConfirm({
+				title,
+				message,
+				theme,
+				confirmText: '知道了',
+				hideCancel: true,
+				onConfirm: () => closeGenericDialog()
+			});
 		}
 
 		// 關閉通用對話框

@@ -39,6 +39,12 @@ document.getElementById("myhtml").innerHTML = `
         <div id="studentInfo" class="bg-white rounded-2xl shadow-lg p-6 mb-6 relative">
             <h2 class="text-2xl font-bold text-center text-purple-700 mb-4" id="studentInfoTitle">個人資訊設定</h2>
             <div class="max-w-lg mx-auto">
+                <div id="avatarExpiryNotice" class="hidden mb-4 text-sm px-4 py-3 rounded-lg flex items-center justify-between gap-2" style="background-color: var(--color-warning-light); color: var(--color-warning-dark);">
+                    <span>🕒 你上次兌換的頭像已經到期囉，變回預設頭像 🐛 了</span>
+                    <button id="avatarExpiryNoticeClose" class="flex-shrink-0" style="color: var(--color-warning-dark);" title="關閉">
+                        <span class="material-icons-outlined text-lg">close</span>
+                    </button>
+                </div>
                 <div class="mb-4 flex items-center">
                     <label for="studentName" class="w-18 text-gray-700 font-bold mr-2 flex-shrink-0">名稱：</label>
                     <input type="text" id="studentName" class="flex-grow px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] transition-shadow" placeholder="輸入你的姓名">
@@ -52,9 +58,12 @@ document.getElementById("myhtml").innerHTML = `
                     <input type="text" id="studentQuizCode" class="flex-grow px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary-light)] transition-shadow" placeholder="輸入老師提供的測驗代碼">
                 </div>
                 <div class="mb-4">
-                    <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center justify-between mb-2 flex-wrap gap-2">
                         <label class="w-18 text-gray-700 font-bold mr-2 flex-shrink-0">頭像：</label>
-                        <span id="studentPointsDisplay" class="text-sm font-bold px-3 py-1 rounded-full" style="background-color: var(--color-warning-light); color: var(--color-warning-dark);">🌟 積分 0 點</span>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span id="studentPointsDisplay" class="text-sm font-bold px-3 py-1 rounded-full" style="background-color: var(--color-warning-light); color: var(--color-warning-dark);">🌟 積分 0 點</span>
+                            <span id="avatarExpiryDisplay" class="hidden text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-500"></span>
+                        </div>
                     </div>
                     <div class="flex items-center mb-2">
                         <span class="w-18 flex-shrink-0"></span>
@@ -66,6 +75,9 @@ document.getElementById("myhtml").innerHTML = `
                             <button class="px-3 py-1 rounded-full text-sm font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300" data-category="faces">臉</button>
                             <button class="px-3 py-1 rounded-full text-sm font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300" data-category="transport">交通</button>
                             <button class="px-3 py-1 rounded-full text-sm font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300" data-category="other">其他</button>
+                            <button class="px-3 py-1 rounded-full text-sm font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300" data-category="treasure">寶物</button>
+                            <button class="px-3 py-1 rounded-full text-sm font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300" data-category="weapons">武器</button>
+                            <button class="px-3 py-1 rounded-full text-sm font-medium transition-colors bg-gray-200 text-gray-700 hover:bg-gray-300" data-category="aircraft">飛機</button>
                         </div>
                     </div>
                     <div class="grid grid-cols-8 gap-2 h-32 overflow-y-auto border rounded-lg p-2" id="avatarSelection">
@@ -120,8 +132,7 @@ document.getElementById("myhtml").innerHTML = `
                     </button>
                 </div>
 
-                <hr class="my-4 border-gray-200">
-                <div class="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden -mt-2 mb-4" aria-hidden="true">
+                <div class="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mt-2 mb-4" aria-hidden="true">
                     <div id="progressBarFill" class="progress-bar h-full rounded-full" style="width: 0%; background: linear-gradient(90deg, var(--color-primary), var(--color-accent));"></div>
                 </div>
 
@@ -543,5 +554,13 @@ document.getElementById("myhtml").innerHTML = `
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- 🎉 灑花特效按鈕：獨立於測驗區塊之外，顯示/隱藏由 JS 控制 -->
+        <div id="confettiButton" class="hidden" style="position: fixed; bottom: 20px; left: 20px; z-index: 45;">
+            <button id="confettiButtonBtn" title="灑花特效" style="position: relative; width: 56px; height: 56px; border-radius: 9999px; background-color: white; border: 2px solid var(--color-primary-light); box-shadow: 0 4px 14px rgba(0,0,0,0.18); display: flex; align-items: center; justify-content: center; font-size: 26px; transition: transform 0.15s ease;">
+                🎉
+                <span id="confettiButtonBadge" style="position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 4px; border-radius: 9999px; background-color: var(--color-primary); color: white; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center;">0</span>
+            </button>
         </div>
 `;

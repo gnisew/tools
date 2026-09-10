@@ -86,6 +86,15 @@
             { minScore: 80,  points: 1 }
         ];
         const AVATAR_UNLOCK_COST = 3; // 兌換一個頭像需要幾點積分
+        const AVATAR_UNLOCK_DAYS = 3; // 兌換的頭像可以維持幾天，到期後自動變回預設頭像
         const DEFAULT_AVATAR = '🐛'; // 大家一開始預設、永遠免費的頭像
+
+        // ========================================
+        // 🎉 灑花特效設定
+        // ========================================
+        const ENABLE_CONFETTI_EFFECT = true;
+        const CONFETTI_BUNDLE_COST = 10;   // 兌換一組灑花特效要花幾點積分
+        const CONFETTI_BUNDLE_USES = 5;    // 一組可以用幾次
+        const CONFETTI_AUTO_TRIGGER_SCORE = 90; // 測驗或練習成績達到這個分數，自動灑花一次（會消耗 1 次額度）
 
 

@@ -151,3 +151,52 @@
 		#genericConfirmDialogContent {
 			transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
 		}
+
+		/* ========================================
+		   🖨️ 列印樣式：只印出「作答狀況分析」視窗內容
+		   ======================================== */
+		/* 🎉 灑花特效：從畫面上方灑落、邊落邊轉邊淡出 */
+		@keyframes confettiFall {
+			0% {
+				transform: translate(0, 0) rotate(0deg);
+				opacity: 1;
+			}
+			100% {
+				transform: translate(var(--confetti-drift, 0px), 110vh) rotate(540deg);
+				opacity: 0.15;
+			}
+		}
+
+		/* 🎉 灑花特效：從某一點往外炸開/噴發（中心爆炸、兩側噴發模式共用） */
+		@keyframes confettiBurst {
+			0% {
+				transform: translate(0, 0) rotate(0deg);
+				opacity: 1;
+			}
+			70% {
+				opacity: 1;
+			}
+			100% {
+				transform: translate(var(--confetti-dx, 0px), var(--confetti-dy, 0px)) rotate(480deg);
+				opacity: 0;
+			}
+		}
+
+		@media print {
+			body * {
+				visibility: hidden;
+			}
+			#analysisModal, #analysisModal * {
+				visibility: visible;
+			}
+			#analysisModal {
+				position: absolute;
+				inset: 0;
+				overflow: visible !important;
+				background: white !important;
+			}
+			#analysisModal textarea,
+			#analysisModal .print\:hidden {
+				display: none !important;
+			}
+		}
