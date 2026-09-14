@@ -170,6 +170,21 @@ body {
     border-radius: 4px;
 }
 
+.lat-input {
+    width: 42px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    color: var(--accent-color);
+    font-size: 0.75rem;
+    text-align: center;
+    padding: 1px 2px;
+}
+.lat-input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
 /* ====== 工具列與日期膠囊 (Exp2) ====== */
 .compact-toolbar {
     display: flex;

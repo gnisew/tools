@@ -38,6 +38,54 @@ function getExtendedDate(date) {
     return { ymd, week: weekday, lunar: `農曆${lM}月${lD}`, fullGregorian: `${ymd} (${weekday})` };
 }
 
+// 新增：月球赤緯近似計算 (簡化克卜勒軌道公式，精度約 1~2 度，適合教學可視化)
+function getMoonEquatorial(date) {
+    const toRad = Math.PI / 180;
+    const norm = deg => { const a = deg % 360; return a < 0 ? a + 360 : a; };
+
+    const y = date.getUTCFullYear();
+    const m = date.getUTCMonth() + 1;
+    const dayFrac = date.getUTCDate() + (date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600) / 24;
+    const d = 367 * y - Math.floor(7 * (y + Math.floor((m + 9) / 12)) / 4) + Math.floor(275 * m / 9) + dayFrac - 730530;
+
+    // 月球軌道根數 (J2000 起算的簡化平均元素)
+    const N = norm(125.1228 - 0.0529538083 * d) * toRad; // 升交點黃經
+    const i = 5.1454 * toRad;                             // 軌道傾角
+    const w = norm(318.0634 + 0.1643573223 * d) * toRad;  // 近地點幅角
+    const a = 60.2666;                                     // 平均距離 (地球半徑)
+    const e = 0.054900;                                    // 離心率
+    const M = norm(115.3654 + 13.0649929509 * d) * toRad; // 平近點角
+
+    // 疊代求解克卜勒方程式，得到偏近點角 E
+    let E = M + e * Math.sin(M) * (1 + e * Math.cos(M));
+    for (let k = 0; k < 3; k++) {
+        E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+    }
+
+    const xv = a * (Math.cos(E) - e);
+    const yv = a * (Math.sqrt(1 - e * e) * Math.sin(E));
+    const v = Math.atan2(yv, xv);
+    const r = Math.sqrt(xv * xv + yv * yv);
+    const vw = v + w;
+
+    // 黃道座標
+    const xh = r * (Math.cos(N) * Math.cos(vw) - Math.sin(N) * Math.sin(vw) * Math.cos(i));
+    const yh = r * (Math.sin(N) * Math.cos(vw) + Math.cos(N) * Math.sin(vw) * Math.cos(i));
+    const zh = r * (Math.sin(vw) * Math.sin(i));
+
+    const ecl = (23.4393 - 3.563e-7 * d) * toRad; // 黃道傾角
+
+    // 轉換為赤道座標
+    const xequat = xh;
+    const yequat = yh * Math.cos(ecl) - zh * Math.sin(ecl);
+    const zequat = yh * Math.sin(ecl) + zh * Math.cos(ecl);
+
+    const raRad = Math.atan2(yequat, xequat);
+    const decRad = Math.atan2(zequat, Math.sqrt(xequat * xequat + yequat * yequat));
+
+    return { ra: raRad / toRad, dec: decRad / toRad }; // 回傳角度 (度)
+}
+
 // === 2. 實驗二核心邏輯 (完全同步自 exp.js) ===
 const exp2 = {
     state: {
@@ -47,6 +95,7 @@ const exp2 = {
         showInfoBubble: true,
         showScenery: false,
         sceneryTypeIndex: 0,
+        latitude: 23.5, // 觀測地緯度，預設台灣 (23.5°N)，可透過 setLatitude() 調整
         labels: { date: true, week: true, time: true, lunar: true, alt: true, azi: false }
     },
     
@@ -202,6 +251,7 @@ const exp2 = {
             azi: document.getElementById('azimuthVal'),
             riseVal: document.getElementById('riseTimeVal'),
             setVal: document.getElementById('setTimeVal'),
+            latitudeInput: document.getElementById('latitudeInput'),
             skyBg: document.querySelector('.sky-bg'),
             multiContainer: document.getElementById('multiMoonContainer'),
             multiPanel: document.getElementById('multi-controls-panel'),
@@ -244,15 +294,40 @@ const exp2 = {
         this.el.displaySub.textContent = info.lunar;
 
         const moon = getMoonData(date);
-        let rise = (6 + (moon.age * 0.83)) % 24;
-        this.currentData = { riseTime: rise, setTime: (rise + 12.2) % 24, duration: 12.2 };
-        
-        this.el.time.max = 12.2; 
+        const dec = getMoonEquatorial(date).dec; // 當天月球赤緯 (度)
+        const lat = this.state.latitude;
+        const toRad = Math.PI / 180, toDeg = 180 / Math.PI;
+
+        // 球面三角：半日弧 H0 = acos(-tan(緯度) * tan(赤緯))
+        let cosH0 = -Math.tan(lat * toRad) * Math.tan(dec * toRad);
+        cosH0 = Math.max(-1, Math.min(1, cosH0)); // 避免高緯度永圓拱/永不升起造成 NaN
+        const H0 = Math.acos(cosH0) * toDeg;
+
+        // 月球每小時約移動 14.49° 時角 (比太陽 15° 稍慢，因月球本身沿軌道運行)
+        const duration = (2 * H0) / 14.492;
+
+        let rise = (6 + (moon.age * 0.83)) % 24; // 月出時刻仍沿用原本估算模型
+        this.currentData = {
+            riseTime: rise,
+            setTime: (rise + duration) % 24,
+            duration,
+            declination: dec
+        };
+
+        this.el.time.max = duration;
         this.el.time.step = 0.001;
         this.el.riseVal.textContent = this.formatTime(rise);
         this.el.setVal.textContent = this.formatTime(this.currentData.setTime);
-        
-        if (resetToCenter) this.el.time.value = 12.2 / 4; 
+
+        if (resetToCenter) this.el.time.value = duration / 4;
+    },
+
+    setLatitude(value) {
+        const v = parseFloat(value);
+        if (isNaN(v)) return;
+        this.state.latitude = Math.max(-89, Math.min(89, v));
+        this.calculateRiseSet(false);
+        this.update();
     },
 
     setMode(mode) {
@@ -264,7 +339,7 @@ const exp2 = {
 
     stepTime(mins) {
         let newValue = parseFloat(this.el.time.value) + (mins / 60);
-        this.el.time.value = Math.max(0, Math.min(newValue, 12.2));
+        this.el.time.value = Math.max(0, Math.min(newValue, this.currentData.duration));
         this.update();
     },
 
@@ -332,7 +407,7 @@ const exp2 = {
 
     renderSingleMoon() {
         const offset = parseFloat(this.el.time.value);
-        const progress = offset / 12.2;
+        const progress = offset / this.currentData.duration;
         const pos = this.calculatePosition(progress);
         
         this.el.moon.style.bottom = `${pos.bottom}%`; 
@@ -349,12 +424,13 @@ const exp2 = {
     renderTrajectory() {
         const moonData = getMoonData(new Date(this.el.date.value));
         const rise = this.currentData.riseTime;
-        for (let h = 0; h <= 12; h++) {
+        const duration = this.currentData.duration;
+        for (let h = 0; h <= Math.ceil(duration); h++) {
             const hourAt = Math.ceil(rise) + h;
             const offset = hourAt - rise;
-            if (offset < 0 || offset > 12.2) continue;
+            if (offset < 0 || offset > duration) continue;
             
-            const progress = offset / 12.2;
+            const progress = offset / duration;
             const pos = this.calculatePosition(progress);
             const p = document.createElement('div');
             p.className = 'sky-moon path-point';
@@ -374,7 +450,7 @@ const exp2 = {
         const moon = getMoonData(date);
         const info = getExtendedDate(date);
         const offset = parseFloat(this.el.time.value);
-        const progress = offset / 12.2;
+        const progress = offset / this.currentData.duration;
         const pos = this.calculatePosition(progress);
         
         // 取得簡化星期
@@ -447,18 +523,47 @@ const exp2 = {
     },
 
     calculatePosition(progress) {
-        // 完全遵照 exp.js 原始計算公式
-        const altitude = Math.sin(progress * Math.PI) * 75; 
+        // 真實球面三角公式：依「觀測地緯度」與「當天月球赤緯」計算高度角/方位角
+        const toRad = Math.PI / 180, toDeg = 180 / Math.PI;
+        const lat = this.state.latitude;
+        const dec = this.currentData.declination || 0;
+
+        // 半日弧 H0，將 progress(0~1，月出→月落) 線性對應到時角 H(-H0~+H0)
+        let cosH0 = -Math.tan(lat * toRad) * Math.tan(dec * toRad);
+        cosH0 = Math.max(-1, Math.min(1, cosH0));
+        const H0 = Math.acos(cosH0) * toDeg;
+        const H = -H0 + progress * 2 * H0;
+
+        // 高度角公式：sin(h) = sin(φ)sin(δ) + cos(φ)cos(δ)cos(H)
+        const sinAlt = Math.sin(lat * toRad) * Math.sin(dec * toRad) +
+                        Math.cos(lat * toRad) * Math.cos(dec * toRad) * Math.cos(H * toRad);
+        const altitude = Math.asin(Math.max(-1, Math.min(1, sinAlt))) * toDeg;
+
+        // 方位角公式 (換算為正北=0°、順時鐘方向的羅盤角度)
+        const azRad = Math.atan2(
+            Math.sin(H * toRad),
+            Math.cos(H * toRad) * Math.sin(lat * toRad) - Math.tan(dec * toRad) * Math.cos(lat * toRad)
+        );
+        let azimuthDeg = (azRad * toDeg + 180) % 360;
+        if (azimuthDeg < 0) azimuthDeg += 360;
+
         const horizontal = -45 + (progress * 90);
         const rotation = (progress * 120) - 60;
-        
+
         return {
-            altitude, 
-            bottom: (altitude / this.MAX_DISPLAY_ANGLE) * 100,
+            altitude,
+            bottom: (Math.max(0, altitude) / this.MAX_DISPLAY_ANGLE) * 100,
             left: 50 + horizontal,
             rotation,
-            azi: progress < 0.4 ? "東南" : (progress > 0.6 ? "西南" : "正南")
+            azi: this.azimuthToCompass(azimuthDeg),
+            azimuthDeg
         };
+    },
+
+    azimuthToCompass(deg) {
+        const dirs = ['北', '東北', '東', '東南', '南', '西南', '西', '西北'];
+        const idx = Math.round(deg / 45) % 8;
+        return dirs[idx];
     },
 
     formatTime(dec) {
