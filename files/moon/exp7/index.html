@@ -1194,14 +1194,16 @@
   yearNextBtn.addEventListener('click', ()=> applyYearChange(currentYear + 1));
   yearInput.addEventListener('change', ()=> applyYearChange(parseInt(yearInput.value,10)));
 
-  todayBtn.addEventListener('click', ()=>{
-    // Find the lunar month actually in progress *today*, rather than
-    // routing through "the lunar month covering the 1st of this
-    // Gregorian month" (recomputeLunarMonth's logic). If this month's
-    // 朔 falls mid-month and today is past it, that route lands on last
-    // month's lunar month and the today-diff check fails, silently
-    // falling back to day 0 - not today. Going straight from today's
-    // floating date avoids that entirely.
+  // Find the lunar month actually in progress *today*, rather than
+  // routing through "the lunar month covering the 1st of this
+  // Gregorian month" (recomputeLunarMonth's logic). If this month's
+  // 朔 falls mid-month and today is past it, that route lands on last
+  // month's lunar month and the today-diff check fails, silently
+  // falling back to day 0 - not today. Going straight from today's
+  // floating date avoids that entirely, and also gives the correct
+  // *current* Gregorian month/year directly, so this is used both for
+  // the "今天" button and for the page's initial view.
+  function goToToday(){
     const now = new Date();
     const todayFloating = beijingFloatingDate(now);
     const { k, date: thisNM } = findNewMoonAtOrBefore(todayFloating);
@@ -1213,7 +1215,8 @@
     currentMonth = todayFloating.getUTCMonth()+1;
     refreshMonthDisplay();
     refreshLunarDisplay();
-  });
+  }
+  todayBtn.addEventListener('click', goToToday);
 
   function openLunarPicker(){
     closeMonthPicker();
@@ -1305,8 +1308,7 @@
   // ---------- init ----------
   populateMonthGrid();
   populateLunarMonthGrid();
-  const now = new Date();
-  recomputeLunarMonth(now.getFullYear(), now.getMonth()+1);
+  goToToday();
 })();
 
 </script>
