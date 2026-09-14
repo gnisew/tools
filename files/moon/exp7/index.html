@@ -1,0 +1,1314 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>月相成因</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#070b1a;
+    --bg-panel:#0d1430;
+    --bg-panel-2:#111b3e;
+    --line:rgba(255,255,255,.14);
+    --line-soft:rgba(255,255,255,.08);
+    --text:#f5f7ff;
+    --text-muted:#aab4da;
+    --gold:#f2a93b;
+    --gold-soft:rgba(242,169,59,.16);
+    --gold-line:rgba(242,169,59,.55);
+    --moon-lit:#ece7d9;
+    --moon-dark:#181d34;
+    --sun-1:#fff2c2;
+    --sun-2:#ffb545;
+    --sun-3:#e8621f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, #16204a 0%, transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 10%, #101a3d 0%, transparent 55%),
+      var(--bg-deep);
+    color:var(--text);
+    font-family:"Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    min-height:100vh;
+    padding:26px 16px 50px;
+  }
+  .wrap{ max-width:980px; margin:0 auto; }
+
+  /* ---------- header ---------- */
+  .top-header{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    margin-bottom:12px;
+  }
+  h1{
+    font-family:"Noto Serif TC", serif;
+    font-weight:700;
+    font-size:clamp(24px,3.6vw,30px);
+    margin:0;
+    line-height:1.3;
+  }
+  .header-actions{
+    flex:0 0 auto;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .info-btn{
+    flex:0 0 auto;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    background:rgba(255,255,255,.07);
+    border:1px solid var(--line);
+    color:var(--text);
+    font-weight:700;
+    font-size:13.5px;
+    padding:8px 15px;
+    border-radius:999px;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .info-btn:hover{ background:rgba(255,255,255,.12); }
+  .info-btn[aria-pressed="true"]{
+    background:var(--gold-soft);
+    border-color:var(--gold-line);
+    color:var(--gold);
+  }
+
+  .info-backdrop{
+    position:fixed;
+    inset:0;
+    background:rgba(4,6,14,.55);
+    z-index:60;
+  }
+  .info-backdrop[hidden]{ display:none; }
+
+  .info-panel{
+    position:fixed;
+    top:74px;
+    left:50%;
+    transform:translateX(-50%);
+    width:min(480px, 92vw);
+    max-height:calc(100vh - 110px);
+    overflow-y:auto;
+    background:linear-gradient(180deg, var(--bg-panel-2), var(--bg-panel));
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:18px 22px;
+    box-shadow:0 20px 46px rgba(0,0,0,.55);
+    z-index:61;
+  }
+  .info-panel[hidden]{ display:none; }
+  .month-picker-panel{ width:min(320px, 88vw); }
+  .info-title{
+    font-family:"Noto Serif TC", serif;
+    font-weight:700;
+    font-size:17px;
+    color:var(--gold);
+    margin:0 0 8px;
+  }
+  .info-text{
+    font-size:14.5px;
+    line-height:1.85;
+    color:#d7dcf3;
+    margin:0 0 10px;
+  }
+  .info-text:last-child{ margin-bottom:0; }
+  .info-text b{ color:var(--text); font-weight:700; }
+  .info-note{
+    font-size:12.5px;
+    line-height:1.7;
+    color:#8f99bd;
+    margin:10px 0 0;
+    padding-top:10px;
+    border-top:1px solid var(--line-soft);
+  }
+
+  /* ---------- shared card ---------- */
+  .card{
+    background:linear-gradient(180deg, var(--bg-panel-2), var(--bg-panel));
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:20px 22px;
+  }
+
+  /* ---------- stage section ---------- */
+  .stage-section{
+    display:grid;
+    grid-template-columns: 1fr 320px;
+    gap:18px;
+    margin-top:16px;
+  }
+  @media (max-width:720px){
+    .stage-section{ grid-template-columns: 1fr; }
+  }
+
+  .stage{
+    position:relative;
+    height:300px;
+    border-radius:16px;
+    overflow:hidden;
+    background:radial-gradient(ellipse at 32% 42%, #0f1938 0%, #060a17 72%);
+    border:1px solid var(--line-soft);
+  }
+  .stars{ position:absolute; inset:0; }
+  .star{
+    position:absolute;
+    width:2px; height:2px;
+    background:#fff;
+    border-radius:50%;
+  }
+
+  .sun-glow{
+    position:absolute;
+    left:-165px; top:50%;
+    width:300px; height:300px;
+    transform:translateY(-50%);
+    border-radius:50%;
+    background:radial-gradient(circle, rgba(255,181,69,.35) 0%, rgba(255,181,69,0) 68%);
+    pointer-events:none;
+  }
+  .sun{
+    position:absolute;
+    left:-120px; top:50%;
+    width:195px; height:195px;
+    transform:translateY(-50%);
+    border-radius:50%;
+    background:radial-gradient(circle at 62% 38%, var(--sun-1), var(--sun-2) 45%, var(--sun-3) 100%);
+    box-shadow:0 0 60px 10px rgba(255,150,50,.35);
+  }
+
+  .rays{ position:absolute; inset:0; pointer-events:none; }
+  .ray{
+    position:absolute; left:0; height:1px;
+    background:linear-gradient(90deg, rgba(255,214,140,.35), rgba(255,214,140,0));
+    width:78%;
+  }
+
+  .orbit-path{
+    position:absolute;
+    left:58%; top:50%;
+    width:300px; height:160px;
+    transform:translate(-50%,-50%);
+    border:1.5px dashed rgba(255,255,255,.28);
+    border-radius:50%;
+  }
+
+  .earth{
+    position:absolute;
+    left:58%; top:50%;
+    width:66px; height:66px;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    background:
+      radial-gradient(circle at 30% 65%, #3f8f52 0 18%, transparent 19%),
+      radial-gradient(circle at 62% 30%, #4a9a5c 0 14%, transparent 15%),
+      radial-gradient(circle at 55% 75%, #3a7f4d 0 12%, transparent 13%),
+      radial-gradient(circle at 38% 42%, #2f8fd6, #1c5fa0 70%);
+    box-shadow: inset -14px -4px 0 -2px rgba(3,8,20,.55), 0 0 18px rgba(60,140,255,.25);
+    z-index:3;
+  }
+
+  .moon-icon{
+    position:absolute;
+    width:20px; height:20px;
+    border-radius:50%;
+    transform:translate(-50%,-50%);
+    background:linear-gradient(90deg, var(--moon-lit) 0 50%, #4b5170 50% 100%);
+    box-shadow:0 0 8px rgba(236,231,217,.35);
+    z-index:4;
+  }
+
+  /* ---------- mirrored layout (sun on the right) ---------- */
+  body.mirrored .stage-section{ grid-template-columns: 320px 1fr; }
+  body.mirrored .stage{ order:2; }
+  body.mirrored .view-panel{ order:1; }
+  @media (max-width:720px){
+    body.mirrored .stage-section{ grid-template-columns: 1fr; }
+    body.mirrored .stage{ order:0; }
+    body.mirrored .view-panel{ order:0; }
+  }
+  body.mirrored .sun-glow{ left:auto; right:-165px; }
+  body.mirrored .sun{ left:auto; right:-120px; }
+  body.mirrored .ray{
+    left:auto; right:0;
+    background:linear-gradient(270deg, rgba(255,214,140,.35), rgba(255,214,140,0));
+  }
+  body.mirrored .orbit-path{ left:42%; }
+  body.mirrored .earth{ left:42%; }
+  body.mirrored .moon-icon{
+    background:linear-gradient(90deg, #4b5170 0 50%, var(--moon-lit) 50% 100%);
+  }
+
+  /* view panel */
+  .view-panel{
+    display:flex; flex-direction:column; align-items:center;
+    gap:12px;
+  }
+  .view-box{
+    flex:0 0 auto;
+    width:170px; height:170px;
+    border-radius:14px;
+    background:#04060c;
+    border:1px solid var(--line);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.03), 0 0 24px rgba(0,0,0,.4);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .view-explain{
+    width:100%;
+    height:190px;
+    overflow-y:auto;
+    text-align:left;
+  }
+  .view-explain .explain-head{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:4px 10px;
+    margin-bottom:8px;
+  }
+  .view-explain .name{
+    font-family:"Noto Serif TC", serif;
+    font-weight:700;
+    font-size:17px;
+    color:var(--gold);
+    flex:0 1 auto;
+  }
+  .view-explain .date{
+    color:#c3cae8;
+    font-size:12px;
+    flex:0 0 auto;
+    white-space:nowrap;
+  }
+  .view-explain .explain-text{
+    font-size:13.5px;
+    line-height:1.85;
+    color:#e6e9f8;
+    margin:0;
+  }
+
+  /* ---------- timeline ---------- */
+  .timeline-card{ margin-top:14px; }
+
+  .timeline-row{
+    display:flex;
+    align-items:center;
+    gap:14px;
+  }
+  .timeline-row + .timeline-row{ margin-top:6px; }
+  .labels-row + .ticks-row{ margin-top:0; }
+
+  .gutter{
+    flex:0 0 92px;
+    display:flex;
+    align-items:center;
+  }
+  .content{
+    flex:1;
+    min-width:0;
+    position:relative;
+  }
+
+  .lunar-label{
+    background:var(--gold);
+    color:#241704;
+    font-weight:700;
+    font-size:14px;
+    padding:6px 14px;
+    border-radius:10px;
+    border:none;
+    font-family:inherit;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .lunar-label:hover{ filter:brightness(1.06); }
+
+  .ticks-row + .greg-row{ margin-top:4px; }
+
+  .play-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    background:var(--gold);
+    color:#241704;
+    border:none;
+    font-weight:700;
+    font-size:13.5px;
+    padding:8px 16px;
+    border-radius:999px;
+    cursor:pointer;
+  }
+  .play-btn:hover{ filter:brightness(1.06); }
+  .play-btn-icon{
+    width:38px;
+    height:38px;
+    padding:0;
+    border-radius:50%;
+    font-size:15px;
+    justify-content:center;
+  }
+
+  .month-display-btn{ flex:0 0 auto; }
+  .lunar-display-btn{ flex:0 0 auto; }
+
+  .month-picker-panel{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    align-items:stretch;
+  }
+  .picker-hint{
+    margin:0;
+    text-align:center;
+    font-size:12px;
+    color:#8f99bd;
+  }
+  .year-stepper{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+  }
+  .year-step-btn{
+    flex:0 0 auto;
+    width:34px; height:34px;
+    border-radius:50%;
+    background:rgba(255,255,255,.08);
+    border:1px solid var(--line);
+    color:var(--text);
+    font-size:13px;
+    cursor:pointer;
+  }
+  .year-step-btn:hover{ background:rgba(255,255,255,.14); }
+  .year-picker-input{
+    width:90px;
+    text-align:center;
+    background:rgba(255,255,255,.08);
+    border:1px solid var(--line);
+    color:var(--text);
+    font-weight:700;
+    font-size:18px;
+    padding:6px 8px;
+    border-radius:8px;
+    font-family:inherit;
+  }
+  .year-picker-input:focus{ outline:1.5px solid var(--gold-line); }
+  .month-grid{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:8px;
+  }
+  .month-grid button{
+    background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.14);
+    color:#d7dcf3;
+    font-weight:600;
+    font-size:13.5px;
+    padding:9px 0;
+    border-radius:8px;
+    cursor:pointer;
+  }
+  .month-grid button:hover{ background:rgba(255,255,255,.12); }
+  .month-grid button.active{
+    background:var(--gold);
+    border-color:var(--gold);
+    color:#241704;
+  }
+
+  /* badges row */
+  .badges{ height:30px; }
+  .badge{
+    position:absolute;
+    transform:translateX(-50%);
+    background:rgba(255,255,255,.06);
+    color:#d7dcf3;
+    font-weight:700;
+    font-size:13.5px;
+    padding:3px 10px;
+    border-radius:7px;
+    border:1px solid rgba(255,255,255,.14);
+    white-space:nowrap;
+    transition:all .2s ease;
+  }
+  .badge.active{
+    background:var(--gold);
+    color:#241704;
+    border-color:var(--gold);
+  }
+
+  /* day-label row */
+  .day-labels{
+    display:grid;
+    grid-template-columns:repeat(30,1fr);
+  }
+  .day-labels span{
+    text-align:center;
+    font-size:10.5px;
+    font-weight:600;
+    color:#c3cae8;
+    white-space:nowrap;
+  }
+  .day-labels span.current{ color:var(--gold); font-weight:700; }
+
+  /* tick / slider row */
+  .track-wrap{ height:22px; }
+  .tick-marks{
+    position:absolute;
+    inset:0;
+    display:grid;
+    grid-template-columns:repeat(30,1fr);
+    align-items:center;
+    pointer-events:none;
+  }
+  .tick-marks div{
+    width:1px; height:8px;
+    background:rgba(255,255,255,.28);
+    justify-self:center;
+  }
+  .tick-marks div.current{
+    width:2px; height:12px;
+    background:var(--gold);
+  }
+
+  .track-line{
+    position:absolute;
+    left:0; right:0; top:50%;
+    height:2px;
+    transform:translateY(-50%);
+    background:rgba(255,255,255,.12);
+    border-radius:2px;
+  }
+  .track-fill{
+    position:absolute;
+    left:0; top:50%;
+    height:2px;
+    transform:translateY(-50%);
+    background:var(--gold);
+    border-radius:2px;
+  }
+
+  #daySlider{
+    position:absolute;
+    left:0; right:0; top:0;
+    width:100%;
+    height:100%;
+    margin:0;
+    background:transparent;
+    -webkit-appearance:none;
+    appearance:none;
+    cursor:pointer;
+    z-index:5;
+  }
+  #daySlider::-webkit-slider-runnable-track{ background:transparent; height:100%; }
+  #daySlider::-moz-range-track{ background:transparent; height:100%; }
+  #daySlider::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:16px; height:16px;
+    border-radius:50%;
+    background:var(--gold);
+    border:3px solid #1a1030;
+    box-shadow:0 0 0 4px rgba(242,169,59,.25);
+    margin-top:3px;
+    cursor:grab;
+  }
+  #daySlider::-moz-range-thumb{
+    width:16px; height:16px;
+    border-radius:50%;
+    background:var(--gold);
+    border:3px solid #1a1030;
+    box-shadow:0 0 0 4px rgba(242,169,59,.25);
+    cursor:grab;
+  }
+
+
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top-header">
+    <h1>月相成因</h1>
+    <div class="header-actions">
+      <button type="button" class="info-btn" id="todayBtn">今天</button>
+      <button class="info-btn" id="swapBtn" aria-pressed="false" title="切換太陽與月相說明的左右位置">
+        <span aria-hidden="true">⇄</span><span>交換方向</span>
+      </button>
+      <button class="info-btn" id="infoBtn" aria-expanded="false" aria-controls="infoPanel">
+        <span aria-hidden="true">ℹ</span><span id="infoBtnLabel">說明</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="info-backdrop" id="infoBackdrop" hidden></div>
+  <div class="info-panel" id="infoPanel" hidden>
+    <p class="info-title">為什麼月亮會「變形」？</p>
+    <p class="info-text">
+      月球本身不會發光，它永遠只有<b>面向太陽的那一半</b>被照亮。
+      我們在地球上看到的形狀，其實是<b>太陽、地球、月球三者相對位置</b>改變時，
+      月球被照亮的部分「露出來給地球看見」的比例不同所造成的。
+      拖曳下方時間軸，觀察月球繞地球公轉時，形狀如何跟著變化。
+    </p>
+    <p class="info-note">月相示意圖為簡化教學模型，實際月球公轉週期約 29.5 天，比例與角度已作教學上的誇大處理；農曆月份數字為天文估算，未特別處理少數含閏月的年份，僅供教學參考。</p>
+  </div>
+
+  <section class="stage-section">
+    <div class="stage" id="stage">
+      <div class="stars" id="stars"></div>
+      <div class="rays" id="rays"></div>
+      <div class="sun-glow"></div>
+      <div class="sun"></div>
+      <div class="orbit-path"></div>
+      <div class="earth"></div>
+      <div class="moon-icon" id="moonIcon"></div>
+    </div>
+
+    <div class="view-panel">
+      <div class="view-box">
+        <svg viewBox="0 0 160 160" width="150" height="150">
+          <circle cx="80" cy="80" r="72" fill="#181d34"></circle>
+          <path id="phasePath" fill="#ece7d9"></path>
+        </svg>
+      </div>
+      <div class="view-explain">
+        <div class="explain-head">
+          <span class="name" id="explainName">朔（新月）</span>
+          <span class="date" id="explainDate">農曆初一</span>
+        </div>
+        <p class="explain-text" id="explainText"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card timeline-card">
+    <div class="timeline-row badges-row">
+      <div class="gutter">
+        <button class="play-btn play-btn-icon" id="playBtn" aria-label="播放">▶</button>
+      </div>
+      <div class="content badges" id="badges">
+        <span class="badge" data-phase="0">朔</span>
+        <span class="badge" data-phase="q1">上弦月</span>
+        <span class="badge" data-phase="half">望</span>
+        <span class="badge" data-phase="q3">下弦月</span>
+      </div>
+    </div>
+
+    <div class="timeline-row labels-row">
+      <div class="gutter">
+        <button type="button" class="lunar-label lunar-display-btn" id="lunarDisplayBtn" aria-haspopup="true" aria-expanded="false"></button>
+      </div>
+      <div class="content" id="dayLabels">
+        <div class="day-labels" id="dayLabelsInner"></div>
+      </div>
+    </div>
+
+    <div class="timeline-row ticks-row">
+      <div class="gutter"></div>
+      <div class="content track-wrap">
+        <div class="tick-marks" id="tickMarks"></div>
+        <div class="track-line"></div>
+        <div class="track-fill" id="trackFill"></div>
+        <input type="range" id="daySlider" min="0" max="29" step="1" value="0" aria-label="農曆日期">
+      </div>
+    </div>
+
+    <div class="timeline-row greg-row">
+      <div class="gutter">
+        <button type="button" class="lunar-label month-display-btn" id="monthDisplayBtn" aria-haspopup="true" aria-expanded="false"></button>
+      </div>
+      <div class="content" id="gregDays">
+        <div class="day-labels greg-day-labels" id="gregDaysInner"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="info-backdrop" id="lunarPickerBackdrop" hidden></div>
+  <div class="info-panel month-picker-panel" id="lunarPickerPanel" hidden>
+    <p class="picker-hint">農曆年以「春節所在的西元年」命名</p>
+    <div class="year-stepper">
+      <button type="button" class="year-step-btn" id="lunarYearPrevBtn" aria-label="上一年">◀</button>
+      <input type="number" id="lunarYearInput" class="year-picker-input" aria-label="農曆年">
+      <button type="button" class="year-step-btn" id="lunarYearNextBtn" aria-label="下一年">▶</button>
+    </div>
+    <div class="month-grid" id="lunarMonthGrid"></div>
+  </div>
+
+  <div class="info-backdrop" id="monthPickerBackdrop" hidden></div>
+  <div class="info-panel month-picker-panel" id="monthPickerPanel" hidden>
+    <div class="year-stepper">
+      <button type="button" class="year-step-btn" id="yearPrevBtn" aria-label="上一年">◀</button>
+      <input type="number" id="yearInput" class="year-picker-input" aria-label="西元年">
+      <button type="button" class="year-step-btn" id="yearNextBtn" aria-label="下一年">▶</button>
+    </div>
+    <div class="month-grid" id="monthGrid"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const LUNAR_LABELS = ["初一","初二","初三","初四","初五","初六","初七","初八","初九","初十",
+    "十一","十二","十三","十四","十五","十六","十七","十八","十九","二十",
+    "廿一","廿二","廿三","廿四","廿五","廿六","廿七","廿八","廿九","三十"];
+  const WEEKDAY_CN = ["日","一","二","三","四","五","六"];
+  const LUNAR_MONTH_CN = ["正月","二月","三月","四月","五月","六月","七月","八月","九月","十月","十一月","十二月"];
+
+  function formatGregorian(d){
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth()+1).padStart(2,'0');
+    const day = String(d.getUTCDate()).padStart(2,'0');
+    const wd = WEEKDAY_CN[d.getUTCDay()];
+    return `${y}.${m}.${day}(${wd})`;
+  }
+
+  // =========================================================
+  // Real new-moon calculation (Jean Meeus, "Astronomical
+  // Algorithms", ch. 49 - truncated periodic-term series).
+  // Accurate to well within an hour, far more than enough to
+  // determine which calendar day a new moon falls on.
+  // =========================================================
+  function normDeg(d){ d = d % 360; if (d < 0) d += 360; return d; }
+  function rad(d){ return d * Math.PI / 180; }
+
+  function newMoonJDE(k){
+    const T = k / 1236.85, T2 = T*T, T3 = T2*T, T4 = T3*T;
+    let jde = 2451550.09766 + 29.530588861*k
+      + 0.00015437*T2 - 0.000000150*T3 + 0.00000000073*T4;
+
+    const E = 1 - 0.002516*T - 0.0000074*T2;
+    const M  = rad(normDeg(2.5534 + 29.10535670*k - 0.0000014*T2 - 0.00000011*T3));
+    const Mp = rad(normDeg(201.5643 + 385.81693528*k + 0.0107582*T2 + 0.00001238*T3 - 0.000000058*T4));
+    const F  = rad(normDeg(160.7108 + 390.67050284*k - 0.0016118*T2 - 0.00000227*T3 + 0.000000011*T4));
+    const Om = rad(normDeg(124.7746 - 1.56375588*k + 0.0020672*T2 + 0.00000215*T3));
+
+    const corr =
+      -0.40720*Math.sin(Mp)
+      +0.17241*E*Math.sin(M)
+      +0.01608*Math.sin(2*Mp)
+      +0.01039*Math.sin(2*F)
+      +0.00739*E*Math.sin(Mp-M)
+      -0.00514*E*Math.sin(Mp+M)
+      +0.00208*E*E*Math.sin(2*M)
+      -0.00111*Math.sin(Mp-2*F)
+      -0.00057*Math.sin(Mp+2*F)
+      +0.00056*E*Math.sin(2*Mp+M)
+      -0.00042*Math.sin(3*Mp)
+      +0.00042*E*Math.sin(M+2*F)
+      +0.00038*E*Math.sin(M-2*F)
+      -0.00024*E*Math.sin(2*Mp-M)
+      -0.00017*Math.sin(Om)
+      -0.00007*Math.sin(Mp+2*M)
+      +0.00004*Math.sin(2*Mp-2*F)
+      +0.00004*Math.sin(3*M)
+      +0.00003*Math.sin(Mp+M-2*F)
+      +0.00003*Math.sin(2*Mp+2*F)
+      -0.00003*Math.sin(Mp+M+2*F)
+      +0.00003*Math.sin(Mp-M+2*F)
+      -0.00002*Math.sin(Mp-M-2*F)
+      -0.00002*Math.sin(3*Mp+M)
+      +0.00002*Math.sin(4*Mp);
+
+    return jde + corr;
+  }
+
+  function jdeToUtcDate(jde){
+    // JD 2440587.5 == 1970-01-01T00:00:00Z
+    return new Date((jde - 2440587.5) * 86400000);
+  }
+
+  // NOTE: Date.UTC(year, ...) silently remaps a year in 0-99 to 1900-1999
+  // (a legacy JS quirk). setUTCFullYear has no such special-casing, so we
+  // always build "floating" calendar dates through this helper instead.
+  function makeUTCDate(y, m, d){
+    const dt = new Date(0);
+    dt.setUTCFullYear(y, m, d);
+    dt.setUTCHours(0,0,0,0);
+    return dt;
+  }
+
+  // A "floating" date: a UTC-midnight Date object whose Y/M/D fields
+  // represent a China Standard Time (UTC+8) calendar day. Used so all
+  // calendar-day comparisons/arithmetic can use plain UTC Date math.
+  function beijingFloatingDate(utcInstant){
+    const shifted = new Date(utcInstant.getTime() + 8*3600*1000);
+    return makeUTCDate(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate());
+  }
+
+  function newMoonFloatingDate(k){
+    return beijingFloatingDate(jdeToUtcDate(newMoonJDE(k)));
+  }
+
+  // Largest k such that the new moon's Beijing calendar day is <= target.
+  function findNewMoonAtOrBefore(targetFloatingDate){
+    let k = Math.round((targetFloatingDate.getUTCFullYear() + targetFloatingDate.getUTCMonth()/12 - 2000) * 12.3685);
+    let d = newMoonFloatingDate(k);
+    let guard = 0;
+    while (d.getTime() > targetFloatingDate.getTime() && guard < 30){ k--; d = newMoonFloatingDate(k); guard++; }
+    guard = 0;
+    while (guard < 30){
+      const dNext = newMoonFloatingDate(k+1);
+      if (dNext.getTime() <= targetFloatingDate.getTime()){ k++; d = dNext; guard++; } else break;
+    }
+    return { k, date: d };
+  }
+
+  function addDaysFloating(floatingDate, n){
+    const d = new Date(floatingDate.getTime());
+    d.setUTCDate(d.getUTCDate() + n);
+    return d;
+  }
+  function diffDaysFloating(a, b){
+    return Math.round((a.getTime() - b.getTime()) / 86400000);
+  }
+
+  // Chinese New Year's new moon always falls within Jan 21 - Feb 20
+  // (Gregorian) of its year - a fixed rule of the calendar. That window
+  // (31 days) is wider than one synodic month (~29.53 days), so exactly
+  // one new moon normally falls inside it; we use that to anchor lunar
+  // month numbering without needing full solar-term calculations.
+  function findChineseNewYear(year){
+    const winEnd = makeUTCDate(year, 1, 20);
+    return findNewMoonAtOrBefore(winEnd);
+  }
+
+  // Approximate traditional month number (1-12) and lunar year for the
+  // lunar month that starts on monthStartFloating (the k-th new moon).
+  // The lunar year is named after the Gregorian year its Chinese New
+  // Year falls in (the usual convention). This counts new moons since
+  // the nearest preceding Chinese New Year. NOTE: this is a
+  // simplification - it does not detect or label leap months (閏月),
+  // which real years occasionally insert; in those rare years the count
+  // beyond 12 is clamped, so the number may read one high/low near a
+  // leap month. Good enough for teaching purposes, not for almanac use.
+  function lunarMonthInfo(monthK, monthStartFloating){
+    const y = monthStartFloating.getUTCFullYear();
+    let cny = findChineseNewYear(y);
+    let lunarYear = y;
+    if (cny.date.getTime() > monthStartFloating.getTime()){
+      cny = findChineseNewYear(y - 1);
+      lunarYear = y - 1;
+    }
+    let num = (monthK - cny.k) + 1;
+    if (num < 1) num = 1;
+    if (num > 12) num = 12;
+    return { num, lunarYear, cnyK: cny.k };
+  }
+
+  // =========================================================
+  // Category text (kept as authored; only the day *ranges* that
+  // trigger each category scale with the real month length).
+  // =========================================================
+  const CATEGORY_TEXT = [
+    { frac:0,     name:"朔（新月）", short:"朔",
+      text:"此刻月球剛好運行到太陽與地球之間，月球朝向地球的一面正好背對太陽，完全沒有被陽光照亮。所以從地球上幾乎看不到月亮，這一天稱為「朔」，也就是農曆每個月的初一。" },
+    { frac:6/30,  name:"娥眉月（漸盈）", short:"眉月",
+      text:"月球離開了「朔」的位置，開始沿軌道往前移動。這時候只有一小部分被照亮的月面轉向地球，所以我們看到一彎細細的、逐漸變粗的眉月，出現在傍晚的西方天空。" },
+    { frac:8/30,  name:"上弦月", short:"上弦月",
+      text:"月球運行到與太陽、地球約成 90 度角的位置。此時我們剛好只能看到被照亮那一半月面的一半，呈現右邊明亮、左邊陰暗的半圓形，稱為「上弦月」。" },
+    { frac:14/30, name:"盈凸月（漸盈）", short:"凸月",
+      text:"月球持續往「望」的位置移動，被照亮的面越來越多轉向地球，月亮呈現接近圓形、只剩左側一小塊陰影的「盈凸月」。" },
+    { frac:15/30, name:"望（滿月）", short:"望",
+      text:"月球運行到地球背向太陽的一側，太陽、地球、月球幾乎排成一直線。月球朝向地球的整個一面都被陽光照亮，所以我們看到一輪又大又圓的滿月，稱為「望」，通常落在農曆十五、十六。" },
+    { frac:21/30, name:"虧凸月（漸虧）", short:"凸月",
+      text:"滿月之後，月球繼續公轉，被照亮的面漸漸轉離地球，月亮開始從右側缺角，形狀由圓形逐漸「虧」下去，成為虧凸月。" },
+    { frac:23/30, name:"下弦月", short:"下弦月",
+      text:"月球再次來到與太陽、地球約成 90 度角的位置，但方向與上弦月相反。這次我們只看到左邊明亮、右邊陰暗的半圓形，稱為「下弦月」，多出現在農曆二十二、二十三。" },
+    { frac:29/30, name:"殘月（漸虧）", short:"殘月",
+      text:"月球逐漸回到「朔」的位置，被照亮的部分越來越少，只剩一彎變細的殘月出現在清晨的東方天空，直到再次運行到太陽與地球之間，開始下一輪月相循環。" }
+  ];
+
+  let monthLength = 30; // current lunar month's real day count (29 or 30)
+
+  function categoriesForLength(L){
+    // c.frac stores each category's original day-30 boundary as a
+    // fraction (e.g. 6/30, 8/30 ...); scale directly by the real
+    // month length L to get that category's boundary for this month.
+    return CATEGORY_TEXT.map((c,i)=>{
+      let m = Math.round(c.frac * L);
+      if (i === CATEGORY_TEXT.length-1) m = L-1;
+      return { max: m, name:c.name, short:c.short, text:c.text };
+    });
+  }
+  let CATEGORY_INFO = categoriesForLength(monthLength);
+
+  function getCategory(day){
+    for (const c of CATEGORY_INFO){ if (day <= c.max) return c; }
+    return CATEGORY_INFO[CATEGORY_INFO.length-1];
+  }
+
+  // ---------- build day labels / tick marks (rebuildable) ----------
+  const dayLabelsInner = document.getElementById('dayLabelsInner');
+  const tickMarksEl = document.getElementById('tickMarks');
+  const gregDaysInner = document.getElementById('gregDaysInner');
+  let labelEls = [], tickEls = [], gregEls = [];
+
+  function buildTicks(L){
+    dayLabelsInner.innerHTML = '';
+    tickMarksEl.innerHTML = '';
+    gregDaysInner.innerHTML = '';
+    dayLabelsInner.style.gridTemplateColumns = 'repeat(' + L + ',1fr)';
+    tickMarksEl.style.gridTemplateColumns = 'repeat(' + L + ',1fr)';
+    gregDaysInner.style.gridTemplateColumns = 'repeat(' + L + ',1fr)';
+    for (let i=0;i<L;i++){
+      const s = document.createElement('span');
+      s.dataset.index = i;
+      s.textContent = LUNAR_LABELS[i];
+      dayLabelsInner.appendChild(s);
+
+      const d = document.createElement('div');
+      d.dataset.index = i;
+      tickMarksEl.appendChild(d);
+
+      const g = document.createElement('span');
+      g.dataset.index = i;
+      g.textContent = newMoonFloating ? addDaysFloating(newMoonFloating, i).getUTCDate() : '';
+      gregDaysInner.appendChild(g);
+    }
+    labelEls = Array.from(dayLabelsInner.children);
+    tickEls = Array.from(tickMarksEl.children);
+    gregEls = Array.from(gregDaysInner.children);
+  }
+
+  // ---------- stars ----------
+  const starsEl = document.getElementById('stars');
+  for (let i=0;i<55;i++){
+    const s = document.createElement('div');
+    s.className = 'star';
+    s.style.left = (Math.random()*100) + '%';
+    s.style.top = (Math.random()*100) + '%';
+    const size = Math.random()*1.6 + 0.6;
+    s.style.width = size+'px';
+    s.style.height = size+'px';
+    s.style.opacity = (Math.random()*0.6+0.3).toFixed(2);
+    starsEl.appendChild(s);
+  }
+  const raysEl = document.getElementById('rays');
+  [30,50,70].forEach(top=>{
+    const r = document.createElement('div');
+    r.className='ray';
+    r.style.top = top+'%';
+    raysEl.appendChild(r);
+  });
+
+  // ---------- moon phase path ----------
+  function moonPhasePathD(p, r, cx, cy, n){
+    n = n || 60;
+    const theta = p * 2 * Math.PI;
+    const rx = r * Math.cos(theta);
+    const dirTerm = rx >= 0 ? 1 : -1;
+    const absrx = Math.abs(rx);
+    const pts = [];
+    for (let i=0;i<=n;i++){
+      const t = i/n;
+      const x = cx + dirTerm*absrx*Math.sin(Math.PI*t);
+      const y = cy - r*Math.cos(Math.PI*t);
+      pts.push([x,y]);
+    }
+    for (let i=n;i>=0;i--){
+      const t = i/n;
+      const x = cx + r*Math.sin(Math.PI*t);
+      const y = cy - r*Math.cos(Math.PI*t);
+      pts.push([x,y]);
+    }
+    return 'M ' + pts.map(p=>p[0].toFixed(2)+','+p[1].toFixed(2)).join(' L ') + ' Z';
+  }
+
+  // ---------- orbit + moon icon ----------
+  const moonIcon = document.getElementById('moonIcon');
+  const stage = document.getElementById('stage');
+  const ORBIT_RX = 150, ORBIT_RY = 80;
+  let mirrored = false;
+
+  function updateOrbitMoon(day){
+    const frac = day/monthLength;
+    const baseAngle = mirrored ? 0 : Math.PI;
+    const theta = baseAngle + frac*2*Math.PI;
+    const stageW = stage.clientWidth, stageH = stage.clientHeight;
+    const cx = stageW*(mirrored ? 0.42 : 0.58), cy = stageH/2;
+    const x = cx + ORBIT_RX*Math.cos(theta);
+    const y = cy - ORBIT_RY*Math.sin(theta);
+    moonIcon.style.left = x+'px';
+    moonIcon.style.top = y+'px';
+  }
+
+  // ---------- main update ----------
+  const phasePath = document.getElementById('phasePath');
+  const explainName = document.getElementById('explainName');
+  const explainDate = document.getElementById('explainDate');
+  const explainText = document.getElementById('explainText');
+  const trackFill = document.getElementById('trackFill');
+  const badges = Array.from(document.querySelectorAll('.badge'));
+  const slider = document.getElementById('daySlider');
+  const monthDisplayBtn = document.getElementById('monthDisplayBtn');
+  const monthPickerPanel = document.getElementById('monthPickerPanel');
+  const monthPickerBackdrop = document.getElementById('monthPickerBackdrop');
+  const yearInput = document.getElementById('yearInput');
+  const yearPrevBtn = document.getElementById('yearPrevBtn');
+  const yearNextBtn = document.getElementById('yearNextBtn');
+  const monthGrid = document.getElementById('monthGrid');
+  const lunarDisplayBtn = document.getElementById('lunarDisplayBtn');
+  const lunarPickerPanel = document.getElementById('lunarPickerPanel');
+  const lunarPickerBackdrop = document.getElementById('lunarPickerBackdrop');
+  const lunarYearInput = document.getElementById('lunarYearInput');
+  const lunarYearPrevBtn = document.getElementById('lunarYearPrevBtn');
+  const lunarYearNextBtn = document.getElementById('lunarYearNextBtn');
+  const lunarMonthGrid = document.getElementById('lunarMonthGrid');
+  const todayBtn = document.getElementById('todayBtn');
+
+  let newMoonFloating = null; // floating date of this lunar month's day-1 (朔)
+  let currentYear = null, currentMonth = null; // Gregorian year/month currently shown
+  let currentLunarMonthNum = null; // approximate traditional lunar month number (1-12)
+  let currentLunarYear = null; // lunar year (named after its CNY's Gregorian year)
+
+  function highlightActiveMonthBtn(){
+    Array.from(monthGrid.children).forEach(btn=>{
+      btn.classList.toggle('active', Number(btn.dataset.month) === currentMonth);
+    });
+  }
+  function highlightActiveLunarMonthBtn(){
+    Array.from(lunarMonthGrid.children).forEach(btn=>{
+      btn.classList.toggle('active', Number(btn.dataset.month) === currentLunarMonthNum);
+    });
+  }
+  function refreshMonthDisplay(){
+    monthDisplayBtn.textContent = '西元 ' + currentMonth + '月';
+    if (!monthPickerPanel.hasAttribute('hidden')){
+      yearInput.value = currentYear;
+      highlightActiveMonthBtn();
+    }
+  }
+  function refreshLunarDisplay(){
+    lunarDisplayBtn.textContent = '農曆' + LUNAR_MONTH_CN[currentLunarMonthNum-1];
+    if (!lunarPickerPanel.hasAttribute('hidden')){
+      lunarYearInput.value = currentLunarYear;
+      highlightActiveLunarMonthBtn();
+    }
+  }
+
+  function update(day){
+    day = Math.max(0, Math.min(monthLength-1, day));
+
+    const p = day/monthLength;
+    phasePath.setAttribute('d', moonPhasePathD(p, 72, 80, 80));
+
+    updateOrbitMoon(day);
+
+    const cat = getCategory(day);
+    explainName.textContent = cat.name;
+    const monthName = currentLunarMonthNum ? LUNAR_MONTH_CN[currentLunarMonthNum-1] : '';
+    explainDate.textContent = newMoonFloating
+      ? '農曆' + monthName + LUNAR_LABELS[day] + '　' + formatGregorian(addDaysFloating(newMoonFloating, day))
+      : '農曆' + monthName + LUNAR_LABELS[day];
+    explainText.textContent = cat.text;
+
+    labelEls.forEach((el,i)=> el.classList.toggle('current', i===day));
+    tickEls.forEach((el,i)=> el.classList.toggle('current', i===day));
+    gregEls.forEach((el,i)=> el.classList.toggle('current', i===day));
+
+    trackFill.style.width = (day/(monthLength-1)*100) + '%';
+
+    let nearest = null, nearestDist = Infinity;
+    badges.forEach(b=>{
+      const bd = parseFloat(b.dataset.day);
+      const dist = Math.min(Math.abs(bd-day), Math.abs(bd-day+monthLength), Math.abs(bd-day-monthLength));
+      if (dist < nearestDist){ nearestDist = dist; nearest = b; }
+    });
+    badges.forEach(b=> b.classList.toggle('active', b===nearest && nearestDist < monthLength*(1.9/30)));
+
+    slider.value = day;
+  }
+
+  // Keep the displayed month button in sync with whichever Gregorian
+  // month the currently-viewed day actually falls in. This only matters
+  // when the *viewed day* moves (dragging the slider, or auto-play
+  // stepping) - NOT right after an explicit year/month selection, where
+  // currentYear/currentMonth must stay exactly what was picked.
+  function syncMonthDisplayForDay(day){
+    if (!newMoonFloating) return;
+    const real = addDaysFloating(newMoonFloating, day);
+    const ry = real.getUTCFullYear(), rm = real.getUTCMonth()+1;
+    if (ry !== currentYear || rm !== currentMonth){
+      currentYear = ry; currentMonth = rm;
+      refreshMonthDisplay();
+    }
+  }
+
+  function layoutBadges(){
+    badges.forEach(b=>{
+      const bd = parseFloat(b.dataset.day);
+      const pct = (bd+0.5)/monthLength*100;
+      b.style.left = pct + '%';
+    });
+  }
+
+  // ---------- lunar month (re)computation ----------
+  function setBadgeDays(L){
+    badges.forEach(b=>{
+      const key = b.dataset.phase; // '0','q1','half','q3'
+      let d;
+      if (key==='0') d = 0;
+      else if (key==='q1') d = L/4;
+      else if (key==='half') d = L/2;
+      else d = 3*L/4;
+      b.dataset.day = d;
+    });
+  }
+
+  // Shared core: given the k-th new moon (thisNM = its floating date),
+  // rebuild the whole timeline for that lunar month. Both entry points
+  // below (Gregorian year/month, or lunar year/month) resolve their own
+  // k/thisNM first, then call this. It derives BOTH calendars' display
+  // values from the resulting date - callers whose selection was in
+  // that calendar system must re-assert their exact picked value
+  // afterward (see recomputeLunarMonth/goToLunarMonth below), so an
+  // explicit selection is never silently overridden by the derived one.
+  function applyLunarMonth(k, thisNM, preferDayIndex){
+    const nextNM = newMoonFloatingDate(k+1);
+    monthLength = diffDaysFloating(nextNM, thisNM);
+    if (monthLength < 29 || monthLength > 30) monthLength = 30; // safety net
+
+    newMoonFloating = thisNM;
+    CATEGORY_INFO = categoriesForLength(monthLength);
+    const info = lunarMonthInfo(k, thisNM);
+    currentLunarMonthNum = info.num;
+    currentLunarYear = info.lunarYear;
+    currentYear = thisNM.getUTCFullYear();
+    currentMonth = thisNM.getUTCMonth()+1;
+
+    slider.max = String(monthLength-1);
+    buildTicks(monthLength);
+    setBadgeDays(monthLength);
+    layoutBadges();
+
+    let dayIndex;
+    if (typeof preferDayIndex === 'number'){
+      dayIndex = Math.max(0, Math.min(monthLength-1, preferDayIndex));
+    } else {
+      const todayFloating = beijingFloatingDate(new Date());
+      const diff = diffDaysFloating(todayFloating, thisNM);
+      dayIndex = (diff >= 0 && diff < monthLength) ? diff : 0;
+    }
+    update(dayIndex);
+  }
+
+  function recomputeLunarMonth(year, month, preferDayIndex){
+    // month: 1-12. Find the lunar month whose 初一 covers the 1st of
+    // the selected Gregorian month (i.e. the lunar month "in progress"
+    // at the start of that month).
+    const target = makeUTCDate(year, month-1, 1);
+    const { k, date: thisNM } = findNewMoonAtOrBefore(target);
+    applyLunarMonth(k, thisNM, preferDayIndex);
+    // re-assert the exact Gregorian month the user picked - it may
+    // differ from the derived one (the lunar month's 朔 can fall a few
+    // days into the previous Gregorian month).
+    currentYear = year;
+    currentMonth = month;
+    refreshMonthDisplay();
+    refreshLunarDisplay();
+  }
+
+  function goToLunarMonth(lunarYear, lunarMonthNum, preferDayIndex){
+    // lunarMonthNum: 1-12 (正月..十二月). Named lunar year = the
+    // Gregorian year its Chinese New Year falls in.
+    const cny = findChineseNewYear(lunarYear);
+    const k = cny.k + (lunarMonthNum - 1);
+    const thisNM = newMoonFloatingDate(k);
+    applyLunarMonth(k, thisNM, preferDayIndex);
+    // re-assert the exact lunar year/month the user picked.
+    currentLunarYear = lunarYear;
+    currentLunarMonthNum = lunarMonthNum;
+    refreshLunarDisplay();
+    refreshMonthDisplay();
+  }
+
+  function populateMonthGrid(){
+    for (let m=1; m<=12; m++){
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = m + '月';
+      btn.dataset.month = m;
+      btn.addEventListener('click', ()=>{
+        recomputeLunarMonth(parseInt(yearInput.value,10), m);
+        closeMonthPicker();
+      });
+      monthGrid.appendChild(btn);
+    }
+  }
+
+  function populateLunarMonthGrid(){
+    for (let m=1; m<=12; m++){
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = LUNAR_MONTH_CN[m-1];
+      btn.dataset.month = m;
+      btn.addEventListener('click', ()=>{
+        goToLunarMonth(parseInt(lunarYearInput.value,10), m);
+        closeLunarPicker();
+      });
+      lunarMonthGrid.appendChild(btn);
+    }
+  }
+
+  slider.addEventListener('input', (e)=>{
+    stopPlay();
+    const day = parseInt(e.target.value,10);
+    update(day);
+    syncMonthDisplayForDay(day);
+  });
+
+  window.addEventListener('resize', ()=> updateOrbitMoon(parseInt(slider.value,10)));
+
+  function openMonthPicker(){
+    closeLunarPicker();
+    monthPickerPanel.removeAttribute('hidden');
+    monthPickerBackdrop.removeAttribute('hidden');
+    monthDisplayBtn.setAttribute('aria-expanded','true');
+    yearInput.value = currentYear;
+    highlightActiveMonthBtn();
+  }
+  function closeMonthPicker(){
+    monthPickerPanel.setAttribute('hidden','');
+    monthPickerBackdrop.setAttribute('hidden','');
+    monthDisplayBtn.setAttribute('aria-expanded','false');
+  }
+  monthDisplayBtn.addEventListener('click', ()=>{
+    if (monthPickerPanel.hasAttribute('hidden')) openMonthPicker(); else closeMonthPicker();
+  });
+  monthPickerBackdrop.addEventListener('click', closeMonthPicker);
+
+  function applyYearChange(newYear){
+    let y = newYear;
+    if (!Number.isFinite(y)) y = currentYear;
+    y = Math.max(1, Math.min(9999, y));
+    yearInput.value = y;
+    recomputeLunarMonth(y, currentMonth);
+  }
+  yearPrevBtn.addEventListener('click', ()=> applyYearChange(currentYear - 1));
+  yearNextBtn.addEventListener('click', ()=> applyYearChange(currentYear + 1));
+  yearInput.addEventListener('change', ()=> applyYearChange(parseInt(yearInput.value,10)));
+
+  todayBtn.addEventListener('click', ()=>{
+    // Find the lunar month actually in progress *today*, rather than
+    // routing through "the lunar month covering the 1st of this
+    // Gregorian month" (recomputeLunarMonth's logic). If this month's
+    // 朔 falls mid-month and today is past it, that route lands on last
+    // month's lunar month and the today-diff check fails, silently
+    // falling back to day 0 - not today. Going straight from today's
+    // floating date avoids that entirely.
+    const now = new Date();
+    const todayFloating = beijingFloatingDate(now);
+    const { k, date: thisNM } = findNewMoonAtOrBefore(todayFloating);
+    applyLunarMonth(k, thisNM);
+    // re-assert the real current Gregorian year/month (thisNM's own
+    // Gregorian month can differ from today's, e.g. 朔 on Aug 30 while
+    // today is Sept 2).
+    currentYear = todayFloating.getUTCFullYear();
+    currentMonth = todayFloating.getUTCMonth()+1;
+    refreshMonthDisplay();
+    refreshLunarDisplay();
+  });
+
+  function openLunarPicker(){
+    closeMonthPicker();
+    lunarPickerPanel.removeAttribute('hidden');
+    lunarPickerBackdrop.removeAttribute('hidden');
+    lunarDisplayBtn.setAttribute('aria-expanded','true');
+    lunarYearInput.value = currentLunarYear;
+    highlightActiveLunarMonthBtn();
+  }
+  function closeLunarPicker(){
+    lunarPickerPanel.setAttribute('hidden','');
+    lunarPickerBackdrop.setAttribute('hidden','');
+    lunarDisplayBtn.setAttribute('aria-expanded','false');
+  }
+  lunarDisplayBtn.addEventListener('click', ()=>{
+    if (lunarPickerPanel.hasAttribute('hidden')) openLunarPicker(); else closeLunarPicker();
+  });
+  lunarPickerBackdrop.addEventListener('click', closeLunarPicker);
+
+  function applyLunarYearChange(newYear){
+    let y = newYear;
+    if (!Number.isFinite(y)) y = currentLunarYear;
+    y = Math.max(1, Math.min(9999, y));
+    lunarYearInput.value = y;
+    goToLunarMonth(y, currentLunarMonthNum);
+  }
+  lunarYearPrevBtn.addEventListener('click', ()=> applyLunarYearChange(currentLunarYear - 1));
+  lunarYearNextBtn.addEventListener('click', ()=> applyLunarYearChange(currentLunarYear + 1));
+  lunarYearInput.addEventListener('change', ()=> applyLunarYearChange(parseInt(lunarYearInput.value,10)));
+
+  // ---------- play/pause ----------
+  const playBtn = document.getElementById('playBtn');
+  let playing = false, timer = null;
+
+  function stepPlay(){
+    let day = parseInt(slider.value,10);
+    day = (day+1) % monthLength;
+    update(day);
+    syncMonthDisplayForDay(day);
+  }
+
+  function startPlay(){
+    playing = true;
+    playBtn.textContent = '⏸';
+    playBtn.setAttribute('aria-label','暫停');
+    timer = setInterval(stepPlay, 550);
+  }
+  function stopPlay(){
+    playing = false;
+    playBtn.textContent = '▶';
+    playBtn.setAttribute('aria-label','播放');
+    if (timer){ clearInterval(timer); timer = null; }
+  }
+  playBtn.addEventListener('click', ()=>{
+    if (playing) stopPlay(); else startPlay();
+  });
+
+  // ---------- info panel toggle ----------
+  const infoBtn = document.getElementById('infoBtn');
+  const infoPanel = document.getElementById('infoPanel');
+  const infoBackdrop = document.getElementById('infoBackdrop');
+  const infoBtnLabel = document.getElementById('infoBtnLabel');
+  function openInfo(){
+    infoPanel.removeAttribute('hidden');
+    infoBackdrop.removeAttribute('hidden');
+    infoBtn.setAttribute('aria-expanded','true');
+    infoBtnLabel.textContent = '收起說明';
+  }
+  function closeInfo(){
+    infoPanel.setAttribute('hidden','');
+    infoBackdrop.setAttribute('hidden','');
+    infoBtn.setAttribute('aria-expanded','false');
+    infoBtnLabel.textContent = '說明';
+  }
+  infoBtn.addEventListener('click', ()=>{
+    if (infoPanel.hasAttribute('hidden')) openInfo(); else closeInfo();
+  });
+  infoBackdrop.addEventListener('click', closeInfo);
+
+  // ---------- swap direction (sun left/right) ----------
+  const swapBtn = document.getElementById('swapBtn');
+  swapBtn.addEventListener('click', ()=>{
+    mirrored = !mirrored;
+    document.body.classList.toggle('mirrored', mirrored);
+    swapBtn.setAttribute('aria-pressed', String(mirrored));
+    update(parseInt(slider.value,10));
+  });
+
+  // ---------- init ----------
+  populateMonthGrid();
+  populateLunarMonthGrid();
+  const now = new Date();
+  recomputeLunarMonth(now.getFullYear(), now.getMonth()+1);
+})();
+
+</script>
+</body>
+</html>
