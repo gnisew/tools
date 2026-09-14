@@ -1,0 +1,2495 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
+<title>指北針 · Online Compass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
+<style>
+/* ============ Design tokens ============ */
+:root{
+  --font-ui: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --radius-s: 10px;
+  --radius-m: 16px;
+  --radius-l: 26px;
+  /* 新增：月相圖形固定色（不隨主題切換），受光面固定為亮色、陰影面固定為暗色，符合直覺 */
+  --moon-lit: #f2e9cf;
+  --moon-dark: #333c58;
+}
+:root[data-theme="dark"]{
+  --bg: #0A1120;
+  --panel: #121b30;
+  --panel-2: #0e1626;
+  --border: #24304c;
+  --border-soft: #1a2440;
+  --text: #eef1f8;
+  --text-dim: #8d97b3;
+  --text-faint: #566082;
+  --accent: #e3a548;
+  --accent-soft: #e3a54822;
+  --steel: #6f8fd9;
+  --needle-n: #e0503a;
+  --needle-s: #3e6fd8;
+  --sun: #f0b429;
+  --moon: #c3cbea;
+  --ok: #3ecf8e;
+  --warn: #e3a548;
+  --danger: #e0604a;
+  --dial-face: #ffffff10;
+  --dial-ring: #ffffff1c;
+  --shadow: 0 30px 70px -20px rgba(0,0,0,0.6);
+}
+:root[data-theme="light"]{
+  --bg: #eef0f6;
+  --panel: #ffffff;
+  --panel-2: #f7f8fb;
+  --border: #e0e4ee;
+  --border-soft: #eaedf5;
+  --text: #101426;
+  --text-dim: #5c6478;
+  --text-faint: #929cb5;
+  --accent: #c9861f;
+  --accent-soft: #c9861f18;
+  --steel: #3f60b8;
+  --needle-n: #d1462f;
+  --needle-s: #2f57bf;
+  --sun: #c9861f;
+  --moon: #5560a0;
+  --ok: #1fa971;
+  --warn: #c9861f;
+  --danger: #d1462f;
+  --dial-face: #10142c08;
+  --dial-ring: #10142c1c;
+  --shadow: 0 30px 70px -25px rgba(20,25,50,0.25);
+}
+
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0;
+  min-height:100dvh;
+  font-family: var(--font-ui);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+  overflow-x:hidden;
+}
+button{font-family:inherit;}
+.mono{font-family: var(--font-mono);}
+
+/* ============ Layout shell ============ */
+.app{
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 18px 18px 48px;
+}
+
+/* Header */
+.topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding: 6px 4px 22px;
+}
+.brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.brand-mark{
+  width:38px;height:38px;
+  border-radius:50%;
+  border:1.5px solid var(--accent);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--accent);
+  flex-shrink:0;
+}
+.brand-text{
+  font-weight:700;
+  font-size:17px;
+  letter-spacing:0.2px;
+}
+.brand-sub{
+  font-size:11.5px;
+  color:var(--text-faint);
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
+}
+.top-actions{
+  position: relative;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:8px;
+}
+@media (max-width: 480px){
+  .icon-btn{ width:38px; height:38px; }
+  .icon-btn svg{ width:17px; height:17px; }
+  .top-actions{ gap:6px; }
+}
+.icon-btn{
+  position: relative;
+  width:42px;height:42px;
+  border-radius: 12px;
+  border:1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-dim);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  transition: border-color .15s, color .15s, transform .1s;
+}
+.icon-btn:hover{ color:var(--text); border-color: var(--accent); }
+.icon-btn:active{ transform: scale(0.94); }
+.icon-btn svg{ width:19px;height:19px; }
+.icon-btn.active{
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* Grid */
+.layout{
+  display:grid;
+  grid-template-columns: 300px minmax(0,1fr) 300px;
+  gap: 18px;
+  align-items:start;
+}
+@media (max-width: 980px){
+  .layout{ grid-template-columns: 1fr; gap: 10px; }
+  .col-compass{ order: 1; margin-bottom: -4px; }
+  #colRight{ order: 2; }
+  #colLeft{ order: 3; }
+}
+.col-side{ display:flex; flex-direction:column; gap:14px; }
+
+/* Panels */
+.panel{
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  padding: 18px;
+}
+.panel-label{
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  margin: 0 0 14px;
+}
+/* 新增：面板標題列（標題 + 右上角小型切換按鈕），供月相「真實朝向」開關使用 */
+.panel-label-row{
+  display:flex; align-items:center; justify-content:space-between;
+  margin: 0 0 14px;
+}
+.panel-label-row .panel-label{ margin:0; }
+.mini-toggle-btn{
+  width:24px; height:24px;
+  display:flex; align-items:center; justify-content:center;
+  border:1px solid var(--border); background: var(--panel-2);
+  color: var(--text-faint);
+  cursor:pointer;
+  border-radius:7px;
+  flex-shrink:0;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.mini-toggle-btn:hover{ border-color: var(--accent); }
+.mini-toggle-btn svg{ width:13px;height:13px; }
+.mini-toggle-btn.active{
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+/* 新增：追蹤開關改用清楚的文字（追蹤：開／關），比純圖示更容易理解 */
+.tracking-toggle-btn{
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text-faint);
+  font-size: 12.5px;
+  font-weight:700;
+  cursor:pointer;
+  flex-shrink:0;
+  white-space:nowrap;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.tracking-toggle-btn:hover{ border-color: var(--accent); }
+.tracking-toggle-btn.active{
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* 新增：面板標題列（拖曳把手＋標題＋額外按鈕＋收合鈕）— 由 JS 統一產生 */
+.panel-header{
+  display:flex; align-items:center; gap:8px;
+  margin: 0 0 14px;
+}
+.panel-header .panel-label{ margin:0; flex:1; min-width:0; }
+.panel-drag-handle{
+  display:flex; align-items:center; justify-content:center;
+  width:20px; height:20px;
+  color: var(--text-faint);
+  cursor: grab;
+  flex-shrink:0;
+  touch-action:none;
+  border-radius:6px;
+}
+.panel-drag-handle:hover{ color: var(--text-dim); background: var(--panel-2); }
+.panel-collapse-btn{
+  width:22px; height:22px;
+  display:flex; align-items:center; justify-content:center;
+  border:1px solid var(--border); background: var(--panel-2);
+  color: var(--text-dim);
+  font-size:15px; line-height:1; font-weight:700;
+  cursor:pointer;
+  border-radius:7px;
+  flex-shrink:0;
+}
+.panel-collapse-btn:hover{ border-color: var(--accent); color: var(--accent); }
+.panel.collapsed .panel-body{ display:none; }
+
+/* 拖曳排序時的視覺回饋 */
+.panel.dragging{
+  opacity:0.35;
+}
+.panel-drop-placeholder{
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-m);
+  background: var(--accent-soft);
+  min-height: 56px;
+}
+.data-grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.data-cell{
+  background: var(--panel-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-s);
+  padding: 10px 12px;
+  min-width:0;
+}
+.data-cell.span2{ grid-column: 1 / -1; }
+.data-cell-label{
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-bottom: 5px;
+  display:flex;align-items:center;gap:5px;
+}
+.data-cell-value{
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.data-cell-value.dim{ color: var(--text-dim); font-weight:500; }
+/* 新增：位置欄位標題列（放小型複製座標圖示按鈕） */
+.data-cell-label-row{
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom: 5px;
+}
+.data-cell-label-row .data-cell-label{ margin-bottom:0; }
+.mini-copy-btn{
+  width:22px; height:22px;
+  display:flex; align-items:center; justify-content:center;
+  border:none; background:none;
+  color: var(--text-faint);
+  cursor:pointer;
+  border-radius:6px;
+  flex-shrink:0;
+}
+.mini-copy-btn:hover{ color: var(--accent); background: var(--panel-2); }
+.mini-copy-btn svg{ width:13px;height:13px; }
+.pill{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+.dot{
+  width:8px;height:8px;border-radius:50%;
+  background: var(--text-faint);
+  flex-shrink:0;
+}
+.dot.ok{ background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.dot.warn{ background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+.dot.danger{ background: var(--danger); }
+
+/* Diagnostics rows */
+.diag-row{
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 13.5px;
+}
+.diag-row:last-child{ border-bottom:none; }
+
+/* ============ Compass column ============ */
+.col-compass{
+  display:flex; flex-direction:column; align-items:center;
+  gap: 14px;
+  min-width:0;
+}
+.readout{
+  display:flex; align-items:baseline; gap:10px;
+  font-family: var(--font-mono);
+}
+.readout .deg{ font-size: 44px; font-weight:700; letter-spacing:-1px; }
+.readout .dir{ font-size: 30px; font-weight:700; color: var(--accent); }
+
+.stage{
+  position:relative;
+  width: min(78vw, 460px);
+  aspect-ratio: 1/1;
+  filter: drop-shadow(var(--shadow));
+}
+.stage svg{ width:100%; height:100%; display:block; overflow:visible; }
+.dial-group{ transition: transform .25s cubic-bezier(.2,.7,.3,1); transform-origin: 200px 200px; }
+
+.lubber{
+  position:absolute; top:-6px; left:50%; transform:translateX(-50%);
+  width:0;height:0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 12px solid var(--accent);
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.35));
+}
+
+.status-banner{
+  display:flex; align-items:center; gap:9px;
+  padding: 11px 14px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  font-size: 13px;
+  width:100%;
+  margin-top: 10px;
+}
+.status-banner.info{ border-color: var(--steel); color: var(--steel); }
+.status-banner.warn{ border-color: var(--warn); color: var(--warn); }
+.status-banner.danger{ border-color: var(--danger); color: var(--danger); }
+.status-banner svg{ width:16px;height:16px; flex-shrink:0; }
+
+.calib-hint{
+  display:none;
+  align-items:center; gap:9px;
+  padding: 10px 14px;
+  border-radius: var(--radius-s);
+  border: 1px dashed var(--warn);
+  color: var(--warn);
+  font-size: 12.5px;
+  margin-top: 12px;
+}
+.calib-hint.show{ display:flex; }
+.calib-hint svg{ width:16px;height:16px;flex-shrink:0; animation: spin8 1.6s linear infinite; }
+@keyframes spin8{ to{ transform: rotate(360deg);} }
+
+/* 修改：警示與提示合併為單一通知中心（右上角圖示徽章 ＋ 下拉清單），仿 iOS 通知樣式 */
+.notif-wrap{ position: relative; }
+.notif-badge{
+  position:absolute; top:6px; right:6px;
+  width:8px; height:8px; border-radius:50%;
+  background: var(--danger);
+  border: 1.5px solid var(--panel);
+}
+.notif-panel{
+  position:absolute; top:calc(100% + 10px); right:0;
+  width: min(340px, 90vw);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow);
+  z-index: 60;
+  padding: 8px;
+}
+/* 修改：手機版通知面板改為固定在視窗上方、左右貼邊，不再跟著鈴鐺圖示的位置往外延伸而超出畫面 */
+@media (max-width: 480px){
+  .notif-panel{
+    position: fixed;
+    top: 68px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-height: min(70vh, 480px);
+    overflow-y: auto;
+  }
+}
+.notif-panel-header{
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  padding: 8px 8px 6px;
+}
+.notif-empty{
+  padding: 14px 8px 16px;
+  font-size: 13px;
+  color: var(--text-faint);
+  text-align:center;
+}
+.notif-item{
+  display:flex; align-items:flex-start; gap:9px;
+  padding: 10px 8px;
+  border-radius: var(--radius-s);
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.notif-item + .notif-item{ border-top: 1px solid var(--border-soft); }
+.notif-item svg{ width:17px; height:17px; flex-shrink:0; margin-top:1px; }
+.notif-item.info svg{ color: var(--steel); }
+.notif-item.warn svg{ color: var(--warn); }
+.notif-item.danger svg{ color: var(--danger); }
+.notif-item-body{ flex:1; min-width:0; }
+.notif-item-text{ line-height:1.5; }
+.notif-item-action{
+  margin-top:7px;
+  border: 1px solid var(--border); background: var(--panel-2);
+  color: var(--accent); cursor:pointer;
+  font-size:12px; font-weight:700;
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+.notif-item-action:hover{ border-color: var(--accent); }
+.notif-item-close{
+  border:none; background:none; cursor:pointer;
+  font-size:13px; line-height:1;
+  color: var(--text-faint); padding:4px; flex-shrink:0;
+}
+.notif-item-close:hover{ color: var(--text); }
+
+/* 新增：右下角「尚未啟用指南針」持續提醒卡片 */
+.enable-reminder{
+  position: fixed;
+  right: 18px; bottom: 18px;
+  z-index: 70;
+  display:flex; align-items:flex-start; gap:10px;
+  max-width: min(320px, calc(100vw - 36px));
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  animation: reminder-pop .25s ease-out;
+}
+@keyframes reminder-pop{
+  from{ opacity:0; transform: translateY(10px); }
+  to{ opacity:1; transform: translateY(0); }
+}
+.enable-reminder svg{ width:20px;height:20px; color:var(--accent); flex-shrink:0; margin-top:2px; }
+.enable-reminder-body{ flex:1; min-width:0; }
+.enable-reminder-title{ font-size:13.5px; font-weight:700; color:var(--text); margin-bottom:3px; }
+.enable-reminder-text{ font-size:12px; color:var(--text-dim); line-height:1.5; margin-bottom:10px; }
+.enable-reminder-btn{
+  width:100%;
+  padding: 9px 12px;
+  border-radius: 999px;
+  border: none;
+  background: var(--accent);
+  color: var(--panel);
+  font-size:13px; font-weight:700;
+  cursor:pointer;
+}
+:root[data-theme="light"] .enable-reminder-btn{ color:#fffaf0; }
+:root[data-theme="dark"] .enable-reminder-btn{ color:#1b1204; }
+.enable-reminder-btn:hover{ filter:brightness(1.06); }
+.enable-reminder-close{
+  border:none; background:none; cursor:pointer;
+  color: var(--text-faint);
+  font-size:13px; line-height:1;
+  padding:3px; flex-shrink:0;
+}
+.enable-reminder-close:hover{ color: var(--text); }
+@media (max-width: 480px){
+  .enable-reminder{ left:12px; right:12px; max-width:none; bottom:12px; }
+}
+
+/* Toast */
+.toast{
+  position: fixed;
+  left:50%; bottom: 26px; transform: translateX(-50%) translateY(20px);
+  background: var(--text); color: var(--bg);
+  padding: 11px 18px;
+  border-radius: 16px;
+  font-size: 13.5px;
+  font-weight:600;
+  line-height:1.5;
+  text-align:center;
+  max-width: min(90vw, 420px);
+  white-space: normal;
+  opacity:0; pointer-events:none;
+  transition: opacity .2s, transform .2s;
+  z-index: 50;
+}
+.toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+
+/* 新增：月相面板 — 圖形、名稱、農曆日期 */
+.moon-phase-row{
+  display:flex; align-items:center; gap:14px;
+}
+.moon-phase-row svg{ flex-shrink:0; }
+.moon-phase-info{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+.moon-phase-name{ font-size:15px; font-weight:700; color:var(--text); }
+.moon-phase-lunar{ font-family: var(--font-mono); font-size:13px; color:var(--text-dim); }
+.moon-phase-illum{ font-size:12px; color:var(--text-faint); }
+
+/* Sun/Moon list */
+.sm-row{
+  display:flex; align-items:center; gap:11px;
+  padding: 11px 2px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.sm-row:last-child{ border-bottom:none; }
+.sm-icon{
+  width:34px;height:34px; border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.sm-icon svg{ width:18px;height:18px; }
+.sm-icon.sun{ background: #f0b42922; color: var(--sun); }
+.sm-icon.moon{ background: #c3cbea22; color: var(--moon); }
+.sm-icon.letter{ font-weight:700; font-size:13px; font-family: var(--font-ui); }
+.sm-info{ flex:1; min-width:0; }
+.sm-title{ font-size:13px; font-weight:600; }
+.sm-title-riseset{ font-family: var(--font-mono); font-size:11px; font-weight:500; color: var(--text-faint); }
+.sm-sub{ font-size:11.5px; color: var(--text-faint); font-family: var(--font-mono); }
+.sm-value{ text-align:right; font-family: var(--font-mono); font-size:15px; font-weight:700; }
+.sm-value small{ display:block; font-size:10.5px; color:var(--text-faint); font-weight:500; }
+/* 修改：只有天體「圖示」可點擊切換追蹤，不是整個區塊 */
+.sm-icon-track{
+  cursor:pointer;
+  transition: transform .12s, box-shadow .12s;
+}
+.sm-icon-track:hover{ transform: scale(1.08); box-shadow: 0 0 0 3px var(--panel-2); }
+.sm-icon-track:active{ transform: scale(0.95); }
+.sm-row.tracked{
+  margin: 0 -8px;
+  padding-left: 8px; padding-right: 8px;
+  border-radius: var(--radius-s);
+  background: var(--accent-soft);
+}
+.sm-row.tracked .sm-title{ color: var(--accent); }
+.sm-row.tracked .sm-icon-track{ box-shadow: 0 0 0 2px var(--accent); }
+
+.declination-row{
+  display:flex; align-items:center; gap:8px; margin-top:8px;
+}
+.declination-row input{
+  width: 74px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 8px 9px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  text-align:center;
+}
+.declination-row input:focus{ outline:none; border-color:var(--accent); }
+.declination-row button{
+  border:1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text-dim);
+  border-radius: var(--radius-s);
+  padding: 8px 12px;
+  font-size:12px;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.declination-row button:hover{ border-color:var(--accent); color:var(--text); }
+
+/* 新增：時間預設 chip（沿用 .chip 樣式） */
+.chip{
+  padding:7px 13px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text-dim);
+  font-size: 12.5px;
+  font-weight:600;
+  cursor:pointer;
+  display:flex; align-items:center; gap:6px;
+  transition: border-color .15s, color .15s;
+}
+.chip:hover{ border-color: var(--accent); }
+.chip.active{
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.chip .swatch{ width:8px;height:8px;border-radius:50%; flex-shrink:0; }
+
+/* 修改：天體選擇改為下拉選單，與方位說明文字同一行 */
+.body-select-row{
+  display:flex; align-items:center; gap:12px;
+  width:100%;
+}
+.body-select{ position:relative; flex-shrink:0; }
+.body-select-btn{
+  display:flex; align-items:center; gap:8px;
+  padding: 9px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 13px;
+  font-weight:600;
+  cursor:pointer;
+  transition: border-color .15s;
+}
+.body-select-btn:hover{ border-color: var(--accent); }
+.body-select-btn .swatch{ width:9px;height:9px;border-radius:50%; flex-shrink:0; }
+.body-select-btn .chevron{ width:14px;height:14px; color:var(--text-faint); flex-shrink:0; }
+.body-select-menu{
+  position:absolute; top:calc(100% + 6px); left:0; z-index:20;
+  min-width:150px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  box-shadow: var(--shadow);
+  padding: 6px;
+}
+.body-select-option{
+  display:flex; align-items:center; gap:8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+  cursor:pointer;
+  white-space:nowrap;
+}
+.body-select-option:hover{ background: var(--panel-2); color:var(--text); }
+.body-select-option.active{ color: var(--accent); background: var(--accent-soft); }
+.body-select-option .swatch{ width:8px;height:8px;border-radius:50%; flex-shrink:0; }
+
+/* 修改：追蹤說明文字改為靠左顯示，與天體選單同一行（原本為置中獨立一行） */
+.track-caption{
+  flex:1; min-width:0;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text-dim);
+  text-align:left;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.track-caption b{ color: var(--text); font-weight:700; }
+
+/* 修改：拖曳開關與手動旋轉復原已改為右上角 icon-btn（見 .icon-btn.active），此處樣式不再需要 */
+
+.stage{ cursor: default; user-select:none; }
+.stage.drag-on{ cursor: grab; touch-action: none; }
+.stage.drag-on:active{ cursor: grabbing; }
+
+/* 新增：指北針下方的相機實景圖層 */
+.camera-layer{
+  position: relative;
+  width:100%;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--radius-m);
+  overflow:hidden;
+  border: 1px solid var(--border);
+  background: #05060a;
+}
+.camera-layer video{
+  width:100%; height:100%;
+  object-fit: cover;
+  display:block;
+}
+.camera-crosshair{
+  position:absolute; left:50%; top:50%;
+  width:34px; height:34px;
+  transform: translate(-50%,-50%);
+  pointer-events:none;
+}
+.camera-crosshair span{
+  position:absolute; background: rgba(255,255,255,0.85);
+  box-shadow: 0 0 3px rgba(0,0,0,0.6);
+}
+.camera-crosshair span:first-child{ left:50%; top:0; width:2px; height:100%; margin-left:-1px; }
+.camera-crosshair span:last-child{ top:50%; left:0; height:2px; width:100%; margin-top:-1px; }
+.camera-heading{
+  position:absolute; left:50%; top:10px; transform: translateX(-50%);
+  background: rgba(0,0,0,0.5);
+  color:#fff;
+  font-family: var(--font-mono);
+  font-size:13px; font-weight:700;
+  padding: 5px 12px;
+  border-radius: 999px;
+  pointer-events:none;
+}
+
+/* 修改：天體追蹤時間控制面板（全天／白天／晚上／自訂／即時）— 縮減垂直間距 */
+.time-panel{
+  width:100%;
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--panel);
+}
+.time-quick-row{ display:flex; flex-wrap:wrap; gap:7px; justify-content:center; width:100%; }
+/* 修改：日期與目前選取時間合併同一行，節省垂直空間 */
+.time-date-row{
+  display:flex; align-items:center; gap:8px; width:100%; justify-content:center; flex-wrap:wrap;
+}
+.time-date-row input[type="date"]{
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 7px 9px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+}
+.time-range-row{
+  display:flex; align-items:center; gap:8px; width:100%; justify-content:center;
+  font-size:12.5px; color:var(--text-dim);
+}
+.time-range-row input[type="time"]{
+  font-family: var(--font-mono);
+  font-size: 13px;
+  padding: 7px 9px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+}
+.time-range-sep{ color: var(--text-faint); font-weight:700; }
+.time-slider-row{
+  width:100%;
+  display:flex; flex-direction:column; align-items:center;
+}
+.time-slider-row input[type="range"]{
+  width:100%;
+  accent-color: var(--accent);
+}
+/* 修改：時間標籤改為與日期同排的小型標籤樣式 */
+.time-slider-label{
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  font-weight:700;
+  color: var(--accent);
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Header -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M14.5 9.5L11 13l-2.5 2.5L11 12l3.5-3.5-1 1z" fill="currentColor"/><path d="M15 9l-4 4-1.5 3.5L11 13l4-4z" fill="currentColor"/></svg>
+      </div>
+      <div>
+        <div class="brand-text">線上指北針</div>
+        <div class="brand-sub">ONLINE&nbsp;COMPASS</div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" id="themeBtn" title="切換深淺色">
+        <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.2 4.2l1.5 1.5M18.3 18.3l1.5 1.5M2.5 12h2.2M19.3 12h2.2M4.2 19.8l1.5-1.5M18.3 5.7l1.5-1.5" stroke-linecap="round"/></svg>
+      </button>
+      <!-- 修改：警示（感測器/權限狀態）與提示（使用說明）合併為單一通知按鈕，仿 iOS 通知清單、可個別關閉 -->
+      <div class="notif-wrap">
+        <button class="icon-btn" id="notifBtn" type="button" title="通知">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9a6 6 0 1 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 13 6 9Z" stroke-linejoin="round"/><path d="M10 18.5a2 2 0 0 0 4 0" stroke-linecap="round"/></svg>
+          <span class="notif-badge" id="notifBadge" style="display:none;"></span>
+        </button>
+        <div class="notif-panel" id="notifPanel" style="display:none;">
+          <div class="notif-panel-header">通知</div>
+          <div id="notifList"><!-- 由 JS 動態產生通知卡片 --></div>
+        </div>
+      </div>
+      <button class="icon-btn" id="dragToggleBtn" type="button" aria-pressed="false" title="允許拖曳旋轉：關閉">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 12.5V6a1.5 1.5 0 0 1 3 0v5M12 11.5V5a1.5 1.5 0 0 1 3 0v6M15 11.5V7a1.5 1.5 0 0 1 3 0v7c0 3.5-2 6-5.5 6h-1c-2 0-3-.6-4.2-2.1l-3-3.8c-.6-.8-.4-1.7.4-2.2.8-.5 1.7-.3 2.4.5L9 15" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button class="icon-btn" id="manualBadge" type="button" title="手動旋轉中，點此回到即時感測" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 9-9" stroke-linecap="round"/><path d="M3 12l3-3M3 12l3 3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <!-- 修改：校準指南針已移至通知清單中的固定選項；磁北/真北已移至航向 Heading 資料格內 -->
+      <!-- 新增：錶面方位文字語言切換（中文／字母），預設中文 -->
+      <button class="tracking-toggle-btn" id="dialLangToggle" type="button" title="切換錶面方位文字：中文／字母">方位：中文</button>
+      <!-- 新增：啟用相機（開啟後於指北針下方顯示實景圖層） -->
+      <button class="icon-btn" id="cameraToggleBtn" type="button" title="啟用相機">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8a2 2 0 0 1 2-2h1.2l1-1.6A1.5 1.5 0 0 1 9.5 3.6h5a1.5 1.5 0 0 1 1.3.8l1 1.6H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.4"/></svg>
+      </button>
+      <button class="icon-btn" id="fullscreenBtn" title="全螢幕">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 4H5a1 1 0 0 0-1 1v4M15 4h4a1 1 0 0 1 1 1v4M9 20H5a1 1 0 0 1-1-1v-4M15 20h4a1 1 0 0 0 1-1v-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Layout -->
+  <div class="layout">
+
+    <!-- LEFT: live data -->
+    <div class="col-side" id="colLeft">
+      <div class="panel" data-panel-id="live">
+        <p class="panel-label">即時資訊 LIVE DATA</p>
+        <div class="data-grid">
+          <div class="data-cell span2">
+            <div class="data-cell-label-row">
+              <div class="data-cell-label">航向 Heading</div>
+              <button class="tracking-toggle-btn" id="refToggleBtn" type="button" title="">磁北</button>
+            </div>
+            <div class="data-cell-value" id="dHeading">— </div>
+          </div>
+          <div class="data-cell">
+            <div class="data-cell-label">磁向 Magnetic</div>
+            <div class="data-cell-value dim" id="dMagnetic">—°</div>
+          </div>
+          <div class="data-cell">
+            <div class="data-cell-label">精確度 Accuracy</div>
+            <div class="data-cell-value dim"><span class="pill" id="dAccuracy"><span class="dot"></span>未知</span></div>
+          </div>
+          <div class="data-cell span2">
+            <div class="data-cell-label-row">
+              <div class="data-cell-label">位置 Position</div>
+              <button class="mini-copy-btn" id="posCopyBtn" type="button" title="複製座標">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10" stroke-linecap="round"/></svg>
+              </button>
+            </div>
+            <div class="data-cell-value" id="dPosition">尚未取得</div>
+          </div>
+          <div class="data-cell">
+            <div class="data-cell-label-row">
+              <div class="data-cell-label">緯度 Latitude</div>
+              <button class="mini-copy-btn" id="latCopyBtn" type="button" title="複製緯度">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10" stroke-linecap="round"/></svg>
+              </button>
+            </div>
+            <div class="data-cell-value dim" id="dLat">—</div>
+          </div>
+          <div class="data-cell">
+            <div class="data-cell-label-row">
+              <div class="data-cell-label">經度 Longitude</div>
+              <button class="mini-copy-btn" id="lonCopyBtn" type="button" title="複製經度">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10" stroke-linecap="round"/></svg>
+              </button>
+            </div>
+            <div class="data-cell-value dim" id="dLon">—</div>
+          </div>
+          <div class="data-cell">
+            <div class="data-cell-label">海拔 Altitude</div>
+            <div class="data-cell-value dim" id="dAlt">—</div>
+          </div>
+          <div class="data-cell">
+            <div class="data-cell-label">更新時間 Updated</div>
+            <div class="data-cell-value dim mono" id="dTime">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" data-panel-id="sensors">
+        <p class="panel-label">感測器診斷 SENSORS</p>
+        <div class="diag-row">
+          <span>方向感測器 Orientation</span>
+          <span class="pill"><span class="dot" id="sOrient"></span><span id="sOrientText">未啟用</span></span>
+        </div>
+        <div class="diag-row">
+          <span>磁力計 Magnetometer</span>
+          <span class="pill"><span class="dot" id="sMag"></span><span id="sMagText">未偵測</span></span>
+        </div>
+        <div class="diag-row">
+          <span>GPS 定位</span>
+          <span class="pill"><span class="dot" id="sGps"></span><span id="sGpsText">未啟用</span></span>
+        </div>
+      </div>
+
+      <!-- 修改：磁偏角面板搬移至左側欄位 -->
+      <div class="panel" data-panel-id="declination">
+        <p class="panel-label">磁偏角 DECLINATION</p>
+        <div class="data-cell-label" style="margin-bottom:2px;">目前地點磁偏角（供「真北」換算）</div>
+        <div class="declination-row">
+          <input type="number" id="declInput" value="0" step="0.1">
+          <span style="font-size:13px;color:var(--text-dim);">°</span>
+          <button id="declFetch">自動取得</button>
+        </div>
+        <div class="status-banner" id="declStatus" style="display:none;margin-top:10px;"></div>
+      </div>
+    </div>
+
+    <!-- CENTER: compass -->
+    <div class="col-compass">
+
+      <div class="readout">
+        <span class="deg" id="rDeg">0°</span>
+        <span class="dir" id="rDir">N</span>
+      </div>
+
+      <div class="stage" id="stage">
+        <div class="lubber"></div>
+        <svg viewBox="0 0 400 400" id="svg"></svg>
+      </div>
+
+      <!-- 新增：相機實景圖層，點擊右上角「啟用相機」後顯示於指北針下方 -->
+      <div class="camera-layer" id="cameraLayer" style="display:none;">
+        <video id="cameraVideo" autoplay playsinline muted></video>
+        <div class="camera-crosshair">
+          <span></span><span></span>
+        </div>
+        <div class="camera-heading" id="cameraHeading">0° 北</div>
+      </div>
+
+      <!-- 修改：拖曳開關、手動旋轉復原、感測器狀態提示、啟用指南針均已移至右上角圖示列 / 通知中心 -->
+      <!-- 修改：天體選單、時間控制、指南針/天體追蹤與磁北/真北 切換均已移至右側「天體方位」面板／右上角圖示列 -->
+
+      <div class="calib-hint" id="calibHint">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round"/><path d="M12 3l3 3-3 3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        訊號需要校準 — 請將手機以「8 字形」在空中緩慢移動幾次
+      </div>
+    </div>
+
+    <!-- RIGHT: sun/moon + declination -->
+    <div class="col-side" id="colRight">
+      <!-- 新增：月相面板 — 實際外觀圖形、名稱、農曆日期 -->
+      <div class="panel" data-panel-id="moonphase">
+        <div class="panel-label-row">
+          <p class="panel-label">月相 MOON PHASE</p>
+          <button class="mini-toggle-btn" id="moonOrientToggle" type="button" aria-pressed="false" title="依時間/地點呈現月面實際朝向（概略估算，未考慮觀測者面向）">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 9-9" stroke-linecap="round"/><path d="M3 12l3-3M3 12l3 3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+        <div class="moon-phase-row">
+          <svg id="moonPhaseSvg" viewBox="0 0 64 64" width="56" height="56"><!-- 由 JS 動態產生月相圖形 --></svg>
+          <div class="moon-phase-info">
+            <div class="moon-phase-name" id="moonPhaseName">—</div>
+            <div class="moon-phase-lunar" id="moonPhaseLunar">農曆 —</div>
+            <div class="moon-phase-illum" id="moonPhaseIllum">光照 —</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 修改：新增「啟用追蹤」開關；天體選單／時間控制已從指北針區塊移入此面板 -->
+      <div class="panel" data-panel-id="bodies">
+        <div class="panel-label-row">
+          <p class="panel-label">天體方位 CELESTIAL BODIES</p>
+          <button class="tracking-toggle-btn" id="trackingToggleBtn" type="button" aria-pressed="false" title="開啟後會在錶面顯示所選天體方位">追蹤：關</button>
+        </div>
+
+        <!-- 修改：天體選擇改為靠左的選單按鈕，方位說明改顯示在同一行右側；僅在啟用追蹤後顯示 -->
+        <div class="body-select-row" id="bodySelectRow" style="display:none;">
+          <div class="body-select" id="bodySelect">
+            <button class="body-select-btn" id="bodySelectBtn" type="button" aria-haspopup="listbox" aria-expanded="false">
+              <span class="swatch" id="bodySelectSwatch"></span>
+              <span id="bodySelectName">太陽</span>
+              <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="body-select-menu" id="bodySelectMenu" role="listbox" style="display:none;"><!-- 選項由 JS 產生 --></div>
+          </div>
+          <div class="track-caption" id="trackCaption"></div>
+        </div>
+
+        <!-- 修改：時間滑桿獨立於面板外，緊接在天體選單下方，方便直接拖曳 -->
+        <div class="time-slider-row" id="timeSliderRow" style="display:none;">
+          <input type="range" id="timeSlider" min="0" max="1439" step="1" value="720" title="拖曳滑桿瀏覽該時段天體方位">
+        </div>
+
+        <!-- 天體追蹤時間控制（即時／全天／白天／晚上／自訂時間範圍 + 指定日期） -->
+        <div class="time-panel" id="timePanel" style="display:none;">
+          <div class="time-quick-row" id="timeQuickRow">
+            <div class="chip time-chip active" data-preset="live">即時</div>
+            <div class="chip time-chip" data-preset="all">全天</div>
+            <div class="chip time-chip" data-preset="day">白天</div>
+            <div class="chip time-chip" data-preset="night">晚上</div>
+            <div class="chip time-chip" data-preset="custom">自訂</div>
+          </div>
+          <div class="time-date-row" id="timeDateRow" style="display:none;">
+            <span style="font-size:12.5px;color:var(--text-dim);">日期</span>
+            <input type="date" id="timeDateInput">
+            <span class="time-slider-label" id="timeSliderLabel">—</span>
+          </div>
+          <div class="time-range-row" id="timeRangeRow" style="display:none;">
+            <input type="time" id="timeRangeStart" value="18:00" lang="en-GB">
+            <span class="time-range-sep">–</span>
+            <input type="time" id="timeRangeEnd" value="22:00" lang="en-GB">
+          </div>
+        </div>
+
+        <!-- 修改：升/落時間已直接標示在各天體名稱後，不再另外列出日出/日落清單 -->
+        <div id="bodyList"><!-- 七個天體的列表由 JS 動態產生 --></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 修改：使用說明已改為右上角資訊圖示（滑鼠停留或點擊查看），不再常駐佔用頁尾空間 -->
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- 修改：右下角持續提醒「尚未啟用指南針」，可個別關閉（避免與通知面板同時展開時互相干擾）；關閉後仍可從右上角通知鈴鐺重新叫出啟用選項 -->
+<div class="enable-reminder" id="enableReminder" style="display:none;">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M14.5 9.5L11 13l-3.5.5L11 9l3.5.5z" fill="currentColor" stroke="none"/></svg>
+  <div class="enable-reminder-body">
+    <div class="enable-reminder-title">尚未啟用指南針</div>
+    <div class="enable-reminder-text">需要「動作與方向」及「定位」權限才能使用本頁面</div>
+    <button class="enable-reminder-btn" id="enableReminderBtn" type="button">啟用指南針</button>
+  </div>
+  <button class="enable-reminder-close" id="enableReminderClose" type="button" aria-label="關閉">✕</button>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     STATE
+  ============================================================ */
+  const state = {
+    theme: 'light',
+    headingRaw: 0,          // last raw compass heading (0-360, 0 = magnetic north)
+    dialRotation: 0,        // cumulative rotation applied to dial (no wrap, for smooth CSS transition)
+    orientationActive: false,
+    orientationAbsolute: false,
+    accuracy: null,         // degrees, smaller = better (iOS webkitCompassAccuracy) or null
+    lat: null, lon: null, alt: null, gpsAccuracy: null,
+    gpsActive: false,
+    declination: 0,
+    refMode: 'magnetic',    // 'magnetic' | 'true'
+    trackingEnabled: false, // 修改：是否在錶面顯示所選天體方位（原 viewMode，改由「天體方位」面板內的開關控制）
+    trackedId: 'sun',       // 目前於「天體追蹤」模式中選定的天體 id
+    bodies: {},             // 每個天體目前的 {az, alt}，key 為天體 id（見 BODIES）
+    moonPhase: null,
+    manualMode: false,      // true = 使用者以拖曳方式手動旋轉錶面，暫停採用感測器數值
+    manualHeading: 0,
+    dragEnabled: false,     // 新增：是否允許以滑鼠/觸控拖曳錶面旋轉（預設關閉，避免手機/平板誤觸）
+    timeMode: 'live',       // 新增：天體追蹤的時間模式 'live' | 'all' | 'day' | 'night' | 'custom'
+    timeDate: null,         // 新增：目前選定的日期（Date，當地時間 00:00）
+    timeRangeStart: null,   // 新增：目前時段起點（Date）
+    timeRangeEnd: null,     // 新增：目前時段終點（Date）
+    timeInstant: null,      // 新增：非即時模式下，目前滑桿指向的時間點（Date）
+    moonTrueOrientation: false, // 新增：是否依時間/地點旋轉月相圖示以呈現概略的真實朝向
+    dialLabelLang: 'zh',    // 新增：錶面方位文字語言，'zh' 中文 | 'en' 字母，預設中文
+    lastComputeNow: null,   // 新增：最近一次 computeCelestial 使用的時間，供天體清單計算升/落時重複使用
+  };
+
+  // 新增：可追蹤的天體清單（太陽、月亮由 SunCalc 計算；行星／恆星由下方簡化天文演算法計算）
+  const BODIES = [
+    {id:'sun',      name:'太陽',   short:'太', color:'var(--sun)',  kind:'sun'},
+    {id:'moon',     name:'月亮',   short:'月', color:'var(--moon)', kind:'moon'},
+    {id:'venus',    name:'金星',   short:'金', color:'#e8c974',     kind:'planet'},
+    {id:'jupiter',  name:'木星',   short:'木', color:'#d9a066',     kind:'planet'},
+    {id:'saturn',   name:'土星',   short:'土', color:'#e3d3a0',     kind:'planet'},
+    {id:'sirius',   name:'天狼星', short:'狼', color:'#bcd6ff',     kind:'star', ra:101.287, dec:-16.716},
+    {id:'arcturus', name:'大角星', short:'角', color:'#ffcf9e',     kind:'star', ra:213.915, dec:19.183},
+  ];
+  function bodyById(id){ return BODIES.find(b=>b.id===id); }
+
+  const DIRS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  // 新增：16 方位中文對照，供 dirLabel() 依錶面方位語言設定切換顯示
+  const DIRS_ZH = ['北','北北東','東北','東北東','東','東南東','東南','南南東','南','南南西','西南','西南西','西','西北西','西北','北北西'];
+  // 修改：8 方位文字對照表（中文／字母），供錶面繪製與方位語言切換按鈕共用
+  const CARDINAL_LABELS = {
+    zh: {N:'北', E:'東', S:'南', W:'西', NE:'東北', SE:'東南', SW:'西南', NW:'西北'},
+    en: {N:'N', E:'E', S:'S', W:'W', NE:'NE', SE:'SE', SW:'SW', NW:'NW'}
+  };
+  // 修改：方位縮寫依目前錶面方位語言設定（中文／字母）顯示
+  function dirLabel(deg){
+    const idx = Math.round(((deg%360)+360)%360 / 22.5) % 16;
+    return state.dialLabelLang === 'zh' ? DIRS_ZH[idx] : DIRS[idx];
+  }
+  function fmtDeg(deg){
+    return Math.round(((deg%360)+360)%360) + '°';
+  }
+
+  /* ============================================================
+     DOM REFS
+  ============================================================ */
+  const $ = (id) => document.getElementById(id);
+  const svg = $('svg');
+  const dialGroup_holder = {};
+  const toastEl = $('toast');
+  const notifBtn = $('notifBtn');
+  const notifBadge = $('notifBadge');
+  const notifPanel = $('notifPanel');
+  const notifList = $('notifList');
+  const calibHint = $('calibHint');
+
+  /* ============================================================
+     BUILD COMPASS DIAL (SVG)
+  ============================================================ */
+  const CX = 200, CY = 200, R = 190;
+  const NS = 'http://www.w3.org/2000/svg';
+  function svgEl(tag, attrs){
+    const el = document.createElementNS(NS, tag);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+
+  function buildDial(){
+    svg.innerHTML = '';
+
+    // Outer static ring (does not rotate) — face background
+    const face = svgEl('circle', {cx:CX, cy:CY, r:R, fill:'var(--dial-face)', stroke:'var(--dial-ring)', 'stroke-width':1});
+    svg.appendChild(face);
+
+    // Rotating group: ticks, numerals, cardinal letters, needle, sun/moon markers
+    const g = svgEl('g', {id:'dialGroup', class:'dial-group'});
+    svg.appendChild(g);
+    dialGroup_holder.el = g;
+
+    // tick marks every 5deg
+    for(let d=0; d<360; d+=5){
+      const isMajor = d % 30 === 0;
+      const isMid = d % 10 === 0 && !isMajor;
+      const len = isMajor ? 20 : (isMid ? 13 : 8);
+      const width = isMajor ? 2.4 : 1.2;
+      const r1 = R - 14;
+      const r2 = r1 - len;
+      const rad = (d - 90) * Math.PI/180;
+      const x1 = CX + r1*Math.cos(rad), y1 = CY + r1*Math.sin(rad);
+      const x2 = CX + r2*Math.cos(rad), y2 = CY + r2*Math.sin(rad);
+      const isCardinal = d % 90 === 0;
+      g.appendChild(svgEl('line',{x1,y1,x2,y2,stroke: isCardinal? 'var(--accent)':'var(--text-faint)', 'stroke-width':width, 'stroke-linecap':'round'}));
+
+      if(isMajor){
+        const rt = r1 - len - 14;
+        const xt = CX + rt*Math.cos(rad), yt = CY + rt*Math.sin(rad);
+        const label = d===0?'':(d===90?'':(d===180?'':(d===270?'':d.toString())));
+        if(label){
+          const t = svgEl('text',{x:xt,y:yt,'text-anchor':'middle','dominant-baseline':'middle', fill:'var(--text-faint)','font-size':11,'font-family':'var(--font-mono)'});
+          t.textContent = d;
+          g.appendChild(t);
+        }
+      }
+    }
+
+    // 修改：8 方位文字（東西南北 + 東北東南西北西南），可切換中文／字母，預設中文
+    const cardinals = [
+      {d:0,   key:'N',  c:'var(--needle-n)', size:26, rt:R-56},
+      {d:45,  key:'NE', c:'var(--text-dim)', size:14, rt:R-42},
+      {d:90,  key:'E',  c:'var(--text)',     size:26, rt:R-56},
+      {d:135, key:'SE', c:'var(--text-dim)', size:14, rt:R-42},
+      {d:180, key:'S',  c:'var(--needle-s)', size:26, rt:R-56},
+      {d:225, key:'SW', c:'var(--text-dim)', size:14, rt:R-42},
+      {d:270, key:'W',  c:'var(--text)',     size:26, rt:R-56},
+      {d:315, key:'NW', c:'var(--text-dim)', size:14, rt:R-42},
+    ];
+    const dialLangGroup = svgEl('g', {id:'dialLangGroup'});
+    g.appendChild(dialLangGroup);
+    cardinals.forEach(c=>{
+      const rad = (c.d-90)*Math.PI/180;
+      const x = CX + c.rt*Math.cos(rad), y = CY + c.rt*Math.sin(rad);
+      const t = svgEl('text',{x,y,'text-anchor':'middle','dominant-baseline':'middle',fill:c.c,'font-size':c.size,'font-weight':700,'font-family':'var(--font-ui)'});
+      t.textContent = CARDINAL_LABELS[state.dialLabelLang][c.key];
+      t.dataset.cardinalKey = c.key;
+      dialLangGroup.appendChild(t);
+    });
+
+    // inner degree ring line
+    g.appendChild(svgEl('circle',{cx:CX,cy:CY,r:R-34,fill:'none',stroke:'var(--border-soft)','stroke-width':1}));
+
+    // 新增：追蹤標記（天體追蹤模式使用）— 由中心拉出一條指向線，末端為圓點與短標籤文字
+    const trackMark = svgEl('g',{id:'trackMark', style:'display:none'});
+    const trackLine = svgEl('line',{x1:CX, y1:CY, x2:CX, y2:CY, stroke:'var(--accent)', 'stroke-width':1.6, 'stroke-dasharray':'2 4'});
+    const trackIconGroup = svgEl('g',{});
+    const trackDot = svgEl('circle',{cx:0, cy:0, r:13, fill:'var(--accent)', stroke:'var(--panel)', 'stroke-width':2});
+    const trackLabel = svgEl('text',{x:0, y:0, 'text-anchor':'middle','dominant-baseline':'central','font-size':11,'font-weight':700,'font-family':'var(--font-ui)', fill:'#1b1204'});
+    trackIconGroup.appendChild(trackDot);
+    trackIconGroup.appendChild(trackLabel);
+    trackMark.appendChild(trackLine);
+    trackMark.appendChild(trackIconGroup);
+    g.appendChild(trackMark);
+    dialGroup_holder.trackMark = trackMark;
+    dialGroup_holder.trackLine = trackLine;
+    dialGroup_holder.trackDot = trackDot;
+    dialGroup_holder.trackLabel = trackLabel;
+    dialGroup_holder.trackIconGroup = trackIconGroup;
+
+    // Needle (kite shape) — points N (up) at rotation 0, fixed within group
+    const needleLen = R - 46;
+    const needle = svgEl('g',{id:'needle'});
+    const nPath = svgEl('path',{d:`M ${CX} ${CY-needleLen} L ${CX-11} ${CY-6} L ${CX} ${CY} L ${CX+11} ${CY-6} Z`, fill:'var(--needle-n)'});
+    const sPath = svgEl('path',{d:`M ${CX} ${CY+needleLen*0.62} L ${CX-9} ${CY+4} L ${CX} ${CY} L ${CX+9} ${CY+4} Z`, fill:'var(--needle-s)'});
+    needle.appendChild(sPath);
+    needle.appendChild(nPath);
+    g.appendChild(needle);
+
+    // center hub
+    g.appendChild(svgEl('circle',{cx:CX,cy:CY,r:14,fill:'var(--panel)',stroke:'var(--border)','stroke-width':2}));
+    g.appendChild(svgEl('circle',{cx:CX,cy:CY,r:4,fill:'var(--accent)'}));
+  }
+  buildDial();
+
+  // 新增：繪製「天體追蹤」模式下選定天體的指向線＋端點圓點＋縮寫標籤
+  // 圓點固定貼齊外環邊緣（呼應參考圖中天體圖示壓在錶面邊框上的樣式）
+  function renderTrackMarker(body, azimuthDeg, altitudeDeg){
+    if(!body){ dialGroup_holder.trackMark.style.display='none'; return; }
+    dialGroup_holder.trackMark.style.display='';
+    const rad = (azimuthDeg - 90) * Math.PI/180;
+    const rr = R - 6; // 貼齊外環邊緣
+    const x = CX + rr*Math.cos(rad), y = CY + rr*Math.sin(rad);
+    dialGroup_holder.trackLine.setAttribute('x2', x);
+    dialGroup_holder.trackLine.setAttribute('y2', y);
+    dialGroup_holder.trackIconGroup.setAttribute('transform', `translate(${x},${y})`);
+    dialGroup_holder.trackDot.setAttribute('fill', body.color);
+    dialGroup_holder.trackLabel.textContent = body.short;
+    const belowHorizon = altitudeDeg !== null && altitudeDeg < 0;
+    dialGroup_holder.trackMark.style.opacity = belowHorizon ? '0.4' : '1';
+  }
+
+  /* ============================================================
+     DIAL ROTATION (smooth, shortest path)
+  ============================================================ */
+  function applyDialRotation(targetHeadingForDial){
+    // dialRotation should end at -targetHeadingForDial (mod handled via shortest path)
+    const targetRotation = -targetHeadingForDial;
+    let delta = ((targetRotation - state.dialRotation + 540) % 360) - 180;
+    state.dialRotation += delta;
+    dialGroup_holder.el.style.transform = `rotate(${state.dialRotation}deg)`;
+  }
+
+  /* ============================================================
+     TOAST
+  ============================================================ */
+  let toastTimer;
+  function toast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    const duration = Math.min(6000, Math.max(2400, msg.length * 70));
+    toastTimer = setTimeout(()=> toastEl.classList.remove('show'), duration);
+  }
+
+  /* ============================================================
+     THEME
+  ============================================================ */
+  $('themeBtn').addEventListener('click', ()=>{
+    state.theme = state.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', state.theme);
+  });
+
+  /* ============================================================
+     FULLSCREEN
+  ============================================================ */
+  $('fullscreenBtn').addEventListener('click', ()=>{
+    if(!document.fullscreenElement){
+      document.documentElement.requestFullscreen?.().catch(()=> toast('此瀏覽器不支援全螢幕'));
+    } else {
+      document.exitFullscreen?.();
+    }
+  });
+
+  /* ============================================================
+     新增：相機實景圖層 — 啟用後於指北針下方顯示即時鏡頭畫面
+  ============================================================ */
+  let cameraStream = null;
+  const cameraToggleBtn = $('cameraToggleBtn');
+  const cameraLayer = $('cameraLayer');
+  const cameraVideo = $('cameraVideo');
+  const cameraHeadingEl = $('cameraHeading');
+  async function toggleCamera(){
+    if(cameraStream){
+      cameraStream.getTracks().forEach(t=> t.stop());
+      cameraStream = null;
+      cameraVideo.srcObject = null;
+      cameraLayer.style.display = 'none';
+      cameraToggleBtn.classList.remove('active');
+      cameraToggleBtn.title = '啟用相機';
+      return;
+    }
+    if(!isSecureOK()){
+      setCameraError('需要在 HTTPS 或 localhost 環境下才能使用相機');
+      cameraToggleBtn.classList.remove('active');
+      return;
+    }
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      setCameraError('此瀏覽器不支援相機功能，請改用手機或平板上較新版本的瀏覽器');
+      cameraToggleBtn.classList.remove('active');
+      return;
+    }
+    cameraToggleBtn.classList.add('active');
+    try{
+      cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+      if(!cameraStream.getVideoTracks().length){
+        throw new Error('沒有可用的視訊軌道');
+      }
+      cameraVideo.srcObject = cameraStream;
+      cameraLayer.style.display = 'block';
+      cameraToggleBtn.title = '關閉相機';
+      clearCameraError();
+      updateCameraHeading();
+    }catch(e){
+      cameraStream = null;
+      cameraToggleBtn.classList.remove('active');
+      cameraToggleBtn.title = '啟用相機';
+      // 修改：依實際錯誤原因給出對應說明，並透過通知系統持續顯示，避免像 toast 一樣一閃即逝而讓人以為沒反應
+      let msg = '無法啟用相機：' + (e && e.message ? e.message : '未知錯誤');
+      if(e && e.name === 'NotAllowedError') msg = '相機權限被拒絕，請至瀏覽器網址列旁的權限設定允許存取相機';
+      else if(e && e.name === 'NotFoundError') msg = '找不到可用的相機裝置，請確認電腦/裝置已連接鏡頭';
+      else if(e && e.name === 'NotReadableError') msg = '相機目前被其他應用程式占用中，請關閉其他正在使用鏡頭的程式後再試一次';
+      else if(e && e.name === 'OverconstrainedError') msg = '相機不支援指定的鏡頭模式，已無法自動切換，請改用手機測試';
+      setCameraError(msg);
+    }
+  }
+  function updateCameraHeading(){
+    if(!cameraStream) return;
+    const h = currentDisplayHeading();
+    cameraHeadingEl.textContent = fmtDeg(h) + ' ' + dirLabel(h);
+  }
+  cameraToggleBtn.addEventListener('click', toggleCamera);
+
+  /* ============================================================
+     VIEW MODE / REFERENCE TOGGLES
+  ============================================================ */
+  const bodySelectRow = $('bodySelectRow');
+  const bodySelect = $('bodySelect');
+  const bodySelectBtn = $('bodySelectBtn');
+  const bodySelectMenu = $('bodySelectMenu');
+  const bodySelectSwatch = $('bodySelectSwatch');
+  const bodySelectName = $('bodySelectName');
+  const trackCaption = $('trackCaption');
+  const timeSliderRow = $('timeSliderRow');
+  const timePanel = $('timePanel');
+
+  // 修改：天體選擇改為下拉選單（僅需建立一次選項）
+  BODIES.forEach(b=>{
+    const opt = document.createElement('div');
+    opt.className = 'body-select-option' + (b.id===state.trackedId ? ' active' : '');
+    opt.dataset.id = b.id;
+    opt.setAttribute('role','option');
+    opt.innerHTML = `<span class="swatch" style="background:${b.color}"></span>${b.name}`;
+    opt.addEventListener('click', ()=>{
+      state.trackedId = b.id;
+      updateBodySelectUI();
+      closeBodyMenu();
+      renderBodyList(state.lastComputeNow || new Date());
+      render();
+    });
+    bodySelectMenu.appendChild(opt);
+  });
+  function updateBodySelectUI(){
+    const b = bodyById(state.trackedId);
+    bodySelectSwatch.style.background = b.color;
+    bodySelectName.textContent = b.name;
+    bodySelectMenu.querySelectorAll('.body-select-option').forEach(o=> o.classList.toggle('active', o.dataset.id===b.id));
+  }
+  function openBodyMenu(){ bodySelectMenu.style.display='block'; bodySelectBtn.setAttribute('aria-expanded','true'); }
+  function closeBodyMenu(){ bodySelectMenu.style.display='none'; bodySelectBtn.setAttribute('aria-expanded','false'); }
+  bodySelectBtn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    if(bodySelectMenu.style.display === 'block') closeBodyMenu(); else openBodyMenu();
+  });
+  document.addEventListener('click', (e)=>{ if(!bodySelect.contains(e.target)) closeBodyMenu(); });
+  updateBodySelectUI();
+
+  // 修改：指南針／天體追蹤 改為「天體方位」面板內的「啟用追蹤」開關，不再需要右上角的模式切換圖示
+  const trackingToggleBtn = $('trackingToggleBtn');
+  function updateTrackingToggleUI(){
+    const on = state.trackingEnabled;
+    trackingToggleBtn.classList.toggle('active', on);
+    trackingToggleBtn.textContent = on ? '追蹤：開' : '追蹤：關';
+    trackingToggleBtn.setAttribute('aria-pressed', String(on));
+    trackingToggleBtn.title = on ? '已開啟追蹤（點擊關閉，錶面將不再顯示天體方位）' : '開啟後會在錶面顯示所選天體方位';
+  }
+  function setTracking(enabled){
+    state.trackingEnabled = enabled;
+    if(enabled){
+      bodySelectRow.style.display='flex';
+      timePanel.style.display='flex';
+    } else {
+      bodySelectRow.style.display='none';
+      closeBodyMenu();
+      timeSliderRow.style.display='none';
+      timePanel.style.display='none';
+    }
+    updateTrackingToggleUI();
+    render();
+  }
+  trackingToggleBtn.addEventListener('click', ()=>{
+    setTracking(!state.trackingEnabled);
+    toast(state.trackingEnabled ? '已啟用天體追蹤（錶面將顯示所選天體方位）' : '已關閉天體追蹤');
+  });
+  updateTrackingToggleUI();
+
+  // 修改：磁北／真北 改為清楚文字按鈕，放進「航向 Heading」資料格內
+  const refToggleBtn = $('refToggleBtn');
+  function updateRefToggleUI(){
+    const isTrue = state.refMode === 'true';
+    refToggleBtn.textContent = isTrue ? '真北' : '磁北';
+    refToggleBtn.classList.toggle('active', isTrue);
+    refToggleBtn.title = isTrue ? '目前：真北基準（點擊切換為磁北）' : '目前：磁北基準（點擊切換為真北）';
+  }
+  function setRefMode(mode){
+    state.refMode = mode;
+    updateRefToggleUI();
+    render();
+  }
+  refToggleBtn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    setRefMode(state.refMode === 'magnetic' ? 'true' : 'magnetic');
+    toast(state.refMode === 'true' ? '已切換為真北基準' : '已切換為磁北基準');
+  });
+  updateRefToggleUI();
+
+  // 新增：錶面方位文字語言切換（中文／字母），預設中文
+  const dialLangToggle = $('dialLangToggle');
+  function updateDialLangToggleUI(){
+    dialLangToggle.textContent = state.dialLabelLang === 'zh' ? '方位：中文' : '方位：字母';
+    dialLangToggle.classList.toggle('active', state.dialLabelLang === 'en');
+  }
+  function updateDialLangLabels(){
+    document.querySelectorAll('#dialLangGroup text').forEach(t=>{
+      t.textContent = CARDINAL_LABELS[state.dialLabelLang][t.dataset.cardinalKey];
+    });
+  }
+  dialLangToggle.addEventListener('click', ()=>{
+    state.dialLabelLang = state.dialLabelLang === 'zh' ? 'en' : 'zh';
+    updateDialLangLabels();
+    updateDialLangToggleUI();
+    toast(state.dialLabelLang === 'zh' ? '錶面方位已切換為中文' : '錶面方位已切換為字母');
+  });
+  updateDialLangToggleUI();
+
+  /* ============================================================
+     新增：拖曳錶面手動旋轉（滑鼠 / 觸控），適合桌機或未啟用感測器時使用
+  ============================================================ */
+  const stageEl = $('stage');
+  const manualBadge = $('manualBadge');
+  const dragToggleBtn = $('dragToggleBtn');
+  let dragging = false, dragStartAngle = 0, dragStartHeading = 0;
+
+  // 修改：更新「允許拖曳旋轉」圖示按鈕與錶面游標樣式（改為 icon-btn，用 active 樣式 + title 提示）
+  function updateDragToggleUI(){
+    dragToggleBtn.classList.toggle('active', state.dragEnabled);
+    dragToggleBtn.setAttribute('aria-pressed', String(state.dragEnabled));
+    dragToggleBtn.title = state.dragEnabled ? '允許拖曳旋轉：開啟（點擊關閉）' : '允許拖曳旋轉：關閉（點擊開啟）';
+    stageEl.classList.toggle('drag-on', state.dragEnabled);
+  }
+  dragToggleBtn.addEventListener('click', ()=>{
+    state.dragEnabled = !state.dragEnabled;
+    updateDragToggleUI();
+  });
+  updateDragToggleUI();
+
+  function angleFromCenter(clientX, clientY){
+    const rect = stageEl.getBoundingClientRect();
+    const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+    return Math.atan2(clientY - cy, clientX - cx) * 180/Math.PI;
+  }
+  function dragStart(clientX, clientY){
+    if(!state.dragEnabled) return; // 新增：未開啟拖曳允許時，忽略拖曳手勢
+    dragging = true;
+    dragStartAngle = angleFromCenter(clientX, clientY);
+    dragStartHeading = state.manualMode ? state.manualHeading : state.headingRaw;
+  }
+  function dragMove(clientX, clientY){
+    if(!dragging) return;
+    const angle = angleFromCenter(clientX, clientY);
+    const delta = angle - dragStartAngle;
+    state.manualMode = true;
+    state.manualHeading = (dragStartHeading - delta + 360) % 360;
+    manualBadge.style.display = 'flex';
+    render();
+  }
+  function dragEnd(){ dragging = false; }
+
+  stageEl.addEventListener('mousedown', (e)=> dragStart(e.clientX, e.clientY));
+  window.addEventListener('mousemove', (e)=>{ if(dragging) dragMove(e.clientX, e.clientY); });
+  window.addEventListener('mouseup', dragEnd);
+
+  stageEl.addEventListener('touchstart', (e)=>{
+    const t = e.touches[0]; dragStart(t.clientX, t.clientY);
+  }, {passive:true});
+  stageEl.addEventListener('touchmove', (e)=>{
+    const t = e.touches[0]; dragMove(t.clientX, t.clientY);
+  }, {passive:true});
+  stageEl.addEventListener('touchend', dragEnd);
+
+  /* ============================================================
+     新增：天體追蹤「時間控制面板」— 即時／全天／白天／晚上／自訂時間範圍 + 指定日期
+     使用者可拖曳滑桿瀏覽指定日期／時段內任一時間點的天體方位
+  ============================================================ */
+  const timeDateRow = $('timeDateRow');
+  const timeRangeRow = $('timeRangeRow');
+  const timeDateInput = $('timeDateInput');
+  const timeRangeStartInput = $('timeRangeStart');
+  const timeRangeEndInput = $('timeRangeEnd');
+  const timeSlider = $('timeSlider');
+  const timeSliderLabel = $('timeSliderLabel');
+
+  function todayDateOnly(){
+    const d = new Date();
+    d.setHours(0,0,0,0);
+    return d;
+  }
+  function dateToInputValue(d){
+    const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+  function combineDateAndTime(dateOnly, hh, mm){
+    const d = new Date(dateOnly);
+    d.setHours(hh, mm, 0, 0);
+    return d;
+  }
+  function parseTimeInput(val, fallbackH, fallbackM){
+    if(!val) return {h:fallbackH, m:fallbackM};
+    const [h,m] = val.split(':').map(Number);
+    return {h, m};
+  }
+
+  // 依目前 preset 與日期，計算出時段起訖（Date）
+  function computeTimeRange(){
+    const preset = state.timeMode;
+    const dateOnly = state.timeDate || todayDateOnly();
+    if(preset === 'all'){
+      state.timeRangeStart = combineDateAndTime(dateOnly, 0, 0);
+      state.timeRangeEnd = combineDateAndTime(dateOnly, 23, 59);
+    } else if(preset === 'day'){
+      if(state.lat !== null && typeof SunCalc !== 'undefined'){
+        const t = SunCalc.getTimes(combineDateAndTime(dateOnly,12,0), state.lat, state.lon);
+        state.timeRangeStart = t.sunrise instanceof Date && !isNaN(t.sunrise) ? t.sunrise : combineDateAndTime(dateOnly,6,0);
+        state.timeRangeEnd = t.sunset instanceof Date && !isNaN(t.sunset) ? t.sunset : combineDateAndTime(dateOnly,18,0);
+      } else {
+        state.timeRangeStart = combineDateAndTime(dateOnly,6,0);
+        state.timeRangeEnd = combineDateAndTime(dateOnly,18,0);
+      }
+    } else if(preset === 'night'){
+      if(state.lat !== null && typeof SunCalc !== 'undefined'){
+        const t = SunCalc.getTimes(combineDateAndTime(dateOnly,12,0), state.lat, state.lon);
+        const nextDay = new Date(dateOnly); nextDay.setDate(nextDay.getDate()+1);
+        const t2 = SunCalc.getTimes(combineDateAndTime(nextDay,12,0), state.lat, state.lon);
+        state.timeRangeStart = t.sunset instanceof Date && !isNaN(t.sunset) ? t.sunset : combineDateAndTime(dateOnly,18,0);
+        state.timeRangeEnd = t2.sunrise instanceof Date && !isNaN(t2.sunrise) ? t2.sunrise : combineDateAndTime(nextDay,6,0);
+      } else {
+        const nextDay = new Date(dateOnly); nextDay.setDate(nextDay.getDate()+1);
+        state.timeRangeStart = combineDateAndTime(dateOnly,18,0);
+        state.timeRangeEnd = combineDateAndTime(nextDay,6,0);
+      }
+    } else if(preset === 'custom'){
+      const s = parseTimeInput(timeRangeStartInput.value, 18, 0);
+      const e = parseTimeInput(timeRangeEndInput.value, 22, 0);
+      let start = combineDateAndTime(dateOnly, s.h, s.m);
+      let end = combineDateAndTime(dateOnly, e.h, e.m);
+      if(end <= start) end.setDate(end.getDate()+1); // 跨夜範圍（例如 22:00 到隔天 02:00）
+      state.timeRangeStart = start;
+      state.timeRangeEnd = end;
+    }
+  }
+
+  // 修改：滑桿一律從時段最左端（起點）開始，方便使用者由頭瀏覽整個時段
+  function setupSliderForRange(){
+    const start = state.timeRangeStart, end = state.timeRangeEnd;
+    const totalMin = Math.max(1, Math.round((end - start) / 60000));
+    timeSlider.min = 0;
+    timeSlider.max = totalMin;
+    timeSlider.value = 0;
+    applySliderValue(0);
+  }
+  function applySliderValue(minOffset){
+    const instant = new Date(state.timeRangeStart.getTime() + minOffset*60000);
+    state.timeInstant = instant;
+    const sameDay = instant.toDateString() === new Date().toDateString();
+    const dateStr = instant.toLocaleDateString('zh-TW', {month:'2-digit', day:'2-digit'});
+    const timeStr = instant.toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit', hour12:false});
+    timeSliderLabel.textContent = (sameDay ? '' : dateStr + ' ') + timeStr;
+    computeCelestial(instant);
+  }
+  timeSlider.addEventListener('input', ()=>{
+    applySliderValue(Number(timeSlider.value));
+  });
+
+  function setTimePreset(preset){
+    state.timeMode = preset;
+    $('timeQuickRow').querySelectorAll('.time-chip').forEach(c=> c.classList.toggle('active', c.dataset.preset===preset));
+    if(preset === 'live'){
+      timeDateRow.style.display = 'none';
+      timeRangeRow.style.display = 'none';
+      timeSliderRow.style.display = 'none';
+      computeCelestial();
+      render();
+      return;
+    }
+    timeDateRow.style.display = 'flex';
+    timeRangeRow.style.display = preset === 'custom' ? 'flex' : 'none';
+    timeSliderRow.style.display = 'flex';
+    if(!state.timeDate){
+      state.timeDate = todayDateOnly();
+      timeDateInput.value = dateToInputValue(state.timeDate);
+    }
+    computeTimeRange();
+    setupSliderForRange();
+    render();
+  }
+
+  $('timeQuickRow').querySelectorAll('.time-chip').forEach(chip=>{
+    chip.addEventListener('click', ()=> setTimePreset(chip.dataset.preset));
+  });
+  timeDateInput.addEventListener('change', ()=>{
+    const [y,m,d] = timeDateInput.value.split('-').map(Number);
+    if(!y||!m||!d) return;
+    state.timeDate = new Date(y, m-1, d);
+    computeTimeRange();
+    setupSliderForRange();
+    render();
+  });
+  timeRangeStartInput.addEventListener('change', ()=>{
+    if(state.timeMode !== 'custom') return;
+    computeTimeRange();
+    setupSliderForRange();
+    render();
+  });
+  timeRangeEndInput.addEventListener('change', ()=>{
+    if(state.timeMode !== 'custom') return;
+    computeTimeRange();
+    setupSliderForRange();
+    render();
+  });
+
+  manualBadge.addEventListener('click', ()=>{
+    state.manualMode = false;
+    manualBadge.style.display = 'none';
+    toast('已回到即時感測器方向');
+    render();
+  });
+
+  /* ============================================================
+     PERMISSIONS: DEVICE ORIENTATION + GEOLOCATION
+  ============================================================ */
+  // 修改：警示（感測器/權限狀態）與提示（使用說明）合併為單一「通知中心」— 圖示徽章 + 下拉清單，可各自關閉
+  let currentStatusKind = null, currentStatusText = '', currentActionLabel = '重新啟用';
+  let infoDismissed = false;
+  let cameraErrorText = null; // 新增：相機錯誤訊息獨立一欄，避免覆蓋掉「尚未啟用指南針」的常駐通知
+  const INFO_TEXT = '航向以正上方三角形指標為準．錶面隨手機方向即時旋轉．建議在戶外開闊處使用以取得最佳精確度。首次使用請允許「動作與方向」及「定位」權限。';
+  const NOTIF_ICONS = {
+    info: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.8h.01" stroke-linecap="round"/></svg>`,
+    warn: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4M12 16.5h.01" stroke-linecap="round"/><path d="M10.3 3.9 2.6 17.5a1.8 1.8 0 0 0 1.6 2.7h15.6a1.8 1.8 0 0 0 1.6-2.7L13.7 3.9a1.8 1.8 0 0 0-3.4 0z" stroke-linejoin="round"/></svg>`,
+    calib: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 4a8 8 0 1 0 8 8" stroke-linecap="round"/><path d="M12 4l2.5 2.5L12 9" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  };
+  NOTIF_ICONS.danger = NOTIF_ICONS.warn;
+
+  function setStatus(kind, text, actionLabel){
+    currentStatusKind = kind;
+    currentStatusText = text;
+    currentActionLabel = actionLabel || '重新啟用';
+    renderNotifPanel();
+  }
+  function clearStatus(){
+    currentStatusKind = null;
+    renderNotifPanel();
+  }
+  // 新增：設定／清除相機錯誤通知（獨立欄位，可個別關閉）
+  function setCameraError(text){
+    cameraErrorText = text;
+    renderNotifPanel();
+    openNotifPanel();
+  }
+  function clearCameraError(){
+    cameraErrorText = null;
+    renderNotifPanel();
+  }
+
+  // 修改：右下角「尚未啟用指南針」持續提醒 — 在成功偵測到方向資料前顯示，可點 X 關閉（避免與通知面板同時干擾）
+  const enableReminder = $('enableReminder');
+  let enableReminderDismissed = false;
+  function updateEnableReminder(){
+    enableReminder.style.display = (state.orientationActive || enableReminderDismissed) ? 'none' : 'flex';
+  }
+  $('enableReminderBtn').addEventListener('click', ()=> enableAll());
+  $('enableReminderClose').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    enableReminderDismissed = true;
+    updateEnableReminder();
+  });
+
+  function renderNotifPanel(){
+    let html = '';
+    if(currentStatusKind){
+      // 修改：狀態通知（如尚未啟用指南針）不可被刪除，只有實際解決（如成功偵測到方向）才會消失
+      html += `<div class="notif-item ${currentStatusKind}">
+        ${NOTIF_ICONS[currentStatusKind] || NOTIF_ICONS.info}
+        <div class="notif-item-body">
+          <div class="notif-item-text">${currentStatusText}</div>
+          <button class="notif-item-action" data-action="enable">${currentActionLabel}</button>
+        </div>
+      </div>`;
+    }
+    // 修正：相機錯誤訊息改為實際渲染成通知項目（獨立於指南針狀態之外，可個別關閉、可重試）
+    if(cameraErrorText){
+      html += `<div class="notif-item danger">
+        ${NOTIF_ICONS.danger}
+        <div class="notif-item-body">
+          <div class="notif-item-text">${cameraErrorText}</div>
+          <button class="notif-item-action" data-action="camera">重新啟用相機</button>
+        </div>
+        <button class="notif-item-close" data-dismiss="camera" aria-label="關閉">✕</button>
+      </div>`;
+    }
+    if(!infoDismissed){
+      html += `<div class="notif-item info">
+        ${NOTIF_ICONS.info}
+        <div class="notif-item-body"><div class="notif-item-text">${INFO_TEXT}</div></div>
+        <button class="notif-item-close" data-dismiss="info" aria-label="關閉">✕</button>
+      </div>`;
+    }
+    // 修改：校準指南針改為通知清單中的固定選項，一律顯示、不可關閉
+    html += `<div class="notif-item calib">
+      ${NOTIF_ICONS.calib}
+      <div class="notif-item-body">
+        <div class="notif-item-text">訊號不準時，可將手機以「8 字形」在空中緩慢移動幾次進行校準</div>
+        <button class="notif-item-action" data-action="calibrate">校準指南針</button>
+      </div>
+    </div>`;
+    notifList.innerHTML = html;
+    notifBadge.style.display = (currentStatusKind || cameraErrorText) ? 'block' : 'none';
+  }
+  function openNotifPanel(){ notifPanel.style.display = 'block'; }
+  function closeNotifPanel(){ notifPanel.style.display = 'none'; }
+  notifBtn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    if(notifPanel.style.display === 'block') closeNotifPanel(); else openNotifPanel();
+  });
+  notifList.addEventListener('click', (e)=>{
+    const actionBtn = e.target.closest('[data-action]');
+    if(actionBtn && actionBtn.dataset.action === 'enable'){ closeNotifPanel(); enableAll(); return; }
+    if(actionBtn && actionBtn.dataset.action === 'camera'){ closeNotifPanel(); toggleCamera(); return; }
+    if(actionBtn && actionBtn.dataset.action === 'calibrate'){
+      calibHint.classList.add('show');
+      toast('請將手機以「8 字形」在空中緩慢移動幾次進行校準');
+      return;
+    }
+    const dismissBtn = e.target.closest('[data-dismiss]');
+    if(dismissBtn){
+      if(dismissBtn.dataset.dismiss === 'info') infoDismissed = true;
+      if(dismissBtn.dataset.dismiss === 'camera') clearCameraError();
+      renderNotifPanel();
+    }
+  });
+  document.addEventListener('click', (e)=>{
+    if(!e.target.closest('.notif-wrap')) closeNotifPanel();
+  });
+
+  function isSecureOK(){
+    if(typeof window.isSecureContext === 'boolean') return window.isSecureContext;
+    return location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  }
+
+  async function enableAll(){
+    if(!isSecureOK()){
+      setStatus('danger', '需要在 HTTPS 或 localhost 環境下才能使用方向感測器');
+    }
+
+    // --- Orientation ---
+    try{
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+        const res = await DeviceOrientationEvent.requestPermission();
+        if(res === 'granted'){
+          startOrientation();
+        } else {
+          setStatus('danger', '未取得方向權限，請至瀏覽器設定重新允許「動作與方向存取」');
+        }
+      } else {
+        startOrientation();
+      }
+    }catch(e){
+      setStatus('danger', '啟用方向感測器時發生錯誤：'+ (e.message||e));
+    }
+
+    // --- Geolocation ---
+    if('geolocation' in navigator){
+      navigator.geolocation.getCurrentPosition(onGeoSuccess, onGeoError, {enableHighAccuracy:true, maximumAge:2000, timeout:10000});
+      navigator.geolocation.watchPosition(onGeoSuccess, onGeoError, {enableHighAccuracy:true, maximumAge:2000, timeout:15000});
+    } else {
+      $('sGpsText').textContent='不支援';
+    }
+  }
+
+  let orientationListenerAdded = false;
+  function startOrientation(){
+    if(orientationListenerAdded) return;
+    orientationListenerAdded = true;
+
+    const evtName = 'ondeviceorientationabsolute' in window ? 'deviceorientationabsolute' : 'deviceorientation';
+    window.addEventListener(evtName, handleOrientation, true);
+
+    // Fallback timeout: if nothing received within 3.5s, warn user
+    setTimeout(()=>{
+      if(!state.orientationActive){
+        setStatus('warn', '尚未偵測到方向資料。桌機瀏覽器通常不支援此功能，請改用手機或平板開啟本頁面。');
+        $('sOrientText').textContent='無回應';
+      }
+    }, 3500);
+  }
+
+  let lastOrientTime = 0;
+  function handleOrientation(e){
+    let heading = null;
+    let accuracy = null;
+
+    if (typeof e.webkitCompassHeading === 'number'){
+      // iOS Safari — already true compass heading (0 = north), lower accuracy value = better
+      heading = e.webkitCompassHeading;
+      accuracy = e.webkitCompassAccuracy;
+      state.orientationAbsolute = true;
+    } else if (e.alpha !== null && e.alpha !== undefined){
+      // Android / others — alpha is 0-360, increasing counter-clockwise from device's initial position
+      let screenAngle = 0;
+      if (screen.orientation && typeof screen.orientation.angle === 'number') screenAngle = screen.orientation.angle;
+      else if (typeof window.orientation === 'number') screenAngle = window.orientation;
+      heading = (360 - e.alpha + screenAngle) % 360;
+      state.orientationAbsolute = !!e.absolute;
+      accuracy = e.absolute ? 8 : null;
+    }
+
+    if (heading === null || isNaN(heading)) return;
+
+    state.headingRaw = (heading + 360) % 360;
+    state.accuracy = accuracy;
+    state.orientationActive = true;
+    lastOrientTime = Date.now();
+
+    $('sOrient').className = 'dot ok';
+    $('sOrientText').textContent = state.orientationAbsolute ? '運作中（絕對）' : '運作中（相對）';
+    $('sMag').className = 'dot ' + (state.orientationAbsolute ? 'ok' : 'warn');
+    $('sMagText').textContent = state.orientationAbsolute ? '正常' : '未校準／無磁力計';
+
+    clearStatus();
+    updateEnableReminder();
+
+    // calibration hint
+    const needsCalib = (state.accuracy === null) || (state.accuracy !== null && state.accuracy > 15) || !state.orientationAbsolute;
+    calibHint.classList.toggle('show', needsCalib && state.orientationActive);
+
+    render();
+  }
+
+  function onGeoSuccess(pos){
+    state.lat = pos.coords.latitude;
+    state.lon = pos.coords.longitude;
+    state.alt = pos.coords.altitude;
+    state.gpsAccuracy = pos.coords.accuracy;
+    state.gpsActive = true;
+    $('sGps').className='dot ok';
+    $('sGpsText').textContent='已定位';
+    renderPosition();
+    computeCelestial();
+    if(declFetchedOnce===false){ /* leave manual, user can auto-fetch */ }
+  }
+  function onGeoError(err){
+    $('sGps').className='dot danger';
+    $('sGpsText').textContent = err.code===1 ? '權限被拒' : '取得失敗';
+    if(err.code===1){
+      setStatus('warn', '定位權限被拒，仍可使用指南針，但無法顯示座標與太陽/月亮方位');
+    }
+  }
+
+  /* ============================================================
+     RENDER LOOP
+  ============================================================ */
+  function currentDisplayHeading(){
+    // heading shown/used for dial: 若使用者正在手動拖曳，優先採用手動角度；否則採用感測器角度
+    // 磁北模式直接使用原始角度，真北模式則加上磁偏角換算
+    let h = state.manualMode ? state.manualHeading : state.headingRaw;
+    if(state.refMode === 'true'){
+      h = h + state.declination;
+    }
+    return (h+360)%360;
+  }
+
+  function render(){
+    const h = currentDisplayHeading();
+    $('rDeg').textContent = fmtDeg(h);
+    $('rDir').textContent = dirLabel(h);
+    $('dHeading').textContent = fmtDeg(h) + ' ' + dirLabel(h) + (state.refMode==='true' ? ' (真北)' : ' (磁北)');
+    $('dMagnetic').textContent = fmtDeg(state.headingRaw);
+
+    if(state.accuracy !== null){
+      const good = state.accuracy <= 15;
+      $('dAccuracy').innerHTML = `<span class="dot ${good?'ok':'warn'}"></span>${good? '良好' : '需要校準'} (±${Math.round(state.accuracy)}°)`;
+    } else if(state.orientationActive){
+      $('dAccuracy').innerHTML = `<span class="dot warn"></span>需要校準`;
+    }
+
+    $('dTime').textContent = new Date().toLocaleTimeString('zh-TW', {hour12:true});
+
+    // rotate the dial: we want the group rotated by -h so that current facing direction points to lubber (top)
+    applyDialRotation(h);
+    updateCameraHeading();
+
+    // 新增：天體追蹤模式下，於錶面畫出選定天體的指向線；指南針模式則隱藏
+    if(state.trackingEnabled){
+      const body = bodyById(state.trackedId);
+      const bd = state.bodies[state.trackedId];
+      if(body && bd && bd.az !== null && bd.az !== undefined){
+        let az = bd.az;
+        if(state.refMode === 'magnetic') az = az - state.declination; // 真北換算回磁北，讓標記與磁北錶面對齊
+        renderTrackMarker(body, (az+360)%360, bd.alt);
+        const altText = bd.alt === null ? '—' : ((bd.alt>=0?'+':'')+bd.alt.toFixed(1)+'°');
+        const belowText = (bd.alt !== null && bd.alt < 0) ? '（地平線以下）' : '';
+        trackCaption.innerHTML = `<b>${Math.round((az+360)%360)}°</b> · 仰角 <b>${altText}</b>${belowText}`;
+      } else {
+        renderTrackMarker(null, 0, null);
+        trackCaption.textContent = body ? '尚未取得資料（請先啟用定位）' : '';
+      }
+    } else {
+      renderTrackMarker(null, 0, null);
+    }
+  }
+
+  function renderPosition(){
+    if(state.lat === null) return;
+    $('dPosition').textContent = state.lat.toFixed(4) + ', ' + state.lon.toFixed(4);
+    $('dLat').textContent = state.lat.toFixed(4) + '°';
+    $('dLon').textContent = state.lon.toFixed(4) + '°';
+    $('dAlt').textContent = (state.alt !== null && state.alt !== undefined) ? Math.round(state.alt)+' m' : '—';
+  }
+
+  /* ============================================================
+     新增：簡易天文演算法（用於太陽/月亮以外的天體）
+     行星：採用簡化克卜勒軌道要素（epoch 2000.0），精度約數角分，適合方向指向用途
+     恆星：採用星表 J2000 赤經赤緯，透過當地恆星時換算地平座標
+  ============================================================ */
+  const D2R = Math.PI/180, R2D = 180/Math.PI;
+
+  function julianDate(date){
+    return date.getTime()/86400000 + 2440587.5;
+  }
+  // 格林威治恆星時（度），再加上經度得到當地恆星時
+  function localSiderealTimeDeg(date, lonDeg){
+    const jd = julianDate(date);
+    const T = (jd - 2451545.0)/36525;
+    let gmst = 280.46061837 + 360.98564736629*(jd - 2451545.0) + 0.000387933*T*T - (T*T*T)/38710000;
+    gmst = ((gmst % 360) + 360) % 360;
+    return ((gmst + lonDeg) % 360 + 360) % 360;
+  }
+  // 赤道座標（RA/Dec，度）→ 地平座標（方位角 0=N 順時針、仰角）
+  function equatorialToHorizontal(raDeg, decDeg, latDeg, lstDeg){
+    const H = ((lstDeg - raDeg) % 360 + 360) % 360; // 時角
+    const Hr = H*D2R, dec = decDeg*D2R, lat = latDeg*D2R;
+    const alt = Math.asin(Math.sin(dec)*Math.sin(lat) + Math.cos(dec)*Math.cos(lat)*Math.cos(Hr));
+    const A = Math.atan2(Math.sin(Hr), Math.cos(Hr)*Math.sin(lat) - Math.tan(dec)*Math.cos(lat)); // 由南往西量測
+    const az = ((A*R2D + 180) % 360 + 360) % 360; // 換算為標準方位角（0=N，順時針）
+    return {az, alt: alt*R2D};
+  }
+
+  // 簡化克卜勒軌道要素（Paul Schlyter 通用低精度公式，epoch 2000.0，角度為度，d 為距 epoch 天數）
+  const PLANET_ELEMENTS = {
+    sun:    (d)=>({N:0, i:0, w:282.9404+4.70935e-5*d, a:1.000000, e:0.016709-1.151e-9*d, M:356.0470+0.9856002585*d}),
+    venus:  (d)=>({N:76.6799+2.46590e-5*d, i:3.3946+2.75e-8*d, w:54.8910+1.38374e-5*d, a:0.723330, e:0.006773-1.302e-9*d, M:48.0052+1.6021302244*d}),
+    jupiter:(d)=>({N:100.4542+2.76854e-5*d, i:1.3030-1.557e-7*d, w:273.8777+1.64505e-5*d, a:5.20256, e:0.048498+4.469e-9*d, M:19.8950+0.0830853001*d}),
+    saturn: (d)=>({N:113.6634+2.38980e-5*d, i:2.4886-1.081e-7*d, w:339.3939+2.97661e-5*d, a:9.55475, e:0.055546-9.499e-9*d, M:316.9670+0.0334442282*d}),
+  };
+  function solveKepler(Mdeg, e){
+    let M = Mdeg*D2R;
+    let E = M + e*Math.sin(M)*(1+e*Math.cos(M));
+    for(let i=0;i<4;i++){
+      E = E - (E - e*Math.sin(E) - M)/(1 - e*Math.cos(E));
+    }
+    return E; // 弧度
+  }
+  function heliocentricXYZ(el){
+    const E = solveKepler(el.M, el.e);
+    const xv = el.a*(Math.cos(E) - el.e);
+    const yv = el.a*(Math.sqrt(1-el.e*el.e)*Math.sin(E));
+    const v = Math.atan2(yv, xv);
+    const r = Math.sqrt(xv*xv + yv*yv);
+    const N=el.N*D2R, i=el.i*D2R, w=el.w*D2R;
+    const vw = v + w;
+    const xh = r*(Math.cos(N)*Math.cos(vw) - Math.sin(N)*Math.sin(vw)*Math.cos(i));
+    const yh = r*(Math.sin(N)*Math.cos(vw) + Math.cos(N)*Math.sin(vw)*Math.cos(i));
+    const zh = r*(Math.sin(vw)*Math.sin(i));
+    return {x:xh, y:yh, z:zh};
+  }
+  // 計算行星在指定時間的視赤經赤緯（度）
+  function planetRADec(planetId, date){
+    const d = julianDate(date) - 2451543.5;
+    const sunPos = heliocentricXYZ(PLANET_ELEMENTS.sun(d));
+    const p = heliocentricXYZ(PLANET_ELEMENTS[planetId](d));
+    // 太陽的日心座標即為地心看太陽方向的反向，因此地心=日心+太陽反向平移
+    const xg = p.x + sunPos.x, yg = p.y + sunPos.y, zg = p.z;
+    const ecl = (23.4393 - 3.563e-7*d)*D2R;
+    const xe = xg, ye = yg*Math.cos(ecl) - zg*Math.sin(ecl), ze = yg*Math.sin(ecl) + zg*Math.cos(ecl);
+    const ra = (Math.atan2(ye, xe)*R2D + 360) % 360;
+    const dec = Math.atan2(ze, Math.sqrt(xe*xe+ye*ye))*R2D;
+    return {ra, dec};
+  }
+
+  // 新增：以赤經赤緯計算任意天體（行星／恆星）在指定日期、地點的升起與落下時刻
+  function riseSetForRaDec(raDeg, decDeg, dateOnly, latDeg, lonDeg){
+    const h0 = -0.5667; // 標準大氣折射修正（適用於點光源，如行星、恆星）
+    const latR = latDeg*D2R, decR = decDeg*D2R;
+    const cosH0 = (Math.sin(h0*D2R) - Math.sin(latR)*Math.sin(decR)) / (Math.cos(latR)*Math.cos(decR));
+    if(cosH0 > 1) return {rise:null, set:null, never:'below'};       // 本地緯度終年不可見
+    if(cosH0 < -1) return {rise:null, set:null, never:'circumpolar'}; // 整日在地平線以上（恆顯星）
+    const H0 = Math.acos(cosH0) * R2D;
+    const midnight = new Date(dateOnly); midnight.setHours(0,0,0,0);
+    const lst0 = localSiderealTimeDeg(midnight, lonDeg);
+    const rate = 360.985647 / 24; // 恆星時每小時前進的度數
+    function lstToDate(targetLst){
+      const hours = ((targetLst - lst0) % 360 + 360) % 360 / rate;
+      return new Date(midnight.getTime() + hours*3600000);
+    }
+    const riseLst = ((raDeg - H0) % 360 + 360) % 360;
+    const setLst  = ((raDeg + H0) % 360 + 360) % 360;
+    return {rise: lstToDate(riseLst), set: lstToDate(setLst), never:null};
+  }
+
+  /* ============================================================
+     天體方位總計算：太陽／月亮（SunCalc）＋ 行星／恆星（上方簡易演算法）
+  ============================================================ */
+  function computeCelestial(atDate){
+    if(state.lat === null || typeof SunCalc === 'undefined') return;
+    // 修改：可傳入指定時間（時間控制面板的「非即時」模式），未傳入則使用目前實際時間
+    const now = atDate instanceof Date ? atDate : new Date();
+    const sp = SunCalc.getPosition(now, state.lat, state.lon);
+    const mp = SunCalc.getMoonPosition(now, state.lat, state.lon);
+    const mi = SunCalc.getMoonIllumination(now);
+
+    // SunCalc azimuth：以南為 0，順時針朝西（弧度）。換算為標準方位角（0=N，順時針）。
+    state.bodies.sun  = {az:(sp.azimuth*R2D+180)%360, alt: sp.altitude*R2D};
+    state.bodies.moon = {az:(mp.azimuth*R2D+180)%360, alt: mp.altitude*R2D};
+    state.moonPhase = mi.phase;
+
+    const lst = localSiderealTimeDeg(now, state.lon);
+    ['venus','jupiter','saturn'].forEach(id=>{
+      const {ra, dec} = planetRADec(id, now);
+      state.bodies[id] = equatorialToHorizontal(ra, dec, state.lat, lst);
+    });
+    ['sirius','arcturus'].forEach(id=>{
+      const b = bodyById(id);
+      state.bodies[id] = equatorialToHorizontal(b.ra, b.dec, state.lat, lst);
+    });
+
+    state.lastComputeNow = now;
+    renderBodyList(now);
+    renderMoonPhasePanel(now, mi);
+
+    render();
+  }
+  function moonPhaseLabel(p){
+    if(p < 0.02 || p > 0.98) return '新月';
+    if(p < 0.24) return '眉月（漸盈）';
+    if(p < 0.26) return '上弦月';
+    if(p < 0.49) return '盈凸月';
+    if(p < 0.51) return '滿月';
+    if(p < 0.74) return '虧凸月';
+    if(p < 0.76) return '下弦月';
+    return '殘月（漸虧）';
+  }
+
+  // 新增：依月相 phase（0=新月、0.5=滿月）計算受光區域的 SVG path（終端線以橢圓弧近似）
+  function moonPhasePath(phase, cx, cy, r){
+    const theta = 2*Math.PI*phase;
+    const cosT = Math.cos(theta);
+    const rx = Math.abs(cosT) * r;
+    let outerSweep, innerSweep;
+    // 修正：內圈弧（終端線）需與外圈弧「相反側」凸出才會疊出正確的亮/暗面積比例；
+    // 原本 innerSweep 的 0/1 寫反了，導致凸月（受光>50%）誤畫成細彎月（暗多亮少）
+    if(phase <= 0.5){
+      outerSweep = 1;
+      innerSweep = cosT >= 0 ? 0 : 1;
+    } else {
+      outerSweep = 0;
+      innerSweep = cosT >= 0 ? 1 : 0;
+    }
+    return `M ${cx} ${cy-r} A ${r} ${r} 0 0 ${outerSweep} ${cx} ${cy+r} A ${rx} ${r} 0 0 ${innerSweep} ${cx} ${cy-r} Z`;
+  }
+
+  // 新增：概略計算月相圖示的「真實朝向」旋轉角度（依當下太陽、月亮的方位角/仰角關係推算亮緣位角）
+  // 說明：僅反映天空中月面被照亮方向隨時間/地點的變化，未考慮觀測者實際面向，僅供概略呈現
+  function moonOrientationAngle(){
+    const sunB = state.bodies.sun, moonB = state.bodies.moon;
+    if(!sunB || !moonB) return 0;
+    const dAz = (sunB.az - moonB.az) * D2R;
+    const altSun = sunB.alt * D2R, altMoon = moonB.alt * D2R;
+    const theta = Math.atan2(
+      Math.cos(altSun) * Math.sin(dAz),
+      Math.sin(altSun)*Math.cos(altMoon) - Math.cos(altSun)*Math.sin(altMoon)*Math.cos(dAz)
+    );
+    // 圖示預設繪製為「盈側在右」（相當於太陽位於正右方，位角 90°），故需扣除 90° 對齊
+    return theta*R2D - 90;
+  }
+
+  /* ============================================================
+     新增：農曆（陰曆）換算 — 天文演算法（新月／太陽黃經），適用約 1900–2100 年
+     參考公認的天文換算公式（非查表法），時區固定採中華民國/中國標準時間 UTC+8
+  ============================================================ */
+  function jdFromDate(dd, mm, yy){
+    const a = Math.floor((14-mm)/12), y = yy+4800-a, m = mm+12*a-3;
+    let jd = dd + Math.floor((153*m+2)/5) + 365*y + Math.floor(y/4) - Math.floor(y/100) + Math.floor(y/400) - 32045;
+    if(jd < 2299161) jd = dd + Math.floor((153*m+2)/5) + 365*y + Math.floor(y/4) - 32083;
+    return jd;
+  }
+  function newMoonJD(k){
+    const T = k/1236.85, T2 = T*T, T3 = T2*T, dr = Math.PI/180;
+    let jd1 = 2415020.75933 + 29.53058868*k + 0.0001178*T2 - 0.000000155*T3;
+    jd1 += 0.00033*Math.sin((166.56+132.87*T-0.009173*T2)*dr);
+    const M = 359.2242 + 29.10535608*k - 0.0000333*T2 - 0.00000347*T3;
+    const Mpr = 306.0253 + 385.81691806*k + 0.0107306*T2 + 0.00001236*T3;
+    const F = 21.2964 + 390.67050646*k - 0.0016528*T2 - 0.00000239*T3;
+    let C1 = (0.1734-0.000393*T)*Math.sin(M*dr) + 0.0021*Math.sin(2*dr*M);
+    C1 -= 0.4068*Math.sin(Mpr*dr) + 0.0161*Math.sin(dr*2*Mpr);
+    C1 -= 0.0004*Math.sin(dr*3*Mpr);
+    C1 += 0.0104*Math.sin(dr*2*F) - 0.0051*Math.sin(dr*(M+Mpr));
+    C1 -= 0.0074*Math.sin(dr*(M-Mpr)) + 0.0004*Math.sin(dr*(2*F+M));
+    C1 -= 0.0004*Math.sin(dr*(2*F-M)) - 0.0006*Math.sin(dr*(2*F+Mpr));
+    C1 += 0.0010*Math.sin(dr*(2*F-Mpr)) + 0.0005*Math.sin(dr*(2*Mpr+M));
+    const deltaT = T < -11 ? 0.001 + 0.000839*T + 0.0002261*T2 - 0.00000845*T3 - 0.000000081*T*T3
+                            : -0.000278 + 0.000265*T + 0.000262*T2;
+    return jd1 + C1 - deltaT;
+  }
+  function sunLongitudeDeg(jdn){
+    const T = (jdn-2451545.0)/36525, T2 = T*T, dr = Math.PI/180;
+    const M = 357.52910 + 35999.05030*T - 0.0001559*T2 - 0.00000048*T*T2;
+    const L0 = 280.46645 + 36000.76983*T + 0.0003032*T2;
+    let DL = (1.914600-0.004817*T-0.000014*T2)*Math.sin(dr*M);
+    DL += (0.019993-0.000101*T)*Math.sin(dr*2*M) + 0.000290*Math.sin(dr*3*M);
+    let L = (L0+DL)*dr;
+    L -= Math.PI*2*Math.floor(L/(Math.PI*2));
+    return L;
+  }
+  function sunLongitudeSector(dayNumber, tz){ return Math.floor(sunLongitudeDeg(dayNumber-0.5-tz/24)/Math.PI*6); }
+  function newMoonDay(k, tz){ return Math.floor(newMoonJD(k)+0.5+tz/24); }
+  function lunarMonth11(yy, tz){
+    const off = jdFromDate(31,12,yy) - 2415021;
+    const k = Math.floor(off/29.530588853);
+    let nm = newMoonDay(k, tz);
+    if(sunLongitudeSector(nm, tz) >= 9) nm = newMoonDay(k-1, tz);
+    return nm;
+  }
+  function leapMonthOffset(a11, tz){
+    const k = Math.floor((a11-2415021.076998695)/29.530588853+0.5);
+    let last=0, i=1, arc=sunLongitudeSector(newMoonDay(k+i, tz), tz);
+    do{ last=arc; i++; arc=sunLongitudeSector(newMoonDay(k+i, tz), tz); } while(arc!==last && i<14);
+    return i-1;
+  }
+  // 將西曆（國曆）日期換算為農曆（陰曆）年月日
+  function solarToLunar(dd, mm, yy, tz){
+    const dayNumber = jdFromDate(dd, mm, yy);
+    const k = Math.floor((dayNumber-2415021.076998695)/29.530588853);
+    let monthStart = newMoonDay(k+1, tz);
+    if(monthStart > dayNumber) monthStart = newMoonDay(k, tz);
+    let a11 = lunarMonth11(yy, tz), b11 = a11, lunarYear;
+    if(a11 >= monthStart){ lunarYear = yy; a11 = lunarMonth11(yy-1, tz); }
+    else { lunarYear = yy+1; b11 = lunarMonth11(yy+1, tz); }
+    const lunarDay = dayNumber - monthStart + 1;
+    const diff = Math.floor((monthStart-a11)/29);
+    let lunarLeap = false, lunarMonth = diff+11;
+    if(b11-a11 > 365){
+      const leapDiff = leapMonthOffset(a11, tz);
+      if(diff >= leapDiff){ lunarMonth = diff+10; if(diff===leapDiff) lunarLeap = true; }
+    }
+    if(lunarMonth > 12) lunarMonth -= 12;
+    if(lunarMonth >= 11 && diff < 4) lunarYear -= 1;
+    return {year:lunarYear, month:lunarMonth, day:lunarDay, leap:lunarLeap};
+  }
+  const LUNAR_MONTH_NAMES = ['正月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+  const LUNAR_DAY_NAMES = ['初一','初二','初三','初四','初五','初六','初七','初八','初九','初十',
+    '十一','十二','十三','十四','十五','十六','十七','十八','十九','二十',
+    '廿一','廿二','廿三','廿四','廿五','廿六','廿七','廿八','廿九','三十'];
+
+  // 新增：渲染月相面板 — 實際外觀圖形（依受光比例繪製，選配依時間/地點旋轉）、名稱、農曆日期、光照百分比
+  function renderMoonPhasePanel(now, mi){
+    const r = 26, cx = 32, cy = 32;
+    const litPath = moonPhasePath(mi.phase, cx, cy, r);
+    const rotateDeg = state.moonTrueOrientation ? moonOrientationAngle() : 0;
+    $('moonPhaseSvg').innerHTML = `
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--moon-dark)"/>
+      <g transform="rotate(${rotateDeg.toFixed(1)} ${cx} ${cy})"><path d="${litPath}" fill="var(--moon-lit)"/></g>
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="1.5"/>`;
+    $('moonPhaseName').textContent = moonPhaseLabel(mi.phase);
+    $('moonPhaseIllum').textContent = '光照 ' + Math.round(mi.fraction*100) + '%';
+    try{
+      const ld = solarToLunar(now.getDate(), now.getMonth()+1, now.getFullYear(), 8);
+      const leapPrefix = ld.leap ? '閏' : '';
+      $('moonPhaseLunar').textContent = '農曆 ' + leapPrefix + LUNAR_MONTH_NAMES[ld.month-1] + LUNAR_DAY_NAMES[ld.day-1];
+    }catch(e){
+      $('moonPhaseLunar').textContent = '農曆 —';
+    }
+  }
+  $('moonOrientToggle').addEventListener('click', ()=>{
+    state.moonTrueOrientation = !state.moonTrueOrientation;
+    $('moonOrientToggle').classList.toggle('active', state.moonTrueOrientation);
+    $('moonOrientToggle').setAttribute('aria-pressed', String(state.moonTrueOrientation));
+    if(state.lat !== null) computeCelestial(state.timeMode==='live' ? undefined : state.timeInstant);
+  });
+
+  // 新增：於右側面板產生 7 個天體的方位清單
+  // 修改：天體名稱後直接標示升/落時間（05:44 ~ 18:13），不用再另外列出日出/日落清單
+  function fmtTime(d){
+    return d instanceof Date && !isNaN(d) ? d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false}) : '—';
+  }
+  function riseSetInlineLabel(bodyId, now){
+    if(state.lat === null) return '';
+    if(bodyId === 'sun'){
+      const t = SunCalc.getTimes(now, state.lat, state.lon);
+      return `(${fmtTime(t.sunrise)} ~ ${fmtTime(t.sunset)})`;
+    }
+    if(bodyId === 'moon'){
+      const t = SunCalc.getMoonTimes(now, state.lat, state.lon, true);
+      if(t.alwaysUp) return '(整日可見)';
+      if(t.alwaysDown) return '(整日不可見)';
+      return `(${fmtTime(t.rise)} ~ ${fmtTime(t.set)})`;
+    }
+    const b = bodyById(bodyId);
+    let ra, dec;
+    if(b.kind === 'star'){ ra = b.ra; dec = b.dec; }
+    else { const rd = planetRADec(b.id, now); ra = rd.ra; dec = rd.dec; }
+    const dateOnly = new Date(now); dateOnly.setHours(0,0,0,0);
+    const rs = riseSetForRaDec(ra, dec, dateOnly, state.lat, state.lon);
+    if(rs.never === 'circumpolar') return '(整日可見)';
+    if(rs.never === 'below') return '(終年不可見)';
+    return `(${fmtTime(rs.rise)} ~ ${fmtTime(rs.set)})`;
+  }
+  function renderBodyList(now){
+    const list = $('bodyList');
+    list.innerHTML = '';
+    BODIES.forEach(b=>{
+      const bd = state.bodies[b.id];
+      const row = document.createElement('div');
+      row.className = 'sm-row' + (state.trackingEnabled && state.trackedId===b.id ? ' tracked' : '');
+      row.dataset.bodyId = b.id;
+      const sub = b.id==='moon' && state.moonPhase!==null
+        ? '月相 ' + moonPhaseLabel(state.moonPhase)
+        : (bd ? '仰角 ' + (bd.alt>=0?'+':'') + bd.alt.toFixed(1) + '°' + (bd.alt<0?'（地平線下）':'') : '—');
+      const riseSet = now ? riseSetInlineLabel(b.id, now) : '';
+      row.innerHTML = `
+        <div class="sm-icon letter sm-icon-track" style="background:${b.color}22;color:${b.color};" title="點擊追蹤${b.name}">${b.short}</div>
+        <div class="sm-info">
+          <div class="sm-title">${b.name} <span class="sm-title-riseset">${riseSet}</span></div>
+          <div class="sm-sub">${sub}</div>
+        </div>
+        <div class="sm-value">${bd? Math.round((bd.az+360)%360)+'°' : '—°'}<small>${bd? dirLabel(bd.az) : '—'}</small></div>`;
+      list.appendChild(row);
+    });
+  }
+  // 修改：只有點擊天體「圖示（代號字）」才會切換追蹤，不是點整個區塊都會觸發
+  $('bodyList').addEventListener('click', (e)=>{
+    const icon = e.target.closest('.sm-icon-track');
+    if(!icon) return;
+    const row = icon.closest('.sm-row');
+    const id = row.dataset.bodyId;
+    state.trackedId = id;
+    updateBodySelectUI();
+    if(!state.trackingEnabled) setTracking(true);
+    else render();
+    renderBodyList(state.lastComputeNow || new Date());
+    toast('已切換追蹤：' + bodyById(id).name);
+  });
+
+  setInterval(()=>{ if(state.timeMode === 'live') computeCelestial(); }, 30000);
+
+  /* ============================================================
+     DECLINATION (magnetic -> true north)
+  ============================================================ */
+  let declFetchedOnce = false;
+  function setDeclStatus(kind, msg){
+    const el = $('declStatus');
+    el.style.display='flex';
+    el.className = 'status-banner ' + kind;
+    el.textContent = msg;
+  }
+  $('declInput').addEventListener('input', (e)=>{
+    const v = parseFloat(e.target.value);
+    state.declination = isNaN(v) ? 0 : v;
+    render();
+  });
+  $('declFetch').addEventListener('click', async ()=>{
+    if(state.lat === null){
+      setDeclStatus('warn', '請先啟用定位以取得所在座標');
+      return;
+    }
+    setDeclStatus('info', '正在查詢磁偏角…');
+    try{
+      const ctrl = new AbortController();
+      const t = setTimeout(()=>ctrl.abort(), 6000);
+      const url = `https://www.ngdc.noaa.gov/geomag-web/calculators/calculateDeclination?lat1=${state.lat}&lon1=${state.lon}&resultFormat=json`;
+      const res = await fetch(url, {signal: ctrl.signal});
+      clearTimeout(t);
+      const data = await res.json();
+      const val = data?.result?.[0]?.declination;
+      if(typeof val === 'number'){
+        state.declination = val;
+        $('declInput').value = val.toFixed(1);
+        declFetchedOnce = true;
+        setDeclStatus('info', `已取得：${val.toFixed(1)}° （來源：NOAA WMM）`);
+        render();
+      } else {
+        throw new Error('no data');
+      }
+    }catch(err){
+      setDeclStatus('warn', '目前無法自動取得磁偏角（可能無網路或跨域限制），請手動輸入數值');
+    }
+  });
+
+  /* ============================================================
+     複製座標（原「工具」面板已移除，改為位置欄位旁的小圖示按鈕）
+  ============================================================ */
+  $('posCopyBtn').addEventListener('click', async ()=>{
+    if(state.lat === null){ toast('尚未取得座標'); return; }
+    const text = `${state.lat.toFixed(6)}, ${state.lon.toFixed(6)}`;
+    try{
+      await navigator.clipboard.writeText(text);
+      toast('座標已複製：' + text);
+    }catch(e){
+      toast('複製失敗，請手動選取');
+    }
+  });
+  async function copyCoordPart(value, label){
+    if(state.lat === null){ toast('尚未取得座標'); return; }
+    try{
+      await navigator.clipboard.writeText(value.toFixed(6));
+      toast(label + '已複製：' + value.toFixed(6));
+    }catch(e){
+      toast('複製失敗，請手動選取');
+    }
+  }
+  $('latCopyBtn').addEventListener('click', ()=> copyCoordPart(state.lat, '緯度'));
+  $('lonCopyBtn').addEventListener('click', ()=> copyCoordPart(state.lon, '經度'));
+
+  /* ============================================================
+     新增：左右區塊「收合／拖曳調整順序或搬移左右欄位」
+  ============================================================ */
+  function savePanelPrefs(){
+    try{
+      const data = { collapsed: [], order: {} };
+      document.querySelectorAll('.col-side .panel[data-panel-id]').forEach(p=>{
+        if(p.classList.contains('collapsed')) data.collapsed.push(p.dataset.panelId);
+      });
+      ['colLeft','colRight'].forEach(colId=>{
+        data.order[colId] = Array.from($(colId).querySelectorAll(':scope > .panel[data-panel-id]')).map(p=>p.dataset.panelId);
+      });
+      localStorage.setItem('compassPanelPrefs', JSON.stringify(data));
+    }catch(e){ /* 忽略儲存失敗（例如無痕模式） */ }
+  }
+  function restorePanelPrefs(){
+    try{
+      const raw = localStorage.getItem('compassPanelPrefs');
+      if(!raw) return;
+      const data = JSON.parse(raw);
+      ['colLeft','colRight'].forEach(colId=>{
+        const order = data.order && data.order[colId];
+        if(!order) return;
+        const col = $(colId);
+        order.forEach(pid=>{
+          const p = document.querySelector(`.panel[data-panel-id="${pid}"]`);
+          if(p) col.appendChild(p);
+        });
+      });
+      (data.collapsed||[]).forEach(pid=>{
+        const p = document.querySelector(`.panel[data-panel-id="${pid}"]`);
+        if(p){
+          p.classList.add('collapsed');
+          const btn = p.querySelector('.panel-collapse-btn');
+          if(btn) btn.textContent = '+';
+        }
+      });
+    }catch(e){ /* 忽略還原失敗 */ }
+  }
+
+  // 將既有面板改造為「拖曳把手 + 標題 + 收合鈕」的標題列，並把其餘內容包進可收合的 body
+  function initCollapsiblePanels(){
+    document.querySelectorAll('.col-side .panel').forEach(panel=>{
+      if(!panel.dataset.panelId) return; // 僅處理有標記 data-panel-id 的面板
+      const labelRow = panel.querySelector(':scope > .panel-label-row');
+      const labelEl = labelRow ? labelRow.querySelector('.panel-label') : panel.querySelector(':scope > .panel-label');
+      const extraButtons = labelRow ? Array.from(labelRow.querySelectorAll('button')) : [];
+
+      const header = document.createElement('div');
+      header.className = 'panel-header';
+      const handle = document.createElement('span');
+      handle.className = 'panel-drag-handle';
+      handle.title = '按住拖曳可調整順序，或搬移到另一側欄位';
+      handle.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="8" cy="6" r="1.6"/><circle cx="16" cy="6" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="8" cy="18" r="1.6"/><circle cx="16" cy="18" r="1.6"/></svg>`;
+      header.appendChild(handle);
+      if(labelEl) header.appendChild(labelEl);
+      extraButtons.forEach(b=> header.appendChild(b));
+
+      const collapseBtn = document.createElement('button');
+      collapseBtn.className = 'panel-collapse-btn';
+      collapseBtn.type = 'button';
+      collapseBtn.title = '收合／展開此區塊';
+      collapseBtn.textContent = '−';
+      header.appendChild(collapseBtn);
+
+      const body = document.createElement('div');
+      body.className = 'panel-body';
+      Array.from(panel.childNodes).forEach(node=>{
+        if(node === labelRow){ panel.removeChild(node); return; }
+        body.appendChild(node);
+      });
+      panel.appendChild(header);
+      panel.appendChild(body);
+
+      collapseBtn.addEventListener('click', ()=>{
+        panel.classList.toggle('collapsed');
+        collapseBtn.textContent = panel.classList.contains('collapsed') ? '+' : '−';
+        savePanelPrefs();
+      });
+
+      handle.addEventListener('pointerdown', (e)=> startPanelDrag(e, panel));
+    });
+  }
+
+  // 拖曳排序／跨欄搬移：用 Pointer Events 手動實作，滑鼠與觸控皆可用
+  let dragPanel = null, dragPlaceholder = null;
+  function startPanelDrag(e, panel){
+    e.preventDefault();
+    dragPanel = panel;
+    dragPlaceholder = document.createElement('div');
+    dragPlaceholder.className = 'panel-drop-placeholder';
+    panel.parentNode.insertBefore(dragPlaceholder, panel);
+    panel.classList.add('dragging');
+    document.body.style.userSelect = 'none';
+    window.addEventListener('pointermove', onPanelDragMove);
+    window.addEventListener('pointerup', endPanelDrag, {once:true});
+  }
+  function onPanelDragMove(e){
+    if(!dragPanel) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const col = el && el.closest('.col-side');
+    if(!col) return;
+    const siblings = Array.from(col.querySelectorAll(':scope > .panel:not(.dragging), :scope > .panel-drop-placeholder'));
+    let inserted = false;
+    for(const sib of siblings){
+      const rect = sib.getBoundingClientRect();
+      if(e.clientY < rect.top + rect.height/2){
+        col.insertBefore(dragPlaceholder, sib);
+        inserted = true;
+        break;
+      }
+    }
+    if(!inserted) col.appendChild(dragPlaceholder);
+  }
+  function endPanelDrag(){
+    if(dragPanel && dragPlaceholder){
+      dragPlaceholder.parentNode.insertBefore(dragPanel, dragPlaceholder);
+      dragPlaceholder.remove();
+      dragPanel.classList.remove('dragging');
+      savePanelPrefs();
+    }
+    dragPanel = null; dragPlaceholder = null;
+    document.body.style.userSelect = '';
+    window.removeEventListener('pointermove', onPanelDragMove);
+  }
+
+  initCollapsiblePanels();
+  restorePanelPrefs();
+
+  // 修改：進站時設定「啟用指南針」通知內容，但不自動展開通知面板 — 右下角提醒卡片已足夠顯眼，避免兩處同時彈出互相干擾
+  setStatus('info', '需要「動作與方向」及「定位」權限，資料僅在裝置上使用，不會上傳。', '啟用指南針');
+  updateEnableReminder();
+
+  /* ============================================================
+     INIT
+  ============================================================ */
+  render();
+})();
+</script>
+</body>
+</html>
