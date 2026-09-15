@@ -9,12 +9,18 @@
     --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
+html {
+    /* 平板/手機：允許正常滾動與雙指縮放，但關閉「雙擊放大」手勢 */
+    touch-action: manipulation;
+}
+
 body {
     font-family: 'Segoe UI', system-ui, sans-serif;
     background-color: var(--bg-color);
     color: var(--text-color);
     margin: 0; padding: 20px;
     display: flex; flex-direction: column; align-items: center;
+    touch-action: manipulation;
 }
 
 /* --- 導覽列 --- */
@@ -223,6 +229,7 @@ body {
 
 /* 日期膠囊：核心樣式 (Exp1 也可使用) */
 .date-capsule {
+    position: relative; /* 作為內部隱形 date input 的定位基準 */
     background: rgba(0, 0, 0, 0.2);
     border: 1px solid var(--border-color);
     border-radius: 8px;
@@ -242,6 +249,34 @@ body {
 }
 .date-main { font-size: 0.85rem; color: var(--text-color); font-weight: bold; line-height: 1.2; }
 .date-sub { font-size: 0.75rem; color: var(--lunar-color); line-height: 1.2; }
+
+/* 覆蓋整個膠囊的透明 date input：
+   直接讓平板/手機的「真實點擊」落在原生 input 上，
+   由系統負責彈出日期選擇器，避免 showPicker() 在部分平板瀏覽器上失效 */
+.date-capsule-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: transparent;
+    opacity: 0;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+}
+.date-capsule-input::-webkit-calendar-picker-indicator {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+}
 
 /* 圓形今天按鈕 */
 .btn-today-circle {
