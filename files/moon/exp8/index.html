@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
-<title>指北針 · Online Compass</title>
+<title>烏衣行指北針 · WeSing Compass</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -354,7 +354,7 @@ button{font-family:inherit;}
   aspect-ratio: 1/1;
   filter: drop-shadow(var(--shadow));
 }
-.stage svg{ width:100%; height:100%; display:block; overflow:visible; }
+.stage svg{ width:100%; height:100%; display:block; overflow:visible; position:relative; z-index:2; }
 .dial-group{ transition: transform .25s cubic-bezier(.2,.7,.3,1); transform-origin: 200px 200px; }
 
 .lubber{
@@ -364,6 +364,7 @@ button{font-family:inherit;}
   border-right: 8px solid transparent;
   border-top: 12px solid var(--accent);
   filter: drop-shadow(0 2px 4px rgba(0,0,0,.35));
+  z-index: 3;
 }
 
 .status-banner{
@@ -541,6 +542,7 @@ button{font-family:inherit;}
 .moon-phase-row svg{ flex-shrink:0; }
 .moon-phase-info{ display:flex; flex-direction:column; gap:4px; min-width:0; }
 .moon-phase-name{ font-size:15px; font-weight:700; color:var(--text); }
+.moon-phase-solar{ font-family: var(--font-mono); font-size:13px; color:var(--text-dim); }
 .moon-phase-lunar{ font-family: var(--font-mono); font-size:13px; color:var(--text-dim); }
 .moon-phase-illum{ font-size:12px; color:var(--text-faint); }
 
@@ -659,6 +661,9 @@ button{font-family:inherit;}
   border-radius: var(--radius-s);
   box-shadow: var(--shadow);
   padding: 6px;
+  /* 修改：天體數量增加後改為可捲動清單，避免選單過長超出畫面 */
+  max-height: 280px;
+  overflow-y: auto;
 }
 .body-select-option{
   display:flex; align-items:center; gap:8px;
@@ -690,14 +695,13 @@ button{font-family:inherit;}
 .stage.drag-on{ cursor: grab; touch-action: none; }
 .stage.drag-on:active{ cursor: grabbing; }
 
-/* 新增：指北針下方的相機實景圖層 */
+/* 修改：相機圖層改為方形（貼合方形錶面容器），保留完整視野，不再用圓形裁切 */
 .camera-layer{
-  position: relative;
-  width:100%;
-  aspect-ratio: 16 / 10;
+  position: absolute;
+  inset: 0;
   border-radius: var(--radius-m);
   overflow:hidden;
-  border: 1px solid var(--border);
+  z-index: 1;
   background: #05060a;
 }
 .camera-layer video{
@@ -733,14 +737,25 @@ button{font-family:inherit;}
   width:100%;
   display:flex; flex-direction:column; align-items:center; gap:8px;
   padding: 12px 14px;
+  margin-top: 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-m);
   background: var(--panel);
 }
-.time-quick-row{ display:flex; flex-wrap:wrap; gap:7px; justify-content:center; width:100%; }
+.time-quick-row{ display:flex; flex-wrap:nowrap; gap:5px; justify-content:center; width:100%; }
+/* 新增：縮小時間預設 chip 的邊框與字體，讓 5 顆選項能在同一排顯示完整 */
+.time-quick-row .time-chip{
+  padding: 5px 8px;
+  font-size: 11px;
+  gap: 0;
+  flex: 1 1 0;
+  justify-content: center;
+  white-space: nowrap;
+}
 /* 修改：日期與目前選取時間合併同一行，節省垂直空間 */
 .time-date-row{
   display:flex; align-items:center; gap:8px; width:100%; justify-content:center; flex-wrap:wrap;
+  margin: 4px 0 10px;
 }
 .time-date-row input[type="date"]{
   font-family: var(--font-mono);
@@ -765,13 +780,33 @@ button{font-family:inherit;}
   color: var(--text);
 }
 .time-range-sep{ color: var(--text-faint); font-weight:700; }
+/* 新增：自訂 24 小時時間輸入（取代原生 input[type=time]，避免行動裝置依系統語系顯示上午/下午） */
+.time24{ display:flex; align-items:center; gap:3px; }
+.time24 input{
+  font-family: var(--font-mono);
+  font-size: 13px;
+  width: 2.3em;
+  text-align:center;
+  padding: 7px 4px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  -moz-appearance: textfield;
+}
+.time24 input::-webkit-outer-spin-button,
+.time24 input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+.time24-colon{ color: var(--text-faint); font-weight:700; }
+/* 修改：拖曳滑桿上下留白縮小（先前過大） */
 .time-slider-row{
   width:100%;
   display:flex; flex-direction:column; align-items:center;
+  padding: 4px 0 8px;
 }
 .time-slider-row input[type="range"]{
   width:100%;
   accent-color: var(--accent);
+  height: 28px;
 }
 /* 修改：時間標籤改為與日期同排的小型標籤樣式 */
 .time-slider-label{
@@ -795,8 +830,8 @@ button{font-family:inherit;}
         <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M14.5 9.5L11 13l-2.5 2.5L11 12l3.5-3.5-1 1z" fill="currentColor"/><path d="M15 9l-4 4-1.5 3.5L11 13l4-4z" fill="currentColor"/></svg>
       </div>
       <div>
-        <div class="brand-text">線上指北針</div>
-        <div class="brand-sub">ONLINE&nbsp;COMPASS</div>
+        <div class="brand-text">烏衣行指北針</div>
+        <div class="brand-sub">WESING&nbsp;COMPASS</div>
       </div>
     </div>
     <div class="top-actions">
@@ -908,6 +943,13 @@ button{font-family:inherit;}
           <span>GPS 定位</span>
           <span class="pill"><span class="dot" id="sGps"></span><span id="sGpsText">未啟用</span></span>
         </div>
+        <!-- 新增：手動校正偏移，讓使用者在方位偏移或顛倒時，手動修正回正確方向 -->
+        <div class="diag-row" style="margin-top:10px;">
+          <span>手動校正偏移</span>
+          <span class="pill mono" id="headingOffsetLabel">0.0°</span>
+        </div>
+        <button id="calibZeroBtn" class="tracking-toggle-btn" type="button" style="width:100%;margin-top:8px;">面朝實際北方時，點此校正歸零</button>
+        <button id="calibResetBtn" class="tracking-toggle-btn" type="button" style="width:100%;margin-top:6px;">清除校正偏移</button>
       </div>
 
       <!-- 修改：磁偏角面板搬移至左側欄位 -->
@@ -932,17 +974,16 @@ button{font-family:inherit;}
       </div>
 
       <div class="stage" id="stage">
+        <!-- 修改：相機實景圖層移入指北針錶面容器內，與指北針疊在同一位置、以圖層方式顯示（相機在底層、指北針覆蓋在上） -->
+        <div class="camera-layer" id="cameraLayer" style="display:none;">
+          <video id="cameraVideo" autoplay playsinline muted></video>
+          <div class="camera-crosshair">
+            <span></span><span></span>
+          </div>
+          <div class="camera-heading" id="cameraHeading">0° 北</div>
+        </div>
         <div class="lubber"></div>
         <svg viewBox="0 0 400 400" id="svg"></svg>
-      </div>
-
-      <!-- 新增：相機實景圖層，點擊右上角「啟用相機」後顯示於指北針下方 -->
-      <div class="camera-layer" id="cameraLayer" style="display:none;">
-        <video id="cameraVideo" autoplay playsinline muted></video>
-        <div class="camera-crosshair">
-          <span></span><span></span>
-        </div>
-        <div class="camera-heading" id="cameraHeading">0° 北</div>
       </div>
 
       <!-- 修改：拖曳開關、手動旋轉復原、感測器狀態提示、啟用指南針均已移至右上角圖示列 / 通知中心 -->
@@ -968,6 +1009,7 @@ button{font-family:inherit;}
           <svg id="moonPhaseSvg" viewBox="0 0 64 64" width="56" height="56"><!-- 由 JS 動態產生月相圖形 --></svg>
           <div class="moon-phase-info">
             <div class="moon-phase-name" id="moonPhaseName">—</div>
+            <div class="moon-phase-solar" id="moonPhaseSolar">西曆 —</div>
             <div class="moon-phase-lunar" id="moonPhaseLunar">農曆 —</div>
             <div class="moon-phase-illum" id="moonPhaseIllum">光照 —</div>
           </div>
@@ -994,29 +1036,37 @@ button{font-family:inherit;}
           <div class="track-caption" id="trackCaption"></div>
         </div>
 
-        <!-- 修改：時間滑桿獨立於面板外，緊接在天體選單下方，方便直接拖曳 -->
-        <div class="time-slider-row" id="timeSliderRow" style="display:none;">
-          <input type="range" id="timeSlider" min="0" max="1439" step="1" value="720" title="拖曳滑桿瀏覽該時段天體方位">
-        </div>
-
-        <!-- 天體追蹤時間控制（即時／全天／白天／晚上／自訂時間範圍 + 指定日期） -->
+        <!-- 修改：面板順序改為「日期 → 拖曳滑桿 → 時段 → 快速選項」，並將時間輸入改為純 24 小時制 -->
         <div class="time-panel" id="timePanel" style="display:none;">
+          <div class="time-date-row" id="timeDateRow" style="display:none;">
+            <input type="date" id="timeDateInput">
+            <span class="time-slider-label" id="timeSliderLabel">—</span>
+          </div>
+
+          <!-- 修改：時間滑桿移到日期設定下方 -->
+          <div class="time-slider-row" id="timeSliderRow" style="display:none;">
+            <input type="range" id="timeSlider" min="0" max="1439" step="1" value="720" title="拖曳滑桿瀏覽該時段天體方位">
+          </div>
+
+          <div class="time-range-row" id="timeRangeRow" style="display:none;">
+            <div class="time24" id="timeRangeStartWrap">
+              <input type="number" class="time24-h" id="timeRangeStartH" min="0" max="23" value="18" inputmode="numeric" aria-label="起始小時">
+              <span class="time24-colon">:</span>
+              <input type="number" class="time24-m" id="timeRangeStartM" min="0" max="59" value="00" inputmode="numeric" aria-label="起始分鐘">
+            </div>
+            <span class="time-range-sep">–</span>
+            <div class="time24" id="timeRangeEndWrap">
+              <input type="number" class="time24-h" id="timeRangeEndH" min="0" max="23" value="22" inputmode="numeric" aria-label="結束小時">
+              <span class="time24-colon">:</span>
+              <input type="number" class="time24-m" id="timeRangeEndM" min="0" max="59" value="00" inputmode="numeric" aria-label="結束分鐘">
+            </div>
+          </div>
           <div class="time-quick-row" id="timeQuickRow">
             <div class="chip time-chip active" data-preset="live">即時</div>
             <div class="chip time-chip" data-preset="all">全天</div>
             <div class="chip time-chip" data-preset="day">白天</div>
             <div class="chip time-chip" data-preset="night">晚上</div>
             <div class="chip time-chip" data-preset="custom">自訂</div>
-          </div>
-          <div class="time-date-row" id="timeDateRow" style="display:none;">
-            <span style="font-size:12.5px;color:var(--text-dim);">日期</span>
-            <input type="date" id="timeDateInput">
-            <span class="time-slider-label" id="timeSliderLabel">—</span>
-          </div>
-          <div class="time-range-row" id="timeRangeRow" style="display:none;">
-            <input type="time" id="timeRangeStart" value="18:00" lang="en-GB">
-            <span class="time-range-sep">–</span>
-            <input type="time" id="timeRangeEnd" value="22:00" lang="en-GB">
           </div>
         </div>
 
@@ -1057,6 +1107,7 @@ button{font-family:inherit;}
     orientationActive: false,
     orientationAbsolute: false,
     accuracy: null,         // degrees, smaller = better (iOS webkitCompassAccuracy) or null
+    headingOffset: 0,       // 新增：使用者手動校正偏移量（度），用來修正平板方位不準或顛倒的問題
     lat: null, lon: null, alt: null, gpsAccuracy: null,
     gpsActive: false,
     declination: 0,
@@ -1083,10 +1134,20 @@ button{font-family:inherit;}
     {id:'sun',      name:'太陽',   short:'太', color:'var(--sun)',  kind:'sun'},
     {id:'moon',     name:'月亮',   short:'月', color:'var(--moon)', kind:'moon'},
     {id:'venus',    name:'金星',   short:'金', color:'#e8c974',     kind:'planet'},
+    {id:'mars',     name:'火星',   short:'火', color:'#d1694f',     kind:'planet'},
     {id:'jupiter',  name:'木星',   short:'木', color:'#d9a066',     kind:'planet'},
     {id:'saturn',   name:'土星',   short:'土', color:'#e3d3a0',     kind:'planet'},
-    {id:'sirius',   name:'天狼星', short:'狼', color:'#bcd6ff',     kind:'star', ra:101.287, dec:-16.716},
-    {id:'arcturus', name:'大角星', short:'角', color:'#ffcf9e',     kind:'star', ra:213.915, dec:19.183},
+    {id:'sirius',   name:'天狼星', short:'狼', color:'#bcd6ff',     kind:'star', ra:101.287,  dec:-16.716},
+    {id:'arcturus', name:'大角星', short:'角', color:'#ffcf9e',     kind:'star', ra:213.915,  dec:19.183},
+    {id:'polaris',    name:'北極星', short:'北', color:'#f5e9c8', kind:'star', ra:37.955,  dec:89.264},
+    {id:'vega',       name:'織女星', short:'織', color:'#cfe0ff', kind:'star', ra:279.235, dec:38.784},
+    {id:'altair',     name:'牛郎星', short:'牛', color:'#eef2ff', kind:'star', ra:297.696, dec:8.868},
+    {id:'betelgeuse', name:'參宿四', short:'參', color:'#e8836b', kind:'star', ra:88.793,  dec:7.407},
+    {id:'rigel',      name:'參宿七', short:'七', color:'#bcd4ff', kind:'star', ra:78.635,  dec:-8.202},
+    {id:'capella',    name:'五車二', short:'車', color:'#ffe29b', kind:'star', ra:79.173,  dec:45.998},
+    {id:'antares',    name:'心宿二', short:'心', color:'#e2604a', kind:'star', ra:247.352, dec:-26.432},
+    {id:'procyon',    name:'南河三', short:'河', color:'#f5eccb', kind:'star', ra:114.825, dec:5.225},
+    {id:'pleiades',   name:'昴宿星團', short:'昴', color:'#d8e4ff', kind:'star', ra:56.871, dec:24.105},
   ];
   function bodyById(id){ return BODIES.find(b=>b.id===id); }
 
@@ -1518,10 +1579,18 @@ button{font-family:inherit;}
   const timeDateRow = $('timeDateRow');
   const timeRangeRow = $('timeRangeRow');
   const timeDateInput = $('timeDateInput');
-  const timeRangeStartInput = $('timeRangeStart');
-  const timeRangeEndInput = $('timeRangeEnd');
   const timeSlider = $('timeSlider');
   const timeSliderLabel = $('timeSliderLabel');
+
+  // 新增：24 小時制時間輸入的讀取/寫入輔助函式（取代原生 input[type=time]，避免系統語系顯示上午/下午）
+  function clampH(n){ n = Math.round(Number(n)); return isNaN(n) ? 0 : Math.min(23, Math.max(0, n)); }
+  function clampM(n){ n = Math.round(Number(n)); return isNaN(n) ? 0 : Math.min(59, Math.max(0, n)); }
+  function getTimeRangeStartValue(){
+    return `${String(clampH($('timeRangeStartH').value)).padStart(2,'0')}:${String(clampM($('timeRangeStartM').value)).padStart(2,'0')}`;
+  }
+  function getTimeRangeEndValue(){
+    return `${String(clampH($('timeRangeEndH').value)).padStart(2,'0')}:${String(clampM($('timeRangeEndM').value)).padStart(2,'0')}`;
+  }
 
   function todayDateOnly(){
     const d = new Date();
@@ -1572,8 +1641,8 @@ button{font-family:inherit;}
         state.timeRangeEnd = combineDateAndTime(nextDay,6,0);
       }
     } else if(preset === 'custom'){
-      const s = parseTimeInput(timeRangeStartInput.value, 18, 0);
-      const e = parseTimeInput(timeRangeEndInput.value, 22, 0);
+      const s = parseTimeInput(getTimeRangeStartValue(), 18, 0);
+      const e = parseTimeInput(getTimeRangeEndValue(), 22, 0);
       let start = combineDateAndTime(dateOnly, s.h, s.m);
       let end = combineDateAndTime(dateOnly, e.h, e.m);
       if(end <= start) end.setDate(end.getDate()+1); // 跨夜範圍（例如 22:00 到隔天 02:00）
@@ -1638,17 +1707,18 @@ button{font-family:inherit;}
     setupSliderForRange();
     render();
   });
-  timeRangeStartInput.addEventListener('change', ()=>{
-    if(state.timeMode !== 'custom') return;
-    computeTimeRange();
-    setupSliderForRange();
-    render();
-  });
-  timeRangeEndInput.addEventListener('change', ()=>{
-    if(state.timeMode !== 'custom') return;
-    computeTimeRange();
-    setupSliderForRange();
-    render();
+  ['timeRangeStartH','timeRangeStartM','timeRangeEndH','timeRangeEndM'].forEach(id=>{
+    $(id).addEventListener('input', ()=>{
+      if(state.timeMode !== 'custom') return;
+      computeTimeRange();
+      setupSliderForRange();
+      render();
+    });
+    $(id).addEventListener('blur', (e)=>{
+      // 失焦時把數值修正回合法範圍並補零顯示
+      const isHour = id.endsWith('H');
+      e.target.value = isHour ? clampH(e.target.value) : clampM(e.target.value);
+    });
   });
 
   manualBadge.addEventListener('click', ()=>{
@@ -1827,6 +1897,7 @@ button{font-family:inherit;}
   }
 
   let lastOrientTime = 0;
+  let smoothVec = null; // 新增：方位平滑濾波用的向量累積值
   function handleOrientation(e){
     let heading = null;
     let accuracy = null;
@@ -1848,7 +1919,22 @@ button{font-family:inherit;}
 
     if (heading === null || isNaN(heading)) return;
 
-    state.headingRaw = (heading + 360) % 360;
+    heading = (heading + 360) % 360;
+    // 新增：以向量做低通濾波（circular smoothing），避免平板感測器雜訊造成指針抖動／瞬間亂跳
+    // 直接對角度取平均會在 0°/360° 交界處出錯，因此改用 sin/cos 向量平均
+    const rad = heading * Math.PI / 180;
+    if(smoothVec === null){
+      smoothVec = { x: Math.cos(rad), y: Math.sin(rad) };
+    } else {
+      const a = 0.25; // 平滑係數：越小越穩定但反應越慢
+      smoothVec.x += (Math.cos(rad) - smoothVec.x) * a;
+      smoothVec.y += (Math.sin(rad) - smoothVec.y) * a;
+    }
+    let smoothed = Math.atan2(smoothVec.y, smoothVec.x) * 180 / Math.PI;
+    smoothed = (smoothed + 360) % 360;
+
+    // 新增：加上使用者手動校正偏移，修正方位偏差或顛倒的問題
+    state.headingRaw = (smoothed + state.headingOffset + 360) % 360;
     state.accuracy = accuracy;
     state.orientationActive = true;
     lastOrientTime = Date.now();
@@ -1983,6 +2069,8 @@ button{font-family:inherit;}
     venus:  (d)=>({N:76.6799+2.46590e-5*d, i:3.3946+2.75e-8*d, w:54.8910+1.38374e-5*d, a:0.723330, e:0.006773-1.302e-9*d, M:48.0052+1.6021302244*d}),
     jupiter:(d)=>({N:100.4542+2.76854e-5*d, i:1.3030-1.557e-7*d, w:273.8777+1.64505e-5*d, a:5.20256, e:0.048498+4.469e-9*d, M:19.8950+0.0830853001*d}),
     saturn: (d)=>({N:113.6634+2.38980e-5*d, i:2.4886-1.081e-7*d, w:339.3939+2.97661e-5*d, a:9.55475, e:0.055546-9.499e-9*d, M:316.9670+0.0334442282*d}),
+    // 新增：火星軌道根數（與金星/木星/土星同一套公式來源）
+    mars:   (d)=>({N:49.5574+2.11081e-5*d, i:1.8497-1.78e-8*d, w:286.5016+2.92961e-5*d, a:1.523688, e:0.093405+2.516e-9*d, M:18.6021+0.5240207766*d}),
   };
   function solveKepler(Mdeg, e){
     let M = Mdeg*D2R;
@@ -2056,13 +2144,13 @@ button{font-family:inherit;}
     state.moonPhase = mi.phase;
 
     const lst = localSiderealTimeDeg(now, state.lon);
-    ['venus','jupiter','saturn'].forEach(id=>{
-      const {ra, dec} = planetRADec(id, now);
-      state.bodies[id] = equatorialToHorizontal(ra, dec, state.lat, lst);
+    // 修改：行星／恆星改為依 BODIES 陣列的 kind 動態計算，新增天體時不必再手動修改這裡
+    BODIES.filter(b=>b.kind==='planet').forEach(b=>{
+      const {ra, dec} = planetRADec(b.id, now);
+      state.bodies[b.id] = equatorialToHorizontal(ra, dec, state.lat, lst);
     });
-    ['sirius','arcturus'].forEach(id=>{
-      const b = bodyById(id);
-      state.bodies[id] = equatorialToHorizontal(b.ra, b.dec, state.lat, lst);
+    BODIES.filter(b=>b.kind==='star').forEach(b=>{
+      state.bodies[b.id] = equatorialToHorizontal(b.ra, b.dec, state.lat, lst);
     });
 
     state.lastComputeNow = now;
@@ -2204,6 +2292,9 @@ button{font-family:inherit;}
       <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="1.5"/>`;
     $('moonPhaseName').textContent = moonPhaseLabel(mi.phase);
     $('moonPhaseIllum').textContent = '光照 ' + Math.round(mi.fraction*100) + '%';
+    // 新增：西曆（國曆）日期，與農曆日期並列顯示
+    const y = now.getFullYear(), mo = String(now.getMonth()+1).padStart(2,'0'), da = String(now.getDate()).padStart(2,'0');
+    $('moonPhaseSolar').textContent = `西曆 ${y}/${mo}/${da}`;
     try{
       const ld = solarToLunar(now.getDate(), now.getMonth()+1, now.getFullYear(), 8);
       const leapPrefix = ld.leap ? '閏' : '';
@@ -2351,6 +2442,43 @@ button{font-family:inherit;}
   }
   $('latCopyBtn').addEventListener('click', ()=> copyCoordPart(state.lat, '緯度'));
   $('lonCopyBtn').addEventListener('click', ()=> copyCoordPart(state.lon, '經度'));
+
+  /* ============================================================
+     新增：手動校正偏移（修正方位不準或顛倒）
+  ============================================================ */
+  function updateHeadingOffsetLabel(){
+    $('headingOffsetLabel').textContent = (state.headingOffset>=0?'+':'') + state.headingOffset.toFixed(1) + '°';
+  }
+  function saveHeadingOffset(){
+    try{ localStorage.setItem('compassHeadingOffset', String(state.headingOffset)); }catch(e){}
+  }
+  (function restoreHeadingOffset(){
+    try{
+      const v = parseFloat(localStorage.getItem('compassHeadingOffset'));
+      if(!isNaN(v)) state.headingOffset = v;
+    }catch(e){}
+    updateHeadingOffsetLabel();
+  })();
+  $('calibZeroBtn').addEventListener('click', ()=>{
+    if(!state.orientationActive){
+      toast('請先啟用指南針感測器');
+      return;
+    }
+    // 使用者此時應將裝置實際朝向真正的磁北方向，把目前顯示的「磁北」讀數歸零
+    const currentBeforeOffset = ((state.headingRaw - state.headingOffset) + 360) % 360;
+    state.headingOffset = (360 - currentBeforeOffset) % 360;
+    updateHeadingOffsetLabel();
+    saveHeadingOffset();
+    toast('已校正，目前朝向設為磁北 0°');
+    render();
+  });
+  $('calibResetBtn').addEventListener('click', ()=>{
+    state.headingOffset = 0;
+    updateHeadingOffsetLabel();
+    saveHeadingOffset();
+    toast('已清除校正偏移');
+    render();
+  });
 
   /* ============================================================
      新增：左右區塊「收合／拖曳調整順序或搬移左右欄位」

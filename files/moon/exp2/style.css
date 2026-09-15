@@ -30,6 +30,12 @@ body {
     border-radius: 6px; color: var(--accent-color); text-decoration: none; font-size: 0.85rem;
 }
 
+/* 新增：讓整個實驗區塊寬度固定，不再被內部內容（如多日模式的核取方塊）意外撐開 */
+.view-section {
+    width: 100%;
+    max-width: 900px;
+}
+
 /* ====== 實驗二：軌跡觀測 ====== */
 .sky-container {
     width: 100%;
