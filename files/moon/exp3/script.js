@@ -152,6 +152,15 @@ const exp3 = {
         // 綁定事件
         this.el.date.onchange = () => { this.calculateData(true); this.update(); };
         this.el.time.oninput = () => this.update();
+
+        // 電腦版滑鼠點擊時，主動呼叫 showPicker() 展開日期選擇器，
+        // 這樣點在欄位任何位置都能開啟（不必精準點到瀏覽器內建的小日曆圖示）。
+        // 平板/手機上原生點擊已會直接開啟日期選擇器，這裡用 try/catch 包住即可，不影響觸控行為。
+        this.el.date.addEventListener('click', () => {
+            if (typeof this.el.date.showPicker === 'function') {
+                try { this.el.date.showPicker(); } catch (e) { /* 已開啟或不支援時忽略 */ }
+            }
+        });
         
         // 鍵盤控制支援
         window.addEventListener('keydown', (e) => {
