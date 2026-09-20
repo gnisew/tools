@@ -113,7 +113,7 @@
             </button>
             <button id="mergeRegionBtn" class="btn-icon" style="background: #F3E5F5; color: #7B1FA2; border: 1px solid #E1BEE7; opacity: 0.3; cursor: not-allowed;" title="合併選取 (Ctrl+J)" aria-label="合併選取 (Ctrl+J)" disabled><span class="material-icons">merge_type</span></button>
             <button id="splitRegionBtn" class="btn-icon" style="background: #FFF3E0; color: #E65100; border: 1px solid #FFE0B2;" title="在游標處切割 (Ctrl+I)" aria-label="在游標處切割 (Ctrl+I)"><span class="material-icons">content_cut</span></button>
-            <button id="tagRegionBtn" class="btn-icon" style="background: #E8F5E9; color: #2E7D32; border: 1px solid #C8E6C9;" title="將選取範圍套用至目前句子 (Enter)" aria-label="將選取範圍套用至目前句子 (Enter)"><span class="material-icons">bookmark_add</span></button>
+            <button id="tagRegionBtn" class="btn-icon" style="background: #E8F5E9; color: #2E7D32; border: 1px solid #C8E6C9;" title="新增聲波標記 (Enter)" aria-label="新增聲波標記 (Enter)"><span class="material-icons">bookmark_add</span></button>
             <button id="clearRegionBtn" class="btn-icon" style="background: #FFEBEE; color: #C62828; border: 1px solid #FFCDD2;" title="清除目前句子的時間標記 (Delete)" aria-label="清除目前句子的時間標記 (Delete)"><span class="material-icons">bookmark_remove</span></button>
 
             
@@ -349,6 +349,32 @@
                         <input aria-label="最大播放秒數" type="number" id="maxPlaySecondsInput" value="2" min="0.5" step="0.5" class="input-number-sm">
                         秒
                     </label>
+                </div>
+
+                <div class="setting-block">
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="tabAutoPlayCheck" class="setting-checkbox">
+                        Tab 跳句時自動播放
+                    </label>
+                    <span class="setting-hint">勾選：按 Tab / Shift+Tab 跳到上、下一句後立刻播放該句。不勾選（預設）：只跳轉、不播放</span>
+                </div>
+            </div>
+            <div class="sidebar-group">
+                <h4>新增標記時的列表行為</h4>
+                <div class="setting-block">
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="addRowOnTagCheck" class="setting-checkbox" checked>
+                        新增聲波標記時，新增列表
+                    </label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="addRowOnSplitCheck" class="setting-checkbox" checked>
+                        在游標處切割時，新增列表
+                    </label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="addRowOnSegmentCheck" class="setting-checkbox" checked>
+                        選取範圍斷句時，新增列表
+                    </label>
+                    <span class="setting-hint">* 勾選：每個新標記都新增一列（適合邊聽邊打字）。取消勾選：不新增列，只把時間套用到現有的列（適合文字已分好、只是來對時間）</span>
                 </div>
             </div>
             <div class="sidebar-group">

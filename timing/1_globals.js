@@ -194,6 +194,13 @@ let currentSortedLabels = [];
 let isContinuousSortedPlay = false;
 let precisionRafId = null;
 
+// ★ 新增：音檔上是否已經有任何「時間標記」。
+// 判斷依據是 timeDataMap（有沒有時間），而不是 allLabelsOrdered（有沒有句子列）：
+// 只有句子文字、還沒打任何時間的專案，對聲波圖來說仍然是「沒有標記」。
+function hasAnyTimeMarker() {
+    return typeof timeDataMap !== 'undefined' && timeDataMap !== null && Object.keys(timeDataMap).length > 0;
+}
+
 function updateToolbarButtons() {
     const hasTemp = tempRegion !== null;
     const hasActive = currentActiveLabel !== null && timeDataMap[currentActiveLabel] !== undefined;
@@ -230,7 +237,7 @@ function updateToolbarButtons() {
             if (hasTemp && isOverlapping) {
                 tagRegionBtn.title = "標記範圍重疊，請縮小邊界";
             } else {
-                tagRegionBtn.title = "將選取範圍套用至目前句子 (Enter)";
+                tagRegionBtn.title = "新增聲波標記 (Enter)";
             }
         }
     }
@@ -245,8 +252,8 @@ function updateToolbarButtons() {
             
             const hasSelection = typeof selectedLabels !== 'undefined' && selectedLabels.length > 0;
             
-            // ★ 新增：檢查是否完全沒有標記
-            const hasNoMarkers = typeof allLabelsOrdered === 'undefined' || allLabelsOrdered.length === 0;
+            // ★ 修改：「沒有標記」以音檔上有無時間標記為準（不再看有沒有句子列）
+            const hasNoMarkers = !hasAnyTimeMarker();
             
             // ★ 修改：允許在「無標記」時啟用 (canAutoSegment 為 true)
             const canAutoSegment = canAddSafe || hasSelection || hasNoMarkers;
@@ -261,7 +268,7 @@ function updateToolbarButtons() {
                 autoSegmentRegionBtn.title = "標記範圍重疊，無法執行局部自動斷句";
             } else if (hasNoMarkers) {
                 // ★ 新增：無標記時的專屬提示文字
-                autoSegmentRegionBtn.title = "自動全選並依靜音斷句"; 
+                autoSegmentRegionBtn.title = "依靜音斷句"; 
             } else {
                 autoSegmentRegionBtn.title = "選取的範圍依靜音自動斷句";
             }

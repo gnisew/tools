@@ -26,6 +26,49 @@ function initAutoSegmentSetting(inputId, displayId, storageKey, formatFn) {
     });
 }
 
+// ================= ★ 新增：「新增標記時是否新增列表」設定 ★ =================
+// 三種操作各自一個開關，預設都是「新增列表」（適合一邊聽一邊打字）。
+// 取消勾選時，只把時間套用到既有的列（適合文字已經分好句子、只是來對時間）。
+//   tag     = 新增聲波標記 (Enter)
+//   split   = 在游標處切割
+//   segment = 選取範圍依靜音／等長自動斷句
+const ADD_ROW_SETTINGS = {
+    tag:     { id: 'addRowOnTagCheck',     key: 'tagger_addRowOnTag' },
+    split:   { id: 'addRowOnSplitCheck',   key: 'tagger_addRowOnSplit' },
+    segment: { id: 'addRowOnSegmentCheck', key: 'tagger_addRowOnSegment' }
+};
+
+// 其他檔案（2_audio_engine.js、3_data_core.js、4c_ui_scroll.js）在執行當下呼叫，直接讀 localStorage；
+// 沒設定過（null）視為「新增列表」。
+window.isAddRowEnabled = function(kind) {
+    const cfg = ADD_ROW_SETTINGS[kind];
+    if (!cfg) return true;
+    return localStorage.getItem(cfg.key) !== 'false';
+};
+
+Object.values(ADD_ROW_SETTINGS).forEach(cfg => {
+    const el = document.getElementById(cfg.id);
+    if (!el) return;
+    el.checked = localStorage.getItem(cfg.key) !== 'false';
+    el.addEventListener('change', (e) => {
+        localStorage.setItem(cfg.key, e.target.checked ? 'true' : 'false');
+    });
+});
+
+// ================= ★ 新增：「Tab 跳句時是否自動播放」設定 ★ =================
+// 預設不勾選（不自動播放）。適用 Tab / Shift+Tab，以及自訂的「上一句／下一句」快速鍵（都走 jumpToRegion）。
+const TAB_AUTOPLAY_KEY = 'tagger_tabAutoPlay';
+window.isTabAutoPlayEnabled = function() {
+    return localStorage.getItem(TAB_AUTOPLAY_KEY) === 'true'; // 沒設定過 = 不自動播放
+};
+const tabAutoPlayCheck = document.getElementById('tabAutoPlayCheck');
+if (tabAutoPlayCheck) {
+    tabAutoPlayCheck.checked = window.isTabAutoPlayEnabled();
+    tabAutoPlayCheck.addEventListener('change', (e) => {
+        localStorage.setItem(TAB_AUTOPLAY_KEY, e.target.checked ? 'true' : 'false');
+    });
+}
+
 // 綁定「依靜音斷句」的四個滑桿
 initAutoSegmentSetting('asThreshold', 'asThresholdVal', 'tagger_asThreshold', v => `(${v}%)`);
 initAutoSegmentSetting('asDetectionMode', null, 'tagger_asDetectionMode', null); // ★ 新增：偵測模式（Peak/RMS），預設 peak 與舊行為完全相同
@@ -46,23 +89,29 @@ autoSegmentBtn?.addEventListener('click', () => {
     asModal?.classList.add('show'); 
 });
 
-// 2. ★ 修改：局部自動斷句 (支援無標記全選、藍色選取框 與 選取現有標記)
+// 2. ★ 修改：「依靜音斷句」按鈕 —— 只針對「選取的範圍」斷句，不會每次都處理整首音檔
+//    (a) 有選取現有標記 → 只重新斷句這些標記涵蓋的範圍
+//    (b) 有藍色選取框   → 只斷句這個框選範圍（不論音檔上有沒有標記）
+//    (c) 什麼都沒選：
+//        - 音檔上「完全沒有時間標記」→ 才會自動全選整首音檔
+//        - 音檔上「已有標記」        → 不會自動全選（按鈕停用，需先選取範圍）
 autoSegmentRegionBtn?.addEventListener('click', () => {
     if (!isEditMode) return;
 
-    // 檢查是否完全沒有標記
-    const hasNoMarkers = typeof allLabelsOrdered === 'undefined' || allLabelsOrdered.length === 0;
+    // 按鈕被停用時（例如：音檔已有標記、卻沒有選取任何範圍）阻擋點擊
+    if (autoSegmentRegionBtn.disabled) return;
 
-    // 【狀況 A】如果畫面完全沒有標記：自動「全選」整首音檔並開啟設定
-    if (hasNoMarkers) {
+    const hasMarkerSelection = typeof selectedLabels !== 'undefined' && selectedLabels.length > 0;
+    const hasBlueBox = typeof tempRegion !== 'undefined' && tempRegion;
+
+    // 【狀況 A】沒有選取任何範圍，且音檔上完全沒有時間標記：自動「全選」整首音檔
+    if (!hasMarkerSelection && !hasBlueBox && !hasAnyTimeMarker()) {
         if (typeof wavesurfer === 'undefined' || !wavesurfer || !audioPlayer || !audioPlayer.duration) {
             return showToast('請先載入音檔', 'error');
         }
 
         // 建立一個涵蓋全音檔的藍色選取框作為視覺提示
         if (typeof clearSelection === 'function') clearSelection();
-        if (typeof tempRegion !== 'undefined' && tempRegion) { tempRegion.remove(); tempRegion = null; }
-
         if (typeof wsRegions !== 'undefined' && wsRegions) {
             tempRegion = wsRegions.addRegion({
                 start: 0,
@@ -73,20 +122,22 @@ autoSegmentRegionBtn?.addEventListener('click', () => {
             });
         }
 
-        // ★ 核心修復：將目標範圍設定為 null！
-        // 這樣確認送出時，系統就會知道要呼叫「全域斷句引擎 (performAutoSegmentation)」，進而幫你產生新句子！
-        targetAutoSegmentRange = null; 
-        
+        if (allLabelsOrdered.length === 0) {
+            // 列表也是空的：走全域引擎，從零建立句子列（與過去行為相同）
+            targetAutoSegmentRange = null;
+        } else {
+            // 已有句子列（只是還沒打時間）：改用「整首音檔範圍」的局部模式，
+            // 只把時間套到尚未標記的句子上，絕不會清掉既有的句子文字。
+            targetAutoSegmentRange = { start: 0, end: audioPlayer.duration, labelsToClear: [] };
+        }
+
         if (typeof asModal !== 'undefined' && asModal) asModal.classList.add('show');
         if (typeof updateToolbarButtons === 'function') updateToolbarButtons();
         return; // 結束執行
     }
 
-    // 如果按鈕被禁用 (且不是無標記的特殊狀態)，則阻擋點擊
-    if (autoSegmentRegionBtn.disabled) return;
-
     // 【狀況 B】處理「選取現有標記」
-    if (typeof selectedLabels !== 'undefined' && selectedLabels.length > 0) {
+    if (hasMarkerSelection) {
         let minStart = Infinity;
         let maxEnd = 0;
         const validLabels = [];
@@ -109,11 +160,12 @@ autoSegmentRegionBtn?.addEventListener('click', () => {
             showToast('選取的標記沒有時間資料', 'error');
         }
 
-    // 【狀況 C】處理單純的「藍色選取框」
-    } else if (typeof tempRegion !== 'undefined' && tempRegion) {
+    // 【狀況 C】處理單純的「藍色選取框」：只斷句框選的範圍
+    } else if (hasBlueBox) {
         targetAutoSegmentRange = { start: tempRegion.start, end: tempRegion.end, labelsToClear: [] };
         if (typeof asModal !== 'undefined' && asModal) asModal.classList.add('show');
     } else {
+        // 音檔上已有標記、又沒選任何範圍：不會自動全選
         showToast('請先選取要斷句的範圍', 'error');
     }
 });

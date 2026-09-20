@@ -387,7 +387,20 @@ exportAudioZipBtn?.addEventListener('click', () => {
 // ================= 自動靜音斷句核心引擎 (動態切片與階段進度版) =================
 
 // 【引擎 A】全域自動斷句引擎
+// ★ 修復：外層包裝。原本 asConfirmBtn（「開始分析」）在開始分析時被設為 disabled，
+// 但只有「找不到符合條件的斷句」這一條提早返回的路徑會把它恢復；
+// 只要成功斷句一次（或執行途中拋出例外），按鈕就會永遠維持 disabled，
+// 之後即使全選並移除所有標記、再重新點「自動全選並依靜音斷句」，按下「開始分析」也完全沒有反應。
+// 這裡用 try/finally 保證：不論成功、提早返回或發生例外，結束時一律恢復按鈕。
 async function performAutoSegmentation() {
+    try {
+        return await performAutoSegmentationCore();
+    } finally {
+        if (asConfirmBtn) asConfirmBtn.disabled = false;
+    }
+}
+
+async function performAutoSegmentationCore() {
     if (!wavesurfer || !wavesurfer.getDecodedData()) {
         return showToast('請先載入音檔並等待分析完成', 'error');
     }
@@ -585,6 +598,22 @@ async function performAutoSegmentation() {
 }
 
 
+// ★ 新增：共用小工具 —— 列表「完全沒有句子列」時，依需要的數量建立空白句子列（編號規則與全域引擎 A 相同）。
+// 讓使用者在全新的音檔上，也能只框選某一段範圍做局部斷句，而不是被迫處理整首音檔。
+// 列表已有句子列時不做任何事（維持既有的「只套用到尚未標記的句子」行為，絕不動到既有句子）。
+// 回傳 true 代表有新增，呼叫端需要用 renderSentenceList() 整份重繪。
+function createBlankLabelsIfListEmpty(count) {
+    if (allLabelsOrdered.length > 0 || count <= 0) return false;
+    for (let i = 0; i < count; i++) {
+        const group = Math.floor(i / 99);
+        const num = (i % 99) + 1;
+        const label = `${String.fromCharCode(65 + group)}${num.toString().padStart(2, '0')}`;
+        allLabelsOrdered.push(label);
+        sentenceTextMap[label] = '';
+    }
+    return true;
+}
+
 // 【引擎 B】局部範圍自動斷句引擎
 async function performRegionAutoSegmentation(startTime, endTime) {
     if (!wavesurfer || !wavesurfer.getDecodedData()) return showToast('請先載入音檔', 'error');
@@ -681,9 +710,19 @@ async function performRegionAutoSegmentation(startTime, endTime) {
 
     if (typeof saveState === 'function') saveState(); 
 
+    // ★ 新增：依設定「斷句時新增列表」決定處理方式（預設：新增列表）
+    //   勾選（新增列表）：重新斷句選取的標記時，先沿用原本那幾列，多出來的段落各自新增一列；
+    //                     框選範圍則每一段都新增一列。不會動到其他尚未標記的文字列。
+    //   取消勾選：維持原本行為，只把時間套用到既有「尚未標記」的列（列表全空時仍會先建立空白列）。
+    const addRowMode = (typeof isAddRowEnabled !== 'function') || isAddRowEnabled('segment');
+
+    // 列表完全沒有句子時，先建立空白句子列來承接（讓框選範圍也能在全新音檔上使用）
+    // ※ 新增列表模式下，多出來的段落會由 addRowsForTimes() 新增，這裡不需要預先建立
+    const didCreateNewLabels = addRowMode ? false : createBlankLabelsIfListEmpty(segments.length);
+
     let labelsToUse = [...(targetAutoSegmentRange?.labelsToClear || [])];
     
-    if (labelsToUse.length < segments.length) {
+    if (!addRowMode && labelsToUse.length < segments.length) {
         const unmapped = allLabelsOrdered.filter(lbl => !timeDataMap[lbl] && !labelsToUse.includes(lbl));
         labelsToUse = labelsToUse.concat(unmapped);
     }
@@ -708,7 +747,20 @@ async function performRegionAutoSegmentation(startTime, endTime) {
         }
     }
 
+    // ★ 新增：新增列表模式且沒有可沿用的列（框選範圍）時，改用框選範圍前後最近的既有標記當外圍邊界，
+    // 避免留白延伸後撞到旁邊的標記
+    if (labelsToUse.length === 0) {
+        allLabelsOrdered.forEach(lbl => {
+            if (!timeDataMap[lbl]) return;
+            const t = typeof getCalculatedTimes === 'function' ? getCalculatedTimes(lbl) : null;
+            if (!t || t.end == null) return;
+            if (t.end <= startTime + 0.001 && t.end > globalPrevEnd) globalPrevEnd = t.end;
+            if (t.start >= endTime - 0.001 && t.start < globalNextStart) globalNextStart = t.start;
+        });
+    }
+
     let mappedCount = 0;
+    const extraTimes = []; // ★ 新增：沒有現成的列可放的段落（新增列表模式下會各自新增一列）
     const gapMargin = 0.005; // ★ 安全防撞距離
 
     segments.forEach((seg, idx) => {
@@ -748,8 +800,20 @@ async function performRegionAutoSegmentation(startTime, endTime) {
                 end: parseFloat(Math.min(mediaDuration, e).toFixed(3)) 
             };
             mappedCount++;
+        } else if (addRowMode) {
+            extraTimes.push({
+                start: parseFloat(Math.max(0, s).toFixed(3)),
+                end: parseFloat(Math.min(mediaDuration, e).toFixed(3))
+            });
         }
     });
+
+    // ★ 新增：新增列表模式 —— 多出來的段落各新增一列（內含存檔與列表重繪，全文模式一併同步大編輯框）
+    const addedRowCount = extraTimes.length;
+    if (addedRowCount > 0) {
+        addRowsForTimes(extraTimes);
+        mappedCount += addedRowCount;
+    }
 
     saveToStorage();
 
@@ -757,6 +821,8 @@ async function performRegionAutoSegmentation(startTime, endTime) {
     showToast('3/3 正在重新渲染畫面... 95%', 'normal');
     await new Promise(resolve => setTimeout(resolve, 10));
 
+    // ★ 新增：若剛才新建了句子列，必須整份重繪列表，新句子才會立刻出現在畫面上
+    if (didCreateNewLabels && typeof renderSentenceList === 'function') renderSentenceList();
     if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
     if (typeof renderAllRegions === 'function') renderAllRegions();
     
@@ -766,7 +832,7 @@ async function performRegionAutoSegmentation(startTime, endTime) {
     if (mappedCount < segments.length) {
         showToast(`局部斷句完成！但句子不夠，僅套用了 ${mappedCount} 句`, 'normal');
     } else {
-        showToast(`局部斷句完成！共精準套用 ${mappedCount} 句`, 'success');
+        showToast(`局部斷句完成！共精準套用 ${mappedCount} 句${addedRowCount > 0 ? `（新增 ${addedRowCount} 列）` : ''}`, 'success');
     }
 }
 
@@ -1262,22 +1328,39 @@ window.performTimeSegmentation = async function(targetRange) {
 
     if (targetRange) {
         // ================= 局部範圍：套用到現有標籤 =================
+        // ★ 新增：依設定「斷句時新增列表」決定處理方式（與局部靜音斷句一致，預設：新增列表）
+        const addRowMode = (typeof isAddRowEnabled !== 'function') || isAddRowEnabled('segment');
+
+        // 列表完全沒有句子時，先建立空白句子列來承接（新增列表模式下由 addRowsForTimes() 負責，不需預先建立）
+        const didCreateNewLabels = addRowMode ? false : createBlankLabelsIfListEmpty(segments.length);
+
         let labelsToUse = [...(targetRange.labelsToClear || [])];
-        if (labelsToUse.length < segments.length) {
+        if (!addRowMode && labelsToUse.length < segments.length) {
             const unmapped = allLabelsOrdered.filter(lbl => !timeDataMap[lbl] && !labelsToUse.includes(lbl));
             labelsToUse = labelsToUse.concat(unmapped);
         }
 
         let mappedCount = 0;
+        const extraTimes = []; // ★ 新增：沒有現成的列可放的段落
         segments.forEach((seg, idx) => {
             if (idx < labelsToUse.length) {
                 const label = labelsToUse[idx];
                 timeDataMap[label] = { start: parseFloat(seg.start.toFixed(3)), end: parseFloat(seg.end.toFixed(3)) };
                 mappedCount++;
+            } else if (addRowMode) {
+                extraTimes.push({ start: seg.start, end: seg.end });
             }
         });
+
+        // ★ 新增：新增列表模式 —— 多出來的段落各新增一列
+        const addedRowCount = extraTimes.length;
+        if (addedRowCount > 0) {
+            addRowsForTimes(extraTimes);
+            mappedCount += addedRowCount;
+        }
         
         saveToStorage();
+        if (didCreateNewLabels && typeof renderSentenceList === 'function') renderSentenceList();
         if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
         if (typeof renderAllRegions === 'function') renderAllRegions();
         if (typeof tempRegion !== 'undefined' && tempRegion) { tempRegion.remove(); tempRegion = null; }
@@ -1286,7 +1369,7 @@ window.performTimeSegmentation = async function(targetRange) {
         if (mappedCount < segments.length) {
             showToast(`局部等長斷句完成！但句子不夠，僅套用了 ${mappedCount} 句`, 'normal');
         } else {
-            showToast(`局部等長斷句完成！共套用 ${mappedCount} 句`, 'success');
+            showToast(`局部等長斷句完成！共套用 ${mappedCount} 句${addedRowCount > 0 ? `（新增 ${addedRowCount} 列）` : ''}`, 'success');
         }
 
     } else {

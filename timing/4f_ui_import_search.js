@@ -227,13 +227,13 @@ previewParseBtn?.addEventListener('click', () => {
                 let char = para[i]; current += char;
                 if (char === '[') inBrackets = true; if (char === ']') inBrackets = false;
                 
-                if (!inBrackets && /[，。：；！？、．─「」【】『』《》?!.,]/.test(char)) {
+                if (!inBrackets && /[，。：；！？、．―─「」【】『』《》〈〉·?!.,]/.test(char)) {
                     let isDecimal = false;
                     if ((char === '.' || char === ',') && i > 0 && i < para.length - 1) { if (/\d/.test(para[i-1]) && /\d/.test(para[i+1])) isDecimal = true; }
                     
                     if (!isDecimal) {
                         // 貪婪吸收後續的標點符號
-                        while (i + 1 < para.length && /[，。：；！？、．─「」【】『』《》"”'’?!.,\s]/.test(para[i+1])) {
+                        while (i + 1 < para.length && /[，。：；！？、．―─「」【】『』《》〈〉·"”'’?!.,\s]/.test(para[i+1])) {
                             let nextChar = para[i+1]; if (nextChar === '[') break; 
                             if ((nextChar === '.' || nextChar === ',') && /\d/.test(para[i]) && i + 2 < para.length && /\d/.test(para[i+2])) break;
                             current += nextChar; i++;
@@ -267,7 +267,11 @@ previewParseBtn?.addEventListener('click', () => {
     }
 
     // 將結果以 TSV 格式寫回輸入框，讓使用者「原地預覽」
-    rawTextInput.value = tempLabels.map(lbl => `${lbl}\t\t\t${tempTexts[lbl]}`).join('\n');
+    // ★ 新增：預覽時也先移除沒有實際文字的句子（例如整句只有括號註解），與「確定載入」的結果一致
+    const compactPreview = (typeof compactParsedList === 'function')
+        ? compactParsedList(tempLabels, tempTexts)
+        : { labels: tempLabels, textMap: tempTexts };
+    rawTextInput.value = compactPreview.labels.map(lbl => `${lbl}\t\t\t${compactPreview.textMap[lbl]}`).join('\n');
     showToast('已在原地解析！確認無誤後請點擊「確定載入」', 'success');
 });
 

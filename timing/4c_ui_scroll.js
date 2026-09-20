@@ -76,6 +76,74 @@ function scrollToKeepMouseSteady(currentItemDiv) {
     if (nextItemDiv) window.scrollBy({ top: nextItemDiv.getBoundingClientRect().top - currentItemDiv.getBoundingClientRect().top, behavior: 'smooth' });
 }
 
+// ★ 新增：沒有選取任何標記時，依「游標（播放頭）位置」找出要跳轉的標記範圍。
+// 使用情境：使用者在波形空白處點一下（會清除選取），游標落在兩個標記之間，
+// 這時按 Tab / Ctrl+↓ 應跳到「游標之後」最近的標記，按 Shift+Tab / Ctrl+↑ 應跳到「游標之前」最近的標記，
+// 而不是一律跳回第一句。
+// 回傳值：
+//   標籤字串 → 游標不在任何標記範圍內；direction>0 為游標「之後」最近的標記，direction<0 為游標「之前」最近的標記
+//   null      → 游標不在任何標記範圍內，但該方向已沒有標記可跳（例如游標在最後一個標記之後按 Tab），不跳轉
+//   undefined → 不適用（游標落在某個標記範圍內，或音檔上沒有任何時間標記），由呼叫端沿用原本行為
+function findRegionAroundCursor(direction) {
+    if (typeof audioPlayer === 'undefined' || !audioPlayer) return undefined;
+    const t = audioPlayer.currentTime;
+    if (typeof t !== 'number' || !isFinite(t)) return undefined;
+
+    const EPS = 0.001; // 浮點數誤差容忍，游標剛好在標記邊界上也算「在範圍內」
+    let nextLabel = null, nextStart = Infinity;
+    let prevLabel = null, prevStart = -Infinity;
+    let hasAnyMarker = false;
+
+    for (const label of allLabelsOrdered) {
+        if (timeDataMap[label] === undefined) continue;
+        const times = getCalculatedTimes(label);
+        if (!times) continue;
+        hasAnyMarker = true;
+
+        // 游標落在這個標記範圍內：不適用「游標在空白處」的邏輯
+        if (t >= times.start - EPS && t <= times.end + EPS) return undefined;
+
+        // 以「時間」而非清單順序挑選最靠近游標的標記
+        if (times.start > t && times.start < nextStart) { nextStart = times.start; nextLabel = label; }
+        if (times.end < t && times.start > prevStart) { prevStart = times.start; prevLabel = label; }
+    }
+
+    if (!hasAnyMarker) return undefined;
+    return direction > 0 ? nextLabel : prevLabel;
+}
+
+// ★ 新增：跳到某一句之後，自動播放該句（行為與列表的「播放該句」喇叭按鈕相同：播到該句結尾停止）
+function playRegionAfterJump(label, times) {
+    if (!times) return;
+    if (typeof currentLoopCounter !== 'undefined') currentLoopCounter = 0;
+
+    // 計算最大播放時間（沿用「標記只播 N 秒」的設定）
+    let targetEnd = times.end;
+    if (document.getElementById('enableMaxPlayCheck')?.checked) {
+        const maxSec = parseFloat(document.getElementById('maxPlaySecondsInput')?.value) || 2;
+        targetEnd = Math.min(times.end, times.start + maxSec);
+    }
+
+    isContinuousSortedPlay = false;
+    verifyEndTime = targetEnd;
+    verifyingLabel = label;
+    if (typeof applyCurrentPlaybackSpeed === 'function') applyCurrentPlaybackSpeed();
+
+    // 加入跳轉鎖，並重新定位到句首，再延遲 50 毫秒播放，確保 WaveSurfer 與 Audio 引擎同步
+    window.jumpLockTime = Date.now();
+    if (typeof wavesurfer !== 'undefined' && wavesurfer) {
+        wavesurfer.setTime(times.start);
+    } else if (typeof audioPlayer !== 'undefined' && audioPlayer) {
+        audioPlayer.currentTime = times.start;
+    }
+    setTimeout(() => {
+        const playPromise = (typeof wavesurfer !== 'undefined' && wavesurfer) ? wavesurfer.play() : audioPlayer.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(err => { if (err.name !== 'AbortError') console.warn(err); });
+        }
+    }, 50);
+}
+
 function jumpToRegion(direction) {
     // 1. 判斷目前焦點是否在輸入框內 (包含單句模式與劇本模式)
     const activeEl = document.activeElement;
@@ -83,9 +151,16 @@ function jumpToRegion(direction) {
 
     let targetLabel = null;
 
-    // 2. 決定下一個要跳轉的標籤 (如果沒選取，預設跳第一句)
+    // 2. 決定下一個要跳轉的標籤
     if (!currentActiveLabel) {
-        if (allLabelsOrdered.length > 0) targetLabel = allLabelsOrdered[0];
+        // ★ 修改：沒有選取任何標記時，先看「游標位置」，而不是一律跳第一句
+        const aroundCursor = findRegionAroundCursor(direction);
+        if (aroundCursor !== undefined) {
+            targetLabel = aroundCursor; // 可能是 null（該方向沒有標記可跳），此時不跳轉
+        } else if (allLabelsOrdered.length > 0) {
+            // 游標在某個標記範圍內、或沒有任何時間標記：維持原本行為，預設跳第一句
+            targetLabel = allLabelsOrdered[0];
+        }
     } else {
         const nextIdx = allLabelsOrdered.indexOf(currentActiveLabel) + direction;
         if (nextIdx >= 0 && nextIdx < allLabelsOrdered.length) {
@@ -115,6 +190,11 @@ function jumpToRegion(direction) {
                 wavesurfer.setTime(times.start);
             } else if (typeof audioPlayer !== 'undefined' && audioPlayer) {
                 audioPlayer.currentTime = times.start;
+            }
+
+            // ★ 新增：依設定「Tab 跳句時自動播放」（預設不勾選 = 只跳轉、不播放）
+            if (typeof isTabAutoPlayEnabled === 'function' && isTabAutoPlayEnabled()) {
+                playRegionAfterJump(targetLabel, times);
             }
         }
 
@@ -475,73 +555,26 @@ tagRegionBtn?.addEventListener('click', () => {
         // 若無重疊，則執行寫入邏輯
         if(typeof saveState === 'function') saveState(); // 紀錄狀態
         
-        // 1. 如果有明確選中某個「尚未標記時間」的句子，優先套用給它
-        if (currentActiveLabel && !timeDataMap[currentActiveLabel]) { 
-            timeDataMap[currentActiveLabel] = { start: tStart, end: tEnd }; 
-            showToast(`已套用至 ${currentActiveLabel}`, 'success'); 
-        } 
-        // ★ 修復：列表目前完全是空的（一句都沒有）時，直接新增一列句子來承接
-        // 這個時間標記。原本這種情況會掉進下面的「骨牌推移」邏輯，但骨牌推移
-        // 只負責在「既有的列」之間搬移時間，完全空的列表沒有任何列可以承接，
-        // 就會被判斷成「句子不足」而整個捨棄——按鈕明明可以按，點了卻什麼事
-        // 都沒發生，使用者完全看不出原因。
-        else if (allLabelsOrdered.length === 0) {
+        // ★ 修改：依設定「新增聲波標記時新增列表」決定處理方式（預設：新增列表）
+        //   勾選（新增列表）：依時間先後在列表（單句／全文）新增一列承接這個標記，
+        //                     適合一邊聽一邊打字。
+        //   取消勾選：不新增列，只把時間套用到既有的列（適合文字已分好、只是來對時間）：
+        //             目前選中的句子若還沒標記就直接套用，否則放在前一個標記之後的列，後方標記依序順延。
+        if (typeof isAddRowEnabled !== 'function' || isAddRowEnabled('tag')) {
             if (typeof insertRowChronologically === 'function') {
                 insertRowChronologically(tStart, tEnd);
             }
-        }
-        else { 
-            // 2. 否則，執行「骨牌推移 (Domino Shift)」插入邏輯
-            // 尋找這個新時間應該安插在哪一個位置 (依據時間先後順序)
-            let insertIdx = allLabelsOrdered.length;
-            for (let i = 0; i < allLabelsOrdered.length; i++) {
-                const lbl = allLabelsOrdered[i];
-                if (timeDataMap[lbl]) {
-                    const lblStart = typeof timeDataMap[lbl] === 'object' ? timeDataMap[lbl].start : timeDataMap[lbl];
-                    if (lblStart > tStart) {
-                        insertIdx = i;
-                        break;
-                    }
-                }
-            }
-
-            // 收集要往後推的現有時間標記 (包含新加入的這個)
-            let timesToReassign = [{ start: tStart, end: tEnd }];
-            for (let i = insertIdx; i < allLabelsOrdered.length; i++) {
-                const lbl = allLabelsOrdered[i];
-                if (timeDataMap[lbl]) {
-                    timesToReassign.push(timeDataMap[lbl]);
-                    delete timeDataMap[lbl]; // 先從原地拔除
-                }
-            }
-
-            // 依序貼回句子上
-            let assignIdx = insertIdx;
-            let overflowCount = 0;
-            
-            for (let i = 0; i < timesToReassign.length; i++) {
-                if (assignIdx < allLabelsOrdered.length) {
-                    timeDataMap[allLabelsOrdered[assignIdx]] = timesToReassign[i];
-                    assignIdx++;
-                } else {
-                    overflowCount++; // 如果句子不夠了，只能捨棄溢出的標記
-                }
-            }
-
-            if (overflowCount > 0) {
-                showToast(`已新增標記並推移！但句子不足，末端 ${overflowCount} 個標記已捨棄`, 'normal');
-            } else {
-                const targetLabel = allLabelsOrdered[insertIdx];
-                showToast(`已新增標記！套用至 ${targetLabel}，後方標記已順延`, 'success');
-            }
+        } else if (typeof applyTimeToExistingRows === 'function') {
+            applyTimeToExistingRows(tStart, tEnd, { preferActiveLabel: true, lead: '已套用' });
         }
         
         saveToStorage(); 
         if(typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays(); 
         if(typeof renderAllRegions === 'function') renderAllRegions(); // 確保重新繪製聲波圖，讓編號正確顯示
         
-        tempRegion.remove(); 
-        tempRegion = null;
+        // ★ 修改：reassignLabels() 內部已會清掉藍色選取框(tempRegion 變成 null)，
+        // 這裡要先判斷再移除，否則會出現 Cannot read properties of null 的錯誤
+        if (tempRegion) { tempRegion.remove(); tempRegion = null; }
     }
     
     if(typeof updateToolbarButtons === 'function') updateToolbarButtons(); 

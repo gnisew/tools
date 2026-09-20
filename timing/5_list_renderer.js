@@ -205,7 +205,7 @@ function renderSentenceList() {
 
                 <span class="sentence-text-display ${isEditMode ? 'is-editable' : ''}" ${isEditMode ? 'contenteditable="true" role="textbox" aria-multiline="false" aria-label="字幕文字，可點擊編輯"' : ''} spellcheck="false">${escapeHtml(text)}</span>
                 
-                <button class="inline-delete-btn" id="inline-del-${label}" title="刪除空白句" aria-label="刪除空白句" style="${text.trim() === '' ? 'display:flex;' : 'display:none;'}"><span class="material-icons">delete</span></button>
+                <button class="inline-delete-btn" id="inline-del-${label}" title="刪除此列與聲波標記" aria-label="刪除此列與聲波標記" style="${text.trim() === '' ? 'display:flex;' : 'display:none;'}"><span class="material-icons">delete</span></button>
             </div>
             <div class="sentence-actions">
 				<button class="action-icon-btn ai-transcribe-btn" id="ai-btn-${label}" title="單句 AI 填詞" aria-label="單句 AI 填詞"><span class="material-icons">auto_fix_high</span></button>
@@ -217,11 +217,12 @@ function renderSentenceList() {
                 <div class="custom-dropdown-menu item-more-menu" id="menu-${label}">
 					<div class="custom-dropdown-item" onclick="syncToPlayheadAndShift('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px; color:#00897B;">sync_alt</span> 對齊游標並平移後續</div>
                     <div class="custom-dropdown-item" onclick="insertUp('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">arrow_upward</span> 向上新增一列</div>
-                    <div class="custom-dropdown-item" onclick="insertDown('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">arrow_downward</span> 向下新增一列</div><hr>
-                    <div class="custom-dropdown-item" onclick="mergeUp('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">merge_type</span> 向上合併</div>
-                    <div class="custom-dropdown-item" onclick="mergeDown('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px; transform: rotate(180deg);">merge_type</span> 向下合併</div><hr>
+                    <div class="custom-dropdown-item" onclick="insertDown('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">arrow_downward</span> 向下新增一列</div>
+                    <div class="custom-dropdown-item" onclick="removeRow('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">close</span> 移除此列</div><hr>
+                    <div class="custom-dropdown-item" onclick="mergeUp('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">arrow_back</span> 向前合併聲波標記</div>
+                    <div class="custom-dropdown-item" onclick="mergeDown('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">arrow_forward</span> 向後合併聲波標記</div><hr>
                     <div class="custom-dropdown-item" onclick="downloadSingleAudio('${label}')" style="color: #1976D2;"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">music_note</span> 匯出音檔</div><hr>
-                    <div class="custom-dropdown-item" style="color: #E53935;" onclick="deleteSentence('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">delete</span> 刪除此句</div>
+                    <div class="custom-dropdown-item" style="color: #E53935;" onclick="deleteSentence('${label}')"><span class="material-icons" style="font-size:1.1rem; margin-right:4px;">delete</span> 刪除此列與聲波標記</div>
                 </div>
             </div>
         `;
