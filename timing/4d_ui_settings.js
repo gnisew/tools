@@ -69,6 +69,108 @@ if (tabAutoPlayCheck) {
     });
 }
 
+// ================= ★ 新增：匯出音檔的檔名規則 ★ =================
+// 組成順序固定為：前綴 → 標題 → 編號 → 列標文字 → 後綴，勾選的項目之間用「中綴」（預設 "_"）隔開。
+//   編號 = 列表上顯示的編號（預設 A01 這類 ABC 段落編號；若設為連續編號則是 001、002…）
+//   預設：標題 ✗、編號 ✓、列標文字 ✓、前綴 ✗、中綴 ✓（"_"）、後綴 ✗  → 例如 A01_今天天氣很好.wav
+//   這與舊版的檔名規則相同（舊版固定是「編號_文字」）。
+const AUDIO_NAME_KEY = 'tagger_audioNameRule';
+const AUDIO_NAME_DEFAULT = {
+    title: false, number: true, text: true,
+    prefixOn: false, prefix: '',
+    infixOn: true, infix: '_',
+    suffixOn: false, suffix: '',
+    removePunct: false // 移除標點：只套用於「標題」與「列標文字」（前綴、後綴、中綴是你自己輸入的，編號是系統產生的，都不處理）
+};
+const AUDIO_NAME_CONTROLS = {
+    title: 'audioNameTitleCheck', number: 'audioNameNumberCheck', text: 'audioNameTextCheck',
+    prefixOn: 'audioNamePrefixCheck', prefix: 'audioNamePrefixInput',
+    infixOn: 'audioNameInfixCheck', infix: 'audioNameInfixInput',
+    suffixOn: 'audioNameSuffixCheck', suffix: 'audioNameSuffixInput',
+    removePunct: 'audioNameRemovePunctCheck'
+};
+
+window.getAudioNameRule = function() {
+    try {
+        return { ...AUDIO_NAME_DEFAULT, ...JSON.parse(localStorage.getItem(AUDIO_NAME_KEY) || '{}') };
+    } catch (e) {
+        return { ...AUDIO_NAME_DEFAULT };
+    }
+};
+
+// 依規則把各部分組成檔名（不含副檔名）。parts = { title, number, text }
+window.composeAudioName = function(parts, rule) {
+    rule = rule || window.getAudioNameRule();
+    const seq = [];
+    const push = (value, maxLen) => {
+        const clean = sanitizeFilename(String(value == null ? '' : value)).substring(0, maxLen).trim();
+        if (clean) seq.push(clean);
+    };
+    if (rule.prefixOn) push(rule.prefix, 30);
+    // 移除標點要在「截斷長度」之前處理，才不會把標點也算進 30 字的額度
+    const strip = (v) => (rule.removePunct && typeof removePunctuationFromText === 'function') ? removePunctuationFromText(String(v == null ? '' : v)) : v;
+    if (rule.title)    push(strip(parts.title), 50);
+    if (rule.number)   push(parts.number, 30);
+    if (rule.text)     push(strip(parts.text), 30);
+    if (rule.suffixOn) push(rule.suffix, 30);
+    const sep = rule.infixOn ? String(rule.infix == null ? '' : rule.infix).replace(/[\\/:*?"<>|]/g, '_') : '';
+    return seq.join(sep);
+};
+
+// 取得某一句匯出時的檔名（不含副檔名）。全部項目都沒勾或內容皆為空白時，退回內部標籤，避免檔名變成空白
+window.buildAudioExportBaseName = function(label) {
+    const title = (localStorage.getItem('tagger_projectTitle') || document.getElementById('mainTitleDisplay')?.textContent || '').trim();
+    const number = typeof window.getDisplayLabel === 'function' ? window.getDisplayLabel(label) : label;
+    const text = (typeof sentenceTextMap !== 'undefined' && sentenceTextMap[label]) || '';
+    const name = window.composeAudioName({ title, number, text });
+    return name || sanitizeFilename(String(label));
+};
+
+// 設定面板：讀寫與即時預覽
+function saveAudioNameRule() {
+    const rule = {};
+    Object.entries(AUDIO_NAME_CONTROLS).forEach(([key, id]) => {
+        const el = document.getElementById(id);
+        if (!el) { rule[key] = AUDIO_NAME_DEFAULT[key]; return; }
+        rule[key] = el.type === 'checkbox' ? el.checked : el.value;
+    });
+    localStorage.setItem(AUDIO_NAME_KEY, JSON.stringify(rule));
+}
+
+function refreshAudioNamePreview() {
+    const rule = window.getAudioNameRule();
+    // 沒勾選的項目，其輸入框反灰
+    [['prefixOn', 'audioNamePrefixInput'], ['infixOn', 'audioNameInfixInput'], ['suffixOn', 'audioNameSuffixInput']].forEach(([flag, id]) => {
+        const input = document.getElementById(id);
+        if (input) input.disabled = !rule[flag];
+    });
+
+    const previewEl = document.getElementById('audioNamePreview');
+    if (!previewEl) return;
+    const ext = document.getElementById('exportAudioFormatSelect')?.value === 'mp3' ? '.mp3' : '.wav';
+    let name;
+    if (typeof allLabelsOrdered !== 'undefined' && allLabelsOrdered.length > 0) {
+        name = window.buildAudioExportBaseName(allLabelsOrdered[0]); // 用第一句當範例
+    } else {
+        name = window.composeAudioName({ title: '專案標題', number: 'A01', text: '範例，句子。' }, rule) || 'A01';
+    }
+    previewEl.textContent = name + ext;
+}
+
+Object.entries(AUDIO_NAME_CONTROLS).forEach(([key, id]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const rule = window.getAudioNameRule();
+    if (el.type === 'checkbox') el.checked = !!rule[key]; else el.value = rule[key];
+    el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', () => {
+        saveAudioNameRule();
+        refreshAudioNamePreview();
+    });
+});
+document.getElementById('exportAudioFormatSelect')?.addEventListener('change', refreshAudioNamePreview);
+document.getElementById('labelDisplayModeSelect')?.addEventListener('change', () => setTimeout(refreshAudioNamePreview, 0));
+refreshAudioNamePreview();
+
 // 綁定「依靜音斷句」的四個滑桿
 initAutoSegmentSetting('asThreshold', 'asThresholdVal', 'tagger_asThreshold', v => `(${v}%)`);
 initAutoSegmentSetting('asDetectionMode', null, 'tagger_asDetectionMode', null); // ★ 新增：偵測模式（Peak/RMS），預設 peak 與舊行為完全相同

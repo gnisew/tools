@@ -474,6 +474,42 @@
                     <option value="mp3">MP3 壓縮檔 (輕巧快速)</option>
                     <option value="wav" selected>WAV 無損原始檔</option>
                 </select>
+
+                <div class="setting-block" style="margin-top: 14px;">
+                    <span class="setting-label">匯出音檔的檔名規則</span>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="audioNamePrefixCheck" class="setting-checkbox">
+                        前綴
+                        <input aria-label="檔名前綴" type="text" id="audioNamePrefixInput" class="input-number-sm" style="width: 110px; text-align: left;" placeholder="輸入前綴">
+                    </label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="audioNameTitleCheck" class="setting-checkbox">
+                        標題
+                    </label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="audioNameNumberCheck" class="setting-checkbox" checked>
+                        編號（ABC 段落編號或連續數字，依「列表編號顯示方式」）
+                    </label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="audioNameTextCheck" class="setting-checkbox" checked>
+                        列標文字
+                    </label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="audioNameSuffixCheck" class="setting-checkbox">
+                        後綴
+                        <input aria-label="檔名後綴" type="text" id="audioNameSuffixInput" class="input-number-sm" style="width: 110px; text-align: left;" placeholder="輸入後綴">
+                    </label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="audioNameInfixCheck" class="setting-checkbox" checked>
+                        中綴（各項目之間的分隔字元）
+                        <input aria-label="檔名中綴" type="text" id="audioNameInfixInput" class="input-number-sm" value="_" maxlength="3">
+                    </label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="audioNameRemovePunctCheck" class="setting-checkbox">
+                        移除標點（套用於標題與列標文字）
+                    </label>
+                    <span class="setting-hint">檔名預覽：<b id="audioNamePreview" style="color:#00695C; word-break: break-all;"></b></span>
+                </div>
             </div>
 			<div class="sidebar-group">
                 <h4>AI 語音辨識設定</h4>
@@ -645,7 +681,7 @@
                 <input type="file" id="batchConvertInput" accept=".zip,.json,.srt,.tsv,.txt" multiple style="width: 100%; padding: 12px; border: 1px dashed #7B1FA2; border-radius: 6px; background: #F3E5F5; box-sizing: border-box; cursor: pointer;">
             </div>
 
-            <div style="margin-bottom: 25px;">
+            <div style="margin-bottom: 20px;">
                 <label for="batchConvertTargetFormat" style="display:block; margin-bottom:8px; font-weight:bold; font-size:0.95rem;">2. 選擇輸出格式</label>
                 <select id="batchConvertTargetFormat" class="input-select" style="width:100%; border: 1px solid #7B1FA2; color:#7B1FA2; font-weight:bold; padding: 10px; border-radius: 6px;">
                     <option value="tsv">試算表 (TSV)</option>
@@ -654,6 +690,15 @@
                     <option value="txt">純文字段落 (.txt)</option>
                     <option value="json">烏衣行專案檔 (.json)</option>
                 </select>
+            </div>
+
+            <div style="margin-bottom: 25px;">
+                <span style="display:block; margin-bottom:8px; font-weight:bold; font-size:0.95rem;">3. 其他選項</span>
+                <label for="batchRemovePunctuationCheck" id="batchRemovePunctuationLabel" style="display:flex; align-items:center; gap:8px; font-size:0.95rem; cursor:pointer;">
+                    <input type="checkbox" id="batchRemovePunctuationCheck" style="width:18px; height:18px; accent-color:#7B1FA2; cursor:pointer;">
+                    移除標點(無法復原)
+                </label>
+                <span id="batchRemovePunctuationHint" style="display:block; margin-top:4px; font-size:0.8rem; color:#888;">僅適用於輸出 TSV、字幕檔 (SRT)、Audacity 標籤；純文字段落與專案檔 (JSON) 不可移除標點。</span>
             </div>
 
             <div class="modal-buttons" style="margin-top: 0; padding-top: 16px; border-top: 1px solid #E0E0E0; justify-content: flex-end;">

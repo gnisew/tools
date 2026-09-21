@@ -479,6 +479,26 @@ function closeCustomDialog() {
 }
 
 function sanitizeFilename(name) { return name.replace(/[\\/:*?"<>|]/g, '_').trim(); }
+
+// 移除標點：移除所有 Unicode 標點符號（含全形「，。！？、：；「」『』（）…—」等）與 ~ ～，並保留換行。
+// 為了不破壞內容，下列情況會保留：
+//   - 英數字之間的 ' ’ -（例如 don't、well-known）
+//   - 數字之間的 . , :（例如 3.5、1,000、12:30）
+// 移除後若出現連續空白，會合併成一個空白，並去除每行頭尾空白。
+function removePunctuationFromText(text) {
+    if (!text) return text;
+    const removed = String(text).replace(/[\p{P}~～]/gu, (ch, offset, str) => {
+        const prev = str[offset - 1] || '';
+        const next = str[offset + 1] || '';
+        if (/['’\-]/.test(ch) && /[A-Za-z0-9]/.test(prev) && /[A-Za-z0-9]/.test(next)) return ch;
+        if (/[.,:]/.test(ch) && /[0-9]/.test(prev) && /[0-9]/.test(next)) return ch;
+        return '';
+    });
+    return removed
+        .split('\n')
+        .map(line => line.replace(/[ \t\u3000]{2,}/g, ' ').trim())
+        .join('\n');
+}
 function formatTime(seconds) {
     if (isNaN(seconds)) return "0:00";
     const m = Math.floor(seconds / 60);

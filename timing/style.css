@@ -441,7 +441,7 @@ input[type="range"] { flex: 1; accent-color: #00897B; }
 .sentence-item:last-child { border-bottom: none; }
 .sentence-item:hover { background-color: #FAFAFA; } 
 .sentence-item.tagged { border-left: 4px solid #B2DFDB; }
-.sentence-item.playing { background: #F2F9F8; border-left: 4px solid #00897B; border-bottom: 1px solid #E0F2F1; box-shadow: 0 2px 8px rgba(0, 137, 123, 0.06); border-radius: 4px; }
+.sentence-item.playing { background: #DDF0EC; /* ★ 修改：原 #F2F9F8 太淺，加深一點點 */ border-left: 4px solid #00897B; border-bottom: 1px solid #E0F2F1; box-shadow: 0 2px 8px rgba(0, 137, 123, 0.06); border-radius: 4px; }
 .sentence-item.selected-row { background-color: #E3F2FD !important; border-left: 4px solid #1976D2 !important;}
 
 body.is-view-mode .sentence-item.tagged { border-left: 4px solid transparent; }

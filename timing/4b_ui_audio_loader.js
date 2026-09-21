@@ -110,9 +110,9 @@ function handleSingleLocalFile(file) {
         showCustomDialog({
             title: `偵測到 ${typeName}`,
             message: warnMsg,
-            confirmText: '轉存無損 WAV (強烈建議)', altText: `直接載入原檔`, cancelText: '取消',
+            confirmText: '轉存無損 WAV (建議)', altText: `直接載入`, cancelText: '取消',
             onConfirm: async () => {
-                showToast('高音質解碼同步中，請稍候...', 'normal');
+                showToast('高音質解碼...', 'normal');
                 try {
                     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                     const arrayBuffer = await file.arrayBuffer();
@@ -139,7 +139,7 @@ function handleSingleLocalFile(file) {
                     
                     checkNameAndLoad(true, wavBlob);
                 } catch (err) { 
-                    showToast('解碼失敗，將直接載入原檔', 'error'); 
+                    showToast('解碼失敗，改載入原檔', 'error'); 
                     checkNameAndLoad(true, file); 
                 }
             },

@@ -291,6 +291,27 @@ window.cutAudioRegion = async function(start, end) {
     setTimeout(reinitWaveSurfer, 1500);
 };
 
+// ★ 新增：匯出音檔的檔名（含副檔名），依「設定 → 匯出音檔的檔名規則」組成。
+// usedNames（Set，選填）：打包 ZIP 時傳入，遇到重複的檔名會自動加上 (2)、(3)…，避免同名檔案互相覆蓋
+// （取消勾選「編號」後，不同句子有可能組出相同檔名）。
+// 若設定模組(4d_ui_settings.js)未載入，退回舊規則：編號_文字。
+function getAudioExportFilename(label, ext, usedNames) {
+    let base;
+    if (typeof buildAudioExportBaseName === 'function') {
+        base = buildAudioExportBaseName(label);
+    } else {
+        const safeText = sanitizeFilename(sentenceTextMap[label] || '').substring(0, 30);
+        base = `${label}${safeText ? '_' + safeText : ''}`;
+    }
+    let filename = base + ext;
+    if (usedNames) {
+        let n = 2;
+        while (usedNames.has(filename.toLowerCase())) { filename = `${base}(${n})${ext}`; n++; }
+        usedNames.add(filename.toLowerCase());
+    }
+    return filename;
+}
+
 window.downloadSingleAudio = function(label) {
     if (!wavesurfer || !wavesurfer.getDecodedData()) return showToast('請先載入音檔並等待分析完成', 'error');
     const times = getCalculatedTimes(label);
@@ -304,9 +325,8 @@ window.downloadSingleAudio = function(label) {
         const ext = format === 'mp3' ? '.mp3' : '.wav';
         const finalBlob = format === 'mp3' ? audioBufferToMp3(slicedBuffer) : audioBufferToWav(slicedBuffer);
         
-        const text = sentenceTextMap[label] || '';
-        const safeText = sanitizeFilename(text).substring(0, 30); 
-        const filename = `${label}${safeText ? '_' + safeText : ''}${ext}`;
+        // ★ 修改：檔名改依設定的檔名規則組成
+        const filename = getAudioExportFilename(label, ext);
         
         const url = URL.createObjectURL(finalBlob);
         const a = document.createElement('a');
@@ -361,15 +381,15 @@ exportAudioZipBtn?.addEventListener('click', () => {
         const buffer = wavesurfer.getDecodedData();
         const format = exportAudioFormatSelect.value;
         const ext = format === 'mp3' ? '.mp3' : '.wav';
+        const usedNames = new Set(); // ★ 新增：記錄已用過的檔名，避免重複覆蓋
         
         labelsToExport.forEach(label => {
             const times = getCalculatedTimes(label);
             if (times) {
                 const slicedBuffer = sliceAudioBuffer(buffer, times.start, times.end);
                 const finalBlob = format === 'mp3' ? audioBufferToMp3(slicedBuffer) : audioBufferToWav(slicedBuffer);
-                const text = sentenceTextMap[label] || '';
-                const safeText = sanitizeFilename(text).substring(0, 30);
-                const filename = `${label}${safeText ? '_' + safeText : ''}${ext}`;
+                // ★ 修改：檔名改依設定的檔名規則組成，並自動處理重複檔名
+                const filename = getAudioExportFilename(label, ext, usedNames);
                 zip.file(filename, finalBlob);
             }
         });
@@ -850,6 +870,7 @@ window.processAdvancedDownload = async function(labels, mode, silenceSeconds) {
         if (typeof JSZip === 'undefined') return showToast('缺少 JSZip 套件', 'error');
         showToast(`開始打包 ${labels.length} 個音檔...`, 'normal');
         const zip = new JSZip();
+        const usedNames = new Set(); // ★ 新增：記錄已用過的檔名，避免重複覆蓋
         
         for (let i = 0; i < labels.length; i++) {
             const label = labels[i];
@@ -857,9 +878,8 @@ window.processAdvancedDownload = async function(labels, mode, silenceSeconds) {
             if (times) {
                 const slicedBuffer = sliceAudioBuffer(buffer, times.start, times.end);
                 const finalBlob = format === 'mp3' ? audioBufferToMp3(slicedBuffer) : audioBufferToWav(slicedBuffer);
-                const text = sentenceTextMap[label] || '';
-                const safeText = sanitizeFilename(text).substring(0, 30);
-                const filename = `${label}${safeText ? '_' + safeText : ''}${ext}`;
+                // ★ 修改：檔名改依設定的檔名規則組成，並自動處理重複檔名
+                const filename = getAudioExportFilename(label, ext, usedNames);
                 zip.file(filename, finalBlob);
             }
         }

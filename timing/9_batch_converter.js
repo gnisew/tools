@@ -7,16 +7,54 @@ const startBatchConvertBtn = document.getElementById('startBatchConvertBtn');
 const batchConvertInput = document.getElementById('batchConvertInput');
 const batchConvertTargetFormat = document.getElementById('batchConvertTargetFormat');
 
+// ================= ★ 新增：「移除標點(無法復原)」選項 ★ =================
+// 預設不勾選。只有輸出格式為 TSV / SRT / Audacity 時可用；
+// 純文字段落 (txt) 與專案檔 (json) 不可移除標點（切換到這兩種格式時會自動取消勾選並停用）。
+const batchRemovePunctuationCheck = document.getElementById('batchRemovePunctuationCheck');
+const batchRemovePunctuationLabel = document.getElementById('batchRemovePunctuationLabel');
+const batchRemovePunctuationHint = document.getElementById('batchRemovePunctuationHint');
+const PUNCT_REMOVABLE_FORMATS = ['tsv', 'srt', 'audacity'];
+
+function updateRemovePunctuationAvailability() {
+    if (!batchRemovePunctuationCheck || !batchConvertTargetFormat) return;
+    const supported = PUNCT_REMOVABLE_FORMATS.includes(batchConvertTargetFormat.value);
+    batchRemovePunctuationCheck.disabled = !supported;
+    if (!supported) batchRemovePunctuationCheck.checked = false; // 不支援的格式：取消勾選，避免看起來「勾了卻沒作用」
+    if (batchRemovePunctuationLabel) {
+        batchRemovePunctuationLabel.style.opacity = supported ? '1' : '0.45';
+        batchRemovePunctuationLabel.style.cursor = supported ? 'pointer' : 'not-allowed';
+    }
+    if (batchRemovePunctuationHint) {
+        batchRemovePunctuationHint.style.color = supported ? '#888' : '#C62828';
+        batchRemovePunctuationHint.textContent = supported
+            ? '僅適用於輸出 TSV、字幕檔 (SRT)、Audacity 標籤；純文字段落與專案檔 (JSON) 不可移除標點。'
+            : '目前選擇的輸出格式（純文字段落／專案檔 JSON）不可移除標點。';
+    }
+}
+batchConvertTargetFormat?.addEventListener('change', updateRemovePunctuationAvailability);
+updateRemovePunctuationAvailability();
+
+// 每次開啟視窗都恢復成預設（不勾選），避免上次的破壞性選項被不小心帶入
+function resetRemovePunctuationOption() {
+    if (batchRemovePunctuationCheck) batchRemovePunctuationCheck.checked = false;
+    updateRemovePunctuationAvailability();
+}
+
+// ★ 移除標點的實作 removePunctuationFromText() 已移至 1_globals.js，
+// 與「設定 → 匯出音檔的檔名規則 → 移除標點」共用同一份，這裡不再重複定義。
+
 // 開關視窗邏輯：側邊欄的按鈕 (需要先關閉側邊欄再開視窗)
 sidebarBatchConvertBtn?.addEventListener('click', () => {
     document.getElementById('closeSidebarBtn')?.click(); 
     setTimeout(() => {
+        resetRemovePunctuationOption(); // ★ 新增：開啟時恢復預設（不勾選）
         batchConvertModalOverlay.classList.add('show');
         document.body.style.overflow = 'hidden';
     }, 300);
 });
 
 homeBatchConvertBtn?.addEventListener('click', () => {
+    resetRemovePunctuationOption(); // ★ 新增：開啟時恢復預設（不勾選）
     batchConvertModalOverlay.classList.add('show');
     document.body.style.overflow = 'hidden';
 });
@@ -124,6 +162,8 @@ startBatchConvertBtn?.addEventListener('click', async () => {
     if (typeof JSZip === 'undefined') return showToast('缺少 JSZip 套件，無法處理壓縮檔', 'error');
 
     const targetFormat = batchConvertTargetFormat.value;
+    // ★ 新增：是否移除標點——必須「有勾選」且輸出格式為 TSV / SRT / Audacity 才會執行（JSON、純文字段落一律不移除）
+    const removePunctuation = !!batchRemovePunctuationCheck?.checked && PUNCT_REMOVABLE_FORMATS.includes(targetFormat);
     // 決定輸出的副檔名
     let outExt = targetFormat;
     if (targetFormat === 'audacity') outExt = 'txt';
@@ -145,7 +185,11 @@ startBatchConvertBtn?.addEventListener('click', async () => {
     try {
         // 幫助函式：處理單一文字內容
         const processFileContent = (contentStr, filename, originalExt) => {
-            const items = parseAnyToStandard(contentStr, originalExt, filename);
+            let items = parseAnyToStandard(contentStr, originalExt, filename);
+            // ★ 新增：移除標點（只處理文字內容，時間與標籤不動）
+            if (removePunctuation) {
+                items = items.map(item => ({ ...item, text: removePunctuationFromText(item.text) }));
+            }
             if (items.length > 0) {
                 const outputStr = buildStandardToAny(items, targetFormat, filename);
                 if (outputStr) {
@@ -211,9 +255,9 @@ startBatchConvertBtn?.addEventListener('click', async () => {
         setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
 
         if (skippedFiles.length > 0) {
-            showToast(`成功轉換 ${processedCount} 個檔案，但有 ${skippedFiles.length} 個檔案無法解析已略過`, 'normal');
+            showToast(`成功轉換 ${processedCount} 個檔案${removePunctuation ? '（已移除標點）' : ''}，但有 ${skippedFiles.length} 個檔案無法解析已略過`, 'normal');
         } else {
-            showToast(`成功轉換 ${processedCount} 個檔案並打包下載！`, 'success');
+            showToast(`成功轉換 ${processedCount} 個檔案${removePunctuation ? '（已移除標點）' : ''}並打包下載！`, 'success');
         }
 
     } catch (err) {
