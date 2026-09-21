@@ -689,7 +689,12 @@
                     <option value="audacity">Audacity 標籤 (.txt)</option>
                     <option value="txt">純文字段落 (.txt)</option>
                     <option value="json">烏衣行專案檔 (.json)</option>
+                    <option value="audio">多個獨立音檔 (逐句切割 .wav)</option>
                 </select>
+                <span id="batchAudioFormatHint" style="display:none; margin-top:6px; font-size:0.8rem; color:#888;">
+                    僅支援專案檔 (.json) 且內含「線上音檔網址」者；本機上傳的音檔沒有備份網址，無法在批次轉檔中還原，請改用單一專案內的「打包音檔」功能。<br>
+                    預設檔名規則：<b>標題_編號_句子內容.wav</b>
+                </span>
             </div>
 
             <div style="margin-bottom: 25px;">
