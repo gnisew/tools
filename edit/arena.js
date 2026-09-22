@@ -49,6 +49,66 @@ window.launchArenaMode = function(rawData, configs) {
         setTimeout(() => el.remove(), 1500);
     }
 
+    // ----------------------------------------------------
+    // 🔊 音效系統 (Web Audio API 即時合成，無須外部音檔)
+    // ----------------------------------------------------
+    let arenaAudioCtx = null;
+    function getArenaAudioCtx() {
+        try {
+            if (!arenaAudioCtx) arenaAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (arenaAudioCtx.state === 'suspended') arenaAudioCtx.resume();
+            return arenaAudioCtx;
+        } catch (e) { return null; }
+    }
+
+    function playArenaTone(freq, duration = 0.12, type = 'sine', delay = 0, volume = 0.15) {
+        const ctx = getArenaAudioCtx();
+        if (!ctx) return;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        const t0 = ctx.currentTime + delay;
+        gain.gain.setValueAtTime(0, t0);
+        gain.gain.linearRampToValueAtTime(volume, t0 + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + duration + 0.03);
+    }
+
+    const ArenaSound = {
+        // 倒數滴答聲：最後 3 秒轉為急促高音，製造緊張感
+        tick(urgent = false) {
+            playArenaTone(urgent ? 1150 : 800, urgent ? 0.09 : 0.07, 'square', 0, urgent ? 0.14 : 0.08);
+        },
+        // 公佈答案音效
+        reveal() {
+            playArenaTone(587, 0.14, 'triangle', 0, 0.16);
+            playArenaTone(880, 0.2, 'triangle', 0.13, 0.16);
+        },
+        // 頒獎台歡呼（琶音和弦模擬歡呼氣氛）
+        cheer() {
+            [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => playArenaTone(f, 0.4, 'triangle', i * 0.08, 0.12));
+        },
+        // 頒獎台名次揭曉的小提示音（如擊鼓聲）
+        drumHit() {
+            playArenaTone(196, 0.18, 'sawtooth', 0, 0.13);
+            playArenaTone(261.6, 0.22, 'sawtooth', 0.08, 0.13);
+        },
+        // 學生端：答對提示音
+        correct() {
+            playArenaTone(523.25, 0.1, 'sine', 0, 0.18);
+            playArenaTone(659.25, 0.12, 'sine', 0.1, 0.18);
+            playArenaTone(783.99, 0.18, 'sine', 0.2, 0.18);
+        },
+        // 學生端：答錯提示音
+        wrong() {
+            playArenaTone(220, 0.22, 'sawtooth', 0, 0.14);
+            playArenaTone(164.8, 0.28, 'sawtooth', 0.12, 0.14);
+        }
+    };
+
     // ✨ QR 碼視窗
     function getQrModalHtml(spaceCode) {
         if (!spaceCode) return '';
@@ -124,6 +184,91 @@ window.launchArenaMode = function(rawData, configs) {
 		}
     }
 
+    // ----------------------------------------------------
+    // ✨ 學生斷線重連：把「我是誰、在哪個空間」記在瀏覽器本機
+    // ----------------------------------------------------
+    const ARENA_SESSION_KEY = 'arenaStudentSession';
+    const ARENA_SESSION_MAX_AGE = 6 * 60 * 60 * 1000; // 6 小時內都嘗試自動重連，避免抓到過期的舊場次
+
+    function generateSessionToken() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') return window.crypto.randomUUID();
+        return 't_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    }
+
+    function saveArenaSession(spaceCode, playerName, token) {
+        try {
+            localStorage.setItem(ARENA_SESSION_KEY, JSON.stringify({ spaceCode, playerName, token, ts: Date.now() }));
+        } catch (e) { /* 無痕模式等情況下可能無法寫入，忽略即可 */ }
+    }
+
+    function loadArenaSession() {
+        try {
+            const raw = localStorage.getItem(ARENA_SESSION_KEY);
+            if (!raw) return null;
+            const s = JSON.parse(raw);
+            if (!s || !s.spaceCode || !s.playerName || !s.token) return null;
+            if (Date.now() - (s.ts || 0) > ARENA_SESSION_MAX_AGE) {
+                clearArenaSession();
+                return null;
+            }
+            return s;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function clearArenaSession() {
+        try { localStorage.removeItem(ARENA_SESSION_KEY); } catch (e) { /* 忽略 */ }
+    }
+
+    function renderReconnectingScreen() {
+        arenaContainer.innerHTML = `
+            <div class="w-full h-full bg-[#f3f4f6] font-sans select-none overflow-y-auto">
+                <div class="min-h-full flex flex-col items-center justify-center p-4 text-center">
+                    <div class="w-14 h-14 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-6"></div>
+                    <h2 class="text-2xl md:text-3xl font-extrabold text-gray-800 mb-2">正在為你重新連線...</h2>
+                    <p class="text-gray-500 font-bold mb-8">請稍候，馬上帶你回到剛剛的畫面</p>
+                    <button id="btn-cancel-reconnect" class="text-gray-400 font-bold underline cursor-pointer hover:text-gray-600">不是我 / 離開這個空間</button>
+                </div>
+            </div>
+        `;
+        const btn = document.getElementById('btn-cancel-reconnect');
+        if (btn) btn.addEventListener('click', leaveArenaSession);
+    }
+
+    function leaveArenaSession() {
+        clearArenaSession();
+        if (unsubscribeSpace) { unsubscribeSpace(); unsubscribeSpace = null; }
+        if (unsubscribeStudentSelf) { unsubscribeStudentSelf(); unsubscribeStudentSelf = null; }
+        if (window.currentStudentTimer) { clearInterval(window.currentStudentTimer); window.currentStudentTimer = null; }
+        renderRoleSelection();
+    }
+
+    // 嘗試用本機記錄的舊 session 自動帶回原本的空間；失敗就清掉記錄，退回正常的加入流程
+    async function attemptReconnect(session, fallbackJoinCode) {
+        renderReconnectingScreen();
+        try {
+            const spaceRef = db.collection(window.SPACES_COLLECTION).doc(session.spaceCode);
+            const playerRef = spaceRef.collection("players").doc(session.playerName);
+            const [spaceDoc, playerDoc] = await Promise.all([spaceRef.get(), playerRef.get()]);
+
+            if (!spaceDoc.exists || !playerDoc.exists) throw new Error('GONE');
+            const playerData = playerDoc.data();
+            // sessionToken 不吻合，代表這個名字現在是被別人（別的瀏覽器）用的，不能硬接回去
+            if (playerData.sessionToken && playerData.sessionToken !== session.token) throw new Error('MISMATCH');
+
+            showToast(`👋 歡迎回來，${session.playerName}！`);
+            startStudentListener(session.spaceCode, session.playerName);
+        } catch (err) {
+            clearArenaSession();
+            if (fallbackJoinCode) {
+                renderStudentJoinForm(fallbackJoinCode);
+            } else {
+                renderRoleSelection();
+            }
+        }
+    }
+
     function prepareQuizData(isJustCounting = false, hostSettings = null) {
         let parsed = [];
         if (configs.mcConfig) {
@@ -144,14 +289,15 @@ window.launchArenaMode = function(rawData, configs) {
         if (hostSettings && hostSettings.qCount) parsed = parsed.slice(0, hostSettings.qCount);
         
         parsed.forEach(q => {
-            if (!q.options || q.options.length < 4) {
+            if (!q.options) {
+                // ✨ 沒有自訂選項的題目（例如「配對」題庫）：自動從其他題目湊出最多 4 個選項
                 let opts = [q.definition];
                 let wrongOpts = parsed.filter(d => d.definition !== q.definition).map(d => d.definition);
                 wrongOpts = [...new Set(wrongOpts)].sort(() => Math.random() - 0.5); 
                 opts.push(...wrongOpts.slice(0, 3)); 
-                while(opts.length < 4) opts.push("無選項"); 
                 q.options = opts.sort(() => Math.random() - 0.5); 
             } else {
+                // ✨ 已有自訂選項（例如「選擇」題庫）：保留原始選項數量，不強制補到 4 個
                 q.options.sort(() => Math.random() - 0.5);
             }
         });
@@ -167,7 +313,13 @@ window.launchArenaMode = function(rawData, configs) {
     function renderRoleSelection() {
         const urlParams = new URLSearchParams(window.location.search);
         const autoJoinCode = urlParams.get('arena');
-        
+
+        // ✨ 如果瀏覽器記得「我剛剛在哪個空間、叫什麼名字」，優先嘗試自動重連
+        const savedSession = loadArenaSession();
+        if (savedSession) {
+            return attemptReconnect(savedSession, autoJoinCode);
+        }
+
         if (autoJoinCode) {
             return renderStudentJoinForm(autoJoinCode);
         }
@@ -702,14 +854,41 @@ window.launchArenaMode = function(rawData, configs) {
             const btn = document.getElementById('btn-reveal-answer');
             if (btn) btn.disabled = true;
 
+            ArenaSound.reveal(); // 🔊 公佈答案音效
+
             const correctText = qData.definition;
             const correctIdx = qData.options.indexOf(correctText);
+
+            // ✨ 計分規則：越快答對分數越高 + 連續答對加成 (Kahoot 風格)
+            const qTimeTotal = arenaSettings.qTime || 15;
+            const SPEED_BASE = 50;        // 答對的基本分
+            const SPEED_BONUS_MAX = 50;   // 依速度可再拿到的加成上限
+            const STREAK_BONUS_PER = 10;  // 每多連續答對一題的加成
+            const STREAK_BONUS_CAP = 5;   // 連續加成最多計算的題數
 
             const batch = db.batch();
             globalPlayers.forEach(p => {
                 if (p.answeredQuestion === currentQIndex && p.lastAnswer === correctIdx) {
+                    // 依剩餘時間比例給分：反應時間越短，分數越接近滿分
+                    const reactionTime = p.lastReactionTime || 0;
+                    const speedRatio = Math.max(0, Math.min(1, (qTimeTotal - reactionTime) / qTimeTotal));
+                    const speedScore = Math.round(SPEED_BASE + SPEED_BONUS_MAX * speedRatio);
+
+                    // 往前檢查連續答對題數（含本題）
+                    let streak = 1;
+                    let i = currentQIndex - 1;
+                    while (i >= 0) {
+                        const prevQ = gameData[i];
+                        const prevCorrectIdx = prevQ.options.indexOf(prevQ.definition);
+                        if (p[`ans_${i}`] === prevCorrectIdx) { streak++; i--; }
+                        else break;
+                    }
+                    const streakBonus = Math.min(streak - 1, STREAK_BONUS_CAP) * STREAK_BONUS_PER;
+
+                    const gained = speedScore + streakBonus;
+
                     const pRef = db.collection(window.SPACES_COLLECTION).doc(spaceCode).collection("players").doc(p.name);
-                    batch.update(pRef, { score: (p.score || 0) + 100 });
+                    batch.update(pRef, { score: (p.score || 0) + gained, lastGainedScore: gained });
                 }
             });
             await batch.commit();
@@ -783,6 +962,7 @@ window.launchArenaMode = function(rawData, configs) {
             timeLeft--;
             const timerDisplay = document.getElementById('timer-display');
             if (timerDisplay) timerDisplay.textContent = Math.max(0, timeLeft);
+            if (timeLeft > 0) ArenaSound.tick(timeLeft <= 3); // 🔊 倒數滴答聲，最後 3 秒轉急促
             if (timeLeft <= 0) triggerReveal();
         }, 1000);
     }
@@ -848,7 +1028,7 @@ window.launchArenaMode = function(rawData, configs) {
                     </div>
 
                     <div class="flex-1 flex items-end justify-center gap-4 sm:gap-12 h-full py-2 z-20">
-                        ${[0, 1, 2, 3].map(i => {
+                        ${qData.options.map((_, i) => {
                             const heightPct = maxCount === 0 ? 0 : (ansCounts[i] / maxCount) * 80;
                             const isCorrect = (i === correctIdx);
                             const count = ansCounts[i];
@@ -1069,6 +1249,132 @@ window.launchArenaMode = function(rawData, configs) {
     }
 
     // ----------------------------------------------------
+    // ✨ 成績分析與匯出：各題對錯人數／各選項作答人數統計
+    // ----------------------------------------------------
+    function escAnalysisHtml(str) {
+        return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function getQuestionStats() {
+        return gameData.map((q, i) => {
+            const correctIdx = q.options.indexOf(q.definition);
+            const counts = q.options.map(() => 0);
+            let unanswered = 0;
+            globalPlayers.forEach(p => {
+                const a = p[`ans_${i}`];
+                if (a === undefined || a === null || counts[a] === undefined) {
+                    unanswered++;
+                } else {
+                    counts[a]++;
+                }
+            });
+            const correctCount = counts[correctIdx] || 0;
+            const totalAnswered = counts.reduce((a, b) => a + b, 0);
+            return { index: i, term: q.term, options: q.options, correctIdx, counts, correctCount, wrongCount: totalAnswered - correctCount, unanswered };
+        });
+    }
+
+    function getArenaAnalysisModalHtml() {
+        const stats = getQuestionStats();
+        const total = globalPlayers.length || 1;
+        const listHtml = stats.length === 0 ? `<p class="text-white/50 text-center py-10">沒有題目資料</p>` : stats.map(s => `
+            <div class="bg-white/5 rounded-xl p-4 border border-white/10">
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <h4 class="text-white font-bold text-sm md:text-base leading-snug flex-1">${s.index + 1}. ${escAnalysisHtml(s.term)}</h4>
+                    <div class="flex gap-2 flex-shrink-0 text-xs font-bold whitespace-nowrap pt-0.5">
+                        <span class="text-green-400">✔ ${s.correctCount}</span>
+                        <span class="text-red-400">✘ ${s.wrongCount}</span>
+                        ${s.unanswered > 0 ? `<span class="text-white/40">未答 ${s.unanswered}</span>` : ''}
+                    </div>
+                </div>
+                <div class="space-y-1.5">
+                    ${s.options.map((opt, oi) => {
+                        const c = s.counts[oi] || 0;
+                        const pct = Math.round((c / total) * 100);
+                        const isCorrect = oi === s.correctIdx;
+                        return `
+                        <div class="flex items-center gap-2">
+                            <span class="w-4 text-white/40 font-bold text-xs flex-shrink-0">${String.fromCharCode(65 + oi)}</span>
+                            <div class="flex-1 bg-white/10 rounded-lg h-6 relative overflow-hidden">
+                                <div class="h-full ${isCorrect ? 'bg-green-500/80' : 'bg-indigo-400/50'} transition-all" style="width:${pct}%"></div>
+                                <span class="absolute inset-0 flex items-center px-2 text-white text-xs font-bold truncate">${escAnalysisHtml(String(opt))}${isCorrect ? ' ✓' : ''}</span>
+                            </div>
+                            <span class="w-9 text-right text-white/60 font-bold text-xs flex-shrink-0">${c}人</span>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>
+        `).join('');
+
+        return `
+            <div id="analysis-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[10000] hidden flex-col items-center justify-center cursor-pointer transition-opacity overflow-y-auto py-10 px-4" onclick="if(event.target===this) this.classList.add('hidden')">
+                <div class="bg-[#1b1947] border border-white/10 rounded-[2rem] shadow-2xl w-full max-w-2xl m-auto flex flex-col max-h-[80vh] cursor-default" onclick="event.stopPropagation()">
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-white/10 flex-shrink-0">
+                        <h2 class="text-lg md:text-xl font-extrabold text-white flex items-center gap-2">
+                            <span class="material-symbols-outlined">bar_chart</span> 成績分析
+                        </h2>
+                        <button id="btn-close-analysis" class="text-white/60 hover:text-white cursor-pointer"><span class="material-symbols-outlined text-2xl">close</span></button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                        ${listHtml}
+                    </div>
+                    <div class="px-6 py-4 border-t border-white/10 flex-shrink-0">
+                        <button id="btn-export-scores" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-colors">
+                            <span class="material-symbols-outlined">download</span> 匯出成績 (CSV)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function exportArenaScoresCSV(spaceCode) {
+        const stats = getQuestionStats();
+        const sortedPlayersForExport = [...globalPlayers].sort((a, b) => (b.score || 0) - (a.score || 0));
+
+        const header = ['排名', '暱稱', '分數', '答對題數', ...stats.map(s => `第${s.index + 1}題`)];
+
+        const rows = sortedPlayersForExport.map((p, idx) => {
+            let correctCount = 0;
+            const qCells = stats.map(s => {
+                const a = p[`ans_${s.index}`];
+                if (a === undefined || a === null || s.options[a] === undefined) return '未作答';
+                const isCorrect = a === s.correctIdx;
+                if (isCorrect) correctCount++;
+                return (isCorrect ? '✔ ' : '✘ ') + s.options[a];
+            });
+            return [idx + 1, p.name || '', p.score || 0, correctCount, ...qCells];
+        });
+
+        const blankRow = [];
+        const summaryCorrectRow = ['', '', '', '全班答對人數', ...stats.map(s => s.correctCount)];
+        const summaryWrongRow = ['', '', '', '全班答錯人數', ...stats.map(s => s.wrongCount)];
+        const summaryUnansweredRow = ['', '', '', '全班未作答人數', ...stats.map(s => s.unanswered)];
+
+        const allRows = [header, ...rows, blankRow, summaryCorrectRow, summaryWrongRow, summaryUnansweredRow];
+
+        const csvContent = allRows.map(row => row.map(cell => {
+            const str = String(cell ?? '');
+            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                return '"' + str.replace(/"/g, '""') + '"';
+            }
+            return str;
+        }).join(',')).join('\n');
+
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const dateStr = new Date().toISOString().slice(0, 10);
+        a.download = `成績_${spaceCode || 'arena'}_${dateStr}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        if (typeof showToast === 'function') showToast('✅ 成績已匯出');
+    }
+
+    // ----------------------------------------------------
     // 畫面 2-D：老師最終排行榜畫面
     // ----------------------------------------------------
     function renderTeacherLeaderboard(spaceCode) {
@@ -1088,10 +1394,11 @@ window.launchArenaMode = function(rawData, configs) {
             return p;
         }).sort((a, b) => b.finalMaxStreak - a.finalMaxStreak).slice(0, 10); 
 
-        arenaContainer.innerHTML = `
+        arenaContainer.innerHTML = getArenaAnalysisModalHtml() + `
             <div class="w-full h-full flex flex-col items-center bg-gradient-to-b from-[#1b1947] to-[#3b276b] p-4 relative font-sans select-none overflow-y-auto">
-                <div class="w-full flex justify-start z-50 flex-shrink-0">
+                <div class="w-full flex justify-between z-50 flex-shrink-0">
                     <button id="btn-finish-home" class="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full flex items-center gap-1 font-bold border border-white/30 cursor-pointer backdrop-blur-sm transition-colors"><span class="material-symbols-outlined text-lg">close</span> 結束遊戲</button>
+                    <button id="btn-open-analysis" class="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full flex items-center gap-1 font-bold border border-white/30 cursor-pointer backdrop-blur-sm transition-colors"><span class="material-symbols-outlined text-lg">bar_chart</span> 成績分析</button>
                 </div>
                 
                 <h1 class="text-5xl md:text-6xl font-extrabold text-white mb-6 mt-4 tracking-widest drop-shadow-md z-10 flex-shrink-0 text-center">最終頒獎台</h1>
@@ -1142,10 +1449,17 @@ window.launchArenaMode = function(rawData, configs) {
             </div>
         `;
         
-        setTimeout(() => document.getElementById('podium-3')?.classList.remove('opacity-0', 'translate-y-20'), 500);
-        setTimeout(() => document.getElementById('podium-2')?.classList.remove('opacity-0', 'translate-y-20'), 1500);
+        setTimeout(() => {
+            document.getElementById('podium-3')?.classList.remove('opacity-0', 'translate-y-20');
+            ArenaSound.drumHit(); // 🔊 名次揭曉提示音
+        }, 500);
+        setTimeout(() => {
+            document.getElementById('podium-2')?.classList.remove('opacity-0', 'translate-y-20');
+            ArenaSound.drumHit(); // 🔊 名次揭曉提示音
+        }, 1500);
         setTimeout(() => {
             document.getElementById('podium-1')?.classList.remove('opacity-0', 'translate-y-20');
+            ArenaSound.cheer(); // 🔊 冠軍歡呼音效
             if (typeof triggerConfetti === 'function') {
                 triggerConfetti();
                 setInterval(triggerConfetti, 3000); 
@@ -1154,6 +1468,16 @@ window.launchArenaMode = function(rawData, configs) {
         setTimeout(() => document.getElementById('podium-rest')?.classList.remove('opacity-0'), 4500);
 
         document.getElementById('btn-finish-home').addEventListener('click', cleanupArena);
+
+        document.getElementById('btn-open-analysis')?.addEventListener('click', () => {
+            const modal = document.getElementById('analysis-modal');
+            if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+        });
+        document.getElementById('btn-close-analysis')?.addEventListener('click', () => {
+            const modal = document.getElementById('analysis-modal');
+            if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+        });
+        document.getElementById('btn-export-scores')?.addEventListener('click', () => exportArenaScoresCSV(spaceCode));
     }
 
     // ----------------------------------------------------
@@ -1221,7 +1545,9 @@ window.launchArenaMode = function(rawData, configs) {
                 const doc = await spaceRef.get();
                 if (!doc.exists) throw "NOT_FOUND";
                 const data = doc.data();
-                if (data.status !== 'waiting') throw "ALREADY_STARTED";
+                // ✨ 開放中途加入：只要遊戲還沒結束都能進來，分數從 0 起跳
+                if (data.status === 'finished') throw "ALREADY_STARTED";
+                const isLateJoin = data.status !== 'waiting';
 
                 const nameLimit = (data.config && data.config.arenaSettings && data.config.arenaSettings.nameLimit) || 10;
                 if (name.length > nameLimit) {
@@ -1230,18 +1556,30 @@ window.launchArenaMode = function(rawData, configs) {
                 }
 
                 const finalEmoji = (data.config && data.config.arenaSettings && data.config.arenaSettings.allowEmoji === false) ? '' : selectedEmoji;
+                const sessionToken = generateSessionToken();
+                const playerRef = spaceRef.collection("players").doc(name);
 
-                await spaceRef.collection("players").doc(name).set({
-                    name: name,
-                    emoji: finalEmoji,
-                    score: 0,
-                    joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+                // ✨ 用 transaction 檢查暱稱是否已被使用，避免兩個學生同名時互相覆蓋分數
+                await db.runTransaction(async (tx) => {
+                    const existing = await tx.get(playerRef);
+                    if (existing.exists) throw "NAME_TAKEN";
+                    tx.set(playerRef, {
+                        name: name,
+                        emoji: finalEmoji,
+                        score: 0,
+                        sessionToken: sessionToken,
+                        joinedLate: isLateJoin,
+                        joinedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
                 });
-                
+
+                saveArenaSession(code, name, sessionToken);
+                if (isLateJoin) showToast('👋 遊戲已經開始，你會直接跟上目前的題目！');
                 startStudentListener(code, name);
             } catch (err) {
                 if (err === "NOT_FOUND") showToast('❌ 找不到該空間');
-                else if (err === "ALREADY_STARTED") showToast('❌ 無法加入，遊戲可能已開始');
+                else if (err === "ALREADY_STARTED") showToast('❌ 無法加入，遊戲已經結束囉');
+                else if (err === "NAME_TAKEN") showToast('⚠️ 這個暱稱已經有人用了，換一個試試吧！');
                 else showToast('❌ 連線失敗');
                 btn.textContent = "進入空間！"; btn.disabled = false;
             }
@@ -1257,10 +1595,12 @@ window.launchArenaMode = function(rawData, configs) {
         window.myCurrentStreak = 0;
         window.myTotalCorrect = 0;
         window.lastEvaluatedQ = -1; 
+        window.myPreviousRank = null; // ✨ 個人名次追蹤，用於計算英雄榜的名次升降
         
         unsubscribeStudentSelf = db.collection(window.SPACES_COLLECTION).doc(spaceCode).collection("players").doc(playerName)
             .onSnapshot((doc) => {
                 if (!doc.exists) {
+                    clearArenaSession();
                     showToast('🚷 你已被老師從空間中移除');
                     if (unsubscribeSpace) unsubscribeSpace();
                     if (unsubscribeStudentSelf) unsubscribeStudentSelf();
@@ -1296,13 +1636,15 @@ window.launchArenaMode = function(rawData, configs) {
                         window.myCurrentStreak++;
                         window.myMaxStreak = Math.max(window.myMaxStreak, window.myCurrentStreak);
                         window.myTotalCorrect++;
+                        ArenaSound.correct(); // 🔊 答對提示音
                     } else {
                         window.myCurrentStreak = 0;
+                        ArenaSound.wrong(); // 🔊 答錯提示音
                     }
                 }
                 renderStudentResultScreen(spaceCode, playerName, data.correctIndex, arenaSettings);
             } else if (data.status === 'scoreboard') {
-                renderStudentScoreboardScreen();
+                renderStudentScoreboardScreen(spaceCode, playerName);
             } else if (data.status === 'finished') {
                 renderStudentFinalScreen(playerName);
             }
@@ -1321,9 +1663,12 @@ window.launchArenaMode = function(rawData, configs) {
                         <div class="w-6 h-6 bg-[#d89e00] rounded-full animate-bounce shadow-sm" style="animation-delay: 0.2s;"></div>
                         <div class="w-6 h-6 bg-[#26890c] rounded-full animate-bounce shadow-sm" style="animation-delay: 0.3s;"></div>
                     </div>
+                    <button id="btn-leave-lobby" class="mt-12 text-gray-400 font-bold underline cursor-pointer hover:text-gray-600">不是這一場？離開空間</button>
                 </div>
             </div>
         `;
+        const leaveBtn = document.getElementById('btn-leave-lobby');
+        if (leaveBtn) leaveBtn.addEventListener('click', leaveArenaSession);
     }
 
     function renderStudentReadingScreen(qData) {
@@ -1339,18 +1684,68 @@ window.launchArenaMode = function(rawData, configs) {
         `;
     }
 
-    function renderStudentScoreboardScreen() {
+    function renderStudentScoreboardScreen(spaceCode, playerName) {
+        // 先畫出 loading 狀態，避免查詢名次時畫面空白
         arenaContainer.innerHTML = `
             <div class="w-full h-full bg-[#312e81] font-sans transition-colors duration-500 select-none overflow-y-auto">
                 <div class="min-h-full flex flex-col items-center justify-center p-4 text-center">
                     <div class="w-24 h-24 bg-yellow-400 rounded-full flex items-center justify-center border-4 border-indigo-900 mb-6 shadow-lg animate-bounce">
                         <span class="material-symbols-outlined text-6xl text-indigo-900">star</span>
                     </div>
-                    <h2 class="text-4xl md:text-5xl font-extrabold text-white mb-4 drop-shadow-md tracking-wider">請看大螢幕</h2>
-                    <p class="text-xl md:text-2xl text-indigo-200 font-bold">目前顯示英雄榜...</p>
+                    <h2 class="text-4xl md:text-5xl font-extrabold text-white mb-4 drop-shadow-md tracking-wider">計算名次中...</h2>
                 </div>
             </div>
         `;
+
+        // ✨ 單次讀取全部玩家分數（非即時監聽），算出自己的排名與升降
+        db.collection(window.SPACES_COLLECTION).doc(spaceCode).collection("players").get()
+            .then(snapshot => {
+                const allPlayers = [];
+                snapshot.forEach(doc => allPlayers.push(doc.data()));
+                allPlayers.sort((a, b) => (b.score || 0) - (a.score || 0));
+
+                const myIndex = allPlayers.findIndex(p => p.name === playerName);
+                if (myIndex === -1) return; // 名單裡找不到自己（理論上不會發生），保持 loading 畫面即可
+
+                const myRank = myIndex + 1;
+                const myScore = allPlayers[myIndex].score || 0;
+                const totalPlayers = allPlayers.length;
+
+                let deltaHtml = '';
+                if (window.myPreviousRank !== null && window.myPreviousRank !== myRank) {
+                    const diff = window.myPreviousRank - myRank; // 正數 = 名次上升
+                    if (diff > 0) {
+                        deltaHtml = `<span class="inline-flex items-center gap-1 text-green-400 font-black text-2xl md:text-3xl ml-3"><span class="material-symbols-outlined text-2xl md:text-3xl">arrow_upward</span>${diff}</span>`;
+                    } else {
+                        deltaHtml = `<span class="inline-flex items-center gap-1 text-red-400 font-black text-2xl md:text-3xl ml-3"><span class="material-symbols-outlined text-2xl md:text-3xl">arrow_downward</span>${Math.abs(diff)}</span>`;
+                    }
+                } else if (window.myPreviousRank !== null) {
+                    deltaHtml = `<span class="inline-flex items-center gap-1 text-indigo-300 font-black text-2xl md:text-3xl ml-3"><span class="material-symbols-outlined text-2xl md:text-3xl">remove</span></span>`;
+                }
+
+                window.myPreviousRank = myRank;
+
+                const medal = myRank === 1 ? '🥇' : myRank === 2 ? '🥈' : myRank === 3 ? '🥉' : '';
+
+                arenaContainer.innerHTML = `
+                    <div class="w-full h-full bg-[#312e81] font-sans transition-colors duration-500 select-none overflow-y-auto">
+                        <div class="min-h-full flex flex-col items-center justify-center p-4 text-center">
+                            <div class="w-24 h-24 bg-yellow-400 rounded-full flex items-center justify-center border-4 border-indigo-900 mb-6 shadow-lg animate-bounce">
+                                <span class="material-symbols-outlined text-6xl text-indigo-900">star</span>
+                            </div>
+                            <h2 class="text-2xl md:text-3xl font-bold text-indigo-200 mb-2 tracking-wider">你目前的名次</h2>
+                            <div class="flex items-center justify-center mb-4">
+                                <span class="text-6xl md:text-7xl font-black text-white drop-shadow-md">${medal || '#'}${myRank}</span>
+                                ${deltaHtml}
+                            </div>
+                            <p class="text-xl md:text-2xl text-indigo-200 font-bold">共 ${myScore} 分 · 全班第 ${myRank} / ${totalPlayers} 名</p>
+                        </div>
+                    </div>
+                `;
+            })
+            .catch(e => {
+                console.error("讀取排名失敗:", e);
+            });
     }
 
     // ----------------------------------------------------
@@ -1405,7 +1800,7 @@ window.launchArenaMode = function(rawData, configs) {
                     </div>
 
                     <div class="grid grid-cols-2 gap-2 sm:gap-3 flex-shrink-0 min-h-[30vh]">
-                        ${[0, 1, 2, 3].map(i => `
+                        ${(qData ? qData.options : [0, 1, 2, 3]).map((_, i) => `
                             <button class="student-ans-btn w-full h-full ${colorStyles[i]} border-b-[8px] active:border-b-0 active:translate-y-[8px] rounded-xl flex flex-col sm:flex-row items-center justify-center sm:justify-start shadow-sm transition-all cursor-pointer p-4 group" data-idx="${i}">
                                 <span class="material-symbols-outlined ${showText ? 'text-5xl md:text-6xl sm:mr-4 mb-2 sm:mb-0' : 'text-[90px] sm:text-[110px] mx-auto'} text-white pointer-events-none group-active:scale-95 transition-transform drop-shadow-md">${shapeIcons[i]}</span>
                                 ${showText && qData ? `<span class="text-white font-bold text-xl md:text-2xl pointer-events-none text-center sm:text-left break-words flex-1 leading-tight drop-shadow-md">${qData.options[i]}</span>` : ''}
@@ -1447,6 +1842,11 @@ window.launchArenaMode = function(rawData, configs) {
         const title = isCorrect ? '太棒了！答對了！' : (window.myLastAnswer === null ? '時間到囉！' : '繼續加油！');
         const subtitle = isCorrect ? '繼續保持這個好節奏！' : '沒關係，下一題會更好！';
 
+        const myData = globalPlayers.find(p => p.name === playerName) || {};
+        const gainedScoreHtml = isCorrect && myData.lastGainedScore
+            ? `<p class="text-2xl md:text-3xl text-yellow-100 font-black mt-3 drop-shadow-md">+${myData.lastGainedScore} 分</p>`
+            : '';
+
         const allowInteractive = arenaSettings && arenaSettings.allowInteractiveEmoji !== false;
 
         let interactiveHtml = '';
@@ -1472,6 +1872,7 @@ window.launchArenaMode = function(rawData, configs) {
                     <span class="material-symbols-outlined text-9xl text-white mb-6 drop-shadow-lg scale-110">${icon}</span>
                     <h2 class="text-4xl md:text-6xl font-extrabold text-white mb-4 drop-shadow-md tracking-wider">${title}</h2>
                     <p class="text-xl md:text-2xl text-white/90 font-bold">${subtitle}</p>
+                    ${gainedScoreHtml}
                     ${interactiveHtml}
                 </div>
             </div>
@@ -1526,10 +1927,13 @@ window.launchArenaMode = function(rawData, configs) {
                         </div>
                     </div>
                     
-                    <p class="text-lg text-slate-500 font-bold animate-pulse">請看大螢幕的最終排行榜</p>
+                    <p class="text-lg text-slate-500 font-bold animate-pulse mb-6">請看大螢幕的最終排行榜</p>
+                    <button id="btn-leave-final" class="text-slate-500 font-bold underline cursor-pointer hover:text-slate-300">離開空間</button>
                 </div>
             </div>
         `;
+        const leaveBtn = document.getElementById('btn-leave-final');
+        if (leaveBtn) leaveBtn.addEventListener('click', leaveArenaSession);
     }
 
     renderRoleSelection();

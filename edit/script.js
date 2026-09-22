@@ -6517,7 +6517,40 @@ document.getElementById('btnApplyAutoMerge').addEventListener('click', () => {
 
 
 /* ==========================================
-   文字模式專屬：文字編輯工具 (十合一排版引擎)
+   數字 <-> 0-z (Base62) 編碼 輔助函數
+   字元順序：0-9、A-Z、a-z，共 62 碼
+   ========================================== */
+const BASE62_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+function numberToBase62(numStr) {
+    let n = BigInt(numStr);
+    if (n === 0n) return '0';
+    const neg = n < 0n;
+    if (neg) n = -n;
+    let result = '';
+    while (n > 0n) {
+        result = BASE62_CHARS[Number(n % 62n)] + result;
+        n = n / 62n;
+    }
+    return neg ? '-' + result : result;
+}
+
+function base62ToNumber(str) {
+    let s = str;
+    const neg = s.startsWith('-');
+    if (neg) s = s.slice(1);
+    if (!s) throw new Error('empty base62 string');
+    let n = 0n;
+    for (const ch of s) {
+        const idx = BASE62_CHARS.indexOf(ch);
+        if (idx === -1) throw new Error(`invalid base62 character: ${ch}`);
+        n = n * 62n + BigInt(idx);
+    }
+    return neg ? -n : n;
+}
+
+/* ==========================================
+   文字模式專屬：文字編輯工具 (十二合一排版引擎)
    ========================================== */
 function applyTextTool(action) {
     if (currentMode !== 'text') {
@@ -6658,6 +6691,34 @@ function applyTextTool(action) {
             return;
         }
     }
+    else if (action === 'num-to-base62') {
+        // 數字轉 0-z 編碼：逐行處理，非純數字的行原樣保留
+        try {
+            newText = textToProcess.split('\n').map(line => {
+                const trimmed = line.trim();
+                if (trimmed === '') return line;
+                if (!/^-?\d+$/.test(trimmed)) return line;
+                return numberToBase62(trimmed);
+            }).join('\n');
+        } catch (e) {
+            showToast('❌ 轉換失敗，請確認內容是否為正確的數字');
+            return;
+        }
+    }
+    else if (action === 'base62-to-num') {
+        // 0-z 編碼轉數字：逐行處理，非合法 0-9A-Za-z 編碼的行原樣保留
+        try {
+            newText = textToProcess.split('\n').map(line => {
+                const trimmed = line.trim();
+                if (trimmed === '') return line;
+                if (!/^-?[0-9A-Za-z]+$/.test(trimmed)) return line;
+                return base62ToNumber(trimmed).toString();
+            }).join('\n');
+        } catch (e) {
+            showToast('❌ 解碼失敗，請確認內容是否為正確的 0-z 編碼格式');
+            return;
+        }
+    }
 
     // 將處理完的文字寫回編輯器
     if (hasSelection) {
@@ -6686,6 +6747,8 @@ function applyTextTool(action) {
 		'line-char-count': '已計算並輸出每行字數',
 		'base64-encode': '已編碼為 Base64',
         'base64-decode': 'Base64 已解碼為文字',
+        'num-to-base62': '已將數字轉為 0-z 編碼',
+        'base62-to-num': '已將 0-z 編碼轉為數字',
     };
     showToast(`🥷 ${msgs[action]}`);
 }
@@ -6711,6 +6774,8 @@ const textTools = [
 	{ id: 'btnLineCharCount', action: 'line-char-count' },
 	{ id: 'btnBase64Encode', action: 'base64-encode' },
     { id: 'btnBase64Decode', action: 'base64-decode' },
+	{ id: 'btnNumToBase62', action: 'num-to-base62' },
+    { id: 'btnBase62ToNum', action: 'base62-to-num' },
 ];
 
 textTools.forEach(tool => {
