@@ -416,6 +416,58 @@ if (transcribeLangSelect) {
     });
 }
 
+// ================= ★ 新增：多語言字幕 - 啟用開關 =================
+// 預設不啟用；勾選後才能修改下方的分隔字元。停用時分隔字元輸入框反灰鎖住，
+// 避免使用者誤以為隨時都能切換分隔字元（切換分隔字元不會轉換舊資料，見 1c_languages.js 的風險提醒）。
+const langMultiEnableCheck = document.getElementById('langMultiEnableCheck');
+
+function applyLangMultiEnabledUI(enabled) {
+    const delimiterInputEl = document.getElementById('langDelimiterInput');
+    if (delimiterInputEl) delimiterInputEl.disabled = !enabled;
+    if (typeof updateLangViewMenuLabels === 'function') updateLangViewMenuLabels();
+}
+
+if (langMultiEnableCheck) {
+    const enabled = (typeof getLangMultiEnabled === 'function') ? getLangMultiEnabled() : false;
+    langMultiEnableCheck.checked = enabled;
+    applyLangMultiEnabledUI(enabled);
+
+    langMultiEnableCheck.addEventListener('change', (e) => {
+        const isEnabled = e.target.checked;
+        if (typeof setLangMultiEnabled === 'function') setLangMultiEnabled(isEnabled);
+        applyLangMultiEnabledUI(isEnabled);
+
+        showToast(isEnabled ? '已啟用多語字幕' : '已停用多語字幕（每行文字視為單一語言）', isEnabled ? 'success' : 'normal');
+
+        // 開關切換後，畫面需要依「切割 / 不切割」重新渲染，才會立刻反映新狀態
+        if (typeof renderSentenceList === 'function') renderSentenceList();
+        if (typeof isScriptMode !== 'undefined' && isScriptMode && typeof populateScriptEditor === 'function') {
+            populateScriptEditor();
+        }
+    });
+}
+
+// ================= ★ 新增：多語言字幕 - 分隔字元與語言名稱設定 =================
+const langDelimiterInput = document.getElementById('langDelimiterInput');
+if (langDelimiterInput) {
+    // 進入網頁時，先同步輸入框目前的分隔字元
+    langDelimiterInput.value = (typeof getLangDelimiter === 'function') ? getLangDelimiter() : '\\';
+
+    langDelimiterInput.addEventListener('change', (e) => {
+        const newDelim = (typeof setLangDelimiter === 'function') ? setLangDelimiter(e.target.value) : e.target.value;
+        e.target.value = newDelim; // 若輸入空白，setLangDelimiter 會自動還原成預設值 \，這裡同步畫面
+
+        showToast(`語言分隔字元已更新為：${newDelim}`, 'success');
+
+        // 分隔字元改變後：偵測到的語言數量、語言檢視選單、畫面上的分語言檢視都要用新字元重算一次
+        if (typeof updateLangViewMenuLabels === 'function') updateLangViewMenuLabels();
+        if (typeof renderSentenceList === 'function') renderSentenceList();
+        if (typeof isScriptMode !== 'undefined' && isScriptMode && typeof populateScriptEditor === 'function') {
+            populateScriptEditor();
+        }
+    });
+}
+
 // ================= 時間顯示精確度設定事件  =================
 const timeDecimalSelect = document.getElementById('timeDecimalSelect');
 
@@ -561,6 +613,24 @@ function applyAppWidth(width) {
     }, 350); 
 }
 
+// ================= ★ 新增：介面字體切換設定 ★ =================
+// 對應 <link> 引入的兩套字體 CSS：
+//   twhei.css  → 提供 twhei-s / TWHEI（顯示為「台灣黑體」）
+//   tauhu-oo.css → 提供 tauhu-oo
+// 「台灣楷體」「台灣宋體」目前沒有對應的網路字體檔，採用系統本機同名字型
+// （若使用者電腦沒有安裝，會自動 fallback 到 tauhu-oo，不會整個排版壞掉）。
+const FONT_FAMILY_MAP = {
+    twhei: 'twhei-s, TWHEI, "台灣黑體", tauhu-oo, sans-serif',
+    kai:   '"台灣楷體", tauhu-oo, serif',
+    song:  '"台灣宋體", tauhu-oo, serif',
+    tauhu: 'tauhu-oo, sans-serif'
+};
+
+function applyFontFamily(key) {
+    const stack = FONT_FAMILY_MAP[key] || FONT_FAMILY_MAP.twhei;
+    document.documentElement.style.setProperty('--main-font-family', stack);
+}
+
 // ★ 修正：appWidthSelect 原本在這裡跟下方「聲波圖高度與寬度設定事件」區塊
 // 各綁了一份幾乎相同的 change 監聽器，切換寬度時 applyAppWidth() 與 toast
 // 都會各觸發兩次。已整併，唯一保留的版本在本檔案下方（多了一道防呆判斷）。
@@ -625,6 +695,59 @@ if (appWidthSelect) {
         localStorage.setItem('tagger_appWidth', currentAppWidth);
         applyAppWidth(currentAppWidth);
         showToast('聲波圖寬度已切換', 'success');
+    });
+}
+
+// ================= ★ 新增：聲波工具列按鈕顯示設定 ★ =================
+// 讓使用者自行勾選哪些按鈕要常駐顯示在聲波工具列（退2秒／進2秒／下載選取音檔 較少用；
+// 取消選取 有時候需要，但原本只藏在 ⋮ 更多選單裡，這裡讓它也可以選擇常駐顯示）。
+// 未勾選時按鈕只是隱藏，功能不受影響：退/進2秒、下載仍可從工具列拿掉的位置移除；
+// 取消選取即使沒常駐，也依然能從 ⋮ 更多選單使用。
+const TOOLBAR_BTN_VISIBILITY = {
+    seek:     { checkId: 'toolbarShowSeekCheck',     targets: ['rewindBtn', 'forwardBtn'],   key: 'tagger_toolbarShowSeek',     defaultOn: true },
+    download: { checkId: 'toolbarShowDownloadCheck', targets: ['downloadActiveRegionBtn'],   key: 'tagger_toolbarShowDownload', defaultOn: true },
+    cancel:   { checkId: 'toolbarShowCancelCheck',   targets: ['cancelRegionBtn'],           key: 'tagger_toolbarShowCancel',   defaultOn: false }
+};
+
+function applyToolbarBtnVisibility(cfg) {
+    const saved = localStorage.getItem(cfg.key);
+    const isOn = saved === null ? cfg.defaultOn : saved === 'true';
+    cfg.targets.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = isOn ? '' : 'none';
+    });
+    return isOn;
+}
+
+Object.values(TOOLBAR_BTN_VISIBILITY).forEach(cfg => {
+    const isOn = applyToolbarBtnVisibility(cfg);
+    const checkEl = document.getElementById(cfg.checkId);
+    if (!checkEl) return;
+    checkEl.checked = isOn;
+    checkEl.addEventListener('change', (e) => {
+        localStorage.setItem(cfg.key, e.target.checked ? 'true' : 'false');
+        applyToolbarBtnVisibility(cfg);
+    });
+});
+
+// 工具列常駐的「取消選取」按鈕：直接觸發 ⋮ 更多選單裡原本的 waveCancelSelectBtn，
+// 兩者共用同一套取消選取邏輯，避免以後改了一處、忘了改另一處。
+// 停用狀態（沒有任何選取時，由 1_globals.js 的 updateToolbarButtons() 控制）多一層防呆判斷。
+document.getElementById('cancelRegionBtn')?.addEventListener('click', function() {
+    if (this.disabled) return;
+    document.getElementById('waveCancelSelectBtn')?.click();
+});
+
+// ★ 新增：介面字體切換事件
+if (fontFamilySelect) {
+    fontFamilySelect.value = currentFontFamily;
+    applyFontFamily(currentFontFamily);
+
+    fontFamilySelect.addEventListener('change', (e) => {
+        currentFontFamily = e.target.value;
+        localStorage.setItem('tagger_fontFamily', currentFontFamily);
+        applyFontFamily(currentFontFamily);
+        showToast('介面字體已切換', 'success');
     });
 }
 

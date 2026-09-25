@@ -19,6 +19,42 @@ const PUNCT_REMOVABLE_FORMATS = ['tsv', 'srt', 'audacity'];
 const batchAudioFormatHint = document.getElementById('batchAudioFormatHint');
 const AUDIO_OUTPUT_FORMAT = 'audio';
 
+// 多語言字幕：匯出語言選單（僅在設定中啟用「多語字幕」時才會顯示，邏輯比照 4g_ui_export.js 的單筆匯出）
+const batchLangSelectWrap = document.getElementById('batchLangSelectWrap');
+const batchLangSelect = document.getElementById('batchLangSelect');
+
+function populateBatchLangSelect() {
+    if (!batchLangSelect || !batchLangSelectWrap) return;
+    if (typeof getLangMultiEnabled !== 'function' || !getLangMultiEnabled()) {
+        batchLangSelectWrap.style.display = 'none';
+        return;
+    }
+    batchLangSelectWrap.style.display = '';
+
+    const prevValue = batchLangSelect.value;
+    const count = typeof getLangCount === 'function' ? getLangCount() : 1;
+
+    let optionsHtml = '<option value="all">全部語言（原始格式，含分隔字元）</option>';
+    for (let i = 0; i < count; i++) {
+        const name = typeof getLangName === 'function' ? getLangName(i) : `語言${i + 1}`;
+        optionsHtml += `<option value="${i}">${name}</option>`;
+    }
+    batchLangSelect.innerHTML = optionsHtml;
+
+    const stillValid = Array.from(batchLangSelect.options).some(opt => opt.value === prevValue);
+    if (stillValid) batchLangSelect.value = prevValue;
+}
+
+// 依「匯出語言」選單，把原始（可能是多語言合併）文字轉成實際要輸出的文字。
+// 未啟用多語字幕、或選單選到「全部語言」時：回傳原始文字，行為完全不變。
+function getBatchExportText(rawText) {
+    if (typeof getLangMultiEnabled !== 'function' || !getLangMultiEnabled()) return rawText;
+    const sel = batchLangSelect ? batchLangSelect.value : 'all';
+    if (!sel || sel === 'all') return rawText;
+    const idx = parseInt(sel, 10);
+    return typeof getLang === 'function' ? getLang(rawText, idx) : rawText;
+}
+
 function updateRemovePunctuationAvailability() {
     if (!batchRemovePunctuationCheck || !batchConvertTargetFormat) return;
     const supported = PUNCT_REMOVABLE_FORMATS.includes(batchConvertTargetFormat.value);
@@ -60,6 +96,7 @@ sidebarBatchConvertBtn?.addEventListener('click', () => {
     document.getElementById('closeSidebarBtn')?.click(); 
     setTimeout(() => {
         resetRemovePunctuationOption(); // ★ 新增：開啟時恢復預設（不勾選）
+        populateBatchLangSelect();
         batchConvertModalOverlay.classList.add('show');
         document.body.style.overflow = 'hidden';
     }, 300);
@@ -67,6 +104,7 @@ sidebarBatchConvertBtn?.addEventListener('click', () => {
 
 homeBatchConvertBtn?.addEventListener('click', () => {
     resetRemovePunctuationOption(); // ★ 新增：開啟時恢復預設（不勾選）
+    populateBatchLangSelect();
     batchConvertModalOverlay.classList.add('show');
     document.body.style.overflow = 'hidden';
 });
@@ -222,7 +260,7 @@ async function exportJsonToIndividualAudioFiles(data, filename, zip, usedNames) 
         const end = typeof raw === 'object' ? raw.end : null;
         if (typeof start !== 'number' || typeof end !== 'number' || isNaN(start) || isNaN(end) || end <= start) return;
 
-        const text = data.sentenceTextMap ? (data.sentenceTextMap[label] || '') : '';
+        const text = getBatchExportText(data.sentenceTextMap ? (data.sentenceTextMap[label] || '') : '');
         const sliced = sliceAudioBuffer(audioBuffer, start, end);
         const blob = audioBufferToWav(sliced);
 
@@ -302,6 +340,11 @@ startBatchConvertBtn?.addEventListener('click', async () => {
             }
 
             let items = parseAnyToStandard(contentStr, originalExt, filename);
+            // 多語言字幕：輸出為 JSON 專案檔時保留完整原始資料（比照 generateJSON 的設計，
+            // 才能之後重新匯入時還原多語言內容）；其餘輸出格式依語言選單只取單一語言文字。
+            if (targetFormat !== 'json') {
+                items = items.map(item => ({ ...item, text: getBatchExportText(item.text) }));
+            }
             // ★ 新增：移除標點（只處理文字內容，時間與標籤不動）
             if (removePunctuation) {
                 items = items.map(item => ({ ...item, text: removePunctuationFromText(item.text) }));

@@ -37,7 +37,8 @@ cleanAndBindEvent('clearTimeTagsBtn', () => {
                 const text = sentenceTextMap[label] || '';
                 
                 // 條件 A：沒有文字 -> 連同標記整列刪除
-                if (text.trim() === '') {
+                // ★ 修改：改用 isBlank 判斷「所有語言」是否都空白（原因同 handleClearTag）
+                if ((typeof isBlank === 'function') ? isBlank(text) : text.trim() === '') {
                     const idx = allLabelsOrdered.indexOf(label);
                     if (idx > -1) {
                         allLabelsOrdered.splice(idx, 1);
@@ -167,6 +168,58 @@ if (showRegionTextCheck && regionTextLengthInput) {
         if (typeof renderAllRegions === 'function') renderAllRegions();
     });
 }
+
+// ================= ★ 新增：聲波圖顯示文字 - 選擇要顯示哪個語言 ★ =================
+// 預設「全部語言」（跟舊行為一致：直接顯示 sentenceTextMap 裡的原始整串文字）。
+// 只有啟用多語字幕時才會顯示這個下拉選單，因為停用時只有一種語言，沒有選擇的意義。
+window.regionTextLang = localStorage.getItem('tagger_regionTextLang') || 'raw';
+
+const regionTextLangRow = document.getElementById('regionTextLangRow');
+const regionTextLangSelect = document.getElementById('regionTextLangSelect');
+
+// 依目前偵測到的語言數量重新產生選項；並依「是否啟用多語字幕」決定這一列要不要顯示。
+// 語言的偵測與命名跟頁首「語言」選單共用同一套邏輯（getLangCount / getLangName，見 1c_languages.js），
+// 所以由 4a_ui_title_misc.js 的 updateLangViewMenuLabels() 統一呼叫這裡，確保兩處同步。
+function rebuildRegionTextLangOptions() {
+    if (!regionTextLangSelect || !regionTextLangRow) return;
+
+    const enabled = (typeof getLangMultiEnabled === 'function') ? getLangMultiEnabled() : false;
+    regionTextLangRow.style.display = enabled ? 'flex' : 'none';
+    if (!enabled) return;
+
+    const count = (typeof getLangCount === 'function') ? getLangCount() : 1;
+    const prevValue = window.regionTextLang;
+    regionTextLangSelect.innerHTML = '';
+
+    const rawOption = document.createElement('option');
+    rawOption.value = 'raw';
+    rawOption.textContent = '全部語言';
+    regionTextLangSelect.appendChild(rawOption);
+
+    for (let i = 0; i < count; i++) {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = (typeof getLangName === 'function') ? getLangName(i) : `語言${i + 1}`;
+        regionTextLangSelect.appendChild(opt);
+    }
+
+    // 還原之前選過的值；如果該語言已經不存在了（例如語言數變少），退回「全部語言」
+    const validValues = Array.from(regionTextLangSelect.options).map(o => o.value);
+    regionTextLangSelect.value = validValues.includes(prevValue) ? prevValue : 'raw';
+    if (regionTextLangSelect.value !== prevValue) {
+        window.regionTextLang = regionTextLangSelect.value;
+        localStorage.setItem('tagger_regionTextLang', window.regionTextLang);
+    }
+}
+rebuildRegionTextLangOptions();
+
+regionTextLangSelect?.addEventListener('change', (e) => {
+    window.regionTextLang = e.target.value;
+    localStorage.setItem('tagger_regionTextLang', window.regionTextLang);
+
+    // 即時重新繪製聲波圖標記
+    if (typeof renderAllRegions === 'function') renderAllRegions();
+});
 
 
 // ================= ★ 新增：列表編號顯示方式 (顯示映射引擎) ★ =================

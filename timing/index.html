@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>烏衣行打點時間</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- ★ 新增：台灣特色字體（台灣黑體/楷體/宋體 與 Tauhu-oo），供「介面字體」設定切換使用 -->
+    <link href="https://oikasu1.github.io/kasuexam/kasu/fonts/twhei.css" rel="stylesheet">
+    <link href="https://tauhu.tw/tauhu-oo.css" rel="stylesheet">
     <script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.min.js"></script>
 	<script src="https://unpkg.com/wavesurfer.js@7/dist/plugins/minimap.min.js"></script>
     <script src="https://unpkg.com/wavesurfer.js@7/dist/plugins/regions.min.js"></script>
@@ -111,6 +114,9 @@
 			<button id="autoSegmentRegionBtn" class="btn-icon" style="background: #E3F2FD; color: #1976D2; border: 1px solid #BBDEFB; opacity: 0.3; cursor: not-allowed;" title="選取的範圍依靜音自動斷句" aria-label="選取的範圍依靜音自動斷句" disabled>
                 <span class="material-icons">auto_awesome</span>
             </button>
+            <!-- ★ 新增：常駐工具列的「取消選取」按鈕，預設隱藏，於設定「介面與檢視」中勾選後才顯示；
+                 點擊行為直接沿用 ⋮ 更多選單裡原本的 waveCancelSelectBtn，避免邏輯重複 -->
+            <button id="cancelRegionBtn" class="btn-icon" style="background: #FFEBEE; color: #E53935; border: 1px solid #FFCDD2; display: none; opacity: 0.3; cursor: not-allowed;" title="取消選取 (Esc)" aria-label="取消選取 (Esc)" disabled><span class="material-icons">deselect</span></button>
             <button id="mergeRegionBtn" class="btn-icon" style="background: #F3E5F5; color: #7B1FA2; border: 1px solid #E1BEE7; opacity: 0.3; cursor: not-allowed;" title="合併選取 (Ctrl+J)" aria-label="合併選取 (Ctrl+J)" disabled><span class="material-icons">merge_type</span></button>
             <button id="splitRegionBtn" class="btn-icon" style="background: #FFF3E0; color: #E65100; border: 1px solid #FFE0B2;" title="在游標處切割 (Ctrl+I)" aria-label="在游標處切割 (Ctrl+I)"><span class="material-icons">content_cut</span></button>
             <button id="tagRegionBtn" class="btn-icon" style="background: #E8F5E9; color: #2E7D32; border: 1px solid #C8E6C9;" title="新增聲波標記 (Enter)" aria-label="新增聲波標記 (Enter)"><span class="material-icons">bookmark_add</span></button>
@@ -200,8 +206,6 @@
                     <div style="position: relative; display: inline-block;">
                         <button class="header-btn" id="editMenuBtn"><span class="material-icons">edit</span> 編輯</button>
                         <div class="custom-dropdown-menu" id="editMenu" style="top: 100%; left: 0; min-width: 180px; z-index: 100;">
-                            <div class="custom-dropdown-item hide-in-view" id="localAiTranscribeBtn"><span class="material-icons" style="color: #1976D2;">translate</span> AI 批次填詞</div>
-                            <div class="custom-dropdown-item hide-in-view" id="localAiSubtitleBtn"><span class="material-icons" style="color: #00897B;">auto_awesome</span> 一鍵 AI 字幕</div>
                             <div class="custom-dropdown-item hide-in-view" id="openBatchReplaceBtn"><span class="material-icons" style="color: #E65100;">find_replace</span> 尋找取代</div>
                             
                             <div class="custom-dropdown-item hide-in-view" id="adjustPaddingBtn" style="display: none;"><span class="material-icons">settings_ethernet</span> 調整邊界</div>
@@ -240,6 +244,16 @@
                         </div>
                     </div>
 
+                    <!-- ★ 新增：「語言」獨立頂層選單，只在設定裡「啟用多語字幕」時才會顯示（由 4a_ui_title_misc.js 控制）；
+                         「全部語言」固定，其餘語言項目依偵測到的語言數量動態產生 -->
+                    <div style="position: relative; display: none;" id="langMenuContainer">
+                        <button class="header-btn" id="langMenuBtn"><span class="material-icons">translate</span> 語言</button>
+                        <div class="custom-dropdown-menu" id="langViewMenu" style="top: 100%; left: 0; min-width: 160px; z-index: 100;">
+                            <div class="custom-dropdown-item" data-lang-value="raw"><span class="material-icons" style="font-size:1.1rem; margin-right:6px; color:#555;">notes</span> 全部語言</div>
+                            <div id="langViewMenuDynamic"></div>
+                        </div>
+                    </div>
+
                     <!-- 3. 按鈕選單 -->
                     <div style="position: relative; display: inline-block;" id="btnMenuContainer">
                         <button class="header-btn" id="btnMenuBtn"><span class="material-icons">smart_button</span> 按鈕</button>
@@ -249,7 +263,6 @@
                                 <span class="material-icons" style="color: #00897B;">add_alarm</span> 標記按鈕 <span class="material-icons" style="margin-left:auto; color:#00897B; font-size:1.1rem;">check</span>
                             </div>
 
-                            <div class="custom-dropdown-item" id="toggleAiBtnsBtn"><span class="material-icons" style="color: #1976D2;">auto_fix_high</span> AI 填詞按鈕</div>
                             <div class="custom-dropdown-item" id="toggleShiftBtnsBtn"><span class="material-icons">update</span> 平移按鈕</div>
                             <div class="custom-dropdown-item" id="toggleClearBtnsBtn"><span class="material-icons">backspace</span> 清除按鈕</div>
                             <div class="custom-dropdown-item" id="toggleMoreBtnsBtn"><span class="material-icons">more_vert</span> 其他按鈕</div>
@@ -284,7 +297,7 @@
         </div>
         <div class="sidebar-content">
 			<div class="sidebar-group">
-                <h4>專案操作</h4>
+                <h4><span class="material-icons" aria-hidden="true">folder_open</span><span class="setting-num" aria-hidden="true">一、</span>專案操作</h4>
                 <div style="display: flex; flex-direction: column; gap: 10px;">
                     <button id="sidebarAudioBtn" class="btn-primary btn-block"><span class="material-icons">library_music</span> 選擇音檔</button>
                     <button id="sidebarDataBtn" class="btn-outline btn-block"><span class="material-icons">drive_folder_upload</span> 匯入資料</button>
@@ -295,7 +308,7 @@
             </div>
 			<!-- 循環播放設定區塊 -->
             <div class="sidebar-group">
-                <h4>循環播放設定</h4>
+                <h4><span class="material-icons" aria-hidden="true">repeat</span><span class="setting-num" aria-hidden="true">二、</span>循環播放設定</h4>
                 <div class="setting-block">
                     <label for="loopModeSelect" class="setting-label">循環模式</label>
                     <select id="loopModeSelect" class="input-select">
@@ -312,7 +325,7 @@
             </div>
  
 			<div class="sidebar-group">
-                <h4>播放與跳轉設定</h4>
+                <h4><span class="material-icons" aria-hidden="true">play_circle</span><span class="setting-num" aria-hidden="true">三、</span>播放與跳轉設定</h4>
                 <div class="setting-block">
                     <label for="playbackModeSelect" class="setting-label">播放模式 (Space)</label>
                     <select id="playbackModeSelect" class="input-select">
@@ -360,7 +373,7 @@
                 </div>
             </div>
             <div class="sidebar-group">
-                <h4>新增標記時的列表行為</h4>
+                <h4><span class="material-icons" aria-hidden="true">playlist_add</span><span class="setting-num" aria-hidden="true">四、</span>新增標記時的列表行為</h4>
                 <div class="setting-block">
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="addRowOnTagCheck" class="setting-checkbox" checked>
@@ -378,8 +391,26 @@
                 </div>
             </div>
             <div class="sidebar-group">
-                <h4>介面與檢視</h4>
-                
+                <h4><span class="material-icons" aria-hidden="true">visibility</span><span class="setting-num" aria-hidden="true">五、</span>介面與檢視</h4>
+
+                <!-- ★ 新增：聲波工具列按鈕顯示設定，讓不常用的按鈕可以隱藏、常用的按鈕可以常駐顯示 -->
+                <div class="setting-block">
+                    <label class="setting-label" style="display: block; margin-bottom: 6px;">聲波工具列按鈕</label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="toolbarShowSeekCheck" class="setting-checkbox" checked>
+                        顯示「退 2 秒／進 2 秒」按鈕
+                    </label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="toolbarShowDownloadCheck" class="setting-checkbox" checked>
+                        顯示「下載選取句段音檔」按鈕
+                    </label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="toolbarShowCancelCheck" class="setting-checkbox">
+                        顯示「取消選取」按鈕
+                    </label>
+                    <span class="setting-hint">未勾選的按鈕仍可從工具列右側「⋮ 更多」選單使用（取消選取／全選等）</span>
+                </div>
+
                 <!-- 第一個區塊：導航與聲波文字開關 -->
                 <div class="setting-block">
                     <label class="setting-checkbox-row">
@@ -394,6 +425,13 @@
                         <label style="font-size: 0.85rem; color: #555; display: flex; align-items: center; gap: 6px;">
                             字數(0=全部)
                             <input type="number" id="regionTextLengthInput" value="4" min="0" max="100" class="input-number-sm">
+                        </label>
+                        <!-- ★ 新增：只有啟用多語字幕時才會出現，選項依實際偵測到的語言數量動態產生 -->
+                        <label id="regionTextLangRow" style="display: none; font-size: 0.85rem; color: #555; align-items: center; gap: 6px; margin-top: 6px;">
+                            顯示語言
+                            <select id="regionTextLangSelect" class="input-select" style="width: auto;">
+                                <option value="raw">全部語言</option>
+                            </select>
                         </label>
                     </div>
                 </div>
@@ -467,9 +505,36 @@
                         <option value="100vw">全螢幕寬度</option>
                     </select>
                 </div>
+
+                <!-- ★ 新增：介面字體切換 -->
+                <div class="setting-block">
+                    <label for="fontFamilySelect" class="setting-label">介面字體</label>
+                    <select id="fontFamilySelect" class="input-select">
+                        <option value="twhei" selected>台灣黑體 (預設)</option>
+                        <option value="kai">台灣楷體</option>
+                        <option value="song">台灣宋體</option>
+                        <option value="tauhu">Tauhu-oo</option>
+                    </select>
+                </div>
+            </div>
+            <!-- ★ 新增：多語言字幕設定 -->
+            <div class="sidebar-group">
+                <h4><span class="material-icons" aria-hidden="true">translate</span><span class="setting-num" aria-hidden="true">六、</span>多語言字幕設定</h4>
+                <div class="setting-block">
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="langMultiEnableCheck" class="setting-checkbox">
+                        啟用多語字幕
+                    </label>
+                    <span class="setting-hint">* 預設不啟用：每行字幕視為單一語言，完全不受此功能影響。啟用後，才能依分隔字元把一行拆成多種語言文字（語言1、語言2、語言3…依實際資料自動偵測有幾種）</span>
+                </div>
+                <div class="setting-block">
+                    <label for="langDelimiterInput" class="setting-label">語言分隔字元</label>
+                    <input type="text" id="langDelimiterInput" value="|" maxlength="4" class="input-number-sm" style="width: 60px;" disabled>
+                    <span class="setting-hint">* 每行字幕用此字元分隔多語言文字，例如：語言1文字|語言2文字。留空會自動還原為預設值 |。需先勾選上方「啟用多語字幕」才能修改</span>
+                </div>
             </div>
                         <div class="sidebar-group">
-                <h4 id="exportAudioFormatLabel">音訊匯出格式</h4>
+                <h4 id="exportAudioFormatLabel"><span class="material-icons" aria-hidden="true">ios_share</span><span class="setting-num" aria-hidden="true">七、</span>音訊匯出格式</h4>
                 <select id="exportAudioFormatSelect" aria-labelledby="exportAudioFormatLabel" class="input-select">
                     <option value="mp3">MP3 壓縮檔 (輕巧快速)</option>
                     <option value="wav" selected>WAV 無損原始檔</option>
@@ -511,21 +576,8 @@
                     <span class="setting-hint">檔名預覽：<b id="audioNamePreview" style="color:#00695C; word-break: break-all;"></b></span>
                 </div>
             </div>
-			<div class="sidebar-group">
-                <h4>AI 語音辨識設定</h4>
-                <div class="setting-block">
-                    <label for="transcribeLangSelect" class="setting-label">辨識語言</label>
-                    <select id="transcribeLangSelect" class="input-select">
-                        <option value="zh-TW" selected>繁體中文 (預設)</option>
-                        <option value="en">英文 (English)</option>
-                        <option value="ja">日文 (日本語)</option>
-
-                    </select>
-                    <span class="setting-hint">用於 AI 字幕</span>
-                </div>
-            </div>
             <div class="sidebar-group">
-                <h4 style="margin-bottom: 10px;">預設快速鍵 (參考學習)</h4>
+                <h4 style="margin-bottom: 10px;"><span class="material-icons" aria-hidden="true">keyboard</span><span class="setting-num" aria-hidden="true">八、</span>預設快速鍵 (參考學習)</h4>
                 <ul style="font-size:0.85rem; color:#555; padding-left: 20px; margin-bottom: 20px; line-height: 1.6;">
                     <li><strong>Space 空白鍵</strong>：播放/暫停</li>
                     <li><strong>Tab 鍵</strong>：跳至下一句</li>
@@ -537,7 +589,7 @@
 					<li><strong>Alt + 上下鍵</strong>：微調後邊界 (0.01秒)，搭配 Shift 為 0.1秒</li>
                 </ul>
 
-                <h4 style="margin-bottom: 10px; border-top: 1px dashed #E0F2F1; padding-top: 10px;">自訂導航快速鍵</h4>
+                <h4 class="setting-subtitle" style="margin-bottom: 10px;"><span class="material-icons" aria-hidden="true">edit</span>自訂導航快速鍵</h4>
                 <p style="font-size:0.8rem; color:#888; margin-bottom:10px;">點擊框框並按下組合鍵設定。</p>
                 <div class="shortcut-setting-row"><label for="hkRewind">倒退 2 秒</label><input type="text" id="hkRewind" class="shortcut-input" readonly value="Ctrl+ArrowLeft"></div>
                 <div class="shortcut-setting-row"><label for="hkForward">前進 2 秒</label><input type="text" id="hkForward" class="shortcut-input" readonly value="Ctrl+ArrowRight"></div>
@@ -697,8 +749,16 @@
                 </span>
             </div>
 
+            <div id="batchLangSelectWrap" style="display:none; margin-bottom: 20px;">
+                <label for="batchLangSelect" style="display:block; margin-bottom:8px; font-weight:bold; font-size:0.95rem;">3. 多語言字幕：選擇要匯出的語言</label>
+                <select aria-label="批次轉檔匯出語言" id="batchLangSelect" class="input-select" style="width:100%; border: 1px solid #7B1FA2; color:#7B1FA2; font-weight:bold; padding: 10px; border-radius: 6px;">
+                    <option value="all">全部語言（原始格式，含分隔字元）</option>
+                </select>
+                <span style="display:block; margin-top:4px; font-size:0.8rem; color:#888;">僅專案檔 (.json) 來源會依此設定拆出單一語言；來源為 TSV/SRT/Audacity(.txt) 時，文字內容維持檔案原樣。</span>
+            </div>
+
             <div style="margin-bottom: 25px;">
-                <span style="display:block; margin-bottom:8px; font-weight:bold; font-size:0.95rem;">3. 其他選項</span>
+                <span style="display:block; margin-bottom:8px; font-weight:bold; font-size:0.95rem;">4. 其他選項</span>
                 <label for="batchRemovePunctuationCheck" id="batchRemovePunctuationLabel" style="display:flex; align-items:center; gap:8px; font-size:0.95rem; cursor:pointer;">
                     <input type="checkbox" id="batchRemovePunctuationCheck" style="width:18px; height:18px; accent-color:#7B1FA2; cursor:pointer;">
                     移除標點(無法復原)
@@ -1033,6 +1093,13 @@
             <!-- 標題 -->
             <h4 id="exportModalTitle" style="color:#00897B; margin: 0 0 15px 0; flex-shrink: 0;"><span class="material-icons" style="vertical-align: middle;">ios_share</span> 匯出專案資料</h4>
             
+            <!-- 0. ★ 新增：多語言字幕匯出語言選擇（僅在設定中啟用「多語字幕」時才會顯示） -->
+            <div id="exportLangSelectWrap" style="display: none; margin-bottom: 12px; flex-shrink: 0;">
+                <select aria-label="匯出語言" id="exportLangSelect" class="input-select" style="width: 100%; padding: 0 10px; height: 36px; border: 1px solid #ccc; border-radius: 6px; font-weight: bold; color: #333; outline: none; cursor: pointer; margin: 0; box-sizing: border-box;">
+                    <option value="all">全部語言（原始格式，含分隔字元）</option>
+                </select>
+            </div>
+
             <!-- 1. 直接下載按鈕群 (2欄等寬網格排列) -->
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; flex-shrink: 0;">
                 <button id="exportJsonBtn" class="btn-secondary" style="margin: 0; padding: 8px;"><span class="material-icons" style="font-size: 1.1rem;">data_object</span> JSON 專案</button>
@@ -1090,6 +1157,7 @@
 
     <script src="1_globals.js"></script>
     <script src="1a_audio_store_idb.js"></script>
+    <script src="1c_languages.js"></script>
     <script src="2_audio_engine.js"></script>
     <script src="3_data_core.js"></script>
     <script src="4a_ui_title_misc.js"></script>

@@ -208,14 +208,14 @@ function precisionLoop() {
                     verifyingLabel = nextLabel;
                     currentActiveLabel = nextLabel;
                     if (typeof updateToolbarButtons === 'function') updateToolbarButtons();
-                    
-                    document.querySelectorAll('.sentence-item').forEach(el => el.classList.remove('playing'));
+
+                    // ★ 修正：原本這裡只手動加減列表的 playing class，卻沒有呼叫
+                    //   updateSelectionUI()，導致自動連續播放接續下一句時，聲波圖上的
+                    //   焦點色（橘紅色）不會跟著換到新的一句，只有列表綠底自己動。
+                    //   改呼叫 updateSelectionUI()，讓列表與聲波圖統一由 currentActiveLabel 同步。
+                    if (typeof updateSelectionUI === 'function') updateSelectionUI();
                     const nextItemDiv = document.getElementById(`item-${nextLabel}`);
-                    
-                    if (nextItemDiv) {
-                        nextItemDiv.classList.add('playing'); // 標記為正在播放
-                        if (typeof smartScrollTo === 'function') smartScrollTo(nextItemDiv); // 執行捲動定位
-                    }
+                    if (nextItemDiv && typeof smartScrollTo === 'function') smartScrollTo(nextItemDiv); // 執行捲動定位
                     
                     precisionRafId = requestAnimationFrame(precisionLoop);
                     return; 
@@ -301,6 +301,19 @@ zoomInBtn?.addEventListener('click', () => updateZoom(Math.min(200, Number(zoomS
 
 let renderRegionsTimeout = null;
 
+// ================= ★ 新增：聲波圖文字的語言篩選 ★ =================
+// 依設定裡「聲波圖顯示語言」的選項，從完整的多語言原始字串中取出要顯示的那一段。
+// 未啟用多語字幕、或設定為「全部語言」時，直接回傳原文字，行為跟舊版完全一樣。
+function applyRegionTextLangFilter(fullText) {
+    const enabled = (typeof getLangMultiEnabled === 'function') ? getLangMultiEnabled() : false;
+    if (!enabled) return fullText;
+    if (typeof window.regionTextLang === 'undefined' || window.regionTextLang === 'raw') return fullText;
+    if (typeof getLang !== 'function') return fullText;
+
+    const idx = parseInt(window.regionTextLang, 10);
+    return isNaN(idx) ? fullText : getLang(fullText, idx);
+}
+
 function renderAllRegions() {
     if (!wsRegions) return;
     
@@ -326,7 +339,7 @@ function renderAllRegions() {
                  let displayText = displayLabel;
 
 	         if (typeof window.showRegionText !== 'undefined' && window.showRegionText) {
-                     let rawText = sentenceTextMap[label] || '';
+                     let rawText = applyRegionTextLangFilter(sentenceTextMap[label] || '');
                      if (rawText.trim() !== '') {
                          let textArray = Array.from(rawText.trim());
                          let limit = window.regionTextLength;
@@ -378,10 +391,11 @@ window.updateRegionTextDisplay = function(label, rawText) {
 
         // 2. 處理文字與字數限制
         if (typeof window.showRegionText !== 'undefined' && window.showRegionText) {
-            if (rawText && rawText.trim() !== '') {
-                let textArray = Array.from(rawText.trim());
+            const filteredText = applyRegionTextLangFilter(rawText || '');
+            if (filteredText && filteredText.trim() !== '') {
+                let textArray = Array.from(filteredText.trim());
                 let limit = window.regionTextLength;
-                let snippet = (limit === 0) ? rawText.trim() : textArray.slice(0, limit).join('');
+                let snippet = (limit === 0) ? filteredText.trim() : textArray.slice(0, limit).join('');
                 displayText = `${displayLabel} ${snippet}`;
             }
         }
@@ -622,6 +636,11 @@ function initWaveSurfer() {
         lastSelectedLabel = region.id; 
 
         const itemDiv = document.getElementById(`item-${region.id}`);
+        // ★ 修正：列表焦點列 (playing 綠底) 現在統一由 updateSelectionUI() 依
+        //   currentActiveLabel 同步，不再於此處手動加減 class。原本這段手動邏輯
+        //   包在下面的 `if (itemDiv)` 區塊裡，一旦 itemDiv 取不到就會整段跳過，
+        //   導致聲波圖焦點色（不受 itemDiv 影響）已經跳到新的一句，列表綠底卻
+        //   還留在原地不動。
         if(typeof updateSelectionUI === 'function') updateSelectionUI(); 
         
         if (itemDiv) { 
@@ -640,9 +659,6 @@ function initWaveSurfer() {
                 audioPlayer.currentTime = targetTime;
             }
 
-            document.querySelectorAll('.sentence-item').forEach(el => el.classList.remove('playing')); 
-            itemDiv.classList.add('playing'); 
-            
             if (currentSortMode === 'default') {
                 if (typeof isScriptMode !== 'undefined' && isScriptMode) {
                 } else {

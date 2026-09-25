@@ -110,6 +110,13 @@ function loadFromStorage() {
         renderSentenceList(); 
     }
 
+    // ★ 修改：sentenceTextMap 真正讀進資料後，補呼叫一次語言選單的同步函式。
+    // 原因：頁面剛載入時，4a_ui_title_misc.js 的 updateLangViewMenuLabels() 會先執行一次，
+    // 但那時候 loadFromStorage() 還沒跑，sentenceTextMap 是空的，getLangCount() 只能回傳 1，
+    // 導致「語言」選單（含聲波圖顯示語言選單）重新整理後只顯示語言1，要手動切換一次才會
+    // 正確顯示全部語言。這裡在資料真正就緒後再同步一次，兩個選單就能一開始就顯示正確。
+    if (typeof updateLangViewMenuLabels === 'function') updateLangViewMenuLabels();
+
     // ★ 修改：呼叫我們剛剛寫好的共用引擎
     if (audioType === 'local' && localFileName) {
         const localFileHint = document.getElementById('localFileHint');
@@ -558,7 +565,9 @@ function handleClearTag(label) {
     const text = sentenceTextMap[label] || '';
     const idx = allLabelsOrdered.indexOf(label);
 
-    if (text.trim() === '') {
+    // ★ 修改：改用 isBlank 判斷「所有語言」是否都空白，避免多語言字幕時，只是某個語言
+    // 還沒填詞，就被誤判成空白列而整列連同時間標記一起刪掉。
+    if ((typeof isBlank === 'function') ? isBlank(text) : text.trim() === '') {
         deleteSentence(label); // ★ deleteSentence 自己已會呼叫 saveState()，這裡不必重複
         showToast('已刪除空標記列', 'success');
     } else {

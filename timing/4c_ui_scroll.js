@@ -174,14 +174,11 @@ function jumpToRegion(direction) {
         currentActiveLabel = targetLabel;
         lastSelectedLabel = targetLabel;
         if (typeof clearSelection === 'function') clearSelection();
+        // ★ 修正：列表的綠色高亮底色 (playing class) 已改為 updateSelectionUI() 內部
+        //   依 currentActiveLabel 統一同步，這裡不再需要另外手動加減 class
+        //   （避免與 6_wave_controller.js 等其他地方的邏輯重複、日後改一處漏一處）。
         if (typeof updateSelectionUI === 'function') updateSelectionUI();
-
-        // ★ 核心修復：強制更新列表的綠色高亮底色 (playing class)
-        document.querySelectorAll('.sentence-item').forEach(el => el.classList.remove('playing'));
         const targetItemDiv = document.getElementById(`item-${targetLabel}`);
-        if (targetItemDiv) {
-            targetItemDiv.classList.add('playing');
-        }
 
         // B. 手動移動游標 (不再依賴文字框的 focus 事件)
         const times = typeof getCalculatedTimes === 'function' ? getCalculatedTimes(targetLabel) : null;
@@ -600,7 +597,8 @@ clearRegionBtn?.addEventListener('click', () => {
                     const text = sentenceTextMap[label] || '';
                     const idx = allLabelsOrdered.indexOf(label);
                     
-                    if (text.trim() === '') {
+                    // ★ 修改：改用 isBlank 判斷「所有語言」是否都空白（原因同 handleClearTag）
+                    if ((typeof isBlank === 'function') ? isBlank(text) : text.trim() === '') {
                         if (idx > -1) {
                             allLabelsOrdered.splice(idx, 1);
                             delete sentenceTextMap[label];

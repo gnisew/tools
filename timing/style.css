@@ -4,17 +4,25 @@
     --sentence-font-size: 16px; 
     --color-p0: #00897B; --color-p1: #1E88E5; --color-p2: #43A047; --color-p3: #F4511E; --color-p4: #8E24AA; 
     --color-p5: #D81B60; --color-p6: #E53935; --color-p7: #3949AB; --color-p8: #00ACC1; --color-p9: #FDD835; 
+    /* ★ 新增：介面字體變數，預設「台灣黑體」字型堆疊，可由設定選單（#fontFamilySelect）切換 */
+    --main-font-family: twhei-s, TWHEI, "台灣黑體", tauhu-oo, sans-serif;
 }
 
 /* ================= 1. 全域與版面基礎 ================= */
 body { 
-    font-family: sans-serif; 
+    font-family: var(--main-font-family); 
     padding: 15px; 
     background: #F4F7F6; 
     color: #333; 
     max-width: 800px;
     margin: 0 auto; 
     padding-bottom: 80px; 
+}
+/* ★ 新增：twhei.css 用「*」選擇器把字體直接寫在每個元素上（優先權會蓋掉繼承），
+   這裡用「body *」提高優先權蓋回來，讓 --main-font-family 變數能真正切換全站字體。
+   個別功能性樣式（如 .sentence-label、monospace 對齊區）用 class/id 選擇器，優先權更高，不受影響。 */
+body, body * {
+    font-family: var(--main-font-family);
 }
 h2 { color: #00897B; text-align: center; }
 
@@ -473,10 +481,6 @@ body.is-view-mode .sentence-item.playing { border-left: 4px solid #00897B; }
 .clear-tag-btn { display: none; background: #FFEBEE; color: #C62828; border: 1px solid #EF9A9A; width: 24px; height: 24px; flex: 0 0 24px; }
 .clear-tag-btn .material-icons { font-size: 1rem; }
 
-.ai-transcribe-btn { display: none; background: #E3F2FD; color: #1976D2; border: 1px solid #BBDEFB; }
-.show-ai-btns .sentence-item.tagged .ai-transcribe-btn { display: flex; }
-body.is-view-mode .sentence-item .ai-transcribe-btn { display: none !important; }
-
 /* 列表內嵌刪除按鈕 (極簡純圖示版 - 修正橢圓變形問題) */
 .inline-delete-btn { 
     position: absolute; right: 10px; top: 50%; transform: translateY(-50%); 
@@ -589,7 +593,44 @@ body.is-view-mode .hide-in-view { display: none !important; }
 .sidebar-header h3 { margin: 0; color: #00897B; display: flex; align-items: center; gap: 8px; font-size: 1.1rem;}
 .sidebar-content { padding: 18px 16px; flex: 1; }
 .sidebar-group { background: #fff; padding: 14px 16px 16px; border-radius: 10px; border: 1px solid #ECEFF1; box-shadow: 0 1px 2px rgba(0,0,0,0.03); margin-bottom: 12px;}
-.sidebar-group h4 { margin: 0 0 12px 0; color: #263238; font-size: 0.88rem; font-weight: 700; letter-spacing: .2px; border-bottom: 1px solid #ECEFF1; padding-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.sidebar-group h4 {
+    margin: 0 0 12px 0;
+    color: #00695C;
+    font-size: 0.86rem;
+    font-weight: 700;
+    letter-spacing: .2px;
+    display: flex;
+    align-items: center;
+    background: linear-gradient(135deg, #E0F2F1, #E8F5E9);
+    border-radius: 8px;
+    padding: 9px 12px;
+}
+.sidebar-group h4 .material-icons { margin-right: 8px; }
+.sidebar-group h4 .material-icons {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #00897B;
+    color: #fff;
+    font-size: 1.05rem;
+}
+.sidebar-group h4 .setting-num {
+    flex-shrink: 0;
+    color: #00897B;
+    font-weight: 700;
+}
+/* 子標題（附屬在某個編號區塊底下，不重新編號，樣式較低調） */
+.sidebar-group h4.setting-subtitle {
+    background: #F5F5F5;
+    color: #546E7A;
+    margin-top: 4px;
+    border-top: none;
+}
+.sidebar-group h4.setting-subtitle .material-icons { background: #78909C; }
 
 /* ============ 側邊欄設定：統一元件樣式 ============ */
 /* 取代原本每個 <select>/<input> 各自重複貼上的 inline style */

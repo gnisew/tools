@@ -34,6 +34,7 @@ const importSrtInput = document.getElementById('importSrtInput');
 const exportAudioZipBtn = document.getElementById('exportAudioZipBtn');
 
 const downloadActiveRegionBtn = document.getElementById('downloadActiveRegionBtn');
+const cancelRegionBtn = document.getElementById('cancelRegionBtn'); // ★ 新增：常駐工具列的取消選取按鈕
 const tagRegionBtn = document.getElementById('tagRegionBtn');
 const clearRegionBtn = document.getElementById('clearRegionBtn');
 const splitRegionBtn = document.getElementById('splitRegionBtn');
@@ -82,6 +83,7 @@ const scrollAlignSelect = document.getElementById('scrollAlignSelect');
 
 const appWidthSelect = document.getElementById('appWidthSelect');
 const autoScrollModeSelect = document.getElementById('autoScrollModeSelect');
+const fontFamilySelect = document.getElementById('fontFamilySelect'); // ★ 新增：介面字體切換下拉選單
 
 const continuousPlayModeSelect = document.getElementById('continuousPlayModeSelect');
 const playPaddingInput = document.getElementById('playPaddingInput');
@@ -167,6 +169,7 @@ let continuousPlayMode = localStorage.getItem('tagger_continuousPlayMode') || 'n
 let currentAppWidth = localStorage.getItem('tagger_appWidth') || '100%';
 if (currentAppWidth === '800px') { currentAppWidth = '100%'; }
 let currentWaveHeight = parseInt(localStorage.getItem('tagger_waveHeight')) || 80;
+let currentFontFamily = localStorage.getItem('tagger_fontFamily') || 'twhei'; // ★ 新增：介面字體，預設 twhei（台灣黑體）
 
 let currentScrollFineTune = parseInt(localStorage.getItem('tagger_scrollFineTune')) || 0;
 let autoScrollMode = localStorage.getItem('tagger_autoScrollMode') || 'center';
@@ -347,6 +350,15 @@ function updateToolbarButtons() {
         downloadActiveRegionBtn.style.opacity = canDownload ? '1' : '0.3';
         downloadActiveRegionBtn.style.cursor = canDownload ? 'pointer' : 'not-allowed';
     }
+
+    // ★ 新增：「取消選取」按鈕（常駐工具列版本）—— 條件與上面 downloadActiveRegionBtn 相同：
+    //   沒有任何選取（沒選標記、沒有作用中句子、沒有藍色選取框）時，淡化並停用，避免誤點。
+    if (typeof cancelRegionBtn !== 'undefined' && cancelRegionBtn) {
+        const canCancel = (typeof selectedLabels !== 'undefined' && selectedLabels.length > 0) || (currentActiveLabel !== null && timeDataMap[currentActiveLabel] !== undefined) || hasTemp;
+        cancelRegionBtn.disabled = !canCancel;
+        cancelRegionBtn.style.opacity = canCancel ? '1' : '0.3';
+        cancelRegionBtn.style.cursor = canCancel ? 'pointer' : 'not-allowed';
+    }
 }
 
 let selectedLabels = [];
@@ -390,7 +402,12 @@ function loadShortcuts() {
 function attachKeyCatcher(inputEl, keyName) {
     if (!inputEl) return;
     inputEl.addEventListener('keydown', (e) => {
-        e.preventDefault(); 
+        e.preventDefault();
+        // ★ 修復：只 preventDefault() 不夠，這個按鍵事件還是會往上冒泡到
+        //   4c_ui_scroll.js 裡的全域快速鍵監聽器，导致「正在設定」的當下，
+        //   那個按鍵組合就被誤判成「使用者要執行快速鍵」而立刻跳句/倒退/前進。
+        //   加上 stopPropagation()，讓這次按鍵只用來「記錄」，不會被全域監聽器攔截執行。
+        e.stopPropagation();
         if (e.key === 'Tab' || e.key === 'Escape') return inputEl.blur();
         
         let keys = [];

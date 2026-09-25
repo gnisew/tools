@@ -358,8 +358,89 @@ document.addEventListener('click', () => {
     if (speedMenu) speedMenu.classList.remove('show');
     
     if (waveMoreMenu) waveMoreMenu.classList.remove('show');
+
+    // ★ 新增：點擊外部時，一併關閉語言檢視子選單
+    const langViewMenuEl = document.getElementById('langViewMenu');
+    if (langViewMenuEl) langViewMenuEl.classList.remove('show');
     
     document.querySelectorAll('.item-more-menu').forEach(m => m.classList.remove('show')); 
+});
+
+// ================= ★ 新增：多語言字幕 - 「語言」獨立頂層選單（全部語言／只看第 N 語言） =================
+// 開關（點擊展開/收合、跟其他選單互斥）已交給 4b_ui_audio_loader.js 的 toggleHeaderMenu() 統一處理，
+// 這裡只負責：整個按鈕容器要不要顯示（未啟用多語字幕就整個藏起來）、按鈕文字、選單內容。
+const langMenuContainer = document.getElementById('langMenuContainer');
+const langMenuBtn = document.getElementById('langMenuBtn');
+const langViewMenu = document.getElementById('langViewMenu');
+
+// 依目前偵測到的語言數量，重新產生子選單裡「語言1、語言2…」的項目（不再寫死 3 個）。
+// 前面用核取方塊呈現「目前選到哪一個」：這裡仍是單選（跟原本點選行為一致，一次只會勾一個），
+// 只是外觀從數字圖示改成核取方塊，方便一眼看出目前的語言檢視模式。
+function rebuildLangViewMenuItems() {
+    const dynamicContainer = document.getElementById('langViewMenuDynamic');
+    if (!dynamicContainer) return;
+    const count = (typeof getLangCount === 'function') ? getLangCount() : 1;
+    const currentMode = (typeof getLangViewMode === 'function') ? getLangViewMode() : 'raw';
+    dynamicContainer.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+        const name = (typeof getLangName === 'function') ? getLangName(i) : `語言${i + 1}`;
+
+        const item = document.createElement('div');
+        item.className = 'custom-dropdown-item';
+        item.setAttribute('data-lang-value', String(i));
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'lang-menu-checkbox';
+        checkbox.style.cssText = 'margin-right:6px; pointer-events:none;'; // 勾選狀態交由點擊項目統一處理，避免點到方塊本身時邏輯分岔
+        checkbox.checked = (currentMode === String(i));
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'lang-menu-name';
+        nameSpan.dataset.langIdx = String(i);
+        nameSpan.textContent = name; // 用 textContent 賦值，避免語言名稱裡若含特殊字元破壞選單結構
+
+        item.appendChild(checkbox);
+        item.appendChild(nameSpan);
+        dynamicContainer.appendChild(item);
+    }
+}
+
+// 依目前的語言檢視模式，更新子選單裡的項目，以及「語言」按鈕上顯示的目前模式。
+// 未啟用多語字幕時，直接隱藏整個「語言」按鈕（只有一種語言，沒有切換的意義）。
+function updateLangViewMenuLabels() {
+    rebuildLangViewMenuItems();
+    // 聲波圖「顯示哪個語言」的設定選項，跟這裡共用同一套語言數量偵測，一併同步更新
+    if (typeof rebuildRegionTextLangOptions === 'function') rebuildRegionTextLangOptions();
+
+    const enabled = (typeof getLangMultiEnabled === 'function') ? getLangMultiEnabled() : false;
+    if (langMenuContainer) langMenuContainer.style.display = enabled ? 'inline-block' : 'none';
+    if (langMenuBtn) {
+        const mode = (typeof getLangViewMode === 'function') ? getLangViewMode() : 'raw';
+        const label = (mode === 'raw')
+            ? '語言全'
+            : ((typeof getLangName === 'function') ? getLangName(parseInt(mode, 10)) : mode);
+        langMenuBtn.innerHTML = `<span class="material-icons">translate</span> ${label}`;
+    }
+}
+updateLangViewMenuLabels();
+
+// ★ 改用事件代理綁在容器上：語言項目會依語言數量動態重新產生，
+//   若像舊寫法逐一綁定監聽器，重繪後就會失效，改綁在固定不變的父層才不受影響
+langViewMenu?.addEventListener('click', (e) => {
+    const item = e.target.closest('.custom-dropdown-item');
+    if (!item || !langViewMenu.contains(item)) return;
+    const value = item.getAttribute('data-lang-value');
+    if (value === null) return;
+
+    if (typeof setLangViewMode === 'function') setLangViewMode(value);
+    langViewMenu.classList.remove('show');
+    updateLangViewMenuLabels();
+
+    if (typeof renderSentenceList === 'function') renderSentenceList();
+
+    const modeName = (value === 'raw') ? '全部語言' : (typeof getLangName === 'function' ? getLangName(parseInt(value, 10)) : value);
+    showToast(`已切換為：語言檢視 - ${modeName}`, 'normal');
 });
 
 

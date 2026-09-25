@@ -1175,7 +1175,9 @@ async function startLocalAiTranscription() {
                     const label = `${prefix}${num.toString().padStart(2, '0')}`;
 
                     allLabelsOrdered.push(label);
-                    sentenceTextMap[label] = chunk.text.trim();
+                    // ★ 修改：改用 setLang 寫入「第一語言」（index 0）。一鍵 AI 字幕本來就是從空白
+                    // 重新建立整份資料，這裡沿用 setLang 只是讓資料格式跟批次填詞一致，不影響行為。
+                    sentenceTextMap[label] = (typeof setLang === 'function') ? setLang('', 0, chunk.text.trim()) : chunk.text.trim();
                     timeDataMap[label] = { start: parseFloat(startTime.toFixed(3)), end: parseFloat(endTime.toFixed(3)) };
                 });
 
@@ -1277,14 +1279,20 @@ async function startLocalAiBatchTranscribe(targetLabels) {
 
                     const label = data.label;
                     const text = data.text;
-                    sentenceTextMap[label] = text; // 寫入資料
+                    // ★ 修改：AI 批次填詞只能寫第一語言（index 0），用 setLang 只替換那一段，
+                    // 否則如果這句已經有第二語言的文字，會被整串覆蓋、直接洗掉。
+                    const prevFullText = sentenceTextMap[label] || '';
+                    const newFullText = (typeof setLang === 'function') ? setLang(prevFullText, 0, text) : text;
+                    sentenceTextMap[label] = newFullText; // 寫入資料
 
-                    // 即時更新畫面上的文字框
+                    // 即時更新畫面上的文字框：依目前「檢視模式」顯示對應的內容
                     const itemDiv = document.getElementById(`item-${label}`);
                     if (itemDiv) {
                         const textDisplay = itemDiv.querySelector('.sentence-text-display');
-                        if (textDisplay) textDisplay.textContent = text;
-                        itemDiv.dataset.rawText = text;
+                        const curLangViewIndex = (typeof getCurrentLangViewIndex === 'function') ? getCurrentLangViewIndex() : null;
+                        const shownText = (curLangViewIndex !== null && typeof getLang === 'function') ? getLang(newFullText, curLangViewIndex) : newFullText;
+                        if (textDisplay) textDisplay.textContent = shownText;
+                        itemDiv.dataset.rawText = newFullText;
 
                         const deleteBtn = Array.from(itemDiv.querySelectorAll('button')).find(btn => btn.textContent.includes('刪除'));
                         if (deleteBtn) {

@@ -13,11 +13,54 @@ const exportTextFormatSelect = document.getElementById('exportTextFormatSelect')
 openExportModalBtn?.addEventListener('click', () => {
     exportModalOverlay.classList.add('show');
     document.body.style.overflow = 'hidden'; 
+    populateExportLangSelect(); // ★ 新增：每次開啟視窗都重新檢查是否要顯示語言選單
 });
 closeExportModalBtn?.addEventListener('click', () => {
     exportModalOverlay.classList.remove('show');
     document.body.style.overflow = ''; 
 });
+
+// ================= ★ 新增：多語言字幕匯出語言選擇 ★ =================
+// 只有在設定中啟用「多語字幕」時才會顯示這個選單；未啟用時完全不影響原本行為（舊專案相容）。
+const exportLangSelectWrap = document.getElementById('exportLangSelectWrap');
+const exportLangSelect = document.getElementById('exportLangSelect');
+
+// 開啟匯出視窗時呼叫：依目前是否啟用多語字幕，決定要不要顯示選單，並動態產生語言選項
+function populateExportLangSelect() {
+    if (!exportLangSelect || !exportLangSelectWrap) return;
+    if (typeof getLangMultiEnabled !== 'function' || !getLangMultiEnabled()) {
+        exportLangSelectWrap.style.display = 'none';
+        return;
+    }
+    exportLangSelectWrap.style.display = '';
+
+    const prevValue = exportLangSelect.value; // 記住使用者上次選的語言，重開視窗時盡量保留
+    const count = typeof getLangCount === 'function' ? getLangCount() : 1;
+
+    let optionsHtml = '<option value="all">全部語言（原始格式，含分隔字元）</option>';
+    for (let i = 0; i < count; i++) {
+        const name = typeof getLangName === 'function' ? getLangName(i) : `語言${i + 1}`;
+        optionsHtml += `<option value="${i}">${name}</option>`;
+    }
+    exportLangSelect.innerHTML = optionsHtml;
+
+    const stillValid = Array.from(exportLangSelect.options).some(opt => opt.value === prevValue);
+    if (stillValid) exportLangSelect.value = prevValue;
+}
+
+// 依目前「匯出語言」選單的選擇，取出某一句實際要匯出的文字。
+// 未啟用多語字幕、或選單選到「全部語言」時：回傳原始整串文字（跟舊行為完全一樣）。
+// 選到特定語言時：呼叫 1c_languages.js 的 getLang() 只取出該語言。
+// ★ 注意：JSON「專案」匯出（generateJSON）刻意不透過這個函式，因為 JSON 是完整專案備份，
+//   必須保留所有語言的原始資料，才能之後重新匯入時還原多語言內容。
+function getExportText(label) {
+    const raw = sentenceTextMap[label] || '';
+    if (typeof getLangMultiEnabled !== 'function' || !getLangMultiEnabled()) return raw;
+    const sel = exportLangSelect ? exportLangSelect.value : 'all';
+    if (!sel || sel === 'all') return raw;
+    const idx = parseInt(sel, 10);
+    return typeof getLang === 'function' ? getLang(raw, idx) : raw;
+}
 
 // 1. 各格式產生器 (Generators)
 // TSV / SRT / Audacity 的實際字串格式，統一交給 1_globals.js 的 buildStandardToAny()
@@ -33,7 +76,7 @@ function buildItemsFromCurrentProject(requireTime) {
             label,
             start: times ? times.start : '',
             end: times ? times.end : null,
-            text: sentenceTextMap[label] || ""
+            text: getExportText(label) // ★ 修改：原本是 sentenceTextMap[label] || ""，改為依匯出語言選單取值
         };
     });
 }
@@ -123,12 +166,14 @@ document.getElementById('exportTextBtn')?.addEventListener('click', () => {
         });
         if (currentPara.length > 0) paragraphs.push(currentPara);
 
-        if (format === 'para') result = paragraphs.map(para => para.map(label => sentenceTextMap[label] || '').join('')).join('\n');
-        else if (format === 'para-slash-n') result = paragraphs.map(para => para.map(label => sentenceTextMap[label] || '').join('')).join('\\n');
-        else if (format === 'sent-no-para') result = allLabelsOrdered.map(label => sentenceTextMap[label] || '').join('\n');
-        else if (format === 'sent-empty-line') result = paragraphs.map(para => para.map(label => sentenceTextMap[label] || '').join('\n')).join('\n\n');
+        // ★ 修改：以下五種格式原本都直接讀 sentenceTextMap[label] || ''，
+        //   現在改用 getExportText(label)，未啟用多語字幕或選「全部語言」時行為完全不變。
+        if (format === 'para') result = paragraphs.map(para => para.map(label => getExportText(label)).join('')).join('\n');
+        else if (format === 'para-slash-n') result = paragraphs.map(para => para.map(label => getExportText(label)).join('')).join('\\n');
+        else if (format === 'sent-no-para') result = allLabelsOrdered.map(label => getExportText(label)).join('\n');
+        else if (format === 'sent-empty-line') result = paragraphs.map(para => para.map(label => getExportText(label)).join('\n')).join('\n\n');
         else if (format === 'sent-hash') {
-            const outLines = []; paragraphs.forEach(para => { outLines.push('######'); para.forEach(label => outLines.push(sentenceTextMap[label] || '')); outLines.push('######'); });
+            const outLines = []; paragraphs.forEach(para => { outLines.push('######'); para.forEach(label => outLines.push(getExportText(label))); outLines.push('######'); });
             result = outLines.join('\n');
         }
     }

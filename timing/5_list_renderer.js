@@ -11,7 +11,21 @@ function updateSelectionUI() {
         const item = document.getElementById(`item-${lbl}`);
         if (item) item.classList.add('selected-row');
     });
-    
+
+    // ★ 修正：列表「目前焦點列」(綠底 playing) 統一在這裡與 currentActiveLabel 同步，
+    //   不再讓各呼叫端各自手動加減 class。原本聲波圖點擊、Tab 跳句、自動連續播放等
+    //   多處各自維護一份「移除全部 playing → 找 itemDiv → 加上 playing」的重複邏輯，
+    //   只要有任何一處漏掉或提早 return，就會出現「聲波圖焦點動了、列表綠底卻沒跟著動」
+    //   的不同步問題。現在只要 currentActiveLabel 有更新、且呼叫了 updateSelectionUI()
+    //   (幾乎所有會改動 currentActiveLabel 的地方都會呼叫)，列表就一定會跟著同步。
+    document.querySelectorAll('.sentence-item.playing').forEach(item => {
+        item.classList.remove('playing');
+    });
+    if (currentActiveLabel) {
+        const activeItem = document.getElementById(`item-${currentActiveLabel}`);
+        if (activeItem) activeItem.classList.add('playing');
+    }
+
     // ★ 新增：每次更新選取狀態時，順便將目前的游標標記存入暫存
     if (currentActiveLabel) {
         localStorage.setItem('tagger_lastActiveLabel', currentActiveLabel);
@@ -153,9 +167,7 @@ function renderSentenceList() {
 	if (showClearBtns) sentenceList.classList.add('show-clear-btns'); 
     if (showShiftBtns) sentenceList.classList.add('show-shift-btns'); 
     if (showMoreBtns) sentenceList.classList.add('show-more-btns'); 
-    if (typeof showAiBtns !== 'undefined' && showAiBtns) sentenceList.classList.add('show-ai-btns');
     if (typeof showTagBtns !== 'undefined' && showTagBtns) sentenceList.classList.add('show-tag-btns');
-	if (showAiBtns) sentenceList.classList.add('show-ai-btns');
     currentSortedLabels = [...allLabelsOrdered];
     
     if (currentSortMode !== 'default') {
@@ -191,11 +203,23 @@ function renderSentenceList() {
     const fragment = document.createDocumentFragment();
 
     currentSortedLabels.forEach(label => {
-        const text = sentenceTextMap[label]; const paraIndex = label.charCodeAt(0) - 65; const colorVar = `var(--color-p${paraIndex % 10})`;
+        // ★ 新增：多語言字幕檢視。fullText 是存在 sentenceTextMap 裡「完整」的原始字串
+        // （可能含多語言分隔字元），text 則是依目前「檢視模式」實際要顯示在畫面上的內容：
+        // 「原始」模式顯示整串；「只看第 N 語言」模式只顯示該語言那一段。
+        const fullText = sentenceTextMap[label] || '';
+        const langViewIndex = (typeof getCurrentLangViewIndex === 'function') ? getCurrentLangViewIndex() : null;
+        const text = (langViewIndex !== null && typeof getLang === 'function') ? getLang(fullText, langViewIndex) : fullText;
+        // 「這一列是否空白」要看所有語言（而不是只看目前顯示的那個語言），避免只是切到某個
+        // 還沒填詞的語言，就被誤判成空白列而顯示「刪除」圖示。
+        const isRowBlank = (typeof isBlank === 'function') ? isBlank(fullText) : text.trim() === '';
+        const paraIndex = label.charCodeAt(0) - 65; const colorVar = `var(--color-p${paraIndex % 10})`;
         const displayLabel = typeof window.getDisplayLabel === 'function' ? window.getDisplayLabel(label) : label;
-        const div = document.createElement('div'); div.className = 'sentence-item'; div.id = `item-${label}`; div.dataset.rawText = text; 
+        const div = document.createElement('div'); div.className = 'sentence-item'; div.id = `item-${label}`; div.dataset.rawText = fullText; 
         
         if (selectedLabels.includes(label)) div.classList.add('selected-row');
+        // ★ 新增：整份清單重繪時（例如編輯文字、匯入、切換語言檢視等），若這一列正是
+        //   目前的焦點列，直接補上 playing class，避免重繪後焦點列的綠底消失。
+        if (label === currentActiveLabel) div.classList.add('playing');
 
         // 修改：在選單的各個破壞性操作中，插入 saveState(); 
         div.innerHTML = `
@@ -205,10 +229,9 @@ function renderSentenceList() {
 
                 <span class="sentence-text-display ${isEditMode ? 'is-editable' : ''}" ${isEditMode ? 'contenteditable="true" role="textbox" aria-multiline="false" aria-label="字幕文字，可點擊編輯"' : ''} spellcheck="false">${escapeHtml(text)}</span>
                 
-                <button class="inline-delete-btn" id="inline-del-${label}" title="刪除此列與聲波標記" aria-label="刪除此列與聲波標記" style="${text.trim() === '' ? 'display:flex;' : 'display:none;'}"><span class="material-icons">delete</span></button>
+                <button class="inline-delete-btn" id="inline-del-${label}" title="刪除此列與聲波標記" aria-label="刪除此列與聲波標記" style="${isRowBlank ? 'display:flex;' : 'display:none;'}"><span class="material-icons">delete</span></button>
             </div>
             <div class="sentence-actions">
-				<button class="action-icon-btn ai-transcribe-btn" id="ai-btn-${label}" title="單句 AI 填詞" aria-label="單句 AI 填詞"><span class="material-icons">auto_fix_high</span></button>
                 <button class="action-icon-btn shift-time-btn" title="批次平移時間" aria-label="批次平移時間"><span class="material-icons">update</span></button>
                 <span class="sentence-time" id="time-${label}" title="從該句播放">--:--</span>
                 <button class="action-icon-btn clear-tag-btn" title="清除時間" aria-label="清除時間"><span class="material-icons">clear</span></button>
@@ -268,16 +291,6 @@ function renderSentenceList() {
                 updateSelectionUI(); 
             }
         });
-		div.querySelector(`#ai-btn-${label}`)?.addEventListener('click', (e) => {
-            e.stopPropagation(); 
-            if (!isEditMode) return;
-            if (!timeDataMap[label]) return showToast('請先標記時間，AI 才知道要聽哪一段！', 'error');
-            
-            // 呼叫 2_audio_engine.js 中現成的強大批次引擎，並只傳入這「單一句子」
-            if (typeof startLocalAiBatchTranscribe === 'function') {
-                startLocalAiBatchTranscribe([label]);
-            }
-        });        
         textDisplay.addEventListener('click', (e) => {
             if (e.ctrlKey || e.metaKey || e.shiftKey) return; 
             currentActiveLabel = label; 
@@ -295,8 +308,12 @@ function renderSentenceList() {
         let rowInputTimeout = null;
 
         textDisplay.addEventListener('input', () => {
-            // 原本的功能：切換刪除按鈕顯示狀態
-            inlineDelBtn.style.display = textDisplay.textContent.trim() === '' ? 'flex' : 'none';
+            // ★ 修改：切換刪除按鈕顯示狀態，要看「所有語言」是否都空白，而不只是目前顯示的這段
+            const curLangViewIndex = (typeof getCurrentLangViewIndex === 'function') ? getCurrentLangViewIndex() : null;
+            const prospectiveFull = (curLangViewIndex !== null && typeof setLang === 'function')
+                ? setLang(sentenceTextMap[label] || '', curLangViewIndex, textDisplay.textContent)
+                : textDisplay.textContent;
+            inlineDelBtn.style.display = (typeof isBlank === 'function' ? isBlank(prospectiveFull) : textDisplay.textContent.trim() === '') ? 'flex' : 'none';
 
             clearTimeout(rowInputTimeout);
             rowInputTimeout = setTimeout(() => {
@@ -311,27 +328,36 @@ function renderSentenceList() {
         textDisplay.addEventListener('blur', () => {
             // 取得目前的輸入內容，並利用 trim() 濾掉頭尾空白
             const rawInput = textDisplay.textContent;
-            const newText = rawInput.trim();
+            const newSegText = rawInput.trim();
             
             // ★ 高效清除空白：只要發現有不小心的頭尾空白，就在畫面上立刻幫他清除掉
             // 這不需要存取全域迴圈，直接修改 DOM，極度節省效能！
-            if (rawInput !== newText) {
-                textDisplay.textContent = newText;
+            if (rawInput !== newSegText) {
+                textDisplay.textContent = newSegText;
             }
 
+            // 去除可能干擾的括號
+            const cleanSegText = newSegText.replace(/\([^)]+\)/g, '');
+
+            // ★ 修改：依目前「檢視模式」算出應該存回 sentenceTextMap 的完整字串
+            // 「原始」模式：跟過去行為一樣，整串直接覆蓋
+            // 「只看第 N 語言」模式：只替換該語言那一段，其他語言的文字不能被動到
+            const curLangViewIndex = (typeof getCurrentLangViewIndex === 'function') ? getCurrentLangViewIndex() : null;
+            const prevFullText = sentenceTextMap[label] || '';
+            const newFullText = (curLangViewIndex !== null && typeof setLang === 'function')
+                ? setLang(prevFullText, curLangViewIndex, cleanSegText)
+                : cleanSegText;
+
             // 檢查真正的文字內容是否有被修改過
-            if (newText !== div.dataset.rawText) { 
+            if (newFullText !== prevFullText) { 
                 if(typeof saveState === 'function') saveState(); // 紀錄歷史狀態
-                div.dataset.rawText = newText; 
-                
-                // 去除可能干擾的括號後存檔
-                const cleanText = newText.replace(/\([^)]+\)/g, '');
-                sentenceTextMap[label] = cleanText; 
+                div.dataset.rawText = newFullText; 
+                sentenceTextMap[label] = newFullText; 
                 saveToStorage(); 
 
                 // 終極防護：確保失去焦點時，聲波圖文字必定是最新狀態
                 if (typeof updateRegionTextDisplay === 'function') {
-                    updateRegionTextDisplay(label, cleanText);
+                    updateRegionTextDisplay(label, newFullText);
                 }
             }
         });

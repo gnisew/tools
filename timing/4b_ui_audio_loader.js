@@ -380,11 +380,13 @@ document.getElementById('audioLoadConfirmBtn')?.addEventListener('click', async 
 // ================= ★ 全新：巢狀下拉選單與工具列狀態引擎 ★ =================
 
 // 1. 選單開關邏輯
-const headerMenus = ['editMenu', 'viewMenu', 'btnMenu'];
+const headerMenus = ['editMenu', 'viewMenu', 'btnMenu', 'langViewMenu'];
 
 document.getElementById('editMenuBtn')?.addEventListener('click', (e) => { e.stopPropagation(); toggleHeaderMenu('editMenu'); });
 document.getElementById('viewMenuBtn')?.addEventListener('click', (e) => { e.stopPropagation(); toggleHeaderMenu('viewMenu'); });
 document.getElementById('btnMenuBtn')?.addEventListener('click', (e) => { e.stopPropagation(); toggleHeaderMenu('btnMenu'); });
+// ★ 新增：「語言」獨立頂層選單（只在啟用多語字幕時才會顯示，見 4a_ui_title_misc.js）
+document.getElementById('langMenuBtn')?.addEventListener('click', (e) => { e.stopPropagation(); toggleHeaderMenu('langViewMenu'); });
 
 function toggleHeaderMenu(menuId) {
     headerMenus.forEach(id => {
@@ -442,11 +444,6 @@ document.getElementById('toggleTagBtnsBtn')?.addEventListener('click', (e) => {
     sentenceList.classList.toggle('show-tag-btns', showTagBtns); 
     updateBtnMenuItem('toggleTagBtnsBtn', showTagBtns, 'add_alarm', '標記按鈕');
 });
-document.getElementById('toggleAiBtnsBtn')?.addEventListener('click', (e) => { 
-    e.stopPropagation(); showAiBtns = !showAiBtns; 
-    sentenceList.classList.toggle('show-ai-btns', showAiBtns); 
-    updateBtnMenuItem('toggleAiBtnsBtn', showAiBtns, 'auto_fix_high', 'AI 填詞按鈕');
-});
 document.getElementById('toggleShiftBtnsBtn')?.addEventListener('click', (e) => { 
     e.stopPropagation(); showShiftBtns = !showShiftBtns; 
     sentenceList.classList.toggle('show-shift-btns', showShiftBtns); 
@@ -488,7 +485,6 @@ document.getElementById('toggleModeBtn')?.addEventListener('click', () => {
         if (showClearBtns) document.getElementById('toggleClearBtnsBtn')?.click(); 
         if (showShiftBtns) document.getElementById('toggleShiftBtnsBtn')?.click(); 
         if (showMoreBtns) document.getElementById('toggleMoreBtnsBtn')?.click(); 
-		if (showAiBtns) document.getElementById('toggleAiBtnsBtn')?.click();
         
         // ★ 加入防呆檢查：確認 setupPanel 存在才去更改樣式
         if (setupPanel) {
