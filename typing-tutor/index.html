@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>指法練習與注音打字 原型（Phase 1＋2）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="app">
+
+  <div class="topbar">
+    <button class="menu-btn" id="menuBtn" title="開啟設定選單" aria-label="開啟設定選單">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>
+    </button>
+    <div class="brand" id="brandTitle">烏衣行打字</div>
+    <!-- 【新增】回課程首頁（卡片方格）按鈕：放在 .topbar-controls 外面，所以在紀錄頁／練習頁都看得到；只有在課程首頁本身會隱藏 -->
+    <button class="btn btn-ghost" id="homeNavBtn" title="回到課程首頁">📚 課程</button>
+    <!-- 【修改】課程首頁的主課程（大課程）選單，原本在 .home-view 裡自成一列，現在移到頂部列跟主標題同高度；只在課程首頁顯示 -->
+    <select class="lesson-select course-select home-course-select" id="homeCourseSelect" style="display:none;"></select>
+    <div class="topbar-controls" id="topbarControls">
+      <!-- 【修改】原本大課程／小課程是兩個各自獨立的白底方框，現在合併成一個一體成形的選單群組（中間用細線分隔），視覺上更像「一組課程選擇」而不是兩個各自獨立的元件；緊接在標題右邊，靠左排列 -->
+      <div class="control-group">
+        <select class="lesson-select course-select" id="courseSelect" title="選擇大課程">
+          <option value="basics">🔤 英打基礎</option>
+          <option value="english">⌨️ 英打</option>
+          <option value="zhuyin">ㄅㄆ 注音</option>
+        </select>
+        <span class="control-divider"></span>
+        <!-- 【修改】小課程選單原本是原生 <select>，其下拉清單高度完全由瀏覽器決定、無法用 CSS 限制；
+             改成自訂下拉（按鈕＋清單），才能用 max-height 把展開高度限制在畫面的 80% 左右 -->
+        <div class="lesson-dropdown" id="lessonDropdownWrap">
+          <button type="button" class="lesson-select lesson-dropdown-btn" id="lessonSelect" title="選擇小課程">
+            <span id="lessonSelectLabel">選擇小課程</span>
+            <svg class="lesson-dropdown-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="lesson-dropdown-menu" id="lessonDropdownMenu"></div>
+        </div>
+      </div>
+      <!-- 【新增】右上角固定順序：先「時間」，再「開始/重設」按鈕；情境按鈕（加強練習返回、結束本輪、下一題）放在同一群組最左邊，平常大多是隱藏狀態 -->
+      <div class="topbar-right">
+        <div class="session-actions">
+          <!-- 【新增】鍵盤顯示的快速開關，跟側欄「顯示鍵盤」連動（TypingClub 也把這顆放在工具列） -->
+          <button class="btn" id="keyboardToggleBtn" title="顯示／隱藏鍵盤">⌨️ 鍵盤</button>
+          <button class="btn" id="exitDrillBtn" style="display:none;">↩ 返回一般練習</button>
+          <button class="btn" id="endInfiniteBtn" style="display:none;">🏁 結束本輪</button>
+          <button class="btn primary" id="comboManualNextBtn" style="display:none;">✓ 已比出手勢，下一題</button>
+        </div>
+        <div class="stats" id="statsBar">
+          <div class="stat time" id="timeStatBtn" title="點擊選擇練習時間長度">
+            <!-- 【修改】原本固定是時鐘圖示，改成用 id 標記，讓 JS 能依「自動時間」是否開啟切換成閃電圖示 -->
+            <svg id="timeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg><span class="num" id="timeNum">1:30</span>
+            <div class="time-menu" id="timeMenu">
+              <!-- 【新增】自動時間：依目前課程內容估算合適的練習秒數（上限 3 分鐘），設為預設選項 -->
+              <div class="time-menu-item selected" data-seconds="auto" title="依課程內容自動估算，最長 3 分鐘">⚡ 自動</div>
+              <div class="time-menu-item" data-seconds="60">60 秒</div>
+              <div class="time-menu-item" data-seconds="90">90 秒</div>
+              <div class="time-menu-item" data-seconds="120">2 分鐘</div>
+              <div class="time-menu-item" data-seconds="180">3 分鐘</div>
+              <div class="time-menu-item" data-seconds="300">5 分鐘</div>
+              <div class="time-menu-item" data-seconds="600">10 分鐘</div>
+              <div class="time-menu-item" data-seconds="0">無限</div>
+            </div>
+          </div>
+          <div class="stat"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.5L22 9l-5 4.9 1.2 7.1L12 17.8 5.8 21l1.2-7.1L2 9l7.1-.5z"/></svg><span class="num" id="scoreNum">0</span></div>
+          <div class="stat correct">✓ <span class="num" id="correctNum">0</span></div>
+          <div class="stat wrong">✕ <span class="num" id="wrongNum">0</span></div>
+          <div class="stat accuracy">正確率 <span class="num" id="accuracyNum">－</span></div>
+          <div class="stat speed">⚡ <span class="num" id="speedNum">0</span> 字/分</div>
+          <div class="stat streak">🔥 <span class="num" id="streakNum">0</span></div>
+        </div>
+        <button class="btn primary" id="startBtn">開始</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- 【新增】亂打鎖定圖層 -->
+  <div class="lockout-overlay" id="lockoutOverlay"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="title">🥷烏衣行打字</span>
+      <button class="sidebar-close" id="sidebarCloseBtn" aria-label="關閉">✕</button>
+    </div>
+
+    <!-- 【新增】原本在頂部列的「打字紀錄」按鈕移到這裡，跟其他設定選項放在一起 -->
+    <div class="sidebar-section">
+      <button class="btn btn-ghost sidebar-history-btn" id="historyBtn" title="查看最近的打字紀錄">📊 打字紀錄</button>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-title">目前課程</div>
+      <div class="lesson-info-name" id="lessonInfoName">1. 基準鍵 F J</div>
+      <div class="lesson-info-desc" id="lessonInfoDesc">A S D F G H J K L ;</div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-title">顯示設定</div>
+      <div class="sidebar-inner">
+        <!-- 【新增】顯示鍵盤（Keyboard Guide）：關閉後畫面不再出現鍵盤圖，改成把這一輪要打的完整內容整篇攤開 -->
+        <div class="toggle-row">
+          <div class="switch on" id="toggleKeyboard" data-key="keyboard"></div>
+          <span class="label">顯示鍵盤</span>
+        </div>
+        <div class="toggle-row">
+          <div class="switch on" id="toggleHint" data-key="hint"></div>
+          <span class="label">鍵盤提示</span>
+        </div>
+        <div class="toggle-row">
+          <div class="switch on" id="toggleFinger" data-key="finger"></div>
+          <span class="label">指法顏色提示</span>
+        </div>
+        <!-- 【新增】指法顏色的濃淡切換：預設淺色（跟上面一致），開啟後色彩加深，方便區分不同手指 -->
+        <div class="toggle-row">
+          <div class="switch" id="toggleFingerVivid" data-key="fingerVivid"></div>
+          <span class="label">鍵盤加深</span>
+        </div>
+        <div class="toggle-row">
+          <div class="switch on" id="toggleSound" data-key="sound"></div>
+          <span class="label">音效</span>
+        </div>
+        <div class="toggle-row">
+          <div class="switch on" id="toggleKeyLetter" data-key="keyLetter"></div>
+          <span class="label">鍵帽加字母</span>
+        </div>
+        <div class="toggle-row">
+          <div class="switch" id="toggleKeyZhuyin" data-key="keyZhuyin"></div>
+          <span class="label">鍵帽加注音</span>
+        </div>
+        <div class="toggle-row">
+          <div class="switch" id="toggleKeySymbol" data-key="keySymbol"></div>
+          <span class="label">鍵帽加符號</span>
+        </div>
+        <!-- 【刪除】原本這裡的「注音打字模式」開關已移除：注音打字現在是左上角「大課程」選單的一個選項，不再是設定面板裡的開關（見 courseSelect） -->
+        <!-- 【修改】原本標籤還帶「新功能」小標籤、下面接一整段功能說明，現在只留簡短標籤名稱 -->
+        <div class="toggle-row">
+          <div class="switch" id="toggleRaceGame" data-key="raceGame"></div>
+          <span class="label">打字小遊戲：文字賽跑</span>
+        </div>
+        <!-- 【新增】忍者抓氣球：開啟後字卡／整段文字改成天空中的氣球，打對就抓下一顆 -->
+        <div class="toggle-row">
+          <div class="switch" id="toggleBalloonGame" data-key="balloonGame"></div>
+          <span class="label">打字小遊戲：忍者抓氣球</span>
+        </div>
+        <!-- 【刪除】原本這裡有一段說明「開啟後鍵盤上方出現2條跑道…」，標籤已經簡化成短標題，這段長說明就不需要了 -->
+        <div class="toggle-row">
+          <div class="switch disabled"></div>
+          <span class="label">遊戲化打怪模式<span class="badge">即將推出</span></span>
+        </div>
+        <!-- 【刪除】「重設統計」按鈕：跟右上角「開始／重設」功能重複，這裡不需要再放一顆 -->
+      </div>
+    </div>
+
+    <!-- 【修改】「指法顏色說明」改成可摺疊區塊，標題本身可點擊展開／收合，預設收合（不再直接顯示內容） -->
+    <div class="sidebar-section">
+      <button type="button" class="section-title collapsible" id="legendToggleBtn" aria-expanded="false">
+        指法顏色說明
+        <svg class="collapsible-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="sidebar-legend" id="sidebarLegend" style="display:none;"></div>
+    </div>
+  </aside>
+
+  <!-- 【新增】practiceView：把原本的練習畫面整個包起來，方便跟下面新增的 historyView（打字紀錄頁）互相切換顯示 -->
+  <div class="practice-view" id="practiceView">
+
+    <div class="mascot-row" id="mascotRow">
+      <div class="streak-toast" id="streakToast"></div>
+      <svg class="mascot" viewBox="0 0 56 56">
+        <circle cx="28" cy="28" r="26" fill="#CFE6FA" stroke="#2E6DA4" stroke-width="2"/>
+        <circle cx="20" cy="26" r="3" fill="#2E6DA4"/>
+        <circle cx="36" cy="26" r="3" fill="#2E6DA4"/>
+        <path d="M18 35c4 5 16 5 20 0" fill="none" stroke="#2E6DA4" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+      <div class="bubble">
+        <div id="bubbleWaiting">把手指放上 <span class="finger-name">Home Row</span>，準備好後按 <span class="key-pill">Space</span> 開始練習！</div>
+        <div id="bubbleCountdown" style="display:none;">把手指放上 Home Row，準備開始：<span class="key-pill" id="countdownBubbleNum">3</span></div>
+        <div id="bubbleNormal" style="display:none;">跟著下面鍵盤上的提示，繼續加油！💪</div>
+        <div id="bubbleEnded" style="display:none;">
+          <div class="result-title" id="resultTitle">🎉 時間到！這一輪的成績</div>
+          <div class="result-grid" id="resultStats">
+            <div class="result-cell hero">
+              <span class="result-label"><span class="result-icon">🏆</span>得分</span>
+              <span class="result-value" id="finalScore">0</span>
+            </div>
+            <div class="result-cell">
+              <span class="result-label"><span class="result-icon">🎯</span>正確率</span>
+              <span class="result-value acc" id="finalAccuracy">－</span>
+              <span class="sample-note" id="finalSampleNote"></span>
+            </div>
+            <div class="result-cell">
+              <span class="result-label"><span class="result-icon">⚡</span>速度</span>
+              <span class="result-value" id="finalSpeed">0</span>
+              <span class="result-unit">字/分</span>
+            </div>
+            <div class="result-cell">
+              <span class="result-label"><span class="result-icon">✅</span>打對</span>
+              <span class="result-value ok" id="finalCorrect">0</span>
+            </div>
+            <div class="result-cell">
+              <span class="result-label"><span class="result-icon">❌</span>打錯</span>
+              <span class="result-value bad" id="finalWrong">0</span>
+            </div>
+            <div class="result-cell">
+              <span class="result-label"><span class="result-icon">🔥</span>最長連續</span>
+              <span class="result-value streak" id="finalStreak">0</span>
+            </div>
+          </div>
+          <div class="result-foot">
+            <div id="mistakesLine"></div>
+            <button class="btn primary" id="drillMistakesBtn" style="display:none;">🎯 練習錯鍵</button> <!-- 【修改】原本「加強練習這些鍵」文字較長，改成「練習錯鍵」，也讓 result-foot 三顆按鈕更容易擠在同一行 -->
+            <!-- 【新增】結束時除了「加強練習」，也直接提供「重新開始」與「下一關」，不用再回頭找上面的按鈕/選單 -->
+            <button class="btn" id="resultRestartBtn" style="display:none;">🔁 重新開始</button>
+            <button class="btn" id="resultNextLessonBtn" style="display:none;">➡️ 下一關</button>
+            <!-- 【新增】練完一課後直接回課程首頁，可以立刻看到這一課的卡片打勾 -->
+            <button class="btn" id="resultHomeBtn" style="display:none;">📚 課程首頁</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="race-track-wrap" id="raceTrackWrap">
+      <!-- 【修改】拿掉賽道上方的標題列，賽道改放第一列；拿掉左側「你／對手」文字欄，讓賽道佔滿整列橫向寬度 -->
+      <div class="race-lane" id="raceLane-player">
+        <div class="race-track" id="raceTrack">
+          <div class="race-runner" id="raceRunner">🐢</div>
+          <div class="race-runner race-runner-rival" id="raceRunner-rival">🦊</div>
+          <div class="race-flag-start">🏁</div>
+          <div class="race-flag">🏁</div>
+        </div>
+      </div>
+      <!-- 【修改】原本分開兩列的「標題＋？按鈕」和「你／對手步數」合併成賽道下方單一列，更省高度 -->
+      <div class="race-info-row">
+        <span class="race-title">🏁 打字賽跑</span>
+        <span class="race-progress-item">🐢 你：<span id="raceProgressLabel">0 步</span></span>
+        <span class="race-progress-item rival">🦊 對手：<span id="raceProgressLabel-rival">0 步</span></span>
+        <button type="button" class="race-info-btn" id="raceInfoBtn" aria-label="賽跑規則說明">？</button>
+      </div>
+      <!-- 【新增】規則說明小卡，預設收合，點擊上面「？」按鈕才顯示 -->
+      <div class="race-info-tip" id="raceInfoTip">打對前進、打錯後退，比誰跑得遠！</div>
+    </div>
+
+    <!-- 【新增】忍者抓氣球遊戲區（settings.balloonGame 開啟時才顯示，取代原本的字卡／整段文字） -->
+    <div class="balloon-sky" id="balloonSky">
+      <span class="balloon-cloud" style="top:14px;left:22%;">☁️</span>
+      <span class="balloon-cloud" style="top:52px;left:58%;font-size:38px;">☁️</span>
+      <span class="balloon-cloud" style="top:20px;left:82%;font-size:24px;">☁️</span>
+      <div class="balloon-track" id="balloonTrack"></div>
+      <!-- 【新增】忍者出場前的佔位符號：遊戲還沒正式開始（等待按 Space／三二一倒數中）時顯示在題目左邊，
+           代表忍者倒數結束後會從這個位置開始下降；一旦正式開始，這個星號就會被藏起來，換忍者出場。 -->
+      <span class="balloon-start-marker" id="balloonStartMarker">⭐</span>
+      <div class="balloon-ninja hide" id="balloonNinja">🥷</div>
+      <div class="balloon-lives" id="balloonLives"></div>
+      <div class="balloon-score" id="balloonScore">🎈 0</div>
+      <div class="balloon-msg" id="balloonMsg">按 Space 開始，打出忍者面前那顆氣球上的字</div>
+    </div>
+
+    <div class="progress-dots" id="progressDots"></div>
+    <div class="text-passage" id="textPassage"></div>
+
+    <div class="keyboard-tray" id="keyboardTray">
+      <div class="keyboard show-fingers" id="keyboard"></div>
+    </div>
+
+    <div class="key-hint-bar" id="keyHintBar" style="display:none;">請用 <span class="finger-name-hint" id="fingerLabel">左手食指</span> <span id="singleTargetWrap">按下 <span class="key-pill" id="targetLabel">F</span><span class="physical-key-hint" id="physicalKeyHint"></span></span><span id="passageTargetWrap" style="display:none;">打出上方反白標示的字</span></div>
+
+    <footer class="note" id="footerNote"></footer>
+  </div>
+
+  <!-- 【修改】原本標題列還有「只保留最近20筆」提示＋「清除紀錄」按鈕，現在只留標題與「返回練習」，更簡潔；
+       「清除紀錄」整顆按鈕拿掉（不提供清除功能），提示文字改放到清單最下面 -->
+  <!-- 【修改】課程首頁（Home view）：大課程選單移到頂部列跟主標題同高度（見 .topbar 內的 #homeCourseSelect）；
+       進度表整個拿掉；提示文字拿掉；「重設進度」按鈕從設定側欄移到這裡，放在首頁頁面最下面。
+       內容全部由 JS 的 renderHomeView() 依 COURSES／課程資料動態產生 -->
+  <div class="home-view" id="homeView" style="display:none;">
+    <div id="homeGroups"></div>
+    <div class="home-footer">
+      <button class="btn btn-ghost" id="resetProgressBtn" title="清除所有課程的完成紀錄">↺ 重設進度</button>
+    </div>
+  </div>
+
+  <div class="history-view" id="historyView" style="display:none;">
+    <div class="history-view-header">
+      <div class="history-view-title">📊 打字紀錄 <span class="history-count-badge" id="historyCountBadge">0</span></div>
+      <button class="btn primary" id="backToPracticeBtn">⌨️ 返回練習</button>
+    </div>
+    <div class="history-empty" id="historyEmpty">
+      <div class="history-empty-emoji">🗒️</div>
+      <div>還沒有打字紀錄，完成一輪練習後就會出現在這裡！</div>
+    </div>
+    <div class="history-list" id="historyList"></div>
+    <!-- 【新增】原本在標題列右上角的提示文字，現在移到清單最後一筆下方；只有在有紀錄時才顯示 -->
+    <div class="history-view-hint" id="historyHint" style="display:none;">只保留最近 20 筆</div>
+  </div>
+</div>
+
+<script src="lessons-data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
