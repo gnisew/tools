@@ -76,24 +76,33 @@ clearStorageBtn.addEventListener('click', (e) => {
             allLabelsOrdered = [];
             sentenceTextMap = {};
             timeDataMap = {};
-            
+            mediaGroups = []; // ★ 新增：跨句圖片群組也一併清空記憶體
+
             // 3. 建立「專案資料」專屬清單，並精準刪除
             const projectKeys = [
                 'tagger_allLabels', 'tagger_textMap', 'tagger_timeDataMap',
                 'tagger_projectTitle', 'tagger_audioUrl', 'tagger_localFileName',
                 'tagger_originalFileName', 'tagger_isTrimmed',
-                'tagger_audioType', 'tagger_lastDataFile'
+                'tagger_audioType', 'tagger_lastDataFile',
+                'tagger_mediaGroups' // ★ 新增：跨句圖片群組的 localStorage 記錄
             ];
             
             projectKeys.forEach(key => localStorage.removeItem(key));
             
-            // 4. ★ 新增：清除 IndexedDB 裡背景備份的本地音檔本體，
-            // 否則「清除專案資料」後，舊音檔仍會留在 IndexedDB 裡，
-            // 下次載入新專案時可能誤讀到不相干的舊音檔。
+            // 4. 清除 IndexedDB 裡背景備份的本地音檔本體與圖片群組圖片，
+            // 否則「清除專案資料」後，舊音檔／舊圖片仍會留在 IndexedDB 裡，
+            // 下次載入新專案時可能誤讀到不相干的舊資料，或留下永遠用不到的孤兒圖片。
             // 用 .finally() 確保無論清除成功或失敗，都會繼續重新整理頁面。
             const finishReload = () => location.reload();
+            const clearJobs = [];
             if (typeof AudioStore !== 'undefined' && AudioStore.isSupported()) {
-                AudioStore.clear().finally(finishReload);
+                clearJobs.push(AudioStore.clear());
+            }
+            if (typeof ImageStore !== 'undefined' && ImageStore.isSupported()) {
+                clearJobs.push(ImageStore.clear()); // ★ 新增
+            }
+            if (clearJobs.length > 0) {
+                Promise.allSettled(clearJobs).finally(finishReload);
             } else {
                 finishReload();
             }

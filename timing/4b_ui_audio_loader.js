@@ -380,11 +380,10 @@ document.getElementById('audioLoadConfirmBtn')?.addEventListener('click', async 
 // ================= ★ 全新：巢狀下拉選單與工具列狀態引擎 ★ =================
 
 // 1. 選單開關邏輯
-const headerMenus = ['editMenu', 'viewMenu', 'btnMenu', 'langViewMenu'];
+const headerMenus = ['editMenu', 'viewMenu', 'langViewMenu', 'listModeMenu']; // ★ 修改：加入 listModeMenu（左上角模式選單）
 
 document.getElementById('editMenuBtn')?.addEventListener('click', (e) => { e.stopPropagation(); toggleHeaderMenu('editMenu'); });
 document.getElementById('viewMenuBtn')?.addEventListener('click', (e) => { e.stopPropagation(); toggleHeaderMenu('viewMenu'); });
-document.getElementById('btnMenuBtn')?.addEventListener('click', (e) => { e.stopPropagation(); toggleHeaderMenu('btnMenu'); });
 // ★ 新增：「語言」獨立頂層選單（只在啟用多語字幕時才會顯示，見 4a_ui_title_misc.js）
 document.getElementById('langMenuBtn')?.addEventListener('click', (e) => { e.stopPropagation(); toggleHeaderMenu('langViewMenu'); });
 
@@ -408,6 +407,53 @@ document.getElementById('sortMenuToggleBtn')?.addEventListener('click', (e) => {
     document.getElementById('sortMenu')?.classList.toggle('show');
 });
 
+// ================= ★ 修改：列表/群組/多語 編輯區寬度 —— 改成「循環按鈕」（不再有子選單） ★ =================
+// 跟「字體大小」「時間標記」同一種操作：每點一次切到下一個值、選單不關閉，標籤直接顯示目前值。
+// 設定面板裡的 #listWidthSelect（見 4d）是同一份設定的下拉版，兩邊透過 setListWidth() 保持同步。
+// 跟「聲波圖寬度設定」（4d_ui_settings.js 的 appWidthSelect / --wave-width）是各自獨立的設定，
+// 這裡只控制 .list-panel（也就是 #sentenceList / #mediaGroupsView / #langEditView /
+// #scriptEditorContainer 共用的外層容器）的寬度，不影響上方聲波圖面板。
+const LIST_WIDTH_OPTIONS = [
+    { value: '100%',   label: '預設' },
+    { value: '1000px', label: '1000px' },
+    { value: '100vw',  label: '滿版' }
+];
+
+function applyListWidth(width) {
+    document.documentElement.style.setProperty('--list-width', width);
+    // 延遲等 CSS 過渡動畫跑完再觸發重繪，跟 applyAppWidth() 的做法一致
+    setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+        if (typeof updateStickyOffsets === 'function') updateStickyOffsets();
+    }, 350);
+}
+
+// 更新「檢視」選單的循環按鈕標籤，以及設定面板的下拉選單
+function refreshListWidthUI() {
+    const opt = LIST_WIDTH_OPTIONS.find(o => o.value === currentListWidth) || LIST_WIDTH_OPTIONS[0];
+    const btn = document.getElementById('widthMenuToggleBtn');
+    if (btn) btn.innerHTML = `<span class="material-icons">aspect_ratio</span> 編輯區寬度 (${opt.label})`;
+    const sel = document.getElementById('listWidthSelect');
+    if (sel && sel.value !== opt.value) sel.value = opt.value;
+}
+
+// 統一入口：選單循環按鈕與設定下拉都呼叫這個
+function setListWidth(width) {
+    currentListWidth = width;
+    localStorage.setItem('tagger_listWidth', currentListWidth);
+    applyListWidth(currentListWidth);
+    refreshListWidthUI();
+}
+
+applyListWidth(currentListWidth); // 頁面載入時先套用上次記憶的寬度
+refreshListWidthUI();
+
+document.getElementById('widthMenuToggleBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation(); // 不關閉選單，讓使用者可以連續點擊
+    const idx = LIST_WIDTH_OPTIONS.findIndex(o => o.value === currentListWidth);
+    setListWidth(LIST_WIDTH_OPTIONS[(idx + 1) % LIST_WIDTH_OPTIONS.length].value);
+});
+
 // 3. 字體大小與時間格式切換 (在選單內切換)
 document.getElementById('fontToggleBtn')?.addEventListener('click', (e) => { 
     e.stopPropagation(); // 阻止關閉選單，讓使用者可以連續點擊
@@ -423,36 +469,110 @@ document.getElementById('timeDisplayToggleBtn')?.addEventListener('click', (e) =
     if(typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays(); 
 });
 
-// 4. 動態更新按鈕選單裡的打勾狀態
-function updateBtnMenuItem(id, isActive, iconName, labelText) {
-    const el = document.getElementById(id);
-    if(el) {
-        el.innerHTML = `<span class="material-icons" style="color: ${isActive ? '#00897B' : '#555'}">${iconName}</span> ${labelText} ${isActive ? '<span class="material-icons" style="margin-left:auto; color:#00897B; font-size:1.1rem;">check</span>' : ''}`;
-        el.style.backgroundColor = isActive ? '#E0F2F1' : '';
-        el.style.color = isActive ? '#00897B' : '#333';
+// ================= ★ 修改：隱藏 / 恢復「聲波區塊」與「編輯區區塊」（兩者不可同時隱藏） ★ =================
+// 「隱藏」只是把面板收起來，資料/播放狀態完全不受影響；收起後改用左下角常駐圖示恢復。
+//   聲波區塊：入口在「聲波三點選單」(#toggleWavePanelBtn)，收起 #stickyPanel，恢復圖示 #showWavePanelBtn
+//   編輯區　：入口在「檢視」選單 (#toggleListPanelBtn)，  收起 #listPanel，  恢復圖示 #showListPanelBtn
+// 兩顆恢復圖示共用左下角同一個位置；因為兩個面板不會同時隱藏，所以任何時刻最多只會出現一顆。
+let isWavePanelUserHidden = false;
+let isListPanelUserHidden = false;
+
+// 另一個面板已隱藏時，把對應的「隱藏」選項變灰，提示目前不可用
+function refreshPanelHideButtons() {
+    document.getElementById('toggleWavePanelBtn')?.classList.toggle('is-disabled', isListPanelUserHidden);
+    document.getElementById('toggleListPanelBtn')?.classList.toggle('is-disabled', isWavePanelUserHidden);
+}
+
+function closePanelHideMenus() {
+    document.getElementById('viewMenu')?.classList.remove('show');
+    document.getElementById('waveMoreMenu')?.classList.remove('show');
+}
+
+function setWavePanelHidden(hidden) {
+    if (!stickyPanel) return;
+    if (hidden && isListPanelUserHidden) {
+        closePanelHideMenus();
+        if (typeof showToast === 'function') showToast('編輯區已隱藏，聲波區塊與編輯區不能同時隱藏', 'error');
+        return;
+    }
+    isWavePanelUserHidden = hidden;
+    stickyPanel.style.display = hidden ? 'none' : 'block';
+    const showBtn = document.getElementById('showWavePanelBtn');
+    if (showBtn) showBtn.style.display = hidden ? 'flex' : 'none';
+    refreshPanelHideButtons();
+    if (typeof updateStickyOffsets === 'function') updateStickyOffsets(); // 列表標題吸頂位置要跟著補
+    closePanelHideMenus();
+    if (typeof showToast === 'function') {
+        showToast(hidden ? '已隱藏聲波區塊，點擊左下角圖示可恢復' : '已恢復聲波區塊', hidden ? 'success' : 'normal');
     }
 }
 
-document.getElementById('toggleClearBtnsBtn')?.addEventListener('click', (e) => { 
-    e.stopPropagation(); showClearBtns = !showClearBtns; 
-    sentenceList.classList.toggle('show-clear-btns', showClearBtns); 
-    updateBtnMenuItem('toggleClearBtnsBtn', showClearBtns, 'backspace', '清除按鈕');
+function setListPanelHidden(hidden) {
+    if (!listPanel) return;
+    if (hidden && isWavePanelUserHidden) {
+        closePanelHideMenus();
+        if (typeof showToast === 'function') showToast('聲波區塊已隱藏，聲波區塊與編輯區不能同時隱藏', 'error');
+        return;
+    }
+    isListPanelUserHidden = hidden;
+    listPanel.classList.toggle('list-panel-user-hidden', hidden); // 用 class，不會被列表重繪蓋回
+    const showBtn = document.getElementById('showListPanelBtn');
+    if (showBtn) showBtn.style.display = hidden ? 'flex' : 'none';
+    refreshPanelHideButtons();
+    closePanelHideMenus();
+    if (typeof showToast === 'function') {
+        showToast(hidden ? '已隱藏編輯區，點擊左下角圖示可恢復' : '已恢復編輯區', hidden ? 'success' : 'normal');
+    }
+}
+
+document.getElementById('toggleWavePanelBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setWavePanelHidden(true);
 });
-document.getElementById('toggleTagBtnsBtn')?.addEventListener('click', (e) => { 
-    e.stopPropagation(); 
-    showTagBtns = !showTagBtns; 
-    sentenceList.classList.toggle('show-tag-btns', showTagBtns); 
-    updateBtnMenuItem('toggleTagBtnsBtn', showTagBtns, 'add_alarm', '標記按鈕');
+document.getElementById('showWavePanelBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setWavePanelHidden(false);
 });
-document.getElementById('toggleShiftBtnsBtn')?.addEventListener('click', (e) => { 
-    e.stopPropagation(); showShiftBtns = !showShiftBtns; 
-    sentenceList.classList.toggle('show-shift-btns', showShiftBtns); 
-    updateBtnMenuItem('toggleShiftBtnsBtn', showShiftBtns, 'update', '平移按鈕');
+document.getElementById('toggleListPanelBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setListPanelHidden(true);
 });
-document.getElementById('toggleMoreBtnsBtn')?.addEventListener('click', (e) => { 
-    e.stopPropagation(); showMoreBtns = !showMoreBtns; 
-    sentenceList.classList.toggle('show-more-btns', showMoreBtns); 
-    updateBtnMenuItem('toggleMoreBtnsBtn', showMoreBtns, 'more_vert', '其他按鈕');
+document.getElementById('showListPanelBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setListPanelHidden(false);
+});
+
+// 防呆：其他流程（例如重新載入音檔、顯示「找不到音檔」提示）會直接把 #stickyPanel 設成顯示。
+// 若此時旗標還停在「使用者已隱藏聲波」，會造成恢復圖示殘留、且編輯區永遠無法隱藏，所以這裡同步校正。
+if (stickyPanel) {
+    new MutationObserver(() => {
+        if (isWavePanelUserHidden && stickyPanel.style.display !== 'none') {
+            isWavePanelUserHidden = false;
+            const showBtn = document.getElementById('showWavePanelBtn');
+            if (showBtn) showBtn.style.display = 'none';
+            refreshPanelHideButtons();
+            if (typeof updateStickyOffsets === 'function') updateStickyOffsets();
+        }
+    }).observe(stickyPanel, { attributes: true, attributeFilter: ['style'] });
+}
+
+// 4. ★ 列表按鈕顯示設定：原本是列表工具列的「按鈕」下拉選單，改成設定側邊欄的核取方塊，
+//    行為完全不變（isEditMode / lock 邏輯仍可直接沿用同一組變數與 CSS class）。
+document.getElementById('toggleTagBtnsCheck')?.addEventListener('change', (e) => {
+    showTagBtns = e.target.checked;
+    sentenceList.classList.toggle('show-tag-btns', showTagBtns);
+});
+document.getElementById('toggleShiftBtnsCheck')?.addEventListener('change', (e) => {
+    showShiftBtns = e.target.checked;
+    sentenceList.classList.toggle('show-shift-btns', showShiftBtns);
+});
+document.getElementById('toggleClearBtnsCheck')?.addEventListener('change', (e) => {
+    showClearBtns = e.target.checked;
+    sentenceList.classList.toggle('show-clear-btns', showClearBtns);
+});
+document.getElementById('toggleMoreBtnsCheck')?.addEventListener('change', (e) => {
+    showMoreBtns = e.target.checked;
+    sentenceList.classList.toggle('show-more-btns', showMoreBtns);
 });
 
 // 5. 鎖定 / 解鎖引擎 (Lock Mode)
@@ -481,10 +601,10 @@ document.getElementById('toggleModeBtn')?.addEventListener('click', () => {
         showToast('已鎖定'); 
         document.querySelectorAll('.sentence-text-display').forEach(el => { el.contentEditable = false; el.classList.remove('is-editable'); }); 
         
-        // 鎖定時自動關閉這些按鈕狀態
-        if (showClearBtns) document.getElementById('toggleClearBtnsBtn')?.click(); 
-        if (showShiftBtns) document.getElementById('toggleShiftBtnsBtn')?.click(); 
-        if (showMoreBtns) document.getElementById('toggleMoreBtnsBtn')?.click(); 
+        // 鎖定時自動關閉這些按鈕狀態（改為直接更新變數、CSS class 與設定側邊欄的核取方塊）
+        if (showClearBtns) { showClearBtns = false; sentenceList.classList.remove('show-clear-btns'); const cb = document.getElementById('toggleClearBtnsCheck'); if (cb) cb.checked = false; }
+        if (showShiftBtns) { showShiftBtns = false; sentenceList.classList.remove('show-shift-btns'); const cb = document.getElementById('toggleShiftBtnsCheck'); if (cb) cb.checked = false; }
+        if (showMoreBtns) { showMoreBtns = false; sentenceList.classList.remove('show-more-btns'); const cb = document.getElementById('toggleMoreBtnsCheck'); if (cb) cb.checked = false; }
         
         // ★ 加入防呆檢查：確認 setupPanel 存在才去更改樣式
         if (setupPanel) {

@@ -411,7 +411,13 @@ body:not(.is-empty-state) #openAudioModalBtn {
 input[type="range"] { flex: 1; accent-color: #00897B; }
 
 /* ================= 6. 清單列表區塊 ================= */
-.list-panel { position: relative; padding-top: 0; }
+.list-panel {
+    position: relative; padding-top: 0;
+    width: var(--list-width, 100%); max-width: 96vw;
+    margin-left: calc((100% - min(var(--list-width, 100%), 96vw)) / 2) !important;
+    box-sizing: border-box;
+    transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), margin-left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
 .list-header-container { 
     position: sticky; z-index: 90; background: rgba(255,255,255,0.95); backdrop-filter: blur(4px); 
     padding: 6px 0 6px 0; 
@@ -420,6 +426,12 @@ input[type="range"] { flex: 1; accent-color: #00897B; }
 }
 .list-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
 .list-header h3 { margin: 0; }
+/* ★ 新增：左上角模式選單按鈕（原本是「列表」標題，現在點了可展開切換模式） */
+.list-mode-btn { display: inline-flex; align-items: center; gap: 0; padding: 2px 6px 2px 8px; height: auto; min-width: auto; background: transparent; border: none; border-radius: 8px; cursor: pointer; color: inherit; transition: background .15s; }
+.list-mode-btn:hover { background: #E0F2F1; }
+.list-mode-btn .list-mode-title { font-size: 1.17em; font-weight: bold; color: #333; user-select: none; -webkit-user-select: none; }
+.list-mode-btn .material-icons { font-size: 1.5rem; color: #00897B; }
+#listModeMenu .custom-dropdown-item.active { background: #E0F2F1; color: #00695C; font-weight: bold; }
 .header-tools {  flex-wrap: wrap; background: transparent !important; border: none !important; box-shadow: none !important; padding: 4px 0 !important; display: inline-flex !important; align-items: center; gap: 2px !important; }
 
 .header-btn { padding: 6px 12px; min-width: auto; height: 34px; font-size: 0.85rem; border-radius: 17px; background: transparent; color: #555; white-space: nowrap; display: flex; align-items: center; gap: 4px; border: none; transition: all 0.2s ease; }
@@ -518,7 +530,8 @@ body.is-view-mode .inline-delete-btn { display: none !important; }
 .show-tag-btns .sentence-item .tag-time-btn { display: flex; }
 .show-clear-btns .sentence-item.tagged .clear-tag-btn { display: flex; }
 .show-shift-btns .sentence-item.tagged .shift-time-btn { display: flex; }
-body.is-view-mode .hide-in-view { display: none !important; }
+/* ★ 已移除 .hide-in-view 規則：鎖定(檢視)模式下不再隱藏「編輯」選單裡的項目，
+   避免使用者連功能入口都找不到；鎖定時無法編輯的限制改由各功能自行判斷。 */
 .is-view-mode .sentence-item .tag-time-btn { display: none !important; }
 .is-view-mode .sentence-item .clear-tag-btn, .is-view-mode .sentence-item .shift-time-btn { display: none !important; }
 .is-view-mode .sentence-item .more-options-btn { display: none !important; } 
@@ -541,7 +554,7 @@ body.is-view-mode .hide-in-view { display: none !important; }
 #scriptTextarea {
     flex: 1; height: 100% !important; min-height: 100% !important; border: none !important; border-radius: 0 !important;
     box-shadow: none !important; background: transparent !important; margin: 0 !important; padding: 16px !important;
-    font-family: Consolas, "Courier New", monospace !important; font-size: var(--sentence-font-size) !important;
+    font-family: var(--main-font-family) !important; font-size: var(--sentence-font-size) !important;
     line-height: 1.8 !important; resize: none !important; outline: none !important; white-space: pre !important; 
     overflow: auto !important; color: #333; box-sizing: border-box !important;
 }
@@ -562,6 +575,10 @@ body.is-view-mode .hide-in-view { display: none !important; }
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
 .modal-overlay.show { display: flex; }
 .custom-modal { background: white; width: 90%; max-width: 400px; border-radius: 12px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+/* ★ 增加：視窗太矮（手機橫放、縮小瀏覽器）時，對話框內容超出頁面會點不到下方按鈕。
+   這裡限制對話框最高不超過可視高度（扣掉上下各 16px 留白與 padding 24px×2），超出就在框內捲動。
+   先寫 vh 當備援，再寫 dvh（手機瀏覽器網址列收放時高度才會正確）；適用所有 .custom-modal。 */
+.custom-modal { max-height: calc(100vh - 32px - 48px); max-height: calc(100dvh - 32px - 48px); overflow-y: auto; overscroll-behavior: contain; }
 .custom-modal h4 { margin: 0 0 15px 0; color: #00897B; font-size: 1.2rem; }
 .custom-modal p { margin: 0 0 20px 0; color: #555; line-height: 1.5; white-space: pre-wrap; }
 .custom-modal input[type="text"], .custom-modal input[type="number"] { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 20px; font-size: 1rem; }
@@ -579,6 +596,27 @@ body.is-view-mode .hide-in-view { display: none !important; }
 }
 .floating-setting-btn:hover { background: transparent; transform: scale(1.05); }
 .floating-setting-btn .material-icons { font-size: 2rem; }
+
+/* ★ 新增：恢復聲波區塊的左下角圖示按鈕，樣式比照 #scrollToTopBtn（實心圓形、常駐顯示），
+   跟 .floating-setting-btn 的透明樣式區分開來，確保聲波區塊隱藏後仍容易被注意到並點擊。 */
+.wave-restore-fab {
+    position: fixed; bottom: 24px; left: 24px; top: auto; z-index: 999;
+    background: #00897B !important; color: white !important;
+    width: 48px; height: 48px; min-width: 48px; min-height: 48px;
+    box-sizing: border-box; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 10px rgba(0, 137, 123, 0.3);
+    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.wave-restore-fab:hover { background: #00695C !important; box-shadow: 0 6px 14px rgba(0, 137, 123, 0.4); transform: translateY(-2px); }
+.wave-restore-fab .material-icons { font-size: 24px; }
+/* ★ 新增：使用者手動隱藏「編輯區區塊」（#listPanel）。用 class + !important，
+   避免被 5_list_renderer.js 每次重繪時設定的 listPanel.style.display 蓋回來。 */
+.list-panel-user-hidden { display: none !important; }
+
+/* ★ 新增：聲波區與編輯區不可同時隱藏——另一個已隱藏時，「隱藏」選項變灰提示不可用 */
+.custom-dropdown-item.is-disabled { opacity: 0.45; cursor: not-allowed !important; }
+
 #topLeftTitle { 
     font-size: 1.25rem; font-weight: bold; color: #00695C; 
     transition: opacity 0.3s ease; 
@@ -696,6 +734,9 @@ input.input-select[type="number"] { cursor: text; }
 .btn-outline-blue:hover { background-color: #E3F2FD !important; }
 .btn-outline-purple { border-color: #7B1FA2 !important; color: #7B1FA2 !important; }
 .btn-outline-purple:hover { background-color: #F3E5F5 !important; }
+/* ★ 新增：跨句圖片群組管理按鈕（階段二：管理 UI） */
+.btn-outline-orange { border-color: #EF6C00 !important; color: #EF6C00 !important; }
+.btn-outline-orange:hover { background-color: #FFF3E0 !important; }
 
 .shortcut-setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .shortcut-setting-row label { font-size: 0.85rem; color: #555; }
@@ -818,6 +859,323 @@ input.input-select[type="number"] { cursor: text; }
 
 
 
+/* ================= ★ 跨句圖片群組 —— 內嵌於列表的第三種檢視模式 =================
+   舊版是置中的全螢幕遮罩式 .modal-overlay + .custom-modal（視窗過大又無法移動），
+   後來改成可拖曳的浮動小面板；現在進一步改為「分頁」概念——不再疊在畫面上，
+   而是跟 #sentenceList（單句列表）、#scriptEditorContainer（全文模式）三選一，
+   直接佔用列表本身的空間，從工具列「檢視 → 跨句圖片群組」切換進入/退出。 */
+#mediaGroupsView {
+    display: none;
+    flex-direction: column;
+    background: #ffffff;
+    border: 1px solid #dadce0;
+    border-radius: 8px;
+    padding: 16px;
+    min-height: 400px;
+    max-height: 70vh;
+    overflow-y: auto;
+    box-shadow: inset 0 1px 4px rgba(0,0,0,0.06);
+    margin-top: 10px;
+    box-sizing: border-box;
+}
+/* 開始/結束秒數旁「抓取目前播放位置」的小圓鈕
+   ★ 需要蓋掉全域 button { flex:1; min-width:100px; padding:10px; } 的預設樣式，
+   否則會被撐成橢圓形（見核心修復註解，跟 .action-btn 用的是同一招）。 */
+.mg-grab-time-btn {
+    background: transparent;
+    border: 1px solid #00897B;
+    color: #00897B;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0 !important;
+    min-width: 28px !important;
+    flex: none !important;
+    transition: background 0.15s;
+}
+.mg-grab-time-btn .material-icons { font-size: 18px; }
+.mg-grab-time-btn:hover { background: #E0F2F1; }
+.mg-grab-time-btn:active { background: #B2DFDB; }
+
+/* 跨句圖片群組：每一列自動存檔，時間區間不合法時（結束 <= 開始）用紅框提示，
+   取代原本按下「套用範圍」才彈出的 toast 錯誤訊息 */
+.mg-input-error {
+    border-color: #E53935 !important;
+    background: #FFEBEE !important;
+}
+
+/* 跨句圖片群組：「清除圖片」小圓鈕，跟 .mg-grab-time-btn 同尺寸/形狀。
+   ★ 改為預設低調（灰色、無外框），滑鼠移上去才變紅提示這是破壞性操作，
+   避免平常沒動作時就用搶眼的紅色一直吸走視覺焦點。 */
+.mg-clear-btn {
+    background: transparent;
+    border: none;
+    color: #9E9E9E;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0 !important;
+    min-width: 28px !important;
+    flex: none !important;
+    transition: all 0.15s ease;
+}
+.mg-clear-btn .material-icons { font-size: 16px; }
+.mg-clear-btn:hover { background: #FFEBEE; color: #DC2626; }
+.mg-clear-btn:active { background: #FFCDD2; color: #B91C1C; }
+
+/* 跨句圖片群組：刪除整列的按鈕，改成純圖示、平時低調（灰色、無外框），
+   滑鼠移上去才變紅提示這是危險動作，避免整排都是紅框方塊搶走視覺焦點。
+   固定在整列（.mg-row，已設 position:relative）右上角，用絕對定位擺放，
+   不佔用時間輸入列的排版空間。
+   ★ 修正：全域 `button { flex:1; min-width:100px; }` 會把這顆小圖示鈕撐成
+   長條橢圓（因為 border-radius:50% 套用在被拉寬的矩形上）。這裡要跟
+   .mg-clear-btn 一樣明確蓋掉 flex/min-width/padding，才會維持 28x28 正圓形。 */
+.mg-delete-icon-btn {
+    background: transparent;
+    border: none;
+    color: #9E9E9E;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0 !important;
+    min-width: 28px !important;
+    flex: none !important;
+    transition: all 0.15s ease;
+}
+.mg-delete-icon-btn .material-icons { font-size: 18px; }
+.mg-delete-icon-btn:hover { background: #FFEBEE; color: #DC2626; }
+.mg-delete-icon-btn:active { background: #FFCDD2; color: #B91C1C; }
+
+/* 跨句圖片群組：縮圖本身可點＝放大檢視（只有已經設定圖片網址的列才會加上這個 class），
+   滑鼠移上去游標變放大鏡、稍微變暗提示可點；跳轉播放位置改成點時間輸入框，不是點縮圖 */
+.mg-thumb-viewable {
+    cursor: zoom-in;
+    transition: filter 0.15s;
+}
+.mg-thumb-viewable:hover {
+    filter: brightness(0.85);
+}
+
+/* ================= ★ 多語言編輯 —— 內嵌於列表的第四種檢視模式 =================
+   左右兩欄是純文字 textarea，逐行對應 allLabelsOrdered 目前順序。
+   white-space:pre + wrap="off" 讓長句不自動換行（避免視覺上的自動折行被誤判成新的一行），
+   跟 #scriptTextarea 用同一套慣例，只是改成雙欄並排。 */
+#langEditView {
+    background: #ffffff;
+    border: 1px solid #dadce0;
+    border-radius: 8px;
+    padding: 16px;
+    min-height: 400px;
+    box-sizing: border-box;
+    margin-top: 10px;
+}
+.lang-edit-banner {
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: #666;
+    margin: 12px 0 0 0;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: #F5F5F5;
+    display: inline-block;
+    transition: background 0.15s, color 0.15s;
+}
+.lang-edit-banner.lang-edit-match { color: #00897B; background: #E0F2F1; }
+.lang-edit-banner.lang-edit-mismatch { color: #E65100; background: #FFF3E0; }
+.lang-edit-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+.lang-edit-col { display: flex; flex-direction: column; min-width: 0; }
+.lang-edit-col-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+}
+.lang-edit-col-toolbar label { font-size: 0.8rem; color: #666; font-weight: bold; white-space: nowrap; }
+.lang-edit-text-wrap {
+    flex: 1;
+    display: flex;
+    min-height: 45vh;
+    max-height: 60vh;
+    box-sizing: border-box;
+    border: 1px solid #dadce0;
+    border-radius: 6px;
+    background: #fafafa;
+    overflow: hidden;
+    transition: background 0.15s;
+}
+.lang-edit-text-wrap:focus-within { background: #ffffff; }
+.lang-edit-gutter {
+    flex: none;
+    width: 42px;
+    background: #f8f9fa;
+    border-right: 1px solid #dadce0;
+    padding: 12px 0;
+    font-family: var(--main-font-family);
+    font-size: var(--sentence-font-size);
+    line-height: 1.8;
+    color: #90a4ae;
+    text-align: center;
+    overflow: hidden;
+    user-select: none;
+    box-sizing: border-box;
+}
+.lang-edit-gutter-line { height: 1.8em; line-height: 1.8em; box-sizing: border-box; }
+.lang-edit-textarea {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    box-sizing: border-box;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 12px !important;
+    font-family: var(--main-font-family);
+    font-size: var(--sentence-font-size);
+    line-height: 1.8;
+    white-space: pre !important;
+    overflow: auto !important;
+    resize: none !important;
+    color: #333;
+}
+.lang-edit-mini-btn {
+    background: transparent;
+    border: 1px solid #B0BEC5;
+    color: #546E7A;
+    border-radius: 6px;
+    padding: 5px 10px !important;
+    font-size: 0.78rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    flex: none !important;
+    min-width: auto !important;
+    transition: all .15s;
+}
+.lang-edit-mini-btn .material-icons { font-size: 15px; }
+.lang-edit-mini-btn:hover { background: #ECEFF1; }
+.lang-edit-mini-btn:active { background: #CFD8DC; }
+.lang-edit-mini-btn-primary { border-color: #00897B; color: #00897B; }
+.lang-edit-mini-btn-primary:hover { background: #E0F2F1; }
+.lang-edit-mini-btn-primary:active { background: #B2DFDB; }
+/* ★ 新增：匯入鈕淡化不可點（右欄選到既有語言時，編輯會自動存檔，不需匯入） */
+.lang-edit-mini-btn:disabled { opacity: 0.4; cursor: not-allowed; background: transparent; pointer-events: none; }
+
+@media (max-width: 760px) {
+    .lang-edit-columns { grid-template-columns: 1fr; }
+    .lang-edit-textarea { min-height: 28vh; max-height: 34vh; }
+}
+
+/* 跨句圖片群組：疊在縮圖左上角的排序編號徽章，依「目前依開始時間排序」後的順序自動編號，
+   草稿列（還沒填時間）不編號，所以不會誤導使用者以為它已經排進時間序列
+   ★ 修正：父層縮圖容器有 overflow:hidden（用來裁切圓角圖片），徽章若用負值定位「探出」
+   容器邊界，會被一併裁掉一角。改用非負值，讓徽章完全落在容器範圍內，才不會被裁切。 */
+.mg-order-badge {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #37474F;
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+    pointer-events: none;
+}
+
+/* ================= ★ 新增：「疑似遺漏」清單面板 ================= */
+.missed-panel {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    z-index: 2200;
+    width: 260px;
+    max-height: 320px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    border: 1px solid #FFCDD2;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.missed-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: #FFEBEE;
+    color: #B71C1C;
+    font-weight: bold;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+.missed-panel-header button {
+    background: transparent;
+    border: none;
+    color: #B71C1C;
+    cursor: pointer;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+}
+.missed-panel-list {
+    overflow-y: auto;
+    flex-grow: 1;
+}
+.missed-panel-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid #FFEBEE;
+    font-size: 0.85rem;
+}
+.missed-panel-item:last-child { border-bottom: none; }
+.missed-panel-item-time {
+    color: #333;
+    cursor: pointer;
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.missed-panel-item-time:hover { color: #1976D2; }
+.missed-panel-item-remove {
+    background: transparent;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    padding: 2px 4px;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+.missed-panel-item-remove:hover { color: #C62828; }
+
 /* ================= 無障礙輔助樣式 ================= */
 /* 視覺上隱藏但螢幕報讀器仍可讀取，用於補充僅靠圖示無法傳達的文字說明 */
 .sr-only {
@@ -830,4 +1188,24 @@ input.input-select[type="number"] { cursor: text; }
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
     border: 0;
+}
+
+
+/* 跨句群組模式：編輯選單只保留此模式可用的項目（尋找取代、返回列表），
+   其餘項目與分隔線一律隱藏。用 class 控制，離開模式時移除 .mg-mode 就完整復原，
+   不會干擾其他程式對這些按鈕 display 的控制（例如 調整邊界／合併標記）。 */
+#editMenu.mg-mode > .custom-dropdown-item:not(#openBatchReplaceBtn):not(#toggleMediaGroupsViewBtn),
+#editMenu.mg-mode > div[id^="editMenuHr"] {
+    display: none !important;
+}
+
+/* 跨句群組尋找取代：命中的欄位淡橘底色，目前這一筆較深 */
+.mg-row input.mg-search-hit {
+    background: #FFF3E0 !important;
+    border-color: #FFB74D !important;
+}
+.mg-row input.mg-search-current {
+    background: #FFE0B2 !important;
+    border-color: #EF6C00 !important;
+    box-shadow: 0 0 0 2px rgba(239, 108, 0, 0.3);
 }

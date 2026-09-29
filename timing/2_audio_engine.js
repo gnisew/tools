@@ -1,7 +1,4 @@
 // ================= ★ 核心升級：專業無損音訊處理引擎 ★ =================
-
-// ================= ★ 核心升級：專業無損音訊處理引擎 ★ =================
-
 // 安全地在記憶體中建立乾淨的音訊容器
 function createBufferSafe(channels, length, sampleRate) {
     if (window.AudioBuffer) {
@@ -617,6 +614,290 @@ async function performAutoSegmentationCore() {
     }
 }
 
+
+// ================= ★ 新增：檢查是否有遺漏的聲音段落 (只做視覺標示，絕不寫入 timeDataMap) =================
+// 邏輯：
+//   1. 把目前所有 label 的時間標記排序、合併重疊或相鄰的區間，算出「完全沒有被任何
+//      標記覆蓋」的空隙。
+//   2. 針對每個空隙重新掃一次音量，如果空隙裡有一段「持續超過門檻」的聲音，
+//      就視為疑似遺漏的人聲。
+//   3. 用紅色的暫時 region 疊在聲波圖上（id 開頭固定為 "missed-"），純視覺提示，
+//      不會動到 timeDataMap，重新整理或任何一次 renderAllRegions() 都會自動清掉。
+//
+// ★ 修正重點（第一版的邏輯錯誤）：
+//   第一版直接沿用「自動斷句」設定面板目前的音量門檻/最短句段去檢查空隙——
+//   但空隙本來就是「用同一組門檻判斷為靜音」才會被斷句引擎排除在外，
+//   拿同一組門檻回頭檢查同一批被判定為靜音的資料，數學上保證一定找不到東西
+//   （除非使用者事後又手動調高了門檻），完全沒有意義。
+//   現在改用「比斷句門檻更敏感」的獨立參數：門檻降為一半、判定所需的
+//   最短聲音長度也大幅縮短，才能真正抓到「音量比較小聲、原本被判定為靜音」
+//   的遺漏人聲；同時幾乎不篩掉空隙本身的長度，避免像圖中那種只有 0.3~0.4 秒
+//   左右的短空隙被直接略過、根本沒進到掃描階段。
+// ★ 新增：共用函式——建立「疑似遺漏」標記在聲波圖上要顯示的內容 DOM。
+//   同一份邏輯被 performMissedSegmentCheck（初次建立）跟 6_wave_controller.js
+//   （拖曳/編輯其他標記時的重繪）共用，往後要改文字/樣式/刪除行為，
+//   改這裡一處就好，不用兩邊分別維護、容易改到忘記同步。
+function buildMissedRegionContent(regionId) {
+    const contentEl = document.createElement('div');
+    contentEl.style.cssText = 'display:flex;align-items:center;gap:3px;font-weight:bold;color:#B71C1C;font-size:0.75rem;pointer-events:none;';
+
+    // 刪除符號：整個標記框其餘部分都設了 pointer-events:none 讓滑鼠事件
+    // 穿透到聲波軌道，這裡刻意用 pointer-events:auto 蓋回去，
+    // 讓「只有這顆✕」可以接收點擊，點了就直接移除這個疑似遺漏標記。
+    const delBtn = document.createElement('span');
+    delBtn.textContent = '✕';
+    delBtn.title = '移除這個疑似遺漏標示';
+    delBtn.style.cssText = 'pointer-events:auto;cursor:pointer;flex:none;display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#B71C1C;color:#fff;font-size:0.65rem;line-height:1;';
+    delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (typeof removeMissedSegment === 'function') removeMissedSegment(regionId);
+    });
+
+    const labelEl = document.createElement('span');
+    labelEl.textContent = '遺漏？';
+
+    contentEl.appendChild(delBtn);
+    contentEl.appendChild(labelEl);
+    return contentEl;
+}
+
+function performMissedSegmentCheck() {
+    if (!wavesurfer || !wavesurfer.getDecodedData()) {
+        return showToast('請先載入音檔並等待分析完成', 'error');
+    }
+
+    clearMissedRegions();
+
+    const buffer = wavesurfer.getDecodedData();
+    const sampleRate = buffer.sampleRate;
+    const length = buffer.length;
+    const numChannels = buffer.numberOfChannels;
+    const channels = [];
+    for (let c = 0; c < numChannels; c++) channels.push(buffer.getChannelData(c));
+
+    const webAudioDuration = buffer.duration;
+    const mediaDuration = audioPlayer.duration || webAudioDuration;
+    const timeRatio = mediaDuration / webAudioDuration;
+
+    const detectionMode = asDetectionMode ? asDetectionMode.value : 'peak';
+
+    // ★ 檢查用的門檻，刻意設得比斷句門檻更敏感（減半），
+    //   才抓得到「原本因為比較小聲、被斷句引擎判定為靜音」的遺漏人聲。
+    const segmentThreshold = parseFloat(asThreshold?.value || 5) / 100;
+    const reviewThreshold = Math.max(segmentThreshold / 2, 0.005);
+
+    // ★ 這兩個時長跟「最短有效句段」(asMinSegment) 完全脫鉤：
+    //   - minGapToScan：空隙本身多長才「值得掃描」，設得很短，避免漏掉短空隙
+    //   - minMissedDuration：空隙裡的聲音要持續多久才算「疑似遺漏」，同樣設得很短，
+    //     因為漏掉的常常是一兩個字的短句，不會有 0.5 秒那麼長
+    const minGapToScan = 0.1;
+    const minMissedDuration = 0.15;
+
+    // 1. 收集目前所有「已標記」區間，排序後合併重疊/相鄰的部分
+    const covered = allLabelsOrdered
+        .map(label => timeDataMap[label])
+        .filter(t => t && typeof t.start === 'number' && typeof t.end === 'number')
+        .sort((a, b) => a.start - b.start);
+
+    const merged = [];
+    covered.forEach(seg => {
+        const last = merged[merged.length - 1];
+        if (last && seg.start <= last.end + 0.01) {
+            last.end = Math.max(last.end, seg.end);
+        } else {
+            merged.push({ start: seg.start, end: seg.end });
+        }
+    });
+
+    // 2. 算出「完全沒有被任何標記覆蓋」的空隙
+    const gaps = [];
+    let cursor = 0;
+    merged.forEach(seg => {
+        if (seg.start - cursor >= minGapToScan) gaps.push({ start: cursor, end: seg.start });
+        cursor = Math.max(cursor, seg.end);
+    });
+    if (mediaDuration - cursor >= minGapToScan) gaps.push({ start: cursor, end: mediaDuration });
+
+    if (gaps.length === 0) {
+        return showToast('沒有明顯的空隙，標記範圍已涵蓋整段音檔', 'success');
+    }
+
+    // 3. 針對每個空隙用更敏感的門檻重新掃描音量
+    const step = Math.floor(sampleRate / 100);
+    const missed = [];
+
+    gaps.forEach(gap => {
+        const startSample = Math.max(0, Math.floor((gap.start / timeRatio) * sampleRate));
+        const endSample = Math.min(length, Math.ceil((gap.end / timeRatio) * sampleRate));
+
+        let isSilence = true;
+        let segStart = -1;
+
+        for (let i = startSample; i < endSample; i += step) {
+            let maxAmp = 0, sumSquares = 0;
+            const localEnd = Math.min(i + step, endSample);
+            const blockSampleCount = (localEnd - i) * numChannels;
+
+            for (let j = i; j < localEnd; j++) {
+                for (let c = 0; c < numChannels; c++) {
+                    const amp = Math.abs(channels[c][j]);
+                    if (amp > maxAmp) maxAmp = amp;
+                    if (detectionMode === 'rms') sumSquares += amp * amp;
+                }
+            }
+            const level = (detectionMode === 'rms' && blockSampleCount > 0)
+                ? Math.sqrt(sumSquares / blockSampleCount)
+                : maxAmp;
+
+            const currentTime = (i / sampleRate) * timeRatio;
+
+            if (level >= reviewThreshold) {
+                if (isSilence) { isSilence = false; segStart = currentTime; }
+            } else if (!isSilence) {
+                isSilence = true;
+                if (currentTime - segStart >= minMissedDuration) {
+                    missed.push({ start: Math.max(gap.start, segStart), end: Math.min(gap.end, currentTime) });
+                }
+            }
+        }
+        if (!isSilence && segStart !== -1 && gap.end - segStart >= minMissedDuration) {
+            missed.push({ start: Math.max(gap.start, segStart), end: gap.end });
+        }
+    });
+
+    if (missed.length === 0) {
+        return showToast('空隙皆為靜音，沒有偵測到疑似遺漏的聲音', 'success');
+    }
+
+    // 4. 用紅色暫時標記疊在聲波圖上；isRendering 鎖是必要的，
+    //    否則 6_wave_controller.js 的 region-created 監聽會把它們誤判成
+    //    使用者手動拉出的藍色選取框，顏色被硬改掉、還會互相頂替。
+    // ★ 修正：region.element 額外設成 pointer-events:none，讓紅色標記變成
+    //    純視覺提示、完全不接收滑鼠事件——這樣它就不會擋住旁邊真正標記的
+    //    拖曳/縮放/合併操作。要跳轉或移除，一律改走下方的「疑似遺漏清單」面板。
+    window.missedSegmentsData = missed.map((seg, idx) => ({ id: `missed-${idx}`, start: seg.start, end: seg.end }));
+
+    isRendering = true;
+    missed.forEach((seg, idx) => {
+        if (typeof wsRegions === 'undefined' || !wsRegions) return;
+        const regionId = `missed-${idx}`;
+        const contentEl = buildMissedRegionContent(regionId);
+        const region = wsRegions.addRegion({
+            id: regionId,
+            start: seg.start,
+            end: seg.end,
+            color: 'rgba(211, 47, 47, 0.35)',
+            drag: false,
+            resize: false,
+            content: contentEl
+        });
+        // ★ 核心修正：整個 region 元素都不接收滑鼠事件，事件會直接穿透到
+        //    底下的聲波軌道，拖曳選取、拖曳相鄰標記的邊界都不會被擋住。
+        //    （contentEl 裡的「✕」刪除符號另外設了 pointer-events:auto，
+        //    不受這裡影響，一樣點得到。）
+        if (region && region.element) {
+            region.element.style.pointerEvents = 'none';
+            // ★ 新增：加上不透明的紅色外框，確保無論底下波形深淺、
+            //   播放游標經過與否，標記邊界都清楚可見，不會被半透明
+            //   底色蓋過去而看起來像「消失」。
+            region.element.style.border = '2px solid #D32F2F';
+            region.element.style.boxSizing = 'border-box';
+        }
+    });
+    isRendering = false;
+
+    if (typeof renderMissedSegmentsPanel === 'function') renderMissedSegmentsPanel();
+
+    showToast(`疑似遺漏 ${missed.length} 段，已用紅色標示在聲波圖上`, 'error');
+}
+
+// ================= ★ 新增：「疑似遺漏」清單面板 —— 負責跳轉、單一移除、整批清除 =================
+function renderMissedSegmentsPanel() {
+    const panel = document.getElementById('missedSegmentsPanel');
+    if (!panel) return;
+
+    const data = window.missedSegmentsData || [];
+    if (data.length === 0) {
+        panel.style.display = 'none';
+        panel.innerHTML = '';
+        return;
+    }
+
+    const fmt = (t) => `${formatTime(t)}.${Math.floor((t % 1) * 10)}`;
+
+    panel.innerHTML = '';
+
+    const header = document.createElement('div');
+    header.className = 'missed-panel-header';
+    header.innerHTML = `<span>疑似遺漏 (${data.length})</span>`;
+    const closeBtn = document.createElement('button');
+    closeBtn.setAttribute('aria-label', '清除全部疑似遺漏標示');
+    closeBtn.title = '清除全部標示';
+    closeBtn.innerHTML = '<span class="material-icons" style="font-size:1.1rem;">close</span>';
+    closeBtn.addEventListener('click', () => clearMissedRegions());
+    header.appendChild(closeBtn);
+    panel.appendChild(header);
+
+    const list = document.createElement('div');
+    list.className = 'missed-panel-list';
+
+    data.forEach(seg => {
+        const item = document.createElement('div');
+        item.className = 'missed-panel-item';
+
+        const timeEl = document.createElement('div');
+        timeEl.className = 'missed-panel-item-time';
+        timeEl.innerHTML = `<span class="material-icons" style="font-size:1rem;">play_circle</span> ${fmt(seg.start)} - ${fmt(seg.end)}`;
+        timeEl.title = '跳至這一段';
+        timeEl.addEventListener('click', () => jumpToMissedSegment(seg));
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'missed-panel-item-remove';
+        removeBtn.setAttribute('aria-label', '移除這個疑似遺漏標示');
+        removeBtn.title = '移除這個標示';
+        removeBtn.innerHTML = '<span class="material-icons" style="font-size:1.1rem;">delete_outline</span>';
+        removeBtn.addEventListener('click', () => removeMissedSegment(seg.id));
+
+        item.appendChild(timeEl);
+        item.appendChild(removeBtn);
+        list.appendChild(item);
+    });
+
+    panel.appendChild(list);
+    panel.style.display = 'flex';
+}
+
+// 跳到某個疑似遺漏段落的開頭，方便直接聽那一段有沒有真的漏標
+function jumpToMissedSegment(seg) {
+    if (typeof wavesurfer !== 'undefined' && wavesurfer && audioPlayer.duration) {
+        wavesurfer.setTime(seg.start);
+    } else if (typeof audioPlayer !== 'undefined' && audioPlayer) {
+        audioPlayer.currentTime = seg.start;
+    }
+    if (typeof audioPlayer !== 'undefined' && audioPlayer) audioPlayer.pause();
+    if (typeof snapWaveformToTop === 'function') snapWaveformToTop();
+}
+
+// 移除單一疑似遺漏標示（紅色 region + 清單裡的這一筆）
+function removeMissedSegment(id) {
+    if (typeof wsRegions !== 'undefined' && wsRegions) {
+        const region = wsRegions.getRegions().find(r => r.id === id);
+        if (region) region.remove();
+    }
+    window.missedSegmentsData = (window.missedSegmentsData || []).filter(seg => seg.id !== id);
+    renderMissedSegmentsPanel();
+}
+
+// 清除上一次「檢查遺漏」留下的紅色暫時標記（不影響任何正式的標記 region），並收合面板
+function clearMissedRegions() {
+    if (typeof wsRegions !== 'undefined' && wsRegions) {
+        wsRegions.getRegions().forEach(r => {
+            if (r.id && String(r.id).startsWith('missed-')) r.remove();
+        });
+    }
+    window.missedSegmentsData = [];
+    if (typeof renderMissedSegmentsPanel === 'function') renderMissedSegmentsPanel();
+}
 
 // ★ 新增：共用小工具 —— 列表「完全沒有句子列」時，依需要的數量建立空白句子列（編號規則與全域引擎 A 相同）。
 // 讓使用者在全新的音檔上，也能只框選某一段範圍做局部斷句，而不是被迫處理整首音檔。

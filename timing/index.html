@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>烏衣行打點時間</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <!-- ★ 新增：台灣特色字體（台灣黑體/楷體/宋體 與 Tauhu-oo），供「介面字體」設定切換使用 -->
     <link href="https://oikasu1.github.io/kasuexam/kasu/fonts/twhei.css" rel="stylesheet">
     <link href="https://tauhu.tw/tauhu-oo.css" rel="stylesheet">
     <script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.min.js"></script>
@@ -50,6 +49,16 @@
     <button id="openSidebarBtn" class="floating-setting-btn" title="主選單" aria-label="主選單">
         <span class="material-icons">menu</span>
         <span id="topLeftTitle" style="display: none;">烏衣行打點時間</span>
+    </button>
+
+    <!-- ★ 新增：聲波區塊被「檢視 → 隱藏聲波區塊」收起後，改用這顆左下角圖示常駐顯示，
+         點擊即可恢復聲波區塊；平常（聲波區塊顯示中）預設隱藏，見 4b_ui_audio_loader.js -->
+    <button id="showWavePanelBtn" class="floating-setting-btn wave-restore-fab" title="恢復聲波區塊" aria-label="恢復聲波區塊" style="display: none;">
+        <span class="material-icons">graphic_eq</span>
+    </button>
+    <!-- ★ 新增：編輯區區塊被「檢視 → 隱藏編輯區區塊」收起後，改用這顆左下角圖示恢復（與上方聲波恢復圖示同位置；兩者不會同時出現，因為聲波與編輯區不可同時隱藏） -->
+    <button id="showListPanelBtn" class="floating-setting-btn wave-restore-fab" title="恢復編輯區" aria-label="恢復編輯區" style="display: none;">
+        <span class="material-icons">edit_note</span>
     </button>
     <div id="welcomeContainer" class="welcome-container">
         
@@ -113,6 +122,11 @@
 
 			<button id="autoSegmentRegionBtn" class="btn-icon" style="background: #E3F2FD; color: #1976D2; border: 1px solid #BBDEFB; opacity: 0.3; cursor: not-allowed;" title="選取的範圍依靜音自動斷句" aria-label="選取的範圍依靜音自動斷句" disabled>
                 <span class="material-icons">auto_awesome</span>
+            </button>
+            <!-- ★ 新增：檢查自動斷句後有沒有漏標的聲音段落。只做視覺標示（紅色暫時 region），
+                 不會寫入 timeDataMap，也不會影響任何已存在的標記資料。 -->
+            <button id="checkMissedBtn" class="btn-icon" style="background: #FFEBEE; color: #C62828; border: 1px solid #FFCDD2;" title="檢查是否有遺漏的聲音段落" aria-label="檢查是否有遺漏的聲音段落">
+                <span class="material-icons">search</span>
             </button>
             <!-- ★ 新增：常駐工具列的「取消選取」按鈕，預設隱藏，於設定「介面與檢視」中勾選後才顯示；
                  點擊行為直接沿用 ⋮ 更多選單裡原本的 waveCancelSelectBtn，避免邏輯重複 -->
@@ -189,6 +203,15 @@
 					<div class="custom-dropdown-item" id="waveAdjustPaddingBtn" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
                         <span style="color:#00897B; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">settings_ethernet</span>微調選取邊界</span> 
                     </div>
+                    <!-- ★ 新增：由「檢視」選單搬來的「隱藏聲波區塊」（id 沿用 toggleWavePanelBtn，邏輯在 4b_ui_audio_loader.js） -->
+                    <hr style="margin: 4px 0; border: none; border-bottom: 1px solid #EEE;">
+                    <!-- ★ 新增：聲波寬度循環按鈕（每點一次切到下一個值、選單不關閉），與設定側邊欄的 #appWidthSelect 是同一份設定，邏輯在 4d_ui_settings.js -->
+                    <div class="custom-dropdown-item" id="waveWidthToggleBtn" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                        <span style="color:#5f6368; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">aspect_ratio</span><span id="waveWidthToggleLabel">聲波寬度 (預設)</span></span>
+                    </div>
+                    <div class="custom-dropdown-item" id="toggleWavePanelBtn" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                        <span style="color:#5f6368; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">visibility_off</span>隱藏聲波區塊</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -199,27 +222,64 @@
     <div class="panel list-panel" id="listPanel" style="display: none;">
         <div id="listHeaderContainer" class="list-header-container">
             <div class="list-header">
-                <h3>列表</h3>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <!-- ★ 修改：標題改成「模式選單」——列表／單句全文／跨句群組／多語字幕，不再需要「返回列表」按鈕。
+                         listHeaderTitle 仍是顯示目前模式名稱的元素（4i / 4j 原本就會改它的文字），邏輯在 4l_ui_list_mode_menu.js -->
+                    <div style="position: relative; display: inline-block;">
+                        <button type="button" class="list-mode-btn" id="listModeMenuBtn" aria-haspopup="true" title="切換檢視模式">
+                            <span class="list-mode-title" id="listHeaderTitle">列表</span>
+                            <span class="material-icons">arrow_drop_down</span>
+                        </button>
+                        <div class="custom-dropdown-menu" id="listModeMenu" style="top: 100%; left: 0; min-width: 170px; z-index: 100;">
+                            <div class="custom-dropdown-item" data-list-mode="list"><span class="material-icons" style="color:#00897B;">view_list</span> 列表</div>
+                            <div class="custom-dropdown-item" data-list-mode="full"><span class="material-icons" style="color:#00897B;">swap_horiz</span> 單句全文</div>
+                            <div class="custom-dropdown-item" data-list-mode="groups"><span class="material-icons" style="color:#EF6C00;">collections</span> 跨句群組</div>
+                            <div class="custom-dropdown-item" data-list-mode="lang"><span class="material-icons" style="color:#00897B;">translate</span> 多語字幕</div>
+                        </div>
+                    </div>
+                </div>
                 <div class="header-tools" style="gap: 12px; display: flex; align-items: center;">
                     
                     <!-- 1. 編輯選單 -->
                     <div style="position: relative; display: inline-block;">
                         <button class="header-btn" id="editMenuBtn"><span class="material-icons">edit</span> 編輯</button>
                         <div class="custom-dropdown-menu" id="editMenu" style="top: 100%; left: 0; min-width: 180px; z-index: 100;">
-                            <div class="custom-dropdown-item hide-in-view" id="openBatchReplaceBtn"><span class="material-icons" style="color: #E65100;">find_replace</span> 尋找取代</div>
-                            
-                            <div class="custom-dropdown-item hide-in-view" id="adjustPaddingBtn" style="display: none;"><span class="material-icons">settings_ethernet</span> 調整邊界</div>
-                            <div class="custom-dropdown-item hide-in-view" id="mergeSelectedBtn" style="display: none;"><span class="material-icons">merge_type</span> 合併標記</div>
+                            <!-- ★ 切換編輯模式類項目統一放在「編輯」選單：尋找取代、單句/全文、跨句群組、多語言編輯。
+                                 ★ 鎖定(檢視)模式下不再隱藏這些項目，避免使用者連入口都找不到；鎖定時是否能真的
+                                 編輯內容，交由各功能自己判斷（例如逐句文字仍不可編輯），不需要靠隱藏選單來擋。 -->
+                            <div class="custom-dropdown-item" id="openBatchReplaceBtn"><span class="material-icons" style="color: #E65100;">find_replace</span> 尋找取代</div>
+                            <!-- ★ 修改：三個「切換模式」項目已移到左上角的模式選單（#listModeMenu）。
+                                 這裡保留原元素但整組隱藏，因為 4g / 4h / 4i / 4j / 4k 仍用它們的 id 綁監聽或 .click()，直接刪除會壞掉。 -->
+                            <div id="legacyModeButtons" style="display: none;">
+                                <div class="custom-dropdown-item" id="toggleScriptModeBtn"><span class="material-icons">swap_horiz</span> 單句全文</div>
+                            <!-- ★ 移入：原本在「檢視」選單，跨句圖片群組本質上是切換編輯內容的模式，
+                                 跟「切換單句/全文」「多語言編輯」同類，改名為「跨句群組」 -->
+                                <div class="custom-dropdown-item" id="toggleMediaGroupsViewBtn"><span class="material-icons" style="color:#EF6C00;">collections</span> <span id="mediaGroupsViewModeText">跨句群組</span></div>
+                            <!-- ★ 新增：多語言編輯，內嵌於列表區域的第四種檢視模式，邏輯在 4j_ui_lang_edit.js -->
+                                <div class="custom-dropdown-item" id="openLangEditBtn"><span class="material-icons" style="color: #00897B;">translate</span> 多語字幕</div>
+
+                            </div>
+
+                            <!-- ★ 多語言編輯模式專屬選單項目：預設隱藏，只在進入該模式時顯示（見 4j_ui_lang_edit.js） -->
+                            <div id="langEditMenuGroup" style="display: none;">
+                                <div class="custom-dropdown-item" id="langEditFindBtn"><span class="material-icons" style="color:#E65100;">find_replace</span> 尋找取代</div>
+                                <div style="border-top: 1px solid #E0E0E0; margin: 4px 0;"></div>
+                                <div class="custom-dropdown-item" id="langEditSwapDataBtn"><span class="material-icons" style="color:#00897B;">sync_alt</span> 交換兩語言資料</div>
+                            </div>
+
+                            <!-- ★ 編輯選單只保留這一條分隔線（上：切換模式類；下：其餘編輯/清除項目），加上 id 方便多語字幕模式隱藏 -->
+                            <div id="editMenuHrTop" style="border-top: 1px solid #E0E0E0; margin: 4px 0;"></div>
+
+                            <div class="custom-dropdown-item" id="adjustPaddingBtn" style="display: none;"><span class="material-icons">settings_ethernet</span> 調整邊界</div>
+                            <div class="custom-dropdown-item" id="mergeSelectedBtn" style="display: none;"><span class="material-icons">merge_type</span> 合併標記</div>
                             
                             <!-- ★ 更新為全新的三個清除/刪除按鈕 -->
-                            <div style="border-top: 1px solid #E0E0E0; margin: 4px 0;"></div>
                             
-                            <div class="custom-dropdown-item hide-in-view" id="clearTimeTagsBtn"><span class="material-icons" style="color: #F57F17;">timer_off</span> 清除時間標記</div>
-                            <div class="custom-dropdown-item hide-in-view" id="clearListTextBtn"><span class="material-icons" style="color: #E65100;">format_clear</span> 清空列表文字</div>
+                            <div class="custom-dropdown-item" id="clearTimeTagsBtn"><span class="material-icons" style="color: #F57F17;">timer_off</span> 清除時間標記</div>
+                            <div class="custom-dropdown-item" id="clearListTextBtn"><span class="material-icons" style="color: #E65100;">format_clear</span> 清空列表文字</div>
                             
-                            <div style="border-top: 1px solid #E0E0E0; margin: 4px 0;"></div>
                             
-                            <div class="custom-dropdown-item hide-in-view" id="deleteAllDataBtn"><span class="material-icons" style="color: #D32F2F;">delete_forever</span> 刪除列表與標記</div>
+                            <div class="custom-dropdown-item" id="deleteAllDataBtn"><span class="material-icons" style="color: #D32F2F;">delete_forever</span> 刪除列表與標記</div>
                         </div>
                     </div>
 
@@ -227,13 +287,21 @@
                     <div style="position: relative; display: inline-block;">
                         <button class="header-btn" id="viewMenuBtn"><span class="material-icons">visibility</span> 檢視</button>
                         <div class="custom-dropdown-menu" id="viewMenu" style="top: 100%; left: 0; min-width: 180px; z-index: 100;">
-                            <div class="custom-dropdown-item" id="toggleScriptModeBtn"><span class="material-icons">swap_horiz</span> 切換單句 / 全文</div>
-                            
+                            <!-- ★ 移入：鎖定/解鎖原本是工具列上獨立常駐的按鈕，改成「檢視」選單裡的項目 -->
+                            <div class="custom-dropdown-item toggle-mode-btn" id="toggleModeBtn"><span class="material-icons">lock_open</span> <span id="modeText">解鎖</span></div>
+
+                            <div style="border-top: 1px solid #E0E0E0; margin: 4px 0;"></div>
+
                             <!-- ★ 從原本標記選單移過來的檢視操作 -->
                             <div class="custom-dropdown-item" id="timeDisplayToggleBtn"><span class="material-icons">schedule</span> 時間標記 (完整)</div>
                             
                             <div class="custom-dropdown-item" id="fontToggleBtn"><span class="material-icons">format_size</span> 字體大小 (16)</div>
                             <div class="custom-dropdown-item" id="sortMenuToggleBtn"><span class="material-icons">sort</span> 單句排序</div>
+                            <div class="custom-dropdown-item" id="widthMenuToggleBtn"><span class="material-icons">aspect_ratio</span> 編輯區寬度 (預設)</div>
+                            <div class="custom-dropdown-item" id="toggleListPanelBtn"><span class="material-icons">edit_off</span> 隱藏編輯區區塊</div>
+
+                            <div style="border-top: 1px solid #E0E0E0; margin: 4px 0;"></div>
+                            <div class="custom-dropdown-item" id="openSubtitleTheaterMenuBtn"><span class="material-icons" style="color:#F9A825;">theaters</span> 字幕展示模式</div>
                         </div>
                         <!-- 排序子選單 -->
                         <div class="custom-dropdown-menu" id="sortMenu" style="top: 0; left: 100%; min-width: 180px; z-index: 101;">
@@ -254,25 +322,9 @@
                         </div>
                     </div>
 
-                    <!-- 3. 按鈕選單 -->
-                    <div style="position: relative; display: inline-block;" id="btnMenuContainer">
-                        <button class="header-btn" id="btnMenuBtn"><span class="material-icons">smart_button</span> 按鈕</button>
-                        <div class="custom-dropdown-menu" id="btnMenu" style="top: 100%; left: 0; min-width: 180px; z-index: 100;">
-                            
-                            <div class="custom-dropdown-item" id="toggleTagBtnsBtn" style="background-color: #E0F2F1; color: #00897B;">
-                                <span class="material-icons" style="color: #00897B;">add_alarm</span> 標記按鈕 <span class="material-icons" style="margin-left:auto; color:#00897B; font-size:1.1rem;">check</span>
-                            </div>
-
-                            <div class="custom-dropdown-item" id="toggleShiftBtnsBtn"><span class="material-icons">update</span> 平移按鈕</div>
-                            <div class="custom-dropdown-item" id="toggleClearBtnsBtn"><span class="material-icons">backspace</span> 清除按鈕</div>
-                            <div class="custom-dropdown-item" id="toggleMoreBtnsBtn"><span class="material-icons">more_vert</span> 其他按鈕</div>
-                        </div>
-                    </div>
-
-                    <div class="vertical-divider"></div> 
-
-                    <!-- 4. 鎖定按鈕 -->
-                    <button id="toggleModeBtn" class="header-btn toggle-mode-btn"><span class="material-icons">lock_open</span> <span id="modeText">解鎖</span></button>
+                    <!-- ★「按鈕」選單已改到「設定」側邊欄以核取方式呈現（見 #settingsSidebar 內
+                         「介面與檢視」區塊的「列表按鈕顯示」），此處不再重複；
+                         「鎖定/解鎖」已移入上方「檢視」選單，此處也不再重複。 -->
                 </div>
             </div>
         </div>
@@ -286,7 +338,70 @@
                 <div id="scriptBackdrop"></div>
                 <textarea aria-label="劇本模式逐句編輯區" id="scriptTextarea" spellcheck="false" wrap="off" placeholder="在此輸入文字，按下 Enter 換行將自動對應下一個聲波標記..."></textarea>
             </div>
-        </div>    
+        </div>
+
+        <!-- ================= ★ 跨句群組 —— 內嵌於列表區域的第三種檢視模式 =================
+             取代原本的浮動視窗版本：從「列表工具列 → 編輯 → 跨句群組」（或側邊欄同名按鈕）切換進入，
+             跟「切換單句 / 全文」是同一套做法——切換的是 #sentenceList / #scriptEditorContainer /
+             #mediaGroupsView 三者的顯示，而不是另外開一個疊在上面的視窗。
+             資料層（mediaGroups）在 3a_media_groups_core.js，這裡的畫面邏輯在 4i_ui_media_groups.js -->
+        <div id="mediaGroupsView" style="display: none;">
+
+            <!-- 群組清單：每一列本身就是「新增/編輯」表單，欄位失焦即自動存檔，
+                 不再有獨立的「新增群組」表單區塊。清單一律依開始時間排序，
+                 尚未填時間的空白列固定排在最後面。 -->
+            <div id="mediaGroupsListContainer"></div>
+            <p id="mgEmptyHint" style="text-align: center; color: #999; font-size: 0.9rem; display: none; padding: 20px 0;">目前尚未建立任何群組，請按下方「+ 新增群組」開始建立</p>
+
+            <button id="mgAddGroupBtn" class="btn-outline btn-small" type="button" style="width: 100%; margin-top: 4px; display: flex; align-items: center; justify-content: center; gap: 6px; border-style: dashed;">
+                <span class="material-icons" style="font-size: 1.1rem; color: #EF6C00;">add_photo_alternate</span> 新增群組
+            </button>
+        </div>
+
+        <!-- ================= ★ 多語言編輯 —— 內嵌於列表區域的第四種檢視模式 =================
+             從「列表工具列 → 編輯 → 多語言編輯」切換進入，跟「切換單句 / 全文」「跨句群組」
+             是同一套做法：切換的是 #sentenceList / #scriptEditorContainer / #mediaGroupsView /
+             #langEditView 四者的顯示，不是另外開一個疊在上面的視窗。
+             左右兩欄都是可直接編輯的純文字框，逐行對應目前 allLabelsOrdered 的既有順序
+             （不含 ###### 段落記號）。資料層完全沿用 1c_languages.js 的
+             splitLangs / getLang / setLang，不新增任何欄位。畫面邏輯在 4j_ui_lang_edit.js -->
+        <div id="langEditView" style="display: none; flex-direction: column;">
+            <div class="lang-edit-columns">
+                <div class="lang-edit-col">
+                    <div class="lang-edit-col-toolbar">
+                        <label for="langEditLeftSel">顯示語言</label>
+                        <select aria-label="左側顯示語言" id="langEditLeftSel" class="input-select input-select-sm"></select>
+                    </div>
+                    <div class="lang-edit-text-wrap">
+                        <div class="lang-edit-gutter" id="langEditLeftGutter" aria-hidden="true"></div>
+                        <textarea aria-label="左側：既有字幕內容，可直接編輯" id="langEditLeftText" class="lang-edit-textarea" spellcheck="false" wrap="off" placeholder="（尚無字幕資料）"></textarea>
+                    </div>
+                </div>
+                <div class="lang-edit-col">
+                    <div class="lang-edit-col-toolbar">
+                        <label for="langEditRightSel">貼到語言</label>
+                        <select aria-label="右側要匯入的目標語言" id="langEditRightSel" class="input-select input-select-sm"></select>
+                        <span style="flex:1;"></span>
+                        <button type="button" id="langEditSplitBtn" class="lang-edit-mini-btn" title="把右側整段文字依標點符號原地斷成多行">
+                            <span class="material-icons">content_cut</span>斷行
+                        </button>
+                        <button type="button" id="langEditImportBtn" class="lang-edit-mini-btn lang-edit-mini-btn-primary" title="依行對應匯入到左側句子，即使行數不相等也可以直接匯入">
+                            <span class="material-icons">file_download_done</span>匯入
+                        </button>
+                    </div>
+                    <div class="lang-edit-text-wrap">
+                        <div class="lang-edit-gutter" id="langEditRightGutter" aria-hidden="true"></div>
+                        <textarea aria-label="右側：貼上或輸入要匯入的語言文字" id="langEditRightText" class="lang-edit-textarea" spellcheck="false" wrap="off" placeholder="貼上或輸入要匯入的語言文字，一行對應一句（已分好行的內容可直接貼上；整段文字可按上方「斷行」原地依標點斷開）"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div id="langEditCountBanner" class="lang-edit-banner">左 0 句／右 0 行</div>
+        </div>
+
+        <!-- 群組縮圖放大檢視：極簡遮罩+大圖，點遮罩或按 Esc 關閉，跟 customModalOverlay 分開避免互相干擾 -->
+        <div id="mgImageLightbox" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 3000; align-items: center; justify-content: center; cursor: zoom-out;">
+            <img id="mgImageLightboxImg" src="" alt="放大檢視" style="max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 8px; box-shadow: 0 4px 24px rgba(0,0,0,0.5);">
+        </div>
     </div>
 
     <!-- 側邊欄 -->
@@ -318,9 +433,8 @@
                     </select>
                 </div>
                 <div class="setting-block">
-                    <label for="loopCountInput" class="setting-label">循環次數</label>
+                    <label for="loopCountInput" class="setting-label">循環次數 (0 = 無限次)</label>
                     <input type="number" id="loopCountInput" class="input-select" value="0" min="0" max="99">
-                    <span class="setting-hint">0 = 無限次</span>
                 </div>
             </div>
  
@@ -369,11 +483,10 @@
                         <input type="checkbox" id="tabAutoPlayCheck" class="setting-checkbox">
                         Tab 跳句時自動播放
                     </label>
-                    <span class="setting-hint">勾選：按 Tab / Shift+Tab 跳到上、下一句後立刻播放該句。不勾選（預設）：只跳轉、不播放</span>
                 </div>
             </div>
             <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">playlist_add</span><span class="setting-num" aria-hidden="true">四、</span>新增標記時的列表行為</h4>
+                <h4><span class="material-icons" aria-hidden="true">playlist_add</span><span class="setting-num" aria-hidden="true">四、</span>新增標記時的列表</h4>
                 <div class="setting-block">
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="addRowOnTagCheck" class="setting-checkbox" checked>
@@ -387,28 +500,47 @@
                         <input type="checkbox" id="addRowOnSegmentCheck" class="setting-checkbox" checked>
                         選取範圍斷句時，新增列表
                     </label>
-                    <span class="setting-hint">* 勾選：每個新標記都新增一列（適合邊聽邊打字）。取消勾選：不新增列，只把時間套用到現有的列（適合文字已分好、只是來對時間）</span>
                 </div>
             </div>
             <div class="sidebar-group">
                 <h4><span class="material-icons" aria-hidden="true">visibility</span><span class="setting-num" aria-hidden="true">五、</span>介面與檢視</h4>
+
+                <!-- ★ 移入：原本在列表工具列的「按鈕」選單，改成這裡直接核取，跟其他顯示設定放在一起 -->
+                <div class="setting-block">
+                    <label class="setting-label" style="display: block; margin-bottom: 6px;">列表按鈕顯示</label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="toggleTagBtnsCheck" class="setting-checkbox">
+                        標記按鈕
+                    </label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="toggleShiftBtnsCheck" class="setting-checkbox">
+                        平移按鈕
+                    </label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="toggleClearBtnsCheck" class="setting-checkbox">
+                        清除按鈕
+                    </label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="toggleMoreBtnsCheck" class="setting-checkbox" checked>
+                        其他按鈕
+                    </label>
+                </div>
 
                 <!-- ★ 新增：聲波工具列按鈕顯示設定，讓不常用的按鈕可以隱藏、常用的按鈕可以常駐顯示 -->
                 <div class="setting-block">
                     <label class="setting-label" style="display: block; margin-bottom: 6px;">聲波工具列按鈕</label>
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="toolbarShowSeekCheck" class="setting-checkbox" checked>
-                        顯示「退 2 秒／進 2 秒」按鈕
+                        顯示進退2秒按鈕
                     </label>
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="toolbarShowDownloadCheck" class="setting-checkbox" checked>
-                        顯示「下載選取句段音檔」按鈕
+                        顯示下載音檔按鈕
                     </label>
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="toolbarShowCancelCheck" class="setting-checkbox">
-                        顯示「取消選取」按鈕
+                        顯示取消選取按鈕
                     </label>
-                    <span class="setting-hint">未勾選的按鈕仍可從工具列右側「⋮ 更多」選單使用（取消選取／全選等）</span>
                 </div>
 
                 <!-- 第一個區塊：導航與聲波文字開關 -->
@@ -506,6 +638,16 @@
                     </select>
                 </div>
 
+                <!-- ★ 新增：編輯區寬度（列表／群組／多語共用的下方區塊），與「檢視」選單的循環按鈕是同一份設定 -->
+                <div class="setting-block">
+                    <label for="listWidthSelect" class="setting-label">編輯區寬度設定</label>
+                    <select id="listWidthSelect" class="input-select">
+                        <option value="100%">預設 (與介面同寬)</option>
+                        <option value="1000px">1000px</option>
+                        <option value="100vw">滿版</option>
+                    </select>
+                </div>
+
                 <!-- ★ 新增：介面字體切換 -->
                 <div class="setting-block">
                     <label for="fontFamilySelect" class="setting-label">介面字體</label>
@@ -525,12 +667,10 @@
                         <input type="checkbox" id="langMultiEnableCheck" class="setting-checkbox">
                         啟用多語字幕
                     </label>
-                    <span class="setting-hint">* 預設不啟用：每行字幕視為單一語言，完全不受此功能影響。啟用後，才能依分隔字元把一行拆成多種語言文字（語言1、語言2、語言3…依實際資料自動偵測有幾種）</span>
                 </div>
                 <div class="setting-block">
                     <label for="langDelimiterInput" class="setting-label">語言分隔字元</label>
                     <input type="text" id="langDelimiterInput" value="|" maxlength="4" class="input-number-sm" style="width: 60px;" disabled>
-                    <span class="setting-hint">* 每行字幕用此字元分隔多語言文字，例如：語言1文字|語言2文字。留空會自動還原為預設值 |。需先勾選上方「啟用多語字幕」才能修改</span>
                 </div>
             </div>
                         <div class="sidebar-group">
@@ -553,7 +693,7 @@
                     </label>
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="audioNameNumberCheck" class="setting-checkbox" checked>
-                        編號（ABC 段落編號或連續數字，依「列表編號顯示方式」）
+                        編號
                     </label>
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="audioNameTextCheck" class="setting-checkbox" checked>
@@ -566,22 +706,22 @@
                     </label>
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="audioNameInfixCheck" class="setting-checkbox" checked>
-                        中綴（各項目之間的分隔字元）
+                        中綴（分隔）
                         <input aria-label="檔名中綴" type="text" id="audioNameInfixInput" class="input-number-sm" value="_" maxlength="3">
                     </label>
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="audioNameRemovePunctCheck" class="setting-checkbox">
-                        移除標點（套用於標題與列標文字）
+                        移除標點
                     </label>
                     <span class="setting-hint">檔名預覽：<b id="audioNamePreview" style="color:#00695C; word-break: break-all;"></b></span>
                 </div>
             </div>
             <div class="sidebar-group">
-                <h4 style="margin-bottom: 10px;"><span class="material-icons" aria-hidden="true">keyboard</span><span class="setting-num" aria-hidden="true">八、</span>預設快速鍵 (參考學習)</h4>
+                <h4 style="margin-bottom: 10px;"><span class="material-icons" aria-hidden="true">keyboard</span><span class="setting-num" aria-hidden="true">八、</span>預設快速鍵</h4>
                 <ul style="font-size:0.85rem; color:#555; padding-left: 20px; margin-bottom: 20px; line-height: 1.6;">
                     <li><strong>Space 空白鍵</strong>：播放/暫停</li>
                     <li><strong>Tab 鍵</strong>：跳至下一句</li>
-                    <li><strong>Enter 鍵</strong>：將選取範圍新增為標記/列)</li>
+                    <li><strong>Enter 鍵</strong>：選取範圍新增為標記/列</li>
                     <li><strong>Delete 鍵</strong>：移除標記</li>
                     <li><strong>ESC 鍵</strong>：取消選取</li>
                     <li><strong>Shift + 左鍵</strong>：連續多選範圍</li>
@@ -713,6 +853,8 @@
     </div>
 
     <div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+    <!-- ★ 新增：「疑似遺漏」清單面板，用來逐一跳轉、移除或整批清除紅色暫時標示 -->
+    <div id="missedSegmentsPanel" class="missed-panel" style="display:none;" role="dialog" aria-label="疑似遺漏清單"></div>
     <button id="scrollToTopBtn" title="回到頂端" aria-label="回到頂端"><span class="material-icons">expand_less</span></button>
 
 
@@ -772,8 +914,6 @@
             </div>
         </div>
     </div>
-
-
 
 
 
@@ -1036,7 +1176,7 @@
         
         #scriptBackdrop {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0; 
-            padding: 16px !important; font-family: Consolas, "Courier New", monospace !important; 
+            padding: 16px !important; font-family: var(--main-font-family) !important; 
             font-size: var(--sentence-font-size) !important; line-height: 1.8 !important; 
             color: transparent; white-space: pre !important; overflow: hidden !important; 
             pointer-events: none; z-index: 1; box-sizing: border-box !important;
@@ -1061,9 +1201,25 @@
         </div>
         
         <div class="search-row">
-            <label style="font-size: 0.8rem; color: #5F6368; display: flex; align-items: center; cursor: pointer; margin-right: auto; white-space: nowrap;">
-                <input type="checkbox" id="useRegexCheck" style="margin-right: 4px; accent-color: #E65100; transform: scale(0.9); margin-top: 0;"> 正則
-            </label>
+            <div style="display: flex; align-items: center; gap: 8px; margin-right: auto;">
+                <label style="font-size: 0.8rem; color: #5F6368; display: flex; align-items: center; cursor: pointer; white-space: nowrap;">
+                    <input type="checkbox" id="useRegexCheck" style="margin-right: 4px; accent-color: #E65100; transform: scale(0.9); margin-top: 0;"> 正則
+                </label>
+                <!-- ★ 新增：多語字幕模式專用的搜尋範圍選單（全部／左欄／右欄），非該模式時隱藏，邏輯在 4j_ui_lang_edit.js -->
+                <select id="langEditSearchScopeSel" aria-label="搜尋範圍" title="搜尋範圍" style="display: none; font-size: 0.8rem; padding: 3px 6px; border: 1px solid #CFD8DC; border-radius: 6px; color: #5F6368; background: #fff;">
+                    <option value="all">全部</option>
+                    <option value="left">左欄</option>
+                    <option value="right">右欄</option>
+                </select>
+                <!-- ★ 新增：跨句群組模式專用的搜尋範圍選單（全部／開始／結束／備註／網址），非該模式時隱藏，邏輯在 4i_ui_media_groups.js -->
+                <select id="mgSearchScopeSel" aria-label="搜尋範圍" title="搜尋範圍" style="display: none; font-size: 0.8rem; padding: 3px 6px; border: 1px solid #CFD8DC; border-radius: 6px; color: #5F6368; background: #fff;">
+                    <option value="all">全部</option>
+                    <option value="startTime">開始</option>
+                    <option value="endTime">結束</option>
+                    <option value="note">備註</option>
+                    <option value="imageUrl">網址</option>
+                </select>
+            </div>
             <div style="display: flex; gap: 4px;">
                 <button id="findPrevBtn" class="search-icon-btn" title="上一個" aria-label="上一個"><span class="material-icons" style="font-size:1.2rem;">expand_less</span></button>
                 <button id="findNextBtn" class="search-icon-btn" title="下一個" aria-label="下一個"><span class="material-icons" style="font-size:1.2rem;">expand_more</span></button>
@@ -1073,6 +1229,8 @@
                 <button id="batchReplaceConfirmBtn" class="search-action-btn">全部取代</button>
             </div>
         </div>
+        <!-- ★ 新增：多語言編輯模式專用提示（範圍、是否自動存檔），非該模式時隱藏，邏輯在 4j_ui_lang_edit.js -->
+        <div id="langEditSearchHint" style="display: none; font-size: 0.75rem; line-height: 1.4; padding: 2px 4px 0;"></div>
     </div>
 
 
@@ -1160,6 +1318,7 @@
     <script src="1c_languages.js"></script>
     <script src="2_audio_engine.js"></script>
     <script src="3_data_core.js"></script>
+    <script src="3a_media_groups_core.js"></script>
     <script src="4a_ui_title_misc.js"></script>
     <script src="4b_ui_audio_loader.js"></script>
     <script src="4c_ui_scroll.js"></script>
@@ -1168,9 +1327,14 @@
     <script src="4f_ui_import_search.js"></script>
     <script src="4g_ui_export.js"></script>
     <script src="4h_ui_list_tools.js"></script>
+    <script src="4i_ui_media_groups.js"></script>
+    <script src="4j_ui_lang_edit.js"></script>
     <script src="5_list_renderer.js"></script>
     <script src="6_wave_controller.js"></script>
 	<script src="9_batch_converter.js"></script>
+	<script src="10_subtitle_theater.js"></script>
+    <script src="4k_ui_url_params.js"></script>
+    <script src="4l_ui_list_mode_menu.js"></script>
 	
 </body>
 </html>

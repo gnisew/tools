@@ -13,6 +13,7 @@ const audioTimeDisplay = document.getElementById('audioTimeDisplay');
 const listPanel = document.getElementById('listPanel');
 
 const autoSegmentRegionBtn = document.getElementById('autoSegmentRegionBtn');
+const checkMissedBtn = document.getElementById('checkMissedBtn'); // ★ 新增：「檢查是否有遺漏」按鈕
 let targetAutoSegmentRange = null
 
 const mainTitleDisplay = document.getElementById('mainTitleDisplay');
@@ -114,10 +115,6 @@ const copyTextBtn = document.getElementById('copyTextBtn');
 const clearTextBtn = document.getElementById('clearTextBtn');
 const localFileHint = document.getElementById('localFileHint');
 
-const toggleShiftBtnsBtn = document.getElementById('toggleShiftBtnsBtn');
-const toggleClearBtnsBtn = document.getElementById('toggleClearBtnsBtn');
-const toggleMoreBtnsBtn = document.getElementById('toggleMoreBtnsBtn'); 
-
 const restoreTagsBtn = document.getElementById('restoreTagsBtn');
 const autoSegmentBtn = document.getElementById('autoSegmentBtn');
 const timeDisplayToggleBtn = document.getElementById('timeDisplayToggleBtn');
@@ -155,6 +152,10 @@ let isShiftPressed = false;
 let timeDataMap = {}; 
 let sentenceTextMap = {}; 
 let allLabelsOrdered = []; 
+// ★ 新增：跨句圖片群組（大範圍標記，做法 B）。跟上面三個逐句資料完全解耦，
+//   只認時間區間、不引用句子 label，句子合併/分割/重新編號都不會影響到它。
+//   詳細操作函式見 3a_media_groups_core.js；圖片本體存在 IndexedDB（1b_image_store_idb.js）。
+let mediaGroups = []; 
 let verifyEndTime = null; 
 let verifyingLabel = null; 
 let isEditMode = true; 
@@ -168,6 +169,7 @@ let playbackMode = localStorage.getItem('tagger_playbackMode') || 'continuous';
 let continuousPlayMode = localStorage.getItem('tagger_continuousPlayMode') || 'normal';
 let currentAppWidth = localStorage.getItem('tagger_appWidth') || '100%';
 if (currentAppWidth === '800px') { currentAppWidth = '100%'; }
+let currentListWidth = localStorage.getItem('tagger_listWidth') || '100%'; // ★ 新增：列表/群組/多語編輯區寬度（獨立於聲波圖寬度）
 let currentWaveHeight = parseInt(localStorage.getItem('tagger_waveHeight')) || 80;
 let currentFontFamily = localStorage.getItem('tagger_fontFamily') || 'twhei'; // ★ 新增：介面字體，預設 twhei（台灣黑體）
 

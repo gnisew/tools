@@ -100,7 +100,7 @@ function generateAudacity() {
 
 function generateJSON() {
     const projectData = {
-        version: "1.0",
+        version: "1.1", // ★ 修改：1.0 → 1.1（新增 mediaGroups 欄位）
         title: localStorage.getItem('tagger_projectTitle') || document.getElementById('mainTitleDisplay')?.textContent || "",
         audioUrl: localStorage.getItem('tagger_audioUrl') || "",
         localFileName: localStorage.getItem('tagger_localFileName') || "",
@@ -108,7 +108,10 @@ function generateJSON() {
         allLabelsOrdered: allLabelsOrdered,
         sentenceTextMap: sentenceTextMap,
         timeDataMap: timeDataMap,
-        settings: { currentParseMode: currentParseMode, currentSortMode: currentSortMode }
+        settings: { currentParseMode: currentParseMode, currentSortMode: currentSortMode },
+        // ★ 新增：跨句圖片群組。圖片為網址參照（imageUrl），JSON 本身就完整攜帶圖片資訊，
+        //   換瀏覽器／換電腦匯入也不會遺失縮圖。
+        mediaGroups: (typeof mediaGroups !== 'undefined' && Array.isArray(mediaGroups)) ? mediaGroups : []
     };
     return JSON.stringify(projectData, null, 2);
 }
@@ -220,8 +223,8 @@ if (toggleScriptModeBtnMain) {
         
         isScriptMode = !isScriptMode;
         
-        // 點擊後自動關閉檢視選單
-        document.getElementById('viewMenu')?.classList.remove('show');
+        // 點擊後自動關閉編輯選單（此按鈕已從「檢視」移到「編輯」選單）
+        document.getElementById('editMenu')?.classList.remove('show');
         
         // ★ 取得列表標題容器，準備動態調整底線
         const listHeaderContainer = document.getElementById('listHeaderContainer');
@@ -239,7 +242,7 @@ if (toggleScriptModeBtnMain) {
             showToast('已切換為：全文模式 (劇本)', 'success');
 
             // 隱藏不支援的選單項目
-            const toHide = ['sortMenuToggleBtn', 'timeDisplayToggleBtn', 'clearAllTagsBtn', 'btnMenuContainer', 'mergeSelectedBtn'];
+            const toHide = ['sortMenuToggleBtn', 'timeDisplayToggleBtn', 'clearAllTagsBtn', 'mergeSelectedBtn'];
             toHide.forEach(id => { if(document.getElementById(id)) document.getElementById(id).style.display = 'none'; });
             
         } else {
@@ -256,7 +259,6 @@ if (toggleScriptModeBtnMain) {
             // 恢復所有選單項目
             const toShow = ['sortMenuToggleBtn', 'timeDisplayToggleBtn', 'clearAllTagsBtn'];
             toShow.forEach(id => { if(document.getElementById(id)) document.getElementById(id).style.display = 'flex'; });
-            if (document.getElementById('btnMenuContainer')) document.getElementById('btnMenuContainer').style.display = 'inline-block';
         }
         
         // UI 外觀 (鎖定/解鎖) 連動

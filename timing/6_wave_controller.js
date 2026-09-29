@@ -373,6 +373,35 @@ function renderAllRegions() {
                 wsRegions.addRegion({ id: label, start: times.start, end: times.end, content: contentEl, color: regionColor, drag: isEditMode, resize: isEditMode });
             }
         });
+
+        // ★ 新增：若「檢查是否有遺漏」的清單還沒清空，重繪時一併把紅色暫時標記畫回來，
+        //   避免使用者去拖曳/編輯別的標記時，把還沒處理完的遺漏提示整批洗掉。
+        //   （這些標記本來就是 drag:false / resize:false 又設了 pointer-events:none，
+        //   純視覺穿透，不會擋到任何拖曳或合併操作。）
+        if (window.missedSegmentsData && window.missedSegmentsData.length > 0) {
+            window.missedSegmentsData.forEach(seg => {
+                const contentEl = typeof buildMissedRegionContent === 'function'
+                    ? buildMissedRegionContent(seg.id)
+                    : document.createElement('div'); // 防呆：2_audio_engine.js 尚未載入時退回空白框，不中斷渲染
+                const region = wsRegions.addRegion({
+                    id: seg.id,
+                    start: seg.start,
+                    end: seg.end,
+                    color: 'rgba(211, 47, 47, 0.35)',
+                    drag: false,
+                    resize: false,
+                    content: contentEl
+                });
+                if (region && region.element) {
+                    region.element.style.pointerEvents = 'none';
+                    // ★ 新增：不透明紅色外框，跟初次建立時（2_audio_engine.js）
+                    //   保持一致，確保重繪後標記邊界仍然清楚可見。
+                    region.element.style.border = '2px solid #D32F2F';
+                    region.element.style.boxSizing = 'border-box';
+                }
+            });
+        }
+
         isRendering = false;
     }, 100); // 結束計時器區塊
 }
@@ -621,6 +650,9 @@ function initWaveSurfer() {
     wsRegions.on('region-clicked', (region, e) => {
         e.stopPropagation(); 
         if (region === tempRegion) return; 
+        // ★ 新增：「檢查是否有遺漏」產生的紅色暫時標記不是真正的句子，
+        //   id 開頭固定為 "missed-"，點擊時直接忽略，避免污染 currentActiveLabel。
+        if (region.id && String(region.id).startsWith('missed-')) return;
         
         if (e.ctrlKey || e.metaKey) {
             if(typeof toggleSelection === 'function') toggleSelection(region.id);

@@ -272,6 +272,12 @@ autoSegmentRegionBtn?.addEventListener('click', () => {
     }
 });
 
+// 3. ★ 新增：「檢查是否有遺漏」——掃描目前沒被任何標記覆蓋、卻疑似有聲音的空隙，
+//    用紅色暫時標記提示，不會動到任何既有的時間資料。
+checkMissedBtn?.addEventListener('click', () => {
+    if (typeof performMissedSegmentCheck === 'function') performMissedSegmentCheck();
+});
+
 asCancelBtn?.addEventListener('click', () => asModal?.classList.remove('show'));
 
 // ================= 自動斷句 Modal 雙頁籤與按鈕事件 =================
@@ -685,16 +691,58 @@ if (waveHeightSelect) {
     });
 }
 
+// ★ 新增：聲波寬度「循環按鈕」（聲波三點選單 #waveWidthToggleBtn）。
+// 跟設定側邊欄的 #appWidthSelect 是同一份設定（currentAppWidth / tagger_appWidth），
+// 兩邊都透過 setWaveWidth() 寫入，標籤與下拉選單會互相同步。
+const WAVE_WIDTH_OPTIONS = [
+    { value: '100%',   label: '預設' },
+    { value: '1200px', label: '1200px' },
+    { value: '100vw',  label: '全螢幕' }
+];
+
+// 更新三點選單循環按鈕的標籤，以及設定面板的下拉選單
+function refreshWaveWidthUI() {
+    const opt = WAVE_WIDTH_OPTIONS.find(o => o.value === currentAppWidth) || WAVE_WIDTH_OPTIONS[0];
+    const label = document.getElementById('waveWidthToggleLabel');
+    if (label) label.textContent = `聲波寬度 (${opt.label})`;
+    if (appWidthSelect && appWidthSelect.value !== opt.value) appWidthSelect.value = opt.value;
+}
+
+// 統一入口：三點選單循環按鈕與設定下拉都呼叫這個
+function setWaveWidth(width) {
+    currentAppWidth = width;
+    localStorage.setItem('tagger_appWidth', currentAppWidth);
+    applyAppWidth(currentAppWidth);
+    refreshWaveWidthUI();
+}
+
 if (appWidthSelect) {
     appWidthSelect.value = currentAppWidth;
     if (!appWidthSelect.value) { appWidthSelect.value = '100%'; } // 終極防呆
     applyAppWidth(appWidthSelect.value);
     
     appWidthSelect.addEventListener('change', (e) => {
-        currentAppWidth = e.target.value;
-        localStorage.setItem('tagger_appWidth', currentAppWidth);
-        applyAppWidth(currentAppWidth);
+        setWaveWidth(e.target.value); // ★ 修改：改走統一入口，讓三點選單的標籤同步更新
         showToast('聲波圖寬度已切換', 'success');
+    });
+}
+refreshWaveWidthUI(); // ★ 新增：頁面載入時，依記憶的寬度更新三點選單標籤
+
+// 三點選單裡的循環按鈕：每點一次切到下一個值。選單本身點擊已 stopPropagation，所以選單不會關閉，可連續點擊。
+document.getElementById('waveWidthToggleBtn')?.addEventListener('click', () => {
+    const idx = WAVE_WIDTH_OPTIONS.findIndex(o => o.value === currentAppWidth);
+    setWaveWidth(WAVE_WIDTH_OPTIONS[(idx + 1) % WAVE_WIDTH_OPTIONS.length].value);
+});
+
+// ★ 新增：編輯區寬度設定（列表／群組／多語共用的下方區塊）。
+// 跟「檢視」選單裡的循環按鈕是同一份設定，統一透過 4b 的 setListWidth() 寫入與同步。
+const listWidthSelect = document.getElementById('listWidthSelect');
+if (listWidthSelect) {
+    listWidthSelect.value = currentListWidth;
+    if (!listWidthSelect.value) listWidthSelect.value = '100%'; // 防呆：記憶值不在選項內時回到預設
+    listWidthSelect.addEventListener('change', (e) => {
+        if (typeof setListWidth === 'function') setListWidth(e.target.value);
+        showToast('編輯區寬度已切換', 'success');
     });
 }
 

@@ -688,6 +688,8 @@ importProjectInput?.addEventListener('change', (e) => {
                 allLabelsOrdered = data.allLabelsOrdered;
                 sentenceTextMap = data.sentenceTextMap;
                 timeDataMap = data.timeDataMap || {};
+                // ★ 新增：舊專案 JSON 沒有 mediaGroups 欄位時，預設空陣列，完全相容舊專案
+                mediaGroups = Array.isArray(data.mediaGroups) ? data.mediaGroups : [];
                 
                 if (data.title) {
                     localStorage.setItem('tagger_projectTitle', data.title);

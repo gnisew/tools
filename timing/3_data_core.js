@@ -31,6 +31,9 @@ function saveToStorage() {
             localStorage.setItem('tagger_textMap', JSON.stringify(sentenceTextMap));
             localStorage.setItem('tagger_timeDataMap', JSON.stringify(timeDataMap));
             localStorage.setItem('tagger_parseMode', currentParseMode); 
+            // ★ 新增：跨句圖片群組（mediaGroups，做法 B），只存時間區間 + 圖片參照旗標，
+            //   圖片本體另外存在 IndexedDB（見 1b_image_store_idb.js），不會塞進 localStorage。
+            localStorage.setItem('tagger_mediaGroups', JSON.stringify(mediaGroups));
         } catch (err) {
             // ★ 修補：容量爆滿或其他寫入失敗時，明確提示使用者，避免編輯內容悄悄遺失
             console.error('存檔失敗：', err);
@@ -49,6 +52,7 @@ window.addEventListener('beforeunload', () => {
             localStorage.setItem('tagger_textMap', JSON.stringify(sentenceTextMap));
             localStorage.setItem('tagger_timeDataMap', JSON.stringify(timeDataMap));
             localStorage.setItem('tagger_parseMode', currentParseMode); 
+            localStorage.setItem('tagger_mediaGroups', JSON.stringify(mediaGroups));
         } catch (err) {
             console.error('關閉頁面前強制存檔失敗：', err);
         }
@@ -104,6 +108,15 @@ function loadFromStorage() {
             allLabelsOrdered = JSON.parse(savedLabels); 
             sentenceTextMap = JSON.parse(savedTextMap);
         } catch (e) { console.error('還原資料失敗', e); }
+    }
+
+    // ★ 新增：讀回跨句圖片群組（mediaGroups）。舊專案沒有這個欄位時，
+    //   savedMediaGroups 會是 null，直接維持空陣列，完全相容舊資料、不影響任何現有功能。
+    const savedMediaGroups = localStorage.getItem('tagger_mediaGroups');
+    if (savedMediaGroups) {
+        try { mediaGroups = JSON.parse(savedMediaGroups); } catch (e) { mediaGroups = []; }
+    } else {
+        mediaGroups = [];
     }
 
     if ((allLabelsOrdered.length > 0 || localFileName || savedUrl) && typeof renderSentenceList === 'function') {

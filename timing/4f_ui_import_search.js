@@ -373,6 +373,12 @@ autoCloseInputs.forEach(id => {
 // =========================================================================
 
 // ================= ★ Chrome級：即時高亮搜尋與取代引擎 ★ =================
+// ★ 多語言字幕：搜尋／取代的範圍，直接跟著列表右上角「語言」檢視選項走
+//   - 檢視「語言N」：只比對、只取代第 N 語言那一段，其他語言原封不動（寫回一律走 setLang）
+//   - 檢視「全部語言」：把整串文字用 splitLangs 切開，每個語言各自比對，
+//     比對結果不會跨越分隔字元，取代也只改到命中的那一段
+//   - 全文模式（大編輯框）畫面上本來就顯示整串原始文字（含分隔字元），維持整串比對
+//   - 取代文字若含分隔字元，會破壞語言結構，直接擋下並提示
 const openBatchReplaceBtn = document.getElementById('openBatchReplaceBtn');
 const batchReplaceModal = document.getElementById('batchReplaceModalOverlay');
 const batchReplaceConfirmBtn = document.getElementById('batchReplaceConfirmBtn');
@@ -384,13 +390,89 @@ const findTextInput = document.getElementById('findTextInput');
 const replaceTextInput = document.getElementById('replaceTextInput');
 const useRegexCheck = document.getElementById('useRegexCheck');
 const searchMatchCount = document.getElementById('searchMatchCount');
+const findPlaceholderDefault = findTextInput ? findTextInput.placeholder : '';
 
 // 搜尋狀態機
+// 單句模式的每筆命中：{ label, langIdx, start, end, dStart, dEnd }
+//   start/end   = 相對於「該語言那一段」的位置（取代時使用）
+//   dStart/dEnd = 相對於「畫面上顯示的文字」的位置（高亮時使用）
+// 全文模式的每筆命中：{ start, end }（相對於整個 textarea）
 let searchEngine = { query: '', useRegex: false, matches: [], currentIndex: -1 };
+// 記錄目前畫面上被塗上高亮的列，好在下一次重繪前確實還原（避免舊高亮殘留）
+let searchPaintedLabels = new Set();
+
+// ---------- 多語言輔助 ----------
+function isScriptModeActive() {
+    return (typeof isScriptMode !== 'undefined' && isScriptMode);
+}
+function isLangMultiOn() {
+    return (typeof getLangMultiEnabled === 'function') && getLangMultiEnabled();
+}
+// 目前列表的語言檢視索引：null = 全部語言；數字 = 只看第 N 語言（與 renderSentenceList 判斷一致）
+function getSearchLangViewIndex() {
+    return (typeof getCurrentLangViewIndex === 'function') ? getCurrentLangViewIndex() : null;
+}
+function searchSplit(text) {
+    return (typeof splitLangs === 'function') ? splitLangs(text) : [String(text || '')];
+}
+function searchJoin(segs) {
+    if (!isLangMultiOn() || typeof getLangDelimiter !== 'function') return segs[0] || '';
+    return segs.join(getLangDelimiter());
+}
+// 這一列在列表上「實際顯示」的文字（與 renderSentenceList 的邏輯一致）
+function getListDisplayText(label) {
+    const full = sentenceTextMap[label] || '';
+    const idx = getSearchLangViewIndex();
+    return (idx !== null && typeof getLang === 'function') ? getLang(full, idx) : full;
+}
+// 搜尋範圍名稱（顯示在輸入框提示與提示訊息）；未啟用多語、或全文模式時回傳空字串
+function getSearchScopeName() {
+    if (isScriptModeActive() || !isLangMultiOn()) return '';
+    const idx = getSearchLangViewIndex();
+    if (idx === null) return '全部語言';
+    return (typeof getLangName === 'function') ? getLangName(idx) : `語言${idx + 1}`;
+}
+function updateSearchScopeHint() {
+    if (!findTextInput) return;
+    // ★ 跨句群組模式：搜尋範圍是群組的備註與圖片網址，提示文字改由 4i 處理
+    if (typeof isMediaGroupsView !== 'undefined' && isMediaGroupsView && typeof mgSearchUpdateUI === 'function') { mgSearchUpdateUI(); return; }
+    const scope = getSearchScopeName();
+    findTextInput.placeholder = scope ? `尋找目標（${scope}）` : findPlaceholderDefault;
+}
+// 取代文字若含分隔字元，會憑空多出（或改變）語言分段，直接擋下
+function replaceStrBreaksLangStructure(replaceStr) {
+    if (isScriptModeActive() || !isLangMultiOn() || typeof getLangDelimiter !== 'function') return false;
+    return String(replaceStr).includes(getLangDelimiter());
+}
+function warnReplaceHasDelimiter() {
+    showToast(`取代文字含有語言分隔字元「${getLangDelimiter()}」，會破壞多語言結構，已取消取代`, 'error');
+}
+
+// 在單一字串裡找出所有命中位置（一般或正則）
+function findMatchesInString(text, findStr, searchRegex) {
+    const result = [];
+    if (!text) return result;
+    if (searchRegex) {
+        searchRegex.lastIndex = 0;
+        let match;
+        while ((match = searchRegex.exec(text)) !== null) {
+            if (match[0].length === 0) { searchRegex.lastIndex++; continue; }
+            result.push({ start: match.index, end: match.index + match[0].length });
+        }
+    } else {
+        let idx = text.indexOf(findStr);
+        while (idx !== -1) {
+            result.push({ start: idx, end: idx + findStr.length });
+            idx = text.indexOf(findStr, idx + findStr.length);
+        }
+    }
+    return result;
+}
 
 // 開啟視窗與關閉視窗
 openBatchReplaceBtn?.addEventListener('click', () => {
     batchReplaceModal.classList.add('show');
+    updateSearchScopeHint();
     setTimeout(() => { findTextInput.focus(); findTextInput.select(); }, 100); 
 });
 batchReplaceCancelBtn?.addEventListener('click', () => {
@@ -401,11 +483,16 @@ batchReplaceCancelBtn?.addEventListener('click', () => {
 
 // 核心：掃描並更新所有符合的字串位置
 function updateSearchMatches() {
+    // ★ 多語言編輯模式：搜尋範圍是左/右欄 textarea，改由 4j_ui_lang_edit.js 處理
+    if (typeof isLangEditView !== 'undefined' && isLangEditView && typeof langEditSearchScan === 'function') { langEditSearchScan(); return; }
+    // ★ 跨句群組模式：搜尋範圍限定群組資料，改由 4i_ui_media_groups.js 處理
+    if (typeof isMediaGroupsView !== 'undefined' && isMediaGroupsView && typeof mgSearchScan === 'function') { mgSearchScan(); return; }
     const findStr = findTextInput.value;
     const useRegex = useRegexCheck ? useRegexCheck.checked : false;
     searchEngine.matches = [];
     searchEngine.query = findStr;
     searchEngine.useRegex = useRegex;
+    updateSearchScopeHint();
 
     if (!findStr) { renderHighlights(); return; }
 
@@ -414,39 +501,35 @@ function updateSearchMatches() {
         try { searchRegex = new RegExp(findStr, 'g'); } catch(e) { renderHighlights(); return; }
     }
 
-    if (typeof isScriptMode !== 'undefined' && isScriptMode) {
-        // 劇本模式：計算 textarea 內的文字索引
+    if (isScriptModeActive()) {
+        // 劇本模式：畫面顯示整串原始文字，直接計算 textarea 內的文字索引
         const text = document.getElementById('scriptTextarea')?.value || '';
-        if (useRegex) {
-            let match;
-            while ((match = searchRegex.exec(text)) !== null) {
-                if (match[0].length === 0) { searchRegex.lastIndex++; continue; }
-                searchEngine.matches.push({ start: match.index, end: match.index + match[0].length });
-            }
-        } else {
-            let idx = text.indexOf(findStr);
-            while (idx !== -1) {
-                searchEngine.matches.push({ start: idx, end: idx + findStr.length });
-                idx = text.indexOf(findStr, idx + findStr.length);
-            }
-        }
+        searchEngine.matches = findMatchesInString(text, findStr, searchRegex);
     } else {
-        // 單句模式：計算所有標籤內的文字索引
+        // 單句模式：只搜尋「目前檢視的語言」
+        const viewIdx = getSearchLangViewIndex();
+        const delimLen = (isLangMultiOn() && typeof getLangDelimiter === 'function') ? getLangDelimiter().length : 0;
+
         allLabelsOrdered.forEach(label => {
-            const text = sentenceTextMap[label] || '';
-            if (useRegex) {
-                searchRegex.lastIndex = 0;
-                let match;
-                while ((match = searchRegex.exec(text)) !== null) {
-                    if (match[0].length === 0) { searchRegex.lastIndex++; continue; }
-                    searchEngine.matches.push({ label, start: match.index, end: match.index + match[0].length });
-                }
+            const full = sentenceTextMap[label] || '';
+
+            if (viewIdx !== null && typeof getLang === 'function') {
+                // 檢視「語言N」：只比對第 N 語言那一段，畫面上顯示的就是那一段，位置不需換算
+                const seg = getLang(full, viewIdx);
+                findMatchesInString(seg, findStr, searchRegex).forEach(m => {
+                    searchEngine.matches.push({ label, langIdx: viewIdx, start: m.start, end: m.end, dStart: m.start, dEnd: m.end });
+                });
             } else {
-                let idx = text.indexOf(findStr);
-                while (idx !== -1) {
-                    searchEngine.matches.push({ label, start: idx, end: idx + findStr.length });
-                    idx = text.indexOf(findStr, idx + findStr.length);
-                }
+                // 檢視「全部語言」：每個語言各自比對（命中不會跨越分隔字元）
+                // 畫面顯示整串，所以高亮位置要加上該語言在整串中的起點
+                const segs = searchSplit(full);
+                let base = 0;
+                segs.forEach((seg, langIdx) => {
+                    findMatchesInString(seg, findStr, searchRegex).forEach(m => {
+                        searchEngine.matches.push({ label, langIdx, start: m.start, end: m.end, dStart: base + m.start, dEnd: base + m.end });
+                    });
+                    base += seg.length + delimLen;
+                });
             }
         });
     }
@@ -459,6 +542,10 @@ function updateSearchMatches() {
 
 // 核心：在畫面上塗上黃色與橘色高亮
 function renderHighlights() {
+    // ★ 多語言編輯模式：改由 4j 重畫行號高亮與命中計數
+    if (typeof isLangEditView !== 'undefined' && isLangEditView && typeof langEditSearchPaint === 'function') { langEditSearchPaint(); return; }
+    // ★ 跨句群組模式：改由 4i 重畫欄位高亮與命中計數
+    if (typeof isMediaGroupsView !== 'undefined' && isMediaGroupsView && typeof mgSearchPaint === 'function') { mgSearchPaint(); return; }
     if (!searchEngine.query || searchEngine.matches.length === 0) {
         searchMatchCount.style.display = 'none';
         clearAllHighlights();
@@ -469,7 +556,7 @@ function renderHighlights() {
     searchMatchCount.textContent = `${searchEngine.currentIndex + 1}/${searchEngine.matches.length}`;
     clearAllHighlights(); 
 
-    if (typeof isScriptMode !== 'undefined' && isScriptMode) {
+    if (isScriptModeActive()) {
         const textarea = document.getElementById('scriptTextarea');
         const backdrop = document.getElementById('scriptBackdrop');
         if (!textarea || !backdrop) return;
@@ -497,36 +584,42 @@ function renderHighlights() {
             const display = itemDiv?.querySelector('.sentence-text-display');
             if (!display) continue;
             
-            const text = sentenceTextMap[label] || '';
+            // ★ 用「畫面上實際顯示的文字」來切割高亮，而不是完整的原始字串
+            const text = getListDisplayText(label);
             let html = ''; let lastIdx = 0;
             
             labelMatches[label].forEach(m => {
-                html += escapeHtml(text.substring(lastIdx, m.start));
+                html += escapeHtml(text.substring(lastIdx, m.dStart));
                 const markClass = m.globalIdx === searchEngine.currentIndex ? 'list-mark active' : 'list-mark';
-                html += `<mark class="${markClass}">${escapeHtml(text.substring(m.start, m.end))}</mark>`;
-                lastIdx = m.end;
+                html += `<mark class="${markClass}">${escapeHtml(text.substring(m.dStart, m.dEnd))}</mark>`;
+                lastIdx = m.dEnd;
             });
             html += escapeHtml(text.substring(lastIdx));
             display.innerHTML = html;
+            searchPaintedLabels.add(label);
         }
     }
 }
 
 // 清除所有高亮痕跡 (保護原始資料)
 function clearAllHighlights() {
+    // ★ 還原「曾經塗過高亮的所有列」，而不只是目前這一輪命中的列，
+    //   否則搜尋字串改變後，已不再命中的列會殘留舊的 <mark>
+    const affectedLabels = new Set(searchPaintedLabels);
     if (searchEngine && searchEngine.matches) {
-        // 使用 Set 來排除重複的標籤 (因為一句話可能有多個關鍵字)
-        const affectedLabels = new Set(searchEngine.matches.map(m => m.label));
-        
-        affectedLabels.forEach(label => {
-            if (!label) return; // 劇本模式沒有 label
-            const display = document.querySelector(`#item-${label} .sentence-text-display`);
-            if (display) {
-                // 直接從原始資料還原文字，消除 <mark>
-                display.textContent = sentenceTextMap[label] || '';
-            }
-        });
+        searchEngine.matches.forEach(m => { if (m.label) affectedLabels.add(m.label); });
     }
+    affectedLabels.forEach(label => {
+        const display = document.querySelector(`#item-${label} .sentence-text-display`);
+        if (display) {
+            // 直接從原始資料還原「畫面上該顯示的文字」，消除 <mark>
+            display.textContent = getListDisplayText(label);
+        }
+    });
+    searchPaintedLabels = new Set();
+    
+    // ★ 一併清除跨句群組欄位上的搜尋高亮（沒有高亮時什麼都不做）
+    if (typeof mgSearchClearPaint === 'function') mgSearchClearPaint();
     
     // 處理劇本模式的背景
     const backdrop = document.getElementById('scriptBackdrop');
@@ -539,10 +632,14 @@ function escapeHtml(unsafe) {
 
 // 捲動並選取目標
 function scrollToCurrentMatch() {
+    // ★ 多語言編輯模式：改由 4j 選取並捲動到命中位置
+    if (typeof isLangEditView !== 'undefined' && isLangEditView && typeof langEditSearchScrollToCurrent === 'function') { langEditSearchScrollToCurrent(); return; }
+    // ★ 跨句群組模式：捲動到命中的那一列
+    if (typeof isMediaGroupsView !== 'undefined' && isMediaGroupsView && typeof mgSearchScrollToCurrent === 'function') { mgSearchScrollToCurrent(); return; }
     if (searchEngine.currentIndex === -1 || searchEngine.matches.length === 0) return;
     const match = searchEngine.matches[searchEngine.currentIndex];
     
-    if (typeof isScriptMode !== 'undefined' && isScriptMode) {
+    if (isScriptModeActive()) {
         const textarea = document.getElementById('scriptTextarea');
         textarea.focus();
         textarea.setSelectionRange(match.start, match.end);
@@ -565,6 +662,17 @@ findTextInput?.addEventListener('input', () => {
 
 useRegexCheck?.addEventListener('change', () => { updateSearchMatches(); scrollToCurrentMatch(); });
 
+// ★ 搜尋視窗開著時，使用者切換「語言」檢視 → 搜尋範圍跟著換，重新掃描一次
+//   （列表會被重繪，舊的高亮與命中位置都已失效）。setTimeout 0 確保排在 4a 的切換處理之後。
+document.getElementById('langViewMenu')?.addEventListener('click', () => {
+    setTimeout(() => {
+        updateSearchScopeHint();
+        if (batchReplaceModal?.classList.contains('show') && findTextInput && findTextInput.value) {
+            updateSearchMatches();
+        }
+    }, 0);
+});
+
 // 上下步切換
 function stepMatch(direction) {
     if (searchEngine.matches.length === 0) return;
@@ -577,13 +685,48 @@ findNextBtn?.addEventListener('click', () => stepMatch(1));
 findPrevBtn?.addEventListener('click', () => stepMatch(-1));
 findTextInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') stepMatch(1); });
 
+// 依「命中清單」算出某一列取代後的完整字串：只改命中的那一段，其他語言原封不動
+function buildTextAfterReplace(label, labelMatches, replaceStr) {
+    const segs = searchSplit(sentenceTextMap[label] || '');
+    // 同一個語言段落內，由後往前取代，前面的位置才不會被位移
+    const ordered = [...labelMatches].sort((a, b) => (b.langIdx - a.langIdx) || (b.start - a.start));
+    ordered.forEach(m => {
+        while (segs.length <= m.langIdx) segs.push('');
+        const seg = segs[m.langIdx];
+        segs[m.langIdx] = seg.substring(0, m.start) + replaceStr + seg.substring(m.end);
+    });
+    return searchJoin(segs);
+}
+
+// 取代後同步更新該列的畫面（顯示「目前檢視語言」那一段）與資料
+function refreshRowAfterReplace(label) {
+    const full = sentenceTextMap[label] || '';
+    const itemDiv = document.getElementById(`item-${label}`);
+    if (itemDiv) {
+        const display = itemDiv.querySelector('.sentence-text-display');
+        if (display) display.textContent = getListDisplayText(label);
+        itemDiv.dataset.rawText = full;
+    }
+    // ★ 效能優化：精準只更新這一個聲波圖標記的文字（傳入完整字串，由聲波圖自己依設定過濾語言）
+    if (typeof updateRegionTextDisplay === 'function') {
+        updateRegionTextDisplay(label, full);
+    }
+}
+
 // 單步取代
 replaceSingleBtn?.addEventListener('click', () => {
+    // ★ 多語言編輯模式：改由 4j 處理（範圍限定所選欄位）
+    if (typeof isLangEditView !== 'undefined' && isLangEditView && typeof langEditSearchReplaceSingle === 'function') { langEditSearchReplaceSingle(); return; }
+    // ★ 跨句群組模式：只取代群組資料（備註、圖片網址）
+    if (typeof isMediaGroupsView !== 'undefined' && isMediaGroupsView && typeof mgSearchReplaceSingle === 'function') { mgSearchReplaceSingle(); return; }
+    // 動手前先重新掃描一次，避免使用者中途改過文字導致命中位置過期
+    updateSearchMatches();
     if (searchEngine.matches.length === 0 || searchEngine.currentIndex === -1) return;
     const replaceStr = replaceTextInput.value;
+    if (replaceStrBreaksLangStructure(replaceStr)) return warnReplaceHasDelimiter();
     if (typeof saveState === 'function') saveState();
 
-    if (typeof isScriptMode !== 'undefined' && isScriptMode) {
+    if (isScriptModeActive()) {
         const match = searchEngine.matches[searchEngine.currentIndex];
         const textarea = document.getElementById('scriptTextarea');
         const text = textarea.value;
@@ -591,20 +734,8 @@ replaceSingleBtn?.addEventListener('click', () => {
         if (typeof renderGutterAndSyncData === 'function') renderGutterAndSyncData();
     } else {
         const match = searchEngine.matches[searchEngine.currentIndex];
-        let text = sentenceTextMap[match.label] || '';
-        text = text.substring(0, match.start) + replaceStr + text.substring(match.end);
-        sentenceTextMap[match.label] = text;
-        const itemDiv = document.getElementById(`item-${match.label}`);
-        if (itemDiv) { 
-            itemDiv.querySelector('.sentence-text-display').textContent = text; 
-            itemDiv.dataset.rawText = text; 
-        }
-        
-        // ★ 效能優化：精準只更新這一個聲波圖標記的文字
-        if (typeof updateRegionTextDisplay === 'function') {
-            updateRegionTextDisplay(match.label, text);
-        }
-        
+        sentenceTextMap[match.label] = buildTextAfterReplace(match.label, [match], replaceStr);
+        refreshRowAfterReplace(match.label);
         saveToStorage();
     }
     updateSearchMatches(); scrollToCurrentMatch();
@@ -612,12 +743,19 @@ replaceSingleBtn?.addEventListener('click', () => {
 
 // 全部取代
 batchReplaceConfirmBtn?.addEventListener('click', () => {
+    // ★ 多語言編輯模式：改由 4j 處理（範圍限定所選欄位）
+    if (typeof isLangEditView !== 'undefined' && isLangEditView && typeof langEditSearchReplaceAll === 'function') { langEditSearchReplaceAll(); return; }
+    // ★ 跨句群組模式：只取代群組資料（備註、圖片網址）
+    if (typeof isMediaGroupsView !== 'undefined' && isMediaGroupsView && typeof mgSearchReplaceAll === 'function') { mgSearchReplaceAll(); return; }
+    updateSearchMatches(); // 動手前先重新掃描，確保命中位置是最新的
     if (searchEngine.matches.length === 0) return;
     const replaceStr = replaceTextInput.value;
+    if (replaceStrBreaksLangStructure(replaceStr)) return warnReplaceHasDelimiter();
     if (typeof saveState === 'function') saveState();
     let count = searchEngine.matches.length;
+    const scopeName = getSearchScopeName();
 
-    if (typeof isScriptMode !== 'undefined' && isScriptMode) {
+    if (isScriptModeActive()) {
         const textarea = document.getElementById('scriptTextarea');
         let text = textarea.value; let offset = 0;
         searchEngine.matches.forEach(m => {
@@ -627,35 +765,21 @@ batchReplaceConfirmBtn?.addEventListener('click', () => {
         textarea.value = text;
         if (typeof renderGutterAndSyncData === 'function') renderGutterAndSyncData();
     } else {
-        const labelOffsetMap = {};
-        const affectedLabels = new Set(); // ★ 使用 Set 收集受影響的標籤，自動排除重複
-
+        // 依句子分組，每句只組一次新字串、只更新一次畫面與聲波圖
+        const matchesByLabel = {};
         searchEngine.matches.forEach(m => {
-            if (!labelOffsetMap[m.label]) labelOffsetMap[m.label] = 0;
-            let text = sentenceTextMap[m.label];
-            const offset = labelOffsetMap[m.label];
-            text = text.substring(0, m.start + offset) + replaceStr + text.substring(m.end + offset);
-            sentenceTextMap[m.label] = text;
-            labelOffsetMap[m.label] += replaceStr.length - (m.end - m.start);
-            
-            const itemDiv = document.getElementById(`item-${m.label}`);
-            if (itemDiv) { 
-                itemDiv.querySelector('.sentence-text-display').textContent = text; 
-                itemDiv.dataset.rawText = text; 
-            }
-            affectedLabels.add(m.label); // 記錄被修改過的句子
+            if (!matchesByLabel[m.label]) matchesByLabel[m.label] = [];
+            matchesByLabel[m.label].push(m);
         });
-        
-        // ★ 效能優化：批次精準更新聲波圖文字，每句最多只更新一次
-        affectedLabels.forEach(label => {
-            if (typeof updateRegionTextDisplay === 'function') {
-                updateRegionTextDisplay(label, sentenceTextMap[label]);
-            }
+
+        Object.keys(matchesByLabel).forEach(label => {
+            sentenceTextMap[label] = buildTextAfterReplace(label, matchesByLabel[label], replaceStr);
+            refreshRowAfterReplace(label);
         });
 
         saveToStorage();
     }
-    showToast(`替換完成！共替換了 ${count} 處。`, 'success');
+    showToast(`替換完成！${scopeName ? `（${scopeName}）` : ''}共替換了 ${count} 處。`, 'success');
     searchEngine.query = ''; findTextInput.value = ''; updateSearchMatches();
 });
 // =========================================================================
