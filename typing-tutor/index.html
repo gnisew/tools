@@ -26,6 +26,7 @@
       <div class="control-group">
         <select class="lesson-select course-select" id="courseSelect" title="選擇大課程">
           <option value="basics">🔤 英打基礎</option>
+          <option value="digits">🔢 數字基礎</option>
           <option value="english">⌨️ 英打</option>
           <option value="zhuyin">ㄅㄆ 注音</option>
         </select>
@@ -137,9 +138,29 @@
         </div>
         <!-- 【刪除】原本這裡的「注音打字模式」開關已移除：注音打字現在是左上角「大課程」選單的一個選項，不再是設定面板裡的開關（見 courseSelect） -->
         <!-- 【修改】原本標籤還帶「新功能」小標籤、下面接一整段功能說明，現在只留簡短標籤名稱 -->
+        <!-- 【新增】自動套用遊戲模式總開關：開啟時，切到適合的課程會自動開啟對應的小遊戲；關掉後永遠不會自動開，只有手動開的遊戲才會出現 -->
+        <div class="toggle-row">
+          <div class="switch on" id="toggleAutoGame"></div>
+          <span class="label">依課程自動套用遊戲模式</span>
+        </div>
         <div class="toggle-row">
           <div class="switch" id="toggleRaceGame" data-key="raceGame"></div>
           <span class="label">打字小遊戲：文字賽跑</span>
+        </div>
+        <!-- 【新增】影子賽跑：對手換成「這一課自己的最佳紀錄」，跟過去的自己比 -->
+        <div class="toggle-row">
+          <div class="switch" id="toggleGhostGame" data-key="ghostGame"></div>
+          <span class="label">打字小遊戲：影子賽跑</span>
+        </div>
+        <!-- 【新增】打地鼠：地鼠從洞裡冒出來，頭上有字，在牠逃走前打對 -->
+        <div class="toggle-row">
+          <div class="switch" id="toggleWhackGame" data-key="whackGame"></div>
+          <span class="label">打字小遊戲：打地鼠</span>
+        </div>
+        <!-- 【新增】太空落字：單字從上方落下，落地前打完才擊落 -->
+        <div class="toggle-row">
+          <div class="switch" id="toggleDropGame" data-key="dropGame"></div>
+          <span class="label">打字小遊戲：太空落字</span>
         </div>
         <!-- 【新增】忍者抓氣球：開啟後字卡／整段文字改成天空中的氣球，打對就抓下一顆 -->
         <div class="toggle-row">
@@ -212,6 +233,7 @@
           </div>
           <div class="result-foot">
             <div id="mistakesLine"></div>
+            <div id="gameResultLine" style="display:none;"></div> <!-- 【新增】小遊戲的結算訊息（影子賽跑：是否打破自己的紀錄） -->
             <button class="btn primary" id="drillMistakesBtn" style="display:none;">🎯 練習錯鍵</button> <!-- 【修改】原本「加強練習這些鍵」文字較長，改成「練習錯鍵」，也讓 result-foot 三顆按鈕更容易擠在同一行 -->
             <!-- 【新增】結束時除了「加強練習」，也直接提供「重新開始」與「下一關」，不用再回頭找上面的按鈕/選單 -->
             <button class="btn" id="resultRestartBtn" style="display:none;">🔁 重新開始</button>
@@ -237,7 +259,7 @@
       <div class="race-info-row">
         <span class="race-title">🏁 打字賽跑</span>
         <span class="race-progress-item">🐢 你：<span id="raceProgressLabel">0 步</span></span>
-        <span class="race-progress-item rival">🦊 對手：<span id="raceProgressLabel-rival">0 步</span></span>
+        <span class="race-progress-item rival"><span id="raceRivalName">🦊 對手</span>：<span id="raceProgressLabel-rival">0 步</span></span>
         <button type="button" class="race-info-btn" id="raceInfoBtn" aria-label="賽跑規則說明">？</button>
       </div>
       <!-- 【新增】規則說明小卡，預設收合，點擊上面「？」按鈕才顯示 -->
@@ -257,6 +279,14 @@
       <div class="balloon-lives" id="balloonLives"></div>
       <div class="balloon-score" id="balloonScore">🎈 0</div>
       <div class="balloon-msg" id="balloonMsg">按 Space 開始，打出忍者面前那顆氣球上的字</div>
+    </div>
+
+    <!-- 【新增】打地鼠／太空落字共用的競技場（沒開這兩個遊戲時整塊隱藏；鍵盤與吉祥物提示照舊保留） -->
+    <div class="arena" id="arena" data-mode="">
+      <div class="arena-field" id="arenaField"></div>
+      <div class="arena-lives" id="arenaLives"></div>
+      <div class="arena-score" id="arenaScore"></div>
+      <div class="arena-msg" id="arenaMsg"></div>
     </div>
 
     <div class="progress-dots" id="progressDots"></div>

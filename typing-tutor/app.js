@@ -52,6 +52,10 @@
   // ---------- Build keyboard DOM ----------
   const keyboardEl = document.getElementById('keyboard');
   const keyElByChar = {};
+  // 【新增】Shift 符號對照表：例如 '+' → '='、'*' → '8'。
+  // 鍵盤上這些符號沒有獨立的鍵，要「按住 Shift ＋ 底下那個鍵」才打得出來，
+  // 用這張表才能在鍵盤圖上找到對應的實體鍵，並一起高亮 Shift。
+  const shiftCharMap = {};
   // 特殊鍵（Ctrl / Shift / Alt / Win）依名稱分組，供「快速鍵課程」同時高亮多顆鍵使用
   const keyElsBySpecial = {};
 
@@ -79,6 +83,7 @@
       if (k.char) {
         keyEl.dataset.char = k.char;
         keyElByChar[k.char] = keyEl;
+        if (k.shift) shiftCharMap[k.shift] = k.char; // 【新增】記錄 Shift 符號對應的底下按鍵
       }
       if (k.special) {
         const specialName = k.label.toLowerCase();
@@ -92,6 +97,21 @@
     });
     keyboardEl.appendChild(rowEl);
   });
+
+  // 【新增】依字元找到實體鍵帽：一般字元直接找；Shift 符號（+ * 等）則找它底下的那顆鍵（+ → = 鍵、* → 8 鍵）
+  function physicalKeyEl(ch){
+    if(keyElByChar[ch]) return keyElByChar[ch];
+    return shiftCharMap[ch] ? keyElByChar[shiftCharMap[ch]] : undefined;
+  }
+  // 【新增】打這個字元需要按哪顆 Shift：回傳要高亮的 Shift 鍵陣列（不需要 Shift 就回傳空陣列）。
+  // 標準打法是「另一隻手」按 Shift：底下的鍵在右手 → 用左邊 Shift；在左手 → 用右邊 Shift。
+  function shiftKeyElsFor(ch){
+    if(keyElByChar[ch] || !shiftCharMap[ch]) return [];
+    const base = keyElByChar[shiftCharMap[ch]];
+    const shifts = keyElsBySpecial['shift'] || [];
+    if(!base || shifts.length < 2) return [];
+    return [ base.dataset.finger.charAt(0) === 'l' ? shifts[1] : shifts[0] ];
+  }
 
   // ---------- 注音鍵盤資料骨架（Phase 2 用，目前只提供資料結構，不含課程內容與輸入判定） ----------
   // zhuyinToChar：注音符號 -> 對應的實體按鍵字元（可反查 keyElByChar 找到 DOM）
@@ -134,18 +154,19 @@
   // 'all'（全鍵盤綜合）在資料檔裡先給空陣列，這裡等鍵盤 DOM 建好、keyElByChar 有內容後才補上實際字元：
   LESSONS.all.chars = Object.keys(keyElByChar).filter(c=>c!==' ');
 
-  // 【新增】三層課程架構：COURSES是「大課程」清單（英打基礎／英打／注音），每個大課程底下有自己的一組「小課程」(lessons)。
+  // 【新增】三層課程架構：COURSES是「大課程」清單（英打基礎／數字基礎／英打／注音），每個大課程底下有自己的一組「小課程」(lessons)。
   // 「英打基礎」是從「英打」獨立出來的入門課程，專門教完全沒學過打字的人指法；
   // 「英打」則保留給已經會打字、想練字彙／句子／全鍵盤／速度的人，兩者互不混雜。
   // 「注音打字模式」原本是設定面板裡的開關，現在改成選一個大課程，跟課程選單合而為一，語意更清楚，也才能放進網址參數分享。
   const COURSES = [
     { id:'basics',  name:'英打基礎', lessons: TYPING_BASICS_LESSONS, defaultLesson:'h1' },
+    { id:'digits',  name:'數字基礎', lessons: NUMBER_BASICS_LESSONS,  defaultLesson:'n456' }, // 【新增】從英打基礎獨立出來的數字／運算符號課程
     { id:'english', name:'英打',     lessons: LESSONS,               defaultLesson:'words' },
     { id:'zhuyin',  name:'注音',     lessons: ZHUYIN_LESSONS,        defaultLesson:'layout1' }
   ];
   function getCourse(id){ return COURSES.find(c=>c.id===id) || COURSES[0]; }
   let currentCourse = 'basics'; // 預設帶新使用者從「英打基礎」開始，已經會打字的人可自行切到「英打」
-  let lessonByCourse = { basics:'h1', english:'words', zhuyin:'layout1' }; // 記住每個大課程「上次選的小課程」，切換大課程再切回來時能還原
+  let lessonByCourse = { basics:'h1', digits:'n456', english:'words', zhuyin:'layout1' }; // 記住每個大課程「上次選的小課程」，切換大課程再切回來時能還原
   // 【新增】切到目前大課程底下的「下一課」，給結束畫面的「下一關」按鈕用；
   // 練到最後一課時繞回第一課（而不是卡住不能按），方便想從頭複習一輪的人
   function goToNextLesson(){
@@ -156,6 +177,7 @@
     const nextIdx = (curIdx + 1) % keys.length;
     drillChars = null; // 若原本在加強練習模式，換下一關就直接離開，回到正常課程
     lessonByCourse[currentCourse] = keys[nextIdx];
+    applyAutoGameForLesson(); // 【新增】依新課程自動套用（或關閉）小遊戲
     syncLessonSelectDisplay();
     updateUrlParams();
     resetAll();
@@ -402,8 +424,9 @@
   // 所以氣球模式底下直接把空白從佇列裡拿掉，忍者只需要接連打出真正的字母／注音，不用打空白鍵。
   function buildQueue(){
     const q = buildQueueRaw();
-    if(isBalloonMode()) return q.filter(item => item !== ' ');
-    return q;
+    if(isShortcutMode()) return q; // 快速鍵課程的題目是組合鍵物件，所有遊戲都不改佇列
+    const g = currentGame();
+    return (g && g.shapeQueue) ? g.shapeQueue(q) : q; // 遊戲可以自己決定佇列長相（氣球／地鼠：拿掉空白；落字：依單字分段）
   }
   function buildQueueRaw(){
     // 【新增】沒有顯示鍵盤時，畫面空出一大塊，一次給更多內容（像 TypingClub 那樣攤開整篇），
@@ -582,18 +605,27 @@
   const BALLOON_LIVES_MAX = 3;                                        // 【新增】總共 3 次生命值
   const BALLOON_BASE_FALL_MS = 3000; // 基礎（最慢）掉落時間，維持原本的 3 秒
   const BALLOON_MIN_FALL_MS = 1000;  // 合理的速度上限：最快 1 秒落地
-  const BALLOON_SPEEDUP_STEP = 10;   // 每打對一顆氣球，偷偷加速 10 毫秒
+  const BALLOON_SPEEDUP_STEP = 30;   // 【修改】原本每打對一顆就加速 10 毫秒；改成「連續打得快」才加速一次（見下方 PACE 常數），單次幅度相應放大
+  const BALLOON_MAX_FALL_MS = 4500;  // 【新增】打得慢時最多放慢到 4.5 秒，給多一點時間
+  const BALLOON_SLOW_EASE = 150;     // 【新增】打得慢時，每打對一顆多給 150 毫秒
+  const BALLOON_LAND_EASE = 300;     // 【新增】沒打完落地扣血時，多給 300 毫秒（不再一律重置回基礎速度）
+  // 【新增】氣球與打地鼠共用的「配合打字速度」規則（太空落字的規則見 DROP_*，做法相同）：
+  //   ratio ＝ 打完這個字用掉幾成的時間。ratio 高＝打得慢 → 馬上放慢一點，讓學習者多點信心；
+  //   ratio 低＝打得快 → 不立刻加速，要「連續」PACE_FAST_NEEDED 個字都很快才加速一次；不快不慢 → 維持速度。
+  const PACE_SLOW_RATIO = 0.7, PACE_FAST_RATIO = 0.45, PACE_FAST_NEEDED = 3;
+  let balloonRideT0 = 0;          // 目前這段落下倒數的起點時間；0 代表沒有可比較的起點（例如剛落地重站），這次不調速
+  let balloonFastStreak = 0;      // 連續打得很快的字數
   let currentBalloonFallMs = BALLOON_BASE_FALL_MS; // 記錄當前的動態掉落時間
   const NINJA_HOP_MS = 380;                                           // 【修改】原 340，改成 380；須跟 CSS 的 ninja-hop-in 動畫時間（.38s）一致
   let balloonBatchStart = -1;                                         // 目前這一批氣球，第一顆對應到 queue 的第幾個 index；-1 代表還沒畫過
   let balloonSlotEls = [];                                            // 目前這一批氣球的 DOM 元素，畫出來後固定不動，不會整批重排
   let balloonLivesLeft = BALLOON_LIVES_MAX;                           // 【新增】目前剩餘生命值
-  let balloonEndedByLives = false;                                    // 【新增】這一輪是不是因為生命值扣完才結束（給 endSession 判斷要不要照樣顯示成績）
+  let endedByLives = false;                                    // 【新增】這一輪是不是因為生命值扣完才結束（給 endSession 判斷要不要照樣顯示成績）
   let ninjaRideTimer = null;                                          // 【新增】忍者目前這一次「跳上氣球→落地」的倒數計時器；在時間內打對下一個字就會被清掉，不會真的落地扣血
 
   function isBalloonMode(){
     // 快速鍵課程的題目是組合鍵、不是單一字元，不適合做成一顆一顆氣球
-    return settings.balloonGame && !isShortcutMode();
+    return settings.game === 'balloon' && !isShortcutMode();
   }
   function balloonLabel(item){
     if(item === ' ') return '␣';
@@ -659,6 +691,7 @@
     balloonNinjaEl.classList.remove('hopping');
     void balloonNinjaEl.offsetWidth; // 強制 reflow，確保動畫可以「重新」播放一次（而不是被瀏覽器忽略）
     balloonNinjaEl.classList.add('riding');
+    balloonRideT0 = performance.now();
     ninjaRideTimer = setTimeout(()=>{
       ninjaRideTimer = null;
       balloonNinjaEl.classList.remove('riding');
@@ -667,6 +700,7 @@
   }
   function sitNinjaOnTop(el){
     if(ninjaRideTimer){ clearTimeout(ninjaRideTimer); ninjaRideTimer = null; }
+    balloonRideT0 = 0; // 站回起點：下一次打對不拿舊的起點來算速度
     balloonNinjaEl.classList.remove('riding');
     balloonNinjaEl.classList.remove('hopping');
     balloonNinjaEl.classList.remove('hide'); // 確保忍者現身
@@ -686,8 +720,10 @@
     if(ended) return; 
     loseLife();
 
-    // 【新增】如果玩家來不及打字導致掉落，表示目前速度對他來說太快了，把速度重置回最慢，給予緩衝
-    currentBalloonFallMs = BALLOON_BASE_FALL_MS;
+    // 【修改】來不及打字導致掉落，表示目前速度對他來說太快了：至少回到基礎速度，再多給一點時間
+    // （原本一律重置回基礎速度，打得慢、已經被放慢的玩家反而會被縮短時間）
+    balloonFastStreak = 0;
+    currentBalloonFallMs = Math.min(BALLOON_MAX_FALL_MS, Math.max(BALLOON_BASE_FALL_MS, currentBalloonFallMs) + BALLOON_LAND_EASE);
     document.documentElement.style.setProperty('--fall-duration', currentBalloonFallMs + 'ms');
     if(balloonStartMarkerEl) {
       balloonStartMarkerEl.classList.remove('hide');
@@ -733,7 +769,7 @@
   }
   // 【新增】生命值歸零：顯示這一輪得分並停止遊戲（沿用原本時間到時的結算畫面）
   function balloonGameOver(){
-    balloonEndedByLives = true;
+    endedByLives = true;
     endSession();
   }
   // 畫出全新一批氣球（從 queue 的第 start 個字開始），畫出來後位置就固定
@@ -811,7 +847,21 @@
         // 沒有歸零：忍者已經落回地板、停在剛剛那顆氣球原本的位置，等玩家打對「下一個字」時，
         // 下一次 renderBalloons() 會呼叫 startBalloonFallCountdown(nextTargetEl) 讓忍者跳過去
         // 玩家成功打對！在讓忍者跳向下一個氣球前，偷偷加速一點點 (不能低於最快極限)
-		currentBalloonFallMs = Math.max(BALLOON_MIN_FALL_MS, currentBalloonFallMs - BALLOON_SPEEDUP_STEP);
+		if(balloonRideT0 > 0){
+			const ratio = (performance.now() - balloonRideT0) / currentBalloonFallMs;
+			if(ratio >= PACE_SLOW_RATIO){
+				currentBalloonFallMs = Math.min(BALLOON_MAX_FALL_MS, currentBalloonFallMs + BALLOON_SLOW_EASE); // 打得慢：馬上放慢
+				balloonFastStreak = 0;
+			} else if(ratio <= PACE_FAST_RATIO){
+				balloonFastStreak++;
+				if(balloonFastStreak >= PACE_FAST_NEEDED){ // 打得快：連續幾顆之後才加速
+					currentBalloonFallMs = Math.max(BALLOON_MIN_FALL_MS, currentBalloonFallMs - BALLOON_SPEEDUP_STEP);
+					balloonFastStreak = 0;
+				}
+			} else {
+				balloonFastStreak = 0;
+			}
+		}
 		// 把算好的新速度更新到網頁的 CSS 變數中
 		document.documentElement.style.setProperty('--fall-duration', currentBalloonFallMs + 'ms');
 		
@@ -832,6 +882,18 @@
     balloonNinjaEl.classList.add('miss');
     setTimeout(()=>balloonNinjaEl.classList.remove('miss'), 200);
   }
+  // 【新增】忍者抓氣球、打地鼠、太空落字都是「獨立的遊戲畫面」：一律不顯示鍵盤圖，把高度讓給遊戲區，
+  // 也避免鍵盤遮住題目（例如地鼠頭上的字）。鍵盤開關在這些遊戲中暫時鎖住；
+  // 三個遊戲的 render 都會呼叫這裡，所以統一在這裡算「現在該不該鎖」，不會互相覆蓋。
+  function applyKeyboardLock(){
+    const bal = isBalloonMode(), arena = arenaActive();
+    const on = bal || arena;
+    document.body.classList.toggle('arena-mode', arena);
+    keyboardToggleBtnEl.disabled = on;
+    keyboardToggleBtnEl.title = bal ? '忍者抓氣球遊戲中不顯示鍵盤'
+      : arena ? '打地鼠／太空落字遊戲中不顯示鍵盤' : '顯示／隱藏鍵盤';
+    toggleKeyboardEl.classList.toggle('disabled', on);
+  }
   // 依目前是不是氣球模式，決定顯示天空還是原本的字卡（progress-dots）／整段文字（text-passage）
   function applyBalloonDisplay(){
     const on = isBalloonMode();
@@ -840,9 +902,7 @@
     // 讓遊戲畫面像 TypingClub 一樣佔滿空間；同時把鍵盤開關暫時鎖住，
     // 避免使用者點了以為有效果，其實氣球模式下永遠不會顯示鍵盤。
     document.body.classList.toggle('balloon-mode', on);
-    keyboardToggleBtnEl.disabled = on;
-    keyboardToggleBtnEl.title = on ? '忍者抓氣球遊戲中不顯示鍵盤' : '顯示／隱藏鍵盤';
-    toggleKeyboardEl.classList.toggle('disabled', on);
+    applyKeyboardLock();
     // 【修改】氣球遊戲時，遊戲區自己就有中間提示字／生命值可以看，
     // 不需要再顯示左上角吉祥物泡泡（等待開始／倒數／「跟著下面鍵盤提示」）跟鍵盤下方的按鍵提示列，
     // 兩邊重複顯示反而分散注意力；整塊 mascotRowEl 一起收起，而不是只藏裡面的文字，
@@ -892,25 +952,32 @@
       singleTargetWrapEl.style.display = 'inline';
       passageTargetWrapEl.style.display = 'none';
       renderDots();
-      applyBalloonDisplay(); // 【新增】快速鍵課程不套用氣球模式，這裡只負責把天空收起來
+      renderGames(); // 快速鍵課程不套用氣球模式，這裡只負責讓各遊戲收起畫面
       return;
     }
     let physicalChar, finger, displayLabel;
+    let shiftEls = []; // 【新增】這個目標字是否需要 Shift（+、* 這類符號），要一起高亮的 Shift 鍵
     if(isZhuyinMode() && target !== ' '){
       physicalChar = zhuyinToChar[target];
       finger = zhuyinFingerMap[target];
       displayLabel = target;
       physicalKeyHintEl.textContent = physicalChar ? `（實體按鍵：${physicalChar.toUpperCase()}）` : '';
     } else {
-      physicalChar = target;
-      finger = keyElByChar[target] ? keyElByChar[target].dataset.finger : undefined;
+      shiftEls = shiftKeyElsFor(target); // 【新增】
+      // 【修改】Shift 符號（如 +）要看底下那顆實體鍵（=）的手指與位置
+      physicalChar = shiftEls.length ? shiftCharMap[target] : target;
+      finger = keyElByChar[physicalChar] ? keyElByChar[physicalChar].dataset.finger : undefined;
       displayLabel = target === ' ' ? '␣ 空白鍵' : target.toUpperCase();
-      physicalKeyHintEl.textContent = '';
+      physicalKeyHintEl.textContent = shiftEls.length ? `（實體按鍵：Shift + ${physicalChar.toUpperCase()}）` : '';
     }
-    fingerLabelEl.textContent = fingerLabel[finger];
+    // 【修改】需要 Shift 時，提示文字補上「另一手按住 Shift」
+    fingerLabelEl.textContent = shiftEls.length
+      ? `${fingerLabel[finger]}（${finger.charAt(0) === 'l' ? '右' : '左'}手小指按住 Shift）`
+      : fingerLabel[finger];
     targetLabelEl.textContent = displayLabel;
     if(settings.hint && physicalChar && keyElByChar[physicalChar]){
       keyElByChar[physicalChar].classList.add('target');
+      shiftEls.forEach(el=>el.classList.add('target')); // 【新增】一併高亮 Shift 鍵
     }
     const passageMode = isPassageMode();
     dotsEl.style.display = passageMode ? 'none' : 'flex';
@@ -922,7 +989,7 @@
     } else {
       renderDots();
     }
-    applyBalloonDisplay(); // 【新增】氣球模式時改成畫天空與氣球（會覆蓋上面的字卡／整段文字顯示）
+    renderGames(); // 各遊戲依自己是否啟用來畫／收畫面（氣球會覆蓋上面的字卡／整段文字顯示）
   }
 
   // ---------- Sound ----------
@@ -998,10 +1065,19 @@
   }
   // 每秒（掛在 tick() 上）呼叫一次：對手依節奏公式持續前進，直到本輪時間結束
   function updateOpponents(){
-    if(!settings.raceGame) return;
     RACE_OPPONENTS.forEach(o=>{
       const st = opponentState[o.id];
       let pace;
+      if(settings.game === 'ghost'){
+        // 影子賽跑：不用公式推進，直接照最佳紀錄那一輪「每秒的位置」回放；紀錄比這一輪短就停在終點。
+        // 這一課還沒有紀錄時，影子不出場（跑者隱藏），這輪打完會成為第一筆紀錄。
+        if(ghostRun){
+          const t = raceTrail.length; // 這一輪已經過幾秒（tickGames 先記錄再呼叫這裡）
+          st.pos = ghostRun.trail[Math.min(t, ghostRun.trail.length) - 1] || 0;
+          updateOpponentVisual(o);
+        }
+        return;
+      }
       if(o.paceMode === 'adaptive'){
         // 貼身對手：每2~3秒重抽一次目標倍率，中間平滑過渡，避免速度抖動
         st.rerollIn--;
@@ -1022,12 +1098,494 @@
     racePos = 0;
     updateRaceVisual();
     initOpponentState();
+    applyRivalLook();
   }
   // delta：+1（打對前進）或 -1（打錯後退）；距離不設上限，最低為0
   function raceStep(delta){
-    if(!settings.raceGame) return;
     racePos = Math.max(0, racePos + delta);
     updateRaceVisual();
+  }
+
+
+  // =====================================================================
+  // 遊戲登錄表（GAMES）
+  // 每個小遊戲是一個物件，宣告自己要接的掛鉤；主程式只呼叫「目前啟用」的那一個（settings.game），
+  // 不再到處寫 if(settings.xxxGame)。新增遊戲 = 在 GAMES 加一個物件 + index.html 加一列開關，其餘不用動。
+  //
+  //   id / toggleId   遊戲代號（也是網址 ?game= 與 AUTO_GAME_BY_LESSON 用的值）／側欄開關元素 id
+  //   raceTrack       true 時顯示賽道區塊
+  //   onCorrect()     打對一個鍵（含快速鍵組合）時呼叫
+  //   onWrong()       打錯時呼叫
+  //   onStart()       倒數結束、正式開始計時的那一刻呼叫
+  //   tick()          每秒呼叫一次（計時中）
+  //   onEnd(n)        一輪結束時呼叫（n＝總按鍵次數）；回傳字串會顯示在結算卡片上，回傳空字串就不顯示
+  //   render()        任何畫面重繪時，「每個」遊戲都會被呼叫（不只啟用中的），讓沒啟用的遊戲自己把畫面收起來
+  //   reset()         重設一輪時，「每個」遊戲都會被呼叫，各自把狀態歸零
+  // 除了 render / reset，其他掛鉤都只有啟用中的遊戲會被呼叫。
+  // =====================================================================
+
+  // ---- 影子賽跑：對手是「這一課自己的最佳紀錄」----
+  // 紀錄依「大課程:小課程:時間長度」分開存（時間不同不能比），內容是每秒結束時的步數。
+  // 無限時間模式與「加強練習」不記錄（沒有固定終點／不是正式課程）。
+  const GHOST_KEY = 'typingGhostRuns.v1';
+  const GHOST_MAX_ENTRIES = 60; // 最多保留幾筆，超過就丟掉最舊的，避免 localStorage 越長越大
+  let raceTrail = [];   // 這一輪每秒結束時的 racePos
+  let ghostRun = null;  // 本課最佳紀錄 { trail:[…], finalPos, ts }；沒有紀錄時為 null
+  const raceRunnerRivalEl = document.getElementById('raceRunner-rival');
+  const raceRivalNameEl = document.getElementById('raceRivalName');
+  const gameResultLineEl = document.getElementById('gameResultLine');
+  function ghostKey(){
+    return currentCourse + ':' + activeLessonKey() + ':' + (TOTAL_TIME === Infinity ? 'inf' : TOTAL_TIME);
+  }
+  function ghostRecordable(){
+    return TOTAL_TIME !== Infinity && !(drillChars && drillChars.length);
+  }
+  function loadGhostStore(){
+    try{
+      const o = JSON.parse(localStorage.getItem(GHOST_KEY));
+      return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {};
+    }catch(e){ return {}; } // localStorage 不可用或資料異常時，當作沒有紀錄
+  }
+  function saveGhostRun(run){
+    try{
+      const store = loadGhostStore();
+      store[ghostKey()] = run;
+      const keys = Object.keys(store);
+      if(keys.length > GHOST_MAX_ENTRIES){
+        keys.sort((a,b)=>(store[a].ts||0)-(store[b].ts||0))
+            .slice(0, keys.length - GHOST_MAX_ENTRIES)
+            .forEach(k=>delete store[k]);
+      }
+      localStorage.setItem(GHOST_KEY, JSON.stringify(store));
+    }catch(e){} // 存不進去就放棄，不影響練習
+  }
+  function loadGhostRun(){
+    if(!ghostRecordable()) return null;
+    const r = loadGhostStore()[ghostKey()];
+    return (r && Array.isArray(r.trail) && r.trail.length && Number.isFinite(r.finalPos)) ? r : null;
+  }
+  // 依目前是賽跑還是影子賽跑，換對手的外觀與標籤
+  function applyRivalLook(){
+    const ghost = settings.game === 'ghost';
+    if(raceRunnerRivalEl){
+      raceRunnerRivalEl.textContent = ghost ? '👻' : '🦊';
+      raceRunnerRivalEl.style.display = (ghost && !ghostRun) ? 'none' : '';
+    }
+    if(raceRivalNameEl) raceRivalNameEl.textContent = ghost ? '👻 我的最佳' : '🦊 對手';
+    if(ghost && !ghostRun){
+      const lab = document.getElementById('raceProgressLabel-rival');
+      if(lab) lab.textContent = '尚無紀錄';
+    }
+    raceInfoTipEl.textContent = ghost
+      ? '和自己這一課的最佳紀錄比賽：打對前進、打錯後退，看能不能超越影子！打完一輪會自動記錄，跑得更遠就更新紀錄。'
+      : '打對前進、打錯後退，比誰跑得遠！';
+  }
+
+  const raceHooks = {
+    raceTrack: true,
+    onCorrect(){ raceStep(1); },
+    onWrong(){ raceStep(-1); },
+    tick(){ updateOpponents(); }
+  };
+
+
+  // ---- 打地鼠 / 太空落字：共用同一個「競技場」畫面（#arena），題目還是照 queue 一個字一個字判定 ----
+  // 和忍者抓氣球不同：鍵盤與左上角吉祥物（手指提示）都保留，只是把字卡／整段文字換成遊戲畫面，
+  // 所以新手仍然看得到該用哪根手指、按哪個鍵。快速鍵課程不套用（題目是組合鍵）。
+  const arenaEl = document.getElementById('arena');
+  const arenaFieldEl = document.getElementById('arenaField');
+  const arenaMsgEl = document.getElementById('arenaMsg');
+  const arenaLivesEl = document.getElementById('arenaLives');
+  const arenaScoreEl = document.getElementById('arenaScore');
+  const ARENA_LIVES_MAX = 3;
+  // 打地鼠：地鼠停留時間會隨打中變短、逃走變長，讓難度自動貼近玩家
+  // 【修改】地鼠停留時間也改成配合打字速度（規則同氣球，見 PACE_*）：
+  //   打得慢（用掉 70% 以上時間才打中）→ 下一隻多停留一點；逃走 → 多停留更多；
+  //   打得快 → 要連續 3 隻都很快才縮短一次；不快不慢 → 維持。最長停留 WHACK_STAY_MAX。
+  const WHACK_STAY_START = 3200, WHACK_STAY_MIN = 1500, WHACK_STAY_MAX = 4500;
+  const WHACK_STAY_STEP = 120, WHACK_SLOW_EASE = 150, WHACK_ESCAPE_EASE = 350;
+  // 太空落字：一個字落地的時間＝(基礎＋每個字母加成)×速度倍率；每擊落一個倍率再縮小一點
+  const DROP_BASE_MS = 3000, DROP_PER_CHAR_MS = 1000, DROP_MIN_MS = 2800;
+  // 【修改】太空落字的速度改成「看玩家打得多快」動態調整（dropFactor 越大落得越慢）：
+  //   ・用「打完一個字用掉幾成落下時間」（ratio）判斷：ratio 高＝打得慢、ratio 低＝打得快。
+  //   ・打得慢（ratio ≥ DROP_SLOW_RATIO）：馬上放慢一點；沒打完被撞到：放慢更多。
+  //   ・打得快（ratio ≤ DROP_FAST_RATIO）：不立刻加速，要「連續」DROP_FAST_NEEDED 個字都這麼快才加速一次。
+  //   ・中間（不快不慢）：維持速度，並把連續快速的計數歸零。
+  const DROP_FACTOR_STEP = 0.96, DROP_FACTOR_MIN = 0.55, DROP_FACTOR_MAX = 1.6;
+  const DROP_SLOW_RATIO = 0.7, DROP_FAST_RATIO = 0.45;
+  const DROP_SLOW_STEP = 1.06, DROP_MISS_STEP = 1.12, DROP_FAST_NEEDED = 3;
+  let arenaBuiltFor = null;      // 競技場目前畫的是哪個遊戲（切換遊戲才需要重畫場地）
+  let arenaHits = 0, arenaMisses = 0, arenaLivesLeft = ARENA_LIVES_MAX;
+  let whackSpawnTimer = null, whackEscapeTimer = null, whackHole = -1, whackLastHole = -1, whackStayMs = WHACK_STAY_START, whackT0 = 0, whackFastStreak = 0;
+  let dropSpawnTimer = null, dropLandTimer = null, dropWord = null, dropFactor = 1, dropFastStreak = 0;
+  let dropStarts = [], dropLens = []; // 太空落字：佇列被切成幾個「單字」，各自從第幾個字開始、有幾個字
+
+  function arenaActive(){ return (settings.game === 'whack' || settings.game === 'drop') && !isShortcutMode(); }
+  function clearArenaTimers(){
+    clearTimeout(whackSpawnTimer); clearTimeout(whackEscapeTimer);
+    clearTimeout(dropSpawnTimer); clearTimeout(dropLandTimer);
+    whackSpawnTimer = whackEscapeTimer = dropSpawnTimer = dropLandTimer = null;
+    whackHole = -1;
+    if(dropWord){ dropWord.el.remove(); dropWord = null; }
+  }
+  function resetArena(){
+    clearArenaTimers();
+    arenaHits = 0; arenaMisses = 0; arenaLivesLeft = ARENA_LIVES_MAX;
+    whackStayMs = WHACK_STAY_START; whackLastHole = -1; whackFastStreak = 0; dropFactor = 1; dropFastStreak = 0;
+    endedByLives = false;
+    arenaBuiltFor = null; // 下次 renderArena 會重畫場地
+    arenaFieldEl.innerHTML = '';
+  }
+  function renderArenaHud(){
+    if(settings.game === 'drop'){
+      arenaScoreEl.textContent = '☄️ ' + arenaHits;
+      let html = '';
+      for(let i=0;i<ARENA_LIVES_MAX;i++) html += `<span class="life${i >= arenaLivesLeft ? ' lost' : ''}">❤️</span>`;
+      arenaLivesEl.innerHTML = html;
+    } else {
+      arenaScoreEl.textContent = `🔨 ${arenaHits}　💨 ${arenaMisses}`;
+      arenaLivesEl.innerHTML = '';
+    }
+  }
+  // 【新增】太空落字中間的角色：每次重建場地（＝每一輪重設）隨機換一個，不會連續兩次都是同一個
+  const DROP_SHIPS = ['🚀', '🛸', '👨‍🚀', '👽', '🤖', '🛰️', '👾'];
+  let lastDropShip = '';
+  function pickDropShip(){
+    const pool = DROP_SHIPS.filter(s => s !== lastDropShip);
+    lastDropShip = pool[Math.floor(Math.random() * pool.length)];
+    return lastDropShip;
+  }
+  function buildArenaField(){
+    arenaBuiltFor = settings.game;
+    if(settings.game === 'whack'){
+      let html = '';
+      for(let i=0;i<6;i++){
+        html += '<div class="hole"><div class="hole-window"><div class="mole"><span class="mole-face">🐹</span><span class="mole-char"></span></div></div><div class="hole-dirt"></div></div>';
+      }
+      arenaFieldEl.innerHTML = html;
+    } else {
+      arenaFieldEl.innerHTML = `<div class="drop-ground"></div><div class="drop-ship" id="dropShip">${pickDropShip()}</div>`;
+    }
+  }
+  // 各遊戲的 render() 都會呼叫這一個；沒啟用時把競技場收起來並停掉計時器
+  function renderArena(){
+    const on = arenaActive();
+    arenaEl.classList.toggle('show', on);
+    applyKeyboardLock(); // 【新增】打地鼠／太空落字時隱藏鍵盤並鎖住開關
+    if(!on){ clearArenaTimers(); arenaBuiltFor = null; return; }
+    arenaEl.dataset.mode = settings.game;
+    if(arenaBuiltFor !== settings.game) buildArenaField();
+    dotsEl.style.display = 'none';
+    textPassageEl.classList.remove('show');
+    singleTargetWrapEl.style.display = 'inline';   // 整段文字課程的提示「打出上方反白標示的字」在這裡不適用
+    passageTargetWrapEl.style.display = 'none';
+    arenaMsgEl.textContent = settings.game === 'whack' ? '按 Space 開始，打出地鼠頭上的字' : '按 Space 開始，在隕石落地前打完它';
+    arenaMsgEl.classList.toggle('hide', started || counting);
+    renderArenaHud();
+    if(started && !ended){
+      if(settings.game === 'whack') whackEnsure(); else dropEnsure();
+    }
+  }
+  function shakeEl(el, cls){
+    if(!el) return;
+    el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls);
+    setTimeout(()=>el.classList.remove(cls), 260);
+  }
+
+  // ---------- 打地鼠 ----------
+  function whackSchedule(ms){ if(!whackSpawnTimer) whackSpawnTimer = setTimeout(whackSpawn, ms); }
+  function whackEnsure(){ if(whackHole < 0) whackSchedule(0); }
+  function whackHoleEl(i){ return arenaFieldEl.querySelectorAll('.hole')[i]; }
+  function whackSpawn(){
+    whackSpawnTimer = null;
+    if(settings.game !== 'whack' || !started || ended || whackHole >= 0 || queueIndex >= queue.length) return;
+    const n = arenaFieldEl.querySelectorAll('.hole').length;
+    let i;
+    do { i = Math.floor(Math.random()*n); } while(i === whackLastHole && n > 1);
+    whackHole = whackLastHole = i;
+    const h = whackHoleEl(i);
+    h.querySelector('.mole-char').textContent = balloonLabel(queue[queueIndex]);
+    const mole = h.querySelector('.mole');
+    mole.classList.remove('hit');
+    mole.classList.add('up');
+    whackT0 = performance.now(); // 記下冒出時間，打中時算 ratio
+    whackEscapeTimer = setTimeout(whackEscape, whackStayMs);
+  }
+  function whackEscape(){
+    whackEscapeTimer = null;
+    if(whackHole < 0) return;
+    whackHoleEl(whackHole).querySelector('.mole').classList.remove('up');
+    whackHole = -1;
+    arenaMisses++;
+    whackStayMs = Math.min(WHACK_STAY_MAX, whackStayMs + WHACK_ESCAPE_EASE); // 逃走就多停留一點，不讓玩家一路落後
+    whackFastStreak = 0;
+    renderArenaHud();
+    whackSchedule(500); // 同一個字，換個洞再冒出來
+  }
+  function whackOnCorrect(){
+    arenaHits++;
+    const moleWasUp = whackHole >= 0; // 地鼠真的在洞外時才拿反應時間來調速
+    if(whackHole >= 0){
+      clearTimeout(whackEscapeTimer); whackEscapeTimer = null;
+      const mole = whackHoleEl(whackHole).querySelector('.mole');
+      whackHole = -1;
+      mole.classList.add('hit');
+      setTimeout(()=>mole.classList.remove('up','hit'), 260);
+    }
+    if(moleWasUp && whackT0 > 0){
+      const ratio = (performance.now() - whackT0) / whackStayMs;
+      if(ratio >= PACE_SLOW_RATIO){
+        whackStayMs = Math.min(WHACK_STAY_MAX, whackStayMs + WHACK_SLOW_EASE); // 打得慢：馬上多停留一點
+        whackFastStreak = 0;
+      } else if(ratio <= PACE_FAST_RATIO){
+        whackFastStreak++;
+        if(whackFastStreak >= PACE_FAST_NEEDED){ // 打得快：連續幾隻之後才加速
+          whackStayMs = Math.max(WHACK_STAY_MIN, whackStayMs - WHACK_STAY_STEP);
+          whackFastStreak = 0;
+        }
+      } else {
+        whackFastStreak = 0;
+      }
+    }
+    renderArenaHud();
+    whackSchedule(320);
+  }
+
+  // ---------- 太空落字 ----------
+  function dropSchedule(ms){ if(!dropSpawnTimer && !dropWord) dropSpawnTimer = setTimeout(dropSpawn, ms); }
+  function dropEnsure(){ if(dropWord) dropProgress(); else dropSchedule(0); }
+  function dropUnitAt(idx){
+    for(let k=0;k<dropStarts.length;k++){
+      if(idx >= dropStarts[k] && idx < dropStarts[k] + dropLens[k]) return {start:dropStarts[k], len:dropLens[k]};
+    }
+    return null;
+  }
+  function dropProgress(){
+    if(!dropWord) return;
+    dropWord.el.querySelectorAll('.dc').forEach((c,k)=>{
+      const abs = dropWord.start + k;
+      c.classList.toggle('done', abs < queueIndex);
+      c.classList.toggle('cur', abs === queueIndex);
+    });
+  }
+  function dropSpawn(){
+    dropSpawnTimer = null;
+    if(settings.game !== 'drop' || !started || ended || dropWord) return;
+    const u = dropUnitAt(queueIndex);
+    if(!u) return;
+    const el = document.createElement('div');
+    el.className = 'drop-word';
+    let chars = '';
+    for(let k=0;k<u.len;k++) chars += `<span class="dc">${balloonLabel(queue[u.start+k])}</span>`;
+    el.innerHTML = `<span class="drop-rock">☄️</span><span class="drop-text">${chars}</span>`;
+    arenaFieldEl.appendChild(el);
+    const fw = arenaFieldEl.clientWidth, ww = el.offsetWidth;
+    const minX = ww/2 + 8, maxX = fw - ww/2 - 8;
+    el.style.left = (maxX > minX ? minX + Math.random()*(maxX-minX) : fw/2) + 'px';
+    const fallMs = Math.max(DROP_MIN_MS, (DROP_BASE_MS + u.len*DROP_PER_CHAR_MS) * dropFactor);
+    void el.offsetWidth; // 先讓瀏覽器記住起點（畫面上方），下一行改 top 才會有落下動畫
+    el.style.transition = `top ${fallMs}ms linear`;
+    el.style.top = 'calc(84% - 40px)';
+    dropWord = {el, start:u.start, len:u.len, t0:performance.now(), fallMs}; // 記下出現時間與落下時間，打完時算 ratio
+    dropLandTimer = setTimeout(dropLanded, fallMs);
+    dropProgress();
+  }
+  function dropLanded(){
+    dropLandTimer = null;
+    if(!dropWord) return;
+    const w = dropWord; dropWord = null;
+    w.el.classList.add('boom');
+    setTimeout(()=>w.el.remove(), 450);
+    dropFactor = Math.min(DROP_FACTOR_MAX, dropFactor * DROP_MISS_STEP); // 被撞到：明顯放慢一點
+    dropFastStreak = 0;
+    arenaLivesLeft = Math.max(0, arenaLivesLeft - 1);
+    renderArenaHud();
+    shakeEl(arenaLivesEl, 'shake');
+    if(arenaLivesLeft <= 0){ endedByLives = true; endSession(); return; }
+    queueIndex = Math.max(queueIndex, w.start + w.len); // 沒打完的字略過（不算對也不算錯），直接接下一個單字
+    showTarget(); // 佇列用完時會在裡面重建，並重新呼叫 renderGames
+    dropSchedule(500);
+  }
+  function dropOnCorrect(){
+    const ship = document.getElementById('dropShip');
+    shakeEl(ship, 'fire');
+    if(!dropWord) return;
+    if(queueIndex === dropWord.start + dropWord.len - 1){ // 這一下打的是單字最後一個字（此時 queueIndex 還沒 +1）
+      const w = dropWord; dropWord = null;
+      clearTimeout(dropLandTimer); dropLandTimer = null;
+      // 【修改】打對時題目區塊直接消失（不放大、不縮小、不淡出），畫面最乾淨
+      w.el.remove();
+      arenaHits++;
+      // 依打字速度調整下一個字的落下速度（見常數區說明）
+      const ratio = (performance.now() - w.t0) / w.fallMs;
+      if(ratio >= DROP_SLOW_RATIO){
+        dropFactor = Math.min(DROP_FACTOR_MAX, dropFactor * DROP_SLOW_STEP);
+        dropFastStreak = 0;
+      } else if(ratio <= DROP_FAST_RATIO){
+        dropFastStreak++;
+        if(dropFastStreak >= DROP_FAST_NEEDED){
+          dropFactor = Math.max(DROP_FACTOR_MIN, dropFactor * DROP_FACTOR_STEP);
+          dropFastStreak = 0;
+        }
+      } else {
+        dropFastStreak = 0;
+      }
+      renderArenaHud();
+      dropSchedule(450);
+    }
+  }
+
+  const arenaHooks = {
+    render(){ renderArena(); },
+    reset(){ resetArena(); },
+    onEnd(n){
+      const wasActive = arenaActive();
+      const hits = arenaHits, misses = arenaMisses, game = settings.game;
+      clearArenaTimers();
+      if(!wasActive) return '';
+      arenaEl.classList.remove('show'); // 結算卡片顯示時把競技場收起來
+      if(n === 0) return '';
+      return game === 'whack'
+        ? `🐹 打中 ${hits} 隻、逃走 ${misses} 隻`
+        : `☄️ 擊落 ${hits} 顆隕石` + (arenaLivesLeft < ARENA_LIVES_MAX ? `，被撞到 ${ARENA_LIVES_MAX - arenaLivesLeft} 次` : '，一顆都沒被撞到！');
+    }
+  };
+
+  const GAMES = {
+    // 忍者抓氣球：畫面、生命值、忍者動畫都在上面的 balloon* 函式裡，這裡只是把它們接上掛鉤
+    balloon: {
+      id:'balloon', toggleId:'toggleBalloonGame', raceTrack:false,
+      shapeQueue(q){ return q.filter(item => item !== ' '); }, // 氣球模式不把空白鍵當題目
+      onWrong(){ balloonWrong(); }, // 內部會自己檢查 isBalloonMode()（快速鍵課程不套用）
+      onStart(){
+        if(!isBalloonMode()) return;
+        startBalloonFallCountdown(balloonStartMarkerEl); // 忍者在星號上開始落下
+        if(balloonStartMarkerEl) popBalloon(balloonStartMarkerEl); // 星號也跟著掉落
+      },
+      render(){ applyBalloonDisplay(); },
+      reset(){
+        balloonMsgEl.textContent = '按 Space 開始，打出忍者面前那顆氣球上的字'; // 重設時還原提示字
+        balloonBatchStart = -1; // 重設後下一次畫氣球要重新起一批
+        balloonSlotEls = [];    // 清掉上一輪殘留的氣球元素參照
+        balloonLivesLeft = BALLOON_LIVES_MAX; // 生命值補回滿血
+        endedByLives = false;          // 清掉上一輪「因生命值歸零而結束」的標記
+        if(ninjaRideTimer){ clearTimeout(ninjaRideTimer); ninjaRideTimer = null; }
+        balloonNinjaEl.classList.remove('riding');
+        balloonNinjaEl.classList.remove('hide');
+        if(balloonStartMarkerEl) {
+          balloonStartMarkerEl.classList.remove('hide');
+          balloonStartMarkerEl.classList.remove('fall-floor');
+          balloonStartMarkerEl.style.opacity = '1';
+          balloonStartMarkerEl.style.transform = '';
+          balloonStartMarkerEl.style.pointerEvents = 'auto';
+        }
+        currentBalloonFallMs = BALLOON_BASE_FALL_MS; // 恢復基礎速度
+        balloonFastStreak = 0; balloonRideT0 = 0;
+        document.documentElement.style.setProperty('--fall-duration', currentBalloonFallMs + 'ms');
+        renderBalloonLives();
+      }
+    },
+
+    // 文字賽跑：對手依節奏公式前進（貼身對手）
+    race: Object.assign({
+      id:'race', toggleId:'toggleRaceGame',
+      reset(){ resetRace(); }
+    }, raceHooks),
+
+    // 影子賽跑：跑道、加減步規則都跟文字賽跑一樣，只有對手換成「最佳紀錄的回放」
+    ghost: Object.assign({
+      id:'ghost', toggleId:'toggleGhostGame',
+      reset(){
+        raceTrail = [];
+        ghostRun = (settings.game === 'ghost') ? loadGhostRun() : null; // 每次重設都重讀，換課／換時間長度就換一份紀錄
+        resetRace(); // 內含 applyRivalLook()，會依 ghostRun 決定影子要不要出場
+      },
+      tick(){
+        // 只記錄有固定終點、且尚在計時中的輪次；最後一秒由 onEnd 補上
+        if(!ended && ghostRecordable()) raceTrail.push(racePos);
+        updateOpponents();
+      },
+      onEnd(n){
+        // 沒打完整輪（提早結束）、打太少次都不算紀錄
+        if(!ghostRecordable() || timeLeft > 0 || n < MIN_VALID_ATTEMPTS) return '';
+        raceTrail.push(racePos);
+        const mine = racePos;
+        const prev = ghostRun;
+        const record = { trail: raceTrail.slice(), finalPos: mine, ts: Date.now() };
+        if(!prev){
+          saveGhostRun(record);
+          return `👻 第一筆紀錄：${mine} 步！下次就跟這一次比。`;
+        }
+        if(mine > prev.finalPos){
+          saveGhostRun(record);
+          return `🏆 打破自己的紀錄！${mine} 步（原本 ${prev.finalPos} 步）`;
+        }
+        if(mine === prev.finalPos) return `👻 和最佳紀錄打平：${mine} 步`;
+        return `👻 這一輪 ${mine} 步，最佳紀錄 ${prev.finalPos} 步（差 ${prev.finalPos - mine} 步）`;
+      }
+
+    }, raceHooks),
+
+    // 打地鼠：地鼠從洞裡冒出來，頭上的字要在牠逃走前打對
+    whack: Object.assign({
+      id:'whack', toggleId:'toggleWhackGame', raceTrack:false,
+      shapeQueue(q){ return q.filter(item => item !== ' '); }, // 一隻地鼠一個字，不出現空白鍵題目
+      onCorrect(){ if(arenaActive()) whackOnCorrect(); },
+      onWrong(){ if(arenaActive() && whackHole >= 0) shakeEl(whackHoleEl(whackHole).querySelector('.mole'), 'miss'); }
+    }, arenaHooks),
+
+    // 太空落字：整個單字（或一組字）從上方落下，打完才擊落；落地會扣一顆愛心，扣完結束
+    drop: Object.assign({
+      id:'drop', toggleId:'toggleDropGame', raceTrack:false,
+      shapeQueue(q){
+        // 把佇列切成「單字」：一般課程照原本的空白分段；空白鍵本身不當題目（同氣球／地鼠）。
+        // 【修改】注音改成「一個音節一組」：原本每 3 個符號硬切一組，會切出 ㄋㄨㄘ 這種不存在的音節。
+        // 音節的邊界直接從佇列本身判斷：沒標聲調的字後面有空白鍵；有標聲調（ˊˇˋ）的字以聲調符號結尾；
+        // 輕聲 ˙ 若在音節開頭就屬於同一個音節，在結尾才算結束。
+        // 沒有音節結構的課程（認識鍵位、加強練習）本來就是單一符號，就一個符號一組，不會硬湊出不存在的音節。
+        // 切好的起點與長度存在 dropStarts / dropLens。
+        const flat = [], starts = [], lens = [];
+        let cur = [];
+        const flush = ()=>{ if(cur.length){ starts.push(flat.length); lens.push(cur.length); flat.push(...cur); cur = []; } };
+        if(isZhuyinMode()){
+          const les = activeLesson();
+          const hasSyllables = !(drillChars && drillChars.length) && les && (les.type === 'zhuyinWords' || les.type === 'zhuyinSentences');
+          q.forEach(it=>{
+            if(it === ' '){ flush(); return; }
+            cur.push(it);
+            if(!hasSyllables) flush();                                        // 單一符號課程：一個符號一組
+            else if(it === 'ˊ' || it === 'ˇ' || it === 'ˋ') flush();          // 聲調符號收尾＝一個音節結束
+            else if(it === '˙' && cur.length > 1) flush();                    // 輕聲寫在音節結尾時也算結束
+          });
+        } else {
+          q.forEach(it=>{ if(it === ' ') flush(); else cur.push(it); });
+        }
+        flush();
+        dropStarts = starts; dropLens = lens;
+        return flat;
+      },
+      onCorrect(){ if(arenaActive()) dropOnCorrect(); },
+      onWrong(){ if(arenaActive() && dropWord) shakeEl(dropWord.el, 'wshake'); }
+    }, arenaHooks)
+  };
+
+  // ---- 主程式呼叫的統一入口：只碰目前啟用的遊戲（render / reset 例外，見上方說明）----
+  function currentGame(){ return settings.game ? GAMES[settings.game] : null; }
+  function gameCorrect(){ const g = currentGame(); if(g && g.onCorrect) g.onCorrect(); }
+  function gameWrong(){ const g = currentGame(); if(g && g.onWrong) g.onWrong(); }
+  function gameStart(){ const g = currentGame(); if(g && g.onStart) g.onStart(); }
+  function tickGames(){ const g = currentGame(); if(g && g.tick) g.tick(); }
+  function renderGames(){ Object.values(GAMES).forEach(g=>{ if(g.render) g.render(); }); }
+  function resetGames(){
+    gameResultLineEl.textContent = '';
+    gameResultLineEl.style.display = 'none';
+    Object.values(GAMES).forEach(g=>{ if(g.reset) g.reset(); });
+  }
+  function endGames(totalAttempts){
+    const g = currentGame();
+    const msg = (g && g.onEnd) ? g.onEnd(totalAttempts) : '';
+    gameResultLineEl.textContent = msg || '';
+    gameResultLineEl.style.display = msg ? '' : 'none';
   }
 
   // ---------- 【新增】亂打防呆：連續打錯 N 次就鎖住鍵盤幾秒（時間照常倒數）----------
@@ -1066,7 +1624,7 @@
   function handleKey(ch){
     if(ended || !started || locked) return;
     const target = queue[queueIndex];
-    const keyEl = keyElByChar[ch];
+    const keyEl = physicalKeyEl(ch); // 【修改】原本 keyElByChar[ch]；改成也認得 Shift 符號（+ → = 鍵）
     const pressedValue = isZhuyinMode() ? (ch === ' ' ? ' ' : charToZhuyin[ch]) : ch;
     const isMatch = pressedValue !== undefined && pressedValue === target;
     if(isMatch){
@@ -1080,19 +1638,18 @@
         setTimeout(()=>keyEl.classList.remove('correct'),160);
       }
       beep(660,0.12);
-      raceStep(1);
+      gameCorrect();
       noteResult(true); // 【新增】
       queueIndex++;
       showTarget();
-    } else if(keyElByChar[ch]){
+    } else if(keyEl){ // 【修改】原本 keyElByChar[ch]；Shift 符號按錯也要算錯誤
       wrong++;
       wrongCounts[target] = (wrongCounts[target] || 0) + 1;
       streak = 0;
       keyEl.classList.add('wrong');
       setTimeout(()=>keyEl.classList.remove('wrong'),280);
       beep(180,0.18);
-      raceStep(-1);
-      balloonWrong(); // 【新增】氣球模式：目標氣球晃動、忍者往後仰
+      gameWrong(); // 由目前啟用的遊戲處理（氣球：晃動＋後仰；賽跑：後退一步）
       if(isPassageMode()){
         const currentSpan = textPassageEl.children[queueIndex];
         if(currentSpan){
@@ -1129,7 +1686,7 @@
       if(streak % 5 === 0) showStreakToast(streak);
       highlightComboKeys(target, 'correct', 160);
       beep(660, 0.12);
-      raceStep(1);
+      gameCorrect();
       noteResult(true); // 【新增】
       queueIndex++;
       showTarget();
@@ -1139,7 +1696,7 @@
       streak = 0;
       highlightComboKeys(target, 'wrong', 280);
       beep(180, 0.18);
-      raceStep(-1);
+      gameWrong();
       noteResult(false); // 【新增】
     }
     correctNumEl.textContent = correct;
@@ -1181,6 +1738,12 @@
       return;
     }
     if(!k.char) return; // Tab / Shift / Enter 等特殊鍵不參與一般打字判定
+    // 【新增】螢幕鍵盤沒辦法同時按住 Shift：目標是 Shift 符號（如 +）時，點它底下的鍵（=）就視為打對
+    const curTarget = queue[queueIndex];
+    if(!isZhuyinMode() && typeof curTarget === 'string' && shiftCharMap[curTarget] && shiftCharMap[curTarget] === k.char){
+      handleKey(curTarget);
+      return;
+    }
     handleKey(k.char);
   }
 
@@ -1203,16 +1766,19 @@
       handleShortcutKey(e);
       return;
     }
-    if(keyElByChar[k]){
+    const pressedEl = physicalKeyEl(k); // 【修改】原本 keyElByChar[k]；Shift 符號（+、*）也要讓底下的鍵亮起按下效果
+    if(pressedEl){
       e.preventDefault();
-      keyElByChar[k].classList.add('pressed');
+      pressedEl.classList.add('pressed');
     }
     handleKey(k);
   });
 
   window.addEventListener('keyup', (e)=>{
     const k = e.key.toLowerCase();
-    if(keyElByChar[k]) keyElByChar[k].classList.remove('pressed');
+    // 【修改】先放開 Shift 時，keyup 的 key 會變回 '8' 而不是 '*'；兩種情況都會對到同一顆實體鍵，所以都清掉
+    const upEl = physicalKeyEl(k);
+    if(upEl) upEl.classList.remove('pressed');
   });
 
   // ---------- Timer ----------
@@ -1222,7 +1788,7 @@
       const m = Math.floor(infiniteElapsed/60), s = infiniteElapsed%60;
       timeNumEl.textContent = m+':'+String(s).padStart(2,'0');
       updateSpeed();
-      updateOpponents(); // 【新增】每秒讓對手依節奏公式前進（只在 settings.raceGame 開啟時生效）
+      tickGames(); // 每秒呼叫目前啟用的遊戲（賽跑：對手前進；影子賽跑：記錄並回放）
       return;
     }
     timeLeft--;
@@ -1233,7 +1799,7 @@
     const m = Math.floor(timeLeft/60), s = timeLeft%60;
     timeNumEl.textContent = m+':'+String(s).padStart(2,'0');
     updateSpeed();
-    updateOpponents(); // 【新增】同上，一般計時模式也一樣掛在 tick() 上
+    tickGames(); // 同上，一般計時模式也一樣掛在 tick() 上
   }
   function startTimer(){
     clearInterval(timerId);
@@ -1271,7 +1837,7 @@
       mistakesLineEl.textContent = '跟著鍵盤上的提示打打看，按「重設」再試一次！';
       mistakeCharsForDrill = [];
       drillMistakesBtn.style.display = 'none';
-    } else if(totalAttempts < MIN_VALID_ATTEMPTS && !balloonEndedByLives){ // 【修改】忍者抓氣球生命值扣完時，即使打字次數不多也照樣顯示分數，不套用「樣本太少」的判定
+    } else if(totalAttempts < MIN_VALID_ATTEMPTS && !endedByLives){ // 【修改】忍者抓氣球生命值扣完時，即使打字次數不多也照樣顯示分數，不套用「樣本太少」的判定
       resultTitleEl.textContent = '⏱️ 這一輪打太少次了';
       resultStatsEl.style.display = 'grid';
       finalAccuracyEl.textContent = '樣本太少';
@@ -1317,6 +1883,7 @@
     resultNextLessonBtn.style.display = Object.keys(activeLessonSet()).length > 1 ? 'inline-block' : 'none';
     resultHomeBtn.style.display = 'inline-block'; // 【新增】結束就一律顯示，方便回課程首頁挑下一課
     updateStartBtnLabel();
+    endGames(totalAttempts); // 目前啟用的遊戲結算（影子賽跑：比較並儲存最佳紀錄）
     // 【修改】只有樣本數足夠（總按鍵次數 ≥ MIN_VALID_ATTEMPTS）才寫進打字紀錄；
     // 完全沒打字或打太少次都不列入，避免紀錄頁被一堆「0分／樣本太少」的無意義資料灌爆
     // 【修改】「🎯 加強練習複習」（drillChars 模式）不列入打字紀錄：這只是針對錯誤鍵的臨時複習，
@@ -1356,7 +1923,6 @@
     score=0; correct=0; wrong=0; timeLeft=TOTAL_TIME;
     infiniteElapsed = 0;
     speedBaselineElapsed = 0;
-    resetRace();
     streak=0; bestStreak=0;
     wrongCounts = {};
     queue = buildQueue();
@@ -1404,32 +1970,15 @@
     } else {
       renderDots();
     }
-    balloonMsgEl.textContent = '按 Space 開始，打出忍者面前那顆氣球上的字'; // 【新增】重設時還原提示字
-    balloonBatchStart = -1; // 【修改】重設後下一次畫氣球要重新起一批（原本叫 balloonRendered）
-    balloonSlotEls = [];    // 【新增】清掉上一輪殘留的氣球元素參照
-    balloonLivesLeft = BALLOON_LIVES_MAX; // 【新增】重設時生命值補回滿血（3 次）
-    balloonEndedByLives = false;          // 【新增】清掉上一輪「因生命值歸零而結束」的標記
-    if(ninjaRideTimer){ clearTimeout(ninjaRideTimer); ninjaRideTimer = null; } 
-    balloonNinjaEl.classList.remove('riding'); 
-    balloonNinjaEl.classList.remove('hide'); // 移除隱藏，保持顯示
-    if(balloonStartMarkerEl) {
-      balloonStartMarkerEl.classList.remove('hide');
-      balloonStartMarkerEl.classList.remove('fall-floor');
-      balloonStartMarkerEl.style.opacity = '1';
-      balloonStartMarkerEl.style.transform = '';
-      balloonStartMarkerEl.style.pointerEvents = 'auto';
-    }
-    currentBalloonFallMs = BALLOON_BASE_FALL_MS; // 重設時恢復基礎速度
-    document.documentElement.style.setProperty('--fall-duration', currentBalloonFallMs + 'ms');
-    
-    renderBalloonLives();                 
-    applyBalloonDisplay();
+    resetGames(); // 每個遊戲各自把狀態歸零（氣球：生命值、忍者位置；賽跑：步數、對手）
+    renderGames();
   }
 
   // ---------- Pre-round countdown（顯示在左上角泡泡內，不遮住鍵盤；氣球模式改顯示在畫面正中間） ----------
   function startCountdown(){
     if(counting || started) return;
     counting = true;
+    arenaMsgEl.classList.add('hide'); // 打地鼠／太空落字：倒數期間收起競技場中間的提示字（倒數數字顯示在左上角泡泡）
     clearInterval(countdownId);
     const balloonMode = isBalloonMode(); // 【新增】氣球模式：倒數期間不用左上角泡泡，改把倒數數字顯示在遊戲畫面正中間（balloonMsgEl）
     bubbleWaitingEl.style.display = 'none';
@@ -1470,19 +2019,14 @@
             endInfiniteBtn.style.display = (TOTAL_TIME === Infinity) ? 'inline-block' : 'none';
             showTarget();
             startTimer();
-            if(balloonMode){
-              startBalloonFallCountdown(balloonStartMarkerEl); // 忍者在星號上開始落下
-              if(balloonStartMarkerEl) {
-                popBalloon(balloonStartMarkerEl); // 星號也跟著掉落
-              }
-            }
+            gameStart(); // 目前啟用的遊戲開始（氣球：忍者從星號上開始落下）
           }, 450);
       }
     }, 700);
   }
 
   // ---------- Settings ----------
-  const settings = {hint:true, finger:true, sound:true, keyLetter:true, keyZhuyin:false, keySymbol:false, raceGame:false, fingerVivid:false, keyboard:true, balloonGame:false}; // fingerVivid：指法顏色是否加深（預設淺色）；keyLetter/keyZhuyin/keySymbol 的初始值由 applyKeycapDisplayDefaults() 依課程覆寫；【新增】keyboard：是否顯示鍵盤圖（Keyboard Guide）；【新增】balloonGame：忍者抓氣球遊戲模式
+  const settings = {hint:true, finger:true, sound:true, keyLetter:true, keyZhuyin:false, keySymbol:false, game:null, fingerVivid:false, keyboard:true}; // game：目前啟用的小遊戲 id（null 或 GAMES 裡的 key；單一欄位所以不可能同時開兩個，取代原本的 raceGame / balloonGame 兩個布林）；fingerVivid：指法顏色是否加深（預設淺色）；keyLetter/keyZhuyin/keySymbol 的初始值由 applyKeycapDisplayDefaults() 依課程覆寫；【新增】keyboard：是否顯示鍵盤圖（Keyboard Guide）
   const settingsBtn = document.getElementById('menuBtn');
   const sidebarEl = document.getElementById('sidebar');
   const sidebarOverlayEl = document.getElementById('sidebarOverlay');
@@ -1539,7 +2083,11 @@
         comboKeyEls(t).forEach(el=>el.classList.add('target'));
       } else {
         const pc = isZhuyinMode() && t!==' ' ? zhuyinToChar[t] : t;
-        if(pc && keyElByChar[pc]) keyElByChar[pc].classList.add('target');
+        const pcEl = pc && physicalKeyEl(pc); // 【修改】Shift 符號也要找得到實體鍵，並一起高亮 Shift
+        if(pcEl){
+          pcEl.classList.add('target');
+          if(!isZhuyinMode()) shiftKeyElsFor(pc).forEach(el=>el.classList.add('target'));
+        }
       }
     }
   });
@@ -1578,7 +2126,7 @@
     const zhuyin = isZhuyinMode();
     settings.keyLetter = !zhuyin;
     settings.keyZhuyin = zhuyin;
-    settings.keySymbol = false;
+    settings.keySymbol = (currentCourse === 'digits'); // 【修改】原本一律 false；數字基礎要練 + * ( ) 等 Shift 符號，預設顯示鍵帽右上角的符號角標，使用者仍可自行關閉
     toggleKeyLetterEl.classList.toggle('on', settings.keyLetter);
     toggleKeyZhuyinEl.classList.toggle('on', settings.keyZhuyin);
     toggleKeySymbolEl.classList.toggle('on', settings.keySymbol);
@@ -1594,7 +2142,7 @@
     const keys = Object.keys(source);
     // 【修改】原本只依 level 分「🌱初學／🚀進階」兩組；現在如果課程資料裡有更細的 group 欄位
     // （目前只有「英打基礎」的每一課有標，依首排/首排+下排/三排全字母/數字排分），就改用 group 分組，
-    // 讓 22 課的長清單拆成 4 個小群組、方便掃視與跳選；沒有 group 欄位的課程照舊用 level 分兩組
+    // 讓長清單拆成幾個小群組、方便掃視與跳選；沒有 group 欄位的課程照舊用 level 分兩組
     const groupOf = key => source[key].group || (source[key].level === 'beginner' ? '🌱 初學' : '🚀 進階');
     const orderedGroups = [];
     keys.forEach(key=>{
@@ -1641,6 +2189,7 @@
   // 【新增】網址參數：讀取 ?course=xxx&lesson=yyy 決定一開始要選哪個大課程／小課程，方便分享指定連結
   // 【新增】hasLessonInUrl：網址有沒有明確指定小課程；有的話開啟後直接進練習畫面，沒有就停在課程首頁
   let hasLessonInUrl = false;
+  let hasGameInUrl = false; // 【新增】網址有沒有 game 參數；有的話初始化時不自動套用遊戲
   // 尋找此函式並替換成以下內容：
   function readInitialStateFromUrl(){
     try{
@@ -1650,18 +2199,19 @@
         currentCourse = courseParam;
       }
       const lessonParam = params.get('lesson');
+      // 【新增】舊連結相容：數字課程原本放在英打基礎（?course=basics&lesson=n456），現在搬到數字基礎，自動轉過去
+      if(lessonParam && currentCourse === 'basics' && !TYPING_BASICS_LESSONS[lessonParam] && NUMBER_BASICS_LESSONS[lessonParam]){
+        currentCourse = 'digits';
+      }
       if(lessonParam && activeLessonSet()[lessonParam]){
         lessonByCourse[currentCourse] = lessonParam;
         hasLessonInUrl = true; 
       }
       // 【新增】讀取遊戲參數
       const gameParam = params.get('game');
-      if (gameParam === 'balloon') {
-        settings.balloonGame = true;
-        settings.raceGame = false;
-      } else if (gameParam === 'race') {
-        settings.raceGame = true;
-        settings.balloonGame = false;
+      hasGameInUrl = !!gameParam; // 【新增】網址有指定遊戲（含 off）就以網址為準，不做自動套用
+      if (gameParam && GAMES[gameParam]) {
+        settings.game = gameParam;
       }
     }catch(e){
       // 網址參數格式異常時，安靜地使用預設值即可，不影響正常使用
@@ -1680,10 +2230,11 @@
     }
     
     // 【新增】將目前開啟的小遊戲寫入網址參數
-    if (settings.balloonGame) {
-      params.set('game', 'balloon');
-    } else if (settings.raceGame) {
-      params.set('game', 'race');
+    if (settings.game) {
+      params.set('game', settings.game);
+    } else if (includeLesson !== false && autoGameOfActiveLesson()) {
+      // 【新增】這一課本來會自動套用遊戲，但使用者手動關掉了 → 記成 game=off，重新整理時才不會又被自動開啟
+      params.set('game', 'off');
     }
 
     const qs = params.toString();
@@ -1697,34 +2248,109 @@
     currentCourse = courseSelectEl.value;
     applyKeycapDisplayDefaults();
     drillChars = null;
+    applyAutoGameForLesson(); // 【新增】切換大課程後，新課程的預設小課可能也有指定遊戲
     renderLessonOptions();
     updateUrlParams();
     resetAll();
   });
 
-  // 取得兩個遊戲的開關元素，用來做互斥切換的樣式更新
-  const toggleBalloonGameEl = document.getElementById('toggleBalloonGame');
-  const toggleRaceGameEl = document.getElementById('toggleRaceGame');
+  // 【重新規劃】依課程自動套用小遊戲。配對原則：
+  //   ・剛學新鍵的課（單鍵／單一手指）不套用遊戲：這時要專心「找鍵」，倒數與逃走計時只會增加壓力。
+  //   ・單鍵「總複習」課 → 忍者抓氣球（一次一個字、節奏穩）／打地鼠（要在字消失前反應，練速度）輪流出現。
+  //   ・單字、數字串、算式 → 太空落字（整個字一口氣打完）／文字賽跑（跟著進度往前）。
+  //   ・每個大課程的「畢業／綜合」課 → 影子賽跑：可以反覆練、跟自己上一次的最佳紀錄比。
+  //   ・快速鍵課程不套用任何遊戲（其他遊戲本身也會略過它）。
+  // 使用者隨時可以在設定裡手動關閉、改選其他遊戲，或關掉「依課程自動套用遊戲模式」總開關。
+  const AUTO_GAME_BY_LESSON = {
+    basics: {
+      h6:'balloon', h7:'race',                 // 首排：總複習＝氣球、小單字＝賽跑
+      b6:'whack',   b7:'drop',                 // 首排＋下排：總複習＝打地鼠、單字＝太空落字
+      t6:'balloon', t7:'ghost'                 // 三排：總複習＝氣球、簡短單字（畢業）＝影子賽跑
+    },
+    digits: {
+      numbers:'whack', nwords:'drop',          // 0～9 總複習＝打地鼠、數字串＝太空落字
+      nsym:'balloon',                          // 運算符號總複習（要搭配 Shift）節奏穩一點＝氣球
+      ndec:'race', naddsub:'race', nmuldiv:'race', // 小數、加減、乘除算式＝賽跑
+      neqn:'drop', nparen:'drop',              // 等號算式、括弧運算式＝太空落字
+      nmix:'ghost'                             // 綜合運算式（畢業挑戰）＝影子賽跑
+    },
+    english: {
+      words:'race', longwords:'drop',          // 常用單字＝賽跑、長單字挑戰＝太空落字
+      sentences:'ghost',                       // 句子＝影子賽跑（跟自己的最佳速度比）
+      all:'whack'                              // 全鍵盤綜合＝打地鼠（隨機鍵位反應練習）
+    },
+    zhuyin: {
+      layout1:'balloon', layout2:'whack',      // 鍵位總覽：依欄位順序＝氣球、左右交錯＝打地鼠
+      // 音節組合（基礎）z1～z4：一般練習、不套用遊戲；（遊戲挑戰）z5～z8：每課一個遊戲
+      z5:'balloon', z6:'whack',                // 下排＋上排＝氣球、下排＋數字排＝打地鼠
+      z7:'drop',                               // 上排＋數字排＝太空落字（一個音節一組）
+      z8:'ghost',                              // 全鍵盤音節綜合（畢業）＝影子賽跑
+      words:'race', sentences:'ghost'          // 注音詞語＝賽跑、注音句子＝影子賽跑
+    }
+  };
+  // 【新增】「依課程自動套用遊戲模式」總開關（預設開啟，記在 localStorage）：
+  // 關閉後不管切到哪一課都不會自動開遊戲，只有使用者手動開的遊戲才會出現。
+  const AUTO_GAME_KEY = 'typingAutoGame.v1';
+  let autoGameEnabled = true;
+  try{ autoGameEnabled = localStorage.getItem(AUTO_GAME_KEY) !== 'off'; }catch(e){} // localStorage 不可用時維持預設（開啟）
+  function autoGameOfActiveLesson(){
+    if(!autoGameEnabled) return null; // 【新增】總開關關閉：所有課程都視為沒有指定遊戲
+    const map = AUTO_GAME_BY_LESSON[currentCourse];
+    return (map && map[activeLessonKey()]) || null;
+  }
+  // gameAutoApplied：目前開著的遊戲是不是「自動套用」的。
+  // 是的話，換到沒有指定遊戲的課程時會自動關掉；使用者手動開關過之後就視為自己的選擇，不再被自動關掉。
+  let gameAutoApplied = false;
+  function setGameMode(mode){ // mode：GAMES 裡的 id，或 null（全部關閉）。互斥、開關樣式、賽道顯示都只在這裡處理
+    settings.game = (mode && GAMES[mode]) ? mode : null;
+    Object.values(GAMES).forEach(g=>{
+      const el = document.getElementById(g.toggleId);
+      if(el) el.classList.toggle('on', settings.game === g.id);
+    });
+    const cur = GAMES[settings.game];
+    raceTrackWrapEl.classList.toggle('show', !!(cur && cur.raceTrack));
+    if(cur && cur.onSelect) cur.onSelect();
+  }
+  // 每次切換課程時呼叫（要在 updateUrlParams() 與 resetAll() 之前）
+  function applyAutoGameForLesson(){
+    const auto = autoGameOfActiveLesson();
+    if(auto){
+      setGameMode(auto);
+      gameAutoApplied = true;
+    } else if(gameAutoApplied){
+      setGameMode(null);
+      gameAutoApplied = false;
+    }
+  }
 
-  // 忍者抓氣球：切換後重設本輪
-  bindToggle('toggleBalloonGame','balloonGame', ()=>{
-    if(settings.balloonGame){
-      settings.raceGame = false;
-      toggleRaceGameEl.classList.remove('on');
-      raceTrackWrapEl.classList.remove('show'); 
+  // 【新增】總開關的介面與行為：關閉時只收掉「自動開啟」的遊戲（使用者手動開的保留）；
+  // 重新開啟時，若目前沒有開任何遊戲，就套用這一課的預設遊戲。
+  const toggleAutoGameEl = document.getElementById('toggleAutoGame');
+  toggleAutoGameEl.classList.toggle('on', autoGameEnabled);
+  toggleAutoGameEl.addEventListener('click', ()=>{
+    autoGameEnabled = !autoGameEnabled;
+    toggleAutoGameEl.classList.toggle('on', autoGameEnabled);
+    try{ localStorage.setItem(AUTO_GAME_KEY, autoGameEnabled ? 'on' : 'off'); }catch(e){}
+    if(!autoGameEnabled){
+      if(gameAutoApplied){ setGameMode(null); gameAutoApplied = false; }
+    } else {
+      const auto = autoGameOfActiveLesson();
+      if(auto && !settings.game){ setGameMode(auto); gameAutoApplied = true; }
     }
     updateUrlParams();
     resetAll();
   });
 
-  bindToggle('toggleRaceGame','raceGame', ()=>{
-    if(settings.raceGame){
-      settings.balloonGame = false;
-      toggleBalloonGameEl.classList.remove('on');
-    }
-    raceTrackWrapEl.classList.toggle('show', settings.raceGame);
-    updateUrlParams();
-    resetAll();
+  // 所有遊戲開關共用同一段：再點一次已開啟的遊戲＝關閉；點另一個＝切換過去（setGameMode 會關掉前一個）
+  Object.values(GAMES).forEach(g=>{
+    const el = document.getElementById(g.toggleId);
+    if(!el) return;
+    el.addEventListener('click', ()=>{
+      gameAutoApplied = false; // 使用者手動操作，之後以使用者的選擇為準
+      setGameMode(settings.game === g.id ? null : g.id);
+      updateUrlParams();
+      resetAll();
+    });
   });
 
   // 【刪除】「重設統計」按鈕與 resetStats() 函式：功能跟右上角「開始／重設」按鈕重複，已移除按鈕，函式跟著一起刪掉
@@ -1833,6 +2459,7 @@
     e.stopPropagation();
     drillChars = null;
     lessonByCourse[currentCourse] = item.dataset.key;
+    applyAutoGameForLesson(); // 【新增】依新課程自動套用（或關閉）小遊戲
     syncLessonSelectDisplay();
     lessonDropdownWrapEl.classList.remove('open');
     updateUrlParams();
@@ -1890,7 +2517,7 @@
 
   // 每筆紀錄的統計都配一個 emoji 圖示，讀起來比純文字有趣一點
   function renderHistoryCard(record){
-    const courseIcon = record.course === 'zhuyin' ? 'ㄅㄆ 注音' : record.course === 'basics' ? '🔤 英打基礎' : '⌨️ 英打';
+    const courseIcon = record.course === 'zhuyin' ? 'ㄅㄆ 注音' : record.course === 'basics' ? '🔤 英打基礎' : record.course === 'digits' ? '🔢 數字基礎' : '⌨️ 英打';
     const totalAttempts = record.correct + record.wrong; // 【新增】這筆紀錄的總按鍵次數，標註在正確率旁邊
     return `
       <div class="history-card">
@@ -1977,6 +2604,21 @@
     try{ localStorage.setItem(PROGRESS_KEY, JSON.stringify(obj)); }catch(e){}
   }
   let progress = loadProgress();
+  // 【新增】進度搬家：數字課程從「英打基礎」搬到「數字基礎」後，舊進度的 key 從 basics:xxx 換成 digits:xxx，
+  // 這裡把已經存在的舊紀錄搬過去（新 key 已有紀錄就不覆蓋），避免使用者辛苦練完的勾勾與最佳成績消失
+  (function migrateDigitsProgress(){
+    let changed = false;
+    Object.keys(progress).forEach(k=>{
+      if(k.indexOf('basics:') !== 0) return;
+      const lessonKey = k.slice('basics:'.length);
+      if(!TYPING_BASICS_LESSONS[lessonKey] && NUMBER_BASICS_LESSONS[lessonKey]){
+        if(!progress['digits:' + lessonKey]) progress['digits:' + lessonKey] = progress[k];
+        delete progress[k];
+        changed = true;
+      }
+    });
+    if(changed) saveProgress(progress);
+  })();
   function progressKeyOf(courseId, lessonKey){ return courseId + ':' + lessonKey; }
   function getLessonProgress(courseId, lessonKey){ return progress[progressKeyOf(courseId, lessonKey)] || null; }
   // 完成一輪有效練習時呼叫（見 endSession）：標記完成、累加次數，並保留歷史最佳的正確率與速度
@@ -2003,7 +2645,7 @@
   const homeNavBtnEl = document.getElementById('homeNavBtn');
   const resetProgressBtnEl = document.getElementById('resetProgressBtn');
 
-  const COURSE_TAB_LABEL = { basics:'🔤 英打基礎', english:'⌨️ 英打', zhuyin:'ㄅㄆ 注音' };
+  const COURSE_TAB_LABEL = { basics:'🔤 英打基礎', digits:'🔢 數字基礎', english:'⌨️ 英打', zhuyin:'ㄅㄆ 注音' };
 
   // 卡片中央的主視覺：盡量沿用 TypingClub「看圖就知道這課在練什麼」的做法——
   // 只教少數幾個新鍵的課直接把鍵名放大顯示（例如 F J），其他依課程類型給對應的圖示
@@ -2088,6 +2730,7 @@
     if(!card) return;
     drillChars = null;
     lessonByCourse[currentCourse] = card.dataset.key;
+    applyAutoGameForLesson(); // 【新增】依新課程自動套用（或關閉）小遊戲
     syncLessonSelectDisplay();
     updateUrlParams();
     showPracticeView();
@@ -2121,11 +2764,16 @@
   // ---------- Init ----------
   readInitialStateFromUrl();       // 先讀網址參數，決定要開哪個大課程／小課程與遊戲模式
   
-  // 【新增】同步小遊戲的開關 UI 樣式（若網址帶有遊戲參數，這裡會自動亮起開關）
-  const toggleBalloonGameInitEl = document.getElementById('toggleBalloonGame');
-  const toggleRaceGameInitEl = document.getElementById('toggleRaceGame');
-  if(toggleBalloonGameInitEl) toggleBalloonGameInitEl.classList.toggle('on', settings.balloonGame);
-  if(toggleRaceGameInitEl) toggleRaceGameInitEl.classList.toggle('on', settings.raceGame);
+  // 同步小遊戲的開關 UI 與賽道顯示（若網址帶有 game 參數，這裡會自動亮起對應開關）
+  setGameMode(settings.game);
+
+  // 初始化：網址沒指定 game 時，依目前課程自動套用；網址已指定（例如分享連結）則照網址，
+  // 但若網址的遊戲剛好就是該課的預設遊戲，仍視為「自動套用」，之後換課才會自動關閉
+  if(!hasGameInUrl){
+    applyAutoGameForLesson();
+  } else if(autoGameOfActiveLesson() === settings.game){
+    gameAutoApplied = true;
+  }
 
   courseSelectEl.value = currentCourse;
   applyKeycapDisplayDefaults();
@@ -2133,9 +2781,6 @@
   renderLessonOptions();
   updateUrlParams(hasLessonInUrl); 
   
-  // 【新增】如果初始化時文字賽跑是開啟的，確保賽道可見
-  raceTrackWrapEl.classList.toggle('show', settings.raceGame);
-
   resetAll();
   
   if(hasLessonInUrl){

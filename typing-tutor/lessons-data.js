@@ -15,7 +15,7 @@
 // 【課程架構】「英打基礎」與「英打」現在是兩個各自獨立的大課程（對應 HTML 內 COURSES 陣列的兩個項目）：
 //   ・TYPING_BASICS_LESSONS（英打基礎）－ 給完全沒學過打字、還在「找鍵」的初學者，
 //     從單一指法一路累加到能打出完整單字，全部標示 level:'beginner'，
-//     課程名稱前的數字 1～22 就是建議的學習順序，請依序上完。
+//     課程名稱前的數字 1～21 就是建議的學習順序，請依序上完。
 //   ・LESSONS（英打）－ 給已經會盲打、想練字彙／句子／全鍵盤／符號與速度的人，
 //     全部標示 level:'advanced'，不包含任何指法教學內容。
 //     如果還沒學過打字或常常需要看鍵盤，建議先去上「英打基礎」再回來這裡練習。
@@ -24,7 +24,7 @@
 //   所以手指不會只記得單一個鍵，而是一直在練「從基準鍵出發去按目標鍵」的位移感。
 //   chars = 這一課可能出現的所有鍵（含複習）；focus = 這一課的新鍵（出題時權重較高）。
 //   display:'upper' = 目標字顯示成大寫，跟鍵帽上刻的字一致（單鍵練習階段用）。
-//   順序：首排 → 首排+下排 → 三排全字母 → 數字排，跟一般打字教材由近到遠的原則一致。
+//   順序：首排 → 首排+下排 → 三排全字母，跟一般打字教材由近到遠的原則一致。數字與運算符號另外獨立成「數字基礎」課程（見下方 NUMBER_BASICS_LESSONS）。
 
 // 鍵位群組（依手指分組，左右手對稱一起學）
 const K_HOME_INDEX  = ['f','j'];      // 食指：基準鍵（鍵帽上有凸點）
@@ -47,6 +47,24 @@ const K_TOP_RING    = ['w','o'];      // 無名指往上（S→W、L→O）
 const K_TOP_PINKY   = ['q','p'];      // 小指往上（A→Q、;→P）
 const K_TOP_STRETCH = ['t','y'];      // 食指往上再往內
 const ROW_TOP = [...K_TOP_INDEX, ...K_TOP_MIDDLE, ...K_TOP_RING, ...K_TOP_PINKY, ...K_TOP_STRETCH];
+
+// 【新增】數字排鍵位群組（給「數字基礎」課程 NUMBER_BASICS_LESSONS 使用；分階段：先中間 4 5 6，再左邊 1 2 3，再右邊 7 8 9，最後 0）
+// 排法比照數字鍵盤（小算盤）的「中排→下排→上排」，先從最順手、離食指最近的中間三個數字開始。
+const K_NUM_MID    = ['4','5','6'];   // 左食指 4、5；右食指 6（食指最靈活，先練）
+const K_NUM_LEFT   = ['1','2','3'];   // 左手小指 1、無名指 2、中指 3
+const K_NUM_RIGHT  = ['7','8','9'];   // 右食指 7、中指 8、無名指 9
+const K_NUM_ZERO   = ['0'];           // 右手小指
+const DIGITS_1_9   = [...K_NUM_MID, ...K_NUM_LEFT, ...K_NUM_RIGHT];
+const DIGITS_ALL   = [...DIGITS_1_9, ...K_NUM_ZERO];
+// 運算符號：. + - * / = ( )（+ * ( ) 要搭配 Shift；引擎會在鍵盤圖上一起高亮 Shift 鍵）
+const NUM_DOT      = ['.'];           // 右手無名指（L 的正下方）
+const NUM_PLUS     = ['+'];           // Shift + =（右手小指按 =）
+const NUM_MINUS    = ['-'];           // 右手小指（0 的右邊）
+const NUM_TIMES    = ['*'];           // Shift + 8（右手中指按 8）
+const NUM_DIV      = ['/'];           // 右手小指（分號正下方）
+const NUM_EQ       = ['='];           // 右手小指（- 的右邊，不用 Shift）
+const NUM_LP       = ['('];           // Shift + 9（右手無名指按 9，左手小指按住 Shift）
+const NUM_RP       = [')'];           // Shift + 0（右手小指按 0，左手小指按住 Shift）
 
 const TYPING_BASICS_LESSONS = {
   // ===== 第一階段：首排 Home Row（手不離開基準位置）=====
@@ -103,14 +121,83 @@ const TYPING_BASICS_LESSONS = {
         words:['the','and','you','are','for','was','not','but','can','all','her','him','out','see','two','who','how','now','new','day',
                'cat','dog','sun','run','top','pen','big','red','box','cup','toy','key','egg','map','bus','hat','bed','cow','pig','fox',
                'book','tree','fish','bird','jump','play','type','home','rain','star','moon','cake','park','song','blue','fast','good','love','time','word'] },
+};
 
-  numbers: { name:'22. 數字排 0–9', desc:'手指從上排再往上一層，是離基準鍵最遠的一排，放在字母都熟練之後再練。',
-             level:'beginner', group:'🔢 數字排', display:'upper', chars:['1','2','3','4','5','6','7','8','9','0'] },
+// ---------- 數字基礎：從「英打基礎」獨立出來的數字專用課程 ----------
+// 【課程架構】對應 app.js COURSES 陣列裡 id:'digits' 的大課程，共 21 課，全部標示 level:'beginner'：
+//   第一階段 數字 0–9：先練中間的 4 5 6，再練左手 1 2 3，再練右手 7 8 9，最後才是最遠的 0（排法比照數字鍵盤）。
+//   第二階段 小數點與運算符號：一次只新增一個符號（. + - * / = ( )），其中 + * ( ) 要搭配 Shift。
+//   第三階段 運算式：把數字與符號串成算式（小數、加減、乘除、等號、括弧），像真的在打計算題。
+// 建議先把「英打基礎」前 5 課（首排基準鍵）練熟，知道雙手食指要放在 F、J，再來上這個課程。
+// 課程名稱前的數字 1～21 是這個課程自己的學習順序（跟英打基礎的編號互不相干）。
+const NUMBER_BASICS_LESSONS = {
+  // ===== 第一階段：數字 0–9（分組累加：4 5 6 → 1 2 3 → 7 8 9 → 0）=====
+  n456: { name:'1. 中間數字 4 5 6', desc:'左手食指按 4、5，右手食指按 6。這三個數字離食指最近，最容易上手，先從這裡開始。按完記得讓手指回到 F、J。',
+          level:'beginner', group:'🔢 數字 0–9', display:'upper', chars:[...K_NUM_MID], focus:K_NUM_MID },
+  n123: { name:'2. 左手數字 1 2 3', desc:'左手小指按 1、無名指按 2、中指按 3，題目會跟 4 5 6 交錯出現。小指與無名指比較不靈活，慢慢來、先求按對。',
+          level:'beginner', group:'🔢 數字 0–9', display:'upper', chars:[...K_NUM_MID, ...K_NUM_LEFT], focus:K_NUM_LEFT },
+  n789: { name:'3. 右手數字 7 8 9', desc:'右手食指按 7、中指按 8、無名指按 9。現在 1～9 全部到齊了，注意手指要從基準鍵 J、K、L 往上伸出去再收回來。',
+          level:'beginner', group:'🔢 數字 0–9', display:'upper', chars:[...DIGITS_1_9], focus:K_NUM_RIGHT },
+  n0:   { name:'4. 數字 0', desc:'右手小指按 0，是數字排最遠的一個鍵，很多人會誤用無名指去搆。小指伸出去按完立刻回到分號。',
+          level:'beginner', group:'🔢 數字 0–9', display:'upper', chars:[...DIGITS_ALL], focus:K_NUM_ZERO },
+  numbers: { name:'5. 數字 0–9 總複習', desc:'0～9 十個數字隨機混合，確認每個數字都能不看鍵盤按到。',
+          level:'beginner', group:'🔢 數字 0–9', display:'upper', chars:[...DIGITS_ALL] },
+  nwords: { name:'6. 數字串練習', desc:'456、2026、1024… 把數字連續打成一串，練習像打單字一樣一口氣打完整串數字。',
+          level:'beginner', group:'🔢 數字 0–9', type:'words',
+          words:['456','123','789','147','258','369','159','357','2580','1234','5678','9012','4567','7890','3456','1024','2026','365','100','500',
+                 '1000','8080','2468','1357','9876','5432','1928','4096','3210','6789','120','850','777','404','911','2024','6666','1980','7531','3901'] },
+
+  // ===== 第二階段：小數點與運算符號（一次只新增一個符號，題目仍混入前面學過的數字與符號）=====
+  ndot: { name:'7. 小數點 .', desc:'右手無名指從 L 往下按句點（小數點）。題目會混入 0～9，練習「數字→小數點→數字」的節奏，例如 3.14。',
+          level:'beginner', group:'➕ 小數點與運算符號', display:'upper', chars:[...DIGITS_ALL, ...NUM_DOT], focus:NUM_DOT },
+  nplus: { name:'8. 加號 +', desc:'加號 + 在 = 鍵的上層，要用 Shift：左手小指按住 Shift，右手小指按 =。這是第一個要「兩手合作」的鍵，先按住 Shift 再按 =，放開時兩手一起放。',
+          level:'beginner', group:'➕ 小數點與運算符號', display:'upper', chars:[...DIGITS_ALL, ...NUM_DOT, ...NUM_PLUS], focus:NUM_PLUS },
+  nminus: { name:'9. 減號 -', desc:'減號 - 在 0 的右邊，右手小指往右上伸出去按（不用 Shift）。位置很遠，按完記得讓小指回到分號。',
+          level:'beginner', group:'➕ 小數點與運算符號', display:'upper', chars:[...DIGITS_ALL, ...NUM_DOT, ...NUM_PLUS, ...NUM_MINUS], focus:NUM_MINUS },
+  ntimes: { name:'10. 乘號 *', desc:'乘號 * 是 Shift + 8：左手小指按住 Shift，右手中指按 8。跟加號一樣先按住 Shift 再按數字鍵。',
+          level:'beginner', group:'➕ 小數點與運算符號', display:'upper', chars:[...DIGITS_ALL, ...NUM_DOT, ...NUM_PLUS, ...NUM_MINUS, ...NUM_TIMES], focus:NUM_TIMES },
+  ndiv: { name:'11. 除號 /', desc:'除號 / 在句點的右邊，右手小指往下按（不用 Shift，位置跟 ; 的正下方同一根手指）。',
+          level:'beginner', group:'➕ 小數點與運算符號', display:'upper', chars:[...DIGITS_ALL, ...NUM_DOT, ...NUM_PLUS, ...NUM_MINUS, ...NUM_TIMES, ...NUM_DIV], focus:NUM_DIV },
+  neq: { name:'12. 等號 =', desc:'等號 = 在減號 - 的右邊，右手小指往右上伸出去按（不用 Shift，但要注意別誤按到加號，加號要按住 Shift）。算式打完最後要按的就是它。',
+          level:'beginner', group:'➕ 小數點與運算符號', display:'upper', chars:[...DIGITS_ALL, ...NUM_DOT, ...NUM_PLUS, ...NUM_MINUS, ...NUM_TIMES, ...NUM_DIV, ...NUM_EQ], focus:NUM_EQ },
+  nlp: { name:'13. 左括弧 (', desc:'左括弧 ( 是 Shift + 9：左手小指按住 Shift，右手無名指按 9。括弧常常夾在數字前面，要先按住 Shift 再按 9。',
+          level:'beginner', group:'➕ 小數點與運算符號', display:'upper', chars:[...DIGITS_ALL, ...NUM_DOT, ...NUM_PLUS, ...NUM_MINUS, ...NUM_TIMES, ...NUM_DIV, ...NUM_EQ, ...NUM_LP], focus:NUM_LP },
+  nrp: { name:'14. 右括弧 )', desc:'右括弧 ) 是 Shift + 0：左手小指按住 Shift，右手小指按 0。右手小指同時要搆 0，是這組最吃力的一個，慢慢來。',
+          level:'beginner', group:'➕ 小數點與運算符號', display:'upper', chars:[...DIGITS_ALL, ...NUM_DOT, ...NUM_PLUS, ...NUM_MINUS, ...NUM_TIMES, ...NUM_DIV, ...NUM_EQ, ...NUM_LP, ...NUM_RP], focus:NUM_RP },
+  nsym: { name:'15. 運算符號總複習', desc:'0～9 加上 . + - * / = ( ) 全部混合，確認每個數字與符號都能不看鍵盤按到，特別注意 + * ( ) 的 Shift 要按得穩。',
+          level:'beginner', group:'➕ 小數點與運算符號', display:'upper', chars:[...DIGITS_ALL, ...NUM_DOT, ...NUM_PLUS, ...NUM_MINUS, ...NUM_TIMES, ...NUM_DIV, ...NUM_EQ, ...NUM_LP, ...NUM_RP] },
+
+  // ===== 第三階段：運算式（把數字與符號串成算式，像真的在打計算題）=====
+  ndec: { name:'16. 小數練習', desc:'96.3、3.14、0.5… 練習打出完整的小數，重點是小數點前後手指的銜接。',
+          level:'beginner', group:'🧮 運算式練習', type:'words',
+          words:['3.14','96.3','0.5','2.75','10.5','100.25','7.08','36.6','0.01','99.9','4.5','12.5','8.25','1.05','60.4','5.55','72.8','0.75','15.6','9.99',
+                 '23.4','58.1','6.02','47.3','0.25','88.8','1.23','45.6','7.89','50.5'] },
+  naddsub: { name:'17. 加減運算式', desc:'1+2、45-19、100+50… 只用加號與減號的算式，練習「數字 → 符號 → 數字」的連續按鍵（+ 記得按住 Shift）。',
+          level:'beginner', group:'🧮 運算式練習', type:'words',
+          words:['1+2','5-3','12+8','45-19','7+6','30-12','100+50','64-28','9+9','81-27','15+36','72-45','8+17','90-34','23+58','6+14','50-8','37+25','66-29','18+4',
+                 '104-59','25+75','48-16','99+1','13+29','57-38'] },
+  nmuldiv: { name:'18. 乘除運算式', desc:'12*4、28/6、100/4… 只用乘號與除號的算式（* 記得按住 Shift）。',
+          level:'beginner', group:'🧮 運算式練習', type:'words',
+          words:['3*4','12*4','28/6','56/7','9*9','100/4','7*8','45/9','6*15','96/8','2*35','81/3','14*5','72/9','25*4','63/7','11*11','48/6','9*12','30/5',
+                 '8*13','40/8','16*3','64/4','5*24','90/15'] },
+  neqn: { name:'19. 等號算式', desc:'1+2=3、12*4=48、28/4=7… 把算式連同等號和答案一起打完，練習「打完算式 → 按 = → 打答案」的流程。',
+          level:'beginner', group:'🧮 運算式練習', type:'words',
+          words:['1+2=3','5-3=2','12+8=20','45-19=26','7+6=13','30-12=18','9+9=18','81-27=54','3*4=12','12*4=48','28/4=7','56/7=8','9*9=81','100/4=25','7*8=56',
+                 '45/9=5','6*15=90','96/8=12','2*35=70','81/3=27','25*4=100','63/7=9','11*11=121','48/6=8','3.5+1.5=5','10-2.5=7.5','0.5*8=4','9.9+0.1=10','7.5/2.5=3','12.5*4=50'] },
+  nparen: { name:'20. 括弧運算式', desc:'(1+2)*3、4*(5-2)、(12+8)/4… 括弧要成對打出，重點是左右括弧都要按住 Shift，而且括弧前後的手指要順利銜接。',
+          level:'beginner', group:'🧮 運算式練習', type:'words',
+          words:['(1+2)*3','4*(5-2)','(12+8)/4','(9-3)*2','2*(3+4)','(6+4)*5','(20-8)/3','5*(7-2)','(15+5)/4','3*(8+2)','(18-6)/2','(2+3)*(4+1)','(30-10)/5',
+                 '7*(6-1)','(9+11)/4','8*(2+3)','(50-20)/6','(4+6)*(3-1)','12/(2+4)','100/(5+5)','(1.5+2.5)*2','(10-4)*(3+2)','9/(4-1)','(25+15)/8','6*(9-4)'] },
+  nmix: { name:'21. 綜合運算式', desc:'(12+8)*2=40、3.5*(2+1)=10.5、12+34-5=41… 加減乘除、小數、括弧與等號全部混合的完整算式，是數字排的畢業挑戰。',
+          level:'beginner', group:'🧮 運算式練習', type:'words',
+          words:['(12+8)*2=40','3.5*(2+1)=10.5','12+34-5=41','8*7+6=62','100/4-3=22','(6+4)*(3-1)=20','2*(15+5)=40','45+27-9=63','(9-3)*(4+2)=36','7.5+2.5=10',
+                 '18/(3*2)=3','120-(45+15)=60','(0.5+1.5)*4=8','96.3-12=84.3','9*9-1=80','(64/8)+20=28','4*25+10=110','(33+67)-50=50','1+2*3=7','88-8*5=48',
+                 '(72/8)+9=18','15*3-20=25','200/(5*2)=20','(3.6/1.2)*2=6','50-12.5=37.5'] },
 };
 
 // ---------- 英打（英打練習 Typing Practice）：給已經會打字的人練字彙、句子、全鍵盤與速度 ----------
 // 這裡不教指法，如果還不熟悉鍵盤位置、常常需要看鍵盤才能打字，
-// 建議先去上「英打基礎」課程，把 22 課的指法練過一輪之後再回來這裡練習。
+// 建議先去上「英打基礎」課程，把 21 課的指法練過一輪之後再回來這裡練習。
 const LESSONS = {
   words:   { name:'常用單字 Common Words', desc:'the, and, cat, run… 等 80 個常見英文單字', level:'advanced', type:'words',
     words:['the','and','you','was','for','are','but','not','can','all',
@@ -121,6 +208,14 @@ const LESSONS = {
            'ball','book','tree','fish','bird','frog','king','ship','lamp','door',
            'wall','rain','snow','wind','star','moon','milk','cake','rice','soup',
            'farm','park','song','ring','gold','iron','rock','sand','pink','blue'] },
+  // 【新增】長單字挑戰：6～9 個字母的單字。單字夠長，太空落字才有「一整個單字落下、要一口氣打完」的感覺，
+  // 預設自動套用「太空落字」（見 app.js 的 AUTO_GAME_BY_LESSON）。
+  longwords: { name:'長單字挑戰 Long Words', desc:'garden, monster, picture, keyboard… 6～9 個字母的單字，一口氣打完整個字。', level:'advanced', type:'words',
+    words:['garden','monster','picture','keyboard','weather','morning','kitchen','holiday','teacher','library',
+           'monkey','rocket','planet','pocket','basket','window','bridge','flower','yellow','purple',
+           'orange','school','friend','family','animal','summer','winter','spring','captain','dolphin',
+           'penguin','giraffe','chicken','rainbow','sandwich','mountain','elephant','birthday','airplane','umbrella',
+           'football','computer','chocolate','adventure','treasure','universe','galaxy','spaceship','astronaut','dinosaur'] },
   sentences: { name:'句子練習 Sentence Practice', desc:'the cat ran to the sun. 等短句', level:'advanced', type:'sentences',
     sentences:[
       'the cat ran to the sun.',
@@ -442,26 +537,29 @@ const ZHUYIN_LESSONS = {
              level:'beginner', group:'🔤 認識鍵位', chars: ZY_KEYPOS_LR, sequential:true },
 
   // ===== 第二階段：音節組合，依「中排優先、逐排疊加」的順序安排 =====
+  // 【分兩段】8 課太長，拆成兩組，玩法也刻意區分（遊戲對照見 app.js 的 AUTO_GAME_BY_LESSON.zhuyin）：
+  //   ・音節組合（基礎）3～6 課：中排為主、逐步加入其他排，一般練習、不自動套用遊戲，專心建立手感。
+  //   ・音節組合（遊戲挑戰）7～10 課：四排互相搭配，每課自動套用不同小遊戲，把學會的組合打得更快、更穩。
   // 【重新設計】一般人打注音時，中排（A–;）自己就能組成很多真實存在的音節（書、可、忙…），
   // 所以優先練中排；接著中排分別搭配下排、上排、數字排；最後才是四排一起的全鍵盤綜合，
   // 取代原本「聲符+韻符+聲調 21+16+4 個符號完全隨機」的全鍵盤混合（那樣不符合實際打字時
   // 「先中排、後其他排」的手感，也常出現ㄑ配ㄤ這種國語裡根本不存在的音節）。
   z1: { name:'3. 中排音節 ㄇㄋㄎㄕㄘ', desc:'只用中排（A S D F G H J K L ;）就能組成的音節，例如 ㄕㄨ、ㄎㄜ、ㄇㄠ，是最常見的組合，優先練。',
-        level:'beginner', group:'🀄 音節組合', type:'zhuyinWords', words: ZY_SYL_STAGE1 },
+        level:'beginner', group:'🀄 音節組合（基礎）', type:'zhuyinWords', words: ZY_SYL_STAGE1 },
   z2: { name:'4. 中排＋下排音節', desc:'加入下排（Z X C V B N M , . /）的ㄩㄝㄡㄥ與ㄈㄌㄏㄒㄖㄙ，題目仍會混入中排已學過的音節。',
-        level:'beginner', group:'🀄 音節組合', type:'zhuyinWords', words: ZY_SYL_STAGE2 },
+        level:'beginner', group:'🀄 音節組合（基礎）', type:'zhuyinWords', words: ZY_SYL_STAGE2 },
   z3: { name:'5. 中排＋上排音節', desc:'加入上排（Q W E R T Y U I O P）的ㄧㄛㄟㄣ與ㄆㄊㄍㄐㄔㄗ，持續複習前面練過的音節。',
-        level:'beginner', group:'🀄 音節組合', type:'zhuyinWords', words: ZY_SYL_STAGE3 },
+        level:'beginner', group:'🀄 音節組合（基礎）', type:'zhuyinWords', words: ZY_SYL_STAGE3 },
   z4: { name:'6. 中排＋數字排音節', desc:'加入數字排（1234567890-）的ㄅㄉㄓㄚㄞㄢ，這排也有聲調符號，從這裡開始音節會正式帶聲調。',
-        level:'beginner', group:'🀄 音節組合', type:'zhuyinWords', words: ZY_SYL_STAGE4 },
+        level:'beginner', group:'🀄 音節組合（基礎）', type:'zhuyinWords', words: ZY_SYL_STAGE4 },
   z5: { name:'7. 下排＋上排音節', desc:'換方向，練下排跟上排搭出來的音節，聲調持續混入。',
-        level:'beginner', group:'🀄 音節組合', type:'zhuyinWords', words: ZY_SYL_STAGE5 },
+        level:'beginner', group:'🎮 音節組合（遊戲挑戰）', type:'zhuyinWords', words: ZY_SYL_STAGE5 },
   z6: { name:'8. 下排＋數字排音節', desc:'下排搭數字排的音節。',
-        level:'beginner', group:'🀄 音節組合', type:'zhuyinWords', words: ZY_SYL_STAGE6 },
+        level:'beginner', group:'🎮 音節組合（遊戲挑戰）', type:'zhuyinWords', words: ZY_SYL_STAGE6 },
   z7: { name:'9. 上排＋數字排音節', desc:'上排搭數字排的音節，練完這一課，四排就都搭配過一輪了。',
-        level:'beginner', group:'🀄 音節組合', type:'zhuyinWords', words: ZY_SYL_STAGE7 },
+        level:'beginner', group:'🎮 音節組合（遊戲挑戰）', type:'zhuyinWords', words: ZY_SYL_STAGE7 },
   z8: { name:'10. 全鍵盤音節綜合', desc:'加入需要「聲符＋介音＋韻符＋聲調」四個符號、橫跨好幾排鍵位的完整音節（例如ㄒㄧㄤˇ想、ㄒㄧㄠˇ小），最貼近平常打注音的手感。',
-        level:'advanced', group:'🀄 音節組合', type:'zhuyinWords', words: ZY_SYL_STAGE8 },
+        level:'advanced', group:'🎮 音節組合（遊戲挑戰）', type:'zhuyinWords', words: ZY_SYL_STAGE8 },
 
   // ===== 第三階段：常用詞語與短語句子 =====
   // 【修改】原本每個字之間一律按空白鍵分隔；微軟新注音其實只有「第一聲（不標聲調符號）」

@@ -684,6 +684,11 @@
     color: var(--ink-soft);
     text-align: center; 
   }
+
+  /* 【新增】JS 會對 #textPassage 加上 .show，但原本沒有對應的 CSS，導致單字／句子永遠是 display:none 而看不到 */
+  .text-passage.show {
+    display: block;
+  }
   
   .text-passage .ch {
     border-radius: 6px;
@@ -930,6 +935,86 @@
     z-index:2;
   }
   .balloon-msg.hide{display:none;}
+
+  /* ---------- 【新增】打地鼠／太空落字：共用競技場 ---------- */
+  .arena{
+    display:none;position:relative;
+    width:100%;max-width:800px;margin:0 auto 12px;
+    height:clamp(220px,34vh,320px);
+    border-radius:20px;overflow:hidden;
+    box-shadow:0 14px 30px -20px rgba(35,50,65,.45), 0 2px 0 rgba(255,255,255,.5) inset;
+  }
+  .arena.show{display:block;}
+  /* 【新增】打地鼠／太空落字時不顯示鍵盤（跟忍者接氣球一樣），把讓出的高度給遊戲區，題目才不會被擠壓或遮住 */
+  body.arena-mode .keyboard-tray{display:none;}
+  body.arena-mode .arena{height:clamp(400px,64vh,620px);}
+  body.arena-mode .arena[data-mode="whack"] .mole-face{font-size:clamp(40px,7vw,64px);}
+  body.arena-mode .arena[data-mode="whack"] .mole-char{font-size:clamp(20px,3.4vw,32px);}
+  body.arena-mode .drop-ship{font-size:44px;}
+  .arena[data-mode="whack"]{background:linear-gradient(180deg,#CBEBB5 0%,#93CE7E 100%);}
+  .arena[data-mode="drop"]{
+    background:
+      radial-gradient(circle,rgba(255,255,255,.8) 1px,transparent 1.5px) 0 0/46px 46px,
+      radial-gradient(circle,rgba(255,255,255,.5) 1px,transparent 1.5px) 23px 23px/46px 46px,
+      linear-gradient(180deg,#141B34 0%,#2B3A67 100%);
+  }
+  .arena-field{position:absolute;inset:0;}
+  .arena-lives, .arena-score, .arena-msg{position:absolute;z-index:4;font-family:var(--font-display);color:#fff;text-shadow:0 1px 4px rgba(35,50,65,.5);}
+  .arena-lives{left:14px;bottom:8px;display:flex;gap:2px;font-size:20px;}
+  .arena-lives .life{transition:opacity .2s ease, filter .2s ease;}
+  .arena-lives .life.lost{opacity:.28;filter:grayscale(1);}
+  .arena-lives.shake{animation:lives-shake .28s ease;}
+  .arena-score{right:14px;bottom:8px;font-weight:700;font-size:20px;}
+  .arena-msg{left:0;right:0;top:40%;text-align:center;font-weight:700;font-size:clamp(16px,2.4vw,22px);pointer-events:none;}
+  .arena-msg.hide{display:none;}
+
+  /* 打地鼠：3×2 個洞。地鼠藏在 hole-window 裡（超出範圍被裁掉），前面蓋一圈泥土遮住切口 */
+  .arena[data-mode="whack"] .arena-field{
+    display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);
+    gap:6px 18px;padding:10px 44px 34px;
+  }
+  .hole{position:relative;--dirt-h:clamp(40px,20%,60px);} /* 【修改】泥土高度改用固定範圍，遊戲區變高時不會跟著變成超大橢圓蓋住地鼠 */
+  .hole-window{position:absolute;left:8%;right:8%;top:0;bottom:calc(var(--dirt-h) * .8);overflow:hidden;} /* bottom 24%：地鼠底部落在泥土橢圓中間，看起來是從洞裡鑽出來 */
+  .mole{
+    position:absolute;left:0;right:0;bottom:0;
+    display:flex;flex-direction:column-reverse;align-items:center;
+    transform:translateY(105%);transition:transform .16s ease-out;
+  }
+  .mole.up{transform:translateY(0);}
+  .mole.hit{transform:translateY(18%) rotate(-8deg);filter:brightness(1.15);}
+  .mole.miss{animation:lives-shake .2s ease;}
+  .mole-face{font-size:clamp(32px,5.4vw,48px);line-height:1;}
+  .mole-char{
+    background:#fff;color:var(--ink);border:2px solid #E3C99B;border-radius:10px;
+    padding:0 10px;font-weight:800;font-size:clamp(17px,2.8vw,26px);line-height:1.25;text-shadow:none;
+  }
+  .hole-dirt{
+    position:absolute;left:2%;right:2%;bottom:0;height:var(--dirt-h);z-index:1;
+    background:radial-gradient(ellipse at 50% 30%,#4A3222 0%,#6B4A2F 70%);
+    border-radius:50%;
+  }
+
+  /* 太空落字：單字從上方落下；已打的字變淡，目前要打的字加底線 */
+  .drop-ground{position:absolute;left:0;right:0;bottom:0;height:16%;background:linear-gradient(#5B6B8C,#3D4A66);}
+  .drop-ship{
+    position:absolute;left:50%;bottom:9%;z-index:2;font-size:34px;line-height:1;
+    transform:translateX(-50%);transition:transform .12s ease;
+  }
+  .drop-ship.fire{transform:translateX(-50%) translateY(-8px) scale(1.15);}
+  .drop-word{
+    position:absolute;top:-44px;z-index:3;transform:translateX(-50%);
+    display:flex;align-items:center;gap:6px;white-space:nowrap;
+    padding:4px 14px 4px 10px;border-radius:999px;background:rgba(255,255,255,.96);color:var(--ink);
+    font-family:var(--font-display);font-weight:800;font-size:clamp(20px,3.2vw,28px);letter-spacing:.08em;
+    box-shadow:0 4px 14px rgba(0,0,0,.4);
+  }
+  .drop-word .dc{display:inline-block;border-bottom:3px solid transparent;transition:color .12s ease;}
+  .drop-word .dc.done{color:var(--good);opacity:.55;}
+  .drop-word .dc.cur{color:var(--accent);border-bottom-color:var(--accent);}
+  .drop-word.boom{background:#FFD9D9;animation:drop-boom .45s ease forwards;}
+  .drop-word.wshake{animation:drop-shake .22s ease;}
+  @keyframes drop-boom{to{opacity:0;transform:translateX(-50%) scale(1.25);}}
+  @keyframes drop-shake{0%,100%{transform:translateX(-50%);}25%{transform:translateX(calc(-50% - 5px));}75%{transform:translateX(calc(-50% + 5px));}}
 
   /* ---------- Keyboard tray ---------- */
   .keyboard-tray {
@@ -1443,6 +1528,7 @@
     gap:10px;
   }
   .result-foot #mistakesLine{font-size:13px;color:var(--ink-soft);flex:1 1 180px;}
+  .result-foot #gameResultLine{font-size:13px;font-weight:700;color:var(--ink);flex:1 1 100%;} /* 【新增】小遊戲結算訊息獨佔一行，放在錯鍵統計旁 */
   /* 【修改】響應式斷點：中螢幕先收成 3 欄（維持 2 列），窄螢幕再收成 2 欄，避免 6 項擠成一排看不清楚 */
   @media (max-width:760px){
     .result-grid{grid-template-columns:repeat(3, minmax(0,1fr));}
