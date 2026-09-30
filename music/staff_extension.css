@@ -1,0 +1,126 @@
+/* ==========================================
+   五線譜擴充功能模組 (Staff Extension) - 最終透明去背版
+   ========================================== */
+#staff-modal {
+    display: none;
+    flex-direction: column;
+}
+
+#staff-modal.show {
+    display: flex;
+}
+
+.staff-modal-box {
+    background: #ffffff;
+    width: 95%;
+    max-width: 1000px;
+    height: 85vh;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+.staff-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e0e3e1;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.staff-header h3 {
+    margin: 0;
+    color: #001d35;
+    font-size: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.staff-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.staff-select {
+    padding: 6px 10px;
+    border: 1px solid #c7c7c7;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    background-color: white;
+    color: #1f1f1f;
+    outline: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+.staff-select:hover { border-color: #0b57d0; }
+
+/* 單一播放/停止按鈕 */
+.play-toggle-btn { 
+    background-color: #fef7e0; color: #b06000; border: none; border-radius: 8px;
+    padding: 6px 0; font-size: 1.1rem; width: 42px; 
+    display: flex; justify-content: center; cursor: pointer; transition: background 0.2s;
+}
+.play-toggle-btn:hover { background-color: #fce8b2; }
+
+/* 複合式匯出按鈕 */
+.export-group { display: flex; align-items: stretch; position: relative; }
+.export-btn-main {
+    background-color: #e8f0fe; color: #1a73e8; border: none; padding: 6px 12px;
+    border-radius: 8px 0 0 8px; font-weight: bold; cursor: pointer; font-size: 0.9rem; transition: background 0.2s;
+}
+.export-btn-toggle {
+    background-color: #e8f0fe; color: #1a73e8; border: none; border-left: 1px solid #c2d7fa;
+    padding: 0 8px; border-radius: 0 8px 8px 0; cursor: pointer; transition: background 0.2s; font-size: 0.7rem;
+}
+.export-btn-main:hover, .export-btn-toggle:hover { background-color: #d2e3fc; }
+.export-dropdown-menu {
+    display: none; position: absolute; top: 100%; right: 0; margin-top: 6px;
+    background: white; border: 1px solid #e0e3e1; border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15); z-index: 100; flex-direction: column; 
+    /* 稍微加寬，容納透明背景選項的文字 */
+    min-width: 240px; 
+    overflow: hidden;
+}
+.export-dropdown-menu.show { display: flex; }
+.dropdown-item {
+    background: none; border: none; padding: 12px 16px; text-align: left;
+    cursor: pointer; font-size: 0.9rem; color: #1f1f1f; transition: background 0.2s; font-family: inherit;
+}
+.dropdown-item:hover { background-color: #f0f4f9; color: #0b57d0; }
+
+/* --- 樂譜顯示區 --- */
+.staff-content {
+    flex: 1; overflow: auto; background-color: #ffffff; -webkit-overflow-scrolling: touch;
+}
+#abc-paper {
+    width: max-content; min-width: 100%; padding: 0 20px; box-sizing: border-box;
+}
+#abc-paper svg {
+    display: block; margin: 0 auto; max-width: none; overflow: visible; 
+}
+
+/* ==========================================
+   互動播放：統一藍色游標體驗
+   ========================================== */
+.abcjs-note {
+    cursor: pointer;
+    transition: fill 0.1s ease-in-out;
+}
+.abcjs-note.user-selected path,
+.abcjs-note.user-selected ellipse {
+    fill: #1a73e8 !important;
+}
+.abcjs-note.playing path,
+.abcjs-note.playing ellipse {
+    fill: #1a73e8 !important;
+}

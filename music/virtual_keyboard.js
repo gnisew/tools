@@ -45,6 +45,8 @@
     function initUI() {
         const container = document.createElement('div');
         container.id = 'vk-container';
+        container.setAttribute('role', 'region');
+        container.setAttribute('aria-label', '虛擬鍵盤面板');
         container.innerHTML = `
             <div id="vk-controls">
                 <div class="vk-row vk-main-row">
@@ -143,6 +145,8 @@
     function renderKeys(startCode, endCode) {
         const area = document.getElementById('vk-keys-area');
         area.innerHTML = '';
+        area.setAttribute('role', 'group');
+        area.setAttribute('aria-label', '虛擬鋼琴鍵盤，可用 Tab 鍵切換音符，Enter 或空白鍵彈奏');
         
         let startIndex = ALL_NOTES.findIndex(n => n.c === startCode);
         let endIndex = ALL_NOTES.findIndex(n => n.c === endCode);
@@ -159,6 +163,13 @@
             const noteDef = ALL_NOTES[i];
             const btn = document.createElement('div');
             btn.className = `vk-key vk-${noteDef.t}`;
+
+            // 無障礙：讓琴鍵可被鍵盤 Tab 到、可被螢幕閱讀器辨識
+            btn.setAttribute('role', 'button');
+            btn.setAttribute('tabindex', '0');
+            const octaveLabel = (noteDef.c.startsWith('.') || noteDef.c.startsWith('#.')) ? '高音'
+                : (noteDef.c.endsWith('.') ? '低音' : '中音');
+            btn.setAttribute('aria-label', `${octaveLabel} ${noteDef.c}`);
             
             let hintHtml = '';
             if (showHint && reverseMode2Map[noteDef.c]) {
@@ -169,6 +180,14 @@
             
             btn.addEventListener('mousedown', (e) => { e.preventDefault(); handleKeyPress(e, noteDef.c, btn); });
             btn.addEventListener('touchstart', (e) => { e.preventDefault(); handleKeyPress(e, noteDef.c, btn); });
+            // 無障礙：支援鍵盤 Enter / 空白鍵彈奏 (e.repeat 防止長按時連續觸發)
+            btn.addEventListener('keydown', (e) => {
+                if (e.repeat) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleKeyPress(e, noteDef.c, btn);
+                }
+            });
             
             if (noteDef.c.startsWith('.') || noteDef.c.startsWith('#.')) {
                 highNotes.push(btn);

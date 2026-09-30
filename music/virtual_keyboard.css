@@ -90,6 +90,13 @@
 }
 .vk-key:active, .vk-key.vk-pressed { transform: scale(0.98); }
 
+/* 無障礙：鍵盤 Tab 瀏覽時的清楚視覺焦點框 */
+.vk-key:focus-visible {
+    outline: 3px solid #1a73e8;
+    outline-offset: -3px;
+    z-index: 3;
+}
+
 /* 白鍵 (電腦版) */
 .vk-key.vk-white { 
     background: #fff; border: 1px solid #ccc; color: #333; 

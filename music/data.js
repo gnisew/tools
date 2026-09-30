@@ -145,7 +145,8 @@ m: | .2C - - - | .2Am - - - |
         `,
         tempo: 100,
         instrument: "", 
-        baseKey: 0 
+        baseKey: 0,
+        tags: ["教學"]
     },
 
 
@@ -159,7 +160,8 @@ m: | .2C - - - | .2Am - - - |
         `,
         tempo: 100,
         instrument: "acoustic_grand_piano", 
-        baseKey: 0 
+        baseKey: 0,
+        tags: ["兒歌"]
     },
     {
         title: "兩隻老虎 (缺省測試)",
@@ -169,7 +171,8 @@ m: | .2C - - - | .2Am - - - |
 3 4 5 - | 3 4 5 - 
 5/ 6/ 5/ 4/ 3 1 | 5/ 6/ 5/ 4/ 3 1 
 2 5. 1 - | 2 5. 1 - ||
-        `
+        `,
+        tags: ["兒歌"]
     },
     {
         title: "生日快樂 (Violin)",
@@ -181,7 +184,8 @@ m: | .2C - - - | .2Am - - - |
         `,
         tempo: 90,
         instrument: "violin",
-        baseKey: 5 
+        baseKey: 5,
+        tags: ["節慶"]
     }
 ];
 

@@ -1,3 +1,35 @@
+// ==========================================
+// 輕量提示訊息 (Toast)：取代原生 alert()，不會阻斷操作
+// 掛在 window 上，讓 staff_extension.js 等其他檔案也能呼叫
+// ==========================================
+(function() {
+    let toastContainer = null;
+    function getToastContainer() {
+        if (!toastContainer || !document.body.contains(toastContainer)) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toast-container';
+            document.body.appendChild(toastContainer);
+        }
+        return toastContainer;
+    }
+
+    window.showToast = function(message, type = 'info', duration = 3200) {
+        const container = getToastContainer();
+        const toast = document.createElement('div');
+        toast.className = `app-toast app-toast-${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+
+        requestAnimationFrame(() => toast.classList.add('show'));
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+            toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+            setTimeout(() => toast.remove(), 500); // 保險：避免 transitionend 未觸發導致殘留
+        }, duration);
+    };
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     // 1. 全域變數與 DOM 元素
@@ -10,6 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentTranspose = 0;
     let activeSoundfontInst = null;
     let loadedInstruments = {};
+    let failedInstruments = new Set(); // 記錄已提示過失敗的音色，避免重複跳出提示
+    let isExportingAudio = false; // 防止匯出音檔按鈕被連續點擊，重複觸發匯出
 
     // Font Mapping Arrays
     const codeToFontRules = [];
@@ -56,6 +90,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	let lastPlayedNoteStart = -1;
 	let lastPlayedNoteEnd = -1;
 	let playbackTimer = null;
+    let highlightEvents = []; // [新增] 取代大量 setTimeout：存放 {time, start, end}，用單一 rAF 迴圈輪詢
+    let highlightPointer = 0; // [新增] 目前輪詢到第幾個高亮事件
+    let highlightRafId = null; // [新增] requestAnimationFrame 的 id，方便停止播放時取消
 
 	// ==========================================
     // 歷史紀錄與還原 (Undo System)
@@ -181,6 +218,13 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'triangle', name: '🔺 三角鐵 T:', type: 'soundfont', val: 'tinkle_bell', icon: '🔺', alias: 'T' }, 
         { id: 'cowbell', name: '🔔 銅鈴 b:', type: 'soundfont', val: 'agogo', icon: '🔔', alias: 'b' },
     ];
+
+    // [優化] 用 Map 依 val 建立索引，playTone() 每個音符都要查一次樂器定義，
+    // 音符一多時線性 .find() 會疊加成明顯的效能負擔，改成 O(1) 查表
+    const instrumentByVal = new Map(instruments.map(i => [i.val, i]));
+    function getInstrumentDef(val) {
+        return instrumentByVal.get(val) || instruments[0];
+    }
 
 
 	// 和弦根音對照表 (用於解析)
@@ -581,8 +625,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadData() {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
-            try { appData = JSON.parse(stored); } 
-            catch (e) { console.error("Data Reset", e); }
+            try {
+                appData = JSON.parse(stored);
+            } catch (e) {
+                console.error("Data Reset", e);
+                // 讀取失敗前，先把壞掉的原始資料備份到另一個 key，避免真的救不回來
+                // (使用者可以請人協助從瀏覽器開發者工具的 localStorage 裡取出這個 key 手動搶救)
+                try {
+                    localStorage.setItem(STORAGE_KEY + '_corrupted_backup_' + Date.now(), stored);
+                } catch (backupErr) {
+                    console.error("備份壞資料也失敗", backupErr);
+                }
+                showToast("⚠️ 儲存的樂譜資料讀取失敗，已重新建立空白樂譜。原始資料已盡量保留在瀏覽器儲存空間中，若有需要復原請聯繫技術協助。", 'error', 8000);
+            }
         }
         
         // 如果沒有任何歌曲，創建一首空的
@@ -599,18 +654,88 @@ document.addEventListener('DOMContentLoaded', () => {
         renderSidebar(); 
         
         // 渲染範例曲庫 (若 data.js 存在)
+        renderLibraryCategoryChips();
         renderLibrary();
     }
 
-    // --- 新增：渲染範例曲庫 ---
+    // --- 分類搜尋：目前篩選狀態 ---
+    let libraryFilterText = '';
+    let libraryFilterCategory = 'all';
+
+    // --- 新增：依 exampleSongs 的 tags 動態產生分類標籤列 ---
+    function renderLibraryCategoryChips() {
+        const container = document.getElementById('library-category-filters');
+        if (!container || typeof exampleSongs === 'undefined') return;
+
+        // 從所有範例曲目的 tags 收集出現過的分類 (沒有 tags 的曲目歸類為「其他」)
+        const categorySet = new Set();
+        exampleSongs.forEach(song => {
+            const tags = (song.tags && song.tags.length > 0) ? song.tags : ['其他'];
+            tags.forEach(t => categorySet.add(t));
+        });
+        const categories = ['all', ...Array.from(categorySet)];
+
+        container.innerHTML = '';
+        categories.forEach(cat => {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = `library-category-chip ${cat === libraryFilterCategory ? 'active' : ''}`;
+            chip.textContent = cat === 'all' ? '全部' : cat;
+            chip.addEventListener('click', () => {
+                libraryFilterCategory = cat;
+                renderLibraryCategoryChips();
+                renderLibrary();
+            });
+            container.appendChild(chip);
+        });
+    }
+
+    // --- 渲染範例曲庫 (支援關鍵字搜尋 + 分類篩選) ---
     function renderLibrary() {
         if (!libraryListEl || typeof exampleSongs === 'undefined') return;
-        
+
+        const keyword = libraryFilterText.trim().toLowerCase();
+
+        const filtered = exampleSongs.filter(song => {
+            const tags = (song.tags && song.tags.length > 0) ? song.tags : ['其他'];
+
+            // 分類篩選
+            if (libraryFilterCategory !== 'all' && !tags.includes(libraryFilterCategory)) {
+                return false;
+            }
+
+            // 關鍵字搜尋：比對標題、分類標籤、樂器名稱
+            if (keyword) {
+                const haystack = [
+                    song.title || '',
+                    ...tags,
+                    song.instrument || ''
+                ].join(' ').toLowerCase();
+                if (!haystack.includes(keyword)) return false;
+            }
+
+            return true;
+        });
+
         libraryListEl.innerHTML = '';
-        exampleSongs.forEach((exSong) => {
+
+        if (filtered.length === 0) {
+            const hint = document.createElement('div');
+            hint.className = 'library-empty-hint';
+            hint.textContent = '沒有符合條件的範例曲目';
+            libraryListEl.appendChild(hint);
+            return;
+        }
+
+        filtered.forEach((exSong) => {
             const div = document.createElement('div');
-            div.className = 'song-item library-item'; 
-            div.innerHTML = `<span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${exSong.title}</span>`;
+            div.className = 'song-item library-item';
+
+            const titleSpan = document.createElement('span');
+            titleSpan.style.cssText = 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap;';
+            titleSpan.textContent = exSong.title; // 用 textContent 安全插入
+
+            div.appendChild(titleSpan);
             div.onclick = () => importExampleSong(exSong);
             libraryListEl.appendChild(div);
         });
@@ -653,12 +778,117 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    let hasWarnedSaveFailure = false; // 避免儲存空間爆滿時，每次防抖存檔失敗都重複跳出提示
+
     function saveData() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+            hasWarnedSaveFailure = false; // 這次存成功了，重置旗標，下次若又失敗會再提示一次
+        } catch (e) {
+            console.error("儲存失敗", e);
+            if (!hasWarnedSaveFailure) {
+                hasWarnedSaveFailure = true;
+                showToast("⚠️ 儲存失敗！瀏覽器儲存空間可能已滿，最新變更未存檔。建議立即匯出備份，並刪除不需要的舊樂譜。", 'error', 6000);
+            }
+        }
+    }
+
+    // --- 新增：通用防抖工具，用法與既有的 recordHistory 打字防抖一致 ---
+    function debounce(fn, delay) {
+        let timer = null;
+        return function(...args) {
+            clearTimeout(timer);
+            timer = setTimeout(() => fn.apply(this, args), delay);
+        };
+    }
+    // 停頓 400 毫秒才真正寫入 localStorage / 重繪側邊欄，避免每個字都觸發
+    const debouncedSaveData = debounce(saveData, 400);
+    const debouncedRenderSidebar = debounce(() => renderSidebar(), 400);
+
+    // 保險：分頁即將關閉或切走時，立刻把還沒寫入的變更存檔，避免遺失
+    window.addEventListener('beforeunload', () => {
+        saveData();
+    });
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') saveData();
+    });
+
+    // --- 新增：匯出所有樂譜為 JSON 備份檔 ---
+    function exportBackup() {
+        try {
+            const dataStr = JSON.stringify(appData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const dateStr = new Date().toISOString().slice(0, 10);
+            a.href = url;
+            a.download = `wesing_backup_${dateStr}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            console.error(e);
+            showToast('匯出失敗，請稍後再試', 'error');
+        }
+    }
+
+    // --- 新增：從 JSON 備份檔匯入樂譜 (加入到現有清單，不覆蓋) ---
+    function importBackup(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            let imported;
+            try {
+                imported = JSON.parse(e.target.result);
+            } catch (err) {
+                showToast('檔案格式錯誤，無法解析 JSON', 'error');
+                return;
+            }
+            if (!imported || !Array.isArray(imported.songs) || imported.songs.length === 0) {
+                showToast('檔案內容不是有效的樂譜備份，或備份內沒有樂譜', 'error');
+                return;
+            }
+            showConfirm(
+                "匯入備份",
+                `即將匯入 ${imported.songs.length} 首樂譜，加入到目前的樂譜清單中，確定繼續嗎？`,
+                () => {
+                    let importedCount = 0;
+                    imported.songs.forEach(song => {
+                        if (!song || typeof song !== 'object') return; // 跳過壞掉的項目
+                        appData.songs.push({
+                            id: generateId(), // 避免與現有 id 衝突
+                            title: typeof song.title === 'string' ? song.title : '未命名樂譜',
+                            content: typeof song.content === 'string' ? song.content : '',
+                            tempo: clampTempo(song.tempo),
+                            instrument: typeof song.instrument === 'string' ? song.instrument : 'acoustic_grand_piano',
+                            baseKey: Number.isFinite(song.baseKey) ? song.baseKey : 0,
+                            transpose: Number.isFinite(song.transpose) ? song.transpose : 0,
+                            lastModified: Date.now()
+                        });
+                        importedCount++;
+                    });
+                    saveData();
+                    renderSidebar();
+                    showToast(`成功匯入 ${importedCount} 首樂譜！`, 'success');
+                }
+            );
+        };
+        reader.onerror = () => showToast('讀取檔案失敗', 'error');
+        reader.readAsText(file);
     }
 
     function generateId() {
         return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    }
+
+    // --- 新增：統一的拍速驗證/校正，避免 0、負數、超大值等不合法輸入 ---
+    function clampTempo(value) {
+        let v = parseInt(value);
+        if (!Number.isFinite(v)) v = 100;
+        if (v < 20) v = 20;
+        if (v > 300) v = 300;
+        return v;
     }
 
     function getCurrentSong() {
@@ -748,11 +978,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return loadedInstruments[instName];
         }
         
-        if (typeof window.Soundfont === 'undefined') {
-            await loadScript('https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js');
-        }
-
         try {
+            // 將載入 soundfont-player 函式庫也納入 try/catch，避免 CDN 失敗時變成未捕捉的 rejection
+            if (typeof window.Soundfont === 'undefined') {
+                await loadScript('https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js');
+            }
+
             if (!ctx && !targetCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
@@ -769,8 +1000,6 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             const realInstName = DRUM_MAP[instName] || instName;
 
-			format: 'mp3';
-
             // 載入樂器 (指定 URL)
             const inst = await window.Soundfont.instrument(ctx || audioCtx, realInstName, {
                 nameToUrl: (name, soundfont, format) => {
@@ -781,10 +1010,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!targetCtx) {
                 loadedInstruments[instName] = inst;
             }
+            failedInstruments.delete(instName); // 若之前失敗過，這次成功了就清除記錄
             return inst;
         } catch (e) {
             console.error(`Soundfont load failed for ${instName}`, e);
             // 失敗時不拋出錯誤，而是回傳 null，避免卡死 Promise.all
+            // 每個音色只提示一次，避免播放時重複跳出同樣的提示
+            if (!failedInstruments.has(instName)) {
+                failedInstruments.add(instName);
+                showToast(`⚠️ 音色「${instName}」載入失敗，該音軌將被略過`, 'warning');
+            }
             return null;
         }
     }
@@ -820,7 +1055,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (targetInst === 'synth_drum') { freq = 250; volumeBoost = 4.0; }
         else if (targetInst === 'woodblock') { freq = 800; volumeBoost = 6.0; }
 
-        const instDef = instruments.find(i => i.val === targetInst) || instruments[0];
+        const instDef = getInstrumentDef(targetInst);
         if (instDef.type === 'soundfont') {
             // 優先使用傳入的 Player (匯出用)，否則嘗試從快取抓 (播放用)
             let player = targetPlayer;
@@ -888,19 +1123,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // [修正] 匯出功能 (同步最新的頻率計算邏輯)
     async function exportAudio() {
-        const notes = parseScore(codeInput.value);
-        if (notes.length === 0) {
-            alert("沒有可匯出的內容");
+        // 防連點：若正在匯出中，直接忽略這次點擊
+        if (isExportingAudio) {
+            showToast("匯出中，請稍候…", 'info');
             return;
         }
 
+        const notes = parseScore(codeInput.value);
+        if (notes.length === 0) {
+            showToast("沒有可匯出的內容", 'warning');
+            return;
+        }
+
+        isExportingAudio = true;
         const btn = document.getElementById('export-btn');
         const originalHtml = btn.innerHTML;
         btn.innerHTML = '<div class="icon-loading" style="display:block; width:16px; height:16px; border-color:#555; border-top-color:transparent;"></div>';
         btn.disabled = true;
 
         try {
-            const tempo = parseInt(tempoInput.value) || 100;
+            const tempo = clampTempo(tempoInput.value);
             const beatTime = 60 / tempo;
             let maxTime = 0;
             
@@ -919,7 +1161,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const offlinePlayers = {};
 
             await Promise.all(usedInstruments.map(async (instVal) => {
-                const instDef = instruments.find(i => i.val === instVal);
+                const instDef = getInstrumentDef(instVal);
                 if (instDef && instDef.type === 'soundfont') {
                     offlinePlayers[instVal] = await loadInstrument(instVal, offlineCtx);
                 }
@@ -1020,16 +1262,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (e) {
             console.error("Export failed", e);
-            alert("匯出失敗：" + e.message);
+            showToast("匯出失敗：" + e.message, 'error');
         } finally {
             btn.innerHTML = originalHtml;
             btn.disabled = false;
+            isExportingAudio = false;
         }
     }
 
     function bufferToMP3(buffer) {
         if (!window.lamejs) {
-            alert("MP3 編碼器尚未載入，請檢查網路連線。");
+            showToast("MP3 編碼器尚未載入，請檢查網路連線。", 'warning');
             throw new Error("lamejs not loaded");
         }
 
@@ -1685,6 +1928,8 @@ document.addEventListener('DOMContentLoaded', () => {
             activeSoundfontInst = loadedInstruments[currentInstrument]; 
 
             let maxEndTime = 0;
+            highlightEvents = []; // 每次播放重新收集
+            highlightPointer = 0;
 
             notes.forEach(note => {
                 if (['chordStart', 'chordEnd', 'groupStart', 'groupEnd', 'tieSymbol', 'repeatStart', 'repeatEnd'].includes(note.type)) return;
@@ -1700,15 +1945,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (note.inputStart !== undefined && note.inputEnd !== undefined) {
                     if (note.isMainTrack) {
-                        const delayMs = (noteAbsStart - now) * 1000;
-                        if (delayMs >= -50) { 
-                            const timerId = setTimeout(() => {
-                                if (!isPlaying) return;
-                                highlightInput(note.inputStart, note.inputEnd);
-                                lastPlayedNoteEnd = note.inputEnd; 
-                            }, delayMs);
-                            activeTimers.push(timerId);
-                        }
+                        // [優化] 不再對每個音符各自建立 setTimeout，改成先收集起來，
+                        // 播放時用單一 requestAnimationFrame 迴圈輪詢，避免音符密集時計時器過多造成卡頓
+                        highlightEvents.push({ time: noteAbsStart, start: note.inputStart, end: note.inputEnd });
                     }
                 }
 
@@ -1798,6 +2037,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
+            // [優化] 依時間排序後，啟動單一 requestAnimationFrame 迴圈輪詢高亮，取代大量 setTimeout
+            highlightEvents.sort((a, b) => a.time - b.time);
+            startHighlightLoop();
+
             const totalDurationSec = maxEndTime - now;
             if (totalDurationSec > 0) {
                 playbackTimer = setTimeout(() => {
@@ -1809,10 +2052,47 @@ document.addEventListener('DOMContentLoaded', () => {
         }).catch(err => {
             console.error("Playback failed:", err);
             stopMusic();
-            alert("載入樂器失敗，請檢查網路連線。");
+            showToast("載入樂器失敗，請檢查網路連線。", 'error');
         });
     }
 
+    // [新增] 單一 rAF 迴圈：跟著音訊時間走，只在真的換到下一個音符時才更新一次反白
+    // 取代原本「每個音符各自一個 setTimeout」的作法，大幅減少音符密集時的 DOM 操作次數
+    function startHighlightLoop() {
+        if (highlightRafId) cancelAnimationFrame(highlightRafId);
+
+        function tick() {
+            if (!isPlaying) return;
+            const nowT = audioCtx.currentTime;
+
+            // 一次 tick 可能同時經過好幾個很密集的音符事件，只套用「最後一個」即可 (前面的反正馬上被蓋掉，沒必要都畫)
+            let lastEvent = null;
+            while (highlightPointer < highlightEvents.length && highlightEvents[highlightPointer].time <= nowT) {
+                lastEvent = highlightEvents[highlightPointer];
+                highlightPointer++;
+            }
+            if (lastEvent) {
+                highlightInput(lastEvent.start, lastEvent.end);
+                lastPlayedNoteEnd = lastEvent.end;
+            }
+
+            if (highlightPointer < highlightEvents.length) {
+                highlightRafId = requestAnimationFrame(tick);
+            } else {
+                highlightRafId = null;
+            }
+        }
+        highlightRafId = requestAnimationFrame(tick);
+    }
+
+    function stopHighlightLoop() {
+        if (highlightRafId) {
+            cancelAnimationFrame(highlightRafId);
+            highlightRafId = null;
+        }
+        highlightEvents = [];
+        highlightPointer = 0;
+    }
 
     function highlightInput(start, end) {
         if (document.activeElement !== codeInput) {
@@ -1847,7 +2127,9 @@ document.addEventListener('DOMContentLoaded', () => {
             activeTimers.forEach(t => clearTimeout(t));
             activeTimers = [];
         }
-        
+
+        stopHighlightLoop(); // [新增] 停止播放時，同步取消 rAF 高亮輪詢迴圈
+
         if (playbackTimer) {
             clearTimeout(playbackTimer);
             playbackTimer = null;
@@ -2249,7 +2531,7 @@ document.addEventListener('DOMContentLoaded', () => {
         titleInput.value = song.title;
         codeInput.value = song.content;
         
-        currentTempo = song.tempo || 100;
+        currentTempo = clampTempo(song.tempo);
         currentInstrument = song.instrument || 'acoustic_grand_piano';
         currentBaseKey = song.baseKey || 0;
         currentTranspose = song.transpose || 0;
@@ -2258,7 +2540,7 @@ document.addEventListener('DOMContentLoaded', () => {
         baseKeySelect.value = currentBaseKey;
         updateTransposeUI();
         
-        const instObj = instruments.find(i => i.val === currentInstrument) || instruments[0];
+        const instObj = getInstrumentDef(currentInstrument);
         document.getElementById('current-inst-icon').textContent = instObj.icon;
 
         fontOutput.value = convertCodeToFont(song.content);
@@ -2271,14 +2553,20 @@ document.addEventListener('DOMContentLoaded', () => {
         appData.songs.forEach(song => {
             const div = document.createElement('div');
             div.className = `song-item ${song.id === appData.currentId ? 'active' : ''}`;
-            div.innerHTML = `
-                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">${song.title.trim() || "未命名樂譜"}</span>
-                <button class="delete-song-btn" title="刪除">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                </button>
-            `;
+
+            const titleSpan = document.createElement('span');
+            titleSpan.style.cssText = 'overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;';
+            titleSpan.textContent = song.title.trim() || "未命名樂譜"; // 用 textContent 安全插入，避免匯入的樂譜標題含有惡意 HTML/腳本
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'delete-song-btn';
+            delBtn.title = '刪除';
+            delBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>`;
+
+            div.appendChild(titleSpan);
+            div.appendChild(delBtn);
             div.onclick = () => switchSong(song.id);
-            div.querySelector('.delete-song-btn').onclick = (e) => deleteSong(song.id, e);
+            delBtn.onclick = (e) => deleteSong(song.id, e);
             songListEl.appendChild(div);
         });
     }
@@ -2386,7 +2674,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const end = codeInput.selectionEnd;
 
         if (start === end) {
-            alert("⚠️ 請先「選取」要修改的範圍！");
+            showToast("⚠️ 請先「選取」要修改的範圍！", 'warning');
             codeInput.focus();
             return;
         }
@@ -2456,7 +2744,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 檢查是否有選取範圍
         if (start === end) {
-            alert("⚠️ 請先在編輯區「選取」要取代的範圍！");
+            showToast("⚠️ 請先在編輯區「選取」要進行取代的範圍！\n(此功能僅針對選取範圍有效，以防止誤改)", 'warning');
             codeInput.focus();
             return;
         }
@@ -2465,48 +2753,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const replaceStr = replaceInput.value;
 
         if (!findStr) {
-            alert("請輸入要尋找的內容");
-            findInput.focus();
-            return;
-        }
-
-        const originalFullText = codeInput.value;
-        const selectedText = originalFullText.substring(start, end);
-
-        if (!selectedText.includes(findStr)) {
-            alert(`在選取範圍內找不到 "${findStr}"`);
-            return;
-        }
-
-        // 執行取代
-        const newSelectedText = selectedText.split(findStr).join(replaceStr);
-        const newFullText = originalFullText.substring(0, start) + newSelectedText + originalFullText.substring(end);
-
-        // 更新內容與存檔
-        codeInput.value = newFullText;
-        codeInput.dispatchEvent(new Event('input'));
-
-        // 更新選取範圍 (選取剛取代完的區域)
-        const newEnd = start + newSelectedText.length;
-        codeInput.setSelectionRange(start, newEnd);
-        codeInput.focus();
-    }
-    function replaceSelectedText() {
-        const start = codeInput.selectionStart;
-        const end = codeInput.selectionEnd;
-
-        // 檢查是否有選取範圍
-        if (start === end) {
-            alert("⚠️ 請先在編輯區「選取」要進行取代的範圍！\n(此功能僅針對選取範圍有效，以防止誤改)");
-            codeInput.focus();
-            return;
-        }
-
-        const findStr = findInput.value;
-        const replaceStr = replaceInput.value;
-
-        if (!findStr) {
-            alert("請輸入要尋找的內容");
+            showToast("請輸入要尋找的內容", 'warning');
             findInput.focus();
             return;
         }
@@ -2516,7 +2763,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 檢查選取範圍內是否有目標
         if (!selectedText.includes(findStr)) {
-            alert(`在選取範圍內找不到 "${findStr}"`);
+            showToast(`在選取範圍內找不到 "${findStr}"`, 'warning');
             return;
         }
 
@@ -2536,23 +2783,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const newEnd = start + newSelectedText.length;
         codeInput.setSelectionRange(start, newEnd);
         codeInput.focus();
-    }
-
-    function createKeys() {
-        if(!quickToolbar) return;
-        quickToolbar.innerHTML = '';
-        keys.forEach(item => {
-            const btn = document.createElement('button');
-            btn.className = 'key-btn';
-            btn.innerHTML = item.display;
-            if (item.type === 'num') btn.classList.add('num-key');
-            if (item.type === 'func') btn.classList.add('func-key');
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                handleKeyInput(codeInput, item.char);
-            });
-            quickToolbar.appendChild(btn);
-        });
     }
 
     function handleKeyInput(inputElement, char) {
@@ -2599,7 +2829,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const song = getCurrentSong();
         if (song) {
             song.content = e.target.value;
-            saveData();
+            debouncedSaveData(); // 防抖：停頓後才寫入 localStorage，避免每個字都存檔造成卡頓
             fontOutput.value = convertCodeToFont(song.content);
         }
 		updateStatusDisplay();
@@ -2611,7 +2841,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (song) {
             const convertedCode = convertFontToCode(e.target.value);
             song.content = convertedCode;
-            saveData();
+            debouncedSaveData();
             codeInput.value = convertedCode;
         }
     });
@@ -2620,8 +2850,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const song = getCurrentSong();
         if (song) {
             song.title = e.target.value;
-            saveData();
-            renderSidebar();
+            debouncedSaveData();
+            debouncedRenderSidebar(); // 防抖：停頓後才重繪側邊欄清單，避免每個字都整份重繪
         }
     });
 
@@ -2632,6 +2862,30 @@ document.addEventListener('DOMContentLoaded', () => {
         // 修正後的 exportAudio 呼叫方式應為 bufferToWave(renderedBuffer, 0)
         exportAudio();
     });
+
+    document.getElementById('export-backup-btn').addEventListener('click', () => {
+        exportBackup();
+    });
+
+    document.getElementById('import-backup-btn').addEventListener('click', () => {
+        document.getElementById('import-backup-input').click();
+    });
+
+    document.getElementById('import-backup-input').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        importBackup(file);
+        e.target.value = ''; // 重置，允許重複選同一個檔案
+    });
+
+    // 範例曲庫搜尋框：用防抖避免每個字都重繪清單
+    const debouncedLibraryRender = debounce(() => renderLibrary(), 200);
+    const librarySearchInput = document.getElementById('library-search-input');
+    if (librarySearchInput) {
+        librarySearchInput.addEventListener('input', (e) => {
+            libraryFilterText = e.target.value;
+            debouncedLibraryRender();
+        });
+    }
 
     document.getElementById('new-song-btn').addEventListener('click', () => {
         createNewSong();
@@ -2783,24 +3037,21 @@ function updateStatusDisplay() {
 
     // Settings Controls
     document.getElementById('tempo-minus').addEventListener('click', () => {
-        tempoInput.value = Math.max(40, parseInt(tempoInput.value) - 1);
-        currentTempo = parseInt(tempoInput.value);
+        currentTempo = clampTempo(parseInt(tempoInput.value) - 1);
+        tempoInput.value = currentTempo;
         updateCurrentSongSettings();
 		updateStatusDisplay();
     });
     document.getElementById('tempo-plus').addEventListener('click', () => {
-        tempoInput.value = Math.min(240, parseInt(tempoInput.value) + 1);
-        currentTempo = parseInt(tempoInput.value);
+        currentTempo = clampTempo(parseInt(tempoInput.value) + 1);
+        tempoInput.value = currentTempo;
         updateCurrentSongSettings();
 		updateStatusDisplay();
     });
 
 	tempoInput.addEventListener('change', () => {
-        let val = parseInt(tempoInput.value) || 100;
-        if (val < 20) val = 20;
-        if (val > 300) val = 300;
-        tempoInput.value = val;
-        currentTempo = val;
+        currentTempo = clampTempo(tempoInput.value);
+        tempoInput.value = currentTempo;
         updateCurrentSongSettings();
         updateStatusDisplay(); // [新增] 同步更新狀態列
     });

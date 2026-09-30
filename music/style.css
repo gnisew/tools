@@ -364,6 +364,45 @@ textarea::selection { background-color: #c2e7ff; color: #001d35; }
     .delete-song-btn { opacity: 1 !important; color: #999; padding: 10px; }
     .delete-song-btn:active { color: #b3261e; background-color: rgba(0,0,0,0.05); }
     .settings-popover { position: fixed; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%); margin-top: 0; width: 80%; max-width: 300px; z-index: 1000; box-shadow: 0 4px 20px rgba(0,0,0,0.3); max-height: 80vh; overflow-y: auto; }
+
+    /* 行動裝置狀態：顯示虛擬鍵盤切換鈕 */
+    #keyboard-toggle-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* 浮動鍵盤：手機版預設居中 */
+    .floating-keyboard {
+        left: 50%; transform: translateX(-50%);
+        bottom: 30px; right: auto;
+    }
+
+    /* 固定鍵盤 (quick-toolbar)：移至底部並加上安全區域 padding */
+    .quick-toolbar {
+        position: fixed;
+        bottom: 0;
+        left: 5px;
+        right: 5px;
+        width: 100%;
+        z-index: 150;
+
+        background-color: #f8f9fa;
+        border-top: 1px solid #ccc;
+        border-bottom: none;
+        box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
+
+        /* iPhone X+ 底部安全區域 (避免 Home Bar 擋住按鈕) */
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+        padding-top: 12px;
+
+        /* 確保按鈕好按 */
+        gap: 6px;
+    }
+
+    .editor-container textarea {
+        padding-bottom: 220px !important;
+    }
 }
 
 @media (max-width: 600px) {
@@ -453,17 +492,7 @@ textarea::selection { background-color: #c2e7ff; color: #001d35; }
 }
 
 /* 2. 行動裝置狀態 (手機/平板)：顯示 */
-/* max-width: 768px 代表螢幕寬度在 768px 以下時生效 (這是常見的平板直向/手機界線) */
-@media (max-width: 768px) {
-    #keyboard-toggle-btn {
-        /* 使用 flex 以保持與其他 icon-btn 排版一致 */
-        display: flex; 
-        
-        /* 確保按鈕不會太小，好點擊 */
-        align-items: center;
-        justify-content: center;
-    }
-}
+/* max-width: 768px 代表螢幕寬度在 768px 以下時生效 (這是常見的平板直向/手機界線)，規則已合併至檔案上方第一段 @media (max-width: 768px) */
 
 /* 當鍵盤開啟時的樣式 (可選) */
 #keyboard-toggle-btn.active {
@@ -473,6 +502,7 @@ textarea::selection { background-color: #c2e7ff; color: #001d35; }
 
 /* ==========================================
    Virtual Keyboard (虛擬鍵盤)
+   1. 固定鍵盤 (quick-toolbar)
    ========================================== */
 .quick-toolbar { 
     display: grid; 
@@ -488,18 +518,6 @@ textarea::selection { background-color: #c2e7ff; color: #001d35; }
 .quick-toolbar.hidden { 
     display: none; 
 }
-
-/* ==========================================
-   1. 固定鍵盤 (原有的 quick-toolbar)
-   ========================================== */
-.quick-toolbar { 
-    display: grid; 
-    grid-template-columns: repeat(10, 1fr); 
-    gap: 4px; padding: 8px 12px; 
-    background-color: #f8f9fa; 
-    border-bottom: 1px solid var(--border); 
-}
-.quick-toolbar.hidden { display: none; }
 
 /* ==========================================
    2. 浮動鍵盤 (全新的 Floating Keyboard)
@@ -569,13 +587,7 @@ textarea::selection { background-color: #c2e7ff; color: #001d35; }
     box-shadow: 0 2px 0 rgba(0,0,0,0.05);
 }
 
-/* 手機版優化：預設居中 */
-@media (max-width: 768px) {
-    .floating-keyboard {
-        left: 50%; transform: translateX(-50%);
-        bottom: 30px; right: auto;
-    }
-}
+/* 手機版優化：預設居中 (規則已合併至檔案上方第一段 @media (max-width: 768px)) */
 
 /* 切換模式按鈕 (進入其他模式) */
 .key-btn.mode-btn {
@@ -595,37 +607,7 @@ textarea::selection { background-color: #c2e7ff; color: #001d35; }
 }
 
 
-/* ==========================================
-   手機版優化：將固定鍵盤移至底部 (Overlay)
-   ========================================== */
-@media (max-width: 768px) {
-    
-    /* 針對固定鍵盤 (quick-toolbar) 進行定位覆寫 */
-    .quick-toolbar {
-        position: fixed;
-        bottom: 0; 
-        left: 5px; 
-        right: 5px;
-        width: 100%;        
-        z-index: 150; 
-        
-        background-color: #f8f9fa;
-        border-top: 1px solid #ccc;
-        border-bottom: none;
-        box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
-        
-        /* iPhone X+ 底部安全區域 (避免 Home Bar 擋住按鈕) */
-        padding-bottom: max(12px, env(safe-area-inset-bottom));
-        padding-top: 12px;
-        
-        /* 確保按鈕好按 */
-        gap: 6px;
-    }
-
-    .editor-container textarea {
-        padding-bottom: 220px !important; 
-    }
-}
+/* 手機版優化：將固定鍵盤移至底部 (規則已合併至檔案上方第一段 @media (max-width: 768px)) */
 
 
 /* 1. 讓浮動鍵盤內的所有按鈕字體稍微小一點 (原本是 1.1rem) */
@@ -740,4 +722,137 @@ textarea.fs-level-2 {
 textarea.fs-level-3 {
     font-size: 1.4rem !important;
     line-height: 1.5;
+}
+/* ==========================================
+   側邊欄底部：匯出/匯入備份按鈕
+   ========================================== */
+.sidebar-footer {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid #e0e3e1;
+    margin-top: auto;
+}
+
+.sidebar-footer-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 6px;
+    border: 1px solid #d8dce0;
+    border-radius: 8px;
+    background: #f8f9fa;
+    color: #444;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+    white-space: nowrap;
+}
+
+.sidebar-footer-btn:hover {
+    background: #eef1f4;
+    border-color: #0b57d0;
+    color: #0b57d0;
+}
+
+/* ==========================================
+   輕量提示訊息 (Toast)
+   ========================================== */
+#toast-container {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+    width: 100%;
+    padding: 0 16px;
+    box-sizing: border-box;
+}
+
+.app-toast {
+    pointer-events: auto;
+    max-width: 420px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    color: #fff;
+    background-color: #323232;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    opacity: 0;
+    transform: translateY(-12px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    text-align: center;
+    white-space: pre-line;
+}
+
+.app-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.app-toast-error   { background-color: #c5221f; }
+.app-toast-warning { background-color: #b06000; }
+.app-toast-success { background-color: #188038; }
+.app-toast-info    { background-color: #0b57d0; }
+
+@media (max-width: 600px) {
+    #toast-container { top: 10px; }
+    .app-toast { font-size: 0.85rem; padding: 8px 14px; max-width: 90%; }
+}
+
+/* ==========================================
+   範例曲庫：搜尋框與分類篩選
+   ========================================== */
+.library-search-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 12px;
+    margin: 0 0 10px 0;
+    border: 1px solid #d8dce0;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+}
+.library-search-input:focus { border-color: #0b57d0; }
+
+.library-category-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.library-category-chip {
+    padding: 4px 12px;
+    border: 1px solid #d8dce0;
+    border-radius: 999px;
+    background: #f8f9fa;
+    color: #444;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+    white-space: nowrap;
+}
+.library-category-chip:hover { background: #eef1f4; }
+.library-category-chip.active {
+    background: #0b57d0;
+    border-color: #0b57d0;
+    color: #fff;
+}
+
+.library-empty-hint {
+    padding: 20px 10px;
+    text-align: center;
+    color: #888;
+    font-size: 0.85rem;
 }
