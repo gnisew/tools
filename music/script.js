@@ -108,16 +108,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const saveAction = () => {
             const content = codeInput.value;
+            // [修改] 快照除了文字，也記錄原調與轉調設定
+            const snapshot = { content: content, baseKey: currentBaseKey, transpose: currentTranspose };
             
-            // 如果跟上一步一樣，就不存 (避免重複)
-            if (historyIndex >= 0 && historyStack[historyIndex] === content) return;
+            // 如果跟上一步一樣 (文字與設定都相同)，就不存 (避免重複)
+            const last = historyStack[historyIndex];
+            if (historyIndex >= 0 && last && last.content === content &&
+                last.baseKey === currentBaseKey && last.transpose === currentTranspose) return;
 
             // 如果目前不在最新的位置 (曾經 Undo 過)，則捨棄後面的紀錄 (Redo path)
             if (historyIndex < historyStack.length - 1) {
                 historyStack = historyStack.slice(0, historyIndex + 1);
             }
 
-            historyStack.push(content);
+            historyStack.push(snapshot); // [修改] 原本是 push(content)
             historyIndex++;
 
             // 限制紀錄筆數 (例如只保留最近 50 步)
@@ -143,14 +147,23 @@ document.addEventListener('DOMContentLoaded', () => {
             isUndoing = true; // 鎖定：告訴系統這次改變是「還原」，不要當作新輸入存起來
             
             historyIndex--;
-            const prevContent = historyStack[historyIndex];
+            const prev = historyStack[historyIndex]; // [修改] 改為快照物件
             
-            codeInput.value = prevContent;
+            codeInput.value = prev.content;
+            // [新增] 同步還原原調與轉調設定
+            currentBaseKey = prev.baseKey;
+            currentTranspose = prev.transpose;
+            baseKeySelect.value = currentBaseKey;
             
             // 觸發 input 事件以更新畫面 (樂譜字型、localStorage)
             // 這裡會觸發 codeInput 的 'input' listener，
             // 但因為 isUndoing = true，所以不會再次呼叫 recordHistory
             codeInput.dispatchEvent(new Event('input'));
+            
+            // [新增] 更新歌曲設定、轉調顯示與狀態列
+            updateCurrentSongSettings();
+            updateTransposeUI();
+            updateStatusDisplay();
             
             isUndoing = false; // 解鎖
         }
@@ -2187,6 +2200,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function transposeText(direction) {
+        recordHistory(true); // [新增] 轉調前先存目前狀態，避免與待存的打字合併
         let raw = codeInput.value;
         const protectedMap = [];
         
@@ -2407,6 +2421,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCurrentSongSettings();
         updateTransposeUI();
         updateStatusDisplay();
+        recordHistory(true); // [新增] 轉調後立即存快照 (文字 + 新原調)，連按兩次也各算一步
     }
 
     // 代碼轉字型
@@ -3061,6 +3076,7 @@ function updateStatusDisplay() {
         updateTransposeUI();
         updateCurrentSongSettings();
 		updateStatusDisplay();
+        recordHistory(true); // [新增]
     });
 
     document.getElementById('transpose-minus').addEventListener('click', () => {
@@ -3068,12 +3084,14 @@ function updateStatusDisplay() {
         updateTransposeUI();
         updateCurrentSongSettings();
 		updateStatusDisplay();
+        recordHistory(true); // [新增]
     });
     document.getElementById('transpose-plus').addEventListener('click', () => {
         currentTranspose = Math.min(12, currentTranspose + 1);
         updateTransposeUI();
         updateCurrentSongSettings();
 		updateStatusDisplay();
+        recordHistory(true); // [新增]
     });
 
     document.getElementById('score-transpose-down').addEventListener('click', () => transposeText(-1));
