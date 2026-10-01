@@ -3376,6 +3376,35 @@ function updateStatusDisplay() {
     // 預設開啟系統鍵盤 (true)
     let isSystemKeyboardEnabled = true;
 
+    // [新增] 判斷「浮動鍵盤 / 虛擬鋼琴鍵盤」是否正在顯示
+    function isVirtualKeyboardOpen() {
+        const fk = document.getElementById('floating-keyboard');
+        const vk = document.getElementById('vk-container');
+        const floatOpen = !!fk && !fk.classList.contains('hidden');
+        const pianoOpen = !!vk && vk.classList.contains('vk-show');
+        return floatOpen || pianoOpen;
+    }
+
+    // [新增] 統一決定編輯區的 inputmode (Android / iOS 皆支援 inputmode="none")
+    // 規則：虛擬鍵盤開啟時一律 none (不彈出系統鍵盤)；否則依「系統鍵盤切換鈕」狀態
+    function applyInputMode(allowRefocus = true) {
+        const input = document.getElementById('code-input');
+        if (!input) return;
+        const mode = (isSystemKeyboardEnabled && !isVirtualKeyboardOpen()) ? 'text' : 'none';
+        if (input.getAttribute('inputmode') === mode) return;
+        input.setAttribute('inputmode', mode);
+
+        // 行動裝置需 blur 再 focus 才會重新讀取 inputmode (並保留游標位置)
+        if (allowRefocus && document.activeElement === input) {
+            const s = input.selectionStart, e = input.selectionEnd;
+            input.blur();
+            setTimeout(() => {
+                input.focus({ preventScroll: true });
+                try { input.setSelectionRange(s, e); } catch (err) {}
+            }, 50);
+        }
+    }
+
     if (keyboardToggleBtn) {
         keyboardToggleBtn.addEventListener('click', (e) => {
             // 防止點擊按鈕導致編輯區失焦
@@ -3386,7 +3415,7 @@ function updateStatusDisplay() {
 
             if (isSystemKeyboardEnabled) {
                 // --- 開啟系統鍵盤 ---
-                input.setAttribute('inputmode', 'text'); // 或 'decimal' 視需求而定
+                applyInputMode(false); // [修改] 改由統一函式決定 (下方原本的 blur/focus 會負責刷新)
                 
                 // 更新按鈕樣式 (實心鍵盤圖示)
                 keyboardToggleBtn.classList.add('active'); // 可選：加上高亮樣式
@@ -3396,7 +3425,7 @@ function updateStatusDisplay() {
                     </svg>`;
             } else {
                 // --- 關閉系統鍵盤 (只顯示游標) ---
-                input.setAttribute('inputmode', 'none');
+                applyInputMode(false); // [修改] 改由統一函式決定
                 
                 // 更新按鈕樣式 (鍵盤打叉或空心圖示)
                 keyboardToggleBtn.classList.remove('active');
@@ -3570,6 +3599,23 @@ function updateStatusDisplay() {
             if (toggleFloatBtn) toggleFloatBtn.classList.remove('active');
         });
     }
+
+    // [新增] 浮動鍵盤 / 虛擬鋼琴開關時，自動切換系統鍵盤顯示
+    // 用 MutationObserver 監聽 class 變化，不論從哪裡開關都會同步
+    const kbPanelObserver = new MutationObserver(() => applyInputMode());
+    function observeKeyboardPanel(id) {
+        const el = document.getElementById(id);
+        if (el && !el.dataset.imObserved) {
+            el.dataset.imObserved = '1';
+            kbPanelObserver.observe(el, { attributes: true, attributeFilter: ['class'] });
+        }
+    }
+    observeKeyboardPanel('floating-keyboard');
+    // vk-container 由 virtual_keyboard.js 動態建立 (defer)，等頁面載入完再綁定
+    window.addEventListener('load', () => {
+        observeKeyboardPanel('vk-container');
+        applyInputMode();
+    });
 
     // 3. 拖曳功能 (只針對 floating-keyboard 的 .drag-handle)
     const dragHandle = document.querySelector('.drag-handle');
