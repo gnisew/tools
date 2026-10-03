@@ -88,8 +88,10 @@ function importSubtitleFile(file, kind) {
             const text = String(ev.target.result || '');
             if (kind === 'srt') {
                 items = parseSrtText(text);
+            } else if (kind === 'txt') {
+                items = parseAudacityText(text);
             } else if (typeof parseAnyToStandard === 'function') {
-                // 9_batch_converter.js 的萬能解析器：txt = Audacity 標籤、tsv = 本系統匯出的 TSV
+                // 9_batch_converter.js 的萬能解析器：tsv = 本系統匯出的 TSV
                 items = parseAnyToStandard(text, kind, file.name);
             }
         } catch (err) {
@@ -140,4 +142,47 @@ function srtToTsv(text) {
     return parseSrtText(text)
         .map(it => `${it.label}\t${it.start.toFixed(3)}\t${it.end.toFixed(3)}\t${it.text.replace(/\t/g, ' ')}`)
         .join('\n');
+}
+
+// ================= ★ Audacity 標籤文字（.txt）：開始<Tab>結束<Tab>標籤文字 ★ =================
+// Audacity 匯出的標籤檔每行 = 開始秒數 \t 結束秒數 \t 文字；
+// 若有頻率範圍行（以反斜線 \ 開頭）一律略過。開始＝結束的「點標籤」，結束時間留空，
+// 之後由系統用下一個標記的開始時間自動推算。
+const AUDACITY_LINE_RE = /^-?\d+(?:\.\d+)?\t-?\d+(?:\.\d+)?(?:\t|$)/;
+
+function looksLikeAudacity(text) {
+    const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/)
+        .filter(l => l.trim() !== '' && !l.startsWith('\\'));
+    return lines.length > 0 && lines.every(l => AUDACITY_LINE_RE.test(l));
+}
+
+function parseAudacityText(raw) {
+    const items = [];
+    String(raw || '').replace(/^\uFEFF/, '').split(/\r?\n/).forEach(line => {
+        if (line.trim() === '' || line.startsWith('\\') || !AUDACITY_LINE_RE.test(line)) return;
+        const parts = line.split('\t');
+        const start = parseFloat(parts[0]);
+        const end = parseFloat(parts[1]);
+        items.push({
+            start,
+            end: end > start ? end : null,
+            text: parts.slice(2).join(' ').replace(/\s+/g, ' ').trim()
+        });
+    });
+    items.sort((a, b) => a.start - b.start);
+    return items.map((it, i) => ({ label: makeSequentialLabel(i), start: it.start, end: it.end, text: it.text }));
+}
+
+function itemsToTsv(items) {
+    return items
+        .map(it => `${it.label}\t${it.start.toFixed(3)}\t${it.end === null ? '' : it.end.toFixed(3)}\t${it.text.replace(/\t/g, ' ')}`)
+        .join('\n');
+}
+
+// ---------- 給貼上文字解析使用的統一入口（SRT 或 Audacity 都能辨識） ----------
+function looksLikeTimedText(text) {
+    return looksLikeSrt(text) || looksLikeAudacity(text);
+}
+function timedTextToTsv(text) {
+    return looksLikeSrt(text) ? srtToTsv(text) : itemsToTsv(parseAudacityText(text));
 }

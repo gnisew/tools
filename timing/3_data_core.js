@@ -235,8 +235,8 @@ function attachMarkersToParsedList(labels, textMap, markers) {
 function executeParsing() {
     let rawText = rawTextInput.value.trim(); 
     rawText = rawText.replace(/\\n/g, '\n'); 
-    // ★ 新增：貼上的是 SRT 字幕文字時，先轉成帶時間的 TSV，走下方既有的 TSV 載入流程
-    if (typeof looksLikeSrt === 'function' && looksLikeSrt(rawText)) rawText = srtToTsv(rawText);
+    // ★ 新增：貼上的是 SRT 字幕或 Audacity 標籤文字時，先轉成帶時間的 TSV，走下方既有的 TSV 載入流程
+    if (typeof looksLikeTimedText === 'function' && looksLikeTimedText(rawText)) rawText = timedTextToTsv(rawText);
     const parseMode = currentParseMode;
     const rawLines = rawText.split(/\r?\n/).filter(p => p.trim() !== ''); 
     const isTSV = rawLines.some(line => /^[A-Z]\d{2,}\t/.test(line));
