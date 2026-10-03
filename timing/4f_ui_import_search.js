@@ -190,6 +190,14 @@ previewParseBtn?.addEventListener('click', () => {
     let rawText = rawTextInput.value.trim().replace(/\\n/g, '\n');
     if (!rawText) return showToast('請先貼上文字', 'error');
     
+    // ★ 新增：貼上的是 SRT 字幕文字 → 原地轉成「標籤/開始/結束/文字」表格預覽
+    if (typeof looksLikeSrt === 'function' && looksLikeSrt(rawText)) {
+        const tsv = srtToTsv(rawText);
+        if (!tsv) return showToast('讀不到有效的 SRT 時間軸，請確認格式', 'error');
+        rawTextInput.value = tsv;
+        return showToast('已辨識為 SRT 字幕！確認無誤後請點擊「確定載入」', 'success');
+    }
+    
     // 如果已經是包含 Tab 的表格格式，就提示使用者不用再點了
     const rawLines = rawText.split(/\r?\n/).filter(p => p.trim() !== '');
     if (rawLines.some(line => /^[A-Z]\d{2,}\t/.test(line))) {

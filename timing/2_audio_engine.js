@@ -422,7 +422,7 @@ async function performAutoSegmentationCore() {
         return showToast('請先載入音檔並等待分析完成', 'error');
     }
 
-    const buffer = wavesurfer.getDecodedData();
+    const buffer = (window.VocalEnhance ? VocalEnhance.getAnalysisBuffer(wavesurfer.getDecodedData()) : wavesurfer.getDecodedData()); // ★ 修改：人聲強化啟用時，用壓低配樂的版本偵測靜音
     const sampleRate = buffer.sampleRate;
     const length = buffer.length;
     
@@ -668,7 +668,7 @@ function performMissedSegmentCheck() {
 
     clearMissedRegions();
 
-    const buffer = wavesurfer.getDecodedData();
+    const buffer = (window.VocalEnhance ? VocalEnhance.getAnalysisBuffer(wavesurfer.getDecodedData()) : wavesurfer.getDecodedData()); // ★ 修改：同上
     const sampleRate = buffer.sampleRate;
     const length = buffer.length;
     const numChannels = buffer.numberOfChannels;
@@ -919,7 +919,7 @@ function createBlankLabelsIfListEmpty(count) {
 async function performRegionAutoSegmentation(startTime, endTime) {
     if (!wavesurfer || !wavesurfer.getDecodedData()) return showToast('請先載入音檔', 'error');
 
-    const buffer = wavesurfer.getDecodedData();
+    const buffer = (window.VocalEnhance ? VocalEnhance.getAnalysisBuffer(wavesurfer.getDecodedData()) : wavesurfer.getDecodedData()); // ★ 修改：同上
     const sampleRate = buffer.sampleRate;
     const numChannels = buffer.numberOfChannels;
     const channels = [];

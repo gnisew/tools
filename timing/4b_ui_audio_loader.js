@@ -53,13 +53,26 @@ function handleSingleLocalFile(file) {
         // =========================================================
         // ★ 記憶體優化 1：在指派新音檔前，先釋放舊的 Blob 網址
         // =========================================================
+        // ★ 修改：不要在這裡立刻註銷舊網址。舊的 WaveSurfer 可能還在非同步讀取它，
+        //   提前註銷會出現「Failed to fetch. URL scheme "blob" is not supported」。
+        //   改成先記住，等新音檔載入後才釋放（做法與 2_audio_engine.js 剪裁流程一致）。
         const oldSrc = audioPlayer.src;
-        if (oldSrc && oldSrc.startsWith('blob:')) {
-            URL.revokeObjectURL(oldSrc);
-        }
 
         audioPlayer.src = URL.createObjectURL(fileToLoad); 
         audioPlayer.load();
+
+        // ★ 新增：延後註銷舊的 Blob 網址（新音檔 loadeddata 後釋放，另有 5 秒保險）
+        if (oldSrc && oldSrc.startsWith('blob:') && oldSrc !== audioPlayer.src) {
+            let revoked = false;
+            const revokeOldBlob = () => {
+                if (revoked) return;
+                revoked = true;
+                URL.revokeObjectURL(oldSrc);
+                audioPlayer.removeEventListener('loadeddata', revokeOldBlob);
+            };
+            audioPlayer.addEventListener('loadeddata', revokeOldBlob, { once: true });
+            setTimeout(revokeOldBlob, 5000);
+        }
         // ★ 新增：量測「使用者原本選取的檔案」(file，而非可能已轉成 WAV 的
         // fileToLoad) 之位元率，供之後匯出 MP3 時自動比照原始畫質。
         recordOriginalBitrate(file);

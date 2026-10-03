@@ -484,6 +484,21 @@
                         Tab 跳句時自動播放
                     </label>
                 </div>
+
+                <!-- ★ 新增：人聲強化（壓抑配樂），邏輯在 2a_vocal_enhance.js -->
+                <div class="setting-block">
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="vocalEnhanceCheck" class="setting-checkbox">
+                        人聲強化（壓抑配樂，僅影響播放）
+                    </label>
+                    <div class="setting-indent">
+                        <label style="font-size: 0.85rem; color: #555; display: flex; align-items: center; gap: 6px;">
+                            強度
+                            <input aria-label="人聲強化強度" type="range" id="vocalEnhanceStrength" min="0" max="100" step="5" value="60" style="flex:1;">
+                            <span id="vocalEnhanceStrengthLabel" style="min-width:36px; text-align:right;">60%</span>
+                        </label>
+                    </div>
+                </div>
             </div>
             <div class="sidebar-group">
                 <h4><span class="material-icons" aria-hidden="true">playlist_add</span><span class="setting-num" aria-hidden="true">四、</span>新增標記時的列表</h4>
@@ -1317,6 +1332,7 @@
     <script src="1a_audio_store_idb.js"></script>
     <script src="1c_languages.js"></script>
     <script src="2_audio_engine.js"></script>
+    <script src="2a_vocal_enhance.js"></script>
     <script src="3_data_core.js"></script>
     <script src="3a_media_groups_core.js"></script>
     <script src="4a_ui_title_misc.js"></script>
@@ -1335,6 +1351,7 @@
 	<script src="10_subtitle_theater.js"></script>
     <script src="4k_ui_url_params.js"></script>
     <script src="4l_ui_list_mode_menu.js"></script>
+	<script src="4m_ui_import_srt.js"></script>
 	
 </body>
 </html>
