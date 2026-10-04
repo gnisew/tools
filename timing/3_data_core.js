@@ -119,6 +119,9 @@ function loadFromStorage() {
         mediaGroups = [];
     }
 
+    // ★ 多語字幕開關不記憶：重新整理後，若資料至少 3 句含分隔字元就自動還原啟用（靜默，不跳提示）
+    if (typeof autoEnableMultiLangIfNeeded === 'function') autoEnableMultiLangIfNeeded({ notify: false, render: false });
+
     if ((allLabelsOrdered.length > 0 || localFileName || savedUrl) && typeof renderSentenceList === 'function') {
         renderSentenceList(); 
     }
@@ -400,6 +403,8 @@ function executeParsing() {
     renderSentenceList(); 
     if (typeof renderAllRegions === 'function') renderAllRegions(); // 確保聲波圖也跟著更新標籤顯示
     saveToStorage(); 
+    // ★ 貼上／載入的文字至少 3 句含分隔字元 → 自動啟用多語字幕並提示
+    if (typeof autoEnableMultiLangIfNeeded === 'function') autoEnableMultiLangIfNeeded();
     rawTextInput.value = ''; 
 }
 

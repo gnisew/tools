@@ -495,6 +495,45 @@ if (timeDecimalSelect) {
 }
 
 
+// ================= 時間顯示格式／內容設定（原「檢視」選單的時間標記，已移到設定） =================
+// timeFormatMode: 'clock' = 00:00.0（預設）、'seconds' = 秒數數字
+// timeContentMode: 'full' 完整(預設)、'range' 頭尾、'start' 開頭、'duration' 長度
+let timeFormatMode = localStorage.getItem('tagger_timeFormat') === 'seconds' ? 'seconds' : 'clock';
+let timeContentMode = ['full', 'range', 'start', 'duration'].includes(localStorage.getItem('tagger_timeContent'))
+    ? localStorage.getItem('tagger_timeContent') : 'full';
+
+// 依目前「顯示為」設定，把秒數轉成要顯示的字串
+function formatListTime(t) {
+    const d = timeDecimalPlaces;
+    if (timeFormatMode === 'seconds') return t.toFixed(d);
+    const r = Number(t.toFixed(d)); // 先四捨五入，避免 59.96 顯示成 00:60.0
+    const m = Math.floor(r / 60);
+    const sec = (r - m * 60).toFixed(d).padStart(d > 0 ? d + 3 : 2, '0');
+    return String(m).padStart(2, '0') + ':' + sec;
+}
+
+// 長度專用：字幕長度通常不到 60 秒，分鐘為 0 時省略「00:」，只顯示秒（例如 02.5）；
+// 滿 60 秒才用分:秒（例如 01:02.5）。「秒數數字」模式維持原樣。
+function formatListDuration(t) {
+    if (timeFormatMode === 'seconds') return formatListTime(t);
+    const d = timeDecimalPlaces;
+    const r = Number(t.toFixed(d));
+    if (r < 60) return r.toFixed(d).padStart(d > 0 ? d + 3 : 2, '0');
+    return formatListTime(t);
+}
+
+[['timeFormatSelect', () => timeFormatMode, v => { timeFormatMode = v; localStorage.setItem('tagger_timeFormat', v); }],
+ ['timeContentSelect', () => timeContentMode, v => { timeContentMode = v; localStorage.setItem('tagger_timeContent', v); }]
+].forEach(([id, get, set]) => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    sel.value = get();
+    sel.addEventListener('change', (e) => {
+        set(e.target.value);
+        if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
+    });
+});
+
 // ================= 播放速度選單控制 =================
 const speedMenuToggleBtn = document.getElementById('speedMenuToggleBtn');
 const speedMenu = document.getElementById('speedMenu');

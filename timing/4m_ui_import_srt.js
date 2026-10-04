@@ -71,6 +71,8 @@ function applyImportedItems(items, sourceName) {
     sentenceTextMap = textMap;
     timeDataMap = timeMap;
     saveToStorage();
+    // ★ 匯入的字幕至少 3 句含分隔字元 → 自動啟用多語字幕並提示（下面會統一重繪，這裡不重繪）
+    if (typeof autoEnableMultiLangIfNeeded === 'function') autoEnableMultiLangIfNeeded({ render: false });
 
     if (typeof renderSentenceList === 'function') renderSentenceList();
     if (typeof renderAllRegions === 'function') renderAllRegions();

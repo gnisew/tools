@@ -1572,7 +1572,14 @@ async function startLocalAiBatchTranscribe(targetLabels) {
                         const textDisplay = itemDiv.querySelector('.sentence-text-display');
                         const curLangViewIndex = (typeof getCurrentLangViewIndex === 'function') ? getCurrentLangViewIndex() : null;
                         const shownText = (curLangViewIndex !== null && typeof getLang === 'function') ? getLang(newFullText, curLangViewIndex) : newFullText;
-                        if (textDisplay) textDisplay.textContent = shownText;
+                        if (typeof isLangTableView === 'function' && isLangTableView()) {
+                            // ★ 新增：並排表格檢視 → 逐格更新（不能把整串原始文字塞進第一格）
+                            itemDiv.querySelectorAll('.sentence-text-display[data-lang-idx]').forEach(cell => {
+                                const seg = getLang(newFullText, parseInt(cell.dataset.langIdx, 10));
+                                cell.textContent = seg;
+                                cell.classList.toggle('is-empty-cell', seg.trim() === '');
+                            });
+                        } else if (textDisplay) textDisplay.textContent = shownText;
                         itemDiv.dataset.rawText = newFullText;
 
                         const deleteBtn = Array.from(itemDiv.querySelectorAll('button')).find(btn => btn.textContent.includes('刪除'));

@@ -25,14 +25,16 @@
 // ================= ★ 啟用開關、分隔字元、語言名稱設定（存在 localStorage，跨重整保留） ★ =================
 const LANG_DEFAULT_DELIMITER = '|'; // 預設分隔字元：直線 |（比反斜線更不會跟 \n 等既有跳脫字元衝突）
 
-// 多語言字幕功能開關：預設不啟用，避免影響舊專案；啟用後才會真正切割/合併多語言文字
-let langMultiEnabled = localStorage.getItem('tagger_langMultiEnabled') === 'true';
+// 多語言字幕功能開關：每次開啟網頁一律預設「不啟用」，且不記憶在 localStorage。
+// 之後由三種方式決定：使用者在「設定 > 多語字幕」自己勾選、載入的 JSON 專案檔有記錄、
+// 或載入的字幕至少 3 句都用分隔字元分割同句字幕時自動啟用（見檔案最下方）。
+let langMultiEnabled = false;
+localStorage.removeItem('tagger_langMultiEnabled'); // 清掉舊版留下的記憶，避免殘留
 
 function getLangMultiEnabled() { return langMultiEnabled; }
 
 function setLangMultiEnabled(enabled) {
     langMultiEnabled = !!enabled;
-    localStorage.setItem('tagger_langMultiEnabled', langMultiEnabled ? 'true' : 'false');
     return langMultiEnabled;
 }
 
@@ -93,6 +95,48 @@ function getLangCount() {
     return maxCount;
 }
 
+// ================= ★ 並排表格檢視（列表模式的第四種語言檢視） ★ =================
+// 檢視模式值 'table'：每一列的文字區塊拆成 N 個欄位（每個語言一欄）。
+// getCurrentLangViewIndex() 對 'table' 仍回傳 null（parseInt('table') 為 NaN），
+// 所以其他沒改到的程式會把它當成「全部語言」處理，不會壞掉。
+const LANG_TABLE_MAX_COLS = 3; // 表格最多同時顯示幾欄
+let langTableCols = (() => {
+    try {
+        const a = JSON.parse(localStorage.getItem('tagger_langTableCols'));
+        return Array.isArray(a) ? a.filter(n => Number.isInteger(n) && n >= 0) : null;
+    } catch (e) { return null; }
+})();
+
+// 表格檢視是否「真的生效」：模式是 table、已啟用多語字幕、且語言數大於 1，否則一律退回全部語言
+// （不改動已記憶的模式值，所以之後自動偵測成功時會自動回到表格）
+function isLangTableView() {
+    return langViewMode === 'table' && getLangMultiEnabled() && getLangCount() > 1;
+}
+
+// 目前表格要顯示哪幾個語言（索引陣列，由小到大，最多 LANG_TABLE_MAX_COLS 個）
+function getLangTableColumns() {
+    const count = getLangCount();
+    let cols = (langTableCols || []).filter(i => i < count);
+    if (cols.length < 2) cols = Array.from({ length: Math.min(count, LANG_TABLE_MAX_COLS) }, (_, i) => i);
+    return [...new Set(cols)].sort((a, b) => a - b).slice(0, LANG_TABLE_MAX_COLS);
+}
+
+// 勾選／取消某個語言欄位。超過上限或少於 2 欄時不接受並回傳 false
+function toggleLangTableColumn(i) {
+    const cols = getLangTableColumns();
+    const at = cols.indexOf(i);
+    if (at > -1) {
+        if (cols.length <= 2) return false;
+        cols.splice(at, 1);
+    } else {
+        if (cols.length >= LANG_TABLE_MAX_COLS) return false;
+        cols.push(i);
+    }
+    langTableCols = cols.sort((a, b) => a - b);
+    localStorage.setItem('tagger_langTableCols', JSON.stringify(langTableCols));
+    return true;
+}
+
 // ================= ★ 核心四函式 ★ =================
 
 // 依分隔字元把一整串文字切成陣列。text 為 undefined/null 時視為空字串。
@@ -126,4 +170,76 @@ function setLang(text, i, newText) {
 function isBlank(text) {
     if (!text) return true;
     return splitLangs(text).every(seg => seg.trim() === '');
+}
+
+// ================= ★ 載入字幕時：自動偵測／依專案檔還原「啟用多語字幕」 ★ =================
+// 因為開關不再記憶，所以任何「載入字幕」的入口（JSON、SRT、TSV、Audacity、貼上文字、重新整理後還原）
+// 都呼叫下面的函式，讓多語字幕資料載入後能正確以多語顯示。
+const LANG_AUTO_DETECT_MIN_SENTENCES = 3; // 至少幾句含分隔字元，才自動啟用
+
+// 數出有幾句「用分隔字元分割成 2 段以上，且至少有一段有內容」
+function countMultiLangSentences(textMap, labels) {
+    const delim = getLangDelimiter();
+    const map = textMap || {};
+    let n = 0;
+    (labels || Object.keys(map)).forEach(lbl => {
+        const segs = String(map[lbl] || '').split(delim);
+        if (segs.length >= 2 && segs.some(s => s.trim() !== '')) n++;
+    });
+    return n;
+}
+
+// 讓設定頁的勾選、分隔字元欄位、語言選單，以及（需要時）列表畫面跟目前狀態一致
+function syncLangMultiUI(enabled, render = true) {
+    const chk = document.getElementById('langMultiEnableCheck');
+    if (chk) chk.checked = !!enabled;
+    const delimInput = document.getElementById('langDelimiterInput');
+    if (delimInput) delimInput.value = getLangDelimiter();
+    if (typeof applyLangMultiEnabledUI === 'function') applyLangMultiEnabledUI(!!enabled);
+    else if (typeof updateLangViewMenuLabels === 'function') updateLangViewMenuLabels();
+    if (render) {
+        if (typeof renderSentenceList === 'function') renderSentenceList();
+        if (typeof isScriptMode !== 'undefined' && isScriptMode && typeof populateScriptEditor === 'function') populateScriptEditor();
+        if (typeof renderAllRegions === 'function') renderAllRegions();
+    }
+}
+
+// 延遲一下再提示，避免被「載入成功」之類同時跳出的提示蓋掉
+function notifyLangMultiEnabled(message) {
+    setTimeout(() => {
+        if (typeof showToast === 'function') showToast(message, 'success');
+    }, 2000);
+}
+
+// 目前資料至少有 3 句含分隔字元 → 自動啟用並提示。已啟用或不符合條件時什麼都不做。
+// opts.notify：是否跳提示（重新整理後的靜默還原用 false）；opts.render：是否重繪畫面
+function autoEnableMultiLangIfNeeded(opts = {}) {
+    const { notify = true, render = true } = opts;
+    if (getLangMultiEnabled()) return false;
+    if (typeof sentenceTextMap !== 'object' || !sentenceTextMap) return false;
+    const labels = (typeof allLabelsOrdered !== 'undefined' && Array.isArray(allLabelsOrdered)) ? allLabelsOrdered : null;
+    if (countMultiLangSentences(sentenceTextMap, labels) < LANG_AUTO_DETECT_MIN_SENTENCES) return false;
+    setLangMultiEnabled(true);
+    syncLangMultiUI(true, render);
+    if (notify) notifyLangMultiEnabled('偵測到多語字幕，已自動啟用（可在「設定 > 多語字幕」查看或關閉）');
+    return true;
+}
+
+// 載入 JSON 專案檔時呼叫：專案檔有記錄就照記錄；舊專案檔沒有記錄就先關閉，再用自動偵測判斷。
+// settings 即 JSON 裡的 settings 物件（可能為 undefined）。
+function applyLangMultiFromProject(settings, opts = {}) {
+    const { render = true } = opts;
+    if (settings && typeof settings.langMultiEnabled === 'boolean') {
+        if (typeof settings.langDelimiter === 'string' && settings.langDelimiter) setLangDelimiter(settings.langDelimiter);
+        const wasEnabled = getLangMultiEnabled();
+        setLangMultiEnabled(settings.langMultiEnabled);
+        syncLangMultiUI(settings.langMultiEnabled, render);
+        if (settings.langMultiEnabled && !wasEnabled) {
+            notifyLangMultiEnabled('此專案使用多語字幕，已自動啟用（可在「設定 > 多語字幕」查看或關閉）');
+        }
+        return;
+    }
+    setLangMultiEnabled(false);
+    syncLangMultiUI(false, false);
+    autoEnableMultiLangIfNeeded({ notify: true, render });
 }

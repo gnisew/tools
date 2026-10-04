@@ -475,12 +475,6 @@ document.getElementById('fontToggleBtn')?.addEventListener('click', (e) => {
     document.getElementById('fontToggleBtn').innerHTML = `<span class="material-icons">format_size</span> 字體大小 (${fontSizes[currentFontIndex]})`; 
 });
 
-document.getElementById('timeDisplayToggleBtn')?.addEventListener('click', (e) => { 
-    e.stopPropagation();
-    currentTimeModeIndex = (currentTimeModeIndex + 1) % timeModes.length; 
-    document.getElementById('timeDisplayToggleBtn').innerHTML = `<span class="material-icons">schedule</span> 時間標記 (${timeModes[currentTimeModeIndex].label})`; 
-    if(typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays(); 
-});
 
 // ================= ★ 修改：隱藏 / 恢復「聲波區塊」與「編輯區區塊」（兩者不可同時隱藏） ★ =================
 // 「隱藏」只是把面板收起來，資料/播放狀態完全不受影響；收起後改用左下角常駐圖示恢復。

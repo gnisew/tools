@@ -108,7 +108,13 @@ function generateJSON() {
         allLabelsOrdered: allLabelsOrdered,
         sentenceTextMap: sentenceTextMap,
         timeDataMap: timeDataMap,
-        settings: { currentParseMode: currentParseMode, currentSortMode: currentSortMode },
+        // ★ 新增：記錄是否啟用多語字幕與分隔字元，匯入時才能還原成一樣的顯示狀態
+        settings: {
+            currentParseMode: currentParseMode,
+            currentSortMode: currentSortMode,
+            langMultiEnabled: (typeof getLangMultiEnabled === 'function') ? getLangMultiEnabled() : false,
+            langDelimiter: (typeof getLangDelimiter === 'function') ? getLangDelimiter() : '|'
+        },
         // ★ 新增：跨句圖片群組。圖片為網址參照（imageUrl），JSON 本身就完整攜帶圖片資訊，
         //   換瀏覽器／換電腦匯入也不會遺失縮圖。
         mediaGroups: (typeof mediaGroups !== 'undefined' && Array.isArray(mediaGroups)) ? mediaGroups : []

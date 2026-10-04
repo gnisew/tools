@@ -690,6 +690,8 @@ importProjectInput?.addEventListener('change', (e) => {
                 timeDataMap = data.timeDataMap || {};
                 // ★ 新增：舊專案 JSON 沒有 mediaGroups 欄位時，預設空陣列，完全相容舊專案
                 mediaGroups = Array.isArray(data.mediaGroups) ? data.mediaGroups : [];
+                // ★ 多語字幕：專案檔有記錄「是否啟用」就照記錄；舊專案檔沒有記錄則自動偵測（後面會統一重繪，這裡不重繪）
+                if (typeof applyLangMultiFromProject === 'function') applyLangMultiFromProject(data.settings, { render: false });
                 
                 if (data.title) {
                     localStorage.setItem('tagger_projectTitle', data.title);

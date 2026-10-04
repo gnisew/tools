@@ -34,6 +34,8 @@ function syncListModeMenuUI() {
     document.querySelectorAll('#listModeMenu [data-list-mode]').forEach(el => {
         el.classList.toggle('active', el.dataset.listMode === mode);
     });
+    // ★ 新增：「語言」選單只在列表模式顯示，模式一變就同步
+    if (typeof updateLangMenuVisibility === 'function') updateLangMenuVisibility();
 }
 
 // 離開目前模式（回到單句列表）

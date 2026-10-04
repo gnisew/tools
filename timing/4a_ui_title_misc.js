@@ -413,22 +413,70 @@ function rebuildLangViewMenuItems() {
         item.appendChild(nameSpan);
         dynamicContainer.appendChild(item);
     }
+
+    // ★ 新增：「並排表格」項目（至少 2 種語言才出現）
+    if (count > 1) {
+        const tableItem = document.createElement('div');
+        tableItem.className = 'custom-dropdown-item';
+        tableItem.setAttribute('data-lang-value', 'table');
+        const tChk = document.createElement('input');
+        tChk.type = 'checkbox';
+        tChk.className = 'lang-menu-checkbox';
+        tChk.style.cssText = 'margin-right:6px; pointer-events:none;';
+        tChk.checked = (currentMode === 'table');
+        const tName = document.createElement('span');
+        tName.textContent = '並排表格';
+        tableItem.append(tChk, tName);
+        dynamicContainer.appendChild(tableItem);
+
+        // 語言數超過表格欄數上限、且目前是表格檢視時，列出「欄位」勾選（最多 3 欄、至少 2 欄）
+        const maxCols = (typeof LANG_TABLE_MAX_COLS !== 'undefined') ? LANG_TABLE_MAX_COLS : 3;
+        if (currentMode === 'table' && count > maxCols && typeof getLangTableColumns === 'function') {
+            const shown = getLangTableColumns();
+            dynamicContainer.appendChild(document.createElement('hr'));
+            for (let i = 0; i < count; i++) {
+                const colItem = document.createElement('div');
+                colItem.className = 'custom-dropdown-item';
+                colItem.setAttribute('data-lang-col', String(i));
+                const cChk = document.createElement('input');
+                cChk.type = 'checkbox';
+                cChk.className = 'lang-menu-checkbox';
+                cChk.style.cssText = 'margin-right:6px; pointer-events:none;';
+                cChk.checked = shown.includes(i);
+                const cName = document.createElement('span');
+                cName.textContent = '欄位：' + ((typeof getLangName === 'function') ? getLangName(i) : `語言${i + 1}`);
+                colItem.append(cChk, cName);
+                dynamicContainer.appendChild(colItem);
+            }
+        }
+    }
 }
 
 // 依目前的語言檢視模式，更新子選單裡的項目，以及「語言」按鈕上顯示的目前模式。
 // 未啟用多語字幕時，直接隱藏整個「語言」按鈕（只有一種語言，沒有切換的意義）。
+// ★ 新增：「語言」按鈕只在「列表」模式顯示。單句全文／跨句群組／多語字幕模式用不到語言檢視，
+//   所以直接隱藏（getCurrentListMode 定義在 4l，尚未載入時視為列表模式）。
+function updateLangMenuVisibility() {
+    if (!langMenuContainer) return;
+    const enabled = (typeof getLangMultiEnabled === 'function') ? getLangMultiEnabled() : false;
+    const inListMode = (typeof getCurrentListMode === 'function') ? (getCurrentListMode() === 'list') : true;
+    langMenuContainer.style.display = (enabled && inListMode) ? 'inline-block' : 'none';
+    if (!(enabled && inListMode) && langViewMenu) langViewMenu.classList.remove('show');
+}
+
 function updateLangViewMenuLabels() {
     rebuildLangViewMenuItems();
     // 聲波圖「顯示哪個語言」的設定選項，跟這裡共用同一套語言數量偵測，一併同步更新
     if (typeof rebuildRegionTextLangOptions === 'function') rebuildRegionTextLangOptions();
 
-    const enabled = (typeof getLangMultiEnabled === 'function') ? getLangMultiEnabled() : false;
-    if (langMenuContainer) langMenuContainer.style.display = enabled ? 'inline-block' : 'none';
+    updateLangMenuVisibility(); // ★ 修改：顯示與否改由這個函式統一判斷（要啟用多語字幕、且在列表模式）
     if (langMenuBtn) {
         const mode = (typeof getLangViewMode === 'function') ? getLangViewMode() : 'raw';
         const label = (mode === 'raw')
             ? '語言全'
-            : ((typeof getLangName === 'function') ? getLangName(parseInt(mode, 10)) : mode);
+            : (mode === 'table')
+                ? ((typeof isLangTableView === 'function' && isLangTableView()) ? '並排表格' : '語言全')
+                : ((typeof getLangName === 'function') ? getLangName(parseInt(mode, 10)) : mode);
         langMenuBtn.innerHTML = `<span class="material-icons">translate</span> ${label}`;
     }
 }
@@ -439,6 +487,18 @@ updateLangViewMenuLabels();
 langViewMenu?.addEventListener('click', (e) => {
     const item = e.target.closest('.custom-dropdown-item');
     if (!item || !langViewMenu.contains(item)) return;
+    // ★ 新增：表格欄位勾選（不關閉選單，方便連續勾選）
+    const colVal = item.getAttribute('data-lang-col');
+    if (colVal !== null) {
+        e.stopPropagation();
+        if (typeof toggleLangTableColumn === 'function' && !toggleLangTableColumn(parseInt(colVal, 10))) {
+            showToast(`表格最多顯示 ${LANG_TABLE_MAX_COLS} 欄，且至少要保留 2 欄`, 'error');
+        }
+        updateLangViewMenuLabels();
+        if (typeof renderSentenceList === 'function') renderSentenceList();
+        return;
+    }
+
     const value = item.getAttribute('data-lang-value');
     if (value === null) return;
 
@@ -448,7 +508,7 @@ langViewMenu?.addEventListener('click', (e) => {
 
     if (typeof renderSentenceList === 'function') renderSentenceList();
 
-    const modeName = (value === 'raw') ? '全部語言' : (typeof getLangName === 'function' ? getLangName(parseInt(value, 10)) : value);
+    const modeName = (value === 'raw') ? '全部語言' : (value === 'table') ? '並排表格' : (typeof getLangName === 'function' ? getLangName(parseInt(value, 10)) : value);
     showToast(`已切換為：語言檢視 - ${modeName}`, 'normal');
 });
 

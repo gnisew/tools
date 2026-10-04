@@ -590,6 +590,28 @@ function renderHighlights() {
         
         for (const label in labelMatches) {
             const itemDiv = document.getElementById(`item-${label}`);
+            // ★ 新增：並排表格檢視 → 每個語言各自一格，命中位置本來就是「該語言片段內」的位置，逐格塗色
+            if (typeof isLangTableView === 'function' && isLangTableView()) {
+                const full = sentenceTextMap[label] || '';
+                const byLang = {};
+                labelMatches[label].forEach(m => { (byLang[m.langIdx] = byLang[m.langIdx] || []).push(m); });
+                for (const li in byLang) {
+                    const cell = itemDiv?.querySelector(`.sentence-text-display[data-lang-idx="${li}"]`);
+                    if (!cell) continue; // 該語言欄位沒顯示在表格上（超過 3 欄時）
+                    const seg = getLang(full, parseInt(li, 10));
+                    let cHtml = ''; let cLast = 0;
+                    byLang[li].forEach(m => {
+                        cHtml += escapeHtml(seg.substring(cLast, m.start));
+                        const markClass = m.globalIdx === searchEngine.currentIndex ? 'list-mark active' : 'list-mark';
+                        cHtml += `<mark class="${markClass}">${escapeHtml(seg.substring(m.start, m.end))}</mark>`;
+                        cLast = m.end;
+                    });
+                    cHtml += escapeHtml(seg.substring(cLast));
+                    cell.innerHTML = cHtml;
+                }
+                searchPaintedLabels.add(label);
+                continue;
+            }
             const display = itemDiv?.querySelector('.sentence-text-display');
             if (!display) continue;
             
@@ -619,6 +641,14 @@ function clearAllHighlights() {
         searchEngine.matches.forEach(m => { if (m.label) affectedLabels.add(m.label); });
     }
     affectedLabels.forEach(label => {
+        // ★ 新增：並排表格檢視 → 逐格還原成各語言片段
+        if (typeof isLangTableView === 'function' && isLangTableView()) {
+            const full = sentenceTextMap[label] || '';
+            document.querySelectorAll(`#item-${label} .sentence-text-display[data-lang-idx]`).forEach(cell => {
+                cell.textContent = getLang(full, parseInt(cell.dataset.langIdx, 10));
+            });
+            return;
+        }
         const display = document.querySelector(`#item-${label} .sentence-text-display`);
         if (display) {
             // 直接從原始資料還原「畫面上該顯示的文字」，消除 <mark>
@@ -712,8 +742,17 @@ function refreshRowAfterReplace(label) {
     const full = sentenceTextMap[label] || '';
     const itemDiv = document.getElementById(`item-${label}`);
     if (itemDiv) {
-        const display = itemDiv.querySelector('.sentence-text-display');
-        if (display) display.textContent = getListDisplayText(label);
+        if (typeof isLangTableView === 'function' && isLangTableView()) {
+            // ★ 新增：並排表格檢視 → 每一格各自顯示自己的語言片段，並更新空格樣式
+            itemDiv.querySelectorAll('.sentence-text-display[data-lang-idx]').forEach(cell => {
+                const seg = getLang(full, parseInt(cell.dataset.langIdx, 10));
+                cell.textContent = seg;
+                cell.classList.toggle('is-empty-cell', seg.trim() === '');
+            });
+        } else {
+            const display = itemDiv.querySelector('.sentence-text-display');
+            if (display) display.textContent = getListDisplayText(label);
+        }
         itemDiv.dataset.rawText = full;
     }
     // ★ 效能優化：精準只更新這一個聲波圖標記的文字（傳入完整字串，由聲波圖自己依設定過濾語言）

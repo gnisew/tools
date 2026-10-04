@@ -128,7 +128,7 @@
             <button id="checkMissedBtn" class="btn-icon" style="background: #FFEBEE; color: #C62828; border: 1px solid #FFCDD2;" title="檢查是否有遺漏的聲音段落" aria-label="檢查是否有遺漏的聲音段落">
                 <span class="material-icons">search</span>
             </button>
-            <!-- ★ 新增：常駐工具列的「取消選取」按鈕，預設隱藏，於設定「介面與檢視」中勾選後才顯示；
+            <!-- ★ 新增：常駐工具列的「取消選取」按鈕，預設隱藏，於設定「聲波圖」中勾選後才顯示；
                  點擊行為直接沿用 ⋮ 更多選單裡原本的 waveCancelSelectBtn，避免邏輯重複 -->
             <button id="cancelRegionBtn" class="btn-icon" style="background: #FFEBEE; color: #E53935; border: 1px solid #FFCDD2; display: none; opacity: 0.3; cursor: not-allowed;" title="取消選取 (Esc)" aria-label="取消選取 (Esc)" disabled><span class="material-icons">deselect</span></button>
             <button id="mergeRegionBtn" class="btn-icon" style="background: #F3E5F5; color: #7B1FA2; border: 1px solid #E1BEE7; opacity: 0.3; cursor: not-allowed;" title="合併選取 (Ctrl+J)" aria-label="合併選取 (Ctrl+J)" disabled><span class="material-icons">merge_type</span></button>
@@ -240,6 +240,16 @@
                 </div>
                 <div class="header-tools" style="gap: 12px; display: flex; align-items: center;">
                     
+                    <!-- ★ 新增：「語言」獨立頂層選單，只在設定裡「啟用多語字幕」時才會顯示（由 4a_ui_title_misc.js 控制）；
+                         「全部語言」固定，其餘語言項目依偵測到的語言數量動態產生 -->
+                    <div style="position: relative; display: none;" id="langMenuContainer">
+                        <button class="header-btn" id="langMenuBtn"><span class="material-icons">translate</span> 語言</button>
+                        <div class="custom-dropdown-menu" id="langViewMenu" style="top: 100%; left: 0; min-width: 160px; z-index: 100;">
+                            <div class="custom-dropdown-item" data-lang-value="raw"><span class="material-icons" style="font-size:1.1rem; margin-right:6px; color:#555;">notes</span> 全部語言</div>
+                            <div id="langViewMenuDynamic"></div>
+                        </div>
+                    </div>
+
                     <!-- 1. 編輯選單 -->
                     <div style="position: relative; display: inline-block;">
                         <button class="header-btn" id="editMenuBtn"><span class="material-icons">edit</span> 編輯</button>
@@ -293,8 +303,6 @@
                             <div style="border-top: 1px solid #E0E0E0; margin: 4px 0;"></div>
 
                             <!-- ★ 從原本標記選單移過來的檢視操作 -->
-                            <div class="custom-dropdown-item" id="timeDisplayToggleBtn"><span class="material-icons">schedule</span> 時間標記 (完整)</div>
-                            
                             <div class="custom-dropdown-item" id="fontToggleBtn"><span class="material-icons">format_size</span> 字體大小 (16)</div>
                             <div class="custom-dropdown-item" id="sortMenuToggleBtn"><span class="material-icons">sort</span> 單句排序</div>
                             <div class="custom-dropdown-item" id="widthMenuToggleBtn"><span class="material-icons">aspect_ratio</span> 編輯區寬度 (預設)</div>
@@ -312,18 +320,8 @@
                         </div>
                     </div>
 
-                    <!-- ★ 新增：「語言」獨立頂層選單，只在設定裡「啟用多語字幕」時才會顯示（由 4a_ui_title_misc.js 控制）；
-                         「全部語言」固定，其餘語言項目依偵測到的語言數量動態產生 -->
-                    <div style="position: relative; display: none;" id="langMenuContainer">
-                        <button class="header-btn" id="langMenuBtn"><span class="material-icons">translate</span> 語言</button>
-                        <div class="custom-dropdown-menu" id="langViewMenu" style="top: 100%; left: 0; min-width: 160px; z-index: 100;">
-                            <div class="custom-dropdown-item" data-lang-value="raw"><span class="material-icons" style="font-size:1.1rem; margin-right:6px; color:#555;">notes</span> 全部語言</div>
-                            <div id="langViewMenuDynamic"></div>
-                        </div>
-                    </div>
-
                     <!-- ★「按鈕」選單已改到「設定」側邊欄以核取方式呈現（見 #settingsSidebar 內
-                         「介面與檢視」區塊的「列表按鈕顯示」），此處不再重複；
+                         「列表」區塊的「列表按鈕顯示」），此處不再重複；
                          「鎖定/解鎖」已移入上方「檢視」選單，此處也不再重複。 -->
                 </div>
             </div>
@@ -485,15 +483,14 @@
                     </label>
                 </div>
 
-                <!-- ★ 新增：人聲強化（壓抑配樂），邏輯在 2a_vocal_enhance.js -->
+                <!-- 人聲強化（壓抑配樂），邏輯在 2a_vocal_enhance.js -->
                 <div class="setting-block">
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="vocalEnhanceCheck" class="setting-checkbox">
-                        人聲強化（壓抑配樂，僅影響播放）
+                        人聲強化（僅影響播放）
                     </label>
                     <div class="setting-indent">
                         <label style="font-size: 0.85rem; color: #555; display: flex; align-items: center; gap: 6px;">
-                            強度
                             <input aria-label="人聲強化強度" type="range" id="vocalEnhanceStrength" min="0" max="100" step="5" value="60" style="flex:1;">
                             <span id="vocalEnhanceStrengthLabel" style="min-width:36px; text-align:right;">60%</span>
                         </label>
@@ -518,28 +515,7 @@
                 </div>
             </div>
             <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">visibility</span><span class="setting-num" aria-hidden="true">五、</span>介面與檢視</h4>
-
-                <!-- ★ 移入：原本在列表工具列的「按鈕」選單，改成這裡直接核取，跟其他顯示設定放在一起 -->
-                <div class="setting-block">
-                    <label class="setting-label" style="display: block; margin-bottom: 6px;">列表按鈕顯示</label>
-                    <label class="setting-checkbox-row">
-                        <input type="checkbox" id="toggleTagBtnsCheck" class="setting-checkbox">
-                        標記按鈕
-                    </label>
-                    <label class="setting-checkbox-row">
-                        <input type="checkbox" id="toggleShiftBtnsCheck" class="setting-checkbox">
-                        平移按鈕
-                    </label>
-                    <label class="setting-checkbox-row">
-                        <input type="checkbox" id="toggleClearBtnsCheck" class="setting-checkbox">
-                        清除按鈕
-                    </label>
-                    <label class="setting-checkbox-row">
-                        <input type="checkbox" id="toggleMoreBtnsCheck" class="setting-checkbox" checked>
-                        其他按鈕
-                    </label>
-                </div>
+                <h4><span class="material-icons" aria-hidden="true">graphic_eq</span><span class="setting-num" aria-hidden="true">五、</span>聲波圖</h4>
 
                 <!-- ★ 新增：聲波工具列按鈕顯示設定，讓不常用的按鈕可以隱藏、常用的按鈕可以常駐顯示 -->
                 <div class="setting-block">
@@ -583,6 +559,19 @@
                     </div>
                 </div>
 
+                <div class="setting-block">
+                    <label for="waveHeightSelect" class="setting-label">聲波圖高度</label>
+                    <select id="waveHeightSelect" class="input-select">
+                        <option value="80" selected>80px</option>
+                        <option value="100">100px</option>
+						<option value="120">120px</option>
+                        <option value="140">140px</option>
+                    </select>
+                </div>
+            </div>
+            <div class="sidebar-group">
+                <h4><span class="material-icons" aria-hidden="true">view_list</span><span class="setting-num" aria-hidden="true">六、</span>列表顯示</h4>
+
                 <!-- 第二個區塊：列表編號顯示方式 -->
                 <div class="setting-block">
                     <label for="labelDisplayModeSelect" class="setting-label">列表編號</label>
@@ -612,6 +601,57 @@
                 </div>
 
                 <div class="setting-block">
+                    <label for="timeFormatSelect" class="setting-label">時間：顯示為</label>
+                    <select id="timeFormatSelect" class="input-select">
+                        <option value="clock" selected>00:00.0 (分:秒)</option>
+                        <option value="seconds">秒數數字 (例如: 75.3)</option>
+                    </select>
+                </div>
+
+                <div class="setting-block">
+                    <label for="timeContentSelect" class="setting-label">時間：顯示內容為</label>
+                    <select id="timeContentSelect" class="input-select">
+                        <option value="full" selected>完整 (開始、結束、長度)</option>
+                        <option value="range">頭尾 (開始、結束)</option>
+                        <option value="start">開頭 (只顯示開始)</option>
+                        <option value="duration">長度 (只顯示長度)</option>
+                    </select>
+                </div>
+
+                <div class="setting-block">
+                    <label for="timeDecimalSelect" class="setting-label">時間顯示精確度</label>
+                    <select id="timeDecimalSelect" class="input-select">
+                        <option value="1" selected>小數點後 1 位 (例如: 1.2)</option>
+                        <option value="2">小數點後 2 位 (例如: 1.23)</option>
+                        <option value="3">小數點後 3 位 (例如: 1.234)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="sidebar-group">
+                <h4><span class="material-icons" aria-hidden="true">touch_app</span><span class="setting-num" aria-hidden="true">七、</span>列表操作</h4>
+
+                <!-- ★ 移入：原本在列表工具列的「按鈕」選單，改成這裡直接核取，跟其他顯示設定放在一起 -->
+                <div class="setting-block">
+                    <label class="setting-label" style="display: block; margin-bottom: 6px;">列表按鈕顯示</label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="toggleTagBtnsCheck" class="setting-checkbox">
+                        標記按鈕
+                    </label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="toggleShiftBtnsCheck" class="setting-checkbox">
+                        平移按鈕
+                    </label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="toggleClearBtnsCheck" class="setting-checkbox">
+                        清除按鈕
+                    </label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="toggleMoreBtnsCheck" class="setting-checkbox" checked>
+                        其他按鈕
+                    </label>
+                </div>
+
+                <div class="setting-block">
                     <label for="scrollAlignSelect" class="setting-label">點擊聲波時的列表定位</label>
                     <select id="scrollAlignSelect" class="input-select">
                         <option value="top" selected>當前句子置頂 (預設)</option>
@@ -624,25 +664,9 @@
                     </div>
                     <span class="setting-hint">* 正數將句子往下推，負數往上提</span>
                 </div>
-
-                <div class="setting-block">
-                    <label for="timeDecimalSelect" class="setting-label">時間顯示精確度</label>
-                    <select id="timeDecimalSelect" class="input-select">
-                        <option value="1" selected>小數點後 1 位 (例如: 1.2)</option>
-                        <option value="2">小數點後 2 位 (例如: 1.23)</option>
-                        <option value="3">小數點後 3 位 (例如: 1.234)</option>
-                    </select>
-                </div>
-                
-                <div class="setting-block">
-                    <label for="waveHeightSelect" class="setting-label">聲波圖高度</label>
-                    <select id="waveHeightSelect" class="input-select">
-                        <option value="80" selected>80px</option>
-                        <option value="100">100px</option>
-						<option value="120">120px</option>
-                        <option value="140">140px</option>
-                    </select>
-                </div>
+</div>
+            <div class="sidebar-group">
+                <h4><span class="material-icons" aria-hidden="true">aspect_ratio</span><span class="setting-num" aria-hidden="true">八、</span>版面與字體</h4>
 
                 <div class="setting-block">
                     <label for="appWidthSelect" class="setting-label">聲波圖寬度設定</label>
@@ -676,7 +700,7 @@
             </div>
             <!-- ★ 新增：多語言字幕設定 -->
             <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">translate</span><span class="setting-num" aria-hidden="true">六、</span>多語言字幕設定</h4>
+                <h4><span class="material-icons" aria-hidden="true">translate</span><span class="setting-num" aria-hidden="true">九、</span>多語言字幕設定</h4>
                 <div class="setting-block">
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="langMultiEnableCheck" class="setting-checkbox">
@@ -689,7 +713,7 @@
                 </div>
             </div>
                         <div class="sidebar-group">
-                <h4 id="exportAudioFormatLabel"><span class="material-icons" aria-hidden="true">ios_share</span><span class="setting-num" aria-hidden="true">七、</span>音訊匯出格式</h4>
+                <h4 id="exportAudioFormatLabel"><span class="material-icons" aria-hidden="true">ios_share</span><span class="setting-num" aria-hidden="true">十、</span>音訊匯出格式</h4>
                 <select id="exportAudioFormatSelect" aria-labelledby="exportAudioFormatLabel" class="input-select">
                     <option value="mp3">MP3 壓縮檔 (輕巧快速)</option>
                     <option value="wav" selected>WAV 無損原始檔</option>
@@ -732,7 +756,7 @@
                 </div>
             </div>
             <div class="sidebar-group">
-                <h4 style="margin-bottom: 10px;"><span class="material-icons" aria-hidden="true">keyboard</span><span class="setting-num" aria-hidden="true">八、</span>預設快速鍵</h4>
+                <h4 style="margin-bottom: 10px;"><span class="material-icons" aria-hidden="true">keyboard</span><span class="setting-num" aria-hidden="true">十一、</span>預設快速鍵</h4>
                 <ul style="font-size:0.85rem; color:#555; padding-left: 20px; margin-bottom: 20px; line-height: 1.6;">
                     <li><strong>Space 空白鍵</strong>：播放/暫停</li>
                     <li><strong>Tab 鍵</strong>：跳至下一句</li>
@@ -1329,6 +1353,7 @@
 
 
     <script src="1_globals.js"></script>
+    <script src="1b_toast.js"></script>
     <script src="1a_audio_store_idb.js"></script>
     <script src="1c_languages.js"></script>
     <script src="2_audio_engine.js"></script>
