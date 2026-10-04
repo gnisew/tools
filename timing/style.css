@@ -1271,3 +1271,148 @@ input.input-select[type="number"] { cursor: text; }
 .list-stats-note { margin-left: 8px; color: #9aa0a6; font-size: 0.78rem; }
 .list-stats-chip { white-space: nowrap; background: #f1f3f4; border-radius: 12px; padding: 1px 12px; font-size: 0.8rem; }
 .list-stats-chip em { font-style: normal; font-weight: 700; color: #455A64; margin-right: 8px; }
+
+
+/* ================= 批次轉檔視窗：頁籤與「批次修改」（9a_batch_edit.js） ================= */
+.batch-modal { max-width: 500px; }
+.batch-modal.be-wide { max-width: 980px; }
+.batch-tabs { display: flex; gap: 4px; border-bottom: 2px solid #E0E0E0; margin-bottom: 18px; }
+.batch-tab { background: none; border: none; padding: 8px 18px; font-size: 0.95rem; font-weight: bold; color: #777; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+.batch-tab:hover { color: #7B1FA2; }
+.batch-tab.active { color: #7B1FA2; border-bottom-color: #7B1FA2; }
+
+.be-section { margin-bottom: 16px; }
+.be-label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 0.95rem; }
+.be-hint { margin-top: 6px; font-size: 0.8rem; color: #888; }
+.be-file { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px; border: 1px dashed #7B1FA2; border-radius: 6px; background: #F3E5F5; box-sizing: border-box; }
+.be-pick { flex: 0 0 auto; padding: 6px 12px; border: 1px solid #767676; border-radius: 4px; background: #EFEFEF; color: #222; font-size: 0.9rem; cursor: pointer; }
+.be-pick:hover { background: #E0E0E0; }
+.be-fileinfo { font-size: 0.9rem; color: #444; min-width: 0; overflow-wrap: anywhere; }
+.be-toolrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+.be-opts { font-size: 0.9rem; gap: 16px; }
+.be-opts label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.be-opts input[type="checkbox"] { accent-color: #7B1FA2; }
+.be-ctl { padding: 8px 10px; border: 1px solid #7B1FA2; border-radius: 6px; font-size: 0.9rem; background: #fff; box-sizing: border-box; min-width: 0; }
+.be-grow { flex: 1 1 160px; }
+.be-btn { background: #E2E8F0; color: #333; padding: 8px 16px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; font-size: 0.9rem; }
+.be-btn-primary { background: #7B1FA2; color: #fff; }
+.be-viewbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; flex-wrap: wrap; }
+.be-seg { display: inline-flex; border: 1px solid #7B1FA2; border-radius: 6px; overflow: hidden; }
+.be-seg button { background: #fff; color: #7B1FA2; border: none; padding: 6px 14px; font-weight: bold; font-size: 0.85rem; cursor: pointer; }
+.be-seg button.active { background: #7B1FA2; color: #fff; }
+
+.be-tablewrap { flex: 1 1 auto; min-height: 140px; overflow: auto; border: 1px solid #E0E0E0; border-radius: 6px; }
+.be-empty { padding: 28px; text-align: center; color: #999; font-size: 0.9rem; }
+.be-table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+.be-table th { position: sticky; top: 0; z-index: 1; background: #F3E5F5; color: #6A1B9A; text-align: left; padding: 8px; white-space: nowrap; border-bottom: 1px solid #CE93D8; }
+.be-table td { padding: 4px 6px; border-bottom: 1px solid #EEE; vertical-align: middle; }
+.be-c-chk { width: 34px; text-align: center; }
+.be-c-chk input { accent-color: #7B1FA2; cursor: pointer; }
+.be-c-no { width: 34px; color: #999; text-align: right; }
+.be-c-name { max-width: 200px; min-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #444; }
+.be-c-name.warn { color: #E65100; }
+.be-c-name.warn::before { content: '⚠ '; }
+.be-cell { min-width: 170px; }
+.be-cellwrap { position: relative; }
+.be-cellwrap input { width: 100%; box-sizing: border-box; padding: 4px 24px 4px 6px; border: 1px solid #DDD; border-radius: 4px; font-size: 0.85rem; background: #fff; }
+.be-cell.changed input { background: #FFF9C4; border-color: #F9A825; }
+.be-cell.dup input { border-color: #E65100; box-shadow: 0 0 0 1px #E65100 inset; }
+.be-revert { display: none; position: absolute; right: 2px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; padding: 0; border: none; background: transparent; color: #7B1FA2; cursor: pointer; }
+.be-revert .material-icons { font-size: 16px; }
+.be-cell.changed .be-revert { display: block; }
+
+.be-tsv { flex: 1 1 auto; width: 100%; box-sizing: border-box; min-height: 160px; font-family: inherit; font-size: 0.85rem; tab-size: 14; white-space: pre; overflow: auto; padding: 8px; border: 1px solid #CCC; border-radius: 6px; margin-bottom: 8px; resize: none; }
+.be-summary { margin-top: 8px; font-size: 0.85rem; color: #555; }
+.be-warn-text { color: #E65100; font-weight: bold; }
+
+/* 確認／提示對話框要蓋在批次轉檔視窗之上（兩者原本同為 z-index 2000，DOM 順序在前的被遮住） */
+#customModalOverlay { z-index: 2300; }
+
+/* 批次修改頁籤：視窗撐滿可用高度，表格／TSV 區吃掉剩餘空間（其餘區塊固定高度） */
+.batch-modal.be-wide { display: flex; flex-direction: column; height: calc(100vh - 32px - 48px); height: calc(100dvh - 32px - 48px); overflow: hidden; }
+.batch-modal.be-wide > h4, .batch-modal.be-wide > .batch-tabs { flex: 0 0 auto; }
+.batch-modal.be-wide #batchPaneEdit { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.batch-modal.be-wide #batchPaneEdit > .be-section { flex: 0 0 auto; }
+.batch-modal.be-wide #batchPaneEdit > .be-main { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.batch-modal.be-wide #batchEditTsvWrap { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+
+/* ===== 批次修改：把垂直空間讓給表格 ===== */
+/* 根因：.custom-modal input[type="text"] 的 padding:10px / margin-bottom:20px / font-size:1rem 權重較高，蓋掉了格子輸入框的緊湊樣式，每列因此被撐得很高 */
+.custom-modal .be-cellwrap input[type="text"] { margin: 0; padding: 3px 24px 3px 6px; font-size: 0.85rem; line-height: 1.3; }
+.be-table td { padding: 2px 6px; }
+.be-c-no { padding-right: 8px; }
+
+.batch-modal.be-wide { padding: 14px 20px; }
+.batch-modal.be-wide > h4 { display: none !important; }                     /* 頁籤已足以辨識，省下標題列高度 */
+.batch-modal.be-wide > .batch-tabs { margin-bottom: 10px; }
+.batch-modal.be-wide #batchPaneEdit > .be-section { margin-bottom: 8px; }
+/* 「1. 選擇專案檔」標題與選檔框併成同一行 */
+.batch-modal.be-wide #batchPaneEdit > .be-section:first-child { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.batch-modal.be-wide #batchPaneEdit > .be-section:first-child .be-label { margin: 0; white-space: nowrap; }
+.batch-modal.be-wide #batchPaneEdit > .be-section:first-child .be-file { flex: 1 1 260px; width: auto; padding: 6px 10px; }
+.batch-modal.be-wide .be-viewbar { margin-bottom: 6px; }
+.batch-modal.be-wide .be-summary { margin-top: 4px; flex: 0 0 auto; }
+.batch-modal.be-wide #batchPaneEdit > .modal-buttons { padding-top: 10px !important; }
+
+/* 表格區吃掉所有剩餘高度；min-height:0 避免被內容撐出而壓到下方按鈕 */
+.batch-modal.be-wide .be-tablewrap { flex: 1 1 0; min-height: 0; }
+.batch-modal.be-wide .be-tsv { flex: 1 1 0; min-height: 0; }
+.batch-modal.be-wide #batchPaneEdit > .be-main { overflow: hidden; }
+
+/* 「1.」＋［選擇檔案］＋說明文字＋載入狀態，同一行依序排列 */
+.be-pickdesc { flex: 0 1 auto; font-weight: bold; font-size: 0.95rem; cursor: pointer; }
+.be-file .be-fileinfo { margin-left: 4px; color: #6A1B9A; }
+
+/* ===== 批次修改表格：試算表風格（細格線、無輸入框外框，聚焦時只框住該儲存格） ===== */
+.be-tablewrap { border-radius: 4px; border-color: #D0D0D0; }
+.be-table { border-collapse: collapse; }
+.be-table th, .be-table td { border: 1px solid #DADCE0; }
+.be-table th { background: #F1F3F4; color: #333; font-weight: 600; padding: 4px 8px; border-bottom: 1px solid #BDC1C6; }
+.be-table td { padding: 0; }
+.be-table .be-c-no { background: #F8F9FA; color: #888; text-align: center; padding: 0 6px; }
+.be-table td.be-c-name { padding: 0 8px; }
+.be-cell { position: relative; }
+.custom-modal .be-cellwrap input[type="text"] { border: none !important; border-radius: 0; background: transparent; box-shadow: none !important; padding: 4px 24px 4px 8px; height: 26px; }
+.custom-modal .be-cellwrap input[type="text"]:focus { border: none !important; box-shadow: none !important; }
+.be-cell:focus-within { outline: 2px solid #7B1FA2; outline-offset: -2px; z-index: 1; }
+.be-cell.changed { background: #FFF9C4; }
+.be-cell.changed input { background: transparent; }
+.be-cell.dup { box-shadow: inset 0 0 0 2px #E65100; }
+.be-cell.dup input { box-shadow: none; }
+.be-revert { font-size: 15px; line-height: 22px; font-weight: bold; }
+
+/* ===== 標題內的統計、移除格內還原鈕後的調整 ===== */
+.be-sumhead { font-weight: normal; font-size: 0.9rem; color: #555; margin-left: 6px; }
+.custom-modal .be-cellwrap input[type="text"] { padding: 4px 8px; }
+.be-cell.sel { outline: 2px solid #7B1FA2; outline-offset: -2px; z-index: 1; }   /* 點過的格子（按下方「還原此格」後仍保留標示） */
+.be-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ===== 批次修改：按鈕按下時的底色（蓋掉全域 button:active 的深綠色） ===== */
+.be-btn:active { background: #CBD5E1; }
+.be-btn-primary:active { background: #6A1B9A; }
+.be-btn:disabled:active { background: #E2E8F0; }
+.be-btn-primary:disabled:active { background: #7B1FA2; }
+.batch-tab:active { background: #F3E5F5; }
+.be-seg button:active { background: #F3E5F5; }
+.be-seg button.active:active { background: #6A1B9A; }
+
+/* ===== 批次修改：「清除」按鈕（蓋掉全域 button { flex:1; min-width:100px } 造成的整排拉伸） ===== */
+.be-btn.be-clear-btn { flex: 0 0 auto; min-width: 0; margin-left: auto; padding: 4px 10px; gap: 4px; font-size: 0.85rem; background: transparent; color: #7B1FA2; border: 1px solid #CE93D8; border-radius: 4px; }
+.be-btn.be-clear-btn .material-icons { font-size: 16px; }
+.be-btn.be-clear-btn:hover:not(:disabled) { background: #FFEBEE; color: #C62828; border-color: #EF9A9A; }
+.be-btn.be-clear-btn:active:not(:disabled) { background: #FFCDD2; }
+.be-btn.be-clear-btn:disabled:active { background: transparent; }
+
+/* ===== 批次修改：點表頭選取整欄 ===== */
+.be-table th.be-th-f { cursor: pointer; user-select: none; }
+.be-table th.be-th-f:hover { background: #E8EAED; }
+.be-table th.be-th-f.colsel { background: #7B1FA2; color: #fff; }
+/* 整欄選取：用半透明紫色「疊」在原本底色上（已修改的黃底也看得出被選取），再加左右紫色邊線 */
+.be-cell.colsel { background-image: linear-gradient(rgba(123,31,162,0.16), rgba(123,31,162,0.16)); box-shadow: inset 2px 0 0 #7B1FA2, inset -2px 0 0 #7B1FA2; }
+
+/* ===== 批次修改：檔名欄（可編輯，.json 不顯示） ===== */
+.be-name-cell { min-width: 150px; }
+
+/* ===== 批次修改：頂部單列（選檔＋狀態＋清除　｜　表格/TSV 切換） ===== */
+.be-topbar .be-seg { flex: 0 0 auto; }
+#batchEditDownloadBtn:disabled { opacity: 0.45; cursor: not-allowed; }
