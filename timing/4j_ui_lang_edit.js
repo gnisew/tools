@@ -1,6 +1,6 @@
 // ================= 4j_ui_lang_edit.js: 多語言編輯 —— 內嵌於列表區域的第四種檢視模式 =================
 // 目的：專案裡已經有語言 A 的字幕文字，要方便地貼上/編輯語言 B（或更多語言）的對應文字，
-//       不用一句一句手動打開編輯、插入分隔字元。做法跟「跨句群組」（4i_ui_media_groups.js）
+//       不用一句一句手動打開編輯、插入分隔字元。做法跟「跨句範圍」（4i_ui_media_groups.js）
 //       同一套模式切換邏輯：從「列表工具列 → 編輯 → 多語言編輯」進入，取代 #sentenceList 的畫面，
 //       離開時點「返回列表」麵包屑即可還原。
 //
@@ -345,7 +345,7 @@ function enterLangEditView() {
         return;
     }
 
-    // 若目前是全文模式／跨句群組模式，先切回單句列表，避免多個容器同時搶顯示
+    // 若目前是全文模式／跨句範圍模式，先切回單句列表，避免多個容器同時搶顯示
     if (typeof isScriptMode !== 'undefined' && isScriptMode) {
         document.getElementById('toggleScriptModeBtn')?.click();
     }
@@ -590,6 +590,80 @@ document.getElementById('langEditSwapDataBtn')?.addEventListener('click', () => 
     if (typeof showToast === 'function') {
         showToast(`已交換「${langEditGetLangName(leftIdx)}」與「${langEditGetLangName(rightIdx)}」的資料（可按 Ctrl+Z 復原）`, 'success');
     }
+});
+
+// ================= ★ 刪除語言：把某個語言從「每一句」移除，後面的語言往前遞補 ★ =================
+// 為什麼需要：語言數量是用「分隔字元切出最多幾段」偵測的，就算把語言2的文字全部清空，
+// 每句仍殘留「文字|」，語言2還是存在、刪不掉。這裡直接把該段（含分隔字元）從每句拿掉。
+// 例如刪除語言2：「甲|乙|丙」→「甲|丙」（原語言3變成語言2）；只剩一個語言時就不含分隔字元。
+// 動手前先 saveState()，不滿意可 Ctrl+Z 復原整批。
+function langEditDeleteLanguage(delIdx) {
+    langEditFlushPendingWork(); // 先把剛打的字存下來
+    if (typeof saveState === 'function') saveState();
+
+    const delim = (typeof getLangDelimiter === 'function') ? getLangDelimiter() : '|';
+    allLabelsOrdered.forEach(lbl => {
+        const arr = (typeof splitLangs === 'function') ? splitLangs(sentenceTextMap[lbl]) : [String(sentenceTextMap[lbl] || '')];
+        if (delIdx < arr.length) arr.splice(delIdx, 1);
+        sentenceTextMap[lbl] = arr.join(delim);
+    });
+    if (typeof saveToStorage === 'function') saveToStorage();
+
+    // 被刪除（或被往前遞補）的語言，原本記住的「只看第 N 語言」「表格欄位」索引已失效，改回預設
+    if (typeof getCurrentLangViewIndex === 'function' && typeof setLangViewMode === 'function') {
+        const viewIdx = getCurrentLangViewIndex();
+        if (viewIdx !== null && viewIdx >= delIdx) setLangViewMode('raw');
+    }
+    if (typeof langTableCols !== 'undefined') {
+        langTableCols = null;
+        localStorage.removeItem('tagger_langTableCols');
+    }
+
+    // 重整兩欄下拉選單與內容
+    const leftSel = document.getElementById('langEditLeftSel');
+    const rightSel = document.getElementById('langEditRightSel');
+    if (leftSel) leftSel.value = '0';
+    if (rightSel) rightSel.value = ''; // 清掉舊值，讓右欄回到預設選項
+    langEditPopulateSelects();
+    langEditLoadLeft();
+    langEditLoadRight();
+    langEditUpdateBanner();
+    allLabelsOrdered.forEach(lbl => {
+        if (typeof updateRegionTextDisplay === 'function') updateRegionTextDisplay(lbl, sentenceTextMap[lbl]);
+    });
+    if (typeof updateLangViewMenuLabels === 'function') updateLangViewMenuLabels();
+    langEditSearchRefreshIfOpen();
+
+    if (typeof showToast === 'function') {
+        showToast(`已刪除「${langEditGetLangName(delIdx)}」（可按 Ctrl+Z 復原）`, 'success');
+    }
+}
+
+document.getElementById('langEditDeleteLangBtn')?.addEventListener('click', () => {
+    document.getElementById('editMenu')?.classList.remove('show');
+    const count = langEditGetExistingLangCount();
+    if (count < 2) {
+        if (typeof showToast === 'function') showToast('目前只有一種語言，沒有可刪除的語言', 'error');
+        return;
+    }
+    // 預設選右欄目前的語言（右欄若在「＋新增」就選最後一個語言）
+    const rightIdx = parseInt(document.getElementById('langEditRightSel')?.value, 10);
+    const defIdx = (!isNaN(rightIdx) && rightIdx < count) ? rightIdx : count - 1;
+    let opts = '';
+    for (let i = 0; i < count; i++) {
+        opts += `<option value="${i}"${i === defIdx ? ' selected' : ''}>${langEditGetLangName(i)}</option>`;
+    }
+    showCustomDialog({
+        title: '刪除語言',
+        message: `要刪除哪一個語言？<br>
+            <select id="langEditDeleteSel" class="input-select" style="margin:10px 0;">${opts}</select><br>
+            <span style="color:#C62828; font-weight:bold;">該語言的文字會從每一句移除</span>，後面的語言會往前遞補（例如刪除語言2，原語言3變成語言2）。可按 Ctrl+Z 復原。`,
+        confirmText: '刪除',
+        onConfirm: () => {
+            const idx = parseInt(document.getElementById('langEditDeleteSel')?.value, 10);
+            if (!isNaN(idx) && idx >= 0 && idx < count) langEditDeleteLanguage(idx);
+        }
+    });
 });
 
 // ================= ★ 尋找取代（範圍選單：全部／左欄／右欄） ★ =================

@@ -237,9 +237,20 @@ function updateAllTimeDisplays() {
     }, 100);
 }
 
+// ★ 新增：編輯區（#listPanel）的顯示規則。
+//   舊規則：有音檔「或」有標記就顯示 → 把列表與標記全部刪光後，只剩一個空殼標題列。
+//   新規則：只在「單句列表模式」且「完全沒有任何標記」時隱藏；新增任何標記後自動再顯示。
+//   全文／跨句群組／多語字幕模式一律保持顯示：
+//     · 全文模式把文字清空時，編輯框不能憑空消失（文字還沒貼上就沒有標記）
+//     · 跨句群組只認時間區間，不依賴句子，沒有標記也要能進去
+//   沒有標記時，開始的入口是：聲波工具列（新增標記／自動斷句）、側邊欄「匯入資料」（貼上文字解析、匯入 SRT／JSON）。
+function updateListPanelVisibility() {
+    const mode = (typeof getCurrentListMode === 'function') ? getCurrentListMode() : 'list';
+    listPanel.style.display = (allLabelsOrdered.length > 0 || mode !== 'list') ? 'block' : 'none';
+}
+
 function renderSentenceList() {
-    const hasAudio = localStorage.getItem('tagger_audioUrl') || localStorage.getItem('tagger_localFileName');
-    listPanel.style.display = (allLabelsOrdered.length > 0 || hasAudio) ? 'block' : 'none';
+    updateListPanelVisibility();
     
     sentenceList.innerHTML = '';
 	if (showClearBtns) sentenceList.classList.add('show-clear-btns'); 

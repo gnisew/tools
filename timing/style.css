@@ -1004,10 +1004,11 @@ input.input-select[type="number"] { cursor: text; }
    white-space:pre + wrap="off" 讓長句不自動換行（避免視覺上的自動折行被誤判成新的一行），
    跟 #scriptTextarea 用同一套慣例，只是改成雙欄並排。 */
 #langEditView {
-    background: #ffffff;
-    border: 1px solid #dadce0;
-    border-radius: 8px;
-    padding: 16px;
+    /* ★ 修改：拿掉外框、背景與圓角、內距（外層列表面板已是白色卡片，避免「卡片裡又一張卡片」） */
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
     min-height: 400px;
     box-sizing: border-box;
     margin-top: 10px;
@@ -1056,7 +1057,7 @@ input.input-select[type="number"] { cursor: text; }
     flex: none;
     width: 42px;
     background: #f8f9fa;
-    border-right: 1px solid #dadce0;
+    /* ★ 刪除：原本的 border-right 分隔線（行號欄已有淺灰底色，不需要再加線） */
     padding: 12px 0;
     font-family: var(--main-font-family);
     font-size: var(--sentence-font-size);
@@ -1261,3 +1262,12 @@ input.input-select[type="number"] { cursor: text; }
     .sentence-text-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 4px; }
     .sentence-text-display.lang-cell::before { content: attr(data-lang-name); display: block; font-size: 0.7rem; line-height: 1.2; color: #90A4AE; }
 }
+
+/* ================= 列表底部統計（4n_ui_list_stats.js） ================= */
+.list-stats-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 14px; margin-top: 12px; padding: 10px 8px 2px; border-top: 1px dashed #dadce0; color: #5f6368; font-size: 0.85rem; line-height: 1.6; }
+.list-stats-bar b { color: #00897B; font-weight: 700; font-variant-numeric: tabular-nums; }
+.list-stats-sep { margin: 0 6px; color: #bdc1c6; }
+.list-stats-total { white-space: nowrap; }
+.list-stats-note { margin-left: 8px; color: #9aa0a6; font-size: 0.78rem; }
+.list-stats-chip { white-space: nowrap; background: #f1f3f4; border-radius: 12px; padding: 1px 12px; font-size: 0.8rem; }
+.list-stats-chip em { font-style: normal; font-weight: 700; color: #455A64; margin-right: 8px; }

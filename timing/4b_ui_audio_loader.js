@@ -644,6 +644,8 @@ function updateStickyOffsets() {
     if (stickyPanel && listHeaderContainer) { 
         listHeaderContainer.style.top = stickyPanel.offsetHeight + 'px'; 
     } 
+    // ★ 新增：並排表格的表頭吸頂位置也要跟著重算（隱藏／恢復聲波區塊、改聲波高度時，表頭才不會停在舊位置）
+    if (typeof alignLangTableHeader === 'function') alignLangTableHeader();
 }
 
 let resizeTimeout = null;

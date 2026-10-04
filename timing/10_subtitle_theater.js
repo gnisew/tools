@@ -43,7 +43,6 @@
             langA: parseInt(g('langA', '0'), 10) || 0,
             langB: parseInt(g('langB', '1'), 10) || 1,
             showSpeaker: g('showSpeaker', 'false') === 'true',
-            mono: g('mono', 'false') === 'true',
             bold: g('bold', 'false') === 'true', // ★ 修改：預設改為不粗體
             // ★ 新增：隱藏標點，預設啟用（沒存過設定的人，第一次開啟就是隱藏）
             hidePunct: g('hidePunct', 'true') === 'true',
@@ -65,7 +64,7 @@
         localStorage.setItem(LS_PREFIX + 'langA', String(st.langA));
         localStorage.setItem(LS_PREFIX + 'langB', String(st.langB));
         localStorage.setItem(LS_PREFIX + 'showSpeaker', String(st.showSpeaker));
-        localStorage.setItem(LS_PREFIX + 'mono', String(st.mono));
+        localStorage.removeItem(LS_PREFIX + 'mono'); // ★ 新增：清掉舊版殘留的等寬字型設定
         localStorage.setItem(LS_PREFIX + 'bold', String(st.bold));
         localStorage.setItem(LS_PREFIX + 'hidePunct', String(st.hidePunct));
         localStorage.setItem(LS_PREFIX + 'followMode', String(st.followMode));
@@ -82,33 +81,47 @@
 
     // ================= ★ 新增：網址參數（theater=風格-排版-設定…，以 - 隔開） =================
     const URL_THEATER_PARAM = 'theater';
-    const THEME_CODES = { 'dark': 'dark', 'light': 'light', 'yellow-outline': 'yellow', 'white-outline': 'white',
-        'translucent': 'trans', 'frosted': 'frosted', 'lyrics': 'lyrics', 'karaoke': 'karaoke', 'picturebook': 'book' };
-    const LAYOUT_CODES = { 'single': 'single', 'stacked': 'stacked', 'side': 'side', 'colorsplit': 'split' };
-    const CODE_TO_THEME = Object.fromEntries(Object.entries(THEME_CODES).map(([k, v]) => [v, k]));
-    const CODE_TO_LAYOUT = Object.fromEntries(Object.entries(LAYOUT_CODES).map(([k, v]) => [v, k]));
+    // ★ 修改：風格代碼全部縮成 2 個字母（dk 深色／lt 淺色／yw 黃框／wh 白框／tr 半透明／fr 毛玻璃／ly 歌詞／ka 卡拉OK／bk 繪本）
+    const THEME_CODES = { 'dark': 'dk', 'light': 'lt', 'yellow-outline': 'yw', 'white-outline': 'wh',
+        'translucent': 'tr', 'frosted': 'fr', 'lyrics': 'ly', 'karaoke': 'ka', 'picturebook': 'bk' };
+    // ★ 新增：舊版長代碼，解析時仍然接受，已分享出去的舊連結不會失效
+    const LEGACY_THEME_CODES = { 'dark': 'dark', 'light': 'light', 'yellow': 'yellow-outline', 'white': 'white-outline',
+        'trans': 'translucent', 'frosted': 'frosted', 'lyrics': 'lyrics', 'karaoke': 'karaoke', 'book': 'picturebook' };
+    // ★ 修改：排版代碼縮成 2 個字母（sg 單語／st 上下雙語／sd 左右雙語／cs 上下雙語同大小不同色）。單語是預設，不寫進網址
+    const LAYOUT_CODES = { 'single': 'sg', 'stacked': 'st', 'side': 'sd', 'colorsplit': 'cs' };
+    // ★ 新增：舊版長代碼，解析時仍然接受，舊連結不會失效
+    const LEGACY_LAYOUT_CODES = { 'single': 'single', 'stacked': 'stacked', 'side': 'side', 'split': 'colorsplit' };
+    const CODE_TO_THEME = Object.assign({}, LEGACY_THEME_CODES, Object.fromEntries(Object.entries(THEME_CODES).map(([k, v]) => [v, k]))); // ★ 修改：新短碼＋舊長碼都能解析
+    const CODE_TO_LAYOUT = Object.assign({}, LEGACY_LAYOUT_CODES, Object.fromEntries(Object.entries(LAYOUT_CODES).map(([k, v]) => [v, k]))); // ★ 修改：新短碼＋舊長碼都能解析
     let pendingUrlState = null; // 由網址解析出來、等開啟時套用的完整設定（null = 用 localStorage）
+    const URL_TIME_PARAM = 't';  // ★ 新增：網址的播放時間點參數（秒，例如 &t=83.5）
+    let pendingUrlTime = null;   // ★ 新增：由網址解析出來、等音檔就緒後要跳到的秒數（null = 不跳）
+    let urlTimeLock = null;      // ★ 新增：還原時間點期間的保護 {target, until}；保護中網址的 t 固定寫目標值，不被其他程式移動的播放位置覆蓋
+    let lastUrlTimeWrite = 0;    // ★ 新增：上次把時間寫進網址的時間戳，用來節流（避免每個影格都改網址）
 
     // 目前設定 → 字串。風格一定寫；其餘只寫「非預設值」，網址才會短
     function encodeTheaterSettings(s) {
-        const t = [THEME_CODES[s.theme] || 'dark'];
+        const t = [THEME_CODES[s.theme] || 'dk'];
         if (s.layout !== 'single') t.push(LAYOUT_CODES[s.layout]);
         if (s.langA !== 0) t.push('a' + s.langA);
         if (s.langB !== 1) t.push('b' + s.langB);
         if (s.fontScale !== 1) t.push('z' + s.fontScale);
         if (s.showSpeaker) t.push('sp');
-        if (s.mono) t.push('mono');
-        if (s.bold) t.push('bold'); // ★ 修改：預設不粗體，所以「開啟」才寫進網址
-        if (!s.hidePunct) t.push('nopunct');
+        if (s.bold) t.push('bd'); // ★ 修改：bold 太長，改成 bd（預設不粗體，所以「開啟」才寫進網址）
+        if (!s.hidePunct) t.push('p'); // ★ 修改：原本 nopunct 太長，改成單一字母 p（出現＝顯示標點）
         if (s.followMode) t.push('f' + s.followCount);
         if (s.immersive) t.push('im');
         if (s.showGroupImage) t.push('img');
+        // ★ 新增：自動隨機背景圖（只在毛玻璃／半透明主題才看得到，所以只有這兩種主題才寫）。
+        //   ★ 修改：只寫 bg，不再附種子（圖片本來就是隨機的，種子放網址沒有意義）。
+        //   「無背景」是預設，不寫；「自訂上傳」是本機檔案無法放進網址，也不寫。
+        if (s.bgMode === 'auto' && (s.theme === 'frosted' || s.theme === 'translucent')) t.push('bg');
         return t.join('-');
     }
 
     // 字串 → 完整設定（沒寫的一律用預設值，不吃 localStorage，分享出去的連結才會一致）
     function parseTheaterSettings(str) {
-        const s = { theme: 'dark', layout: 'single', langA: 0, langB: 1, showSpeaker: false, mono: false,
+        const s = { theme: 'dark', layout: 'single', langA: 0, langB: 1, showSpeaker: false,
             bold: false, hidePunct: true, followMode: false, followCount: 1, immersive: false, // ★ 修改：bold 預設 false
             bgMode: 'none', bgAutoSeed: '', fontScale: 1, showGroupImage: false };
         String(str).split('-').forEach(raw => {
@@ -117,11 +130,17 @@
             if (CODE_TO_THEME[tok]) s.theme = CODE_TO_THEME[tok];
             else if (CODE_TO_LAYOUT[tok]) s.layout = CODE_TO_LAYOUT[tok];
             else if (tok === 'sp') s.showSpeaker = true;
-            else if (tok === 'mono') s.mono = true;
-            else if (tok === 'bold') s.bold = true; // ★ 修改：原本是 nobold
-            else if (tok === 'nopunct') s.hidePunct = false;
+            else if (tok === 'mono') return; // ★ 修改：等寬字型已移除，舊網址帶 mono 時直接忽略
+            else if (tok === 'bd' || tok === 'bold') s.bold = true; // ★ 修改：新碼 bd；舊網址的 bold 仍相容
+            else if (tok === 'p' || tok === 'nopunct') s.hidePunct = false; // ★ 修改：新碼 p；舊網址的 nopunct 仍相容
             else if (tok === 'im') s.immersive = true;
             else if (tok === 'img') s.showGroupImage = true;
+            else if (/^bg[a-z0-9]*$/.test(tok)) {
+                // ★ 修改：bg ＝ 自動背景圖。沿用本機上次那張的種子，所以重新整理不會一直換圖；
+                //   本機沒有就留空，由 applyBgImage 隨機補一個。舊網址的 bg＋種子（如 bgk3x）仍相容，以網址的為準。
+                s.bgMode = 'auto';
+                s.bgAutoSeed = tok.length > 2 ? tok.slice(2) : (localStorage.getItem(LS_PREFIX + 'bgAutoSeed') || '');
+            }
             else {
                 const m = tok.match(/^(a|b|z|f)(\d+(?:\.\d+)?)$/);
                 if (!m) return;
@@ -139,12 +158,59 @@
     function syncTheaterUrl() {
         try {
             const url = new URL(window.location.href);
-            if (overlay.classList.contains('stz-open')) url.searchParams.set(URL_THEATER_PARAM, encodeTheaterSettings(st));
-            else url.searchParams.delete(URL_THEATER_PARAM);
+            if (overlay.classList.contains('stz-open')) {
+                url.searchParams.set(URL_THEATER_PARAM, encodeTheaterSettings(st));
+                // ★ 新增：開啟中同時記錄目前播放秒數（小數 1 位，網址不會太長）
+                // ★ 修改：還原保護期間，t 固定寫「要還原的目標秒數」，避免載入過程中被別的程式移動的位置（或尚未跳轉的 0 秒）覆蓋
+                const locked = urlTimeLock && Date.now() < urlTimeLock.until;
+                const t = locked ? urlTimeLock.target : (audioPlayer ? (audioPlayer.currentTime || 0) : 0);
+                if (t > 0.05) url.searchParams.set(URL_TIME_PARAM, t.toFixed(1));
+                else url.searchParams.delete(URL_TIME_PARAM);
+            } else {
+                url.searchParams.delete(URL_THEATER_PARAM);
+                url.searchParams.delete(URL_TIME_PARAM); // ★ 新增：關閉展示模式時一併移除時間點
+            }
             const next = url.pathname + url.search + url.hash;
             const cur = window.location.pathname + window.location.search + window.location.hash;
             if (next !== cur) history.replaceState(null, '', next);
         } catch (e) { /* file:// 等環境不允許改網址時，安靜略過 */ }
+    }
+
+    // ★ 新增：跳到網址記錄的時間，並在一段時間內「持續校正」實際位置。
+    //   問題：重新整理後別的程式（例如 WaveSurfer 初始化、音檔重新解碼、VBR 的 MP3 估算位置不準）
+    //   可能在我們跳轉「之後」又把播放位置改掉，位置偏移後又被寫回網址，越刷越偏（例如 73.3 → 253.3）。
+    //   ★ 修改：舊版「通過一次驗證就放手」，若偏移發生在驗證之後就救不回來。現在改成：
+    //     · 4 秒內，只要偵測到（seeked / timeupdate / loadedmetadata）位置偏離目標超過 1.5 秒，就重跳
+    //       （最多 8 次，避免與別的程式無限拉扯）
+    //     · 使用者一操作（點擊、按鍵）或開始播放，立刻停止校正，不干擾正常播放與拖曳
+    //     · 校正期間，網址的 t 固定寫目標值（urlTimeLock），不會被偏移後的位置覆蓋
+    function restoreSeek(target) {
+        urlTimeLock = { target, until: Date.now() + 4000 };
+        let attempts = 0;
+        const doSeek = () => {
+            try { if (typeof wavesurfer !== 'undefined' && wavesurfer) wavesurfer.setTime(target); } catch (e) {}
+            try { audioPlayer.currentTime = target; } catch (e) {}
+        };
+        const release = () => {
+            ['seeked', 'timeupdate', 'loadedmetadata'].forEach(evt => audioPlayer.removeEventListener(evt, check));
+            overlay.removeEventListener('pointerdown', release, true);
+            document.removeEventListener('keydown', release, true);
+            clearTimeout(endTimer);
+            urlTimeLock = null;
+        };
+        const check = () => {
+            if (!audioPlayer.paused) { release(); return; } // 使用者已開始播放
+            const actual = audioPlayer.currentTime || 0;
+            if (Math.abs(actual - target) <= 1.5) return;   // 位置正確，繼續守著（可能還有後續重設）
+            if (attempts++ >= 8) { console.warn(`[字幕展示] 放棄還原：目標 ${target}s、實際 ${actual.toFixed(1)}s`); release(); return; }
+            console.warn(`[字幕展示] 還原時間被偏移：目標 ${target}s、實際 ${actual.toFixed(1)}s，第 ${attempts} 次重跳`);
+            doSeek();
+        };
+        const endTimer = setTimeout(release, 4000);
+        ['seeked', 'timeupdate', 'loadedmetadata'].forEach(evt => audioPlayer.addEventListener(evt, check));
+        overlay.addEventListener('pointerdown', release, true);
+        document.addEventListener('keydown', release, true);
+        doSeek();
     }
 
     // 載入時依網址自動開啟：音檔（IndexedDB 還原）與字幕資料是非同步載入的，
@@ -154,6 +220,9 @@
         const raw = new URLSearchParams(window.location.search).get(URL_THEATER_PARAM);
         if (raw === null) return;
         pendingUrlState = /^(|1|true)$/i.test(raw) ? null : parseTheaterSettings(raw);
+        // ★ 新增：解析網址的時間點（不是合法正數就忽略）
+        const rawT = parseFloat(new URLSearchParams(window.location.search).get(URL_TIME_PARAM));
+        pendingUrlTime = (isFinite(rawT) && rawT > 0) ? rawT : null;
 
         const cover = document.createElement('div');
         const isLight = (pendingUrlState || loadState()).theme === 'light';
@@ -167,15 +236,31 @@
         let tries = 0;
         const timer = setInterval(() => {
             tries++;
-            const ready = audioPlayer && audioPlayer.src && allLabelsOrdered.length > 0;
-            if (ready) { clearInterval(timer); openTheater(); removeCover(); }
-            else if (tries >= 50) { clearInterval(timer); pendingUrlState = null; syncTheaterUrl(); removeCover(); }
+            // ★ 修改：有時間點時，還要等音檔中繼資料載入（readyState >= 1，才知道總長度、才能安全跳轉）
+            const baseReady = audioPlayer && audioPlayer.src && allLabelsOrdered.length > 0;
+            // ★ 修改：另外等聲波圖解碼完成（聲波初始化可能重設播放位置，太早跳會被蓋掉）；等超過約 6 秒就不再等聲波圖
+            const wsReady = (typeof wavesurfer !== 'undefined' && wavesurfer && typeof wavesurfer.getDecodedData === 'function' && !!wavesurfer.getDecodedData());
+            const ready = baseReady && (pendingUrlTime === null || (audioPlayer.readyState >= 1 && (wsReady || tries >= 20)));
+            if (ready) {
+                clearInterval(timer);
+                if (pendingUrlTime !== null) {
+                    // ★ 新增：先跳到網址記錄的時間，再開啟（openTheater 的第一次渲染才會顯示正確那一句）；超過總長就夾到結尾前
+                    const dur = audioPlayer.duration;
+                    const target = (isFinite(dur) && dur > 0) ? Math.min(pendingUrlTime, Math.max(0, dur - 0.05)) : pendingUrlTime;
+                    restoreSeek(target); // ★ 修改：原本只跳一次；現在會驗證實際位置，被偏移就重跳
+                    pendingUrlTime = null;
+                }
+                openTheater();
+                removeCover();
+            }
+            else if (tries >= 50) { clearInterval(timer); pendingUrlState = null; pendingUrlTime = null; syncTheaterUrl(); removeCover(); }
         }, 300);
     }
 
     // ================= ② 樣式注入 =================
     const css = `
     .stz-overlay{position:fixed;inset:0;z-index:99999;display:none;--stz-scale:1;
+        --stz-pri-size:calc(clamp(26px,6vw,110px) * var(--stz-scale)); /* ★ 新增：主字幕字級（同大小雙語排版的次要字幕也用它） */
         background:#000;font-family:var(--main-font-family, sans-serif);}
     .stz-overlay.stz-open{display:block;}
     .stz-bg-image{position:absolute;inset:0;background-size:cover;background-position:center;
@@ -199,24 +284,22 @@
     .stz-lines[data-layout="stacked"], .stz-lines[data-layout="colorsplit"]{flex-direction:column;}
     .stz-lines[data-layout="side"]{flex-direction:row;gap:28px;flex-wrap:wrap;}
     .stz-primary{font-weight:400;line-height:1.35;word-break:break-word;white-space:pre-wrap;
-        font-size:calc(clamp(26px,6vw,110px) * var(--stz-scale));transition:opacity .15s;}
+        font-size:var(--stz-pri-size);transition:opacity .15s;} /* ★ 修改：改用變數 */
     .stz-secondary{line-height:1.4;word-break:break-word;white-space:pre-wrap;margin-top:16px;
-        font-size:calc(clamp(16px,3.2vw,52px) * var(--stz-scale));opacity:.85;transition:opacity .15s;}
+        font-size:calc(clamp(16px,3.2vw,52px) * var(--stz-scale));opacity:.95;transition:opacity .15s;} /* ★ 修改：opacity .85 → .95，次要字幕不要偏暗 */
     .stz-lines[data-layout="side"] .stz-secondary{margin-top:0;}
     .stz-lines[data-layout="single"] .stz-secondary{display:none;}
     .stz-speaker{position:absolute;right:24px;bottom:24px;z-index:2;display:inline-block;
         font-size:calc(clamp(12px,1.3vw,17px)*var(--stz-scale));
         font-weight:bold;color:#fff;border-radius:20px;padding:2px 12px;
         letter-spacing:1px;font-family:monospace;opacity:.7;}
-    .stz-overlay.stz-mono .stz-primary, .stz-overlay.stz-mono .stz-secondary{
-        font-family:Consolas,"Courier New",monospace;}
     .stz-overlay.stz-bold .stz-primary{font-weight:900;}
     .stz-overlay.stz-bold .stz-lyric-line{font-weight:700;}
 
     /* --- 主題：黑底白字 --- */
     [data-stz-theme="dark"] .stz-stage{background:#000;}
     [data-stz-theme="dark"] .stz-primary{color:#fff;}
-    [data-stz-theme="dark"] .stz-secondary{color:#B0BEC5;}
+    [data-stz-theme="dark"] .stz-secondary{color:#CFD8DC;} /* ★ 修改：#B0BEC5 → #CFD8DC，黑底上更清楚 */
 
     /* --- 主題：白底黑字 --- */
     [data-stz-theme="light"] .stz-stage{background:#fff;}
@@ -249,7 +332,7 @@
 
     /* --- 主題：卡拉OK 逐字上色（依目前句子播放進度左到右上色） --- */
     [data-stz-theme="karaoke"] .stz-stage{background:#000;}
-    [data-stz-theme="karaoke"] .stz-secondary{color:#B0BEC5;}
+    [data-stz-theme="karaoke"] .stz-secondary{color:#CFD8DC;} /* ★ 修改：同黑底主題 */
     [data-stz-theme="karaoke"] .stz-primary{
         background-image:linear-gradient(90deg,#FFD54F var(--stz-progress,0%),rgba(255,255,255,.32) var(--stz-progress,0%));
         -webkit-background-clip:text;background-clip:text;color:transparent;}
@@ -261,10 +344,10 @@
     [data-stz-theme="lyrics"] .stz-lyrics-wrap{display:block;}
     [data-stz-theme="lyrics"] .stz-lines{display:none;}
     .stz-lyric-line{color:#616161;font-size:calc(clamp(18px,3vw,40px)*var(--stz-scale));
-        line-height:1.9;font-weight:400;text-align:center;transition:color .25s, transform .25s;
+        line-height:1.9;font-weight:400;text-align:center;transition:color 0s ease-out; 
         cursor:pointer;white-space:pre-wrap;word-break:break-word;}
     .stz-lyric-line:hover{color:#9E9E9E;}
-    .stz-lyric-line.stz-lyric-active{color:#fff;transform:scale(1.04);}
+    .stz-lyric-line.stz-lyric-active{color:#fff;transition:color 0s ease-in-out;}
     .stz-lyric-line .stz-lyric-sub{display:block;font-size:.55em;font-weight:400;opacity:.65;margin-top:4px;}
 
     /* --- 主題：繪本模式（圖片為主要呈現，字幕貼在底部，仿照影片字幕條） ---
@@ -284,6 +367,7 @@
     [data-stz-theme="picturebook"] .stz-lines{max-width:88%;
         margin:0 auto 2.5vh;background:rgba(0,0,0,.6);border-radius:0;
         padding:5px 20px;box-sizing:border-box;}
+    [data-stz-theme="picturebook"]{--stz-pri-size:calc(clamp(15px,2.2vw,30px)*var(--stz-scale));} /* ★ 新增 */
     [data-stz-theme="picturebook"] .stz-primary{color:#fff;
         font-size:calc(clamp(15px,2.2vw,30px)*var(--stz-scale));}
     [data-stz-theme="picturebook"] .stz-secondary{color:#E0E0E0;
@@ -300,8 +384,18 @@
     [data-stz-theme="picturebook"]:not(.stz-mg-active) .stz-pb-empty{display:flex;}
 
     /* --- 排版：同大小不同色雙語 --- */
-    .stz-lines[data-layout="colorsplit"] .stz-secondary{opacity:1;color:#4FC3F7;font-size:inherit;margin-top:12px;}
-    [data-stz-theme="light"] .stz-lines[data-layout="colorsplit"] .stz-secondary{color:#1565C0;}
+    /* ★ 修改：原本 font-size:inherit 繼承到的是外層容器的預設字級（約 16px），不是主字幕的字級，
+       所以「同大小」其實小很多。改成直接使用主字幕的字級變數 --stz-pri-size，兩行才會一樣大。 */
+    .stz-lines[data-layout="colorsplit"] .stz-secondary{opacity:1;color:#4FC3F7;font-size:var(--stz-pri-size);line-height:1.35;margin-top:12px;}
+    /* ★ 新增：各主題的次要色，需與主字幕色明顯不同、也要在該主題背景上看得清楚 */
+    [data-stz-theme="dark"] .stz-lines[data-layout="colorsplit"] .stz-secondary{color:#4FC3F7;}   /* 黑底：亮天藍 */
+    [data-stz-theme="light"] .stz-lines[data-layout="colorsplit"] .stz-secondary{color:#1565C0;}  /* 白底：深藍 */
+    [data-stz-theme="yellow-outline"] .stz-lines[data-layout="colorsplit"] .stz-secondary{color:#80DEEA;-webkit-text-stroke:1.6px #000;} /* 主字幕黃：次要用淡青＋黑邊 */
+    [data-stz-theme="white-outline"] .stz-lines[data-layout="colorsplit"] .stz-secondary{color:#FFEE58;-webkit-text-stroke:1.6px #000;}  /* 主字幕白：次要用黃＋黑邊 */
+    [data-stz-theme="translucent"] .stz-lines[data-layout="colorsplit"] .stz-secondary{color:#81D4FA;text-shadow:0 2px 8px rgba(0,0,0,.6);}
+    [data-stz-theme="frosted"] .stz-lines[data-layout="colorsplit"] .stz-secondary{color:#FFE082;text-shadow:0 2px 14px rgba(0,0,0,.5);}  /* 毛玻璃背景偏亮偏雜：用暖黃＋陰影，比藍色清楚 */
+    [data-stz-theme="karaoke"] .stz-lines[data-layout="colorsplit"] .stz-secondary{color:#81D4FA;}   /* 卡拉OK 主字幕是黃色上色，次要用藍避免混淆 */
+    [data-stz-theme="picturebook"] .stz-lines[data-layout="colorsplit"] .stz-secondary{color:#81D4FA;}
 
     /* --- 控制列與設定面板：浮貼在畫面上方／下方，底色依主題為黑或白（不透空） --- */
     .stz-topbar, .stz-controlbar{position:absolute;left:0;right:0;z-index:3;
@@ -314,6 +408,11 @@
     .stz-overlay.stz-hide-ui .stz-topbar{transform:translateY(-6px);}
     .stz-overlay.stz-hide-ui .stz-controlbar{transform:translateY(6px);}
     .stz-overlay.stz-hide-ui .stz-stage{cursor:none;}
+    /* ★ 新增：歌詞捲動模式。.stz-lyric-line 自己設了 cursor:pointer，會蓋過上面 .stz-stage 的 cursor:none，
+       所以滑鼠停在歌詞上時游標不會消失；介面隱藏時一併把歌詞容器與每一行的游標藏起來，
+       並取消「滑鼠停留」的灰色高亮（排除目前這句，目前這句維持白色），避免捲動時底下的行忽亮忽暗。 */
+    .stz-overlay.stz-hide-ui .stz-lyrics-wrap, .stz-overlay.stz-hide-ui .stz-lyric-line{cursor:none;}
+    .stz-overlay.stz-hide-ui .stz-lyric-line:not(.stz-lyric-active):hover{color:#616161;}
 
     /* 白底黑字主題：控制列改為淺色底、深色字，維持可讀性 */
     [data-stz-theme="light"] .stz-topbar, [data-stz-theme="light"] .stz-controlbar{
@@ -441,7 +540,6 @@
             <label>語言 B（次要）</label>
             <select id="stzLangBSel"></select>
             <label class="stz-chkrow"><input type="checkbox" id="stzSpeakerChk"> 顯示段落編號</label>
-            <label class="stz-chkrow"><input type="checkbox" id="stzMonoChk"> 等寬字型</label>
             <label class="stz-chkrow"><input type="checkbox" id="stzBoldChk"> 粗體字</label>
             <label class="stz-chkrow"><input type="checkbox" id="stzHidePunctChk"> 隱藏標點（句首、句尾的標點移除；句中的標點改為一個空格）</label>
             <label class="stz-chkrow"><input type="checkbox" id="stzFollowChk"> 跟讀模式（每句唸完後停頓，再以較小音量重複）</label>
@@ -499,7 +597,6 @@
         langASel: overlay.querySelector('#stzLangASel'),
         langBSel: overlay.querySelector('#stzLangBSel'),
         speakerChk: overlay.querySelector('#stzSpeakerChk'),
-        monoChk: overlay.querySelector('#stzMonoChk'),
         boldChk: overlay.querySelector('#stzBoldChk'),
         hidePunctChk: overlay.querySelector('#stzHidePunctChk'),
         followChk: overlay.querySelector('#stzFollowChk'),
@@ -569,13 +666,16 @@
     // lastMgGroupId 只用來偵測「目前命中的群組是否換了」，避免每個影格都重複設定同一張圖。
     let lastMgGroupId = null;
 
+    // ★ 新增：產生極短的隨機種子（base36，只含小寫英數，可安全放進網址、不含 '-'）
+    function newBgSeed() { return Math.random().toString(36).slice(2, 5); } // ★ 修改：6 碼 → 3 碼（約 4.6 萬種圖，夠用，網址更短）
+
     function randomBgUrl(seed) {
         return `https://picsum.photos/1600/900?random=${encodeURIComponent(seed || '1')}`;
     }
 
     function applyBgImage() {
         if (st.bgMode === 'auto') {
-            if (!st.bgAutoSeed) { st.bgAutoSeed = String(Date.now()); saveState(); }
+            if (!st.bgAutoSeed) { st.bgAutoSeed = newBgSeed(); saveState(); } // ★ 修改：種子改短
             els.bgImage.style.backgroundImage = `url("${randomBgUrl(st.bgAutoSeed)}")`;
         } else if (st.bgMode === 'custom' && customBgObjectUrl) {
             els.bgImage.style.backgroundImage = `url("${customBgObjectUrl}")`;
@@ -711,18 +811,26 @@
         }
     }
 
+    // ★ 新增：卡拉OK 上色提前秒數。句首常有短暫空白，若覺得仍偏慢就調大（例如 0.4），偏快就調小（例如 0.15）；設 0 即還原舊行為
+    const KARAOKE_LEAD_SEC = 0.6;
+    // ★ 新增：提前量最多不超過句長的這個比例，避免短句一開始就染掉一大半
+    const KARAOKE_LEAD_MAX_RATIO = 0.25;
+
     function updateKaraokeProgress(label) {
         if (st.theme !== 'karaoke' || !label) return;
         const idx = allLabelsOrdered.indexOf(label);
         const times = getCalculatedTimes(label, idx);
         if (!times || times.duration <= 0) { overlay.style.setProperty('--stz-progress', '0%'); return; }
-        const frac = Math.min(1, Math.max(0, (audioPlayer.currentTime - times.start) / times.duration));
+        // ★ 修改：原本 (currentTime - times.start) / times.duration，改成加上提前量 lead
+        const lead = Math.min(KARAOKE_LEAD_SEC, times.duration * KARAOKE_LEAD_MAX_RATIO);
+        const frac = Math.min(1, Math.max(0, (audioPlayer.currentTime - times.start + lead) / times.duration));
         overlay.style.setProperty('--stz-progress', (frac * 100).toFixed(1) + '%');
     }
 
     // 逐字稿捲動清單：只在切換到 lyrics 主題、或開啟時重建一次
     let lyricsBuilt = false;
     function buildLyricsList() {
+        cancelLyricsTransition(); // ★ 修改：重建清單前，取消尚未完成的捲動／變亮流程
         let html = '';
         allLabelsOrdered.forEach(label => {
             const raw = sentenceTextMap[label] || '';
@@ -739,15 +847,36 @@
     function escapeHtml(s) {
         return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
+    // ★ 修改：「變暗快、變亮慢」。
+    //   上一版 A 變暗與捲動同時開始，但變暗是慢慢漸變（一開始幾乎沒變化），所以看起來
+    //   「A 還亮著就被捲走，捲完才暗」。現在：
+    //     1. A 用很快的漸變（CSS 約 .12s）先變暗
+    //     2. 等 A 暗下去（LYRICS_DIM_MS）才開始往上捲動
+    //     3. 捲動開始後不久（LYRICS_LIGHT_DELAY_MS），B 才用較慢的漸變（.45s）柔和變亮
+    //   這樣捲動時 A 已經是暗的；B 在移動中慢慢亮起，沒有「全暗停頓」，也不會突然閃一下。
+    //   連續快速切換時，前一次尚未執行的捲動與變亮都會被取消，只處理最後一句。
+    const LYRICS_DIM_MS = 110;          // A 變暗後才開始捲動（需略小於 CSS 的 .12s 漸變，A 已幾乎全暗即可）
+    const LYRICS_LIGHT_DELAY_MS = 90;   // 捲動開始後，B 延遲多久才開始變亮
+    let lyricsScrollTimer = null;
+    let lyricsLightTimer = null;
+    function cancelLyricsTransition() { // 取消尚未執行的「捲動」與「變亮」
+        clearTimeout(lyricsScrollTimer);
+        clearTimeout(lyricsLightTimer);
+    }
     function highlightLyricsLine(label) {
+        cancelLyricsTransition();
         const prev = els.lyricsWrap.querySelector('.stz-lyric-active');
-        if (prev) prev.classList.remove('stz-lyric-active');
+        if (prev) prev.classList.remove('stz-lyric-active'); // 1. A 先快速變暗
         if (!label) return;
         const node = els.lyricsWrap.querySelector(`.stz-lyric-line[data-label="${CSS.escape(label)}"]`);
-        if (node) {
-            node.classList.add('stz-lyric-active');
-            node.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        }
+        if (!node) return;
+
+        lyricsScrollTimer = setTimeout(() => {
+            node.scrollIntoView({ block: 'center', behavior: 'smooth' }); // 2. A 已暗，才開始捲動
+            lyricsLightTimer = setTimeout(() => {
+                node.classList.add('stz-lyric-active'); // 3. 捲動途中，B 慢慢變亮
+            }, LYRICS_LIGHT_DELAY_MS);
+        }, prev ? LYRICS_DIM_MS : 0);
     }
 
     function tick() {
@@ -759,6 +888,12 @@
         //   不能讓字幕在停頓期間跳去下一句（句子首尾相接，t 剛好落在下一句的範圍內）。
         followTick(t, label);
         if (follow.active) label = follow.label;
+
+        // ★ 新增：每約 1 秒把目前播放秒數寫進網址（播放中才寫；暫停與拖曳由下方事件補寫）
+        if (!audioPlayer.paused && Date.now() - lastUrlTimeWrite > 1000) {
+            lastUrlTimeWrite = Date.now();
+            syncTheaterUrl();
+        }
 
         if (label !== lastActiveLabel) {
             lastActiveLabel = label;
@@ -1023,7 +1158,6 @@
     function applyAll() {
         overlay.dataset.stzTheme = st.theme;
         els.lines.dataset.layout = st.layout;
-        overlay.classList.toggle('stz-mono', st.mono);
         overlay.classList.toggle('stz-bold', st.bold);
         overlay.classList.toggle('stz-immersive', st.immersive);
         overlay.style.setProperty('--stz-scale', st.fontScale);
@@ -1031,7 +1165,6 @@
         els.themeSel.value = st.theme;
         els.layoutSel.value = st.layout;
         els.speakerChk.checked = st.showSpeaker;
-        els.monoChk.checked = st.mono;
         els.boldChk.checked = st.bold;
         els.hidePunctChk.checked = st.hidePunct;
         els.followChk.checked = st.followMode;
@@ -1102,7 +1235,17 @@
     }
 
     // ================= ⑨ 事件綁定 =================
-    overlay.addEventListener('mousemove', () => wakeUi(true));
+    // ★ 修改：只有滑鼠「真的移動」才喚醒介面。
+    //   歌詞捲動模式下，清單捲動時（自動捲到下一句）滑鼠雖然沒動，瀏覽器卻會因為游標底下的內容
+    //   位置改變，補發「合成」的 mousemove 事件（座標與上一次相同）。舊版每個 mousemove 都當成使用者操作，
+    //   介面因此一直被喚醒、永遠不會隱藏。現在比對座標，位移不到 3 像素的事件一律忽略。
+    let lastMouseX = null, lastMouseY = null;
+    overlay.addEventListener('mousemove', (e) => {
+        if (lastMouseX !== null && Math.abs(e.clientX - lastMouseX) < 3 && Math.abs(e.clientY - lastMouseY) < 3) return;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        wakeUi(true);
+    });
 
     // 防止滾輪／觸控滑動「穿透」展示視窗，捲到底層頁面去；只允許逐字稿清單／設定面板本身捲動
     function blockScrollLeak(e) {
@@ -1173,7 +1316,6 @@
     els.langASel.addEventListener('change', () => { st.langA = parseInt(els.langASel.value, 10); saveState(); applyAll(); });
     els.langBSel.addEventListener('change', () => { st.langB = parseInt(els.langBSel.value, 10); saveState(); applyAll(); });
     els.speakerChk.addEventListener('change', () => { st.showSpeaker = els.speakerChk.checked; saveState(); applyAll(); });
-    els.monoChk.addEventListener('change', () => { st.mono = els.monoChk.checked; saveState(); applyAll(); });
     els.boldChk.addEventListener('change', () => { st.bold = els.boldChk.checked; saveState(); applyAll(); });
     els.hidePunctChk.addEventListener('change', () => { st.hidePunct = els.hidePunctChk.checked; saveState(); applyAll(); });
     els.followChk.addEventListener('change', () => {
@@ -1197,12 +1339,12 @@
     els.showGroupImageChk.addEventListener('change', () => { st.showGroupImage = els.showGroupImageChk.checked; saveState(); applyAll(); });
     els.bgModeSel.addEventListener('change', () => {
         st.bgMode = els.bgModeSel.value;
-        if (st.bgMode === 'auto' && !st.bgAutoSeed) st.bgAutoSeed = String(Date.now());
+        if (st.bgMode === 'auto' && !st.bgAutoSeed) st.bgAutoSeed = newBgSeed(); // ★ 修改：種子改短
         saveState();
         applyAll();
     });
     els.bgRefreshBtn.addEventListener('click', () => {
-        st.bgAutoSeed = String(Date.now()) + Math.random().toString(36).slice(2, 6);
+        st.bgAutoSeed = newBgSeed(); // ★ 修改：種子改短
         saveState();
         applyBgImage();
     });
@@ -1234,6 +1376,13 @@
         else if (e.code === 'KeyF') { if (document.fullscreenElement === overlay) document.exitFullscreen().catch(() => {}); else overlay.requestFullscreen?.().catch(() => {}); }
         else if (e.code === 'KeyS') els.settingsPanel.classList.toggle('stz-show');
     }
+
+    // ★ 新增：暫停、拖曳進度、關閉或重新整理頁面前，補寫一次最新時間點，避免最後一秒的位置遺失
+    const syncTimeIfOpen = () => { if (overlay.classList.contains('stz-open')) syncTheaterUrl(); };
+    audioPlayer.addEventListener('pause', syncTimeIfOpen);
+    audioPlayer.addEventListener('seeked', syncTimeIfOpen);
+    window.addEventListener('pagehide', syncTimeIfOpen);
+    window.addEventListener('beforeunload', syncTimeIfOpen);
 
     // ★ 新增：載入時依網址還原
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', restoreTheaterFromUrl);

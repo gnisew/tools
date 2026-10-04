@@ -6,7 +6,7 @@
 // 行為（與匯入 JSON 一致）：
 //   - 目前已有資料時，先跳出「覆蓋警告」，確認後才匯入
 //   - 匯入前呼叫 saveState()，可用 Undo 還原
-//   - 音檔、專案標題、跨句群組(mediaGroups)維持不動，只取代句子與時間標記
+//   - 音檔、專案標題、跨句範圍(mediaGroups)維持不動，只取代句子與時間標記
 //
 // 載入位置：index.html 中放在 4f 之後即可（建議放在 4l 後面）：
 //   <script src="4m_ui_import_srt.js"></script>

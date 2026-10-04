@@ -443,7 +443,7 @@ function getSearchScopeName() {
 }
 function updateSearchScopeHint() {
     if (!findTextInput) return;
-    // ★ 跨句群組模式：搜尋範圍是群組的備註與圖片網址，提示文字改由 4i 處理
+    // ★ 跨句範圍模式：搜尋範圍是群組的備註與圖片網址，提示文字改由 4i 處理
     if (typeof isMediaGroupsView !== 'undefined' && isMediaGroupsView && typeof mgSearchUpdateUI === 'function') { mgSearchUpdateUI(); return; }
     const scope = getSearchScopeName();
     findTextInput.placeholder = scope ? `尋找目標（${scope}）` : findPlaceholderDefault;
@@ -494,7 +494,7 @@ batchReplaceCancelBtn?.addEventListener('click', () => {
 function updateSearchMatches() {
     // ★ 多語言編輯模式：搜尋範圍是左/右欄 textarea，改由 4j_ui_lang_edit.js 處理
     if (typeof isLangEditView !== 'undefined' && isLangEditView && typeof langEditSearchScan === 'function') { langEditSearchScan(); return; }
-    // ★ 跨句群組模式：搜尋範圍限定群組資料，改由 4i_ui_media_groups.js 處理
+    // ★ 跨句範圍模式：搜尋範圍限定群組資料，改由 4i_ui_media_groups.js 處理
     if (typeof isMediaGroupsView !== 'undefined' && isMediaGroupsView && typeof mgSearchScan === 'function') { mgSearchScan(); return; }
     const findStr = findTextInput.value;
     const useRegex = useRegexCheck ? useRegexCheck.checked : false;
@@ -553,7 +553,7 @@ function updateSearchMatches() {
 function renderHighlights() {
     // ★ 多語言編輯模式：改由 4j 重畫行號高亮與命中計數
     if (typeof isLangEditView !== 'undefined' && isLangEditView && typeof langEditSearchPaint === 'function') { langEditSearchPaint(); return; }
-    // ★ 跨句群組模式：改由 4i 重畫欄位高亮與命中計數
+    // ★ 跨句範圍模式：改由 4i 重畫欄位高亮與命中計數
     if (typeof isMediaGroupsView !== 'undefined' && isMediaGroupsView && typeof mgSearchPaint === 'function') { mgSearchPaint(); return; }
     if (!searchEngine.query || searchEngine.matches.length === 0) {
         searchMatchCount.style.display = 'none';
@@ -657,7 +657,7 @@ function clearAllHighlights() {
     });
     searchPaintedLabels = new Set();
     
-    // ★ 一併清除跨句群組欄位上的搜尋高亮（沒有高亮時什麼都不做）
+    // ★ 一併清除跨句範圍欄位上的搜尋高亮（沒有高亮時什麼都不做）
     if (typeof mgSearchClearPaint === 'function') mgSearchClearPaint();
     
     // 處理劇本模式的背景
@@ -673,7 +673,7 @@ function escapeHtml(unsafe) {
 function scrollToCurrentMatch() {
     // ★ 多語言編輯模式：改由 4j 選取並捲動到命中位置
     if (typeof isLangEditView !== 'undefined' && isLangEditView && typeof langEditSearchScrollToCurrent === 'function') { langEditSearchScrollToCurrent(); return; }
-    // ★ 跨句群組模式：捲動到命中的那一列
+    // ★ 跨句範圍模式：捲動到命中的那一列
     if (typeof isMediaGroupsView !== 'undefined' && isMediaGroupsView && typeof mgSearchScrollToCurrent === 'function') { mgSearchScrollToCurrent(); return; }
     if (searchEngine.currentIndex === -1 || searchEngine.matches.length === 0) return;
     const match = searchEngine.matches[searchEngine.currentIndex];
@@ -765,7 +765,7 @@ function refreshRowAfterReplace(label) {
 replaceSingleBtn?.addEventListener('click', () => {
     // ★ 多語言編輯模式：改由 4j 處理（範圍限定所選欄位）
     if (typeof isLangEditView !== 'undefined' && isLangEditView && typeof langEditSearchReplaceSingle === 'function') { langEditSearchReplaceSingle(); return; }
-    // ★ 跨句群組模式：只取代群組資料（備註、圖片網址）
+    // ★ 跨句範圍模式：只取代群組資料（備註、圖片網址）
     if (typeof isMediaGroupsView !== 'undefined' && isMediaGroupsView && typeof mgSearchReplaceSingle === 'function') { mgSearchReplaceSingle(); return; }
     // 動手前先重新掃描一次，避免使用者中途改過文字導致命中位置過期
     updateSearchMatches();
@@ -793,7 +793,7 @@ replaceSingleBtn?.addEventListener('click', () => {
 batchReplaceConfirmBtn?.addEventListener('click', () => {
     // ★ 多語言編輯模式：改由 4j 處理（範圍限定所選欄位）
     if (typeof isLangEditView !== 'undefined' && isLangEditView && typeof langEditSearchReplaceAll === 'function') { langEditSearchReplaceAll(); return; }
-    // ★ 跨句群組模式：只取代群組資料（備註、圖片網址）
+    // ★ 跨句範圍模式：只取代群組資料（備註、圖片網址）
     if (typeof isMediaGroupsView !== 'undefined' && isMediaGroupsView && typeof mgSearchReplaceAll === 'function') { mgSearchReplaceAll(); return; }
     updateSearchMatches(); // 動手前先重新掃描，確保命中位置是最新的
     if (searchEngine.matches.length === 0) return;

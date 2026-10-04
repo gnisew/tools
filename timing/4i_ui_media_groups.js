@@ -379,8 +379,8 @@ document.getElementById('mgAddGroupBtn')?.addEventListener('click', () => {
 
 // ================= ★ 檢視模式切換：跨句圖片群組 ★ =================
 // #sentenceList（單句列表）、#scriptEditorContainer（全文模式）、#mediaGroupsView
-// （跨句群組）三個容器互斥顯示，直接佔用列表本身的空間，不疊視窗。
-// 從「列表工具列 → 編輯 → 跨句群組」或側邊欄同名按鈕切換進入，
+// （跨句範圍）三個容器互斥顯示，直接佔用列表本身的空間，不疊視窗。
+// 從「列表工具列 → 編輯 → 跨句範圍」或側邊欄同名按鈕切換進入，
 // 再點一次（或側邊欄按鈕）即可返回單句列表。
 
 let isMediaGroupsView = false;
@@ -434,7 +434,7 @@ function enterMediaGroupsView() {
     renderMediaGroupsList();
 
     document.getElementById('editMenu')?.classList.remove('show');
-    showToast('已切換為：跨句群組模式', 'success');
+    showToast('已切換為：跨句範圍模式', 'success');
 }
 
 function exitMediaGroupsView() {
@@ -463,7 +463,7 @@ function exitMediaGroupsView() {
     if (listHeaderContainer) listHeaderContainer.style.borderBottom = '2px solid #E0F2F1';
 
     const mgModeText = document.getElementById('mediaGroupsViewModeText');
-    if (mgModeText) mgModeText.textContent = '跨句群組';
+    if (mgModeText) mgModeText.textContent = '跨句範圍';
 
     // 標題復原成「列表」，隱藏「返回列表」麵包屑
     const headerTitle = document.getElementById('listHeaderTitle');
@@ -493,7 +493,7 @@ document.getElementById('toggleMediaGroupsViewBtn')?.addEventListener('click', (
     toggleMediaGroupsView();
 });
 
-// ================= ★ 跨句群組模式專用：尋找與取代（範圍選單：全部／開始／結束／備註／網址） ★ =================
+// ================= ★ 跨句範圍模式專用：尋找與取代（範圍選單：全部／開始／結束／備註／網址） ★ =================
 // 搜尋引擎（面板、上下筆、命中計數）沿用 4f_ui_import_search.js，isMediaGroupsView 為 true 時
 // 4f 會把 掃描／高亮／捲動／單筆取代／全部取代 轉交給下面的 mgSearch* 函式。
 // 範圍由面板上的「範圍」選單決定（全部＝四個欄位都搜）：開始、結束、備註、網址。

@@ -237,88 +237,286 @@ if (oldLocateBtn) {
 // 一筆假紀錄，按一次 Ctrl+Z 會感覺沒反應）、兩次 reassignLabels()、兩次 toast
 // 疊字。已整併為單一事實來源，唯一保留的版本在 3_data_core.js 第 535 行附近。
 
+// ================= ★ 微調選取邊界：依「音量門檻」的智慧處理 ★ =================
+// 規則（以每個選取句子的「頭」與「尾」分別判斷）：
+//   1. 依「音量門檻」找出實際有聲音的邊界（聲音開始／結束的位置）。
+//   2. 該邊界與目前選取邊界之間的靜音 < 保留靜音 → 向外擴增，直到剛好留足保留靜音；
+//      但遇到相鄰標記的邊界就停住，不會超過。
+//   3. 靜音 > 保留靜音 → 向內縮減，直到剛好留足保留靜音。
+//   4. 選取邊界本身就落在聲音上（聲音被切到）→ 先往外找到聲音真正的起點／終點，再留足保留靜音（同樣不越過鄰居）。
+// 偵測方式（峰值／RMS）沿用「依靜音斷句」的偵測模式；啟用「人聲強化」時，也用同一份壓低配樂的分析音訊。
+const TRIM_KEY_THRESHOLD = 'tagger_trimThreshold';
+const TRIM_KEY_PADDING = 'tagger_trimPadding';
+
+// 保留靜音的預設值 = 「依靜音斷句」的「前後留白時間」(#asPadding) 在 index.html 的預設值（0.2 秒）
+function getTrimPaddingDefault() {
+    const v = parseFloat(asPadding?.getAttribute('value'));
+    return v > 0 ? v : 0.2;
+}
+
+function getTrimSettings() {
+    let threshold = parseFloat(localStorage.getItem(TRIM_KEY_THRESHOLD));
+    if (!(threshold > 0 && threshold <= 50)) threshold = parseFloat(asThreshold?.value) || 5; // 沒設定過就沿用斷句的音量門檻
+    let padding = parseFloat(localStorage.getItem(TRIM_KEY_PADDING));
+    if (!(padding > 0)) padding = getTrimPaddingDefault(); // 不可 <= 0
+    return { threshold, padding };
+}
+
+// 建立「以 10 毫秒為一格」的音量分析器（與靜音斷句相同的切格方式，結果才會一致）
+function createTrimAnalyzer(thresholdPct, padding) {
+    const raw = (typeof wavesurfer !== 'undefined' && wavesurfer) ? wavesurfer.getDecodedData() : null;
+    if (!raw) return null;
+    const buffer = window.VocalEnhance ? VocalEnhance.getAnalysisBuffer(raw) : raw;
+    const sr = buffer.sampleRate;
+    const numChannels = buffer.numberOfChannels;
+    const channels = [];
+    for (let c = 0; c < numChannels; c++) channels.push(buffer.getChannelData(c));
+
+    const mediaDuration = audioPlayer.duration || buffer.duration;
+    const timeRatio = mediaDuration / buffer.duration;
+    const step = Math.max(1, Math.floor(sr / 100));
+    const blockCount = Math.max(1, Math.ceil(buffer.length / step));
+    const blockSec = (step / sr) * timeRatio;
+    const threshold = thresholdPct / 100;
+    const mode = asDetectionMode ? asDetectionMode.value : 'peak';
+    // ★ 凹陷容許：往外找聲音邊界時，短於「保留靜音」的安靜片段（字與字之間、氣音、尾音變弱）
+    //   視為聲音的一部分繼續找；安靜達到保留靜音長度，才算真正的靜音、才停下。
+    const bridge = Math.max(1, Math.round(padding / blockSec));
+    const cache = new Map();
+
+    function isLoud(b) {
+        if (cache.has(b)) return cache.get(b);
+        const from = b * step;
+        const to = Math.min(from + step, buffer.length);
+        let maxAmp = 0, sumSquares = 0;
+        for (let j = from; j < to; j++) {
+            for (let c = 0; c < numChannels; c++) {
+                const amp = Math.abs(channels[c][j]);
+                if (amp > maxAmp) maxAmp = amp;
+                if (mode === 'rms') sumSquares += amp * amp;
+            }
+        }
+        const count = (to - from) * numChannels;
+        const level = (mode === 'rms' && count > 0) ? Math.sqrt(sumSquares / count) : maxAmp;
+        const loud = level >= threshold;
+        cache.set(b, loud);
+        return loud;
+    }
+
+    const blockOf = t => Math.min(blockCount - 1, Math.max(0, Math.floor(t / blockSec)));
+    const timeOf = b => b * blockSec;
+
+    // 找「聲音開始」的時間；floorT = 往外找的下限（鄰居的結束時間）。整段都是靜音回傳 null
+    function findSoundStart(s, e, floorT) {
+        const bs = blockOf(s);
+        const be = Math.max(bs, blockOf(e - 0.0005));
+        const bLow = blockOf(floorT);
+        // 邊界落在聲音上、或邊界剛好落在聲音中的小凹陷（往外 bridge 格內仍有聲音）→ 以該處為起點，繼續往外找
+        let anchor = -1;
+        for (let k = bs; k >= Math.max(bLow, bs - bridge + 1); k--) {
+            if (isLoud(k)) { anchor = k; break; }
+        }
+        if (anchor !== -1) {
+            let lastLoud = anchor, quiet = 0;
+            for (let k = anchor - 1; k >= bLow; k--) {
+                if (isLoud(k)) { lastLoud = k; quiet = 0; }
+                else if (++quiet >= bridge) break; // 安靜達保留靜音長度 = 真正的靜音
+            }
+            return timeOf(lastLoud);
+        }
+        // 邊界在靜音裡 → 往內找第一個有聲音的位置
+        for (let b = bs + 1; b <= be; b++) if (isLoud(b)) return timeOf(b);
+        return null;
+    }
+
+    // 找「聲音結束」的時間；ceilT = 往外找的上限（鄰居的開始時間，不含鄰居自己的第一格）。整段都是靜音回傳 null
+    function findSoundEnd(s, e, ceilT) {
+        const bs = blockOf(s);
+        const be = Math.max(bs, blockOf(e - 0.0005));
+        const bHigh = Math.max(be, blockOf(ceilT) - 1);
+        let anchor = -1;
+        for (let k = be; k <= Math.min(bHigh, be + bridge - 1); k++) {
+            if (isLoud(k)) { anchor = k; break; }
+        }
+        if (anchor !== -1) {
+            let lastLoud = anchor, quiet = 0;
+            for (let k = anchor + 1; k <= bHigh; k++) {
+                if (isLoud(k)) { lastLoud = k; quiet = 0; }
+                else if (++quiet >= bridge) break;
+            }
+            return timeOf(lastLoud + 1);
+        }
+        for (let b = be - 1; b >= bs; b--) if (isLoud(b)) return timeOf(b + 1);
+        return null;
+    }
+
+    return { mediaDuration, findSoundStart, findSoundEnd };
+}
+
+// 套用到目前選取的句子
+function applySmartTrim(threshold, padding) {
+    const analyzer = createTrimAnalyzer(threshold, padding);
+    if (!analyzer) return showToast('請先載入音檔並等待分析完成', 'error');
+
+    // 1. 先拍下所有標記的「原始時間」快照，鄰居限制一律以快照為準，避免處理順序影響結果
+    const orig = {};
+    const validOrder = [];
+    allLabelsOrdered.forEach(label => {
+        const t = getCalculatedTimes(label);
+        if (t) { orig[label] = t; validOrder.push(label); }
+    });
+    const selectedSet = new Set(selectedLabels);
+
+    // 2. 逐句計算新的頭／尾
+    const res = {};
+    let silentSkipped = 0;
+    validOrder.forEach((label, k) => {
+        if (!selectedSet.has(label)) return;
+        const o = orig[label];
+        const prevEnd = k > 0 ? orig[validOrder[k - 1]].end : 0;
+        const nextStart = k < validOrder.length - 1 ? orig[validOrder[k + 1]].start : analyzer.mediaDuration;
+        const floorT = Math.min(prevEnd, o.start); // 往前擴增的極限（不碰前一個標記）
+        const ceilT = Math.max(nextStart, o.end);  // 往後擴增的極限（不碰後一個標記）
+
+        const soundStart = analyzer.findSoundStart(o.start, o.end, floorT);
+        const soundEnd = analyzer.findSoundEnd(o.start, o.end, ceilT);
+        if (soundStart === null || soundEnd === null || soundEnd <= soundStart) { silentSkipped++; return; }
+
+        // 聲音邊界 ± 保留靜音：比現在大 = 擴增（受極限限制），比現在小 = 縮減
+        res[label] = {
+            start: Math.max(floorT, soundStart - padding, 0),
+            end: Math.min(ceilT, soundEnd + padding, analyzer.mediaDuration)
+        };
+    });
+
+    // 3. 相鄰的兩句都被選取、且擴增後互相重疊 → 在重疊處取中點，兩邊各讓一半
+    for (let k = 0; k < validOrder.length - 1; k++) {
+        const a = res[validOrder[k]], b = res[validOrder[k + 1]];
+        if (a && b && a.end > b.start) {
+            const mid = (a.end + b.start) / 2;
+            a.end = mid;
+            b.start = mid;
+        }
+    }
+
+    // 4. 統計並寫入（有變動才拍 Undo 快照）
+    const EPS = 0.0005;
+    const changes = [];
+    let grow = 0, shrink = 0;
+    Object.keys(res).forEach(label => {
+        const o = orig[label];
+        const s = parseFloat(res[label].start.toFixed(3));
+        const e = parseFloat(res[label].end.toFixed(3));
+        if (e <= s) return; // 防呆：不合理的結果一律不套用
+        if (Math.abs(s - o.start) < EPS && Math.abs(e - o.end) < EPS) return;
+        if (s < o.start - EPS) grow++; else if (s > o.start + EPS) shrink++;
+        if (e > o.end + EPS) grow++; else if (e < o.end - EPS) shrink++;
+        changes.push({ label, start: s, end: e });
+    });
+
+    if (changes.length === 0) {
+        const extra = silentSkipped ? `（另有 ${silentSkipped} 句整段低於門檻，已略過）` : '';
+        return showToast('邊界已符合設定，沒有需要調整的句子' + extra, 'normal');
+    }
+
+    if (typeof saveState === 'function') saveState(); // 紀錄 Undo 狀態
+    changes.forEach(c => { timeDataMap[c.label] = { start: c.start, end: c.end }; });
+
+    saveToStorage();
+    if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
+    if (typeof renderAllRegions === 'function') renderAllRegions(); // 重新繪製聲波圖避免殘影
+
+    let msg = `已調整 ${changes.length} 個句子（邊界擴增 ${grow} 處、縮減 ${shrink} 處）`;
+    if (silentSkipped) msg += `，${silentSkipped} 句整段低於門檻已略過`;
+    showToast(msg, 'success');
+}
+
+// ================= 設定視窗（音量門檻 + 保留靜音） =================
+function ensureTrimDialog() {
+    let overlay = document.getElementById('trimModalOverlay');
+    if (overlay) return overlay;
+
+    overlay = document.createElement('div');
+    overlay.id = 'trimModalOverlay';
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+        <div class="custom-modal" role="dialog" aria-modal="true" aria-labelledby="trimModalTitle">
+            <h4 id="trimModalTitle">微調選取邊界（依音量門檻）</h4>
+            <p style="font-size:0.88rem; color:#666; margin-bottom:16px;">依音量門檻找出聲音的實際邊界，再讓頭尾各保留指定的靜音：不足就往外擴增（碰到相鄰標記就停住），太多就往內縮減。</p>
+            <label for="trimThresholdInput" style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">音量門檻 (%)</label>
+            <input type="number" id="trimThresholdInput" min="0.5" max="50" step="0.5">
+            <label for="trimPaddingInput" style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">保留靜音 (秒，必須大於 0)</label>
+            <input type="number" id="trimPaddingInput" min="0.01" step="0.05" style="margin-bottom:8px;">
+            <div id="trimModalError" style="color:#C62828; font-size:0.85rem; min-height:1.2em; margin-bottom:12px;"></div>
+            <div class="modal-buttons">
+                <button id="trimConfirmBtn" class="btn-modal-confirm">套用</button>
+                <button id="trimCancelBtn" class="btn-modal-cancel">取消</button>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+
+    const thInput = overlay.querySelector('#trimThresholdInput');
+    const padInput = overlay.querySelector('#trimPaddingInput');
+    const errEl = overlay.querySelector('#trimModalError');
+    const close = () => overlay.classList.remove('show');
+
+    const confirm = () => {
+        const threshold = parseFloat(thInput.value);
+        const padding = parseFloat(padInput.value);
+        if (!(threshold > 0 && threshold <= 50)) {
+            errEl.textContent = '音量門檻請輸入 0 ~ 50 之間的數字（不含 0）';
+            return thInput.focus();
+        }
+        if (!(padding > 0)) { // 同時擋掉 NaN、0、負數
+            errEl.textContent = '保留靜音必須大於 0 秒';
+            return padInput.focus();
+        }
+        localStorage.setItem(TRIM_KEY_THRESHOLD, String(threshold));
+        localStorage.setItem(TRIM_KEY_PADDING, String(padding));
+        close();
+        applySmartTrim(threshold, padding);
+    };
+
+    overlay.querySelector('#trimConfirmBtn').addEventListener('click', confirm);
+    overlay.querySelector('#trimCancelBtn').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    // 視窗內的按鍵不往外傳，避免觸發全域快捷鍵（例如 Esc 取消選取、空白鍵播放）
+    overlay.addEventListener('keydown', e => {
+        e.stopPropagation();
+        if (e.key === 'Enter') { e.preventDefault(); confirm(); }
+        else if (e.key === 'Escape') { e.preventDefault(); close(); }
+    });
+    [thInput, padInput].forEach(el => el.addEventListener('input', () => { errEl.textContent = ''; }));
+    return overlay;
+}
+
+function showTrimBoundaryDialog() {
+    const overlay = ensureTrimDialog();
+    const { threshold, padding } = getTrimSettings();
+    overlay.querySelector('#trimThresholdInput').value = threshold;
+    overlay.querySelector('#trimPaddingInput').value = padding;
+    overlay.querySelector('#trimModalError').textContent = '';
+    overlay.classList.add('show');
+    setTimeout(() => overlay.querySelector('#trimPaddingInput').select(), 100);
+}
+
 adjustPaddingBtn?.addEventListener('click', () => {
     if (selectedLabels.length === 0) return;
-    
-    showCustomDialog({
-        title: '調整標記邊界 (增減空白)',
-        message: '請輸入要往外擴張的秒數 (正數 = 增加空白，負數 = 減少空白)：<br><span style="font-size:0.85em; color:#666;">例如輸入 0.2，則開頭提早 0.2 秒，結尾延後 0.2 秒。</span>',
-        isPrompt: true,
-        defaultValue: '0.2',
-        onConfirm: (val) => {
-            const padding = parseFloat(val);
-            if (isNaN(padding) || padding === 0) return;
+    if (typeof wavesurfer === 'undefined' || !wavesurfer || !wavesurfer.getDecodedData()) {
+        return showToast('請先載入音檔並等待分析完成', 'error');
+    }
+    showTrimBoundaryDialog();
+});
 
-            if (typeof saveState === 'function') saveState(); // 紀錄 Undo 狀態
-
-            let modifiedCount = 0;
-            selectedLabels.forEach(label => {
-                if (timeDataMap[label]) {
-                    const times = getCalculatedTimes(label);
-                    if (times) {
-                        const currentIndex = allLabelsOrdered.indexOf(label);
-                        
-                        // 1. 尋找「前一個」有效標記的結束時間 (作為左側極限)
-                        let prevEnd = 0;
-                        for (let i = currentIndex - 1; i >= 0; i--) {
-                            const prevLabel = allLabelsOrdered[i];
-                            if (timeDataMap[prevLabel]) {
-                                const prevTimes = getCalculatedTimes(prevLabel);
-                                if (prevTimes) { prevEnd = prevTimes.end; break; }
-                            }
-                        }
-
-                        // 2. 尋找「後一個」有效標記的開始時間 (作為右側極限)
-                        let nextStart = (typeof audioPlayer !== 'undefined' && audioPlayer.duration) ? audioPlayer.duration : Infinity;
-                        for (let i = currentIndex + 1; i < allLabelsOrdered.length; i++) {
-                            const nextLabel = allLabelsOrdered[i];
-                            if (timeDataMap[nextLabel]) {
-                                const nextTimes = getCalculatedTimes(nextLabel);
-                                if (nextTimes) { nextStart = nextTimes.start; break; }
-                            }
-                        }
-
-                        // 3. 計算新的起迄時間，並套用極限值防護
-                        let newStart = times.start;
-                        let newEnd = times.end;
-
-                        if (padding > 0) {
-                            // 【向外擴張】：確保不超出鄰居邊界
-                            newStart = Math.max(prevEnd, times.start - padding);
-                            if (times.end !== null) {
-                                newEnd = Math.min(nextStart, times.end + padding);
-                            }
-                        } else {
-                            // 【向內縮減】：確保起點與終點不會互相跨越
-                            newStart = times.start - padding; // padding 是負數，所以這會增加數值
-                            if (times.end !== null) {
-                                newEnd = times.end + padding;
-                                if (newStart > newEnd) {
-                                    const mid = (times.start + times.end) / 2;
-                                    newStart = mid;
-                                    newEnd = mid;
-                                }
-                            }
-                        }
-
-                        // 4. 寫入新時間 (精確到小數點後 3 位)
-                        const finalStart = parseFloat(newStart.toFixed(3));
-                        const finalEnd = newEnd !== null ? parseFloat(newEnd.toFixed(3)) : null;
-                        
-                        if (finalStart !== times.start || finalEnd !== times.end) {
-                            timeDataMap[label] = { start: finalStart, end: finalEnd };
-                            modifiedCount++;
-                        }
-                    }
-                }
-            });
-
-            saveToStorage();
-            if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
-            if (typeof renderAllRegions === 'function') renderAllRegions(); // ★ 確保重新繪製聲波圖避免殘影
-            showToast(`已成功調整 ${modifiedCount} 個句子的邊界！`, 'success');
-        }
-    });
+// ★ 新增：聲波圖「⋮」更多選單裡的「微調選取邊界」(#waveAdjustPaddingBtn)。
+//   原本這個按鈕沒有任何 click 綁定，點了沒反應。這裡先關閉選單，再轉交給「編輯」選單的
+//   「調整邊界」(#adjustPaddingBtn) 處理，兩個入口共用同一份邏輯，不會各維護一份。
+document.getElementById('waveAdjustPaddingBtn')?.addEventListener('click', () => {
+    document.getElementById('waveMoreMenu')?.classList.remove('show');
+    if (selectedLabels.length === 0) {
+        return showToast('請先選取要微調邊界的句子（列表 Ctrl／Shift 多選，或在聲波圖按 Ctrl+Shift+A 全選）', 'error');
+    }
+    adjustPaddingBtn?.click();
 });
 
 openSidebarBtn.addEventListener('click', () => { settingsSidebar.classList.add('open'); sidebarOverlay.classList.add('show'); });
@@ -454,7 +652,7 @@ function rebuildLangViewMenuItems() {
 
 // 依目前的語言檢視模式，更新子選單裡的項目，以及「語言」按鈕上顯示的目前模式。
 // 未啟用多語字幕時，直接隱藏整個「語言」按鈕（只有一種語言，沒有切換的意義）。
-// ★ 新增：「語言」按鈕只在「列表」模式顯示。單句全文／跨句群組／多語字幕模式用不到語言檢視，
+// ★ 新增：「語言」按鈕只在「列表」模式顯示。單句全文／跨句範圍／多語字幕模式用不到語言檢視，
 //   所以直接隱藏（getCurrentListMode 定義在 4l，尚未載入時視為列表模式）。
 function updateLangMenuVisibility() {
     if (!langMenuContainer) return;
