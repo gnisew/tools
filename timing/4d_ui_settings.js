@@ -172,15 +172,30 @@ document.getElementById('labelDisplayModeSelect')?.addEventListener('change', ()
 refreshAudioNamePreview();
 
 // 綁定「依靜音斷句」的四個滑桿
-initAutoSegmentSetting('asThreshold', 'asThresholdVal', 'tagger_asThreshold', v => `(${v}%)`);
+initAutoSegmentSetting('asThreshold', 'asThresholdVal', 'tagger_asThreshold', v => `${v}%`);
 initAutoSegmentSetting('asDetectionMode', null, 'tagger_asDetectionMode', null); // ★ 新增：偵測模式（Peak/RMS），預設 peak 與舊行為完全相同
-initAutoSegmentSetting('asSilence', 'asSilenceVal', 'tagger_asSilence', v => `(${parseFloat(v).toFixed(1)} 秒)`);
-initAutoSegmentSetting('asMinSegment', 'asMinSegmentVal', 'tagger_asMinSegment', v => `(${parseFloat(v).toFixed(1)} 秒)`);
-initAutoSegmentSetting('asPadding', 'asPaddingVal', 'tagger_asPadding', v => `(${parseFloat(v).toFixed(1)} 秒)`);
+initAutoSegmentSetting('asSilence', 'asSilenceVal', 'tagger_asSilence', v => `${parseFloat(v).toFixed(1)} 秒`);
+initAutoSegmentSetting('asMinSegment', 'asMinSegmentVal', 'tagger_asMinSegment', v => `${parseFloat(v).toFixed(1)} 秒`);
+initAutoSegmentSetting('asPadding', 'asPaddingVal', 'tagger_asPadding', v => `${parseFloat(v).toFixed(1)} 秒`);
 
 // 順便綁定「依等長時間」的兩個輸入框
 initAutoSegmentSetting('asFixedTimeMinutes', null, 'tagger_asFixedTimeMinutes', null);
 initAutoSegmentSetting('asFixedTimeSeconds', null, 'tagger_asFixedTimeSeconds', null);
+
+// ★ 新增：「智慧等長分割」—— 勾選狀態與尋找範圍滑桿（跨重新整理記憶；勾選後才顯示範圍滑桿）
+initAutoSegmentSetting('asSmartWindow', 'asSmartWindowVal', 'tagger_asSmartWindow', v => `${parseFloat(v).toFixed(1)} 秒`);
+(function bindSmartTimeCheck() {
+    const chk = document.getElementById('asSmartTimeCheck');
+    const box = document.getElementById('asSmartWindowBox');
+    if (!chk) return;
+    chk.checked = localStorage.getItem('tagger_asSmartTime') === 'true';
+    const sync = () => { if (box) box.style.display = chk.checked ? 'block' : 'none'; };
+    chk.addEventListener('change', () => {
+        localStorage.setItem('tagger_asSmartTime', chk.checked ? 'true' : 'false');
+        sync();
+    });
+    sync();
+})();
 
 // 1. 全域自動斷句 (左側清單按鈕)
 autoSegmentBtn?.addEventListener('click', () => { 
@@ -310,6 +325,7 @@ asConfirmBtn?.addEventListener('click', () => {
     
     if (targetAutoSegmentRange) {
         if (typeof saveState === 'function') saveState(); // 紀錄狀態以便反悔
+        if (typeof clearSelection === 'function') clearSelection(); // ★ 新增：不論有沒有 labelsToClear，開始斷句前先取消選取
 
         // 若是針對現有標記重新斷句，先清除它們的時間(釋放空間)避免重疊！
         if (targetAutoSegmentRange.labelsToClear && targetAutoSegmentRange.labelsToClear.length > 0) {
@@ -791,7 +807,7 @@ if (listWidthSelect) {
 // 未勾選時按鈕只是隱藏，功能不受影響：退/進2秒、下載仍可從工具列拿掉的位置移除；
 // 取消選取即使沒常駐，也依然能從 ⋮ 更多選單使用。
 const TOOLBAR_BTN_VISIBILITY = {
-    seek:     { checkId: 'toolbarShowSeekCheck',     targets: ['rewindBtn', 'forwardBtn'],   key: 'tagger_toolbarShowSeek',     defaultOn: true },
+    seek:     { checkId: 'toolbarShowSeekCheck',     targets: ['rewindBtn', 'forwardBtn'],   key: 'tagger_toolbarShowSeek',     defaultOn: false },
     download: { checkId: 'toolbarShowDownloadCheck', targets: ['downloadActiveRegionBtn'],   key: 'tagger_toolbarShowDownload', defaultOn: true },
     cancel:   { checkId: 'toolbarShowCancelCheck',   targets: ['cancelRegionBtn'],           key: 'tagger_toolbarShowCancel',   defaultOn: false }
 };

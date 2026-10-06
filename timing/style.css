@@ -172,6 +172,7 @@ button:active { background: #00695C; }
     /* ★ 核心修正：限制最大高度並允許垂直滾動 */
     max-height: 50vh; /* 最高只佔螢幕高度的 50% */
     overflow-y: auto; 
+    overscroll-behavior: contain; /* ★ 增加：選單捲到頂／底時，不把捲動傳給底下的頁面 */
     scrollbar-width: thin; /* 針對 Firefox 的細滾動條設定 */
 }
 .custom-dropdown-menu.show { display: flex; } 
@@ -200,6 +201,8 @@ button:active { background: #00695C; }
 }
 .custom-dropdown-item:hover { background: #F0F4F8; color: #00897B; }
 .custom-dropdown-item .material-icons { font-size: 1.2rem; }
+/* ★ 新增：聲波「顯示靜音區塊／短雜訊」開啟中的底色 */
+.custom-dropdown-item.view-on { background: #E0F2F1; }
 
 
 /* ================= 4. 動態標題編輯與首頁變身特效 ================= */
@@ -593,6 +596,9 @@ body.is-view-mode .inline-delete-btn { display: none !important; }
 
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
 .modal-overlay.show { display: flex; }
+/* ★ 新增：調整「播放略過」時，讓設定側邊欄的遮罩透明、不模糊，才看得到聲波上的灰色斜線（由 4p_ui_wave_peek.js 加上／移除 .wave-peek） */
+#sidebarOverlay { transition: background-color 0.25s ease, backdrop-filter 0.25s ease; }
+#sidebarOverlay.wave-peek { background-color: rgba(0, 0, 0, 0); backdrop-filter: none; -webkit-backdrop-filter: none; }
 .custom-modal { background: white; width: 90%; max-width: 400px; border-radius: 12px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
 /* ★ 增加：視窗太矮（手機橫放、縮小瀏覽器）時，對話框內容超出頁面會點不到下方按鈕。
    這裡限制對話框最高不超過可視高度（扣掉上下各 16px 留白與 padding 24px×2），超出就在框內捲動。
@@ -1416,3 +1422,42 @@ input.input-select[type="number"] { cursor: text; }
 /* ===== 批次修改：頂部單列（選檔＋狀態＋清除　｜　表格/TSV 切換） ===== */
 .be-topbar .be-seg { flex: 0 0 auto; }
 #batchEditDownloadBtn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ★ 新增：框選模式開啟時，聲波外框顯示藍色虛線提示 */
+#waveform.select-mode { outline: 2px dashed #1976D2; outline-offset: -2px; border-radius: 4px; }
+
+/* ★ 新增：播放略過 — 靈敏度（保守／標準／積極）、自動偵測、結果文字、進階數值 */
+/* ★ 修改：精簡「播放略過」設定（拿掉 保守/標準/積極 按鈕、說明文字、進階區；數值直接顯示） */
+.skip-auto-btn { padding: 3px 10px; border-radius: 14px; font-size: 0.76rem; cursor: pointer; border: 1px dashed #B2DFDB; background: #fff; color: #00695C; transition: background .15s ease; }
+.skip-auto-btn:hover:not(:disabled) { background: #E0F2F1; }
+.skip-auto-btn:disabled { cursor: not-allowed; }
+.skip-sens-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.skip-sens-head .setting-label { margin: 0; }
+.skip-val { color: #00897B; font-weight: 700; margin-left: 8px; }
+.skip-slider-row { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; color: #78909C; }
+.skip-slider-row input[type="range"] { flex: 1; min-width: 0; margin: 0; }
+.skip-info { font-size: 0.8rem; color: #00796B; font-weight: 600; min-height: 1.2em; margin: 4px 0; }
+.skip-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.88rem; color: #37474F; margin-top: 8px; }
+.skip-row .input-number-sm { margin: 0 6px 0 0; width: 56px; }
+
+/* ================= 自動斷句視窗（精簡版） ================= */
+.as-body { padding: 18px 22px 8px; flex-grow: 1; overflow-y: auto; overscroll-behavior: contain; }
+.as-field { margin-bottom: 18px; }
+.as-label { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; font-weight: 600; font-size: 0.9rem; color: #333; }
+.as-val { color: #1976D2; font-weight: 600; font-variant-numeric: tabular-nums; }
+.as-field input[type="range"], .as-card input[type="range"] { width: 100%; accent-color: #1976D2; margin: 0; }
+.as-select { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 0.9rem; background: #fff; }
+.as-adv { border-top: 1px solid #EEE; padding-top: 10px; margin-top: 4px; }
+.as-adv summary { cursor: pointer; font-size: 0.85rem; color: #666; padding: 4px 0 12px; user-select: none; }
+.as-time-row { display: flex; align-items: center; gap: 8px; }
+.as-num { flex: 1; min-width: 0; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 1.05rem; font-weight: 600; color: #1976D2; text-align: center; outline: none; }
+.as-num:focus { border-color: #1976D2; }
+.as-unit { color: #555; font-weight: 600; margin-right: 6px; }
+.as-card { padding: 12px 14px; background: #F5F9FF; border: 1px solid #BBDEFB; border-radius: 10px; margin-bottom: 14px; }
+.as-check { display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600; font-size: 0.95rem; }
+.as-check input { width: 18px; height: 18px; accent-color: #1976D2; margin: 0; flex-shrink: 0; }
+.as-check small { display: block; font-weight: 400; font-size: 0.78rem; color: #777; margin-top: 2px; }
+.as-estimate { flex-shrink: 0; padding: 9px 22px; border-top: 1px solid #E3EEFB; background: #F5F9FF; font-size: 0.88rem; color: #1565C0; line-height: 1.5; min-height: 22px; }
+.as-estimate b { color: #0D47A1; }
+.as-sub { color: #777; font-size: 0.8rem; margin-left: 8px; }
+.as-warn { color: #E65100; font-size: 0.8rem; margin-top: 2px; }

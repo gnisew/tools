@@ -96,6 +96,7 @@ const hkForward = document.getElementById('hkForward');
 const hkPrev = document.getElementById('hkPrev');
 const hkNext = document.getElementById('hkNext');
 const hkSplit = document.getElementById('hkSplit');
+const hkWaveSelect = document.getElementById('hkWaveSelect'); // ★ 新增：框選模式快速鍵輸入框
 const resetShortcutsBtn = document.getElementById('resetShortcutsBtn');
 
 const zoomOutBtn = document.getElementById('zoomOutBtn');
@@ -380,7 +381,8 @@ const defaultShortcuts = {
     prev: 'Ctrl+ArrowUp', 
     next: 'Ctrl+ArrowDown',
     split: 'Ctrl+I',
-    merge: 'Ctrl+J'
+    merge: 'Ctrl+J',
+    waveSelect: 'Ctrl+Q' // ★ 新增：框選模式（標記暫時穿透）
 };
 let activeShortcuts = { ...defaultShortcuts };
 
@@ -399,6 +401,9 @@ function loadShortcuts() {
     
     if (hkSplit) hkSplit.value = activeShortcuts.split;
     if (hkMerge) hkMerge.value = activeShortcuts.merge;
+    if (hkWaveSelect) hkWaveSelect.value = activeShortcuts.waveSelect; // ★ 新增
+    // ★ 新增：同步聲波選單裡顯示的快速鍵文字（函式定義在 6_wave_controller.js）
+    if (typeof updateWaveSelectModeUI === 'function') updateWaveSelectModeUI();
 }
 
 function attachKeyCatcher(inputEl, keyName) {

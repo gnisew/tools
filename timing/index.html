@@ -97,8 +97,8 @@
         <div class="controls-compact" id="compactControls">
             <button id="playPauseBtn" class="btn-icon" title="播放/暫停 (Space)" aria-label="播放/暫停 (Space)"><span class="material-icons">play_arrow</span></button>
             <button id="stopBtn" class="btn-icon" title="停止並回到開頭" aria-label="停止並回到開頭"><span class="material-icons">stop</span></button>
-            <button id="rewindBtn" class="btn-icon" title="退 2 秒" aria-label="退 2 秒"><span class="material-icons">fast_rewind</span></button>
-            <button id="forwardBtn" class="btn-icon" title="進 2 秒" aria-label="進 2 秒"><span class="material-icons">fast_forward</span></button>
+            <button id="rewindBtn" class="btn-icon" style="display: none;" title="退 2 秒" aria-label="退 2 秒"><span class="material-icons">fast_rewind</span></button>
+            <button id="forwardBtn" class="btn-icon" style="display: none;" title="進 2 秒" aria-label="進 2 秒"><span class="material-icons">fast_forward</span></button>
             <button id="downloadActiveRegionBtn" class="btn-icon" style="background: #4DB6AC; color: white; border: none;" title="下載目前選取的句段音檔" aria-label="下載目前選取的句段音檔"><span class="material-icons">download</span></button>
                         
             <div style="position: relative; display: inline-block; margin: 0 4px;">
@@ -132,7 +132,7 @@
                  點擊行為直接沿用 ⋮ 更多選單裡原本的 waveCancelSelectBtn，避免邏輯重複 -->
             <button id="cancelRegionBtn" class="btn-icon" style="background: #FFEBEE; color: #E53935; border: 1px solid #FFCDD2; display: none; opacity: 0.3; cursor: not-allowed;" title="取消選取 (Esc)" aria-label="取消選取 (Esc)" disabled><span class="material-icons">deselect</span></button>
             <button id="mergeRegionBtn" class="btn-icon" style="background: #F3E5F5; color: #7B1FA2; border: 1px solid #E1BEE7; opacity: 0.3; cursor: not-allowed;" title="合併選取 (Ctrl+J)" aria-label="合併選取 (Ctrl+J)" disabled><span class="material-icons">merge_type</span></button>
-            <button id="splitRegionBtn" class="btn-icon" style="background: #FFF3E0; color: #E65100; border: 1px solid #FFE0B2;" title="在游標處切割 (Ctrl+I)" aria-label="在游標處切割 (Ctrl+I)"><span class="material-icons">content_cut</span></button>
+            <button id="splitRegionBtn" class="btn-icon" style="background: #FFF3E0; color: #E65100; border: 1px solid #FFE0B2;" title="在游標處切割 (Ctrl+I)" aria-label="在游標處切割 (Ctrl+I)"><span class="material-icons">vertical_split</span></button>
             <button id="tagRegionBtn" class="btn-icon" style="background: #E8F5E9; color: #2E7D32; border: 1px solid #C8E6C9;" title="新增聲波標記 (Enter)" aria-label="新增聲波標記 (Enter)"><span class="material-icons">bookmark_add</span></button>
             <button id="clearRegionBtn" class="btn-icon" style="background: #FFEBEE; color: #C62828; border: 1px solid #FFCDD2;" title="清除目前句子的時間標記 (Delete)" aria-label="清除目前句子的時間標記 (Delete)"><span class="material-icons">bookmark_remove</span></button>
 
@@ -195,13 +195,45 @@
                         <span style="color:#E53935; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">deselect</span>取消選取</span> 
                         <span style="background:#f1f3f4; padding:2px 6px; border-radius:4px; font-size:0.8em; font-family:monospace; color:#E53935; border: 1px solid #FFCDD2;">Esc</span>
                     </div>
+					<!-- 框選模式（邏輯在 6_wave_controller.js） -->
+					<div class="custom-dropdown-item" id="waveSelectModeBtn" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                        <span style="color:#1976D2; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">highlight_alt</span>框選模式</span> 
+                        <span id="waveSelectModeChip" style="background:#f1f3f4; padding:2px 6px; border-radius:4px; font-size:0.8em; font-family:monospace; color:#1976D2; border: 1px solid #BBDEFB;">Ctrl+Q</span>
+                    </div>
 					<div class="custom-dropdown-item" id="waveCutAudioBtn" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
-                        <span style="color:#E65100; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">content_cut</span>刪除選取音訊</span> 
+                        <span style="color:#C62828; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">delete</span>刪除選取音訊</span> 
+                    </div>
+					<!-- ★ 新增：音訊複製／剪下／貼上（邏輯在 2b_audio_clipboard.js） -->
+					<div class="custom-dropdown-item" id="waveCopyAudioBtn" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                        <span style="color:#1976D2; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">content_copy</span>複製音訊</span> 
+                        <span style="background:#f1f3f4; padding:2px 6px; border-radius:4px; font-size:0.8em; font-family:monospace; color:#1976D2; border: 1px solid #BBDEFB;">Ctrl + C</span>
+                    </div>
+					<div class="custom-dropdown-item" id="waveCutMoveAudioBtn" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                        <span style="color:#E65100; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">content_cut</span>剪下音訊</span> 
+                        <span style="background:#f1f3f4; padding:2px 6px; border-radius:4px; font-size:0.8em; font-family:monospace; color:#E65100; border: 1px solid #FFE0B2;">Ctrl + X</span>
+                    </div>
+					<div class="custom-dropdown-item" id="wavePasteAudioBtn" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                        <span style="color:#00897B; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">content_paste</span>貼上音訊</span> 
+                        <span style="background:#f1f3f4; padding:2px 6px; border-radius:4px; font-size:0.8em; font-family:monospace; color:#00897B; border: 1px solid #B2DFDB;">Ctrl + V</span>
                     </div>
 					<hr style="margin: 4px 0; border: none; border-bottom: 1px solid #EEE;">
                     
 					<div class="custom-dropdown-item" id="waveAdjustPaddingBtn" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
                         <span style="color:#00897B; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">settings_ethernet</span>微調選取邊界</span> 
+                    </div>
+                    <!-- ★ 新增：顯示「靜音區塊／短雜訊」（僅切換顯示，不影響播放；邏輯在 2c_skip_silence.js） -->
+                    <hr style="margin: 4px 0; border: none; border-bottom: 1px solid #EEE;">
+                    <div class="custom-dropdown-item" id="waveViewSilenceBtn" title="在聲波上標出靜音區塊（灰色斜線），再點一次、按 Esc 或取消選取即可關閉" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                        <span style="color:#546E7A; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">volume_off</span>顯示靜音區塊</span>
+                        <span class="wave-view-chip" style="display:none; background:#ECEFF1; padding:2px 6px; border-radius:4px; font-size:0.8em; color:#546E7A; border:1px solid #CFD8DC;">顯示中</span>
+                    </div>
+                    <div class="custom-dropdown-item" id="waveViewNoiseBtn" title="在聲波上標出短雜訊（橘色），再點一次、按 Esc 或取消選取即可關閉" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                        <span style="color:#E65100; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">graphic_eq</span>顯示短雜訊</span>
+                        <span class="wave-view-chip" style="display:none; background:#FFF3E0; padding:2px 6px; border-radius:4px; font-size:0.8em; color:#E65100; border:1px solid #FFE0B2;">顯示中</span>
+                    </div>
+                    <!-- ★ 新增：刪除「顯示中的靜音／短雜訊區塊」（真的從音檔刪除；邏輯在 2b_audio_clipboard.js，可用 Ctrl+Z 復原） -->
+                    <div class="custom-dropdown-item" id="waveRemoveViewBtn" title="把聲波上目前顯示的靜音區塊／短雜訊從音檔刪除（有藍色選取框時只刪範圍內）" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; opacity: 0.45;">
+                        <span style="color:#C62828; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">auto_delete</span><span id="waveRemoveViewLabel">刪除顯示中的區塊</span></span>
                     </div>
                     <!-- ★ 新增：由「檢視」選單搬來的「隱藏聲波區塊」（id 沿用 toggleWavePanelBtn，邏輯在 4b_ui_audio_loader.js） -->
                     <hr style="margin: 4px 0; border: none; border-bottom: 1px solid #EEE;">
@@ -425,7 +457,7 @@
             </div>
 			<!-- 循環播放設定區塊 -->
             <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">repeat</span><span class="setting-num" aria-hidden="true">二、</span>循環播放設定</h4>
+                <h4><span class="material-icons" aria-hidden="true">repeat</span><span class="setting-num" aria-hidden="true">二、</span>循環播放</h4>
                 <div class="setting-block">
                     <label for="loopModeSelect" class="setting-label">循環模式</label>
                     <select id="loopModeSelect" class="input-select">
@@ -441,7 +473,7 @@
             </div>
  
 			<div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">play_circle</span><span class="setting-num" aria-hidden="true">三、</span>播放與跳轉設定</h4>
+                <h4><span class="material-icons" aria-hidden="true">play_circle</span><span class="setting-num" aria-hidden="true">三、</span>播放與跳轉</h4>
                 <div class="setting-block">
                     <label for="playbackModeSelect" class="setting-label">播放模式 (Space)</label>
                     <select id="playbackModeSelect" class="input-select">
@@ -487,6 +519,61 @@
                     </label>
                 </div>
 
+            </div>
+            <!-- 聽打輔助（音訊處理）：略過靜音／雜音、人聲強化 -->
+            <div class="sidebar-group">
+                <h4><span class="material-icons" aria-hidden="true">tune</span><span class="setting-num" aria-hidden="true">四、</span>播放略過</h4>
+                <div class="setting-block">
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="skipSilenceCheck" class="setting-checkbox">
+                        播放時略過靜音
+                    </label>
+                    <div id="skipSilenceOptions" class="setting-subblock" style="margin-top: 8px;">
+                        <div class="skip-sens-head">
+                            <label for="skipSilenceThreshold" class="setting-label" title="拖動時，聲波上的灰色斜線就是將被略過的區段">靈敏度<span id="skipSilenceThresholdVal" class="skip-val">-40 dB</span></label>
+                            <button type="button" class="skip-auto-btn" id="skipSilenceAuto" title="分析整份錄音的背景底噪與人聲音量，自動設定合適的靈敏度">自動偵測</button>
+                        </div>
+                        <div class="skip-slider-row">
+                            <span>保守</span>
+                            <input type="range" id="skipSilenceThreshold" min="-70" max="-20" step="1" value="-40" style="accent-color:#00897B;">
+                            <span>積極</span>
+                        </div>
+                        <div id="skipSilenceInfo" class="skip-info"></div>
+                        <label class="skip-row">
+                            <span>最短靜音</span>
+                            <span><input aria-label="最短靜音長度（秒）" type="number" id="skipSilenceMinLen" value="0.5" min="0.1" step="0.1" class="input-number-sm">秒</span>
+                        </label>
+                        <label class="skip-row">
+                            <span>前後保留</span>
+                            <span><input aria-label="前後保留秒數" type="number" id="skipSilencePad" value="0.15" min="0" step="0.05" class="input-number-sm">秒</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- ★ 新增：播放時略過極短雜音 -->
+                <div class="setting-block">
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="skipNoiseCheck" class="setting-checkbox">
+                        略過極短雜音
+                    </label>
+                    <div id="skipNoiseOptions" class="setting-subblock" style="margin-top: 8px;">
+                        <div class="skip-sens-head">
+                            <label for="skipNoiseThreshold" class="setting-label" title="拖動時，聲波上的橘色就是將被略過的雜音">靈敏度<span id="skipNoiseThresholdVal" class="skip-val">-40 dB</span></label>
+                            <button type="button" class="skip-auto-btn" id="skipNoiseAuto" title="分析整份錄音的背景底噪與人聲音量，自動設定合適的靈敏度">自動偵測</button>
+                        </div>
+                        <div class="skip-slider-row">
+                            <span>保守</span>
+                            <input type="range" id="skipNoiseThreshold" min="20" max="70" step="1" value="40" style="accent-color:#00897B;">
+                            <span>積極</span>
+                        </div>
+                        <div id="skipNoiseInfo" class="skip-info"></div>
+                        <label class="skip-row">
+                            <span>雜音短於</span>
+                            <span><input aria-label="雜音最長長度（秒）" type="number" id="skipNoiseMaxLen" value="0.15" min="0.02" step="0.05" class="input-number-sm">秒</span>
+                        </label>
+                    </div>
+                </div>
+
                 <!-- 人聲強化（壓抑配樂），邏輯在 2a_vocal_enhance.js -->
                 <div class="setting-block">
                     <label class="setting-checkbox-row">
@@ -500,9 +587,9 @@
                         </label>
                     </div>
                 </div>
-            </div>
+                        </div>
             <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">playlist_add</span><span class="setting-num" aria-hidden="true">四、</span>新增標記時的列表</h4>
+                <h4><span class="material-icons" aria-hidden="true">playlist_add</span><span class="setting-num" aria-hidden="true">五、</span>新增標記時的列表</h4>
                 <div class="setting-block">
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="addRowOnTagCheck" class="setting-checkbox" checked>
@@ -519,13 +606,13 @@
                 </div>
             </div>
             <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">graphic_eq</span><span class="setting-num" aria-hidden="true">五、</span>聲波圖</h4>
+                <h4><span class="material-icons" aria-hidden="true">graphic_eq</span><span class="setting-num" aria-hidden="true">六、</span>聲波圖</h4>
 
                 <!-- ★ 新增：聲波工具列按鈕顯示設定，讓不常用的按鈕可以隱藏、常用的按鈕可以常駐顯示 -->
                 <div class="setting-block">
                     <label class="setting-label" style="display: block; margin-bottom: 6px;">聲波工具列按鈕</label>
                     <label class="setting-checkbox-row">
-                        <input type="checkbox" id="toolbarShowSeekCheck" class="setting-checkbox" checked>
+                        <input type="checkbox" id="toolbarShowSeekCheck" class="setting-checkbox">
                         顯示進退2秒按鈕
                     </label>
                     <label class="setting-checkbox-row">
@@ -574,7 +661,7 @@
                 </div>
             </div>
             <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">view_list</span><span class="setting-num" aria-hidden="true">六、</span>列表顯示</h4>
+                <h4><span class="material-icons" aria-hidden="true">view_list</span><span class="setting-num" aria-hidden="true">七、</span>列表顯示</h4>
 
                 <!-- 第二個區塊：列表編號顯示方式 -->
                 <div class="setting-block">
@@ -632,7 +719,7 @@
                 </div>
             </div>
             <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">touch_app</span><span class="setting-num" aria-hidden="true">七、</span>列表操作</h4>
+                <h4><span class="material-icons" aria-hidden="true">touch_app</span><span class="setting-num" aria-hidden="true">八、</span>列表操作</h4>
 
                 <!-- ★ 移入：原本在列表工具列的「按鈕」選單，改成這裡直接核取，跟其他顯示設定放在一起 -->
                 <div class="setting-block">
@@ -670,7 +757,7 @@
                 </div>
 </div>
             <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">aspect_ratio</span><span class="setting-num" aria-hidden="true">八、</span>版面與字體</h4>
+                <h4><span class="material-icons" aria-hidden="true">aspect_ratio</span><span class="setting-num" aria-hidden="true">九、</span>版面與字體</h4>
 
                 <div class="setting-block">
                     <label for="appWidthSelect" class="setting-label">聲波圖寬度設定</label>
@@ -704,7 +791,7 @@
             </div>
             <!-- ★ 新增：多語言字幕設定 -->
             <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">translate</span><span class="setting-num" aria-hidden="true">九、</span>多語言字幕設定</h4>
+                <h4><span class="material-icons" aria-hidden="true">translate</span><span class="setting-num" aria-hidden="true">十、</span>多語言字幕設定</h4>
                 <div class="setting-block">
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="langMultiEnableCheck" class="setting-checkbox">
@@ -717,7 +804,7 @@
                 </div>
             </div>
                         <div class="sidebar-group">
-                <h4 id="exportAudioFormatLabel"><span class="material-icons" aria-hidden="true">ios_share</span><span class="setting-num" aria-hidden="true">十、</span>音訊匯出格式</h4>
+                <h4 id="exportAudioFormatLabel"><span class="material-icons" aria-hidden="true">ios_share</span><span class="setting-num" aria-hidden="true">十一、</span>音訊匯出格式</h4>
                 <select id="exportAudioFormatSelect" aria-labelledby="exportAudioFormatLabel" class="input-select">
                     <option value="mp3">MP3 壓縮檔 (輕巧快速)</option>
                     <option value="wav" selected>WAV 無損原始檔</option>
@@ -760,7 +847,7 @@
                 </div>
             </div>
             <div class="sidebar-group">
-                <h4 style="margin-bottom: 10px;"><span class="material-icons" aria-hidden="true">keyboard</span><span class="setting-num" aria-hidden="true">十一、</span>預設快速鍵</h4>
+                <h4 style="margin-bottom: 10px;"><span class="material-icons" aria-hidden="true">keyboard</span><span class="setting-num" aria-hidden="true">十二、</span>預設快速鍵</h4>
                 <ul style="font-size:0.85rem; color:#555; padding-left: 20px; margin-bottom: 20px; line-height: 1.6;">
                     <li><strong>Space 空白鍵</strong>：播放/暫停</li>
                     <li><strong>Tab 鍵</strong>：跳至下一句</li>
@@ -780,6 +867,7 @@
                 <div class="shortcut-setting-row"><label for="hkNext">跳至下一句</label><input type="text" id="hkNext" class="shortcut-input" readonly value="Ctrl+ArrowDown"></div>
 				<div class="shortcut-setting-row"><label for="hkSplit">切割游標處</label><input type="text" id="hkSplit" class="shortcut-input" readonly value="Ctrl+I"></div>
                 <div class="shortcut-setting-row"><label for="hkMerge">合併選取</label><input type="text" id="hkMerge" class="shortcut-input" readonly value="Ctrl+J"></div>
+                <div class="shortcut-setting-row"><label for="hkWaveSelect">框選模式（標記穿透）</label><input type="text" id="hkWaveSelect" class="shortcut-input" readonly value="Ctrl+Q"></div>
                 <div style="margin-top: 10px; display: flex; justify-content: flex-end;"><button id="resetShortcutsBtn" class="btn-small btn-outline">恢復預設</button></div>
             </div>
         </div>
@@ -809,54 +897,66 @@
                 </button>
             </div>
 
-            <!-- 2. 中間內容區 (設定可滾動，佔滿剩餘空間) -->
-            <div style="padding: 24px; flex-grow: 1; overflow-y: auto;">
-                
+            <!-- 2. 中間內容區 -->
+            <div class="as-body">
+
                 <!-- 區塊 A：依靜音斷句 -->
                 <div id="sectionAutoSilence">
-                    <!-- ★ 已經依據您的需求，刪除原本的提示文字 -->
-                    <div style="margin-bottom: 20px;"><label for="asThreshold" style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">音量門檻 <span id="asThresholdVal" style="color:#1976D2; font-weight:normal;">(5%)</span></label><input type="range" id="asThreshold" min="1" max="50" value="5" style="width:100%; accent-color: #1976D2;"></div>
-                    <div style="margin-bottom: 20px;">
-                        <label for="asDetectionMode" style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">偵測模式</label>
-                        <select id="asDetectionMode" style="width:100%; padding:8px; border-radius:8px; border:1px solid #ccc;">
-                            <option value="peak" selected>峰值（預設，反應靈敏）</option>
-                            <option value="rms">平均音量 RMS（較平滑，可減少爆音誤切）</option>
-                        </select>
-                        <span style="font-size: 0.8rem; color: #666; margin-top: 4px; display: block;">RMS 模式對呼吸聲、爆音等短暫突波較不敏感，但斷點位置可能略有不同，建議先小範圍試切</span>
+                    <div class="as-field">
+                        <label for="asThreshold" class="as-label">音量門檻 <span id="asThresholdVal" class="as-val">5%</span></label>
+                        <input type="range" id="asThreshold" min="1" max="50" value="5">
                     </div>
-                    <div style="margin-bottom: 20px;"><label for="asSilence" style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">最短靜音時長 <span id="asSilenceVal" style="color:#1976D2; font-weight:normal;">(0.8s)</span></label><input type="range" id="asSilence" min="0.1" max="3.0" step="0.1" value="0.8" style="width:100%; accent-color: #1976D2;"></div>
-                    <div style="margin-bottom: 20px;">
-                        <label for="asMinSegment" style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">最短有效句段 <span id="asMinSegmentVal" style="color:#1976D2; font-weight:normal;">(0.5 秒)</span></label>
-                        
-                        <input type="range" id="asMinSegment" min="0.1" max="60" step="0.1" value="0.5" style="width:100%; accent-color: #1976D2;">
-                        
-                        <span style="font-size: 0.8rem; color: #666; margin-top: 4px; display: block;">低於此長度的短暫突發雜音將被略過</span>
+                    <div class="as-field">
+                        <label for="asSilence" class="as-label">最短靜音時長 <span id="asSilenceVal" class="as-val">0.8 秒</span></label>
+                        <input type="range" id="asSilence" min="0.1" max="3.0" step="0.1" value="0.8">
                     </div>
-                    <div style="margin-bottom: 25px;"><label for="asPadding" style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">前後留白時間 <span id="asPaddingVal" style="color:#1976D2; font-weight:normal;">(0.2s)</span></label><input type="range" id="asPadding" min="0" max="1.0" step="0.1" value="0.2" style="width:100%; accent-color: #1976D2;"></div>
+                    <div class="as-field">
+                        <label for="asPadding" class="as-label">前後留白 <span id="asPaddingVal" class="as-val">0.2 秒</span></label>
+                        <input type="range" id="asPadding" min="0" max="1.0" step="0.1" value="0.2">
+                    </div>
+                    <details class="as-adv">
+                        <summary>進階設定</summary>
+                        <div class="as-field">
+                            <label for="asMinSegment" class="as-label" title="低於此長度的短暫雜音會被略過">最短有效句段 <span id="asMinSegmentVal" class="as-val">0.5 秒</span></label>
+                            <input type="range" id="asMinSegment" min="0.1" max="60" step="0.1" value="0.5">
+                        </div>
+                        <div class="as-field">
+                            <label for="asDetectionMode" class="as-label" title="RMS 對呼吸聲、爆音較不敏感，但斷點可能略有不同">偵測模式</label>
+                            <select id="asDetectionMode" class="as-select">
+                                <option value="peak" selected>峰值（靈敏，預設）</option>
+                                <option value="rms">RMS（平滑，減少爆音誤切）</option>
+                            </select>
+                        </div>
+                    </details>
                 </div>
 
                 <!-- 區塊 B：依時間斷句 -->
                 <div id="sectionAutoTime" style="display: none;">
-                    <!-- ★ 已經依據您的需求，精簡提示文字 -->
-                    <p style="font-size:0.9rem; color:#666; margin-bottom: 20px;">不考慮音量，每隔固定時間切出一個標記。</p>
-                    <div style="margin-bottom: 25px;">
-                        <label style="display:block; margin-bottom:10px; font-weight:bold; font-size:0.9rem;">每段標記長度</label>
-                        
-                        <!-- ★ 核心修復：將輸入框拆分為「分」與「秒」 -->
-                        <div style="display: flex; gap: 15px; align-items: center;">
-                            <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
-                                <input aria-label="固定切割分鐘數" type="number" id="asFixedTimeMinutes" value="0" min="0" style="width:100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 1rem; color:#1976D2; font-weight:bold; outline: none; text-align: center;">
-                                <span style="font-weight:bold; color:#555; white-space: nowrap;">分</span>
-                            </div>
-                            <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
-                                <input aria-label="固定切割秒數" type="number" id="asFixedTimeSeconds" value="5.0" min="0" step="0.1" style="width:100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 1rem; color:#1976D2; font-weight:bold; outline: none; text-align: center;">
-                                <span style="font-weight:bold; color:#555; white-space: nowrap;">秒</span>
-                            </div>
+                    <div class="as-field">
+                        <div class="as-label">每段長度</div>
+                        <div class="as-time-row">
+                            <input aria-label="固定切割分鐘數" type="number" id="asFixedTimeMinutes" value="0" min="0" class="as-num">
+                            <span class="as-unit">分</span>
+                            <input aria-label="固定切割秒數" type="number" id="asFixedTimeSeconds" value="5.0" min="0" step="0.1" class="as-num">
+                            <span class="as-unit">秒</span>
+                        </div>
+                    </div>
+                    <div class="as-card">
+                        <label for="asSmartTimeCheck" class="as-check">
+                            <input type="checkbox" id="asSmartTimeCheck">
+                            <span>智慧分割<small>分割點自動落在說話停頓處</small></span>
+                        </label>
+                        <div id="asSmartWindowBox" style="display:none; margin-top: 12px;">
+                            <label for="asSmartWindow" class="as-label" title="例如目標 10 秒、±2 秒，會在 8～12 秒間挑最安靜的點（最多為目標長度的 40%）">尋找範圍 ± <span id="asSmartWindowVal" class="as-val">2.0 秒</span></label>
+                            <input type="range" id="asSmartWindow" min="0.5" max="5" step="0.5" value="2">
                         </div>
                     </div>
                 </div>
 
             </div>
+
+            <!-- 預估結果列（邏輯在 4q_ui_segment_estimate.js） -->
+            <div id="asEstimateBar" class="as-estimate" aria-live="polite"></div>
 
             <!-- 3. 底部按鈕 (固定於底部) -->
             <div class="modal-buttons" style="margin-top: 0; padding: 16px 24px; border-top: 1px solid #E0E0E0; background: #FAFAFA; flex-shrink: 0; justify-content: flex-end;">
@@ -1420,6 +1520,7 @@
     <script src="4j_ui_lang_edit.js"></script>
     <script src="5_list_renderer.js"></script>
     <script src="6_wave_controller.js"></script>
+    <script src="2c_skip_silence.js"></script>
 	<script src="9_batch_converter.js"></script>
 	<script src="9a_batch_edit.js"></script>
 	<script src="10_subtitle_theater.js"></script>
@@ -1427,6 +1528,11 @@
     <script src="4l_ui_list_mode_menu.js"></script>
 	<script src="4m_ui_import_srt.js"></script>
     <script src="4n_ui_list_stats.js"></script>
+    <script src="2b_audio_clipboard.js"></script>
+    <script src="4o_ui_scroll_guard.js"></script>
+    <script src="4p_ui_wave_peek.js"></script>
+    <script src="4q_ui_segment_estimate.js"></script>
+    <script src="4r_ui_menu_flip.js"></script>
 	
 </body>
 </html>

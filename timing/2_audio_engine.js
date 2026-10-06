@@ -277,6 +277,7 @@ window.cutAudioRegion = async function(start, end) {
         if (waveSurferReinitDone) return;
         waveSurferReinitDone = true;
         audioPlayer.removeEventListener('loadedmetadata', reinitWaveSurfer);
+        window.pendingSeekTime = start; // ★ 增加：剪裁後游標移到剪接點（被剪掉那段的開頭）
         if (typeof initWaveSurfer === 'function') initWaveSurfer();
         if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
         if (tempRegion) { tempRegion.remove(); tempRegion = null; }
@@ -1617,6 +1618,133 @@ async function startLocalAiBatchTranscribe(targetLabels) {
 }
 // =========================================================================
 
+// ================= ★ 修改：智慧等長分割（在目標長度前後，找「最長的靜音」當分割點） ★ =================
+// 做法：以「每段標記長度」為目標，在「目標時間 ± 尋找範圍」內，用 10ms 一格計算音量（RMS），
+//       以整段音訊的「底噪」與「說話音量」自動訂出靜音門檻，找出範圍內所有「連續靜音區段」，
+//       挑「最長」的那一段（長度相近時略偏向離目標近的），分割點切在該靜音的正中間。
+//       找不到明確靜音時，會逐步放寬門檻；仍找不到才退回「音量最小的一格」。
+//       啟用「人聲強化」時，沿用壓低配樂的分析音訊，所以有背景音樂時也能找到說話停頓。
+//       傳回 []（例如尚未解碼完成）時，呼叫端會自動退回一般等長分割。
+function buildSmartTimeSegments(startTime, endTime, fixedLength, windowSec) {
+    const decoded = (typeof wavesurfer !== 'undefined' && wavesurfer) ? wavesurfer.getDecodedData() : null;
+    if (!decoded) return [];
+    const buffer = (window.VocalEnhance ? VocalEnhance.getAnalysisBuffer(decoded) : decoded);
+    const sr = buffer.sampleRate, len = buffer.length;
+    const mediaDuration = audioPlayer.duration || buffer.duration;
+    const timeRatio = mediaDuration / buffer.duration; // media time / buffer time（與靜音斷句相同的換算）
+    const channels = [];
+    for (let c = 0; c < buffer.numberOfChannels; c++) channels.push(buffer.getChannelData(c));
+
+    const FRAME = 0.01;                                   // 10ms 一格
+    const frameLen = Math.max(1, Math.round(sr * FRAME));
+    const MARGIN = 2;                                     // 處理範圍前後多算 2 秒，讓跨越邊界的長靜音也能量到完整長度
+    const EDGE_PAD = 0.15;                                // ★ 分割點至少離語音邊緣 0.15 秒（靜音太短時取正中間）
+    const MIN_RUN = 0.08;                                 // 短於 80ms 的低音量不當成「停頓」（多半是字中間的氣音／爆破音）
+    const RATIOS = [0.10, 0.18, 0.30, 0.50];             // 靜音門檻 = 底噪 + 比例 × (說話音量 − 底噪)，由嚴格到寬鬆
+
+    // ---------- 1) 整個處理範圍一次算好每格音量 ----------
+    const baseFrame = Math.max(0, Math.floor(((startTime - MARGIN) / timeRatio) * sr / frameLen));
+    const endFrame = Math.min(Math.floor(len / frameLen), Math.ceil(((endTime + MARGIN) / timeRatio) * sr / frameLen));
+    const n = endFrame - baseFrame;
+    if (n < 10) return [];
+    const energy = new Float32Array(n);
+    for (let k = 0; k < n; k++) {
+        const s = (baseFrame + k) * frameLen;
+        const e = Math.min(len, s + frameLen);
+        let sum = 0, cnt = 0;
+        for (let c = 0; c < channels.length; c++) {
+            const d = channels[c];
+            for (let i = s; i < e; i += 2) { sum += d[i] * d[i]; cnt++; }
+        }
+        energy[k] = cnt ? Math.sqrt(sum / cnt) : 0;
+    }
+    // 輕微平滑（前後各 1 格），避免單一格雜訊把一段靜音切成兩半
+    const sm = new Float32Array(n);
+    for (let k = 0; k < n; k++) {
+        const a = Math.max(0, k - 1), b = Math.min(n - 1, k + 1);
+        let sum = 0; for (let j = a; j <= b; j++) sum += energy[j];
+        sm[k] = sum / (b - a + 1);
+    }
+
+    const frameToTime = f => (((baseFrame + f) * frameLen) / sr) * timeRatio;       // 第 f 格的起點（media time）
+    const timeToFrame = t => Math.floor(((t / timeRatio) * sr) / frameLen) - baseFrame;
+
+    // ---------- 2) 估計底噪與說話音量（只看實際要處理的範圍） ----------
+    const fs = Math.max(0, timeToFrame(startTime)), fe = Math.min(n, timeToFrame(endTime));
+    if (fe - fs < 10) return [];
+    const sorted = Array.from(sm.subarray(fs, fe)).sort((a, b) => a - b);
+    const floorE = sorted[Math.floor(sorted.length * 0.05)];
+    const speechE = sorted[Math.floor(sorted.length * 0.90)];
+    if (speechE < 1e-5 || speechE - floorE < 1e-6) return []; // 幾乎全靜音或音量沒有起伏：沒有比較基準，退回一般等長分割
+
+    // ---------- 3) 在 [from, to]（media time）內找「最長的靜音」，回傳其中點 ----------
+    function findQuietPoint(from, to, target) {
+        const f0 = Math.max(0, timeToFrame(from)), f1 = Math.min(n - 1, timeToFrame(to));
+        if (f1 - f0 < 3) return target;
+        const halfWin = Math.max(0.001, (to - from) / 2);
+
+        for (const ratio of RATIOS) {
+            const thr = floorE + ratio * (speechE - floorE);
+            let best = null;
+            let k = f0;
+            while (k <= f1) {
+                if (sm[k] >= thr) { k++; continue; }
+                // 找到靜音，往左右延伸到完整長度（可超出搜尋範圍）
+                let a = k; while (a > 0 && sm[a - 1] < thr) a--;
+                let b = k; while (b < n - 1 && sm[b + 1] < thr) b++;
+                const runLen = (b - a + 1) * FRAME;
+                if (runLen >= MIN_RUN) {
+                    // ★ 修正：分割點以「整段靜音」的正中間為準（不再用被搜尋範圍截斷後的中點，
+                    //   否則長靜音會被切在靠近語音結尾的邊緣，聽起來生硬）。
+                    //   若中點超出搜尋範圍，就取範圍內「離中點最近、且距離語音至少 EDGE_PAD」的位置。
+                    const runStart = frameToTime(a), runEnd = frameToTime(b + 1);
+                    const pad = Math.min(EDGE_PAD, (runEnd - runStart) / 2);
+                    const lo2 = Math.max(from, runStart + pad), hi2 = Math.min(to, runEnd - pad);
+                    let mid;
+                    if (lo2 <= hi2) {
+                        mid = Math.min(hi2, Math.max(lo2, (runStart + runEnd) / 2));
+                    } else {
+                        const ca = Math.max(a, f0), cb = Math.min(b, f1);
+                        mid = (frameToTime(ca) + frameToTime(cb + 1)) / 2;
+                    }
+                    const dist = Math.min(1, Math.abs(mid - target) / halfWin);
+                    const score = runLen * (1 - 0.3 * dist); // 以靜音長度為主，離目標越遠最多打 7 折
+                    if (!best || score > best.score) best = { score, mid };
+                }
+                k = b + 1;
+            }
+            if (best) return best.mid;
+        }
+
+        // 都沒有明確靜音：退回「音量最小的一格」（略偏向目標附近）
+        let bestK = -1, bestScore = Infinity;
+        for (let k = f0; k <= f1; k++) {
+            const t = frameToTime(k) + FRAME / 2 * timeRatio;
+            const score = sm[k] / speechE + 0.1 * Math.min(1, Math.abs(t - target) / halfWin);
+            if (score < bestScore) { bestScore = score; bestK = k; }
+        }
+        return bestK < 0 ? target : frameToTime(bestK) + (FRAME / 2) * timeRatio;
+    }
+
+    // ---------- 4) 逐段往前推進（與原本相同） ----------
+    const segments = [];
+    const minTail = fixedLength * 0.25; // 結尾剩餘不到 25% 時，併入最後一段，避免出現極短的尾巴
+    let cursor = startTime;
+    while (cursor < endTime - 1e-6) {
+        const target = cursor + fixedLength;
+        if (target >= endTime - minTail) { segments.push({ start: cursor, end: endTime }); break; }
+
+        const lo = Math.max(cursor + fixedLength * 0.5, target - windowSec);
+        const hi = Math.min(endTime - Math.min(minTail, 1), target + windowSec);
+        let cut = (hi > lo) ? findQuietPoint(lo, hi, target) : target;
+        if (!(cut > cursor + 0.1)) cut = target; // 保險：不允許產生零長度或倒退的段落
+
+        segments.push({ start: cursor, end: cut });
+        cursor = cut;
+    }
+    return segments;
+}
+
 // ================= 【引擎 C】等長無縫自動斷句引擎 (支援全域與局部) =================
 window.performTimeSegmentation = async function(targetRange) {
     if (!audioPlayer || !audioPlayer.duration) return showToast('無法取得音檔長度，請先載入音檔', 'error');
@@ -1635,9 +1763,19 @@ window.performTimeSegmentation = async function(targetRange) {
     let startTime = targetRange ? targetRange.start : 0;
     let endTime = targetRange ? targetRange.end : mediaDuration;
 
+    // ★ 修改：若勾選「智慧等長分割」，改由 buildSmartTimeSegments() 在目標長度前後找安靜處當分割點；
+    //         沒勾選（或分析失敗）時，仍走下面原本的固定間隔演算法，行為與修改前完全相同
+    if (document.getElementById('asSmartTimeCheck')?.checked) {
+        const rawWin = parseFloat(document.getElementById('asSmartWindow')?.value) || 2;
+        const windowSec = Math.min(rawWin, fixedLength * 0.4); // 尋找範圍最多不超過目標長度的 40%，避免段落長短差太多
+        segments = buildSmartTimeSegments(startTime, endTime, fixedLength, windowSec);
+    }
+
     // 核心演算法：無縫切割，每段結尾等於下一段開頭
-    for (let t = startTime; t < endTime; t += fixedLength) {
-        segments.push({ start: t, end: Math.min(t + fixedLength, endTime) });
+    if (segments.length === 0) {
+        for (let t = startTime; t < endTime; t += fixedLength) {
+            segments.push({ start: t, end: Math.min(t + fixedLength, endTime) });
+        }
     }
 
     if (segments.length === 0) return showToast('範圍太小，無法進行切割', 'error');
@@ -1680,6 +1818,8 @@ window.performTimeSegmentation = async function(targetRange) {
         if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
         if (typeof renderAllRegions === 'function') renderAllRegions();
         if (typeof tempRegion !== 'undefined' && tempRegion) { tempRegion.remove(); tempRegion = null; }
+        currentActiveLabel = null; // ★ 新增：清掉舊的焦點標記
+        if (typeof clearSelection === 'function') clearSelection(); // 取消選取全部
         if (typeof updateToolbarButtons === 'function') updateToolbarButtons();
         
         if (mappedCount < segments.length) {
@@ -1704,6 +1844,11 @@ window.performTimeSegmentation = async function(targetRange) {
         saveToStorage();
         if (typeof renderSentenceList === 'function') renderSentenceList();
         if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
+        if (typeof renderAllRegions === 'function') renderAllRegions(); // ★ 新增：全域模式也要重繪聲波標記（與靜音斷句一致）
+        if (typeof tempRegion !== 'undefined' && tempRegion) { tempRegion.remove(); tempRegion = null; } // ★ 新增：移除暫存選取區
+        currentActiveLabel = null; // ★ 新增：清掉舊的焦點標記
+        if (typeof clearSelection === 'function') clearSelection(); // 取消選取全部（clearSelection 內會一併更新畫面）
+        if (typeof updateToolbarButtons === 'function') updateToolbarButtons(); // ★ 新增：更新工具列按鈕狀態
         showToast(`全域等長斷句完成！共無縫切出 ${segments.length} 句`, 'success');
     }
 };

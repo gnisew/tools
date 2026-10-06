@@ -117,6 +117,7 @@ attachKeyCatcher(hkPrev, 'prev');
 attachKeyCatcher(hkNext, 'next');
 attachKeyCatcher(hkSplit, 'split');
 attachKeyCatcher(hkMerge, 'merge');
+attachKeyCatcher(hkWaveSelect, 'waveSelect'); // ★ 新增：框選模式快速鍵
 
 resetShortcutsBtn?.addEventListener('click', () => {
     showCustomDialog({

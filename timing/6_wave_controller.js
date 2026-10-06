@@ -484,6 +484,8 @@ function initWaveSurfer() {
     wsRegions.enableDragSelection({ color: 'rgba(33, 150, 243, 0.3)' });
 
     wsRegions.on('region-created', (region) => {
+        applyRegionPassthrough(region); // ★ 新增：框選模式開啟時，新畫出來的標記也要穿透
+        markWaveSelectPending(region);  // ★ 新增：框選模式下拖出了藍框，等滑鼠放開就自動關閉模式
         if (isRendering) return; 
         if (tempRegion && tempRegion !== region) tempRegion.remove(); 
         region.setOptions({ color: 'rgba(33, 150, 243, 0.3)' }); 
@@ -502,6 +504,8 @@ function initWaveSurfer() {
         if (region === tempRegion) {
             isDraggingRegion = true;
             if (isEnd) {
+                // ★ 新增：框選完成後自動關閉「框選模式」，避免忘了關、之後點不到標記
+                if (window.waveSelectMode) setWaveSelectMode(false, true);
                 if(typeof updateToolbarButtons === 'function') updateToolbarButtons();
                 isDraggingRegion = false;
             }
@@ -746,7 +750,32 @@ function initWaveSurfer() {
         // ★ 終極修復：讀取上次選取的標記並自動跳轉 (加入分段延遲與抗干擾機制)
         // =========================================================================
         const savedActiveLabel = localStorage.getItem('tagger_lastActiveLabel');
-        if (savedActiveLabel && timeDataMap[savedActiveLabel]) {
+
+        // ★ 增加：剪裁／剪下／貼上／復原後，游標要留在指定位置（優先於「還原上次選取句子」）
+        const pendingSeek = window.pendingSeekTime;
+        window.pendingSeekTime = null;
+
+        if (typeof pendingSeek === 'number' && isFinite(pendingSeek)) {
+            setTimeout(() => {
+                const dur = audioPlayer.duration || pendingSeek;
+                const t = Math.max(0, Math.min(pendingSeek, dur));
+                if (typeof wavesurfer !== 'undefined' && wavesurfer) {
+                    wavesurfer.setTime(t);
+                    // 聲波捲動到游標附近，讓剪接點一定看得到
+                    try {
+                        const wrapper = wavesurfer.getWrapper();
+                        const view = wrapper && wrapper.parentElement;
+                        if (view && dur && wrapper.scrollWidth && typeof wavesurfer.setScrollTime === 'function') {
+                            const visibleSec = (view.clientWidth / wrapper.scrollWidth) * dur;
+                            wavesurfer.setScrollTime(Math.max(0, t - visibleSec * 0.3));
+                        }
+                    } catch (err) { /* 捲動失敗不影響游標位置 */ }
+                } else {
+                    audioPlayer.currentTime = t;
+                }
+                if (typeof snapWaveformToTop === 'function') snapWaveformToTop();
+            }, 100);
+        } else if (savedActiveLabel && timeDataMap[savedActiveLabel]) {   // ★ 修改：原本是 if，改成 else if
             currentActiveLabel = savedActiveLabel;
             lastSelectedLabel = savedActiveLabel;
             if (typeof updateSelectionUI === 'function') updateSelectionUI();
@@ -907,3 +936,122 @@ if (audioPlayer) {
         }
     });
 }
+
+
+// ================= ★ 新增：框選模式（讓已標記的範圍也能被框選） ★ =================
+// 問題：已標記的範圍會蓋住聲波，滑鼠在上面按下去會被標記接走（拖曳／點選標記），
+//       無法拖出藍色選取框。
+// 做法：開啟「框選模式」時，只把「句子標記」設為滑鼠穿透（pointer-events:none）並調淡，
+//       標記資料完全不動、畫面上仍看得到邊界；藍色選取框與遺漏檢查的紅框不受影響。
+//       框選完成（或按 Esc／再按一次快速鍵）就自動恢復。
+// 切換方式：聲波「更多」選單的「框選模式」，或快速鍵（預設 Ctrl+Q，可在「設定 > 快速鍵」修改）。
+window.waveSelectMode = false;
+
+// 只處理「句子標記」（id 在 timeDataMap 內）。藍色暫存框與紅色遺漏框的 id 不在裡面，所以不會被動到。
+// ★ 重要：WaveSurfer 會替每個標記元素內建 pointer-events:"all"（外層容器是 none）。
+//   關閉模式時必須「還原成原本的值」，不能清成空字串，否則標記會退回繼承外層的 none，
+//   變成永遠點不到、拖不動（Ctrl 多選也會失效）。所以第一次改動前先把原值記在 data 屬性裡。
+function setElementPassthrough(el, on, opacityWhenOn) {
+    if (!el) return;
+    if (on) {
+        if (el.dataset.wavePassOrig === undefined) {
+            el.dataset.wavePassOrig = JSON.stringify([el.style.pointerEvents, el.style.opacity]);
+        }
+        el.style.pointerEvents = 'none';
+        if (opacityWhenOn !== undefined) el.style.opacity = opacityWhenOn;
+    } else if (el.dataset.wavePassOrig !== undefined) {
+        const [pe, op] = JSON.parse(el.dataset.wavePassOrig);
+        el.style.pointerEvents = pe;
+        el.style.opacity = op;
+        delete el.dataset.wavePassOrig;
+    }
+}
+
+function applyRegionPassthrough(region) {
+    if (!region || !region.element) return;
+    if (typeof timeDataMap === 'undefined' || timeDataMap[region.id] === undefined) return;
+    const on = !!window.waveSelectMode;
+    setElementPassthrough(region.element, on, '0.55');
+    // 縮放把手若有自己的 pointer-events，也一併處理（不動 content，它本來就是 none）
+    region.element.querySelectorAll('[part*="handle"]').forEach(h => setElementPassthrough(h, on));
+}
+
+// 目前設定的快速鍵文字（預設 Ctrl+Q，存在 activeShortcuts.waveSelect）
+function getWaveSelectShortcut() {
+    return (typeof activeShortcuts !== 'undefined' && activeShortcuts.waveSelect) ? activeShortcuts.waveSelect : 'Ctrl+Q';
+}
+
+function updateWaveSelectModeUI() {
+    const on = !!window.waveSelectMode;
+    document.getElementById('waveform')?.classList.toggle('select-mode', on);
+    const chip = document.getElementById('waveSelectModeChip');
+    if (chip) {
+        chip.textContent = on ? '開啟中' : getWaveSelectShortcut();
+        chip.style.background = on ? '#BBDEFB' : '#f1f3f4';
+    }
+}
+
+// silent = true 時不跳提示；auto = 框選完成後自動關閉（用不同的提示文字）
+function setWaveSelectMode(on, auto = false) {
+    window.waveSelectMode = !!on;
+    window.waveSelectPending = false;
+    if (typeof wsRegions !== 'undefined' && wsRegions) wsRegions.getRegions().forEach(applyRegionPassthrough);
+    updateWaveSelectModeUI();
+    if (typeof showToast === 'function') {
+        if (on) showToast('框選模式：標記已暫時穿透，直接在聲波上拖曳即可框選（Esc 或 ' + getWaveSelectShortcut() + ' 取消）', 'normal');
+        else if (auto) showToast('已框選完成，框選模式自動關閉', 'success');
+    }
+}
+
+// ★ 框選完成後自動關閉：模式開啟期間，使用者「拖出新的藍色框」(不是重繪產生的) 就記下來，
+//   等滑鼠／手指放開時再關閉模式（延後一個事件循環，讓 WaveSurfer 先完成它自己的收尾）。
+window.waveSelectPending = false;
+function markWaveSelectPending(region) {
+    if (!window.waveSelectMode || isRendering) return;
+    if (typeof timeDataMap !== 'undefined' && timeDataMap[region.id] !== undefined) return; // 句子標記不算
+    window.waveSelectPending = true;
+}
+// ★ 要「延後一拍」再檢查：WaveSurfer 有時是在放開滑鼠的事件處理過程中才建立藍框，
+//   如果在放開當下就檢查，會因為藍框還沒建立而漏掉。
+document.addEventListener('pointerup', () => {
+    if (!window.waveSelectMode) return;
+    setTimeout(() => {
+        if (window.waveSelectMode && window.waveSelectPending) {
+            window.waveSelectPending = false;
+            setWaveSelectMode(false, true);
+        }
+    }, 0);
+}, true);
+
+document.getElementById('waveSelectModeBtn')?.addEventListener('click', () => {
+    document.getElementById('waveMoreMenu')?.classList.remove('show');
+    if (!wavesurfer) return showToast('請先載入音檔', 'error');
+    setWaveSelectMode(!window.waveSelectMode);
+});
+
+document.addEventListener('keydown', (e) => {
+    const t = e.target;
+    const isInputActive = t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.isContentEditable);
+    if (isInputActive) return;
+    if (e.code === 'Escape' && window.waveSelectMode) { setWaveSelectMode(false); return; } // 不攔截，Esc 原本的取消選取照常執行
+
+    // 組出與 attachKeyCatcher（設定頁記錄快速鍵）相同格式的字串再比對，例如 "Ctrl+Q"
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return;
+    const keys = [];
+    if (e.ctrlKey) keys.push('Ctrl');
+    if (e.altKey) keys.push('Alt');
+    if (e.shiftKey) keys.push('Shift');
+    if (e.code.startsWith('Arrow')) keys.push(e.code);
+    else if (e.code === 'Space') keys.push('Space');
+    else if (e.key.length === 1) keys.push(e.key.toUpperCase());
+    else return;
+    if (keys.join('+') !== getWaveSelectShortcut()) return;
+
+    if (document.querySelector('.modal-overlay.show')) return;
+    if (!wavesurfer) return;
+    e.preventDefault();
+    setWaveSelectMode(!window.waveSelectMode);
+});
+
+// 設定頁改完快速鍵後，同步選單裡顯示的文字
+document.getElementById('hkWaveSelect')?.addEventListener('blur', updateWaveSelectModeUI);

@@ -1,5 +1,4 @@
 // ================= 修改優化：動態按鈕顯示與隱藏防呆邏輯 =================
-// ================= 修改優化：動態按鈕顯示與隱藏防呆邏輯 =================
 function checkButtonVisibility() {
     const hasRegions = typeof allLabelsOrdered !== 'undefined' && allLabelsOrdered.length > 0;
     
