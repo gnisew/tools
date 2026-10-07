@@ -1,17 +1,17 @@
-// ================= 6_wave_controller.js: 聲波圖與高精度播放核心 =================
+// 6_wave_controller.js: 聲波圖與高精度播放核心
 window.lastToggleTime = 0; // 防連點雙擊計時器
 
-function applyCurrentPlaybackSpeed() { 
+function applyCurrentPlaybackSpeed() {
     const speedDisplay = document.getElementById('speedDisplay');
     const speedText = speedDisplay ? speedDisplay.textContent.replace('x', '') : '1.0';
-    const speed = parseFloat(speedText); 
-    
-    audioPlayer.playbackRate = speed; 
-    if (wavesurfer) wavesurfer.setPlaybackRate(speed); 
+    const speed = parseFloat(speedText);
+
+    audioPlayer.playbackRate = speed;
+    if (wavesurfer) wavesurfer.setPlaybackRate(speed);
 }
 
 // 全域跳轉保護鎖，防止時間差導致誤判暫停
-window.jumpLockTime = 0; 
+window.jumpLockTime = 0;
 
 function togglePlayPause() {
     // 1. 防呆檢查：確認是否有載入有效音檔
@@ -42,7 +42,7 @@ function togglePlayPause() {
 
     if (typeof applyCurrentPlaybackSpeed === 'function') applyCurrentPlaybackSpeed();
 
-    // ★ 終極修正：直接讀取畫面上的 UI 選單，杜絕變數錯亂
+    // 直接讀取畫面上的 UI 選單，杜絕變數錯亂
     const modeSelect = document.getElementById('playbackModeSelect');
     const realMode = modeSelect ? modeSelect.value : (typeof playbackMode !== 'undefined' ? playbackMode : 'continuous');
 
@@ -55,17 +55,15 @@ function togglePlayPause() {
     let willSetContinuousSorted = false;
     let jumpTo = null;
 
-    // =========================================================
     // 模式 A：單句 / 區段播放模式 (播完即停)
-    // =========================================================
     if (realMode === 'single') {
         if (typeof tempRegion !== 'undefined' && tempRegion !== null) {
             targetStart = tempRegion.start;
             targetEnd = tempRegion.end;
         } else {
-            const labelsToPlay = (typeof selectedLabels !== 'undefined' && selectedLabels.length > 0) 
+            const labelsToPlay = (typeof selectedLabels !== 'undefined' && selectedLabels.length > 0)
                 ? selectedLabels : (currentActiveLabel ? [currentActiveLabel] : []);
-            
+
             if (labelsToPlay.length > 0) {
                 let minStart = Infinity; let maxEnd = 0;
                 labelsToPlay.forEach(label => {
@@ -82,16 +80,14 @@ function togglePlayPause() {
                 }
             }
         }
-        
+
         if (targetStart !== null) {
             // 如果游標不在範圍內，或已經在結尾了，跳回開頭
             if (currentT < targetStart || currentT >= targetEnd - 0.05) jumpTo = targetStart;
             verifyEndTime = targetEnd;
         }
 
-    // =========================================================
     // 模式 B：連續播放模式 (播到底)
-    // =========================================================
     } else {
         if (typeof tempRegion !== 'undefined' && tempRegion !== null) {
             // 有藍色選取框時，優先播放框內範圍並暫停
@@ -103,7 +99,7 @@ function togglePlayPause() {
             // 檢查是否開啟了「略過無標記片段」
             const skipSelect = document.getElementById('continuousPlayModeSelect');
             const skipMode = skipSelect ? skipSelect.value : (typeof continuousPlayMode !== 'undefined' ? continuousPlayMode : 'normal');
-            
+
             if (skipMode === 'skip' && currentActiveLabel && timeDataMap[currentActiveLabel]) {
                 const times = getCalculatedTimes(currentActiveLabel);
                 if (times) {
@@ -115,14 +111,14 @@ function togglePlayPause() {
                     verifyEndTime = targetEnd;
                 }
             } else {
-                // ★ 最純粹的一般連續播放：絕對不會被暫停！
+                // 一般連續播放：不會被暫停
                 if (duration && currentT >= duration - 0.1) jumpTo = 0; // 如果播到底了，才回到 0
-                verifyEndTime = null; // 設定為 null，系統巡邏迴圈就會無視它，順暢播到底！
+                verifyEndTime = null; // 設為 null，巡邏迴圈不介入，順暢播到底
             }
         }
     }
 
-    // ★ 最大播放秒數限制檢查
+    // 最大播放秒數限制檢查
     if (verifyEndTime !== null && document.getElementById('enableMaxPlayCheck')?.checked) {
         const maxSec = parseFloat(document.getElementById('maxPlaySecondsInput')?.value) || 2;
         const startRef = targetStart !== null ? targetStart : currentT;
@@ -150,10 +146,9 @@ function togglePlayPause() {
     if (document.activeElement === playPauseBtn) playPauseBtn.blur();
 }
 
-
 function precisionLoop() {
     if (!audioPlayer || audioPlayer.paused) return;
-    
+
     // 防護 1：剛下達跳轉指令的 300 毫秒內，不進行暫停判定
     if (Date.now() - (window.jumpLockTime || 0) < 300) {
         precisionRafId = requestAnimationFrame(precisionLoop);
@@ -169,22 +164,22 @@ function precisionLoop() {
     const currentT = audioPlayer.currentTime;
     const wsAvailable = (typeof wavesurfer !== 'undefined' && wavesurfer);
 
-    // ★ 只有當 verifyEndTime 不是 null 時，才會觸發自動暫停或切換句子的邏輯
+    // 只有當 verifyEndTime 不是 null 時，才會觸發自動暫停或切換句子的邏輯
     if (verifyEndTime !== null && currentT >= verifyEndTime) {
-        
+
         if (typeof loopMode !== 'undefined' && loopMode === 'single' && verifyingLabel) {
             if (typeof loopCount !== 'undefined' && (loopCount === 0 || currentLoopCounter < loopCount)) {
-                if (loopCount > 0) currentLoopCounter++; 
+                if (loopCount > 0) currentLoopCounter++;
                 const times = getCalculatedTimes(verifyingLabel);
                 if (times) {
                     window.jumpLockTime = Date.now();
                     const jumpTo = Math.max(0, times.start - (typeof playPadding !== 'undefined' ? playPadding : 0.2));
                     if (wsAvailable) wavesurfer.setTime(jumpTo); else audioPlayer.currentTime = jumpTo;
                     precisionRafId = requestAnimationFrame(precisionLoop);
-                    return; 
+                    return;
                 }
             } else {
-                if (typeof currentLoopCounter !== 'undefined') currentLoopCounter = 0; 
+                if (typeof currentLoopCounter !== 'undefined') currentLoopCounter = 0;
             }
         }
 
@@ -199,54 +194,50 @@ function precisionLoop() {
                 }
 
                 if (nextTimes) {
-                    if (typeof currentLoopCounter !== 'undefined') currentLoopCounter = 0; 
+                    if (typeof currentLoopCounter !== 'undefined') currentLoopCounter = 0;
                     window.jumpLockTime = Date.now();
                     const jumpTo = Math.max(0, nextTimes.start - (typeof playPadding !== 'undefined' ? playPadding : 0.2));
                     if (wsAvailable) wavesurfer.setTime(jumpTo); else audioPlayer.currentTime = jumpTo;
-                    
+
                     verifyEndTime = nextTimes.end;
                     verifyingLabel = nextLabel;
                     currentActiveLabel = nextLabel;
                     if (typeof updateToolbarButtons === 'function') updateToolbarButtons();
 
-                    // ★ 修正：原本這裡只手動加減列表的 playing class，卻沒有呼叫
-                    //   updateSelectionUI()，導致自動連續播放接續下一句時，聲波圖上的
-                    //   焦點色（橘紅色）不會跟著換到新的一句，只有列表綠底自己動。
-                    //   改呼叫 updateSelectionUI()，讓列表與聲波圖統一由 currentActiveLabel 同步。
+                    // 由 updateSelectionUI() 統一同步列表與聲波圖的焦點
                     if (typeof updateSelectionUI === 'function') updateSelectionUI();
                     const nextItemDiv = document.getElementById(`item-${nextLabel}`);
-                    if (nextItemDiv && typeof smartScrollTo === 'function') smartScrollTo(nextItemDiv); // 執行捲動定位
-                    
+                    if (nextItemDiv && typeof smartScrollTo === 'function') smartScrollTo(nextItemDiv);
+
                     precisionRafId = requestAnimationFrame(precisionLoop);
-                    return; 
+                    return;
                 }
             }
         }
-        
-        if (typeof currentLoopCounter !== 'undefined') currentLoopCounter = 0; 
-        
-        // 觸發暫停
-        if (wsAvailable) wavesurfer.pause(); else audioPlayer.pause(); 
-        if (wsAvailable) wavesurfer.setTime(verifyEndTime); else audioPlayer.currentTime = verifyEndTime; 
-        
+
+        if (typeof currentLoopCounter !== 'undefined') currentLoopCounter = 0;
+
+        if (wsAvailable) wavesurfer.pause(); else audioPlayer.pause();
+        if (wsAvailable) wavesurfer.setTime(verifyEndTime); else audioPlayer.currentTime = verifyEndTime;
+
         const finalLabel = verifyingLabel;
-        verifyEndTime = null; 
-        isContinuousSortedPlay = false; 
-        
-        if (finalLabel) { 
-            const currentItemDiv = document.getElementById(`item-${finalLabel}`); 
+        verifyEndTime = null;
+        isContinuousSortedPlay = false;
+
+        if (finalLabel) {
+            const currentItemDiv = document.getElementById(`item-${finalLabel}`);
             if (currentItemDiv && currentSortMode === 'default') {
                 if (typeof isScriptMode !== 'undefined' && isScriptMode) {
                     if (typeof snapWaveformToTop === 'function') setTimeout(snapWaveformToTop, 50);
                 } else {
-                    if(typeof smartScrollTo === 'function') smartScrollTo(currentItemDiv.nextElementSibling); 
+                    if(typeof smartScrollTo === 'function') smartScrollTo(currentItemDiv.nextElementSibling);
                 }
             }
-            verifyingLabel = null; 
+            verifyingLabel = null;
         }
         return;
     }
-    
+
     precisionRafId = requestAnimationFrame(precisionLoop);
 }
 
@@ -255,19 +246,16 @@ stopBtn.addEventListener('click', (e) => { if(e && e.currentTarget) e.currentTar
 document.getElementById('rewindBtn').addEventListener('click', (e) => { if(e && e.currentTarget) e.currentTarget.blur(); verifyEndTime = null; audioPlayer.currentTime -= 2; });
 document.getElementById('forwardBtn').addEventListener('click', (e) => { if(e && e.currentTarget) e.currentTarget.blur(); verifyEndTime = null; audioPlayer.currentTime += 2; });
 
-// =========== 移除原本對 locateCurrentBtn 的圖示更新 ============
-audioPlayer.addEventListener('play', () => { 
-    if(playPauseBtn) playPauseBtn.querySelector('.material-icons').textContent = 'pause'; 
+audioPlayer.addEventListener('play', () => {
+    if(playPauseBtn) playPauseBtn.querySelector('.material-icons').textContent = 'pause';
     if (precisionRafId) cancelAnimationFrame(precisionRafId);
     precisionRafId = requestAnimationFrame(precisionLoop);
 });
 
-audioPlayer.addEventListener('pause', () => { 
-    if(playPauseBtn) playPauseBtn.querySelector('.material-icons').textContent = 'play_arrow'; 
+audioPlayer.addEventListener('pause', () => {
+    if(playPauseBtn) playPauseBtn.querySelector('.material-icons').textContent = 'play_arrow';
     if (precisionRafId) cancelAnimationFrame(precisionRafId);
 });
-
-
 
 function updateZoom(value) {
     if (!wavesurfer) return;
@@ -280,17 +268,17 @@ function updateZoom(value) {
         numValue = Number(value);
         zoomDisplay.textContent = Math.round(numValue) + 'x';
     }
-    
+
     numValue = Math.max(1, Math.min(200, numValue));
     if (zoomSlider && value !== 'fit') zoomSlider.value = numValue;
-    
+
     if (zoomPresetSelect) {
         const presetOptions = ['fit', '10', '50', '100', '200'];
-        if (presetOptions.includes(String(value))) { zoomPresetSelect.value = String(value); } 
+        if (presetOptions.includes(String(value))) { zoomPresetSelect.value = String(value); }
         else { zoomPresetSelect.value = 'custom'; }
     }
     wavesurfer.zoom(numValue);
-    
+
     localStorage.setItem('tagger_zoomLevel', value);
 }
 
@@ -301,9 +289,9 @@ zoomInBtn?.addEventListener('click', () => updateZoom(Math.min(200, Number(zoomS
 
 let renderRegionsTimeout = null;
 
-// ================= ★ 新增：聲波圖文字的語言篩選 ★ =================
+// 聲波圖文字的語言篩選
 // 依設定裡「聲波圖顯示語言」的選項，從完整的多語言原始字串中取出要顯示的那一段。
-// 未啟用多語字幕、或設定為「全部語言」時，直接回傳原文字，行為跟舊版完全一樣。
+// 未啟用多語字幕，或設定為「全部語言」時，直接回傳原文字。
 function applyRegionTextLangFilter(fullText) {
     const enabled = (typeof getLangMultiEnabled === 'function') ? getLangMultiEnabled() : false;
     if (!enabled) return fullText;
@@ -316,25 +304,25 @@ function applyRegionTextLangFilter(fullText) {
 
 function renderAllRegions() {
     if (!wsRegions) return;
-    
+
     // 等待音檔就緒保護鎖
     if (!wavesurfer || !audioPlayer || !audioPlayer.duration || audioPlayer.duration < 0.1) return;
 
     clearTimeout(renderRegionsTimeout);
-    
+
     renderRegionsTimeout = setTimeout(() => {
-        isRendering = true; 
+        isRendering = true;
         wsRegions.clearRegions();
-        
+
         if (tempRegion) {
             tempRegion = wsRegions.addRegion({ start: tempRegion.start, end: tempRegion.end, color: 'rgba(33, 150, 243, 0.3)', drag: isEditMode, resize: isEditMode });
         }
-        
+
         allLabelsOrdered.forEach((label, idx) => {
 			const times = getCalculatedTimes(label, idx);
 			if (times && timeDataMap[label]) {
-                const contentEl = document.createElement('div'); 
-     
+                const contentEl = document.createElement('div');
+
                  const displayLabel = typeof window.getDisplayLabel === 'function' ? window.getDisplayLabel(label) : label;
                  let displayText = displayLabel;
 
@@ -348,24 +336,24 @@ function renderAllRegions() {
                      }
                  }
 
-                contentEl.textContent = displayText; 
-                contentEl.style.fontWeight = 'bold'; 
-                contentEl.style.color = '#00695C'; 
-                contentEl.style.fontSize = '0.8rem'; 
-                contentEl.style.textShadow = '1px 1px 0px white, -1px -1px 0px white, 1px -1px 0px white, -1px 1px 0px white, 0px 0px 3px rgba(255,255,255,0.8)'; 
-                contentEl.style.pointerEvents = 'none'; 
-                
+                contentEl.textContent = displayText;
+                contentEl.style.fontWeight = 'bold';
+                contentEl.style.color = '#00695C';
+                contentEl.style.fontSize = '0.8rem';
+                contentEl.style.textShadow = '1px 1px 0px white, -1px -1px 0px white, 1px -1px 0px white, -1px 1px 0px white, 0px 0px 3px rgba(255,255,255,0.8)';
+                contentEl.style.pointerEvents = 'none';
+
                 contentEl.style.maxWidth = 'calc(100% - 8px)';
                 contentEl.style.whiteSpace = 'nowrap';
                 contentEl.style.overflow = 'hidden';
                 contentEl.style.textOverflow = 'ellipsis';
-                
+
                 contentEl.style.position = 'sticky';
-                contentEl.style.left = '4px';  
+                contentEl.style.left = '4px';
                 contentEl.style.top = '2px';
                 contentEl.style.display = 'inline-block';
-                contentEl.style.zIndex = '10'; 
-                
+                contentEl.style.zIndex = '10';
+
                 let regionColor = 'rgba(0, 137, 123, 0.1)';
                 if (selectedLabels.includes(label)) regionColor = 'rgba(25, 118, 210, 0.25)';
                 else if (label === currentActiveLabel) regionColor = 'rgba(255, 112, 67, 0.15)';
@@ -374,10 +362,7 @@ function renderAllRegions() {
             }
         });
 
-        // ★ 新增：若「檢查是否有遺漏」的清單還沒清空，重繪時一併把紅色暫時標記畫回來，
-        //   避免使用者去拖曳/編輯別的標記時，把還沒處理完的遺漏提示整批洗掉。
-        //   （這些標記本來就是 drag:false / resize:false 又設了 pointer-events:none，
-        //   純視覺穿透，不會擋到任何拖曳或合併操作。）
+        // 重繪時一併畫回「檢查是否有遺漏」尚未清空的紅色暫時標記，避免編輯其他標記時被洗掉。
         if (window.missedSegmentsData && window.missedSegmentsData.length > 0) {
             window.missedSegmentsData.forEach(seg => {
                 const contentEl = typeof buildMissedRegionContent === 'function'
@@ -394,8 +379,7 @@ function renderAllRegions() {
                 });
                 if (region && region.element) {
                     region.element.style.pointerEvents = 'none';
-                    // ★ 新增：不透明紅色外框，跟初次建立時（2_audio_engine.js）
-                    //   保持一致，確保重繪後標記邊界仍然清楚可見。
+                    // 不透明紅色外框，與初次建立時（2_audio_engine.js）一致
                     region.element.style.border = '2px solid #D32F2F';
                     region.element.style.boxSizing = 'border-box';
                 }
@@ -403,14 +387,13 @@ function renderAllRegions() {
         }
 
         isRendering = false;
-    }, 100); // 結束計時器區塊
+    }, 100);
 }
 
-// ================= ★ 新增：即時更新單一標記文字 (搭配防抖) ★ =================
+// 即時更新單一標記文字 (搭配防抖)
 window.updateRegionTextDisplay = function(label, rawText) {
     if (!wsRegions) return;
 
-    // 從 WaveSurfer 中找出對應的標記區塊
     const targetRegion = wsRegions.getRegions().find(r => r.id === label);
 
     if (targetRegion && targetRegion.content) {
@@ -428,7 +411,7 @@ window.updateRegionTextDisplay = function(label, rawText) {
                 displayText = `${displayLabel} ${snippet}`;
             }
         }
-        
+
         targetRegion.content.textContent = displayText;
     }
 };
@@ -438,39 +421,37 @@ function initWaveSurfer() {
     if (warning) warning.style.display = 'none';
     const waveform = document.getElementById('waveform');
     if (waveform) waveform.style.display = 'block';
-    
+
     const compactControls = document.getElementById('compactControls');
     if (compactControls) {
         compactControls.style.opacity = '0.5';
         compactControls.style.pointerEvents = 'none';
     }
 
-    // ★ 核心修復 1：不要重複使用舊實體！徹底摧毀舊的聲波圖，避免長度與快取錯亂
+    // 不要重複使用舊實體！徹底摧毀舊的聲波圖，避免長度與快取錯亂
     if (typeof wavesurfer !== 'undefined' && wavesurfer !== null) {
         wavesurfer.destroy();
         wavesurfer = null;
         wsRegions = null;
         if (window.minimapPlugin) window.minimapPlugin = null;
-        if (waveform) waveform.innerHTML = ''; // 清空原本的容器內容
+        if (waveform) waveform.innerHTML = '';
     }
-    
+
     document.getElementById('stickyPanel').style.display = 'block';
-    document.getElementById('waveform').style.display = 'block'; 
-    if (compactControls) compactControls.style.display = 'flex'; 
-    
+    document.getElementById('waveform').style.display = 'block';
+    if (compactControls) compactControls.style.display = 'flex';
+
     wavesurfer = WaveSurfer.create({
-        container: '#waveform', 
-        waveColor: '#B2DFDB', 
-        progressColor: '#00897B', 
-        cursorColor: '#FF7043', 
-        barWidth: 2, 
+        container: '#waveform',
+        waveColor: '#B2DFDB',
+        progressColor: '#00897B',
+        cursorColor: '#FF7043',
+        barWidth: 2,
         height: currentWaveHeight,
         media: audioPlayer,
-        autoScroll: true, 
+        autoScroll: true,
         autoCenter: autoScrollMode === 'center',
-        // ★ 修復音質問題：WaveSurfer 內部解碼 (getDecodedData) 若不指定 sampleRate，
-        // 預設只會用 8000Hz（電話等級音質）解碼，而剪裁/下載功能都是讀這份資料，
-        // 導致剪裁與下載出來的音檔悶悶的、品質很差。這裡指定 48000Hz 避免被強制降頻。
+        // WaveSurfer 解碼若不指定 sampleRate，預設只用 8000Hz，而剪裁與下載都讀這份資料，音質會很差，因此指定 48000Hz。
         sampleRate: 48000,
     });
 	wavesurfer.on('error', (err) => {
@@ -484,27 +465,27 @@ function initWaveSurfer() {
     wsRegions.enableDragSelection({ color: 'rgba(33, 150, 243, 0.3)' });
 
     wsRegions.on('region-created', (region) => {
-        applyRegionPassthrough(region); // ★ 新增：框選模式開啟時，新畫出來的標記也要穿透
-        markWaveSelectPending(region);  // ★ 新增：框選模式下拖出了藍框，等滑鼠放開就自動關閉模式
-        if (isRendering) return; 
-        if (tempRegion && tempRegion !== region) tempRegion.remove(); 
-        region.setOptions({ color: 'rgba(33, 150, 243, 0.3)' }); 
+        applyRegionPassthrough(region); // 框選模式開啟時，新畫出來的標記也要穿透
+        markWaveSelectPending(region); // 框選模式下拖出了藍框，等滑鼠放開就自動關閉模式
+        if (isRendering) return;
+        if (tempRegion && tempRegion !== region) tempRegion.remove();
+        region.setOptions({ color: 'rgba(33, 150, 243, 0.3)' });
         tempRegion = region;
-        if(typeof updateToolbarButtons === 'function') updateToolbarButtons(); 
+        if(typeof updateToolbarButtons === 'function') updateToolbarButtons();
     });
-	let isSyncingMultiDrag = false; // ★ 避免多重平移時引發無窮迴圈的鎖
-    let currentDragSession = null;  // ★ 紀錄拖曳初始狀態與極限值
+	let isSyncingMultiDrag = false; // 避免多重平移時引發無窮迴圈的鎖
+    let currentDragSession = null; // 紀錄拖曳初始狀態與極限值
 
-    // ★ 將原本邏輯升級為強大的防撞牆引擎 (純淨物理碰撞，移除黏滯磁吸)
+    // 防撞牆引擎：純物理碰撞，無磁吸
     const handleRegionMove = (region, isEnd) => {
-        if (isRendering || isSyncingMultiDrag) return; 
-        if (!audioPlayer || !audioPlayer.duration || audioPlayer.duration < 0.1) return; 
+        if (isRendering || isSyncingMultiDrag) return;
+        if (!audioPlayer || !audioPlayer.duration || audioPlayer.duration < 0.1) return;
 
-        // ★ 處理藍色暫存框 (單純放行，不套用防撞限制)
+        // 處理藍色暫存框 (單純放行，不套用防撞限制)
         if (region === tempRegion) {
             isDraggingRegion = true;
             if (isEnd) {
-                // ★ 新增：框選完成後自動關閉「框選模式」，避免忘了關、之後點不到標記
+                // 框選完成後自動關閉「框選模式」，避免忘了關、之後點不到標記
                 if (window.waveSelectMode) setWaveSelectMode(false, true);
                 if(typeof updateToolbarButtons === 'function') updateToolbarButtons();
                 isDraggingRegion = false;
@@ -514,9 +495,7 @@ function initWaveSurfer() {
 
         isDraggingRegion = true;
 
-        // ==========================================
-        // ★ 1. 建立對話：紀錄群組初始位置與「防撞極限」
-        // ==========================================
+        // 1. 建立對話：紀錄群組初始位置與「防撞極限」
         if (!currentDragSession || currentDragSession.id !== region.id) {
             let dragGroup = [region.id];
             if (typeof selectedLabels !== 'undefined' && selectedLabels.includes(region.id) && selectedLabels.length > 1) {
@@ -530,7 +509,7 @@ function initWaveSurfer() {
             };
 
             let maxNegativeDelta = -Infinity; // 往左最大位移極限 (負數)
-            let maxPositiveDelta = Infinity;  // 往右最大位移極限 (正數)
+            let maxPositiveDelta = Infinity; // 往右最大位移極限 (正數)
             const allRegions = wsRegions.getRegions();
 
             dragGroup.forEach(lbl => {
@@ -538,7 +517,7 @@ function initWaveSurfer() {
                     const tStart = typeof timeDataMap[lbl] === 'object' ? timeDataMap[lbl].start : timeDataMap[lbl];
                     const tEnd = typeof timeDataMap[lbl] === 'object' ? timeDataMap[lbl].end : null;
                     const realEnd = tEnd !== null ? tEnd : tStart + 0.1;
-                    
+
                     currentDragSession.offsets[lbl] = { start: tStart, end: realEnd, duration: realEnd - tStart };
 
                     // 掃描所有「未選取」標記，精準計算防撞牆
@@ -571,9 +550,7 @@ function initWaveSurfer() {
         // 判斷目前的動作是「拉伸邊界」還是「整體移動」
         const isResizing = Math.abs((region.end - region.start) - initData.duration) > 0.005;
 
-        // ==========================================
-        // ★ 2. 邊緣防撞演算 (拔除磁吸，手感更滑順)
-        // ==========================================
+        // 2. 邊緣防撞演算
         isSyncingMultiDrag = true; // 上鎖，避免修改 UI 時引發無窮迴圈
 
         if (isResizing) {
@@ -599,7 +576,7 @@ function initWaveSurfer() {
         } else {
             // 【模式 B：整體平移 (Drag)】含多選群組同步
             const proposedDelta = region.start - initData.start;
-            
+
             // 核心：被防撞牆卡住！強制將位移量限制在安全範圍內，不多也不少
             const clampedDelta = Math.max(currentDragSession.maxNeg, Math.min(currentDragSession.maxPos, proposedDelta));
 
@@ -612,7 +589,7 @@ function initWaveSurfer() {
                     const nEnd = iData.end + clampedDelta;
 
                     if (tRegion) tRegion.setOptions({ start: nStart, end: nEnd });
-                    
+
                     if (timeDataMap[lbl]) {
                         timeDataMap[lbl].start = parseFloat(nStart.toFixed(3));
                         if (timeDataMap[lbl].end !== null) timeDataMap[lbl].end = parseFloat(nEnd.toFixed(3));
@@ -624,9 +601,7 @@ function initWaveSurfer() {
 
         isSyncingMultiDrag = false; // 解鎖
 
-        // ==========================================
-        // ★ 3. 結束與存檔處理
-        // ==========================================
+        // 3. 結束與存檔處理
         if (isEnd) {
             isDraggingRegion = false;
             currentDragSession = null;
@@ -642,7 +617,7 @@ function initWaveSurfer() {
         }
     };
 
-    // ★ 雙重監聽：拖曳中 (即時畫面防撞更新) 與 拖曳結束 (確認存檔)
+    // 雙重監聽：拖曳中 (即時畫面防撞更新) 與 拖曳結束 (確認存檔)
     wsRegions.on('region-update', (region) => {
         handleRegionMove(region, false);
     });
@@ -652,15 +627,15 @@ function initWaveSurfer() {
     });
 
     wsRegions.on('region-clicked', (region, e) => {
-        e.stopPropagation(); 
-        if (region === tempRegion) return; 
-        // ★ 新增：「檢查是否有遺漏」產生的紅色暫時標記不是真正的句子，
-        //   id 開頭固定為 "missed-"，點擊時直接忽略，避免污染 currentActiveLabel。
+        e.stopPropagation();
+        if (region === tempRegion) return;
+        // 「檢查是否有遺漏」產生的紅色暫時標記不是真正的句子，
+        // id 開頭固定為 "missed-"，點擊時直接忽略，避免污染 currentActiveLabel。
         if (region.id && String(region.id).startsWith('missed-')) return;
-        
+
         if (e.ctrlKey || e.metaKey) {
             if(typeof toggleSelection === 'function') toggleSelection(region.id);
-            lastSelectedLabel = region.id; 
+            lastSelectedLabel = region.id;
             return;
         } else if (e.shiftKey) {
             if(typeof selectRange === 'function') selectRange(lastSelectedLabel, region.id);
@@ -668,18 +643,14 @@ function initWaveSurfer() {
         }
 
         if(typeof clearSelection === 'function') clearSelection();
-        currentActiveLabel = region.id; 
-        lastSelectedLabel = region.id; 
+        currentActiveLabel = region.id;
+        lastSelectedLabel = region.id;
 
         const itemDiv = document.getElementById(`item-${region.id}`);
-        // ★ 修正：列表焦點列 (playing 綠底) 現在統一由 updateSelectionUI() 依
-        //   currentActiveLabel 同步，不再於此處手動加減 class。原本這段手動邏輯
-        //   包在下面的 `if (itemDiv)` 區塊裡，一旦 itemDiv 取不到就會整段跳過，
-        //   導致聲波圖焦點色（不受 itemDiv 影響）已經跳到新的一句，列表綠底卻
-        //   還留在原地不動。
-        if(typeof updateSelectionUI === 'function') updateSelectionUI(); 
-        
-        if (itemDiv) { 
+        // 列表焦點列統一由 updateSelectionUI() 依 currentActiveLabel 同步，不在此手動加減 class。
+        if(typeof updateSelectionUI === 'function') updateSelectionUI();
+
+        if (itemDiv) {
             let targetTime = region.start;
             if (wavesurfer && audioPlayer.duration) {
                 const wrapper = wavesurfer.getWrapper();
@@ -698,14 +669,14 @@ function initWaveSurfer() {
             if (currentSortMode === 'default') {
                 if (typeof isScriptMode !== 'undefined' && isScriptMode) {
                 } else {
-                    if(typeof smartScrollTo === 'function') smartScrollTo(itemDiv); 
+                    if(typeof smartScrollTo === 'function') smartScrollTo(itemDiv);
                 }
             }
         }
-        
+
         if (typeof snapWaveformToTop === 'function') setTimeout(snapWaveformToTop, 50);
     });
-    
+
     wavesurfer.on('click', (relativeX) => {
         const clickTime = relativeX * audioPlayer.duration;
         if (isShiftPressed && lastClickTime !== null) {
@@ -719,25 +690,25 @@ function initWaveSurfer() {
             document.querySelectorAll('.sentence-item.playing').forEach(el => el.classList.remove('playing'));
         }
         lastClickTime = clickTime;
-        if(typeof updateToolbarButtons === 'function') updateToolbarButtons(); 
+        if(typeof updateToolbarButtons === 'function') updateToolbarButtons();
         if (typeof snapWaveformToTop === 'function') snapWaveformToTop();
     });
 
-    // ★ 核心修改 2：當聲波圖解碼完成、正式繪製出來時觸發
-    wavesurfer.on('ready', () => { 
-        applyCurrentPlaybackSpeed(); 
-        if(typeof updateStickyOffsets === 'function') updateStickyOffsets(); 
-        
+    // 當聲波圖解碼完成、正式繪製出來時觸發
+    wavesurfer.on('ready', () => {
+        applyCurrentPlaybackSpeed();
+        if(typeof updateStickyOffsets === 'function') updateStickyOffsets();
+
         const elTot = document.getElementById('audioTimeTotal');
-        if(elTot) elTot.textContent = formatTime(audioPlayer.duration); 
-        
+        if(elTot) elTot.textContent = formatTime(audioPlayer.duration);
+
         renderAllRegions();
-        if(typeof updateToolbarButtons === 'function') updateToolbarButtons(); 
-        
+        if(typeof updateToolbarButtons === 'function') updateToolbarButtons();
+
         // 讀取上次的縮放比例，若沒有則預設為 10x
         const savedZoom = localStorage.getItem('tagger_zoomLevel') || (zoomPresetSelect ? zoomPresetSelect.value : 10);
         updateZoom(savedZoom);
-        
+
         if(typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
 
         // 解鎖控制按鈕列
@@ -746,12 +717,10 @@ function initWaveSurfer() {
             compactControls.style.pointerEvents = 'auto';
         }
 
-        // =========================================================================
-        // ★ 終極修復：讀取上次選取的標記並自動跳轉 (加入分段延遲與抗干擾機制)
-        // =========================================================================
+        // 讀取上次選取的標記並自動跳轉 (加入分段延遲與抗干擾機制)
         const savedActiveLabel = localStorage.getItem('tagger_lastActiveLabel');
 
-        // ★ 增加：剪裁／剪下／貼上／復原後，游標要留在指定位置（優先於「還原上次選取句子」）
+        // 剪裁／剪下／貼上／復原後，游標要留在指定位置（優先於「還原上次選取句子」）
         const pendingSeek = window.pendingSeekTime;
         window.pendingSeekTime = null;
 
@@ -775,13 +744,13 @@ function initWaveSurfer() {
                 }
                 if (typeof snapWaveformToTop === 'function') snapWaveformToTop();
             }, 100);
-        } else if (savedActiveLabel && timeDataMap[savedActiveLabel]) {   // ★ 修改：原本是 if，改成 else if
+        } else if (savedActiveLabel && timeDataMap[savedActiveLabel]) {
             currentActiveLabel = savedActiveLabel;
             lastSelectedLabel = savedActiveLabel;
             if (typeof updateSelectionUI === 'function') updateSelectionUI();
-            
+
             const times = getCalculatedTimes(savedActiveLabel);
-            
+
             // 【第一段延遲：等待音訊引擎穩固】100ms 後再指揮 WaveSurfer 跳轉時間
             setTimeout(() => {
                 if (times) {
@@ -792,13 +761,13 @@ function initWaveSurfer() {
                     }
                 }
             }, 100);
-            
+
             // 【第二段延遲：避開瀏覽器原生捲動】600ms 後再執行畫面捲動，確保我們贏得控制權
             setTimeout(() => {
                 // 1. 強制清除舊的高亮，並替目標句子加上綠色背景，讓視覺更明確
                 document.querySelectorAll('.sentence-item').forEach(el => el.classList.remove('playing'));
                 const itemDiv = document.getElementById(`item-${savedActiveLabel}`);
-                
+
                 // 2. 判斷目前是列表模式還是劇本(全文)模式，分別執行捲動
                 if (typeof isScriptMode !== 'undefined' && isScriptMode) {
                     const targetGutter = document.getElementById(`gutter-${savedActiveLabel}`);
@@ -816,13 +785,13 @@ function initWaveSurfer() {
                         }
                     }
                 }
-                
+
                 // 3. 確保聲波圖吸頂並重繪
                 if (typeof snapWaveformToTop === 'function') snapWaveformToTop();
             }, 600);
         }
 
-        // ★ 新增：載入成功提示（依音檔來源類型，顯示對應名稱）
+        // 載入成功提示（依音檔來源類型，顯示對應名稱）
 		const audioType = localStorage.getItem('tagger_audioType');
 		let displayName = '音檔';
 		if (audioType === 'local') {
@@ -835,52 +804,52 @@ function initWaveSurfer() {
     });
 }
 
-window.addEventListener('DOMContentLoaded', () => { 
+window.addEventListener('DOMContentLoaded', () => {
     if (projectTitleInput) {
         projectTitleInput.value = localStorage.getItem('tagger_projectTitle') || '';
     }
     if(typeof updateMainTitleDisplay === 'function') updateMainTitleDisplay();
-    if(typeof loadFromStorage === 'function') loadFromStorage(); 
+    if(typeof loadFromStorage === 'function') loadFromStorage();
     if(typeof autoResizeRawText === 'function') autoResizeRawText();
-    if(typeof updateStickyOffsets === 'function') setTimeout(updateStickyOffsets, 500); 
+    if(typeof updateStickyOffsets === 'function') setTimeout(updateStickyOffsets, 500);
 });
 
 const waveformContainer = document.getElementById('waveform');
 
 waveformContainer?.addEventListener('wheel', (e) => {
     if (!e.altKey && !e.shiftKey) return;
-    
-    e.preventDefault(); 
+
+    e.preventDefault();
     if (!wavesurfer) return;
 
     if (e.shiftKey) {
-        const wrapper = wavesurfer.getWrapper(); 
+        const wrapper = wavesurfer.getWrapper();
         let scrollContainer = wrapper;
-        
+
         if (wrapper && wrapper.parentElement) {
             scrollContainer = wrapper.parentElement;
         }
-        
+
         if (scrollContainer) {
             const scrollAmount = e.deltaX || e.deltaY;
-            scrollContainer.scrollLeft += scrollAmount * 1.5; 
+            scrollContainer.scrollLeft += scrollAmount * 1.5;
         }
     } else if (e.altKey) {
         let currentZoom = Number(zoomSlider.value);
-        const zoomStep = 5; 
+        const zoomStep = 5;
         const scrollAmount = e.deltaY || e.deltaX;
-        
+
         if (scrollAmount < 0) {
             currentZoom = Math.min(200, currentZoom + zoomStep);
         } else {
             currentZoom = Math.max(1, currentZoom - zoomStep);
         }
-        
+
         if(typeof updateZoom === 'function') updateZoom(currentZoom);
     }
-}, { passive: false }); 
+}, { passive: false });
 
-window.minimapPlugin = null; 
+window.minimapPlugin = null;
 
 window.toggleMinimap = function(enable) {
     const container = document.getElementById('wave-minimap');
@@ -905,7 +874,7 @@ window.toggleMinimap = function(enable) {
             window.minimapPlugin.destroy();
             window.minimapPlugin = null;
         }
-        container.innerHTML = ''; 
+        container.innerHTML = '';
     }
 
     if (typeof updateStickyOffsets === 'function') {
@@ -913,15 +882,7 @@ window.toggleMinimap = function(enable) {
     }
 };
 
-
-
-
-
-
-
-
-
-// ================= 時間顯示即時更新 =================
+// 時間顯示即時更新
 // 綁定原生音訊的時間更新事件，讓左下角的時間隨播放與點擊連動
 if (audioPlayer) {
     audioPlayer.addEventListener('timeupdate', () => {
@@ -930,27 +891,26 @@ if (audioPlayer) {
         if (timeCurrentEl && !isNaN(audioPlayer.currentTime)) {
             timeCurrentEl.textContent = formatTime(audioPlayer.currentTime);
         }
-        
+
         if (typeof updateToolbarButtons === 'function') {
             updateToolbarButtons();
         }
     });
 }
 
-
-// ================= ★ 新增：框選模式（讓已標記的範圍也能被框選） ★ =================
+// 框選模式（讓已標記的範圍也能被框選）
 // 問題：已標記的範圍會蓋住聲波，滑鼠在上面按下去會被標記接走（拖曳／點選標記），
-//       無法拖出藍色選取框。
+// 無法拖出藍色選取框。
 // 做法：開啟「框選模式」時，只把「句子標記」設為滑鼠穿透（pointer-events:none）並調淡，
-//       標記資料完全不動、畫面上仍看得到邊界；藍色選取框與遺漏檢查的紅框不受影響。
-//       框選完成（或按 Esc／再按一次快速鍵）就自動恢復。
+// 標記資料完全不動、畫面上仍看得到邊界；藍色選取框與遺漏檢查的紅框不受影響。
+// 框選完成（或按 Esc／再按一次快速鍵）就自動恢復。
 // 切換方式：聲波「更多」選單的「框選模式」，或快速鍵（預設 Ctrl+Q，可在「設定 > 快速鍵」修改）。
 window.waveSelectMode = false;
 
 // 只處理「句子標記」（id 在 timeDataMap 內）。藍色暫存框與紅色遺漏框的 id 不在裡面，所以不會被動到。
-// ★ 重要：WaveSurfer 會替每個標記元素內建 pointer-events:"all"（外層容器是 none）。
-//   關閉模式時必須「還原成原本的值」，不能清成空字串，否則標記會退回繼承外層的 none，
-//   變成永遠點不到、拖不動（Ctrl 多選也會失效）。所以第一次改動前先把原值記在 data 屬性裡。
+// 重要：WaveSurfer 會替每個標記元素內建 pointer-events:"all"（外層容器是 none）。
+// 關閉模式時必須「還原成原本的值」，不能清成空字串，否則標記會退回繼承外層的 none，
+// 變成永遠點不到、拖不動（Ctrl 多選也會失效）。所以第一次改動前先把原值記在 data 屬性裡。
 function setElementPassthrough(el, on, opacityWhenOn) {
     if (!el) return;
     if (on) {
@@ -1003,16 +963,16 @@ function setWaveSelectMode(on, auto = false) {
     }
 }
 
-// ★ 框選完成後自動關閉：模式開啟期間，使用者「拖出新的藍色框」(不是重繪產生的) 就記下來，
-//   等滑鼠／手指放開時再關閉模式（延後一個事件循環，讓 WaveSurfer 先完成它自己的收尾）。
+// 框選完成後自動關閉：模式開啟期間，使用者「拖出新的藍色框」(不是重繪產生的) 就記下來，
+// 等滑鼠／手指放開時再關閉模式（延後一個事件循環，讓 WaveSurfer 先完成它自己的收尾）。
 window.waveSelectPending = false;
 function markWaveSelectPending(region) {
     if (!window.waveSelectMode || isRendering) return;
     if (typeof timeDataMap !== 'undefined' && timeDataMap[region.id] !== undefined) return; // 句子標記不算
     window.waveSelectPending = true;
 }
-// ★ 要「延後一拍」再檢查：WaveSurfer 有時是在放開滑鼠的事件處理過程中才建立藍框，
-//   如果在放開當下就檢查，會因為藍框還沒建立而漏掉。
+// 要「延後一拍」再檢查：WaveSurfer 有時是在放開滑鼠的事件處理過程中才建立藍框，
+// 如果在放開當下就檢查，會因為藍框還沒建立而漏掉。
 document.addEventListener('pointerup', () => {
     if (!window.waveSelectMode) return;
     setTimeout(() => {

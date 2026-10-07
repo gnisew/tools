@@ -1,13 +1,13 @@
-// ================= 9_batch_converter.js: 萬能批次轉檔引擎 =================
+// 9_batch_converter.js: 萬能批次轉檔引擎
 const sidebarBatchConvertBtn = document.getElementById('sidebarBatchConvertBtn');
-const homeBatchConvertBtn = document.getElementById('homeBatchConvertBtn'); // ★ 新增：首頁轉檔按鈕
+const homeBatchConvertBtn = document.getElementById('homeBatchConvertBtn');
 const batchConvertModalOverlay = document.getElementById('batchConvertModalOverlay');
 const closeBatchConvertBtn = document.getElementById('closeBatchConvertBtn');
 const startBatchConvertBtn = document.getElementById('startBatchConvertBtn');
 const batchConvertInput = document.getElementById('batchConvertInput');
 const batchConvertTargetFormat = document.getElementById('batchConvertTargetFormat');
 
-// ================= ★ 新增：「移除標點(無法復原)」選項 ★ =================
+// 「移除標點(無法復原)」選項
 // 預設不勾選。只有輸出格式為 TSV / SRT / Audacity 時可用；
 // 純文字段落 (txt) 與專案檔 (json) 不可移除標點（切換到這兩種格式時會自動取消勾選並停用）。
 const batchRemovePunctuationCheck = document.getElementById('batchRemovePunctuationCheck');
@@ -15,44 +15,87 @@ const batchRemovePunctuationLabel = document.getElementById('batchRemovePunctuat
 const batchRemovePunctuationHint = document.getElementById('batchRemovePunctuationHint');
 const PUNCT_REMOVABLE_FORMATS = ['tsv', 'srt', 'audacity'];
 
-// ★ 新增：「多個獨立音檔」格式的提示文字區塊（僅支援含線上音檔網址的 JSON 專案檔）
+// 「多個獨立音檔」格式的提示文字區塊（僅支援含線上音檔網址的 JSON 專案檔）
 const batchAudioFormatHint = document.getElementById('batchAudioFormatHint');
 const AUDIO_OUTPUT_FORMAT = 'audio';
 
-// 多語言字幕：匯出語言選單（僅在設定中啟用「多語字幕」時才會顯示，邏輯比照 4g_ui_export.js 的單筆匯出）
+// 多語言字幕：匯出語言選單（一律顯示；選項產生與取值邏輯共用 1c_languages.js）
 const batchLangSelectWrap = document.getElementById('batchLangSelectWrap');
 const batchLangSelect = document.getElementById('batchLangSelect');
 
+// 批次轉檔的來源檔案與目前專案無關，所以「多語言字幕」選項一律顯示，也不看「多語字幕」開關，
+// 直接依設定中的分隔字元拆分文字。選項數量依所選檔案內容偵測（至少 BATCH_LANG_MIN_OPTIONS 個）。
+const BATCH_LANG_MIN_OPTIONS = 2;
+let batchDetectedLangCount = 0;
+let batchLangScanToken = 0;
+
 function populateBatchLangSelect() {
-    if (!batchLangSelect || !batchLangSelectWrap) return;
-    if (typeof getLangMultiEnabled !== 'function' || !getLangMultiEnabled()) {
-        batchLangSelectWrap.style.display = 'none';
-        return;
-    }
-    batchLangSelectWrap.style.display = '';
-
-    const prevValue = batchLangSelect.value;
-    const count = typeof getLangCount === 'function' ? getLangCount() : 1;
-
-    let optionsHtml = '<option value="all">全部語言（原始格式，含分隔字元）</option>';
-    for (let i = 0; i < count; i++) {
-        const name = typeof getLangName === 'function' ? getLangName(i) : `語言${i + 1}`;
-        optionsHtml += `<option value="${i}">${name}</option>`;
-    }
-    batchLangSelect.innerHTML = optionsHtml;
-
-    const stillValid = Array.from(batchLangSelect.options).some(opt => opt.value === prevValue);
-    if (stillValid) batchLangSelect.value = prevValue;
+    populateLangExportSelect(batchLangSelectWrap, batchLangSelect, {
+        always: true,
+        count: Math.max(BATCH_LANG_MIN_OPTIONS, batchDetectedLangCount)
+    });
 }
 
+// 掃描目前選的檔案（含 ZIP 內檔案），找出單句最多有幾個語言，再重建選單
+async function scanBatchLangCount() {
+    const token = ++batchLangScanToken;
+    const files = batchConvertInput ? Array.from(batchConvertInput.files) : [];
+    const delim = getLangDelimiter();
+    let max = 0;
+    const countText = (str, ext, name) => {
+        parseAnyToStandard(str, ext, name).forEach(it => {
+            max = Math.max(max, String(it.text || '').split(delim).length);
+        });
+    };
+    try {
+        for (const file of files) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (ext === 'zip' && typeof JSZip !== 'undefined') {
+                const zip = await new JSZip().loadAsync(file);
+                for (const [name, entry] of Object.entries(zip.files)) {
+                    const e = name.split('.').pop().toLowerCase();
+                    if (!entry.dir && ['json', 'srt', 'tsv', 'txt'].includes(e) && !name.includes('__MACOSX')) {
+                        countText(await entry.async('string'), e, name);
+                    }
+                }
+            } else if (['json', 'srt', 'tsv', 'txt'].includes(ext)) {
+                countText(await file.text(), ext, file.name);
+            }
+        }
+    } catch (err) {
+        console.warn('[批次轉檔] 偵測語言數失敗：', err); // 不影響轉檔，沿用已偵測到的數量
+    }
+    if (token !== batchLangScanToken) return; // 已有較新的掃描，丟掉舊結果
+    batchDetectedLangCount = max;
+    populateBatchLangSelect();
+}
+
+function refreshBatchLangSelect() {
+    populateBatchLangSelect();
+    scanBatchLangCount();
+    updateBatchClearBtn();
+}
+batchConvertInput?.addEventListener('change', scanBatchLangCount);
+
+// 來源檔案「清除」按鈕：沒選檔案時停用；清除後語言選單回到預設數量
+const batchClearInputBtn = document.getElementById('batchClearInputBtn');
+function updateBatchClearBtn() {
+    if (!batchClearInputBtn) return;
+    const has = !!(batchConvertInput && batchConvertInput.files && batchConvertInput.files.length);
+    batchClearInputBtn.disabled = !has; // 外觀（含停用時變淡）沿用批次修改的 .be-clear-btn 樣式
+}
+batchConvertInput?.addEventListener('change', updateBatchClearBtn);
+batchClearInputBtn?.addEventListener('click', () => {
+    if (batchConvertInput) batchConvertInput.value = '';
+    updateBatchClearBtn();
+    scanBatchLangCount(); // 檔案已清空，重算語言數
+});
+updateBatchClearBtn();
+
 // 依「匯出語言」選單，把原始（可能是多語言合併）文字轉成實際要輸出的文字。
-// 未啟用多語字幕、或選單選到「全部語言」時：回傳原始文字，行為完全不變。
+// 選單選到「全部語言」時：回傳原始文字，行為完全不變；不看「多語字幕」開關（批次轉檔的來源與目前專案無關）。
 function getBatchExportText(rawText) {
-    if (typeof getLangMultiEnabled !== 'function' || !getLangMultiEnabled()) return rawText;
-    const sel = batchLangSelect ? batchLangSelect.value : 'all';
-    if (!sel || sel === 'all') return rawText;
-    const idx = parseInt(sel, 10);
-    return typeof getLang === 'function' ? getLang(rawText, idx) : rawText;
+    return pickExportLang(rawText, batchLangSelect, { standalone: true });
 }
 
 function updateRemovePunctuationAvailability() {
@@ -67,44 +110,53 @@ function updateRemovePunctuationAvailability() {
     if (batchRemovePunctuationHint) {
         batchRemovePunctuationHint.style.color = supported ? '#888' : '#C62828';
         batchRemovePunctuationHint.textContent = supported
-            ? '僅適用於輸出 TSV、字幕檔 (SRT)、Audacity 標籤；純文字段落、專案檔 (JSON) 與多個獨立音檔不可移除標點。'
-            : '目前選擇的輸出格式不可移除標點。';
+            ? '僅適用於 TSV、SRT、Audacity。'
+            : '此格式不可移除標點。';
     }
 }
-// ★ 新增：切換到「多個獨立音檔」格式時，顯示專屬的使用限制提示
+// 切換到「多個獨立音檔」格式時，顯示專屬的使用限制提示
 function updateAudioFormatHintVisibility() {
     if (!batchAudioFormatHint || !batchConvertTargetFormat) return;
     batchAudioFormatHint.style.display = batchConvertTargetFormat.value === AUDIO_OUTPUT_FORMAT ? 'block' : 'none';
 }
 batchConvertTargetFormat?.addEventListener('change', updateRemovePunctuationAvailability);
-batchConvertTargetFormat?.addEventListener('change', updateAudioFormatHintVisibility); // ★ 新增
+batchConvertTargetFormat?.addEventListener('change', updateAudioFormatHintVisibility);
 updateRemovePunctuationAvailability();
-updateAudioFormatHintVisibility(); // ★ 新增
+updateAudioFormatHintVisibility();
 
 // 每次開啟視窗都恢復成預設（不勾選），避免上次的破壞性選項被不小心帶入
 function resetRemovePunctuationOption() {
     if (batchRemovePunctuationCheck) batchRemovePunctuationCheck.checked = false;
     updateRemovePunctuationAvailability();
-    updateAudioFormatHintVisibility(); // ★ 新增
+    updateAudioFormatHintVisibility();
 }
 
-// ★ 移除標點的實作 removePunctuationFromText() 已移至 1_globals.js，
-// 與「設定 → 匯出音檔的檔名規則 → 移除標點」共用同一份，這裡不再重複定義。
+// 移除標點的實作 removePunctuationFromText() 位於 1_globals.js，與設定中的檔名規則共用。
+
+// ZIP 檔名：烏衣行字幕_年月日-時分秒_格式（例：烏衣行字幕_20261007-183205_SRT.zip）
+const BATCH_ZIP_FORMAT_TAGS = { tsv: 'TSV', srt: 'SRT', audacity: 'Audacity', txt: 'TXT', json: 'JSON', audio: 'WAV' };
+function getBatchZipName() {
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    const stamp = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+    const tag = BATCH_ZIP_FORMAT_TAGS[batchConvertTargetFormat?.value] || '';
+    return `烏衣行字幕_${stamp}${tag ? '_' + tag : ''}.zip`;
+}
 
 // 開關視窗邏輯：側邊欄的按鈕 (需要先關閉側邊欄再開視窗)
 sidebarBatchConvertBtn?.addEventListener('click', () => {
-    document.getElementById('closeSidebarBtn')?.click(); 
+    document.getElementById('closeSidebarBtn')?.click();
     setTimeout(() => {
-        resetRemovePunctuationOption(); // ★ 新增：開啟時恢復預設（不勾選）
-        populateBatchLangSelect();
+        resetRemovePunctuationOption();
+        refreshBatchLangSelect();
         batchConvertModalOverlay.classList.add('show');
         document.body.style.overflow = 'hidden';
     }, 300);
 });
 
 homeBatchConvertBtn?.addEventListener('click', () => {
-    resetRemovePunctuationOption(); // ★ 新增：開啟時恢復預設（不勾選）
-    populateBatchLangSelect();
+    resetRemovePunctuationOption();
+    refreshBatchLangSelect();
     batchConvertModalOverlay.classList.add('show');
     document.body.style.overflow = 'hidden';
 });
@@ -114,11 +166,11 @@ closeBatchConvertBtn?.addEventListener('click', () => {
     document.body.style.overflow = '';
 });
 
-// ================= 核心：萬能解析器 (Parser) =================
+// 核心：萬能解析器 (Parser)
 // 負責將各種格式轉換為統一的 Array: [{ label, start, end, text }]
 function parseAnyToStandard(text, ext, filename) {
     let items = [];
-    
+
     try {
         if (ext === 'json') {
             const data = JSON.parse(text);
@@ -135,7 +187,7 @@ function parseAnyToStandard(text, ext, filename) {
                     }
                 });
             }
-        } 
+        }
         else if (ext === 'srt') {
             const blocks = text.split(/\r?\n\r?\n/).filter(b => b.trim());
             blocks.forEach((block, index) => {
@@ -148,12 +200,12 @@ function parseAnyToStandard(text, ext, filename) {
                         // 利用 1_globals.js 中的 parseSrtTime
                         const start = typeof parseSrtTime === 'function' ? parseSrtTime(timeParts[0]) : 0;
                         const end = typeof parseSrtTime === 'function' ? parseSrtTime(timeParts[1]) : 0;
-                        
+
                         // 自動產生 A01 格式的標籤
                         const group = Math.floor(index / 99);
                         const num = (index % 99) + 1;
                         const label = `${String.fromCharCode(65 + group)}${String(num).padStart(2, '0')}`;
-                        
+
                         items.push({ label, start, end, text: textLines });
                     }
                 }
@@ -183,7 +235,7 @@ function parseAnyToStandard(text, ext, filename) {
                     const group = Math.floor(index / 99);
                     const num = (index % 99) + 1;
                     const label = `${String.fromCharCode(65 + group)}${String(num).padStart(2, '0')}`;
-                    
+
                     items.push({
                         label: label,
                         start: parseFloat(parts[0]) || 0,
@@ -196,22 +248,21 @@ function parseAnyToStandard(text, ext, filename) {
     } catch (e) {
         console.error(`解析檔案 ${filename} 失敗:`, e);
     }
-    
+
     return items;
 }
 
-// ================= 核心：萬能產生器 (Generator) =================
+// 核心：萬能產生器 (Generator)
 // 負責將統一 Array 轉換為目標格式字串
-// ★ 已移至 1_globals.js 的 buildStandardToAny()，跟 4g_ui_export.js 共用同一份，
-//   這裡不再重複定義（1_globals.js 會比這個檔案更早載入）。
+// 實作位於 1_globals.js 的 buildStandardToAny()，與 4g_ui_export.js 共用。
 
-// ================= ★ 新增：輸出格式「多個獨立音檔」的核心處理 ★ =================
+// 輸出格式「多個獨立音檔」的核心處理
 // 僅支援專案檔 (.json) 且 audioUrl 是「線上網址」(http/https) 的情況：
 // 本機上傳的音檔本身沒有存進 JSON（只記錄檔名），重新整理網頁後就會消失，
 // 批次轉檔這一步完全拿不到音訊本體；只有使用者自己貼上的線上音檔網址，
 // 才能在這裡重新下載、解碼、依每一句的時間標記切成一個個獨立音檔。
 // 依賴：sliceAudioBuffer() / audioBufferToWav()（定義於 2_audio_engine.js，
-//       在 index.html 裡必須比本檔案更早載入）。
+// 在 index.html 裡必須比本檔案更早載入）。
 // 檔名規則固定為：標題_編號_句子內容.wav（每段都先用 sanitizeFilename 清過，
 // 避免路徑分隔符號等非法字元弄壞 ZIP 內的檔案結構）。
 async function exportJsonToIndividualAudioFiles(data, filename, zip, usedNames) {
@@ -284,14 +335,14 @@ async function exportJsonToIndividualAudioFiles(data, filename, zip, usedNames) 
     return { count, reason: count === 0 ? '沒有可用的完整時間標記（需同時有開始與結束時間）' : null };
 }
 
-// ================= 執行批次處理與打包 =================
+// 執行批次處理與打包
 startBatchConvertBtn?.addEventListener('click', async () => {
     const files = Array.from(batchConvertInput.files);
     if (files.length === 0) return showToast('請先選擇檔案', 'error');
     if (typeof JSZip === 'undefined') return showToast('缺少 JSZip 套件，無法處理壓縮檔', 'error');
 
     const targetFormat = batchConvertTargetFormat.value;
-    // ★ 新增：是否移除標點——必須「有勾選」且輸出格式為 TSV / SRT / Audacity 才會執行（JSON、純文字段落、獨立音檔一律不移除）
+    // 是否移除標點——必須「有勾選」且輸出格式為 TSV / SRT / Audacity 才會執行（JSON、純文字段落、獨立音檔一律不移除）
     const removePunctuation = !!batchRemovePunctuationCheck?.checked && PUNCT_REMOVABLE_FORMATS.includes(targetFormat);
     // 決定輸出的副檔名（「多個獨立音檔」格式不會用到這個，每一句各自輸出一個 .wav）
     let outExt = targetFormat;
@@ -299,24 +350,21 @@ startBatchConvertBtn?.addEventListener('click', async () => {
 
     const outputZip = new JSZip();
     let processedCount = 0;
-    let audioFileTotalCount = 0; // ★ 新增：「多個獨立音檔」模式下，實際切出的音檔總數
-    const audioUsedNames = new Set(); // ★ 新增：跨多個來源檔案，統一記錄已用過的音檔檔名避免覆蓋
+    let audioFileTotalCount = 0; // 「多個獨立音檔」模式下，實際切出的音檔總數
+    const audioUsedNames = new Set(); // 跨多個來源檔案，統一記錄已用過的音檔檔名避免覆蓋
 
     batchConvertModalOverlay.classList.remove('show');
     document.body.style.overflow = '';
     showToast('開始批次轉換，請稍候...', 'normal');
 
-    // ★ 新增：記錄「解析不到資料」的檔案，結束後明確告知使用者是哪些檔案、為什麼，
-    // 而不是只給一個總數或完全靜默跳過。
-    // 常見情境：匯出功能的「純文字段落」跟「Audacity 標籤檔」都用 .txt 副檔名，
-    // 但這裡的 .txt 解析邏輯固定當作 Audacity 格式（要求 tab 分欄），如果拿純文字
-    // 的 .txt 回來匯入，會直接解析成 0 筆、卻看不出原因——這裡把原因講清楚。
+    // 記錄解析不到資料的檔案，結束後明確告知是哪些檔案與原因。
+    // 常見情境：純文字段落與 Audacity 標籤檔同為 .txt，但這裡的 .txt 固定以 Audacity 格式（tab 分欄）解析，純文字會解析成 0 筆。
     const skippedFiles = [];
 
     try {
-        // 幫助函式：處理單一文字內容（★ 改為 async：「多個獨立音檔」格式需要 fetch + 解碼音訊）
+        // 處理單一文字內容（async：「多個獨立音檔」格式需要 fetch 與解碼音訊）
         const processFileContent = async (contentStr, filename, originalExt) => {
-            // ★ 新增：「多個獨立音檔」格式獨立分支——只認 JSON 專案檔，其餘格式直接視為不支援
+            // 「多個獨立音檔」格式獨立分支——只認 JSON 專案檔，其餘格式直接視為不支援
             if (targetFormat === AUDIO_OUTPUT_FORMAT) {
                 if (originalExt !== 'json') {
                     skippedFiles.push(`${filename}（多個獨立音檔僅支援專案檔 .json）`);
@@ -345,7 +393,7 @@ startBatchConvertBtn?.addEventListener('click', async () => {
             if (targetFormat !== 'json') {
                 items = items.map(item => ({ ...item, text: getBatchExportText(item.text) }));
             }
-            // ★ 新增：移除標點（只處理文字內容，時間與標籤不動）
+            // 移除標點（只處理文字內容，時間與標籤不動）
             if (removePunctuation) {
                 items = items.map(item => ({ ...item, text: removePunctuationFromText(item.text) }));
             }
@@ -375,18 +423,18 @@ startBatchConvertBtn?.addEventListener('click', async () => {
                 // 如果來源是 ZIP，解開它並逐一轉換
                 const zipReader = new JSZip();
                 const zipContent = await zipReader.loadAsync(file);
-                
+
                 for (const [filename, zipEntry] of Object.entries(zipContent.files)) {
                     const entryExt = filename.split('.').pop().toLowerCase();
                     if (!zipEntry.dir && ['json', 'srt', 'tsv', 'txt'].includes(entryExt) && !filename.includes('__MACOSX')) {
                         const contentStr = await zipEntry.async('string');
-                        await processFileContent(contentStr, filename.split('/').pop(), entryExt); // ★ 修改：加上 await
+                        await processFileContent(contentStr, filename.split('/').pop(), entryExt);
                     }
                 }
             } else if (['json', 'srt', 'tsv', 'txt'].includes(ext)) {
                 // 如果是獨立的支援檔案
                 const contentStr = await file.text();
-                await processFileContent(contentStr, file.name, ext); // ★ 修改：加上 await
+                await processFileContent(contentStr, file.name, ext);
             }
         }
 
@@ -408,12 +456,12 @@ startBatchConvertBtn?.addEventListener('click', async () => {
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = url;
-        a.download = `批次轉檔結果_${Date.now()}.zip`;
+        a.download = getBatchZipName();
         document.body.appendChild(a);
         a.click();
         setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
 
-        // ★ 新增：「多個獨立音檔」格式改用「切出 N 個音檔」的訊息，比「N 個檔案」更準確
+        // 「多個獨立音檔」格式改用「切出 N 個音檔」的訊息，比「N 個檔案」更準確
         const successMsg = targetFormat === AUDIO_OUTPUT_FORMAT
             ? `成功從 ${processedCount} 個專案切出共 ${audioFileTotalCount} 個獨立音檔`
             : `成功轉換 ${processedCount} 個檔案${removePunctuation ? '（已移除標點）' : ''}`;

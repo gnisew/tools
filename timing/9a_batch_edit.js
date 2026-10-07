@@ -1,26 +1,26 @@
-// ================= 9a_batch_edit.js: 批次修改（集體替換 title / audioUrl / localFileName） =================
+// 9a_batch_edit.js: 批次修改（集體替換 title / audioUrl / localFileName）
 // 目的：在「批次轉檔工具」視窗新增「批次修改」頁籤。載入多個專案檔 (.json) 或 ZIP，
-//       把每個專案的 title、audioUrl、localFileName 列成表格（或 TSV 文字），集體替換後再打包下載 ZIP。
+// 把每個專案的 title、audioUrl、localFileName 列成表格（或 TSV 文字），集體替換後再打包下載 ZIP。
 // 設計：
-//   · 表格與 TSV 文字區共用同一份資料（rows），切換檢視時自動同步。
-//   · TSV 以「原始檔名」當比對鍵，不看行序，貼回時順序打亂也不會錯位。
-//   · 取代工具「按下套用才生效」，不做即時預覽，避免誤改。
-//   · 只改有被修改的欄位；JSON 其餘內容（句子、時間標記、mediaGroups…）原封不動。
+// · 表格與 TSV 文字區共用同一份資料（rows），切換檢視時自動同步。
+// · TSV 以「原始檔名」當比對鍵，不看行序，貼回時順序打亂也不會錯位。
+// · 取代工具「按下套用才生效」，不做即時預覽，避免誤改。
+// · 只改有被修改的欄位；JSON 其餘內容（句子、時間標記、mediaGroups…）原封不動。
 // 相依：9_batch_converter.js（視窗與 #closeBatchConvertBtn）、JSZip、showToast、showCustomDialog。
 // 載入位置：index.html 中放在 9_batch_converter.js 之後。
 
 (function () {
     const $ = id => document.getElementById(id);
-    const FIELDS = ['title', 'audioUrl', 'localFileName'];   // 會寫進 JSON 內容的欄位
-    const COLS = ['name', ...FIELDS];                         // ★ 新增：表格全部欄位（name = 檔名，不寫進 JSON，只決定下載後的檔名）
-    const COL_LABEL = { name: '檔名(.json)', title: '標題(title)', audioUrl: '音檔網址(audioUrl)', localFileName: '本地路徑(localFileName)' };                       // ★ 新增：表頭顯示名稱（沒列的就顯示欄位名稱本身）
+    const FIELDS = ['title', 'audioUrl', 'localFileName']; // 會寫進 JSON 內容的欄位
+    const COLS = ['name', ...FIELDS]; // 表格全部欄位（name = 檔名，不寫進 JSON，只決定下載後的檔名）
+    const COL_LABEL = { name: '檔名(.json)', title: '標題(title)', audioUrl: '音檔網址(audioUrl)', localFileName: '本地路徑(localFileName)' }; // 表頭顯示名稱（沒列的就顯示欄位名稱本身）
 
-    let rows = [];          
-    let view = 'table';     // 'table' | 'tsv'
+    let rows = [];
+    let view = 'table'; // 'table' | 'tsv'
     let tsvDirty = false;
-    let tsvBase = '';       // 文字區「未被使用者改動」時的內容，用來判斷有沒有變更
+    let tsvBase = ''; // 文字區「未被使用者改動」時的內容，用來判斷有沒有變更
     let nextId = 1;
-    let loadState = { skipped: 0, tip: '', failed: false };   // ★ 新增：載入結果（顯示在頂部狀態文字，不再跳視窗）
+    let loadState = { skipped: 0, tip: '', failed: false }; // 載入結果（顯示在頂部狀態文字）
 
     const modal = $('batchConvertModal');
     const tabConvert = $('batchTabConvert'), tabEdit = $('batchTabEdit');
@@ -32,10 +32,10 @@
     const cleanCell = v => String(v == null ? '' : v).replace(/[\t\r\n]+/g, ' ');
     const rowById = id => rows.find(r => r.id === id);
     const isChanged = (r, f) => r.cur[f] !== r.orig[f];
-    const rowHasChange = r => COLS.some(f => isChanged(r, f));   // ★ 修改：FIELDS → COLS（檔名變更也算修改）
+    const rowHasChange = r => COLS.some(f => isChanged(r, f)); // 檔名變更也算修改
 
-    // ★ 新增：檔名處理（.json 不顯示、不可修改，下載時一律自動補上）
-    const stripJson = v => cleanCell(v).replace(/\.json$/i, '');            // 使用者貼上或輸入了 .json 就自動拿掉
+    // 檔名處理（.json 不顯示、不可修改，下載時一律自動補上）
+    const stripJson = v => cleanCell(v).replace(/\.json$/i, ''); // 使用者貼上或輸入了 .json 就自動拿掉
     const safeName = v => stripJson(v)
         .replace(/\\/g, '/').replace(/[:*?"<>|\x00-\x1f]/g, '')           // 去掉檔名不能用的字元
         .replace(/\/{2,}/g, '/').trim().replace(/^\/+|\/+$/g, '').trim();
@@ -46,7 +46,7 @@
         return n ? n + '.json' : r.path;
     }
 
-    // ================= 頁籤切換 =================
+    // 頁籤切換
     function switchTab(which) {
         const edit = which === 'edit';
         tabConvert.classList.toggle('active', !edit);
@@ -59,7 +59,7 @@
     tabEdit.addEventListener('click', () => switchTab('edit'));
     $('batchEditCloseBtn')?.addEventListener('click', () => $('closeBatchConvertBtn')?.click());
 
-    // ================= 載入檔案 =================
+    // 載入檔案
     $('batchEditInput')?.addEventListener('change', (e) => {
         const files = Array.from(e.target.files || []);
         if (!files.length) return;
@@ -94,7 +94,7 @@
             usedKeys.add(key);
             const orig = {};
             FIELDS.forEach(f => { orig[f] = data[f] == null ? '' : String(data[f]); });
-            orig.name = String(path).replace(/\.json$/i, '');   // ★ 新增：檔名（不含 .json）
+            orig.name = String(path).replace(/\.json$/i, ''); // 檔名（不含 .json）
             newRows.push({ id: nextId++, key, path, data, orig, cur: { ...orig } });
         };
 
@@ -118,12 +118,12 @@
 
         rows = newRows;
         tsvDirty = false;
-        // ★ 修改：略過的檔案不再跳視窗，改記在狀態文字（滑鼠移上去可看清單）
+        // 略過的檔案記在狀態文字（滑鼠移上去可看清單）
         loadState = { skipped: skipped.length, tip: skipped.join('\n'), failed: !rows.length };
         afterDataChange();
     }
 
-    // ================= 畫面渲染 =================
+    // 畫面渲染
     function afterDataChange() {
         if (view === 'table') renderTable();
         else { $('batchEditTsv').value = tsvBase = toTsv(); tsvDirty = false; }
@@ -136,7 +136,7 @@
         if (!rows.length) { wrap.innerHTML = '<div class="be-empty">尚未載入檔案</div>'; return; }
         let html = '<table class="be-table"><thead><tr>'
             + '<th class="be-c-no">#</th>'
-            + COLS.map(f => `<th class="be-th-f" data-f="${f}" title="點擊選取整欄（可貼上 Excel 資料）">${COL_LABEL[f] || f}</th>`).join('') + '</tr></thead><tbody>'; // ★ 修改：原始檔名欄併入 COLS，可編輯
+            + COLS.map(f => `<th class="be-th-f" data-f="${f}" title="點擊選取整欄（可貼上 Excel 資料）">${COL_LABEL[f] || f}</th>`).join('') + '</tr></thead><tbody>';
         rows.forEach((r, i) => {
             html += `<tr data-id="${r.id}">`
                 + `<td class="be-c-no">${i + 1}</td>`
@@ -149,7 +149,6 @@
     }
 
     // 更新「已修改」標示與頂部狀態文字（不重繪表格，輸入時不會失焦）
-    // ★ 簡化：移除「重複」「音檔欄位皆為空」等警告與 ⚠ 標示
     function refreshStates() {
         let changedCells = 0;
         const wrap = $('batchEditTableWrap');
@@ -170,7 +169,7 @@
         wrap.querySelectorAll('th.be-th-f').forEach(th => th.classList.toggle('colsel', th.dataset.f === selCol));
         updateRevertBtn();
 
-        // 按鈕狀態：沒東西可做時直接反灰，不再用提示訊息告知
+        // 按鈕狀態：沒東西可做時直接反灰
         const has = rows.length > 0;
         const onlyChanged = !!$('batchEditOnlyChanged')?.checked;
         if ($('batchEditClearBtn')) $('batchEditClearBtn').disabled = !has;
@@ -189,13 +188,13 @@
         }
     }
 
-    // ================= 目前選取的格子（供「還原此格」使用） =================
+    // 目前選取的格子（供「還原此格」使用）
     let selCell = null; // { id, f }
-    let selCol = null;  // ★ 新增：目前選取的整欄（欄位名稱，例如 'title'），沒選取時為 null
+    let selCol = null; // 目前選取的整欄（欄位名稱，例如 'title'），沒選取時為 null
     function updateRevertBtn() {
         const btn = $('batchEditRevertCellBtn');
         if (!btn) return;
-        // ★ 新增：整欄選取時，按鈕變成「還原此欄」
+        // 整欄選取時，按鈕變成「還原此欄」
         if (selCol) {
             btn.textContent = '還原此欄';
             btn.title = '還原選取的整欄';
@@ -208,7 +207,7 @@
         btn.disabled = !(view === 'table' && r && isChanged(r, selCell.f));
     }
 
-    // ================= 表格事件（事件委派） =================
+    // 表格事件（事件委派）
     const tableWrap = $('batchEditTableWrap');
     tableWrap.addEventListener('input', (e) => {
         const inp = e.target.closest('input[data-f]');
@@ -218,7 +217,7 @@
         r.cur[inp.dataset.f] = inp.value;
         refreshStates();
     });
-    // ★ 新增：檔名欄輸入完成（離開格子）時，自動拿掉使用者多打的 .json
+    // 檔名欄輸入完成（離開格子）時，自動拿掉使用者多打的 .json
     tableWrap.addEventListener('change', (e) => {
         const inp = e.target.closest('input[data-f="name"]');
         if (!inp) return;
@@ -231,11 +230,10 @@
         const inp = e.target.closest('input[data-f]');
         if (!inp) return;
         selCell = { id: Number(inp.closest('tr').dataset.id), f: inp.dataset.f };
-        selCol = null; // ★ 新增：點進任一格就取消整欄選取
+        selCol = null; // 點進任一格就取消整欄選取
         refreshStates();
     });
     $('batchEditRevertCellBtn')?.addEventListener('click', () => {
-        // ★ 新增：整欄還原
         if (selCol) {
             rows.forEach(r => { r.cur[selCol] = r.orig[selCol]; });
             afterDataChange();
@@ -248,7 +246,7 @@
         if (inp) { inp.value = r.orig[selCell.f]; inp.focus(); }
         refreshStates();
     });
-    // ================= ★ 新增：選取整欄、貼上 Excel 資料、複製整欄 ★ =================
+    // 選取整欄、貼上 Excel 資料、複製整欄
     // 點表頭選取整欄（再點一次取消）；選取後按 Ctrl+V 從第 1 列開始往下填，Ctrl+C 複製整欄。
     tableWrap.addEventListener('click', (e) => {
         const th = e.target.closest('th.be-th-f');
@@ -296,7 +294,7 @@
 
         // 單一值 + 整欄選取：整欄填入同一個值（與 Excel 相同）
         if (single && selCol) {
-            const v = selCol === 'name' ? stripJson(grid[0][0]) : cleanCell(grid[0][0]);   // ★ 修改
+            const v = selCol === 'name' ? stripJson(grid[0][0]) : cleanCell(grid[0][0]);
             rows.forEach(r => { r.cur[selCol] = v; });
             afterDataChange();
             return;
@@ -309,7 +307,7 @@
             startRow = rows.findIndex(r => r.id === id);
             startCol = COLS.indexOf(ae.dataset.f);
         }
-        // 超出檔案數量的列、超出欄數的格子直接略過（不再跳提示）
+        // 超出檔案數量的列與超出欄數的格子直接略過
         grid.forEach((line, i) => {
             const r = rows[startRow + i];
             if (!r) return;
@@ -322,7 +320,7 @@
         afterDataChange();
     });
 
-    // ★ 新增：選取整欄後按 Delete / Backspace 清空該欄（檔名欄不能留空，改為還原成原本檔名）
+    // 選取整欄後按 Delete / Backspace 清空該欄（檔名欄不能留空，改為還原成原本檔名）
     document.addEventListener('keydown', (e) => {
         if ((e.key !== 'Delete' && e.key !== 'Backspace') || !editActive() || !selCol || !rows.length) return;
         const ae = document.activeElement;
@@ -338,10 +336,10 @@
         e.preventDefault();
     });
 
-    // ================= TSV 文字區 =================
+    // TSV 文字區
     function toTsv() {
-        if (!rows.length) return '';   // ★ 新增：沒資料時不輸出標題列
-        // ★ 修改：最後多一欄「新檔名」（放最後面，舊版匯出的 TSV 貼回來時欄位位置不會錯位）
+        if (!rows.length) return ''; // 沒資料時不輸出標題列
+        // 最後多一欄「新檔名」（放最後面，舊版匯出的 TSV 貼回來時欄位位置不會錯位）
         const lines = [['原始檔名', ...FIELDS, '新檔名'].join('\t')];
         rows.forEach(r => lines.push([cleanCell(r.key), ...FIELDS.map(f => cleanCell(r.cur[f])), cleanCell(r.cur.name)].join('\t')));
         return lines.join('\n');
@@ -366,12 +364,12 @@
                 if (v === undefined) return;
                 if (v !== cleanCell(r.cur[f])) { r.cur[f] = v; changed++; }
             });
-            // ★ 新增：最後一欄「新檔名」
+            // 最後一欄「新檔名」
             const nv = parts[FIELDS.length + 1];
             if (nv !== undefined && nv.trim() !== '' && stripJson(nv) !== r.cur.name) { r.cur.name = stripJson(nv); changed++; }
         });
         tsvDirty = false;
-        // ★ 簡化：只有「找不到對應檔案」才提示一句，不再跳視窗、不再顯示成功訊息
+        // 只有「找不到對應檔案」才提示
         if (unmatched.length) toast(`有 ${unmatched.length} 行找不到對應的原始檔名，已略過`, 'error');
     }
     function syncFromTsvIfDirty() { if (view === 'tsv' && tsvDirty) fromTsv(); }
@@ -393,7 +391,7 @@
         catch (err) { $('batchEditTsv').select(); toast('無法自動複製，請手動按 Ctrl+C', 'error'); }
     });
 
-    // ================= 檢視切換 =================
+    // 檢視切換
     function setView(v) {
         if (v === view) return;
         syncFromTsvIfDirty();
@@ -407,14 +405,14 @@
     $('batchEditViewTable')?.addEventListener('click', () => setView('table'));
     $('batchEditViewTsv')?.addEventListener('click', () => setView('tsv'));
 
-    // ================= 全部還原 =================
+    // 全部還原
     $('batchEditResetBtn')?.addEventListener('click', () => {
         syncFromTsvIfDirty();
-        rows.forEach(r => { r.cur = { ...r.orig }; });   // ★ 簡化：不再跳確認視窗與提示
+        rows.forEach(r => { r.cur = { ...r.orig }; });
         afterDataChange();
     });
 
-    // ================= ★ 新增：清除（清空已載入的資料） ★ =================
+    // 清除（清空已載入的資料）
     $('batchEditClearBtn')?.addEventListener('click', () => {
         rows = [];
         selCell = null;
@@ -422,11 +420,11 @@
         tsvDirty = false;
         loadState = { skipped: 0, tip: '', failed: false };
         const input = $('batchEditInput');
-        if (input) input.value = '';              // 讓同一個檔案可以再次選取
-        afterDataChange();                        // ★ 簡化：不再跳確認視窗與提示
+        if (input) input.value = ''; // 讓同一個檔案可以再次選取
+        afterDataChange();
     });
 
-    // ================= 下載修改後 ZIP =================
+    // 下載修改後 ZIP
     function triggerDownload(blob, name) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -439,9 +437,9 @@
         const zip = new JSZip();
         const used = new Set();
         list.forEach(r => {
-            const out = { ...r.data };                       // 其餘欄位原封不動
+            const out = { ...r.data }; // 其餘欄位原封不動
             FIELDS.forEach(f => { if (isChanged(r, f)) out[f] = r.cur[f]; }); // 只寫入有改的欄位
-            let path = finalPath(r), n = 2;   // ★ 修改：r.path → finalPath(r)（套用新檔名，並自動補上 .json）
+            let path = finalPath(r), n = 2; // 套用新檔名並自動補上 .json
             const dot = path.lastIndexOf('.');
             const base = dot > path.lastIndexOf('/') ? path.slice(0, dot) : path;
             const ext = dot > path.lastIndexOf('/') ? path.slice(dot) : '';
@@ -459,7 +457,7 @@
         afterDataChange();
         const list = $('batchEditOnlyChanged')?.checked ? rows.filter(rowHasChange) : rows;
         if (!list.length) return;
-        // ★ 簡化：移除「有欄位被清空」確認視窗；沒東西可下載時按鈕本身會反灰
+        // 沒東西可下載時，按鈕本身會反灰
         doDownload(list).catch(err => { console.error(err); toast('打包過程中發生錯誤', 'error'); });
     });
     $('batchEditOnlyChanged')?.addEventListener('change', refreshStates);

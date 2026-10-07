@@ -1,17 +1,14 @@
-// ================= 4a_ui_title_misc.js: 標題編輯、清除工作區、快捷鍵重設等雜項小型事件綁定 =================
-// 本檔案由 4_ui_events.js 拆分而來（原始第 1-400 行），內容未經改寫，僅搬移。
+// 4a_ui_title_misc.js: 標題編輯、清除工作區、快捷鍵重設等雜項小型事件綁定
 // 依賴：1_globals.js 中定義的 DOM 參照與全域狀態變數，需在此檔之前載入。
-
-// ================= 4_ui_events.js: 介面互動與通用事件管理 =================
 
 function updateMainTitleDisplay() {
     if (!mainTitleDisplay) return;
-    
+
     // 如果使用者正在打字編輯標題，就不要干擾他
     if (document.activeElement === mainTitleDisplay) return;
 
     const customTitle = localStorage.getItem('tagger_projectTitle');
-    // ★ 修改：優先用原始檔名當標題，剪裁後也不會變成「剪裁後音檔」
+    // 優先用原始檔名當標題，剪裁後也不會變成「剪裁後音檔」
     const localFile = localStorage.getItem('tagger_originalFileName') || localStorage.getItem('tagger_localFileName');
     const onlineUrl = localStorage.getItem('tagger_audioUrl');
 
@@ -28,7 +25,7 @@ function updateMainTitleDisplay() {
 
     mainTitleDisplay.textContent = displayText;
 
-    // ★ 新增：控制左上角網站標題的顯示與隱藏
+    // 控制左上角網站標題的顯示與隱藏
     const topLeftTitle = document.getElementById('topLeftTitle');
     if (topLeftTitle) {
         // 如果中間已經是預設名稱，左上角就隱藏；否則顯示
@@ -48,68 +45,63 @@ if (mainTitleDisplay) {
         } else {
             localStorage.setItem('tagger_projectTitle', newTitle);
         }
-        updateMainTitleDisplay(); 
+        updateMainTitleDisplay();
     });
 
     mainTitleDisplay.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
-            e.preventDefault(); 
-            mainTitleDisplay.blur(); 
+            e.preventDefault();
+            mainTitleDisplay.blur();
         }
     });
 }
-// =========================================================================
 
-clearStorageBtn.addEventListener('click', (e) => { 
+clearStorageBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    showCustomDialog({ 
-        title: '清除專案資料', 
-        message: '確定清除所有的句子、時間標記與音檔紀錄嗎？<br><br><span style="color:#00897B; font-weight:bold;">(您的偏好設定將會被保留)</span>', 
-        onConfirm: () => { 
-            // 1. 阻斷防呆存檔：將計時器清空並設為 null
+    showCustomDialog({
+        title: '清除專案資料',
+        message: '確定清除所有的句子、時間標記與音檔紀錄嗎？<br><br><span style="color:#00897B; font-weight:bold;">(您的偏好設定將會被保留)</span>',
+        onConfirm: () => {
+            // 阻斷防呆存檔：將計時器清空並設為 null
             if (typeof saveStorageTimeout !== 'undefined') {
                 clearTimeout(saveStorageTimeout);
-                saveStorageTimeout = null; 
+                saveStorageTimeout = null;
             }
-            
-            // 2. 清空記憶體陣列
+
+            // 清空記憶體陣列
             allLabelsOrdered = [];
             sentenceTextMap = {};
             timeDataMap = {};
-            mediaGroups = []; // ★ 新增：跨句圖片群組也一併清空記憶體
+            mediaGroups = []; // 跨句圖片群組也一併清空記憶體
 
-            // 3. 建立「專案資料」專屬清單，並精準刪除
+            // 建立「專案資料」專屬清單，並精準刪除
             const projectKeys = [
                 'tagger_allLabels', 'tagger_textMap', 'tagger_timeDataMap',
                 'tagger_projectTitle', 'tagger_audioUrl', 'tagger_localFileName',
                 'tagger_originalFileName', 'tagger_isTrimmed',
                 'tagger_audioType', 'tagger_lastDataFile',
-                'tagger_mediaGroups' // ★ 新增：跨句圖片群組的 localStorage 記錄
+                'tagger_mediaGroups' // 跨句圖片群組的 localStorage 記錄
             ];
-            
+
             projectKeys.forEach(key => localStorage.removeItem(key));
-            
-            // 4. 清除 IndexedDB 裡背景備份的本地音檔本體與圖片群組圖片，
-            // 否則「清除專案資料」後，舊音檔／舊圖片仍會留在 IndexedDB 裡，
-            // 下次載入新專案時可能誤讀到不相干的舊資料，或留下永遠用不到的孤兒圖片。
-            // 用 .finally() 確保無論清除成功或失敗，都會繼續重新整理頁面。
+
+            // 一併清除 IndexedDB 備份的音檔與圖片；無論成功或失敗都重新整理頁面
             const finishReload = () => location.reload();
             const clearJobs = [];
             if (typeof AudioStore !== 'undefined' && AudioStore.isSupported()) {
                 clearJobs.push(AudioStore.clear());
             }
             if (typeof ImageStore !== 'undefined' && ImageStore.isSupported()) {
-                clearJobs.push(ImageStore.clear()); // ★ 新增
+                clearJobs.push(ImageStore.clear()); //
             }
             if (clearJobs.length > 0) {
                 Promise.allSettled(clearJobs).finally(finishReload);
             } else {
                 finishReload();
             }
-        } 
+        }
     });
 });
-
 
 attachKeyCatcher(hkRewind, 'rewind');
 attachKeyCatcher(hkForward, 'forward');
@@ -117,14 +109,14 @@ attachKeyCatcher(hkPrev, 'prev');
 attachKeyCatcher(hkNext, 'next');
 attachKeyCatcher(hkSplit, 'split');
 attachKeyCatcher(hkMerge, 'merge');
-attachKeyCatcher(hkWaveSelect, 'waveSelect'); // ★ 新增：框選模式快速鍵
+attachKeyCatcher(hkWaveSelect, 'waveSelect'); // 框選模式快速鍵
 
 resetShortcutsBtn?.addEventListener('click', () => {
     showCustomDialog({
         title: '恢復預設設定',
         message: '確定要將所有「偏好設定」(包含快速鍵、顯示模式、播放速度等) 恢復為預設值嗎？<br><br><span style="color:#00897B; font-weight:bold;">(您的文章與標記進度將會安全保留)</span>',
         onConfirm: () => {
-            // 1. 定義要被「保護」的專案資料清單
+            // 定義要被「保護」的專案資料清單
             const projectKeys = [
                 'tagger_allLabels', 'tagger_textMap', 'tagger_timeDataMap',
                 'tagger_projectTitle', 'tagger_audioUrl', 'tagger_localFileName',
@@ -132,7 +124,7 @@ resetShortcutsBtn?.addEventListener('click', () => {
                 'tagger_audioType', 'tagger_lastDataFile'
             ];
 
-            // 2. 智慧掃描：找出所有是 tagger_ 開頭，但「不是」專案資料的設定
+            // 智慧掃描：找出所有是 tagger_ 開頭，但「不是」專案資料的設定
             const keysToRemove = [];
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
@@ -141,22 +133,22 @@ resetShortcutsBtn?.addEventListener('click', () => {
                 }
             }
 
-            // 3. 執行清除設定
+            // 執行清除設定
             keysToRemove.forEach(key => localStorage.removeItem(key));
 
-            // 4. 重新整理套用預設值
+            // 重新整理套用預設值
             location.reload();
         }
     });
 });
 
-// 1. 點擊「目前時間」：回到選取標記或游標位置 (接管原定位按鈕功能)
+// 點擊「目前時間」：回到選取標記或游標位置 (接管原定位按鈕功能)
 document.getElementById('audioTimeCurrent')?.addEventListener('click', () => {
     if (currentActiveLabel && timeDataMap[currentActiveLabel]) {
         // 有選取標記，回到該句子的列表與聲波位置
         const itemDiv = document.getElementById(`item-${currentActiveLabel}`);
         if (itemDiv && typeof smartScrollTo === 'function') smartScrollTo(itemDiv);
-        
+
         const times = getCalculatedTimes(currentActiveLabel);
         if (times) {
             audioPlayer.currentTime = times.start;
@@ -175,10 +167,10 @@ document.getElementById('audioTimeCurrent')?.addEventListener('click', () => {
     }
 });
 
-// 2. 點擊「全部時間」：全選 / 取消全選
+// 點擊「全部時間」：全選 / 取消全選
 document.getElementById('audioTimeTotal')?.addEventListener('click', () => {
-    // ★ 核心修復：檢查是否有選取的標記，或是「有藍色暫存選取框 (例如全選音檔產生的)」
-    const hasSelection = (typeof selectedLabels !== 'undefined' && selectedLabels.length > 0) || 
+    // 檢查是否有選取的標記，或是「有藍色暫存選取框 (例如全選音檔產生的)」
+    const hasSelection = (typeof selectedLabels !== 'undefined' && selectedLabels.length > 0) ||
                          (typeof tempRegion !== 'undefined' && tempRegion !== null);
 
     if (hasSelection) {
@@ -201,7 +193,7 @@ document.getElementById('audioTimeTotal')?.addEventListener('click', () => {
     }
 });
 
-// 3. 改寫為「切換：僅播放選取範圍」模式按鈕
+// 改寫為「切換：僅播放選取範圍」模式按鈕
 function togglePlaySelectionMode() {
     isPlaySelectionOnlyMode = !isPlaySelectionOnlyMode;
     const btn = document.getElementById('locateCurrentBtn');
@@ -224,7 +216,7 @@ const oldLocateBtn = document.getElementById('locateCurrentBtn');
 if (oldLocateBtn) {
     const newLocateBtn = oldLocateBtn.cloneNode(true);
     oldLocateBtn.parentNode.replaceChild(newLocateBtn, oldLocateBtn);
-    
+
     // 點擊按鈕時觸發開關
     newLocateBtn.addEventListener('click', (e) => {
         if(e) e.preventDefault();
@@ -233,19 +225,14 @@ if (oldLocateBtn) {
     });
 }
 
-// ★ 修正：mergeSelectedBtn 原本在這裡跟 3_data_core.js 各綁了一份幾乎相同的
-// click 監聽器，點一次「合併」按鈕會連續觸發兩次 saveState()（Undo 堆疊多塞
-// 一筆假紀錄，按一次 Ctrl+Z 會感覺沒反應）、兩次 reassignLabels()、兩次 toast
-// 疊字。已整併為單一事實來源，唯一保留的版本在 3_data_core.js 第 535 行附近。
+// mergeSelectedBtn 的 click 只在 3_data_core.js 綁定一次，此處不重複綁定
 
-// ================= ★ 微調選取邊界：依「音量門檻」的智慧處理 ★ =================
-// 規則（以每個選取句子的「頭」與「尾」分別判斷）：
-//   1. 依「音量門檻」找出實際有聲音的邊界（聲音開始／結束的位置）。
-//   2. 該邊界與目前選取邊界之間的靜音 < 保留靜音 → 向外擴增，直到剛好留足保留靜音；
-//      但遇到相鄰標記的邊界就停住，不會超過。
-//   3. 靜音 > 保留靜音 → 向內縮減，直到剛好留足保留靜音。
-//   4. 選取邊界本身就落在聲音上（聲音被切到）→ 先往外找到聲音真正的起點／終點，再留足保留靜音（同樣不越過鄰居）。
-// 偵測方式（峰值／RMS）沿用「依靜音斷句」的偵測模式；啟用「人聲強化」時，也用同一份壓低配樂的分析音訊。
+// 微調選取邊界：每個選取句子的頭、尾分別處理
+//   1. 依音量門檻找出實際有聲音的邊界
+//   2. 邊界與聲音之間的靜音不足保留靜音 → 向外擴增（遇到相鄰標記即停）
+//   3. 靜音超過保留靜音 → 向內縮減
+//   4. 邊界落在聲音上 → 先往外找到聲音起點／終點，再留足保留靜音
+// 偵測方式（峰值／RMS）與人聲強化沿用「依靜音斷句」的設定
 const TRIM_KEY_THRESHOLD = 'tagger_trimThreshold';
 const TRIM_KEY_PADDING = 'tagger_trimPadding';
 
@@ -280,8 +267,7 @@ function createTrimAnalyzer(thresholdPct, padding) {
     const blockSec = (step / sr) * timeRatio;
     const threshold = thresholdPct / 100;
     const mode = asDetectionMode ? asDetectionMode.value : 'peak';
-    // ★ 凹陷容許：往外找聲音邊界時，短於「保留靜音」的安靜片段（字與字之間、氣音、尾音變弱）
-    //   視為聲音的一部分繼續找；安靜達到保留靜音長度，才算真正的靜音、才停下。
+    // 凹陷容許：往外找邊界時，短於保留靜音的安靜片段視為聲音的一部分，達到保留靜音長度才算真正靜音
     const bridge = Math.max(1, Math.round(padding / blockSec));
     const cache = new Map();
 
@@ -359,7 +345,7 @@ function applySmartTrim(threshold, padding) {
     const analyzer = createTrimAnalyzer(threshold, padding);
     if (!analyzer) return showToast('請先載入音檔並等待分析完成', 'error');
 
-    // 1. 先拍下所有標記的「原始時間」快照，鄰居限制一律以快照為準，避免處理順序影響結果
+    // 先拍下所有標記的「原始時間」快照，鄰居限制一律以快照為準，避免處理順序影響結果
     const orig = {};
     const validOrder = [];
     allLabelsOrdered.forEach(label => {
@@ -368,7 +354,7 @@ function applySmartTrim(threshold, padding) {
     });
     const selectedSet = new Set(selectedLabels);
 
-    // 2. 逐句計算新的頭／尾
+    // 逐句計算新的頭／尾
     const res = {};
     let silentSkipped = 0;
     validOrder.forEach((label, k) => {
@@ -390,7 +376,7 @@ function applySmartTrim(threshold, padding) {
         };
     });
 
-    // 3. 相鄰的兩句都被選取、且擴增後互相重疊 → 在重疊處取中點，兩邊各讓一半
+    // 相鄰的兩句都被選取、且擴增後互相重疊 → 在重疊處取中點，兩邊各讓一半
     for (let k = 0; k < validOrder.length - 1; k++) {
         const a = res[validOrder[k]], b = res[validOrder[k + 1]];
         if (a && b && a.end > b.start) {
@@ -400,7 +386,7 @@ function applySmartTrim(threshold, padding) {
         }
     }
 
-    // 4. 統計並寫入（有變動才拍 Undo 快照）
+    // 統計並寫入（有變動才拍 Undo 快照）
     const EPS = 0.0005;
     const changes = [];
     let grow = 0, shrink = 0;
@@ -432,7 +418,7 @@ function applySmartTrim(threshold, padding) {
     showToast(msg, 'success');
 }
 
-// ================= 設定視窗（音量門檻 + 保留靜音） =================
+// 設定視窗（音量門檻 + 保留靜音）
 function ensureTrimDialog() {
     let overlay = document.getElementById('trimModalOverlay');
     if (overlay) return overlay;
@@ -509,9 +495,7 @@ adjustPaddingBtn?.addEventListener('click', () => {
     showTrimBoundaryDialog();
 });
 
-// ★ 新增：聲波圖「⋮」更多選單裡的「微調選取邊界」(#waveAdjustPaddingBtn)。
-//   原本這個按鈕沒有任何 click 綁定，點了沒反應。這裡先關閉選單，再轉交給「編輯」選單的
-//   「調整邊界」(#adjustPaddingBtn) 處理，兩個入口共用同一份邏輯，不會各維護一份。
+// 聲波圖「⋮」選單的「微調選取邊界」：關閉選單後轉交 #adjustPaddingBtn，與「編輯」選單共用同一份邏輯
 document.getElementById('waveAdjustPaddingBtn')?.addEventListener('click', () => {
     document.getElementById('waveMoreMenu')?.classList.remove('show');
     if (selectedLabels.length === 0) {
@@ -533,7 +517,7 @@ if (scrollFineTuneInput) {
         e.target.value = val;
         localStorage.setItem('tagger_scrollFineTune', currentScrollFineTune);
         showToast(`捲動微調已更新為 ${val}px`, 'success');
-        
+
         // 即時預覽：如果目前有鎖定某個句子，立刻重新捲動讓使用者看效果
         if (currentActiveLabel) {
             const itemDiv = document.getElementById(`item-${currentActiveLabel}`);
@@ -546,7 +530,7 @@ scrollAlignSelect?.addEventListener('change', (e) => { localStorage.setItem('tag
 sortToggleBtn?.addEventListener('click', (e) => {
     e.stopPropagation();
     sortMenu.classList.toggle('show');
-    parseMenu.classList.remove('show'); 
+    parseMenu.classList.remove('show');
 });
 
 const parseModeSelect = document.getElementById('parseModeSelect');
@@ -558,32 +542,29 @@ if (parseModeSelect) {
     });
 }
 
-document.addEventListener('click', () => { 
+document.addEventListener('click', () => {
     sortMenu?.classList.remove('show');
     const zoomMenu = document.getElementById('zoomMenu');
     if (zoomMenu) zoomMenu.classList.remove('show');
     const speedMenu = document.getElementById('speedMenu');
     if (speedMenu) speedMenu.classList.remove('show');
-    
+
     if (waveMoreMenu) waveMoreMenu.classList.remove('show');
 
-    // ★ 新增：點擊外部時，一併關閉語言檢視子選單
+    // 點擊外部時，一併關閉語言檢視子選單
     const langViewMenuEl = document.getElementById('langViewMenu');
     if (langViewMenuEl) langViewMenuEl.classList.remove('show');
-    
-    document.querySelectorAll('.item-more-menu').forEach(m => m.classList.remove('show')); 
+
+    document.querySelectorAll('.item-more-menu').forEach(m => m.classList.remove('show'));
 });
 
-// ================= ★ 新增：多語言字幕 - 「語言」獨立頂層選單（全部語言／只看第 N 語言） =================
-// 開關（點擊展開/收合、跟其他選單互斥）已交給 4b_ui_audio_loader.js 的 toggleHeaderMenu() 統一處理，
-// 這裡只負責：整個按鈕容器要不要顯示（未啟用多語字幕就整個藏起來）、按鈕文字、選單內容。
+// 「語言」頂層選單：未啟用多語字幕或不在列表模式時整個隱藏
+// 開關由 4b_ui_audio_loader.js 的 toggleHeaderMenu() 處理
 const langMenuContainer = document.getElementById('langMenuContainer');
 const langMenuBtn = document.getElementById('langMenuBtn');
 const langViewMenu = document.getElementById('langViewMenu');
 
-// 依目前偵測到的語言數量，重新產生子選單裡「語言1、語言2…」的項目（不再寫死 3 個）。
-// 前面用核取方塊呈現「目前選到哪一個」：這裡仍是單選（跟原本點選行為一致，一次只會勾一個），
-// 只是外觀從數字圖示改成核取方塊，方便一眼看出目前的語言檢視模式。
+// 依語言數量重新產生子選單項目（單選，以核取方塊顯示目前選到的語言）
 function rebuildLangViewMenuItems() {
     const dynamicContainer = document.getElementById('langViewMenuDynamic');
     if (!dynamicContainer) return;
@@ -613,7 +594,7 @@ function rebuildLangViewMenuItems() {
         dynamicContainer.appendChild(item);
     }
 
-    // ★ 新增：「並排表格」項目（至少 2 種語言才出現）
+    // 「並排表格」項目（至少 2 種語言才出現）
     if (count > 1) {
         const tableItem = document.createElement('div');
         tableItem.className = 'custom-dropdown-item';
@@ -651,10 +632,7 @@ function rebuildLangViewMenuItems() {
     }
 }
 
-// 依目前的語言檢視模式，更新子選單裡的項目，以及「語言」按鈕上顯示的目前模式。
-// 未啟用多語字幕時，直接隱藏整個「語言」按鈕（只有一種語言，沒有切換的意義）。
-// ★ 新增：「語言」按鈕只在「列表」模式顯示。單句全文／跨句範圍／多語字幕模式用不到語言檢視，
-//   所以直接隱藏（getCurrentListMode 定義在 4l，尚未載入時視為列表模式）。
+// 「語言」按鈕只在多語字幕啟用且為列表模式時顯示（getCurrentListMode 定義在 4l，尚未載入時視為列表模式）
 function updateLangMenuVisibility() {
     if (!langMenuContainer) return;
     const enabled = (typeof getLangMultiEnabled === 'function') ? getLangMultiEnabled() : false;
@@ -663,12 +641,13 @@ function updateLangMenuVisibility() {
     if (!(enabled && inListMode) && langViewMenu) langViewMenu.classList.remove('show');
 }
 
+// 更新子選單項目與「語言」按鈕文字
 function updateLangViewMenuLabels() {
     rebuildLangViewMenuItems();
     // 聲波圖「顯示哪個語言」的設定選項，跟這裡共用同一套語言數量偵測，一併同步更新
     if (typeof rebuildRegionTextLangOptions === 'function') rebuildRegionTextLangOptions();
 
-    updateLangMenuVisibility(); // ★ 修改：顯示與否改由這個函式統一判斷（要啟用多語字幕、且在列表模式）
+    updateLangMenuVisibility(); // 顯示與否改由這個函式統一判斷（要啟用多語字幕、且在列表模式）
     if (langMenuBtn) {
         const mode = (typeof getLangViewMode === 'function') ? getLangViewMode() : 'raw';
         const label = (mode === 'raw')
@@ -681,12 +660,11 @@ function updateLangViewMenuLabels() {
 }
 updateLangViewMenuLabels();
 
-// ★ 改用事件代理綁在容器上：語言項目會依語言數量動態重新產生，
-//   若像舊寫法逐一綁定監聽器，重繪後就會失效，改綁在固定不變的父層才不受影響
+// 事件代理：語言項目會動態重新產生，監聽器綁在固定的父層
 langViewMenu?.addEventListener('click', (e) => {
     const item = e.target.closest('.custom-dropdown-item');
     if (!item || !langViewMenu.contains(item)) return;
-    // ★ 新增：表格欄位勾選（不關閉選單，方便連續勾選）
+    // 表格欄位勾選（不關閉選單，方便連續勾選）
     const colVal = item.getAttribute('data-lang-col');
     if (colVal !== null) {
         e.stopPropagation();
@@ -711,27 +689,18 @@ langViewMenu?.addEventListener('click', (e) => {
     showToast(`已切換為：語言檢視 - ${modeName}`, 'normal');
 });
 
-
-
-
 document.querySelectorAll('#sortMenu .custom-dropdown-item').forEach(item => {
     item.addEventListener('click', (e) => {
         currentSortMode = e.target.getAttribute('data-value');
         sortMenu.classList.remove('show');
-        if(typeof renderSentenceList === 'function') renderSentenceList(); 
+        if(typeof renderSentenceList === 'function') renderSentenceList();
         showToast('列表已重新排序', 'success');
     });
 });
 
 copyTextBtn.addEventListener('click', () => { if(!rawTextInput.value) return showToast('沒有內容', 'error'); navigator.clipboard.writeText(rawTextInput.value).then(() => showToast('已複製', 'success')); });
 
-clearTextBtn.addEventListener('click', () => { 
-    rawTextInput.value = ''; 
-    showToast('已清空', 'success'); 
+clearTextBtn.addEventListener('click', () => {
+    rawTextInput.value = '';
+    showToast('已清空', 'success');
 });
-
-
-
-
-
-

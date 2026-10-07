@@ -1,5 +1,5 @@
-// ================= ★ 核心升級：專業無損音訊處理引擎 ★ =================
-// 安全地在記憶體中建立乾淨的音訊容器
+// 音訊緩衝區與 WAV 編碼
+// 建立音訊緩衝區（AudioBuffer 建構失敗時退回 OfflineAudioContext）
 function createBufferSafe(channels, length, sampleRate) {
     if (window.AudioBuffer) {
         try {
@@ -10,13 +10,13 @@ function createBufferSafe(channels, length, sampleRate) {
     return offlineCtx.createBuffer(channels, length, sampleRate);
 }
 
-// ================= ★ 核心修復：標準 16-bit PCM WAV 產生器 (100% 瀏覽器相容) ★ =================
+// 16-bit PCM WAV 編碼
 function audioBufferToWav(buffer) {
     const numChannels = buffer.numberOfChannels;
     const sampleRate = buffer.sampleRate;
     const length = buffer.length;
     
-    const format = 1; // 1 = PCM (標準 WAV，瀏覽器相容性最高)
+    const format = 1;  // 1 = PCM
     const bitDepth = 16; 
     const bytesPerSample = 2;
     const blockAlign = numChannels * bytesPerSample;
@@ -27,7 +27,6 @@ function audioBufferToWav(buffer) {
     const view = new DataView(wavBuffer);
     let pos = 0;
 
-    // 嚴格推進 byte 指標，確保標頭絕不錯位
     function writeString(s) { 
         for (let i = 0; i < s.length; i++) {
             view.setUint8(pos++, s.charCodeAt(i));
@@ -43,31 +42,31 @@ function audioBufferToWav(buffer) {
     }
 
     // 1. RIFF Chunk Descriptor
-    writeString('RIFF');              // pos: 0 -> 4
-    writeUint32(36 + dataSize);       // pos: 4 -> 8 (檔案總大小 - 8)
-    writeString('WAVE');              // pos: 8 -> 12
+    writeString('RIFF');
+    writeUint32(36 + dataSize);  // 檔案總大小 - 8
+    writeString('WAVE');
 
     // 2. "fmt " sub-chunk
-    writeString('fmt ');              // pos: 12 -> 16
-    writeUint32(16);                  // pos: 16 -> 20 (PCM 標頭固定長度 16 bytes)
-    writeUint16(format);              // pos: 20 -> 22 (1 = PCM)
-    writeUint16(numChannels);         // pos: 22 -> 24
-    writeUint32(sampleRate);          // pos: 24 -> 28
-    writeUint32(byteRate);            // pos: 28 -> 32 (ByteRate = SampleRate * BlockAlign)
-    writeUint16(blockAlign);          // pos: 32 -> 34 (BlockAlign = Channels * BytesPerSample)
-    writeUint16(bitDepth);            // pos: 34 -> 36 (16 bits)
+    writeString('fmt ');
+    writeUint32(16);  // PCM 標頭固定 16 bytes
+    writeUint16(format);  // 1 = PCM
+    writeUint16(numChannels);
+    writeUint32(sampleRate);
+    writeUint32(byteRate);  // SampleRate * BlockAlign
+    writeUint16(blockAlign);  // Channels * BytesPerSample
+    writeUint16(bitDepth);
 
     // 3. "data" sub-chunk
-    writeString('data');              // pos: 36 -> 40
-    writeUint32(dataSize);            // pos: 40 -> 44
+    writeString('data');
+    writeUint32(dataSize);
 
-    // 4. 寫入 PCM 數據 (精確 16-bit 轉換與安全夾斷防爆音)
+    // 寫入 PCM 數據
     for (let i = 0; i < length; i++) {
         for (let ch = 0; ch < numChannels; ch++) {
             let sample = buffer.getChannelData(ch)[i];
-            // 防削波 (Clipping) 夾斷在 [-1.0, 1.0]
+            // 夾斷在 [-1, 1] 防止爆音
             sample = Math.max(-1, Math.min(1, sample));
-            // 轉換為 16-bit 整數 (-32768 ~ 32767)
+            // 轉為 16-bit 整數
             let intSample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
             view.setInt16(pos, intSample, true);
             pos += 2;
@@ -107,25 +106,18 @@ function appendAudioBuffers(buf1, buf2) {
     return newBuffer;
 }
 
-// ================= ★ 新增：匯出 MP3 位元率，自動比照原始上傳檔案 ★ =================
-// 原本這裡永遠寫死 320kbps，不管原始檔是 128kbps 還是 320kbps，剪裁/下載都會重壓
-// 成 320kbps —— 音質不會變好（上限早被原始壓縮鎖死），檔案卻白白比原本更大。
-// 現在改讀 4b_ui_audio_loader.js 的 recordOriginalBitrate() 在載入音檔當下量到的
-// 原始位元率；量不到（例如原始檔本來就是 WAV/FLAC 無損格式、或用線上網址載入）
-// 才退回 320kbps 保底，維持原本的最高音質行為。
+// 匯出 MP3 位元率：比照原始檔（載入時由 recordOriginalBitrate() 量測），量不到時退回 320kbps
 function getTargetMp3Kbps() {
     const saved = parseInt(localStorage.getItem('tagger_originalBitrateKbps'), 10);
     if (!isNaN(saved) && saved >= 32 && saved <= 320) return saved;
     return 320;
 }
 
-// ================= ★ MP3 轉換器保留區塊 ★ =================
+// MP3 轉換器
 function audioBufferToMp3(buffer) {
     if (!window.lamejs) {
         if (typeof showToast === 'function') showToast('無法載入 MP3 轉換套件，將降級為 WAV 格式。', 'error');
-        // ★ 修復：showToast 尚未就緒時的保底方案，原本用 alert() 會跳出瀏覽器
-        // 原生阻斷式彈窗，體驗跟其餘一律用 showToast/showCustomDialog 的風格不一致，
-        // 改為在 console 留下紀錄即可，不打斷使用者操作。
+        // showToast 尚未就緒時只記錄到 console，不使用 alert 打斷操作
         else console.warn('[audioBufferToMp3] 無法載入 MP3 轉換套件，將降級為 WAV 格式。');
         return audioBufferToWav(buffer);
     }
@@ -172,7 +164,7 @@ function audioBufferToMp3(buffer) {
     return new Blob(mp3Data, {type: 'audio/mp3'});
 }
 
-// ================= ★ 剪裁引擎：純記憶體無損拼接 ★ =================
+// 剪裁引擎：純記憶體無損拼接
 window.cutAudioRegion = async function(start, end) {
     if (!wavesurfer || !wavesurfer.getDecodedData()) return showToast('無有效音檔', 'error');
     const buffer = wavesurfer.getDecodedData();
@@ -181,17 +173,13 @@ window.cutAudioRegion = async function(start, end) {
     const sampleRate = buffer.sampleRate;
     const numChannels = buffer.numberOfChannels;
     
-    // ★ 核心修正：start/end 是「播放器時間」(media time，跟畫面上的秒數、標記時間一致)，
-    // 但 buffer 是 WaveSurfer 內部解碼出來的「buffer 時間」(webAudioDuration)。
-    // MP3 常因編碼延遲/填塞樣本，這兩者秒數會有些微落差；若直接拿 media time 乘上
-    // sampleRate 去換算 buffer 裡的 sample 位置，剪到的樣本點會跟畫面上選取的範圍對不齊，
-    // 且後面用來平移其他標記的 diff 也會跟著算錯，導致越剪標記越飄。
-    // 這裡採用跟「自動靜音斷句」引擎完全相同的換算方式，確保兩邊時間基準一致。
+    // start/end 為播放器時間 (media time)，buffer 為 WaveSurfer 解碼時間；
+    // MP3 編碼延遲會使兩者有落差，需以 timeRatio 換算，與自動靜音斷句一致
     const webAudioDuration = buffer.duration;
     const mediaDuration = audioPlayer.duration || webAudioDuration;
-    const timeRatio = mediaDuration / webAudioDuration; // media time / buffer time
+    const timeRatio = mediaDuration / webAudioDuration;  // media time / buffer time
 
-    const bufferStart = start / timeRatio; // 還原成 buffer 時間，才能對應正確的 sample
+    const bufferStart = start / timeRatio;  // 還原成 buffer 時間，才能對應正確的 sample
     const bufferEnd = end / timeRatio;
 
     const startSample = Math.max(0, Math.floor(bufferStart * sampleRate));
@@ -209,15 +197,11 @@ window.cutAudioRegion = async function(start, end) {
     
     const wavBlob = audioBufferToWav(newBuffer);
     
-    // ★ 延後註銷：先記住舊網址，但不要馬上砍，等新音檔真正載入成功後再釋放，
-    // 避免 WaveSurfer 內部還在非同步讀取舊網址時就被提前註銷，導致 fetch 失敗
+    // 延後註銷舊網址，待新音檔載入成功後再釋放，避免 WaveSurfer 讀取時失敗
     const oldSrc = audioPlayer.src;
     const newUrl = URL.createObjectURL(wavBlob);
     
-    // 標記時間平移 (Ripple Edit)
-    // ★ 核心修正：(endSample - startSample) / sampleRate 算出來的是「buffer 時間」的秒數差，
-    // 但 timeDataMap 裡的標記時間是「media time」，兩者要用 timeRatio 換算成同一個基準，
-    // 否則每剪一次，後面的標記就會多出一個小小的誤差，越剪越飄。
+    // 標記時間平移 (Ripple Edit)：剪掉的長度是 buffer 時間，需以 timeRatio 換算為 media time
     const diff = ((endSample - startSample) / sampleRate) * timeRatio;
     if (typeof saveState === 'function') saveState(); 
     
@@ -240,9 +224,9 @@ window.cutAudioRegion = async function(start, end) {
     });
     
     audioPlayer.src = newUrl;
-    audioPlayer.load(); // ★ 核心修正：強制立刻觸發載入，不要讓瀏覽器排程延後切換
+    audioPlayer.load();  // 強制立即載入
 
-    // ★ 延後註銷：等新音檔（newUrl）確定載入成功後，才安全釋放舊的 Blob 網址
+    // 新音檔載入成功後才釋放舊 Blob 網址
     if (oldSrc && oldSrc.startsWith('blob:')) {
         let revoked = false;
         const revokeOldBlob = () => {
@@ -257,27 +241,21 @@ window.cutAudioRegion = async function(start, end) {
     }
 
     localStorage.setItem('tagger_localFileName', '剪裁後音檔.wav');
-    localStorage.setItem('tagger_isTrimmed', 'true'); // ★ 新增：標記音檔已被剪裁過
+    localStorage.setItem('tagger_isTrimmed', 'true');  // 標記音檔已被剪裁過
     localStorage.setItem('tagger_audioType', 'local');
-    // ★ 新增：剪裁後的新 WAV 本體同步存進 IndexedDB。這是最關鍵的一步——
-    // 剪裁會讓所有時間標記整批對齊到「剪裁後」的新時長，若重新整理網頁後
-    // 使用者照舊提示重新選回「剪裁前」的原始檔，時間標記會整組對不上音檔。
-    // 有了這份 IndexedDB 備份，重新整理後會直接自動讀回剪裁後的版本，不會
-    // 再發生這個問題。
+    // 剪裁後的新 WAV 同步存入 IndexedDB，重新整理後直接讀回剪裁版，避免時間標記與原始檔對不上
     if (typeof AudioStore !== 'undefined' && AudioStore.isSupported()) {
         AudioStore.save(wavBlob, { name: '剪裁後音檔.wav' });
     }
     saveToStorage();
     
-    // ★ 核心修正：等瀏覽器確定切換到「剪裁後的新音檔」(loadedmetadata) 後，
-    // 才重新初始化 WaveSurfer。如果緊接著同步呼叫，WaveSurfer 有機率讀到
-    // 還沒切換過去的舊音檔，畫面/資料就會看起來像是「刪除的那段還在」。
+    // 等切換到新音檔 (loadedmetadata) 後才重新初始化 WaveSurfer，避免讀到舊音檔
     let waveSurferReinitDone = false;
     const reinitWaveSurfer = () => {
         if (waveSurferReinitDone) return;
         waveSurferReinitDone = true;
         audioPlayer.removeEventListener('loadedmetadata', reinitWaveSurfer);
-        window.pendingSeekTime = start; // ★ 增加：剪裁後游標移到剪接點（被剪掉那段的開頭）
+        window.pendingSeekTime = start;  // 游標移到剪接點
         if (typeof initWaveSurfer === 'function') initWaveSurfer();
         if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
         if (tempRegion) { tempRegion.remove(); tempRegion = null; }
@@ -289,10 +267,9 @@ window.cutAudioRegion = async function(start, end) {
     setTimeout(reinitWaveSurfer, 1500);
 };
 
-// ★ 新增：匯出音檔的檔名（含副檔名），依「設定 → 匯出音檔的檔名規則」組成。
-// usedNames（Set，選填）：打包 ZIP 時傳入，遇到重複的檔名會自動加上 (2)、(3)…，避免同名檔案互相覆蓋
-// （取消勾選「編號」後，不同句子有可能組出相同檔名）。
-// 若設定模組(4d_ui_settings.js)未載入，退回舊規則：編號_文字。
+// 匯出音檔檔名（含副檔名），依「設定 → 匯出音檔的檔名規則」組成
+// usedNames（Set，選填）：打包 ZIP 時用來自動加上 (2)、(3)，避免同名覆蓋
+// 4d_ui_settings.js 未載入時，退回「編號_文字」
 function getAudioExportFilename(label, ext, usedNames) {
     let base;
     if (typeof buildAudioExportBaseName === 'function') {
@@ -323,7 +300,6 @@ window.downloadSingleAudio = function(label) {
         const ext = format === 'mp3' ? '.mp3' : '.wav';
         const finalBlob = format === 'mp3' ? audioBufferToMp3(slicedBuffer) : audioBufferToWav(slicedBuffer);
         
-        // ★ 修改：檔名改依設定的檔名規則組成
         const filename = getAudioExportFilename(label, ext);
         
         const url = URL.createObjectURL(finalBlob);
@@ -348,11 +324,9 @@ window.downloadTimeRangeAudio = function(start, end, filenamePrefix) {
         const ext = format === 'mp3' ? '.mp3' : '.wav';
         const finalBlob = format === 'mp3' ? audioBufferToMp3(slicedBuffer) : audioBufferToWav(slicedBuffer);
         
-        // 組合聰明的檔名
         let filename = `${filenamePrefix}_${formatTime(start).replace(':', '')}至${formatTime(end).replace(':', '')}${ext}`;
         if (filenamePrefix === "完整音檔") {
-            // ★ 修改：優先使用「原始檔名」(即使中途剪裁過也不會被覆蓋)，
-            // 找不到才退回用目前的 tagger_localFileName，最後才用「完整音檔備份」保底
+            // 優先使用原始檔名（剪裁後不被覆蓋），其次 tagger_localFileName，最後用「完整音檔備份」
             const originalName = localStorage.getItem('tagger_originalFileName') || localStorage.getItem('tagger_localFileName');
             const baseName = originalName ? originalName.replace(/\.[^/.]+$/, '') : '完整音檔備份';
             filename = `${baseName}${ext}`;
@@ -379,14 +353,13 @@ exportAudioZipBtn?.addEventListener('click', () => {
         const buffer = wavesurfer.getDecodedData();
         const format = exportAudioFormatSelect.value;
         const ext = format === 'mp3' ? '.mp3' : '.wav';
-        const usedNames = new Set(); // ★ 新增：記錄已用過的檔名，避免重複覆蓋
+        const usedNames = new Set();  // 記錄已用過的檔名，避免重複覆蓋
         
         labelsToExport.forEach(label => {
             const times = getCalculatedTimes(label);
             if (times) {
                 const slicedBuffer = sliceAudioBuffer(buffer, times.start, times.end);
                 const finalBlob = format === 'mp3' ? audioBufferToMp3(slicedBuffer) : audioBufferToWav(slicedBuffer);
-                // ★ 修改：檔名改依設定的檔名規則組成，並自動處理重複檔名
                 const filename = getAudioExportFilename(label, ext, usedNames);
                 zip.file(filename, finalBlob);
             }
@@ -402,14 +375,10 @@ exportAudioZipBtn?.addEventListener('click', () => {
     }, 100);
 });
 
-// ================= 自動靜音斷句核心引擎 (動態切片與階段進度版) =================
+// 自動靜音斷句核心引擎
 
-// 【引擎 A】全域自動斷句引擎
-// ★ 修復：外層包裝。原本 asConfirmBtn（「開始分析」）在開始分析時被設為 disabled，
-// 但只有「找不到符合條件的斷句」這一條提早返回的路徑會把它恢復；
-// 只要成功斷句一次（或執行途中拋出例外），按鈕就會永遠維持 disabled，
-// 之後即使全選並移除所有標記、再重新點「自動全選並依靜音斷句」，按下「開始分析」也完全沒有反應。
-// 這裡用 try/finally 保證：不論成功、提早返回或發生例外，結束時一律恢復按鈕。
+// 引擎 A：全域自動斷句引擎
+// 外層包裝：用 try/finally 確保「開始分析」按鈕在成功、提早返回或例外時都會恢復
 async function performAutoSegmentation() {
     try {
         return await performAutoSegmentationCore();
@@ -423,7 +392,7 @@ async function performAutoSegmentationCore() {
         return showToast('請先載入音檔並等待分析完成', 'error');
     }
 
-    const buffer = (window.VocalEnhance ? VocalEnhance.getAnalysisBuffer(wavesurfer.getDecodedData()) : wavesurfer.getDecodedData()); // ★ 修改：人聲強化啟用時，用壓低配樂的版本偵測靜音
+    const buffer = (window.VocalEnhance ? VocalEnhance.getAnalysisBuffer(wavesurfer.getDecodedData()) : wavesurfer.getDecodedData());  // 人聲強化啟用時，用壓低配樂的版本偵測靜音
     const sampleRate = buffer.sampleRate;
     const length = buffer.length;
     
@@ -441,7 +410,7 @@ async function performAutoSegmentationCore() {
     const minSilence = parseFloat(asSilence.value);
     const padding = parseFloat(asPadding.value);
     const minSegment = asMinSegment ? parseFloat(asMinSegment.value) : 0.5;
-    const detectionMode = asDetectionMode ? asDetectionMode.value : 'peak'; // ★ 新增：預設 'peak'，與修改前行為完全相同
+    const detectionMode = asDetectionMode ? asDetectionMode.value : 'peak';  // 預設 'peak'
 
     const step = Math.floor(sampleRate / 100); 
     
@@ -453,12 +422,12 @@ async function performAutoSegmentationCore() {
     if (asConfirmBtn) asConfirmBtn.disabled = true;
     showToast('1/3 正在分析全域波形... 0%', 'normal');
 
-    // ★ 動態時間切片：追蹤系統時間
+    // 動態時間切片：追蹤系統時間
     let lastYieldTime = Date.now();
 
     for (let i = 0; i < length; i += step) {
         let maxAmp = 0;
-        let sumSquares = 0; // ★ 新增：用於 RMS 模式的累加器
+        let sumSquares = 0;  // RMS 模式累加器
         const localEnd = Math.min(i + step, length);
         const blockSampleCount = (localEnd - i) * numChannels;
         
@@ -470,7 +439,7 @@ async function performAutoSegmentationCore() {
                 if (detectionMode === 'rms') sumSquares += amp * amp;
             }
         }
-        // ★ RMS 模式：用均方根取代峰值，較不受單一突波影響；peak 模式維持原本行為
+        // RMS 模式：用均方根取代峰值，較不受單一突波影響；peak 模式維持原本行為
         const level = (detectionMode === 'rms' && blockSampleCount > 0)
             ? Math.sqrt(sumSquares / blockSampleCount)
             : maxAmp;
@@ -494,7 +463,7 @@ async function performAutoSegmentationCore() {
             }
         }
 
-        // ★ 每經過 40 毫秒 (約 25fps)，強制瀏覽器更新畫面一次
+        // 每經過 40 毫秒 (約 25fps)，強制瀏覽器更新畫面一次
         if (Date.now() - lastYieldTime > 40) {
             // 將波形分析階段設定為 0% ~ 85%
             const percent = Math.round((i / length) * 85);
@@ -516,15 +485,11 @@ async function performAutoSegmentationCore() {
         return showToast('找不到符合條件的斷句，請調高門檻或縮短時長', 'error');
     }
 
-    // ================= 階段 2：生成與分配標記資料 (85% ~ 95%) =================
+    // 階段 2：生成與分配標記資料 (85% ~ 95%)
     showToast('2/3 正在生成標記資料... 85%', 'normal');
-    await new Promise(resolve => setTimeout(resolve, 10)); // 暫停一下讓 UI 更新
+    await new Promise(resolve => setTimeout(resolve, 10));  // 暫停一下讓 UI 更新
 
-    // ★ 修復：記錄這次是否有「從 0 開始新增列」，稍後要強制重繪列表，
-    // 否則新增出來的空白句子只會存在資料裡，畫面上的列表不會出現，
-    // 要等到使用者之後隨便做一個會觸發 renderSentenceList() 的操作
-    // （例如刪除某一列），才會「一次全部冒出來」，看起來像是刪除動作
-    // 自動生出了一堆句子。
+    // 記錄是否從 0 新增列：需整份重繪列表，否則新列只存在資料中不會顯示
     let didCreateNewLabels = false;
     if (allLabelsOrdered.length === 0) {
         for (let i = 0; i < segments.length; i++) {
@@ -540,18 +505,16 @@ async function performAutoSegmentationCore() {
 
     timeDataMap = {};
     let segIndex = 0;
-    const gapMargin = 0.005; // ★ 安全防撞距離 (強制拉開 0.005 秒的空隙)
+    const gapMargin = 0.005;  // 安全防撞距離 (強制拉開 0.005 秒的空隙)
     
-    // ★ 修復：記錄列表原本已有句子、但句子數量不足以承接全部靜音段的情況，
-    // 之前這裡超出的段落會被下面迴圈的 break 直接跳過，完全沒有任何提示，
-    // 使用者不會知道自己其實少標了幾句。
+    // 記錄句子數不足以承接全部靜音段的情況，超出的段落需提示使用者
     const hadExistingLabelsBeforeThisRun = !didCreateNewLabels;
 
     for (let i = 0; i < allLabelsOrdered.length; i++) {
         if (segIndex >= segments.length) break;
         const label = allLabelsOrdered[i];
         
-        // ★ 核心升級：動態彈性留白計算 (空間不夠就自動縮小)
+        // 動態彈性留白計算 (空間不夠就自動縮小)
         let currentPaddingStart = padding;
         let currentPaddingEnd = padding;
 
@@ -581,20 +544,16 @@ async function performAutoSegmentationCore() {
         segIndex++;
     }
 
-    // ★ 修復：句子數量不夠承接的段落數（只在「列表本來就有句子」時才會發生，
-    // 因為列表原本是空的話，上面已經依段落數量自動新增了對應的句子）
+    // 因句子數不足而被捨棄的段落數（僅在列表原本就有句子時發生）
     const discardedSegmentCount = segments.length - segIndex;
 
     saveToStorage();
 
-    // ================= 階段 3：畫面渲染 (95% ~ 100%) =================
+    // 階段 3：畫面渲染 (95% ~ 100%)
     showToast('3/3 正在重新渲染畫面... 95%', 'normal');
     await new Promise(resolve => setTimeout(resolve, 10));
 
-    // ★ 修復：如果剛才是從空列表新增出一整批句子，updateAllTimeDisplays()
-    // 只會逐一去抓「已存在畫面上」的 DOM 元素來更新時間，全新的列根本沒有
-    // 對應的 DOM，所以必須改呼叫 renderSentenceList() 整份重繪，句子才會
-    // 立刻出現在下方列表，而不是要等下一次刪除/重排才被動出現。
+    // 新增整批句子時需 renderSentenceList() 整份重繪（updateAllTimeDisplays 只更新既有 DOM）
     if (didCreateNewLabels && typeof renderSentenceList === 'function') {
         renderSentenceList();
     }
@@ -604,47 +563,25 @@ async function performAutoSegmentationCore() {
     if (tempRegion) { tempRegion.remove(); tempRegion = null; }
     if (typeof updateToolbarButtons === 'function') updateToolbarButtons();
 
-    // ★ 修復：明確告知使用者有多少段靜音段落因為句子數不夠而被捨棄，
-    // 不再讓資料無聲流失；同時避免下面的成功訊息把這則警示立刻蓋掉，
-    // 所以句子數不足時改用警示文字取代原本的成功訊息，而不是兩則都跳。
+    // 有段落因句子數不足被捨棄時，以警示取代成功訊息，避免互相蓋掉
     if (hadExistingLabelsBeforeThisRun && discardedSegmentCount > 0) {
         showToast(`偵測到 ${segments.length} 段，但列表句子數不足，有 ${discardedSegmentCount} 段未套用時間（可先新增空白句子列再重新斷句）`, 'error');
     } else {
-        // ★ 核心修復：移除錯誤的 mappedCount 判斷，改為正確的全域成功提示
         showToast(`全域斷句完成！共精準切出 ${segments.length} 句`, 'success');
     }
 }
 
-
-// ================= ★ 新增：檢查是否有遺漏的聲音段落 (只做視覺標示，絕不寫入 timeDataMap) =================
-// 邏輯：
-//   1. 把目前所有 label 的時間標記排序、合併重疊或相鄰的區間，算出「完全沒有被任何
-//      標記覆蓋」的空隙。
-//   2. 針對每個空隙重新掃一次音量，如果空隙裡有一段「持續超過門檻」的聲音，
-//      就視為疑似遺漏的人聲。
-//   3. 用紅色的暫時 region 疊在聲波圖上（id 開頭固定為 "missed-"），純視覺提示，
-//      不會動到 timeDataMap，重新整理或任何一次 renderAllRegions() 都會自動清掉。
-//
-// ★ 修正重點（第一版的邏輯錯誤）：
-//   第一版直接沿用「自動斷句」設定面板目前的音量門檻/最短句段去檢查空隙——
-//   但空隙本來就是「用同一組門檻判斷為靜音」才會被斷句引擎排除在外，
-//   拿同一組門檻回頭檢查同一批被判定為靜音的資料，數學上保證一定找不到東西
-//   （除非使用者事後又手動調高了門檻），完全沒有意義。
-//   現在改用「比斷句門檻更敏感」的獨立參數：門檻降為一半、判定所需的
-//   最短聲音長度也大幅縮短，才能真正抓到「音量比較小聲、原本被判定為靜音」
-//   的遺漏人聲；同時幾乎不篩掉空隙本身的長度，避免像圖中那種只有 0.3~0.4 秒
-//   左右的短空隙被直接略過、根本沒進到掃描階段。
-// ★ 新增：共用函式——建立「疑似遺漏」標記在聲波圖上要顯示的內容 DOM。
-//   同一份邏輯被 performMissedSegmentCheck（初次建立）跟 6_wave_controller.js
-//   （拖曳/編輯其他標記時的重繪）共用，往後要改文字/樣式/刪除行為，
-//   改這裡一處就好，不用兩邊分別維護、容易改到忘記同步。
+// 檢查遺漏的聲音段落（僅視覺標示，不寫入 timeDataMap）
+// 1. 合併所有標記區間，找出未被任何標記覆蓋的空隙
+// 2. 以比斷句更敏感的門檻重掃空隙，持續超過門檻的聲音視為疑似遺漏
+// 3. 以紅色暫時 region（id 以 "missed-" 開頭）疊在聲波圖上，重繪時自動清除
+// 不能沿用斷句門檻：空隙本來就是以該門檻判為靜音，同一組門檻必然掃不到東西
+// 建立「疑似遺漏」標記的內容 DOM，由 performMissedSegmentCheck 與 6_wave_controller.js 共用
 function buildMissedRegionContent(regionId) {
     const contentEl = document.createElement('div');
     contentEl.style.cssText = 'display:flex;align-items:center;gap:3px;font-weight:bold;color:#B71C1C;font-size:0.75rem;pointer-events:none;';
 
-    // 刪除符號：整個標記框其餘部分都設了 pointer-events:none 讓滑鼠事件
-    // 穿透到聲波軌道，這裡刻意用 pointer-events:auto 蓋回去，
-    // 讓「只有這顆✕」可以接收點擊，點了就直接移除這個疑似遺漏標記。
+    // 只有「✕」啟用 pointer-events，其餘部分穿透到聲波軌道，點擊 ✕ 即移除此疑似遺漏標記
     const delBtn = document.createElement('span');
     delBtn.textContent = '✕';
     delBtn.title = '移除這個疑似遺漏標示';
@@ -669,7 +606,7 @@ function performMissedSegmentCheck() {
 
     clearMissedRegions();
 
-    const buffer = (window.VocalEnhance ? VocalEnhance.getAnalysisBuffer(wavesurfer.getDecodedData()) : wavesurfer.getDecodedData()); // ★ 修改：同上
+    const buffer = (window.VocalEnhance ? VocalEnhance.getAnalysisBuffer(wavesurfer.getDecodedData()) : wavesurfer.getDecodedData());  // 人聲強化啟用時使用分析用 buffer
     const sampleRate = buffer.sampleRate;
     const length = buffer.length;
     const numChannels = buffer.numberOfChannels;
@@ -682,15 +619,12 @@ function performMissedSegmentCheck() {
 
     const detectionMode = asDetectionMode ? asDetectionMode.value : 'peak';
 
-    // ★ 檢查用的門檻，刻意設得比斷句門檻更敏感（減半），
-    //   才抓得到「原本因為比較小聲、被斷句引擎判定為靜音」的遺漏人聲。
+    // 檢查門檻比斷句門檻更敏感（減半），才抓得到被判為靜音的小聲人聲
     const segmentThreshold = parseFloat(asThreshold?.value || 5) / 100;
     const reviewThreshold = Math.max(segmentThreshold / 2, 0.005);
 
-    // ★ 這兩個時長跟「最短有效句段」(asMinSegment) 完全脫鉤：
-    //   - minGapToScan：空隙本身多長才「值得掃描」，設得很短，避免漏掉短空隙
-    //   - minMissedDuration：空隙裡的聲音要持續多久才算「疑似遺漏」，同樣設得很短，
-    //     因為漏掉的常常是一兩個字的短句，不會有 0.5 秒那麼長
+    // minGapToScan：空隙多長才掃描；minMissedDuration：聲音持續多久算疑似遺漏。
+    // 兩者與 asMinSegment 無關，刻意設短（遺漏的常是一兩個字的短句）
     const minGapToScan = 0.1;
     const minMissedDuration = 0.15;
 
@@ -770,12 +704,8 @@ function performMissedSegmentCheck() {
         return showToast('空隙皆為靜音，沒有偵測到疑似遺漏的聲音', 'success');
     }
 
-    // 4. 用紅色暫時標記疊在聲波圖上；isRendering 鎖是必要的，
-    //    否則 6_wave_controller.js 的 region-created 監聽會把它們誤判成
-    //    使用者手動拉出的藍色選取框，顏色被硬改掉、還會互相頂替。
-    // ★ 修正：region.element 額外設成 pointer-events:none，讓紅色標記變成
-    //    純視覺提示、完全不接收滑鼠事件——這樣它就不會擋住旁邊真正標記的
-    //    拖曳/縮放/合併操作。要跳轉或移除，一律改走下方的「疑似遺漏清單」面板。
+    // 以紅色暫時標記疊在聲波圖上；需 isRendering 鎖，否則 region-created 監聽會將其誤判為手動選取框。
+    // region.element 設為 pointer-events:none，純視覺提示；跳轉與移除走「疑似遺漏清單」面板
     window.missedSegmentsData = missed.map((seg, idx) => ({ id: `missed-${idx}`, start: seg.start, end: seg.end }));
 
     isRendering = true;
@@ -792,15 +722,10 @@ function performMissedSegmentCheck() {
             resize: false,
             content: contentEl
         });
-        // ★ 核心修正：整個 region 元素都不接收滑鼠事件，事件會直接穿透到
-        //    底下的聲波軌道，拖曳選取、拖曳相鄰標記的邊界都不會被擋住。
-        //    （contentEl 裡的「✕」刪除符號另外設了 pointer-events:auto，
-        //    不受這裡影響，一樣點得到。）
+        // 整個 region 不接收滑鼠事件，不擋住底下標記的拖曳/縮放（✕ 另設 pointer-events:auto）
         if (region && region.element) {
             region.element.style.pointerEvents = 'none';
-            // ★ 新增：加上不透明的紅色外框，確保無論底下波形深淺、
-            //   播放游標經過與否，標記邊界都清楚可見，不會被半透明
-            //   底色蓋過去而看起來像「消失」。
+            // 不透明紅色外框，確保標記邊界始終清楚可見
             region.element.style.border = '2px solid #D32F2F';
             region.element.style.boxSizing = 'border-box';
         }
@@ -812,7 +737,7 @@ function performMissedSegmentCheck() {
     showToast(`疑似遺漏 ${missed.length} 段，已用紅色標示在聲波圖上`, 'error');
 }
 
-// ================= ★ 新增：「疑似遺漏」清單面板 —— 負責跳轉、單一移除、整批清除 =================
+// 「疑似遺漏」清單面板 —— 負責跳轉、單一移除、整批清除
 function renderMissedSegmentsPanel() {
     const panel = document.getElementById('missedSegmentsPanel');
     if (!panel) return;
@@ -900,10 +825,8 @@ function clearMissedRegions() {
     if (typeof renderMissedSegmentsPanel === 'function') renderMissedSegmentsPanel();
 }
 
-// ★ 新增：共用小工具 —— 列表「完全沒有句子列」時，依需要的數量建立空白句子列（編號規則與全域引擎 A 相同）。
-// 讓使用者在全新的音檔上，也能只框選某一段範圍做局部斷句，而不是被迫處理整首音檔。
-// 列表已有句子列時不做任何事（維持既有的「只套用到尚未標記的句子」行為，絕不動到既有句子）。
-// 回傳 true 代表有新增，呼叫端需要用 renderSentenceList() 整份重繪。
+// 列表完全沒有句子列時，依需要數量建立空白句子列（編號規則同引擎 A），讓新音檔也能只框選局部斷句
+// 列表已有句子列時不動作；回傳 true 代表有新增，呼叫端需 renderSentenceList() 整份重繪
 function createBlankLabelsIfListEmpty(count) {
     if (allLabelsOrdered.length > 0 || count <= 0) return false;
     for (let i = 0; i < count; i++) {
@@ -916,11 +839,11 @@ function createBlankLabelsIfListEmpty(count) {
     return true;
 }
 
-// 【引擎 B】局部範圍自動斷句引擎
+// 引擎 B：局部範圍自動斷句引擎
 async function performRegionAutoSegmentation(startTime, endTime) {
     if (!wavesurfer || !wavesurfer.getDecodedData()) return showToast('請先載入音檔', 'error');
 
-    const buffer = (window.VocalEnhance ? VocalEnhance.getAnalysisBuffer(wavesurfer.getDecodedData()) : wavesurfer.getDecodedData()); // ★ 修改：同上
+    const buffer = (window.VocalEnhance ? VocalEnhance.getAnalysisBuffer(wavesurfer.getDecodedData()) : wavesurfer.getDecodedData());  // 人聲強化啟用時使用分析用 buffer
     const sampleRate = buffer.sampleRate;
     const numChannels = buffer.numberOfChannels;
     const channels = [];
@@ -938,7 +861,7 @@ async function performRegionAutoSegmentation(startTime, endTime) {
     const minSilence = parseFloat(asSilence.value);
     const padding = parseFloat(asPadding.value);
     const minSegment = asMinSegment ? parseFloat(asMinSegment.value) : 0.5;
-    const detectionMode = asDetectionMode ? asDetectionMode.value : 'peak'; // ★ 新增：預設 'peak'，與修改前行為完全相同
+    const detectionMode = asDetectionMode ? asDetectionMode.value : 'peak';  // 預設 'peak'
     
     const step = Math.floor(sampleRate / 100); 
     
@@ -952,7 +875,7 @@ async function performRegionAutoSegmentation(startTime, endTime) {
 
     for (let i = startSample; i < endSample; i += step) {
         let maxAmp = 0;
-        let sumSquares = 0; // ★ 新增：用於 RMS 模式的累加器
+        let sumSquares = 0;  // RMS 模式累加器
         const localEnd = Math.min(i + step, endSample);
         const blockSampleCount = (localEnd - i) * numChannels;
         for (let j = i; j < localEnd; j++) {
@@ -1006,20 +929,18 @@ async function performRegionAutoSegmentation(startTime, endTime) {
         return showToast('此範圍內找不到符合條件的斷句', 'error');
     }
 
-    // ================= 階段 2：批次寫入資料 (85% ~ 95%) =================
+    // 階段 2：批次寫入資料 (85% ~ 95%)
     showToast('2/3 正在套用標記資料... 85%', 'normal');
     await new Promise(resolve => setTimeout(resolve, 10));
 
     if (typeof saveState === 'function') saveState(); 
 
-    // ★ 新增：依設定「斷句時新增列表」決定處理方式（預設：新增列表）
-    //   勾選（新增列表）：重新斷句選取的標記時，先沿用原本那幾列，多出來的段落各自新增一列；
-    //                     框選範圍則每一段都新增一列。不會動到其他尚未標記的文字列。
-    //   取消勾選：維持原本行為，只把時間套用到既有「尚未標記」的列（列表全空時仍會先建立空白列）。
+    // 依設定「斷句時新增列表」處理（預設：新增列表）
+    //   勾選：沿用原本的列，多出的段落各新增一列（框選範圍每段都新增），不動其他未標記列
+    //   取消：只把時間套用到既有未標記的列（列表全空時仍先建立空白列）
     const addRowMode = (typeof isAddRowEnabled !== 'function') || isAddRowEnabled('segment');
 
-    // 列表完全沒有句子時，先建立空白句子列來承接（讓框選範圍也能在全新音檔上使用）
-    // ※ 新增列表模式下，多出來的段落會由 addRowsForTimes() 新增，這裡不需要預先建立
+    // 列表全空時先建立空白句子列；新增列表模式下，多出的段落由 addRowsForTimes() 新增
     const didCreateNewLabels = addRowMode ? false : createBlankLabelsIfListEmpty(segments.length);
 
     let labelsToUse = [...(targetAutoSegmentRange?.labelsToClear || [])];
@@ -1029,7 +950,7 @@ async function performRegionAutoSegmentation(startTime, endTime) {
         labelsToUse = labelsToUse.concat(unmapped);
     }
 
-    // ★ 尋找外部鄰居的邊界，防止局部斷句向外擴張撞到別的標記
+    // 尋找外部鄰居的邊界，防止局部斷句向外擴張撞到別的標記
     let globalPrevEnd = 0;
     let globalNextStart = mediaDuration;
     if (labelsToUse.length > 0) {
@@ -1049,8 +970,7 @@ async function performRegionAutoSegmentation(startTime, endTime) {
         }
     }
 
-    // ★ 新增：新增列表模式且沒有可沿用的列（框選範圍）時，改用框選範圍前後最近的既有標記當外圍邊界，
-    // 避免留白延伸後撞到旁邊的標記
+    // 新增列表模式且無可沿用的列（框選範圍）時，以框選範圍前後最近的既有標記為外圍邊界
     if (labelsToUse.length === 0) {
         allLabelsOrdered.forEach(lbl => {
             if (!timeDataMap[lbl]) return;
@@ -1062,11 +982,11 @@ async function performRegionAutoSegmentation(startTime, endTime) {
     }
 
     let mappedCount = 0;
-    const extraTimes = []; // ★ 新增：沒有現成的列可放的段落（新增列表模式下會各自新增一列）
-    const gapMargin = 0.005; // ★ 安全防撞距離
+    const extraTimes = [];  // 沒有現成的列可放的段落（新增列表模式下會各自新增一列）
+    const gapMargin = 0.005;  // 安全防撞距離
 
     segments.forEach((seg, idx) => {
-        // ★ 核心升級：動態彈性留白計算
+        // 動態彈性留白計算
         let currentPaddingStart = padding;
         let currentPaddingEnd = padding;
 
@@ -1110,7 +1030,7 @@ async function performRegionAutoSegmentation(startTime, endTime) {
         }
     });
 
-    // ★ 新增：新增列表模式 —— 多出來的段落各新增一列（內含存檔與列表重繪，全文模式一併同步大編輯框）
+    // 新增列表模式 —— 多出來的段落各新增一列（內含存檔與列表重繪，全文模式一併同步大編輯框）
     const addedRowCount = extraTimes.length;
     if (addedRowCount > 0) {
         addRowsForTimes(extraTimes);
@@ -1119,11 +1039,11 @@ async function performRegionAutoSegmentation(startTime, endTime) {
 
     saveToStorage();
 
-    // ================= 階段 3：畫面渲染 (95% ~ 100%) =================
+    // 階段 3：畫面渲染 (95% ~ 100%)
     showToast('3/3 正在重新渲染畫面... 95%', 'normal');
     await new Promise(resolve => setTimeout(resolve, 10));
 
-    // ★ 新增：若剛才新建了句子列，必須整份重繪列表，新句子才會立刻出現在畫面上
+    // 若剛才新建了句子列，必須整份重繪列表，新句子才會立刻出現在畫面上
     if (didCreateNewLabels && typeof renderSentenceList === 'function') renderSentenceList();
     if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
     if (typeof renderAllRegions === 'function') renderAllRegions();
@@ -1138,7 +1058,7 @@ async function performRegionAutoSegmentation(startTime, endTime) {
     }
 }
 
-// ================= 多重音訊處理引擎 (打包與合併) =================
+// 多重音訊處理引擎 (打包與合併)
 window.processAdvancedDownload = async function(labels, mode, silenceSeconds) {
     if (!wavesurfer || !wavesurfer.getDecodedData()) return showToast('請先載入音檔並等待分析完成', 'error');
     
@@ -1152,7 +1072,7 @@ window.processAdvancedDownload = async function(labels, mode, silenceSeconds) {
         if (typeof JSZip === 'undefined') return showToast('缺少 JSZip 套件', 'error');
         showToast(`開始打包 ${labels.length} 個音檔...`, 'normal');
         const zip = new JSZip();
-        const usedNames = new Set(); // ★ 新增：記錄已用過的檔名，避免重複覆蓋
+        const usedNames = new Set();  // 記錄已用過的檔名，避免重複覆蓋
         
         for (let i = 0; i < labels.length; i++) {
             const label = labels[i];
@@ -1160,7 +1080,6 @@ window.processAdvancedDownload = async function(labels, mode, silenceSeconds) {
             if (times) {
                 const slicedBuffer = sliceAudioBuffer(buffer, times.start, times.end);
                 const finalBlob = format === 'mp3' ? audioBufferToMp3(slicedBuffer) : audioBufferToWav(slicedBuffer);
-                // ★ 修改：檔名改依設定的檔名規則組成，並自動處理重複檔名
                 const filename = getAudioExportFilename(label, ext, usedNames);
                 zip.file(filename, finalBlob);
             }
@@ -1214,7 +1133,7 @@ window.processAdvancedDownload = async function(labels, mode, silenceSeconds) {
             // 推進偏移量，並加上靜音長度
             currentOffset += buf.length;
             if (i < buffersToMerge.length - 1) {
-                currentOffset += silenceFrames; // 留白，預設為 0 不填入資料即為靜音
+                currentOffset += silenceFrames;  // 留白，預設為 0 不填入資料即為靜音
             }
         }
 
@@ -1227,7 +1146,6 @@ window.processAdvancedDownload = async function(labels, mode, silenceSeconds) {
         setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); showToast('合併下載完成！', 'success'); }, 100);
     }
 };
-
 
 window.processBatchLocalFiles = async function(fileList, paddingSec, autoPara) {
     // 1. 確保檔案按照檔名(字母順序)排序
@@ -1242,7 +1160,7 @@ window.processBatchLocalFiles = async function(fileList, paddingSec, autoPara) {
     // 2. 解碼所有音檔
     for (let i = 0; i < fileList.length; i++) {
         const file = fileList[i];
-        fileNames.push(file.name.replace(/\.[^/.]+$/, "")); // 移除副檔名作為文字
+        fileNames.push(file.name.replace(/\.[^/.]+$/, ""));  // 移除副檔名作為文字
         const arrayBuffer = await file.arrayBuffer();
         const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
         decodedBuffers.push(audioBuffer);
@@ -1252,7 +1170,7 @@ window.processBatchLocalFiles = async function(fileList, paddingSec, autoPara) {
 
     // 3. 計算總畫布長度與統一取樣率 (以第一首為基準，通常是雙聲道 44100 或 48000)
     const sampleRate = decodedBuffers[0].sampleRate;
-    const channels = 2; // 強制輸出雙聲道避免單/雙聲道混合出錯
+    const channels = 2;  // 強制輸出雙聲道避免單/雙聲道混合出錯
     const paddingFrames = Math.floor(paddingSec * sampleRate);
 
     let totalFrames = 0;
@@ -1293,7 +1211,7 @@ window.processBatchLocalFiles = async function(fileList, paddingSec, autoPara) {
         let prefix = 'A';
         if (autoPara) {
             const firstChar = name.charAt(0).toUpperCase();
-            if (/[A-Z]/.test(firstChar)) prefix = firstChar; // 偵測到英文字母則自動換段
+            if (/[A-Z]/.test(firstChar)) prefix = firstChar;  // 偵測到英文字母則自動換段
         }
 
         if (i === 0) {
@@ -1328,8 +1246,7 @@ window.processBatchLocalFiles = async function(fileList, paddingSec, autoPara) {
     };
 };
 
-
-// ================= ★ 本地端 WebAssembly Whisper AI 引擎 ★ =================
+// 本地端 WebAssembly Whisper AI 引擎
 
 async function resampleAudioTo16kHz(audioBuffer) {
     const targetSampleRate = 16000;
@@ -1344,11 +1261,8 @@ async function resampleAudioTo16kHz(audioBuffer) {
     return renderedBuffer.getChannelData(0); 
 }
 
-// ================= ★ 共用：Whisper Worker 生命週期管理 ★ =================
-// 「一鍵全自動」跟「批次填詞」原本各自建立 worker、鎖定/還原按鈕、處理
-// loading/processing/error 這幾種共同狀態，兩邊寫法幾乎一樣，只是各改各的、
-// 容易顧此失彼。抽成共用函式，只留下真正不同的部分（complete / complete_batch
-// 等各自專屬的訊息處理）交給呼叫端。
+// Whisper Worker 生命週期管理（共用）：一鍵全自動與批次填詞共用 worker 建立、
+// 按鈕鎖定/還原與 loading/processing/error 處理，各自專屬的訊息交給呼叫端
 function runWhisperWorker(btnEl, originalBtnHtml, postPayload, transferList, handlers) {
     btnEl.style.pointerEvents = 'none';
 
@@ -1378,15 +1292,13 @@ function runWhisperWorker(btnEl, originalBtnHtml, postPayload, transferList, han
             worker.terminate();
             return;
         }
-        // 其餘狀態（complete / complete_batch / progress_batch / progress_batch_error…）
-        // 是兩種模式各自獨有的，交給呼叫端處理
+        // 其餘狀態（complete 等）由呼叫端各自處理
         handlers.onMessage(data, { worker, restoreBtn });
     };
 
     worker.postMessage(postPayload, transferList);
     return worker;
 }
-// =========================================================================
 
 const localAiSubtitleBtn = document.getElementById('localAiSubtitleBtn');
 
@@ -1408,7 +1320,7 @@ localAiSubtitleBtn?.addEventListener('click', async () => {
 
 async function startLocalAiTranscription() {
     const audioBuffer = wavesurfer.getDecodedData();
-    const originalBtnHtml = localAiSubtitleBtn.innerHTML; // 記住按鈕原本的長相
+    const originalBtnHtml = localAiSubtitleBtn.innerHTML;  // 記住按鈕原本的長相
     
     // UI 狀態：鎖定按鈕避免重複點擊
     localAiSubtitleBtn.style.pointerEvents = 'none';
@@ -1457,8 +1369,7 @@ async function startLocalAiTranscription() {
                     const label = `${prefix}${num.toString().padStart(2, '0')}`;
 
                     allLabelsOrdered.push(label);
-                    // ★ 修改：改用 setLang 寫入「第一語言」（index 0）。一鍵 AI 字幕本來就是從空白
-                    // 重新建立整份資料，這裡沿用 setLang 只是讓資料格式跟批次填詞一致，不影響行為。
+                    // 以 setLang 寫入第一語言（index 0），與批次填詞資料格式一致
                     sentenceTextMap[label] = (typeof setLang === 'function') ? setLang('', 0, chunk.text.trim()) : chunk.text.trim();
                     timeDataMap[label] = { start: parseFloat(startTime.toFixed(3)), end: parseFloat(endTime.toFixed(3)) };
                 });
@@ -1478,7 +1389,7 @@ async function startLocalAiTranscription() {
     );
 }
 
-// ================= ★ 新增：AI 批次填詞 (保留標記，僅轉文字) ★ =================
+// AI 批次填詞 (保留標記，僅轉文字)
 const localAiTranscribeBtn = document.getElementById('localAiTranscribeBtn');
 
 localAiTranscribeBtn?.addEventListener('click', async () => {
@@ -1544,7 +1455,7 @@ async function startLocalAiBatchTranscribe(targetLabels) {
         return { label: label, start: times.start, end: times.end };
     });
 
-    if (typeof saveState === 'function') saveState(); // 紀錄狀態以便 Undo
+    if (typeof saveState === 'function') saveState();  // 紀錄狀態以便 Undo
 
     runWhisperWorker(
         localAiTranscribeBtn,
@@ -1561,11 +1472,10 @@ async function startLocalAiBatchTranscribe(targetLabels) {
 
                     const label = data.label;
                     const text = data.text;
-                    // ★ 修改：AI 批次填詞只能寫第一語言（index 0），用 setLang 只替換那一段，
-                    // 否則如果這句已經有第二語言的文字，會被整串覆蓋、直接洗掉。
+                    // 只用 setLang 替換第一語言（index 0），避免覆蓋既有的其他語言
                     const prevFullText = sentenceTextMap[label] || '';
                     const newFullText = (typeof setLang === 'function') ? setLang(prevFullText, 0, text) : text;
-                    sentenceTextMap[label] = newFullText; // 寫入資料
+                    sentenceTextMap[label] = newFullText;  // 寫入資料
 
                     // 即時更新畫面上的文字框：依目前「檢視模式」顯示對應的內容
                     const itemDiv = document.getElementById(`item-${label}`);
@@ -1574,7 +1484,7 @@ async function startLocalAiBatchTranscribe(targetLabels) {
                         const curLangViewIndex = (typeof getCurrentLangViewIndex === 'function') ? getCurrentLangViewIndex() : null;
                         const shownText = (curLangViewIndex !== null && typeof getLang === 'function') ? getLang(newFullText, curLangViewIndex) : newFullText;
                         if (typeof isLangTableView === 'function' && isLangTableView()) {
-                            // ★ 新增：並排表格檢視 → 逐格更新（不能把整串原始文字塞進第一格）
+                            // 並排表格檢視 → 逐格更新（不能把整串原始文字塞進第一格）
                             itemDiv.querySelectorAll('.sentence-text-display[data-lang-idx]').forEach(cell => {
                                 const seg = getLang(newFullText, parseInt(cell.dataset.langIdx, 10));
                                 cell.textContent = seg;
@@ -1602,7 +1512,7 @@ async function startLocalAiBatchTranscribe(targetLabels) {
                     }
                 }
                 else if (data.status === 'progress_batch_error') {
-                    // ★ 修補：單句辨識失敗，提示使用者但不中斷整批（其餘句子繼續處理）
+                    // 單句辨識失敗，提示使用者但不中斷整批（其餘句子繼續處理）
                     showToast(`第 ${data.current}/${data.total} 句（${data.label}）辨識失敗，已略過`, 'error');
                     localAiTranscribeBtn.innerHTML = `<span class="material-icons rotating">sync</span> 辨識 ${data.current}/${data.total}`;
                 }
@@ -1616,31 +1526,26 @@ async function startLocalAiBatchTranscribe(targetLabels) {
         }
     );
 }
-// =========================================================================
 
-// ================= ★ 修改：智慧等長分割（在目標長度前後，找「最長的靜音」當分割點） ★ =================
-// 做法：以「每段標記長度」為目標，在「目標時間 ± 尋找範圍」內，用 10ms 一格計算音量（RMS），
-//       以整段音訊的「底噪」與「說話音量」自動訂出靜音門檻，找出範圍內所有「連續靜音區段」，
-//       挑「最長」的那一段（長度相近時略偏向離目標近的），分割點切在該靜音的正中間。
-//       找不到明確靜音時，會逐步放寬門檻；仍找不到才退回「音量最小的一格」。
-//       啟用「人聲強化」時，沿用壓低配樂的分析音訊，所以有背景音樂時也能找到說話停頓。
-//       傳回 []（例如尚未解碼完成）時，呼叫端會自動退回一般等長分割。
+// 智慧等長分割：在目標長度前後的搜尋範圍內，找「最長的靜音」的正中間當分割點
+// 以 10ms 一格算 RMS，依底噪與說話音量自動訂出靜音門檻，找不到時逐步放寬，最後退回音量最小的一格
+// 人聲強化啟用時沿用分析用音訊；回傳 [] 時呼叫端退回一般等長分割
 function buildSmartTimeSegments(startTime, endTime, fixedLength, windowSec) {
     const decoded = (typeof wavesurfer !== 'undefined' && wavesurfer) ? wavesurfer.getDecodedData() : null;
     if (!decoded) return [];
     const buffer = (window.VocalEnhance ? VocalEnhance.getAnalysisBuffer(decoded) : decoded);
     const sr = buffer.sampleRate, len = buffer.length;
     const mediaDuration = audioPlayer.duration || buffer.duration;
-    const timeRatio = mediaDuration / buffer.duration; // media time / buffer time（與靜音斷句相同的換算）
+    const timeRatio = mediaDuration / buffer.duration;  // media time / buffer time（與靜音斷句相同的換算）
     const channels = [];
     for (let c = 0; c < buffer.numberOfChannels; c++) channels.push(buffer.getChannelData(c));
 
-    const FRAME = 0.01;                                   // 10ms 一格
+    const FRAME = 0.01;  // 10ms 一格
     const frameLen = Math.max(1, Math.round(sr * FRAME));
-    const MARGIN = 2;                                     // 處理範圍前後多算 2 秒，讓跨越邊界的長靜音也能量到完整長度
-    const EDGE_PAD = 0.15;                                // ★ 分割點至少離語音邊緣 0.15 秒（靜音太短時取正中間）
-    const MIN_RUN = 0.08;                                 // 短於 80ms 的低音量不當成「停頓」（多半是字中間的氣音／爆破音）
-    const RATIOS = [0.10, 0.18, 0.30, 0.50];             // 靜音門檻 = 底噪 + 比例 × (說話音量 − 底噪)，由嚴格到寬鬆
+    const MARGIN = 2;  // 處理範圍前後多算 2 秒，讓跨越邊界的長靜音也能量到完整長度
+    const EDGE_PAD = 0.15;  // 分割點至少離語音邊緣 0.15 秒（靜音太短時取正中間）
+    const MIN_RUN = 0.08;  // 短於 80ms 的低音量不當成「停頓」（多半是字中間的氣音／爆破音）
+    const RATIOS = [0.10, 0.18, 0.30, 0.50];  // 靜音門檻 = 底噪 + 比例 × (說話音量 − 底噪)，由嚴格到寬鬆
 
     // ---------- 1) 整個處理範圍一次算好每格音量 ----------
     const baseFrame = Math.max(0, Math.floor(((startTime - MARGIN) / timeRatio) * sr / frameLen));
@@ -1666,7 +1571,7 @@ function buildSmartTimeSegments(startTime, endTime, fixedLength, windowSec) {
         sm[k] = sum / (b - a + 1);
     }
 
-    const frameToTime = f => (((baseFrame + f) * frameLen) / sr) * timeRatio;       // 第 f 格的起點（media time）
+    const frameToTime = f => (((baseFrame + f) * frameLen) / sr) * timeRatio;  // 第 f 格的起點（media time）
     const timeToFrame = t => Math.floor(((t / timeRatio) * sr) / frameLen) - baseFrame;
 
     // ---------- 2) 估計底噪與說話音量（只看實際要處理的範圍） ----------
@@ -1675,7 +1580,7 @@ function buildSmartTimeSegments(startTime, endTime, fixedLength, windowSec) {
     const sorted = Array.from(sm.subarray(fs, fe)).sort((a, b) => a - b);
     const floorE = sorted[Math.floor(sorted.length * 0.05)];
     const speechE = sorted[Math.floor(sorted.length * 0.90)];
-    if (speechE < 1e-5 || speechE - floorE < 1e-6) return []; // 幾乎全靜音或音量沒有起伏：沒有比較基準，退回一般等長分割
+    if (speechE < 1e-5 || speechE - floorE < 1e-6) return [];  // 幾乎全靜音或音量沒有起伏：沒有比較基準，退回一般等長分割
 
     // ---------- 3) 在 [from, to]（media time）內找「最長的靜音」，回傳其中點 ----------
     function findQuietPoint(from, to, target) {
@@ -1694,9 +1599,7 @@ function buildSmartTimeSegments(startTime, endTime, fixedLength, windowSec) {
                 let b = k; while (b < n - 1 && sm[b + 1] < thr) b++;
                 const runLen = (b - a + 1) * FRAME;
                 if (runLen >= MIN_RUN) {
-                    // ★ 修正：分割點以「整段靜音」的正中間為準（不再用被搜尋範圍截斷後的中點，
-                    //   否則長靜音會被切在靠近語音結尾的邊緣，聽起來生硬）。
-                    //   若中點超出搜尋範圍，就取範圍內「離中點最近、且距離語音至少 EDGE_PAD」的位置。
+                    // 分割點取整段靜音的正中間；若超出搜尋範圍，取範圍內離中點最近且距語音至少 EDGE_PAD 的位置
                     const runStart = frameToTime(a), runEnd = frameToTime(b + 1);
                     const pad = Math.min(EDGE_PAD, (runEnd - runStart) / 2);
                     const lo2 = Math.max(from, runStart + pad), hi2 = Math.min(to, runEnd - pad);
@@ -1708,7 +1611,7 @@ function buildSmartTimeSegments(startTime, endTime, fixedLength, windowSec) {
                         mid = (frameToTime(ca) + frameToTime(cb + 1)) / 2;
                     }
                     const dist = Math.min(1, Math.abs(mid - target) / halfWin);
-                    const score = runLen * (1 - 0.3 * dist); // 以靜音長度為主，離目標越遠最多打 7 折
+                    const score = runLen * (1 - 0.3 * dist);  // 以靜音長度為主，離目標越遠最多打 7 折
                     if (!best || score > best.score) best = { score, mid };
                 }
                 k = b + 1;
@@ -1728,7 +1631,7 @@ function buildSmartTimeSegments(startTime, endTime, fixedLength, windowSec) {
 
     // ---------- 4) 逐段往前推進（與原本相同） ----------
     const segments = [];
-    const minTail = fixedLength * 0.25; // 結尾剩餘不到 25% 時，併入最後一段，避免出現極短的尾巴
+    const minTail = fixedLength * 0.25;  // 結尾剩餘不到 25% 時，併入最後一段，避免出現極短的尾巴
     let cursor = startTime;
     while (cursor < endTime - 1e-6) {
         const target = cursor + fixedLength;
@@ -1737,7 +1640,7 @@ function buildSmartTimeSegments(startTime, endTime, fixedLength, windowSec) {
         const lo = Math.max(cursor + fixedLength * 0.5, target - windowSec);
         const hi = Math.min(endTime - Math.min(minTail, 1), target + windowSec);
         let cut = (hi > lo) ? findQuietPoint(lo, hi, target) : target;
-        if (!(cut > cursor + 0.1)) cut = target; // 保險：不允許產生零長度或倒退的段落
+        if (!(cut > cursor + 0.1)) cut = target;  // 保險：不允許產生零長度或倒退的段落
 
         segments.push({ start: cursor, end: cut });
         cursor = cut;
@@ -1745,11 +1648,11 @@ function buildSmartTimeSegments(startTime, endTime, fixedLength, windowSec) {
     return segments;
 }
 
-// ================= 【引擎 C】等長無縫自動斷句引擎 (支援全域與局部) =================
+// 引擎 C：等長無縫自動斷句引擎 (支援全域與局部)
 window.performTimeSegmentation = async function(targetRange) {
     if (!audioPlayer || !audioPlayer.duration) return showToast('無法取得音檔長度，請先載入音檔', 'error');
 
-    // ★ 核心修復：讀取「分」與「秒」的值，並換算為總秒數
+    // 讀取「分」與「秒」的值，並換算為總秒數
     const minutes = parseFloat(document.getElementById('asFixedTimeMinutes').value) || 0;
     const seconds = parseFloat(document.getElementById('asFixedTimeSeconds').value) || 0;
     const fixedLength = (minutes * 60) + seconds;
@@ -1763,11 +1666,10 @@ window.performTimeSegmentation = async function(targetRange) {
     let startTime = targetRange ? targetRange.start : 0;
     let endTime = targetRange ? targetRange.end : mediaDuration;
 
-    // ★ 修改：若勾選「智慧等長分割」，改由 buildSmartTimeSegments() 在目標長度前後找安靜處當分割點；
-    //         沒勾選（或分析失敗）時，仍走下面原本的固定間隔演算法，行為與修改前完全相同
+    // 勾選「智慧等長分割」時由 buildSmartTimeSegments() 找安靜處分割；否則（或分析失敗）走固定間隔演算法
     if (document.getElementById('asSmartTimeCheck')?.checked) {
         const rawWin = parseFloat(document.getElementById('asSmartWindow')?.value) || 2;
-        const windowSec = Math.min(rawWin, fixedLength * 0.4); // 尋找範圍最多不超過目標長度的 40%，避免段落長短差太多
+        const windowSec = Math.min(rawWin, fixedLength * 0.4);  // 尋找範圍最多不超過目標長度的 40%，避免段落長短差太多
         segments = buildSmartTimeSegments(startTime, endTime, fixedLength, windowSec);
     }
 
@@ -1781,8 +1683,8 @@ window.performTimeSegmentation = async function(targetRange) {
     if (segments.length === 0) return showToast('範圍太小，無法進行切割', 'error');
 
     if (targetRange) {
-        // ================= 局部範圍：套用到現有標籤 =================
-        // ★ 新增：依設定「斷句時新增列表」決定處理方式（與局部靜音斷句一致，預設：新增列表）
+        // 局部範圍：套用到現有標籤
+        // 依設定「斷句時新增列表」決定處理方式（與局部靜音斷句一致，預設：新增列表）
         const addRowMode = (typeof isAddRowEnabled !== 'function') || isAddRowEnabled('segment');
 
         // 列表完全沒有句子時，先建立空白句子列來承接（新增列表模式下由 addRowsForTimes() 負責，不需預先建立）
@@ -1795,7 +1697,7 @@ window.performTimeSegmentation = async function(targetRange) {
         }
 
         let mappedCount = 0;
-        const extraTimes = []; // ★ 新增：沒有現成的列可放的段落
+        const extraTimes = [];  // 沒有現成的列可放的段落
         segments.forEach((seg, idx) => {
             if (idx < labelsToUse.length) {
                 const label = labelsToUse[idx];
@@ -1806,7 +1708,7 @@ window.performTimeSegmentation = async function(targetRange) {
             }
         });
 
-        // ★ 新增：新增列表模式 —— 多出來的段落各新增一列
+        // 新增列表模式 —— 多出來的段落各新增一列
         const addedRowCount = extraTimes.length;
         if (addedRowCount > 0) {
             addRowsForTimes(extraTimes);
@@ -1818,8 +1720,8 @@ window.performTimeSegmentation = async function(targetRange) {
         if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
         if (typeof renderAllRegions === 'function') renderAllRegions();
         if (typeof tempRegion !== 'undefined' && tempRegion) { tempRegion.remove(); tempRegion = null; }
-        currentActiveLabel = null; // ★ 新增：清掉舊的焦點標記
-        if (typeof clearSelection === 'function') clearSelection(); // 取消選取全部
+        currentActiveLabel = null;  // 清掉舊的焦點標記
+        if (typeof clearSelection === 'function') clearSelection();  // 取消選取全部
         if (typeof updateToolbarButtons === 'function') updateToolbarButtons();
         
         if (mappedCount < segments.length) {
@@ -1829,7 +1731,7 @@ window.performTimeSegmentation = async function(targetRange) {
         }
 
     } else {
-        // ================= 全域模式：洗掉重來 =================
+        // 全域模式：洗掉重來
         allLabelsOrdered = []; sentenceTextMap = {}; timeDataMap = {};
         segments.forEach((seg, idx) => {
             const group = Math.floor(idx / 99);
@@ -1844,11 +1746,11 @@ window.performTimeSegmentation = async function(targetRange) {
         saveToStorage();
         if (typeof renderSentenceList === 'function') renderSentenceList();
         if (typeof updateAllTimeDisplays === 'function') updateAllTimeDisplays();
-        if (typeof renderAllRegions === 'function') renderAllRegions(); // ★ 新增：全域模式也要重繪聲波標記（與靜音斷句一致）
-        if (typeof tempRegion !== 'undefined' && tempRegion) { tempRegion.remove(); tempRegion = null; } // ★ 新增：移除暫存選取區
-        currentActiveLabel = null; // ★ 新增：清掉舊的焦點標記
-        if (typeof clearSelection === 'function') clearSelection(); // 取消選取全部（clearSelection 內會一併更新畫面）
-        if (typeof updateToolbarButtons === 'function') updateToolbarButtons(); // ★ 新增：更新工具列按鈕狀態
+        if (typeof renderAllRegions === 'function') renderAllRegions();  // 全域模式也要重繪聲波標記（與靜音斷句一致）
+        if (typeof tempRegion !== 'undefined' && tempRegion) { tempRegion.remove(); tempRegion = null; }  // 移除暫存選取區
+        currentActiveLabel = null;  // 清掉舊的焦點標記
+        if (typeof clearSelection === 'function') clearSelection();  // 取消選取全部（clearSelection 內會一併更新畫面）
+        if (typeof updateToolbarButtons === 'function') updateToolbarButtons();  // 更新工具列按鈕狀態
         showToast(`全域等長斷句完成！共無縫切出 ${segments.length} 句`, 'success');
     }
 };

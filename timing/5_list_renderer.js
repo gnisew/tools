@@ -1,8 +1,7 @@
-// ================= 5_list_renderer.js: 清單渲染與選取邏輯 =================
+// 5_list_renderer.js: 清單渲染與選取邏輯
 
-// ================= ★ 句子前「播放鈕」圖示同步：播放該句時 volume_up → pause ★ =================
-// 判斷條件：音檔正在播放、該句是目前焦點句 (currentActiveLabel)、且播放位置落在該句時間範圍內。
-// 任何一項不成立（暫停、句子播完自動停、焦點換句、播到別句）就還原成喇叭圖示。
+// 句子前播放鈕圖示同步：播放該句時 volume_up → pause。
+// 條件：音檔播放中、該句為目前焦點句 (currentActiveLabel)、播放位置在該句時間範圍內；任一不成立就還原成喇叭。
 function updateVerifyBtnIcons() {
     let target = null;
     if (typeof audioPlayer !== 'undefined' && audioPlayer && !audioPlayer.paused && currentActiveLabel) {
@@ -10,7 +9,7 @@ function updateVerifyBtnIcons() {
         const ct = audioPlayer.currentTime;
         if (t && ct >= t.start - 0.1 && ct <= t.end + 0.1) target = currentActiveLabel;
     }
-    // 先還原所有「目前顯示為暫停」但已不是播放中的按鈕
+    // 還原已不是播放中的按鈕
     document.querySelectorAll('.verify-btn.is-playing').forEach(btn => {
         if (target && btn.id === `verify-${target}`) return;
         btn.classList.remove('is-playing');
@@ -30,14 +29,14 @@ if (typeof audioPlayer !== 'undefined' && audioPlayer) {
     ['play', 'pause', 'ended', 'seeked', 'timeupdate'].forEach(evt => audioPlayer.addEventListener(evt, updateVerifyBtnIcons));
 }
 
-// ================= ★ 並排表格檢視：輔助函式 ★ =================
-// 取得「這個文字區塊」對應的語言索引：表格欄位用 data-lang-idx；一般模式沿用目前語言檢視（可能是 null）
+// ---------- 並排表格檢視 ----------
+// 文字區塊對應的語言索引：表格欄位用 data-lang-idx；一般模式沿用目前語言檢視（可能為 null）
 function getEditLangIndex(el) {
     if (el && el.dataset && el.dataset.langIdx !== undefined) return parseInt(el.dataset.langIdx, 10);
     return (typeof getCurrentLangViewIndex === 'function') ? getCurrentLangViewIndex() : null;
 }
 
-// 建立表格表頭（只有欄位名稱；實際位置由 alignLangTableHeader 對齊到第一列的文字格）
+// 表格表頭（位置由 alignLangTableHeader 對齊）
 function buildLangTableHeader(cols) {
     const header = document.createElement('div');
     header.className = 'lang-table-header';
@@ -55,7 +54,7 @@ function buildLangTableHeader(cols) {
     return header;
 }
 
-// 讓表頭的欄位左緣與寬度，跟第一列的文字格完全一致，並設定吸頂位置（在列表標題下方）
+// 表頭左緣與寬度對齊第一列文字格，並設定吸頂位置（列表標題下方）
 function alignLangTableHeader() {
     const header = document.getElementById('langTableHeader');
     if (!header) return;
@@ -77,23 +76,18 @@ window.addEventListener('resize', () => {
 });
 
 function updateSelectionUI() {
-    // 1. 先拔除畫面上所有已選取的樣式 (極快速的 DOM 查詢)
+    // 先清掉所有已選取樣式
     document.querySelectorAll('.sentence-item.selected-row').forEach(item => {
         item.classList.remove('selected-row');
     });
     
-    // 2. 只針對有被選取的標籤，精準加上樣式 (免除全體掃描)
+    // 只對被選取的標籤加樣式
     selectedLabels.forEach(lbl => {
         const item = document.getElementById(`item-${lbl}`);
         if (item) item.classList.add('selected-row');
     });
 
-    // ★ 修正：列表「目前焦點列」(綠底 playing) 統一在這裡與 currentActiveLabel 同步，
-    //   不再讓各呼叫端各自手動加減 class。原本聲波圖點擊、Tab 跳句、自動連續播放等
-    //   多處各自維護一份「移除全部 playing → 找 itemDiv → 加上 playing」的重複邏輯，
-    //   只要有任何一處漏掉或提早 return，就會出現「聲波圖焦點動了、列表綠底卻沒跟著動」
-    //   的不同步問題。現在只要 currentActiveLabel 有更新、且呼叫了 updateSelectionUI()
-    //   (幾乎所有會改動 currentActiveLabel 的地方都會呼叫)，列表就一定會跟著同步。
+    // 目前焦點列（綠底 playing）統一在此與 currentActiveLabel 同步，呼叫端不必各自增減 class
     document.querySelectorAll('.sentence-item.playing').forEach(item => {
         item.classList.remove('playing');
     });
@@ -102,7 +96,7 @@ function updateSelectionUI() {
         if (activeItem) activeItem.classList.add('playing');
     }
 
-    // ★ 新增：每次更新選取狀態時，順便將目前的游標標記存入暫存
+    // 記住目前游標標記
     if (currentActiveLabel) {
         localStorage.setItem('tagger_lastActiveLabel', currentActiveLabel);
     }
@@ -122,10 +116,10 @@ function updateSelectionUI() {
 
     let isContinuousSelection = false;
     if (selectedLabels.length > 1) {
-        // 先將選取的標籤依照原始順序排序
+        // 依原始順序排序
         let sortedSelected = [...selectedLabels].sort((a, b) => allLabelsOrdered.indexOf(a) - allLabelsOrdered.indexOf(b));
         isContinuousSelection = true;
-        // 檢查是否每一個項目的索引都剛好比前一個多 1
+        // 每項索引都剛好比前一項多 1 才算連續
         for (let i = 0; i < sortedSelected.length - 1; i++) {
             if (allLabelsOrdered.indexOf(sortedSelected[i+1]) !== allLabelsOrdered.indexOf(sortedSelected[i]) + 1) {
                 isContinuousSelection = false;
@@ -134,7 +128,7 @@ function updateSelectionUI() {
         }
     }
 
-    // 列表上方的合併按鈕：只有在連續選取時才顯示
+    // 合併按鈕：僅連續選取時顯示
     if (mergeSelectedBtn) {
         mergeSelectedBtn.style.display = isContinuousSelection ? 'inline-flex' : 'none';
     }
@@ -143,7 +137,7 @@ function updateSelectionUI() {
         adjustPaddingBtn.style.display = selectedLabels.length > 0 ? 'inline-flex' : 'none';
     }
 
-    updateVerifyBtnIcons(); // ★ 新增：焦點句改變時，同步句子前播放鈕的圖示
+    updateVerifyBtnIcons();
     updateToolbarButtons();
 }
 
@@ -188,21 +182,18 @@ function updateSingleTimeDisplay(label, optionalIndex = -1) {
         const mode = timeContentMode;
         const d = timeDecimalPlaces;
         
-        // 核心修改：為時間加上 Material Design 的專屬顏色
-        const startStr = `<span style="color: #1976D2;">${formatListTime(times.start)}</span>`; // 藍色 (Blue 700)
-        const endStr = `<span style="color: #388E3C;">${formatListTime(times.end)}</span>`;     // 綠色 (Green 700)
-        const durStr = `<span style="color: #757575; font-size: 0.85em;">(${formatListDuration(times.duration)})</span>`; // 灰色 (Grey 600)
+        const startStr = `<span style="color: #1976D2;">${formatListTime(times.start)}</span>`;
+        const endStr = `<span style="color: #388E3C;">${formatListTime(times.end)}</span>`;
+        const durStr = `<span style="color: #757575; font-size: 0.85em;">(${formatListDuration(times.duration)})</span>`;
         
-        // ★ 核心修復：完美還原設計！左側放上下時間，右側放垂直置中的時長
         if (mode === 'start') {
             timeSpan.innerHTML = startStr; 
         } else if (mode === 'duration') {
             timeSpan.innerHTML = durStr; 
         } else if (mode === 'range') {
-            // 只有頭尾時，分為上下兩個 div
             timeSpan.innerHTML = `<div>${startStr}</div><div>${endStr}</div>`; 
         } else {
-            // 完整模式：左邊垂直排列時間，右邊垂直置中放時長
+            // 完整模式：左側上下排列起訖時間，右側垂直置中時長
             timeSpan.innerHTML = `
                 <div style="display: flex; align-items: center; gap: 6px;">
                     <div style="display: flex; flex-direction: column; align-items: flex-end;">
@@ -233,17 +224,13 @@ function updateAllTimeDisplays() {
     updateTimeDisplaysTimeout = setTimeout(() => {
         allLabelsOrdered.forEach((label, idx) => updateSingleTimeDisplay(label, idx));
         if (!isDraggingRegion && typeof renderAllRegions === 'function') renderAllRegions(); 
-        alignLangTableHeader(); // ★ 新增：表格檢視時重新對齊表頭
+        alignLangTableHeader();
     }, 100);
 }
 
-// ★ 新增：編輯區（#listPanel）的顯示規則。
-//   舊規則：有音檔「或」有標記就顯示 → 把列表與標記全部刪光後，只剩一個空殼標題列。
-//   新規則：只在「單句列表模式」且「完全沒有任何標記」時隱藏；新增任何標記後自動再顯示。
-//   全文／跨句群組／多語字幕模式一律保持顯示：
-//     · 全文模式把文字清空時，編輯框不能憑空消失（文字還沒貼上就沒有標記）
-//     · 跨句群組只認時間區間，不依賴句子，沒有標記也要能進去
-//   沒有標記時，開始的入口是：聲波工具列（新增標記／自動斷句）、側邊欄「匯入資料」（貼上文字解析、匯入 SRT／JSON）。
+// 編輯區（#listPanel）顯示規則：僅在單句列表模式且完全沒有標記時隱藏，新增標記後自動再顯示。
+// 全文／跨句群組／多語字幕模式一律顯示（全文清空後編輯框不能消失；跨句群組只認時間區間）。
+// 沒有標記時的入口：聲波工具列（新增標記／自動斷句）、側邊欄「匯入資料」。
 function updateListPanelVisibility() {
     const mode = (typeof getCurrentListMode === 'function') ? getCurrentListMode() : 'list';
     listPanel.style.display = (allLabelsOrdered.length > 0 || mode !== 'list') ? 'block' : 'none';
@@ -288,34 +275,29 @@ function renderSentenceList() {
         });
     }
 
-    // 在迴圈開始前，建立一個虛擬容器 (DocumentFragment)
     const fragment = document.createDocumentFragment();
 
-    // ★ 新增：並排表格檢視（只有已啟用多語字幕、且語言數 > 1 才會生效）
+    // 並排表格檢視（需啟用多語字幕且語言數 > 1）
     const tableMode = (typeof isLangTableView === 'function') && isLangTableView();
     const tableCols = tableMode ? getLangTableColumns() : [];
     if (tableMode) fragment.appendChild(buildLangTableHeader(tableCols));
 
     currentSortedLabels.forEach(label => {
-        // ★ 新增：多語言字幕檢視。fullText 是存在 sentenceTextMap 裡「完整」的原始字串
-        // （可能含多語言分隔字元），text 則是依目前「檢視模式」實際要顯示在畫面上的內容：
-        // 「原始」模式顯示整串；「只看第 N 語言」模式只顯示該語言那一段。
+        // fullText 為 sentenceTextMap 的完整字串（可能含語言分隔字元）；text 為依目前語言檢視實際顯示的內容
         const fullText = sentenceTextMap[label] || '';
         const langViewIndex = (typeof getCurrentLangViewIndex === 'function') ? getCurrentLangViewIndex() : null;
         const text = (langViewIndex !== null && typeof getLang === 'function') ? getLang(fullText, langViewIndex) : fullText;
-        // 「這一列是否空白」要看所有語言（而不是只看目前顯示的那個語言），避免只是切到某個
-        // 還沒填詞的語言，就被誤判成空白列而顯示「刪除」圖示。
+        // 空白列要看所有語言，避免切到尚未填寫的語言就誤顯示刪除圖示
         const isRowBlank = (typeof isBlank === 'function') ? isBlank(fullText) : text.trim() === '';
         const paraIndex = label.charCodeAt(0) - 65; const colorVar = `var(--color-p${paraIndex % 10})`;
         const displayLabel = typeof window.getDisplayLabel === 'function' ? window.getDisplayLabel(label) : label;
         const div = document.createElement('div'); div.className = 'sentence-item'; div.id = `item-${label}`; div.dataset.rawText = fullText; 
         
         if (selectedLabels.includes(label)) div.classList.add('selected-row');
-        // ★ 新增：整份清單重繪時（例如編輯文字、匯入、切換語言檢視等），若這一列正是
-        //   目前的焦點列，直接補上 playing class，避免重繪後焦點列的綠底消失。
+        // 重繪後保留焦點列的綠底
         if (label === currentActiveLabel) div.classList.add('playing');
 
-        // ★ 新增：文字區塊的 HTML。表格模式：每個語言一格（grid）；一般模式：維持原本單一區塊
+        // 表格模式：每個語言一格；一般模式：單一區塊
         let textAreaHtml;
         if (tableMode) {
             const editAttrs = isEditMode ? 'contenteditable="true" role="textbox" aria-multiline="false"' : '';
@@ -329,7 +311,6 @@ function renderSentenceList() {
             textAreaHtml = `<span class="sentence-text-display ${isEditMode ? 'is-editable' : ''}" ${isEditMode ? 'contenteditable="true" role="textbox" aria-multiline="false" aria-label="字幕文字，可點擊編輯"' : ''} spellcheck="false">${escapeHtml(text)}</span>`;
         }
 
-        // 修改：在選單的各個破壞性操作中，插入 saveState(); 
         div.innerHTML = `
             <div class="sentence-content">
                 <button class="action-icon-btn verify-btn" id="verify-${label}" title="播放該句" aria-label="播放該句"><span class="material-icons">volume_up</span></button>
@@ -360,7 +341,7 @@ function renderSentenceList() {
         const textDisplays = Array.from(div.querySelectorAll('.sentence-text-display')); const inlineDelBtn = div.querySelector(`#inline-del-${label}`);
         inlineDelBtn.addEventListener('click', (e) => { 
             e.stopPropagation(); 
-            // ★ 集中化：deleteSentence 內部已會呼叫 saveState()，這裡不必重複
+            // deleteSentence 內部已呼叫 saveState()
             deleteSentence(label); 
         });
 
@@ -389,7 +370,7 @@ function renderSentenceList() {
             }
         });
 
-        // ★ 修改：一般模式只有 1 個文字區塊，表格模式有 N 個（每格各自綁定一次）
+        // 一般模式 1 個文字區塊，表格模式 N 個（每格各自綁定）
         textDisplays.forEach(textDisplay => {
         textDisplay.addEventListener('focus', () => {
             clearSelection(); 
@@ -414,11 +395,11 @@ function renderSentenceList() {
             } else e.stopPropagation(); 
         });
 
-        // ★ 核心修復：加入防抖計時器
+        // 輸入防抖
         let rowInputTimeout = null;
 
         textDisplay.addEventListener('input', () => {
-            // ★ 新增：表格格子內不能打語言分隔字元（會破壞多語結構），打到就移除並提示
+            // 表格格子內不可輸入語言分隔字元（會破壞多語結構），打到就移除並提示
             if (textDisplay.dataset.langIdx !== undefined && typeof getLangDelimiter === 'function') {
                 const delim = getLangDelimiter();
                 if (textDisplay.textContent.includes(delim)) {
@@ -430,8 +411,8 @@ function renderSentenceList() {
                 }
                 textDisplay.classList.toggle('is-empty-cell', textDisplay.textContent.trim() === '');
             }
-            // ★ 修改：切換刪除按鈕顯示狀態，要看「所有語言」是否都空白，而不只是目前顯示的這段
-            const curLangViewIndex = getEditLangIndex(textDisplay); // ★ 修改：表格欄位用自己的語言索引
+            // 刪除鈕顯示與否看所有語言是否都空白
+            const curLangViewIndex = getEditLangIndex(textDisplay);
             const prospectiveFull = (curLangViewIndex !== null && typeof setLang === 'function')
                 ? setLang(sentenceTextMap[label] || '', curLangViewIndex, textDisplay.textContent)
                 : textDisplay.textContent;
@@ -441,7 +422,7 @@ function renderSentenceList() {
             rowInputTimeout = setTimeout(() => {
                 const tempText = textDisplay.textContent.trim().replace(/\([^)]+\)/g, '');
                 if (typeof updateRegionTextDisplay === 'function') {
-                    // ★ 修改：表格格子只改了其中一個語言，傳「合併後的完整字串」給聲波圖
+                    // 表格格子只改一個語言，傳合併後的完整字串給聲波圖
                     const regionText = (textDisplay.dataset.langIdx !== undefined && typeof setLang === 'function')
                         ? setLang(sentenceTextMap[label] || '', getEditLangIndex(textDisplay), tempText)
                         : tempText;
@@ -450,39 +431,34 @@ function renderSentenceList() {
             }, 500);
         });
         
-        // 當修改完文字移開焦點時，正式紀錄狀態並存檔
+        // 失焦時正式紀錄並存檔
         textDisplay.addEventListener('blur', () => {
-            // 取得目前的輸入內容，並利用 trim() 濾掉頭尾空白
             const rawInput = textDisplay.textContent;
             const newSegText = rawInput.trim();
             
-            // ★ 高效清除空白：只要發現有不小心的頭尾空白，就在畫面上立刻幫他清除掉
-            // 這不需要存取全域迴圈，直接修改 DOM，極度節省效能！
+            // 清掉頭尾空白
             if (rawInput !== newSegText) {
                 textDisplay.textContent = newSegText;
             }
-            if (textDisplay.dataset.langIdx !== undefined) textDisplay.classList.toggle('is-empty-cell', newSegText === ''); // ★ 新增
+            if (textDisplay.dataset.langIdx !== undefined) textDisplay.classList.toggle('is-empty-cell', newSegText === '');
 
-            // 去除可能干擾的括號
+            // 去除括號內容
             const cleanSegText = newSegText.replace(/\([^)]+\)/g, '');
 
-            // ★ 修改：依目前「檢視模式」算出應該存回 sentenceTextMap 的完整字串
-            // 「原始」模式：跟過去行為一樣，整串直接覆蓋
-            // 「只看第 N 語言」模式：只替換該語言那一段，其他語言的文字不能被動到
-            const curLangViewIndex = getEditLangIndex(textDisplay); // ★ 修改：表格欄位用自己的語言索引
+            // 原始模式整串覆蓋；單一語言檢視只替換該語言那一段
+            const curLangViewIndex = getEditLangIndex(textDisplay);
             const prevFullText = sentenceTextMap[label] || '';
             const newFullText = (curLangViewIndex !== null && typeof setLang === 'function')
                 ? setLang(prevFullText, curLangViewIndex, cleanSegText)
                 : cleanSegText;
 
-            // 檢查真正的文字內容是否有被修改過
             if (newFullText !== prevFullText) { 
-                if(typeof saveState === 'function') saveState(); // 紀錄歷史狀態
+                if(typeof saveState === 'function') saveState();
                 div.dataset.rawText = newFullText; 
                 sentenceTextMap[label] = newFullText; 
                 saveToStorage(); 
 
-                // 終極防護：確保失去焦點時，聲波圖文字必定是最新狀態
+                // 確保聲波圖文字為最新
                 if (typeof updateRegionTextDisplay === 'function') {
                     updateRegionTextDisplay(label, newFullText);
                 }
@@ -492,13 +468,13 @@ function renderSentenceList() {
         textDisplay.addEventListener('keydown', (e) => { 
             if (e.key === 'Enter') { e.preventDefault(); textDisplay.blur(); } 
             
-            // ★ 支援 Shift + Tab 往回跳
+            // Shift+Tab 往回跳
             if (e.key === 'Tab') { 
                 e.preventDefault(); 
                 jumpToRegion(e.shiftKey ? -1 : 1); 
             }
         });
-        }); // ★ 新增：textDisplays.forEach 結束
+        });
 
         div.querySelector('.more-options-btn').addEventListener('click', (e) => {
             e.stopPropagation(); const moreMenu = div.querySelector(`#menu-${label}`); document.querySelectorAll('.item-more-menu').forEach(m => { if (m !== moreMenu) m.classList.remove('show'); });
@@ -513,7 +489,7 @@ function renderSentenceList() {
             showCustomDialog({ title: '平移時間', message: `輸入秒數：`, isPrompt: true, defaultValue: '0', onConfirm: (offsetStr) => {
                 const offset = parseFloat(offsetStr); if (isNaN(offset) || offset === 0) return;
                 
-                if(typeof saveState === 'function') saveState(); // 紀錄狀態
+                if(typeof saveState === 'function') saveState();
 
                 const startIndex = allLabelsOrdered.indexOf(label); let modifiedCount = 0;
                 for (let i = startIndex; i < allLabelsOrdered.length; i++) {
@@ -530,7 +506,7 @@ function renderSentenceList() {
 
         div.querySelector('.clear-tag-btn').addEventListener('click', (e) => { 
             e.stopPropagation(); if (!isEditMode) return; 
-            // ★ 集中化：handleClearTag 內部已會呼叫 saveState()，這裡不必重複
+            // handleClearTag 內部已呼叫 saveState()
             handleClearTag(label); 
         });
         
@@ -546,7 +522,7 @@ function renderSentenceList() {
             timeDataMap[label] = { start: finalTime, end: null }; saveToStorage(); updateAllTimeDisplays(); scrollToKeepMouseSteady(div.nextElementSibling); 
         });
 
-        // 1. 修正「時間標籤」的點擊播放事件
+        // 時間標籤：點擊播放
         div.querySelector('.sentence-time').addEventListener('click', (e) => {
             e.stopPropagation(); clearSelection(); lastSelectedLabel = label; currentActiveLabel = label; 
             
@@ -556,7 +532,7 @@ function renderSentenceList() {
             if (times) { 
                 if(typeof applyCurrentPlaybackSpeed === 'function') applyCurrentPlaybackSpeed(); 
                 
-                // 計算最大播放時間
+                // 最大播放時間
                 let targetEnd = times.end;
                 const isMaxPlayEnabled = document.getElementById('enableMaxPlayCheck')?.checked;
                 if (isMaxPlayEnabled) {
@@ -564,7 +540,7 @@ function renderSentenceList() {
                     targetEnd = Math.min(times.end, times.start + maxSec);
                 }
 
-                // 判斷是否為連續播放模式
+                // 連續播放模式
                 if (currentSortMode !== 'default' || continuousPlayMode === 'skip') {
                     isContinuousSortedPlay = true; 
                     verifyEndTime = targetEnd; 
@@ -575,7 +551,7 @@ function renderSentenceList() {
                     verifyingLabel = isMaxPlayEnabled ? label : null;
                 }
                 
-                // ★ 修正核心：加入跳轉鎖，並優先使用 wavesurfer.setTime
+                // 跳轉鎖；優先使用 wavesurfer.setTime
                 window.jumpLockTime = Date.now();
                 if (typeof wavesurfer !== 'undefined' && wavesurfer) {
                     wavesurfer.setTime(times.start);
@@ -583,7 +559,7 @@ function renderSentenceList() {
                     audioPlayer.currentTime = times.start;
                 }
 
-                // 加入 50 毫秒延遲，確保 WaveSurfer 與 Audio 引擎同步後再播放
+                // 延遲 50ms，確保 WaveSurfer 與 Audio 同步後再播放
                 setTimeout(() => {
                     const playPromise = (typeof wavesurfer !== 'undefined' && wavesurfer) ? wavesurfer.play() : audioPlayer.play();
                     if (playPromise !== undefined) {
@@ -595,10 +571,10 @@ function renderSentenceList() {
             } 
         });
 
-        // 2. 修正「喇叭圖示 (播放該句)」的點擊播放事件
+        // 喇叭圖示：播放該句
         div.querySelector('.verify-btn').addEventListener('click', (e) => {
             e.stopPropagation();
-            // ★ 新增：這一句正在播放（圖示是暫停）→ 按下就暫停，行為與主播放鈕一致
+            // 這句正在播放（圖示為暫停）→ 按下即暫停
             if (e.currentTarget.classList.contains('is-playing')) {
                 if (typeof wavesurfer !== 'undefined' && wavesurfer) wavesurfer.pause(); else audioPlayer.pause();
                 verifyEndTime = null;
@@ -611,7 +587,7 @@ function renderSentenceList() {
             
             const times = getCalculatedTimes(label);
             if (times) {
-                // 計算最大播放時間
+                // 最大播放時間
                 let targetEnd = times.end;
                 if (document.getElementById('enableMaxPlayCheck')?.checked) {
                     const maxSec = parseFloat(document.getElementById('maxPlaySecondsInput')?.value) || 2;
@@ -624,7 +600,7 @@ function renderSentenceList() {
                 
                 if(typeof applyCurrentPlaybackSpeed === 'function') applyCurrentPlaybackSpeed(); 
 
-                // ★ 修正核心：加入跳轉鎖，並優先使用 wavesurfer.setTime
+                // 跳轉鎖；優先使用 wavesurfer.setTime
                 window.jumpLockTime = Date.now();
                 if (typeof wavesurfer !== 'undefined' && wavesurfer) {
                     wavesurfer.setTime(times.start);
@@ -646,10 +622,10 @@ function renderSentenceList() {
     });
     
     sentenceList.appendChild(fragment);
-    if (tableMode) requestAnimationFrame(alignLangTableHeader); // ★ 新增：表格表頭對齊
+    if (tableMode) requestAnimationFrame(alignLangTableHeader);
 
     if (mergeSelectedBtn) mergeSelectedBtn.style.display = selectedLabels.length > 1 ? 'inline-flex' : 'none';
     
     updateAllTimeDisplays(); if(typeof updateStickyOffsets === 'function') updateStickyOffsets();
-    updateVerifyBtnIcons(); // ★ 新增：整份列表重繪後，播放中那句的圖示要保持為暫停
+    updateVerifyBtnIcons();
 }

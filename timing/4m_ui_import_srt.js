@@ -1,15 +1,8 @@
-// ================= 4m_ui_import_srt.js: 匯入 SRT 字幕檔（另含 Audacity .txt / .tsv） =================
-// 問題原因：4f 的「確定載入」會把 .srt 檔轉交給隱藏的 #importSrtInput 並觸發 change，
-//           但整個專案裡沒有任何檔案替 #importSrtInput（以及 #importAudacityInput）綁定 change 監聽器，
-//           所以選了檔案、視窗也關了，卻什麼事都沒發生。本檔補上這兩個缺的監聽器。
-//
-// 行為（與匯入 JSON 一致）：
-//   - 目前已有資料時，先跳出「覆蓋警告」，確認後才匯入
-//   - 匯入前呼叫 saveState()，可用 Undo 還原
-//   - 音檔、專案標題、跨句範圍(mediaGroups)維持不動，只取代句子與時間標記
-//
-// 載入位置：index.html 中放在 4f 之後即可（建議放在 4l 後面）：
-//   <script src="4m_ui_import_srt.js"></script>
+// 4m_ui_import_srt.js: 匯入 SRT 字幕檔（另含 Audacity .txt / .tsv）
+// 4f 會把檔案轉交給 #importSrtInput / #importAudacityInput 並觸發 change，本檔負責綁定這兩個監聽器。
+// 行為與匯入 JSON 一致：已有資料時先跳覆蓋警告；匯入前 saveState()（可 Undo）；
+// 音檔、專案標題、跨句範圍(mediaGroups)不動，只取代句子與時間標記。
+// 載入順序：4f 之後（建議 4l 之後）。
 
 // ---------- SRT 解析（容錯：BOM、CRLF、缺序號、毫秒位數不足、. 取代 ,、<i> 標籤） ----------
 function parseSrtTimestamp(str) {
@@ -35,7 +28,7 @@ function parseSrtText(raw) {
         if (timeIdx === -1) return;
         const parts = lines[timeIdx].split('-->');
         if (parts.length < 2) return;
-        // 結束時間後面有時會接座標（如 X1:0 X2:100），只取第一段
+        // 結束時間後可能接座標（如 X1:0 X2:100），只取第一段
         const start = parseSrtTimestamp(parts[0]);
         const end = parseSrtTimestamp(parts[1].trim().split(/\s+/)[0]);
         if (start === null || end === null) return;
@@ -71,7 +64,7 @@ function applyImportedItems(items, sourceName) {
     sentenceTextMap = textMap;
     timeDataMap = timeMap;
     saveToStorage();
-    // ★ 匯入的字幕至少 3 句含分隔字元 → 自動啟用多語字幕並提示（下面會統一重繪，這裡不重繪）
+    // 至少 3 句含分隔字元時自動啟用多語字幕並提示（下面統一重繪，這裡不重繪）
     if (typeof autoEnableMultiLangIfNeeded === 'function') autoEnableMultiLangIfNeeded({ render: false });
 
     if (typeof renderSentenceList === 'function') renderSentenceList();
@@ -93,7 +86,7 @@ function importSubtitleFile(file, kind) {
             } else if (kind === 'txt') {
                 items = parseAudacityText(text);
             } else if (typeof parseAnyToStandard === 'function') {
-                // 9_batch_converter.js 的萬能解析器：tsv = 本系統匯出的 TSV
+                // 9_batch_converter.js 的解析器；tsv = 本系統匯出的 TSV
                 items = parseAnyToStandard(text, kind, file.name);
             }
         } catch (err) {
@@ -133,9 +126,8 @@ document.getElementById('importAudacityInput')?.addEventListener('change', (e) =
     handleSubtitleInput(e, ext === 'tsv' ? 'tsv' : 'txt');
 });
 
-// ================= ★ 貼上文字解析：支援直接貼上 SRT 文字 ★ =================
-// 做法：把 SRT 文字轉成系統既有的 TSV 格式（標籤<Tab>開始<Tab>結束<Tab>文字），
-//       之後完全沿用 executeParsing() 內「帶時間的 TSV → 整份覆寫」的既有流程。
+// ---------- 貼上文字解析 ----------
+// 把 SRT 轉成系統既有的 TSV（標籤<Tab>開始<Tab>結束<Tab>文字），沿用 executeParsing() 的整份覆寫流程。
 function looksLikeSrt(text) {
     return /\d+:\d{1,2}:\d{1,2}[,.]\d{1,3}\s*-->\s*\d+:\d{1,2}:\d{1,2}/.test(String(text || ''));
 }
@@ -146,10 +138,8 @@ function srtToTsv(text) {
         .join('\n');
 }
 
-// ================= ★ Audacity 標籤文字（.txt）：開始<Tab>結束<Tab>標籤文字 ★ =================
-// Audacity 匯出的標籤檔每行 = 開始秒數 \t 結束秒數 \t 文字；
-// 若有頻率範圍行（以反斜線 \ 開頭）一律略過。開始＝結束的「點標籤」，結束時間留空，
-// 之後由系統用下一個標記的開始時間自動推算。
+// ---------- Audacity 標籤文字（.txt）：開始<Tab>結束<Tab>文字 ----------
+// 以反斜線 \ 開頭的頻率範圍行略過。開始＝結束的「點標籤」結束時間留空，之後由系統用下一個標記的開始時間推算。
 const AUDACITY_LINE_RE = /^-?\d+(?:\.\d+)?\t-?\d+(?:\.\d+)?(?:\t|$)/;
 
 function looksLikeAudacity(text) {
@@ -181,7 +171,7 @@ function itemsToTsv(items) {
         .join('\n');
 }
 
-// ---------- 給貼上文字解析使用的統一入口（SRT 或 Audacity 都能辨識） ----------
+// 貼上文字解析的統一入口（SRT 或 Audacity）
 function looksLikeTimedText(text) {
     return looksLikeSrt(text) || looksLikeAudacity(text);
 }

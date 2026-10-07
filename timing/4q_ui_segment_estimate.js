@@ -1,14 +1,11 @@
-// ================= 4q_ui_segment_estimate.js: 自動斷句視窗「預估結果」 =================
-// 目的：按「開始分析」前，就能先看到這組設定大約會切出幾段，不必試切、反悔、再調。
-//   · 依靜音斷句：預估「句數」與「標記總長度」（含前後留白，並佔整段範圍的百分比）
-//   · 依等長時間：預估「段數」（智慧等長分割因會移動分割點，段數標示為「約」）
-// 做法：
-//   1. 完全不修改斷句引擎（2_audio_engine.js），只在視窗底部顯示一條預估列 #asEstimateBar。
-//   2. 靜音預估用與引擎相同的判斷（10ms 一格、Peak／RMS、最短靜音、最短有效句段、動態留白）。
-//      最花時間的「每 10ms 的音量表」只算一次並快取，之後拖動滑桿只是重跑一個很輕的迴圈。
-//   3. 自動依「全域／選取範圍」切換計算範圍（讀 targetAutoSegmentRange）。
-// 需求：index.html 需有 #autoSegmentModalOverlay、#asEstimateBar 與各設定欄位；放在 index.html 最後面載入即可。
-// 注意：這是「預估」。範圍起點對齊方式與引擎略有差異時，句數可能相差 1 句左右。
+// 4q_ui_segment_estimate.js: 自動斷句視窗「預估結果」
+// 在視窗底部 #asEstimateBar 顯示預估，不修改斷句引擎（2_audio_engine.js）：
+//   · 依靜音斷句：預估句數與標記總長度（含前後留白，並佔範圍的百分比）
+//   · 依等長時間：預估段數（智慧等長會移動分割點，故標示「約」）
+// 靜音預估沿用引擎判斷（10ms 一格、Peak／RMS、最短靜音、最短有效句段、動態留白）。
+// 每 10ms 音量表只算一次並快取，拖動滑桿只重跑輕量迴圈。範圍依 targetAutoSegmentRange 切換全域／選取範圍。
+// 相依：#autoSegmentModalOverlay、#asEstimateBar 與各設定欄位。放在 index.html 最後載入即可。
+// 注意：僅為預估，範圍起點對齊方式與引擎略有差異時，句數可能相差約 1 句。
 
 (function () {
     const modal = document.getElementById('autoSegmentModalOverlay');
@@ -33,7 +30,7 @@
         return !!sec && sec.style.display !== 'none';
     }
 
-    // 與引擎相同的分析資料來源（人聲強化啟用時，用壓低配樂的版本）
+    // 與引擎相同的分析來源（人聲強化啟用時用壓低配樂的版本）
     function getBuffer() {
         if (typeof wavesurfer === 'undefined' || !wavesurfer || !wavesurfer.getDecodedData) return null;
         const d = wavesurfer.getDecodedData();
@@ -41,7 +38,7 @@
         return (window.VocalEnhance ? VocalEnhance.getAnalysisBuffer(d) : d);
     }
 
-    // 目前要斷句的範圍：選取範圍模式用 targetAutoSegmentRange，否則整份音檔
+    // 斷句範圍：選取範圍模式用 targetAutoSegmentRange，否則整份音檔
     function getRange() {
         const dur = (typeof audioPlayer !== 'undefined' && audioPlayer && audioPlayer.duration) || 0;
         const r = (typeof targetAutoSegmentRange !== 'undefined') ? targetAutoSegmentRange : null;
@@ -49,7 +46,7 @@
         return { start: 0, end: dur, isRegion: false, dur };
     }
 
-    // ---------- 每 10ms 的音量表（快取；換音檔或換偵測模式才重算） ----------
+    // ---------- 每 10ms 音量表（換音檔或偵測模式才重算） ----------
     let lvCache = null;   // { buf, mode, step, sr, levels }
     let inflight = null;  // { buf, mode, promise }
 
@@ -90,7 +87,7 @@
         return p;
     }
 
-    // ---------- 依靜音斷句：重現引擎的判斷，算出句數與總長 ----------
+    // ---------- 依靜音斷句：重現引擎判斷，算出句數與總長 ----------
     function estimateSilence(cache, buf, range) {
         const { levels, step, sr } = cache;
         const mediaDuration = (typeof audioPlayer !== 'undefined' && audioPlayer.duration) || buf.duration;
@@ -128,7 +125,7 @@
             if (finalEnd - segmentStart >= minSegment) segs.push({ start: segmentStart, end: finalEnd });
         }
 
-        // 與引擎相同的動態留白（空間不夠就縮小），算出實際標記的總長度
+        // 與引擎相同的動態留白（空間不夠就縮小）
         const gapMargin = 0.005;
         let total = 0;
         for (let i = 0; i < segs.length; i++) {
@@ -154,7 +151,7 @@
         if (!smart) {
             count = Math.max(1, Math.ceil(span / L - 1e-9)); // 與引擎的 for 迴圈同結果
         } else {
-            // 智慧模式：先不移動分割點，只套用「結尾剩不到 25% 併入最後一段」的規則
+            // 智慧模式：不移動分割點，只套用「結尾不足 25% 併入最後一段」
             const minTail = L * 0.25;
             count = 1;
             let cursor = range.start;
@@ -186,7 +183,7 @@
         if (!(lvCache && lvCache.buf === buf && lvCache.mode === mode)) setBar('<span style="color:#888;">預估計算中…</span>');
         let cache;
         try { cache = await getLevels(buf, mode); } catch (e) { console.error(e); return setBar(''); }
-        if (my !== token || !modal.classList.contains('show') || isTimeTab()) return; // 期間設定又變了，丟掉舊結果
+        if (my !== token || !modal.classList.contains('show') || isTimeTab()) return; // 設定已變，丟掉舊結果
 
         const r = estimateSilence(cache, buf, getRange());
         if (!r.count) {
@@ -195,7 +192,7 @@
         const span = range.isRegion ? (range.end - range.start) : (range.dur || buf.duration);
         const pct = span > 0 ? Math.round(r.total / span * 100) : 0;
         let note = '';
-        // 全域模式、列表本來就有句子時，引擎只會套用到現有句數，先提醒
+        // 全域模式且列表已有句子時，引擎只會套用到現有句數
         if (!range.isRegion && typeof allLabelsOrdered !== 'undefined' && allLabelsOrdered.length > 0 && r.count > allLabelsOrdered.length) {
             note = `<div class="as-warn">列表僅 ${allLabelsOrdered.length} 句，多出 ${r.count - allLabelsOrdered.length} 段不套用</div>`;
         }

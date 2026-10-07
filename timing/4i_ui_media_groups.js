@@ -1,28 +1,23 @@
-// ================= 4i_ui_media_groups.js: 跨句圖片群組（mediaGroups）管理 UI =================
-// 階段四：拿掉獨立的「新增群組」表單區塊，改為「清單即表單」——
-//   每一列（無論是已建立的群組，還是尚未填時間的空白草稿列）都用同一套欄位：
-//   開始/結束秒數（旁邊各有一顆抓取目前播放位置的圓鈕）、備註、圖片網址。
-//   欄位失焦（focusout）時自動判斷存檔，不再需要「建立群組／套用範圍／套用網址」
-//   這幾顆按鈕。清單一律依開始時間排序，尚未填時間的空白草稿列固定排在最後面，
-//   按最下方「+ 新增群組」可以再生出下一張空白列。
+// ===== 4i_ui_media_groups.js: 跨句圖片群組（mediaGroups）管理 UI =====
+// 「清單即表單」：每一列（正式群組或尚未填時間的空白草稿列）使用同一套欄位——
+//   開始/結束秒數（旁有抓取目前播放位置的按鈕）、備註、圖片網址。
+//   欄位失焦（focusout）時自動判斷存檔。清單依開始時間排序，空白草稿列固定排最後，
+//   按最下方「+ 新增群組」可再產生下一張空白列。
 // 資料層（mediaGroups 陣列的存取函式）在 3a_media_groups_core.js。
 //
-// ★ 草稿（draft）機制：
-//   還沒有正式時間區間的空白列，只存在這個檔案的 mgDrafts 陣列裡（id 開頭是
-//   'draft-'），不會寫進 mediaGroups、也不會存進 localStorage。使用者一旦把
-//   開始/結束時間都填成合法區間（結束 > 開始），這一列就會「升級」成正式群組
-//   （呼叫 createMediaGroup 拿到 id 開頭 'grp-' 的正式記錄），並從草稿陣列移除。
-//   重新整理頁面後，尚未升級的空白草稿列會消失（本來就沒東西可保留），
-//   但已經升級的正式群組完全不受影響。
+// 草稿（draft）機制：
+//   尚無正式時間區間的空白列只存在本檔的 mgDrafts 陣列（id 開頭 'draft-'），
+//   不寫入 mediaGroups，也不存進 localStorage。開始/結束時間填成合法區間（結束 > 開始）
+//   後會「升級」成正式群組（createMediaGroup，id 開頭 'grp-'）並從草稿陣列移除。
+//   重新整理後未升級的草稿列會消失，正式群組不受影響。
 //
-// ★ 圖片改用網址參照（見 3a_media_groups_core.js 開頭說明），不再依賴 IndexedDB，
-//   所以這裡完全不用等待非同步讀檔，畫面可以同步渲染完成。
+// 圖片使用網址參照（見 3a_media_groups_core.js 開頭說明），不依賴 IndexedDB，可同步渲染。
 //
-// 需求：需在 1_globals.js、3a_media_groups_core.js 之後載入，
-//       且 index.html 需有 #mediaGroupsView、#mediaGroupsListContainer、
-//       #mgAddGroupBtn，以及「檢視」選單裡的 #toggleMediaGroupsViewBtn。
+// 依賴：1_globals.js、3a_media_groups_core.js 需先載入；
+//       index.html 需有 #mediaGroupsView、#mediaGroupsListContainer、#mgAddGroupBtn，
+//       以及「檢視」選單裡的 #toggleMediaGroupsViewBtn。
 
-// ================= ★ 小工具 ★ =================
+// ===== 小工具 =====
 
 // 屬性值（value="..."）專用的逃逸函式：escapeHtml()（見 4f_ui_import_search.js）
 // 沒有處理雙引號，直接塞進 value 屬性可能被使用者輸入的 " 提早截斷，這裡另外處理。
@@ -92,14 +87,12 @@ function mgNewDraft() {
     return { id: mgCreateDraftId(), startTime: '', endTime: '', note: '', imageUrl: '' };
 }
 
-// ================= ★ 草稿狀態（尚未升級成正式群組的空白列） ★ =================
+// ===== 草稿狀態（尚未升級成正式群組的空白列） =====
 
 let mgDrafts = [];
 
-// 只在「整個功能第一次被打開、而且完全沒有任何資料」時，自動送一張空白草稿列
-// 讓使用者能馬上開始填——之後不管使用者刪掉幾筆、清空到剩 0 筆，都不會再自動
-// 補列，一律要靠使用者自己按「+ 新增群組」。用 mgStarterDraftGiven 這個旗標
-// 確保這個「自動給第一列」的行為這個分頁只會發生一次。
+// 功能第一次開啟且完全沒有資料時，自動給一張空白草稿列；之後即使清空也不再自動補列，
+// 由使用者按「+ 新增群組」。mgStarterDraftGiven 旗標確保此行為在分頁內只發生一次。
 let mgStarterDraftGiven = false;
 
 function mgMaybeSeedStarterDraft() {
@@ -111,7 +104,7 @@ function mgMaybeSeedStarterDraft() {
     }
 }
 
-// ================= ★ 清單渲染 ★ =================
+// ===== 清單渲染 =====
 
 // item 可能是正式群組（來自 mediaGroups，id 開頭 'grp-'）或草稿列（id 開頭 'draft-'）。
 // 兩者共用同一套欄位版面，差別只在草稿列的 startTime/endTime 可能是空字串 ''（尚未填）。
@@ -121,30 +114,28 @@ function buildMediaGroupRowHtml(item, orderNum) {
     const hasEnd = item.endTime !== '' && item.endTime !== null && isFinite(item.endTime);
     const hasImage = !!(item.imageUrl && String(item.imageUrl).trim());
 
-    // 縮圖：有網址就直接嘗試載入，失敗（網址失效/跨網域擋掉）就 onerror 換回預設圖示。
-    // 有圖時縮圖可點放大檢視（不是跳轉——跳轉改成點時間輸入框處理，見下方）。
+    // 縮圖：有網址就嘗試載入，失敗（網址失效/跨網域擋掉）時 onerror 換回預設圖示；
+    // 有圖時點縮圖放大檢視（跳轉改由點時間輸入框處理）。
     const thumbHtml = hasImage
         ? `<img src="${mgEscapeAttr(item.imageUrl)}" alt="群組圖片" style="width:100%; height:100%; object-fit:cover;" onerror="this.parentElement.innerHTML='<span class=\\'material-icons\\' style=\\'font-size:28px;color:#EF5350;\\'>broken_image</span>';">`
         : `<span class="material-icons" style="font-size:28px;">image</span>`;
     const thumbClass = hasImage ? 'mg-thumb mg-thumb-viewable' : 'mg-thumb';
     const thumbTitle = hasImage ? ' title="點擊放大檢視"' : '';
 
-    // 排序編號：疊在縮圖左上角的小圓形徽章，只有正式群組才有（依目前開始時間排序後的順序）
+    // 排序編號徽章：疊在縮圖左上角，只有正式群組才有
     const badgeHtml = (orderNum !== null && orderNum !== undefined)
         ? `<span class="mg-order-badge">${orderNum}</span>`
         : '';
 
     const hasRange = hasStart && hasEnd;
-    // 還沒填時間時，用淡灰色的「＿＿:＿＿ ~ ＿＿:＿＿」佔位樣式，而不是完全空白，
-    // 讓使用者一眼看出「這裡等一下會顯示分:秒」。填完之後變深色實際數值。
+    // 未填時間時顯示淡灰色「＿＿:＿＿ ~ ＿＿:＿＿」佔位，填完後換成實際數值
     const rangeText = hasRange ? mgRangeLabel(item.startTime, item.endTime) : '__:__ ~ __:__';
     const rangeColor = hasRange ? '#666' : '#bbb';
     const startVal = hasStart ? Number(item.startTime).toFixed(1) : '';
     const endVal = hasEnd ? Number(item.endTime).toFixed(1) : '';
 
-    // 精簡版版面：縮圖 + 兩行內容（第一行：時間／分秒顯示／刪除；第二行：備註／圖片網址／清除圖片）。
-    // 「跳至此處」不再是獨立按鈕或縮圖點擊，改成直接點「開始(秒)」/「結束(秒)」輸入框本身：
-    // 點開頭就跳到開頭、點結尾就跳到結尾，跟編輯欄位是同一個動作，不需要額外元件。
+    // 版面：縮圖 + 兩行內容（第一行：時間／分秒顯示／刪除；第二行：備註／圖片網址／清除圖片）。
+    // 點「開始(秒)」/「結束(秒)」輸入框即跳至對應時間。
     return `
     <div class="mg-row" data-id="${item.id}" style="position:relative; display:flex; gap:10px; align-items:flex-start; padding:12px 44px 12px 12px; border:1px solid #EEE; border-radius:8px; margin-bottom:10px; background:#FAFAFA;">
         <div class="${thumbClass}"${thumbTitle} style="position:relative; width:64px; height:64px; flex-shrink:0; border-radius:6px; overflow:hidden; background:#E0E0E0; display:flex; align-items:center; justify-content:center; color:#9E9E9E;">
@@ -186,22 +177,19 @@ function renderMediaGroupsList() {
     }
     if (emptyHint) emptyHint.style.display = 'none';
 
-    // 正式群組（依開始時間排序）在前，編號 1、2、3...跟著這個順序走；
-    // 尚未填時間的空白草稿列固定排在最後面、不編號，依建立先後排列。
+    // 正式群組依開始時間排序並編號；空白草稿列固定排最後、不編號，依建立先後排列
     const html = groups.map((g, i) => buildMediaGroupRowHtml(g, i + 1)).join('')
         + mgDrafts.map(d => buildMediaGroupRowHtml(d, null)).join('');
     container.innerHTML = html;
-    // ★ 列表被重建，搜尋面板開著時要重掃並補畫高亮
+    // 列表重建後，若搜尋面板開著需重掃並補畫高亮
     if (typeof mgSearchRefreshIfOpen === 'function') mgSearchRefreshIfOpen();
 }
 
-// ================= ★ 欄位自動存檔核心 ★ =================
+// ===== 欄位自動存檔核心 =====
 
-// 讀取某一列目前畫面上的欄位值，判斷要：
-//   1. 草稿列：時間區間一旦合法就升級成正式群組（createMediaGroup），
-//      否則只把目前輸入暫存在 mgDrafts，不落地存檔。
-//   2. 正式群組：只有值真的改變時才呼叫對應的更新函式並重新整頁渲染
-//      （重新渲染才會套用最新排序；沒有變動就不重繪，避免使用者編輯到一半被打斷）。
+// 讀取某一列目前的欄位值並判斷：
+//   草稿列：時間區間一合法就升級成正式群組（createMediaGroup），否則只暫存在 mgDrafts。
+//   正式群組：值真的改變才呼叫更新函式並重新渲染（套用最新排序；沒變動不重繪，避免打斷編輯）。
 function mgProcessRow(row) {
     if (!row) return;
     const id = row.dataset.id;
@@ -219,8 +207,7 @@ function mgProcessRow(row) {
     const en = bothFilled ? parseFloat(endRaw) : NaN;
     const rangeValid = bothFilled && isFinite(s) && isFinite(en) && en > s;
 
-    // 只有兩個欄位都填了、但區間不合法（結束 <= 開始）時才標紅提示；
-    // 還沒填完（例如只填了開始）不算錯誤，不要一直閃紅框干擾輸入。
+    // 兩欄都填但區間不合法（結束 <= 開始）才標紅；只填一半不算錯誤
     const showError = bothFilled && !rangeValid;
     startInput?.classList.toggle('mg-input-error', showError);
     endInput?.classList.toggle('mg-input-error', showError);
@@ -234,14 +221,14 @@ function mgProcessRow(row) {
         draft.note = note;
         draft.imageUrl = imageUrl;
         if (!bothFilled) {
-            // 使用者可能還在填、或清空了其中一格：暫存目前值，不升級也不重繪
+            // 尚未填完：暫存目前值，不升級也不重繪
             draft.startTime = startRaw === '' ? '' : draft.startTime;
             draft.endTime = endRaw === '' ? '' : draft.endTime;
             return;
         }
-        if (!rangeValid) return; // 兩格都填了但不合法，先不升級，等使用者修正
+        if (!rangeValid) return; // 區間不合法，等使用者修正
 
-        // 時間合法：升級成正式群組
+        // 升級成正式群組
         const record = createMediaGroup(s, en, note);
         if (!record) return;
         if (imageUrl.trim()) setMediaGroupImageUrl(record.id, imageUrl);
@@ -251,7 +238,7 @@ function mgProcessRow(row) {
         return;
     }
 
-    // 正式群組：只在真的有變動時才寫入＋重繪
+    // 正式群組：有變動才寫入並重繪
     const g = findMediaGroupById(id);
     if (!g) return;
     let changed = false;
@@ -270,18 +257,17 @@ function mgProcessRow(row) {
     if (changed) renderMediaGroupsList();
 }
 
-// ================= ★ 清單內的操作（事件委派，只需綁定一次） ★ =================
+// ===== 清單內的操作（事件委派，只綁定一次） =====
 
 const mgListContainer = document.getElementById('mediaGroupsListContainer');
 
-// 欄位失焦（不管是開始/結束/備註/圖片網址）就交給 mgProcessRow 判斷是否存檔。
-// 用 focusout（會冒泡）而不是 blur，才能用事件委派一次綁定整個容器。
+// 任一欄位失焦即交給 mgProcessRow 判斷是否存檔；用會冒泡的 focusout 才能委派到整個容器。
 mgListContainer?.addEventListener('focusout', (e) => {
     if (!e.target.matches('.mg-start-input, .mg-end-input, .mg-note-input, .mg-image-url-input')) return;
     mgProcessRow(e.target.closest('.mg-row'));
 });
 
-// 在這幾個欄位按 Enter，等同直接離開欄位（觸發上面的 focusout 自動存檔)
+// 在欄位按 Enter 等同離開欄位（觸發 focusout 自動存檔）
 mgListContainer?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.target.matches('.mg-start-input, .mg-end-input, .mg-note-input, .mg-image-url-input')) {
         e.preventDefault();
@@ -295,7 +281,7 @@ mgListContainer?.addEventListener('click', (e) => {
     const id = row.dataset.id;
     const isDraft = id.startsWith('draft-');
 
-    // 1. 抓取目前播放位置到開始/結束欄位
+    // 抓取目前播放位置到開始/結束欄位
     if (e.target.closest('.mg-grab-start-btn') || e.target.closest('.mg-grab-end-btn')) {
         const targetInput = e.target.closest('.mg-grab-start-btn')
             ? row.querySelector('.mg-start-input')
@@ -310,21 +296,21 @@ mgListContainer?.addEventListener('click', (e) => {
         return;
     }
 
-    // 2. 點縮圖＝放大檢視圖片（不跳轉——跳轉改成點開始/結束輸入框，見下方 focus 委派）
+    // 點縮圖：放大檢視圖片
     if (e.target.closest('.mg-thumb-viewable')) {
         const url = row.querySelector('.mg-image-url-input')?.value || '';
         if (url.trim()) mgOpenLightbox(url.trim());
         return;
     }
 
-    // 2b. 點「開始(秒)」/「結束(秒)」輸入框＝跳至對應時間（單純點擊、不影響照常編輯數字）
+    // 點開始/結束輸入框：跳至對應時間（不影響編輯）
     if (e.target.matches('.mg-start-input') || e.target.matches('.mg-end-input')) {
         const val = parseFloat(e.target.value);
         if (isFinite(val)) mgJumpTo(val);
         return;
     }
 
-    // 3. 清除圖片網址（保留群組本身／草稿列）
+    // 清除圖片網址（保留群組／草稿列）
     if (e.target.closest('.mg-clear-image-btn')) {
         const urlInput = row.querySelector('.mg-image-url-input');
         if (urlInput) urlInput.value = '';
@@ -341,7 +327,7 @@ mgListContainer?.addEventListener('click', (e) => {
         return;
     }
 
-    // 4. 刪除整列（草稿列直接移除；正式群組要先確認）
+    // 刪除整列（草稿列直接移除；正式群組先確認）
     if (e.target.closest('.mg-delete-btn')) {
         if (isDraft) {
             mgDrafts = mgDrafts.filter(d => d.id !== id);
@@ -366,44 +352,43 @@ mgListContainer?.addEventListener('click', (e) => {
     }
 });
 
-// ================= ★「+ 新增群組」：再生一張空白草稿列 ★ =================
+// ===== 「+ 新增群組」：產生一張空白草稿列 =====
 
 document.getElementById('mgAddGroupBtn')?.addEventListener('click', () => {
     mgDrafts.push(mgNewDraft());
     renderMediaGroupsList();
-    // 體驗優化：新列出現後直接把游標放到它的「開始」欄位，不用再點一次
+    // 新列出現後游標直接放到「開始」欄位
     const rows = document.querySelectorAll('#mediaGroupsListContainer .mg-row');
     const lastRow = rows[rows.length - 1];
     lastRow?.querySelector('.mg-start-input')?.focus();
 });
 
-// ================= ★ 檢視模式切換：跨句圖片群組 ★ =================
-// #sentenceList（單句列表）、#scriptEditorContainer（全文模式）、#mediaGroupsView
-// （跨句範圍）三個容器互斥顯示，直接佔用列表本身的空間，不疊視窗。
-// 從「列表工具列 → 編輯 → 跨句範圍」或側邊欄同名按鈕切換進入，
-// 再點一次（或側邊欄按鈕）即可返回單句列表。
+// ===== 檢視模式切換：跨句圖片群組 =====
+// #sentenceList（單句列表）、#scriptEditorContainer（全文模式）、#mediaGroupsView（跨句範圍）
+// 三個容器互斥顯示，佔用列表本身的空間。從「編輯 → 跨句範圍」或側邊欄同名按鈕進入，
+// 再點一次即返回單句列表。
 
 let isMediaGroupsView = false;
 
-// 這個模式下不適用的檢視項目，進入時先隱藏、離開時再復原
+// 此模式下不適用的檢視項目：進入時隱藏、離開時復原
 const MG_VIEW_HIDE_MENU_IDS = ['toggleScriptModeBtn', 'sortMenuToggleBtn'];
 
 function enterMediaGroupsView() {
     if (isMediaGroupsView) return;
 
-    // 若目前是全文模式，先切回單句，避免三個容器同時搶顯示
+    // 若在全文模式，先切回單句，避免多個容器同時顯示
     if (typeof isScriptMode !== 'undefined' && isScriptMode) {
         document.getElementById('toggleScriptModeBtn')?.click();
     }
 
-    // ★ 進入前先關閉搜尋面板，避免單句列表的高亮/命中狀態殘留（必須在旗標設為 true 之前）
+    // 先關閉搜尋面板，避免單句列表的命中狀態殘留（須在旗標設為 true 之前）
     if (document.getElementById('batchReplaceModalOverlay')?.classList.contains('show')) {
         document.getElementById('batchReplaceCancelBtn')?.click();
     }
 
     isMediaGroupsView = true;
 
-    // ★ 編輯選單只保留此模式可用的項目（尋找取代、返回列表），其餘由 CSS 隱藏（見 style.css .mg-mode）
+    // 編輯選單只保留尋找取代與返回列表，其餘由 CSS 隱藏（見 style.css .mg-mode）
     document.getElementById('editMenu')?.classList.add('mg-mode');
 
     const sentenceListEl = document.getElementById('sentenceList');
@@ -413,11 +398,11 @@ function enterMediaGroupsView() {
     if (scriptEditorEl) scriptEditorEl.style.display = 'none';
     if (mediaGroupsViewEl) mediaGroupsViewEl.style.display = 'flex';
 
-    // 標題底線跟全文模式一樣先隱藏，避免雙重線條的視覺干擾
+    // 隱藏標題底線，避免雙重線條
     const listHeaderContainer = document.getElementById('listHeaderContainer');
     if (listHeaderContainer) listHeaderContainer.style.borderBottom = 'none';
 
-    // 下次點擊選單項目時顯示「返回列表」
+    // 選單項目改為「返回列表」
     const mgModeText = document.getElementById('mediaGroupsViewModeText');
     if (mgModeText) mgModeText.textContent = '返回列表';
 
@@ -440,13 +425,13 @@ function enterMediaGroupsView() {
 function exitMediaGroupsView() {
     if (!isMediaGroupsView) return;
 
-    // ★ 離開前關閉搜尋面板並清掉群組欄位高亮（必須在旗標還是 true 時做）
+    // 先關閉搜尋面板並清掉群組欄位高亮（須在旗標仍為 true 時）
     if (document.getElementById('batchReplaceModalOverlay')?.classList.contains('show')) {
         document.getElementById('batchReplaceCancelBtn')?.click();
     }
     const mgSearchHintEl = document.getElementById('langEditSearchHint');
     if (mgSearchHintEl) mgSearchHintEl.style.display = 'none';
-    const mgScopeSelEl = document.getElementById('mgSearchScopeSel'); // ★ 新增：範圍選單只在群組模式顯示
+    const mgScopeSelEl = document.getElementById('mgSearchScopeSel'); // 範圍選單只在群組模式顯示
     if (mgScopeSelEl) mgScopeSelEl.style.display = 'none';
     mgSearchClearPaint();
 
@@ -458,7 +443,7 @@ function exitMediaGroupsView() {
     if (mediaGroupsViewEl) mediaGroupsViewEl.style.display = 'none';
     if (sentenceListEl) sentenceListEl.style.display = 'flex';
 
-    // 恢復標題的淺藍色底線
+    // 恢復標題底線
     const listHeaderContainer = document.getElementById('listHeaderContainer');
     if (listHeaderContainer) listHeaderContainer.style.borderBottom = '2px solid #E0F2F1';
 
@@ -493,12 +478,12 @@ document.getElementById('toggleMediaGroupsViewBtn')?.addEventListener('click', (
     toggleMediaGroupsView();
 });
 
-// ================= ★ 跨句範圍模式專用：尋找與取代（範圍選單：全部／開始／結束／備註／網址） ★ =================
+// ===== 跨句範圍模式：尋找與取代（範圍：全部／開始／結束／備註／網址） =====
 // 搜尋引擎（面板、上下筆、命中計數）沿用 4f_ui_import_search.js，isMediaGroupsView 為 true 時
 // 4f 會把 掃描／高亮／捲動／單筆取代／全部取代 轉交給下面的 mgSearch* 函式。
 // 範圍由面板上的「範圍」選單決定（全部＝四個欄位都搜）：開始、結束、備註、網址。
 //   - 不碰句子文字、時間標記；尚未升級成正式群組的空白草稿列不納入（它們不在 mediaGroups 資料裡）。
-//   - ★ 時間欄（開始／結束）：比對的是畫面上顯示的文字（秒，小數 1 位，例如 12.3）。
+//   - 時間欄（開始／結束）：比對的是畫面上顯示的文字（秒，小數 1 位，例如 12.3）。
 //     取代後必須是有效數字（≥ 0）且「結束 > 開始」才會寫入，否則略過並提示；
 //     同一群組的開始、結束同時被取代時，會一起檢查區間再寫入（避免先改一邊就被判不合法）。
 // 命中資料格式：{ id, field: 'startTime' | 'endTime' | 'note' | 'imageUrl', start, end }
@@ -647,7 +632,7 @@ function mgSearchWriteField(id, field, newText) {
     return false;
 }
 
-// ★ 新增：時間欄取代的共用寫入。edits = { startTime?: 新文字, endTime?: 新文字 }，
+// 時間欄取代的共用寫入。edits = { startTime?: 新文字, endTime?: 新文字 }，
 // 沒被取代的那一邊沿用原值；兩邊一起檢查「有效數字且結束 > 開始」，通過才寫入。
 function mgSearchWriteTimes(id, edits) {
     const g = findMediaGroupById(id);
@@ -733,12 +718,12 @@ function mgSearchReplaceAll() {
     const done = count - skipped;
     if (skipped > 0) showToast(`（${mgSearchScopeLabel()}）已替換 ${done} 處；另有 ${skipped} 處時間取代後不合法，已略過`, done > 0 ? 'normal' : 'error');
     else showToast(`替換完成！（${mgSearchScopeLabel()}）共替換了 ${count} 處。`, 'success');
-    // ★ 修改：取代後不再清空尋找框，只重新掃描（命中數會依取代結果更新）
+    // 取代後保留尋找框內容，只重新掃描
     searchEngine.currentIndex = -1;
     mgSearchScan();
 }
 
-// ★ 新增：範圍選單（全部／開始／結束／備註／網址）切換時重新掃描
+// 範圍選單切換時重新掃描
 document.getElementById('mgSearchScopeSel')?.addEventListener('change', (e) => {
     mgSearchScope = e.target.value;
     searchEngine.currentIndex = -1;

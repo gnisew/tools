@@ -1,71 +1,46 @@
-// ================= 4g_ui_export.js: 模組化匯出引擎、單句/全文模式切換 =================
-// 本檔案由 4_ui_events.js 拆分而來（原始第 3183-3444 行），內容未經改寫，僅搬移。
-// 依賴：1_globals.js 中定義的 DOM 參照與全域狀態變數，需在此檔之前載入。
+// ===== 4g_ui_export.js: 模組化匯出引擎、單句/全文模式切換 =====
+// 依賴：1_globals.js 的 DOM 參照與全域狀態變數，需先載入。
 
-// ================= ★ 全新設計：模組化匯出引擎 ★ =================
+// ===== 模組化匯出引擎 =====
 const openExportModalBtn = document.getElementById('openExportModalBtn');
 const exportModalOverlay = document.getElementById('exportModalOverlay');
 const closeExportModalBtn = document.getElementById('closeExportModalBtn');
 const modalOutputArea = document.getElementById('modalOutputArea');
 const exportTextFormatSelect = document.getElementById('exportTextFormatSelect');
 
-// 開啟與關閉視窗 (保留文字不清空，讓使用者方便回頭複製)
+// 開啟與關閉視窗（保留文字不清空，方便回頭複製）
 openExportModalBtn?.addEventListener('click', () => {
     exportModalOverlay.classList.add('show');
     document.body.style.overflow = 'hidden'; 
-    populateExportLangSelect(); // ★ 新增：每次開啟視窗都重新檢查是否要顯示語言選單
+    populateExportLangSelect(); // 每次開啟視窗都重新檢查是否要顯示語言選單
 });
 closeExportModalBtn?.addEventListener('click', () => {
     exportModalOverlay.classList.remove('show');
     document.body.style.overflow = ''; 
 });
 
-// ================= ★ 新增：多語言字幕匯出語言選擇 ★ =================
-// 只有在設定中啟用「多語字幕」時才會顯示這個選單；未啟用時完全不影響原本行為（舊專案相容）。
+// ===== 多語言字幕匯出語言選擇 =====
+// 只有啟用「多語字幕」時才顯示此選單；未啟用時不影響匯出行為。
 const exportLangSelectWrap = document.getElementById('exportLangSelectWrap');
 const exportLangSelect = document.getElementById('exportLangSelect');
 
 // 開啟匯出視窗時呼叫：依目前是否啟用多語字幕，決定要不要顯示選單，並動態產生語言選項
 function populateExportLangSelect() {
-    if (!exportLangSelect || !exportLangSelectWrap) return;
-    if (typeof getLangMultiEnabled !== 'function' || !getLangMultiEnabled()) {
-        exportLangSelectWrap.style.display = 'none';
-        return;
-    }
-    exportLangSelectWrap.style.display = '';
-
-    const prevValue = exportLangSelect.value; // 記住使用者上次選的語言，重開視窗時盡量保留
-    const count = typeof getLangCount === 'function' ? getLangCount() : 1;
-
-    let optionsHtml = '<option value="all">全部語言（原始格式，含分隔字元）</option>';
-    for (let i = 0; i < count; i++) {
-        const name = typeof getLangName === 'function' ? getLangName(i) : `語言${i + 1}`;
-        optionsHtml += `<option value="${i}">${name}</option>`;
-    }
-    exportLangSelect.innerHTML = optionsHtml;
-
-    const stillValid = Array.from(exportLangSelect.options).some(opt => opt.value === prevValue);
-    if (stillValid) exportLangSelect.value = prevValue;
+    populateLangExportSelect(exportLangSelectWrap, exportLangSelect); // 共用邏輯在 1c_languages.js
 }
 
 // 依目前「匯出語言」選單的選擇，取出某一句實際要匯出的文字。
-// 未啟用多語字幕、或選單選到「全部語言」時：回傳原始整串文字（跟舊行為完全一樣）。
+// 未啟用多語字幕、或選到「全部語言」時，回傳原始整串文字。
 // 選到特定語言時：呼叫 1c_languages.js 的 getLang() 只取出該語言。
-// ★ 注意：JSON「專案」匯出（generateJSON）刻意不透過這個函式，因為 JSON 是完整專案備份，
+// 注意：JSON「專案」匯出（generateJSON）刻意不透過這個函式，因為 JSON 是完整專案備份，
 //   必須保留所有語言的原始資料，才能之後重新匯入時還原多語言內容。
 function getExportText(label) {
-    const raw = sentenceTextMap[label] || '';
-    if (typeof getLangMultiEnabled !== 'function' || !getLangMultiEnabled()) return raw;
-    const sel = exportLangSelect ? exportLangSelect.value : 'all';
-    if (!sel || sel === 'all') return raw;
-    const idx = parseInt(sel, 10);
-    return typeof getLang === 'function' ? getLang(raw, idx) : raw;
+    return pickExportLang(sentenceTextMap[label] || '', exportLangSelect);
 }
 
 // 1. 各格式產生器 (Generators)
-// TSV / SRT / Audacity 的實際字串格式，統一交給 1_globals.js 的 buildStandardToAny()
-// 產生（跟批次轉檔 9_batch_converter.js 共用同一份邏輯，不再各寫一份）。
-// 這裡只負責：從目前的全域資料組出標準 items 陣列，以及沒有資料時的提示文字。
+// TSV / SRT / Audacity 的字串格式統一由 1_globals.js 的 buildStandardToAny() 產生
+// （與 9_batch_converter.js 共用）。這裡只負責組出標準 items 陣列與無資料時的提示。
 function buildItemsFromCurrentProject(requireTime) {
     const labels = requireTime
         ? allLabelsOrdered.filter(lbl => timeDataMap[lbl] !== undefined)
@@ -76,7 +51,7 @@ function buildItemsFromCurrentProject(requireTime) {
             label,
             start: times ? times.start : '',
             end: times ? times.end : null,
-            text: getExportText(label) // ★ 修改：原本是 sentenceTextMap[label] || ""，改為依匯出語言選單取值
+            text: getExportText(label) // 依匯出語言選單取值
         };
     });
 }
@@ -100,7 +75,7 @@ function generateAudacity() {
 
 function generateJSON() {
     const projectData = {
-        version: "1.1", // ★ 修改：1.0 → 1.1（新增 mediaGroups 欄位）
+        version: "1.1", // 1.1 起包含 mediaGroups 欄位
         title: localStorage.getItem('tagger_projectTitle') || document.getElementById('mainTitleDisplay')?.textContent || "",
         audioUrl: localStorage.getItem('tagger_audioUrl') || "",
         localFileName: localStorage.getItem('tagger_localFileName') || "",
@@ -108,15 +83,14 @@ function generateJSON() {
         allLabelsOrdered: allLabelsOrdered,
         sentenceTextMap: sentenceTextMap,
         timeDataMap: timeDataMap,
-        // ★ 新增：記錄是否啟用多語字幕與分隔字元，匯入時才能還原成一樣的顯示狀態
+        // 記錄多語字幕開關與分隔字元，匯入時才能還原相同的顯示狀態
         settings: {
             currentParseMode: currentParseMode,
             currentSortMode: currentSortMode,
             langMultiEnabled: (typeof getLangMultiEnabled === 'function') ? getLangMultiEnabled() : false,
             langDelimiter: (typeof getLangDelimiter === 'function') ? getLangDelimiter() : '|'
         },
-        // ★ 新增：跨句圖片群組。圖片為網址參照（imageUrl），JSON 本身就完整攜帶圖片資訊，
-        //   換瀏覽器／換電腦匯入也不會遺失縮圖。
+        // 跨句圖片群組；圖片為網址參照（imageUrl），換瀏覽器／電腦匯入也不會遺失縮圖
         mediaGroups: (typeof mediaGroups !== 'undefined' && Array.isArray(mediaGroups)) ? mediaGroups : []
     };
     return JSON.stringify(projectData, null, 2);
@@ -135,7 +109,7 @@ function downloadExportFile(content, filename, mimeType = 'text/plain') {
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 
-// 2. 上方直接下載按鈕綁定
+// 上方直接下載按鈕
 document.getElementById('exportTsvBtn')?.addEventListener('click', () => {
     const content = generateTSV();
     if(content) { downloadExportFile(content, getProjectFilename('tsv')); showToast('TSV 下載成功！', 'success'); }
@@ -154,8 +128,7 @@ document.getElementById('exportJsonBtn')?.addEventListener('click', () => {
 });
 document.getElementById('exportAudioZipBtn')?.addEventListener('click', () => closeExportModalBtn.click());
 
-
-// 3. 下方產生純文字預覽邏輯
+// 下方產生純文字預覽
 document.getElementById('exportTextBtn')?.addEventListener('click', () => {
     const format = exportTextFormatSelect.value;
     let result = "";
@@ -165,7 +138,7 @@ document.getElementById('exportTextBtn')?.addEventListener('click', () => {
     else if (format === 'audacity') result = generateAudacity();
     else if (format === 'json') result = generateJSON();
     else {
-        // 處理一般文字排版 (沿用原本 executeExportText 的邏輯)
+        // 一般文字排版
         if (allLabelsOrdered.length === 0) return showToast('目前沒有任何句子！', 'error');
         let paragraphs = []; let currentLetter = ''; let currentPara = [];
         allLabelsOrdered.forEach(label => {
@@ -175,8 +148,7 @@ document.getElementById('exportTextBtn')?.addEventListener('click', () => {
         });
         if (currentPara.length > 0) paragraphs.push(currentPara);
 
-        // ★ 修改：以下五種格式原本都直接讀 sentenceTextMap[label] || ''，
-        //   現在改用 getExportText(label)，未啟用多語字幕或選「全部語言」時行為完全不變。
+        // 文字取自 getExportText(label)，會依匯出語言選單取值
         if (format === 'para') result = paragraphs.map(para => para.map(label => getExportText(label)).join('')).join('\n');
         else if (format === 'para-slash-n') result = paragraphs.map(para => para.map(label => getExportText(label)).join('')).join('\\n');
         else if (format === 'sent-no-para') result = allLabelsOrdered.map(label => getExportText(label)).join('\n');
@@ -217,11 +189,8 @@ document.getElementById('modalClearExportBtn')?.addEventListener('click', () => 
     if (modalOutputArea) modalOutputArea.value = '';
     showToast('文字已清除', 'normal');
 });
-// =========================================================================
-// ================= ★ 切換單句/全文模式（唯一綁定處） ★ =================
-// 註：4b_ui_audio_loader.js 與 4e_ui_script_mode.js 原本也各綁了一份幾乎相同的
-// click 監聽器（其中 4b 那份按鈕文字邏輯還是反的），過去靠 cloneNode 把舊監聽器
-// 洗掉才能正常運作。三份邏輯已整併成這裡唯一一份，不再需要 cloneNode 技巧。
+
+// ===== 切換單句/全文模式（唯一綁定處，其他檔案不得重複綁定） =====
 const toggleScriptModeBtnMain = document.getElementById('toggleScriptModeBtn');
 if (toggleScriptModeBtnMain) {
     toggleScriptModeBtnMain.addEventListener('click', (e) => {
@@ -229,18 +198,18 @@ if (toggleScriptModeBtnMain) {
         
         isScriptMode = !isScriptMode;
         
-        // 點擊後自動關閉編輯選單（此按鈕已從「檢視」移到「編輯」選單）
+        // 關閉編輯選單
         document.getElementById('editMenu')?.classList.remove('show');
         
-        // ★ 取得列表標題容器，準備動態調整底線
+        // 列表標題容器（切換模式時調整底線）
         const listHeaderContainer = document.getElementById('listHeaderContainer');
         
         if (isScriptMode) {
-            // 【切換為全文大編輯框】
+            // 切換為全文模式
             document.getElementById('sentenceList').style.display = 'none';
             document.getElementById('scriptEditorContainer').style.display = 'flex';
             
-            // ★ 隱藏標題底線，解決雙重線條的視覺干擾
+            // 隱藏標題底線，避免雙重線條
             if (listHeaderContainer) listHeaderContainer.style.borderBottom = 'none';
             
             if (typeof saveState === 'function') saveState(); 
@@ -252,11 +221,11 @@ if (toggleScriptModeBtnMain) {
             toHide.forEach(id => { if(document.getElementById(id)) document.getElementById(id).style.display = 'none'; });
             
         } else {
-            // 【切換回單句列表】
+            // 切換回單句列表
             document.getElementById('sentenceList').style.display = 'flex';
             document.getElementById('scriptEditorContainer').style.display = 'none';
             
-            // ★ 恢復標題的淺藍色底線
+            // 恢復標題底線
             if (listHeaderContainer) listHeaderContainer.style.borderBottom = '2px solid #E0F2F1';
             
             if (typeof renderSentenceList === 'function') renderSentenceList();
@@ -267,7 +236,7 @@ if (toggleScriptModeBtnMain) {
             toShow.forEach(id => { if(document.getElementById(id)) document.getElementById(id).style.display = 'flex'; });
         }
         
-        // UI 外觀 (鎖定/解鎖) 連動
+        // 依編輯鎖定狀態調整全文編輯框外觀
         const scriptTextarea = document.getElementById('scriptTextarea');
         const editorContainer = document.getElementById('scriptEditorContainer');
         if (isScriptMode) {
@@ -275,28 +244,28 @@ if (toggleScriptModeBtnMain) {
             if (editorContainer) editorContainer.style.background = isEditMode ? '#ffffff' : '#f8f9fa';
         }
 
-        // 核心修復：切換模式後，給予 100ms 讓畫面排版完成，然後執行追蹤與高亮
+        // 等排版完成後再重新掃描高亮並追蹤視角
         setTimeout(() => {
-            // 1. 強制重新掃描搜尋高亮
+            // 重新掃描搜尋高亮
             if (typeof updateSearchMatches === 'function') {
                 updateSearchMatches();
             }
 
-            // 2. 視角錨點追蹤 (View Tracking)
+            // 視角追蹤：捲到目前句子
             if (currentActiveLabel) {
                 if (isScriptMode) {
-                    // 【單句 -> 全文】：捲動大編輯框，讓目標行號出現在視野中
+                    // 單句 -> 全文：捲動大編輯框到目標行
                     const targetGutter = document.getElementById(`gutter-${currentActiveLabel}`);
                     if (targetGutter && scriptTextarea) {
-                        // 將捲動軸移至該行，減去 40px 的緩衝空間避免貼齊頂部太有壓迫感
+                        // 保留 40px 上方緩衝
                         scriptTextarea.scrollTop = targetGutter.offsetTop - 40;
                         
-                        // 將透明高亮背板同步捲動
+                        // 同步高亮背板捲動
                         const backdrop = document.getElementById('scriptBackdrop');
                         if (backdrop) backdrop.scrollTop = scriptTextarea.scrollTop;
                     }
                 } else {
-                    // 【全文 -> 單句】：讓網頁捲動到對應的句子區塊
+                    // 全文 -> 單句：捲到對應句子
                     const itemDiv = document.getElementById(`item-${currentActiveLabel}`);
                     if (itemDiv && typeof smartScrollTo === 'function') {
                         smartScrollTo(itemDiv);
@@ -304,7 +273,7 @@ if (toggleScriptModeBtnMain) {
                 }
             }
             
-            // 3. 確保如果正在搜尋，跳回當前的搜尋目標
+            // 搜尋中則跳回目前命中
             if (typeof scrollToCurrentMatch === 'function') {
                 scrollToCurrentMatch();
             }

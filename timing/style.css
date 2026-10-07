@@ -1,64 +1,60 @@
-/* ================= 烏衣行打點時間 - 樣式表 (整理純淨版) ================= */
+/* ===== 烏衣行打點時間 樣式表 ===== */
+:root {
+    --sentence-font-size: 16px;
+    --color-p0: #00897B; --color-p1: #1E88E5; --color-p2: #43A047; --color-p3: #F4511E; --color-p4: #8E24AA;
+    --color-p5: #D81B60; --color-p6: #E53935; --color-p7: #3949AB; --color-p8: #00ACC1; --color-p9: #FDD835;
 
-:root { 
-    --sentence-font-size: 16px; 
-    --color-p0: #00897B; --color-p1: #1E88E5; --color-p2: #43A047; --color-p3: #F4511E; --color-p4: #8E24AA; 
-    --color-p5: #D81B60; --color-p6: #E53935; --color-p7: #3949AB; --color-p8: #00ACC1; --color-p9: #FDD835; 
-    /* ★ 新增：介面字體變數，預設「台灣黑體」字型堆疊，可由設定選單（#fontFamilySelect）切換 */
     --main-font-family: twhei-s, TWHEI, "台灣黑體", tauhu-oo, sans-serif;
 }
 
-/* ================= 1. 全域與版面基礎 ================= */
-body { 
-    font-family: var(--main-font-family); 
-    padding: 15px; 
-    background: #F4F7F6; 
-    color: #333; 
+/* ===== 1. 全域與版面基礎 ===== */
+body {
+    font-family: var(--main-font-family);
+    padding: 15px;
+    background: #F4F7F6;
+    color: #333;
     max-width: 800px;
-    margin: 0 auto; 
-    padding-bottom: 80px; 
+    margin: 0 auto;
+    padding-bottom: 80px;
 }
-/* ★ 新增：twhei.css 用「*」選擇器把字體直接寫在每個元素上（優先權會蓋掉繼承），
-   這裡用「body *」提高優先權蓋回來，讓 --main-font-family 變數能真正切換全站字體。
-   個別功能性樣式（如 .sentence-label、monospace 對齊區）用 class/id 選擇器，優先權更高，不受影響。 */
+
+/* twhei.css 以「*」直接指定字體，這裡提高優先權，讓 --main-font-family 能切換全站字體 */
 body, body * {
     font-family: var(--main-font-family);
 }
 h2 { color: #00897B; text-align: center; }
 
-button, 
-.material-icons, 
-.list-header h3, 
+button,
+.material-icons,
+.list-header h3,
 .sentence-label,
-#speedDisplay, 
+#speedDisplay,
 #zoomDisplay,
 label {
-    user-select: none; /* 標準語法 */
-    -webkit-user-select: none; /* 支援 Safari/Chrome */
-    -moz-user-select: none; /* 支援 Firefox */
-    -ms-user-select: none; /* 支援舊版 Edge/IE */
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
 }
 
-/* 基礎面板 */
-.panel { 
-    background: white; 
-    padding: 15px; 
-    border-radius: 8px; 
-    margin-bottom: 15px; 
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
+.panel {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .panel-header h3 { margin: 0; }
 .setup-section { margin-bottom: 20px; }
 .section-title { font-weight: bold; color: #00695C; display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 1.05rem;}
 
-/* ================= 2. 表單與輸入框 ================= */
+/* ===== 2. 表單與輸入框 ===== */
 input[type="text"], input[type="number"], select, textarea {
     outline: none !important;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* 點擊時的綠色柔和光暈 */
 input[type="text"]:focus, input[type="number"]:focus, select:focus, textarea:focus {
     border-color: #00897B !important;
     box-shadow: 0 0 0 3px rgba(0, 137, 123, 0.2) !important;
@@ -71,7 +67,6 @@ textarea { width: 100%; box-sizing: border-box; padding: 10px; padding-right: 75
 .tool-btn:hover { background: #E0F2F1; color: #00897B; border-color: #00897B; }
 .tool-btn .material-icons { font-size: 1.2rem; }
 
-/* 智慧伸縮輸入框 */
 #rawTextInput { height: 45px; min-height: 45px; overflow-y: auto; resize: none; transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-sizing: border-box; width: 100%; padding: 10px; }
 #rawTextInput:focus, #rawTextInput:not(:placeholder-shown) { height: 130px; }
 
@@ -82,13 +77,13 @@ textarea { width: 100%; box-sizing: border-box; padding: 10px; padding-right: 75
 .local-file-hint { color: #E65100; font-size: 0.85rem; display: flex; align-items: flex-start; gap: 4px; line-height: 1.5; word-break: break-word;}
 .local-file-hint .material-icons { margin-top: 2px; }
 
-/* ================= 拖放上傳視覺回饋 ================= */
-/* 拖曳檔案經過選檔框時，邊框與底色改變，明確告知使用者「放開就會被接住」 */
+/* 拖放上傳視覺回饋 */
 .local-file-dropzone.drag-over {
     border: 2px dashed #00897B !important;
     background: #E0F2F1 !important;
 }
-/* 整頁的全域拖放提示遮罩：使用者還沒開啟上傳視窗、直接把檔案拖進網頁時顯示 */
+
+/* 全域拖放遮罩；pointer-events:none 讓 drop 事件能傳到 window */
 #globalDropOverlay {
     display: none;
     position: fixed; inset: 0; z-index: 9999;
@@ -96,7 +91,7 @@ textarea { width: 100%; box-sizing: border-box; padding: 10px; padding-right: 75
     border: 4px dashed #00897B;
     box-sizing: border-box;
     align-items: center; justify-content: center;
-    pointer-events: none; /* 讓 drop 事件能繼續往下傳到 window，不被遮罩擋住 */
+    pointer-events: none;
 }
 #globalDropOverlay.show { display: flex; }
 #globalDropOverlay span {
@@ -105,34 +100,30 @@ textarea { width: 100%; box-sizing: border-box; padding: 10px; padding-right: 75
     display: flex; align-items: center; gap: 8px;
 }
 
-/* ================= 3. 按鈕系統 ================= */
+/* ===== 3. 按鈕系統 ===== */
 .btn-group { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch;}
+/* 全域 button 設有 flex:1 與 min-width:100px，小型圖示鈕需另行覆蓋（flex:none、min-width），否則會被撐成橢圓 */
 button { flex: 1; min-width: 100px; padding: 10px; font-size: 0.95rem; cursor: pointer; border: none; border-radius: 8px; background: #00897B; color: white; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.2s; }
 button:active { background: #00695C; }
 
 .btn-small { padding: 6px 12px; font-size: 0.85rem; min-width: auto; flex: none; height: 32px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;}
 .btn-small .material-icons { font-size: 1rem; }
 
-/* 實心主按鈕懸浮特效 */
 .btn-primary { background-color: #00897B !important; color: white !important; transition: all 0.2s ease; }
 .btn-primary:hover { background-color: #00695C !important; box-shadow: 0 2px 6px rgba(0, 137, 123, 0.3) !important; }
 
-/* 輕量化外框按鈕 */
 .btn-outline { background-color: transparent !important; border: 1px solid #00897B; color: #00897B; transition: all 0.2s ease; }
 .btn-outline:hover { background-color: #E0F2F1 !important; color: #00695C !important; border-color: #00695C !important; }
 .btn-outline:active { background-color: #B2DFDB !important; }
 
-/* 破壞性操作按鈕 */
 .btn-danger { background-color: transparent !important; color: #DC2626 !important; border: 1px solid #DC2626 !important; transition: all 0.2s ease; }
 .btn-danger:hover { background-color: #FEF2F2 !important; color: #B91C1C !important; border-color: #B91C1C !important; box-shadow: none !important; }
 .btn-danger:active { background-color: #FEE2E2 !important; }
 
-/* 無邊框純文字按鈕 */
 .btn-text { background: transparent; border: none; box-shadow: none; padding: 6px 12px; font-size: 0.9rem; font-weight: bold; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background 0.2s ease; flex: none; min-width: auto; }
 .btn-text:hover { background: #E2E8F0; }
 .btn-text .material-icons { font-size: 1.15rem; }
 
-/* 各式匯出專用顏色 */
 .btn-srt { background: #673AB7; color: white; border: 1px solid #512DA8; }
 .btn-srt:active { background: #512DA8; }
 .btn-excel { background: #107C41; color: white; border: 1px solid #0B5C30; }
@@ -141,7 +132,6 @@ button:active { background: #00695C; }
 .btn-audacity { background: #1976D2; }
 .btn-audacity-outline { background: transparent; border: 1px solid #1976D2; color: #1976D2; }
 
-/* 膠囊按鈕 */
 .action-section { display: flex; gap: 10px; align-items: center; justify-content: flex-start; flex-wrap: wrap;}
 .capsule-wrapper { position: relative; display: inline-flex; }
 .capsule-group { display: inline-flex; align-items: stretch; background: #00897B; border-radius: 24px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.15); white-space: nowrap; }
@@ -152,9 +142,8 @@ button:active { background: #00695C; }
 .capsule-group.outline .capsule-btn:hover { background: rgba(0,137,123,0.08); }
 .capsule-toggle { background: transparent; color: white; border: none; border-left: 1px solid rgba(255,255,255,0.3); padding: 0 6px; cursor: pointer; display: flex; align-items: center; flex: none; min-width: auto; }
 .capsule-toggle:hover { background: rgba(255,255,255,0.2); }
-.capsule-toggle .material-icons { font-size: 1.2rem; } 
+.capsule-toggle .material-icons { font-size: 1.2rem; }
 
-/* 方形外框分割按鈕 */
 .split-btn-group { display: inline-flex; align-items: stretch; background: transparent; border: 1px solid #00897B; border-radius: 6px; overflow: hidden; height: 32px; }
 .split-btn-group .main-btn, .split-btn-group .drop-btn { background: transparent; color: #00897B; border: none; font-size: 0.85rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s ease; border-radius: 0; min-width: auto; white-space: nowrap; flex: none; }
 .split-btn-group .main-btn { padding: 0 12px; }
@@ -164,49 +153,45 @@ button:active { background: #00695C; }
 .split-btn-group .main-btn:active, .split-btn-group .drop-btn:active { background-color: #B2DFDB; }
 
 /* 下拉選單 */
-.custom-dropdown-menu { 
-    position: absolute; left: 0; margin-top: 8px; background: white; 
-    border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1); 
-    min-width: 160px; z-index: 1000; display: none; flex-direction: column; padding: 8px 0; 
-    
-    /* ★ 核心修正：限制最大高度並允許垂直滾動 */
-    max-height: 50vh; /* 最高只佔螢幕高度的 50% */
-    overflow-y: auto; 
-    overscroll-behavior: contain; /* ★ 增加：選單捲到頂／底時，不把捲動傳給底下的頁面 */
-    scrollbar-width: thin; /* 針對 Firefox 的細滾動條設定 */
+.custom-dropdown-menu {
+    position: absolute; left: 0; margin-top: 8px; background: white;
+    border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1);
+    min-width: 160px; z-index: 1000; display: none; flex-direction: column; padding: 8px 0;
+
+    max-height: 50vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
 }
-.custom-dropdown-menu.show { display: flex; } 
+.custom-dropdown-menu.show { display: flex; }
 .custom-dropdown-menu.upwards { top: auto; bottom: 100%; margin-top: 0; margin-bottom: 8px; }
 
-/* ★ 核心修正：為 Chrome/Edge/Safari 設計專屬極細滾動條 */
 .custom-dropdown-menu::-webkit-scrollbar {
-    width: 6px; /* 極細的寬度 */
+    width: 6px;
 }
 .custom-dropdown-menu::-webkit-scrollbar-track {
-    background: transparent; /* 滾動軌道保持透明，視覺更乾淨 */
-    margin: 4px 0; /* 上下保留一點呼吸空間 */
+    background: transparent;
+    margin: 4px 0;
 }
 .custom-dropdown-menu::-webkit-scrollbar-thumb {
-    background: #CFD8DC; /* 淡淡的優雅灰色 */
-    border-radius: 10px; /* 圓角設計 */
+    background: #CFD8DC;
+    border-radius: 10px;
 }
 .custom-dropdown-menu::-webkit-scrollbar-thumb:hover {
-    background: #90A4AE; /* 滑鼠經過時稍微加深，增加互動感 */
+    background: #90A4AE;
 }
 
-.custom-dropdown-item { 
-    padding: 10px 16px; color: #333; font-size: 0.95rem; cursor: pointer; user-select: none; 
-    display: flex; align-items: center; gap: 8px; 
-    flex-shrink: 0; /* 防止項目被擠壓變形 */
+.custom-dropdown-item {
+    padding: 10px 16px; color: #333; font-size: 0.95rem; cursor: pointer; user-select: none;
+    display: flex; align-items: center; gap: 8px;
+    flex-shrink: 0;
 }
 .custom-dropdown-item:hover { background: #F0F4F8; color: #00897B; }
 .custom-dropdown-item .material-icons { font-size: 1.2rem; }
-/* ★ 新增：聲波「顯示靜音區塊／短雜訊」開啟中的底色 */
+
 .custom-dropdown-item.view-on { background: #E0F2F1; }
 
-
-/* ================= 4. 動態標題編輯與首頁變身特效 ================= */
-/* 可編輯標題專屬互動特效 (底線風格) */
+/* ===== 4. 標題編輯與首頁狀態切換（body.is-empty-state 為首頁空狀態） ===== */
 .editable-title {
     display: inline-block; padding: 4px 8px; cursor: text;
     outline: none !important; border-bottom: 2px dashed transparent; transition: all 0.2s ease;
@@ -214,126 +199,100 @@ button:active { background: #00695C; }
 .editable-title:hover { border-bottom: 2px dashed #B2DFDB; }
 .editable-title:focus { background-color: rgba(224, 242, 241, 0.3); border-bottom: 2px solid #00897B; }
 
-/* 首頁空狀態標題禁止修改 */
 body.is-empty-state #mainTitleDisplay { pointer-events: none; }
 
-/* 歡迎容器動態排版 */
 .welcome-container { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); }
 body.is-empty-state .welcome-container { justify-content: center; min-height: 75vh; }
-
 
 #mainTitleDisplay { transition: font-size 0.4s ease, margin 0.4s ease; }
 body.is-empty-state #mainTitleDisplay { font-size: 3.2rem; margin-bottom: 25px !important; }
 
-body:not(.is-empty-state) #mainTitleDisplay { 
-    font-size: 1.8rem; 
-    margin-top: 60px !important; 
-    margin-bottom: 4px !important; 
+body:not(.is-empty-state) #mainTitleDisplay {
+    font-size: 1.8rem;
+    margin-top: 60px !important;
+    margin-bottom: 4px !important;
     padding: 0 15px;
 }
-/* 頂部圖示：空狀態才顯示 */
+
 .welcome-icon { font-size: 5rem; margin-bottom: 10px; display: none; }
 body.is-empty-state .welcome-icon { display: block; animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 
 .action-buttons-container { display: flex; gap: 12px; align-items: center; transition: all 0.4s ease; }
-body.is-empty-state .action-buttons-container { justify-content: center; }
-body:not(.is-empty-state) .action-buttons-container {
-    position: fixed; top: 20px; right: 20px; z-index: 2000;
-    background: transparent; backdrop-filter: none; padding: 0; border-radius: 0; box-shadow: none; border: none;
-    gap: 4px; /* ★ 修改：縮小在右上角時，按鈕之間的間距 */
-}
 
-/* 1. 無邊框幽靈按鈕 (次要動作專用) */
 .btn-ghost {
     background-color: transparent !important;
-    border: 1px solid transparent !important; /* 佔位防止跳動 */
-    color: #5F6368 !important; /* Google 經典灰 */
+    border: 1px solid transparent !important;
+    color: #5F6368 !important;
     transition: all 0.2s ease;
 }
 .btn-ghost:hover {
-    background-color: #F1F3F4 !important; /* 懸浮時的淺灰色 */
+    background-color: #F1F3F4 !important;
     color: #202124 !important;
 }
 
-/* 2. 無邊框危險按鈕 (清除全部專用) */
 .btn-ghost-danger {
     background-color: transparent !important;
     border: 1px solid transparent !important;
-    color: #5F6368 !important; /* 預設也是低調灰色，不搶眼 */
+    color: #5F6368 !important;
     transition: all 0.2s ease;
 }
 .btn-ghost-danger:hover {
-    background-color: #FCE8E6 !important; /* 懸浮時的淺紅色 */
-    color: #D93025 !important; /* Google 警告紅 */
+    background-color: #FCE8E6 !important;
+    color: #D93025 !important;
 }
 
-/* ================= ★ 動作按鈕群組 (定位控制) ★ ================= */
-.action-buttons-container { 
-    display: flex; align-items: center; transition: all 0.4s ease; 
-}
-
-/* 動作按鈕全體套用現代膠囊形狀 (Pill Shape) */
 .action-btn {
-    font-weight: bold; 
-    justify-content: center; 
-    border-radius: 24px !important; 
-    transition: all 0.3s ease; 
+    font-weight: bold;
+    justify-content: center;
+    border-radius: 24px !important;
+    transition: all 0.3s ease;
     white-space: nowrap;
-    box-shadow: none !important; 
-    
-    /* ★ 核心修復：解除全域 button 的 100px 限制，讓按鈕寬度完全貼合文字 */
-    min-width: auto !important; 
+    box-shadow: none !important;
+
+    min-width: auto !important;
     flex: none !important;
 }
 
-/* ================= 【狀態 A】首頁空狀態：置中與專屬大小 ================= */
-body.is-empty-state .action-buttons-container { 
-    justify-content: center; 
-    gap: 16px; /* 讓首頁的按鈕之間有舒適的呼吸空間 */
+body.is-empty-state .action-buttons-container {
+    justify-content: center;
+    gap: 16px;
 }
 
-/* 首頁的次要按鈕 (兩個字) */
 body.is-empty-state .action-btn {
-    padding: 8px 16px; 
+    padding: 8px 16px;
     font-size: 1.05rem;
 }
 
-/* ★ 首頁的主按鈕 (選擇音檔)：給予專屬的寬度與氣勢 */
 body.is-empty-state #openAudioModalBtn {
-    padding: 10px 32px; 
+    padding: 10px 32px;
     font-size: 1.15rem;
 }
 
-
-/* ================= 【狀態 B】工作狀態：移至右上角並縮小 ================= */
 body:not(.is-empty-state) .action-buttons-container {
-    position: absolute; /* 跟隨網頁滾動 */
+    position: absolute;
     top: 20px; right: 20px; z-index: 2000;
     background: transparent; backdrop-filter: none; padding: 0; border-radius: 0; box-shadow: none; border: none;
-    gap: 6px; /* ★ 右上角維持緊湊的間距 */
+    gap: 6px;
 }
 
-/* 右上角的所有按鈕：統一縮小並貼合 */
 body:not(.is-empty-state) .action-btn {
-    padding: 6px 8px; 
-    font-size: 0.85rem; 
+    padding: 6px 8px;
+    font-size: 0.85rem;
 }
 
 body:not(.is-empty-state) .action-btn .material-icons {
-    font-size: 1.1rem; /* 圖示跟著縮小 */
+    font-size: 1.1rem;
 }
 
-/* 右上角的特殊配色 */
 body:not(.is-empty-state) .action-buttons-container .btn-primary {
-    background-color: #E0F2F1 !important; 
-    color: #00695C !important; 
+    background-color: #E0F2F1 !important;
+    color: #00695C !important;
 }
 body:not(.is-empty-state) .action-buttons-container .btn-primary:hover {
-    background-color: #B2DFDB !important; 
+    background-color: #B2DFDB !important;
 }
 
-/* 隱藏左側選單與清除按鈕 (空狀態時) */
 #openSidebarBtn { transition: all 0.3s ease; }
 body.is-empty-state #openSidebarBtn { opacity: 0; pointer-events: none; transform: scale(0.8); }
 body.is-empty-state #clearStorageBtn { display: none !important; }
@@ -343,59 +302,44 @@ body:not(.is-empty-state) #openAudioModalBtn {
     display: none !important;
 }
 
-/* ================= 5. 聲波圖面板 ================= */
+/* ===== 5. 聲波圖面板 ===== */
 .sticky-panel {
-    position: sticky; top: 0; z-index: 100; 
-    padding: 16px 16px 4px 16px !important; 
+    position: sticky; top: 0; z-index: 100;
+    padding: 16px 16px 4px 16px !important;
     background-color: #ffffff !important;
-    border: 1px solid #F1F5F9 !important; border-radius: 16px !important; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.03) !important; 
+    border: 1px solid #F1F5F9 !important; border-radius: 16px !important; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.03) !important;
     margin-bottom: 8px !important; width: var(--wave-width, 100%); max-width: 96vw;
-    margin-left: calc((100% - min(var(--wave-width, 100%), 96vw)) / 2) !important; box-sizing: border-box; 
+    margin-left: calc((100% - min(var(--wave-width, 100%), 96vw)) / 2) !important; box-sizing: border-box;
     transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), margin-left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 #waveform { margin-bottom: 10px; border-radius: 4px; overflow: hidden; background: #F0F4F8; display: none; cursor: default !important; }
 #waveform ::part(wrapper) { cursor: default !important; }
 
-.controls-compact { 
-    display: flex; align-items: center; gap: 2px; flex-wrap: wrap; padding: 4px 0; 
-    background: transparent; border-radius: 0; box-shadow: none; justify-content: flex-start; 
-    margin-top: 6px; 
+.controls-compact {
+    display: flex; align-items: center; gap: 2px; flex-wrap: wrap; padding: 4px 0;
+    background: transparent; border-radius: 0; box-shadow: none; justify-content: flex-start;
+    margin-top: 6px;
 }
 .controls-compact::-webkit-scrollbar { display: none; }
 .controls-compact .btn-icon { margin: 0 !important; width: 36px; height: 36px; min-width: 36px; }
 .btn-icon { flex: 0 0 36px; width: 36px; height: 36px; padding: 0; min-width: auto; border-radius: 50%; background: #4DB6AC; }
 
-
-/* ========================================================
-   ★ 時間顯示區塊 (無斜線、上下排列、大小風格一致)
-   ======================================================== */
-.audio-timer { 
-    font-family: monospace; 
-    background: #E0F2F1; 
+/* 時間顯示區塊 */
+.audio-timer {
+    font-family: monospace;
+    background: #E0F2F1;
     margin: 0 5px;
-    
-    /* Flexbox 讓文字上下堆疊並置中 */
+
     display: inline-flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    
-    /* 調整方塊內邊距與圓角 */
-    padding: 4px 10px; 
-    border-radius: 8px; 
+
+    padding: 4px 10px;
+    border-radius: 8px;
     line-height: 1.2;
-    font-size: 0.9rem; /* ★ 統一在此設定字體大小，讓上下兩行保持一致 */
-}
-
-/* ★ 目前時間 (跳動中)：僅套用紅色 */
-#audioTimeCurrent {
-    color: #E53935; 
-}
-
-/* ★ 全部時間 (固定總長)：僅套用綠色 */
-#audioTimeTotal {
-    color: #388E3C; 
+    font-size: 0.9rem;
 }
 
 #audioTimeCurrent {
@@ -404,16 +348,15 @@ body:not(.is-empty-state) #openAudioModalBtn {
 }
 
 #audioTimeTotal {
-    color: #388E3C; 
+    color: #388E3C;
     opacity: 0.9;
 }
-
 
 .speed-select { height: 36px; border-radius: 20px; padding: 0 10px; flex: 0 0 auto; border: 1px solid #4DB6AC; color: #00897B; font-weight: bold; outline: none; cursor: pointer; background: white;}
 .zoom-controls { flex: 1; display: flex; align-items: center; gap: 5px; background: #F0F4F8; padding: 0 10px; border-radius: 20px; height: 36px; color: #00897B; min-width: 120px; }
 input[type="range"] { flex: 1; accent-color: #00897B; }
 
-/* ================= 6. 清單列表區塊 ================= */
+/* ===== 6. 列表區塊 ===== */
 .list-panel {
     position: relative; padding-top: 0;
     width: var(--list-width, 100%); max-width: 96vw;
@@ -421,15 +364,15 @@ input[type="range"] { flex: 1; accent-color: #00897B; }
     box-sizing: border-box;
     transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), margin-left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
-.list-header-container { 
-    position: sticky; z-index: 90; background: rgba(255,255,255,0.95); backdrop-filter: blur(4px); 
-    padding: 6px 0 6px 0; 
-    border-bottom: 2px solid #E0F2F1; 
+.list-header-container {
+    position: sticky; z-index: 90; background: rgba(255,255,255,0.95); backdrop-filter: blur(4px);
+    padding: 6px 0 6px 0;
+    border-bottom: 2px solid #E0F2F1;
     margin-bottom: 4px;
 }
 .list-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
 .list-header h3 { margin: 0; }
-/* ★ 新增：左上角模式選單按鈕（原本是「列表」標題，現在點了可展開切換模式） */
+
 .list-mode-btn { display: inline-flex; align-items: center; gap: 0; padding: 2px 6px 2px 8px; height: auto; min-width: auto; background: transparent; border: none; border-radius: 8px; cursor: pointer; color: inherit; transition: background .15s; }
 .list-mode-btn:hover { background: #E0F2F1; }
 .list-mode-btn .list-mode-title { font-size: 1.17em; font-weight: bold; color: #333; user-select: none; -webkit-user-select: none; }
@@ -452,25 +395,24 @@ input[type="range"] { flex: 1; accent-color: #00897B; }
 
 .vertical-divider { width: 1px; height: 20px; background-color: #dadce0; margin: 0 4px; display: inline-block; vertical-align: middle;}
 
-/* 列表項目 */
 #sentenceList { display: flex; flex-direction: column; gap: 0; }
-/* 列表項目 */
-.sentence-item { 
-    background: transparent; border-bottom: 1px dashed #CCC; border-left: 4px solid transparent; 
-    padding: 10px 10px; 
-    display: flex; justify-content: space-between; align-items: center; 
+
+.sentence-item {
+    background: transparent; border-bottom: 1px dashed #CCC; border-left: 4px solid transparent;
+    padding: 10px 10px;
+    display: flex; justify-content: space-between; align-items: center;
     scroll-margin-top: 150px; transition: background-color 0.2s, box-shadow 0.2s; cursor: pointer;
 }
 .sentence-item:last-child { border-bottom: none; }
-.sentence-item:hover { background-color: #FAFAFA; } 
+.sentence-item:hover { background-color: #FAFAFA; }
 .sentence-item.tagged { border-left: 4px solid #B2DFDB; }
-.sentence-item.playing { background: #DDF0EC; /* ★ 修改：原 #F2F9F8 太淺，加深一點點 */ border-left: 4px solid #00897B; border-bottom: 1px solid #E0F2F1; box-shadow: 0 2px 8px rgba(0, 137, 123, 0.06); border-radius: 4px; }
+.sentence-item.playing { background: #DDF0EC;  border-left: 4px solid #00897B; border-bottom: 1px solid #E0F2F1; box-shadow: 0 2px 8px rgba(0, 137, 123, 0.06); border-radius: 4px; }
 .sentence-item.selected-row { background-color: #E3F2FD !important; border-left: 4px solid #1976D2 !important;}
 
 body.is-view-mode .sentence-item.tagged { border-left: 4px solid transparent; }
 body.is-view-mode .sentence-item.playing { border-left: 4px solid #00897B; }
 
-.sentence-content { display: flex; align-items: center; flex: 1; gap: 10px; position: relative; } 
+.sentence-content { display: flex; align-items: center; flex: 1; gap: 10px; position: relative; }
 .sentence-label { font-family: monospace; font-weight: bold; }
 
 .sentence-text-display { flex: 1; font-size: var(--sentence-font-size); transition: font-size 0.2s; line-height: 1.6; margin-right: 10px; padding: 4px 6px; border: 1px solid transparent; border-radius: 4px; word-break: break-word; min-height: 1.6em;}
@@ -478,9 +420,9 @@ body.is-view-mode .sentence-item.playing { border-left: 4px solid #00897B; }
 .sentence-text-display.is-editable:focus { border: 1px solid transparent; background-color: #FFF; outline: none; }
 
 .sentence-actions { display: flex; align-items: center; gap: 8px; position: relative; }
-.sentence-time { 
-    font-family: monospace; font-weight: bold; color: #00897B; font-size: 0.9em; 
-    text-align: left; min-width: 60px; margin: 0 4px; padding: 4px 8px; 
+.sentence-time {
+    font-family: monospace; font-weight: bold; color: #00897B; font-size: 0.9em;
+    text-align: left; min-width: 60px; margin: 0 4px; padding: 4px 8px;
     border-radius: 4px; transition: background 0.2s; cursor: pointer;
     display: flex; flex-direction: column; justify-content: center; align-items: flex-end;
     line-height: 1.25;
@@ -496,35 +438,33 @@ body.is-view-mode .sentence-item.playing { border-left: 4px solid #00897B; }
 .clear-tag-btn { display: none; background: #FFEBEE; color: #C62828; border: 1px solid #EF9A9A; width: 24px; height: 24px; flex: 0 0 24px; }
 .clear-tag-btn .material-icons { font-size: 1rem; }
 
-/* 列表內嵌刪除按鈕 (極簡純圖示版 - 修正橢圓變形問題) */
-.inline-delete-btn { 
-    position: absolute; right: 10px; top: 50%; transform: translateY(-50%); 
-    background: transparent; color: #C62828; border: none; border-radius: 50%; 
-    
-    /* ★ 核心修復：強制設定固定尺寸，並解除全域按鈕的寬度限制 */
-    width: 36px !important; 
-    height: 36px !important; 
-    min-width: 36px !important; 
-    flex: none !important; 
-    padding: 0 !important; 
-    
-    display: flex; align-items: center; justify-content: center; 
+.inline-delete-btn {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    background: transparent; color: #C62828; border: none; border-radius: 50%;
+
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    flex: none !important;
+    padding: 0 !important;
+
+    display: flex; align-items: center; justify-content: center;
     cursor: pointer; z-index: 10; transition: background 0.2s ease; box-shadow: none;
 }
 
-.inline-delete-btn:hover { 
-    background: #FFEBEE; 
+.inline-delete-btn:hover {
+    background: #FFEBEE;
 }
 
-.inline-delete-btn .material-icons { 
-    font-size: 1.3rem; 
-    margin: 0; /* 確保圖示不受外距干擾，完美置中 */
+.inline-delete-btn .material-icons {
+    font-size: 1.3rem;
+    margin: 0;
 }
 
 body.is-view-mode .inline-delete-btn { display: none !important; }
 .more-options-btn { display: none; background: transparent; color: #666; }
 .more-options-btn:hover { background: #EEE; color: #333; }
-.show-more-btns .sentence-item .more-options-btn { display: flex; } 
+.show-more-btns .sentence-item .more-options-btn { display: flex; }
 
 .item-more-menu { right: 0; left: auto; min-width: 220px; }
 .item-more-menu hr { margin: 4px 0; border: none; border-bottom: 1px solid #EEE; }
@@ -533,13 +473,12 @@ body.is-view-mode .inline-delete-btn { display: none !important; }
 .show-tag-btns .sentence-item .tag-time-btn { display: flex; }
 .show-clear-btns .sentence-item.tagged .clear-tag-btn { display: flex; }
 .show-shift-btns .sentence-item.tagged .shift-time-btn { display: flex; }
-/* ★ 已移除 .hide-in-view 規則：鎖定(檢視)模式下不再隱藏「編輯」選單裡的項目，
-   避免使用者連功能入口都找不到；鎖定時無法編輯的限制改由各功能自行判斷。 */
+
 .is-view-mode .sentence-item .tag-time-btn { display: none !important; }
 .is-view-mode .sentence-item .clear-tag-btn, .is-view-mode .sentence-item .shift-time-btn { display: none !important; }
-.is-view-mode .sentence-item .more-options-btn { display: none !important; } 
+.is-view-mode .sentence-item .more-options-btn { display: none !important; }
 
-/* ================= 7. 劇本編輯器 (Script Mode) ================= */
+/* ===== 7. 劇本編輯器 ===== */
 #scriptEditorContainer {
     display: flex; background: #ffffff; border: 1px solid #dadce0; border-radius: 8px; height: 55vh; min-height: 400px;
     overflow: hidden; box-shadow: inset 0 1px 4px rgba(0,0,0,0.06); margin-top: 10px;
@@ -558,13 +497,11 @@ body.is-view-mode .inline-delete-btn { display: none !important; }
     flex: 1; height: 100% !important; min-height: 100% !important; border: none !important; border-radius: 0 !important;
     box-shadow: none !important; background: transparent !important; margin: 0 !important; padding: 16px !important;
     font-family: var(--main-font-family) !important; font-size: var(--sentence-font-size) !important;
-    line-height: 1.8 !important; resize: none !important; outline: none !important; white-space: pre !important; 
+    line-height: 1.8 !important; resize: none !important; outline: none !important; white-space: pre !important;
     overflow: auto !important; color: #333; box-sizing: border-box !important;
 }
 
-/* ================= 8. 共用元件 (Toast / Modal / Sidebar) ================= */
-/* 提示訊息（Toast）：深灰底、靠左下角，比照 Google Material Snackbar / Gmail / Drive 的做法。
-   成功與錯誤只用左側小圖示的顏色區分，不再整塊上色（避免大面積綠／紅搶走視線）。 */
+/* ===== 8. 共用元件（Toast／Modal／Sidebar） ===== */
 #toast {
     visibility: hidden; position: fixed; z-index: 3000; left: 24px; bottom: 24px;
     box-sizing: border-box; min-width: 0; max-width: min(420px, calc(100vw - 48px));
@@ -580,7 +517,7 @@ body.is-view-mode .inline-delete-btn { display: none !important; }
 #toast.success .toast-icon { color: #81C784; }
 #toast.error .toast-icon { color: #EF9A9A; }
 #toast.normal .toast-icon { display: none; }
-/* 左下角的「恢復聲波／編輯區」圓形按鈕顯示時，提示往右讓開 */
+
 #toast.avoid-fab { left: 84px; }
 @media (max-width: 600px) {
     #toast { left: 12px; right: 12px; bottom: 16px; max-width: none; }
@@ -596,13 +533,13 @@ body.is-view-mode .inline-delete-btn { display: none !important; }
 
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
 .modal-overlay.show { display: flex; }
-/* ★ 新增：調整「播放略過」時，讓設定側邊欄的遮罩透明、不模糊，才看得到聲波上的灰色斜線（由 4p_ui_wave_peek.js 加上／移除 .wave-peek） */
+
+/* 調整「播放略過」時遮罩變透明才看得到聲波（由 4p_ui_wave_peek.js 切換 .wave-peek） */
 #sidebarOverlay { transition: background-color 0.25s ease, backdrop-filter 0.25s ease; }
 #sidebarOverlay.wave-peek { background-color: rgba(0, 0, 0, 0); backdrop-filter: none; -webkit-backdrop-filter: none; }
 .custom-modal { background: white; width: 90%; max-width: 400px; border-radius: 12px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-/* ★ 增加：視窗太矮（手機橫放、縮小瀏覽器）時，對話框內容超出頁面會點不到下方按鈕。
-   這裡限制對話框最高不超過可視高度（扣掉上下各 16px 留白與 padding 24px×2），超出就在框內捲動。
-   先寫 vh 當備援，再寫 dvh（手機瀏覽器網址列收放時高度才會正確）；適用所有 .custom-modal。 */
+
+/* 限制對話框高度避免矮螢幕時按鈕被切掉，內容超出則在框內捲動（dvh 為手機網址列收放備援） */
 .custom-modal { max-height: calc(100vh - 32px - 48px); max-height: calc(100dvh - 32px - 48px); overflow-y: auto; overscroll-behavior: contain; }
 .custom-modal h4 { margin: 0 0 15px 0; color: #00897B; font-size: 1.2rem; }
 .custom-modal p { margin: 0 0 20px 0; color: #555; line-height: 1.5; white-space: pre-wrap; }
@@ -612,7 +549,6 @@ body.is-view-mode .inline-delete-btn { display: none !important; }
 .btn-modal-confirm { background: #00897B; }
 .btn-modal-cancel { background: #80DEEA; color: #006064; }
 
-/* 側邊欄與相關按鈕 */
 .floating-setting-btn {
     position: fixed; top: 20px; left: 20px; z-index: 1000;
     background: transparent; color: #00897B; border: none;
@@ -622,8 +558,7 @@ body.is-view-mode .inline-delete-btn { display: none !important; }
 .floating-setting-btn:hover { background: transparent; transform: scale(1.05); }
 .floating-setting-btn .material-icons { font-size: 2rem; }
 
-/* ★ 新增：恢復聲波區塊的左下角圖示按鈕，樣式比照 #scrollToTopBtn（實心圓形、常駐顯示），
-   跟 .floating-setting-btn 的透明樣式區分開來，確保聲波區塊隱藏後仍容易被注意到並點擊。 */
+/* 左下角恢復聲波／編輯區的圓形按鈕 */
 .wave-restore-fab {
     position: fixed; bottom: 24px; left: 24px; top: auto; z-index: 999;
     background: #00897B !important; color: white !important;
@@ -635,31 +570,28 @@ body.is-view-mode .inline-delete-btn { display: none !important; }
 }
 .wave-restore-fab:hover { background: #00695C !important; box-shadow: 0 6px 14px rgba(0, 137, 123, 0.4); transform: translateY(-2px); }
 .wave-restore-fab .material-icons { font-size: 24px; }
-/* ★ 新增：使用者手動隱藏「編輯區區塊」（#listPanel）。用 class + !important，
-   避免被 5_list_renderer.js 每次重繪時設定的 listPanel.style.display 蓋回來。 */
+
+/* 使用者手動隱藏編輯區；用 !important 避免被 5_list_renderer.js 重繪時的 style.display 蓋回 */
 .list-panel-user-hidden { display: none !important; }
 
-/* ★ 新增：聲波區與編輯區不可同時隱藏——另一個已隱藏時，「隱藏」選項變灰提示不可用 */
 .custom-dropdown-item.is-disabled { opacity: 0.45; cursor: not-allowed !important; }
 
-#topLeftTitle { 
-    font-size: 1.25rem; font-weight: bold; color: #00695C; 
+#topLeftTitle {
+    font-size: 1.25rem; font-weight: bold; color: #00695C;
     white-space: nowrap; overflow: hidden; max-width: 20em;
-    transition: opacity 0.3s ease, max-width 0.3s ease, margin 0.3s ease; 
+    transition: opacity 0.3s ease, max-width 0.3s ease, margin 0.3s ease;
 }
-/* 捲動後標題淡出並把寬度收成 0（含抵銷按鈕的 gap） */
-#topLeftTitle.is-scrolled { 
-    opacity: 0; pointer-events: none; 
+
+#topLeftTitle.is-scrolled {
+    opacity: 0; pointer-events: none;
     max-width: 0; margin-left: -8px;
 }
 
-/* ★ 主選單按鈕：按鈕本體靠左、寬度只包住內容，且「只有圖示（與可見的標題）」能被點擊。
-   按鈕本身設 pointer-events:none，點擊事件由子元素冒泡回按鈕，原本的 click 監聽照常運作；
-   這樣無論按鈕盒子多大，圖示左右的空白都不會觸發。 */
+/* 只有圖示（與可見標題）可點擊；按鈕本身 pointer-events:none，子元素事件冒泡回按鈕 */
 #openSidebarBtn { width: max-content; justify-content: flex-start; transform-origin: left center; pointer-events: none; }
 #openSidebarBtn > .material-icons,
 #openSidebarBtn > #topLeftTitle:not(.is-scrolled) { pointer-events: auto; }
-/* 首頁空狀態下整顆按鈕不可點（維持原本行為） */
+
 body.is-empty-state #openSidebarBtn > * { pointer-events: none; }
 
 .sidebar { overscroll-behavior: contain; position: fixed; top: 0; left: -320px; width: 300px; height: 100%; background: #FAFAFA; box-shadow: 2px 0 15px rgba(0,0,0,0.1); z-index: 2001; transition: left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); display: flex; flex-direction: column; overflow-y: auto;}
@@ -698,7 +630,7 @@ body.is-empty-state #openSidebarBtn > * { pointer-events: none; }
     color: #00897B;
     font-weight: 700;
 }
-/* 子標題（附屬在某個編號區塊底下，不重新編號，樣式較低調） */
+
 .sidebar-group h4.setting-subtitle {
     background: #F5F5F5;
     color: #546E7A;
@@ -707,8 +639,6 @@ body.is-empty-state #openSidebarBtn > * { pointer-events: none; }
 }
 .sidebar-group h4.setting-subtitle .material-icons { background: #78909C; }
 
-/* ============ 側邊欄設定：統一元件樣式 ============ */
-/* 取代原本每個 <select>/<input> 各自重複貼上的 inline style */
 .setting-block { margin-bottom: 14px; }
 .setting-block:last-child { margin-bottom: 0; }
 
@@ -716,7 +646,6 @@ body.is-empty-state #openSidebarBtn > * { pointer-events: none; }
 
 .setting-hint { display: block; margin-top: 5px; font-size: 0.76rem; color: #90A4AE; line-height: 1.4; }
 
-/* 統一的下拉選單 / 數字輸入框樣式（原本靠每個元素各自貼一次青綠色框線） */
 .input-select {
     width: 100%;
     box-sizing: border-box;
@@ -742,36 +671,30 @@ select.input-select {
 }
 input.input-select[type="number"] { cursor: text; }
 
-/* 小尺寸版本（例如編號位數、縮放微調這類窄選單） */
 .input-select-sm { width: auto; padding: 5px 26px 5px 8px; font-size: 0.8rem; background-size: 11px; background-position: right 8px center; }
 
-/* 條件式縮排子區塊（原本用 padding-left + border-left inline style） */
 .setting-subblock { padding-left: 12px; border-left: 3px solid #E0F2F1; margin-bottom: 14px; }
 .setting-indent { padding-left: 22px; }
 
-/* 灰底虛線小面板（如：捲動微調、編號規則），統一取代多處重複的 background/border 樣式 */
 .setting-subpanel { background: #F4F7F6; padding: 10px 12px; border-radius: 8px; margin-top: 8px; border: 1px dashed #B2DFDB; }
 .setting-subpanel-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .setting-subpanel-row:last-child { margin-bottom: 0; }
 .setting-subpanel-row > span { font-size: 0.8rem; color: #546E7A; font-weight: 600; }
 
-/* 小型數字輸入框（面板內、行內用） */
 .input-number-sm { width: 68px; box-sizing: border-box; padding: 5px 6px; border: 1px solid #CFD8DC; border-radius: 6px; font-size: 0.8rem; text-align: center; background: #fff; color: #263238; transition: border-color .15s ease; }
 .input-number-sm:focus { outline: none; border-color: #00897B; }
 
-/* checkbox 列：勾選框 + 文字（含行內數字輸入的組合列） */
 .setting-checkbox-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; cursor: pointer; font-size: 0.88rem; color: #37474F; margin-bottom: 10px; }
 .setting-checkbox-row:last-child { margin-bottom: 0; }
 .setting-checkbox { width: 17px; height: 17px; margin-right: 6px; accent-color: #00897B; cursor: pointer; flex-shrink: 0; }
 .setting-checkbox-row .input-number-sm { margin: 0 6px; width: 56px; }
 
-/* 專案操作按鈕：統一寬度與圓角，配色差異用修飾 class 取代逐一貼色 */
 .btn-block { width: 100%; border-radius: 8px; box-sizing: border-box; }
 .btn-outline-blue { border-color: #1976D2 !important; color: #1976D2 !important; }
 .btn-outline-blue:hover { background-color: #E3F2FD !important; }
 .btn-outline-purple { border-color: #7B1FA2 !important; color: #7B1FA2 !important; }
 .btn-outline-purple:hover { background-color: #F3E5F5 !important; }
-/* ★ 新增：跨句圖片群組管理按鈕（階段二：管理 UI） */
+
 .btn-outline-orange { border-color: #EF6C00 !important; color: #EF6C00 !important; }
 .btn-outline-orange:hover { background-color: #FFF3E0 !important; }
 
@@ -787,86 +710,68 @@ input.input-select[type="number"] { cursor: text; }
     100% { transform: rotate(360deg); }
 }
 
-
-
-/* ================= ★ 手機版 (Mobile) 專屬優化 ★ ================= */
+/* ===== 手機版（Mobile） ===== */
 @media (max-width: 768px) {
-    /* ==============================================
-       ★ 版面極致擴張：釋放手機螢幕左右邊界
-       ============================================== */
-    body { 
-        /* 縮小網頁最外層左右留白為 4px，保留底部 80px 給回到頂端按鈕 */
-        padding: 10px 4px 80px 4px !important; 
+
+    body {
+
+        padding: 10px 4px 80px 4px !important;
     }
-    
-    .panel { 
-        /* 縮小列表區塊的內邊距 */
-        padding: 10px 6px !important; 
-        border-radius: 12px !important; /* 稍微縮小圓角讓版面更俐落 */
-    }
-    
-    .sticky-panel {
-        /* 縮小聲波圖區塊的內邊距，並解除電腦版的寬度限制 */
-        padding: 10px 6px !important; 
+
+    .panel {
+
+        padding: 10px 6px !important;
         border-radius: 12px !important;
-        max-width: 100% !important; 
+    }
+
+    .sticky-panel {
+
+        padding: 10px 6px !important;
+        border-radius: 12px !important;
+        max-width: 100% !important;
         margin-left: 0 !important;
     }
 
     .list-header-container {
-        /* 縮緊列表標題列的上下空間 */
-        padding: 8px 0 6px 0 !important; 
+
+        padding: 8px 0 6px 0 !important;
     }
 
-
-    /* 1. 隱藏左上角標題，節省空間 */
     #topLeftTitle { display: none !important; }
 
-    /* 2. 進入工作狀態時，隱藏右上角的三個按鈕 (改由側邊欄操作) */
     body:not(.is-empty-state) .action-buttons-container {
         display: none !important;
     }
 
-    /* 3. 因為按鈕隱藏了，標題不需要留 60px 的頂部空間，恢復適當距離 */
     body:not(.is-empty-state) #mainTitleDisplay {
         margin-top: 20px !important;
     }
 
-    /* ==============================================
-       ★ 列表區塊極致瘦身：釋放左右空間
-       ============================================== */
-    
-    /* 縮小列表項目的左右內邊距 */
-    .sentence-item { 
-        padding: 10px 6px !important; 
-    }
-    
-    /* 縮小左側播放按鈕與文字之間的距離 */
-    .sentence-content { 
-        gap: 6px !important; 
-    }
-    
-    /* 縮小右側工具按鈕群的間距 */
-    .sentence-actions { 
-        gap: 4px !important; 
+    .sentence-item {
+        padding: 10px 6px !important;
     }
 
-    /* ==============================================
-       ★ 「刪除」按鈕極簡化：純圖示、無邊框
-       ============================================== */
+    .sentence-content {
+        gap: 6px !important;
+    }
+
+    .sentence-actions {
+        gap: 4px !important;
+    }
+
     .inline-delete-btn {
         background: transparent !important;
         border: none !important;
         padding: 4px !important;
         min-width: auto !important;
         box-shadow: none !important;
-        /* 神奇魔法：字體設為 0，隱藏文字 */
-        font-size: 0 !important; 
-        right: 4px !important; /* 靠右一點 */
+
+        font-size: 0 !important;
+        right: 4px !important;
     }
     .inline-delete-btn .material-icons {
-        /* 單獨把圖示放大，保持點擊手感 */
-        font-size: 1.4rem !important; 
+
+        font-size: 1.4rem !important;
         color: #D32F2F !important;
     }
     .inline-delete-btn:hover {
@@ -874,16 +779,13 @@ input.input-select[type="number"] { cursor: text; }
         border-radius: 50% !important;
     }
 
-    /* ==============================================
-       ★ 縮小時間標籤與圓形小按鈕
-       ============================================== */
     .sentence-time {
         font-size: 0.8rem !important;
         padding: 2px 4px !important;
         min-width: auto !important;
         margin: 0 !important;
     }
-    
+
     .action-icon-btn {
         width: 26px !important;
         height: 26px !important;
@@ -894,13 +796,7 @@ input.input-select[type="number"] { cursor: text; }
     }
 }
 
-
-
-/* ================= ★ 跨句圖片群組 —— 內嵌於列表的第三種檢視模式 =================
-   舊版是置中的全螢幕遮罩式 .modal-overlay + .custom-modal（視窗過大又無法移動），
-   後來改成可拖曳的浮動小面板；現在進一步改為「分頁」概念——不再疊在畫面上，
-   而是跟 #sentenceList（單句列表）、#scriptEditorContainer（全文模式）三選一，
-   直接佔用列表本身的空間，從工具列「檢視 → 跨句圖片群組」切換進入/退出。 */
+/* ===== 跨句群組檢視 ===== */
 #mediaGroupsView {
     display: none;
     flex-direction: column;
@@ -915,9 +811,7 @@ input.input-select[type="number"] { cursor: text; }
     margin-top: 10px;
     box-sizing: border-box;
 }
-/* 開始/結束秒數旁「抓取目前播放位置」的小圓鈕
-   ★ 需要蓋掉全域 button { flex:1; min-width:100px; padding:10px; } 的預設樣式，
-   否則會被撐成橢圓形（見核心修復註解，跟 .action-btn 用的是同一招）。 */
+
 .mg-grab-time-btn {
     background: transparent;
     border: 1px solid #00897B;
@@ -938,16 +832,11 @@ input.input-select[type="number"] { cursor: text; }
 .mg-grab-time-btn:hover { background: #E0F2F1; }
 .mg-grab-time-btn:active { background: #B2DFDB; }
 
-/* 跨句圖片群組：每一列自動存檔，時間區間不合法時（結束 <= 開始）用紅框提示，
-   取代原本按下「套用範圍」才彈出的 toast 錯誤訊息 */
 .mg-input-error {
     border-color: #E53935 !important;
     background: #FFEBEE !important;
 }
 
-/* 跨句圖片群組：「清除圖片」小圓鈕，跟 .mg-grab-time-btn 同尺寸/形狀。
-   ★ 改為預設低調（灰色、無外框），滑鼠移上去才變紅提示這是破壞性操作，
-   避免平常沒動作時就用搶眼的紅色一直吸走視覺焦點。 */
 .mg-clear-btn {
     background: transparent;
     border: none;
@@ -968,13 +857,6 @@ input.input-select[type="number"] { cursor: text; }
 .mg-clear-btn:hover { background: #FFEBEE; color: #DC2626; }
 .mg-clear-btn:active { background: #FFCDD2; color: #B91C1C; }
 
-/* 跨句圖片群組：刪除整列的按鈕，改成純圖示、平時低調（灰色、無外框），
-   滑鼠移上去才變紅提示這是危險動作，避免整排都是紅框方塊搶走視覺焦點。
-   固定在整列（.mg-row，已設 position:relative）右上角，用絕對定位擺放，
-   不佔用時間輸入列的排版空間。
-   ★ 修正：全域 `button { flex:1; min-width:100px; }` 會把這顆小圖示鈕撐成
-   長條橢圓（因為 border-radius:50% 套用在被拉寬的矩形上）。這裡要跟
-   .mg-clear-btn 一樣明確蓋掉 flex/min-width/padding，才會維持 28x28 正圓形。 */
 .mg-delete-icon-btn {
     background: transparent;
     border: none;
@@ -995,8 +877,6 @@ input.input-select[type="number"] { cursor: text; }
 .mg-delete-icon-btn:hover { background: #FFEBEE; color: #DC2626; }
 .mg-delete-icon-btn:active { background: #FFCDD2; color: #B91C1C; }
 
-/* 跨句圖片群組：縮圖本身可點＝放大檢視（只有已經設定圖片網址的列才會加上這個 class），
-   滑鼠移上去游標變放大鏡、稍微變暗提示可點；跳轉播放位置改成點時間輸入框，不是點縮圖 */
 .mg-thumb-viewable {
     cursor: zoom-in;
     transition: filter 0.15s;
@@ -1005,12 +885,9 @@ input.input-select[type="number"] { cursor: text; }
     filter: brightness(0.85);
 }
 
-/* ================= ★ 多語言編輯 —— 內嵌於列表的第四種檢視模式 =================
-   左右兩欄是純文字 textarea，逐行對應 allLabelsOrdered 目前順序。
-   white-space:pre + wrap="off" 讓長句不自動換行（避免視覺上的自動折行被誤判成新的一行），
-   跟 #scriptTextarea 用同一套慣例，只是改成雙欄並排。 */
+/* ===== 多語字幕檢視（左右兩欄逐行對應） ===== */
 #langEditView {
-    /* ★ 修改：拿掉外框、背景與圓角、內距（外層列表面板已是白色卡片，避免「卡片裡又一張卡片」） */
+
     background: transparent;
     border: none;
     border-radius: 0;
@@ -1063,7 +940,7 @@ input.input-select[type="number"] { cursor: text; }
     flex: none;
     width: 42px;
     background: #f8f9fa;
-    /* ★ 刪除：原本的 border-right 分隔線（行號欄已有淺灰底色，不需要再加線） */
+
     padding: 12px 0;
     font-family: var(--main-font-family);
     font-size: var(--sentence-font-size);
@@ -1114,7 +991,7 @@ input.input-select[type="number"] { cursor: text; }
 .lang-edit-mini-btn-primary { border-color: #00897B; color: #00897B; }
 .lang-edit-mini-btn-primary:hover { background: #E0F2F1; }
 .lang-edit-mini-btn-primary:active { background: #B2DFDB; }
-/* ★ 新增：匯入鈕淡化不可點（右欄選到既有語言時，編輯會自動存檔，不需匯入） */
+
 .lang-edit-mini-btn:disabled { opacity: 0.4; cursor: not-allowed; background: transparent; pointer-events: none; }
 
 @media (max-width: 760px) {
@@ -1122,10 +999,7 @@ input.input-select[type="number"] { cursor: text; }
     .lang-edit-textarea { min-height: 28vh; max-height: 34vh; }
 }
 
-/* 跨句圖片群組：疊在縮圖左上角的排序編號徽章，依「目前依開始時間排序」後的順序自動編號，
-   草稿列（還沒填時間）不編號，所以不會誤導使用者以為它已經排進時間序列
-   ★ 修正：父層縮圖容器有 overflow:hidden（用來裁切圓角圖片），徽章若用負值定位「探出」
-   容器邊界，會被一併裁掉一角。改用非負值，讓徽章完全落在容器範圍內，才不會被裁切。 */
+/* 排序編號徽章：父層縮圖容器 overflow:hidden，徽章須完全落在容器內才不會被裁切 */
 .mg-order-badge {
     position: absolute;
     top: 2px;
@@ -1144,7 +1018,7 @@ input.input-select[type="number"] { cursor: text; }
     pointer-events: none;
 }
 
-/* ================= ★ 新增：「疑似遺漏」清單面板 ================= */
+/* ===== 疑似遺漏清單面板 ===== */
 .missed-panel {
     position: fixed;
     bottom: 90px;
@@ -1214,8 +1088,7 @@ input.input-select[type="number"] { cursor: text; }
 }
 .missed-panel-item-remove:hover { color: #C62828; }
 
-/* ================= 無障礙輔助樣式 ================= */
-/* 視覺上隱藏但螢幕報讀器仍可讀取，用於補充僅靠圖示無法傳達的文字說明 */
+/* ===== 無障礙：視覺隱藏但螢幕報讀器可讀 ===== */
 .sr-only {
     position: absolute;
     width: 1px;
@@ -1228,16 +1101,12 @@ input.input-select[type="number"] { cursor: text; }
     border: 0;
 }
 
-
-/* 跨句群組模式：編輯選單只保留此模式可用的項目（尋找取代、返回列表），
-   其餘項目與分隔線一律隱藏。用 class 控制，離開模式時移除 .mg-mode 就完整復原，
-   不會干擾其他程式對這些按鈕 display 的控制（例如 調整邊界／合併標記）。 */
+/* 跨句群組模式：編輯選單只保留尋找取代與返回項目 */
 #editMenu.mg-mode > .custom-dropdown-item:not(#openBatchReplaceBtn):not(#toggleMediaGroupsViewBtn),
 #editMenu.mg-mode > div[id^="editMenuHr"] {
     display: none !important;
 }
 
-/* 跨句群組尋找取代：命中的欄位淡橘底色，目前這一筆較深 */
 .mg-row input.mg-search-hit {
     background: #FFF3E0 !important;
     border-color: #FFB74D !important;
@@ -1248,28 +1117,24 @@ input.input-select[type="number"] { cursor: text; }
     box-shadow: 0 0 0 2px rgba(239, 108, 0, 0.3);
 }
 
-/* ==============================================
-   ★ 新增：並排表格檢視（語言選單 → 並排表格）
-   每列仍是 .sentence-item，只是文字區塊改成 N 欄 grid
-   ============================================== */
+/* ===== 並排表格檢視（表頭位置由 5_list_renderer.js 的 alignLangTableHeader() 對齊） ===== */
 .sentence-text-grid { flex: 1; min-width: 0; display: grid; gap: 8px; margin-right: 10px; }
 .sentence-text-grid .sentence-text-display { flex: none; min-width: 0; margin-right: 0; }
-/* 缺漏一眼看出：該語言是空的 → 淡色虛線框 */
+
 .sentence-text-display.lang-cell.is-empty-cell { border: 1px dashed #B0BEC5; background-color: #FAFAFA; }
 .sentence-text-display.lang-cell.is-empty-cell:hover { border-color: #78909C; }
-/* 表頭：位置與寬度由 5_list_renderer.js 的 alignLangTableHeader() 對齊到第一列的文字格 */
+
 .lang-table-header { position: sticky; z-index: 80; background: rgba(255,255,255,0.97); border-bottom: 1px solid #E0E0E0; padding: 4px 0; margin-bottom: 2px; }
 .lang-table-header-grid { display: grid; gap: 8px; }
 .lang-table-header-cell { font-size: 0.8rem; font-weight: bold; color: #607D8B; padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* 窄螢幕：不分欄，同一列內上下堆疊，每格上方顯示語言名稱 */
 @media (max-width: 768px) {
     .lang-table-header { display: none; }
     .sentence-text-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 4px; }
     .sentence-text-display.lang-cell::before { content: attr(data-lang-name); display: block; font-size: 0.7rem; line-height: 1.2; color: #90A4AE; }
 }
 
-/* ================= 列表底部統計（4n_ui_list_stats.js） ================= */
+/* ===== 列表底部統計（4n_ui_list_stats.js） ===== */
 .list-stats-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 14px; margin-top: 12px; padding: 10px 8px 2px; border-top: 1px dashed #dadce0; color: #5f6368; font-size: 0.85rem; line-height: 1.6; }
 .list-stats-bar b { color: #00897B; font-weight: 700; font-variant-numeric: tabular-nums; }
 .list-stats-sep { margin: 0 6px; color: #bdc1c6; }
@@ -1278,9 +1143,16 @@ input.input-select[type="number"] { cursor: text; }
 .list-stats-chip { white-space: nowrap; background: #f1f3f4; border-radius: 12px; padding: 1px 12px; font-size: 0.8rem; }
 .list-stats-chip em { font-style: normal; font-weight: 700; color: #455A64; margin-right: 8px; }
 
-
-/* ================= 批次轉檔視窗：頁籤與「批次修改」（9a_batch_edit.js） ================= */
+/* ===== 批次轉檔視窗：頁籤與批次修改（9a_batch_edit.js） ===== */
 .batch-modal { max-width: 500px; }
+/* 檔案轉換頁籤：標題與頁籤、底部按鈕固定，只有中間欄位捲動（版面比照匯入視窗） */
+.batch-modal:not(.be-wide) { display: flex; flex-direction: column; overflow: hidden; }
+.batch-modal:not(.be-wide) > h4, .batch-modal:not(.be-wide) > .batch-tabs { flex: 0 0 auto; }
+.batch-modal:not(.be-wide) > #batchPaneConvert { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+#batchPaneConvert > .batch-convert-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0 -24px; padding: 0 24px 4px; }
+#batchPaneConvert > .batch-convert-body > div { margin-bottom: 14px !important; }
+#batchPaneConvert > .batch-convert-body > div:last-child { margin-bottom: 6px !important; }
+#batchPaneConvert > .batch-convert-footer { flex: 0 0 auto; background: #fafafa; border-top: 1px solid #E0E0E0; margin: 0 -24px -24px; padding: 12px 24px; }
 .batch-modal.be-wide { max-width: 980px; }
 .batch-tabs { display: flex; gap: 4px; border-bottom: 2px solid #E0E0E0; margin-bottom: 18px; }
 .batch-tab { background: none; border: none; padding: 8px 18px; font-size: 0.95rem; font-weight: bold; color: #777; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; }
@@ -1331,10 +1203,9 @@ input.input-select[type="number"] { cursor: text; }
 .be-summary { margin-top: 8px; font-size: 0.85rem; color: #555; }
 .be-warn-text { color: #E65100; font-weight: bold; }
 
-/* 確認／提示對話框要蓋在批次轉檔視窗之上（兩者原本同為 z-index 2000，DOM 順序在前的被遮住） */
+/* 確認／提示對話框須蓋在批次轉檔視窗之上 */
 #customModalOverlay { z-index: 2300; }
 
-/* 批次修改頁籤：視窗撐滿可用高度，表格／TSV 區吃掉剩餘空間（其餘區塊固定高度） */
 .batch-modal.be-wide { display: flex; flex-direction: column; height: calc(100vh - 32px - 48px); height: calc(100dvh - 32px - 48px); overflow: hidden; }
 .batch-modal.be-wide > h4, .batch-modal.be-wide > .batch-tabs { flex: 0 0 auto; }
 .batch-modal.be-wide #batchPaneEdit { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
@@ -1342,17 +1213,16 @@ input.input-select[type="number"] { cursor: text; }
 .batch-modal.be-wide #batchPaneEdit > .be-main { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .batch-modal.be-wide #batchEditTsvWrap { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 
-/* ===== 批次修改：把垂直空間讓給表格 ===== */
-/* 根因：.custom-modal input[type="text"] 的 padding:10px / margin-bottom:20px / font-size:1rem 權重較高，蓋掉了格子輸入框的緊湊樣式，每列因此被撐得很高 */
+/* .custom-modal input 的樣式權重較高，需在此覆蓋才能維持儲存格緊湊 */
 .custom-modal .be-cellwrap input[type="text"] { margin: 0; padding: 3px 24px 3px 6px; font-size: 0.85rem; line-height: 1.3; }
 .be-table td { padding: 2px 6px; }
 .be-c-no { padding-right: 8px; }
 
 .batch-modal.be-wide { padding: 14px 20px; }
-.batch-modal.be-wide > h4 { display: none !important; }                     /* 頁籤已足以辨識，省下標題列高度 */
+.batch-modal.be-wide > h4 { display: none !important; }
 .batch-modal.be-wide > .batch-tabs { margin-bottom: 10px; }
 .batch-modal.be-wide #batchPaneEdit > .be-section { margin-bottom: 8px; }
-/* 「1. 選擇專案檔」標題與選檔框併成同一行 */
+
 .batch-modal.be-wide #batchPaneEdit > .be-section:first-child { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .batch-modal.be-wide #batchPaneEdit > .be-section:first-child .be-label { margin: 0; white-space: nowrap; }
 .batch-modal.be-wide #batchPaneEdit > .be-section:first-child .be-file { flex: 1 1 260px; width: auto; padding: 6px 10px; }
@@ -1360,16 +1230,13 @@ input.input-select[type="number"] { cursor: text; }
 .batch-modal.be-wide .be-summary { margin-top: 4px; flex: 0 0 auto; }
 .batch-modal.be-wide #batchPaneEdit > .modal-buttons { padding-top: 10px !important; }
 
-/* 表格區吃掉所有剩餘高度；min-height:0 避免被內容撐出而壓到下方按鈕 */
 .batch-modal.be-wide .be-tablewrap { flex: 1 1 0; min-height: 0; }
 .batch-modal.be-wide .be-tsv { flex: 1 1 0; min-height: 0; }
 .batch-modal.be-wide #batchPaneEdit > .be-main { overflow: hidden; }
 
-/* 「1.」＋［選擇檔案］＋說明文字＋載入狀態，同一行依序排列 */
 .be-pickdesc { flex: 0 1 auto; font-weight: bold; font-size: 0.95rem; cursor: pointer; }
 .be-file .be-fileinfo { margin-left: 4px; color: #6A1B9A; }
 
-/* ===== 批次修改表格：試算表風格（細格線、無輸入框外框，聚焦時只框住該儲存格） ===== */
 .be-tablewrap { border-radius: 4px; border-color: #D0D0D0; }
 .be-table { border-collapse: collapse; }
 .be-table th, .be-table td { border: 1px solid #DADCE0; }
@@ -1387,13 +1254,11 @@ input.input-select[type="number"] { cursor: text; }
 .be-cell.dup input { box-shadow: none; }
 .be-revert { font-size: 15px; line-height: 22px; font-weight: bold; }
 
-/* ===== 標題內的統計、移除格內還原鈕後的調整 ===== */
 .be-sumhead { font-weight: normal; font-size: 0.9rem; color: #555; margin-left: 6px; }
 .custom-modal .be-cellwrap input[type="text"] { padding: 4px 8px; }
-.be-cell.sel { outline: 2px solid #7B1FA2; outline-offset: -2px; z-index: 1; }   /* 點過的格子（按下方「還原此格」後仍保留標示） */
+.be-cell.sel { outline: 2px solid #7B1FA2; outline-offset: -2px; z-index: 1; }
 .be-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* ===== 批次修改：按鈕按下時的底色（蓋掉全域 button:active 的深綠色） ===== */
 .be-btn:active { background: #CBD5E1; }
 .be-btn-primary:active { background: #6A1B9A; }
 .be-btn:disabled:active { background: #E2E8F0; }
@@ -1402,32 +1267,28 @@ input.input-select[type="number"] { cursor: text; }
 .be-seg button:active { background: #F3E5F5; }
 .be-seg button.active:active { background: #6A1B9A; }
 
-/* ===== 批次修改：「清除」按鈕（蓋掉全域 button { flex:1; min-width:100px } 造成的整排拉伸） ===== */
 .be-btn.be-clear-btn { flex: 0 0 auto; min-width: 0; margin-left: auto; padding: 4px 10px; gap: 4px; font-size: 0.85rem; background: transparent; color: #7B1FA2; border: 1px solid #CE93D8; border-radius: 4px; }
 .be-btn.be-clear-btn .material-icons { font-size: 16px; }
 .be-btn.be-clear-btn:hover:not(:disabled) { background: #FFEBEE; color: #C62828; border-color: #EF9A9A; }
 .be-btn.be-clear-btn:active:not(:disabled) { background: #FFCDD2; }
 .be-btn.be-clear-btn:disabled:active { background: transparent; }
 
-/* ===== 批次修改：點表頭選取整欄 ===== */
+/* 點表頭選取整欄 */
 .be-table th.be-th-f { cursor: pointer; user-select: none; }
 .be-table th.be-th-f:hover { background: #E8EAED; }
 .be-table th.be-th-f.colsel { background: #7B1FA2; color: #fff; }
-/* 整欄選取：用半透明紫色「疊」在原本底色上（已修改的黃底也看得出被選取），再加左右紫色邊線 */
+
 .be-cell.colsel { background-image: linear-gradient(rgba(123,31,162,0.16), rgba(123,31,162,0.16)); box-shadow: inset 2px 0 0 #7B1FA2, inset -2px 0 0 #7B1FA2; }
 
-/* ===== 批次修改：檔名欄（可編輯，.json 不顯示） ===== */
 .be-name-cell { min-width: 150px; }
 
-/* ===== 批次修改：頂部單列（選檔＋狀態＋清除　｜　表格/TSV 切換） ===== */
 .be-topbar .be-seg { flex: 0 0 auto; }
 #batchEditDownloadBtn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* ★ 新增：框選模式開啟時，聲波外框顯示藍色虛線提示 */
+/* 框選模式：聲波外框顯示藍色虛線 */
 #waveform.select-mode { outline: 2px dashed #1976D2; outline-offset: -2px; border-radius: 4px; }
 
-/* ★ 新增：播放略過 — 靈敏度（保守／標準／積極）、自動偵測、結果文字、進階數值 */
-/* ★ 修改：精簡「播放略過」設定（拿掉 保守/標準/積極 按鈕、說明文字、進階區；數值直接顯示） */
+/* ===== 播放略過設定 ===== */
 .skip-auto-btn { padding: 3px 10px; border-radius: 14px; font-size: 0.76rem; cursor: pointer; border: 1px dashed #B2DFDB; background: #fff; color: #00695C; transition: background .15s ease; }
 .skip-auto-btn:hover:not(:disabled) { background: #E0F2F1; }
 .skip-auto-btn:disabled { cursor: not-allowed; }
@@ -1440,7 +1301,7 @@ input.input-select[type="number"] { cursor: text; }
 .skip-row { display: flex; align-items: center; justify-content: space-between; font-size: 0.88rem; color: #37474F; margin-top: 8px; }
 .skip-row .input-number-sm { margin: 0 6px 0 0; width: 56px; }
 
-/* ================= 自動斷句視窗（精簡版） ================= */
+/* ===== 自動斷句視窗 ===== */
 .as-body { padding: 18px 22px 8px; flex-grow: 1; overflow-y: auto; overscroll-behavior: contain; }
 .as-field { margin-bottom: 18px; }
 .as-label { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; font-weight: 600; font-size: 0.9rem; color: #333; }
