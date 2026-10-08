@@ -1,15 +1,15 @@
 // 2e_system_audio_record.js: 錄製系統／分頁音訊（聲波 ⋮ 選單 > 錄製系統音訊）
 // 原理：navigator.mediaDevices.getDisplayMedia 取得分享畫面的音訊軌（視訊軌立刻丟棄），
-//       用 MediaRecorder 錄成 webm，停止後以 decodeAudioData 解成 PCM 再編成 WAV 載入。
-//       （直接載入 MediaRecorder 的 webm 會沒有時長資訊，無法拖曳定位，所以一律轉 WAV）
+//       用 AudioWorklet（不支援時退回 ScriptProcessor）直接擷取原始 PCM，停止後自行寫成 16-bit WAV。
+//       不經過 MediaRecorder／webm：webm 沒有時長資訊（會顯示 Infinity）、且被 4b 當成影片檔詢問轉檔。
 // 流程：開始錄製 → 右上角出現錄音中小工具（可停止）→ 停止 →
 //       若專案已有句子或時間標記，先跳確認視窗 → 取代目前音檔（走與選檔相同的載入流程）。
 // 下載：錄音不自動下載；載入後使用者自行用既有的下載／匯出功能儲存。
-// 限制：桌面版 Chrome／Edge 才完整支援；需 HTTPS 或 localhost。
+// 限制：桌面版 Chrome／Edge 才完整支援；需 HTTPS 或 localhost；單次最長 60 分鐘（約 700MB 記憶體）。
 //   · 選「Chrome 分頁」並勾「分享分頁音訊」：各系統皆可，適合錄網頁聲音
 //   · 選「整個螢幕」並勾「分享系統音訊」：僅 Windows 可錄整機聲音
 // 需求：1_globals.js（audioPlayer、showToast、showCustomDialog、saveToStorage）、
-//       1a_audio_store_idb.js、2_audio_engine.js（audioBufferToWav）、
+//       1a_audio_store_idb.js、
 //       4b_ui_audio_loader.js（initWaveSurferAfterAudioLoad）、index.html 的 #waveSysRecordBtn
 // 載入順序：4b 之後即可，建議放在 index.html 最後。
 
@@ -20,21 +20,13 @@
     const btnIcon = btn.querySelector('.material-icons');
     const btnLabel = document.getElementById('waveSysRecordLabel');
 
-    let recorder = null;
-    let displayStream = null;
-    let chunks = [];
+    const MAX_MINUTES = 60;
+    let session = null;   // { ctx, tracks, source, node, sink, chunks, frames, nCh, sampleRate, discard }
     let startedAt = 0;
     let tickTimer = null;
-    let discardOnStop = false; // 錄製中被中斷且不想保留時使用
 
-    // ---------- 支援檢查 ----------
     function isSupported() {
-        return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && window.MediaRecorder);
-    }
-
-    function pickMimeType() {
-        const list = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
-        return list.find(t => MediaRecorder.isTypeSupported(t)) || '';
+        return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && (window.AudioContext || window.webkitAudioContext));
     }
 
     // ---------- 錄音中小工具（固定在畫面上方，不必開選單即可停止） ----------
@@ -78,6 +70,46 @@
     }
 
     // ---------- 開始／停止 ----------
+    const WORKLET_CODE = `
+        class SysRecProcessor extends AudioWorkletProcessor {
+            constructor() { super(); this.buf = null; this.n = 0; }
+            process(inputs) {
+                const inp = inputs[0];
+                if (!inp || !inp.length) return true;
+                const nCh = Math.min(2, inp.length);
+                if (!this.buf) this.buf = Array.from({ length: nCh }, () => new Float32Array(4096));
+                const len = inp[0].length;
+                for (let c = 0; c < this.buf.length; c++) this.buf[c].set(inp[Math.min(c, inp.length - 1)], this.n);
+                this.n += len;
+                if (this.n + 128 > 4096) {
+                    this.port.postMessage(this.buf.map(b => b.slice(0, this.n)));
+                    this.n = 0;
+                }
+                return true;
+            }
+        }
+        registerProcessor('sys-rec-processor', SysRecProcessor);
+    `;
+
+    // 收到一批各聲道的 Float32 → 轉 16-bit 並交錯存放
+    function pushFrames(s, channels) {
+        const nCh = s.nCh;
+        const len = channels[0].length;
+        const out = new Int16Array(len * nCh);
+        for (let i = 0; i < len; i++) {
+            for (let c = 0; c < nCh; c++) {
+                const v = Math.max(-1, Math.min(1, channels[Math.min(c, channels.length - 1)][i]));
+                out[i * nCh + c] = v < 0 ? v * 0x8000 : v * 0x7FFF;
+            }
+        }
+        s.chunks.push(out);
+        s.frames += len;
+        if (s.frames / s.sampleRate >= MAX_MINUTES * 60) {
+            showToast(`已達 ${MAX_MINUTES} 分鐘上限，自動結束錄製`, 'normal');
+            stopRecording();
+        }
+    }
+
     async function startRecording() {
         if (!isSupported()) {
             return showToast('此瀏覽器不支援錄製系統音訊，請使用電腦版 Chrome 或 Edge', 'error');
@@ -86,80 +118,99 @@
             return showToast('錄製系統音訊需要 HTTPS 或 localhost 環境', 'error');
         }
 
+        let stream;
         try {
             // 瀏覽器規定要同時申請畫面；取得後立刻丟掉視訊軌
-            displayStream = await navigator.mediaDevices.getDisplayMedia({
+            stream = await navigator.mediaDevices.getDisplayMedia({
                 video: true,
                 audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
             });
         } catch (err) {
-            displayStream = null;
             if (err && err.name === 'NotAllowedError') showToast('已取消分享，未開始錄製', 'normal');
             else showToast('無法開始錄製：' + (err && err.message ? err.message : err), 'error');
             return;
         }
 
-        const audioTracks = displayStream.getAudioTracks();
-        if (!audioTracks.length) {
-            displayStream.getTracks().forEach(t => t.stop());
-            displayStream = null;
+        const tracks = stream.getAudioTracks();
+        if (!tracks.length) {
+            stream.getTracks().forEach(t => t.stop());
             return showToast('沒有取得音訊：請在分享視窗選「Chrome 分頁」並勾選「分享分頁音訊」（或 Windows 整個螢幕並勾選「分享系統音訊」）', 'error', 7000);
         }
-        displayStream.getVideoTracks().forEach(t => t.stop());
+        stream.getVideoTracks().forEach(t => t.stop());
 
-        const audioStream = new MediaStream(audioTracks);
-        const mimeType = pickMimeType();
+        const AC = window.AudioContext || window.webkitAudioContext;
+        let s;
         try {
-            recorder = new MediaRecorder(audioStream, mimeType ? { mimeType } : undefined);
+            const ctx = new AC();
+            if (ctx.state === 'suspended') await ctx.resume();
+            const source = ctx.createMediaStreamSource(new MediaStream(tracks));
+            const nCh = Math.min(2, Math.max(1, source.channelCount || 2));
+            s = { ctx, tracks, source, node: null, sink: ctx.createGain(), chunks: [], frames: 0, nCh, sampleRate: ctx.sampleRate, discard: false };
+            s.sink.gain.value = 0; // 不讓錄到的聲音再從喇叭播出（避免回授），只為了讓節點持續運作
+
+            if (ctx.audioWorklet && window.AudioWorkletNode) {
+                const url = URL.createObjectURL(new Blob([WORKLET_CODE], { type: 'application/javascript' }));
+                try { await ctx.audioWorklet.addModule(url); } finally { URL.revokeObjectURL(url); }
+                s.node = new AudioWorkletNode(ctx, 'sys-rec-processor', { numberOfInputs: 1, numberOfOutputs: 1, channelCount: nCh, channelCountMode: 'explicit' });
+                s.node.port.onmessage = (e) => { if (session === s) pushFrames(s, e.data); };
+            } else {
+                s.node = ctx.createScriptProcessor(4096, nCh, nCh);
+                s.node.onaudioprocess = (e) => {
+                    if (session !== s) return;
+                    const chans = [];
+                    for (let c = 0; c < nCh; c++) chans.push(new Float32Array(e.inputBuffer.getChannelData(c)));
+                    pushFrames(s, chans);
+                };
+            }
+            source.connect(s.node);
+            s.node.connect(s.sink);
+            s.sink.connect(ctx.destination);
         } catch (err) {
-            audioTracks.forEach(t => t.stop());
-            displayStream = null;
-            return showToast('無法建立錄音器：' + err.message, 'error');
+            console.error('[SysRecord] 建立錄音失敗：', err);
+            tracks.forEach(t => t.stop());
+            return showToast('無法開始錄製：' + (err && err.message ? err.message : err), 'error');
         }
 
-        chunks = [];
-        discardOnStop = false;
-        const myRecorder = recorder;
-        myRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
-        myRecorder.onerror = (e) => {
-            console.error('[SysRecord] 錄製錯誤：', e.error || e);
-            showToast('錄製發生錯誤，已停止', 'error');
-            stopRecording(true);
-        };
-        myRecorder.onstop = () => {
-            const type = myRecorder.mimeType || mimeType || 'audio/webm';
-            const blob = new Blob(chunks, { type });
-            chunks = [];
-            audioTracks.forEach(t => t.stop());
-            displayStream = null;
-            recorder = null;
-            setRecordingUI(false);
-            if (discardOnStop) return;
-            if (!blob.size) return showToast('沒有錄到任何聲音', 'error');
-            handleRecordedBlob(blob);
-        };
-
+        session = s;
         // 使用者在瀏覽器按「停止分享」時，同步結束錄製
-        audioTracks[0].addEventListener('ended', () => {
-            if (recorder === myRecorder && myRecorder.state !== 'inactive') myRecorder.stop();
-        });
+        tracks[0].addEventListener('ended', () => { if (session === s) stopRecording(); });
 
-        // 錄製期間先暫停目前播放，避免畫面操作干擾
         try { audioPlayer.pause(); } catch (e) {}
 
         startedAt = Date.now();
-        myRecorder.start(1000);
         setRecordingUI(true);
         showToast('開始錄製，請播放要錄的聲音；完成後按「停止」', 'success');
     }
 
     function stopRecording(discard) {
-        if (!recorder) return;
-        discardOnStop = !!discard;
-        if (recorder.state !== 'inactive') recorder.stop();
+        const s = session;
+        if (!s) return;
+        session = null;
+        try { s.source.disconnect(); s.node.disconnect(); s.sink.disconnect(); } catch (e) {}
+        if (s.node && s.node.port) s.node.port.onmessage = null;
+        s.tracks.forEach(t => t.stop());
+        s.ctx.close().catch(() => {});
+        setRecordingUI(false);
+        if (discard) return;
+        if (!s.frames) return showToast('沒有錄到任何聲音', 'error');
+        handleRecordedBlob(buildWavBlob(s));
     }
 
-    // ---------- 錄完：轉 WAV → 確認 → 載入 ----------
+    // 16-bit PCM WAV：檔頭長度由實際錄到的取樣數算出，所以總長一定正確
+    function buildWavBlob(s) {
+        const dataSize = s.frames * s.nCh * 2;
+        const header = new ArrayBuffer(44);
+        const v = new DataView(header);
+        const str = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+        str(0, 'RIFF'); v.setUint32(4, 36 + dataSize, true); str(8, 'WAVE');
+        str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, s.nCh, true);
+        v.setUint32(24, s.sampleRate, true); v.setUint32(28, s.sampleRate * s.nCh * 2, true);
+        v.setUint16(32, s.nCh * 2, true); v.setUint16(34, 16, true);
+        str(36, 'data'); v.setUint32(40, dataSize, true);
+        return new Blob([header, ...s.chunks], { type: 'audio/wav' });
+    }
+
+    // ---------- 錄完：確認 → 載入 ----------
     function hasProjectProgress() {
         const hasLabels = typeof allLabelsOrdered !== 'undefined' && allLabelsOrdered.length > 0;
         const hasTimes = typeof timeDataMap !== 'undefined' && Object.keys(timeDataMap).length > 0;
@@ -180,28 +231,7 @@
         setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
     }
 
-    async function handleRecordedBlob(rawBlob) {
-        showToast('錄製完成，正在處理音檔...', 'normal');
-        let wavBlob;
-        let ctx;
-        try {
-            const AC = window.AudioContext || window.webkitAudioContext;
-            ctx = new AC();
-            const audioBuffer = await ctx.decodeAudioData(await rawBlob.arrayBuffer());
-            wavBlob = audioBufferToWav(audioBuffer);
-        } catch (err) {
-            console.error('[SysRecord] 解碼失敗：', err);
-            showCustomDialog({
-                title: '錄音處理失敗',
-                message: '無法把錄音轉成可編輯的音檔。<br>是否先下載原始錄音檔（webm）保存？',
-                confirmText: '下載原始錄音', cancelText: '放棄',
-                onConfirm: () => downloadBlob(rawBlob, makeFileName().replace(/\.wav$/, '.webm'))
-            });
-            return;
-        } finally {
-            if (ctx && ctx.close) ctx.close().catch(() => {});
-        }
-
+    function handleRecordedBlob(wavBlob) {
         const fileName = makeFileName();
         const file = new File([wavBlob], fileName, { type: 'audio/wav', lastModified: Date.now() });
 
@@ -259,13 +289,13 @@
     // ---------- 綁定按鈕 ----------
     btn.addEventListener('click', () => {
         document.getElementById('waveMoreMenu')?.classList.remove('show');
-        if (recorder) stopRecording();
+        if (session) stopRecording();
         else startRecording();
     });
 
     // 錄製中關閉／重新整理頁面時提醒
     window.addEventListener('beforeunload', (e) => {
-        if (recorder) { e.preventDefault(); e.returnValue = ''; }
+        if (session) { e.preventDefault(); e.returnValue = ''; }
     });
 
     // 不支援的瀏覽器：選項仍顯示，但標示灰階，點擊時給出原因
