@@ -107,7 +107,9 @@ document.getElementById('batchImportConfirmBtn')?.addEventListener('click', asyn
             saveToStorage();
             if(typeof updateMainTitleDisplay === 'function') updateMainTitleDisplay();
             if(typeof renderSentenceList === 'function') renderSentenceList();
-            if(typeof initWaveSurfer === 'function') initWaveSurfer();
+            // 修改：等新音檔 loadedmetadata 後才重建聲波圖（函式定義在 4b_ui_audio_loader.js）
+            if (typeof initWaveSurferAfterAudioLoad === 'function') initWaveSurferAfterAudioLoad();
+            else if (typeof initWaveSurfer === 'function') initWaveSurfer();
 
             showToast(`成功匯入並合併 ${validAudioFiles.length} 個音檔！`, 'success');
 
