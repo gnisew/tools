@@ -3,6 +3,27 @@
 
 // 萬能音檔載入控制中心
 
+// 【新增】換上新音檔後，等瀏覽器真的切到新音檔（loadedmetadata）才重建聲波圖。
+// 原因：audioPlayer.src 改了、load() 呼叫後，currentSrc 要稍後才更新；
+// 若立刻 initWaveSurfer()，WaveSurfer 會讀到舊的 currentSrc，解碼出舊音檔的聲波與資料
+// （檔名相同時看起來就像「沒有更新」）。2_audio_engine.js 的剪裁流程早已用同樣方式處理。
+let audioReinitToken = 0;
+function initWaveSurferAfterAudioLoad() {
+    const myToken = ++audioReinitToken; // 連續載入時，只讓最後一次生效
+    let done = false;
+    const run = () => {
+        if (done) return;
+        done = true;
+        audioPlayer.removeEventListener('loadedmetadata', run);
+        audioPlayer.removeEventListener('error', run);
+        if (myToken !== audioReinitToken) return;
+        if (typeof initWaveSurfer === 'function') initWaveSurfer();
+    };
+    audioPlayer.addEventListener('loadedmetadata', run, { once: true });
+    audioPlayer.addEventListener('error', run, { once: true }); // 載入失敗也要交給 WaveSurfer 顯示錯誤提示
+    setTimeout(run, 3000); // 保險：事件因故沒觸發時仍會執行
+}
+
 // 量測原始檔的平均位元率（檔案位元數 ÷ 時長），存入 localStorage 供匯出 MP3 比照，避免一律以 320kbps 重壓。
 // 無損格式或線上網址無法量測，會清除該值，匯出時退回 320kbps。
 const LOSSY_AUDIO_EXT_REGEX = /\.(mp3|m4a|aac|ogg|oga|opus|wma)$/i;
@@ -73,7 +94,7 @@ function handleSingleLocalFile(file) {
         if (typeof localFileHint !== 'undefined' && localFileHint) localFileHint.style.display = 'none';
         saveToStorage();
         if(typeof updateMainTitleDisplay === 'function') updateMainTitleDisplay();
-        if(typeof initWaveSurfer === 'function') initWaveSurfer();
+        initWaveSurferAfterAudioLoad(); // 修改：等新音檔 loadedmetadata 後才重建聲波圖
 
         if(typeof renderSentenceList === 'function') renderSentenceList();
 
@@ -155,7 +176,7 @@ function handleSingleOnlineUrl(url) {
         }
         saveToStorage();
         if (typeof updateMainTitleDisplay === 'function') updateMainTitleDisplay();
-        if (typeof initWaveSurfer === 'function') initWaveSurfer();
+        initWaveSurferAfterAudioLoad(); // 修改：同上
 
         if(typeof renderSentenceList === 'function') renderSentenceList();
 
@@ -308,7 +329,7 @@ document.getElementById('audioLoadConfirmBtn')?.addEventListener('click', async 
                 saveToStorage();
                 if(typeof updateMainTitleDisplay === 'function') updateMainTitleDisplay();
                 if(typeof renderSentenceList === 'function') renderSentenceList();
-                if(typeof initWaveSurfer === 'function') initWaveSurfer();
+                initWaveSurferAfterAudioLoad(); // 修改：同上
                 showToast(`成功合併 ${validFiles.length} 個音檔！`, 'success');
             } catch (err) { showToast('批次失敗：' + err.message, 'error'); }
         }
@@ -354,7 +375,7 @@ document.getElementById('audioLoadConfirmBtn')?.addEventListener('click', async 
                 saveToStorage();
                 if(typeof updateMainTitleDisplay === 'function') updateMainTitleDisplay();
                 if(typeof renderSentenceList === 'function') renderSentenceList();
-                if(typeof initWaveSurfer === 'function') initWaveSurfer();
+                initWaveSurferAfterAudioLoad(); // 修改：同上
                 showToast(`成功下載並合併 ${validFiles.length} 個音檔！`, 'success');
             } catch (err) { showToast('線上批次失敗：' + err.message, 'error'); }
         }
