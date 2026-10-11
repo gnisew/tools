@@ -716,6 +716,58 @@ window.launchArenaMode = function(rawData, configs) {
                                         </select>
                                     </div>
                                     <hr class="border-gray-100">
+                                    <div class="flex flex-col gap-3">
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex flex-col pr-4">
+                                                <span class="font-bold text-gray-800 text-sm">暱稱格式檢查</span>
+                                                <span class="text-xs text-gray-500 mt-1">限制學生只能輸入符合規則的暱稱（例：座號 40112）</span>
+                                            </div>
+                                            <select id="host-name-rule-mode" class="bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-indigo-400 font-bold text-gray-800 shrink-0 cursor-pointer">
+                                                <option value="none" selected>不檢查</option>
+                                                <option value="simple">簡易規則</option>
+                                                <option value="regex">正則表示式</option>
+                                            </select>
+                                        </div>
+
+                                        <div id="name-rule-simple" class="hidden bg-gray-50 border border-gray-200 rounded-xl p-4 flex flex-col gap-3">
+                                            <div class="flex flex-wrap items-center gap-2 text-sm font-bold text-gray-700">
+                                                <span>開頭是</span>
+                                                <input id="host-name-prefix" type="text" maxlength="10" placeholder="401" class="w-24 bg-white border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:border-indigo-400 text-gray-800 text-center">
+                                                <span>後面接</span>
+                                                <input id="host-name-body-len" type="number" min="0" max="20" value="2" class="w-16 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 text-gray-800 text-center">
+                                                <span>個</span>
+                                                <select id="host-name-body-type" class="bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 text-gray-800 cursor-pointer">
+                                                    <option value="digit">數字</option>
+                                                    <option value="zh">中文字</option>
+                                                    <option value="alpha">英文字母</option>
+                                                    <option value="alnum">英文字母或數字</option>
+                                                    <option value="any">任意字元</option>
+                                                </select>
+                                            </div>
+                                            <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                                                <input type="checkbox" id="host-name-allow-tail" class="accent-indigo-600">
+                                                後面還可以再加其他文字（例：40112王小明）
+                                            </label>
+                                        </div>
+
+                                        <div id="name-rule-regex" class="hidden bg-gray-50 border border-gray-200 rounded-xl p-4 flex flex-col gap-2">
+                                            <input id="host-name-regex" type="text" placeholder="例：401\\d{2}" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-indigo-400 text-gray-800 font-mono">
+                                            <p class="text-xs text-gray-500 leading-relaxed">會自動「完整比對」整個暱稱，不必寫 ^ 與 $。常用：\\d 數字、[\\u4e00-\\u9fa5] 中文字、[A-Za-z] 英文字母、{2} 重複 2 次、| 表示「或」。</p>
+                                        </div>
+
+                                        <div id="name-rule-common" class="hidden bg-gray-50 border border-gray-200 rounded-xl p-4 flex flex-col gap-3">
+                                            <div class="text-xs text-gray-500">規則預覽：<span id="name-rule-preview" class="font-mono font-bold text-indigo-700"></span></div>
+                                            <div class="flex flex-col gap-1">
+                                                <span class="text-xs font-bold text-gray-500">給學生的格式提示（留空則自動產生）</span>
+                                                <input id="host-name-hint" type="text" maxlength="60" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-indigo-400 text-gray-800 text-sm">
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <input id="host-name-test" type="text" placeholder="輸入一個暱稱試試看" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-indigo-400 text-gray-800 text-sm">
+                                                <span id="host-name-test-result" class="text-sm font-bold shrink-0 w-20 text-right"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <hr class="border-gray-100">
                                     <div class="flex items-center justify-between">
                                         <div class="flex flex-col pr-4">
                                             <span class="font-bold text-gray-800 text-sm">顯示選項文字</span>
@@ -787,7 +839,16 @@ window.launchArenaMode = function(rawData, configs) {
             });
         }
         
+        bindNameRuleSettingsUI();
+
         document.getElementById('btn-create-space-top').addEventListener('click', async () => {
+            // ✨ 暱稱格式規則：先驗證，有誤就不建立空間
+            const nameRule = buildNameRule();
+            if (nameRule.error) {
+                if (typeof showToast === 'function') showToast('⚠️ ' + nameRule.error);
+                return;
+            }
+
             // ✨ 收集包含自動化設定的所有變數
             const hostSettings = {
                 filterCategory: catSelect ? catSelect.value : 'ALL',
@@ -795,6 +856,7 @@ window.launchArenaMode = function(rawData, configs) {
                 qCount: parseInt(document.getElementById('host-q-count').value, 10),
                 qTime: parseInt(document.getElementById('host-q-time').value, 10),
                 nameLimit: parseInt(document.getElementById('host-name-limit').value, 10),
+                nameRule: { mode: nameRule.mode, pattern: nameRule.pattern, hint: nameRule.hint },
                 topCount: parseInt(document.getElementById('host-top-count').value, 10), 
                 preReadTime: parseInt(document.getElementById('host-pre-read').value, 10),
                 showScoreboard: document.getElementById('host-show-scoreboard').checked,
@@ -2161,6 +2223,112 @@ window.launchArenaMode = function(rawData, configs) {
     // ----------------------------------------------------
     // 畫面 3：學生輸入代碼表單
     // ----------------------------------------------------
+    // ----------------------------------------------------
+    // ✨ 暱稱格式規則（老師在空間設定指定，學生加入時檢查）
+    // 儲存格式：arenaSettings.nameRule = { mode: 'none'|'simple'|'regex', pattern, hint }
+    // pattern 是「不含 ^ $」的正則內容，比對時一律以完整比對處理
+    // ----------------------------------------------------
+    const NAME_RULE_BODY = {
+        digit: { re: '\\d',               label: '數字',           sample: '1234567890' },
+        zh:    { re: '[\\u4e00-\\u9fa5]', label: '中文字',         sample: '王小明林陳李張黃吳劉' },
+        alpha: { re: '[A-Za-z]',          label: '英文字母',       sample: 'ABCDEFGHIJ' },
+        alnum: { re: '[A-Za-z0-9]',       label: '英文字母或數字', sample: 'A1B2C3D4E5' },
+        any:   { re: '.',                 label: '任意字元',       sample: 'abcdefghij' }
+    };
+
+    function escapeRegexText(str) {
+        return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // 讀取設定畫面 → 組出規則；不合法時回傳 { error }
+    function buildNameRule() {
+        const val = id => (document.getElementById(id)?.value || '');
+        const mode = val('host-name-rule-mode') || 'none';
+        const customHint = val('host-name-hint').trim();
+
+        if (mode === 'simple') {
+            const prefix = val('host-name-prefix').trim();
+            const body = NAME_RULE_BODY[val('host-name-body-type')] || NAME_RULE_BODY.digit;
+            let len = parseInt(val('host-name-body-len'), 10);
+            if (isNaN(len) || len < 0) len = 0;
+            len = Math.min(len, 20);
+            const tail = !!document.getElementById('host-name-allow-tail')?.checked;
+            if (!prefix && len === 0) return { error: '暱稱規則：請輸入「開頭文字」，或設定「後面接幾個字」' };
+
+            let pattern = escapeRegexText(prefix);
+            if (len > 0) pattern += `${body.re}{${len}}`;
+            if (tail) pattern += '.*';
+
+            const example = prefix + body.sample.slice(0, len) + (tail ? '王小明' : '');
+            const autoHint = '暱稱格式：' + [
+                prefix ? `以「${prefix}」開頭` : '',
+                len > 0 ? `後面接 ${len} 個${body.label}` : '',
+                tail ? '後面可再加文字' : ''
+            ].filter(Boolean).join('，') + `（例：${example}）`;
+            return { mode, pattern, hint: customHint || autoHint, autoHint, example };
+        }
+
+        if (mode === 'regex') {
+            const pattern = val('host-name-regex').trim();
+            if (!pattern) return { error: '暱稱規則：請輸入正則表示式' };
+            try { new RegExp(`^(?:${pattern})$`); }
+            catch (e) { return { error: '暱稱規則的正則表示式語法有誤：' + e.message }; }
+            const autoHint = '暱稱格式不符合老師的規則';
+            return { mode, pattern, hint: customHint || autoHint, autoHint, example: '' };
+        }
+
+        return { mode: 'none', pattern: '', hint: '', autoHint: '', example: '' };
+    }
+
+    // 檢查暱稱：符合回傳 null，不符合回傳要顯示給學生的提示文字
+    function checkNameRule(name, rule) {
+        if (!rule || !rule.mode || rule.mode === 'none' || !rule.pattern) return null;
+        try {
+            if (new RegExp(`^(?:${rule.pattern})$`).test(name)) return null;
+        } catch (e) {
+            return null; // 規則本身壞掉時不擋學生
+        }
+        return rule.hint || '暱稱格式不符合老師的規則';
+    }
+
+    // 設定畫面：切換面板、即時預覽與測試
+    function bindNameRuleSettingsUI() {
+        const modeEl = document.getElementById('host-name-rule-mode');
+        if (!modeEl) return;
+        const refresh = () => {
+            const mode = modeEl.value;
+            document.getElementById('name-rule-simple').classList.toggle('hidden', mode !== 'simple');
+            document.getElementById('name-rule-regex').classList.toggle('hidden', mode !== 'regex');
+            document.getElementById('name-rule-common').classList.toggle('hidden', mode === 'none');
+
+            const rule = buildNameRule();
+            const prev = document.getElementById('name-rule-preview');
+            const res = document.getElementById('host-name-test-result');
+            const testVal = document.getElementById('host-name-test').value.trim();
+            if (rule.error) {
+                prev.textContent = rule.error;
+                prev.className = 'font-bold text-red-500';
+                res.textContent = '';
+                return;
+            }
+            prev.className = 'font-mono font-bold text-indigo-700';
+            prev.textContent = (rule.pattern || '') + (rule.example ? `　範例：${rule.example}` : '');
+            document.getElementById('host-name-hint').placeholder = rule.autoHint || '';
+            if (!testVal) { res.textContent = ''; return; }
+            const ok = checkNameRule(testVal, rule) === null;
+            res.textContent = ok ? '✓ 符合' : '✗ 不符合';
+            res.className = 'text-sm font-bold shrink-0 w-20 text-right ' + (ok ? 'text-green-600' : 'text-red-500');
+        };
+        ['host-name-rule-mode', 'host-name-prefix', 'host-name-body-len', 'host-name-body-type',
+         'host-name-allow-tail', 'host-name-regex', 'host-name-hint', 'host-name-test'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('input', refresh);
+            el.addEventListener('change', refresh);
+        });
+        refresh();
+    }
+
     function renderStudentJoinForm(prefillCode = '') {
         const emojiList = ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🦋', '🐌', '🐞', '🐜', '🦟', '🦗', '🕷', '🦂', '🐢', '🐍', '🦎', '🦖', '🦕', '🐙', '🦑', '🦐', '🦞', '🦀', '🐡', '🐠', '🐟', '🐬', '🐳', '🐋', '🦈', '🐊', '🐅', '🐆', '🦓', '🦍', '🦧', '🐘', '🦛', '🦏', '🐪', '🐫', '🦒', '🦘', '🐃', '🐂', '🐎', '🐖', '🐏', '🐑', '🦙', '🐐', '🦌', '🐕', '🐩', '🦮', '🐕‍🦺', '🐈', '🐈‍⬛', '🐓', '🦃', '🦚', '🦜', '🦢', '🦩', '🕊', '🐇', '🦝', '🦨', '🦡', '🦦', '🦥', '🐁', '🐀', '🐿', '🦔'];
         const randomEmojis = emojiList.sort(() => Math.random() - 0.5).slice(0, 10);
@@ -2180,6 +2348,7 @@ window.launchArenaMode = function(rawData, configs) {
                         <div class="w-full mb-6">
                             <label class="block text-sm font-bold text-gray-500 mb-1 pl-2">你的暱稱</label>
                             <input type="text" id="input-player-name" class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-5 py-4 text-center text-xl font-bold text-gray-700 focus:border-indigo-400 outline-none transition-colors" placeholder="輸入暱稱" maxlength="20">
+                            <p id="name-rule-hint" class="hidden mt-2 text-xs md:text-sm text-indigo-600 font-bold text-center px-2"></p>
                         </div>
 
                         <button id="btn-submit-join" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xl py-4 rounded-xl shadow-md transition-transform hover:-translate-y-1 cursor-pointer mb-8">進入空間！</button>
@@ -2210,6 +2379,45 @@ window.launchArenaMode = function(rawData, configs) {
             btn.className = 'emoji-btn w-12 h-12 flex items-center justify-center text-2xl rounded-xl cursor-pointer transition-all bg-indigo-100 border-2 border-indigo-400 scale-110';
         });
 
+        // ✨ 輸入完整 PIN 後，先讀取老師的暱稱規則顯示提示，並在輸入暱稱時即時標示是否符合
+        let nameRuleCache = null, hintFetchedFor = '';
+        const nameInputEl = document.getElementById('input-player-name');
+        const codeInputEl = document.getElementById('input-space-code');
+        const hintEl = document.getElementById('name-rule-hint');
+        const paintNameInput = () => {
+            const v = nameInputEl.value.trim();
+            nameInputEl.style.borderColor = (v && checkNameRule(v, nameRuleCache) !== null) ? '#f87171' : '';
+        };
+        const refreshNameRuleHint = async () => {
+            const code = codeInputEl.value.trim();
+            if (code.length !== 5) {
+                nameRuleCache = null; hintFetchedFor = '';
+                hintEl.classList.add('hidden'); paintNameInput();
+                return;
+            }
+            if (hintFetchedFor === code) return;
+            hintFetchedFor = code;
+            try {
+                const d = await db.collection(window.SPACES_COLLECTION).doc(code).get();
+                const rule = d.exists && d.data().config && d.data().config.arenaSettings && d.data().config.arenaSettings.nameRule;
+                if (rule && rule.mode && rule.mode !== 'none' && rule.pattern) {
+                    nameRuleCache = rule;
+                    hintEl.textContent = '📝 ' + (rule.hint || '暱稱格式不符合老師的規則');
+                    hintEl.classList.remove('hidden');
+                } else {
+                    nameRuleCache = null;
+                    hintEl.classList.add('hidden');
+                }
+            } catch (e) {
+                nameRuleCache = null;
+                hintEl.classList.add('hidden');
+            }
+            paintNameInput();
+        };
+        codeInputEl.addEventListener('input', refreshNameRuleHint);
+        nameInputEl.addEventListener('input', paintNameInput);
+        refreshNameRuleHint();
+
         document.getElementById('btn-submit-join').addEventListener('click', async () => {
             const code = document.getElementById('input-space-code').value.trim();
             const name = document.getElementById('input-player-name').value.trim();
@@ -2231,6 +2439,13 @@ window.launchArenaMode = function(rawData, configs) {
                 if (name.length > nameLimit) {
                     btn.textContent = "進入空間！"; btn.disabled = false;
                     return showToast(`⚠️ 老師設定暱稱不能超過 ${nameLimit} 個字`);
+                }
+
+                // ✨ 暱稱格式規則檢查（老師在空間設定指定）
+                const ruleMsg = checkNameRule(name, data.config && data.config.arenaSettings && data.config.arenaSettings.nameRule);
+                if (ruleMsg) {
+                    btn.textContent = "進入空間！"; btn.disabled = false;
+                    return showToast(`⚠️ ${ruleMsg}`);
                 }
 
                 const finalEmoji = (data.config && data.config.arenaSettings && data.config.arenaSettings.allowEmoji === false) ? '' : selectedEmoji;
