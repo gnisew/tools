@@ -1,6 +1,8 @@
 // 2e_system_audio_record.js: 錄製音訊（系統／分頁、麥克風、系統＋麥克風）
 // 入口：「選擇音檔」視窗的第三個頁籤「錄製音訊」（#tabRecordAudio / #sectionRecordAudio / #recStartBtn）。
 //       聲波 ⋮ 選單的「錄製音訊」(#waveSysRecordBtn) 為捷徑：未錄製時開啟視窗並切到錄製頁籤；錄製中則直接停止。
+// 網址參數：?rec=1 開啟錄製頁籤；?rec=system / mic / both 另外預選錄音來源（只開視窗，不會自動開始錄音）。
+//       視窗開著且在錄製頁籤時，網址會自動帶 rec=目前來源，關閉或離開頁籤即移除，可直接複製網址列分享。
 // 三種來源：
 //   system：getDisplayMedia 的音訊軌（視訊軌立刻丟棄）
 //   mic   ：getUserMedia 麥克風（單聲道）
@@ -12,6 +14,8 @@
 //       按「停止錄製」→ 視窗自動關閉 → 若專案已有句子或時間標記，先跳確認視窗 → 取代目前音檔（走與選檔相同的載入流程）。
 //       錄製中可按「暫停」／「繼續錄製」（暫停期間的聲音不收，不計入時間，最後合成同一個檔）。
 //       錄製中底部的「取消」改叫「關閉視窗」，按下後錄音繼續，此時才在右上角顯示浮動小工具；重新開啟視窗會直接回到錄製頁籤的錄音中面板。
+// 倒數：按「開始錄製」並完成瀏覽器授權後，先倒數（預設 3 秒，可選 不倒數／3／5／10 秒，選擇會記住）再開始收音；
+//       倒數期間的聲音不會寫進錄音，可按「取消倒數」放棄；倒數中不能暫停。
 // 下載：錄音不自動下載；載入後使用者自行用既有的下載／匯出功能儲存。
 // 限制：需 HTTPS 或 localhost；系統／分頁音訊僅電腦版 Chrome／Edge；單次最長 60 分鐘（約 700MB 記憶體）。
 //   · 選「Chrome 分頁」並勾「分享分頁音訊」：各系統皆可，適合錄網頁聲音
@@ -35,6 +39,7 @@
 
     const MAX_MINUTES = 60;
     const KEY_MODE = 'tagger_recMode';
+    const URL_REC_PARAM = 'rec'; // 網址參數：?rec=1 / system / mic / both
     const MODES = {
         system: { label: '系統錄音',   prefix: '系統錄音',   display: true,  mic: false },
         mic:    { label: '麥克風錄音', prefix: '麥克風錄音', display: false, mic: true  },
@@ -45,6 +50,19 @@
         mic:    '按下「開始錄製」後，瀏覽器會詢問麥克風權限，允許後立即開始錄製。',
         both:   '先選分享來源（同「系統音訊」），再允許麥克風，兩者會混成一軌。建議戴耳機，避免麥克風收進喇叭的聲音而產生回音。'
     };
+
+    // 開始前倒數：#recCountdownSelect（選擇會記住），沒有這個元素時用預設 3 秒
+    const KEY_COUNTDOWN = 'tagger_recCountdown';
+    const cdSelect = document.getElementById('recCountdownSelect');
+    function getCountdownSec() {
+        const v = parseInt(cdSelect ? cdSelect.value : '3', 10);
+        return isNaN(v) ? 3 : Math.max(0, v);
+    }
+    if (cdSelect) {
+        const savedCd = localStorage.getItem(KEY_COUNTDOWN);
+        if (savedCd !== null && Array.from(cdSelect.options).some(o => o.value === savedCd)) cdSelect.value = savedCd;
+        cdSelect.addEventListener('change', () => localStorage.setItem(KEY_COUNTDOWN, cdSelect.value));
+    }
 
     let session = null;   // { ctx, tracks, nodes, node, sink, analyser, chunks, frames, nCh, sampleRate, peak, mode }
     let starting = false;
@@ -91,6 +109,12 @@
         #recActivePane.paused .rec-dot { animation: none; background: #E65100; }
         #recActivePane.paused .rec-act-time { color: #999; }
         #sysRecIndicator.paused { background: #E65100; }
+        #recActivePane.counting .rec-act-label { color: #E65100; }
+        #recActivePane.counting .rec-dot { animation: none; background: #E65100; }
+        #recActivePane.counting .rec-act-time { color: #E65100; font-size: 4.5rem; }
+        #sysRecIndicator.counting { background: #E65100; }
+        #sysRecIndicator.counting .rec-dot { animation: none; }
+        #recPauseBtn:disabled, #sysRecPauseBtn:disabled { opacity: 0.45; cursor: not-allowed; }
         #sysRecIndicator.paused .rec-dot { animation: none; }
         #recActivePane { display: none; }
         #audioLoadModalOverlay.rec-active #recSourcePane { display: none; }
@@ -163,7 +187,9 @@
         const rec = !!session;
         startBtn.classList.toggle('is-stop', rec);
         startBtn.innerHTML = rec
-            ? '<span class="material-icons">stop</span> 停止錄製'
+            ? (session.counting
+                ? '<span class="material-icons">close</span> 取消倒數'
+                : '<span class="material-icons">stop</span> 停止錄製')
             : '<span class="material-icons">fiber_manual_record</span> 開始錄製';
     }
 
@@ -181,8 +207,13 @@
 
     function renderPauseUI() {
         const p = !!(session && session.paused);
+        const c = !!(session && session.counting);   // 倒數中
         activePane.classList.toggle('paused', p);
+        activePane.classList.toggle('counting', c);
         indicator.classList.toggle('paused', p);
+        indicator.classList.toggle('counting', c);
+        pauseBtn.disabled = c;       // 倒數中不能暫停
+        indPauseBtn.disabled = c;
         pauseBtn.classList.toggle('is-paused', p);
         pauseBtn.innerHTML = p
             ? '<span class="material-icons">play_arrow</span> 繼續錄製'
@@ -190,7 +221,7 @@
         indPauseBtn.innerHTML = p
             ? '<span class="material-icons" style="font-size:1.1rem;">play_arrow</span>繼續'
             : '<span class="material-icons" style="font-size:1.1rem;">pause</span>暫停';
-        const text = (p ? '已暫停・' : '錄音中・') + recBaseLabel;
+        const text = (c ? '倒數中・' : (p ? '已暫停・' : '錄音中・')) + recBaseLabel;
         recLabelEl.textContent = text;
         actLabelEl.textContent = text;
         if (p) { meterEl.style.width = '0'; actMeterEl.style.width = '0'; }
@@ -198,7 +229,7 @@
 
     function togglePause() {
         const s = session;
-        if (!s) return;
+        if (!s || s.counting) return;
         s.paused = !s.paused;
         if (s.paused) pausedAt = Date.now();
         else { pausedTotal += Date.now() - pausedAt; pausedAt = 0; }
@@ -233,10 +264,12 @@
             renderPauseUI();
             const buf = new Float32Array(1024);
             tickTimer = setInterval(() => {
-                const clock = fmtClock(elapsedMs() / 1000);
-                timeEl.textContent = clock;
-                actTimeEl.textContent = clock;
                 const s = session;
+                if (!(s && s.counting)) {   // 倒數期間時間欄顯示倒數秒數（由 runCountdown 更新），不在這裡覆蓋
+                    const clock = fmtClock(elapsedMs() / 1000);
+                    timeEl.textContent = clock;
+                    actTimeEl.textContent = clock;
+                }
                 if (s && s.analyser && !s.paused) {
                     s.analyser.getFloatTimeDomainData(buf);
                     let p = 0;
@@ -257,6 +290,42 @@
             ['tabLocalLoad', 'tabOnlineLoad'].forEach(id => document.getElementById(id)?.setAttribute('aria-selected', 'false'));
         }
     }
+    // ---------- 網址參數 ?rec=（錄製視窗開啟狀態 ↔ 網址同步）----------
+    // 開啟「錄製音訊」頁籤：聲波選單捷徑與網址還原共用
+    function openRecordTab() {
+        pendingOpenRec = true;
+        (document.getElementById('openAudioModalBtn') || document.getElementById('sidebarAudioBtn'))?.click();
+        if (!overlay.classList.contains('show')) { overlay.classList.add('show'); document.body.style.overflow = 'hidden'; }
+        setRecTab(true);
+    }
+
+    // 視窗開著且在錄製頁籤 → 網址帶 rec=目前來源；否則移除。其他參數與 #hash 保留
+    function syncRecUrl() {
+        try {
+            const url = new URL(window.location.href);
+            const open = overlay.classList.contains('show') && overlay.classList.contains('rec-mode');
+            if (open) url.searchParams.set(URL_REC_PARAM, getMode());
+            else url.searchParams.delete(URL_REC_PARAM);
+            const next = url.pathname + url.search + url.hash;
+            const cur = window.location.pathname + window.location.search + window.location.hash;
+            if (next !== cur) history.replaceState(null, '', next);
+        } catch (e) {
+            // file:// 等環境不允許改網址時略過
+        }
+    }
+
+    // 載入時依網址還原；rec=system/mic/both 會預選來源（不支援的來源會略過）
+    function restoreRecFromUrl() {
+        const v = new URLSearchParams(window.location.search).get(URL_REC_PARAM);
+        if (v === null) return;
+        const radio = radios.find(r => r.value === v && !r.disabled);
+        if (radio && !radio.checked) {
+            radio.checked = true;
+            radio.dispatchEvent(new Event('change')); // 走原本的儲存與提示更新流程
+        }
+        openRecordTab();
+    }
+
     tabRec.addEventListener('click', () => setRecTab(true));
     // 本檔最後載入，所以這裡的監聽會排在 4b 的切換之後執行
     ['tabLocalLoad', 'tabOnlineLoad'].forEach(id => document.getElementById(id)?.addEventListener('click', () => setRecTab(false)));
@@ -273,6 +342,7 @@
         if (!shown) pendingOpenRec = false;
         wasShown = shown;
         syncIndicator();   // 視窗開著時隱藏浮動小工具，關閉時（錄製中）顯示
+        syncRecUrl();      // 同步網址參數 ?rec=
     }).observe(overlay, { attributes: true, attributeFilter: ['class'] });
 
     function unsupportedReason(mode) {
@@ -300,7 +370,7 @@
         radios.forEach(r => {
             const why = unsupportedReason(r.value);
             if (why) { r.disabled = true; r.parentElement.title = why; }
-            r.addEventListener('change', () => { localStorage.setItem(KEY_MODE, r.value); refreshModeUI(); });
+            r.addEventListener('change', () => { localStorage.setItem(KEY_MODE, r.value); refreshModeUI(); syncRecUrl(); });
         });
         const saved = localStorage.getItem(KEY_MODE);
         const pick = radios.find(r => r.value === saved && !r.disabled) || radios.find(r => !r.disabled) || radios[0];
@@ -332,7 +402,7 @@
 
     // 收到一批各聲道的 Float32 → 轉 16-bit 並交錯存放
     function pushFrames(s, channels) {
-        if (s.paused) return;   // 暫停：收到的資料直接丟掉，不寫入、不計時
+        if (s.paused || s.counting) return;   // 暫停或倒數中：收到的資料直接丟掉，不寫入、不計時
         const nCh = s.nCh;
         const len = channels[0].length;
         const out = new Int16Array(len * nCh);
@@ -352,6 +422,26 @@
             showToast(`已達 ${MAX_MINUTES} 分鐘上限，自動結束錄製`, 'normal');
             stopRecording();
         }
+    }
+
+    // 倒數：授權與處理鏈都已就緒，只是先不收音；倒數結束才開始計時與寫入
+    function runCountdown(s, sec) {
+        let remain = sec;
+        const show = () => { timeEl.textContent = String(remain); actTimeEl.textContent = String(remain); };
+        show();
+        s.countTimer = setInterval(() => {
+            if (session !== s) { clearInterval(s.countTimer); return; }
+            remain--;
+            if (remain > 0) return show();
+            clearInterval(s.countTimer);
+            s.countTimer = null;
+            s.counting = false;
+            startedAt = Date.now(); pausedAt = 0; pausedTotal = 0;   // 從倒數結束才開始計時
+            timeEl.textContent = '00:00'; actTimeEl.textContent = '00:00';
+            renderPauseUI();
+            renderStartBtn();
+            showToast('開始錄製', 'success');
+        }, 1000);
     }
 
     async function startRecording() {
@@ -472,8 +562,15 @@
 
             startedAt = Date.now();
             pausedAt = 0; pausedTotal = 0;
+            const cdSec = getCountdownSec();
+            s.counting = cdSec > 0;
             setRecordingUI(true, mode);   // 視窗保持開啟，切換成「錄音中」面板
-            showToast(mode === 'mic' ? '開始錄製麥克風，完成後按「停止錄製」' : '開始錄製，請播放要錄的聲音；完成後按「停止錄製」', 'success');
+            if (s.counting) {
+                runCountdown(s, cdSec);
+                showToast(`${cdSec} 秒後開始錄製，請先準備好要錄的聲音`, 'normal');
+            } else {
+                showToast(mode === 'mic' ? '開始錄製麥克風，完成後按「停止錄製」' : '開始錄製，請播放要錄的聲音；完成後按「停止錄製」', 'success');
+            }
         } catch (err) {
             console.error('[Record] 建立錄音失敗：', err);
             cleanup();
@@ -488,11 +585,14 @@
         const s = session;
         if (!s) return;
         session = null;
+        if (s.countTimer) { clearInterval(s.countTimer); s.countTimer = null; }
+        const wasCounting = !!s.counting;
         try { s.nodes.forEach(n => n.disconnect()); } catch (e) {}
         if (s.node && s.node.port) s.node.port.onmessage = null;
         s.tracks.forEach(t => t.stop());
         s.ctx.close().catch(() => {});
         setRecordingUI(false);
+        if (wasCounting) return showToast('已取消錄製', 'normal');   // 倒數中取消：還沒收音，不當成錄音失敗
         if (discard) return;
         if (!s.frames) return showToast('沒有錄到任何聲音', 'error');
         if (s.peak < 0.001) {
@@ -542,6 +642,9 @@
     function handleRecordedBlob(wavBlob, mode) {
         const fileName = makeFileName(mode);
         const file = new File([wavBlob], fileName, { type: 'audio/wav', lastModified: Date.now() });
+
+        // 載入視窗勾了「附加到目前聲波後面」：直接接在尾端（2f_audio_append.js），不走取代對話框
+        if (window.AudioAppend && AudioAppend.isOn()) { AudioAppend.appendFile(file, fileName); return; }
 
         if (hasProjectProgress()) {
             showCustomDialog({
@@ -602,12 +705,12 @@
         menuBtn.addEventListener('click', () => {
             document.getElementById('waveMoreMenu')?.classList.remove('show');
             if (session) return stopRecording();
-            pendingOpenRec = true;
-            (document.getElementById('openAudioModalBtn') || document.getElementById('sidebarAudioBtn'))?.click();
-            if (!overlay.classList.contains('show')) { overlay.classList.add('show'); document.body.style.overflow = 'hidden'; }
-            setRecTab(true);
+            openRecordTab();
         });
     }
+
+    // 載入後延遲 400ms 還原（晚於 4k 的 300ms，讓列表與模式先完成初次渲染）
+    window.addEventListener('DOMContentLoaded', () => setTimeout(restoreRecFromUrl, 400));
 
     // 錄製中關閉／重新整理頁面時提醒
     window.addEventListener('beforeunload', (e) => {

@@ -389,6 +389,100 @@ exportAudioZipBtn?.addEventListener('click', () => {
 
 // 自動靜音斷句核心引擎
 
+// ===== 斷句後處理：合併過短碎片、過長句子再切 =====
+// 兩個引擎（全域／選取範圍）與 4q 預估列共用，三處結果才會一致。
+//   · 合併碎片（mergeBelow > 0）：短於此長度的片段，併入間隔不超過 SEG_MERGE_MAX_GAP 的相鄰句（取間隔較小者）。
+//     合併後若超過 maxLen 則不合併；合併完仍短於 dropBelow（最短有效句段）的片段才丟棄。
+//   · 過長再切（maxLen > 0）：超過 maxLen 的句子，在其中段 25%～75% 範圍內挑「最安靜」的位置切開，
+//     偏好靠近正中央；切完仍過長則遞迴再切。切點兩側各留 SEG_CUT_GAP/2 的空隙，避免標記重疊。
+// levels：每 10ms 一格的音量（與偵測迴圈相同的 peak/RMS）；t0：levels[0] 對應的時間（秒）；stepSec：每格秒數。
+const SEG_MERGE_MAX_GAP = 0.6;
+const SEG_CUT_GAP = 0.01;
+
+function readSegmentRefineOptions() {
+    const maxLen = parseFloat(document.getElementById('asMaxSegment')?.value) || 0;
+    const mergeBelow = parseFloat(document.getElementById('asMergeShort')?.value) || 0;
+    return { maxLen: maxLen > 0 ? maxLen : 0, mergeBelow: mergeBelow > 0 ? mergeBelow : 0 };
+}
+
+// 雙門檻（遲滯）：開始說話用「音量門檻」，結束說話改用門檻 × 此比例（0.3～1）。
+// 比例 < 1 時，句尾漸弱的輕聲字不會因為略低於開始門檻就被提早截掉；1 = 不啟用，行為與舊版相同。
+function readSegmentEndRatio() {
+    const v = parseFloat(document.getElementById('asEndRatio')?.value);
+    return (v > 0 && v < 100) ? Math.max(0.3, v / 100) : 1;
+}
+
+function refineSegments(segs, levels, t0, stepSec, opts) {
+    const maxLen = opts.maxLen > 0 ? opts.maxLen : 0;
+    const mergeBelow = opts.mergeBelow > 0 ? opts.mergeBelow : 0;
+    const dropBelow = opts.dropBelow > 0 ? opts.dropBelow : 0;
+    const stats = { merged: 0, split: 0 };
+    let out = segs.map(s => ({ start: s.start, end: s.end }));
+
+    // 1. 合併過短碎片：每輪挑最短且可合併者，直到沒有為止
+    if (mergeBelow > 0) {
+        for (let guard = 0; guard < 200000; guard++) {
+            let best = null, shortest = Infinity;
+            for (let i = 0; i < out.length; i++) {
+                const len = out[i].end - out[i].start;
+                if (len >= mergeBelow || len >= shortest) continue;
+                const gapPrev = i > 0 ? out[i].start - out[i - 1].end : Infinity;
+                const gapNext = i < out.length - 1 ? out[i + 1].start - out[i].end : Infinity;
+                const canPrev = gapPrev <= SEG_MERGE_MAX_GAP && (!maxLen || out[i].end - out[i - 1].start <= maxLen);
+                const canNext = gapNext <= SEG_MERGE_MAX_GAP && (!maxLen || out[i + 1].end - out[i].start <= maxLen);
+                if (!canPrev && !canNext) continue;
+                shortest = len;
+                best = { i, side: (canPrev && (!canNext || gapPrev <= gapNext)) ? -1 : 1 };
+            }
+            if (!best) break;
+            const a = Math.min(best.i, best.i + best.side), b = Math.max(best.i, best.i + best.side);
+            out.splice(a, 2, { start: out[a].start, end: out[b].end });
+            stats.merged++;
+        }
+    }
+    if (dropBelow > 0) out = out.filter(s => s.end - s.start >= dropBelow);
+
+    // 2. 過長再切
+    if (maxLen > 0 && levels && levels.length) {
+        const last = levels.length - 1;
+        const idxOf = (t) => Math.max(0, Math.min(last, Math.round((t - t0) / stepSec)));
+        const smooth = (k) => { // 前後各 3 格（約 70ms）平均，避免被單一格的起伏誤導
+            let sum = 0, n = 0;
+            for (let j = Math.max(0, k - 3); j <= Math.min(last, k + 3); j++) { sum += levels[j]; n++; }
+            return n ? sum / n : 0;
+        };
+        const result = [];
+        const splitOne = (s, e) => {
+            const len = e - s;
+            if (len <= maxLen) { result.push({ start: s, end: e }); return; }
+            const mid = (s + e) / 2, halfWin = len * 0.25;
+            const k0 = idxOf(mid - halfWin), k1 = idxOf(mid + halfWin);
+            let bestT = mid, bestScore = Infinity;
+            for (let k = k0; k <= k1; k++) {
+                const t = t0 + k * stepSec;
+                const score = smooth(k) * (1 + 0.5 * Math.min(1, Math.abs(t - mid) / halfWin));
+                if (score < bestScore) { bestScore = score; bestT = t; }
+            }
+            bestT = Math.max(s + len * 0.25, Math.min(e - len * 0.25, bestT));
+            stats.split++;
+            splitOne(s, bestT - SEG_CUT_GAP / 2);
+            splitOne(bestT + SEG_CUT_GAP / 2, e);
+        };
+        out.forEach(sg => splitOne(sg.start, sg.end));
+        out = result;
+    }
+
+    return { segments: out, stats };
+}
+
+function describeRefine(stats) {
+    if (!stats || (!stats.merged && !stats.split)) return '';
+    const parts = [];
+    if (stats.merged) parts.push(`合併 ${stats.merged} 個碎片`);
+    if (stats.split) parts.push(`補切 ${stats.split} 處長句`);
+    return `（${parts.join('、')}）`;
+}
+
 // 引擎 A：全域自動斷句引擎
 // 外層包裝：用 try/finally 確保「開始分析」按鈕在成功、提早返回或例外時都會恢復
 async function performAutoSegmentation() {
@@ -426,6 +520,12 @@ async function performAutoSegmentationCore() {
 
     const step = Math.floor(sampleRate / 100); 
     
+    // 斷句後處理（合併碎片／過長再切）：合併時先放寬最短句段，讓碎片有機會被併入鄰句，合併後再依最短句段篩掉
+    const refineOpts = readSegmentRefineOptions();
+    const loopMinSegment = refineOpts.mergeBelow > 0 ? Math.min(minSegment, 0.1) : minSegment;
+    const lowThreshold = threshold * readSegmentEndRatio();  // 雙門檻：說話中要低於這個值才算結束
+    const levels = new Float32Array(Math.ceil(length / step));  // 每 10ms 一格的音量，供過長再切找最安靜處
+
     let segments = [];
     let isSilence = true;
     let silenceStart = 0;
@@ -457,13 +557,15 @@ async function performAutoSegmentationCore() {
             : maxAmp;
 
         const currentTime = (i / sampleRate) * timeRatio;
+        levels[Math.floor(i / step)] = level;
 
-        if (level < threshold) {
+        // 靜音中要達到 threshold 才算開始說話；說話中要低於 lowThreshold 才算結束（兩者相同時等同舊版）
+        if (isSilence ? level < threshold : level < lowThreshold) {
             if (!isSilence) {
                 isSilence = true;
                 silenceStart = currentTime;
             } else if (currentTime - silenceStart >= minSilence && segmentStart !== -1) {
-                if (silenceStart - segmentStart >= minSegment) {
+                if (silenceStart - segmentStart >= loopMinSegment) {
                     segments.push({ start: segmentStart, end: silenceStart });
                 }
                 segmentStart = -1;
@@ -487,10 +589,14 @@ async function performAutoSegmentationCore() {
 
     if (segmentStart !== -1) {
         const finalEnd = isSilence ? silenceStart : mediaDuration;
-        if (finalEnd - segmentStart >= minSegment) {
+        if (finalEnd - segmentStart >= loopMinSegment) {
             segments.push({ start: segmentStart, end: finalEnd });
         }
     }
+
+    const refined = refineSegments(segments, levels, 0, (step / sampleRate) * timeRatio, { ...refineOpts, dropBelow: minSegment });
+    segments = refined.segments;
+    const refineNote = describeRefine(refined.stats);
 
     if (segments.length === 0) {
         if (asConfirmBtn) asConfirmBtn.disabled = false;
@@ -579,7 +685,7 @@ async function performAutoSegmentationCore() {
     if (hadExistingLabelsBeforeThisRun && discardedSegmentCount > 0) {
         showToast(`偵測到 ${segments.length} 段，但列表句子數不足，有 ${discardedSegmentCount} 段未套用時間（可先新增空白句子列再重新斷句）`, 'error');
     } else {
-        showToast(`全域斷句完成！共精準切出 ${segments.length} 句`, 'success');
+        showToast(`全域斷句完成！共精準切出 ${segments.length} 句${refineNote}`, 'success');
     }
 }
 
@@ -877,6 +983,12 @@ async function performRegionAutoSegmentation(startTime, endTime) {
     
     const step = Math.floor(sampleRate / 100); 
     
+    // 斷句後處理（合併碎片／過長再切），說明同全域引擎
+    const refineOpts = readSegmentRefineOptions();
+    const loopMinSegment = refineOpts.mergeBelow > 0 ? Math.min(minSegment, 0.1) : minSegment;
+    const lowThreshold = threshold * readSegmentEndRatio();  // 雙門檻：說話中要低於這個值才算結束
+    const levels = new Float32Array(Math.ceil(totalSamples / step));
+
     let segments = [];
     let isSilence = true;
     let silenceStart = startTime;
@@ -902,13 +1014,15 @@ async function performRegionAutoSegmentation(startTime, endTime) {
             : maxAmp;
 
         const currentTime = (i / sampleRate) * timeRatio;
+        levels[Math.floor((i - startSample) / step)] = level;
 
-        if (level < threshold) {
+        // 靜音中要達到 threshold 才算開始說話；說話中要低於 lowThreshold 才算結束（兩者相同時等同舊版）
+        if (isSilence ? level < threshold : level < lowThreshold) {
             if (!isSilence) {
                 isSilence = true;
                 silenceStart = currentTime;
             } else if (currentTime - silenceStart >= minSilence && segmentStart !== -1) {
-                if (silenceStart - segmentStart >= minSegment) {
+                if (silenceStart - segmentStart >= loopMinSegment) {
                     segments.push({ start: segmentStart, end: silenceStart });
                 }
                 segmentStart = -1;
@@ -932,10 +1046,14 @@ async function performRegionAutoSegmentation(startTime, endTime) {
 
     if (segmentStart !== -1) {
         const finalEnd = isSilence ? silenceStart : endTime;
-        if (finalEnd - segmentStart >= minSegment) {
+        if (finalEnd - segmentStart >= loopMinSegment) {
             segments.push({ start: segmentStart, end: finalEnd });
         }
     }
+
+    const refined = refineSegments(segments, levels, (startSample / sampleRate) * timeRatio, (step / sampleRate) * timeRatio, { ...refineOpts, dropBelow: minSegment });
+    segments = refined.segments;
+    const refineNote = describeRefine(refined.stats);
 
     if (segments.length === 0) {
         return showToast('此範圍內找不到符合條件的斷句', 'error');
@@ -1066,7 +1184,7 @@ async function performRegionAutoSegmentation(startTime, endTime) {
     if (mappedCount < segments.length) {
         showToast(`局部斷句完成！但句子不夠，僅套用了 ${mappedCount} 句`, 'normal');
     } else {
-        showToast(`局部斷句完成！共精準套用 ${mappedCount} 句${addedRowCount > 0 ? `（新增 ${addedRowCount} 列）` : ''}`, 'success');
+        showToast(`局部斷句完成！共精準套用 ${mappedCount} 句${addedRowCount > 0 ? `（新增 ${addedRowCount} 列）` : ''}${refineNote}`, 'success');
     }
 }
 

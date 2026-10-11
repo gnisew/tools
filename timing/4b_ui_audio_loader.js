@@ -292,6 +292,9 @@ batchEnablePaddingCheck?.addEventListener('change', (e) => {
 
 // 確認載入
 document.getElementById('audioLoadConfirmBtn')?.addEventListener('click', async () => {
+    // 勾選「附加到目前聲波後面」時由 2f_audio_append.js 接手（本機單檔／單一網址），不走取代流程
+    if (window.AudioAppend && AudioAppend.isOn()) { AudioAppend.handleConfirm(); return; }
+
     const isLocalMode = sectionLocalLoad.style.display !== 'none';
 
     // 讀取新的 checkbox 狀態來決定是否要有留白秒數

@@ -165,6 +165,9 @@ initAutoSegmentSetting('asDetectionMode', null, 'tagger_asDetectionMode', null);
 initAutoSegmentSetting('asSilence', 'asSilenceVal', 'tagger_asSilence', v => `${parseFloat(v).toFixed(1)} 秒`);
 initAutoSegmentSetting('asMinSegment', 'asMinSegmentVal', 'tagger_asMinSegment', v => `${parseFloat(v).toFixed(1)} 秒`);
 initAutoSegmentSetting('asPadding', 'asPaddingVal', 'tagger_asPadding', v => `${parseFloat(v).toFixed(1)} 秒`);
+initAutoSegmentSetting('asEndRatio', 'asEndRatioVal', 'tagger_asEndRatio', v => parseFloat(v) >= 100 ? '與開始相同' : `開始門檻的 ${parseFloat(v)}%`);
+initAutoSegmentSetting('asMaxSegment', 'asMaxSegmentVal', 'tagger_asMaxSegment', v => parseFloat(v) > 0 ? `${parseFloat(v).toFixed(1)} 秒` : '不限制');
+initAutoSegmentSetting('asMergeShort', 'asMergeShortVal', 'tagger_asMergeShort', v => parseFloat(v) > 0 ? `${parseFloat(v).toFixed(1)} 秒` : '不合併');
 
 initAutoSegmentSetting('asFixedTimeMinutes', null, 'tagger_asFixedTimeMinutes', null);
 initAutoSegmentSetting('asFixedTimeSeconds', null, 'tagger_asFixedTimeSeconds', null);
@@ -182,6 +185,37 @@ initAutoSegmentSetting('asSmartWindow', 'asSmartWindowVal', 'tagger_asSmartWindo
         sync();
     });
     sync();
+})();
+
+// 「恢復預設」：只重設目前顯示的分頁（依靜音斷句／依等長時間）
+// 預設值直接取自 index.html 欄位的初始屬性（value / selected / checked），不另外寫死一份
+(function bindAutoSegmentReset() {
+    const btn = document.getElementById('asResetBtn');
+    if (!btn) return;
+    const SILENCE_IDS = ['asThreshold', 'asSilence', 'asPadding', 'asMinSegment', 'asEndRatio', 'asMaxSegment', 'asMergeShort', 'asDetectionMode'];
+    const TIME_IDS = ['asFixedTimeMinutes', 'asFixedTimeSeconds', 'asSmartTimeCheck', 'asSmartWindow'];
+
+    btn.addEventListener('click', () => {
+        const sec = document.getElementById('sectionAutoTime');
+        const isTime = !!sec && sec.style.display !== 'none';
+        (isTime ? TIME_IDS : SILENCE_IDS).forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (el.type === 'checkbox') {
+                el.checked = el.defaultChecked;
+                el.dispatchEvent(new Event('change', { bubbles: true })); // 同步儲存與「尋找範圍」顯示
+            } else {
+                if (el.tagName === 'SELECT') {
+                    const def = Array.from(el.options).find(o => o.defaultSelected) || el.options[0];
+                    el.value = def.value;
+                } else {
+                    el.value = el.defaultValue;
+                }
+                el.dispatchEvent(new Event('input', { bubbles: true })); // 同步標籤文字、localStorage 與預估結果
+            }
+        });
+        showToast('已恢復預設值', 'success');
+    });
 })();
 
 // 全域自動斷句（左側清單按鈕）

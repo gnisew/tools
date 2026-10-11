@@ -1,5 +1,5 @@
 // 4q_ui_segment_estimate.js: 自動斷句視窗「預估結果」
-// 在視窗底部 #asEstimateBar 顯示預估，不修改斷句引擎（2_audio_engine.js）：
+// 在視窗底部 #asEstimateBar 顯示預估，不修改斷句引擎（2_audio_engine.js），「合併碎片／過長再切」直接呼叫引擎的 refineSegments 以確保結果一致：
 //   · 依靜音斷句：預估句數與標記總長度（含前後留白，並佔範圍的百分比）
 //   · 依等長時間：預估段數（智慧等長會移動分割點，故標示「約」）
 // 靜音預估沿用引擎判斷（10ms 一格、Peak／RMS、最短靜音、最短有效句段、動態留白）。
@@ -96,6 +96,10 @@
         const minSilence = num('asSilence', 0.8);
         const padding = num('asPadding', 0.2);
         const minSegment = num('asMinSegment', 0.5);
+        const refineOn = typeof refineSegments === 'function' && typeof readSegmentRefineOptions === 'function';
+        const refineOpts = refineOn ? readSegmentRefineOptions() : { maxLen: 0, mergeBelow: 0 };
+        const loopMin = refineOpts.mergeBelow > 0 ? Math.min(minSegment, 0.1) : minSegment; // 與引擎相同：合併時先放寬
+        const lowThreshold = threshold * (typeof readSegmentEndRatio === 'function' ? readSegmentEndRatio() : 1); // 雙門檻：說話中要低於它才算結束
 
         const n = levels.length;
         let startIdx = 0, endIdx = n, endTime = mediaDuration;
@@ -105,14 +109,14 @@
             endTime = range.end;
         }
 
-        const segs = [];
+        let segs = [];
         let isSilence = true, silenceStart = range.isRegion ? range.start : 0, segmentStart = -1;
         for (let k = startIdx; k < endIdx; k++) {
             const t = (k * step / sr) * timeRatio;
-            if (levels[k] < threshold) {
+            if (isSilence ? levels[k] < threshold : levels[k] < lowThreshold) {
                 if (!isSilence) { isSilence = true; silenceStart = t; }
                 else if (t - silenceStart >= minSilence && segmentStart !== -1) {
-                    if (silenceStart - segmentStart >= minSegment) segs.push({ start: segmentStart, end: silenceStart });
+                    if (silenceStart - segmentStart >= loopMin) segs.push({ start: segmentStart, end: silenceStart });
                     segmentStart = -1;
                 }
             } else if (isSilence) {
@@ -122,7 +126,15 @@
         }
         if (segmentStart !== -1) {
             const finalEnd = isSilence ? silenceStart : endTime;
-            if (finalEnd - segmentStart >= minSegment) segs.push({ start: segmentStart, end: finalEnd });
+            if (finalEnd - segmentStart >= loopMin) segs.push({ start: segmentStart, end: finalEnd });
+        }
+
+        // 與引擎相同的後處理：合併過短碎片、過長再切
+        let refineStats = { merged: 0, split: 0 };
+        if (refineOn && (refineOpts.mergeBelow > 0 || refineOpts.maxLen > 0)) {
+            const rf = refineSegments(segs, levels, 0, (step / sr) * timeRatio, { ...refineOpts, dropBelow: minSegment });
+            segs = rf.segments;
+            refineStats = rf.stats;
         }
 
         // 與引擎相同的動態留白（空間不夠就縮小）
@@ -137,7 +149,7 @@
             const e = Math.min(mediaDuration, segs[i].end + pe);
             total += Math.max(0, e - s);
         }
-        return { count: segs.length, total };
+        return { count: segs.length, total, merged: refineStats.merged, split: refineStats.split };
     }
 
     // ---------- 依等長時間：算段數 ----------
@@ -196,7 +208,8 @@
         if (!range.isRegion && typeof allLabelsOrdered !== 'undefined' && allLabelsOrdered.length > 0 && r.count > allLabelsOrdered.length) {
             note = `<div class="as-warn">列表僅 ${allLabelsOrdered.length} 句，多出 ${r.count - allLabelsOrdered.length} 段不套用</div>`;
         }
-        setBar(`預估 ${strong(r.count + ' 句')}<span class="as-sub">共 ${fmtSec(r.total)}・佔${range.isRegion ? '選取範圍' : '全檔'} ${pct}%</span>` + note);
+        const refineInfo = (r.merged || r.split) ? `・${r.merged ? '合併 ' + r.merged : ''}${r.merged && r.split ? ' ' : ''}${r.split ? '補切 ' + r.split : ''}` : '';
+        setBar(`預估 ${strong(r.count + ' 句')}<span class="as-sub">共 ${fmtSec(r.total)}・佔${range.isRegion ? '選取範圍' : '全檔'} ${pct}%${refineInfo}</span>` + note);
     }
 
     // ---------- 觸發時機 ----------

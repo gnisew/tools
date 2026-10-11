@@ -30,7 +30,7 @@ const LANG_EDIT_DEBOUNCE_MS = 500; // 防抖：使用者停止輸入約 0.5 秒�
 // 此模式下不適用的選單項目：進入時隱藏、離開時復原（比照 4i 的 MG_VIEW_HIDE_MENU_IDS）
 const LANG_EDIT_HIDE_MENU_IDS = [
     'toggleScriptModeBtn', 'toggleMediaGroupsViewBtn', 'sortMenuToggleBtn',
-    'openBatchReplaceBtn', 'openLangEditBtn', 'clearTimeTagsBtn', 'clearListTextBtn', 'deleteAllDataBtn',
+    'openBatchReplaceBtn', 'punctToFullBtn', 'punctToHalfBtn', 'punctLatinToggleBtn', 'openLangEditBtn', 'clearTimeTagsBtn', 'clearListTextBtn', 'deleteAllDataBtn',
     // 一併隱藏分隔線，避免殘留孤立分隔線
     'editMenuHrTop'
 ];

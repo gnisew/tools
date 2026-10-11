@@ -5,6 +5,7 @@
 // 接合處前後各 5ms 淡出／淡入，避免爆音
 // 復原：Ctrl+Z 優先復原最近一次音訊編輯（含音檔、標記、跨句範圍），最多 3 步，不支援 Redo
 // 快捷鍵（非打字、無選取文字時生效）：Ctrl+C 複製、Ctrl+X 剪下、Ctrl+V 貼上到游標處
+// 附加：AudioClipboard.appendBuffer() 把已解碼的音訊接在尾端（載入視窗「附加到目前聲波後面」使用，見 2f_audio_append.js）
 // 需求：1_globals.js、2_audio_engine.js、3a_media_groups_core.js 之後載入；index.html 需有 #waveCopyAudioBtn / #waveCutMoveAudioBtn / #wavePasteAudioBtn
 
 (function () {
@@ -89,7 +90,9 @@
 
     // 換上新的音訊（流程與 cutAudioRegion 相同）。呼叫前，標記資料必須已經改好。
     // 回傳 Promise：WaveSurfer 重新初始化完成後 resolve。
-    function swapInAudio(newBuffer) {
+    // opts.fileName：寫入專案的音檔名稱（預設「剪裁後音檔.wav」）
+    function swapInAudio(newBuffer, opts) {
+        const fileName = (opts && opts.fileName) || '剪裁後音檔.wav';
         return new Promise(resolve => {
             const wavBlob = audioBufferToWav(newBuffer);
             const oldSrc = audioPlayer.src;
@@ -111,11 +114,11 @@
                 setTimeout(revokeOld, 5000);
             }
 
-            localStorage.setItem('tagger_localFileName', '剪裁後音檔.wav');
+            localStorage.setItem('tagger_localFileName', fileName);
             localStorage.setItem('tagger_isTrimmed', 'true');
             localStorage.setItem('tagger_audioType', 'local');
             if (typeof AudioStore !== 'undefined' && AudioStore.isSupported()) {
-                AudioStore.save(wavBlob, { name: '剪裁後音檔.wav' });
+                AudioStore.save(wavBlob, { name: fileName });
             }
             if (typeof saveToStorage === 'function') saveToStorage();
 
@@ -689,6 +692,78 @@
     document.getElementById('waveMoreBtn')?.addEventListener('click', () => setTimeout(refreshRemoveItem, 0));
     if (typeof SkipSilence !== 'undefined') SkipSilence.onViewChange(refreshRemoveItem);
 
+    // ---------- 附加到音檔尾端（載入視窗「附加到目前聲波後面」，見 2f_audio_append.js）----------
+    // newBuf：已解碼的 AudioBuffer；取樣率不同會重採樣，聲道數配合現有音檔。
+    // 現有標記、跨句範圍、音量區段都在尾端之前，不需位移；可用 Ctrl+Z 復原。
+    // opts.gapSec：與前段間隔的靜音秒數；opts.fileName：寫入專案的音檔名稱（預設「合併音檔.wav」）
+    // 回傳 { ok, addedSec, urlCleared }；失敗回傳 { ok: false }（已顯示提示）
+    async function resampleBuffer(buf, sr) {
+        if (buf.sampleRate === sr) return buf;
+        const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+        const off = new OAC(buf.numberOfChannels, Math.max(1, Math.ceil(buf.duration * sr)), sr);
+        const src = off.createBufferSource();
+        src.buffer = buf;
+        src.connect(off.destination);
+        src.start(0);
+        return await off.startRendering();
+    }
+
+    // 組出要接上去的片段：前面補 gapSec 秒靜音，聲道數配合現有音檔
+    function buildAppendClip(buf, ch, sr, gapSec) {
+        const gap = Math.round(Math.max(0, Number(gapSec) || 0) * sr);
+        const out = createBufferSafe(ch, gap + buf.length, sr);
+        for (let c = 0; c < ch; c++) {
+            const dst = out.getChannelData(c);
+            if (ch === 1 && buf.numberOfChannels > 1) {
+                // 現有音檔是單聲道：新音訊各聲道取平均
+                for (let k = 0; k < buf.numberOfChannels; k++) {
+                    const s = buf.getChannelData(k);
+                    for (let i = 0; i < s.length; i++) dst[gap + i] += s[i] / buf.numberOfChannels;
+                }
+            } else {
+                dst.set(buf.getChannelData(Math.min(c, buf.numberOfChannels - 1)), gap);
+            }
+        }
+        return { clip: out, gap };
+    }
+
+    async function appendBuffer(newBuf, opts = {}) {
+        if (busy) { showToast('音訊處理中，請稍候再試', 'error'); return { ok: false }; }
+        if (typeof isEditMode !== 'undefined' && !isEditMode) { showToast('目前不是編輯模式', 'error'); return { ok: false }; }
+        const c = getEditContext();
+        if (!c) { showToast('目前沒有已載入的音檔，無法附加', 'error'); return { ok: false }; }
+        if (!newBuf || !newBuf.length) { showToast('要附加的音訊是空的', 'error'); return { ok: false }; }
+
+        busy = true;
+        try {
+            const resampled = await resampleBuffer(newBuf, c.sr);
+            const { clip, gap } = buildAppendClip(resampled, c.ch, c.sr, opts.gapSec);
+            const at = c.buffer.length;  // 附加位置 = 現有音檔尾端
+            const newBuffer = buildSplicedBuffer(c.buffer, at, at, clip);
+
+            pushAudioUndo(c.buffer);
+
+            // 附加後音檔變成本機合併檔，線上網址只對應第一段；清除以免匯出的專案檔指向錯的音檔
+            const urlCleared = !!localStorage.getItem('tagger_audioUrl');
+            if (urlCleared) localStorage.removeItem('tagger_audioUrl');
+
+            await swapInAudio(newBuffer, { fileName: opts.fileName || '合併音檔.wav' });
+            refreshListViews();
+
+            // 游標放在新音訊內容開頭（略過間隔靜音），框選附加的範圍，聲波捲過去
+            const t0 = toMedia(at + gap, c);
+            const t1 = toMedia(at + clip.length, c);
+            afterReady(t0, t0, t1, 'paste');
+            return { ok: true, addedSec: t1 - t0, urlCleared };
+        } catch (err) {
+            console.error('[AudioClipboard] 附加失敗：', err);
+            showToast('附加失敗，請查看主控台訊息', 'error');
+            return { ok: false };
+        } finally {
+            busy = false;
+        }
+    }
+
     // 選單按鈕與快捷鍵
     function closeWaveMenu() {
         document.getElementById('waveMoreMenu')?.classList.remove('show');
@@ -720,5 +795,5 @@
         }
     });
 
-    window.AudioClipboard = { copy: copyAudio, cut: cutAudioMoveMarkers, paste: pasteAudio, undo: undoAudioEdit, removeViewRanges, hasClip: () => !!audioClipboard };
+    window.AudioClipboard = { copy: copyAudio, cut: cutAudioMoveMarkers, paste: pasteAudio, appendBuffer, undo: undoAudioEdit, removeViewRanges, hasClip: () => !!audioClipboard };
 })();

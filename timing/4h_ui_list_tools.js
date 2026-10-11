@@ -378,3 +378,163 @@ window.syncToPlayheadAndShift = function(label) {
         }
     });
 };
+
+// ===== 標點轉換（編輯選單：標點轉為全形／半形） =====
+// 全形：含漢字的句子（含擴充漢字、造字區、異體字選擇符、組字式）一律把半形標點轉為全形，例外：
+//   · 數字／英文字母緊鄰兩側（3.14、1,000、12:30、a.b.c）、網址的 ://、行首編號「1.」
+//   · 拼音／英文字母後面的標點：由「拼音英文標點」選項決定（預設保持半形；選「轉全形」則也轉）；
+//     但標點後面緊接中文時（如「http://a.b.c,請看」），視為中文標點，照轉
+//   · 連續 2 個以上的 . 轉為「……」
+//   · 成對的 ( )：括號內有漢字、左括號前是中文，或選項為轉全形時，轉為（ ）
+//   · 轉換後標點後面多餘的空白一併去除（只限含漢字的句子）
+// 沒有漢字的句子：預設不處理；選項為轉全形且句子含聲調符號（如 nǐ hǎo）時視為拼音，照樣轉換
+// 半形：一對一轉換 ，。？！：；（） → , . ? ! : ; ( )（不補空白；、「」『』…不轉）
+// 多語字幕：逐語言分段轉換，不動分隔字元；若轉換結果會產生分隔字元則整個取消
+const PUNCT_HAN = '\\u2E80-\\u2FDF\\u2FF0-\\u2FFF\\u3005-\\u3007\\u3021-\\u3029\\u3038-\\u303B\\u3040-\\u30FF\\u3100-\\u312F\\u31A0-\\u31BF\\u31C0-\\u31EF\\u3400-\\u4DBF\\u4E00-\\u9FFF\\uF900-\\uFAFF\\uFE00-\\uFE0E\\u{20000}-\\u{323AF}\\u{E0100}-\\u{E01EF}\\uE000-\\uF8FF\\u{F0000}-\\u{10FFFD}';
+const PUNCT_HAN_RE = new RegExp('[' + PUNCT_HAN + ']', 'u');
+const PUNCT_CTX_RE = new RegExp('[' + PUNCT_HAN + '」』）】》〉”’！？，。：；…、]', 'u');
+const PUNCT_LATIN_RE = /\p{Script=Latin}/u;
+const PUNCT_ALNUM_RE = /[\p{Script=Latin}0-9]/u;
+const PINYIN_TONE_RE = /[āáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜüĀÁǍÀĒÉĚÈĪÍǏÌŌÓǑÒŪÚǓÙǕǗǙǛÜ]/;
+const PUNCT_TO_FULL = { ',': '，', '?': '？', '!': '！', ':': '：', ';': '；', '.': '。' };
+const PUNCT_TO_HALF = { '，': ',', '。': '.', '？': '?', '！': '!', '：': ':', '；': ';', '（': '(', '）': ')' };
+const PUNCT_LATIN_KEY = 'tagger_punctLatinFull';
+
+function getPunctLatinFull() { return localStorage.getItem(PUNCT_LATIN_KEY) === 'true'; }
+
+function punctSegToFull(seg, latinFull) {
+    const hasHan = PUNCT_HAN_RE.test(seg);
+    if (!hasHan && !(latinFull && PINYIN_TONE_RE.test(seg))) return seg;
+    const chars = Array.from(seg);
+    const out = [];
+    const isAlnum = c => !!c && PUNCT_ALNUM_RE.test(c);
+    for (let i = 0; i < chars.length; i++) {
+        const ch = chars[i];
+        const prev = out.length ? out[out.length - 1] : '';
+        const next = chars[i + 1];
+        let k = i + 1;
+        while (chars[k] === ' ' || chars[k] === '\t') k++;
+        const nextVisible = chars[k];
+        // 拼音／英文字母旁，且選項為保持半形；但標點後面緊接中文時，視為中文句子的標點，照轉
+        const keepLatin = !latinFull && !!prev && PUNCT_LATIN_RE.test(prev) && !(nextVisible && PUNCT_HAN_RE.test(nextVisible));
+
+        if (ch === '.' && next === '.') { // 連續句點 → 刪節號
+            let j = i;
+            while (chars[j] === '.') j++;
+            if (keepLatin) out.push(...chars.slice(i, j)); else out.push('…', '…');
+            i = j - 1;
+            continue;
+        }
+        if (PUNCT_TO_FULL[ch]) {
+            const skip = (isAlnum(prev) && isAlnum(next))               // 3.14、1,000、12:30、a.b.c
+                || (ch === ':' && next === '/')                          // http://
+                || (ch === '.' && out.length > 0 && out.every(c => /[0-9]/.test(c))) // 行首編號 1.
+                || keepLatin;
+            if (!skip) {
+                out.push(PUNCT_TO_FULL[ch]);
+                if (hasHan) {
+                    let j = i + 1;
+                    while (chars[j] === ' ' || chars[j] === '\t') j++;
+                    i = j - 1; // 吃掉標點後多餘的空白
+                }
+                continue;
+            }
+        } else if (ch === '(') {
+            let j = i + 1;
+            while (j < chars.length && chars[j] !== ')' && chars[j] !== '(') j++;
+            if (j < chars.length && chars[j] === ')') {
+                const inner = chars.slice(i + 1, j).join('');
+                if (latinFull || PUNCT_HAN_RE.test(inner) || (prev && PUNCT_CTX_RE.test(prev))) {
+                    out.push('（', ...Array.from(punctSegToFull(inner, latinFull)), '）');
+                    i = j;
+                    continue;
+                }
+            }
+        }
+        out.push(ch);
+    }
+    return out.join('');
+}
+
+function punctSegToHalf(seg) {
+    return seg.replace(/[，。？！：；（）]/g, c => PUNCT_TO_HALF[c]);
+}
+
+// 回傳 { text, conflict }：多語字幕時逐段轉換，conflict 表示結果含分隔字元
+function convertPunctInText(text, segFn) {
+    const raw = String(text || '');
+    const multi = typeof getLangMultiEnabled === 'function' && getLangMultiEnabled();
+    if (!multi) return { text: segFn(raw), conflict: false };
+    const delim = getLangDelimiter();
+    const segs = splitLangs(raw).map(segFn);
+    if (segs.some(sg => sg.includes(delim))) return { text: raw, conflict: true };
+    return { text: segs.join(delim), conflict: false };
+}
+
+function runPunctConvert(direction) {
+    document.getElementById('editMenu')?.classList.remove('show');
+    if (allLabelsOrdered.length === 0) return showToast('目前沒有資料', 'error');
+    const latinFull = getPunctLatinFull();
+    const segFn = direction === 'full' ? (seg => punctSegToFull(seg, latinFull)) : punctSegToHalf;
+    const name = direction === 'full' ? '全形' : '半形';
+    const scriptActive = typeof isScriptMode !== 'undefined' && isScriptMode;
+    const conflictMsg = () => showToast('目前的多語分隔字元與轉換結果衝突，請先更換分隔字元再轉換', 'error');
+
+    if (scriptActive) {
+        // 全文模式：直接轉換編輯框的每一行（###### 段落線不動），再交給既有流程同步回資料
+        const ta = document.getElementById('scriptTextarea');
+        if (!ta) return;
+        let changed = 0, conflict = false;
+        const lines = ta.value.split('\n').map(line => {
+            if (/^#{6,}$/.test(line.trim())) return line;
+            const r = convertPunctInText(line, segFn);
+            if (r.conflict) conflict = true;
+            if (r.text !== line) changed++;
+            return r.text;
+        });
+        if (conflict) return conflictMsg();
+        if (changed === 0) return showToast(`沒有需要轉為${name}的標點`, 'normal');
+        if (typeof saveState === 'function') saveState();
+        ta.value = lines.join('\n');
+        if (typeof renderGutterAndSyncData === 'function') renderGutterAndSyncData();
+        if (typeof updateSearchMatches === 'function') updateSearchMatches();
+        return showToast(`已將 ${changed} 句的標點轉為${name}`, 'success');
+    }
+
+    const updates = {};
+    let conflict = false;
+    allLabelsOrdered.forEach(label => {
+        const old = sentenceTextMap[label] || '';
+        const r = convertPunctInText(old, segFn);
+        if (r.conflict) conflict = true;
+        else if (r.text !== old) updates[label] = r.text;
+    });
+    if (conflict) return conflictMsg();
+    const labels = Object.keys(updates);
+    if (labels.length === 0) return showToast(`沒有需要轉為${name}的標點`, 'normal');
+
+    if (typeof saveState === 'function') saveState();
+    labels.forEach(label => {
+        sentenceTextMap[label] = updates[label];
+        if (typeof refreshRowAfterReplace === 'function') refreshRowAfterReplace(label);
+    });
+    saveToStorage();
+    if (typeof refreshRowAfterReplace !== 'function' && typeof renderSentenceList === 'function') renderSentenceList();
+    if (typeof updateSearchMatches === 'function') updateSearchMatches();
+    showToast(`已將 ${labels.length} 句的標點轉為${name}（可用 Ctrl+Z 還原）`, 'success');
+}
+
+function syncPunctLatinLabel() {
+    const el = document.getElementById('punctLatinToggleText');
+    if (el) el.textContent = getPunctLatinFull() ? '拼音英文標點：轉全形' : '拼音英文標點：保持半形';
+}
+
+document.getElementById('punctToFullBtn')?.addEventListener('click', () => runPunctConvert('full'));
+document.getElementById('punctToHalfBtn')?.addEventListener('click', () => runPunctConvert('half'));
+// 切換選項：不關閉選單（比照編輯區寬度的循環按鈕）
+document.getElementById('punctLatinToggleBtn')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    localStorage.setItem(PUNCT_LATIN_KEY, getPunctLatinFull() ? 'false' : 'true');
+    syncPunctLatinLabel();
+});
+syncPunctLatinLabel();

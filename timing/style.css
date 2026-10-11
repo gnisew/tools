@@ -1308,8 +1308,6 @@ input.input-select[type="number"] { cursor: text; }
 .as-val { color: #1976D2; font-weight: 600; font-variant-numeric: tabular-nums; }
 .as-field input[type="range"], .as-card input[type="range"] { width: 100%; accent-color: #1976D2; margin: 0; }
 .as-select { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 0.9rem; background: #fff; }
-.as-adv { border-top: 1px solid #EEE; padding-top: 10px; margin-top: 4px; }
-.as-adv summary { cursor: pointer; font-size: 0.85rem; color: #666; padding: 4px 0 12px; user-select: none; }
 .as-time-row { display: flex; align-items: center; gap: 8px; }
 .as-num { flex: 1; min-width: 0; padding: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 1.05rem; font-weight: 600; color: #1976D2; text-align: center; outline: none; }
 .as-num:focus { border-color: #1976D2; }
@@ -1319,6 +1317,11 @@ input.input-select[type="number"] { cursor: text; }
 .as-check input { width: 18px; height: 18px; accent-color: #1976D2; margin: 0; flex-shrink: 0; }
 .as-check small { display: block; font-weight: 400; font-size: 0.78rem; color: #777; margin-top: 2px; }
 .as-estimate { flex-shrink: 0; padding: 9px 22px; border-top: 1px solid #E3EEFB; background: #F5F9FF; font-size: 0.88rem; color: #1565C0; line-height: 1.5; min-height: 22px; }
+/* 自動斷句視窗「恢復預設」：次要動作，用灰色文字按鈕，不與「開始分析／取消」爭奪視線 */
+.as-reset-btn { margin-right: auto; display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border: none; border-radius: 8px; background: transparent; color: #78909C; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: background-color .15s, color .15s; }
+.as-reset-btn .material-icons { font-size: 1.05rem; }
+.as-reset-btn:hover { background: #ECEFF1; color: #455A64; }
+.as-reset-btn:focus-visible { outline: 2px solid #1976D2; outline-offset: 1px; }
 .as-estimate b { color: #0D47A1; }
 .as-sub { color: #777; font-size: 0.8rem; margin-left: 8px; }
 .as-warn { color: #E65100; font-size: 0.8rem; margin-top: 2px; }

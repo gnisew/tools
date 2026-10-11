@@ -64,6 +64,7 @@
             </span>
         </div>
 
+        <div id="wave-timeline" style="display: none; width: 100%; height: 22px; margin-bottom: 2px; overflow: hidden; pointer-events: none;"></div>
         <div id="waveform"></div>
         <div id="wave-minimap" style="display: none; width: 100%; height: 40px; margin-top: 8px; border-radius: 4px; overflow: hidden; background: #f8f9fa; border: 1px solid #e0e0e0; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);"></div>
 
@@ -266,6 +267,14 @@
                         <button class="header-btn" id="editMenuBtn"><span class="material-icons">edit</span> 編輯</button>
                         <div class="custom-dropdown-menu" id="editMenu" style="top: 100%; left: 0; min-width: 180px; z-index: 100;">
                             <div class="custom-dropdown-item" id="openBatchReplaceBtn"><span class="material-icons" style="color: #E65100;">find_replace</span> 尋找取代</div>
+                            <!-- 標點轉換：4h_ui_list_tools.js -->
+                            <div class="custom-dropdown-item" id="punctToFullBtn" title="把中文句子裡的 , . ? ! : ; ( ) 轉為 ，。？！：；（）"><span class="material-icons" style="color: #00897B;">text_format</span> 標點轉為全形</div>
+                            <div class="custom-dropdown-item" id="punctToHalfBtn" title="把 ，。？！：；（） 轉為 , . ? ! : ; ( )"><span class="material-icons" style="color: #00897B;">text_format</span> 標點轉為半形</div>
+                            <div class="custom-dropdown-item" id="punctLatinToggleBtn" title="轉為全形時，拼音或英文字母旁邊的標點要保持半形，還是也轉為全形（點一下切換，選項會記住）"><span class="material-icons" style="color: #78909C;">tune</span> <span id="punctLatinToggleText">拼音英文標點：保持半形</span></div>
+                            <!-- AI 聽打：11_ai_transcribe.js（設定啟用後才顯示） -->
+                            <div id="aiTranscribeMenuHr" style="display: none; border-top: 1px solid #E0E0E0; margin: 4px 0;"></div>
+                            <div class="custom-dropdown-item" id="aiTranscribeSelBtn" style="display: none;"><span class="material-icons" style="color: #7B1FA2;">auto_awesome</span> <span id="aiTranscribeSelText">AI 聽打</span></div>
+                            <div class="custom-dropdown-item" id="aiTranscribeEmptyBtn" style="display: none;"><span class="material-icons" style="color: #7B1FA2;">auto_awesome</span> AI 聽打全部空白句</div>
                             <!-- 整組隱藏但不可刪除：4g / 4h / 4i / 4j / 4k 仍以這些 id 綁定事件或呼叫 .click() -->
                             <div id="legacyModeButtons" style="display: none;">
                                 <div class="custom-dropdown-item" id="toggleScriptModeBtn"><span class="material-icons">swap_horiz</span> 單句全文</div>
@@ -401,23 +410,7 @@
                 </div>
             </div>
             <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">repeat</span><span class="setting-num" aria-hidden="true">二、</span>循環播放</h4>
-                <div class="setting-block">
-                    <label for="loopModeSelect" class="setting-label">循環模式</label>
-                    <select id="loopModeSelect" class="input-select">
-                        <option value="none" selected>不循環 (預設)</option>
-                        <option value="single">單句循環</option>
-                        <option value="all">全部循環 (列表循環)</option>
-                    </select>
-                </div>
-                <div class="setting-block">
-                    <label for="loopCountInput" class="setting-label">循環次數 (0 = 無限次)</label>
-                    <input type="number" id="loopCountInput" class="input-select" value="0" min="0" max="99">
-                </div>
-            </div>
-
-            <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">play_circle</span><span class="setting-num" aria-hidden="true">三、</span>播放與跳轉</h4>
+                <h4><span class="material-icons" aria-hidden="true">play_circle</span><span class="setting-num" aria-hidden="true">二、</span>播放、跳轉與循環</h4>
                 <div class="setting-block">
                     <label for="playbackModeSelect" class="setting-label">播放模式 (Space)</label>
                     <select id="playbackModeSelect" class="input-select">
@@ -448,6 +441,19 @@
                 </div>
 
                 <div class="setting-block">
+                    <label for="loopModeSelect" class="setting-label">循環模式</label>
+                    <select id="loopModeSelect" class="input-select">
+                        <option value="none" selected>不循環 (預設)</option>
+                        <option value="single">單句循環</option>
+                        <option value="all">全部循環 (列表循環)</option>
+                    </select>
+                </div>
+                <div class="setting-block">
+                    <label for="loopCountInput" class="setting-label">循環次數 (0 = 無限次)</label>
+                    <input type="number" id="loopCountInput" class="input-select" value="0" min="0" max="99">
+                </div>
+
+                <div class="setting-block">
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="enableMaxPlayCheck" class="setting-checkbox">
                         標記只播
@@ -465,7 +471,7 @@
 
             </div>
             <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">tune</span><span class="setting-num" aria-hidden="true">四、</span>播放略過</h4>
+                <h4><span class="material-icons" aria-hidden="true">tune</span><span class="setting-num" aria-hidden="true">三、</span>播放略過</h4>
                 <div class="setting-block">
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="skipSilenceCheck" class="setting-checkbox">
@@ -531,7 +537,7 @@
                 </div>
                         </div>
             <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">playlist_add</span><span class="setting-num" aria-hidden="true">五、</span>新增標記時的列表</h4>
+                <h4><span class="material-icons" aria-hidden="true">playlist_add</span><span class="setting-num" aria-hidden="true">四、</span>新增標記時的列表</h4>
                 <div class="setting-block">
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="addRowOnTagCheck" class="setting-checkbox" checked>
@@ -548,7 +554,7 @@
                 </div>
             </div>
             <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">graphic_eq</span><span class="setting-num" aria-hidden="true">六、</span>聲波圖</h4>
+                <h4><span class="material-icons" aria-hidden="true">graphic_eq</span><span class="setting-num" aria-hidden="true">五、</span>聲波圖</h4>
 
                 <div class="setting-block">
                     <label class="setting-label" style="display: block; margin-bottom: 6px;">聲波工具列按鈕</label>
@@ -570,6 +576,10 @@
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="enableMinimapCheck" class="setting-checkbox">
                         顯示迷你導航
+                    </label>
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="showTimelineCheck" class="setting-checkbox">
+                        顯示時間軸
                     </label>
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="showRegionTextCheck" class="setting-checkbox">
@@ -600,7 +610,7 @@
                 </div>
             </div>
             <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">view_list</span><span class="setting-num" aria-hidden="true">七、</span>列表顯示</h4>
+                <h4><span class="material-icons" aria-hidden="true">view_list</span><span class="setting-num" aria-hidden="true">六、</span>列表顯示</h4>
 
                 <div class="setting-block">
                     <label for="labelDisplayModeSelect" class="setting-label">列表編號</label>
@@ -657,7 +667,7 @@
                 </div>
             </div>
             <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">touch_app</span><span class="setting-num" aria-hidden="true">八、</span>列表操作</h4>
+                <h4><span class="material-icons" aria-hidden="true">touch_app</span><span class="setting-num" aria-hidden="true">七、</span>列表操作</h4>
 
                 <div class="setting-block">
                     <label class="setting-label" style="display: block; margin-bottom: 6px;">列表按鈕顯示</label>
@@ -694,7 +704,7 @@
                 </div>
 </div>
             <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">aspect_ratio</span><span class="setting-num" aria-hidden="true">九、</span>版面與字體</h4>
+                <h4><span class="material-icons" aria-hidden="true">aspect_ratio</span><span class="setting-num" aria-hidden="true">八、</span>版面與字體</h4>
 
                 <div class="setting-block">
                     <label for="appWidthSelect" class="setting-label">聲波圖寬度設定</label>
@@ -726,7 +736,7 @@
                 </div>
             </div>
             <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">translate</span><span class="setting-num" aria-hidden="true">十、</span>多語言字幕設定</h4>
+                <h4><span class="material-icons" aria-hidden="true">translate</span><span class="setting-num" aria-hidden="true">九、</span>多語言字幕設定</h4>
                 <div class="setting-block">
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="langMultiEnableCheck" class="setting-checkbox">
@@ -736,6 +746,73 @@
                 <div class="setting-block">
                     <label for="langDelimiterInput" class="setting-label">語言分隔字元</label>
                     <input type="text" id="langDelimiterInput" value="|" maxlength="4" class="input-number-sm" style="width: 60px;" disabled>
+                </div>
+            </div>
+            <div class="sidebar-group">
+                <h4><span class="material-icons" aria-hidden="true">auto_awesome</span><span class="setting-num" aria-hidden="true">十、</span>AI 聽打</h4>
+                <div class="setting-block">
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="aiEnableCheck" class="setting-checkbox">
+                        啟用 AI 聽打
+                    </label>
+                </div>
+                <div id="aiConfigBlock" style="display: none;">
+                    <div class="setting-block">
+                        <label class="setting-label">API 清單</label>
+                        <div id="aiKeyList" class="ai-key-list"></div>
+                        <div class="ai-add-row">
+                            <select id="aiAddProvider" class="input-select" style="width: auto; flex: none;">
+                                <option value="groq">Groq</option>
+                                <option value="gemini">Gemini</option>
+                            </select>
+                            <input type="text" id="aiAddName" class="input-select" placeholder="名稱（選填）" autocomplete="off" style="flex: 1; min-width: 90px; cursor: text;">
+                        </div>
+                        <div class="ai-add-row" style="margin-top: 6px;">
+                            <input type="password" id="aiAddKey" class="input-select" placeholder="貼上 API Key" autocomplete="off" spellcheck="false" style="flex: 1; min-width: 120px; cursor: text;">
+                            <button type="button" id="aiAddBtn" class="btn-small btn-outline">新增</button>
+                        </div>
+                        <span class="setting-hint" id="aiKeyHint"></span>
+                    </div>
+                    <div class="setting-block">
+                        <label class="setting-checkbox-row">
+                            <input type="checkbox" id="aiAutoSwitchCheck" class="setting-checkbox">
+                            額度用完時自動換下一組
+                        </label>
+                    </div>
+                    <div class="setting-block">
+                        <label for="aiLangSelect" class="setting-label">辨識語言</label>
+                        <select id="aiLangSelect" class="input-select">
+                            <option value="zh-TW">中文（繁體）</option>
+                            <option value="zh-CN">中文（簡體）</option>
+                            <option value="en">English</option>
+                            <option value="ja">日本語</option>
+                            <option value="ko">한국어</option>
+                            <option value="auto">自動偵測</option>
+                        </select>
+                    </div>
+                        <div class="setting-block">
+                            <label for="aiModelSelect" class="setting-label">Groq 模型</label>
+                            <select id="aiModelSelect" class="input-select">
+                                <option value="whisper-large-v3-turbo">turbo（快，預設）</option>
+                                <option value="whisper-large-v3">large-v3（較準）</option>
+                            </select>
+                        </div>
+                        <div class="setting-block">
+                            <label for="aiGeminiModelInput" class="setting-label">Gemini 模型</label>
+                            <input type="text" id="aiGeminiModelInput" class="input-select" list="aiGeminiModels" autocomplete="off" spellcheck="false" style="cursor: text;">
+                            <datalist id="aiGeminiModels">
+                                <option value="gemini-3.5-flash-lite"></option>
+                                <option value="gemini-2.5-flash"></option>
+                            </datalist>
+                        </div>
+                        <div class="setting-block" id="aiTargetLangRow" style="display: none;">
+                            <label for="aiTargetLangSelect" class="setting-label">寫入語言（多語字幕）</label>
+                            <select id="aiTargetLangSelect" class="input-select"></select>
+                        </div>
+                        <div class="setting-block">
+                            <label for="aiPromptInput" class="setting-label">專有名詞／人名（選填）</label>
+                            <input type="text" id="aiPromptInput" class="input-select" placeholder="用「、」或「,」隔開，例：烏衣行、王小明" autocomplete="off" style="cursor: text;">
+                        </div>
                 </div>
             </div>
                         <div class="sidebar-group">
@@ -847,20 +924,29 @@
                         <label for="asPadding" class="as-label">前後留白 <span id="asPaddingVal" class="as-val">0.2 秒</span></label>
                         <input type="range" id="asPadding" min="0" max="1.0" step="0.1" value="0.2">
                     </div>
-                    <details class="as-adv">
-                        <summary>進階設定</summary>
-                        <div class="as-field">
-                            <label for="asMinSegment" class="as-label" title="低於此長度的短暫雜音會被略過">最短有效句段 <span id="asMinSegmentVal" class="as-val">0.5 秒</span></label>
-                            <input type="range" id="asMinSegment" min="0.1" max="60" step="0.1" value="0.5">
-                        </div>
-                        <div class="as-field">
-                            <label for="asDetectionMode" class="as-label" title="RMS 對呼吸聲、爆音較不敏感，但斷點可能略有不同">偵測模式</label>
-                            <select id="asDetectionMode" class="as-select">
-                                <option value="peak" selected>峰值（靈敏，預設）</option>
-                                <option value="rms">RMS（平滑，減少爆音誤切）</option>
-                            </select>
-                        </div>
-                    </details>
+                    <div class="as-field">
+                        <label for="asMinSegment" class="as-label" title="低於此長度的短暫雜音會被略過">最短有效句段 <span id="asMinSegmentVal" class="as-val">0.5 秒</span></label>
+                        <input type="range" id="asMinSegment" min="0.1" max="60" step="0.1" value="0.5">
+                    </div>
+                    <div class="as-field">
+                        <label for="asEndRatio" class="as-label" title="開始說話用「音量門檻」判斷；結束說話改用門檻的這個比例。數值越低，越不容易在輕聲字尾提早結束（100% = 與開始相同，不啟用）">結束門檻 <span id="asEndRatioVal" class="as-val">與開始相同</span></label>
+                        <input type="range" id="asEndRatio" min="30" max="100" step="5" value="100">
+                    </div>
+                    <div class="as-field">
+                        <label for="asMaxSegment" class="as-label" title="超過此長度的句子，會在句內最安靜的位置再切開（0 = 不限制）。適合講很快、沒有明顯停頓的錄音">最長句段 <span id="asMaxSegmentVal" class="as-val">不限制</span></label>
+                        <input type="range" id="asMaxSegment" min="0" max="30" step="0.5" value="0">
+                    </div>
+                    <div class="as-field">
+                        <label for="asMergeShort" class="as-label" title="短於此長度的碎片，會併入間隔 0.6 秒內的相鄰句子（0 = 不合併）。適合底噪造成的零碎斷點">合併過短碎片 <span id="asMergeShortVal" class="as-val">不合併</span></label>
+                        <input type="range" id="asMergeShort" min="0" max="2" step="0.1" value="0">
+                    </div>
+                    <div class="as-field">
+                        <label for="asDetectionMode" class="as-label" title="RMS 對呼吸聲、爆音較不敏感，但斷點可能略有不同">偵測模式</label>
+                        <select id="asDetectionMode" class="as-select">
+                            <option value="peak" selected>峰值（靈敏，預設）</option>
+                            <option value="rms">RMS（平滑，減少爆音誤切）</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div id="sectionAutoTime" style="display: none;">
@@ -891,6 +977,7 @@
             <div id="asEstimateBar" class="as-estimate" aria-live="polite"></div>
 
             <div class="modal-buttons" style="margin-top: 0; padding: 16px 24px; border-top: 1px solid #E0E0E0; background: #FAFAFA; flex-shrink: 0; justify-content: flex-end;">
+                <button id="asResetBtn" class="as-reset-btn" type="button" title="將目前分頁的設定恢復為預設值"><span class="material-icons">restart_alt</span>恢復預設</button>
                 <button id="asConfirmBtn" class="btn-modal-confirm" style="background:#1976D2;">開始分析</button>
                 <button id="asCancelBtn" class="btn-modal-cancel">取消</button>
             </div>
@@ -1124,6 +1211,18 @@
                         <input type="checkbox" id="batchAutoParaCheck" checked style="margin-right: 8px; width: 16px; height: 16px; accent-color: #00897B;">
                         依據檔名字首 (A, B, C...) 自動區分段落
                     </label>
+                </div>
+
+                <div id="appendAudioBlock" style="display: none; background: transparent; padding: 10px 16px; border-radius: 8px; border: 1px solid transparent; margin-top: 12px;">
+                    <label style="display: flex; align-items: center; cursor: pointer; font-size: 0.88rem; color: #666; font-weight: normal;">
+                        <input type="checkbox" id="appendAudioCheck" style="margin-right: 8px; width: 16px; height: 16px; accent-color: #00897B;">
+                        附加到目前聲波後面（保留現有音訊與標記）
+                    </label>
+                    <div id="appendAudioOptions" style="display: none; align-items: center; justify-content: space-between; margin-top: 12px; font-size: 0.9rem; color: #333;">
+                        <span>與前段間隔靜音 (秒)</span>
+                        <input aria-label="附加時與前段間隔的靜音秒數" type="number" id="appendGapSeconds" value="0.5" min="0" max="10" step="0.1" style="width: 80px; margin-bottom: 0; padding: 6px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                    </div>
+                    <div id="appendAudioHint" style="display: none; margin-top: 8px; font-size: 0.82rem; color: #2E7D32; line-height: 1.5;"></div>
                 </div>
             </div>
 
@@ -1424,6 +1523,7 @@
     <script src="4j_ui_lang_edit.js"></script>
     <script src="5_list_renderer.js"></script>
     <script src="6_wave_controller.js"></script>
+<script src="6a_wave_timeline.js"></script>
     <script src="2c_skip_silence.js"></script>
     <script src="9_batch_converter.js"></script>
     <script src="9a_batch_edit.js"></script>
@@ -1439,6 +1539,9 @@
     <script src="4q_ui_segment_estimate.js"></script>
     <script src="4r_ui_menu_flip.js"></script>
     <script src="2e_system_audio_record.js"></script>
+<script src="2f_audio_append.js"></script>
+    <script src="11_ai_transcribe.js"></script>
+    <script src="4s_ui_sidebar_nav.js"></script>
 
 </body>
 </html>

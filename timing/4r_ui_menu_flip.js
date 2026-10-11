@@ -12,10 +12,12 @@
     const KEYS = ['top', 'bottom', 'marginTop', 'marginBottom', 'maxHeight'];
     const saved = new WeakMap();         // menu -> 原本的行內樣式
     const raised = new WeakMap();        // menu -> [{el, z}]：被暫時拉高層級的祖先
-    const LIFT_Z = '150';                // 高於黏性聲波面板（z-index: 100），低於對話框／側邊欄
+    const LIFT_Z = '2000';               // 高於黏性聲波面板（100）與右上角「匯入／轉檔」按鈕列（2000，DOM 在前，同層級時後者在上）；選單開著時對話框與側邊欄不會同時出現
 
     // 選單的祖先若有自己的 z-index（如列表標題列），往上展開時會被黏性聲波面板蓋住，
     // 因此打開期間暫時拉高這些祖先，關閉後還原。
+    // 只處理 z-index 為數字的祖先：z-index: auto 的祖先（如 .list-panel）本身不是獨立圖層，
+    // 若硬加 z-index 會變成圖層，讓整個列表蓋過聲波面板。
     function lift(menu) {
         if (raised.has(menu)) return;
         const list = [];
@@ -23,7 +25,8 @@
             const cs = getComputedStyle(el);
             if (cs.position === 'static') continue;
             const z = parseInt(cs.zIndex, 10);
-            if (!isNaN(z) && z >= parseInt(LIFT_Z, 10)) continue;
+            if (isNaN(z)) continue; // z-index: auto，不拉高
+            if (z >= parseInt(LIFT_Z, 10)) continue;
             if (cs.position === 'fixed') continue;
             list.push({ el, z: el.style.zIndex });
             el.style.zIndex = LIFT_Z;
@@ -80,7 +83,7 @@
         for (const m of list) {
             const el = m.target;
             if (!(el instanceof Element) || !el.classList.contains('custom-dropdown-menu')) continue;
-            if (el.classList.contains('show')) { lift(el); place(el); } else { restore(el); drop(el); }
+            if (el.classList.contains('show')) { lift(el); place(el); el.scrollTop = 0; } else { restore(el); drop(el); }
         }
     });
     mo.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });

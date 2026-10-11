@@ -461,6 +461,8 @@ function initWaveSurfer() {
 
     const isMinimapEnabled = localStorage.getItem('tagger_enableMinimap') === 'true';
     if (typeof toggleMinimap === 'function') toggleMinimap(isMinimapEnabled);
+    // 時間軸（6a_wave_timeline.js）：聲波每次重建後重新綁定事件
+    if (typeof toggleTimeline === 'function') toggleTimeline(localStorage.getItem('tagger_showTimeline') === 'true');
     wsRegions = wavesurfer.registerPlugin(WaveSurfer.Regions.create());
     wsRegions.enableDragSelection({ color: 'rgba(33, 150, 243, 0.3)' });
 
