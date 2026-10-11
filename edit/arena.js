@@ -239,9 +239,13 @@ window.launchArenaMode = function(rawData, configs) {
                 const st = document.createElement('style');
                 st.id = 'arena-sound-style';
                 st.textContent = `
-                    body:has(.arena-footer) #arena-sound-ctrl { bottom: 3px; left: 12rem; }
-                    body:has(.arena-footer) #arena-sound-btn { width: 2rem; height: 2rem; }
-                    body:has(.arena-footer) #arena-sound-btn .material-symbols-outlined { font-size: 20px; }`;
+                    /* 底部狀態列內：配合狀態列的淺灰藍底色，改用深灰線條，並靠近 PIN */
+                    body:has(.arena-footer) #arena-sound-ctrl { bottom: 4px; left: 8.5rem; background: rgba(71,85,105,.12); color: #475569; backdrop-filter: none; }
+                    body:has(.arena-footer) #arena-sound-ctrl:hover { background: rgba(71,85,105,.22); }
+                    body:has(.arena-footer) #arena-sound-btn { width: 1.75rem; height: 1.75rem; }
+                    body:has(.arena-footer) #arena-sound-btn:hover { background: rgba(71,85,105,.15); }
+                    body:has(.arena-footer) #arena-sound-btn .material-symbols-outlined { font-size: 18px; }
+                    body:has(.arena-footer) #arena-sound-vol { accent-color: #475569; }`;
                 document.head.appendChild(st);
             }
             box.innerHTML = `
