@@ -62,6 +62,7 @@ window.launchArenaMode = function(rawData, configs) {
     }
 
     function playArenaTone(freq, duration = 0.12, type = 'sine', delay = 0, volume = 0.15) {
+        if (typeof ArenaMusic !== 'undefined' && ArenaMusic.muted) return; // 老師已靜音
         const ctx = getArenaAudioCtx();
         if (!ctx) return;
         const osc = ctx.createOscillator();
@@ -77,6 +78,186 @@ window.launchArenaMode = function(rawData, configs) {
         osc.stop(t0 + duration + 0.03);
     }
 
+    // ----------------------------------------------------
+    // 🎵 音效檔播放系統（只在老師大螢幕播放；學生手機維持安靜）
+    // 音檔放在 index.html 同層的 files/ 資料夾，檔名固定如下（副檔名可為 mp3 / ogg / wav）：
+    //   files/lobby.mp3       大廳等待
+    //   files/reading.mp3     讀題倒數
+    //   files/answering.mp3   答題中
+    //   files/reveal.mp3      公佈答案
+    //   files/scoreboard.mp3  顯示英雄榜
+    //   files/final.mp3       公佈最終排行成績
+    // 找不到音檔時：公佈答案與頒獎台會自動改用原本的即時合成音，其他階段則保持安靜。
+    // ----------------------------------------------------
+    const ARENA_SOUND_DIR = 'files/';
+    const ARENA_SOUND_EXTS = ['mp3', 'ogg', 'wav'];   // 依序嘗試，找到哪個就用哪個
+    const ARENA_SOUND_MIME = { mp3: 'audio/mpeg', ogg: 'audio/ogg', wav: 'audio/wav' };
+    const ARENA_SOUND_CONFIG = {
+        //            檔名（不含副檔名）  是否循環  基本音量(0~1)
+        lobby:      { file: 'lobby',      loop: true,  volume: 0.45 },
+        reading:    { file: 'reading',    loop: true,  volume: 0.50 },
+        answering:  { file: 'answering',  loop: true,  volume: 0.50 },
+        reveal:     { file: 'reveal',     loop: false, volume: 0.90 },
+        scoreboard: { file: 'scoreboard', loop: true,  volume: 0.60 },
+        final:      { file: 'final',      loop: false, volume: 0.90 }
+    };
+
+    const ArenaMusic = {
+        audios: {},          // 已建立的 <audio>
+        status: {},          // 'ok' = 找到音檔, 'missing' = 沒有音檔
+        current: null,       // 目前（應該）正在播放的音效名稱
+        pendingName: null,   // 被瀏覽器擋下、等使用者點一下才播的音效
+        muted: (() => { try { return localStorage.getItem('arenaMuted') === '1'; } catch (e) { return false; } })(),
+        volume: (() => { try { const v = parseFloat(localStorage.getItem('arenaVolume')); return isNaN(v) ? 0.8 : Math.min(1, Math.max(0, v)); } catch (e) { return 0.8; } })(),
+
+        _get(name) {
+            const cfg = ARENA_SOUND_CONFIG[name];
+            if (!cfg) return null;
+            if (this.audios[name]) return this.audios[name];
+            const a = document.createElement('audio');
+            a.preload = 'auto';
+            a.loop = cfg.loop;
+            let last = null;
+            ARENA_SOUND_EXTS.forEach(ext => {
+                const src = document.createElement('source');
+                src.src = `${ARENA_SOUND_DIR}${cfg.file}.${ext}`;
+                src.type = ARENA_SOUND_MIME[ext];
+                a.appendChild(src);
+                last = src;
+            });
+            // 所有來源都失敗時，最後一個 <source> 會觸發 error
+            if (last) last.addEventListener('error', () => { this.status[name] = 'missing'; });
+            a.addEventListener('canplay', () => { this.status[name] = 'ok'; });
+            this.audios[name] = a;
+            return a;
+        },
+
+        has(name) { return this.status[name] === 'ok'; },
+
+        // 先把音檔載入快取，之後切換階段才不會延遲
+        preload() {
+            Object.keys(ARENA_SOUND_CONFIG).forEach(n => {
+                const a = this._get(n);
+                try { if (a) a.load(); } catch (e) {}
+            });
+        },
+
+        _apply(name) {
+            const a = this.audios[name];
+            if (a) a.volume = Math.min(1, Math.max(0, ARENA_SOUND_CONFIG[name].volume * this.volume));
+        },
+
+        // 播放某個音效（會自動停掉其他音效）。fallback：找不到音檔時要執行的備用方案。
+        play(name, fallback) {
+            this.mountControl();
+            this.stopAll(name);
+            this.current = name;
+            if (this.muted) return;
+
+            const a = this._get(name);
+            if (!a || this.status[name] === 'missing') { if (fallback) fallback(); return; }
+            if (!a.paused && !a.ended && ARENA_SOUND_CONFIG[name].loop) return;   // 已在播放，避免重複重來
+
+            this._apply(name);
+            try { a.currentTime = 0; } catch (e) {}
+            const p = a.play();
+            if (p && p.catch) {
+                p.catch(err => {
+                    if (err && err.name === 'NotAllowedError') {
+                        this.pendingName = name;        // 瀏覽器要求先互動：等老師點一下畫面再播
+                        this._armUnlock();
+                    } else if (err && err.name !== 'AbortError') {
+                        this.status[name] = 'missing';  // 音檔不存在或格式不支援
+                        if (fallback) fallback();
+                    }
+                });
+            }
+        },
+
+        _armUnlock() {
+            if (this._unlockArmed) return;
+            this._unlockArmed = true;
+            const handler = () => {
+                document.removeEventListener('pointerdown', handler, true);
+                document.removeEventListener('keydown', handler, true);
+                this._unlockArmed = false;
+                if (this.pendingName && this.current === this.pendingName) {
+                    const n = this.pendingName;
+                    this.pendingName = null;
+                    this.play(n);
+                }
+            };
+            document.addEventListener('pointerdown', handler, true);
+            document.addEventListener('keydown', handler, true);
+        },
+
+        stopAll(exceptName) {
+            Object.keys(this.audios).forEach(n => {
+                if (n === exceptName) return;
+                const a = this.audios[n];
+                try { a.pause(); a.currentTime = 0; } catch (e) {}
+            });
+            if (!exceptName) { this.current = null; this.pendingName = null; }
+        },
+
+        // 老師按暫停／繼續
+        setPaused(isPaused) {
+            const a = this.current && this.audios[this.current];
+            if (!a || this.muted) return;
+            if (isPaused) { a.pause(); }
+            else if (a.paused && ARENA_SOUND_CONFIG[this.current].loop) { const p = a.play(); if (p && p.catch) p.catch(() => {}); }
+        },
+
+        setMuted(m) {
+            this.muted = !!m;
+            try { localStorage.setItem('arenaMuted', this.muted ? '1' : '0'); } catch (e) {}
+            const a = this.current && this.audios[this.current];
+            if (a) {
+                if (this.muted) a.pause();
+                else if (ARENA_SOUND_CONFIG[this.current].loop && !window.arenaIsPaused) {
+                    this._apply(this.current);
+                    const p = a.play(); if (p && p.catch) p.catch(() => {});
+                }
+            }
+            this._refreshControl();
+        },
+
+        setVolume(v) {
+            this.volume = Math.min(1, Math.max(0, v));
+            try { localStorage.setItem('arenaVolume', String(this.volume)); } catch (e) {}
+            if (this.current) this._apply(this.current);
+        },
+
+        // 左下角的小喇叭：點一下靜音／取消靜音，滑鼠移上去可調音量
+        mountControl() {
+            if (document.getElementById('arena-sound-ctrl')) return;
+            const box = document.createElement('div');
+            box.id = 'arena-sound-ctrl';
+            box.className = 'group fixed left-3 bottom-14 z-[9500] flex items-center bg-black/40 hover:bg-black/60 backdrop-blur-sm rounded-full pr-1 text-white select-none transition-colors';
+            box.innerHTML = `
+                <button id="arena-sound-btn" class="w-10 h-10 rounded-full flex items-center justify-center cursor-pointer hover:bg-white/20" title="音效開關">
+                    <span id="arena-sound-icon" class="material-symbols-outlined">volume_up</span>
+                </button>
+                <input id="arena-sound-vol" type="range" min="0" max="100" value="${Math.round(this.volume * 100)}"
+                    class="w-0 opacity-0 group-hover:w-24 group-hover:opacity-100 group-hover:mx-2 transition-all duration-200 accent-white cursor-pointer" title="音量">`;
+            document.body.appendChild(box);
+            document.getElementById('arena-sound-btn').addEventListener('click', () => this.setMuted(!this.muted));
+            document.getElementById('arena-sound-vol').addEventListener('input', e => {
+                this.setVolume(e.target.value / 100);
+                if (this.muted && this.volume > 0) this.setMuted(false);
+            });
+            this._refreshControl();
+        },
+
+        _refreshControl() {
+            const icon = document.getElementById('arena-sound-icon');
+            if (icon) icon.textContent = this.muted ? 'volume_off' : 'volume_up';
+        },
+
+        unmountControl() { document.getElementById('arena-sound-ctrl')?.remove(); }
+    };
+
+
     const ArenaSound = {
         // 倒數滴答聲：最後 3 秒轉為急促高音，製造緊張感
         tick(urgent = false) {
@@ -84,15 +265,19 @@ window.launchArenaMode = function(rawData, configs) {
         },
         // 公佈答案音效
         reveal() {
-            playArenaTone(587, 0.14, 'triangle', 0, 0.16);
-            playArenaTone(880, 0.2, 'triangle', 0.13, 0.16);
+            ArenaMusic.play('reveal', () => {
+                playArenaTone(587, 0.14, 'triangle', 0, 0.16);
+                playArenaTone(880, 0.2, 'triangle', 0.13, 0.16);
+            });
         },
         // 頒獎台歡呼（琶音和弦模擬歡呼氣氛）
         cheer() {
+            if (ArenaMusic.has('final')) return; // 已有 final 音檔就不疊加合成音
             [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => playArenaTone(f, 0.4, 'triangle', i * 0.08, 0.12));
         },
         // 頒獎台名次揭曉的小提示音（如擊鼓聲）
         drumHit() {
+            if (ArenaMusic.has('final')) return;
             playArenaTone(196, 0.18, 'sawtooth', 0, 0.13);
             playArenaTone(261.6, 0.22, 'sawtooth', 0.08, 0.13);
         },
@@ -134,7 +319,8 @@ window.launchArenaMode = function(rawData, configs) {
     // ✨ 點擊暫停功能更新
     window.toggleArenaPause = async function() {
         if (!currentSpaceCode) return;
-        window.arenaIsPaused = !window.arenaIsPaused; 
+        window.arenaIsPaused = !window.arenaIsPaused;
+        ArenaMusic.setPaused(window.arenaIsPaused); 
         
         const pauseOverlay = document.getElementById('pause-overlay');
         if (pauseOverlay) {
@@ -147,6 +333,8 @@ window.launchArenaMode = function(rawData, configs) {
     };
 
     function cleanupArena() {
+        ArenaMusic.stopAll();
+        ArenaMusic.unmountControl();
         if (unsubscribePlayers) unsubscribePlayers();
         if (unsubscribeSpace) unsubscribeSpace();
         if (unsubscribeStudentSelf) unsubscribeStudentSelf();
@@ -674,6 +862,8 @@ window.launchArenaMode = function(rawData, configs) {
         const joinUrl = window.location.origin + window.location.pathname + '?arena=' + spaceCode;
         
         window.currentArenaState = 'lobby';
+        ArenaMusic.preload();
+        ArenaMusic.play('lobby'); // 🎵 大廳等待
         startGlobalPlayerListener(spaceCode);
 
         arenaContainer.innerHTML = getQrModalHtml(spaceCode) + `
@@ -775,6 +965,7 @@ window.launchArenaMode = function(rawData, configs) {
     function renderTeacherReadingView(spaceCode, arenaSettings, preReadTime) {
         const qData = gameData[currentQIndex];
         let timeLeft = preReadTime;
+        ArenaMusic.play('reading'); // 🎵 讀題倒數
         const displayCode = spaceCode.substring(0, 2) + ' ' + spaceCode.substring(2);
         
         arenaContainer.innerHTML = getQrModalHtml(spaceCode) + `
@@ -840,6 +1031,7 @@ window.launchArenaMode = function(rawData, configs) {
     function renderTeacherGameView(spaceCode, arenaSettings) {
         const qData = gameData[currentQIndex];
         let timeLeft = arenaSettings.qTime || 15;
+        ArenaMusic.play('answering'); // 🎵 答題中
         const displayCode = spaceCode.substring(0, 2) + ' ' + spaceCode.substring(2);
         
         isRevealing = false; 
@@ -1104,6 +1296,7 @@ window.launchArenaMode = function(rawData, configs) {
     // 畫面 2-S：老師大螢幕 (英雄榜 - 支援自動下一題)
     // ----------------------------------------------------
     function renderTeacherScoreboardView(spaceCode, correctIdx, arenaSettings) {
+        ArenaMusic.play('scoreboard'); // 🎵 英雄榜
         if (autoNextTimer) clearInterval(autoNextTimer); // 確保沒有殘留的計時器
         
         const topN = arenaSettings.topCount || 5;
@@ -1524,12 +1717,18 @@ window.launchArenaMode = function(rawData, configs) {
                 <div class="flex-1 overflow-y-auto px-6 py-4">
                     ${tabs.map(([id, , html], i) => `<div id="ana-panel-${id}" class="ana-panel ${i === 0 ? '' : 'hidden'}">${html}</div>`).join('')}
                 </div>
-                <div class="px-6 py-4 border-t border-white/10 flex-shrink-0 flex flex-col sm:flex-row gap-3">
-                    <button id="btn-export-scores" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-colors">
-                        <span class="material-symbols-outlined">download</span> 匯出成績 (CSV)
+                <div class="px-6 py-4 border-t border-white/10 flex-shrink-0 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button id="btn-copy-scores" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-colors">
+                        <span class="material-symbols-outlined">content_copy</span> 複製成績（貼到 Excel）
                     </button>
-                    <button id="btn-export-review" class="flex-1 bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-colors">
-                        <span class="material-symbols-outlined">download</span> 匯出錯題排行 (CSV)
+                    <button id="btn-export-scores" class="bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-colors">
+                        <span class="material-symbols-outlined">download</span> 下載成績 (CSV)
+                    </button>
+                    <button id="btn-copy-review" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-colors">
+                        <span class="material-symbols-outlined">content_copy</span> 複製錯題排行
+                    </button>
+                    <button id="btn-export-review" class="bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-colors">
+                        <span class="material-symbols-outlined">download</span> 下載錯題排行 (CSV)
                     </button>
                 </div>
             </div>
@@ -1647,6 +1846,8 @@ window.launchArenaMode = function(rawData, configs) {
         document.getElementById('btn-start-review')?.addEventListener('click', openReviewPresentation);
         document.getElementById('btn-export-scores')?.addEventListener('click', () => exportArenaScoresCSV(spaceCode));
         document.getElementById('btn-export-review')?.addEventListener('click', () => exportWrongRankingCSV(spaceCode));
+        document.getElementById('btn-copy-scores')?.addEventListener('click', () => copyRowsToClipboard(buildArenaScoreRows(), '成績'));
+        document.getElementById('btn-copy-review')?.addEventListener('click', () => copyRowsToClipboard(buildWrongRankingRows(), '錯題排行'));
     }
 
     // ---------- 8. CSV 共用下載 ----------
@@ -1671,8 +1872,47 @@ window.launchArenaMode = function(rawData, configs) {
         if (typeof showToast === 'function') showToast('✅ 已匯出');
     }
 
-    // ---------- 9. 匯出成績（含百分制） ----------
-    function exportArenaScoresCSV(spaceCode) {
+    // ---------- 複製到剪貼簿（Tab 分隔，可直接貼到 Excel / Google 試算表） ----------
+    function tsvCell(cell) {
+        let str = String(cell ?? '');
+        // 防止 Excel 把「=、+、-、@」開頭的內容當成公式執行
+        if (typeof cell === 'string' && /^[=+\-@]/.test(str)) str = "'" + str;
+        // 含 Tab、換行或雙引號的內容用引號包起來，貼上時才不會跑版
+        if (/[\t\r\n"]/.test(str)) str = '"' + str.replace(/"/g, '""') + '"';
+        return str;
+    }
+
+    function rowsToTSV(rows) {
+        return rows.map(r => r.map(tsvCell).join('\t')).join('\n');
+    }
+
+    function copyTextToClipboard(text) {
+        const fallback = () => new Promise((resolve, reject) => {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            let ok = false;
+            try { ok = document.execCommand('copy'); } catch (e) {}
+            document.body.removeChild(ta);
+            ok ? resolve() : reject(new Error('copy failed'));
+        });
+        if (navigator.clipboard && window.isSecureContext) {
+            return navigator.clipboard.writeText(text).catch(fallback);
+        }
+        return fallback();
+    }
+
+    function copyRowsToClipboard(rows, label) {
+        copyTextToClipboard(rowsToTSV(rows))
+            .then(() => { if (typeof showToast === 'function') showToast(`✅ 已複製${label}，到 Excel／試算表按 Ctrl+V 貼上`); })
+            .catch(() => { if (typeof showToast === 'function') showToast('⚠️ 複製失敗，請改用下載 CSV'); });
+    }
+
+    // ---------- 9. 成績表（含百分制）：下載與複製共用 ----------
+    function buildArenaScoreRows() {
         const stats = getQuestionStats();
         const playerStats = getPlayerStats(stats);
         const byName = Object.fromEntries(playerStats.map(p => [p.name, p]));
@@ -1704,13 +1944,16 @@ window.launchArenaMode = function(rawData, configs) {
             [...pad, '全班未作答人數', ...stats.map(s => s.unanswered)],
             [...pad, '答對率(%)', ...stats.map(s => Math.round(s.correctRate * 100))]
         ];
-
-        const dateStr = new Date().toISOString().slice(0, 10);
-        downloadAnalysisCSV([header, ...rows, ...summary], `成績_${spaceCode || 'arena'}_${dateStr}.csv`);
+        return [header, ...rows, ...summary];
     }
 
-    // ---------- 10. 匯出錯題排行（給老師備課／補救教學） ----------
-    function exportWrongRankingCSV(spaceCode) {
+    function exportArenaScoresCSV(spaceCode) {
+        const dateStr = new Date().toISOString().slice(0, 10);
+        downloadAnalysisCSV(buildArenaScoreRows(), `成績_${spaceCode || 'arena'}_${dateStr}.csv`);
+    }
+
+    // ---------- 10. 錯題排行（給老師備課／補救教學）：下載與複製共用 ----------
+    function buildWrongRankingRows() {
         const list = getQuestionStats().sort((a, b) => b.missRate - a.missRate || a.index - b.index);
         const header = ['錯誤率排名', '題號', '題目', '單元分類', '正確答案', '答對人數', '答錯人數', '未作答人數',
             '沒答對比例(%)', '最多人誤選', '誤選人數', '答對者平均秒數'];
@@ -1722,14 +1965,20 @@ window.launchArenaMode = function(rawData, configs) {
             s.topWrongIdx >= 0 ? s.topWrongN : '',
             s.avgCorrectTime !== null ? s.avgCorrectTime.toFixed(1) : ''
         ]);
-        const dateStr = new Date().toISOString().slice(0, 10);
-        downloadAnalysisCSV([header, ...rows], `錯題排行_${spaceCode || 'arena'}_${dateStr}.csv`);
+        return [header, ...rows];
     }
+
+    function exportWrongRankingCSV(spaceCode) {
+        const dateStr = new Date().toISOString().slice(0, 10);
+        downloadAnalysisCSV(buildWrongRankingRows(), `錯題排行_${spaceCode || 'arena'}_${dateStr}.csv`);
+    }
+
 
     // ----------------------------------------------------
     // 畫面 2-D：老師最終排行榜畫面
     // ----------------------------------------------------
     function renderTeacherLeaderboard(spaceCode) {
+        ArenaMusic.play('final'); // 🎵 最終排行成績
         const sortedPlayers = [...globalPlayers].sort((a, b) => b.score - a.score);
         const p1 = sortedPlayers[0];
         const p2 = sortedPlayers[1];
