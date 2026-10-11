@@ -315,6 +315,7 @@ function renderSentenceList() {
             <div class="sentence-content">
                 <button class="action-icon-btn verify-btn" id="verify-${label}" title="播放該句" aria-label="播放該句"><span class="material-icons">volume_up</span></button>
                 <span class="sentence-label" style="color: ${colorVar};">${displayLabel}</span>
+                ${typeof buildSpeakerChipHtml === 'function' ? buildSpeakerChipHtml(label) : ''}
 
                 ${textAreaHtml}
                 

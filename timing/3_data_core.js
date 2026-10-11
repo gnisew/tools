@@ -34,6 +34,10 @@ function saveToStorage() {
             //   圖片本體另外存在 IndexedDB（見 1b_image_store_idb.js），不會塞進 localStorage。
             localStorage.setItem('tagger_mediaGroups', JSON.stringify(mediaGroups));
             localStorage.setItem('tagger_volumeRegions', JSON.stringify(volumeRegions));
+            if (typeof pruneSpeakerMap === 'function') pruneSpeakerMap();
+            localStorage.setItem('tagger_speakers', JSON.stringify(speakers));
+            localStorage.setItem('tagger_speakerMap', JSON.stringify(speakerMap));
+            localStorage.setItem('tagger_speakerEnabled', speakerEnabled ? 'true' : 'false');
         } catch (err) {
             // ★ 修補：容量爆滿或其他寫入失敗時，明確提示使用者，避免編輯內容悄悄遺失
             console.error('存檔失敗：', err);
@@ -54,6 +58,10 @@ window.addEventListener('beforeunload', () => {
             localStorage.setItem('tagger_parseMode', currentParseMode); 
             localStorage.setItem('tagger_mediaGroups', JSON.stringify(mediaGroups));
             localStorage.setItem('tagger_volumeRegions', JSON.stringify(volumeRegions));
+            if (typeof pruneSpeakerMap === 'function') pruneSpeakerMap();
+            localStorage.setItem('tagger_speakers', JSON.stringify(speakers));
+            localStorage.setItem('tagger_speakerMap', JSON.stringify(speakerMap));
+            localStorage.setItem('tagger_speakerEnabled', speakerEnabled ? 'true' : 'false');
         } catch (err) {
             console.error('關閉頁面前強制存檔失敗：', err);
         }
@@ -126,6 +134,16 @@ function loadFromStorage() {
         volumeRegions = Array.isArray(savedVolume) ? savedVolume : [];
     } catch (e) { volumeRegions = []; }
 
+    // 說話者標記（1d_speakers.js）；舊專案沒有這些欄位時維持未啟用
+    try {
+        speakers = (typeof normalizeSpeakerList === 'function') ? normalizeSpeakerList(JSON.parse(localStorage.getItem('tagger_speakers') || '[]')) : [];
+        const sm = JSON.parse(localStorage.getItem('tagger_speakerMap') || '{}');
+        speakerMap = (sm && typeof sm === 'object' && !Array.isArray(sm)) ? sm : {};
+    } catch (e) { speakers = []; speakerMap = {}; }
+    speakerEnabled = localStorage.getItem('tagger_speakerEnabled') === 'true' && speakers.length > 0;
+    if (typeof pruneSpeakerMap === 'function') pruneSpeakerMap();
+    if (typeof syncSpeakerUI === 'function') syncSpeakerUI(false);
+
     // ★ 多語字幕開關不記憶：重新整理後，若資料至少 3 句含分隔字元就自動還原啟用（靜默，不跳提示）
     if (typeof autoEnableMultiLangIfNeeded === 'function') autoEnableMultiLangIfNeeded({ notify: false, render: false });
 
@@ -186,12 +204,13 @@ function loadFromStorage() {
 
 // ★ 新增：整理解析出來的句子列表 —— 移除「沒有實際文字」的句子（例如整句只有括號註解，
 // 括號內容會被移除而變成空白），避免產生無意義的空白列；並重新排號，段落字母也保持連續。
-function compactParsedList(labels, textMap) {
+function compactParsedList(labels, textMap, spkByLabel) {
     const counters = {};
     const prefixMap = {}; // 舊段落字母 → 新段落字母（略過整段都被移除的段落）
     let prefixCount = 0;
     const outLabels = [];
     const outMap = {};
+    const outSpk = {}; // ★ 新增：新句號 → 說話者名稱（spkByLabel 是舊句號 → 名稱）
     labels.forEach(lbl => {
         const text = textMap[lbl] || '';
         if (text.trim() === '') return;
@@ -205,8 +224,9 @@ function compactParsedList(labels, textMap) {
         const newLabel = prefix + String(counters[prefix]).padStart(2, '0');
         outLabels.push(newLabel);
         outMap[newLabel] = text;
+        if (spkByLabel && spkByLabel[lbl]) outSpk[newLabel] = spkByLabel[lbl];
     });
-    return { labels: outLabels, textMap: outMap };
+    return { labels: outLabels, textMap: outMap, speakerByLabel: outSpk };
 }
 
 // ★ 新增：把既有的聲波標記「依序」貼到新解析出的句子列表上，規則如下：
@@ -248,8 +268,20 @@ function executeParsing() {
     // ★ 新增：貼上的是 SRT 字幕或 Audacity 標籤文字時，先轉成帶時間的 TSV，走下方既有的 TSV 載入流程
     if (typeof looksLikeTimedText === 'function' && looksLikeTimedText(rawText)) rawText = timedTextToTsv(rawText);
     const parseMode = currentParseMode;
-    const rawLines = rawText.split(/\r?\n/).filter(p => p.trim() !== ''); 
+    let rawLines = rawText.split(/\r?\n/).filter(p => p.trim() !== ''); 
     const isTSV = rawLines.some(line => /^[A-Z]\d{2,}\t/.test(line));
+
+    // ★ 新增：偵測句首「名稱：」（說話者，見 1d_speakers.js）。
+    //   純文字：先把符合的行首換成暫時標記並從 rawLines 移除名稱，解析完再轉成 speakerMap；
+    //   試算表／字幕（TSV）：載入後直接逐句偵測（見下方兩處）。
+    let spkMark = { text: rawText, names: [] };
+    if (!isTSV && typeof markSpeakerPrefixes === 'function') {
+        spkMark = markSpeakerPrefixes(rawText, parseMode);
+        if (spkMark.names.length) {
+            rawText = spkMark.text;
+            rawLines = rawText.split(/\r?\n/).filter(p => p.trim() !== '');
+        }
+    }
 
     // ★ 修改：先「循序」備份現有的聲波標記（移到最前面，兩種路徑都要用）
     const existingMarkers = allLabelsOrdered
@@ -266,7 +298,7 @@ function executeParsing() {
 
     if (isTSV && tsvHasTime) {
         // TSV 本身包含時間與文字，所以直接覆寫全部資料
-        sentenceTextMap = {}; allLabelsOrdered = []; timeDataMap = {};
+        sentenceTextMap = {}; allLabelsOrdered = []; timeDataMap = {}; speakerMap = {};
         let currentParaLetter = ''; let paraIndex = -1;
         rawLines.forEach((line) => {
             if (!/^[A-Z]\d{2,}\t/.test(line)) return; 
@@ -280,6 +312,11 @@ function executeParsing() {
                 if (!isNaN(start)) timeDataMap[label] = { start: start, end: isNaN(end) ? null : end };
             }
         }); 
+        // ★ 新增：逐句偵測「名稱：」開頭 → 說話者（speakerMap 已在上方清空）
+        if (typeof detectSpeakersInTextMap === 'function') {
+            const spk = detectSpeakersInTextMap(allLabelsOrdered, sentenceTextMap);
+            finishSpeakerDetect(spk.byLabel, spk.names, spk.tooMany);
+        }
         showToast('已成功載入試算表資料！', 'success');
     } else {
         // ★ 一般文字解析（既有的聲波標記已在上方備份）
@@ -382,7 +419,20 @@ function executeParsing() {
         // ★ 修改：先移除沒有實際文字的句子（避免無意義的空白列），再把既有標記依序貼上：
         //   句子多於標記 → 保持句子數，最後幾句沒有標記
         //   句子少於標記 → 保持標記數，只為多出來的標記在末端補空白列
-        const compact = compactParsedList(newLabels, newTextMap);
+        // ★ 新增：取出說話者（壓縮空白句之前做，名稱後面沒有文字的句子會被一起移除）
+        let spkByLabel = {}, spkNames = [], spkTooMany = 0;
+        if (typeof extractSpeakerMarks === 'function') {
+            if (isTSV) { // 沒有時間的 TSV（預覽解析的輸出）：逐句偵測
+                const spk = detectSpeakersInTextMap(newLabels, newTextMap);
+                spkByLabel = spk.byLabel; spkNames = spk.names; spkTooMany = spk.tooMany;
+            } else if (spkMark.names.length) { // punct 模式一行就是一段，段內每句都屬於同一位說話者
+                spkNames = spkMark.names;
+                spkByLabel = extractSpeakerMarks(newLabels, newTextMap, spkMark.names, parseMode === 'punct');
+            } else {
+                spkTooMany = spkMark.tooMany || 0;
+            }
+        }
+        const compact = compactParsedList(newLabels, newTextMap, spkByLabel);
         newLabels = compact.labels;
         newTextMap = compact.textMap;
 
@@ -390,6 +440,8 @@ function executeParsing() {
 
         // 寫入全域變數
         allLabelsOrdered = newLabels;
+        speakerMap = {}; // 重新解析整份文字，原本的說話者對應失效
+        if (typeof finishSpeakerDetect === 'function') finishSpeakerDetect(compact.speakerByLabel, spkNames, spkTooMany); // ★ 新增：套用偵測到的說話者
         sentenceTextMap = newTextMap;
         timeDataMap = attached.timeMap;
 
@@ -668,7 +720,7 @@ function reassignLabels(overrideTimes, opts) {
         tempRegion = null;
     }
 
-    const newAllLabels = []; const newTextMap = {}; const newTimeMap = {};
+    const newAllLabels = []; const newTextMap = {}; const newTimeMap = {}; const newSpeakerMap = {};
     let currentParaLetter = ''; let currentParaItems = []; let paragraphs = [];
 
     // 1. 將現有的標籤依字母分段
@@ -699,6 +751,7 @@ function reassignLabels(overrideTimes, opts) {
             const newLabel = letter + String(index + 1).padStart(2, '0');
             newAllLabels.push(newLabel);
             newTextMap[newLabel] = sentenceTextMap[oldLabel] || '';
+            if (speakerMap[oldLabel]) newSpeakerMap[newLabel] = speakerMap[oldLabel]; // 說話者跟著文字列走
             
             // 只要還有時間標記，就依序貼上，填滿所有空隙
             if (timeAssignIdx < validOldTimes.length) {
@@ -733,11 +786,13 @@ function reassignLabels(overrideTimes, opts) {
         if (newTimeMap[lastLabel] !== undefined || (newTextMap[lastLabel] || '').trim() !== '') break;
         newAllLabels.pop();
         delete newTextMap[lastLabel];
+        delete newSpeakerMap[lastLabel];
         trimmedCount++;
     }
 
     // 3. 寫入全域資料並存檔
     allLabelsOrdered = newAllLabels; 
+    speakerMap = newSpeakerMap;
     sentenceTextMap = newTextMap; 
     timeDataMap = newTimeMap;
     
@@ -761,7 +816,7 @@ window.insertUp = function(label) {
 window.insertDown = function(label) {
     if (typeof saveState === 'function') saveState(); // ★ 集中化：改由函式自己保護，呼叫端不必再記得加
     const idx = allLabelsOrdered.indexOf(label); const tempLabel = label.charAt(0) + '_TEMP_' + Date.now();
-    allLabelsOrdered.splice(idx + 1, 0, tempLabel); sentenceTextMap[tempLabel] = ''; reassignLabels(); showToast('已向下新增空白句', 'success');
+    allLabelsOrdered.splice(idx + 1, 0, tempLabel); sentenceTextMap[tempLabel] = ''; if (speakerMap[label]) speakerMap[tempLabel] = speakerMap[label]; reassignLabels(); showToast('已向下新增空白句', 'success');
 };
 
 // ★ 新增：移除此列（只移除這一列的文字，聲波標記全部保留，後面的列往前遞補）
@@ -1056,6 +1111,7 @@ function splitRegionAtPlayhead() {
     allLabelsOrdered.splice(targetIdx + 1, 0, tempLabel);
     sentenceTextMap[tempLabel] = '';
     timeDataMap[tempLabel] = { start: splitPoint, end: targetTimes.end };
+    if (speakerMap[targetLabel]) speakerMap[tempLabel] = speakerMap[targetLabel]; // 切割出的新句繼承原說話者
 
     reassignLabels(); // 統一重新排號、重新對齊所有時間標記（saveToStorage/renderSentenceList 已內含）
 

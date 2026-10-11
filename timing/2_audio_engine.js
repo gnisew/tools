@@ -1487,7 +1487,7 @@ async function startLocalAiTranscription() {
                 if (typeof saveState === 'function') saveState();
 
                 // 匯入資料邏輯
-                allLabelsOrdered = []; sentenceTextMap = {}; timeDataMap = {};
+                allLabelsOrdered = []; sentenceTextMap = {}; timeDataMap = {}; speakerMap = {};
                 chunks.forEach((chunk, index) => {
                     const startTime = chunk.timestamp[0];
                     let endTime = chunk.timestamp[1];
@@ -1862,7 +1862,7 @@ window.performTimeSegmentation = async function(targetRange) {
 
     } else {
         // 全域模式：洗掉重來
-        allLabelsOrdered = []; sentenceTextMap = {}; timeDataMap = {};
+        allLabelsOrdered = []; sentenceTextMap = {}; timeDataMap = {}; speakerMap = {};
         segments.forEach((seg, idx) => {
             const group = Math.floor(idx / 99);
             const num = (idx % 99) + 1;

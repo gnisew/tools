@@ -177,7 +177,7 @@
 
     // 依目前列表順序重新排號（同字母連續段落內 01、02、03…），句子文字與時間「跟著列走」，時間不會位移
     function renumberKeepTimes() {
-        const newLabels = [], newText = {}, newTime = {};
+        const newLabels = [], newText = {}, newTime = {}, newSpk = {};
         let letter = '', count = 0;
         allLabelsOrdered.forEach(old => {
             const L = old.charAt(0);
@@ -187,10 +187,12 @@
             newLabels.push(nl);
             newText[nl] = sentenceTextMap[old] || '';
             if (timeDataMap[old] !== undefined) newTime[nl] = timeDataMap[old];
+            if (speakerMap[old]) newSpk[nl] = speakerMap[old];
         });
         allLabelsOrdered = newLabels;
         sentenceTextMap = newText;
         timeDataMap = newTime;
+        speakerMap = newSpk;
     }
 
     // 貼上後，把「被帶回時間的句子列」（文字 + 時間）移到時間順序正確的位置，再重新排號。
@@ -198,10 +200,11 @@
     function moveRowsToChronologicalPosition(labels) {
         const moving = labels.filter(l => allLabelsOrdered.includes(l) && timeDataMap[l] !== undefined);
         if (!moving.length) return;
-        const saved = {}, texts = {};
+        const saved = {}, texts = {}, spks = {};
         moving.forEach(l => {
             saved[l] = timeDataMap[l];
             texts[l] = sentenceTextMap[l] || '';
+            spks[l] = speakerMap[l];
             delete timeDataMap[l];
             delete sentenceTextMap[l];
         });
@@ -216,6 +219,7 @@
             const tmp = prefix + '_MOVE_' + Date.now() + '_' + i;
             allLabelsOrdered.splice(idx, 0, tmp);
             sentenceTextMap[tmp] = texts[l];
+            if (spks[l]) speakerMap[tmp] = spks[l];
             timeDataMap[tmp] = saved[l];
         });
         if (typeof clearSelection === 'function') clearSelection();
@@ -271,6 +275,8 @@
             buffer: buffer,
             labels: clone(allLabelsOrdered),  // 貼上會移動句子列，復原時要一起還原
             texts: clone(sentenceTextMap),
+            spk: clone(speakers),
+            spkMap: clone(speakerMap),
             times: clone(timeDataMap),
             groups: clone(mediaGroups),
             volume: window.VolumeRegions ? VolumeRegions.snapshot() : [],  // 範圍音量調整
@@ -471,6 +477,7 @@
             }
             if (typeof redoStack !== 'undefined') redoStack = [];
             if (entry.labels) { allLabelsOrdered = entry.labels; sentenceTextMap = entry.texts; }
+            if (entry.spkMap) { speakerMap = entry.spkMap; speakers = entry.spk || speakers; if (typeof renderSpeakerSettings === 'function') renderSpeakerSettings(); }
             timeDataMap = entry.times;
             mediaGroups.length = 0;
             entry.groups.forEach(g => mediaGroups.push(g));

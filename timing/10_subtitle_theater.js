@@ -39,6 +39,7 @@
             langA: parseInt(g('langA', '0'), 10) || 0,
             langB: parseInt(g('langB', '1'), 10) || 1,
             showSpeaker: g('showSpeaker', 'false') === 'true',
+            showSpkName: g('showSpkName', 'true') === 'true', // 顯示說話者名稱（1d_speakers.js）；預設開，但只有啟用說話者標記且該句有指派才會出現
             bold: g('bold', 'false') === 'true',
             // 隱藏標點，預設啟用（沒存過設定的人，第一次開啟就是隱藏）
             hidePunct: g('hidePunct', 'true') === 'true',
@@ -60,6 +61,7 @@
         localStorage.setItem(LS_PREFIX + 'langA', String(st.langA));
         localStorage.setItem(LS_PREFIX + 'langB', String(st.langB));
         localStorage.setItem(LS_PREFIX + 'showSpeaker', String(st.showSpeaker));
+        localStorage.setItem(LS_PREFIX + 'showSpkName', String(st.showSpkName));
         localStorage.removeItem(LS_PREFIX + 'mono'); // 清掉舊版殘留的等寬字型設定
         localStorage.setItem(LS_PREFIX + 'bold', String(st.bold));
         localStorage.setItem(LS_PREFIX + 'hidePunct', String(st.hidePunct));
@@ -103,6 +105,7 @@
         if (s.langB !== 1) t.push('b' + s.langB);
         if (s.fontScale !== 1) t.push('z' + s.fontScale);
         if (s.showSpeaker) t.push('sp');
+        if (!s.showSpkName) t.push('ns'); // 預設顯示說話者名稱，關閉才寫進網址
         if (s.bold) t.push('bd'); // 預設不粗體，開啟才寫進網址
         if (!s.hidePunct) t.push('p'); // 出現＝顯示標點
         if (s.followMode) t.push('f' + s.followCount);
@@ -117,7 +120,7 @@
 
     // 字串 → 完整設定（沒寫的一律用預設值，不吃 localStorage，分享出去的連結才會一致）
     function parseTheaterSettings(str) {
-        const s = { theme: 'dark', layout: 'single', langA: 0, langB: 1, showSpeaker: false,
+        const s = { theme: 'dark', layout: 'single', langA: 0, langB: 1, showSpeaker: false, showSpkName: true,
             bold: false, hidePunct: true, followMode: false, followCount: 1, immersive: false,
             bgMode: 'none', bgAutoSeed: '', fontScale: 1, showGroupImage: false };
         String(str).split('-').forEach(raw => {
@@ -126,6 +129,7 @@
             if (CODE_TO_THEME[tok]) s.theme = CODE_TO_THEME[tok];
             else if (CODE_TO_LAYOUT[tok]) s.layout = CODE_TO_LAYOUT[tok];
             else if (tok === 'sp') s.showSpeaker = true;
+            else if (tok === 'ns') s.showSpkName = false;
             else if (tok === 'mono') return; // 等寬字型已移除，舊網址的 mono 直接忽略
             else if (tok === 'bd' || tok === 'bold') s.bold = true; // bd 為新碼，舊網址的 bold 仍相容
             else if (tok === 'p' || tok === 'nopunct') s.hidePunct = false; // p 為新碼，舊網址的 nopunct 仍相容
@@ -289,6 +293,13 @@
         font-size:calc(clamp(12px,1.3vw,17px)*var(--stz-scale));
         font-weight:bold;color:#fff;border-radius:20px;padding:2px 12px;
         letter-spacing:1px;font-family:monospace;opacity:.7;}
+    /* 說話者名稱：字幕上方的色塊標籤（底色 = 說話者顏色，由 JS 設定）；逐字稿捲動主題則在每句上方顯示彩色小字 */
+    .stz-spkname{display:inline-block;max-width:100%;margin-bottom:12px;padding:2px 14px;border-radius:20px;
+        font-size:calc(clamp(14px,1.8vw,26px)*var(--stz-scale));font-weight:bold;letter-spacing:1px;color:#fff;
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .stz-lyric-line .stz-lyric-spk{display:block;font-size:.5em;font-weight:700;letter-spacing:1px;margin-bottom:2px;}
+    [data-stz-theme="picturebook"] .stz-spkname{margin-bottom:4px;padding:1px 10px;
+        font-size:calc(clamp(12px,1.4vw,18px)*var(--stz-scale));}
     .stz-overlay.stz-bold .stz-primary{font-weight:900;}
     .stz-overlay.stz-bold .stz-lyric-line{font-weight:700;}
 
@@ -535,6 +546,7 @@
             <label>語言 B（次要）</label>
             <select id="stzLangBSel"></select>
             <label class="stz-chkrow"><input type="checkbox" id="stzSpeakerChk"> 顯示段落編號</label>
+            <label class="stz-chkrow" id="stzSpkNameRow" style="display:none;"><input type="checkbox" id="stzSpkNameChk"> 顯示說話者名稱（需在設定啟用說話者標記）</label>
             <label class="stz-chkrow"><input type="checkbox" id="stzBoldChk"> 粗體字</label>
             <label class="stz-chkrow"><input type="checkbox" id="stzHidePunctChk"> 隱藏標點（句首、句尾的標點移除；句中的標點改為一個空格）</label>
             <label class="stz-chkrow"><input type="checkbox" id="stzFollowChk"> 跟讀模式（每句唸完後停頓，再以較小音量重複）</label>
@@ -563,6 +575,7 @@
             <div class="stz-lines" id="stzLines" data-layout="single">
                 <div>
                     <div class="stz-speaker" id="stzSpeaker" style="display:none;"></div>
+                    <div class="stz-spkname" id="stzSpkName" style="display:none;"></div>
                     <div class="stz-primary" id="stzPrimary"></div>
                     <div class="stz-secondary" id="stzSecondary"></div>
                 </div>
@@ -585,6 +598,9 @@
         primary: overlay.querySelector('#stzPrimary'),
         secondary: overlay.querySelector('#stzSecondary'),
         speaker: overlay.querySelector('#stzSpeaker'),
+        spkName: overlay.querySelector('#stzSpkName'),
+        spkNameChk: overlay.querySelector('#stzSpkNameChk'),
+        spkNameRow: overlay.querySelector('#stzSpkNameRow'),
         lyricsWrap: overlay.querySelector('#stzLyricsWrap'),
         settingsPanel: overlay.querySelector('#stzSettingsPanel'),
         themeSel: overlay.querySelector('#stzThemeSel'),
@@ -787,6 +803,7 @@
             els.primary.textContent = allLabelsOrdered.length ? '' : '（尚無字幕資料）';
             els.secondary.textContent = '';
             els.speaker.style.display = 'none';
+            els.spkName.style.display = 'none';
             overlay.style.setProperty('--stz-progress', '0%');
             return;
         }
@@ -795,6 +812,16 @@
         const textB = (typeof getLang === 'function' && getLangMultiEnabled()) ? getLang(raw, st.langB) : '';
         els.primary.textContent = displayText(textA);
         els.secondary.textContent = displayText(textB);
+
+        // 說話者名稱：啟用說話者標記、該句有指派、且勾選「顯示說話者名稱」時才顯示
+        const spk = (st.showSpkName && typeof getSpeakerOfLabel === 'function') ? getSpeakerOfLabel(label) : null;
+        if (spk) {
+            els.spkName.textContent = spk.name;
+            els.spkName.style.background = spk.color;
+            els.spkName.style.display = 'inline-block';
+        } else {
+            els.spkName.style.display = 'none';
+        }
 
         if (st.showSpeaker) {
             const letter = label.charAt(0);
@@ -831,7 +858,9 @@
             const raw = sentenceTextMap[label] || '';
             const textA = (typeof getLang === 'function') ? getLang(raw, st.langA) : raw;
             const textB = (typeof getLang === 'function' && getLangMultiEnabled() && st.layout !== 'single') ? getLang(raw, st.langB) : '';
-            html += `<div class="stz-lyric-line" data-label="${label}">${escapeHtml(displayText(textA)) || '&nbsp;'}${displayText(textB) ? `<span class="stz-lyric-sub">${escapeHtml(displayText(textB))}</span>` : ''}</div>`;
+            const spk = (st.showSpkName && typeof getSpeakerOfLabel === 'function') ? getSpeakerOfLabel(label) : null;
+            const spkHtml = spk ? `<span class="stz-lyric-spk" style="color:${spk.color}">${escapeHtml(spk.name)}</span>` : '';
+            html += `<div class="stz-lyric-line" data-label="${label}">${spkHtml}${escapeHtml(displayText(textA)) || '&nbsp;'}${displayText(textB) ? `<span class="stz-lyric-sub">${escapeHtml(displayText(textB))}</span>` : ''}</div>`;
         });
         els.lyricsWrap.innerHTML = html || '<div class="stz-empty">（尚無字幕資料）</div>';
         lyricsBuilt = true;
@@ -1158,6 +1187,8 @@
         els.themeSel.value = st.theme;
         els.layoutSel.value = st.layout;
         els.speakerChk.checked = st.showSpeaker;
+        els.spkNameChk.checked = st.showSpkName;
+        els.spkNameRow.style.display = (typeof speakerEnabled !== 'undefined' && speakerEnabled) ? '' : 'none'; // 沒啟用說話者標記就不顯示這個選項
         els.boldChk.checked = st.bold;
         els.hidePunctChk.checked = st.hidePunct;
         els.followChk.checked = st.followMode;
@@ -1308,6 +1339,7 @@
     els.langASel.addEventListener('change', () => { st.langA = parseInt(els.langASel.value, 10); saveState(); applyAll(); });
     els.langBSel.addEventListener('change', () => { st.langB = parseInt(els.langBSel.value, 10); saveState(); applyAll(); });
     els.speakerChk.addEventListener('change', () => { st.showSpeaker = els.speakerChk.checked; saveState(); applyAll(); });
+    els.spkNameChk.addEventListener('change', () => { st.showSpkName = els.spkNameChk.checked; saveState(); applyAll(); });
     els.boldChk.addEventListener('change', () => { st.bold = els.boldChk.checked; saveState(); applyAll(); });
     els.hidePunctChk.addEventListener('change', () => { st.hidePunct = els.hidePunctChk.checked; saveState(); applyAll(); });
     els.followChk.addEventListener('change', () => {

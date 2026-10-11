@@ -61,6 +61,7 @@ function applyImportedItems(items, sourceName) {
     });
 
     allLabelsOrdered = labels;
+    speakerMap = {}; // 匯入字幕檔取代全部句子，說話者對應失效
     sentenceTextMap = textMap;
     timeDataMap = timeMap;
     saveToStorage();

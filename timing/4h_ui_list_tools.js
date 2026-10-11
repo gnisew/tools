@@ -105,6 +105,7 @@ cleanAndBindEvent('deleteAllDataBtn', () => {
             timeDataMap = {};
             sentenceTextMap = {};
             allLabelsOrdered = [];
+            speakerMap = {};
             
             if (typeof wavesurfer !== 'undefined' && wavesurfer && wavesurfer.regions) {
                 wavesurfer.regions.clear();

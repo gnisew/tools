@@ -312,6 +312,8 @@
 
                             <div class="custom-dropdown-item" id="fontToggleBtn"><span class="material-icons">format_size</span> 字體大小 (16)</div>
                             <div class="custom-dropdown-item" id="sortMenuToggleBtn"><span class="material-icons">sort</span> 單句排序</div>
+                            <!-- 說話者篩選：1d_speakers.js（啟用說話者標記後才顯示） -->
+                            <div class="custom-dropdown-item" id="speakerFilterMenuBtn" style="display: none;"><span class="material-icons" style="color: #00897B;">filter_alt</span> <span id="speakerFilterMenuText">只看說話者</span></div>
                             <div class="custom-dropdown-item" id="widthMenuToggleBtn"><span class="material-icons">aspect_ratio</span> 編輯區寬度 (預設)</div>
                             <div class="custom-dropdown-item" id="toggleListPanelBtn"><span class="material-icons">edit_off</span> 隱藏編輯區區塊</div>
 
@@ -748,8 +750,39 @@
                     <input type="text" id="langDelimiterInput" value="|" maxlength="4" class="input-number-sm" style="width: 60px;" disabled>
                 </div>
             </div>
+            <div class="sidebar-group" id="speakerSettingsGroup">
+                <h4><span class="material-icons" aria-hidden="true">record_voice_over</span><span class="setting-num" aria-hidden="true">十、</span>說話者標記</h4>
+                <div class="setting-block">
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="speakerEnableCheck" class="setting-checkbox">
+                        啟用說話者標記
+                    </label>
+                    <span class="setting-hint">Ctrl／Shift 多選可批次或交替指派。</span>
+                </div>
+                <div class="setting-block">
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="speakerDetectCheck" class="setting-checkbox">
+                        匯入時偵測「名稱：」
+                    </label>
+                    <span class="setting-hint">句首「名稱：」出現 2 次以上，自動轉成說話者。</span>
+                    <details class="setting-more">
+                        <summary>詳細規則</summary>
+                        <ul>
+                            <li>半形、全形冒號皆可；時間、網址、純數字不算</li>
+                            <li>名稱最長 12 字；只出現 1 次不轉換；超過 8 位則略過</li>
+                            <li>名稱獨佔一行時，後面的句子沿用該說話者</li>
+                            <li>從 JSON 專案檔載入時不偵測</li>
+                        </ul>
+                    </details>
+                </div>
+                <div id="speakerSettingsBody" style="display: none;">
+                    <div id="speakerList" class="speaker-list"></div>
+                    <button type="button" id="speakerAddBtn" class="speaker-add-btn"><span class="material-icons" aria-hidden="true">add</span>新增說話者</button>
+                    <span class="setting-hint">未指定的句子不區別說話者。重新解析文字或匯入字幕會清空各句的說話者。</span>
+                </div>
+            </div>
             <div class="sidebar-group">
-                <h4><span class="material-icons" aria-hidden="true">auto_awesome</span><span class="setting-num" aria-hidden="true">十、</span>AI 聽打</h4>
+                <h4><span class="material-icons" aria-hidden="true">auto_awesome</span><span class="setting-num" aria-hidden="true">十一、</span>AI 聽打</h4>
                 <div class="setting-block">
                     <label class="setting-checkbox-row">
                         <input type="checkbox" id="aiEnableCheck" class="setting-checkbox">
@@ -816,7 +849,7 @@
                 </div>
             </div>
                         <div class="sidebar-group">
-                <h4 id="exportAudioFormatLabel"><span class="material-icons" aria-hidden="true">ios_share</span><span class="setting-num" aria-hidden="true">十一、</span>音訊匯出格式</h4>
+                <h4 id="exportAudioFormatLabel"><span class="material-icons" aria-hidden="true">ios_share</span><span class="setting-num" aria-hidden="true">十二、</span>音訊匯出格式</h4>
                 <select id="exportAudioFormatSelect" aria-labelledby="exportAudioFormatLabel" class="input-select">
                     <option value="mp3">MP3 壓縮檔 (輕巧快速)</option>
                     <option value="wav" selected>WAV 無損原始檔</option>
@@ -859,7 +892,7 @@
                 </div>
             </div>
             <div class="sidebar-group">
-                <h4 style="margin-bottom: 10px;"><span class="material-icons" aria-hidden="true">keyboard</span><span class="setting-num" aria-hidden="true">十二、</span>預設快速鍵</h4>
+                <h4 style="margin-bottom: 10px;"><span class="material-icons" aria-hidden="true">keyboard</span><span class="setting-num" aria-hidden="true">十三、</span>預設快速鍵</h4>
                 <ul style="font-size:0.85rem; color:#555; padding-left: 20px; margin-bottom: 20px; line-height: 1.6;">
                     <li><strong>Space 空白鍵</strong>：播放/暫停</li>
                     <li><strong>Tab 鍵</strong>：跳至下一句</li>
@@ -1453,6 +1486,13 @@
                 </select>
             </div>
 
+            <div id="exportSpeakerWrap" style="display: none; margin-bottom: 12px; flex-shrink: 0;">
+                <label class="setting-checkbox-row" style="margin: 0;">
+                    <input type="checkbox" id="exportSpeakerCheck" class="setting-checkbox">
+                    在每句文字前加上說話者名稱（「名稱：文字」）
+                </label>
+            </div>
+
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; flex-shrink: 0;">
                 <button id="exportJsonBtn" class="btn-secondary" style="margin: 0; padding: 8px;"><span class="material-icons" style="font-size: 1.1rem;">data_object</span> JSON 專案</button>
                 <button id="exportTsvBtn" class="btn-excel" style="margin: 0; padding: 8px;"><span class="material-icons" style="font-size: 1.1rem;">table_chart</span> 試算表 (TSV)</button>
@@ -1507,6 +1547,7 @@
     <script src="1b_toast.js"></script>
     <script src="1a_audio_store_idb.js"></script>
     <script src="1c_languages.js"></script>
+    <script src="1d_speakers.js"></script>
     <script src="2_audio_engine.js"></script>
     <script src="2a_vocal_enhance.js"></script>
     <script src="3_data_core.js"></script>

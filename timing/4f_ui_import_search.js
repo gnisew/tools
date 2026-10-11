@@ -92,6 +92,7 @@ document.getElementById('batchImportConfirmBtn')?.addEventListener('click', asyn
             const result = await processBatchLocalFiles(validAudioFiles, paddingSec, autoPara);
 
             allLabelsOrdered = result.labels;
+            speakerMap = {};
             sentenceTextMap = result.texts;
             timeDataMap = result.times;
 

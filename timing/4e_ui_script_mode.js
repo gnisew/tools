@@ -43,6 +43,9 @@ function renderGutterAndSyncData() {
         .filter(lbl => timeDataMap[lbl] !== undefined)
         .map(lbl => timeDataMap[lbl]);
 
+    const oldSpeakerSeq = allLabelsOrdered.map(lbl => speakerMap[lbl]); // 說話者與時間標記一樣，依句子順序對應
+    const newSpeakerMap = {};
+    let speakerSeq = 0;
     let newAllLabels = [];
     let newTextMap = {};
     let newTimeMap = {};
@@ -72,6 +75,8 @@ function renderGutterAndSyncData() {
             const label = currentParaChar + String(sentenceCountInPara).padStart(2, '0');
             newAllLabels.push(label);
             newTextMap[label] = line.trim();
+            if (oldSpeakerSeq[speakerSeq]) newSpeakerMap[label] = oldSpeakerSeq[speakerSeq];
+            speakerSeq++;
 
             if (timeAssignIdx < validOldTimes.length) {
                 newTimeMap[label] = validOldTimes[timeAssignIdx];
@@ -96,6 +101,7 @@ function renderGutterAndSyncData() {
     allLabelsOrdered = newAllLabels;
     sentenceTextMap = newTextMap;
     timeDataMap = newTimeMap;
+    speakerMap = newSpeakerMap;
     saveToStorage();
 
     let html = '';

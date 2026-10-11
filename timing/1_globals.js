@@ -158,6 +158,10 @@ let allLabelsOrdered = [];
 //   詳細操作函式見 3a_media_groups_core.js；圖片本體存在 IndexedDB（1b_image_store_idb.js）。
 let mediaGroups = []; 
 let volumeRegions = []; // 範圍音量調整 [{id, startTime, endTime, gain}]，見 2d_volume_regions.js
+// 說話者標記（見 1d_speakers.js）：預設關閉；speakerMap 以 label 對應說話者 id，沒有該 label = 未指定
+let speakerEnabled = false;
+let speakers = []; // [{id, name, color}]
+let speakerMap = {}; // { 'A01': 's1' }
 let verifyEndTime = null; 
 let verifyingLabel = null; 
 let isEditMode = true; 
@@ -630,7 +634,9 @@ function saveState() {
     const currentState = {
         labels: JSON.parse(JSON.stringify(allLabelsOrdered)),
         texts: JSON.parse(JSON.stringify(sentenceTextMap)),
-        times: JSON.parse(JSON.stringify(timeDataMap))
+        times: JSON.parse(JSON.stringify(timeDataMap)),
+        spk: JSON.parse(JSON.stringify(speakers)),
+        spkMap: JSON.parse(JSON.stringify(speakerMap))
     };
     undoStack.push(currentState);
     
@@ -652,7 +658,9 @@ function performUndo() {
     redoStack.push({
         labels: JSON.parse(JSON.stringify(allLabelsOrdered)),
         texts: JSON.parse(JSON.stringify(sentenceTextMap)),
-        times: JSON.parse(JSON.stringify(timeDataMap))
+        times: JSON.parse(JSON.stringify(timeDataMap)),
+        spk: JSON.parse(JSON.stringify(speakers)),
+        spkMap: JSON.parse(JSON.stringify(speakerMap))
     });
     
     // 取出上一步的狀態並套用
@@ -671,7 +679,9 @@ function performRedo() {
     undoStack.push({
         labels: JSON.parse(JSON.stringify(allLabelsOrdered)),
         texts: JSON.parse(JSON.stringify(sentenceTextMap)),
-        times: JSON.parse(JSON.stringify(timeDataMap))
+        times: JSON.parse(JSON.stringify(timeDataMap)),
+        spk: JSON.parse(JSON.stringify(speakers)),
+        spkMap: JSON.parse(JSON.stringify(speakerMap))
     });
     
     // 取出下一步的狀態並套用
@@ -685,6 +695,9 @@ function applyHistoryState(state) {
     allLabelsOrdered = state.labels;
     sentenceTextMap = state.texts;
     timeDataMap = state.times;
+    if (state.spk) speakers = state.spk;
+    if (state.spkMap) speakerMap = state.spkMap;
+    if (typeof renderSpeakerSettings === 'function') renderSpeakerSettings();
     
     // 強制寫入瀏覽器暫存並要求畫面重新繪製
     saveToStorage();

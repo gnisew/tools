@@ -1325,3 +1325,55 @@ input.input-select[type="number"] { cursor: text; }
 .as-estimate b { color: #0D47A1; }
 .as-sub { color: #777; font-size: 0.8rem; margin-left: 8px; }
 .as-warn { color: #E65100; font-size: 0.8rem; margin-top: 2px; }
+
+/* ================= 說話者標記（1d_speakers.js） ================= */
+.speaker-chip { flex: none; min-width: 0; display: inline-flex; align-items: center; gap: 5px; max-width: 8.5em; margin: 0; padding: 2px 8px 2px 6px;
+    border: 1px solid color-mix(in srgb, var(--spk-color, #90A4AE) 55%, #fff); border-radius: 999px; cursor: pointer;
+    background: color-mix(in srgb, var(--spk-color, #90A4AE) 12%, #fff); color: #37474F; font: inherit; font-size: 0.78rem; line-height: 1.5;
+    transition: background-color .15s, box-shadow .15s; }
+.speaker-chip:hover { background: color-mix(in srgb, var(--spk-color, #90A4AE) 24%, #fff); }
+.speaker-chip:focus-visible { outline: 2px solid #00897B; outline-offset: 1px; }
+.speaker-chip.is-unset { border-style: dashed; border-color: #CFD8DC; background: transparent; color: #90A4AE; }
+.speaker-chip .speaker-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.speaker-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--spk-color, #B0BEC5); }
+.speaker-dot.is-unset, .speaker-chip.is-unset .speaker-dot { background: transparent; border: 1.5px dashed #B0BEC5; box-sizing: border-box; }
+
+#speakerPopup { position: fixed; z-index: 3000; display: none; flex-direction: column; min-width: 190px; max-width: 280px; max-height: 70vh;
+    overflow-y: auto; overscroll-behavior: contain; padding: 6px 0; background: #fff; border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1); }
+#speakerPopup.show { display: flex; }
+#speakerPopup hr { border: none; border-top: 1px solid #ECEFF1; margin: 4px 0; }
+.speaker-popup-head { padding: 4px 14px 6px; font-size: 0.76rem; color: #78909C; }
+.speaker-popup-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 14px; border: none; background: transparent;
+    font: inherit; font-size: 0.88rem; color: #263238; text-align: left; cursor: pointer; }
+.speaker-popup-item:hover:not(:disabled) { background: #F1F8F7; }
+.speaker-popup-item:disabled { color: #B0BEC5; cursor: not-allowed; }
+.speaker-popup-item.is-action { color: #00695C; }
+.speaker-popup-item.is-action:disabled { color: #B0BEC5; }
+.speaker-popup-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.speaker-popup-check { font-size: 1.1rem; color: #00897B; }
+
+.speaker-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.speaker-row { display: flex; align-items: center; gap: 8px; }
+.speaker-color-input { flex: none; width: 30px; height: 30px; padding: 0; border: 1px solid #CFD8DC; border-radius: 6px; background: #fff; cursor: pointer; }
+.speaker-name-input { flex: 1; min-width: 0; box-sizing: border-box; height: 30px; padding: 0 10px; border: 1px solid #CFD8DC; border-radius: 6px; font-size: 0.9rem; color: #263238; background: #fff; }
+.speaker-name-input:focus { outline: none; border-color: #00897B; }
+.speaker-count { flex: none; white-space: nowrap; min-width: 3em; text-align: right; font-size: 0.76rem; color: #90A4AE; }
+.speaker-del-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; min-width: 0; height: 24px; padding: 0; border: none; border-radius: 50%; background: transparent; color: #90A4AE; cursor: pointer; }
+.speaker-del-btn:hover { background: #FFEBEE; color: #E53935; }
+.speaker-del-btn .material-icons { font-size: 1rem; }
+.speaker-add-btn { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border: 1px dashed #80CBC4; border-radius: 6px; background: #F1F8F7; color: #00695C; font-size: 0.85rem; cursor: pointer; }
+.speaker-add-btn:hover:not(:disabled) { background: #E0F2F1; }
+.speaker-add-btn:disabled { color: #B0BEC5; border-color: #CFD8DC; background: transparent; cursor: not-allowed; }
+.speaker-add-btn .material-icons { font-size: 1.1rem; }
+
+/* ---- 說話者：列表篩選（1d_speakers.js） ---- */
+.sentence-item.speaker-filter-hidden { display: none !important; }
+#speakerFilterBar { display: none; align-items: center; gap: 8px; margin: 0 0 8px; padding: 6px 12px; background: #E0F2F1; border: 1px solid #B2DFDB; border-radius: 6px; color: #00695C; font-size: 0.85rem; }
+#speakerFilterBar button { margin-left: auto; flex: none; padding: 3px 10px; border: 1px solid #80CBC4; border-radius: 12px; background: #fff; color: #00695C; font-size: 0.8rem; cursor: pointer; }
+#speakerFilterBar button:hover { background: #F1F8F7; }
+
+/* ---- 設定側邊欄：可折疊的詳細說明 ---- */
+.setting-more { margin-top: 6px; font-size: 0.76rem; color: #78909C; }
+.setting-more summary { width: fit-content; cursor: pointer; color: #00897B; }
+.setting-more ul { margin: 6px 0 0; padding-left: 18px; line-height: 1.5; }

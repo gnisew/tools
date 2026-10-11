@@ -676,6 +676,8 @@ importProjectInput?.addEventListener('change', (e) => {
                 mediaGroups = Array.isArray(data.mediaGroups) ? data.mediaGroups : [];
                 // 範圍音量調整；舊專案檔沒有此欄位時為空
                 volumeRegions = Array.isArray(data.volumeRegions) ? data.volumeRegions : [];
+                // 說話者標記；舊專案檔沒有這些欄位時為未啟用
+                if (typeof applySpeakersFromProject === 'function') applySpeakersFromProject(data);
                 if (window.VolumeRegions) VolumeRegions.refresh();
                 // 多語字幕：依專案檔記錄的啟用狀態，舊檔則自動偵測（稍後統一重繪）
                 if (typeof applyLangMultiFromProject === 'function') applyLangMultiFromProject(data.settings, { render: false });

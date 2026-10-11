@@ -336,7 +336,7 @@ document.getElementById('audioLoadConfirmBtn')?.addEventListener('click', async 
                 if (typeof saveState === 'function') saveState();
                 const result = await processBatchLocalFiles(validFiles, paddingSec, autoPara);
 
-                allLabelsOrdered = result.labels; sentenceTextMap = result.texts; timeDataMap = result.times;
+                allLabelsOrdered = result.labels; sentenceTextMap = result.texts; timeDataMap = result.times; speakerMap = {};
                 const mergedFileName = "批次合併_" + Date.now() + ".wav";
                 const mergedFile = new File([result.blob], mergedFileName, { type: 'audio/wav' });
 
@@ -382,7 +382,7 @@ document.getElementById('audioLoadConfirmBtn')?.addEventListener('click', async 
                 if (validFiles.length === 0) throw new Error('全部下載失敗，請檢查網址或 CORS 權限');
 
                 const result = await processBatchLocalFiles(validFiles, paddingSec, autoPara);
-                allLabelsOrdered = result.labels; sentenceTextMap = result.texts; timeDataMap = result.times;
+                allLabelsOrdered = result.labels; sentenceTextMap = result.texts; timeDataMap = result.times; speakerMap = {};
                 const mergedFileName = "線上批次_" + Date.now() + ".wav";
                 const mergedFile = new File([result.blob], mergedFileName, { type: 'audio/wav' });
 

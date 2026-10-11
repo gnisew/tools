@@ -74,6 +74,7 @@ clearStorageBtn.addEventListener('click', (e) => {
             timeDataMap = {};
             mediaGroups = []; // 跨句圖片群組也一併清空記憶體
             volumeRegions = []; // 範圍音量調整也一併清空
+            speakers = []; speakerMap = {}; speakerEnabled = false; // 說話者標記也一併清空
 
             // 建立「專案資料」專屬清單，並精準刪除
             const projectKeys = [
@@ -82,7 +83,8 @@ clearStorageBtn.addEventListener('click', (e) => {
                 'tagger_originalFileName', 'tagger_originalFileSig', 'tagger_isTrimmed',
                 'tagger_audioType', 'tagger_lastDataFile',
                 'tagger_mediaGroups', // 跨句圖片群組的 localStorage 記錄
-                'tagger_volumeRegions' // 範圍音量調整的 localStorage 記錄
+                'tagger_volumeRegions', // 範圍音量調整的 localStorage 記錄
+                'tagger_speakers', 'tagger_speakerMap', 'tagger_speakerEnabled' // 說話者標記
             ];
 
             projectKeys.forEach(key => localStorage.removeItem(key));

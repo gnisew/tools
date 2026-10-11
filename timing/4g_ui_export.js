@@ -13,6 +13,7 @@ openExportModalBtn?.addEventListener('click', () => {
     exportModalOverlay.classList.add('show');
     document.body.style.overflow = 'hidden'; 
     populateExportLangSelect(); // 每次開啟視窗都重新檢查是否要顯示語言選單
+    populateExportSpeakerOption(); // 啟用說話者標記時才顯示「加上說話者名稱」選項
 });
 closeExportModalBtn?.addEventListener('click', () => {
     exportModalOverlay.classList.remove('show');
@@ -35,7 +36,21 @@ function populateExportLangSelect() {
 // 注意：JSON「專案」匯出（generateJSON）刻意不透過這個函式，因為 JSON 是完整專案備份，
 //   必須保留所有語言的原始資料，才能之後重新匯入時還原多語言內容。
 function getExportText(label) {
-    return pickExportLang(sentenceTextMap[label] || '', exportLangSelect);
+    let text = pickExportLang(sentenceTextMap[label] || '', exportLangSelect);
+    // 勾選「加上說話者名稱」時，有指派說話者且有文字的句子加上「名稱：」前綴（JSON 專案匯出不經過這裡，仍完整保留對應）
+    if (speakerEnabled && document.getElementById('exportSpeakerCheck')?.checked && String(text).trim() !== '') {
+        const sp = (typeof getSpeakerOfLabel === 'function') ? getSpeakerOfLabel(label) : null;
+        if (sp) text = sp.name + '：' + text;
+    }
+    return text;
+}
+
+// 只有啟用說話者標記時才顯示匯出選項；未啟用就取消勾選，避免殘留的勾選影響匯出
+function populateExportSpeakerOption() {
+    const wrap = document.getElementById('exportSpeakerWrap');
+    if (!wrap) return;
+    wrap.style.display = speakerEnabled ? '' : 'none';
+    if (!speakerEnabled) { const c = document.getElementById('exportSpeakerCheck'); if (c) c.checked = false; }
 }
 
 // 1. 各格式產生器 (Generators)
@@ -75,7 +90,7 @@ function generateAudacity() {
 
 function generateJSON() {
     const projectData = {
-        version: "1.1", // 1.1 起包含 mediaGroups 欄位；volumeRegions 為選用欄位，舊版讀取時會略過
+        version: "1.2", // 1.1 起含 mediaGroups；1.2 起含 speakers / speakerMap（說話者）；volumeRegions、speakers 為選用欄位，舊版讀取時會略過
         title: localStorage.getItem('tagger_projectTitle') || document.getElementById('mainTitleDisplay')?.textContent || "",
         audioUrl: localStorage.getItem('tagger_audioUrl') || "",
         localFileName: localStorage.getItem('tagger_localFileName') || "",
@@ -88,12 +103,16 @@ function generateJSON() {
             currentParseMode: currentParseMode,
             currentSortMode: currentSortMode,
             langMultiEnabled: (typeof getLangMultiEnabled === 'function') ? getLangMultiEnabled() : false,
-            langDelimiter: (typeof getLangDelimiter === 'function') ? getLangDelimiter() : '|'
+            langDelimiter: (typeof getLangDelimiter === 'function') ? getLangDelimiter() : '|',
+            speakerEnabled: (typeof speakerEnabled !== 'undefined') ? !!speakerEnabled : false
         },
         // 跨句圖片群組；圖片為網址參照（imageUrl），換瀏覽器／電腦匯入也不會遺失縮圖
         mediaGroups: (typeof mediaGroups !== 'undefined' && Array.isArray(mediaGroups)) ? mediaGroups : [],
         // 範圍音量調整（非破壞式，只記時間區間與倍率；音檔本身不變）
-        volumeRegions: (typeof volumeRegions !== 'undefined' && Array.isArray(volumeRegions)) ? volumeRegions : []
+        volumeRegions: (typeof volumeRegions !== 'undefined' && Array.isArray(volumeRegions)) ? volumeRegions : [],
+        // 說話者標記：清單與每句的對應（以說話者 id 記錄，改名不影響對應）
+        speakers: (typeof speakers !== 'undefined' && Array.isArray(speakers)) ? speakers : [],
+        speakerMap: (typeof speakerMap !== 'undefined' && speakerMap) ? speakerMap : {}
     };
     return JSON.stringify(projectData, null, 2);
 }

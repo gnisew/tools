@@ -332,13 +332,14 @@ function renderAllRegions() {
                          let textArray = Array.from(rawText.trim());
                          let limit = window.regionTextLength;
                          let snippet = (limit === 0) ? rawText.trim() : textArray.slice(0, limit).join('');
-                         displayText = `${displayLabel} ${snippet}`;
+                         displayText = `${displayLabel} ${typeof getSpeakerRegionPrefix === 'function' ? getSpeakerRegionPrefix(label) : ''}${snippet}`;
                      }
                  }
 
                 contentEl.textContent = displayText;
                 contentEl.style.fontWeight = 'bold';
                 contentEl.style.color = '#00695C';
+                if (typeof applySpeakerRegionStyle === 'function') applySpeakerRegionStyle(contentEl, label); // 說話者色條與文字色
                 contentEl.style.fontSize = '0.8rem';
                 contentEl.style.textShadow = '1px 1px 0px white, -1px -1px 0px white, 1px -1px 0px white, -1px 1px 0px white, 0px 0px 3px rgba(255,255,255,0.8)';
                 contentEl.style.pointerEvents = 'none';
@@ -408,7 +409,7 @@ window.updateRegionTextDisplay = function(label, rawText) {
                 let textArray = Array.from(filteredText.trim());
                 let limit = window.regionTextLength;
                 let snippet = (limit === 0) ? filteredText.trim() : textArray.slice(0, limit).join('');
-                displayText = `${displayLabel} ${snippet}`;
+                displayText = `${displayLabel} ${typeof getSpeakerRegionPrefix === 'function' ? getSpeakerRegionPrefix(label) : ''}${snippet}`;
             }
         }
 
