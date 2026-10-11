@@ -643,7 +643,14 @@
         <div class="h-px bg-gray-200 my-1"></div>
         <button class="context-menu-item" data-action="add-left"><span class="material-symbols-outlined text-base">keyboard_arrow_left</span>新增左欄</button>
         <button class="context-menu-item" data-action="add-right"><span class="material-symbols-outlined text-base">keyboard_arrow_right</span>新增右欄</button>
+        <button class="context-menu-item" data-action="add-n"><span class="material-symbols-outlined text-base">library_add</span>新增 N 欄…</button>
         <button class="context-menu-item" data-action="duplicate"><span class="material-symbols-outlined text-base">content_copy</span>重製此欄</button>
+        <div class="h-px bg-gray-200 my-1"></div>
+        <div class="flex items-center justify-around px-2 py-0.5 text-gray-600" title="僅暫時調整，重新整理後恢復">
+            <button class="flex-1 flex justify-center py-1.5 rounded hover:bg-gray-100 hover:text-gray-900" data-action="align-left" title="靠左（還原預設）"><span class="material-symbols-outlined text-base">format_align_left</span></button>
+            <button class="flex-1 flex justify-center py-1.5 rounded hover:bg-gray-100 hover:text-gray-900" data-action="align-center" title="置中"><span class="material-symbols-outlined text-base">format_align_center</span></button>
+            <button class="flex-1 flex justify-center py-1.5 rounded hover:bg-gray-100 hover:text-gray-900" data-action="align-right" title="靠右"><span class="material-symbols-outlined text-base">format_align_right</span></button>
+        </div>
         <div class="h-px bg-gray-200 my-1"></div>
         <button class="context-menu-item danger" data-action="clear"><span class="material-symbols-outlined text-base">backspace</span>清除此欄</button>
         <button class="context-menu-item danger" data-action="delete"><span class="material-symbols-outlined text-base">delete</span>刪除此欄</button>
@@ -653,6 +660,7 @@
     <div id="rowMenu" class="context-menu code-text">
         <button class="context-menu-item" data-action="add-above"><span class="material-symbols-outlined text-base">keyboard_arrow_up</span>新增上列</button>
         <button class="context-menu-item" data-action="add-below"><span class="material-symbols-outlined text-base">keyboard_arrow_down</span>新增下列</button>
+        <button class="context-menu-item" data-action="add-n"><span class="material-symbols-outlined text-base">library_add</span>新增 N 列…</button>
         <button class="context-menu-item" data-action="duplicate"><span class="material-symbols-outlined text-base">content_copy</span>重製此列</button>
         <div class="h-px bg-gray-200 my-1"></div>
         <button class="context-menu-item danger" data-action="clear"><span class="material-symbols-outlined text-base">backspace</span>清除此列</button>
@@ -1042,13 +1050,19 @@
         </button>
     </div>
 
-	<div id="autoSumWidget" class="fixed bottom-5 right-5 bg-white border border-gray-200 shadow-md rounded-full px-4 py-2 text-sm text-gray-600 flex items-center gap-3 z-50 hidden code-text transition-all duration-200 pointer-events-none">
+	<div id="autoSumWidget" class="fixed bottom-5 right-5 bg-white border border-gray-200 shadow-md rounded-3xl px-4 py-2 text-sm text-gray-600 flex items-center gap-3 z-50 hidden code-text transition-all duration-200 pointer-events-none max-w-[calc(100vw-2.5rem)]">
         <span class="material-symbols-outlined text-green-600" style="font-size: 18px;">functions</span>
-        <div id="autoSumDisplay" class="font-bold text-gray-800 tracking-wide flex gap-4">
-            <span id="asCount">項: 0</span>
-            <span id="asSum">總: 0</span>
-            <span id="asAvg">均: 0</span>
+        <div id="autoSumDisplay" class="font-bold text-gray-800 tracking-wide flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span id="asCount">項目: 0</span>
+            <span id="asSum">加總: 0</span>
+            <span id="asAvg">平均: 0</span>
+            <span id="asMed" class="as-extra" style="display:none;">中位數: 0</span>
+            <span id="asMax" class="as-extra" style="display:none;">最大: 0</span>
+            <span id="asMin" class="as-extra" style="display:none;">最小: 0</span>
         </div>
+        <button id="btnAutoSumMore" type="button" class="pointer-events-auto flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-pointer transition" title="顯示更多" style="display:none; width:24px; height:24px;">
+            <span class="material-symbols-outlined" style="font-size: 18px;">more_horiz</span>
+        </button>
     </div>
 
 
@@ -1555,6 +1569,11 @@
 	<script src="arena.js"></script>
 	<script src="live.js"></script>
     <script src="script.js"></script>
+	<script src="table.js"></script>
+	<script src="tableFill.js"></script>
+	<script src="textTools.js"></script>
+	<script src="translate.js"></script>
+	<script src="bank.js"></script>
 
 </body>
 </html>

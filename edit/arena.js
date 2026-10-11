@@ -62,6 +62,7 @@ window.launchArenaMode = function(rawData, configs) {
     }
 
     function playArenaTone(freq, duration = 0.12, type = 'sine', delay = 0, volume = 0.15) {
+        if (typeof ArenaMusic !== 'undefined' && ArenaMusic.muted) return; // 老師已靜音
         const ctx = getArenaAudioCtx();
         if (!ctx) return;
         const osc = ctx.createOscillator();
@@ -77,6 +78,196 @@ window.launchArenaMode = function(rawData, configs) {
         osc.stop(t0 + duration + 0.03);
     }
 
+    // ----------------------------------------------------
+    // 🎵 音效檔播放系統（只在老師大螢幕播放；學生手機維持安靜）
+    // 音檔放在 index.html 同層的 files/ 資料夾，檔名固定如下（副檔名可為 mp3 / ogg / wav）：
+    //   files/lobby.mp3       大廳等待
+    //   files/reading.mp3     讀題倒數
+    //   files/answering.mp3   答題中
+    //   files/reveal.mp3      公佈答案
+    //   files/scoreboard.mp3  顯示英雄榜
+    //   files/final.mp3       公佈最終排行成績
+    // 找不到音檔時：公佈答案與頒獎台會自動改用原本的即時合成音，其他階段則保持安靜。
+    // ----------------------------------------------------
+    const ARENA_SOUND_DIR = 'files/';
+    const ARENA_SOUND_EXTS = ['mp3', 'ogg', 'wav'];   // 依序嘗試，找到哪個就用哪個
+    const ARENA_SOUND_MIME = { mp3: 'audio/mpeg', ogg: 'audio/ogg', wav: 'audio/wav' };
+    const ARENA_SOUND_CONFIG = {
+        //            檔名（不含副檔名）  是否循環  基本音量(0~1)
+        lobby:      { file: 'lobby',      loop: true,  volume: 0.45 },
+        reading:    { file: 'reading',    loop: true,  volume: 0.50 },
+        answering:  { file: 'answering',  loop: true,  volume: 0.50 },
+        reveal:     { file: 'reveal',     loop: false, volume: 0.90 },
+        scoreboard: { file: 'scoreboard', loop: true,  volume: 0.60 },
+        final:      { file: 'final',      loop: false, volume: 0.90 }
+    };
+
+    const ArenaMusic = {
+        audios: {},          // 已建立的 <audio>
+        status: {},          // 'ok' = 找到音檔, 'missing' = 沒有音檔
+        current: null,       // 目前（應該）正在播放的音效名稱
+        pendingName: null,   // 被瀏覽器擋下、等使用者點一下才播的音效
+        muted: (() => { try { return localStorage.getItem('arenaMuted') === '1'; } catch (e) { return false; } })(),
+        volume: (() => { try { const v = parseFloat(localStorage.getItem('arenaVolume')); return isNaN(v) ? 0.8 : Math.min(1, Math.max(0, v)); } catch (e) { return 0.8; } })(),
+
+        _get(name) {
+            const cfg = ARENA_SOUND_CONFIG[name];
+            if (!cfg) return null;
+            if (this.audios[name]) return this.audios[name];
+            const a = document.createElement('audio');
+            a.preload = 'auto';
+            a.loop = cfg.loop;
+            let last = null;
+            ARENA_SOUND_EXTS.forEach(ext => {
+                const src = document.createElement('source');
+                src.src = `${ARENA_SOUND_DIR}${cfg.file}.${ext}`;
+                src.type = ARENA_SOUND_MIME[ext];
+                a.appendChild(src);
+                last = src;
+            });
+            // 所有來源都失敗時，最後一個 <source> 會觸發 error
+            if (last) last.addEventListener('error', () => { this.status[name] = 'missing'; });
+            a.addEventListener('canplay', () => { this.status[name] = 'ok'; });
+            this.audios[name] = a;
+            return a;
+        },
+
+        has(name) { return this.status[name] === 'ok'; },
+
+        // 先把音檔載入快取，之後切換階段才不會延遲
+        preload() {
+            Object.keys(ARENA_SOUND_CONFIG).forEach(n => {
+                const a = this._get(n);
+                try { if (a) a.load(); } catch (e) {}
+            });
+        },
+
+        _apply(name) {
+            const a = this.audios[name];
+            if (a) a.volume = Math.min(1, Math.max(0, ARENA_SOUND_CONFIG[name].volume * this.volume));
+        },
+
+        // 播放某個音效（會自動停掉其他音效）。fallback：找不到音檔時要執行的備用方案。
+        play(name, fallback) {
+            this.mountControl();
+            this.stopAll(name);
+            this.current = name;
+            if (this.muted) return;
+
+            const a = this._get(name);
+            if (!a || this.status[name] === 'missing') { if (fallback) fallback(); return; }
+            if (!a.paused && !a.ended && ARENA_SOUND_CONFIG[name].loop) return;   // 已在播放，避免重複重來
+
+            this._apply(name);
+            try { a.currentTime = 0; } catch (e) {}
+            const p = a.play();
+            if (p && p.catch) {
+                p.catch(err => {
+                    if (err && err.name === 'NotAllowedError') {
+                        this.pendingName = name;        // 瀏覽器要求先互動：等老師點一下畫面再播
+                        this._armUnlock();
+                    } else if (err && err.name !== 'AbortError') {
+                        this.status[name] = 'missing';  // 音檔不存在或格式不支援
+                        if (fallback) fallback();
+                    }
+                });
+            }
+        },
+
+        _armUnlock() {
+            if (this._unlockArmed) return;
+            this._unlockArmed = true;
+            const handler = () => {
+                document.removeEventListener('pointerdown', handler, true);
+                document.removeEventListener('keydown', handler, true);
+                this._unlockArmed = false;
+                if (this.pendingName && this.current === this.pendingName) {
+                    const n = this.pendingName;
+                    this.pendingName = null;
+                    this.play(n);
+                }
+            };
+            document.addEventListener('pointerdown', handler, true);
+            document.addEventListener('keydown', handler, true);
+        },
+
+        stopAll(exceptName) {
+            Object.keys(this.audios).forEach(n => {
+                if (n === exceptName) return;
+                const a = this.audios[n];
+                try { a.pause(); a.currentTime = 0; } catch (e) {}
+            });
+            if (!exceptName) { this.current = null; this.pendingName = null; }
+        },
+
+        // 老師按暫停／繼續
+        setPaused(isPaused) {
+            const a = this.current && this.audios[this.current];
+            if (!a || this.muted) return;
+            if (isPaused) { a.pause(); }
+            else if (a.paused && ARENA_SOUND_CONFIG[this.current].loop) { const p = a.play(); if (p && p.catch) p.catch(() => {}); }
+        },
+
+        setMuted(m) {
+            this.muted = !!m;
+            try { localStorage.setItem('arenaMuted', this.muted ? '1' : '0'); } catch (e) {}
+            const a = this.current && this.audios[this.current];
+            if (a) {
+                if (this.muted) a.pause();
+                else if (ARENA_SOUND_CONFIG[this.current].loop && !window.arenaIsPaused) {
+                    this._apply(this.current);
+                    const p = a.play(); if (p && p.catch) p.catch(() => {});
+                }
+            }
+            this._refreshControl();
+        },
+
+        setVolume(v) {
+            this.volume = Math.min(1, Math.max(0, v));
+            try { localStorage.setItem('arenaVolume', String(this.volume)); } catch (e) {}
+            if (this.current) this._apply(this.current);
+        },
+
+        // 左下角的小喇叭：點一下靜音／取消靜音，滑鼠移上去可調音量
+        mountControl() {
+            if (document.getElementById('arena-sound-ctrl')) return;
+            const box = document.createElement('div');
+            box.id = 'arena-sound-ctrl';
+            box.className = 'group fixed left-3 bottom-3 z-[9500] flex items-center bg-black/40 hover:bg-black/60 backdrop-blur-sm rounded-full pr-1 text-white select-none transition-colors';
+            // 有底部狀態列的畫面（讀題／作答／公佈答案）：縮小並放進狀態列，位置在 PIN 右側，不遮到選項
+            if (!document.getElementById('arena-sound-style')) {
+                const st = document.createElement('style');
+                st.id = 'arena-sound-style';
+                st.textContent = `
+                    body:has(.arena-footer) #arena-sound-ctrl { bottom: 3px; left: 12rem; }
+                    body:has(.arena-footer) #arena-sound-btn { width: 2rem; height: 2rem; }
+                    body:has(.arena-footer) #arena-sound-btn .material-symbols-outlined { font-size: 20px; }`;
+                document.head.appendChild(st);
+            }
+            box.innerHTML = `
+                <button id="arena-sound-btn" class="w-10 h-10 rounded-full flex items-center justify-center cursor-pointer hover:bg-white/20" title="音效開關">
+                    <span id="arena-sound-icon" class="material-symbols-outlined">volume_up</span>
+                </button>
+                <input id="arena-sound-vol" type="range" min="0" max="100" value="${Math.round(this.volume * 100)}"
+                    class="w-0 opacity-0 group-hover:w-24 group-hover:opacity-100 group-hover:mx-2 transition-all duration-200 accent-white cursor-pointer" title="音量">`;
+            document.body.appendChild(box);
+            document.getElementById('arena-sound-btn').addEventListener('click', () => this.setMuted(!this.muted));
+            document.getElementById('arena-sound-vol').addEventListener('input', e => {
+                this.setVolume(e.target.value / 100);
+                if (this.muted && this.volume > 0) this.setMuted(false);
+            });
+            this._refreshControl();
+        },
+
+        _refreshControl() {
+            const icon = document.getElementById('arena-sound-icon');
+            if (icon) icon.textContent = this.muted ? 'volume_off' : 'volume_up';
+        },
+
+        unmountControl() { document.getElementById('arena-sound-ctrl')?.remove(); }
+    };
+
+
     const ArenaSound = {
         // 倒數滴答聲：最後 3 秒轉為急促高音，製造緊張感
         tick(urgent = false) {
@@ -84,15 +275,19 @@ window.launchArenaMode = function(rawData, configs) {
         },
         // 公佈答案音效
         reveal() {
-            playArenaTone(587, 0.14, 'triangle', 0, 0.16);
-            playArenaTone(880, 0.2, 'triangle', 0.13, 0.16);
+            ArenaMusic.play('reveal', () => {
+                playArenaTone(587, 0.14, 'triangle', 0, 0.16);
+                playArenaTone(880, 0.2, 'triangle', 0.13, 0.16);
+            });
         },
         // 頒獎台歡呼（琶音和弦模擬歡呼氣氛）
         cheer() {
+            if (ArenaMusic.has('final')) return; // 已有 final 音檔就不疊加合成音
             [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => playArenaTone(f, 0.4, 'triangle', i * 0.08, 0.12));
         },
         // 頒獎台名次揭曉的小提示音（如擊鼓聲）
         drumHit() {
+            if (ArenaMusic.has('final')) return;
             playArenaTone(196, 0.18, 'sawtooth', 0, 0.13);
             playArenaTone(261.6, 0.22, 'sawtooth', 0.08, 0.13);
         },
@@ -134,7 +329,8 @@ window.launchArenaMode = function(rawData, configs) {
     // ✨ 點擊暫停功能更新
     window.toggleArenaPause = async function() {
         if (!currentSpaceCode) return;
-        window.arenaIsPaused = !window.arenaIsPaused; 
+        window.arenaIsPaused = !window.arenaIsPaused;
+        ArenaMusic.setPaused(window.arenaIsPaused); 
         
         const pauseOverlay = document.getElementById('pause-overlay');
         if (pauseOverlay) {
@@ -147,6 +343,8 @@ window.launchArenaMode = function(rawData, configs) {
     };
 
     function cleanupArena() {
+        ArenaMusic.stopAll();
+        ArenaMusic.unmountControl();
         if (unsubscribePlayers) unsubscribePlayers();
         if (unsubscribeSpace) unsubscribeSpace();
         if (unsubscribeStudentSelf) unsubscribeStudentSelf();
@@ -674,6 +872,8 @@ window.launchArenaMode = function(rawData, configs) {
         const joinUrl = window.location.origin + window.location.pathname + '?arena=' + spaceCode;
         
         window.currentArenaState = 'lobby';
+        ArenaMusic.preload();
+        ArenaMusic.play('lobby'); // 🎵 大廳等待
         startGlobalPlayerListener(spaceCode);
 
         arenaContainer.innerHTML = getQrModalHtml(spaceCode) + `
@@ -775,6 +975,9 @@ window.launchArenaMode = function(rawData, configs) {
     function renderTeacherReadingView(spaceCode, arenaSettings, preReadTime) {
         const qData = gameData[currentQIndex];
         let timeLeft = preReadTime;
+        const readTotal = Math.max(1, preReadTime);
+        const RING_C = 2 * Math.PI * 44; // 圓環周長（r=44）
+        ArenaMusic.play('reading'); // 🎵 讀題倒數
         const displayCode = spaceCode.substring(0, 2) + ' ' + spaceCode.substring(2);
         
         arenaContainer.innerHTML = getQrModalHtml(spaceCode) + `
@@ -785,18 +988,29 @@ window.launchArenaMode = function(rawData, configs) {
                      </div>
                 </div>
 
-                <div class="w-full max-w-[98%] mx-auto px-2 my-2 sm:my-3 flex justify-between items-end flex-shrink-0">
-                     <div class="w-16"></div> 
-                     <div onclick="window.toggleArenaPause()" class="text-[6rem] md:text-[8rem] font-medium text-gray-400/80 leading-none cursor-pointer hover:text-indigo-400 transition-colors relative group" style="transform: translateY(15%);">
-                         <span id="reading-countdown">${timeLeft}</span>
-                         <div id="pause-overlay" class="absolute inset-0 flex items-center justify-center bg-black/10 rounded-full opacity-0 transition-opacity">
-                             <span class="material-symbols-outlined text-gray-600 text-6xl">pause</span>
+                <div class="w-full max-w-[98%] mx-auto px-2 my-3 sm:my-4 grid grid-cols-3 items-center flex-shrink-0">
+                     <div class="flex items-center gap-2 text-gray-500 font-bold text-sm md:text-lg">
+                         <span class="material-symbols-outlined text-2xl md:text-3xl">menu_book</span>請先閱讀題目
+                     </div>
+
+                     <div onclick="window.toggleArenaPause()" title="點擊暫停/繼續" class="justify-self-center relative w-24 h-24 md:w-28 md:h-28 cursor-pointer hover:scale-105 transition-transform select-none">
+                         <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90">
+                             <circle cx="50" cy="50" r="44" fill="white" stroke="#e5e7eb" stroke-width="8"></circle>
+                             <circle id="reading-ring" cx="50" cy="50" r="44" fill="none" stroke="#5a2a82" stroke-width="8" stroke-linecap="round"
+                                 stroke-dasharray="${RING_C}" stroke-dashoffset="0" style="transition: stroke-dashoffset 1s linear, stroke .3s;"></circle>
+                         </svg>
+                         <span id="reading-countdown" class="absolute inset-0 flex items-center justify-center text-4xl md:text-5xl font-black text-[#5a2a82] leading-none">${timeLeft}</span>
+                         <div id="pause-overlay" class="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 transition-opacity pointer-events-none">
+                             <span class="material-symbols-outlined text-white text-4xl">pause</span>
                          </div>
                      </div>
-                     <button id="btn-skip-reading" class="bg-white hover:bg-gray-100 border border-gray-200 text-gray-700 font-bold py-1.5 px-5 rounded shadow-sm transition-colors cursor-pointer text-sm md:text-base">略過</button>
+
+                     <div class="justify-self-end">
+                         <button id="btn-skip-reading" class="bg-white hover:bg-gray-100 border border-gray-200 text-gray-700 font-bold py-1.5 px-5 rounded shadow-sm transition-colors cursor-pointer text-sm md:text-base">略過</button>
+                     </div>
                 </div>
 
-                <div class="w-full bg-slate-200 flex justify-between items-center px-4 py-1 border-t border-gray-300 flex-shrink-0 mt-auto z-20">
+                <div class="arena-footer w-full bg-slate-200 flex justify-between items-center px-4 py-1 border-t border-gray-300 flex-shrink-0 mt-auto z-20">
                     <div class="text-gray-700 font-bold text-xs sm:text-sm flex items-center gap-2 cursor-pointer hover:bg-gray-300 px-2 py-0.5 rounded transition" onclick="document.getElementById('qr-modal')?.classList.remove('hidden')">
                         <span class="text-xs text-gray-500">PIN:</span> 
                         <span class="text-base sm:text-lg tracking-widest font-black">${displayCode}</span>
@@ -829,7 +1043,12 @@ window.launchArenaMode = function(rawData, configs) {
 
             timeLeft--;
             const timerEl = document.getElementById('reading-countdown');
-            if (timerEl) timerEl.textContent = timeLeft;
+            if (timerEl) timerEl.textContent = Math.max(0, timeLeft);
+            const ring = document.getElementById('reading-ring');
+            if (ring) {
+                ring.style.strokeDashoffset = String(RING_C * (1 - Math.max(0, timeLeft) / readTotal));
+                if (timeLeft <= 3) ring.setAttribute('stroke', '#ef4444'); // 最後 3 秒變紅
+            }
             if (timeLeft <= 0) gotoPlaying();
         }, 1000);
     }
@@ -840,6 +1059,7 @@ window.launchArenaMode = function(rawData, configs) {
     function renderTeacherGameView(spaceCode, arenaSettings) {
         const qData = gameData[currentQIndex];
         let timeLeft = arenaSettings.qTime || 15;
+        ArenaMusic.play('answering'); // 🎵 答題中
         const displayCode = spaceCode.substring(0, 2) + ' ' + spaceCode.substring(2);
         
         isRevealing = false; 
@@ -931,7 +1151,7 @@ window.launchArenaMode = function(rawData, configs) {
                     `).join('')}
                 </div>
 
-                <div class="w-full bg-slate-200 flex justify-between items-center px-4 py-1 border-t border-gray-300 flex-shrink-0 mt-auto z-20">
+                <div class="arena-footer w-full bg-slate-200 flex justify-between items-center px-4 py-1 border-t border-gray-300 flex-shrink-0 mt-auto z-20">
                     <div class="text-gray-700 font-bold text-xs sm:text-sm flex items-center gap-2 cursor-pointer hover:bg-gray-300 px-2 py-0.5 rounded transition" onclick="document.getElementById('qr-modal')?.classList.remove('hidden')">
                         <span class="text-xs text-gray-500">PIN:</span> 
                         <span class="text-base sm:text-lg tracking-widest font-black">${displayCode}</span>
@@ -1067,7 +1287,7 @@ window.launchArenaMode = function(rawData, configs) {
                     `}).join('')}
                 </div>
 
-                <div class="w-full bg-slate-200 flex justify-between items-center px-4 py-1 border-t border-gray-300 flex-shrink-0 mt-auto z-20">
+                <div class="arena-footer w-full bg-slate-200 flex justify-between items-center px-4 py-1 border-t border-gray-300 flex-shrink-0 mt-auto z-20">
                     <div class="text-gray-700 font-bold text-xs sm:text-sm flex items-center gap-2 cursor-pointer hover:bg-gray-300 px-2 py-0.5 rounded transition" onclick="document.getElementById('qr-modal')?.classList.remove('hidden')">
                         <span class="text-xs text-gray-500">PIN:</span> 
                         <span class="text-base sm:text-lg tracking-widest font-black">${displayCode}</span>
@@ -1104,6 +1324,7 @@ window.launchArenaMode = function(rawData, configs) {
     // 畫面 2-S：老師大螢幕 (英雄榜 - 支援自動下一題)
     // ----------------------------------------------------
     function renderTeacherScoreboardView(spaceCode, correctIdx, arenaSettings) {
+        ArenaMusic.play('scoreboard'); // 🎵 英雄榜
         if (autoNextTimer) clearInterval(autoNextTimer); // 確保沒有殘留的計時器
         
         const topN = arenaSettings.topCount || 5;
@@ -1255,129 +1476,590 @@ window.launchArenaMode = function(rawData, configs) {
         return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
 
+    const ANALYSIS_PASS_LINE = 60; // 及格線（百分制）
+
+    // ---------- 1. 每題統計 ----------
     function getQuestionStats() {
+        const totalPlayers = globalPlayers.length;
         return gameData.map((q, i) => {
             const correctIdx = q.options.indexOf(q.definition);
             const counts = q.options.map(() => 0);
-            let unanswered = 0;
+            const wrongNames = [];
+            const unansweredNames = [];
+            let timeSum = 0, timeN = 0;
+
             globalPlayers.forEach(p => {
                 const a = p[`ans_${i}`];
                 if (a === undefined || a === null || counts[a] === undefined) {
-                    unanswered++;
-                } else {
-                    counts[a]++;
+                    unansweredNames.push(p.name);
+                    return;
+                }
+                counts[a]++;
+                if (a !== correctIdx) {
+                    wrongNames.push(p.name);
+                } else if (typeof p[`time_${i}`] === 'number') {
+                    timeSum += p[`time_${i}`];
+                    timeN++;
                 }
             });
+
             const correctCount = counts[correctIdx] || 0;
-            const totalAnswered = counts.reduce((a, b) => a + b, 0);
-            return { index: i, term: q.term, options: q.options, correctIdx, counts, correctCount, wrongCount: totalAnswered - correctCount, unanswered };
+            const answered = counts.reduce((a, b) => a + b, 0);
+            const wrongCount = answered - correctCount;
+            const unanswered = unansweredNames.length;
+            const missCount = wrongCount + unanswered; // 未作答視為沒答對
+
+            // 最多人誤選的錯誤選項（迷思概念）
+            let topWrongIdx = -1, topWrongN = 0;
+            counts.forEach((c, oi) => {
+                if (oi !== correctIdx && c > topWrongN) { topWrongN = c; topWrongIdx = oi; }
+            });
+
+            return {
+                index: i, term: q.term, category: q.category || '',
+                options: q.options, correctIdx, counts,
+                correctCount, wrongCount, unanswered, missCount,
+                correctRate: totalPlayers ? correctCount / totalPlayers : 0,
+                missRate: totalPlayers ? missCount / totalPlayers : 0,
+                topWrongIdx, topWrongN,
+                avgCorrectTime: timeN ? timeSum / timeN : null,
+                wrongNames, unansweredNames
+            };
         });
     }
 
-    function getArenaAnalysisModalHtml() {
-        const stats = getQuestionStats();
+    // ---------- 2. 每位學生統計（百分制只看對錯，不含速度/連勝） ----------
+    function getPlayerStats(stats = getQuestionStats()) {
+        const n = stats.length;
+        return globalPlayers.map(p => {
+            let correct = 0, answered = 0, tSum = 0, tN = 0;
+            stats.forEach(s => {
+                const a = p[`ans_${s.index}`];
+                if (a === undefined || a === null || s.options[a] === undefined) return;
+                answered++;
+                if (a === s.correctIdx) correct++;
+                if (typeof p[`time_${s.index}`] === 'number') { tSum += p[`time_${s.index}`]; tN++; }
+            });
+            return {
+                name: p.name || '', emoji: p.emoji || '',
+                gameScore: p.score || 0,
+                correct, answered, total: n,
+                percent: n ? Math.round((correct / n) * 1000) / 10 : 0, // 一位小數
+                avgTime: tN ? tSum / tN : null
+            };
+        });
+    }
+
+    // ---------- 3. 單元（分類）統計：只有題庫有分類時才會用到 ----------
+    function getCategoryStats(stats) {
+        const map = {};
+        stats.forEach(s => {
+            const key = s.category || '';
+            if (!key) return;
+            if (!map[key]) map[key] = { name: key, questions: 0, rateSum: 0 };
+            map[key].questions++;
+            map[key].rateSum += s.correctRate;
+        });
+        return Object.values(map)
+            .map(c => ({ ...c, avgRate: c.rateSum / c.questions }))
+            .sort((a, b) => a.avgRate - b.avgRate); // 最弱的單元排前面
+    }
+
+    // 色彩原則：中性色為主；紅／綠只用在「答案對錯」；黃色只給唯一的主要操作按鈕
+    function missColor() {
+        return { bar: 'bg-red-400', text: 'text-red-300' };
+    }
+
+    // ---------- 4. 單題卡片（錯題檢討 / 全部題目共用） ----------
+    function renderAnalysisQuestionCard(s, rankLabel) {
         const total = globalPlayers.length || 1;
-        const listHtml = stats.length === 0 ? `<p class="text-white/50 text-center py-10">沒有題目資料</p>` : stats.map(s => `
-            <div class="bg-white/5 rounded-xl p-4 border border-white/10">
-                <div class="flex items-start justify-between gap-3 mb-3">
-                    <h4 class="text-white font-bold text-sm md:text-base leading-snug flex-1">${s.index + 1}. ${escAnalysisHtml(s.term)}</h4>
-                    <div class="flex gap-2 flex-shrink-0 text-xs font-bold whitespace-nowrap pt-0.5">
-                        <span class="text-green-400">✔ ${s.correctCount}</span>
-                        <span class="text-red-400">✘ ${s.wrongCount}</span>
-                        ${s.unanswered > 0 ? `<span class="text-white/40">未答 ${s.unanswered}</span>` : ''}
-                    </div>
-                </div>
-                <div class="space-y-1.5">
-                    ${s.options.map((opt, oi) => {
-                        const c = s.counts[oi] || 0;
-                        const pct = Math.round((c / total) * 100);
-                        const isCorrect = oi === s.correctIdx;
-                        return `
-                        <div class="flex items-center gap-2">
-                            <span class="w-4 text-white/40 font-bold text-xs flex-shrink-0">${String.fromCharCode(65 + oi)}</span>
-                            <div class="flex-1 bg-white/10 rounded-lg h-6 relative overflow-hidden">
-                                <div class="h-full ${isCorrect ? 'bg-green-500/80' : 'bg-indigo-400/50'} transition-all" style="width:${pct}%"></div>
-                                <span class="absolute inset-0 flex items-center px-2 text-white text-xs font-bold truncate">${escAnalysisHtml(String(opt))}${isCorrect ? ' ✓' : ''}</span>
-                            </div>
-                            <span class="w-9 text-right text-white/60 font-bold text-xs flex-shrink-0">${c}人</span>
-                        </div>`;
-                    }).join('')}
-                </div>
-            </div>
-        `).join('');
+        const mc = missColor(s.missRate);
+        const missPct = Math.round(s.missRate * 100);
+        const names = [...s.wrongNames, ...s.unansweredNames.map(n => n + '（未答）')];
 
         return `
-            <div id="analysis-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[10000] hidden flex-col items-center justify-center cursor-pointer transition-opacity overflow-y-auto py-10 px-4" onclick="if(event.target===this) this.classList.add('hidden')">
-                <div class="bg-[#1b1947] border border-white/10 rounded-[2rem] shadow-2xl w-full max-w-2xl m-auto flex flex-col max-h-[80vh] cursor-default" onclick="event.stopPropagation()">
-                    <div class="flex items-center justify-between px-6 py-4 border-b border-white/10 flex-shrink-0">
-                        <h2 class="text-lg md:text-xl font-extrabold text-white flex items-center gap-2">
-                            <span class="material-symbols-outlined">bar_chart</span> 成績分析
-                        </h2>
-                        <button id="btn-close-analysis" class="text-white/60 hover:text-white cursor-pointer"><span class="material-symbols-outlined text-2xl">close</span></button>
+        <div class="bg-white/5 rounded-xl p-4 border border-white/10">
+            <div class="flex items-start justify-between gap-3 mb-2">
+                <h4 class="text-white font-bold text-sm md:text-base leading-snug flex-1">
+                    ${rankLabel ? `<span class="text-white/40 mr-1">${rankLabel}</span>` : ''}
+                    第 ${s.index + 1} 題｜${escAnalysisHtml(s.term)}
+                    ${s.category ? `<span class="ml-2 text-[11px] bg-white/10 text-white/70 px-2 py-0.5 rounded-full">${escAnalysisHtml(s.category)}</span>` : ''}
+                </h4>
+                <div class="text-right flex-shrink-0 whitespace-nowrap">
+                    <div class="text-white font-black text-lg leading-none">${missPct}%</div>
+                    <div class="text-[11px] text-white/50">沒答對</div>
+                </div>
+            </div>
+
+            <div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-3">
+                <div class="h-full ${mc.bar}" style="width:${missPct}%"></div>
+            </div>
+
+            <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold text-white/60 mb-3">
+                <span>${s.correctCount} 人答對</span>
+                <span>${s.wrongCount} 人答錯</span>
+                ${s.unanswered > 0 ? `<span class="text-white/40">未答 ${s.unanswered} 人</span>` : ''}
+                ${s.avgCorrectTime !== null ? `<span class="text-white/40">答對者平均 ${s.avgCorrectTime.toFixed(1)} 秒</span>` : ''}
+            </div>
+
+            <div class="space-y-1.5">
+                ${s.options.map((opt, oi) => {
+                    const c = s.counts[oi] || 0;
+                    const pct = Math.round((c / total) * 100);
+                    const isCorrect = oi === s.correctIdx;
+                    const isTopWrong = oi === s.topWrongIdx;
+                    // 與「檢討模式」一致：綠＝正確答案、紅＝最多人誤選；底色固定上色（0 人也看得出來），長條表示人數比例
+                    const base  = isCorrect ? 'bg-green-500/20 ring-1 ring-green-400' : (isTopWrong ? 'bg-red-500/20 ring-1 ring-red-400' : 'bg-white/10');
+                    const fill  = isCorrect ? 'bg-green-500/80' : (isTopWrong ? 'bg-red-500/80' : 'bg-white/20');
+                    const badge = isCorrect ? 'bg-green-500 text-white' : (isTopWrong ? 'bg-red-500 text-white' : 'bg-white/10 text-white/50');
+                    return `
+                    <div class="flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full ${badge} flex items-center justify-center font-black text-[11px] flex-shrink-0">${String.fromCharCode(65 + oi)}</span>
+                        <div class="flex-1 min-w-0 ${base} rounded-lg relative overflow-hidden">
+                            <div class="absolute inset-y-0 left-0 ${fill}" style="width:${pct}%"></div>
+                            <div class="relative px-2.5 py-1 text-white text-xs md:text-sm font-bold leading-snug break-words">${escAnalysisHtml(String(opt))}</div>
+                        </div>
+                        <span class="w-9 text-right text-white/60 font-bold text-xs flex-shrink-0">${c}人</span>
+                    </div>`;
+                }).join('')}
+            </div>
+
+            ${names.length > 0 ? `
+            <div class="ana-names hidden mt-3 pt-3 border-t border-white/10 text-xs text-white/70 leading-relaxed">
+                <span class="text-white/40">需要關心的學生：</span>${names.map(escAnalysisHtml).join('、')}
+            </div>` : ''}
+        </div>`;
+    }
+
+    // ---------- 5. 分析視窗（4 個分頁） ----------
+    function getArenaAnalysisModalHtml() {
+        const stats = getQuestionStats();
+        const players = getPlayerStats(stats);
+        const cats = getCategoryStats(stats);
+        const nP = players.length || 1;
+
+        const avgPercent = players.length ? players.reduce((a, p) => a + p.percent, 0) / players.length : 0;
+        const passCount = players.filter(p => p.percent >= ANALYSIS_PASS_LINE).length;
+
+        const reviewList = stats.filter(s => s.missCount > 0)
+            .sort((a, b) => b.missRate - a.missRate || a.index - b.index);
+
+        const summaryHtml = `
+            <div class="grid grid-cols-3 gap-2">
+                <div class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-center">
+                    <div class="text-xl font-black text-white">${avgPercent.toFixed(1)}</div>
+                    <div class="text-[11px] text-white/50 mt-0.5">全班平均（百分制）</div>
+                </div>
+                <div class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-center">
+                    <div class="text-xl font-black text-white">${passCount}<span class="text-sm text-white/50"> / ${players.length}</span></div>
+                    <div class="text-[11px] text-white/50 mt-0.5">${ANALYSIS_PASS_LINE} 分以上人數</div>
+                </div>
+                <div class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-center">
+                    <div class="text-xl font-black text-white">${reviewList.length}<span class="text-sm text-white/50"> / ${stats.length}</span></div>
+                    <div class="text-[11px] text-white/50 mt-0.5">有人答錯的題數</div>
+                </div>
+            </div>`;
+
+        // 分頁 A：錯題檢討
+        const reviewHtml = `
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <label class="flex items-center gap-2 text-xs text-white/70 cursor-pointer select-none">
+                    <input type="checkbox" id="ana-toggle-names" class="accent-indigo-500">
+                    顯示答錯學生名單（僅老師自己看，投影時請關閉）
+                </label>
+                <div class="flex items-center gap-2">
+                    <button id="btn-start-review-right" ${stats.every(s => s.correctCount === 0) ? 'disabled' : ''}
+                        class="bg-white/10 hover:bg-white/20 border border-white/25 disabled:opacity-40 text-white font-bold px-4 py-2 rounded-full text-sm cursor-pointer flex items-center gap-1">
+                        <span class="material-symbols-outlined text-lg">task_alt</span> 對題檢討
+                    </button>
+                    <button id="btn-start-review" ${reviewList.length === 0 ? 'disabled' : ''}
+                        class="bg-yellow-400 hover:bg-yellow-300 disabled:opacity-40 text-[#2d2a6b] font-extrabold px-4 py-2 rounded-full text-sm cursor-pointer flex items-center gap-1">
+                        <span class="material-symbols-outlined text-lg">slideshow</span> 錯題檢討（投影）
+                    </button>
+                </div>
+            </div>
+            <div class="space-y-3">
+                ${reviewList.length === 0
+                    ? '<p class="text-green-300 text-center py-10 font-bold">🎉 全班每題都答對了！</p>'
+                    : reviewList.map((s, i) => renderAnalysisQuestionCard(s, `#${i + 1}`)).join('')}
+            </div>`;
+
+        // 分頁 B：全部題目（依題號）
+        const allHtml = `<div class="space-y-3">${stats.map(s => renderAnalysisQuestionCard(s, '')).join('')}</div>`;
+
+        // 分頁 C：學生成績
+        const sortedPlayers = [...players].sort((a, b) => a.percent - b.percent || a.name.localeCompare(b.name));
+        const studentsHtml = `
+            <p class="text-xs text-white/50 mb-3">百分制 = 答對題數 ÷ 總題數 × 100（未作答視為答錯，不含速度與連勝加分）。由低到高排列，方便先關心需要協助的學生。</p>
+            <div class="overflow-x-auto">
+            <table class="w-full text-sm text-white">
+                <thead><tr class="text-white/50 text-xs border-b border-white/10">
+                    <th class="text-left py-2">學生</th><th class="text-right">百分制</th>
+                    <th class="text-right">答對</th><th class="text-right">遊戲積分</th><th class="text-right">平均秒數</th>
+                </tr></thead>
+                <tbody>
+                ${sortedPlayers.map(p => `
+                    <tr class="border-b border-white/5">
+                        <td class="py-2">${p.emoji} ${escAnalysisHtml(p.name)}</td>
+                        <td class="text-right font-black ${p.percent < ANALYSIS_PASS_LINE ? 'text-red-300' : 'text-white'}">${p.percent}</td>
+                        <td class="text-right text-white/70">${p.correct} / ${p.total}</td>
+                        <td class="text-right text-white/50">${p.gameScore}</td>
+                        <td class="text-right text-white/50">${p.avgTime !== null ? p.avgTime.toFixed(1) : '-'}</td>
+                    </tr>`).join('')}
+                </tbody>
+            </table></div>`;
+
+        // 分頁 D：單元表現（題庫有「單元分類」才出現）
+        const catHtml = cats.length === 0 ? '' : `
+            <p class="text-xs text-white/50 mb-3">依全班平均答對率由低到高排列，最前面的單元最值得重教。</p>
+            <div class="space-y-3">
+                ${cats.map(c => {
+                    const pct = Math.round(c.avgRate * 100);
+                    const col = c.avgRate < 0.5 ? 'bg-red-400' : 'bg-white/60';
+                    return `
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-4">
+                        <div class="flex justify-between text-sm font-bold text-white mb-2">
+                            <span>${escAnalysisHtml(c.name)} <span class="text-white/40 font-normal">（${c.questions} 題）</span></span>
+                            <span>${pct}%</span>
+                        </div>
+                        <div class="w-full h-2 bg-white/10 rounded-full overflow-hidden"><div class="h-full ${col}" style="width:${pct}%"></div></div>
+                    </div>`;
+                }).join('')}
+            </div>`;
+
+        const tabs = [
+            ['review', '錯題檢討', reviewHtml],
+            ['all', '全部題目', allHtml],
+            ['students', '學生成績', studentsHtml]
+        ];
+        if (cats.length > 0) tabs.push(['concept', '單元表現', catHtml]);
+
+        return `
+        <div id="analysis-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[10000] hidden flex-col items-center justify-center overflow-y-auto py-3 px-3">
+            <div class="bg-[#1b1947] border border-white/10 rounded-3xl shadow-2xl w-full max-w-4xl m-auto flex flex-col max-h-[94vh] overflow-hidden">
+
+                <!-- 標題列（唯一固定的區塊）：標題 + 匯出按鈕 + 關閉 -->
+                <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3 border-b border-white/10 flex-shrink-0">
+                    <h2 class="text-lg font-extrabold text-white flex items-center gap-2">
+                        <span class="material-symbols-outlined">bar_chart</span> 成績分析
+                    </h2>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="flex items-center gap-0.5 bg-white/5 border border-white/10 rounded-full pl-3 pr-1 py-1">
+                            <span class="text-xs font-bold text-white/60 mr-1">成績</span>
+                            <button id="btn-copy-scores" title="複製成績，到 Excel／試算表按 Ctrl+V 貼上" class="px-2.5 py-1 rounded-full text-xs font-bold text-white bg-white/15 hover:bg-white/25 cursor-pointer flex items-center gap-1 transition-colors">
+                                <span class="material-symbols-outlined text-[16px]">content_copy</span>複製
+                            </button>
+                            <button id="btn-export-scores" title="下載成績 CSV" class="px-2.5 py-1 rounded-full text-xs font-bold text-white/80 hover:bg-white/15 cursor-pointer flex items-center gap-1 transition-colors">
+                                <span class="material-symbols-outlined text-[16px]">download</span>CSV
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-0.5 bg-white/5 border border-white/10 rounded-full pl-3 pr-1 py-1">
+                            <span class="text-xs font-bold text-white/60 mr-1">錯題排行</span>
+                            <button id="btn-copy-review" title="複製錯題排行，到 Excel／試算表按 Ctrl+V 貼上" class="px-2.5 py-1 rounded-full text-xs font-bold text-white bg-white/15 hover:bg-white/25 cursor-pointer flex items-center gap-1 transition-colors">
+                                <span class="material-symbols-outlined text-[16px]">content_copy</span>複製
+                            </button>
+                            <button id="btn-export-review" title="下載錯題排行 CSV" class="px-2.5 py-1 rounded-full text-xs font-bold text-white/80 hover:bg-white/15 cursor-pointer flex items-center gap-1 transition-colors">
+                                <span class="material-symbols-outlined text-[16px]">download</span>CSV
+                            </button>
+                        </div>
+                        <button id="btn-close-analysis" class="text-white/60 hover:text-white cursor-pointer ml-1" title="關閉"><span class="material-symbols-outlined text-2xl">close</span></button>
                     </div>
-                    <div class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-                        ${listHtml}
+                </div>
+
+                <!-- 其餘全部在同一個捲動區：摘要會捲走，只有分頁籤會黏在最上方 -->
+                <div class="flex-1 min-h-0 overflow-y-auto">
+                    <div class="px-5 pt-3">${summaryHtml}</div>
+                    <div class="sticky top-0 z-10 bg-[#1b1947] px-5 py-2 flex gap-2 overflow-x-auto">
+                        ${tabs.map(([id, label], i) => `
+                            <button data-ana-tab="${id}" class="ana-tab px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap cursor-pointer ${i === 0 ? 'bg-white text-[#2d2a6b]' : 'bg-white/10 text-white/70 hover:bg-white/20'}">${label}</button>`).join('')}
                     </div>
-                    <div class="px-6 py-4 border-t border-white/10 flex-shrink-0">
-                        <button id="btn-export-scores" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-colors">
-                            <span class="material-symbols-outlined">download</span> 匯出成績 (CSV)
-                        </button>
+                    <div class="px-5 pb-5 pt-1">
+                        ${tabs.map(([id, , html], i) => `<div id="ana-panel-${id}" class="ana-panel ${i === 0 ? '' : 'hidden'}">${html}</div>`).join('')}
                     </div>
                 </div>
             </div>
-        `;
+        </div>`;
     }
 
-    function exportArenaScoresCSV(spaceCode) {
-        const stats = getQuestionStats();
-        const sortedPlayersForExport = [...globalPlayers].sort((a, b) => (b.score || 0) - (a.score || 0));
+    // ---------- 6. 投影檢討模式：一次一題，從錯最多的開始 ----------
+    // mode: 'wrong'＝錯題（錯最多的先看）｜'right'＝對題（答對率最高的先看，找出哪些題學生容易對）
+    function openReviewPresentation(startMode = 'wrong') {
+        const all = getQuestionStats();
+        const lists = {
+            wrong: all.filter(s => s.missCount > 0)
+                .sort((a, b) => b.missRate - a.missRate || a.index - b.index),
+            right: all.filter(s => s.correctCount > 0)
+                .sort((a, b) => b.correctRate - a.correctRate || a.index - b.index)
+        };
+        let mode = (startMode === 'right' || startMode === 'wrong') ? startMode : 'wrong';
+        if (lists[mode].length === 0) mode = mode === 'wrong' ? 'right' : 'wrong';
+        if (lists[mode].length === 0) return;
 
-        const header = ['排名', '暱稱', '分數', '答對題數', ...stats.map(s => `第${s.index + 1}題`)];
+        const total = globalPlayers.length || 1;
+        let pos = 0;
+        let list = lists[mode];
 
-        const rows = sortedPlayersForExport.map((p, idx) => {
-            let correctCount = 0;
-            const qCells = stats.map(s => {
-                const a = p[`ans_${s.index}`];
-                if (a === undefined || a === null || s.options[a] === undefined) return '未作答';
-                const isCorrect = a === s.correctIdx;
-                if (isCorrect) correctCount++;
-                return (isCorrect ? '✔ ' : '✘ ') + s.options[a];
+        function setMode(m) {
+            if (m === mode || lists[m].length === 0) return;
+            mode = m; list = lists[m]; pos = 0; draw();
+        }
+
+        const overlay = document.createElement('div');
+        overlay.id = 'review-overlay';
+        overlay.className = 'fixed inset-0 z-[10001] bg-gradient-to-b from-[#1b1947] to-[#3b276b] flex flex-col p-3 md:p-5 select-none';
+        document.body.appendChild(overlay);
+
+        function draw() {
+            const s = list[pos];
+            const isWrongMode = mode === 'wrong';
+            const mainPct = Math.round((isWrongMode ? s.missRate : s.correctRate) * 100);
+            const mainTextCls = isWrongMode ? missColor(s.missRate).text : 'text-green-400';
+            const mainLabel = isWrongMode
+                ? `${s.missCount} / ${total} 人沒答對`
+                : `${s.correctCount} / ${total} 人答對`;
+            const modeBtn = (m, label, active, activeCls) => `
+                <button data-mode="${m}" ${lists[m].length === 0 ? 'disabled' : ''}
+                    class="review-mode h-8 px-3 rounded-full text-sm font-bold whitespace-nowrap cursor-pointer disabled:opacity-30 disabled:cursor-default ${active ? activeCls + ' text-white' : 'bg-transparent text-white/60 hover:bg-white/15'}">${label}<span class="ml-1 text-xs opacity-80">${lists[m].length}</span></button>`;
+            const chevL = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>';
+            const chevR = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+            overlay.innerHTML = `
+                <!-- 導覽條：上一題 / 進度 / 下一題 / 標題 / 結束 -->
+                <div class="flex items-center gap-2 md:gap-3 bg-white/10 rounded-2xl px-2 py-1.5 mb-3 flex-shrink-0 text-white">
+                    <button id="review-prev" title="上一題（←）" aria-label="上一題"
+                        class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/25 disabled:opacity-30 disabled:hover:bg-white/10 disabled:cursor-default flex items-center justify-center cursor-pointer flex-shrink-0" ${pos === 0 ? 'disabled' : ''}>${chevL}</button>
+                    <span class="font-black text-base md:text-lg tabular-nums min-w-[3.5rem] text-center flex-shrink-0">${pos + 1} / ${list.length}</span>
+                    <button id="review-next" title="下一題（→）" aria-label="下一題"
+                        class="w-10 h-10 rounded-full bg-yellow-400 hover:bg-yellow-300 text-[#2d2a6b] disabled:opacity-30 disabled:hover:bg-yellow-400 disabled:cursor-default flex items-center justify-center cursor-pointer flex-shrink-0" ${pos === list.length - 1 ? 'disabled' : ''}>${chevR}</button>
+                    <div class="flex bg-black/20 rounded-full p-0.5 flex-shrink-0">
+                        ${modeBtn('wrong', '錯題', isWrongMode, 'bg-red-500')}
+                        ${modeBtn('right', '對題', !isWrongMode, 'bg-green-500')}
+                    </div>
+                    <span class="flex-1 min-w-0 truncate text-white/60 font-bold text-sm md:text-base px-2">${isWrongMode ? '錯最多的先看' : '答對率最高的先看'}・原第 ${s.index + 1} 題</span>
+                    <button id="review-close" title="結束（Esc）" aria-label="結束檢討"
+                        class="h-10 px-4 rounded-full bg-white/10 hover:bg-white/25 text-sm font-bold cursor-pointer flex items-center gap-1.5 flex-shrink-0">✕<span class="hidden md:inline text-white/50 font-normal">Esc</span></button>
+                </div>
+
+                <!-- 內容區：不垂直置中硬切，內容少時置中、多時從頂端開始捲動 -->
+                <div class="flex-1 min-h-0 overflow-y-auto flex flex-col">
+                    <div class="my-auto max-w-5xl w-full mx-auto py-1">
+                        <div class="flex items-start justify-between gap-4 mb-4">
+                            <h2 class="text-2xl md:text-4xl font-extrabold text-white leading-snug min-w-0 break-words">${escAnalysisHtml(s.term)}</h2>
+                            <div class="text-right flex-shrink-0 whitespace-nowrap">
+                                <div class="${mainTextCls} text-3xl md:text-5xl font-black leading-none">${mainPct}%</div>
+                                <div class="text-white/60 text-xs md:text-sm mt-1">${mainLabel}</div>
+                            </div>
+                        </div>
+                        <div class="space-y-2 md:space-y-3">
+                            ${s.options.map((opt, oi) => {
+                                const c = s.counts[oi] || 0;
+                                const pct = Math.round((c / total) * 100);
+                                const isCorrect = oi === s.correctIdx;
+                                const isTopWrong = oi === s.topWrongIdx;
+                                // 底色依「對/錯」固定上色（0 人選也看得出來），長條表示人數比例
+                                const base  = isCorrect ? 'bg-green-500/25 ring-2 ring-green-400' : (isTopWrong ? 'bg-red-500/25 ring-2 ring-red-400' : 'bg-white/10');
+                                const fill  = isCorrect ? 'bg-green-500' : (isTopWrong ? 'bg-red-500' : 'bg-white/20');
+                                const badge = isCorrect ? 'bg-green-500 text-white' : (isTopWrong ? 'bg-red-500 text-white' : 'bg-white/10 text-white/60');
+                                return `
+                                <div class="flex items-center gap-2 md:gap-3">
+                                    <span class="w-8 h-8 md:w-9 md:h-9 rounded-full ${badge} flex items-center justify-center font-black text-base md:text-lg flex-shrink-0">${String.fromCharCode(65 + oi)}</span>
+                                    <div class="flex-1 min-w-0 ${base} rounded-xl relative overflow-hidden">
+                                        <div class="absolute inset-y-0 left-0 ${fill}" style="width:${pct}%"></div>
+                                        <div class="relative px-4 py-2.5 md:py-3 text-white text-lg md:text-2xl font-bold leading-snug break-words">${escAnalysisHtml(String(opt))}</div>
+                                    </div>
+                                    <span class="w-14 md:w-16 text-right text-white font-black text-lg md:text-xl flex-shrink-0">${c} 人</span>
+                                </div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>`;
+            overlay.querySelectorAll('.review-mode').forEach(b => { b.onclick = () => setMode(b.dataset.mode); });
+            overlay.querySelector('#review-close').onclick = close;
+            overlay.querySelector('#review-prev').onclick = () => { if (pos > 0) { pos--; draw(); } };
+            overlay.querySelector('#review-next').onclick = () => { if (pos < list.length - 1) { pos++; draw(); } };
+        }
+
+        function onKey(e) {
+            if (e.key === 'Escape') close();
+            else if (e.key === 'ArrowRight' && pos < list.length - 1) { pos++; draw(); }
+            else if (e.key === 'ArrowLeft' && pos > 0) { pos--; draw(); }
+            else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); setMode(mode === 'wrong' ? 'right' : 'wrong'); }
+        }
+        function close() {
+            document.removeEventListener('keydown', onKey);
+            overlay.remove();
+        }
+        document.addEventListener('keydown', onKey);
+        draw();
+    }
+
+    // ---------- 7. 事件綁定（取代 renderTeacherLeaderboard 末端三個 listener） ----------
+    function bindArenaAnalysisEvents(spaceCode) {
+        const modal = document.getElementById('analysis-modal');
+        if (!modal) return;
+
+        const open = () => { modal.classList.remove('hidden'); modal.classList.add('flex'); };
+        const close = () => { modal.classList.add('hidden'); modal.classList.remove('flex'); };
+
+        document.getElementById('btn-open-analysis')?.addEventListener('click', open);
+        document.getElementById('btn-close-analysis')?.addEventListener('click', close);
+
+        // 分頁切換
+        modal.querySelectorAll('.ana-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                modal.querySelectorAll('.ana-tab').forEach(b => {
+                    const active = b === btn;
+                    b.classList.toggle('bg-white', active);
+                    b.classList.toggle('text-[#2d2a6b]', active);
+                    b.classList.toggle('bg-white/10', !active);
+                    b.classList.toggle('text-white/70', !active);
+                });
+                modal.querySelectorAll('.ana-panel').forEach(p => p.classList.add('hidden'));
+                document.getElementById(`ana-panel-${btn.dataset.anaTab}`)?.classList.remove('hidden');
             });
-            return [idx + 1, p.name || '', p.score || 0, correctCount, ...qCells];
         });
 
-        const blankRow = [];
-        const summaryCorrectRow = ['', '', '', '全班答對人數', ...stats.map(s => s.correctCount)];
-        const summaryWrongRow = ['', '', '', '全班答錯人數', ...stats.map(s => s.wrongCount)];
-        const summaryUnansweredRow = ['', '', '', '全班未作答人數', ...stats.map(s => s.unanswered)];
+        // 顯示 / 隱藏答錯名單
+        document.getElementById('ana-toggle-names')?.addEventListener('change', e => {
+            modal.querySelectorAll('.ana-names').forEach(el => el.classList.toggle('hidden', !e.target.checked));
+        });
 
-        const allRows = [header, ...rows, blankRow, summaryCorrectRow, summaryWrongRow, summaryUnansweredRow];
+        document.getElementById('btn-start-review')?.addEventListener('click', () => openReviewPresentation('wrong'));
+        document.getElementById('btn-start-review-right')?.addEventListener('click', () => openReviewPresentation('right'));
+        document.getElementById('btn-export-scores')?.addEventListener('click', () => exportArenaScoresCSV(spaceCode));
+        document.getElementById('btn-export-review')?.addEventListener('click', () => exportWrongRankingCSV(spaceCode));
+        document.getElementById('btn-copy-scores')?.addEventListener('click', () => copyRowsToClipboard(buildArenaScoreRows(), '成績'));
+        document.getElementById('btn-copy-review')?.addEventListener('click', () => copyRowsToClipboard(buildWrongRankingRows(), '錯題排行'));
+    }
 
-        const csvContent = allRows.map(row => row.map(cell => {
-            const str = String(cell ?? '');
-            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-                return '"' + str.replace(/"/g, '""') + '"';
-            }
+    // ---------- 8. CSV 共用下載 ----------
+    function downloadAnalysisCSV(rows, filename) {
+        const csv = rows.map(row => row.map(cell => {
+            let str = String(cell ?? '');
+            // 防止 Excel 把「=、+、-、@」開頭的暱稱當成公式執行
+            if (typeof cell === 'string' && /^[=+\-@]/.test(str)) str = "'" + str;
+            if (/[",\n]/.test(str)) str = '"' + str.replace(/"/g, '""') + '"';
             return str;
         }).join(',')).join('\n');
 
-        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8' });
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        const dateStr = new Date().toISOString().slice(0, 10);
-        a.download = `成績_${spaceCode || 'arena'}_${dateStr}.csv`;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        if (typeof showToast === 'function') showToast('✅ 成績已匯出');
+        if (typeof showToast === 'function') showToast('✅ 已匯出');
     }
+
+    // ---------- 複製到剪貼簿（Tab 分隔，可直接貼到 Excel / Google 試算表） ----------
+    function tsvCell(cell) {
+        let str = String(cell ?? '');
+        // 防止 Excel 把「=、+、-、@」開頭的內容當成公式執行
+        if (typeof cell === 'string' && /^[=+\-@]/.test(str)) str = "'" + str;
+        // 含 Tab、換行或雙引號的內容用引號包起來，貼上時才不會跑版
+        if (/[\t\r\n"]/.test(str)) str = '"' + str.replace(/"/g, '""') + '"';
+        return str;
+    }
+
+    function rowsToTSV(rows) {
+        return rows.map(r => r.map(tsvCell).join('\t')).join('\n');
+    }
+
+    function copyTextToClipboard(text) {
+        const fallback = () => new Promise((resolve, reject) => {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            let ok = false;
+            try { ok = document.execCommand('copy'); } catch (e) {}
+            document.body.removeChild(ta);
+            ok ? resolve() : reject(new Error('copy failed'));
+        });
+        if (navigator.clipboard && window.isSecureContext) {
+            return navigator.clipboard.writeText(text).catch(fallback);
+        }
+        return fallback();
+    }
+
+    function copyRowsToClipboard(rows, label) {
+        copyTextToClipboard(rowsToTSV(rows))
+            .then(() => { if (typeof showToast === 'function') showToast(`✅ 已複製${label}，到 Excel／試算表按 Ctrl+V 貼上`); })
+            .catch(() => { if (typeof showToast === 'function') showToast('⚠️ 複製失敗，請改用下載 CSV'); });
+    }
+
+    // ---------- 9. 成績表（含百分制）：下載與複製共用 ----------
+    function buildArenaScoreRows() {
+        const stats = getQuestionStats();
+        const playerStats = getPlayerStats(stats);
+        const byName = Object.fromEntries(playerStats.map(p => [p.name, p]));
+        const sorted = [...globalPlayers].sort((a, b) => (b.score || 0) - (a.score || 0));
+
+        const header = ['遊戲排名', '暱稱', '百分制成績', '答對題數', '總題數', '遊戲積分(含速度/連勝加分)', '平均作答秒數',
+            ...stats.map(s => `第${s.index + 1}題`)];
+
+        const rows = sorted.map((p, idx) => {
+            const ps = byName[p.name] || { percent: 0, correct: 0, total: stats.length, avgTime: null };
+            const qCells = stats.map(s => {
+                const a = p[`ans_${s.index}`];
+                if (a === undefined || a === null || s.options[a] === undefined) return '未作答';
+                return (a === s.correctIdx ? '✔ ' : '✘ ') + s.options[a];
+            });
+            return [idx + 1, p.name || '', ps.percent, ps.correct, ps.total, p.score || 0,
+                ps.avgTime !== null ? ps.avgTime.toFixed(1) : '', ...qCells];
+        });
+
+        const avgPercent = playerStats.length
+            ? Math.round(playerStats.reduce((a, p) => a + p.percent, 0) / playerStats.length * 10) / 10 : 0;
+        const pad = ['', '', '', '', '', '']; // 對齊到「第1題」前一欄
+
+        const summary = [
+            [],
+            ['全班平均百分制', '', avgPercent],
+            [...pad, '全班答對人數', ...stats.map(s => s.correctCount)],
+            [...pad, '全班答錯人數', ...stats.map(s => s.wrongCount)],
+            [...pad, '全班未作答人數', ...stats.map(s => s.unanswered)],
+            [...pad, '答對率(%)', ...stats.map(s => Math.round(s.correctRate * 100))]
+        ];
+        return [header, ...rows, ...summary];
+    }
+
+    function exportArenaScoresCSV(spaceCode) {
+        const dateStr = new Date().toISOString().slice(0, 10);
+        downloadAnalysisCSV(buildArenaScoreRows(), `成績_${spaceCode || 'arena'}_${dateStr}.csv`);
+    }
+
+    // ---------- 10. 錯題排行（給老師備課／補救教學）：下載與複製共用 ----------
+    function buildWrongRankingRows() {
+        const list = getQuestionStats().sort((a, b) => b.missRate - a.missRate || a.index - b.index);
+        const header = ['錯誤率排名', '題號', '題目', '單元分類', '正確答案', '答對人數', '答錯人數', '未作答人數',
+            '沒答對比例(%)', '最多人誤選', '誤選人數', '答對者平均秒數'];
+        const rows = list.map((s, i) => [
+            i + 1, s.index + 1, s.term, s.category,
+            s.options[s.correctIdx], s.correctCount, s.wrongCount, s.unanswered,
+            Math.round(s.missRate * 100),
+            s.topWrongIdx >= 0 ? s.options[s.topWrongIdx] : '',
+            s.topWrongIdx >= 0 ? s.topWrongN : '',
+            s.avgCorrectTime !== null ? s.avgCorrectTime.toFixed(1) : ''
+        ]);
+        return [header, ...rows];
+    }
+
+    function exportWrongRankingCSV(spaceCode) {
+        const dateStr = new Date().toISOString().slice(0, 10);
+        downloadAnalysisCSV(buildWrongRankingRows(), `錯題排行_${spaceCode || 'arena'}_${dateStr}.csv`);
+    }
+
 
     // ----------------------------------------------------
     // 畫面 2-D：老師最終排行榜畫面
     // ----------------------------------------------------
     function renderTeacherLeaderboard(spaceCode) {
+        ArenaMusic.play('final'); // 🎵 最終排行成績
         const sortedPlayers = [...globalPlayers].sort((a, b) => b.score - a.score);
         const p1 = sortedPlayers[0];
         const p2 = sortedPlayers[1];
@@ -1403,7 +2085,7 @@ window.launchArenaMode = function(rawData, configs) {
                 
                 <h1 class="text-5xl md:text-6xl font-extrabold text-white mb-6 mt-4 tracking-widest drop-shadow-md z-10 flex-shrink-0 text-center">最終頒獎台</h1>
                 
-                <div class="flex items-end justify-center gap-4 md:gap-8 h-[35vh] min-h-[250px] w-full max-w-4xl z-10 mt-2 flex-shrink-0">
+                <div class="flex items-end justify-center gap-4 md:gap-8 w-full max-w-4xl z-10 mt-2 pt-10 flex-shrink-0">
                     <div id="podium-2" class="flex flex-col items-center opacity-0 transform translate-y-20 transition-all duration-700 w-1/3">
                         ${p2 ? `
                             <span class="text-5xl md:text-6xl mb-2 drop-shadow-lg">${p2.emoji || '😎'}</span>
@@ -1469,15 +2151,7 @@ window.launchArenaMode = function(rawData, configs) {
 
         document.getElementById('btn-finish-home').addEventListener('click', cleanupArena);
 
-        document.getElementById('btn-open-analysis')?.addEventListener('click', () => {
-            const modal = document.getElementById('analysis-modal');
-            if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
-        });
-        document.getElementById('btn-close-analysis')?.addEventListener('click', () => {
-            const modal = document.getElementById('analysis-modal');
-            if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
-        });
-        document.getElementById('btn-export-scores')?.addEventListener('click', () => exportArenaScoresCSV(spaceCode));
+        bindArenaAnalysisEvents(spaceCode);
     }
 
     // ----------------------------------------------------
