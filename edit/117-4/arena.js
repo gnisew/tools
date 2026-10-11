@@ -233,7 +233,17 @@ window.launchArenaMode = function(rawData, configs) {
             if (document.getElementById('arena-sound-ctrl')) return;
             const box = document.createElement('div');
             box.id = 'arena-sound-ctrl';
-            box.className = 'group fixed left-3 bottom-14 z-[9500] flex items-center bg-black/40 hover:bg-black/60 backdrop-blur-sm rounded-full pr-1 text-white select-none transition-colors';
+            box.className = 'group fixed left-3 bottom-3 z-[9500] flex items-center bg-black/40 hover:bg-black/60 backdrop-blur-sm rounded-full pr-1 text-white select-none transition-colors';
+            // 有底部狀態列的畫面（讀題／作答／公佈答案）：縮小並放進狀態列，位置在 PIN 右側，不遮到選項
+            if (!document.getElementById('arena-sound-style')) {
+                const st = document.createElement('style');
+                st.id = 'arena-sound-style';
+                st.textContent = `
+                    body:has(.arena-footer) #arena-sound-ctrl { bottom: 3px; left: 12rem; }
+                    body:has(.arena-footer) #arena-sound-btn { width: 2rem; height: 2rem; }
+                    body:has(.arena-footer) #arena-sound-btn .material-symbols-outlined { font-size: 20px; }`;
+                document.head.appendChild(st);
+            }
             box.innerHTML = `
                 <button id="arena-sound-btn" class="w-10 h-10 rounded-full flex items-center justify-center cursor-pointer hover:bg-white/20" title="音效開關">
                     <span id="arena-sound-icon" class="material-symbols-outlined">volume_up</span>
@@ -965,6 +975,8 @@ window.launchArenaMode = function(rawData, configs) {
     function renderTeacherReadingView(spaceCode, arenaSettings, preReadTime) {
         const qData = gameData[currentQIndex];
         let timeLeft = preReadTime;
+        const readTotal = Math.max(1, preReadTime);
+        const RING_C = 2 * Math.PI * 44; // 圓環周長（r=44）
         ArenaMusic.play('reading'); // 🎵 讀題倒數
         const displayCode = spaceCode.substring(0, 2) + ' ' + spaceCode.substring(2);
         
@@ -976,18 +988,29 @@ window.launchArenaMode = function(rawData, configs) {
                      </div>
                 </div>
 
-                <div class="w-full max-w-[98%] mx-auto px-2 my-2 sm:my-3 flex justify-between items-end flex-shrink-0">
-                     <div class="w-16"></div> 
-                     <div onclick="window.toggleArenaPause()" class="text-[6rem] md:text-[8rem] font-medium text-gray-400/80 leading-none cursor-pointer hover:text-indigo-400 transition-colors relative group" style="transform: translateY(15%);">
-                         <span id="reading-countdown">${timeLeft}</span>
-                         <div id="pause-overlay" class="absolute inset-0 flex items-center justify-center bg-black/10 rounded-full opacity-0 transition-opacity">
-                             <span class="material-symbols-outlined text-gray-600 text-6xl">pause</span>
+                <div class="w-full max-w-[98%] mx-auto px-2 my-3 sm:my-4 grid grid-cols-3 items-center flex-shrink-0">
+                     <div class="flex items-center gap-2 text-gray-500 font-bold text-sm md:text-lg">
+                         <span class="material-symbols-outlined text-2xl md:text-3xl">menu_book</span>請先閱讀題目
+                     </div>
+
+                     <div onclick="window.toggleArenaPause()" title="點擊暫停/繼續" class="justify-self-center relative w-24 h-24 md:w-28 md:h-28 cursor-pointer hover:scale-105 transition-transform select-none">
+                         <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90">
+                             <circle cx="50" cy="50" r="44" fill="white" stroke="#e5e7eb" stroke-width="8"></circle>
+                             <circle id="reading-ring" cx="50" cy="50" r="44" fill="none" stroke="#5a2a82" stroke-width="8" stroke-linecap="round"
+                                 stroke-dasharray="${RING_C}" stroke-dashoffset="0" style="transition: stroke-dashoffset 1s linear, stroke .3s;"></circle>
+                         </svg>
+                         <span id="reading-countdown" class="absolute inset-0 flex items-center justify-center text-4xl md:text-5xl font-black text-[#5a2a82] leading-none">${timeLeft}</span>
+                         <div id="pause-overlay" class="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 transition-opacity pointer-events-none">
+                             <span class="material-symbols-outlined text-white text-4xl">pause</span>
                          </div>
                      </div>
-                     <button id="btn-skip-reading" class="bg-white hover:bg-gray-100 border border-gray-200 text-gray-700 font-bold py-1.5 px-5 rounded shadow-sm transition-colors cursor-pointer text-sm md:text-base">略過</button>
+
+                     <div class="justify-self-end">
+                         <button id="btn-skip-reading" class="bg-white hover:bg-gray-100 border border-gray-200 text-gray-700 font-bold py-1.5 px-5 rounded shadow-sm transition-colors cursor-pointer text-sm md:text-base">略過</button>
+                     </div>
                 </div>
 
-                <div class="w-full bg-slate-200 flex justify-between items-center px-4 py-1 border-t border-gray-300 flex-shrink-0 mt-auto z-20">
+                <div class="arena-footer w-full bg-slate-200 flex justify-between items-center px-4 py-1 border-t border-gray-300 flex-shrink-0 mt-auto z-20">
                     <div class="text-gray-700 font-bold text-xs sm:text-sm flex items-center gap-2 cursor-pointer hover:bg-gray-300 px-2 py-0.5 rounded transition" onclick="document.getElementById('qr-modal')?.classList.remove('hidden')">
                         <span class="text-xs text-gray-500">PIN:</span> 
                         <span class="text-base sm:text-lg tracking-widest font-black">${displayCode}</span>
@@ -1020,7 +1043,12 @@ window.launchArenaMode = function(rawData, configs) {
 
             timeLeft--;
             const timerEl = document.getElementById('reading-countdown');
-            if (timerEl) timerEl.textContent = timeLeft;
+            if (timerEl) timerEl.textContent = Math.max(0, timeLeft);
+            const ring = document.getElementById('reading-ring');
+            if (ring) {
+                ring.style.strokeDashoffset = String(RING_C * (1 - Math.max(0, timeLeft) / readTotal));
+                if (timeLeft <= 3) ring.setAttribute('stroke', '#ef4444'); // 最後 3 秒變紅
+            }
             if (timeLeft <= 0) gotoPlaying();
         }, 1000);
     }
@@ -1123,7 +1151,7 @@ window.launchArenaMode = function(rawData, configs) {
                     `).join('')}
                 </div>
 
-                <div class="w-full bg-slate-200 flex justify-between items-center px-4 py-1 border-t border-gray-300 flex-shrink-0 mt-auto z-20">
+                <div class="arena-footer w-full bg-slate-200 flex justify-between items-center px-4 py-1 border-t border-gray-300 flex-shrink-0 mt-auto z-20">
                     <div class="text-gray-700 font-bold text-xs sm:text-sm flex items-center gap-2 cursor-pointer hover:bg-gray-300 px-2 py-0.5 rounded transition" onclick="document.getElementById('qr-modal')?.classList.remove('hidden')">
                         <span class="text-xs text-gray-500">PIN:</span> 
                         <span class="text-base sm:text-lg tracking-widest font-black">${displayCode}</span>
@@ -1259,7 +1287,7 @@ window.launchArenaMode = function(rawData, configs) {
                     `}).join('')}
                 </div>
 
-                <div class="w-full bg-slate-200 flex justify-between items-center px-4 py-1 border-t border-gray-300 flex-shrink-0 mt-auto z-20">
+                <div class="arena-footer w-full bg-slate-200 flex justify-between items-center px-4 py-1 border-t border-gray-300 flex-shrink-0 mt-auto z-20">
                     <div class="text-gray-700 font-bold text-xs sm:text-sm flex items-center gap-2 cursor-pointer hover:bg-gray-300 px-2 py-0.5 rounded transition" onclick="document.getElementById('qr-modal')?.classList.remove('hidden')">
                         <span class="text-xs text-gray-500">PIN:</span> 
                         <span class="text-base sm:text-lg tracking-widest font-black">${displayCode}</span>
