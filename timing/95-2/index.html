@@ -187,8 +187,8 @@
                     <hr style="margin: 4px 0; border: none; border-bottom: 1px solid #EEE;">
 
                     <!-- 錄製系統／分頁音訊：2e_system_audio_record.js -->
-                    <div class="custom-dropdown-item" id="waveSysRecordBtn" title="錄製電腦系統或網頁分頁裡的聲音（需電腦版 Chrome／Edge，錄完會詢問是否取代目前音檔）" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
-                        <span style="color:#C62828; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">fiber_manual_record</span><span id="waveSysRecordLabel">錄製系統音訊</span></span>
+                    <div class="custom-dropdown-item" id="waveSysRecordBtn" title="開啟「選擇音檔」的錄製頁籤：可錄系統／分頁音訊、麥克風，或兩者混合" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                        <span style="color:#C62828; font-weight:bold;"><span class="material-icons" style="font-size:1.1rem; vertical-align:middle; margin-right:4px;">fiber_manual_record</span><span id="waveSysRecordLabel">錄製音訊</span></span>
                     </div>
                     <hr style="margin: 4px 0; border: none; border-bottom: 1px solid #EEE;">
 
@@ -266,6 +266,10 @@
                         <button class="header-btn" id="editMenuBtn"><span class="material-icons">edit</span> 編輯</button>
                         <div class="custom-dropdown-menu" id="editMenu" style="top: 100%; left: 0; min-width: 180px; z-index: 100;">
                             <div class="custom-dropdown-item" id="openBatchReplaceBtn"><span class="material-icons" style="color: #E65100;">find_replace</span> 尋找取代</div>
+                            <!-- AI 聽打：11_ai_transcribe.js（設定啟用後才顯示） -->
+                            <div id="aiTranscribeMenuHr" style="display: none; border-top: 1px solid #E0E0E0; margin: 4px 0;"></div>
+                            <div class="custom-dropdown-item" id="aiTranscribeSelBtn" style="display: none;"><span class="material-icons" style="color: #7B1FA2;">auto_awesome</span> <span id="aiTranscribeSelText">AI 聽打</span></div>
+                            <div class="custom-dropdown-item" id="aiTranscribeEmptyBtn" style="display: none;"><span class="material-icons" style="color: #7B1FA2;">auto_awesome</span> AI 聽打全部空白句</div>
                             <!-- 整組隱藏但不可刪除：4g / 4h / 4i / 4j / 4k 仍以這些 id 綁定事件或呼叫 .click() -->
                             <div id="legacyModeButtons" style="display: none;">
                                 <div class="custom-dropdown-item" id="toggleScriptModeBtn"><span class="material-icons">swap_horiz</span> 單句全文</div>
@@ -738,8 +742,57 @@
                     <input type="text" id="langDelimiterInput" value="|" maxlength="4" class="input-number-sm" style="width: 60px;" disabled>
                 </div>
             </div>
+            <div class="sidebar-group">
+                <h4><span class="material-icons" aria-hidden="true">auto_awesome</span><span class="setting-num" aria-hidden="true">十一、</span>AI 聽打</h4>
+                <div class="setting-block">
+                    <label class="setting-checkbox-row">
+                        <input type="checkbox" id="aiEnableCheck" class="setting-checkbox">
+                        啟用 AI 聽打（Groq 免費 API）
+                    </label>
+                    <span class="setting-hint">先自己標好時間，再讓 AI 把聲音轉成文字。啟用後，「編輯」選單會出現 AI 聽打。</span>
+                </div>
+                <div id="aiConfigBlock" style="display: none;">
+                    <div class="setting-block">
+                        <label for="aiKeyInput" class="setting-label">Groq API Key</label>
+                        <div style="display: flex; gap: 6px;">
+                            <input type="password" id="aiKeyInput" class="input-select" placeholder="gsk_..." autocomplete="off" spellcheck="false" style="flex: 1; cursor: text;">
+                            <button type="button" id="aiTestBtn" class="btn-small btn-outline">測試</button>
+                        </div>
+                        <span class="setting-hint"><span id="aiStatusText"></span> 免費、免信用卡，到 <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a> 建立。金鑰只存在這個瀏覽器，不會寫進匯出的專案檔。</span>
+                    </div>
+                    <div class="setting-block">
+                        <label for="aiLangSelect" class="setting-label">辨識語言</label>
+                        <select id="aiLangSelect" class="input-select">
+                            <option value="zh-TW">中文（繁體）</option>
+                            <option value="zh-CN">中文（簡體）</option>
+                            <option value="en">English</option>
+                            <option value="ja">日本語</option>
+                            <option value="ko">한국어</option>
+                            <option value="auto">自動偵測</option>
+                        </select>
+                    </div>
+                    <details class="ai-advanced">
+                        <summary>進階設定</summary>
+                        <div class="setting-block">
+                            <label for="aiModelSelect" class="setting-label">模型</label>
+                            <select id="aiModelSelect" class="input-select">
+                                <option value="whisper-large-v3-turbo">whisper-large-v3-turbo（快，預設）</option>
+                                <option value="whisper-large-v3">whisper-large-v3（較準）</option>
+                            </select>
+                        </div>
+                        <div class="setting-block" id="aiTargetLangRow" style="display: none;">
+                            <label for="aiTargetLangSelect" class="setting-label">寫入語言（多語字幕）</label>
+                            <select id="aiTargetLangSelect" class="input-select"></select>
+                        </div>
+                        <div class="setting-block">
+                            <label for="aiPromptInput" class="setting-label">自訂提示詞（選填）</label>
+                            <input type="text" id="aiPromptInput" class="input-select" placeholder="專有名詞、人名，可提高辨識率" autocomplete="off" style="cursor: text;">
+                        </div>
+                    </details>
+                </div>
+            </div>
                         <div class="sidebar-group">
-                <h4 id="exportAudioFormatLabel"><span class="material-icons" aria-hidden="true">ios_share</span><span class="setting-num" aria-hidden="true">十一、</span>音訊匯出格式</h4>
+                <h4 id="exportAudioFormatLabel"><span class="material-icons" aria-hidden="true">ios_share</span><span class="setting-num" aria-hidden="true">十二、</span>音訊匯出格式</h4>
                 <select id="exportAudioFormatSelect" aria-labelledby="exportAudioFormatLabel" class="input-select">
                     <option value="mp3">MP3 壓縮檔 (輕巧快速)</option>
                     <option value="wav" selected>WAV 無損原始檔</option>
@@ -782,7 +835,7 @@
                 </div>
             </div>
             <div class="sidebar-group">
-                <h4 style="margin-bottom: 10px;"><span class="material-icons" aria-hidden="true">keyboard</span><span class="setting-num" aria-hidden="true">十二、</span>預設快速鍵</h4>
+                <h4 style="margin-bottom: 10px;"><span class="material-icons" aria-hidden="true">keyboard</span><span class="setting-num" aria-hidden="true">十三、</span>預設快速鍵</h4>
                 <ul style="font-size:0.85rem; color:#555; padding-left: 20px; margin-bottom: 20px; line-height: 1.6;">
                     <li><strong>Space 空白鍵</strong>：播放/暫停</li>
                     <li><strong>Tab 鍵</strong>：跳至下一句</li>
@@ -1043,8 +1096,11 @@
                 <button id="tabLocalLoad" role="tab" aria-selected="true" style="flex: 1; padding: 18px; border: none; background: white; color: #00897B; font-weight: bold; font-size: 1.05rem; border-bottom: 3px solid #00897B; cursor: pointer; border-radius: 12px 0 0 0; display: flex; align-items: center; justify-content: center;">
                     <span class="material-icons" style="margin-right: 6px;">folder_zip</span> 本機檔案 / ZIP
                 </button>
-                <button id="tabOnlineLoad" role="tab" aria-selected="false" style="flex: 1; padding: 18px; border: none; background: transparent; color: #666; font-weight: bold; font-size: 1.05rem; border-bottom: 3px solid transparent; cursor: pointer; border-radius: 0 12px 0 0; display: flex; align-items: center; justify-content: center;">
+                <button id="tabOnlineLoad" role="tab" aria-selected="false" style="flex: 1; padding: 18px; border: none; background: transparent; color: #666; font-weight: bold; font-size: 1.05rem; border-bottom: 3px solid transparent; cursor: pointer; border-radius: 0; display: flex; align-items: center; justify-content: center;">
                     <span class="material-icons" style="margin-right: 6px;">link</span> 線上網址
+                </button>
+                <button id="tabRecordAudio" role="tab" aria-selected="false" style="flex: 1; padding: 18px; border: none; background: transparent; color: #666; font-weight: bold; font-size: 1.05rem; border-bottom: 3px solid transparent; cursor: pointer; border-radius: 0 12px 0 0; display: flex; align-items: center; justify-content: center;">
+                    <span class="material-icons" style="margin-right: 6px;">fiber_manual_record</span> 錄製音訊
                 </button>
             </div>
 
@@ -1098,6 +1154,16 @@
                     </div>
                 </div>
 
+                <div id="sectionRecordAudio">
+                    <div style="font-weight: bold; font-size: 0.95rem; color: #333; margin-bottom: 8px;">選擇要錄製的來源：</div>
+                    <div class="rec-mode-grid" role="radiogroup" aria-label="錄製來源">
+                        <label class="rec-mode-card"><input type="radio" name="recMode" value="system"><span class="material-icons">desktop_windows</span>系統／分頁音訊</label>
+                        <label class="rec-mode-card"><input type="radio" name="recMode" value="mic"><span class="material-icons">mic</span>麥克風</label>
+                        <label class="rec-mode-card"><input type="radio" name="recMode" value="both"><span class="material-icons">settings_voice</span>系統＋麥克風</label>
+                    </div>
+                    <p id="recModeHint" style="margin: 10px 0 0 0; font-size: 0.85rem; color: #666; line-height: 1.5;"></p>
+                </div>
+
                 <div id="mergeSettingsBlock" style="display: none; background: #FFF8E1; padding: 16px; border-radius: 8px; border: 1px solid #FFE0B2; margin-top: 20px;">
                     <h5 style="margin: 0 0 12px 0; color: #E65100; font-size: 0.95rem;">批次合併設定 (僅載入多檔案時生效)</h5>
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
@@ -1115,6 +1181,7 @@
             </div>
 
             <div class="modal-buttons" style="padding: 16px 24px; border-top: 1px solid #E0E0E0; background: #FAFAFA; border-radius: 0 0 12px 12px; flex-shrink: 0; margin-top: 0;">
+                <button type="button" id="recStartBtn"><span class="material-icons">fiber_manual_record</span> 開始錄製</button>
                 <button id="audioLoadConfirmBtn" style="background: #00897B; color: white; padding: 10px 24px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer;">確定載入</button>
                 <button id="audioLoadCancelBtn" style="background: #E2E8F0; color: #333; padding: 10px 24px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer;">取消</button>
             </div>
@@ -1425,6 +1492,7 @@
     <script src="4q_ui_segment_estimate.js"></script>
     <script src="4r_ui_menu_flip.js"></script>
     <script src="2e_system_audio_record.js"></script>
+    <script src="11_ai_transcribe.js"></script>
 
 </body>
 </html>
