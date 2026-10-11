@@ -1255,123 +1255,475 @@ window.launchArenaMode = function(rawData, configs) {
         return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
 
+    const ANALYSIS_PASS_LINE = 60; // 及格線（百分制）
+
+    // ---------- 1. 每題統計 ----------
     function getQuestionStats() {
+        const totalPlayers = globalPlayers.length;
         return gameData.map((q, i) => {
             const correctIdx = q.options.indexOf(q.definition);
             const counts = q.options.map(() => 0);
-            let unanswered = 0;
+            const wrongNames = [];
+            const unansweredNames = [];
+            let timeSum = 0, timeN = 0;
+
             globalPlayers.forEach(p => {
                 const a = p[`ans_${i}`];
                 if (a === undefined || a === null || counts[a] === undefined) {
-                    unanswered++;
-                } else {
-                    counts[a]++;
+                    unansweredNames.push(p.name);
+                    return;
+                }
+                counts[a]++;
+                if (a !== correctIdx) {
+                    wrongNames.push(p.name);
+                } else if (typeof p[`time_${i}`] === 'number') {
+                    timeSum += p[`time_${i}`];
+                    timeN++;
                 }
             });
+
             const correctCount = counts[correctIdx] || 0;
-            const totalAnswered = counts.reduce((a, b) => a + b, 0);
-            return { index: i, term: q.term, options: q.options, correctIdx, counts, correctCount, wrongCount: totalAnswered - correctCount, unanswered };
+            const answered = counts.reduce((a, b) => a + b, 0);
+            const wrongCount = answered - correctCount;
+            const unanswered = unansweredNames.length;
+            const missCount = wrongCount + unanswered; // 未作答視為沒答對
+
+            // 最多人誤選的錯誤選項（迷思概念）
+            let topWrongIdx = -1, topWrongN = 0;
+            counts.forEach((c, oi) => {
+                if (oi !== correctIdx && c > topWrongN) { topWrongN = c; topWrongIdx = oi; }
+            });
+
+            return {
+                index: i, term: q.term, category: q.category || '',
+                options: q.options, correctIdx, counts,
+                correctCount, wrongCount, unanswered, missCount,
+                correctRate: totalPlayers ? correctCount / totalPlayers : 0,
+                missRate: totalPlayers ? missCount / totalPlayers : 0,
+                topWrongIdx, topWrongN,
+                avgCorrectTime: timeN ? timeSum / timeN : null,
+                wrongNames, unansweredNames
+            };
         });
     }
 
-    function getArenaAnalysisModalHtml() {
-        const stats = getQuestionStats();
+    // ---------- 2. 每位學生統計（百分制只看對錯，不含速度/連勝） ----------
+    function getPlayerStats(stats = getQuestionStats()) {
+        const n = stats.length;
+        return globalPlayers.map(p => {
+            let correct = 0, answered = 0, tSum = 0, tN = 0;
+            stats.forEach(s => {
+                const a = p[`ans_${s.index}`];
+                if (a === undefined || a === null || s.options[a] === undefined) return;
+                answered++;
+                if (a === s.correctIdx) correct++;
+                if (typeof p[`time_${s.index}`] === 'number') { tSum += p[`time_${s.index}`]; tN++; }
+            });
+            return {
+                name: p.name || '', emoji: p.emoji || '',
+                gameScore: p.score || 0,
+                correct, answered, total: n,
+                percent: n ? Math.round((correct / n) * 1000) / 10 : 0, // 一位小數
+                avgTime: tN ? tSum / tN : null
+            };
+        });
+    }
+
+    // ---------- 3. 單元（分類）統計：只有題庫有分類時才會用到 ----------
+    function getCategoryStats(stats) {
+        const map = {};
+        stats.forEach(s => {
+            const key = s.category || '';
+            if (!key) return;
+            if (!map[key]) map[key] = { name: key, questions: 0, rateSum: 0 };
+            map[key].questions++;
+            map[key].rateSum += s.correctRate;
+        });
+        return Object.values(map)
+            .map(c => ({ ...c, avgRate: c.rateSum / c.questions }))
+            .sort((a, b) => a.avgRate - b.avgRate); // 最弱的單元排前面
+    }
+
+    function missColor(rate) {
+        if (rate >= 0.5) return { bar: 'bg-red-500', text: 'text-red-400' };
+        if (rate >= 0.3) return { bar: 'bg-orange-400', text: 'text-orange-300' };
+        return { bar: 'bg-yellow-400', text: 'text-yellow-300' };
+    }
+
+    // ---------- 4. 單題卡片（錯題檢討 / 全部題目共用） ----------
+    function renderAnalysisQuestionCard(s, rankLabel) {
         const total = globalPlayers.length || 1;
-        const listHtml = stats.length === 0 ? `<p class="text-white/50 text-center py-10">沒有題目資料</p>` : stats.map(s => `
-            <div class="bg-white/5 rounded-xl p-4 border border-white/10">
-                <div class="flex items-start justify-between gap-3 mb-3">
-                    <h4 class="text-white font-bold text-sm md:text-base leading-snug flex-1">${s.index + 1}. ${escAnalysisHtml(s.term)}</h4>
-                    <div class="flex gap-2 flex-shrink-0 text-xs font-bold whitespace-nowrap pt-0.5">
-                        <span class="text-green-400">✔ ${s.correctCount}</span>
-                        <span class="text-red-400">✘ ${s.wrongCount}</span>
-                        ${s.unanswered > 0 ? `<span class="text-white/40">未答 ${s.unanswered}</span>` : ''}
-                    </div>
-                </div>
-                <div class="space-y-1.5">
-                    ${s.options.map((opt, oi) => {
-                        const c = s.counts[oi] || 0;
-                        const pct = Math.round((c / total) * 100);
-                        const isCorrect = oi === s.correctIdx;
-                        return `
-                        <div class="flex items-center gap-2">
-                            <span class="w-4 text-white/40 font-bold text-xs flex-shrink-0">${String.fromCharCode(65 + oi)}</span>
-                            <div class="flex-1 bg-white/10 rounded-lg h-6 relative overflow-hidden">
-                                <div class="h-full ${isCorrect ? 'bg-green-500/80' : 'bg-indigo-400/50'} transition-all" style="width:${pct}%"></div>
-                                <span class="absolute inset-0 flex items-center px-2 text-white text-xs font-bold truncate">${escAnalysisHtml(String(opt))}${isCorrect ? ' ✓' : ''}</span>
-                            </div>
-                            <span class="w-9 text-right text-white/60 font-bold text-xs flex-shrink-0">${c}人</span>
-                        </div>`;
-                    }).join('')}
-                </div>
-            </div>
-        `).join('');
+        const mc = missColor(s.missRate);
+        const missPct = Math.round(s.missRate * 100);
+        const names = [...s.wrongNames, ...s.unansweredNames.map(n => n + '（未答）')];
 
         return `
-            <div id="analysis-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[10000] hidden flex-col items-center justify-center cursor-pointer transition-opacity overflow-y-auto py-10 px-4" onclick="if(event.target===this) this.classList.add('hidden')">
-                <div class="bg-[#1b1947] border border-white/10 rounded-[2rem] shadow-2xl w-full max-w-2xl m-auto flex flex-col max-h-[80vh] cursor-default" onclick="event.stopPropagation()">
-                    <div class="flex items-center justify-between px-6 py-4 border-b border-white/10 flex-shrink-0">
-                        <h2 class="text-lg md:text-xl font-extrabold text-white flex items-center gap-2">
-                            <span class="material-symbols-outlined">bar_chart</span> 成績分析
-                        </h2>
-                        <button id="btn-close-analysis" class="text-white/60 hover:text-white cursor-pointer"><span class="material-symbols-outlined text-2xl">close</span></button>
-                    </div>
-                    <div class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-                        ${listHtml}
-                    </div>
-                    <div class="px-6 py-4 border-t border-white/10 flex-shrink-0">
-                        <button id="btn-export-scores" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-colors">
-                            <span class="material-symbols-outlined">download</span> 匯出成績 (CSV)
-                        </button>
-                    </div>
+        <div class="bg-white/5 rounded-xl p-4 border border-white/10">
+            <div class="flex items-start justify-between gap-3 mb-2">
+                <h4 class="text-white font-bold text-sm md:text-base leading-snug flex-1">
+                    ${rankLabel ? `<span class="${mc.text} mr-1">${rankLabel}</span>` : ''}
+                    第 ${s.index + 1} 題｜${escAnalysisHtml(s.term)}
+                    ${s.category ? `<span class="ml-2 text-[11px] bg-white/10 text-white/70 px-2 py-0.5 rounded-full">${escAnalysisHtml(s.category)}</span>` : ''}
+                </h4>
+                <div class="text-right flex-shrink-0 whitespace-nowrap">
+                    <div class="${mc.text} font-black text-lg leading-none">${missPct}%</div>
+                    <div class="text-[11px] text-white/50">沒答對</div>
                 </div>
             </div>
-        `;
+
+            <div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-3">
+                <div class="h-full ${mc.bar}" style="width:${missPct}%"></div>
+            </div>
+
+            <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs font-bold mb-3">
+                <span class="text-green-400">✔ ${s.correctCount} 人答對</span>
+                <span class="text-red-400">✘ ${s.wrongCount} 人答錯</span>
+                ${s.unanswered > 0 ? `<span class="text-white/40">未答 ${s.unanswered} 人</span>` : ''}
+                ${s.avgCorrectTime !== null ? `<span class="text-white/40">答對者平均 ${s.avgCorrectTime.toFixed(1)} 秒</span>` : ''}
+            </div>
+
+            <div class="space-y-1.5">
+                ${s.options.map((opt, oi) => {
+                    const c = s.counts[oi] || 0;
+                    const pct = Math.round((c / total) * 100);
+                    const isCorrect = oi === s.correctIdx;
+                    const isTopWrong = oi === s.topWrongIdx;
+                    const fill = isCorrect ? 'bg-green-500/80' : (isTopWrong ? 'bg-red-500/70' : 'bg-indigo-400/50');
+                    return `
+                    <div class="flex items-center gap-2">
+                        <span class="w-4 text-white/40 font-bold text-xs flex-shrink-0">${String.fromCharCode(65 + oi)}</span>
+                        <div class="flex-1 bg-white/10 rounded-lg h-6 relative overflow-hidden">
+                            <div class="h-full ${fill}" style="width:${pct}%"></div>
+                            <span class="absolute inset-0 flex items-center px-2 text-white text-xs font-bold truncate">
+                                ${escAnalysisHtml(String(opt))}${isCorrect ? ' ✓' : ''}${isTopWrong ? ' ← 最多人誤選' : ''}
+                            </span>
+                        </div>
+                        <span class="w-9 text-right text-white/60 font-bold text-xs flex-shrink-0">${c}人</span>
+                    </div>`;
+                }).join('')}
+            </div>
+
+            ${names.length > 0 ? `
+            <div class="ana-names hidden mt-3 pt-3 border-t border-white/10 text-xs text-white/70 leading-relaxed">
+                <span class="text-white/40">需要關心的學生：</span>${names.map(escAnalysisHtml).join('、')}
+            </div>` : ''}
+        </div>`;
     }
 
-    function exportArenaScoresCSV(spaceCode) {
+    // ---------- 5. 分析視窗（4 個分頁） ----------
+    function getArenaAnalysisModalHtml() {
         const stats = getQuestionStats();
-        const sortedPlayersForExport = [...globalPlayers].sort((a, b) => (b.score || 0) - (a.score || 0));
+        const players = getPlayerStats(stats);
+        const cats = getCategoryStats(stats);
+        const nP = players.length || 1;
 
-        const header = ['排名', '暱稱', '分數', '答對題數', ...stats.map(s => `第${s.index + 1}題`)];
+        const avgPercent = players.length ? players.reduce((a, p) => a + p.percent, 0) / players.length : 0;
+        const passCount = players.filter(p => p.percent >= ANALYSIS_PASS_LINE).length;
 
-        const rows = sortedPlayersForExport.map((p, idx) => {
-            let correctCount = 0;
-            const qCells = stats.map(s => {
-                const a = p[`ans_${s.index}`];
-                if (a === undefined || a === null || s.options[a] === undefined) return '未作答';
-                const isCorrect = a === s.correctIdx;
-                if (isCorrect) correctCount++;
-                return (isCorrect ? '✔ ' : '✘ ') + s.options[a];
+        const reviewList = stats.filter(s => s.missCount > 0)
+            .sort((a, b) => b.missRate - a.missRate || a.index - b.index);
+
+        const summaryHtml = `
+            <div class="grid grid-cols-3 gap-3">
+                <div class="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
+                    <div class="text-2xl font-black text-white">${avgPercent.toFixed(1)}</div>
+                    <div class="text-[11px] text-white/50 mt-1">全班平均（百分制）</div>
+                </div>
+                <div class="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
+                    <div class="text-2xl font-black text-white">${passCount}<span class="text-sm text-white/50"> / ${players.length}</span></div>
+                    <div class="text-[11px] text-white/50 mt-1">${ANALYSIS_PASS_LINE} 分以上人數</div>
+                </div>
+                <div class="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
+                    <div class="text-2xl font-black text-white">${reviewList.length}<span class="text-sm text-white/50"> / ${stats.length}</span></div>
+                    <div class="text-[11px] text-white/50 mt-1">有人答錯的題數</div>
+                </div>
+            </div>`;
+
+        // 分頁 A：錯題檢討
+        const reviewHtml = `
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <label class="flex items-center gap-2 text-xs text-white/70 cursor-pointer select-none">
+                    <input type="checkbox" id="ana-toggle-names" class="accent-indigo-500">
+                    顯示答錯學生名單（僅老師自己看，投影時請關閉）
+                </label>
+                <button id="btn-start-review" ${reviewList.length === 0 ? 'disabled' : ''}
+                    class="bg-yellow-400 hover:bg-yellow-300 disabled:opacity-40 text-[#2d2a6b] font-extrabold px-4 py-2 rounded-full text-sm cursor-pointer flex items-center gap-1">
+                    <span class="material-symbols-outlined text-lg">slideshow</span> 開始檢討（投影模式）
+                </button>
+            </div>
+            <div class="space-y-3">
+                ${reviewList.length === 0
+                    ? '<p class="text-green-300 text-center py-10 font-bold">🎉 全班每題都答對了！</p>'
+                    : reviewList.map((s, i) => renderAnalysisQuestionCard(s, `#${i + 1}`)).join('')}
+            </div>`;
+
+        // 分頁 B：全部題目（依題號）
+        const allHtml = `<div class="space-y-3">${stats.map(s => renderAnalysisQuestionCard(s, '')).join('')}</div>`;
+
+        // 分頁 C：學生成績
+        const sortedPlayers = [...players].sort((a, b) => a.percent - b.percent || a.name.localeCompare(b.name));
+        const studentsHtml = `
+            <p class="text-xs text-white/50 mb-3">百分制 = 答對題數 ÷ 總題數 × 100（未作答視為答錯，不含速度與連勝加分）。由低到高排列，方便先關心需要協助的學生。</p>
+            <div class="overflow-x-auto">
+            <table class="w-full text-sm text-white">
+                <thead><tr class="text-white/50 text-xs border-b border-white/10">
+                    <th class="text-left py-2">學生</th><th class="text-right">百分制</th>
+                    <th class="text-right">答對</th><th class="text-right">遊戲積分</th><th class="text-right">平均秒數</th>
+                </tr></thead>
+                <tbody>
+                ${sortedPlayers.map(p => `
+                    <tr class="border-b border-white/5 ${p.percent < ANALYSIS_PASS_LINE ? 'bg-red-500/10' : ''}">
+                        <td class="py-2">${p.emoji} ${escAnalysisHtml(p.name)}</td>
+                        <td class="text-right font-black ${p.percent < ANALYSIS_PASS_LINE ? 'text-red-300' : 'text-green-300'}">${p.percent}</td>
+                        <td class="text-right text-white/70">${p.correct} / ${p.total}</td>
+                        <td class="text-right text-white/50">${p.gameScore}</td>
+                        <td class="text-right text-white/50">${p.avgTime !== null ? p.avgTime.toFixed(1) : '-'}</td>
+                    </tr>`).join('')}
+                </tbody>
+            </table></div>`;
+
+        // 分頁 D：單元表現（題庫有「單元分類」才出現）
+        const catHtml = cats.length === 0 ? '' : `
+            <p class="text-xs text-white/50 mb-3">依全班平均答對率由低到高排列，最前面的單元最值得重教。</p>
+            <div class="space-y-3">
+                ${cats.map(c => {
+                    const pct = Math.round(c.avgRate * 100);
+                    const col = c.avgRate < 0.5 ? 'bg-red-500' : (c.avgRate < 0.7 ? 'bg-orange-400' : 'bg-green-500');
+                    return `
+                    <div class="bg-white/5 border border-white/10 rounded-xl p-4">
+                        <div class="flex justify-between text-sm font-bold text-white mb-2">
+                            <span>${escAnalysisHtml(c.name)} <span class="text-white/40 font-normal">（${c.questions} 題）</span></span>
+                            <span>${pct}%</span>
+                        </div>
+                        <div class="w-full h-2 bg-white/10 rounded-full overflow-hidden"><div class="h-full ${col}" style="width:${pct}%"></div></div>
+                    </div>`;
+                }).join('')}
+            </div>`;
+
+        const tabs = [
+            ['review', '錯題檢討', reviewHtml],
+            ['all', '全部題目', allHtml],
+            ['students', '學生成績', studentsHtml]
+        ];
+        if (cats.length > 0) tabs.push(['concept', '單元表現', catHtml]);
+
+        return `
+        <div id="analysis-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[10000] hidden flex-col items-center justify-center cursor-pointer overflow-y-auto py-10 px-4">
+            <div class="bg-[#1b1947] border border-white/10 rounded-[2rem] shadow-2xl w-full max-w-3xl m-auto flex flex-col max-h-[88vh] cursor-default" onclick="event.stopPropagation()">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-white/10 flex-shrink-0">
+                    <h2 class="text-lg md:text-xl font-extrabold text-white flex items-center gap-2">
+                        <span class="material-symbols-outlined">bar_chart</span> 成績分析
+                    </h2>
+                    <button id="btn-close-analysis" class="text-white/60 hover:text-white cursor-pointer"><span class="material-symbols-outlined text-2xl">close</span></button>
+                </div>
+                <div class="px-6 pt-4 flex-shrink-0">${summaryHtml}</div>
+                <div class="px-6 pt-4 flex gap-2 flex-shrink-0 overflow-x-auto">
+                    ${tabs.map(([id, label], i) => `
+                        <button data-ana-tab="${id}" class="ana-tab px-4 py-1.5 rounded-full text-sm font-bold whitespace-nowrap cursor-pointer ${i === 0 ? 'bg-white text-[#2d2a6b]' : 'bg-white/10 text-white/70 hover:bg-white/20'}">${label}</button>`).join('')}
+                </div>
+                <div class="flex-1 overflow-y-auto px-6 py-4">
+                    ${tabs.map(([id, , html], i) => `<div id="ana-panel-${id}" class="ana-panel ${i === 0 ? '' : 'hidden'}">${html}</div>`).join('')}
+                </div>
+                <div class="px-6 py-4 border-t border-white/10 flex-shrink-0 flex flex-col sm:flex-row gap-3">
+                    <button id="btn-export-scores" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-colors">
+                        <span class="material-symbols-outlined">download</span> 匯出成績 (CSV)
+                    </button>
+                    <button id="btn-export-review" class="flex-1 bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl cursor-pointer flex items-center justify-center gap-2 transition-colors">
+                        <span class="material-symbols-outlined">download</span> 匯出錯題排行 (CSV)
+                    </button>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // ---------- 6. 投影檢討模式：一次一題，從錯最多的開始 ----------
+    function openReviewPresentation() {
+        const list = getQuestionStats()
+            .filter(s => s.missCount > 0)
+            .sort((a, b) => b.missRate - a.missRate || a.index - b.index);
+        if (list.length === 0) return;
+
+        const total = globalPlayers.length || 1;
+        let pos = 0;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'review-overlay';
+        overlay.className = 'fixed inset-0 z-[10001] bg-gradient-to-b from-[#1b1947] to-[#3b276b] flex flex-col p-6 md:p-10 select-none';
+        document.body.appendChild(overlay);
+
+        function draw() {
+            const s = list[pos];
+            const missPct = Math.round(s.missRate * 100);
+            const mc = missColor(s.missRate);
+            overlay.innerHTML = `
+                <div class="flex items-center justify-between text-white/70 font-bold mb-4">
+                    <span class="text-lg">錯題檢討 ${pos + 1} / ${list.length}　<span class="text-white/40 text-base">（原第 ${s.index + 1} 題）</span></span>
+                    <button id="review-close" class="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full cursor-pointer text-white">✕ 結束（Esc）</button>
+                </div>
+                <div class="flex-1 flex flex-col justify-center max-w-5xl w-full mx-auto min-h-0 overflow-y-auto">
+                    <div class="flex items-end justify-between gap-4 mb-6">
+                        <h2 class="text-3xl md:text-5xl font-extrabold text-white leading-tight">${escAnalysisHtml(s.term)}</h2>
+                        <div class="text-right flex-shrink-0">
+                            <div class="${mc.text} text-5xl md:text-7xl font-black leading-none">${missPct}%</div>
+                            <div class="text-white/60 text-sm md:text-base mt-1">${s.missCount} / ${total} 人沒答對</div>
+                        </div>
+                    </div>
+                    <div class="space-y-3">
+                        ${s.options.map((opt, oi) => {
+                            const c = s.counts[oi] || 0;
+                            const pct = Math.round((c / total) * 100);
+                            const isCorrect = oi === s.correctIdx;
+                            const isTopWrong = oi === s.topWrongIdx;
+                            const fill = isCorrect ? 'bg-green-500' : (isTopWrong ? 'bg-red-500' : 'bg-indigo-400/60');
+                            return `
+                            <div class="flex items-center gap-3">
+                                <span class="w-8 text-white/60 font-black text-xl">${String.fromCharCode(65 + oi)}</span>
+                                <div class="flex-1 bg-white/10 rounded-xl h-14 md:h-16 relative overflow-hidden">
+                                    <div class="h-full ${fill}" style="width:${pct}%"></div>
+                                    <span class="absolute inset-0 flex items-center px-4 text-white text-xl md:text-2xl font-bold truncate">
+                                        ${escAnalysisHtml(String(opt))}${isCorrect ? '　✓ 正確答案' : ''}${isTopWrong ? '　⚠ 最多人誤選' : ''}
+                                    </span>
+                                </div>
+                                <span class="w-16 text-right text-white font-black text-xl">${c} 人</span>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+                <div class="flex items-center justify-between max-w-5xl w-full mx-auto mt-4">
+                    <button id="review-prev" class="bg-white/10 hover:bg-white/20 disabled:opacity-30 text-white font-bold px-6 py-3 rounded-full cursor-pointer" ${pos === 0 ? 'disabled' : ''}>← 上一題</button>
+                    <span class="text-white/40 text-sm">方向鍵 ← → 切換</span>
+                    <button id="review-next" class="bg-yellow-400 hover:bg-yellow-300 disabled:opacity-30 text-[#2d2a6b] font-extrabold px-6 py-3 rounded-full cursor-pointer" ${pos === list.length - 1 ? 'disabled' : ''}>下一題 →</button>
+                </div>`;
+            overlay.querySelector('#review-close').onclick = close;
+            overlay.querySelector('#review-prev').onclick = () => { if (pos > 0) { pos--; draw(); } };
+            overlay.querySelector('#review-next').onclick = () => { if (pos < list.length - 1) { pos++; draw(); } };
+        }
+
+        function onKey(e) {
+            if (e.key === 'Escape') close();
+            else if (e.key === 'ArrowRight' && pos < list.length - 1) { pos++; draw(); }
+            else if (e.key === 'ArrowLeft' && pos > 0) { pos--; draw(); }
+        }
+        function close() {
+            document.removeEventListener('keydown', onKey);
+            overlay.remove();
+        }
+        document.addEventListener('keydown', onKey);
+        draw();
+    }
+
+    // ---------- 7. 事件綁定（取代 renderTeacherLeaderboard 末端三個 listener） ----------
+    function bindArenaAnalysisEvents(spaceCode) {
+        const modal = document.getElementById('analysis-modal');
+        if (!modal) return;
+
+        const open = () => { modal.classList.remove('hidden'); modal.classList.add('flex'); };
+        const close = () => { modal.classList.add('hidden'); modal.classList.remove('flex'); };
+
+        document.getElementById('btn-open-analysis')?.addEventListener('click', open);
+        document.getElementById('btn-close-analysis')?.addEventListener('click', close);
+        modal.addEventListener('click', e => { if (e.target === modal) close(); });
+
+        // 分頁切換
+        modal.querySelectorAll('.ana-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                modal.querySelectorAll('.ana-tab').forEach(b => {
+                    const active = b === btn;
+                    b.classList.toggle('bg-white', active);
+                    b.classList.toggle('text-[#2d2a6b]', active);
+                    b.classList.toggle('bg-white/10', !active);
+                    b.classList.toggle('text-white/70', !active);
+                });
+                modal.querySelectorAll('.ana-panel').forEach(p => p.classList.add('hidden'));
+                document.getElementById(`ana-panel-${btn.dataset.anaTab}`)?.classList.remove('hidden');
             });
-            return [idx + 1, p.name || '', p.score || 0, correctCount, ...qCells];
         });
 
-        const blankRow = [];
-        const summaryCorrectRow = ['', '', '', '全班答對人數', ...stats.map(s => s.correctCount)];
-        const summaryWrongRow = ['', '', '', '全班答錯人數', ...stats.map(s => s.wrongCount)];
-        const summaryUnansweredRow = ['', '', '', '全班未作答人數', ...stats.map(s => s.unanswered)];
+        // 顯示 / 隱藏答錯名單
+        document.getElementById('ana-toggle-names')?.addEventListener('change', e => {
+            modal.querySelectorAll('.ana-names').forEach(el => el.classList.toggle('hidden', !e.target.checked));
+        });
 
-        const allRows = [header, ...rows, blankRow, summaryCorrectRow, summaryWrongRow, summaryUnansweredRow];
+        document.getElementById('btn-start-review')?.addEventListener('click', openReviewPresentation);
+        document.getElementById('btn-export-scores')?.addEventListener('click', () => exportArenaScoresCSV(spaceCode));
+        document.getElementById('btn-export-review')?.addEventListener('click', () => exportWrongRankingCSV(spaceCode));
+    }
 
-        const csvContent = allRows.map(row => row.map(cell => {
-            const str = String(cell ?? '');
-            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-                return '"' + str.replace(/"/g, '""') + '"';
-            }
+    // ---------- 8. CSV 共用下載 ----------
+    function downloadAnalysisCSV(rows, filename) {
+        const csv = rows.map(row => row.map(cell => {
+            let str = String(cell ?? '');
+            // 防止 Excel 把「=、+、-、@」開頭的暱稱當成公式執行
+            if (typeof cell === 'string' && /^[=+\-@]/.test(str)) str = "'" + str;
+            if (/[",\n]/.test(str)) str = '"' + str.replace(/"/g, '""') + '"';
             return str;
         }).join(',')).join('\n');
 
-        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8' });
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        const dateStr = new Date().toISOString().slice(0, 10);
-        a.download = `成績_${spaceCode || 'arena'}_${dateStr}.csv`;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        if (typeof showToast === 'function') showToast('✅ 成績已匯出');
+        if (typeof showToast === 'function') showToast('✅ 已匯出');
+    }
+
+    // ---------- 9. 匯出成績（含百分制） ----------
+    function exportArenaScoresCSV(spaceCode) {
+        const stats = getQuestionStats();
+        const playerStats = getPlayerStats(stats);
+        const byName = Object.fromEntries(playerStats.map(p => [p.name, p]));
+        const sorted = [...globalPlayers].sort((a, b) => (b.score || 0) - (a.score || 0));
+
+        const header = ['遊戲排名', '暱稱', '百分制成績', '答對題數', '總題數', '遊戲積分(含速度/連勝加分)', '平均作答秒數',
+            ...stats.map(s => `第${s.index + 1}題`)];
+
+        const rows = sorted.map((p, idx) => {
+            const ps = byName[p.name] || { percent: 0, correct: 0, total: stats.length, avgTime: null };
+            const qCells = stats.map(s => {
+                const a = p[`ans_${s.index}`];
+                if (a === undefined || a === null || s.options[a] === undefined) return '未作答';
+                return (a === s.correctIdx ? '✔ ' : '✘ ') + s.options[a];
+            });
+            return [idx + 1, p.name || '', ps.percent, ps.correct, ps.total, p.score || 0,
+                ps.avgTime !== null ? ps.avgTime.toFixed(1) : '', ...qCells];
+        });
+
+        const avgPercent = playerStats.length
+            ? Math.round(playerStats.reduce((a, p) => a + p.percent, 0) / playerStats.length * 10) / 10 : 0;
+        const pad = ['', '', '', '', '', '']; // 對齊到「第1題」前一欄
+
+        const summary = [
+            [],
+            ['全班平均百分制', '', avgPercent],
+            [...pad, '全班答對人數', ...stats.map(s => s.correctCount)],
+            [...pad, '全班答錯人數', ...stats.map(s => s.wrongCount)],
+            [...pad, '全班未作答人數', ...stats.map(s => s.unanswered)],
+            [...pad, '答對率(%)', ...stats.map(s => Math.round(s.correctRate * 100))]
+        ];
+
+        const dateStr = new Date().toISOString().slice(0, 10);
+        downloadAnalysisCSV([header, ...rows, ...summary], `成績_${spaceCode || 'arena'}_${dateStr}.csv`);
+    }
+
+    // ---------- 10. 匯出錯題排行（給老師備課／補救教學） ----------
+    function exportWrongRankingCSV(spaceCode) {
+        const list = getQuestionStats().sort((a, b) => b.missRate - a.missRate || a.index - b.index);
+        const header = ['錯誤率排名', '題號', '題目', '單元分類', '正確答案', '答對人數', '答錯人數', '未作答人數',
+            '沒答對比例(%)', '最多人誤選', '誤選人數', '答對者平均秒數'];
+        const rows = list.map((s, i) => [
+            i + 1, s.index + 1, s.term, s.category,
+            s.options[s.correctIdx], s.correctCount, s.wrongCount, s.unanswered,
+            Math.round(s.missRate * 100),
+            s.topWrongIdx >= 0 ? s.options[s.topWrongIdx] : '',
+            s.topWrongIdx >= 0 ? s.topWrongN : '',
+            s.avgCorrectTime !== null ? s.avgCorrectTime.toFixed(1) : ''
+        ]);
+        const dateStr = new Date().toISOString().slice(0, 10);
+        downloadAnalysisCSV([header, ...rows], `錯題排行_${spaceCode || 'arena'}_${dateStr}.csv`);
     }
 
     // ----------------------------------------------------
@@ -1469,15 +1821,7 @@ window.launchArenaMode = function(rawData, configs) {
 
         document.getElementById('btn-finish-home').addEventListener('click', cleanupArena);
 
-        document.getElementById('btn-open-analysis')?.addEventListener('click', () => {
-            const modal = document.getElementById('analysis-modal');
-            if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
-        });
-        document.getElementById('btn-close-analysis')?.addEventListener('click', () => {
-            const modal = document.getElementById('analysis-modal');
-            if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
-        });
-        document.getElementById('btn-export-scores')?.addEventListener('click', () => exportArenaScoresCSV(spaceCode));
+        bindArenaAnalysisEvents(spaceCode);
     }
 
     // ----------------------------------------------------
