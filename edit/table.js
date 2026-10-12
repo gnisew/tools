@@ -664,6 +664,55 @@ function insertColsFromTop(count) {
 }
 function promptInsertCols() { showPrompt('輸入新增欄數', '5', (val) => { const count = parseInt(val); if (count > 0) insertColsFromTop(count); }); }
 
+/* 刪除右側/下方的「空」欄列（只含空白、&nbsp;、換行、零寬字元也視為空） */
+function isCellBlank(td) {
+    const inner = td && td.querySelector('.td-inner');
+    if (!inner) return true;
+    if (inner.hasAttribute('data-formula')) return false;
+    if (inner.querySelector('img, video, audio, canvas')) return false;
+    return inner.textContent.replace(/[\s\u00A0\u200B-\u200D\u2060\uFEFF\u3000]/g, '') === '';
+}
+
+function deleteTrailingEmptyCols() {
+    const theadTr = dataTable.querySelector('thead tr');
+    const rows = [...dataTable.querySelectorAll('tbody tr')];
+    if (!theadTr || rows.length === 0) return;
+    const total = theadTr.children.length - 1;
+    let keep = total;
+    while (keep > 1) {
+        const idx = keep; // children 索引 = 欄索引 + 1，最後一欄 = keep
+        if (!rows.every(tr => isCellBlank(tr.children[idx]))) break;
+        keep--;
+    }
+    const removeCount = total - keep;
+    if (removeCount <= 0) return showToast('ℹ️ 右側沒有空欄可刪除');
+    for (let i = 0; i < removeCount; i++) {
+        theadTr.lastElementChild.remove();
+        rows.forEach(tr => tr.lastElementChild && tr.lastElementChild.remove());
+    }
+    clearTableSelection(); updateTableHeaders();
+    saveColNames(); saveColWidths(); saveHistoryState(); applyFreeze();
+    showToast(`🗑️ 已刪除右側 ${removeCount} 個空欄`);
+}
+
+function deleteTrailingEmptyRows() {
+    const tbody = dataTable.querySelector('tbody');
+    if (!tbody) return;
+    const total = tbody.children.length;
+    let keep = total;
+    while (keep > 1) {
+        const tr = tbody.children[keep - 1];
+        if (![...tr.children].slice(1).every(isCellBlank)) break;
+        keep--;
+    }
+    const removeCount = total - keep;
+    if (removeCount <= 0) return showToast('ℹ️ 下方沒有空列可刪除');
+    for (let i = 0; i < removeCount; i++) tbody.lastElementChild.remove();
+    clearTableSelection(); updateTableHeaders();
+    saveHistoryState(); applyFreeze();
+    showToast(`🗑️ 已刪除下方 ${removeCount} 個空列`);
+}
+
 /* ---------------------------------
    多選與剪貼簿核心功能
    --------------------------------- */
@@ -1942,6 +1991,12 @@ document.getElementById('btnApplySort').addEventListener('click', () => {
             } else {
                 let valA = itemA.data[rule.colIndex]?.text || "";
                 let valB = itemB.data[rule.colIndex]?.text || "";
+                // 【修改】比照 Excel：空白儲存格不論 A-Z 或 Z-A，一律排在最後
+                const blankA = valA.trim() === "";
+                const blankB = valB.trim() === "";
+                if (blankA && blankB) continue;      // 兩者皆空白 → 交給下一個排序條件
+                if (blankA) return 1;                // A 空白 → 往後排（不乘 order）
+                if (blankB) return -1;               // B 空白 → A 往前排
                 let cmp = valA.localeCompare(valB, 'zh-TW', { numeric: true });
                 if (cmp !== 0) return cmp * rule.order;
             }

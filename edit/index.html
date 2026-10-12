@@ -301,6 +301,8 @@
                                 <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text" onclick="insertColsFromTop(2)">新增 2 欄</button>
                                 <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text" onclick="insertColsFromTop(3)">新增 3 欄</button>
                                 <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text" onclick="promptInsertCols()">新增 N 欄</button>
+                                <div class="h-px bg-gray-200 my-1 mx-2"></div>
+                                <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text" onclick="deleteTrailingEmptyCols()">刪除右空欄</button>
                             </div>
                         </div>
 
@@ -313,6 +315,8 @@
                                 <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text" onclick="insertRowsFromTop(1)">新增 1 列</button>
                                 <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text" onclick="insertRowsFromTop(10)">新增 10 列</button>
                                 <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text" onclick="promptInsertRows()">新增 N 列</button>
+                                <div class="h-px bg-gray-200 my-1 mx-2"></div>
+                                <button class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700 code-text" onclick="deleteTrailingEmptyRows()">刪除下空列</button>
                             </div>
                         </div>
 
@@ -1337,6 +1341,9 @@
             <span id="gameSettingsBankInfo" class="hidden text-gray-600 truncate mt-0.5">
                 ：<span id="gameSettingsBankName"></span>
             </span>
+            <button type="button" onclick="window.GameRecords && GameRecords.open()" title="紀錄備份（連線、問答的成績紀錄）" class="ml-auto flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg text-sm font-bold text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors">
+                <span class="material-symbols-outlined text-[18px]">history</span><span class="hidden sm:inline">紀錄</span>
+            </button>
         </h2>
         
         <div class="flex-1 overflow-y-auto scrollbar-thin pr-1 space-y-4">
@@ -1566,6 +1573,7 @@
 
 	<script src="data.js"></script>
 	<script src="game.js"></script>
+	<script src="records.js"></script>
 	<script src="arena.js"></script>
 	<script src="live.js"></script>
     <script src="script.js"></script>

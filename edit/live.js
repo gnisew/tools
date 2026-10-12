@@ -557,6 +557,23 @@ window.launchLiveMode = function(rawData, configs) {
 		}
 	}
 
+    // 把 QR 視窗移到 <body> 最上層顯示，才能真正置中並蓋住側邊欄與上方列
+    window.openLiveQr = function () {
+        const all = Array.from(document.querySelectorAll('#live-qr-modal'));
+        const inner = all.find(m => m.parentElement !== document.body);
+        const top = all.find(m => m.parentElement === document.body);
+        let target = top;
+        if (inner) {
+            if (top) top.remove();
+            document.body.appendChild(inner);
+            target = inner;
+        }
+        if (target) target.classList.remove('hidden');
+    };
+    window.closeLiveQr = function () {
+        document.querySelectorAll('#live-qr-modal').forEach(m => m.classList.add('hidden'));
+    };
+
     function getLiveQrModalHtml(spaceCode) {
         if (!spaceCode) return '';
         const displayCode = spaceCode.substring(0, 2) + ' ' + spaceCode.substring(2);
@@ -564,16 +581,16 @@ window.launchLiveMode = function(rawData, configs) {
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(joinUrl)}&bgcolor=ffffff&color=0f766e`;
         return `
             <!-- 將 z-[10000] 改為 z-[5000] -->
-            <div id="live-qr-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[5000] hidden flex-col items-center justify-center cursor-pointer transition-opacity overflow-y-auto py-10 px-4" onclick="this.classList.add('hidden')">
-                <div class="bg-white p-6 md:p-8 rounded-[2rem] flex flex-col items-center gap-4 shadow-2xl transform transition-transform hover:scale-105 w-full max-w-sm m-auto cursor-default" onclick="event.stopPropagation()">
+            <div id="live-qr-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[5000] hidden flex flex-col cursor-pointer transition-opacity overflow-y-auto py-6 px-4" onclick="closeLiveQr()">
+                <div class="relative bg-white p-6 md:p-8 rounded-[2rem] flex flex-col items-center gap-4 shadow-2xl w-full max-w-sm m-auto cursor-default" onclick="event.stopPropagation()">
+                    <button class="absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer" onclick="closeLiveQr()" title="關閉"><span class="material-symbols-outlined">close</span></button>
                     <h2 class="text-4xl md:text-5xl font-black text-teal-900 tracking-[0.2em] text-center w-full break-words">${displayCode}</h2>
-                    <div class="bg-white p-2 rounded-xl shadow-inner border-2 border-teal-50 w-full max-w-[250px] aspect-square flex items-center justify-center">
+                    <div class="bg-white p-2 rounded-xl shadow-inner border-2 border-teal-50 aspect-square flex items-center justify-center" style="width:min(250px,32vh);min-width:140px;">
                         <img src="${qrUrl}" alt="QR Code" class="w-full h-full object-contain">
                     </div>
                     <p class="text-teal-700 font-bold text-lg md:text-xl mt-2 flex items-center gap-2 text-center">
                         <span class="material-symbols-outlined flex-shrink-0">qr_code_scanner</span> 掃描以加入問答
                     </p>
-                    <button class="mt-2 bg-teal-50 text-teal-700 px-8 py-3 rounded-full font-bold hover:bg-teal-100 transition-colors w-full cursor-pointer" onclick="document.getElementById('live-qr-modal').classList.add('hidden')">關閉</button>
                 </div>
             </div>
         `;
@@ -581,7 +598,7 @@ window.launchLiveMode = function(rawData, configs) {
 
     function getFloatingReactionHtml() {
         return `
-            <div class="fixed bottom-5 right-5 z-[100] flex flex-col items-center gap-3">
+            <div id="floating-reaction-wrap" style="${window.currentSpaceData && window.currentSpaceData.showEmoji ? '' : 'display:none;'}" class="fixed bottom-5 right-5 z-[100] flex flex-col items-center gap-3">
                 <div id="reaction-picker" class="bg-white/95 backdrop-blur-md border border-gray-200 rounded-full p-1.5 flex flex-col-reverse gap-1 shadow-[0_5px_20px_rgba(0,0,0,0.15)] transform transition-all duration-300 origin-bottom scale-0 opacity-0 pointer-events-none">
                     ${['👍', '❤️', '😂', '😮', '👏', '🎉'].reverse().map(e => `
                         <button class="live-reaction-btn text-3xl hover:scale-125 transition-transform active:scale-90 p-1.5 cursor-pointer" data-emoji="${e}">${e}</button>
@@ -669,6 +686,9 @@ window.launchLiveMode = function(rawData, configs) {
     }
 
     function cleanupLive() {
+        document.querySelectorAll('body > #live-qr-modal').forEach(m => m.remove());
+        // 老師直接關閉也備份已收集的回覆
+        if (sessionStorage.getItem('live_host_code') && currentSpaceCode && getAnsweredQIds().length > 0) saveLiveRecord(currentSpaceCode);
         if (unsubscribeSpace) unsubscribeSpace();
         if (unsubscribePlayers) unsubscribePlayers();
         if (unsubscribeStudentSelf) unsubscribeStudentSelf();
@@ -792,7 +812,7 @@ window.launchLiveMode = function(rawData, configs) {
         // 將 z-[100000] 改為 z-[5000]，讓出空間給語言工具
         modal.className = "fixed inset-0 bg-black/10 backdrop-blur-[2px] z-[5000] flex items-center justify-center p-4 opacity-0 transition-opacity duration-200";
         modal.innerHTML = `
-            <div class="relative bg-white rounded-2xl w-full max-w-lg p-5 shadow-xl transform transition-transform scale-95 origin-center flex flex-col max-h-[85vh] border border-gray-200">
+            <div class="relative bg-white rounded-2xl w-full max-w-lg p-5 shadow-xl transform transition-transform scale-95 origin-center flex flex-col h-[470px] max-h-[85vh] border border-gray-200">
                 <button id="btn-close-modal-icon" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1"><span class="material-symbols-outlined text-[20px]">close</span></button>
                 
                 <div class="flex items-center gap-2 mb-4 flex-shrink-0">
@@ -982,6 +1002,113 @@ window.launchLiveMode = function(rawData, configs) {
         }
     }
 
+    // ----------------------------------------------------
+    // ✨ 暱稱格式檢查（與連線遊戲相同：簡易規則 / 正則表示式）
+    // 儲存於 config.liveSettings.nameRule = { mode, pattern, hint }
+    // ----------------------------------------------------
+    const LIVE_NAME_BODY = {
+        digit: { re: '\\d',                label: '數字',           sample: '1234567890' },
+        zh:    { re: '[\\u4e00-\\u9fa5]',  label: '中文字',         sample: '王小明林陳李張黃吳劉' },
+        alpha: { re: '[A-Za-z]',           label: '英文字母',       sample: 'ABCDEFGHIJ' },
+        alnum: { re: '[A-Za-z0-9]',        label: '英文字母或數字', sample: 'A1B2C3D4E5' },
+        any:   { re: '.',                  label: '任意字元',       sample: 'abcdefghij' }
+    };
+    const escapeRegexText = (str) => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    function buildLiveNameRule() {
+        const val = id => (document.getElementById(id)?.value || '');
+        const mode = val('live-name-rule-mode') || 'none';
+        const customHint = val('live-name-hint').trim();
+
+        if (mode === 'simple') {
+            const prefix = val('live-name-prefix').trim();
+            const body = LIVE_NAME_BODY[val('live-name-body-type')] || LIVE_NAME_BODY.digit;
+            let len = parseInt(val('live-name-body-len'), 10);
+            if (isNaN(len) || len < 0) len = 0;
+            len = Math.min(len, 20);
+            const tail = !!document.getElementById('live-name-allow-tail')?.checked;
+            if (!prefix && len === 0) return { error: '暱稱規則：請輸入「開頭文字」，或設定「後面接幾個字」' };
+
+            let pattern = escapeRegexText(prefix);
+            if (len > 0) pattern += `${body.re}{${len}}`;
+            if (tail) pattern += '.*';
+
+            const example = prefix + body.sample.slice(0, len) + (tail ? '王小明' : '');
+            const autoHint = '暱稱格式：' + [
+                prefix ? `以「${prefix}」開頭` : '',
+                len > 0 ? `後面接 ${len} 個${body.label}` : '',
+                tail ? '後面可再加文字' : ''
+            ].filter(Boolean).join('，') + `（例：${example}）`;
+            return { mode, pattern, hint: customHint || autoHint, autoHint, example };
+        }
+        if (mode === 'regex') {
+            const pattern = val('live-name-regex').trim();
+            if (!pattern) return { error: '暱稱規則：請輸入正則表示式' };
+            try { new RegExp(`^(?:${pattern})$`); }
+            catch (e) { return { error: '暱稱規則的正則表示式語法有誤：' + e.message }; }
+            const autoHint = '暱稱格式不符合規則';
+            return { mode, pattern, hint: customHint || autoHint, autoHint, example: '' };
+        }
+        return { mode: 'none', pattern: '', hint: '', autoHint: '', example: '' };
+    }
+
+    function isLiveNameRuleActive(rule) {
+        return !!(rule && rule.mode && rule.mode !== 'none' && rule.pattern);
+    }
+
+    // 符合回傳 null，不符合回傳提示文字
+    function checkLiveNameRule(name, rule) {
+        if (!isLiveNameRuleActive(rule)) return null;
+        try {
+            if (new RegExp(`^(?:${rule.pattern})$`).test(name)) return null;
+        } catch (e) { return null; }   // 規則本身壞掉時不擋學生
+        return rule.hint || '暱稱格式不符合規則';
+    }
+
+    function bindLiveNameRuleUI() {
+        const modeEl = document.getElementById('live-name-rule-mode');
+        if (!modeEl) return;
+        const refresh = () => {
+            const mode = modeEl.value;
+            document.getElementById('live-name-rule-simple').classList.toggle('hidden', mode !== 'simple');
+            document.getElementById('live-name-rule-regex').classList.toggle('hidden', mode !== 'regex');
+            document.getElementById('live-name-rule-common').classList.toggle('hidden', mode === 'none');
+
+            const rule = buildLiveNameRule();
+            const prev = document.getElementById('live-name-rule-preview');
+            const res = document.getElementById('live-name-test-result');
+            const testVal = document.getElementById('live-name-test').value.trim();
+            if (rule.error) {
+                prev.textContent = rule.error;
+                prev.className = 'font-bold text-red-500';
+                res.textContent = '';
+                return;
+            }
+            prev.className = 'font-mono font-bold text-teal-700';
+            prev.textContent = (rule.pattern || '') + (rule.example ? `　範例：${rule.example}` : '');
+            document.getElementById('live-name-hint').placeholder = rule.autoHint || '';
+            if (!testVal) { res.textContent = ''; return; }
+            const ok = checkLiveNameRule(testVal, rule) === null;
+            res.textContent = ok ? '✓ 符合' : '✗ 不符合';
+            res.className = 'text-sm font-bold shrink-0 w-20 text-right ' + (ok ? 'text-green-600' : 'text-red-500');
+        };
+        ['live-name-rule-mode', 'live-name-prefix', 'live-name-body-len', 'live-name-body-type',
+         'live-name-allow-tail', 'live-name-regex', 'live-name-hint', 'live-name-test'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('input', refresh);
+            el.addEventListener('change', refresh);
+        });
+
+        // 強制匿名時，不需要暱稱規則
+        const anon = document.getElementById('live-force-anonymous');
+        const wrap = document.getElementById('live-name-rule-section');
+        const syncAnon = () => { if (anon && wrap) wrap.classList.toggle('hidden', anon.checked); };
+        anon?.addEventListener('change', syncAnon);
+        syncAnon();
+        refresh();
+    }
+
     function renderHostSettings() {
         liveContainer.innerHTML = `
             <div class="w-full h-full bg-[#f4f4f5] font-sans select-none overflow-y-auto pb-12">
@@ -1019,6 +1146,82 @@ window.launchLiveMode = function(rawData, configs) {
                                     <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-500"></div>
                                 </label>
                             </div>
+                            <div id="live-name-rule-section" class="flex flex-col gap-3">
+                                <hr class="border-gray-100">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex flex-col pr-4">
+                                        <span class="font-bold text-gray-800 text-sm">允許匿名參與</span>
+                                        <span class="text-xs text-gray-500 mt-1">開啟後，學生可以不輸入暱稱直接加入（系統自動命名為「訪客」）；關閉則必須輸入暱稱</span>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                        <input type="checkbox" id="live-allow-anonymous" class="sr-only peer">
+                                        <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-500"></div>
+                                    </label>
+                                </div>
+                                <hr class="border-gray-100">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex flex-col pr-4">
+                                        <span class="font-bold text-gray-800 text-sm">暱稱字數限制</span>
+                                    </div>
+                                    <select id="live-name-limit" class="bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-teal-400 font-bold text-gray-800 shrink-0 cursor-pointer">
+                                        <option value="5">5 字</option>
+                                        <option value="8">8 字</option>
+                                        <option value="10" selected>10 字 (預設)</option>
+                                        <option value="15">15 字</option>
+                                        <option value="20">20 字</option>
+                                    </select>
+                                </div>
+                                <hr class="border-gray-100">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex flex-col pr-4">
+                                        <span class="font-bold text-gray-800 text-sm">暱稱格式檢查</span>
+                                        <span class="text-xs text-gray-500 mt-1">限制學生只能輸入符合規則的暱稱（例：座號 40112），用來確認身分</span>
+                                    </div>
+                                    <select id="live-name-rule-mode" class="bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-teal-400 font-bold text-gray-800 shrink-0 cursor-pointer">
+                                        <option value="none" selected>不檢查</option>
+                                        <option value="simple">簡易規則</option>
+                                        <option value="regex">正則表示式</option>
+                                    </select>
+                                </div>
+
+                                <div id="live-name-rule-simple" class="hidden bg-gray-50 border border-gray-200 rounded-xl p-4 flex flex-col gap-3">
+                                    <div class="flex flex-wrap items-center gap-2 text-sm font-bold text-gray-700">
+                                        <span>開頭是</span>
+                                        <input id="live-name-prefix" type="text" maxlength="10" placeholder="401" class="w-24 bg-white border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:border-teal-400 text-gray-800 text-center">
+                                        <span>後面接</span>
+                                        <input id="live-name-body-len" type="number" min="0" max="20" value="2" class="w-16 bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none focus:border-teal-400 text-gray-800 text-center">
+                                        <span>個</span>
+                                        <select id="live-name-body-type" class="bg-white border border-gray-300 rounded-lg px-2 py-1.5 outline-none focus:border-teal-400 text-gray-800 cursor-pointer">
+                                            <option value="digit">數字</option>
+                                            <option value="zh">中文字</option>
+                                            <option value="alpha">英文字母</option>
+                                            <option value="alnum">英文字母或數字</option>
+                                            <option value="any">任意字元</option>
+                                        </select>
+                                    </div>
+                                    <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                                        <input type="checkbox" id="live-name-allow-tail" class="accent-teal-600">
+                                        後面還可以再加其他文字（例：40112王小明）
+                                    </label>
+                                </div>
+
+                                <div id="live-name-rule-regex" class="hidden bg-gray-50 border border-gray-200 rounded-xl p-4 flex flex-col gap-2">
+                                    <input id="live-name-regex" type="text" placeholder="例：401\\d{2}" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-teal-400 text-gray-800 font-mono">
+                                    <p class="text-xs text-gray-500 leading-relaxed">會自動「完整比對」整個暱稱，不必寫 ^ 與 $。常用：\\d 數字、[\\u4e00-\\u9fa5] 中文字、[A-Za-z] 英文字母、{2} 重複 2 次、| 表示「或」。</p>
+                                </div>
+
+                                <div id="live-name-rule-common" class="hidden bg-gray-50 border border-gray-200 rounded-xl p-4 flex flex-col gap-3">
+                                    <div class="text-xs text-gray-500">規則預覽：<span id="live-name-rule-preview" class="font-mono font-bold text-teal-700"></span></div>
+                                    <div class="flex flex-col gap-1">
+                                        <span class="text-xs font-bold text-gray-500">給學生的格式提示（留空則自動產生）</span>
+                                        <input id="live-name-hint" type="text" maxlength="60" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-teal-400 text-gray-800 text-sm">
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <input id="live-name-test" type="text" placeholder="輸入一個暱稱試試看" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 outline-none focus:border-teal-400 text-gray-800 text-sm">
+                                        <span id="live-name-test-result" class="text-sm font-bold shrink-0 w-20 text-right"></span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1026,12 +1229,17 @@ window.launchLiveMode = function(rawData, configs) {
         `;
 
         document.getElementById('btn-back-to-editor').addEventListener('click', cleanupLive);
+        bindLiveNameRuleUI();
         
         document.getElementById('btn-create-live-space').addEventListener('click', async () => {
             const forceAnonymous = document.getElementById('live-force-anonymous').checked;
+            const allowAnonymous = !!document.getElementById('live-allow-anonymous')?.checked;
+            const nameLimit = parseInt(document.getElementById('live-name-limit')?.value, 10) || 10;
+            const nameRule = forceAnonymous ? { mode: 'none', pattern: '', hint: '' } : buildLiveNameRule();
+            if (nameRule.error) { if (typeof showToast === 'function') showToast('⚠️ ' + nameRule.error); return; }
             if (typeof showToast === 'function') showToast('⏳ 正在建立問答空間...');
             
-            const finalConfigs = { ...configs, liveSettings: { forceAnonymous } };
+            const finalConfigs = { ...configs, liveSettings: { forceAnonymous, allowAnonymous, nameLimit, nameRule: { mode: nameRule.mode, pattern: nameRule.pattern, hint: nameRule.hint } } };
             const spaceCode = await window.createArenaSpace(finalConfigs); 
             if (spaceCode) {
                 currentSpaceCode = spaceCode; 
@@ -1691,6 +1899,7 @@ window.launchLiveMode = function(rawData, configs) {
 
 								<button class="p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 rounded-lg cursor-pointer transition-colors" title="新增文字" onclick="window.addTeacherText()"><span class="material-symbols-outlined text-[20px] block">title</span></button>
 								<button class="p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 rounded-lg cursor-pointer transition-colors" title="新增老師便利貼" onclick="window.addTeacherNote()"><span class="material-symbols-outlined text-[20px] block">add_box</span></button>
+								<button class="p-2 text-gray-500 hover:bg-teal-50 hover:text-teal-700 rounded-lg cursor-pointer transition-colors" title="指定可編輯的學生" onclick="window.openBoardEditorsModal()"><span class="material-symbols-outlined text-[20px] block">manage_accounts</span></button>
 								<button class="p-2 text-gray-500 hover:bg-rose-50 hover:text-rose-600 rounded-lg cursor-pointer transition-colors" title="清空畫布" onclick="window.clearBoardNotes()"><span class="material-symbols-outlined text-[20px] block">delete_sweep</span></button>
 							</div>
 
@@ -3291,8 +3500,8 @@ window.launchLiveMode = function(rawData, configs) {
             allNotes.forEach((note, index) => {
                 let noteEl = document.getElementById('note-' + note.id);
                 const mod = boardMods[note.id] || {};
-                const startX = mod.x !== undefined ? mod.x : 100 + ((index % 6) * 160);
-                const startY = mod.y !== undefined ? mod.y : 100 + (Math.floor(index / 6) * 160);
+                const startX = mod.x !== undefined ? mod.x : (note.x !== undefined ? note.x : 100 + ((index % 6) * 160));
+                const startY = mod.y !== undefined ? mod.y : (note.y !== undefined ? note.y : 100 + (Math.floor(index / 6) * 160));
 
                 if (!noteEl) {
                     noteEl = document.createElement('div');
@@ -3522,7 +3731,7 @@ window.launchLiveMode = function(rawData, configs) {
                             <span class="text-6xl font-black text-teal-900 tracking-widest drop-shadow-sm pointer-events-none">${displayCode}</span>
                         </div>
                         <div class="p-2 bg-white border-t sm:border-t-0 sm:border-l border-gray-100 flex items-center justify-center w-full sm:w-auto">
-                            <span class="material-symbols-outlined text-4xl text-teal-600 px-5 cursor-pointer hover:scale-110 transition-transform" onclick="document.getElementById('live-qr-modal').classList.remove('hidden')">qr_code_2</span>
+                            <span class="material-symbols-outlined text-4xl text-teal-600 px-5 cursor-pointer hover:scale-110 transition-transform" onclick="openLiveQr()">qr_code_2</span>
                         </div>
                     </div>
                 </div>
@@ -3542,7 +3751,9 @@ window.launchLiveMode = function(rawData, configs) {
             </div>
         `;
 
-        document.getElementById('btn-back-home').addEventListener('click', cleanupLive);
+        document.getElementById('btn-back-home').addEventListener('click', () => {
+            showCustomConfirm("結束問答", "確定要結束並關閉這場問答嗎？", "確定關閉", "bg-rose-500 hover:bg-rose-600", cleanupLive);
+        });
 
         document.getElementById('btn-copy-live-link').addEventListener('click', (e) => {
             if (e.target.tagName === 'SPAN' && e.target.textContent === 'qr_code_2') return;
@@ -3603,6 +3814,9 @@ window.launchLiveMode = function(rawData, configs) {
 
         const displayCode = spaceCode.substring(0, 2) + ' ' + spaceCode.substring(2);
         let isResultsHidden = false; 
+        if (window.currentSpaceData && window.currentSpaceData[`results_hidden_${qData.id}`]) {
+            db.collection(window.SPACES_COLLECTION).doc(spaceCode).update({ [`results_hidden_${qData.id}`]: false }).catch(() => {});
+        }
 
         liveContainer.innerHTML = getLiveQrModalHtml(spaceCode) + `
             <div class="w-full h-full flex bg-[#f8f9fa] font-sans select-none overflow-hidden relative">
@@ -3637,7 +3851,7 @@ window.launchLiveMode = function(rawData, configs) {
                             </button>
                             
                             <div class="flex items-stretch bg-gray-50 border border-gray-200 rounded-md transition hover:bg-gray-100">
-                                <div class="text-gray-700 font-bold text-xs sm:text-sm flex items-center gap-1 px-1.5 sm:px-2 py-1 cursor-pointer border-r border-gray-200" onclick="document.getElementById('live-qr-modal')?.classList.remove('hidden')" title="顯示 QR Code">
+                                <div class="text-gray-700 font-bold text-xs sm:text-sm flex items-center gap-1 px-1.5 sm:px-2 py-1 cursor-pointer border-r border-gray-200" onclick="openLiveQr()" title="顯示 QR Code">
                                     <span class="hidden sm:inline text-gray-500">代碼:</span>
                                     <span class="text-[14px] sm:text-lg tracking-widest font-black text-teal-700">${displayCode}</span>
                                 </div>
@@ -3677,7 +3891,7 @@ window.launchLiveMode = function(rawData, configs) {
                         ${currentQIndex >= 0 ? `
                         <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">                        
 
-                            <button id="btn-toggle-pause" class="bg-gray-50 hover:bg-amber-50 text-gray-600 hover:text-amber-700 p-1.5 sm:px-3 sm:py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 border border-gray-200 hover:border-amber-200" onclick="window.toggleLivePause()" title="暫停/開放">
+                            <button id="btn-toggle-pause" title="暫停收件（含暫停學生貼上、移動、編輯便利貼）" class="bg-gray-50 hover:bg-amber-50 text-gray-600 hover:text-amber-700 p-1.5 sm:px-3 sm:py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 border border-gray-200 hover:border-amber-200" onclick="window.toggleLivePause()" title="暫停/開放">
                                 <span class="material-symbols-outlined text-[18px]">pause</span> <span class="hidden lg:inline text-sm font-bold">暫停收件</span>
                             </button>
                             <button id="btn-toggle-results" class="bg-gray-50 hover:bg-indigo-50 text-gray-600 hover:text-indigo-700 p-1.5 sm:px-3 sm:py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 border border-gray-200 hover:border-indigo-200" title="隱藏/顯示結果">
@@ -3707,7 +3921,7 @@ window.launchLiveMode = function(rawData, configs) {
                             
                             <div class="flex-1 overflow-y-auto scrollbar-thin flex flex-col">
                                 <div class="p-4 bg-gray-50/50 flex-shrink-0">
-                                    <span class="text-xs font-extrabold text-teal-800 mb-3 flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">text_fields</span> 顯示設定 (僅限本機)</span>
+                                    <span class="text-xs font-extrabold text-teal-800 mb-3 flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">text_fields</span> 顯示設定 </span>
                                     
                                     <div class="flex items-center justify-between mb-2.5">
                                         <span class="text-[11px] font-bold text-gray-500">題目大小</span>
@@ -3730,19 +3944,30 @@ window.launchLiveMode = function(rawData, configs) {
                                     </div>
                                 </div>
 
+
+                                <div class="p-4 border-t border-gray-200 bg-white flex-shrink-0">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-bold text-gray-600">學生端表情按鈕</span>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" id="live-show-emoji" class="sr-only peer" ${window.currentSpaceData && window.currentSpaceData.showEmoji ? 'checked' : ''}>
+                                            <div class="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
+                                        </label>
+                                    </div>
+                                </div>
+
                                 ${['文字', '問答', '白板'].includes(qData.type) ? `
                                 <div class="p-4 border-t border-gray-200 bg-white flex-shrink-0">
                                     <span class="text-xs font-extrabold text-teal-800 mb-3 flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">rule</span> 參與規則 (針對此題)</span>
                                     
                                     <div>
-                                        <span class="text-[11px] font-bold text-gray-400 mb-1.5 block">每人次數上限</span>
+                                        <span class="text-xs font-bold text-gray-600 mb-1.5 block">每人次數上限</span>
                                         <div class="flex gap-1" id="live-limit-btns">
                                             ${[1, 2, 3, 0].map(v => `<button class="flex-1 py-1.5 rounded text-xs font-bold border transition-colors ${parseQuestionLimit(qData)===v ? 'bg-teal-50 border-teal-500 text-teal-700 active-limit' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}" data-val="${v}">${v===0?'不限':v}</button>`).join('')}
                                         </div>
                                     </div>
                                     ${qData.type === '文字' ? `
                                     <div class="flex items-center justify-between pt-3 mt-2 border-t border-gray-100">
-                                        <span class="text-[11px] font-bold text-gray-400">允許重複詞</span>
+                                        <span class="text-xs font-bold text-gray-600">允許重複詞</span>
                                         <label class="relative inline-flex items-center cursor-pointer">
                                             <input type="checkbox" id="live-allow-dup" class="sr-only peer" ${qData.options && qData.options[1] === 'true' ? 'checked' : ''}>
                                             <div class="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
@@ -3752,7 +3977,19 @@ window.launchLiveMode = function(rawData, configs) {
                                     ${qData.type === '白板' ? `
                                     <div class="flex flex-col gap-3 pt-3 mt-2 border-t border-gray-100">
                                         <div class="flex items-center justify-between pt-1">
-                                            <span class="text-[11px] font-bold text-gray-400">顯示便利貼作者</span>
+                                            <span class="text-xs font-bold text-gray-600">畫布顯示給學生</span>
+                                            <label class="relative inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" id="live-show-canvas" class="sr-only peer" ${(!qData.options || qData.options[8] !== 'false') ? 'checked' : ''}>
+                                                <div class="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
+                                            </label>
+                                        </div>
+                                        <div class="flex items-center justify-between pt-1">
+                                            <span class="text-xs font-bold text-gray-600">學生編輯自己的便利貼</span>
+                                            <button type="button" onclick="window.openBoardEditorsModal()" class="bg-gray-50 border border-gray-200 text-teal-700 text-[11px] font-bold rounded px-2 py-1 hover:bg-teal-50">指定學生…</button>
+                                        </div>
+                                        <p class="text-xs text-gray-600 leading-snug -mt-1">按「暫停收件」會同時暫停學生貼上、移動與編輯。</p>
+                                        <div class="flex items-center justify-between pt-1">
+                                            <span class="text-xs font-bold text-gray-600">便利貼作者</span>
                                             <select id="live-show-author" class="bg-gray-50 border border-gray-200 text-gray-700 text-[11px] rounded px-2 py-1 outline-none focus:border-teal-400">
                                                 <option value="none" ${(!qData.options || qData.options[2] === 'none' || qData.options[2] === 'false') ? 'selected' : ''}>不顯示 (預設)</option>
                                                 <option value="hover" ${qData.options && qData.options[2] === 'hover' ? 'selected' : ''}>選取顯示</option>
@@ -3760,21 +3997,21 @@ window.launchLiveMode = function(rawData, configs) {
                                             </select>
                                         </div>
                                         <div class="flex items-center justify-between pt-1">
-                                            <span class="text-[11px] font-bold text-gray-400">顯示便利貼工具</span>
+                                            <span class="text-xs font-bold text-gray-600">便利貼工具</span>
                                             <label class="relative inline-flex items-center cursor-pointer">
                                                 <input type="checkbox" id="live-show-toolbar" class="sr-only peer" ${qData.options && qData.options[3] === 'true' ? 'checked' : ''}>
                                                 <div class="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
                                             </label>
                                         </div>
                                         <div class="flex items-center justify-between pt-1">
-                                            <span class="text-[11px] font-bold text-gray-400">雙擊便利貼動作</span>
+                                            <span class="text-xs font-bold text-gray-600">便利貼點兩下</span>
                                             <select id="live-dblclick-action" class="bg-gray-50 border border-gray-200 text-gray-700 text-[11px] rounded px-2 py-1 outline-none focus:border-teal-400">
                                                 <option value="edit" ${(!qData.options || qData.options[4] !== 'stick') ? 'selected' : ''}>編輯內容 (預設)</option>
                                                 <option value="stick" ${qData.options && qData.options[4] === 'stick' ? 'selected' : ''}>隨游標黏貼</option>
                                             </select>
                                         </div>
                                         <div class="flex items-center justify-between pt-1">
-                                            <span class="text-[11px] font-bold text-gray-400">便利貼尺寸模式</span>
+                                            <span class="text-xs font-bold text-gray-600">便利貼尺寸</span>
                                             <select id="live-size-mode" class="bg-gray-50 border border-gray-200 text-gray-700 text-[11px] rounded px-2 py-1 outline-none focus:border-teal-400">
                                                 <option value="fixed" ${(!qData.options || qData.options[5] === 'fixed') ? 'selected' : ''}>固定尺寸 (140x140)</option>
                                                 <option value="auto" ${qData.options && qData.options[5] === 'auto' ? 'selected' : ''}>自動貼合 (緊湊)</option>
@@ -3782,7 +4019,7 @@ window.launchLiveMode = function(rawData, configs) {
                                             </select>
                                         </div>
                                         <div class="flex items-center justify-between pt-1">
-                                            <span class="text-[11px] font-bold text-gray-400">畫布背景</span>
+                                            <span class="text-xs font-bold text-gray-600">畫布背景</span>
                                             <select id="live-board-bg" class="bg-gray-50 border border-gray-200 text-gray-700 text-[11px] rounded px-2 py-1 outline-none focus:border-teal-400">
                                                 <option value="dots" ${(!qData.options || qData.options[6] === 'dots' || !['solid', 'grid'].includes(qData.options[6])) ? 'selected' : ''}>點狀網格 (預設)</option>
                                                 <option value="grid" ${qData.options && qData.options[6] === 'grid' ? 'selected' : ''}>線條網格 (Miro風)</option>
@@ -3791,7 +4028,7 @@ window.launchLiveMode = function(rawData, configs) {
                                         </div>
                                         <!-- ✨ 新增：貼齊格線選項 -->
                                         <div class="flex items-center justify-between pt-1">
-                                            <span class="text-[11px] font-bold text-gray-400">貼齊格線 (Snap to Grid)</span>
+                                            <span class="text-xs font-bold text-gray-600">貼齊格線 (Snap to Grid)</span>
                                             <label class="relative inline-flex items-center cursor-pointer">
                                                 <input type="checkbox" id="live-snap-grid" class="sr-only peer" ${qData.options && qData.options[7] === 'true' ? 'checked' : ''}>
                                                 <div class="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
@@ -3951,6 +4188,7 @@ window.launchLiveMode = function(rawData, configs) {
         if (btnToggleResults) {
             btnToggleResults.addEventListener('click', () => {
                 isResultsHidden = !isResultsHidden;
+                if (qData && qData.id) db.collection(window.SPACES_COLLECTION).doc(spaceCode).update({ [`results_hidden_${qData.id}`]: isResultsHidden }).catch(() => {});
                 if (isResultsHidden) {
                     btnToggleResults.innerHTML = '<span class="material-symbols-outlined text-[16px]">visibility</span> <span class="hidden xl:inline">顯示結果</span>';
                     btnToggleResults.classList.replace('bg-gray-50', 'bg-indigo-50');
@@ -4057,7 +4295,8 @@ window.launchLiveMode = function(rawData, configs) {
                 // 🌟 新增抓取「貼齊格線」狀態
                 const snapGrid = settingsMenu.querySelector('#live-snap-grid') ? (settingsMenu.querySelector('#live-snap-grid').checked ? 'true' : 'false') : (qData.options?.[7] || 'false');
 
-                const newOptions = [newLimit, allowDup, showAuthor, showToolbar, dblClickAction, sizeMode, bgMode, snapGrid];
+                const showCanvas = settingsMenu.querySelector('#live-show-canvas') ? (settingsMenu.querySelector('#live-show-canvas').checked ? 'true' : 'false') : (qData.options?.[8] || 'true');
+                const newOptions = [newLimit, allowDup, showAuthor, showToolbar, dblClickAction, sizeMode, bgMode, snapGrid, showCanvas];
                 
                 // 1. 更新本機變數
                 qData.options = newOptions;
@@ -4100,7 +4339,12 @@ window.launchLiveMode = function(rawData, configs) {
             document.getElementById('live-size-mode')?.addEventListener('change', updateSettings);
 			document.getElementById('live-board-bg')?.addEventListener('change', updateSettings);
             document.getElementById('live-snap-grid')?.addEventListener('change', updateSettings);
+            document.getElementById('live-show-canvas')?.addEventListener('change', updateSettings);
         }
+
+        document.getElementById('live-show-emoji')?.addEventListener('change', async (e) => {
+            try { await db.collection(window.SPACES_COLLECTION).doc(spaceCode).update({ showEmoji: e.target.checked }); showToast(e.target.checked ? '✅ 已顯示表情按鈕' : '✅ 已隱藏表情按鈕'); } catch (err) { showToast('⚠️ 設定失敗'); }
+        });
 
         // 初始化套用文字大小
         window.applyLiveDisplayPrefs();
@@ -4139,7 +4383,8 @@ window.launchLiveMode = function(rawData, configs) {
                     focusedQ: null, 
                     archivedQs: [], 
                     visitedQs: firebase.firestore.FieldValue.arrayRemove(qId),
-                    [`board_mods_${qId}`]: firebase.firestore.FieldValue.delete()
+                    [`board_mods_${qId}`]: firebase.firestore.FieldValue.delete(),
+                    [`board_editors_${qId}`]: firebase.firestore.FieldValue.delete()
                 }); 
                 
                 if (qData.type === '白板') {
@@ -4167,7 +4412,72 @@ window.launchLiveMode = function(rawData, configs) {
         if (currentQIndex >= 0) updateTeacherCharts();
     }
 
+    // 💾 互動問答：整理成可備份的表格
+    function buildLiveRecordTables() {
+        const qs = liveData.filter(q => q.type !== '公告');
+        const optText = (q, i) => (q.options && q.options[i] !== undefined) ? q.options[i] : String(i);
+        const cellOf = (p, q) => {
+            const id = q.id, ans = p[`ans_${id}`];
+            switch (q.type) {
+                case '單選': return ans === undefined ? '' : optText(q, ans);
+                case '多選': return Array.isArray(ans) ? ans.map(i => optText(q, i)).join('、') : '';
+                case '排序': return Array.isArray(ans) ? ans.map(i => optText(q, i)).join(' > ') : '';
+                case '評分': return ans === undefined ? '' : ans;
+                case '文字': {
+                    const t = p[`text_${id}`];
+                    return Array.isArray(t) ? t.filter(Boolean).join(' / ') : (t || '');
+                }
+                case '問答': return (p[`qa_${id}`] || []).map(x => x.text).join(' / ');
+                case '白板': return (p[`board_${id}`] || []).map(x => x.text).join(' / ');
+                default: return '';
+            }
+        };
+        const header = ['暱稱', ...qs.map((q, i) => `第${i + 1}題(${q.type}) ${q.question}`)];
+        const detail = [header, ...globalPlayers.map(p => [p.name || '', ...qs.map(q => cellOf(p, q))])];
+
+        const stat = [['題號', '題型', '題目', '回覆人數', '結果摘要']];
+        qs.forEach((q, i) => {
+            const cells = globalPlayers.map(p => cellOf(p, q)).filter(v => v !== '' && v !== undefined);
+            let summary = '';
+            if (q.type === '單選' || q.type === '多選') {
+                const counts = new Array(q.options.length).fill(0);
+                globalPlayers.forEach(p => {
+                    const a = p[`ans_${q.id}`];
+                    (Array.isArray(a) ? a : (a === undefined ? [] : [a])).forEach(k => { if (counts[k] !== undefined) counts[k]++; });
+                });
+                summary = q.options.map((o, k) => `${o}：${counts[k]}`).join('；');
+            } else if (q.type === '評分') {
+                const nums = cells.map(Number).filter(n => !isNaN(n));
+                summary = nums.length ? `平均 ${(nums.reduce((s, n) => s + n, 0) / nums.length).toFixed(2)}` : '';
+            } else if (q.type === '排序') {
+                const N = q.options.length, sc = new Array(N).fill(0);
+                globalPlayers.forEach(p => {
+                    const r = p[`ans_${q.id}`];
+                    if (Array.isArray(r) && r.length === N) r.forEach((k, pos) => { sc[k] += N - pos; });
+                });
+                summary = q.options.map((o, k) => `${o}：${sc[k]}分`).join('；');
+            }
+            stat.push([i + 1, q.type, q.question, cells.length, summary]);
+        });
+        return [{ label: '回覆明細', rows: detail }, { label: '題目統計', rows: stat }];
+    }
+
+    function saveLiveRecord(spaceCode) {
+        try {
+            if (!window.GameRecords || !spaceCode || globalPlayers.length === 0) return;
+            window.GameRecords.save({
+                type: 'live',
+                title: (window.currentLoadedBank && window.currentLoadedBank.name) || '自訂問答',
+                spaceCode: spaceCode,
+                playerCount: globalPlayers.length,
+                qCount: liveData.filter(q => q.type !== '公告').length,
+                tables: buildLiveRecordTables()
+            });
+        } catch (err) { console.warn('紀錄備份失敗', err); }
+    }
+
     function renderTeacherSummaryScreen(spaceCode) {
+        saveLiveRecord(spaceCode);
         liveContainer.innerHTML = `
             <div class="w-full h-full flex flex-col bg-teal-900 relative font-sans overflow-y-auto select-none pb-10">
                 <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: radial-gradient(circle at 20px 20px, white 2%, transparent 0%), radial-gradient(circle at 100px 100px, white 2%, transparent 0%); background-size: 120px 120px;"></div>
@@ -4198,7 +4508,9 @@ window.launchLiveMode = function(rawData, configs) {
             </div>
         `;
 
-        document.getElementById('btn-close-summary').addEventListener('click', cleanupLive);
+        document.getElementById('btn-close-summary').addEventListener('click', () => {
+            showCustomConfirm("關閉報告", "確定要關閉嗎？", "確定關閉", "bg-rose-500 hover:bg-rose-600", cleanupLive);
+        });
     }
 
     // ----------------------------------------------------
@@ -4214,13 +4526,13 @@ window.launchLiveMode = function(rawData, configs) {
                 <div class="w-full mb-6 bg-teal-50 p-4 rounded-xl border border-teal-200 flex flex-col items-center justify-center gap-2 shadow-sm">
                     <span class="material-symbols-outlined text-teal-600 text-3xl">visibility_off</span>
                     <span class="text-teal-800 font-bold text-lg">此空間為強制匿名參與</span>
-                    <span class="text-teal-600 text-sm">老師將無法看見你的真實身分</span>
+                    <span class="text-teal-600 text-sm">主持人將無法看見你的真實身分</span>
                     <input type="hidden" id="input-player-name" value="">
                 </div>
             `
             : `
                 <div class="w-full mb-6">
-                    <label class="block text-sm font-bold text-gray-500 mb-1 pl-2">你的暱稱 (選填)</label>
+                    <label id="live-name-label" class="block text-sm font-bold text-gray-500 mb-1 pl-2">你的暱稱 (選填)</label>
                     <div class="relative flex items-center bg-gray-50 border-2 border-gray-200 rounded-xl p-1 focus-within:border-teal-400 transition-colors">
                         <button class="ime-toggle-button text-gray-400 p-2 rounded-full cursor-pointer flex-shrink-0 transition-all" title="切換烏衣行輸入法">
                             <span class="material-symbols-outlined text-[24px] transition-all" style="font-variation-settings: 'FILL' 0;">keyboard</span>
@@ -4240,7 +4552,8 @@ window.launchLiveMode = function(rawData, configs) {
                             <label class="block text-sm font-bold text-gray-500 mb-1 pl-2">空間代碼 PIN</label>
                             <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" id="input-space-code" value="${prefillCode}" class="w-full bg-gray-50 border-2 border-gray-200 rounded-xl px-5 py-4 text-center text-3xl font-black text-teal-900 focus:border-teal-400 outline-none transition-colors tracking-widest" placeholder="輸入 5 碼代碼" ${prefillCode ? 'readonly' : ''}>
                         </div>
-                        ${nameInputHtml}
+                        <div id="live-name-wrap">${nameInputHtml}</div>
+                        <p id="live-name-rule-hint" class="hidden -mt-3 mb-5 text-xs md:text-sm text-teal-700 font-bold text-center px-2"></p>
                         <button id="btn-submit-join" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xl py-4 rounded-xl shadow-md transition-transform hover:-translate-y-1 cursor-pointer mb-8">進入問答！</button>
                         <div class="w-full">
                             <label class="block text-sm font-bold text-gray-500 mb-3 text-center">選擇你的代表圖示</label>
@@ -4254,6 +4567,56 @@ window.launchLiveMode = function(rawData, configs) {
         `;
 
         bindImeToggles();
+
+        // ✨ 輸入代碼後，讀取老師的設定：暱稱格式提示、強制匿名
+        let liveRuleCache = null, liveAnonCache = false, liveHintFor = '', liveLimitCache = 20, liveAllowAnonCache = true;
+        const joinCodeEl = document.getElementById('input-space-code');
+        const joinNameEl = () => document.getElementById('input-player-name');
+        const joinHintEl = document.getElementById('live-name-rule-hint');
+        const paintJoinName = () => {
+            const el = joinNameEl(); if (!el || el.type === 'hidden') return;
+            const v = el.value.trim();
+            const wrapper = el.closest('.relative') || el;
+            wrapper.style.borderColor = (v && checkLiveNameRule(v, liveRuleCache) !== null) ? '#f87171' : '';
+        };
+        const applyJoinSettings = () => {
+            const wrap = document.getElementById('live-name-wrap');
+            const label = document.getElementById('live-name-label');
+            const active = isLiveNameRuleActive(liveRuleCache);
+            if (wrap && !forceAnonymous) wrap.classList.toggle('hidden', liveAnonCache);
+            const nmEl = joinNameEl();
+            const required = active || !liveAllowAnonCache;
+            if (nmEl && nmEl.type !== 'hidden') { nmEl.maxLength = liveLimitCache; nmEl.placeholder = required ? '輸入暱稱' : '匿名參與'; }
+            if (label) label.textContent = required ? '你的暱稱 (必填)' : '你的暱稱 (選填)';
+            if (joinHintEl) {
+                if (liveAnonCache) {
+                    joinHintEl.textContent = '👤 此空間為強制匿名參與，無須輸入暱稱';
+                    joinHintEl.classList.remove('hidden');
+                } else if (active) {
+                    joinHintEl.textContent = '📝 ' + (liveRuleCache.hint || '暱稱格式不符合規則');
+                    joinHintEl.classList.remove('hidden');
+                } else joinHintEl.classList.add('hidden');
+            }
+            paintJoinName();
+        };
+        const refreshJoinSettings = async () => {
+            const code = joinCodeEl.value.trim();
+            if (code.length !== 5) { liveRuleCache = null; liveAnonCache = false; liveLimitCache = 20; liveAllowAnonCache = true; liveHintFor = ''; applyJoinSettings(); return; }
+            if (liveHintFor === code) return;
+            liveHintFor = code;
+            try {
+                const d = await db.collection(window.SPACES_COLLECTION).doc(code).get();
+                const ls = (d.exists && d.data().config && d.data().config.liveSettings) || {};
+                liveAnonCache = !!ls.forceAnonymous;
+                liveLimitCache = ls.nameLimit || 20;
+                liveAllowAnonCache = ls.allowAnonymous !== false;   // 舊空間沒有這項設定 → 維持允許
+                liveRuleCache = isLiveNameRuleActive(ls.nameRule) ? ls.nameRule : null;
+            } catch (e) { liveRuleCache = null; liveAnonCache = false; liveLimitCache = 20; liveAllowAnonCache = true; }
+            applyJoinSettings();
+        };
+        joinCodeEl.addEventListener('input', refreshJoinSettings);
+        document.getElementById('live-name-wrap').addEventListener('input', paintJoinName);
+        refreshJoinSettings();
 
         document.getElementById('emoji-selector').addEventListener('click', (e) => {
             const btn = e.target.closest('.emoji-btn');
@@ -4272,6 +4635,7 @@ window.launchLiveMode = function(rawData, configs) {
             else if (!name) name = `訪客_${Math.floor(1000 + Math.random() * 9000)}`;
 
             if (code.length !== 5) return showToast('⚠️ 格式錯誤');
+            let isAnon = forceAnonymous;
             
             const btn = document.getElementById('btn-submit-join');
             btn.textContent = "連線中..."; btn.disabled = true;
@@ -4282,13 +4646,34 @@ window.launchLiveMode = function(rawData, configs) {
                 if (!doc.exists) throw "NOT_FOUND";
                 if (doc.data().status === 'finished') throw "FINISHED";
 
+                // ✨ 以資料庫中老師的設定為準：強制匿名 / 暱稱格式檢查
+                const ls = (doc.data().config && doc.data().config.liveSettings) || {};
+                if (ls.forceAnonymous && !isAnon) { isAnon = true; name = `匿名_${Math.floor(1000 + Math.random() * 9000)}`; }
+                if (!isAnon && ls.allowAnonymous === false && !(nameField && nameField.value.trim())) {
+                    btn.textContent = "進入問答！"; btn.disabled = false;
+                    return showToast('⚠️ 請輸入暱稱');
+                }
+                const lim = ls.nameLimit || 20;
+                if (!isAnon && nameField && nameField.value.trim() && name.length > lim) {
+                    btn.textContent = "進入問答！"; btn.disabled = false;
+                    return showToast(`⚠️ 暱稱不能超過 ${lim} 個字`);
+                }
+                if (!isAnon && isLiveNameRuleActive(ls.nameRule)) {
+                    const typed = nameField ? nameField.value.trim() : '';
+                    const ruleMsg = typed ? checkLiveNameRule(typed, ls.nameRule) : (ls.nameRule.hint || '請依規定的格式輸入暱稱');
+                    if (ruleMsg) {
+                        btn.textContent = "進入問答！"; btn.disabled = false;
+                        return showToast(`⚠️ ${ruleMsg}`);
+                    }
+                }
+
                 // ✨ 檢查名稱是否已被其他人使用
                 const playerRef = spaceRef.collection("players").doc(name);
                 const playerDoc = await playerRef.get();
                 
                 if (playerDoc.exists) {
                     // 如果是系統自動產生的亂數剛好重複，再疊加亂數
-                    if (forceAnonymous || (nameField && !nameField.value.trim())) {
+                    if (isAnon || (nameField && !nameField.value.trim())) {
                         name = name + "_" + Math.floor(Math.random() * 100);
                     } else {
                         // 如果是用戶自己手動打的名字，擋下來並丟出錯誤
@@ -4327,7 +4712,7 @@ window.launchLiveMode = function(rawData, configs) {
                 if (!doc.exists) { 
                     // ✨ 老師踢人或空間關閉時，強制刪除瀏覽器通行證
                     sessionStorage.removeItem(`live_session_${spaceCode}`);
-                    showToast('🚷 你已被老師移除'); 
+                    showToast('🚷 你已被移除'); 
                     cleanupLive(); 
                 }
                 else {
@@ -4352,6 +4737,8 @@ window.launchLiveMode = function(rawData, configs) {
             if (!doc.exists) return;
             const data = doc.data();
             window.currentSpaceData = data;
+            const reactWrap = document.getElementById('floating-reaction-wrap');
+            if (reactWrap) reactWrap.style.display = data.showEmoji ? '' : 'none';
             
             window.arenaIsPaused = data.isPaused || false;
             const pauseOverlay = document.getElementById('student-pause-overlay');
@@ -4415,7 +4802,7 @@ window.launchLiveMode = function(rawData, configs) {
             <div class="w-full h-full bg-[#f3f4f6] font-sans select-none overflow-y-auto pb-6 relative flex flex-col">
                 <div class="min-h-full flex flex-col items-center justify-center p-4 text-center">
                     <div class="text-[5rem] mb-6 animate-periodic-wiggle inline-block origin-bottom">${randomEmoji}</div>
-                    <h2 class="text-3xl md:text-4xl font-extrabold text-gray-700 mb-4 drop-shadow-sm">老師正在準備中...</h2>
+                    <h2 class="text-3xl md:text-4xl font-extrabold text-gray-700 mb-4 drop-shadow-sm">主持人準備中...</h2>
                     <p class="text-lg md:text-xl text-gray-500 font-bold mb-12">請留意大螢幕，下一階段馬上開始！</p>
                 </div>
             </div>
@@ -4546,23 +4933,24 @@ window.launchLiveMode = function(rawData, configs) {
             const myNotes = myData[`board_${qId}`] || [];
             
             controlsHtml = `
-                <div class="flex flex-col gap-4 w-full max-w-md mx-auto h-full flex-1 overflow-hidden">
+                <div id="student-board-layout" class="flex flex-col md:flex-row gap-4 w-full max-w-6xl mx-auto flex-1 min-h-0">
+                    <div id="student-board-left" class="flex flex-col gap-4 w-full md:w-[340px] md:flex-shrink-0 min-h-0 overflow-hidden">
                     <div id="student-board-input-area" class="bg-white p-4 rounded-3xl shadow-sm border border-gray-200 flex-shrink-0 flex flex-col gap-3 transition-all">
                         <div class="flex justify-between items-center px-1">
                             <span class="text-xs font-bold text-teal-600">新增便利貼</span>
                             <span id="student-board-limit-status" class="text-[11px] font-bold text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full" style="display: none;"></span>
                         </div>
                         <textarea id="live-board-input" class="w-full bg-yellow-50 border-2 border-yellow-200 rounded-xl p-3 text-base font-normal text-gray-700 outline-none focus:border-yellow-400 transition-colors resize-none" rows="2" placeholder="寫下你的點子..."></textarea>
-                        <div class="flex justify-between items-center mt-1">
-                            <div class="flex flex-wrap gap-2" id="board-color-picker">
-                                <button class="board-color-btn active w-8 h-8 rounded-full bg-yellow-200 border-2 border-yellow-400 transform transition-transform scale-110 shadow-sm" data-color="yellow"></button>
-                                <button class="board-color-btn w-8 h-8 rounded-full bg-pink-200 border-2 border-transparent hover:border-pink-400 transform transition-transform" data-color="pink"></button>
-                                <button class="board-color-btn w-8 h-8 rounded-full bg-blue-200 border-2 border-transparent hover:border-blue-400 transform transition-transform" data-color="blue"></button>
-                                <button class="board-color-btn w-8 h-8 rounded-full bg-green-200 border-2 border-transparent hover:border-green-400 transform transition-transform" data-color="green"></button>
-                                <button class="board-color-btn w-8 h-8 rounded-full bg-white border-2 border-gray-200 hover:border-gray-400 transform transition-transform shadow-inner" data-color="white"></button>
-                                <button class="board-color-btn w-8 h-8 rounded-full bg-gray-200 border-2 border-transparent hover:border-gray-400 transform transition-transform" data-color="gray"></button>
+                        <div class="flex justify-between items-center gap-2 mt-1">
+                            <div class="flex flex-nowrap items-center gap-1.5" id="board-color-picker">
+                                <button class="board-color-btn active w-7 h-7 flex-shrink-0 rounded-full bg-yellow-200 border-2 border-yellow-400 transform transition-transform scale-110 shadow-sm" data-color="yellow"></button>
+                                <button class="board-color-btn w-7 h-7 flex-shrink-0 rounded-full bg-pink-200 border-2 border-transparent hover:border-pink-400 transform transition-transform" data-color="pink"></button>
+                                <button class="board-color-btn w-7 h-7 flex-shrink-0 rounded-full bg-blue-200 border-2 border-transparent hover:border-blue-400 transform transition-transform" data-color="blue"></button>
+                                <button class="board-color-btn w-7 h-7 flex-shrink-0 rounded-full bg-green-200 border-2 border-transparent hover:border-green-400 transform transition-transform" data-color="green"></button>
+                                <button class="board-color-btn w-7 h-7 flex-shrink-0 rounded-full bg-white border-2 border-gray-200 hover:border-gray-400 transform transition-transform shadow-inner" data-color="white"></button>
+                                <button class="board-color-btn w-7 h-7 flex-shrink-0 rounded-full bg-gray-200 border-2 border-transparent hover:border-gray-400 transform transition-transform" data-color="gray"></button>
                             </div>
-                            <button id="btn-submit-live-board" class="bg-teal-600 hover:bg-teal-700 text-white font-extrabold px-4 py-2 rounded-xl shadow-sm transition-transform active:scale-95 cursor-pointer flex items-center gap-1">貼上 <span class="material-symbols-outlined text-[18px]">send</span></button>
+                            <button id="btn-submit-live-board" title="貼上" aria-label="貼上" class="bg-teal-600 hover:bg-teal-700 text-white w-11 h-11 flex-shrink-0 rounded-xl shadow-sm transition-transform active:scale-95 cursor-pointer flex items-center justify-center"><span class="material-symbols-outlined text-[22px]">send</span></button>
                         </div>
                     </div>
                     
@@ -4575,6 +4963,15 @@ window.launchLiveMode = function(rawData, configs) {
                                 </div>
                             `).join('') : '<div class="text-center text-gray-300 py-4 font-bold">尚未貼出</div>'}
                         </div>
+                    </div>
+                    </div>
+                    <div id="student-board-right" class="flex-1 min-h-[60vh] md:min-h-0 flex flex-col bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div class="flex items-center gap-2 pl-3 pr-24 py-2 border-b border-gray-100 flex-shrink-0">
+                            <button id="student-board-toggle-left" type="button" title="收合／展開張貼區" class="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 cursor-pointer flex-shrink-0"><span class="material-symbols-outlined text-[22px] block">menu</span></button>
+                            <div id="student-board-view-title" class="flex-1 min-w-0 text-sm font-extrabold text-gray-800 break-words leading-snug"></div>
+                            <span id="student-board-state" class="flex-shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full"></span>
+                        </div>
+                        <div id="student-board-view" class="flex-1 relative overflow-hidden bg-[#F4F4F4]"></div>
                     </div>
                 </div>
             `;
@@ -4591,15 +4988,15 @@ window.launchLiveMode = function(rawData, configs) {
         }
 
         liveContainer.innerHTML = `
-            <div class="w-full h-full bg-[#f2f2f2] font-sans select-none overflow-y-auto flex flex-col relative pb-20">
+            <div id="student-ctl-root" class="w-full h-full bg-[#f2f2f2] font-sans select-none overflow-y-auto flex flex-col relative pb-20">
                 <div id="student-pause-overlay" class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex-col items-center justify-center text-white ${window.arenaIsPaused ? 'flex' : 'hidden'}">
                     <span class="material-symbols-outlined text-6xl mb-4 text-amber-400 animate-bounce">front_hand</span>
-                    <h2 class="text-3xl font-bold tracking-widest">老師已暫停收件</h2>
+                    <h2 class="text-3xl font-bold tracking-widest">暫停收件</h2>
                 </div>
 
-                <div class="flex flex-col p-4 sm:p-6 flex-1">
+                <div id="student-ctl-wrap" class="flex flex-col p-4 sm:p-6 flex-1">
                     ${qData.type !== '公告' ? `
-                    <div class="w-full bg-white px-4 py-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] mb-5 text-center border-l-4 border-teal-500 flex-shrink-0 select-text">
+                    <div id="student-q-header" class="w-full bg-white px-4 py-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] mb-5 text-center border-l-4 border-teal-500 flex-shrink-0 select-text">
                         <h2 class="text-xl sm:text-2xl font-extrabold text-gray-800 leading-snug break-words max-w-full select-text">
                             <span class="inline-block align-middle text-[11px] font-black bg-teal-50 text-teal-700 px-2 py-0.5 rounded-full mr-2 border border-teal-100 transform -translate-y-0.5 select-none">${qData.type}</span>
                             ${escapeHtml(qData.question)}
@@ -4985,7 +5382,7 @@ window.launchLiveMode = function(rawData, configs) {
                 <div class="bg-teal-500 text-white rounded-xl p-3 shadow-md mb-3 border border-teal-400 animate-pulse">
                     <div class="flex items-center gap-1.5 mb-1.5 opacity-90 select-none">
                         <span class="material-symbols-outlined text-[14px]">campaign</span>
-                        <span class="text-xs font-bold">老師正在回答</span>
+                        <span class="text-xs font-bold">主持人正在回答</span>
                     </div>
                     <div class="text-base font-extrabold break-words select-text">${escapeHtml(focusedQ.text)}</div>
                 </div>
@@ -5038,6 +5435,309 @@ window.launchLiveMode = function(rawData, configs) {
     }
 
 	// ✨ 專門處理白板學生介面的即時更新
+
+
+    // 讀寫自己的便利貼（只動自己 player 文件裡的 board_<題目ID>）
+    async function saveMyBoardNotes(mutator) {
+        const sd = window.currentSpaceData, qData = sd && sd.currentQuestionData;
+        if (!qData || qData.type !== '白板') return;
+        const my = window.currentStudentData || {};
+        const key = `board_${qData.id}`;
+        const arr = (my[key] || []).map(n => ({ ...n }));
+        mutator(arr);
+        my[key] = arr; // 先更新本機，畫面立即反應
+        try {
+            await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode)
+                .collection("players").doc(my.name).update({ [key]: arr });
+        } catch (e) { showToast('⚠️ 儲存失敗，請再試一次'); }
+    }
+
+    window.canEditMyBoardNotes = function () {
+        const sd = window.currentSpaceData, qData = sd && sd.currentQuestionData;
+        if (!qData || window.arenaIsPaused) return false;
+        if (sd[`results_hidden_${qData.id}`]) return false;
+        const list = sd[`board_editors_${qData.id}`];
+        if (!Array.isArray(list)) return true; // 未設定＝全部可編輯
+        const me = (window.currentStudentData && window.currentStudentData.name) || '';
+        return list.includes(me);
+    };
+
+    window.startMyNoteDrag = function (ev, el, noteId) {
+        if (!window.canEditMyBoardNotes()) return;
+        if (ev.button !== undefined && ev.button !== 0) return;
+        const layer = el.parentElement;
+        const scale = parseFloat(layer.dataset.scale) || 1;
+        const sx = ev.clientX, sy = ev.clientY;
+        const ox = parseFloat(el.style.left), oy = parseFloat(el.style.top);
+        let moved = false;
+        window._sbvDragging = true;
+        el.style.cursor = 'grabbing';
+        el.style.zIndex = 9999;
+        const move = e => {
+            const dx = (e.clientX - sx) / scale, dy = (e.clientY - sy) / scale;
+            if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
+            el.style.left = (ox + dx) + 'px';
+            el.style.top = (oy + dy) + 'px';
+        };
+        const up = () => {
+            window.removeEventListener('pointermove', move);
+            window.removeEventListener('pointerup', up);
+            window.removeEventListener('pointercancel', up);
+            window._sbvDragging = false;
+            if (moved) {
+                const nx = Math.round(parseFloat(el.style.left)), ny = Math.round(parseFloat(el.style.top));
+                saveMyBoardNotes(arr => { const t = arr.find(n => n.id === noteId); if (t) { t.x = nx; t.y = ny; } });
+            }
+            window.scheduleStudentBoardView();
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
+        window.addEventListener('pointercancel', up);
+        ev.preventDefault();
+    };
+
+    window.editMyBoardNote = function (noteId) {
+        if (!window.canEditMyBoardNotes()) return;
+        const qData = window.currentSpaceData && window.currentSpaceData.currentQuestionData;
+        const mine = ((window.currentStudentData || {})[`board_${qData.id}`] || []).find(n => n.id === noteId);
+        if (!mine) return;
+        showBoardPrompt('編輯', mine.text, mine.color || 'yellow', (result) => {
+            saveMyBoardNotes(arr => { const t = arr.find(n => n.id === noteId); if (t) { t.text = result.text; t.color = result.color === 'random' ? t.color : result.color; } });
+            window.scheduleStudentBoardView();
+        });
+    };
+
+
+    // ===== 老師：指定可編輯自己便利貼的學生 =====
+    window.openBoardEditorsModal = function () {
+        const sd = window.currentSpaceData, qData = sd && sd.currentQuestionData;
+        if (!qData || qData.type !== '白板') return;
+        const qId = qData.id, field = `board_editors_${qId}`;
+        const names = (globalPlayers || []).map(p => ({ name: p.name, emoji: p.emoji || '🙂' }));
+        const cur = sd[field];
+        const selected = new Set(Array.isArray(cur) ? cur : names.map(p => p.name));
+
+        const old = document.getElementById('board-editors-modal');
+        if (old) old.remove();
+        const modal = document.createElement('div');
+        modal.id = 'board-editors-modal';
+        modal.className = 'fixed inset-0 bg-black/30 flex items-center justify-center p-4';
+        modal.style.zIndex = '6000';
+        modal.innerHTML = `
+            <div class="bg-white rounded-2xl w-full max-w-sm p-5 shadow-2xl border border-gray-200 flex flex-col max-h-[80vh]">
+                <h3 class="text-lg font-extrabold text-gray-800 mb-1">指定可編輯的學生</h3>
+                <p class="text-xs font-bold text-gray-400 mb-3">勾選的學生可以拖曳、編輯自己貼的便利貼；沒勾選的只能檢視。</p>
+                <div class="flex gap-2 mb-2">
+                    <button id="be-all" class="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50">全選</button>
+                    <button id="be-none" class="flex-1 text-xs font-bold px-2 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50">全不選</button>
+                </div>
+                <div id="be-list" class="flex-1 overflow-y-auto flex flex-col gap-1 mb-4"></div>
+                <div class="flex gap-2">
+                    <button id="be-cancel" class="w-1/2 px-4 py-2 rounded-lg font-bold text-gray-500 border border-gray-200 text-sm">取消</button>
+                    <button id="be-ok" class="w-1/2 px-4 py-2 rounded-lg font-bold text-white bg-teal-600 hover:bg-teal-700 text-sm">儲存</button>
+                </div>
+            </div>`;
+        const container = document.getElementById('arenaModeContainer');
+        (container && container.style.display !== 'none' ? container : document.body).appendChild(modal);
+
+        const list = modal.querySelector('#be-list');
+        const draw = () => {
+            list.innerHTML = names.length ? '' : '<div class="text-center text-gray-300 font-bold py-4">目前沒有學生加入</div>';
+            names.forEach(p => {
+                const row = document.createElement('label');
+                row.className = 'flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 cursor-pointer select-none';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox'; cb.checked = selected.has(p.name);
+                cb.addEventListener('change', () => cb.checked ? selected.add(p.name) : selected.delete(p.name));
+                const txt = document.createElement('span');
+                txt.className = 'font-bold text-gray-700 text-sm';
+                txt.textContent = p.emoji + ' ' + p.name;
+                row.appendChild(cb); row.appendChild(txt);
+                list.appendChild(row);
+            });
+        };
+        draw();
+        modal.querySelector('#be-all').onclick = () => { names.forEach(p => selected.add(p.name)); draw(); };
+        modal.querySelector('#be-none').onclick = () => { selected.clear(); draw(); };
+        const close = () => modal.remove();
+        modal.querySelector('#be-cancel').onclick = close;
+        modal.addEventListener('click', e => { if (e.target === modal) close(); });
+        modal.querySelector('#be-ok').onclick = async () => {
+            const allSelected = names.length > 0 && names.every(p => selected.has(p.name));
+            try {
+                await db.collection(window.SPACES_COLLECTION).doc(window.currentSpaceCode).update({
+                    [field]: allSelected ? firebase.firestore.FieldValue.delete() : Array.from(selected)
+                });
+                showToast(allSelected ? '✅ 全部學生皆可編輯自己的便利貼' : `✅ 已指定 ${selected.size} 位學生可編輯`);
+            } catch (e) { showToast('⚠️ 儲存失敗'); }
+            close();
+        };
+    };
+
+
+    // ===== 學生端白板版面：是否顯示畫布、收合張貼區、暫停狀態 =====
+    window.studentBoardLeftCollapsed = false;
+    window.applyStudentBoardLayout = function () {
+        const sd = window.currentSpaceData, q = sd && sd.currentQuestionData;
+        const $ = id => document.getElementById(id);
+        const layout = $('student-board-layout');
+        if (!layout || !q || q.type !== '白板') return;
+        const showCanvas = !(q.options && q.options[8] === 'false');
+        const collapsed = showCanvas && !!window.studentBoardLeftCollapsed;
+        const paused = !!window.arenaIsPaused;
+        const left = $('student-board-left'), right = $('student-board-right');
+
+        layout.className = showCanvas
+            ? 'flex flex-col md:flex-row gap-2 w-full flex-1 min-h-0'
+            : 'flex flex-col gap-4 w-full max-w-md mx-auto h-full flex-1 overflow-hidden';
+        layout.style.minHeight = showCanvas ? 'calc(100dvh - 40px)' : '';
+        const ctlRoot = $('student-ctl-root'), ctlWrap = $('student-ctl-wrap');
+        if (ctlRoot) ctlRoot.style.paddingBottom = showCanvas ? '0' : '';
+        if (ctlWrap) ctlWrap.style.padding = showCanvas ? '8px' : '';
+        left.className = showCanvas
+            ? 'flex flex-col gap-3 w-full md:w-[320px] md:flex-shrink-0 min-h-0 overflow-hidden'
+            : 'flex flex-col gap-4 w-full min-h-0 overflow-hidden';
+        left.style.display = collapsed ? 'none' : '';
+        right.style.display = showCanvas ? '' : 'none';
+
+        // 畫布顯示時，標題整合進畫布標頭；不顯示畫布時保留原本的題目卡
+        const qh = $('student-q-header');
+        if (qh) qh.style.display = showCanvas ? 'none' : '';
+        // 暫停時：有畫布就不用全螢幕遮罩（讓學生仍能看桌面），改用標頭狀態標籤
+        const overlay = $('student-pause-overlay');
+        if (overlay) overlay.style.display = showCanvas ? 'none' : '';
+
+        const title = $('student-board-view-title');
+        if (title) title.textContent = '白板：' + (q.question || '');
+
+        const btn = $('student-board-toggle-left');
+        if (btn) btn.onclick = () => {
+            window.studentBoardLeftCollapsed = !window.studentBoardLeftCollapsed;
+            window.applyStudentBoardLayout();
+            window.scheduleStudentBoardView();
+        };
+
+        // 暫停＝不能貼上、移動、編輯
+        ['live-board-input', 'btn-submit-live-board'].forEach(id => {
+            const e = $(id);
+            if (e) { e.disabled = paused; e.style.opacity = paused ? '0.5' : ''; }
+        });
+        const chip = $('student-board-state');
+        if (chip) {
+            chip.style.display = (!paused && window.canEditMyBoardNotes()) ? 'none' : '';
+            if (sd.currentQuestionData && sd[`results_hidden_${q.id}`]) { chip.textContent = '畫布隱藏中'; chip.className = 'flex-shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200'; }
+            else if (paused) { chip.textContent = '⏸ 暫停收件'; chip.className = 'flex-shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200'; }
+            else if (window.canEditMyBoardNotes()) { chip.textContent = ''; }
+            else { chip.textContent = '唯讀'; chip.className = 'flex-shrink-0 text-[11px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200'; }
+        }
+    };
+
+    // ===== 學生端「桌面」唯讀鏡像（白板）=====
+    window.scheduleStudentBoardView = function () {
+        clearTimeout(window._sbvTimer);
+        window._sbvTimer = setTimeout(renderStudentBoardView, 120);
+    };
+    window.addEventListener('resize', () => window.scheduleStudentBoardView && window.scheduleStudentBoardView());
+
+    function sdHidden() {
+        const q = window.currentSpaceData && window.currentSpaceData.currentQuestionData;
+        return !!(q && q.options && q.options[8] === 'false');
+    }
+
+    function renderStudentBoardView() {
+        if (window._sbvDragging) return;
+        if (sdHidden()) return;
+        const wrap = document.getElementById('student-board-view');
+        const sd = window.currentSpaceData;
+        const qData = sd && sd.currentQuestionData;
+        if (!wrap || !qData || qData.type !== '白板') return;
+        if (sd[`results_hidden_${qData.id}`]) {
+            wrap.innerHTML = '<div class="absolute inset-0 flex flex-col items-center justify-center gap-2 text-gray-400 font-bold"><span class="material-symbols-outlined text-5xl">visibility_off</span>畫布暫時隱藏</div>';
+            return;
+        }
+        const qId = qData.id;
+        const mods = sd[`board_mods_${qId}`] || {};
+        const sizeMode = (qData.options && qData.options[5]) || 'fixed';
+        const rawAuthor = (qData.options && qData.options[2]) || 'none';
+        const showAuthor = rawAuthor === 'always' || rawAuthor === 'true';
+        const me = (window.currentStudentData && window.currentStudentData.name) || '';
+        const canEdit = window.canEditMyBoardNotes();
+        const palette = { yellow: '#FFF9B1', pink: '#FFD4DF', blue: '#D4E8FF', green: '#D5F6D3', white: '#FFFFFF', gray: '#F5F6F8', text: 'transparent' };
+
+        let notes = [];
+        (globalPlayers || []).forEach(p => {
+            (p[`board_${qId}`] || []).forEach(n => {
+                const m = mods[n.id] || {};
+                if (m.deleted) return;
+                notes.push({ id: n.id, author: p.name, text: m.text || n.text, color: m.color || n.color, mine: p.name === me, nx: n.x, ny: n.y });
+            });
+        });
+        Object.keys(mods).forEach(k => {
+            const m = mods[k];
+            if (m && m.isTeacher && !m.deleted) notes.push({ id: k, author: m.author || '老師', text: m.text, color: m.color || 'yellow', mine: false });
+        });
+
+        wrap.innerHTML = '<div id="sbv-layer" style="position:absolute;left:0;top:0;transform-origin:0 0;"></div>';
+        const layer = wrap.firstChild;
+        if (!notes.length) {
+            wrap.innerHTML = '<div class="absolute inset-0 flex items-center justify-center text-gray-300 font-bold">桌面還沒有內容</div>';
+            return;
+        }
+        notes.forEach((n, idx) => {
+            const m = mods[n.id] || {};
+            const x = m.x !== undefined ? m.x : (n.nx !== undefined ? n.nx : 100 + (idx % 6) * 160);
+            const y = m.y !== undefined ? m.y : (n.ny !== undefined ? n.ny : 100 + Math.floor(idx / 6) * 160);
+            const isText = n.color === 'text';
+            const el = document.createElement('div');
+            el.style.cssText = `position:absolute;left:${x}px;top:${y}px;z-index:${m.z !== undefined ? m.z : 10};box-sizing:border-box;`;
+            const body = document.createElement('div');
+            let w = 140, h = 140;
+            if (sizeMode === 'resize') { w = m.w || 140; h = m.h || 140; }
+            if (m.collapsed && !isText) { w = 140; h = 28; }
+            if (isText) {
+                body.style.cssText = `width:${m.w ? m.w + 'px' : 'max-content'};max-width:${m.w ? 'none' : '300px'};font-weight:800;font-size:18px;text-align:left;color:#1f2937;white-space:pre-wrap;word-break:break-word;`;
+            } else {
+                body.style.cssText = `width:${w}px;height:${h}px;background:${palette[n.color] || palette.yellow};border:1px solid rgba(0,0,0,.08);border-radius:2px;box-shadow:0 1px 3px rgba(0,0,0,.12);padding:8px;font-size:14px;line-height:1.5;text-align:center;color:#1f2937;overflow:hidden;white-space:pre-wrap;word-break:break-word;${n.mine ? 'outline:3px solid #0d9488;outline-offset:1px;' : ''}`;
+            }
+            body.textContent = (m.collapsed && !isText) ? '' : n.text;
+            el.appendChild(body);
+            if (showAuthor && !isText) {
+                const a = document.createElement('div');
+                a.style.cssText = 'position:absolute;left:-8px;bottom:-8px;padding:1px 6px;background:#64748b;color:#fff;font-size:10px;border-radius:4px;';
+                a.textContent = n.author;
+                el.appendChild(a);
+            }
+            if (n.mine && !isText && canEdit) {
+                el.dataset.noteId = n.id;
+                el.style.cursor = 'grab';
+                el.style.touchAction = 'none';
+                const eb = document.createElement('div');
+                eb.textContent = '✎';
+                eb.title = '編輯文字';
+                eb.style.cssText = 'position:absolute;right:-6px;top:-6px;width:22px;height:22px;border-radius:50%;background:#0d9488;color:#fff;font-size:12px;line-height:22px;text-align:center;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.3);';
+                eb.addEventListener('pointerdown', ev => ev.stopPropagation());
+                eb.addEventListener('click', ev => { ev.stopPropagation(); window.editMyBoardNote(n.id); });
+                el.appendChild(eb);
+                el.addEventListener('pointerdown', ev => window.startMyNoteDrag(ev, el, n.id));
+            }
+            layer.appendChild(el);
+        });
+
+        // 量測範圍後自動縮放置中
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        Array.from(layer.children).forEach(el => {
+            const x = parseFloat(el.style.left), y = parseFloat(el.style.top);
+            minX = Math.min(minX, x); minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x + el.offsetWidth); maxY = Math.max(maxY, y + el.offsetHeight);
+        });
+        const cw = Math.max(1, maxX - minX), ch = Math.max(1, maxY - minY), pad = 20;
+        const scale = Math.max(0.1, Math.min((wrap.clientWidth - pad * 2) / cw, (wrap.clientHeight - pad * 2) / ch, 1.2));
+        const tx = (wrap.clientWidth - cw * scale) / 2 - minX * scale;
+        const ty = (wrap.clientHeight - ch * scale) / 2 - minY * scale;
+        layer.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+        layer.dataset.scale = scale;
+    }
+
     function updateStudentBoardUI(playerName) {
         const qData = window.currentSpaceData?.currentQuestionData;
         if (!qData || qData.type !== '白板') return;
@@ -5072,6 +5772,8 @@ window.launchLiveMode = function(rawData, configs) {
                 statusArea.className = myNotes.length < limit ? 'text-[11px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full select-none' : 'text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full select-none';
             }
         }
+        window.applyStudentBoardLayout && window.applyStudentBoardLayout();
+        window.scheduleStudentBoardView && window.scheduleStudentBoardView();
     }
 
     function showStudentSubmittedScreen(spaceCode, playerName, submittedText = null) {
@@ -5089,12 +5791,12 @@ window.launchLiveMode = function(rawData, configs) {
             <div class="w-full h-full bg-teal-50 font-sans select-none overflow-y-auto flex flex-col relative pb-6">
                 <div id="student-pause-overlay" class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex-col items-center justify-center text-white ${window.arenaIsPaused ? 'flex' : 'hidden'}">
                     <span class="material-symbols-outlined text-6xl mb-4 text-amber-400 animate-bounce">front_hand</span>
-                    <h2 class="text-3xl font-bold tracking-widest">老師已暫停收件</h2>
+                    <h2 class="text-3xl font-bold tracking-widest">暫停收件</h2>
                 </div>
                 <div class="min-h-full flex flex-col items-center justify-center p-4 text-center">
                     <span class="material-symbols-outlined text-8xl text-teal-400 mb-6 drop-shadow-sm">check_circle</span>
                     <h2 class="text-3xl md:text-4xl font-extrabold text-teal-800 mb-4">回覆已送出！</h2>
-                    <p class="text-xl text-teal-600 font-bold">請看大螢幕，等待老師下一題...</p>
+                    <p class="text-xl text-teal-600 font-bold">請看大螢幕，等待下一題...</p>
                     ${submissionHtml}
                 </div>
             </div>

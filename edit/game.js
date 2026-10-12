@@ -327,7 +327,33 @@ function renderFlashcardGame(data, container) {
     let currentIndex = 0;
     let isFlipped = false;
     let isShuffled = false;
-    let fontSize = 48; // 預設大字體
+    // 【修改】預設字級加大：手機 56px、電腦 96px（原本固定 48px）
+    const FC_FONT_MIN = 16, FC_FONT_MAX = 240, FC_FONT_STEP = 8;
+    let fontSize = window.innerWidth < 640 ? 56 : 96;
+    let isBold = true;                 // 【新增】是否粗體（預設粗體）
+    let displayMode = 'term-def';      // 【新增】正反面顯示模式
+
+    // 【新增】顯示模式定義：first = 正面 / 上行，second = 背面 / 下行，both = 上下行同時顯示
+    const DISPLAY_MODES = {
+        'term-def': { label: '題目 → 答案',      first: 'term',       second: 'definition', both: false },
+        'def-term': { label: '答案 → 題目',      first: 'definition', second: 'term',       both: false },
+        'both-td':  { label: '題目＋答案（上下）', first: 'term',       second: 'definition', both: true  },
+        'both-dt':  { label: '答案＋題目（上下）', first: 'definition', second: 'term',       both: true  },
+        // 【新增】Ruby 一字對一音：自動判斷哪一欄是漢字、哪一欄是拼音/注音
+        'ruby-top':    { label: '漢字＋拼音（拼音在上）', ruby: 'over'  },
+        'ruby-bottom': { label: '漢字＋拼音（拼音在下）', ruby: 'under' }
+    };
+
+    // 【新增】讀取上次的設定（失敗就用預設值）
+    try {
+        const savedMode = localStorage.getItem('fc-display-mode');
+        if (savedMode && DISPLAY_MODES[savedMode]) displayMode = savedMode;
+        const savedBold = localStorage.getItem('fc-bold');
+        if (savedBold !== null) isBold = savedBold === '1';
+        // 【新增】讀取使用者上次調整的字級
+        const savedSize = parseInt(localStorage.getItem('fc-font-size'), 10);
+        if (savedSize >= FC_FONT_MIN && savedSize <= FC_FONT_MAX) fontSize = savedSize;
+    } catch (e) {}
     let autoPlayTimer = null;
     let autoPlaySec = 3; 
     let isPlaying = false;
@@ -338,17 +364,42 @@ function renderFlashcardGame(data, container) {
     }
 
     container.innerHTML = `
-        <div class="max-w-4xl mx-auto flex flex-col h-full py-4 px-4 sm:px-6 w-full items-center justify-center relative">
+        <div id="fc-root" class="absolute inset-0 max-w-4xl mx-auto flex flex-col py-4 px-4 sm:px-6 w-full items-center bg-gray-50 overflow-y-auto">
+            <style>
+                /* 【新增】Ruby 拼音樣式 */
+                #fc-content { ruby-align: center; }
+                #fc-content rt { font-size: max(0.4em, 10px); color: #1e40af; font-weight: 500; letter-spacing: 0.02em; }
+            </style>
             
-            <div id="fc-card" class="group w-full max-w-3xl bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col relative cursor-default hover:shadow-md transition-shadow duration-300 overflow-hidden" style="min-height: 320px; height: 50vh; max-height: 450px;">
+            <div id="fc-card" class="group w-full max-w-3xl flex-1 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col relative cursor-default hover:shadow-md transition-shadow duration-300 overflow-hidden" style="min-height: 340px;">
                 
                 <div class="absolute top-0 left-0 w-full h-1 bg-gray-50 z-10">
                     <div id="fc-progress-bar" class="bg-blue-500 h-full rounded-t-2xl transition-all duration-300" style="width: 0%"></div>
                 </div>
                 
+                <!-- 【新增】左上角：正反面顯示設定 -->
+                <div class="absolute top-3 left-5 z-30 select-none">
+                    <button id="fc-btn-mode" class="flex items-center gap-1 text-gray-400 hover:text-gray-600 hover:bg-gray-50 text-xs font-bold px-2 py-1 rounded-lg transition-colors cursor-pointer" title="設定正面／背面顯示內容">
+                        <span class="material-symbols-outlined text-[18px]">flip</span>
+                        <span id="fc-mode-label" class="hidden sm:inline"></span>
+                        <span class="material-symbols-outlined text-[14px]">expand_more</span>
+                    </button>
+                    <div id="fc-mode-popup" class="hidden absolute top-full left-0 mt-1 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-1 overflow-hidden">
+                        <div class="px-3 py-1.5 text-xs text-gray-400 font-bold border-b border-gray-100 mb-1 bg-gray-50">字卡顯示內容</div>
+                        ${Object.entries(DISPLAY_MODES).map(([key, m]) => `
+                            ${key === 'ruby-top' ? '<div class="border-t border-gray-100 my-1"></div>' : ''}
+                            <button class="fc-mode-btn w-full text-left px-4 py-2 hover:bg-gray-50 text-sm font-bold text-gray-600 cursor-pointer" data-mode="${key}">${m.label}</button>
+                        `).join('')}
+                    </div>
+                </div>
+
                 <div class="absolute top-4 right-6 flex justify-end gap-2.5 text-gray-400 font-bold text-sm select-none z-20">
+                    <button id="fc-btn-bold" class="hover:text-gray-600 transition-colors cursor-pointer p-1" title="粗體 / 一般">B</button>
                     <button id="fc-btn-font-dec" class="hover:text-gray-600 transition-colors cursor-pointer p-1">A-</button>
                     <button id="fc-btn-font-inc" class="hover:text-gray-600 transition-colors cursor-pointer p-1">A+</button>
+                    <button id="fc-btn-fullscreen" class="hover:text-gray-600 transition-colors cursor-pointer p-1 flex items-center" title="全螢幕">
+                        <span id="fc-fullscreen-icon" class="material-symbols-outlined text-[20px]">fullscreen</span>
+                    </button>
                 </div>
 
                 <button id="fc-btn-first" class="absolute bottom-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-gray-300 hover:text-blue-600 p-2 z-20 cursor-pointer disabled:opacity-0 disabled:cursor-not-allowed" title="跳至第一張">
@@ -360,11 +411,11 @@ function renderFlashcardGame(data, container) {
                 </button>
 
                 <div class="flex-1 flex flex-col justify-center items-center pt-14 pb-10 px-14 overflow-y-auto scrollbar-thin">
-                    <div id="fc-content" class="text-center font-bold text-slate-800 break-words leading-tight transition-opacity duration-150 select-none" style="font-size: ${fontSize}px"></div>
+                    <div id="fc-content" class="text-center text-slate-800 break-words leading-tight transition-opacity duration-150 select-none" style="font-size: ${fontSize}px; font-weight: ${isBold ? 700 : 400}"></div>
                 </div>
             </div>
 
-            <div class="w-full max-w-3xl mt-2 flex items-center justify-between select-none px-4 py-1">
+            <div id="fc-controls" class="w-full max-w-3xl mt-2 flex-shrink-0 flex items-center justify-between select-none px-4 py-1">
                 
                 <div class="flex items-center gap-2 sm:gap-4 w-1/3">
                     <button id="fc-btn-shuffle" class="text-gray-400 hover:text-blue-600 transition-colors cursor-pointer flex items-center p-1.5" title="亂數排序">
@@ -432,13 +483,117 @@ function renderFlashcardGame(data, container) {
     const btnFontInc = document.getElementById('fc-btn-font-inc');
     const btnFontDec = document.getElementById('fc-btn-font-dec');
 
+    // 【新增】粗體與顯示模式的 DOM
+    const btnBold = document.getElementById('fc-btn-bold');
+    const btnMode = document.getElementById('fc-btn-mode');
+    const modeLabel = document.getElementById('fc-mode-label');
+    const popupMode = document.getElementById('fc-mode-popup');
+    const modeBtns = document.querySelectorAll('.fc-mode-btn');
+
+    // 【新增】是否為「上下行同時顯示」模式
+    // 【修改】上下行與 Ruby 都是「一次顯示全部」，不需要翻面
+    function isBothMode() { const m = DISPLAY_MODES[displayMode]; return !!(m.both || m.ruby); }
+
+    // 【新增】Ruby 一字對一音：音節切分規則（羅馬拼音＋注音／方音符號）
+    const RUBY_SYLLABLE_RE = /[˙]?[\u3105-\u312F\u31A0-\u31BF兀万廿勺]+[ˊˇˋˆ\^\+⁺˙]*|[\p{sc=Latn}0-9][\p{sc=Latn}\p{M}0-9ˊˇˋˆ\^\+⁺]*/gu;
+    const RUBY_ZHUYIN_HAN = '兀万廿勺'; // 這四個字在方音注音中當符號用，判斷漢字欄位時要排除
+    const isHanChar = (ch) => /\p{sc=Han}/u.test(ch);
+    const countHan = (str) => [...String(str ?? '')].filter(ch => isHanChar(ch) && !RUBY_ZHUYIN_HAN.includes(ch)).length;
+
+    // 【新增】把「漢字＋拼音」組成 <ruby>，成功回傳 true；無法對應（例如沒有拼音）回傳 false
+    function renderRuby(item) {
+        // 自動判斷：漢字比較多的那一欄當作漢字欄，另一欄當作拼音欄
+        const baseKey = countHan(item.definition) > countHan(item.term) ? 'definition' : 'term';
+        const annKey = baseKey === 'term' ? 'definition' : 'term';
+        const chars = [...String(item[baseKey] ?? '')];
+        const syllables = String(item[annKey] ?? '').match(RUBY_SYLLABLE_RE) || [];
+
+        let lastHan = -1;
+        chars.forEach((ch, i) => { if (isHanChar(ch)) lastHan = i; });
+        if (lastHan === -1 || syllables.length === 0) return false;
+
+        let si = 0;
+        chars.forEach((ch, i) => {
+            const ruby = document.createElement('ruby');
+            ruby.append(ch);
+            const rt = document.createElement('rt');
+            if (isHanChar(ch)) {
+                let txt = si < syllables.length ? syllables[si++] : '';
+                // 音節比漢字多時，剩下的音節接在最後一個漢字上
+                if (i === lastHan) while (si < syllables.length) txt += ' ' + syllables[si++];
+                rt.textContent = txt;
+            }
+            ruby.append(rt);
+            contentEl.append(ruby);
+        });
+        return true;
+    }
+
+    // 【新增】依目前模式 / 翻面狀態，繪製卡片內容
+    function renderContent() {
+        const item = flashcardData[currentIndex];
+        const mode = DISPLAY_MODES[displayMode];
+        contentEl.style.fontSize = `${fontSize}px`;
+        contentEl.style.fontWeight = isBold ? '700' : '400';
+        contentEl.style.lineHeight = mode.ruby ? '1.5' : ''; // Ruby 需要較寬的行高
+        contentEl.style.setProperty('ruby-position', mode.ruby === 'under' ? 'under' : 'over');
+        contentEl.innerHTML = '';
+
+        // Ruby 模式：成功就結束；失敗（找不到拼音）則退回上下行顯示
+        if (mode.ruby) {
+            contentEl.classList.remove('text-blue-800');
+            contentEl.classList.add('text-slate-800');
+            if (renderRuby(item)) return;
+        }
+
+        if (mode.both || mode.ruby) {
+            // 上下行同時顯示：上行大字，下行為 0.75 倍字級的藍色字
+            contentEl.classList.remove('text-blue-800');
+            contentEl.classList.add('text-slate-800');
+
+            const top = document.createElement('div');
+            top.textContent = item[mode.first || 'term'] ?? '';
+
+            const line = document.createElement('div');
+            line.className = 'w-16 h-px bg-gray-200 mx-auto my-4';
+
+            const bottom = document.createElement('div');
+            bottom.className = 'text-blue-800';
+            bottom.style.fontSize = '0.75em';
+            bottom.textContent = item[mode.second || 'definition'] ?? '';
+
+            contentEl.append(top, line, bottom);
+        } else {
+            // 單面顯示：翻面後換成另一面（藍色）
+            contentEl.textContent = item[isFlipped ? mode.second : mode.first] ?? '';
+            contentEl.classList.toggle('text-blue-800', isFlipped);
+            contentEl.classList.toggle('text-slate-800', !isFlipped);
+        }
+    }
+
+    // 【新增】更新「B」按鈕、模式選單、翻面按鈕的外觀
+    function refreshToolbarUI() {
+        btnBold.classList.toggle('text-gray-700', isBold);
+        btnBold.classList.toggle('text-gray-400', !isBold);
+
+        modeLabel.textContent = DISPLAY_MODES[displayMode].label;
+        modeBtns.forEach(b => {
+            const active = b.dataset.mode === displayMode;
+            b.classList.toggle('bg-blue-50', active);
+            b.classList.toggle('text-blue-600', active);
+            b.classList.toggle('text-gray-600', !active);
+        });
+
+        // 上下行同時顯示時，不需要翻面
+        btnFlipAction.disabled = isBothMode();
+        btnFlipAction.style.opacity = isBothMode() ? '0.35' : '';
+        btnFlipAction.style.cursor = isBothMode() ? 'not-allowed' : '';
+    }
+
     // 核心：更新卡片資料
     function updateCard() {
         isFlipped = false;
-        contentEl.style.fontSize = `${fontSize}px`;
-        contentEl.textContent = flashcardData[currentIndex].term;
-        contentEl.classList.remove('text-blue-800');
-        contentEl.classList.add('text-slate-800');
+        renderContent(); // 【修改】原本直接寫 textContent，改由 renderContent 統一繪製
         
         counterEl.textContent = `${currentIndex + 1} / ${flashcardData.length}`;
         progressBar.style.width = `${((currentIndex + 1) / flashcardData.length) * 100}%`;
@@ -458,15 +613,11 @@ function renderFlashcardGame(data, container) {
 
     // 核心：翻牌動畫
     function flipCard() {
+        if (isBothMode()) return; // 【新增】上下行同時顯示時不翻面
         isFlipped = !isFlipped;
         contentEl.style.opacity = 0;
         setTimeout(() => {
-            contentEl.textContent = isFlipped ? flashcardData[currentIndex].definition : flashcardData[currentIndex].term;
-            if (isFlipped) {
-                contentEl.classList.replace('text-slate-800', 'text-blue-800');
-            } else {
-                contentEl.classList.replace('text-blue-800', 'text-slate-800');
-            }
+            renderContent(); // 【修改】改用 renderContent，原本的文字與顏色切換已移入其中
             contentEl.style.opacity = 1;
         }, 150); 
     }
@@ -499,11 +650,98 @@ function renderFlashcardGame(data, container) {
     });
 
     // 字體縮放
-    btnFontInc.addEventListener('click', () => {
-        if (fontSize < 100) { fontSize += 4; contentEl.style.fontSize = `${fontSize}px`; }
+    // 【修改】改用 changeFontSize，範圍 16~240、每次 8px，並記住使用者的選擇
+    function changeFontSize(delta) {
+        fontSize = Math.min(FC_FONT_MAX, Math.max(FC_FONT_MIN, fontSize + delta));
+        contentEl.style.fontSize = `${fontSize}px`;
+        try { localStorage.setItem('fc-font-size', String(fontSize)); } catch (e) {}
+    }
+    btnFontInc.addEventListener('click', () => changeFontSize(FC_FONT_STEP));
+    btnFontDec.addEventListener('click', () => changeFontSize(-FC_FONT_STEP));
+
+    // 【新增】全螢幕：只讓 #fc-root（字卡＋工具按鈕）進入全螢幕
+    const rootEl = document.getElementById('fc-root');
+    const controlsEl = document.getElementById('fc-controls');
+    const btnFullscreen = document.getElementById('fc-btn-fullscreen');
+    const fullscreenIcon = document.getElementById('fc-fullscreen-icon');
+    let isPseudoFS = false; // 瀏覽器不支援 Fullscreen API 時（如 iPhone）改用鋪滿視窗的備案
+
+    function isFullscreenNow() {
+        return document.fullscreenElement === rootEl ||
+               document.webkitFullscreenElement === rootEl ||
+               isPseudoFS;
+    }
+
+    function applyFullscreenLayout() {
+        const on = isFullscreenNow();
+        rootEl.style.maxWidth = on ? 'none' : '';
+        cardEl.style.maxWidth = on ? '1200px' : '';
+        controlsEl.style.maxWidth = on ? '1200px' : '';
+        fullscreenIcon.textContent = on ? 'fullscreen_exit' : 'fullscreen';
+        btnFullscreen.title = on ? '離開全螢幕 (Esc)' : '全螢幕';
+    }
+
+    function exitPseudoFullscreen() {
+        isPseudoFS = false;
+        rootEl.style.position = '';
+        rootEl.style.inset = '';
+        rootEl.style.zIndex = '';
+        applyFullscreenLayout();
+    }
+
+    async function toggleFullscreen() {
+        if (isFullscreenNow()) {
+            if (isPseudoFS) exitPseudoFullscreen();
+            else (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+            return;
+        }
+        const req = rootEl.requestFullscreen || rootEl.webkitRequestFullscreen;
+        if (req) {
+            try { await req.call(rootEl); return; } catch (e) { /* 失敗就走備案 */ }
+        }
+        isPseudoFS = true;
+        rootEl.style.position = 'fixed';
+        rootEl.style.inset = '0';
+        rootEl.style.zIndex = '9999';
+        applyFullscreenLayout();
+    }
+
+    btnFullscreen.addEventListener('click', toggleFullscreen);
+    ['fullscreenchange', 'webkitfullscreenchange'].forEach(evt => {
+        document.addEventListener(evt, () => {
+            if (!document.body.contains(rootEl)) return; // 字卡已被移除就不處理
+            applyFullscreenLayout();
+        });
     });
-    btnFontDec.addEventListener('click', () => {
-        if (fontSize > 16) { fontSize -= 4; contentEl.style.fontSize = `${fontSize}px`; }
+
+    // 【新增】粗體切換
+    btnBold.addEventListener('click', () => {
+        isBold = !isBold;
+        try { localStorage.setItem('fc-bold', isBold ? '1' : '0'); } catch (e) {}
+        contentEl.style.fontWeight = isBold ? '700' : '400';
+        refreshToolbarUI();
+    });
+
+    // 【新增】正反面顯示模式選單
+    btnMode.addEventListener('click', (e) => {
+        e.stopPropagation();
+        popupMode.classList.toggle('hidden');
+    });
+    document.addEventListener('click', (e) => {
+        if (!popupMode.contains(e.target) && !btnMode.contains(e.target)) {
+            popupMode.classList.add('hidden');
+        }
+    });
+    modeBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            displayMode = btn.dataset.mode;
+            try { localStorage.setItem('fc-display-mode', displayMode); } catch (err) {}
+            popupMode.classList.add('hidden');
+            isFlipped = false;
+            renderContent();
+            refreshToolbarUI();
+        });
     });
 
     // 亂數排序
@@ -565,18 +803,18 @@ function renderFlashcardGame(data, container) {
 
     function nextAutoPlayStep() {
         if (!isPlaying) return;
-        if (!isFlipped) {
+        if (!isFlipped && !isBothMode()) { // 【修改】上下行模式直接換下一張
             flipCard();
             autoPlayTimer = setTimeout(nextAutoPlayStep, autoPlaySec * 1000 * 0.6);
         } else {
             if (currentIndex < flashcardData.length - 1) {
                 currentIndex++;
                 updateCard();
-                autoPlayTimer = setTimeout(nextAutoPlayStep, autoPlaySec * 1000 * 0.4);
+                autoPlayTimer = setTimeout(nextAutoPlayStep, autoPlaySec * 1000 * (isBothMode() ? 1 : 0.4));
             } else {
                 currentIndex = 0;
                 updateCard();
-                autoPlayTimer = setTimeout(nextAutoPlayStep, autoPlaySec * 1000 * 0.4);
+                autoPlayTimer = setTimeout(nextAutoPlayStep, autoPlaySec * 1000 * (isBothMode() ? 1 : 0.4));
             }
         }
     }
@@ -591,7 +829,8 @@ function renderFlashcardGame(data, container) {
             btnAutoPlay.classList.remove('text-gray-400');
             
             if (!isFlipped) {
-                autoPlayTimer = setTimeout(nextAutoPlayStep, autoPlaySec * 1000 * 0.6);
+                // 【修改】上下行模式用完整秒數；一般模式維持原本 0.6 倍
+                autoPlayTimer = setTimeout(nextAutoPlayStep, autoPlaySec * 1000 * (isBothMode() ? 1 : 0.6));
             } else {
                 nextAutoPlayStep();
             }
@@ -602,7 +841,9 @@ function renderFlashcardGame(data, container) {
     window.flashcardKeyHandler = (e) => {
         if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
         
-        if (e.key === ' ') {
+        if (e.key === 'Escape' && isPseudoFS) {
+            exitPseudoFullscreen(); // 【新增】備案全螢幕用 Esc 離開
+        } else if (e.key === ' ') {
             e.preventDefault(); 
             flipCard();
         } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
@@ -621,6 +862,7 @@ function renderFlashcardGame(data, container) {
     };
     document.addEventListener('keydown', window.flashcardKeyHandler);
 
+    refreshToolbarUI(); // 【新增】初始化工具列外觀
     updateCard();
 }
 

@@ -190,6 +190,8 @@ table#data-table td:focus-within {
     border: 1px solid #e5e7eb; border-radius: 0.5rem; width: 180px; z-index: 9999; padding: 0.25rem 0; font-size: 0.875rem;
 }
 .context-menu.show { display: block; }
+/* 【新增】欄位選單縮窄：原本沿用 .context-menu 的 180px，文字區塊偏空，改為 150px */
+#colMenu { width: 150px; }
 .context-menu-item { display: flex; align-items: center; gap: 0.5rem; width: 100%; text-align: left; padding: 0.5rem 1rem; color: #4b5563; transition: background-color 0.1s; }
 .context-menu-item:hover { background-color: #f3f4f6; color: #111827; }
 .context-menu-item.danger { color: #dc2626; }

@@ -346,6 +346,39 @@ window.launchArenaMode = function(rawData, configs) {
         await spaceRef.update({ isPaused: window.arenaIsPaused });
     };
 
+    // 結束/關閉前的確認視窗（Enter 確認、Esc 取消）
+    function confirmArenaExit(title, message, confirmText, onConfirm) {
+        const modalId = 'arena-exit-confirm-modal';
+        document.getElementById(modalId)?.remove();
+        const modal = document.createElement('div');
+        modal.id = modalId;
+        modal.className = 'fixed inset-0 bg-black/40 flex items-center justify-center p-4';
+        modal.style.zIndex = '6000';
+        modal.innerHTML = `
+            <div class="relative bg-white rounded-2xl w-full max-w-sm p-5 shadow-2xl border border-gray-200 animate-fade-in-up">
+                <button class="btn-x absolute top-3 right-3 text-gray-400 hover:text-gray-600 transition-colors p-1"><span class="material-symbols-outlined text-[20px]">close</span></button>
+                <div class="flex flex-col items-center gap-2 mb-3">
+                    <span class="material-symbols-outlined text-4xl text-gray-400">help</span>
+                    <h3 class="text-lg font-extrabold text-gray-800">${title}</h3>
+                </div>
+                <p class="text-gray-500 font-bold text-sm mb-6 leading-relaxed px-2 text-center">${message}</p>
+                <div class="flex justify-center gap-2">
+                    <button class="btn-cancel px-4 py-2 rounded-lg font-bold text-gray-500 hover:bg-gray-100 transition-colors w-1/2 text-sm border border-gray-200">取消</button>
+                    <button class="btn-ok px-4 py-2 rounded-lg font-bold text-white bg-rose-500 hover:bg-rose-600 transition-colors shadow-sm w-1/2 text-sm">${confirmText}</button>
+                </div>
+            </div>`;
+        (document.getElementById('arenaModeContainer') || document.body).appendChild(modal);
+        const onKey = (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); close(); onConfirm(); }
+            else if (e.key === 'Escape') { e.preventDefault(); close(); }
+        };
+        const close = () => { document.removeEventListener('keydown', onKey); modal.remove(); };
+        document.addEventListener('keydown', onKey);
+        modal.querySelector('.btn-x').addEventListener('click', close);
+        modal.querySelector('.btn-cancel').addEventListener('click', close);
+        modal.querySelector('.btn-ok').addEventListener('click', () => { close(); onConfirm(); });
+    }
+
     function cleanupArena() {
         ArenaMusic.stopAll();
         ArenaMusic.unmountControl();
@@ -983,7 +1016,9 @@ window.launchArenaMode = function(rawData, configs) {
             </div>
         `;
 
-        document.getElementById('btn-back-home').addEventListener('click', cleanupArena);
+        document.getElementById('btn-back-home').addEventListener('click', () => {
+            confirmArenaExit('關閉空間', '確定要關閉空間嗎？所有玩家將會被中斷連線。', '確定關閉', cleanupArena);
+        });
 
         document.getElementById('btn-copy-link').addEventListener('click', (e) => {
             if (e.target.tagName === 'SPAN' && e.target.textContent === 'qr_code_2') return;
@@ -2126,6 +2161,20 @@ window.launchArenaMode = function(rawData, configs) {
     // ----------------------------------------------------
     function renderTeacherLeaderboard(spaceCode) {
         ArenaMusic.play('final'); // 🎵 最終排行成績
+        // 💾 自動備份成績與錯答到本機紀錄
+        try {
+            window.GameRecords && GameRecords.save({
+                type: 'arena',
+                title: (window.currentLoadedBank && window.currentLoadedBank.name) || '自訂測驗',
+                spaceCode: spaceCode,
+                playerCount: globalPlayers.length,
+                qCount: getQuestionStats().length,
+                tables: [
+                    { label: '成績', rows: buildArenaScoreRows() },
+                    { label: '錯答', rows: buildWrongRankingRows() }
+                ]
+            });
+        } catch (err) { console.warn('紀錄備份失敗', err); }
         const sortedPlayers = [...globalPlayers].sort((a, b) => b.score - a.score);
         const p1 = sortedPlayers[0];
         const p2 = sortedPlayers[1];
@@ -2215,7 +2264,9 @@ window.launchArenaMode = function(rawData, configs) {
         }, 3000);
         setTimeout(() => document.getElementById('podium-rest')?.classList.remove('opacity-0'), 4500);
 
-        document.getElementById('btn-finish-home').addEventListener('click', cleanupArena);
+        document.getElementById('btn-finish-home').addEventListener('click', () => {
+            confirmArenaExit('結束遊戲', '確定要結束遊戲並關閉嗎？', '確定結束', cleanupArena);
+        });
 
         bindArenaAnalysisEvents(spaceCode);
     }
