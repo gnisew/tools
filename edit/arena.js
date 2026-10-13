@@ -20,6 +20,7 @@ window.launchArenaMode = function(rawData, configs) {
     let autoNextTimer = null; // ✨ 新增：自動翻頁計時器
     let isRevealing = false; 
     let currentSpaceCode = '';
+    let arenaScoreMap = {}; // ✨ 新增：老師端記憶體累計分數 { 暱稱: 總分 }，不再寫入玩家文件
 
     window.currentArenaState = ''; 
     window.lastEmojiTs = {}; 
@@ -342,6 +343,9 @@ window.launchArenaMode = function(rawData, configs) {
             else pauseOverlay.classList.add('opacity-0');
         }
         
+        // ✨ 修改：只有「作答中」學生端計時器需要同步暫停，才寫入 Firestore；
+        //        讀題、公佈答案、英雄榜階段的暫停只在老師本機處理（省寫入，也避免學生畫面被重繪）
+        if (window.currentArenaState !== 'playing') return;
         const spaceRef = db.collection(window.SPACES_COLLECTION).doc(currentSpaceCode);
         await spaceRef.update({ isPaused: window.arenaIsPaused });
     };
@@ -396,6 +400,7 @@ window.launchArenaMode = function(rawData, configs) {
         window.myCurrentStreak = 0;
         window.myTotalCorrect = 0;
         window.lastEvaluatedQ = -1;
+        arenaScoreMap = {}; // ✨ 新增：關閉空間時清空分數表
         
         document.body.classList.remove('is-playing-game');
         if (typeof toggleMaximizeMode === 'function') toggleMaximizeMode(false);
@@ -492,6 +497,7 @@ window.launchArenaMode = function(rawData, configs) {
             // sessionToken 不吻合，代表這個名字現在是被別人（別的瀏覽器）用的，不能硬接回去
             if (playerData.sessionToken && playerData.sessionToken !== session.token) throw new Error('MISMATCH');
 
+            window.myArenaEmoji = playerData.emoji || '';
             showToast(`👋 歡迎回來，${session.playerName}！`);
             startStudentListener(session.spaceCode, session.playerName);
         } catch (err) {
@@ -506,7 +512,11 @@ window.launchArenaMode = function(rawData, configs) {
 
     function prepareQuizData(isJustCounting = false, hostSettings = null) {
         let parsed = [];
-        if (configs.mcConfig) {
+        if (configs.mcConfig && configs.choiceLayout) {
+            // ✨ 新增：選擇題庫 + 「隨機選項」→ 只取「題目 → 答案」，選項丟掉，交給下方自動隨機產生
+            parsed = parseMultipleChoiceData(rawData, configs.mcConfig, configs.hasHeader, configs.hasCategory, configs.colC, false);
+            parsed.forEach(d => { delete d.options; });
+        } else if (configs.mcConfig) {
             parsed = parseMultipleChoiceData(rawData, configs.mcConfig, configs.hasHeader, configs.hasCategory, configs.colC);
         } else {
             const activePair = configs.matchPairs && configs.matchPairs[configs.currentMatchIndex] ? configs.matchPairs[configs.currentMatchIndex] : (configs.matchPairs ? configs.matchPairs[0] : {termCol:0, defCol:1});
@@ -912,40 +922,78 @@ window.launchArenaMode = function(rawData, configs) {
         });
     }
 
-    // ✨ 老師端全域監聽器 
+    // ✨ 新增：大廳玩家卡片（監聽器增量更新與整份重畫共用）
+    function playerCardHtml(p) {
+        return `
+            <div class="player-card relative group cursor-pointer" data-name="${p.name}" title="點擊踢出">
+                <div class="bg-white/90 text-indigo-900 font-extrabold px-5 py-2.5 rounded-xl group-hover:line-through group-hover:bg-red-100 group-hover:text-red-600 transition-all flex items-center gap-2 shadow-lg text-lg border-2 border-transparent group-hover:border-red-300">
+                    ${p.emoji ? `<span class="text-2xl">${p.emoji}</span>` : ''}
+                    ${p.name}
+                </div>
+            </div>`;
+    }
+    const PLAYERS_EMPTY_HTML = '<div id="players-empty" class="text-indigo-300 font-bold text-xl mt-10 animate-pulse">正在等待玩家加入...</div>';
+
+    // ✨ 老師端全域監聽器（修改：改用 docChanges()，只處理有變動的文件）
     function startGlobalPlayerListener(spaceCode) {
         if (unsubscribePlayers) unsubscribePlayers(); 
+        const playersMap = new Map(); // 文件 id(暱稱) → 玩家資料；跨快照保留，沒變動的文件不重建
+        globalPlayers = [];
         
         unsubscribePlayers = db.collection(window.SPACES_COLLECTION).doc(spaceCode).collection("players").onSnapshot((snapshot) => {
-            globalPlayers = [];
-            snapshot.forEach(doc => {
-                const pData = doc.data();
-                globalPlayers.push(pData);
-                
+            const addedPlayers = [];
+            const removedNames = [];
+
+            snapshot.docChanges().forEach(change => {
+                const id = change.doc.id;
+                if (change.type === 'removed') {
+                    const old = playersMap.get(id);
+                    playersMap.delete(id);
+                    removedNames.push(old ? old.name : id);
+                    return;
+                }
+                const pData = change.doc.data();
+                pData.score = arenaScoreMap[pData.name] || 0; // 分數以老師端記憶體為準
+                playersMap.set(id, pData);
+                if (change.type === 'added') addedPlayers.push(pData);
+
                 if (window.currentArenaState === 'revealed' && pData.flyEmoji && pData.flyEmoji.ts > (window.lastEmojiTs[pData.name] || 0)) {
                     window.lastEmojiTs[pData.name] = pData.flyEmoji.ts;
                     spawnFloatingEmoji(pData.flyEmoji.e);
                 }
             });
+            globalPlayers = Array.from(playersMap.values());
             
             const countEl = document.getElementById('player-count');
             const playersGrid = document.getElementById('players-grid');
             const btnStart = document.getElementById('btn-start-battle');
-            if (countEl && playersGrid && window.currentArenaState === 'lobby') {
+            // 大廳只在有人加入／離開時才動 DOM：移除離開者的卡片、附加新加入者的卡片
+            if (countEl && playersGrid && window.currentArenaState === 'lobby' && (addedPlayers.length || removedNames.length)) {
                 countEl.textContent = globalPlayers.length;
-                if (globalPlayers.length > 0) {
-                    playersGrid.innerHTML = globalPlayers.map(p => `
-                        <div class="player-card relative group cursor-pointer" data-name="${p.name}" title="點擊踢出">
-                            <div class="bg-white/90 text-indigo-900 font-extrabold px-5 py-2.5 rounded-xl group-hover:line-through group-hover:bg-red-100 group-hover:text-red-600 transition-all flex items-center gap-2 shadow-lg text-lg border-2 border-transparent group-hover:border-red-300">
-                                ${p.emoji ? `<span class="text-2xl">${p.emoji}</span>` : ''}
-                                ${p.name}
-                            </div>
-                        </div>
-                    `).join('');
-                    if(btnStart) { btnStart.disabled = false; btnStart.classList.remove('opacity-50', 'cursor-not-allowed'); }
+                const cards = Array.from(playersGrid.querySelectorAll('.player-card'));
+                removedNames.forEach(n => {
+                    const el = cards.find(c => c.dataset.name === n);
+                    if (el) el.remove();
+                });
+                if (globalPlayers.length === 0) {
+                    playersGrid.innerHTML = PLAYERS_EMPTY_HTML;
                 } else {
-                    playersGrid.innerHTML = '<div class="text-indigo-300 font-bold text-xl mt-10 animate-pulse">正在等待玩家加入...</div>';
-                    if(btnStart) { btnStart.disabled = true; btnStart.classList.add('opacity-50', 'cursor-not-allowed'); }
+                    const emptyEl = document.getElementById('players-empty');
+                    if (emptyEl) emptyEl.remove();
+                    const shown = new Set(Array.from(playersGrid.querySelectorAll('.player-card')).map(c => c.dataset.name));
+                    addedPlayers.forEach(p => {
+                        if (!shown.has(p.name)) playersGrid.insertAdjacentHTML('beforeend', playerCardHtml(p));
+                    });
+                    // 保險：畫面與資料筆數對不上（例如快照早於畫面建立）時，整份重畫一次
+                    if (playersGrid.querySelectorAll('.player-card').length !== globalPlayers.length) {
+                        playersGrid.innerHTML = globalPlayers.map(playerCardHtml).join('');
+                    }
+                }
+                if (btnStart) {
+                    const hasPlayers = globalPlayers.length > 0;
+                    btnStart.disabled = !hasPlayers;
+                    btnStart.classList.toggle('opacity-50', !hasPlayers);
+                    btnStart.classList.toggle('cursor-not-allowed', !hasPlayers);
                 }
             }
 
@@ -1010,7 +1058,7 @@ window.launchArenaMode = function(rawData, configs) {
                         <button id="btn-start-battle" class="bg-indigo-500 hover:bg-indigo-400 text-white font-extrabold py-3 px-8 rounded-xl shadow-lg transition-colors opacity-50 cursor-not-allowed text-xl flex-shrink-0" disabled>開始遊戲</button>
                     </div>
                     <div id="players-grid" class="flex flex-wrap gap-3 w-full content-start justify-center overflow-y-auto scrollbar-thin pb-4">
-                        <div class="text-indigo-300 font-bold text-xl mt-10 animate-pulse">正在等待玩家加入...</div>
+                        <div id="players-empty" class="text-indigo-300 font-bold text-xl mt-10 animate-pulse">正在等待玩家加入...</div>
                     </div>
                 </div>
             </div>
@@ -1031,6 +1079,10 @@ window.launchArenaMode = function(rawData, configs) {
             const pName = playerCard.dataset.name;
             if (confirm(`確定要踢出玩家「${pName}」嗎？`)) {
                 await db.collection(window.SPACES_COLLECTION).doc(spaceCode).collection("players").doc(pName).delete();
+                // 學生端不再監聽自己的文件，改由空間文件的 kicked 名單通知
+                await db.collection(window.SPACES_COLLECTION).doc(spaceCode).update({
+                    kicked: firebase.firestore.FieldValue.arrayUnion(pName)
+                });
                 showToast(`🚷 已踢出 ${pName}`);
             }
         });
@@ -1038,6 +1090,7 @@ window.launchArenaMode = function(rawData, configs) {
         document.getElementById('btn-start-battle').addEventListener('click', () => {
             gameData = prepareQuizData(false, finalConfigs.arenaSettings);
             currentQIndex = 0;
+            arenaScoreMap = {}; // ✨ 新增：新的一場，分數歸零
             if (gameData.length === 0) return showToast('⚠️ 題庫解析失敗');
             triggerNextQuestion(spaceCode, finalConfigs.arenaSettings);
         });
@@ -1049,23 +1102,22 @@ window.launchArenaMode = function(rawData, configs) {
         isRevealing = false; 
 
         window.arenaIsPaused = false; 
-        await db.collection(window.SPACES_COLLECTION).doc(spaceCode).update({ isPaused: false });
+
+        // 一次寫入：暫停狀態、題號、題目、總題數全部合併
+        const baseUpdate = {
+            isPaused: false,
+            currentQuestion: currentQIndex,
+            currentQuestionData: qData,
+            totalQuestions: gameData.length
+        };
 
         if (preReadTime > 0) {
             window.currentArenaState = 'reading';
-            await db.collection(window.SPACES_COLLECTION).doc(spaceCode).update({ 
-                status: 'reading', 
-                currentQuestion: currentQIndex,
-                currentQuestionData: qData 
-            });
+            await db.collection(window.SPACES_COLLECTION).doc(spaceCode).update({ status: 'reading', ...baseUpdate });
             renderTeacherReadingView(spaceCode, arenaSettings, preReadTime);
         } else {
             window.currentArenaState = 'playing';
-            await db.collection(window.SPACES_COLLECTION).doc(spaceCode).update({ 
-                status: 'playing', 
-                currentQuestion: currentQIndex,
-                currentQuestionData: qData 
-            });
+            await db.collection(window.SPACES_COLLECTION).doc(spaceCode).update({ status: 'playing', ...baseUpdate });
             renderTeacherGameView(spaceCode, arenaSettings);
         }
     }
@@ -1126,6 +1178,7 @@ window.launchArenaMode = function(rawData, configs) {
         const gotoPlaying = async () => {
             clearInterval(questionTimer);
             window.currentArenaState = 'playing';
+            window.arenaIsPaused = false; // ✨ 新增：本機旗標與寫入的 isPaused:false 保持一致
             await db.collection(window.SPACES_COLLECTION).doc(spaceCode).update({ status: 'playing', isPaused: false });
             renderTeacherGameView(spaceCode, arenaSettings);
         };
@@ -1187,8 +1240,12 @@ window.launchArenaMode = function(rawData, configs) {
             const STREAK_BONUS_PER = 10;  // 每多連續答對一題的加成
             const STREAK_BONUS_CAP = 5;   // 連續加成最多計算的題數
 
-            const batch = db.batch();
+            // 📌 分數改由老師端記憶體累計（arenaScoreMap），不再逐一寫入每位學生的玩家文件
+            const newScores = {};
+            const gainedMap = {};
             globalPlayers.forEach(p => {
+                const prevScore = arenaScoreMap[p.name] || 0;
+                gainedMap[p.name] = 0;
                 if (p.answeredQuestion === currentQIndex && p.lastAnswer === correctIdx) {
                     // 依剩餘時間比例給分：反應時間越短，分數越接近滿分
                     const reactionTime = p.lastReactionTime || 0;
@@ -1207,17 +1264,24 @@ window.launchArenaMode = function(rawData, configs) {
                     const streakBonus = Math.min(streak - 1, STREAK_BONUS_CAP) * STREAK_BONUS_PER;
 
                     const gained = speedScore + streakBonus;
-
-                    const pRef = db.collection(window.SPACES_COLLECTION).doc(spaceCode).collection("players").doc(p.name);
-                    batch.update(pRef, { score: (p.score || 0) + gained, lastGainedScore: gained });
+                    gainedMap[p.name] = gained;
                 }
+                newScores[p.name] = prevScore + gainedMap[p.name];
+                arenaScoreMap[p.name] = newScores[p.name]; // 存進記憶體
+                p.score = newScores[p.name];               // 同步給老師端畫面／匯出使用
             });
-            await batch.commit();
+
+            // 名次由老師端算好，跟公佈答案一起寫進空間文件（整題只有這 1 次寫入，同時也是分數備份）
+            const ranking = globalPlayers
+                .map(p => ({ n: p.name, s: newScores[p.name], g: gainedMap[p.name] }))
+                .sort((a, b) => b.s - a.s);
+            ranking.forEach(e => { e.r = 1 + ranking.filter(x => x.s > e.s).length; });
 
             await db.collection(window.SPACES_COLLECTION).doc(spaceCode).update({
                 status: 'revealed',
                 correctIndex: correctIdx,
-                isPaused: false
+                isPaused: false,
+                ranking: ranking
             });
             
             renderTeacherRevealedView(spaceCode, correctIdx, arenaSettings);
@@ -1313,8 +1377,8 @@ window.launchArenaMode = function(rawData, configs) {
         const goToNextAction = async () => {
             clearInterval(autoNextTimer);
             if (arenaSettings.showScoreboard) {
+                // ✨ 修改：英雄榜只在老師端切換畫面，不寫入空間文件（學生端的名次已併進結果畫面）
                 window.currentArenaState = 'scoreboard';
-                await db.collection(window.SPACES_COLLECTION).doc(spaceCode).update({ status: 'scoreboard' });
                 renderTeacherScoreboardView(spaceCode, correctIdx, arenaSettings);
             } else {
                 currentQIndex++;
@@ -2515,8 +2579,13 @@ window.launchArenaMode = function(rawData, configs) {
                         joinedLate: isLateJoin,
                         joinedAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
+                    // 曾被踢出的暱稱重新加入時，從 kicked 名單移除（沒被踢過就不寫入，避免觸發全班讀取）
+                    if (Array.isArray(data.kicked) && data.kicked.includes(name)) {
+                        tx.update(spaceRef, { kicked: firebase.firestore.FieldValue.arrayRemove(name) });
+                    }
                 });
 
+                window.myArenaEmoji = finalEmoji;
                 saveArenaSession(code, name, sessionToken);
                 if (isLateJoin) showToast('👋 遊戲已經開始，你會直接跟上目前的題目！');
                 startStudentListener(code, name);
@@ -2539,27 +2608,32 @@ window.launchArenaMode = function(rawData, configs) {
         window.myCurrentStreak = 0;
         window.myTotalCorrect = 0;
         window.lastEvaluatedQ = -1; 
-        window.myPreviousRank = null; // ✨ 個人名次追蹤，用於計算英雄榜的名次升降
-        
-        unsubscribeStudentSelf = db.collection(window.SPACES_COLLECTION).doc(spaceCode).collection("players").doc(playerName)
-            .onSnapshot((doc) => {
-                if (!doc.exists) {
-                    clearArenaSession();
-                    showToast('🚷 你已被老師從空間中移除');
-                    if (unsubscribeSpace) unsubscribeSpace();
-                    if (unsubscribeStudentSelf) unsubscribeStudentSelf();
-                    renderStudentJoinForm(spaceCode); 
-                } else {
-                    const myDataIndex = globalPlayers.findIndex(p => p.name === playerName);
-                    if (myDataIndex === -1) globalPlayers.push(doc.data());
-                    else globalPlayers[myDataIndex] = doc.data();
-                }
-            });
+        window.myPreviousRank = null; // ✨ 個人名次追蹤，用於計算名次升降
+        window.myRankDelta = null;    // ✨ 新增：本題名次變化（正數＝上升）
+        window.myEmojiSentQ = -1;     // ✨ 新增：送出表情時的題號；-1 代表整場還沒送過（每人限送一次）
+        try {
+            const savedEmojiQ = sessionStorage.getItem(`arenaEmojiSent_${spaceCode}_${playerName}`);
+            if (savedEmojiQ !== null) window.myEmojiSentQ = parseInt(savedEmojiQ, 10);
+        } catch (err) {}
+        window.currentStudentQ = undefined;
+        if (unsubscribeStudentSelf) { unsubscribeStudentSelf(); unsubscribeStudentSelf = null; }
+        if (unsubscribeSpace) { unsubscribeSpace(); unsubscribeSpace = null; }
 
+        // 學生端只監聽「空間文件」一份；名次、得分、被踢通知都由老師端寫在這裡
         unsubscribeSpace = db.collection(window.SPACES_COLLECTION).doc(spaceCode).onSnapshot((doc) => {
             if (!doc.exists) return;
             const data = doc.data();
-            const arenaSettings = data.config.arenaSettings || {};
+            const arenaSettings = (data.config && data.config.arenaSettings) || {};
+
+            if (Array.isArray(data.kicked) && data.kicked.includes(playerName)) {
+                clearArenaSession();
+                showToast('🚷 你已被老師從空間中移除');
+                if (unsubscribeSpace) { unsubscribeSpace(); unsubscribeSpace = null; }
+                if (window.currentStudentTimer) { clearInterval(window.currentStudentTimer); window.currentStudentTimer = null; }
+                window.currentStudentQ = undefined;
+                renderStudentJoinForm(spaceCode);
+                return;
+            }
             
             window.arenaIsPaused = data.isPaused || false;
 
@@ -2585,12 +2659,18 @@ window.launchArenaMode = function(rawData, configs) {
                         window.myCurrentStreak = 0;
                         ArenaSound.wrong(); // 🔊 答錯提示音
                     }
+                    // ✨ 新增：名次升降每題只算一次，避免暫停等重繪把箭頭洗掉
+                    const myRankEntry = (Array.isArray(data.ranking) ? data.ranking : []).find(e => e.n === playerName);
+                    if (myRankEntry) {
+                        window.myRankDelta = (window.myPreviousRank !== null) ? window.myPreviousRank - myRankEntry.r : null;
+                        window.myPreviousRank = myRankEntry.r;
+                    } else {
+                        window.myRankDelta = null;
+                    }
                 }
-                renderStudentResultScreen(spaceCode, playerName, data.correctIndex, arenaSettings);
-            } else if (data.status === 'scoreboard') {
-                renderStudentScoreboardScreen(spaceCode, playerName);
+                renderStudentResultScreen(spaceCode, playerName, data.correctIndex, arenaSettings, data.ranking);
             } else if (data.status === 'finished') {
-                renderStudentFinalScreen(playerName);
+                renderStudentFinalScreen(playerName, data.ranking, data.totalQuestions);
             }
         });
     }
@@ -2628,70 +2708,6 @@ window.launchArenaMode = function(rawData, configs) {
         `;
     }
 
-    function renderStudentScoreboardScreen(spaceCode, playerName) {
-        // 先畫出 loading 狀態，避免查詢名次時畫面空白
-        arenaContainer.innerHTML = `
-            <div class="w-full h-full bg-[#312e81] font-sans transition-colors duration-500 select-none overflow-y-auto">
-                <div class="min-h-full flex flex-col items-center justify-center p-4 text-center">
-                    <div class="w-24 h-24 bg-yellow-400 rounded-full flex items-center justify-center border-4 border-indigo-900 mb-6 shadow-lg animate-bounce">
-                        <span class="material-symbols-outlined text-6xl text-indigo-900">star</span>
-                    </div>
-                    <h2 class="text-4xl md:text-5xl font-extrabold text-white mb-4 drop-shadow-md tracking-wider">計算名次中...</h2>
-                </div>
-            </div>
-        `;
-
-        // ✨ 單次讀取全部玩家分數（非即時監聽），算出自己的排名與升降
-        db.collection(window.SPACES_COLLECTION).doc(spaceCode).collection("players").get()
-            .then(snapshot => {
-                const allPlayers = [];
-                snapshot.forEach(doc => allPlayers.push(doc.data()));
-                allPlayers.sort((a, b) => (b.score || 0) - (a.score || 0));
-
-                const myIndex = allPlayers.findIndex(p => p.name === playerName);
-                if (myIndex === -1) return; // 名單裡找不到自己（理論上不會發生），保持 loading 畫面即可
-
-                const myRank = myIndex + 1;
-                const myScore = allPlayers[myIndex].score || 0;
-                const totalPlayers = allPlayers.length;
-
-                let deltaHtml = '';
-                if (window.myPreviousRank !== null && window.myPreviousRank !== myRank) {
-                    const diff = window.myPreviousRank - myRank; // 正數 = 名次上升
-                    if (diff > 0) {
-                        deltaHtml = `<span class="inline-flex items-center gap-1 text-green-400 font-black text-2xl md:text-3xl ml-3"><span class="material-symbols-outlined text-2xl md:text-3xl">arrow_upward</span>${diff}</span>`;
-                    } else {
-                        deltaHtml = `<span class="inline-flex items-center gap-1 text-red-400 font-black text-2xl md:text-3xl ml-3"><span class="material-symbols-outlined text-2xl md:text-3xl">arrow_downward</span>${Math.abs(diff)}</span>`;
-                    }
-                } else if (window.myPreviousRank !== null) {
-                    deltaHtml = `<span class="inline-flex items-center gap-1 text-indigo-300 font-black text-2xl md:text-3xl ml-3"><span class="material-symbols-outlined text-2xl md:text-3xl">remove</span></span>`;
-                }
-
-                window.myPreviousRank = myRank;
-
-                const medal = myRank === 1 ? '🥇' : myRank === 2 ? '🥈' : myRank === 3 ? '🥉' : '';
-
-                arenaContainer.innerHTML = `
-                    <div class="w-full h-full bg-[#312e81] font-sans transition-colors duration-500 select-none overflow-y-auto">
-                        <div class="min-h-full flex flex-col items-center justify-center p-4 text-center">
-                            <div class="w-24 h-24 bg-yellow-400 rounded-full flex items-center justify-center border-4 border-indigo-900 mb-6 shadow-lg animate-bounce">
-                                <span class="material-symbols-outlined text-6xl text-indigo-900">star</span>
-                            </div>
-                            <h2 class="text-2xl md:text-3xl font-bold text-indigo-200 mb-2 tracking-wider">你目前的名次</h2>
-                            <div class="flex items-center justify-center mb-4">
-                                <span class="text-6xl md:text-7xl font-black text-white drop-shadow-md">${medal || '#'}${myRank}</span>
-                                ${deltaHtml}
-                            </div>
-                            <p class="text-xl md:text-2xl text-indigo-200 font-bold">共 ${myScore} 分 · 全班第 ${myRank} / ${totalPlayers} 名</p>
-                        </div>
-                    </div>
-                `;
-            })
-            .catch(e => {
-                console.error("讀取排名失敗:", e);
-            });
-    }
-
     // ----------------------------------------------------
     // 畫面 5：學生作答遙控器 
     // ----------------------------------------------------
@@ -2702,8 +2718,7 @@ window.launchArenaMode = function(rawData, configs) {
         let activeMs = 0; 
         let lastTick = Date.now();
 
-        const myData = globalPlayers.find(p => p.name === playerName) || {};
-        const myEmoji = myData.emoji || '';
+        const myEmoji = window.myArenaEmoji || '';
 
         if (window.currentStudentTimer) clearInterval(window.currentStudentTimer);
         
@@ -2779,22 +2794,49 @@ window.launchArenaMode = function(rawData, configs) {
         });
     }
 
-    function renderStudentResultScreen(spaceCode, playerName, correctIdx, arenaSettings) {
+    function renderStudentResultScreen(spaceCode, playerName, correctIdx, arenaSettings, ranking) {
         const isCorrect = (window.myLastAnswer === correctIdx);
         const bgColor = isCorrect ? 'bg-green-500' : 'bg-orange-500';
         const icon = isCorrect ? 'sentiment_very_satisfied' : 'trending_up';
         const title = isCorrect ? '太棒了！答對了！' : (window.myLastAnswer === null ? '時間到囉！' : '繼續加油！');
         const subtitle = isCorrect ? '繼續保持這個好節奏！' : '沒關係，下一題會更好！';
 
-        const myData = globalPlayers.find(p => p.name === playerName) || {};
-        const gainedScoreHtml = isCorrect && myData.lastGainedScore
-            ? `<p class="text-2xl md:text-3xl text-yellow-100 font-black mt-3 drop-shadow-md">+${myData.lastGainedScore} 分</p>`
+        const rankList = Array.isArray(ranking) ? ranking : [];
+        const myEntry = rankList.find(e => e.n === playerName) || {};
+        const gainedScoreHtml = isCorrect && myEntry.g
+            ? `<p class="text-2xl md:text-3xl text-yellow-100 font-black mt-3 drop-shadow-md">+${myEntry.g} 分</p>`
             : '';
+
+        // ✨ 新增：名次併進結果畫面（取代原本獨立的「英雄榜」畫面，只有老師開啟英雄榜時才顯示）
+        let rankHtml = '';
+        if (arenaSettings && arenaSettings.showScoreboard && myEntry.r) {
+            const d = window.myRankDelta;
+            let deltaHtml = '';
+            if (d !== null && d !== undefined) {
+                if (d > 0) deltaHtml = `<span class="inline-flex items-center gap-1 text-yellow-200 font-black text-2xl ml-3"><span class="material-symbols-outlined text-2xl">arrow_upward</span>${d}</span>`;
+                else if (d < 0) deltaHtml = `<span class="inline-flex items-center gap-1 text-white/70 font-black text-2xl ml-3"><span class="material-symbols-outlined text-2xl">arrow_downward</span>${Math.abs(d)}</span>`;
+                else deltaHtml = `<span class="inline-flex items-center text-white/70 font-black text-2xl ml-3"><span class="material-symbols-outlined text-2xl">remove</span></span>`;
+            }
+            const medal = myEntry.r === 1 ? '🥇' : myEntry.r === 2 ? '🥈' : myEntry.r === 3 ? '🥉' : '';
+            rankHtml = `
+                <div class="mt-6 bg-black/20 rounded-2xl px-8 py-4 flex flex-col items-center">
+                    <p class="text-white/80 font-bold text-lg mb-1">你目前的名次</p>
+                    <div class="flex items-center justify-center">
+                        <span class="text-5xl md:text-6xl font-black text-white drop-shadow-md">${medal || '#'}${myEntry.r}</span>
+                        ${deltaHtml}
+                    </div>
+                    <p class="text-white/90 font-bold text-lg mt-1">共 ${myEntry.s || 0} 分 · 全班第 ${myEntry.r} / ${rankList.length} 名</p>
+                </div>`;
+        }
 
         const allowInteractive = arenaSettings && arenaSettings.allowInteractiveEmoji !== false;
 
+        // ✨ 修改：整場每人只能送一次
+        //   還沒送過 → 正常顯示；就是本題送的 → 顯示停用狀態（重繪不會消失）；之前的題目送過 → 不再顯示表情選單
+        const emojiAlreadySent = (window.myEmojiSentQ !== -1 && window.myEmojiSentQ === window.lastEvaluatedQ);
+        const emojiSentEarlier = (window.myEmojiSentQ !== -1 && window.myEmojiSentQ !== window.lastEvaluatedQ);
         let interactiveHtml = '';
-        if (isCorrect && allowInteractive) {
+        if (isCorrect && allowInteractive && !emojiSentEarlier) {
             const EMOJI_BANK = Array.from("✨🎊🏋️👻😀😄😁😅😉😊🥰😍🤩🫣🤫🥳🤠😎😺😸😹😼🎉🪄⚡☄️🌟💡🗿🎂🍰🍦");
             let count = Math.min(window.myTotalCorrect || 1, 15); 
             let randomEmojis = [];
@@ -2803,10 +2845,10 @@ window.launchArenaMode = function(rawData, configs) {
             interactiveHtml = `
                 <div class="mt-8 flex flex-wrap justify-center gap-3 w-full max-w-xs" id="interactive-emojis">
                     ${randomEmojis.map(e => `
-                        <button class="fly-emoji-btn text-4xl md:text-5xl hover:scale-125 transition-transform bg-white/20 p-2 rounded-full cursor-pointer shadow-sm" data-char="${e}">${e}</button>
+                        <button class="fly-emoji-btn text-4xl md:text-5xl hover:scale-125 transition-transform bg-white/20 p-2 rounded-full cursor-pointer shadow-sm ${emojiAlreadySent ? 'opacity-30 cursor-not-allowed' : ''}" data-char="${e}" ${emojiAlreadySent ? 'disabled' : ''}>${e}</button>
                     `).join('')}
                 </div>
-                <p class="text-white/60 text-sm font-bold mt-4 animate-pulse">點擊表情送至大螢幕！</p>
+                <p class="text-white/60 text-sm font-bold mt-4 ${emojiAlreadySent ? '' : 'animate-pulse'}">${emojiAlreadySent ? '表情已送出！' : '整場只能送一次，點擊表情送至大螢幕！'}</p>
             `;
         }
 
@@ -2817,6 +2859,7 @@ window.launchArenaMode = function(rawData, configs) {
                     <h2 class="text-4xl md:text-6xl font-extrabold text-white mb-4 drop-shadow-md tracking-wider">${title}</h2>
                     <p class="text-xl md:text-2xl text-white/90 font-bold">${subtitle}</p>
                     ${gainedScoreHtml}
+                    ${rankHtml}
                     ${interactiveHtml}
                 </div>
             </div>
@@ -2828,21 +2871,32 @@ window.launchArenaMode = function(rawData, configs) {
                 if (!box) return;
                 box.querySelectorAll('.fly-emoji-btn').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
+                        // ✨ 修改：整場每人只能送一次（記錄題號並存入 sessionStorage，重繪或重新整理都不會重新開放）
+                        if (window.myEmojiSentQ !== -1) return;
+                        window.myEmojiSentQ = window.lastEvaluatedQ;
+                        try { sessionStorage.setItem(`arenaEmojiSent_${spaceCode}_${playerName}`, String(window.myEmojiSentQ)); } catch (err) {}
                         box.querySelectorAll('.fly-emoji-btn').forEach(b => { b.disabled = true; b.classList.add('opacity-30', 'cursor-not-allowed'); });
                         const char = e.currentTarget.dataset.char;
-                        await db.collection(window.SPACES_COLLECTION).doc(spaceCode).collection("players").doc(playerName).update({
-                            flyEmoji: { e: char, ts: Date.now() }
-                        });
+                        try {
+                            await db.collection(window.SPACES_COLLECTION).doc(spaceCode).collection("players").doc(playerName).update({
+                                flyEmoji: { e: char, ts: Date.now() }
+                            });
+                        } catch (err) {
+                            // 送出失敗就把額度還給學生，讓他可以再試一次
+                            window.myEmojiSentQ = -1;
+                            try { sessionStorage.removeItem(`arenaEmojiSent_${spaceCode}_${playerName}`); } catch (e2) {}
+                            box.querySelectorAll('.fly-emoji-btn').forEach(b => { b.disabled = false; b.classList.remove('opacity-30', 'cursor-not-allowed'); });
+                        }
                     });
                 });
             }, 100);
         }
     }
 
-    function renderStudentFinalScreen(playerName) {
-        const myData = globalPlayers.find(p => p.name === playerName) || {};
-        const myScore = myData.score || 0;
-        const myEmoji = myData.emoji || '😎';
+    function renderStudentFinalScreen(playerName, ranking, totalQuestions) {
+        const myEntry = (Array.isArray(ranking) ? ranking : []).find(e => e.n === playerName) || {};
+        const myScore = myEntry.s || 0;
+        const myEmoji = window.myArenaEmoji || '😎';
 
         arenaContainer.innerHTML = `
             <div class="w-full h-full bg-[#0f172a] font-sans select-none text-white overflow-y-auto">
@@ -2866,7 +2920,7 @@ window.launchArenaMode = function(rawData, configs) {
                             </div>
                             <div class="flex justify-between items-center">
                                 <span class="font-bold">答對總數</span> 
-                                <span class="font-black text-white text-xl">${window.myTotalCorrect || 0} / ${gameData.length}</span>
+                                <span class="font-black text-white text-xl">${window.myTotalCorrect || 0} / ${totalQuestions || 0}</span>
                             </div>
                         </div>
                     </div>

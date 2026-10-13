@@ -8,7 +8,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <link rel="stylesheet" href="style.css">
+    <!-- ✨ 版本號：每次更新程式，只要改這一個數字（script.js 等檔案與 style.css 都會跟著重新下載） -->
+    <script>window.APP_VERSION = '20261013a';</script>
+    <script>document.write('<link rel="stylesheet" href="style.css?v=' + window.APP_VERSION + '">');</script>
 
 	
 	<link href="https://oikasu1.github.io/kasuexam/kasu/fonts/twhei.css" rel="stylesheet">
@@ -1571,17 +1573,14 @@
 <script src="https://gnisew.github.io/tools/ime/ime-button.js" defer></script>
 
 
-	<script src="data.js"></script>
-	<script src="game.js"></script>
-	<script src="records.js"></script>
-	<script src="arena.js"></script>
-	<script src="live.js"></script>
-    <script src="script.js"></script>
-	<script src="table.js"></script>
-	<script src="tableFill.js"></script>
-	<script src="textTools.js"></script>
-	<script src="translate.js"></script>
-	<script src="bank.js"></script>
+	<!-- ✨ 自家程式載入器：依序載入（順序不可調換），網址後面帶版本號避免讀到舊快取 -->
+	<script>
+		['data.js', 'game.js', 'records.js', 'arena.js', 'live.js', 'script.js',
+		 'table.js', 'tableFill.js', 'textTools.js', 'translate.js', 'bank.js']
+			.forEach(function (f) {
+				document.write('<script src="' + f + '?v=' + window.APP_VERSION + '"><\/script>');
+			});
+	</script>
 
 </body>
 </html>

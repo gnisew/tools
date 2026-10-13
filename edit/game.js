@@ -135,6 +135,9 @@ window.launchGameMode = function(mode, rawData, configs) {
         // 根據遊戲模式，呼叫不同的資料解析引擎
         if (mode === 'choice') {
             parsedData = parseMultipleChoiceData(rawData, configs.mcConfig, hasHeader, hasCategory, colC);
+        } else if (configs.choiceLayout && configs.mcConfig) {
+            // ✨ 新增：選擇題庫用在閃示/配對/測驗/排序/打字 → 以「題目 → 答案文字」解析，選項可為空
+            parsedData = parseMultipleChoiceData(rawData, configs.mcConfig, hasHeader, hasCategory, colC, false);
         } else {
             const activePair = configs.matchPairs[configs.currentMatchIndex];
             parsedData = parseGameData(rawData, activePair.termCol, activePair.defCol, hasHeader, hasCategory, colC);
@@ -252,7 +255,7 @@ function parseGameData(rawData, colA, colB, hasHeader, hasCategory, colC) {
 }
 
 // 3. 專屬：選擇題解析器
-function parseMultipleChoiceData(rawData, mcConfig, hasHeader, hasCategory, colC) {
+function parseMultipleChoiceData(rawData, mcConfig, hasHeader, hasCategory, colC, requireOptions = true) {
     if (!rawData || !mcConfig) return [];
     let lines = rawData.split('\n').filter(line => line.trim() !== '');
     if (hasHeader && lines.length > 0) lines.shift(); 
@@ -297,7 +300,8 @@ function parseMultipleChoiceData(rawData, mcConfig, hasHeader, hasCategory, colC
         const options = [...new Set(rawOptions)]; 
 
         // 如果沒有選項，或是解析不出答案，這題就作廢
-        if (options.length === 0 || !ansText) return;
+        // ✨ 修改：一般模式 (requireOptions=false) 不強制要有選項，只要有答案就保留
+        if ((requireOptions && options.length === 0) || !ansText) return;
 
         const catVal = (hasCategory && colC >= 0 && cols[colC]) ? cols[colC].trim() : '';
 

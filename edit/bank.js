@@ -21,6 +21,26 @@ let gameValidCols = [];       // 含有資料的所有欄位
 let gameActiveBankCols = [];  // 被勾選啟用的題庫欄位
 let gameMatchPairs = [];      // 匹配形式清單: [{ id, termCol, defCol, customName }]
 
+// ✨ 新增：這 5 種一般模式，遇到「選擇題格式」的題庫時，要改用選擇題的選單樣式
+const CHOICE_LAYOUT_MODES = ['flashcard', 'matching', 'quiz', 'sorting', 'typing'];
+
+// ✨ 新增：用標題判斷目前題庫是不是「選擇題格式」（有題目、答案、多個選項欄）
+function isChoiceBankFormat() {
+    if (!chkHasHeader || !chkHasHeader.checked) return false; // 沒勾「第一列為標題」就無從判斷
+    const headers = (window.gameHeaders || []).map(h => h.trim().replace(/"/g, ''));
+    const optLike = headers.filter(h => /選項|正確|錯|^[a-d1-4]$/i.test(h)).length;
+    const hasAnsCol = headers.some(h => /^(答案|解答|答|正解)$/.test(h));
+    return optLike >= 3 || (optLike > 0 && hasAnsCol);
+}
+
+// ✨ 新增：目前要不要顯示「題目／答案／選項1~4」的選擇題選單
+function shouldUseChoiceLayout(selectedGameType, effectiveConfigMode) {
+    if (effectiveConfigMode === 'choice') return true; // 原本的「選擇」與連線的「自訂選項」
+    // ✨ 修改：連線的「隨機選項」(arena + match) 遇到選擇題庫時，也用選擇題選單
+    const isArenaRandom = selectedGameType === 'arena' && effectiveConfigMode === 'match';
+    return (CHOICE_LAYOUT_MODES.includes(selectedGameType) || isArenaRandom) && isChoiceBankFormat();
+}
+
 // 💡 修正：綁定到正確的按鈕 btnStudyMode 上
 if (btnStudyMode) {
     btnStudyMode.addEventListener('click', (e) => {
@@ -190,7 +210,10 @@ if (btnStartGame) {
             let currentPairs = [];
             let mcConfig = null;
 
-            if (effectiveConfigMode === 'choice') {
+            // ✨ 修改：原本只判斷 effectiveConfigMode === 'choice'，現在也包含「選擇題庫 + 5 種一般模式」
+            const useChoiceLayout = shouldUseChoiceLayout(selectedGame, effectiveConfigMode);
+
+            if (useChoiceLayout) {
                 // 抓取選擇題專屬的設定
                 const mcArea = document.getElementById('mc-config-area');
                 if (mcArea) {
@@ -221,6 +244,9 @@ if (btnStartGame) {
                 activeBankCols: gameActiveBankCols,
                 matchPairs: currentPairs,
                 mcConfig: mcConfig,
+                // ✨ 新增：一般模式使用了選擇題選單時為 true，game.js 會據此改用 mcConfig 解析資料
+                // ✨ 修改：連線「隨機選項」也要標記，arena.js 才知道選項要隨機產生、不用題庫的選項欄
+                choiceLayout: useChoiceLayout && (CHOICE_LAYOUT_MODES.includes(selectedGame) || (selectedGame === 'arena' && effectiveConfigMode === 'match')),
                 hasHeader: chkHasHeader ? chkHasHeader.checked : false,
                 hasCategory: colCValue !== -1,
                 colC: colCValue,
@@ -526,10 +552,20 @@ function renderGameMatchPairs() {
         effectiveConfigMode = arenaSourceEl ? arenaSourceEl.value : 'match';
     }
 
-    // 將原本的 selectedGameType 改為 effectiveConfigMode
-    if (effectiveConfigMode === 'choice') {
-        // ========== 選擇題專屬介面 ==========
-        let mcConfig = (window.currentGameConfigs && window.currentGameConfigs.mcConfig) || {};
+    // ✨ 修改：原本是 effectiveConfigMode === 'choice'，現在交給 shouldUseChoiceLayout 統一判斷
+    if (shouldUseChoiceLayout(selectedGameType, effectiveConfigMode)) {
+        // ========== 選擇題專屬介面（「選擇」模式 與 選擇題庫的閃示/配對/測驗/排序/打字 共用）==========
+        let mcConfig = (window.currentGameConfigs && window.currentGameConfigs.mcConfig) || null;
+
+        // ✨ 新增：若還沒有選擇題設定（例如先前用配對存檔），用標題智慧分析出題目/答案/選項欄
+        if (!mcConfig || mcConfig.qCol === undefined) {
+            let rawForAnalysis = editor.value;
+            if (currentMode === 'table' && typeof extractTextFromTable === 'function') rawForAnalysis = extractTextFromTable();
+            const analysis = (typeof analyzeTableHeaders === 'function') ? analyzeTableHeaders(rawForAnalysis) : null;
+            mcConfig = analysis ? { ...analysis.mcConfig } : {};
+            if (!window.currentGameConfigs) window.currentGameConfigs = {};
+            window.currentGameConfigs.mcConfig = mcConfig;
+        }
         
         // 預設值防呆：若沒有設定，或題目欄位被取消勾選，預設抓第一欄
         if (mcConfig.qCol === undefined || !availableCols.includes(mcConfig.qCol)) {
@@ -573,9 +609,16 @@ function renderGameMatchPairs() {
         });
         ansOptionsHtml += `</optgroup>`;
 
+        // ✨ 新增：一般模式（非「選擇」/連線）顯示的說明文字
+        // ✨ 修改：連線「隨機選項」改顯示「選項由系統隨機產生」
+        const modeNoteHtml = (effectiveConfigMode === 'choice')
+            ? ''
+            : `<div class="text-[11px] text-yellow-700 font-bold px-1">此題庫為選擇題格式：以「題目 → 答案」進行，${selectedGameType === 'arena' ? '選項由系統隨機產生，選項欄不會使用' : '選項欄可不填'}</div>`;
+
         // UI 排版：題目與答案在第一行，四個選項在第二行
         const mcHtml = `
             <div class="flex flex-col gap-2 bg-yellow-50/50 p-2 rounded-lg border border-yellow-100 shadow-sm" id="mc-config-area">
+                ${modeNoteHtml}
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 border-b border-yellow-200/50 pb-2">
                     <div class="flex items-center gap-2">
                         <span class="text-xs font-bold text-gray-600 w-10 shrink-0 text-right">題目：</span>
