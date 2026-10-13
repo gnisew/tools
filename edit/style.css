@@ -797,3 +797,22 @@ body.maximized-mode.is-playing-game #tableModeContainer {
     #typing-main-content #typing-input { height: 3rem !important; font-size: 1.5rem !important; padding-top: 0.25rem !important; }
     #typing-main-content #btn-hint-single { top: 0.25rem !important; right: 0.25rem !important; padding: 0.25rem 0.5rem !important; font-size: 0.75rem !important; }
 }
+
+/* ==========================================
+   工具列：手機版把「復原／尋找取代／複製貼上／清除刪除」合併成「更多」選單
+   - 手機版 (<=768px)：隱藏原本 4 顆按鈕，只顯示 #dd-mobileMore（避免右側按鈕換行造成多餘空行）
+   - 電腦版 (>=769px)：隱藏 #dd-mobileMore，維持原本樣子
+   ========================================== */
+@media (max-width: 768px) {
+    #btnUndo,
+    #btnFindReplace,
+    #dd-clipboard-group,
+    #dd-delete-group {
+        display: none !important;
+    }
+}
+@media (min-width: 769px) {
+    #dd-mobileMore {
+        display: none !important;
+    }
+}

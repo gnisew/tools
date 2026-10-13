@@ -3885,7 +3885,7 @@ window.launchLiveMode = function(rawData, configs) {
 
         const displayCode = spaceCode.substring(0, 2) + ' ' + spaceCode.substring(2);
         let isResultsHidden = false; 
-        if (window.currentSpaceData && window.currentSpaceData[`results_hidden_${qData.id}`]) {
+        if (qData && window.currentSpaceData && window.currentSpaceData[`results_hidden_${qData.id}`]) {
             db.collection(window.SPACES_COLLECTION).doc(spaceCode).update({ [`results_hidden_${qData.id}`]: false }).catch(() => {});
         }
 

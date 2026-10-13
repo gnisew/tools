@@ -266,7 +266,8 @@ window.analyzeTableHeaders = function(dataText) {
         activeCols: activeCols,
         catCol: catCol,
         mcConfig: { qCol, o1Col: o1, o2Col: o2, o3Col: o3, o4Col: o4, ansCol },
-        matchConfig: { termCol: matchTermCol, defCol: matchDefCol }
+        matchConfig: { termCol: matchTermCol, defCol: matchDefCol },
+        optCols: optCols.slice() // ✨ 新增：完整選項欄位清單 (不限 4 個，供「選項處理」工具使用)
     };
 };
 
@@ -1297,6 +1298,9 @@ dataTable.addEventListener('input', () => {
 
 /* 滑鼠點擊選取與選單邏輯 */
 dataTable.addEventListener('click', (e) => {
+    // 【新增】剛完成「拖曳多選欄」時，略過隨後觸發的 click，避免選取被覆蓋
+    if (window.isColDragSelecting) return;
+
     const btnColMenu = e.target.closest('.btn-col-menu');
     if (btnColMenu) {
         const th = btnColMenu.closest('th'); 
@@ -1466,10 +1470,92 @@ dataTable.addEventListener('dblclick', (e) => {
 });
 
 // 拖曳排序實作
+// 【新增】判斷滑鼠按在「欄標題」的哪一半：左半 = 'select'(拖曳多選欄)、右半 = 'move'(拖曳移動欄)
+function getColHeaderZone(e) {
+    const th = e.target.closest('th.sticky-top');
+    if (!th || th.classList.contains('sticky-corner')) return null;
+    if (e.target.closest('.btn-col-menu') || e.target.closest('.resize-handle')) return null;
+    const rect = th.getBoundingClientRect();
+    return (e.clientX < rect.left + rect.width / 2) ? 'select' : 'move';
+}
+
+// 【新增】欄標題左半「拖曳多選欄」的狀態
+let colDragSelectStart = -1;      // 起點欄索引 (-1 表示未在拖曳選取)
+let colDragSelectBase = [];       // 按住 Ctrl 時，保留原本已選取的欄
+window.isColDragSelecting = false;
+
+// 【修改】原本「col-label / row-label 一按就可拖曳」→ 欄改成依左右半邊判斷，列維持原樣
 dataTable.addEventListener('mousedown', (e) => {
-    if (e.target.classList.contains('col-label') || e.target.classList.contains('row-label')) {
+    if (e.button !== 0) return;
+
+    // --- 欄標題 ---
+    const zone = getColHeaderZone(e);
+    if (zone === 'move') {
+        // 右半：啟用原生拖曳，移動欄位
+        e.target.closest('th').setAttribute('draggable', 'true');
+        return;
+    }
+    if (zone === 'select') {
+        // 左半：開始拖曳多選欄 (實際選取在 mouseover 時進行，單純點擊仍由 click 處理)
+        if (isSelectionLocked) return;
+        const th = e.target.closest('th.sticky-top');
+        colDragSelectStart = parseInt(th.dataset.col);
+        const isCtrl = e.ctrlKey || e.metaKey || isMobileMultiSelect;
+        colDragSelectBase = isCtrl ? [...selectedCols] : [];
+        return;
+    }
+
+    // --- 列標題 (維持原本行為) ---
+    if (e.target.classList.contains('row-label')) {
         const th = e.target.closest('th'); if (th) th.setAttribute('draggable', 'true');
     }
+});
+
+// 【新增】拖曳經過其他欄時，擴充選取範圍
+dataTable.addEventListener('mouseover', (e) => {
+    if (colDragSelectStart === -1 || isSelectionLocked) return;
+
+    let curCol = -1;
+    const th = e.target.closest('th.sticky-top');
+    if (th && !th.classList.contains('sticky-corner')) {
+        curCol = parseInt(th.dataset.col);
+    } else {
+        const td = e.target.closest('td');
+        if (td) curCol = Array.from(td.closest('tr').children).indexOf(td) - 1;
+    }
+    if (curCol < 0) return;
+    if (curCol === colDragSelectStart && !window.isColDragSelecting) return; // 還沒離開起點欄
+
+    window.isColDragSelecting = true;
+    const start = Math.min(colDragSelectStart, curCol);
+    const end = Math.max(colDragSelectStart, curCol);
+
+    if (colDragSelectBase.length === 0) { selectedRows = []; selectedCellBlocks = []; }
+    const range = [];
+    for (let i = start; i <= end; i++) range.push(i);
+    selectedCols = Array.from(new Set([...colDragSelectBase, ...range]));
+    lastSelectedColIndex = colDragSelectStart;
+
+    applySelectionVisuals();
+    window.getSelection().removeAllRanges(); // 防止拖曳時反白文字
+});
+
+// 【新增】放開滑鼠：結束拖曳多選欄
+document.addEventListener('mouseup', () => {
+    colDragSelectStart = -1;
+    colDragSelectBase = [];
+    // 延遲到 click 事件之後再解除旗標，讓 click 能被略過
+    setTimeout(() => { window.isColDragSelecting = false; }, 0);
+});
+
+// 【新增】滑鼠游標提示：左半 = 多選欄、右半 = 移動欄
+dataTable.addEventListener('mousemove', (e) => {
+    if (colDragSelectStart !== -1 || e.buttons) return;
+    const label = e.target.closest('th.sticky-top .col-label');
+    if (!label) return;
+    const zone = getColHeaderZone(e);
+    if (zone === 'move') label.style.cursor = 'grab';
+    else if (zone === 'select') label.style.cursor = 'cell';
 });
 dataTable.addEventListener('mouseup', () => { dataTable.querySelectorAll('th[draggable="true"]').forEach(th => th.removeAttribute('draggable')); });
 dataTable.addEventListener('dragend', (e) => { if (e.target.tagName === 'TH') e.target.removeAttribute('draggable'); });
@@ -3860,6 +3946,598 @@ document.getElementById('btnApplyAutoMerge').addEventListener('click', () => {
     debouncedSaveHistory();
     autoMergeModal.classList.add('hidden');
     showToast('✅ 自動合併完成！');
+});
+
+
+
+/* ==========================================
+   神奇多功能工具：選項處理 模組
+   功能1：依「答案」數字，在選取範圍右側新增「正確選項」欄
+   功能2：選項亂數 (A: 固定答案位置 / B: 答案位置也隨機)
+   功能3：依答案文字 (或字母)，在選取範圍右側新增「答案數字」欄  ✨ 新增
+   ========================================== */
+const autoOptionModal = document.getElementById('autoOptionModal');
+
+// 1. 開啟與關閉對話框
+document.getElementById('btnOpenAutoOption').addEventListener('click', (e) => {
+    e.stopPropagation();
+    autoOptionModal.classList.remove('hidden');
+    document.querySelectorAll('.dropdown-menu, .action-menu').forEach(m => m.classList.remove('show'));
+    optRefresh();   // ✨ 新增：讀取選取範圍、自動辨識並建立「題目／答案／選項」下拉選單
+    centerModal(autoOptionModal);
+    updateAutoOptionUI();
+});
+document.getElementById('btnCloseAutoOption').addEventListener('click', () => {
+    autoOptionModal.classList.add('hidden');
+});
+
+// 切換功能時，顯示／隱藏「亂數」專屬設定
+function updateAutoOptionUI() {
+    const fn = optFn();   // ✏️ 修改：改用 optFn() 取得目前功能
+    document.getElementById('optionShuffleSettings').classList.toggle('hidden', fn !== 'shuffle');
+    document.getElementById('optionDistractSettings').classList.toggle('hidden', fn !== 'distract');   // ✨ 新增
+    optUpdateNumColVisibility();   // ✨ 新增：B 模式才顯示「答案數字欄」下拉
+
+    // ✨ 新增：功能4 只需「題目＋答案」兩欄 (2 欄即可)，其他功能需 3 欄以上。
+    //        若目前範圍的欄數不符合新功能，或欄位對應區是隱藏的，就重新讀取；否則保留使用者已改好的對應
+    if (optCtx) {
+        const need = fn === 'distract' ? 2 : 3;
+        const boxHidden = document.getElementById('optMappingBox').classList.contains('hidden');
+        if (optCtx.width < need || boxHidden) optRefresh();
+        else { optApplyFnVisibility(); optOnChanged(); }
+    }
+}
+// ✨ 新增：目前選擇的功能
+function optFn() {
+    return document.querySelector('input[name="optionFn"]:checked').value;
+}
+// ✨ 新增：功能4 不需要「答案格式」與「選項N」，把它們藏起來
+function optApplyFnVisibility() {
+    const hide = optFn() === 'distract';
+    document.getElementById('optFmtRow').classList.toggle('hidden', hide);     // ✏️ 修改：版面調整後改用 optFmtRow／optOptsBlock
+    document.getElementById('optOptsBlock').classList.toggle('hidden', hide);
+}
+document.querySelectorAll('input[name="optionFn"]').forEach(r => r.addEventListener('change', updateAutoOptionUI));
+
+// 2. 視窗全區拖曳
+let isDraggingAOP = false, dragStartXAOP = 0, dragStartYAOP = 0, aopStartLeft = 0, aopStartTop = 0;
+autoOptionModal.addEventListener('mousedown', (e) => {
+    if (e.target.closest('input, button, label, select')) return;
+    isDraggingAOP = true; dragStartXAOP = e.clientX; dragStartYAOP = e.clientY;
+    const rect = autoOptionModal.getBoundingClientRect();
+    aopStartLeft = rect.left; aopStartTop = rect.top;
+    document.body.style.userSelect = 'none';
+});
+document.addEventListener('mousemove', (e) => {
+    if (!isDraggingAOP) return;
+    autoOptionModal.style.left = `${aopStartLeft + (e.clientX - dragStartXAOP)}px`;
+    autoOptionModal.style.top = `${aopStartTop + (e.clientY - dragStartYAOP)}px`;
+    autoOptionModal.style.transform = 'none';
+});
+document.addEventListener('mouseup', () => { isDraggingAOP = false; document.body.style.userSelect = ''; });
+autoOptionModal.addEventListener('touchstart', (e) => {
+    if (e.target.closest('input, button, label, select')) return;
+    const touch = e.touches[0];
+    isDraggingAOP = true; dragStartXAOP = touch.clientX; dragStartYAOP = touch.clientY;
+    const rect = autoOptionModal.getBoundingClientRect();
+    aopStartLeft = rect.left; aopStartTop = rect.top;
+    e.preventDefault();
+}, { passive: false });
+document.addEventListener('touchmove', (e) => {
+    if (!isDraggingAOP) return;
+    const touch = e.touches[0];
+    autoOptionModal.style.left = `${aopStartLeft + (touch.clientX - dragStartXAOP)}px`;
+    autoOptionModal.style.top = `${aopStartTop + (touch.clientY - dragStartYAOP)}px`;
+    autoOptionModal.style.transform = 'none';
+    e.preventDefault();
+}, { passive: false });
+document.addEventListener('touchend', () => { isDraggingAOP = false; });
+
+// 3. 工具函式
+// 3-1 取得選取範圍的邊界 (與自動合併相同邏輯)
+function getOptionToolBounds() {
+    let minR = Infinity, maxR = -1, minC = Infinity, maxC = -1;
+    if (selectedCellBlocks.length > 0) {
+        selectedCellBlocks.forEach(b => {
+            minR = Math.min(minR, b.startR, b.endR); maxR = Math.max(maxR, b.startR, b.endR);
+            minC = Math.min(minC, b.startC, b.endC); maxC = Math.max(maxC, b.startC, b.endC);
+        });
+    } else if (selectedRows.length > 0) {
+        minR = Math.min(...selectedRows); maxR = Math.max(...selectedRows);
+        minC = 0; maxC = dataTable.querySelector('thead tr').children.length - 2;
+    } else if (selectedCols.length > 0) {
+        minR = 0; maxR = dataTable.querySelectorAll('tbody tr').length - 1;
+        minC = Math.min(...selectedCols); maxC = Math.max(...selectedCols);
+    } else {
+        return null;
+    }
+    return { minR, maxR, minC, maxC };
+}
+
+// 3-2 讀寫儲存格
+function optGetText(trs, r, c) {
+    const inner = trs[r]?.children[c + 1]?.querySelector('.td-inner');
+    return inner ? inner.innerText.replace(/\u00a0/g, ' ').trim() : '';
+}
+function optSetText(trs, r, c, text) {
+    const inner = trs[r]?.children[c + 1]?.querySelector('.td-inner');
+    if (!inner) return;
+    inner.removeAttribute('data-formula');
+    inner.innerText = text;
+}
+
+// 3-3 解析答案：1,2,3… / A,B,C… / 直接寫選項文字 (與學習模式規則一致)
+// ✏️ 修改：新增第三個參數 fmt ('auto' 自動 / 'num' 數字 / 'letter' 字母 / 'text' 選項文字)
+function optParseAnswer(raw, optTexts, fmt = 'auto') {
+    raw = (raw || '').trim();
+    if (!raw) return null;
+    if ((fmt === 'auto' || fmt === 'num') && /^\d+$/.test(raw)) {
+        const idx = parseInt(raw, 10) - 1;
+        if (idx >= 0 && idx < optTexts.length) return { idx, style: 'num' };
+        if (fmt === 'num') return null;
+    }
+    if ((fmt === 'auto' || fmt === 'letter') && /^[A-Za-z]$/.test(raw)) {
+        const idx = raw.toUpperCase().charCodeAt(0) - 65;
+        if (idx < optTexts.length) return { idx, style: raw === raw.toUpperCase() ? 'upper' : 'lower' };
+        if (fmt === 'letter') return null;
+    }
+    if (fmt === 'num' || fmt === 'letter') return null;
+    const idx = optTexts.indexOf(raw); // 答案欄直接寫選項文字
+    return idx >= 0 ? { idx, style: 'text' } : null;
+}
+
+// 3-4 辨識「題目 / 選項 / 答案」欄位 (優先沿用學習模式的 analyzeTableHeaders；辨識不到再用位置推測)
+function detectOptionLayout(rows) {
+    if (rows.length === 0) return null;
+    const width = rows[0].length;
+
+    // (a) 有標題列：用學習模式的智慧比對
+    if (typeof window.analyzeTableHeaders === 'function') {
+        const info = window.analyzeTableHeaders(rows.map(r => r.join('\t')).join('\n'));
+        if (info && info.hasHeader && typeof info.mcConfig.ansCol === 'string' && info.mcConfig.ansCol.startsWith('col_')) {
+            const ansCol = parseInt(info.mcConfig.ansCol.split('_')[1], 10);
+            const optCols = (info.optCols || []).filter(i => i !== ansCol && i !== info.mcConfig.qCol && i < width).sort((a, b) => a - b);
+            if (optCols.length >= 2) {
+                return { hasHeader: true, qCol: info.mcConfig.qCol, optCols, ansCol, dataStart: 1 };
+            }
+        }
+    }
+
+    // (b) 位置推測：第一欄=題目、最後一欄=答案(數字或字母)、中間=選項
+    if (width >= 3) {   // ✏️ 修改：原本 width >= 4
+        const ansCol = width - 1;
+        const optCols = Array.from({ length: width - 2 }, (_, i) => i + 1);
+        const isAnsToken = v => /^\d+$/.test(v) || /^[A-Za-z]$/.test(v);
+        const firstIsAns = isAnsToken(rows[0][ansCol]);
+        return { hasHeader: !firstIsAns, qCol: 0, optCols, ansCol, dataStart: firstIsAns ? 0 : 1 };
+    }
+    return null;
+}
+
+// 3-5 亂數工具
+function optShuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+function optIsNum(v) { return /^-?\d+(\.\d+)?$/.test(v.replace(/,/g, '')); }
+function optCharLen(v) { return [...v].length; }
+
+// 錯誤選項排列：useRule=true → 先亂數(同字數者隨機)，再依字數多→少；若全是數字則小→大
+function optOrderWrongs(wrongs, allItems, useRule) {
+    let list = optShuffle(wrongs);
+    if (!useRule) return list;
+    if (allItems.every(optIsNum)) {
+        list.sort((a, b) => parseFloat(a.replace(/,/g, '')) - parseFloat(b.replace(/,/g, '')));
+    } else {
+        list.sort((a, b) => optCharLen(b) - optCharLen(a));
+    }
+    return list;
+}
+
+// 3-6 ✨ 新增：欄位對應設定 (題目／答案／選項 下拉選單，可確認或修改自動辨識結果)
+let optCtx = null;                                            // 目前選取範圍 { bounds, width }
+const optState = { q: -1, ans: -1, opts: [], fmt: 'auto' };   // 欄位對應 (皆為「相對於選取範圍」的欄位索引)
+let optOptSels = [];                                          // 動態產生的「選項N」下拉選單
+const OPT_SEL_CLASS = 'flex-1 min-w-0 border border-gray-300 rounded-md px-1.5 py-1 text-xs bg-white outline-none focus:border-pink-400 cursor-pointer';
+
+// 讀取選取範圍內的非空白列
+function optReadRows(bounds) {
+    const trs = dataTable.querySelectorAll('tbody tr');
+    const rowsInfo = [];
+    for (let r = bounds.minR; r <= bounds.maxR; r++) {
+        const cells = [];
+        for (let c = bounds.minC; c <= bounds.maxC; c++) cells.push(optGetText(trs, r, c));
+        if (cells.some(v => v !== '')) rowsInfo.push({ r, cells });
+    }
+    return rowsInfo;
+}
+
+// 下拉選單顯示文字：「A：標題文字」；沒有標題就顯示「A 欄」
+function optColLabels(rowsInfo) {
+    const hasHeader = document.getElementById('optHasHeader').checked;
+    return Array.from({ length: optCtx.width }, (_, i) => {
+        const abs = optCtx.bounds.minC + i;
+        let name = (hasHeader && rowsInfo[0]) ? rowsInfo[0].cells[i] : '';
+        if (!name) {
+            const th = dataTable.querySelector(`thead th[data-col="${abs}"]`);
+            name = (th && th.dataset.colName) || '';
+        }
+        const chars = [...name];
+        if (chars.length > 8) name = chars.slice(0, 8).join('') + '…';
+        return name ? `${getColLabel(abs)}：${name}` : `${getColLabel(abs)} 欄`;
+    });
+}
+
+function optFillSelect(sel, value, labels, withNone) {
+    sel.innerHTML = '';
+    if (withNone) sel.add(new Option('(不指定)', '-1'));
+    labels.forEach((t, i) => sel.add(new Option(t, String(i))));
+    sel.value = String(value);
+}
+
+// 重新讀取選取範圍並自動辨識欄位
+function optRefresh() {
+    const rangeText = document.getElementById('optRangeText');
+    const box = document.getElementById('optMappingBox');
+    const applyBtn = document.getElementById('btnApplyAutoOption');
+    const setDisabled = (d) => {
+        applyBtn.disabled = d;
+        applyBtn.classList.toggle('opacity-50', d);
+        applyBtn.classList.toggle('cursor-not-allowed', d);
+    };
+
+    const bounds = getOptionToolBounds();
+    if (!bounds) {
+        optCtx = null;
+        rangeText.textContent = '⚠️ 尚未選取範圍，請選取「題目～答案」後按「重新讀取」';
+        box.classList.add('hidden'); setDisabled(true);
+        return;
+    }
+    const width = bounds.maxC - bounds.minC + 1;
+    optCtx = { bounds, width };
+    rangeText.textContent = `選取範圍：${getColLabel(bounds.minC)}～${getColLabel(bounds.maxC)} 欄，第 ${bounds.minR + 1}～${bounds.maxR + 1} 列`;
+    const minWidth = optFn() === 'distract' ? 2 : 3;   // ✨ 新增：功能4 只需 題目＋答案 兩欄
+    if (width < minWidth) {   // ✏️ 修改：原本 width < 3
+        rangeText.textContent += optFn() === 'distract' ? '　⚠️ 至少需包含 題目、答案 兩欄' : '　⚠️ 至少需包含 題目、選項、答案 三欄';   // ✏️ 修改：提示依功能而定
+        box.classList.add('hidden'); setDisabled(true);
+        return;
+    }
+
+    // 自動辨識 (標題 → analyzeTableHeaders；否則位置推測)
+    const rowsInfo = optReadRows(bounds);
+    const layout = rowsInfo.length ? detectOptionLayout(rowsInfo.map(x => x.cells)) : null;
+    if (layout) {
+        optState.q = layout.qCol;
+        optState.ans = layout.ansCol;
+        optState.opts = layout.optCols.slice();
+        document.getElementById('optHasHeader').checked = layout.hasHeader;
+    } else {
+        optState.q = 0;
+        optState.ans = width - 1;
+        optState.opts = Array.from({ length: width - 2 }, (_, i) => i + 1);
+        document.getElementById('optHasHeader').checked = true;
+    }
+    optState.fmt = 'auto';
+    box.classList.remove('hidden');
+    optApplyFnVisibility();   // ✨ 新增
+    optFillNumColSelect();    // ✨ 新增：建立「答案數字欄」下拉並自動偵測
+    optRenderMapping();
+}
+
+// 依 optState 畫出所有下拉選單
+function optRenderMapping() {
+    if (!optCtx) return;
+    const labels = optColLabels(optReadRows(optCtx.bounds));
+    optFillSelect(document.getElementById('optSelQ'), optState.q, labels, true);
+    optFillSelect(document.getElementById('optSelAns'), optState.ans, labels, false);
+    document.getElementById('optSelFmt').value = optState.fmt;
+
+    const wrap = document.getElementById('optOptsContainer');
+    wrap.innerHTML = '';
+    optOptSels = [];
+    optState.opts.forEach((val, k) => {
+        // ✏️ 修改：選項欄改為「標籤在上、下拉在下」，兩欄並排
+        const cell = document.createElement('div');
+        cell.className = 'flex flex-col gap-1 min-w-0';
+        const lab = document.createElement('span');
+        lab.className = 'opt-field-label';
+        lab.textContent = `選項${k + 1}`;
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-1';
+        const sel = document.createElement('select');
+        sel.className = OPT_SEL_CLASS;
+        optFillSelect(sel, val, labels, false);
+        sel.addEventListener('change', () => { optState.opts[k] = parseInt(sel.value, 10); optOnChanged(); });
+        row.append(sel);
+        if (optState.opts.length > 2) {
+            const del = document.createElement('button');
+            del.type = 'button';
+            del.title = '移除此選項欄';
+            del.className = 'text-gray-400 hover:text-red-500 cursor-pointer flex-shrink-0 flex items-center';
+            del.innerHTML = '<span class="material-symbols-outlined text-base">remove_circle</span>';
+            del.addEventListener('click', () => { optState.opts.splice(k, 1); optRenderMapping(); });
+            row.appendChild(del);
+        }
+        cell.append(lab, row);
+        wrap.appendChild(cell);
+        optOptSels.push(sel);
+    });
+    optOnChanged();
+}
+
+function optOnChanged() {
+    if (!optCtx) return;
+    optValidate();
+    optUpdatePreview();
+}
+
+// 防呆：同一欄不能重複當作多個角色；至少 2 個選項欄
+function optValidate() {
+    const applyBtn = document.getElementById('btnApplyAutoOption');
+    const warn = document.getElementById('optWarn');
+    const items = [];
+    if (optState.q >= 0) items.push({ el: document.getElementById('optSelQ'), col: optState.q });
+    items.push({ el: document.getElementById('optSelAns'), col: optState.ans });
+    const needOpts = optFn() !== 'distract';   // ✨ 新增：功能4 不檢查選項欄
+    if (needOpts) optState.opts.forEach((c, k) => items.push({ el: optOptSels[k], col: c }));   // ✏️ 修改：加上 needOpts 判斷
+
+    const count = {};
+    items.forEach(it => { count[it.col] = (count[it.col] || 0) + 1; });
+    let dup = false;
+    items.forEach(it => {
+        const bad = count[it.col] > 1;
+        if (bad) dup = true;
+        it.el.style.borderColor = bad ? '#f87171' : '';
+        it.el.style.backgroundColor = bad ? '#fef2f2' : '';
+    });
+
+    let msg = '';
+    if (dup) msg = '⚠️ 同一欄不能同時當作多個角色 (紅框處請修改)';
+    else if (needOpts && optState.opts.length < 2) msg = '⚠️ 至少需要 2 個選項欄';   // ✏️ 修改：加上 needOpts 判斷
+    warn.textContent = msg;
+    warn.classList.toggle('hidden', !msg);
+
+    const ok = !msg;
+    applyBtn.disabled = !ok;
+    applyBtn.classList.toggle('opacity-50', !ok);
+    applyBtn.classList.toggle('cursor-not-allowed', !ok);
+    return ok;
+}
+
+// 預覽：第一題的辨識結果，與可處理／會略過的題數
+function optUpdatePreview() {
+    const el = document.getElementById('optPreview');
+    const hasHeader = document.getElementById('optHasHeader').checked;
+    const dataRows = optReadRows(optCtx.bounds).slice(hasHeader ? 1 : 0);
+    if (dataRows.length === 0) { el.textContent = '預覽：尚無題目資料列'; return; }
+
+    // ✨ 新增：功能4 的預覽 (不需解析選項)
+    if (optFn() === 'distract') {
+        const n = optGetDistractCount();
+        const uniq = new Set(dataRows.map(r => optNormKey(r.cells[optState.ans])).filter(k => k !== ''));
+        const withAns = dataRows.filter(r => r.cells[optState.ans] !== '');
+        const short = uniq.size - 1 < n ? withAns.length : 0;   // 不重複答案數 ≤ 要產生的數量 → 每題都湊不滿
+        const f = dataRows[0];
+        el.textContent = `預覽 第1題：「${optState.q >= 0 ? f.cells[optState.q] : ''}」正確答案「${f.cells[optState.ans]}」\n共 ${withAns.length} 題，不重複答案 ${uniq.size} 種，每題產生 ${n} 個錯誤選項` +
+            (short ? `\n⚠️ 可用的其他答案只有 ${Math.max(uniq.size - 1, 0)} 種，湊不滿 ${n} 個 (不足處留空)` : '');
+        return;
+    }
+
+    let ok = 0, bad = 0;
+    dataRows.forEach(row => {
+        const optTexts = optState.opts.map(i => row.cells[i]);
+        const a = optParseAnswer(row.cells[optState.ans], optTexts, optState.fmt);
+        (a && optTexts[a.idx] !== '') ? ok++ : bad++;
+    });
+
+    const first = dataRows[0];
+    const optTexts = optState.opts.map(i => first.cells[i]);
+    const a = optParseAnswer(first.cells[optState.ans], optTexts, optState.fmt);
+    const raw = first.cells[optState.ans];
+    const firstText = (a && optTexts[a.idx] !== '') ? `→ 選項${a.idx + 1}「${optTexts[a.idx]}」` : '→ ⚠️ 對不到選項';
+    el.textContent = `預覽 第1題：答案「${raw}」${firstText}\n共 ${dataRows.length} 題，可處理 ${ok} 題${bad ? `，${bad} 題答案對不到選項 (將略過)` : ''}`;
+}
+
+// ✨ 新增：選項亂數 B 模式 —「答案數字」欄同步更新
+// 只有 B 模式 (答案位置也亂數) 才顯示此下拉
+function optUpdateNumColVisibility() {
+    const mode = document.querySelector('input[name="shuffleMode"]:checked').value;
+    document.getElementById('optNumColRow').classList.toggle('hidden', mode !== 'B');
+}
+document.querySelectorAll('input[name="shuffleMode"]').forEach(r => r.addEventListener('change', optUpdateNumColVisibility));
+
+// 建立下拉 (列出整張表所有欄，因為「答案數字」欄可能在選取範圍外)，並自動選標題為「答案數字」的欄
+function optFillNumColSelect() {
+    const sel = document.getElementById('optSelNumCol');
+    if (!sel || !optCtx) return;
+    const total = dataTable.querySelector('thead tr').children.length - 1;
+    const trs = dataTable.querySelectorAll('tbody tr');
+    sel.innerHTML = '';
+    sel.add(new Option('(不指定)', '-1'));
+    let auto = -1;
+    for (let c = 0; c < total; c++) {
+        const th = dataTable.querySelector(`thead th[data-col="${c}"]`);
+        const hdr = (th && th.dataset.colName) || '';
+        const first = optGetText(trs, optCtx.bounds.minR, c);   // 選取範圍第一列 (標題列)
+        const name = hdr || first;
+        if (auto === -1 && (hdr === '答案數字' || first === '答案數字')) auto = c;
+        const chars = [...name];
+        const short = chars.length > 8 ? chars.slice(0, 8).join('') + '…' : name;
+        sel.add(new Option(short ? `${getColLabel(c)}：${short}` : `${getColLabel(c)} 欄`, String(c)));
+    }
+    sel.value = String(auto);   // 找不到就是 -1 (不指定)
+}
+
+// ✨ 新增：功能4 用的小工具
+function optNormKey(v) { return (v || '').trim().toLowerCase(); }   // 比對用：去頭尾空白、不分大小寫
+function optGetDistractCount() {
+    const n = parseInt(document.getElementById('optDistractCount').value, 10);
+    return Math.max(1, Math.min(9, isNaN(n) ? 3 : n));
+}
+document.getElementById('optDistractCount').addEventListener('input', () => { if (optCtx) optOnChanged(); });
+
+// 綁定下拉選單事件
+document.getElementById('btnOptRefresh').addEventListener('click', optRefresh);
+document.getElementById('optHasHeader').addEventListener('change', optRenderMapping);
+document.getElementById('optSelQ').addEventListener('change', (e) => { optState.q = parseInt(e.target.value, 10); optOnChanged(); });
+document.getElementById('optSelAns').addEventListener('change', (e) => { optState.ans = parseInt(e.target.value, 10); optOnChanged(); });
+document.getElementById('optSelFmt').addEventListener('change', (e) => { optState.fmt = e.target.value; optOnChanged(); });
+document.getElementById('btnOptAddOpt').addEventListener('click', () => {
+    if (!optCtx) return;
+    const used = new Set([optState.q, optState.ans, ...optState.opts]);
+    let pick = -1;
+    for (let i = 0; i < optCtx.width; i++) if (!used.has(i)) { pick = i; break; }
+    if (pick === -1) return showToast('⚠️ 選取範圍內已沒有可用的欄位，請擴大選取範圍');
+    optState.opts.push(pick);
+    optRenderMapping();
+});
+
+// 4. 核心邏輯：執行
+document.getElementById('btnApplyAutoOption').addEventListener('click', () => {
+    if (currentMode !== 'table') return showToast('⚠️ 僅能在表格模式使用');
+
+    // ✏️ 修改：不再即時自動辨識，改用視窗中「題目／答案／選項」下拉選單的設定
+    if (!optCtx) return showToast('⚠️ 請先選取「題目～答案」的範圍 (例如 A～F 欄)，再按「重新讀取」');
+    if (!optValidate()) return showToast('⚠️ 欄位對應有誤，請先修正 (見視窗內紅字)');
+    const { minR, maxR, minC, maxC } = optCtx.bounds;
+
+    const trs = dataTable.querySelectorAll('tbody tr');
+
+    // 收集非空白列 (執行當下重新讀取，避免視窗開啟後儲存格又被編輯)
+    const rowsInfo = optReadRows(optCtx.bounds);
+    if (rowsInfo.length === 0) return showToast('⚠️ 選取範圍內沒有資料');
+
+    const hasHeader = document.getElementById('optHasHeader').checked;
+    const layout = { hasHeader, qCol: optState.q, optCols: optState.opts.slice(), ansCol: optState.ans, dataStart: hasHeader ? 1 : 0 };
+    const ansFmt = optState.fmt;   // ✨ 新增：答案格式 (自動／數字／字母／選項文字)
+
+    const dataRows = rowsInfo.slice(layout.dataStart);
+    if (dataRows.length === 0) return showToast('⚠️ 找不到題目資料列');
+
+    const fn = optFn();   // ✏️ 修改：改用 optFn()
+    let done = 0, skipped = 0;
+
+    // ---------- ✨ 新增 功能4：由正確答案產生錯誤選項 ----------
+    if (fn === 'distract') {
+        const n = optGetDistractCount();
+
+        // 候選池：選取範圍內所有「不重複」的正確答案 (不分大小寫去重，保留原文)
+        const pool = [];
+        const seen = new Set();
+        dataRows.forEach(row => {
+            const v = row.cells[layout.ansCol];
+            const k = optNormKey(v);
+            if (k !== '' && !seen.has(k)) { seen.add(k); pool.push(v); }
+        });
+
+        const startCol = maxC + 1;
+        insertColAt(startCol, -1, n);   // 一次在選取範圍右側新增 n 欄
+        const trsNew = dataTable.querySelectorAll('tbody tr');
+
+        if (layout.dataStart === 1) {
+            for (let k = 0; k < n; k++) optSetText(trsNew, rowsInfo[0].r, startCol + k, `錯誤選項${k + 1}`);
+        }
+
+        let short = 0;
+        dataRows.forEach(row => {
+            const correct = row.cells[layout.ansCol];
+            const ck = optNormKey(correct);
+            if (ck === '') { skipped++; return; }
+            // 排除與正確答案相同者，再亂數取 n 個
+            const picks = optShuffle(pool.filter(v => optNormKey(v) !== ck)).slice(0, n);
+            picks.forEach((v, k) => optSetText(trsNew, row.r, startCol + k, v));
+            if (picks.length < n) short++;
+            done++;
+        });
+
+        recalculateAllFormulas();
+        debouncedSaveHistory();
+        autoOptionModal.classList.add('hidden');
+        return showToast(`✅ 已新增 ${n} 個「錯誤選項」欄：${done} 題${skipped ? `，${skipped} 題答案空白已略過` : ''}${short ? `，${short} 題因其他答案不足而未湊滿` : ''}`);
+    }
+
+    // ---------- 功能1：新增「正確選項」欄 ／ 功能3：新增「答案數字」欄 ----------
+    // ✏️ 修改：原本只處理 'correct'，現在 'number' 共用同一段流程 (差別只在標題、寫入內容、提示文字)
+    if (fn === 'correct' || fn === 'number') {
+        const isNumFn = (fn === 'number');   // ✨ 新增
+        const newCol = maxC + 1;
+        insertColAt(newCol);
+        const trsNew = dataTable.querySelectorAll('tbody tr');
+
+        if (layout.dataStart === 1) optSetText(trsNew, rowsInfo[0].r, newCol, isNumFn ? '答案數字' : '正確選項');   // ✏️ 修改：標題依功能而定
+
+        dataRows.forEach(row => {
+            const optTexts = layout.optCols.map(i => row.cells[i]);
+            const ans = optParseAnswer(row.cells[layout.ansCol], optTexts, ansFmt);   // ✏️ 修改：多帶 ansFmt
+            if (!ans || optTexts[ans.idx] === '') { skipped++; return; }
+            optSetText(trsNew, row.r, newCol, isNumFn ? String(ans.idx + 1) : optTexts[ans.idx]);   // ✏️ 修改：功能3 寫入選項編號 (1 起算)，功能1 仍寫入選項文字
+            done++;
+        });
+
+        recalculateAllFormulas();
+        debouncedSaveHistory();
+        autoOptionModal.classList.add('hidden');
+        return showToast(`✅ 已新增「${isNumFn ? '答案數字' : '正確選項'}」欄：${done} 題${skipped ? `，${skipped} 題答案無法對應已略過` : ''}`);   // ✏️ 修改：提示文字依功能而定
+    }
+
+    // ---------- 功能2：選項亂數 ----------
+    const mode = document.querySelector('input[name="shuffleMode"]:checked').value; // 'A' 固定答案位置 / 'B' 答案也亂數
+    const useRule = document.getElementById('optionKeepOrderRule').checked;
+    const numCol = (mode === 'B') ? parseInt(document.getElementById('optSelNumCol').value, 10) : -1;   // ✨ 新增：要同步更新的「答案數字」欄 (絕對欄位索引，-1 = 不更新)
+    let numSynced = 0;   // ✨ 新增
+
+    dataRows.forEach(row => {
+        const optTexts = layout.optCols.map(i => row.cells[i]);
+        const ans = optParseAnswer(row.cells[layout.ansCol], optTexts, ansFmt);   // ✏️ 修改：多帶 ansFmt
+        if (!ans || optTexts[ans.idx] === '') { skipped++; return; }
+
+        // 有內容的選項位置 (空白選項不參與亂數)
+        const positions = [];
+        optTexts.forEach((t, i) => { if (t !== '') positions.push(i); });
+        if (positions.length < 2) { skipped++; return; }
+
+        const items = positions.map(i => optTexts[i]);
+        const p = positions.indexOf(ans.idx);               // 正確答案目前在 positions 的第幾個
+        const correct = items[p];
+        const wrongs = items.filter((_, i) => i !== p);
+
+        const newP = mode === 'A' ? p : Math.floor(Math.random() * positions.length);
+        const orderedWrongs = optOrderWrongs(wrongs, items, useRule);
+
+        const result = new Array(positions.length);
+        result[newP] = correct;
+        let w = 0;
+        for (let k = 0; k < result.length; k++) if (k !== newP) result[k] = orderedWrongs[w++];
+
+        // 寫回選項欄
+        positions.forEach((optIdx, k) => optSetText(trs, row.r, minC + layout.optCols[optIdx], result[k]));
+
+        // B 模式：答案位置改變，同步更新答案欄 (保持原本的 數字／字母 格式；答案為文字則不用改)
+        if (mode === 'B') {   // ✏️ 修改：拿掉 ans.style !== 'text' 條件，改在內部判斷
+            const newIdx = positions[newP];
+            if (ans.style !== 'text') {
+                let newAns = String(newIdx + 1);
+                if (ans.style === 'upper') newAns = String.fromCharCode(65 + newIdx);
+                if (ans.style === 'lower') newAns = String.fromCharCode(97 + newIdx);
+                optSetText(trs, row.r, minC + layout.ansCol, newAns);
+            }
+            // ✨ 新增：同步更新獨立的「答案數字」欄 (不管答案欄是文字還是數字，只要有指定就更新)
+            if (numCol >= 0 && !(ans.style !== 'text' && numCol === minC + layout.ansCol)) {
+                optSetText(trs, row.r, numCol, String(newIdx + 1));
+                numSynced++;
+            }
+        }
+        done++;
+    });
+
+    recalculateAllFormulas();
+    debouncedSaveHistory();
+    autoOptionModal.classList.add('hidden');
+    showToast(`✅ 選項亂數完成：${done} 題${numSynced ? `，已同步更新答案數字 ${numSynced} 題` : ''}${skipped ? `，${skipped} 題無法辨識已略過` : ''}`);   // ✏️ 修改：加上同步數量
 });
 
 

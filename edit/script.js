@@ -314,6 +314,45 @@ function initDropdowns() {
     });
 }
 
+/* 手機版「更多」選單：開啟時同步各項目狀態，點選時轉交給原本(被隱藏)的按鈕執行 */
+function initMobileMoreMenu() {
+    const root = document.getElementById('dd-mobileMore');
+    if (!root) return;
+    const btn = root.querySelector('.dropdown-btn');
+    const menu = root.querySelector('.dropdown-menu');
+    if (!btn || !menu) return;
+
+    // 開啟選單時：依目前模式顯示/隱藏、啟用/停用各項目
+    function refresh() {
+        // 跟隨原按鈕的顯示狀態（例如對話模式會隱藏「尋找取代」「剪貼簿」）
+        menu.querySelectorAll('[data-follow]').forEach(el => {
+            const src = document.getElementById(el.dataset.follow);
+            el.classList.toggle('hidden', !!src && src.classList.contains('hidden'));
+        });
+
+        // 「貼上為值」「刪除結構」僅表格模式可用（與原本電腦版邏輯一致）
+        const isTable = (currentMode === 'table');
+        const origPasteValue = document.getElementById('btn-paste-value');
+        const origDeleteStructure = document.getElementById('btn-delete-structure');
+        if (origPasteValue) origPasteValue.disabled = !isTable;
+        if (origDeleteStructure) origDeleteStructure.disabled = !isTable;
+        const mPaste = menu.querySelector('[data-mobile-paste-value]');
+        const mDelete = menu.querySelector('[data-mobile-delete-structure]');
+        if (mPaste) { mPaste.disabled = !isTable; mPaste.title = isTable ? '貼上純文字並清除公式' : '僅在表格模式可用'; }
+        if (mDelete) { mDelete.disabled = !isTable; mDelete.title = isTable ? '刪除選取的列或欄結構' : '僅在表格模式可用'; }
+    }
+    btn.addEventListener('click', refresh);
+
+    // 點選項目：有 data-proxy 的，轉交給原本的按鈕 (原按鈕被 CSS 隱藏，但仍可 .click())
+    menu.addEventListener('click', (e) => {
+        const item = e.target.closest('[data-proxy]');
+        if (!item || item.disabled) return;
+        const target = document.querySelector(item.dataset.proxy);
+        if (target) target.click();
+        // 選單由 document 的「點擊空白處關閉」邏輯自動收起
+    });
+}
+
 	// 讀取 Enter 鍵偏好設定
     const savedEnterAction = localStorage.getItem(ENTER_ACTION_KEY) || 'confirm';
     setDropdownValue('dd-enterAction', savedEnterAction);
@@ -371,6 +410,7 @@ function setDropdownValue(id, value) {
 /* 系統初始化與記憶設定讀取 */
 function init() {
     initDropdowns();
+    initMobileMoreMenu();
 	// 綁定退出遊戲的按鈕
     const btnExitGame = document.getElementById('btnExitGame');
     if (btnExitGame) {
@@ -1046,7 +1086,7 @@ function getColLabel(index) {
 function createThColHTML(index) {
     return `
         <div class="flex justify-between items-center w-full pointer-events-none px-1">
-            <span class="col-label mx-auto pointer-events-auto cursor-pointer flex-1 text-center hover:text-blue-600 px-2" title="點擊選取 / 拖曳排序"></span>
+            <span class="col-label mx-auto pointer-events-auto cursor-pointer flex-1 text-center hover:text-blue-600 px-2" title="點擊選取｜左半拖曳：多選欄｜右半拖曳：移動欄"></span>
             <span class="material-symbols-outlined pointer-events-auto cursor-pointer hover:bg-gray-300 rounded text-gray-500 btn-col-menu" style="font-size: 18px;" title="欄位選項">arrow_drop_down</span>
         </div>
         <div class="resize-handle pointer-events-auto"></div>`;
