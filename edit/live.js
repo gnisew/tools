@@ -15,6 +15,8 @@ window.launchLiveMode = function(rawData, configs) {
     let unsubscribeSpace = null;
     let unsubscribePlayers = null;
     let unsubscribeStudentSelf = null;
+    let unsubscribeReactions = null;      // ✨ 新增：老師端「表情」專用監聽
+    let teacherRefreshTimer = null;       // ✨ 新增：老師端畫面更新節流用
     
     let globalPlayers = [];
     let liveData = [];      
@@ -468,6 +470,7 @@ window.launchLiveMode = function(rawData, configs) {
     }
 
     function spawnFloatingEmoji(char) {
+        if (document.querySelectorAll('.animate-float-emoji').length >= 25) return; // ✨ 新增：畫面上同時最多 25 顆
         const el = document.createElement('div');
         el.className = 'fixed z-[99999] text-6xl md:text-7xl drop-shadow-xl pointer-events-none animate-float-emoji';
         el.textContent = char;
@@ -639,18 +642,43 @@ window.launchLiveMode = function(rawData, configs) {
             });
         }
 
+        // ✨ 修改：整段重寫（加入冷卻時間、改寫到獨立的 reactions 集合）
+        const getCooldownSec = () => Math.max(1, Number(window.currentSpaceData && window.currentSpaceData.emojiCooldown) || 5);
+
         document.querySelectorAll('.live-reaction-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation(); 
                 const emoji = e.currentTarget.dataset.emoji;
                 const el = e.currentTarget;
+
+                // ✨ 新增：冷卻檢查（每人每 N 秒一次）
+                const cdMs = getCooldownSec() * 1000;
+                const wait = cdMs - (Date.now() - (window.lastEmojiSentAt || 0));
+                if (wait > 0) {
+                    if (typeof showToast === 'function') showToast(`⏳ 表情冷卻中，請再等 ${Math.ceil(wait / 1000)} 秒`);
+                    return;
+                }
+                window.lastEmojiSentAt = Date.now();
+
                 el.style.transform = 'scale(1.4)';
                 setTimeout(() => el.style.transform = '', 150);
                 picker.classList.add('scale-0', 'opacity-0', 'pointer-events-none');
 
+                // ✨ 新增：冷卻期間讓表情按鈕變淡，提示學生暫時不能送
+                const tg = document.getElementById('btn-toggle-reaction');
+                if (tg) {
+                    tg.style.opacity = '0.4';
+                    setTimeout(() => { const t2 = document.getElementById('btn-toggle-reaction'); if (t2) t2.style.opacity = ''; }, cdMs);
+                }
+
+                const spaceRef = db.collection(window.SPACES_COLLECTION).doc(spaceCode);
                 try {
-                    await db.collection(window.SPACES_COLLECTION).doc(spaceCode).collection("players").doc(playerName).update({ flyEmoji: { e: emoji, ts: Date.now() } });
-                } catch(err) {}
+                    // ✨ 修改：改寫到 reactions/{暱稱}（覆寫同一份文件，只有老師端在監聽，不會牽動全班）
+                    await spaceRef.collection("reactions").doc(playerName).set({ n: playerName, e: emoji, ts: Date.now() });
+                } catch(err) {
+                    // 備援：若 Firestore 規則尚未開放 reactions，退回舊做法
+                    try { await spaceRef.collection("players").doc(playerName).update({ flyEmoji: { e: emoji, ts: Date.now() } }); } catch(err2) {}
+                }
             });
         });
     }
@@ -692,6 +720,10 @@ window.launchLiveMode = function(rawData, configs) {
         if (unsubscribeSpace) unsubscribeSpace();
         if (unsubscribePlayers) unsubscribePlayers();
         if (unsubscribeStudentSelf) unsubscribeStudentSelf();
+        if (unsubscribeReactions) { unsubscribeReactions(); unsubscribeReactions = null; } // ✨ 新增
+        if (teacherRefreshTimer) { clearTimeout(teacherRefreshTimer); teacherRefreshTimer = null; } // ✨ 新增
+        unsubscribePlayers = null; // ✨ 新增：學生端會動態開關，清掉才不會殘留舊參照
+        window.lastEmojiSentAt = 0; // ✨ 新增
 
 		sessionStorage.removeItem('live_host_code');
         if (currentSpaceCode) sessionStorage.removeItem(`live_data_cache_${currentSpaceCode}`); 
@@ -3646,6 +3678,44 @@ window.launchLiveMode = function(rawData, configs) {
         if(typeof window.applyLiveDisplayPrefs === 'function') window.applyLiveDisplayPrefs();
     }
 
+    // ✨ 新增：老師端「表情」監聽，只有開啟表情按鈕時才連線；只讀「開啟後新送出」的表情
+    function syncReactionListener(spaceCode) {
+        const on = !!(window.currentSpaceData && window.currentSpaceData.showEmoji);
+        if (on && !unsubscribeReactions) {
+            const startTs = Date.now() - 10000; // 容許老師與學生裝置時間些微不同步
+            unsubscribeReactions = db.collection(window.SPACES_COLLECTION).doc(spaceCode).collection("reactions")
+                .where('ts', '>', startTs)
+                .onSnapshot((snap) => {
+                    const cd = (Number(window.currentSpaceData && window.currentSpaceData.emojiCooldown) || 5) * 1000;
+                    snap.docChanges().forEach(ch => {
+                        if (ch.type === 'removed') return;
+                        const d = ch.doc.data();
+                        const last = window.lastEmojiTs[d.n] || 0;
+                        if (d.ts <= last) return;
+                        if (last && d.ts - last < cd - 800) return; // 冷卻保險：太密集的視為作弊/重複，直接忽略
+                        window.lastEmojiTs[d.n] = d.ts;
+                        spawnFloatingEmoji(d.e);
+                    });
+                }, () => {});
+        } else if (!on && unsubscribeReactions) {
+            unsubscribeReactions();
+            unsubscribeReactions = null;
+        }
+    }
+
+    // ✨ 新增：老師端圖表／側邊欄更新節流（短時間內很多人作答，只重畫一次）
+    function scheduleTeacherRefresh(spaceCode) {
+        if (teacherRefreshTimer) return;
+        teacherRefreshTimer = setTimeout(() => {
+            teacherRefreshTimer = null;
+            const sd = window.currentSpaceData;
+            if (sd && sd.status === 'playing') {
+                updateSidebarUI(spaceCode, sd.config?.liveSettings);
+                updateTeacherCharts();
+            }
+        }, 300);
+    }
+
     function startGlobalPlayerListener(spaceCode) {
         window.currentSpaceCode = spaceCode; 
 
@@ -3653,7 +3723,8 @@ window.launchLiveMode = function(rawData, configs) {
         unsubscribeSpace = db.collection(window.SPACES_COLLECTION).doc(spaceCode).onSnapshot((doc) => {
             if (doc.exists) {
                 window.currentSpaceData = doc.data();
-                if (window.currentSpaceData.status === 'playing') updateTeacherCharts();
+                syncReactionListener(spaceCode); // ✨ 新增：依表情開關決定要不要連線
+                if (window.currentSpaceData.status === 'playing') scheduleTeacherRefresh(spaceCode); // ✨ 修改：原本直接 updateTeacherCharts()
                 
                 const gPauseBtn = document.getElementById('btn-sidebar-global-pause');
                 if (gPauseBtn) {
@@ -3683,7 +3754,9 @@ window.launchLiveMode = function(rawData, configs) {
             
             const countEl = document.getElementById('live-player-count');
             const playersGrid = document.getElementById('live-players-grid');
-            if (countEl && playersGrid) {
+            const playersSig = globalPlayers.map(p => p.name + '|' + (p.emoji || '')).join(','); // ✨ 新增：名單簽章
+            if (countEl && playersGrid && playersGrid.dataset.sig !== playersSig) { // ✨ 修改：名單沒變就不重畫
+                playersGrid.dataset.sig = playersSig; // ✨ 新增
                 countEl.textContent = globalPlayers.length;
                 if (globalPlayers.length > 0) {
                     playersGrid.innerHTML = globalPlayers.map(p => `
@@ -3700,9 +3773,7 @@ window.launchLiveMode = function(rawData, configs) {
             }
 
             if (window.currentSpaceData && window.currentSpaceData.status === 'playing') {
-                const liveSettings = window.currentSpaceData.config?.liveSettings;
-                updateSidebarUI(spaceCode, liveSettings); 
-                updateTeacherCharts();
+                scheduleTeacherRefresh(spaceCode); // ✨ 修改：原本同步呼叫 updateSidebarUI + updateTeacherCharts
             }
         });
     }
@@ -3952,6 +4023,13 @@ window.launchLiveMode = function(rawData, configs) {
                                             <input type="checkbox" id="live-show-emoji" class="sr-only peer" ${window.currentSpaceData && window.currentSpaceData.showEmoji ? 'checked' : ''}>
                                             <div class="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-teal-500"></div>
                                         </label>
+                                    </div>
+                                    <!-- ✨ 新增：表情冷卻秒數 -->
+                                    <div class="flex items-center justify-between mt-2">
+                                        <span class="text-xs font-bold text-gray-600">表情冷卻（每人每 N 秒一次）</span>
+                                        <select id="live-emoji-cooldown" class="text-xs font-bold border border-gray-200 rounded px-1 py-0.5 bg-white text-gray-700">
+                                            ${[3, 5, 10, 15, 30, 60].map(n => `<option value="${n}" ${(Number(window.currentSpaceData && window.currentSpaceData.emojiCooldown) || 5) === n ? 'selected' : ''}>${n} 秒</option>`).join('')}
+                                        </select>
                                     </div>
                                 </div>
 
@@ -4344,6 +4422,11 @@ window.launchLiveMode = function(rawData, configs) {
 
         document.getElementById('live-show-emoji')?.addEventListener('change', async (e) => {
             try { await db.collection(window.SPACES_COLLECTION).doc(spaceCode).update({ showEmoji: e.target.checked }); showToast(e.target.checked ? '✅ 已顯示表情按鈕' : '✅ 已隱藏表情按鈕'); } catch (err) { showToast('⚠️ 設定失敗'); }
+        });
+
+        // ✨ 新增：表情冷卻秒數
+        document.getElementById('live-emoji-cooldown')?.addEventListener('change', async (e) => {
+            try { await db.collection(window.SPACES_COLLECTION).doc(spaceCode).update({ emojiCooldown: Number(e.target.value) }); showToast(`✅ 表情冷卻：${e.target.value} 秒`); } catch (err) { showToast('⚠️ 設定失敗'); }
         });
 
         // 初始化套用文字大小
@@ -4776,24 +4859,37 @@ window.launchLiveMode = function(rawData, configs) {
 						updateStudentBoardUI(playerName);
 					}
             }
+            syncStudentPlayersListener(spaceCode, playerName); // ✨ 新增：依題型開關全班監聽
         });
 
-        if (unsubscribePlayers) unsubscribePlayers(); 
-        unsubscribePlayers = db.collection(window.SPACES_COLLECTION).doc(spaceCode).collection("players").onSnapshot((snapshot) => {
-            globalPlayers = [];
-            snapshot.forEach(doc => globalPlayers.push(doc.data()));
-            
-            if (window.currentSpaceData && window.currentSpaceData.status === 'playing' && !window.currentSpaceData.isGlobalPaused) {
-                const qType = window.currentSpaceData.currentQuestionData?.type;
-                if (qType === '問答') {
-                    updateStudentQAUI(playerName);
-                } else if (qType === '文字') {
-                    updateStudentTextUI(playerName);
-                } else if (qType === '白板') {
-                    updateStudentBoardUI(playerName);
+        // ✨ 修改：整段移除原本「學生端一律監聽全班 players」的寫法
+        //   （N 位學生各監聽 N 份文件，任何一人作答就會讓全班各讀一次 → 讀取量 = N × N）
+        //   改由 syncStudentPlayersListener() 只在「問答／白板」題才開、換題就關
+        if (unsubscribePlayers) { unsubscribePlayers(); unsubscribePlayers = null; }
+        globalPlayers = [];
+    }
+
+    // ✨ 新增：學生端只在需要看到「別人資料」的題型（問答牆、白板）才監聽全班 players
+    function syncStudentPlayersListener(spaceCode, playerName) {
+        const sd = window.currentSpaceData;
+        const need = !!(sd && sd.status === 'playing' && sd.currentQuestion !== -1
+            && ['問答', '白板'].includes(sd.currentQuestionData?.type));
+        if (need && !unsubscribePlayers) {
+            unsubscribePlayers = db.collection(window.SPACES_COLLECTION).doc(spaceCode).collection("players").onSnapshot((snapshot) => {
+                globalPlayers = [];
+                snapshot.forEach(doc => globalPlayers.push(doc.data()));
+                const cur = window.currentSpaceData;
+                if (cur && cur.status === 'playing' && !cur.isGlobalPaused) {
+                    const qType = cur.currentQuestionData?.type;
+                    if (qType === '問答') updateStudentQAUI(playerName);
+                    else if (qType === '白板') updateStudentBoardUI(playerName);
                 }
-            }
-        });
+            });
+        } else if (!need && unsubscribePlayers) {
+            unsubscribePlayers();
+            unsubscribePlayers = null;
+            globalPlayers = [];
+        }
     }
 
     function renderStudentStandbyLobby(spaceCode, playerName) {

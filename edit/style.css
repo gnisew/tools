@@ -741,3 +741,59 @@ body.maximized-mode.is-playing-game #tableModeContainer {
         scrollbar-color: #d1d5db transparent;
     }
 }
+
+
+/* =================================================================
+   ✨ 新增：學習模式（字卡／配對／測驗／排序／打字）手機版精簡版面
+   ================================================================= */
+@media (max-width: 768px) {
+    /* 1. 頂部：返回 + 分頁擠成同一列，題庫名稱在手機隱藏 */
+    #game-main-toolbar { gap: 4px; }
+    #game-dynamic-filters-area:empty { display: none; }
+
+    /* 2. 內容區上下留白縮小 */
+    #game-content-area > .max-w-5xl {
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+    }
+
+    /* 3. 設定面板：控制項縮小、間距縮小 */
+    .game-ctrl-panel { margin-bottom: 0.5rem !important; }
+    .game-ctrl-panel > div:first-child { padding: 6px !important; gap: 6px !important; }
+    .game-ctrl-panel > div:first-child > div { gap: 6px !important; }
+    .game-ctrl-panel select {
+        padding: 4px 2px !important;
+        font-size: 12px !important;
+        max-width: 30vw;
+    }
+    .game-ctrl-panel label { padding: 4px 6px !important; font-size: 12px !important; }
+    .game-ctrl-panel button[id^="btn-start-"] { min-width: 0 !important; padding: 4px 12px !important; }
+    .game-ctrl-panel .text-base { font-size: 14px !important; }
+
+    /* 4. 遊戲進行中：只留「停止鈕 + 計時/分數」一列，其餘設定收起（按停止即可還原） */
+    .game-ctrl-panel.is-running > div:first-child {
+        flex-wrap: nowrap !important;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .game-ctrl-panel.is-running select,
+    .game-ctrl-panel.is-running label { display: none !important; }
+
+    /* 5. 打字模式進行中：連頂部分頁列也收起，把空間留給題目與輸入框 */
+    #gameArea.game-running[data-mode="typing"] #game-main-toolbar { display: none; }
+
+    /* 6. 打字題目區：縮小字級與間距，鍵盤彈出時題目與輸入框仍可同時看到 */
+    #typing-main-content { padding: 0.5rem !important; }
+    #typing-main-content .typing-q-wrap {
+        gap: 0.5rem !important;
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+        margin-top: 0 !important;
+        margin-bottom: auto !important;
+    }
+    #typing-main-content #single-feedback { height: 1.5rem !important; font-size: 1rem !important; }
+    #typing-main-content #main-question-display { font-size: 1.5rem !important; line-height: 1.3 !important; padding: 0 !important; }
+    #typing-main-content #fixed-hint-display { font-size: 1.1rem !important; height: auto !important; margin-bottom: 0 !important; letter-spacing: 0.15em !important; }
+    #typing-main-content #typing-input { height: 3rem !important; font-size: 1.5rem !important; padding-top: 0.25rem !important; }
+    #typing-main-content #btn-hint-single { top: 0.25rem !important; right: 0.25rem !important; padding: 0.25rem 0.5rem !important; font-size: 0.75rem !important; }
+}

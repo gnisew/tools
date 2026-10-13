@@ -838,7 +838,7 @@ window.launchArenaMode = function(rawData, configs) {
                                             <span class="text-xs text-gray-500 mt-1">學生答對時可點擊表情飄浮至大螢幕</span>
                                         </div>
                                         <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                            <input type="checkbox" id="host-allow-interactive-emoji" class="sr-only peer" checked>
+                                            <input type="checkbox" id="host-allow-interactive-emoji" class="sr-only peer">
                                             <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
                                         </label>
                                     </div>
@@ -2829,7 +2829,7 @@ window.launchArenaMode = function(rawData, configs) {
                 </div>`;
         }
 
-        const allowInteractive = arenaSettings && arenaSettings.allowInteractiveEmoji !== false;
+        const allowInteractive = arenaSettings && arenaSettings.allowInteractiveEmoji === true;
 
         // ✨ 修改：整場每人只能送一次
         //   還沒送過 → 正常顯示；就是本題送的 → 顯示停用狀態（重繪不會消失）；之前的題目送過 → 不再顯示表情選單

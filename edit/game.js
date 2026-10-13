@@ -58,25 +58,27 @@ window.launchGameMode = function(mode, rawData, configs) {
     // 🌟 統一的頂部工具列 (保留你的篩選器並加入新的匹配選單)
     // (注意：這裡保留你原本用來裝分類篩選器的地方，我在它旁邊加上了 matchSelectorHTML)
     const toolbarHTML = `
-        <div class="w-full bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between shadow-sm flex-shrink-0 z-50">
-            <div class="flex items-center gap-2 md:gap-4 flex-wrap">
+        <div id="game-main-toolbar" class="w-full bg-white border-b border-gray-200 px-2 py-1 md:px-4 md:py-2 flex items-center justify-between shadow-sm flex-shrink-0 z-50">
+            <div class="flex items-center gap-x-2 gap-y-1 md:gap-4 flex-wrap w-full md:w-auto">
+                <div class="flex items-center gap-1 md:gap-4 min-w-0 w-full md:w-auto">
                 <button id="btn-exit-game" class="flex items-center gap-1 text-gray-600 hover:text-purple-600 font-bold px-2 py-1.5 md:px-3 md:py-2 rounded-xl hover:bg-purple-50 transition-colors">
                     <span class="material-symbols-outlined">arrow_back</span>
-                    返回
+                    <span class="hidden md:inline">返回</span>
                 </button>                
                
-                <div class="flex bg-gray-100 p-1 rounded-xl gap-1 overflow-x-auto">
-                    <button class="mode-switch-btn px-3 py-1.5 md:px-5 md:py-1.5 rounded-lg font-bold text-sm transition-colors ${mode === 'flashcard' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-800'}" data-mode="flashcard">字卡</button>
-                    <button class="mode-switch-btn px-3 py-1.5 md:px-5 md:py-1.5 rounded-lg font-bold text-sm transition-colors ${mode === 'matching' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-800'}" data-mode="matching">配對</button>
-                    <button class="mode-switch-btn px-3 py-1.5 md:px-5 md:py-1.5 rounded-lg font-bold text-sm transition-colors ${mode === 'quiz' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-800'}" data-mode="quiz">測驗</button>
-                    <button class="mode-switch-btn px-3 py-1.5 md:px-5 md:py-1.5 rounded-lg font-bold text-sm transition-colors ${mode === 'sorting' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-800'}" data-mode="sorting">排序</button>
-					<button class="mode-switch-btn px-3 py-1.5 md:px-5 md:py-1.5 rounded-lg font-bold text-sm transition-colors ${mode === 'typing' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-800'}" data-mode="typing">打字</button>
+                <div class="flex bg-gray-100 p-1 rounded-xl gap-1 overflow-x-auto flex-1 min-w-0 md:flex-none">
+                    <button class="mode-switch-btn whitespace-nowrap flex-shrink-0 px-3 py-1.5 md:px-5 md:py-1.5 rounded-lg font-bold text-sm transition-colors ${mode === 'flashcard' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-800'}" data-mode="flashcard">字卡</button>
+                    <button class="mode-switch-btn whitespace-nowrap flex-shrink-0 px-3 py-1.5 md:px-5 md:py-1.5 rounded-lg font-bold text-sm transition-colors ${mode === 'matching' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-800'}" data-mode="matching">配對</button>
+                    <button class="mode-switch-btn whitespace-nowrap flex-shrink-0 px-3 py-1.5 md:px-5 md:py-1.5 rounded-lg font-bold text-sm transition-colors ${mode === 'quiz' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-800'}" data-mode="quiz">測驗</button>
+                    <button class="mode-switch-btn whitespace-nowrap flex-shrink-0 px-3 py-1.5 md:px-5 md:py-1.5 rounded-lg font-bold text-sm transition-colors ${mode === 'sorting' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-800'}" data-mode="sorting">排序</button>
+					<button class="mode-switch-btn whitespace-nowrap flex-shrink-0 px-3 py-1.5 md:px-5 md:py-1.5 rounded-lg font-bold text-sm transition-colors ${mode === 'typing' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:bg-gray-200 hover:text-gray-800'}" data-mode="typing">打字</button>
+                </div>
                 </div>
 
 				<div id="game-dynamic-filters-area" class="flex gap-2 flex-wrap">
                     ${matchSelectorHTML}
                 </div>
-				<span id="gameCurrentTitle" class="text-gray-600 font-bold bg-white/80 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm border border-gray-200/50"></span>
+				<span id="gameCurrentTitle" class="hidden md:inline-block text-gray-600 font-bold bg-white/80 backdrop-blur-sm px-3 py-2 rounded-lg shadow-sm border border-gray-200/50"></span>
 
             </div>
         </div>
@@ -85,8 +87,28 @@ window.launchGameMode = function(mode, rawData, configs) {
     `;
 
     gameArea.innerHTML = toolbarHTML;
+    gameArea.dataset.mode = mode; // ✨ 新增：CSS 依模式調整版面（例如打字模式）
+    gameArea.classList.remove('game-running'); // ✨ 新增：重新渲染時重設進行中狀態
+    if (window.gamePanelObserver) window.gamePanelObserver.disconnect(); // ✨ 新增
+
     const container = document.getElementById('game-content-area');
     const filtersArea = document.getElementById('game-dynamic-filters-area');
+
+    // ✨ 新增：偵測「開始／停止」狀態，進行中時（手機版）把設定面板收成一列
+    //   判斷依據：各模式的開始鈕在進行中都會加上 bg-red-500（停止外觀），不需修改各模式內部程式
+    (function watchGamePanelRunning() {
+        let raf = 0;
+        const sync = () => {
+            raf = 0;
+            const panel = container.querySelector('.game-ctrl-panel');
+            const btn = panel && panel.querySelector('button[id^="btn-start-"]');
+            const running = !!btn && btn.classList.contains('bg-red-500');
+            panel && panel.classList.toggle('is-running', running);
+            gameArea.classList.toggle('game-running', running);
+        };
+        window.gamePanelObserver = new MutationObserver(() => { if (!raf) raf = requestAnimationFrame(sync); });
+        window.gamePanelObserver.observe(container, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+    })();
 
     // ✨ 修正：在 HTML 重新渲染後，從全域變數抓取並顯示題庫名稱
     const titleEl = document.getElementById('gameCurrentTitle');
@@ -96,6 +118,8 @@ window.launchGameMode = function(mode, rawData, configs) {
 
     // 綁定基礎事件
     document.getElementById('btn-exit-game').addEventListener('click', () => {
+        if (window.gamePanelObserver) window.gamePanelObserver.disconnect(); // ✨ 新增
+        gameArea.classList.remove('game-running'); // ✨ 新增
         document.body.classList.remove('is-playing-game');
         if (typeof toggleMaximizeMode === 'function') toggleMaximizeMode(false);
         if (typeof switchMode === 'function') {
@@ -912,7 +936,7 @@ function renderMatchingGame(data, container) {
     container.innerHTML = `
         <div class="max-w-6xl mx-auto flex flex-col h-full py-4 px-2 sm:px-4 w-full relative">
             
-            <div class="relative mb-3 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col flex-shrink-0" style="z-index: 50;">
+            <div class="game-ctrl-panel relative mb-3 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col flex-shrink-0" style="z-index: 50;">
                 
                 <div class="flex flex-wrap lg:flex-nowrap justify-between items-center gap-2 sm:gap-4 p-2 sm:p-3">
                     <div class="flex items-center flex-wrap lg:flex-nowrap gap-2 w-full lg:w-auto relative">
@@ -1460,7 +1484,7 @@ function renderQuizGame(data, container) {
     container.innerHTML = `
         <div class="max-w-6xl mx-auto flex flex-col h-full py-4 px-2 sm:px-4 w-full relative">
             
-            <div class="relative mb-3 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col flex-shrink-0" style="z-index: 50;">
+            <div class="game-ctrl-panel relative mb-3 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col flex-shrink-0" style="z-index: 50;">
                 
                 <div class="flex flex-wrap lg:flex-nowrap justify-between items-center gap-2 sm:gap-4 p-2 sm:p-3">
                     <div class="flex items-center flex-wrap lg:flex-nowrap gap-2 w-full lg:w-auto relative">
@@ -1943,7 +1967,7 @@ function renderSortingGame(data, container) {
     container.innerHTML = `
         <div class="max-w-6xl mx-auto flex flex-col h-full py-4 px-2 sm:px-4 w-full relative">
             
-            <div class="relative mb-3 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col flex-shrink-0" style="z-index: 50;">
+            <div class="game-ctrl-panel relative mb-3 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col flex-shrink-0" style="z-index: 50;">
                 
                 <div class="flex flex-wrap lg:flex-nowrap justify-between items-center gap-2 sm:gap-4 p-2 sm:p-3">
                     <div class="flex items-center flex-wrap lg:flex-nowrap gap-2 w-full lg:w-auto relative">
@@ -2513,7 +2537,7 @@ function renderTypingGame(data, container) {
     container.innerHTML = `
         <div class="max-w-5xl mx-auto flex flex-col h-full py-4 px-2 sm:px-4 w-full relative font-normal">
             
-            <div class="relative mb-3 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col flex-shrink-0" style="z-index: 50;">
+            <div class="game-ctrl-panel relative mb-3 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col flex-shrink-0" style="z-index: 50;">
                 <div class="flex flex-wrap lg:flex-nowrap justify-between items-center gap-2 p-2 sm:p-3">
                     <div class="flex items-center flex-wrap gap-2">
                         <select id="typing-submode" class="bg-white border border-gray-300 text-gray-700 py-1.5 px-2 rounded-lg text-sm cursor-pointer outline-none relative z-50">
@@ -2837,7 +2861,7 @@ function renderTypingGame(data, container) {
                 <span class="material-symbols-outlined text-[18px]">lightbulb</span> 解答
             </button>
 
-            <div class="w-full max-w-2xl flex flex-col items-center gap-6 sm:gap-8 py-4 relative my-auto">
+            <div class="typing-q-wrap w-full max-w-2xl flex flex-col items-center gap-6 sm:gap-8 py-4 relative my-auto">
                 <div id="single-feedback" class="h-10 w-full flex items-center justify-center text-xl transition-all duration-300"></div>
                 
                 ${isSameTermDef ? `
@@ -3500,7 +3524,7 @@ function renderMultipleChoiceGame(data, container) {
     container.innerHTML = `
         <div class="max-w-6xl mx-auto flex flex-col h-full py-4 px-2 sm:px-4 w-full relative">
             
-            <div class="relative mb-3 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col flex-shrink-0" style="z-index: 50;">
+            <div class="game-ctrl-panel relative mb-3 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col flex-shrink-0" style="z-index: 50;">
                 
                 <div class="flex flex-wrap lg:flex-nowrap justify-between items-center gap-2 sm:gap-4 p-2 sm:p-3">
                     <div class="flex items-center flex-wrap lg:flex-nowrap gap-2 w-full lg:w-auto relative">
