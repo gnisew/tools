@@ -1,4 +1,4 @@
-const { PDFDocument } = PDFLib;
+const { PDFDocument, degrees } = PDFLib;
 
 // 設定 PDF.js 的離線背景 Worker 路徑
 if (window.pdfjsLib) {
@@ -31,7 +31,7 @@ let splitTotalPages = 0;
 let reorderFile = null;
 let reorderPdfDoc = null;
 let reorderPdfJsDoc = null;
-let reorderPages = []; // [{ originalIndex, originalPageNum, selected }]
+let reorderPages = []; // [{ originalIndex, originalPageNum, selected, rotation }]  rotation：額外旋轉角度（0/90/180/270，順時針）
 let initialReorderPages = [];
 let draggedPageIndex = null;
 let activeSidebarIndex = 0;
@@ -80,6 +80,10 @@ const splitOptions = document.getElementById('splitOptions');
 const splitFileNameTitle = document.getElementById('splitFileNameTitle');
 const splitPageInfo = document.getElementById('splitPageInfo');
 const pageRangeInput = document.getElementById('pageRangeInput');
+const splitZipCheck = document.getElementById('splitZipCheck');
+const splitZipRow = document.getElementById('splitZipRow');
+const chunkSizeInput = document.getElementById('chunkSizeInput');
+const chunkHint = document.getElementById('chunkHint');
 
 // 3. 調整頁序與選取相關 DOM
 const reorderSection = document.getElementById('reorder');
@@ -93,6 +97,8 @@ const selectAllBtn = document.getElementById('selectAllBtn');
 const selectAllBtnText = document.getElementById('selectAllBtnText');
 const invertSelectBtn = document.getElementById('invertSelectBtn');
 const deleteSelectedPagesBtn = document.getElementById('deleteSelectedPagesBtn');
+const rotateLeftSelectedBtn = document.getElementById('rotateLeftSelectedBtn');
+const rotateRightSelectedBtn = document.getElementById('rotateRightSelectedBtn');
 const deleteSelectedPagesText = document.getElementById('deleteSelectedPagesText');
 const reorderBody = document.getElementById('reorderBody');
 const reorderSidebar = document.getElementById('reorderSidebar');
@@ -104,6 +110,8 @@ const zoomModeLabel = document.getElementById('zoomModeLabel');
 const thumbQualitySelect = document.getElementById('thumbQualitySelect');
 const reverseOrderBtn = document.getElementById('reverseOrderBtn');
 const resetOrderBtn = document.getElementById('resetOrderBtn');
+const undoBtn = document.getElementById('undoBtn');
+const redoBtn = document.getElementById('redoBtn');
 
 // 單頁放大預覽燈箱 DOM
 const previewModal = document.getElementById('previewModal');
@@ -329,8 +337,8 @@ function clearProgress() {
 // 讓出主執行緒，讓進度畫面有機會更新
 const nextFrame = () => new Promise(resolve => setTimeout(resolve, 0));
 
-function downloadBlob(bytes, filename) {
-  const blob = new Blob([bytes], { type: 'application/pdf' });
+function downloadBlob(bytes, filename, mime = 'application/pdf') {
+  const blob = bytes instanceof Blob ? bytes : new Blob([bytes], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -339,6 +347,90 @@ function downloadBlob(bytes, filename) {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// =======================
+// 簡易 ZIP 打包器（僅儲存、不壓縮；PDF 本身已壓縮，再壓縮效益很小）
+// =======================
+const CRC32_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) {
+      c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    }
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(bytes) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) {
+    c = CRC32_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  }
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+// entries: [{ name: string, data: Uint8Array }] → Blob (application/zip)
+function buildZip(entries) {
+  const MAX = 0xFFFFFFFF;
+  const encoder = new TextEncoder();
+  const now = new Date();
+  const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+
+  const chunks = [];
+  const central = [];
+  let offset = 0;
+
+  for (const entry of entries) {
+    const nameBytes = encoder.encode(entry.name);
+    const size = entry.data.length;
+    const crc = crc32(entry.data);
+
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true);
+    local.setUint16(4, 20, true);        // 解壓所需版本
+    local.setUint16(6, 0x0800, true);    // 旗標：檔名為 UTF-8
+    local.setUint16(8, 0, true);         // 壓縮方式：僅儲存
+    local.setUint16(10, dosTime, true);
+    local.setUint16(12, dosDate, true);
+    local.setUint32(14, crc, true);
+    local.setUint32(18, size, true);
+    local.setUint32(22, size, true);
+    local.setUint16(26, nameBytes.length, true);
+    local.setUint16(28, 0, true);
+    chunks.push(new Uint8Array(local.buffer), nameBytes, entry.data);
+
+    const cd = new DataView(new ArrayBuffer(46));
+    cd.setUint32(0, 0x02014b50, true);
+    cd.setUint16(4, 20, true);
+    cd.setUint16(6, 20, true);
+    cd.setUint16(8, 0x0800, true);
+    cd.setUint16(10, 0, true);
+    cd.setUint16(12, dosTime, true);
+    cd.setUint16(14, dosDate, true);
+    cd.setUint32(16, crc, true);
+    cd.setUint32(20, size, true);
+    cd.setUint32(24, size, true);
+    cd.setUint16(28, nameBytes.length, true);
+    cd.setUint32(42, offset, true);
+    central.push(new Uint8Array(cd.buffer), nameBytes);
+
+    offset += 30 + nameBytes.length + size;
+    if (offset > MAX) throw new Error('檔案總量超過 4 GB，無法打包成 ZIP');
+  }
+
+  const cdSize = central.reduce((sum, part) => sum + part.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true);
+  end.setUint16(8, entries.length, true);
+  end.setUint16(10, entries.length, true);
+  end.setUint32(12, cdSize, true);
+  end.setUint32(16, offset, true);
+
+  return new Blob([...chunks, ...central, new Uint8Array(end.buffer)], { type: 'application/zip' });
 }
 
 // =======================
@@ -708,6 +800,7 @@ async function loadSplitFile(file) {
 
     splitFileNameTitle.textContent = `📄 ${file.name}（共 ${splitTotalPages} 頁）`;
     splitPageInfo.textContent = `${splitTotalPages} 頁`;
+    updateChunkHint();
     pageRangeInput.placeholder = `例如：1-${Math.min(3, splitTotalPages)}, ${splitTotalPages}`;
     updateSaveButtonState();
   } catch (err) {
@@ -715,6 +808,48 @@ async function loadSplitFile(file) {
     setStatus('無法讀取此 PDF', 'error');
   }
 }
+
+// 依目前選的分割模式，顯示或隱藏 ZIP 選項
+function updateSplitModeUI() {
+  const checked = document.querySelector('input[name="splitMode"]:checked');
+  const mode = checked ? checked.value : 'range';
+  splitZipRow.classList.toggle('hidden', mode === 'range');
+}
+
+// 「每 N 頁」的即時結果提示（例如：20 頁 → 4 份）
+function updateChunkHint() {
+  if (!splitPdfDoc || splitTotalPages === 0) {
+    chunkHint.textContent = '載入檔案後顯示拆分結果';
+    return;
+  }
+  const n = parseInt(chunkSizeInput.value, 10);
+  if (!Number.isInteger(n) || n < 1) {
+    chunkHint.textContent = '請輸入 1 以上的整數';
+    return;
+  }
+  if (n >= splitTotalPages) {
+    chunkHint.textContent = `每份頁數需小於總頁數（共 ${splitTotalPages} 頁）`;
+    return;
+  }
+  const count = Math.ceil(splitTotalPages / n);
+  const last = splitTotalPages - (count - 1) * n;
+  chunkHint.textContent = last === n
+    ? `共 ${splitTotalPages} 頁 → ${count} 份，每份 ${n} 頁`
+    : `共 ${splitTotalPages} 頁 → ${count} 份（前 ${count - 1} 份各 ${n} 頁，最後一份 ${last} 頁）`;
+}
+
+document.querySelectorAll('input[name="splitMode"]').forEach(radio => {
+  radio.addEventListener('change', updateSplitModeUI);
+});
+chunkSizeInput.addEventListener('input', () => {
+  document.querySelector('input[name="splitMode"][value="chunk"]').checked = true;
+  updateSplitModeUI();
+  updateChunkHint();
+});
+chunkSizeInput.addEventListener('focus', () => {
+  document.querySelector('input[name="splitMode"][value="chunk"]').checked = true;
+  updateSplitModeUI();
+});
 
 function parsePageRanges(inputStr, maxPages) {
   const pages = new Set();
@@ -766,19 +901,71 @@ async function executeSplitSave() {
       const pdfBytes = await newPdf.save();
       downloadBlob(pdfBytes, `${baseName}_擷取.pdf`);
       setStatus('✓ 擷取完成並下載', 'success');
-    } else if (mode === 'each') {
-      for (let i = 0; i < splitTotalPages; i++) {
-        setStatus(`正在拆分… ${i + 1}/${splitTotalPages}`, '', true);
-        setProgress(i, splitTotalPages);
-        await nextFrame();
-        const singlePdf = await PDFDocument.create();
-        const [copiedPage] = await singlePdf.copyPages(splitPdfDoc, [i]);
-        singlePdf.addPage(copiedPage);
-        const pdfBytes = await singlePdf.save();
-        downloadBlob(pdfBytes, `${baseName}_第${i + 1}頁.pdf`);
+    } else if (mode === 'each' || mode === 'chunk') {
+      const total = splitTotalPages;
+
+      // 每份的頁數：逐頁 = 1；每 N 頁 = N
+      let size = 1;
+      if (mode === 'chunk') {
+        size = parseInt(chunkSizeInput.value, 10);
+        if (!Number.isInteger(size) || size < 1) {
+          throw new Error('請輸入有效的每份頁數（1 以上的整數）');
+        }
+        if (size >= total) {
+          throw new Error(`每份頁數需小於總頁數（共 ${total} 頁）`);
+        }
       }
-      setProgress(splitTotalPages, splitTotalPages);
-      setStatus(`✓ 已拆分為 ${splitTotalPages} 個檔案`, 'success');
+
+      // 分組：[起始索引, 結束索引]（含）
+      const groups = [];
+      for (let start = 0; start < total; start += size) {
+        groups.push([start, Math.min(start + size, total) - 1]);
+      }
+
+      const padWidth = String(total).length;
+      const pad = (n) => String(n).padStart(padWidth, '0');
+      const nameFor = ([s, e]) => (s === e)
+        ? `${baseName}_第${pad(s + 1)}頁.pdf`
+        : `${baseName}_第${pad(s + 1)}-${pad(e + 1)}頁.pdf`;
+
+      const useZip = splitZipCheck.checked && groups.length > 1;
+      const entries = [];
+
+      for (let g = 0; g < groups.length; g++) {
+        setStatus(`正在拆分… ${g + 1}/${groups.length}`, '', true);
+        setProgress(g, groups.length);
+        await nextFrame();
+
+        const [s, e] = groups[g];
+        const indices = [];
+        for (let i = s; i <= e; i++) indices.push(i);
+
+        const part = await PDFDocument.create();
+        const copied = await part.copyPages(splitPdfDoc, indices);
+        copied.forEach(p => part.addPage(p));
+        const pdfBytes = await part.save();
+        const fileName = nameFor(groups[g]);
+
+        if (useZip) {
+          entries.push({ name: fileName, data: pdfBytes });
+        } else {
+          downloadBlob(pdfBytes, fileName);
+        }
+      }
+      setProgress(groups.length, groups.length);
+
+      if (useZip) {
+        setStatus('正在打包 ZIP…', '', true);
+        await nextFrame();
+        const zipBlob = buildZip(entries);
+        const zipName = mode === 'chunk'
+          ? `${baseName}_每${size}頁.zip`
+          : `${baseName}_逐頁拆分.zip`;
+        downloadBlob(zipBlob, zipName);
+        setStatus(`✓ 已將 ${groups.length} 個檔案打包成 ZIP 並開始下載`, 'success');
+      } else {
+        setStatus(`✓ 已拆分為 ${groups.length} 個檔案`, 'success');
+      }
     }
   } catch (err) {
     setStatus(err.message || '分割發生錯誤', 'error');
@@ -845,6 +1032,7 @@ function executeDeleteSelectedPages() {
     return;
   }
 
+  pushHistory(`刪除 ${selectedCount} 頁`);
   reorderPages = reorderPages.filter(p => !p.selected);
   lastCheckedPageIndex = null;
   if (activeSidebarIndex >= reorderPages.length) {
@@ -877,6 +1065,8 @@ function updateSelectionUI() {
     reorderPageInfo.textContent = `${selectedCount} / ${totalCount} 頁`;
     selectAllBtnText.textContent = allSelected ? '取消' : '全選';
     deleteSelectedPagesBtn.disabled = selectedCount === 0 || selectedCount >= totalCount;
+    rotateLeftSelectedBtn.disabled = selectedCount === 0;
+    rotateRightSelectedBtn.disabled = selectedCount === 0;
     deleteSelectedPagesText.textContent = selectedCount > 0 ? `刪除 (${selectedCount})` : '刪除';
   } else {
     reorderPageInfo.textContent = `共 ${totalCount} 頁`;
@@ -1033,6 +1223,169 @@ async function renderThumbnailNow(originalPageNum) {
   }
 }
 
+// =======================
+// 復原 / 重做（頁序模式：排序、刪除、反轉、旋轉、還原）
+// =======================
+const HISTORY_LIMIT = 100;
+let undoStack = [];
+let redoStack = [];
+
+function snapshotReorder(label) {
+  return {
+    label,
+    pages: reorderPages.map(p => ({
+      originalIndex: p.originalIndex,
+      originalPageNum: p.originalPageNum,
+      rotation: p.rotation || 0
+    })),
+    active: activeSidebarIndex
+  };
+}
+
+// 每次「修改前」呼叫，記錄修改前的狀態
+function pushHistory(label) {
+  undoStack.push(snapshotReorder(label));
+  if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
+  redoStack = [];
+  updateHistoryButtons();
+}
+
+function clearHistory() {
+  undoStack = [];
+  redoStack = [];
+  updateHistoryButtons();
+}
+
+function updateHistoryButtons() {
+  undoBtn.disabled = undoStack.length === 0;
+  redoBtn.disabled = redoStack.length === 0;
+}
+
+function restoreSnapshot(snap) {
+  // 勾選狀態不屬於編輯內容：保留目前仍存在的頁面的勾選
+  const selectedSet = new Set(reorderPages.filter(p => p.selected).map(p => p.originalPageNum));
+  reorderPages = snap.pages.map(p => ({ ...p, selected: selectedSet.has(p.originalPageNum) }));
+  activeSidebarIndex = Math.max(0, Math.min(snap.active, reorderPages.length - 1));
+  lastCheckedPageIndex = null;
+  renderReorderPages();
+  updateHistoryButtons();
+}
+
+function undoReorder() {
+  if (!reorderPdfDoc || undoStack.length === 0) return;
+  const entry = undoStack.pop();
+  redoStack.push(snapshotReorder(entry.label));
+  restoreSnapshot(entry);
+  setStatus(`↶ 已復原：${entry.label}`);
+}
+
+function redoReorder() {
+  if (!reorderPdfDoc || redoStack.length === 0) return;
+  const entry = redoStack.pop();
+  undoStack.push(snapshotReorder(entry.label));
+  restoreSnapshot(entry);
+  setStatus(`↷ 已重做：${entry.label}`);
+}
+
+undoBtn.addEventListener('click', undoReorder);
+redoBtn.addEventListener('click', redoReorder);
+
+window.addEventListener('keydown', (e) => {
+  if (currentTab !== 'reorder' || !reorderPdfDoc) return;
+  if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+  if (!previewModal.classList.contains('hidden')) return;
+
+  // 在輸入框內交給瀏覽器處理文字的復原
+  const t = e.target;
+  const typing = t && (t.tagName === 'TEXTAREA' || t.isContentEditable ||
+    (t.tagName === 'INPUT' && !['range', 'checkbox', 'radio', 'button'].includes(t.type)));
+  if (typing) return;
+
+  const key = e.key.toLowerCase();
+  if (key === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    undoReorder();
+  } else if ((key === 'z' && e.shiftKey) || key === 'y') {
+    e.preventDefault();
+    redoReorder();
+  }
+});
+
+// =======================
+// 頁面旋轉（僅在畫面以 CSS 預覽，儲存時才寫入 PDF）
+// =======================
+const THUMB_BOX_ASPECT = 1 / 1.414; // 縮圖容器寬高比，需與 CSS aspect-ratio 一致
+
+// 旋轉 90 / 270 度時，縮放圖片讓整頁仍完整放進縮圖容器
+function fitScaleForRotation(naturalW, naturalH, deg) {
+  if (deg % 180 === 0 || !naturalW || !naturalH) return 1;
+  const a = naturalW / naturalH;
+  const boxW = 1;
+  const boxH = 1 / THUMB_BOX_ASPECT;
+  const contentW = a > THUMB_BOX_ASPECT ? boxW : boxH * a;
+  const contentH = a > THUMB_BOX_ASPECT ? boxW / a : boxH;
+  return Math.min(boxW / contentH, boxH / contentW);
+}
+
+function setImgRotation(img, deg) {
+  img.dataset.rot = String(deg);
+  const apply = () => {
+    const d = parseInt(img.dataset.rot || '0', 10);
+    if (d === 0) {
+      img.style.transform = '';
+      return;
+    }
+    const s = fitScaleForRotation(img.naturalWidth, img.naturalHeight, d);
+    img.style.transform = `rotate(${d}deg) scale(${s})`;
+  };
+  if (img.complete && img.naturalWidth) {
+    apply();
+  } else {
+    img.addEventListener('load', apply, { once: true });
+  }
+}
+
+function getPageRotation(originalPageNum) {
+  const p = reorderPages.find(x => x.originalPageNum === originalPageNum);
+  return p ? (p.rotation || 0) : 0;
+}
+
+function refreshPageRotationDom(pageObj) {
+  const rot = pageObj.rotation || 0;
+  document.querySelectorAll(`[data-page-num="${pageObj.originalPageNum}"]`).forEach(wrapper => {
+    const img = wrapper.querySelector('.page-thumb-img');
+    if (img) setImgRotation(img, rot);
+  });
+  const idx = reorderPages.indexOf(pageObj);
+  const card = reorderPageList.querySelectorAll('.page-card')[idx];
+  const tag = card && card.querySelector('.rot-tag');
+  if (tag) {
+    tag.textContent = `↻${rot}°`;
+    tag.classList.toggle('hidden', rot === 0);
+  }
+}
+
+function rotatePages(pageObjs, delta) {
+  if (pageObjs.length === 0) return;
+  pushHistory(delta > 0 ? '向右旋轉' : '向左旋轉');
+  pageObjs.forEach(p => {
+    p.rotation = (((p.rotation || 0) + delta) % 360 + 360) % 360;
+    refreshPageRotationDom(p);
+  });
+  updateSaveButtonState();
+}
+
+rotateLeftSelectedBtn.addEventListener('click', () => {
+  const targets = reorderPages.filter(p => p.selected);
+  rotatePages(targets, -90);
+  if (targets.length > 0) setStatus(`✓ 已將 ${targets.length} 頁向左旋轉 90°`, 'success');
+});
+rotateRightSelectedBtn.addEventListener('click', () => {
+  const targets = reorderPages.filter(p => p.selected);
+  rotatePages(targets, 90);
+  if (targets.length > 0) setStatus(`✓ 已將 ${targets.length} 頁向右旋轉 90°`, 'success');
+});
+
 function applyCachedThumbToDom(originalPageNum, dataUrl) {
   const wrappers = document.querySelectorAll(`[data-page-num="${originalPageNum}"]`);
   wrappers.forEach(wrapper => {
@@ -1041,6 +1394,7 @@ function applyCachedThumbToDom(originalPageNum, dataUrl) {
     if (imgEl) {
       imgEl.src = dataUrl;
       imgEl.classList.add('loaded');
+      setImgRotation(imgEl, getPageRotation(originalPageNum));
     }
     if (placeholderEl) {
       placeholderEl.remove();
@@ -1087,10 +1441,12 @@ async function loadReorderFile(file) {
     selectionSubTools.classList.add('hidden');
     reorderBody.classList.remove('selection-mode');
 
+    clearHistory();
     initialReorderPages = pages.map((_, idx) => ({
       originalIndex: idx,
       originalPageNum: idx + 1,
-      selected: false
+      selected: false,
+      rotation: 0
     }));
 
     reorderPages = initialReorderPages.map(p => ({ ...p }));
@@ -1189,6 +1545,7 @@ function renderReorderPages() {
     removeBtn.disabled = reorderPages.length <= 1;
     removeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      pushHistory('移除頁面');
       reorderPages.splice(index, 1);
       if (activeSidebarIndex >= reorderPages.length) {
         activeSidebarIndex = reorderPages.length - 1;
@@ -1199,6 +1556,33 @@ function renderReorderPages() {
     actionGroup.append(prevBtn, nextBtn, zoomBtn, removeBtn);
     hoverBar.appendChild(actionGroup);
 
+    // 旋轉按鈕（縮圖左下角，滑過才顯示）
+    const rotateBar = document.createElement('div');
+    rotateBar.className = 'card-rotate-actions';
+    const rotateGroup = document.createElement('div');
+    rotateGroup.className = 'hover-group';
+
+    const rotLeftBtn = document.createElement('button');
+    rotLeftBtn.className = 'float-btn';
+    rotLeftBtn.textContent = '↺';
+    rotLeftBtn.title = '向左旋轉 90°';
+    rotLeftBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      rotatePages([pageObj], -90);
+    });
+
+    const rotRightBtn = document.createElement('button');
+    rotRightBtn.className = 'float-btn';
+    rotRightBtn.textContent = '↻';
+    rotRightBtn.title = '向右旋轉 90°';
+    rotRightBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      rotatePages([pageObj], 90);
+    });
+
+    rotateGroup.append(rotLeftBtn, rotRightBtn);
+    rotateBar.appendChild(rotateGroup);
+
     const img = document.createElement('img');
     img.className = 'page-thumb-img';
     img.alt = `第 ${pageObj.originalPageNum} 頁`;
@@ -1207,12 +1591,13 @@ function renderReorderPages() {
     if (thumbnailCache[pageObj.originalPageNum]) {
       img.src = thumbnailCache[pageObj.originalPageNum];
       img.classList.add('loaded');
-      thumbWrapper.append(checkBadge, hoverBar, img);
+      setImgRotation(img, pageObj.rotation || 0);
+      thumbWrapper.append(checkBadge, hoverBar, rotateBar, img);
     } else {
       const placeholder = document.createElement('div');
       placeholder.className = 'thumb-placeholder';
       placeholder.textContent = `${pageObj.originalPageNum}`;
-      thumbWrapper.append(checkBadge, hoverBar, placeholder, img);
+      thumbWrapper.append(checkBadge, hoverBar, rotateBar, placeholder, img);
       if (thumbObserver) {
         thumbObserver.observe(thumbWrapper);
       }
@@ -1232,6 +1617,11 @@ function renderReorderPages() {
       origSpan.textContent = `(原${pageObj.originalPageNum})`;
       caption.appendChild(origSpan);
     }
+
+    const rotTag = document.createElement('span');
+    rotTag.className = 'rot-tag' + ((pageObj.rotation || 0) === 0 ? ' hidden' : '');
+    rotTag.textContent = `↻${pageObj.rotation || 0}°`;
+    caption.appendChild(rotTag);
 
     li.append(thumbWrapper, caption);
     bindPageDragEvents(li, index);
@@ -1253,6 +1643,7 @@ function renderReorderPages() {
     if (thumbnailCache[pageObj.originalPageNum]) {
       sideImg.src = thumbnailCache[pageObj.originalPageNum];
       sideImg.classList.add('loaded');
+      setImgRotation(sideImg, pageObj.rotation || 0);
       sideBox.appendChild(sideImg);
     } else {
       const sidePlaceholder = document.createElement('div');
@@ -1320,6 +1711,7 @@ function bindPageDragEvents(element, index) {
 
     if (draggedPageIndex === null || draggedPageIndex === index) return;
 
+    pushHistory('調整頁序');
     const [movedPage] = reorderPages.splice(draggedPageIndex, 1);
     reorderPages.splice(index, 0, movedPage);
     activeSidebarIndex = index;
@@ -1342,12 +1734,13 @@ async function openHighResPreview(originalPageNum) {
     previewModal.classList.remove('hidden');
 
     const page = await reorderPdfJsDoc.getPage(originalPageNum);
-    const unscaled = page.getViewport({ scale: 1 });
+    const rotation = ((page.rotate || 0) + getPageRotation(originalPageNum)) % 360;
+    const unscaled = page.getViewport({ scale: 1, rotation });
     const dpr = window.devicePixelRatio || 1;
     const cssTargetWidth = Math.min(window.innerWidth * 0.85, 920);
     const cssScale = cssTargetWidth / unscaled.width;
 
-    const renderViewport = page.getViewport({ scale: cssScale * dpr });
+    const renderViewport = page.getViewport({ scale: cssScale * dpr, rotation });
 
     previewCanvas.width = renderViewport.width;
     previewCanvas.height = renderViewport.height;
@@ -1374,6 +1767,7 @@ function closeHighResPreview() {
 }
 
 function moveReorderPage(index, direction) {
+  pushHistory('移動頁面');
   const target = index + direction;
   const temp = reorderPages[index];
   reorderPages[index] = reorderPages[target];
@@ -1383,17 +1777,19 @@ function moveReorderPage(index, direction) {
 }
 
 reverseOrderBtn.addEventListener('click', () => {
+  pushHistory('反轉順序');
   reorderPages.reverse();
   renderReorderPages();
   setStatus('✓ 已反轉頁面順序', 'success');
 });
 
 resetOrderBtn.addEventListener('click', () => {
+  pushHistory('還原預設');
   reorderPages = initialReorderPages.map(p => ({ ...p, selected: false }));
   activeSidebarIndex = 0;
   lastCheckedPageIndex = null;
   renderReorderPages();
-  setStatus('已還原預設頁面順序與頁數');
+  setStatus('已還原預設頁面順序、頁數與旋轉（可按 Ctrl+Z 復原）');
 });
 
 async function executeReorderSave() {
@@ -1414,7 +1810,13 @@ async function executeReorderSave() {
     const newPdf = await PDFDocument.create();
     const pageIndices = pagesToSave.map(p => p.originalIndex);
     const copiedPages = await newPdf.copyPages(reorderPdfDoc, pageIndices);
-    copiedPages.forEach(page => newPdf.addPage(page));
+    copiedPages.forEach((page, i) => {
+      const extra = pagesToSave[i].rotation || 0;
+      if (extra) {
+        page.setRotation(degrees((page.getRotation().angle + extra) % 360));
+      }
+      newPdf.addPage(page);
+    });
 
     const pdfBytes = await newPdf.save();
     const baseName = reorderFile.name.replace(/\.pdf$/i, '');
