@@ -1227,3 +1227,51 @@ body.theme-gray .drop-overlay-box {
 }
 .zip-label { margin-left: 0; }
 .zip-hint { margin-left: 22px; }
+
+
+/* =========================================
+   起始畫面（尚未載入檔案）與檔案庫相關
+   ========================================= */
+.start-screen {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+.workspace.is-empty .start-screen {
+  display: flex;
+}
+.workspace.is-empty .tab-content {
+  display: none !important;
+}
+.open-view-pref {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 16px;
+  padding: 0 16px 18px;
+  font-size: 12px;
+  color: var(--topbar-muted);
+}
+.open-view-pref label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.tab-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.split-doc-row {
+  margin-top: 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--card-border);
+}
+.split-doc-row label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--topbar-muted);
+}

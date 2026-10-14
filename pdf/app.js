@@ -16,23 +16,31 @@ const QUALITY_PRESETS = {
 // 狀態管理
 let currentTab = 'merge';
 
-// 1. 合併狀態：[{ file, name, pageCount, selected }]
-let mergeFiles = [];
+// 檔案庫（條列 / 預覽 / 分割 三個檢視共用）
+// [{ id, file, name, pageCount, selected, pdfLibDoc, pdfJsPromise, pagesAdded }]
+let docs = [];
+let nextDocId = 1;
+const knownDocs = new Map();            // 用來偵測「檔案被移除」並釋放資源
+const OPEN_VIEW_KEY = 'pdf_tool_open_view';
+
+// 條列檢視狀態
 let draggedItemIndex = null;
 let isMergeSelectionMode = false;
 let lastCheckedMergeIndex = null;
 
-// 2. 分割狀態
+// 分割檢視狀態（針對檔案庫中的某一個檔案）
+let splitDocId = null;
 let splitFile = null;
 let splitPdfDoc = null;
 let splitTotalPages = 0;
 
-// 3. 頁序狀態
-let reorderFile = null;
-let reorderPdfDoc = null;
-let reorderPdfJsDoc = null;
-let reorderPages = []; // [{ originalIndex, originalPageNum, selected, rotation }]  rotation：額外旋轉角度（0/90/180/270，順時針）
-let initialReorderPages = [];
+// 預覽檢視狀態（頁面可來自多個檔案）
+// [{ docId, key, originalIndex, originalPageNum, selected, rotation }]
+// key = `${docId}_${原頁碼}`，作為縮圖快取與 DOM 的唯一識別；rotation：額外旋轉角度（0/90/180/270，順時針）
+let reorderPages = [];
+let previewEdited = false;   // 使用者是否在預覽中做過編輯（有編輯時，檔案庫的排序變動不會覆蓋頁面順序）
+let previewOrderSig = '';    // 上次同步時的檔案順序簽章
+let previewMulti = false;    // 預覽中是否包含多個檔案
 let draggedPageIndex = null;
 let activeSidebarIndex = 0;
 let isSelectionMode = false;
@@ -59,8 +67,8 @@ const themeSelect = document.getElementById('themeSelect');
 
 // 1. 合併相關 DOM
 const mergeSection = document.getElementById('merge');
-const mergeInput = document.getElementById('mergeInput');
-const mergeEmptyDropzone = document.getElementById('mergeEmptyDropzone');
+const fileInput = document.getElementById('fileInput');
+const workspaceEl = document.querySelector('.workspace');
 const mergeFileList = document.getElementById('mergeFileList');
 const clearMergeBtn = document.getElementById('clearMergeBtn');
 const toggleMergeSelectModeBtn = document.getElementById('toggleMergeSelectModeBtn');
@@ -74,8 +82,8 @@ const mergePageInfo = document.getElementById('mergePageInfo');
 
 // 2. 分割相關 DOM
 const splitSection = document.getElementById('split');
-const splitInput = document.getElementById('splitInput');
-const splitEmptyDropzone = document.getElementById('splitEmptyDropzone');
+const splitDocRow = document.getElementById('splitDocRow');
+const splitDocSelect = document.getElementById('splitDocSelect');
 const splitOptions = document.getElementById('splitOptions');
 const splitFileNameTitle = document.getElementById('splitFileNameTitle');
 const splitPageInfo = document.getElementById('splitPageInfo');
@@ -87,8 +95,6 @@ const chunkHint = document.getElementById('chunkHint');
 
 // 3. 調整頁序與選取相關 DOM
 const reorderSection = document.getElementById('reorder');
-const reorderInput = document.getElementById('reorderInput');
-const reorderEmptyDropzone = document.getElementById('reorderEmptyDropzone');
 const reorderTools = document.getElementById('reorderTools');
 const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
 const toggleSelectModeBtn = document.getElementById('toggleSelectModeBtn');
@@ -148,15 +154,7 @@ toggleSidebarBtn.addEventListener('click', () => {
   }
 });
 
-openFileBtn.addEventListener('click', () => {
-  if (currentTab === 'merge') {
-    mergeInput.click();
-  } else if (currentTab === 'split') {
-    splitInput.click();
-  } else if (currentTab === 'reorder') {
-    reorderInput.click();
-  }
-});
+openFileBtn.addEventListener('click', () => fileInput.click());
 
 
 // =========================================
@@ -220,7 +218,7 @@ window.addEventListener('resize', () => {
 });
 
 thumbQualitySelect.addEventListener('change', () => {
-  if (!reorderPdfJsDoc) return;
+  if (reorderPages.length === 0) return;
   clearThumbnailCache();
   initThumbObserver();
   renderReorderPages();
@@ -242,18 +240,23 @@ function switchTab(name) {
   tabContents.forEach(c => c.classList.toggle('active', c.id === name));
   ctxGroups.forEach(g => g.classList.toggle('active', g.id === `ctx-${name}`));
 
-  openFileBtnText.textContent = name === 'merge' ? '加檔' : '選檔';
+  openFileBtnText.textContent = '載入';
+  if (name === 'split') refreshSplitView();
+  if (name === 'reorder') syncPreview();
   updateSaveButtonState();
+}
+
+function goToTab(name) {
+  if (tabFromHash() === name) {
+    switchTab(name);
+  } else {
+    location.hash = name; // 觸發 hashchange，並留下瀏覽紀錄（可用上一頁 / 下一頁切換）
+  }
 }
 
 tabBtns.forEach(btn => {
   btn.addEventListener('click', () => {
-    const name = btn.dataset.tab;
-    if (tabFromHash() === name) {
-      switchTab(name);
-    } else {
-      location.hash = name; // 觸發 hashchange，並留下瀏覽紀錄（可用上一頁 / 下一頁切換）
-    }
+    goToTab(btn.dataset.tab);
   });
 });
 
@@ -264,24 +267,24 @@ window.addEventListener('hashchange', () => {
 // 更新左上角「儲存」按鈕文字與啟用狀態（文字保持簡短以節省工具列寬度）
 function updateSaveButtonState() {
   if (currentTab === 'merge') {
-    if (mergeFiles.length === 0) {
+    if (docs.length === 0) {
       primarySaveBtn.disabled = true;
       saveBtnText.textContent = '儲存';
       return;
     }
     if (isMergeSelectionMode) {
-      const selectedCount = mergeFiles.filter(item => item.selected).length;
+      const selectedCount = docs.filter(item => item.selected).length;
       primarySaveBtn.disabled = selectedCount < 2;
       saveBtnText.textContent = selectedCount >= 2 ? `儲存 (${selectedCount})` : '選 2 檔';
     } else {
-      primarySaveBtn.disabled = mergeFiles.length < 2;
+      primarySaveBtn.disabled = docs.length < 2;
       saveBtnText.textContent = '儲存';
     }
   } else if (currentTab === 'split') {
     primarySaveBtn.disabled = !splitPdfDoc;
     saveBtnText.textContent = '儲存';
   } else if (currentTab === 'reorder') {
-    if (!reorderPdfDoc || reorderPages.length === 0) {
+    if (reorderPages.length === 0) {
       primarySaveBtn.disabled = true;
       saveBtnText.textContent = '儲存';
       return;
@@ -436,47 +439,85 @@ function buildZip(entries) {
 // =======================
 // 1. 合併 PDF 功能 (支援各檔案頁數、勾選合併、勾選刪除)
 // =======================
-mergeInput.addEventListener('change', (e) => {
-  addMergeFiles(Array.from(e.target.files));
-  mergeInput.value = '';
+fileInput.addEventListener('change', (e) => {
+  addFiles(Array.from(e.target.files));
+  fileInput.value = '';
 });
 
-async function addMergeFiles(files) {
+// 載入後的預設檢視偏好：auto（單檔→預覽、多檔→條列）/ list / preview
+function getOpenViewPref() {
+  try { return localStorage.getItem(OPEN_VIEW_KEY) || 'auto'; } catch (e) { return 'auto'; }
+}
+
+// 取得檔案的 pdf-lib 文件（載入後會快取，合併 / 分割 / 預覽共用）
+async function getLibDoc(item) {
+  if (!item.pdfLibDoc) {
+    item.pdfLibDoc = await PDFDocument.load(await item.file.arrayBuffer());
+  }
+  return item.pdfLibDoc;
+}
+
+// 統一的載入入口：按鈕、拖放都走這裡
+async function addFiles(files) {
   const pdfFiles = files.filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
   if (pdfFiles.length === 0) {
     setStatus('請選擇 PDF 檔案', 'error');
     return;
   }
 
+  const wasEmpty = docs.length === 0;
   const newItems = pdfFiles.map(file => ({
+    id: nextDocId++,
     file,
     name: file.name,
     pageCount: null,
-    selected: false
+    selected: false,
+    pdfLibDoc: null,
+    pdfJsPromise: null,
+    pagesAdded: false
   }));
+  newItems.forEach(item => knownDocs.set(item.id, item));
 
-  mergeFiles.push(...newItems);
-  mergeFiles.sort((a, b) =>
+  docs.push(...newItems);
+  docs.sort((a, b) =>
     a.name.localeCompare(b.name, 'zh-TW', { numeric: true, sensitivity: 'base' })
   );
 
+  // 第一次載入：依偏好（或檔案數量）決定先看「條列」還是「預覽」
+  if (wasEmpty) {
+    const pref = getOpenViewPref();
+    const target = pref === 'list' ? 'merge'
+      : pref === 'preview' ? 'reorder'
+      : (pdfFiles.length === 1 ? 'reorder' : 'merge');
+    goToTab(target);
+  }
+
+  setStatus('正在讀取檔案…', '', true);
   renderMergeList();
 
   let loaded = 0;
+  const failed = [];
   for (const item of newItems) {
     try {
-      const arrayBuffer = await item.file.arrayBuffer();
-      const pdf = await PDFDocument.load(arrayBuffer);
-      item.pageCount = pdf.getPageCount();
+      await getLibDoc(item);
+      item.pageCount = item.pdfLibDoc.getPageCount();
     } catch (err) {
-      console.error(`讀取 ${item.name} 頁數失敗:`, err);
+      console.error(`讀取 ${item.name} 失敗:`, err);
       item.pageCount = 0;
+      failed.push(item.name);
     }
     renderMergeList();
     loaded++;
     if (newItems.length > 1) setProgress(loaded, newItems.length);
   }
   clearProgress();
+  setStatus('');
+
+  if (failed.length > 0) {
+    docs = docs.filter(d => d.pageCount !== 0);
+    renderMergeList();
+    setStatus(`無法讀取（已略過）：${failed.join('、')}`, 'error');
+  }
 }
 
 toggleMergeSelectModeBtn.addEventListener('click', () => {
@@ -485,7 +526,7 @@ toggleMergeSelectModeBtn.addEventListener('click', () => {
   mergeSelectionSubTools.classList.toggle('hidden', !isMergeSelectionMode);
   mergeFileList.classList.toggle('selection-mode', isMergeSelectionMode);
 
-  mergeFiles.forEach(item => { item.selected = false; });
+  docs.forEach(item => { item.selected = false; });
   lastCheckedMergeIndex = null;
 
   if (isMergeSelectionMode) {
@@ -498,25 +539,25 @@ toggleMergeSelectModeBtn.addEventListener('click', () => {
 
 mergeSelectAllBtn.addEventListener('click', () => {
   if (!isMergeSelectionMode) return;
-  const allSelected = mergeFiles.length > 0 && mergeFiles.every(item => item.selected);
+  const allSelected = docs.length > 0 && docs.every(item => item.selected);
   const targetState = !allSelected;
-  mergeFiles.forEach(item => { item.selected = targetState; });
+  docs.forEach(item => { item.selected = targetState; });
   updateMergeSelectionUI();
 });
 
 mergeInvertSelectBtn.addEventListener('click', () => {
   if (!isMergeSelectionMode) return;
-  mergeFiles.forEach(item => { item.selected = !item.selected; });
+  docs.forEach(item => { item.selected = !item.selected; });
   updateMergeSelectionUI();
 });
 
 // 刪除所勾選的合併檔案
 deleteSelectedMergeBtn.addEventListener('click', () => {
   if (!isMergeSelectionMode) return;
-  const selectedCount = mergeFiles.filter(item => item.selected).length;
+  const selectedCount = docs.filter(item => item.selected).length;
   if (selectedCount === 0) return;
 
-  mergeFiles = mergeFiles.filter(item => !item.selected);
+  docs = docs.filter(item => !item.selected);
   lastCheckedMergeIndex = null;
   renderMergeList();
   setStatus(`✓ 已移除所選的 ${selectedCount} 個檔案`);
@@ -524,16 +565,16 @@ deleteSelectedMergeBtn.addEventListener('click', () => {
 
 function toggleMergeItemSelection(index, isShiftKey) {
   if (!isMergeSelectionMode) return;
-  const targetChecked = !mergeFiles[index].selected;
+  const targetChecked = !docs[index].selected;
 
   if (isShiftKey && lastCheckedMergeIndex !== null && lastCheckedMergeIndex !== index) {
     const start = Math.min(lastCheckedMergeIndex, index);
     const end = Math.max(lastCheckedMergeIndex, index);
     for (let i = start; i <= end; i++) {
-      mergeFiles[i].selected = targetChecked;
+      docs[i].selected = targetChecked;
     }
   } else {
-    mergeFiles[index].selected = targetChecked;
+    docs[index].selected = targetChecked;
   }
 
   lastCheckedMergeIndex = index;
@@ -541,7 +582,7 @@ function toggleMergeItemSelection(index, isShiftKey) {
 }
 
 function updateMergeSelectionUI() {
-  const totalFiles = mergeFiles.length;
+  const totalFiles = docs.length;
   const hasFiles = totalFiles > 0;
 
   if (!hasFiles) {
@@ -553,7 +594,7 @@ function updateMergeSelectionUI() {
   mergePageInfo.classList.remove('hidden');
 
   if (isMergeSelectionMode) {
-    const selectedItems = mergeFiles.filter(item => item.selected);
+    const selectedItems = docs.filter(item => item.selected);
     const selectedCount = selectedItems.length;
     const selectedPages = selectedItems.reduce((sum, item) => sum + (item.pageCount || 0), 0);
     const allSelected = selectedCount === totalFiles;
@@ -563,12 +604,12 @@ function updateMergeSelectionUI() {
     deleteSelectedMergeBtn.disabled = selectedCount === 0;
     deleteSelectedMergeText.textContent = selectedCount > 0 ? `刪除 (${selectedCount})` : '刪除';
   } else {
-    const totalPages = mergeFiles.reduce((sum, item) => sum + (item.pageCount || 0), 0);
+    const totalPages = docs.reduce((sum, item) => sum + (item.pageCount || 0), 0);
     mergePageInfo.textContent = `${totalFiles} 檔 · 共 ${totalPages} 頁`;
   }
 
   const rows = mergeFileList.querySelectorAll('.file-item');
-  mergeFiles.forEach((item, idx) => {
+  docs.forEach((item, idx) => {
     const row = rows[idx];
     if (row) {
       row.classList.toggle('selected', isMergeSelectionMode && item.selected);
@@ -581,8 +622,8 @@ function updateMergeSelectionUI() {
 function renderMergeList() {
   mergeFileList.innerHTML = '';
 
-  const hasFiles = mergeFiles.length > 0;
-  mergeEmptyDropzone.classList.toggle('hidden', hasFiles);
+  const hasFiles = docs.length > 0;
+  workspaceEl.classList.toggle('is-empty', !hasFiles);
   mergeFileList.classList.toggle('hidden', !hasFiles);
   toggleMergeSelectModeBtn.classList.toggle('hidden', !hasFiles);
 
@@ -593,7 +634,7 @@ function renderMergeList() {
     mergeFileList.classList.remove('selection-mode');
   }
 
-  mergeFiles.forEach((item, index) => {
+  docs.forEach((item, index) => {
     const li = document.createElement('li');
     li.className = `file-item ${isMergeSelectionMode && item.selected ? 'selected' : ''}`;
     li.draggable = true;
@@ -644,7 +685,7 @@ function renderMergeList() {
     downBtn.className = 'icon-btn';
     downBtn.textContent = '↓';
     downBtn.title = '下移';
-    downBtn.disabled = index === mergeFiles.length - 1;
+    downBtn.disabled = index === docs.length - 1;
     downBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       moveMergeFile(index, 1);
@@ -656,11 +697,22 @@ function renderMergeList() {
     removeBtn.title = '移除';
     removeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      mergeFiles.splice(index, 1);
+      docs.splice(index, 1);
       renderMergeList();
     });
 
-    controls.append(upBtn, downBtn, removeBtn);
+    const splitBtn = document.createElement('button');
+    splitBtn.className = 'icon-btn';
+    splitBtn.textContent = '✂';
+    splitBtn.title = '分割此檔案';
+    splitBtn.disabled = !(item.pageCount > 0);
+    splitBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      splitDocId = item.id;
+      goToTab('split');
+    });
+
+    controls.append(splitBtn, upBtn, downBtn, removeBtn);
     li.append(checkBadge, dragHandle, nameSpan, pageBadge, controls);
 
     li.addEventListener('dragstart', (e) => {
@@ -693,8 +745,8 @@ function renderMergeList() {
 
       if (draggedItemIndex === null || draggedItemIndex === index) return;
 
-      const [movedFile] = mergeFiles.splice(draggedItemIndex, 1);
-      mergeFiles.splice(index, 0, movedFile);
+      const [movedFile] = docs.splice(draggedItemIndex, 1);
+      docs.splice(index, 0, movedFile);
       draggedItemIndex = null;
       renderMergeList();
     });
@@ -711,25 +763,55 @@ function renderMergeList() {
 
   clearMergeBtn.disabled = !hasFiles;
   updateMergeSelectionUI();
+  onLibraryChanged();
+}
+
+// 檔案庫變動時：更新分頁可用狀態、釋放已移除檔案的資源、同步目前顯示的檢視
+function onLibraryChanged() {
+  const hasFiles = docs.length > 0;
+  tabBtns.forEach(b => { b.disabled = !hasFiles; });
+
+  for (const [id, item] of knownDocs) {
+    if (!docs.includes(item)) {
+      knownDocs.delete(id);
+      releaseDoc(item);
+    }
+  }
+
+  if (currentTab === 'split') refreshSplitView();
+  if (currentTab === 'reorder') syncPreview();
+}
+
+function releaseDoc(item) {
+  const prefix = `${item.id}_`;
+  Object.keys(thumbnailCache).forEach(k => {
+    if (k.startsWith(prefix)) {
+      URL.revokeObjectURL(thumbnailCache[k]);
+      delete thumbnailCache[k];
+    }
+  });
+  if (item.pdfJsPromise) item.pdfJsPromise.then(d => d.destroy()).catch(() => {});
+  item.pdfLibDoc = null;
+  item.pdfJsPromise = null;
 }
 
 function moveMergeFile(index, direction) {
   const target = index + direction;
-  const temp = mergeFiles[index];
-  mergeFiles[index] = mergeFiles[target];
-  mergeFiles[target] = temp;
+  const temp = docs[index];
+  docs[index] = docs[target];
+  docs[target] = temp;
   renderMergeList();
 }
 
 clearMergeBtn.addEventListener('click', () => {
-  mergeFiles = [];
+  docs = [];
   renderMergeList();
 });
 
 async function executeMergeSave() {
   const itemsToMerge = isMergeSelectionMode
-    ? mergeFiles.filter(item => item.selected)
-    : mergeFiles;
+    ? docs.filter(item => item.selected)
+    : docs;
 
   if (itemsToMerge.length < 2) {
     setStatus('請至少選擇 2 個 PDF 檔案進行合併', 'error');
@@ -748,8 +830,7 @@ async function executeMergeSave() {
     let done = 0;
     for (const item of itemsToMerge) {
       setStatus(`正在合併 PDF… ${done + 1}/${total}`, '', true);
-      const arrayBuffer = await item.file.arrayBuffer();
-      const pdf = await PDFDocument.load(arrayBuffer);
+      const pdf = await getLibDoc(item);
       const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
       copiedPages.forEach((page) => mergedPdf.addPage(page));
       done++;
@@ -776,38 +857,54 @@ async function executeMergeSave() {
 // =======================
 // 2. 分割 PDF 功能
 // =======================
-splitInput.addEventListener('change', (e) => {
-  if (e.target.files.length > 0) {
-    loadSplitFile(e.target.files[0]);
-  }
-  splitInput.value = '';
-});
+// 進入分割檢視 / 檔案庫變動時：決定要分割哪個檔案並更新畫面
+function refreshSplitView() {
+  const ready = docs.filter(d => d.pageCount > 0 && d.pdfLibDoc);
+  const has = ready.length > 0;
+  splitOptions.classList.toggle('hidden', !has);
+  splitPageInfo.classList.toggle('hidden', !has);
 
-async function loadSplitFile(file) {
-  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-    setStatus('請選擇 PDF 檔案', 'error');
+  if (!has) {
+    splitDocId = null;
+    splitFile = null;
+    splitPdfDoc = null;
+    splitTotalPages = 0;
+    updateSaveButtonState();
     return;
   }
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    splitPdfDoc = await PDFDocument.load(arrayBuffer);
-    splitFile = file;
-    splitTotalPages = splitPdfDoc.getPageCount();
 
-    splitEmptyDropzone.classList.add('hidden');
-    splitOptions.classList.remove('hidden');
-    splitPageInfo.classList.remove('hidden');
-
-    splitFileNameTitle.textContent = `📄 ${file.name}（共 ${splitTotalPages} 頁）`;
-    splitPageInfo.textContent = `${splitTotalPages} 頁`;
-    updateChunkHint();
-    pageRangeInput.placeholder = `例如：1-${Math.min(3, splitTotalPages)}, ${splitTotalPages}`;
-    updateSaveButtonState();
-  } catch (err) {
-    console.error(err);
-    setStatus('無法讀取此 PDF', 'error');
+  // 已指定且仍存在 → 沿用；否則「條列選取模式只勾 1 檔」→ 該檔；否則第一個檔案
+  if (!ready.some(d => d.id === splitDocId)) {
+    const picked = isMergeSelectionMode ? ready.filter(d => d.selected) : [];
+    splitDocId = (picked.length === 1 ? picked[0] : ready[0]).id;
   }
+  const item = ready.find(d => d.id === splitDocId);
+
+  splitDocRow.classList.toggle('hidden', ready.length < 2);
+  splitDocSelect.innerHTML = '';
+  ready.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = String(d.id);
+    opt.textContent = `${d.name}（${d.pageCount} 頁）`;
+    splitDocSelect.appendChild(opt);
+  });
+  splitDocSelect.value = String(item.id);
+
+  splitFile = item.file;
+  splitPdfDoc = item.pdfLibDoc;
+  splitTotalPages = item.pageCount;
+
+  splitFileNameTitle.textContent = `📄 ${item.name}（共 ${splitTotalPages} 頁）`;
+  splitPageInfo.textContent = `${splitTotalPages} 頁`;
+  updateChunkHint();
+  pageRangeInput.placeholder = `例如：1-${Math.min(3, splitTotalPages)}, ${splitTotalPages}`;
+  updateSaveButtonState();
 }
+
+splitDocSelect.addEventListener('change', () => {
+  splitDocId = parseInt(splitDocSelect.value, 10);
+  refreshSplitView();
+});
 
 // 依目前選的分割模式，顯示或隱藏 ZIP 選項
 function updateSplitModeUI() {
@@ -978,13 +1075,6 @@ async function executeSplitSave() {
 // =======================
 // 3. 調整 PDF 頁序與多選儲存 / 多選刪除功能
 // =======================
-reorderInput.addEventListener('change', (e) => {
-  if (e.target.files.length > 0) {
-    loadReorderFile(e.target.files[0]);
-  }
-  reorderInput.value = '';
-});
-
 toggleSelectModeBtn.addEventListener('click', () => {
   isSelectionMode = !isSelectionMode;
   toggleSelectModeBtn.classList.toggle('active', isSelectionMode);
@@ -1134,9 +1224,9 @@ function initThumbObserver() {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         const wrapper = entry.target;
-        const pageNum = parseInt(wrapper.dataset.pageNum, 10);
+        const key = wrapper.dataset.pageNum;
         thumbObserver.unobserve(wrapper);
-        renderSingleThumbnail(pageNum);
+        renderSingleThumbnail(key);
       }
     });
   }, {
@@ -1158,39 +1248,52 @@ function clearThumbnailCache() {
   thumbQueue.length = 0;
 }
 
-function renderSingleThumbnail(originalPageNum) {
-  if (!reorderPdfJsDoc) return;
+function renderSingleThumbnail(key) {
+  if (!window.pdfjsLib) return;
 
-  if (thumbnailCache[originalPageNum]) {
-    applyCachedThumbToDom(originalPageNum, thumbnailCache[originalPageNum]);
+  if (thumbnailCache[key]) {
+    applyCachedThumbToDom(key, thumbnailCache[key]);
     return;
   }
 
-  if (renderingPages.has(originalPageNum)) return;
-  renderingPages.add(originalPageNum);
-  thumbQueue.push(originalPageNum);
+  if (renderingPages.has(key)) return;
+  renderingPages.add(key);
+  thumbQueue.push(key);
   pumpThumbQueue();
 }
 
 function pumpThumbQueue() {
   while (thumbActive < THUMB_CONCURRENCY && thumbQueue.length > 0) {
-    const pageNum = thumbQueue.shift();
+    const key = thumbQueue.shift();
     thumbActive++;
-    renderThumbnailNow(pageNum).finally(() => {
+    renderThumbnailNow(key).finally(() => {
       thumbActive--;
       pumpThumbQueue();
     });
   }
 }
 
-async function renderThumbnailNow(originalPageNum) {
+// 取得檔案的 pdf.js 文件（用到才載入並快取）
+function ensurePdfJsDoc(item) {
+  if (!item.pdfJsPromise) {
+    item.pdfJsPromise = item.file.arrayBuffer()
+      .then(buf => pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise)
+      .catch(err => { item.pdfJsPromise = null; throw err; });
+  }
+  return item.pdfJsPromise;
+}
+
+async function renderThumbnailNow(key) {
   const generation = thumbGeneration;
-  const doc = reorderPdfJsDoc;
 
   try {
-    if (!doc) return;
+    const [docId, pageNum] = key.split('_').map(Number);
+    const item = docs.find(d => d.id === docId);
+    if (!item) return;
+
     const preset = QUALITY_PRESETS[thumbQualitySelect.value] || QUALITY_PRESETS.hd;
-    const page = await doc.getPage(originalPageNum);
+    const pdf = await ensurePdfJsDoc(item);
+    const page = await pdf.getPage(pageNum);
     const unscaledViewport = page.getViewport({ scale: 1 });
     const scale = preset.width / unscaledViewport.width;
     const viewport = page.getViewport({ scale });
@@ -1207,18 +1310,18 @@ async function renderThumbnailNow(originalPageNum) {
     canvas.width = 0;
     canvas.height = 0;
 
-    if (generation !== thumbGeneration || !blob) return; // 已換檔或換清晰度，丟棄舊結果
+    if (generation !== thumbGeneration || !blob) return; // 已換清晰度或重建，丟棄舊結果
 
     const url = URL.createObjectURL(blob);
-    thumbnailCache[originalPageNum] = url;
-    applyCachedThumbToDom(originalPageNum, url);
+    thumbnailCache[key] = url;
+    applyCachedThumbToDom(key, url);
   } catch (err) {
     if (generation === thumbGeneration) {
-      console.error(`渲染第 ${originalPageNum} 頁縮圖失敗:`, err);
+      console.error(`渲染縮圖 ${key} 失敗:`, err);
     }
   } finally {
     if (generation === thumbGeneration) {
-      renderingPages.delete(originalPageNum);
+      renderingPages.delete(key);
     }
   }
 }
@@ -1234,6 +1337,8 @@ function snapshotReorder(label) {
   return {
     label,
     pages: reorderPages.map(p => ({
+      docId: p.docId,
+      key: p.key,
       originalIndex: p.originalIndex,
       originalPageNum: p.originalPageNum,
       rotation: p.rotation || 0
@@ -1244,6 +1349,7 @@ function snapshotReorder(label) {
 
 // 每次「修改前」呼叫，記錄修改前的狀態
 function pushHistory(label) {
+  previewEdited = true;
   undoStack.push(snapshotReorder(label));
   if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
   redoStack = [];
@@ -1263,8 +1369,8 @@ function updateHistoryButtons() {
 
 function restoreSnapshot(snap) {
   // 勾選狀態不屬於編輯內容：保留目前仍存在的頁面的勾選
-  const selectedSet = new Set(reorderPages.filter(p => p.selected).map(p => p.originalPageNum));
-  reorderPages = snap.pages.map(p => ({ ...p, selected: selectedSet.has(p.originalPageNum) }));
+  const selectedSet = new Set(reorderPages.filter(p => p.selected).map(p => p.key));
+  reorderPages = snap.pages.map(p => ({ ...p, selected: selectedSet.has(p.key) }));
   activeSidebarIndex = Math.max(0, Math.min(snap.active, reorderPages.length - 1));
   lastCheckedPageIndex = null;
   renderReorderPages();
@@ -1272,7 +1378,7 @@ function restoreSnapshot(snap) {
 }
 
 function undoReorder() {
-  if (!reorderPdfDoc || undoStack.length === 0) return;
+  if (reorderPages.length === 0 || undoStack.length === 0) return;
   const entry = undoStack.pop();
   redoStack.push(snapshotReorder(entry.label));
   restoreSnapshot(entry);
@@ -1280,7 +1386,7 @@ function undoReorder() {
 }
 
 function redoReorder() {
-  if (!reorderPdfDoc || redoStack.length === 0) return;
+  if (reorderPages.length === 0 || redoStack.length === 0) return;
   const entry = redoStack.pop();
   undoStack.push(snapshotReorder(entry.label));
   restoreSnapshot(entry);
@@ -1291,7 +1397,7 @@ undoBtn.addEventListener('click', undoReorder);
 redoBtn.addEventListener('click', redoReorder);
 
 window.addEventListener('keydown', (e) => {
-  if (currentTab !== 'reorder' || !reorderPdfDoc) return;
+  if (currentTab !== 'reorder' || reorderPages.length === 0) return;
   if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
   if (!previewModal.classList.contains('hidden')) return;
 
@@ -1345,14 +1451,14 @@ function setImgRotation(img, deg) {
   }
 }
 
-function getPageRotation(originalPageNum) {
-  const p = reorderPages.find(x => x.originalPageNum === originalPageNum);
+function getPageRotation(key) {
+  const p = reorderPages.find(x => x.key === key);
   return p ? (p.rotation || 0) : 0;
 }
 
 function refreshPageRotationDom(pageObj) {
   const rot = pageObj.rotation || 0;
-  document.querySelectorAll(`[data-page-num="${pageObj.originalPageNum}"]`).forEach(wrapper => {
+  document.querySelectorAll(`[data-page-num="${pageObj.key}"]`).forEach(wrapper => {
     const img = wrapper.querySelector('.page-thumb-img');
     if (img) setImgRotation(img, rot);
   });
@@ -1386,15 +1492,15 @@ rotateRightSelectedBtn.addEventListener('click', () => {
   if (targets.length > 0) setStatus(`✓ 已將 ${targets.length} 頁向右旋轉 90°`, 'success');
 });
 
-function applyCachedThumbToDom(originalPageNum, dataUrl) {
-  const wrappers = document.querySelectorAll(`[data-page-num="${originalPageNum}"]`);
+function applyCachedThumbToDom(key, dataUrl) {
+  const wrappers = document.querySelectorAll(`[data-page-num="${key}"]`);
   wrappers.forEach(wrapper => {
     const imgEl = wrapper.querySelector('.page-thumb-img');
     const placeholderEl = wrapper.querySelector('.thumb-placeholder');
     if (imgEl) {
       imgEl.src = dataUrl;
       imgEl.classList.add('loaded');
-      setImgRotation(imgEl, getPageRotation(originalPageNum));
+      setImgRotation(imgEl, getPageRotation(key));
     }
     if (placeholderEl) {
       placeholderEl.remove();
@@ -1402,78 +1508,125 @@ function applyCachedThumbToDom(originalPageNum, dataUrl) {
   });
 }
 
-async function loadReorderFile(file) {
-  if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
-    setStatus('請選擇 PDF 檔案', 'error');
-    return;
-  }
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-
-    clearThumbnailCache();
-    if (reorderPdfJsDoc) {
-      await reorderPdfJsDoc.destroy();
-      reorderPdfJsDoc = null;
-    }
-
-    const bufferForPdfLib = arrayBuffer.slice(0);
-    const bufferForPdfJs = new Uint8Array(arrayBuffer.slice(0));
-
-    reorderPdfDoc = await PDFDocument.load(bufferForPdfLib);
-    if (window.pdfjsLib) {
-      reorderPdfJsDoc = await pdfjsLib.getDocument({ data: bufferForPdfJs }).promise;
-    }
-
-    reorderFile = file;
-    const pages = reorderPdfDoc.getPages();
-    const totalPages = pages.length;
-
-    if (totalPages <= 30 && file.size <= 15 * 1024 * 1024) {
-      thumbQualitySelect.value = 'hd';
-    } else if (totalPages <= 65) {
-      thumbQualitySelect.value = 'high';
-    } else {
-      thumbQualitySelect.value = 'fast';
-    }
-
-    isSelectionMode = false;
-    toggleSelectModeBtn.classList.remove('active');
-    selectionSubTools.classList.add('hidden');
-    reorderBody.classList.remove('selection-mode');
-
-    clearHistory();
-    initialReorderPages = pages.map((_, idx) => ({
-      originalIndex: idx,
-      originalPageNum: idx + 1,
+function buildPageList(readyDocs) {
+  return readyDocs.flatMap(d =>
+    Array.from({ length: d.pageCount }, (_, i) => ({
+      docId: d.id,
+      key: `${d.id}_${i + 1}`,
+      originalIndex: i,
+      originalPageNum: i + 1,
       selected: false,
       rotation: 0
-    }));
+    }))
+  );
+}
 
-    reorderPages = initialReorderPages.map(p => ({ ...p }));
+// 依總頁數與檔案大小自動挑選預覽清晰度；回傳是否有變動
+function autoQualityFor(readyDocs) {
+  const totalPages = readyDocs.reduce((sum, d) => sum + d.pageCount, 0);
+  const totalSize = readyDocs.reduce((sum, d) => sum + d.file.size, 0);
+  let q = 'fast';
+  if (totalPages <= 30 && totalSize <= 15 * 1024 * 1024) q = 'hd';
+  else if (totalPages <= 65) q = 'high';
+  if (thumbQualitySelect.value === q) return false;
+  thumbQualitySelect.value = q;
+  return true;
+}
+
+// 讓預覽的頁面與檔案庫一致：
+//  - 還沒編輯過：依檔案庫順序完整重建
+//  - 已有編輯：只新增 / 移除檔案的頁面，保留使用者調整的順序
+function syncPreview() {
+  const ready = docs.filter(d => d.pageCount > 0);
+  const hasPages = ready.length > 0;
+  reorderBody.classList.toggle('hidden', !hasPages);
+  reorderTools.classList.toggle('hidden', !hasPages);
+
+  if (!hasPages) {
+    if (reorderPages.length > 0) {
+      reorderPages = [];
+      clearThumbnailCache();
+      reorderPageList.innerHTML = '';
+      sidebarThumbList.innerHTML = '';
+    }
+    previewEdited = false;
+    previewOrderSig = '';
+    clearHistory();
+    updateSelectionUI();
+    return;
+  }
+
+  const sig = ready.map(d => d.id).join(',');
+  const ids = new Set(ready.map(d => d.id));
+  const wasEmpty = reorderPages.length === 0;
+  const hasNewDoc = ready.some(d => !d.pagesAdded);
+  const hasGoneDoc = reorderPages.some(p => !ids.has(p.docId));
+
+  if (!wasEmpty && sig === previewOrderSig && !hasNewDoc && !hasGoneDoc) return; // 沒有變化
+
+  if (!thumbObserver) initThumbObserver();
+
+  if (wasEmpty || !previewEdited) {
+    reorderPages = buildPageList(ready);
+    ready.forEach(d => { d.pagesAdded = true; });
+    if (wasEmpty) {
+      clearThumbnailCache();
+      autoQualityFor(ready);
+      initThumbObserver();
+    }
+    previewEdited = false;
     activeSidebarIndex = 0;
     lastCheckedPageIndex = null;
-
-    reorderEmptyDropzone.classList.add('hidden');
-    reorderBody.classList.remove('hidden');
-    reorderTools.classList.remove('hidden');
-
-    initThumbObserver();
+    clearHistory();
     renderReorderPages();
-
-    currentPresetCycleIndex = isTabMode ? 1 : 2;
-    applyColumnPreset(isTabMode ? 4 : 2);
-  } catch (err) {
-    console.error(err);
-    setStatus('無法讀取此 PDF', 'error');
+    if (wasEmpty) {
+      currentPresetCycleIndex = 1;
+      applyColumnPreset(4);
+    }
+  } else if (!hasNewDoc && !hasGoneDoc) {
+    // 只是檔案庫的排序變了：使用者已自訂頁序，不動頁面，也保留復原紀錄
+  } else {
+    if (hasGoneDoc) reorderPages = reorderPages.filter(p => ids.has(p.docId));
+    ready.filter(d => !d.pagesAdded).forEach(d => {
+      reorderPages.push(...buildPageList([d]));
+      d.pagesAdded = true;
+    });
+    activeSidebarIndex = Math.max(0, Math.min(activeSidebarIndex, reorderPages.length - 1));
+    lastCheckedPageIndex = null;
+    clearHistory(); // 檔案增減後，舊的復原紀錄已不適用
+    renderReorderPages();
+    setStatus('已依檔案庫更新頁面（復原紀錄已清除）');
   }
+  previewOrderSig = sig;
+}
+
+function docNameOf(pageObj) {
+  const d = docs.find(x => x.id === pageObj.docId);
+  return d ? d.name : '';
+}
+
+// 頁面標註「來源」：單檔時只在頁序改變後顯示「原N」；多檔時一律顯示來源
+function origTagText(pageObj, index, compact) {
+  const n = pageObj.originalPageNum;
+  if (!previewMulti) {
+    if (n === index + 1) return '';
+    return compact ? `(${n})` : `(原${n})`;
+  }
+  const docIdx = docs.findIndex(d => d.id === pageObj.docId);
+  if (compact) return `(${docIdx + 1}-${n})`;
+  const name = docNameOf(pageObj).replace(/\.pdf$/i, '');
+  return `(${name.length > 8 ? name.slice(0, 8) + '…' : name}·${n})`;
 }
 
 function renderReorderPages() {
   reorderPageList.innerHTML = '';
   sidebarThumbList.innerHTML = '';
 
-  const fileNameShort = reorderFile ? reorderFile.name : '';
-  reorderPageInfo.title = fileNameShort;
+  const previewDocIds = new Set(reorderPages.map(p => p.docId));
+  previewMulti = previewDocIds.size > 1;
+  reorderPageInfo.title = previewMulti
+    ? `${previewDocIds.size} 個檔案`
+    : docNameOf(reorderPages[0] || {});
 
   reorderPages.forEach((pageObj, index) => {
     const li = document.createElement('li');
@@ -1483,7 +1636,7 @@ function renderReorderPages() {
 
     const thumbWrapper = document.createElement('div');
     thumbWrapper.className = 'thumb-wrapper';
-    thumbWrapper.dataset.pageNum = pageObj.originalPageNum;
+    thumbWrapper.dataset.pageNum = pageObj.key;
     thumbWrapper.title = '按住可拖曳排序；雙擊可開啟獨立預覽視窗';
 
     li.addEventListener('click', (e) => {
@@ -1496,7 +1649,7 @@ function renderReorderPages() {
 
     thumbWrapper.addEventListener('dblclick', (e) => {
       e.stopPropagation();
-      openHighResPreview(pageObj.originalPageNum);
+      openHighResPreview(pageObj);
     });
 
     const checkBadge = document.createElement('span');
@@ -1535,7 +1688,7 @@ function renderReorderPages() {
     zoomBtn.title = '獨立燈箱預覽';
     zoomBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      openHighResPreview(pageObj.originalPageNum);
+      openHighResPreview(pageObj);
     });
 
     const removeBtn = document.createElement('button');
@@ -1588,8 +1741,8 @@ function renderReorderPages() {
     img.alt = `第 ${pageObj.originalPageNum} 頁`;
     img.draggable = false;
 
-    if (thumbnailCache[pageObj.originalPageNum]) {
-      img.src = thumbnailCache[pageObj.originalPageNum];
+    if (thumbnailCache[pageObj.key]) {
+      img.src = thumbnailCache[pageObj.key];
       img.classList.add('loaded');
       setImgRotation(img, pageObj.rotation || 0);
       thumbWrapper.append(checkBadge, hoverBar, rotateBar, img);
@@ -1611,10 +1764,12 @@ function renderReorderPages() {
     numPill.textContent = `${index + 1}`;
     caption.appendChild(numPill);
 
-    if (pageObj.originalPageNum !== (index + 1)) {
+    const origText = origTagText(pageObj, index, false);
+    if (origText) {
       const origSpan = document.createElement('span');
       origSpan.className = 'orig-tag';
-      origSpan.textContent = `(原${pageObj.originalPageNum})`;
+      origSpan.textContent = origText;
+      origSpan.title = docNameOf(pageObj);
       caption.appendChild(origSpan);
     }
 
@@ -1634,14 +1789,14 @@ function renderReorderPages() {
 
     const sideBox = document.createElement('div');
     sideBox.className = 'sidebar-thumb-box';
-    sideBox.dataset.pageNum = pageObj.originalPageNum;
+    sideBox.dataset.pageNum = pageObj.key;
 
     const sideImg = document.createElement('img');
     sideImg.className = 'page-thumb-img';
     sideImg.draggable = false;
 
-    if (thumbnailCache[pageObj.originalPageNum]) {
-      sideImg.src = thumbnailCache[pageObj.originalPageNum];
+    if (thumbnailCache[pageObj.key]) {
+      sideImg.src = thumbnailCache[pageObj.key];
       sideImg.classList.add('loaded');
       setImgRotation(sideImg, pageObj.rotation || 0);
       sideBox.appendChild(sideImg);
@@ -1666,10 +1821,12 @@ function renderReorderPages() {
     sideNumBadge.textContent = `${index + 1}`;
 
     sideCaption.append(sideDot, sideNumBadge);
-    if (pageObj.originalPageNum !== (index + 1)) {
+    const sideOrigText = origTagText(pageObj, index, true);
+    if (sideOrigText) {
       const sideOrig = document.createElement('span');
       sideOrig.className = 'orig-tag';
-      sideOrig.textContent = `(${pageObj.originalPageNum})`;
+      sideOrig.textContent = sideOrigText;
+      sideOrig.title = docNameOf(pageObj);
       sideCaption.appendChild(sideOrig);
     }
 
@@ -1727,14 +1884,20 @@ function bindPageDragEvents(element, index) {
   });
 }
 
-async function openHighResPreview(originalPageNum) {
-  if (!reorderPdfJsDoc) return;
+async function openHighResPreview(pageObj) {
+  const item = docs.find(d => d.id === pageObj.docId);
+  if (!item || !window.pdfjsLib) return;
+  const originalPageNum = pageObj.originalPageNum;
+  const label = docs.length > 1
+    ? `${item.name} · 第 ${originalPageNum} 頁`
+    : `原第 ${originalPageNum} 頁`;
   try {
-    previewModalTitle.textContent = `原第 ${originalPageNum} 頁 — 載入中...`;
+    previewModalTitle.textContent = `${label} — 載入中...`;
     previewModal.classList.remove('hidden');
 
-    const page = await reorderPdfJsDoc.getPage(originalPageNum);
-    const rotation = ((page.rotate || 0) + getPageRotation(originalPageNum)) % 360;
+    const pdf = await ensurePdfJsDoc(item);
+    const page = await pdf.getPage(originalPageNum);
+    const rotation = ((page.rotate || 0) + getPageRotation(pageObj.key)) % 360;
     const unscaled = page.getViewport({ scale: 1, rotation });
     const dpr = window.devicePixelRatio || 1;
     const cssTargetWidth = Math.min(window.innerWidth * 0.85, 920);
@@ -1748,7 +1911,7 @@ async function openHighResPreview(originalPageNum) {
 
     const ctx = previewCanvas.getContext('2d', { alpha: false });
     await page.render({ canvasContext: ctx, viewport: renderViewport }).promise;
-    previewModalTitle.textContent = `原第 ${originalPageNum} 頁`;
+    previewModalTitle.textContent = label;
   } catch (err) {
     console.error(err);
     previewModalTitle.textContent = `預覽載入失敗`;
@@ -1785,7 +1948,7 @@ reverseOrderBtn.addEventListener('click', () => {
 
 resetOrderBtn.addEventListener('click', () => {
   pushHistory('還原預設');
-  reorderPages = initialReorderPages.map(p => ({ ...p, selected: false }));
+  reorderPages = buildPageList(docs.filter(d => d.pageCount > 0));
   activeSidebarIndex = 0;
   lastCheckedPageIndex = null;
   renderReorderPages();
@@ -1797,7 +1960,7 @@ async function executeReorderSave() {
     ? reorderPages.filter(p => p.selected)
     : reorderPages;
 
-  if (!reorderPdfDoc || pagesToSave.length === 0) {
+  if (pagesToSave.length === 0) {
     setStatus('請至少勾選 1 個頁面', 'error');
     return;
   }
@@ -1805,22 +1968,42 @@ async function executeReorderSave() {
   try {
     primarySaveBtn.disabled = true;
     setStatus('正在匯出 PDF...', '', true);
+    setProgress(0, pagesToSave.length);
     await nextFrame();
 
     const newPdf = await PDFDocument.create();
-    const pageIndices = pagesToSave.map(p => p.originalIndex);
-    const copiedPages = await newPdf.copyPages(reorderPdfDoc, pageIndices);
-    copiedPages.forEach((page, i) => {
-      const extra = pagesToSave[i].rotation || 0;
-      if (extra) {
-        page.setRotation(degrees((page.getRotation().angle + extra) % 360));
-      }
-      newPdf.addPage(page);
-    });
+
+    // 連續來自同一檔案的頁面一次複製（共用字型等資源，輸出檔案較小）
+    let i = 0;
+    while (i < pagesToSave.length) {
+      const docId = pagesToSave[i].docId;
+      let j = i;
+      while (j < pagesToSave.length && pagesToSave[j].docId === docId) j++;
+      const run = pagesToSave.slice(i, j);
+
+      const item = docs.find(d => d.id === docId);
+      const src = await getLibDoc(item);
+      const copied = await newPdf.copyPages(src, run.map(p => p.originalIndex));
+      copied.forEach((page, k) => {
+        const extra = run[k].rotation || 0;
+        if (extra) {
+          page.setRotation(degrees((page.getRotation().angle + extra) % 360));
+        }
+        newPdf.addPage(page);
+      });
+
+      i = j;
+      setProgress(i, pagesToSave.length);
+      await nextFrame();
+    }
 
     const pdfBytes = await newPdf.save();
-    const baseName = reorderFile.name.replace(/\.pdf$/i, '');
-    const suffix = isSelectionMode ? `_選取${pagesToSave.length}頁` : '_調整頁序';
+    const usedDocIds = new Set(pagesToSave.map(p => p.docId));
+    const firstItem = docs.find(d => d.id === pagesToSave[0].docId);
+    const baseName = firstItem.name.replace(/\.pdf$/i, '');
+    const suffix = isSelectionMode
+      ? `_選取${pagesToSave.length}頁`
+      : (usedDocIds.size > 1 ? '_合併' : '_調整頁序');
 
     downloadBlob(pdfBytes, `${baseName}${suffix}.pdf`);
     setStatus(`✓ 已儲存下載（共 ${pagesToSave.length} 頁）`, 'success');
@@ -1828,6 +2011,7 @@ async function executeReorderSave() {
     console.error(err);
     setStatus('匯出失敗', 'error');
   } finally {
+    clearProgress();
     updateSaveButtonState();
   }
 }
@@ -1838,9 +2022,9 @@ async function executeReorderSave() {
 const dropOverlay = document.getElementById('dropOverlay');
 const dropOverlayText = document.getElementById('dropOverlayText');
 const DROP_HINTS = {
-  merge: '放開以加入 PDF 檔案（可多個）',
-  split: '放開以載入要分割的 PDF',
-  reorder: '放開以載入要調整頁序的 PDF'
+  merge: '放開以載入 PDF 檔案（可多個）',
+  split: '放開以載入 PDF 檔案（可多個）',
+  reorder: '放開以載入 PDF 檔案（可多個）'
 };
 let dragDepth = 0;
 
@@ -1878,19 +2062,22 @@ window.addEventListener('drop', (e) => {
   const files = Array.from(e.dataTransfer.files);
   if (files.length === 0) return;
 
-  if (currentTab === 'merge') {
-    addMergeFiles(files);
-  } else if (currentTab === 'split') {
-    loadSplitFile(files[0]);
-  } else if (currentTab === 'reorder') {
-    loadReorderFile(files[0]);
-  }
+  addFiles(files);
 });
 
 // =======================
 // 啟動：依網址 hash 決定初始分頁
 // =======================
+// 載入前畫面的「預設檢視」偏好
+document.querySelectorAll('input[name="openView"]').forEach(radio => {
+  radio.checked = radio.value === getOpenViewPref();
+  radio.addEventListener('change', () => {
+    try { localStorage.setItem(OPEN_VIEW_KEY, radio.value); } catch (e) {}
+  });
+});
+
 {
+  onLibraryChanged();
   const initialTab = tabFromHash();
   switchTab(initialTab || 'merge');
   if (!initialTab) history.replaceState(null, '', '#merge');

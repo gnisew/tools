@@ -16,9 +16,9 @@
       <span class="v-divider"></span>
       <!-- 1. 最前端核心動作：選檔 與 儲存 -->
       <div class="toolbar-group">
-        <button id="openFileBtn" class="ghost-btn" title="選取或加入 PDF 檔案">
+        <button id="openFileBtn" class="ghost-btn" title="載入 PDF 檔案（可一次選多個，之後也能繼續加入）">
           <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>
-          <span class="btn-text" id="openFileBtnText">加檔</span>
+          <span class="btn-text" id="openFileBtnText">載入</span>
         </button>
 
         <button id="primarySaveBtn" class="ghost-btn save-highlight" disabled title="儲存並下載 PDF 檔案">
@@ -27,26 +27,24 @@
         </button>
 
         <!-- 隱藏的檔案輸入框 -->
-        <input type="file" id="mergeInput" accept="application/pdf" multiple hidden>
-        <input type="file" id="splitInput" accept="application/pdf" hidden>
-        <input type="file" id="reorderInput" accept="application/pdf" hidden>
+        <input type="file" id="fileInput" accept="application/pdf,.pdf" multiple hidden>
       </div>
 
       <span class="v-divider"></span>
 
       <!-- 2. 模式切換分頁 -->
       <div class="tabs">
-        <button class="tab-btn active" data-tab="merge" title="合併多個 PDF">
+        <button class="tab-btn active" data-tab="merge" title="條列檢視：以檔案清單呈現，可排序、勾選、合併">
           <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
-          <span class="btn-text">合併</span>
+          <span class="btn-text">條列</span>
         </button>
-        <button class="tab-btn" data-tab="split" title="分割或擷取 PDF">
+        <button class="tab-btn" data-tab="reorder" title="預覽檢視：以頁面縮圖呈現，可調頁序、勾選、旋轉、刪除（多檔頁面可混合）">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M3 5v14h18V5H3zm4 2v2H5V7h2zm-2 6v-2h2v2H5zm0 2h2v2H5v-2zm14 2H9v-2h10v2zm0-4H9v-2h10v2zm0-4H9V7h10v2z"/></svg>
+          <span class="btn-text">預覽</span>
+        </button>
+        <button class="tab-btn" data-tab="split" title="分割或擷取（針對單一檔案）">
           <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M9.64 7.64c.23-.5.36-1.05.36-1.64 0-2.21-1.79-4-4-4S2 3.79 2 6s1.79 4 4 4c.59 0 1.14-.13 1.64-.36L10 12l-2.36 2.36C7.14 14.13 6.59 14 6 14c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4c0-.59-.13-1.14-.36-1.64L12 14l7 7h3v-1L9.64 7.64zM6 8c-1.1 0-2-.89-2-2s.9-2 2-2 2 .89 2 2-.9 2-2 2zm0 12c-1.1 0-2-.89-2-2s.9-2 2-2 2 .89 2 2-.9 2-2 2zm6-7.5c-.28 0-.5-.22-.5-.5s.22-.5.5-.5.5.22.5.5-.22.5-.5.5zM19 3l-6 6 2 2 7-7V3h-3z"/></svg>
           <span class="btn-text">分割</span>
-        </button>
-        <button class="tab-btn" data-tab="reorder" title="調整頁序或勾選頁面">
-          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M3 5v14h18V5H3zm4 2v2H5V7h2zm-2 6v-2h2v2H5zm0 2h2v2H5v-2zm14 2H9v-2h10v2zm0-4H9v-2h10v2zm0-4H9V7h10v2z"/></svg>
-          <span class="btn-text">頁序</span>
         </button>
       </div>
 
@@ -171,28 +169,39 @@
     </header>
 
     <!-- 主工作與檢視區 -->
-    <main class="workspace">
+    <main class="workspace is-empty">
+      <!-- 起始畫面：尚未載入任何檔案時顯示，載入後才進入條列 / 預覽 / 分割 -->
+      <div id="startScreen" class="start-screen">
+        <label class="empty-dropzone" for="fileInput">
+          <div class="empty-icon">📂</div>
+          <div class="empty-title">點擊載入或拖曳 PDF 檔案至此</div>
+          <div class="empty-sub">先載入，再決定要做什麼：條列檢視（排序、合併、分割）或頁面預覽（調頁序、勾選、旋轉、刪除）</div>
+        </label>
+        <div class="open-view-pref">
+          <span>載入後先顯示：</span>
+          <label><input type="radio" name="openView" value="auto" checked> 自動（單檔→預覽、多檔→條列）</label>
+          <label><input type="radio" name="openView" value="list"> 條列</label>
+          <label><input type="radio" name="openView" value="preview"> 預覽</label>
+        </div>
+      </div>
+
       <!-- 1. 合併 PDF 內容區 -->
       <section id="merge" class="tab-content active">
-        <label class="empty-dropzone" for="mergeInput" id="mergeEmptyDropzone">
-          <div class="empty-icon">📑</div>
-          <div class="empty-title">點擊選取或拖曳多個 PDF 檔案至此</div>
-          <div class="empty-sub">自動顯示各檔案頁數並依檔名排序，支援拖曳調整順序與勾選合併</div>
-        </label>
         <ul id="mergeFileList" class="file-list hidden"></ul>
       </section>
 
       <!-- 2. 分割 PDF 內容區 -->
       <section id="split" class="tab-content">
-        <label class="empty-dropzone" for="splitInput" id="splitEmptyDropzone">
-          <div class="empty-icon">✂️</div>
-          <div class="empty-title">點擊選取或拖曳單一 PDF 檔案至此</div>
-          <div class="empty-sub">支援擷取指定頁碼範圍或單頁拆分</div>
-        </label>
 
         <div id="splitOptions" class="split-options hidden">
           <div class="split-card">
             <div class="split-file-title" id="splitFileNameTitle">已選取檔案</div>
+
+            <!-- 檔案庫有多個檔案時，才需要選擇要分割哪一個 -->
+            <div id="splitDocRow" class="split-doc-row hidden">
+              <label for="splitDocSelect">要分割的檔案</label>
+              <select id="splitDocSelect" class="text-input"></select>
+            </div>
 
             <div class="radio-group">
               <label class="radio-label">
@@ -234,11 +243,6 @@
 
       <!-- 3. 調整 PDF 頁序與選取內容區 (預設隱藏側邊欄) -->
       <section id="reorder" class="tab-content">
-        <label class="empty-dropzone" for="reorderInput" id="reorderEmptyDropzone">
-          <div class="empty-icon">🔢</div>
-          <div class="empty-title">點擊選取或拖曳 PDF 至此</div>
-          <div class="empty-sub">支援拖曳調整頁序，或點擊頂端「選取」勾選多個頁面進行「儲存」或「刪除」</div>
-        </label>
 
         <div id="reorderBody" class="reorder-body hidden">
           <!-- 左側：側邊欄縮圖檢視 (預設不顯示，點擊頂端側欄圖示才展開) -->
