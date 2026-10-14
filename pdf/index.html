@@ -12,7 +12,7 @@
   <div class="container">
     <!-- 頂端工具列 (精簡不超界) -->
     <header class="topbar">
-      <div class="brand" title="烏衣行 PDF"><span class="brand-icon">P</span><span class="brand-text">烏衣行</span></div>
+      <div id="brandToggle" class="brand" title="烏衣行 PDF"><span class="brand-icon">P</span><span class="brand-text">烏衣行</span></div>
       <span class="v-divider"></span>
       <!-- 1. 最前端核心動作：選檔 與 儲存 -->
       <div class="toolbar-group">
@@ -34,17 +34,21 @@
 
       <!-- 2. 模式切換分頁 -->
       <div class="tabs">
-        <button class="tab-btn active" data-tab="merge" title="條列檢視：以檔案清單呈現，可排序、勾選、合併">
+        <button class="tab-btn active" data-tab="merge" title="合併：以檔案清單呈現，可排序、勾選、合併">
           <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
-          <span class="btn-text">條列</span>
+          <span class="btn-text">合併</span>
         </button>
-        <button class="tab-btn" data-tab="reorder" title="預覽檢視：以頁面縮圖呈現，可調頁序、勾選、旋轉、刪除（多檔頁面可混合）">
+        <button class="tab-btn" data-tab="reorder" title="調動：以頁面縮圖呈現，可調頁序、勾選、旋轉、刪除（多檔頁面可混合）">
           <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M3 5v14h18V5H3zm4 2v2H5V7h2zm-2 6v-2h2v2H5zm0 2h2v2H5v-2zm14 2H9v-2h10v2zm0-4H9v-2h10v2zm0-4H9V7h10v2z"/></svg>
-          <span class="btn-text">預覽</span>
+          <span class="btn-text">調動</span>
         </button>
         <button class="tab-btn" data-tab="split" title="分割或擷取（針對單一檔案）">
           <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M9.64 7.64c.23-.5.36-1.05.36-1.64 0-2.21-1.79-4-4-4S2 3.79 2 6s1.79 4 4 4c.59 0 1.14-.13 1.64-.36L10 12l-2.36 2.36C7.14 14.13 6.59 14 6 14c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4c0-.59-.13-1.14-.36-1.64L12 14l7 7h3v-1L9.64 7.64zM6 8c-1.1 0-2-.89-2-2s.9-2 2-2 2 .89 2 2-.9 2-2 2zm0 12c-1.1 0-2-.89-2-2s.9-2 2-2 2 .89 2 2-.9 2-2 2zm6-7.5c-.28 0-.5-.22-.5-.5s.22-.5.5-.5.5.22.5.5-.22.5-.5.5zM19 3l-6 6 2 2 7-7V3h-3z"/></svg>
           <span class="btn-text">分割</span>
+        </button>
+        <button class="tab-btn" data-tab="read" title="閱讀檢視：連續捲動瀏覽原始文件，可選取、複製文字（不含調動中的排序／刪除／旋轉）">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg>
+          <span class="btn-text">閱讀</span>
         </button>
       </div>
 
@@ -82,15 +86,45 @@
           <span id="splitPageInfo" class="page-pill hidden"></span>
         </div>
 
+        <!-- 閱讀專屬工具：選檔、跳頁、縮放 -->
+        <div id="ctx-read" class="ctx-group">
+          <div id="readerTools" class="reorder-inline-tools hidden">
+            <div class="tools-left">
+              <select id="readDocSelect" class="ghost-select hidden" title="選擇要閱讀的檔案"></select>
+              <span class="page-pill">
+                第 <input type="number" id="readPageInput" class="range-select-input" min="1" value="1" title="輸入頁碼後按 Enter 跳頁"> / <span id="readPageTotal">0</span> 頁
+              </span>
+            </div>
+            <div class="tools-right">
+              <button id="readZoomOutBtn" class="ghost-btn icon-btn-compact" title="縮小"><b>−</b></button>
+              <button id="readZoomBadge" class="zoom-badge" title="點擊：符合視窗寬度">100%</button>
+              <button id="readZoomInBtn" class="ghost-btn icon-btn-compact" title="放大"><b>＋</b></button>
+            </div>
+          </div>
+        </div>
+
         <!-- 頁序與勾選專屬工具 (精簡圖示化，防止超出視窗) -->
         <div id="ctx-reorder" class="ctx-group">
           <div id="reorderTools" class="reorder-inline-tools hidden">
             <!-- 左側：側欄圖示、選取開關、全選/反選/刪除所選 -->
             <div class="tools-left">
-              <button id="toggleSidebarBtn" class="ghost-btn icon-btn-compact" title="開啟 / 關閉左側縮圖導覽欄">
-                <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 3h18c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2zm6 16h12V5H9v14zM3 19h4V5H3v14z"/></svg>
-              </button>
-
+              <!-- 多檔時：選擇要在調動中顯示（並納入儲存）的檔案 -->
+              <div id="fileFilterWrap" class="menu-wrap hidden">
+                <button id="fileFilterBtn" class="ghost-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="fileFilterMenu" title="選擇要在調動中顯示的檔案">
+                  <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/></svg>
+                  <span id="fileFilterBadge" class="filter-badge hidden"></span>
+                </button>
+                <div id="fileFilterMenu" class="menu-panel filter-panel hidden" role="group" aria-label="調動顯示的檔案">
+                  <div class="filter-head">
+                    <span class="filter-title">顯示的檔案</span>
+                    <span class="filter-actions">
+                      <button id="fileFilterAll" type="button" class="filter-link">全選</button>
+                      <button id="fileFilterNone" type="button" class="filter-link" title="取消全選（至少保留 1 個檔案）">取消全選</button>
+                    </span>
+                  </div>
+                  <ul id="fileFilterList" class="filter-list"></ul>
+                </div>
+              </div>
               <button id="toggleSelectModeBtn" class="ghost-btn" title="啟用或關閉頁面勾選模式">
                 <svg viewBox="0 0 24 24" width="17" height="17"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM17.99 9l-1.41-1.42-6.59 6.59-2.58-2.57-1.42 1.41 4 3.99z"/></svg>
                 <span class="btn-text">選取</span>
@@ -133,25 +167,47 @@
                 <button id="zoomModeLabel" class="zoom-badge" title="點擊切換檢視模式：四頁 ➔ 雙頁 ➔ 單頁">四頁</button>
               </div>
 
-              <select id="thumbQualitySelect" class="ghost-select" title="預覽清晰度（30頁內自動預設高清）">
-                <option value="fast">極速</option>
-                <option value="medium">標準</option>
-                <option value="high">清晰</option>
-                <option value="hd" selected>高清</option>
-              </select>
-
-              <button id="reverseOrderBtn" class="ghost-btn icon-btn-compact" title="反轉所有頁面順序">
-                <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z"/></svg>
-              </button>
               <button id="undoBtn" class="ghost-btn icon-btn-compact" disabled title="復原 (Ctrl+Z)">
                 <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
               </button>
               <button id="redoBtn" class="ghost-btn icon-btn-compact" disabled title="重做 (Ctrl+Y 或 Ctrl+Shift+Z)">
                 <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/></svg>
               </button>
-              <button id="resetOrderBtn" class="ghost-btn icon-btn-compact" title="還原預設頁面順序、頁數與旋轉（可用 Ctrl+Z 復原）">
-                <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
-              </button>
+              <!-- 不常用的頁面操作收進選單 -->
+              <div class="menu-wrap">
+                <button id="pageMenuBtn" class="ghost-btn icon-btn-compact" aria-haspopup="menu" aria-expanded="false" aria-controls="pageMenu" title="更多頁面操作（插入空白頁、複製、反轉、還原、縮圖清晰度）">
+                  <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                </button>
+                <div id="pageMenu" class="menu-panel hidden" role="menu">
+                  <button id="insertBlankBtn" class="menu-item" role="menuitem" title="在目前頁面之後插入空白頁（可用 Ctrl+Z 復原）">
+                    <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 14h-3v3h-2v-3H8v-2h3v-3h2v3h3v2zm-3-7V3.5L18.5 9H13z"/></svg>
+                    <span class="menu-label">插入空白頁</span>
+                  </button>
+                  <button id="duplicateBtn" class="menu-item" role="menuitem" title="複製頁面：選取模式下複製已勾選的頁面，否則複製目前頁面（可用 Ctrl+Z 復原）">
+                    <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+                    <span class="menu-label">複製頁面</span>
+                  </button>
+                  <button id="reverseOrderBtn" class="menu-item" role="menuitem" title="反轉所有頁面順序">
+                    <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z"/></svg>
+                    <span class="menu-label">反轉頁面順序</span>
+                  </button>
+                  <div class="menu-sep"></div>
+                  <button id="resetOrderBtn" class="menu-item" role="menuitem" title="還原預設頁面順序、頁數與旋轉（可用 Ctrl+Z 復原）">
+                    <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>
+                    <span class="menu-label">還原預設</span>
+                  </button>
+                  <div class="menu-sep"></div>
+                  <label class="menu-row" title="縮圖清晰度（30頁內自動預設高清）">
+                    <span class="menu-label">縮圖清晰度</span>
+                    <select id="thumbQualitySelect" class="ghost-select" title="縮圖清晰度（30頁內自動預設高清）">
+                      <option value="fast">極速</option>
+                      <option value="medium">標準</option>
+                      <option value="high">清晰</option>
+                      <option value="hd" selected>高清</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -159,36 +215,61 @@
 
       <!-- 4. 最右側：主題選單 -->
       <div class="toolbar-right">
-        <button id="askNameBtn" class="ghost-btn icon-btn-compact active" title="儲存前詢問檔名（開 / 關）">
-          <svg viewBox="0 0 24 24" width="17" height="17"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-        </button>
-        <button id="clearAllBtn" class="ghost-btn danger-hover" disabled title="清空所有已載入的檔案（條列、預覽、分割共用）">
+        <!-- 輸出設定：頁碼 / 詢問檔名 / 縮小檔案（有啟用的項目右側會顯示 ✓） -->
+        <div class="menu-wrap">
+          <button id="settingsMenuBtn" class="ghost-btn icon-btn-compact" aria-haspopup="menu" aria-expanded="false" aria-controls="settingsMenu" title="設定（頁碼、檔名詢問、縮小檔案、介面色系）">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94s-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.48.48 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>
+          </button>
+          <div id="settingsMenu" class="menu-panel hidden" role="menu">
+            <button id="toggleSidebarBtn" class="menu-item hidden" role="menuitem" title="開啟 / 關閉左側縮圖導覽欄（也可點左上角「烏衣行」切換）">
+              <svg viewBox="0 0 24 24" width="17" height="17"><path fill="currentColor" d="M3 3h18c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2zm6 16h12V5H9v14zM3 19h4V5H3v14z"/></svg>
+              <span class="menu-label">顯示側邊欄</span>
+            </button>
+            <div id="sidebarMenuSep" class="menu-sep hidden"></div>
+            <button id="pageNumBtn" class="menu-item" role="menuitem" title="頁碼設定：儲存時在每一頁加上頁碼（關）">
+              <svg viewBox="0 0 24 24" width="17" height="17"><path fill="currentColor" d="M20 10V8h-4V4h-2v4h-4V4H8v4H4v2h4v4H4v2h4v4h2v-4h4v4h2v-4h4v-2h-4v-4h4zm-6 4h-4v-4h4v4z"/></svg>
+              <span class="menu-label">頁碼…</span>
+            </button>
+            <button id="askNameBtn" class="menu-item active" role="menuitem" title="儲存前詢問檔名（開 / 關）">
+              <svg viewBox="0 0 24 24" width="17" height="17"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+              <span class="menu-label">儲存前詢問檔名</span>
+            </button>
+            <button id="compressBtn" class="menu-item" role="menuitem" title="縮小檔案：儲存時重新壓縮影像（關）">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>
+              <span class="menu-label">縮小檔案…</span>
+            </button>
+            <div class="menu-sep"></div>
+            <label class="menu-row" title="切換介面色系（亮色 / 灰色 / 暗色）">
+              <span class="menu-label">介面色系</span>
+              <select id="themeSelect" class="ghost-select" title="切換介面色系（亮色 / 灰色 / 暗色）">
+                <option value="light" selected>☀️ 亮色</option>
+                <option value="gray">☁️ 灰色</option>
+                <option value="dark">🌙 暗色</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <button id="clearAllBtn" class="ghost-btn danger-hover" disabled title="清空所有已載入的檔案（合併、調動、分割共用）">
               <svg viewBox="0 0 24 24" width="17" height="17"><path fill="currentColor" d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>
               <span class="btn-text">清空</span>
             </button>
-        <span class="v-divider"></span>
-        <select id="themeSelect" class="ghost-select theme-compact" title="切換介面色系（亮色 / 灰色 / 暗色）">
-          <option value="light" selected>☀️</option>
-          <option value="gray">☁️</option>
-          <option value="dark">🌙</option>
-        </select>
       </div>
     </header>
 
     <!-- 主工作與檢視區 -->
     <main class="workspace is-empty">
-      <!-- 起始畫面：尚未載入任何檔案時顯示，載入後才進入條列 / 預覽 / 分割 -->
+      <!-- 起始畫面：尚未載入任何檔案時顯示，載入後才進入合併 / 調動 / 分割 / 閱讀 -->
       <div id="startScreen" class="start-screen">
         <label class="empty-dropzone" for="fileInput">
           <div class="empty-icon">📂</div>
           <div class="empty-title">點擊載入或拖曳 PDF 檔案至此</div>
-          <div class="empty-sub">條列檢視（排序、合併、分割）、頁面預覽（調頁序、勾選、旋轉、刪除）</div>
+          <div class="empty-sub">合併（排序、合併）、調動（調頁序、勾選、旋轉、刪除）、分割、閱讀</div>
         </label>
         <div class="open-view-pref">
           <span>載入後先顯示：</span>
-          <label><input type="radio" name="openView" value="auto" checked> 自動（單檔→預覽、多檔→條列）</label>
-          <label><input type="radio" name="openView" value="list"> 條列</label>
-          <label><input type="radio" name="openView" value="preview"> 預覽</label>
+          <label><input type="radio" name="openView" value="auto" checked> 自動（單檔→調動、多檔→合併）</label>
+          <label><input type="radio" name="openView" value="merge"> 合併</label>
+          <label><input type="radio" name="openView" value="reorder"> 調動</label>
         </div>
       </div>
 
@@ -248,6 +329,13 @@
         </div>
       </section>
 
+      <!-- 閱讀檢視內容區：只保留視窗附近頁面的畫面，其餘釋放 -->
+      <section id="read" class="tab-content">
+        <div id="readerScroll" class="reader-scroll hidden">
+          <div id="readerPages" class="reader-pages"></div>
+        </div>
+      </section>
+
       <!-- 3. 調整 PDF 頁序與選取內容區 (預設隱藏側邊欄) -->
       <section id="reorder" class="tab-content">
 
@@ -258,13 +346,13 @@
           </aside>
 
           <!-- 右側：主頁面縮圖網格 -->
-          <ul id="reorderPageList" class="page-grid"></ul>
+          <ul id="reorderPageList" class="page-grid" role="listbox" aria-multiselectable="true" aria-label="頁面縮圖：方向鍵移動、空白鍵勾選、Enter 放大預覽"></ul>
         </div>
       </section>
     </main>
 
     <!-- 浮動狀態提示 -->
-    <div id="statusMsg" class="status-toast hidden"></div>
+    <div id="statusMsg" class="status-toast hidden" role="status" aria-live="polite"></div>
   </div>
 
   <!-- 全頁拖放提示層 -->
@@ -298,6 +386,83 @@
     </div>
   </div>
 
+  <!-- [新增] 頁碼設定對話框 -->
+  <div id="pageNumModal" class="modal-overlay hidden">
+    <div class="modal-content filename-modal">
+      <div class="modal-header"><span>🔢 加入頁碼</span></div>
+      <div class="filename-body">
+        <label class="check-label pn-enable">
+          <input type="checkbox" id="pnEnable">
+          <span>儲存時在每一頁加上頁碼（合併、分割、調動皆適用）</span>
+        </label>
+
+        <div class="pn-grid">
+          <label for="pnPosition">位置</label>
+          <select id="pnPosition" class="text-input">
+            <option value="bc">下方置中</option>
+            <option value="br">下方靠右</option>
+            <option value="bl">下方靠左</option>
+            <option value="tc">上方置中</option>
+            <option value="tr">上方靠右</option>
+            <option value="tl">上方靠左</option>
+          </select>
+
+          <label for="pnFormat">格式</label>
+          <select id="pnFormat" class="text-input">
+            <option value="n">1</option>
+            <option value="dash">- 1 -</option>
+            <option value="nOfN">1 / N</option>
+            <option value="page">Page 1</option>
+            <option value="pageOfN">Page 1 of N</option>
+          </select>
+
+          <label for="pnStart">起始頁碼</label>
+          <input type="number" id="pnStart" class="text-input" min="0" step="1" value="1">
+
+          <label for="pnSize">字級 (pt)</label>
+          <input type="number" id="pnSize" class="text-input" min="6" max="48" step="1" value="11">
+
+          <label for="pnMargin">邊距 (pt)</label>
+          <input type="number" id="pnMargin" class="text-input" min="0" max="200" step="1" value="28">
+        </div>
+
+        <label class="check-label pn-enable">
+          <input type="checkbox" id="pnSkipFirst">
+          <span>第 1 頁（封面）不加頁碼</span>
+        </label>
+
+        <div class="pn-sample">範例：<b id="pnSample">1</b></div>
+        <small class="hint">頁碼以 Helvetica 字型繪製，僅支援阿拉伯數字與英文格式。</small>
+      </div>
+      <div class="filename-actions">
+        <button id="pnCancelBtn" class="ghost-btn" type="button">取消</button>
+        <button id="pnOkBtn" class="ghost-btn save-highlight" type="button">確定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- [新增] 縮小檔案對話框 -->
+  <div id="compressModal" class="modal-overlay hidden">
+    <div class="modal-content filename-modal">
+      <div class="modal-header"><span>🗜 縮小檔案</span></div>
+      <div class="filename-body">
+        <label for="cmpLevel" class="filename-label">影像壓縮等級（合併、分割、調動儲存時皆適用）</label>
+        <select id="cmpLevel" class="text-input">
+          <option value="off">不壓縮</option>
+          <option value="light">輕度（畫質幾乎不變）</option>
+          <option value="standard">標準（建議）</option>
+          <option value="strong">強力（檔案最小）</option>
+        </select>
+        <small id="cmpDesc" class="hint"></small>
+        <small class="hint">僅重新壓縮 JPEG 影像，文字與向量圖形不受影響；只有確實變小的影像才會被替換。壓縮不可逆，但只作用在輸出的新檔案，原檔不會被更動。檔案結構一律以 Object Streams 儲存。</small>
+      </div>
+      <div class="filename-actions">
+        <button id="cmpCancelBtn" class="ghost-btn" type="button">取消</button>
+        <button id="cmpOkBtn" class="ghost-btn save-highlight" type="button">確定</button>
+      </div>
+    </div>
+  </div>
+
   <!-- [新增] 加密 PDF 密碼輸入對話框 -->
   <div id="passwordModal" class="modal-overlay hidden">
     <div class="modal-content filename-modal">
@@ -317,13 +482,19 @@
 
   <!-- 單頁高清放大預覽燈箱 (Modal) -->
   <div id="previewModal" class="modal-overlay hidden">
-    <div class="modal-content">
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="previewModalTitle">
       <div class="modal-header">
         <span id="previewModalTitle">頁面預覽</span>
-        <button id="closePreviewBtn" class="modal-close-btn">✕ 關閉</button>
+        <div class="modal-header-actions">
+          <button id="previewTextToggle" class="modal-close-btn" aria-pressed="true" title="開啟後可在預覽上框選、複製文字（掃描檔沒有文字層則無效）">🔤 選取文字</button>
+          <button id="closePreviewBtn" class="modal-close-btn" aria-label="關閉預覽（Esc）">✕ 關閉</button>
+        </div>
       </div>
       <div class="modal-body">
-        <canvas id="previewCanvas"></canvas>
+        <div id="previewPageWrap" class="preview-page">
+          <canvas id="previewCanvas"></canvas>
+          <div id="previewTextLayer" class="textLayer"></div>
+        </div>
       </div>
     </div>
   </div>

@@ -390,6 +390,57 @@ body.tab-mode .file-name {
   color: var(--select-option-text);
 }
 
+/* 閱讀模式：檔名選單限寬，空間不足時只縮選單，頁碼與縮放區維持完整 */
+#ctx-read .reorder-inline-tools {
+  min-width: 0;
+}
+
+#ctx-read .tools-left {
+  flex: 1 1 auto;      /* 覆蓋 .tools-left 的 flex-shrink: 0 */
+  min-width: 0;
+}
+
+#ctx-read .tools-right {
+  flex: 0 0 auto;
+}
+
+#ctx-read .page-pill {
+  flex: 0 0 auto;
+}
+
+#readDocSelect {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 96px;
+  max-width: clamp(140px, 32vw, 380px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+#readPageInput {
+  width: 56px;
+}
+
+@media (max-width: 820px) {
+  #readDocSelect {
+    max-width: clamp(96px, 28vw, 180px);
+  }
+
+  /* 窄視窗仍保留閱讀模式的「第 N / 總頁數」跳頁欄（其餘狀態膠囊維持隱藏） */
+  #ctx-read .page-pill {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 5px;
+  }
+
+  #readPageInput {
+    width: 44px;
+    padding: 3px 4px;
+  }
+}
+
 /* 浮動狀態提示 Toast */
 .status-toast {
   position: fixed;
@@ -1105,6 +1156,12 @@ body.tab-mode .reorder-sidebar {
   color: var(--card-text);
   user-select: none;
 }
+.brand.clickable {
+  cursor: pointer;
+}
+.brand.clickable:hover .brand-text {
+  color: var(--btn-active-text);
+}
 .brand-icon {
   width: 26px;
   height: 26px;
@@ -1368,3 +1425,372 @@ body.theme-gray .drop-overlay-box {
   font-weight: 600;
   color: var(--topbar-text);
 }
+
+
+/* =========================================
+   [新增] 頁碼設定對話框
+   ========================================= */
+.pn-enable {
+  margin: 0 0 10px 0;
+}
+
+.pn-grid {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 0;
+  margin: 4px 0 10px;
+}
+
+.pn-grid label {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--topbar-muted);
+}
+
+.pn-sample {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--topbar-text);
+}
+
+.pn-sample b {
+  display: inline-block;
+  min-width: 80px;
+  padding: 2px 10px;
+  border: 1px dashed var(--card-border);
+  border-radius: 4px;
+  text-align: center;
+  font-family: Helvetica, Arial, sans-serif;
+}
+
+
+/* =========================================
+   [新增] 預覽燈箱：可選取文字的透明文字圖層
+   ========================================= */
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.modal-close-btn.active {
+  background: var(--btn-active-bg);
+  color: var(--btn-active-text);
+}
+
+.preview-page {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+}
+
+.textLayer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  line-height: 1;
+  text-align: initial;
+  opacity: 1;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+}
+
+.textLayer span,
+.textLayer br {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0 0;
+}
+
+.textLayer ::selection {
+  background: rgba(26, 115, 232, 0.35);
+}
+
+.preview-page.no-text .textLayer {
+  display: none;
+}
+
+/* =========================================
+   [新增] 閱讀檢視（連續捲動、可選取文字）
+   ========================================= */
+.reader-scroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+  background-color: var(--workspace-bg);
+}
+
+.reader-pages {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: max-content;
+  min-width: 100%;
+}
+
+.reader-page {
+  position: relative;
+  flex-shrink: 0;
+  background: #ffffff;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.18), 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+/* 尚未繪製時顯示淡淡的頁碼 */
+.reader-page::before {
+  content: attr(data-n);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #cbd5e1;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.reader-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.reader-page .textLayer {
+  z-index: 1;
+}
+
+/* =========================================
+   [新增] 工具列下拉選單（收納不常用按鈕）
+   面板用 position: fixed，才不會被工具列的 overflow 裁切
+   ========================================= */
+.menu-wrap {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.menu-panel {
+  position: fixed;
+  z-index: 700;
+  min-width: 190px;
+  padding: 4px;
+  background-color: var(--topbar-bg);
+  color: var(--topbar-text);
+  border: 1px solid var(--topbar-border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.menu-item:hover:not(:disabled),
+.menu-item:focus-visible {
+  background-color: var(--btn-hover-bg);
+  outline: none;
+}
+
+.menu-item:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.menu-item .menu-label {
+  flex: 1;
+}
+
+/* 已啟用的開關項目：右側顯示勾號 */
+.menu-item.active {
+  color: var(--btn-active-text);
+}
+
+.menu-item.active::after {
+  content: "✓";
+  font-weight: 700;
+}
+
+.menu-sep {
+  height: 1px;
+  margin: 4px 2px;
+  background-color: var(--divider-color);
+}
+
+/* =========================================
+   [新增] 鍵盤操作：頁面卡片焦點樣式
+   ========================================= */
+.page-card:focus {
+  outline: none;
+}
+
+.page-card:focus-visible {
+  outline: 3px solid #1a73e8;
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+/* 多頁拖曳時跟著游標的「N 頁」徽章（僅作為 setDragImage 的來源，移出畫面外） */
+.drag-ghost-count {
+  position: fixed;
+  top: -200px;
+  left: -200px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #1a73e8;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* =========================================
+   [新增] 調動「選取模式」時的精簡工具列
+   啟用選取會多出 全選／反選／頁碼範圍／旋轉／刪除 等工具，桌面版工具列容易擠不下。
+   此時把「次要」元素暫時縮成純圖示（功能不變，滑過仍有提示文字）：
+   品牌文字、載入／清空的文字、非目前分頁的文字標籤，並縮短縮圖滑桿。
+   純 CSS（:has）：離開選取模式或切換分頁後自動恢復，不需要 JS。
+   手機版（≤820px）本來就只顯示圖示，不套用。
+   ========================================= */
+@media (min-width: 821px) {
+  .topbar:has(#ctx-reorder.active #selectionSubTools:not(.hidden)) .brand-text,
+  .topbar:has(#ctx-reorder.active #selectionSubTools:not(.hidden)) #openFileBtn .btn-text,
+  .topbar:has(#ctx-reorder.active #selectionSubTools:not(.hidden)) #clearAllBtn .btn-text,
+  .topbar:has(#ctx-reorder.active #selectionSubTools:not(.hidden)) .tab-btn:not(.active) .btn-text {
+    display: none;
+  }
+
+  .topbar:has(#ctx-reorder.active #selectionSubTools:not(.hidden)) #thumbSizeSlider {
+    width: 56px;
+  }
+
+  /* 保險：就算仍然放不下，也讓工具列可橫向捲動，而不是讓右側按鈕互相疊在一起 */
+  .toolbar-context:has(#ctx-reorder.active) {
+    min-width: max-content;
+  }
+}
+
+
+/* =========================================
+   調動：檔案顯示篩選（多檔時）
+   ========================================= */
+#fileFilterBtn { gap: 4px; }
+#fileFilterBtn.active { color: var(--btn-active-text); background-color: var(--btn-active-bg, var(--btn-hover-bg)); }
+.filter-badge {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 8px;
+  background: #1a73e8;
+  color: #fff;
+}
+.filter-panel { min-width: 240px; max-width: min(360px, calc(100vw - 16px)); padding: 4px 4px 4px; }
+.filter-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 8px 6px;
+  font-size: 12px;
+}
+.filter-title { opacity: 0.6; font-weight: 600; }
+.filter-actions { display: inline-flex; gap: 10px; }
+.filter-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--btn-active-text);
+  cursor: pointer;
+}
+.filter-link:hover:not(:disabled) { text-decoration: underline; }
+.filter-link:disabled { opacity: 0.35; cursor: default; }
+.filter-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: min(50vh, 320px);
+  overflow-y: auto;
+  border-top: 1px solid var(--divider-color);
+  padding-top: 4px;
+}
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.filter-row:hover, .filter-row:focus-visible { background-color: var(--btn-hover-bg); outline: none; }
+.filter-check {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid currentColor;
+  border-radius: 4px;
+  opacity: 0.55;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  color: transparent;
+}
+.filter-row[aria-checked="true"] .filter-check {
+  background: #1a73e8;
+  border-color: #1a73e8;
+  color: #fff;
+  opacity: 1;
+}
+.filter-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filter-count { flex: 0 0 auto; font-size: 12px; opacity: 0.55; }
+.filter-item { display: flex; align-items: center; }
+.filter-item .filter-row { flex: 1 1 auto; min-width: 0; }
+.filter-item .filter-only-btn {
+  flex: 0 0 auto;
+  border: none;
+  background: none;
+  padding: 7px 8px;
+  cursor: pointer;
+  display: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--btn-active-text);
+}
+.filter-item:hover .filter-only-btn,
+.filter-item:focus-within .filter-only-btn { display: block; }
+.filter-item:hover .filter-count,
+.filter-item:focus-within .filter-count { display: none; }
