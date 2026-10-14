@@ -17,7 +17,7 @@ const QUALITY_PRESETS = {
 let currentTab = 'merge';
 
 // 檔案庫（條列 / 預覽 / 分割 三個檢視共用）
-// [{ id, file, name, pageCount, selected, pdfLibDoc, pdfJsPromise, pagesAdded }]
+// [{ id, file, name, pageCount, selected, pdfJsPromise, pagesAdded, password }]   ← password：加密檔解鎖用的密碼（無則為 null）
 let docs = [];
 let nextDocId = 1;
 const knownDocs = new Map();            // 用來偵測「檔案被移除」並釋放資源
@@ -31,7 +31,7 @@ let lastCheckedMergeIndex = null;
 // 分割檢視狀態（針對檔案庫中的某一個檔案）
 let splitDocId = null;
 let splitFile = null;
-let splitPdfDoc = null;
+let splitItem = null;      // 目前要分割的檔案庫項目（儲存時才用 pdf-lib 載入）
 let splitTotalPages = 0;
 
 // 預覽檢視狀態（頁面可來自多個檔案）
@@ -70,7 +70,7 @@ const mergeSection = document.getElementById('merge');
 const fileInput = document.getElementById('fileInput');
 const workspaceEl = document.querySelector('.workspace');
 const mergeFileList = document.getElementById('mergeFileList');
-const clearMergeBtn = document.getElementById('clearMergeBtn');
+const clearAllBtn = document.getElementById('clearAllBtn');
 const toggleMergeSelectModeBtn = document.getElementById('toggleMergeSelectModeBtn');
 const mergeSelectionSubTools = document.getElementById('mergeSelectionSubTools');
 const mergeSelectAllBtn = document.getElementById('mergeSelectAllBtn');
@@ -281,7 +281,7 @@ function updateSaveButtonState() {
       saveBtnText.textContent = '儲存';
     }
   } else if (currentTab === 'split') {
-    primarySaveBtn.disabled = !splitPdfDoc;
+    primarySaveBtn.disabled = !splitItem;
     saveBtnText.textContent = '儲存';
   } else if (currentTab === 'reorder') {
     if (reorderPages.length === 0) {
@@ -311,7 +311,7 @@ primarySaveBtn.addEventListener('click', () => {
 });
 
 // sticky = true 時不會自動消失（用於處理中的進度訊息，完成後由下一次 setStatus 取代）
-function setStatus(message, type = '', sticky = false) {
+function setStatus(message, type = '', sticky = false, duration = 2400) {
   if (statusTimeout) clearTimeout(statusTimeout);
   if (!message) {
     statusMsg.classList.add('hidden');
@@ -322,7 +322,7 @@ function setStatus(message, type = '', sticky = false) {
   if (!sticky) {
     statusTimeout = setTimeout(() => {
       statusMsg.classList.add('hidden');
-    }, 2400);
+    }, duration);
   }
 }
 
@@ -351,6 +351,161 @@ function downloadBlob(bytes, filename, mime = 'application/pdf') {
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+// =======================
+// 儲存前可編輯檔名（偏好會記在 localStorage）
+// =======================
+const ASK_FILENAME_KEY = 'pdf_tool_ask_filename';
+const askNameBtn = document.getElementById('askNameBtn');
+const filenameModal = document.getElementById('filenameModal');
+const filenameModalTitle = document.getElementById('filenameModalTitle');
+const filenameInput = document.getElementById('filenameInput');
+const filenameExt = document.getElementById('filenameExt');
+const filenameError = document.getElementById('filenameError');
+const askFilenameCheck = document.getElementById('askFilenameCheck');
+const filenameOkBtn = document.getElementById('filenameOkBtn');
+const filenameCancelBtn = document.getElementById('filenameCancelBtn');
+
+let askFilenameEnabled = true;
+try { askFilenameEnabled = localStorage.getItem(ASK_FILENAME_KEY) !== '0'; } catch (e) {}
+let filenameResolver = null;
+let filenameCurrentExt = 'pdf';
+
+function setAskFilenameEnabled(on) {
+  askFilenameEnabled = on;
+  try { localStorage.setItem(ASK_FILENAME_KEY, on ? '1' : '0'); } catch (e) {}
+  askNameBtn.classList.toggle('active', on);
+}
+setAskFilenameEnabled(askFilenameEnabled);
+
+askNameBtn.addEventListener('click', () => {
+  setAskFilenameEnabled(!askFilenameEnabled);
+  setStatus(askFilenameEnabled ? '已開啟：儲存前會詢問檔名' : '已關閉：儲存時直接使用自動檔名');
+});
+
+// 移除檔名不允許的字元、結尾的副檔名與句點 / 空白
+function sanitizeFileName(raw, ext) {
+  return raw
+    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')
+    .trim()
+    .replace(new RegExp('\\.' + ext + '$', 'i'), '')
+    .replace(/[\s.]+$/g, '')
+    .trim();
+}
+
+// 回傳完整檔名（含副檔名）；使用者取消回傳 null；偏好關閉時直接回傳自動檔名
+function askFileName(defaultBase, ext = 'pdf', title = '儲存檔案') {
+  if (!askFilenameEnabled) return Promise.resolve(`${defaultBase}.${ext}`);
+  if (filenameResolver) return Promise.resolve(null);   // 已有對話框開啟中
+
+  return new Promise((resolve) => {
+    filenameResolver = resolve;
+    filenameCurrentExt = ext;
+    filenameModalTitle.textContent = title;
+    filenameExt.textContent = `.${ext}`;
+    filenameInput.value = defaultBase;
+    filenameError.classList.add('hidden');
+    askFilenameCheck.checked = true;
+    filenameModal.classList.remove('hidden');
+    filenameInput.focus();
+    filenameInput.select();
+  });
+}
+
+function closeFilenameModal(result) {
+  filenameModal.classList.add('hidden');
+  const resolve = filenameResolver;
+  filenameResolver = null;
+  if (resolve) resolve(result);
+}
+
+function confirmFilename() {
+  const base = sanitizeFileName(filenameInput.value, filenameCurrentExt);
+  if (!base) {
+    filenameError.textContent = '檔名不可為空白';
+    filenameError.classList.remove('hidden');
+    filenameInput.focus();
+    return;
+  }
+  if (!askFilenameCheck.checked) {
+    setAskFilenameEnabled(false);
+    setStatus('已關閉「儲存前詢問檔名」，可從工具列 ✎ 重新開啟');
+  }
+  closeFilenameModal(`${base}.${filenameCurrentExt}`);
+}
+
+filenameOkBtn.addEventListener('click', confirmFilename);
+filenameCancelBtn.addEventListener('click', () => closeFilenameModal(null));
+filenameModal.addEventListener('mousedown', (e) => {
+  if (e.target === filenameModal) closeFilenameModal(null);
+});
+filenameModal.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.isComposing) {      // 輸入法選字時的 Enter 不算確認
+    e.preventDefault();
+    confirmFilename();
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    closeFilenameModal(null);
+  }
+});
+
+// =======================
+// [新增] 加密 PDF 的密碼輸入對話框
+// =======================
+const passwordModal = document.getElementById('passwordModal');
+const passwordFileLabel = document.getElementById('passwordFileLabel');
+const passwordInput = document.getElementById('passwordInput');
+const passwordError = document.getElementById('passwordError');
+const passwordOkBtn = document.getElementById('passwordOkBtn');
+const passwordSkipBtn = document.getElementById('passwordSkipBtn');
+
+let passwordResolver = null;
+let passwordQueue = Promise.resolve();   // 一次只開一個對話框；同時載入多個加密檔時依序詢問
+
+// 回傳使用者輸入的密碼；按「略過此檔」/ Esc 回傳 null
+function askPassword(fileName, wrongBefore = false) {
+  const task = () => new Promise((resolve) => {
+    passwordResolver = resolve;
+    passwordFileLabel.textContent = `檔案：${fileName}`;
+    passwordInput.value = '';
+    passwordError.textContent = '密碼不正確，請再試一次';
+    passwordError.classList.toggle('hidden', !wrongBefore);
+    passwordModal.classList.remove('hidden');
+    passwordInput.focus();
+  });
+  const result = passwordQueue.then(task);
+  passwordQueue = result.catch(() => {});
+  return result;
+}
+
+function closePasswordModal(result) {
+  passwordModal.classList.add('hidden');
+  const resolve = passwordResolver;
+  passwordResolver = null;
+  if (resolve) resolve(result);
+}
+
+function confirmPassword() {
+  if (!passwordInput.value) {
+    passwordError.textContent = '請輸入密碼';
+    passwordError.classList.remove('hidden');
+    passwordInput.focus();
+    return;
+  }
+  closePasswordModal(passwordInput.value);
+}
+
+passwordOkBtn.addEventListener('click', confirmPassword);
+passwordSkipBtn.addEventListener('click', () => closePasswordModal(null));
+passwordModal.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.isComposing) {
+    e.preventDefault();
+    confirmPassword();
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    closePasswordModal(null);
+  }
+});
 
 // =======================
 // 簡易 ZIP 打包器（僅儲存、不壓縮；PDF 本身已壓縮，再壓縮效益很小）
@@ -449,12 +604,66 @@ function getOpenViewPref() {
   try { return localStorage.getItem(OPEN_VIEW_KEY) || 'auto'; } catch (e) { return 'auto'; }
 }
 
-// 取得檔案的 pdf-lib 文件（載入後會快取，合併 / 分割 / 預覽共用）
-async function getLibDoc(item) {
-  if (!item.pdfLibDoc) {
-    item.pdfLibDoc = await PDFDocument.load(await item.file.arrayBuffer());
+// 只在「儲存」時才用 pdf-lib 載入檔案（載入檔案時改用 pdf.js 取頁數，速度快很多）
+// 位元組直接向 pdf.js 取回（getData），不再另外讀一份檔案；取不到時才退回重新讀檔
+async function loadLibDoc(item) {
+  let bytes;
+  try {
+    const pdf = await ensurePdfJsDoc(item);
+    bytes = await pdf.getData();
+  } catch (err) {
+    bytes = new Uint8Array(await item.file.arrayBuffer());
   }
-  return item.pdfLibDoc;
+  try {
+    return await PDFDocument.load(bytes);
+  } catch (err) {
+    // [新增] pdf-lib 無法解密：改用 pdf.js（已解鎖）逐頁轉成影像再寫入
+    if (/encrypt/i.test(String(err && err.message))) {
+      return rasterizeToLibDoc(item);
+    }
+    throw err;
+  }
+}
+
+// [新增] 把「加密檔」的每一頁用 pdf.js 畫成影像，包成一份 pdf-lib 文件（外觀不變，但文字無法選取）
+// 頁面已含原本的 /Rotate，輸出的新頁面旋轉為 0，因此預覽中的額外旋轉仍可正確疊加
+async function rasterizeToLibDoc(item) {
+  const pdf = await ensurePdfJsDoc(item);
+  const out = await PDFDocument.create();
+  for (let n = 1; n <= pdf.numPages; n++) {
+    setStatus(`正在轉換加密檔案「${item.name}」… ${n}/${pdf.numPages}`, '', true);
+    const page = await pdf.getPage(n);
+    const base = page.getViewport({ scale: 1 });
+    const scale = Math.min(2, 4000 / Math.max(base.width, base.height));   // 約 144 dpi，單邊上限 4000px
+    const viewport = page.getViewport({ scale });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    const ctx = canvas.getContext('2d', { alpha: false });
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+    canvas.width = 0;
+    canvas.height = 0;
+    if (!blob) throw new Error('加密檔案轉換失敗');
+
+    const img = await out.embedJpg(new Uint8Array(await blob.arrayBuffer()));
+    const newPage = out.addPage([base.width, base.height]);
+    newPage.drawImage(img, { x: 0, y: 0, width: base.width, height: base.height });
+    page.cleanup();
+    await nextFrame();
+  }
+  return out;
+}
+
+// 單次儲存作業內的 pdf-lib 文件快取（同一檔案多次用到時只載入一次；作業結束後隨區域變數釋放）
+function createLibLoader() {
+  const cache = new Map();
+  return async (item) => {
+    if (!cache.has(item.id)) cache.set(item.id, await loadLibDoc(item));
+    return cache.get(item.id);
+  };
 }
 
 // 統一的載入入口：按鈕、拖放都走這裡
@@ -472,16 +681,17 @@ async function addFiles(files) {
     name: file.name,
     pageCount: null,
     selected: false,
-    pdfLibDoc: null,
     pdfJsPromise: null,
-    pagesAdded: false
+    pagesAdded: false,
+    password: null
   }));
   newItems.forEach(item => knownDocs.set(item.id, item));
 
-  docs.push(...newItems);
-  docs.sort((a, b) =>
+  // 只排序「這一批新檔案」，再接在檔案庫最後面（不動已手動排好的順序）
+  newItems.sort((a, b) =>
     a.name.localeCompare(b.name, 'zh-TW', { numeric: true, sensitivity: 'base' })
   );
+  docs.push(...newItems);
 
   // 第一次載入：依偏好（或檔案數量）決定先看「條列」還是「預覽」
   if (wasEmpty) {
@@ -499,12 +709,12 @@ async function addFiles(files) {
   const failed = [];
   for (const item of newItems) {
     try {
-      await getLibDoc(item);
-      item.pageCount = item.pdfLibDoc.getPageCount();
+      const pdf = await openDocWithPassword(item);   // 與縮圖 / 預覽共用同一份 pdf.js 文件；加密檔會先詢問密碼
+      item.pageCount = pdf.numPages;
     } catch (err) {
       console.error(`讀取 ${item.name} 失敗:`, err);
       item.pageCount = 0;
-      failed.push(item.name);
+      failed.push({ name: item.name, kind: classifyLoadError(err) });
     }
     renderMergeList();
     loaded++;
@@ -516,7 +726,56 @@ async function addFiles(files) {
   if (failed.length > 0) {
     docs = docs.filter(d => d.pageCount !== 0);
     renderMergeList();
-    setStatus(`無法讀取（已略過）：${failed.join('、')}`, 'error');
+    // [修改] 區分「加密未解鎖」與「損毀 / 格式無效」兩種原因
+    const groups = [
+      ['encrypted', '🔒 加密檔未解鎖'],
+      ['corrupt', '⚠ 檔案損毀或不是有效的 PDF'],
+      ['other', '無法讀取']
+    ];
+    const parts = groups
+      .map(([kind, label]) => {
+        const names = failed.filter(f => f.kind === kind).map(f => f.name);
+        return names.length ? `${label}：${names.join('、')}` : '';
+      })
+      .filter(Boolean);
+    setStatus(`已略過 — ${parts.join('；')}`, 'error', false, 6000);
+  }
+}
+
+// [新增] 是否為 pdf.js 的「需要密碼 / 密碼錯誤」例外（code 1 = 需要密碼，2 = 密碼錯誤）
+function isPasswordError(err) {
+  return !!err && err.name === 'PasswordException';
+}
+
+// [新增] 載入失敗原因分類：encrypted（加密未解鎖）/ corrupt（損毀或格式無效）/ other
+function classifyLoadError(err) {
+  if (err && err.skippedPassword) return 'encrypted';
+  if (isPasswordError(err)) return 'encrypted';
+  if (err && (err.name === 'InvalidPDFException' || err.name === 'FormatError' || err.name === 'XRefParseException')) {
+    return 'corrupt';
+  }
+  return 'other';
+}
+
+// [新增] 開啟 PDF；遇到加密檔就跳出密碼對話框，密碼錯誤可重試，按「略過」則丟出錯誤
+async function openDocWithPassword(item) {
+  while (true) {
+    try {
+      return await ensurePdfJsDoc(item);
+    } catch (err) {
+      if (!isPasswordError(err)) throw err;
+      const wrong = err.code === 2;          // 2 = 密碼錯誤
+      item.password = null;
+      setStatus('');                          // 先收起「正在讀取檔案…」提示，避免遮住對話框
+      const pwd = await askPassword(item.name, wrong);
+      if (pwd === null) {
+        const skipped = new Error('使用者略過加密檔案');
+        skipped.skippedPassword = true;
+        throw skipped;
+      }
+      item.password = pwd;
+      setStatus('正在讀取檔案…', '', true);
+    }
   }
 }
 
@@ -663,7 +922,8 @@ function renderMergeList() {
     if (item.pageCount === null) {
       pageBadge.textContent = '讀取中...';
     } else if (item.pageCount > 0) {
-      pageBadge.textContent = `${item.pageCount} 頁`;
+      pageBadge.textContent = item.password ? `${item.pageCount} 頁 🔒` : `${item.pageCount} 頁`;
+      if (item.password) pageBadge.title = '已解鎖的加密檔案；儲存時此檔案的頁面會轉成影像';
     } else {
       pageBadge.textContent = '無法讀取';
     }
@@ -761,7 +1021,7 @@ function renderMergeList() {
     mergeFileList.appendChild(li);
   });
 
-  clearMergeBtn.disabled = !hasFiles;
+  clearAllBtn.disabled = !hasFiles;
   updateMergeSelectionUI();
   onLibraryChanged();
 }
@@ -778,8 +1038,9 @@ function onLibraryChanged() {
     }
   }
 
-  if (currentTab === 'split') refreshSplitView();
-  if (currentTab === 'reorder') syncPreview();
+  // 目前顯示的檢視立刻同步；檔案庫清空時則不論在哪個檢視都重置
+  if (currentTab === 'split' || !hasFiles) refreshSplitView();
+  if (currentTab === 'reorder' || !hasFiles) syncPreview();
 }
 
 function releaseDoc(item) {
@@ -791,7 +1052,6 @@ function releaseDoc(item) {
     }
   });
   if (item.pdfJsPromise) item.pdfJsPromise.then(d => d.destroy()).catch(() => {});
-  item.pdfLibDoc = null;
   item.pdfJsPromise = null;
 }
 
@@ -803,9 +1063,15 @@ function moveMergeFile(index, direction) {
   renderMergeList();
 }
 
-clearMergeBtn.addEventListener('click', () => {
+clearAllBtn.addEventListener('click', () => {
+  if (docs.length === 0) return;
+  // 預覽中有調過頁序 / 刪除 / 旋轉時，清空會一併丟失，先確認
+  if (previewEdited && !confirm('預覽中有尚未儲存的編輯（頁序、刪除、旋轉），清空後會全部消失。確定要清空嗎？')) {
+    return;
+  }
   docs = [];
   renderMergeList();
+  setStatus('已清空所有檔案');
 });
 
 async function executeMergeSave() {
@@ -817,6 +1083,10 @@ async function executeMergeSave() {
     setStatus('請至少選擇 2 個 PDF 檔案進行合併', 'error');
     return;
   }
+
+  const mergeDefaultBase = `${itemsToMerge[0].name.replace(/\.pdf$/i, '')}_合併`;
+  const mergeOutName = await askFileName(mergeDefaultBase, 'pdf', '儲存合併後的 PDF');
+  if (!mergeOutName) return;
 
   try {
     primarySaveBtn.disabled = true;
@@ -830,7 +1100,7 @@ async function executeMergeSave() {
     let done = 0;
     for (const item of itemsToMerge) {
       setStatus(`正在合併 PDF… ${done + 1}/${total}`, '', true);
-      const pdf = await getLibDoc(item);
+      const pdf = await loadLibDoc(item);       // 複製完頁面後即可釋放，不長期佔用記憶體
       const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
       copiedPages.forEach((page) => mergedPdf.addPage(page));
       done++;
@@ -841,8 +1111,7 @@ async function executeMergeSave() {
     setStatus('正在產生檔案…', '', true);
     await nextFrame();
     const mergedBytes = await mergedPdf.save();
-    const firstBaseName = itemsToMerge[0].name.replace(/\.pdf$/i, '');
-    downloadBlob(mergedBytes, `${firstBaseName}_合併.pdf`);
+    downloadBlob(mergedBytes, mergeOutName);
 
     setStatus(`✓ 已合併 ${itemsToMerge.length} 個檔案並開始下載`, 'success');
   } catch (err) {
@@ -859,7 +1128,7 @@ async function executeMergeSave() {
 // =======================
 // 進入分割檢視 / 檔案庫變動時：決定要分割哪個檔案並更新畫面
 function refreshSplitView() {
-  const ready = docs.filter(d => d.pageCount > 0 && d.pdfLibDoc);
+  const ready = docs.filter(d => d.pageCount > 0);
   const has = ready.length > 0;
   splitOptions.classList.toggle('hidden', !has);
   splitPageInfo.classList.toggle('hidden', !has);
@@ -867,7 +1136,7 @@ function refreshSplitView() {
   if (!has) {
     splitDocId = null;
     splitFile = null;
-    splitPdfDoc = null;
+    splitItem = null;
     splitTotalPages = 0;
     updateSaveButtonState();
     return;
@@ -891,7 +1160,7 @@ function refreshSplitView() {
   splitDocSelect.value = String(item.id);
 
   splitFile = item.file;
-  splitPdfDoc = item.pdfLibDoc;
+  splitItem = item;
   splitTotalPages = item.pageCount;
 
   splitFileNameTitle.textContent = `📄 ${item.name}（共 ${splitTotalPages} 頁）`;
@@ -915,7 +1184,7 @@ function updateSplitModeUI() {
 
 // 「每 N 頁」的即時結果提示（例如：20 頁 → 4 份）
 function updateChunkHint() {
-  if (!splitPdfDoc || splitTotalPages === 0) {
+  if (!splitItem || splitTotalPages === 0) {
     chunkHint.textContent = '載入檔案後顯示拆分結果';
     return;
   }
@@ -949,6 +1218,11 @@ chunkSizeInput.addEventListener('focus', () => {
 });
 
 function parsePageRanges(inputStr, maxPages) {
+  // [新增] 容錯：全形數字 / 逗號 / 連字號（中文輸入法常見）轉成半形
+  inputStr = inputStr
+    .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+    .replace(/[，、；;]/g, ',')
+    .replace(/[－–—~～]/g, '-');
   const pages = new Set();
   const parts = inputStr.split(',').map(s => s.trim()).filter(Boolean);
 
@@ -979,7 +1253,7 @@ function parsePageRanges(inputStr, maxPages) {
 }
 
 async function executeSplitSave() {
-  if (!splitPdfDoc) return;
+  if (!splitItem) return;
 
   const mode = document.querySelector('input[name="splitMode"]:checked').value;
   const baseName = splitFile.name.replace(/\.pdf$/i, '');
@@ -991,12 +1265,15 @@ async function executeSplitSave() {
 
     if (mode === 'range') {
       const pageIndices = parsePageRanges(pageRangeInput.value, splitTotalPages);
+      const rangeOutName = await askFileName(`${baseName}_擷取`, 'pdf', '儲存擷取的 PDF');
+      if (!rangeOutName) { setStatus(''); return; }
+      const srcDoc = await loadLibDoc(splitItem);
       const newPdf = await PDFDocument.create();
-      const copiedPages = await newPdf.copyPages(splitPdfDoc, pageIndices);
+      const copiedPages = await newPdf.copyPages(srcDoc, pageIndices);
       copiedPages.forEach(page => newPdf.addPage(page));
 
       const pdfBytes = await newPdf.save();
-      downloadBlob(pdfBytes, `${baseName}_擷取.pdf`);
+      downloadBlob(pdfBytes, rangeOutName);
       setStatus('✓ 擷取完成並下載', 'success');
     } else if (mode === 'each' || mode === 'chunk') {
       const total = splitTotalPages;
@@ -1028,6 +1305,17 @@ async function executeSplitSave() {
       const useZip = splitZipCheck.checked && groups.length > 1;
       const entries = [];
 
+      // 打包 ZIP 時才有「單一輸出檔」可命名；分開下載時沿用自動檔名
+      let zipOutName = '';
+      if (useZip) {
+        const zipDefaultBase = mode === 'chunk' ? `${baseName}_每${size}頁` : `${baseName}_逐頁拆分`;
+        zipOutName = await askFileName(zipDefaultBase, 'zip', '儲存 ZIP 壓縮檔');
+        if (!zipOutName) { setStatus(''); return; }
+      }
+
+      setStatus('正在讀取檔案…', '', true);
+      const srcDoc = await loadLibDoc(splitItem);
+
       for (let g = 0; g < groups.length; g++) {
         setStatus(`正在拆分… ${g + 1}/${groups.length}`, '', true);
         setProgress(g, groups.length);
@@ -1038,7 +1326,7 @@ async function executeSplitSave() {
         for (let i = s; i <= e; i++) indices.push(i);
 
         const part = await PDFDocument.create();
-        const copied = await part.copyPages(splitPdfDoc, indices);
+        const copied = await part.copyPages(srcDoc, indices);
         copied.forEach(p => part.addPage(p));
         const pdfBytes = await part.save();
         const fileName = nameFor(groups[g]);
@@ -1055,10 +1343,7 @@ async function executeSplitSave() {
         setStatus('正在打包 ZIP…', '', true);
         await nextFrame();
         const zipBlob = buildZip(entries);
-        const zipName = mode === 'chunk'
-          ? `${baseName}_每${size}頁.zip`
-          : `${baseName}_逐頁拆分.zip`;
-        downloadBlob(zipBlob, zipName);
+        downloadBlob(zipBlob, zipOutName);
         setStatus(`✓ 已將 ${groups.length} 個檔案打包成 ZIP 並開始下載`, 'success');
       } else {
         setStatus(`✓ 已拆分為 ${groups.length} 個檔案`, 'success');
@@ -1109,6 +1394,45 @@ invertSelectBtn.addEventListener('click', () => {
     p.selected = !p.selected;
   });
   updateSelectionUI();
+});
+
+// [新增] 依頁碼範圍選取：頁碼 = 畫面上每張縮圖的編號（目前頁序）；輸入如 3-5, 9
+const rangeSelectInput = document.getElementById('rangeSelectInput');
+const rangeSelectBtn = document.getElementById('rangeSelectBtn');
+
+function selectPagesByRange() {
+  if (!isSelectionMode || reorderPages.length === 0) return;
+  const text = rangeSelectInput.value.trim();
+  if (!text) {
+    rangeSelectInput.classList.add('invalid');
+    setStatus('請輸入頁碼，例如 3-5, 9', 'error');
+    return;
+  }
+
+  let indices;
+  try {
+    indices = parsePageRanges(text, reorderPages.length);
+  } catch (err) {
+    rangeSelectInput.classList.add('invalid');
+    setStatus(err.message, 'error');
+    return;
+  }
+  rangeSelectInput.classList.remove('invalid');
+
+  const picked = new Set(indices);
+  reorderPages.forEach((p, i) => { p.selected = picked.has(i); });
+  lastCheckedPageIndex = null;
+  setActivePage(Math.min(...indices), true);   // 捲動到第一個被選取的頁面（同時更新選取狀態畫面）
+  setStatus(`✓ 已依頁碼選取 ${picked.size} 頁`, 'success');
+}
+
+rangeSelectBtn.addEventListener('click', selectPagesByRange);
+rangeSelectInput.addEventListener('input', () => rangeSelectInput.classList.remove('invalid'));
+rangeSelectInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.isComposing) {   // 輸入法選字時的 Enter 不算確認
+    e.preventDefault();
+    selectPagesByRange();
+  }
 });
 
 // 批次刪除所勾選的頁面
@@ -1273,11 +1597,11 @@ function pumpThumbQueue() {
   }
 }
 
-// 取得檔案的 pdf.js 文件（用到才載入並快取）
+// 取得檔案的 pdf.js 文件（載入檔案取頁數時就建立並快取；檔案只讀一次，位元組交給 pdf.js 保管）
 function ensurePdfJsDoc(item) {
   if (!item.pdfJsPromise) {
     item.pdfJsPromise = item.file.arrayBuffer()
-      .then(buf => pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise)
+      .then(buf => pdfjsLib.getDocument({ data: new Uint8Array(buf), password: item.password || undefined }).promise)
       .catch(err => { item.pdfJsPromise = null; throw err; });
   }
   return item.pdfJsPromise;
@@ -1551,6 +1875,10 @@ function syncPreview() {
     }
     previewEdited = false;
     previewOrderSig = '';
+    isSelectionMode = false;
+    toggleSelectModeBtn.classList.remove('active');
+    selectionSubTools.classList.add('hidden');
+    reorderBody.classList.remove('selection-mode');
     clearHistory();
     updateSelectionUI();
     return;
@@ -1965,6 +2293,15 @@ async function executeReorderSave() {
     return;
   }
 
+  const usedDocIds = new Set(pagesToSave.map(p => p.docId));
+  const firstItem = docs.find(d => d.id === pagesToSave[0].docId);
+  const reorderBaseName = firstItem.name.replace(/\.pdf$/i, '');
+  const reorderSuffix = isSelectionMode
+    ? `_選取${pagesToSave.length}頁`
+    : (usedDocIds.size > 1 ? '_合併' : '_調整頁序');
+  const reorderOutName = await askFileName(`${reorderBaseName}${reorderSuffix}`, 'pdf', '儲存 PDF');
+  if (!reorderOutName) return;
+
   try {
     primarySaveBtn.disabled = true;
     setStatus('正在匯出 PDF...', '', true);
@@ -1972,6 +2309,7 @@ async function executeReorderSave() {
     await nextFrame();
 
     const newPdf = await PDFDocument.create();
+    const getLib = createLibLoader();
 
     // 連續來自同一檔案的頁面一次複製（共用字型等資源，輸出檔案較小）
     let i = 0;
@@ -1982,7 +2320,7 @@ async function executeReorderSave() {
       const run = pagesToSave.slice(i, j);
 
       const item = docs.find(d => d.id === docId);
-      const src = await getLibDoc(item);
+      const src = await getLib(item);
       const copied = await newPdf.copyPages(src, run.map(p => p.originalIndex));
       copied.forEach((page, k) => {
         const extra = run[k].rotation || 0;
@@ -1998,14 +2336,7 @@ async function executeReorderSave() {
     }
 
     const pdfBytes = await newPdf.save();
-    const usedDocIds = new Set(pagesToSave.map(p => p.docId));
-    const firstItem = docs.find(d => d.id === pagesToSave[0].docId);
-    const baseName = firstItem.name.replace(/\.pdf$/i, '');
-    const suffix = isSelectionMode
-      ? `_選取${pagesToSave.length}頁`
-      : (usedDocIds.size > 1 ? '_合併' : '_調整頁序');
-
-    downloadBlob(pdfBytes, `${baseName}${suffix}.pdf`);
+    downloadBlob(pdfBytes, reorderOutName);
     setStatus(`✓ 已儲存下載（共 ${pagesToSave.length} 頁）`, 'success');
   } catch (err) {
     console.error(err);

@@ -75,14 +75,6 @@
 
             <span id="mergePageInfo" class="page-pill hidden"></span>
           </div>
-
-          <!-- 右側：清空按鈕獨立放置於右側邊緣，避免誤觸 -->
-          <div class="tools-right">
-            <button id="clearMergeBtn" class="ghost-btn danger-hover" disabled title="清空整個合併列表">
-              <svg viewBox="0 0 24 24" width="17" height="17"><path fill="currentColor" d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>
-              <span class="btn-text">清空</span>
-            </button>
-          </div>
         </div>
 
         <!-- 分割專屬工具 -->
@@ -112,6 +104,13 @@
                 <button id="invertSelectBtn" class="ghost-btn" title="反向選取（將已選與未選對調）">
                   <span>反選</span>
                 </button>
+                <!-- [新增] 依頁碼範圍選取 -->
+                <span class="range-select">
+                  <input type="text" id="rangeSelectInput" class="range-select-input" placeholder="頁碼 3-5, 9" autocomplete="off" spellcheck="false" title="輸入畫面上的頁碼（例如 3-5, 9），按 Enter 或「選取」即可勾選；會取代目前的勾選">
+                  <button id="rangeSelectBtn" class="ghost-btn" title="依頁碼範圍勾選（取代目前的勾選）">
+                    <span>選取</span>
+                  </button>
+                </span>
                 <button id="rotateLeftSelectedBtn" class="ghost-btn icon-btn-compact" disabled title="將勾選的頁面向左旋轉 90°">
                   <svg viewBox="0 0 24 24" width="17" height="17"><path fill="currentColor" d="M7.11 8.53L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.14-.87.49-1.72 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.75-.87-1.59-1.01-2.47zm1.01 5.32c1.16.9 2.51 1.44 3.9 1.61V17.9c-.87-.15-1.71-.49-2.46-1.03L7.1 18.32zM13 4.07V1L8.45 5.55 13 10V6.09c2.84.48 5 2.94 5 5.91s-2.16 5.43-5 5.91v2.02c3.95-.49 7-3.85 7-7.93s-3.05-7.44-7-7.93z"/></svg>
                 </button>
@@ -160,6 +159,14 @@
 
       <!-- 4. 最右側：主題選單 -->
       <div class="toolbar-right">
+        <button id="askNameBtn" class="ghost-btn icon-btn-compact active" title="儲存前詢問檔名（開 / 關）">
+          <svg viewBox="0 0 24 24" width="17" height="17"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        </button>
+        <button id="clearAllBtn" class="ghost-btn danger-hover" disabled title="清空所有已載入的檔案（條列、預覽、分割共用）">
+              <svg viewBox="0 0 24 24" width="17" height="17"><path fill="currentColor" d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>
+              <span class="btn-text">清空</span>
+            </button>
+        <span class="v-divider"></span>
         <select id="themeSelect" class="ghost-select theme-compact" title="切換介面色系（亮色 / 灰色 / 暗色）">
           <option value="light" selected>☀️</option>
           <option value="gray">☁️</option>
@@ -265,6 +272,46 @@
     <div class="drop-overlay-box">
       <div class="drop-overlay-icon">📥</div>
       <div id="dropOverlayText" class="drop-overlay-text">放開以載入 PDF</div>
+    </div>
+  </div>
+
+  <!-- 儲存前檔名對話框 -->
+  <div id="filenameModal" class="modal-overlay hidden">
+    <div class="modal-content filename-modal">
+      <div class="modal-header"><span id="filenameModalTitle">儲存檔案</span></div>
+      <div class="filename-body">
+        <label for="filenameInput" class="filename-label">檔案名稱</label>
+        <div class="filename-row">
+          <input type="text" id="filenameInput" class="text-input" autocomplete="off" spellcheck="false">
+          <span id="filenameExt" class="filename-ext">.pdf</span>
+        </div>
+        <small id="filenameError" class="hint filename-error hidden"></small>
+        <label class="check-label filename-ask">
+          <input type="checkbox" id="askFilenameCheck" checked>
+          <span>每次儲存前詢問檔名（取消勾選＝之後直接用自動檔名）</span>
+        </label>
+      </div>
+      <div class="filename-actions">
+        <button id="filenameCancelBtn" class="ghost-btn" type="button">取消</button>
+        <button id="filenameOkBtn" class="ghost-btn save-highlight" type="button">儲存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- [新增] 加密 PDF 密碼輸入對話框 -->
+  <div id="passwordModal" class="modal-overlay hidden">
+    <div class="modal-content filename-modal">
+      <div class="modal-header"><span>🔒 此 PDF 已加密</span></div>
+      <div class="filename-body">
+        <label for="passwordInput" id="passwordFileLabel" class="filename-label password-file-label"></label>
+        <input type="password" id="passwordInput" class="text-input" autocomplete="off" spellcheck="false" placeholder="請輸入開啟密碼">
+        <small id="passwordError" class="hint filename-error hidden"></small>
+        <small class="hint">注意：加密檔案儲存時，該檔案的頁面會轉成影像輸出（外觀不變，但文字將無法選取、檔案較大）。</small>
+      </div>
+      <div class="filename-actions">
+        <button id="passwordSkipBtn" class="ghost-btn" type="button">略過此檔</button>
+        <button id="passwordOkBtn" class="ghost-btn save-highlight" type="button">解鎖</button>
+      </div>
     </div>
   </div>
 

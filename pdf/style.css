@@ -647,12 +647,12 @@ body.tab-mode .file-name {
 
 .split-card {
   width: 100%;
-  max-width: 480px;
+  max-width: 760px;
   background: var(--card-bg);
   color: var(--card-text);
   border: 1px solid var(--card-border);
   border-radius: 10px;
-  padding: 22px;
+  padding: 26px 30px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
@@ -1274,4 +1274,97 @@ body.theme-gray .drop-overlay-box {
   font-size: 12px;
   font-weight: 600;
   color: var(--topbar-muted);
+}
+
+/* =========================================
+   儲存前檔名對話框
+   ========================================= */
+.filename-modal {
+  width: 420px;
+  max-width: 92vw;
+}
+
+.filename-body {
+  padding: 16px;
+}
+
+.filename-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--topbar-muted);
+}
+
+.filename-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filename-row .text-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.filename-ext {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--topbar-muted);
+}
+
+.filename-error {
+  color: #dc2626;
+}
+
+.filename-ask {
+  margin: 14px 0 0 0;
+}
+
+.filename-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px 14px;
+}
+
+/* =========================================
+   [新增] 預覽：依頁碼範圍選取
+   ========================================= */
+.range-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 2px;
+  padding-left: 4px;
+  border-left: 1px solid var(--divider-color);
+}
+
+.range-select-input {
+  width: 96px;
+  padding: 3px 6px;
+  border: 1px solid var(--card-border);
+  background: var(--topbar-bg);
+  color: var(--topbar-text);
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.range-select-input.invalid {
+  border-color: #dc2626;
+}
+
+@media (max-width: 820px) {
+  .range-select-input {
+    width: 72px;
+  }
+}
+
+/* =========================================
+   [新增] 加密 PDF 密碼對話框
+   ========================================= */
+.password-file-label {
+  word-break: break-all;
+  font-weight: 600;
+  color: var(--topbar-text);
 }
