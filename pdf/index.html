@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="theme-light tab-mode">
+  <div id="progressBar" class="progress-bar hidden"><div class="progress-fill"></div></div>
   <div class="container">
     <!-- 頂端工具列 (精簡不超界) -->
     <header class="topbar">
@@ -222,6 +223,14 @@
 
     <!-- 浮動狀態提示 -->
     <div id="statusMsg" class="status-toast hidden"></div>
+  </div>
+
+  <!-- 全頁拖放提示層 -->
+  <div id="dropOverlay" class="drop-overlay hidden">
+    <div class="drop-overlay-box">
+      <div class="drop-overlay-icon">📥</div>
+      <div id="dropOverlayText" class="drop-overlay-text">放開以載入 PDF</div>
+    </div>
   </div>
 
   <!-- 單頁高清放大預覽燈箱 (Modal) -->
