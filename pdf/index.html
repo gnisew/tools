@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>烏衣行 Pdf</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231a73e8'/%3E%3Ctext x='32' y='46' font-size='42' font-weight='700' text-anchor='middle' fill='white' font-family='Arial,sans-serif'%3EP%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-light tab-mode">
+  <div class="container">
+    <!-- 頂端工具列 (精簡不超界) -->
+    <header class="topbar">
+      <div class="brand" title="烏衣行 Pdf"><span class="brand-icon">P</span><span class="brand-text">烏衣行 Pdf</span></div>
+      <span class="v-divider"></span>
+      <!-- 1. 最前端核心動作：選檔 與 儲存 -->
+      <div class="toolbar-group">
+        <button id="openFileBtn" class="ghost-btn" title="選取或加入 PDF 檔案">
+          <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/></svg>
+          <span class="btn-text" id="openFileBtnText">加檔</span>
+        </button>
+
+        <button id="primarySaveBtn" class="ghost-btn save-highlight" disabled title="儲存並下載 PDF 檔案">
+          <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+          <span class="btn-text" id="saveBtnText">儲存</span>
+        </button>
+
+        <!-- 隱藏的檔案輸入框 -->
+        <input type="file" id="mergeInput" accept="application/pdf" multiple hidden>
+        <input type="file" id="splitInput" accept="application/pdf" hidden>
+        <input type="file" id="reorderInput" accept="application/pdf" hidden>
+      </div>
+
+      <span class="v-divider"></span>
+
+      <!-- 2. 模式切換分頁 -->
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="merge" title="合併多個 PDF">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
+          <span class="btn-text">合併</span>
+        </button>
+        <button class="tab-btn" data-tab="split" title="分割或擷取 PDF">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M9.64 7.64c.23-.5.36-1.05.36-1.64 0-2.21-1.79-4-4-4S2 3.79 2 6s1.79 4 4 4c.59 0 1.14-.13 1.64-.36L10 12l-2.36 2.36C7.14 14.13 6.59 14 6 14c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4c0-.59-.13-1.14-.36-1.64L12 14l7 7h3v-1L9.64 7.64zM6 8c-1.1 0-2-.89-2-2s.9-2 2-2 2 .89 2 2-.9 2-2 2zm0 12c-1.1 0-2-.89-2-2s.9-2 2-2 2 .89 2 2-.9 2-2 2zm6-7.5c-.28 0-.5-.22-.5-.5s.22-.5.5-.5.5.22.5.5-.22.5-.5.5zM19 3l-6 6 2 2 7-7V3h-3z"/></svg>
+          <span class="btn-text">分割</span>
+        </button>
+        <button class="tab-btn" data-tab="reorder" title="調整頁序或勾選頁面">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M3 5v14h18V5H3zm4 2v2H5V7h2zm-2 6v-2h2v2H5zm0 2h2v2H5v-2zm14 2H9v-2h10v2zm0-4H9v-2h10v2zm0-4H9V7h10v2z"/></svg>
+          <span class="btn-text">頁序</span>
+        </button>
+      </div>
+
+      <!-- 3. 隨分頁切換的動態工具區 -->
+      <div class="toolbar-context">
+        <!-- 合併專屬工具 (清空按鈕移至最右側防誤觸) -->
+        <div id="ctx-merge" class="ctx-group active">
+          <div class="tools-left">
+            <!-- 合併：啟用選取開關 -->
+            <button id="toggleMergeSelectModeBtn" class="ghost-btn hidden" title="啟用或關閉檔案勾選模式">
+              <svg viewBox="0 0 24 24" width="17" height="17"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM17.99 9l-1.41-1.42-6.59 6.59-2.58-2.57-1.42 1.41 4 3.99z"/></svg>
+              <span class="btn-text">選取</span>
+            </button>
+
+            <!-- 合併：啟用選取時展開的 全選 / 反選 / 刪除選取 -->
+            <div id="mergeSelectionSubTools" class="selection-sub-tools hidden">
+              <button id="mergeSelectAllBtn" class="ghost-btn" title="全選或取消全選所有檔案">
+                <span id="mergeSelectAllBtnText">全選</span>
+              </button>
+              <button id="mergeInvertSelectBtn" class="ghost-btn" title="反向選取檔案">
+                <span>反選</span>
+              </button>
+              <button id="deleteSelectedMergeBtn" class="ghost-btn danger-text" disabled title="從列表中移除所勾選的檔案">
+                <svg viewBox="0 0 24 24" width="15" height="15"><path fill="currentColor" d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>
+                <span id="deleteSelectedMergeText">刪除</span>
+              </button>
+            </div>
+
+            <span id="mergePageInfo" class="page-pill hidden"></span>
+          </div>
+
+          <!-- 右側：清空按鈕獨立放置於右側邊緣，避免誤觸 -->
+          <div class="tools-right">
+            <button id="clearMergeBtn" class="ghost-btn danger-hover" disabled title="清空整個合併列表">
+              <svg viewBox="0 0 24 24" width="17" height="17"><path fill="currentColor" d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>
+              <span class="btn-text">清空</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 分割專屬工具 -->
+        <div id="ctx-split" class="ctx-group">
+          <span id="splitPageInfo" class="page-pill hidden"></span>
+        </div>
+
+        <!-- 頁序與勾選專屬工具 (精簡圖示化，防止超出視窗) -->
+        <div id="ctx-reorder" class="ctx-group">
+          <div id="reorderTools" class="reorder-inline-tools hidden">
+            <!-- 左側：側欄圖示、選取開關、全選/反選/刪除所選 -->
+            <div class="tools-left">
+              <button id="toggleSidebarBtn" class="ghost-btn icon-btn-compact" title="開啟 / 關閉左側縮圖導覽欄">
+                <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 3h18c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H3c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2zm6 16h12V5H9v14zM3 19h4V5H3v14z"/></svg>
+              </button>
+
+              <button id="toggleSelectModeBtn" class="ghost-btn" title="啟用或關閉頁面勾選模式">
+                <svg viewBox="0 0 24 24" width="17" height="17"><path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM17.99 9l-1.41-1.42-6.59 6.59-2.58-2.57-1.42 1.41 4 3.99z"/></svg>
+                <span class="btn-text">選取</span>
+              </button>
+
+              <!-- 啟用「選取」時展開：全選、反選、刪除所選頁面 -->
+              <div id="selectionSubTools" class="selection-sub-tools hidden">
+                <button id="selectAllBtn" class="ghost-btn" title="全選或取消全選所有頁面">
+                  <span id="selectAllBtnText">全選</span>
+                </button>
+                <button id="invertSelectBtn" class="ghost-btn" title="反向選取（將已選與未選對調）">
+                  <span>反選</span>
+                </button>
+                <button id="deleteSelectedPagesBtn" class="ghost-btn danger-text" disabled title="刪除目前勾選的頁面（快捷鍵：Delete）">
+                  <svg viewBox="0 0 24 24" width="15" height="15"><path fill="currentColor" d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>
+                  <span id="deleteSelectedPagesText">刪除</span>
+                </button>
+              </div>
+
+              <span id="reorderPageInfo" class="page-pill"></span>
+            </div>
+
+            <!-- 右側：緊湊型縮放滑桿、清晰度、純圖示反轉与還原 -->
+            <div class="tools-right">
+              <div class="zoom-control">
+                <input type="range" id="thumbSizeSlider" min="70" max="820" step="5" value="200" title="拖曳即時調整縮圖大小">
+                <button id="zoomModeLabel" class="zoom-badge" title="點擊切換檢視模式：四頁 ➔ 雙頁 ➔ 單頁">四頁</button>
+              </div>
+
+              <select id="thumbQualitySelect" class="ghost-select" title="預覽清晰度（30頁內自動預設高清）">
+                <option value="fast">極速</option>
+                <option value="medium">標準</option>
+                <option value="high">清晰</option>
+                <option value="hd" selected>高清</option>
+              </select>
+
+              <button id="reverseOrderBtn" class="ghost-btn icon-btn-compact" title="反轉所有頁面順序">
+                <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z"/></svg>
+              </button>
+              <button id="resetOrderBtn" class="ghost-btn icon-btn-compact" title="還原預設頁面順序與頁數">
+                <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. 最右側：主題選單 -->
+      <div class="toolbar-right">
+        <select id="themeSelect" class="ghost-select theme-compact" title="切換介面色系（亮色 / 灰色 / 暗色）">
+          <option value="light" selected>☀️</option>
+          <option value="gray">☁️</option>
+          <option value="dark">🌙</option>
+        </select>
+      </div>
+    </header>
+
+    <!-- 主工作與檢視區 -->
+    <main class="workspace">
+      <!-- 1. 合併 PDF 內容區 -->
+      <section id="merge" class="tab-content active">
+        <label class="empty-dropzone" for="mergeInput" id="mergeEmptyDropzone">
+          <div class="empty-icon">📑</div>
+          <div class="empty-title">點擊選取或拖曳多個 PDF 檔案至此</div>
+          <div class="empty-sub">自動顯示各檔案頁數並依檔名排序，支援拖曳調整順序與勾選合併</div>
+        </label>
+        <ul id="mergeFileList" class="file-list hidden"></ul>
+      </section>
+
+      <!-- 2. 分割 PDF 內容區 -->
+      <section id="split" class="tab-content">
+        <label class="empty-dropzone" for="splitInput" id="splitEmptyDropzone">
+          <div class="empty-icon">✂️</div>
+          <div class="empty-title">點擊選取或拖曳單一 PDF 檔案至此</div>
+          <div class="empty-sub">支援擷取指定頁碼範圍或單頁拆分</div>
+        </label>
+
+        <div id="splitOptions" class="split-options hidden">
+          <div class="split-card">
+            <div class="split-file-title" id="splitFileNameTitle">已選取檔案</div>
+
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" name="splitMode" value="range" checked>
+                <span>擷取指定頁碼（合併為一個新 PDF）</span>
+              </label>
+              <input type="text" id="pageRangeInput" class="text-input" placeholder="例如：1-3, 5, 7-9">
+              <small class="hint">支援單頁與範圍，請以半形逗號分隔，設定後點擊左上角「儲存」</small>
+            </div>
+
+            <div class="radio-group">
+              <label class="radio-label">
+                <input type="radio" name="splitMode" value="each">
+                <span>將每一頁拆分為獨立的 PDF 檔案</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. 調整 PDF 頁序與選取內容區 (預設隱藏側邊欄) -->
+      <section id="reorder" class="tab-content">
+        <label class="empty-dropzone" for="reorderInput" id="reorderEmptyDropzone">
+          <div class="empty-icon">🔢</div>
+          <div class="empty-title">點擊選取或拖曳 PDF 至此</div>
+          <div class="empty-sub">支援拖曳調整頁序，或點擊頂端「選取」勾選多個頁面進行「儲存」或「刪除」</div>
+        </label>
+
+        <div id="reorderBody" class="reorder-body hidden">
+          <!-- 左側：側邊欄縮圖檢視 (預設不顯示，點擊頂端側欄圖示才展開) -->
+          <aside id="reorderSidebar" class="reorder-sidebar hidden">
+            <ul id="sidebarThumbList" class="sidebar-thumb-list"></ul>
+          </aside>
+
+          <!-- 右側：主頁面縮圖網格 -->
+          <ul id="reorderPageList" class="page-grid"></ul>
+        </div>
+      </section>
+    </main>
+
+    <!-- 浮動狀態提示 -->
+    <div id="statusMsg" class="status-toast hidden"></div>
+  </div>
+
+  <!-- 單頁高清放大預覽燈箱 (Modal) -->
+  <div id="previewModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span id="previewModalTitle">頁面預覽</span>
+        <button id="closePreviewBtn" class="modal-close-btn">✕ 關閉</button>
+      </div>
+      <div class="modal-body">
+        <canvas id="previewCanvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script src="pdf-lib.min.js"></script>
+  <script src="pdf.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
