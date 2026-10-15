@@ -5,8 +5,12 @@ if (window.pdfjsLib) {
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
 }
 
-// 4 段清晰度設定 (30 頁內小檔案自動預設為「高清 hd」)
+// 6 段清晰度設定 (30 頁內小檔案自動預設為「高清 hd」)
+//  [新增] instant（光速）：完全不產生縮圖，只顯示頁碼空框（超大檔案用，換清晰度或雙擊預覽才看得到內容）
+//  [新增] ultra（超速）：比極速更小、更低品質，並略過註解繪製以加快速度
 const QUALITY_PRESETS = {
+  instant: { width: 0,   quality: 0,    none: true },
+  ultra:  { width: 80,   quality: 0.4,  noAnnots: true },
   fast:   { width: 160,  quality: 0.55 },
   medium: { width: 300,  quality: 0.75 },
   high:   { width: 550,  quality: 0.85 },
@@ -35,7 +39,8 @@ let splitItem = null;      // 目前要分割的檔案庫項目（儲存時才�
 let splitTotalPages = 0;
 
 // 調動檢視狀態（頁面可來自多個檔案）
-// [{ docId, key, originalIndex, originalPageNum, selected, rotation }]
+// [{ uid, docId, key, originalIndex, originalPageNum, selected, rotation, blank? }]
+// [修改] uid＝每張卡片唯一識別（複製頁面後 key 會重複，key 只用來共用縮圖）；blank＝插入的空白頁
 // key = `${docId}_${原頁碼}`，作為縮圖快取與 DOM 的唯一識別；rotation：額外旋轉角度（0/90/180/270，順時針）
 let reorderPages = [];
 let reorderEdited = false;   // 使用者是否在調動中做過編輯（有編輯時，檔案庫的排序變動不會覆蓋頁面順序）
@@ -46,7 +51,6 @@ let draggedPageGroup = [];   // 本次拖曳要一起移動的頁面物件（多
 let activeSidebarIndex = 0;
 let isSelectionMode = false;
 let lastCheckedPageIndex = null;
-let currentPresetCycleIndex = 1;
 let statusTimeout = null;
 
 // 縮圖快取與懶載入觀察器
@@ -56,7 +60,6 @@ let thumbObserver = null;
 
 // 頂端共用 DOM
 const openFileBtn = document.getElementById('openFileBtn');
-const openFileBtnText = document.getElementById('openFileBtnText');
 const primarySaveBtn = document.getElementById('primarySaveBtn');
 const saveBtnText = document.getElementById('saveBtnText');
 const tabBtns = document.querySelectorAll('.tab-btn');
@@ -76,7 +79,6 @@ const toggleMergeSelectModeBtn = document.getElementById('toggleMergeSelectModeB
 const mergeSelectionSubTools = document.getElementById('mergeSelectionSubTools');
 const mergeSelectAllBtn = document.getElementById('mergeSelectAllBtn');
 const mergeSelectAllBtnText = document.getElementById('mergeSelectAllBtnText');
-const mergeInvertSelectBtn = document.getElementById('mergeInvertSelectBtn');
 const deleteSelectedMergeBtn = document.getElementById('deleteSelectedMergeBtn');
 const deleteSelectedMergeText = document.getElementById('deleteSelectedMergeText');
 const mergePageInfo = document.getElementById('mergePageInfo');
@@ -100,9 +102,11 @@ const reorderTools = document.getElementById('reorderTools');
 const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
 const toggleSelectModeBtn = document.getElementById('toggleSelectModeBtn');
 const selectionSubTools = document.getElementById('selectionSubTools');
+const rangeSelectWrap = document.getElementById('rangeSelectWrap');   // [新增] 右側收合的頁碼範圍選取
+const rangeMenuBtn = document.getElementById('rangeMenuBtn');
+const rangeMenu = document.getElementById('rangeMenu');
 const selectAllBtn = document.getElementById('selectAllBtn');
 const selectAllBtnText = document.getElementById('selectAllBtnText');
-const invertSelectBtn = document.getElementById('invertSelectBtn');
 const deleteSelectedPagesBtn = document.getElementById('deleteSelectedPagesBtn');
 const rotateLeftSelectedBtn = document.getElementById('rotateLeftSelectedBtn');
 const rotateRightSelectedBtn = document.getElementById('rotateRightSelectedBtn');
@@ -114,9 +118,12 @@ const reorderPageInfo = document.getElementById('reorderPageInfo');
 const reorderPageList = document.getElementById('reorderPageList');
 const thumbSizeSlider = document.getElementById('thumbSizeSlider');
 const zoomModeLabel = document.getElementById('zoomModeLabel');
+const zoomMenu = document.getElementById('zoomMenu');   // [新增]
 const thumbQualitySelect = document.getElementById('thumbQualitySelect');
 const reverseOrderBtn = document.getElementById('reverseOrderBtn');
 const resetOrderBtn = document.getElementById('resetOrderBtn');
+const insertBlankBtn = document.getElementById('insertBlankBtn');   // [新增]
+const duplicateBtn = document.getElementById('duplicateBtn');       // [新增]
 const undoBtn = document.getElementById('undoBtn');
 const redoBtn = document.getElementById('redoBtn');
 
@@ -125,6 +132,36 @@ const previewModal = document.getElementById('previewModal');
 const previewModalTitle = document.getElementById('previewModalTitle');
 const previewCanvas = document.getElementById('previewCanvas');
 const closePreviewBtn = document.getElementById('closePreviewBtn');
+
+// [新增] 內建 SVG 圖示：取代文字符號與 emoji，風格一致並跟隨主題色
+const ICONS = {
+  up:    'M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6z',
+  down:  'M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z',
+  close: 'M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z',
+  left:  'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z',
+  right: 'M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z',
+  zoom:  'M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z',
+  grip:  'M9 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0 6.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm-1.5 8a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM18 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM16.5 13.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM18 18.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z',
+  cut:   'M9.64 7.64c.23-.5.36-1.05.36-1.64 0-2.21-1.79-4-4-4S2 3.79 2 6s1.79 4 4 4c.59 0 1.14-.13 1.64-.36L10 12l-2.36 2.36C7.14 14.13 6.59 14 6 14c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4c0-.59-.13-1.14-.36-1.64L12 14l7 7h3v-1L9.64 7.64zM6 8c-1.1 0-2-.89-2-2s.9-2 2-2 2 .89 2 2-.9 2-2 2zm0 12c-1.1 0-2-.89-2-2s.9-2 2-2 2 .89 2 2-.9 2-2 2zm6-7.5c-.28 0-.5-.22-.5-.5s.22-.5.5-.5.5.22.5.5-.22.5-.5.5zM19 3l-6 6 2 2 7-7V3h-3z',
+  rotL:  'M7.11 8.53L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.14-.87.49-1.72 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.75-.87-1.59-1.01-2.47zm1.01 5.32c1.16.9 2.51 1.44 3.9 1.61V17.9c-.87-.15-1.71-.49-2.46-1.03L7.1 18.32zM13 4.07V1L8.45 5.55 13 10V6.09c2.84.48 5 2.94 5 5.91s-2.16 5.43-5 5.91v2.02c3.95-.49 7-3.85 7-7.93s-3.05-7.44-7-7.93z',
+  rotR:  'M15.55 5.55L11 1v3.07C7.06 4.56 4 7.92 4 12s3.05 7.44 7 7.93v-2.02c-2.84-.48-5-2.94-5-5.91s2.16-5.43 5-5.91V10l4.55-4.45zM19.93 11c-.17-1.39-.72-2.73-1.62-3.89l-1.42 1.42c.54.75.88 1.6 1.02 2.47h2.02zM13 17.9v2.02c1.39-.17 2.74-.71 3.9-1.61l-1.44-1.44c-.75.54-1.59.89-2.46 1.03zm3.89-2.42l1.42 1.41c.9-1.16 1.45-2.5 1.62-3.89h-2.02c-.14.87-.48 1.72-1.02 2.47z'
+};
+// [新增] 選取開關：開啟時顯示「取消」與 ✕ 圖示，關閉時還原
+function setSelectToggleUI(btn, on) {
+  btn.classList.toggle('active', on);
+  const label = btn.querySelector('.btn-text');
+  const path = btn.querySelector('svg path');
+  if (!btn.dataset.idleLabel) {
+    btn.dataset.idleLabel = label.textContent;
+    btn.dataset.idlePath = path.getAttribute('d');
+  }
+  label.textContent = on ? '取消' : btn.dataset.idleLabel;
+  path.setAttribute('d', on ? ICONS.close : btn.dataset.idlePath);
+}
+
+function setIcon(el, name, size = 16) {
+  el.innerHTML = `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="currentColor" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
+}
 
 // 一般網頁版：固定使用滿版模式，並載入上次選擇的主題
 const isTabMode = true;
@@ -163,7 +200,7 @@ function toggleReorderSidebar() {
 function updateSidebarToggleVisibility() {
   const inReorder = currentTab === 'reorder';
   toggleSidebarBtn.classList.toggle('hidden', !inReorder);
-  sidebarMenuSep.classList.toggle('hidden', !inReorder);
+  if (sidebarMenuSep) sidebarMenuSep.classList.toggle('hidden', !inReorder);
   brandToggle.classList.toggle('clickable', inReorder);
   brandToggle.title = inReorder ? '烏衣行 PDF（點擊：開啟 / 關閉側邊欄）' : '烏衣行 PDF';
 }
@@ -177,8 +214,11 @@ openFileBtn.addEventListener('click', () => fileInput.click());
 // 工具列下拉選單：點按鈕展開，點選項 / 點外面 / Esc / 捲動 / 縮放視窗時收起
 // =========================================
 const menuPairs = [
+  { btn: document.getElementById('fileMenuBtn'), panel: document.getElementById('fileMenu'), align: 'left' },
   { btn: document.getElementById('pageMenuBtn'), panel: document.getElementById('pageMenu') },
-  { btn: document.getElementById('settingsMenuBtn'), panel: document.getElementById('settingsMenu') }
+  { btn: document.getElementById('settingsMenuBtn'), panel: document.getElementById('settingsMenu') },
+  { btn: document.getElementById('rangeMenuBtn'), panel: document.getElementById('rangeMenu') },   // [新增]
+  { btn: document.getElementById('zoomModeLabel'), panel: document.getElementById('zoomMenu') }     // [新增] 比例選單
 ];
 
 function closeMenus(returnFocus = false) {
@@ -191,7 +231,7 @@ function closeMenus(returnFocus = false) {
   });
 }
 
-function openMenu({ btn, panel }) {
+function openMenu({ btn, panel, align }) {
   closeMenus();
   closeFileFilterMenu();
   panel.classList.remove('hidden');
@@ -199,14 +239,17 @@ function openMenu({ btn, panel }) {
   const r = btn.getBoundingClientRect();
   const w = panel.offsetWidth;
   panel.style.top = `${r.bottom + 4}px`;
-  panel.style.left = `${Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w))}px`;   // 與按鈕右緣對齊，並限制在視窗內
+  const x = align === 'left' ? r.left : r.right - w;   // 預設與按鈕右緣對齊；檔案選單改為左緣對齊
+  panel.style.left = `${Math.max(8, Math.min(window.innerWidth - w - 8, x))}px`;   // 並限制在視窗內
 }
 
 menuPairs.forEach((pair) => {
   pair.btn.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (pair.panel.classList.contains('hidden')) openMenu(pair);
-    else closeMenus();
+    if (pair.panel.classList.contains('hidden')) {
+      openMenu(pair);
+      if (pair.panel === rangeMenu) { rangeSelectInput.focus(); rangeSelectInput.select(); }   // [新增]
+    } else closeMenus();
   });
   pair.panel.addEventListener('click', (e) => {
     // 點到選項（含 disabled 以外的按鈕）後收起；原本各按鈕的點擊處理照常執行
@@ -214,6 +257,7 @@ menuPairs.forEach((pair) => {
   });
   pair.panel.addEventListener('keydown', (e) => {
     const items = Array.from(pair.panel.querySelectorAll('.menu-item:not(:disabled)'));
+    if (!items.length) return;                     // [新增] 頁碼範圍面板沒有選單項目
     const i = items.indexOf(document.activeElement);
     if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
@@ -234,7 +278,7 @@ document.querySelector('.topbar').addEventListener('scroll', () => closeMenus())
 
 
 // =========================================
-// 即時縮放控制 與 點擊比例按鈕切換「四頁 ➔ 雙頁 ➔ 單頁」
+// 即時縮放控制 與 點擊比例按鈕開啟選單（檢視模式：單頁／雙頁／四頁；縮放比例：35%～400%）
 // =========================================
 function applyContinuousZoom(val) {
   const minVal = parseInt(thumbSizeSlider.min, 10);
@@ -248,6 +292,7 @@ function applyContinuousZoom(val) {
 
   const pct = Math.round((clamped / 200) * 100);
   zoomModeLabel.textContent = `${pct}%`;
+  syncZoomMenuActive();   // [新增]
 }
 
 function applyColumnPreset(cols) {
@@ -274,17 +319,28 @@ function applyColumnPreset(cols) {
 
   const labelMap = { 1: '單頁', 2: '雙頁', 4: '四頁' };
   zoomModeLabel.textContent = labelMap[cols] || `${Math.round((targetWidth / 200) * 100)}%`;
+  syncZoomMenuActive();   // [新增]
 }
 
 thumbSizeSlider.addEventListener('input', (e) => {
   applyContinuousZoom(parseInt(e.target.value, 10));
 });
 
-const presetCycleOrder = [4, 2, 1];
-zoomModeLabel.addEventListener('click', () => {
-  const cols = presetCycleOrder[currentPresetCycleIndex % presetCycleOrder.length];
-  currentPresetCycleIndex++;
-  applyColumnPreset(cols);
+// [新增] 比例選單：標示目前選中的項目（✓），並處理點選
+function syncZoomMenuActive() {
+  const cols = reorderPageList.dataset.cols;
+  const pct = Math.round((parseInt(thumbSizeSlider.value, 10) / 200) * 100);
+  zoomMenu.querySelectorAll('.menu-item').forEach((item) => {
+    const on = cols ? item.dataset.cols === cols : item.dataset.pct === String(pct);
+    item.classList.toggle('active', on);
+  });
+}
+
+zoomMenu.addEventListener('click', (e) => {
+  const item = e.target.closest('.menu-item');
+  if (!item) return;
+  if (item.dataset.cols) applyColumnPreset(parseInt(item.dataset.cols, 10));
+  else if (item.dataset.pct) applyContinuousZoom(Math.round(parseInt(item.dataset.pct, 10) / 100 * 200));
 });
 
 window.addEventListener('resize', () => {
@@ -294,6 +350,7 @@ window.addEventListener('resize', () => {
 });
 
 thumbQualitySelect.addEventListener('change', () => {
+  updateThumbModeHint();
   if (reorderPages.length === 0) return;
   clearThumbnailCache();
   initThumbObserver();
@@ -310,14 +367,24 @@ function tabFromHash() {
 
 function switchTab(name) {
   if (!VALID_TABS.includes(name)) name = 'merge';
+  const prevTab = currentTab;
   currentTab = name;
+
+  // [新增] 從「調動」切到「閱讀」：跳到調動中目前選取的那一頁（對應到原檔頁碼與所屬檔案）
+  if (name === 'read' && prevTab === 'reorder') {
+    const cur = reorderPages[activeSidebarIndex];
+    if (cur && docs.some(d => d.id === cur.docId && d.pageCount > 0)) {
+      readerDocId = cur.docId;
+      readerResumeIndex = cur.originalPageNum - 1;
+      readerPositions.set(cur.docId, cur.originalPageNum - 1);
+    }
+  }
 
   tabBtns.forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   tabContents.forEach(c => c.classList.toggle('active', c.id === name));
   ctxGroups.forEach(g => g.classList.toggle('active', g.id === `ctx-${name}`));
 
   updateSidebarToggleVisibility();
-  openFileBtnText.textContent = '載入';
   if (name === 'split') refreshSplitView();
   if (name === 'reorder') syncReorder();
   if (name === 'read') syncReader();
@@ -382,42 +449,74 @@ function updateSaveButtonState() {
   }
 }
 
-primarySaveBtn.addEventListener('click', () => {
-  if (currentTab === 'merge') {
-    executeMergeSave();
-  } else if (currentTab === 'split') {
-    executeSplitSave();
-  } else if (currentTab === 'reorder') {
-    executeReorderSave();
+primarySaveBtn.addEventListener('click', async () => {
+  compressOut = 0;                 // [新增] 每次儲存重新累計實際輸出大小
+  try {
+    if (currentTab === 'merge') {
+      await executeMergeSave();
+    } else if (currentTab === 'split') {
+      await executeSplitSave();
+    } else if (currentTab === 'reorder') {
+      await executeReorderSave();
+    }
+  } finally {
+    compressOverride = null;       // [新增] 儲存前詢問選的壓縮等級只用這一次
   }
 });
 
-// sticky = true 時不會自動消失（用於處理中的進度訊息，完成後由下一次 setStatus 取代）
+// [修改] 訊息分流：
+//   sticky = true（載入 / 處理中）→ 右下角進度卡，不會自動消失，由下一次 setStatus 取代
+//   sticky = false（一般訊息）   → 左下角提示，數秒後自動消失
+const progressCard = document.getElementById('progressCard');
+const progressText = document.getElementById('progressText');
+function syncProgressCard() {
+  const hasText = progressText.textContent !== '';
+  const hasBar = !progressBar.classList.contains('hidden');
+  progressCard.classList.toggle('hidden', !hasText && !hasBar);
+}
 function setStatus(message, type = '', sticky = false, duration = 2400) {
-  if (statusTimeout) clearTimeout(statusTimeout);
-  if (!message) {
+  if (!message) {                                  // 清空：左右都收起
+    if (statusTimeout) clearTimeout(statusTimeout);
     statusMsg.classList.add('hidden');
+    progressText.textContent = '';
+    syncProgressCard();
     return;
   }
-  statusMsg.textContent = message;
-  statusMsg.className = `status-toast ${type}`;
-  if (!sticky) {
-    statusTimeout = setTimeout(() => {
-      statusMsg.classList.add('hidden');
-    }, duration);
+  if (sticky) {                                    // 右下角：處理進度
+    progressText.textContent = message;
+    syncProgressCard();
+    return;
   }
+  progressText.textContent = '';                   // 一般訊息會取代處理中訊息（維持原行為）
+  syncProgressCard();
+  if (statusTimeout) clearTimeout(statusTimeout);
+  statusMsg.textContent = message;                 // 左下角：一般訊息
+  statusMsg.className = `status-toast ${type}`;
+  statusTimeout = setTimeout(() => {
+    statusMsg.classList.add('hidden');
+  }, duration);
 }
 
-// 頂端細進度條
+// 進度條（現在位於右下角進度卡內）
 const progressBar = document.getElementById('progressBar');
 const progressFill = progressBar.querySelector('.progress-fill');
 function setProgress(done, total) {
-  progressBar.classList.remove('hidden');
+  progressBar.classList.remove('hidden', 'indeterminate');
   progressFill.style.width = `${total > 0 ? Math.round((done / total) * 100) : 0}%`;
+  syncProgressCard();
+}
+// [新增] 不知道要多久時（例如 pdf.js 解析大檔）：色線條來回滑動
+function setProgressIndeterminate() {
+  progressBar.classList.remove('hidden');
+  progressBar.classList.add('indeterminate');
+  progressFill.style.width = '';
+  syncProgressCard();
 }
 function clearProgress() {
   progressBar.classList.add('hidden');
+  progressBar.classList.remove('indeterminate');
   progressFill.style.width = '0%';
+  syncProgressCard();
 }
 // 讓出主執行緒，讓進度畫面有機會更新
 const nextFrame = () => new Promise(resolve => setTimeout(resolve, 0));
@@ -542,13 +641,17 @@ const passwordOkBtn = document.getElementById('passwordOkBtn');
 const passwordSkipBtn = document.getElementById('passwordSkipBtn');
 
 let passwordResolver = null;
+let passwordOwner = null;                // [新增] 目前對話框在詢問哪個檔案（該檔被取消 / 移除時要自動關閉對話框）
 let passwordQueue = Promise.resolve();   // 一次只開一個對話框；同時載入多個加密檔時依序詢問
 
 // 回傳使用者輸入的密碼；按「略過此檔」/ Esc 回傳 null
-function askPassword(fileName, wrongBefore = false) {
+// [修改] 參數由檔名改為檔案庫項目 item，才能在排隊期間得知該檔是否已被取消
+function askPassword(item, wrongBefore = false) {
   const task = () => new Promise((resolve) => {
+    if (item.cancelled) { resolve(null); return; }   // [新增] 排隊等待時已被取消：不再跳出對話框
     passwordResolver = resolve;
-    passwordFileLabel.textContent = `檔案：${fileName}`;
+    passwordOwner = item;
+    passwordFileLabel.textContent = `檔案：${item.name}`;
     passwordInput.value = '';
     passwordError.textContent = '密碼不正確，請再試一次';
     passwordError.classList.toggle('hidden', !wrongBefore);
@@ -564,6 +667,7 @@ function closePasswordModal(result) {
   passwordModal.classList.add('hidden');
   const resolve = passwordResolver;
   passwordResolver = null;
+  passwordOwner = null;                  // [新增]
   if (resolve) resolve(result);
 }
 
@@ -776,6 +880,18 @@ try {
 } catch (e) {}
 
 let compressSaved = 0;                       // 單次儲存作業累計「影像縮減」的位元組數
+let compressOut = 0;                         // [新增] 單次儲存作業累計「實際輸出」的位元組數
+let compressOverride = null;                 // [新增] 儲存前詢問時選的等級，只影響這一次儲存（null＝沿用設定）
+const COMPRESS_ASK_KEY = 'pdf_tool_compress_ask';
+const COMPRESS_LAST_KEY = 'pdf_tool_compress_last';
+const LARGE_SAVE_PROMPT_BYTES = 20 * 1024 * 1024;   // [新增] 預估輸出達這個大小才會在儲存前詢問
+let askCompressEnabled = true;
+let lastPromptLevel = 'off';
+try {
+  askCompressEnabled = localStorage.getItem(COMPRESS_ASK_KEY) !== '0';
+  const lp = localStorage.getItem(COMPRESS_LAST_KEY);
+  if (lp && (lp === 'off' || COMPRESS_PRESETS[lp])) lastPromptLevel = lp;
+} catch (e) {}
 const imageOptCache = new WeakMap();         // 以原始影像位元組為鍵，同一張圖在同一等級只處理一次（逐頁 / 每 N 頁拆分時很有用）
 
 const compressBtn = document.getElementById('compressBtn');
@@ -784,6 +900,14 @@ const cmpLevel = document.getElementById('cmpLevel');
 const cmpDesc = document.getElementById('cmpDesc');
 const cmpOkBtn = document.getElementById('cmpOkBtn');
 const cmpCancelBtn = document.getElementById('cmpCancelBtn');
+const cmpModalTitle = document.getElementById('cmpModalTitle');
+const cmpAskCheck = document.getElementById('cmpAskCheck');
+const cmpEstimateWrap = document.getElementById('cmpEstimateWrap');
+const cmpEstimateBtn = document.getElementById('cmpEstimateBtn');
+const cmpEstimateList = document.getElementById('cmpEstimateList');
+const cmpEstimateNote = document.getElementById('cmpEstimateNote');
+
+const CMP_LEVEL_NAMES = { off: '不壓縮', light: '輕度', standard: '標準', strong: '強力' };
 
 function formatBytes(n) {
   if (n >= 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
@@ -793,8 +917,13 @@ function formatBytes(n) {
 // 取出並歸零本次作業的壓縮摘要，附加在成功訊息後面
 function takeCompressNote() {
   const n = compressSaved;
+  const out = compressOut;
   compressSaved = 0;
-  return n > 0 ? `（影像縮減約 ${formatBytes(n)}）` : '';
+  compressOut = 0;
+  const parts = [];
+  if (n > 0) parts.push(`影像縮減約 ${formatBytes(n)}`);
+  if (out > 0) parts.push(`輸出 ${formatBytes(out)}`);      // [新增] 顯示實際輸出大小，可對照預估
+  return parts.length ? `（${parts.join('，')}）` : '';
 }
 
 function refreshCompressBtn() {
@@ -805,22 +934,268 @@ function refreshCompressBtn() {
 }
 refreshCompressBtn();
 
+// ---- [新增] 儲存範圍與預估 ----
+// scope = [{ item, fraction }]：要輸出的檔案，以及各檔輸出的頁數比例（調動 / 擷取只輸出部分頁面時 < 1）
+function scopeBytes(scope) {
+  return scope.reduce((s, x) => s + x.item.file.size * x.fraction, 0);
+}
+
+function reorderScope(pages) {
+  const counts = new Map();
+  pages.forEach(p => counts.set(p.docId, (counts.get(p.docId) || 0) + 1));
+  return [...counts].map(([id, n]) => {
+    const item = docs.find(d => d.id === id);
+    return item ? { item, fraction: Math.min(1, n / Math.max(1, item.pageCount)) } : null;
+  }).filter(Boolean);
+}
+
+// 目前分頁「按下儲存會輸出的內容」（設定選單開啟對話框時用）
+function getCurrentSaveScope() {
+  if (currentTab === 'merge') {
+    const items = isMergeSelectionMode ? docs.filter(d => d.selected) : docs;
+    return items.map(item => ({ item, fraction: 1 }));
+  }
+  if (currentTab === 'split') return splitItem ? [{ item: splitItem, fraction: 1 }] : [];
+  if (currentTab === 'reorder') {
+    return reorderScope(isSelectionMode ? reorderPages.filter(p => p.selected) : reorderPages);
+  }
+  return [];
+}
+
+let cmpMode = 'settings';          // 'settings'＝設定選單開啟（記住等級）；'save'＝大檔儲存前詢問（只影響這次）
+let cmpResolver = null;            // save 模式：resolve(等級) 或 resolve(null＝取消儲存)
+let cmpScope = [];
+let cmpEstimateToken = 0;          // 關閉 / 重新預估時遞增，讓舊的非同步預估失效
+let cmpEstimateData = null;
+
+// 等距挑出 k 個索引（含第一個與最後一個）
+function pickSampleIndexes(n, k) {
+  if (n <= k) return Array.from({ length: n }, (_, i) => i);
+  const set = new Set();
+  for (let i = 0; i < k; i++) set.add(Math.round(i * (n - 1) / (k - 1)));
+  return [...set].sort((a, b) => a - b);
+}
+
+// 取樣試壓：掃描各檔的 JPEG 影像，依大小排序後等距挑幾張，實際以三個等級各壓一次，
+// 再依「各取樣所代表的影像群」的位元組數放大，推算整份的縮減量。非 JPEG 的內容視為不變。
+async function estimateCompression(scope, token, onProgress) {
+  const { PDFRawStream } = PDFLib;
+  const levels = ['light', 'standard', 'strong'];
+  const perItemK = Math.min(6, Math.max(2, Math.floor(24 / Math.max(1, scope.length))));
+  const res = { orig: 0, jpeg: 0, saved: { light: 0, standard: 0, strong: 0 }, skipped: 0, sampled: 0 };
+
+  for (let f = 0; f < scope.length; f++) {
+    const { item, fraction } = scope[f];
+    if (token !== cmpEstimateToken) return null;
+    res.orig += item.file.size * fraction;
+    onProgress(`正在分析影像… 檔案 ${f + 1}/${scope.length}`);
+    await nextFrame();
+
+    // 不走 loadLibDoc：加密檔在那裡會被整份轉成影像，只為了預估太浪費；載入失敗的檔案直接略過
+    let lib = null;
+    try {
+      let bytes;
+      try { bytes = await (await ensurePdfJsDoc(item)).getData(); }
+      catch (e) { bytes = new Uint8Array(await item.file.arrayBuffer()); }
+      lib = await PDFDocument.load(bytes, { updateMetadata: false });
+    } catch (e) {
+      res.skipped++;
+      continue;
+    }
+
+    const targets = [];
+    for (const [, obj] of lib.context.enumerateIndirectObjects()) {
+      if (obj instanceof PDFRawStream && obj.contents.length >= 20000 && jpegImageInfo(obj)) targets.push(obj.contents);
+    }
+    if (targets.length === 0) { lib = null; continue; }
+
+    targets.sort((a, b) => b.length - a.length);
+    const idxs = pickSampleIndexes(targets.length, perItemK);
+    const jpegTotal = targets.reduce((s, c) => s + c.length, 0);
+
+    for (let si = 0; si < idxs.length; si++) {
+      // 這張取樣代表的影像群（以相鄰取樣的中點為界）
+      const lo = si === 0 ? 0 : Math.floor((idxs[si - 1] + idxs[si]) / 2) + 1;
+      const hi = si === idxs.length - 1 ? targets.length - 1 : Math.floor((idxs[si] + idxs[si + 1]) / 2);
+      let stratumBytes = 0;
+      for (let i = lo; i <= hi; i++) stratumBytes += targets[i].length;
+
+      const sample = targets[idxs[si]];
+      for (const lv of levels) {
+        if (token !== cmpEstimateToken) return null;
+        onProgress(`正在試壓影像… 檔案 ${f + 1}/${scope.length}・${si + 1}/${idxs.length}`);
+        const r = await recompressJpeg(sample, COMPRESS_PRESETS[lv]);
+        if (r) res.saved[lv] += (r.saved / sample.length) * stratumBytes * fraction;
+      }
+      res.sampled++;
+      await nextFrame();
+    }
+    res.jpeg += jpegTotal * fraction;
+    lib = null;
+  }
+  return res;
+}
+
+function estimatedBytes(level) {
+  if (!cmpEstimateData) return null;
+  const d = cmpEstimateData;
+  return level === 'off' ? d.orig : Math.max(1, d.orig - d.saved[level]);
+}
+
+function renderCmpEstimate() {
+  cmpEstimateList.replaceChildren();
+  const d = cmpEstimateData;
+  if (!d) return;
+  for (const lv of ['off', 'light', 'standard', 'strong']) {
+    const est = estimatedBytes(lv);
+    const li = document.createElement('li');
+    li.className = 'cmp-est-row' + (cmpLevel.value === lv ? ' selected' : '');
+    li.dataset.level = lv;
+    const name = document.createElement('span');
+    name.textContent = CMP_LEVEL_NAMES[lv];
+    const size = document.createElement('span');
+    size.className = 'cmp-est-size';
+    size.textContent = `約 ${formatBytes(est)}`;
+    const pct = document.createElement('span');
+    pct.className = 'cmp-est-pct';
+    pct.textContent = lv === 'off' || d.orig <= 0 ? '' : `−${Math.round((1 - est / d.orig) * 100)}%`;
+    li.append(name, size, pct);
+    cmpEstimateList.appendChild(li);
+  }
+
+  const notes = [];
+  if (d.orig > 0 && d.jpeg / d.orig < 0.1) {
+    notes.push(d.jpeg === 0
+      ? '找不到可壓縮的 JPEG 影像，壓縮幾乎不會變小。'
+      : `可壓縮的 JPEG 影像只佔約 ${Math.round((d.jpeg / d.orig) * 100)}%，壓縮效果有限。`);
+  }
+  if (d.skipped > 0) notes.push(`有 ${d.skipped} 個檔案無法分析（例如加密檔，儲存時會轉成影像，大小可能差很多）。`);
+  notes.push('預估值依取樣試壓推算，實際大小可能相差約 ±15%；儲存完成後會顯示實際大小。');
+  cmpEstimateNote.textContent = notes.join(' ');
+}
+
+async function runCmpEstimate() {
+  if (cmpScope.length === 0) return;
+  const token = ++cmpEstimateToken;
+  cmpEstimateBtn.disabled = true;
+  cmpEstimateData = null;
+  cmpEstimateList.replaceChildren();
+  cmpEstimateNote.textContent = '預估中…';
+  try {
+    const data = await estimateCompression(cmpScope, token, (msg) => {
+      if (token === cmpEstimateToken) cmpEstimateNote.textContent = msg;
+    });
+    if (!data || token !== cmpEstimateToken) return;     // 已關閉或重新預估
+    cmpEstimateData = data;
+    renderCmpEstimate();
+  } catch (err) {
+    console.error(err);
+    if (token === cmpEstimateToken) cmpEstimateNote.textContent = '預估失敗，仍可直接選擇等級儲存。';
+  } finally {
+    if (token === cmpEstimateToken) {
+      cmpEstimateBtn.disabled = false;
+      cmpEstimateBtn.textContent = '重新預估';
+    }
+  }
+}
+cmpEstimateBtn.addEventListener('click', runCmpEstimate);
+cmpEstimateList.addEventListener('click', (e) => {
+  const row = e.target.closest('.cmp-est-row');
+  if (!row) return;
+  cmpLevel.value = row.dataset.level;
+  updateCompressDesc();
+});
+
 function updateCompressDesc() {
   const p = COMPRESS_PRESETS[cmpLevel.value];
   cmpDesc.textContent = p ? p.desc : COMPRESS_OFF_DESC;
+  if (cmpMode === 'save') cmpOkBtn.textContent = cmpLevel.value === 'off' ? '直接儲存' : '壓縮並儲存';
+  if (cmpEstimateData) renderCmpEstimate();
 }
 
-function openCompressModal() {
-  cmpLevel.value = compressLevel;
+function showCompressModal() {
+  cmpAskCheck.checked = askCompressEnabled;
+  cmpEstimateData = null;
+  cmpEstimateList.replaceChildren();
+  cmpEstimateBtn.disabled = false;
+  cmpEstimateBtn.textContent = '預估大小';
+  const hasScope = cmpScope.length > 0;
+  cmpEstimateWrap.classList.toggle('hidden', !hasScope);
+  if (hasScope) {
+    cmpEstimateNote.textContent = cmpMode === 'save'
+      ? ''
+      : `目前內容約 ${formatBytes(scopeBytes(cmpScope))}；按「預估大小」可試算各等級壓縮後的大小（大檔需要數秒到數十秒）。`;
+  }
   updateCompressDesc();
   compressModal.classList.remove('hidden');
   cmpLevel.focus();
+  if (cmpMode === 'save' && hasScope) runCmpEstimate();     // 儲存前詢問：自動開始預估
 }
+
+// 設定選單開啟：記住等級（原本的行為）
+function openCompressModal() {
+  cmpMode = 'settings';
+  cmpModalTitle.textContent = '縮小檔案';
+  cmpOkBtn.textContent = '確定';
+  cmpLevel.value = compressLevel;
+  cmpScope = getCurrentSaveScope();
+  showCompressModal();
+}
+
+// [新增] 大檔儲存前詢問：回傳選的等級，使用者取消儲存則回傳 null
+function openCompressPrompt(scope) {
+  return new Promise((resolve) => {
+    cmpMode = 'save';
+    cmpResolver = resolve;
+    cmpModalTitle.textContent = `檔案較大（約 ${formatBytes(scopeBytes(scope))}），要壓縮後再儲存嗎？`;
+    cmpLevel.value = lastPromptLevel;
+    cmpScope = scope;
+    showCompressModal();
+  });
+}
+
+// 儲存前呼叫：回傳 false＝使用者取消儲存。只有「預估輸出大」且「設定沒有固定壓縮等級」且「沒關閉詢問」才會跳出
+async function promptCompressForSave(scope) {
+  compressOverride = null;
+  if (!askCompressEnabled || compressLevel !== 'off' || scope.length === 0) return true;
+  if (scopeBytes(scope) < LARGE_SAVE_PROMPT_BYTES) return true;
+  if (cmpResolver) return false;
+  const level = await openCompressPrompt(scope);
+  if (level === null) return false;
+  compressOverride = level;
+  return true;
+}
+
 function closeCompressModal() {
+  cmpEstimateToken++;                          // 取消進行中的預估
   compressModal.classList.add('hidden');
+  const resolve = cmpResolver;
+  cmpResolver = null;
+  if (resolve) resolve(null);                  // save 模式下關閉＝取消儲存
 }
+
+function saveAskCompressPref() {
+  const on = cmpAskCheck.checked;
+  if (on === askCompressEnabled) return;
+  askCompressEnabled = on;
+  try { localStorage.setItem(COMPRESS_ASK_KEY, on ? '1' : '0'); } catch (e) {}
+  if (!on) setStatus('已關閉「大檔案儲存前詢問壓縮」，可從設定 ⚙ → 縮小檔案重新開啟');
+}
+
 function confirmCompress() {
-  compressLevel = COMPRESS_PRESETS[cmpLevel.value] ? cmpLevel.value : 'off';
+  const chosen = COMPRESS_PRESETS[cmpLevel.value] ? cmpLevel.value : 'off';
+  saveAskCompressPref();
+  if (cmpMode === 'save') {
+    lastPromptLevel = chosen;
+    try { localStorage.setItem(COMPRESS_LAST_KEY, chosen); } catch (e) {}
+    cmpEstimateToken++;
+    compressModal.classList.add('hidden');
+    const resolve = cmpResolver;
+    cmpResolver = null;
+    if (resolve) resolve(chosen);              // 只影響這一次儲存，不改動設定中的等級
+    return;
+  }
+  compressLevel = chosen;
   try { localStorage.setItem(COMPRESS_KEY, compressLevel); } catch (e) {}
   refreshCompressBtn();
   closeCompressModal();
@@ -835,7 +1210,7 @@ compressModal.addEventListener('mousedown', (e) => {
   if (e.target === compressModal) closeCompressModal();
 });
 compressModal.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.isComposing && e.target.tagName !== 'SELECT') {
+  if (e.key === 'Enter' && !e.isComposing && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') {
     e.preventDefault();
     confirmCompress();
   } else if (e.key === 'Escape') {
@@ -989,16 +1364,19 @@ async function optimizeImages(pdfDoc, preset, presetKey, quiet) {
 async function finalizePdf(pdfDoc, offset = 0, total = null, quiet = false) {
   await applyPageNumbers(pdfDoc, offset, total);
 
-  const preset = COMPRESS_PRESETS[compressLevel];
+  const level = compressOverride || compressLevel;       // [修改] 儲存前詢問選的等級優先
+  const preset = COMPRESS_PRESETS[level];
   if (preset) {
-    compressSaved += await optimizeImages(pdfDoc, preset, compressLevel, quiet);
+    compressSaved += await optimizeImages(pdfDoc, preset, level, quiet);
   }
 
   if (!quiet) {
     setStatus('正在產生檔案…', '', true);
     await nextFrame();
   }
-  return pdfDoc.save({ useObjectStreams: true });
+  const out = await pdfDoc.save({ useObjectStreams: true });
+  compressOut += out.length;                              // [新增]
+  return out;
 }
 
 // =======================
@@ -1167,6 +1545,16 @@ function createLibLoader() {
   };
 }
 
+// [新增] 目前正在載入中的批次數（頂端進度條只在全部批次結束後才收起）
+let activeLoadBatches = 0;
+
+// [新增] 建立「使用者取消載入」的例外（以 cancelled 旗標識別，不會被當成讀檔失敗）
+function makeCancelError() {
+  const err = new Error('載入已取消');
+  err.cancelled = true;
+  return err;
+}
+
 // 統一的載入入口：按鈕、拖放都走這裡
 async function addFiles(files) {
   const pdfFiles = files.filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
@@ -1184,7 +1572,9 @@ async function addFiles(files) {
     selected: false,
     pdfJsPromise: null,
     pagesAdded: false,
-    password: null
+    password: null,
+    cancelled: false,      // [新增] 被移除 / 清空時設為 true，載入流程據此中止
+    loadingTask: null      // [新增] pdf.js 的載入工作（取消時用來 destroy）
   }));
   newItems.forEach(item => knownDocs.set(item.id, item));
 
@@ -1207,21 +1597,67 @@ async function addFiles(files) {
 
   let loaded = 0;
   const failed = [];
-  for (const item of newItems) {
+
+  // [新增] 載入進度：頂端色線條＝整批檔案的「已讀位元組 / 總位元組」，狀態列顯示百分比與剩餘時間；
+  //        pdf.js 解析階段無法得知進度，改用來回滑動的線條表示「處理中」
+  const totalBytes = newItems.reduce((s, it) => s + it.file.size, 0) || 1;
+  const readBytes = new Map();                       // docId → 已讀位元組
+  const sumRead = () => { let s = 0; readBytes.forEach(v => { s += v; }); return s; };
+  const t0 = performance.now();
+  let lastPaint = 0;
+  const shortName = (n) => (n.length > 30 ? `${n.slice(0, 27)}…` : n);
+  const setBadge = (item, text) => {
+    item.loadLabel = text;
+    const el = mergeFileList.querySelector(`.file-page-badge[data-doc-id="${item.id}"]`);
+    if (el && item.pageCount === null) el.textContent = text;
+  };
+  const makeHooks = (item, idx) => ({
+    onRead(done, size) {
+      readBytes.set(item.id, done);
+      const now = performance.now();
+      if (done < size && now - lastPaint < 100) return;     // 節流：最多每 0.1 秒更新一次畫面
+      lastPaint = now;
+      const sum = sumRead();
+      const elapsed = (now - t0) / 1000;
+      const eta = elapsed > 1.5 && sum > 0 ? Math.ceil(elapsed * (totalBytes - sum) / sum) : null;
+      const etaText = eta !== null && eta >= 1 ? `，約剩 ${eta >= 60 ? `${Math.ceil(eta / 60)} 分鐘` : `${eta} 秒`}` : '';
+      const multi = newItems.length > 1 ? `（${idx + 1}/${newItems.length}）` : '';
+      setProgress(sum, totalBytes);
+      setStatus(`正在讀取${multi}「${shortName(item.name)}」${Math.round((sum / totalBytes) * 100)}%（${formatBytes(sum)} / ${formatBytes(totalBytes)}${etaText}）· 按 ✕ 或「清空」可取消`, '', true);
+      setBadge(item, `讀取 ${Math.round((done / Math.max(1, size)) * 100)}%`);
+    },
+    onParse() {
+      readBytes.set(item.id, item.file.size);
+      setProgressIndeterminate();
+      setStatus(`正在解析「${shortName(item.name)}」…（大型檔案可能需要數秒）`, '', true);
+      setBadge(item, '解析中...');
+    }
+  });
+  newItems.forEach(it => { it.loadLabel = '等待中'; });
+  renderMergeList();
+
+  activeLoadBatches++;
+  for (let idx = 0; idx < newItems.length; idx++) {
+    const item = newItems[idx];
+    if (item.cancelled) continue;                    // [新增] 已被取消 / 移除：直接跳過
     try {
-      const pdf = await openDocWithPassword(item);   // 與縮圖 / 預覽共用同一份 pdf.js 文件；加密檔會先詢問密碼
+      const pdf = await openDocWithPassword(item, makeHooks(item, idx));   // 與縮圖 / 預覽共用同一份 pdf.js 文件；加密檔會先詢問密碼
+      if (item.cancelled) continue;                  // [新增] 解析完成的瞬間被取消：資源已由 releaseDoc 釋放
       item.pageCount = pdf.numPages;
     } catch (err) {
+      if (item.cancelled) continue;                  // [新增] 取消造成的例外不算失敗
       console.error(`讀取 ${item.name} 失敗:`, err);
       item.pageCount = 0;
       failed.push({ name: item.name, kind: classifyLoadError(err) });
     }
     renderMergeList();
     loaded++;
-    if (newItems.length > 1) setProgress(loaded, newItems.length);
+    readBytes.set(item.id, item.file.size);
+    setProgress(sumRead(), totalBytes);              // 離開「解析」階段，回到有刻度的進度
   }
-  clearProgress();
-  setStatus('');
+  activeLoadBatches = Math.max(0, activeLoadBatches - 1);
+  if (activeLoadBatches === 0) clearProgress();      // [修改] 還有其他批次在載入時，保留進度條
+  setStatus(newItems.every(it => it.cancelled) ? '已取消載入' : '');
 
   if (failed.length > 0) {
     docs = docs.filter(d => d.pageCount !== 0);
@@ -1258,16 +1694,18 @@ function classifyLoadError(err) {
 }
 
 // [新增] 開啟 PDF；遇到加密檔就跳出密碼對話框，密碼錯誤可重試，按「略過」則丟出錯誤
-async function openDocWithPassword(item) {
+async function openDocWithPassword(item, hooks) {
   while (true) {
+    if (item.cancelled) throw makeCancelError();         // [新增]
     try {
-      return await ensurePdfJsDoc(item);
+      return await ensurePdfJsDoc(item, hooks);
     } catch (err) {
-      if (!isPasswordError(err)) throw err;
+      if (!isPasswordError(err) || item.cancelled) throw err;   // [修改] 已取消就直接往外丟
       const wrong = err.code === 2;          // 2 = 密碼錯誤
       item.password = null;
       setStatus('');                          // 先收起「正在讀取檔案…」提示，避免遮住對話框
-      const pwd = await askPassword(item.name, wrong);
+      const pwd = await askPassword(item, wrong);   // [修改] 傳入 item（原本是 item.name）
+      if (item.cancelled) throw makeCancelError();  // [新增] 對話框開著時被取消
       if (pwd === null) {
         const skipped = new Error('使用者略過加密檔案');
         skipped.skippedPassword = true;
@@ -1281,7 +1719,7 @@ async function openDocWithPassword(item) {
 
 toggleMergeSelectModeBtn.addEventListener('click', () => {
   isMergeSelectionMode = !isMergeSelectionMode;
-  toggleMergeSelectModeBtn.classList.toggle('active', isMergeSelectionMode);
+  setSelectToggleUI(toggleMergeSelectModeBtn, isMergeSelectionMode);
   mergeSelectionSubTools.classList.toggle('hidden', !isMergeSelectionMode);
   mergeFileList.classList.toggle('selection-mode', isMergeSelectionMode);
 
@@ -1301,12 +1739,6 @@ mergeSelectAllBtn.addEventListener('click', () => {
   const allSelected = docs.length > 0 && docs.every(item => item.selected);
   const targetState = !allSelected;
   docs.forEach(item => { item.selected = targetState; });
-  updateMergeSelectionUI();
-});
-
-mergeInvertSelectBtn.addEventListener('click', () => {
-  if (!isMergeSelectionMode) return;
-  docs.forEach(item => { item.selected = !item.selected; });
   updateMergeSelectionUI();
 });
 
@@ -1359,7 +1791,7 @@ function updateMergeSelectionUI() {
     const allSelected = selectedCount === totalFiles;
 
     mergePageInfo.textContent = `已選 ${selectedCount}/${totalFiles} 檔 (${selectedPages}頁)`;
-    mergeSelectAllBtnText.textContent = allSelected ? '取消' : '全選';
+    mergeSelectAllBtnText.textContent = allSelected ? '取消全選' : '全選';
     deleteSelectedMergeBtn.disabled = selectedCount === 0;
     deleteSelectedMergeText.textContent = selectedCount > 0 ? `刪除 (${selectedCount})` : '刪除';
   } else {
@@ -1388,7 +1820,7 @@ function renderMergeList() {
 
   if (!hasFiles && isMergeSelectionMode) {
     isMergeSelectionMode = false;
-    toggleMergeSelectModeBtn.classList.remove('active');
+    setSelectToggleUI(toggleMergeSelectModeBtn, false);
     mergeSelectionSubTools.classList.add('hidden');
     mergeFileList.classList.remove('selection-mode');
   }
@@ -1410,7 +1842,7 @@ function renderMergeList() {
 
     const dragHandle = document.createElement('span');
     dragHandle.className = 'drag-handle';
-    dragHandle.textContent = '⋮⋮';
+    setIcon(dragHandle, 'grip', 18);
 
     const nameSpan = document.createElement('span');
     nameSpan.className = 'file-name';
@@ -1419,8 +1851,9 @@ function renderMergeList() {
 
     const pageBadge = document.createElement('span');
     pageBadge.className = 'file-page-badge';
+    pageBadge.dataset.docId = String(item.id);
     if (item.pageCount === null) {
-      pageBadge.textContent = '讀取中...';
+      pageBadge.textContent = item.loadLabel || '讀取中...';
     } else if (item.pageCount > 0) {
       pageBadge.textContent = item.password ? `${item.pageCount} 頁 🔒` : `${item.pageCount} 頁`;
       if (item.password) pageBadge.title = '已解鎖的加密檔案；儲存時此檔案的頁面會轉成影像';
@@ -1433,7 +1866,7 @@ function renderMergeList() {
 
     const upBtn = document.createElement('button');
     upBtn.className = 'icon-btn';
-    upBtn.textContent = '↑';
+    setIcon(upBtn, 'up', 18);
     upBtn.title = '上移';
     upBtn.disabled = index === 0;
     upBtn.addEventListener('click', (e) => {
@@ -1443,7 +1876,7 @@ function renderMergeList() {
 
     const downBtn = document.createElement('button');
     downBtn.className = 'icon-btn';
-    downBtn.textContent = '↓';
+    setIcon(downBtn, 'down', 18);
     downBtn.title = '下移';
     downBtn.disabled = index === docs.length - 1;
     downBtn.addEventListener('click', (e) => {
@@ -1453,8 +1886,8 @@ function renderMergeList() {
 
     const removeBtn = document.createElement('button');
     removeBtn.className = 'icon-btn';
-    removeBtn.textContent = '✕';
-    removeBtn.title = '移除';
+    setIcon(removeBtn, 'close', 16);
+    removeBtn.title = item.pageCount === null ? '取消載入並移除' : '移除';   // [修改] 載入中的檔案按 ✕ ＝ 取消載入
     removeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       docs.splice(index, 1);
@@ -1463,7 +1896,7 @@ function renderMergeList() {
 
     const splitBtn = document.createElement('button');
     splitBtn.className = 'icon-btn';
-    splitBtn.textContent = '✂';
+    setIcon(splitBtn, 'cut', 16);
     splitBtn.title = '分割此檔案';
     splitBtn.disabled = !(item.pageCount > 0);
     splitBtn.addEventListener('click', (e) => {
@@ -1545,6 +1978,12 @@ function onLibraryChanged() {
 }
 
 function releaseDoc(item) {
+  item.cancelled = true;                                       // [新增] 通知載入流程：此檔已被移除，請中止
+  if (passwordOwner === item) closePasswordModal(null);        // [新增] 正在問這個檔案的密碼 → 關閉對話框
+  if (item.loadingTask) {                                      // [新增] 還在讀取 / 解析中 → 直接中止 pdf.js 載入
+    try { item.loadingTask.destroy(); } catch (e) {}
+    item.loadingTask = null;
+  }
   const prefix = `${item.id}_`;
   Object.keys(thumbnailCache).forEach(k => {
     if (k.startsWith(prefix)) {
@@ -1564,15 +2003,59 @@ function moveMergeFile(index, direction) {
   renderMergeList();
 }
 
-clearAllBtn.addEventListener('click', () => {
+// [新增] 自訂確認視窗：回傳 Promise<boolean>；Esc、點背景、取消皆視為否。預設聚焦在「取消」避免誤按
+const confirmModal = document.getElementById('confirmModal');
+const confirmTitle = document.getElementById('confirmTitle');
+const confirmMsg = document.getElementById('confirmMsg');
+const confirmOkBtn = document.getElementById('confirmOkBtn');
+const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+
+function askConfirm({ title, message, okText = '確定' }) {
+  return new Promise((resolve) => {
+    confirmTitle.textContent = title;
+    confirmMsg.textContent = message;
+    confirmOkBtn.textContent = okText;
+    const prevFocus = document.activeElement;
+
+    const done = (result) => {
+      confirmModal.classList.add('hidden');
+      confirmOkBtn.removeEventListener('click', onOk);
+      confirmCancelBtn.removeEventListener('click', onCancel);
+      confirmModal.removeEventListener('mousedown', onOverlay);
+      document.removeEventListener('keydown', onKey, true);
+      if (prevFocus && prevFocus.focus) prevFocus.focus();
+      resolve(result);
+    };
+    const onOk = () => done(true);
+    const onCancel = () => done(false);
+    const onOverlay = (e) => { if (e.target === confirmModal) done(false); };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(false); }
+    };
+
+    confirmOkBtn.addEventListener('click', onOk);
+    confirmCancelBtn.addEventListener('click', onCancel);
+    confirmModal.addEventListener('mousedown', onOverlay);
+    document.addEventListener('keydown', onKey, true);
+    confirmModal.classList.remove('hidden');
+    confirmCancelBtn.focus();
+  });
+}
+
+clearAllBtn.addEventListener('click', async () => {
   if (docs.length === 0) return;
-  // 調動中有調過頁序 / 刪除 / 旋轉時，清空會一併丟失，先確認
-  if (reorderEdited && !confirm('調動中有尚未儲存的編輯（頁序、刪除、旋轉），清空後會全部消失。確定要清空嗎？')) {
-    return;
-  }
+  // 調動中有調過頁序 / 刪除 / 旋轉時，清除會一併丟失，訊息要特別提醒
+  const ok = await askConfirm({
+    title: '清除所有檔案？',
+    message: reorderEdited
+      ? '調動中有尚未儲存的編輯（頁序、刪除、旋轉），清除後會全部消失。'
+      : `將從清單移除全部 ${docs.length} 個檔案。原始檔案不會被更動。`,
+    okText: '清除檔案'
+  });
+  if (!ok || docs.length === 0) return;
   docs = [];
   renderMergeList();
-  setStatus('已清空所有檔案');
+  setStatus('已清除所有檔案');
 });
 
 // 離開頁面前提醒：調動中有未儲存的編輯（頁序、刪除、旋轉）時，重新整理或關閉分頁會先跳出瀏覽器的確認視窗
@@ -1592,6 +2075,9 @@ async function executeMergeSave() {
     setStatus('請至少選擇 2 個 PDF 檔案進行合併', 'error');
     return;
   }
+
+  // [新增] 大檔案儲存前詢問是否壓縮（可預估壓縮後大小）
+  if (!(await promptCompressForSave(itemsToMerge.map(item => ({ item, fraction: 1 }))))) return;
 
   const mergeDefaultBase = `${itemsToMerge[0].name.replace(/\.pdf$/i, '')}_合併`;
   const mergeOutName = await askFileName(mergeDefaultBase, 'pdf', '儲存合併後的 PDF');
@@ -1646,6 +2132,7 @@ function refreshSplitView() {
     splitFile = null;
     splitItem = null;
     splitTotalPages = 0;
+    pageRangeInput.value = '';                   // [新增] 清空後不保留上次輸入的擷取頁碼
     updateSaveButtonState();
     return;
   }
@@ -1775,6 +2262,8 @@ async function executeSplitSave() {
 
     if (mode === 'range') {
       const pageIndices = parsePageRanges(pageRangeInput.value, splitTotalPages);
+      // [新增] 大檔案儲存前詢問是否壓縮（輸出大小依擷取頁數比例預估）
+      if (!(await promptCompressForSave([{ item: splitItem, fraction: pageIndices.length / splitTotalPages }]))) { setStatus(''); return; }
       const rangeOutName = await askFileName(`${baseName}_擷取`, 'pdf', '儲存擷取的 PDF');
       if (!rangeOutName) { setStatus(''); return; }
       const srcDoc = await loadLibDoc(splitItem);
@@ -1815,6 +2304,9 @@ async function executeSplitSave() {
       const useZip = splitZipCheck.checked && groups.length > 1;
       const entries = [];
 
+      // [新增] 大檔案儲存前詢問是否壓縮
+      if (!(await promptCompressForSave([{ item: splitItem, fraction: 1 }]))) { setStatus(''); return; }
+
       // 打包 ZIP 時才有「單一輸出檔」可命名；分開下載時沿用自動檔名
       let zipOutName = '';
       if (useZip) {
@@ -1853,6 +2345,7 @@ async function executeSplitSave() {
         setStatus('正在打包 ZIP…', '', true);
         await nextFrame();
         const zipBlob = buildZip(entries);
+        entries.length = 0;                          // [新增] ZIP 已建好，立刻放掉各份 PDF 的暫存位元組
         downloadBlob(zipBlob, zipOutName);
         setStatus(`✓ 已將 ${groups.length} 個檔案打包成 ZIP 並開始下載${takeCompressNote()}`, 'success');
       } else {
@@ -1872,8 +2365,10 @@ async function executeSplitSave() {
 // =======================
 toggleSelectModeBtn.addEventListener('click', () => {
   isSelectionMode = !isSelectionMode;
-  toggleSelectModeBtn.classList.toggle('active', isSelectionMode);
+  setSelectToggleUI(toggleSelectModeBtn, isSelectionMode);
   selectionSubTools.classList.toggle('hidden', !isSelectionMode);
+  rangeSelectWrap.classList.toggle('hidden', !isSelectionMode);   // [新增]
+  if (!isSelectionMode) closeMenus();                              // [新增]
   reorderBody.classList.toggle('selection-mode', isSelectionMode);
 
   if (isSelectionMode) {
@@ -1894,14 +2389,6 @@ selectAllBtn.addEventListener('click', () => {
   const targetState = !allSelected;
   reorderPages.forEach(p => {
     p.selected = targetState;
-  });
-  updateSelectionUI();
-});
-
-invertSelectBtn.addEventListener('click', () => {
-  if (!isSelectionMode) return;
-  reorderPages.forEach(p => {
-    p.selected = !p.selected;
   });
   updateSelectionUI();
 });
@@ -1934,6 +2421,7 @@ function selectPagesByRange() {
   lastCheckedPageIndex = null;
   setActivePage(Math.min(...indices), true);   // 捲動到第一個被選取的頁面（同時更新選取狀態畫面）
   setStatus(`✓ 已依頁碼選取 ${picked.size} 頁`, 'success');
+  closeMenus();                                  // [新增] 套用後收合
 }
 
 rangeSelectBtn.addEventListener('click', selectPagesByRange);
@@ -1987,7 +2475,7 @@ function updateSelectionUI() {
 
   if (isSelectionMode) {
     reorderPageInfo.textContent = `${selectedCount} / ${totalCount} 頁`;
-    selectAllBtnText.textContent = allSelected ? '取消' : '全選';
+    selectAllBtnText.textContent = allSelected ? '取消全選' : '全選';
     deleteSelectedPagesBtn.disabled = selectedCount === 0 || selectedCount >= totalCount;
     rotateLeftSelectedBtn.disabled = selectedCount === 0;
     rotateRightSelectedBtn.disabled = selectedCount === 0;
@@ -2079,12 +2567,32 @@ const THUMB_CONCURRENCY = 3;
 let thumbActive = 0;
 const thumbQueue = [];
 
+// [新增] 縮圖產生進度：這一批排進佇列的張數 / 已完成張數，顯示在調動工具列的小標籤
+const thumbProgressPill = document.getElementById('thumbProgressPill');
+let thumbBatchTotal = 0;
+let thumbBatchDone = 0;
+function updateThumbProgress() {
+  const pending = thumbBatchTotal - thumbBatchDone;
+  if (pending <= 0) {                              // 全部完成：重置並隱藏
+    thumbBatchTotal = 0;
+    thumbBatchDone = 0;
+    thumbProgressPill.classList.add('hidden');
+    return;
+  }
+  if (thumbBatchTotal < 6) return;                 // 張數很少時不打擾
+  thumbProgressPill.textContent = `縮圖 ${Math.round((thumbBatchDone / thumbBatchTotal) * 100)}%（${thumbBatchDone}/${thumbBatchTotal}）`;
+  thumbProgressPill.classList.remove('hidden');
+}
+
 function clearThumbnailCache() {
   thumbGeneration++;
   Object.values(thumbnailCache).forEach(url => URL.revokeObjectURL(url));
   thumbnailCache = {};
   renderingPages.clear();
   thumbQueue.length = 0;
+  thumbBatchTotal = 0;
+  thumbBatchDone = 0;
+  updateThumbProgress();
 }
 
 function renderSingleThumbnail(key) {
@@ -2095,9 +2603,13 @@ function renderSingleThumbnail(key) {
     return;
   }
 
+  if ((QUALITY_PRESETS[thumbQualitySelect.value] || {}).none) return;   // [新增] 光速：不產生縮圖，保留頁碼空框
+
   if (renderingPages.has(key)) return;
   renderingPages.add(key);
   thumbQueue.push(key);
+  thumbBatchTotal++;                // [新增]
+  updateThumbProgress();
   pumpThumbQueue();
 }
 
@@ -2108,16 +2620,75 @@ function pumpThumbQueue() {
     renderThumbnailNow(key).finally(() => {
       thumbActive--;
       pumpThumbQueue();
+      if (thumbActive === 0 && thumbQueue.length === 0) scheduleIdleCleanup();   // [新增]
     });
   }
 }
 
+// [新增] 縮圖全部畫完、閒置一段時間後，請 pdf.js 釋放字型 / 影像等快取
+let idleCleanupTimer = 0;
+function scheduleIdleCleanup() {
+  clearTimeout(idleCleanupTimer);
+  idleCleanupTimer = setTimeout(() => {
+    if (thumbActive > 0 || thumbQueue.length > 0) return;
+    if (currentTab === 'read' || !previewModal.classList.contains('hidden')) return;   // 閱讀 / 預覽中不打斷
+    docs.forEach(item => {
+      if (item.pdfJsPromise) item.pdfJsPromise.then(d => d.cleanup()).catch(() => {});   // 仍在繪製時會丟錯，直接忽略
+    });
+  }, 1500);
+}
+
 // 取得檔案的 pdf.js 文件（載入檔案取頁數時就建立並快取；檔案只讀一次，位元組交給 pdf.js 保管）
-function ensurePdfJsDoc(item) {
+// [新增] 串流讀檔並回報位元組進度（不支援串流或失敗時退回一次讀完）
+// [修改] 新增 isCancelled：讀取途中被取消就立刻中止串流並丟出取消例外
+async function readFileBytes(file, onRead, isCancelled) {
+  if (!onRead || !file.stream) return new Uint8Array(await file.arrayBuffer());
+  try {
+    const out = new Uint8Array(file.size);
+    const reader = file.stream().getReader();
+    let off = 0;
+    for (;;) {
+      if (isCancelled && isCancelled()) {
+        try { await reader.cancel(); } catch (e) {}
+        throw makeCancelError();
+      }
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (off + value.length > out.length) throw new Error('size mismatch');
+      out.set(value, off);
+      off += value.length;
+      onRead(off, file.size);
+    }
+    if (off !== out.length) throw new Error('size mismatch');
+    return out;
+  } catch (err) {
+    if (err && err.cancelled) throw err;             // [新增] 取消不要退回「一次讀完」
+    return new Uint8Array(await file.arrayBuffer());
+  }
+}
+
+// hooks（選用）：{ onRead(已讀, 總計), onParse() }，只有載入檔案時會傳入，用來顯示進度
+function ensurePdfJsDoc(item, hooks) {
   if (!item.pdfJsPromise) {
-    item.pdfJsPromise = item.file.arrayBuffer()
-      .then(buf => pdfjsLib.getDocument({ data: new Uint8Array(buf), password: item.password || undefined }).promise)
-      .catch(err => { item.pdfJsPromise = null; throw err; });
+    item.pdfJsPromise = readFileBytes(item.file, hooks && hooks.onRead, () => item.cancelled)
+      .then(bytes => {
+        if (item.cancelled) throw makeCancelError();                 // [新增] 讀完時已被取消，不必再解析
+        if (hooks && hooks.onParse) hooks.onParse();
+        const task = pdfjsLib.getDocument({ data: bytes, password: item.password || undefined });
+        item.loadingTask = task;                                     // [新增] 保存起來，取消時可 destroy
+        return task.promise;
+      })
+      .then(doc => {
+        item.loadingTask = null;
+        if (item.cancelled) { doc.destroy(); throw makeCancelError(); }   // [新增] 解析完成時才被取消：立刻釋放
+        return doc;
+      })
+      .catch(err => {
+        // [新增] 失敗 / 需要密碼 / 取消：銷毀載入工作，避免 worker 端殘留整份檔案資料
+        if (item.loadingTask) { try { item.loadingTask.destroy(); } catch (e) {} item.loadingTask = null; }
+        item.pdfJsPromise = null;
+        throw err;
+      });
   }
   return item.pdfJsPromise;
 }
@@ -2142,7 +2713,12 @@ async function renderThumbnailNow(key) {
     canvas.height = viewport.height;
     const ctx = canvas.getContext('2d', { alpha: false });
 
-    await page.render({ canvasContext: ctx, viewport }).promise;
+    const renderParams = { canvasContext: ctx, viewport };
+    if (preset.noAnnots && window.pdfjsLib && pdfjsLib.AnnotationMode) {
+      renderParams.annotationMode = pdfjsLib.AnnotationMode.DISABLE;   // [新增] 超速：不繪製註解 / 表單欄位
+    }
+    await page.render(renderParams).promise;
+    safeCleanup(page);                                   // [新增] 縮圖畫完就釋放此頁在 pdf.js 內的暫存（運算列表、影像快取）
 
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', preset.quality));
 
@@ -2161,6 +2737,8 @@ async function renderThumbnailNow(key) {
   } finally {
     if (generation === thumbGeneration) {
       renderingPages.delete(key);
+      thumbBatchDone++;             // [新增]
+      updateThumbProgress();
     }
   }
 }
@@ -2176,6 +2754,8 @@ function snapshotReorder(label) {
   return {
     label,
     pages: reorderPages.map(p => ({
+      uid: p.uid,                 // [新增]
+      blank: !!p.blank,           // [新增]
       docId: p.docId,
       key: p.key,
       originalIndex: p.originalIndex,
@@ -2208,8 +2788,8 @@ function updateHistoryButtons() {
 
 function restoreSnapshot(snap) {
   // 勾選狀態不屬於編輯內容：保留目前仍存在的頁面的勾選
-  const selectedSet = new Set(reorderPages.filter(p => p.selected).map(p => p.key));
-  reorderPages = snap.pages.map(p => ({ ...p, selected: selectedSet.has(p.key) }));
+  const selectedSet = new Set(reorderPages.filter(p => p.selected).map(p => p.uid));   // [修改] 用 uid（複製的頁面 key 相同）
+  reorderPages = snap.pages.map(p => ({ ...p, selected: selectedSet.has(p.uid) }));
   activeSidebarIndex = Math.max(0, Math.min(snap.active, reorderPages.length - 1));
   lastCheckedPageIndex = null;
   renderReorderPages();
@@ -2290,14 +2870,15 @@ function setImgRotation(img, deg) {
   }
 }
 
-function getPageRotation(key) {
-  const p = reorderPages.find(x => x.key === key);
+// [修改] 改用 uid 查旋轉角度（複製的頁面 key 相同，但旋轉各自獨立）
+function getPageRotation(uid) {
+  const p = reorderPages.find(x => x.uid === uid);
   return p ? (p.rotation || 0) : 0;
 }
 
 function refreshPageRotationDom(pageObj) {
   const rot = pageObj.rotation || 0;
-  document.querySelectorAll(`[data-page-num="${pageObj.key}"]`).forEach(wrapper => {
+  document.querySelectorAll(`[data-uid="${pageObj.uid}"]`).forEach(wrapper => {   // [修改] 原本用 data-page-num（會連動到複製的頁面）
     const img = wrapper.querySelector('.page-thumb-img');
     if (img) setImgRotation(img, rot);
   });
@@ -2340,7 +2921,7 @@ function applyCachedThumbToDom(key, dataUrl) {
     if (imgEl) {
       imgEl.src = dataUrl;
       imgEl.classList.add('loaded');
-      setImgRotation(imgEl, getPageRotation(key));
+      setImgRotation(imgEl, getPageRotation(parseInt(wrapper.dataset.uid, 10)));   // [修改] 依 uid 取旋轉
     }
     if (placeholderEl) {
       placeholderEl.remove();
@@ -2406,7 +2987,10 @@ function renderFileFilterList(focusIdx = -1) {
     row.setAttribute('aria-checked', String(checked));
     row.dataset.docId = d.id;
     row.title = d.name;
-    row.innerHTML = '<span class="filter-check">✓</span><span class="filter-name"></span><span class="filter-count"></span>';
+    row.innerHTML = '<span class="filter-check">✓</span><span class="filter-dot"></span><span class="filter-name"></span><span class="filter-count"></span>';
+    const fdot = row.querySelector('.filter-dot');
+    fdot.textContent = String(i + 1);
+    fdot.style.background = DOC_COLORS[i % DOC_COLORS.length];
     row.querySelector('.filter-name').textContent = d.name.replace(/\.pdf$/i, '');
     row.querySelector('.filter-count').textContent = `${d.pageCount} 頁`;
 
@@ -2536,9 +3120,14 @@ window.addEventListener('keydown', (e) => {
 }, true);
 window.addEventListener('resize', closeFileFilterMenu);
 
+// [新增] 頁面唯一識別碼
+let pageUidSeq = 0;
+const newPageUid = () => ++pageUidSeq;
+
 function buildPageList(readyDocs) {
   return readyDocs.flatMap(d =>
     Array.from({ length: d.pageCount }, (_, i) => ({
+      uid: newPageUid(),
       docId: d.id,
       key: `${d.id}_${i + 1}`,
       originalIndex: i,
@@ -2549,16 +3138,33 @@ function buildPageList(readyDocs) {
   );
 }
 
+// [新增] 大檔預設的縮圖寬度：70px ÷ 200px = 35%
+const LARGE_DOC_DEFAULT_THUMB_WIDTH = 70;
+
 // 依總頁數與檔案大小自動挑選縮圖清晰度；回傳是否有變動
+// [新增] 更大型檔案的門檻（頁數「或」檔案大小任一達到就升級；想調整改這裡）
+const MB = 1024 * 1024;
+const QUALITY_ULTRA_AT   = { pages: 300, bytes: 120 * MB };   // 達到 → 超速
+const QUALITY_INSTANT_AT = { pages: 400, bytes: 200 * MB };   // 達到 → 光速（[修改] 原為 800 頁 / 400 MB）
+const LARGE_QUALITIES = ['fast', 'ultra', 'instant'];         // 這些等級視為「大檔」，預設檢視比例 35%
+
 function autoQualityFor(readyDocs) {
   const totalPages = readyDocs.reduce((sum, d) => sum + d.pageCount, 0);
   const totalSize = readyDocs.reduce((sum, d) => sum + d.file.size, 0);
   let q = 'fast';
-  if (totalPages <= 30 && totalSize <= 15 * 1024 * 1024) q = 'hd';
+  if (totalPages >= QUALITY_INSTANT_AT.pages || totalSize >= QUALITY_INSTANT_AT.bytes) q = 'instant';
+  else if (totalPages >= QUALITY_ULTRA_AT.pages || totalSize >= QUALITY_ULTRA_AT.bytes) q = 'ultra';
+  else if (totalPages <= 30 && totalSize <= 15 * MB) q = 'hd';
   else if (totalPages <= 65) q = 'high';
-  if (thumbQualitySelect.value === q) return false;
+  const changed = thumbQualitySelect.value !== q;
   thumbQualitySelect.value = q;
-  return true;
+  updateThumbModeHint();
+  return changed;
+}
+
+// [修改] 縮圖清晰度改為工具列上的下拉按鈕，不再顯示說明文字；這裡只負責光速模式的空框樣式
+function updateThumbModeHint() {
+  reorderBody.classList.toggle('thumbs-instant', thumbQualitySelect.value === 'instant');
 }
 
 // 讓調動的頁面與檔案庫一致：
@@ -2587,9 +3193,13 @@ function syncReorder() {
     }
     reorderEdited = false;
     reorderOrderSig = '';
+    rangeSelectInput.value = '';                 // [新增] 清空後不保留上次輸入的頁碼範圍
+    rangeSelectInput.classList.remove('invalid');
     isSelectionMode = false;
-    toggleSelectModeBtn.classList.remove('active');
+    setSelectToggleUI(toggleSelectModeBtn, false);
     selectionSubTools.classList.add('hidden');
+    rangeSelectWrap.classList.add('hidden');     // [新增]
+    closeMenus();                                // [新增]
     reorderBody.classList.remove('selection-mode');
     clearHistory();
     updateSelectionUI();
@@ -2620,8 +3230,9 @@ function syncReorder() {
     clearHistory();
     renderReorderPages();
     if (wasEmpty) {
-      currentPresetCycleIndex = 1;
-      applyColumnPreset(4);
+      // [修改] 大檔（自動挑到「極速」）預設檢視比例 35%（= 滑桿最小值 70px）；其餘維持原本的四頁
+      if (LARGE_QUALITIES.includes(thumbQualitySelect.value)) applyContinuousZoom(LARGE_DOC_DEFAULT_THUMB_WIDTH);
+      else applyColumnPreset(4);
     }
   } else if (!hasNewDoc && !hasGoneDoc) {
     // 只是檔案庫的排序變了：使用者已自訂頁序，不動頁面，也保留復原紀錄
@@ -2645,14 +3256,46 @@ function docNameOf(pageObj) {
   return d ? d.name : '';
 }
 
+// [新增] 多檔案時用「色彩圓點 + 編號」代替過長的檔名（顏色依檔案順序固定）
+const DOC_COLORS = ['#e37400', '#1a73e8', '#188038', '#a142f4', '#d93025', '#00897b', '#c2185b', '#5f6368'];
+function docIndexOf(docId) { return docs.filter(d => d.pageCount > 0).findIndex(d => d.id === docId); }
+function docColorOf(pageObj) {
+  const i = docIndexOf(pageObj.docId);
+  return DOC_COLORS[(i < 0 ? 0 : i) % DOC_COLORS.length];
+}
+function buildDocTag(pageObj) {
+  const i = docIndexOf(pageObj.docId);
+  const name = docNameOf(pageObj).replace(/\.pdf$/i, '');
+  const wrap = document.createElement('span');
+  wrap.className = 'orig-tag doc-tag';
+  wrap.title = `${docNameOf(pageObj)}｜原第 ${pageObj.originalPageNum} 頁`;
+  const dot = document.createElement('span');
+  dot.className = 'doc-dot';
+  dot.textContent = String(i + 1);
+  const nm = document.createElement('span');
+  nm.className = 'doc-name';
+  nm.textContent = name;
+  const n = document.createElement('span');
+  n.className = 'doc-n';
+  n.textContent = pageObj.blank ? '·空白' : `·${pageObj.originalPageNum}`;   // [修改]
+  wrap.append(dot, nm, n);
+  // 手機沒有滑過提示：點一下顯示完整檔名
+  wrap.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setStatus(`${i + 1}. ${docNameOf(pageObj)}（原第 ${pageObj.originalPageNum} 頁）`, '', false, 3200);
+  });
+  return wrap;
+}
+
 // 頁面標註「來源」：單檔時只在頁序改變後顯示「原N」；多檔時一律顯示來源
 function origTagText(pageObj, index, compact) {
+  if (pageObj.blank) return '空白';      // [新增]
   const n = pageObj.originalPageNum;
   if (!reorderMulti) {
     if (n === index + 1) return '';
     return compact ? `(${n})` : `(原${n})`;
   }
-  const docIdx = docs.findIndex(d => d.id === pageObj.docId);
+  const docIdx = docIndexOf(pageObj.docId);
   if (compact) return `(${docIdx + 1}-${n})`;
   const name = docNameOf(pageObj).replace(/\.pdf$/i, '');
   return `(${name.length > 8 ? name.slice(0, 8) + '…' : name}·${n})`;
@@ -2682,6 +3325,8 @@ function renderReorderPages() {
     const thumbWrapper = document.createElement('div');
     thumbWrapper.className = 'thumb-wrapper';
     thumbWrapper.dataset.pageNum = pageObj.key;
+    thumbWrapper.dataset.uid = pageObj.uid;                          // [新增]
+    if (pageObj.blank) thumbWrapper.classList.add('is-blank');       // [新增]
     thumbWrapper.title = '按住可拖曳排序（選取模式下會一起拖曳所有已勾選頁面，按住 Ctrl 則只拖曳這一頁）；雙擊可開啟獨立預覽視窗';
 
     li.addEventListener('click', (e) => {
@@ -2709,7 +3354,7 @@ function renderReorderPages() {
 
     const prevBtn = document.createElement('button');
     prevBtn.className = 'float-btn';
-    prevBtn.textContent = '←';
+    setIcon(prevBtn, 'left', 16);
     prevBtn.title = '前移一頁';
     prevBtn.disabled = index === 0;
     prevBtn.addEventListener('click', (e) => {
@@ -2719,7 +3364,7 @@ function renderReorderPages() {
 
     const nextBtn = document.createElement('button');
     nextBtn.className = 'float-btn';
-    nextBtn.textContent = '→';
+    setIcon(nextBtn, 'right', 16);
     nextBtn.title = '後移一頁';
     nextBtn.disabled = index === reorderPages.length - 1;
     nextBtn.addEventListener('click', (e) => {
@@ -2729,7 +3374,7 @@ function renderReorderPages() {
 
     const zoomBtn = document.createElement('button');
     zoomBtn.className = 'float-btn';
-    zoomBtn.textContent = '🔍';
+    setIcon(zoomBtn, 'zoom', 16);
     zoomBtn.title = '獨立燈箱預覽';
     zoomBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -2738,7 +3383,7 @@ function renderReorderPages() {
 
     const removeBtn = document.createElement('button');
     removeBtn.className = 'float-btn danger';
-    removeBtn.textContent = '✕';
+    setIcon(removeBtn, 'close', 16);
     removeBtn.title = '移除此頁';
     removeBtn.disabled = reorderPages.length <= 1;
     removeBtn.addEventListener('click', (e) => {
@@ -2763,7 +3408,7 @@ function renderReorderPages() {
 
     const rotLeftBtn = document.createElement('button');
     rotLeftBtn.className = 'float-btn';
-    rotLeftBtn.textContent = '↺';
+    setIcon(rotLeftBtn, 'rotL', 16);
     rotLeftBtn.title = '向左旋轉 90°';
     rotLeftBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -2772,7 +3417,7 @@ function renderReorderPages() {
 
     const rotRightBtn = document.createElement('button');
     rotRightBtn.className = 'float-btn';
-    rotRightBtn.textContent = '↻';
+    setIcon(rotRightBtn, 'rotR', 16);
     rotRightBtn.title = '向右旋轉 90°';
     rotRightBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -2791,7 +3436,13 @@ function renderReorderPages() {
     img.alt = '';   // 卡片本身已有 aria-label，縮圖視為裝飾
     img.draggable = false;
 
-    if (thumbnailCache[pageObj.key]) {
+    if (pageObj.blank) {
+      // [新增] 空白頁：不需要渲染縮圖，直接顯示白底＋「空白」字樣
+      const placeholder = document.createElement('div');
+      placeholder.className = 'thumb-placeholder';
+      placeholder.textContent = '空白頁';
+      thumbWrapper.append(checkBadge, hoverBar, rotateBar, placeholder);
+    } else if (thumbnailCache[pageObj.key]) {
       img.src = thumbnailCache[pageObj.key];
       img.classList.add('loaded');
       setImgRotation(img, pageObj.rotation || 0);
@@ -2814,13 +3465,19 @@ function renderReorderPages() {
     numPill.textContent = `${index + 1}`;
     caption.appendChild(numPill);
 
-    const origText = origTagText(pageObj, index, false);
-    if (origText) {
-      const origSpan = document.createElement('span');
-      origSpan.className = 'orig-tag';
-      origSpan.textContent = origText;
-      origSpan.title = docNameOf(pageObj);
-      caption.appendChild(origSpan);
+    if (reorderMulti) {
+      li.classList.add('multi-doc');
+      li.style.setProperty('--doc-color', docColorOf(pageObj));
+      caption.appendChild(buildDocTag(pageObj));
+    } else {
+      const origText = origTagText(pageObj, index, false);
+      if (origText) {
+        const origSpan = document.createElement('span');
+        origSpan.className = 'orig-tag';
+        origSpan.textContent = origText;
+        origSpan.title = docNameOf(pageObj);
+        caption.appendChild(origSpan);
+      }
     }
 
     const rotTag = document.createElement('span');
@@ -2841,12 +3498,20 @@ function renderReorderPages() {
     const sideBox = document.createElement('div');
     sideBox.className = 'sidebar-thumb-box';
     sideBox.dataset.pageNum = pageObj.key;
+    sideBox.dataset.uid = pageObj.uid;                               // [新增]
+    if (pageObj.blank) sideBox.classList.add('is-blank');            // [新增]
 
     const sideImg = document.createElement('img');
     sideImg.className = 'page-thumb-img';
     sideImg.draggable = false;
 
-    if (thumbnailCache[pageObj.key]) {
+    if (pageObj.blank) {
+      // [新增] 空白頁
+      const sidePlaceholder = document.createElement('div');
+      sidePlaceholder.className = 'thumb-placeholder';
+      sidePlaceholder.textContent = '空白';
+      sideBox.appendChild(sidePlaceholder);
+    } else if (thumbnailCache[pageObj.key]) {
       sideImg.src = thumbnailCache[pageObj.key];
       sideImg.classList.add('loaded');
       setImgRotation(sideImg, pageObj.rotation || 0);
@@ -2878,6 +3543,7 @@ function renderReorderPages() {
       sideOrig.className = 'orig-tag';
       sideOrig.textContent = sideOrigText;
       sideOrig.title = docNameOf(pageObj);
+      if (reorderMulti) sideOrig.style.color = docColorOf(pageObj);
       sideCaption.appendChild(sideOrig);
     }
 
@@ -2904,7 +3570,9 @@ function renderReorderPages() {
 // =======================
 function pageCardLabel(pageObj, index) {
   const parts = [`第 ${index + 1} 頁，共 ${reorderPages.length} 頁`];
-  if (reorderMulti) {
+  if (pageObj.blank) {
+    parts.push('空白頁');                                  // [新增]
+  } else if (reorderMulti) {
     parts.push(`來自 ${docNameOf(pageObj)} 第 ${pageObj.originalPageNum} 頁`);
   } else if (pageObj.originalPageNum !== index + 1) {
     parts.push(`原第 ${pageObj.originalPageNum} 頁`);
@@ -3077,7 +3745,7 @@ previewTextToggle.addEventListener('click', () => {
   // 開啟時若目前這頁還沒建立文字圖層，重新載入一次
   if (previewTextEnabled && currentPreviewPage && !previewModal.classList.contains('hidden') &&
       previewTextLayer.childElementCount === 0) {
-    openHighResPreview(currentPreviewPage);
+    openHighResPreview(currentPreviewPage, 'keep');   // [修改] 只重建文字層，不要把捲動位置打回頂端
   }
 });
 
@@ -3114,15 +3782,19 @@ async function renderPreviewTextLayer(page, cssViewport, token) {
   }
 }
 
-async function openHighResPreview(pageObj) {
+// scrollEdge：'top'＝從頂端開始看（預設）、'bottom'＝從底端開始（往上翻到前一頁時）、'keep'＝不動捲動位置
+async function openHighResPreview(pageObj, scrollEdge = 'top') {
   const token = ++previewToken;
   currentPreviewPage = pageObj;
+  previewBusy = true;                    // [新增] 載入中暫停自動翻頁，避免連跳好幾頁
+  if (previewModal.classList.contains('hidden')) previewNavigated = false;
+  updatePreviewNav();
   const item = docs.find(d => d.id === pageObj.docId);
-  if (!item || !window.pdfjsLib) return;
+  if (!item || !window.pdfjsLib) { previewBusy = false; return; }
   const originalPageNum = pageObj.originalPageNum;
-  const label = docs.length > 1
+  const label = pageObj.blank ? '空白頁' : (docs.length > 1
     ? `${item.name} · 第 ${originalPageNum} 頁`
-    : `原第 ${originalPageNum} 頁`;
+    : `原第 ${originalPageNum} 頁`);
   try {
     previewModalTitle.textContent = `${label} — 載入中...`;
     if (previewModal.classList.contains('hidden')) previewReturnFocus = document.activeElement;
@@ -3131,7 +3803,7 @@ async function openHighResPreview(pageObj) {
 
     const pdf = await ensurePdfJsDoc(item);
     const page = await pdf.getPage(originalPageNum);
-    const rotation = ((page.rotate || 0) + getPageRotation(pageObj.key)) % 360;
+    const rotation = ((page.rotate || 0) + (pageObj.rotation || 0)) % 360;   // [修改] 直接用頁面物件的旋轉
     const unscaled = page.getViewport({ scale: 1, rotation });
     const dpr = window.devicePixelRatio || 1;
     const cssTargetWidth = Math.min(window.innerWidth * 0.85, 920);
@@ -3143,16 +3815,153 @@ async function openHighResPreview(pageObj) {
     previewCanvas.height = renderViewport.height;
     previewCanvas.style.width = `${Math.round(unscaled.width * cssScale)}px`;
 
+    // [新增] 版面已確定，先決定捲動位置（往上翻頁時停在前一頁的底端）
+    if (scrollEdge === 'top') previewBody.scrollTop = 0;
+    else if (scrollEdge === 'bottom') previewBody.scrollTop = previewBody.scrollHeight;
+
     const ctx = previewCanvas.getContext('2d', { alpha: false });
+    if (pageObj.blank) {
+      // [新增] 空白頁：畫白底即可，不渲染來源頁內容、不建文字層
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+      previewTextLayer.replaceChildren();
+      if (token === previewToken) {
+        previewModalTitle.textContent = '空白頁';
+        previewBusy = false;
+        previewLockUntil = performance.now() + 450;
+      }
+      safeCleanup(page);
+      return;
+    }
     await page.render({ canvasContext: ctx, viewport: renderViewport }).promise;
-    if (token !== previewToken) return;
+    if (token !== previewToken) { safeCleanup(page); return; }   // [修改] 被取代時也釋放此頁
     previewModalTitle.textContent = label;
+    previewBusy = false;
+    previewLockUntil = performance.now() + 450;   // [新增] 翻頁後的短暫冷卻，吸收滾輪慣性
     await renderPreviewTextLayer(page, page.getViewport({ scale: cssScale, rotation }), token);
+    safeCleanup(page);                               // [新增] 預覽與文字層都完成後釋放此頁暫存
   } catch (err) {
     console.error(err);
     previewModalTitle.textContent = `預覽載入失敗`;
+    if (token === previewToken) previewBusy = false;
   }
 }
+
+// =======================
+// [新增] 預覽視窗翻頁：上一頁 / 下一頁 / 跳頁 / 捲到底自動下一頁 / 捲到頂自動上一頁
+// 頁碼以「調動畫面上的順序」為準（與縮圖網格、「選取頁碼範圍」一致）
+// =======================
+const previewBody = previewModal.querySelector('.modal-body');
+const previewPrevBtn = document.getElementById('previewPrevBtn');
+const previewNextBtn = document.getElementById('previewNextBtn');
+const previewJumpInput = document.getElementById('previewJumpInput');
+const previewJumpTotal = document.getElementById('previewJumpTotal');
+let previewBusy = false;          // 目前頁面載入中
+let previewLockUntil = 0;         // 冷卻時間點（performance.now）
+let previewNavigated = false;     // 是否翻過頁（關閉時據此把焦點帶回最後看的那頁）
+let previewEdgeAcc = 0;           // 在邊界上累積的滾輪量
+let previewEdgeTimer = 0;
+const PREVIEW_EDGE_THRESHOLD = 120;   // 在邊界再多滾這麼多才翻頁（約 1～2 格滾輪）
+const PREVIEW_TOUCH_THRESHOLD = 80;   // 觸控在邊界再多拉這麼多 px 才翻頁
+
+function previewIndex() {
+  if (!currentPreviewPage) return -1;
+  let i = reorderPages.indexOf(currentPreviewPage);
+  if (i < 0) i = reorderPages.findIndex(p => p.uid === currentPreviewPage.uid);   // [修改] key → uid
+  return i;
+}
+
+function updatePreviewNav() {
+  const i = previewIndex();
+  const total = reorderPages.length;
+  previewJumpTotal.textContent = String(total);
+  previewJumpInput.max = String(total);
+  if (document.activeElement !== previewJumpInput) previewJumpInput.value = i >= 0 ? String(i + 1) : '';
+  previewPrevBtn.disabled = i <= 0;
+  previewNextBtn.disabled = i < 0 || i >= total - 1;
+}
+
+// 換到第 idx 頁（0 起算）；edge 決定新頁從頂端或底端開始看
+function gotoPreviewIndex(idx, edge = 'top') {
+  if (idx < 0 || idx >= reorderPages.length) return false;
+  if (idx === previewIndex()) return false;
+  previewNavigated = true;
+  previewEdgeAcc = 0;
+  openHighResPreview(reorderPages[idx], edge);
+  return true;
+}
+
+previewPrevBtn.addEventListener('click', () => gotoPreviewIndex(previewIndex() - 1, 'top'));
+previewNextBtn.addEventListener('click', () => gotoPreviewIndex(previewIndex() + 1, 'top'));
+
+function jumpPreviewToInput() {
+  const n = parseInt(previewJumpInput.value, 10);
+  if (!Number.isInteger(n) || reorderPages.length === 0) { updatePreviewNav(); return; }
+  gotoPreviewIndex(Math.max(1, Math.min(reorderPages.length, n)) - 1, 'top');
+  updatePreviewNav();
+}
+previewJumpInput.addEventListener('keydown', (e) => {
+  // 輸入框內的左右鍵不會觸發翻頁（下方的全域按鍵處理已排除 INPUT），Esc 仍可關閉預覽
+  if (e.key === 'Enter') { e.preventDefault(); jumpPreviewToInput(); previewJumpInput.blur(); }
+});
+previewJumpInput.addEventListener('change', jumpPreviewToInput);
+previewJumpInput.addEventListener('focus', () => previewJumpInput.select());
+
+// 目前是否已在可捲動範圍的頂端 / 底端（頁面比視窗短、不需捲動時，頂端與底端同時成立）
+function previewAtTop() { return previewBody.scrollTop <= 1; }
+function previewAtBottom() { return previewBody.scrollTop + previewBody.clientHeight >= previewBody.scrollHeight - 1; }
+
+function previewCanAutoFlip() {
+  return !previewModal.classList.contains('hidden') && !previewBusy && performance.now() >= previewLockUntil;
+}
+
+// 滑鼠 / 觸控板滾輪：在底端繼續往下 → 下一頁；在頂端繼續往上 → 上一頁
+previewBody.addEventListener('wheel', (e) => {
+  if (e.ctrlKey || Math.abs(e.deltaY) < Math.abs(e.deltaX)) return;   // 縮放手勢、橫向捲動不處理
+  const dir = e.deltaY > 0 ? 1 : -1;
+  const atEdge = dir > 0 ? previewAtBottom() : previewAtTop();
+  if (!atEdge) { previewEdgeAcc = 0; return; }
+  if (!previewCanAutoFlip()) { e.preventDefault(); return; }
+
+  if (Math.sign(previewEdgeAcc) !== dir) previewEdgeAcc = 0;
+  previewEdgeAcc += e.deltaY;
+  clearTimeout(previewEdgeTimer);
+  previewEdgeTimer = setTimeout(() => { previewEdgeAcc = 0; }, 350);   // 停手就歸零
+
+  if (Math.abs(previewEdgeAcc) >= PREVIEW_EDGE_THRESHOLD) {
+    previewEdgeAcc = 0;
+    // 往下翻 → 新頁從頂端開始；往上翻 → 新頁從底端開始（接續剛才的閱讀方向）
+    if (gotoPreviewIndex(previewIndex() + dir, dir > 0 ? 'top' : 'bottom')) e.preventDefault();
+  }
+}, { passive: false });
+
+// 觸控：在邊界時再拉動一段距離才翻頁
+let previewTouchY = null;
+let previewTouchDone = false;
+previewBody.addEventListener('touchstart', (e) => {
+  previewTouchY = e.touches.length === 1 ? e.touches[0].clientY : null;
+  previewTouchDone = false;
+}, { passive: true });
+previewBody.addEventListener('touchmove', (e) => {
+  if (previewTouchY === null || previewTouchDone || e.touches.length !== 1) return;
+  const dy = previewTouchY - e.touches[0].clientY;          // >0 ＝ 手指往上滑（要看下面）
+  if (Math.abs(dy) < PREVIEW_TOUCH_THRESHOLD) return;
+  const dir = dy > 0 ? 1 : -1;
+  if (!(dir > 0 ? previewAtBottom() : previewAtTop())) { previewTouchY = e.touches[0].clientY; return; }
+  if (!previewCanAutoFlip()) return;
+  previewTouchDone = true;
+  gotoPreviewIndex(previewIndex() + dir, dir > 0 ? 'top' : 'bottom');
+}, { passive: true });
+
+// 鍵盤：← / PageUp 以外維持原本；左右鍵＝上一頁 / 下一頁（不在輸入框內時）
+window.addEventListener('keydown', (e) => {
+  if (previewModal.classList.contains('hidden')) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+  if (e.key === 'ArrowLeft') { e.preventDefault(); gotoPreviewIndex(previewIndex() - 1, 'top'); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); gotoPreviewIndex(previewIndex() + 1, 'top'); }
+});
 
 closePreviewBtn.addEventListener('click', closeHighResPreview);
 previewModal.addEventListener('click', (e) => {
@@ -3160,12 +3969,20 @@ previewModal.addEventListener('click', (e) => {
 });
 
 function closeHighResPreview() {
+  const lastIdx = previewIndex();          // [新增] 關閉前記住最後看的是哪一頁
   previewToken++;
   currentPreviewPage = null;
+  previewBusy = false;
   previewTextLayer.replaceChildren();
   previewModal.classList.add('hidden');
   previewCanvas.width = 0;
   previewCanvas.height = 0;
+  // [新增] 若在預覽中翻過頁，關閉後把縮圖網格定位到最後看的那一頁
+  if (previewNavigated && lastIdx >= 0) {
+    setActivePage(lastIdx, true);
+    previewReturnFocus = reorderPageList.children[lastIdx] || null;
+  }
+  previewNavigated = false;
   const back = previewReturnFocus && document.contains(previewReturnFocus)
     ? previewReturnFocus
     : reorderPageList.children[activeSidebarIndex];
@@ -3199,6 +4016,65 @@ resetOrderBtn.addEventListener('click', () => {
   setStatus('已還原預設頁面順序、頁數與旋轉（可按 Ctrl+Z 復原）');
 });
 
+// =======================
+// [新增] 插入空白頁 / 複製頁面（皆可用 Ctrl+Z 復原）
+// =======================
+function insertBlankPage() {
+  if (reorderPages.length === 0) { setStatus('請先載入 PDF 檔案', 'error'); return; }
+  const at = Math.max(0, Math.min(activeSidebarIndex, reorderPages.length - 1));
+  const ref = reorderPages[at];                       // 以目前頁面作為尺寸參考與所屬檔案
+  pushHistory('插入空白頁');
+  const uid = newPageUid();
+  const blankPage = {
+    uid,
+    blank: true,
+    docId: ref.docId,                                 // 沿用所屬檔案（顏色標示、儲存範圍判斷）
+    key: `blank_${uid}`,
+    originalIndex: ref.originalIndex,                 // 儲存時用此頁的尺寸建立空白頁
+    originalPageNum: ref.originalPageNum,
+    selected: false,
+    rotation: 0
+  };
+  reorderPages.splice(at + 1, 0, blankPage);
+  activeSidebarIndex = at + 1;
+  lastCheckedPageIndex = null;
+  renderReorderPages();
+  focusPageCard(activeSidebarIndex);
+  setStatus(`✓ 已在第 ${at + 1} 頁之後插入空白頁（可按 Ctrl+Z 復原）`, 'success');
+}
+
+function duplicatePages() {
+  if (reorderPages.length === 0) { setStatus('請先載入 PDF 檔案', 'error'); return; }
+  // 選取模式且有勾選 → 複製所有勾選頁；否則複製目前頁面
+  let targets = isSelectionMode ? reorderPages.filter(p => p.selected) : [];
+  if (targets.length === 0) {
+    const cur = reorderPages[Math.max(0, Math.min(activeSidebarIndex, reorderPages.length - 1))];
+    if (!cur) return;
+    targets = [cur];
+  }
+  pushHistory('複製頁面');
+  const targetSet = new Set(targets);
+  const next = [];
+  let newActive = activeSidebarIndex;
+  reorderPages.forEach((p, i) => {
+    next.push(p);
+    if (targetSet.has(p)) {
+      const uid = newPageUid();
+      next.push({ ...p, uid, key: p.blank ? `blank_${uid}` : p.key, selected: false });   // 副本接在原頁之後；縮圖與原頁共用
+      if (i === activeSidebarIndex) newActive = next.length - 1;
+    }
+  });
+  reorderPages = next;
+  activeSidebarIndex = newActive;
+  lastCheckedPageIndex = null;
+  renderReorderPages();
+  focusPageCard(activeSidebarIndex);
+  setStatus(`✓ 已複製 ${targets.length} 頁（副本在原頁之後，可按 Ctrl+Z 復原）`, 'success');
+}
+
+insertBlankBtn.addEventListener('click', insertBlankPage);
+duplicateBtn.addEventListener('click', duplicatePages);
+
 async function executeReorderSave() {
   const pagesToSave = isSelectionMode
     ? reorderPages.filter(p => p.selected)
@@ -3208,6 +4084,9 @@ async function executeReorderSave() {
     setStatus('請至少勾選 1 個頁面', 'error');
     return;
   }
+
+  // [新增] 大檔案儲存前詢問是否壓縮（輸出大小依保留頁數比例預估）
+  if (!(await promptCompressForSave(reorderScope(pagesToSave)))) return;
 
   const usedDocIds = new Set(pagesToSave.map(p => p.docId));
   const firstItem = docs.find(d => d.id === pagesToSave[0].docId);
@@ -3232,12 +4111,31 @@ async function executeReorderSave() {
     let i = 0;
     while (i < pagesToSave.length) {
       const docId = pagesToSave[i].docId;
-      let j = i;
-      while (j < pagesToSave.length && pagesToSave[j].docId === docId) j++;
-      const run = pagesToSave.slice(i, j);
-
       const item = docs.find(d => d.id === docId);
       const src = await getLib(item);
+
+      // [新增] 空白頁：依參考頁的尺寸建立新頁（不從來源複製），自己成一段
+      if (pagesToSave[i].blank) {
+        const bp = pagesToSave[i];
+        let w = 595.28, h = 841.89;                       // 取不到參考頁時退回 A4
+        try {
+          const refPage = src.getPage(bp.originalIndex);
+          const sz = refPage.getSize();
+          const ra = ((refPage.getRotation().angle % 360) + 360) % 360;
+          if (ra === 90 || ra === 270) { w = sz.height; h = sz.width; } else { w = sz.width; h = sz.height; }
+        } catch (e) { /* 使用 A4 */ }
+        const blankPdfPage = newPdf.addPage([w, h]);
+        if (bp.rotation) blankPdfPage.setRotation(degrees(bp.rotation % 360));
+        i += 1;
+        setProgress(i, pagesToSave.length);
+        await nextFrame();
+        continue;
+      }
+
+      let j = i;
+      while (j < pagesToSave.length && pagesToSave[j].docId === docId && !pagesToSave[j].blank) j++;
+      const run = pagesToSave.slice(i, j);
+
       const copied = await newPdf.copyPages(src, run.map(p => p.originalIndex));
       copied.forEach((page, k) => {
         const extra = run[k].rotation || 0;
@@ -3619,6 +4517,18 @@ function syncReader() {
   if (!has) {
     teardownReaderDom();
     readerDocId = null;
+    // [新增] 清空後不保留上次的閱讀頁碼與縮放
+    //   （原本 readerResumeIndex 會殘留，下次載入新檔會直接跳到舊頁碼）
+    readerResumeIndex = 0;
+    readerCurrent = 0;
+    readerPositions.clear();
+    readerScale = 1;
+    readerScaleSet = false;
+    readerFitMode = true;
+    readPageInput.value = '1';
+    readPageTotal.textContent = '0';
+    readerScroll.scrollTop = 0;
+    updateReaderZoomBadge();
     return;
   }
 
@@ -3759,4 +4669,209 @@ document.querySelectorAll('input[name="openView"]').forEach(radio => {
   const initialTab = tabFromHash();
   switchTab(initialTab || 'merge');
   if (!initialTab) history.replaceState(null, '', '#merge');
+}
+
+
+// =========================================
+// [新增] 手機版工具列：收合第二列、清空移入設定選單
+// =========================================
+const toolbarCollapseBtn = document.getElementById('toolbarCollapseBtn');
+function setToolbarCollapsed(v) {
+  document.body.classList.toggle('tb-collapsed', v);
+  toolbarCollapseBtn.setAttribute('aria-pressed', String(v));
+  toolbarCollapseBtn.title = v ? '展開工具列' : '收合工具列';
+  try { localStorage.setItem('pdf_tool_tb_collapsed', v ? '1' : '0'); } catch (e) {}
+}
+toolbarCollapseBtn.addEventListener('click', () => setToolbarCollapsed(!document.body.classList.contains('tb-collapsed')));
+try { setToolbarCollapsed(localStorage.getItem('pdf_tool_tb_collapsed') === '1'); } catch (e) {}
+
+// =========================================
+// [新增] 右側可拖曳的快速捲動滑塊（顯示目前頁碼，拖曳時顯示「第 N / 總頁數 頁」）
+// 只在手機 / 觸控裝置顯示（CSS 控制）
+// =========================================
+function createScrubber({ scrollEl, host, getLabel, watch = [] }) {
+  const TH = 40, PAD = 6;
+  const wrap = document.createElement('div');
+  wrap.className = 'scrub hidden';
+  const bubble = document.createElement('div');
+  bubble.className = 'scrub-bubble';
+  const thumb = document.createElement('div');
+  thumb.className = 'scrub-thumb';
+  thumb.setAttribute('aria-hidden', 'true');
+  wrap.append(bubble, thumb);
+  host.appendChild(wrap);
+
+  let dragging = false, fadeTimer = 0;
+
+  function place(ratio) {
+    const trackH = Math.max(0, wrap.clientHeight - TH - PAD * 2);
+    const top = PAD + ratio * trackH;
+    thumb.style.top = `${top}px`;
+    bubble.style.top = `${top + TH / 2}px`;
+  }
+  function paintLabel() {
+    const { cur, total } = getLabel();
+    thumb.textContent = String(cur);
+    bubble.textContent = `第 ${cur} / ${total} 頁`;
+  }
+  function wake() {
+    wrap.classList.add('active');
+    clearTimeout(fadeTimer);
+    fadeTimer = setTimeout(() => { if (!dragging) wrap.classList.remove('active'); }, 1400);
+  }
+  function update(fromScroll) {
+    const max = scrollEl.scrollHeight - scrollEl.clientHeight;
+    const show = scrollEl.clientHeight > 0 && max > scrollEl.clientHeight * 0.6;
+    wrap.classList.toggle('hidden', !show);
+    if (!show) return;
+    paintLabel();
+    if (!dragging) place(max > 0 ? Math.min(1, Math.max(0, scrollEl.scrollTop / max)) : 0);
+    if (fromScroll) wake();
+  }
+
+  thumb.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    thumb.setPointerCapture(e.pointerId);
+    wrap.classList.add('dragging', 'active');
+    e.preventDefault();
+  });
+  thumb.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const r = wrap.getBoundingClientRect();
+    const trackH = Math.max(1, r.height - TH - PAD * 2);
+    const ratio = Math.min(1, Math.max(0, (e.clientY - r.top - PAD - TH / 2) / trackH));
+    place(ratio);
+    scrollEl.scrollTop = ratio * (scrollEl.scrollHeight - scrollEl.clientHeight);
+    paintLabel();
+  });
+  const endDrag = () => {
+    if (!dragging) return;
+    dragging = false;
+    wrap.classList.remove('dragging');
+    update(false);
+    wake();
+  };
+  thumb.addEventListener('pointerup', endDrag);
+  thumb.addEventListener('pointercancel', endDrag);
+  thumb.addEventListener('contextmenu', (e) => e.preventDefault());
+
+  scrollEl.addEventListener('scroll', () => update(true), { passive: true });
+  window.addEventListener('resize', () => update(false));
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(() => update(false));
+    [scrollEl, ...watch].forEach(el => el && ro.observe(el));
+  }
+  if (window.MutationObserver) {
+    new MutationObserver(() => update(false)).observe(scrollEl, { childList: true });
+  }
+  update(false);
+  return { update };
+}
+
+// 閱讀檢視
+const scrubReader = createScrubber({
+  scrollEl: readerScroll,
+  host: document.getElementById('read'),
+  watch: [document.getElementById('readerPages')],
+  getLabel: () => {
+    const total = readerEntries.length;
+    if (!total) return { cur: 0, total: 0 };
+    return { cur: findReaderPageAt(readerScroll.scrollTop + readerScroll.clientHeight * 0.3) + 1, total };
+  }
+});
+
+// 調動頁面縮圖網格
+const scrubGrid = createScrubber({
+  scrollEl: reorderPageList,
+  host: document.getElementById('reorderBody'),
+  getLabel: () => {
+    const kids = reorderPageList.children;
+    const total = kids.length;
+    if (!total) return { cur: 0, total: 0 };
+    const top = reorderPageList.getBoundingClientRect().top;
+    let lo = 0, hi = total - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (kids[mid].getBoundingClientRect().bottom - top > 12) hi = mid; else lo = mid + 1;
+    }
+    return { cur: lo + 1, total };
+  }
+});
+
+// 滑塊開關（預設關閉，記在 localStorage）
+const scrubToggleBtn = document.getElementById('scrubToggleBtn');
+function setScrubEnabled(on) {
+  document.body.classList.toggle('scrub-on', on);
+  scrubToggleBtn.classList.toggle('active', on);
+  try { localStorage.setItem('pdf_tool_scrub', on ? '1' : '0'); } catch (e) {}
+  requestAnimationFrame(() => { scrubReader.update(false); scrubGrid.update(false); });
+}
+scrubToggleBtn.addEventListener('click', () => setScrubEnabled(!document.body.classList.contains('scrub-on')));
+{
+  let on = false;
+  try { on = localStorage.getItem('pdf_tool_scrub') === '1'; } catch (e) {}
+  setScrubEnabled(on);
+}
+
+// =========================================
+// [新增] 頁面浮動操作列（觸控 / 手機；縮圖上的小按鈕在這些裝置上隱藏）
+//   一般模式：作用於目前選取的那一頁（移動、預覽、旋轉、刪除）
+//   選取模式：作用於所有已勾選頁面（旋轉、刪除）
+// =========================================
+const pageFloatBar = document.getElementById('pageFloatBar');
+const pfbCount = document.getElementById('pfbCount');
+const pfbPrev = document.getElementById('pfbPrev');
+const pfbNext = document.getElementById('pfbNext');
+const pfbPreview = document.getElementById('pfbPreview');
+const pfbRotL = document.getElementById('pfbRotL');
+const pfbRotR = document.getElementById('pfbRotR');
+const pfbDelete = document.getElementById('pfbDelete');
+
+function syncFloatBar() {
+  const show = currentTab === 'reorder' && reorderPages.length > 0;
+  pageFloatBar.classList.toggle('hidden', !show);
+  document.body.classList.toggle('has-floatbar', show);
+  if (!show) return;
+  const total = reorderPages.length;
+  const sel = reorderPages.filter(p => p.selected).length;
+  pageFloatBar.classList.toggle('selection', isSelectionMode);
+  pfbCount.classList.toggle('hidden', !isSelectionMode);
+  pfbCount.textContent = `已選 ${sel}`;
+  [pfbPrev, pfbNext, pfbPreview, document.getElementById('pfbSep1')].forEach(b => b.classList.toggle('hidden', isSelectionMode));
+  if (isSelectionMode) {
+    pfbRotL.disabled = pfbRotR.disabled = sel === 0;
+    pfbDelete.disabled = sel === 0 || sel >= total;
+  } else {
+    pfbPrev.disabled = activeSidebarIndex <= 0;
+    pfbNext.disabled = activeSidebarIndex >= total - 1;
+    pfbRotL.disabled = pfbRotR.disabled = false;
+    pfbDelete.disabled = total <= 1;
+  }
+}
+function floatTargets() {
+  return isSelectionMode ? reorderPages.filter(p => p.selected) : [reorderPages[activeSidebarIndex]].filter(Boolean);
+}
+pfbPrev.addEventListener('click', () => { if (activeSidebarIndex > 0) moveReorderPage(activeSidebarIndex, -1); });
+pfbNext.addEventListener('click', () => { if (activeSidebarIndex < reorderPages.length - 1) moveReorderPage(activeSidebarIndex, 1); });
+pfbPreview.addEventListener('click', () => { const p = reorderPages[activeSidebarIndex]; if (p) openHighResPreview(p); });
+pfbRotL.addEventListener('click', () => rotatePages(floatTargets(), -90));
+pfbRotR.addEventListener('click', () => rotatePages(floatTargets(), 90));
+pfbDelete.addEventListener('click', () => {
+  if (isSelectionMode) { deleteSelectedPagesBtn.click(); return; }
+  if (reorderPages.length <= 1) return;
+  pushHistory('移除頁面');
+  reorderPages.splice(activeSidebarIndex, 1);
+  if (activeSidebarIndex >= reorderPages.length) activeSidebarIndex = reorderPages.length - 1;
+  renderReorderPages();
+});
+
+// 狀態改變時同步浮動列（包裝既有函式，不改動它們原本的內容）
+{
+  const _render = renderReorderPages;
+  renderReorderPages = function (...a) { const r = _render.apply(this, a); syncFloatBar(); return r; };
+  const _sel = updateSelectionUI;
+  updateSelectionUI = function (...a) { const r = _sel.apply(this, a); syncFloatBar(); return r; };
+  const _tab = switchTab;
+  switchTab = function (...a) { const r = _tab.apply(this, a); syncFloatBar(); return r; };
+  syncFloatBar();
 }
