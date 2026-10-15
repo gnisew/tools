@@ -107,6 +107,7 @@ const currentLanguageName = $('#currentLanguageName');
 const languageMenu = $('#languageMenu');
 const mainTitle = $('#mainTitle');
 const btnHanziToPinyinContainer = $('#btnHanziToPinyinContainer');
+const btnPinyinToHanziContainer = $('#btnPinyinToHanziContainer');
 
 // 模式切換
 const btnModeView = document.getElementById('btnModeView');
@@ -141,6 +142,7 @@ const rtShow = document.getElementById('rtShow');
 //  START: 拼音轉漢字所需變數與輔助函數
 // ==================================================================
 let PROCESSED_IME_DICTS = {};
+let PROCESSED_IME_DICTS_ALL = {}; // 保留「所有」候選漢字（key 皆為小寫），供逐行比對使用
 
 /**
  * 將 ime-dict.js 的資料轉換為更高效的 Map 結構以便查詢。
@@ -155,12 +157,19 @@ function initializeImeDicts() {
     for (const lang in dictionaries) {
         const dict = dictionaries[lang];
         const map = new Map();
+        const mapAll = new Map();
         for (const pinyin in dict) {
             // 字典中的漢字選項以空白分隔，依據需求，我們只取第一個最常用的
             const hanziOptions = dict[pinyin].split(' ');
             map.set(pinyin, hanziOptions[0]);
+
+            // 【新增】保留全部候選字（去除重複），key 轉小寫以便不分大小寫比對
+            const lowerKey = pinyin.toLowerCase();
+            const merged = (mapAll.get(lowerKey) || []).concat(hanziOptions.filter(Boolean));
+            mapAll.set(lowerKey, [...new Set(merged)]);
         }
         PROCESSED_IME_DICTS[lang] = map;
+        PROCESSED_IME_DICTS_ALL[lang] = mapAll;
     }
 }
 
@@ -688,9 +697,7 @@ function attachAudioHandlers() {
 /**
  * 核心功能：將拼音輸入框的內容轉換為漢字。
  */
-function pinyinToHanzi() {
-    let pinyinText = pinyinInput.value;
-
+function normalizePinyinTones(pinyinText) {
     // 根據當前語言，先將拼音轉換為字母調 (zvs) 格式
     const hakkaLanguages = new Set(['sixian', 'hailu', 'dapu', 'raoping', 'sixiannan']);
     if (hakkaLanguages.has(currentLanguageKey)) {
@@ -714,7 +721,17 @@ function pinyinToHanzi() {
         pinyinText = matsuPinyinZvs(pinyinText);
     } 
 
-	
+    return pinyinText;
+}
+
+/**
+ * 【新增】將一段拼音文字轉成漢字（回傳字串，不寫入畫面）。
+ * 原本 pinyinToHanzi 的轉換邏輯移到這裡，讓「音轉字」與「逐行比對」共用。
+ * 找不到辭庫時回傳 null。
+ */
+function convertPinyinToHanziText(pinyinText) {
+    pinyinText = normalizePinyinTones(pinyinText);
+
     // 拼音前後要有空格
 	pinyinText = pinyinText
 	  .replace(/(?<![A-Za-z\s-])([A-Za-z]+)/g, ' $1')
@@ -728,7 +745,7 @@ function pinyinToHanzi() {
 
     if (!dict || dict.size === 0) {
         console.error(`Dictionary for language "${lang}" not found or is empty.`);
-        return;
+        return null;
     }
 
     // 🧠 效能優化：建立一份 key 全部轉小寫的新辭典
@@ -823,7 +840,110 @@ function pinyinToHanzi() {
         .replace(/\(/g, '（')
         .replace(/\)/g, '）');
 
+    return finalText;
+}
+
+/**
+ * 核心功能：將拼音輸入框的內容轉換為漢字。
+ */
+function pinyinToHanzi() {
+    const finalText = convertPinyinToHanziText(pinyinInput.value);
+    if (finalText === null) return; // 辭庫不存在，維持原本行為（不動作）
     hanziInput.value = finalText;
+}
+
+/**
+ * 【新增】清理單行拼音（供逐行比對使用）：
+ * 1. 移除標點符號（保留字母、數字、組合符號、連字號 - =、聲調符號 ˇˋˊˆ⁺^）
+ * 2. 移除多餘空格；連字號前後的空格也一併移除（單獨的 " - " 視為標點）
+ * 3. 聲調符號智慧修正：
+ *    - 聲調符號前不該有空格：「ngai ˋ」→「ngaiˋ」
+ *    - 聲調符號後直接接字母時補空格：「ngaiˋnginˇ」→「ngaiˋ nginˇ」
+ */
+function cleanPinyinLine(line) {
+    const TONE = 'ˇˋˊˆ⁺\\^';
+    let t = line;
+
+    // 1. 標點符號 → 空格（保留字母、數字、組合符號、空白、- =、聲調符號）
+    t = t.replace(new RegExp(`[^\\p{L}\\p{N}\\p{M}\\s\\-=${TONE}]`, 'gu'), ' ');
+
+    // 2. 連字號處理：前後都是空白（或在行首/行尾）的連字號視為標點，直接移除
+    t = t.replace(/(^|\s)[-=]+(?=\s|$)/g, ' ');
+    //    連字號貼著音節的，移除它前後的空格；行首行尾殘留的連字號也移除
+    t = t.replace(/\s*([-=]+)\s*/g, '$1').replace(/^[-=]+|[-=]+$/g, '');
+
+    // 3. 聲調符號：前面不應有空格；後面直接接字母時補一個空格（聲調符號本身在 Unicode 屬「字母」，需排除）
+    t = t.replace(new RegExp(`\\s+(?=[${TONE}])`, 'g'), '');
+    t = t.replace(new RegExp(`([${TONE}])(?=(?![${TONE}])\\p{L})`, 'gu'), '$1 ');
+
+    // 4. 壓縮多餘空格
+    return t.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * 【新增】連續兩個（以上）聲調 → 只留第一個聲調（供比對用）
+ *  符號調：「nginˋ⁺」→「nginˋ」
+ *  字母調：「nginsf senv」→「ngins senv」（只處理音節結尾，且第一個必須是 zvsxc）
+ */
+function collapseDoubleSymbolTones(t) {
+    return t.replace(/([ˇˋˊˆ⁺^])[ˇˋˊˆ⁺^]+/g, '$1');
+}
+function collapseDoubleLetterTones(t) {
+    return t.replace(/([aeioumngbd])([zvsxc])[zvsxfc]+(?=$|[\s\-=])/gi, '$1$2');
+}
+
+/**
+ * 【新增】逐行比對：
+ * 每一行拼音（先經 cleanPinyinLine 清理）與辭庫「完全符合」→ 輸出 原拼音 \t O \t 漢字1 \t 漢字2 ...
+ * 無完全符合，但轉換後全部變成漢字 → 原拼音 \t V \t 轉換結果
+ * 無完全符合，且轉換後仍殘留拼音（無法全部轉換）→ 原拼音 \t X \t 轉換結果
+ */
+function pinyinCompare() {
+    const allDict = PROCESSED_IME_DICTS_ALL[currentLanguageKey];
+    if (!allDict || allDict.size === 0) {
+        toast('找不到目前語言的辭庫，無法比對。');
+        return;
+    }
+    if (!pinyinInput.value.trim()) {
+        toast('拼音區沒有內容可比對。');
+        return;
+    }
+
+    let okCount = 0;   // O：辭庫完全符合
+    let convCount = 0; // V：未完全符合，但轉換後已全為漢字
+    let ngCount = 0;   // X：轉換後仍殘留拼音
+
+    const outLines = pinyinInput.value.split(/\r?\n/).map(line => {
+        // 【修改】先清理標點、多餘空格並修正聲調符號空格；輸出的拼音也是清理後的版本
+        const original = cleanPinyinLine(line);
+        if (!original) return ''; // 保留空行（只有標點的行也視為空行）
+
+        // 先做和「音轉字」相同的調號轉換（^ 視同 ˆ），再正規化大小寫後比對
+        const makeKey = (t) => normalizePinyinTones(t.replace(/\^/g, 'ˆ')).replace(/\s+/g, ' ').trim().toLowerCase();
+
+        // 【修改】先用原樣比對；沒符合時，再把連續雙聲調縮成單一聲調後比對
+        const reduced = collapseDoubleLetterTones(collapseDoubleSymbolTones(original));
+        const candidates = allDict.get(makeKey(original)) || allDict.get(collapseDoubleLetterTones(makeKey(collapseDoubleSymbolTones(original))));
+
+        if (candidates && candidates.length > 0) {
+            okCount++;
+            return [original, 'O', ...candidates].join('\t');
+        }
+
+        const converted = convertPinyinToHanziText(reduced); // 改用縮成單一聲調的版本轉換
+        const result = converted === null ? original : converted;
+
+        // 【修改】轉換結果若仍含拉丁字母或聲調符號 = 有拼音沒轉成漢字 → X；全部轉成漢字 → V
+        if (converted !== null && !/[\p{Script=Latin}ˇˋˊˆ⁺^]/u.test(converted)) {
+            convCount++;
+            return [original, 'V', result].join('\t');
+        }
+        ngCount++;
+        return [original, 'X', result].join('\t');
+    });
+
+    hanziInput.value = outLines.join('\n');
+    toast(`比對完成：O ${okCount} 行、V ${convCount} 行、X ${ngCount} 行`);
 }
 
 
@@ -855,7 +975,8 @@ function setInputMode(newMode, isInitialLoad = false) {
             // 相容舊代碼：如果還沒改 HTML ID，至少隱藏舊按鈕
             btnHanziToPinyin.classList.remove('hidden');
         }
-        btnPinyinToHanzi.classList.add('hidden');
+        // 【修改】隱藏整組「音轉字」膠囊（原本只隱藏單一按鈕）
+        (btnPinyinToHanziContainer || btnPinyinToHanzi).classList.add('hidden');
 
     } else { // 'pinyin-to-hanzi'
         // 更新分頁按鈕樣式
@@ -872,7 +993,8 @@ function setInputMode(newMode, isInitialLoad = false) {
              // 相容舊代碼
             btnHanziToPinyin.classList.add('hidden');
         }
-        btnPinyinToHanzi.classList.remove('hidden');
+        // 【修改】顯示整組「音轉字」膠囊
+        (btnPinyinToHanziContainer || btnPinyinToHanzi).classList.remove('hidden');
     }
 
     // 更新網址參數 (如果不是初始載入)
@@ -2956,6 +3078,41 @@ function switchLanguage(newLangKey) {
     tryInitializeImeDicts(); // 啟動檢查機制
     document.querySelector('#btnPinyinToHanzi').addEventListener('click', pinyinToHanzi);
 	updateRawButtonVisibility();
+})();
+
+// ==========================================
+// 【新增】音轉字膠囊：下拉選單與逐行比對
+// ==========================================
+(function setupPinyinToHanziMenu() {
+    const btnToggle = document.getElementById('btnPinyinToHanziMenuToggle');
+    const menu = document.getElementById('menuPinyinToHanzi');
+    const actDefault = document.getElementById('actPinyinToHanzi');
+    const actCompare = document.getElementById('actPinyinCompare');
+    if (!btnToggle || !menu) return;
+
+    // 點擊小三角形切換選單
+    btnToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('.popover').forEach(p => p.classList.add('hidden'));
+        menu.classList.toggle('hidden');
+    });
+
+    // 點擊外部關閉選單
+    document.addEventListener('click', (e) => {
+        if (!menu.contains(e.target) && !btnToggle.contains(e.target)) {
+            menu.classList.add('hidden');
+        }
+    });
+
+    actDefault?.addEventListener('click', () => {
+        pinyinToHanzi();
+        menu.classList.add('hidden');
+    });
+
+    actCompare?.addEventListener('click', () => {
+        pinyinCompare();
+        menu.classList.add('hidden');
+    });
 })();
 
 

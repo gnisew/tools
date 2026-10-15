@@ -62,10 +62,30 @@
                 <span class="text-sm font-medium text-slate-700 flex items-center gap-1.5">
                   <span class="material-symbols-outlined text-[18px] text-blue-600">text_fields</span>漢字區</span>
                 <div class="flex items-center gap-2">
-				<button id="btnPinyinToHanzi" class="text-xs font-medium text-blue-800 bg-blue-100 hover:bg-blue-200 flex items-center gap-1 px-3 py-1.5 rounded-full transition-colors">
-				  <span class="material-symbols-outlined text-[18px]">arrow_downward</span>
-				  音轉字
-				</button>
+				<div id="btnPinyinToHanziContainer" class="inline-flex rounded-full shadow relative group">
+				  <!-- 左側主按鈕：維持原本的音轉字功能 -->
+				  <button id="btnPinyinToHanzi" class="text-xs font-medium text-blue-800 bg-blue-100 hover:bg-blue-200 flex items-center gap-1 pl-3 pr-2 py-1.5 rounded-l-full transition-colors border-r border-blue-200">
+					<span class="material-symbols-outlined text-[18px]">arrow_downward</span>
+					音轉字
+				  </button>
+
+				  <!-- 右側小三角形：點擊展開選單 -->
+				  <button id="btnPinyinToHanziMenuToggle" class="text-xs font-medium text-blue-800 bg-blue-100 hover:bg-blue-200 flex items-center px-1 py-1.5 rounded-r-full transition-colors" title="更多轉換選項">
+					<span class="material-symbols-outlined text-[18px]">arrow_drop_down</span>
+				  </button>
+
+				  <!-- 下拉選單 -->
+				  <div id="menuPinyinToHanzi" class="hidden absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 z-50 p-1 overflow-hidden origin-top-right">
+					<button id="actPinyinToHanzi" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors">
+						<span class="material-symbols-outlined text-[18px] text-blue-600">arrow_downward</span>
+						<span>音轉字</span>
+					</button>
+					<button id="actPinyinCompare" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors" title="逐行比對辭庫，輸出：拼音 → O/X → 漢字">
+						<span class="material-symbols-outlined text-[18px] text-green-600">fact_check</span>
+						<span>逐行比對 (O/X)</span>
+					</button>
+				  </div>
+				</div>
                   <button id="btnSample" class="hidden text-xs text-blue-700 hover:text-blue-900 flex items-center gap-1">
                     <span class="material-symbols-outlined text-[18px]">dataset</span> 塞入範例
                   </button>
