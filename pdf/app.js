@@ -250,7 +250,8 @@ const menuPairs = [
   { btn: document.getElementById('pageMenuBtn'), panel: document.getElementById('pageMenu') },
   { btn: document.getElementById('settingsMenuBtn'), panel: document.getElementById('settingsMenu') },
   { btn: document.getElementById('rangeMenuBtn'), panel: document.getElementById('rangeMenu') },   // [新增]
-  { btn: document.getElementById('zoomModeLabel'), panel: document.getElementById('zoomMenu') }     // [新增] 比例選單
+  { btn: document.getElementById('zoomModeLabel'), panel: document.getElementById('zoomMenu') },    // [新增] 比例選單
+  { btn: document.getElementById('thumbQualityBtn'), panel: document.getElementById('thumbQualityMenu') }   // [新增] 縮圖清晰度選單
 ];
 
 function closeMenus(returnFocus = false) {
@@ -380,6 +381,51 @@ window.addEventListener('resize', () => {
     applyColumnPreset(parseInt(reorderPageList.dataset.cols, 10));
   }
 });
+
+// =========================================
+// 縮圖清晰度選單：由隱藏的 <select> 產生選項，並與它雙向同步
+//   - 程式其他地方照舊讀寫 thumbQualitySelect.value / option.disabled，選單會自動跟著更新
+// =========================================
+const thumbQualityBtn = document.getElementById('thumbQualityBtn');
+const thumbQualityMenu = document.getElementById('thumbQualityMenu');
+Array.from(thumbQualitySelect.options).forEach((opt) => {
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.className = 'menu-item';
+  item.setAttribute('role', 'menuitemradio');
+  item.dataset.q = opt.value;
+  item.innerHTML = '<span class="menu-label"></span>';
+  item.querySelector('.menu-label').textContent = opt.textContent;
+  thumbQualityMenu.appendChild(item);
+});
+function syncQualityMenu() {
+  const cur = thumbQualitySelect.options[thumbQualitySelect.selectedIndex];
+  thumbQualityBtn.textContent = cur ? cur.textContent : '';
+  thumbQualityBtn.title = thumbQualitySelect.title;
+  thumbQualityMenu.querySelectorAll('.menu-item').forEach((item) => {
+    const opt = Array.from(thumbQualitySelect.options).find(o => o.value === item.dataset.q);
+    const on = item.dataset.q === thumbQualitySelect.value;
+    item.classList.toggle('active', on);
+    item.setAttribute('aria-checked', on ? 'true' : 'false');
+    item.disabled = !!(opt && opt.disabled);
+  });
+}
+{
+  // 程式直接設定 select.value 時（自動等級、大檔降級）也要同步選單
+  const desc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+  Object.defineProperty(thumbQualitySelect, 'value', {
+    configurable: true,
+    get() { return desc.get.call(this); },
+    set(v) { desc.set.call(this, v); syncQualityMenu(); }
+  });
+}
+thumbQualityMenu.addEventListener('click', (e) => {
+  const item = e.target.closest('.menu-item:not(:disabled)');
+  if (!item || item.dataset.q === thumbQualitySelect.value) return;
+  thumbQualitySelect.value = item.dataset.q;
+  thumbQualitySelect.dispatchEvent(new Event('change'));
+});
+syncQualityMenu();
 
 thumbQualitySelect.addEventListener('change', () => {
   updateThumbModeHint();
@@ -2680,6 +2726,7 @@ toggleSelectModeBtn.addEventListener('click', () => {
   setSelectToggleUI(toggleSelectModeBtn, isSelectionMode);
   selectionSubTools.classList.toggle('hidden', !isSelectionMode);
   rangeSelectWrap.classList.toggle('hidden', !isSelectionMode);   // [新增]
+  document.body.classList.toggle('selecting', isSelectionMode);   // [新增] 手機：選取時只顯示選取工具列
   if (!isSelectionMode) closeMenus();                              // [新增]
   reorderBody.classList.toggle('selection-mode', isSelectionMode);
 
@@ -2744,6 +2791,55 @@ rangeSelectInput.addEventListener('keydown', (e) => {
     selectPagesByRange();
   }
 });
+
+// [新增] 頁碼面板快捷鈕：奇數頁 / 偶數頁 / 反選 / 清除
+rangeMenu.addEventListener('click', (e) => {
+  const q = e.target.closest('[data-q]')?.dataset.q;
+  if (!q || !isSelectionMode) return;
+  reorderPages.forEach((p, i) => {
+    if (q === 'odd')    p.selected = (i + 1) % 2 === 1;
+    if (q === 'even')   p.selected = (i + 1) % 2 === 0;
+    if (q === 'invert') p.selected = !p.selected;
+    if (q === 'clear')  p.selected = false;
+  });
+  lastCheckedPageIndex = null;
+  updateSelectionUI();
+  if (q !== 'clear') closeMenus();
+});
+
+// [新增] 長按縮圖 → 進入選取模式並勾選該頁（觸控裝置）
+{
+  let lpTimer = null, lpX = 0, lpY = 0, lpFired = false;
+  const clearLP = () => { clearTimeout(lpTimer); lpTimer = null; };
+  reorderPageList.addEventListener('touchstart', (e) => {
+    if (isSelectionMode || e.touches.length !== 1) return;
+    const li = e.target.closest('li');
+    if (!li) return;
+    const t = e.touches[0]; lpX = t.clientX; lpY = t.clientY; lpFired = false;
+    clearLP();
+    lpTimer = setTimeout(() => {
+      lpTimer = null;
+      const idx = cardEls.indexOf(li);
+      if (idx < 0 || isSelectionMode) return;
+      lpFired = true;
+      toggleSelectModeBtn.click();          // 進入選取模式
+      togglePageSelection(idx, false);      // 並勾選這一頁
+      if (navigator.vibrate) navigator.vibrate(15);
+    }, 450);
+  }, { passive: true });
+  reorderPageList.addEventListener('touchmove', (e) => {
+    if (!lpTimer) return;
+    const t = e.touches[0];
+    if (Math.abs(t.clientX - lpX) > 8 || Math.abs(t.clientY - lpY) > 8) clearLP();
+  }, { passive: true });
+  ['touchend', 'touchcancel'].forEach(ev => reorderPageList.addEventListener(ev, clearLP, { passive: true }));
+  // 長按放開後瀏覽器會補一個 click，會把剛勾的頁面又取消，這裡攔掉
+  reorderPageList.addEventListener('click', (e) => {
+    if (lpFired) { e.stopPropagation(); e.preventDefault(); lpFired = false; }
+  }, true);
+  // 長按時不要跳出系統選單 / 選字
+  reorderPageList.addEventListener('contextmenu', (e) => { if (lpFired || lpTimer) e.preventDefault(); });
+}
 
 // 批次刪除所勾選的頁面
 function executeDeleteSelectedPages() {
@@ -3559,6 +3655,7 @@ function applyQualityCap(readyDocs) {
   thumbQualitySelect.title = cap
     ? '大檔案為節省記憶體，清晰度上限固定為自動選擇的等級（較高的選項已停用）'
     : '縮圖清晰度（30 頁內自動預設高清）';
+  syncQualityMenu();   // 同步選單的停用狀態與提示文字
   return { auto, cap, capIdx };
 }
 
@@ -3619,6 +3716,7 @@ function syncReorder() {
     setSelectToggleUI(toggleSelectModeBtn, false);
     selectionSubTools.classList.add('hidden');
     rangeSelectWrap.classList.add('hidden');     // [新增]
+    document.body.classList.remove('selecting'); // [新增]
     closeMenus();                                // [新增]
     reorderBody.classList.remove('selection-mode');
     clearHistory();
@@ -3653,9 +3751,15 @@ function syncReorder() {
     clearHistory();
     renderReorderPages();
     if (wasEmpty) {
-      // [修改] 大檔（自動挑到「極速」）預設檢視比例 35%（= 滑桿最小值 70px）；其餘維持原本的四頁
-      if (LARGE_QUALITIES.includes(thumbQualitySelect.value)) applyContinuousZoom(LARGE_DOC_DEFAULT_THUMB_WIDTH);
-      else applyColumnPreset(4);
+      const isMobileView = window.innerWidth <= 820;
+      if (LARGE_QUALITIES.includes(thumbQualitySelect.value)) {
+        // 手機版大檔仍維持雙頁寬度才看得清、點得到；桌機版維持 35%
+        if (isMobileView) applyColumnPreset(2);
+        else applyContinuousZoom(LARGE_DOC_DEFAULT_THUMB_WIDTH);
+      } else {
+        // 手機預設「雙頁（2 欄）」，桌機預設「四頁（4 欄）」
+        applyColumnPreset(isMobileView ? 2 : 4);
+      }
     }
   } else if (!hasNewDoc && !hasGoneDoc) {
     // 只是檔案庫的排序變了：使用者已自訂頁序，不動頁面，也保留復原紀錄
@@ -4232,32 +4336,11 @@ function bindPageDragEvents(element, index) {
 }
 
 // ---- 預覽燈箱的「選取文字」圖層 ----
-const PREVIEW_TEXT_KEY = 'pdf_tool_preview_text';
-const previewTextToggle = document.getElementById('previewTextToggle');
 const previewPageWrap = document.getElementById('previewPageWrap');
 const previewTextLayer = document.getElementById('previewTextLayer');
-let previewTextEnabled = true;
-try { previewTextEnabled = localStorage.getItem(PREVIEW_TEXT_KEY) !== '0'; } catch (e) {}
+const previewTextEnabled = true;   // [修改] 預覽一律可選取文字（已移除「選取文字」開關）
 let previewToken = 0;           // 每次開啟預覽遞增，避免舊的非同步結果蓋掉新的
 let currentPreviewPage = null;
-
-function refreshPreviewTextToggle() {
-  previewTextToggle.classList.toggle('active', previewTextEnabled);
-  previewTextToggle.setAttribute('aria-pressed', String(previewTextEnabled));
-  previewPageWrap.classList.toggle('no-text', !previewTextEnabled);
-}
-refreshPreviewTextToggle();
-
-previewTextToggle.addEventListener('click', () => {
-  previewTextEnabled = !previewTextEnabled;
-  try { localStorage.setItem(PREVIEW_TEXT_KEY, previewTextEnabled ? '1' : '0'); } catch (e) {}
-  refreshPreviewTextToggle();
-  // 開啟時若目前這頁還沒建立文字圖層，重新載入一次
-  if (previewTextEnabled && currentPreviewPage && !previewModal.classList.contains('hidden') &&
-      previewTextLayer.childElementCount === 0) {
-    openHighResPreview(currentPreviewPage, 'keep');   // [修改] 只重建文字層，不要把捲動位置打回頂端
-  }
-});
 
 // 在 canvas 上疊文字圖層（座標以 CSS 尺寸為準，與畫面上顯示的大小一致）
 async function renderPreviewTextLayer(page, cssViewport, token) {
@@ -4357,7 +4440,10 @@ async function openHighResPreview(pageObj, scrollEdge = 'top') {
     const rotation = ((page.rotate || 0) + (pageObj.rotation || 0)) % 360;   // [修改] 直接用頁面物件的旋轉
     const unscaled = page.getViewport({ scale: 1, rotation });
     const dpr = window.devicePixelRatio || 1;
-    const cssTargetWidth = Math.min(window.innerWidth * 0.85, 920);
+    // [修改] 手機：頁面撐滿預覽區寬度（只留極小邊距）；桌面維持原本 85% / 最大 920px
+    const narrowView = window.innerWidth <= 820;
+    const bodyW = (typeof previewBody !== 'undefined' && previewBody.clientWidth) || window.innerWidth;
+    const cssTargetWidth = narrowView ? Math.max(200, bodyW - 8) : Math.min(window.innerWidth * 0.85, 920);
     const cssScale = cssTargetWidth / unscaled.width;
 
     const renderViewport = page.getViewport({ scale: cssScale * dpr, rotation });
@@ -4550,6 +4636,17 @@ function moveReorderPage(index, direction) {
   reorderPages[target] = temp;
   activeSidebarIndex = target;
   renderReorderPages();
+  // [新增] 移動回饋：提示「第 a 頁 → 第 b 頁」，並讓移動後的縮圖短暫高亮、捲到可見處
+  setStatus(`已移動：第 ${index + 1} 頁 → 第 ${target + 1} 頁`, 'success');
+  requestAnimationFrame(() => {
+    const li = cardEls[target];
+    if (!li) return;
+    const card = li.classList.contains('page-card') ? li : (li.querySelector('.page-card') || li);
+    card.classList.remove('just-moved'); void card.offsetWidth;   // 重新觸發動畫
+    card.classList.add('just-moved');
+    setTimeout(() => card.classList.remove('just-moved'), 1300);
+    if (li.scrollIntoView) li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
 }
 
 reverseOrderBtn.addEventListener('click', () => {
@@ -5454,6 +5551,15 @@ pfbDelete.addEventListener('click', () => {
   if (activeSidebarIndex >= reorderPages.length) activeSidebarIndex = reorderPages.length - 1;
   renderReorderPages();
 });
+
+// 任何 .menu-panel 開啟時，替 body 加上 menu-open（給不支援 :has() 的舊瀏覽器用）
+{
+  const panels = document.querySelectorAll('.menu-panel');
+  const syncMenuOpen = () => document.body.classList.toggle('menu-open', [...panels].some(p => !p.classList.contains('hidden')));
+  const mo = new MutationObserver(syncMenuOpen);
+  panels.forEach(p => mo.observe(p, { attributes: true, attributeFilter: ['class'] }));
+  syncMenuOpen();
+}
 
 // 狀態改變時同步浮動列（包裝既有函式，不改動它們原本的內容）
 {

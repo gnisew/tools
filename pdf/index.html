@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>烏衣行 PDF</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231a73e8'/%3E%3Ctext x='32' y='46' font-size='42' font-weight='700' text-anchor='middle' fill='white' font-family='Arial,sans-serif'%3EP%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
@@ -171,11 +171,17 @@
                       <div id="rangeMenu" class="menu-panel range-panel hidden" role="group" aria-label="依頁碼範圍選取">
                         <label for="rangeSelectInput" class="range-panel-title">依頁碼範圍勾選</label>
                         <span class="range-select">
-                          <input type="text" id="rangeSelectInput" class="range-select-input" placeholder="頁碼 3-5, 9" autocomplete="off" spellcheck="false" title="輸入畫面上的頁碼（例如 3-5, 9），按 Enter 或「套用」即可勾選；會取代目前的勾選">
+                          <input type="text" id="rangeSelectInput" class="range-select-input" enterkeyhint="done" placeholder="頁碼 3-5, 9" autocomplete="off" spellcheck="false" title="輸入畫面上的頁碼（例如 3-5, 9），按 Enter 或「套用」即可勾選；會取代目前的勾選">
                           <button id="rangeSelectBtn" class="ghost-btn" title="依頁碼範圍勾選（取代目前的勾選）">
                             <span>套用</span>
                           </button>
                         </span>
+                        <div class="range-chips">
+                          <button type="button" class="ghost-btn" data-q="odd">奇數頁</button>
+                          <button type="button" class="ghost-btn" data-q="even">偶數頁</button>
+                          <button type="button" class="ghost-btn" data-q="invert">反選</button>
+                          <button type="button" class="ghost-btn" data-q="clear">清除</button>
+                        </div>
                       </div>
                     </div>
                 <div class="action-group">
@@ -195,7 +201,14 @@
 
               <span id="reorderPageInfo" class="page-pill"></span>
               <!-- [修改] 縮圖清晰度：原本在「⋯」選單內，改成直接放在這裡（取代原本的「超速：低品質縮圖」提示） -->
-              <select id="thumbQualitySelect" class="ghost-select" title="縮圖清晰度（30 頁內自動預設高清）">
+              <!-- 縮圖清晰度：改用與其他工具列一致的選單；原生 <select> 隱藏，僅作為資料來源（value / options / disabled 仍由既有程式使用） -->
+              <div class="menu-wrap view-only">
+                <button id="thumbQualityBtn" type="button" class="ghost-select quality-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="thumbQualityMenu" title="縮圖清晰度（30 頁內自動預設高清）">高清</button>
+                <div id="thumbQualityMenu" class="menu-panel quality-menu hidden" role="menu">
+                  <div class="menu-heading">縮圖清晰度</div>
+                </div>
+              </div>
+              <select id="thumbQualitySelect" class="hidden" aria-hidden="true" tabindex="-1">
                 <option value="instant">光速</option>
                 <option value="ultra">超速</option>
                 <option value="fast">極速</option>
@@ -418,14 +431,32 @@
     <!-- [新增] 觸控 / 手機：頁面浮動操作列（取代縮圖上的小按鈕） -->
     <div id="pageFloatBar" class="page-float-bar hidden" role="toolbar" aria-label="頁面操作">
       <span id="pfbCount" class="pfb-count hidden"></span>
-      <button id="pfbPrev" class="pfb-btn" type="button" title="前移一頁">←</button>
-      <button id="pfbNext" class="pfb-btn" type="button" title="後移一頁">→</button>
-      <button id="pfbPreview" class="pfb-btn" type="button" title="放大預覽">🔍</button>
+      <button id="pfbPrev" class="pfb-btn" type="button" title="把這一頁往前移（調整順序）" aria-label="前移">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z"/></svg>
+        <span class="pfb-label">前移</span>
+      </button>
+      <button id="pfbNext" class="pfb-btn" type="button" title="把這一頁往後移（調整順序）" aria-label="後移">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+        <span class="pfb-label">後移</span>
+      </button>
+      <button id="pfbPreview" class="pfb-btn" type="button" title="放大預覽這一頁" aria-label="預覽">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M21 11V3h-8l3.29 3.29-10 10L3 13v8h8l-3.29-3.29 10-10L21 11z"/></svg>
+        <span class="pfb-label">預覽</span>
+      </button>
       <span id="pfbSep1" class="pfb-sep"></span>
-      <button id="pfbRotL" class="pfb-btn" type="button" title="向左旋轉 90°">↺</button>
-      <button id="pfbRotR" class="pfb-btn" type="button" title="向右旋轉 90°">↻</button>
+      <button id="pfbRotL" class="pfb-btn" type="button" title="向左旋轉 90°" aria-label="向左旋轉 90°">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M7.11 8.53L5.7 7.11C4.8 8.27 4.24 9.61 4.07 11h2.02c.14-.87.49-1.72 1.02-2.47zM6.09 13H4.07c.17 1.39.72 2.73 1.62 3.89l1.41-1.42c-.52-.75-.87-1.59-1.01-2.47zm1.01 5.32c1.16.9 2.51 1.44 3.9 1.61V17.9c-.87-.15-1.71-.49-2.46-1.03L7.1 18.32zM13 4.07V1L8.45 5.55 13 10V6.09c2.84.48 5 2.94 5 5.91s-2.16 5.43-5 5.91v2.02c3.95-.49 7-3.85 7-7.93s-3.05-7.44-7-7.93z"/></svg>
+        <span class="pfb-label">左轉</span>
+      </button>
+      <button id="pfbRotR" class="pfb-btn" type="button" title="向右旋轉 90°" aria-label="向右旋轉 90°">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M15.55 5.55L11 1v3.07C7.06 4.56 4 7.92 4 12s3.05 7.44 7 7.93v-2.02c-2.84-.48-5-2.94-5-5.91s2.16-5.43 5-5.91V10l4.55-4.45zM19.93 11c-.17-1.39-.72-2.73-1.62-3.89l-1.42 1.42c.54.75.88 1.6 1.02 2.47h2.02zM13 17.9v2.02c1.39-.17 2.74-.71 3.9-1.61l-1.44-1.44c-.75.54-1.59.89-2.46 1.03zm3.89-2.42l1.42 1.41c.9-1.16 1.45-2.5 1.62-3.89h-2.02c-.14.87-.48 1.72-1.02 2.47z"/></svg>
+        <span class="pfb-label">右轉</span>
+      </button>
       <span class="pfb-sep"></span>
-      <button id="pfbDelete" class="pfb-btn pfb-danger" type="button" title="刪除">🗑</button>
+      <button id="pfbDelete" class="pfb-btn pfb-danger" type="button" title="刪除" aria-label="刪除">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>
+        <span class="pfb-label">刪除</span>
+      </button>
     </div>
 
     <!-- 浮動狀態提示：左下角＝一般訊息 -->
@@ -612,7 +643,6 @@
             <span class="preview-jump">第 <input type="number" id="previewJumpInput" class="range-select-input" min="1" value="1" title="輸入頁碼後按 Enter 跳頁"> / <span id="previewJumpTotal">0</span> 頁</span>
             <button id="previewNextBtn" class="modal-close-btn" type="button" title="下一頁（→；在頁面底端繼續往下滑也會自動換頁）">下一頁 ›</button>
           </div>
-          <button id="previewTextToggle" class="modal-close-btn" aria-pressed="true" title="開啟後可在預覽上框選、複製文字（掃描檔沒有文字層則無效）">選取文字</button>
           <button id="closePreviewBtn" class="modal-close-btn" aria-label="關閉預覽（Esc）"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>關閉</button>
         </div>
       </div>

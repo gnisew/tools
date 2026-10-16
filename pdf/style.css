@@ -440,6 +440,10 @@ body.tab-mode .file-name {
   transition:background-color .15s;
 }
 
+/* 縮圖清晰度按鈕：沿用 ghost-select 外觀，但它是 <button> */
+.quality-btn { font-family: inherit; text-align: left; white-space: nowrap; }
+.quality-menu { min-width: 140px; }
+
 .ghost-select.theme-compact {
   padding: 4px;
   font-size: 13px;
@@ -1586,6 +1590,9 @@ body.theme-gray .drop-overlay-box {
   color: var(--topbar-muted);
 }
 .range-panel .range-select-input { width: 140px; }
+/* [新增] 頁碼面板快捷鈕 */
+.range-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.range-chips .ghost-btn { flex: 1 1 auto; min-height: 36px; justify-content: center; }
 
 /* =========================================
    [新增] 加密 PDF 密碼對話框
@@ -2339,9 +2346,11 @@ body.theme-gray .drop-overlay-box {
     gap: 2px;
     padding: 4px 6px;
     border-radius: 28px;
-    background: rgba(32, 33, 36, 0.92);
-    backdrop-filter: blur(6px);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    /* 配合主題：與頂端工具列、底部分頁列同一套顏色（亮 / 灰 / 暗色自動切換） */
+    background: var(--topbar-bg);
+    color: var(--topbar-text);
+    border: 1px solid var(--topbar-border);
+    box-shadow: var(--shadow-2);
     max-width: calc(100vw - 16px);
   }
   .page-float-bar.hidden { display: none; }
@@ -2352,7 +2361,7 @@ body.theme-gray .drop-overlay-box {
     border: none;
     border-radius: 21px;
     background: transparent;
-    color: #fff;
+    color: var(--topbar-text);
     font-size: 20px;
     line-height: 1;
     cursor: pointer;
@@ -2360,12 +2369,15 @@ body.theme-gray .drop-overlay-box {
     align-items: center;
     justify-content: center;
   }
-  .pfb-btn:active:not(:disabled) { background: rgba(255, 255, 255, 0.2); }
-  .pfb-btn:disabled { opacity: 0.3; }
+  .pfb-btn:active:not(:disabled) { background: var(--btn-active-bg); color: var(--btn-active-text); }
+  .pfb-btn:disabled { opacity: 0.35; }
   .pfb-btn.hidden { display: none; }
-  .pfb-danger:not(:disabled) { color: #ff8a80; }
-  .pfb-sep { width: 1px; height: 22px; background: rgba(255, 255, 255, 0.25); margin: 0 2px; }
-  .pfb-count { padding: 0 10px 0 8px; color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .pfb-danger:not(:disabled) { color: #d93025; }
+  .pfb-danger:active:not(:disabled) { background: rgba(217, 48, 37, 0.12); color: #d93025; }
+  body.theme-dark .pfb-danger:not(:disabled) { color: #f28b82; }
+  body.theme-dark .pfb-danger:active:not(:disabled) { background: rgba(242, 139, 130, 0.16); color: #f28b82; }
+  .pfb-sep { width: 1px; height: 22px; background: var(--divider-color); margin: 0 2px; }
+  .pfb-count { padding: 4px 12px; margin-right: 2px; border-radius: 999px; background: var(--accent-soft-2); color: var(--accent); font-size: 13px; font-weight: 600; white-space: nowrap; }
   .pfb-count.hidden { display: none; }
   /* 選取模式：隱藏分隔線與多餘按鈕時，只留 已選 N ↺ ↻ 🗑 */
   #pfbSep1.hidden { display: none; }
@@ -2374,6 +2386,10 @@ body.theme-gray .drop-overlay-box {
   .page-grid { padding-bottom: 84px; }
   body.has-floatbar .status-toast,
   body.has-floatbar .progress-dock { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+
+  /* 任何下拉選單（底部抽屜）開啟時，隱藏浮動操作列，避免蓋住選單項目 */
+  body.menu-open .page-float-bar,
+  body:has(.menu-panel:not(.hidden)) .page-float-bar { display: none !important; }
 
   /* 選取模式的旋轉 / 刪除改由浮動列處理，頂端工具列不重複 */
   #selectionSubTools #rotateLeftSelectedBtn,
@@ -2640,3 +2656,439 @@ body.theme-dark .filename-actions .ghost-btn.confirm-danger:hover:not(:disabled)
 .page-card.active-page {
   content-visibility: visible;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* =========================================================
+   [專業 App 行動版升級] 針對手機與觸控螢幕 (max-width: 820px)
+   符合 iOS HIG (44pt) / Material Design (48dp) 觸控規範
+   ========================================================= */
+@media (max-width: 820px) {
+  :root {
+    --mobile-tabbar-h: 58px;
+    --mobile-safe-b: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* 1. 整體容器：底部預留空間給固定導覽列 */
+  body.tab-mode .container {
+    padding-bottom: calc(var(--mobile-tabbar-h) + var(--mobile-safe-b));
+  }
+
+  /* 2. 頂端工具列：移走分頁後空間充裕，按鈕全面放大至 44px */
+  .topbar {
+    padding: 6px 10px;
+    row-gap: 6px;
+    column-gap: 6px;
+  }
+
+  /* 頂端第一列：檔案、儲存、收合、設定 */
+  .topbar > .toolbar-group .ghost-btn,
+  .topbar > .toolbar-right .ghost-btn {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 12px;
+    font-size: 14px;
+    border-radius: 12px;
+  }
+  .topbar > .toolbar-right .ghost-btn.icon-btn-compact {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+  }
+
+  /* 讓「檔案」與「儲存」在手機頂端顯示文字，清楚直覺 */
+  #fileMenuBtn .btn-text,
+  #primarySaveBtn .btn-text {
+    display: inline !important;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  #primarySaveBtn {
+    padding: 0 16px !important;
+  }
+
+  /* 3. 分頁切換 (.tabs) 改為原生 App 風格「底部固定導覽列」 */
+  .tabs {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(var(--mobile-tabbar-h) + var(--mobile-safe-b));
+    padding: 4px 8px calc(4px + var(--mobile-safe-b));
+    background-color: var(--topbar-bg);
+    border-top: 1px solid var(--topbar-border);
+    border-radius: 0;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    z-index: 460;
+    margin: 0;
+  }
+
+  .tab-btn {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 3px;
+    min-height: 48px;
+    padding: 4px 2px !important;
+    border-radius: 12px;
+    font-size: 11px;
+  }
+  .tab-btn svg {
+    width: 22px;
+    height: 22px;
+  }
+  /* 底部導覽列 4 個分頁一律顯示文字標籤 */
+  .tab-btn .btn-text {
+    display: inline !important;
+    font-size: 11px;
+    line-height: 1.1;
+  }
+
+  /* 4. 第二列動態工具區 (.toolbar-context)：加大觸控高度與間距 */
+  .toolbar-context {
+    padding-top: 6px;
+  }
+  .toolbar-context .ghost-btn {
+    min-width: 44px;
+    min-height: 42px;
+    padding: 6px 12px;
+    font-size: 14px;
+    border-radius: 10px;
+  }
+  /* 讓「選取」與「編輯」按鈕在手機上也顯示文字，不再只有難懂的小圖示 */
+  #toggleMergeSelectModeBtn .btn-text,
+  #toggleSelectModeBtn .btn-text,
+  #pageMenuBtn .btn-text {
+    display: inline !important;
+    font-size: 13px;
+  }
+  .toolbar-context .ghost-select {
+    min-height: 42px;
+    padding: 6px 28px 6px 12px;
+    font-size: 14px;
+  }
+  .zoom-badge {
+    min-height: 42px;
+    padding: 6px 12px;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+  }
+  /* 手機隱藏難以精準拖曳的微小滑桿，直接點右側「雙頁/比例」選單更快 */
+  #thumbSizeSlider {
+    display: none;
+  }
+  .selection-sub-tools {
+    padding: 3px;
+    gap: 4px;
+  }
+  .selection-sub-tools .ghost-btn {
+    min-height: 40px;
+    padding: 6px 14px;
+    font-size: 14px;
+  }
+
+  /* 5. 合併檔案列表 (.file-item)：改為雙層卡片，操作鈕放大至 42px */
+  .file-list {
+    padding: 12px;
+  }
+  .file-item {
+    flex-wrap: wrap;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 12px;
+    margin-bottom: 10px;
+    gap: 8px;
+    box-shadow: var(--shadow-1);
+  }
+  .file-name {
+    flex: 1 1 calc(100% - 110px);
+    font-size: 15px !important;
+    font-weight: 500;
+    line-height: 1.4;
+    margin-right: 4px;
+  }
+  .file-page-badge {
+    font-size: 12px;
+    padding: 4px 10px;
+    margin-right: 0;
+  }
+  /* 操作按鈕獨立在卡片下半部靠右，尺寸 42x42px 防誤觸 */
+  .file-controls {
+    flex: 1 0 100%;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 8px;
+    margin-top: 2px;
+    border-top: 1px solid var(--topbar-border);
+    opacity: 1;
+  }
+  .icon-btn {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: var(--pill-bg);
+    color: var(--topbar-text);
+  }
+  .icon-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* 6. 勾選框放大：合併與調動模式更容易點選 */
+  .merge-check-badge {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    margin-right: 8px;
+  }
+  .merge-check-badge svg {
+    width: 16px;
+    height: 16px;
+  }
+  .reorder-body.selection-mode .select-check-badge {
+    width: 28px;
+    height: 28px;
+    top: 8px;
+    left: 8px;
+  }
+  .reorder-body.selection-mode .select-check-badge svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* 7. 調動頁面網格與底部浮動操作列 (#pageFloatBar) */
+  .page-grid {
+    padding: 12px 12px 96px;
+    gap: 14px 12px;
+  }
+  .page-float-bar {
+    bottom: calc(var(--mobile-tabbar-h) + var(--mobile-safe-b) + 10px);
+    padding: 6px 10px;
+    gap: 6px;
+    border-radius: 999px;
+  }
+  .pfb-btn {
+    min-width: 46px;
+    height: 46px;
+    font-size: 20px;
+    border-radius: 23px;
+  }
+
+  /* 狀態提示 Toast 與進度卡：自動避開底部導覽列與浮動列 */
+  .status-toast,
+  .progress-dock {
+    bottom: calc(var(--mobile-tabbar-h) + var(--mobile-safe-b) + 12px);
+    left: 12px;
+    right: 12px;
+    max-width: none;
+  }
+  body.has-floatbar .status-toast,
+  body.has-floatbar .progress-dock {
+    bottom: calc(var(--mobile-tabbar-h) + var(--mobile-safe-b) + 74px);
+  }
+
+  /* 8. 下拉選單 (.menu-panel) 轉為手機底部抽屜 (Bottom Sheet) */
+  .menu-panel {
+    left: 10px !important;
+    right: 10px !important;
+    top: auto !important;
+    bottom: calc(var(--mobile-tabbar-h) + var(--mobile-safe-b) + 8px) !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: 70dvh;
+    overflow-y: auto;
+    padding: 10px;
+    border-radius: 20px;
+    box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.28);
+  }
+  .menu-item,
+  .menu-radio,
+  .menu-row {
+    min-height: 48px;
+    padding: 10px 14px;
+    font-size: 15px;
+    border-radius: 12px;
+  }
+  .menu-item svg {
+    width: 20px;
+    height: 20px;
+  }
+  .menu-heading {
+    font-size: 13px;
+    padding: 10px 14px 4px;
+  }
+
+  /* 9. 分割設定區 (.split-card)：加大表單與單選框觸控距離 */
+  .split-options {
+    padding: 16px 12px;
+  }
+  .split-card {
+    padding: 20px 16px;
+    border-radius: 16px;
+  }
+  .radio-group {
+    padding: 16px;
+  }
+  .radio-label,
+  .check-label {
+    font-size: 15px;
+    min-height: 32px;
+  }
+  .radio-label input[type="radio"],
+  .check-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+  }
+  .text-input {
+    min-height: 44px;
+    font-size: 16px;
+    padding: 10px 12px;
+  }
+
+  /* 10. 單頁放大預覽燈箱 (#previewModal)：手機滿版；標題 + 關閉在上、頁面在中、翻頁工具列在下（拇指好按） */
+  #previewModal {
+    padding: 0;
+  }
+  #previewModal .modal-content {
+    width: 100vw;
+    height: 100dvh;
+    max-width: 100vw;
+    max-height: 100dvh;
+    border-radius: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+  /* 讓 header / actions 不產生外框，子元素直接參與 modal-content 的格線 */
+  #previewModal .modal-header,
+  #previewModal .modal-header-actions { display: contents; }
+  #previewModalTitle {
+    grid-area: 1 / 1;
+    align-self: center;
+    padding: 10px 6px 10px 14px;
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-bottom: 1px solid var(--topbar-border);
+  }
+  #closePreviewBtn {
+    grid-area: 1 / 2;
+    align-self: center;
+    margin: 0 8px 0 0;
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    padding: 0;
+  }
+  #previewModal .modal-body {
+    grid-area: 2 / 1 / 3 / 3;
+    padding: 6px 4px;
+  }
+  /* 底部翻頁工具列 */
+  .preview-nav {
+    grid-area: 3 / 1 / 4 / 3;
+    margin: 0;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+    border-right: none;
+    border-top: 1px solid var(--topbar-border);
+    background: var(--topbar-bg);
+    gap: 8px;
+    justify-content: space-between;
+  }
+  .preview-nav .modal-close-btn { flex: 1 1 0; justify-content: center; min-height: 46px; }
+  .preview-jump { font-size: 14px; flex: 0 0 auto; }
+  .preview-jump .range-select-input { width: 56px; min-height: 40px; font-size: 16px; }
+  .modal-close-btn {
+    min-height: 40px;
+    padding: 8px 14px;
+    font-size: 14px;
+    background: var(--pill-bg);
+  }
+
+  /* 一般對話框（檔名、頁碼、壓縮、密碼）按鈕加大 */
+  .filename-modal {
+    width: calc(100vw - 24px);
+    border-radius: 20px;
+  }
+  .filename-actions .ghost-btn {
+    min-height: 44px;
+    padding: 10px 22px;
+    font-size: 15px;
+    border-radius: 12px;
+  }
+}
+
+.pfb-btn svg {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* =========================================================
+   [新增] 手機：選取模式時只留一排選取工具
+   [取消][全選][頁碼] + 已選 N / M 頁（隱藏清晰度、縮放、編輯、檔案篩選）
+   ========================================================= */
+@media (max-width: 820px) {
+  body.selecting #reorderTools .tools-right,
+  body.selecting #reorderTools .view-only,
+  body.selecting #fileFilterWrap { display: none !important; }
+
+  body.selecting #selectionSubTools { order: 0; flex: 0 1 auto; overflow: visible; }
+  body.selecting #reorderPageInfo,
+  body.selecting #reorderTools .page-pill { margin-left: auto; }
+  /* 頁碼面板的輸入框撐滿，方便輸入 */
+  .range-panel .range-select-input { width: 100%; min-height: 44px; font-size: 16px; }
+  .range-panel .range-select { display: flex; gap: 8px; }
+  /* 長按縮圖時不要選字 / 跳出系統選單 */
+  .page-grid { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+}
+
+
+/* =========================================================
+   [新增] 浮動操作列：圖示 + 文字標籤（前移／後移／預覽／左轉／右轉／刪除）
+   ========================================================= */
+.pfb-label { display: none; }
+@media (max-width: 820px), (pointer: coarse) {
+  .page-float-bar { padding: 5px 8px; gap: 2px; border-radius: 22px; }
+  .pfb-btn {
+    flex-direction: column;
+    gap: 2px;
+    min-width: 52px;
+    height: 56px;
+    padding: 4px 6px;
+    border-radius: 14px;
+  }
+  .pfb-label { display: block; font-size: 11px; line-height: 1; font-weight: 500; white-space: nowrap; }
+  .pfb-btn svg { width: 22px; height: 22px; }
+  .pfb-sep { height: 30px; }
+  .pfb-count { align-self: center; }
+  /* 浮動列變高了，縮圖區與提示往上多讓一點 */
+  .page-grid { padding-bottom: 116px; }
+  body.has-floatbar .status-toast,
+  body.has-floatbar .progress-dock { bottom: calc(var(--mobile-tabbar-h, 0px) + env(safe-area-inset-bottom, 0px) + 88px); }
+}
+/* 移動後的縮圖短暫高亮 */
+@keyframes just-moved-pulse {
+  0%   { box-shadow: 0 0 0 3px var(--accent, #1a73e8); transform: scale(1.03); }
+  100% { box-shadow: 0 0 0 0 rgba(26,115,232,0); transform: scale(1); }
+}
+.page-card.just-moved, .page-grid > li.just-moved { animation: just-moved-pulse 1.2s ease-out; }
