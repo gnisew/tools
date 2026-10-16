@@ -167,7 +167,7 @@
 
 				  <!-- 下拉選單 -->		  
 
-					<div id="menuHanziToPinyin" class="hidden absolute top-full right-0 mt-2 w-44 bg-white rounded-xl shadow-xl border border-slate-200 z-50 p-1 overflow-hidden origin-top-right">
+					<div id="menuHanziToPinyin" class="hidden absolute top-full right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 z-50 p-1 overflow-hidden origin-top-right">
 						
 						<!-- 按鈕 1 -->
 						<button id="actHanziToPinyin" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors">
@@ -195,6 +195,18 @@
 						<button id="actHanziToPinyinRaw" class="hidden w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors">
 							<span class="material-symbols-outlined text-[18px] text-teal-600">raw_on</span> 
 							<span>Bunxc-bienx</span>
+						</button>
+
+						<!-- 【新增】逐行比對 -->
+						<button id="actHanziCompare" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors" title="逐行比對辭庫，輸出：漢字 → O/V/X → 拼音">
+							<span class="material-symbols-outlined text-[18px] text-green-600">fact_check</span>
+							<span>逐行比對 (O/V/X)</span>
+						</button>
+
+						<!-- 【新增】字音字形命題 -->
+						<button id="actHanziQuiz" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors" title="隨機（或依指定數字）框出一個字，輸出：位置 → 漢字 → 拼音 → 整句拼音 → 該字">
+							<span class="material-symbols-outlined text-[18px] text-pink-500">quiz</span>
+							<span>字音字形命題</span>
 						</button>
 
 						<button id="actFilterNewWords" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors" title="每行一個詞，比對字典篩選出新詞">

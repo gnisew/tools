@@ -881,6 +881,62 @@ function cleanPinyinLine(line) {
 }
 
 /**
+ * 【新增】解析單行拼音（供逐行比對使用）：
+ * 1. 以引號「」『』“”"" 把整行切成「被框住 / 沒被框住」的片段（引號本身視為分隔，不輸出）
+ * 2. 每個片段各自用 cleanPinyinLine 清理，再合併成最終拼音（標點、多餘空格都已移除）
+ * 3. 以「音節」為單位計算被框住的音節是第幾個（連字號 - = 連起來的算多個音節），回傳位置 mark
+ *    連續的合併為 a-b，不連續的用逗號分隔，例如 "1"、"1-2"、"1,3"；沒有引號則為空字串
+ */
+function parsePinyinLine(line) {
+    const OPEN_Q = '「『“', CLOSE_Q = '」』”';
+    const segs = [];
+    let buf = '', inQuote = false;
+    const flush = () => { if (buf) segs.push({ raw: buf, q: inQuote }); buf = ''; };
+    for (const ch of Array.from(line)) {
+        if (OPEN_Q.includes(ch)) { flush(); inQuote = true; continue; }
+        if (CLOSE_Q.includes(ch)) { flush(); inQuote = false; continue; }
+        if (ch === '"') { flush(); inQuote = !inQuote; continue; } // 半形雙引號：開關切換
+        buf += ch;
+    }
+    flush();
+
+    const countSyl = (t) => t.split(/[\s\-=]+/).filter(w => w.replace(/[ˇˋˊˆ⁺^]/g, '')).length; // 只有聲調符號的不算音節
+    const pos = [];
+    let count = 0, joined = '', prevRaw = '';
+    for (const seg of segs) {
+        const cleaned = cleanPinyinLine(seg.raw);
+        const n = countSyl(cleaned);
+        if (!cleaned) continue; // 只有標點的片段略過（只有聲調符號的片段要保留，但不算音節）
+        if (seg.q) for (let k = 1; k <= n; k++) pos.push(count + k);
+        count += n;
+        // 片段之間預設用空格隔開；若連字號直接貼著引號（如 ngais-「ngins」）則不加空格
+        const glue = joined && !(/[-=]$/.test(prevRaw.trimEnd()) || /^[-=]/.test(seg.raw.trimStart())) ? ' ' : '';
+        joined += glue + seg.raw;
+        prevRaw = seg.raw;
+    }
+
+    const parts = [];
+    for (let i = 0; i < pos.length; ) {
+        let j = i;
+        while (j + 1 < pos.length && pos[j + 1] === pos[j] + 1) j++;
+        parts.push(j > i ? `${pos[i]}-${pos[j]}` : `${pos[i]}`);
+        i = j + 1;
+    }
+    // 【修改】多回傳 positions（被框住的音節位置陣列）與 sylCount（總音節數），供取出對應的漢字
+    return { text: cleanPinyinLine(joined), mark: parts.join(','), positions: pos, sylCount: count };
+}
+
+/**
+ * 【新增】依引號框住的音節位置，從漢字字串取出對應的字
+ * 漢字字數必須等於音節數才能一一對應，否則回傳空字串
+ */
+function pickHanziByPositions(hanzi, positions, sylCount) {
+    const chars = Array.from(hanzi || '');
+    if (!positions || positions.length === 0 || chars.length !== sylCount) return '';
+    return positions.map(p => chars[p - 1] || '').join('');
+}
+
+/**
  * 【新增】連續兩個（以上）聲調 → 只留第一個聲調（供比對用）
  *  符號調：「nginˋ⁺」→「nginˋ」
  *  字母調：「nginsf senv」→「ngins senv」（只處理音節結尾，且第一個必須是 zvsxc）
@@ -915,7 +971,8 @@ function pinyinCompare() {
 
     const outLines = pinyinInput.value.split(/\r?\n/).map(line => {
         // 【修改】先清理標點、多餘空格並修正聲調符號空格；輸出的拼音也是清理後的版本
-        const original = cleanPinyinLine(line);
+        // 【修改】改用 parsePinyinLine：清理後的拼音 + 引號框住的音節位置（mark）
+        const { text: original, mark, positions, sylCount } = parsePinyinLine(line);
         if (!original) return ''; // 保留空行（只有標點的行也視為空行）
 
         // 先做和「音轉字」相同的調號轉換（^ 視同 ˆ），再正規化大小寫後比對
@@ -927,7 +984,9 @@ function pinyinCompare() {
 
         if (candidates && candidates.length > 0) {
             okCount++;
-            return [original, 'O', ...candidates].join('\t');
+            // 【新增】有引號時，最後多一欄：第一個候選漢字中，被框住的音節對應的字
+            const picked = mark ? [pickHanziByPositions(candidates[0], positions, sylCount)] : [];
+            return [mark, original, 'O', ...candidates, ...picked].join('\t');
         }
 
         const converted = convertPinyinToHanziText(reduced); // 改用縮成單一聲調的版本轉換
@@ -936,16 +995,232 @@ function pinyinCompare() {
         // 【修改】轉換結果若仍含拉丁字母或聲調符號 = 有拼音沒轉成漢字 → X；全部轉成漢字 → V
         if (converted !== null && !/[\p{Script=Latin}ˇˋˊˆ⁺^]/u.test(converted)) {
             convCount++;
-            return [original, 'V', result].join('\t');
+            const picked = mark ? [pickHanziByPositions(result, positions, sylCount)] : []; // 【新增】
+            return [mark, original, 'V', result, ...picked].join('\t');
         }
         ngCount++;
-        return [original, 'X', result].join('\t');
+        return [mark, original, 'X', result].join('\t');
     });
 
     hanziInput.value = outLines.join('\n');
     toast(`比對完成：O ${okCount} 行、V ${convCount} 行、X ${ngCount} 行`);
 }
 
+
+// 【修改】改成最上層函式，供「逐行比對」與「字音字形命題」共用。
+// 解析每一行：移除標點與多餘空格，並記錄「被引號框住的字」是第幾個字
+// 以「字元（code point）」為單位計算位置，擴充字（如 𠊎）也算 1 個字；空格移除後才計算位置
+const QUOTE_OPEN = '「『“', QUOTE_CLOSE = '」』”';
+const isHanLike = (ch) => /[\p{Script=Han}\p{Co}]/u.test(ch);
+function parseHanziLine(line) {
+    // (1) 逐字掃描：標點移除、引號只用來標記，保留文字／數字／組合符號／私有造字區字元／空白
+    let inQuote = false;
+    let items = [];
+    for (const ch of Array.from(line)) {
+        if (QUOTE_OPEN.includes(ch)) { inQuote = true; continue; }
+        if (QUOTE_CLOSE.includes(ch)) { inQuote = false; continue; }
+        if (ch === '"') { inQuote = !inQuote; continue; } // 半形雙引號：開關切換
+        if (/\s/u.test(ch)) { items.push({ ch: ' ', q: false }); continue; }
+        if (/[\p{L}\p{N}\p{M}\p{Co}]/u.test(ch)) items.push({ ch, q: inQuote });
+        // 其他字元（標點）直接捨棄
+    }
+    // (2) 壓縮連續空格、移除頭尾空格
+    const squeezed = [];
+    for (const it of items) {
+        if (it.ch === ' ' && (squeezed.length === 0 || squeezed[squeezed.length - 1].ch === ' ')) continue;
+        squeezed.push(it);
+    }
+    if (squeezed.length && squeezed[squeezed.length - 1].ch === ' ') squeezed.pop();
+    // (3) 移除漢字與漢字之間的空格
+    const finalItems = squeezed.filter((it, i) =>
+        !(it.ch === ' ' && i > 0 && i < squeezed.length - 1 &&
+          isHanLike(squeezed[i - 1].ch) && isHanLike(squeezed[i + 1].ch)));
+    // (4) 被引號框住的字的位置（從 1 開始）：連續的合併為 a-b，不連續的用逗號分隔
+    const pos = [];
+    finalItems.forEach((it, i) => { if (it.q) pos.push(i + 1); });
+    const parts = [];
+    for (let i = 0; i < pos.length; ) {
+        let j = i;
+        while (j + 1 < pos.length && pos[j + 1] === pos[j] + 1) j++;
+        parts.push(j > i ? `${pos[i]}-${pos[j]}` : `${pos[i]}`);
+        i = j + 1;
+    }
+    return { text: finalItems.map(it => it.ch).join(''), mark: parts.join(',') };
+}
+
+/**
+ * 【新增】字轉音「逐行比對」：
+ * 每一行漢字：
+ *   O：整行與辭庫的詞「完全符合」→ 漢字 \t O \t 拼音1 \t 拼音2 ...（列出辭庫中該詞所有拼音）
+ *   V：未完全符合，但可全部轉換成拼音 → 漢字 \t V \t 拼音
+ *   X：未完全符合，且仍有漢字無法轉換 → 漢字 \t X \t 拼音（無法轉換的字保留原樣）
+ */
+function hanziCompare() {
+    if (typeof masterRegex === 'undefined' || masterRegex.source === '(?:)' || !pinyinMapAll || pinyinMapAll.size === 0) {
+        toast('語言資料庫尚未載入，無法比對。');
+        return;
+    }
+    const srcText = hanziInput.value;
+    if (!srcText.trim()) {
+        toast('漢字區沒有內容可比對。');
+        return;
+    }
+
+    const parsedLines = srcText.split(/\r?\n/).map(parseHanziLine);
+    const srcLines = parsedLines.map(p => p.text);
+
+    // 1. 整份「清理後」的文字一次轉換（引擎逐行處理，行數不變），取得 V / X 用的拼音
+    hanziInput.value = srcLines.join('\n');
+    hanziToPinyin();
+    hanziInput.value = srcText; // 還原漢字區原文
+    const convLines = pinyinInput.value.split('\n');
+
+    // 無法轉換的判斷：仍殘留漢字或私有造字區字元
+    const leftoverHan = /[\p{Script=Han}\p{Co}]/u;
+
+    let okCount = 0, convCount = 0, ngCount = 0;
+
+    const outLines = srcLines.map((line, idx) => {
+        const original = line; // 已清理過，不含標點
+        const mark = parsedLines[idx].mark; // 【新增】引號框住的字的位置（沒有引號則為空）
+        if (!original) return ''; // 保留空行（只有標點的行也視為空行）
+
+        // 2. 先用異體字轉換（與字轉音相同），再查「整行 = 辭庫一個詞」
+        const key = replaceChars(original, m, n);
+        const dictPinyins = pinyinMapAll.get(key);
+
+        if (dictPinyins && dictPinyins.length > 0) {
+            okCount++;
+            const formatted = dictPinyins.map(p => {
+                let t = formatPinyinByLanguage(p, undefined).trim();
+                // 與字轉音相同的詔安腔修正：零聲母 o → oo
+                if (currentLanguageKey === 'kasu') {
+                    t = t.replace(/\bo([zvsxf1-9]?)\b/gi, (mt, p1) => (mt[0] === 'O' ? 'Oo' + p1 : 'oo' + p1));
+                }
+                return t;
+            });
+            return [mark, original, 'O', ...new Set(formatted)].join('\t');
+        }
+
+        // 3. 未完全符合：看轉換結果還有沒有殘留漢字
+        const converted = (convLines[idx] || '').trim();
+        if (leftoverHan.test(converted)) {
+            ngCount++;
+            return [mark, original, 'X', converted].join('\t');
+        }
+        convCount++;
+        return [mark, original, 'V', converted].join('\t');
+    });
+
+    pinyinInput.value = outLines.join('\n');
+    toast(`比對完成：O ${okCount} 行、V ${convCount} 行、X ${ngCount} 行`);
+}
+
+/**
+ * 【新增】字音字形命題：
+ * 每行一個詞，隨機（或依指定數字）選一個字框上引號，輸出：
+ *   位置 \t 漢字(引號) \t 該字拼音 \t 拼音(引號) \t 該字
+ * 輸入也可寫成「數字 \t 漢字」（數字 = 第幾個字，優先於隨機）；沒有數字但漢字有引號，則依引號位置。
+ */
+function hanziQuiz() {
+    if (typeof masterRegex === 'undefined' || masterRegex.source === '(?:)' || !pinyinMapAll || pinyinMapAll.size === 0) {
+        toast('語言資料庫尚未載入，無法命題。');
+        return;
+    }
+    const srcText = hanziInput.value;
+    if (!srcText.trim()) {
+        toast('漢字區沒有內容可命題。');
+        return;
+    }
+
+    // 1. 解析每一行：「數字 Tab 漢字」→ 指定位置；否則依引號位置；都沒有則隨機
+    const rows = srcText.split(/\r?\n/).map(rawLine => {
+        const mNum = rawLine.match(/^\s*(\d+)\t([\s\S]*)$/);
+        const parsed = parseHanziLine(mNum ? mNum[2] : rawLine);
+        let pos = null; // 指定的位置（從 1 開始）
+        if (mNum) pos = parseInt(mNum[1], 10);
+        else if (parsed.mark) pos = parseInt(parsed.mark, 10); // 例如 "2"、"1-2"、"1,3" 取第一個
+        return { chars: Array.from(parsed.text), text: parsed.text, pos };
+    });
+
+    // 2. 整份文字一次轉換（兩種版本各一次）
+    //    (a) 整行轉換：詞的讀音較準，但要「音節數 = 字數」才能對上每個字
+    //    (b) 逐字轉換：每個字單獨一行，用在 (a) 對不上的行（含英數字、音節數不符）
+    const hanLike = /[\p{Script=Han}\p{Co}]/u;
+    const sylParts = (t) => t.trim().split(/([\s\-=]+)/); // 偶數索引 = 音節，奇數索引 = 分隔符
+    const savedHanzi = srcText;
+
+    hanziInput.value = rows.map(r => r.text).join('\n');
+    hanziToPinyin();
+    const wholeLines = pinyinInput.value.split('\n');
+
+    const flatChars = [];
+    rows.forEach(r => r.chars.forEach(c => flatChars.push(c)));
+    hanziInput.value = flatChars.join('\n');
+    hanziToPinyin();
+    const charLines = pinyinInput.value.split('\n');
+    hanziInput.value = savedHanzi; // 還原漢字區原文
+
+    // 3. 逐行組出題目
+    let total = 0, failCount = 0, offset = 0;
+    const outLines = rows.map((r, idx) => {
+        const chars = r.chars;
+        const myOffset = offset;
+        offset += chars.length;
+        if (chars.length === 0) return ''; // 保留空行
+
+        const hanIdx = [];
+        chars.forEach((c, i) => { if (hanLike.test(c)) hanIdx.push(i); });
+        if (hanIdx.length === 0) return ''; // 沒有漢字，無法命題
+
+        // 決定要框哪一個字（0 起算的索引）
+        let target;
+        let valid = true;
+        if (r.pos !== null) {
+            target = r.pos - 1;
+            if (!(target >= 0 && target < chars.length && hanLike.test(chars[target]))) valid = false;
+        } else {
+            target = hanIdx[Math.floor(Math.random() * hanIdx.length)];
+        }
+        total++;
+
+        const posLabel = r.pos !== null ? r.pos : target + 1;
+        if (!valid) { // 指定的位置不是漢字（或超出範圍）
+            failCount++;
+            return [posLabel, r.text, '', '', ''].join('\t');
+        }
+
+        const quotedHanzi = chars.map((c, i) => (i === target ? `「${c}」` : c)).join('');
+
+        // 取得每個字對應的拼音「片段」：parts 偶數索引 = 音節，奇數索引 = 分隔符
+        let parts;
+        const whole = (wholeLines[idx] || '').trim();
+        const wholeParts = sylParts(whole);
+        const wholeSylCount = Math.ceil(wholeParts.length / 2);
+        if (hanIdx.length === chars.length && wholeSylCount === chars.length && !leftoverHanCheck(whole)) {
+            parts = wholeParts; // 純漢字且音節數 = 字數：用整行轉換
+        } else {
+            parts = [];
+            chars.forEach((c, i) => {
+                if (i > 0) parts.push(' ');
+                parts.push((charLines[myOffset + i] || '').trim());
+            });
+        }
+
+        const targetPinyin = parts[target * 2] || '';
+        if (!targetPinyin || leftoverHanCheck(targetPinyin)) { // 目標字轉不出拼音
+            failCount++;
+            return [posLabel, quotedHanzi, '', '', chars[target]].join('\t');
+        }
+        const quotedPinyin = parts.map((p, i) => (i === target * 2 ? `「${p}」` : p)).join('');
+        return [posLabel, quotedHanzi, targetPinyin, quotedPinyin, chars[target]].join('\t');
+    });
+
+    pinyinInput.value = outLines.join('\n');
+    toast(`命題完成：共 ${total} 題` + (failCount ? `，其中 ${failCount} 題無法轉換拼音` : ''));
+}
+// 判斷文字是否仍殘留漢字或私有造字區字元（= 沒轉成拼音）
+function leftoverHanCheck(t) { return /[\p{Script=Han}\p{Co}]/u.test(t); }
 
 /**
  * 設定輸入區的模式（字轉音 / 音轉字）
@@ -2915,6 +3190,18 @@ function switchLanguage(newLangKey) {
 	// 1. 綁定點擊事件
 	actRaw?.addEventListener('click', () => {
 		hanziToPinyin('raw'); // 呼叫時帶入 'raw' 參數
+		menuHanzi.classList.add('hidden');
+	});
+
+	// 【新增】點擊「逐行比對 (O/V/X)」選項
+	document.getElementById('actHanziCompare')?.addEventListener('click', () => {
+		hanziCompare();
+		menuHanzi.classList.add('hidden');
+	});
+
+	// 【新增】點擊「字音字形命題」選項
+	document.getElementById('actHanziQuiz')?.addEventListener('click', () => {
+		hanziQuiz();
 		menuHanzi.classList.add('hidden');
 	});
 

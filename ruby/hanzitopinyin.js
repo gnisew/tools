@@ -11,6 +11,7 @@ function replaceChars(inputString, fromChars, toChars) {
 }
 
 let pinyinMap = new Map();
+let pinyinMapAll = new Map(); // 【新增】詞 → 該詞所有拼音（陣列，供「逐行比對」使用）
 let masterRegex = new RegExp('');
 
 // 在載入語言資料庫後初始化或重新初始化轉換器
@@ -20,6 +21,7 @@ function initializeConverter() {
         console.error("語言資料庫尚未載入或格式不正確。");
         // 清空規則，避免使用舊的資料
         pinyinMap = new Map();
+        pinyinMapAll = new Map(); // 【新增】
         masterRegex = new RegExp('');
         return;
     }
@@ -38,6 +40,7 @@ function initializeConverter() {
 
     // 重新建立一個全新的 pinyinMap
     const newPinyinMap = new Map();
+    const newPinyinMapAll = new Map(); // 【新增】同一個詞的所有拼音
     const uniqueWords = [];
     const cLen = c.length;
     for (let i = 0; i < cLen; i++) {
@@ -45,16 +48,66 @@ function initializeConverter() {
             newPinyinMap.set(c[i], d[i]);
             uniqueWords.push(c[i]);
         }
+        // 【新增】收集同一個詞的全部拼音（去除重複）
+        if (!newPinyinMapAll.has(c[i])) newPinyinMapAll.set(c[i], []);
+        const arr = newPinyinMapAll.get(c[i]);
+        if (d[i] !== undefined && !arr.includes(d[i])) arr.push(d[i]);
     }
     
     // 將新建立的地圖賦值給全域變數
     pinyinMap = newPinyinMap;
+    pinyinMapAll = newPinyinMapAll; // 【新增】
 
     // 建立並賦值新的正規表示式
     const escapedWords = uniqueWords.map(word => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     masterRegex = new RegExp(escapedWords.join('|'), 'g');
     
     window.pinyinMap = pinyinMap; 
+}
+
+// 【新增】從 hanziToPinyin 抽出：依目前語言將拼音轉成顯示格式（原邏輯不變）
+function formatPinyinByLanguage(outputText, mode) {
+    // 根據當前語言，先將拼音轉換為字母調 (zvs) 格式
+
+    const hakkaLanguages = new Set(['sixian', 'hailu', 'dapu', 'raoping', 'sixiannan']);
+    
+    if (hakkaLanguages.has(currentLanguageKey)) {
+        // outputText = hakkaToneToZvs(outputText); // 原本邏輯不變
+    } 
+    else if (currentLanguageKey === 'kasu') {
+        if (mode === 'raw') {			
+            // --- 模式：原始拼音 ---
+            if (typeof hakkaToneToZvs === 'function') {
+                outputText = hakkaToneToZvs(outputText);
+            }
+        } else {
+            // --- 模式：預設 (變形處理) ---
+            outputText = outputText
+                .replace(/([a-z]{0,4})([mngbdgaeiou])([zvsxc])([zvsxfc])/g, '$1$2$3')
+                .replace(/([a-z]{0,4})([mngbdgaeiou])([cf])/g, '$1$2')
+                .replace(/([aeioumngbdzvsxfc])(=)([a-z])/g, '$1 $3')
+                .replace(/([aeioumngbdzvsxfc])(--)([a-z])/g, '$1 $3')
+                .replace(/([aeioumngbdzvsxfc])(-)([a-z])/g, '$1 $3')
+                .replace(/\b([bpfvdtlgkhzcs]|zh|ch|sh|rh|bb)o([zvsx]?)\b/gi, '$1oo$2')
+                .replace(/(\b)(r)([aeiou])/g, '$1rh$3')
+                .replace(/(\b)(v)([aeiou])/g, '$1bb$3')
+                .replace(/(\b)(ji)/g, '$1zi')
+                .replace(/(\b)(qi)/g, '$1ci')
+                .replace(/(\b)(xi)/g, '$1si');
+
+            outputText = zxvToTone(outputText);
+        }
+    } else if (currentLanguageKey === 'holo') {		
+		//outputText = holoPojToTailo(outputText);
+        //outputText = holoPinyinZvs(outputText);
+    } else if (currentLanguageKey === 'jinmen') {		
+		//outputText = holoPojToTailo(outputText);
+        //outputText = holoPinyinZvs(outputText);
+    } else if (currentLanguageKey === 'matsu') {
+        //outputText = matsuPinyinZvs(outputText);
+    }
+
+    return outputText;
 }
 
 function hanziToPinyin(mode) {
@@ -115,46 +168,8 @@ function hanziToPinyin(mode) {
     outputText = outputText.replace(/([，。、；：！？（）「」『』《》〈〉—…－‧·﹑,.;:!?()\[\]{}\"\'\-\…])[ \t]+/g, '$1');
 
 
-    // 根據當前語言，先將拼音轉換為字母調 (zvs) 格式
-
-    const hakkaLanguages = new Set(['sixian', 'hailu', 'dapu', 'raoping', 'sixiannan']);
-    
-    if (hakkaLanguages.has(currentLanguageKey)) {
-        // outputText = hakkaToneToZvs(outputText); // 原本邏輯不變
-    } 
-    else if (currentLanguageKey === 'kasu') {
-        if (mode === 'raw') {			
-            // --- 模式：原始拼音 ---
-            if (typeof hakkaToneToZvs === 'function') {
-                outputText = hakkaToneToZvs(outputText);
-            }
-        } else {
-            // --- 模式：預設 (變形處理) ---
-            outputText = outputText
-                .replace(/([a-z]{0,4})([mngbdgaeiou])([zvsxc])([zvsxfc])/g, '$1$2$3')
-                .replace(/([a-z]{0,4})([mngbdgaeiou])([cf])/g, '$1$2')
-                .replace(/([aeioumngbdzvsxfc])(=)([a-z])/g, '$1 $3')
-                .replace(/([aeioumngbdzvsxfc])(--)([a-z])/g, '$1 $3')
-                .replace(/([aeioumngbdzvsxfc])(-)([a-z])/g, '$1 $3')
-                .replace(/\b([bpfvdtlgkhzcs]|zh|ch|sh|rh|bb)o([zvsx]?)\b/gi, '$1oo$2')
-                .replace(/(\b)(r)([aeiou])/g, '$1rh$3')
-                .replace(/(\b)(v)([aeiou])/g, '$1bb$3')
-                .replace(/(\b)(ji)/g, '$1zi')
-                .replace(/(\b)(qi)/g, '$1ci')
-                .replace(/(\b)(xi)/g, '$1si');
-
-            outputText = zxvToTone(outputText);
-        }
-    } else if (currentLanguageKey === 'holo') {		
-		//outputText = holoPojToTailo(outputText);
-        //outputText = holoPinyinZvs(outputText);
-    } else if (currentLanguageKey === 'jinmen') {		
-		//outputText = holoPojToTailo(outputText);
-        //outputText = holoPinyinZvs(outputText);
-    } else if (currentLanguageKey === 'matsu') {
-        //outputText = matsuPinyinZvs(outputText);
-    } 	
-
+    // 【修改】語言專屬的拼音轉換，抽成 formatPinyinByLanguage()，讓「逐行比對」共用
+    outputText = formatPinyinByLanguage(outputText, mode);
 
     // -----------------------------------------------------------
     // 處理「字〔yin〕」模式
