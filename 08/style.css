@@ -1,0 +1,2599 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+}
+
+:root {
+  --thumb-width: 200px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", Roboto, sans-serif;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* =========================================
+   三種主題配色 token (預設：亮色系 theme-light)
+   新增 token：--accent / --accent-soft / --accent-soft-2 / --preview-bg /
+               --thumb-border / --shadow-1~3 / --select-arrow / --scroll-thumb
+   ========================================= */
+body.theme-light {
+  --topbar-bg: #ffffff;
+  --topbar-text: #1f1f1f;
+  --topbar-muted: #5f6368;
+  --topbar-border: #e6e8eb;
+  --divider-color: #e6e8eb;
+  --btn-hover-bg: rgba(31, 31, 31, 0.06);
+  --btn-active-bg: #e8f0fe;
+  --btn-active-text: var(--accent);
+  --tabs-bg: #f1f3f4;
+  --tab-active-bg: #ffffff;
+  --tab-active-text: var(--accent);
+  --tab-active-shadow: 0 1px 2px rgba(60, 64, 67, 0.18);
+  --pill-bg: #f1f3f4;
+  --pill-text: #444746;
+  --save-bg: var(--accent);
+  --save-hover-bg: #1765cc;
+  --save-text: #ffffff;
+  --workspace-bg: #f7f9fc;
+  --sidebar-bg: #f1f4f9;
+  --sidebar-border: #e6e8eb;
+  --card-bg: #ffffff;
+  --card-text: #1f1f1f;
+  --card-border: #dfe3e8;
+  --select-option-bg: #ffffff;
+  --select-option-text: #1f1f1f;
+  --accent: #1a73e8;
+  --accent-soft: rgba(26, 115, 232, 0.08);
+  --accent-soft-2: rgba(26, 115, 232, 0.16);
+  --preview-bg: #e9edf2;
+  --thumb-border: rgba(0, 0, 0, 0.08);
+  --shadow-1: 0 1px 2px rgba(60, 64, 67, 0.12), 0 1px 3px rgba(60, 64, 67, 0.08);
+  --shadow-2: 0 2px 10px rgba(60, 64, 67, 0.2);
+  --shadow-3: 0 8px 28px rgba(32, 33, 36, 0.22);
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%235f6368' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  --scroll-thumb: rgba(95, 99, 104, 0.35);
+}
+
+/* 灰色系 */
+body.theme-gray {
+  --topbar-bg: #eef0f3;
+  --topbar-text: #1f1f1f;
+  --topbar-muted: #50555c;
+  --topbar-border: #d3d8de;
+  --divider-color: #d3d8de;
+  --btn-hover-bg: rgba(15, 23, 42, 0.08);
+  --btn-active-bg: #d7e3f8;
+  --btn-active-text: #1557b0;
+  --tabs-bg: #dde1e6;
+  --tab-active-bg: #f7f8fa;
+  --tab-active-text: #1557b0;
+  --tab-active-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
+  --pill-bg: rgba(15, 23, 42, 0.07);
+  --pill-text: #1f2937;
+  --save-bg: var(--accent);
+  --save-hover-bg: #1765cc;
+  --save-text: #ffffff;
+  --workspace-bg: #dfe3e8;
+  --sidebar-bg: #e6e9ee;
+  --sidebar-border: #cdd3da;
+  --card-bg: #f7f8fa;
+  --card-text: #1f1f1f;
+  --card-border: #cdd3da;
+  --select-option-bg: #f1f3f5;
+  --select-option-text: #1f1f1f;
+  --accent: #1a73e8;
+  --accent-soft: rgba(26, 115, 232, 0.1);
+  --accent-soft-2: rgba(26, 115, 232, 0.18);
+  --preview-bg: #c9cfd6;
+  --thumb-border: rgba(0, 0, 0, 0.1);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.14), 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-2: 0 2px 10px rgba(0, 0, 0, 0.22);
+  --shadow-3: 0 8px 28px rgba(0, 0, 0, 0.26);
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%2350555c' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  --scroll-thumb: rgba(60, 64, 67, 0.4);
+}
+
+/* 暗色系 */
+body.theme-dark {
+  --topbar-bg: #1e1f20;
+  --topbar-text: #e3e3e3;
+  --topbar-muted: #9aa0a6;
+  --topbar-border: #333537;
+  --divider-color: rgba(255, 255, 255, 0.12);
+  --btn-hover-bg: rgba(255, 255, 255, 0.08);
+  --btn-active-bg: rgba(138, 180, 248, 0.18);
+  --btn-active-text: #8ab4f8;
+  --tabs-bg: #2a2b2d;
+  --tab-active-bg: #3c4043;
+  --tab-active-text: #e8eaed;
+  --tab-active-shadow: none;
+  --pill-bg: #2a2b2d;
+  --pill-text: #c4c7c5;
+  --save-bg: #8ab4f8;
+  --save-hover-bg: #aecbfa;
+  --save-text: #062e6f;
+  --workspace-bg: #131314;
+  --sidebar-bg: #1a1b1c;
+  --sidebar-border: #333537;
+  --card-bg: #1e1f20;
+  --card-text: #e3e3e3;
+  --card-border: #3c4043;
+  --select-option-bg: #2a2b2d;
+  --select-option-text: #e3e3e3;
+  --accent: #8ab4f8;
+  --accent-soft: rgba(138, 180, 248, 0.12);
+  --accent-soft-2: rgba(138, 180, 248, 0.22);
+  --preview-bg: #0e0e0f;
+  --thumb-border: rgba(255, 255, 255, 0.1);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-2: 0 2px 10px rgba(0, 0, 0, 0.6);
+  --shadow-3: 0 8px 28px rgba(0, 0, 0, 0.7);
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%239aa0a6' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  --scroll-thumb: rgba(255, 255, 255, 0.25);
+}
+
+body {
+  width:440px;
+  height:520px;
+  font-family:var(--font);
+  -webkit-font-smoothing:antialiased;
+  background-color:var(--workspace-bg);
+  color:var(--card-text);
+  margin:0 auto;
+  overflow:hidden;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--workspace-bg);
+}
+
+#themeSelect {
+  display: none;
+}
+
+/* =========================================
+   新分頁模式 (固定 100% 滿版)
+   ========================================= */
+body.tab-mode {
+  width: 100%;
+  max-width: 100%;
+  height: 100vh;
+  height: 100dvh;   /* [新增] 手機網址列伸縮時，不會讓底部被蓋住（不支援的瀏覽器沿用上一行） */
+  padding: 0;
+}
+
+body.tab-mode #themeSelect {
+  display: inline-block;
+}
+
+body.tab-mode .file-name {
+  white-space: normal;
+  word-break: break-all;
+  overflow: visible;
+  text-overflow: clip;
+  font-size: 14px;
+}
+
+/* =========================================
+   頂端無框工具列 (.topbar) — 緊湊不超界配置
+   ========================================= */
+.topbar {
+  display:flex;
+  align-items:center;
+  flex-wrap:nowrap;
+  gap:6px;
+  padding:0 16px;
+  background-color:var(--topbar-bg);
+  color:var(--topbar-text);
+  border-bottom:1px solid var(--topbar-border);
+  height:56px;
+  flex-shrink:0;
+  z-index:10;
+  overflow-x:auto;
+  scrollbar-width:none;
+  transition:background-color .2s,border-color .2s;
+}
+
+.topbar::-webkit-scrollbar {
+  display: none;
+}
+
+.toolbar-group,
+.toolbar-right,
+.tools-left,
+.tools-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.toolbar-context {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ctx-group {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+}
+
+.ctx-group.active {
+  display: flex;
+}
+
+.reorder-inline-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+/* 啟用選取時展開的子工具膠囊 (全選 / 反選 / 刪除) */
+.selection-sub-tools {
+  display:inline-flex;
+  align-items:center;
+  gap:2px;
+  background:var(--pill-bg);
+  padding:2px;
+  border-radius:999px;
+}
+
+.selection-sub-tools .ghost-btn {
+  padding:4px 12px;
+  font-size:12px;
+  border:0;
+  background:transparent;
+  border-radius:999px;
+}
+
+.v-divider {
+  width: 1px;
+  height: 18px;
+  background-color: var(--divider-color);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+.ghost-btn {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  background:transparent;
+  border:none;
+  color:var(--topbar-text);
+  border-radius:999px;
+  padding:6px 12px;
+  font-size:13px;
+  font-weight:500;
+  cursor:pointer;
+  white-space:nowrap;
+  user-select:none;
+  transition:background-color .15s,color .15s;
+}
+
+.ghost-btn.icon-btn-compact {
+  width:34px;
+  height:34px;
+  padding:0;
+  border-radius:50%;
+}
+
+.ghost-btn:hover:not(:disabled) {
+  background-color: var(--btn-hover-bg);
+}
+
+.ghost-btn.active {
+  background-color: var(--btn-active-bg);
+  color: var(--btn-active-text);
+  font-weight: 600;
+}
+
+/* 刪除選取與清空按鈕的警示色設計 */
+.ghost-btn.danger-text:not(:disabled) {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.ghost-btn.danger-text:hover:not(:disabled) {
+  background-color: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+}
+
+.ghost-btn:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+
+.ghost-btn.save-highlight:not(:disabled) {
+  background-color: var(--save-bg);
+  color: var(--save-text);
+  font-weight: 600;
+}
+
+.ghost-btn.save-highlight:hover:not(:disabled) {
+  background-color: var(--save-hover-bg);
+}
+
+.tabs {
+  display:flex;
+  align-items:center;
+  gap:2px;
+  background-color:var(--tabs-bg);
+  padding:3px;
+  border-radius:999px;
+  flex-shrink:0;
+}
+
+.tab-btn {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  border:none;
+  background:transparent;
+  color:var(--topbar-muted);
+  padding:5px 12px;
+  font-size:13px;
+  font-weight:500;
+  border-radius:999px;
+  cursor:pointer;
+  white-space:nowrap;
+  transition:background-color .15s,color .15s,box-shadow .15s;
+}
+
+.tab-btn:hover {
+  color: var(--topbar-text);
+}
+
+.tab-btn.active {
+  background-color: var(--tab-active-bg);
+  color: var(--tab-active-text);
+  box-shadow: var(--tab-active-shadow);
+  font-weight: 600;
+}
+
+.page-pill {
+  background:transparent;
+  color:var(--topbar-muted);
+  font-size:12px;
+  font-weight:500;
+  padding:4px 6px;
+  white-space:nowrap;
+}
+
+.zoom-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+#thumbSizeSlider {
+  width: 80px;
+  height: 4px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.zoom-badge {
+  border:none;
+  background-color:var(--pill-bg);
+  color:var(--pill-text);
+  font-size:12px;
+  font-weight:600;
+  padding:4px 10px;
+  border-radius:999px;
+  min-width:48px;
+  text-align:center;
+  cursor:pointer;
+  user-select:none;
+  transition:background-color .15s,color .15s;
+}
+
+.zoom-badge:hover {
+  background-color: var(--btn-active-bg);
+  color: var(--btn-active-text);
+}
+
+/* [新增] 比例按鈕改為選單：右側加小箭頭、縮小選單寬度 */
+.zoom-badge.has-menu::after {
+  content: "▾";
+  margin-left: 4px;
+  font-size: 10px;
+  opacity: .7;
+}
+.zoom-menu { min-width: 150px; }
+
+.ghost-select {
+  appearance:none;
+  -webkit-appearance:none;
+  background-color:var(--pill-bg);
+  background-image:var(--select-arrow);
+  background-repeat:no-repeat;
+  background-position:right 8px center;
+  background-size:14px;
+  color:var(--topbar-text);
+  border:none;
+  border-radius:999px;
+  padding:5px 28px 5px 12px;
+  font-size:12px;
+  font-weight:500;
+  cursor:pointer;
+  outline:none;
+  transition:background-color .15s;
+}
+
+.ghost-select.theme-compact {
+  padding: 4px;
+  font-size: 13px;
+}
+
+.ghost-select:hover {
+  background-color: var(--btn-hover-bg);
+}
+
+.ghost-select option {
+  background-color: var(--select-option-bg);
+  color: var(--select-option-text);
+}
+
+/* 閱讀模式：檔名選單限寬，空間不足時只縮選單，頁碼與縮放區維持完整 */
+#ctx-read .reorder-inline-tools {
+  min-width: 0;
+}
+
+#ctx-read .tools-left {
+  flex: 1 1 auto;      /* 覆蓋 .tools-left 的 flex-shrink: 0 */
+  min-width: 0;
+}
+
+#ctx-read .tools-right {
+  flex: 0 0 auto;
+}
+
+#ctx-read .page-pill {
+  flex: 0 0 auto;
+}
+
+#readDocSelect {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 96px;
+  max-width: clamp(140px, 32vw, 380px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+#readPageInput {
+  width: 56px;
+}
+
+@media (max-width: 820px) {
+  #readDocSelect {
+    max-width: clamp(96px, 28vw, 180px);
+  }
+
+  /* 窄視窗仍保留閱讀模式的「第 N / 總頁數」跳頁欄（其餘狀態膠囊維持隱藏） */
+  #ctx-read .page-pill {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 5px;
+  }
+
+  #readPageInput {
+    width: 44px;
+    padding: 3px 4px;
+  }
+}
+
+/* 浮動狀態提示 Toast */
+.status-toast {
+  position:fixed;
+  bottom:24px;
+  left:24px;
+  background-color:#303134;
+  color:#ffffff;
+  font-size:13px;
+  font-weight:500;
+  padding:10px 18px;
+  border-radius:12px;
+  box-shadow:var(--shadow-3);
+  z-index:500;
+  pointer-events:none;
+  max-width:min(420px, calc(100vw - 32px));
+  animation:toast-in .18s var(--ease);
+}
+
+.status-toast.error {
+  background-color: #dc2626;
+}
+
+.status-toast.success {
+  background-color: #16a34a;
+}
+
+@media (max-width: 820px) {
+  .btn-text,
+  .page-pill {
+    display: none !important;
+  }
+  .topbar {
+    padding: 0 6px;
+    gap: 3px;
+  }
+  .ghost-btn,
+  .tab-btn {
+    padding: 5px;
+  }
+  #thumbSizeSlider {
+    width: 48px;
+  }
+}
+
+/* =========================================
+   主工作與檢視區 (.workspace)
+   ========================================= */
+.workspace {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--workspace-bg);
+  transition: background-color 0.2s;
+}
+
+.tab-content {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.tab-content.active {
+  display: flex;
+}
+
+.empty-dropzone {
+  flex:1;
+  margin:24px;
+  border:1.5px dashed var(--card-border);
+  border-radius:var(--radius-lg);
+  background-color:transparent;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  cursor:pointer;
+  transition:border-color .2s,background-color .2s;
+}
+
+.empty-dropzone:hover,
+.tab-content.dragover .empty-dropzone {
+  border-color:var(--accent);
+  background-color:var(--accent-soft);
+}
+
+.empty-icon {
+  width:72px;
+  height:72px;
+  border-radius:50%;
+  background:var(--accent-soft-2);
+  color:var(--accent);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin-bottom:8px;
+}
+
+.empty-title {
+  font-size:18px;
+  font-weight:600;
+  color:var(--card-text);
+}
+
+.empty-sub {
+  font-size:13px;
+  color:var(--topbar-muted);
+}
+
+/* =========================================
+   1. 合併檔案列表
+   ========================================= */
+.file-list {
+  list-style:none;
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  padding:16px 24px;
+}
+
+.file-item {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:transparent;
+  color:var(--card-text);
+  border:0;
+  border-top:2px solid transparent;
+  border-bottom:2px solid transparent;
+  border-radius:10px;
+  padding:10px 12px 10px 14px;
+  margin-bottom:2px;
+  font-size:14px;
+  cursor:grab;
+  transition:background-color .15s;
+}
+
+.file-item:hover {
+  background-color:var(--btn-hover-bg);
+}
+
+.file-item:active {
+  cursor: grabbing;
+}
+
+.merge-check-badge {
+  display:none;
+  align-items:center;
+  justify-content:center;
+  width:20px;
+  height:20px;
+  border-radius:6px;
+  border:1.5px solid #8a9099;
+  background:var(--card-bg);
+  color:transparent;
+  margin-right:12px;
+  flex-shrink:0;
+  transition:background-color .15s,border-color .15s;
+}
+
+.file-list.selection-mode .file-item {
+  cursor: pointer;
+}
+
+.file-list.selection-mode .merge-check-badge {
+  display: inline-flex;
+}
+
+.file-list.selection-mode .file-item.selected {
+  background-color:var(--accent-soft-2);
+}
+
+.file-list.selection-mode .file-item.selected .merge-check-badge {
+  background-color:var(--accent);
+  border-color:var(--accent);
+  color:var(--save-text);
+}
+
+.drag-handle {
+  color:var(--topbar-muted);
+  margin-right:8px;
+  user-select:none;
+  flex-shrink:0;
+  display:inline-flex;
+  opacity:.55;
+}
+
+.file-item.dragging {
+  opacity: 0.35;
+}
+
+.file-item.drag-over-top {
+  border-top: 2px solid var(--accent);
+}
+
+.file-item.drag-over-bottom {
+  border-bottom: 2px solid var(--accent);
+}
+
+.file-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 12px;
+  user-select: none;
+}
+
+.file-page-badge {
+  background-color:var(--pill-bg);
+  color:var(--topbar-muted);
+  font-size:12px;
+  font-weight:500;
+  padding:2px 10px;
+  border-radius:999px;
+  margin-right:10px;
+  white-space:nowrap;
+  flex-shrink:0;
+  user-select:none;
+}
+
+.file-controls {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.file-item:hover .file-controls {
+  opacity: 1;
+}
+
+.icon-btn {
+  border:none;
+  background:transparent;
+  color:var(--topbar-muted);
+  border-radius:50%;
+  width:30px;
+  height:30px;
+  padding:0;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:12px;
+  cursor:pointer;
+  transition:background-color .15s,color .15s;
+}
+
+.icon-btn:hover:not(:disabled) {
+  background: var(--btn-hover-bg);
+  color: var(--topbar-text);
+}
+
+.icon-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+/* =========================================
+   2. 分割設定區
+   ========================================= */
+.split-options {
+  flex:1;
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  padding:32px 16px;
+  overflow-y:auto;
+}
+
+.split-card {
+  width:100%;
+  max-width:640px;
+  background:var(--card-bg);
+  color:var(--card-text);
+  border:1px solid var(--card-border);
+  border-radius:20px;
+  padding:28px 32px;
+  box-shadow:var(--shadow-1);
+}
+
+.split-file-title {
+  font-size:16px;
+  font-weight:600;
+  padding-bottom:14px;
+  margin-bottom:6px;
+  border-bottom:1px solid var(--card-border);
+  word-break:break-all;
+}
+
+.radio-group {
+  margin-top:12px;
+  border:1px solid var(--card-border);
+  border-radius:var(--radius-md);
+  padding:14px 16px;
+  transition:border-color .15s,background-color .15s;
+}
+
+.radio-label {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:14px;
+  font-weight:500;
+  cursor:pointer;
+}
+
+.text-input {
+  width:100%;
+  margin-top:8px;
+  padding:9px 12px;
+  border:1px solid var(--card-border);
+  background:var(--card-bg);
+  color:var(--topbar-text);
+  border-radius:var(--radius-sm);
+  font-size:13px;
+  transition:border-color .15s,box-shadow .15s;
+}
+
+.hint {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--topbar-muted);
+}
+
+/* =========================================
+   3. 頁序雙欄工作區：左側邊欄縮圖 + 右側主檢視區
+   ========================================= */
+.reorder-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.reorder-sidebar {
+  width: 155px;
+  background-color: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  overflow-y: auto;
+  flex-shrink: 0;
+  padding: 12px 10px;
+  user-select: none;
+}
+
+body.tab-mode .reorder-sidebar {
+  width: 180px;
+  padding: 16px 14px;
+}
+
+.sidebar-thumb-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.sidebar-item {
+  width: 100%;
+  max-width: 118px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s, box-shadow 0.15s, opacity 0.15s;
+}
+
+.sidebar-item:hover {
+  background-color: var(--btn-hover-bg);
+}
+
+.sidebar-item.active-page {
+  background-color: var(--accent-soft);
+}
+
+.sidebar-item.active-page .sidebar-num-badge {
+  background-color: var(--accent);
+  color: #ffffff;
+}
+
+.sidebar-item.drag-over-card {
+  outline: 1.5px dashed var(--accent);
+}
+
+.sidebar-thumb-box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1.414;
+  background: #ffffff;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.sidebar-caption {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--card-text);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sidebar-num-badge {
+  padding: 1px 7px;
+  border-radius: 10px;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.page-grid {
+  list-style:none;
+  flex:1;
+  min-height:0;
+  display:grid;
+  grid-template-columns:repeat(auto-fill,var(--thumb-width,200px));
+  justify-content:center;
+  align-content:start;
+  gap:20px 16px;
+  overflow-y:auto;
+  padding:20px 24px;
+}
+
+.page-grid[data-cols="1"] {
+  grid-template-columns: minmax(auto, var(--thumb-width, 760px));
+}
+
+.page-grid[data-cols="2"] {
+  grid-template-columns: repeat(2, minmax(0, var(--thumb-width, 460px)));
+}
+
+.page-grid[data-cols="4"] {
+  grid-template-columns: repeat(4, minmax(0, var(--thumb-width, 260px)));
+}
+
+.page-card {
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+  padding:8px;
+  border-radius:var(--radius-md);
+  cursor:grab;
+  user-select:none;
+  transition:background-color .15s,opacity .15s;
+}
+
+.page-card:hover {
+  background-color: var(--btn-hover-bg);
+}
+
+.page-card.active-page {
+  background-color: var(--accent-soft);
+}
+
+.page-card.active-page .page-num-pill {
+  background-color: var(--accent);
+  color: #ffffff;
+}
+
+.page-card:active {
+  cursor: grabbing;
+}
+
+.page-card.dragging,
+.sidebar-item.dragging {
+  opacity: 0.3;
+}
+
+.page-card.drag-over-card {
+  background-color: var(--accent-soft);
+  outline: 1.5px dashed var(--accent);
+}
+
+.thumb-wrapper {
+  position:relative;
+  width:100%;
+  aspect-ratio:1/1.414;
+  background-color:#ffffff;
+  border-radius:6px;
+  box-shadow:0 0 0 1px var(--thumb-border),var(--shadow-1);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  transition:box-shadow .15s;
+}
+
+.page-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: none;
+  background: #ffffff;
+}
+
+.page-thumb-img.loaded {
+  display: block;
+}
+
+.thumb-placeholder {
+  font-size: 12px;
+  color: #9aa0a6;
+}
+
+/* =========================================
+   頁序分頁：極簡無裝飾外框的選取模式
+   ========================================= */
+.select-check-badge,
+.sidebar-check-dot {
+  display: none;
+}
+
+.reorder-body.selection-mode .page-card {
+  cursor: pointer;
+}
+
+.reorder-body.selection-mode .select-check-badge {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:absolute;
+  top:8px;
+  left:8px;
+  z-index:3;
+  width:22px;
+  height:22px;
+  border-radius:50%;
+  background:rgba(255,255,255,.96);
+  border:1.5px solid #8a9099;
+  box-shadow:0 1px 3px rgba(0,0,0,.3);
+  color:transparent;
+  transition:background-color .15s,border-color .15s;
+}
+
+.reorder-body.selection-mode .page-card:hover .select-check-badge {
+  border-color:var(--accent);
+}
+
+.reorder-body.selection-mode .page-card.selected .select-check-badge {
+  background-color:var(--accent);
+  border-color:var(--accent);
+  color:var(--save-text);
+  box-shadow:none;
+}
+
+.reorder-body.selection-mode .page-card.selected .thumb-wrapper {
+  box-shadow:0 0 0 2px var(--accent),var(--shadow-1);
+}
+
+.reorder-body.selection-mode .sidebar-check-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid #94a3b8;
+  background: transparent;
+}
+
+.reorder-body.selection-mode .sidebar-item.selected .sidebar-check-dot {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+.reorder-body.selection-mode .sidebar-item.selected .sidebar-thumb-box {
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+
+.card-hover-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;                                      /* [新增] 隱藏時完全不吃點擊 */
+  transition: opacity 0.15s ease, visibility 0s linear 0.15s;   /* [修改] 加入 visibility 轉場 */
+  z-index: 2;
+}
+
+.page-card:hover .card-hover-actions {
+  opacity: 1;
+  visibility: visible;                                     /* [新增] */
+  transition-delay: 0.35s, 0.35s;                          /* [新增] 滑鼠停留 0.35 秒才出現，快速掃過不會誤點 */
+}
+
+.hover-group {
+  display:flex;
+  gap:2px;
+  pointer-events:auto;
+  background:rgba(32,33,36,.78);
+  backdrop-filter:blur(4px);
+  padding:3px;
+  border-radius:10px;
+}
+
+.float-btn {
+  border:none;
+  background:transparent;
+  color:#ffffff;
+  width:26px;
+  height:26px;
+  border-radius:7px;
+  font-size:11px;
+  line-height:1;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.float-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.float-btn.danger:hover:not(:disabled) {
+  background: #d93025;
+}
+
+.float-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.page-caption {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--card-text);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.page-num-pill {
+  padding: 1px 8px;
+  border-radius: 10px;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.orig-tag {
+  font-size: 10px;
+  font-weight: 600;
+  color: #e37400;
+}
+
+/* =========================================
+   單頁高清放大預覽 Modal
+   ========================================= */
+.modal-overlay {
+  position:fixed;
+  inset:0;
+  background-color:rgba(32,33,36,.5);
+  backdrop-filter:blur(3px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:999;
+  padding:20px;
+}
+
+.modal-content {
+  background:var(--topbar-bg);
+  color:var(--topbar-text);
+  border-radius:var(--radius-lg);
+  width:auto;
+  max-width:95vw;
+  max-height:94vh;
+  max-height:94dvh;   /* [新增] 同上，手機彈窗不被網址列切到 */
+  display:flex;
+  flex-direction:column;
+  box-shadow:var(--shadow-3);
+  overflow:hidden;
+}
+
+.modal-header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:24px;
+  padding:14px 20px;
+  border-bottom:1px solid var(--topbar-border);
+  font-weight:600;
+  font-size:15px;
+}
+
+.modal-close-btn {
+  background:transparent;
+  border:none;
+  color:var(--topbar-text);
+  padding:6px 12px;
+  border-radius:999px;
+  cursor:pointer;
+  font-size:12px;
+  font-weight:500;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  transition:background-color .15s;
+}
+
+.modal-close-btn:hover {
+  background: var(--btn-hover-bg);
+}
+
+.modal-body {
+  padding:20px;
+  overscroll-behavior:contain;
+  overflow-y:auto;
+  overflow-x:auto;
+  background-color:var(--preview-bg);
+  text-align:center;
+  flex:1;
+}
+
+#previewCanvas {
+  display: inline-block;
+  max-width: 100%;
+  height: auto !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  background: #ffffff;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* =========================================
+   品牌標誌：「P」圖示 + 標題
+   ========================================= */
+.brand {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-shrink:0;
+  font-weight:600;
+  font-size:16px;
+  color:var(--card-text);
+  user-select:none;
+}
+.brand.clickable {
+  cursor: pointer;
+}
+.brand.clickable:hover .brand-text {
+  color: var(--btn-active-text);
+}
+.brand-icon {
+  width:28px;
+  height:28px;
+  border-radius:8px;
+  background:var(--accent);
+  color:var(--save-text);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:16px;
+  font-weight:700;
+  line-height:1;
+}
+@media (max-width: 820px) {
+  .brand-text { display: none; }
+}
+
+
+/* =========================================
+   右下角：載入 / 處理進度
+   ========================================= */
+.progress-dock {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: min(420px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.progress-card {
+  background-color: #303134;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px 18px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
+  animation: toast-in .18s var(--ease);
+}
+.progress-card.hidden { display: none; }
+.progress-text { line-height: 1.5; word-break: break-all; }
+.progress-text:empty { display: none; }
+.progress-bar {
+  position: relative;
+  height: 4px;
+  margin-top: 8px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.22);
+}
+.progress-bar.hidden { display: none; }
+.progress-text:empty + .progress-bar { margin-top: 0; }
+.progress-fill {
+  height: 100%;
+  width: 0;
+  background: #8ab4f8;
+  transition: width 0.15s ease;
+}
+
+/* [新增] 不確定進度：色線條在頂端來回滑動 */
+.progress-bar.indeterminate .progress-fill {
+  width: 30%;
+  transition: none;
+  animation: progress-slide 1.1s ease-in-out infinite;
+}
+@keyframes progress-slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(333%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress-bar.indeterminate .progress-fill {
+    width: 100%;
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* =========================================
+   全頁拖放提示層
+   ========================================= */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft-2);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+.drop-overlay.hidden { display: none; }
+.drop-overlay-box {
+  position:absolute;
+  inset:14px;
+  border:2px dashed var(--accent);
+  border-radius:20px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  background:rgba(255,255,255,.6);
+  color:#1a56b8;
+}
+.drop-overlay-icon { font-size: 44px; }
+.drop-overlay-text { font-size: 18px; font-weight: 700; }
+body.theme-dark .drop-overlay-box,
+body.theme-gray .drop-overlay-box {
+  background: rgba(32, 33, 36, 0.7);
+  color: #aecbfa;
+}
+
+
+/* =========================================
+   頁面旋轉：縮圖左下角按鈕與旋轉標記
+   ========================================= */
+.card-rotate-actions {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  display: flex;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;                                      /* [新增] */
+  transition: opacity 0.15s ease, visibility 0s linear 0.15s;   /* [修改] */
+  z-index: 2;
+}
+.page-card:hover .card-rotate-actions {
+  opacity: 1;
+  visibility: visible;                                     /* [新增] */
+  transition-delay: 0.35s, 0.35s;                          /* [新增] */
+}
+.page-thumb-img {
+  transition: transform 0.18s ease;
+}
+.rot-tag {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+
+/* 分割：打包 ZIP 勾選項 */
+.check-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0 22px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+
+/* 分割：每 N 頁輸入框與共用 ZIP 選項 */
+.radio-label .num-input {
+  width: 64px;
+  margin-top: 0;
+  padding: 4px 6px;
+  text-align: center;
+}
+.zip-label { margin-left: 0; }
+.zip-hint { margin-left: 22px; }
+
+
+/* =========================================
+   起始畫面（尚未載入檔案）與檔案庫相關
+   ========================================= */
+.start-screen {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+.workspace.is-empty .start-screen {
+  display: flex;
+}
+.workspace.is-empty .tab-content {
+  display: none !important;
+}
+.tab-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.split-doc-row {
+  margin-top: 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--card-border);
+}
+.split-doc-row label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--topbar-muted);
+}
+
+/* =========================================
+   儲存前檔名對話框
+   ========================================= */
+.filename-modal {
+  width: 420px;
+  max-width: 92vw;
+}
+
+.filename-body {
+  padding:12px 24px 8px;
+}
+
+.filename-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--topbar-muted);
+}
+
+.filename-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filename-row .text-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.filename-ext {
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--topbar-muted);
+}
+
+.filename-error {
+  color: #dc2626;
+}
+
+.filename-ask {
+  margin: 14px 0 0 0;
+}
+
+.filename-actions {
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  padding:12px 24px 20px;
+}
+
+/* =========================================
+   [新增] 預覽：依頁碼範圍選取
+   ========================================= */
+.range-select {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  margin-left:0;
+  padding-left:0;
+  border-left:none;
+}
+
+.range-select-input {
+  width: 96px;
+  padding: 3px 6px;
+  border: 1px solid var(--card-border);
+  background: var(--topbar-bg);
+  color: var(--topbar-text);
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.range-select-input.invalid {
+  border-color: #dc2626;
+}
+
+@media (max-width: 820px) {
+  .range-select-input {
+    width: 72px;
+  }
+}
+
+/* [新增] 頁碼範圍：右側收合按鈕點開後的小面板 */
+.range-panel {
+  min-width: 0;
+  padding: 10px 12px;
+}
+.range-panel-title {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--topbar-muted);
+}
+.range-panel .range-select-input { width: 140px; }
+
+/* =========================================
+   [新增] 加密 PDF 密碼對話框
+   ========================================= */
+.password-file-label {
+  word-break: break-all;
+  font-weight: 600;
+  color: var(--topbar-text);
+}
+
+
+/* =========================================
+   [新增] 頁碼設定對話框
+   ========================================= */
+.pn-enable {
+  margin: 0 0 10px 0;
+}
+
+.pn-grid {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 0;
+  margin: 4px 0 10px;
+}
+
+.pn-grid label {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--topbar-muted);
+}
+
+.pn-sample {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--topbar-text);
+}
+
+.pn-sample b {
+  display: inline-block;
+  min-width: 80px;
+  padding: 2px 10px;
+  border: 1px dashed var(--card-border);
+  border-radius: 4px;
+  text-align: center;
+  font-family: Helvetica, Arial, sans-serif;
+}
+
+
+/* =========================================
+   [新增] 預覽燈箱：可選取文字的透明文字圖層
+   ========================================= */
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;            /* [新增] 視窗很窄時工具列可換行，不會超出 */
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+/* [新增] 預覽視窗翻頁工具 */
+.preview-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 8px;
+  padding-right: 8px;
+  border-right: 1px solid var(--topbar-border);
+}
+
+.preview-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.preview-jump .range-select-input {
+  width: 52px;
+  text-align: center;
+}
+
+.modal-close-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.modal-close-btn:disabled:hover {
+  background: transparent;
+}
+
+.modal-close-btn.active {
+  background: var(--btn-active-bg);
+  color: var(--btn-active-text);
+}
+
+.preview-page {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+}
+
+.textLayer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  line-height: 1;
+  text-align: initial;
+  opacity: 1;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+}
+
+.textLayer span,
+.textLayer br {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0 0;
+}
+
+.textLayer ::selection {
+  background: rgba(26, 115, 232, 0.35);
+}
+
+.preview-page.no-text .textLayer {
+  display: none;
+}
+
+/* =========================================
+   [新增] 閱讀檢視（連續捲動、可選取文字）
+   ========================================= */
+.reader-scroll {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+  background-color: var(--workspace-bg);
+}
+
+.reader-pages {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: max-content;
+  min-width: 100%;
+}
+
+.reader-page {
+  position:relative;
+  flex-shrink:0;
+  background:#ffffff;
+  box-shadow:0 0 0 1px var(--thumb-border),var(--shadow-2);
+}
+
+/* 尚未繪製時顯示淡淡的頁碼 */
+.reader-page::before {
+  content: attr(data-n);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #cbd5e1;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.reader-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.reader-page .textLayer {
+  z-index: 1;
+}
+
+/* =========================================
+   [新增] 工具列下拉選單（收納不常用按鈕）
+   面板用 position: fixed，才不會被工具列的 overflow 裁切
+   ========================================= */
+.menu-wrap {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.menu-panel {
+  position:fixed;
+  z-index:700;
+  min-width:220px;
+  padding:6px;
+  background-color:var(--topbar-bg);
+  color:var(--topbar-text);
+  border:1px solid var(--topbar-border);
+  border-radius:var(--radius-md);
+  box-shadow:var(--shadow-3);
+}
+
+.menu-item {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  width:100%;
+  padding:9px 12px;
+  border:none;
+  border-radius:var(--radius-sm);
+  background:transparent;
+  color:inherit;
+  font-size:13px;
+  font-weight:500;
+  text-align:left;
+  white-space:nowrap;
+  cursor:pointer;
+}
+
+.menu-item:hover:not(:disabled),
+.menu-item:focus-visible {
+  background-color: var(--btn-hover-bg);
+  outline: none;
+}
+
+.menu-item:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.menu-item .menu-label {
+  flex: 1;
+}
+
+/* 已啟用的開關項目：右側顯示勾號 */
+.menu-item.active {
+  color: var(--btn-active-text);
+}
+
+.menu-item.active::after {
+  content: "✓";
+  font-weight: 700;
+}
+
+.menu-sep {
+  height: 1px;
+  margin: 4px 2px;
+  background-color: var(--divider-color);
+}
+
+/* =========================================
+   [新增] 鍵盤操作：頁面卡片焦點樣式
+   ========================================= */
+.page-card:focus {
+  outline: none;
+}
+
+.page-card:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+/* 多頁拖曳時跟著游標的「N 頁」徽章（僅作為 setDragImage 的來源，移出畫面外） */
+.drag-ghost-count {
+  position: fixed;
+  top: -200px;
+  left: -200px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* =========================================
+   [新增] 調動「選取模式」時的精簡工具列
+   啟用選取會多出 全選／反選／頁碼範圍／旋轉／刪除 等工具，桌面版工具列容易擠不下。
+   此時把「次要」元素暫時縮成純圖示（功能不變，滑過仍有提示文字）：
+   品牌文字、載入／清空的文字、非目前分頁的文字標籤，並縮短縮圖滑桿。
+   純 CSS（:has）：離開選取模式或切換分頁後自動恢復，不需要 JS。
+   手機版（≤820px）本來就只顯示圖示，不套用。
+   ========================================= */
+@media (min-width: 821px) {
+  .topbar:has(#ctx-reorder.active #selectionSubTools:not(.hidden)) .brand-text,
+  .topbar:has(#ctx-reorder.active #selectionSubTools:not(.hidden)) #fileMenuBtn .btn-text,
+  .topbar:has(#ctx-reorder.active #selectionSubTools:not(.hidden)) .tab-btn:not(.active) .btn-text {
+    display: none;
+  }
+
+  .topbar:has(#ctx-reorder.active #selectionSubTools:not(.hidden)) #thumbSizeSlider {
+    width: 56px;
+  }
+
+  /* 保險：就算仍然放不下，也讓工具列可橫向捲動，而不是讓右側按鈕互相疊在一起 */
+  .toolbar-context:has(#ctx-reorder.active) {
+    min-width: max-content;
+  }
+}
+
+
+/* =========================================
+   調動：檔案顯示篩選（多檔時）
+   ========================================= */
+#fileFilterBtn { gap: 4px; }
+#fileFilterBtn.active { color: var(--btn-active-text); background-color: var(--btn-active-bg, var(--btn-hover-bg)); }
+.filter-badge {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 5px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+}
+.filter-panel { min-width: 240px; max-width: min(360px, calc(100vw - 16px)); padding: 4px 4px 4px; }
+.filter-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 8px 6px;
+  font-size: 12px;
+}
+.filter-title { opacity: 0.6; font-weight: 600; }
+.filter-actions { display: inline-flex; gap: 10px; }
+.filter-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--btn-active-text);
+  cursor: pointer;
+}
+.filter-link:hover:not(:disabled) { text-decoration: underline; }
+.filter-link:disabled { opacity: 0.35; cursor: default; }
+.filter-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: min(50vh, 320px);
+  overflow-y: auto;
+  border-top: 1px solid var(--divider-color);
+  padding-top: 4px;
+}
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.filter-row:hover, .filter-row:focus-visible { background-color: var(--btn-hover-bg); outline: none; }
+.filter-check {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid currentColor;
+  border-radius: 4px;
+  opacity: 0.55;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  color: transparent;
+}
+.filter-row[aria-checked="true"] .filter-check {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  opacity: 1;
+}
+.filter-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filter-count { flex: 0 0 auto; font-size: 12px; opacity: 0.55; }
+.filter-item { display: flex; align-items: center; }
+.filter-item .filter-row { flex: 1 1 auto; min-width: 0; }
+.filter-item .filter-only-btn {
+  flex: 0 0 auto;
+  border: none;
+  background: none;
+  padding: 7px 8px;
+  cursor: pointer;
+  display: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--btn-active-text);
+}
+.filter-item:hover .filter-only-btn,
+.filter-item:focus-within .filter-only-btn { display: block; }
+.filter-item:hover .filter-count,
+.filter-item:focus-within .filter-count { display: none; }
+
+
+/* =========================================
+   [新增] 縮小檔案：預估壓縮後大小
+   ========================================= */
+.cmp-estimate {
+  margin-top: 12px;
+}
+
+.cmp-est-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.cmp-est-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--topbar-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.cmp-est-row {
+  display: grid;
+  grid-template-columns: 1fr auto 52px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--topbar-border);
+}
+
+.cmp-est-row:last-child {
+  border-bottom: none;
+}
+
+.cmp-est-row:hover {
+  background: var(--btn-hover-bg);
+}
+
+.cmp-est-row.selected {
+  background: var(--btn-active-bg);
+  color: var(--btn-active-text);
+  font-weight: 600;
+}
+
+.cmp-est-size {
+  font-variant-numeric: tabular-nums;
+}
+
+.cmp-est-pct {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+
+/* [新增] 光速（不產生縮圖）：空框以較明顯的頁碼代替 */
+.reorder-body.thumbs-instant .thumb-wrapper {
+  background-color: #f1f3f4;
+}
+.reorder-body.thumbs-instant .thumb-placeholder {
+  font-size: 16px;
+  font-weight: 600;
+  color: #80868b;
+}
+
+
+/* =========================================================
+   [新增] 手機版介面優化
+   1. 工具列改兩列：第一列＝載入／儲存／分頁／設定；第二列＝目前分頁的工具（可收合）
+   2. 按鈕放大（觸控友善），「清空」移入設定選單
+   3. 閱讀 / 調動：右側可拖曳的快速捲動頁碼滑塊
+   4. 多檔案時以色彩圓點取代過長的檔名
+   ========================================================= */
+.mobile-only-btn { display: none; }
+
+.menu-item.danger-item:not(:disabled) { color: #dc2626; }
+
+/* ---- 多檔案：色彩圓點（桌面、手機共用）---- */
+.page-caption { flex-wrap: wrap; justify-content: center; max-width: 100%; row-gap: 1px; }
+.doc-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--doc-color, #e37400);
+  cursor: pointer;
+}
+.doc-dot,
+.filter-dot {
+  flex: 0 0 auto;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--doc-color, #e37400);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+}
+.filter-dot { margin: 0 2px; }
+.doc-name { min-width: 0; max-width: 7em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-n { white-space: nowrap; }
+.page-card.multi-doc .thumb-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: var(--doc-color);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* 觸控裝置沒有 hover：「只看此檔」常駐顯示，頁數不要被蓋掉 */
+@media (hover: none) {
+  .filter-item .filter-only-btn { display: block; }
+  .filter-item:hover .filter-count,
+  .filter-item:focus-within .filter-count { display: inline; }
+}
+
+/* ---- 右側快速捲動滑塊（預設隱藏，手機 / 觸控才顯示）---- */
+#read, #reorderBody { position: relative; }
+.scrub { display: none; }
+
+@media (max-width: 820px), (pointer: coarse) {
+  body.scrub-on .scrub {
+    display: block;
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 48px;
+    z-index: 6;
+    pointer-events: none;
+  }
+  body.scrub-on .scrub.hidden { display: none; }
+  .scrub-thumb {
+    position: absolute;
+    right: 3px;
+    min-width: 34px;
+    height: 40px;
+    padding: 0 7px;
+    border-radius: 20px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    opacity: 0.4;
+    transition: opacity 0.2s;
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  .scrub.active .scrub-thumb,
+  .scrub.dragging .scrub-thumb { opacity: 1; }
+  .scrub-bubble {
+    position: absolute;
+    right: 46px;
+    transform: translateY(-50%);
+    padding: 6px 12px;
+    border-radius: 16px;
+    background: rgba(30, 41, 59, 0.92);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+  }
+  .scrub.dragging .scrub-bubble { opacity: 1; }
+}
+
+/* ---- 手機工具列：兩列 ---- */
+@media (max-width: 820px) {
+  .topbar {
+    height: auto;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 2px;
+    row-gap: 2px;
+    padding: 4px 4px 3px;
+    overflow: visible;
+  }
+  .brand,
+  .v-divider { display: none; }
+
+  .toolbar-group,
+  .toolbar-right { gap: 2px; }
+  .toolbar-right { margin-left: auto; }
+  .mobile-only-btn { display: inline-flex; }
+
+  /* 第一列按鈕：36px 觸控區 */
+  .ghost-btn,
+  .tab-btn {
+    min-width: 36px;
+    min-height: 36px;
+    padding: 6px;
+    justify-content: center;
+    border-radius: 8px;
+  }
+  .ghost-btn svg,
+  .tab-btn svg { width: 20px; height: 20px; }
+  .tabs { padding: 2px; gap: 1px; border-radius: 10px; }
+  /* 只有目前分頁顯示文字，其餘僅圖示 */
+  .tab-btn.active .btn-text { display: inline !important; }
+  .tab-btn.active { padding: 6px 9px; }
+
+  /* 第二列：目前分頁的工具 */
+  .toolbar-context {
+    order: 10;
+    flex: 0 0 100%;
+    padding-top: 3px;
+    border-top: 1px solid var(--topbar-border);
+  }
+  .toolbar-context .ghost-btn { min-width: 40px; min-height: 40px; }
+  .toolbar-context .ghost-select { min-height: 36px; padding: 4px 8px; font-size: 13px; }
+  .selection-sub-tools .ghost-btn { min-width: 38px; min-height: 36px; padding: 4px 9px; font-size: 13px; }
+
+  body.tb-collapsed .toolbar-context { display: none; }
+  body.tb-collapsed #toolbarCollapseBtn svg { transform: rotate(180deg); }
+  /* 沒檔案 / 分割頁沒有工具時，不顯示空白的第二列 */
+  body:has(.workspace.is-empty) .toolbar-context,
+  .toolbar-context:has(#ctx-split.active) { display: none; }
+
+  /* 讓 左 / 右 工具攤平到同一個可換行的容器，再用 order 排版 */
+  .reorder-inline-tools { flex-wrap: wrap; justify-content: flex-start; row-gap: 3px; column-gap: 4px; }
+  #reorderTools .tools-left,
+  #reorderTools .tools-right,
+  #readerTools .tools-left,
+  #readerTools .tools-right { display: contents; }
+
+  /* 調動：[篩選][選取][清晰度]　　　[縮放][復原][重做][⋯]；選取展開的工具獨立一列 */
+  #reorderTools .zoom-control { margin-left: auto; }
+  #thumbSizeSlider { width: 64px; }
+  #selectionSubTools {
+    order: 9;
+    flex: 0 0 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  #selectionSubTools::-webkit-scrollbar { display: none; }
+  #selectionSubTools .ghost-btn { flex: 0 0 auto; }
+
+  /* 閱讀：多檔時檔案選單獨立一列；頁碼跳轉靠左、縮放靠右 */
+  #readDocSelect { order: -1; flex: 0 0 100%; max-width: none; min-height: 36px; }
+  #readerTools .page-pill { font-size: 13px; }
+  #readerTools .tools-right > * { order: 2; }
+  #readerTools .page-pill { margin-right: auto; }
+
+  /* 合併：選取工具可換行 */
+  #ctx-merge .tools-left { flex-wrap: wrap; row-gap: 3px; }
+
+  /* 手機縮圖：圓點不顯示檔名，點圓點會跳出完整檔名 */
+  .doc-name { display: none; }
+  .page-caption { font-size: 11px; }
+  .page-num-pill { padding: 1px 6px; }
+  .filter-name {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .filter-panel { min-width: min(300px, calc(100vw - 16px)); }
+  .filter-row { padding: 9px 8px; }
+}
+
+
+/* =========================================================
+   [新增] 第二批調整：設定選單分組、存檔按鈕柔化、浮動操作列
+   ========================================================= */
+/* 設定選單：分組標題與列 */
+.menu-heading {
+  padding:8px 12px 4px;
+  font-size:12px;
+  font-weight:600;
+  color:var(--topbar-muted);
+  opacity:.85;
+  user-select:none;
+}
+.menu-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:6px 12px;
+  font-size:13px;
+  font-weight:500;
+}
+.touch-only-item { display: none !important; }
+@media (max-width: 820px), (pointer: coarse) {
+  .menu-item.touch-only-item { display: flex !important; }
+}
+
+/* 儲存按鈕：改成淡藍底＋藍字，不再是整塊實心藍 */
+.topbar .ghost-btn.save-highlight:not(:disabled) {
+  background-color:var(--btn-active-bg);
+  color:var(--btn-active-text);
+  box-shadow:none;
+}
+.topbar .ghost-btn.save-highlight:hover:not(:disabled) {
+  background-color: var(--btn-active-bg);
+  filter: brightness(0.95);
+}
+
+/* 選取模式：縮圖上的小按鈕一律隱藏（避免和勾選圈重疊、干擾點選） */
+.reorder-body.selection-mode .card-hover-actions,
+.reorder-body.selection-mode .card-rotate-actions { display: none !important; }
+
+/* 浮動操作列 */
+.page-float-bar { display: none; }
+@media (max-width: 820px), (pointer: coarse) {
+  /* 觸控沒有 hover，縮圖上的小按鈕改由浮動列取代 */
+  .card-hover-actions,
+  .card-rotate-actions { display: none !important; }
+
+  .page-float-bar {
+    position: fixed;
+    left: 50%;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    z-index: 450;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 6px;
+    border-radius: 28px;
+    background: rgba(32, 33, 36, 0.92);
+    backdrop-filter: blur(6px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+    max-width: calc(100vw - 16px);
+  }
+  .page-float-bar.hidden { display: none; }
+  .pfb-btn {
+    min-width: 42px;
+    height: 42px;
+    padding: 0 6px;
+    border: none;
+    border-radius: 21px;
+    background: transparent;
+    color: #fff;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pfb-btn:active:not(:disabled) { background: rgba(255, 255, 255, 0.2); }
+  .pfb-btn:disabled { opacity: 0.3; }
+  .pfb-btn.hidden { display: none; }
+  .pfb-danger:not(:disabled) { color: #ff8a80; }
+  .pfb-sep { width: 1px; height: 22px; background: rgba(255, 255, 255, 0.25); margin: 0 2px; }
+  .pfb-count { padding: 0 10px 0 8px; color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .pfb-count.hidden { display: none; }
+  /* 選取模式：隱藏分隔線與多餘按鈕時，只留 已選 N ↺ ↻ 🗑 */
+  #pfbSep1.hidden { display: none; }
+
+  /* 浮動列不要蓋住最後一排縮圖；提示訊息移到浮動列上方 */
+  .page-grid { padding-bottom: 84px; }
+  body.has-floatbar .status-toast,
+  body.has-floatbar .progress-dock { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+
+  /* 選取模式的旋轉 / 刪除改由浮動列處理，頂端工具列不重複 */
+  #selectionSubTools #rotateLeftSelectedBtn,
+  #selectionSubTools #rotateRightSelectedBtn,
+  #selectionSubTools #deleteSelectedPagesBtn { display: none; }
+}
+
+
+/* =========================================================
+   [新增] 視覺精修（Drive / OneDrive 風格）
+   ========================================================= */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 鍵盤焦點：統一的細環 */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:focus-visible, select:focus-visible { outline-offset: 1px; }
+input[type="radio"], input[type="checkbox"], input[type="range"] { accent-color: var(--accent); }
+
+.text-input:focus, .range-select-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft-2);
+}
+select.text-input {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  padding-right: 32px;
+}
+.range-select-input { border-radius: 999px; padding: 4px 10px; }
+
+/* 起始畫面：主要按鈕 */
+.empty-cta {
+  margin-top: 14px;
+  padding: 9px 22px;
+  border-radius: 999px;
+  background: var(--save-bg);
+  color: var(--save-text);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color .15s;
+}
+.empty-dropzone:hover .empty-cta { background: var(--save-hover-bg); }
+
+/* 合併清單：置中欄寬、PDF 檔案圖示、操作鈕 hover / 聚焦 / 觸控皆可見 */
+.file-list > .file-item { max-width: 880px; margin-left: auto; margin-right: auto; }
+.file-name::before {
+  content: "";
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  margin-right: 10px;
+  vertical-align: -5px;
+  background: #d93025;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.file-item:focus-within .file-controls { opacity: 1; }
+@media (hover: none) { .file-controls { opacity: 1; } }
+
+/* 分割：被選到的模式以強調色框標示 */
+.radio-group:has(input[type="radio"]:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+#splitZipRow.radio-group { border-style: dashed; }
+
+/* 縮圖：hover 時微微浮起 */
+.page-card:hover { background-color: var(--btn-hover-bg); }
+.page-card:hover .thumb-wrapper { box-shadow: 0 0 0 1px var(--thumb-border), var(--shadow-2); }
+
+/* 對話框：標題放大、按鈕加大 */
+.filename-modal .modal-header { border-bottom: none; font-size: 18px; padding: 20px 24px 4px; }
+.filename-actions .ghost-btn { padding: 8px 20px; font-size: 14px; }
+.filename-actions .ghost-btn:not(.save-highlight) { color: var(--accent); }
+.filename-actions .ghost-btn:not(.save-highlight):hover { background-color: var(--accent-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
+
+
+/* =========================================================
+   [新增] 選取模式（Claude / OneDrive 風格）
+   ========================================================= */
+.file-list.selection-mode .file-item:hover .merge-check-badge { border-color: var(--accent); }
+
+/* 手機：旋轉 / 刪除改由浮動列處理，整組隱藏 */
+@media (max-width: 820px), (pointer: coarse) {
+  #selectionSubTools .action-group { display: none; }
+}
+
+
+/* 設定選單：單選項（載入後先顯示） */
+.menu-radio {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.menu-radio:hover { background-color: var(--btn-hover-bg); }
+
+
+/* =========================================================
+   [新增] 選取群組：選取開關 + 全選 / 反選 / 刪除 收成同一個膠囊
+   頂端不再使用分隔線，群組之間只靠留白
+   ========================================================= */
+.action-group { display: contents; }
+.sel-group { display: inline-flex; align-items: center; gap: 2px; border-radius: 999px; }
+.brand { margin-right: 12px; }
+.tabs { margin: 0 8px; }
+.save-group { margin-right: 8px; }
+
+@media (min-width: 821px) {
+  .sel-group:has(.selection-sub-tools:not(.hidden)) { background: var(--pill-bg); padding: 2px; }
+  .sel-group .selection-sub-tools { background: transparent; padding: 0; }
+  .sel-group .ghost-btn.active {
+    background: var(--tab-active-bg);
+    color: var(--tab-active-text);
+    box-shadow: var(--tab-active-shadow);
+  }
+}
+@media (max-width: 820px) {
+  .sel-group { display: contents; }
+  .tabs { margin: 0; }
+  .save-group { margin-right: 0; }
+}
+
+
+/* 檔案選單 */
+#fileMenuBtn .chev { opacity: .6; margin-left: -2px; }
+
+/* 通用確認視窗：內文與危險動作按鈕 */
+.confirm-msg { font-size: 14px; line-height: 1.6; color: var(--topbar-muted); }
+.filename-actions .ghost-btn.confirm-danger { background: #d93025; color: #ffffff; }
+.filename-actions .ghost-btn.confirm-danger:hover:not(:disabled) { background: #b3261e; filter: none; }
+body.theme-dark .filename-actions .ghost-btn.confirm-danger { background: #f28b82; color: #3b0b08; }
+body.theme-dark .filename-actions .ghost-btn.confirm-danger:hover:not(:disabled) { background: #f6a49e; }
+
+/* [新增] 窄螢幕：左下訊息與右下進度各佔一半寬度 */
+@media (max-width: 820px) {
+  .status-toast { left: 12px; bottom: 16px; max-width: calc(50vw - 18px); }
+  .progress-dock { right: 12px; bottom: 16px; max-width: calc(50vw - 18px); }
+}
+
+
+/* [新增] 空白頁：維持白底（光速模式下也不要變灰） */
+.thumb-wrapper.is-blank,
+.reorder-body.thumbs-instant .thumb-wrapper.is-blank {
+  background-color: #ffffff;
+}
+.thumb-wrapper.is-blank .thumb-placeholder,
+.sidebar-thumb-box.is-blank .thumb-placeholder {
+  color: #9aa0a6;
+  font-weight: 500;
+}
+
+
+/* =========================================
+   [新增] 縮圖太小時，自動縮減 / 隱藏縮圖上的小按鈕
+   以「縮圖本身的寬度」判斷（不是視窗寬度），拖曳滑桿縮放時即時生效
+   ========================================= */
+.thumb-wrapper {
+  container-type: inline-size;
+  container-name: thumb;
+}
+
+/* 中小尺寸（150～209px）：按鈕縮小、半透明，並隱藏「前移 / 後移」（可直接拖曳排序） */
+@container thumb (max-width: 209px) {
+  .hover-group { padding: 2px; border-radius: 8px; background: rgba(32, 33, 36, 0.6); }
+  .float-btn { width: 22px; height: 22px; }
+  .card-hover-actions .float-btn:nth-child(-n+2) { display: none; }   /* 前移、後移 */
+}
+
+/* 極小尺寸（< 150px）：整排隱藏，完整露出頁面內容；
+   旋轉 / 刪除請用「勾選模式」或頂端工具列，放大預覽請雙擊縮圖 */
+@container thumb (max-width: 149px) {
+  .card-hover-actions,
+  .card-rotate-actions { display: none; }
+}
+
+
+/* =========================================================
+   [新增] 手機版優化
+   ========================================================= */
+
+/* 1) 觸控：取消雙擊縮放延遲、點擊高亮；長按縮圖不跳「儲存圖片」選單 */
+.page-card,
+.sidebar-item,
+.file-item,
+.ghost-btn,
+.tab-btn,
+.pfb-btn {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.page-card,
+.page-thumb-img,
+.sidebar-item {
+  -webkit-touch-callout: none;
+}
+
+/* 2) 觸控裝置沒有真正的 hover：點一下後不要殘留「滑過」底色與陰影 */
+@media (hover: none) {
+  .page-card:hover { background-color: transparent; }
+  .page-card.active-page:hover { background-color: var(--accent-soft); }
+  .page-card:hover .thumb-wrapper { box-shadow: 0 0 0 1px var(--thumb-border), var(--shadow-1); }
+}
+
+/* 3) iOS Safari：輸入框 / 下拉字級小於 16px 時，點進去會自動放大整個頁面
+      只針對 iOS 把字級提到 16px（桌機與 Android 不受影響） */
+@supports (-webkit-touch-callout: none) {
+  input[type="text"],
+  input[type="number"],
+  input[type="search"],
+  input[type="password"],
+  input:not([type]),
+  select,
+  textarea,
+  .text-input,
+  .ghost-select,
+  .range-select-input,
+  .num-input,
+  #readPageInput {
+    font-size: 16px;
+  }
+}
+
+/* 4) 手機打開「側邊欄」時不要佔掉半個螢幕：180px → 84px，只留縮圖 */
+@media (max-width: 820px) {
+  .reorder-sidebar,
+  body.tab-mode .reorder-sidebar {
+    width: 84px;
+    padding: 8px 6px;
+  }
+  .sidebar-thumb-list { gap: 8px; }
+}
