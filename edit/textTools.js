@@ -893,6 +893,14 @@ function applyTextTool(action) {
         const normalMap = {'⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9'};
         newText = textToProcess.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]/g, match => normalMap[match]);
     
+    } else if (action === 'hakka-tone') {
+        // 校正客語聲調：ˊ ˇ ˋ ˆ ⁺
+        const toneMap = {'´': 'ˊ', '`': 'ˋ', '^': 'ˆ', '+': '⁺'};
+        // 步驟一：韻尾字母 [mngbdraeiou] 後方的 ´ ` ^ + 換成正確聲調符號
+        newText = textToProcess.replace(/([mngbdraeiou])([´`^+])/gi, (m, letter, mark) => letter + toneMap[mark]);
+        // 步驟二：聲調符號後若緊接拉丁字母，統一補成「剛好一個半形空白」（不跨行、不動 Tab）
+        newText = newText.replace(/([ˊˇˋˆ⁺])[ \u00A0\u3000]*(?=\p{Script=Latin})/gu, '$1 ');
+    
     }else if (action === 'uppercase') {
         // 原生 toUpperCase 已完美支援 Unicode 拼音與擴充字元
         newText = textToProcess.toUpperCase();
@@ -983,6 +991,7 @@ function applyTextTool(action) {
 		'number-superscript': '已將數字轉為上標',
         'pinyin-superscript': '已將拼音尾數轉為上標',
         'remove-superscript': '已取消數字上標',
+        'hakka-tone': '已校正客語聲調',
 		'to-fullwidth': '已轉為全形', 'to-halfwidth': '已轉為半形',
 		'line-char-count': '已計算並輸出每行字數',
 		'base64-encode': '已編碼為 Base64',
@@ -1009,6 +1018,7 @@ const textTools = [
 	{ id: 'btnNumberSuperscript', action: 'number-superscript' },
 	{ id: 'btnPinyinSuperscript', action: 'pinyin-superscript' },
 	{ id: 'btnRemoveSuperscript', action: 'remove-superscript' },
+	{ id: 'btnHakkaTone', action: 'hakka-tone' },
 	{ id: 'btnToFullWidth', action: 'to-fullwidth' },
     { id: 'btnToHalfWidth', action: 'to-halfwidth' },
 	{ id: 'btnLineCharCount', action: 'line-char-count' },

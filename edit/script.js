@@ -1467,7 +1467,13 @@ document.addEventListener('keydown', (e) => {
                 headR = currR; headC = currC;
             } else {
                 // 一般移動
+                // [表格篩選] 方向鍵跳過被篩選隱藏的列
+                const prevR = headR;
                 headR += dr; headC += dc;
+                if (dr) {
+                    while (headR >= 0 && headR <= maxR && tbody.children[headR].classList.contains('tf-hidden')) headR += dr;
+                    if (headR < 0 || headR > maxR) headR = prevR;
+                }
             }
 
             // 邊界限制
@@ -1542,6 +1548,8 @@ document.addEventListener('keydown', (e) => {
 
                     if (direction === 'down') {
                         r++;
+                        // [表格篩選] Enter 向下跳過被篩選隱藏的列
+                        while (tbody.children[r] && tbody.children[r].classList.contains('tf-hidden')) r++;
                         if (r > maxR) insertRowAt(tbody.children.length);
                     } else if (direction === 'right') {
                         c++;
