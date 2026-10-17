@@ -697,7 +697,18 @@ function attachAudioHandlers() {
 /**
  * 核心功能：將拼音輸入框的內容轉換為漢字。
  */
+/**
+ * 【新增】聲調符號修正：字母 + 「`」→「ˋ」；字母 + 「´」→「ˊ」
+ */
+function fixToneMarkVariants(text) {
+    return (text || '')
+        .replace(/([A-Za-z])`/g, '$1ˋ')
+        .replace(/([A-Za-z])´/g, '$1ˊ')
+        .replace(/([aeioumngbdr])\^(?![A-Za-z])/gi, '$1ˆ'); // 字尾 [aeioumngbdgr] + ^ → ˆ
+}
+
 function normalizePinyinTones(pinyinText) {
+    pinyinText = fixToneMarkVariants(pinyinText); // 【新增】
     // 根據當前語言，先將拼音轉換為字母調 (zvs) 格式
     const hakkaLanguages = new Set(['sixian', 'hailu', 'dapu', 'raoping', 'sixiannan']);
     if (hakkaLanguages.has(currentLanguageKey)) {
@@ -862,7 +873,7 @@ function pinyinToHanzi() {
  */
 function cleanPinyinLine(line) {
     const TONE = 'ˇˋˊˆ⁺\\^';
-    let t = line;
+    let t = fixToneMarkVariants(line); // 【新增】先修正 ` ´，否則會被當標點移除
 
     // 1. 標點符號 → 空格（保留字母、數字、組合符號、空白、- =、聲調符號）
     t = t.replace(new RegExp(`[^\\p{L}\\p{N}\\p{M}\\s\\-=${TONE}]`, 'gu'), ' ');
@@ -1021,7 +1032,7 @@ function parseHanziLine(line) {
         if (QUOTE_CLOSE.includes(ch)) { inQuote = false; continue; }
         if (ch === '"') { inQuote = !inQuote; continue; } // 半形雙引號：開關切換
         if (/\s/u.test(ch)) { items.push({ ch: ' ', q: false }); continue; }
-        if (/[\p{L}\p{N}\p{M}\p{Co}]/u.test(ch)) items.push({ ch, q: inQuote });
+        if (/[\p{L}\p{N}\p{M}\p{Co}]/u.test(ch) || ch === '□') items.push({ ch, q: inQuote }); // □（缺字）要保留，不可當標點捨棄
         // 其他字元（標點）直接捨棄
     }
     // (2) 壓縮連續空格、移除頭尾空格
@@ -1045,7 +1056,19 @@ function parseHanziLine(line) {
         parts.push(j > i ? `${pos[i]}-${pos[j]}` : `${pos[i]}`);
         i = j + 1;
     }
-    return { text: finalItems.map(it => it.ch).join(''), mark: parts.join(',') };
+    // 【修改】多回傳 positions（被框住的字的位置陣列），供取出被框住的字
+    return { text: finalItems.map(it => it.ch).join(''), mark: parts.join(','), positions: pos };
+}
+
+// 【新增】依引號框住的位置，從（已清理的）漢字字串取出被框住的字；沒有引號則回傳空陣列
+// 回傳 [被框住的字, 被框住的字的拼音]；拼音音節數與字數對不上時，拼音欄留空
+function pickQuotedChars(text, positions, pinyin) {
+    if (!positions || positions.length === 0) return [];
+    const chars = Array.from(text || '');
+    const hz = positions.map(p => chars[p - 1] || '').join('');
+    const syls = (pinyin || '').trim().split(/[\s\-=]+/).filter(Boolean);
+    const py = syls.length === chars.length ? positions.map(p => syls[p - 1] || '').join(' ') : '';
+    return [hz, py];
 }
 
 /**
@@ -1084,6 +1107,15 @@ function hanziCompare() {
         const original = line; // 已清理過，不含標點
         const mark = parsedLines[idx].mark; // 【新增】引號框住的字的位置（沒有引號則為空）
         if (!original) return ''; // 保留空行（只有標點的行也視為空行）
+        // 【新增】被引號框住的字與其拼音（最後兩欄）
+        const pick = (py) => pickQuotedChars(original, parsedLines[idx].positions, py);
+
+        // 【新增】含有 □（缺字）的行，一律標 X
+        if (original.includes('□')) {
+            ngCount++;
+            const convBox = (convLines[idx] || '').trim();
+            return [mark, original, 'X', convBox, ...pick(convBox)].join('\t');
+        }
 
         // 2. 先用異體字轉換（與字轉音相同），再查「整行 = 辭庫一個詞」
         const key = replaceChars(original, m, n);
@@ -1099,17 +1131,17 @@ function hanziCompare() {
                 }
                 return t;
             });
-            return [mark, original, 'O', ...new Set(formatted)].join('\t');
+            return [mark, original, 'O', ...new Set(formatted), ...pick(formatted[0])].join('\t');
         }
 
         // 3. 未完全符合：看轉換結果還有沒有殘留漢字
         const converted = (convLines[idx] || '').trim();
         if (leftoverHan.test(converted)) {
             ngCount++;
-            return [mark, original, 'X', converted].join('\t');
+            return [mark, original, 'X', converted, ...pick(converted)].join('\t');
         }
         convCount++;
-        return [mark, original, 'V', converted].join('\t');
+        return [mark, original, 'V', converted, ...pick(converted)].join('\t');
     });
 
     pinyinInput.value = outLines.join('\n');
@@ -3850,7 +3882,7 @@ if (typeof window.hanziToPinyin === 'function' && !window.hanziToPinyin.isProtec
             restoredPinyin = restoredPinyin.replace(new RegExp(marker, 'g'), token);
         });
         
-        pInput.value = restoredPinyin;
+        pInput.value = fixToneMarkVariants(restoredPinyin); // 【新增】字母+` → ˋ、字母+´ → ˊ
     };
     
     // 加上標記，防止重複覆寫
