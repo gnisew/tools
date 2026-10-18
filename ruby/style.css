@@ -2,10 +2,8 @@
 
 :root {
     --brand: #5b8def;
-    --ink-2: #334155;
     --warn: #ea580c;
     --warn-500: #f59e0b;
-    --rt-scale: 0.68;
 }
 
 body {
@@ -17,57 +15,12 @@ body {
     box-shadow: 0 10px 30px rgba(16, 24, 40, 0.08), 0 2px 8px rgba(16, 24, 40, 0.06);
 }
 
-/* 置中對齊，縮短拼音與漢字距離 */
-
-ruby {
-    ruby-position: over;
-    text-align: center;
-    /* 使用 flexbox 進行排版，垂直對齊更穩定 */
-    display: inline-flex;
-    flex-direction: column-reverse; /* 讓 rb 在 rt 下方 */
-    vertical-align: middle; /* 確保與旁邊的文字對齊 */
-    margin: 0 0.05em;
-}
-
-rb {
-    display: inline;
-    line-height: 1.1;
-    text-align: center;
-}
-
-rt {
-    font-size: calc(var(--rt-scale) * 1em);
-    color: var(--ink-2);
-    line-height: 1;
-    white-space: nowrap;
-    text-align: center;
-    display: block;
-    margin-bottom: -0.5em;
-}
-
-rt:empty::before {
-    content: '\00a0'; 
-    visibility: hidden; 
-}
-
+/* ruby / rb / rt / .glyph / .clause / .line-wrap 等「版面」規則已移到 annotation-core.js（網頁與匯出共用）；
+   本檔只保留互動效果。 */
 
 .glyph {
-    display: inline-block;
-	vertical-align: middle;
-    padding: 0.18rem 0.16rem;
-    margin: 0.06rem 0.03rem;
-    border-radius: 0.5rem;
     transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease, outline-color 120ms ease;
 }
-.glyph-word {
-    padding: 0.18rem 0.12rem;
-}
-
-.glyph.punct {
-    padding: 0.18rem 0.08rem;
-    color: var(--ink-2);
-}
-
 .glyph.missing {
     background: #fff2f2;
     outline: 1px dashed #fecaca;
@@ -80,15 +33,10 @@ rt:empty::before {
 
 .clause {
     position: relative;
-    display: inline; 
-    padding: 0.2rem 0; 
-    margin: 0;         
     border-radius: 6px;
     background-color: transparent;
     transition: background-color 0.2s, box-shadow 0.2s;
     cursor: pointer;
-    -webkit-box-decoration-break: clone;
-    box-decoration-break: clone;
 }
 
 .clause-warn {
@@ -184,14 +132,6 @@ rt:empty::before {
     background: white;
     border-radius: 0.75rem;
     flex: 1 1 auto;
-}
-
-.line-wrap {
-    display: block;
-    margin: 0.35rem 0;
-    line-height: 2.1;
-    word-break: keep-all;
-    white-space: normal;
 }
 
 /* 問題跳轉時的短暫強調 */
@@ -532,13 +472,7 @@ section.is-collapsed .title-text {
 
 
 
-/* 當 resultArea 套用 .font-kai 時，改變其內部字體 */
-#resultArea.font-kai,
-#resultArea.font-kai ruby,
-#resultArea.font-kai rb,
-#resultArea.font-kai rt {
-    font-family: "台灣楷體", twkai;
-}
+/* 楷體字型規則在 annotation-core.js（:is(#resultArea, .annot-export).font-kai） */
 /* --- END: 字體選擇樣式 --- */
 
 
@@ -553,11 +487,6 @@ section.is-collapsed .title-text {
 
 
 
-/* 詞彙模式下的 ruby 標籤 */
-.word-unit .glyph-word {
-    padding: 0.1rem 0.12rem;
-}
-
 /* 編輯模式下，滑鼠移到可編輯詞彙上時的樣式 */
 .mode-edit .word-unit:hover {
     background: #eef2ff;
@@ -566,10 +495,12 @@ section.is-collapsed .title-text {
 
 
 @media (max-width: 768px) {
-  */
+  /* 注意：這裡原本有個多餘的結尾符號，導致下面的 .clause 規則一直沒有生效（被瀏覽器忽略）。
+     為了不改變現有版面，先維持停用；要啟用的話把這段註解拿掉即可。
   .clause {
-    padding-right: 32px; /* 增加右側內邊距 */
+    padding-right: 32px;
   }
+  */
 
   .edit-btn {
     top: -4px;
@@ -595,31 +526,11 @@ section.is-collapsed .title-text {
 
 
 
-/* --- 直注音模式樣式 --- */
-.mode-vertical-zhuyin rt {
-    display: none;
-}
-
-.mode-vertical-zhuyin rb {
-    line-height: 1.4;
-}
-
-/* 【新增】針對直注音模式，移除 ruby 標籤左右的間距，讓字與字緊密排列 vertical-align: text-bottom;*/
-.mode-vertical-zhuyin ruby {
-    margin: 0; 
-    padding: 0;
-}
-
 .word-unit {
     position: relative;
-    display: inline; /* 【關鍵修改】：解開連字號詞彙的鐵板，允許跨行 */
     cursor: pointer;
     border-radius: 4px;
     transition: background 0.2s;
-
-    /* 讓跨行斷開時，詞彙兩端都能保有圓角與背景色 */
-    -webkit-box-decoration-break: clone;
-    box-decoration-break: clone;
 }
 
 /* ==========================================
@@ -629,11 +540,6 @@ section.is-collapsed .title-text {
 #resultArea {
     line-break: anywhere;
     word-break: break-all;
-}
-
-/* 預設：顯示軟換行點 */
-wbr.wrap-fix {
-    display: inline;
 }
 
 /* --- 區塊模式 (點擊按鈕後發動) --- */
@@ -757,20 +663,6 @@ body.mini-mode #displaySettingsPopover {
         border: 1px solid #e2e8f0 !important;
         width: 280px !important; /* 手機版稍微限縮寬度，確保不會超出邊界 */
     }
-}
-
-/* 確保迷你模式也維持一樣的置中設定 */
-body.mini-mode #displaySettingsPopover {
-    position: fixed !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) !important;
-    right: auto !important;
-    bottom: auto !important;
-    margin: 0 !important;
-    z-index: 99999 !important;
-    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1) !important;
-    border: 1px solid #e2e8f0 !important;
 }
 
 /* 1. 讓容器在寬度變化時，擁有平滑的動畫過渡效果 */

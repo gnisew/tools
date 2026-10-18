@@ -84,6 +84,10 @@
 						<span class="material-symbols-outlined text-[18px] text-green-600">fact_check</span>
 						<span>逐行比對 (O/X)</span>
 					</button>
+					<button id="actPinyinSyllableCheck" class="w-full text-left px-3 py-1.5 text-sm text-slate-700 rounded-lg hover:bg-slate-50 flex items-center gap-2 transition-colors" title="檢查每個音節是否存在於該語言的資料庫，不存在的音節前面加 #">
+						<span class="material-symbols-outlined text-[18px] text-orange-500">spellcheck</span>
+						<span>#音節檢查</span>
+					</button>
 				  </div>
 				</div>
                   <button id="btnSample" class="hidden text-xs text-blue-700 hover:text-blue-900 flex items-center gap-1">
@@ -480,6 +484,7 @@ https://gnisew.github.io/tools/turn/pinyin2/data-pinyin2pinyin.js
 
   <script>let c, d, ccc, ddd;</script>
   <script src="hanzitopinyin.js"></script>
+  <script src="annotation-core.js"></script>
   <script src="export.js"></script>
   <script src="script.js"></script>
 
