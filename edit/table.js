@@ -1063,6 +1063,7 @@ function handleTablePaste(text) {
         }
     };
 
+    let pastedRange = null; // 一般貼上完成後，用來選取剛貼上的範圍
     // 填滿模式
     if (data.length === 1 && data[0].length === 1 && isMultiTarget) {
         const sourceText = data[0][0];
@@ -1096,6 +1097,11 @@ function handleTablePaste(text) {
             insertColAt(currentCols, -1, maxColsNeeded - currentCols); 
         }
 
+        pastedRange = {
+            startR: startRow, startC: startCol,
+            endR: startRow + data.length - 1,
+            endC: startCol + Math.max(...data.map(r => r.length)) - 1
+        };
         for (let r = 0; r < data.length; r++) {
             const rowElem = tbody.children[startRow + r];
             for (let c = 0; c < data[r].length; c++) {
@@ -1108,6 +1114,14 @@ function handleTablePaste(text) {
     updateTableHeaders();
     recalculateAllFormulas();     
     debouncedSaveHistory(); applyFreeze();
+
+    // 貼上後預設選取「所貼上的整個範圍」(填滿模式則維持原本選取)
+    if (pastedRange && pastedRange.endC >= pastedRange.startC) {
+        selectedRows = []; selectedCols = [];
+        selectedCellBlocks = [pastedRange];
+        lastClickedCell = { r: pastedRange.startR, c: pastedRange.startC };
+        applySelectionVisuals();
+    }
 }
 
 /* ---------------------------------
@@ -3444,11 +3458,8 @@ function insertColumnRightOf(colIdx) {
     if (typeof saveColWidths === 'function') saveColWidths();
 }
 
-// 核心邏輯：執行移除重複
-document.getElementById('btnApplyRemoveDuplicates').addEventListener('click', () => {
-    if (currentMode !== 'table') return showToast('⚠️ 僅能在表格模式使用');
-    
-    // 1. 確認並鎖定選取範圍
+// 取得移除重複的作用範圍 (找不到回傳 null)
+function getRdmRange() {
     let minR = Infinity, maxR = -1, minC = Infinity, maxC = -1;
     if (selectedCellBlocks.length > 0) {
         selectedCellBlocks.forEach(b => {
@@ -3465,13 +3476,84 @@ document.getElementById('btnApplyRemoveDuplicates').addEventListener('click', ()
         minR = maxR = lastClickedCell.r;
         minC = maxC = lastClickedCell.c;
     } else {
-        return showToast('⚠️ 請先選取要處理的範圍');
+        return null;
     }
+    return { minR, maxR, minC, maxC };
+}
+
+// 重新產生「要累加的欄」勾選清單 (預設勾選範圍最右欄)
+function refreshRdSumColsList() {
+    const list = document.getElementById('rdSumColsList');
+    const range = getRdmRange();
+    list.innerHTML = '';
+    if (!range) {
+        list.textContent = '請先選取範圍';
+        return;
+    }
+    for (let c = range.minC; c <= range.maxC; c++) {
+        const label = document.createElement('label');
+        label.className = 'flex items-center gap-1 cursor-pointer';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.className = 'rd-sum-col accent-purple-600 w-4 h-4';
+        cb.value = String(c);
+        cb.checked = (c === range.maxC && range.maxC > range.minC);
+        const span = document.createElement('span');
+        span.textContent = colNumToStr(c) + ' 欄';
+        label.appendChild(cb);
+        label.appendChild(span);
+        list.appendChild(label);
+    }
+}
+
+document.getElementById('chkRdSum').addEventListener('change', (e) => {
+    const wrap = document.getElementById('rdSumColsWrap');
+    if (e.target.checked) {
+        refreshRdSumColsList();
+        wrap.classList.remove('hidden');
+        wrap.classList.add('flex');
+    } else {
+        wrap.classList.add('hidden');
+        wrap.classList.remove('flex');
+    }
+});
+
+// 每次開啟視窗時，若累加功能已啟用，依目前選取範圍重建清單
+document.getElementById('btnOpenRemoveDuplicates').addEventListener('click', () => {
+    if (document.getElementById('chkRdSum').checked) refreshRdSumColsList();
+});
+
+// 核心邏輯：執行移除重複
+document.getElementById('btnApplyRemoveDuplicates').addEventListener('click', () => {
+    if (currentMode !== 'table') return showToast('⚠️ 僅能在表格模式使用');
+    
+    // 1. 確認並鎖定選取範圍
+    const rdRange = getRdmRange();
+    if (!rdRange) return showToast('⚠️ 請先選取要處理的範圍');
+    const { minR, maxR, minC, maxC } = rdRange;
 
     const layout = document.querySelector('input[name="rdLayout"]:checked').value;
     const addCountCol = document.getElementById('chkRdCount').checked;
     const tbodyRows = dataTable.querySelectorAll('tbody tr');
     const DELIMITER = '||_RDM_||';
+
+    // 累加設定：被勾選的欄不參與重複判斷，重複列的數值累加到第一筆
+    const sumCols = new Set();
+    if (document.getElementById('chkRdSum').checked) {
+        document.querySelectorAll('#rdSumColsList .rd-sum-col:checked').forEach(cb => {
+            const c = parseInt(cb.value, 10);
+            if (c >= minC && c <= maxC) sumCols.add(c);
+        });
+        if (sumCols.size === 0) return showToast('⚠️ 請至少勾選一個要累加的欄');
+        if (sumCols.size === (maxC - minC + 1)) return showToast('⚠️ 至少要保留一欄作為重複判斷依據');
+    }
+    const useSum = sumCols.size > 0;
+    const toNum = (txt) => {
+        const n = parseFloat(String(txt == null ? '' : txt).replace(/,/g, '').trim());
+        return isNaN(n) ? 0 : n;
+    };
+    const fmtNum = (n) => String(Math.round(n * 1e10) / 1e10);
+    const sums = new Map();     // key -> { 欄索引: 累計值 }
 
     // 2. 第一階段掃描：讀取資料並建立唯一金鑰字典
     const seen = new Map();     
@@ -3483,30 +3565,59 @@ document.getElementById('btnApplyRemoveDuplicates').addEventListener('click', ()
         return inner ? { formula: inner.getAttribute('data-formula'), text: inner.innerText } : { formula: null, text: '' };
     };
 
-    for (let r = minR; r <= maxR; r++) {
-        let rowData = [];
-        let keyParts = [];
+    // 產生重複判斷金鑰 (排除累加欄)；同時回傳是否為全空列
+    const buildKey = (r) => {
+        const keyParts = [];
+        const allParts = [];
         for (let c = minC; c <= maxC; c++) {
-            const cellData = readCell(r, c);
-            rowData.push(cellData);
-            keyParts.push(cellData.formula || cellData.text); 
+            const cd = readCell(r, c);
+            const v = cd.formula || cd.text;
+            allParts.push(v);
+            if (!sumCols.has(c)) keyParts.push(v);
         }
-        
-        const key = keyParts.join(DELIMITER);
-        
-        // ======== 核心修正：判斷全空行並直接跳過 ========
-        // 如果整行的每一個格子都是空的 (null 或只包含空白)，直接忽略這行！
-        const isEmptyRow = keyParts.every(p => !p || String(p).trim() === '');
+        return {
+            key: keyParts.join(DELIMITER),
+            isEmptyRow: allParts.every(p => !p || String(p).trim() === '')
+        };
+    };
+
+    for (let r = minR; r <= maxR; r++) {
+        const { key, isEmptyRow } = buildKey(r);
+        // 整行皆空白就直接忽略
         if (isEmptyRow) continue; 
-        // ===============================================
-        
+
+        if (useSum) {
+            if (!sums.has(key)) sums.set(key, {});
+            const acc = sums.get(key);
+            sumCols.forEach(c => { acc[c] = (acc[c] || 0) + toNum(readCell(r, c).text); });
+        }
+
         if (!seen.has(key)) {
+            const rowData = [];
+            for (let c = minC; c <= maxC; c++) rowData.push(readCell(r, c));
             seen.set(key, r);
             counts.set(key, 1);
             uniqueData.push({ key, data: rowData }); 
         } else {
             counts.set(key, counts.get(key) + 1);
         }
+    }
+
+    // 把累加結果套回「唯一列」資料
+    if (useSum) {
+        uniqueData.forEach(ud => {
+            sumCols.forEach(c => {
+                ud.data[c - minC] = { formula: null, text: fmtNum(sums.get(ud.key)[c]) };
+            });
+        });
+    }
+
+    // 沒有任何重複時直接提示，不動資料
+    const removedCount = uniqueData.reduce((n, ud) => n + counts.get(ud.key) - 1, 0);
+    if (removedCount === 0) {
+        return showToast(useSum
+            ? '⚠️ 沒有找到重複項目 (未勾選的欄位內容都不同)'
+            : '⚠️ 沒有找到重複項目：需「整列內容完全相同」才算重複。若只想依某一欄判斷，請只選取該欄，或勾選「累加數值欄」');
     }
 
     // 3. 第二階段：視需求新增右欄
@@ -3534,18 +3645,14 @@ document.getElementById('btnApplyRemoveDuplicates').addEventListener('click', ()
     if (layout === 'inplace') {
         // 【留在原位】
         for (let r = minR; r <= maxR; r++) {
-            let keyParts = [];
-            for (let c = minC; c <= maxC; c++) {
-                const cellData = readCell(r, c);
-                keyParts.push(cellData.formula || cellData.text);
-            }
-            const key = keyParts.join(DELIMITER);
-            const isEmptyRow = keyParts.every(p => !p || String(p).trim() === '');
-            
+            const { key, isEmptyRow } = buildKey(r);
             if (isEmptyRow) continue; // 遇到空行不處理也不清空
 
             if (seen.get(key) === r) {
-                // 首次出現保留，若有勾選則填入次數
+                // 首次出現保留；若有累加則寫入加總值
+                if (useSum) {
+                    sumCols.forEach(c => writeCell(r, c, { text: fmtNum(sums.get(key)[c]), formula: null }));
+                }
                 if (addCountCol) {
                     writeCell(r, countColIdx, { text: counts.get(key).toString(), formula: null });
                 }
@@ -3577,7 +3684,7 @@ document.getElementById('btnApplyRemoveDuplicates').addEventListener('click', ()
     recalculateAllFormulas(); 
     debouncedSaveHistory();
     removeDuplicatesModal.classList.add('hidden');
-    showToast(`✅ 移除重複完成！`);
+    showToast(useSum ? `✅ 已合併 ${removedCount} 筆重複並累加` : `✅ 已移除 ${removedCount} 筆重複`);
 });
 
 /* ==========================================
