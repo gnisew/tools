@@ -861,3 +861,5 @@ table#data-table:not(.table-nowrap) .td-inner {
         display: block !important;
     }
 }
+
+/* 斑馬色階的規則由 table.js 依「隔 N 行」動態產生到 <style id="zebraStyle"> */

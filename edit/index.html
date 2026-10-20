@@ -411,6 +411,20 @@
                             </div>
                         </div>
 
+                        <div class="relative group/submenu" id="dd-zebra">
+                            <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
+                                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">table_rows</span>斑馬色階</div>
+                                <span class="material-symbols-outlined text-base">arrow_right</span>
+                            </div>
+                            <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1">
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="0"><div class="flex items-center gap-2">無色階</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1"><div class="flex items-center gap-2">隔 1 行色階</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="5"><div class="flex items-center gap-2">隔 5 行色階</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="10"><div class="flex items-center gap-2">隔 10 行色階</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="custom"><div class="flex items-center gap-2"><span id="zebraCustomLabel">隔 N 行色階</span></div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            </div>
+                        </div>
+
 						<div class="h-px bg-gray-200 my-1 mx-2"></div>
 
                         <div class="relative group/submenu" id="dd-editTrigger">

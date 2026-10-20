@@ -5072,3 +5072,73 @@ document.addEventListener('click', () => {
         });
     });
 })();
+
+/* ==========================================
+   表格：斑馬色階 (預設：無色階)
+   隔 N 行：每 N 列一組，奇數組不上色、偶數組上色
+   例：N=1 → 1、3、5…列白，2、4、6…列灰；N=5 → 1~5 列白，6~10 列灰，11~15 列白…
+   ========================================== */
+(function initTableZebra() {
+    const KEY = 'tableZebraN';          // 0 = 無色階
+    const MAX_N = 200;
+    const PRESETS = [0, 1, 5, 10];
+    const COLOR = '#f1f5f9';
+    const menu = document.getElementById('dd-zebra');
+    if (!menu) return;
+    const items = menu.querySelectorAll('.dropdown-item[data-value]');
+    const customLabel = document.getElementById('zebraCustomLabel');
+    const styleEl = document.createElement('style');
+    styleEl.id = 'zebraStyle';
+    document.head.appendChild(styleEl);
+
+    let n = 0;
+    try {
+        const saved = parseInt(localStorage.getItem(KEY), 10);
+        if (saved >= 0 && saved <= MAX_N) n = saved;
+    } catch (e) {}
+
+    function buildCss() {
+        if (n <= 0) return '';
+        const sel = [];
+        for (let k = 1; k <= n; k++) {
+            sel.push(`table#data-table tbody tr:nth-child(${2 * n}n+${n + k}) td`);
+        }
+        // 不加 !important：選取/標示用的行內底色仍會蓋過斑馬色
+        return sel.join(',') + `{background-color:${COLOR};}`;
+    }
+
+    function apply() {
+        styleEl.textContent = buildCss();
+        const isCustom = n > 0 && !PRESETS.includes(n);
+        if (customLabel) customLabel.textContent = isCustom ? `隔 N 行色階 (N=${n})` : '隔 N 行色階';
+        items.forEach(btn => {
+            const v = btn.dataset.value;
+            const on = v === 'custom' ? isCustom : parseInt(v, 10) === n;
+            const ic = btn.querySelector('.check-icon');
+            if (ic) ic.classList.toggle('active', on);
+        });
+    }
+    apply();
+
+    function setN(val) {
+        n = val;
+        try { localStorage.setItem(KEY, n); } catch (err) {}
+        apply();
+        showToast(n === 0 ? '❌ 已關閉斑馬色階' : `✅ 已啟用斑馬色階 (隔 ${n} 行)`);
+    }
+
+    items.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const v = btn.dataset.value;
+            if (v === 'custom') {
+                showPrompt('輸入每幾行換色 (1~' + MAX_N + ')', String(n > 0 && !PRESETS.includes(n) ? n : 3), (val) => {
+                    const num = parseInt(val, 10);
+                    if (num >= 1 && num <= MAX_N) setN(num);
+                    else showToast('⚠️ 請輸入 1~' + MAX_N + ' 的整數');
+                });
+            } else {
+                setN(parseInt(v, 10));
+            }
+        });
+    });
+})();
