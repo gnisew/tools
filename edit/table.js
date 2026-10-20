@@ -5002,7 +5002,73 @@ document.addEventListener('click', () => {
     }
 });
 
+/* ==========================================
+   表格：儲存格換行方式 (A / B / C，預設 A)
+   A: 依儲存格寬度自動換行，單字可能被截斷
+   B: 依儲存格寬度自動換行，單字不被截斷
+   C: 不換行，超出的部分顯示為 ...
+   ========================================== */
+(function initTableWrapMode() {
+    const KEY = 'tableWrapMode';
+    const menu = document.getElementById('dd-tableWrapMode');
+    if (!menu) return;
+    const items = menu.querySelectorAll('.dropdown-item[data-value]');
+    const TOASTS = {
+        A: '✅ 自動換行 (單字可能被截斷)',
+        B: '✅ 自動換行 (單字不被截斷)',
+        C: '✅ 不換行 (超出顯示 ...)'
+    };
+    let mode = 'A';
+    try {
+        const saved = localStorage.getItem(KEY);
+        if (saved === 'A' || saved === 'B' || saved === 'C') mode = saved;
+    } catch (e) {}
 
+    function apply() {
+        dataTable.classList.toggle('table-wrap-word', mode === 'B');
+        dataTable.classList.toggle('table-nowrap', mode === 'C');
+        items.forEach(btn => {
+            const ic = btn.querySelector('.check-icon');
+            if (ic) ic.classList.toggle('active', btn.dataset.value === mode);
+        });
+    }
+    apply();
 
+    // 其他程式碼若動到 table-nowrap / table-wrap-word，立刻校正回目前選的模式
+    new MutationObserver(() => {
+        if (dataTable.classList.contains('table-nowrap') !== (mode === 'C') ||
+            dataTable.classList.contains('table-wrap-word') !== (mode === 'B')) apply();
+    }).observe(dataTable, { attributes: true, attributeFilter: ['class'] });
 
+    items.forEach(btn => {
+        btn.addEventListener('click', () => {
+            mode = btn.dataset.value;
+            try { localStorage.setItem(KEY, mode); } catch (err) {}
+            apply();
+            showToast(TOASTS[mode]);
+        });
+    });
+})();
 
+/* ==========================================
+   下拉選單的子選單：游標跨過縫隙時不要立刻消失 (延遲 300ms 才關閉)
+   ========================================== */
+(function keepSubmenuOpen() {
+    const mq = window.matchMedia('(min-width: 769px)');
+    const groups = document.querySelectorAll('.dropdown-menu [class~="group/submenu"]');
+    groups.forEach(g => {
+        let timer = null;
+        g.addEventListener('mouseenter', () => {
+            clearTimeout(timer);
+            if (!mq.matches) return;
+            groups.forEach(o => {
+                if (o !== g && o.parentElement === g.parentElement) o.classList.remove('submenu-hold');
+            });
+            g.classList.add('submenu-hold');
+        });
+        g.addEventListener('mouseleave', () => {
+            clearTimeout(timer);
+            timer = setTimeout(() => g.classList.remove('submenu-hold'), 300);
+        });
+    });
+})();

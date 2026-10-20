@@ -137,7 +137,8 @@ table#data-table th.sticky-corner { position: sticky; top: 0; left: 0; z-index: 
     cursor: text;
     outline: none;
     white-space: var(--table-white-space);
-    word-break: break-all;
+    word-break: break-all;       /* 預設 (模式 A)：依欄寬換行，單字可被截斷 */
+    overflow-wrap: anywhere;
     width: 100%;
     box-sizing: border-box;
 }
@@ -814,5 +815,49 @@ body.maximized-mode.is-playing-game #tableModeContainer {
 @media (min-width: 769px) {
     #dd-mobileMore {
         display: none !important;
+    }
+}
+
+/* 語言工具選單內的「烏衣行輸入法」：覆蓋外部 ime-button.js 注入的按鈕樣式，使其與其他選項一致 */
+.dropdown-menu .dropdown-item.ime-toggle-button {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0.5rem 1rem !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
+    background: transparent !important;
+    color: #374151 !important;
+    font-size: 0.875rem !important;
+    line-height: 1.25rem !important;
+    height: auto !important;
+    min-height: 0 !important;
+    opacity: 1 !important;
+    filter: none !important;
+}
+.dropdown-menu .dropdown-item.ime-toggle-button:hover {
+    background: #f3f4f6 !important;
+    color: #374151 !important;
+}
+
+/* 儲存格換行方式（表格設定 → 儲存格換行方式）
+   A (預設)：依欄寬換行，單字可被截斷 → 使用 .td-inner 預設值
+   B：依欄寬換行，單字不被截斷（只在空格 / 中日文字之間換行）
+   C：不換行，超出以 ... 顯示 → 使用 .table-nowrap（見上方） */
+table#data-table.table-wrap-word .td-inner {
+    word-break: normal;
+    overflow-wrap: normal;
+}
+
+/* A、B 模式：表格內強制自動換行（不受 --table-white-space / 排版選單的「不換行」影響） */
+table#data-table:not(.table-nowrap) .td-inner {
+    white-space: pre-wrap !important;
+}
+
+/* 桌面版：游標離開子選單的列後保留一小段時間，讓游標能跨過縫隙移進子選單 */
+@media (min-width: 769px) {
+    .group\/submenu.submenu-hold > div:last-child {
+        display: block !important;
     }
 }

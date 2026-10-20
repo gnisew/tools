@@ -9,7 +9,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- ✨ 版本號：每次更新程式，只要改這一個數字（script.js 等檔案與 style.css 都會跟著重新下載） -->
-    <script>window.APP_VERSION = '20261017a';</script>
+    <script>window.APP_VERSION = '20261020b';</script>
     <script>document.write('<link rel="stylesheet" href="style.css?v=' + window.APP_VERSION + '">');</script>
 
 	
@@ -398,6 +398,18 @@
                             </div>
                             <span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active" id="iconAutoSumCheck">check</span>
                         </button>
+
+                        <div class="relative group/submenu" id="dd-tableWrapMode">
+                            <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
+                                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">wrap_text</span>儲存格換行方式</div>
+                                <span class="material-symbols-outlined text-base">arrow_right</span>
+                            </div>
+                            <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-64 z-50 py-1">
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="A"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">wrap_text</span><div class="leading-tight"><div>A 自動換行</div><div class="text-xs text-gray-400">依欄寬換行，單字可能被截斷</div></div></div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="B"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">format_textdirection_l_to_r</span><div class="leading-tight"><div>B 自動換行</div><div class="text-xs text-gray-400">依欄寬換行，單字不被截斷</div></div></div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="C"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">more_horiz</span><div class="leading-tight"><div>C 不換行</div><div class="text-xs text-gray-400">超出欄寬的部分顯示為 ...</div></div></div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            </div>
+                        </div>
 
 						<div class="h-px bg-gray-200 my-1 mx-2"></div>
 
@@ -1021,6 +1033,14 @@
             <input type="checkbox" id="chkRdCount" class="accent-purple-600 w-4 h-4">
             <span>統計次數並標示於右側新欄</span>
         </label>
+        <label class="flex items-center gap-2 cursor-pointer font-bold text-purple-700">
+            <input type="checkbox" id="chkRdSum" class="accent-purple-600 w-4 h-4">
+            <span>累加數值欄</span>
+        </label>
+        <div id="rdSumColsWrap" class="hidden flex-col gap-2 pl-6 -mt-1">
+            <div class="text-xs text-gray-500 leading-relaxed">勾選要累加的欄；其餘欄位相同才視為重複，重複列的數值會加總到第一筆。</div>
+            <div id="rdSumColsList" class="flex flex-wrap gap-x-4 gap-y-1 text-gray-700"></div>
+        </div>
         <button id="btnApplyRemoveDuplicates" class="w-full mt-2 px-4 py-2 bg-purple-100 text-purple-800 hover:bg-purple-200 rounded-lg transition text-sm font-bold shadow-sm cursor-pointer">確定移除重複</button>
     </div>
 </div>
