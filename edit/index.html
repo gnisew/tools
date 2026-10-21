@@ -330,6 +330,32 @@
                         <div class="h-px bg-gray-200 my-1 mx-2"></div>
 
                         
+                        <div class="relative group/submenu" id="dd-tableWrapMode">
+                            <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
+                                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">wrap_text</span>儲存格換行方式</div>
+                                <span class="material-symbols-outlined text-base">arrow_right</span>
+                            </div>
+                            <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-64 z-50 py-1">
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="A"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">wrap_text</span><div class="leading-tight"><div>A 自動換行</div><div class="text-xs text-gray-400">依欄寬換行，單字可能被截斷</div></div></div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="B"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">format_textdirection_l_to_r</span><div class="leading-tight"><div>B 自動換行</div><div class="text-xs text-gray-400">依欄寬換行，單字不被截斷</div></div></div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="C"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">more_horiz</span><div class="leading-tight"><div>C 不換行</div><div class="text-xs text-gray-400">超出欄寬的部分顯示為 ...</div></div></div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            </div>
+                        </div>
+
+                        <div class="relative group/submenu" id="dd-zebra">
+                            <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
+                                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">table_rows</span>斑馬色階</div>
+                                <span class="material-symbols-outlined text-base">arrow_right</span>
+                            </div>
+                            <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1">
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="0"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">block</span><div class="leading-tight"><div>無色階</div></div></div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">density_small</span><div class="leading-tight"><div>隔 1 行色階</div></div></div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="5"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">density_medium</span><div class="leading-tight"><div>隔 5 行色階</div></div></div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="10"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">density_large</span><div class="leading-tight"><div>隔 10 行色階</div></div></div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="custom"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">edit</span><div class="leading-tight"><div><span id="zebraCustomLabel">隔 N 行色階</span></div></div></div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
+                            </div>
+                        </div>
+
                         <div class="relative group/submenu" id="dd-freeze">
                             <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
                                 <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">ac_unit</span>凍結列數</div>

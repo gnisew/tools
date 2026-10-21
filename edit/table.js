@@ -4986,7 +4986,143 @@ document.addEventListener('click', () => {
     }
 });
 
+/* ==========================================
+   表格：儲存格換行方式 (A / B / C，預設 A)
+   A: 依儲存格寬度自動換行，單字可能被截斷
+   B: 依儲存格寬度自動換行，單字不被截斷
+   C: 不換行，超出的部分顯示為 ...
+   ========================================== */
+(function initTableWrapMode() {
+    const KEY = 'tableWrapMode';
+    const menu = document.getElementById('dd-tableWrapMode');
+    if (!menu) return;
+    const items = menu.querySelectorAll('.dropdown-item[data-value]');
+    const TOASTS = {
+        A: '✅ 自動換行 (單字可能被截斷)',
+        B: '✅ 自動換行 (單字不被截斷)',
+        C: '✅ 不換行 (超出顯示 ...)'
+    };
+    let mode = 'A';
+    try {
+        const saved = localStorage.getItem(KEY);
+        if (saved === 'A' || saved === 'B' || saved === 'C') mode = saved;
+    } catch (e) {}
 
+    function apply() {
+        dataTable.classList.toggle('table-wrap-word', mode === 'B');
+        dataTable.classList.toggle('table-nowrap', mode === 'C');
+        items.forEach(btn => {
+            const ic = btn.querySelector('.check-icon');
+            if (ic) ic.classList.toggle('active', btn.dataset.value === mode);
+        });
+    }
+    apply();
 
+    // 其他程式碼若動到 table-nowrap / table-wrap-word，立刻校正回目前選的模式
+    new MutationObserver(() => {
+        if (dataTable.classList.contains('table-nowrap') !== (mode === 'C') ||
+            dataTable.classList.contains('table-wrap-word') !== (mode === 'B')) apply();
+    }).observe(dataTable, { attributes: true, attributeFilter: ['class'] });
 
+    items.forEach(btn => {
+        btn.addEventListener('click', () => {
+            mode = btn.dataset.value;
+            try { localStorage.setItem(KEY, mode); } catch (err) {}
+            apply();
+            showToast(TOASTS[mode]);
+        });
+    });
+})();
 
+/* ==========================================
+   表格：斑馬色階 (預設：無色階)
+   隔 N 行：每 N 列為一組，奇數組不上色、偶數組上色
+   例：N=1 → 1、3、5…列白，2、4、6…列灰；N=5 → 1~5 列白，6~10 列灰，11~15 列白…
+   ========================================== */
+(function initTableZebra() {
+    const KEY = 'tableZebraN';          // 0 = 無色階
+    const MAX_N = 200;
+    const PRESETS = [0, 1, 5, 10];
+    const COLOR = '#f1f5f9';
+    const menu = document.getElementById('dd-zebra');
+    if (!menu) return;
+    const items = menu.querySelectorAll('.dropdown-item[data-value]');
+    const customLabel = document.getElementById('zebraCustomLabel');
+    const styleEl = document.createElement('style');
+    styleEl.id = 'zebraStyle';
+    document.head.appendChild(styleEl);
+
+    let n = 0;
+    try {
+        const saved = parseInt(localStorage.getItem(KEY), 10);
+        if (saved >= 0 && saved <= MAX_N) n = saved;
+    } catch (e) {}
+
+    function buildCss() {
+        if (n <= 0) return '';
+        const sel = [];
+        for (let k = 1; k <= n; k++) {
+            sel.push(`table#data-table tbody tr:nth-child(${2 * n}n+${n + k}) td`);
+        }
+        // 不加 !important：選取/標示用的行內底色仍會蓋過斑馬色
+        return sel.join(',') + `{background-color:${COLOR};}`;
+    }
+
+    function apply() {
+        styleEl.textContent = buildCss();
+        const isCustom = n > 0 && !PRESETS.includes(n);
+        if (customLabel) customLabel.textContent = isCustom ? `隔 N 行色階 (N=${n})` : '隔 N 行色階';
+        items.forEach(btn => {
+            const v = btn.dataset.value;
+            const on = v === 'custom' ? isCustom : parseInt(v, 10) === n;
+            const ic = btn.querySelector('.check-icon');
+            if (ic) ic.classList.toggle('active', on);
+        });
+    }
+    apply();
+
+    function setN(val) {
+        n = val;
+        try { localStorage.setItem(KEY, n); } catch (err) {}
+        apply();
+        showToast(n === 0 ? '❌ 已關閉斑馬色階' : `✅ 已啟用斑馬色階 (隔 ${n} 行)`);
+    }
+
+    items.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const v = btn.dataset.value;
+            if (v === 'custom') {
+                showPrompt('輸入每幾行換色 (1~' + MAX_N + ')', String(n > 0 && !PRESETS.includes(n) ? n : 3), (val) => {
+                    const num = parseInt(val, 10);
+                    if (num >= 1 && num <= MAX_N) setN(num);
+                    else showToast('⚠️ 請輸入 1~' + MAX_N + ' 的整數');
+                });
+            } else {
+                setN(parseInt(v, 10));
+            }
+        });
+    });
+})();
+
+/* ==========================================
+   下拉選單的子選單：游標跨過縫隙時不要立刻消失 (延遲 300ms 才關閉)
+   ========================================== */
+(function keepSubmenuOpen() {
+    const mq = window.matchMedia('(min-width: 769px)');
+    const groups = document.querySelectorAll('.dropdown-menu [class~="group/submenu"]');
+    groups.forEach(g => {
+        let timer = null;
+        g.addEventListener('mouseenter', () => {
+            clearTimeout(timer);
+            if (!mq.matches) return;
+            groups.forEach(o => {
+                if (o !== g && o.parentElement === g.parentElement) o.classList.remove('submenu-hold');
+            });
+            g.classList.add('submenu-hold');
+        });
+        g.addEventListener('mouseleave', () => {
+            clearTimeout(timer);
+            timer = setTimeout(() => g.classList.remove('submenu-hold'), 300);
+        });
+    });
+})();
