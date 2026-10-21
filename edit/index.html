@@ -649,6 +649,22 @@
                     <table id="data-table" class="code-text relative z-10">
                         <!-- 表格由 JS 產生 -->
                     </table>
+                    <!-- 表格底部：新增 N 列於底部（類似試算表） -->
+                    <style>
+                        #addRowsBottomBar { position:sticky; left:0; display:flex; align-items:center; gap:10px; width:max-content; padding:6px 16px 6px 56px; font-size:14px; color:#5f6368; user-select:none; }
+                        #btnAddRowsBottom { color:#1a73e8; font-weight:400; background:transparent; border:0; border-radius:999px; padding:8px 18px; cursor:pointer; transition:background-color .15s; }
+                        #btnAddRowsBottom:hover { background:#e8f0fe; }
+                        #btnAddRowsBottom:active { background:#d2e3fc; }
+                        #inputAddRowsBottom { width:60px; height:26px; box-sizing:border-box; padding:0 8px; text-align:left; font-size:14px; color:#202124; background:#fff; border:1px solid #80868b; border-radius:4px; outline:none; -moz-appearance:textfield; appearance:textfield; }
+                        #inputAddRowsBottom::-webkit-outer-spin-button, #inputAddRowsBottom::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+                        #inputAddRowsBottom:hover { border-color:#5f6368; }
+                        #inputAddRowsBottom:focus { border:2px solid #1a73e8; padding:0 7px; }
+                    </style>
+                    <div id="addRowsBottomBar" class="code-text">
+                        <button id="btnAddRowsBottom" type="button">新增</button>
+                        <input id="inputAddRowsBottom" type="text" inputmode="numeric" maxlength="5" value="10" autocomplete="off" onfocus="this.select()" oninput="this.value=this.value.replace(/\D/g,'')">
+                        <span>列於底部</span>
+                    </div>
                 </div>
             </div>
 

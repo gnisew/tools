@@ -5224,3 +5224,26 @@ document.addEventListener('click', () => {
         });
     });
 })();
+
+// ==========================================
+// 表格底部「新增 N 列於底部」（類似試算表）
+// ==========================================
+(function () {
+    const KEY = 'wesing-add-rows-bottom';
+    const btn = document.getElementById('btnAddRowsBottom');
+    const input = document.getElementById('inputAddRowsBottom');
+    if (!btn || !input) return;
+    try { const saved = parseInt(localStorage.getItem(KEY), 10); if (saved > 0) input.value = Math.min(saved, 10000); } catch (e) {}
+    const run = () => {
+        const n = Math.min(parseInt(input.value, 10) || 0, 10000);
+        if (n <= 0) return;
+        try { localStorage.setItem(KEY, n); } catch (e) {}
+        const box = document.getElementById('tableModeContainer');
+        const top = box ? box.scrollTop : 0;
+        insertRowAt(dataTable.querySelector('tbody').children.length, -1, n);
+        if (box) box.scrollTop = top; // 維持原位，按鈕往下移，可再按一次
+        if (typeof showToast === 'function') showToast(`✅ 已在底部新增 ${n} 列`);
+    };
+    btn.addEventListener('click', run);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); run(); } e.stopPropagation(); });
+})();
