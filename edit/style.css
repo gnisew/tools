@@ -176,8 +176,15 @@ table#data-table td:focus-within {
 .drag-over-col { background-color: #bae6fd !important; border-left: 4px solid #2563eb !important; }
 .drag-over-row > th, .drag-over-row > td { background-color: #bae6fd !important; border-top: 4px solid #2563eb !important; }
 
-.resize-handle { position: absolute; top: 0; right: -3px; bottom: 0; width: 6px; cursor: col-resize; background-color: transparent; z-index: 25; }
+/* 【修改】把手完全放在欄標題內側：原本 right:-3px 會有一半被右邊相鄰的標題蓋住，可點範圍太小
+   - right: -3px → right: 0 ；width: 6px → 8px ；加 touch-action 避免手機拖曳時觸發捲動 */
+.resize-handle { position: absolute; top: 0; right: 0; bottom: 0; width: 8px; cursor: col-resize; background-color: transparent; z-index: 25; touch-action: none; }
 .resize-handle:hover, .resize-handle.active { background-color: #3b82f6; }
+
+/* 【新增】游標靠近欄界線時顯示 col-resize；拖曳中整頁維持 col-resize 並禁止反白 */
+table#data-table.col-resize-hover,
+table#data-table.col-resize-hover * { cursor: col-resize !important; }
+body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-select: none !important; }
 
 /* 懸浮工具與選單 */
 #floating-tool {

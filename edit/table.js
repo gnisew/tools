@@ -1773,7 +1773,7 @@ document.addEventListener('touchend', () => {
     if (isResizing) { 
         isResizing = false; 
         if (currentTh) {
-            currentTh.querySelector('.resize-handle').classList.remove('active'); 
+            currentTh.querySelector('.resize-handle')?.classList.remove('active'); 
             saveColWidths(); 
         }
         currentTh = null; 
@@ -1829,7 +1829,7 @@ document.addEventListener('mouseup', () => {
     if (isResizing) { 
         isResizing = false; 
         if (currentTh) {
-            currentTh.querySelector('.resize-handle').classList.remove('active'); 
+            currentTh.querySelector('.resize-handle')?.classList.remove('active'); 
             // 拖曳結束時，原本的 saveColWidths 會自動掃描所有欄位並儲存，所以這裡不需修改
             saveColWidths(); 
         }
@@ -1837,6 +1837,104 @@ document.addEventListener('mouseup', () => {
     }
 });
 
+
+// ==========================================
+// 【新增】確保每個欄標題右側都有「拖曳調整欄寬」的把手 (.resize-handle)
+// 原因：欄標題的 HTML 由 createThColHTML() 產生，若該處沒有輸出 .resize-handle，
+//       或標題被重新繪製(innerHTML 被覆寫)，把手就會消失，導致無法拖曳邊界調整欄寬。
+// 作法：不依賴 createThColHTML，在這裡主動補上，並監看表頭變動自動補回。
+// ==========================================
+function ensureResizeHandles() {
+    dataTable.querySelectorAll('thead th.sticky-top:not(.sticky-corner)').forEach(th => {
+        if (!th.querySelector(':scope > .resize-handle')) {
+            const handle = document.createElement('div');
+            handle.className = 'resize-handle';
+            handle.title = '拖曳調整欄寬';
+            th.appendChild(handle);
+        }
+    });
+}
+
+// ==========================================
+// 【新增】以滑鼠座標判斷「欄與欄中間的界線」並拖曳調整欄寬
+// 不依賴 .resize-handle 元素：游標靠近欄標題右緣(或下一欄左緣)就視為在界線上。
+// 使用捕獲階段(capture)，優先於「拖曳移動欄 / 拖曳多選欄」等其他 mousedown 處理。
+// ==========================================
+const COL_EDGE_MOUSE = 6;   // 滑鼠：界線左右判定範圍 (px)
+const COL_EDGE_TOUCH = 12;  // 觸控：判定範圍較大
+function getEdgeResizeTh(clientX, target, edge) {
+    if (!target || !target.closest) return null;
+    const th = target.closest('thead th.sticky-top');
+    if (!th || th.classList.contains('sticky-corner')) return null;
+    if (target.closest('.btn-col-menu, .btn-col-filter')) return null; // 不蓋住選單/篩選按鈕
+    const rect = th.getBoundingClientRect();
+    if (clientX >= rect.right - edge) return th;                       // 靠右緣 → 調整本欄
+    if (clientX <= rect.left + edge) {                                  // 靠左緣 → 調整左邊那一欄
+        const prev = th.previousElementSibling;
+        if (prev && prev.classList.contains('sticky-top') && !prev.classList.contains('sticky-corner')) return prev;
+    }
+    return null;
+}
+
+// 游標提示：靠近界線時顯示 col-resize
+dataTable.addEventListener('mousemove', (e) => {
+    if (isResizing || e.buttons) return;
+    dataTable.classList.toggle('col-resize-hover', !!getEdgeResizeTh(e.clientX, e.target, COL_EDGE_MOUSE));
+});
+dataTable.addEventListener('mouseleave', () => dataTable.classList.remove('col-resize-hover'));
+
+// 按下滑鼠：在界線上就開始調整欄寬，並阻止其他表頭行為
+dataTable.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    const th = getEdgeResizeTh(e.clientX, e.target, COL_EDGE_MOUSE);
+    if (!th) return;
+    isResizing = true;
+    currentTh = th;
+    startX = e.pageX;
+    startWidth = th.offsetWidth;
+    document.body.classList.add('col-resizing');
+    e.preventDefault();
+    e.stopPropagation();
+}, true);
+
+// 放開滑鼠：結束調整，並吞掉接著產生的 click，避免誤選整欄
+document.addEventListener('mouseup', () => {
+    document.body.classList.remove('col-resizing');
+    if (window.__colResizeDidDrag) {
+        const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+        dataTable.addEventListener('click', swallow, { capture: true, once: true });
+        setTimeout(() => dataTable.removeEventListener('click', swallow, true), 0);
+        window.__colResizeDidDrag = false;
+    }
+}, true);
+document.addEventListener('mousemove', () => { if (isResizing) window.__colResizeDidDrag = true; }, true);
+
+// 觸控版
+dataTable.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    const th = getEdgeResizeTh(t.clientX, e.target, COL_EDGE_TOUCH);
+    if (!th) return;
+    isResizing = true;
+    currentTh = th;
+    startX = t.pageX;
+    startWidth = th.offsetWidth;
+    e.preventDefault();
+    e.stopPropagation();
+}, { capture: true, passive: false });
+
+let _resizeHandleRaf = 0;
+const resizeHandleObserver = new MutationObserver((mutations) => {
+    // 只關心表頭 / 整個表格被重繪，避免在儲存格打字時也觸發
+    const relevant = mutations.some(m => {
+        const t = m.target;
+        return t === dataTable || (t.closest && t.closest('thead'));
+    });
+    if (!relevant) return;
+    cancelAnimationFrame(_resizeHandleRaf);
+    _resizeHandleRaf = requestAnimationFrame(ensureResizeHandles);
+});
+resizeHandleObserver.observe(dataTable, { childList: true, subtree: true });
+ensureResizeHandles(); // 初始化時先補一次
 
 /* ==========================================
    表格多欄位排序模組 (支援局部範圍、特定欄位與亂數排序)
