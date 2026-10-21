@@ -444,6 +444,8 @@ function init() {
     if (savedFont) {
         document.documentElement.style.setProperty('--main-font', savedFont);
         setDropdownValue('dd-fontFamily', savedFont);
+        // 上次選的是「進階字體」（非預設台灣黑體）時，啟動就要載入字體包，否則會一直顯示備用字體
+        if (!savedFont.trim().startsWith('twhei-s')) loadExtraFonts();
     }
 
 	const savedWidth = localStorage.getItem(EDITOR_WIDTH_KEY) || '800px';
@@ -1990,7 +1992,7 @@ document.getElementById('btnClearCache').addEventListener('click', () => {
 // =========================
 // 雲端字體延遲載入 (Lazy Load)
 // =========================
-let isExtraFontsLoaded = false;
+var isExtraFontsLoaded = false; // 用 var：啟動流程可能在這行執行前就呼叫 loadExtraFonts()
 function loadExtraFonts() {
     if (!isExtraFontsLoaded) {
         const link = document.createElement('link');

@@ -208,77 +208,41 @@ document.addEventListener('DOMContentLoaded', () => {
 	*/
 
 	/**
-	 * 動態載入烏衣行翻譯系統的核心模組
-	 * 確保按順序載入，避免變數找不到的錯誤
+	 * 動態載入烏衣行翻譯系統的核心模組（延遲載入：第一次使用翻譯系統時才載入）
+	 * 回傳同一個 Promise（只會載入一次）；載入失敗時會清除快取，下次點擊可重試
 	 */
-	async function loadTranslatorModules() {
+	let _translatorModulesPromise = null;
+	function ensureTranslatorModules() {
+		if (_translatorModulesPromise) return _translatorModulesPromise;
+
 		const baseUrl = "https://gnisew.github.io/tools/translate/";
-		
-		// 定義需要載入的檔案陣列（請依照必須執行的先後順序排列）
-		const scriptsToLoad = [
-			"translate.js",
-			"grammar-engine.js"
-		];
+		// 需要載入的檔案（請依照必須執行的先後順序排列）
+		const scriptsToLoad = ["translate.js", "grammar-engine.js"];
 
-		console.log("🔄 開始載入翻譯系統模組...");
-
-		for (const filename of scriptsToLoad) {
-			const fullUrl = baseUrl + filename;
-
-			await new Promise((resolve, reject) => {
-				// 防呆機制：如果網頁中已經有這個腳本，就直接跳過，避免重複載入
-				if (document.querySelector(`script[src="${fullUrl}"]`)) {
-					console.log(`⏩ 已存在，跳過載入: ${filename}`);
-					return resolve();
-				}
-
-				// 建立 script 標籤 (這就是你寫的邏輯)
-				const script = document.createElement('script');
-				script.src = fullUrl;
-				
-				// 確保腳本按插入的順序執行
-				script.async = false; 
-
-				// 監聽載入成功與失敗的事件
-				script.onload = () => {
-					console.log(`✅ 載入成功: ${filename}`);
-					resolve(); // 告訴 Promise 這支檔案搞定了，可以換下一個
-				};
-				
-				script.onerror = () => {
-					const errorMsg = `❌ 載入失敗: ${filename}`;
-					console.error(errorMsg);
-					reject(new Error(errorMsg)); // 發生錯誤時中斷流程
-				};
-
-				// 正式注入到網頁中
-				document.head.appendChild(script);
-			});
-		}
-		
-		console.log("🚀 所有翻譯模組載入完畢，系統已就緒！");
-	}
-
-	// ==========================================
-	// 如何使用這個載入器？
-	// ==========================================
-
-	// 呼叫函式，並利用 .then() 確保載入完畢後才執行後續程式
-	loadTranslatorModules()
-		.then(() => {
-			// 這裡的程式碼，保證是在三個 js 檔案都完全載入後才會執行
-			console.log("開始執行主程式的翻譯邏輯...");
-			
-			// 例如：這時候呼叫 executeReorder 絕對不會報錯
-			// let result = executeReorder(...); 
-		})
-		.catch((error) => {
-			// 如果有任何一個檔案載入失敗，會跳來這裡
-			console.error("系統啟動失敗，請檢查網路或網址設定。", error);
+		_translatorModulesPromise = (async () => {
+			console.log("🔄 開始載入翻譯系統模組...");
+			for (const filename of scriptsToLoad) {
+				const fullUrl = baseUrl + filename;
+				await new Promise((resolve, reject) => {
+					// 已經有這個腳本就跳過，避免重複載入
+					if (document.querySelector(`script[src="${fullUrl}"]`)) return resolve();
+					const script = document.createElement('script');
+					script.src = fullUrl;
+					script.async = false; // 依序執行
+					script.onload = () => { console.log(`✅ 載入成功: ${filename}`); resolve(); };
+					script.onerror = () => { script.remove(); reject(new Error(`❌ 載入失敗: ${filename}`)); };
+					document.head.appendChild(script);
+				});
+			}
+			console.log("🚀 所有翻譯模組載入完畢，系統已就緒！");
+		})().catch((err) => {
+			_translatorModulesPromise = null; // 失敗後允許重試
+			console.error("翻譯系統載入失敗，請檢查網路。", err);
+			throw err;
 		});
 
-
-
+		return _translatorModulesPromise;
+	}
 
     // 準備全域變數，供拼音字典腳本使用
     window.ccc = ''; window.ddd = ''; window.c = []; window.d = [];
@@ -765,6 +729,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openTranslatorPanel() {
         transPanel.style.display = 'flex';
+        ensureTranslatorModules().catch(() => {}); // 第一次開啟時才開始載入（背景進行，不擋面板）
         if (btnToggle) btnToggle.classList.add('active'); // 加上按鈕變色狀態
     }
 
@@ -1002,10 +967,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
-    function fetchDictionaryByFile(fileName) {
+    async function fetchDictionaryByFile(fileName) {
+        if (!fileName) return null;
+        if (dictCache[fileName]) return dictCache[fileName];
+        await ensureTranslatorModules(); // 確保 setupDictionaries 等遠端模組已載入
         return new Promise((resolve, reject) => {
-            if (!fileName) return resolve(null);
-            if (dictCache[fileName]) return resolve(dictCache[fileName]);
             const script = document.createElement('script');
             script.src = BASE_URL_TRANS + fileName;
             script.onload = () => {
@@ -1104,6 +1070,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnExecute.disabled = true;
 
 		try {
+            await ensureTranslatorModules();
             // 攔截進階資料庫比對邏輯 (完全符合、所有符合、模糊符合)
             // 在 performConversion 頂部攔截進階資料庫的部分：
             if (['exact', 'all', 'fuzzy'].includes(actionMode)) {
