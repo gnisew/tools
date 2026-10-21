@@ -74,7 +74,7 @@ floatingTool.addEventListener('click', () => {
     } else if (currentMode === 'table') {
         const cells = dataTable.querySelectorAll('.td-inner');
         cells.forEach(cell => {
-            let text = cell.hasAttribute('data-formula') ? cell.getAttribute('data-formula') : cell.innerText;
+            let text = cell.hasAttribute('data-formula') ? cell.getAttribute('data-formula') : getCellText(cell);
             if (globalRegex.test(text)) {
                 const matches = text.match(globalRegex);
                 count += matches ? matches.length : 0; // 計算替換了幾個
@@ -96,45 +96,6 @@ floatingTool.addEventListener('click', () => {
     hideFloatingTool(); 
     debouncedSaveHistory(); // 存檔支援 Ctrl+Z 復原
     showToast(msg);
-});
-
-
-
-
-
-
-
-
-
-
-document.addEventListener('mouseup', (e) => {
-    if (e.target === floatingTool || e.target.closest('.icon-btn') || e.target.classList.contains('resize-handle') || e.target.closest('.btn-col-menu') || e.target.closest('.btn-row-menu')) return;
-    setTimeout(() => {
-        if (currentMode === 'text' && document.activeElement === editor) {
-            if (editor.selectionStart !== editor.selectionEnd) { checkAndShowSpecialMerge(editor.value.substring(editor.selectionStart, editor.selectionEnd), e.pageX, e.pageY); return; }
-        } else if (currentMode === 'table') {
-            const sel = window.getSelection();
-            if (!sel.isCollapsed && sel.rangeCount > 0 && dataTable.contains(sel.anchorNode)) {
-                if (checkAndShowSpecialMerge(sel.toString(), e.pageX, e.pageY)) { activeSelectionRange = sel.getRangeAt(0).cloneRange(); return; }
-            }
-        }
-        hideFloatingTool();
-    }, 10);
-});
-
-floatingTool.addEventListener('click', () => {
-    if (!currentMatch) return;
-    if (currentMode === 'text') {
-        editor.setRangeText(currentMatch.textToReplace, editor.selectionStart, editor.selectionEnd, 'select');
-        localStorage.setItem(STORAGE_KEY, editor.value); updateLineNumbers();
-    } else if (currentMode === 'table') {
-        const sel = window.getSelection(); sel.removeAllRanges();
-        if (activeSelectionRange) { 
-            sel.addRange(activeSelectionRange); 
-            document.execCommand('insertText', false, currentMatch.textToReplace); 
-        }
-    }
-    hideFloatingTool(); saveHistoryState(); showToast('✨ 特殊合併完成！');
 });
 
 
@@ -434,7 +395,7 @@ function executeFind(isDown) {
         // 1. 預先掃描表格內所有符合的儲存格
         for (let i = 0; i < cells.length; i++) {
             const cell = cells[i];
-            let textToSearch = cell.inner.innerText;
+            let textToSearch = getCellText(cell.inner);
             if (isFormulaMatch && cell.inner.hasAttribute('data-formula')) {
                 textToSearch = cell.inner.getAttribute('data-formula');
             }
@@ -692,7 +653,7 @@ document.getElementById('btnReplaceAll').addEventListener('click', () => {
 
 		if (count > 0) {
             // 3. 將更新後的資料寫回 LocalStorage
-            localStorage.setItem(TABS_DATA_KEY, JSON.stringify(sheetTabs));
+            writeTabsToStorage(); // 與自動存檔共用：不存龐大的歷史、並處理空間不足
             
             // 將當前頁籤「已經被取代完成」的新內容，同步回目前的編輯器中！
             editor.value = sheetTabs[activeSheetIndex].content;
@@ -724,7 +685,7 @@ document.getElementById('btnReplaceAll').addEventListener('click', () => {
             const cells = getTargetCells();
             
             cells.forEach(cell => {
-                let textToSearch = cell.inner.innerText;
+                let textToSearch = getCellText(cell.inner);
                 if (isFormulaMatch && cell.inner.hasAttribute('data-formula')) {
                     textToSearch = cell.inner.getAttribute('data-formula');
                 }
@@ -1062,38 +1023,50 @@ document.getElementById('btnCloseWordCount')?.addEventListener('click', () => {
     wordCountWidget.classList.add('hidden');
 });
 
+// 預先建立正則（只編譯一次），並用 exec 迴圈只「計數」，不建立動輒數十萬筆的比對結果陣列
+const WC_TOTAL_RE = /(?:[\p{sc=Latn}0-9][\p{sc=Latn}\p{M}0-9ˊˇˋˆ\^\+⁺]*)|(?:[˙]?[\u3105-\u312F\u31A0-\u31BF兀万廿勺]+[ˊˇˋˆ\^\+⁺˙]*)|[^\s]/gu;
+const WC_HAN_RE = /(?:[\p{sc=Latn}0-9][\p{sc=Latn}\p{M}0-9ˊˇˋˆ\^\+⁺]*)|(?:[˙]?[\u3105-\u312F\u31A0-\u31BF兀万廿勺]+[ˊˇˋˆ\^\+⁺˙]*)|[^\s\p{P}\p{S}\p{sc=Latn}\p{M}0-9ˊˇˋˆ\^\+⁺˙\u3105-\u312F\u31A0-\u31BF兀万廿勺]/gu;
+function countMatches(re, text) {
+    re.lastIndex = 0;
+    let n = 0;
+    while (re.exec(text) !== null) n++;
+    return n;
+}
+
+let wordCountTimeout;
+const WC_IMMEDIATE_LIMIT = 20000; // 小於此字數：計算只需約 1ms，維持即時更新，不延遲
+
 // 核心計算邏輯
 function updateWordCountWidget() {
+    clearTimeout(wordCountTimeout); // 已有直接呼叫時，取消尚未執行的排程，避免重複計算
     // 只有在視窗顯示且處於文字模式時才進行計算
     if (wordCountWidget.classList.contains('hidden') || currentMode !== 'text') return;
 
     const text = editor.value;
     
-    // 1. 行數：根據換行符號切割 (沒打字時算 0 行)
-    const lineCount = text.length === 0 ? 0 : text.split('\n').length;
+    // 1. 行數：根據換行符號計數 (沒打字時算 0 行)
+    const lineCount = text.length === 0 ? 0 : countLines(text);
     
-    // ======== 魔法正則表達式解析 ========
-    // 模式 A (羅馬拼音)：[\p{sc=Latn}0-9][\p{sc=Latn}\p{M}0-9ˊˇˋˆ\^\+⁺]*
-    // 模式 B (方音與注音)：
-    //   \u3105-\u312F 是標準注音 (ㄅ-ㄩ)
-    //   \u31A0-\u31BF 是擴充方音符號 (ㆠ-ㆿ)
-    // ===================================
+    // 2. 總字數 (含標點，不含空白)；正則說明見常數 WC_TOTAL_RE
+    //    模式 A (羅馬拼音)：[\p{sc=Latn}0-9][\p{sc=Latn}\p{M}0-9ˊˇˋˆ\^\+⁺]*
+    //    模式 B (方音與注音)：\u3105-\u312F 標準注音、\u31A0-\u31BF 擴充方音符號
+    const totalChars = countMatches(WC_TOTAL_RE, text);
     
-    // 2. 總字數 (含標點，不含空白)
-    const totalMatches = text.match(/(?:[\p{sc=Latn}0-9][\p{sc=Latn}\p{M}0-9ˊˇˋˆ\^\+⁺]*)|(?:[˙]?[\u3105-\u312F\u31A0-\u31BF兀万廿勺]+[ˊˇˋˆ\^\+⁺˙]*)|[^\s]/gu);
-    const totalChars = totalMatches ? totalMatches.length : 0;
-    
-    // 3. 漢字/純字數 (不含標點、符號、空白)
-    // 排除清單加入 \p{P}(標點) \p{S}(符號)，並將拉丁字母、注音、方音、數字、聲調與所有借音字全數排除，留下純漢字
-    const hanMatches = text.match(/(?:[\p{sc=Latn}0-9][\p{sc=Latn}\p{M}0-9ˊˇˋˆ\^\+⁺]*)|(?:[˙]?[\u3105-\u312F\u31A0-\u31BF兀万廿勺]+[ˊˇˋˆ\^\+⁺˙]*)|[^\s\p{P}\p{S}\p{sc=Latn}\p{M}0-9ˊˇˋˆ\^\+⁺˙\u3105-\u312F\u31A0-\u31BF兀万廿勺]/gu);
-    const hanChars = hanMatches ? hanMatches.length : 0;
+    // 3. 漢字/純字數 (不含標點、符號、空白)；排除拉丁字母、注音、方音、數字、聲調與借音字
+    const hanChars = countMatches(WC_HAN_RE, text);
 
     // 更新畫面顯示
     wordCountDisplay.textContent = `總字${totalChars} , 漢字${hanChars}, ${lineCount}行`;
 }
 
-// 只要編輯器內容有任何變動強制立刻重新計算！
-editor.addEventListener('input', updateWordCountWidget);
+// 輸入時更新字數：小文件即時；大文件停止輸入後才計算（防抖），避免每個字都全文掃描
+editor.addEventListener('input', () => {
+    if (wordCountWidget.classList.contains('hidden')) return; // 統計視窗沒開就不排程
+    clearTimeout(wordCountTimeout);
+    const len = editor.value.length;
+    if (len < WC_IMMEDIATE_LIMIT) { updateWordCountWidget(); return; }
+    wordCountTimeout = setTimeout(updateWordCountWidget, len > 50000 ? 600 : 250);
+});
 // ==============================================
 /* ==========================================
    尋找與取代：批次取代模組 (支援長度優先、安全佔位符與擴充漢字)
@@ -1554,7 +1527,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const cells = getTargetCells(); // 使用系統原本的函數來獲取目標儲存格
             
             cells.forEach(cell => {
-                let textToSearch = cell.inner.innerText;
+                let textToSearch = getCellText(cell.inner);
                 if (isFormulaMatch && cell.inner.hasAttribute('data-formula')) {
                     textToSearch = cell.inner.getAttribute('data-formula');
                 }
@@ -2273,6 +2246,8 @@ if (btnToggleLineNumbersTextMode) {
         isShowTextLineNumbers = !isShowTextLineNumbers;
         localStorage.setItem(SHOW_TEXT_LINE_NUMBERS_KEY, isShowTextLineNumbers);
         applyTextLineNumbersState();
+        // 隱藏期間 updateLineNumbers 會略過更新，重新顯示時要補算一次
+        if (isShowTextLineNumbers && currentMode === 'text') updateLineNumbers();
         showToast(isShowTextLineNumbers ? '✅ 已顯示行號' : '❌ 已隱藏行號');
     });
 }
@@ -3067,7 +3042,7 @@ window.executeTextTool = async function(toolName) {
                 let rowParts = [];
                 for (let c = minC; c <= maxC; c++) {
                     const inner = tbodyRows[r]?.children[c + 1]?.querySelector('.td-inner');
-                    let cellText = inner ? (inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : inner.innerText) : "";
+                    let cellText = inner ? (inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : getCellText(inner)) : "";
                     rowParts.push(cellText);
                 }
                 extractedLines.push(rowParts.join('\t'));
@@ -3427,8 +3402,8 @@ window.runTextToolExtras = function(action) {
             const inner1 = tbodyRows[r]?.children[col1 + 1]?.querySelector('.td-inner');
             const inner2 = tbodyRows[r]?.children[col2 + 1]?.querySelector('.td-inner');
 
-            const text1 = inner1 ? (inner1.hasAttribute('data-formula') ? inner1.getAttribute('data-formula') : inner1.innerText) : '';
-            const text2 = inner2 ? (inner2.hasAttribute('data-formula') ? inner2.getAttribute('data-formula') : inner2.innerText) : '';
+            const text1 = inner1 ? (inner1.hasAttribute('data-formula') ? inner1.getAttribute('data-formula') : getCellText(inner1)) : '';
+            const text2 = inner2 ? (inner2.hasAttribute('data-formula') ? inner2.getAttribute('data-formula') : getCellText(inner2)) : '';
 
             // 以 '_' 分詞，並過濾掉空字串
             const tokens1 = text1.split('_').filter(t => t.trim() !== '');

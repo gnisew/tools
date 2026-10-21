@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
             targetInner = rows[lastClickedCell.r].children[lastClickedCell.c + 1]?.querySelector('.td-inner');
         }
         if (targetInner) {
-            return targetInner.hasAttribute('data-formula') ? targetInner.getAttribute('data-formula') : (targetInner.innerText || targetInner.textContent).trim();
+            return targetInner.hasAttribute('data-formula') ? targetInner.getAttribute('data-formula') : (getCellText(targetInner) || targetInner.textContent).trim();
         }
         return '';
     }
@@ -433,7 +433,7 @@ function deleteSelectedCellsAndShiftUp() {
                 const inner = tbody.children[r]?.children[c + 1]?.querySelector('.td-inner');
                 if (inner) {
                     keptData.push({
-                        text: inner.innerText,
+                        text: getCellText(inner),
                         formula: inner.getAttribute('data-formula')
                     });
                 } else {
@@ -916,7 +916,7 @@ function copySelectedTableData() {
             if (!rows[idx]) return '';
             return Array.from(rows[idx].querySelectorAll('.td-inner')).map(c => {
                 // 優先抓公式，沒有才抓文字
-                return c.hasAttribute('data-formula') ? c.getAttribute('data-formula') : c.innerText.replace(/\n$/, '');
+                return c.hasAttribute('data-formula') ? c.getAttribute('data-formula') : getCellText(c).replace(/\n$/, '');
             }).join('\t');
         }).join('\n');
     } else if (selectedCols.length > 0) {
@@ -926,7 +926,7 @@ function copySelectedTableData() {
         copyText = rows.map(row => {
             return sortedCols.map(colIdx => {
                 const inner = row.children[colIdx + 1]?.querySelector('.td-inner');
-                let t = inner ? (inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : inner.innerText.replace(/\n$/, '')) : '';
+                let t = inner ? (inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : getCellText(inner).replace(/\n$/, '')) : '';
                 if (t.includes('"') || t.includes('\n') || t.includes('\t')) t = '"' + t.replace(/"/g, '""') + '"';
                 return t;
             }).join('\t');
@@ -948,7 +948,7 @@ function copySelectedTableData() {
             for (let c = gMinC; c <= gMaxC; c++) {
                 if (isCellInAnyBlock(r, c)) {
                     const inner = row.children[c + 1]?.querySelector('.td-inner');
-                    let t = inner ? (inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : inner.innerText.replace(/\n$/, '')) : '';
+                    let t = inner ? (inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : getCellText(inner).replace(/\n$/, '')) : '';
                     if (t.includes('"') || t.includes('\n') || t.includes('\t')) t = '"' + t.replace(/"/g, '""') + '"';
                     rowData.push(t);
                 } else {
@@ -1029,8 +1029,8 @@ function handleTablePaste(text) {
         }
     } else if (activeInner && dataTable.contains(activeInner)) {
         const tr = activeInner.closest('tr');
-        startRow = Array.from(tr.parentNode.children).indexOf(tr);
-        startCol = Array.from(tr.children).indexOf(activeInner.closest('td')) - 1; 
+        startRow = getRowIndex(tr);
+        startCol = getCellIndex(activeInner.closest('td')) - 1; 
     }
 
     const tbody = dataTable.querySelector('tbody');
@@ -1063,7 +1063,6 @@ function handleTablePaste(text) {
         }
     };
 
-    let pastedRange = null; // 一般貼上完成後，用來選取剛貼上的範圍
     // 填滿模式
     if (data.length === 1 && data[0].length === 1 && isMultiTarget) {
         const sourceText = data[0][0];
@@ -1097,11 +1096,6 @@ function handleTablePaste(text) {
             insertColAt(currentCols, -1, maxColsNeeded - currentCols); 
         }
 
-        pastedRange = {
-            startR: startRow, startC: startCol,
-            endR: startRow + data.length - 1,
-            endC: startCol + Math.max(...data.map(r => r.length)) - 1
-        };
         for (let r = 0; r < data.length; r++) {
             const rowElem = tbody.children[startRow + r];
             for (let c = 0; c < data[r].length; c++) {
@@ -1114,14 +1108,6 @@ function handleTablePaste(text) {
     updateTableHeaders();
     recalculateAllFormulas();     
     debouncedSaveHistory(); applyFreeze();
-
-    // 貼上後預設選取「所貼上的整個範圍」(填滿模式則維持原本選取)
-    if (pastedRange && pastedRange.endC >= pastedRange.startC) {
-        selectedRows = []; selectedCols = [];
-        selectedCellBlocks = [pastedRange];
-        lastClickedCell = { r: pastedRange.startR, c: pastedRange.startC };
-        applySelectionVisuals();
-    }
 }
 
 /* ---------------------------------
@@ -1135,7 +1121,7 @@ function openCellEditor(td) {
     const editor = document.getElementById('cellEditor');
     const overlay = document.getElementById('cellEditorOverlay');
     
-    editor.value = inner ? inner.innerText : '';
+    editor.value = inner ? getCellText(inner) : '';
     
     // 同步基礎字體與行高樣式
     editor.style.fontFamily = window.getComputedStyle(dataTable).fontFamily;
@@ -1306,9 +1292,7 @@ document.addEventListener('paste', (e) => {
 
 
 
-dataTable.addEventListener('input', () => { 
-    hideFloatingTool(); debouncedSaveHistory(); applyFreeze();
-});
+/* （已移除重複的 input 監聽：script.js 已綁定同樣事件） */
 
 /* 滑鼠點擊選取與選單邏輯 */
 dataTable.addEventListener('click', (e) => {
@@ -1345,7 +1329,7 @@ dataTable.addEventListener('click', (e) => {
     if (btnRowMenu) {
         const th = btnRowMenu.closest('th'); 
         const tr = th.closest('tr'); 
-        activeMenuRowIndex = Array.from(tr.parentNode.children).indexOf(tr);
+        activeMenuRowIndex = getRowIndex(tr);
         const rect = th.getBoundingClientRect(); 
         
         // 先顯示選單以取得真實尺寸
@@ -1390,7 +1374,7 @@ dataTable.addEventListener('click', (e) => {
         if (isSelectionLocked) return; 
         const isCtrl = e.ctrlKey || e.metaKey || isMobileMultiSelect;
         const tr = thLeft.closest('tr');
-        return selectTableRow(Array.from(tr.parentNode.children).indexOf(tr), e.shiftKey, isCtrl);
+        return selectTableRow(getRowIndex(tr), e.shiftKey, isCtrl);
     }
 
     // 如果使用者正在「反白文字」，絕對不要觸發任何失去焦點或儲存格點擊的邏輯
@@ -1410,8 +1394,8 @@ dataTable.addEventListener('click', (e) => {
         }
 
         const tr = td.closest('tr');
-        const rIdx = Array.from(tr.parentNode.children).indexOf(tr);
-        const cIdx = Array.from(tr.children).indexOf(td) - 1;
+        const rIdx = getRowIndex(tr);
+        const cIdx = getCellIndex(td) - 1;
 
         if (isSelectionLocked) {
             
@@ -1535,7 +1519,7 @@ dataTable.addEventListener('mouseover', (e) => {
         curCol = parseInt(th.dataset.col);
     } else {
         const td = e.target.closest('td');
-        if (td) curCol = Array.from(td.closest('tr').children).indexOf(td) - 1;
+        if (td) curCol = getCellIndex(td) - 1;
     }
     if (curCol < 0) return;
     if (curCol === colDragSelectStart && !window.isColDragSelecting) return; // 還沒離開起點欄
@@ -1578,7 +1562,7 @@ dataTable.addEventListener('dragstart', (e) => {
     const thTop = e.target.closest('th.sticky-top');
     if (thTop) { dragType = 'col'; dragIndex = parseInt(thTop.dataset.col); return; }
     const thLeft = e.target.closest('th.sticky-left');
-    if (thLeft) { dragType = 'row'; const tr = thLeft.closest('tr'); dragIndex = Array.from(tr.parentNode.children).indexOf(tr); }
+    if (thLeft) { dragType = 'row'; const tr = thLeft.closest('tr'); dragIndex = getRowIndex(tr); }
 });
 
 dataTable.addEventListener('dragover', (e) => {
@@ -1622,7 +1606,7 @@ dataTable.addEventListener('drop', (e) => {
     } else if (dragType === 'row') {
         const targetTh = e.target.closest('th.sticky-left');
         if (targetTh) {
-            const tr = targetTh.closest('tr'); const targetIndex = Array.from(tr.parentNode.children).indexOf(tr);
+            const tr = targetTh.closest('tr'); const targetIndex = getRowIndex(tr);
             if (targetIndex !== dragIndex) {
                 const tbody = dataTable.querySelector('tbody'); const trToMove = tbody.children[dragIndex];
                 const refTr = targetIndex > dragIndex ? tbody.children[targetIndex + 1] : tbody.children[targetIndex];
@@ -1657,7 +1641,7 @@ dataTable.addEventListener('touchstart', (e) => {
             } else if (thLeft) { 
                 touchDragType = 'row'; 
                 const tr = thLeft.closest('tr'); 
-                touchDragIndex = Array.from(tr.parentNode.children).indexOf(tr); 
+                touchDragIndex = getRowIndex(tr); 
                 showToast('🔄 開始拖曳橫列...');
             }
         }, 300);
@@ -1727,7 +1711,7 @@ dataTable.addEventListener('touchend', (e) => {
             }
         } else if (touchDragType === 'row') {
             const tr = currentDropTarget.closest('tr'); 
-            const targetIndex = Array.from(tr.parentNode.children).indexOf(tr);
+            const targetIndex = getRowIndex(tr);
             if (targetIndex !== touchDragIndex) {
                 const tbody = dataTable.querySelector('tbody'); 
                 const trToMove = tbody.children[touchDragIndex];
@@ -2075,7 +2059,7 @@ document.getElementById('btnApplySort').addEventListener('click', () => {
         for (let c of cIndices) {
             const inner = tbody.children[r]?.children[c + 1]?.querySelector('.td-inner');
             rowData[c] = {
-                text: inner ? inner.innerText : "",
+                text: inner ? getCellText(inner) : "",
                 formula: inner && inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : null
             };
         }
@@ -2269,7 +2253,7 @@ document.getElementById('btnApplyAutoFill').addEventListener('click', () => {
             currentNum++; // 數字累加
         } else {
             // 情境 B：無起始數字 -> [前後追加模式] (保留原內容)
-            inner.innerText = prefix + inner.innerText + suffix;
+            inner.innerText = prefix + getCellText(inner) + suffix;
         }
     });
 
@@ -2328,7 +2312,7 @@ function getCellValue(rowIdx, colIdx) {
     if (!inner) return "";
     
     // 優先抓計算結果，轉為數字方便計算
-    let val = inner.innerText.trim();
+    let val = getCellText(inner).trim();
     
     // 利用正則檢查是否為「純數字+逗號+小數點」的格式，避免誤傷一般文字 (如 "蘋果,香蕉")
     let cleanVal = val;
@@ -3097,7 +3081,7 @@ dataTable.addEventListener('focusin', (e) => {
 // 處理 Blur：離開編輯時，檢查是否為公式並計算
 dataTable.addEventListener('focusout', (e) => {
     if (e.target.classList.contains('td-inner')) {
-        const text = e.target.innerText.trim();
+        const text = getCellText(e.target).trim();
         
         // 1. 先處理當前編輯的儲存格
         if (text.startsWith('=')) {
@@ -3124,7 +3108,7 @@ function recalculateAllFormulas() {
     
     cells.forEach(cell => {
         // 優先讀取背後的公式，如果沒有，就讀取畫面上的文字
-        let content = cell.getAttribute('data-formula') || cell.innerText.trim();
+        let content = cell.getAttribute('data-formula') || getCellText(cell).trim();
         
         // 如果確定這是一個公式
         if (content.startsWith('=')) {
@@ -3237,7 +3221,7 @@ autoFormulaSelect.addEventListener('change', (e) => {
         const activeInner = document.activeElement.closest('.td-inner');
         if (activeInner && dataTable.contains(activeInner)) {
             const tr = activeInner.closest('tr');
-            startR = Array.from(tr.parentNode.children).indexOf(tr);
+            startR = getRowIndex(tr);
         }
     }
 
@@ -3329,8 +3313,8 @@ document.getElementById('btnApplyAutoFormula').addEventListener('click', () => {
         const activeEl = document.activeElement;
         if (activeEl && activeEl.classList.contains('td-inner') && dataTable.contains(activeEl)) {
             targetInner = activeEl;
-            r = Array.from(activeEl.closest('tr').parentNode.children).indexOf(activeEl.closest('tr'));
-            c = Array.from(activeEl.closest('tr').children).indexOf(activeEl.closest('td')) - 1;
+            r = getRowIndex(activeEl.closest('tr'));
+            c = getCellIndex(activeEl.closest('td')) - 1;
         } else if (lastClickedCell && rows[lastClickedCell.r]) {
             targetInner = rows[lastClickedCell.r].children[lastClickedCell.c + 1]?.querySelector('.td-inner');
             r = lastClickedCell.r; c = lastClickedCell.c;
@@ -3562,7 +3546,7 @@ document.getElementById('btnApplyRemoveDuplicates').addEventListener('click', ()
 
     const readCell = (r, c) => {
         const inner = tbodyRows[r]?.children[c + 1]?.querySelector('.td-inner');
-        return inner ? { formula: inner.getAttribute('data-formula'), text: inner.innerText } : { formula: null, text: '' };
+        return inner ? { formula: inner.getAttribute('data-formula'), text: getCellText(inner) } : { formula: null, text: '' };
     };
 
     // 產生重複判斷金鑰 (排除累加欄)；同時回傳是否為全空列
@@ -3842,7 +3826,7 @@ document.getElementById('btnApplyAutoSplit').addEventListener('click', () => {
             const inner = tbodyRows[r]?.children[c + 1]?.querySelector('.td-inner');
             if (!inner) continue;
             
-            const text = inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : inner.innerText;
+            const text = inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : getCellText(inner);
             if (!text) continue;
 
             let parts = [];
@@ -4007,7 +3991,7 @@ document.getElementById('btnApplyAutoMerge').addEventListener('click', () => {
             for (let c = minC; c <= maxC; c++) {
                 const inner = tbodyRows[r]?.children[c + 1]?.querySelector('.td-inner');
                 if (inner) {
-                    let txt = inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : inner.innerText;
+                    let txt = inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : getCellText(inner);
                     if (txt !== null && txt !== undefined && txt.trim() !== '') {
                         parts.push(txt);
                     }
@@ -4032,7 +4016,7 @@ document.getElementById('btnApplyAutoMerge').addEventListener('click', () => {
             for (let r = minR; r <= maxR; r++) {
                 const inner = tbodyRows[r]?.children[c + 1]?.querySelector('.td-inner');
                 if (inner) {
-                    let txt = inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : inner.innerText;
+                    let txt = inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : getCellText(inner);
                     if (txt !== null && txt !== undefined && txt.trim() !== '') {
                         parts.push(txt);
                     }
@@ -4164,7 +4148,7 @@ function getOptionToolBounds() {
 // 3-2 讀寫儲存格
 function optGetText(trs, r, c) {
     const inner = trs[r]?.children[c + 1]?.querySelector('.td-inner');
-    return inner ? inner.innerText.replace(/\u00a0/g, ' ').trim() : '';
+    return inner ? getCellText(inner).replace(/\u00a0/g, ' ').trim() : '';
 }
 function optSetText(trs, r, c, text) {
     const inner = trs[r]?.children[c + 1]?.querySelector('.td-inner');
@@ -4679,8 +4663,8 @@ dataTable.addEventListener('mousedown', (e) => {
         if (isSelectionLocked) return;
 
         const tr = td.closest('tr');
-        const rIdx = Array.from(tr.parentNode.children).indexOf(tr);
-        const cIdx = Array.from(tr.children).indexOf(td) - 1;
+        const rIdx = getRowIndex(tr);
+        const cIdx = getCellIndex(td) - 1;
 
         isMouseDownOnCell = true;
         window.isCellDragging = false; 
@@ -4730,8 +4714,8 @@ dataTable.addEventListener('mouseover', (e) => {
     const td = e.target.closest('td');
     if (td) {
         const tr = td.closest('tr');
-        const rIdx = Array.from(tr.parentNode.children).indexOf(tr);
-        const cIdx = Array.from(tr.children).indexOf(td) - 1;
+        const rIdx = getRowIndex(tr);
+        const cIdx = getCellIndex(td) - 1;
 
         const lastBlock = selectedCellBlocks[selectedCellBlocks.length - 1];
         
@@ -4961,7 +4945,7 @@ document.getElementById('btnSetFirstRowAsHeader')?.addEventListener('click', (e)
     cells.forEach((cell, i) => {
         const targetTh = theadThs[i + 1];
         if (targetTh) {
-            const name = cell.innerText.trim();
+            const name = getCellText(cell).trim();
             targetTh.dataset.colName = name;
         }
     });
@@ -5002,143 +4986,7 @@ document.addEventListener('click', () => {
     }
 });
 
-/* ==========================================
-   表格：儲存格換行方式 (A / B / C，預設 A)
-   A: 依儲存格寬度自動換行，單字可能被截斷
-   B: 依儲存格寬度自動換行，單字不被截斷
-   C: 不換行，超出的部分顯示為 ...
-   ========================================== */
-(function initTableWrapMode() {
-    const KEY = 'tableWrapMode';
-    const menu = document.getElementById('dd-tableWrapMode');
-    if (!menu) return;
-    const items = menu.querySelectorAll('.dropdown-item[data-value]');
-    const TOASTS = {
-        A: '✅ 自動換行 (單字可能被截斷)',
-        B: '✅ 自動換行 (單字不被截斷)',
-        C: '✅ 不換行 (超出顯示 ...)'
-    };
-    let mode = 'A';
-    try {
-        const saved = localStorage.getItem(KEY);
-        if (saved === 'A' || saved === 'B' || saved === 'C') mode = saved;
-    } catch (e) {}
 
-    function apply() {
-        dataTable.classList.toggle('table-wrap-word', mode === 'B');
-        dataTable.classList.toggle('table-nowrap', mode === 'C');
-        items.forEach(btn => {
-            const ic = btn.querySelector('.check-icon');
-            if (ic) ic.classList.toggle('active', btn.dataset.value === mode);
-        });
-    }
-    apply();
 
-    // 其他程式碼若動到 table-nowrap / table-wrap-word，立刻校正回目前選的模式
-    new MutationObserver(() => {
-        if (dataTable.classList.contains('table-nowrap') !== (mode === 'C') ||
-            dataTable.classList.contains('table-wrap-word') !== (mode === 'B')) apply();
-    }).observe(dataTable, { attributes: true, attributeFilter: ['class'] });
 
-    items.forEach(btn => {
-        btn.addEventListener('click', () => {
-            mode = btn.dataset.value;
-            try { localStorage.setItem(KEY, mode); } catch (err) {}
-            apply();
-            showToast(TOASTS[mode]);
-        });
-    });
-})();
 
-/* ==========================================
-   下拉選單的子選單：游標跨過縫隙時不要立刻消失 (延遲 300ms 才關閉)
-   ========================================== */
-(function keepSubmenuOpen() {
-    const mq = window.matchMedia('(min-width: 769px)');
-    const groups = document.querySelectorAll('.dropdown-menu [class~="group/submenu"]');
-    groups.forEach(g => {
-        let timer = null;
-        g.addEventListener('mouseenter', () => {
-            clearTimeout(timer);
-            if (!mq.matches) return;
-            groups.forEach(o => {
-                if (o !== g && o.parentElement === g.parentElement) o.classList.remove('submenu-hold');
-            });
-            g.classList.add('submenu-hold');
-        });
-        g.addEventListener('mouseleave', () => {
-            clearTimeout(timer);
-            timer = setTimeout(() => g.classList.remove('submenu-hold'), 300);
-        });
-    });
-})();
-
-/* ==========================================
-   表格：斑馬色階 (預設：無色階)
-   隔 N 行：每 N 列一組，奇數組不上色、偶數組上色
-   例：N=1 → 1、3、5…列白，2、4、6…列灰；N=5 → 1~5 列白，6~10 列灰，11~15 列白…
-   ========================================== */
-(function initTableZebra() {
-    const KEY = 'tableZebraN';          // 0 = 無色階
-    const MAX_N = 200;
-    const PRESETS = [0, 1, 5, 10];
-    const COLOR = '#f1f5f9';
-    const menu = document.getElementById('dd-zebra');
-    if (!menu) return;
-    const items = menu.querySelectorAll('.dropdown-item[data-value]');
-    const customLabel = document.getElementById('zebraCustomLabel');
-    const styleEl = document.createElement('style');
-    styleEl.id = 'zebraStyle';
-    document.head.appendChild(styleEl);
-
-    let n = 0;
-    try {
-        const saved = parseInt(localStorage.getItem(KEY), 10);
-        if (saved >= 0 && saved <= MAX_N) n = saved;
-    } catch (e) {}
-
-    function buildCss() {
-        if (n <= 0) return '';
-        const sel = [];
-        for (let k = 1; k <= n; k++) {
-            sel.push(`table#data-table tbody tr:nth-child(${2 * n}n+${n + k}) td`);
-        }
-        // 不加 !important：選取/標示用的行內底色仍會蓋過斑馬色
-        return sel.join(',') + `{background-color:${COLOR};}`;
-    }
-
-    function apply() {
-        styleEl.textContent = buildCss();
-        const isCustom = n > 0 && !PRESETS.includes(n);
-        if (customLabel) customLabel.textContent = isCustom ? `隔 N 行色階 (N=${n})` : '隔 N 行色階';
-        items.forEach(btn => {
-            const v = btn.dataset.value;
-            const on = v === 'custom' ? isCustom : parseInt(v, 10) === n;
-            const ic = btn.querySelector('.check-icon');
-            if (ic) ic.classList.toggle('active', on);
-        });
-    }
-    apply();
-
-    function setN(val) {
-        n = val;
-        try { localStorage.setItem(KEY, n); } catch (err) {}
-        apply();
-        showToast(n === 0 ? '❌ 已關閉斑馬色階' : `✅ 已啟用斑馬色階 (隔 ${n} 行)`);
-    }
-
-    items.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const v = btn.dataset.value;
-            if (v === 'custom') {
-                showPrompt('輸入每幾行換色 (1~' + MAX_N + ')', String(n > 0 && !PRESETS.includes(n) ? n : 3), (val) => {
-                    const num = parseInt(val, 10);
-                    if (num >= 1 && num <= MAX_N) setN(num);
-                    else showToast('⚠️ 請輸入 1~' + MAX_N + ' 的整數');
-                });
-            } else {
-                setN(parseInt(v, 10));
-            }
-        });
-    });
-})();

@@ -146,7 +146,7 @@ if (btnStartGame) {
             copyUrlAndToast(shareUrl.href);
         } else {
             // 如果是被編輯過的資料，需要登入後使用 Firebase 儲存並回傳短 ID
-            let currentContent = currentMode === 'text' ? editor.value : extractTextFromTable();
+            let currentContent = currentMode === 'text' ? editor.value : (currentMode === 'board' && typeof extractTextFromBoard === 'function' ? extractTextFromBoard() : extractTextFromTable());
             if (!currentContent || currentContent.trim() === '') return showToast('⚠️ 沒有內容可以分享');
 
             // 未登入 → 先彈出 Google 登入 (需緊接在使用者點擊後執行，避免被瀏覽器擋下彈窗)
@@ -192,6 +192,8 @@ if (btnStartGame) {
                     let currentData = editor.value;
                     if (currentMode === 'table' && typeof extractTextFromTable === 'function') {
                         currentData = extractTextFromTable();
+                    } else if (currentMode === 'board' && typeof extractTextFromBoard === 'function') {
+                        currentData = extractTextFromBoard();
                     }
                     window.launchLiveMode(currentData, window.currentGameConfigs || {});
                 }
@@ -321,6 +323,7 @@ function applyAnalysisToGameUI(analysis) {
 function initGameColOptions() {
     let rawData = editor.value;
     if (currentMode === 'table' && typeof extractTextFromTable === 'function') rawData = extractTextFromTable();
+    else if (currentMode === 'board' && typeof extractTextFromBoard === 'function') rawData = extractTextFromBoard();
     
     const lines = rawData.split('\n').filter(l => l.trim() !== '');
     window.gameHeaders = lines.length > 0 ? lines[0].split('\t') : [];
@@ -561,6 +564,7 @@ function renderGameMatchPairs() {
         if (!mcConfig || mcConfig.qCol === undefined) {
             let rawForAnalysis = editor.value;
             if (currentMode === 'table' && typeof extractTextFromTable === 'function') rawForAnalysis = extractTextFromTable();
+            else if (currentMode === 'board' && typeof extractTextFromBoard === 'function') rawForAnalysis = extractTextFromBoard();
             const analysis = (typeof analyzeTableHeaders === 'function') ? analyzeTableHeaders(rawForAnalysis) : null;
             mcConfig = analysis ? { ...analysis.mcConfig } : {};
             if (!window.currentGameConfigs) window.currentGameConfigs = {};

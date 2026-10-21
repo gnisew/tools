@@ -529,32 +529,19 @@ function init() {
             if (modeParam === 'txt') initialTargetMode = 'text';
             else if (modeParam === 'sheet') initialTargetMode = 'table';
             else if (modeParam === 'chat') initialTargetMode = 'chat';
+            else if (modeParam === 'board') initialTargetMode = 'board';
             else if (modeParam === 'bank') initialTargetMode = 'bank';
             else if (gameModes.includes(modeParam)) initialTargetMode = modeParam;
-        }
-        
-        switchMode(initialTargetMode, true);
-    }
 
-    // ✨ 優先判斷是否有 arena 空間代碼 (解決被踢出或重整跑掉的問題)
-    if (urlParams.has('arena')) {
-        initialTargetMode = 'arena';
-    } else if (urlParams.has('live')) {
-        initialTargetMode = 'live';
-    } else if (urlParams.has('mode')) {
-        const modeParam = urlParams.get('mode');
-        if (modeParam === 'txt') initialTargetMode = 'text';
-        else if (modeParam === 'sheet') initialTargetMode = 'table';
-        else if (modeParam === 'chat') initialTargetMode = 'chat';
-		else if (modeParam === 'bank') initialTargetMode = 'bank';
-        else if (gameModes.includes(modeParam)) initialTargetMode = modeParam;
-
-        if (!gameModes.includes(initialTargetMode) && initialTargetMode !== 'arena') {
-            sheetTabs[activeSheetIndex].mode = initialTargetMode;
-            currentMode = initialTargetMode;
+            // 非遊戲模式時，同步頁籤與目前模式（原第二段重複區塊中唯一有用的邏輯，保留）
+            if (!gameModes.includes(initialTargetMode) && initialTargetMode !== 'arena') {
+                sheetTabs[activeSheetIndex].mode = initialTargetMode;
+                currentMode = initialTargetMode;
+            }
         }
     }
-    
+
+    // ✨ 統一在這裡只切換一次模式（避免大表格被重複渲染）
     switchMode(initialTargetMode, true);
     
     if (window.ResizeObserver) {
@@ -620,6 +607,8 @@ function init() {
                         applyFreeze();
                     } else if (currentMode === 'chat' && typeof window.renderChatFromText === 'function') {
                         window.renderChatFromText(decompressedText);
+                    } else if (currentMode === 'board' && typeof window.renderBoardFromText === 'function') {
+                        window.renderBoardFromText(decompressedText);
                     } else if (gameModes.includes(currentMode) || currentMode === 'arena' || currentMode === 'live') {
                         // ✨ 修正：分享網址直接進入遊戲模式時，init() 會先用「空資料」啟動遊戲，
                         // 導致畫面停在「表格內似乎沒有有效資料喔！」。
@@ -656,7 +645,11 @@ function init() {
 	});
 }
 
-document.getElementById('dd-viewMode').addEventListener('change', (e) => switchMode(e.detail.value));
+document.getElementById('dd-viewMode').addEventListener('change', (e) => {
+    // 選「白板」時先詢問資料來源 (用目前工作表 / 新空白工作表)
+    if (e.detail.value === 'board' && typeof window.enterBoardMode === 'function') window.enterBoardMode();
+    else switchMode(e.detail.value);
+});
 
 /* ==========================================
    網址參數同步功能
@@ -676,6 +669,7 @@ function updateUrlModeParam(internalMode) {
     let urlMode = 'txt';
     if (internalMode === 'table') urlMode = 'sheet';
     else if (internalMode === 'chat') urlMode = 'chat';
+    else if (internalMode === 'board') urlMode = 'board';
     else if (internalMode === 'bank') urlMode = 'bank';
     else if (internalMode === 'live') urlMode = 'live';
     else if (gameModes.includes(internalMode)) urlMode = internalMode;
@@ -762,6 +756,8 @@ function switchMode(mode, isForce = false, dataOverride = null, configOverride =
     if (!isForce && !dataOverride) {
         if (currentMode === 'table' && mode !== 'table') {
             editor.value = extractTextFromTable(true);
+        } else if (currentMode === 'board' && mode !== 'board') {
+            if (typeof window.extractTextFromBoard === 'function') editor.value = window.extractTextFromBoard();
         } else if (currentMode === 'chat' && mode !== 'chat') {
             const chatExtracted = extractTextFromChat();
             if (chatExtracted && chatExtracted.trim() !== '') {
@@ -809,9 +805,13 @@ function switchMode(mode, isForce = false, dataOverride = null, configOverride =
         chat: document.getElementById('chatModeContainer'),
         game: document.getElementById('gameModeContainer'),
         arena: document.getElementById('arenaModeContainer'),
-        bank: document.getElementById('bankModeContainer')
+        bank: document.getElementById('bankModeContainer'),
+        board: document.getElementById('boardModeContainer')
     };
     Object.values(containers).forEach(c => { if(c) { c.style.display = 'none'; c.classList.add('hidden'); } });
+
+    // 離開(或重新進入)白板模式時先卸載畫布，避免殘留事件與重複 id
+    if (previousMode === 'board' && typeof window.unmountBoardMode === 'function') window.unmountBoardMode();
 
     // --- 3. 工具列細節控制 ---
     const ddTextTool = document.getElementById('dd-textTool');
@@ -883,6 +883,11 @@ function switchMode(mode, isForce = false, dataOverride = null, configOverride =
         if (ddTextTool) ddTextTool.classList.add('hidden');
         if (btnToggleLineNumbers) btnToggleLineNumbers.classList.add('hidden');
 
+    } else if (mode === 'board') {
+        if (containers.board) { containers.board.classList.remove('hidden'); containers.board.style.display = 'flex'; }
+        [ddLanguageTools, btnFindReplace, ddClipboardGroup, ddTextTool, btnToggleLineNumbers].forEach(el => el?.classList.add('hidden'));
+        if (typeof window.renderBoardFromText === 'function') window.renderBoardFromText(editor.value);
+
     } else if (mode === 'chat') {
         containers.chat.classList.remove('hidden');
         containers.chat.style.display = 'flex';
@@ -919,7 +924,8 @@ function updateModeButtonUI(mode) {
     btn.classList.remove('bg-blue-100', 'text-blue-700', 'hover:bg-blue-200',
                          'bg-green-100', 'text-green-700', 'hover:bg-green-200',
                          'bg-emerald-100', 'text-emerald-700', 'hover:bg-emerald-200',
-                         'bg-purple-100', 'text-purple-700', 'hover:bg-purple-200');
+                         'bg-purple-100', 'text-purple-700', 'hover:bg-purple-200',
+                         'bg-amber-100', 'text-amber-700', 'hover:bg-amber-200');
 
     // 依據模式賦予專屬顏色、圖示與短名稱
     if (mode === 'text') {
@@ -930,6 +936,10 @@ function updateModeButtonUI(mode) {
         icon.textContent = 'table_view';
         text.textContent = '表格';
         btn.classList.add('bg-green-100', 'text-green-700', 'hover:bg-green-200');
+    } else if (mode === 'board') {
+        icon.textContent = 'sticky_note_2';
+        text.textContent = '白板';
+        btn.classList.add('bg-amber-100', 'text-amber-700', 'hover:bg-amber-200');
     } else if (mode === 'chat') {
         icon.textContent = 'forum';
         text.textContent = '對話';
@@ -943,9 +953,16 @@ function updateModeButtonUI(mode) {
 
 
 /* 復原系統 (Undo) */
+// 上次存檔時的實際字數。表格/對話模式下 editor.value 不會即時更新，改用它來估算資料量
+let lastHistoryTextLength = 0;
+// 超過此字數的資料，不在每次防抖時寫入 localStorage（原本就是 100000）
+const AUTO_SAVE_TEXT_LIMIT = 100000;
+
 function debouncedSaveHistory() {
     clearTimeout(saveTimeout);
-    const textLength = editor.value.length;
+    const textLength = currentMode === 'text'
+        ? editor.value.length
+        : Math.max(editor.value.length, lastHistoryTextLength);
     const delayTime = textLength > 50000 ? 1500 : 500; 
     saveTimeout = setTimeout(saveHistoryState, delayTime);
 }
@@ -958,7 +975,10 @@ function saveHistoryState() {
         text = extractTextFromTable();
     } else if (currentMode === 'chat') {
         text = typeof extractTextFromChat === 'function' ? extractTextFromChat() : editor.value;
+    } else if (currentMode === 'board') {
+        text = typeof window.extractTextFromBoard === 'function' ? window.extractTextFromBoard() : editor.value;
     }
+    lastHistoryTextLength = text.length;
     
     if (historyStack.length === 0 || historyStack[historyStack.length - 1] !== text) {
         historyStack.push(text);
@@ -971,8 +991,8 @@ function saveHistoryState() {
     }
 
     // 【優化 2：針對巨量資料，延遲或略過寫入 localStorage】
-    if (text.length < 100000) {
-        saveAllTabsData(); // 正常資料量，安全存檔
+    if (text.length < AUTO_SAVE_TEXT_LIMIT) {
+        saveAllTabsData(text); // 正常資料量，安全存檔（直接傳入剛取得的內容，避免再掃描一次整張表格）
     } else {
         // 超大資料量：我們只更新當前頁籤物件的內容，但不立即觸發 localStorage.setItem
         sheetTabs[activeSheetIndex].content = text;
@@ -982,6 +1002,8 @@ function saveHistoryState() {
 }
 
 function triggerUndo() {
+    // 白板的歷史紀錄有 0.5 秒防抖：復原前先存一次，避免剛改完立刻復原會一次退兩步
+    if (currentMode === 'board') saveHistoryState();
     if (historyStack.length <= 1) return showToast('⚠️ 沒有可復原的操作');
     isUndoing = true;
     historyStack.pop(); 
@@ -998,6 +1020,8 @@ function triggerUndo() {
         if (typeof window.renderChatFromText === 'function') {
             window.renderChatFromText(previousState);
         }
+    } else if (currentMode === 'board') {
+        if (typeof window.renderBoardFromText === 'function') window.renderBoardFromText(previousState);
     }
     localStorage.setItem(STORAGE_KEY, previousState);
     isUndoing = false;
@@ -1211,13 +1235,27 @@ function renderTableFromText(text) {
     renderChunk();
 }
 
+/* ==========================================
+   表格效能小工具（避免強制同步排版 / 避免建立大陣列）
+   ========================================== */
+// 讀取儲存格文字：
+//  - 純文字（沒有子元素）→ textContent，不會觸發排版計算（比 innerText 快很多）
+//  - 含 <br>/<div>（使用者按 Enter，或以 innerText 寫入換行時產生）→ 仍用 innerText，才能保留換行
+function getCellText(el) {
+    return el.firstElementChild === null ? el.textContent : el.innerText;
+}
+// 取得列索引（0-based，在 tbody 內）。等同 Array.from(tr.parentNode.children).indexOf(tr)，但為 O(1)
+function getRowIndex(tr) { return tr ? tr.sectionRowIndex : -1; }
+// 取得欄索引（含左側序號欄，呼叫端自行 -1）。等同 Array.from(tr.children).indexOf(td)，但為 O(1)
+function getCellIndex(td) { return td ? td.cellIndex : -1; }
+
 function extractTextFromTable(trimTrailing = false) {
     if (!dataTable.querySelector('tbody')) return '';
 
     // 1. 抓取表格所有資料並組成二維陣列
     let grid = Array.from(dataTable.querySelectorAll('tbody tr')).map(row => {
         return Array.from(row.querySelectorAll('.td-inner')).map(cell => {
-            let text = cell.hasAttribute('data-formula') ? cell.getAttribute('data-formula') : cell.innerText;
+            let text = cell.hasAttribute('data-formula') ? cell.getAttribute('data-formula') : getCellText(cell);
             if (text.endsWith('\n')) text = text.slice(0, -1);
             return text;
         });
@@ -1259,8 +1297,14 @@ function extractTextFromTable(trimTrailing = false) {
     }
 
     // 3. 轉為 TSV 文字格式 (支援跳脫字元)
+    return gridToTSV(grid);
+}
+
+// 二維陣列 → TSV 文字 (含雙引號跳脫)，表格模式與白板模式共用
+function gridToTSV(grid) {
     return grid.map(row => {
         return row.map(text => {
+            text = text == null ? '' : String(text);
             if (text.includes('"') || text.includes('\n') || text.includes('\t')) {
                 return '"' + text.replace(/"/g, '""') + '"';
             }
@@ -1369,8 +1413,8 @@ document.addEventListener('keydown', (e) => {
             if (isEditing) {
                 activeInner.blur();
                 let tr = activeInner.closest('tr');
-                r = Array.from(tr.parentNode.children).indexOf(tr);
-                c = Array.from(tr.children).indexOf(activeInner.closest('td')) - 1;
+                r = getRowIndex(tr);
+                c = getCellIndex(activeInner.closest('td')) - 1;
             } else if (lastClickedCell) {
                 r = lastClickedCell.r; c = lastClickedCell.c;
             } else if (selectedCellBlocks.length > 0) {
@@ -1436,7 +1480,7 @@ document.addEventListener('keydown', (e) => {
                 const isCellEmpty = (r, c) => {
                     const inner = tbody.children[r]?.children[c + 1]?.querySelector('.td-inner');
                     if (!inner) return true;
-                    const text = inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : inner.innerText;
+                    const text = inner.hasAttribute('data-formula') ? inner.getAttribute('data-formula') : getCellText(inner);
                     return text.trim() === '';
                 };
 
@@ -1539,8 +1583,8 @@ document.addEventListener('keydown', (e) => {
 
                     const direction = localStorage.getItem(ENTER_DIRECTION_KEY) || 'down';
                     let tr = activeInner.closest('tr');
-                    let r = Array.from(tr.parentNode.children).indexOf(tr);
-                    let c = Array.from(tr.children).indexOf(activeInner.closest('td')) - 1;
+                    let r = getRowIndex(tr);
+                    let c = getCellIndex(activeInner.closest('td')) - 1;
 
                     const tbody = dataTable.querySelector('tbody');
                     let maxR = tbody.children.length - 1;
@@ -1663,22 +1707,53 @@ document.addEventListener('copy', (e) => {
 
 let lineNumbersTimeout;
 
+// 行號狀態：記錄目前 #lineNumbers 內的項目是用哪種方式產生的
+//  'fixed'    ＝ 每行固定高度（大於 2000 行，或「不換行」模式）→ 可增量更新
+//  'measured' ＝ 自動換行，需逐行測量高度 → 每次重建
+let lineNumbersMode = '';
+
+// 只計算換行數，不建立整份陣列（比 text.split('\n').length 省記憶體）
+function countLines(text) {
+    let n = 1, i = -1;
+    while ((i = text.indexOf('\n', i + 1)) !== -1) n++;
+    return n;
+}
+
 function updateLineNumbers() {
-    if (currentMode !== 'text') return; 
-    const text = editor.value; 
-    const lines = text.split('\n'); 
-    
-    if (lines.length > 2000) {
-        // 【效能優化】使用 Array.from 與 join 來快速大量生成 DOM 字串，比 += 快非常多
-        const numbersHtml = Array.from({ length: lines.length }, (_, i) => 
-            `<div class="line-number-item" style="height: 1.6em;">${i + 1}</div>`
-        ).join('');
-        
-        lineNumbers.innerHTML = numbersHtml;
+    if (currentMode !== 'text') return;
+    // 行號被隱藏時不需更新（重新開啟時，切換開關的程式會再呼叫一次）
+    if (!isShowTextLineNumbers) return;
+
+    const text = editor.value;
+    const lineCount = countLines(text);
+    const isNoWrap = window.getComputedStyle(editor).whiteSpace === 'pre';
+
+    // 【固定行高】大於 2000 行，或「不換行」模式（每個邏輯行必定只佔一行）
+    if (lineCount > 2000 || isNoWrap) {
+        // 從「逐行測量」模式切過來 → 舊項目高度不可沿用，清空重建
+        if (lineNumbersMode !== 'fixed') {
+            lineNumbers.innerHTML = '';
+            lineNumbersMode = 'fixed';
+        }
+        const have = lineNumbers.childElementCount;
+        if (lineCount > have) {
+            // 行數增加：只補上新增的行號（打字沒換行時 lineCount === have，什麼都不做）
+            const parts = new Array(lineCount - have);
+            for (let i = 0; i < parts.length; i++) {
+                // 高度跟著「行距」設定走（原本寫死 1.6em，行距不是 1.6 時會對不齊）
+                parts[i] = `<div class="line-number-item" style="height: calc(var(--editor-line-height) * 1em);">${have + i + 1}</div>`;
+            }
+            lineNumbers.insertAdjacentHTML('beforeend', parts.join(''));
+        } else {
+            // 行數減少：移除尾端多出來的行號
+            for (let i = have; i > lineCount; i--) lineNumbers.lastElementChild.remove();
+        }
         return; // 提早結束，不執行下方的複雜運算
     }
 
-    // 【原有邏輯】少於 2000 行時，維持精準的自動換行高度測量
+    // 【原有邏輯】少於 2000 行且自動換行時，維持精準的自動換行高度測量
+    lineNumbersMode = 'measured';
+    const lines = text.split('\n');
     const style = window.getComputedStyle(editor);
     mirror.style.fontFamily = style.fontFamily; 
     mirror.style.fontSize = style.fontSize;
@@ -1830,6 +1905,8 @@ function handleClearCurrentTab() {
         } else if (currentMode === 'chat') {
             const chatArea = document.getElementById('chatMessagesArea');
             if (chatArea) chatArea.innerHTML = '';
+        } else if (currentMode === 'board') {
+            if (typeof window.renderBoardFromText === 'function') window.renderBoardFromText('');
         }
         
         // 3. 儲存至歷史紀錄與分頁資料
@@ -2081,13 +2158,61 @@ function loadTabsData() {
     localStorage.setItem(MODE_KEY, currentMode);
 }
 
-// 儲存所有頁籤資料至 localStorage
-function saveAllTabsData() {
-    let currentContent = editor.value;
-    if (currentMode === 'table') {
-        currentContent = extractTextFromTable();
-    } else if (currentMode === 'chat') {
-        currentContent = typeof extractTextFromChat === 'function' ? extractTextFromChat() : editor.value;
+// 單一分頁的「復原歷史」總字數在此以內，才連同寫入 localStorage（讓重新整理後仍可 Ctrl+Z）。
+// 超過就只存最新內容：大文件的 10 份歷史全文會讓每次存檔序列化數 MB、也容易撐爆 5MB 配額。
+// 想完全不存歷史，改成 0 即可。
+const HISTORY_PERSIST_LIMIT = 100000;
+
+// 把 sheetTabs 轉成要寫入 localStorage 的字串（history 太大的分頁會略過 history，但記憶體中的仍保留）
+function serializeTabs(withHistory = true) {
+    const tabs = sheetTabs.map(tab => {
+        const { history, ...rest } = tab;
+        if (withHistory && Array.isArray(history) &&
+            history.reduce((n, h) => n + h.length, 0) <= HISTORY_PERSIST_LIMIT) {
+            rest.history = history;
+        }
+        return rest;
+    });
+    return JSON.stringify(tabs);
+}
+
+// 實際寫入 localStorage；空間不足時改存不含歷史的版本，仍失敗才提示（最多每 30 秒一次）
+let lastStorageWarnAt = 0;
+function writeTabsToStorage() {
+    try {
+        try {
+            localStorage.setItem(TABS_DATA_KEY, serializeTabs(true));
+        } catch (e) {
+            localStorage.setItem(TABS_DATA_KEY, serializeTabs(false));
+        }
+        localStorage.setItem(ACTIVE_TAB_KEY, activeSheetIndex);
+        return true;
+    } catch (e) {
+        console.warn('LocalStorage 寫入失敗（空間不足？）:', e);
+        const now = Date.now();
+        if (now - lastStorageWarnAt > 30000) {
+            lastStorageWarnAt = now;
+            if (typeof showToast === 'function') showToast('⚠️ 瀏覽器儲存空間不足，自動儲存失敗，請先匯出或複製重要資料');
+        }
+        return false;
+    }
+}
+
+// 儲存所有頁籤資料
+// contentOverride：呼叫端若已經取得目前內容（例如 saveHistoryState），傳進來可避免再掃描一次整張表格
+function saveAllTabsData(contentOverride) {
+    // 1. 無論自動儲存是否開啟，都要把目前畫面的內容同步進記憶體。
+    //    （切換分頁、新增/刪除分頁都靠這一步保住編輯中的內容，不能因為關閉自動儲存而略過）
+    let currentContent = contentOverride;
+    if (typeof currentContent !== 'string') {
+        currentContent = editor.value;
+        if (currentMode === 'table') {
+            currentContent = extractTextFromTable();
+        } else if (currentMode === 'chat') {
+            currentContent = typeof extractTextFromChat === 'function' ? extractTextFromChat() : editor.value;
+        } else if (currentMode === 'board' && typeof window.extractTextFromBoard === 'function') {
+            currentContent = window.extractTextFromBoard();
+        }
     }
 
     sheetTabs[activeSheetIndex].content = currentContent;
@@ -2101,8 +2226,9 @@ function saveAllTabsData() {
     }
     sheetTabs[activeSheetIndex].mode = safeMode;
 
-    localStorage.setItem(TABS_DATA_KEY, JSON.stringify(sheetTabs));
-    localStorage.setItem(ACTIVE_TAB_KEY, activeSheetIndex);
+    // 2. 只有「自動儲存」開啟時，才寫入 localStorage
+    if (!isAutoSaveEnabled) return;
+    writeTabsToStorage();
 }
 
 // 渲染頁籤列
@@ -2205,6 +2331,8 @@ document.getElementById('tabMenu')?.addEventListener('click', (e) => {
     } else if (action === 'mode-text') {
         switchMode('text');
         saveAllTabsData();
+    } else if (action === 'mode-board') {
+        if (typeof window.enterBoardMode === 'function') window.enterBoardMode(); else switchMode('board');
     } else if (action === 'rename') {
         renameTab(idx);
     } else if (action === 'move-left') {
@@ -2272,6 +2400,8 @@ function deleteSheet(index) {
             } else if (currentMode === 'chat') {
                 const chatArea = document.getElementById('chatMessagesArea');
                 if (chatArea) chatArea.innerHTML = ''; // 清空對話氣泡
+            } else if (currentMode === 'board') {
+                if (typeof window.renderBoardFromText === 'function') window.renderBoardFromText('');
             }
             
             // 3. 儲存至歷史紀錄與分頁資料
@@ -2426,6 +2556,7 @@ if (btnToggleAutoSave) {
             statusText.textContent = '開啟';
             statusText.className = 'text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold';
             icon.textContent = 'sync';
+            saveAllTabsData(); // 關閉期間累積的修改，重新開啟時立即存檔
             showToast('已開啟自動儲存');
         } else {
             statusText.textContent = '關閉';
@@ -2516,6 +2647,8 @@ document.getElementById('btnShareLink')?.addEventListener('click', async () => {
     let currentContent = currentMode === 'text' ? editor.value : extractTextFromTable();
     if (currentMode === 'chat') {
         currentContent = typeof extractTextFromChat === 'function' ? extractTextFromChat() : editor.value;
+    } else if (currentMode === 'board' && typeof window.extractTextFromBoard === 'function') {
+        currentContent = window.extractTextFromBoard();
     }
 
     if (!currentContent || currentContent.trim() === '') {
@@ -2553,6 +2686,7 @@ document.getElementById('btnShareLink')?.addEventListener('click', async () => {
         let urlMode = 'txt';
         if (currentMode === 'table') urlMode = 'sheet';
         else if (currentMode === 'chat') urlMode = 'chat';
+        else if (currentMode === 'board') urlMode = 'sheet'; // 白板分享連結以表格開啟，保留所有欄位
         else if (gameModes.includes(currentMode)) urlMode = currentMode;
         shareUrl.searchParams.set('mode', urlMode);
 

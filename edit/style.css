@@ -137,8 +137,7 @@ table#data-table th.sticky-corner { position: sticky; top: 0; left: 0; z-index: 
     cursor: text;
     outline: none;
     white-space: var(--table-white-space);
-    word-break: break-all;       /* 預設 (模式 A)：依欄寬換行，單字可被截斷 */
-    overflow-wrap: anywhere;
+    word-break: break-all;
     width: 100%;
     box-sizing: border-box;
 }
@@ -840,26 +839,3 @@ body.maximized-mode.is-playing-game #tableModeContainer {
     background: #f3f4f6 !important;
     color: #374151 !important;
 }
-
-/* 儲存格換行方式（表格設定 → 儲存格換行方式）
-   A (預設)：依欄寬換行，單字可被截斷 → 使用 .td-inner 預設值
-   B：依欄寬換行，單字不被截斷（只在空格 / 中日文字之間換行）
-   C：不換行，超出以 ... 顯示 → 使用 .table-nowrap（見上方） */
-table#data-table.table-wrap-word .td-inner {
-    word-break: normal;
-    overflow-wrap: normal;
-}
-
-/* A、B 模式：表格內強制自動換行（不受 --table-white-space / 排版選單的「不換行」影響） */
-table#data-table:not(.table-nowrap) .td-inner {
-    white-space: pre-wrap !important;
-}
-
-/* 桌面版：游標離開子選單的列後保留一小段時間，讓游標能跨過縫隙移進子選單 */
-@media (min-width: 769px) {
-    .group\/submenu.submenu-hold > div:last-child {
-        display: block !important;
-    }
-}
-
-/* 斑馬色階的規則由 table.js 依「隔 N 行」動態產生到 <style id="zebraStyle"> */

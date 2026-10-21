@@ -509,7 +509,7 @@ if (typeof document !== 'undefined' && typeof dataTable !== 'undefined') {
         const inner = getTd(r, c)?.querySelector('.td-inner');
         if (!inner) return { text: '', formula: null };
         const f = inner.getAttribute('data-formula');
-        let t = inner.innerText.replace(/\n$/, '');
+        let t = getCellText(inner).replace(/\n$/, '');
         return { text: t, formula: f };
     }
     function writeCell(r, c, value) {

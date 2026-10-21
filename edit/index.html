@@ -9,7 +9,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- ✨ 版本號：每次更新程式，只要改這一個數字（script.js 等檔案與 style.css 都會跟著重新下載） -->
-    <script>window.APP_VERSION = '20261020b';</script>
+    <script>window.APP_VERSION = '20261020a';</script>
     <script>document.write('<link rel="stylesheet" href="style.css?v=' + window.APP_VERSION + '">');</script>
 
 	
@@ -28,7 +28,7 @@
 
 
         <!-- 極簡圖示工具列 -->
-		<div class="mb-1 flex items-center flex-wrap gap-0.5 bg-[#f0f4f9] px-3 py-1.5 rounded-full relative overflow-visible select-none">
+		<div id="mainToolbar" class="mb-1 flex items-center flex-wrap gap-0.5 bg-[#f0f4f9] px-3 py-1.5 rounded-full relative overflow-visible select-none">
 
 			<div class="relative dropdown-container" id="dd-viewMode">
                 <button class="dropdown-btn flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-full font-bold text-sm transition-colors" title="切換編輯模式與檔案">
@@ -43,6 +43,9 @@
                     </button>
                     <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700" data-value="table">
                         <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base text-green-600">table_view</span>烏衣行 表格</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
+                    </button>
+                    <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700" data-value="board">
+                        <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base text-amber-500">sticky_note_2</span>烏衣行 白板</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
                     </button>
                     <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700" data-value="chat">
                         <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base text-emerald-500">forum</span>烏衣行 對話</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span>
@@ -399,32 +402,6 @@
                             <span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active" id="iconAutoSumCheck">check</span>
                         </button>
 
-                        <div class="relative group/submenu" id="dd-tableWrapMode">
-                            <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
-                                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">wrap_text</span>儲存格換行方式</div>
-                                <span class="material-symbols-outlined text-base">arrow_right</span>
-                            </div>
-                            <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-64 z-50 py-1">
-                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="A"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">wrap_text</span><div class="leading-tight"><div>A 自動換行</div><div class="text-xs text-gray-400">依欄寬換行，單字可能被截斷</div></div></div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
-                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="B"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">format_textdirection_l_to_r</span><div class="leading-tight"><div>B 自動換行</div><div class="text-xs text-gray-400">依欄寬換行，單字不被截斷</div></div></div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="C"><div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">more_horiz</span><div class="leading-tight"><div>C 不換行</div><div class="text-xs text-gray-400">超出欄寬的部分顯示為 ...</div></div></div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                            </div>
-                        </div>
-
-                        <div class="relative group/submenu" id="dd-zebra">
-                            <div class="w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 text-gray-700 cursor-default">
-                                <div class="flex items-center gap-2"><span class="material-symbols-outlined text-base">table_rows</span>斑馬色階</div>
-                                <span class="material-symbols-outlined text-base">arrow_right</span>
-                            </div>
-                            <div class="absolute left-full top-0 -mt-1 hidden group-hover/submenu:block bg-white shadow-xl rounded border border-gray-200 w-44 z-50 py-1">
-                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="0"><div class="flex items-center gap-2">無色階</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold active">check</span></button>
-                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="1"><div class="flex items-center gap-2">隔 1 行色階</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="5"><div class="flex items-center gap-2">隔 5 行色階</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="10"><div class="flex items-center gap-2">隔 10 行色階</div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                                <button class="dropdown-item w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100" data-value="custom"><div class="flex items-center gap-2"><span id="zebraCustomLabel">隔 N 行色階</span></div><span class="material-symbols-outlined text-base check-icon text-blue-600 font-bold">check</span></button>
-                            </div>
-                        </div>
-
 						<div class="h-px bg-gray-200 my-1 mx-2"></div>
 
                         <div class="relative group/submenu" id="dd-editTrigger">
@@ -649,6 +626,9 @@
                 </div>
             </div>
 
+			<!-- 白板模式區塊 (預設隱藏)：由 board.js 掛載 -->
+			<div id="boardModeContainer" class="hidden flex-1 w-full overflow-hidden relative bg-[#F4F4F4] flex-col"></div>
+
 			<div id="gameModeContainer" class="hidden flex-1 w-full overflow-hidden relative bg-[#f3f4f6]">
 				<div class="absolute top-2 left-2 z-50 flex items-center gap-3">
 					<button id="btnExitGame" class="bg-white shadow-md hover:bg-gray-100 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors font-bold cursor-pointer border border-gray-200">
@@ -749,6 +729,7 @@
 
         <button class="context-menu-item" data-action="mode-chat"><span class="material-symbols-outlined text-base">forum</span>對話模式</button>
 		<button class="context-menu-item" data-action="mode-table"><span class="material-symbols-outlined text-base">table_chart</span>表格模式</button>
+		<button class="context-menu-item" data-action="mode-board"><span class="material-symbols-outlined text-base">sticky_note_2</span>白板模式</button>
         <button class="context-menu-item" data-action="mode-text"><span class="material-symbols-outlined text-base">edit_document</span>文字模式</button>
     </div>
 
@@ -1763,7 +1744,7 @@
 
 	<!-- ✨ 自家程式載入器：依序載入（順序不可調換），網址後面帶版本號避免讀到舊快取 -->
 	<script>
-		['data.js', 'game.js', 'records.js', 'arena.js', 'live.js', 'script.js',
+		['data.js', 'game.js', 'records.js', 'arena.js', 'board.js', 'live.js', 'script.js',
 		 'table.js', 'tableFill.js', 'tableFilter.js', 'textTools.js', 'translate.js', 'bank.js']
 			.forEach(function (f) {
 				document.write('<script src="' + f + '?v=' + window.APP_VERSION + '"><\/script>');

@@ -51,7 +51,7 @@
         const inner = tr.children[c + 1] && tr.children[c + 1].querySelector('.td-inner');
         if (!inner) return '';
         if (inner.hasAttribute('data-formula')) return inner.getAttribute('data-formula');
-        return inner.innerText.replace(/\n$/, '');
+        return getCellText(inner).replace(/\n$/, '');
     }
     const num = s => { const n = Number(String(s).replace(/,/g, '').trim()); return (String(s).trim() === '' || isNaN(n)) ? NaN : n; };
 
@@ -598,7 +598,12 @@
         });
 
         // 表格被重建（換頁籤 / 復原 / 切換模式）或欄位結構改變 → 還原或重新套用
-        const mo = new MutationObserver(() => { clearTimeout(syncTimer); syncTimer = setTimeout(sync, 80); });
+        const mo = new MutationObserver(muts => {
+            // 只有「儲存格內打字」(目標為 .td-inner) 的變動不影響篩選結構，直接略過；
+            // 欄標題(th)、列(tr)、tbody/thead 的變動仍要同步（例如標題重建後需補回篩選圖示）
+            if (muts.every(m => m.target.nodeType === 1 && m.target.classList.contains('td-inner'))) return;
+            clearTimeout(syncTimer); syncTimer = setTimeout(sync, 80);
+        });
         mo.observe(dataTable, { childList: true, subtree: true });
     }
 
@@ -606,7 +611,7 @@
         const thead = dataTable.querySelector('thead');
         if (!thead) return;
         decorate();
-        const sig = signature(), rowN = bodyRows().length;
+        const sig = signature(), rowN = (dataTable.querySelector('tbody') || { children: [] }).children.length;
         if (thead !== lastThead) {               // 整張表被重建
             lastThead = thead; lastSig = sig; restore(); settling = true; return;
         }
