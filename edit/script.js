@@ -104,6 +104,13 @@ const ACTIVE_TAB_KEY = 'wesing-active-tab';
 let sheetTabs = [];
 let activeSheetIndex = 0;
 
+// 記住每個工作表的上次編輯位置（捲動 + 游標／選取格）
+const VIEW_STATE_KEY = 'wesing-view-state';
+let viewCaptureLockedUntil = Infinity; // 初始載入完成還原前不記錄，避免被 0 覆蓋
+let tableRenderInProgress = false;     // 大表格分批渲染中不記錄
+let pendingTableView = false;          // 表格渲染完成後要還原位置
+let viewCaptureTimer = null;
+
 // 建立一個全域物件，用來儲存各個範圍的「抽籤袋」
 window.randBags = {};
 
@@ -752,6 +759,9 @@ function getFolderFromUrl() {
 function switchMode(mode, isForce = false, dataOverride = null, configOverride = null) {
     if (currentMode === mode && !isForce) return;
 
+    // 切換模式前，先記下目前模式的位置（強制切換通常是換頁籤/刪頁籤，由呼叫端處理）
+    if (!isForce) captureViewState();
+
     // 1. 數據提取與轉移：只有在「非注入模式」下才需要自動存檔，避免覆蓋
     if (!isForce && !dataOverride) {
         if (currentMode === 'table' && mode !== 'table') {
@@ -876,6 +886,7 @@ function switchMode(mode, isForce = false, dataOverride = null, configOverride =
         if (typeof initBankCenter === 'function') { initBankCenter(); }
 
     } else if (mode === 'table') {
+        pendingTableView = true; // 表格渲染完成後還原上次位置
         renderTableFromText(editor.value);
         applyFreeze();
         containers.table.style.display = 'block';
@@ -906,7 +917,11 @@ function switchMode(mode, isForce = false, dataOverride = null, configOverride =
         if (ddTextTool) ddTextTool.classList.remove('hidden');
         if (btnToggleLineNumbers) btnToggleLineNumbers.classList.remove('hidden');
         updateLineNumbers();
+        restoreViewState('text');
     }
+    
+    // 遊戲/對話/白板等模式不需要還原位置，解除初始鎖定
+    if (mode !== 'text' && mode !== 'table' && viewCaptureLockedUntil === Infinity) viewCaptureLockedUntil = 0;
     
     setDropdownValue('dd-viewMode', mode);
 	updateModeButtonUI(mode);
@@ -1145,6 +1160,7 @@ function parseTSV(text) {
 }
 
 function renderTableFromText(text) {
+    tableRenderInProgress = true;
     const parsedRows = parseTSV(text);
     let maxCols = 1; 
     parsedRows.forEach(row => { if (row.length > maxCols) maxCols = row.length; });
@@ -1225,6 +1241,12 @@ function renderTableFromText(text) {
             // 4. 全部載入完畢後，執行後續設定
             updateTableHeaders();
             recalculateAllFormulas();
+            tableRenderInProgress = false;
+            if (pendingTableView) {
+                pendingTableView = false;
+                viewCaptureLockedUntil = Date.now() + 1000; // 等下一個畫面（容器顯示後）再還原
+                requestAnimationFrame(applyTableView);
+            }
             if (typeof showToast === 'function' && parsedRows.length > 1000) {
                 showToast('✅ 表格載入完成！');
             }
@@ -2123,6 +2145,157 @@ window.addEventListener('DOMContentLoaded', () => {
 
 
 /* ==========================================
+   記住每個工作表的「上次編輯位置」
+   - 文字模式：游標/選取範圍 + 捲動位置
+   - 表格模式：選取的儲存格 + 捲動位置
+   - 每個工作表、每種模式各記一份；只存很小的資料，不影響大資料的存檔策略
+========================================== */
+function captureViewState() {
+    if (Date.now() < viewCaptureLockedUntil) return;
+    const tab = sheetTabs[activeSheetIndex];
+    if (!tab) return;
+
+    if (currentMode === 'text') {
+        const box = document.getElementById('textModeContainer');
+        if (!box || box.style.display === 'none') return;
+        const view = tab.view || (tab.view = {});
+        const prev = view.text || {};
+        const focused = document.activeElement === editor;
+        view.text = {
+            // 沒有焦點時，游標位置沿用上次記錄（避免記到「程式設值後跑到最後面」的假位置）
+            ss: focused ? editor.selectionStart : prev.ss,
+            se: focused ? editor.selectionEnd : prev.se,
+            st: editor.scrollTop,
+            sl: editor.scrollLeft
+        };
+    } else if (currentMode === 'table') {
+        if (tableRenderInProgress) return;
+        const box = document.getElementById('tableModeContainer');
+        if (!box || box.style.display === 'none' || !dataTable.querySelector('tbody')) return;
+        const view = tab.view || (tab.view = {});
+        const prev = view.table || {};
+        const hasSel = lastClickedCell || selectedCellBlocks.length > 0;
+        view.table = {
+            st: box.scrollTop,
+            sl: box.scrollLeft,
+            // 目前沒有選取時，沿用上次記錄的選取格
+            cell: hasSel ? (lastClickedCell ? { r: lastClickedCell.r, c: lastClickedCell.c } : null) : prev.cell,
+            blocks: hasSel ? selectedCellBlocks.map(b => ({ startR: b.startR, startC: b.startC, endR: b.endR, endC: b.endC })) : prev.blocks
+        };
+    }
+}
+
+function persistViewStates() {
+    try {
+        const data = sheetTabs.map(t => ({ n: t.name, v: t.view || null }));
+        localStorage.setItem(VIEW_STATE_KEY, JSON.stringify(data));
+    } catch (e) { /* 空間不足就算了，位置不是重要資料 */ }
+}
+
+function loadViewStates() {
+    try {
+        const data = JSON.parse(localStorage.getItem(VIEW_STATE_KEY));
+        if (!Array.isArray(data)) return;
+        // 以「順序 + 名稱」對應，對不上（例如已被改名）就不還原
+        sheetTabs.forEach((t, i) => {
+            const d = data[i];
+            if (d && d.v && d.n === t.name) t.view = d.v;
+        });
+    } catch (e) {}
+}
+
+function scheduleViewCapture() {
+    clearTimeout(viewCaptureTimer);
+    viewCaptureTimer = setTimeout(() => { captureViewState(); persistViewStates(); }, 300);
+}
+
+function flushViewState() {
+    clearTimeout(viewCaptureTimer);
+    captureViewState();
+    persistViewStates();
+}
+
+// 文字模式還原：游標/選取 + 捲動
+function restoreViewState(mode) {
+    viewCaptureLockedUntil = Date.now() + 600; // 還原期間（含非同步 scroll 事件）不記錄
+    const tab = sheetTabs[activeSheetIndex];
+    const v = tab && tab.view && tab.view[mode];
+    if (!v || mode !== 'text') return;
+
+    const len = editor.value.length;
+    if (typeof v.ss === 'number') {
+        try { editor.setSelectionRange(Math.min(v.ss, len), Math.min(typeof v.se === 'number' ? v.se : v.ss, len)); } catch (e) {}
+        // 電腦版直接把游標放回去；手機版不主動叫出鍵盤
+        if (window.matchMedia && window.matchMedia('(pointer: fine)').matches) {
+            try { editor.focus({ preventScroll: true }); } catch (e) {}
+        }
+    }
+    editor.scrollTop = v.st || 0;
+    editor.scrollLeft = v.sl || 0;
+    lineNumbers.scrollTop = editor.scrollTop;
+}
+
+// 表格還原：選取格 + 捲動（在表格渲染完成、容器已顯示後呼叫）
+function applyTableView() {
+    viewCaptureLockedUntil = Date.now() + 600;
+    if (currentMode !== 'table') return;
+    const tab = sheetTabs[activeSheetIndex];
+    const v = tab && tab.view && tab.view.table;
+    const box = document.getElementById('tableModeContainer');
+    const tbody = dataTable.querySelector('tbody');
+    const theadTr = dataTable.querySelector('thead tr');
+    if (!v || !box || !tbody || !theadTr) return;
+
+    const R = tbody.children.length;
+    const C = theadTr.children.length - 1;
+    if (R === 0 || C <= 0) return;
+    const cl = (n, max) => Math.max(0, Math.min(n | 0, max - 1));
+
+    let blocks = (v.blocks || []).map(b => ({
+        startR: cl(b.startR, R), startC: cl(b.startC, C), endR: cl(b.endR, R), endC: cl(b.endC, C)
+    }));
+    if (blocks.length === 0 && v.cell) {
+        const r = cl(v.cell.r, R), c = cl(v.cell.c, C);
+        blocks = [{ startR: r, startC: c, endR: r, endC: c }];
+    }
+    if (blocks.length > 0) {
+        lastClickedCell = v.cell ? { r: cl(v.cell.r, R), c: cl(v.cell.c, C) } : { r: blocks[0].startR, c: blocks[0].startC };
+        selectedCellBlocks = blocks;
+        selectedRows = []; selectedCols = [];
+        applySelectionVisuals();
+    }
+
+    box.scrollTop = v.st || 0;
+    box.scrollLeft = v.sl || 0;
+
+    // 沒有記錄到捲動位置、但有選取格時，至少把選取格捲到視野內
+    if (!v.st && !v.sl && lastClickedCell) {
+        const td = tbody.children[lastClickedCell.r]?.children[lastClickedCell.c + 1];
+        if (td) td.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+}
+
+// 平常的記錄時機：捲動、移動游標、點選、輸入（防抖 300ms）；離開頁面時再保險存一次
+['scroll', 'keyup', 'mouseup', 'touchend', 'input'].forEach(evt => {
+    editor.addEventListener(evt, scheduleViewCapture, { passive: true });
+});
+(function bindTableViewEvents() {
+    const box = document.getElementById('tableModeContainer');
+    if (!box) return;
+    ['scroll', 'keyup', 'mouseup', 'touchend', 'input', 'focusout'].forEach(evt => {
+        box.addEventListener(evt, scheduleViewCapture, { passive: true });
+    });
+})();
+window.addEventListener('pagehide', flushViewState);
+window.addEventListener('beforeunload', flushViewState);
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushViewState();
+});
+// 保險：若初始載入沒有走到任何還原流程（例如直接進遊戲模式），2 秒後解除鎖定
+setTimeout(() => { if (viewCaptureLockedUntil === Infinity) viewCaptureLockedUntil = 0; }, 2000);
+
+
+/* ==========================================
    多頁籤
 ========================================== */
 const sheetTabContainer = document.getElementById('sheetTabContainer');
@@ -2138,6 +2311,7 @@ function loadTabsData() {
             sheetTabs.forEach(tab => tab.mode = tab.mode || 'text');
             activeSheetIndex = parseInt(localStorage.getItem(ACTIVE_TAB_KEY)) || 0;
             if (activeSheetIndex >= sheetTabs.length) activeSheetIndex = 0;
+            loadViewStates();
         } else {
             const oldContent = localStorage.getItem(STORAGE_KEY) || '';
             sheetTabs = [{ name: '工作表1', content: oldContent, history: [oldContent], mode: currentMode }];
@@ -2166,7 +2340,7 @@ const HISTORY_PERSIST_LIMIT = 100000;
 // 把 sheetTabs 轉成要寫入 localStorage 的字串（history 太大的分頁會略過 history，但記憶體中的仍保留）
 function serializeTabs(withHistory = true) {
     const tabs = sheetTabs.map(tab => {
-        const { history, ...rest } = tab;
+        const { history, view, ...rest } = tab;
         if (withHistory && Array.isArray(history) &&
             history.reduce((n, h) => n + h.length, 0) <= HISTORY_PERSIST_LIMIT) {
             rest.history = history;
@@ -2225,6 +2399,8 @@ function saveAllTabsData(contentOverride) {
         safeMode = 'table'; 
     }
     sheetTabs[activeSheetIndex].mode = safeMode;
+
+    persistViewStates(); // 頁籤改名/搬移/刪除後，位置記錄要跟著對齊
 
     // 2. 只有「自動儲存」開啟時，才寫入 localStorage
     if (!isAutoSaveEnabled) return;
@@ -2368,6 +2544,7 @@ document.getElementById('tabMenu')?.addEventListener('click', (e) => {
 function switchSheet(index) {
     if (index === activeSheetIndex) return;
 
+    captureViewState();  // 先記下舊工作表的位置（內容被換掉之前）
     saveAllTabsData(); // 先存檔舊的
     activeSheetIndex = index;
     
