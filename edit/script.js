@@ -801,6 +801,11 @@ function switchMode(mode, isForce = false, dataOverride = null, configOverride =
     const previousMode = currentMode;
     currentMode = mode; 
 
+    // ✨ 新增：切換到對話模式時才預載翻譯字典（translate.js 尚未載入完成時會自動略過，由它自己的初始化處理）
+    if (mode === 'chat' && typeof window.preloadChatDictionaries === 'function') {
+        window.preloadChatDictionaries();
+    }
+
     // 遊戲/連線模式不存入 LocalStorage
     if (!gameModes.includes(mode) && mode !== 'arena' && mode !== 'live') {
         localStorage.setItem(MODE_KEY, mode);
@@ -1136,7 +1141,7 @@ function createThColHTML(index) {
 function createThRowHTML(index) {
     return `
         <div class="flex justify-between items-center w-full pointer-events-none px-1">
-            <span class="row-label mx-auto pointer-events-auto cursor-pointer flex-1 text-center hover:text-blue-600 px-2" title="點擊選取 / 拖曳排序">${index + 1}</span>
+            <span class="row-label mx-auto pointer-events-auto cursor-pointer flex-1 text-center hover:text-blue-600 px-2" title="點擊選取｜左半拖曳：多選列｜右半拖曳：移動列">${index + 1}</span>
             <span class="material-symbols-outlined pointer-events-auto cursor-pointer hover:bg-gray-300 rounded text-gray-500 btn-row-menu" style="font-size: 18px;" title="列選項">arrow_drop_down</span>
         </div>`;
 }
@@ -2034,6 +2039,12 @@ if (ddFontFamily) {
 
 window.isMyImeLoaded = false;
 
+// 依 isMyImeLoaded 狀態，顯示/隱藏選單裡「烏衣行輸入法」的 ✓ 圖示
+function updateImeCheckIcon() {
+    const icon = document.getElementById('iconImeCheck');
+    if (icon) icon.style.opacity = window.isMyImeLoaded ? '1' : '0';
+}
+
 document.addEventListener('click', (e) => {
     // 攔截擁有 ime-toggle-button 類別的按鈕
     const btn = e.target.closest('.ime-toggle-button');
@@ -2051,6 +2062,7 @@ document.addEventListener('click', (e) => {
                 WebIME.imeInit({});
             }
             window.isMyImeLoaded = true; // 更新狀態為已載入
+            updateImeCheckIcon();
             showToast('✅ 烏衣行輸入法已載入！');
         } 
         else {
@@ -2061,6 +2073,7 @@ document.addEventListener('click', (e) => {
                 WebIME.imeSetIsEnabled(false); 
             }
             window.isMyImeLoaded = false; // 更新狀態為未載入
+            updateImeCheckIcon();
             showToast('❌ 烏衣行輸入法已卸載');
         }
 
@@ -2133,7 +2146,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
         // 一進網頁發現有參數，立刻觸發動態載入
         initOnlineIme(configFromUrl).then(() => {
-            if (parts[0] === '1') WebIME.imeSetIsEnabled(true);
+            if (parts[0] === '1') { WebIME.imeSetIsEnabled(true); window.isMyImeLoaded = true; updateImeCheckIcon(); }
             else if (parts[0] === '2') WebIME.imeSetIsEnabled(false);
             
             const newUrl = new URL(window.location.href);

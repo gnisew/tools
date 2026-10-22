@@ -2364,8 +2364,13 @@ document.addEventListener('DOMContentLoaded', () => {
         initChatDropdowns();
         updateChatPivotOptions();
         
-        // 初次載入時主動預載一次
-        preloadChatDictionaries();
+        // ✨ 新增：開放給 script.js 在「切換到對話模式」時呼叫預載
+        window.preloadChatDictionaries = preloadChatDictionaries;
+        
+        // ✨ 修改：初次載入時，只有一開始就在對話模式才預載（其他模式等切換或第一次使用時才載入）
+        if (currentMode === 'chat') {
+            preloadChatDictionaries();
+        }
 		if (currentMode === 'chat') {
             window.renderChatFromText(editor.value);
         }

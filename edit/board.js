@@ -244,6 +244,35 @@
             @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
             .animate-fade-in-up { animation: fadeInUp 0.4s ease-out forwards; }
 
+            /* 📱 [新增] 手機版：左側工具列 / 比例工具列 收合成圖示 (桌面版完全不受影響) */
+            #board-left-fab, #board-zoom-fab { display: none; }
+            /* 🍎 [新增] iOS：避免長按跳出選單、點擊出現灰色閃爍 */
+            #whiteboard-canvas { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+            @media (max-width: 768px) {
+                #whiteboard-canvas { --wb-fab-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); } /* 圖示離底部的距離，想調高低改這裡 */
+                #board-left-fab, #board-zoom-fab {
+                    display: flex; align-items: center; justify-content: center;
+                    position: absolute; bottom: var(--wb-fab-bottom);
+                    width: 40px; height: 40px; border-radius: 9999px;
+                    background: rgba(255,255,255,0.95); color: #6b7280;
+                    border: 1px solid #e5e7eb; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+                    z-index: 121; cursor: pointer; user-select: none;
+                }
+                #board-left-fab { left: 12px; }
+                #board-zoom-fab { right: 12px; }
+                #board-left-fab.wb-open, #board-zoom-fab.wb-open { background: #f0fdfa; color: #0d9488; }
+                /* 收合時若啟用了「多選 / 純檢視」模式，圖示右上角顯示小圓點提醒 */
+                #board-left-fab.wb-has-mode::after {
+                    content: ''; position: absolute; top: 5px; right: 5px; width: 9px; height: 9px;
+                    border-radius: 9999px; background: #f59e0b; border: 1.5px solid #fff;
+                }
+                /* 展開後：左側工具列改貼在左下角圖示的上方；比例工具列貼在右下角圖示的左側 */
+                #board-left-toolbar { top: auto !important; bottom: calc(var(--wb-fab-bottom) + 48px) !important; left: 12px !important; transform: none !important; }
+                #board-zoom-toolbar { bottom: calc(var(--wb-fab-bottom) + 2px) !important; right: 60px !important; }
+                #board-left-toolbar.wb-collapsed, #board-zoom-toolbar.wb-collapsed { display: none !important; }
+                #board-settings-panel { max-width: calc(100vw - 6rem); }
+            }
+
             .note-scroll { 
                 overflow-y: auto; 
                 overscroll-behavior: contain; 
@@ -480,6 +509,10 @@
                                 </button>
                             </div>
 
+                            <!-- 📱 [新增] 手機版收合圖示 (桌面版以 CSS 隱藏) -->
+                            <button id="board-left-fab" type="button" title="工具列" onclick="window.toggleBoardLeftToolbar()"><span class="material-symbols-outlined text-[22px]">dashboard_customize</span></button>
+                            <button id="board-zoom-fab" type="button" title="縮放" onclick="window.toggleBoardZoomBar()"><span class="material-symbols-outlined text-[22px]">zoom_in</span></button>
+
                             <div id="board-content-layer" class="absolute inset-0 origin-top-left">
 								<div id="board-selection-box" class="absolute border border-blue-500 bg-blue-500/20 z-[9999] hidden pointer-events-none"></div>
                                 
@@ -551,6 +584,44 @@
                         iconEl.textContent = 'keyboard_arrow_left';
                     }
                 };
+
+                // 📱 [新增] 手機版：工具列收合 / 展開 (預設收合)
+                window.isBoardLeftToolbarOpen = false;
+                window.isBoardZoomBarOpen = false;
+                window.applyBoardToolbarState = () => {
+                    const lt = document.getElementById('board-left-toolbar');
+                    const zt = document.getElementById('board-zoom-toolbar');
+                    const lf = document.getElementById('board-left-fab');
+                    const zf = document.getElementById('board-zoom-fab');
+                    if (lt) lt.classList.toggle('wb-collapsed', !window.isBoardLeftToolbarOpen);
+                    if (zt) zt.classList.toggle('wb-collapsed', !window.isBoardZoomBarOpen);
+                    if (lf) {
+                        lf.classList.toggle('wb-open', window.isBoardLeftToolbarOpen);
+                        lf.classList.toggle('wb-has-mode', !window.isBoardLeftToolbarOpen && !!(window.isBoardPanMode || window.isBoardMultiSelectMode));
+                        lf.firstElementChild.textContent = window.isBoardLeftToolbarOpen ? 'close' : 'dashboard_customize';
+                    }
+                    if (zf) {
+                        zf.classList.toggle('wb-open', window.isBoardZoomBarOpen);
+                        zf.firstElementChild.textContent = window.isBoardZoomBarOpen ? 'close' : 'zoom_in';
+                    }
+                };
+                window.toggleBoardLeftToolbar = (force) => {
+                    window.isBoardLeftToolbarOpen = (typeof force === 'boolean') ? force : !window.isBoardLeftToolbarOpen;
+                    if (!window.isBoardLeftToolbarOpen) document.dispatchEvent(new Event('board-left-toolbar-closed')); // 通知白板設定面板一起關閉
+                    window.applyBoardToolbarState();
+                };
+                window.toggleBoardZoomBar = (force) => {
+                    window.isBoardZoomBarOpen = (typeof force === 'boolean') ? force : !window.isBoardZoomBarOpen;
+                    window.applyBoardToolbarState();
+                };
+                // 點工具列按鈕後：同步「模式小圓點」；手機版按下「新增文字 / 新增便利貼 / 清空」這類一次性動作就自動收合
+                document.getElementById('board-left-toolbar')?.addEventListener('click', (e) => {
+                    setTimeout(() => window.applyBoardToolbarState(), 0);
+                    const btn = e.target.closest('button');
+                    if (!btn || !window.matchMedia('(max-width: 768px)').matches) return;
+                    if (/addTeacher|clearBoardNotes/.test(btn.getAttribute('onclick') || '')) window.toggleBoardLeftToolbar(false);
+                }, true);
+                window.applyBoardToolbarState();
 
                 window.isBoardMaximized = false;
                 // ✨ 智慧全螢幕引擎：自動收合與恢復側邊欄
@@ -1242,6 +1313,136 @@
                     window.updateBoardView();
                 }, { passive: false });
 
+                // 📱 [新增] 觸控：雙指捏合縮放 (同時支援雙指拖曳平移)
+                // 做法：在 window 捕獲階段先攔截觸控事件，雙指期間不讓下方的拖曳 / 框選 / 平移邏輯收到事件
+                if (window.boardPinchHandlers) {
+                    const h = window.boardPinchHandlers;
+                    window.removeEventListener('pointerdown', h.down, true);
+                    window.removeEventListener('pointermove', h.move, true);
+                    window.removeEventListener('pointerup', h.up, true);
+                    window.removeEventListener('pointercancel', h.up, true);
+                }
+                {
+                    const pinchPts = new Map();      // 目前參與捏合的手指 id -> 座標
+                    const suppressed = new Set();    // 已被捏合接管、後續事件都要攔截的手指 id
+                    let pinch = null;                // 捏合起始狀態
+                    let synthetic = false;           // 避免攔截到自己送出的假事件
+                    const tapStart = new Map();      // 🍎 單指點擊起點 (用來自行偵測雙擊)
+                    let lastTap = null;
+                    const isUi = (t) => !!(t.closest && t.closest('button, #board-left-toolbar, #board-zoom-toolbar, #board-floating-header, #board-note-menu, .draggable-translator, #board-settings-panel'));
+
+                    const startPinch = () => {
+                        const [a, b] = Array.from(pinchPts.values());
+                        const rect = canvas.getBoundingClientRect();
+                        pinch = {
+                            dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+                            midX: (a.x + b.x) / 2 - rect.left,
+                            midY: (a.y + b.y) / 2 - rect.top,
+                            zoom: window.boardZoom,
+                            panX: window.boardPan.x,
+                            panY: window.boardPan.y
+                        };
+                        // 關掉縮放動畫，手指才會跟手
+                        const layer = document.getElementById('board-content-layer');
+                        if (layer) layer.style.transition = 'none';
+                        canvas.style.transition = 'none';
+                        document.getElementById('board-note-menu')?.classList.add('hidden');
+                    };
+
+                    const doPinch = () => {
+                        if (!pinch || pinchPts.size < 2) return;
+                        const [a, b] = Array.from(pinchPts.values());
+                        const rect = canvas.getBoundingClientRect();
+                        const dist = Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+                        const midX = (a.x + b.x) / 2 - rect.left;
+                        const midY = (a.y + b.y) / 2 - rect.top;
+                        const newZoom = Math.max(0.2, Math.min(3, pinch.zoom * dist / pinch.dist));
+                        // 起始中點下的畫布座標，縮放後要跟著目前中點走 (縮放 + 雙指平移)
+                        const wx = (pinch.midX - pinch.panX) / pinch.zoom;
+                        const wy = (pinch.midY - pinch.panY) / pinch.zoom;
+                        window.boardZoom = newZoom;
+                        window.boardPan.x = midX - wx * newZoom;
+                        window.boardPan.y = midY - wy * newZoom;
+                        window.updateBoardView();
+                    };
+
+                    const down = (e) => {
+                        if (synthetic || e.pointerType !== 'touch' || !canvas.contains(e.target) || isUi(e.target)) return;
+                        if (pinchPts.size >= 2) { e.stopPropagation(); return; }   // 第三指以後一律忽略
+                        if (pinchPts.size === 0) tapStart.set(e.pointerId, { x: e.clientX, y: e.clientY, t: Date.now() });
+                        const firstId = pinchPts.size === 1 ? pinchPts.keys().next().value : null;
+                        pinchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+                        if (pinchPts.size < 2) return;                              // 單指：照原本流程
+                        // 第二指落下：先替第一指「結束」原本進行中的拖曳 / 框選 / 平移，再進入捏合
+                        if (firstId !== null && !suppressed.has(firstId)) {
+                            const p = pinchPts.get(firstId);
+                            synthetic = true;
+                            canvas.dispatchEvent(new PointerEvent('pointerup', { pointerId: firstId, pointerType: 'touch', clientX: p.x, clientY: p.y, bubbles: true }));
+                            synthetic = false;
+                        }
+                        suppressed.add(firstId);
+                        suppressed.add(e.pointerId);
+                        startPinch();
+                        e.stopPropagation();
+                    };
+
+                    const move = (e) => {
+                        if (synthetic || e.pointerType !== 'touch') return;
+                        if (pinchPts.has(e.pointerId)) {
+                            pinchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+                            if (pinchPts.size === 2) doPinch();
+                        }
+                        if (suppressed.has(e.pointerId)) e.stopPropagation();       // 捏合期間(含鬆開一指後)不讓拖曳邏輯處理
+                    };
+
+                    const up = (e) => {
+                        if (synthetic || e.pointerType !== 'touch') return;
+                        const last = pinchPts.get(e.pointerId);
+                        const st = tapStart.get(e.pointerId);
+                        tapStart.delete(e.pointerId);
+                        pinchPts.delete(e.pointerId);
+                        if (pinchPts.size < 2) pinch = null;
+                        if (suppressed.delete(e.pointerId)) { e.stopPropagation(); return; }   // 原本流程的狀態早已結束，這個放開事件不必再處理
+
+                        // 🍎 iOS 可能送 pointercancel (例如系統手勢)，原本程式只處理 pointerup，會卡在拖曳中 → 補送一個 pointerup 收尾
+                        if (e.type === 'pointercancel' && last) {
+                            synthetic = true;
+                            canvas.dispatchEvent(new PointerEvent('pointerup', { pointerId: e.pointerId, pointerType: 'touch', clientX: last.x, clientY: last.y, bubbles: true }));
+                            synthetic = false;
+                            return;
+                        }
+
+                        // 🍎 iOS 雙擊不一定會觸發 dblclick：自行偵測「兩次短點擊」，補送 dblclick (編輯便利貼用)
+                        if (e.type === 'pointerup' && st && Date.now() - st.t < 300 && Math.hypot(e.clientX - st.x, e.clientY - st.y) < 10) {
+                            const now = Date.now();
+                            if (lastTap && now - lastTap.t < 400 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
+                                lastTap = null;
+                                window._wbFakeDblAt = now;
+                                const x = e.clientX, y = e.clientY;
+                                setTimeout(() => {   // 稍微延遲，避免 iOS 隨後補送的 click 點到剛彈出的視窗
+                                    const target = document.elementFromPoint(x, y);
+                                    if (target && canvas.contains(target)) target.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+                                }, 80);
+                            } else {
+                                lastTap = { x: e.clientX, y: e.clientY, t: now };
+                            }
+                        }
+                    };
+
+                    // 🍎 iOS：封鎖 Safari 專有的 gesture 事件，避免整個網頁被捏合縮放
+                    ['gesturestart', 'gesturechange', 'gestureend'].forEach(t => canvas.addEventListener(t, (ev) => ev.preventDefault()));
+                    // 🍎 已自行補送過雙擊時，擋掉瀏覽器原生的 dblclick，避免同一次雙擊跳出兩次編輯視窗
+                    canvas.addEventListener('dblclick', (ev) => {
+                        if (ev.isTrusted && Date.now() - (window._wbFakeDblAt || 0) < 700) ev.stopImmediatePropagation();
+                    }, true);
+
+                    window.boardPinchHandlers = { down, move, up };
+                    window.addEventListener('pointerdown', down, true);
+                    window.addEventListener('pointermove', move, true);
+                    window.addEventListener('pointerup', up, true);
+                    window.addEventListener('pointercancel', up, true);
+                }
+
                 canvas.addEventListener('dblclick', (e) => {
                     // 🌟 新增：純檢視模式下禁止雙擊編輯
                     if (window.isBoardPanMode) return;
@@ -1747,7 +1948,7 @@
                             window.selectedNotes.clear();
                             window.currentActiveNoteId = null;
                         }
-                    } else if (!wasMarquee && !e.target.closest('.sticky-note') && !e.target.closest('#board-note-menu') && !e.target.closest('#board-left-toolbar') && !e.target.closest('.draggable-translator') && !e.target.closest('#global-lang-submenu') && !e.target.closest('#btn-global-lang-toggle')) {
+                    } else if (!wasMarquee && !e.target.closest('.sticky-note') && !e.target.closest('#board-note-menu') && !e.target.closest('#board-left-toolbar') && !e.target.closest('#board-left-fab') && !e.target.closest('#board-zoom-fab') && !e.target.closest('.draggable-translator') && !e.target.closest('#global-lang-submenu') && !e.target.closest('#btn-global-lang-toggle')) {
                         // 防呆底線：其他情況下的空白處點擊清除選取
                         document.getElementById('board-note-menu')?.classList.add('hidden');
                         document.getElementById('board-note-menu')?.classList.remove('flex');
@@ -2420,6 +2621,9 @@
             closeSettingsHandlers = null;
         }
     }
+
+    // 📱 [新增] 左側工具列收合時，白板設定面板一併關閉
+    document.addEventListener('board-left-toolbar-closed', closeSettings);
 
     function toggleSettings() {
         if (document.getElementById('board-settings-panel')) { closeSettings(); return; }

@@ -1297,7 +1297,7 @@ document.addEventListener('paste', (e) => {
 /* 滑鼠點擊選取與選單邏輯 */
 dataTable.addEventListener('click', (e) => {
     // 【新增】剛完成「拖曳多選欄」時，略過隨後觸發的 click，避免選取被覆蓋
-    if (window.isColDragSelecting) return;
+    if (window.isColDragSelecting || window.isRowDragSelecting) return;
 
     const btnColMenu = e.target.closest('.btn-col-menu');
     if (btnColMenu) {
@@ -1482,7 +1482,7 @@ let colDragSelectStart = -1;      // 起點欄索引 (-1 表示未在拖曳選�
 let colDragSelectBase = [];       // 按住 Ctrl 時，保留原本已選取的欄
 window.isColDragSelecting = false;
 
-// 【修改】原本「col-label / row-label 一按就可拖曳」→ 欄改成依左右半邊判斷，列維持原樣
+// 【修改】欄、列標題都依左右半邊判斷：左半 = 拖曳多選、右半 = 拖曳移動
 dataTable.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return;
 
@@ -1503,10 +1503,83 @@ dataTable.addEventListener('mousedown', (e) => {
         return;
     }
 
-    // --- 列標題 (維持原本行為) ---
-    if (e.target.classList.contains('row-label')) {
-        const th = e.target.closest('th'); if (th) th.setAttribute('draggable', 'true');
+    // --- 列標題：左半 = 拖曳多選列、右半 = 拖曳移動列（與欄標題一致） ---
+    const rzone = getRowHeaderZone(e);
+    if (rzone === 'move') {
+        // 右半：啟用原生拖曳，移動列
+        e.target.closest('th').setAttribute('draggable', 'true');
+        return;
     }
+    if (rzone === 'select') {
+        // 左半：開始拖曳多選列 (實際選取在 mouseover 時進行，單純點擊仍由 click 處理)
+        if (isSelectionLocked) return;
+        const tr = e.target.closest('th.sticky-left').closest('tr');
+        rowDragSelectStart = getRowIndex(tr);
+        const isCtrl = e.ctrlKey || e.metaKey || isMobileMultiSelect;
+        rowDragSelectBase = isCtrl ? [...selectedRows] : [];
+        return;
+    }
+});
+
+// 【新增】判斷滑鼠按在「列標題」的哪一半：左半 = 'select'(拖曳多選列)、右半 = 'move'(拖曳移動列)
+function getRowHeaderZone(e) {
+    const th = e.target.closest('th.sticky-left');
+    if (!th || th.classList.contains('sticky-corner')) return null;
+    if (e.target.closest('.btn-row-menu')) return null;
+    const rect = th.getBoundingClientRect();
+    return (e.clientX < rect.left + rect.width / 2) ? 'select' : 'move';
+}
+
+// 【新增】列標題左半「拖曳多選列」的狀態
+let rowDragSelectStart = -1;      // 起點列索引 (-1 表示未在拖曳選取)
+let rowDragSelectBase = [];       // 按住 Ctrl 時，保留原本已選取的列
+window.isRowDragSelecting = false;
+
+// 拖曳經過其他列時，擴充選取範圍（被篩選隱藏的列會略過）
+dataTable.addEventListener('mouseover', (e) => {
+    if (rowDragSelectStart === -1 || isSelectionLocked) return;
+
+    const tr = e.target.closest('tbody tr');
+    if (!tr) return;
+    const curRow = getRowIndex(tr);
+    if (curRow < 0) return;
+    if (curRow === rowDragSelectStart && !window.isRowDragSelecting) return; // 還沒離開起點列
+
+    window.isRowDragSelecting = true;
+    const start = Math.min(rowDragSelectStart, curRow);
+    const end = Math.max(rowDragSelectStart, curRow);
+
+    if (rowDragSelectBase.length === 0) { selectedCols = []; selectedCellBlocks = []; }
+    const tbody = dataTable.querySelector('tbody');
+    const range = [];
+    for (let i = start; i <= end; i++) {
+        const row = tbody.children[i];
+        if (row && row.classList.contains('tf-hidden')) continue;
+        range.push(i);
+    }
+    selectedRows = Array.from(new Set([...rowDragSelectBase, ...range]));
+    lastSelectedRowIndex = rowDragSelectStart;
+
+    applySelectionVisuals();
+    window.getSelection().removeAllRanges(); // 防止拖曳時反白文字
+});
+
+// 放開滑鼠：結束拖曳多選列
+document.addEventListener('mouseup', () => {
+    rowDragSelectStart = -1;
+    rowDragSelectBase = [];
+    // 延遲到 click 事件之後再解除旗標，讓 click 能被略過
+    setTimeout(() => { window.isRowDragSelecting = false; }, 0);
+});
+
+// 滑鼠游標提示：左半 = 多選列、右半 = 移動列
+dataTable.addEventListener('mousemove', (e) => {
+    if (rowDragSelectStart !== -1 || e.buttons) return;
+    const label = e.target.closest('th.sticky-left .row-label');
+    if (!label) return;
+    const zone = getRowHeaderZone(e);
+    if (zone === 'move') label.style.cursor = 'grab';
+    else if (zone === 'select') label.style.cursor = 'cell';
 });
 
 // 【新增】拖曳經過其他欄時，擴充選取範圍
@@ -1558,6 +1631,93 @@ dataTable.addEventListener('mousemove', (e) => {
 dataTable.addEventListener('mouseup', () => { dataTable.querySelectorAll('th[draggable="true"]').forEach(th => th.removeAttribute('draggable')); });
 dataTable.addEventListener('dragend', (e) => { if (e.target.tagName === 'TH') e.target.removeAttribute('draggable'); });
 
+/* ==========================================
+   拖曳移動列／欄：若被拖曳的列（欄）屬於「已選取的多列（多欄）」，整批一起移動；
+   移動後選取範圍維持在被移動的那批列（欄）上。
+   規則：往下（右）拖 → 放在目標列（欄）之後；往上（左）拖 → 放在目標之前；
+        目標落在被移動的範圍內 → 不動。
+   ========================================== */
+function moveRowsByDrag(dragIdx, targetIdx) {
+    const tbody = dataTable.querySelector('tbody'); if (!tbody) return;
+    const rows = Array.from(tbody.children);
+    const group = (selectedRows.length > 1 && selectedRows.includes(dragIdx))
+        ? Array.from(new Set(selectedRows)).filter(i => i >= 0 && i < rows.length).sort((a, b) => a - b)
+        : [dragIdx];
+    if (group.includes(targetIdx)) return;
+
+    const selSet = new Set(group);
+    const rest = [];
+    rows.forEach((tr, i) => { if (!selSet.has(i)) rest.push(i); });
+    const tPos = rest.indexOf(targetIdx);
+    if (tPos < 0) return;
+    const insertPos = targetIdx > dragIdx ? tPos + 1 : tPos;
+
+    const newOrder = rest.slice(0, insertPos).concat(group, rest.slice(insertPos));
+    if (newOrder.every((v, i) => v === i)) return;   // 位置沒變
+
+    const refRow = insertPos < rest.length ? rows[rest[insertPos]] : null;
+    const frag = document.createDocumentFragment();
+    group.forEach(i => frag.appendChild(rows[i]));
+    tbody.insertBefore(frag, refRow);
+
+    updateTableHeaders();
+    saveHistoryState(); applyFreeze();
+
+    // 選取跟著移動後的列
+    selectedRows = group.map((_, k) => insertPos + k);
+    selectedCols = []; selectedCellBlocks = []; lastClickedCell = null;
+    lastSelectedRowIndex = insertPos; lastSelectedColIndex = -1;
+    applySelectionVisuals();
+    if (group.length > 1) showToast(`✅ 已移動 ${group.length} 列`);
+}
+
+function moveColsByDrag(dragIdx, targetIdx) {
+    const theadTr = dataTable.querySelector('thead tr'); if (!theadTr) return;
+    const C = theadTr.children.length - 1;
+    const group = (selectedCols.length > 1 && selectedCols.includes(dragIdx))
+        ? Array.from(new Set(selectedCols)).filter(i => i >= 0 && i < C).sort((a, b) => a - b)
+        : [dragIdx];
+    if (group.includes(targetIdx)) return;
+
+    const selSet = new Set(group);
+    const rest = [];
+    for (let i = 0; i < C; i++) if (!selSet.has(i)) rest.push(i);
+    const tPos = rest.indexOf(targetIdx);
+    if (tPos < 0) return;
+    const insertPos = targetIdx > dragIdx ? tPos + 1 : tPos;
+
+    const newOrder = rest.slice(0, insertPos).concat(group, rest.slice(insertPos));
+    if (newOrder.every((v, i) => v === i)) return;   // 位置沒變
+
+    // 表頭與每一列：把被選的欄整批搬到新位置
+    const refIdx = insertPos < rest.length ? rest[insertPos] : null;
+    const moveIn = (tr) => {
+        const kids = tr.children;
+        const refEl = refIdx !== null ? kids[refIdx + 1] : null;
+        const els = group.map(i => kids[i + 1]);
+        const frag = document.createDocumentFragment();
+        els.forEach(el => frag.appendChild(el));
+        tr.insertBefore(frag, refEl);
+    };
+    moveIn(theadTr);
+    dataTable.querySelectorAll('tbody tr').forEach(moveIn);
+
+    // 公式的欄位參照：舊欄 → 新欄
+    const colMap = {};
+    newOrder.forEach((oldCol, newPos) => { colMap[oldCol] = newPos; });
+    adjustFormulasForColMove(dragIdx, targetIdx, colMap);
+
+    updateTableHeaders();
+    saveColNames(); saveColWidths(); saveHistoryState(); applyFreeze();
+
+    // 選取跟著移動後的欄
+    selectedCols = group.map((_, k) => insertPos + k);
+    selectedRows = []; selectedCellBlocks = []; lastClickedCell = null;
+    lastSelectedColIndex = insertPos; lastSelectedRowIndex = -1;
+    applySelectionVisuals();
+    if (group.length > 1) showToast(`✅ 已移動 ${group.length} 欄`);
+}
+
 dataTable.addEventListener('dragstart', (e) => {
     const thTop = e.target.closest('th.sticky-top');
     if (thTop) { dragType = 'col'; dragIndex = parseInt(thTop.dataset.col); return; }
@@ -1590,30 +1750,13 @@ dataTable.addEventListener('drop', (e) => {
         const targetTh = e.target.closest('th.sticky-top');
         if (targetTh && !targetTh.classList.contains('sticky-corner')) {
             const targetIndex = parseInt(targetTh.dataset.col);
-            if (targetIndex !== dragIndex) {
-                const theadTr = dataTable.querySelector('thead tr'); const thToMove = theadTr.children[dragIndex + 1];
-                const refTh = targetIndex > dragIndex ? theadTr.children[targetIndex + 2] : theadTr.children[targetIndex + 1];
-                theadTr.insertBefore(thToMove, refTh);
-                dataTable.querySelectorAll('tbody tr').forEach(tr => {
-                    const tdToMove = tr.children[dragIndex + 1]; const refTd = targetIndex > dragIndex ? tr.children[targetIndex + 2] : tr.children[targetIndex + 1];
-                    tr.insertBefore(tdToMove, refTd);
-                });
-				adjustFormulasForColMove(dragIndex, targetIndex);
-                updateTableHeaders();
-				saveColNames(); saveColWidths(); saveHistoryState(); applyFreeze();
-            }
+            if (targetIndex !== dragIndex) { moveColsByDrag(dragIndex, targetIndex); }
         }
     } else if (dragType === 'row') {
         const targetTh = e.target.closest('th.sticky-left');
         if (targetTh) {
             const tr = targetTh.closest('tr'); const targetIndex = getRowIndex(tr);
-            if (targetIndex !== dragIndex) {
-                const tbody = dataTable.querySelector('tbody'); const trToMove = tbody.children[dragIndex];
-                const refTr = targetIndex > dragIndex ? tbody.children[targetIndex + 1] : tbody.children[targetIndex];
-                tbody.insertBefore(trToMove, refTr);
-                updateTableHeaders();
-				saveHistoryState(); applyFreeze();
-            }
+            if (targetIndex !== dragIndex) { moveRowsByDrag(dragIndex, targetIndex); }
         }
     }
     dragType = null; dragIndex = -1;
@@ -1694,33 +1837,11 @@ dataTable.addEventListener('touchend', (e) => {
     if (currentDropTarget) {
         if (touchDragType === 'col') {
             const targetIndex = parseInt(currentDropTarget.dataset.col);
-            if (targetIndex !== touchDragIndex) {
-                const theadTr = dataTable.querySelector('thead tr'); 
-                const thToMove = theadTr.children[touchDragIndex + 1];
-                const refTh = targetIndex > touchDragIndex ? theadTr.children[targetIndex + 2] : theadTr.children[targetIndex + 1];
-                theadTr.insertBefore(thToMove, refTh);
-                
-                dataTable.querySelectorAll('tbody tr').forEach(tr => {
-                    const tdToMove = tr.children[touchDragIndex + 1]; 
-                    const refTd = targetIndex > touchDragIndex ? tr.children[targetIndex + 2] : tr.children[targetIndex + 1];
-                    tr.insertBefore(tdToMove, refTd);
-                });
-				adjustFormulasForColMove(touchDragIndex, targetIndex);
-                updateTableHeaders();
-				saveColNames(); saveColWidths(); saveHistoryState(); applyFreeze();
-            }
+            if (targetIndex !== touchDragIndex) { moveColsByDrag(touchDragIndex, targetIndex); }
         } else if (touchDragType === 'row') {
             const tr = currentDropTarget.closest('tr'); 
             const targetIndex = getRowIndex(tr);
-            if (targetIndex !== touchDragIndex) {
-                const tbody = dataTable.querySelector('tbody'); 
-                const trToMove = tbody.children[touchDragIndex];
-                const refTr = targetIndex > touchDragIndex ? tbody.children[targetIndex + 1] : tbody.children[targetIndex];
-                tbody.insertBefore(trToMove, refTr);
-                
-                updateTableHeaders();
-				saveHistoryState(); applyFreeze();
-            }
+            if (targetIndex !== touchDragIndex) { moveRowsByDrag(touchDragIndex, targetIndex); }
         }
     }
     
@@ -3772,14 +3893,17 @@ document.getElementById('btnApplyRemoveDuplicates').addEventListener('click', ()
 /* ==========================================
    公式動態參照更新引擎 (攔截欄位移動)
    ========================================== */
-function adjustFormulasForColMove(oldIdx, newIdx) {
-    if (oldIdx === newIdx) return;
+function adjustFormulasForColMove(oldIdx, newIdx, customMap) {
+    if (!customMap && oldIdx === newIdx) return;
 
     // 1. 建立欄位索引的新舊對照表 (Mapping)
     const colMap = {};
     for (let i = 0; i < 1000; i++) colMap[i] = i; // 初始化 1000 欄
 
-    if (oldIdx < newIdx) {
+    if (customMap) {
+        // 多欄一起移動：直接套用呼叫端給的「舊 → 新」對照表
+        Object.keys(customMap).forEach(k => { colMap[k] = customMap[k]; });
+    } else if (oldIdx < newIdx) {
         // 往右移：中間的欄位會全部往左遞補 (-1)
         for (let i = oldIdx + 1; i <= newIdx; i++) colMap[i] = i - 1;
         colMap[oldIdx] = newIdx;
