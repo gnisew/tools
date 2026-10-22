@@ -784,6 +784,25 @@
                         // 2. 取得目前的背景模式
                         const currentBgMode = qData.options?.[6] || 'dots';
                         
+                        // ✨ 新增：自訂背景圖片（固定鋪滿畫布，不隨平移/縮放移動）
+                        const wbBg = window.WB && window.WB.bg;
+                        const imgBg = wbBg ? wbBg.resolve(currentBgMode) : null;
+                        if (imgBg) {
+                            if (canvas._bgCss !== imgBg) { canvas.style.backgroundImage = imgBg; canvas._bgCss = imgBg; }
+                            canvas.style.backgroundRepeat = 'no-repeat';
+                            // ✨ 新增：設定「背景圖跟著白板移動」時，圖片以原始尺寸放在白板原點，隨平移/縮放移動
+                            const dim = qData.options?.[9] === 'true' ? wbBg.getSize(wbBg.resolveSrc(currentBgMode)) : null;
+                            if (dim) {
+                                canvas.style.backgroundSize = `${dim.w * window.boardZoom}px ${dim.h * window.boardZoom}px`;
+                                canvas.style.backgroundPosition = `${window.boardPan.x}px ${window.boardPan.y}px`;
+                            } else {
+                                canvas.style.backgroundSize = 'cover';
+                                canvas.style.backgroundPosition = 'center';
+                            }
+                        } else {
+                        canvas._bgCss = null;
+                        canvas.style.backgroundRepeat = 'repeat'; // ✨ 新增：從圖片切回網格時還原重複
+
                         // 3. 專業白板色彩風格
                         if (currentBgMode === 'dots') {
                             canvas.style.backgroundImage = `radial-gradient(circle, rgba(9, 30, 66, 0.12) 1.2px, transparent 2px)`;
@@ -795,6 +814,7 @@
 
                         canvas.style.backgroundSize = `${bgSize}px ${bgSize}px`;
                         canvas.style.backgroundPosition = `${window.boardPan.x}px ${window.boardPan.y}px`;
+                        }
                     }
                     
                     const scrollX = document.getElementById('board-scrollbar-x');
@@ -1035,6 +1055,9 @@
                     if (e.target.closest('button') || e.target.closest('#board-left-toolbar') || e.target.closest('#board-floating-header') || e.target.closest('#board-zoom-toolbar') || e.target.closest('#board-note-menu') || e.target.closest('.draggable-translator')) {
                         return;
                     }
+
+                    // 🛠️ [新增] 新的按下代表上一次拖曳必定已結束 (pointerup 可能遺失)，先強制收尾，避免狀態殘留
+                    forceEndBoardDrag();
                     
                     // 🌟 新增：如果啟用純檢視/平移模式，強制全部轉為平移，不執行後續選取與拖曳判斷
                     if (window.isBoardPanMode) {
@@ -1181,7 +1204,32 @@
                     }
                 });
 
-                document.addEventListener('pointermove', (e) => {
+                // 🛠️ [新增] 目前是否有任何「按住滑鼠才會進行」的互動 (平移 / 框選 / 拖曳便利貼 / 調整尺寸)
+                const isBoardBusy = () => isPanning || isMarquee || !!draggedNote || isResizingNote;
+
+                // 🛠️ [新增] 強制結束所有拖曳狀態 (pointerup 遺失時的保險)
+                const forceEndBoardDrag = () => {
+                    if (!isBoardBusy()) return;
+                    onDocPointerUp({ type: 'pointercancel', pointerId: undefined, clientX: startPos.x, clientY: startPos.y, target: canvas });
+                };
+
+                // 🛠️ [新增] 畫布已被換掉 (renderBoard 重新執行) 且閒置時，自動移除舊的全域監聽，避免累積
+                const detachIfStale = () => {
+                    if (canvas.isConnected || isBoardBusy()) return false;
+                    document.removeEventListener('pointermove', onDocPointerMove);
+                    document.removeEventListener('pointerup', onDocPointerUp);
+                    document.removeEventListener('pointercancel', onDocPointerUp);
+                    window.removeEventListener('blur', forceEndBoardDrag);
+                    return true;
+                };
+
+                const onDocPointerMove = (e) => {
+                    if (detachIfStale()) return;
+                    // 🛠️ [新增] 滑鼠/手寫筆已沒有按住任何鍵，卻仍在拖曳狀態 → pointerup 遺失，立刻收尾
+                    if ((e.pointerType === 'mouse' || e.pointerType === 'pen') && e.buttons === 0 && isBoardBusy()) {
+                        forceEndBoardDrag();
+                        return;
+                    }
                     if (isResizingNote && resizedNote) {
                         const dx = (e.clientX - dragStartX) / window.boardZoom;
                         const dy = (e.clientY - dragStartY) / window.boardZoom;
@@ -1282,7 +1330,8 @@
                         window.boardPan.y = initialPan.y + (e.clientY - startPos.y);
                         window.updateBoardView();
                     }
-                });
+                };
+                document.addEventListener('pointermove', onDocPointerMove);
 
                 // ✨ 綁定滑鼠滾輪事件 (完美實作：以游標為中心縮放)
                 canvas.addEventListener('wheel', (e) => {
@@ -1833,7 +1882,14 @@
                     }
                 };
 
-                document.addEventListener('pointerup', async (e) => {
+                const onDocPointerUp = async (e) => {
+                    if (detachIfStale()) return;
+                    const cancelled = e.type === 'pointercancel';                 // 🛠️ [新增] 取消 / 強制結束 (不是使用者真的「點一下」)
+                    if (cancelled && !isBoardBusy()) return;                      // 🛠️ [新增] 沒在拖曳就不處理
+                    // 🛠️ [新增] 安全釋放 pointer capture (pointerId 失效時不丟錯，避免狀態沒被清掉)
+                    const safeRelease = (el) => {
+                        try { if (el && e.pointerId !== undefined && typeof el.releasePointerCapture === 'function') el.releasePointerCapture(e.pointerId); } catch (_) {}
+                    };
                     if (isResizingNote && resizedNote) {
                         const noteId = resizedNote.dataset.id;
                         const bodyEl = resizedNote.querySelector('.note-body');
@@ -1859,9 +1915,8 @@
 
                     if (draggedNote) {
                         const currentNote = draggedNote;
-                        if (typeof currentNote.releasePointerCapture === 'function') {
-                            currentNote.releasePointerCapture(e.pointerId);
-                        }
+                        draggedNote = null;          // 🛠️ [修改] 先清除狀態，再做可能出錯的釋放
+                        safeRelease(currentNote);    // 🛠️ [修改] 原本直接 releasePointerCapture，出錯會讓便利貼一直黏著游標
 
                         const activeQId = ctx.getCurrentQ()?.id || qId;
                         const noteId = currentNote.dataset.id;
@@ -1872,7 +1927,7 @@
                         currentNote.style.zIndex = originalZ;
                         draggedNote = null;
                         
-                        if (!isDraggingNote) {
+                        if (!isDraggingNote && !cancelled) {   // 🛠️ [修改] 取消時不觸發摺疊
                             const fBtnClicked = currentNote._clickedFoldBtn;
                             if (fBtnClicked || isCollapsed) {
                                 currentMods[noteId] = { ...currentMods[noteId], collapsed: !isCollapsed };
@@ -1919,7 +1974,7 @@
                     let wasMarquee = isMarquee;
                     if (isMarquee) {
                         isMarquee = false;
-                        if (typeof canvas.releasePointerCapture === 'function') canvas.releasePointerCapture(e.pointerId);
+                        safeRelease(canvas);   // 🛠️ [修改] 改用安全釋放
                         
                         const selBox = document.getElementById('board-selection-box');
                         if (selBox) selBox.classList.add('hidden');
@@ -1934,13 +1989,11 @@
                     
                     if (isPanning) {
                         isPanning = false;
-                        if (typeof canvas.releasePointerCapture === 'function') {
-                            canvas.releasePointerCapture(e.pointerId);
-                        }
+                        safeRelease(canvas);   // 🛠️ [修改] 改用安全釋放
                         canvas.style.cursor = 'default'; 
 
                         // ✨ 智慧判定：如果滑鼠放開時，位置跟按下去時幾乎一樣 (單純點擊而非拖曳平移)
-                        if (Math.abs(e.clientX - startPos.x) < 5 && Math.abs(e.clientY - startPos.y) < 5) {
+                        if (!cancelled && Math.abs(e.clientX - startPos.x) < 5 && Math.abs(e.clientY - startPos.y) < 5) {   // 🛠️ [修改] 取消時不當成點擊
                             // 點擊空白處，取消所有選取！
                             document.getElementById('board-note-menu')?.classList.add('hidden');
                             document.getElementById('board-note-menu')?.classList.remove('flex');
@@ -1948,7 +2001,7 @@
                             window.selectedNotes.clear();
                             window.currentActiveNoteId = null;
                         }
-                    } else if (!wasMarquee && !e.target.closest('.sticky-note') && !e.target.closest('#board-note-menu') && !e.target.closest('#board-left-toolbar') && !e.target.closest('#board-left-fab') && !e.target.closest('#board-zoom-fab') && !e.target.closest('.draggable-translator') && !e.target.closest('#global-lang-submenu') && !e.target.closest('#btn-global-lang-toggle')) {
+                    } else if (!cancelled && !wasMarquee && !e.target.closest('.sticky-note') && !e.target.closest('#board-note-menu') && !e.target.closest('#board-left-toolbar') && !e.target.closest('#board-left-fab') && !e.target.closest('#board-zoom-fab') && !e.target.closest('.draggable-translator') && !e.target.closest('#global-lang-submenu') && !e.target.closest('#btn-global-lang-toggle')) {
                         // 防呆底線：其他情況下的空白處點擊清除選取
                         document.getElementById('board-note-menu')?.classList.add('hidden');
                         document.getElementById('board-note-menu')?.classList.remove('flex');
@@ -1960,6 +2013,16 @@
                         document.dispatchEvent(new Event('selectionchange'));
 
                     }
+                };
+                document.addEventListener('pointerup', onDocPointerUp);
+                // 🛠️ [新增] 以下事件都可能讓 pointerup 遺失，一律當成「放開」處理
+                document.addEventListener('pointercancel', onDocPointerUp);        // 瀏覽器取消 (原生拖曳、系統手勢…)
+                window.addEventListener('blur', forceEndBoardDrag);                // 切換視窗 / 分頁
+                canvas.addEventListener('contextmenu', (e) => {                    // Mac Ctrl+點擊會在按下時跳出右鍵選單
+                    if (isBoardBusy()) { e.preventDefault(); forceEndBoardDrag(); }
+                });
+                canvas.addEventListener('dragstart', (e) => {                      // 避免文字/圖片的原生拖曳打斷平移
+                    if (isBoardBusy()) e.preventDefault();
                 });
 
                 window.updateBoardView(); 
@@ -2398,6 +2461,65 @@
     }
 
     window.WB = { escapeHtml, showCustomConfirm, showBoardPrompt, renderBoard };
+
+    // ✨ 新增：白板自訂背景圖片
+    //   PRESETS：在程式裡指定的背景圖，格式 ['代號', '選單顯示名稱', '圖片網址']
+    //   上傳的圖片會縮小後以 dataURL 存在瀏覽器 localStorage（所有白板共用一張）
+    window.WB.bg = {
+        PRESETS: [
+            // ['sky',   '藍天',   'images/bg-sky.jpg'],
+            // ['paper', '紙張',   'https://example.com/paper.png'],
+        ],
+        UPLOAD_KEY: 'wesing-board-bg-upload',
+        _up: undefined,
+        _dims: {},
+        getUpload() {
+            if (this._up === undefined) {
+                try { this._up = localStorage.getItem(this.UPLOAD_KEY) || ''; } catch (e) { this._up = ''; }
+            }
+            return this._up;
+        },
+        setUpload(dataUrl) {              // 回傳是否儲存成功
+            try {
+                if (dataUrl) localStorage.setItem(this.UPLOAD_KEY, dataUrl);
+                else localStorage.removeItem(this.UPLOAD_KEY);
+                this._up = dataUrl || '';
+                this._dims = {};
+                return true;
+            } catch (e) { return false; }   // 容量不足
+        },
+        // 背景模式 → 圖片來源（網址或 dataURL）；不是圖片模式就回傳 ''
+        resolveSrc(mode) {
+            let src = '';
+            if (mode === 'upload') src = this.getUpload();
+            else if (typeof mode === 'string' && mode.startsWith('img:')) {
+                const hit = this.PRESETS.find(p => 'img:' + p[0] === mode);
+                if (hit) src = hit[2];
+            }
+            return src;
+        },
+        // 背景模式 → CSS 的 url(...)；不是圖片模式就回傳 null
+        resolve(mode) {
+            const src = this.resolveSrc(mode);
+            return src ? 'url("' + src.replace(/"/g, '%22') + '")' : null;
+        },
+        // ✨ 新增：取得圖片原始尺寸（「跟著白板移動」模式用）；尚未載入完成回傳 null，載入後會自動重繪
+        getSize(src) {
+            if (!src) return null;
+            if (this._dims[src]) return this._dims[src];
+            if (this._dims[src] === undefined) {
+                this._dims[src] = null;
+                const im = new Image();
+                im.onload = () => {
+                    this._dims[src] = { w: im.naturalWidth || 1, h: im.naturalHeight || 1 };
+                    if (typeof window.updateBoardView === 'function') window.updateBoardView();
+                };
+                im.onerror = () => { delete this._dims[src]; };
+                im.src = src;
+            }
+            return null;
+        }
+    };
 })();
 
 // =================================================================
@@ -2581,6 +2703,9 @@
             '#boardModeContainer #board-floating-header{display:none !important;}',
             // 白板模式：頂端工具列只留「模式切換」按鈕，浮在畫布左上角，其餘一律隱藏
             'body.board-mode-active #mainContainer{position:relative;}',
+            // ✨ 新增：白板模式滿版——移除 body 內距，以及外層編輯區的圓角/邊框/陰影
+            'body.board-mode-active{padding:0 !important;}',
+            'body.board-mode-active .editor-wrapper{border-radius:0 !important;border:none !important;box-shadow:none !important;margin:0 !important;}',
             // 沿用原工具列的內距，所以按鈕左右位置和其他模式一致；上方再多留 0.5rem，不要貼著上緣
             'body.board-mode-active #mainToolbar{position:absolute !important;top:0.5rem;left:0;z-index:5100;background:transparent !important;margin:0 !important;width:auto;pointer-events:none;}',
             'body.board-mode-active #mainToolbar > #dd-viewMode{pointer-events:auto;}',
@@ -2643,7 +2768,13 @@
                 <span class="material-symbols-outlined text-[18px] text-amber-500">tune</span>
                 <span class="text-sm font-extrabold text-gray-800">白板設定</span>
             </div>
-            ${row('畫布背景', select('wbs-bg', BG_OPTIONS, o[6] || 'dots'))}
+            ${row('畫布背景', select('wbs-bg', [...BG_OPTIONS, ...window.WB.bg.PRESETS.map(p => ['img:' + p[0], p[1]]), ['upload', '我的上傳圖片']], o[6] || 'dots'))}
+            <div class="flex items-center justify-end gap-2 -mt-1.5">
+                <button type="button" id="wbs-bg-upload" class="text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded px-2 py-1 cursor-pointer">上傳背景圖片…</button>
+                <button type="button" id="wbs-bg-clear" class="text-xs font-bold text-gray-500 bg-gray-50 hover:bg-gray-100 rounded px-2 py-1 cursor-pointer">清除上傳</button>
+                <input type="file" id="wbs-bg-file" accept="image/*" class="hidden">
+            </div>
+            ${row('背景圖跟著白板移動 / 縮放', check('wbs-bg-follow', o[9] === 'true'))}
             ${row('便利貼尺寸', select('wbs-size', SIZE_OPTIONS, o[5] || 'resize'))}
             <div class="text-[11px] font-bold text-gray-400 -mt-1.5 leading-snug">「寬、高」欄位只在「手動調整」時使用</div>
             ${row('貼齊格線', check('wbs-snap', o[7] === 'true'))}
@@ -2652,6 +2783,42 @@
         area.appendChild(panel);
 
         panel.querySelector('#wbs-bg').addEventListener('change', e => applySetting(6, e.target.value));
+
+        // ✨ 新增：上傳背景圖片（縮小到最長邊 1920px、轉 JPEG，避免超出 localStorage 容量）
+        const bgFile = panel.querySelector('#wbs-bg-file');
+        const bgSelect = panel.querySelector('#wbs-bg');
+        const toast = msg => { if (typeof showToast === 'function') showToast(msg); };
+        panel.querySelector('#wbs-bg-upload').addEventListener('click', () => bgFile.click());
+        bgFile.addEventListener('change', () => {
+            const file = bgFile.files && bgFile.files[0];
+            bgFile.value = '';
+            if (!file) return;
+            const url = URL.createObjectURL(file);
+            const img = new Image();
+            img.onload = () => {
+                const scale = Math.min(1, 1920 / Math.max(img.width, img.height));
+                const cv = document.createElement('canvas');
+                cv.width = Math.round(img.width * scale);
+                cv.height = Math.round(img.height * scale);
+                cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+                URL.revokeObjectURL(url);
+                if (window.WB.bg.setUpload(cv.toDataURL('image/jpeg', 0.82))) {
+                    bgSelect.value = 'upload';
+                    applySetting(6, 'upload');
+                    toast('✅ 已套用背景圖片');
+                } else {
+                    toast('⚠️ 圖片太大，瀏覽器儲存空間不足');
+                }
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); toast('⚠️ 無法讀取這個圖片'); };
+            img.src = url;
+        });
+        panel.querySelector('#wbs-bg-clear').addEventListener('click', () => {
+            window.WB.bg.setUpload('');
+            if ((S.qData.options[6] || 'dots') === 'upload') { bgSelect.value = 'dots'; applySetting(6, 'dots'); }
+            toast('已清除上傳的背景圖片');
+        });
+        panel.querySelector('#wbs-bg-follow').addEventListener('change', e => applySetting(9, e.target.checked ? 'true' : 'false'));
         panel.querySelector('#wbs-size').addEventListener('change', e => applySetting(5, e.target.value));
         panel.querySelector('#wbs-snap').addEventListener('change', e => applySetting(7, e.target.checked ? 'true' : 'false'));
         panel.querySelector('#wbs-dbl').addEventListener('change', e => applySetting(4, e.target.value));

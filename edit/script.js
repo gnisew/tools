@@ -758,6 +758,16 @@ function getFolderFromUrl() {
 
 
 // 解決直接連結進入後「返回」路徑錯誤的問題
+/* ✨ 新增：依模式套用「介面寬度」——白板模式一律 100%，其他模式沿用使用者設定的寬度 */
+function applyEditorWidthForMode(mode) {
+    if (!mainContainer) return;
+    if (mode === 'board') {
+        mainContainer.style.maxWidth = '100%';
+    } else {
+        mainContainer.style.maxWidth = localStorage.getItem(EDITOR_WIDTH_KEY) || '800px';
+    }
+}
+
 function switchMode(mode, isForce = false, dataOverride = null, configOverride = null) {
     if (currentMode === mode && !isForce) return;
 
@@ -800,6 +810,9 @@ function switchMode(mode, isForce = false, dataOverride = null, configOverride =
     // 記下切換前的模式
     const previousMode = currentMode;
     currentMode = mode; 
+
+    // ✨ 新增：依新模式套用介面寬度（白板 100%，其他模式還原設定寬度）
+    applyEditorWidthForMode(mode);
 
     // ✨ 新增：切換到對話模式時才預載翻譯字典（translate.js 尚未載入完成時會自動略過，由它自己的初始化處理）
     if (mode === 'chat' && typeof window.preloadChatDictionaries === 'function') {
@@ -1844,8 +1857,8 @@ document.getElementById('dd-lineHeight').addEventListener('change', (e) => {
 });
 document.getElementById('dd-editorWidth')?.addEventListener('change', (e) => { 
     const val = e.detail.value;
-    mainContainer.style.maxWidth = val; 
     localStorage.setItem(EDITOR_WIDTH_KEY, val);
+    applyEditorWidthForMode(currentMode); // 修改：白板模式維持 100%，不被設定值覆蓋
     
     if (val === '100%') {
         document.body.classList.add('full-width-mode');
