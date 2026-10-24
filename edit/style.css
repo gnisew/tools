@@ -1,7 +1,7 @@
 :root {
     --editor-font-size: 16px;
     --editor-line-height: 1.6;
-    --table-white-space: pre-wrap;
+    --table-white-space: pre; /* 🌟 [修改] 預設改為不換行 */
     --main-font: twhei-s, TWHEI, "台灣黑體", tauhu-oo, PingFangTC-Regular, "Microsoft JhengHei", sans-serif; 
     --ui-font: twhei-s, TWHEI, "台灣黑體", "Microsoft JhengHei", ui-sans-serif, system-ui, sans-serif;
 	--row-num-valign: middle;
@@ -44,8 +44,30 @@ select.code-text,
     line-height: var(--editor-line-height) !important;
 }
 
+/* 🌟 [新增] 尋找與取代視窗：輸入框字體大小固定，不跟著編輯器字體大小變動
+   （比上面的 input.code-text !important 規則權重高，所以能蓋過去；字型 font-family 仍沿用編輯器字型） */
+#findReplaceModal input.code-text {
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+}
+
+/* [修改] 其他浮動視窗：輸入框／下拉選單字體大小固定，不跟著編輯器字體大小變動
+   （做法同上；16px 也可避免手機 Safari 點選時自動放大畫面）
+   涵蓋：分詞統計、編號設定、自動填滿、自動公式、自動拆分、自動合併、輸入提示窗、尋找取代的批次輸入框
+   日後新增浮動視窗，把它的 #id 加進下面的清單即可 */
+#wordStatsModal  :is(input, select, textarea).code-text,
+#numberingModal  :is(input, select, textarea).code-text,
+#autoFillModal   :is(input, select, textarea).code-text,
+#autoFormulaModal :is(input, select, textarea).code-text,
+#autoSplitModal  :is(input, select, textarea).code-text,
+#autoMergeModal  :is(input, select, textarea).code-text,
+#promptModal     :is(input, select, textarea).code-text,
+#findReplaceModal textarea.code-text {
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+}
+
 textarea#editor,
-.line-numbers,
 table#data-table td,
 .td-inner {
     font-family: var(--main-font) !important;
@@ -58,7 +80,8 @@ table#data-table th {
 }
 
 
-#textModeContainer { display: flex; flex: 1; width: 100%; height: 100%; overflow: hidden; }
+#textModeContainer { display: flex; flex: 1; width: 100%; height: 100%; overflow: hidden;
+    timeline-scope: --editor-scroll; /* 🌟 [新增] 讓行號能讀取編輯器的捲動進度 */ }
 
 #tableModeContainer { 
     display: none; flex: 1; width: 100%; height: 100%; 
@@ -66,16 +89,45 @@ table#data-table th {
     overscroll-behavior-x: contain; /* 新增這行：防止手機橫向滑動觸發上一頁 */
 }
 
+/* 🌟 [修改] 行號欄：字體不再跟編輯器 1:1 放大，欄寬依「行數的位數」自動調整
+   · 字體：編輯器字體的 75%，但限制在 11px～15px（編輯器 32px 時行號也只有 15px）
+   · 欄寬：位數 × 1ch + 留白（--ln-digits 由 script.js 的 updateLineNumbers 依行數設定，至少 3 位）
+   · 行高：與編輯器「第一行」同高，數字才會跟文字第一行垂直對齊 */
 .line-numbers {
-    width: 3rem; background-color: #f9fafb; color: #9ca3af; text-align: right;
-    padding-right: 0.5rem; padding-top: 1rem; padding-bottom: 1rem;
+    --ln-digits: 3;
+    --ln-font-size: clamp(11px, calc(var(--editor-font-size) * 0.75), 15px);
+    --ln-first-line: calc(var(--editor-line-height) * var(--editor-font-size));
+    font-family: var(--main-font) !important;
+    font-size: var(--ln-font-size);
+    line-height: var(--ln-first-line);
+    font-variant-numeric: tabular-nums;
+    box-sizing: border-box; flex: none;
+    width: calc(var(--ln-digits) * 1ch + 0.75rem + 1px);
+    background-color: #f9fafb; color: #9ca3af; text-align: right;
+    padding-left: 0.25rem; padding-right: 0.5rem; padding-top: 1rem; padding-bottom: 1rem;
     user-select: none; overflow: hidden; border-right: 1px solid #e5e7eb;
 }
 .line-number-item { display: flex; align-items: flex-start; justify-content: flex-end; }
 
+/* 🌟 [新增] 行號隨文字同步捲動 */
+#lineNumbersInner { will-change: transform; }
+
+/* 支援「捲動驅動動畫」的瀏覽器：位移由合成器處理，與文字完全同步 */
+@supports (animation-timeline: scroll()) {
+    #lineNumbersInner {
+        --ln-range: 0px; /* 可捲動距離，由 script.js 更新 */
+        animation: ln-follow linear both;
+        animation-timeline: --editor-scroll; /* 必須寫在 animation 簡寫之後 */
+    }
+    @keyframes ln-follow {
+        to { transform: translate3d(0, calc(var(--ln-range, 0px) * -1), 0); }
+    }
+}
+
 textarea#editor {
     flex: 1; width: 100%; height: 100%; padding: 1rem; border: none; outline: none; resize: none;
     white-space: var(--table-white-space); word-break: break-all; overflow: auto;
+    scroll-timeline: --editor-scroll block; /* 🌟 [新增] 宣告捲動時間軸 */
 }
 
 /* ================= 表格進階樣式 ================= */
@@ -122,12 +174,15 @@ table#data-table th.sticky-left {
     left: 0; 
     z-index: 20; 
     border-left: 1px solid #cbd5e1; 
-    width: 4.5rem !important; 
-    min-width: 4.5rem !important; 
-    max-width: 4.5rem !important; 
+    width: var(--row-head-w, 4.5rem) !important;      /* 🌟 [修改] 寬度改由 --row-head-w 控制（依列數位數自動加寬） */
+    min-width: var(--row-head-w, 4.5rem) !important; 
+    max-width: var(--row-head-w, 4.5rem) !important; 
     vertical-align: var(--row-num-valign) !important;
 }
-table#data-table th.sticky-corner { position: sticky; top: 0; left: 0; z-index: 30; border-top: 1px solid #cbd5e1; border-left: 1px solid #cbd5e1; width: 4.5rem !important; min-width: 4.5rem !important; max-width: 4.5rem !important; cursor: default; background-color: #f8fafc;}
+
+/* 🌟 [新增] 列號文字左右留白縮小（原本 px-2 各 8px），把空間讓給數字，「列選項」箭頭才不會被擠出去 */
+table#data-table th.sticky-left .row-label { padding-left: 2px; padding-right: 2px; min-width: 0; }
+table#data-table th.sticky-corner { position: sticky; top: 0; left: 0; z-index: 30; border-top: 1px solid #cbd5e1; border-left: 1px solid #cbd5e1; width: var(--row-head-w, 4.5rem) !important; min-width: var(--row-head-w, 4.5rem) !important; max-width: var(--row-head-w, 4.5rem) !important; cursor: default; background-color: #f8fafc;}
 
 /* 儲存格內部容器：隔離結構與文字 */
 .td-inner {
@@ -209,6 +264,22 @@ body.col-resizing, body.col-resizing * { cursor: col-resize !important; user-sel
 ::-webkit-scrollbar-track { background: #f1f1f1; }
 ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 6px; }
 ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+
+/* 🌟 [新增] 文字模式編輯器 / 表格模式的滾動條：行數很多時，拖曳區塊也不會縮到太小 */
+textarea#editor::-webkit-scrollbar,
+#tableModeContainer::-webkit-scrollbar { width: 16px; height: 16px; }
+textarea#editor::-webkit-scrollbar-thumb,
+#tableModeContainer::-webkit-scrollbar-thumb { border-radius: 8px; }
+textarea#editor::-webkit-scrollbar-thumb:vertical,
+#tableModeContainer::-webkit-scrollbar-thumb:vertical { min-height: 64px; }   /* 直向拖曳塊最短 64px */
+textarea#editor::-webkit-scrollbar-thumb:horizontal,
+#tableModeContainer::-webkit-scrollbar-thumb:horizontal { min-width: 64px; }  /* 橫向拖曳塊最短 64px */
+
+/* 🌟 [新增] 滾動條上的游標一律用箭頭，不要繼承文字輸入框的 I 形游標 */
+textarea#editor::-webkit-scrollbar,
+textarea#editor::-webkit-scrollbar-track,
+textarea#editor::-webkit-scrollbar-thumb,
+textarea#editor::-webkit-scrollbar-corner { cursor: default; }
 
 /* ================= 細版捲動條專用樣式 ================= */
 .scrollbar-thin::-webkit-scrollbar { 
@@ -858,6 +929,16 @@ table#data-table:not(.table-nowrap) .td-inner {
 table#data-table.table-wrap-word .td-inner {
     word-break: normal;
     overflow-wrap: normal;
+}
+
+/* 🌟 [新增] 字體大小微調列：隱藏數字輸入框的上下小箭頭；微調期間（.submenu-pinned）子選單固定顯示 */
+#fontSizeInput { -moz-appearance: textfield; appearance: textfield; }
+#fontSizeInput::-webkit-outer-spin-button,
+#fontSizeInput::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+@media (min-width: 769px) {
+    .group\/submenu.submenu-pinned > div:last-child {
+        display: block !important;
+    }
 }
 
 /* ===== 桌面版：游標離開子選單的列後保留一小段時間，讓游標能跨過縫隙移進子選單 ===== */

@@ -3614,12 +3614,12 @@ window.launchLiveMode = function(rawData, configs) {
             (p[`board_${qId}`] || []).forEach(n => {
                 const m = mods[n.id] || {};
                 if (m.deleted) return;
-                notes.push({ id: n.id, author: p.name, text: m.text || n.text, color: m.color || n.color, mine: p.name === me, nx: n.x, ny: n.y });
+                notes.push({ id: n.id, author: p.name, text: m.text || n.text, color: m.color || n.color, img: m.img, mine: p.name === me, nx: n.x, ny: n.y });   // 🖼️ 帶入 img
             });
         });
         Object.keys(mods).forEach(k => {
             const m = mods[k];
-            if (m && m.isTeacher && !m.deleted) notes.push({ id: k, author: m.author || '老師', text: m.text, color: m.color || 'yellow', mine: false });
+            if (m && m.isTeacher && !m.deleted) notes.push({ id: k, author: m.author || '老師', text: m.text, color: m.color || 'yellow', img: m.img, mine: false });   // 🖼️ 帶入 img
         });
 
         wrap.innerHTML = '<div id="sbv-layer" style="position:absolute;left:0;top:0;transform-origin:0 0;"></div>';
@@ -3633,18 +3633,45 @@ window.launchLiveMode = function(rawData, configs) {
             const x = m.x !== undefined ? m.x : (n.nx !== undefined ? n.nx : 100 + (idx % 6) * 160);
             const y = m.y !== undefined ? m.y : (n.ny !== undefined ? n.ny : 100 + Math.floor(idx / 6) * 160);
             const isText = n.color === 'text';
+            const hasImg = typeof n.img === 'string' && /^(https?:\/\/|data:image\/(png|jpe?g|webp|gif);base64,)/i.test(n.img);   // 🖼️ 圖片便利貼
             const el = document.createElement('div');
             el.style.cssText = `position:absolute;left:${x}px;top:${y}px;z-index:${m.z !== undefined ? m.z : 10};box-sizing:border-box;`;
             const body = document.createElement('div');
             let w = 140, h = 140;
             if (sizeMode === 'resize') { w = m.w || 140; h = m.h || 140; }
-            if (m.collapsed && !isText) { w = 140; h = 28; }
-            if (isText) {
+            if (m.collapsed && !isText && !hasImg) { w = 140; h = 28; }
+            if (hasImg) {
+                // 🖼️ 圖片便利貼：寬度可由老師調整（預設 200px），高度依圖片比例自動
+                const bg = isText ? 'transparent' : (palette[n.color] || palette.yellow);
+                body.style.cssText = `width:${m.w || 200}px;box-sizing:border-box;padding:${isText ? 0 : 6}px;background:${bg};${isText ? '' : 'border:1px solid rgba(0,0,0,.08);border-radius:2px;box-shadow:0 1px 3px rgba(0,0,0,.12);'}font-size:13px;line-height:1.5;text-align:center;color:#1f2937;white-space:pre-wrap;word-break:break-word;`;
+            } else if (isText) {
                 body.style.cssText = `width:${m.w ? m.w + 'px' : 'max-content'};max-width:${m.w ? 'none' : '300px'};font-weight:800;font-size:18px;text-align:left;color:#1f2937;white-space:pre-wrap;word-break:break-word;`;
             } else {
                 body.style.cssText = `width:${w}px;height:${h}px;background:${palette[n.color] || palette.yellow};border:1px solid rgba(0,0,0,.08);border-radius:2px;box-shadow:0 1px 3px rgba(0,0,0,.12);padding:8px;font-size:14px;line-height:1.5;text-align:center;color:#1f2937;overflow:hidden;white-space:pre-wrap;word-break:break-word;${n.mine ? 'outline:3px solid #0d9488;outline-offset:1px;' : ''}`;
             }
-            body.textContent = (m.collapsed && !isText) ? '' : n.text;
+            if (hasImg) {
+                const im = document.createElement('img');
+                im.referrerPolicy = 'no-referrer';
+                im.draggable = false;
+                im.alt = n.text || '（圖片無法顯示）';
+                im.style.cssText = 'display:block;width:100%;height:auto;border-radius:4px;pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,.18);';
+                // 圖片載入完成後重算一次縮放（只對沒看過的圖片重算一次，避免無限重繪）
+                window._sbvImgLoaded = window._sbvImgLoaded || new Set();
+                im.addEventListener('load', () => {
+                    if (!window._sbvImgLoaded.has(n.img)) { window._sbvImgLoaded.add(n.img); window.scheduleStudentBoardView && window.scheduleStudentBoardView(); }
+                });
+                im.addEventListener('error', () => { im.style.cssText += 'min-height:72px;background:#f3f4f6;color:#9ca3af;font-size:12px;'; });
+                im.src = n.img;
+                body.appendChild(im);
+                if (n.text) {
+                    const cap = document.createElement('div');
+                    cap.style.cssText = 'padding-top:6px;';
+                    cap.textContent = n.text;
+                    body.appendChild(cap);
+                }
+            } else {
+                body.textContent = (m.collapsed && !isText) ? '' : n.text;
+            }
             el.appendChild(body);
             if (showAuthor && !isText) {
                 const a = document.createElement('div');

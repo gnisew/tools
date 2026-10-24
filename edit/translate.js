@@ -90,12 +90,14 @@ function updateTableHeaders() {
         const lbl = theadThs[i].querySelector('.col-label');
         const colName = theadThs[i].dataset.colName;
         if (lbl) {
-            lbl.textContent = colName ? `${getColLabel(i - 1)} ${colName}` : getColLabel(i - 1);
+            const txt = colName ? `${getColLabel(i - 1)} ${colName}` : getColLabel(i - 1);
+            if (lbl.textContent !== txt) lbl.textContent = txt;   // [修改] 沒變就不寫入
         }
     }
     dataTable.querySelectorAll('tbody tr').forEach((tr, index) => {
         const lbl = tr.querySelector('.row-label');
-        if (lbl) lbl.textContent = index + 1;
+        // [修改] 編號沒變就不寫入（避免上萬次無謂的 DOM 寫入與 MutationObserver 記錄）
+        if (lbl && lbl.textContent !== String(index + 1)) lbl.textContent = index + 1;
     });
 }
 
@@ -106,19 +108,26 @@ document.getElementById('dd-freeze').addEventListener('change', (e) => {
     applyFreeze();
 });
 
+let _freezeApplied = false;   // [新增] 上次是否真的套用過凍結樣式
 function applyFreeze() {
+    const needFreeze = currentMode === 'table' && frozenRowsCount !== 0;
+    // [新增] 沒有凍結、也沒有舊的凍結樣式要清 → 直接跳過（原本每次都清全表每個儲存格）
+    if (!needFreeze && !_freezeApplied) return;
+
     dataTable.querySelectorAll('tbody th, tbody td').forEach(cell => {
         cell.style.position = ''; cell.style.top = ''; cell.style.zIndex = '';
         cell.style.backgroundColor = ''; cell.style.borderBottom = '';
     });
+    _freezeApplied = false;
 
-    if (currentMode !== 'table' || frozenRowsCount === 0) return;
+    if (!needFreeze) return;
 
     const thead = dataTable.querySelector('thead');
+    const tbodyEl = dataTable.querySelector('tbody');   // [新增] 迴圈外取一次
     let currentTop = thead ? thead.getBoundingClientRect().height : 36;
 
     for (let i = 0; i < frozenRowsCount; i++) {
-        const tr = dataTable.querySelectorAll('tbody tr')[i];
+        const tr = tbodyEl ? tbodyEl.children[i] : null;   // [修改] 原本每圈都 querySelectorAll('tbody tr') 掃全表
         if (!tr) break;
 
         const th = tr.querySelector('th');
@@ -139,6 +148,7 @@ function applyFreeze() {
         });
         currentTop += tr.getBoundingClientRect().height;
     }
+    _freezeApplied = true;   // [新增]
 }
 
 

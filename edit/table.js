@@ -369,7 +369,7 @@ function handleClearAction() {
             // 刪除選取文字，並將游標停留在刪除處
             editor.setRangeText('', editor.selectionStart, editor.selectionEnd, 'end');
             editor.focus();
-            localStorage.setItem(STORAGE_KEY, editor.value);
+            saveLegacyContent(editor.value);   // 🌟 [修改] 巨量內容不再塞進 localStorage
             debouncedSaveHistory();
             updateLineNumbers();
             showToast('🗑️ 選取文字已清除');
@@ -733,6 +733,7 @@ function applySelectionVisuals() {
     const C = theadTr.children.length - 1;
     
     if (selectedRows.length === 0 && selectedCols.length === 0 && selectedCellBlocks.length === 0) {
+        clearTimeout(window._autoSumTimer);   // [新增] 取消還在等待的加總
         if (typeof updateAutoSum === 'function') updateAutoSum(new Set());
         return;
     }
@@ -754,13 +755,13 @@ function applySelectionVisuals() {
     // 收集所有選取的座標
     selectedRows.forEach(r => {
         if(r >= 0 && r < R) {
-            for(let c = 0; c < C; c++) selMap.add(`${r},${c}`);
+            for(let c = 0; c < C; c++) selMap.add(r * C + c);
         }
     });
     
     selectedCols.forEach(c => {
         if(c >= 0 && c < C) {
-            for(let r = 0; r < R; r++) selMap.add(`${r},${c}`);
+            for(let r = 0; r < R; r++) selMap.add(r * C + c);
         }
     });
     
@@ -772,16 +773,14 @@ function applySelectionVisuals() {
 
         for (let r = minR; r <= maxR; r++) {
             for (let c = minC; c <= maxC; c++) {
-                selMap.add(`${r},${c}`);
+                selMap.add(r * C + c);
             }
         }
     });
 
     // 依據收集到的座標，精準繪製邊框與底色
-    selMap.forEach(coord => {
-        const [rStr, cStr] = coord.split(',');
-        const r = parseInt(rStr, 10);
-        const c = parseInt(cStr, 10);
+    selMap.forEach(key => {
+        const r = (key / C) | 0, c = key % C;   // [修改] 數字 key 解碼
         
         const tr = tbody.children[r];
         if (!tr) return;
@@ -789,10 +788,10 @@ function applySelectionVisuals() {
         if (!td) return;
 
         // 判斷上下左右相鄰的格子是否也被選取，決定是否要畫藍框
-        const hasTop = r > 0 && selMap.has(`${r - 1},${c}`);
-        const hasBottom = r < R - 1 && selMap.has(`${r + 1},${c}`);
-        const hasLeft = c > 0 && selMap.has(`${r},${c - 1}`);
-        const hasRight = c < C - 1 && selMap.has(`${r},${c + 1}`);
+        const hasTop = r > 0 && selMap.has((r - 1) * C + c);
+        const hasBottom = r < R - 1 && selMap.has((r + 1) * C + c);
+        const hasLeft = c > 0 && selMap.has(r * C + c - 1);
+        const hasRight = c < C - 1 && selMap.has(r * C + c + 1);
 
         let top = !hasTop ? '2px' : '0';
         let bottom = !hasBottom ? '-2px' : '0';
@@ -813,7 +812,13 @@ function applySelectionVisuals() {
     });
 
     if (typeof updateAutoSum === 'function') {
-        updateAutoSum(selMap);
+        clearTimeout(window._autoSumTimer);
+        if (selMap.size > 2000) {
+            // [修改] 大量選取（拖曳中）：防抖 120ms，放開後才算
+            window._autoSumTimer = setTimeout(() => updateAutoSum(selMap, C), 120);
+        } else {
+            updateAutoSum(selMap, C);
+        }
     }
 }
 
@@ -1063,6 +1068,8 @@ function handleTablePaste(text) {
         }
     };
 
+    let pastedRange = null;   // 🌟 [新增] 一般貼上實際寫入的範圍，貼完後用來自動選取
+
     // 填滿模式
     if (data.length === 1 && data[0].length === 1 && isMultiTarget) {
         const sourceText = data[0][0];
@@ -1103,11 +1110,29 @@ function handleTablePaste(text) {
                 if (inner) applyPastedCell(inner, data[r][c], startRow + r, startCol + c);
             }
         }
+
+        // 🌟 [新增] 記下貼上的範圍（左上角 → 右下角）
+        pastedRange = {
+            startR: startRow,
+            startC: startCol,
+            endR: startRow + data.length - 1,
+            endC: Math.max(startCol, maxColsNeeded - 1)
+        };
     }
 
     updateTableHeaders();
     recalculateAllFormulas();     
     debouncedSaveHistory(); applyFreeze();
+
+    // 🌟 [新增] 貼上完成後，自動選取剛貼上的範圍（填滿模式沿用原本的選取，不更動）
+    if (pastedRange) {
+        selectedRows = []; selectedCols = [];
+        lastSelectedRowIndex = -1; lastSelectedColIndex = -1;
+        selectedCellBlocks = [pastedRange];
+        lastClickedCell = { r: pastedRange.startR, c: pastedRange.startC };   // 之後按 Shift+點擊，會從貼上的左上角延伸
+        if (window.getSelection) window.getSelection().removeAllRanges();     // 清掉文字反白，避免和藍色選取框重疊
+        applySelectionVisuals();
+    }
 }
 
 /* ---------------------------------
@@ -1534,6 +1559,8 @@ function getRowHeaderZone(e) {
 let rowDragSelectStart = -1;      // 起點列索引 (-1 表示未在拖曳選取)
 let rowDragSelectBase = [];       // 按住 Ctrl 時，保留原本已選取的列
 window.isRowDragSelecting = false;
+let lastDragRow = -1;      // [新增] 上一次處理的列（同列內移動不重算）
+let dragSelRaf = 0;        // [新增] rAF 節流
 
 // 拖曳經過其他列時，擴充選取範圍（被篩選隱藏的列會略過）
 dataTable.addEventListener('mouseover', (e) => {
@@ -1544,6 +1571,8 @@ dataTable.addEventListener('mouseover', (e) => {
     const curRow = getRowIndex(tr);
     if (curRow < 0) return;
     if (curRow === rowDragSelectStart && !window.isRowDragSelecting) return; // 還沒離開起點列
+    if (curRow === lastDragRow) return;   // [新增] 同一列內移動（經過不同儲存格）不重算
+    lastDragRow = curRow;                 // [新增]
 
     window.isRowDragSelecting = true;
     const start = Math.min(rowDragSelectStart, curRow);
@@ -1560,7 +1589,8 @@ dataTable.addEventListener('mouseover', (e) => {
     selectedRows = Array.from(new Set([...rowDragSelectBase, ...range]));
     lastSelectedRowIndex = rowDragSelectStart;
 
-    applySelectionVisuals();
+    // [修改] 原本直接 applySelectionVisuals()，改為一個畫面影格最多畫一次
+    if (!dragSelRaf) dragSelRaf = requestAnimationFrame(() => { dragSelRaf = 0; applySelectionVisuals(); });
     window.getSelection().removeAllRanges(); // 防止拖曳時反白文字
 });
 
@@ -1568,6 +1598,7 @@ dataTable.addEventListener('mouseover', (e) => {
 document.addEventListener('mouseup', () => {
     rowDragSelectStart = -1;
     rowDragSelectBase = [];
+    lastDragRow = -1;   // [新增]
     // 延遲到 click 事件之後再解除旗標，讓 click 能被略過
     setTimeout(() => { window.isRowDragSelecting = false; }, 0);
 });
@@ -1661,7 +1692,7 @@ function moveRowsByDrag(dragIdx, targetIdx) {
     tbody.insertBefore(frag, refRow);
 
     updateTableHeaders();
-    saveHistoryState(); applyFreeze();
+    debouncedSaveHistory(); applyFreeze();   // [修改] saveHistoryState() → debouncedSaveHistory()
 
     // 選取跟著移動後的列
     selectedRows = group.map((_, k) => insertPos + k);
@@ -1725,25 +1756,38 @@ dataTable.addEventListener('dragstart', (e) => {
     if (thLeft) { dragType = 'row'; const tr = thLeft.closest('tr'); dragIndex = getRowIndex(tr); }
 });
 
+// [修改] dragover：只在「目標改變」時才更新高亮，不再每次掃描全表
+let lastDragOverEl = null;   // [新增]
+function clearDragOver() {   // [新增]
+    if (lastDragOverEl) { lastDragOverEl.classList.remove('drag-over-col', 'drag-over-row'); lastDragOverEl = null; }
+}
 dataTable.addEventListener('dragover', (e) => {
     e.preventDefault();
-    dataTable.querySelectorAll('.drag-over-col, .drag-over-row').forEach(el => el.classList.remove('drag-over-col', 'drag-over-row'));
+    let el = null;
     if (dragType === 'col') {
         const target = e.target.closest('th.sticky-top');
-        if (target && !target.classList.contains('sticky-corner')) target.classList.add('drag-over-col');
+        if (target && !target.classList.contains('sticky-corner')) el = target;
     } else if (dragType === 'row') {
         const target = e.target.closest('th.sticky-left');
-        if (target) target.closest('tr').classList.add('drag-over-row');
+        if (target) el = target.closest('tr');
     }
+    if (el === lastDragOverEl) return;   // 目標沒變就跳過
+    clearDragOver();
+    if (el) { el.classList.add(dragType === 'col' ? 'drag-over-col' : 'drag-over-row'); lastDragOverEl = el; }
 });
 
+// [修改] dragleave：只有真的離開整個表格才清除（避免子元素切換造成閃爍／高亮消失）
 dataTable.addEventListener('dragleave', (e) => {
-    const tgtCol = e.target.closest('th.sticky-top'); if (tgtCol) tgtCol.classList.remove('drag-over-col');
-    const tgtRow = e.target.closest('th.sticky-left'); if (tgtRow) tgtRow.closest('tr').classList.remove('drag-over-row');
+    if (e.relatedTarget && dataTable.contains(e.relatedTarget)) return;
+    clearDragOver();
 });
+
+// [新增] 拖曳結束（含拖到視窗外放開）清除殘留高亮
+dataTable.addEventListener('dragend', () => { clearDragOver(); });
 
 dataTable.addEventListener('drop', (e) => {
     e.preventDefault();
+    lastDragOverEl = null;   // [新增] 下一行會整批清除高亮（只做一次，不影響效能）
     dataTable.querySelectorAll('.drag-over-col, .drag-over-row').forEach(el => el.classList.remove('drag-over-col', 'drag-over-row'));
     
     if (dragType === 'col') {
@@ -1767,6 +1811,7 @@ let touchDragType = null;
 let touchDragIndex = -1;
 let currentDropTarget = null;
 let touchStartTimer = null; 
+let touchMoveRaf = 0;   // [新增] touchmove 的 rAF 節流
 
 dataTable.addEventListener('touchstart', (e) => {
     // 確保是按在欄列標籤上
@@ -1800,29 +1845,36 @@ dataTable.addEventListener('touchmove', (e) => {
     
     e.preventDefault(); // 確認開始拖曳後，阻止畫面跟著滾動
     const touch = e.touches[0];
-    
-    // 取得手指目前位置下方的元素 (模擬 hover 效果)
-    const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
-    if (!targetElement) return;
+    const cx = touch.clientX, cy = touch.clientY;
 
-    // 清除舊的高亮標記
-    dataTable.querySelectorAll('.drag-over-col, .drag-over-row').forEach(el => el.classList.remove('drag-over-col', 'drag-over-row'));
-    currentDropTarget = null;
+    // [修改] 一個畫面影格最多處理一次（原本每個 touchmove 都做 elementFromPoint + 掃全表）
+    if (touchMoveRaf) return;
+    touchMoveRaf = requestAnimationFrame(() => {
+        touchMoveRaf = 0;
+        if (!touchDragType) return;   // [新增] 已放開手指就不處理
+        const targetElement = document.elementFromPoint(cx, cy);
+        if (!targetElement) return;
 
-    // 依照拖曳類型加上新的高亮標記
-    if (touchDragType === 'col') {
-        const targetTh = targetElement.closest('th.sticky-top');
-        if (targetTh && !targetTh.classList.contains('sticky-corner')) {
-            targetTh.classList.add('drag-over-col');
-            currentDropTarget = targetTh;
+        let el = null;   // el 為 th；高亮的元素：欄 = th、列 = tr
+        if (touchDragType === 'col') {
+            const targetTh = targetElement.closest('th.sticky-top');
+            if (targetTh && !targetTh.classList.contains('sticky-corner')) el = targetTh;
+        } else if (touchDragType === 'row') {
+            el = targetElement.closest('th.sticky-left');
         }
-    } else if (touchDragType === 'row') {
-        const targetTh = targetElement.closest('th.sticky-left');
-        if (targetTh) {
-            targetTh.closest('tr').classList.add('drag-over-row');
-            currentDropTarget = targetTh;
+        if (el === currentDropTarget) return;   // [新增] 目標沒變就跳過
+
+        // [修改] 只清除上一個高亮，不掃全表
+        if (currentDropTarget) {
+            (touchDragType === 'row' ? currentDropTarget.closest('tr') : currentDropTarget)
+                .classList.remove('drag-over-col', 'drag-over-row');
         }
-    }
+        if (el) {
+            (touchDragType === 'row' ? el.closest('tr') : el)
+                .classList.add(touchDragType === 'col' ? 'drag-over-col' : 'drag-over-row');
+        }
+        currentDropTarget = el;
+    });
 }, { passive: false });
 
 dataTable.addEventListener('touchend', (e) => {
@@ -5001,7 +5053,11 @@ function applyAutoSumState() {
     }
 }
 
-function updateAutoSum(selMap) {
+function updateAutoSum(selMap, C) {
+    if (C === undefined) {   // [新增] 相容舊呼叫（未傳欄數）
+        const h = dataTable.querySelector('thead tr');
+        C = h ? Math.max(1, h.children.length - 1) : 1;
+    }
     const autoSumWidget = document.getElementById('autoSumWidget');
     if (!autoSumWidget) return;
     
@@ -5018,10 +5074,8 @@ function updateAutoSum(selMap) {
     const nums = [];
 
     // 遍歷當下選取的儲存格坐標
-    selMap.forEach(coord => {
-        const [rStr, cStr] = coord.split(',');
-        const r = parseInt(rStr, 10);
-        const c = parseInt(cStr, 10);
+    selMap.forEach(key => {
+        const r = (key / C) | 0, c = key % C;   // [修改] 數字 key 解碼
         
         const tr = tbody.children[r];
         if (!tr) return;

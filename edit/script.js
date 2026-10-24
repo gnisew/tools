@@ -67,6 +67,7 @@ const editor = document.getElementById('editor');
 const dataTable = document.getElementById('data-table');
 const tableControls = document.getElementById('tableControls');
 const lineNumbers = document.getElementById('lineNumbers');
+const lineNumbersInner = document.getElementById('lineNumbersInner'); // 🌟 [新增] 行號內層（用 transform / CSS 動畫位移）
 const mainContainer = document.getElementById('mainContainer');
 const floatingTool = document.getElementById('floating-tool');
 const colMenu = document.getElementById('colMenu');
@@ -92,6 +93,11 @@ const FREEZE_ROWS_KEY = 'wesing-freeze-rows';
 const SHOW_TEXT_LINE_NUMBERS_KEY = 'wesing-show-line-numbers';
 const ROW_NUM_ALIGN_KEY = 'wesing-row-num-align';
 let isShowTextLineNumbers = true;
+// 🌟 [新增] 換行與行號的三種模式（預設：不換行）
+//  'nowrap'  ＝ 不換行
+//  'wrap'    ＝ 換行（換行處不加行號；行號對齊每個邏輯行的第一列）
+//  'wrapnum' ＝ 換行（換行處也加行號；每一個顯示列都有編號）
+let lineWrapMode = 'nowrap';
 
 let currentMode = 'text';
 
@@ -103,6 +109,162 @@ const ACTIVE_TAB_KEY = 'wesing-active-tab';
 
 let sheetTabs = [];
 let activeSheetIndex = 0;
+
+/* ==========================================
+   🌟 [新增] 巨量資料儲存：混合做法 (localStorage + IndexedDB)
+   - 一般分頁：照舊存在 localStorage（速度最快、行為完全不變）
+   - 巨量分頁（字數 ≥ IDB_TAB_THRESHOLD）：內容用 fflate 壓縮後存進 IndexedDB，
+     localStorage 裡只留一個標記 { id, idb: true, content: '' }
+   - IndexedDB 不能用時，自動退回「全部存 localStorage」的舊行為
+========================================== */
+const IDB_NAME = 'wesing-editor-db';
+const IDB_STORE = 'bigTabs';
+const IDB_TAB_THRESHOLD = 100000;     // 單一分頁超過此字數 → 改存 IndexedDB
+const IDB_TAB_RELEASE = 60000;        // 已在 IndexedDB 的分頁，掉到此字數以下才搬回 localStorage（避免在門檻附近來回搬）
+const INLINE_FALLBACK_MAX = 1500000;  // IndexedDB 還沒有版本的巨量分頁，localStorage 暫時內嵌的字數上限（超過就等 IndexedDB 寫完再存）
+const IDB_READ_TIMEOUT = 30000;       // 啟動時等待 IndexedDB 讀取的上限 (ms)；期間畫面右下角一直顯示「巨量資料載入中...」
+
+let idbUnavailable = false;           // IndexedDB 開不了 → 全部退回 localStorage
+let idbPromise = null;
+const idbTabState = new Map();        // tab.id → { snapshot: IndexedDB 內目前版本的文字 (沒有則 undefined), failed: 讀取失敗 }
+const idbGarbage = new Set();         // 等 localStorage 更新成功後，要從 IndexedDB 刪除的舊紀錄 id
+const bigTabCache = {};               // 啟動時預先讀回的巨量分頁內容 (tab.id → 文字)
+
+function newTabId() {
+    return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+// ---- IndexedDB 底層 ----
+function idbOpen() {
+    if (idbPromise) return idbPromise;
+    idbPromise = new Promise((resolve, reject) => {
+        if (!window.indexedDB) return reject(new Error('此瀏覽器不支援 IndexedDB'));
+        let req;
+        try { req = indexedDB.open(IDB_NAME, 1); } catch (e) { return reject(e); }
+        req.onupgradeneeded = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+        };
+        req.onsuccess = () => {
+            const db = req.result;
+            db.onversionchange = () => { db.close(); idbPromise = null; };  // 其他視窗要升級／刪除資料庫時主動讓路
+            resolve(db);
+        };
+        req.onerror = () => reject(req.error);
+        req.onblocked = () => reject(new Error('IndexedDB 被其他視窗佔用'));
+    });
+    idbPromise.catch(() => { idbPromise = null; idbUnavailable = true; });
+    return idbPromise;
+}
+
+// 以「交易完成」(oncomplete) 才算成功，確保真的寫進硬碟
+function idbTx(mode, fn) {
+    return idbOpen().then(db => new Promise((resolve, reject) => {
+        let result, tx;
+        try {
+            tx = db.transaction(IDB_STORE, mode);
+            const req = fn(tx.objectStore(IDB_STORE));
+            if (req) req.onsuccess = () => { result = req.result; };
+        } catch (e) { return reject(e); }
+        tx.oncomplete = () => resolve(result);
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error || new Error('IndexedDB 交易中止'));
+    }));
+}
+const idbGet = key => idbTx('readonly', s => s.get(key));
+const idbPut = (key, val) => idbTx('readwrite', s => s.put(val, key));
+const idbDelete = key => idbTx('readwrite', s => s.delete(key));
+
+// 壓縮：優先用 fflate 的非同步版（在 Worker 執行，不卡畫面）；失敗就改同步版，再失敗就存原文
+// fast = true（離開頁面時）：不壓縮，直接存原文，確保來得及送出寫入
+function idbPack(text, fast) {
+    if (fast || typeof fflate === 'undefined') return Promise.resolve({ z: false, data: text });
+    return new Promise(resolve => {
+        let u8;
+        try { u8 = fflate.strToU8(text); } catch (e) { return resolve({ z: false, data: text }); }
+        const syncFallback = () => {
+            try { resolve({ z: true, data: fflate.deflateSync(u8, { level: 4 }) }); }
+            catch (e) { resolve({ z: false, data: text }); }
+        };
+        try {
+            fflate.deflate(u8, { level: 6 }, (err, out) => err ? syncFallback() : resolve({ z: true, data: out }));
+        } catch (e) { syncFallback(); }
+    });
+}
+function idbUnpack(rec) {
+    if (rec == null) return null;
+    if (typeof rec === 'string') return rec;
+    if (rec.z) return fflate.strFromU8(fflate.inflateSync(rec.data));
+    return typeof rec.data === 'string' ? rec.data : null;
+}
+
+// ---- 分頁狀態判斷 ----
+function idbSt(tab) { return tab.id ? idbTabState.get(tab.id) : undefined; }
+function idbHasCopy(tab) { const st = idbSt(tab); return !!st && st.snapshot !== undefined; }
+function idbIsSynced(tab) { const st = idbSt(tab); return !!st && st.snapshot === tab.content; }
+// 是不是「巨量分頁」（已在 IndexedDB 的分頁有滯後區間，避免在門檻附近來回搬）
+function isBigTab(tab) {
+    if (idbUnavailable) return false;
+    const len = (tab.content || '').length;
+    return len >= IDB_TAB_THRESHOLD || (len >= IDB_TAB_RELEASE && idbHasCopy(tab));
+}
+
+// 確保每個分頁都有「唯一」的 id（複製分頁時 id 會重複，這裡會自動換新的）
+function normalizeTabIds() {
+    const seen = new Set();
+    sheetTabs.forEach(tab => {
+        const st = tab.id ? idbTabState.get(tab.id) : null;
+        if (st && st.failed && tab.content) {   // 讀取失敗的分頁，使用者已輸入新內容 → 換新 id，舊紀錄之後清掉
+            idbGarbage.add(tab.id); idbTabState.delete(tab.id); tab.id = null;
+        }
+        if (!tab.id || seen.has(tab.id)) tab.id = newTabId();
+        seen.add(tab.id);
+    });
+}
+
+// 需要從 IndexedDB 刪除的舊紀錄：已刪除的分頁、已縮小搬回 localStorage 的分頁、換過 id 的舊紀錄
+function idbOrphanIds() {
+    const ids = new Set(idbGarbage);
+    const alive = new Map(sheetTabs.map(t => [t.id, t]));
+    idbTabState.forEach((st, id) => {
+        const tab = alive.get(id);
+        if (!tab || (!st.failed && st.snapshot !== undefined && !isBigTab(tab))) ids.add(id);
+    });
+    return Array.from(ids);
+}
+
+// 啟動時：預先把所有「標記為 idb」的分頁內容讀回來（loadTabsData 是同步的，所以要先讀好）
+function preloadBigTabs(raw) {
+    let ids = [];
+    try { ids = JSON.parse(raw).filter(t => t && t.idb && t.id).map(t => t.id); } catch (e) {}
+    return Promise.all(ids.map(id =>
+        idbGet(id)
+            .then(rec => { const text = idbUnpack(rec); if (typeof text === 'string') bigTabCache[id] = text; })
+            .catch(e => console.warn('讀取 IndexedDB 分頁失敗:', id, e))
+    ));
+}
+
+// 「清空記憶」時一併刪除整個 IndexedDB
+function idbDestroy() {
+    return new Promise(resolve => {
+        try {
+            const closing = idbPromise ? idbPromise.then(db => db.close(), () => {}) : Promise.resolve();
+            closing.then(() => {
+                idbPromise = null;
+                const req = indexedDB.deleteDatabase(IDB_NAME);
+                req.onsuccess = req.onerror = req.onblocked = () => resolve();
+            });
+        } catch (e) { resolve(); }
+    });
+}
+
+// 舊版相容：另存一份「目前內容」到 STORAGE_KEY。內容太大就不存（避免吃掉 localStorage 配額，或丟出 QuotaExceededError）
+function saveLegacyContent(text) {
+    try {
+        if (typeof text === 'string' && text.length < IDB_TAB_THRESHOLD) localStorage.setItem(STORAGE_KEY, text);
+        else localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {}
+}
 
 // 記住每個工作表的上次編輯位置（捲動 + 游標／選取格）
 const VIEW_STATE_KEY = 'wesing-view-state';
@@ -415,7 +577,53 @@ function setDropdownValue(id, value) {
 }
 
 /* 系統初始化與記憶設定讀取 */
+// 🌟 [新增] 啟動時讀取巨量資料期間，右下角顯示「巨量資料載入中...」（全部載入完成後自動消失）
+function showBootLoading() {
+    try {
+        if (document.getElementById('bootLoadingTip')) return;
+        const el = document.createElement('div');
+        el.id = 'bootLoadingTip';
+        el.setAttribute('role', 'status');
+        el.textContent = '⏳ 巨量資料載入中...';   // 🌟 [修改] 原本是「正在載入...」，統一用這一個提示
+        el.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:99999;padding:8px 14px;border-radius:8px;' +
+            'background:rgba(30,41,59,.92);color:#fff;font-size:14px;line-height:1.2;pointer-events:none;' +
+            'box-shadow:0 2px 8px rgba(0,0,0,.25);';
+        (document.body || document.documentElement).appendChild(el);
+        setTimeout(hideBootLoading, 300000);   // 保險：萬一出錯，最久 5 分鐘後自動移除
+    } catch (e) {}
+}
+function hideBootLoading() {
+    try { const el = document.getElementById('bootLoadingTip'); if (el) el.remove(); } catch (e) {}
+}
+// 等「大表格分批渲染」也完成後才隱藏（tableRenderInProgress 由 renderTableFromText 控制）
+function hideBootLoadingWhenReady() {
+    const t0 = Date.now();
+    const check = () => {
+        if (tableRenderInProgress && Date.now() - t0 < 300000) { setTimeout(check, 150); return; }
+        requestAnimationFrame(() => requestAnimationFrame(hideBootLoading));   // 再等兩個畫面，確保最後一批已畫出
+    };
+    check();
+}
+
+// 🌟 [修改] init 改名為 initCore；新的 init 只負責「有巨量分頁時，先從 IndexedDB 預讀再啟動」
+//    沒有巨量分頁時（一般使用）走原本的同步路徑，行為與速度完全不變。
 function init() {
+    const raw = localStorage.getItem(TABS_DATA_KEY);
+    if (raw && raw.indexOf('"idb":true') !== -1) {
+        let started = false;
+        const go = () => {
+            if (started) return; started = true;
+            try { initCore(); } finally { hideBootLoadingWhenReady(); }   // 🌟 [修改] 不再先隱藏，等啟動與表格渲染都完成才消失
+        };
+        showBootLoading();   // 🌟 [新增] 右下角顯示「巨量資料載入中...」
+        preloadBigTabs(raw).then(go, go);
+        setTimeout(go, IDB_READ_TIMEOUT);   // 保險：IndexedDB 卡住時，最多等這麼久就先啟動
+    } else {
+        initCore();
+    }
+}
+
+function initCore() {
     initDropdowns();
     initMobileMoreMenu();
 	// 綁定退出遊戲的按鈕
@@ -483,13 +691,14 @@ function init() {
         setDropdownValue('dd-lineHeight', savedLineHeight);
     }
     
+    // 🌟 [修改] 換行設定：支援三種模式，沒有儲存紀錄時預設為「不換行」
     const savedWordWrap = localStorage.getItem(WORD_WRAP_KEY);
-    if (savedWordWrap) {
-        editor.style.whiteSpace = savedWordWrap;
-        document.documentElement.style.setProperty('--table-white-space', savedWordWrap);
-        if (savedWordWrap === 'pre') dataTable.classList.add('table-nowrap');
-        else dataTable.classList.remove('table-nowrap');
+    if (savedWordWrap === 'pre' || savedWordWrap === 'pre-wrap' || savedWordWrap === 'pre-wrap-num') {
+        applyWordWrapMode(savedWordWrap);
         setDropdownValue('dd-wordWrap', savedWordWrap);
+    } else {
+        applyWordWrapMode('pre');
+        setDropdownValue('dd-wordWrap', 'pre');
     }
 
     const savedFreeze = localStorage.getItem(FREEZE_ROWS_KEY);
@@ -990,8 +1199,41 @@ function updateModeButtonUI(mode) {
 /* 復原系統 (Undo) */
 // 上次存檔時的實際字數。表格/對話模式下 editor.value 不會即時更新，改用它來估算資料量
 let lastHistoryTextLength = 0;
-// 超過此字數的資料，不在每次防抖時寫入 localStorage（原本就是 100000）
+// 超過此字數的資料，不在每次防抖時「立即」寫入 localStorage（每次序列化數 MB 會卡頓）
 const AUTO_SAVE_TEXT_LIMIT = 100000;
+
+// 🌟 [新增] 巨量資料的「延後存檔」：
+//    以前超過上限就完全不寫入 localStorage（貼上巨量文字後重新整理，內容就不見了）。
+//    現在改成：停止編輯 BIG_SAVE_DELAY 毫秒後再存一次；離開頁面、切到背景時也會立刻補存。
+const BIG_SAVE_DELAY = 3000;
+var bigSaveTimer = 0;       // 用 var：函式在宣告之前被呼叫時也不會出錯
+var bigSavePending = false; // 有「尚未寫入 localStorage 的巨量資料」
+var historyDirty = false;   // 有「還在防抖等待、尚未進入 saveHistoryState」的編輯
+
+function scheduleBigSave() {
+    bigSavePending = true;
+    if (!idbUnavailable) idbOpen().catch(() => {});   // 🌟 [新增] 預先開好 IndexedDB 連線，之後寫入更快
+    clearTimeout(bigSaveTimer);
+    bigSaveTimer = setTimeout(flushBigSave, BIG_SAVE_DELAY);
+}
+function flushBigSave() {
+    clearTimeout(bigSaveTimer);
+    bigSaveTimer = 0;
+    if (!bigSavePending) return;
+    bigSavePending = false;
+    if (!isAutoSaveEnabled) return;   // 自動儲存關閉：不寫入（重新開啟時 saveAllTabsData 會補存）
+    writeTabsToStorage();
+}
+// 離開頁面／切到背景：先把還在防抖中的編輯結算，再把巨量資料寫入
+function flushPendingSaves() {
+    idbFastMode = true;   // 🌟 [新增] 離開頁面：巨量資料不壓縮、直接送出寫入 IndexedDB
+    if (historyDirty) {
+        clearTimeout(saveTimeout);
+        saveHistoryState();
+    }
+    flushBigSave();
+    idbFastMode = false;  // 🌟 [新增]
+}
 
 function debouncedSaveHistory() {
     clearTimeout(saveTimeout);
@@ -999,10 +1241,12 @@ function debouncedSaveHistory() {
         ? editor.value.length
         : Math.max(editor.value.length, lastHistoryTextLength);
     const delayTime = textLength > 50000 ? 1500 : 500; 
+    historyDirty = true;   // 🌟 [新增]
     saveTimeout = setTimeout(saveHistoryState, delayTime);
 }
 
 function saveHistoryState() {
+    historyDirty = false;   // 🌟 [新增]
     if (isUndoing) return;
     
     let text = editor.value;
@@ -1033,10 +1277,14 @@ function saveHistoryState() {
         sheetTabs[activeSheetIndex].content = text;
         sheetTabs[activeSheetIndex].history = historyStack;
         sheetTabs[activeSheetIndex].mode = currentMode;
+        scheduleBigSave();   // 🌟 [新增] 不再略過：延後 BIG_SAVE_DELAY 毫秒後寫入 localStorage
     }
 }
 
 function triggerUndo() {
+    // [修改] 所有模式：復原前先把「還在防抖等待、尚未進入歷史」的最新修改結算成一個歷史節點。
+    //        否則 pop() 會把上一個已存的節點丟掉，造成「一次還原兩次修改」。（原本只有表格模式處理）
+    if (historyDirty) { clearTimeout(saveTimeout); saveHistoryState(); }
     // 白板的歷史紀錄有 0.5 秒防抖：復原前先存一次，避免剛改完立刻復原會一次退兩步
     if (currentMode === 'board') saveHistoryState();
     if (historyStack.length <= 1) return showToast('⚠️ 沒有可復原的操作');
@@ -1058,7 +1306,7 @@ function triggerUndo() {
     } else if (currentMode === 'board') {
         if (typeof window.renderBoardFromText === 'function') window.renderBoardFromText(previousState);
     }
-    localStorage.setItem(STORAGE_KEY, previousState);
+    saveLegacyContent(previousState);   // 🌟 [修改] 原本直接 localStorage.setItem，巨量內容會丟出 QuotaExceededError
     isUndoing = false;
     showToast('↩️ 已復原');
 }
@@ -1159,6 +1407,29 @@ function createThRowHTML(index) {
         </div>`;
 }
 
+// 🌟 [新增] 列標頭寬度依「列數的位數」自動調整（≤ 4 位數維持 4.5rem，之後每多一位數加寬 1ch）
+//    列數變多時，列號變長，「列選項」箭頭才不會被擠出列標頭之外
+let rowHeadWidthCache = '';
+let rowHeadRaf = 0;
+function updateRowHeadWidth() {
+    const tb = dataTable.tBodies[0];
+    const digits = Math.max(1, String(tb ? tb.rows.length : 0).length);
+    const w = digits > 4 ? `calc(4.5rem + ${digits - 4}ch + 0.25rem)` : '4.5rem';
+    if (w !== rowHeadWidthCache) {
+        rowHeadWidthCache = w;
+        document.documentElement.style.setProperty('--row-head-w', w);
+    }
+}
+// 只在「整個表格被重建」或「列被新增 / 刪除」（tbody 的子節點變動）時重算；儲存格內打字不會觸發
+new MutationObserver((muts) => {
+    for (const m of muts) {
+        if (m.target === dataTable || m.target.tagName === 'TBODY') {
+            if (!rowHeadRaf) rowHeadRaf = requestAnimationFrame(() => { rowHeadRaf = 0; updateRowHeadWidth(); });
+            break;
+        }
+    }
+}).observe(dataTable, { childList: true, subtree: true });
+
 function parseTSV(text) {
     const parsedRows = []; let currentRow = []; let currentCell = ''; let inQuotes = false;
     for (let i = 0; i < text.length; i++) {
@@ -1182,6 +1453,7 @@ function parseTSV(text) {
 function renderTableFromText(text) {
     tableRenderInProgress = true;
     const parsedRows = parseTSV(text);
+    if (parsedRows.length > 1000) showBootLoading();   // 🌟 [新增] 大表格分批渲染期間，右下角顯示「巨量資料載入中...」
     let maxCols = 1; 
     parsedRows.forEach(row => { if (row.length > maxCols) maxCols = row.length; });
 
@@ -1216,9 +1488,7 @@ function renderTableFromText(text) {
     let currentRowIndex = 0;
     const CHUNK_SIZE = 500; // 每次產生 500 行，可依據效能微調
 
-    if (typeof showToast === 'function' && parsedRows.length > 1000) {
-        showToast('⏳ 巨量資料載入中，請稍候...');
-    }
+    // 🌟 [刪除] 原本這裡會跳出 3 秒的「巨量資料載入中，請稍候...」，與右下角常駐提示重複，改由上方 showBootLoading() 一個提示負責
 
     // 2. 建立分批渲染函數
     function renderChunk() {
@@ -1262,6 +1532,7 @@ function renderTableFromText(text) {
             updateTableHeaders();
             recalculateAllFormulas();
             tableRenderInProgress = false;
+            hideBootLoading();   // 🌟 [新增] 表格全部渲染完才移除提示
             if (pendingTableView) {
                 pendingTableView = false;
                 viewCaptureLockedUntil = Date.now() + 1000; // 等下一個畫面（容器顯示後）再還原
@@ -1761,6 +2032,143 @@ function countLines(text) {
     return n;
 }
 
+// 🌟 [新增] 行號與文字同步捲動
+const LN_USE_CSS_TIMELINE = !!(window.CSS && CSS.supports && CSS.supports('animation-timeline: scroll()'));
+let lnLastRange = -1;
+let lnRangeRaf = 0;
+
+// 更新「可捲動距離」給 CSS 動畫用；不支援 CSS 動畫時改用 transform 同步
+function syncLineNumbersScroll() {
+    if (LN_USE_CSS_TIMELINE) {
+        const range = Math.max(0, editor.scrollHeight - editor.clientHeight);
+        if (range !== lnLastRange) {
+            lnLastRange = range;
+            lineNumbersInner.style.setProperty('--ln-range', range + 'px');
+        }
+    } else {
+        lineNumbersInner.style.transform = `translate3d(0, ${-editor.scrollTop}px, 0)`;
+    }
+}
+
+function scheduleLineNumbersRange() {
+    if (lnRangeRaf) return;
+    lnRangeRaf = requestAnimationFrame(() => { lnRangeRaf = 0; syncLineNumbersScroll(); });
+}
+
+// 編輯器尺寸改變（視窗縮放、版面寬度切換）時，重新計算
+let lnLastEditorWidth = 0;
+if (window.ResizeObserver) new ResizeObserver(() => {
+    scheduleLineNumbersRange();
+    // 🌟 [新增] 換行模式下，編輯器寬度改變 → 換行位置跟著變，行號高度需重新量測
+    const w = editor.clientWidth;
+    if (w && w !== lnLastEditorWidth) {
+        lnLastEditorWidth = w;
+        if (lineWrapMode !== 'nowrap' && currentMode === 'text') debouncedUpdateLineNumbers();
+    }
+}).observe(editor);
+// 🌟 [新增] 網頁字型載入完成後字寬會改變，行號高度要重算
+if (document.fonts && document.fonts.addEventListener) {
+    document.fonts.addEventListener('loadingdone', () => { if (currentMode === 'text') debouncedUpdateLineNumbers(); });
+}
+
+// 🌟 [新增] 套用換行模式（'pre' 不換行 / 'pre-wrap' 換行不加號 / 'pre-wrap-num' 換行加號）
+function applyWordWrapMode(value) {
+    lineWrapMode = value === 'pre-wrap' ? 'wrap' : (value === 'pre-wrap-num' ? 'wrapnum' : 'nowrap');
+    const ws = lineWrapMode === 'nowrap' ? 'pre' : 'pre-wrap';
+    editor.style.whiteSpace = ws;
+    document.documentElement.style.setProperty('--table-white-space', ws);
+    if (ws === 'pre') dataTable.classList.add('table-nowrap');
+    else dataTable.classList.remove('table-nowrap');
+}
+
+// 🌟 [新增] 換行模式下，量測「每個邏輯行」在目前寬度下佔幾個顯示列
+//   · 以「行內容」為 key 快取結果；打字時只有被修改的那一行需要重新量測
+//   · 字型、字級、行距、編輯器寬度任何一項改變 → 快取自動清空
+const LN_MEASURE_MAX_LINES = 30000;   // 超過此行數，換行模式的行號改用簡化顯示（避免卡頓）
+let lnMeasureCache = new Map();
+let lnMeasureKey = '';
+let lnLastHtml = '';
+let lnWarnedTooMany = false;
+
+function measureLineRows(lines, lhPx) {
+    const style = window.getComputedStyle(editor);
+    const contentW = editor.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    const key = [style.fontFamily, style.fontSize, style.fontWeight, style.letterSpacing,
+                 style.tabSize, style.wordBreak, style.overflowWrap, style.lineHeight, contentW].join('|');
+    if (key !== lnMeasureKey || lnMeasureCache.size > lines.length * 2 + 2000) {
+        lnMeasureCache = new Map();
+        lnMeasureKey = key;
+    }
+
+    // 找出還沒量過的行（相同內容只量一次）
+    const todo = [];
+    for (let i = 0; i < lines.length; i++) {
+        if (!lnMeasureCache.has(lines[i])) { lnMeasureCache.set(lines[i], 1); todo.push(lines[i]); }
+    }
+
+    if (todo.length) {
+        mirror.style.fontFamily = style.fontFamily;
+        mirror.style.fontSize = style.fontSize;
+        mirror.style.fontWeight = style.fontWeight;
+        mirror.style.letterSpacing = style.letterSpacing;
+        mirror.style.tabSize = style.tabSize;
+        mirror.style.lineHeight = style.lineHeight;
+        mirror.style.whiteSpace = 'pre-wrap';
+        mirror.style.wordBreak = style.wordBreak;
+        mirror.style.overflowWrap = style.overflowWrap;
+        mirror.style.width = `${Math.max(1, contentW)}px`;
+
+        const frag = document.createDocumentFragment();
+        for (let i = 0; i < todo.length; i++) {
+            const div = document.createElement('div');
+            div.textContent = todo[i].length === 0 ? '\u200b' : todo[i];
+            frag.appendChild(div);
+        }
+        mirror.textContent = '';
+        mirror.appendChild(frag);
+
+        const kids = mirror.children;
+        for (let i = 0; i < todo.length; i++) {
+            const h = kids[i].getBoundingClientRect().height;
+            lnMeasureCache.set(todo[i], Math.max(1, Math.round(h / lhPx)));
+        }
+        mirror.textContent = '';
+    }
+
+    const rows = new Array(lines.length);
+    for (let i = 0; i < lines.length; i++) rows[i] = lnMeasureCache.get(lines[i]);
+    return rows;
+}
+
+// 🌟 [新增] 固定行高的行號：只增減尾端項目（不換行、換行加號、行數過多時使用）
+function renderFixedLineNumbers(count) {
+    if (lineNumbersMode !== 'fixed') {
+        lineNumbersInner.innerHTML = '';
+        lineNumbersMode = 'fixed';
+        lnLastHtml = '';
+    }
+    const have = lineNumbersInner.childElementCount;
+    if (count > have) {
+        const parts = new Array(count - have);
+        for (let i = 0; i < parts.length; i++) {
+            // 高度跟著「行距」設定走
+            parts[i] = `<div class="line-number-item" style="height: var(--ln-first-line);">${have + i + 1}</div>`;
+        }
+        lineNumbersInner.insertAdjacentHTML('beforeend', parts.join(''));
+    } else {
+        for (let i = have; i > count; i--) lineNumbersInner.lastElementChild.remove();
+    }
+}
+
+function setLineNumberDigits(maxNumber) {
+    // 行號欄寬度依「位數」自動調整（至少 3 位，避免剛跨位數時寬度抖動）
+    const lnDigits = Math.max(3, String(maxNumber).length);
+    if (lineNumbers.dataset.digits !== String(lnDigits)) {
+        lineNumbers.dataset.digits = lnDigits;
+        lineNumbers.style.setProperty('--ln-digits', lnDigits);
+    }
+}
+
 function updateLineNumbers() {
     if (currentMode !== 'text') return;
     // 行號被隱藏時不需更新（重新開啟時，切換開關的程式會再呼叫一次）
@@ -1768,55 +2176,49 @@ function updateLineNumbers() {
 
     const text = editor.value;
     const lineCount = countLines(text);
-    const isNoWrap = window.getComputedStyle(editor).whiteSpace === 'pre';
+    let mode = lineWrapMode;
 
-    // 【固定行高】大於 2000 行，或「不換行」模式（每個邏輯行必定只佔一行）
-    if (lineCount > 2000 || isNoWrap) {
-        // 從「逐行測量」模式切過來 → 舊項目高度不可沿用，清空重建
-        if (lineNumbersMode !== 'fixed') {
-            lineNumbers.innerHTML = '';
-            lineNumbersMode = 'fixed';
+    // 【不換行】每個邏輯行必定只佔一列 → 固定行高
+    // 【行數過多】換行模式逐行量測太慢 → 退回固定行高（換行處行號可能對不齊）
+    if (mode !== 'nowrap' && lineCount > LN_MEASURE_MAX_LINES) {
+        if (!lnWarnedTooMany) {
+            lnWarnedTooMany = true;
+            showToast(`⚠️ 行數超過 ${LN_MEASURE_MAX_LINES} 行，換行模式的行號改為簡化顯示`);
         }
-        const have = lineNumbers.childElementCount;
-        if (lineCount > have) {
-            // 行數增加：只補上新增的行號（打字沒換行時 lineCount === have，什麼都不做）
-            const parts = new Array(lineCount - have);
-            for (let i = 0; i < parts.length; i++) {
-                // 高度跟著「行距」設定走（原本寫死 1.6em，行距不是 1.6 時會對不齊）
-                parts[i] = `<div class="line-number-item" style="height: calc(var(--editor-line-height) * 1em);">${have + i + 1}</div>`;
-            }
-            lineNumbers.insertAdjacentHTML('beforeend', parts.join(''));
-        } else {
-            // 行數減少：移除尾端多出來的行號
-            for (let i = have; i > lineCount; i--) lineNumbers.lastElementChild.remove();
-        }
-        return; // 提早結束，不執行下方的複雜運算
+        mode = 'nowrap';
+    }
+    if (mode === 'nowrap') {
+        setLineNumberDigits(lineCount);
+        renderFixedLineNumbers(lineCount);
+        syncLineNumbersScroll();
+        return;
     }
 
-    // 【原有邏輯】少於 2000 行且自動換行時，維持精準的自動換行高度測量
-    lineNumbersMode = 'measured';
-    const lines = text.split('\n');
+    // 【換行模式】量測每個邏輯行佔幾列
     const style = window.getComputedStyle(editor);
-    mirror.style.fontFamily = style.fontFamily; 
-    mirror.style.fontSize = style.fontSize;
-    mirror.style.lineHeight = style.lineHeight; 
-    mirror.style.whiteSpace = style.whiteSpace; 
-    mirror.style.wordBreak = style.wordBreak;
-    mirror.style.width = `${editor.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)}px`;
-    mirror.innerHTML = '';
-    
-    lines.forEach(line => { 
-        const div = document.createElement('div'); 
-        div.textContent = line.length === 0 ? '\u200b' : line; 
-        mirror.appendChild(div); 
-    });
-    
-    let numbersHtml = ''; 
-    const measureDivs = mirror.children;
-    for (let i = 0; i < lines.length; i++) { 
-        numbersHtml += `<div class="line-number-item" style="height: ${measureDivs[i].getBoundingClientRect().height}px;">${i + 1}</div>`; 
+    const lhPx = parseFloat(style.lineHeight) || (parseFloat(style.fontSize) * 1.6);
+    const rows = measureLineRows(text.split('\n'), lhPx);
+
+    if (mode === 'wrapnum') {
+        // 【換行（加號）】每一個顯示列都有編號 → 總列數個固定行高項目
+        let total = 0;
+        for (let i = 0; i < rows.length; i++) total += rows[i];
+        setLineNumberDigits(total);
+        renderFixedLineNumbers(total);
+    } else {
+        // 【換行（不加號）】行號放在每個邏輯行的第一列，項目高度 = 列數 × 行高
+        setLineNumberDigits(lineCount);
+        let html = '';
+        for (let i = 0; i < rows.length; i++) {
+            html += `<div class="line-number-item" style="height: ${rows[i] * lhPx}px;">${i + 1}</div>`;
+        }
+        if (lineNumbersMode !== 'measured' || html !== lnLastHtml) {
+            lineNumbersInner.innerHTML = html;
+            lnLastHtml = html;
+        }
+        lineNumbersMode = 'measured';
     }
-    lineNumbers.innerHTML = numbersHtml;
+    syncLineNumbersScroll();
 }
 
 function debouncedUpdateLineNumbers() {
@@ -1827,13 +2229,30 @@ function debouncedUpdateLineNumbers() {
 editor.addEventListener('input', () => { 
 	window.currentLoadedBank = null;
     debouncedUpdateLineNumbers();
+    scheduleLineNumbersRange(); // 🌟 [新增] 輸入時即時更新可捲動距離
     hideFloatingTool(); 
     debouncedSaveHistory(); 
 });
 
 editor.addEventListener('scroll', () => { 
-    lineNumbers.scrollTop = editor.scrollTop; 
+    // 🌟 [修改] 支援 CSS 捲動動畫時由 CSS 處理；否則用 transform 同步
+    if (!LN_USE_CSS_TIMELINE) {
+        lineNumbersInner.style.transform = `translate3d(0, ${-editor.scrollTop}px, 0)`;
+    }
     hideFloatingTool(); 
+}, { passive: true });
+
+// 🌟 [新增] 游標移到編輯器的滾動條上時改成箭頭（避免顯示文字輸入的 I 形游標）
+let edCursorOnScrollbar = false;
+editor.addEventListener('mousemove', (e) => {
+    const on = e.offsetX > editor.clientWidth || e.offsetY > editor.clientHeight;
+    if (on !== edCursorOnScrollbar) {
+        edCursorOnScrollbar = on;
+        editor.style.cursor = on ? 'default' : '';
+    }
+}, { passive: true });
+editor.addEventListener('mouseleave', () => {
+    if (edCursorOnScrollbar) { edCursorOnScrollbar = false; editor.style.cursor = ''; }
 });
 
 dataTable.addEventListener('input', () => { 
@@ -1849,6 +2268,79 @@ document.getElementById('dd-fontSize').addEventListener('change', (e) => {
     localStorage.setItem(FONT_SIZE_KEY, val);
     if (currentMode === 'text') setTimeout(updateLineNumbers, 50); else applySelectionVisuals(); 
 });
+
+/* ==========================================
+   🌟 [新增] 字體大小「− 目前大小 +」微調列
+   · 點 − / + 或直接輸入數字：即時調整，選單不會關閉（長按可連續調整）
+   · 點選單外、或點下方常用大小：才會關閉選單
+   ========================================== */
+(function initFontSizeStepper() {
+    const dd = document.getElementById('dd-fontSize');
+    const stepper = document.getElementById('fontSizeStepper');
+    const input = document.getElementById('fontSizeInput');
+    const btnMinus = document.getElementById('btnFontSizeMinus');
+    const btnPlus = document.getElementById('btnFontSizePlus');
+    if (!dd || !stepper || !input || !btnMinus || !btnPlus) return;
+
+    const MIN_SIZE = 8, MAX_SIZE = 100;
+    const getSize = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--editor-font-size')) || 16;
+    const syncInput = () => { if (document.activeElement !== input) input.value = Math.round(getSize()); };
+
+    // 桌面版：微調期間讓子選單固定顯示；選單關閉或移到其他子選單時解除
+    const parentMenu = dd.closest('.dropdown-menu');
+    const pin = () => { if (window.innerWidth > 768) dd.classList.add('submenu-pinned'); };
+    const unpin = () => dd.classList.remove('submenu-pinned');
+    if (parentMenu) {
+        new MutationObserver(() => { if (!parentMenu.classList.contains('show')) unpin(); })
+            .observe(parentMenu, { attributes: true, attributeFilter: ['class'] });
+        parentMenu.querySelectorAll('.group\\/submenu').forEach(s => { if (s !== dd) s.addEventListener('mouseenter', unpin); });
+    }
+
+    // 套用字體大小：沿用原本 dd-fontSize 的 change 事件（儲存設定、更新行號等）
+    function setSize(n) {
+        n = Math.min(MAX_SIZE, Math.max(MIN_SIZE, Math.round(n)));
+        const val = n + 'px';
+        setDropdownValue('dd-fontSize', val);   // 下方常用大小的勾勾（不在清單內時全部取消）
+        dd.dispatchEvent(new CustomEvent('change', { detail: { value: val } }));
+        input.value = n;
+    }
+
+    // 按住 − / + 連續調整
+    function bindRepeat(btn, delta) {
+        let delay = null, repeat = null;
+        const stop = () => { clearTimeout(delay); clearInterval(repeat); delay = repeat = null; };
+        btn.addEventListener('pointerdown', (e) => {
+            e.preventDefault();          // 不搶走焦點
+            stop(); pin();
+            setSize(getSize() + delta);
+            delay = setTimeout(() => { repeat = setInterval(() => setSize(getSize() + delta), 80); }, 450);
+        });
+        ['pointerup', 'pointerleave', 'pointercancel'].forEach(t => btn.addEventListener(t, stop));
+        // 鍵盤（Enter / 空白鍵）操作：click 的 detail 為 0
+        btn.addEventListener('click', (e) => { if (e.detail === 0) { pin(); setSize(getSize() + delta); } });
+    }
+    bindRepeat(btnMinus, -1);
+    bindRepeat(btnPlus, 1);
+
+    // 直接輸入數字：按 Enter 或離開輸入框時才套用（避免輸入「2」「4」中途被限制成最小值）
+    input.addEventListener('change', () => {
+        const n = parseFloat(input.value);
+        if (isFinite(n)) setSize(n); else { input.value = Math.round(getSize()); }
+    });
+    input.addEventListener('keydown', (e) => {
+        e.stopPropagation();             // 避免觸發全站快捷鍵
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    });
+    input.addEventListener('focus', pin);
+
+    // 微調列內的點擊不可冒泡到 document（否則會被當成「點選單外」而關閉選單）
+    stepper.addEventListener('click', (e) => e.stopPropagation());
+
+    // 顯示目前大小（開啟選單、滑入、手機版點開子選單時同步）
+    dd.addEventListener('pointerenter', syncInput);
+    dd.addEventListener('click', syncInput, true);
+    syncInput();
+})();
 document.getElementById('dd-lineHeight').addEventListener('change', (e) => { 
     const val = e.detail.value;
     document.documentElement.style.setProperty('--editor-line-height', val); 
@@ -1917,16 +2409,12 @@ document.getElementById('dd-editTrigger')?.addEventListener('change', (e) => {
 });
 
 document.getElementById('dd-wordWrap').addEventListener('change', (e) => { 
-    const wrap = e.detail.value;
-    editor.style.whiteSpace = wrap; 
-    document.documentElement.style.setProperty('--table-white-space', wrap); 
+    const wrap = e.detail.value;   // 'pre' | 'pre-wrap' | 'pre-wrap-num'
+    applyWordWrapMode(wrap);       // 🌟 [修改] 統一由這個函式套用
     localStorage.setItem(WORD_WRAP_KEY, wrap);
-    
-    if (wrap === 'pre') dataTable.classList.add('table-nowrap');
-    else dataTable.classList.remove('table-nowrap');
 
     if (currentMode === 'text') { 
-        updateLineNumbers(); setTimeout(() => { lineNumbers.scrollTop = editor.scrollTop; }, 50); 
+        updateLineNumbers(); setTimeout(() => { syncLineNumbersScroll(); }, 50); 
     } else {
         applySelectionVisuals();
     }
@@ -1999,6 +2487,7 @@ document.getElementById('btnClearCache').addEventListener('click', () => {
         ];
         
         keysToRemove.forEach(key => localStorage.removeItem(key));
+        idbDestroy();   // 🌟 [新增] 一併刪除 IndexedDB 內的巨量分頁
         
         showToast('🧹 記憶已清空，即將重新載入...');
         setTimeout(() => {
@@ -2260,7 +2749,7 @@ function restoreViewState(mode) {
     }
     editor.scrollTop = v.st || 0;
     editor.scrollLeft = v.sl || 0;
-    lineNumbers.scrollTop = editor.scrollTop;
+    syncLineNumbersScroll();
 }
 
 // 表格還原：選取格 + 捲動（在表格渲染完成、容器已顯示後呼叫）
@@ -2319,6 +2808,12 @@ window.addEventListener('beforeunload', flushViewState);
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushViewState();
 });
+// 🌟 [新增] 離開頁面／切到背景時，補存「巨量資料」與還在防抖中的最後一次編輯
+window.addEventListener('pagehide', flushPendingSaves);
+window.addEventListener('beforeunload', flushPendingSaves);
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushPendingSaves();
+});
 // 保險：若初始載入沒有走到任何還原流程（例如直接進遊戲模式），2 秒後解除鎖定
 setTimeout(() => { if (viewCaptureLockedUntil === Infinity) viewCaptureLockedUntil = 0; }, 2000);
 
@@ -2335,8 +2830,29 @@ function loadTabsData() {
         const savedData = localStorage.getItem(TABS_DATA_KEY);
         if (savedData) {
             sheetTabs = JSON.parse(savedData);
-            // 確保舊資料擁有 mode 屬性
-            sheetTabs.forEach(tab => tab.mode = tab.mode || 'text');
+            // 確保舊資料擁有 mode 屬性；🌟 [新增] 標記為 idb 的巨量分頁，從預讀的 IndexedDB 內容還原
+            let idbFailCount = 0;
+            sheetTabs.forEach(tab => {
+                tab.mode = tab.mode || 'text';
+                if (tab.idb) {
+                    delete tab.idb;
+                    const text = tab.id ? bigTabCache[tab.id] : undefined;
+                    if (typeof text === 'string') {
+                        tab.content = text;
+                        idbTabState.set(tab.id, { snapshot: text, failed: false });
+                    } else {
+                        // 讀取失敗：內容先留空，但記住「這個 id 在 IndexedDB 可能還有資料」，之後存檔時不會覆蓋掉它
+                        tab.content = '';
+                        if (tab.id) idbTabState.set(tab.id, { snapshot: undefined, failed: true });
+                        idbFailCount++;
+                    }
+                    if (tab.id) delete bigTabCache[tab.id];
+                }
+            });
+            normalizeTabIds();
+            if (idbFailCount > 0) {
+                setTimeout(() => { if (typeof showToast === 'function') showToast('⚠️ 有 ' + idbFailCount + ' 個巨量分頁讀取失敗（內容暫時為空）。在你輸入新內容之前，原本的資料不會被覆蓋'); }, 800);
+            }
             activeSheetIndex = parseInt(localStorage.getItem(ACTIVE_TAB_KEY)) || 0;
             if (activeSheetIndex >= sheetTabs.length) activeSheetIndex = 0;
             loadViewStates();
@@ -2366,10 +2882,18 @@ function loadTabsData() {
 const HISTORY_PERSIST_LIMIT = 100000;
 
 // 把 sheetTabs 轉成要寫入 localStorage 的字串（history 太大的分頁會略過 history，但記憶體中的仍保留）
+// 🌟 [修改] 巨量分頁（內容已在 IndexedDB）只留標記 { id, idb: true, content: '' }，不再把全文塞進 localStorage
 function serializeTabs(withHistory = true) {
     const tabs = sheetTabs.map(tab => {
         const { history, view, ...rest } = tab;
-        if (withHistory && Array.isArray(history) &&
+        const st = idbSt(tab);
+        if (st && st.failed && !tab.content) {
+            // 讀取失敗的分頁：保留標記，避免把 IndexedDB 裡可能還救得回來的資料覆蓋掉
+            rest.content = ''; rest.idb = true;
+        } else if (isBigTab(tab) && idbHasCopy(tab)) {
+            // 巨量分頁：內容在 IndexedDB，這裡只留標記
+            rest.content = ''; rest.idb = true;
+        } else if (withHistory && Array.isArray(history) &&
             history.reduce((n, h) => n + h.length, 0) <= HISTORY_PERSIST_LIMIT) {
             rest.history = history;
         }
@@ -2378,9 +2902,8 @@ function serializeTabs(withHistory = true) {
     return JSON.stringify(tabs);
 }
 
-// 實際寫入 localStorage；空間不足時改存不含歷史的版本，仍失敗才提示（最多每 30 秒一次）
-let lastStorageWarnAt = 0;
-function writeTabsToStorage() {
+// 🌟 [新增] 只寫 localStorage（空間不足時先改存不含歷史的版本）。成功回傳 true
+function writeTabsLocal() {
     try {
         try {
             localStorage.setItem(TABS_DATA_KEY, serializeTabs(true));
@@ -2391,12 +2914,85 @@ function writeTabsToStorage() {
         return true;
     } catch (e) {
         console.warn('LocalStorage 寫入失敗（空間不足？）:', e);
-        const now = Date.now();
-        if (now - lastStorageWarnAt > 30000) {
-            lastStorageWarnAt = now;
-            if (typeof showToast === 'function') showToast('⚠️ 瀏覽器儲存空間不足，自動儲存失敗，請先匯出或複製重要資料');
-        }
         return false;
+    }
+}
+
+// 空間不足提示（最多每 30 秒一次）
+let lastStorageWarnAt = 0;
+function warnStorageFull(msg) {
+    const now = Date.now();
+    if (now - lastStorageWarnAt > 30000) {
+        lastStorageWarnAt = now;
+        if (typeof showToast === 'function') showToast(msg || '⚠️ 瀏覽器儲存空間不足，自動儲存失敗，請先匯出或複製重要資料');
+    }
+}
+
+// 🌟 [修改] 實際寫入：一般分頁寫 localStorage（同步、同以往）；巨量分頁另外非同步寫進 IndexedDB
+function writeTabsToStorage() {
+    clearTimeout(bigSaveTimer); bigSavePending = false;   // 這次寫入已涵蓋最新內容，不需要再排程
+    normalizeTabIds();
+
+    // 需要寫進 IndexedDB 的巨量分頁（記憶體內容與 IndexedDB 內的版本不同）
+    const pending = sheetTabs.filter(t => isBigTab(t) && !idbIsSynced(t));
+    // 其中「IndexedDB 還沒有任何版本」的，localStorage 暫時仍內嵌內容當保險；
+    // 若大到塞不下，就先不寫 localStorage（保留舊的好資料），等 IndexedDB 寫完再更新標記
+    const mustInline = pending.filter(t => !idbHasCopy(t));
+    let ok = false;
+    if (mustInline.every(t => t.content.length <= INLINE_FALLBACK_MAX)) ok = writeTabsLocal();
+
+    if (pending.length > 0 || idbOrphanIds().length > 0) {
+        flushBigTabsToIDB();      // 非同步；完成後會再更新 localStorage 的標記
+    } else if (!ok) {
+        warnStorageFull();
+    }
+    return ok;
+}
+
+// 🌟 [新增] 把巨量分頁寫進 IndexedDB（壓縮後的二進位），完成後才把 localStorage 換成「標記」，最後清掉舊紀錄
+//    順序很重要：IndexedDB 寫成功 → 才更新 localStorage 標記 → 才刪 IndexedDB 舊紀錄，任何一步失敗都不會丟資料
+let idbFlushing = false, idbFlushAgain = false;
+var idbFastMode = false;   // 離開頁面時為 true：不壓縮、直接存原文（來不及等壓縮）
+async function flushBigTabsToIDB() {
+    if (idbFlushing) { idbFlushAgain = true; return; }   // 已在寫入中：等這輪結束後再補一輪
+    idbFlushing = true;
+    try {
+        do {
+            idbFlushAgain = false;
+            const fast = idbFastMode; idbFastMode = false;
+            normalizeTabIds();
+
+            const jobs = sheetTabs.filter(t => isBigTab(t) && !idbIsSynced(t));
+            if (jobs.length > 0) {
+                await Promise.all(jobs.map(async tab => {
+                    const id = tab.id, text = tab.content;       // 先抓住「現在」的版本
+                    await idbPut(id, await idbPack(text, fast));
+                    idbTabState.set(id, { snapshot: text, failed: false });
+                }));
+            }
+
+            const orphans = idbOrphanIds();
+            if (jobs.length > 0 || orphans.length > 0) {
+                if (!writeTabsLocal()) {
+                    warnStorageFull();            // localStorage 沒更新成功 → 不刪 IndexedDB 舊紀錄
+                } else {
+                    for (const id of orphans) {
+                        try { await idbDelete(id); } catch (e) { console.warn('刪除 IndexedDB 舊紀錄失敗:', id, e); continue; }
+                        idbTabState.delete(id); idbGarbage.delete(id);
+                    }
+                }
+            }
+        } while (idbFlushAgain);
+    } catch (e) {
+        console.warn('IndexedDB 寫入失敗:', e);
+        if (idbUnavailable) {
+            // IndexedDB 根本不能用（例如舊瀏覽器、無痕模式）：退回舊行為，全部存 localStorage，只有真的塞不下才提示
+            if (!writeTabsLocal()) warnStorageFull();
+        } else {
+            warnStorageFull('⚠️ 巨量資料寫入 IndexedDB 失敗，請先匯出或複製重要資料');
+        }
+    } finally {
+        idbFlushing = false;
     }
 }
 

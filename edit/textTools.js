@@ -589,6 +589,18 @@ document.getElementById('btnReplace').addEventListener('click', () => {
 
 // --- 全部取代 ---
 // --- 全部取代 (支援套用到所有頁籤) ---
+// [新增] 寫入新文字後，維持原本的游標（選取範圍）與捲動位置
+//   原因：設定 editor.value 會讓游標跳到最後面，之後關閉視窗呼叫 editor.focus() 就會捲到文件底部
+//   mapPos：把「舊文字中的位置」換算成「新文字中的位置」
+function setEditorValueKeepView(newText, mapPos) {
+    const selS = editor.selectionStart, selE = editor.selectionEnd;
+    const st = editor.scrollTop, sl = editor.scrollLeft;
+    editor.value = newText;
+    const n = newText.length;
+    editor.setSelectionRange(Math.min(mapPos(selS), n), Math.min(mapPos(selE), n));
+    editor.scrollTop = st; editor.scrollLeft = sl;
+}
+
 document.getElementById('btnReplaceAll').addEventListener('click', () => {
     const globalRegex = buildSearchRegex(true);
     if (!globalRegex) return;
@@ -656,7 +668,14 @@ document.getElementById('btnReplaceAll').addEventListener('click', () => {
             writeTabsToStorage(); // 與自動存檔共用：不存龐大的歷史、並處理空間不足
             
             // 將當前頁籤「已經被取代完成」的新內容，同步回目前的編輯器中！
-            editor.value = sheetTabs[activeSheetIndex].content;
+            if (currentMode === 'text') {
+                // [修改] 文字模式：保持游標與捲動位置（此時 editor.value 仍是取代前的舊文字）
+                const oldText = editor.value;
+                setEditorValueKeepView(sheetTabs[activeSheetIndex].content,
+                    pos => oldText.slice(0, pos).replace(globalRegex, replaceWith).length);
+            } else {
+                editor.value = sheetTabs[activeSheetIndex].content;
+            }
 
             // 4. 強制重新渲染目前畫面
             switchMode(currentMode, true);
@@ -678,7 +697,9 @@ document.getElementById('btnReplaceAll').addEventListener('click', () => {
                 }
             } else {
                 count = (text.match(globalRegex) || []).length;
-                if (count > 0) editor.value = text.replace(globalRegex, replaceWith);
+                // [修改] 原本 editor.value = text.replace(...)，游標會跳到最後面
+                if (count > 0) setEditorValueKeepView(text.replace(globalRegex, replaceWith),
+                    pos => text.slice(0, pos).replace(globalRegex, replaceWith).length);
             }
             if (count > 0) { debouncedSaveHistory(); updateLineNumbers(); }
         } else {
@@ -938,7 +959,7 @@ function applyTextTool(action) {
 
     // 觸發全域更新與存檔
     updateLineNumbers();
-    localStorage.setItem(STORAGE_KEY, editor.value);
+    saveLegacyContent(editor.value);   // 🌟 [修改] 巨量內容不再塞進 localStorage
     debouncedSaveHistory();
     if (typeof updateWordCountWidget === 'function') updateWordCountWidget(); // 同步更新字數
     
@@ -2398,7 +2419,7 @@ document.getElementById('btnApplyWordStats')?.addEventListener('click', () => {
 
     // 觸發全域更新與存檔
     updateLineNumbers();
-    localStorage.setItem(STORAGE_KEY, editor.value);
+    saveLegacyContent(editor.value);   // 🌟 [修改] 巨量內容不再塞進 localStorage
     debouncedSaveHistory();
     if (typeof updateWordCountWidget === 'function') updateWordCountWidget();
 

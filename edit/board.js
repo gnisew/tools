@@ -50,6 +50,7 @@
                     <button id="btn-confirm-ok" class="px-4 py-2 rounded-lg font-bold text-white ${confirmClass} transition-colors shadow-sm w-1/2 text-sm">${confirmText}</button>
                 </div>
             </div>
+            </div>
         `;
         const container = document.getElementById('arenaModeContainer');
         (container && container.style.display !== 'none' ? container : document.body).appendChild(modal);
@@ -79,7 +80,87 @@
         modal.querySelector('#btn-confirm-ok').addEventListener('click', () => { close(); onConfirm(); });
     }
 
-    function showBoardPrompt(title, defaultText, defaultColor = 'yellow', onConfirm, extraOptions = null) {
+    // ==========================================================
+    // 🖼️ [新增] 圖片便利貼：共用工具（驗證 / 壓縮 / 網址檢查 / 容量檢查）
+    // ==========================================================
+    const WB_IMG = {
+        MAX_EDGE: 800,          // 本機圖片壓縮後，長邊最大像素
+        MAX_CHARS: 140000,      // 單張圖片(base64)字元上限，約 100KB
+        LIVE_TOTAL_MAX: 700000, // Live 單一白板所有圖片合計上限（Firestore 單一文件 1MB）
+        SHEET_TOTAL_WARN: 3000000 // 白板模式合計超過此值時提醒（localStorage / 分享連結）
+    };
+    const wbIsImgSrc = v => typeof v === 'string' && /^(https?:\/\/|data:image\/(png|jpe?g|webp|gif);base64,)/i.test(v.trim());
+    const wbToast = m => { if (typeof showToast === 'function') showToast(m); };
+
+    // 本機圖片 → 縮小並轉成 JPEG(base64)；太大會自動再縮，直到低於上限
+    function wbCompressImage(file) {
+        return new Promise((resolve, reject) => {
+            if (!file || !/^image\//.test(file.type)) return reject(new Error('這不是圖片檔'));
+            const url = URL.createObjectURL(file);
+            const im = new Image();
+            im.onload = () => {
+                URL.revokeObjectURL(url);
+                try {
+                    let edge = WB_IMG.MAX_EDGE, q = 0.8;
+                    for (let i = 0; i < 8; i++) {
+                        const sc = Math.min(1, edge / Math.max(im.naturalWidth, im.naturalHeight));
+                        const w = Math.max(1, Math.round(im.naturalWidth * sc));
+                        const h = Math.max(1, Math.round(im.naturalHeight * sc));
+                        const cv = document.createElement('canvas');
+                        cv.width = w; cv.height = h;
+                        const g = cv.getContext('2d');
+                        g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);   // 透明背景補白底（JPEG 不支援透明）
+                        g.drawImage(im, 0, 0, w, h);
+                        const out = cv.toDataURL('image/jpeg', q);
+                        if (out.length <= WB_IMG.MAX_CHARS) return resolve(out);
+                        edge = Math.round(edge * 0.8); q = Math.max(0.5, q - 0.06);
+                    }
+                    reject(new Error('圖片太大，壓縮後仍超過上限，請換一張或改用圖片網址'));
+                } catch (err) { reject(err); }
+            };
+            im.onerror = () => { URL.revokeObjectURL(url); reject(new Error('無法讀取這張圖片')); };
+            im.src = url;
+        });
+    }
+
+    // 圖片網址 → 先試著載入，確認真的能顯示才接受
+    function wbLoadImageUrl(url) {
+        return new Promise((resolve, reject) => {
+            const u = String(url || '').trim();
+            if (!/^https?:\/\//i.test(u)) return reject(new Error('請輸入 http:// 或 https:// 開頭的圖片網址'));
+            const im = new Image();
+            im.referrerPolicy = 'no-referrer';
+            im.onload = () => resolve(u);
+            im.onerror = () => reject(new Error('無法載入這個網址的圖片（網址錯誤，或對方網站不允許外部引用）'));
+            im.src = u;
+        });
+    }
+
+    function wbPickImageFile() {
+        return new Promise(resolve => {
+            const inp = document.createElement('input');
+            inp.type = 'file'; inp.accept = 'image/*';
+            inp.onchange = () => resolve((inp.files && inp.files[0]) || null);
+            inp.click();
+        });
+    }
+
+    // 容量檢查：addChars = 這次準備新增的圖片字元數。回傳 false 代表不可新增
+    function wbBudgetOk(mods, qId, addChars) {
+        let total = addChars || 0;
+        Object.values(mods || {}).forEach(m => { if (m && m.img && !m.deleted && !/^https?:/i.test(m.img)) total += m.img.length; });
+        if (qId !== 'sheetboard') {
+            if (total > WB_IMG.LIVE_TOTAL_MAX) {
+                wbToast('⚠️ Live 白板的圖片容量已滿，請刪除部分圖片，或改用「圖片網址」');
+                return false;
+            }
+        } else if (total > WB_IMG.SHEET_TOTAL_WARN) {
+            wbToast('⚠️ 本機圖片已佔用較多空間，建議改用「圖片網址」，以免存檔或分享失敗');
+        }
+        return true;
+    }
+
+    function showBoardPrompt(title, defaultText, defaultColor = 'yellow', onConfirm, extraOptions = null, defaultImg = '') {
         const modalId = "live-board-prompt";
         if (document.getElementById(modalId)) document.getElementById(modalId).remove();
         
@@ -97,9 +178,9 @@
 
         modal.style.zIndex = '5000'; 
         modal.innerHTML = `
-            <div class="dialog-box relative bg-white rounded-2xl w-full min-w-[320px] max-w-sm p-5 shadow-2xl border border-gray-200 animate-fade-in-up pointer-events-auto" style="will-change: transform;">
+            <div class="dialog-box relative bg-white rounded-2xl w-full min-w-[320px] max-w-md shadow-2xl border border-gray-200 animate-fade-in-up pointer-events-auto" style="will-change: transform; max-height: 90vh; max-height: 90dvh; display: flex; flex-direction: column; overflow: hidden;">
                 
-                <div class="drag-handle flex items-center justify-between mb-3 cursor-move -mx-5 -mt-5 p-4 border-b border-gray-100 rounded-t-2xl bg-gray-50/50 hover:bg-gray-100/50 transition-colors">
+                <div class="drag-handle shrink-0 flex items-center justify-between cursor-move p-4 border-b border-gray-100 rounded-t-2xl bg-gray-50/50 hover:bg-gray-100/50 transition-colors" style="flex-shrink: 0;">
                     <h3 class="text-lg font-extrabold text-gray-800 select-none pl-1 whitespace-nowrap shrink-0 mr-2">${title}</h3>
                     <div class="flex items-center gap-2">
                         <div class="flex gap-1.5" id="prompt-color-picker">
@@ -115,13 +196,34 @@
                     </div>
                 </div>
 
+                <div class="dlg-body px-5 pt-3 pb-5" style="overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; min-height: 0;">
                 <textarea id="prompt-input" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-base font-normal text-gray-700 focus:border-blue-400 outline-none transition-colors mb-3 resize-none" rows="3">${escapeHtml(defaultText)}</textarea>
+
+                <div id="prompt-img-area" class="hidden mb-3">
+                    <div class="relative inline-block max-w-full">
+                        <img id="prompt-img-preview" class="max-h-32 max-w-full rounded-lg border border-gray-200 block bg-gray-50" referrerpolicy="no-referrer" alt="">
+                        <button id="btn-prompt-img-remove" class="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gray-700 hover:bg-gray-900 text-white flex items-center justify-center shadow cursor-pointer" title="移除圖片"><span class="material-symbols-outlined text-[14px] pointer-events-none">close</span></button>
+                    </div>
+                </div>
+                <div id="prompt-img-panel" class="hidden mb-3 p-2 bg-gray-50 border border-gray-200 rounded-xl items-center gap-1.5">
+                    <button id="btn-prompt-img-file" class="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:text-teal-600 hover:border-teal-300 text-[13px] font-bold transition-colors cursor-pointer" title="選擇圖片檔（自動壓縮）"><span class="material-symbols-outlined text-[18px]">upload_file</span>選擇檔案</button>
+                    <input id="prompt-img-url" type="text" class="flex-1 min-w-0 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-[13px] text-gray-700 focus:border-blue-400 outline-none" placeholder="或貼上圖片網址">
+                    <button id="btn-prompt-img-url" class="shrink-0 px-2.5 py-1.5 rounded-lg bg-teal-500 hover:bg-teal-600 text-white text-[13px] font-bold transition-colors cursor-pointer">加入</button>
+                    <div class="relative shrink-0">
+                        <button id="btn-prompt-img-tip" class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-teal-600 rounded-full transition-colors cursor-pointer" title="小技巧"><span class="material-symbols-outlined text-[18px] pointer-events-none">info</span></button>
+                        <div id="prompt-img-tip" class="hidden absolute bottom-full right-0 mb-2 w-56 p-2.5 rounded-lg bg-gray-800 text-white text-xs leading-relaxed shadow-lg z-10">小技巧：在文字框按 Ctrl+V 可直接貼上圖片，也可以把圖片檔拖進這個視窗。</div>
+                    </div>
+                </div>
+
                 
                 <div class="flex justify-between items-center mt-1">
+                    <div class="flex items-center gap-1">
+                        <button id="btn-prompt-img" class="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 hover:text-teal-600 rounded-md transition-colors cursor-pointer" title="插入圖片"><span class="material-symbols-outlined text-[20px]">image</span></button>
                     <label class="flex items-center gap-1.5 cursor-pointer text-gray-500 hover:text-teal-600 transition-colors pl-1 select-none">
                         <input type="checkbox" id="prompt-batch-toggle" class="w-4 h-4 rounded border-gray-300 text-teal-500 focus:ring-teal-500 cursor-pointer">
                         <span class="text-[13px] font-normal">分行新增</span>
                     </label>
+                    </div>
                     
                     <div class="flex gap-2 items-center">
                         <div id="prompt-extra-actions" class="hidden flex items-center gap-1 mr-1 border-r border-gray-200 pr-2">
@@ -188,6 +290,52 @@
             });
         });
 
+        // 🖼️ [新增] 圖片：預覽 / 選檔 / 網址 / 貼上 / 拖放
+        let pendingImg = wbIsImgSrc(defaultImg) ? defaultImg : '';
+        const imgArea = modal.querySelector('#prompt-img-area');
+        const imgPrev = modal.querySelector('#prompt-img-preview');
+        const imgPanel = modal.querySelector('#prompt-img-panel');
+        const imgUrlInput = modal.querySelector('#prompt-img-url');
+        const batchEl = modal.querySelector('#prompt-batch-toggle');
+        const setImg = (src) => {
+            pendingImg = src || '';
+            imgArea.classList.toggle('hidden', !pendingImg);
+            if (pendingImg) imgPrev.src = pendingImg; else imgPrev.removeAttribute('src');
+            input.placeholder = pendingImg ? '圖說（選填）' : '';
+            if (pendingImg) { imgPanel.classList.add('hidden'); imgPanel.classList.remove('flex'); }   // 加入圖片後自動收起來源面板，省空間
+            batchEl.disabled = !!pendingImg;                       // 圖片與「分行新增」不能並用
+            if (pendingImg) batchEl.checked = false;
+            batchEl.closest('label').classList.toggle('opacity-40', !!pendingImg);
+            // 還停在預設「隨機色」時，圖片改用透明底（想要卡片底色可再自行點選顏色）
+            if (pendingImg && selectedColor === 'random') modal.querySelector('.color-opt[data-color="text"]')?.click();
+        };
+        const attachFile = async (file) => { try { setImg(await wbCompressImage(file)); } catch (err) { wbToast('⚠️ ' + err.message); } };
+        const attachUrl = async (url) => { try { setImg(await wbLoadImageUrl(url)); imgUrlInput.value = ''; } catch (err) { wbToast('⚠️ ' + err.message); } };
+        modal.querySelector('#btn-prompt-img').addEventListener('click', () => {
+            const willOpen = imgPanel.classList.contains('hidden');
+            imgPanel.classList.toggle('hidden', !willOpen);
+            imgPanel.classList.toggle('flex', willOpen);
+            if (!willOpen) modal.querySelector('#prompt-img-tip').classList.add('hidden');
+        });
+        // ⓘ 小技巧：點一下浮出說明，再點一下或點其他地方就收起
+        const tipBox = modal.querySelector('#prompt-img-tip');
+        modal.querySelector('#btn-prompt-img-tip').addEventListener('click', (e) => { e.stopPropagation(); tipBox.classList.toggle('hidden'); });
+        modal.addEventListener('click', (e) => { if (!tipBox.classList.contains('hidden') && !tipBox.contains(e.target)) tipBox.classList.add('hidden'); });
+        modal.querySelector('#btn-prompt-img-file').addEventListener('click', async () => { const f = await wbPickImageFile(); if (f) attachFile(f); });
+        modal.querySelector('#btn-prompt-img-url').addEventListener('click', () => attachUrl(imgUrlInput.value));
+        imgUrlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); attachUrl(imgUrlInput.value); } });
+        modal.querySelector('#btn-prompt-img-remove').addEventListener('click', () => setImg(''));
+        input.addEventListener('paste', (e) => {
+            const it = Array.from((e.clipboardData && e.clipboardData.items) || []).find(x => x.kind === 'file' && /^image\//.test(x.type));
+            if (it) { e.preventDefault(); attachFile(it.getAsFile()); }
+        });
+        dialog.addEventListener('dragover', (e) => { if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')) e.preventDefault(); });
+        dialog.addEventListener('drop', (e) => {
+            const f = Array.from((e.dataTransfer && e.dataTransfer.files) || []).find(x => /^image\//.test(x.type));
+            if (f) { e.preventDefault(); e.stopPropagation(); attachFile(f); }
+        });
+        if (pendingImg) setImg(pendingImg);   // 編輯既有圖片便利貼時，載入原圖
+
         const close = () => modal.remove();
         modal.querySelector('#btn-prompt-close-x').addEventListener('click', close);
         modal.querySelector('#btn-prompt-cancel').addEventListener('click', close);
@@ -230,9 +378,9 @@
 
         modal.querySelector('#btn-prompt-ok').addEventListener('click', () => {
             const val = input.value.trim();
-            const isBatch = modal.querySelector('#prompt-batch-toggle').checked;
+            const isBatch = !pendingImg && modal.querySelector('#prompt-batch-toggle').checked;
             close();
-            if (val) onConfirm({ text: val, color: selectedColor, isBatch });
+            if (val || pendingImg) onConfirm({ text: val, color: selectedColor, isBatch, img: pendingImg });
         });
     }
 
@@ -398,6 +546,11 @@
                 -webkit-line-clamp: unset !important;
                 overflow: visible !important;
             }
+            .sticky-note.is-pinned .resize-handle,
+            .sticky-note.is-pinned .resize-handle-right,
+            .sticky-note.is-pinned .resize-handle-corner { display: none !important; pointer-events: none !important; }
+            .sticky-note.is-pinned .note-scroll { cursor: default !important; }
+            .sticky-note.is-pinned::before { content: "📌"; position: absolute; top: -9px; right: -7px; font-size: 14px; line-height: 1; z-index: 120; pointer-events: none; filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); }
             .sticky-note.is-text-mode .resize-handle { display: none !important; } /* 隱藏原本的右下角縮放把手 */
             
             /* ✨ 右側寬度調整拉柄 */
@@ -414,6 +567,24 @@
             .sticky-note.is-text-mode.ring-2 .resize-handle-right { display: block; }
             .sticky-note.is-text-mode.ring-2 .resize-handle-right:hover::after,
             .sticky-note.is-text-mode.ring-2 .resize-handle-right:active::after { opacity: 1; }
+
+            /* 🖼️ [新增] 圖片便利貼：沿用「純文字」的自動高度＋右側拉柄調寬度，所以縮放時自動保持圖片比例 */
+            .note-img { display: block; width: 100%; height: auto; border-radius: 4px; pointer-events: none; user-select: none; -webkit-user-drag: none; box-shadow: 0 1px 4px rgba(0,0,0,0.18); }
+            .note-img.is-broken { min-height: 72px; background: #f3f4f6; color: #9ca3af; font-size: 12px; text-align: center; box-shadow: none; }
+            .sticky-note.is-image-note .note-body { padding: 6px; }
+            .sticky-note.is-image-note .note-img + .note-text-content { padding-top: 6px; }
+            .sticky-note.is-image-note .note-text-content:empty { display: none !important; }
+            /* 🖼️ 圖片專用縮放拉點：右下角藍色圓點，滑鼠移上去或選取時出現；拖曳＝等比縮放（高度自動） */
+            .sticky-note.is-image-note .resize-handle-right:not(.resize-handle-corner) { display: none !important; }
+            .resize-handle-corner {
+                display: none; position: absolute; top: auto !important; left: auto !important;
+                right: -8px; bottom: -8px; width: 18px; height: 18px; border-radius: 9999px;
+                background: #3b82f6; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+                cursor: nwse-resize; z-index: 60; touch-action: none;
+            }
+            .resize-handle-corner::after { display: none !important; }
+            .sticky-note.is-image-note:hover .resize-handle-corner,
+            .sticky-note.is-image-note.ring-2 .resize-handle-corner { display: block; }
 
             .sticky-note:not(.is-text-mode) .note-scroll::before,
             .sticky-note:not(.is-text-mode) .note-scroll::after {
@@ -452,7 +623,7 @@
                 notes.forEach(n => {
                     if (!boardMods[n.id]?.deleted) {
                         const mod = boardMods[n.id] || {};
-                        allNotes.push({ ...n, author: p.name, text: mod.text || n.text, color: mod.color || n.color });
+                        allNotes.push({ ...n, author: p.name, text: mod.text || n.text, color: mod.color || n.color, img: mod.img });
                         activeResponsesCount++;
                     }
                 });
@@ -460,7 +631,7 @@
             Object.keys(boardMods).forEach(k => {
                 const mod = boardMods[k];
                 if (mod.isTeacher && !mod.deleted) {
-                    allNotes.push({ id: k, author: mod.author || '老師', text: mod.text, color: mod.color || 'yellow' });
+                    allNotes.push({ id: k, author: mod.author || '老師', text: mod.text, color: mod.color || 'yellow', img: mod.img });
                 }
             });
 
@@ -494,6 +665,7 @@
 
 								<button class="p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 rounded-lg cursor-pointer transition-colors" title="新增文字" onclick="window.addTeacherText()"><span class="material-symbols-outlined text-[20px] block">title</span></button>
 								<button class="p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 rounded-lg cursor-pointer transition-colors" title="新增老師便利貼" onclick="window.addTeacherNote()"><span class="material-symbols-outlined text-[20px] block">add_box</span></button>
+								<button class="p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800 rounded-lg cursor-pointer transition-colors" title="插入圖片" onclick="window.addTeacherImage()"><span class="material-symbols-outlined text-[20px] block">image</span></button>
 								<button class="p-2 text-gray-500 hover:bg-rose-50 hover:text-rose-600 rounded-lg cursor-pointer transition-colors" title="清空畫布" onclick="window.clearBoardNotes()"><span class="material-symbols-outlined text-[20px] block">delete_sweep</span></button>
 							</div>
 
@@ -553,6 +725,7 @@
                                     </div>
                                     
                                     
+                                    <button id="btn-bm-pin" class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 text-gray-700 rounded-md transition-colors" title="釘住（固定位置與大小）"><span class="material-symbols-outlined text-[20px]">push_pin</span></button>
                                     <button id="btn-bm-delete" class="w-8 h-8 flex items-center justify-center hover:bg-rose-50 text-rose-600 rounded-md transition-colors" title="刪除"><span class="material-symbols-outlined text-[20px]">delete</span></button>
                                 </div>
 
@@ -669,13 +842,14 @@
                     }
                 };
 
-                window.addTeacherNote = (defaultText = "", defaultColor = "random") => {
+                window.addTeacherNote = (defaultText = "", defaultColor = "random", defaultImg = "") => {
                     if (typeof showBoardPrompt === 'function') {
                         const initText = typeof defaultText === 'string' ? defaultText : "";
                         const title = "新增";
                         showBoardPrompt(title, initText, defaultColor, async (result) => {
-                            if (result && result.text) {
+                            if (result && (result.text || result.img)) {
                                 const currentMods = ctx.getMods(qId);
+                                if (result.img && !wbBudgetOk(currentMods, qId, result.img.length)) return;   // 🖼️ 容量檢查
                                 
                                 // 依據是否勾選批次新增來切分陣列
                                 const texts = result.isBatch ? result.text.split('\n').map(t => t.trim()).filter(t => t) : [result.text];
@@ -721,6 +895,7 @@
                                         author: '老師',
                                         z: 1000 + i // 確保新生成的會在最上層
                                     };
+                                    if (result.img) { currentMods[noteId].img = result.img; currentMods[noteId].w = 200; }   // 🖼️ 圖片便利貼
                                 });
 
                                 // ✨ 自動選取新產生的便利貼/文字
@@ -736,8 +911,40 @@
 
                                 await ctx.saveMods(qId, currentMods);
                             }
-                        });
+                        }, null, defaultImg);   // 🖼️ 第 6 個參數：預載圖片
                     }
+                };
+
+                // 🖼️ [新增] 工具列「插入圖片」：先選檔 → 壓縮 → 開啟新增視窗（可加圖說、選底色）
+                window.addTeacherImage = async () => {
+                    const f = await wbPickImageFile();
+                    if (!f) return;
+                    try {
+                        const data = await wbCompressImage(f);
+                        window.addTeacherNote('', 'text', data);
+                    } catch (err) { wbToast('⚠️ ' + err.message); }
+                };
+
+                // 🖼️ [新增] 直接在指定座標放一張圖片便利貼（貼上圖片 / 拖放檔案共用，不開視窗）
+                window.addTeacherImageAt = async (src, cx, cy) => {
+                    const activeQId = ctx.getCurrentQ()?.id || qId;
+                    const currentMods = ctx.getMods(activeQId);
+                    if (!wbBudgetOk(currentMods, activeQId, /^https?:/i.test(src) ? 0 : src.length)) return;
+                    const noteId = 'teacher_' + Date.now() + '_img' + Math.floor(Math.random() * 1000);
+                    const allZs = Object.values(currentMods).map(m => m.z || 10);
+                    const maxZ = allZs.length > 0 ? Math.max(...allZs) : 10;
+                    let x = cx - 100, y = cy - 60;
+                    if (qData.options?.[7] === 'true') { x = Math.round(x / 12) * 12; y = Math.round(y / 12) * 12; }
+                    currentMods[noteId] = { isTeacher: true, text: '', color: 'text', img: src, x: x, y: y, w: 200, author: '老師', z: maxZ + 1 };
+                    if (window.selectedNotes) {
+                        window.selectedNotes.clear();
+                        window.selectedNotes.add(noteId);
+                        window.currentActiveNoteId = noteId;
+                        document.getElementById('board-note-menu')?.classList.add('hidden');
+                        document.querySelectorAll('.sticky-note').forEach(n => n.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1'));
+                    }
+                    try { await ctx.saveMods(activeQId, currentMods); }
+                    catch (err) { delete currentMods[noteId]; wbToast('⚠️ 儲存失敗，圖片可能太大'); }
                 };
 				window.addTeacherText = (defaultText = "") => {
                     if (typeof window.addTeacherNote === 'function') window.addTeacherNote(defaultText, "text");
@@ -1087,7 +1294,7 @@
                     // 2. 點擊改變尺寸把手 (支援一般右下角把手 & 文字專屬右側邊緣把手)
                     const rHandle = e.target.closest('.resize-handle');
                     const rHandleRight = e.target.closest('.resize-handle-right');
-                    if (rHandle || rHandleRight) {
+                    if ((rHandle || rHandleRight) && !isNotePinned(e.target.closest('.sticky-note')?.dataset.id)) {
                         e.stopPropagation();
                         resizedNote = e.target.closest('.sticky-note');
                         window.currentResizedNote = resizedNote;
@@ -1140,6 +1347,7 @@
                         isDraggingNote = false;
                         dragStartX = e.clientX;
                         dragStartY = e.clientY;
+                        initialPan = { ...window.boardPan };   // 📌 釘住的卡片被拖曳時，改為平移畫布用
                         draggedNote._clickedFoldBtn = !!e.target.closest('.btn-fold-note');
 
                         if (typeof note.setPointerCapture === 'function') note.setPointerCapture(e.pointerId);
@@ -1205,6 +1413,10 @@
                 });
 
                 // 🛠️ [新增] 目前是否有任何「按住滑鼠才會進行」的互動 (平移 / 框選 / 拖曳便利貼 / 調整尺寸)
+                // 📌 該便利貼是否已釘住 (不可移動、不可調整大小，仍可調整圖層)
+                const isNotePinned = (id) => {
+                    try { return !!ctx.getMods(ctx.getCurrentQ()?.id || qId)?.[id]?.pinned; } catch (_) { return false; }
+                };
                 const isBoardBusy = () => isPanning || isMarquee || !!draggedNote || isResizingNote;
 
                 // 🛠️ [新增] 強制結束所有拖曳狀態 (pointerup 遺失時的保險)
@@ -1313,8 +1525,16 @@
                         const dx = newX - parseFloat(draggedNote.style.left);
                         const dy = newY - parseFloat(draggedNote.style.top);
 
-                        if (window.selectedNotes.has(draggedNote.dataset.id)) {
+                        if (isNotePinned(draggedNote.dataset.id)) {
+                            // 📌 被抓住的卡片已釘住：卡片不動，改為平移畫布
+                            if (isDraggingNote) {
+                                window.boardPan.x = initialPan.x + (e.clientX - dragStartX);
+                                window.boardPan.y = initialPan.y + (e.clientY - dragStartY);
+                                window.updateBoardView();
+                            }
+                        } else if (window.selectedNotes.has(draggedNote.dataset.id)) {
                             window.selectedNotes.forEach(id => {
+                                if (isNotePinned(id)) return;   // 📌 群組內已釘住的卡片留在原地
                                 const n = document.getElementById('note-' + id);
                                 if (n) {
                                     n.style.left = (parseFloat(n.style.left) + dx) + 'px';
@@ -1539,7 +1759,7 @@
                                 };
 
                                 showBoardPrompt("編輯", currentText, currentColor, async (result) => {
-                                    if (result && result.text) {
+                                    if (result && (result.text || result.img)) {
                                         const currentMods = ctx.getMods(activeQId);
                                         
                                         // ✨ 依據是否勾選批次新增來切分陣列
@@ -1554,14 +1774,22 @@
 
                                         // 1. 更新原本的第一張便利貼
                                         const firstColor = result.color === 'random' ? getRandomColor() : result.color;
-                                        currentMods[noteId] = { ...currentMods[noteId], text: texts[0], color: firstColor };
+                                        // 🖼️ 容量檢查（只有圖片真的換了才檢查）與 img 寫回
+                                const _hadImg = !!(currentMods[noteId] && currentMods[noteId].img);
+                                const _sameImg = _hadImg && currentMods[noteId].img === result.img;
+                                if (result.img && !_sameImg && !wbBudgetOk(currentMods, activeQId, /^https?:/i.test(result.img) ? 0 : result.img.length)) return;
+                                const _upd = { ...currentMods[noteId], text: texts[0], color: firstColor };
+                                if (result.img) _upd.img = result.img; else delete _upd.img;   // 注意：Firestore 不接受 undefined，所以用 delete
+                                currentMods[noteId] = _upd;
+                                const _imgInvolved = _hadImg || !!result.img;
                                         
                                         // 樂觀更新 UI
+                                        if (_imgInvolved) note.style.cursor = '';   // 🖼️ 清除點擊殘留的 grabbing，否則重繪會跳過這張便利貼、圖片就不會更新
                                         note.querySelector('.note-text-content').textContent = texts[0];
                                         note.dataset.color = firstColor;
                                         const bodyEl = note.querySelector('.note-body');
                                         if (bodyEl) {
-                                            bodyEl.className = `note-body relative shadow-sm rounded-sm border transition-shadow group-hover:shadow-lg ${colorMap[firstColor] || colorMap['yellow']}`;
+                                            if (!_imgInvolved) bodyEl.className = `note-body relative shadow-sm rounded-sm border transition-shadow group-hover:shadow-lg ${colorMap[firstColor] || colorMap['yellow']}`;   // 🖼️ 圖片便利貼交給重繪處理
                                             bodyEl.setAttribute('data-first-char', (texts[0] || '').trim().charAt(0) || '');
                                         }
 
@@ -1590,7 +1818,7 @@
 
                                         await ctx.saveMods(activeQId, currentMods);
                                     }
-                                }, extraOpts);
+                                }, extraOpts, ((ctx.getMods(activeQId) || {})[noteId] || {}).img || '');   // 🖼️ 預載原本的圖片
                             }
                         } else if (action === 'stick') {
                             // 執行：隨游標黏貼
@@ -1692,6 +1920,7 @@
 
                         // 3. 執行對齊數學運算 (並同步進行樂觀 UI 更新)
                         const applyAlign = (id, newX, newY) => {
+                            if (currentMods[id]?.pinned) return;   // 📌 已釘住的卡片不移動 (仍作為對齊基準)
                             const mod = currentMods[id] || {};
                             if (newX !== undefined) mod.x = newX;
                             if (newY !== undefined) mod.y = newY;
@@ -1735,6 +1964,37 @@
                         await ctx.saveMods(activeQId, currentMods);
                     });
                 });
+
+                // 📌 釘住 / 取消釘住 (循環切換)：釘住後不可移動、不可調整大小，但仍可調整圖層
+                const pinBtn = document.getElementById('btn-bm-pin');
+                if (pinBtn) {
+                    pinBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        if (!window.selectedNotes || window.selectedNotes.size === 0) return;
+                        const activeQId = ctx.getCurrentQ()?.id || qId;
+                        const currentMods = ctx.getMods(activeQId);
+                        const ids = Array.from(window.selectedNotes);
+                        const allPinned = ids.every(id => currentMods[id]?.pinned);
+                        const next = !allPinned;
+                        ids.forEach(id => {
+                            currentMods[id] = { ...currentMods[id], pinned: next };
+                            document.getElementById('note-' + id)?.classList.toggle('is-pinned', next);
+                        });
+                        updatePinBtn(next);
+                        if (typeof showToast === 'function') showToast(next ? '📌 已釘住' : '📍 已取消釘住');
+                        try { await ctx.saveMods(activeQId, currentMods); } catch (err) {}
+                    });
+                }
+                function updatePinBtn(pinned) {
+                    const b = document.getElementById('btn-bm-pin');
+                    if (!b) return;
+                    b.classList.toggle('bg-blue-100', pinned);
+                    b.classList.toggle('text-blue-600', pinned);
+                    b.classList.toggle('text-gray-700', !pinned);
+                    b.title = pinned ? '取消釘住' : '釘住（固定位置與大小）';
+                    const ic = b.querySelector('.material-symbols-outlined');
+                    if (ic) ic.style.fontVariationSettings = pinned ? "'FILL' 1" : '';
+                }
 
                 // ✨ 圖層順序控制引擎 (升級支援多選一鍵移至頂層)
                 document.querySelectorAll('.bm-layer-btn').forEach(btn => {
@@ -1792,6 +2052,7 @@
 
                         const currentMods = ctx.getMods(activeQId);
                         const isCollapsed = currentMods[currentNoteId]?.collapsed;
+                        updatePinBtn(Array.from(window.selectedNotes).every(id => currentMods[id]?.pinned));   // 📌 同步釘住按鈕狀態
 
                         const editBtn = document.getElementById('btn-bm-edit');
                         const alignWrapper = document.getElementById('btn-bm-align-wrapper');
@@ -2115,6 +2376,23 @@
                     if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
 
                     const rawText = (e.originalEvent || e).clipboardData.getData('text/plain');
+
+                    // 🖼️ [新增] 剪貼簿是圖片（且沒有文字）→ 直接在畫面中央建立圖片便利貼
+                    const _cd = (e.originalEvent || e).clipboardData;
+                    const _imgItem = !rawText && Array.from((_cd && _cd.items) || []).find(it => it.kind === 'file' && /^image\//.test(it.type));
+                    if (_imgItem) {
+                        e.preventDefault();
+                        const _file = _imgItem.getAsFile();   // 必須在 await 之前取出
+                        try {
+                            const _data = await wbCompressImage(_file);
+                            const _cv = document.getElementById('whiteboard-canvas');
+                            const _r = _cv.getBoundingClientRect();
+                            await window.addTeacherImageAt(_data, (_r.width / 2 - window.boardPan.x) / window.boardZoom, (_r.height / 2 - window.boardPan.y) / window.boardZoom);
+                            wbToast('✅ 已貼上圖片');
+                        } catch (err) { wbToast('⚠️ ' + err.message); }
+                        return;
+                    }
+
                     if (!rawText) return;
 
                     e.preventDefault(); // 攔截預設貼上
@@ -2172,6 +2450,25 @@
                 };
                 document.addEventListener('paste', window.boardPasteHandler);
 
+                // 🖼️ [新增] 把圖片檔拖進畫布 → 在放開的位置建立圖片便利貼
+                canvas.addEventListener('dragover', (e) => {
+                    if (e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files')) e.preventDefault();
+                });
+                canvas.addEventListener('drop', async (e) => {
+                    const files = Array.from((e.dataTransfer && e.dataTransfer.files) || []).filter(f => /^image\//.test(f.type));
+                    if (!files.length) return;
+                    e.preventDefault();
+                    const r = canvas.getBoundingClientRect();
+                    const cx = (e.clientX - r.left - window.boardPan.x) / window.boardZoom;
+                    const cy = (e.clientY - r.top - window.boardPan.y) / window.boardZoom;
+                    for (let i = 0; i < files.length; i++) {
+                        try {
+                            const data = await wbCompressImage(files[i]);
+                            await window.addTeacherImageAt(data, cx + i * 30, cy + i * 30);
+                        } catch (err) { wbToast('⚠️ ' + err.message); }
+                    }
+                });
+
                 document.getElementById('btn-bm-edit').addEventListener('click', () => {
                     const noteId = window.currentActiveNoteId;
                     const noteEl = document.getElementById('note-' + noteId);
@@ -2212,7 +2509,7 @@
                         };
 
                         showBoardPrompt("編輯", currentText, currentColor, async (result) => {
-                            if (result && result.text) {
+                            if (result && (result.text || result.img)) {
                                 const activeQId = ctx.getCurrentQ()?.id || qId;
                                 const currentMods = ctx.getMods(activeQId);
                                 
@@ -2228,14 +2525,22 @@
 
                                 // 1. 更新原本的第一張便利貼
                                 const firstColor = result.color === 'random' ? getRandomColor() : result.color;
-                                currentMods[noteId] = { ...currentMods[noteId], text: texts[0], color: firstColor };
+                                // 🖼️ 容量檢查（只有圖片真的換了才檢查）與 img 寫回
+                                const _hadImg = !!(currentMods[noteId] && currentMods[noteId].img);
+                                const _sameImg = _hadImg && currentMods[noteId].img === result.img;
+                                if (result.img && !_sameImg && !wbBudgetOk(currentMods, activeQId, /^https?:/i.test(result.img) ? 0 : result.img.length)) return;
+                                const _upd = { ...currentMods[noteId], text: texts[0], color: firstColor };
+                                if (result.img) _upd.img = result.img; else delete _upd.img;   // 注意：Firestore 不接受 undefined，所以用 delete
+                                currentMods[noteId] = _upd;
+                                const _imgInvolved = _hadImg || !!result.img;
                                 
                                 // 樂觀更新 UI
+                                if (_imgInvolved) noteEl.style.cursor = '';   // 🖼️ 同上
                                 noteEl.querySelector('.note-text-content').textContent = texts[0];
                                 noteEl.dataset.color = firstColor;
                                 const bodyEl = noteEl.querySelector('.note-body');
                                 if (bodyEl) {
-                                    bodyEl.className = `note-body relative shadow-sm rounded-sm border transition-shadow group-hover:shadow-lg ${colorMap[firstColor] || colorMap['yellow']}`;
+                                    if (!_imgInvolved) bodyEl.className = `note-body relative shadow-sm rounded-sm border transition-shadow group-hover:shadow-lg ${colorMap[firstColor] || colorMap['yellow']}`;   // 🖼️ 圖片便利貼交給重繪處理
                                     bodyEl.setAttribute('data-first-char', (texts[0] || '').trim().charAt(0) || '');
                                 }
 
@@ -2264,7 +2569,7 @@
 
                                 await ctx.saveMods(activeQId, currentMods);
                             }
-                        }, extraOpts);
+                        }, extraOpts, ((ctx.getMods(activeQId) || {})[noteId] || {}).img || '');   // 🖼️ 預載原本的圖片
                     }
                 });
 
@@ -2285,7 +2590,8 @@
                             if (noteEl) {
                                 noteEl.dataset.color = newColor;
                                 const bodyEl = noteEl.querySelector('.note-body');
-                                if (bodyEl) {
+                                if (bodyEl && noteEl.querySelector('.note-img')) noteEl.style.cursor = '';   // 🖼️ 清掉 grabbing，讓重繪能套用新顏色
+                                if (bodyEl && !noteEl.querySelector('.note-img')) {   // 🖼️ 圖片便利貼交給重繪處理
                                     const isText = newColor === 'text';
                                     noteEl.classList.toggle('is-text-mode', isText);
                                     const shadowCls = isText ? '' : 'shadow-sm rounded-sm border group-hover:shadow-lg';
@@ -2345,7 +2651,7 @@
                     noteEl.setAttribute('data-show-author', mappedShowAuthor);
                     
                     const isCollapsedInit = mod.collapsed ? 'is-collapsed' : '';
-                    noteEl.className = `sticky-note absolute cursor-pointer group ${isCollapsedInit}`;
+                    noteEl.className = `sticky-note absolute cursor-pointer group ${isCollapsedInit} ${mod.pinned ? 'is-pinned' : ''}`;
                     noteEl.dataset.id = note.id;
                     noteEl.dataset.author = note.author;
                     
@@ -2376,7 +2682,9 @@
                     noteEl.dataset.color = note.color;
                     
                     const isText = note.color === 'text';
-                    noteEl.classList.toggle('is-text-mode', isText); // 同步給外層標記
+                    const hasImg = wbIsImgSrc(note.img);          // 🖼️ 圖片便利貼
+                    const isFree = isText || hasImg;              // 🖼️ 「自由版面」：高度自動、右側拉柄調寬度
+                    noteEl.classList.toggle('is-text-mode', isFree); // 同步給外層標記
 
                     const sizeMode = qData.options?.[5] || 'fixed';
                     noteEl.setAttribute('data-size', sizeMode);
@@ -2388,7 +2696,7 @@
                     const isCollapsedInit = mod.collapsed ? 'is-collapsed' : '';
                     
                     // ✨ 修復：確保摺疊狀態 (is-collapsed) 被正確保留
-                    noteEl.className = `sticky-note absolute cursor-pointer group ${isSelected ? 'ring-2 ring-blue-500 ring-offset-1 rounded-sm' : ''} ${isText ? 'is-text-mode' : ''} ${isCollapsedInit}`;
+                    noteEl.className = `sticky-note absolute cursor-pointer group ${isSelected ? 'ring-2 ring-blue-500 ring-offset-1 rounded-sm' : ''} ${isFree ? 'is-text-mode' : ''} ${hasImg ? 'is-image-note' : ''} ${isCollapsedInit} ${mod.pinned ? 'is-pinned' : ''}`;
                     
                     const bodyEl = noteEl.querySelector('.note-body');
                     if (bodyEl) {
@@ -2400,7 +2708,7 @@
                         // 動態切換文字對齊與樣式
                         const textContent = noteEl.querySelector('.note-text-content');
                         if (textContent) {
-                            if (isText) {
+                            if (isText && !hasImg) {
                                 textContent.classList.add('text-left', 'font-extrabold', 'text-lg');
                                 textContent.classList.remove('text-center');
                             } else {
@@ -2409,17 +2717,17 @@
                             }
                         }
                         const foldBtn = noteEl.querySelector('.btn-fold-note');
-                        if (foldBtn) foldBtn.style.display = isText ? 'none' : '';
+                        if (foldBtn) foldBtn.style.display = isFree ? 'none' : '';
 
                         // ✨ 尺寸模式與純文字的動態尺寸引擎
-                        if (isText) {
+                        if (isFree) {
                             bodyEl.style.height = 'auto'; // 高度自適應
                             if (mod.w) {
                                 bodyEl.style.width = mod.w + 'px';
                                 bodyEl.style.maxWidth = 'none';
                             } else {
-                                bodyEl.style.width = 'max-content';
-                                bodyEl.style.maxWidth = '300px'; // 預設最大寬度 300px
+                                bodyEl.style.width = hasImg ? '200px' : 'max-content';
+                                bodyEl.style.maxWidth = hasImg ? 'none' : '300px'; // 預設最大寬度 300px（圖片預設寬 200px）
                             }
                         } else {
                             if (sizeMode === 'resize') {
@@ -2434,7 +2742,37 @@
                         }
                     }
 
-                    noteEl.querySelector('.note-text-content').textContent = note.text;
+                    noteEl.querySelector('.note-text-content').textContent = note.text || '';
+
+                    // 🖼️ [新增] 同步圖片元素（內容沒變就不重設 src，避免閃爍）
+                    {
+                        const _scroll = noteEl.querySelector('.note-scroll');
+                        let _img = noteEl.querySelector('.note-img');
+                        if (hasImg) {
+                            if (!_img) {
+                                _img = document.createElement('img');
+                                _img.className = 'note-img';
+                                _img.draggable = false;
+                                _img.referrerPolicy = 'no-referrer';
+                                _img.addEventListener('error', () => _img.classList.add('is-broken'));
+                                _scroll.insertBefore(_img, _scroll.firstChild);
+                            }
+                            if (_img._src !== note.img) { _img._src = note.img; _img.classList.remove('is-broken'); _img.src = note.img; }
+                            _img.alt = note.text ? note.text : '（圖片無法顯示）';
+                        } else if (_img) {
+                            _img.remove();
+                        }
+                        // 縮放拉點：class 含 resize-handle-right，直接沿用「調整寬度」的拖曳與存檔邏輯
+                        let _hd = noteEl.querySelector('.resize-handle-corner');
+                        if (hasImg && !_hd) {
+                            _hd = document.createElement('div');
+                            _hd.className = 'resize-handle-right resize-handle-corner';
+                            _hd.title = '拖曳調整大小';
+                            noteEl.querySelector('.note-body').appendChild(_hd);
+                        } else if (!hasImg && _hd) {
+                            _hd.remove();
+                        }
+                    }
                     noteEl.querySelector('.note-author-content').textContent = note.author;
                 }
             });
@@ -2460,7 +2798,7 @@
         return activeResponsesCount;
     }
 
-    window.WB = { escapeHtml, showCustomConfirm, showBoardPrompt, renderBoard };
+    window.WB = { escapeHtml, showCustomConfirm, showBoardPrompt, renderBoard, wbIsImgSrc };   // 🖼️ 匯出圖片網址驗證，給下方「表格轉接」使用
 
     // ✨ 新增：白板自訂背景圖片
     //   PRESETS：在程式裡指定的背景圖，格式 ['代號', '選單顯示名稱', '圖片網址']
@@ -2537,7 +2875,8 @@
     const COLOR_FROM = {};
     Object.entries(COLOR_LABEL).forEach(([key, label]) => { COLOR_FROM[key] = key; COLOR_FROM[label] = key; });
 
-    const FIELD_NAME = { x: 'X', y: 'Y', color: '顏色', w: '寬', h: '高', z: '圖層', collapsed: '收合' };
+    const wbIsImgSrc = window.WB.wbIsImgSrc;   // 🖼️ 沿用上方引擎的圖片網址驗證
+    const FIELD_NAME = { x: 'X', y: 'Y', color: '顏色', w: '寬', h: '高', z: '圖層', collapsed: '收合', img: '圖片', pinned: '釘住' };   // 🖼️ 新增「圖片」欄（網址或 base64）
     // 對應 Live 白板題的 options：[限制,允許重複,顯示作者,顯示工具列,雙擊動作,尺寸模式,背景,貼齊格線,學生畫布]
     const DEFAULT_OPTIONS = ['0', 'false', 'none', 'true', 'edit', 'resize', 'dots', 'false', 'true'];
 
@@ -2583,12 +2922,15 @@
         Object.assign(S, { tab, cols, notes: {}, rows: {}, order: [], extra: [], seq: 0, head: grid.slice(0, headerRows).map(r => r.slice()) });
         let missing = 0;   // 沒有座標的便利貼，依序排成格狀
         grid.slice(headerRows).forEach(row => {
-            if (!hasText(row[cols.text])) {
-                if (row.some(hasText)) S.extra.push(row.slice());   // 沒有文字但有其他資料：原樣保留，不遺失
+            const imgSrc = String(row[cols.img] || '').trim();
+            const imgOk = wbIsImgSrc(imgSrc);                          // 🖼️ 只接受 http(s) 網址或 data:image
+            if (!hasText(row[cols.text]) && !imgOk) {                  // 🖼️ 沒文字但有圖片，也算一張便利貼
+                if (row.some(hasText)) S.extra.push(row.slice());   // 沒有文字也沒有圖片但有其他資料：原樣保留，不遺失
                 return;
             }
             const id = 'row_' + (S.seq++);
-            const mod = { isTeacher: true, author: '', text: String(row[cols.text]), color: COLOR_FROM[String(row[cols.color] || '').trim()] || 'yellow' };
+            const mod = { isTeacher: true, author: '', text: hasText(row[cols.text]) ? String(row[cols.text]) : '', color: COLOR_FROM[String(row[cols.color] || '').trim()] || (imgOk ? 'text' : 'yellow') };
+            if (imgOk) mod.img = imgSrc;
             const x = num(row[cols.x]), y = num(row[cols.y]);
             if (x !== undefined && y !== undefined) { mod.x = x; mod.y = y; }
             else { mod.x = 100 + (missing % 6) * 160; mod.y = 100 + Math.floor(missing / 6) * 160; missing++; }
@@ -2597,6 +2939,7 @@
             if (h !== undefined) mod.h = h;
             if (z !== undefined) mod.z = z;
             if (/^(1|true|是|y|yes)$/i.test(String(row[cols.collapsed] || '').trim())) mod.collapsed = true;
+            if (/^(1|true|是|y|yes)$/i.test(String(row[cols.pinned] || '').trim())) mod.pinned = true;   // 📌
             S.notes[id] = mod;
             S.rows[id] = row.slice();
             S.order.push(id);
@@ -2634,6 +2977,8 @@
             row[c.h] = m.h ? String(Math.round(m.h)) : '';
             row[c.z] = m.z !== undefined ? String(Math.round(m.z)) : '';
             row[c.collapsed] = m.collapsed ? '1' : '';
+            row[c.pinned] = m.pinned ? '1' : '';   // 📌
+            row[c.img] = m.img || '';   // 🖼️ 圖片
             out.push(row);
         });
         S.extra.forEach(r => { const row = r.slice(); while (row.length < width) row.push(''); out.push(row); });
