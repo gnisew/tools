@@ -109,12 +109,21 @@ function opts() {
 }
 async function minJs(code, o) {
   if (typeof Terser === 'undefined') throw new Error('Terser 載入失敗（需要網路）');
-  const r = await Terser.minify(code, {
-    compress: o.compress ? { drop_console: o.drop } : false,
-    mangle: o.mangle ? { toplevel: false } : false,
-    format: { comments: false }
-  });
-  return r.code || '';
+  const run = async useCompress => {
+    const r = await Terser.minify(code, {
+      compress: useCompress ? { drop_console: o.drop } : false,
+      mangle: o.mangle ? { toplevel: false } : false,
+      format: { comments: false }
+    });
+    return r.code || '';
+  };
+  const bytes = s => new Blob([s]).size;   // 用位元組比大小，不是字數
+  let out = await run(o.compress);
+  if (o.compress && bytes(out) >= bytes(code)) {   // 變大了就改用「不壓縮語法」重試
+    const alt = await run(false);
+    if (bytes(alt) < bytes(out)) out = alt;
+  }
+  return out;
 }
 function minCss(s) {
   s = s.replace(/("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|\/\*[\s\S]*?\*\//g, (m, str) => str || '');
@@ -156,8 +165,12 @@ $('go').onclick = async () => {
     try {
       if (TEXT.test(it.path)) {
         const out = await minify(it.path, await it.file.text(), o);
-        it.out = new Blob([out], { type: 'text/plain;charset=utf-8' });
-        it.outSize = it.out.size; it.ok = true; it.msg = '完成';
+        const blob = new Blob([out], { type: 'text/plain;charset=utf-8' });
+        if (blob.size >= it.size) {   // 沒變小就保留原檔
+          it.out = it.file; it.msg = '壓縮後沒有變小，保留原檔';
+        } else {
+          it.out = blob; it.outSize = blob.size; it.ok = true; it.msg = '完成';
+        }
       } else { it.out = it.file; it.msg = '原樣複製'; }
     } catch (err) { it.out = it.file; it.msg = '失敗，保留原檔：' + err.message; it.bad = true; }
     const tr = tb.insertRow();
