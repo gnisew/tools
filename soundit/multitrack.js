@@ -408,7 +408,7 @@
 				if (!st) throw 0;
 				editing_clip = null;
 				app.fireEvent ('StateRequestClearAll');
-				Toggle ( true );
+				Toggle ( true, true );
 				restoreState ( st );
 				if (app.mrk) app.mrk.loadMt (st.markers, false);
 				app.fireEvent ('DidUpdateMultitrack');
@@ -878,8 +878,30 @@
 			return true;
 		}
 
-		function Toggle ( force ) {
-			on = force === undefined ? !IsOn () : !!force;
+		function backLabel () {
+			var lang = (PKLocale.getLang && PKLocale.getLang ()) || '';
+			return /^zh/i.test ( lang ) ? '&#8592; 返回多軌' : '&#8592; Multitrack';
+		}
+
+		// 單軌編輯中的片段 → 按鈕顯示「返回多軌」；其餘維持原標籤
+		function updateToggleLabel () {
+			if (!btn_toggle) return ;
+			var editing = !IsOn () && editing_clip && findClip ( editing_clip );
+			btn_toggle.innerHTML = editing ? backLabel () : t('mt.toggle');
+			btn_toggle.classList[editing ? 'add' : 'remove'] ('pk_back');
+		}
+
+		function Toggle ( force, skip_import ) {
+			var was_on = IsOn ();
+			var next = force === undefined ? !was_on : !!force;
+
+			// 單軌 → 多軌：先把單軌音檔/編輯結果寫回多軌（此時 on 仍為 false）
+			if (next && !was_on && !skip_import) {
+				importEngineAudio ();
+				syncEditingClip ();
+			}
+
+			on = next;
 			app.el.classList[on ? 'add' : 'remove'] ('pk_mt_on');
 			if (btn_toggle) btn_toggle.classList[on ? 'add' : 'remove'] ('pk_act');
 
@@ -897,8 +919,12 @@
 				emitEditorState ();
 			}
 			else {
-				importEngineAudio ();
-				syncEditingClip ();
+				// 回到多軌時，選取剛編輯過的片段
+				var edited = editing_clip && findClip ( editing_clip );
+				if (edited) {
+					selected_track = edited.track;
+					selected_clip = edited.id;
+				}
 				app.engine.wavesurfer.pause ();
 				if (!did_init_zoom) {
 					did_init_zoom = true;
@@ -909,6 +935,7 @@
 				render ();
 				emitState ();
 			}
+			updateToggleLabel ();
 			if (on) app.fireEvent ('RequestResize');
 			else refreshEditorView ();
 		}
@@ -4567,6 +4594,7 @@
 			Stop ();
 			Toggle ( false );
 			editing_clip = clip_id;
+			updateToggleLabel ();
 			app.engine.is_ready = true;
 			wv.loadDecodedBuffer ( buffer );
 
@@ -5542,9 +5570,11 @@
 		app.listenFor ('DidUpdateLen', syncEditingClip);
 		app.listenFor ('DidUnloadFile', function () {
 			if (!on) editing_clip = null;
+			updateToggleLabel ();
 		});
 		app.listenFor ('RequestDetachClipEditor', function () {
 			editing_clip = null;
+			updateToggleLabel ();
 		});
 
 		tracks.push ( makeTrack ('Channel 1') );

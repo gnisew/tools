@@ -735,6 +735,7 @@ a{
 }
 .pk_mt_topbtn:hover{color:#fff;border-color:var(--ac);box-shadow:0 0 14px var(--ac-glow),inset 0 0 12px var(--ac-soft)}
 .pk_mt_topbtn:active{transform:translateY(1px)}
+.pk_mt_topbtn.pk_back{color:var(--ac);border-color:var(--ac);box-shadow:0 0 10px var(--ac-glow)}
 .pk_mt_topbtn.pk_act{
 	color:var(--ac-ink);border-color:var(--ac);
 	background:linear-gradient(180deg,#a8eef5 0%,#5ac8d2 100%);
