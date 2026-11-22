@@ -34,7 +34,6 @@ const REQUIRED_ASSETS = [
 	'./actions.js',
 	'./drag.js',
 	'./recorder.js',
-	'./welcome.js',
 	'./fx-pg-eq.js',
 	'./fx-auto.js',
 	'./local.js',

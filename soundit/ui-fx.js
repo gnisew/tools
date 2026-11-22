@@ -2938,7 +2938,7 @@
 					}
 
 					var size = is_mix ? [760, 320] : [600, 188];
-					var wnd = window.open ('/' + url + '.html', title, "directories=no,titlebar=no,toolbar=no,"+
+					var wnd = window.open ('./' + url + '.html', title, "directories=no,titlebar=no,toolbar=no,"+
 							"location=no,status=no,menubar=no,scrollbars=no,resizable=no,width=" + size[0] + ",height=" + size[1] + extra);
 
 					if (!wnd) {
@@ -3023,7 +3023,7 @@
 						setEvents ( curr_win, url );
 					}
 				};
-				iframe.src = '/' + url + '.html?iframe=1';
+				iframe.src = './' + url + '.html?iframe=1';
 			}
 
 		});
@@ -3033,3 +3033,5 @@
 	PKAE._deps.uifx = PKUI_FX;
 
 })( window, document, PKAudioEditor );
+
+

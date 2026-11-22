@@ -273,6 +273,14 @@
 
 			UI.listenFor ('DidUpdateLen', function( val ) { td = val || 0; total_duration.textContent = formatTime (val); });
 
+			/* 播放／拖曳／seek 時更新左上角的目前時間（fx 預覽會傳 -1，略過） */
+			UI.listenFor ('DidAudioProcess', function( val ) {
+				var time = (val && val.length !== undefined) ? val[0] : val; /* 事件參數是 [time, loudness, stamp] */
+				if (typeof time !== 'number' || !(time >= 0)) return ;
+				tc = time;
+				drawT ( time );
+			});
+
 			var volumeGauge = d.createElement( 'div' ); var volumeGauge2 = d.createElement( 'div' );
 			var volumeGaugeInner = d.createElement( 'div' ); var volumeGaugeInner2 = d.createElement( 'div' );
 			var volumeGaugePeaker = d.createElement( 'div' ); var volumeGaugePeaker2 = d.createElement( 'div' );
@@ -344,3 +352,4 @@
 	PKAE._deps._bindToolbarTips = _bindToolbarTips;
 
 })( window, document, PKAudioEditor );
+

@@ -848,6 +848,36 @@
 			return on || app.el.classList.contains ('pk_mt_on');
 		}
 
+		// 單軌 -> 多軌：把單軌目前載入的音檔放進多軌（尚未被任何片段使用時）
+		function importEngineAudio () {
+			var eng = app.engine;
+			var wv = eng && eng.wavesurfer;
+			var buf = wv && wv.backend && wv.backend.buffer;
+			if (!buf || !eng.is_ready || !buf.length) return false;
+
+			if (editing_clip && findClip ( editing_clip )) return false;
+			for (var i = 0; i < clips.length; ++i)
+				if (clips[i].buffer === buf) return false;
+
+			var prev = cloneState ();
+			var targets = emptyTracks ( selected_track );
+			var track = targets[0];
+			if (!track) {
+				track = makeTrack ( t('mt.channel_n') + (tracks.length + 1) );
+				tracks.push ( track );
+			}
+
+			var clip = makeClip ( track.id, 0, buf, eng.file_name || eng.FileName || 'Audio' );
+			clips.push ( clip );
+			editing_clip = clip.id;
+			selected_track = track.id;
+			selected_clip = null;
+			pushState ( prev, t('mt.desc.add_clip') );
+			queuePlayRefresh ( true );
+			app.fireEvent ('DidUpdateMultitrack');
+			return true;
+		}
+
 		function Toggle ( force ) {
 			on = force === undefined ? !IsOn () : !!force;
 			app.el.classList[on ? 'add' : 'remove'] ('pk_mt_on');
@@ -867,6 +897,7 @@
 				emitEditorState ();
 			}
 			else {
+				importEngineAudio ();
 				syncEditingClip ();
 				app.engine.wavesurfer.pause ();
 				if (!did_init_zoom) {
@@ -5524,3 +5555,4 @@
 
 	PKAE._deps.multitrack = PKMultitrack;
 })( window, document, PKAudioEditor );
+

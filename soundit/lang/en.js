@@ -125,6 +125,8 @@ PKLocale.register ('en', {
 	'toolbar.cut': 'Cut Selection (Shift + X)',
 	'toolbar.insert_silence': 'Insert Silence (Shift + N)',
 	'toolbar.clear_sel': 'Clear Selection (Q key)',
+	'toolbar.clear_label': 'clear selection',
+	'toolbar.clear_short': 'clear',
 	'toolbar.zoom_in_h': 'Zoom In Horizontally (+)',
 	'toolbar.zoom_out_h': 'Zoom Out Horizontally (-)',
 	'toolbar.zoom_reset': 'Reset Zoom (0)',
@@ -434,6 +436,8 @@ PKLocale.register ('en', {
 	'pwa.reload': 'Reload',
 
 	'desc.open_audio': 'Open Audio',
+	'desc.open_recording': 'Open Recording',
+	'engine.unsupported_type': 'Unsupported audio file type',
 	'desc.cut': 'Cut',
 	'desc.delete': 'Delete',
 	'desc.silence': 'Silence',
@@ -595,6 +599,11 @@ PKLocale.register ('en', {
 	'ui.whole_track': 'Whole Track',
 	'ui.selected_clip': 'Selected Clip',
 	'ui.selection_only': 'Selection Only',
+	'ui.source': 'Source',
+	'ui.src_mic': 'Microphone',
+	'ui.src_system': 'Computer audio',
+	'ui.src_both': 'Microphone + computer audio',
+	'ui.sys_no_audio': 'No audio was shared. Choose a tab or screen and turn on "Share audio" (system audio is only available on Windows and ChromeOS for full screens).',
 	'ui.devices': 'Devices:',
 	'ui.time': 'Time',
 	'ui.waveform': 'Waveform',
@@ -606,6 +615,8 @@ PKLocale.register ('en', {
 	'ui.append_existing': 'APPEND TO EXISTING',
 	'ui.mic_denied': 'Microphone permission not granted.',
 	'ui.discard_recording': 'Are you sure? This will discard the current recording.',
+
+	'autosave.restored': 'Restored previous session',
 
 	'lang.switch': 'Language'
 }, { name: 'English' });

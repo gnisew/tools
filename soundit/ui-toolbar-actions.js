@@ -57,6 +57,8 @@
 		btn_clear_selection.setAttribute('tabIndex', -1);
 		btn_clear_selection.className = 'pk_btn icon-clearsel pk_inact';
 		btn_clear_selection.innerHTML = '<span>' + t('toolbar.clear_sel') + '</span>';
+		btn_clear_selection.setAttribute ('data-label', t('toolbar.clear_label'));
+		btn_clear_selection.setAttribute ('data-short', t('toolbar.clear_short'));
 		btn_clear_selection.onclick = function () { UI.fireEvent( 'RequestRegionClear'); this.blur (); };
 		return {
 			actions: actions,

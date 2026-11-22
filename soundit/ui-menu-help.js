@@ -35,7 +35,6 @@
 					}
 				},
 				{ name:'---' },
-				{ name: t('help.welcome'), action: function () { PKAudioEditor._deps.Wlc (); } },
 				{
 					name: t('help.license'),
 					action: function () {

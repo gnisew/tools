@@ -125,6 +125,8 @@ PKLocale.register ('zh-TW', {
 	'toolbar.cut': '剪下選取範圍（Shift+X）',
 	'toolbar.insert_silence': '插入靜音（Shift+N）',
 	'toolbar.clear_sel': '取消選取（Q）',
+	'toolbar.clear_label': '取消選取',
+	'toolbar.clear_short': '取消',
 	'toolbar.zoom_in_h': '水平放大（+）',
 	'toolbar.zoom_out_h': '水平縮小（-）',
 	'toolbar.zoom_reset': '重設縮放（0）',
@@ -434,6 +436,8 @@ PKLocale.register ('zh-TW', {
 	'pwa.reload': '重新載入',
 
 	'desc.open_audio': '開啟音訊',
+	'desc.open_recording': '開啟錄音',
+	'engine.unsupported_type': '不支援的音訊檔格式',
 	'desc.cut': '剪下',
 	'desc.delete': '刪除',
 	'desc.silence': '靜音',
@@ -595,6 +599,11 @@ PKLocale.register ('zh-TW', {
 	'ui.whole_track': '整段音軌',
 	'ui.selected_clip': '選取的片段',
 	'ui.selection_only': '僅選取範圍',
+	'ui.source': '錄音來源',
+	'ui.src_mic': '麥克風',
+	'ui.src_system': '電腦聲音',
+	'ui.src_both': '麥克風＋電腦聲音',
+	'ui.sys_no_audio': '沒有取得音訊。請選擇分頁或螢幕，並勾選「分享音訊」（整個螢幕的系統音訊僅 Windows 與 ChromeOS 支援）。',
 	'ui.devices': '裝置：',
 	'ui.time': '時間',
 	'ui.waveform': '波形',
@@ -606,6 +615,8 @@ PKLocale.register ('zh-TW', {
 	'ui.append_existing': '附加到目前檔案',
 	'ui.mic_denied': '尚未取得麥克風權限。',
 	'ui.discard_recording': '確定嗎？目前的錄音將被捨棄。',
+
+	'autosave.restored': '已還原上次的音訊',
 
 	'lang.switch': '語言'
 }, { name: '繁體中文', match: ['zh'] });

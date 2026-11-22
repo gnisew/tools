@@ -205,7 +205,7 @@
 			var file = e.files && e.files[0];
 			if (!file) return ;
 			if (!isLoadableAudioFile ( file )) {
-				app.fireEvent ('ShowError', 'Unsupported audio file type');
+				app.fireEvent ('ShowError', t('engine.unsupported_type'));
 				return ;
 			}
 
@@ -259,7 +259,7 @@
 							}
 						}
 					],
-					body    : '<p>Append file to existing track?</p>',
+					body    : '<p>' + t('engine.append_confirm') + '</p>',
 					setup   : function( q ) {
 						app.ui.InteractionHandler.checkAndSet ('modal');
 						app.ui.KeyHandler.addCallback ('modalTempErr', function ( e ) {

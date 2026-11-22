@@ -2238,12 +2238,22 @@
 		var channel_num = 1;
 		var channel_num_out = 1;
 
+		var probe_stream = null, probe_dead = false;
+		var release_probe = function () {
+			if (!probe_stream) return ;
+			try { probe_stream.getTracks().forEach(function ( tr ) { tr.stop (); }); } catch (e) {}
+			probe_stream = null;
+		};
+
 		var stop_audio = function () {
 			++rec_token;
 			if (!audio_stream) return ;
 
 			audio_stream.getTracks().forEach(function (stream) {
 				stream.stop ();
+			});
+			(audio_stream._pk_src || []).forEach(function ( ss ) {
+				ss.getTracks().forEach(function ( tr ) { tr.onended = null; tr.stop (); });
 			});
 
 			if (script_processor) {
@@ -2272,6 +2282,8 @@
 			ondestroy: function ( q ) {
 
 				stop_audio ();
+				probe_dead = true;
+				release_probe ();
 
 				temp_buffers = [];
 				newbuff = null;
@@ -2283,27 +2295,27 @@
 			},
 
 			body: '<div class="pk_rec" style="user-select:none">' +
-				'<div class="pk_row">' +
-				  '<label>' + PKLocale.t('ui.devices') + '</label>' +
-				  '<select style="max-width:220px"></select>' +
+				'<div class="pk_rec_top">' +
+				  '<div class="pk_rec_f"><label>' + PKLocale.t('ui.source') + '</label>' +
+				    '<select class="pk_recsrc">' +
+				      '<option value="mic">' + PKLocale.t('ui.src_mic') + '</option>' +
+				      '<option value="sys">' + PKLocale.t('ui.src_system') + '</option>' +
+				      '<option value="both">' + PKLocale.t('ui.src_both') + '</option>' +
+				    '</select></div>' +
+				  '<div class="pk_rec_f pk_recdev"><label>' + PKLocale.t('ui.devices').replace (/[:：]\s*$/, '') + '</label><select></select></div>' +
 				'</div>' +
-				'<div class="pk_row">' +
-
-				  '<div style="float:left"><label>' + PKLocale.t('mt.volume') + '</label>' +
-				  '<canvas width="200" height="40"></canvas></div>' +
-
-				  '<div style="float:left;margin-left:20px;"><label>' + PKLocale.t('ui.time') + '</label>' +
-				  '<span style="font-size: 24px;line-height: 50px;">0.0</span></div>' +
-				  '<div style="clear:both;height:10px"></div>' +
-				  '<div><label>' + PKLocale.t('ui.waveform') + '</label><canvas width="1000" height="200" style="image-rendering:pixelated;width:500px;height:100px;display:block;background:#000"></canvas></div>'+
+				'<div class="pk_rec_meter">' +
+				  '<div class="pk_rec_vol"><label>' + PKLocale.t('mt.volume') + '</label><canvas width="200" height="40"></canvas></div>' +
+				  '<div class="pk_rec_time"><label>' + PKLocale.t('ui.time') + '</label><span>0.0</span></div>' +
 				'</div>' +
-				'<div class="pk_row">' +
-				  '<a class="pk_tbsa pk_inact" style="text-align: center;">' + PKLocale.t('ui.start_recording') + '</a>' +
-				  '<a class="pk_tbsa pk_inact" style="margin-left: 24px; text-align: center;">' + PKLocale.t('ui.pause') + '</a>' +
-				'</div>' +
-				'<div class="pk_row">' +
-					'<a class="pk_tbsa" style="float:left;display:none;text-align:center;box-shadow:0 0 7px #3a6b79 inset;">' + PKLocale.t('ui.open_recording') + '</a>' +
-					'<a class="pk_tbsa" style="float:left;display:none;margin-left: 24px; text-align: center;">' + PKLocale.t('ui.append_existing') + '</a>' +
+				'<div class="pk_rec_wave"><label>' + PKLocale.t('ui.waveform') + '</label>' +
+				  '<canvas width="1000" height="200"></canvas></div>' +
+				'<div class="pk_rec_btns">' +
+				  '<a class="pk_tbsa pk_inact">' + PKLocale.t('ui.start_recording') + '</a>' +
+				  '<a class="pk_tbsa pk_inact">' + PKLocale.t('ui.pause') + '</a>' +
+				  '<span class="pk_rec_sp"></span>' +
+				  '<a class="pk_tbsa pk_primary" style="display:none">' + PKLocale.t('ui.open_recording') + '</a>' +
+				  '<a class="pk_tbsa" style="display:none">' + PKLocale.t('ui.append_existing') + '</a>' +
 				'</div>' +
 				'</div>',
 
@@ -2319,7 +2331,48 @@
 					var btn_open  = mainbtns[2];
 					var btn_add   = mainbtns[3];
 					var time_span = q.el_body.getElementsByTagName('span')[0];
-					var devices_sel = q.el_body.getElementsByTagName('select')[0];
+					var src_sel = q.el_body.getElementsByTagName('select')[0];
+					var devices_sel = q.el_body.getElementsByTagName('select')[1];
+					var dev_row = q.el_body.getElementsByClassName('pk_recdev')[0];
+					var can_display = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+					if (!can_display) {
+						src_sel.options[2].parentNode.removeChild (src_sel.options[2]);
+						src_sel.options[1].parentNode.removeChild (src_sel.options[1]);
+						src_sel.parentNode.style.display = 'none';
+					}
+					var syncSrc = function () {
+						dev_row.style.visibility = src_sel.value === 'sys' ? 'hidden' : 'visible';
+					};
+					src_sel.onchange = syncSrc;
+
+					/* 自訂提示（取代瀏覽器的 alert / confirm）：蓋在錄音視窗內 */
+					var skip_confirm = false;
+					var rec_ask = function ( msg, on_ok, with_cancel ) {
+						var root = q.el_body.getElementsByClassName('pk_rec')[0];
+						var old = root.getElementsByClassName('pk_rec_ov')[0];
+						old && old.parentNode.removeChild ( old );
+
+						var ov = d.createElement ('div');
+						ov.className = 'pk_rec_ov';
+						ov.innerHTML = '<div class="pk_rec_box"><p></p><div class="pk_rec_ovb"></div></div>';
+						ov.getElementsByTagName ('p')[0].textContent = msg;
+						var bar = ov.getElementsByClassName ('pk_rec_ovb')[0];
+						var close = function () { ov.parentNode && ov.parentNode.removeChild ( ov ); };
+
+						if (with_cancel) {
+							var no = d.createElement ('a');
+							no.className = 'pk_tbsa';
+							no.textContent = PKLocale.t ('loading.cancel');
+							no.onclick = close;
+							bar.appendChild ( no );
+						}
+						var ok = d.createElement ('a');
+						ok.className = 'pk_tbsa pk_primary';
+						ok.textContent = PKLocale.t ('ui.ok');
+						ok.onclick = function () { close (); on_ok && on_ok (); };
+						bar.appendChild ( ok );
+						root.appendChild ( ov );
+					};
 
 					var volcanvas = q.el_body.getElementsByTagName('canvas')[0];
 					var volctx = volcanvas.getContext('2d', {alpha:false,antialias:false});
@@ -2541,13 +2594,25 @@
 					};
 
 					navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(function( _stream ) {
-						_stream.getTracks().forEach(function (stream) {
-							stream.stop ();
-						});
+						/* 不要立刻停止：Chrome「這次允許」會在所有 track 停止後收回權限，
+						 * 導致按下開始錄音時又詢問一次。保留到視窗關閉才釋放。 */
+						if (probe_dead) { _stream.getTracks().forEach(function ( tr ) { tr.stop (); }); return ; }
+						release_probe ();
+						probe_stream = _stream;
 
 						enumerate ();
 					}).catch(function(error) {
-						alert(PKLocale.t('ui.mic_denied'));
+						rec_ask (PKLocale.t('ui.mic_denied'));
+						if (can_display) {
+							/* 沒有麥克風權限仍可錄電腦聲音 */
+							src_sel.value = 'sys';
+							src_sel.options[0].disabled = true;
+							if (src_sel.options[2]) src_sel.options[2].disabled = true;
+							syncSrc ();
+							has_devices = false;
+							is_ready = true;
+							btn_start.classList.remove ('pk_inact');
+						}
 					});
 
 					var enumerate = function () {
@@ -2556,11 +2621,16 @@
 							  devices = devices.filter((d) => d.kind === 'audioinput');
 							  has_devices = true;
 
+							  devices_sel.innerHTML = '';
+							  var cur_id = '';
+							  try { cur_id = probe_stream && probe_stream.getAudioTracks ()[0].getSettings ().deviceId || ''; } catch (e) {}
+
 							  var len = devices.length;
 							  for (var i = 0; i < len; ++i) {
 							  		var el = document.createElement('option');
 							  		el.value = devices[i].deviceId;
-							  		el.innerText = devices[i].label;
+							  		el.innerText = devices[i].label || (PKLocale.t('ui.devices').replace (/[:：]\s*$/, '') + ' ' + (i + 1));
+							  		if (cur_id && devices[i].deviceId === cur_id) el.selected = true;
 							  		devices_sel.appendChild (el);
 							  }
 
@@ -2569,7 +2639,7 @@
 							});
 						}
 						else {
-							devices_sel.parentNode.style.display = 'none';
+							devices_sel.parentNode.style.visibility = 'hidden';
 							has_devices = false;
 							is_ready = true;
 							btn_start.classList.remove ('pk_inact');
@@ -2618,11 +2688,14 @@
 							debounce = false;
 						}, 260);
 
-						if (has_recorded) {
-							if (!window.confirm(PKLocale.t('ui.discard_recording')))
-							{
-								return ;
-							}
+						/* 只有「開始新錄音」才需要確認捨棄；錄音中按「完成錄音」不用 */
+						if (has_recorded && !is_active && !skip_confirm) {
+							rec_ask (PKLocale.t('ui.discard_recording'), function () {
+								skip_confirm = true;
+								btn_start.onclick ();
+								skip_confirm = false;
+							}, true);
+							return ;
 						}
 
 						if (is_active) {
@@ -2630,7 +2703,7 @@
 
 							btn_pause.classList.add ('pk_inact');
 							btn_start.innerText = PKLocale.t('ui.start_recording');
-							btn_start.style.boxShadow = 'none';
+							btn_start.classList.remove ('pk_recording');
 
 							return ;
 						}
@@ -2647,10 +2720,74 @@
 						sample_rate = audio_context.sampleRate;
 
 						var audio_val = true;
-						if (has_devices) {
+						if (has_devices && devices_sel.value) {
 							audio_val = {deviceId: devices_sel.value};
-
 						}
+
+						/* 已有開視窗時取得的串流且裝置相同 → 直接複製，不再向瀏覽器要權限 */
+						var source = can_display ? src_sel.value : 'mic';
+
+						var getMicStream = function ( val ) {
+							var live = probe_stream && probe_stream.getAudioTracks ().some (function ( tr ) { return tr.readyState === 'live'; });
+							if (live) {
+								var want = val && val.deviceId;
+								var cur = '';
+								try { cur = probe_stream.getAudioTracks ()[0].getSettings ().deviceId || ''; } catch (e) {}
+								if (!want || want === cur) {
+									try { return Promise.resolve ( probe_stream.clone () ); } catch (e) {}
+								}
+							}
+							return navigator.mediaDevices.getUserMedia ({ audio: val });
+						};
+
+						/* 電腦聲音：getDisplayMedia 必須在使用者點擊當下呼叫，且需勾選「分享音訊」 */
+						var getSysStream = function () {
+							return navigator.mediaDevices.getDisplayMedia ({
+								video: true,
+								audio: { echoCancellation:false, noiseSuppression:false, autoGainControl:false }
+							}).then(function ( ds ) {
+								if (!ds.getAudioTracks ().length) {
+									ds.getTracks ().forEach (function ( tr ) { tr.stop (); });
+									rec_ask (PKLocale.t ('ui.sys_no_audio'));
+									throw new Error ('no system audio');
+								}
+								return ds;
+							});
+						};
+
+						var getRecStream = function ( val ) {
+							if (source === 'mic') return getMicStream ( val );
+
+							return getSysStream ().then(function ( ds ) {
+								var finish = function ( out, srcs ) {
+									out._pk_src = srcs;
+									var at = ds.getAudioTracks ()[0];
+									at.onended = function () {
+										/* 使用者按了瀏覽器的「停止分享」→ 自動結束錄音 */
+										if (!is_active || rec_id !== rec_token) return ;
+										stop ();
+										btn_pause.classList.add ('pk_inact');
+										btn_start.innerText = PKLocale.t('ui.start_recording');
+										btn_start.classList.remove ('pk_recording');
+									};
+									return out;
+								};
+
+								if (source === 'sys') {
+									return finish ( new MediaStream ( ds.getAudioTracks () ), [ ds ] );
+								}
+
+								return getMicStream ( val ).then(function ( ms ) {
+									var dest = rec_ctx.createMediaStreamDestination ();
+									rec_ctx.createMediaStreamSource ( new MediaStream ( ds.getAudioTracks () ) ).connect ( dest );
+									rec_ctx.createMediaStreamSource ( ms ).connect ( dest );
+									return finish ( dest.stream, [ ds, ms ] );
+								}, function ( err ) {
+									ds.getTracks ().forEach (function ( tr ) { tr.stop (); });
+									throw err;
+								});
+							});
+						};
 
 						var rec_id = ++rec_token;
 						var rec_ctx = audio_context;
@@ -2702,10 +2839,11 @@
 							return Promise.resolve ( useScript () );
 						};
 
-						navigator.mediaDevices.getUserMedia({ audio: audio_val }).then(function( stream ) {
+						getRecStream ( audio_val ).then(function( stream ) {
 							if (rec_id !== rec_token) {
 
 								stream.getTracks().forEach(function (t) { t.stop (); });
+								(stream._pk_src || []).forEach(function ( ss ) { ss.getTracks().forEach(function ( tr ) { tr.stop (); }); });
 								try { rec_ctx.close (); } catch (e) {}
 								return ;
 							}
@@ -2719,13 +2857,17 @@
 								is_active = true;
 								btn_pause.classList.remove ('pk_inact');
 								btn_start.innerText = PKLocale.t('ui.finish_recording');
-								btn_start.style.boxShadow = '#992222 0px 0px 6px inset';
+								btn_start.classList.add ('pk_recording');
 
 								draw_volume ();
 							});
 
 						}).catch(function(error) {
-
+							/* 取消分享畫面或權限被拒：釋放這次建立的 AudioContext */
+							if (!is_active && rec_id === rec_token) {
+								try { var cp = rec_ctx.close (); cp && cp.catch && cp.catch (function () {}); } catch (e) {}
+								if (audio_context === rec_ctx) audio_context = null;
+							}
 						});
 
 					};
@@ -2754,7 +2896,7 @@
 						};
 
 						app.engine.PreserveCurrentForUndo &&
-							app.engine.PreserveCurrentForUndo ('Open Recording', detach);
+							app.engine.PreserveCurrentForUndo (t('desc.open_recording'), detach);
 						detach ();
 						showEditor ();
 						app.engine.wavesurfer.backend._add = 0;

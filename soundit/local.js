@@ -233,7 +233,7 @@
 
 			       var value = cursor.value;
 
-			       ret.push (value);
+			       if (value.id !== '__auto__') ret.push (value);
 			       cursor.continue();
 			   }
 			   else {
@@ -253,6 +253,129 @@
 			};
 		};
 
+
+		/* ===== 自動保存／自動還原（單軌）=====
+		 * 以固定 id '__auto__' 存進 IndexedDB；不會出現在「本機草稿」清單。 */
+		var AUTO_ID = '__auto__';
+
+		this.AutoSave = function ( buffer, markers, callback ) {
+			var q = this;
+			if (!q.on || !db) { callback && callback (false); return ; }
+
+			var comp = compressors[ compression ];
+			if (!comp.ready) {
+				if (!comp.loading) comp.init (function () { q.AutoSave (buffer, markers, callback); });
+				else callback && callback (false);
+				return ;
+			}
+
+			try {
+				var arr_buffs = [], arr_buffs2 = [], tmp;
+				for (var i = 0; i < buffer.numberOfChannels; ++i) {
+					var arr = buffer.getChannelData ( i );
+					arr_buffs2.push (arr.buffer.byteLength);
+					tmp = comp.compress ( arr.buffer, 0 );
+					arr_buffs.push ( tmp.buffer.slice (tmp.byteOffset, tmp.byteLength + tmp.byteOffset));
+				}
+
+				var ob = {
+					id : AUTO_ID,
+					name: 'autosave',
+					created: new Date().getTime(),
+					data: arr_buffs,
+					data2: arr_buffs2,
+					durr: buffer.duration.toFixed(3)/1,
+					chans: buffer.numberOfChannels,
+					comp: compression,
+					thumb: '',
+					samplerate: buffer.sampleRate,
+					markers: markers || []
+				};
+
+				var trans = db.transaction(['sessions'], 'readwrite');
+				trans.objectStore('sessions').put (ob);
+				trans.oncomplete = function () { callback && callback (true); };
+				trans.onerror = trans.onabort = function () { callback && callback (false); };
+			}
+			catch (err) {
+				callback && callback (false);
+			}
+		};
+
+		this.ClearAuto = function ( callback ) {
+			try {
+				var trans = db.transaction(['sessions'], 'readwrite');
+				trans.objectStore('sessions').delete (AUTO_ID);
+				trans.oncomplete = function () { callback && callback (); };
+			} catch (err) { callback && callback (); }
+		};
+
+		(function autoInit ( q ) {
+			var last_buf = null, last_mk = '', busy = false, restored = false;
+
+			function mtOn () {
+				return !!(app.multitrack && app.multitrack.IsOn && app.multitrack.IsOn ());
+			}
+			function mkJSON () {
+				try { return JSON.stringify (app.mrk ? app.mrk.serEd () : []); } catch (e) { return ''; }
+			}
+			function msg ( key, fb ) {
+				try {
+					var s = PKLocale.t ( key );
+					return s && s !== key ? s : fb;
+				} catch (e) { return fb; }
+			}
+
+			function tick () {
+				if (busy || !restored) return ;
+				var e = app.engine;
+				if (!e || !e.is_ready || !e.wavesurfer) return ;
+				var ws = e.wavesurfer;
+				var buf = ws.backend && ws.backend.buffer;
+				if (!buf || mtOn () || e.in_fx) return ;
+				if (ws.isPlaying && ws.isPlaying ()) return ;
+				if (app.rec && app.rec.isActive && app.rec.isActive ()) return ;
+				if (e.FXPreviewHost && e.FXPreviewHost.previewing) return ;
+
+				var mk = mkJSON ();
+				if (buf === last_buf && mk === last_mk) return ;
+
+				busy = true;
+				q.Init (function ( err ) {
+					if (err) { busy = false; return ; }
+					q.AutoSave (buf, app.mrk ? app.mrk.serEd () : [], function ( ok ) {
+						busy = false;
+						if (ok) { last_buf = buf; last_mk = mk; }
+					});
+				});
+			}
+
+			function restore () {
+				if (w.location.href.indexOf ('local=') !== -1) { restored = true; return ; }
+
+				q.Init (function ( err ) {
+					if (err) { restored = true; return ; }
+					q.GetSession (AUTO_ID, function ( rec ) {
+						try {
+							if (rec && rec.id === AUTO_ID && rec.data && rec.data.length &&
+								app.engine && !app.engine.is_ready && !mtOn ())
+							{
+								app.engine.LoadDB ( rec );
+								if (typeof OneUp === 'function')
+									OneUp (msg ('autosave.restored', 'Restored previous session'), 1600);
+							}
+						} catch (e) { console.error (e); }
+						restored = true;
+					});
+				});
+			}
+
+			setTimeout ( restore, 500 );
+			setInterval ( tick, 3000 );
+			w.addEventListener ('visibilitychange', function () {
+				if (d.visibilityState === 'hidden') tick ();
+			});
+		})( this );
 	};
 
 	PKAudioEditor._deps.fls = SaveLocal;
