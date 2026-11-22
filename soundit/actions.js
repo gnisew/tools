@@ -919,6 +919,11 @@
 				document.body.appendChild( a );
 				a.click();
 
+				setTimeout ( function () {
+					(window.URL || window.webkitURL).revokeObjectURL ( url );
+					a.parentNode && a.parentNode.removeChild ( a );
+				}, 100 );
+
 				callback && callback ('done');
 			}
 		}

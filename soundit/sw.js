@@ -1,4 +1,4 @@
-const CACHE_NAME = 'soundit-v7';
+const CACHE_NAME = 'soundit-v8';
 
 const REQUIRED_ASSETS = [
 	'./',

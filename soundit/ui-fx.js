@@ -2445,18 +2445,6 @@
 			var el = curr_filter_ui.el_body;
 			if (!el) return ;
 
-			var escapeHtml = function (text) {
-			  var map = {
-			    '&': '&amp;',
-			    '<': '&lt;',
-			    '>': '&gt;',
-			    '"': '&quot;',
-			    "'": '&#039;'
-			  };
-
-			  return text.replace(/[&<>"']/g, function(m) { return map[m]; });
-			};
-
 			var is_new = true;
 			var custom_id = null;
 			var el_presets = curr_filter_ui.el_presets;
@@ -2527,7 +2515,7 @@
 											var input = q.el_body.getElementsByTagName ('input')[0];
 											var value = input.value.trim ();
 
-											value = escapeHtml (value);
+											value = app.escapeHtml (value);
 
 											if (value.length > 0)
 											{
@@ -2578,7 +2566,7 @@
 								var input = q.el_body.getElementsByTagName ('input')[0];
 								var value = input.value.trim ();
 
-								value = escapeHtml (value);
+								value = app.escapeHtml (value);
 
 								if (value.length > 0)
 								{

@@ -74,7 +74,7 @@
 </head>
 <body>
 	<canvas id="fr" width="600" height="188" style="width:100%;height:100%;display:block"></canvas>
-	<div>FREQUENCY ANALYSER</div>
+	<div id="ttl">FREQUENCY ANALYSER</div>
 
 	<a id="d" onclick="dock()">DOCK</a>
 	<a id="e" onclick="remove()">X</a>
@@ -84,13 +84,24 @@
 		var d = document;
 		var w = window;
 		var iframe = location.href.indexOf('?iframe') === -1 ? 0 : 1;
+
+		/* 視窗文字走主視窗的 PKLocale；取不到就用英文 */
+		function L ( key, fb ) {
+			try {
+				var h = iframe ? w.parent : w.opener;
+				var s = h && h.PKLocale && h.PKLocale.t ( key );
+				return s && s !== key ? s : fb;
+			} catch (e) { return fb; }
+		}
+		d.getElementById ('ttl').textContent = L ('win.freq_analyser', 'FREQUENCY ANALYSER');
+		d.getElementById ('d').textContent = L ('win.dock', 'DOCK');
 		var canvas = d.getElementById('fr');
 		var ctx = canvas.getContext('2d', {alpha:true, antialias:false});
 
 		w.remove = function (){};
 		if (iframe) {
 			d.body.className = 'b';
-			d.getElementById ('d').textContent = 'UNDOCK';
+			d.getElementById ('d').textContent = L ('win.undock', 'UNDOCK');
 			w.remove = function () {
 				w.parent.PKAudioEditor.ui.Dock ('RequestShowFreqAn', 'eq', [1, 1]);
 			};
@@ -180,14 +191,14 @@
 			};
 			w.draw = draw;
 
-			w.onunload = function () {
+			w.addEventListener ('pagehide', function () {
 				w.destroy && w.destroy ( iframe );
 				w.destroy = null;
-			};
+			});
 
 			w.update = function (freq_arr) {
 				if (!freq_arr)
-					ctx.clearRect (0, 0, WIDTH, HEIGHT);
+					ctx.clearRect (0, 0, canvas.width, canvas.height);
 				else {
 					if (value_changed) return ;
 					value_changed = true;

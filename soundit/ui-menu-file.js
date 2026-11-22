@@ -122,7 +122,7 @@
 								callback: function( q ) {
 									var input = q.el_body.getElementsByTagName('input')[0];
 									var value = input.value.trim();
-									function isURL ( str ) { var pattern = new RegExp('^((https?:)?\\/\\/)?(?:\\S+(?::\\S*)?@)?(?:(?:[a-z\\d](?:[a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|((?:\\d{1,3}\\.){3}\\d{1,3}))(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*(\\?[;&a-z\\d%_.~+=-]*)?(\\#[-a-z\\d_]*)?$','i'); return pattern.test(str); }
+									function isURL ( str ) { return /^((https?:)?\/\/)?(?:\S+(?::\S*)?@)?(?:(?:(?:[a-z\d](?:[a-z\d-]*[a-z\d])*)\.)+[a-z]{2,}|(?:\d{1,3}\.){3}\d{1,3})(?::\d+)?(?:\/[-a-z\d%_.~+]*)*(?:\?[;&a-z\d%_.~+=-]*)?(?:#[-a-z\d_]*)?$/i.test(str); }
 									if (isURL (value)) { if (app.fireEvent ('RequestLoadURL', value) !== true) app.engine.LoadURL ( value ); q.Destroy (); }
 									else OneUp (t('load.url_invalid'), 1100);
 								}
@@ -214,6 +214,7 @@
 							if (86400 <= a && 2592030 >= a) return a = Math.floor(a / 86400), a + ' day' + (1 < a ? 's' : '') + ' ago';
 							if (2592031 <= a) return a = Math.floor(a / 2592E3), a + ' month' + (1 < a ? 's' : '') + ' ago';
 						};
+						var pad2 = function ( n ) { return (n < 10 ? '0' : '') + n; };
 						var func = function ( fls ) {
 							fls.ListSessions(function( ret ) {
 								var msg = '';
@@ -221,8 +222,8 @@
 								else {
 									for (var i = 0; i < ret.length; ++i) {
 										var curr = ret[i]; var date = new Date(curr.created);
-										var datestr = (date.getMonth()+1)+'/'+date.getDate()+'/'+date.getFullYear()+' '+date.getHours()+':'+date.getMinutes()+':'+date.getSeconds();
-										var agostr = time_ago (date); var filename = curr.name || '-'; var duration = curr.durr; var thumb = curr.thumb;
+										var datestr = (date.getMonth()+1)+'/'+date.getDate()+'/'+date.getFullYear()+' '+pad2(date.getHours())+':'+pad2(date.getMinutes())+':'+pad2(date.getSeconds());
+										var agostr = time_ago (date); var filename = app.escapeHtml (curr.name || '-'); var duration = curr.durr; var thumb = curr.thumb;
 										var chns = (curr.chans === 1 ? t('drafts.mono') : t('drafts.stereo'));
 										msg += '<div id="pk_' + curr.id + '" class="pk_lcldrf"><div style="padding-bottom:2px"><span><i class="pk_i">' + t('drafts.name') + '</i>' + filename + '</span></div>' +
 											'<div><span class="pk_lcls"><i class="pk_i">' + t('drafts.id') + '</i><strong>' + curr.id + '</strong><br/><i class="pk_i">' + t('drafts.chn') + '</i>'+ chns +'</span>' +

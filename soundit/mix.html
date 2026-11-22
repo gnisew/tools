@@ -60,13 +60,25 @@
 		var els = {};
 		var last = 0;
 
+		d.getElementById ('d').textContent = L ('win.dock', 'DOCK');
+		var em0 = box.getElementsByClassName ('empty')[0];
+		if (em0) em0.textContent = L ('win.mixer', 'MULTITRACK MIXER');
 		if (iframe) {
 			d.body.className = 'b';
-			d.getElementById ('d').textContent = 'UNDOCK';
+			d.getElementById ('d').textContent = L ('win.undock', 'UNDOCK');
 		}
 
 		function host () {
 			return iframe ? w.parent : w.opener;
+		}
+
+		/* 視窗文字走主視窗的 PKLocale；取不到就用英文 */
+		function L ( key, fb ) {
+			try {
+				var h = host ();
+				var s = h && h.PKLocale && h.PKLocale.t ( key );
+				return s && s !== key ? s : fb;
+			} catch (e) { return fb; }
 		}
 
 		function mt () {
@@ -113,8 +125,8 @@
 			var master = t.id === 'master';
 			s.className = 's' + (master ? ' master' : '');
 			s.innerHTML = master ?
-				'<strong></strong><div class="meter"><i></i></div><label>level</label><input class="vol" type="range" min="0" max="1" step=".01"><output></output>' :
-				'<strong></strong><div class="meter"><i></i></div><p><button>M</button><button>S</button><button>R</button></p><div class="pn"><label>pan</label><div class="k"><i></i></div><em></em></div><input class="vol" type="range" min="0" max="1" step=".01"><output></output>';
+				'<strong></strong><div class="meter"><i></i></div><label>' + L ('win.level', 'level') + '</label><input class="vol" type="range" min="0" max="1" step=".01"><output></output>' :
+				'<strong></strong><div class="meter"><i></i></div><p><button>M</button><button>S</button><button>R</button></p><div class="pn"><label>' + L ('win.pan', 'pan') + '</label><div class="k"><i></i></div><em></em></div><input class="vol" type="range" min="0" max="1" step=".01"><output></output>';
 			s.getElementsByTagName ('strong')[0].textContent = t.name;
 			var e = els[t.id] = {
 				el:s,
@@ -161,10 +173,13 @@
 				}
 				function up () {
 					d.removeEventListener ('pointermove', move);
+					d.removeEventListener ('pointerup', up);
+					d.removeEventListener ('pointercancel', up);
 					call ( id, 'pan', el._v || 0, 1 );
 				}
 				d.addEventListener ('pointermove', move);
-				d.addEventListener ('pointerup', up, {once:true});
+				d.addEventListener ('pointerup', up);
+				d.addEventListener ('pointercancel', up);
 			};
 			el.ondblclick = function () {
 				panKnob ( el, 0 );
@@ -223,13 +238,17 @@
 			if (!data || !data.on) {
 				if (sig) {
 					sig = '';
-					box.innerHTML = '<div class="empty">OPEN MULTITRACK</div>';
+					box.innerHTML = '';
+					var em = d.createElement ('div');
+					em.className = 'empty';
+					em.textContent = L ('win.open_multitrack', 'OPEN MULTITRACK');
+					box.appendChild ( em );
 				}
 				return ;
 			}
 			var list = data.tracks.concat ([{
 				id:'master',
-				name:'Master',
+				name:L ('win.master', 'Master'),
 				vol:data.master.vol,
 				meter:data.master.meter
 			}]);
@@ -260,10 +279,10 @@
 			h && h.PKAudioEditor && h.PKAudioEditor.ui.Dock ('RequestKeyDown', 32);
 		}, true);
 
-		w.onunload = function () {
+		w.addEventListener ('pagehide', function () {
 			w.destroy && w.destroy ( iframe );
 			w.destroy = null;
-		};
+		});
 		w.requestAnimationFrame ( loop );
 	</script>
 </body>

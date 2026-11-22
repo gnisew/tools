@@ -84,6 +84,28 @@
 			return p * p;
 		};
 
+		/* 共用：使用者輸入要放進 innerHTML 之前先跳脫 */
+		var html_esc_map = {
+			'&': '&amp;',
+			'<': '&lt;',
+			'>': '&gt;',
+			'"': '&quot;',
+			"'": '&#039;'
+		};
+
+		q.escapeHtml = function ( text ) {
+			return String ( text === null || text === undefined ? '' : text )
+				.replace ( /[&<>"']/g, function ( m ) { return html_esc_map[ m ]; } );
+		};
+
+		/* escapeHtml 的反向；&amp; 最後還原，避免把 &amp;lt; 還原兩次 */
+		q.unescapeHtml = function ( text ) {
+			return String ( text === null || text === undefined ? '' : text )
+				.replace ( /&lt;/g, '<' ).replace ( /&gt;/g, '>' )
+				.replace ( /&quot;/g, '"' ).replace ( /&#039;/g, "'" )
+				.replace ( /&amp;/g, '&' );
+		};
+
 		var scripts = {};
 		q.loadScript = function ( src, ok, fail ) {
 			if (scripts[src] === true) {

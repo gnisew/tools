@@ -297,7 +297,7 @@
 							var curr = presets[ i ];
 							opt.value = curr.val;
 							opt.setAttribute ('data-custom', curr.id);
-							opt.innerHTML = curr.name;
+							opt.innerHTML = app.escapeHtml ( app.unescapeHtml ( curr.name ) );
 							sel_presets.appendChild( opt );
 						  }
 
@@ -324,7 +324,7 @@
 					{
 						var curr = presets[ i ];
 						opt.value = curr.val;
-						opt.innerHTML = curr.name;
+						opt.innerHTML = app.escapeHtml ( app.unescapeHtml ( curr.name ) );
 					}
 					sel_presets.appendChild( opt );
 				  }

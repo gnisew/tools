@@ -4,6 +4,13 @@
 	function PKMultitrack ( app ) {
 		var q = this;
 		var t = PKLocale.t;
+
+		/* 復原歷史名稱：語言檔還沒有該鍵時退回英文，不要顯示原始鍵名。
+		 * 不要在區域變數 t 會蓋掉翻譯函式的函式內直接呼叫 t ()（例如 MixerSet），改用這個。 */
+		function tDesc ( key, fallback ) {
+			var s = t ( key );
+			return s === key ? fallback : s;
+		}
 		var on = false;
 		var tracks = [];
 		var clips = [];
@@ -405,7 +412,7 @@
 				restoreState ( st );
 				if (app.mrk) app.mrk.loadMt (st.markers, false);
 				app.fireEvent ('DidUpdateMultitrack');
-				OneUp (t('mt.msg.loaded') + (name ? ': ' + name : ''), 1200);
+				OneUp (t('mt.msg.loaded') + (name ? ': ' + app.escapeHtml (name) : ''), 1200);
 			}
 			catch (e) {
 				OneUp (t('mt.msg.load_fail'), 1400);
@@ -679,11 +686,11 @@
 			add.onclick = function () { addTrack (); };
 			btn_clear_mute.onclick = function ( e ) {
 				e.stopPropagation ();
-				clearTrackFlag ( 'mute', 'Clear Mute' );
+				clearTrackFlag ( 'mute', tDesc ('mt.desc.clear_mute', 'Clear Mute') );
 			};
 			btn_clear_solo.onclick = function ( e ) {
 				e.stopPropagation ();
-				clearTrackFlag ( 'solo', 'Clear Solo' );
+				clearTrackFlag ( 'solo', tDesc ('mt.desc.clear_solo', 'Clear Solo') );
 			};
 
 			head.appendChild ( add );
@@ -1179,11 +1186,11 @@
 
 			mute.onclick = function ( e ) {
 				e.stopPropagation ();
-				setTrackFlag ( track, 'mute', !track.mute, 'Mute Channel' );
+				setTrackFlag ( track, 'mute', !track.mute, tDesc ('mt.desc.mute_channel', 'Mute Channel') );
 			};
 			solo.onclick = function ( e ) {
 				e.stopPropagation ();
-				setTrackFlag ( track, 'solo', !track.solo, 'Solo Channel' );
+				setTrackFlag ( track, 'solo', !track.solo, tDesc ('mt.desc.solo_channel', 'Solo Channel') );
 			};
 			arm.onclick = function ( e ) {
 				e.stopPropagation ();
@@ -1457,7 +1464,7 @@
 				if (track.vol === 1 || track.vol === undefined) return ;
 				var p = cloneState ();
 				track.vol = 1;
-				pushState ( p, 'Volume Channel' );
+				pushState ( p, t('mt.desc.volume_channel') );
 				refreshMix ();
 				render ();
 			};
@@ -1502,7 +1509,7 @@
 				if (track.pan === 0) return ;
 				var p = cloneState ();
 				track.pan = 0;
-				pushState ( p, 'Pan Channel' );
+				pushState ( p, t('mt.desc.pan_channel') );
 				refreshMix ();
 				render ();
 			};
@@ -1590,8 +1597,9 @@
 		function MixerSet ( id, key, val, done ) {
 			var t = id === 'master' ? null : findTrack ( id );
 			var old = t ? (key === 'vol' && t.vol === undefined ? 1 : t[key]) : master_vol;
-			var desc = key === 'pan' ? 'Pan Channel' :
-				(id === 'master' ? 'Master Volume' : 'Volume Channel');
+			var desc = key === 'pan' ? tDesc ('mt.desc.pan_channel', 'Pan Channel') :
+				(id === 'master' ? tDesc ('mt.desc.master_volume', 'Master Volume') :
+					tDesc ('mt.desc.volume_channel', 'Volume Channel'));
 
 			if (key === 'select' && t) {
 				selected_track = t.id;
@@ -1599,11 +1607,11 @@
 				return true;
 			}
 			if (key === 'mute' && t) {
-				setTrackFlag ( t, 'mute', !!val, 'Mute Channel' );
+				setTrackFlag ( t, 'mute', !!val, tDesc ('mt.desc.mute_channel', 'Mute Channel') );
 				return true;
 			}
 			if (key === 'solo' && t) {
-				setTrackFlag ( t, 'solo', !!val, 'Solo Channel' );
+				setTrackFlag ( t, 'solo', !!val, tDesc ('mt.desc.solo_channel', 'Solo Channel') );
 				return true;
 			}
 			if (key === 'rec' && t) {
@@ -5113,7 +5121,7 @@
 					r.t0 = w.performance.now ();
 					renderRecPreview ();
 					app.fireEvent ('DidActionRecordStart');
-					OneUp (t('mt.msg.recording') + ' ' + tr.name, 1000);
+					OneUp (t('mt.msg.recording') + ' ' + app.escapeHtml (tr.name), 1000);
 				},
 				onerror: function () {
 					if (rec === r) rec = null;

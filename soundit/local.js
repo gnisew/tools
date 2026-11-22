@@ -84,7 +84,7 @@
 				db = e.target.result;
 
 				db.onerror = function( e ) {
-					console.log( e );
+					console.error ( 'IndexedDB error:', e );
 				};
 
 				setTimeout(function() {
@@ -225,7 +225,7 @@
 			var ret = [];
 
 			req.onerror = function(event) {
-			   console.err("error fetching data");
+			   console.error("error fetching data");
 			};
 			req.onsuccess = function(event) {
 			   var cursor = event.target.result;
