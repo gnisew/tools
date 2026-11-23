@@ -15,6 +15,20 @@
 		var sel_spans = selection.getElementsByClassName('pk_dat');
 		var sb = null, sr = null, sd = 0;
 
+		/* [新增] 橫向文字的單字簡稱（起／終／長；英文 S／E／D），CSS 用 attr(data-short) 顯示，完整文字藏起來 */
+		(function () {
+			var lang = '';
+			try { lang = PKLocale.getLang (); } catch (e) {}
+			var sh = lang === 'en' ? ['S', 'E', 'D'] : ['起', '終', '長'];
+			var tl = selection.getElementsByClassName ('title');
+			for (var i = 0; i < tl.length && i < 3; ++i) tl[ i ].setAttribute ('data-short', sh[ i ]);
+		})();
+
+		/* [新增] 選取區塊精簡模式會隱藏「起點／終點／長度」文字，改用滑鼠提示說明各欄位 */
+		['selection.start', 'selection.end', 'selection.duration'].forEach ( function ( k, i ) {
+			sel_spans[ i ].title = t ( k ).replace ( /[:：]\s*$/, '' );
+		});
+
 		function closeSB () { if (!sb) return ; d.removeEventListener ('mousedown', sb._off); sb.parentNode && sb.parentNode.removeChild (sb); sb = null; }
 
 		function tnav ( b, a, go, cl ) {

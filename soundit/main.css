@@ -1770,7 +1770,7 @@ input,textarea{-webkit-touch-callout:none}
 }
 .pk_rec_meter{display:flex;align-items:flex-end;gap:16px}
 .pk_rec_vol{flex:1 1 auto;min-width:0}
-.pk_rec_vol canvas{display:block;width:100%;height:24px;background:#000;border-radius:var(--r)}
+.pk_rec_vol canvas{display:block;width:100%;height:46px;background:#000;border-radius:var(--r)}
 .pk_rec_time{flex:0 0 auto;min-width:84px;text-align:right}
 .pk_rec_time span{display:block;font:24px/24px var(--ff-mono);color:var(--fg-0)}
 .pk_rec_wave canvas{display:block;width:100%;height:90px;background:#000;border-radius:var(--r);image-rendering:pixelated}
@@ -1995,6 +1995,26 @@ html[data-theme="light"]{color-scheme:light}
 }
 .pk_hdr .pk_btn .pk_menu .pk_menu_el .pk_menu .pk_menu_el:hover>button{background:var(--ac-soft)}
 .pk_hdr .pk_btn .pk_menu .pk_menu_el .pk_menu .pk_menu_sep{margin:4px 10px 4px 14px}
+
+/* [新增] 電腦版（非 .pk_mob）：子選單往右浮出，不是就地展開（就地展開只留給行動版）
+ * - position:fixed：父選單有 overflow:auto，用 absolute 會被裁掉；位置由 ui-menu-header.js 的 placeSub() 算
+ * - 外觀跟第一層選單一致；不要覆寫 display（顯示／隱藏仍由上面的 .pk_open 規則決定）
+ * - 箭頭維持朝右，不像手風琴那樣展開時轉向下 */
+.pk_app:not(.pk_mob) .pk_hdr .pk_btn .pk_menu .pk_menu_el .pk_menu{
+	position:fixed;z-index:8;
+	min-width:200px;max-height:calc(100vh - 16px);overflow-x:hidden;overflow-y:auto;
+	margin:0;padding:6px 0;
+	background:var(--bg-2);
+	border-radius:var(--r-lg);
+	box-shadow:0 12px 32px rgba(0,0,0,.55),0 0 0 1px var(--bd),var(--inset-hi);
+}
+[data-theme="light"] .pk_app:not(.pk_mob) .pk_hdr .pk_btn .pk_menu .pk_menu_el .pk_menu{
+	box-shadow:0 12px 32px rgba(20,30,40,.18),0 2px 6px rgba(20,30,40,.10),0 0 0 1px var(--bd);
+}
+.pk_app:not(.pk_mob) .pk_hdr .pk_btn .pk_menu .pk_menu_el .pk_menu .pk_menu_el button{padding:6px 12px}
+.pk_app:not(.pk_mob) .pk_hdr .pk_btn .pk_menu .pk_menu_el .pk_menu .pk_menu_sep{margin:5px 12px}
+.pk_app:not(.pk_mob) .pk_hdr .pk_btn .pk_has_sub.pk_open>button{background:var(--ac-soft);color:var(--ac)}
+.pk_app:not(.pk_mob) .pk_hdr .pk_btn .pk_has_sub.pk_open>button::after{transform:rotate(-45deg)}
 
 /* ==========================================================================
  * 淺色主題補強
@@ -2322,13 +2342,43 @@ textarea:focus-visible,
 .pk_tb .pk_timecontainer.pk_tm_nh .pk_hover_dur{display:none}
 .pk_tb .pk_timecontainer.pk_tm_nt .pk_hover_dur{top:16px}
 .pk_tb .pk_timecontainer.pk_tm_nh .pk_total_dur{top:16px}
-.pk_app:not(.pk_mob) .pk_tb .pk_timecontainer.pk_tm_nt.pk_tm_nh{width:168px}
+/* [修改] 時間精簡（總長度、滑鼠位置時間都關閉）：高度減半（24px）、字體縮小、垂直置中 */
+.pk_app:not(.pk_mob) .pk_tb .pk_timecontainer.pk_tm_nt.pk_tm_nh{
+	width:92px;height:22px;margin-top:12px;
+}
+.pk_app:not(.pk_mob) .pk_tb .pk_timecontainer.pk_tm_nt.pk_tm_nh .pk_timingcnv{
+	top:-2px;left:6px;transform:scale(.55);transform-origin:0 0;
+}
+/* 非 Chrome 瀏覽器用文字顯示時間的備援 */
+.pk_app:not(.pk_mob) .pk_tb .pk_timecontainer.pk_tm_nt.pk_tm_nh .pk_timing{
+	padding:3px 0 0 8px;font-size:16px;letter-spacing:0;
+}
 
-/* 選取區塊精簡：隱藏「選取：」標題，欄位縮窄（和窄螢幕時的樣式相同） */
-.pk_tb .pk_selection.pk_sel_c{min-width:auto}
-.pk_tb .pk_selection.pk_sel_c .pk_sellist .pk_title{display:none}
-.pk_tb .pk_selection.pk_sel_c .pk_sellist{width:212px}
-.pk_tb .pk_selection.pk_sel_c .pk_sellist div{margin:0 16px 0 0}
+/* [修改] 選取區塊精簡：高度減半（24px）、一行顯示、不顯示「選取：」「起點」「終點」「長度」文字
+ * （滑鼠移到數值上會顯示提示，見 ui-toolbar-selection 的 title）。 */
+.pk_app:not(.pk_mob) .pk_tb .pk_selection.pk_sel_c{
+	display:inline-flex;align-items:center;
+	height:22px;min-width:auto;margin-top:12px;padding:0 6px;
+	box-sizing:content-box;
+}
+.pk_app:not(.pk_mob) .pk_tb .pk_selection.pk_sel_c .pk_sellist{
+	display:flex;align-items:center;gap:6px;
+	width:auto;margin:0;
+}
+.pk_app:not(.pk_mob) .pk_tb .pk_selection.pk_sel_c .pk_sellist .pk_title,
+.pk_app:not(.pk_mob) .pk_tb .pk_selection.pk_sel_c .pk_sellist .title{display:none}
+.pk_app:not(.pk_mob) .pk_tb .pk_selection.pk_sel_c .pk_sellist div{
+	float:none;width:auto;margin:0;
+}
+.pk_app:not(.pk_mob) .pk_tb .pk_selection.pk_sel_c .pk_dat{
+	display:block;min-width:50px;padding:1px 5px;line-height:16px;text-align:center;
+}
+.pk_app:not(.pk_mob) .pk_tb .pk_selection.pk_sel_c .pk_btn.icon-clearsel{
+	width:auto;min-width:0;height:20px;min-height:0;margin:0 0 0 6px;padding:0 8px;
+	font-size:11px;line-height:18px;white-space:nowrap;
+}
+/* 按鈕文字改用短版（「取消」），不用長版（「取消選取」） */
+.pk_app:not(.pk_mob) .pk_tb .pk_selection.pk_sel_c .icon-clearsel:before{content:attr(data-short)}
 
 /* 調整排列模式 */
 .pk_tb.pk_tbl_edit .pk_tbl_off{display:none!important}
@@ -2356,9 +2406,18 @@ body.pk_tbl_editing .pk_ttip{display:none!important}
 .pk_tbl_pill button[data-a="done"]{background:var(--ac);color:var(--ac-ink);border-color:var(--ac)}
 
 /* 自訂工具列（P3）：自訂列的按鈕、目錄對話框 */
-.pk_tb .pk_btn.pk_tbl_txt{font:600 13px/36px var(--ff);letter-spacing:0;overflow:visible}
+/* [修改] 文字符號按鈕：原本 line-height:36px 是照寬版按鈕（38px）寫死的，窄版按鈕只有 23px 高，字就整個往下掉。
+   改成 flex 置中（line-height:1），不論按鈕多高、字多大都會在正中間 */
+.pk_tb .pk_btn.pk_tbl_txt{display:inline-flex;align-items:center;justify-content:center;font:600 13px/1 var(--ff);letter-spacing:0;overflow:visible}
 .pk_tb .pk_btn.pk_tbl_txt:after{content:attr(data-face)}
 .pk_tbl_custom{white-space:nowrap}
+/* [新增] 自訂列的按鈕一律頂端對齊：文字鈕（inline-flex）和圖示鈕（inline-block）混排時，預設的基線對齊會讓同一排高低不一 */
+.pk_tbl_custom .pk_btn{vertical-align:top}
+/* [新增] 窄版（上下兩排、按鈕 23px 高）：圖示鈕用 24px 行高，視覺中心本來就比正中央低約 1px，文字鈕補 1px 才會和圖示對齊 */
+@media only screen and (max-width:1250px){
+	.pk_mob .pk_tb .pk_btn.pk_tbl_txt{padding-top:0}
+	.pk_tb .pk_btn.pk_tbl_txt{padding-top:2px}
+}
 
 /* 自訂工具列：確認視窗（刪除／重設）。內文限制寬度，英文長句才不會把視窗撐得太寬 */
 .pk_tbl_cfm{max-width:min(420px,92vw)}
@@ -2422,3 +2481,234 @@ body.pk_tbl_editing .pk_ttip{display:none!important}
 .pk_app:not(.pk_mob) .pk_tb.pk_tbl>.pk_tbl_float{margin:0}
 .pk_tbl_edit .pk_tbl_float{outline-color:var(--pl,var(--ac))}
 
+/* [新增] 精簡的「時間」與「選取」上下疊兩排（ui-toolbar-layout.js 會替這種容器加上 .pk_tbl_v）。
+ * 兩條精簡面板的外框各 24px（內容 22px ＋ 邊框 2px），疊起來剛好 48px ＝ 工具列內高，所以不留間隙、也不需要原本的 margin-top:12px。
+ * 想讓兩條等寬的話，把 align-items:flex-start 改成 stretch 即可。 */
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl>.pk_btngroup.pk_tbl_v{
+	display:flex;flex-direction:column;align-items:flex-start;
+	margin:0 var(--s3) 0 0;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl>.pk_btngroup.pk_tbl_v>.pk_timecontainer,
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl>.pk_btngroup.pk_tbl_v>.pk_selection{
+	flex:0 0 auto;float:none;margin:0;
+}
+
+
+/* [新增] 視窗 ≤1250px：左側播放列／編輯列每條 28px（共 56px），
+ * 右側精簡的「時間」「選取」原本每條 24px（共 48px），所以高度對不齊。
+ * 這裡把兩條各加高到 28px（內容 26px ＋ 邊框 2px），共 56px。
+ * 寬螢幕（>1250px）完全不受影響。放在檔案最後，同樣的選擇器才會蓋過上面 24px 的設定。 */
+@media only screen and (max-width:1250px){
+	/* 時間：框 92×22 → 108×26；時間數字畫布（150×40）縮放比例 .55 → .65，維持填滿且置中 */
+	.pk_app:not(.pk_mob) .pk_tb .pk_timecontainer.pk_tm_nt.pk_tm_nh{
+		width:108px;height:26px;
+	}
+	.pk_app:not(.pk_mob) .pk_tb .pk_timecontainer.pk_tm_nt.pk_tm_nh .pk_timingcnv{
+		top:0;left:6px;transform:scale(.65);transform-origin:0 0;
+	}
+	/* 非 Chrome 瀏覽器的文字備援也一起放大一點 */
+	.pk_app:not(.pk_mob) .pk_tb .pk_timecontainer.pk_tm_nt.pk_tm_nh .pk_timing{
+		padding:4px 0 0 8px;font-size:18px;
+	}
+	/* 選取：高度 22 → 26，內部的數值框與「取消」按鈕跟著微調 */
+	.pk_app:not(.pk_mob) .pk_tb .pk_selection.pk_sel_c{
+		height:26px;
+	}
+	.pk_app:not(.pk_mob) .pk_tb .pk_selection.pk_sel_c .pk_dat{
+		padding:3px 5px;line-height:16px;
+	}
+	.pk_app:not(.pk_mob) .pk_tb .pk_selection.pk_sel_c .pk_btn.icon-clearsel{
+		height:22px;line-height:20px;
+	}
+}
+
+/* [新增] 混搭組（.pk_tbl_x）：播放列／編輯列／自訂列 與 精簡的時間／選取 疊成上下兩排（ui-toolbar-layout.js 加的標記）。
+ * 不論視窗寬窄，兩條都要一樣高（各 28px，共 56px），所以：
+ *   1. 播放／編輯／自訂列套用「窄版」的外觀（28px 高、無外框、24×23 的小按鈕）
+ *   2. 精簡的時間／選取同樣加高到 28px（和上面 ≤1250px 那段一樣的數值）
+ * 窄版（≤1250px）本來就是這些數值，所以窄版看起來不變；寬版才會多出這組樣式。 */
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl>.pk_btngroup.pk_tbl_x>.pk_transport,
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl>.pk_btngroup.pk_tbl_x>.pk_ctns{
+	display:block;float:none;height:28px;min-width:auto;
+	margin:0;border:0;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl>.pk_btngroup.pk_tbl_x>.pk_transport .pk_btn,
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl>.pk_btngroup.pk_tbl_x>.pk_ctns .pk_btn{
+	width:24px;height:23px;margin:0 3px;font-size:12px;line-height:24px;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl>.pk_btngroup.pk_tbl_x>.pk_timecontainer.pk_tm_nt.pk_tm_nh{
+	width:108px;height:26px;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl>.pk_btngroup.pk_tbl_x>.pk_timecontainer.pk_tm_nt.pk_tm_nh .pk_timingcnv{
+	top:0;left:6px;transform:scale(.65);transform-origin:0 0;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl>.pk_btngroup.pk_tbl_x>.pk_timecontainer.pk_tm_nt.pk_tm_nh .pk_timing{
+	padding:4px 0 0 8px;font-size:18px;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl>.pk_btngroup.pk_tbl_x>.pk_selection.pk_sel_c{
+	height:26px;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl>.pk_btngroup.pk_tbl_x>.pk_selection.pk_sel_c .pk_dat{
+	padding:3px 5px;line-height:16px;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl>.pk_btngroup.pk_tbl_x>.pk_selection.pk_sel_c .pk_btn.icon-clearsel{
+	height:22px;line-height:20px;
+}
+
+/* ==========================================================================
+ * [新增] 單排模式（.pk_tbl_1row）：寬度夠時，時間／選取／播放列／編輯列／自訂列全部排在同一排（整高）。
+ * ui-toolbar-layout.js 會在「自動且放得下」或「固定單排」時，替 .pk_tb 加上 .pk_tbl_1row。
+ *
+ * 上面 @media (max-width:1250px) 的規則會把播放列／編輯列的按鈕縮成 24×23、把精簡的時間／選取加高到 26px
+ *（那是給「上下兩排」用的）。單排時要還原成寬版尺寸，所以這裡選擇器多加 .pk_tbl.pk_tbl_1row，
+ * 權重比上面任何一條都高，放在檔案最後也不怕被蓋掉。
+ * ========================================================================== */
+
+/* 播放列／編輯列／自訂列：寬版按鈕尺寸（窄視窗也一樣） */
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_1row .pk_transport .pk_btn,
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_1row .pk_ctns .pk_btn{
+	width:38px;height:38px;margin:4px 3px;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_1row .pk_transport .pk_btn:not(.pk_tbl_txt),
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_1row .pk_ctns .pk_btn:not(.pk_tbl_txt){
+	font-size:1.32em;line-height:25px;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_1row .pk_btn.pk_tbl_txt{padding-top:0}
+
+/* 精簡的「時間」：寬版尺寸（92×22），單排時垂直置中 */
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_1row .pk_timecontainer.pk_tm_nt.pk_tm_nh{
+	width:92px;height:22px;margin-top:12px;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_1row .pk_timecontainer.pk_tm_nt.pk_tm_nh .pk_timingcnv{
+	top:-2px;left:6px;transform:scale(.55);transform-origin:0 0;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_1row .pk_timecontainer.pk_tm_nt.pk_tm_nh .pk_timing{
+	padding:3px 0 0 8px;font-size:16px;
+}
+
+/* 精簡的「選取」：寬版尺寸（高 22），單排時垂直置中 */
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_1row .pk_selection.pk_sel_c{
+	height:22px;margin-top:12px;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_1row .pk_selection.pk_sel_c .pk_dat{
+	padding:1px 5px;line-height:16px;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_1row .pk_selection.pk_sel_c .pk_btn.icon-clearsel{
+	height:20px;line-height:18px;
+}
+
+
+/* ==========================================================================
+ * [新增] 精簡工具列（.pk_tbl_cmp，ui-toolbar-layout.js 在「排列：精簡」時加在 .pk_tb 上；新的預設）
+ *
+ * 目標：整條工具列只有原本的一半高。每一條（時間／播放列／編輯列／自訂列／選取）都是 24px 高，
+ *       全部排同一排；放不下時 flex-wrap 才自動折成第二行（工具列高度跟著變，
+ *       layout.js 的 ResizeObserver 會通知主畫面重算波形區高度）。
+ * 只影響桌面版（手機版 .pk_mob 沿用原本的上下兩排）。
+ * 放在檔案最後、選擇器多加 .pk_tbl，權重高於前面所有 ≤1250px、.pk_tbl_1row、.pk_tbl_x 的規則。
+ * ========================================================================== */
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp{
+	display:flex;flex-wrap:wrap;align-items:center;
+	width:100%;min-width:0;max-width:100%;box-sizing:border-box;
+	height:auto;padding:2px 8px 2px 14px;gap:2px 10px;
+}
+/* 播放列／編輯列／自訂列：24px 高、去外框；按鈕 24×22（上下各留 1px） */
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_transport,
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_ctns{
+	float:none;display:block;height:24px;min-width:auto;
+	margin:0;padding:0 2px;border:0;box-shadow:none;background:none;
+	white-space:nowrap;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp .pk_transport .pk_btn,
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp .pk_ctns .pk_btn{
+	width:24px;height:22px;margin:1px;
+	font-size:12px;line-height:22px;vertical-align:top;
+}
+/* 文字／符號按鈕（PEQ、CMP…）字比較長，寬度跟著字走 */
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp .pk_btn.pk_tbl_txt{
+	width:auto;min-width:24px;padding:0 4px;font-size:11px;line-height:1;
+}
+
+/* 時間：精簡尺寸（92×22＋邊框＝24） */
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_timecontainer.pk_tm_nt.pk_tm_nh{
+	float:none;width:92px;height:22px;margin:0;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_timecontainer.pk_tm_nt.pk_tm_nh .pk_timingcnv{
+	top:-2px;left:6px;transform:scale(.55);transform-origin:0 0;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_timecontainer.pk_tm_nt.pk_tm_nh .pk_timing{
+	padding:3px 0 0 8px;font-size:16px;
+}
+
+/* 選取：精簡尺寸（22＋邊框＝24） */
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_selection.pk_sel_c{
+	float:none;height:22px;margin:0;padding:0 6px;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_selection.pk_sel_c .pk_dat{
+	padding:1px 5px;line-height:16px;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_selection.pk_sel_c .pk_btn.icon-clearsel{
+	height:20px;line-height:18px;
+}
+
+/* 多軌的節拍列：壓成同樣高度（BPM／拍號／吸附） */
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_mtbeat{
+	height:24px;margin:0;padding:0 6px;box-sizing:border-box;
+	grid-template-rows:11px 11px;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_mtbeat .pk_mtbeat_btn{height:11px;line-height:11px}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_mtbeat .pk_mtbeat_snap{margin-top:0}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_mtbeat .pk_mtbeat_bpm,
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_mtbeat .pk_mtbeat_sig{height:20px;line-height:20px}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_mtbeat b{line-height:22px}
+
+/* ==========================================================================
+ * [新增] 「調整排列」的拖曳把手：每個面板（時間／播放列／編輯列／選取／自訂列）最前面一塊 ⋮⋮ 點點。
+ * 抓把手 ＝ 移動整個面板；抓按鈕 ＝ 只移動那顆按鈕（和以前一樣）。
+ * 精簡模式的按鈕很小、面板幾乎沒有空白處可以抓，所以一定要有明確的把手。
+ * 把手是 ::before 偽元素（不用動 DOM），點到它時事件目標就是面板本身，onDown 會當成「拖曳面板」。
+ * ========================================================================== */
+.pk_tbl_edit [data-tbp]:not(.pk_tbl_float){position:relative}
+.pk_tbl_edit [data-tbp]::before{
+	content:"";position:absolute;left:0;top:0;bottom:0;width:12px;z-index:3;
+	background:radial-gradient(circle,var(--ac) 1.2px,transparent 1.6px) center/6px 6px repeat,var(--ac-soft);
+	border-radius:var(--r) 0 0 var(--r);
+	cursor:grab;touch-action:none;
+}
+.pk_tbl_edit .pk_tbl_drag::before{cursor:grabbing}
+/* 把手佔 12px，面板內容往右讓開（時間面板內容是絕對定位，直接蓋在左邊 12px 上，不影響排版） */
+.pk_tb.pk_tbl.pk_tbl_edit>[data-tbp]:not(.pk_timecontainer){padding-left:16px}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_edit>[data-tbp]:not(.pk_timecontainer){padding-left:16px}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_edit.pk_tbl_cmp>.pk_selection.pk_sel_c{padding-left:16px}
+
+/* ==========================================================================
+ * [新增] 精簡工具列：時間往右加寬、選取區塊橫向文字（桌面版固定精簡，沒有大按鈕排列）
+ * 時間：預設只有目前時間（92px）；勾選「總長度」「滑鼠位置時間」就各往右多 64px，10px 小字、緊貼、一行顯示。
+ * 選取：預設只有數值；勾選後每個數值前面加單字簡稱（起／終／長），由 JS 設的 data-short 顯示。
+ * 選擇器的 class 數量刻意比前面精簡規則多，才蓋得過。
+ * ========================================================================== */
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_timecontainer.pk_tm_nt.pk_tm_nh.pk_tm_xt,
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_timecontainer.pk_tm_nt.pk_tm_nh.pk_tm_xh{width:158px}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_timecontainer.pk_tm_nt.pk_tm_nh.pk_tm_xt.pk_tm_xh{width:222px}
+
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_timecontainer.pk_tm_xt .pk_total_dur,
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_timecontainer.pk_tm_xh .pk_hover_dur{
+	display:block;right:auto;left:94px;top:0;
+	font-size:10px;line-height:22px;white-space:nowrap;letter-spacing:0;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_timecontainer.pk_tm_xt .pk_total_dur:before{content:"/";opacity:.65}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_timecontainer.pk_tm_xh .pk_hover_dur:before{content:"@";opacity:.65}
+/* 兩個都開：滑鼠位置時間排在總長度右邊 */
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_timecontainer.pk_tm_xt.pk_tm_xh .pk_hover_dur{left:158px}
+
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_selection.pk_sel_c.pk_sel_x .pk_sellist{gap:8px}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_selection.pk_sel_c.pk_sel_x .pk_sellist div{
+	display:flex;align-items:center;white-space:nowrap;
+}
+/* 原本的「起點：」文字用 font-size:0 藏起來，改顯示單字簡稱 */
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_selection.pk_sel_c.pk_sel_x .pk_sellist .title{
+	display:inline-block;margin-right:3px;font-size:0;line-height:16px;
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_selection.pk_sel_c.pk_sel_x .pk_sellist .title:before{
+	content:attr(data-short);font-size:12px;font-weight:600;color:var(--fg-1);
+}

@@ -2314,7 +2314,7 @@
 				  '<div style="display:inline-block;margin:2px 0"><input type="checkbox" class="pk_check" id="pk_rec_mon"><label for="pk_rec_mon">' + PKLocale.t('ui.rec_monitor') + '</label></div>' +
 				'</div>' +
 				'<div class="pk_rec_meter">' +
-				  '<div class="pk_rec_vol"><label>' + PKLocale.t('mt.volume') + '</label><canvas width="200" height="40" title="' + PKLocale.t('ui.rec_reset_hint') + '" style="cursor:pointer"></canvas></div>' +
+				  '<div class="pk_rec_vol"><label>' + PKLocale.t('mt.volume') + '</label><canvas title="' + PKLocale.t('ui.rec_reset_hint') + '" style="cursor:pointer"></canvas></div>' +
 				  '<div class="pk_rec_time"><label>' + PKLocale.t('ui.time') + '</label><span>0.0</span></div>' +
 				'</div>' +
 				'<div class="pk_rec_wave"><label>' + PKLocale.t('ui.waveform') + '</label>' +
@@ -2438,11 +2438,29 @@
 					temp_buffers = [];
 					newbuff = null;
 
-					/* 電平表：-60 ~ 0 dBFS 對應 0 ~ 200 px */
-					var db_x = function ( v ) {
+					/* [修改] 電平表：-60 ~ 0 dBFS 對應 0 ~ W（畫布的實際 CSS 寬度） */
+					var VOL_H = 46;       /* 畫布高度（CSS px，需與 main.css 的 .pk_rec_vol canvas 高度一致）*/
+					var VOL_BAR_H = 22;   /* 上方色條高度 */
+					var vol_last_ts = 0;
+
+					var db_x = function ( v, W ) {
 						if (!(v > 0)) return 0;
 						var db = 20 * Math.log10 ( v );
-						return Math.max (0, Math.min (200, (db + 60) / 60 * 200));
+						return Math.max (0, Math.min (W, (db + 60) / 60 * W));
+					};
+
+					/* [新增] 依實際顯示大小 × 螢幕像素比設定畫布，避免被 CSS 拉伸造成文字與色條模糊、變形 */
+					var vol_fit = function () {
+						var cw = volcanvas.clientWidth;
+						if (!cw) return 0;
+						var r = Math.min (window.devicePixelRatio || 1, 3);
+						var pw = Math.round (cw * r), ph = Math.round (VOL_H * r);
+						if (volcanvas.width !== pw || volcanvas.height !== ph) {
+							volcanvas.width = pw;
+							volcanvas.height = ph;
+						}
+						volctx.setTransform (r, 0, 0, r, 0, 0);
+						return cw;
 					};
 
 					volcanvas.onclick = function () {
@@ -2452,58 +2470,71 @@
 					};
 
 					var draw_volume = function () {
+						var W = vol_fit ();
 						var _pkp = (window.PKPal ? window.PKPal () : {bg:'#000',wave:'#99c2c6',off:'#505253',limit:'#fff',rulerBg:'#111',rulerFg:'#aaa',meterBg:'#000',meterTick:'#ffffff',meterGrid:'rgba(255,255,255,0.28)',meterText:'#cfd8dc',recBg:'#101008',recWave:'#e13030',fade:'rgba(240,216,120,.75)',fadeFill:'rgba(240,216,120,.08)',beatMinor:'rgba(90,242,255,.09)',beatMajor:'rgba(240,216,120,.22)'});
+
+						if (!W) {
+							/* 視窗尚未排版完成（寬度 0）：下一幀再畫 */
+							if (is_active) window.requestAnimationFrame ( draw_volume );
+							return ;
+						}
+
 						volctx.fillStyle = _pkp.meterBg;
-						volctx.fillRect(0,0,200,40);
+						volctx.fillRect (0, 0, W, VOL_H);
 
 						if (!is_active) {
 							return ;
 						}
 
 						/* RMS 條：綠（< -18 dB）→ 黃（< -6 dB）→ 紅 */
-						var rx = db_x ( volume );
-						var g_end = Math.min (rx, 140), y_end = Math.min (rx, 180);
+						var rx = db_x ( volume, W );
+						var x_y = W * 0.7, x_r = W * 0.9;   /* -18 dB、-6 dB */
+						var g_end = Math.min (rx, x_y), y_end = Math.min (rx, x_r);
 						volctx.fillStyle = "#2e9d46";
-						volctx.fillRect (0, 0, g_end, 22);
-						if (rx > 140) {
+						volctx.fillRect (0, 0, g_end, VOL_BAR_H);
+						if (rx > x_y) {
 							volctx.fillStyle = "#d4b429";
-							volctx.fillRect (140, 0, y_end - 140, 22);
+							volctx.fillRect (x_y, 0, y_end - x_y, VOL_BAR_H);
 						}
-						if (rx > 180) {
+						if (rx > x_r) {
 							volctx.fillStyle = "#d83a3a";
-							volctx.fillRect (180, 0, rx - 180, 22);
+							volctx.fillRect (x_r, 0, rx - x_r, VOL_BAR_H);
 						}
 
 						/* 刻度：-48 / -24 / -12 / -6 / -3 dB */
 						volctx.fillStyle = _pkp.meterGrid;
 						[0.004, 0.063, 0.251, 0.501, 0.708].forEach (function ( tv ) {
-							volctx.fillRect (Math.round (db_x ( tv )), 0, 1, 22);
+							volctx.fillRect (Math.round (db_x ( tv, W )), 0, 1, VOL_BAR_H);
 						});
 
-						/* 峰值指示：瞬間上升、緩慢下降 */
-						peak_tick = Math.max (peak_tick * 0.985, peak_now);
+						/* 峰值指示：瞬間上升、緩慢下降（[修改] 改成依時間衰減，不隨螢幕更新率 60/120/144Hz 而變快變慢）*/
+						var now = (window.performance && performance.now) ? performance.now () : Date.now ();
+						var dt = vol_last_ts ? Math.min (0.1, (now - vol_last_ts) / 1000) : 1 / 60;
+						vol_last_ts = now;
+						peak_tick = Math.max (peak_tick * Math.pow (0.985, dt * 60), peak_now);
 						peak_now = 0;
 						if (peak_tick > 0) {
 							volctx.fillStyle = peak_tick >= 0.999 ? "#ff4d4d" : _pkp.meterTick;
-							volctx.fillRect (Math.min (198, Math.round (db_x ( peak_tick ))), 0, 2, 22);
+							volctx.fillRect (Math.min (W - 2, Math.round (db_x ( peak_tick, W ))), 0, 2, VOL_BAR_H);
 						}
 
-						/* 下方文字：最大峰值（dB）與爆音 */
-						volctx.font = "11px sans-serif";
+						/* 下方文字：最大峰值（dB）與爆音。[修改] 等寬字型，數字跳動時不會左右晃動 */
+						var ty = VOL_BAR_H + (VOL_H - VOL_BAR_H) / 2 + 1;
+						volctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Consolas, 'Noto Sans TC', monospace";
 						volctx.textBaseline = "middle";
 						volctx.textAlign = "left";
 						volctx.fillStyle = peak_max >= 0.999 ? "#ff4d4d" : _pkp.meterText;
 						volctx.fillText (PKLocale.t('ui.rec_peak') + ' ' +
-							(peak_max > 0 ? (20 * Math.log10 ( peak_max )).toFixed (1) + ' dB' : '-∞'), 2, 31);
+							(peak_max > 0 ? (20 * Math.log10 ( peak_max )).toFixed (1) + ' dB' : '-∞'), 4, ty);
 
 						if (clip_count > 0) {
 							var clip_txt = PKLocale.t('ui.rec_clip') + ' ×' + clip_count;
-							var cw = volctx.measureText ( clip_txt ).width + 8;
+							var cw = volctx.measureText ( clip_txt ).width + 12;
 							volctx.fillStyle = "#d83a3a";
-							volctx.fillRect (200 - cw, 25, cw, 14);
+							volctx.fillRect (W - cw, VOL_BAR_H + 3, cw, VOL_H - VOL_BAR_H - 3);
 							volctx.fillStyle = "#fff";
 							volctx.textAlign = "right";
-							volctx.fillText ( clip_txt, 196, 32 );
+							volctx.fillText ( clip_txt, W - 6, ty + 1 );
 						}
 
 						time_span.innerText = ((currtime * 10) >> 0) / 10;

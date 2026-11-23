@@ -20,6 +20,8 @@
  *   .isVis(id) .toggle(id)            id = time | transport | actions | selection
  *   .tmShow('t'|'h') .tmToggle(k) .tmCompact()     t = 總長度，h = 滑鼠位置時間
  *   .selCompact() .selToggle()
+ *   .lay() .setLay(0|1|2|3)          [新增] 排列方式：0＝自動（寬度夠就單排）、1＝固定上下兩排、2＝固定單排、
+ *                                     3＝精簡（預設）：整條工具列半高（每條 24px）、單排，放不下才折成兩行
  *   .edit(true|false) .isEditing() .reset()
  *   .openDialog() .closeDialog() .get()
  *   .dockAll() .exportFile() .importFile()
@@ -134,7 +136,10 @@
 			hide: {},
 			bars: { transport: DEF.transport.slice (), actions: DEF.actions.slice () },
 			tm: { t: 1, h: 1 },
+			x: { t: 0, h: 0 },	/* [新增] 桌面版精簡時間：往右多顯示「總長度」「滑鼠位置時間」（預設都不顯示） */
+			selx: 0,	/* [新增] 桌面版選取區塊：顯示橫向文字（起點／終點／長度） */
 			selc: 0,
+			lay: 3,	/* [修改] 排列方式：0＝自動、1＝固定上下兩排、2＝固定單排、3＝精簡（半高單排，放不下才折兩行；新的預設值） */
 			custom: [],
 			float: {}
 		};
@@ -177,6 +182,9 @@
 		}
 		if (o.tm && typeof o.tm === 'object') { s.tm.t = o.tm.t === 0 ? 0 : 1; s.tm.h = o.tm.h === 0 ? 0 : 1; }
 		s.selc = o.selc ? 1 : 0;
+		if (o.x && typeof o.x === 'object') { s.x.t = o.x.t === 1 ? 1 : 0; s.x.h = o.x.h === 1 ? 1 : 0; }
+		s.selx = o.selx ? 1 : 0;
+		s.lay = (o.lay === 1 || o.lay === 2 || o.lay === 3) ? o.lay : (o.lay === undefined ? s.lay : 0);	/* [修改] 舊設定沒有 lay 欄位 → 用新預設（精簡）；明確存過 0 的維持自動 */
 		/* 浮動位置：以視窗可移動範圍的比例（0~1）記錄，視窗縮放時才不會跑到畫面外 */
 		if (o.float && typeof o.float === 'object') ids.forEach ( function ( id ) {
 			var f = o.float[ id ];
@@ -195,7 +203,9 @@
 	/* ---------- 狀態 ---------- */
 
 	var UI = null, tb = null, group = null;
+	var groups = [];	/* [新增] 上下疊兩排的容器池：groups[0] 就是原本的 .pk_btngroup，不夠用時才建新的（class 相同，沿用同一套 CSS） */
 	var els = {}, btns = {};
+	var lastRow = null, relayoutRaf = 0;	/* [新增] 上一次是否採單排；重新排版的排程旗標 */
 	var editing = false, pill = null, drag = null, rz = 0, dlg = null, dlgSel = null, dlgQ = '';
 	var cfm = null, cfmGuard = 0;	/* 確認視窗：目前開著的那一個；關閉當下的保護旗標（避免同一次 Esc 連帶關掉後面的對話框） */
 	var ACT = { play: 0, loop: 0, rec: 0 };
@@ -218,6 +228,27 @@
 	}
 
 	function shown ( el ) { return !!(el && el.offsetWidth > 0); }
+
+	/* [修改] 可疊列：播放列、編輯列、自訂列（種類 'b'），以及「精簡」狀態的時間、選取面板（種類 'c'）。
+	 * 配對規則：相鄰兩條疊成上下兩排；種類相同的優先配對（預設的「播放列＋編輯列」不會被精簡面板搶走），
+	 * 沒配到的才跨種類配對（播放列也能和精簡的時間／選取疊在一起）。 */
+	/* [新增] 精簡模式（lay=3）：桌面版才有；時間、選取區塊自動用精簡外觀，不必另外去勾選 */
+	function cmp () { return !isMob (); }	/* [修改] 桌面版固定精簡，沒有大按鈕的排列 */
+
+	function isCompact ( id ) {
+		if (isMob () || S.hide[ id ]) return false;
+		if (cmp ()) return id === 'time' || id === 'selection';	/* 手機版沒有精簡樣式；隱藏的面板不參與配對，避免另一條落單 */
+		if (id === 'time') return S.tm.t === 0 && S.tm.h === 0;
+		if (id === 'selection') return !!S.selc;
+		return false;
+	}
+	function stackKind ( id ) {
+		if (id === 'transport' || id === 'actions' || !!(els[ id ] && els[ id ].__custom)) return 'b';
+		return isCompact ( id ) ? 'c' : '';
+	}
+	function stackable ( id ) { return !!stackKind ( id ); }
+	/* [新增] 落單（沒有另一條可以配對）的自訂列要不要也縮成一半高、放進容器：true＝一律半高；false＝落單時維持整高 */
+	var SOLO_CUSTOM_HALF = true;
 
 
 	function panelIds () { return PANELS.concat ( S.custom.map ( function ( c ) { return c.id; }) ); }
@@ -296,6 +327,22 @@
 
 	/* ---------- 套用到畫面 ---------- */
 
+	/* [新增] 工具列內容是不是比可視區還寬（寬版：.pk_tb 會被 min-width:max-content 撐寬；窄版：.pk_tbc 會出現橫向捲動） */
+	function overflowed () {
+		var box = tb && tb.parentNode;
+		if (!box || !box.clientWidth) return false;
+		return tb.offsetWidth > box.clientWidth + 1;
+	}
+
+	/* [新增] 視窗大小、容器寬度、多軌開關改變時，自動模式要重新判斷單排／上下疊（rAF 合併，同一幀只算一次） */
+	function relayout () {
+		if (relayoutRaf || !tb || (S.lay | 0) !== 0 || editing) return ;
+		relayoutRaf = w.requestAnimationFrame ( function () {
+			relayoutRaf = 0;
+			if (tb && (S.lay | 0) === 0 && !editing) render ();
+		});
+	}
+
 	function render () {
 		if (!tb) return ;
 
@@ -308,22 +355,83 @@
 			bar.classList.toggle ('pk_tbl_empty', !nodes.length && !extra.length);
 		});
 
-		/* 2. 面板：播放列與編輯列相鄰時，維持原本放在 .pk_btngroup 裡（保留原本窄螢幕的上下兩排） */
-		var seq = [], o = S.order.filter ( function ( id ) { return els[ id ] && !isFloat ( id ); }), i;
+		/* 2. 面板：播放列、編輯列、自訂列、精簡的時間／選取（統稱「可疊列」）依順序「相鄰兩兩配對」，各放進一個 .pk_btngroup 上下疊成兩排，
+		 *    每條的按鈕高度就跟播放列一樣是工具列的一半。
+		 *    [修改] 原本只有「播放列＋編輯列」這一對會疊，自訂列一律單獨整高。 */
+		/* [修改] 原本這一段直接執行；現在包成 layoutOnce ( row )：row 為 true 時不配對、不疊容器，全部排成同一排（高度一排）。
+		 * 想知道「單排放不放得下」就得先排排看，所以要能重複執行，才包成函式。 */
+		function layoutOnce ( row ) {
+		var seq = [], o = S.order.filter ( function ( id ) { return els[ id ] && !isFloat ( id ); }), i, gi = 0;
+		function nextGroup () {
+			if (!groups[ gi ]) { var g = d.createElement ('div'); g.className = group.className; groups.push ( g ); }
+			groups[ gi ].classList.remove ('pk_tbl_v', 'pk_tbl_x');	/* [修改] 容器是重複使用的，先清掉上一輪的「垂直疊放」「混搭」標記（多清一個 pk_tbl_x） */
+			return groups[ gi++ ];
+		}
+
+		/* [新增] 先決定誰跟誰配對（pairs[ i ] = 1 代表 o[ i ] 和 o[ i + 1 ] 疊成一組）。分兩輪：
+		 *   第 1 輪：相鄰且種類相同的先配（和以前完全一樣，所以原本的排列結果不會變，
+		 *            例如「時間（精簡）、播放列、編輯列、選取（精簡）」仍是 播放列＋編輯列 一組，時間、選取各自落單）。
+		 *   第 2 輪：第 1 輪沒配到的「可疊列」，如果和下一個也沒配到的可疊列相鄰，就跨種類配成一組——
+		 *            這樣播放列／編輯列／自訂列也能和精簡的時間、選取上下疊在一起，不再只能和編輯列配對。 */
+		var pairs = [], used = [];
+		for (i = 0; !row && i < o.length - 1; ++i) {	/* [修改] 單排時不配對 */
+			if (stackable ( o[ i ] ) && stackable ( o[ i + 1 ] ) && stackKind ( o[ i ] ) === stackKind ( o[ i + 1 ] )) {
+				pairs[ i ] = 1; used[ i ] = used[ i + 1 ] = 1; ++i;
+			}
+		}
+		for (i = 0; !row && i < o.length - 1; ++i) {	/* [修改] 單排時不配對 */
+			if (!used[ i ] && !used[ i + 1 ] && stackable ( o[ i ] ) && stackable ( o[ i + 1 ] )) {
+				pairs[ i ] = 1; used[ i ] = used[ i + 1 ] = 1; ++i;
+			}
+		}
+
 		for (i = 0; i < o.length; ++i) {
 			var a = o[ i ], n = o[ i + 1 ];
-			if ((a === 'transport' && n === 'actions') || (a === 'actions' && n === 'transport')) {
-				place ( group, [ els[ a ], els[ n ] ] );
-				seq.push ( group );
+			if (pairs[ i ]) {	/* [修改] 原本是現場判斷「種類相同」，改成用上面算好的配對表 */
+				var g2 = nextGroup (), ka = stackKind ( a ), kn = stackKind ( n );
+				place ( g2, [ els[ a ], els[ n ] ] );
+				g2.classList.toggle ('pk_tbl_v', ka === 'c' || kn === 'c');	/* [修改] 只要其中一條是精簡的時間／選取，就一定要上下疊（不受視窗寬度影響） */
+				g2.classList.toggle ('pk_tbl_x', ka !== kn);	/* [新增] 混搭（播放／編輯／自訂列 ＋ 精簡面板）：CSS 用這個標記把兩條調成一樣高 */
+				seq.push ( g2 );
 				++i;
+			} else if (!row && SOLO_CUSTOM_HALF && els[ a ].__custom) {	/* [新增] 落單的自訂列也放進容器，按鈕高度才會和成對時一致 */
+				var g1 = nextGroup ();
+				place ( g1, [ els[ a ] ] );
+				seq.push ( g1 );
 			} else seq.push ( els[ a ] );
 		}
 		S.order.forEach ( function ( id ) { if (els[ id ] && isFloat ( id )) seq.push ( els[ id ] ); });	/* 浮動的面板仍留在工具列容器裡，只是脫離排版 */
-		var known = [ group ], extra2 = [];
+		var known = groups.slice (), extra2 = [];
 		Object.keys ( els ).forEach ( function ( k ) { known.push ( els[ k ] ); });
 		for (i = 0; i < tb.children.length; ++i) if (known.indexOf ( tb.children[ i ] ) < 0) extra2.push ( tb.children[ i ] );	/* 例如多軌的節拍列 */
 		place ( tb, seq.concat ( extra2 ) );
-		if (seq.indexOf ( group ) < 0 && group.parentNode) group.parentNode.removeChild ( group );
+		groups.forEach ( function ( g ) { if (seq.indexOf ( g ) < 0 && g.parentNode) g.parentNode.removeChild ( g ); });	/* [修改] 沒用到的容器都移掉（原本只處理 group 一個） */
+		}
+
+		/* [新增] 決定單排或上下疊：
+		 *   固定單排（lay=2）／固定上下兩排（lay=1）直接照設定；
+		 *   自動（lay=0）先試排單排，量一下工具列有沒有比可視寬度還寬——放得下就單排，放不下才改回上下疊。
+		 *   手機版沒有精簡樣式，一律維持原本的上下疊。調整排列模式中不重新判斷，避免拖曳時版面跳來跳去。 */
+		var mode = isMob () ? 1 : 3, row;	/* [修改] 桌面版一律精簡（lay 設定不再生效） */
+		tb.classList.toggle ('pk_tbl_cmp', mode === 3);	/* [新增] 精簡模式：樣式全在 main.css 的 .pk_tbl_cmp */
+		if (mode === 3) {
+			/* [新增] 精簡：全部排同一排（不配對、不疊容器），換行交給 CSS 的 flex-wrap；放不下才會折成兩行 */
+			tb.classList.remove ('pk_tbl_1row');
+			layoutOnce ( true );
+			lastRow = null;
+		}
+		else if (mode === 0 && editing && lastRow !== null) row = lastRow;
+		else if (mode === 0) {
+			tb.classList.add ('pk_tbl_1row');
+			layoutOnce ( true );
+			row = !overflowed ();
+		}
+		else row = mode === 2;
+		if (mode !== 3) {
+		tb.classList.toggle ('pk_tbl_1row', row);
+		if (!(mode === 0 && !editing && row)) layoutOnce ( row );	/* 自動且單排放得下 → 剛剛已經排好了，不用再排一次 */
+		lastRow = row;
+		}
 
 		/* 3. 顯示／隱藏 */
 		panelIds ().forEach ( function ( id ) { els[ id ] && els[ id ].classList.toggle ('pk_tbl_off', !!S.hide[ id ]); });
@@ -334,9 +442,12 @@
 		if (!tb) return ;
 		syncCustom ();
 		render ();
-		els.time.classList.toggle ('pk_tm_nt', S.tm.t === 0);
-		els.time.classList.toggle ('pk_tm_nh', S.tm.h === 0);
-		els.selection.classList.toggle ('pk_sel_c', !!S.selc);
+		els.time.classList.toggle ('pk_tm_nt', S.tm.t === 0 || cmp ());	/* [修改] 精簡模式強制用精簡外觀（不改動使用者原本的設定值） */
+		els.time.classList.toggle ('pk_tm_nh', S.tm.h === 0 || cmp ());
+		els.selection.classList.toggle ('pk_sel_c', !!S.selc || cmp ());
+		els.time.classList.toggle ('pk_tm_xt', cmp () && !!S.x.t);	/* [新增] 往右加寬，多顯示總長度 */
+		els.time.classList.toggle ('pk_tm_xh', cmp () && !!S.x.h);	/* [新增] 往右加寬，多顯示滑鼠位置時間 */
+		els.selection.classList.toggle ('pk_sel_x', cmp () && !!S.selx);	/* [新增] 選取區塊橫向文字 */
 	}
 
 	/* ---------- 調整排列模式 ---------- */
@@ -383,26 +494,38 @@
 		queueResize ();
 	}
 
-	function isStacked () {
-		if (!shown ( els.transport ) || !shown ( els.actions )) return false;
-		return Math.abs ( els.transport.getBoundingClientRect ().top - els.actions.getBoundingClientRect ().top ) > 10;
+	/* [修改] 原 isStacked()（只比對播放列／編輯列）改成逐個面板判斷：
+	 * 這個面板在某個疊兩排的容器裡，而且容器裡另一條也顯示、位置明顯在上方或下方 → 用「上下」決定前後 */
+	function isInStack ( el ) {
+		var p = el.parentNode;
+		if (!p || groups.indexOf ( p ) < 0) return false;
+		var top = el.getBoundingClientRect ().top;
+		for (var i = 0; i < p.children.length; ++i) {
+			var s = p.children[ i ];
+			if (s !== el && shown ( s ) && Math.abs ( s.getBoundingClientRect ().top - top ) > 10) return true;
+		}
+		return false;
 	}
 
 	/* 指標位置在這個面板「之後」嗎？ */
-	function isBefore ( id, x, y, stacked ) {
+	function isBefore ( id, x, y ) {
 		var r = els[ id ].getBoundingClientRect ();
+		if (cmp ()) {	/* [新增] 精簡模式可能折成兩行：先比上下，同一行才比左右 */
+			if (y > r.bottom) return true;
+			if (y < r.top) return false;
+		}
 		if (x > r.right) return true;
 		if (x < r.left) return false;
-		if (stacked && (id === 'transport' || id === 'actions')) return y > r.top + r.height / 2;
+		if (isInStack ( els[ id ] )) return y > r.top + r.height / 2;	/* [修改] 原本只限 transport／actions，現在自訂列也適用 */
 		return x > r.left + r.width / 2;
 	}
 
 	function dragPanel ( x, y ) {
 		var id = drag.id, rest = S.order.filter ( function ( p ) { return p !== id; });
-		var stacked = isStacked (), at = rest.length, i;
+		var at = rest.length, i;
 		for (i = 0; i < rest.length; ++i) {
 			if (S.hide[ rest[ i ] ] || !shown ( els[ rest[ i ] ] )) continue;
-			if (!isBefore ( rest[ i ], x, y, stacked )) { at = i; break; }
+			if (!isBefore ( rest[ i ], x, y )) { at = i; break; }
 		}
 		var next = rest.slice ();
 		next.splice ( at, 0, id );
@@ -548,6 +671,7 @@
 		els.selection = tb.getElementsByClassName ('pk_selection')[0];
 		group = tb.getElementsByClassName ('pk_btngroup')[0];
 		if (!els.time || !els.transport || !els.actions || !els.selection || !group) { tb = null; return ; }
+		groups = [ group ];	/* [新增] 容器池的第一個就是原本的 .pk_btngroup */
 
 		PANELS.forEach ( function ( id ) { els[ id ].setAttribute ('data-tbp', id); });
 		els.time.__builtin = els.transport.__builtin = els.actions.__builtin = els.selection.__builtin = 1;
@@ -564,7 +688,14 @@
 		tb.addEventListener ('pointermove', onMove, false);
 		tb.addEventListener ('pointerup', onUp, false);
 		tb.addEventListener ('pointercancel', onUp, false);
-		w.addEventListener ('resize', function () { placePill (); panelIds ().forEach ( posFloat ); }, false);
+		w.addEventListener ('resize', function () { placePill (); panelIds ().forEach ( posFloat ); relayout (); }, false);	/* [修改] 多呼叫 relayout () */
+		/* [新增] 容器寬度變化（側欄開關等）、app 的 class 變化（多軌 pk_mt_on／手機版 pk_mob）也要重新判斷 */
+		try {
+			if (w.ResizeObserver && tb.parentNode) new w.ResizeObserver ( relayout ).observe ( tb.parentNode );
+			/* [新增] 精簡模式放不下會折行，工具列高度跟著變 → 通知主畫面重算波形區高度（只在高度真的變了才通知） */
+			if (w.ResizeObserver) { var lastH = tb.offsetHeight; new w.ResizeObserver ( function () { var h = tb.offsetHeight; if (h !== lastH) { lastH = h; queueResize (); } }).observe ( tb ); }
+			if (w.MutationObserver) new w.MutationObserver ( relayout ).observe ( UI.el, { attributes: true, attributeFilter: ['class'] });
+		} catch (e) {}
 
 		try { UI.KeyHandler.addCallback ('KeyTbEdit', function () { if (cfm || cfmGuard) return ; if (dlg) closeDlg (); else if (editing) exitEdit (); }, [27]); } catch (e) {}
 
@@ -814,11 +945,18 @@
 			if (S.hide[ id ]) delete S.hide[ id ]; else S.hide[ id ] = 1;
 			changed ();
 		},
-		tmShow: function ( k ) { return S.tm[ k ] !== 0; },
-		tmToggle: function ( k ) { if (k !== 't' && k !== 'h') return ; S.tm[ k ] = S.tm[ k ] === 0 ? 1 : 0; changed (); },
-		tmCompact: function () { S.tm.t = 0; S.tm.h = 0; changed (); },
-		selCompact: function () { return !!S.selc; },
-		selToggle: function () { S.selc = S.selc ? 0 : 1; changed (); },
+		/* [修改] 桌面版（精簡）用 S.x／S.selx：勾選＝往右多顯示；手機版沿用原本的 S.tm／S.selc */
+		tmShow: function ( k ) { return isMob () ? S.tm[ k ] !== 0 : !!S.x[ k ]; },
+		tmToggle: function ( k ) {
+			if (k !== 't' && k !== 'h') return ;
+			if (isMob ()) S.tm[ k ] = S.tm[ k ] === 0 ? 1 : 0; else S.x[ k ] = S.x[ k ] ? 0 : 1;
+			changed ();
+		},
+		tmCompact: function () { if (isMob ()) { S.tm.t = 0; S.tm.h = 0; } else { S.x.t = 0; S.x.h = 0; } changed (); },
+		selCompact: function () { return isMob () ? !!S.selc : !!S.selx; },
+		selToggle: function () { if (isMob ()) S.selc = S.selc ? 0 : 1; else S.selx = S.selx ? 0 : 1; changed (); },
+		lay: function () { return S.lay | 0; },	/* [新增] */
+		setLay: function ( v ) { S.lay = (v === 1 || v === 2 || v === 3) ? v : 0; lastRow = null; changed (); },	/* [新增] */
 		edit: function ( on ) { if (on === false) exitEdit (); else enterEdit (); },
 		isEditing: function () { return editing; },
 		reset: function () {
