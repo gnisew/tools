@@ -58,7 +58,7 @@
 			return true;
 		};
 
-		q.ExportMultitrack = function ( name, st ) {
+		q.EncodeMultitrack = function ( st ) {
 			var wtr = writer ();
 			var parts = [];
 			var audio = [];
@@ -80,7 +80,7 @@
 				track_map[tracks[i].id] = i;
 			for (i = 0; i < clips.length; ++i) {
 				if (!clips[i].buffer || track_map[clips[i].track] === undefined)
-					return false;
+					return null;
 				clip_map[clips[i].id] = i;
 				audioIndex ( clips[i].buffer, clips[i].name );
 			}
@@ -91,7 +91,7 @@
 			}
 			if (tracks.length > 65534 || clips.length > 65534 ||
 				audio.length > 65534 || xf.length > 65534)
-				return false;
+				return null;
 
 			wtr.u8 (1); wtr.u8 (65); wtr.u8 (77); wtr.u8 (83);
 			wtr.u8 (0);
@@ -173,6 +173,12 @@
 			}
 
 			var blob = new Blob (parts, {type:'application/x-soundit-session'});
+			return blob;
+		};
+
+		q.ExportMultitrack = function ( name, st ) {
+			var blob = q.EncodeMultitrack ( st );
+			if (!blob) return false;
 			var url = (w.URL || w.webkitURL).createObjectURL ( blob );
 			var a = d.createElement ('a');
 			a.href = url;

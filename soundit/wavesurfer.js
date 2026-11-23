@@ -4,6 +4,11 @@
  * @license BSD-3-Clause
  */
 
+/* 波形畫布色票：跟著 theme.js 的主題（PKPal）；沒有 theme.js 時用原本的深色 */
+function pk_wpal () {
+	return (window.PKPal && window.PKPal ()) || {bg:'#000', wave:'#99c2c6', off:'#505253', limit:'#fff', rulerBg:'#111', rulerFg:'#aaa'};
+}
+
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
@@ -614,9 +619,10 @@ var MultiCanvas = function (_Drawer) {
 
             this.shiftClear = true;
 
-            entry.waveCtx.fillStyle = "#000";
+            var P = pk_wpal ();
+            entry.waveCtx.fillStyle = P.bg;
             entry.waveCtx.fillRect(0, 0, entry.waveCtx.canvas.width, entry.waveCtx.canvas.height);
-            entry.waveCtx.fillStyle = "#99c2c6";
+            entry.waveCtx.fillStyle = P.wave;
 
         }
 
@@ -683,6 +689,7 @@ var MultiCanvas = function (_Drawer) {
                 return;
             }
 
+            var P = pk_wpal ();
             var length = peaks.length / 2;
             var scale = this.params.fillParent && this.width != length ? this.width / length : 1;
 
@@ -708,11 +715,11 @@ var MultiCanvas = function (_Drawer) {
 
             if (!this.params.ActiveChannels [ chan_index ])
             {
-                ctx.fillStyle = this.params.waveDisabledColor;
+                ctx.fillStyle = P.off;
             }
             else
             {
-                ctx.fillStyle = this.params.waveColor;
+                ctx.fillStyle = P.wave;
             }
 
             var temp_end = canvasEnd;
@@ -743,7 +750,7 @@ var MultiCanvas = function (_Drawer) {
             if (lim)
             {
 
-                ctx.fillStyle = '#fff';
+                ctx.fillStyle = P.limit;
                 var margin = (halfH * 10) / 100 >> 0;
 
                 var diff = (1.0 / absmax * halfH) - halfH;
@@ -756,7 +763,7 @@ var MultiCanvas = function (_Drawer) {
                 if (val < (halfH * 2 + offsetY))
                     ctx.fillRect (0, val, this.width, 0.5);
 
-                ctx.fillStyle = this.params.waveColor;
+                ctx.fillStyle = P.wave;
             }
 
             if (timeline)
@@ -781,10 +788,10 @@ var MultiCanvas = function (_Drawer) {
 
                         ctx.textAlign = 'center';
 
-                        ctx.fillStyle = '#111';
+                        ctx.fillStyle = P.rulerBg;
                         ctx.fillRect(0, 0, this.width, 24);
-                        ctx.fillStyle = '#aaa';
-                        ctx.strokeStyle = '#aaa';
+                        ctx.fillStyle = P.rulerFg;
+                        ctx.strokeStyle = P.rulerFg;
 
                         if (pixel_distance < 60) {
                             pixel_distance = 60;
@@ -871,7 +878,7 @@ var MultiCanvas = function (_Drawer) {
                 }
 
                 this.RCB && this.RCB();
-                ctx.fillStyle = this.params.waveColor;
+                ctx.fillStyle = P.wave;
 
         }
 
@@ -962,7 +969,7 @@ var MultiCanvas = function (_Drawer) {
     }, {
         key: 'setFillStyles',
         value: function setFillStyles(entry) {
-            entry.waveCtx.fillStyle = this.params.waveColor;
+            entry.waveCtx.fillStyle = pk_wpal ().wave;
             if (this.hasProgressCanvas) {
                 entry.progressCtx.fillStyle = this.params.progressColor;
             }

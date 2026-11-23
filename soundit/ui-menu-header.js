@@ -30,9 +30,17 @@
 					btn.innerHTML = curr_obj.name;
 					btn_container.appendChild ( btn );
 				}
+				else if (curr_obj.name === '---')
+				{
+					/* [新增] 分隔線：畫成一條線，不是可點的按鈕 */
+					btn_container.className = 'pk_menu_sep';
+					btn_container.setAttribute ( 'role', 'separator' );
+					parent_el.appendChild ( btn_container );
+					continue;
+				}
 				else
 				{
-					btn_container.className = 'pk_menu_el';
+					btn_container.className = 'pk_menu_el' + (curr_obj.children ? ' pk_has_sub' : '');
 					var btn = d.createElement ( 'button' );
 					btn.className = 'pk_opt ' + (curr_obj.clss ? curr_obj.clss : '');
 					btn.setAttribute ( 'tab-index', '-1' );
@@ -49,6 +57,17 @@
 								action ( obj );
 							};
 						})( btn, curr_obj.action );
+					}
+					/* [新增] 子選單改為就地展開（手風琴），不再浮在父選單上 */
+					if (curr_obj.children && !curr_obj.action)
+					{
+						(function ( box, btn ) {
+							btn.setAttribute ( 'aria-haspopup', 'true' );
+							btn.onclick = function () {
+								var on = box.classList.toggle ( 'pk_open' );
+								btn.setAttribute ( 'aria-expanded', on ? 'true' : 'false' );
+							};
+						})( btn_container, btn );
 					}
 					if (curr_obj.setup)
 					{
@@ -74,6 +93,9 @@
 		this.getOpenElement = function () { return target_el; };
 		this.closeMenu = function() {
 			if (!target_el) return ;
+			/* [新增] 關閉時把展開的子選單收回，下次打開是乾淨的 */
+			var opened = target_el.parentNode.getElementsByClassName ('pk_open');
+			while (opened.length) opened[0].classList.remove ('pk_open');
 			target_el.parentNode.className = _default_class;
 			target_el = target_el_old = null;
 			if (target_option) { target_option.classList.remove ('pk_act'); target_option = null; }
@@ -86,6 +108,25 @@
 			UI.KeyHandler.removeCallback (_name + 5);
 			UI.KeyHandler.removeCallback (_name + 6);
 		};
+
+		/* [新增] 目前展開的選單中，看得到且可用的選項（收合的子選單、停用項不算） */
+		function visibleOptions () {
+			var all = target_el.parentNode.getElementsByClassName ('pk_opt'), list = [];
+			for (var i = 0; i < all.length; ++i)
+				if (all[i].offsetParent !== null && !all[i].classList.contains ('pk_inact')) list.push ( all[i] );
+			return list;
+		}
+		function stepOption ( dir ) {
+			if (!target_el) return ;
+			var list = visibleOptions ();
+			if (!list.length) return ;
+			var at = target_option ? list.indexOf ( target_option ) : -1;
+			if (target_option) target_option.classList.remove ('pk_act');
+			at = at === -1 ? (dir > 0 ? 0 : list.length - 1) : (at + dir + list.length) % list.length;
+			target_option = list[ at ];
+			target_option.classList.add ('pk_act');
+			if (target_option.scrollIntoView) target_option.scrollIntoView ({ block: 'nearest' });
+		}
 
 		this.openMenu = function ( index, is_mouse ) {
 			if (target_el) target_el.parentNode.className = _default_class;
@@ -107,14 +148,8 @@
 			UI.KeyHandler.addCallback (_name + 1, function () { if (target_index === 0) target_index = top_els.length; q.closeMenu (); q.openMenu ( target_index - 1 ); }, [37]);
 			UI.KeyHandler.addCallback (_name + 2, function () { if (target_index === top_els.length - 1) target_index = -1; q.closeMenu (); q.openMenu ( target_index + 1 ); }, [39]);
 			UI.KeyHandler.addCallback (_name + 3, function () { q.closeMenu (); }, [27]);
-			UI.KeyHandler.addCallback (_name + 4, function () {
-				if (!target_option) { var els = target_el.parentNode.getElementsByClassName ('pk_opt'); if (els[0]) { target_option = els[0]; target_option.classList.add ('pk_act'); } }
-				else { var ind = target_option.getAttribute ('data-index')/1; target_option.classList.remove ('pk_act'); target_option = target_el.parentNode.getElementsByClassName ('pk_opt'); target_option = ind - 1 < 0 ? target_option[target_option.length - 1] : target_option[ind - 1]; target_option.classList.add ('pk_act'); }
-			}, [38]);
-			UI.KeyHandler.addCallback (_name + 5, function () {
-				if (!target_option) { var els = target_el.parentNode.getElementsByClassName ('pk_opt'); if (els[0]) { target_option = els[0]; target_option.classList.add ('pk_act'); } }
-				else { var ind = target_option.getAttribute ('data-index')/1; target_option.classList.remove ('pk_act'); target_option = target_el.parentNode.getElementsByClassName ('pk_opt'); target_option = target_option.length <= ind + 1 ? target_option[0] : target_option[ind + 1]; target_option.classList.add ('pk_act'); }
-			}, [40]);
+			UI.KeyHandler.addCallback (_name + 4, function () { stepOption ( -1 ); }, [38]);
+			UI.KeyHandler.addCallback (_name + 5, function () { stepOption ( 1 ); }, [40]);
 			UI.KeyHandler.addCallback (_name + 6, function () { if (target_option) target_option.click(); else q.closeMenu (); }, [13]);
 			return (true);
 		};
@@ -171,3 +206,5 @@
 	PKAE._deps._makeUITopHeader = _makeUITopHeader;
 
 })( window, document, PKAudioEditor );
+
+

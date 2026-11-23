@@ -362,7 +362,7 @@
 		function _make_btn_auto ( q ) {
 			var btn_automate = d.createElement ('a');
 			btn_automate.className = 'pk_modal_a_bottom';
-			btn_automate.innerHTML = 'AUTOMATE';
+			btn_automate.innerHTML = PKLocale.t('fx.automate');
 
   			btn_automate.onclick = function () {
   				q.in_auto = !q.in_auto;
@@ -478,3 +478,5 @@
 	PKAudioEditor._deps.FxAUT = FXAutomation;
 
 })( window, document, PKAudioEditor );
+
+

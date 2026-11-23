@@ -52,6 +52,16 @@
 			UI.fireEvent ('RequestViewCenterToCursor');
 		}, [9]);
 
+		// E：單軌 ⇄ 多軌快速切換（多軌中選取片段時，直接開啟該片段編輯）
+		UI.KeyHandler.addCallback ('KeyMtSwitch', function ( key, c, ev ) {
+			if (UI.InteractionHandler.on || !ev ||
+				ev.ctrlKey || ev.metaKey || ev.altKey || ev.shiftKey ||
+				UI.KeyHandler.isEditTarget ( ev ) ||
+				(UI.TopHeader.getOpenElement && UI.TopHeader.getOpenElement ())) return ;
+			ev.preventDefault ();
+			UI.fireEvent ('RequestMultitrackSwitch');
+		}, [69]);
+
 		function mtSelectChannelKey ( diff, ev ) {
 			var mt = PKAE._deps.uiHelpers.activeMultitrackFor ( app );
 			var target = ev && ev.target;
@@ -101,19 +111,26 @@
 
 			if (is_chrome) {
 				timing.appendChild( pk_timingcnv );
-				pk_timingctx.fillStyle = "#000";
-				pk_timingctx.fillRect(0, 0, 150, 40);
-				for (var ii = 0; ii < 11; ++ii) {
-					var curr_cache = d.createElement('canvas');
-					curr_cache.width = 18; curr_cache.height = 26;
-					var curr_ctx = curr_cache.getContext('2d', {alpha:false});
-					curr_ctx.font = "29px Helvetica, Arial, sans-serif";
-					curr_ctx.textAlign = "center";
-					curr_ctx.fillStyle = "#000"; curr_ctx.fillRect(0, 0, 18, 26);
-					curr_ctx.fillStyle = "#fff"; curr_ctx.textBaseline = 'middle';
-					if (ii === 10) { curr_ctx.fillText (':', 8, 14); timing_caches[':'] = curr_cache; }
-					else { curr_ctx.fillText (ii + '', 9, 14); timing_caches[ii+''] = curr_cache; }
-				}
+
+				/* 數字是預先畫好的字元小圖，底色／字色跟著主題（theme.js 的 PKPal），切換主題時重建 */
+				var buildTimingCaches = function () {
+					var tp = window.PKPal ? window.PKPal () : null;
+					var tbg = tp && tp.timeBg || '#000', tfg = tp && tp.timeFg || '#fff';
+					pk_timingctx.fillStyle = tbg;
+					pk_timingctx.fillRect(0, 0, 150, 40);
+					for (var ii = 0; ii < 11; ++ii) {
+						var curr_cache = d.createElement('canvas');
+						curr_cache.width = 18; curr_cache.height = 26;
+						var curr_ctx = curr_cache.getContext('2d', {alpha:false});
+						curr_ctx.font = "29px Helvetica, Arial, sans-serif";
+						curr_ctx.textAlign = "center";
+						curr_ctx.fillStyle = tbg; curr_ctx.fillRect(0, 0, 18, 26);
+						curr_ctx.fillStyle = tfg; curr_ctx.textBaseline = 'middle';
+						if (ii === 10) { curr_ctx.fillText (':', 8, 14); timing_caches[':'] = curr_cache; }
+						else { curr_ctx.fillText (ii + '', 9, 14); timing_caches[ii+''] = curr_cache; }
+					}
+				};
+				buildTimingCaches ();
 				(function (pk_timingctx, timing_caches){
 					var ttm = '00:00:000';
 					for (var jk = 0; jk < ttm.length; ++jk) pk_timingctx.drawImage (timing_caches[ttm[jk]], jk * 16, 10);
@@ -140,7 +157,9 @@
 			}
 			UI.formatTime = formatTime;
 
+			var timing_last = 0;
 			function drawT ( time ) {
+				timing_last = time;
 				var ttm = formatTime (time);
 				if (!is_chrome) { timingspan.textContent = ttm; return ; }
 				var exit = false;
@@ -149,6 +168,15 @@
 					pk_timingctx.drawImage (timing_caches[ttm[jk]], jk * 16, 10);
 				}
 				pk_timingnum = ttm;
+			}
+
+			/* 切換淺色／深色：重建數字小圖並整個重畫目前的時間 */
+			if (is_chrome && window.PKTheme && window.PKTheme.onChange) {
+				window.PKTheme.onChange (function () {
+					buildTimingCaches ();
+					pk_timingnum = '#########';
+					drawT (timing_last);
+				});
 			}
 
 			function formatTimelineTime ( time, format ) {
@@ -185,8 +213,9 @@
 
 			function drawTimelineRuler ( ctx, total, width, left_offset, visible_width ) {
 				var data = timelineRuler ( total, width, left_offset, visible_width );
-				ctx.fillStyle = '#111'; ctx.fillRect (0, 0, visible_width, 24);
-				ctx.fillStyle = '#aaa'; ctx.strokeStyle = '#aaa'; ctx.textAlign = 'center';
+				var _pkp = (window.PKPal ? window.PKPal () : {bg:'#000',wave:'#99c2c6',off:'#505253',limit:'#fff',rulerBg:'#111',rulerFg:'#aaa',meterBg:'#000',meterTick:'#ffffff',meterGrid:'rgba(255,255,255,0.28)',meterText:'#cfd8dc',recBg:'#101008',recWave:'#e13030',fade:'rgba(240,216,120,.75)',fadeFill:'rgba(240,216,120,.08)',beatMinor:'rgba(90,242,255,.09)',beatMajor:'rgba(240,216,120,.22)'});
+				ctx.fillStyle = _pkp.rulerBg; ctx.fillRect (0, 0, visible_width, 24);
+				ctx.fillStyle = _pkp.rulerFg; ctx.strokeStyle = _pkp.rulerFg; ctx.textAlign = 'center';
 				for (var i = 0; i < data.ticks.length; ++i) ctx.fillText ( data.ticks[i].label, data.ticks[i].x - left_offset, 12 );
 				ctx.beginPath ();
 				for (i = 0; i < data.ticks.length; ++i) { var x = data.ticks[i].x - left_offset; ctx.moveTo (x, 16); ctx.lineTo (x, 24); }
@@ -258,6 +287,9 @@
 				main_context.addOption (t('context.paste'), function(){ UI.fireEvent( 'RequestActionPaste'); }, false );
 				main_context.addOption (t('context.cut'), function(){ UI.fireEvent( 'RequestActionCut', 1); }, false );
 				main_context.addOption (t('context.insert_silence'), function(){ UI.fireEvent ('RequestFXUI_Silence'); }, false );
+				/* [階段 3 收尾] 以選取範圍建立區間標記（沒有選取時反灰；點了也只會提示） */
+				var mrkApi = PKAudioEditor.mrk;
+				if (mrkApi) main_context.addOption (mrkApi.T ('range_new'), function(){ mrkApi.addRangeFromSelection (); }, false );
 
 				var copable = false;
 				UI.listenFor ('DidSetClipboard', function ( val ) { copable = !!val; });
@@ -268,6 +300,7 @@
 					var region = PKAudioEditor.engine.wavesurfer.regions.list[0];
 					if (region) return ;
 					divs[3].className += ' pk_inact'; divs[4].className += ' pk_inact'; divs[6].className += ' pk_inact';
+					if (divs[8]) divs[8].className += ' pk_inact';
 				};
 			}, 1000);
 
@@ -352,4 +385,3 @@
 	PKAE._deps._bindToolbarTips = _bindToolbarTips;
 
 })( window, document, PKAudioEditor );
-

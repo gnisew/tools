@@ -23,6 +23,11 @@
 			name: t('menu.help'),
 			children:[
 				{
+					name: t('sc.menu') + (PKAE._deps.shortcuts ? ' ' + PKAE._deps.shortcuts.hint ('help') : ''),
+					action: function () { PKAE._deps.shortcuts && PKAE._deps.shortcuts.open (); }
+				},
+				{ name:'---' },
+				{
 					name: t('help.store_offline'),
 					action: function () {
 						var ip = window.__pkInstallPrompt;
@@ -68,3 +73,5 @@
 	PKAE._deps._menuHelp = _menuHelp;
 
 })( window, document, PKAudioEditor );
+
+

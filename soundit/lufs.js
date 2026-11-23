@@ -229,12 +229,166 @@
 		};
 	}
 
+	/* ------------------------------------------------------------------
+	 * 即時響度表（EBU R128 / ITU-R BS.1770）
+	 *   createLive (取樣率) → { push, snapshot, reset }
+	 *   push (L, R, from, to)  餵入一段新樣本（R 可為 null = 單聲道）
+	 *   snapshot () → {
+	 *     m 瞬間響度（400 ms）、s 短時響度（3 s）、i 積分響度（閘控）  單位 LUFS
+	 *     tp 真峰值 dBTP、peak 取樣峰值 dBFS、corr 立體聲相位相關 -1 ~ +1、secs 已量測秒數
+	 *   }
+	 * 數值未滿視窗長度時為 -Infinity。
+	 * ------------------------------------------------------------------ */
+	function createLive (rate) {
+		var co = kWeightCoeffs (rate);
+		var SUB = Math.max (1, Math.round (rate * C.hop));   /* 100 ms 一小段 */
+		var MAX_BLOCKS = 200000;                             /* 約 5.5 小時 */
+		var st, ring, ring_pos, ring_n, blocks, sub_acc, sub_n, total;
+		var tp, pk, c_lr, c_ll, c_rr;
+		var cache_n, cache_i;
+		var K = 1 / (rate * 0.3);                            /* 相位相關的平滑時間 0.3 s */
+
+		function reset () {
+			st = [[{x1:0,x2:0,y1:0,y2:0},{x1:0,x2:0,y1:0,y2:0}],
+				[{x1:0,x2:0,y1:0,y2:0},{x1:0,x2:0,y1:0,y2:0}]];
+			ring = new Float64Array (30);
+			ring_pos = 0; ring_n = 0;
+			blocks = [];
+			sub_acc = 0; sub_n = 0; total = 0;
+			tp = 0; pk = 0;
+			c_lr = 0; c_ll = 0; c_rr = 0;
+			cache_n = -1; cache_i = -Infinity;
+		}
+		reset ();
+
+		/* 真峰值：只在「同一次讀到的連續樣本」內做 4 倍過取樣內插，
+		 * 不跨越兩次讀取的接縫（接縫處樣本可能有重疊或缺漏，硬接會產生假峰值）。
+		 * 段落 (i-2, i-1) 需要 i-3 與 i，所以會往前多看 3 個樣本。 */
+		function truePeak ( X, from, to, from_min ) {
+			var m = 0, v;
+			for (var i = Math.max ( from, from_min === undefined ? 3 : from_min ); i < to; ++i) {
+				for (var k = 1; k < C.truePeakSteps; ++k) {
+					v = interp ( X[i - 3], X[i - 2], X[i - 1], X[i], k / C.truePeakSteps );
+					if (v < 0) v = -v;
+					if (v > m) m = v;
+				}
+			}
+			return m;
+		}
+
+		function ringMean ( count ) {
+			var sum = 0;
+			for (var k = 1; k <= count; ++k) sum += ring[ (ring_pos - k + 60) % 30 ];
+			return sum / count;
+		}
+
+		function endSub () {
+			ring[ ring_pos ] = sub_acc / SUB;
+			ring_pos = (ring_pos + 1) % 30;
+			if (ring_n < 30) ++ring_n;
+			sub_acc = 0; sub_n = 0;
+			total += SUB;
+
+			if (ring_n >= 4 && blocks.length < MAX_BLOCKS) blocks.push ( ringMean ( 4 ) );
+		}
+
+		/* contiguous = true：與上一次餵入的樣本首尾相連（ScriptProcessor），
+		 * 會把上次最後 3 個樣本接在前面一起做真峰值內插，連接縫也量得到。 */
+		function push ( L, R, from, to, contiguous ) {
+			var two = !!R;
+			for (var i = from; i < to; ++i) {
+				var l = L[ i ];
+				var r = two ? R[ i ] : l;
+
+				var al = l < 0 ? -l : l, ar = r < 0 ? -r : r;
+				if (al > pk) pk = al;
+				if (ar > pk) pk = ar;
+				if (al > tp) tp = al;
+				if (ar > tp) tp = ar;
+
+				var yl = biquad ( biquad ( l, co[0], st[0][0] ), co[1], st[0][1] );
+				var e = yl * yl;
+				if (two) {
+					var yr = biquad ( biquad ( r, co[0], st[1][0] ), co[1], st[1][1] );
+					e += yr * yr;
+				}
+				sub_acc += e;
+
+				c_lr += (l * r - c_lr) * K;
+				c_ll += (l * l - c_ll) * K;
+				c_rr += (r * r - c_rr) * K;
+
+				if (++sub_n >= SUB) endSub ();
+			}
+
+			var t = 0, t2;
+			if (contiguous && to - from >= 3) {
+				t = seamPeak ( 0, L, from, to );
+				if (two) { t2 = seamPeak ( 1, R, from, to ); if (t2 > t) t = t2; }
+			}
+			else {
+				t = truePeak ( L, from, to );
+				if (two) { t2 = truePeak ( R, from, to ); if (t2 > t) t = t2; }
+				tail[0] = null; tail[1] = null;
+			}
+			if (t > tp) tp = t;
+		}
+
+		var tail = [null, null];
+		function seamPeak ( ch, X, from, to ) {
+			var m = truePeak ( X, from, to, from + 3 );
+			if (tail[ch]) {
+				var j = [tail[ch][0], tail[ch][1], tail[ch][2], X[from], X[from + 1], X[from + 2]];
+				var s = truePeak ( j, 3, 6, 3 );
+				if (s > m) m = s;
+			}
+			tail[ch] = [X[to - 3], X[to - 2], X[to - 1]];
+			return m;
+		}
+
+		function integrated () {
+			if (cache_n === blocks.length) return cache_i;
+			cache_n = blocks.length;
+
+			var sum = 0, cnt = 0, k;
+			for (k = 0; k < blocks.length; ++k) {
+				if (loud ( blocks[k] ) >= C.absGate) { sum += blocks[k]; ++cnt; }
+			}
+			if (!cnt) return (cache_i = -Infinity);
+
+			var gate = loud ( sum / cnt ) + C.relGate;
+			sum = 0; cnt = 0;
+			for (k = 0; k < blocks.length; ++k) {
+				if (loud ( blocks[k] ) >= gate) { sum += blocks[k]; ++cnt; }
+			}
+			return (cache_i = cnt ? loud ( sum / cnt ) : -Infinity);
+		}
+
+		function snapshot () {
+			var den = Math.sqrt ( c_ll * c_rr );
+			return {
+				m: ring_n >= 4 ? loud ( ringMean ( 4 ) ) : -Infinity,
+				s: ring_n >= 30 ? loud ( ringMean ( 30 ) ) : -Infinity,
+				i: integrated (),
+				tp: db ( tp ),
+				peak: db ( pk ),
+				corr: den > 1e-9 ? Math.max ( -1, Math.min ( 1, c_lr / den ) ) : 0,
+				secs: total * 1 / SUB * C.hop
+			};
+		}
+
+		return { push: push, snapshot: snapshot, reset: reset };
+	}
+
 	PKAE._deps.lufs = {
 		BS1770Block: C,
 		kWeightCoeffs: kWeightCoeffs,
 		integratedLUFS: integratedLUFS,
 		analyze: analyze,
+		createLive: createLive,
 		gainForTarget: gainForTarget,
 		db: db
 	};
 })(PKAudioEditor);
+
+

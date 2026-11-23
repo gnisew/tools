@@ -8,6 +8,14 @@
 		var preview_meter_raf = 0;
 		var fadeGain = master.fadeGain;
 
+		/* [階段 3] 編輯連動：改動緩衝區「之前」通知標記模組位移（見 markers.js 的 editShift）。
+		 * mrk_quiet > 0 表示外層（Replace）已經整批處理，內層的 Trim／Insert 不要重複位移。 */
+		var mrk_quiet = 0;
+		function mrkShift ( kind, at, len, len2 ) {
+			if (mrk_quiet) return ;
+			try { master.mrk && master.mrk.editShift && master.mrk.editShift ( kind, at, len, len2 ); } catch (e) {}
+		}
+
 		function loadDecoded ( new_buffer ) {
 			wavesurfer.loadDecodedBuffer ( new_buffer );
 			master.fireEvent ('DidUpdateLen', wavesurfer.getDuration ());
@@ -15,8 +23,16 @@
 
 		function OverwriteBufferWithSegment (_offset, _duration, withBuffer ) {
 
-			TrimBuffer( _offset, _duration, true );
-			var ret = InsertSegmentToBuffer ( _offset, withBuffer );
+			/* [階段 3] 取代 = 先移除再插入；長度有變時（例如變速）整批位移一次，範圍內的標記依比例伸縮 */
+			var sr = wavesurfer.backend.buffer.sampleRate;
+			mrkShift ('replace', (((_offset/1) * sr) >> 0) / sr, (((_duration/1) * sr) >> 0) / sr, withBuffer.length / sr);
+			var ret;
+			mrk_quiet++;
+			try {
+				TrimBuffer( _offset, _duration, true );
+				ret = InsertSegmentToBuffer ( _offset, withBuffer );
+			}
+			finally { mrk_quiet--; }
 
 			setTimeout (function() {
 				wavesurfer.drawBuffer();
@@ -149,6 +165,10 @@
 				}
 			}
 
+			/* [階段 3] 只有長度真的變短才位移（只改選取聲道時長度不變） */
+			if (uberSegment.length !== originalBuffer.length)
+				mrkShift ('remove', new_offset / originalBuffer.sampleRate, new_len / originalBuffer.sampleRate);
+
 			loadDecoded ( uberSegment, originalBuffer );
 
 			return (emptySegment);
@@ -208,6 +228,7 @@
 				}
 			}
 
+			mrkShift ('insert', _offset / originalBuffer.sampleRate, buffer.length / originalBuffer.sampleRate);	/* [階段 3] */
 			loadDecoded ( uberSegment, originalBuffer );
 
 			return [
@@ -311,6 +332,7 @@
 				}
 			}
 
+			mrkShift ('insert', _offset / originalBuffer.sampleRate, new_len / originalBuffer.sampleRate);	/* [階段 3] */
 			loadDecoded ( uberSegment, originalBuffer );
 
 			return [
@@ -730,14 +752,27 @@
 			}
 		}
 
-		function DownloadFile( with_name, format, kbps, selection, stereo, bit_depth, dither, callback, source_buffer ) {
+		function DownloadFile( with_name, format, kbps, selection, stereo, bit_depth, dither, callback, source_buffer, target_rate, blob_sink, tag, loud ) {
 			var originalBuffer = source_buffer ||
 				(wavesurfer && wavesurfer.backend && wavesurfer.backend.buffer);
 			if (!originalBuffer) {
 				return false;
 			}
 
-			if (format === 'mp3') {
+			/* [新增] opus / aac 走瀏覽器 WebCodecs（主執行緒），不使用 Worker；
+			 * 用一個只有 terminate 的替身物件，讓取消流程沿用 DownloadFileCancel */
+			var web_fmt = (format === 'opus' || format === 'aac');
+			var web_cancel = false;
+
+			if (web_fmt) {
+				if (!PKAE._deps.webEnc || !PKAE._deps.webEnc.hasEncoder ()) {
+					master.fireEvent ('ShowError', PKLocale.t ('export.codec_unsupported', {fmt: format}));
+					callback && callback ('done');
+					return false;
+				}
+				worker = { terminate: function () { web_cancel = true; } };
+			}
+			else if (format === 'mp3') {
 				worker = new Worker('lame.js');
 			}
 			else if (format === 'flac') {
@@ -748,6 +783,12 @@
 			}
 
 			var sample_rate = originalBuffer.sampleRate;
+
+			/* [新增] 匯出取樣率：opus 固定 48000；mp3 / aac 上限 48000；0 或未指定＝維持原檔 */
+			var out_rate = sample_rate;
+			if (format === 'opus') out_rate = 48000;
+			else if (target_rate / 1) out_rate = target_rate / 1;
+			if ((format === 'mp3' || format === 'aac') && out_rate > 48000) out_rate = 48000;
 
 			var channels = originalBuffer.numberOfChannels;
 
@@ -792,7 +833,7 @@
 				len = ((selection[1] * sample_rate) >> 0) - offset;
 			}
 
-			var wav_bits = format === 'wav' ? ((bit_depth / 1) || 16) : 16;
+			var wav_bits = format === 'wav' ? ((bit_depth / 1) || 16) : (web_fmt ? 32 : 16);
 			if (wav_bits !== 16 && wav_bits !== 24 && wav_bits !== 32) wav_bits = 16;
 			var wav_dither = format === 'wav' && wav_bits === 16 && !!dither;
 			var ArrType = wav_bits === 32 ? Float32Array : wav_bits === 24 ? Int32Array : Int16Array;
@@ -891,6 +932,31 @@
 					return ;
 				}
 
+				if (web_fmt) {
+					PKAE._deps.webEnc.encode ({
+						format: format,
+						sampleRate: sample_rate,
+						channels: channels,
+						kbps: !kbps ? 128 : kbps,
+						left: dataArrLeft,
+						right: dataArrRight,
+						samples: len,
+						tags: tag,
+						onprogress: function ( v ) { progress ( encode_base + (v * (100 - encode_base) / 100) ); },
+						isCancelled: function () { return web_cancel; }
+					}).then (function ( blob ) {
+						if (web_cancel || !blob) return ;
+						worker = null;
+						forceDownload ( blob );
+					}).catch (function ( err ) {
+						if (web_cancel) return ;
+						worker = null;
+						master.fireEvent ('ShowError', PKLocale.t ('export.encode_failed') + ' ' + (err && err.message ? err.message : ''));
+						callback && callback ('done');
+					});
+					return ;
+				}
+
 				worker.postMessage ({
 					sample_rate: sample_rate,
 					kbps:!kbps ? 128 : kbps,
@@ -906,10 +972,181 @@
 					worker.postMessage (null);
 			}
 
-			fillChunk ();
+			/* [新增] 匯出前響度正規化：以實際輸出的內容量測 LUFS，套用增益（受真峰值上限限制） */
+			function applyLoud () {
+				var LU = PKAE._deps.lufs;
+				if (!loud || !loud.target || !LU || !len) return ;
+				try {
+					var A = data_left.subarray (offset, offset + len);
+					var B = data_right ? data_right.subarray (offset, offset + len) : null;
+					if (mono_right) {
+						var R = mono_right.subarray (offset, offset + len);
+						var M = new Float32Array (len);
+						for (var m = 0; m < len; ++m) M[m] = (A[m] + R[m]) * 0.5;
+						A = M;
+						mono_right = null;
+					}
+					var list = B ? [A, B] : [A];
+					var rep = LU.analyze ({
+						sampleRate: sample_rate, length: len, numberOfChannels: list.length,
+						getChannelData: function ( c ) { return list[ c ]; }
+					});
+					if (!isFinite (rep.lufs)) { data_left = A; if (B) data_right = B; offset = 0; return ; }
+					var g = LU.gainForTarget ( rep, loud.target, loud.ceiling ).gain;
+					var outL = new Float32Array (len);
+					for (var a = 0; a < len; ++a) outL[a] = A[a] * g;
+					data_left = outL;
+					if (B) {
+						var outR = new Float32Array (len);
+						for (var b = 0; b < len; ++b) outR[b] = B[b] * g;
+						data_right = outR;
+					}
+					offset = 0;
+				}
+				catch (err) { console.error ('loudness normalize skipped:', err); }
+			}
+
+			function begin () {
+				if (!worker) return ;
+				applyLoud ();
+				fillChunk ();
+			}
+
+			/* [新增] 取樣率轉換：用 OfflineAudioContext 逐聲道重新取樣後，再進入原本的轉檔流程 */
+			function resampleChannel ( arr ) {
+				var Ctx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+				var new_len = Math.max (1, Math.round (len * out_rate / sample_rate));
+				var ctx = new Ctx (1, new_len, out_rate);
+				var buf = ctx.createBuffer (1, len, sample_rate);
+				buf.copyToChannel (arr.subarray (offset, offset + len), 0, 0);
+				var src = ctx.createBufferSource ();
+				src.buffer = buf;
+				src.connect (ctx.destination);
+				src.start (0);
+				return ctx.startRendering ().then (function ( rendered ) {
+					return rendered.getChannelData (0).slice (0);
+				});
+			}
+
+			function resampleAll () {
+				var jobs = [ resampleChannel ( data_left ) ];
+				if (data_right) jobs.push ( resampleChannel ( data_right ) );
+				if (mono_right) jobs.push ( resampleChannel ( mono_right ) );
+
+				return Promise.all ( jobs ).then (function ( r ) {
+					var k = 1;
+					data_left = r[0];
+					if (data_right) data_right = r[ k++ ];
+					if (mono_right) mono_right = r[ k++ ];
+
+					offset = 0;
+					len = data_left.length;
+					sample_rate = out_rate;
+					dataArrLeft = new ArrType (len);
+					dataArrRight = data_right ? new ArrType (len) : null;
+				});
+			}
+
+			if (out_rate !== sample_rate) {
+				progress (1);
+				resampleAll ().then (begin).catch (function ( err ) {
+					worker && worker.terminate ();
+					worker = null;
+					master.fireEvent ('ShowError', PKLocale.t ('export.encode_failed') + ' ' + (err && err.message ? err.message : ''));
+					callback && callback ('done');
+				});
+			}
+			else
+				begin ();
+
 			return ;
 
+			/* [新增] mp3 輸出前寫入 ID3v2（opus 的標籤已在編碼時寫入）；失敗則保留原檔 */
 			function forceDownload ( blob ) {
+				if (tag && format === 'mp3' && window.ID3v2 && blob.arrayBuffer) {
+					blob.arrayBuffer ().then(function ( ab ) {
+						return new Blob ([ window.ID3v2.WriteTags ( ab, tag ) ], { type: 'audio/mpeg' });
+					}).catch(function () { return blob; }).then ( deliver );
+					return ;
+				}
+				/* [新增] flac 輸出前寫入 Vorbis comment 區塊；失敗則保留原檔 */
+				if (tag && format === 'flac' && blob.arrayBuffer) {
+					blob.arrayBuffer ().then(function ( ab ) {
+						return new Blob ([ flacWriteTags ( ab, tag ) ], { type: 'audio/flac' });
+					}).catch(function () { return blob; }).then ( deliver );
+					return ;
+				}
+				deliver ( blob );
+			}
+
+			/* [新增] 把 VORBIS_COMMENT 區塊插進 FLAC 的 metadata 串（STREAMINFO 之後）。
+			 * 區塊標頭為大端序；Vorbis comment 內容的長度欄位為小端序。 */
+			function flacWriteTags ( ab, tg ) {
+				var src = new Uint8Array ( ab );
+				if (src.length < 42 || src[0] !== 0x66 || src[1] !== 0x4c || src[2] !== 0x61 || src[3] !== 0x43) return ab;
+
+				var te = new TextEncoder ();
+				var vendor = te.encode ('Soundit');
+				var map = { title: 'TITLE', artist: 'ARTIST', album: 'ALBUM', track: 'TRACKNUMBER' };
+				var items = [];
+				for (var k in map) if (tg[ k ]) items.push ( te.encode ( map[ k ] + '=' + tg[ k ] ) );
+				if (!items.length) return ab;
+
+				var body_len = 4 + vendor.length + 4, i;
+				for (i = 0; i < items.length; ++i) body_len += 4 + items[ i ].length;
+				if (body_len > 0xFFFFFF) return ab;
+				var body = new Uint8Array ( body_len );
+				var bv = new DataView ( body.buffer );
+				bv.setUint32 (0, vendor.length, true);
+				body.set (vendor, 4);
+				var p = 4 + vendor.length;
+				bv.setUint32 (p, items.length, true); p += 4;
+				for (i = 0; i < items.length; ++i) {
+					bv.setUint32 (p, items[ i ].length, true);
+					body.set (items[ i ], p + 4);
+					p += 4 + items[ i ].length;
+				}
+
+				/* 讀出原本所有 metadata 區塊，丟掉舊的 VORBIS_COMMENT */
+				var blocks = [], pos = 4, last = false;
+				while (!last) {
+					if (pos + 4 > src.length) return ab;
+					var hdr = src[ pos ];
+					var blen = (src[ pos + 1 ] << 16) | (src[ pos + 2 ] << 8) | src[ pos + 3 ];
+					if (pos + 4 + blen > src.length) return ab;
+					last = (hdr & 0x80) !== 0;
+					blocks.push ({ type: hdr & 0x7f, data: src.subarray ( pos + 4, pos + 4 + blen ) });
+					pos += 4 + blen;
+				}
+				if (!blocks.length || blocks[0].type !== 0) return ab;
+
+				var list = [ blocks[0], { type: 4, data: body } ];
+				for (i = 1; i < blocks.length; ++i) if (blocks[ i ].type !== 4) list.push ( blocks[ i ] );
+
+				var total = 4 + (src.length - pos);
+				for (i = 0; i < list.length; ++i) total += 4 + list[ i ].data.length;
+				var out = new Uint8Array ( total );
+				out.set (src.subarray (0, 4), 0);
+				var o = 4;
+				for (i = 0; i < list.length; ++i) {
+					var n = list[ i ].data.length;
+					out[ o++ ] = list[ i ].type | (i === list.length - 1 ? 0x80 : 0);
+					out[ o++ ] = (n >> 16) & 255; out[ o++ ] = (n >> 8) & 255; out[ o++ ] = n & 255;
+					out.set (list[ i ].data, o);
+					o += n;
+				}
+				out.set (src.subarray ( pos ), o);
+				return out.buffer;
+			}
+
+			function deliver ( blob ) {
+				/* [新增] 分割匯出時不直接下載，交給呼叫端收集後打包成 zip */
+				if (blob_sink) {
+					blob_sink ( blob );
+					callback && callback ('done');
+					return ;
+				}
+
 				var url = (window.URL || window.webkitURL).createObjectURL(blob);
 
 				var a = document.createElement( 'a' );
@@ -2096,3 +2333,5 @@
 
 	PKAE._deps.audioutils = AudioUtils;
 })( PKAudioEditor );
+
+

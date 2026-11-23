@@ -5,23 +5,118 @@
 	var activeMultitrackFor = h.activeMultitrackFor;
 	var activeRegionFor = h.activeRegionFor;
 
+	/* [新增] 目前（單軌或多軌）的標記清單 */
+	function markerListFor ( app ) {
+		if (!app.mrk) return [];
+		return activeMultitrackFor ( app ) ? app.mrk.serMt () : app.mrk.serEd ();
+	}
+
+	/* [新增] 依標記切成區段：回傳 [[起, 迄, 起點標記名稱], ...]（秒）。range 為選取範圍或 false */
+	function splitSegmentsFor ( app, range ) {
+		var mt = activeMultitrackFor ( app );
+		var total = mt ? (mt.GetDuration ? mt.GetDuration () : 0) : app.engine.wavesurfer.getDuration ();
+		var lo = range ? range[0] : 0, hi = range ? range[1] : total;
+		var all = markerListFor ( app );
+		/* [階段 2 項目 8] 只要有區間標記，就改用「區間標記直接當成一段」的規則（見 rangeSegments） */
+		if (all.some (function ( m ) { return m.end > m.time; })) return rangeSegments ( all, lo, hi );
+		var cuts = all.filter (function ( m ) { return m.time > lo + 0.01 && m.time < hi - 0.01; });
+		var out = [], start = lo, name = '', id = null, type = '';
+		/* [新增] 剛好落在起點的標記（例如 0:00 的「開場」）要當成第一段的名稱，原本會被忽略 */
+		for (var a = 0; a < all.length; ++a)
+			if (all[a].time <= lo + 0.01 && all[a].time >= lo - 0.01) { name = all[a].name; id = all[a].id; type = all[a].type || ''; }
+		for (var c = 0; c < cuts.length; ++c) {
+			out.push ([start, cuts[c].time, name, id, type]);	/* [新增] 第 4 欄：起點標記 id（給「只匯出勾選段落」用） */
+			start = cuts[c].time;
+			name = cuts[c].name;
+			id = cuts[c].id;
+			type = cuts[c].type || '';
+		}
+		out.push ([start, hi, name, id, type]);
+		return out;
+	}
+
+	/* [階段 2 項目 8] 區間標記直接當成一段：
+	 *   - 區間標記 → [起, 結束]
+	 *   - 點標記 → [起, 下一個標記的起點]（沒有下一個就到結尾）；落在別的區間裡面的點標記略過
+	 *   - 區間之間沒被標記涵蓋的空隙不匯出；超出選取範圍的部分裁掉，短於 10 毫秒的略過
+	 *   回傳 [起, 迄, 名稱, 標記id, 類型]，前四欄與 splitSegmentsFor 相同 */
+	function rangeSegments ( all, lo, hi ) {
+		var out = [], i, j, m, s, e, inside;
+		for (i = 0; i < all.length; ++i) {
+			m = all[i];
+			if (m.end > m.time) e = m.end;
+			else {
+				inside = false;
+				for (j = 0; j < all.length && !inside; ++j)
+					inside = j !== i && all[j].end > all[j].time && m.time > all[j].time + 0.001 && m.time < all[j].end - 0.001;
+				if (inside) continue;
+				e = hi;
+				for (j = i + 1; j < all.length; ++j)
+					if (all[j].time > m.time + 0.001) { e = all[j].time; break; }
+			}
+			s = Math.max (m.time, lo); e = Math.min (e, hi);
+			if (e - s < 0.01) continue;
+			out.push ([s, e, m.name, m.id, m.type || '']);
+		}
+		return out;
+	}
+
+	/* [新增] 分割檔名範本：{name}/{檔名} 輸出檔名、{n}/{序號} 序號、{marker}/{標記名} 起點標記名稱 */
+	var SPLIT_TPL_KEY = 'pk_split_tpl';
+	var SPLIT_TPL_DEF = '{name}_{n}_{marker}';
+	function splitLang () {
+		var l = '';
+		try { l = PKLocale.getLang () || ''; } catch (e) {}
+		return /^(zh|kasu|hak)/i.test (l) ? 'zh' : 'en';
+	}
+	function LT ( zh, en ) { return splitLang () === 'zh' ? zh : en; }
+	/* [階段 2 項目 7] 檔名用的時間：1m23s／1h02m03s */
+	function tagTime ( s ) {
+		s = Math.max (0, Math.floor (s + 1e-9));
+		var h = (s / 3600) >> 0, m = ((s % 3600) / 60) >> 0, c = s % 60;
+		return (h ? h + 'h' + (m < 10 ? '0' : '') : '') + m + 'm' + (c < 10 ? '0' : '') + c + 's';
+	}
+	function typeWord ( t ) { return t === 'chapter' ? LT ('章節', 'chapter') : t === 'loop' ? LT ('循環', 'loop') : t === '' ? LT ('一般', 'normal') : ''; }
+	function splitNames ( tpl, base, segs, ext ) {
+		var digits = String (segs.length).length < 2 ? 2 : String (segs.length).length, used = {}, out = [], i, num, s, k, n;
+		tpl = (tpl || '').trim () || SPLIT_TPL_DEF;
+		if (!/\{(n|序號)\}/.test (tpl)) tpl += '_{n}';	/* 沒寫序號就補上，避免檔名重複互相覆蓋 */
+		for (i = 0; i < segs.length; ++i) {
+			num = String (i + 1); while (num.length < digits) num = '0' + num;
+			s = tpl.replace (/\{(name|檔名)\}/g, function () { return base; })
+				.replace (/\{(n|序號)\}/g, function () { return num; })
+				.replace (/\{(marker|標記名)\}/g, function () { return segs[i][2] || ''; })
+				.replace (/\{(type|類型)\}/g, function () { return segs[i][4] === undefined ? '' : typeWord (segs[i][4]); })
+				.replace (/\{(start|起點)\}/g, function () { return tagTime (segs[i][0]); })
+				.replace (/\{(end|結束)\}/g, function () { return tagTime (segs[i][1]); });
+			s = s.replace (/[\\\/:*?"<>|]/g, '_').replace (/_{2,}/g, '_').replace (/^[_\-\s]+|[_\-\s]+$/g, '') || (base + '_' + num);
+			k = s; n = 1;
+			while (used[ k.toLowerCase () ]) k = s + '_' + (++n);
+			used[ k.toLowerCase () ] = 1;
+			out.push ( k + ext );
+		}
+		return out;
+	}
+
 	function _menuFile ( app ) {
 		var t = PKLocale.t;
+		var AS = PKAE._deps.autosplit;	/* [新增] 自動分割（autosplit.js），沒載入時維持原本只能依標記分割 */
+		function K ( id ) { var s = PKAE._deps.shortcuts; return s ? ' ' + s.hint ( id ) : ''; }
 		return {
 			name: t('menu.file'),
 			children : [
 				{
-					name: t('export.title'),
+					name: t('export.title') + K ('save'),
 					action: function () {
 						new PKSimpleModal({
 							title: t('export.title'),
-							ondestroy: function( q ) { app.ui.InteractionHandler.on = false; app.ui.KeyHandler.removeCallback ('modalTemp'); },
+							ondestroy: function( q ) { if (q._asJob) q._asJob.cancel (); app.ui.InteractionHandler.on = false; app.ui.KeyHandler.removeCallback ('modalTemp'); },
 							buttons:[{
 								title: t('export.export_btn'), clss:'pk_modal_a_accpt',
 								callback: function( q ) {
 									var input = q.el_body.getElementsByTagName('input')[0];
 									var value = input.value.trim();
-									var format = 'mp3', kbps = 128, export_sel = false, stereo = false, bit_depth = 16;
+									var format = 'mp3', kbps = 128, export_sel = false, stereo = false, bit_depth = 16, split_on = false;
 									var radios = q.el_body.getElementsByClassName ('pk_check');
 									var l = radios.length;
 									while (l-- > 0) {
@@ -30,14 +125,85 @@
 											else if (radios[l].name == 'xport') { if (radios[l].value === 'sel') { var region = activeRegionFor ( app ); export_sel = region ? [region.start, region.end] : false; } }
 											else if (radios[l].name == 'chnl') { if (radios[l].value === 'stereo') stereo = true; }
 											else if (radios[l].name == 'wavbits') bit_depth = radios[l].value / 1;
-											else kbps = radios[l].value / 1;
+										else if (radios[l].name == 'split') split_on = true;
+											else if (radios[l].name == 'rdslnc') kbps = radios[l].value / 1;
 										}
 									}
 									var dither_chk = document.getElementById ('wav-dither');
 									var dither = !!(dither_chk && dither_chk.checked);
 									if (format === 'amss') { var mt = activeMultitrackFor ( app ); if (mt) mt.ExportSession ( value ); q.Destroy (); return ; }
 									if (format == 'flac') kbps = document.getElementById('flac-comp').value / 1;
-									app.engine.DownloadFile ( value, format, kbps, export_sel, stereo, bit_depth, dither );
+									/* [新增] opus / aac 位元率；匯出取樣率（opus 固定 48000） */
+									if (format === 'opus' || format === 'aac') kbps = document.getElementById('exp-wcbr').value / 1;
+									/* [新增] 標籤欄位（mp3 → ID3v2、opus → Vorbis comment），演出者會記住 */
+									var tg_title = document.getElementById ('ktag-title').value.trim ();
+									var tg_artist = document.getElementById ('ktag-artist').value.trim ();
+									var tg_album = document.getElementById ('ktag-album').value.trim ();
+									try { w.localStorage.setItem ('pk_export_artist', tg_artist); } catch (e) {}
+									var tg_ok = format === 'mp3' || format === 'opus' || format === 'flac';
+									/* [新增] mp3：把標記寫成章節（ID3 CHAP/CTOC），時間相對於匯出範圍的起點 */
+									var chap_in = document.getElementById ('kchap'), chapters = null;
+									if (format === 'mp3' && chap_in && chap_in.checked && !chap_in.disabled) {
+										var csegs = splitSegmentsFor ( app, export_sel ), clo = export_sel ? export_sel[0] : 0;
+										chapters = csegs.map (function ( sg, ci ) { return { start: sg[0] - clo, end: sg[1] - clo, title: sg[2] || LT ('章節 ', 'Chapter ') + (ci + 1) }; });
+									}
+									var single_tag = tg_ok && (tg_title || tg_artist || tg_album || chapters) ? { title: tg_title, artist: tg_artist, album: tg_album, chapters: chapters } : null;
+									var sr_sel = document.getElementById ('exp-srate');
+									var target_rate = format === 'opus' ? 48000 : (sr_sel ? sr_sel.value / 1 : 0);
+									/* [新增] 匯出響度正規化（目標 LUFS｜真峰值上限 dBTP） */
+									var loud_sel = document.getElementById ('exp-loud');
+									var loud = null;
+									if (loud_sel && loud_sel.value) { var lp = loud_sel.value.split ('|'); loud = { target: lp[0] / 1, ceiling: lp[1] / 1 }; }
+									/* [修改] 依標記／依靜音／依聲音特性變化分割：每段一個檔，打包成 zip */
+									if (split_on && format !== 'amss') {
+										var split_mode = AS && document.getElementById ('ksplitmode') ? document.getElementById ('ksplitmode').value : 'markers';
+										var tpl_in = document.getElementById ('ksplit-tpl');
+										var split_tpl = tpl_in ? tpl_in.value.trim () : '';
+										try { w.localStorage.setItem (SPLIT_TPL_KEY, split_tpl || SPLIT_TPL_DEF); } catch (e) {}
+										var ck_in = document.getElementById ('ksplit-ck');
+										var only_ck = !!(ck_in && ck_in.checked && !ck_in.disabled);
+										var runSplit = function ( segs ) {
+											var base = value.replace (/\.[^.\/\\]+$/, '') || 'soundit-output';
+											var ext = value.indexOf ('.') === -1 ? '' : value.substr (value.lastIndexOf ('.'));
+											var names = splitNames ( split_tpl, base, segs, ext || '.' + format ), tags = [];	/* [修改] 檔名依範本產生（預設與原本相同） */
+											for (var si = 0; si < segs.length; ++si) {
+												tags.push ( tg_ok ? { title: segs[si][2] || tg_title || base, artist: tg_artist, album: tg_album || base, track: (si + 1) + '/' + segs.length } : null );
+											}
+											app.engine.ExportSegments ( base + '.zip', names, format, kbps, segs, stereo, bit_depth, dither, target_rate, tags, loud );
+											q.Destroy ();
+										};
+										if (split_mode === 'markers') {
+											var msegs = splitSegmentsFor ( app, export_sel );
+											/* [新增] 只匯出標記清單勾選的段落（段落以起點標記判斷） */
+											if (only_ck) {
+												var ck_ids = (PKAE._deps.mrkpanel && PKAE._deps.mrkpanel.checked) ? PKAE._deps.mrkpanel.checked () : [];
+												msegs = msegs.filter (function ( sg ) { return sg[3] && ck_ids.indexOf (sg[3]) !== -1; });
+												if (msegs.length) { runSplit ( msegs ); return ; }
+												OneUp (LT ('勾選的標記沒有對應的段落', 'No segments match the checked markers'), 1800);
+												return ;
+											}
+											if (msegs.length > 1) { runSplit ( msegs ); return ; }
+										}
+										else {
+											/* [新增] 自動分割：先分析再匯出，分析期間對話框保持開啟並顯示進度 */
+											if (q._asBusy) return ;
+											var prog = document.getElementById ('ksplit-prog');
+											q._asBusy = true;
+											if (prog) prog.textContent = AS.T ('mixing');
+											q._asJob = AS.detectSegments ( app, split_mode, export_sel, function ( p ) {
+												if (prog && q.el) prog.textContent = AS.T ('analyzing', { p: (p * 100) >> 0 });
+											}, function ( asegs, found ) {
+												q._asJob = null;
+												if (!q.el) return ;
+												q._asBusy = false;
+												if (prog) prog.textContent = '';
+												if (asegs.length > 1 || (split_mode === 'speech' && asegs.length === 1)) runSplit ( asegs );	/* 有聲句段：只有一句也要匯出 */
+												else OneUp (AS.T (asegs.length || found ? 'none' : 'no_audio'), 1800);
+											});
+											return ;
+										}
+									}
+									app.engine.DownloadFile ( value, format, kbps, export_sel, stereo, bit_depth, dither, target_rate, single_tag, loud );
 									q.Destroy ();
 								}
 							}],
@@ -45,8 +211,10 @@
 								'<input style="min-width:250px" placeholder="' + t('export.name_placeholder') + '" value="soundit-output.mp3" class="pk_txt" type="text" id="k0" /></div>'+
 								'<div class="pk_row" id="frmtex" style="padding-bottom:4px"><label style="display:inline">' + t('export.format') + '</label>'+
 								'<input type="radio" class="pk_check" id="k01" name="frmtex" checked value="mp3"><label for="k01">mp3</label>' +
-								'<input type="radio" class="pk_check" id="k02" name="frmtex" value="wav"><label for="k02">wav <i>(44100hz)</i></label>' +
+								'<input type="radio" class="pk_check" id="k02" name="frmtex" value="wav"><label for="k02">wav</label>' +
 								'<input type="radio" class="pk_check" id="k03" name="frmtex" value="flac"><label for="k03">flac</label>' +
+								'<input type="radio" class="pk_check" id="kopus" name="frmtex" value="opus"><label for="kopus">opus</label>' +
+								'<input type="radio" class="pk_check" id="kaac" name="frmtex" value="aac"><label for="kaac">aac</label>' +
 								'<br class="pk_amss"><input type="radio" class="pk_check pk_amss" id="k04" name="frmtex" value="amss"><label class="pk_amss" for="k04">' + t('export.session_file') + '</label></div>' +
 								'<div class="pk_row" id="frmtex-mp3"><input type="radio" class="pk_check" id="k1" name="rdslnc" checked value="128"><label for="k1">128kbps</label>' +
 								'<input type="radio" class="pk_check" id="k2" name="rdslnc" value="192"><label for="k2">192kbps</label>'+
@@ -58,12 +226,31 @@
 								'<input type="radio" class="pk_check" id="kwb2" name="wavbits" value="24"><label for="kwb2">24-bit</label>'+
 								'<input type="radio" class="pk_check" id="kwb3" name="wavbits" value="32"><label for="kwb3">32-bit float</label>'+
 								'<div id="wav-dither-wrap" style="margin-top:6px"><input type="checkbox" class="pk_check" id="wav-dither"><label for="wav-dither">TPDF dither</label></div></div>' +
+								'<div class="pk_row" style="display:none" id="frmtex-wc"><label>' + t('export.bitrate') + '</label>' +
+								'<select id="exp-wcbr"><option value="64">64 kbps</option><option value="96">96 kbps</option><option value="128" selected>128 kbps</option><option value="160">160 kbps</option><option value="192">192 kbps</option><option value="256">256 kbps</option></select></div>' +
+								'<div class="pk_row" id="frmtex-sr"><label>' + t('export.sample_rate') + '</label>' +
+								'<select id="exp-srate"><option value="0" selected>' + t('export.sr_original') + '</option><option value="44100">44.1 kHz</option><option value="48000">48 kHz</option><option value="96000">96 kHz</option></select></div>' +
+								'<div class="pk_row" id="frmtex-loud"><label>' + t('export.loudness') + '</label>' +
+								'<select id="exp-loud"><option value="" selected>' + t('export.loud_off') + '</option><option value="-14|-1">Spotify / YouTube (-14 LUFS)</option><option value="-23|-1">' + t('export.loud_ebu') + ' (-23 LUFS)</option></select></div>' +
 								'<div class="pk_row" style="padding-bottom:5px">' +
 								'<input type="radio" class="pk_check" id="k6" name="chnl" checked value="mono"><label for="k6">' + t('export.mono') + '</label>'+
 								'<input type="radio" class="pk_check pk_stereo" id="k7" name="chnl" value="stereo"><label for="k7">' + t('export.stereo') + '</label></div>'+
 								'<div class="pk_row">' +
 								'<input type="radio" class="pk_check" id="k4" name="xport" checked value="whole"><label for="k4">' + t('export.whole_file') + '</label>'+
-								'<input type="radio" class="pk_check" id="k5" name="xport" value="sel"><label class="pk_lblmp3" for="k5">' + t('export.selection_only') + '</label></div>',
+								'<input type="radio" class="pk_check" id="k5" name="xport" value="sel"><label class="pk_lblmp3" for="k5">' + t('export.selection_only') + '</label></div>' +
+								'<div class="pk_row" id="frmtex-split"><input type="checkbox" class="pk_check" id="ksplit" name="split"><label for="ksplit">' + t('export.split_markers') + '</label>' +
+								(AS ? '<select id="ksplitmode" style="margin-left:8px"><option value="markers">' + AS.T ('sp_markers') + '</option><option value="silence">' + AS.T ('sp_silence') + '</option><option value="change">' + AS.T ('sp_change') + '</option><option value="speech">' + AS.T ('sp_speech') + '</option></select>' +
+								'<div id="ksplit-prog" style="min-height:14px;font-size:11px;opacity:.7"></div>' : '') + '</div>' +
+								/* [新增] 分割檔名範本，以及「只匯出標記清單勾選的段落」 */
+								'<div class="pk_row" id="frmtex-splitopt" style="font-size:11px">' +
+								'<label for="ksplit-tpl" title="{name} {n} {marker} {type} {start} {end} / {檔名} {序號} {標記名} {類型} {起點} {結束}">' + LT ('檔名範本', 'File name') + '</label>' +
+								'<input class="pk_txt" type="text" id="ksplit-tpl" style="width:46%;margin-left:6px" maxlength="80" value="' + (function () { var v = SPLIT_TPL_DEF; try { v = w.localStorage.getItem (SPLIT_TPL_KEY) || v; } catch (e) {} return v.replace (/&/g, '&amp;').replace (/"/g, '&quot;').replace (/</g, '&lt;'); })() + '">' +
+								'<br><input type="checkbox" class="pk_check" id="ksplit-ck"><label for="ksplit-ck" id="ksplit-cklbl">' + LT ('只匯出標記清單勾選的段落', 'Only segments checked in the marker list') + '</label></div>' +
+								'<div class="pk_row" style="display:none;font-size:11px" id="frmtex-chap"><input type="checkbox" class="pk_check" id="kchap"><label for="kchap" id="kchap-lbl">' + LT ('把標記寫成 MP3 章節', 'Write markers as MP3 chapters') + '</label></div>' +
+								'<div class="pk_row" style="display:none" id="frmtex-tag"><label>' + t('export.tags') + '</label>' +
+								'<input class="pk_txt" type="text" id="ktag-title" placeholder="' + t('export.tag_title') + '" style="width:30%">' +
+								'<input class="pk_txt" type="text" id="ktag-artist" placeholder="' + t('export.tag_artist') + '" style="width:30%;margin-left:4px">' +
+								'<input class="pk_txt" type="text" id="ktag-album" placeholder="' + t('export.tag_album') + '" style="width:30%;margin-left:4px"></div>',
 							setup:function( q ) {
 								var wv = PKAudioEditor.engine.wavesurfer;
 								var mt_on = activeMultitrackFor ( app );
@@ -85,16 +272,61 @@
 									var ditherWrap = document.getElementById('wav-dither-wrap');
 									var amss = q.el_body.getElementsByClassName ('pk_amss');
 									function setDitherFor ( bits ) { var on = bits === 16; document.getElementById('wav-dither').disabled = !on; ditherWrap.classList.toggle ('pk_inact', !on); }
-									function showConf ( m, f, w ) { mp3conf.style.display = m ? 'block' : 'none'; flacconf.style.display = f ? 'block' : 'none'; wavconf.style.display = w ? 'block' : 'none'; }
+									var splitchk = document.getElementById ('ksplit');
+									/* [新增] 「只匯出勾選段落」：清單有勾選且分割方式為「依現有標記」時才能用 */
+									var ckbox = document.getElementById ('ksplit-ck'), cklbl = document.getElementById ('ksplit-cklbl'), spm = document.getElementById ('ksplitmode');
+									function syncCk () {
+										var n = (PKAE._deps.mrkpanel && PKAE._deps.mrkpanel.checked) ? PKAE._deps.mrkpanel.checked ().length : 0;
+										var ok = n > 0 && (!spm || spm.value === 'markers');
+										ckbox.disabled = !ok;
+										if (!ok) ckbox.checked = false;
+										cklbl.className = ok ? '' : 'pk_dis';
+										cklbl.title = ok ? '' : LT ('先在「標記清單」勾選要匯出的標記，並選擇「依現有標記」', 'Check markers in the Marker list first and choose "At existing markers"');
+									}
+									syncCk ();
+									spm && spm.addEventListener ('change', syncCk);
+									/* [修改] 沒有標記時：有 autosplit 就預設改用「依靜音」，沒有才停用 */
+									if (!markerListFor ( app ).length) {
+										var spmode = document.getElementById ('ksplitmode');
+										if (spmode) { spmode.options[0].disabled = true; spmode.value = 'silence'; }
+										else { splitchk.disabled = true; splitchk.nextSibling.className = 'pk_dis'; splitchk.nextSibling.title = t('export.split_none'); }
+									}
+									var wcconf = document.getElementById('frmtex-wc');
+									var srconf = document.getElementById('frmtex-sr');
+									var loudconf = document.getElementById('frmtex-loud');
+									var srsel = document.getElementById('exp-srate');
+									var tagrow = document.getElementById('frmtex-tag');
+									var chaprow = document.getElementById('frmtex-chap');
+									if (!markerListFor ( app ).length) { var kc = document.getElementById ('kchap'); kc.disabled = true; document.getElementById ('kchap-lbl').className = 'pk_dis'; document.getElementById ('kchap-lbl').title = LT ('目前沒有標記', 'No markers'); }
+									try { document.getElementById ('ktag-artist').value = w.localStorage.getItem ('pk_export_artist') || ''; } catch (e) {}
+									function showConf ( m, f, w, c ) { chaprow.style.display = m ? 'block' : 'none'; tagrow.style.display = (m || f || (c && document.getElementById ('kopus').checked)) ? 'block' : 'none'; mp3conf.style.display = m ? 'block' : 'none'; flacconf.style.display = f ? 'block' : 'none'; wavconf.style.display = w ? 'block' : 'none'; wcconf.style.display = c ? 'block' : 'none'; }
+									/* [新增] 依格式調整取樣率選單：opus 固定 48k；mp3 / aac 不提供 96k */
+									function syncRate ( v ) {
+										var o = srsel.options;
+										o[3].disabled = (v === 'mp3' || v === 'aac' || v === 'opus');
+										if (v === 'opus') { srsel.value = '48000'; srsel.disabled = true; }
+										else { srsel.disabled = false; if (o[3].disabled && srsel.value === '96000') srsel.value = '0'; }
+									}
+									syncRate ('mp3');
+									showConf (1, 0, 0, 0);
+									/* [新增] 偵測瀏覽器是否支援 opus / aac 編碼，不支援就停用 */
+									['opus', 'aac'].forEach(function ( f ) {
+										var r = document.getElementById (f === 'opus' ? 'kopus' : 'kaac');
+										var lb = r && r.nextSibling;
+										var PE = PKAudioEditor._deps.webEnc;
+										function off () { r.disabled = true; if (lb) { lb.className = 'pk_dis'; lb.title = t('export.codec_unsupported', {fmt: f}); } }
+										if (!PE || !PE.hasEncoder ()) { off (); return ; }
+										PE.isSupported ( f ).then(function ( ok ) { if (!ok) off (); });
+									});
 									var k6 = document.getElementById ('k6'); var k7 = document.getElementById ('k7');
 									if (!mt_on) { for (var x = 0; x < amss.length; ++x) amss[x].style.display = 'none'; }
-									function setExt ( ext ) { inputtxt.value = inputtxt.value.replace (/\.(mp3|wav|flac|amss)$/i, '') + ext; }
+									function setExt ( ext ) { inputtxt.value = inputtxt.value.replace (/\.(mp3|wav|flac|opus|aac|amss)$/i, '') + ext; }
 									function chanOff ( off ) { k6.disabled = k7.disabled = !!off; }
 									if (mt_on) { document.getElementById ('k01').checked = true; showConf (1, 0, 0); chanOff ( false ); setExt ('.mp3'); }
 									document.getElementById('flac-comp').oninput = function() { this.parentNode.getElementsByTagName('span')[0].innerText = this.value; };
 									setDitherFor (16);
 									wavconf.addEventListener ('change', function () { var ws = wavconf.getElementsByTagName ('input'); for (var i = 0; i < ws.length; ++i) if (ws[i].name === 'wavbits' && ws[i].checked) { setDitherFor (ws[i].value / 1); break; } }, false);
-									format && format.addEventListener('change', function(e){ var inputs = this.getElementsByTagName('input'); for (var i = 0; i < inputs.length; ++i) { if (inputs[i].checked) { var v = inputs[i].value; chanOff (v === 'amss'); showConf (v === 'mp3', v === 'flac', v === 'wav'); setExt ('.' + v); } } }, false);
+									format && format.addEventListener('change', function(e){ var inputs = this.getElementsByTagName('input'); for (var i = 0; i < inputs.length; ++i) { if (inputs[i].checked) { var v = inputs[i].value; chanOff (v === 'amss'); showConf (v === 'mp3', v === 'flac', v === 'wav', v === 'opus' || v === 'aac'); srconf.style.display = loudconf.style.display = v === 'amss' ? 'none' : 'block'; syncRate (v); setExt ('.' + v); } } }, false);
 								},20);
 							}
 						}).Show();
@@ -307,3 +539,5 @@
 	PKAE._deps._menuFile = _menuFile;
 
 })( window, document, PKAudioEditor );
+
+

@@ -162,7 +162,7 @@ a{
 	width:100%;margin:0;padding:5px var(--s3);
 	text-align:left;color:var(--fg-0);
 }
-.pk_hdr .pk_btn .pk_menu_el:hover button{background:var(--bg-3);color:var(--ac)}
+.pk_hdr .pk_btn .pk_menu_el:hover>button{background:var(--bg-3);color:var(--ac)}
 
 .pk_tbc{
 	position:relative;
@@ -466,6 +466,10 @@ a{
 	font-weight:400;pointer-events:none;
 }
 .pk_mrkr:hover b,.pk_mrkr.pk_act b{display:block}
+/* [階段 3] 標記類型：章節＝較大的旗標＋實線；循環＝虛線 */
+.pk_mrkr_ch:before{left:-5px;top:14px;border-left-width:5px;border-right-width:5px;border-top-width:10px}
+.pk_mrkr_ch:after{width:2px;opacity:1}
+.pk_mrkr_lp:after{width:2px;opacity:.95;background:repeating-linear-gradient(to bottom,currentColor 0,currentColor 6px,transparent 6px,transparent 10px)}
 
 .pk_mt{
 	display:none;position:relative;z-index:0;
@@ -529,6 +533,17 @@ a{
 	border-bottom:1px solid var(--bd);
 }
 .pk_mt_track.pk_mt_sel{background:var(--bg-3)}
+
+/* 音軌表頭：電平表 + 爆音燈 */
+.pk_mt_meter{
+	position:absolute;right:0;top:5px;bottom:5px;width:4px;
+	display:flex;flex-direction:column;gap:2px;cursor:pointer;z-index:2;
+}
+.pk_mt_clip{flex:0 0 5px;height:5px;border-radius:1px;background:#2a1d1d}
+.pk_mt_clip.pk_mt_on{background:#ff3b30;box-shadow:0 0 6px #ff3b30}
+.pk_mt_mbar{position:relative;flex:1;min-height:6px;background:#050708;border:1px solid #222c30;box-sizing:border-box;overflow:hidden}
+.pk_mt_mbar i{position:absolute;left:0;right:0;bottom:0;top:0;transform:scaleY(0);transform-origin:50% 100%;background:linear-gradient(0deg,#56dbe3,#77d26d 62%,#d4bd54 84%,#d45b57)}
+.pk_mt_mbar b{position:absolute;left:0;right:0;bottom:0;height:2px;background:#e8f0f0;opacity:0}
 
 .pk_mt_track input{
 	display:block;box-sizing:border-box;
@@ -1205,6 +1220,80 @@ input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 }
 .pk_mixwin{width:620px;height:280px;max-width:calc(100vw - 32px)}
 
+/* 內建多軌混音器面板 */
+.pk_mixpanel{
+	width:auto;max-width:none;right:0;height:280px;
+	display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;
+	background:#090d0e;color:#dfe7e8;font:12px Arial,sans-serif;
+}
+.pk_mx_hd{
+	flex:0 0 28px;display:flex;align-items:center;justify-content:space-between;
+	padding:0 8px 0 12px;border-bottom:1px solid var(--bd);
+	color:var(--fg-2);font:11px var(--ff-mono);letter-spacing:1px;text-transform:uppercase;
+}
+.pk_mx_x{cursor:pointer;padding:2px 8px;border-radius:4px;color:var(--fg-2)}
+.pk_mx_x:hover{background:#2a1a1a;color:#fff}
+.pk_mx_hd>div{display:flex;align-items:center}
+.pk_mx_rc{cursor:pointer;padding:2px 8px;margin-right:4px;border-radius:4px;color:var(--fg-2);font:10px var(--ff-mono)}
+.pk_mx_rc:hover{background:var(--bg-3);color:var(--fg-0)}
+.pk_mx_body{
+	position:relative;flex:1;min-height:0;box-sizing:border-box;padding:10px;
+	white-space:nowrap;overflow:auto;scrollbar-color:#1c2026 #0e1013;
+}
+.pk_mx_body::-webkit-scrollbar{width:10px;height:10px}
+.pk_mx_body::-webkit-scrollbar-track{background:#0e1013}
+.pk_mx_body::-webkit-scrollbar-thumb{background:#1c2026;border:2px solid #0e1013;border-radius:4px}
+.pk_mx_body::-webkit-scrollbar-thumb:hover{background:#6a7380}
+.pk_mx_empty{position:absolute;left:0;right:0;top:50%;margin-top:-9px;color:#4d5250;text-align:center;font:18px Arial;letter-spacing:1px}
+.pk_mx_s{
+	display:inline-block;position:relative;box-sizing:border-box;
+	width:92px;height:100%;margin-right:8px;padding:8px 7px;vertical-align:top;
+	background:linear-gradient(#182023,#101416);
+	border:1px solid #263338;border-radius:4px;
+	box-shadow:inset 0 1px rgba(255,255,255,.05);
+}
+.pk_mx_s.pk_mx_sel{border-color:#56dbe3;box-shadow:0 0 12px rgba(80,220,225,.35),inset 0 1px rgba(255,255,255,.05)}
+.pk_mx_s.pk_mx_master{border-color:#4b493c;background:linear-gradient(#1f211d,#121310)}
+.pk_mx_s strong{display:block;height:26px;overflow:hidden;color:#f3f6f6;font:bold 13px/13px Arial,sans-serif}
+.pk_mx_mrow{display:flex;align-items:center;gap:4px;margin:5px 0 8px}
+.pk_mx_meter{position:relative;flex:1;height:7px;background:#050708;border:1px solid #222c30;box-shadow:inset 0 1px 3px #000;overflow:hidden}
+.pk_mx_meter b{position:absolute;top:0;bottom:0;left:0;width:2px;background:#e8f0f0;opacity:0}
+.pk_mx_clip{flex:0 0 9px;height:9px;box-sizing:border-box;border-radius:2px;background:#2a1d1d;border:1px solid #3a2a2a;cursor:pointer}
+.pk_mx_clip.on{background:#ff3b30;border-color:#ff8a82;box-shadow:0 0 7px #ff3b30}
+.pk_mx_meter i{display:block;height:100%;transform:scaleX(0);transform-origin:0 0;background:linear-gradient(90deg,#56dbe3,#77d26d 62%,#d4bd54 84%,#d45b57)}
+.pk_mx_s p{margin:0 0 8px}
+.pk_mx_s button{width:22px;height:22px;margin-right:2px;padding:0;background:#06090a;color:#dfe7e8;border:1px solid #263338;border-radius:3px;cursor:pointer;font:13px Arial}
+.pk_mx_s button.a{color:#111;background:#56dbe3;border-color:#56dbe3}
+.pk_mx_s label{display:block;color:#8b9aa0;font:9px/12px monospace;text-transform:uppercase}
+.pk_mx_pn{height:44px;margin:0 -7px;display:flex;align-items:center;justify-content:center;gap:4px}
+.pk_mx_pn label{width:27px;text-align:right}
+.pk_mx_pn em{width:25px;text-align:left}
+.pk_mx_k{position:relative;width:30px;height:30px;border-radius:50%;background:linear-gradient(145deg,#080b0c,#151b1e);box-shadow:inset 0 0 0 1px #263338,0 2px 7px #000;cursor:move}
+.pk_mx_k i{position:absolute;left:14px;top:5px;width:3px;height:11px;background:#66e8ef;border-radius:2px;box-shadow:0 0 8px #66e8ef;transform-origin:50% 10px}
+.pk_mx_vol{position:absolute;left:50%;bottom:58px;width:72px;height:18px;margin:0 0 0 -36px;transform:rotate(-90deg);transform-origin:50% 50%;appearance:none;-webkit-appearance:none;background:transparent;cursor:pointer}
+.pk_mx_vol::-webkit-slider-runnable-track{height:6px;background:#050708;border:1px solid #263338;border-radius:9px}
+.pk_mx_vol::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:18px;height:18px;margin-top:-7px;border-radius:50%;background:#d7d2c3;border:1px solid #0a0d0e;box-shadow:0 1px 5px #000}
+.pk_mx_vol::-moz-range-track{height:6px;background:#050708;border:1px solid #263338;border-radius:9px}
+.pk_mx_vol::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#d7d2c3;border:1px solid #0a0d0e}
+.pk_mx_s em,.pk_mx_s output{display:block;color:#b3b6b1;font:10px/14px monospace;text-align:center;font-style:normal}
+.pk_mx_s output{position:absolute;left:0;right:0;bottom:12px}
+/* 主控軌第二條電平（右聲道）與響度卡 */
+.pk_mx_mr2{margin-top:-5px}
+.pk_mx_mr2 .pk_mx_clip{visibility:hidden}
+.pk_mx_s.pk_mx_ld{width:150px;border-color:#2c4046}
+.pk_mx_lr{display:flex;align-items:baseline;gap:6px;height:25px;border-bottom:1px solid #1c2428;cursor:default}
+.pk_mx_lr span{flex:0 0 20px;color:#8b9aa0;font:bold 10px var(--ff-mono)}
+.pk_mx_lr b{flex:1;text-align:right;color:#e8f0f0;font:15px/25px var(--ff-mono)}
+.pk_mx_lr small{flex:0 0 32px;color:#6a7380;font:9px var(--ff-mono)}
+.pk_mx_lr.pk_mx_hot b{color:#ff6b61}
+.pk_mx_cr{margin-top:8px}
+.pk_mx_cb{position:relative;height:7px;margin:3px 0 2px;background:#050708;border:1px solid #222c30;box-shadow:inset 0 1px 3px #000}
+.pk_mx_cb:before{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:#3a4a50}
+.pk_mx_cb i{position:absolute;left:50%;top:-1px;bottom:-1px;width:3px;margin-left:-1px;background:#66e8ef;box-shadow:0 0 6px #66e8ef}
+.pk_mx_cb i.pk_mx_neg{background:#ff6b61;box-shadow:0 0 6px #ff3b30}
+.pk_mx_lrst{display:block;margin-top:8px;padding:3px 0;border:1px solid #263338;border-radius:3px;color:#8b9aa0;text-align:center;font:10px var(--ff-mono);cursor:pointer;user-select:none}
+.pk_mx_lrst:hover{background:var(--bg-3);color:var(--fg-0)}
+
 .pk_peq{position:relative;width:450px;height:225px;z-index:3}
 .pk_peq2{
 	position:absolute;left:14px;
@@ -1541,7 +1630,7 @@ body.pk_stndln{padding-bottom:600px;overflow:hidden}
 	a:hover,
 	.pk_hdr .pk_btn:hover,
 	.pk_hdr .pk_btn:hover>button,
-	.pk_hdr .pk_btn .pk_menu_el:hover button,
+	.pk_hdr .pk_btn .pk_menu_el:hover>button,
 	.pk_prc button:hover,
 	.pk_tb .pk_btn:not(.pk_act):hover,
 	.pk_mt_head button:not(.pk_act):hover,
@@ -1660,6 +1749,7 @@ input,textarea{-webkit-touch-callout:none}
 
 	.pk_frqan,.pk_peq{width:calc(100vw - 32px);max-width:380px}
 	.pk_mixwin{max-width:calc(100vw - 32px)}
+	.pk_mixpanel{width:auto;max-width:none;left:0;right:0;margin:8px}
 	.pk_peq{height:auto}
 	.pk_peq2{width:50%}
 
@@ -1718,3 +1808,617 @@ input,textarea{-webkit-touch-callout:none}
 }
 .pk_rec_box p{margin:0 0 18px;color:var(--fg-0);font-size:14px;line-height:1.6}
 .pk_rec_ovb{display:flex;justify-content:flex-end;gap:10px}
+
+/* 快捷鍵總覽 */
+.pk_sc_ov{position:fixed;left:0;top:0;right:0;bottom:0;z-index:100000;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
+.pk_sc_box{display:flex;flex-direction:column;width:760px;max-width:100%;max-height:100%;background:#12171a;border:1px solid #263338;border-radius:8px;box-shadow:0 12px 40px #000;color:#dfe7e8;font:13px/1.4 var(--ff-sans,Arial,sans-serif)}
+.pk_sc_hd{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #1c2428}
+.pk_sc_hd b{font-size:15px;color:#f3f6f6}
+.pk_sc_sp{flex:1}
+.pk_sc_btn,.pk_sc_x{cursor:pointer;padding:3px 10px;border:1px solid #263338;border-radius:4px;color:#8b9aa0;font-size:12px;user-select:none}
+.pk_sc_btn:hover,.pk_sc_x:hover{background:#1c2428;color:#fff}
+.pk_sc_x{border:0;font-size:14px}
+.pk_sc_note{padding:8px 14px;color:#8b9aa0;font-size:12px;border-bottom:1px solid #1c2428}
+.pk_sc_body{overflow:auto;padding:4px 14px 8px;columns:2;column-gap:28px}
+.pk_sc_body section{break-inside:avoid;margin:10px 0}
+.pk_sc_body h4{margin:0 0 4px;padding-bottom:3px;border-bottom:1px solid #1c2428;color:#56dbe3;font:bold 11px var(--ff-mono);letter-spacing:.5px;text-transform:uppercase}
+.pk_sc_row{display:flex;align-items:center;gap:6px;min-height:28px;padding:2px 0}
+.pk_sc_nm{flex:1;min-width:0}
+.pk_sc_ks{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;align-items:center}
+.pk_sc_ks kbd{position:relative;display:inline-block;min-width:22px;padding:2px 7px;border:1px solid #2e3d43;border-bottom-width:2px;border-radius:4px;background:#0b0f11;color:#e8f0f0;font:12px var(--ff-mono);text-align:center;cursor:pointer;user-select:none}
+.pk_sc_ks kbd:hover{border-color:#56dbe3}
+.pk_sc_ks kbd u{display:none;margin-left:6px;color:#8b9aa0;text-decoration:none}
+.pk_sc_ks kbd:hover u{display:inline}
+.pk_sc_ks kbd u:hover{color:#ff6b61}
+.pk_sc_ks kbd.pk_sc_add{color:#6a7380;border-style:dashed}
+.pk_sc_ks kbd.pk_sc_cap{border-color:#56dbe3;color:#56dbe3;box-shadow:0 0 8px rgba(86,219,227,.4)}
+.pk_sc_ks kbd.pk_sc_fix{cursor:default;color:#8b9aa0}
+.pk_sc_ks kbd.pk_sc_fix:hover{border-color:#2e3d43}
+.pk_sc_none{color:#4d5250;font-size:12px}
+.pk_sc_chg .pk_sc_nm{color:#f3f6f6}
+.pk_sc_rs{flex:0 0 18px;text-align:center;color:#56dbe3;cursor:pointer}
+.pk_sc_ft{min-height:22px;padding:6px 14px;border-top:1px solid #1c2428;font-size:12px;color:#8b9aa0}
+.pk_sc_msg.pk_sc_bad{color:#ff6b61}
+@media (max-width:700px){.pk_sc_body{columns:1}}
+
+
+/* ==========================================================================
+ * 外觀：淺色主題與色盲友善配色（由 theme.js 在 <html> 設定 data-theme / data-cb）
+ * 說明：深色是預設值（上面的 :root）。這裡只覆寫變數，外加少數寫死顏色的地方。
+ * 混音器、錄音視窗與多軌片段等「儀器面板」刻意保持深色，與一般 DAW 相同。
+ * ========================================================================== */
+html[data-theme="dark"]{color-scheme:dark}
+html[data-theme="light"]{color-scheme:light}
+
+/* ---- 淺色 ---- */
+:root[data-theme="light"]{
+	--bg-0:#eef1f4;
+	--bg-1:#f6f8fa;
+	--bg-2:#ffffff;
+	--bg-3:#e3e8ed;
+	--bg-4:#d3dae1;
+
+	--fg-0:#14181c;
+	--fg-1:#444e59;
+	--fg-2:#66707c;
+	--fg-3:#aab3bd;
+
+	--ac:#007f8c;
+	--ac-2:#2f7a82;
+	--ac-soft:rgba(0,127,140,.12);
+	--ac-glow:rgba(0,127,140,.35);
+	--ac-ink:#ffffff;
+
+	--rec:#d6203f;
+	--rec-glow:rgba(214,32,63,.35);
+	--solo:#0b7fa8;
+	--solo-glow:rgba(11,127,168,.35);
+	--warn:#c58a00;
+	--ok:#1c8a4a;
+	--pl:#d9600a;
+
+	--bd:rgba(0,0,0,.12);
+	--bd-s:rgba(0,0,0,.06);
+	--bd-h:rgba(0,127,140,.5);
+
+	--inset-hi:inset 0 1px 0 rgba(255,255,255,.7);
+}
+
+[data-theme="light"] a:hover{color:var(--fg-0);text-shadow:none}
+[data-theme="light"] .pk_modal_a_bottom{color:var(--fg-0)}
+[data-theme="light"] .pk_modal_cancel{border-color:rgba(214,32,63,.4);color:#b3142f;background:rgba(214,32,63,.08)}
+[data-theme="light"] .pk_modal_cancel:hover{border-color:var(--rec);color:#fff;background:var(--rec);box-shadow:0 0 8px var(--rec-glow)}
+[data-theme="light"] .pk_selection .pk_sellist{color:var(--fg-0)}
+[data-theme="light"] .pk_pgeq_els>span{color:var(--fg-1)}
+[data-theme="light"] .pk_pgeq_els .pk_val{color:var(--fg-0)}
+[data-theme="light"] .pk_sc_btn:hover,[data-theme="light"] .pk_sc_x:hover{background:var(--bg-3);color:var(--fg-0)}
+[data-theme="light"] .pk_mt_topbtn:hover{color:var(--fg-0)}
+[data-theme="light"] .pk_mt_head button.pk_mt_solo.pk_act,
+[data-theme="light"] .pk_mt_track button.pk_mt_solo.pk_act{color:#fff}
+[data-theme="light"] .pk_mt_lane{border-bottom-color:var(--bd)}
+[data-theme="light"] .pk_mt_lane.pk_mt_sel{background:rgba(0,127,140,.1)}
+
+/* ---- 色盲友善配色（Okabe-Ito）：錄音 / 獨奏 / 警示 / 正常 不再靠紅綠區分 ---- */
+:root[data-cb="1"]{
+	--rec:#ff7a1f;
+	--rec-glow:rgba(255,122,31,.45);
+	--solo:#cc79a7;
+	--solo-glow:rgba(204,121,167,.45);
+	--warn:#f0e442;
+	--ok:#56b4e9;
+	--pl:#ffffff;
+}
+:root[data-theme="light"][data-cb="1"]{
+	--rec:#c24e00;
+	--rec-glow:rgba(194,78,0,.35);
+	--solo:#a8487f;
+	--solo-glow:rgba(168,72,127,.35);
+	--warn:#9a7d00;
+	--ok:#0072b2;
+	--pl:#111111;
+}
+
+/* 電平表原本是 青→綠→黃→紅，改成 藍→黃→橘→朱紅 */
+[data-cb="1"] .pk_mt_mbar i{background:linear-gradient(0deg,#56b4e9,#f0e442 62%,#ff9d33 84%,#d55e00)}
+[data-cb="1"] .pk_mx_meter i{background:linear-gradient(90deg,#56b4e9,#f0e442 62%,#ff9d33 84%,#d55e00)}
+/* 削波指示燈與過載數值 */
+[data-cb="1"] .pk_mt_clip.pk_mt_on{background:#ff7a1f;box-shadow:0 0 6px #ff7a1f}
+[data-cb="1"] .pk_mx_clip.on{background:#ff7a1f;border-color:#ffb27a;box-shadow:0 0 7px #ff7a1f}
+[data-cb="1"] .pk_mx_cb i.pk_mx_neg{background:#ff9d33;box-shadow:0 0 6px #ff7a1f}
+[data-cb="1"] .pk_mx_lr.pk_mx_hot b{color:#ff9d33}
+
+
+/* ==========================================================================
+ * 觸控：右鍵 / 長按選單的點擊區加大
+ * ========================================================================== */
+@media (pointer:coarse){
+	.pk_contextMenu{min-width:200px}
+	.pk_contextMenu a,
+	.pk_contextMenu a:hover{padding:12px 14px;font-size:15px;line-height:20px}
+}
+
+/* 觸控：多軌軌道頭的旋鈕（聲像 / 音量）放大，點擊與拖曳更好抓 */
+@media (pointer:coarse){
+	.pk_mt_knob{transform:scale(1.3);margin-right:8px}
+}
+
+
+/* ==========================================================================
+ * 選單（頂端選單列的下拉選單）
+ * 修正：子選單原本被 `.pk_btn .pk_menu` 這條後代選擇器一起套用，
+ *       所有層級同時展開並疊在父選單上。改為「點擊後就地展開」。
+ * ========================================================================== */
+.pk_hdr .pk_btn .pk_menu{
+	min-width:224px;padding:6px 0;
+	border-radius:var(--r-lg);
+	box-shadow:0 12px 32px rgba(0,0,0,.55),0 0 0 1px var(--bd),var(--inset-hi);
+}
+[data-theme="light"] .pk_hdr .pk_btn .pk_menu{
+	box-shadow:0 12px 32px rgba(20,30,40,.18),0 2px 6px rgba(20,30,40,.10),0 0 0 1px var(--bd);
+}
+
+/* 項目：左右留白、圓角的 hover 底色 */
+.pk_hdr .pk_btn .pk_menu_el button{
+	width:calc(100% - 8px);margin:0 4px;padding:6px 12px;
+	align-items:center;border-radius:var(--r-md);
+	transition:background var(--tr),color var(--tr);
+}
+.pk_hdr .pk_btn .pk_menu_el:hover>button,
+.pk_hdr .pk_btn .pk_menu_el>button.pk_act{background:var(--ac-soft);color:var(--ac)}
+.pk_hdr .pk_btn .pk_menu_el:hover>button.pk_inact{background:transparent;color:var(--fg-0)}
+
+/* 分隔線 */
+.pk_hdr .pk_btn .pk_menu_sep{height:1px;margin:5px 12px;background:var(--bd)}
+
+/* 有子選單的項目：右側小箭頭，展開時轉向下 */
+.pk_hdr .pk_btn .pk_has_sub>button::after{
+	content:"";flex:none;width:6px;height:6px;margin-left:var(--s4);
+	border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;
+	transform:rotate(-45deg);opacity:.7;
+	transition:transform var(--tr);
+}
+.pk_hdr .pk_btn .pk_has_sub.pk_open>button{color:var(--ac)}
+.pk_hdr .pk_btn .pk_has_sub.pk_open>button::after{transform:rotate(45deg)}
+
+/* 子選單：就地展開、縮排、左側色條 */
+.pk_hdr .pk_btn .pk_menu .pk_menu_el .pk_menu{
+	position:static;display:none;opacity:1;visibility:visible;z-index:auto;
+	min-width:0;max-height:none;overflow:visible;
+	margin:2px 4px 4px 12px;padding:3px 0;
+	background:var(--bg-1);
+	border:0;border-radius:var(--r-md);
+	box-shadow:inset 2px 0 0 var(--ac);
+}
+.pk_hdr .pk_btn .pk_menu .pk_menu_el.pk_open>.pk_menu{display:block}
+.pk_hdr .pk_btn .pk_menu .pk_menu_el .pk_menu .pk_menu_el button{
+	width:calc(100% - 8px);padding:5px 12px 5px 14px;
+}
+.pk_hdr .pk_btn .pk_menu .pk_menu_el .pk_menu .pk_menu_el:hover>button{background:var(--ac-soft)}
+.pk_hdr .pk_btn .pk_menu .pk_menu_el .pk_menu .pk_menu_sep{margin:4px 10px 4px 14px}
+
+/* ==========================================================================
+ * 淺色主題補強
+ * 之前這些元件把深色寫死，淺色下會出現黑色單選鈕、深色快捷鍵視窗、
+ * 淺底上的黑色計時器方塊、看不見的 VOL 標籤。
+ * ========================================================================== */
+
+/* 計時器：數字畫在畫布上，底色／字色由 theme.js 的 PKPal（timeBg / timeFg）提供，淺色下是白底深字 */
+[data-theme="light"] .pk_timecontainer{
+	background:#fff;border-color:var(--bd);
+	box-shadow:var(--inset-hi),0 1px 2px rgba(20,30,40,.06);
+}
+[data-theme="light"] .pk_timing{color:var(--fg-0)}
+[data-theme="light"] .pk_total_dur{color:var(--ac)}
+[data-theme="light"] .pk_hover_dur{color:var(--fg-2)}
+
+/* 單選鈕：未選取＝白底細框，選取＝主色外框 */
+[data-theme="light"] .pk_check:not(:checked)+label:before,
+[data-theme="light"] .pk_check:checked+label:before{
+	background:#fff;border:1px solid var(--fg-3);
+	box-shadow:inset 0 1px 2px rgba(0,0,0,.12);
+}
+[data-theme="light"] .pk_check:not(:checked)+label:hover:before{border-color:var(--ac)}
+[data-theme="light"] .pk_check:checked+label:before{border-color:var(--ac)}
+[data-theme="light"] .pk_check:disabled:not(:checked)+label:before,
+[data-theme="light"] .pk_check:disabled:checked+label:before{
+	background:var(--bg-3);border-color:var(--bd);box-shadow:none;
+}
+
+/* 多軌旋鈕：音量標籤原本是淡藍紫色，淺底上看不到 */
+[data-theme="light"] .pk_mt_vol:before{color:#4a5ab0}
+[data-theme="light"] .pk_mt_vol i{background:#4a5ab0;box-shadow:0 0 4px rgba(74,90,176,.35)}
+[data-theme="light"] .pk_mt_knob{box-shadow:var(--inset-hi),inset 0 -1px 2px rgba(0,0,0,.12)}
+
+/* 快捷鍵視窗：跟著主題 */
+[data-theme="light"] .pk_sc_ov{background:rgba(20,30,40,.42)}
+[data-theme="light"] .pk_sc_box{
+	background:var(--bg-2);border-color:var(--bd);color:var(--fg-0);
+	box-shadow:0 16px 44px rgba(20,30,40,.28);
+}
+[data-theme="light"] .pk_sc_hd,
+[data-theme="light"] .pk_sc_note,
+[data-theme="light"] .pk_sc_ft,
+[data-theme="light"] .pk_sc_body h4{border-color:var(--bd)}
+[data-theme="light"] .pk_sc_hd b,
+[data-theme="light"] .pk_sc_chg .pk_sc_nm{color:var(--fg-0)}
+[data-theme="light"] .pk_sc_btn,
+[data-theme="light"] .pk_sc_x{border-color:var(--bd);color:var(--fg-1)}
+[data-theme="light"] .pk_sc_x{border:0}
+[data-theme="light"] .pk_sc_note,
+[data-theme="light"] .pk_sc_ft,
+[data-theme="light"] .pk_sc_ks kbd u,
+[data-theme="light"] .pk_sc_ks kbd.pk_sc_fix{color:var(--fg-1)}
+[data-theme="light"] .pk_sc_body h4,
+[data-theme="light"] .pk_sc_rs{color:var(--ac)}
+[data-theme="light"] .pk_sc_ks kbd{border-color:var(--bd);background:var(--bg-1);color:var(--fg-0)}
+[data-theme="light"] .pk_sc_ks kbd:hover{border-color:var(--ac)}
+[data-theme="light"] .pk_sc_ks kbd.pk_sc_add{color:var(--fg-2)}
+[data-theme="light"] .pk_sc_ks kbd.pk_sc_cap{border-color:var(--ac);color:var(--ac);box-shadow:0 0 8px var(--ac-glow)}
+[data-theme="light"] .pk_sc_ks kbd.pk_sc_fix:hover{border-color:var(--bd)}
+[data-theme="light"] .pk_sc_none{color:var(--fg-2)}
+[data-theme="light"] .pk_sc_msg.pk_sc_bad,
+[data-theme="light"] .pk_sc_ks kbd u:hover{color:var(--rec)}
+
+/* 快捷鍵視窗：沒有訊息時不要留一條空白頁尾（兩種主題都適用） */
+.pk_sc_ft:not(:has(.pk_sc_msg:not(:empty))){display:none}
+/* [階段 3] 區間標記：起點到結束點的色帶＋半透明底色；結束點可用滑鼠拖曳 */
+.pk_mrkr_rg{position:absolute;left:0;top:14px;height:3px;background:currentColor;opacity:.75;pointer-events:none}
+.pk_mrkr_rg:after{content:"";position:absolute;left:0;top:10px;width:100%;height:var(--m);background:currentColor;opacity:.12}
+.pk_mrkr_re{position:absolute;top:8px;width:9px;height:16px;cursor:ew-resize;pointer-events:auto}
+.pk_mrkr_re:before{content:"";position:absolute;left:0;top:8px;border-left:4px solid transparent;border-right:4px solid transparent;border-top:7px solid currentColor}
+.pk_mrkr_re:after{content:"";position:absolute;left:4px;top:15px;width:1px;height:var(--m);background:currentColor;opacity:.7}
+
+/* [階段 3 收尾] 觸控裝置：區間結束點把手加大，方便手指拖曳 */
+@media (pointer:coarse){
+.pk_mrkr_re{width:28px;height:30px;top:0;margin-left:-10px}
+.pk_mrkr_re:before{left:10px;top:16px}
+.pk_mrkr_re:after{left:14px;top:23px}
+}
+
+
+
+/* ==========================================================================
+ * main.css 的追加片語（直接貼在 main.css 檔尾即可，不改動任何既有規則）
+ * 階段 1：鍵盤焦點可見、減少動態效果偏好
+ * ========================================================================== */
+
+/* 鍵盤操作時才顯示焦點框（滑鼠點擊不會出現），之前整份 CSS 沒有任何 :focus-visible */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+	outline: 2px solid var(--ac);
+	outline-offset: 1px;
+}
+
+/* 系統設定「減少動態效果」的使用者：關掉過渡與動畫（不影響波形與音訊本身） */
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after {
+		animation-duration: .001ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: .001ms !important;
+		scroll-behavior: auto !important;
+	}
+}
+
+/* [標籤列 階段 1] 標記名稱常駐顯示在聲波上（markers.js 依可用寬度設定 max-width，太窄會自動隱藏） */
+.pk_lbl_on .pk_mrkr b{
+	display:block;left:5px;top:1px;max-width:116px;
+	background:var(--bg-0);color:var(--fg-0);
+	border:1px solid #3f4b4b;border-left:3px solid currentColor;
+	pointer-events:auto;cursor:pointer;opacity:.92;
+}
+.pk_lbl_on .pk_mrkr:hover,.pk_lbl_on .pk_mrkr.pk_act{z-index:3}
+.pk_lbl_on .pk_mrkr:hover b,.pk_lbl_on .pk_mrkr.pk_act b{max-width:240px !important;visibility:visible !important;opacity:1}
+/* 區間標記的色帶底色稍微加深，分段一目了然 */
+.pk_lbl_on .pk_mrkr_rg:after{opacity:.2}
+
+/* [標籤列 階段 2] Audacity 式標籤列：聲波正上方的獨立軌道（固定兩層高，沒有標記時隱藏） */
+.pk_lbtrk{
+	clear:both;position:relative;display:none;
+	width:calc(100% - 64px);margin:0 0 0 48px;height:38px;
+	background:var(--bg-1);border:1px solid var(--bd-s);border-bottom:0;
+	overflow:hidden;contain:content;cursor:default;
+}
+.pk_lt{position:absolute;left:0;top:0;height:18px;color:#9dff6a;cursor:pointer}
+.pk_lt b{
+	display:block;box-sizing:border-box;height:16px;padding:0 4px;
+	overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+	background:var(--bg-0);color:var(--fg-0);
+	border:1px solid #3f4b4b;border-left:3px solid currentColor;border-radius:2px;
+	font:11px/14px var(--ff);font-weight:400;
+}
+.pk_lt:hover{z-index:2}
+.pk_lt:hover b,.pk_lt.pk_act b{border-color:currentColor;background:var(--bg-2,var(--bg-0))}
+.pk_lt_rg{position:absolute;left:0;top:15px;height:2px;background:currentColor;opacity:.85;pointer-events:none}
+
+/* [預覽] 自動分割對話框的「在聲波上預覽」
+ * 預覽圖層（由 markers.js 畫）：一律虛線＋淡色、pointer-events:none，不能點、不能拖，名字旁沒有鎖頭，和正式標記一看就不同 */
+.pk_pvl{position:absolute;left:0;right:0;top:0;bottom:0;z-index:6;overflow:hidden;pointer-events:none}
+.pk_pv_blk,.pk_pv_drop{position:absolute;left:0;top:0;bottom:0;box-sizing:border-box;will-change:transform;pointer-events:none}
+.pk_pv_blk{background:var(--ac-soft);border-left:1px dashed var(--ac);border-right:1px dashed var(--ac)}
+.pk_pv_blk b{
+	position:absolute;left:2px;top:2px;max-width:calc(100% - 4px);box-sizing:border-box;
+	overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+	padding:0 4px;background:var(--bg-0);color:var(--ac);
+	border:1px dashed var(--ac);border-radius:2px;
+	font:10px/13px var(--ff-mono);font-weight:400;opacity:.85;
+}
+.pk_pv_drop{background:rgba(140,150,160,.22);border-left:1px dotted var(--fg-2);border-right:1px dotted var(--fg-2)}
+/* 標籤列裡的預告標籤 */
+.pk_pvt{position:absolute;left:0;top:0;height:18px;color:var(--ac);pointer-events:none;opacity:.85}
+.pk_pvt b{
+	display:block;box-sizing:border-box;height:16px;padding:0 4px;
+	overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+	background:transparent;color:var(--fg-1);
+	border:1px dashed currentColor;border-radius:2px;
+	font:11px/14px var(--ff);font-weight:400;
+}
+.pk_pvt i{position:absolute;left:0;top:15px;height:0;border-top:2px dashed currentColor;pointer-events:none}
+
+/* [預覽] 預覽開啟時，對話框變成靠底部停靠的緊湊面板：背景不變暗、不模糊、不擋滑鼠，聲波維持原樣，還能捲動、縮放 */
+.pk_modal_back.pk_pv_dock{
+	background:transparent;
+	backdrop-filter:none;-webkit-backdrop-filter:none;
+	pointer-events:none;overflow:visible;
+}
+.pk_pv_dock .pk_modal_cnt{pointer-events:none;align-items:flex-end;padding:0 12px 8px}
+.pk_pv_dock .pk_modal{
+	pointer-events:auto;min-height:0;
+	width:min(860px,100%);max-width:100%;
+	box-shadow:0 -6px 28px rgba(0,0,0,.5);
+}
+.pk_pv_dock .pk_modal_title{margin-bottom:4px}
+.pk_pv_dock .pk_modal_main{padding-bottom:8px}
+.pk_pv_dock .pk_modal_bottom{min-height:46px;padding:8px 15px}
+[data-theme="light"] .pk_pv_dock .pk_modal{box-shadow:0 -6px 28px rgba(20,30,40,.25)}
+
+
+/* ==========================================================================
+ * 淺色主題補強 第二輪（檢查後補上的遺漏）
+ * 問題類型：
+ *   1. 深色半透明底 + 跟著主題變深的文字 → 淺色下變成「深底深字」看不到
+ *      （提示氣泡 .pk_oneup、載入遮罩 .pk_tmpMsg2、草稿標籤 .pk_lcla2）
+ *   2. 寫死的黑色／白色元件（滑桿軌道、編輯鈕、格線、提示箭頭）
+ *   3. 寫在 JS 行內樣式的淡色文字（#aaa、#95c6c6）在白底上對比不足
+ *   4. 陰影在淺底上太重
+ * 儀器面板（波形、錄音電平與波形、混音器、頻譜）仍維持深色，這是刻意的。
+ * ========================================================================== */
+
+/* 原生控制項（核取方塊、捲軸、範圍滑桿）跟著主色 */
+:root{accent-color:var(--ac)}
+
+/* ---- 1. 深底深字 ---- */
+/* 右上／中央的短暫提示（含「有新版本」的重新載入提示） */
+[data-theme="light"] .pk_oneup{
+	background:rgba(255,255,255,.96);color:var(--fg-0);
+	border-color:var(--bd-h);
+	box-shadow:0 8px 28px rgba(20,30,40,.2),0 0 0 1px var(--bd-h);
+	backdrop-filter:none;-webkit-backdrop-filter:none;
+}
+/* 全螢幕處理中／載入遮罩：文字用主題色，所以遮罩也要淺 */
+[data-theme="light"] .pk_tmpMsg2{background:rgba(238,241,244,.88);color:var(--fg-0)}
+[data-theme="light"] .pk_mload{background:var(--bg-3);border-color:var(--bd)}
+[data-theme="light"] .pk_mload>div:before{background:linear-gradient(90deg,var(--ac) 0%,#3fc3cf 100%);box-shadow:none}
+/* 草稿清單縮圖上的小標籤 */
+[data-theme="light"] .pk_lcla2{background:rgba(255,255,255,.92);color:var(--fg-1);border-color:var(--bd)}
+[data-theme="light"] .pk_lcla2.pk_act{background:var(--ac);color:#fff;border-color:var(--ac)}
+/* 手機：工具列可橫向捲動的小提示 */
+[data-theme="light"] .pk_tbhint{background:rgba(255,255,255,.9);color:var(--ac);box-shadow:0 1px 6px rgba(20,30,40,.25)}
+
+/* ---- 2. 寫死的黑色／白色元件 ---- */
+/* 水平／垂直滑桿：軌道原本是 #111 */
+[data-theme="light"] .pk_vert,
+[data-theme="light"] .pk_horiz{
+	background:var(--bg-3);
+	box-shadow:inset 0 1px 2px rgba(0,0,0,.22),0 1px 0 rgba(255,255,255,.8);
+}
+[data-theme="light"] .pk_vert::-webkit-slider-thumb,
+[data-theme="light"] .pk_horiz::-webkit-slider-thumb{border-color:rgba(0,0,0,.35);box-shadow:0 1px 3px rgba(0,0,0,.3)}
+[data-theme="light"] .pk_vert::-moz-range-thumb,
+[data-theme="light"] .pk_horiz::-moz-range-thumb{border-color:rgba(0,0,0,.35)}
+/* 輸入欄旁的小編輯鈕：原本黑底 */
+[data-theme="light"] .pk_sel_edt{background:var(--bg-3);color:var(--fg-1)}
+/* 多軌：時間格線原本是 3% 白線，淺底看不到 */
+[data-theme="light"] .pk_mt_lanes{
+	background:repeating-linear-gradient(to right,rgba(0,0,0,.06) 0,rgba(0,0,0,.06) 1px,transparent 1px,transparent 86px);
+}
+[data-theme="light"] .pk_mt_lanes.pk_mt_beats{background:var(--bg-0)}
+/* 多軌：軌道頭靜音按下去的底色（原本暗紅 #3a0a0e） */
+[data-theme="light"] .pk_mt_head button.pk_mt_mute.pk_act,
+[data-theme="light"] .pk_mt_track button.pk_mt_mute.pk_act{background:#f8d9de;color:#b3142f;box-shadow:inset 0 0 0 1px var(--rec)}
+/* 多軌：刪除鈕原本是淡粉色 #c99999 */
+[data-theme="light"] .pk_mt_track .pk_mt_del{color:#a85a5a}
+[data-theme="light"] .pk_mt_track .pk_mt_del:hover{color:var(--rec)}
+/* 參數等化器圖的 dB 格線原本是淡黃 18% */
+[data-theme="light"] .pk_peq4 span span{border-top-color:rgba(160,110,0,.28)}
+/* 分頁按鈕 hover 的內陰影太重 */
+[data-theme="light"] .pk_tbsa:hover{box-shadow:inset 0 -2px 6px rgba(0,0,0,.12)}
+/* 錄音視窗的黑色電平／波形畫布：加細框，和淺色視窗之間有個交代 */
+[data-theme="light"] .pk_rec_vol canvas,
+[data-theme="light"] .pk_rec_wave canvas{box-shadow:0 0 0 1px var(--bd)}
+
+/* ---- 3. JS 行內樣式寫死的淡色文字 ---- */
+/* 節奏估計的提示（行內 color:#aaa） */
+[data-theme="light"] .pk_tmp_est_status{color:var(--fg-2)!important}
+/* 歡迎視窗內文（行內 color:#95c6c6） */
+[data-theme="light"] .pk_modal [style*="95c6c6"]{color:var(--fg-1)!important}
+
+/* ---- 4. 遮罩與陰影：淺色下不用那麼黑 ---- */
+[data-theme="light"] .pk_modal_back{background:rgba(20,30,40,.38)}
+[data-theme="light"] .pk_modal{box-shadow:0 12px 36px rgba(20,30,40,.28),0 0 0 1px var(--bd)}
+[data-theme="light"] .pk_rec_ov{background:rgba(238,241,244,.82)}
+[data-theme="light"] .pk_rec_box{box-shadow:0 10px 30px rgba(20,30,40,.25)}
+[data-theme="light"] .pk_contextMenu{box-shadow:0 10px 28px rgba(20,30,40,.22),0 0 0 1px var(--bd)}
+[data-theme="light"] .pk_pgeq_freq{box-shadow:0 10px 28px rgba(20,30,40,.22),var(--inset-hi)}
+[data-theme="light"] .pk_ftr{box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
+
+
+/* ==========================================================================
+ * 淺色主題補強 第三輪：波形區也改成淺色
+ * 之前波形、刻度尺、多軌片段是在畫布上用寫死的黑底畫的，淺色介面中央一大塊黑色。
+ * 畫布顏色現在由 theme.js 的 PKPal() 提供（跟著主題），這裡處理畫布周圍的 CSS：
+ * 背景、選取範圍、標記旗標、多軌片段文字、捲動條等。
+ * ========================================================================== */
+
+/* 波形區底色（要和 theme.js 淺色色票的 bg 同值，畫布載入前不會閃黑） */
+[data-theme="light"] .pk_av{background:#f7fafb;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)}
+[data-theme="light"] .pk_sloop{background:#f7fafb;box-shadow:0 0 0 1px var(--bd)}
+
+/* 選取範圍：原本用 screen 混合（亮色疊在黑底上），淺底上會消失，改成 multiply */
+[data-theme="light"] .wavesurfer-region{
+	background:linear-gradient(120deg,rgba(0,127,140,.26),rgba(190,60,160,.18))!important;
+	mix-blend-mode:multiply;
+	box-shadow:inset 0 0 0 1px rgba(0,110,120,.5);
+}
+[data-theme="light"] .pk_wavepoint{background:#b88400}
+
+/* 標記旗標／標籤的外框：原本 #3f4b4b（為黑底設計） */
+[data-theme="light"] .pk_mrkr b,
+[data-theme="light"] .pk_lbl_on .pk_mrkr b,
+[data-theme="light"] .pk_lt b{border-color:rgba(0,0,0,.28);border-left-color:currentColor}
+[data-theme="light"] .pk_lbl_on .pk_mrkr b{opacity:.97}
+[data-theme="light"] .pk_lt:hover b,
+[data-theme="light"] .pk_lt.pk_act b{border-color:currentColor}
+/* 區間標記的底色：淺色下只留淡淡一層（透明度 7%），不蓋過波形、不搶眼 */
+[data-theme="light"] .pk_mrkr_rg:after,
+[data-theme="light"] .pk_lbl_on .pk_mrkr_rg:after{opacity:.07}
+
+/* 下方的縮放捲動條：滑塊從深青色改成主色 */
+[data-theme="light"] .pk_wavescroll .pk_wavedrag{
+	background:linear-gradient(180deg,#3aa5b0 0%,#238c97 100%);
+	box-shadow:var(--inset-hi),0 1px 2px rgba(0,0,0,.18);
+}
+
+/* 多軌片段：片段底色是淺色，標籤改深色字、拿掉黑色描邊 */
+[data-theme="light"] .pk_mt_clip{box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 1px 2px rgba(20,30,40,.12)}
+[data-theme="light"] .pk_mt_clip span{color:var(--fg-0);text-shadow:0 1px 0 rgba(255,255,255,.65)}
+[data-theme="light"] .pk_mt_clip.pk_mt_clip_sel{border-color:#d98f00;box-shadow:inset 0 0 0 1px rgba(217,143,0,.55),0 1px 4px rgba(20,30,40,.18)}
+[data-theme="light"] .pk_mt_clip.pk_mt_clip_xf{border-color:#b88a00}
+[data-theme="light"] .pk_mt_fade:before{border-top-color:#d98f00}
+[data-theme="light"] .pk_mt_trim:after{border-left-color:rgba(176,112,0,.75)}
+[data-theme="light"] .pk_mt_clip.pk_drag{box-shadow:0 4px 12px rgba(20,30,40,.28)}
+[data-theme="light"] .pk_mt_clip.pk_mt_rec_clip{background:#fdecea;border-color:#d6203f;box-shadow:0 0 6px rgba(214,32,63,.3)}
+
+/* ==========================================================================
+ * 工具列自訂（ui-toolbar-layout.js）
+ * ========================================================================== */
+.pk_tb.pk_tbl{display:flex;flex-wrap:nowrap;align-items:flex-start;min-width:max-content}
+.pk_tbl>*{flex:0 0 auto;float:none}
+.pk_tbl>.pk_btngroup{display:block}
+/* 播放列／編輯列被拆開、不在 .pk_btngroup 裡的時候，窄螢幕也維持有框的樣式 */
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl>.pk_transport,
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl>.pk_ctns{
+	height:46px;margin:0 var(--s3) 0 0;
+	border:1px solid var(--bd);
+}
+.pk_tb.pk_tbl .pk_tbl_off,
+.pk_tb.pk_tbl .pk_tbl_empty{display:none!important}
+
+/* 時間顯示精簡：總長度、滑鼠位置時間可分別關閉 */
+.pk_tb .pk_timecontainer.pk_tm_nt .pk_total_dur{display:none}
+.pk_tb .pk_timecontainer.pk_tm_nh .pk_hover_dur{display:none}
+.pk_tb .pk_timecontainer.pk_tm_nt .pk_hover_dur{top:16px}
+.pk_tb .pk_timecontainer.pk_tm_nh .pk_total_dur{top:16px}
+.pk_app:not(.pk_mob) .pk_tb .pk_timecontainer.pk_tm_nt.pk_tm_nh{width:168px}
+
+/* 選取區塊精簡：隱藏「選取：」標題，欄位縮窄（和窄螢幕時的樣式相同） */
+.pk_tb .pk_selection.pk_sel_c{min-width:auto}
+.pk_tb .pk_selection.pk_sel_c .pk_sellist .pk_title{display:none}
+.pk_tb .pk_selection.pk_sel_c .pk_sellist{width:212px}
+.pk_tb .pk_selection.pk_sel_c .pk_sellist div{margin:0 16px 0 0}
+
+/* 調整排列模式 */
+.pk_tb.pk_tbl_edit .pk_tbl_off{display:none!important}
+.pk_tb.pk_tbl_edit .pk_tbl_empty{display:block!important;min-width:56px}
+.pk_tbl_edit [data-tbp]{outline:1px dashed var(--ac);outline-offset:-3px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.pk_tbl_edit [data-tbp] .pk_btn{cursor:grab;touch-action:none}
+.pk_tbl_edit [data-tbp] .pk_btn:hover{background:transparent;box-shadow:none;color:var(--fg-0)}
+.pk_tbl_edit .pk_tbl_drag{opacity:.6;outline:2px solid var(--ac);outline-offset:-2px;cursor:grabbing}
+.pk_tbl_edit .pk_tbl_drag .pk_btn{cursor:grabbing}
+body.pk_tbl_editing .pk_ttip{display:none!important}
+.pk_tbl_pill{
+	position:fixed;right:12px;z-index:30;
+	display:flex;align-items:center;gap:8px;padding:6px 10px;
+	background:var(--bg-2);color:var(--fg-0);
+	border:1px solid var(--ac);border-radius:var(--r-md);
+	box-shadow:0 6px 20px rgba(0,0,0,.45);
+	font:12px/1.2 var(--ff);
+}
+.pk_tbl_pill button{
+	padding:4px 10px;background:transparent;color:var(--fg-0);
+	border:1px solid var(--bd);border-radius:var(--r);
+	font:inherit;cursor:pointer;
+}
+.pk_tbl_pill button:hover{border-color:var(--ac);color:var(--ac)}
+.pk_tbl_pill button[data-a="done"]{background:var(--ac);color:var(--ac-ink);border-color:var(--ac)}
+
+/* 自訂工具列（P3）：自訂列的按鈕、目錄對話框 */
+.pk_tb .pk_btn.pk_tbl_txt{font:600 13px/36px var(--ff);letter-spacing:0;overflow:visible}
+.pk_tb .pk_btn.pk_tbl_txt:after{content:attr(data-face)}
+.pk_tbl_custom{white-space:nowrap}
+
+/* 自訂工具列：確認視窗（刪除／重設）。內文限制寬度，英文長句才不會把視窗撐得太寬 */
+.pk_tbl_cfm{max-width:min(420px,92vw)}
+.pk_tbl_cfm .pk_modal_main{font:13px/1.6 var(--ff);color:var(--fg-0);white-space:normal;overflow-wrap:anywhere}
+
+.pk_tbl_dlg{
+	position:fixed;inset:0;z-index:40;
+	display:flex;align-items:center;justify-content:center;
+	background:rgba(7,8,10,.62);
+}
+.pk_tbl_box{
+	width:min(680px,94vw);max-height:88vh;overflow:auto;box-sizing:border-box;
+	padding:16px 18px;background:var(--bg-1);color:var(--fg-0);
+	border:1px solid var(--bd);border-radius:var(--r-md);
+	box-shadow:0 12px 40px rgba(0,0,0,.55);
+	font:13px/1.4 var(--ff);
+}
+.pk_tbl_box h3{margin:0 0 12px;font-size:15px;font-weight:600}
+.pk_tbl_row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 10px}
+.pk_tbl_box input[type=text],.pk_tbl_box select{
+	padding:5px 8px;background:var(--bg-0);color:var(--fg-0);
+	border:1px solid var(--bd);border-radius:var(--r);font:inherit;
+}
+.pk_tbl_box input[type=text]:focus,.pk_tbl_box select:focus{outline:0;border-color:var(--ac)}
+.pk_tbl_b,.pk_tbl_mini{
+	padding:5px 12px;background:transparent;color:var(--fg-0);
+	border:1px solid var(--bd);border-radius:var(--r);font:inherit;cursor:pointer;
+}
+.pk_tbl_b:hover:not(:disabled),.pk_tbl_mini:hover:not(:disabled),.pk_tbl_it:hover:not(:disabled){border-color:var(--ac);color:var(--ac)}
+.pk_tbl_b:disabled,.pk_tbl_mini:disabled,.pk_tbl_it:disabled{opacity:.4;cursor:default}
+.pk_tbl_ok{background:var(--ac);color:var(--ac-ink);border-color:var(--ac)}
+.pk_tbl_ok:hover:not(:disabled){color:var(--ac-ink)}
+.pk_tbl_mini{padding:2px 8px;min-width:28px}
+.pk_tbl_hint{margin:8px 0;color:var(--fg-1)}
+.pk_tbl_cols{display:flex;gap:14px;align-items:flex-start}
+.pk_tbl_col{flex:1 1 0;min-width:0}
+.pk_tbl_ct{margin:0 0 6px;color:var(--fg-1);font-size:12px}
+.pk_tbl_q{width:100%;box-sizing:border-box;margin:0 0 6px}
+.pk_tbl_list{max-height:300px;overflow:auto;padding:4px;background:var(--bg-0);border:1px solid var(--bd-s);border-radius:var(--r)}
+.pk_tbl_cat{margin:8px 4px 2px;color:var(--ac-2);font-size:11px}
+.pk_tbl_it{
+	display:flex;align-items:center;gap:8px;width:100%;margin:1px 0;padding:4px 6px;
+	background:transparent;color:var(--fg-0);border:1px solid transparent;border-radius:var(--r);
+	font:inherit;text-align:left;cursor:pointer;
+}
+.pk_tbl_cr{display:flex;align-items:center;gap:6px;padding:3px 4px;border-bottom:1px solid var(--bd-s)}
+.pk_tbl_cr span,.pk_tbl_it span{flex:1 1 auto;min-width:0}
+.pk_tbl_face{
+	display:inline-block;flex:0 0 28px;width:28px;text-align:center;
+	font:600 13px/20px var(--ff);font-style:normal;color:var(--ac);
+}
+.pk_tbl_ft{margin:14px 0 0;text-align:right}
+@media only screen and (max-width:560px){.pk_tbl_cols{flex-direction:column}.pk_tbl_cols>.pk_tbl_col{width:100%}}
+
+/* 浮動面板（P4） */
+.pk_tb.pk_tbl .pk_tbl_float{
+	position:fixed;margin:0;z-index:7;
+	background:var(--bg-1);
+	box-shadow:0 8px 24px rgba(0,0,0,.5),var(--inset-hi);
+}
+.pk_app:not(.pk_mob) .pk_tb.pk_tbl>.pk_tbl_float{margin:0}
+.pk_tbl_edit .pk_tbl_float{outline-color:var(--pl,var(--ac))}
+

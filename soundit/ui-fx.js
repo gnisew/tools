@@ -69,6 +69,41 @@
 			return (arr);
 		};
 
+		/* 新增：匯出 / 匯入全部預設集 */
+		this.Export = function () {
+			return JSON.stringify ({ app: 'soundit-presets', version: 1, presets: presets }, null, 2);
+		};
+
+		/* 回傳 { added, replaced }；格式錯誤時丟出例外。相同 id 的預設集會被覆蓋，其餘新增。 */
+		this.Import = function ( text ) {
+			var obj = JSON.parse ( text );
+			if (!obj || obj.app !== 'soundit-presets' || !obj.presets || typeof obj.presets !== 'object')
+				throw new Error ('format');
+
+			var added = 0, replaced = 0;
+			for (var fid in obj.presets) {
+				if (!Object.prototype.hasOwnProperty.call ( obj.presets, fid )) continue;
+				if (fid === '__proto__' || fid === 'constructor' || fid === 'prototype') continue;
+				var src = obj.presets[ fid ];
+				if (!Array.isArray ( src )) continue;
+
+				if (!Object.prototype.hasOwnProperty.call ( presets, fid )) presets[ fid ] = [];
+				var arr = presets[ fid ];
+
+				src.forEach ( function ( p ) {
+					if (!p || typeof p !== 'object' || typeof p.name !== 'string') return ;
+					var at = -1;
+					if (p.id !== undefined)
+						arr.forEach ( function ( x, i ) { if (x && x.id === p.id) at = i; });
+					if (at >= 0) { arr[ at ] = p; ++replaced; }
+					else { arr.push ( p ); ++added; }
+				});
+			}
+
+			this.Save ();
+			return { added: added, replaced: replaced };
+		};
+
 		if (!w.localStorage)
 		{
 			this.Set = function(){};
@@ -102,6 +137,55 @@
 
 		app.listenFor ('DidCloseFX_UI', function () {
 			curr_filter_ui = null;
+		});
+
+		/* 新增：預設集匯出 / 匯入（由「效果」選單觸發） */
+		function tf ( key, zh, en, vars ) {
+			var s = t ( key, vars );
+			if (s && s !== key) return s;
+			var lang = '';
+			try { lang = PKLocale.getLang (); } catch (e) {}
+			s = lang === 'en' ? en : zh;
+			for (var k in (vars || {})) s = s.replace ('{' + k + '}', vars[k]);
+			return s;
+		}
+
+		app.listenFor ('RequestFXPresetsExport', function () {
+			var all = custom_presets.Get ();
+			var n = 0;
+			for (var k in all) n += all[k] && all[k].length ? all[k].length : 0;
+			if (!n) return OneUp ( tf ('uifx.presets_none', '目前沒有自訂預設集', 'No custom presets yet'), 1400 );
+
+			var a = d.createElement ('a');
+			var url = w.URL.createObjectURL ( new Blob ([ custom_presets.Export () ], { type: 'application/json' }) );
+			a.href = url;
+			a.download = 'soundit-presets.json';
+			d.body.appendChild ( a );
+			a.click ();
+			d.body.removeChild ( a );
+			setTimeout ( function () { w.URL.revokeObjectURL ( url ); }, 1000 );
+			OneUp ( tf ('uifx.presets_exported', '已匯出 {n} 個預設集', 'Exported {n} presets', { n: n }), 1600 );
+		});
+
+		app.listenFor ('RequestFXPresetsImport', function () {
+			var inp = d.createElement ('input');
+			inp.type = 'file';
+			inp.accept = '.json,application/json';
+			inp.onchange = function () {
+				var f = inp.files && inp.files[0];
+				if (!f) return ;
+				var r = new FileReader ();
+				r.onload = function () {
+					try {
+						var res = custom_presets.Import ( String ( r.result ) );
+						OneUp ( tf ('uifx.presets_imported', '已匯入：新增 {a}、覆蓋 {r}', 'Imported: {a} added, {r} replaced', { a: res.added, r: res.replaced }), 2200 );
+					} catch (err) {
+						OneUp ( tf ('uifx.presets_bad', '檔案格式不正確，未做任何變更', 'Invalid file, nothing changed'), 2200, 'pk_r' );
+					}
+				};
+				r.readAsText ( f );
+			};
+			inp.click ();
 		});
 
 		app.listenFor ('DidOpenFX_UI', function ( modal ) {
@@ -2453,7 +2537,7 @@
 			var inputs = el.querySelectorAll('select, input');
 			var preset_obj = {
 				target:curr_filter_ui.id,
-				name:'My Preset',
+				name:PKLocale.t('ui.my_preset'),
 				id:curr_filter_ui.id + '_' + ((Math.random() * 99) >> 0),
 				date:Date.now(),
 				val:''
@@ -2626,6 +2710,313 @@
 			}
 
 		});
+
+
+		/* ---- 內建多軌混音器面板（取代 mix.html iframe）----
+		 * 直接掛在主頁面的下方 dock，不經過 iframe，所以不受跨來源限制。
+		 * 資料來源：app.multitrack.MixerData ()；操作：app.multitrack.MixerSet ()。 */
+		var buildMixerPanel = function ( onClose ) {
+			var doc = document;
+			var root = doc.createElement ('div');
+			var els = {};
+			var sig = '';
+			var last = 0;
+			var raf = 0;
+			var dead = false;
+
+			function L ( key, fb ) {
+				var s = PKLocale.t ( key );
+				return s && s !== key ? s : fb;
+			}
+			function mt () { return app.multitrack; }
+			function call ( id, key, val, done ) {
+				var m = mt ();
+				return m && m.MixerSet && m.MixerSet ( id, key, val, done );
+			}
+
+			root.innerHTML =
+				'<div class="pk_mx_hd"><span></span><div><a class="pk_mx_rc"></a><a class="pk_mx_x">&#10005;</a></div></div>' +
+				'<div class="pk_mx_body"></div>';
+			var title = root.getElementsByTagName ('span')[0];
+			var closer = root.getElementsByClassName ('pk_mx_x')[0];
+			var box = root.getElementsByClassName ('pk_mx_body')[0];
+			title.textContent = L ('win.mixer', 'MULTITRACK MIXER');
+			closer.onclick = function () { onClose && onClose (); };
+			var resetter = root.getElementsByClassName ('pk_mx_rc')[0];
+			resetter.textContent = L ('win.reset_clips', 'Reset clips');
+			resetter.onclick = function () { call ( 'all', 'clip_reset', 1, 1 ); };
+
+			function panText ( v ) {
+				return v < -0.01 ? 'L' + ((-v * 100) >> 0) : v > 0.01 ? 'R' + ((v * 100) >> 0) : 'C';
+			}
+			function panKnob ( el, v ) {
+				el._v = v;
+				el.getElementsByTagName ('i')[0].style.transform = 'rotate(' + (v * 65) + 'deg)';
+			}
+			function flag ( el, on ) {
+				if (el && el._on !== !!on) {
+					el._on = !!on;
+					el.className = on ? 'a' : '';
+				}
+			}
+
+			function bindPan ( el, id ) {
+				el.onpointerdown = function ( ev ) {
+					ev.preventDefault ();
+					ev.stopPropagation ();
+					var x = ev.clientX, y = ev.clientY, v = el._v || 0;
+					function move ( e ) {
+						var n = Math.max (-1, Math.min (1, v + (e.clientX - x - e.clientY + y) / 80));
+						panKnob ( el, n );
+						call ( id, 'pan', n, 0 );
+					}
+					function up () {
+						doc.removeEventListener ('pointermove', move);
+						doc.removeEventListener ('pointerup', up);
+						doc.removeEventListener ('pointercancel', up);
+						call ( id, 'pan', el._v || 0, 1 );
+					}
+					doc.addEventListener ('pointermove', move);
+					doc.addEventListener ('pointerup', up);
+					doc.addEventListener ('pointercancel', up);
+				};
+				el.ondblclick = function () {
+					panKnob ( el, 0 );
+					call ( id, 'pan', 0, 1 );
+				};
+			}
+
+			function make ( t ) {
+				var s = doc.createElement ('section');
+				var master = t.id === 'master';
+				s.className = 'pk_mx_s' + (master ? ' pk_mx_master' : '');
+				s.innerHTML = master ?
+					'<strong></strong><div class="pk_mx_mrow"><div class="pk_mx_meter"><i></i><b></b></div><u class="pk_mx_clip"></u></div>' +
+					'<div class="pk_mx_mrow pk_mx_mr2"><div class="pk_mx_meter"><i></i><b></b></div><u class="pk_mx_clip"></u></div><label>' + L ('win.level', 'level') + '</label><input class="pk_mx_vol" type="range" min="0" max="1" step=".01"><output></output>' :
+					'<strong></strong><div class="pk_mx_mrow"><div class="pk_mx_meter"><i></i><b></b></div><u class="pk_mx_clip"></u></div><p><button>M</button><button>S</button><button>R</button></p><div class="pk_mx_pn"><label>' + L ('win.pan', 'pan') + '</label><div class="pk_mx_k"><i></i></div><em></em></div><input class="pk_mx_vol" type="range" min="0" max="1" step=".01"><output></output>';
+				s.getElementsByTagName ('strong')[0].textContent = t.name;
+				var e = els[t.id] = {
+					el: s,
+					meter: s.getElementsByTagName ('i')[0],
+					vol: s.getElementsByClassName ('pk_mx_vol')[0],
+					out: s.getElementsByTagName ('output')[0],
+					hold: s.getElementsByTagName ('b')[0],
+					led: s.getElementsByClassName ('pk_mx_clip')[0]
+				};
+				if (master) {
+					/* 主控軌：上方一條 = 左聲道、下方一條 = 右聲道（燈號仍是總爆音） */
+					var mi = s.getElementsByTagName ('i'), mb = s.getElementsByTagName ('b');
+					e.meter = mi[0]; e.hold = mb[0];
+					e.meterR = mi[1]; e.holdR = mb[1];
+				}
+				e.led.onclick = function ( ev ) {
+					ev.stopPropagation ();
+					call ( t.id, 'clip_reset', 1, 1 );
+				};
+				if (!master) {
+					var b = s.getElementsByTagName ('button');
+					e.mute = b[0]; e.solo = b[1]; e.rec = b[2];
+					e.mute.title = L ('win.mute', 'Mute');
+					e.solo.title = L ('win.solo', 'Solo');
+					e.rec.title = L ('win.rec', 'Arm record');
+					e.pan = s.getElementsByClassName ('pk_mx_k')[0];
+					e.panv = s.getElementsByTagName ('em')[0];
+					e.pan.title = L ('win.pan_tip', 'Pan: drag, double-click to center');
+					e.mute.onclick = function ( ev ) { ev.stopPropagation (); call ( t.id, 'mute', !e.mute._on, 1 ); };
+					e.solo.onclick = function ( ev ) { ev.stopPropagation (); call ( t.id, 'solo', !e.solo._on, 1 ); };
+					e.rec.onclick = function ( ev ) { ev.stopPropagation (); call ( t.id, 'rec', !e.rec._on, 1 ); };
+					bindPan ( e.pan, t.id );
+					s.onclick = function ( ev ) {
+						if (/BUTTON|INPUT/.test (ev.target.tagName) ||
+							(ev.target.classList && ev.target.classList.contains ('pk_mx_k')) ||
+							(ev.target.parentNode && ev.target.parentNode.classList && ev.target.parentNode.classList.contains ('pk_mx_k'))) return ;
+						call ( t.id, 'select', 1, 1 );
+					};
+				}
+				e.vol.title = L ('win.vol_tip', 'Volume: double-click for 100%');
+				e.vol.oninput = function () { call ( t.id, 'vol', this.value, 0 ); };
+				e.vol.onchange = function () { call ( t.id, 'vol', this.value, 1 ); this.blur (); };
+				e.vol.ondblclick = function () { this.value = 1; call ( t.id, 'vol', 1, 1 ); };
+				return s;
+			}
+
+			/* ---- 響度卡：瞬間 / 短時 / 積分響度、真峰值、相位相關 ---- */
+			var ld = null;
+			function lufsTxt ( v ) { return isFinite ( v ) ? v.toFixed (1) : '-\u221e'; }
+
+			function makeLoud () {
+				var s = doc.createElement ('section');
+				s.className = 'pk_mx_s pk_mx_ld';
+				s.innerHTML = '<strong></strong>' +
+					'<div class="pk_mx_lr" data-k="m"><span>M</span><b></b><small>LUFS</small></div>' +
+					'<div class="pk_mx_lr" data-k="s"><span>S</span><b></b><small>LUFS</small></div>' +
+					'<div class="pk_mx_lr" data-k="i"><span>I</span><b></b><small>LUFS</small></div>' +
+					'<div class="pk_mx_lr" data-k="tp"><span>TP</span><b></b><small>dBTP</small></div>' +
+					'<div class="pk_mx_cr"><label></label><div class="pk_mx_cb"><i></i></div><em></em></div>' +
+					'<a class="pk_mx_lrst"></a>';
+				s.getElementsByTagName ('strong')[0].textContent = L ('win.loud_title', 'LOUDNESS');
+				var tips = {m: 'win.loud_m_tip', s: 'win.loud_s_tip', i: 'win.loud_i_tip', tp: 'win.loud_tp_tip'};
+				var fbs = {m: 'Momentary (400 ms)', s: 'Short-term (3 s)', i: 'Integrated (gated, since play start)', tp: 'True peak (4x oversampled)'};
+				var rows = s.getElementsByClassName ('pk_mx_lr');
+				var o = { el: s, v: {}, corr_i: s.getElementsByTagName ('i')[0], corr_t: s.getElementsByTagName ('em')[0] };
+				for (var r = 0; r < rows.length; ++r) {
+					var k = rows[r].getAttribute ('data-k');
+					rows[r].title = L ( tips[k], fbs[k] );
+					o.v[k] = { row: rows[r], b: rows[r].getElementsByTagName ('b')[0] };
+				}
+				s.getElementsByTagName ('label')[0].textContent = L ('win.loud_corr', 'phase');
+				s.getElementsByClassName ('pk_mx_cr')[0].title = L ('win.loud_corr_tip', 'Stereo correlation: +1 mono, 0 wide, -1 out of phase');
+				var rst = s.getElementsByClassName ('pk_mx_lrst')[0];
+				rst.textContent = L ('win.loud_reset', 'Reset integrated');
+				rst.onclick = function ( ev ) {
+					ev.stopPropagation ();
+					call ( 'all', 'loud_reset', 1, 1 );
+				};
+				return o;
+			}
+
+			function paintLoud ( data ) {
+				if (!ld) return ;
+				var s = data.loud || { m: -Infinity, s: -Infinity, i: -Infinity, tp: -Infinity, corr: 0 };
+				var vals = { m: s.m, s: s.s, i: s.i, tp: s.tp };
+				for (var k in vals) {
+					var e = ld.v[k];
+					var txt = lufsTxt ( vals[k] );
+					if (e.txt !== txt) {
+						e.txt = txt;
+						e.b.textContent = txt;
+					}
+					var hot = k === 'tp' && isFinite ( vals[k] ) && vals[k] > -1;
+					if (e.hot !== hot) {
+						e.hot = hot;
+						e.row.classList[hot ? 'add' : 'remove'] ('pk_mx_hot');
+					}
+				}
+				var c = Math.round ( (s.corr || 0) * 100 ) / 100;
+				if (ld.corr_v !== c) {
+					ld.corr_v = c;
+					ld.corr_i.style.left = ((c + 1) / 2 * 100) + '%';
+					ld.corr_i.className = c < 0 ? 'pk_mx_neg' : '';
+					ld.corr_t.textContent = (c > 0 ? '+' : '') + c.toFixed (2);
+				}
+			}
+
+			function paint ( t ) {
+				var e = els[t.id];
+				if (!e) return ;
+				if (e.sel !== t.sel) {
+					e.sel = t.sel;
+					e.el.classList[t.sel ? 'add' : 'remove'] ('pk_mx_sel');
+				}
+				if (e.meter_v !== t.meter) {
+					e.meter_v = t.meter;
+					e.meter.style.transform = 'scaleX(' + (t.meter || 0) + ')';
+				}
+				if (e.hold_v !== t.hold) {
+					e.hold_v = t.hold;
+					e.hold.style.left = ((t.hold || 0) * 100) + '%';
+					e.hold.style.opacity = t.hold > 0 ? '1' : '0';
+				}
+				if (e.meterR) {
+					if (e.meterR_v !== t.meterR) {
+						e.meterR_v = t.meterR;
+						e.meterR.style.transform = 'scaleX(' + (t.meterR || 0) + ')';
+					}
+					if (e.holdR_v !== t.holdR) {
+						e.holdR_v = t.holdR;
+						e.holdR.style.left = ((t.holdR || 0) * 100) + '%';
+						e.holdR.style.opacity = t.holdR > 0 ? '1' : '0';
+					}
+				}
+				if (e.clip_v !== t.clip) {
+					e.clip_v = t.clip;
+					e.led.classList[t.clip ? 'add' : 'remove'] ('on');
+					e.led.title = t.clip ?
+						L ('win.clipped', 'Clipped (click to reset)') +
+						' ' + (t.peak || 0).toFixed (1) + ' dB' : '';
+				}
+				if (e.vol_v !== t.vol) {
+					e.vol_v = t.vol;
+					e.vol.value = t.vol;
+					e.out.textContent = ((t.vol * 100) >> 0) + '%';
+				}
+				if (t.id !== 'master') {
+					if (e.pan_v !== t.pan) {
+						e.pan_v = t.pan;
+						panKnob ( e.pan, t.pan );
+						e.panv.textContent = panText ( t.pan );
+					}
+					flag ( e.mute, t.mute );
+					flag ( e.solo, t.solo );
+					flag ( e.rec, t.rec );
+				}
+			}
+
+			function showEmpty ( txt ) {
+				box.innerHTML = '';
+				els = {};
+				var em = doc.createElement ('div');
+				em.className = 'pk_mx_empty';
+				em.textContent = txt;
+				box.appendChild ( em );
+			}
+
+			function update () {
+				var m = mt ();
+				var data = m && m.MixerData && m.MixerData ();
+				if (!data || !data.on) {
+					if (sig !== 'off') {
+						sig = 'off';
+						ld = null;
+						showEmpty ( L ('win.open_multitrack', 'OPEN MULTITRACK') );
+					}
+					return ;
+				}
+				var list = data.tracks.concat ([{
+					id: 'master',
+					name: L ('win.master', 'Master'),
+					vol: data.master.vol,
+					meter: data.master.meterL,
+					hold: data.master.holdL,
+					meterR: data.master.meterR,
+					holdR: data.master.holdR,
+					clip: data.master.clip,
+					peak: data.master.peak
+				}]);
+				var next = list.map (function ( t ) { return t.id + ':' + t.name; }).join ('|');
+				if (next !== sig) {
+					sig = next;
+					box.innerHTML = '';
+					els = {};
+					for (var i = 0; i < list.length; ++i) box.appendChild ( make ( list[i] ) );
+					ld = makeLoud ();
+					box.appendChild ( ld.el );
+				}
+				for (var j = 0; j < list.length; ++j) paint ( list[j] );
+				paintLoud ( data );
+			}
+
+			function loop ( ts ) {
+				if (dead) return ;
+				if (ts - last > 50) {
+					last = ts;
+					update ();
+				}
+				raf = window.requestAnimationFrame ( loop );
+			}
+
+			showEmpty ( L ('win.mixer', 'MULTITRACK MIXER') );
+			raf = window.requestAnimationFrame ( loop );
+
+			return {
+				el: root,
+				destroy: function () {
+					dead = true;
+					raf && window.cancelAnimationFrame ( raf );
+					raf = 0;
+				}
+			};
+		};
 
 		var eq_win = {};
 		var mix_dock_h = 280;
@@ -2863,12 +3254,12 @@
 			args_arr = args_arr || [];
 			var toggle = args_arr[ 0 ];
 			var type   = args_arr[ 1 ];
-			var title = 'Frequency Analyzer';
+			var title = PKLocale.t('view.freq_analyser');
 			var curr_win = eq_win[ url ];
 			var is_mix = url === 'mix';
 
-			if (url === 'sp') title = 'Spectrum Analyzer';
-			if (is_mix) title = 'Multitrack Mixer';
+			if (url === 'sp') title = PKLocale.t('view.spectrum_analyser');
+			if (is_mix) title = PKLocale.t('view.multitrack_mixer');
 
 			var toggled = false;
 			if (curr_win && toggle)
@@ -2965,8 +3356,11 @@
 			}
 			else if (type === 1)
 			{
-				var iframe = document.createElement ('iframe');
-				iframe.className = 'pk_frqan' + (is_mix ? ' pk_mixwin' : '');
+				var panel = is_mix ? buildMixerPanel ( function () {
+					app.fireEvent ('RequestShowFreqAn', 'mix', [1, 1]);
+				}) : null;
+				var iframe = panel ? panel.el : document.createElement ('iframe');
+				iframe.className = 'pk_frqan' + (is_mix ? ' pk_mixwin pk_mixpanel' : '');
 				iframe.id = 'pk_fr' + url;
 
 				if (app.ui.BarBtm.on) {
@@ -2987,7 +3381,8 @@
 					el   : iframe,
 					win  : null,
 					destroy : function () {
-						iframe.parentNode.removeChild ( iframe );
+						panel && panel.destroy ();
+						iframe.parentNode && iframe.parentNode.removeChild ( iframe );
 						iframe = null;
 
 						var ch = app.ui.BarBtm.el.childNodes;
@@ -3015,6 +3410,13 @@
 
 				curr_win = eq_win[url];
 				resizeDock ();
+
+				// 內建混音器：同一份頁面直接運作，不需要等 iframe 載入
+				if (panel) {
+					curr_win.win = {};
+					setEvents ( curr_win, url );
+					return ;
+				}
 
 				iframe.onload = function (e) {
 					if (curr_win && curr_win.type === type)

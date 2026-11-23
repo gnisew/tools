@@ -7,27 +7,85 @@ var activeMultitrackFor = h.activeMultitrackFor;
 	function _makeUIBarBottom ( UI, app ) {
 		var q = this;
 
+		/* 新增：使用者拖曳調整的高度偏移（px，可正可負），各種停靠內容共用，存在 localStorage 'pk_dockx' */
+		var DOCK_MIN = 60;
+		var base = 130;
+		var extra = 0;
+		try { extra = parseInt ( w.localStorage.getItem ('pk_dockx'), 10 ) || 0; } catch (e) {}
+		function effective () { return Math.max ( DOCK_MIN, base + extra ); }
+
+		/* 新增：拖曳把手。外層高度為 0，不佔版面；實際可點區域往上下各延伸 */
+		var grip_wrap = d.createElement ('div');
+		grip_wrap.style.cssText = 'position:relative;height:0;z-index:20;display:none';
+		var grip = d.createElement ('div');
+		var coarse = w.matchMedia && w.matchMedia ('(pointer:coarse)').matches;
+		grip.style.cssText = 'position:absolute;left:0;right:0;top:' + (coarse ? -9 : -4) + 'px;height:' + (coarse ? 18 : 8) +
+			'px;cursor:ns-resize;touch-action:none;background:linear-gradient(transparent 40%,var(--bd) 40%,var(--bd) 60%,transparent 60%)';
+		grip.title = PKLocale.t ('ui.dock_resize') !== 'ui.dock_resize' ? PKLocale.t ('ui.dock_resize') : '拖曳調整高度，雙擊還原 / Drag to resize, double-click to reset';
+		grip.onmouseenter = function () { grip.style.background = 'linear-gradient(transparent 35%,var(--ac) 35%,var(--ac) 65%,transparent 65%)'; };
+		grip.onmouseleave = function () { if (!grip._drag) grip.style.background = ''; };
+		grip_wrap.appendChild ( grip );
+		UI.el.appendChild ( grip_wrap );
+
 		var bar_bottom_el = d.createElement ('div');
 		bar_bottom_el.className = 'pk_dck';
 		UI.el.appendChild( bar_bottom_el );
 
 		q.el = bar_bottom_el;
 		q.on = false;
-		q.height = 130;
+		q.height = effective ();
+
+		function apply ( fire ) {
+			q.height = effective ();
+			if (q.on) bar_bottom_el.style.height = q.height + 'px';
+			if (fire) app.fireEvent ('RequestResize');
+		}
+
+		grip.onpointerdown = function ( e ) {
+			if (!q.on || (e.button !== undefined && e.button !== 0)) return ;
+			e.preventDefault ();
+			e.stopPropagation ();
+			grip._drag = true;
+			try { grip.setPointerCapture ( e.pointerId ); } catch (er) {}
+
+			var y0 = e.clientY, h0 = q.height;
+			var max = h0 + Math.max ( 0, UI.MainHeight () - 112 );  /* 波形至少保留 112px */
+			var raf = 0, want = h0;
+
+			function flush () { raf = 0; extra = want - base; apply ( true ); }
+			grip.onpointermove = function ( ev ) {
+				want = Math.max ( DOCK_MIN, Math.min ( max, h0 + (y0 - ev.clientY) ) );
+				if (!raf) raf = w.requestAnimationFrame ( flush );
+			};
+			grip.onpointerup = grip.onpointercancel = function () {
+				grip._drag = false;
+				grip.onpointermove = grip.onpointerup = grip.onpointercancel = null;
+				grip.style.background = '';
+				try { w.localStorage.setItem ('pk_dockx', String ( extra )); } catch (er) {}
+			};
+		};
+
+		grip.ondblclick = function () {
+			extra = 0;
+			try { w.localStorage.removeItem ('pk_dockx'); } catch (er) {}
+			apply ( true );
+		};
 
 		q.SetHeight = function ( height ) {
-			q.height = height;
-			if (q.on) bar_bottom_el.style.height = height + 'px';
+			base = height;
+			apply ( false );
 		};
 
 		q.Show = function () {
 			q.on = true;
+			grip_wrap.style.display = 'block';
 			bar_bottom_el.style.display = 'block';
 			bar_bottom_el.style.height = q.height + 'px';
 			app.fireEvent ('RequestResize');
 		};
 		q.Hide = function () {
 			q.on = false;
+			grip_wrap.style.display = 'none';
 			bar_bottom_el.style.display = 'none';
 			bar_bottom_el.style.height = '0';
 			app.fireEvent ('RequestResize');
@@ -46,6 +104,29 @@ var activeMultitrackFor = h.activeMultitrackFor;
 		main_audio_view.className = 'pk_av pk_noselect';
 		main_audio_view.id = 'pk_av_' + app.id;
 		audio_container.appendChild( main_audio_view );
+
+		/* 新增：雙指縮放波形。兩指距離變大 30% 放大一級、縮小 23% 縮小一級，之後重新計算基準 */
+		(function () {
+			var base = 0;
+			function dist ( e ) {
+				var a = e.touches[0], b = e.touches[1];
+				var dx = a.clientX - b.clientX, dy = a.clientY - b.clientY;
+				return Math.sqrt ( dx * dx + dy * dy );
+			}
+			main_audio_view.addEventListener ('touchstart', function ( e ) {
+				base = e.touches.length === 2 ? dist ( e ) : 0;
+			}, { passive: true });
+			main_audio_view.addEventListener ('touchmove', function ( e ) {
+				if (e.touches.length !== 2 || !base) return ;
+				e.preventDefault ();
+				var r = dist ( e ) / base;
+				if (r > 1.3) { app.fireEvent ('RequestZoomUI', 'h', -1); base = dist ( e ); }
+				else if (r < 0.77) { app.fireEvent ('RequestZoomUI', 'h', 1); base = dist ( e ); }
+			}, { passive: false });
+			main_audio_view.addEventListener ('touchend', function ( e ) {
+				if (e.touches.length < 2) base = 0;
+			}, { passive: true });
+		})();
 
 		var footer = d.createElement ( 'div' );
 		footer.className = 'pk_ftr pk_noselect';
@@ -66,8 +147,8 @@ var activeMultitrackFor = h.activeMultitrackFor;
 		btn_panner_left.className = 'pk_pan_btn';
 		btn_panner_right.className = 'pk_pan_btn';
 
-		btn_panner_left.innerHTML = '<strong>L</strong> ON';
-		btn_panner_right.innerHTML = '<strong>R</strong> ON';
+		btn_panner_left.innerHTML = '<strong>L</strong> ' + t('ui.on');
+		btn_panner_right.innerHTML = '<strong>R</strong> ' + t('ui.on');
 
 		panner_col_left.appendChild ( btn_panner_left );
 		panner_col_right.appendChild ( btn_panner_right );
@@ -88,23 +169,23 @@ var activeMultitrackFor = h.activeMultitrackFor;
 				if (val)
 				{
 					btn_panner_left.classList.remove ('pk_inact');
-					btn_panner_left.innerHTML = '<strong>L</strong> ON';
+					btn_panner_left.innerHTML = '<strong>L</strong> ' + t('ui.on');
 				}
 				else
 				{
 					btn_panner_left.classList.add ('pk_inact');
-					btn_panner_left.innerHTML = '<strong>L</strong> OFF';
+					btn_panner_left.innerHTML = '<strong>L</strong> ' + t('ui.off');
 				}
 			} else {
 				if (val)
 				{
 					btn_panner_right.classList.remove ('pk_inact');
-					btn_panner_right.innerHTML = '<strong>R</strong> ON';
+					btn_panner_right.innerHTML = '<strong>R</strong> ' + t('ui.on');
 				}
 				else
 				{
 					btn_panner_right.classList.add ('pk_inact');
-					btn_panner_right.innerHTML = '<strong>R</strong> OFF';
+					btn_panner_right.innerHTML = '<strong>R</strong> ' + t('ui.off');
 				}
 			}
 		});
@@ -583,3 +664,5 @@ PKAE._deps._makeUIMainView = _makeUIMainView;
 	PKAE._deps._makeMobileScroll = _makeMobileScroll;
 
 })( window, document, PKAudioEditor );
+
+

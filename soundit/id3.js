@@ -476,6 +476,25 @@
         return s ? [1].concat(_u(s, 1)) : [];
     };
 
+    /* [新增] MP3 章節：CHAP（每章一個）＋ CTOC（目錄）。tag.chapters = [{start, end, title}]，單位為秒。
+     * 規格：id3.org/id3v2-chapters-1.0；起訖位元組偏移填 0xFFFFFFFF 表示不使用。 */
+    var _chap = function (list) {
+        var out = [], ids = [], i, c, id, st, en, body;
+        if (!list || !list.length) return out;
+        for (i = 0; i < list.length && i < 255; ++i) {
+            c = list[i];
+            id = 'chp' + i;
+            st = Math.max(0, Math.round(c.start * 1000));
+            en = Math.max(st, Math.round(c.end * 1000));
+            body = _s(id).concat([0], _n(st), _n(en), [255, 255, 255, 255, 255, 255, 255, 255], _f('TIT2', _txt(c.title)));
+            out = out.concat(_f('CHAP', body));
+            ids.push(id);
+        }
+        body = _s('toc').concat([0, 3, ids.length]);
+        for (i = 0; i < ids.length; ++i) body = body.concat(_s(ids[i]), [0]);
+        return _f('CTOC', body).concat(out);
+    };
+
     ID3v2.WriteTags = function (ab, tag) {
         var fr = [], p = tag.picture;
         fr = fr.concat(
@@ -487,7 +506,8 @@
             _f('TRCK', _txt(tag.track)),
             _f('COMM', _v(tag.comment, 'text') ? [1].concat(_s('eng'), _u('', 1), [0, 0], _u(_v(tag.comment, 'text'), 1)) : []),
             _f('USLT', _v(tag.lyrics, 'lyrics') ? [1].concat(_s('eng'), _u('', 1), [0, 0], _u(_v(tag.lyrics, 'lyrics'), 1)) : []),
-            _f('APIC', _apic(p))
+            _f('APIC', _apic(p)),
+            _chap(tag.chapters)
         );
         var hd = _s('ID3').concat([3, 0, 0], _ss(fr.length));
         var au = new Uint8Array(ab, _at(ab));

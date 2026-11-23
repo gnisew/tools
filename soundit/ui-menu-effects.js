@@ -3,6 +3,14 @@
 
 	function _menuEffects ( app ) {
 		var t = PKLocale.t;
+		/* 新增：語言檔沒有該 key 時用內建中／英文 */
+		function tf ( key, zh, en ) {
+			var s = t ( key );
+			if (s && s !== key) return s;
+			var lang = '';
+			try { lang = PKLocale.getLang (); } catch (e) {}
+			return lang === 'en' ? en : zh;
+		}
 		return {
 			name: t('menu.effects'),
 			children:[
@@ -24,7 +32,10 @@
 				{ name: t('fx.speed_rate'), action: function () { app.fireEvent ('RequestActionFXUI_Rate'); } },
 				{ name: t('fx.reverse'), action: function () { app.fireEvent ('RequestActionFX_Reverse'); } },
 				{ name: t('fx.invert'), action: function () { app.fireEvent ('RequestActionFX_Invert'); } },
-				{ name: t('fx.remove_silence'), action: function () { app.fireEvent ('RequestActionFX_RemSil'); } }
+				{ name: t('fx.remove_silence'), action: function () { app.fireEvent ('RequestActionFX_RemSil'); } },
+				{ name: '---' },
+				{ name: tf ('fx.presets_export', '匯出預設集', 'Export presets'), action: function () { app.fireEvent ('RequestFXPresetsExport'); } },
+				{ name: tf ('fx.presets_import', '匯入預設集', 'Import presets'), action: function () { app.fireEvent ('RequestFXPresetsImport'); } }
 			]
 		};
 	}

@@ -130,7 +130,7 @@
 				{
 					title:PKLocale.t('ui.on'),
 					clss:'pk_inact',
-					tooltip:PKLocale.t('ui.toggle_bypass'),
+					tooltip:PKLocale.t('ui.toggle_bypass') + ' (B)',
 					callback: function ( q, el ) {
 						app.fireEvent ('RequestActionFX_TOGGLE');
 					}
@@ -168,6 +168,7 @@
 				app.fireEvent ('RequestActionFX_PREVIEW_STOP');
 
 				app.ui.KeyHandler.removeCallback ('ksp' + q.id);
+				app.ui.KeyHandler.removeCallback ('kab' + q.id);
 
 				config.ondestroy && config.ondestroy ( q );
 			},
@@ -194,6 +195,17 @@
 						}
 					}
 				}, [32]);
+
+				/* 新增：B 鍵切換 A/B（原音 ↔ 處理後），僅在預覽播放中有效 */
+				app.ui.KeyHandler.addCallback ('kab' + q.id, function ( key, map, e ) {
+					if (!app.ui.InteractionHandler.check ('modalfx')) return ;
+					var tg = e && e.target;
+					if (tg && (tg.tagName === 'TEXTAREA' || tg.tagName === 'SELECT' ||
+						(tg.tagName === 'INPUT' && /^(text|number|search)$/.test (tg.type)))) return ;
+					var btn = q.els && q.els.toolbar[0];
+					if (!btn || btn.classList.contains ('pk_inact')) return ;
+					app.fireEvent ('RequestActionFX_TOGGLE');
+				}, [66]);
 
 			  q._evstart = function () {
 				  q.els.toolbar[0].classList.remove ('pk_inact');
@@ -324,7 +336,9 @@
 					{
 						var curr = presets[ i ];
 						opt.value = curr.val;
-						opt.innerHTML = app.escapeHtml ( app.unescapeHtml ( curr.name ) );
+						var pk = 'preset.' + app.unescapeHtml ( curr.name );
+						var pn = t(pk);
+						opt.innerHTML = app.escapeHtml ( pn !== pk ? pn : app.unescapeHtml ( curr.name ) );
 					}
 					sel_presets.appendChild( opt );
 				  }
@@ -402,3 +416,5 @@
 	w.PKSimpleModal = PKSimpleModal;
 	w.PKAudioFXModal = PKAudioFXModal;
 })( window, document );
+
+

@@ -1,5 +1,5 @@
 /* Soundit 語言核心
- * 語言內容放在 lang/*.js，各檔以 PKLocale.register (代碼, 字串表, 選項) 登錄。
+ * 語言內容放在 lang-*.js，各檔以 PKLocale.register (代碼, 字串表, 選項) 登錄。
  * 選項：
  *   name     選單顯示的語言名稱（建議用該語言自稱）
  *   fallback 缺少字串時優先使用的語言（最後一律回到 en）

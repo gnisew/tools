@@ -326,6 +326,84 @@
 				} catch (e) { return fb; }
 			}
 
+			/* ===== [新增] 記住播放位置 =====
+			 * localStorage 'pk_pos'：{ files:{ 檔案識別碼:{t,d,ts} }, auto:{t,d,ts} }
+			 * files 對應「從電腦載入 / 網址」的檔案；auto 對應自動還原的工作階段。
+			 * 以長度 d 比對（差 0.5 秒內才還原），避免同名但不同內容的檔案跳到錯的位置。 */
+			var POS_KEY = 'pk_pos', POS_MAX = 40;
+			var cur_key = null, pending_auto = null, armed = false, last_sig = '';
+
+			function posRead () {
+				try {
+					var o = JSON.parse ( w.localStorage.getItem ( POS_KEY ) || '{}' );
+					o.files = o.files || {};
+					return o;
+				} catch (e) { return { files: {} }; }
+			}
+			function posWrite ( o ) {
+				try {
+					var ks = Object.keys ( o.files );
+					if (ks.length > POS_MAX) {
+						ks.sort (function ( a, b ) { return o.files[ a ].ts - o.files[ b ].ts; });
+						for (var i = 0; i < ks.length - POS_MAX; ++i) delete o.files[ ks[ i ] ];
+					}
+					w.localStorage.setItem ( POS_KEY, JSON.stringify ( o ) );
+				} catch (e) {}
+			}
+			function posWS () {
+				var e = app.engine;
+				return e && e.is_ready && e.wavesurfer && e.wavesurfer.backend && e.wavesurfer.backend.buffer ? e.wavesurfer : null;
+			}
+			function fmtTime ( s ) {
+				s = Math.floor ( s );
+				var h = Math.floor ( s / 3600 ), m = Math.floor ( s % 3600 / 60 ), sec = s % 60;
+				return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (sec < 10 ? '0' : '') + sec;
+			}
+			function savePos () {
+				if (!armed || mtOn ()) return ;
+				var ws = posWS ();
+				if (!ws) return ;
+				var t = ws.getCurrentTime (), dur = ws.getDuration ();
+				var sig = cur_key + '|' + t.toFixed (1) + '|' + dur.toFixed (1);
+				if (sig === last_sig) return ;
+				last_sig = sig;
+				var o = posRead ();
+				var rec = (t >= 3 && t <= dur - 3) ? { t: +t.toFixed (2), d: +dur.toFixed (2), ts: Date.now () } : null;
+				if (cur_key) { if (rec) o.files[ cur_key ] = rec; else delete o.files[ cur_key ]; }
+				if (rec) o.auto = rec; else delete o.auto;
+				posWrite ( o );
+			}
+			function applyPos ( rec ) {
+				var ws = posWS ();
+				if (!ws || !rec) return ;
+				var dur = ws.getDuration ();
+				if (Math.abs ( rec.d - dur ) > 0.5 || rec.t < 3 || rec.t > dur - 3) return ;
+				app.fireEvent ('RequestSeekTo', rec.t / dur);
+				if (typeof OneUp === 'function') {
+					var s = PKLocale.t ('pos.resumed', { time: fmtTime ( rec.t ) });
+					OneUp ( s && s !== 'pos.resumed' ? s : 'Resumed at ' + fmtTime ( rec.t ), 1800 );
+				}
+			}
+
+			/* 檔案載入完成後（engine 會先 seek 到 0），稍後再跳到上次的位置 */
+			app.listenFor ('DidLoadFile', function () {
+				if (mtOn ()) return ;
+				var key = app.engine && app.engine.file_key;
+				if (app.engine) app.engine.file_key = null;
+				cur_key = key || null;
+				var rec = null;
+				if (pending_auto) { rec = pending_auto; pending_auto = null; }
+				else if (key) rec = posRead ().files[ key ];
+				armed = false;
+				last_sig = '';
+				setTimeout (function () { applyPos ( rec ); armed = true; }, 80);
+			});
+			setInterval ( savePos, 2500 );
+			w.addEventListener ('pagehide', savePos);
+			w.addEventListener ('visibilitychange', function () {
+				if (d.visibilityState === 'hidden') savePos ();
+			});
+
 			function tick () {
 				if (busy || !restored) return ;
 				var e = app.engine;
@@ -360,7 +438,14 @@
 							if (rec && rec.id === AUTO_ID && rec.data && rec.data.length &&
 								app.engine && !app.engine.is_ready && !mtOn ())
 							{
+								var ap = posRead ().auto;
+								pending_auto = ap && Math.abs ( ap.d - rec.durr ) <= 0.5 ? ap : null;
 								app.engine.LoadDB ( rec );
+								/* 保險：若 LoadDB 沒觸發 DidLoadFile，仍要還原位置並啟用記錄 */
+								setTimeout (function () {
+									if (pending_auto) { var r0 = pending_auto; pending_auto = null; applyPos ( r0 ); }
+									armed = true;
+								}, 700);
 								if (typeof OneUp === 'function')
 									OneUp (msg ('autosave.restored', 'Restored previous session'), 1600);
 							}
@@ -381,3 +466,5 @@
 	PKAudioEditor._deps.fls = SaveLocal;
 
 })( window, document, PKAudioEditor );
+
+

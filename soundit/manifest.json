@@ -1,33 +1,32 @@
 {
   "name": "Soundit 聲一",
-  "lang": "en",
+  "lang": "zh-TW",
+  "dir": "ltr",
   "short_name": "Soundit",
-  "description": "Audio editor",
+  "description": "音訊編輯器 / Audio editor",
   "id": ".",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
+  "orientation": "any",
   "theme_color": "#0a0a0a",
   "background_color": "#0a0a0a",
-  "orientation": "any",
-  "icons": [
+  "categories": ["music", "productivity", "utilities"],
+  "prefer_related_applications": false,
+  "launch_handler": {
+    "client_mode": ["focus-existing", "auto"]
+  },
+  "file_handlers": [
     {
-      "src": "icon-192.png",
-      "type": "image/png",
-      "sizes": "192x192",
-      "purpose": "any"
-    },
-    {
-      "src": "icon-512.png",
-      "type": "image/png",
-      "sizes": "512x512",
-      "purpose": "any"
-    },
-    {
-      "src": "icon.png",
-      "type": "image/png",
-      "sizes": "144x144",
-      "purpose": "any"
+      "action": ".",
+      "accept": {
+        "audio/*": [".mp3", ".wav", ".flac", ".ogg", ".oga", ".opus", ".m4a", ".aac", ".weba", ".webm"]
+      }
     }
+  ],
+  "icons": [
+    { "src": "icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
+    { "src": "icon.png",     "type": "image/png", "sizes": "144x144", "purpose": "any" }
   ]
 }

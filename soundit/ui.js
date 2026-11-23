@@ -93,6 +93,8 @@
 			if (hdr) used += hdr.offsetHeight;
 			if (tbc) used += tbc.offsetHeight;
 			if (ftr) used += ftr.offsetHeight;
+			var lbt = root.getElementsByClassName ('pk_lbtrk')[0];	/* [標籤列] 標籤列顯示時，波形高度要扣掉它 */
+			if (lbt) used += lbt.offsetHeight;
 			if (this.BarBtm && this.BarBtm.on) used += this.BarBtm.height;
 			return Math.max (112, h - used);
 		};
@@ -145,3 +147,5 @@
 	PKAE._deps.ui = PKUI;
 
 })( window, document, PKAudioEditor );
+
+

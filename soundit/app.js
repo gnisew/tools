@@ -151,6 +151,7 @@
 			q.fls    = new q._deps.fls ( q );
 			q.amss   = q._deps.amss ? new q._deps.amss ( q ) : null;
 			q.multitrack = q._deps.multitrack ? new q._deps.multitrack ( q ) : null;
+			q.spectro = q._deps.spectro ? new q._deps.spectro ( q ) : null;
 
 			if (q.multitrack && /[?&]multitrack=1\b/.test(w.location.search)) {
 				q.multitrack.Toggle (true);

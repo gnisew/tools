@@ -1,6 +1,37 @@
 (function ( w, d, PKAE ) {
 	'use strict';
 
+	/* 錄音偏好：回音消除／降噪／自動增益／輸入裝置。
+	 * 「新錄音」視窗與一般錄音、多軌錄音共用；存在 localStorage。
+	 * 三項瀏覽器處理預設關閉（會壓縮動態、影響音質）。 */
+	var REC_PREF_KEY = 'pk_rec_prefs';
+	var rec_prefs = { echo: false, noise: false, agc: false, deviceId: '' };
+	try {
+		var saved_prefs = JSON.parse ( w.localStorage.getItem ( REC_PREF_KEY ) || '{}' );
+		if (saved_prefs.echo !== undefined) rec_prefs.echo = !!saved_prefs.echo;
+		if (saved_prefs.noise !== undefined) rec_prefs.noise = !!saved_prefs.noise;
+		if (saved_prefs.agc !== undefined) rec_prefs.agc = !!saved_prefs.agc;
+		if (typeof saved_prefs.deviceId === 'string') rec_prefs.deviceId = saved_prefs.deviceId;
+	} catch (e) {}
+
+	PKAE._deps.recPrefs = {
+		get: function () { return rec_prefs; },
+		set: function ( key, val ) {
+			if (!(key in rec_prefs)) return ;
+			rec_prefs[ key ] = key === 'deviceId' ? String ( val || '' ) : !!val;
+			try { w.localStorage.setItem ( REC_PREF_KEY, JSON.stringify ( rec_prefs ) ); } catch (e) {}
+		},
+		audioConstraints: function () {
+			var c = {
+				echoCancellation: !!rec_prefs.echo,
+				noiseSuppression: !!rec_prefs.noise,
+				autoGainControl: !!rec_prefs.agc
+			};
+			if (rec_prefs.deviceId) c.deviceId = rec_prefs.deviceId;
+			return c;
+		}
+	};
+
 	var PKREC = function ( app ) {
 		var q = this;
 
@@ -138,11 +169,7 @@
 			aggr_i = 0;
 
 			var id = ++capture_id;
-			var audio_constraints = {
-				echoCancellation: true,
-				noiseSuppression: true,
-				autoGainControl: true
-			};
+			var audio_constraints = PKAE._deps.recPrefs.audioConstraints ();
 			navigator.mediaDevices.getUserMedia ({
 				audio: audio_constraints,
 				video: false

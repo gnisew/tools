@@ -105,6 +105,14 @@
 		var mixer_prev = null;
 		var mixer_changed = false;
 		var mixer_meters = {};
+		var level_hold = {};   // id -> {v: 0..1, ts}  峰值保持
+		var level_clip = {};   // id -> true         爆音（鎖存，點擊清除）
+		var level_peak = {};   // id -> 最大峰值 dB
+		var level_els = {};    // id -> 音軌表頭上的電平表元件
+		var level_last = 0;
+		var live_meter = null;   // 即時響度（M / S / I / True Peak / 相位），播放時餵入
+		var live_rate = 0;
+		var LEVEL_CLIP_DB = -0.01;
 		var lane_by_track = {};
 
 		var play = null;
@@ -254,9 +262,10 @@
 		}
 
 		function trackColor ( id ) {
+			var cl = (window.PKPal && window.PKPal ().clip) || track_colors;
 			for (var i = 0; i < tracks.length; ++i)
-				if (tracks[i].id === id) return track_colors[i % track_colors.length];
-			return track_colors[0];
+				if (tracks[i].id === id) return cl[i % cl.length];
+			return cl[0];
 		}
 
 		function cloneState () {
@@ -304,6 +313,7 @@
 		}
 
 		function pushState ( prev, desc ) {
+			scheduleAutoSave ();
 			app.fireEvent ('StateRequestPush', {
 				type: 'mult',
 				desc: desc,
@@ -321,6 +331,7 @@
 
 		function restoreState ( state, keep_beat ) {
 			if (!state) return ;
+			scheduleAutoSave ();
 
 			Stop ();
 			tracks = state.tracks.map (function ( t ) {
@@ -420,6 +431,194 @@
 			app.fireEvent ('DidDownloadFile');
 			return true;
 		}
+
+		/* ---- 多軌自動儲存 ----
+		 * 編輯後 3 秒（播放／錄音中順延）把整個多軌專案編成 .amss 存進 IndexedDB，
+		 * 下次開啟時詢問是否還原。使用獨立資料庫，不影響單軌的自動儲存。 */
+		var AUTO_DB = 'soundit-mt-autosave';
+		var auto_on = false;
+		var auto_dirty = false;
+		var auto_busy = false;
+		var auto_timer = 0;
+
+		function zhUI () {
+			return /^zh/i.test ( (PKLocale.getLang && PKLocale.getLang ()) || '' );
+		}
+
+		function autoOpen ( cb ) {
+			var req;
+			try {
+				req = w.indexedDB.open ( AUTO_DB, 1 );
+			}
+			catch (e) {
+				cb ( null );
+				return ;
+			}
+			req.onupgradeneeded = function () {
+				req.result.createObjectStore ('s');
+			};
+			req.onsuccess = function () { cb ( req.result ); };
+			req.onerror = req.onblocked = function () { cb ( null ); };
+		}
+
+		function autoPut ( rec, cb ) {
+			autoOpen (function ( db ) {
+				if (!db) { cb && cb ( false ); return ; }
+				try {
+					var tx = db.transaction ('s', 'readwrite');
+					tx.objectStore ('s').put ( rec, 'current' );
+					tx.oncomplete = function () { db.close (); cb && cb ( true ); };
+					tx.onerror = tx.onabort = function () { db.close (); cb && cb ( false ); };
+				}
+				catch (e) { db.close (); cb && cb ( false ); }
+			});
+		}
+
+		function autoGet ( cb ) {
+			autoOpen (function ( db ) {
+				if (!db) { cb ( null ); return ; }
+				try {
+					var req = db.transaction ('s').objectStore ('s').get ('current');
+					req.onsuccess = function () { db.close (); cb ( req.result || null ); };
+					req.onerror = function () { db.close (); cb ( null ); };
+				}
+				catch (e) { db.close (); cb ( null ); }
+			});
+		}
+
+		function autoClear ( cb ) {
+			autoOpen (function ( db ) {
+				if (!db) { cb && cb (); return ; }
+				try {
+					var tx = db.transaction ('s', 'readwrite');
+					tx.objectStore ('s').delete ('current');
+					tx.oncomplete = tx.onerror = tx.onabort = function () { db.close (); cb && cb (); };
+				}
+				catch (e) { db.close (); cb && cb (); }
+			});
+		}
+
+		function scheduleAutoSave () {
+			if (!auto_on) return ;
+			auto_dirty = true;
+			if (auto_timer) w.clearTimeout ( auto_timer );
+			auto_timer = w.setTimeout ( runAutoSave, 3000 );
+		}
+
+		function runAutoSave () {
+			auto_timer = 0;
+			if (!auto_dirty) return ;
+			if (auto_busy || play || rec) {
+				auto_timer = w.setTimeout ( runAutoSave, 3000 );
+				return ;
+			}
+			// 專案被清空：同步清掉自動儲存，避免下次還原已刪除的內容
+			if (!clips.length) {
+				auto_dirty = false;
+				autoClear ();
+				return ;
+			}
+			if (!app.amss || !app.amss.EncodeMultitrack) return ;
+
+			var blob = null;
+			try {
+				var st = cloneState ();
+				if (app.mrk) st.markers = app.mrk.serMt ();
+				blob = app.amss.EncodeMultitrack ( st );
+			}
+			catch (e) { blob = null; }
+			if (!blob) return ;
+
+			auto_busy = true;
+			auto_dirty = false;
+			var count = clips.length;
+			var r = new FileReader ();
+			r.onload = function () {
+				autoPut ({buf: r.result, time: Date.now (), clips: count}, function ( ok ) {
+					auto_busy = false;
+					if (!ok) auto_dirty = true;
+					if (auto_dirty) scheduleAutoSave ();
+				});
+			};
+			r.onerror = function () {
+				auto_busy = false;
+				auto_dirty = true;
+			};
+			r.readAsArrayBuffer ( blob );
+		}
+
+		function askAutoRestore ( rec ) {
+			var zh = zhUI ();
+			var when = '';
+			try { when = new Date ( rec.time ).toLocaleString (); } catch (e) {}
+			var done = false;
+			function finish () {
+				if (done) return ;
+				done = true;
+				auto_on = true;
+			}
+			if (!w.PKSimpleModal || !app.ui) { finish (); return ; }
+
+			new PKSimpleModal ({
+				title : zh ? '還原多軌專案' : 'Restore multitrack project',
+				clss  : 'pk_modal_anim pk_fnt10',
+				ondestroy : function () {
+					app.ui.InteractionHandler.on = false;
+					app.ui.KeyHandler.removeCallback ('modalTempErr');
+					finish ();
+				},
+				buttons : [
+					{
+						title : zh ? '還原' : 'Restore',
+						callback : function ( q ) {
+							LoadSessionBuffer ( rec.buf, zh ? '自動儲存' : 'Autosave' );
+							q.Destroy ();
+						}
+					},
+					{
+						title : zh ? '捨棄' : 'Discard',
+						callback : function ( q ) {
+							autoClear ();
+							q.Destroy ();
+						}
+					}
+				],
+				body : '<p>' + (zh ?
+					'偵測到上次尚未儲存的多軌專案（' + rec.clips + ' 個片段' + (when ? '，' + when : '') + '）。要還原嗎？' :
+					'An unsaved multitrack project was found (' + rec.clips + ' clips' + (when ? ', ' + when : '') + '). Restore it?') + '</p>',
+				setup : function ( q ) {
+					app.ui.InteractionHandler.checkAndSet ('modal');
+					app.ui.KeyHandler.addCallback ('modalTempErr', function () {
+						q.Destroy ();
+					}, [27]);
+				}
+			}).Show ();
+		}
+
+		function autoRestoreCheck ( tries ) {
+			if (!app.ui || !app.ui.InteractionHandler || !app.engine) {
+				if ((tries || 0) < 20) w.setTimeout (function () { autoRestoreCheck ( (tries || 0) + 1 ); }, 500);
+				return ;
+			}
+			if (w.location.href.indexOf ('local=') !== -1) { auto_on = true; return ; }
+			autoGet (function ( rec ) {
+				if (!rec || !rec.buf || !app.amss || !app.amss.IsBuffer ||
+					!app.amss.IsBuffer ( rec.buf ) || clips.length)
+				{
+					auto_on = true;
+					return ;
+				}
+				askAutoRestore ( rec );
+			});
+		}
+
+		d.addEventListener ('visibilitychange', function () {
+			if (d.visibilityState === 'hidden' && auto_dirty && auto_on && !auto_busy && !play && !rec) {
+				if (auto_timer) w.clearTimeout ( auto_timer );
+				runAutoSave ();
+			}
+		});
+		w.setTimeout ( autoRestoreCheck, 2000 );
 
 		function LoadSessionFiles ( files ) {
 			return !!(app.amss &&
@@ -720,6 +919,7 @@
 			btn_toggle.setAttribute ('tabIndex', -1);
 			btn_toggle.className = 'pk_mt_topbtn';
 			btn_toggle.innerHTML = t('mt.toggle');
+			btn_toggle.title = /^zh/i.test ( (PKLocale.getLang && PKLocale.getLang ()) || '' ) ? '快捷鍵：E' : 'Shortcut: E';
 			btn_toggle.onclick = function () {
 				Toggle ();
 				this.blur ();
@@ -996,9 +1196,19 @@
 			region_el.ondblclick = passRegionEventToClip;
 		}
 
+		// 預設音軌名稱（Channel N / 音軌 N）跟著目前介面語言走
+		function localizeTrackNames () {
+			var base = t('mt.channel_n');
+			for (var i = 0; i < tracks.length; ++i) {
+				var m = /^(?:Channel|音軌)\s*(\d+)$/.exec ( tracks[i].name || '' );
+				if (m && tracks[i].name !== base + m[1]) tracks[i].name = base + m[1];
+			}
+		}
+
 		function render () {
 			cancelRender ();
 			if (!el) return ;
+			localizeTrackNames ();
 
 			lane_by_track = {};
 			clip_els = {};
@@ -1007,6 +1217,7 @@
 			rec_el = null;
 			rec_canvas = null;
 			tracks_el.innerHTML = '';
+			level_els = {};
 			if (beat_canvas && beat_canvas.parentNode)
 				beat_canvas.parentNode.removeChild ( beat_canvas );
 			lanes.innerHTML = '';
@@ -1186,7 +1397,8 @@
 				ctx.moveTo (x, 0);
 				ctx.lineTo (x, height);
 			}
-			ctx.strokeStyle = 'rgba(90,242,255,.09)';
+			var _pkp = (window.PKPal ? window.PKPal () : {bg:'#000',wave:'#99c2c6',off:'#505253',limit:'#fff',rulerBg:'#111',rulerFg:'#aaa',meterBg:'#000',meterTick:'#ffffff',meterGrid:'rgba(255,255,255,0.28)',meterText:'#cfd8dc',recBg:'#101008',recWave:'#e13030',fade:'rgba(240,216,120,.75)',fadeFill:'rgba(240,216,120,.08)',beatMinor:'rgba(90,242,255,.09)',beatMajor:'rgba(240,216,120,.22)'});
+			ctx.strokeStyle = _pkp.beatMinor;
 			ctx.stroke ();
 
 			n = first - (first % bar);
@@ -1196,7 +1408,7 @@
 				ctx.moveTo (x, 0);
 				ctx.lineTo (x, height);
 			}
-			ctx.strokeStyle = 'rgba(240,216,120,.22)';
+			ctx.strokeStyle = _pkp.beatMajor;
 			ctx.stroke ();
 		}
 
@@ -1212,6 +1424,7 @@
 			var input = d.createElement ('input');
 			input.type = 'text';
 			input.value = track.name;
+			input.title = track.name;
 			input.spellcheck = false;
 			input.onmousedown = stopTrackInputEvent;
 			input.onclick = stopTrackInputEvent;
@@ -1287,6 +1500,30 @@
 			row.appendChild ( pan );
 			if (!app.isMobile) row.appendChild ( arm );
 			row.appendChild ( del );
+
+			// 電平表 + 爆音燈（點擊清除爆音）
+			var meter = d.createElement ('div');
+			meter.className = 'pk_mt_meter';
+			var led = d.createElement ('u');
+			led.className = 'pk_mt_clip';
+			var bar = d.createElement ('span');
+			bar.className = 'pk_mt_mbar';
+			var fill = d.createElement ('i');
+			var hold = d.createElement ('b');
+			bar.appendChild ( fill );
+			bar.appendChild ( hold );
+			meter.appendChild ( led );
+			meter.appendChild ( bar );
+			meter.onmousedown = function ( e ) { e.stopPropagation (); };
+			meter.onclick = function ( e ) {
+				e.stopPropagation ();
+				ResetClips ( track.id );
+			};
+			row.appendChild ( meter );
+			level_els[track.id] = {box: meter, fill: fill, hold: hold, led: led,
+				pct: -1, hv: -1, clip: null};
+			paintLevel ( track.id );
+
 			row.appendChild ( resize );
 			tracks_el.appendChild ( row );
 
@@ -1610,19 +1847,113 @@
 			mixer_type = val && val.type;
 		}
 
-		function updateMixerMeters ( vals, master ) {
-			if (!mixer_on) return ;
-			mixer_meters.master = dbPct ( master );
-			for (var i = 0; i < tracks.length; ++i)
-				mixer_meters[tracks[i].id] = dbPct ( vals && vals[tracks[i].id] );
+		function clipTip () {
+			var lang = (PKLocale.getLang && PKLocale.getLang ()) || '';
+			return /^zh/i.test ( lang ) ? '爆音（點擊清除）' : 'Clipped (click to reset)';
+		}
+
+		function paintLevel ( id ) {
+			var e = level_els[id];
+			if (!e) return ;
+			var pct = mixer_meters[id] || 0;
+			if (e.pct !== pct) {
+				e.pct = pct;
+				e.fill.style.transform = 'scaleY(' + pct + ')';
+			}
+			var hv = (level_hold[id] && level_hold[id].v) || 0;
+			if (e.hv !== hv) {
+				e.hv = hv;
+				e.hold.style.bottom = (hv * 100) + '%';
+				e.hold.style.opacity = hv > 0 ? '.85' : '0';
+			}
+			var c = !!level_clip[id];
+			if (e.clip !== c) {
+				e.clip = c;
+				e.led.classList[c ? 'add' : 'remove'] ('pk_mt_on');
+				e.box.title = c ?
+					clipTip () + ' ' + (level_peak[id] || 0).toFixed (1) + ' dB' : '';
+			}
+		}
+
+		function ResetClips ( id ) {
+			if (id) {
+				level_clip[id] = false;
+				level_peak[id] = -100;
+				paintLevel ( id );
+				return ;
+			}
+			level_clip = {};
+			level_peak = {};
+			for (var k in level_els) paintLevel ( k );
+		}
+
+		// 每個畫面更新：vals = 各音軌峰值 dB，master = 總輸出峰值 dB
+		function updateMixerMeters ( vals, master, lr ) {
+			var now = w.performance.now ();
+			var dt = level_last ? Math.min (100, now - level_last) : 16;
+			level_last = now;
+
+			var ids = ['master'];
+			for (var i = 0; i < tracks.length; ++i) ids.push ( tracks[i].id );
+
+			for (var j = 0; j < ids.length; ++j) {
+				var id = ids[j];
+				var db = id === 'master' ? master : (vals ? vals[id] : undefined);
+				if (db === undefined || db === null) db = -100;
+
+				var pct = dbPct ( db );
+				mixer_meters[id] = pct;
+				holdStep ( id, pct, now, dt );
+
+				if (db >= LEVEL_CLIP_DB) level_clip[id] = true;
+				if (db > (level_peak[id] === undefined ? -100 : level_peak[id]))
+					level_peak[id] = db;
+
+				paintLevel ( id );
+			}
+
+			// 主控軌左右聲道各自的電平與峰值保持
+			if (lr) {
+				mixer_meters.masterL = dbPct ( lr[0] );
+				mixer_meters.masterR = dbPct ( lr[1] );
+				holdStep ( 'masterL', mixer_meters.masterL, now, dt );
+				holdStep ( 'masterR', mixer_meters.masterR, now, dt );
+			}
+		}
+
+		function holdStep ( id, pct, now, dt ) {
+			var h = level_hold[id] || (level_hold[id] = {v: 0, ts: 0});
+			if (pct >= h.v) {
+				h.v = pct;
+				h.ts = now;
+			}
+			else if (now - h.ts > 800) h.v = Math.max ( pct, h.v - dt * 0.0006 );
+		}
+
+		// 停止播放：電平歸零，爆音燈保留到使用者清除
+		function levelIdle () {
+			level_last = 0;
+			for (var k in mixer_meters) mixer_meters[k] = 0;
+			for (var h in level_hold) level_hold[h] = {v: 0, ts: 0};
+			for (var id in level_els) paintLevel ( id );
+		}
+
+		function liveMeter ( rate ) {
+			var L = PKAE._deps.lufs;
+			if (!L || !L.createLive) return null;
+			if (!live_meter || live_rate !== rate) {
+				live_meter = L.createLive ( rate );
+				live_rate = rate;
+			}
+			return live_meter;
 		}
 
 		function dbPct ( db ) {
 			return db === undefined ? 0 : Math.max (0, Math.min (1, (db + 80) / 80));
 		}
-		function meterDb ( arr ) {
+		function meterDb ( arr, n ) {
 			var peak = 0;
-			for (var i = 0; i < arr.length; ++i) {
+			for (var i = n ? Math.max (0, arr.length - n) : 0; i < arr.length; ++i) {
 				var v = Math.abs ( arr[i] );
 				if (v > peak) peak = v;
 			}
@@ -1642,17 +1973,39 @@
 					sel:t.id === selected_track,
 					vol:t.vol === undefined ? 1 : t.vol,
 					pan:t.pan || 0,
-					meter:mixer_meters[t.id] || 0
+					meter:mixer_meters[t.id] || 0,
+					hold:(level_hold[t.id] && level_hold[t.id].v) || 0,
+					clip:!!level_clip[t.id],
+					peak:level_peak[t.id] === undefined ? -100 : level_peak[t.id]
 				});
 			}
 			return {
 				on:IsOn (),
 				tracks:list,
-				master:{vol:master_vol, meter:mixer_meters.master || 0}
+				master:{
+					vol:master_vol,
+					meter:mixer_meters.master || 0,
+					hold:(level_hold.master && level_hold.master.v) || 0,
+					clip:!!level_clip.master,
+					peak:level_peak.master === undefined ? -100 : level_peak.master,
+					meterL:mixer_meters.masterL || 0,
+					meterR:mixer_meters.masterR || 0,
+					holdL:(level_hold.masterL && level_hold.masterL.v) || 0,
+					holdR:(level_hold.masterR && level_hold.masterR.v) || 0
+				},
+				loud:live_meter ? live_meter.snapshot () : null
 			};
 		}
 
 		function MixerSet ( id, key, val, done ) {
+			if (key === 'clip_reset') {
+				ResetClips ( id === 'all' ? undefined : id );
+				return true;
+			}
+			if (key === 'loud_reset') {
+				live_meter && live_meter.reset ();
+				return true;
+			}
 			var t = id === 'master' ? null : findTrack ( id );
 			var old = t ? (key === 'vol' && t.vol === undefined ? 1 : t[key]) : master_vol;
 			var desc = key === 'pan' ? tDesc ('mt.desc.pan_channel', 'Pan Channel') :
@@ -1995,6 +2348,8 @@
 
 			var label = d.createElement ('span');
 			label.textContent = clip.name || 'Audio';
+			label.title = clip.name || 'Audio';
+			if (cw < 28) label.style.display = 'none';
 
 			var canvas = d.createElement ('canvas');
 			var trim_l = d.createElement ('i');
@@ -2440,8 +2795,9 @@
 			if (dur <= 0 || !(clip.fi || clip.fo)) return ;
 			var fi = Math.min (wdt, (clip.fi || 0) / dur * wdt);
 			var fo = Math.min (wdt, (clip.fo || 0) / dur * wdt);
-			ctx.strokeStyle = 'rgba(240,216,120,.75)';
-			ctx.fillStyle = 'rgba(240,216,120,.08)';
+			var _pkp = (window.PKPal ? window.PKPal () : {bg:'#000',wave:'#99c2c6',off:'#505253',limit:'#fff',rulerBg:'#111',rulerFg:'#aaa',meterBg:'#000',meterTick:'#ffffff',meterGrid:'rgba(255,255,255,0.28)',meterText:'#cfd8dc',recBg:'#101008',recWave:'#e13030',fade:'rgba(240,216,120,.75)',fadeFill:'rgba(240,216,120,.08)',beatMinor:'rgba(90,242,255,.09)',beatMajor:'rgba(240,216,120,.22)'});
+			ctx.strokeStyle = _pkp.fade;
+			ctx.fillStyle = _pkp.fadeFill;
 			if (fi > 1) {
 				ctx.beginPath ();
 				ctx.moveTo (0, hgt);
@@ -2571,7 +2927,7 @@
 				canvas.width = wdt;
 				canvas.height = hgt;
 				var bg = canvas.getContext ('2d', {alpha:false});
-				bg.fillStyle = '#101008';
+				bg.fillStyle = (window.PKPal ? window.PKPal () : {bg:'#000',wave:'#99c2c6',off:'#505253',limit:'#fff',rulerBg:'#111',rulerFg:'#aaa',meterBg:'#000',meterTick:'#ffffff',meterGrid:'rgba(255,255,255,0.28)',meterText:'#cfd8dc',recBg:'#101008',recWave:'#e13030',fade:'rgba(240,216,120,.75)',fadeFill:'rgba(240,216,120,.08)',beatMinor:'rgba(90,242,255,.09)',beatMajor:'rgba(240,216,120,.22)'}).recBg;
 				bg.fillRect (0, 0, wdt, hgt);
 				return ;
 			}
@@ -2584,9 +2940,10 @@
 			canvas.height = hgt;
 
 			var ctx = canvas.getContext ('2d', {alpha:false});
-			ctx.fillStyle = '#101008';
+			var _pkp = (window.PKPal ? window.PKPal () : {bg:'#000',wave:'#99c2c6',off:'#505253',limit:'#fff',rulerBg:'#111',rulerFg:'#aaa',meterBg:'#000',meterTick:'#ffffff',meterGrid:'rgba(255,255,255,0.28)',meterText:'#cfd8dc',recBg:'#101008',recWave:'#e13030',fade:'rgba(240,216,120,.75)',fadeFill:'rgba(240,216,120,.08)',beatMinor:'rgba(90,242,255,.09)',beatMajor:'rgba(240,216,120,.22)'});
+			ctx.fillStyle = _pkp.recBg;
 			ctx.fillRect (0, 0, wdt, hgt);
-			ctx.fillStyle = '#e13030';
+			ctx.fillStyle = _pkp.recWave;
 
 			for (var x = 0; x < wdt; ++x) {
 				var max = 0;
@@ -3914,7 +4271,7 @@
 			if (!track) return true;
 
 			var prev = cloneState ();
-			var clip = makeClip ( track, marker, buffer, meta ? meta.name : 'Paste' );
+			var clip = makeClip ( track, marker, buffer, meta ? meta.name : PKLocale.t('mt.paste_clip') );
 			if (meta) {
 				clip.in = meta.in;
 				clip.out = meta.out;
@@ -4020,29 +4377,48 @@
 			}
 		}
 
-		function meterAt ( time ) {
+		// 回傳每條音軌在 [time - span, time] 內的峰值 dB（含音軌音量、聲像、片段包絡）
+		function meterAt ( time, span ) {
+			span = span || 0;
 			var solo = hasSolo ();
 			var vals = {};
 			for (var i = 0; i < clips.length; ++i) {
 				var clip = clips[i];
 				var tr = findTrack ( clip.track );
 				var gain = trackGain ( tr, solo );
-				if (!tr || gain <= 0 || time < clip.start || time > clipEnd ( clip ))
+				var cend = clipEnd ( clip );
+				if (!tr || gain <= 0 || time < clip.start || time - span > cend)
 					continue;
 
-				var src = clipIn ( clip ) + time - clip.start;
+				var t1 = Math.min ( time, cend );
+				var t0 = Math.max ( time - span, clip.start );
+				if (t0 > t1) t0 = t1;
+
+				var buf = clip.buffer;
+				var rate = buf.sampleRate;
+				var s0 = ((clipIn ( clip ) + t0 - clip.start) * rate) >> 0;
+				var n = Math.max (1, ((t1 - t0) * rate) >> 0);
+				var step = Math.max (1, (n / 1024) >> 0);
+				var dl = buf.getChannelData ( 0 );
+				var dr = buf.numberOfChannels > 1 ? buf.getChannelData ( 1 ) : dl;
+				var pl = 0;
+				var pr = 0;
+				for (var j = 0; j <= n; j += step) {
+					var a = dl[s0 + j];
+					var c = dr[s0 + j];
+					if (a < 0) a = -a;
+					if (c < 0) c = -c;
+					if (a > pl) pl = a;
+					if (c > pr) pr = c;
+				}
+
 				var pan = tr.pan || 0;
 				var gl = gain * (pan > 0 ? 1 - pan : 1);
 				var gr = gain * (pan < 0 ? 1 + pan : 1);
-				var env = clipGainAt (clip, time);
-				var l = mixSample ( clip.buffer, 0, src ) * gl * env;
-				var r = mixSample (
-					clip.buffer,
-					clip.buffer.numberOfChannels > 1 ? 1 : 0,
-					src
-				) * gr * env;
+				var env = clipGainAt ( clip, time );
+				var peak = Math.max ( pl * gl, pr * gr ) * env;
 
-				vals[tr.id] = Math.max (vals[tr.id] || 0, Math.sqrt ((l * l + r * r) / 2));
+				vals[tr.id] = Math.max (vals[tr.id] || 0, peak);
 			}
 
 			for (var k in vals)
@@ -4388,7 +4764,7 @@
 			render ();
 			restoreZoomScroll ( zoom );
 			if (replace && app.mrk) app.mrk.loadMt ([
-				{id:'m1', time:28.274, name:'Here!', color:'#9dff6a'}
+				{id:'m1', time:28.274, name:PKLocale.t('mt.marker_here'), color:'#9dff6a'}
 			], false);
 			app.fireEvent ('DidUpdateMultitrack');
 			OneUp (added + ' ' + t('mt.msg.added_samples'));
@@ -4634,6 +5010,7 @@
 
 			if (!clip || !buffer) return ;
 			clip.buffer = buffer;
+			scheduleAutoSave ();
 			if (clipOut ( clip ) > buffer.duration) clip.out = buffer.duration;
 			if (clipIn ( clip ) > clipOut ( clip ) - 0.05)
 				clip.in = Math.max (0, clipOut ( clip ) - 0.05);
@@ -4683,7 +5060,7 @@
 			var meter_r = ctx.createAnalyser ();
 			var master = ctx.createGain ();
 			analyser.fftSize = logFrequencies () ? 1024 : 256;
-			meter_l.fftSize = meter_r.fftSize = 256;
+			meter_l.fftSize = meter_r.fftSize = 2048;
 			master.gain.value = master_vol;
 			master.connect ( analyser );
 			analyser.connect ( splitter );
@@ -4728,6 +5105,7 @@
 				nodes.push ({src: source, gain: gain, env: env, pan: pan, track: tr.id, clip: clip});
 			}
 
+			ResetClips ();
 			play = {
 				ctx: ctx,
 				start: start_ctx,
@@ -4740,9 +5118,29 @@
 				meter_l: meter_l,
 				meter_r: meter_r,
 				master: master,
-				meter: [new Float32Array (128), new Float32Array (128)],
+				meter: [new Float32Array (2048), new Float32Array (2048)],
 				freq: null
 			};
+
+			/* 即時響度：旁路的 ScriptProcessor 取得「連續、左右對齊」的立體聲樣本，
+			 * 經零增益接到輸出才會被瀏覽器驅動；不在聲音路徑上，所以不增加延遲。 */
+			var lm = liveMeter ( ctx.sampleRate );
+			if (lm && !silent) lm.reset ();
+			if (lm && ctx.createScriptProcessor) {
+				var sp = ctx.createScriptProcessor ( 2048, 2, 2 );
+				var sink = ctx.createGain ();
+				sink.gain.value = 0;
+				sp.onaudioprocess = function ( ev ) {
+					var inp = ev.inputBuffer;
+					var l = inp.getChannelData ( 0 );
+					lm.push ( l, inp.numberOfChannels > 1 ? inp.getChannelData ( 1 ) : null, 0, l.length, true );
+				};
+				master.connect ( sp );
+				sp.connect ( sink );
+				sink.connect ( ctx.destination );
+				play.sp = sp;
+				play.sink = sink;
+			}
 			if (!silent) app.fireEvent ('DidPlay');
 			tick ();
 		}
@@ -4799,7 +5197,7 @@
 			}
 			play.meter_l.getFloatTimeDomainData ( play.meter[0] );
 			play.meter_r.getFloatTimeDomainData ( play.meter[1] );
-			var loudness = [meterDb (play.meter[0]), meterDb (play.meter[1])];
+			var loudness = [meterDb (play.meter[0], 512), meterDb (play.meter[1], 512)];
 			var db = Math.max (loudness[0], loudness[1]);
 			var stamp = w.performance.now ();
 			var freq = null;
@@ -4818,7 +5216,8 @@
 				play.analyser.fftSize = 256;
 			}
 				app.fireEvent ('DidAudioProcess', [cursor, loudness, stamp], freq);
-				if (mixer_on) updateMixerMeters ( meterAt (cursor), db );
+			var span = level_last ? Math.max (0.008, Math.min (0.06, (stamp - level_last) / 1000)) : 0.016;
+			updateMixerMeters ( meterAt ( cursor, span ), db, loudness );
 			followPlayback ();
 			updatePlayhead ();
 			raf = w.requestAnimationFrame ( tick );
@@ -4868,7 +5267,7 @@
 			play = null;
 			app.fireEvent ('DidAudioProcess', [cursor, null, w.performance.now ()]);
 			app.fireEvent ('DidStopPlay');
-			updateMixerMeters ( null );
+			levelIdle ();
 			updatePlayhead ();
 			fireZoom ();
 		}
@@ -4910,6 +5309,11 @@
 				if (play.nodes[i].pan) {
 					try { play.nodes[i].pan.disconnect (); } catch (e5) {}
 				}
+			}
+			if (play.sp) {
+				play.sp.onaudioprocess = null;
+				try { play.sp.disconnect (); } catch (e12) {}
+				try { play.sink.disconnect (); } catch (e13) {}
 			}
 			if (play.master) {
 				try { play.master.disconnect (); } catch (e6) {}
@@ -5243,6 +5647,10 @@
 			stopFxPreview ( true );
 			var removed = false;
 			var prev = cloneState ();
+			/* [階段 2 項目 10] 波紋刪除（標記清單面板的選項，預設關閉）：後面的片段與標記一起往前移 */
+			var rip_clip = findClip ( selected_clip );
+			var rip = !!(rip_clip && app.mrk && app.mrk.ripple && app.mrk.ripple ());
+			var rip_at = rip ? rip_clip.start : 0, rip_len = rip ? clipLen ( rip_clip ) : 0;
 			for (var i = clips.length - 1; i >= 0; --i) {
 				if (clips[i].id === selected_clip) {
 					clips.splice (i, 1);
@@ -5251,10 +5659,17 @@
 				}
 			}
 			if (!removed) return false;
+			if (rip && rip_len > 0.001) {
+				/* 只移動「整個在被刪片段之後」的片段（所有軌）；跨過被刪範圍的片段維持原位 */
+				for (var ri = 0; ri < clips.length; ++ri)
+					if (clips[ri].start >= rip_at + rip_len - 0.0005) clips[ri].start = Math.max (0, clips[ri].start - rip_len);
+			}
 			if (editing_clip === selected_clip) editing_clip = null;
 			selected_clip = null;
 			app.fireEvent ('DidDeselectClip');
 			pushState ( prev, t('mt.desc.delete_clip') );
+			/* 標記要在 pushState 之後位移：復原快照已在 pushState 時附上（見 markers.js） */
+			if (rip && rip_len > 0.001) { try { app.mrk.editShift ('remove', rip_at, rip_len, 0, 'mt'); } catch (e) {} }
 			queuePlayRefresh ( true );
 			render ();
 			app.fireEvent ('DidUpdateMultitrack');
@@ -5340,6 +5755,8 @@
 		q.GetCursor = function () { return cursor; };
 		q.GetMarker = function () { return marker; };
 		q.GetCursorPercent = GetCursorPercent;
+		/* 目前可見的時間範圍 [起, 迄]（秒）；標記跳轉時判斷要不要捲動 */
+		q.GetVisible = function () { return main && main.clientWidth ? [main.scrollLeft / Math.max (0.0001, px_per_sec), (main.scrollLeft + main.clientWidth) / Math.max (0.0001, px_per_sec)] : null; };
 		q.GetDuration = duration;
 		q.GetRegion = function () { return region; };
 		q.HasClips = hasClips;
@@ -5540,6 +5957,11 @@
 			return false;
 		};
 
+		/* 切換淺色／深色：片段波形、格線是畫在畫布上的，要重畫 */
+		w.PKTheme && w.PKTheme.onChange && w.PKTheme.onChange (function () {
+			try { IsOn () && render (); } catch (e) {}
+		});
+
 		app.listenFor ('RequestOriginalEditor', function () {
 			if (IsOn ()) Toggle ( false );
 		});
@@ -5551,6 +5973,13 @@
 		});
 		app.listenFor ('DidToggleFreqAn', function ( url, val ) {
 			if (url === 'mix') updateMixerButton ( val );
+		});
+		// 快捷鍵 E：多軌中有選取片段 → 在單軌編輯器開啟該片段；否則在單軌／多軌之間切換
+		app.listenFor ('RequestMultitrackSwitch', function () {
+			if (rec) return ;
+			var clip = IsOn () && selected_clip && findClip ( selected_clip );
+			if (clip) loadClip ( clip );
+			else Toggle ();
 		});
 		app.listenFor ('DidViewTimelineToggle', function ( val ) {
 			timeline_on = !!val;
@@ -5585,4 +6014,3 @@
 
 	PKAE._deps.multitrack = PKMultitrack;
 })( window, document, PKAudioEditor );
-

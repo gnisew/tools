@@ -811,7 +811,7 @@
 			var sel1 = range.type === 'lowpass' ? 'selected' : '';
 			var sel2 = range.type === 'highpass' ? 'selected' : '';
 			var el_type = d.createElement ('div');
-			el_type.innerHTML = '<select><option>peaking</option><option ' + sel1 + '>lowpass</option><option ' + sel2 + '>highpass</option></select>';
+			el_type.innerHTML = '<select><option value="peaking">' + PKLocale.t('eq.type_peaking') + '</option><option value="lowpass" ' + sel1 + '>' + PKLocale.t('eq.type_lowpass') + '</option><option value="highpass" ' + sel2 + '>' + PKLocale.t('eq.type_highpass') + '</option></select>';
 
 			el_type.getElementsByTagName('select')[0].onchange = function ( e ) {
 				var val = this.options[this.selectedIndex].value;
@@ -1696,10 +1696,11 @@
 						tempCtx.drawImage (canvas, 0, 0);
 					}
 
-					ctx.fillStyle = "#000";
+					var _pkp = (window.PKPal ? window.PKPal () : {bg:'#000',wave:'#99c2c6',off:'#505253',limit:'#fff',rulerBg:'#111',rulerFg:'#aaa',meterBg:'#000',meterTick:'#ffffff',meterGrid:'rgba(255,255,255,0.28)',meterText:'#cfd8dc',recBg:'#101008',recWave:'#e13030',fade:'rgba(240,216,120,.75)',fadeFill:'rgba(240,216,120,.08)',beatMinor:'rgba(90,242,255,.09)',beatMajor:'rgba(240,216,120,.22)'});
+					ctx.fillStyle = _pkp.bg;
 
 					ctx.fillRect ( 0, 0, width * 2, height * 2 );
-					ctx.fillStyle = '#99c2c6';
+					ctx.fillStyle = _pkp.wave;
 
 					if (quick_render)
 					{
@@ -1963,12 +1964,12 @@
 
 				function runMainEstimator ( q, buffer, job, ok, fail, msg ) {
 					var status = q.body.getElementsByClassName ('pk_tmp_est_status')[0];
-					status.innerHTML = msg || 'Loading tempo detector...';
+					status.innerHTML = msg || PKLocale.t('ui.tempo_loading');
 					loadEstimator (q, function () {
 						if (q.job_id !== job) return ;
 						status.innerHTML = PKLocale.t('ui.tempo_analyzing');
 						w.PKTempoEstimator.estimate (buffer).then (ok).catch (function ( e ) {
-							fail (e && e.message ? e.message : 'Could not estimate tempo.');
+							fail (e && e.message ? e.message : PKLocale.t('ui.tempo_failed'));
 						});
 					}, function () {
 						fail ('Could not load tempo detector.');
@@ -2229,6 +2230,7 @@
 		var audio_context = null;
 		var script_processor = null;
 		var rec_monitor = null;
+		var mon_node = null;
 		var rec_token = 0;
 		var media_stream_source = null;
 		var temp_buffers = []
@@ -2263,6 +2265,7 @@
 			media_stream_source && media_stream_source.disconnect ();
 			script_processor && script_processor.disconnect ();
 			rec_monitor && rec_monitor.disconnect ();
+			mon_node && mon_node.disconnect ();
 
 			var old_ctx = audio_context;
 			try {
@@ -2271,7 +2274,7 @@
 			} catch (e) {}
 
 			media_stream_source = null;
-			script_processor = rec_monitor = null;
+			script_processor = rec_monitor = mon_node = null;
 			audio_stream = null; audio_context = null;
 		};
 
@@ -2304,8 +2307,14 @@
 				    '</select></div>' +
 				  '<div class="pk_rec_f pk_recdev"><label>' + PKLocale.t('ui.devices').replace (/[:：]\s*$/, '') + '</label><select></select></div>' +
 				'</div>' +
+				'<div class="pk_rec_opts" style="margin:6px 0" title="' + PKLocale.t('ui.rec_proc_hint') + '">' +
+				  '<div style="display:inline-block;margin:2px 14px 2px 0"><input type="checkbox" class="pk_check" id="pk_rec_ec"><label for="pk_rec_ec">' + PKLocale.t('ui.rec_echo') + '</label></div>' +
+				  '<div style="display:inline-block;margin:2px 14px 2px 0"><input type="checkbox" class="pk_check" id="pk_rec_ns"><label for="pk_rec_ns">' + PKLocale.t('ui.rec_noise') + '</label></div>' +
+				  '<div style="display:inline-block;margin:2px 14px 2px 0"><input type="checkbox" class="pk_check" id="pk_rec_agc"><label for="pk_rec_agc">' + PKLocale.t('ui.rec_agc') + '</label></div>' +
+				  '<div style="display:inline-block;margin:2px 0"><input type="checkbox" class="pk_check" id="pk_rec_mon"><label for="pk_rec_mon">' + PKLocale.t('ui.rec_monitor') + '</label></div>' +
+				'</div>' +
 				'<div class="pk_rec_meter">' +
-				  '<div class="pk_rec_vol"><label>' + PKLocale.t('mt.volume') + '</label><canvas width="200" height="40"></canvas></div>' +
+				  '<div class="pk_rec_vol"><label>' + PKLocale.t('mt.volume') + '</label><canvas width="200" height="40" title="' + PKLocale.t('ui.rec_reset_hint') + '" style="cursor:pointer"></canvas></div>' +
 				  '<div class="pk_rec_time"><label>' + PKLocale.t('ui.time') + '</label><span>0.0</span></div>' +
 				'</div>' +
 				'<div class="pk_rec_wave"><label>' + PKLocale.t('ui.waveform') + '</label>' +
@@ -2334,6 +2343,24 @@
 					var src_sel = q.el_body.getElementsByTagName('select')[0];
 					var devices_sel = q.el_body.getElementsByTagName('select')[1];
 					var dev_row = q.el_body.getElementsByClassName('pk_recdev')[0];
+
+					/* 錄音偏好（與 recorder.js 共用）*/
+					var recPrefs = PKAudioEditor._deps.recPrefs || null;
+					var opt_inputs = q.el_body.getElementsByClassName('pk_rec_opts')[0].getElementsByTagName('input');
+					var opt_echo = opt_inputs[0], opt_noise = opt_inputs[1], opt_agc = opt_inputs[2], opt_monitor = opt_inputs[3];
+					if (recPrefs) {
+						var pf = recPrefs.get ();
+						opt_echo.checked = !!pf.echo;
+						opt_noise.checked = !!pf.noise;
+						opt_agc.checked = !!pf.agc;
+						opt_echo.onchange = function () { recPrefs.set ('echo', opt_echo.checked); };
+						opt_noise.onchange = function () { recPrefs.set ('noise', opt_noise.checked); };
+						opt_agc.onchange = function () { recPrefs.set ('agc', opt_agc.checked); };
+					}
+					/* 監聽不儲存（預設每次關閉，避免喇叭回授）；錄音中可即時開關 */
+					opt_monitor.onchange = function () {
+						if (mon_node) mon_node.gain.value = opt_monitor.checked ? 1 : 0;
+					};
 					var can_display = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
 					if (!can_display) {
 						src_sel.options[2].parentNode.removeChild (src_sel.options[2]);
@@ -2342,6 +2369,9 @@
 					}
 					var syncSrc = function () {
 						dev_row.style.visibility = src_sel.value === 'sys' ? 'hidden' : 'visible';
+						/* 只有純麥克風才能監聽（否則電腦聲音會被重播而產生回音）*/
+						opt_monitor.disabled = src_sel.value !== 'mic';
+						if (opt_monitor.disabled) opt_monitor.checked = false;
 					};
 					src_sel.onchange = syncSrc;
 
@@ -2388,6 +2418,10 @@
 
 					var temp_buffer_index = -1;
 					var volume = 0;
+					var peak_now = 0;     /* 自上一幀畫面以來的最大峰值（線性）*/
+					var peak_tick = 0;    /* 畫面上緩慢下降的峰值指示 */
+					var peak_max = 0;     /* 本次錄音最大峰值，點擊電平表重設 */
+					var clip_count = 0;   /* 取樣值 >= 0.999 的取樣數 */
 					var currtime = 0;
 					var has_devices = false;
 
@@ -2404,16 +2438,73 @@
 					temp_buffers = [];
 					newbuff = null;
 
+					/* 電平表：-60 ~ 0 dBFS 對應 0 ~ 200 px */
+					var db_x = function ( v ) {
+						if (!(v > 0)) return 0;
+						var db = 20 * Math.log10 ( v );
+						return Math.max (0, Math.min (200, (db + 60) / 60 * 200));
+					};
+
+					volcanvas.onclick = function () {
+						peak_max = 0;
+						peak_tick = 0;
+						clip_count = 0;
+					};
+
 					var draw_volume = function () {
-						volctx.fillStyle = "#000";
+						var _pkp = (window.PKPal ? window.PKPal () : {bg:'#000',wave:'#99c2c6',off:'#505253',limit:'#fff',rulerBg:'#111',rulerFg:'#aaa',meterBg:'#000',meterTick:'#ffffff',meterGrid:'rgba(255,255,255,0.28)',meterText:'#cfd8dc',recBg:'#101008',recWave:'#e13030',fade:'rgba(240,216,120,.75)',fadeFill:'rgba(240,216,120,.08)',beatMinor:'rgba(90,242,255,.09)',beatMajor:'rgba(240,216,120,.22)'});
+						volctx.fillStyle = _pkp.meterBg;
 						volctx.fillRect(0,0,200,40);
 
 						if (!is_active) {
 							return ;
 						}
 
-						volctx.fillStyle = "green";
-						volctx.fillRect(0, 0, volume*200*1.67, 40);
+						/* RMS 條：綠（< -18 dB）→ 黃（< -6 dB）→ 紅 */
+						var rx = db_x ( volume );
+						var g_end = Math.min (rx, 140), y_end = Math.min (rx, 180);
+						volctx.fillStyle = "#2e9d46";
+						volctx.fillRect (0, 0, g_end, 22);
+						if (rx > 140) {
+							volctx.fillStyle = "#d4b429";
+							volctx.fillRect (140, 0, y_end - 140, 22);
+						}
+						if (rx > 180) {
+							volctx.fillStyle = "#d83a3a";
+							volctx.fillRect (180, 0, rx - 180, 22);
+						}
+
+						/* 刻度：-48 / -24 / -12 / -6 / -3 dB */
+						volctx.fillStyle = _pkp.meterGrid;
+						[0.004, 0.063, 0.251, 0.501, 0.708].forEach (function ( tv ) {
+							volctx.fillRect (Math.round (db_x ( tv )), 0, 1, 22);
+						});
+
+						/* 峰值指示：瞬間上升、緩慢下降 */
+						peak_tick = Math.max (peak_tick * 0.985, peak_now);
+						peak_now = 0;
+						if (peak_tick > 0) {
+							volctx.fillStyle = peak_tick >= 0.999 ? "#ff4d4d" : _pkp.meterTick;
+							volctx.fillRect (Math.min (198, Math.round (db_x ( peak_tick ))), 0, 2, 22);
+						}
+
+						/* 下方文字：最大峰值（dB）與爆音 */
+						volctx.font = "11px sans-serif";
+						volctx.textBaseline = "middle";
+						volctx.textAlign = "left";
+						volctx.fillStyle = peak_max >= 0.999 ? "#ff4d4d" : _pkp.meterText;
+						volctx.fillText (PKLocale.t('ui.rec_peak') + ' ' +
+							(peak_max > 0 ? (20 * Math.log10 ( peak_max )).toFixed (1) + ' dB' : '-∞'), 2, 31);
+
+						if (clip_count > 0) {
+							var clip_txt = PKLocale.t('ui.rec_clip') + ' ×' + clip_count;
+							var cw = volctx.measureText ( clip_txt ).width + 8;
+							volctx.fillStyle = "#d83a3a";
+							volctx.fillRect (200 - cw, 25, cw, 14);
+							volctx.fillStyle = "#fff";
+							volctx.textAlign = "right";
+							volctx.fillText ( clip_txt, 196, 32 );
+						}
 
 						time_span.innerText = ((currtime * 10) >> 0) / 10;
 
@@ -2443,6 +2534,17 @@
 
 						var rms =  Math.sqrt(sum / (buffer_size / 2) );
 						volume = Math.max(rms, volume * 0.9);
+
+						/* 峰值與爆音（逐一取樣，確保不漏掉單一取樣的爆音）*/
+						var chunk_peak = 0;
+						for (var pi = 0; pi < float_array.length; ++pi) {
+							var av = float_array[pi];
+							if (av < 0) av = -av;
+							if (av > chunk_peak) chunk_peak = av;
+							if (av >= 0.999) ++clip_count;
+						}
+						if (chunk_peak > peak_now) peak_now = chunk_peak;
+						if (chunk_peak > peak_max) peak_max = chunk_peak;
 
 						var curr_time = (temp_buffer_index * buffer_size) / sample_rate;
 						currtime = curr_time;
@@ -2531,10 +2633,11 @@
 							tempCtx.drawImage (freqcanvas, 0, 0);
 						}
 
-						freqctx.fillStyle = "#000";
+						var _pkp = (window.PKPal ? window.PKPal () : {bg:'#000',wave:'#99c2c6',off:'#505253',limit:'#fff',rulerBg:'#111',rulerFg:'#aaa',meterBg:'#000',meterTick:'#ffffff',meterGrid:'rgba(255,255,255,0.28)',meterText:'#cfd8dc',recBg:'#101008',recWave:'#e13030',fade:'rgba(240,216,120,.75)',fadeFill:'rgba(240,216,120,.08)',beatMinor:'rgba(90,242,255,.09)',beatMajor:'rgba(240,216,120,.22)'});
+						freqctx.fillStyle = _pkp.bg;
 
 						freqctx.fillRect ( 0, 0, width * 2, height * 2 );
-						freqctx.fillStyle = '#99c2c6';
+						freqctx.fillStyle = _pkp.wave;
 
 						if (quick_render)
 						{
@@ -2593,7 +2696,7 @@
 
 					};
 
-					navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(function( _stream ) {
+					navigator.mediaDevices.getUserMedia({ audio: recPrefs ? recPrefs.audioConstraints () : true, video: false }).then(function( _stream ) {
 						/* 不要立刻停止：Chrome「這次允許」會在所有 track 停止後收回權限，
 						 * 導致按下開始錄音時又詢問一次。保留到視窗關閉才釋放。 */
 						if (probe_dead) { _stream.getTracks().forEach(function ( tr ) { tr.stop (); }); return ; }
@@ -2614,6 +2717,10 @@
 							btn_start.classList.remove ('pk_inact');
 						}
 					});
+
+					devices_sel.onchange = function () {
+						recPrefs && recPrefs.set ('deviceId', devices_sel.value);
+					};
 
 					var enumerate = function () {
 						if (navigator.mediaDevices.enumerateDevices) {
@@ -2712,6 +2819,8 @@
 						temp_buffers = [];
 						newbuff = null;
 						volume = 0;
+						peak_now = peak_tick = peak_max = 0;
+						clip_count = 0;
 
 						btn_open.style.display = 'none';
 						btn_add.style.display = 'none';
@@ -2719,9 +2828,10 @@
 						audio_context = new (window.AudioContext || window.webkitAudioContext)();
 						sample_rate = audio_context.sampleRate;
 
-						var audio_val = true;
+						var audio_val = recPrefs ? recPrefs.audioConstraints () : true;
 						if (has_devices && devices_sel.value) {
-							audio_val = {deviceId: devices_sel.value};
+							if (audio_val === true) audio_val = {};
+							audio_val.deviceId = devices_sel.value;
 						}
 
 						/* 已有開視窗時取得的串流且裝置相同 → 直接複製，不再向瀏覽器要權限 */
@@ -2733,7 +2843,15 @@
 								var want = val && val.deviceId;
 								var cur = '';
 								try { cur = probe_stream.getAudioTracks ()[0].getSettings ().deviceId || ''; } catch (e) {}
-								if (!want || want === cur) {
+								/* 回音消除／降噪／自動增益設定不同時不能沿用，需重新取流 */
+								var same_proc = true;
+								try {
+									var ps = probe_stream.getAudioTracks ()[0].getSettings ();
+									['echoCancellation', 'noiseSuppression', 'autoGainControl'].forEach (function ( k ) {
+										if (val && val[k] !== undefined && ps[k] !== undefined && ps[k] !== val[k]) same_proc = false;
+									});
+								} catch (e) {}
+								if (same_proc && (!want || want === cur)) {
 									try { return Promise.resolve ( probe_stream.clone () ); } catch (e) {}
 								}
 							}
@@ -2853,6 +2971,14 @@
 
 							return startRecNode ().then(function ( ok ) {
 								if (!ok) return ;
+
+								/* 直接監聽：麥克風 → 喇叭／耳機（錄音節點本身不輸出聲音）*/
+								if (source === 'mic') {
+									mon_node = rec_ctx.createGain ();
+									mon_node.gain.value = opt_monitor.checked ? 1 : 0;
+									media_stream_source.connect ( mon_node );
+									mon_node.connect ( rec_ctx.destination );
+								}
 
 								is_active = true;
 								btn_pause.classList.remove ('pk_inact');

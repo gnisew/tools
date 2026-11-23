@@ -201,11 +201,26 @@
 
 		};
 
+		/* [新增] 估算解碼後（Float32）佔用的記憶體，超過門檻先警告 */
+		var LARGE_FILE_WARN_BYTES = 800 * 1048576;
+		function estimateDecodedBytes ( file ) {
+			var m = /\.([^.\/\\]+)$/.exec (file.name || '');
+			var ext = m ? m[1].toLowerCase () : '';
+			var ratio = /^(wav|wave|aif|aiff)$/.test (ext) ? 2 : (ext === 'flac' ? 4 : 22);
+			return file.size * ratio;
+		}
+
 		this.LoadFile = function ( e ) {
 			var file = e.files && e.files[0];
 			if (!file) return ;
 			if (!isLoadableAudioFile ( file )) {
 				app.fireEvent ('ShowError', t('engine.unsupported_type'));
+				return ;
+			}
+
+			var est_bytes = estimateDecodedBytes ( file );
+			if (est_bytes > LARGE_FILE_WARN_BYTES &&
+				!window.confirm ( t('engine.large_file_confirm', { size: Math.round (est_bytes / 1048576) }) )) {
 				return ;
 			}
 
@@ -226,8 +241,15 @@
 
 				app.fireEvent ('WillDownloadFile');
 				q.is_ready = false;
+				// 記住檔名（附加到現有檔案時不改名），多軌匯入片段時會用到
+				if (!wavesurfer.backend._add) {
+					q.file_name = (file.name || '').replace (/\.[^.\/\\]+$/, '');
+					document.title = q.file_name ? q.file_name + ' - Soundit 聲一' : 'Soundit 聲一';
+				}
 				wavesurfer.loadBlob( file );
 				app.fireEvent ('DidUnloadFile');
+				/* [新增] 檔案識別碼，供 local.js 記住 / 還原播放位置（附加檔案時不更動） */
+				if (!wavesurfer.backend._add) q.file_key = [ file.name, file.size, file.lastModified ].join ('|');
 				wavesurfer.regions && wavesurfer.regions.clear();
 			};
 
@@ -276,7 +298,7 @@
 
 		};
 
-		this.DownloadFile = function ( name, format, kbps, selection, stereo, bit_depth, dither ) {
+		this.DownloadFile = function ( name, format, kbps, selection, stereo, bit_depth, dither, target_rate, tag, loud ) {
 			var canceled = false;
 			var mt = app.multitrack &&
 				app.multitrack.IsOn &&
@@ -335,10 +357,106 @@
 					}
 					else
 						app.fireEvent ('DidProgressModal', val);
-				}, mt_buffer);
+				}, mt_buffer, target_rate, null, tag, loud);
 			}
 		}
+		/* [新增] 依區段分別匯出，全部打包成一個 zip
+		 * names：每段的檔名；segs：[[起,迄], ...]（秒）；zip_name：壓縮檔名 */
+		this.ExportSegments = function ( zip_name, names, format, kbps, segs, stereo, bit_depth, dither, target_rate, tags, loud ) {
+			var mt = app.multitrack &&
+				app.multitrack.IsOn &&
+				app.multitrack.IsOn () &&
+				app.multitrack.Mixdown ?
+				app.multitrack :
+				null;
+
+			if (!(mt || q.is_ready) || !segs || !segs.length) return ;
+			if (!app._deps.zip) return ;
+
+			var canceled = false;
+			var i = 0;
+			var files = [];
+
+			app.fireEvent ('WillDownloadFile');
+			app.listenFor ('RequestCancelModal', function() {
+				canceled = true;
+				AudioUtils.DownloadFileCancel ();
+				if (wavesurfer.arraybuffer) q.is_ready = true;
+
+				app.fireEvent ('RequestResize');
+				setTimeout(function() { app.fireEvent ('DidDownloadFile'); }, 12);
+				app.stopListeningForName ('RequestCancelModal');
+			});
+
+			function end () {
+				setTimeout(function() { app.fireEvent ('DidDownloadFile'); }, 12);
+				app.stopListeningForName ('RequestCancelModal');
+			}
+
+			function saveZip () {
+				if (!files.length) { OneUp (t('engine.nothing_export'), 1200); end (); return ; }
+
+				app._deps.zip.build ( files ).then(function ( zip_blob ) {
+					if (canceled) return ;
+					var url = (window.URL || window.webkitURL).createObjectURL ( zip_blob );
+					var a = document.createElement ('a');
+					a.href = url;
+					a.download = zip_name || 'soundit-output.zip';
+					a.style.display = 'none';
+					document.body.appendChild ( a );
+					a.click ();
+					setTimeout(function () {
+						(window.URL || window.webkitURL).revokeObjectURL ( url );
+						a.parentNode && a.parentNode.removeChild ( a );
+					}, 100);
+					end ();
+				}).catch(function ( err ) {
+					app.fireEvent ('ShowError', t('export.encode_failed') + ' ' + (err && err.message ? err.message : ''));
+					end ();
+				});
+			}
+
+			function next () {
+				if (canceled) return ;
+				if (i >= segs.length) { saveZip (); return ; }
+
+				var sel = segs[ i ];
+				var before = files.length;
+
+				var run = function ( mt_buffer ) {
+					if (canceled) return ;
+					if (mt && !mt_buffer) { ++i; setTimeout ( next, 0 ); return ; }
+
+					AudioUtils.DownloadFile ( names[ i ], format, kbps, mt_buffer ? false : sel, stereo, bit_depth, dither, function ( val ) {
+						if (canceled) return ;
+						if (val === 'done') {
+							/* 該段沒有產生檔案（編碼失敗）就中止整批 */
+							if (files.length === before) { end (); return ; }
+							++i;
+							setTimeout ( next, 10 );
+						}
+						else
+							app.fireEvent ('DidProgressModal', ((i + val / 100) / segs.length * 100) >> 0);
+					}, mt_buffer, target_rate, function ( blob ) {
+						files.push ({ name: names[ i ], blob: blob });
+					}, tags && tags[ i ], loud);
+				};
+
+				if (mt) {
+					if (mt.MixdownAsync) mt.MixdownAsync ( sel, run );
+					else run ( mt.Mixdown ( sel ) );
+				}
+				else
+					setTimeout ( run, 0 );
+			}
+
+			app.fireEvent ('DidProgressModal', 0);
+			setTimeout ( next, 220 );
+		};
+
 		this.LoadSample = function ( file ) {
+			q.file_name = '';
+			document.title = 'Soundit 聲一';
 			app.fireEvent ('WillDownloadFile');
 
 			setTimeout(function () {
@@ -380,6 +498,7 @@
 
 				wavesurfer.load ( url );
 				q.is_ready = false;
+				q.file_key = 'url|' + url;
 			}, 180);
 		}
 
@@ -387,6 +506,11 @@
 			wavesurfer.fireEvent ('resize');
 			wavesurfer.setHeight ( mainHeight () );
 
+		});
+
+		/* 切換淺色／深色時，波形畫布要重畫（畫布顏色不吃 CSS） */
+		w.PKTheme && w.PKTheme.onChange && w.PKTheme.onChange (function () {
+			try { if (q.is_ready && wavesurfer.drawBuffer) wavesurfer.drawBuffer (true); } catch (e) {}
 		});
 
 		wavesurfer.on ('ready', function () {
@@ -1035,9 +1159,10 @@
 				ctx = canvas.getContext ('2d', {alpha:false,antialias:false});
 			}
 
-			ctx.fillStyle = "#000";
+			var _pkp = (window.PKPal ? window.PKPal () : {bg:'#000',wave:'#99c2c6',off:'#505253',limit:'#fff',rulerBg:'#111',rulerFg:'#aaa',meterBg:'#000',meterTick:'#ffffff',meterGrid:'rgba(255,255,255,0.28)',meterText:'#cfd8dc',recBg:'#101008',recWave:'#e13030',fade:'rgba(240,216,120,.75)',fadeFill:'rgba(240,216,120,.08)',beatMinor:'rgba(90,242,255,.09)',beatMajor:'rgba(240,216,120,.22)'});
+			ctx.fillStyle = _pkp.bg;
 			ctx.fillRect ( 0, 0, width, height );
-			ctx.fillStyle = '#99c2c6';
+			ctx.fillStyle = _pkp.wave;
 
 			ctx.beginPath ();
 	        ctx.moveTo ( 0, half_height );
@@ -1944,6 +2069,15 @@
 								for (var i = 0; i < sil_arr.length; ++i)
 								{
 									reduce += (sil_arr[i][1] - sil_arr[i][0]);
+								}
+
+								/* [階段 2 項目 9] 標記跟著位移：每段被移除的靜音視為一次「移除」，從最後一段往前處理，
+								 * 前面段落的時間才不受影響；靜音裡的標記收攏到該段起點。要在緩衝區被換掉之前呼叫。
+								 * 復原：上面的 StateRequestPush 已把標記快照附在這筆狀態上。 */
+								if (app.mrk && app.mrk.editShift) {
+									for (var si = sil_arr.length - 1; si >= 0; --si) {
+										try { app.mrk.editShift ('remove', sil_arr[si][0] / originalBuffer.sampleRate, (sil_arr[si][1] - sil_arr[si][0]) / originalBuffer.sampleRate); } catch (er) {}
+									}
 								}
 
 								var emptySegment   = wavesurfer.backend.ac.createBuffer (

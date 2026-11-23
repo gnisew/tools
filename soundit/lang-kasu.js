@@ -1,3 +1,4 @@
+
 /* Soundit 語言檔：詔安客語（目前內容沿用繁中，待翻譯；缺少的項目自動使用繁中）
  * 語言代碼：kasu
  * 新增語言：複製此檔、改檔名與下方代碼，並在 index.html 與 sw.js 加入載入路徑。 */
@@ -19,6 +20,17 @@ PKLocale.register ('kasu', {
 	'export.selection_only': '只匯出選取範圍',
 	'export.mono': '單聲道',
 	'export.stereo': '立體聲',
+	'export.sample_rate': '取樣率',
+	'export.sr_original': '維持原檔',
+	'export.bitrate': '位元率',
+	'export.codec_unsupported': '此瀏覽器不支援 {fmt} 編碼',
+	'export.encode_failed': '匯出失敗：',
+	'export.split_markers': '依標記分割成多個檔案（打包成 .zip）',
+	'export.split_none': '沒有標記可用於分割',
+	'export.tags': '標籤（選填）',
+	'export.tag_title': '標題',
+	'export.tag_artist': '演出者',
+	'export.tag_album': '專輯',
 
 	'load.computer': '從電腦載入',
 	'load.sample': '載入範例',
@@ -341,3 +353,5 @@ PKLocale.register ('kasu', {
 
 	'lang.switch': '語言'
 }, { name: '詔安客語', fallback: 'zh-TW', match: ['kasu'] });
+
+

@@ -66,6 +66,8 @@
 	    -moz-user-select:none;
 	}
 
+	#d:focus-visible,#e:focus-visible{outline:2px solid #5af2ff;outline-offset:1px}
+
 	.c #f, #f:hover{
 		background:#3C3C3C;
 	}
@@ -74,11 +76,11 @@
 	<meta charset="utf-8" />
 </head>
 <body>
-	<canvas id="fr" width="600" height="188" style="width:100%;height:100%;display:block"></canvas>
+	<canvas id="fr" width="600" height="188" style="width:100%;height:100%;display:block;cursor:pointer" aria-label="Spectrum analyser (click to pause)"></canvas>
 	<div id="ttl">SPECTRUM ANALYSER</div>
 
-	<a id="d" onclick="dock()">DOCK</a>
-	<a id="e" onclick="remove()">X</a>
+	<a id="d" role="button" tabindex="0" onclick="dock()">DOCK</a>
+	<a id="e" role="button" tabindex="0" aria-label="Close" onclick="remove()">X</a>
 	<a id="f" onmousedown="drag(event)"></a>
 
 	<script>
@@ -98,6 +100,12 @@
 		d.getElementById ('d').textContent = L ('win.dock', 'DOCK');
 		var canvas = d.getElementById('fr');
 		var ctx = canvas.getContext('2d', {alpha:true, antialias:false});
+
+		['d', 'e'].forEach (function ( id ) {
+			d.getElementById (id).addEventListener ('keydown', function ( ev ) {
+				if (ev.key === 'Enter') { ev.preventDefault (); ev.stopPropagation (); this.click (); }
+			});
+		});
 
 		w.remove = function (){};
 		if (iframe) {
@@ -139,46 +147,39 @@
 			}
 		};
 
-		w.getFullColor = function(value) {
-			var colorPalette = {
-				0: [0,0,0],
-				10: [75, 0, 159],
-				20: [104,0,251],
-				30: [131,0,255],
-				40: [155,18,157],
-				50: [175, 37, 0],
-				60: [191, 59, 0],
-				70: [206, 88, 0],
-				80: [223, 132, 0],
-				90: [240, 188, 0],
-				100: [255, 252, 0]      
-			};
-
-			//floor to nearest 10:
-			var decimalised = 100 * value / 255
-			var percent = decimalised / 100;
-			var floored = 10* Math.floor(decimalised / 10);
-			var distFromFloor = decimalised - floored;
-			var distFromFloorPercentage = distFromFloor/10;
-			var rangeToNextColor;
-
-			if (decimalised < 100){
-				rangeToNextColor = [
-					colorPalette[floored + 10][0] - colorPalette[floored][0],
-					colorPalette[floored + 10][1] - colorPalette[floored][1],
-					colorPalette[floored + 10][2] - colorPalette[floored][2]
-				];
-			} else {
-				rangeToNextColor = [0,0,0];
+		/* 色階調色盤（和原本相同），但只算一次：0~255 → 'rgb(...)' 查表。
+		 * 原本每一幀對每個頻帶都重新計算並組字串（每秒上萬次），這裡改成預先建表。 */
+		var PALETTE = {
+			0: [0,0,0],
+			10: [75, 0, 159],
+			20: [104,0,251],
+			30: [131,0,255],
+			40: [155,18,157],
+			50: [175, 37, 0],
+			60: [191, 59, 0],
+			70: [206, 88, 0],
+			80: [223, 132, 0],
+			90: [240, 188, 0],
+			100: [255, 252, 0]
+		};
+		var LUT = (function () {
+			var out = [];
+			for (var v = 0; v < 256; ++v) {
+				var dec = 100 * v / 255;
+				var fl = Math.min (100, 10 * Math.floor (dec / 10));
+				var f = (dec - fl) / 10;
+				var a = PALETTE[fl], b = PALETTE[Math.min (100, fl + 10)];
+				out[v] = 'rgb(' + Math.round (a[0] + f * (b[0] - a[0])) + ',' +
+					Math.round (a[1] + f * (b[1] - a[1])) + ',' +
+					Math.round (a[2] + f * (b[2] - a[2])) + ')';
 			}
+			return out;
+		})();
 
-			var color = [
-				colorPalette[floored][0] + distFromFloorPercentage * rangeToNextColor[0],
-				colorPalette[floored][1] + distFromFloorPercentage * rangeToNextColor[1],
-				colorPalette[floored][2] + distFromFloorPercentage * rangeToNextColor[2]
-			];
-
-			return "rgb(" + color[0] +", "+color[1] +"," + color[2]+")";
+		/* 保留舊的全域函式名稱，避免別處有人呼叫 */
+		w.getFullColor = function ( value ) {
+			value = value > 255 ? 255 : value > 0 ? value >> 0 : 0;
+			return LUT[ value ];
 		};
 
 		setTimeout(function () {
@@ -187,75 +188,49 @@
 				if (!w.opener || !w.opener.PKAudioEditor) return ;
 			}
 
-			var WIDTH = w.innerWidth, HEIGHT = w.innerHeight;
+			var value_changed = false;
+			var paused = false;
+			var speed_css = 3; /* 每幀往左捲動的 CSS 像素 */
+			var ttl = d.getElementById ('ttl');
 
-			if (canvas.width != WIDTH)
-			{
-				canvas.width = WIDTH;
-				canvas.height = HEIGHT;
+			/* 以裝置像素繪製（上限 2 倍）。尺寸改變時畫布會被清空，與原本行為相同 */
+			function size () {
+				var r = Math.min (w.devicePixelRatio || 1, 2);
+				var pw = Math.round (w.innerWidth * r), ph = Math.round (w.innerHeight * r);
+				if (canvas.width !== pw || canvas.height !== ph) {
+					canvas.width = pw;
+					canvas.height = ph;
+				}
+				return r;
 			}
 
-			var bufferLength = 240;
-			var value_changed = false;
-			var speed = 3;
+			size ();
+			ctx.clearRect (0, 0, canvas.width, canvas.height);
 
-			var tempCanvas = document.createElement('canvas');
-			tempCanvas.width = WIDTH;
-			tempCanvas.height = HEIGHT;
+			function draw ( data ) {
+				var r = size ();
+				var WIDTH = canvas.width, HEIGHT = canvas.height;
+				var speed = Math.max (1, Math.round (speed_css * r));
+				var n = data.length;
+				if (!n) { value_changed = false; return ; }
 
-			// console.log(this.canvas.height, this.tempCanvas.height);
-			var tempCtx = tempCanvas.getContext ('2d');
+				/* 直接把畫布自己往左平移，不用再多配一張暫存畫布（省一次整張複製） */
+				ctx.globalCompositeOperation = 'copy';
+				ctx.drawImage (canvas, speed, 0, WIDTH - speed, HEIGHT, 0, 0, WIDTH - speed, HEIGHT);
+				ctx.globalCompositeOperation = 'source-over';
 
-			ctx.clearRect (0, 0, WIDTH, HEIGHT);
-
-			function draw( data ) {
-
-				var WIDTH = window.innerWidth, HEIGHT = window.innerHeight;
-
-				if (canvas.width != WIDTH || canvas.height != HEIGHT)
-				{
-					canvas.width = WIDTH;
-					canvas.height = HEIGHT;
-					tempCanvas.width = WIDTH;
-					tempCanvas.height = HEIGHT;
+				/* 右側新的一欄：每個頻帶填滿自己的高度，不留縫（低頻在下） */
+				var x = WIDTH - speed;
+				var bottom = HEIGHT;
+				for (var i = 0; i < n; ++i) {
+					var top = HEIGHT - Math.round ((i + 1) * HEIGHT / n);
+					if (bottom > top) {
+						var v = data[i];
+						ctx.fillStyle = LUT[v > 255 ? 255 : v > 0 ? v : 0];
+						ctx.fillRect (x, top, speed, bottom - top);
+					}
+					bottom = top;
 				}
-
-				tempCtx.drawImage (canvas, 0, 0, WIDTH, HEIGHT);
-
-				ctx.fillStyle = 'rgb(0, 0, 0)';
-				ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
-				// Iterate over the frequencies.
-				for (var i = 0; i < data.length; ++i)
-				{
-					var value;
-					// Draw each pixel with the specific color.
-				//	if (this.log) {
-				//		logIndex = this.logScale(i, data.length);
-				//		value = data[logIndex];
-				//	} else {
-						value = data[i];
-				//	}
-
-					ctx.fillStyle = window.getFullColor(value);
-
-					var percent = i / data.length;
-					var y = Math.round (percent * HEIGHT);
-
-					// draw the line at the right side of the canvas
-					ctx.fillRect(WIDTH - speed, HEIGHT - y,
-					speed, speed);
-				}
-
-				// Translate the canvas.
-				ctx.translate(-speed, 0);
-				// Draw the copied image.
-				// console.log(this.width, this.height);
-				ctx.drawImage (tempCanvas, 0, 0, WIDTH, HEIGHT,
-				0, 0, WIDTH, HEIGHT);
-
-				// Reset the transformation matrix.
-				ctx.setTransform (1, 0, 0, 1, 0, 0);
 
 				value_changed = false;
 			};
@@ -270,7 +245,7 @@
 				if (!freq_arr)
 					ctx.clearRect (0, 0, canvas.width, canvas.height);
 				else {
-					if (value_changed) return ;
+					if (paused || value_changed) return ;
 					value_changed = true;
 
 					window.requestAnimationFrame(function () {
@@ -279,14 +254,21 @@
 				}
 			};
 
+			/* 點一下畫面暫停／繼續（看清楚某一段頻譜用），暫停時標題顯示 PAUSED */
+			canvas.addEventListener ('click', function () {
+				paused = !paused;
+				ttl.textContent = paused ? 'PAUSED' : L ('win.spec_analyser', 'SPECTRUM ANALYSER');
+				ttl.style.opacity = paused ? '1' : '';
+			});
+
 			var last_press = 0;
-			document.addEventListener ('keypress', function ( e ) {
-				if (e.keyCode !== 32) return ;
+			document.addEventListener ('keydown', function ( e ) {
+				if ((e.keyCode || e.which) !== 32) return ;
 
 				e.preventDefault ();
 				e.stopPropagation ();
 
-				if (e.timeStamp - last_press < 100) {
+				if (e.repeat || e.timeStamp - last_press < 100) {
 					return ;
 				}
 
@@ -298,7 +280,7 @@
 				else {
 					w.parent && w.parent.PKAudioEditor.ui.Dock ('RequestKeyDown', 32);
 				}
-			});
+			}, true);
 
 		}, 60);
 	</script>

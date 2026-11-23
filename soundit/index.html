@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,7 +23,7 @@
 
 	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
-	<meta name="description" content="Soundit 聲一 - Audio editor"/>
+	<meta name="description" content="Soundit 聲一 - 音訊編輯器 / Audio editor"/>
 	<meta property="og:title" content="Soundit">
 	<meta property="og:description" content="Audio editor">
 	<link rel="apple-touch-icon" href="icon-192.png">
@@ -33,22 +34,27 @@
 	<meta name="apple-mobile-web-app-status-bar-style" content="black">
 
 	<style>html,body{touch-action:manipulation}</style>
+	<script src="theme.js"></script>
 	<link rel="stylesheet" type="text/css" href="main.css">
 </head>
 <body>
 	<div id="app"></div>
+	<noscript><p style="color:#e8edf0;font:14px system-ui;padding:24px">Soundit 需要啟用 JavaScript 才能使用。 / Soundit requires JavaScript.</p></noscript>
 
 	<script src="wavesurfer.js"></script>
 	<script src="wavesurfer.regions.js"></script>
 	<script src="oneup.js"></script>
 	<script src="locale.js"></script>
-	<script src="lang/en.js"></script>
-	<script src="lang/zh-TW.js"></script>
-	<script src="lang/kasu.js"></script>
+	<script src="lang-en.js"></script>
+	<script src="lang-zh-TW.js"></script>
+	<script src="lang-kasu.js"></script>
 
 	<script src="app.js"></script>
 	<script src="keys.js"></script>
+	<script src="shortcuts.js"></script>
 	<script src="markers.js"></script>
+	<script src="autosplit.js"></script>
+	<script src="marker-panel.js"></script>
 	<script src="contextmenu.js"></script>
 	<script src="lufs.js"></script>
 	<script src="ui-fx.js"></script>
@@ -64,6 +70,7 @@
 	<script src="ui-toolbar-actions.js"></script>
 	<script src="ui-toolbar-selection.js"></script>
 	<script src="ui-toolbar.js"></script>
+	<script src="ui-toolbar-layout.js"></script>
 	<script src="ui-mainview.js"></script>
 	<script src="ui.js"></script>
 	<script src="modal.js"></script>
@@ -72,6 +79,8 @@
 	<script src="actions.js"></script>
 	<script src="drag.js"></script>
 	<script src="recorder.js"></script>
+	<script src="webcodecs-encoder.js"></script>
+	<script src="zip-store.js"></script>
 
 	<script src="fx-pg-eq.js"></script>
 	<script src="fx-auto.js"></script>
@@ -80,12 +89,32 @@
 	<script src="lz4-loader.js"></script>
 	<script src="amss-format.js"></script>
 	<script src="multitrack.js"></script>
+	<script src="spectrogram.js"></script>
 	<script>
 		try {
 			var _l = PKLocale.getLang ();
 			document.documentElement.lang = _l === 'kasu' ? 'hak-TW' : _l;
 		} catch (e) {}
-		var editor = PKAudioEditor.init ('app');
+		var editor;
+		try {
+			editor = PKAudioEditor.init ('app');
+		} catch (err) {
+			console.error (err);
+			var box = document.createElement ('div');
+			box.style.cssText = 'color:#e8edf0;font:14px system-ui;padding:24px';
+			box.textContent = '初始化失敗，請重新整理頁面。 / Failed to start, please reload.';
+			document.body.appendChild (box);
+		}
+
+		/* 以已安裝的 PWA 開啟音訊檔（manifest 的 file_handlers）：直接載入進編輯器 */
+		if (editor && 'launchQueue' in window && window.launchQueue.setConsumer) {
+			window.launchQueue.setConsumer (function ( params ) {
+				if (!params || !params.files || !params.files.length) return ;
+				params.files[0].getFile ().then (function ( file ) {
+					if (editor.engine && editor.engine.LoadFile) editor.engine.LoadFile ({ files: [ file ] });
+				}).catch (function () {});
+			});
+		}
 		if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 			window.addEventListener('load', function () {
 				try {
@@ -125,3 +154,5 @@
 	</script>
 </body>
 </html>
+
+

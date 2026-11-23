@@ -65,6 +65,8 @@
 	    -moz-user-select:none;
 	}
 
+	#d:focus-visible,#e:focus-visible{outline:2px solid #5af2ff;outline-offset:1px}
+
 	.c #f, #f:hover{
 		background:#3C3C3C;
 	}
@@ -73,11 +75,11 @@
 	<meta charset="utf-8" />
 </head>
 <body>
-	<canvas id="fr" width="600" height="188" style="width:100%;height:100%;display:block"></canvas>
+	<canvas id="fr" width="600" height="188" style="width:100%;height:100%;display:block" aria-label="Frequency analyser"></canvas>
 	<div id="ttl">FREQUENCY ANALYSER</div>
 
-	<a id="d" onclick="dock()">DOCK</a>
-	<a id="e" onclick="remove()">X</a>
+	<a id="d" role="button" tabindex="0" onclick="dock()">DOCK</a>
+	<a id="e" role="button" tabindex="0" aria-label="Close" onclick="remove()">X</a>
 	<a id="f" onmousedown="return drag(event)"></a>
 
 	<script>
@@ -97,6 +99,13 @@
 		d.getElementById ('d').textContent = L ('win.dock', 'DOCK');
 		var canvas = d.getElementById('fr');
 		var ctx = canvas.getContext('2d', {alpha:true, antialias:false});
+
+		/* 鍵盤可操作：Enter / 空白鍵觸發 DOCK、X（空白鍵本身另外交給主視窗播放／暫停，所以只處理 Enter） */
+		['d', 'e'].forEach (function ( id ) {
+			d.getElementById (id).addEventListener ('keydown', function ( ev ) {
+				if (ev.key === 'Enter') { ev.preventDefault (); ev.stopPropagation (); this.click (); }
+			});
+		});
 
 		w.remove = function (){};
 		if (iframe) {
@@ -147,47 +156,100 @@
 				if (!w.opener || !w.opener.PKAudioEditor) return ;
 			}
 
-			var WIDTH = w.innerWidth, HEIGHT = w.innerHeight;
-
-			if (canvas.width != WIDTH)
-			{
-				canvas.width = WIDTH;
-				canvas.height = HEIGHT;
-			}
-
 			var bufferLength = 240;
 			var value_changed = false;
-			ctx.clearRect (0, 0, WIDTH, HEIGHT);
 
-			function draw( similarity ) {
+			/* AnalyserNode 預設範圍 -100 ~ -30 dB（主程式沒改過），格線與數值讀出依此換算 */
+			var DB_MIN = -100, DB_RANGE = 70;
+			var GRID = [-40, -60, -80];
 
-				var WIDTH = window.innerWidth, HEIGHT = window.innerHeight;
+			/* 0~255 → 顏色查表，避免每幀組字串；原本 R 超過 255 時靠瀏覽器截斷，這裡明確截斷 */
+			var LUT = [];
+			for (var c = 0; c < 256; ++c) LUT[c] = 'rgb(' + Math.min (255, c + 100) + ',50,50)';
 
-				if (canvas.width != WIDTH || canvas.height != HEIGHT)
-				{
-					canvas.width = WIDTH;
-					canvas.height = HEIGHT;
+			var peaks = new Float32Array (bufferLength);
+			var last_data = null;
+			var hover_x = -1;
+			var redraw_pending = false;
+
+			/* 高解析螢幕：以裝置像素繪製，畫面不再模糊（上限 2 倍，避免過度耗電） */
+			function fit () {
+				var W = w.innerWidth, H = w.innerHeight;
+				var r = Math.min (w.devicePixelRatio || 1, 2);
+				var pw = Math.round (W * r), ph = Math.round (H * r);
+				if (canvas.width !== pw || canvas.height !== ph) {
+					canvas.width = pw;
+					canvas.height = ph;
+				}
+				ctx.setTransform (r, 0, 0, r, 0, 0);
+				return [W, H];
+			}
+
+			fit ();
+			ctx.clearRect (0, 0, w.innerWidth, w.innerHeight);
+
+			function draw ( data, redraw ) {
+				if (!data) return ;
+				var s = fit (), WIDTH = s[0], HEIGHT = s[1];
+				last_data = data;
+
+				ctx.fillStyle = 'rgb(0, 0, 0)';
+				ctx.fillRect (0, 0, WIDTH, HEIGHT);
+
+				/* dB 格線 */
+				ctx.lineWidth = 1;
+				ctx.font = '9px Arial';
+				ctx.textBaseline = 'bottom';
+				for (var g = 0; g < GRID.length; ++g) {
+					var gy = Math.round (HEIGHT * (1 - (GRID[g] - DB_MIN) / DB_RANGE)) + 0.5;
+					ctx.strokeStyle = '#1c1c1c';
+					ctx.beginPath ();
+					ctx.moveTo (0, gy);
+					ctx.lineTo (WIDTH, gy);
+					ctx.stroke ();
+					ctx.fillStyle = '#4a4a4a';
+					ctx.fillText (GRID[g] + ' dB', 4, gy - 1);
 				}
 
-				  ctx.fillStyle = 'rgb(0, 0, 0)';
-				  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+				var barWidth = WIDTH / bufferLength;
+				var x = 0;
 
-				  var barWidth = (WIDTH / bufferLength);
-				  var barHeight;
-				  var x = 0;
+				for (var i = 0; i < bufferLength; i += 1) {
+					var v = data[i * 2] || 0;
+					var h = ((v / 256) * HEIGHT) >> 0;
 
-				  for(var i = 0; i < bufferLength; i += 1) {
-					barHeight = similarity[i * 2]; // ? similarity[i] : 0;
+					ctx.fillStyle = LUT[v > 255 ? 255 : v];
+					ctx.fillRect (x, HEIGHT - h, barWidth + 0.5, h);
 
-					// bar height normalize with 255
-					var newheight = ((barHeight / 256) * HEIGHT) >> 0;
+					/* 峰值保持：慢慢落下的小橫線 */
+					if (!redraw) peaks[i] = v >= peaks[i] ? v : Math.max (0, peaks[i] - 1.5);
+					if (peaks[i] > 2) {
+						ctx.fillStyle = '#ffd6d6';
+						ctx.fillRect (x, HEIGHT - ((peaks[i] / 256) * HEIGHT) - 2, barWidth, 2);
+					}
+					x += barWidth;
+				}
 
-					ctx.fillStyle = 'rgb(' + (barHeight + 100) + ',50,50)';
-					ctx.fillRect (x,HEIGHT - newheight, barWidth, newheight);
-					x += barWidth;// + 1;
-				  }
+				/* 滑鼠指到的頻帶：顯示大約的 dB */
+				if (hover_x >= 0 && hover_x < WIDTH) {
+					var bi = Math.min (bufferLength - 1, (hover_x / barWidth) >> 0);
+					var db = Math.round (DB_MIN + ((data[bi * 2] || 0) / 255) * DB_RANGE);
+					var lx = Math.round (bi * barWidth + barWidth / 2) + 0.5;
+					ctx.strokeStyle = 'rgba(255,255,255,.35)';
+					ctx.beginPath ();
+					ctx.moveTo (lx, 0);
+					ctx.lineTo (lx, HEIGHT);
+					ctx.stroke ();
+					var label = db + ' dB';
+					ctx.font = '11px Arial';
+					ctx.textBaseline = 'top';
+					var tw = ctx.measureText (label).width;
+					var tx = lx + 6 + tw > WIDTH ? lx - 6 - tw : lx + 6;
+					ctx.fillStyle = '#fff';
+					ctx.fillText (label, tx, 6);
+				}
 
-				  value_changed = false;
+				value_changed = false;
 			};
 			w.draw = draw;
 
@@ -197,8 +259,11 @@
 			});
 
 			w.update = function (freq_arr) {
-				if (!freq_arr)
-					ctx.clearRect (0, 0, canvas.width, canvas.height);
+				if (!freq_arr) {
+					peaks.fill (0);
+					last_data = null;
+					ctx.clearRect (0, 0, w.innerWidth, w.innerHeight);
+				}
 				else {
 					if (value_changed) return ;
 					value_changed = true;
@@ -209,14 +274,29 @@
 				}
 			};
 
+			/* 暫停播放時也要能跟著滑鼠／視窗大小重畫 */
+			function requestRedraw () {
+				if (redraw_pending || !last_data) return ;
+				redraw_pending = true;
+				w.requestAnimationFrame (function () {
+					redraw_pending = false;
+					last_data && draw (last_data, true);
+				});
+			}
+			canvas.addEventListener ('mousemove', function ( e ) { hover_x = e.clientX; requestRedraw (); });
+			canvas.addEventListener ('mouseleave', function () { hover_x = -1; requestRedraw (); });
+			w.addEventListener ('resize', requestRedraw);
+
+			/* 空白鍵交給主視窗播放／暫停。keypress 已被瀏覽器標為過時，改用 keydown；
+			 * 用捕捉階段，避免焦點在 DOCK / X 按鈕上時被當成按下按鈕 */
 			var last_press = 0;
-			document.addEventListener ('keypress', function ( e ) {
-				if (e.keyCode !== 32) return ;
+			document.addEventListener ('keydown', function ( e ) {
+				if ((e.keyCode || e.which) !== 32) return ;
 
 				e.preventDefault ();
 				e.stopPropagation ();
 
-				if (e.timeStamp - last_press < 100) {
+				if (e.repeat || e.timeStamp - last_press < 100) {
 					return ;
 				}
 
@@ -228,7 +308,7 @@
 				else {
 					w.parent && w.parent.PKAudioEditor.ui.Dock ('RequestKeyDown', 32);
 				}
-			});
+			}, true);
 
 		}, 60);
 	</script>
