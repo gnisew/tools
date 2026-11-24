@@ -37,6 +37,14 @@
 		btn_loop.onclick = function() { UI.fireEvent('RequestSetLoop'); this.blur(); };
 		UI.listenFor('DidSetLoop', function( val ) { val ? btn_loop.classList.add('pk_act') : btn_loop.classList.remove('pk_act'); });
 
+		/* [新增 5-2] 練習速度（即時變速）：點一下開面板；速度不是 100% 時按鈕亮起（亮起與提示文字由 practice-live.js 更新） */
+		var btn_practice = d.createElement ('button');
+		btn_practice.setAttribute('tabIndex', -1);
+		btn_practice.className = 'pk_btn pk_practice';
+		btn_practice.innerHTML = '\u7DF4<span>' + t('toolbar.practice') + '</span>';
+		transport.appendChild ( btn_practice );
+		btn_practice.onclick = function() { UI.fireEvent('RequestPracticeUI'); this.blur(); };
+
 		var btn_back_jump = d.createElement ('button');
 		btn_back_jump.setAttribute('tabIndex', -1);
 		btn_back_jump.className = 'pk_btn pk_back_jump icon-backward2';
@@ -185,3 +193,5 @@
 	PKAE._deps._toolbarTransport = _toolbarTransport;
 
 })( window, document, PKAudioEditor );
+
+

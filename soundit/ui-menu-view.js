@@ -28,6 +28,12 @@
 			return lang === 'en' ? en : zh;
 		}
 
+		/* 音高輪廓（階段 4-2）：開啟時後面加 ✔ */
+		function pcLabel () {
+			var PC = w.PKPitchContourUI, txt = tf ('view.pitch_contour', '音高輪廓', 'Pitch Contour');
+			return txt + (PC && PC.get ().on ? ' &#10004;' : '');
+		}
+
 		/* 新增：外觀（深色 / 淺色 / 色盲友善）子選單，目前選項後面加 ✔ */
 		var TH = w.PKTheme;
 		function thItem ( label, test, act ) {
@@ -106,6 +112,13 @@
 					]
 				},
 				{
+					name: pcLabel (),
+					action: function () { app.fireEvent ('RequestPitchContour'); },
+					setup: function ( obj ) {
+						app.listenFor ('DidPitchContourState', function () { obj.innerHTML = pcLabel (); });
+					}
+				},
+				{
 					name: t('view.freq_analyser'),
 					action: function () { app.fireEvent ('RequestShowFreqAn', 'eq', [1]); },
 					setup: function ( obj ) {
@@ -128,6 +141,10 @@
 							if (!val) obj.textContent = txt;
 						});
 					}
+				},
+				{
+					name: tf ('view.phonetic', '語音頻譜分析（含音高線）', 'Phonetic View (spectrogram + pitch)'),
+					action: function () { app.fireEvent ('RequestActionPhoneticView'); }
 				},
 				{
 					name: t('view.multitrack_mixer'),

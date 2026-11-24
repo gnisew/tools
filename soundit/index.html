@@ -86,6 +86,17 @@
 
 	<script src="fx-pg-eq.js"></script>
 	<script src="fx-auto.js"></script>
+	<script src="timepitch-engine.js?v=tp5"></script>
+	<script src="timepitch-analyze.js?v=tp4"></script>
+	<script src="timepitch-f0.js?v=tp5"></script>
+	<script src="timepitch-f0-edit.js?v=tp6"></script>
+	<script src="timepitch-psola.js?v=tp7"></script>
+	<script src="timepitch-speech.js?v=tp8"></script>
+	<script src="ui-pitch-contour.js?v=tp5"></script>
+	<script src="ui-pitch-contour-edit.js?v=tp8"></script>
+	<script src="ui-fx-timepitch.js?v=tp9"></script>
+	<script src="practice-live.js?v=tp11"></script>
+	<script src="phonetic-view.js?v=ph1"></script>
 	<script src="local.js"></script>
 	<script src="id3.js"></script>
 	<script src="lz4-loader.js"></script>
@@ -107,6 +118,11 @@
 			box.textContent = '初始化失敗，請重新整理頁面。 / Failed to start, please reload.';
 			document.body.appendChild (box);
 		}
+		try { editor && window.PKTimePitchUI && PKTimePitchUI.attach (editor); } catch (e) { console.error (e); }
+		try { editor && window.PKPitchContourUI && PKPitchContourUI.attach (editor); } catch (e) { console.error (e); }
+		try { editor && window.PKPitchContourEditUI && PKPitchContourEditUI.attach (editor); } catch (e) { console.error (e); }
+		try { editor && window.PKPracticeLive && PKPracticeLive.attach (editor); } catch (e) { console.error (e); }
+		try { editor && window.PKPhoneticView && PKPhoneticView.attach (editor); } catch (e) { console.error (e); }
 
 		/* 以已安裝的 PWA 開啟音訊檔（manifest 的 file_handlers）：直接載入進編輯器 */
 		if (editor && 'launchQueue' in window && window.launchQueue.setConsumer) {

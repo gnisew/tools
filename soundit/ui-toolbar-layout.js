@@ -44,12 +44,12 @@
 
 	/* 按鈕 id → 原本按鈕上的 class（用 class 辨識，所以不用改原本的檔案） */
 	var BTN = {
-		stop: 'pk_stop', play: 'pk_play', pause: 'pk_pause', loop: 'pk_loop',
+		stop: 'pk_stop', play: 'pk_play', pause: 'pk_pause', loop: 'pk_loop', practice: 'pk_practice',	/* [修改 5-2] 多了 practice（練習速度） */
 		back: 'pk_back_jump', fwd: 'pk_front_jump', start: 'icon-previous2', end: 'icon-next2', rec: 'icon-rec',
 		copy: 'icon-files-empty', paste: 'icon-file-text2', cut: 'icon-scissors', silence: 'icon-silence'
 	};
 	var DEF = {
-		transport: ['stop', 'play', 'pause', 'loop', 'back', 'fwd', 'start', 'end', 'rec'],
+		transport: ['stop', 'play', 'pause', 'loop', 'practice', 'back', 'fwd', 'start', 'end', 'rec'],	/* [修改 5-2] loop 後面加 practice */
 		actions: ['copy', 'paste', 'cut', 'silence']
 	};
 
@@ -63,6 +63,7 @@
 		{ id: 'stop', cat: 'play', icon: 'icon-stop2', ev: ['RequestStop'] },
 		{ id: 'pause', cat: 'play', icon: 'icon-pause2', ev: ['RequestPause'] },
 		{ id: 'loop', cat: 'play', icon: 'icon-loop', ev: ['RequestSetLoop'] },
+		{ id: 'practice', cat: 'play', face: '\u7DF4', ev: ['RequestPracticeUI'] },	/* [新增 5-2] 練習速度（即時變速） */
 		{ id: 'rec', cat: 'play', icon: 'icon-rec', ev: ['RequestActionRecordToggle'] },
 		{ id: 'to_start', cat: 'play', icon: 'icon-previous2', ev: ['RequestSeekTo', 0] },
 		{ id: 'to_end', cat: 'play', icon: 'icon-next2', ev: ['RequestSeekTo', 1] },
@@ -101,7 +102,7 @@
 		{ id: 'reverb', cat: 'fx', face: 'REV', ev: ['RequestActionFXUI_Reverb'] },
 		{ id: 'repair', cat: 'fx', face: 'FIX', ev: ['RequestActionFXUI_Repair'] },
 		{ id: 'speed_pitch', cat: 'fx', face: 'SPD', ev: ['RequestActionFXUI_Speed'] },
-		{ id: 'speed_rate', cat: 'fx', face: 'RAT', ev: ['RequestActionFXUI_Rate'] },
+		{ id: 'speed_rate', cat: 'fx', face: 'RAT', ev: ['RequestActionFXUI_TimePitch'] },
 
 		{ id: 'zoom_in', cat: 'view', face: '\uFF0B', ev: ['RequestZoomUI', 'h', -1] },
 		{ id: 'zoom_out', cat: 'view', face: '\uFF0D', ev: ['RequestZoomUI', 'h', 1] },
@@ -127,7 +128,8 @@
 			T && T.toggle ('meter');
 		} },
 		{ id: 'tempo', cat: 'view', face: '\u266A', ev: ['RequestActionTempo'] },
-		{ id: 'id3', cat: 'view', face: 'ID3', ev: ['RequestActionID3'] }
+		{ id: 'id3', cat: 'view', face: 'ID3', ev: ['RequestActionID3'] },
+		{ id: 'phonetic', cat: 'view', face: 'PH', ev: ['RequestActionPhoneticView'] }
 	];
 	var CAT = {};
 	CATALOG.forEach ( function ( c ) { CAT[ c.id ] = c; });
@@ -1104,5 +1106,3 @@
 	}
 
 })( window, document, PKAudioEditor );
-
-

@@ -150,7 +150,7 @@
 		track.appendChild (hold);
 
 		return { el: track, fill: fill, rms_el: rms_el, hold: hold,
-			peak: 0, sq: 0, n: 0, shown: 0, rms_shown: 0, hold_v: 0, hold_t: 0 };
+			peak: 0, run: 0, sq: 0, n: 0, shown: 0, rms_shown: 0, hold_v: 0, hold_t: 0 };
 	}
 
 	/* nch：1 = 單聲道、2 = 立體聲（[修改] 新增參數） */
@@ -348,7 +348,7 @@
 			var a = x < 0 ? -x : x;
 			if (a > p) p = a;
 			sq += x * x;
-			if (a >= 0.999) ++cl;
+			if (a >= 0.999) { if (++c.run >= 3) ++cl; } else c.run = 0;   /* 連續 3 個以上才算削波 */
 		}
 		if (p > c.peak) c.peak = p;
 		if (p > m.max) m.max = p;

@@ -1,6 +1,11 @@
-/* [修改] v26 → v27：新增 batch.js（批次處理）。
+/* [修改 5-3] v39 → v40：快捷鍵（shortcuts.js）、效果選單、練習速度提示、語言檔。
+ * [修改 5-2] v38 → v39：新增 practice-live.js、timepitch-live-worklet.js（播放時即時變速）。
+ * [修改 5-1] v37 → v38：batch.js 加入「時間與音高」步驟。
+ * [修改 4-6] v36 → v37：ui-fx-timepitch.js 加入語音／聲調（PSOLA 聲調、語速、停頓），Worker 版本 tp3 → tp9。
+ * [修改 4-5] v35 → v36：新增 timepitch-f0-edit.js、timepitch-psola.js、timepitch-speech.js、ui-pitch-contour-edit.js。
+ * [修改] v26 → v27：新增 batch.js（批次處理）。
  * 前一次 v25 → v26：快取優先策略下，不改版本號的話，使用者會一直拿到舊的 JS（含這次的錄音與效果修改） */
-const CACHE_NAME = 'soundit-v28';
+const CACHE_NAME = 'soundit-v40';
 
 const REQUIRED_ASSETS = [
 	'./',
@@ -46,6 +51,18 @@ const REQUIRED_ASSETS = [
 	'./batch.js',
 	'./fx-pg-eq.js',
 	'./fx-auto.js',
+	'./timepitch-engine.js',
+	'./timepitch-worker.js',
+	'./timepitch-analyze.js',
+	'./timepitch-f0.js',
+	'./timepitch-f0-edit.js',
+	'./timepitch-psola.js',
+	'./timepitch-speech.js',
+	'./ui-pitch-contour.js',
+	'./ui-pitch-contour-edit.js',
+	'./ui-fx-timepitch.js',
+	'./timepitch-live-worklet.js',
+	'./practice-live.js',
 	'./local.js',
 	'./id3.js',
 	'./lz4-loader.js',

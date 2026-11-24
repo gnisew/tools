@@ -43,6 +43,17 @@
 		{ id: 'play_pause',  group: 'transport', keys: ['Shift+Space'],   run: function () { ev ('RequestTransportToggle', 'pause'); } },
 		{ id: 'record',      group: 'transport', keys: ['R'],             run: function () { click ('.pk_btn.icon-rec'); } },
 		{ id: 'loop',        group: 'transport', keys: ['L'],             run: function () { ev ('RequestSetLoop'); } },
+		/* [新增 5-3] 練習速度（即時變速）與「時間與音高」對話框。事件由 practice-live.js／ui-fx-timepitch.js 接收。
+		 * 按一次動一次（id 不用 zoom_／marker_／edge_ 開頭，按住不放不會連續觸發）。
+		 * Shift+, 與 Shift+. 就是 < 和 >，和多數播放器的減速／加速習慣一致。 */
+		{ id: 'practice_slow',       group: 'transport', keys: ['S'],        ready: 1, run: function () { ev ('RequestPracticeSlowToggle'); } },
+		{ id: 'practice_panel',      group: 'transport', keys: ['P'],        ready: 1, run: function () { ev ('RequestPracticeUI'); } },
+		{ id: 'practice_tempo_down', group: 'transport', keys: [','],        ready: 1, run: function () { ev ('RequestPracticeNudge', { tempo: -5 }); } },
+		{ id: 'practice_tempo_up',   group: 'transport', keys: ['.'],        ready: 1, run: function () { ev ('RequestPracticeNudge', { tempo: 5 }); } },
+		{ id: 'practice_pitch_down', group: 'transport', keys: ['Shift+,'],  ready: 1, run: function () { ev ('RequestPracticeNudge', { semis: -1 }); } },
+		{ id: 'practice_pitch_up',   group: 'transport', keys: ['Shift+.'],  ready: 1, run: function () { ev ('RequestPracticeNudge', { semis: 1 }); } },
+		{ id: 'practice_reset',      group: 'transport', keys: ['Shift+P'],  ready: 1, run: function () { ev ('RequestPracticeReset'); } },
+		{ id: 'timepitch_dialog',    group: 'transport', keys: ['T'],        ready: 1, run: function () { ev ('RequestActionFXUI_TimePitch'); } },
 
 		{ id: 'undo',        group: 'edit', keys: ['Mod+Z', 'Shift+Z'],                 run: function () { ev ('StateRequestUndo'); } },
 		{ id: 'redo',        group: 'edit', keys: ['Mod+Y', 'Mod+Shift+Z', 'Shift+Y'],  run: function () { ev ('StateRequestRedo'); } },

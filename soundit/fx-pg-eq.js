@@ -2247,6 +2247,7 @@
 			probe_stream = null;
 		};
 
+		var warn_unload_ref = null;
 		var stop_audio = function () {
 			++rec_token;
 			if (!audio_stream) return ;
@@ -2285,6 +2286,7 @@
 			ondestroy: function ( q ) {
 
 				stop_audio ();
+				warn_unload_ref && window.removeEventListener ('beforeunload', warn_unload_ref);
 				probe_dead = true;
 				release_probe ();
 
@@ -2333,6 +2335,14 @@
 					var is_active = false;
 					var is_paused = false;
 					var has_recorded = false;
+					var warn_unload = function ( ev ) {
+						if (!is_active && !has_recorded) return ;
+						ev.preventDefault ();
+						ev.returnValue = '';
+						return '';
+					};
+					warn_unload_ref = warn_unload;
+					window.addEventListener ('beforeunload', warn_unload);
 
 					var mainbtns = q.el_body.getElementsByClassName('pk_tbsa');
 					var btn_start = mainbtns[0];
@@ -2414,7 +2424,8 @@
 					tempCanvas.height = 100 * 2;
 					var tempCtx = tempCanvas.getContext ('2d', {alpha:false,antialias:false});
 
-					var first_skip = 12;
+					var first_skip = 0;   /* AudioWorklet 不需暖機；只有退回 ScriptProcessor 時才在 useScript 內設定 */
+					var clip_run = 0;     /* 連續接近滿刻度的取樣數（連續 3 個以上才算一次 CLIP）*/
 
 					var temp_buffer_index = -1;
 					var volume = 0;
@@ -2537,7 +2548,14 @@
 							volctx.fillText ( clip_txt, W - 6, ty + 1 );
 						}
 
-						time_span.innerText = ((currtime * 10) >> 0) / 10;
+						var _t10 = (currtime * 10) >> 0;
+						if (_t10 >= 600) {
+							var _ts = (_t10 / 10) >> 0;
+							time_span.innerText = ((_ts / 60) >> 0) + ':' + ('0' + (_ts % 60)).slice (-2) + '.' + (_t10 % 10);
+						}
+						else {
+							time_span.innerText = _t10 / 10;
+						}
 
 						window.requestAnimationFrame( draw_volume );
 					};
@@ -2572,7 +2590,7 @@
 							var av = float_array[pi];
 							if (av < 0) av = -av;
 							if (av > chunk_peak) chunk_peak = av;
-							if (av >= 0.999) ++clip_count;
+							if (av >= 0.999) { if (++clip_run >= 3) ++clip_count; } else clip_run = 0;
 						}
 						if (chunk_peak > peak_now) peak_now = chunk_peak;
 						if (chunk_peak > peak_max) peak_max = chunk_peak;
@@ -2640,8 +2658,8 @@
 							{
 								for (var j = 0; j < mod; j += 3) {
 									var temp = new_offset + j;
-									var temp2 = (temp/2048) >> 0;
-									var temp3 = temp % 2048;
+									var temp2 = (temp / buffer_size) >> 0;
+									var temp3 = temp % buffer_size;
 
 									if (!temp_buffers[temp2]) continue;
 
@@ -2789,17 +2807,13 @@
 
 						is_active = false;
 						is_paused = false;
-						first_skip = 10;
+						first_skip = 0;
 
 						++temp_buffer_index;
-						var k = -1;
 						newbuff = new Float32Array (temp_buffer_index * buffer_size);
 						for (var i = 0; i < temp_buffer_index; ++i)
 						{
-							for (var j = 0; j < buffer_size; ++j)
-							{
-								newbuff[++k] = temp_buffers[i][j];
-							}
+							newbuff.set (temp_buffers[i], i * buffer_size);
 						}
 
 						temp_buffer_index = -1;
@@ -2944,6 +2958,7 @@
 						var startRecNode = function () {
 							var useScript = function () {
 								if (rec_id !== rec_token) return false;
+								first_skip = 10;   /* ScriptProcessor 暖機：丟掉前幾塊 */
 								script_processor = rec_ctx.createScriptProcessor (
 									buffer_size, channel_num, channel_num_out
 								);
@@ -2954,10 +2969,13 @@
 							};
 							var useWorklet = function () {
 								if (rec_id !== rec_token) return false;
+								first_skip = 0;
 								var node = new window.AudioWorkletNode (rec_ctx, 'pk-recorder', {
 									numberOfInputs: 1,
 									numberOfOutputs: 1,
 									outputChannelCount: [1],
+									channelCount: 1,
+									channelCountMode: 'explicit',
 									processorOptions: { size: buffer_size }
 								});
 								node.port.onmessage = function ( ev ) {
@@ -3000,7 +3018,12 @@
 							audio_stream = stream;
 							media_stream_source = rec_ctx.createMediaStreamSource ( stream );
 
-							return startRecNode ().then(function ( ok ) {
+							var ctx_ready = Promise.resolve ();
+							try {
+								if (rec_ctx.state === 'suspended' && rec_ctx.resume) ctx_ready = rec_ctx.resume ().catch (function () {});
+							} catch (e) {}
+
+							return ctx_ready.then ( startRecNode ).then(function ( ok ) {
 								if (!ok) return ;
 
 								/* 直接監聽：麥克風 → 喇叭／耳機（錄音節點本身不輸出聲音）*/
@@ -3020,8 +3043,16 @@
 							});
 
 						}).catch(function(error) {
-							/* 取消分享畫面或權限被拒：釋放這次建立的 AudioContext */
+							/* 取消分享畫面或權限被拒：釋放這次建立的 AudioContext，並依錯誤類型提示 */
 							if (!is_active && rec_id === rec_token) {
+								var en = error && error.name;
+								var emsg = error && error.message;
+								if (emsg === 'no system audio') { /* 已提示過 */ }
+								else if (source !== 'mic' && (en === 'NotAllowedError' || en === 'AbortError')) { /* 使用者取消分享畫面，不必提示 */ }
+								else if (en === 'NotAllowedError' || en === 'SecurityError') rec_ask (PKLocale.t ('ui.mic_denied'));
+								else if (en === 'NotFoundError' || en === 'OverconstrainedError') rec_ask (PKLocale.t ('ui.mic_notfound'));
+								else if (en === 'NotReadableError' || en === 'AbortError') rec_ask (PKLocale.t ('ui.mic_busy'));
+								else rec_ask (PKLocale.t ('ui.rec_failed'));
 								try { var cp = rec_ctx.close (); cp && cp.catch && cp.catch (function () {}); } catch (e) {}
 								if (audio_context === rec_ctx) audio_context = null;
 							}
@@ -3104,3 +3135,5 @@
 	PKAudioEditor._deps.FxREC = RecModal;
 
 })( window, document, PKAudioEditor );
+
+

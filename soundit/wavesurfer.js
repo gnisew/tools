@@ -2409,6 +2409,11 @@ var WebAudio = function (_util$Observer) {
 
         _this.playbackRate = 1;
 
+        /* [新增 5-2] 播放時即時變速／變調（practice-live.js）。on = 目前走 worklet（保持音高）；
+         * 磁帶式只改 playbackRate，不經過 worklet */
+        _this.live = { on: false, tempo: 1, semis: 0 };
+        _this.liveReady = false;
+
         _this.analyser = null;
 
         _this.scriptNode = null;
@@ -3331,8 +3336,17 @@ var WebAudio = function (_util$Observer) {
 
     }, {
         key: 'createSource',
-        value: function createSource() {
+        value: function createSource( native ) {
             this.disconnectSource();
+
+            /* [新增 5-2] 即時變速開啟時：回傳 LiveSource（假的 BufferSource，內容交給 worklet）。
+             * native = true 可以強制用原生的（預熱用） */
+            if (!native && this.live && this.live.on && this.buffer && window.PKPracticeLive && window.PKPracticeLive.makeSource) {
+                this.source = window.PKPracticeLive.makeSource(this.ac, this.buffer, this.live);
+                this.source.connect(this.analyser);
+                return;
+            }
+
             this.source = this.ac.createBufferSource();
 
             this.source.start = this.source.start || this.source.noteGrainOn;
@@ -3341,6 +3355,76 @@ var WebAudio = function (_util$Observer) {
             this.source.playbackRate.setValueAtTime(this.playbackRate, this.ac.currentTime);
             this.source.buffer = this.buffer;
             this.source.connect(this.analyser);
+        }
+
+    }, {
+        /* [新增 5-2] 設定即時速度／移調，播放中也可以改。
+         *   o.tempo  0.25～2（內容速度）  o.semis  半音（只在 keep 時有效）
+         *   o.keep   true＝保持音高（worklet）；false＝磁帶式（原生 playbackRate，音高跟著變）
+         * 回傳 Promise<boolean>：false 代表沒有 AudioWorklet（呼叫端應退回磁帶式） */
+        key: 'setLive',
+        value: function setLive(o) {
+            var _this = this;
+            o = o || {};
+            var tempo = Math.min(2, Math.max(0.25, +o.tempo || 1));
+            var keep = o.keep !== false;
+            var semis = keep ? Math.min(12, Math.max(-12, Math.round(+o.semis || 0))) : 0;
+            var changed = Math.abs(tempo - 1) > 1e-6;
+            var useWk = keep && (changed || semis !== 0);
+            var tape = !keep && changed;
+            var P = window.PKPracticeLive;
+
+            var go = function () { _this._applyLive(tempo, semis, useWk, tape); };
+
+            if (useWk && !this.liveReady) {
+                if (!(P && P.ensure)) return Promise.resolve(false);
+                return P.ensure(this.ac).then(function () {
+                    _this.liveReady = true;
+                    go();
+                    return true;
+                }, function () {
+                    return false;
+                });
+            }
+            go();
+            return Promise.resolve(true);
+        }
+
+    }, {
+        key: '_applyLive',
+        value: function _applyLive(tempo, semis, useWk, tape) {
+            var playing = this.state === PLAYING;
+
+            /* 先把「到目前為止播到哪」記下來，再改速度，位置才不會跳 */
+            if (playing) {
+                this.startPosition = this.getCurrentTime();
+                this.lastPlay = this.ac.currentTime;
+            }
+
+            var modeChanged = useWk !== this.live.on;
+            this.live.tempo = tempo;
+            this.live.semis = semis;
+            this.live.on = useWk;
+            this.playbackRate = (useWk || tape) ? tempo : (this.params.audioRate || 1);
+
+            if (!playing || !this.source) return;
+
+            if (modeChanged) {
+                /* 原生 ↔ worklet 要換音源：從目前位置重新開始（循環區間照舊） */
+                var loop = this.source.loop;
+                var ls = this.loopStart, le = this.loopEnd, sp = this.scheduledPause;
+                var cur = this.startPosition;
+                try { this.source.stop(0); } catch (e) {}
+                if (loop) {
+                    this.playLoop(ls, le, cur);
+                } else {
+                    this.play(cur, (sp && isFinite(sp)) ? sp : undefined);
+                }
+            } else if (useWk) {
+                this.source.setParams && this.source.setParams(tempo, semis);
+            } else if (this.source.playbackRate && this.source.playbackRate.setValueAtTime) {
+                this.source.playbackRate.setValueAtTime(this.playbackRate, this.ac.currentTime);
+            }
         }
 
     }, {
@@ -3518,3 +3602,5 @@ module.exports = exports['default'];
 
   });
 });
+
+

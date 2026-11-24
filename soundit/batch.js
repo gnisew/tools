@@ -4,7 +4,7 @@
  * 概念類似 Adobe Audition 的「批次處理」、Audacity 的「巨集套用到檔案」。
  *
  * 流程（固定順序）：
- *   解碼 → 移除直流偏移 → 高通濾波 → 降噪（RNNoise）→ 參數 EQ 預設 → 裁切頭尾靜音 → 淡入／淡出 → 峰值正規化
+ *   解碼 → 移除直流偏移 → 高通濾波 → 降噪（RNNoise）→ 參數 EQ 預設 → [新增 5-1] 時間與音高 → 裁切頭尾靜音 → 淡入／淡出 → 峰值正規化
  *        → 轉單聲道／立體聲 → 重新取樣 → 響度正規化（LUFS）→ 編碼 → zip
  *
  * 不動到目前開啟的文件：全程只處理獨立的緩衝區。
@@ -23,6 +23,11 @@
 		hpf: 0,			/* 高通濾波 Hz（0 = 關） */
 		dn: 0,			/* [新增] 降噪濕度 %（0 = 關；40 輕度／70 中度／100 完整） */
 		eq: '',			/* [新增] EQ 預設：'' = 關；'b:名稱' = 內建；'c:id' = 我的預設 */
+		tpt: 100,		/* [新增 5-1] 速度 %（100 = 不變），不改音高 */
+		tps: 0,			/* [新增 5-1] 音高（半音，可小數），不改速度 */
+		tpq: 'speech',	/* [新增 5-1] 音質：speech 人聲 / mixed 通用 / music 音樂 / perc 打擊 */
+		tpf: true,		/* [新增 5-1] 改音高時保留共振峰 */
+		tpp: 0,			/* [新增 5-1] 停頓上限（秒，0 = 關）：超過的停頓縮短到這個長度 */
 		trim: 0,		/* 裁切靜音門檻 dB（0 = 關），例如 -50 */
 		fin: 0,			/* 淡入 毫秒 */
 		fout: 0,		/* 淡出 毫秒 */
@@ -332,6 +337,68 @@
 	 * 解碼／編碼
 	 * ------------------------------------------------------------------ */
 
+	/* ------------------------------------------------------------------ *
+	 * [新增 5-1] 時間與音高：引擎在 timepitch-engine.js（Worker 優先，沒有 Worker 就退回主執行緒）
+	 * ------------------------------------------------------------------ */
+	function tpOn ( c ) { return Math.abs ( c.tpt - 100 ) > 0.05 || Math.abs ( c.tps ) > 0.001 || c.tpp > 0; }
+
+	/* 設定 → 要依序執行的引擎階段；回傳 { st: [opts…], notes: […] }。
+	 * 停頓偵測在主執行緒做（很快），超過 10 分鐘的檔案略過這一步並記在備註 */
+	function tpStages ( c, ch, sr ) {
+		var st = [], notes = [], PS = w.PKSpeech;
+		if (c.tpp > 0) {
+			if (!PS) notes.push ( LT ('缺少 timepitch-speech.js，略過停頓縮短', 'timepitch-speech.js missing; pause shortening skipped') );
+			else if (ch[ 0 ].length / sr > 600) notes.push ( LT ('超過 10 分鐘，略過停頓縮短', 'Over 10 min; pause shortening skipped') );
+			else st.push ({ mode: 'retime', speechTempo: 1, pauseScale: 1, pauseMax: c.tpp, pauses: PS.findPauses ( ch, sr, {} ), speechMode: c.tpq });
+		}
+		var tempo = Math.max (0.25, Math.min (4, c.tpt / 100)), semis = Math.max (-24, Math.min (24, c.tps));
+		if (Math.abs ( tempo - 1 ) > 1e-4 || Math.abs ( semis ) > 1e-4) {
+			st.push ({ tempo: tempo, pitch: semis, mode: c.tpq, formant: !!c.tpf && Math.abs ( semis ) > 1e-4, formantShift: 0 });
+		}
+		return { st: st, notes: notes };
+	}
+
+	function tpOne ( ch, sr, opts, onprog ) {
+		return new Promise (function ( resolve, reject ) {
+			var bufs = ch.map (function ( c ) { return c.slice ().buffer; }), worker = null, fell = false;
+			function fallback () {
+				if (fell) return ; fell = true;
+				setTimeout (function () {
+					try {
+						if (!w.PKTimePitch) throw new Error ('timepitch-engine.js missing');
+						var o = {}, k; for (k in opts) o[ k ] = opts[ k ];
+						resolve ( w.PKTimePitch.process ( bufs.map (function ( b ) { return new Float32Array ( b ); }), sr, o ) );
+					} catch ( e ) { reject ( e ); }
+				}, 10);
+			}
+			try { worker = new w.Worker ('timepitch-worker.js?v=tp9'); } catch ( e ) { return fallback (); }
+			worker.onmessage = function ( e ) {
+				var m = e.data || {};
+				if (m.progress !== undefined) return onprog && onprog ( m.progress );
+				if (m.error) { worker.terminate (); reject ( new Error ( m.error ) ); return ; }
+				if (m.done) { worker.terminate (); resolve ( m.buffers.map (function ( b ) { return new Float32Array ( b ); }) ); }
+			};
+			worker.onerror = function () { try { worker.terminate (); } catch ( e ) {} fallback (); };
+			worker.postMessage ({ id: 1, sr: sr, opts: opts, buffers: bufs }, bufs );
+		});
+	}
+	function tpRun ( ch, sr, stages, onprog ) {
+		var p = Promise.resolve ( ch );
+		stages.forEach (function ( o, i ) {
+			p = p.then (function ( x ) {
+				return tpOne ( x, sr, o, function ( v ) { onprog && onprog ( ( i + v ) / stages.length ); } );
+			});
+		});
+		return p;
+	}
+	function tpLabel ( c ) {
+		var a = [];
+		if (Math.abs ( c.tpt - 100 ) > 0.05) a.push ( LT ('速度 ', 'Speed ') + c.tpt + '%' );
+		if (Math.abs ( c.tps ) > 0.001) a.push ( LT ('音高 ', 'Pitch ') + ( c.tps > 0 ? '+' : '' ) + c.tps + LT (' 半音', ' st') + ( c.tpf ? LT ('（保留共振峰）', ' (formant kept)') : '' ) );
+		if (c.tpp > 0) a.push ( LT ('停頓上限 ', 'Pause max ') + c.tpp + LT (' 秒', ' s') );
+		return a.join ('、');
+	}
+
 	function decode ( ctx, file ) {
 		return file.arrayBuffer ().then (function ( ab ) {
 			return new Promise (function ( ok, fail ) {
@@ -413,6 +480,7 @@
 		'.pk_bt_grid label{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0}' +
 		'.pk_bt_grid .pk_bt_wide{grid-column:1 / -1}' +
 		'.pk_bt_grid input[type=checkbox]{accent-color:var(--ac);float:none;margin:0 4px 0 0}' +
+		'.pk_bt_grid input[type=number]{width:84px;float:none;margin:0}' +
 		'.pk_bt_grid .pk_txt{width:60%;float:none}' +
 		'.pk_bt_bar{height:6px;border-radius:3px;background:var(--bg-4);overflow:hidden;margin:8px 0 2px;display:none}' +
 		'.pk_bt_bar i{display:block;height:100%;width:0;background:var(--ac);transition:width .15s}' +
@@ -432,6 +500,8 @@
 			return '<option value="' + esc ( o[ 0 ] ) + '"' + (String ( o[ 0 ] ) === String ( cur ) ? ' selected' : '') + '>' + esc ( o[ 1 ] ) + '</option>';
 		}).join ('');
 	}
+
+	function clampNum ( v, a, b, def ) { v = parseFloat ( v ); return isFinite ( v ) ? Math.max ( a, Math.min ( b, v ) ) : def; }
 
 	function body ( c ) {
 		var off = LT ('關', 'Off');
@@ -460,6 +530,14 @@
 				[ 'lufs|-14|-1', 'LUFS -14 (Spotify / YouTube)' ],
 				[ 'lufs|-16|-1', 'LUFS -16 (Podcast)' ],
 				[ 'lufs|-23|-1', 'LUFS -23 (EBU R128)' ] ], c.norm) + '</select></label>' +
+			'</div>' +
+			'<div class="pk_bt_sec">' + LT ('時間與音高（接在 EQ 之後）', 'Time & pitch (after EQ)') + '</div>' +
+			'<div class="pk_bt_grid">' +
+			'<label>' + LT ('速度 %（不變調）', 'Speed % (same pitch)') + '<input class="pk_txt" type="number" id="pkbt-tpt" min="25" max="400" step="0.1" value="' + c.tpt + '"></label>' +
+			'<label>' + LT ('音高（半音，不變速）', 'Pitch (semitones, same speed)') + '<input class="pk_txt" type="number" id="pkbt-tps" min="-24" max="24" step="0.1" value="' + c.tps + '"></label>' +
+			'<label>' + LT ('音質', 'Quality') + '<select id="pkbt-tpq">' + opts ([ [ 'speech', LT ('人聲／說話', 'Speech') ], [ 'mixed', LT ('通用', 'General') ], [ 'music', LT ('音樂／和聲', 'Music') ], [ 'perc', LT ('打擊樂', 'Percussive') ] ], c.tpq) + '</select></label>' +
+			'<label>' + LT ('停頓上限', 'Pause max') + '<select id="pkbt-tpp" title="' + LT ('超過這個長度的停頓縮短到這個長度；只處理能偵測到的靜音', 'Pauses longer than this are shortened to it') + '">' + opts ([ [ 0, off ], [ 0.2, LT ('0.2 秒', '0.2 s') ], [ 0.3, LT ('0.3 秒', '0.3 s') ], [ 0.5, LT ('0.5 秒', '0.5 s') ], [ 1, LT ('1 秒', '1 s') ] ], c.tpp) + '</select></label>' +
+			'<label class="pk_bt_wide"><span><input type="checkbox" id="pkbt-tpf"' + (c.tpf ? ' checked' : '') + '>' + LT ('改音高時保留共振峰（人聲不變花栗鼠）', 'Keep formants when pitch changes') + '</span></label>' +
 			'</div>' +
 			'<div class="pk_bt_sec">' + LT ('輸出', 'Output') + '</div>' +
 			'<div class="pk_bt_grid">' +
@@ -546,6 +624,11 @@
 				hpf: $('hpf').value / 1,
 				dn: $('dn').value / 1,
 				eq: $('eq').value,
+				tpt: clampNum ( $('tpt').value, 25, 400, 100 ),
+				tps: clampNum ( $('tps').value, -24, 24, 0 ),
+				tpq: $('tpq').value,
+				tpf: $('tpf').checked,
+				tpp: $('tpp').value / 1,
 				trim: $('trim').value / 1,
 				fin: $('fin').value / 1,
 				fout: $('fout').value / 1,
@@ -664,6 +747,14 @@
 					if (c.hpf) p = p.then (function ( x ) { return highpass ( x, sr, c.hpf ); });
 					if (c.dn) p = p.then (function ( x ) { $('sum') && ($('sum').textContent = LT ('降噪中 ', 'Denoising ') + (i + 1) + ' / ' + total + '：' + src.name); return denoise ( x, sr, c.dn / 100 ); });
 					if (bands) p = p.then (function ( x ) { return renderFilters ( x, sr, bands ); });
+					/* [新增 5-1] 時間與音高 */
+					if (tpOn ( c )) p = p.then (function ( x ) {
+						var pl = tpStages ( c, x, sr );
+						pl.notes.forEach (function ( n ) { notes.push ( n ); });
+						if (!pl.st.length) return x;
+						$('sum') && ($('sum').textContent = LT ('時間與音高 ', 'Time & pitch ') + (i + 1) + ' / ' + total + '：' + src.name);
+						return tpRun ( x, sr, pl.st, function ( v ) { setBar ( (i + v * 0.6) / total * 100 ); } );
+					});
 					return p;
 				}).then (function ( chn ) {
 					ch = chn;
@@ -687,6 +778,7 @@
 					var chain = [];
 					if (c.dn) chain.push ( LT ('降噪 ', 'Denoise ') + c.dn + '%' );
 					if (bands) chain.push ( 'EQ: ' + eqName ( c.eq ) );
+					if (tpOn ( c )) chain.push ( tpLabel ( c ) );
 					row[ 8 ] = chain.concat ( notes ).join ('; ');
 					++ok_n; rows.push ( row );
 					setTimeout ( next, 0 );
@@ -754,6 +846,6 @@
 		return modal;
 	}
 
-	PKAE._deps.batch = { open: open };
+	PKAE._deps.batch = { open: open, _tp: { on: tpOn, stages: tpStages, run: tpRun, label: tpLabel } };      /* [修改 5-1] 多匯出 _tp 供測試 */
 
 })( window, document, PKAudioEditor );
