@@ -1,8 +1,11 @@
-const CACHE_NAME = 'soundit-v21';
+/* [修改] v26 → v27：新增 batch.js（批次處理）。
+ * 前一次 v25 → v26：快取優先策略下，不改版本號的話，使用者會一直拿到舊的 JS（含這次的錄音與效果修改） */
+const CACHE_NAME = 'soundit-v28';
 
 const REQUIRED_ASSETS = [
 	'./',
 	'./index.html',
+	'./theme.js',
 	'./main.css',
 	'./locale.js',
 	'./lang-en.js',
@@ -40,12 +43,14 @@ const REQUIRED_ASSETS = [
 	'./recorder.js',
 	'./webcodecs-encoder.js',
 	'./zip-store.js',
+	'./batch.js',
 	'./fx-pg-eq.js',
 	'./fx-auto.js',
 	'./local.js',
 	'./id3.js',
 	'./lz4-loader.js',
 	'./amss-format.js',
+	'./ab.js',
 	'./multitrack.js',
 	'./spectrogram.js',
 	'./oneup.js',
@@ -139,3 +144,5 @@ async function cacheFirst( request ) {
 		throw err;
 	}
 }
+
+

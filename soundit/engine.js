@@ -1352,6 +1352,9 @@
 
 			if (app.rec.isActive ()) {
 				app.fireEvent('RequestActionRecordStop');
+			} else if (app._deps.recCountdown && app._deps.recCountdown.active ()) {
+				/* [新增] 倒數中再按一次錄音鍵 = 取消倒數 */
+				app._deps.recCountdown.cancel ();
 			} else {
 
 				if (_sk) return ;
@@ -1377,8 +1380,20 @@
 			app.rec.stop ();
 		});
 
-		app.listenFor ('RequestActionRecordStart', function () {
+		app.listenFor ('RequestActionRecordStart', function ( go ) {
 			if (!q.is_ready) return ;
+
+			/* [新增] 設定了錄音倒數時，先倒數；倒數完成再以 'go' 重新觸發真正的開始 */
+			var cd = app._deps.recCountdown;
+			if (go !== 'go' && cd && cd.seconds () > 0) {
+				if (!app.rec.isActive () && !cd.active ()) {
+					app.fireEvent ('RequestPause');
+					cd.run (function ( ok ) {
+						ok && app.fireEvent ('RequestActionRecordStart', 'go');
+					});
+				}
+				return ;
+			}
 
 			app.fireEvent ('RequestPause');
 
@@ -1961,6 +1976,80 @@
 			OneUp (t('engine.applied_invert'));
 		});
 
+		/* [新增] 切除低頻隆隆聲（80 Hz 高通） */
+		app.listenFor ('RequestActionFX_HighPass', function ( val ) {
+			if (!q.is_ready) return ;
+
+			app.fireEvent('RequestPause');
+
+			var region = wavesurfer.regions.list[0];
+
+			function handleStateInline ( start, end ) {
+				app.fireEvent ('StateRequestPush', {
+					desc : t('desc.high_pass') + ' ',
+					meta : [ start, end ],
+					data : wavesurfer.backend.buffer
+				});
+			}
+
+			if (!region) {
+				wavesurfer.regions.add({
+					start:0.00,
+					end:wavesurfer.getDuration() - 0.00,
+					id:'t'
+				});
+				region = wavesurfer.regions.list[0];
+			}
+
+			var start = q.TrimTo (region.start, 3);
+			var end = q.TrimTo ((region.end - region.start), 3);
+
+			handleStateInline ( start, end );
+			AudioUtils.FX( start, end, AudioUtils.FXBank.HighPass ( { freq: 80 } ) );
+
+			OneUp (t('engine.applied_high_pass'));
+		});
+
+		/* [新增] 移除直流偏移 */
+		app.listenFor ('RequestActionFX_DCOffset', function ( val ) {
+			if (!q.is_ready) return ;
+
+			app.fireEvent('RequestPause');
+
+			var region = wavesurfer.regions.list[0];
+
+			function handleStateInline ( start, end ) {
+				app.fireEvent ('StateRequestPush', {
+					desc : t('desc.dc_offset') + ' ',
+					meta : [ start, end ],
+					data : wavesurfer.backend.buffer
+				});
+			}
+
+			if (!region) {
+				wavesurfer.regions.add({
+					start:0.00,
+					end:wavesurfer.getDuration() - 0.00,
+					id:'t'
+				});
+				region = wavesurfer.regions.list[0];
+			}
+
+			var start = q.TrimTo (region.start, 3);
+			var end = q.TrimTo ((region.end - region.start), 3);
+
+			handleStateInline ( start, end );
+
+			var dc_fx = AudioUtils.FXBank.DCOffset ();
+			AudioUtils.FX( start, end, dc_fx );
+
+			var worst = 0;
+			for (var di = 0; di < dc_fx.removed.length; ++di)
+				worst = Math.max (worst, Math.abs (dc_fx.removed[di]));
+
+			OneUp (t('engine.applied_dc_offset', { pct: (worst * 100).toFixed (3) }));
+		});
+
 		app.listenFor ('RequestActionFX_RemSil', function ( val ) {
 			if (!q.is_ready) return ;
 
@@ -2009,13 +2098,24 @@
 						var found = false;
 						var jump = 500;
 
+						/* [修改] 原本只看第 1 個聲道，立體聲只有右聲道有聲音的段落會被當成靜音刪掉。
+						 * 現在所有聲道在同一個取樣點都很小才算靜音；單聲道的行為與原本相同。 */
+						var rs_chans = [];
+						for (var rc = 0; rc < originalBuffer.numberOfChannels; ++rc)
+							rs_chans.push (originalBuffer.getChannelData (rc));
+
+						function isQuiet ( at ) {
+							for (var c = 0; c < rs_chans.length; ++c) {
+								if (Math.abs (rs_chans[c][at]) >= 0.000368) return false;
+							}
+							return true;
+						}
+
 						for (var i = 0; i < 1; ++i)
 						{
-							var channel = originalBuffer.getChannelData (i);
-
 							for (var j = region_start; j < region_end; ++j)
 							{
-								if (Math.abs (channel[j]) < 0.000368)
+								if (isQuiet (j))
 								{
 									if (count === 0) {
 										sil_start = Math.max (region_start, j - jump);

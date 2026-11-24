@@ -1,3 +1,6 @@
+/* --------------------------------------------------------------------------
+ * 📄 原始檔案: ui.js 
+ * -------------------------------------------------------------------------- */
 (function ( w, d, PKAE ) {
 	'use strict';
 
@@ -96,7 +99,28 @@
 			var lbt = root.getElementsByClassName ('pk_lbtrk')[0];	/* [標籤列] 標籤列顯示時，波形高度要扣掉它 */
 			if (lbt) used += lbt.offsetHeight;
 			if (this.BarBtm && this.BarBtm.on) used += this.BarBtm.height;
-			return Math.max (112, h - used);
+			var res = Math.max (112, h - used);
+			/* [新增] 自動貼合：上面是用「各區塊高度相加」估算，標籤列（層數會變）、換行的工具列等只要有一處沒算準，
+			 * 頁面底部就會多出空白或捲軸。這裡改用實際版面量測：看最後一個在文件流內的區塊底邊，離「可用高度」的底部還差多少
+			 * （正＝還有空白、負＝超出），直接把差額加到目前的波形高度上。已經貼合時差額為 0，高度不變，所以不會來回抖動。
+			 * 桌機與手機版型（pk_mob）都適用；兩者的底部都以 #app 自己的上緣＋可用高度計算，不受頁面捲動位置影響。 */
+			{
+				var av = root.getElementsByClassName ('pk_av')[0], kids = root.children, k, last = null, pos, vh, sl;
+				if (av && av.offsetHeight > 0 && av.offsetParent) {
+					for (k = kids.length - 1; k >= 0; --k) {
+						if (!kids[k].offsetHeight) continue ;
+						pos = w.getComputedStyle (kids[k]).position;
+						if (pos === 'absolute' || pos === 'fixed') continue ;
+						last = kids[k]; break ;
+					}
+					vh = app.isMobile ? h : (d.documentElement.clientHeight || h);	/* 手機沿用 visualViewport 高度；桌機不含橫向捲軸 */
+					if (last) {
+						sl = (root.getBoundingClientRect ().top + vh) - last.getBoundingClientRect ().bottom;
+						if (isFinite (sl) && Math.abs (sl) < 2000) res = Math.max (112, av.offsetHeight + sl);
+					}
+				}
+			}
+			return res;
 		};
 		if (app.isMobile && w.visualViewport) {
 			var resize_raf = 0;
@@ -147,5 +171,3 @@
 	PKAE._deps.ui = PKUI;
 
 })( window, document, PKAudioEditor );
-
-

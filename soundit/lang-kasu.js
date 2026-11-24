@@ -1,4 +1,3 @@
-
 /* Soundit 語言檔：詔安客語（目前內容沿用繁中，待翻譯；缺少的項目自動使用繁中）
  * 語言代碼：kasu
  * 新增語言：複製此檔、改檔名與下方代碼，並在 index.html 與 sw.js 加入載入路徑。 */
@@ -9,7 +8,7 @@ PKLocale.register ('kasu', {
 	'menu.view': '檢視',
 	'menu.help': '說明',
 
-	'export.title': '匯出',
+	'export.title': '匯出音訊',
 	'export.name_label': '檔案名稱',
 	'export.name_placeholder': '檔名',
 	'export.format': '格式',
@@ -32,18 +31,18 @@ PKLocale.register ('kasu', {
 	'export.tag_artist': '演出者',
 	'export.tag_album': '專輯',
 
-	'load.computer': '從電腦載入',
-	'load.sample': '載入範例',
-	'load.url': '從網址載入',
-	'load.url_title': '從網址載入音訊',
+	'load.computer': '開啟檔案…',
+	'load.sample': '開啟範例音訊',
+	'load.url': '從網址開啟…',
+	'load.url_title': '從網址開啟音訊',
 	'load.url_label': '輸入網址',
 	'load.url_placeholder': '貼上網址',
-	'load.url_btn': '載入',
+	'load.url_btn': '開啟',
 	'load.url_invalid': '網址無效',
 
 	'new_recording': '新增錄音',
-	'save_draft': '儲存本機草稿',
-	'save_local_title': '儲存本機草稿',
+	'save_draft': '儲存草稿至瀏覽器…',
+	'save_local_title': '儲存草稿至瀏覽器',
 	'save_local_choose': '選擇來源',
 	'save_local.whole_track': '整段音軌',
 	'save_local.selection': '選取範圍',
@@ -55,8 +54,8 @@ PKLocale.register ('kasu', {
 	'stored.open_new': '在新視窗開啟',
 	'stored.open_confirm': '在新視窗開啟？',
 
-	'open_drafts': '開啟本機草稿',
-	'drafts.title': '本機草稿',
+	'open_drafts': '從瀏覽器開啟草稿…',
+	'drafts.title': '瀏覽器草稿',
 	'drafts.no_drafts': '沒有草稿',
 	'drafts.name': '名稱：',
 	'drafts.id': '編號：',

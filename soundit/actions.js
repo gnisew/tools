@@ -237,12 +237,28 @@
 			];
 		};
 
+		/* [修改] ReplaceFloatArrays：
+		 *  1. 總長度改成「各段長度實際加總」。原本用「第一段長度 × 段數」，錄音最後一段比較短時，
+		 *     會多蓋掉後面一小段原本的內容（最多約一個緩衝區，約 85 毫秒）。
+		 *  2. 支援立體聲：arrays.right 是右聲道的片段（與 arrays 逐段等長）時，
+		 *     文件第 2 聲道（索引 1）寫入 arrays.right，其餘聲道寫入 arrays（左）。
+		 *     沒有 .right（單聲道錄音）時行為與原本相同：同一份資料寫進每個聲道。 */
 		function ReplaceFloatArrays ( _offset, arrays ) {
 			var originalBuffer = wavesurfer.backend.buffer;
 			var arr_len = arrays.length;
-			var arr_samples = arrays[0].length;
 
-			var new_len = (arr_samples * arr_len);
+			var new_len = 0;
+			for (var k = 0; k < arr_len; ++k) new_len += arrays[ k ].length;
+
+			/* [新增] 右聲道必須與左聲道逐段等長才採用，否則忽略（退回雙單聲道） */
+			var rights = arrays.right;
+			if (rights && rights.length === arr_len) {
+				for (var r = 0; r < arr_len; ++r) {
+					if (rights[ r ].length !== arrays[ r ].length) { rights = null; break; }
+				}
+			}
+			else rights = null;
+
 			var buff_len = originalBuffer.length;
 
 			_offset = ((_offset / 1) * originalBuffer.sampleRate) >> 0;
@@ -260,6 +276,7 @@
 			for (var i = 0; i < originalBuffer.numberOfChannels; i++) {
 				var chan_data = originalBuffer.getChannelData( i );
 				var uberChanData = uberSegment.getChannelData( i );
+				var src = (i === 1 && rights) ? rights : arrays;   /* [新增] 第 2 聲道用右聲道資料 */
 
 				if (_offset > 0)
 				{
@@ -268,11 +285,13 @@
 					);
 				}
 
+				var pos = _offset;   /* [修改] 逐段累加位置，不再用「段序 × 第一段長度」 */
 				for (var j = 0; j < arr_len; ++j)
 				{
 					uberChanData.set (
-						arrays[ j ], _offset + (j * arr_samples)
+						src[ j ], pos
 					);
+					pos += src[ j ].length;
 				}
 
 				if (_offset < (originalBuffer.length + new_len) )
@@ -1530,6 +1549,66 @@
 
 						source.connect (destination);
 						return (source);
+					},
+					update : function () {}
+				};
+			},
+
+			/* [新增] 移除直流偏移（DC Offset）：每個聲道各自減去選取範圍內的平均值。
+			 * 錄音設備或類比電路常帶來微小的直流成分，會讓波形中線偏移、浪費動態餘裕，
+			 * 也會讓剪接處產生爆音。做完後 fx.removed[] 會留下各聲道被減掉的值（振幅 -1 ~ 1）。 */
+			DCOffset : function ( val ) {
+				var fx = {
+					removed : [],
+					filter : function ( audio_ctx, destination, source, duration ) {
+						fx.removed = [];
+
+						for (var i = 0; i < source.buffer.numberOfChannels; ++i) {
+							var channel = source.buffer.getChannelData (i);
+							var n = channel.length;
+							var sum = 0;
+							var j = 0;
+
+							for (j = 0; j < n; ++j) sum += channel[j];
+
+							var mean = n ? sum / n : 0;
+							fx.removed.push (mean);
+							if (!mean) continue;
+
+							for (j = 0; j < n; ++j) channel[j] -= mean;
+						}
+
+						source.connect (destination);
+						return (source);
+					},
+					update : function () {}
+				};
+				return fx;
+			},
+
+			/* [新增] 切除低頻隆隆聲：4 階（24 dB/oct）巴特沃斯高通濾波，預設 80 Hz。
+			 * 用來去掉冷氣、風聲、麥克風架震動與呼吸噴麥的低頻，對人聲幾乎沒有影響。
+			 * 注意 WebAudio 的 highpass 其 Q 單位是 dB，所以把巴特沃斯的線性 Q 換成 dB。 */
+			HighPass : function ( val ) {
+				var freq = (val && val.freq) || 80;
+				return {
+					filter : function ( audio_ctx, destination, source, duration ) {
+						var qs = [0.5412, 1.3065];
+						var prev = source;
+						var chain = [];
+
+						for (var i = 0; i < qs.length; ++i) {
+							var n = audio_ctx.createBiquadFilter ();
+							n.type = 'highpass';
+							n.frequency.value = Math.min (freq, audio_ctx.sampleRate * 0.45);
+							n.Q.value = 20 * Math.log (qs[i]) / Math.LN10;
+							prev.connect (n);
+							prev = n;
+							chain.push (n);
+						}
+
+						prev.connect (destination);
+						return (chain);
 					},
 					update : function () {}
 				};

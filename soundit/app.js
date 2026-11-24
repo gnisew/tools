@@ -147,6 +147,7 @@
 			q.ui     = new q._deps.ui ( q ); q._deps.uifx ( q );
 			q.engine = new q._deps.engine ( q );
 			q.state  = new q._deps.state ( 96, q );
+			q.ab     = q._deps.ab ? new q._deps.ab ( q ) : null;
 			q.rec    = new q._deps.rec ( q );
 			q.fls    = new q._deps.fls ( q );
 			q.amss   = q._deps.amss ? new q._deps.amss ( q ) : null;
@@ -184,3 +185,5 @@
 	PKAudioList.push (w.PKAudioEditor);
 
 })( window, document );
+
+

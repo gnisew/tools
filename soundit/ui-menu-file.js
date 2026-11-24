@@ -105,8 +105,227 @@
 		return {
 			name: t('menu.file'),
 			children : [
+				{ name: t('load.computer') + K ('open'), type: 'file', action: function () { app.fireEvent ('RequestLoadLocalFile'); } },
 				{
-					name: t('export.title') + K ('save'),
+					name: t('load.url'),
+					action: function () {
+						new PKSimpleModal({
+							title: t('load.url_title'),
+							ondestroy: function( q ) { app.ui.InteractionHandler.on = false; app.ui.KeyHandler.removeCallback ('modalTemp'); app.ui.KeyHandler.removeCallback ('modalTempEnter'); },
+							buttons:[{
+								title: t('load.url_btn'), clss:'pk_modal_a_accpt',
+								callback: function( q ) {
+									var input = q.el_body.getElementsByTagName('input')[0];
+									var value = input.value.trim();
+									function isURL ( str ) { return /^((https?:)?\/\/)?(?:\S+(?::\S*)?@)?(?:(?:(?:[a-z\d](?:[a-z\d-]*[a-z\d])*)\.)+[a-z]{2,}|(?:\d{1,3}\.){3}\d{1,3})(?::\d+)?(?:\/[-a-z\d%_.~+]*)*(?:\?[;&a-z\d%_.~+=-]*)?(?:#[-a-z\d_]*)?$/i.test(str); }
+									if (isURL (value)) { if (app.fireEvent ('RequestLoadURL', value) !== true) app.engine.LoadURL ( value ); q.Destroy (); }
+									else OneUp (t('load.url_invalid'), 1100);
+								}
+							}],
+							body:'<label for="k00">' + t('load.url_label') + '</label>' +
+								'<input style="min-width:250px" placeholder="' + t('load.url_placeholder') + '" class="pk_txt" type="text" id="k00" />',
+							setup:function( q ) {
+								app.fireEvent ('RequestPause');
+								app.ui.InteractionHandler.checkAndSet ('modal');
+								app.ui.KeyHandler.addCallback ('modalTemp', function ( e ) { q.Destroy (); }, [27]);
+								app.ui.KeyHandler.addCallback ('modalTempEnter', function ( e ) { q.els.bottom[0].click (); }, [13]);
+								setTimeout(function() { q.el && q.el.getElementsByTagName('input')[0].focus (); },20);
+							}
+						}).Show();
+					}
+				},
+				{ name: t('load.sample'), action: function () { if (app.fireEvent ('RequestLoadSampleFile') !== true) app.engine.LoadSample ('test.mp3'); } },
+				{ name: '---' },
+				{ name: t('new_recording') + '…', action: function () { app.fireEvent('RequestActionNewRec'); } },
+				/* [新增] 錄音倒數：關 → 3 秒 → 5 秒 循環切換 */
+				{ name: t('rec.countdown_menu'), action: function () {
+					var P = app._deps.recPrefs; if (!P) return ;
+					var order = [0, 3, 5];
+					var next = order[ (order.indexOf ( P.get ().countdown ) + 1) % order.length ];
+					P.set ('countdown', next);
+					OneUp (t('rec.countdown_menu') + '：' + (next ? t('rec.countdown_sec', { n: next }) : t('rec.countdown_off')), 1200);
+				} },
+				/* [新增] 錄音聲道：單聲道 ↔ 立體聲（偏好會被記住）。
+				 * 立體聲只在「目前文件是立體聲」時生效；單聲道文件仍以單聲道錄音。 */
+				{ name: t('rec.channels_menu'), action: function () {
+					var P = app._deps.recPrefs; if (!P) return ;
+					var next = P.get ().channels === 2 ? 1 : 2;
+					P.set ('channels', next);
+					var msg = t('rec.channels_menu') + '：' + t(next === 2 ? 'rec.channels_stereo' : 'rec.channels_mono');
+					try {
+						var buf = app.engine && app.engine.is_ready && app.engine.wavesurfer.backend.buffer;
+						if (next === 2 && buf && buf.numberOfChannels < 2) msg += '（' + t('rec.channels_need_stereo') + '）';
+					} catch (e) {}
+					OneUp (msg, next === 2 ? 2200 : 1200);
+				} },
+				{ name: '---' },
+				{
+					name: t('save_draft'), clss: 'pk_inact',
+					action: function ( e ) {
+						if (!app.engine.is_ready) return ;
+						var saving = function ( type, name ) {
+							var buff = app.engine.wavesurfer.backend.buffer;
+							if (type === 'copy') buff = app.engine.GetCopyBuff ();
+							else if (type === 'sel') buff = app.engine.GetSel ();
+							var func = function ( fls ) { var rr = Math.random().toString(36).substring(7); fls.SaveSession (buff, rr, name); app.stopListeningFor ('DidOpenDB', func); };
+							app.listenFor ('DidOpenDB', func);
+							if (!app.fls.on) app.fls.Init (function(err){if(err){alert(PKLocale.t('ui.db_error'))}});
+							else app.fireEvent ('DidOpenDB', app.fls);
+						};
+						new PKSimpleModal ({
+							title: t('save_local_title'),
+							ondestroy: function( q ) { app.ui.InteractionHandler.on = false; app.ui.KeyHandler.removeCallback ('modalTempErr'); },
+							buttons:[{
+								title: t('save_local.btn'), clss:'pk_modal_a_accpt',
+								callback: function( q ) {
+									var type = 'whole'; var input = q.el_body.getElementsByTagName ('input'); var name = input[ input.length - 1 ].value;
+									if (name) { name = name.trim (); if (name.length >= 100) name = name.substr(0,99).trim(); if (name.length === 0) name = null; } else name = null;
+									for (var i = 0; i < input.length; ++i) { if (input[i].checked) { type = input[i].value; break; } }
+									saving (type, name); q.Destroy ();
+								}
+							}],
+							body:'<p>' + t('save_local_choose') + '</p>' +
+								'<p style="font-size:11px;opacity:.7;margin:0 0 8px">' + t('drafts.tip') + '</p>' +	/* [新增] 草稿保存位置說明 */
+								'<div class="pk_row"><input type="radio" class="pk_check" id="sl1" name="rdslnc" checked value="whole"><label style="vertical-align:top" for="sl1">' + t('save_local.whole_track') + '</label>' +
+								'<input type="radio" class="pk_check" id="sl2" name="rdslnc" value="sel"><label style="vertical-align:top" class="pk_lblsel" for="sl2">' + t('save_local.selection') + '</label>'+
+								'<input type="radio" class="pk_check" id="sl3" name="rdslnc" value="copy"><label style="vertical-align:top" class="pk_lblsel2" for="sl3">' + t('save_local.clipboard') + '</label></div>'+
+								'<div class="pk_row"><label for="slk0">' + t('save_local.name_label') + '</label>' +
+								'<input style="min-width:250px" placeholder="' + t('save_local.name_placeholder') + '" maxlength="100" class="pk_txt" type="text" id="slk0" /></div>',
+							setup:function( q ) {
+								var wv = app.engine.wavesurfer;
+								var region = wv.regions.list[0];
+								var lblr = q.el_body.getElementsByClassName('pk_lblsel')[0];
+								if (!region) lblr.className = 'pk_dis';
+								else { q.el_body.getElementsByClassName('pk_check')[1].checked = true; lblr.childNodes[1].textContent = app.ui.formatTime(region.start) + ' – ' + app.ui.formatTime(region.end); }
+								var copy = app.engine.GetCopyBuff ();
+								if (!copy) { var lbl = q.el_body.getElementsByClassName('pk_lblsel2')[0]; lbl.className = 'pk_dis'; }
+								if (!app.isMobile) setTimeout(function() { q.el && q.el.getElementsByClassName('pk_txt')[0].focus (); },20);
+								app.fireEvent ('RequestPause');
+								app.ui.InteractionHandler.checkAndSet ('modal');
+								app.ui.KeyHandler.addCallback ('modalTempErr', function ( e ) { q.Destroy (); }, [27]);
+							}
+						}).Show ();
+					},
+					setup: function ( obj ) {
+						obj.title = t('drafts.tip');	/* [新增] 滑過時說明草稿存在哪裡 */
+						app.listenFor ('DidUnloadFile', function () { obj.classList.add ('pk_inact'); });
+						app.listenFor ('DidLoadFile', function () { obj.classList.remove ('pk_inact'); });
+						app.listenFor ('DidStoreDB', function ( obj, e ) {
+							var name = obj.id;
+							var txt = '<div style="padding:2px 0">' + t('drafts.id') + ' ' + name + '</div><div style="padding:2px 0"><span>' + t('drafts.durr') + ' ' + obj.durr + 's</span>&nbsp;&nbsp;&nbsp;<span>' + t('drafts.chn') + ' ' + (obj.chans === 1 ? t('drafts.mono') : t('drafts.stereo')) + '</span></div><div style="padding:2px 0"><img src="' + obj.thumb + '" /></div>';
+							new PKSimpleModal ({
+								title: t('stored.title'),
+								ondestroy: function( q ) { app.ui.InteractionHandler.on = false; app.ui.KeyHandler.removeCallback ('modalTempErr'); },
+								buttons:[{ title: t('stored.open_new'), callback: function( q ) { window.open ( window.location.pathname + '?local=' + name); q.Destroy (); } }],
+								body:'<p>' + t('stored.open_confirm') + '</p>' + txt,
+								setup:function( q ) { app.fireEvent ('RequestPause'); app.fireEvent( 'RequestRegionClear'); app.ui.InteractionHandler.checkAndSet ('modal'); app.ui.KeyHandler.addCallback ('modalTempErr', function ( e ) { q.Destroy (); }, [27]); }
+							}).Show ();
+						});
+					}
+				},
+				{
+					name: t('open_drafts'),
+					action: function ( e ) {
+						var datenow = new Date ();
+						/* [修改] 相對時間依語言顯示；原本寫死英文，且會覆寫 datenow（第一筆 < 60 秒後，其餘草稿全變 NaN） */
+						var time_ago = function ( arg ) {
+							var a = Math.max (0, (datenow - arg) / 1E3 >> 0), n;
+							if (a < 60) return LT (a + ' 秒前', a + ' second' + (a === 1 ? '' : 's') + ' ago');
+							if (a < 3600) { n = Math.floor (a / 60); return LT (n + ' 分鐘前', n + ' minute' + (n > 1 ? 's' : '') + ' ago'); }
+							if (a < 86400) { n = Math.floor (a / 3600); return LT (n + ' 小時前', n + ' hour' + (n > 1 ? 's' : '') + ' ago'); }
+							if (a < 2592000) { n = Math.floor (a / 86400); return LT (n + ' 天前', n + ' day' + (n > 1 ? 's' : '') + ' ago'); }
+							n = Math.floor (a / 2592000); return LT (n + ' 個月前', n + ' month' + (n > 1 ? 's' : '') + ' ago');
+						};
+						var pad2 = function ( n ) { return (n < 10 ? '0' : '') + n; };
+						var func = function ( fls ) {
+							fls.ListSessions(function( ret ) {
+								var msg = '';
+								if (ret.length === 0) { msg += t('drafts.no_drafts'); }
+								else {
+									for (var i = 0; i < ret.length; ++i) {
+										var curr = ret[i]; var date = new Date(curr.created);
+										var datestr = (splitLang () === 'zh' ? date.getFullYear()+'/'+pad2(date.getMonth()+1)+'/'+pad2(date.getDate()) : (date.getMonth()+1)+'/'+date.getDate()+'/'+date.getFullYear())+' '+pad2(date.getHours())+':'+pad2(date.getMinutes())+':'+pad2(date.getSeconds());
+										var agostr = time_ago (date); var filename = app.escapeHtml (curr.name || '-'); var duration = curr.durr; var thumb = curr.thumb;
+										var chns = (curr.chans === 1 ? t('drafts.mono') : t('drafts.stereo'));
+										msg += '<div id="pk_' + curr.id + '" class="pk_lcldrf"><div style="padding-bottom:2px"><span><i class="pk_i">' + t('drafts.name') + '</i>' + filename + '</span></div>' +
+											'<div><span class="pk_lcls"><i class="pk_i">' + t('drafts.id') + '</i><strong>' + curr.id + '</strong><br/><i class="pk_i">' + t('drafts.chn') + '</i>'+ chns +'</span>' +
+											'<span class="pk_lcls" style="width:50%;text-align:center"><i class="pk_i">' + t('drafts.date') + '</i><span>' + datestr + '<br/>'+ agostr +'</span></span>' +
+											'<span style="text-align:right;float:right" class="pk_lcls"><i class="pk_i">' + t('drafts.durr') + '</i>' + duration + 's</span></div><div>' +
+											'<img class="pk_lcli" src="' + thumb + '" />' +
+											'<a class="pk_lcla2" onclick="PKAudioEditor.fireEvent(\'LoadDraft\',\'' + curr.id + '\', 3);">' + t('drafts.play') + '</a>' +
+											'<a class="pk_lcla" onclick="PKAudioEditor.fireEvent(\'LoadDraft\',\'' + curr.id + '\');">' + t('drafts.open') + '</a>';
+										if (app.engine.is_ready) msg += '<a onclick="PKAudioEditor.fireEvent(\'LoadDraft\',\'' + curr.id + '\',1);" class="pk_lcla">' + t('drafts.append') + '</a>';
+										msg += '<a class="pk_lcla" style="color:#ad2b2b" onclick="PKAudioEditor.fireEvent(\'LoadDraft\',\'' + curr.id + '\',2);">' + t('drafts.del') + '</a></div></div>';
+									}
+								}
+								var modal;
+								var closeModal = function ( val, val2 ) { if (val2 === 2 || val2 === 3) return ; modal.Destroy (); modal = null; };
+								var set_act_btn = function ( name, state ) { var act; if (!state) { act = modal.el_body.getElementsByClassName('pk_act')[0]; if (act) act.classList.remove ('pk_act'); } else { var el = document.getElementById ('pk_' + name); if (el) { act = el.getElementsByClassName ('pk_lcla2')[0]; act && act.classList.add ('pk_act'); } } };
+								app.listenFor ('_lclStart', set_act_btn);
+								modal = new PKSimpleModal ({ title: t('drafts.title'), clss: 'pk_bigger',
+									ondestroy: function( q ) { app.fireEvent ('_lclStop'); app.ui.InteractionHandler.on = false; app.ui.KeyHandler.removeCallback ('modalTempErr'); app.stopListeningFor ('LoadDraft', closeModal); app.stopListeningFor ('_lclStart', set_act_btn); },
+									buttons:[], body:'<div>' + msg + '</div>',
+									setup:function( q ) { app.fireEvent ('RequestPause'); app.fireEvent( 'RequestRegionClear'); app.listenFor ('LoadDraft', closeModal); app.ui.InteractionHandler.checkAndSet ('modal'); app.ui.KeyHandler.addCallback ('modalTempErr', function ( e ) { q.Destroy (); }, [27]); }
+								});
+								modal.Show ();
+							});
+							app.stopListeningFor ('DidOpenDB', func);
+						};
+						app.listenFor ('DidOpenDB', func);
+						if (!app.fls.on) app.fls.Init (function(err){if(err){alert(PKLocale.t('ui.db_error'))}});
+						else app.fireEvent ('DidOpenDB', app.fls);
+					},
+					setup: function ( obj ) {
+						obj.title = t('drafts.tip');	/* [新增] 滑過時說明草稿存在哪裡 */
+						var source = {};
+						app.listenFor ('_lclStop', function () { if (source.src) { source.src.stop (); source.src.disconnect (); source.src.onended = null; source.aud.close && source.aud.close (); source = {}; } });
+						app.listenFor ('LoadDraft', function ( name, append ) {
+							app.fls.Init (function (err) {
+								if (err) return ;
+								if (append === 2) {
+									if (source.id === name) { app.fireEvent ('_lclStart', source.id, 0); source.src.stop (); source.src.disconnect (); source.src.onended = null; source.aud.close && source.aud.close (); source = {}; }
+									app.fls.DelSession (name, function (name) { var el = document.getElementById ('pk_' + name); if (el) { if ( el.parentNode.children.length === 1 ) el.parentNode.innerHTML = t('drafts.no_drafts'); else el.parentNode.removeChild(el); } });
+									return ;
+								}
+								if (append === 3) {
+									if (source.id) { var xt = source.id === name; app.fireEvent ('_lclStart', source.id, 0); source.src.stop (); source.src.disconnect (); source.src.onended = null; source.aud.close && source.aud.close (); source = {}; if (xt) return ; }
+									var aud_cont = new (w.AudioContext || w.webkitAudioContext)();
+									if (aud_cont && aud_cont.state == 'suspended') aud_cont.resume && aud_cont.resume ();
+									app.fls.GetSession (name, function ( e ) {
+										if(e && e.id === name) {
+											source.id = e.id; source.aud = aud_cont;
+											source.src = app.engine.PlayBuff (e.data, e.chans, e.samplerate, aud_cont);
+											if (!source.src) { source.aud && source.aud.close && source.aud.close (); source = {}; return ; }
+											source.src.onended = function () { app.fireEvent ('_lclStart', source.id, 0); source.src.stop (); source.src.disconnect (); source.src.onended = null; source.aud.close && source.aud.close (); source = {}; };
+											app.fireEvent ('_lclStart', e.id, 1);
+										}
+									});
+									return ;
+								}
+								var overwrite = (function ( app, name, append ) {
+									return function () { app.fls.GetSession (name, function ( e ) { if(e && e.id === name) { app.fireEvent ('RequestOriginalEditor'); app.engine.wavesurfer.backend._add = append ? 1 : 0; app.engine.LoadDB ( e ); } }); };
+								})( app, name, append );
+								if (app.engine.is_ready && !append) {
+									var mm = new PKSimpleModal ({
+										title: t('open_existing.title'), body: '<div>' + t('open_existing.body') + '</div>',
+										buttons:[
+											{ title: t('open_existing.open'), clss:'pk_modal_a_accpt', callback: function( q ) { overwrite (); q.Destroy (); } },
+											{ title: t('open_existing.open_new'), clss:'pk_modal_a_accpt', callback: function( q ) { window.open (window.location.pathname + '?local=' + name); q.Destroy (); } }
+										],
+										setup: function ( q ) { app.ui.InteractionHandler.checkAndSet ('mm'); app.ui.KeyHandler.addCallback ('mmErr', function ( e ) { q.Destroy (); }, [27]); },
+										ondestroy: function ( q ) { overwrite = null; app.ui.InteractionHandler.on = false; app.ui.KeyHandler.removeCallback ('mmErr'); }
+									});
+									setTimeout(function() { mm.Show (); },0);
+									return ;
+								}
+								overwrite ();
+							});
+						});
+					}
+				},
+				{ name: '---' },
+				{
+					name: t('export.title') + '…' + K ('save'),
 					action: function () {
 						new PKSimpleModal({
 							title: t('export.title'),
@@ -341,195 +560,12 @@
 						setExportReady ();
 					}
 				},
-				{ name: t('load.computer'), type: 'file', action: function () { app.fireEvent ('RequestLoadLocalFile'); } },
-				{ name: t('load.sample'), action: function () { if (app.fireEvent ('RequestLoadSampleFile') !== true) app.engine.LoadSample ('test.mp3'); } },
+				/* [新增] 批次處理：多個檔案套用同一套處理流程後一次匯出（batch.js）。不需要先開啟檔案 */
 				{
-					name: t('load.url'),
+					name: LT ('批次處理…', 'Batch Process…'),
 					action: function () {
-						new PKSimpleModal({
-							title: t('load.url_title'),
-							ondestroy: function( q ) { app.ui.InteractionHandler.on = false; app.ui.KeyHandler.removeCallback ('modalTemp'); app.ui.KeyHandler.removeCallback ('modalTempEnter'); },
-							buttons:[{
-								title: t('load.url_btn'), clss:'pk_modal_a_accpt',
-								callback: function( q ) {
-									var input = q.el_body.getElementsByTagName('input')[0];
-									var value = input.value.trim();
-									function isURL ( str ) { return /^((https?:)?\/\/)?(?:\S+(?::\S*)?@)?(?:(?:(?:[a-z\d](?:[a-z\d-]*[a-z\d])*)\.)+[a-z]{2,}|(?:\d{1,3}\.){3}\d{1,3})(?::\d+)?(?:\/[-a-z\d%_.~+]*)*(?:\?[;&a-z\d%_.~+=-]*)?(?:#[-a-z\d_]*)?$/i.test(str); }
-									if (isURL (value)) { if (app.fireEvent ('RequestLoadURL', value) !== true) app.engine.LoadURL ( value ); q.Destroy (); }
-									else OneUp (t('load.url_invalid'), 1100);
-								}
-							}],
-							body:'<label for="k00">' + t('load.url_label') + '</label>' +
-								'<input style="min-width:250px" placeholder="' + t('load.url_placeholder') + '" class="pk_txt" type="text" id="k00" />',
-							setup:function( q ) {
-								app.fireEvent ('RequestPause');
-								app.ui.InteractionHandler.checkAndSet ('modal');
-								app.ui.KeyHandler.addCallback ('modalTemp', function ( e ) { q.Destroy (); }, [27]);
-								app.ui.KeyHandler.addCallback ('modalTempEnter', function ( e ) { q.els.bottom[0].click (); }, [13]);
-								setTimeout(function() { q.el && q.el.getElementsByTagName('input')[0].focus (); },20);
-							}
-						}).Show();
-					}
-				},
-				{ name: t('new_recording'), action: function () { app.fireEvent('RequestActionNewRec'); } },
-				{
-					name: t('save_draft'), clss: 'pk_inact',
-					action: function ( e ) {
-						if (!app.engine.is_ready) return ;
-						var saving = function ( type, name ) {
-							var buff = app.engine.wavesurfer.backend.buffer;
-							if (type === 'copy') buff = app.engine.GetCopyBuff ();
-							else if (type === 'sel') buff = app.engine.GetSel ();
-							var func = function ( fls ) { var rr = Math.random().toString(36).substring(7); fls.SaveSession (buff, rr, name); app.stopListeningFor ('DidOpenDB', func); };
-							app.listenFor ('DidOpenDB', func);
-							if (!app.fls.on) app.fls.Init (function(err){if(err){alert(PKLocale.t('ui.db_error'))}});
-							else app.fireEvent ('DidOpenDB', app.fls);
-						};
-						new PKSimpleModal ({
-							title: t('save_local_title'),
-							ondestroy: function( q ) { app.ui.InteractionHandler.on = false; app.ui.KeyHandler.removeCallback ('modalTempErr'); },
-							buttons:[{
-								title: t('save_local.btn'), clss:'pk_modal_a_accpt',
-								callback: function( q ) {
-									var type = 'whole'; var input = q.el_body.getElementsByTagName ('input'); var name = input[ input.length - 1 ].value;
-									if (name) { name = name.trim (); if (name.length >= 100) name = name.substr(0,99).trim(); if (name.length === 0) name = null; } else name = null;
-									for (var i = 0; i < input.length; ++i) { if (input[i].checked) { type = input[i].value; break; } }
-									saving (type, name); q.Destroy ();
-								}
-							}],
-							body:'<p>' + t('save_local_choose') + '</p>' +
-								'<div class="pk_row"><input type="radio" class="pk_check" id="sl1" name="rdslnc" checked value="whole"><label style="vertical-align:top" for="sl1">' + t('save_local.whole_track') + '</label>' +
-								'<input type="radio" class="pk_check" id="sl2" name="rdslnc" value="sel"><label style="vertical-align:top" class="pk_lblsel" for="sl2">' + t('save_local.selection') + '</label>'+
-								'<input type="radio" class="pk_check" id="sl3" name="rdslnc" value="copy"><label style="vertical-align:top" class="pk_lblsel2" for="sl3">' + t('save_local.clipboard') + '</label></div>'+
-								'<div class="pk_row"><label for="slk0">' + t('save_local.name_label') + '</label>' +
-								'<input style="min-width:250px" placeholder="' + t('save_local.name_placeholder') + '" maxlength="100" class="pk_txt" type="text" id="slk0" /></div>',
-							setup:function( q ) {
-								var wv = app.engine.wavesurfer;
-								var region = wv.regions.list[0];
-								var lblr = q.el_body.getElementsByClassName('pk_lblsel')[0];
-								if (!region) lblr.className = 'pk_dis';
-								else { q.el_body.getElementsByClassName('pk_check')[1].checked = true; lblr.childNodes[1].textContent = app.ui.formatTime(region.start) + ' to ' + app.ui.formatTime(region.end); }
-								var copy = app.engine.GetCopyBuff ();
-								if (!copy) { var lbl = q.el_body.getElementsByClassName('pk_lblsel2')[0]; lbl.className = 'pk_dis'; }
-								if (!app.isMobile) setTimeout(function() { q.el && q.el.getElementsByClassName('pk_txt')[0].focus (); },20);
-								app.fireEvent ('RequestPause');
-								app.ui.InteractionHandler.checkAndSet ('modal');
-								app.ui.KeyHandler.addCallback ('modalTempErr', function ( e ) { q.Destroy (); }, [27]);
-							}
-						}).Show ();
-					},
-					setup: function ( obj ) {
-						app.listenFor ('DidUnloadFile', function () { obj.classList.add ('pk_inact'); });
-						app.listenFor ('DidLoadFile', function () { obj.classList.remove ('pk_inact'); });
-						app.listenFor ('DidStoreDB', function ( obj, e ) {
-							var name = obj.id;
-							var txt = '<div style="padding:2px 0">id: ' + name + '</div><div style="padding:2px 0"><span>durr: ' + obj.durr + 's</span>&nbsp;&nbsp;&nbsp;<span>chan: ' + (obj.chans === 1 ? 'mono' : 'stereo') + '</span></div><div style="padding:2px 0"><img src="' + obj.thumb + '" /></div>';
-							new PKSimpleModal ({
-								title: t('stored.title'),
-								ondestroy: function( q ) { app.ui.InteractionHandler.on = false; app.ui.KeyHandler.removeCallback ('modalTempErr'); },
-								buttons:[{ title: t('stored.open_new'), callback: function( q ) { window.open ( window.location.pathname + '?local=' + name); q.Destroy (); } }],
-								body:'<p>' + t('stored.open_confirm') + '</p>' + txt,
-								setup:function( q ) { app.fireEvent ('RequestPause'); app.fireEvent( 'RequestRegionClear'); app.ui.InteractionHandler.checkAndSet ('modal'); app.ui.KeyHandler.addCallback ('modalTempErr', function ( e ) { q.Destroy (); }, [27]); }
-							}).Show ();
-						});
-					}
-				},
-				{
-					name: t('open_drafts'),
-					action: function ( e ) {
-						var datenow = new Date ();
-						var time_ago = function ( arg ) {
-							var a = (datenow - arg) / 1E3 >> 0;
-							if (59 >= a) return datenow = 1 < a ? 's' : '', a + ' second' + datenow + ' ago';
-							if (60 <= a && 3599 >= a) return a = Math.floor(a / 60), a + ' minute' + (1 < a ? 's' : '') + ' ago';
-							if (3600 <= a && 86399 >= a) return a = Math.floor(a / 3600), a + ' hour' + (1 < a ? 's' : '') + ' ago';
-							if (86400 <= a && 2592030 >= a) return a = Math.floor(a / 86400), a + ' day' + (1 < a ? 's' : '') + ' ago';
-							if (2592031 <= a) return a = Math.floor(a / 2592E3), a + ' month' + (1 < a ? 's' : '') + ' ago';
-						};
-						var pad2 = function ( n ) { return (n < 10 ? '0' : '') + n; };
-						var func = function ( fls ) {
-							fls.ListSessions(function( ret ) {
-								var msg = '';
-								if (ret.length === 0) { msg += t('drafts.no_drafts'); }
-								else {
-									for (var i = 0; i < ret.length; ++i) {
-										var curr = ret[i]; var date = new Date(curr.created);
-										var datestr = (date.getMonth()+1)+'/'+date.getDate()+'/'+date.getFullYear()+' '+pad2(date.getHours())+':'+pad2(date.getMinutes())+':'+pad2(date.getSeconds());
-										var agostr = time_ago (date); var filename = app.escapeHtml (curr.name || '-'); var duration = curr.durr; var thumb = curr.thumb;
-										var chns = (curr.chans === 1 ? t('drafts.mono') : t('drafts.stereo'));
-										msg += '<div id="pk_' + curr.id + '" class="pk_lcldrf"><div style="padding-bottom:2px"><span><i class="pk_i">' + t('drafts.name') + '</i>' + filename + '</span></div>' +
-											'<div><span class="pk_lcls"><i class="pk_i">' + t('drafts.id') + '</i><strong>' + curr.id + '</strong><br/><i class="pk_i">' + t('drafts.chn') + '</i>'+ chns +'</span>' +
-											'<span class="pk_lcls" style="width:50%;text-align:center"><i class="pk_i">' + t('drafts.date') + '</i><span>' + datestr + '<br/>'+ agostr +'</span></span>' +
-											'<span style="text-align:right;float:right" class="pk_lcls"><i class="pk_i">' + t('drafts.durr') + '</i>' + duration + 's</span></div><div>' +
-											'<img class="pk_lcli" src="' + thumb + '" />' +
-											'<a class="pk_lcla2" onclick="PKAudioEditor.fireEvent(\'LoadDraft\',\'' + curr.id + '\', 3);">' + t('drafts.play') + '</a>' +
-											'<a class="pk_lcla" onclick="PKAudioEditor.fireEvent(\'LoadDraft\',\'' + curr.id + '\');">' + t('drafts.open') + '</a>';
-										if (app.engine.is_ready) msg += '<a onclick="PKAudioEditor.fireEvent(\'LoadDraft\',\'' + curr.id + '\',1);" class="pk_lcla">' + t('drafts.append') + '</a>';
-										msg += '<a class="pk_lcla" style="color:#ad2b2b" onclick="PKAudioEditor.fireEvent(\'LoadDraft\',\'' + curr.id + '\',2);">' + t('drafts.del') + '</a></div></div>';
-									}
-								}
-								var modal;
-								var closeModal = function ( val, val2 ) { if (val2 === 2 || val2 === 3) return ; modal.Destroy (); modal = null; };
-								var set_act_btn = function ( name, state ) { var act; if (!state) { act = modal.el_body.getElementsByClassName('pk_act')[0]; if (act) act.classList.remove ('pk_act'); } else { var el = document.getElementById ('pk_' + name); if (el) { act = el.getElementsByClassName ('pk_lcla2')[0]; act && act.classList.add ('pk_act'); } } };
-								app.listenFor ('_lclStart', set_act_btn);
-								modal = new PKSimpleModal ({ title: t('drafts.title'), clss: 'pk_bigger',
-									ondestroy: function( q ) { app.fireEvent ('_lclStop'); app.ui.InteractionHandler.on = false; app.ui.KeyHandler.removeCallback ('modalTempErr'); app.stopListeningFor ('LoadDraft', closeModal); app.stopListeningFor ('_lclStart', set_act_btn); },
-									buttons:[], body:'<div>' + msg + '</div>',
-									setup:function( q ) { app.fireEvent ('RequestPause'); app.fireEvent( 'RequestRegionClear'); app.listenFor ('LoadDraft', closeModal); app.ui.InteractionHandler.checkAndSet ('modal'); app.ui.KeyHandler.addCallback ('modalTempErr', function ( e ) { q.Destroy (); }, [27]); }
-								});
-								modal.Show ();
-							});
-							app.stopListeningFor ('DidOpenDB', func);
-						};
-						app.listenFor ('DidOpenDB', func);
-						if (!app.fls.on) app.fls.Init (function(err){if(err){alert(PKLocale.t('ui.db_error'))}});
-						else app.fireEvent ('DidOpenDB', app.fls);
-					},
-					setup: function () {
-						var source = {};
-						app.listenFor ('_lclStop', function () { if (source.src) { source.src.stop (); source.src.disconnect (); source.src.onended = null; source.aud.close && source.aud.close (); source = {}; } });
-						app.listenFor ('LoadDraft', function ( name, append ) {
-							app.fls.Init (function (err) {
-								if (err) return ;
-								if (append === 2) {
-									if (source.id === name) { app.fireEvent ('_lclStart', source.id, 0); source.src.stop (); source.src.disconnect (); source.src.onended = null; source.aud.close && source.aud.close (); source = {}; }
-									app.fls.DelSession (name, function (name) { var el = document.getElementById ('pk_' + name); if (el) { if ( el.parentNode.children.length === 1 ) el.parentNode.innerHTML = t('drafts.no_drafts'); else el.parentNode.removeChild(el); } });
-									return ;
-								}
-								if (append === 3) {
-									if (source.id) { var xt = source.id === name; app.fireEvent ('_lclStart', source.id, 0); source.src.stop (); source.src.disconnect (); source.src.onended = null; source.aud.close && source.aud.close (); source = {}; if (xt) return ; }
-									var aud_cont = new (w.AudioContext || w.webkitAudioContext)();
-									if (aud_cont && aud_cont.state == 'suspended') aud_cont.resume && aud_cont.resume ();
-									app.fls.GetSession (name, function ( e ) {
-										if(e && e.id === name) {
-											source.id = e.id; source.aud = aud_cont;
-											source.src = app.engine.PlayBuff (e.data, e.chans, e.samplerate, aud_cont);
-											if (!source.src) { source.aud && source.aud.close && source.aud.close (); source = {}; return ; }
-											source.src.onended = function () { app.fireEvent ('_lclStart', source.id, 0); source.src.stop (); source.src.disconnect (); source.src.onended = null; source.aud.close && source.aud.close (); source = {}; };
-											app.fireEvent ('_lclStart', e.id, 1);
-										}
-									});
-									return ;
-								}
-								var overwrite = (function ( app, name, append ) {
-									return function () { app.fls.GetSession (name, function ( e ) { if(e && e.id === name) { app.fireEvent ('RequestOriginalEditor'); app.engine.wavesurfer.backend._add = append ? 1 : 0; app.engine.LoadDB ( e ); } }); };
-								})( app, name, append );
-								if (app.engine.is_ready && !append) {
-									var mm = new PKSimpleModal ({
-										title: t('open_existing.title'), body: '<div>' + t('open_existing.body') + '</div>',
-										buttons:[
-											{ title: t('open_existing.open'), clss:'pk_modal_a_accpt', callback: function( q ) { overwrite (); q.Destroy (); } },
-											{ title: t('open_existing.open_new'), clss:'pk_modal_a_accpt', callback: function( q ) { window.open (window.location.pathname + '?local=' + name); q.Destroy (); } }
-										],
-										setup: function ( q ) { app.ui.InteractionHandler.checkAndSet ('mm'); app.ui.KeyHandler.addCallback ('mmErr', function ( e ) { q.Destroy (); }, [27]); },
-										ondestroy: function ( q ) { overwrite = null; app.ui.InteractionHandler.on = false; app.ui.KeyHandler.removeCallback ('mmErr'); }
-									});
-									setTimeout(function() { mm.Show (); },0);
-									return ;
-								}
-								overwrite ();
-							});
-						});
+						var B = PKAE._deps.batch;
+						if (B) B.open ( app ); else OneUp (LT ('批次處理模組未載入', 'Batch module not loaded'), 1500);
 					}
 				}
 			]

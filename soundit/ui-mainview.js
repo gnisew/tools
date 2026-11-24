@@ -279,6 +279,21 @@ var activeMultitrackFor = h.activeMultitrackFor;
 		wavedrag.appendChild ( wavedrag_left );
 		wavedrag.appendChild ( wavedrag_right );
 		wavezoom.appendChild ( wavedrag );
+
+		/* [新增] 總長度：放在右下角（縮放桿的右端），不再佔用左上角時間後面的位置。
+		 * 要放在縮放桿「之前」（float:right 的元素要比它先出現），縮放桿會自己縮短讓出位置。 */
+		var tot = d.createElement ('div');
+		tot.className = 'pk_tot pk_noselect';
+		var tot_v = d.createElement ('span');
+		tot_v.className = 'pk_tot_v';
+		function fmtLen ( v ) { return UI.formatTime ? UI.formatTime ( v || 0 ) : '00:00:000'; }
+		tot_v.textContent = fmtLen ( 0 );
+		tot.appendChild ( tot_v );
+		var tot_tip = t ('ui.total_length');
+		tot.title = tot_tip !== 'ui.total_length' ? tot_tip : 'Total length';
+		footer.appendChild ( tot );
+		UI.listenFor ('DidUpdateLen', function ( val ) { tot_v.textContent = fmtLen ( val ); });
+
 		footer.appendChild ( wavezoom );
 
 		var temp = 0;
@@ -493,7 +508,8 @@ var activeMultitrackFor = h.activeMultitrackFor;
 		var str = '<span class="pk_mark1">-Inf</span>';
 		for (var i = 35; i >= 0; --i)
 		{
-			str += '<span class="pk_mark1 '+(i%2?'pk_odd':'')+'">' + -(i*2) + '</span>';
+			/* [修改] 每 10 dB 多加 pk_m5：電平表縮成窄版時只保留這些刻度文字 */
+			str += '<span class="pk_mark1 '+(i%2?'pk_odd':'')+(i%5?'':' pk_m5')+'">' + -(i*2) + '</span>';
 		}
 		markers.innerHTML = str;
 
@@ -501,12 +517,98 @@ var activeMultitrackFor = h.activeMultitrackFor;
 		volume_parent.appendChild( this.volumeGauge2 );
 		volume_parent.appendChild( markers );
 
-		volume_parent.onclick = function() {
-			q.volumeGaugePeaker.className = 'pk_peaker';
-			q.volumeGaugePeaker2.className = 'pk_peaker';
-		};
+		/* [新增] 給電平表一個 class（CSS 與 ui-toolbar-layout.js 都靠它辨識），並加上點擊說明 */
+		volume_parent.className = 'pk_meter';
+		var clip_tip = t ('meter.clip_reset');
+		volume_parent.title = clip_tip !== 'meter.clip_reset' ? clip_tip : 'Click to clear the clip light';
+
+		/* [新增] 電平表驅動：原本沒有任何程式把播放中的音量寫進這兩條，所以永遠停在 -Inf。
+		 * 資料來源：DidAudioProcess 事件的第 2 個參數 ＝ [左聲道 dB, 右聲道 dB]（單軌、多軌、效果預覽都會送）。
+		 * 刻度：和上面的文字一致，-72 dB 在最左邊、0 dB 在最右邊（扣掉右側 12px 的削波燈區）。
+		 * 動態：上升馬上到位、下降用 36 dB/秒慢慢落（暫停後自己歸零）；≥ -0.1 dB 點亮右端削波燈，點一下電平表清除。 */
+		(function () {
+			var DB_RANGE = 72, FALL = 0.036;	/* FALL：每毫秒下降幾 dB */
+			var inner = [ q.volumeGaugeInner, q.volumeGaugeInner2 ];
+			var peaker = [ q.volumeGaugePeaker, q.volumeGaugePeaker2 ];
+			var lvl = [ -100, -100 ];	/* 目前顯示的 dB */
+			var hit = [ -100, -100 ];	/* 兩幀之間收到的最大值 */
+			var shown = [ -1, -1 ];	/* 上一次寫進畫面的比例（相同就不重寫） */
+			var clip = [ 0, 0 ];
+			var last_ref = null, raf = 0, last_ts = 0;
+
+			function isVisible () {
+				var TB = PKAE._deps.tbl;
+				return !TB || !TB.isVis || TB.isVis ('meter');
+			}
+			function db2f ( db ) {
+				var f = (db + DB_RANGE) / DB_RANGE;
+				return f < 0 ? 0 : (f > 1 ? 1 : f);
+			}
+			function paint () {
+				for (var i = 0; i < 2; ++i) {
+					var f = Math.round ( db2f ( lvl[i] ) * 1000 ) / 1000;
+					if (f !== shown[i]) {
+						shown[i] = f;
+						inner[i].style.transform = 'translate3d(calc((100% - 12px) * ' + f + '),0,0)';
+					}
+					var on = clip[i] ? 1 : 0;
+					if (peaker[i]._on !== on) {
+						peaker[i]._on = on;
+						peaker[i].className = on ? 'pk_peaker pk_act' : 'pk_peaker';
+					}
+				}
+			}
+			function tick ( ts ) {
+				raf = 0;
+				var dt = last_ts ? Math.min ( 100, ts - last_ts ) : 16;
+				last_ts = ts;
+				var busy = false;
+				for (var i = 0; i < 2; ++i) {
+					var fall = lvl[i] - dt * FALL;
+					lvl[i] = hit[i] >= fall ? hit[i] : Math.max ( -100, fall );
+					hit[i] = -100;
+					if (lvl[i] > -99.9) busy = true;
+				}
+				paint ();
+				if (busy) raf = w.requestAnimationFrame ( tick );
+				else last_ts = 0;
+			}
+			function wake () { if (!raf) raf = w.requestAnimationFrame ( tick ); }
+			function num ( v ) { return (typeof v === 'number' && v === v) ? Math.max ( -100, Math.min ( 12, v ) ) : -100; }
+
+			/* 事件參數：[時間, loudness, stamp]。loudness 每次取樣都是新陣列；
+			 * 暫停中拖曳／點波形（seek）事件帶的是上一次留下的舊陣列，用「同一個陣列就略過」擋掉，才不會暫停時又亮起來 */
+			UI.listenFor ('DidAudioProcess', function ( val ) {
+				if (!val || val.length === undefined) return ;
+				var ld = val[1];
+				if (!ld || ld === last_ref) return ;
+				last_ref = ld;
+				if (!isVisible ()) return ;
+				var l = num ( ld[0] ), r = ld.length > 1 ? num ( ld[1] ) : l;
+				/* 單聲道檔案：引擎把右聲道留在 0，這裡直接複製左聲道（多軌一律是真的左右聲道） */
+				if (!activeMultitrackFor ( app ) && UI.el.classList.contains ('pk_mono')) r = l;
+				if (l > hit[0]) hit[0] = l;
+				if (r > hit[1]) hit[1] = r;
+				if (l >= -0.1) clip[0] = 1;
+				if (r >= -0.1) clip[1] = 1;
+				wake ();
+			});
+
+			volume_parent.addEventListener ('click', function () {
+				clip[0] = clip[1] = 0;
+				paint ();
+			});
+		})();
 
 		footer.appendChild( volume_parent );
+		q.meterEl = volume_parent;
+
+		/* [新增] 把電平表交給工具列排版模組：可顯示／隱藏、可在「調整排列」拖到工具列（窄版）或浮動，
+		 * 預設仍放在底部（footer）。排版模組沒載入時不影響，電平表照舊放在底部。 */
+		(function () {
+			var TB = PKAE._deps.tbl;
+			if (TB && TB.attachMeter) TB.attachMeter ( volume_parent, footer );
+		})();
 
 		var ttmp = d.createElement('div');
 		ttmp.className = 'pk_tmpMsg pk_ed_empty';
@@ -664,5 +766,3 @@ PKAE._deps._makeUIMainView = _makeUIMainView;
 	PKAE._deps._makeMobileScroll = _makeMobileScroll;
 
 })( window, document, PKAudioEditor );
-
-

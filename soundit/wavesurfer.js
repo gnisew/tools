@@ -1967,7 +1967,8 @@ var WaveSurfer = function (_util$Observer) {
         key: 'seekAndCenter',
         value: function seekAndCenter(progress) {
             this.seekTo(progress);
-            this.drawer.recenter(progress);
+            /* [修改] 原本呼叫 drawer.recenter（捲動原生 scrollLeft，現在的畫法已不用，zoom 後完全沒效果）→ 改用 CursorCenter 把波形移到游標位置 */
+            if (this.CursorCenter && this.ZoomFactor > 1) this.CursorCenter();
         }
 
     }, {
@@ -1992,6 +1993,7 @@ var WaveSurfer = function (_util$Observer) {
             }
 
             var duration = this.getDuration();
+            var out_of_view = false;	/* [新增] 目標位置在目前畫面外（|<、>|、跳轉…）→ 放大時畫面要跟過去 */
             if (this.VisibleDuration / duration + this.LeftProgress / duration > progress && progress > this.LeftProgress / duration) {
                 var left_offset = this.LeftProgress / duration;
 
@@ -2002,6 +2004,7 @@ var WaveSurfer = function (_util$Observer) {
 
                 this.drawer.progress(progress, left_offset, this.ZoomFactor);
             } else {
+                out_of_view = true;
 
                 var left_offset = this.LeftProgress / duration;
                 var rend_progress = (progress - left_offset) * (duration / this.VisibleDuration);
@@ -2024,6 +2027,9 @@ var WaveSurfer = function (_util$Observer) {
             }
 
             this.backend.seekTo(progress * this.getDuration());
+
+            /* [新增] 要在 backend.seekTo 之後才呼叫：CursorCenter 是讀 backend 目前的播放位置 */
+            if (out_of_view && this.ZoomFactor > 1 && this.CursorCenter) this.CursorCenter();
 
             if (!paused) {
                 this.backend.play();

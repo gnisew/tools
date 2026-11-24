@@ -26,6 +26,11 @@
  *   .openDialog() .closeDialog() .get()
  *   .dockAll() .exportFile() .importFile()
  *   .onChange(fn)
+ * [新增] 電平表（-Inf … 0 那條）也是一個面板：id = meter。
+ *   .isVis('meter') / .toggle('meter')   顯示／隱藏
+ *   .meterDock() .setMeterDock('foot'|'bar')   放在底部（預設、全寬）或工具列（窄版）
+ *   .attachMeter(el, footer)             由 ui-mainview.js 建好電平表後呼叫（工具列比它早建好，所以要事後接上）
+ *   在「調整排列」裡可以抓電平表：拖到工具列區＝窄版放工具列；拖到底部＝放回底部；拖到中間＝浮動
  * 設定存在 localStorage 'pk_tbl'（含版本號；不認得的項目會被丟掉，新增的內建按鈕會自動補進去）
  * ========================================================================== */
 (function ( w, d, PKAE ) {
@@ -33,7 +38,8 @@
 
 	var KEY = 'pk_tbl';
 	var V = 1;
-	var PANELS = ['time', 'transport', 'actions', 'selection'];
+	var BUILTIN = ['time', 'transport', 'actions', 'selection'];	/* [新增] 原本就在工具列裡的四個面板（attach 時一定要找得到） */
+	var PANELS = BUILTIN.concat ( ['meter'] );	/* [修改] 多了 meter：電平表，由 ui-mainview.js 事後接上（attachMeter） */
 	var BARS = ['transport', 'actions'];
 
 	/* 按鈕 id → 原本按鈕上的 class（用 class 辨識，所以不用改原本的檔案） */
@@ -63,6 +69,7 @@
 
 		{ id: 'undo', cat: 'edit', face: '\u21B6', ev: ['StateRequestUndo'] },
 		{ id: 'redo', cat: 'edit', face: '\u21B7', ev: ['StateRequestRedo'] },
+		{ id: 'ab', cat: 'edit', face: 'A/B', ev: ['RequestABToggle'] },
 		{ id: 'copy', cat: 'edit', icon: 'icon-files-empty', ev: ['RequestActionCopy'] },
 		{ id: 'paste', cat: 'edit', icon: 'icon-file-text2', ev: ['RequestActionPaste'] },
 		{ id: 'cut', cat: 'edit', icon: 'icon-scissors', ev: ['RequestActionCut', 1] },
@@ -81,6 +88,8 @@
 		{ id: 'reverse', cat: 'fx', face: '\u21C4', ev: ['RequestActionFX_Reverse'] },
 		{ id: 'invert', cat: 'fx', face: '\u00B1', ev: ['RequestActionFX_Invert'] },
 		{ id: 'rem_sil', cat: 'fx', face: 'RS', ev: ['RequestActionFX_RemSil'] },
+		{ id: 'high_pass', cat: 'fx', face: 'HP', ev: ['RequestActionFX_HighPass'] },
+		{ id: 'dc_offset', cat: 'fx', face: 'DC', ev: ['RequestActionFX_DCOffset'] },
 		{ id: 'seamless', cat: 'fx', face: '\u221E', ev: ['RequestActionFXUI_SeamlessLoop'] },
 		{ id: 'para_eq', cat: 'fx', face: 'PEQ', ev: ['RequestActionFXUI_ParaGraphicEQ'] },
 		{ id: 'graph_eq', cat: 'fx', face: 'GEQ', ev: ['RequestActionFXUI_GraphicEQ', 10] },
@@ -113,6 +122,10 @@
 			var P = app._deps.mrkpanel;
 			P && P.toggle ();
 		} },
+		{ id: 'meter', cat: 'view', face: 'LV', run: function ( app ) {
+			var T = app._deps.tbl;
+			T && T.toggle ('meter');
+		} },
 		{ id: 'tempo', cat: 'view', face: '\u266A', ev: ['RequestActionTempo'] },
 		{ id: 'id3', cat: 'view', face: 'ID3', ev: ['RequestActionID3'] }
 	];
@@ -139,6 +152,7 @@
 			x: { t: 0, h: 0 },	/* [新增] 桌面版精簡時間：往右多顯示「總長度」「滑鼠位置時間」（預設都不顯示） */
 			selx: 0,	/* [新增] 桌面版選取區塊：顯示橫向文字（起點／終點／長度） */
 			selc: 0,
+			mdock: 'foot',	/* [新增] 電平表放哪：'foot'＝底部（預設）、'bar'＝工具列（窄版）；浮動另外記在 float.meter */
 			lay: 3,	/* [修改] 排列方式：0＝自動、1＝固定上下兩排、2＝固定單排、3＝精簡（半高單排，放不下才折兩行；新的預設值） */
 			custom: [],
 			float: {}
@@ -184,6 +198,7 @@
 		s.selc = o.selc ? 1 : 0;
 		if (o.x && typeof o.x === 'object') { s.x.t = o.x.t === 1 ? 1 : 0; s.x.h = o.x.h === 1 ? 1 : 0; }
 		s.selx = o.selx ? 1 : 0;
+		s.mdock = o.mdock === 'bar' ? 'bar' : 'foot';	/* [新增] */
 		s.lay = (o.lay === 1 || o.lay === 2 || o.lay === 3) ? o.lay : (o.lay === undefined ? s.lay : 0);	/* [修改] 舊設定沒有 lay 欄位 → 用新預設（精簡）；明確存過 0 的維持自動 */
 		/* 浮動位置：以視窗可移動範圍的比例（0~1）記錄，視窗縮放時才不會跑到畫面外 */
 		if (o.float && typeof o.float === 'object') ids.forEach ( function ( id ) {
@@ -205,6 +220,7 @@
 	var UI = null, tb = null, group = null;
 	var groups = [];	/* [新增] 上下疊兩排的容器池：groups[0] 就是原本的 .pk_btngroup，不夠用時才建新的（class 相同，沿用同一套 CSS） */
 	var els = {}, btns = {};
+	var mhome = null;	/* [新增] 電平表在「底部」時的容器（.pk_ftr） */
 	var lastRow = null, relayoutRaf = 0;	/* [新增] 上一次是否採單排；重新排版的排程旗標 */
 	var editing = false, pill = null, drag = null, rz = 0, dlg = null, dlgSel = null, dlgQ = '';
 	var cfm = null, cfmGuard = 0;	/* 確認視窗：目前開著的那一個；關閉當下的保護旗標（避免同一次 Esc 連帶關掉後面的對話框） */
@@ -254,6 +270,18 @@
 	function panelIds () { return PANELS.concat ( S.custom.map ( function ( c ) { return c.id; }) ); }
 	function isMob () { return !!(UI && UI.el && UI.el.classList.contains ('pk_mob')); }
 	function isFloat ( id ) { return !!(S.float[ id ] && !isMob ()); }
+
+	/* [新增] 電平表現在是不是在工具列容器裡（浮動、或設定為放在工具列）；否則在底部 */
+	function meterInTb () { return !!els.meter && (isFloat ( 'meter' ) || S.mdock === 'bar'); }
+
+	/* [新增] 把電平表搬到正確的容器（工具列或底部），並切換窄版外觀 .pk_meter_c */
+	function syncMeter () {
+		var m = els.meter;
+		if (!m || !tb) return ;
+		var inTb = meterInTb (), want = inTb ? tb : mhome;
+		if (want && m.parentNode !== want) want.appendChild ( m );
+		m.classList.toggle ('pk_meter_c', inTb);
+	}
 
 	/* 把浮動面板放到記錄的位置（桌面版才有；不是浮動的就清掉位置） */
 	function posFloat ( id ) {
@@ -346,6 +374,8 @@
 	function render () {
 		if (!tb) return ;
 
+		syncMeter ();	/* [新增] 電平表先搬到對的容器，後面才排得進去 */
+
 		/* 1. 按鈕列：已登記的按鈕依設定排序，沒登記的（別的模組塞進來的）放最後 */
 		BARS.forEach ( function ( b ) {
 			var bar = els[ b ], nodes = [], extra = [], i;
@@ -361,7 +391,7 @@
 		/* [修改] 原本這一段直接執行；現在包成 layoutOnce ( row )：row 為 true 時不配對、不疊容器，全部排成同一排（高度一排）。
 		 * 想知道「單排放不放得下」就得先排排看，所以要能重複執行，才包成函式。 */
 		function layoutOnce ( row ) {
-		var seq = [], o = S.order.filter ( function ( id ) { return els[ id ] && !isFloat ( id ); }), i, gi = 0;
+		var seq = [], o = S.order.filter ( function ( id ) { return els[ id ] && !isFloat ( id ) && (id !== 'meter' || meterInTb ()); }), i, gi = 0;	/* [修改] 電平表放在底部時不參與工具列排版 */
 		function nextGroup () {
 			if (!groups[ gi ]) { var g = d.createElement ('div'); g.className = group.className; groups.push ( g ); }
 			groups[ gi ].classList.remove ('pk_tbl_v', 'pk_tbl_x');	/* [修改] 容器是重複使用的，先清掉上一輪的「垂直疊放」「混搭」標記（多清一個 pk_tbl_x） */
@@ -445,7 +475,7 @@
 		els.time.classList.toggle ('pk_tm_nt', S.tm.t === 0 || cmp ());	/* [修改] 精簡模式強制用精簡外觀（不改動使用者原本的設定值） */
 		els.time.classList.toggle ('pk_tm_nh', S.tm.h === 0 || cmp ());
 		els.selection.classList.toggle ('pk_sel_c', !!S.selc || cmp ());
-		els.time.classList.toggle ('pk_tm_xt', cmp () && !!S.x.t);	/* [新增] 往右加寬，多顯示總長度 */
+		els.time.classList.remove ('pk_tm_xt');	/* [修改] 桌面版不再在時間後面顯示總長度（改放右下角，見 ui-mainview.js 的 .pk_tot）；S.x.t 設定值保留但不生效 */
 		els.time.classList.toggle ('pk_tm_xh', cmp () && !!S.x.h);	/* [新增] 往右加寬，多顯示滑鼠位置時間 */
 		els.selection.classList.toggle ('pk_sel_x', cmp () && !!S.selx);	/* [新增] 選取區塊橫向文字 */
 	}
@@ -525,6 +555,7 @@
 		var at = rest.length, i;
 		for (i = 0; i < rest.length; ++i) {
 			if (S.hide[ rest[ i ] ] || !shown ( els[ rest[ i ] ] )) continue;
+			if (rest[ i ] === 'meter' && !meterInTb ()) continue;	/* [新增] 在底部的電平表不是工具列的一員 */
 			if (!isBefore ( rest[ i ], x, y )) { at = i; break; }
 		}
 		var next = rest.slice ();
@@ -563,7 +594,19 @@
 	function movePanel ( x, y ) {
 		var id = drag.id, el = els[ id ];
 		var r = (tb.parentNode || tb).getBoundingClientRect ();
-		if (isMob () || y <= r.bottom + 14) {
+		/* [新增] 電平表有三個去處：指標在底部那一區＝放回底部；在工具列區＝放工具列（窄版）；中間＝浮動（手機版沒有浮動） */
+		if (id === 'meter' && mhome) {
+			var fr = mhome.getBoundingClientRect ();
+			var in_foot = y >= fr.top - 6;
+			var in_bar = isMob () ? !in_foot : (y <= r.bottom + 14);
+			if (in_foot || in_bar) {
+				var nd = in_foot ? 'foot' : 'bar';
+				if (S.float[ id ] || S.mdock !== nd) { delete S.float[ id ]; S.mdock = nd; render (); }
+				if (in_bar) dragPanel ( x, y );
+				return ;
+			}
+		}
+		else if (isMob () || y <= r.bottom + 14) {	/* [修改] 前面多了電平表的分支，這裡改成 else if */
 			if (S.float[ id ]) { delete S.float[ id ]; render (); }
 			dragPanel ( x, y );
 			return ;
@@ -659,6 +702,42 @@
 		if (e.cancelable) e.preventDefault ();
 	}
 
+	/* ---------- 電平表 ----------
+	 * 電平表由 ui-mainview.js 建立（預設放在底部 footer），建好後呼叫 attachMeter 交給這裡管：
+	 * 顯示／隱藏、搬到工具列（窄版）、浮動、在「調整排列」裡拖曳。 */
+
+	/* 電平表在底部時，工具列的 pointerdown 收不到事件，所以另外在電平表自己身上聽；
+	 * 拖曳過程中電平表可能被搬進工具列（DOM 換父層會中斷 pointer capture），所以 move／up 掛在 document 上，並沿用同一套 onMove／onUp */
+	function onMeterDown ( e ) {
+		var m = els.meter;
+		if (!editing || !m || m.parentNode === tb || (e.button !== undefined && e.button !== 0)) return ;	/* 在工具列裡時由 onDown 處理 */
+		e.preventDefault ();
+		var r = m.getBoundingClientRect ();
+		drag = { x: e.clientX, y: e.clientY, btn: null, cb: null, el: m, id: 'meter', moved: false, pid: e.pointerId, ox: e.clientX - r.left, oy: e.clientY - r.top };
+		function up ( ev ) {
+			if (!drag || ev.pointerId !== drag.pid) return ;
+			d.removeEventListener ('pointermove', onMove, false);
+			d.removeEventListener ('pointerup', up, false);
+			d.removeEventListener ('pointercancel', up, false);
+			onUp ( ev );
+		}
+		d.addEventListener ('pointermove', onMove, false);
+		d.addEventListener ('pointerup', up, false);
+		d.addEventListener ('pointercancel', up, false);
+	}
+
+	function attachMeter ( el, home ) {
+		if (els.meter || !el) return ;
+		els.meter = el;
+		mhome = home || el.parentNode;
+		el.setAttribute ('data-tbp', 'meter');
+		el.__builtin = 1;
+		el.addEventListener ('pointerdown', onMeterDown, false);
+		/* 調整排列時，不要讓點電平表去清除削波燈 */
+		el.addEventListener ('click', function ( ev ) { if (editing) { ev.stopImmediatePropagation (); ev.preventDefault (); } }, true);
+		if (tb) apply ();
+	}
+
 	/* ---------- 接上工具列 ---------- */
 
 	function attach ( ui ) {
@@ -673,7 +752,7 @@
 		if (!els.time || !els.transport || !els.actions || !els.selection || !group) { tb = null; return ; }
 		groups = [ group ];	/* [新增] 容器池的第一個就是原本的 .pk_btngroup */
 
-		PANELS.forEach ( function ( id ) { els[ id ].setAttribute ('data-tbp', id); });
+		BUILTIN.forEach ( function ( id ) { els[ id ].setAttribute ('data-tbp', id); });	/* [修改] PANELS → BUILTIN（meter 還沒建好，之後由 attachMeter 接上） */
 		els.time.__builtin = els.transport.__builtin = els.actions.__builtin = els.selection.__builtin = 1;
 		BARS.forEach ( function ( b ) {
 			for (var i = 0; i < els[ b ].children.length; ++i) {
@@ -969,6 +1048,10 @@
 			else go ();
 		},
 		dockAll: function () { S.float = {}; changed (); },
+		/* [新增] 電平表 */
+		attachMeter: attachMeter,
+		meterDock: function () { return S.mdock; },
+		setMeterDock: function ( v ) { S.mdock = v === 'bar' ? 'bar' : 'foot'; delete S.float.meter; changed (); },
 		exportFile: function () {
 			try {
 				var a = d.createElement ('a');
@@ -1021,3 +1104,5 @@
 	}
 
 })( window, document, PKAudioEditor );
+
+

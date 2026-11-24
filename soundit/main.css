@@ -364,6 +364,8 @@ a{
 .pk_tb .pk_btn.pk_inact:hover span,
 .pk_mt_head button.pk_inact:hover span{visibility:hidden;opacity:0}
 .pk_mt_head .pk_mt_add span{left:0;transform:none}
+/* [新增] 頁尾按鈕的提示文字原本放在按鈕「下方」31px：頁尾已貼著視窗底部，隱藏的提示也會把頁面撐高 24px，造成右側捲軸與底部空白。改放按鈕上方。 */
+.pk_ftr .pk_btn span{bottom:auto;top:-31px}
 
 .pk_tb .pk_btn span{display:none}
 .pk_ttip{
@@ -855,7 +857,7 @@ a{
 .pk_contextMenu a:hover{background:var(--ac-soft);color:var(--ac);text-decoration:none}
 
 .pk_wavescroll{
-	position:relative;height:14px;margin-bottom:10px;
+	position:relative;height:14px;margin-bottom:2px;	/* [修改] 10px → 2px：捲動條下方不再多留一行空白 */
 	background:var(--bg-0);
 	border:1px solid var(--bd-s);border-radius:var(--r);
 	overflow:hidden;contain:strict;overscroll-behavior:none;
@@ -1605,7 +1607,7 @@ body.pk_stndln{padding-bottom:600px;overflow:hidden}
 	}
 	.pk_h200 .pk_col{width:20%;overflow:hidden}
 	.pk_zoombtn button{height:19px}
-	.pk_wavescroll{height:16px;margin-bottom:8px}
+	.pk_wavescroll{height:16px;margin-bottom:2px}	/* [修改] 8px → 2px */
 	.pk_markers{margin-top:3px}
 	.pk_mob .pk_ftr{
 		padding-bottom:var(--s2);
@@ -2130,6 +2132,8 @@ textarea:focus-visible,
 	border:1px solid #3f4b4b;border-left:3px solid currentColor;
 	pointer-events:auto;cursor:pointer;opacity:.92;
 }
+/* [新增] 單軌開著時間軸時，名稱放在時間軸下方的聲波區（時間軸約佔最上面 28px） */
+.pk_lbl_on.pk_tl .pk_mrkr b{top:28px}
 .pk_lbl_on .pk_mrkr:hover,.pk_lbl_on .pk_mrkr.pk_act{z-index:3}
 .pk_lbl_on .pk_mrkr:hover b,.pk_lbl_on .pk_mrkr.pk_act b{max-width:240px !important;visibility:visible !important;opacity:1}
 /* 區間標記的色帶底色稍微加深，分段一目了然 */
@@ -2153,6 +2157,32 @@ textarea:focus-visible,
 .pk_lt:hover{z-index:2}
 .pk_lt:hover b,.pk_lt.pk_act b{border-color:currentColor;background:var(--bg-2,var(--bg-0))}
 .pk_lt_rg{position:absolute;left:0;top:15px;height:2px;background:currentColor;opacity:.85;pointer-events:none}
+
+/* [標籤列 設定] 標籤列高度由 markers.js 依層數設定（inline height），這裡的 38px 只是尚未計算前的預設值。
+ * 摺疊時縮成一條細帶（高度也由 markers.js 設定） */
+.pk_lbtrk.pk_fold{background:var(--bg-1);opacity:.85}
+/* 下緣握把：拖曳調整層數、雙擊回到自動 */
+.pk_lbgrip{position:absolute;left:0;right:0;bottom:0;height:5px;z-index:4;cursor:ns-resize;touch-action:none}
+.pk_lbgrip:hover{background:linear-gradient(transparent 30%,var(--ac) 30%,var(--ac) 70%,transparent 70%);opacity:.75}
+.pk_lbtrk.pk_fold .pk_lbgrip{display:none}
+/* 左側控制欄（Audacity 式軌道控制）：⚙ 設定選單、▾ 摺疊／展開；位在波形左邊 48px 的空白處 */
+.pk_lbhd{
+	position:absolute;left:0;top:0;width:46px;box-sizing:border-box;z-index:3;
+	display:none;flex-direction:column;align-items:center;justify-content:flex-start;
+	padding:1px 0;overflow:hidden;
+	background:var(--bg-1);border:1px solid var(--bd-s);border-right:0;border-bottom:0;
+}
+.pk_lbhd_b{display:flex;gap:2px}
+.pk_lbhd button{
+	width:20px;height:18px;padding:0;margin:0;
+	font:12px/16px var(--ff);color:var(--fg-0);
+	background:transparent;border:1px solid transparent;border-radius:3px;cursor:pointer;
+}
+.pk_lbhd button:hover{color:var(--ac);border-color:var(--bd-s);background:var(--bg-2,var(--bg-0))}
+.pk_lbhd button:focus-visible{outline:2px solid var(--ac);outline-offset:-2px}
+.pk_lbhd_n{display:none;margin-top:2px;font:10px/12px var(--ff);color:var(--fg-2,var(--fg-0));opacity:.85;white-space:nowrap}
+.pk_lbhd.pk_lbhd_t .pk_lbhd_n{display:block}
+.pk_lbhd.pk_fold .pk_lbhd_f{transform:rotate(-90deg)}
 
 /* [預覽] 自動分割對話框的「在聲波上預覽」
  * 預覽圖層（由 markers.js 畫）：一律虛線＋淡色、pointer-events:none，不能點、不能拖，名字旁沒有鎖頭，和正式標記一看就不同 */
@@ -2712,3 +2742,107 @@ body.pk_tbl_editing .pk_ttip{display:none!important}
 .pk_app:not(.pk_mob) .pk_tb.pk_tbl.pk_tbl_cmp>.pk_selection.pk_sel_c.pk_sel_x .pk_sellist .title:before{
 	content:attr(data-short);font-size:12px;font-weight:600;color:var(--fg-1);
 }
+
+/* ==========================================================================
+ * [新增] 電平表（-Inf … 0 那條，ui-mainview.js 建立、ui-toolbar-layout.js 管位置）
+ * 三個位置：底部 footer（預設、全寬）／工具列（窄版 .pk_meter_c）／浮動（也是窄版）。
+ * ========================================================================== */
+.pk_meter{cursor:pointer}
+.pk_meter.pk_tbl_off{display:none!important}	/* 底部的電平表被隱藏時（在工具列裡的由 .pk_tbl_off 規則處理） */
+
+/* 窄版：放工具列或浮動時 */
+.pk_tb .pk_meter,
+.pk_tb.pk_tbl .pk_meter{
+	width:230px;box-sizing:border-box;align-self:center;
+	padding:2px 4px 0;
+}
+.pk_meter.pk_meter_c .pk_volpar{height:4px}
+.pk_meter.pk_meter_c .pk_volpar:last-of-type{border-top-width:1px}
+.pk_meter.pk_meter_c .pk_markers{
+	margin-top:1px;font-size:8px;line-height:9px;letter-spacing:0;
+}
+.pk_meter.pk_meter_c .pk_mark1,
+.pk_meter.pk_meter_c .pk_mark1.pk_odd{display:inline-block;width:2.777%;visibility:hidden}
+.pk_meter.pk_meter_c .pk_mark1.pk_m5,
+.pk_meter.pk_meter_c .pk_mark1:last-child{visibility:visible}
+.pk_meter.pk_meter_c .pk_mark1:last-child{position:absolute;right:0;text-align:right}
+/* 浮動：加底色、稍寬 */
+.pk_tb.pk_tbl .pk_meter.pk_tbl_float{width:280px;padding:6px 8px 4px;border-radius:var(--r);border:1px solid var(--bd)}
+
+/* 調整排列：底部的電平表也要有「可以抓」的樣子（在工具列裡的由上面「調整排列」規則處理） */
+body.pk_tbl_editing .pk_ftr .pk_meter[data-tbp]{
+	position:relative;padding-left:16px;
+	outline:1px dashed var(--ac);outline-offset:1px;
+	cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;
+}
+body.pk_tbl_editing .pk_ftr .pk_meter[data-tbp]::before{
+	content:"";position:absolute;left:0;top:0;bottom:0;width:12px;z-index:3;
+	background:radial-gradient(circle,var(--ac) 1.2px,transparent 1.6px) center/6px 6px repeat,var(--ac-soft);
+	border-radius:var(--r) 0 0 var(--r);
+	cursor:grab;
+}
+body.pk_tbl_editing .pk_ftr .pk_meter[data-tbp].pk_tbl_drag{opacity:.6;outline:2px solid var(--ac);cursor:grabbing}
+
+/* [新增] 電平表外框：原本寫死 #222（淺色主題下太黑），改用主題的邊框色，兩條中間的分隔線也縮成 1px */
+.pk_meter .pk_volpar{border:1px solid var(--bd);background-clip:padding-box;background-origin:padding-box}	/* 邊框是半透明色，不限制的話漸層會從框底下透出來（左端還會露出一條紅線） */
+.pk_meter .pk_volpar:last-of-type{border-top-width:1px;margin-top:-1px}
+
+/* [新增] 總長度：右下角、縮放桿右端（ui-mainview.js 建立的 .pk_tot）。手機版時間面板本來就有總長度，這裡不顯示 */
+.pk_tot{
+	float:right;margin:0 0 0 8px;padding:0 2px 0 4px;height:18px;
+	font:11px/18px var(--ff-mono);font-variant-numeric:tabular-nums;white-space:nowrap;
+	color:var(--ac);cursor:default;
+}
+.pk_mob .pk_tot{display:none}
+
+/* [新增] 高對比／強制色彩模式：Windows 高對比或使用者要求更高對比時，確保焦點框與按鈕邊界清楚可見。
+ * 只在這兩種模式下生效，平常的外觀完全不變。 */
+@media (forced-colors: active) {
+	button, a[role=button], .pk_btn, .pk_tbsa, select, input, textarea { border: 1px solid ButtonText; }
+	button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible,
+	textarea:focus-visible, [tabindex]:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+	.pk_inact { opacity: 1; color: GrayText; border-color: GrayText; }
+}
+@media (prefers-contrast: more) {
+	button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible,
+	textarea:focus-visible, [tabindex]:focus-visible { outline-width: 3px; }
+	.pk_inact, .pk_app .pk_inact, .pk_btn.pk_inact { opacity: .65; }
+}
+
+/* [新增] 矮螢幕（筆電、系統縮放 125%～150%）時把視窗壓緊：
+ * 「新增錄音」等較高的視窗原本會超出畫面，底部的「取消」要捲動才看得到。
+ * 只在視窗高度 700px 以下生效，高螢幕外觀不變；只調整上下間距，不動左右（手機版規則不受影響）。 */
+@media (max-height: 700px) {
+	.pk_modal_cnt{padding-top:14px;padding-bottom:14px}
+	.pk_modal_title{margin-bottom:6px}
+	.pk_modal_main{padding-bottom:10px}
+	.pk_modal_bottom{min-height:44px;padding-top:8px;padding-bottom:8px}
+	.pk_rec{gap:8px}
+	.pk_rec_vol canvas{height:30px}
+	.pk_rec_wave canvas{height:56px}
+	.pk_rec_time span{font-size:20px;line-height:20px}
+}
+@media (max-height: 520px) {
+	.pk_rec_wave canvas{height:40px}
+	.pk_rec label{margin-bottom:2px}
+}
+
+
+/* ==========================================================================
+ * A/B 對照（ab.js）：處於「套用前」時的右上角常駐標籤
+ * ========================================================================== */
+.pk_ab_badge{
+	display:none;position:fixed;z-index:9000;
+	top:calc(58px + env(safe-area-inset-top, 0px));right:12px;
+	padding:6px 12px;border:1px solid var(--warn);border-radius:var(--r-md);
+	background:rgba(10,10,10,.88);color:var(--warn);
+	font:600 12px/1.2 var(--ff);letter-spacing:.02em;cursor:pointer;
+	box-shadow:0 0 14px rgba(245,197,66,.28);
+	-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+}
+.pk_ab_badge b{display:inline-block;min-width:1.2em;margin-right:2px;font-size:15px;color:#041014;background:var(--warn);border-radius:var(--r);padding:1px 5px;text-align:center}
+.pk_ab_badge i{font-style:normal;font-weight:400;opacity:.7;margin-left:6px}
+.pk_ab_badge:hover,.pk_ab_badge:focus-visible{background:var(--warn);color:#041014;outline:none}
+.pk_ab_badge:hover b,.pk_ab_badge:focus-visible b{background:#041014;color:var(--warn)}
+[data-theme="light"] .pk_ab_badge{background:rgba(255,255,255,.92);color:#8a6200;border-color:#c99a1a}
+@media (max-width:640px){.pk_ab_badge i{display:none}}

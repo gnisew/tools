@@ -33,6 +33,8 @@
 				{ name: t('fx.reverse'), action: function () { app.fireEvent ('RequestActionFX_Reverse'); } },
 				{ name: t('fx.invert'), action: function () { app.fireEvent ('RequestActionFX_Invert'); } },
 				{ name: t('fx.remove_silence'), action: function () { app.fireEvent ('RequestActionFX_RemSil'); } },
+				{ name: t('fx.high_pass'), action: function () { app.fireEvent ('RequestActionFX_HighPass'); } },
+				{ name: t('fx.dc_offset'), action: function () { app.fireEvent ('RequestActionFX_DCOffset'); } },
 				{ name: '---' },
 				{ name: tf ('fx.presets_export', '匯出預設集', 'Export presets'), action: function () { app.fireEvent ('RequestFXPresetsExport'); } },
 				{ name: tf ('fx.presets_import', '匯入預設集', 'Import presets'), action: function () { app.fireEvent ('RequestFXPresetsImport'); } }

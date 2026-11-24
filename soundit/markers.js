@@ -1,3 +1,6 @@
+/* --------------------------------------------------------------------------
+ * 📄 原始檔案: markers.js 
+ * -------------------------------------------------------------------------- */
 (function ( w, d, PKAE ) {
 	'use strict';
 
@@ -31,7 +34,10 @@
 					/* [階段 5] 漏標檢查 */
 					mc_title:'漏標檢查', mc_run:'分析中…（偵測門檻沿用「自動分割 → 有聲句段」的設定）', mc_none:'沒有發現漏標：偵測到 {n} 段有聲區間，都已被標記涵蓋', mc_found:'有 {n} 段有聲區間沒有被任何標記涵蓋（點標記的段落到下一個標記為止；短於 0.3 秒的忽略）', mc_go:'跳到', mc_try:'試聽', mc_add:'加入', mc_added:'已加入', mc_add_all:'全部加入為區間標記', mc_name:'漏標', mc_noaudio:'沒有可分析的音訊', mc_na:'找不到自動分割模組', mc_busy:'正在分析中，請稍候',
 					/* [階段 5] 平移後續標記 */
-					sh_cur:'以游標平移此標記及其後', sh_by:'平移此標記及其後（輸入秒數）…', sh_title:'平移後續標記', sh_label:'位移秒數（正數往後、負數往前，例如 -0.35）', sh_bad:'請輸入數字', sh_zero:'游標就在標記起點，沒有需要平移的距離', sh_lock:'要平移的標記裡有鎖定的標記，請先解除鎖定', sh_clamp:'（已限制在音訊範圍內）', sh_done:'已平移 {n} 個標記 {s} 秒', desc_shift:'平移後續標記', play_from:'從此標記開始逐段播放'},
+					sh_cur:'以游標平移此標記及其後', sh_by:'平移此標記及其後（輸入秒數）…', sh_title:'平移後續標記', sh_label:'位移秒數（正數往後、負數往前，例如 -0.35）', sh_bad:'請輸入數字', sh_zero:'游標就在標記起點，沒有需要平移的距離', sh_lock:'要平移的標記裡有鎖定的標記，請先解除鎖定', sh_clamp:'（已限制在音訊範圍內）', sh_done:'已平移 {n} 個標記 {s} 秒', desc_shift:'平移後續標記', play_from:'從此標記開始逐段播放',
+					/* [標籤列 設定] */
+					trk_name:'標記', trk_menu:'標記列設定', trk_show:'顯示標記列', trk_fold:'摺疊標記列（名稱改顯示在聲波上）', trk_unfold:'展開標記列',
+					trk_lanes_auto:'層數：自動（最多 {n} 層）', trk_lanes_n:'層數：{n}', trk_ask:'新增標記時詢問名稱', trk_snap:'拖曳時吸附', trk_panel:'標記清單…', trk_grip:'拖曳調整層數（雙擊＝自動）'},
 			en: {set_time:'Set Time…', set_color:'Change Color…', sel_next:'Select Section (range or to next marker)', set_in:'Set as Selection Start', set_out:'Set as Selection End', copy_time:'Copy Time',
 				time_title:'Set Marker Time', time_label:'Time (h:mm:ss.mmm, e.g. 1:23.500)', time_bad:'Invalid time format',
 				color_title:'Marker Color', custom:'Custom', desc_color:'Change Marker Color', desc_recolor:'Apply Color Cycle', desc_del_many:'Delete Markers', desc_range:'Delete Markers in Range',
@@ -56,7 +62,10 @@
 					/* [stage 5] missing-marker check */
 					mc_title:'Check Missing Markers', mc_run:'Analyzing… (uses the threshold settings of Auto Split → Speech segments)', mc_none:'Nothing missed: all {n} detected speech segments are covered by markers', mc_found:'{n} speech segment(s) are not covered by any marker (a point marker covers up to the next marker; pieces under 0.3 s are ignored)', mc_go:'Go', mc_try:'Listen', mc_add:'Add', mc_added:'Added', mc_add_all:'Add All as Range Markers', mc_name:'Missed', mc_noaudio:'No audio to analyze', mc_na:'Auto split module not found', mc_busy:'Analysis in progress, please wait',
 					/* [stage 5] shift following markers */
-					sh_cur:'Shift This Marker and Later Ones to Cursor', sh_by:'Shift This Marker and Later Ones by…', sh_title:'Shift Following Markers', sh_label:'Offset in seconds (positive = later, negative = earlier, e.g. -0.35)', sh_bad:'Enter a number', sh_zero:'The cursor is at the marker start; nothing to shift', sh_lock:'A locked marker is in the range to shift; unlock it first', sh_clamp:' (limited to the audio range)', sh_done:'Shifted {n} marker(s) by {s} s', desc_shift:'Shift Following Markers', play_from:'Play Sections From Here'}
+					sh_cur:'Shift This Marker and Later Ones to Cursor', sh_by:'Shift This Marker and Later Ones by…', sh_title:'Shift Following Markers', sh_label:'Offset in seconds (positive = later, negative = earlier, e.g. -0.35)', sh_bad:'Enter a number', sh_zero:'The cursor is at the marker start; nothing to shift', sh_lock:'A locked marker is in the range to shift; unlock it first', sh_clamp:' (limited to the audio range)', sh_done:'Shifted {n} marker(s) by {s} s', desc_shift:'Shift Following Markers', play_from:'Play Sections From Here',
+					/* [label track settings] */
+					trk_name:'Markers', trk_menu:'Marker Track Settings', trk_show:'Show Marker Track', trk_fold:'Collapse Track (names shown on waveform)', trk_unfold:'Expand Track',
+					trk_lanes_auto:'Rows: Auto (up to {n})', trk_lanes_n:'Rows: {n}', trk_ask:'Ask for a Name When Adding', trk_snap:'Snap While Dragging', trk_panel:'Marker List…', trk_grip:'Drag to change rows (double-click = auto)'}
 		};
 		function T ( key, vars ) {
 			var l = '';
@@ -327,6 +336,11 @@
 		function labelsOn () { try { return w.localStorage.getItem ('pk_mrk_labels') !== '0'; } catch (e) { return true; } }
 		/* [標籤列 階段 2] 標籤列開關（預設開啟；localStorage: pk_mrk_track）。沒有任何標記時不佔空間 */
 		function trackOn () { try { return w.localStorage.getItem ('pk_mrk_track') !== '0'; } catch (e) { return true; } }
+		/* [標籤列 設定] 層數：0＝自動（依重疊數增減，最多 TAUTO 層）；1~6＝固定層數（localStorage: pk_mrk_lanes） */
+		var TAUTO = 4, TMAXL = 6;
+		function trkLanes () { try { var v = parseInt (w.localStorage.getItem ('pk_mrk_lanes'), 10); return v >= 1 && v <= TMAXL ? v : 0; } catch (e) { return 0; } }
+		/* [標籤列 設定] 摺疊：標籤列縮成一條細帶，名稱改顯示在聲波上（localStorage: pk_mrk_fold） */
+		function trkFold () { try { return w.localStorage.getItem ('pk_mrk_fold') === '1'; } catch (e) { return false; } }
 		function askName () { try { return w.localStorage.getItem ('pk_mrk_askname') === '1'; } catch (e) { return false; } }
 		/* 區間標記整段移動：長度不變，超出音訊結尾時把起點往前推 */
 		function slide ( c, m, len, t ) {
@@ -1300,7 +1314,7 @@
 				if (layer._h !== h) { layer.style.setProperty ('--m', h); layer._h = h; }
 				stamp = ++c.s;
 				/* [標籤列 階段 1] 標記名稱常駐顯示在聲波上：先算每個標記的 x，才能知道標籤最多能有多寬 */
-				var xs = [], lon = labelsOn () && !trkVis (), cl = 'pk_mrkrl' + (lon ? ' pk_lbl_on' : '');
+				var xs = [], lon = labelsOn () && !trkShow (), cl = 'pk_mrkrl' + (lon ? ' pk_lbl_on' : '') + (tlOn () && c === ed ? ' pk_tl' : '');	/* [修改] 單軌且開著時間軸：名稱要放在時間軸下方（pk_tl） */
 				if (layer._k !== cl) { layer.className = cl; layer._k = cl; }
 				for (i = 0; i < c.l.length; ++i) { x = mtr.x (c.l[i].time) >> 0; xs[i] = lim && x >= lim ? lim - 1 : x; }
 				for (i = 0; i < c.l.length; ++i) {
@@ -1345,9 +1359,11 @@
 			 *  - 點選＝選取並跳到該處；拖曳＝移動；雙擊＝改名；右鍵＝標記選單
 			 *  - 空白處：點一下＝跳到該時間；雙擊＝在此新增標記；右鍵＝新增／以選取範圍建立區間
 			 * ================================================================== */
-			var tnodes = {}, tctx = null, tcache = {}, tlast = -1, TL = 2, TH = 18;
+			var tnodes = {}, tctx = null, tcache = {}, tlast = -1, TH = 18, FOLD_H = 20, tl = 1, tshr = 0, tdown = 0, tfix = 0, tmenu = null, thd = o.hd ? o.hd () : null;
 			function pvOn () { return !!(c === ed && c.pv && c.pv.segs && c.pv.segs.length); }	/* [預覽] 單軌的「預告」分段 */
 			function trkVis () { return !!(o.tr && trackOn () && (c.l.length || pvOn ()) && o.tr ()); }
+			/* [標籤列 設定] 標籤列「有展開」才算顯示標籤；摺疊時名稱改畫在聲波上 */
+			function trkShow () { return trkVis () && !trkFold (); }
 			function tlabel ( m ) { return (m.locked ? '\uD83D\uDD12 ' : '') + (m.type === 'chapter' ? '\u00A7 ' : m.type === 'loop' ? '\u21BB ' : '') + m.name; }
 			function tw ( s ) {
 				if (tcache[s] !== undefined) return tcache[s];
@@ -1363,43 +1379,98 @@
 				el.appendChild (n);
 				return tnodes[id] = n;
 			}
-			function trackPaint () {
-				if (!o.tr) return ;
-				var el = o.tr (), vis = trkVis (), mtr, sr, off, W, items = [], lanes = [[], []], i, j, m, it, X0, X1, left, full, lane, k, prev, nx, stamp, id, n, cls, tr, lb;
-				if (!el) return ;
-				if (tlast !== (vis ? 1 : 0)) {
-					tlast = vis ? 1 : 0;
-					el.style.display = vis ? 'block' : 'none';
-					app.fireEvent ('RequestResize');	/* 波形高度要扣掉（或還給）標籤列 */
-				}
-				if (!vis) return ;
-				mtr = o.m (); sr = el.getBoundingClientRect ();
-				off = mtr.r.left - (sr.left + el.clientLeft); W = el.clientWidth;
-				for (i = 0; i < c.l.length; ++i) {
-					m = c.l[i];
-					X0 = (mtr.x (m.time) >> 0) + off; X1 = m.end ? (mtr.x (m.end) >> 0) + off : X0;
-					full = tw (tlabel (m)) + 14;
-					left = X0 < 0 && X1 > 0 ? 0 : X0;	/* 區間起點在畫面左邊：標籤貼著左緣 */
-					if (left > W || Math.max (X1, left + full) < 0) continue ;
-					items.push ({m:m, left:left, X1:X1, full:full, rw:m.end ? Math.max (3, Math.min (X1, W) - left) : 0});
-				}
-				/* 分層：優先放第 1 層；塞不下放第 2 層；兩層都滿就放「較空」的那層並被前一個標籤截短 */
+			/* [標籤列 設定] 排層：依序塞進第 1~cap 層，塞不下就放「最空」的那層並被前一個截短。
+			 * 回傳實際用到的層數（need），同時算好每個標籤可用的寬度 it.w */
+			function layoutLanes ( items, cap ) {
+				var lanes = [], i, k, j, it, prev, lane, nx, need = 1;
+				for (k = 0; k < cap; ++k) lanes.push ([]);
 				for (i = 0; i < items.length; ++i) {
 					it = items[i]; lane = -1;
-					for (k = 0; k < TL; ++k) {
+					for (k = 0; k < cap; ++k) {
 						prev = lanes[k][lanes[k].length - 1];
 						if (!prev || prev.left + Math.min (prev.full, 24) + 2 <= it.left) { lane = k; break; }
 					}
 					if (lane < 0) {
-						lane = lanes[0][lanes[0].length - 1].left <= lanes[1][lanes[1].length - 1].left ? 0 : 1;
+						lane = 0;
+						for (k = 1; k < cap; ++k)
+							if (lanes[k][lanes[k].length - 1].left < lanes[lane][lanes[lane].length - 1].left) lane = k;
 					}
 					it.lane = lane; lanes[lane].push (it);
+					if (lane + 1 > need) need = lane + 1;
 				}
-				for (k = 0; k < TL; ++k)
+				for (k = 0; k < cap; ++k)
 					for (j = 0; j < lanes[k].length; ++j) {
 						it = lanes[k][j]; nx = lanes[k][j + 1];
 						it.w = Math.max (0, Math.min (it.full, nx ? nx.left - it.left - 3 : 1e9, 260));
 					}
+				return need;
+			}
+			/* [標籤列 設定] 預覽（自動分割）的預告標籤：只算位置，不排層 */
+			function pvItems ( mtr, el ) {
+				var pv = c.pv, items = [], sr, off, TW, i, s, x0, x1, full, left;
+				if (c !== ed || !pv || !pv.segs || !el) return items;
+				sr = el.getBoundingClientRect ();
+				off = mtr.r.left - (sr.left + el.clientLeft); TW = el.clientWidth;
+				for (i = 0; i < pv.segs.length; ++i) {
+					s = pv.segs[i];
+					x0 = (mtr.x (s[0]) >> 0) + off; x1 = (mtr.x (s[1]) >> 0) + off;
+					full = tw (String (s[2] || '')) + 14; left = x0 < 0 && x1 > 0 ? 0 : x0;
+					if (left > TW || Math.max (x1, left + full) < 0) continue ;
+					items.push ({name:String (s[2] || ''), left:left, full:full, rw:Math.max (3, Math.min (x1, TW) - left)});
+				}
+				return items;
+			}
+			/* [標籤列 設定] 左側控制欄（⚙ 設定、▾ 摺疊）跟著標籤列的位置與高度走 */
+			function headSync ( el, vis, hh ) {
+				if (!thd) return ;
+				var disp = vis ? 'flex' : 'none', fold = trkFold (), cls = 'pk_lbhd' + (fold ? ' pk_fold' : '') + (hh >= 38 ? ' pk_lbhd_t' : '');
+				if (thd._d !== disp) { thd.style.display = disp; thd._d = disp; }
+				if (!vis) return ;
+				if (thd._h !== hh + 1) { thd.style.height = (hh + 1) + 'px'; thd._h = hh + 1; }
+				if (thd._o !== el.offsetTop) { thd.style.top = el.offsetTop + 'px'; thd._o = el.offsetTop; }
+				if (thd._c !== cls) { thd.className = cls; thd._c = cls; }
+			}
+			function trackPaint () {
+				if (!o.tr) return ;
+				var el = o.tr (), vis = trkVis (), mtr, sr, off, W, items = [], pi, i, m, it, X0, X1, left, full, stamp, id, n, cls, tr, lb;
+				var fold = trkFold (), fixed = trkLanes (), cap = fixed || TAUTO, need, want, hh, chg = 0, pn = 1;
+				if (!el) return ;
+				if (tlast !== (vis ? 1 : 0)) {
+					tlast = vis ? 1 : 0;
+					el.style.display = vis ? 'block' : 'none';
+					chg = 1;
+					if (!vis) { headSync (el, 0, 0); app.fireEvent ('RequestResize'); return ; }	/* 波形高度要還給標籤列 */
+				}
+				if (!vis) return ;
+				mtr = o.m (); sr = el.getBoundingClientRect ();
+				off = mtr.r.left - (sr.left + el.clientLeft); W = el.clientWidth;
+				if (!fold) {
+					for (i = 0; i < c.l.length; ++i) {
+						m = c.l[i];
+						X0 = (mtr.x (m.time) >> 0) + off; X1 = m.end ? (mtr.x (m.end) >> 0) + off : X0;
+						full = tw (tlabel (m)) + 14;
+						left = X0 < 0 && X1 > 0 ? 0 : X0;	/* 區間起點在畫面左邊：標籤貼著左緣 */
+						if (left > W || Math.max (X1, left + full) < 0) continue ;
+						items.push ({m:m, left:left, X1:X1, full:full, rw:m.end ? Math.max (3, Math.min (X1, W) - left) : 0});
+					}
+					need = layoutLanes (items, cap);
+					pi = pvItems (mtr, el);
+					if (pi.length) pn = layoutLanes (pi, cap);	/* 預覽的標籤也要算進需要的層數 */
+					if (pn > need) need = pn;
+				}
+				else need = 1;
+				/* [標籤列 設定] 決定層數：固定＝照設定；自動＝需要幾層就幾層（變多立刻長高，變少等 0.7 秒再縮，避免波形一直跳） */
+				want = fixed || Math.min (Math.max (need, 1), TAUTO);
+				if (fixed || want > tl) { tl = want; tdown = 0; if (tshr) { clearTimeout (tshr); tshr = 0; } }
+				else if (want < tl) {
+					if (tdown) { tl = want; tdown = 0; }
+					else if (!tshr) tshr = setTimeout (function () { tshr = 0; tdown = 1; redraw (); }, 700);
+				}
+				else if (tshr) { clearTimeout (tshr); tshr = 0; }
+				hh = fold ? FOLD_H : tl * TH + 2;
+				if (el._hh !== hh) { el.style.height = hh + 'px'; el._hh = hh; chg = 1; }
+				if (el._fd !== fold) { el._fd = fold; el.className = 'pk_lbtrk pk_noselect' + (fold ? ' pk_fold' : ''); chg = 1; }
+				headSync (el, 1, hh);
 				stamp = ++c.s;
 				for (i = 0; i < items.length; ++i) {
 					it = items[i]; m = it.m;
@@ -1422,6 +1493,11 @@
 				}
 				for (id in tnodes)
 					if (tnodes[id]._s !== stamp) { tnodes[id].parentNode && tnodes[id].parentNode.removeChild (tnodes[id]); delete tnodes[id]; }
+				if (chg) {
+					app.fireEvent ('RequestResize');	/* 標籤列高度變了（層數、摺疊）：波形高度要重算，頁面才不會多出捲軸 */
+					/* 下一幀再量一次：版面（標籤列、左側控制欄）都定案後，ui.js 的 MainHeight 會依實際版面再貼合一次 */
+					if (!tfix) tfix = w.requestAnimationFrame (function () { tfix = 0; app.fireEvent ('RequestResize'); });
+				}
 			}
 
 			/* ==================================================================
@@ -1462,10 +1538,10 @@
 			}
 			function pvPaint () {
 				if (c !== ed) return ;
-				var pv = c.pv, p = o.p (), el = o.tr ? o.tr () : null, mtr, W, i, k, s, x0, x1, l, r, n, cnt, tv, sr, off, TW, items, lanes, it, prev, lane, nx, j, bw, tr;
+				var pv = c.pv, p = o.p (), el = o.tr ? o.tr () : null, mtr, W, i, k, s, x0, x1, l, r, n, cnt, tv, items, it, bw, tr;
 				if (!pv || !p || !((pv.segs && pv.segs.length) || (pv.dropped && pv.dropped.length))) { (pvLayer || pvGh.length) && pvClean (); return ; }
 				mtr = o.m (); W = mtr.r.width;
-				tv = trkVis ();
+				tv = trkShow ();	/* [修改] 摺疊時預告標籤不畫在標籤列，名稱改畫在聲波色塊上 */
 				if (!pvLayer || pvLayer.parentNode !== p) {
 					pvLayer = d.createElement ('div'); pvLayer.className = 'pk_pvl';
 					p.appendChild (pvLayer); pvBlk = []; pvDrop = [];
@@ -1492,30 +1568,8 @@
 
 				/* 標籤列裡的預告標籤：排法與正式標籤相同（兩層，塞不下就截短） */
 				if (!tv || !el) { for (i = 0; i < pvGh.length; ++i) if (pvGh[i]._v) { pvGh[i].style.display = 'none'; pvGh[i]._v = 0; } return ; }
-				sr = el.getBoundingClientRect ();
-				off = mtr.r.left - (sr.left + el.clientLeft); TW = el.clientWidth;
-				items = []; lanes = [[], []];
-				for (i = 0; i < pv.segs.length; ++i) {
-					s = pv.segs[i];
-					x0 = (mtr.x (s[0]) >> 0) + off; x1 = (mtr.x (s[1]) >> 0) + off;
-					var full = tw (String (s[2] || '')) + 14, left = x0 < 0 && x1 > 0 ? 0 : x0;
-					if (left > TW || Math.max (x1, left + full) < 0) continue ;
-					items.push ({name:String (s[2] || ''), left:left, full:full, rw:Math.max (3, Math.min (x1, TW) - left)});
-				}
-				for (i = 0; i < items.length; ++i) {
-					it = items[i]; lane = -1;
-					for (k = 0; k < TL; ++k) {
-						prev = lanes[k][lanes[k].length - 1];
-						if (!prev || prev.left + Math.min (prev.full, 24) + 2 <= it.left) { lane = k; break; }
-					}
-					if (lane < 0) lane = lanes[0][lanes[0].length - 1].left <= lanes[1][lanes[1].length - 1].left ? 0 : 1;
-					it.lane = lane; lanes[lane].push (it);
-				}
-				for (k = 0; k < TL; ++k)
-					for (j = 0; j < lanes[k].length; ++j) {
-						it = lanes[k][j]; nx = lanes[k][j + 1];
-						it.w = Math.max (0, Math.min (it.full, nx ? nx.left - it.left - 3 : 1e9, 260));
-					}
+				items = pvItems (mtr, el);	/* [修改] 位置與排層改用 pvItems／layoutLanes（層數跟著標籤列目前的層數 tl） */
+				layoutLanes (items, Math.max (1, tl));
 				for (i = 0; i < items.length; ++i) {
 					it = items[i];
 					n = pvGh[i];
@@ -1549,6 +1603,7 @@
 			}
 			function trkClick ( e ) {
 				var n = tnodeOf (e.target);
+				if (e.target && e.target.classList && (e.target.classList.contains ('pk_lbgrip'))) return stop (e);	/* [新增] 握把只負責調整層數 */
 				if (n) return stop (e);
 				if (!can (c) || (e.button !== undefined && e.button !== 0)) return ;
 				var tm = o.m ().t (e.clientX);
@@ -1562,6 +1617,52 @@
 				renameUi (c, n.getAttribute ('data-id'));
 			}
 			function trkCtx ( e ) { e.preventDefault (); }
+			/* [標籤列 設定] 左側控制欄的 ⚙ 選單：像 Audacity 的標籤軌道選單，所有標籤列相關設定集中在這裡。
+			 * 選單每次開啟都重建，勾選／選項狀態才會是最新的 */
+			function openTrkMenu ( e ) {
+				if (!app._deps.ContextMenu) return false;
+				if (!tmenu) tmenu = new app._deps.ContextMenu (d.createElement ('div'));
+				tmenu.options = [];
+				var fx = trkLanes (), n;
+				function ck ( on ) { return (on ? '\u2713' : '\u2003') + ' '; }
+				function rd ( on ) { return (on ? '\u25CF' : '\u25CB') + ' '; }
+				tmenu.addOption (ck (trackOn ()) + T ('trk_show'), function () { q.track (!trackOn ()); }, false);
+				tmenu.addOption (ck (trkFold ()) + T (trkFold () ? 'trk_unfold' : 'trk_fold'), function () { q.trackFold (!trkFold ()); }, false);
+				tmenu.addOption (rd (!fx) + T ('trk_lanes_auto', {n:TAUTO}), function () { q.trackLanes (0); }, false);
+				for (n = 1; n <= 4; ++n) (function ( k ) {
+					tmenu.addOption (rd (fx === k) + T ('trk_lanes_n', {n:k}), function () { q.trackLanes (k); }, false);
+				})(n);
+				tmenu.addOption (ck (askName ()) + T ('trk_ask'), function () { q.askName (!askName ()); }, false);
+				tmenu.addOption (ck (snapOn ()) + T ('trk_snap'), function () { q.snap (!snapOn ()); }, false);
+				tmenu.addOption (T ('trk_panel'), function () { var P = PKAE._deps.mrkpanel; P && P.toggle (); }, false);
+				tmenu.open ( e );
+				return true;
+			}
+			function hdClick ( e ) {
+				var b = e.target && e.target.closest ? e.target.closest ('button') : null;
+				if (!b) return ;
+				e.preventDefault (); e.stopPropagation ();
+				if (b.classList.contains ('pk_lbhd_f')) q.trackFold (!trkFold ());
+				else openTrkMenu ( e );
+			}
+			/* [標籤列 設定] 拖曳標籤列下緣的握把＝調整層數（每 18px 一層，最多 6 層）；雙擊＝回到自動 */
+			function gripDown ( e ) {
+				var g = e.target;
+				if (!g || !g.classList || !g.classList.contains ('pk_lbgrip') || (e.button !== undefined && e.button !== 0)) return ;
+				e.preventDefault (); e.stopPropagation ();
+				var y0 = e.clientY, l0 = tl;
+				try { g.setPointerCapture (e.pointerId); } catch (er) {}
+				g.onpointermove = function ( ev ) {
+					var k = Math.max (1, Math.min (TMAXL, Math.round (l0 + (ev.clientY - y0) / TH)));
+					if (k !== trkLanes ()) q.trackLanes (k);
+				};
+				g.onpointerup = g.onpointercancel = function () { g.onpointermove = g.onpointerup = g.onpointercancel = null; };
+			}
+			function gripDbl ( e ) {
+				if (!e.target || !e.target.classList || !e.target.classList.contains ('pk_lbgrip')) return ;
+				e.preventDefault (); e.stopPropagation ();
+				q.trackLanes (0);
+			}
 
 			function openMenu ( e, id ) {
 				if (!app._deps.ContextMenu) return false;
@@ -1786,13 +1887,19 @@
 				ts.addEventListener ('click', trkClick, true);
 				ts.addEventListener ('dblclick', trkDbl, true);
 				ts.addEventListener ('contextmenu', trkCtx, true);
+				ts.addEventListener ('pointerdown', gripDown, true);
+				ts.addEventListener ('dblclick', gripDbl, true);
 			}
+			if (thd) thd.addEventListener ('click', hdClick, false);
 			c.off = function () {
+				if (thd) thd.removeEventListener ('click', hdClick, false);
 				if (ts) {
 					ts.removeEventListener ('mousedown', trkDown, true);
 					ts.removeEventListener ('click', trkClick, true);
 					ts.removeEventListener ('dblclick', trkDbl, true);
 					ts.removeEventListener ('contextmenu', trkCtx, true);
+					ts.removeEventListener ('pointerdown', gripDown, true);
+					ts.removeEventListener ('dblclick', gripDbl, true);
 				}
 				tclear ();
 				hs.removeEventListener ('mousedown', down, true);
@@ -1805,6 +1912,8 @@
 				pvClean ();
 				if (menu) menu.destroy ();
 				if (rmenu) rmenu.destroy ();
+				if (tmenu) { tmenu.destroy (); tmenu = null; }
+				if (tshr) { clearTimeout (tshr); tshr = 0; }
 			};
 			c.v = paint;
 			paint ();
@@ -1907,6 +2016,21 @@
 			try { w.localStorage.setItem ('pk_mrk_track', v ? '1' : '0'); } catch (e) {}
 			redraw ();
 		};
+		/* [新增] 單軌波形上方的時間軸是否開啟（時間軸佔波形最上面約 28px，聲波上的名稱要避開它） */
+		function tlOn () { var ws = app.engine && app.engine.wavesurfer; return !ws || !ws.params || ws.params.timeline !== false; }
+		app.listenFor ('DidViewTimelineToggle', function () { redraw (); });
+		/* [標籤列 設定] 摺疊／層數（0＝自動）。改動後標籤列高度會變，由 trackPaint 發出 RequestResize 讓波形重算高度 */
+		q.trackFold = function ( v ) {
+			if (v === undefined) return trkFold ();
+			try { w.localStorage.setItem ('pk_mrk_fold', v ? '1' : '0'); } catch (e) {}
+			redraw ();
+		};
+		q.trackLanes = function ( v ) {
+			if (v === undefined) return trkLanes ();
+			v = parseInt (v, 10);
+			try { w.localStorage.setItem ('pk_mrk_lanes', v >= 1 && v <= TMAXL ? String (v) : '0'); } catch (e) {}
+			redraw ();
+		};
 		q.labels = function ( v ) {
 			if (v === undefined) return labelsOn ();
 			try { w.localStorage.setItem ('pk_mrk_labels', v ? '1' : '0'); } catch (e) {}
@@ -1939,7 +2063,23 @@
 				strip.setAttribute ('role', 'list');
 				cont.insertBefore (strip, av);
 			}
+			/* [新增] 左側控制欄（在波形左邊 48px 的空白處）與下緣握把 */
+			var hd = cont && cont.querySelector ('.pk_lbhd');
+			if (cont && strip && !hd) {
+				hd = d.createElement ('div');
+				hd.className = 'pk_lbhd';
+				hd.style.display = 'none';
+				hd.innerHTML = '<div class="pk_lbhd_b"><button type="button" class="pk_lbhd_m" tabindex="-1" title="' + T ('trk_menu') + '">\u2699</button><button type="button" class="pk_lbhd_f" tabindex="-1" title="' + T ('trk_fold') + '">\u25BE</button></div><span class="pk_lbhd_n">' + T ('trk_name') + '</span>';
+				cont.insertBefore (hd, strip);
+			}
+			if (strip && !strip.querySelector ('.pk_lbgrip')) {
+				var gp = d.createElement ('div');
+				gp.className = 'pk_lbgrip';
+				gp.title = T ('trk_grip');
+				strip.appendChild (gp);
+			}
 			view (ed, {
+				hd:hd ? function () { return hd; } : null,
 				tr:strip ? function () { return strip; } : null,
 				h:function () { return wave; },
 				p:function () { return wave; },

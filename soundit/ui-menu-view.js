@@ -175,11 +175,13 @@
 						tlPanel ( 'transport' ),
 						tlPanel ( 'actions' ),
 						tlPanel ( 'selection' ),
+						tlPanel ( 'meter' ),	/* [新增] 電平表：顯示／隱藏 */
 						{ name:'---' },
 						/* [修改] 桌面版固定精簡：不再有「排列」選項。時間／選取預設最精簡，要看更多就往右加寬／加橫向文字 */
-						tlItem ( tf ('view.tb_tm_tx', '時間：往右加顯示總長度', 'Time: add total length (right)'), function ( T ) { return T.tmShow ('t'); }, function ( T ) { T.tmToggle ('t'); } ),
 						tlItem ( tf ('view.tb_tm_hx', '時間：往右加顯示滑鼠位置時間', 'Time: add hover time (right)'), function ( T ) { return T.tmShow ('h'); }, function ( T ) { T.tmToggle ('h'); } ),
 						tlItem ( tf ('view.tb_sel_x', '選取區塊：顯示橫向文字（起點／終點／長度）', 'Selection: show text labels'), function ( T ) { return T.selCompact (); }, function ( T ) { T.selToggle (); } ),
+						/* [新增] 電平表放在工具列（窄版）／放回底部（全寬）；也可以在「調整排列」直接拖曳 */
+						tlItem ( tf ('view.tb_meter_bar', '電平表：放在工具列（窄版）', 'Level meter: place in toolbar (narrow)'), function ( T ) { return T.meterDock () === 'bar'; }, function ( T ) { T.setMeterDock ( T.meterDock () === 'bar' ? 'foot' : 'bar' ); } ),
 						{ name:'---' },
 						{ name: t ('view.tb_custom'), action: function () { TL && TL.openDialog (); } },
 						tlItem ( t ('view.tb_edit'), function ( T ) { return T.isEditing (); }, function ( T ) { T.edit ( !T.isEditing () ); } ),

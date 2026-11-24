@@ -54,6 +54,8 @@
 		{ id: 'select_all',  group: 'edit', keys: ['Mod+A', 'Shift+A'],                 run: function () { ev ('RequestSelect'); } },
 		{ id: 'deselect',    group: 'edit', keys: ['Q'],                                run: function () { ev ('RequestDeselect'); } },
 		{ id: 'silence',     group: 'edit', keys: ['Shift+N'],                          run: function () { ev ('RequestFXUI_Silence'); } },
+		/* [新增] A/B 對照：套用效果前後一鍵切換 */
+		{ id: 'ab_toggle',   group: 'edit', keys: ['B'],                                ready: 1, run: function () { ev ('RequestABToggle'); } },
 
 		{ id: 'marker_add',      group: 'select', keys: ['M'],           run: function () { ev ('MrkrAdd'); } },
 		{ id: 'marker_prev',     group: 'select', keys: ['['],          run: function () { ev ('MrkrPrv', 0); } },
@@ -99,6 +101,7 @@
 		{ id: 'center',      group: 'view', keys: ['Tab'],   ready: 1, run: function () { ev ('RequestViewCenterToCursor'); } },
 		{ id: 'mt_switch',   group: 'view', keys: ['E'],     run: function () { ev ('RequestMultitrackSwitch'); } },
 
+		{ id: 'open',        group: 'file', keys: ['Mod+O', 'Shift+O'], run: function () { ev ('RequestLoadLocalFile'); } },
 		{ id: 'save',        group: 'file', keys: ['Mod+S', 'Shift+S'], run: function () { click ('.pk_opt[data-id="dl"]'); } },
 		{ id: 'help',        group: 'file', keys: ['Shift+/'],          run: function () { openHelp (); } }
 	];
@@ -378,6 +381,7 @@
 
 	/* [修改] 新增的標記動作語言檔沒有名稱，用內建中／英文備援 */
 	var ACT_FALLBACK = {
+		open:              ['開啟檔案', 'Open File'],
 		marker_list:   ['開啟／關閉標記清單', 'Toggle Marker List'],
 		marker_rename: ['重新命名目前標記', 'Rename Current Marker'],
 		marker_delete: ['刪除目前標記', 'Delete Current Marker'],
@@ -546,3 +550,5 @@
 	};
 
 })( window, document, PKAudioEditor );
+
+

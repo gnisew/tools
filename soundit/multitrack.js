@@ -4033,6 +4033,8 @@
 				REVERB: 'Reverb',
 				Reverse: 'Reverse',
 				Invert: 'Invert',
+				DCOffset: 'DCOffset',
+				HighPass: 'HighPass',
 				RATE: 'Rate',
 				SPEED: 'Speed'
 			};
@@ -4055,6 +4057,8 @@
 				Reverb: t('fx.label.reverb'),
 				Reverse: t('fx.label.reverse'),
 				Invert: t('fx.label.invert'),
+				DCOffset: t('fx.label.dc_offset'),
+				HighPass: t('fx.label.high_pass'),
 				Rate: t('fx.label.rate'),
 				Speed: t('fx.label.speed')
 			}[name] || name;
@@ -5532,10 +5536,11 @@
 
 		function RecordToggle () {
 			if (rec) RecordStop ();
+			else if (app._deps.recCountdown && app._deps.recCountdown.active ()) app._deps.recCountdown.cancel ();
 			else RecordStart ();
 		}
 
-		function RecordStart () {
+		function RecordStart ( go ) {
 			if (rec) return ;
 			var tr = activeTrack ();
 			if (!tr) {
@@ -5543,16 +5548,30 @@
 				return ;
 			}
 
+			/* [新增] 設定了錄音倒數時，先倒數再開始 */
+			var cd = app._deps.recCountdown;
+			if (go !== true && cd && cd.seconds () > 0) {
+				if (!cd.active ()) {
+					Pause ();
+					cd.run (function ( ok ) { ok && RecordStart ( true ); });
+				}
+				return ;
+			}
+
 			Pause ();
 			var ctx = audioCtx ();
 			var size = 4096;
 			var buffers = [];
-			var skip = 4;
+			var buffers_r = [];   /* [新增] 立體聲錄音的右聲道片段（與 buffers 逐段等長） */
+			var skip = 1;
+			/* [新增] 偏好設為立體聲時要求 2 聲道；裝置只有 1 聲道會自動退回單聲道（見 recorder.js） */
+			var want_ch = (app._deps.recPrefs && app._deps.recPrefs.get ().channels === 2) ? 2 : 1;
 			var r = rec = {
 				ctx: ctx,
 				track: tr.id,
 				size: size,
 				buffers: buffers,
+				buffers_r: buffers_r,
 				start: cursor,
 				len: 0,
 				t0: 0
@@ -5561,13 +5580,15 @@
 			if (!app.rec.startCapture ({
 				ctx: ctx,
 				chunkSize: size,
-				ondata: function ( b ) {
+				channels: want_ch,   /* [新增] */
+				ondata: function ( b, br ) {   /* [修改] 多收右聲道 br（立體聲才有） */
 					if (rec !== r) return ;
 					if (skip > 0) {
 						--skip;
 						return ;
 					}
 					buffers.push ( b );
+					if (br) buffers_r.push ( br );   /* [新增] */
 					r.len += b.length;
 					if (buffers.length === 1 || ++rec_redraw >= 3) {
 						rec_redraw = 0;
@@ -5620,10 +5641,14 @@
 				var len = r.len || r.buffers.reduce(function (sum, b) {
 					return sum + b.length;
 				}, 0);
-				var buffer = r.ctx.createBuffer (1, len, r.ctx.sampleRate);
+				/* [修改] 右聲道片段數量與左聲道一致時，建立 2 聲道的片段；否則維持原本的單聲道 */
+				var stereo = r.buffers_r.length > 0 && r.buffers_r.length === r.buffers.length;
+				var buffer = r.ctx.createBuffer (stereo ? 2 : 1, len, r.ctx.sampleRate);
 				var chan = buffer.getChannelData (0);
+				var chan_r = stereo ? buffer.getChannelData (1) : null;
 				for (var i = 0, off = 0; i < r.buffers.length; ++i) {
 					chan.set ( r.buffers[i], off );
+					if (chan_r) chan_r.set ( r.buffers_r[i], off );   /* [新增] */
 					off += r.buffers[i].length;
 				}
 
@@ -6014,3 +6039,5 @@
 
 	PKAE._deps.multitrack = PKMultitrack;
 })( window, document, PKAudioEditor );
+
+
