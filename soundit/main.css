@@ -1,23 +1,3 @@
-/* ==========================================================================
- * AI 合併檔案: 相關CSS檔_2.css
- * 類型: CSS
- * 順序依據: HTML 載入順序 (index.html)
- * 包含 1 個檔案: main.css
- * ========================================================================== */
-
-/* --------------------------------------------------------------------------
- * 📄 原始檔案: main.css (HTML 載入順序 #1)
- * -------------------------------------------------------------------------- */
-/* ==========================================================================
- * AI 合併檔案: 相關CSS檔.css
- * 類型: CSS
- * 順序依據: HTML 載入順序 (index.html)
- * 包含 1 個檔案: main.css
- * ========================================================================== */
-
-/* --------------------------------------------------------------------------
- * 📄 原始檔案: main.css (HTML 載入順序 #1)
- * -------------------------------------------------------------------------- */
 :root{
 
 	--bg-0:#07080a;
@@ -106,6 +86,7 @@ a{
 
 .pk_inact,.pk_app .pk_inact,.pk_btn.pk_inact{opacity:.45;cursor:default}
 
+.pk_grab_ready,.pk_grab_ready wave{cursor:grab!important;cursor:-webkit-grab!important}
 .pk_grabbing,.pk_grabbing wave{cursor:grabbing!important;cursor:-webkit-grabbing!important}
 
 .pk_hdr{
@@ -817,6 +798,9 @@ a{
 .pk_zoombtn .pk_zoom_in_v span,
 .pk_zoombtn .pk_zoom_out_v span{margin-left:40px}
 .pk_zoombtn .pk_zoom_out_v{top:-26px}
+/* [新增] 滾輪模式切換鈕：開啟（滾輪＝左右移動）時反白；手機沒有滾輪就不顯示 */
+.pk_zoombtn .pk_zoom_wheel.on{background:var(--ac);color:var(--bg-0)}
+.pk_mob .pk_zoom_wheel{display:none}
 .pk_mob .pk_zoom_in_v,
 .pk_mob .pk_zoom_out_v{display:none}
 
@@ -845,6 +829,10 @@ a{
 	font:13px var(--ff);
 }
 .pk_contextMenu div{position:relative}
+/* [新增] 右鍵選單分組：標題右側小箭頭、展開後的項目縮排 */
+.pk_contextMenu a.pk_ctx_grp{display:flex;justify-content:space-between;align-items:center;font-weight:600}
+.pk_contextMenu .pk_ctx_car{margin-left:12px;color:var(--fg-2);font-size:11px}
+.pk_contextMenu .pk_ctx_sub a{padding-left:28px}
 .pk_contextMenu a,
 .pk_contextMenu a:hover{
 	display:block;clear:both;
@@ -2500,6 +2488,11 @@ body.pk_tbl_editing .pk_ttip{display:none!important}
 	font:600 13px/20px var(--ff);font-style:normal;color:var(--ac);
 }
 .pk_tbl_ft{margin:14px 0 0;text-align:right}
+/* [新增] 自訂工具列對話框的頁籤 */
+.pk_tbl_tabs{display:flex;gap:4px;margin:0 0 12px;border-bottom:1px solid var(--bd-s)}
+.pk_tbl_tab{padding:6px 14px;margin:0 0 -1px;background:transparent;border:0;border-bottom:2px solid transparent;color:var(--fg-1);font:13px var(--ff);cursor:pointer}
+.pk_tbl_tab:hover{color:var(--ac)}
+.pk_tbl_tab[aria-selected="true"]{color:var(--ac);border-bottom-color:var(--ac);font-weight:600}
 @media only screen and (max-width:560px){.pk_tbl_cols{flex-direction:column}.pk_tbl_cols>.pk_tbl_col{width:100%}}
 
 /* 浮動面板（P4） */
@@ -2846,3 +2839,24 @@ body.pk_tbl_editing .pk_ftr .pk_meter[data-tbp].pk_tbl_drag{opacity:.6;outline:2
 .pk_ab_badge:hover b,.pk_ab_badge:focus-visible b{background:#041014;color:var(--warn)}
 [data-theme="light"] .pk_ab_badge{background:rgba(255,255,255,.92);color:#8a6200;border-color:#c99a1a}
 @media (max-width:640px){.pk_ab_badge i{display:none}}
+
+
+/* [新增] 匯出視窗：標題與按鈕列固定，中間內容區超出畫面時自己出現捲軸
+ * （原本是整個遮罩捲動，底部「匯出／取消」要捲到最下面才看得到） */
+.pk_modal.pk_exp_modal{
+	display:flex;flex-direction:column;
+	max-height:calc(100vh - 80px);max-height:calc(100dvh - 80px);
+}
+.pk_exp_modal .pk_modal_title,
+.pk_exp_modal .pk_modal_bottom{flex:0 0 auto}
+.pk_exp_modal .pk_modal_main{
+	flex:1 1 auto;min-height:0;
+	overflow-x:hidden;overflow-y:auto;
+	overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+}
+@media (max-height:700px){
+	.pk_modal.pk_exp_modal{max-height:calc(100vh - 28px);max-height:calc(100dvh - 28px)}
+}
+@media only screen and (max-width:480px){
+	.pk_modal.pk_exp_modal{max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px)}
+}

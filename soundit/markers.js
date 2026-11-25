@@ -1,6 +1,3 @@
-/* --------------------------------------------------------------------------
- * 📄 原始檔案: markers.js 
- * -------------------------------------------------------------------------- */
 (function ( w, d, PKAE ) {
 	'use strict';
 
@@ -1786,7 +1783,12 @@
 				if (!hit (e, m)) return ;
 				stop ( e );
 				if (e.detail > 1) return add (c, {time:m.t (e.clientX)});
-				if (!td || Math.abs (e.clientX - td.x) + Math.abs (e.clientY - td.y) < 4) seek (c, m.t (e.clientX));
+				if (!td || Math.abs (e.clientX - td.x) + Math.abs (e.clientY - td.y) < 4) {
+					seek (c, m.t (e.clientX));
+					/* [新增] 單擊時間軸＝跳到該點並從那裡播放（原本只移動游標）。播放中單擊則直接跳過去繼續播。
+					 * 雙擊仍是在該點加標記：第一下已開始播放，第二下只加標記、不再 seek。 */
+					if (!playing (c)) app.fireEvent ('RequestPlay');
+				}
 				td = null;
 			}
 			/* ------------------------------------------------------------------
@@ -2164,3 +2166,4 @@
 	PKAE._deps.mrk = PKMrk;
 
 })( window, document, PKAudioEditor );
+

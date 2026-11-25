@@ -459,7 +459,16 @@
 	 * ------------------------------------------------------------------ */
 
 	var CSS =
-		'.pk_bt{min-width:min(460px,80vw);max-width:620px;font-size:12px}' +
+		'.pk_bt{min-width:min(460px,80vw);max-width:640px;font-size:12px}' +
+		/* 視窗高度：標題與按鈕列固定，中間內容超出畫面時自己捲動（細、淡的捲軸） */
+		'.pk_modal.pk_bt_modal{display:flex;flex-direction:column;max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px)}' +
+		'.pk_bt_modal .pk_modal_title,.pk_bt_modal .pk_modal_bottom{flex:0 0 auto}' +
+		'.pk_bt_modal .pk_modal_main{flex:1 1 auto;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(128,140,150,.35) transparent}' +
+		'.pk_bt_modal .pk_modal_main::-webkit-scrollbar{width:6px;height:6px}' +
+		'.pk_bt_modal .pk_modal_main::-webkit-scrollbar-track{background:transparent}' +
+		'.pk_bt_modal .pk_modal_main::-webkit-scrollbar-thumb{background:rgba(128,140,150,.28);border:0;border-radius:3px}' +
+		'.pk_bt_modal .pk_modal_main::-webkit-scrollbar-thumb:hover{background:rgba(128,140,150,.55)}' +
+		'@media (max-height:700px){.pk_modal.pk_bt_modal{max-height:calc(100vh - 20px);max-height:calc(100dvh - 20px)}}' +
 		'.pk_bt_drop{border:1px dashed var(--bd-h);border-radius:6px;padding:12px;text-align:center;color:var(--fg-1);margin:4px 0 8px;transition:background .15s,border-color .15s}' +
 		'.pk_bt_drop.pk_bt_over{background:var(--ac-soft);border-color:var(--ac);color:var(--fg-0)}' +
 		'.pk_bt_drop a{color:var(--ac);cursor:pointer;text-decoration:underline}' +
@@ -474,14 +483,16 @@
 		'.pk_bt_it.pk_bt_run .pk_bt_st{color:var(--ac)}.pk_bt_it.pk_bt_ok .pk_bt_st{color:var(--ok)}' +
 		'.pk_bt_it.pk_bt_err .pk_bt_st,.pk_bt_it.pk_bt_err .pk_bt_msg{color:var(--rec)}' +
 		'.pk_bt_msg{font-size:10px;color:var(--fg-2);max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
-		'.pk_bt_sum{color:var(--fg-2);font-size:11px;min-height:16px;margin:2px 0 6px}' +
-		'.pk_bt_sec{margin:8px 0 3px;color:var(--ac-2);font-size:11px;letter-spacing:.06em;text-transform:uppercase}' +
-		'.pk_bt_grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;align-items:center}' +
-		'.pk_bt_grid label{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0}' +
+		'.pk_bt_sum{color:var(--fg-2);font-size:11px;margin:2px 0 6px}' +
+		'.pk_bt_sum:empty{display:none}' +
+		'.pk_bt_sec{margin:14px 0 6px;padding-bottom:3px;border-bottom:1px solid var(--bd-s);color:var(--ac-2);font-size:11px;letter-spacing:.06em;text-transform:uppercase}' +
+		'.pk_bt_grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 22px;align-items:center}' +
+		'.pk_bt_grid>label{display:grid;grid-template-columns:minmax(0,1fr) 150px;align-items:center;gap:8px;margin:0}' +
 		'.pk_bt_grid .pk_bt_wide{grid-column:1 / -1}' +
-		'.pk_bt_grid input[type=checkbox]{accent-color:var(--ac);float:none;margin:0 4px 0 0}' +
-		'.pk_bt_grid input[type=number]{width:84px;float:none;margin:0}' +
-		'.pk_bt_grid .pk_txt{width:60%;float:none}' +
+		'.pk_bt_grid select,.pk_bt_grid input[type=number],.pk_bt_grid .pk_txt{width:100%;min-width:0;float:none;margin:0;box-sizing:border-box}' +
+		'.pk_bt_chk{display:flex;align-items:center;gap:8px;margin:0;user-select:none;-webkit-user-select:none}' +
+		'.pk_bt_chk input[type=checkbox]{accent-color:var(--ac);float:none;margin:0;width:16px;height:16px;flex:none;cursor:pointer}' +
+		'@media (max-width:520px){.pk_bt_grid{grid-template-columns:1fr}.pk_bt_grid>label{grid-template-columns:minmax(0,1fr) 140px}}' +
 		'.pk_bt_bar{height:6px;border-radius:3px;background:var(--bg-4);overflow:hidden;margin:8px 0 2px;display:none}' +
 		'.pk_bt_bar i{display:block;height:100%;width:0;background:var(--ac);transition:width .15s}' +
 		'.pk_bt.pk_bt_busy .pk_bt_bar{display:block}' +
@@ -515,7 +526,7 @@
 			'<div class="pk_bt_cfg">' +
 			'<div class="pk_bt_sec">' + LT ('處理流程（依序套用）', 'Processing chain (in order)') + '</div>' +
 			'<div class="pk_bt_grid">' +
-			'<label class="pk_bt_wide"><span><input type="checkbox" id="pkbt-dc"' + (c.dc ? ' checked' : '') + '>' + LT ('移除直流偏移', 'Remove DC offset') + '</span></label>' +
+			'<div class="pk_bt_wide pk_bt_chk"><input type="checkbox" id="pkbt-dc"' + (c.dc ? ' checked' : '') + '><span>' + LT ('移除直流偏移', 'Remove DC offset') + '</span></div>' +
 			'<label>' + LT ('高通濾波', 'High-pass') + '<select id="pkbt-hpf">' + opts ([ [ 0, off ], [ 60, '60 Hz' ], [ 80, '80 Hz' ], [ 100, '100 Hz' ], [ 120, '120 Hz' ] ], c.hpf) + '</select></label>' +
 			'<label>' + LT ('降噪', 'Denoise') + '<select id="pkbt-dn" title="' + LT ('RNNoise；比例越低越保留原聲，處理較慢', 'RNNoise; lower mix keeps more of the original. Slower.') + '">' + opts ([ [ 0, off ], [ 40, LT ('輕度（40%）', 'Light (40%)') ], [ 70, LT ('中度（70%）', 'Medium (70%)') ], [ 100, LT ('完整（100%）', 'Full (100%)') ] ], c.dn) + '</select></label>' +
 			'<label>' + LT ('EQ 預設', 'EQ preset') + '<select id="pkbt-eq">' + eqOptions ( c.eq ) + '</select></label>' +
@@ -537,7 +548,7 @@
 			'<label>' + LT ('音高（半音，不變速）', 'Pitch (semitones, same speed)') + '<input class="pk_txt" type="number" id="pkbt-tps" min="-24" max="24" step="0.1" value="' + c.tps + '"></label>' +
 			'<label>' + LT ('音質', 'Quality') + '<select id="pkbt-tpq">' + opts ([ [ 'speech', LT ('人聲／說話', 'Speech') ], [ 'mixed', LT ('通用', 'General') ], [ 'music', LT ('音樂／和聲', 'Music') ], [ 'perc', LT ('打擊樂', 'Percussive') ] ], c.tpq) + '</select></label>' +
 			'<label>' + LT ('停頓上限', 'Pause max') + '<select id="pkbt-tpp" title="' + LT ('超過這個長度的停頓縮短到這個長度；只處理能偵測到的靜音', 'Pauses longer than this are shortened to it') + '">' + opts ([ [ 0, off ], [ 0.2, LT ('0.2 秒', '0.2 s') ], [ 0.3, LT ('0.3 秒', '0.3 s') ], [ 0.5, LT ('0.5 秒', '0.5 s') ], [ 1, LT ('1 秒', '1 s') ] ], c.tpp) + '</select></label>' +
-			'<label class="pk_bt_wide"><span><input type="checkbox" id="pkbt-tpf"' + (c.tpf ? ' checked' : '') + '>' + LT ('改音高時保留共振峰（人聲不變花栗鼠）', 'Keep formants when pitch changes') + '</span></label>' +
+			'<div class="pk_bt_wide pk_bt_chk"><input type="checkbox" id="pkbt-tpf"' + (c.tpf ? ' checked' : '') + '><span>' + LT ('改音高時保留共振峰（人聲不變花栗鼠）', 'Keep formants when pitch changes') + '</span></div>' +
 			'</div>' +
 			'<div class="pk_bt_sec">' + LT ('輸出', 'Output') + '</div>' +
 			'<div class="pk_bt_grid">' +
@@ -545,14 +556,14 @@
 			'<label><span id="pkbt-qlbl">' + LT ('品質', 'Quality') + '</span><select id="pkbt-q"></select></label>' +
 			'<label>' + LT ('取樣率', 'Sample rate') + '<select id="pkbt-rate">' + opts ([ [ 0, LT ('維持原樣', 'Keep') ], [ 44100, '44.1 kHz' ], [ 48000, '48 kHz' ], [ 96000, '96 kHz' ] ], c.rate) + '</select></label>' +
 			'<label title="{name} {n}">' + LT ('檔名範本', 'File name') + '<input class="pk_txt" type="text" id="pkbt-tpl" maxlength="80" value="' + esc ( c.tpl ) + '"></label>' +
-			'<label class="pk_bt_wide"><span><input type="checkbox" id="pkbt-rep"' + (c.report ? ' checked' : '') + '>' + LT ('一併輸出處理報告（CSV：處理前峰值／響度、長度、狀態）', 'Include a CSV report (original peak / loudness, length, status)') + '</span></label>' +
+			'<div class="pk_bt_wide pk_bt_chk"><input type="checkbox" id="pkbt-rep"' + (c.report ? ' checked' : '') + '><span>' + LT ('一併輸出處理報告（CSV：處理前峰值／響度、長度、狀態）', 'Include a CSV report (original peak / loudness, length, status)') + '</span></div>' +
 			'</div></div>' +
 			'<div class="pk_bt_bar"><i id="pkbt-bar"></i></div></div>';
 	}
 
 	/* 依格式換「品質」選單 */
 	function QUAL () { return {
-		mp3: [ [ 128, '128 kbps' ], [ 192, '192 kbps' ], [ 256, '256 kbps' ] ],
+		mp3: [ [ 64, '64 kbps' ], [ 96, '96 kbps' ], [ 128, '128 kbps' ], [ 192, '192 kbps' ], [ 256, '256 kbps' ], [ 320, '320 kbps' ] ],
 		opus: [ [ 64, '64 kbps' ], [ 96, '96 kbps' ], [ 128, '128 kbps' ], [ 160, '160 kbps' ], [ 192, '192 kbps' ] ],
 		aac: [ [ 96, '96 kbps' ], [ 128, '128 kbps' ], [ 160, '160 kbps' ], [ 192, '192 kbps' ], [ 256, '256 kbps' ] ],
 		wav: [ [ 16, '16-bit' ], [ 24, '24-bit' ], [ 32, '32-bit float' ] ],
@@ -797,7 +808,7 @@
 
 		modal = new PKSimpleModal ({
 			title: LT ('批次處理', 'Batch Process'),
-			clss: 'pk_bigger',
+			clss: 'pk_bigger pk_bt_modal',
 			ondestroy: function () {
 				canceled = true;
 				try { app.engine.FXPreviewHost.DownloadFileCancel (); } catch (e) {}

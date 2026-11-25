@@ -1388,6 +1388,7 @@ var WaveSurfer = function (_util$Observer) {
 
         _this.ActiveMarker = 0;
         _this.FollowCursor = 1;
+        _this.FollowPage = 0;        /* [新增] 0＝置中跟隨（原本）；1＝翻頁式跟隨 */
         _this.Interacting = 0;
 
         _this.ActiveChannels = [1, 1];
@@ -1841,7 +1842,39 @@ var WaveSurfer = function (_util$Observer) {
             q.backend.on('audioprocess', function (time, stamp) {
                 var percentage = q.backend.getPlayedPercents();
 
-                if (q.ZoomFactor > 1 && q.FollowCursor && !q.Interacting)
+                if (q.ZoomFactor > 1 && q.FollowCursor && !q.Interacting && q.FollowPage)
+                {
+                    /* [新增] 翻頁式跟隨：播放線從左往右走，走到畫面右邊界就整頁翻過去，播放線回到左邊再繼續走 */
+                    if (stamp - db > timing_gap)
+                    {
+                        db = stamp;
+
+                        var pdur = q.getDuration();
+                        var pmax = q.drawer.width * q.ZoomFactor;
+                        var pview = q.drawer.width;
+                        var preal = percentage * pmax;
+                        var pleft = q.LeftProgress / pdur * pmax;
+
+                        if (preal >= pleft + pview - 2 && preal <= pleft + pview * 1.5)
+                        {
+                            var ptarget = Math.max(0, Math.min(pmax - pview, preal - pview * 0.02));
+                            if (Math.abs(ptarget - pleft) > 1)
+                            {
+                                var pt = ptarget / pmax;
+                                q.LeftProgress = pt * pdur;
+                                q.fireEvent('cursorcenter', pt);
+
+                                if (!document.hidden) q.ForceDraw();
+                            }
+                            else q.drawer.progress(percentage, q.LeftProgress / pdur, q.ZoomFactor);
+                        }
+                        else
+                        {
+                            q.drawer.progress(percentage, q.LeftProgress / pdur, q.ZoomFactor);
+                        }
+                    }
+                }
+                else if (q.ZoomFactor > 1 && q.FollowCursor && !q.Interacting)
                 {
                     var new_db = stamp;
                     if (new_db - db > timing_gap)
@@ -3602,5 +3635,4 @@ module.exports = exports['default'];
 
   });
 });
-
 

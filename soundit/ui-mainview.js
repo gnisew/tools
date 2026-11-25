@@ -219,6 +219,29 @@ var activeMultitrackFor = h.activeMultitrackFor;
 			app.fireEvent ('RequestZoomUI', 0);
 			this.blur();
 		};
+		/* [新增] 滾輪模式切換鈕：點一下在「滾輪縮放／Shift＋滾輪移動」與「滾輪移動／Shift＋滾輪縮放」之間切換 */
+		var btn_zoom_wheel = d.createElement ('button');
+		btn_zoom_wheel.className = 'pk_btn pk_zoom_wheel';
+		btn_zoom_wheel.innerHTML = '&#x21C6;<span></span>';
+		btn_zoom_wheel.setAttribute ('tabIndex', -1);
+		function wheelBtnSync () {
+			var on = !!app.wheelSwap, en = false;
+			try { en = PKLocale.getLang () === 'en'; } catch (e) {}
+			var tip = en
+				? (on ? 'Wheel: pan · Shift+wheel: zoom (click to switch)' : 'Wheel: zoom · Shift+wheel: pan (click to switch)')
+				: (on ? '滾輪：左右移動 ・ Shift＋滾輪：縮放（點擊切換）' : '滾輪：縮放 ・ Shift＋滾輪：左右移動（點擊切換）');
+			btn_zoom_wheel.classList.toggle ('on', on);
+			btn_zoom_wheel.setAttribute ('aria-pressed', on ? 'true' : 'false');
+			btn_zoom_wheel.setAttribute ('aria-label', tip);
+			btn_zoom_wheel.firstElementChild.textContent = tip;
+		}
+		btn_zoom_wheel.onclick = function () {
+			app.setWheelSwap ( !app.wheelSwap );
+			wheelBtnSync ();
+			this.blur();
+		};
+		wheelBtnSync ();
+
 		UI.KeyHandler.addCallback ('Key0', function ( key ) {
 			if (UI.InteractionHandler.on) return ;
 			app.fireEvent ('RequestZoomUI', 0);
@@ -254,6 +277,7 @@ var activeMultitrackFor = h.activeMultitrackFor;
 		btn_zoom_cnt.appendChild ( btn_zoom_in_h );
 		btn_zoom_cnt.appendChild ( btn_zoom_out_h );
 		btn_zoom_cnt.appendChild ( btn_zoom_reset );
+		btn_zoom_cnt.appendChild ( btn_zoom_wheel );
 		btn_zoom_cnt.appendChild ( btn_zoom_in_v );
 		btn_zoom_cnt.appendChild ( btn_zoom_out_v );
 

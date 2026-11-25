@@ -278,29 +278,34 @@
 				}, false);
 
 				var main_context = PKAudioEditor._deps.ContextMenu ( avv );
-				main_context.addOption (t('context.select_visible'), function(){ UI.fireEvent ('RequestRegionSet'); }, false );
-				main_context.addOption (t('context.reset_zoom'), function(){ UI.fireEvent ('RequestZoomUI', 0); }, false );
 				UI.listenFor ('DidHoverTime', function ( time ) { hover_duration.textContent = formatTime ( time ); });
-				main_context.addOption (t('context.set_volume'), function(){ UI.fireEvent ('RequestFXUI_Gain'); }, false );
-				main_context.addOption (t('context.seamless_loop'), function(){ UI.fireEvent ('RequestActionFXUI_SeamlessLoop'); }, false );
-				main_context.addOption (t('context.copy'), function(){ UI.fireEvent( 'RequestActionCopy'); }, false );
-				main_context.addOption (t('context.paste'), function(){ UI.fireEvent( 'RequestActionPaste'); }, false );
-				main_context.addOption (t('context.cut'), function(){ UI.fireEvent( 'RequestActionCut', 1); }, false );
-				main_context.addOption (t('context.insert_silence'), function(){ UI.fireEvent ('RequestFXUI_Silence'); }, false );
-				/* [階段 3 收尾] 以選取範圍建立區間標記（沒有選取時反灰；點了也只會提示） */
-				var mrkApi = PKAudioEditor.mrk;
-				if (mrkApi) main_context.addOption (mrkApi.T ('range_new'), function(){ mrkApi.addRangeFromSelection (); }, false );
+
+				/* [修改] 右鍵選單內容不再寫死：改讀 PKAudioEditor._deps.tbl.ctxList ()（「自訂工具列」→「右鍵選單」頁籤），設定一變就重建 */
+				var ctx_items = [];
+				function buildCtx () {
+					var T = PKAudioEditor._deps.tbl;
+					if (!T || !T.ctxList) return ;
+					main_context.options = [];
+					ctx_items = T.ctxList ();
+					ctx_items.forEach ( function ( it ) {
+						main_context.addOption (it.label, function(){ T.ctxRun ( it.id ); }, false);
+					});
+				}
+				buildCtx ();
+				PKAudioEditor._deps.tbl && PKAudioEditor._deps.tbl.onChange ( buildCtx );
 
 				var copable = false;
 				UI.listenFor ('DidSetClipboard', function ( val ) { copable = !!val; });
 				main_context.onOpen = function ( menu, div ) {
 					var divs = div.childNodes;
-					if (!copable) divs[5].className += ' pk_inact';
 					UI.fireEvent ('RequestPause');
 					var region = PKAudioEditor.engine.wavesurfer.regions.list[0];
-					if (region) return ;
-					divs[3].className += ' pk_inact'; divs[4].className += ' pk_inact'; divs[6].className += ' pk_inact';
-					if (divs[8]) divs[8].className += ' pk_inact';
+					/* [修改] 原本用 divs[3]、divs[4]… 的固定位置反灰；項目可自訂後改成依項目性質判斷（貼上看剪貼簿，複製／剪下／無縫循環／區間標記看選取範圍） */
+					ctx_items.forEach ( function ( it, i ) {
+						var a = divs[ i ];
+						if (!a) return ;
+						if ((it.needClip && !copable) || (it.needSel && !region)) a.className += ' pk_inact';
+					});
 				};
 			}, 1000);
 

@@ -180,3 +180,5 @@ context.LZ4BlockWASM.prototype = {
 };
 
 })(this || self);
+
+

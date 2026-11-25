@@ -1,3 +1,7 @@
+/* 範例音訊：從 gnisew.github.io/holo/gisu/ 的 1.mp3 ~ 14600.mp3 隨機取一個 */
+window.PKSampleURL = function () {
+	return 'https://gnisew.github.io/holo/gisu/' + (1 + Math.floor (Math.random () * 14600)) + '.mp3';
+};
 (function ( w, d, PKAE ) {
 	'use strict';
 
@@ -476,7 +480,7 @@
 
 				app.fireEvent ('RequestZoomUI', 0);
 				q.is_ready = false;
-				wavesurfer.load (file || 'piano-sample.mp3');
+				wavesurfer.load (file && file !== 'test.mp3' ? file : window.PKSampleURL ());
 			}, 180);
 		}
 		this.LoadURL = function ( url ) {
@@ -502,10 +506,22 @@
 			}, 180);
 		}
 
+		/* [修改] 選取區（region）的位置依 drawer.width 計算，但 drawer.drawPeaks 是在下一個 animation frame 才
+		 * 呼叫 setWidth；setHeight → drawBuffer 同步送出的 'redraw' 讓 region 拿到的還是「舊寬度」。
+		 * 停靠聲調轉換／標記清單等面板、視窗大小改變後，波形變窄了，選取區卻停在原本的像素位置而錯亂。
+		 * 解法：等 setWidth 完成之後（雙 rAF，確保排在 drawPeaks 的 rAF 後面）再重排一次選取區。 */
+		function refreshRegions () {
+			var list = wavesurfer.regions && wavesurfer.regions.list, id;
+			if (!list) return ;
+			for (id in list) if (list[ id ] && list[ id ].updateRender) list[ id ].updateRender ();
+		}
 		app.listenFor ('RequestResize', function () {
 			wavesurfer.fireEvent ('resize');
 			wavesurfer.setHeight ( mainHeight () );
 
+			window.requestAnimationFrame ( function () {
+				window.requestAnimationFrame ( refreshRegions );
+			});
 		});
 
 		/* 切換淺色／深色時，波形畫布要重畫（畫布顏色不吃 CSS） */
@@ -3513,6 +3529,12 @@
 				if (!q.is_ready) return ;
 
 				var info = app.wheelInfo ( e );
+				/* [新增] 滾輪模式對調：Shift＋滾輪＝縮放；滾輪（以垂直量為主時）＝左右移動。
+				 * 觸控板橫向滑動（水平量大於垂直量）本來就是左右移動，不受影響；Ctrl／捏合縮放不變 */
+				if (app.wheelSwap && !info.pinch) {
+					if (e.shiftKey) { info.y = info.x || info.y; info.x = 0; }
+					else if (Math.abs (info.y) > Math.abs (info.x)) { info.x = info.y; info.y = 0; }
+				}
 				var now = e.timeStamp || w.performance.now ();
 				e.preventDefault ();
 				e.stopImmediatePropagation ? e.stopImmediatePropagation () : e.stopPropagation ();
@@ -3688,6 +3710,36 @@
 				}
 			});
 
+		/* [新增] 手型拖曳：中鍵、或 Alt＋左鍵，按住拖曳＝左右移動畫面（原本只有右鍵）。
+		 * 用捕捉階段先攔下，避免同時拉出選取範圍或移動播放游標；按住 Alt 時游標變成手型。 */
+		function grabEnd () {
+			document.removeEventListener ('mouseup', grabEnd, true);
+			document.removeEventListener ('mousemove', drag_move);
+			if (wave.className === 'pk_grabbing') {
+				wave.className = alt_down ? 'pk_grab_ready' : '';
+				setTimeout (function () { wavesurfer.Interacting &= ~(1 << 1); }, 20);
+			}
+		}
+		var alt_down = false;
+		function altSync ( v ) {
+			if (v === alt_down) return ;
+			alt_down = v;
+			if (wave.className === '' || wave.className === 'pk_grab_ready') wave.className = v ? 'pk_grab_ready' : '';
+		}
+		window.addEventListener ('keydown', function ( e ) { if (e.key === 'Alt') altSync ( true ); }, true);
+		window.addEventListener ('keyup', function ( e ) { if (e.key === 'Alt') altSync ( false ); }, true);
+		window.addEventListener ('blur', function () { altSync ( false ); });
+		wave.addEventListener ('mousedown', function ( e ) {
+			if (!( e.which === 2 || ( e.which === 1 && e.altKey ) )) return ;
+			e.preventDefault ();
+			e.stopImmediatePropagation ();
+			wavesurfer.Interacting |= (1 << 1);
+			drag_x = e.clientX;
+			wave.className = 'pk_grabbing';
+			document.addEventListener ('mousemove', drag_move, false);
+			document.addEventListener ('mouseup', grabEnd, true);
+		}, true);
+
 		wave.addEventListener ('mousedown', function( e ) {
 			if (e.which === 3) {
 				e.preventDefault();
@@ -3733,6 +3785,17 @@
 
 		app.fireEvent ('RequestResize');
 
+		/* [新增] 跟隨方式：置中（原本）／翻頁式。記在 localStorage（pk_follow_page） */
+		try { wavesurfer.FollowPage = w.localStorage.getItem ('pk_follow_page') === '1' ? 1 : 0; } catch (e) {}
+		app.listenFor ('RequestViewFollowModeToggle', function () {
+			wavesurfer.FollowPage = wavesurfer.FollowPage ? 0 : 1;
+			try { w.localStorage.setItem ('pk_follow_page', wavesurfer.FollowPage ? '1' : '0'); } catch (e) {}
+			if (!wavesurfer.FollowCursor) {		/* 跟隨游標沒開時，選了跟隨方式就順便打開 */
+				wavesurfer.FollowCursor = 1;
+				app.fireEvent ( 'DidViewFollowCursorToggle', 1 );
+			}
+			app.fireEvent ( 'DidViewFollowModeToggle', !!wavesurfer.FollowPage );
+		});
 		app.listenFor ('RequestViewFollowCursorToggle', function () {
 			var val = !wavesurfer.FollowCursor;
 			wavesurfer.FollowCursor = val;

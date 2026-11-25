@@ -67,6 +67,8 @@
 		{ id: 'silence',     group: 'edit', keys: ['Shift+N'],                          run: function () { ev ('RequestFXUI_Silence'); } },
 		/* [新增] A/B 對照：套用效果前後一鍵切換 */
 		{ id: 'ab_toggle',   group: 'edit', keys: ['B'],                                ready: 1, run: function () { ev ('RequestABToggle'); } },
+		/* [新增] 重複上一次動作（同 Audacity 的 Ctrl+R）；實作在 repeat-last.js */
+		{ id: 'repeat_last', group: 'edit', keys: ['Mod+R'],                            ready: 1, run: function () { ev ('RequestRepeatLastAction'); } },
 
 		{ id: 'marker_add',      group: 'select', keys: ['M'],           run: function () { ev ('MrkrAdd'); } },
 		{ id: 'marker_prev',     group: 'select', keys: ['['],          run: function () { ev ('MrkrPrv', 0); } },
@@ -190,7 +192,7 @@
 	}
 
 	/* 保留按鍵：由選單、對話框或瀏覽器使用，不開放指定 */
-	var RESERVED = { 'Escape': 1, 'Enter': 1, 'ArrowUp': 1, 'ArrowDown': 1, '`': 1, 'F5': 1, 'F12': 1, 'Mod+R': 1, 'Mod+W': 1, 'Mod+T': 1, 'Mod+N': 1 };
+	var RESERVED = { 'Escape': 1, 'Enter': 1, 'ArrowUp': 1, 'ArrowDown': 1, '`': 1, 'F5': 1, 'F12': 1, 'Mod+W': 1, 'Mod+T': 1, 'Mod+N': 1 };
 
 	/* ------------------------------------------------------------------
 	 * 綁定資料
@@ -393,6 +395,7 @@
 	/* [修改] 新增的標記動作語言檔沒有名稱，用內建中／英文備援 */
 	var ACT_FALLBACK = {
 		open:              ['開啟檔案', 'Open File'],
+		repeat_last:       ['重複上一次動作', 'Repeat Last Action'],
 		marker_list:   ['開啟／關閉標記清單', 'Toggle Marker List'],
 		marker_rename: ['重新命名目前標記', 'Rename Current Marker'],
 		marker_delete: ['刪除目前標記', 'Delete Current Marker'],
@@ -561,5 +564,3 @@
 	};
 
 })( window, document, PKAudioEditor );
-
-

@@ -18,16 +18,25 @@
 		btn_play.className = 'pk_btn pk_play icon-play3';
 		btn_play.innerHTML = '<span>' + t('toolbar.play') + '</span>';
 		transport.appendChild ( btn_play );
-		btn_play.onclick = function() { UI.fireEvent('RequestPlay'); this.blur(); };
-		UI.listenFor ('DidStopPlay', function(){ btn_play.classList.remove ('pk_act'); });
-		UI.listenFor ('DidPlay', function(){ btn_play.classList.add ('pk_act'); });
-
-		var btn_pause = d.createElement ('button');
-		btn_pause.setAttribute('tabIndex', -1);
-		btn_pause.className = 'pk_btn pk_pause icon-pause2';
-		btn_pause.innerHTML = '<span>' + t('toolbar.pause') + '</span>';
-		transport.appendChild ( btn_pause );
-		btn_pause.onclick = function() { UI.fireEvent('RequestPause'); this.blur(); };
+		/* [修改] 播放與暫停合併成同一顆按鈕的兩個狀態：
+		 *   沒在播放 → ▶ 圖示，點下去＝播放（RequestPlay）
+		 *   播放中   → ⏸ 圖示，點下去＝暫停（RequestPause，位置保留，再按一次從該處繼續）
+		 * [刪除] 原本獨立的 btn_pause（pk_pause）。 */
+		var play_on = false;
+		function playBtnSync ( on ) {
+			play_on = !!on;
+			btn_play.classList.toggle ('pk_act', play_on);
+			btn_play.classList.toggle ('icon-play3', !play_on);
+			btn_play.classList.toggle ('icon-pause2', play_on);
+			var tip = t(play_on ? 'toolbar.pause' : 'toolbar.play');
+			btn_play.firstElementChild.textContent = tip;
+			btn_play.setAttribute ('aria-label', tip);
+			btn_play.setAttribute ('aria-pressed', play_on ? 'true' : 'false');
+		}
+		btn_play.onclick = function() { UI.fireEvent (play_on ? 'RequestPause' : 'RequestPlay'); this.blur(); };
+		UI.listenFor ('DidStopPlay', function(){ playBtnSync ( false ); });
+		UI.listenFor ('DidPlay', function(){ playBtnSync ( true ); });
+		playBtnSync ( false );
 
 		var btn_loop = d.createElement ('button');
 		btn_loop.setAttribute('tabIndex', -1);
@@ -193,5 +202,4 @@
 	PKAE._deps._toolbarTransport = _toolbarTransport;
 
 })( window, document, PKAudioEditor );
-
 

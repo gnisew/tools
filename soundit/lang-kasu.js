@@ -99,6 +99,7 @@ PKLocale.register ('kasu', {
 	'fx.repair': '音訊修復',
 	'fx.speed_pitch': '變速（連同音高）',
 	'fx.speed_rate': '時間與音高…',
+	'fx.tone_change': '聲調轉換…',
 	'tp.bpm_fold2': '偵測值可能只有實際的一半，已以 2 倍對齊',
 	'tp.bpm_fold05': '偵測值可能是實際的兩倍，已以 1/2 對齊',
 	'tp.key': '調性',
@@ -437,3 +438,5 @@ PKLocale.register ('kasu', {
 
 	'lang.switch': '語言'
 }, { name: '詔安客語', fallback: 'zh-TW', match: ['kasu'] });
+
+

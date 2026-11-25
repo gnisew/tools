@@ -104,6 +104,7 @@ PKLocale.register ('en', {
 	'fx.repair': 'Audio Repair',
 	'fx.speed_pitch': 'Speed Up / Slow Down (pitch)',
 	'fx.speed_rate': 'Time & Pitch…',
+	'fx.tone_change': 'Tone change…',
 	'tp.bpm_fold2': 'Detected BPM may be half the real one; aligned at 2×',
 	'tp.bpm_fold05': 'Detected BPM may be double the real one; aligned at 1/2×',
 	'tp.key': 'Key',
@@ -251,6 +252,14 @@ PKLocale.register ('en', {
 	'tbl.down': 'Move down',
 	'tbl.remove': 'Remove',
 	'tbl.done': 'Done',
+	/* [新增] 自訂工具列對話框：頁籤與右鍵選單 */
+	'tbl.tab.bars': 'Toolbars',
+	'tbl.tab.ctx': 'Right-click menu',
+	'tbl.ctx_hint': 'Pick what appears when you right-click (or long-press) the waveform. Changes apply right away.',
+	'tbl.ctx_current': 'Items in the menu (top to bottom)',
+	'tbl.ctx_empty': 'Nothing picked: the default menu is used.',
+	'tbl.ctx_reset': 'Restore default menu',
+	'tbl.btn.range_new': 'Create range marker from selection',
 	'tbl.reset': 'Reset',
 	'tbl.confirm_reset': 'Reset also deletes your custom toolbars. Continue?',
 	'tbl.bad_file': 'This is not a valid toolbar settings file.',
@@ -1224,3 +1233,5 @@ PKLocale.register ('en', {
 
 	'lang.switch': 'Language'
 }, { name: 'English' });
+
+

@@ -75,6 +75,14 @@
 			};
 		};
 
+		/* [新增] 滾輪模式：false＝滾輪縮放、Shift＋滾輪左右移動（預設）；true＝對調。記在 localStorage */
+		q.wheelSwap = (function () { try { return w.localStorage.getItem ('pk_wheel_swap') === '1'; } catch (e) { return false; } })();
+		q.setWheelSwap = function ( v ) {
+			q.wheelSwap = !!v;
+			try { w.localStorage.setItem ('pk_wheel_swap', q.wheelSwap ? '1' : '0'); } catch (e) {}
+			q.fireEvent && q.fireEvent ('DidWheelSwap', q.wheelSwap);
+		};
+
 		q.wheelZoomFactor = function ( delta ) {
 			return Math.max (0.2, Math.min (5, Math.pow (1.0025, -delta)));
 		};
@@ -185,5 +193,4 @@
 	PKAudioList.push (w.PKAudioEditor);
 
 })( window, document );
-
 

@@ -56,6 +56,7 @@
 				{ name: t('fx.repair'), action: function () { app.fireEvent ('RequestActionFXUI_Repair'); } },
 				{ name: t('fx.speed_pitch'), action: function () { app.fireEvent ('RequestActionFXUI_Speed'); } },
 				{ name: t('fx.speed_rate') + K ('timepitch_dialog'), action: function () { app.fireEvent ('RequestActionFXUI_TimePitch'); } },
+				{ name: tf ('fx.tone_change', '聲調轉換…', 'Tone change…'), action: function () { app.fireEvent ('RequestActionToneChange'); } },
 				PRACTICE_MENU,
 				{ name: t('fx.reverse'), action: function () { app.fireEvent ('RequestActionFX_Reverse'); } },
 				{ name: t('fx.invert'), action: function () { app.fireEvent ('RequestActionFX_Invert'); } },

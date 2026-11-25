@@ -16,3 +16,5 @@ self.onmessage = function ( e ) {
 		self.postMessage ({ id: m.id, error: String ( err && err.message || err ) });
 	}
 };
+
+

@@ -28,7 +28,7 @@
  *   .onChange(fn)
  * [新增] 電平表（-Inf … 0 那條）也是一個面板：id = meter。
  *   .isVis('meter') / .toggle('meter')   顯示／隱藏
- *   .meterDock() .setMeterDock('foot'|'bar')   放在底部（預設、全寬）或工具列（窄版）
+ *   .meterDock() .setMeterDock('foot'|'bar')   放在底部（全寬）或工具列（窄版，預設）　[修改] 預設改為 'bar'，且「選取工具列」「電平表」預設隱藏
  *   .attachMeter(el, footer)             由 ui-mainview.js 建好電平表後呼叫（工具列比它早建好，所以要事後接上）
  *   在「調整排列」裡可以抓電平表：拖到工具列區＝窄版放工具列；拖到底部＝放回底部；拖到中間＝浮動
  * 設定存在 localStorage 'pk_tbl'（含版本號；不認得的項目會被丟掉，新增的內建按鈕會自動補進去）
@@ -44,12 +44,12 @@
 
 	/* 按鈕 id → 原本按鈕上的 class（用 class 辨識，所以不用改原本的檔案） */
 	var BTN = {
-		stop: 'pk_stop', play: 'pk_play', pause: 'pk_pause', loop: 'pk_loop', practice: 'pk_practice',	/* [修改 5-2] 多了 practice（練習速度） */
+		stop: 'pk_stop', play: 'pk_play', loop: 'pk_loop', practice: 'pk_practice',	/* [修改 5-2] 多了 practice（練習速度） */
 		back: 'pk_back_jump', fwd: 'pk_front_jump', start: 'icon-previous2', end: 'icon-next2', rec: 'icon-rec',
 		copy: 'icon-files-empty', paste: 'icon-file-text2', cut: 'icon-scissors', silence: 'icon-silence'
 	};
 	var DEF = {
-		transport: ['stop', 'play', 'pause', 'loop', 'practice', 'back', 'fwd', 'start', 'end', 'rec'],	/* [修改 5-2] loop 後面加 practice */
+		transport: ['stop', 'play', 'loop', 'practice', 'back', 'fwd', 'start', 'end', 'rec'],	/* [修改 5-2] loop 後面加 practice */
 		actions: ['copy', 'paste', 'cut', 'silence']
 	};
 
@@ -80,6 +80,7 @@
 		{ id: 'sel_vis', cat: 'edit', face: '[ ]', ev: ['RequestRegionSet'] },
 		{ id: 'deselect', cat: 'edit', face: '\u2205', ev: ['RequestDeselect'] },
 		{ id: 'zero_cross', cat: 'edit', face: '0\u00D7', ev: ['RequestSnapSelDrag'] },
+		{ id: 'range_new', cat: 'edit', face: '\u2691+', run: function ( app ) { var m = app.mrk; m && m.addRangeFromSelection && m.addRangeFromSelection (); } },	/* [新增] 以選取範圍建立區間標記（右鍵選單預設項目，也能放進工具列） */
 
 		{ id: 'gain', cat: 'fx', face: 'dB', ev: ['RequestFXUI_Gain'] },
 		{ id: 'fade_in', cat: 'fx', face: '\u25E2', ev: ['RequestActionFX_FadeIn'] },
@@ -134,6 +135,12 @@
 	var CAT = {};
 	CATALOG.forEach ( function ( c ) { CAT[ c.id ] = c; });
 	var MAXBARS = 6, MAXITEMS = 24;
+	/* [新增] 右鍵選單：項目從上面的按鈕目錄挑；預設內容與原本寫死的 9 項相同 */
+	var MAXCTX = 16;
+	var DEFCTX = ['sel_vis', 'zoom_reset', 'gain', 'seamless', 'copy', 'paste', 'cut', 'silence', 'range_new'];
+	var CTXKEY = { sel_vis: 'context.select_visible', zoom_reset: 'context.reset_zoom', gain: 'context.set_volume', seamless: 'context.seamless_loop',
+		copy: 'context.copy', paste: 'context.paste', cut: 'context.cut', silence: 'context.insert_silence' };	/* 這幾項沿用原本右鍵選單的字 */
+	var CTXSEL = { seamless: 1, copy: 1, cut: 1, range_new: 1 };	/* 沒有選取範圍時反灰（和原本一樣；paste 則看剪貼簿） */
 
 	function cname ( c ) { return lt ( 'tbl.btn.' + c.id ); }
 
@@ -148,15 +155,16 @@
 		return {
 			v: V,
 			order: PANELS.slice (),
-			hide: {},
+			hide: { selection: 1, meter: 1 },	/* [修改] 預設隱藏「選取工具列」與「電平表」（原本是 {}，全部顯示） */
 			bars: { transport: DEF.transport.slice (), actions: DEF.actions.slice () },
 			tm: { t: 1, h: 1 },
 			x: { t: 0, h: 0 },	/* [新增] 桌面版精簡時間：往右多顯示「總長度」「滑鼠位置時間」（預設都不顯示） */
 			selx: 0,	/* [新增] 桌面版選取區塊：顯示橫向文字（起點／終點／長度） */
 			selc: 0,
-			mdock: 'foot',	/* [新增] 電平表放哪：'foot'＝底部（預設）、'bar'＝工具列（窄版）；浮動另外記在 float.meter */
+			mdock: 'bar',	/* [修改] 電平表放哪：'foot'＝底部（全寬）、'bar'＝工具列（窄版，現為預設；原本預設 'foot'）；浮動另外記在 float.meter */
 			lay: 3,	/* [修改] 排列方式：0＝自動、1＝固定上下兩排、2＝固定單排、3＝精簡（半高單排，放不下才折兩行；新的預設值） */
 			custom: [],
+			ctx: DEFCTX.slice (),	/* [新增] 右鍵選單項目（按鈕 id 陣列） */
 			float: {}
 		};
 	}
@@ -181,7 +189,8 @@
 			ids.forEach ( function ( id ) { if (!seen[ id ]) ord.push ( id ); });
 			s.order = ord;
 		} else s.order = ids.slice ();
-		if (o.hide && typeof o.hide === 'object') ids.forEach ( function ( id ) { if (o.hide[ id ]) s.hide[ id ] = 1; });
+		/* [修改] 預設 hide 不再是空物件：已存過設定時，先清空再依存檔還原，否則使用者手動「顯示」過的面板重新整理後會又被預設隱藏 */
+		if (o.hide && typeof o.hide === 'object') { s.hide = {}; ids.forEach ( function ( id ) { if (o.hide[ id ]) s.hide[ id ] = 1; }); }
 
 		if (o.bars && typeof o.bars === 'object') {
 			var nb = { transport: [], actions: [] }; seen = {};
@@ -200,8 +209,10 @@
 		s.selc = o.selc ? 1 : 0;
 		if (o.x && typeof o.x === 'object') { s.x.t = o.x.t === 1 ? 1 : 0; s.x.h = o.x.h === 1 ? 1 : 0; }
 		s.selx = o.selx ? 1 : 0;
-		s.mdock = o.mdock === 'bar' ? 'bar' : 'foot';	/* [新增] */
+		s.mdock = o.mdock === undefined ? s.mdock : (o.mdock === 'bar' ? 'bar' : 'foot');	/* [修改] 舊設定沒有 mdock 欄位 → 用新預設（工具列窄版）；明確存過 'foot' 的維持底部 */
 		s.lay = (o.lay === 1 || o.lay === 2 || o.lay === 3) ? o.lay : (o.lay === undefined ? s.lay : 0);	/* [修改] 舊設定沒有 lay 欄位 → 用新預設（精簡）；明確存過 0 的維持自動 */
+		/* [新增] 右鍵選單：只收目錄裡有的按鈕 id；沒存過就用預設 */
+		if (Array.isArray (o.ctx)) s.ctx = o.ctx.filter ( function ( k ) { return CAT[ k ]; }).slice ( 0, MAXCTX );
 		/* 浮動位置：以視窗可移動範圍的比例（0~1）記錄，視窗縮放時才不會跑到畫面外 */
 		if (o.float && typeof o.float === 'object') ids.forEach ( function ( id ) {
 			var f = o.float[ id ];
@@ -224,7 +235,7 @@
 	var els = {}, btns = {};
 	var mhome = null;	/* [新增] 電平表在「底部」時的容器（.pk_ftr） */
 	var lastRow = null, relayoutRaf = 0;	/* [新增] 上一次是否採單排；重新排版的排程旗標 */
-	var editing = false, pill = null, drag = null, rz = 0, dlg = null, dlgSel = null, dlgQ = '';
+	var editing = false, pill = null, drag = null, rz = 0, dlg = null, dlgSel = null, dlgQ = '', dlgTab = 'bars';	/* [修改] 多了 dlgTab：對話框目前的頁籤（bars＝工具列、ctx＝右鍵選單） */
 	var cfm = null, cfmGuard = 0;	/* 確認視窗：目前開著的那一個；關閉當下的保護旗標（避免同一次 Esc 連帶關掉後面的對話框） */
 	var ACT = { play: 0, loop: 0, rec: 0 };
 	var listeners = [];
@@ -862,6 +873,75 @@
 		return 'c' + (n + 1);
 	}
 
+	/* [新增] 右鍵選單用的名稱：預設那幾項沿用 context.*，其餘用按鈕名稱 */
+	function ctxName ( c ) { return CTXKEY[ c.id ] ? lt ( CTXKEY[ c.id ] ) : cname ( c ); }
+
+	/* [新增] 只存檔、通知，不重排工具列（右鍵選單的變更不影響工具列版面） */
+	function changedCtx () { save (); notify (); }
+
+	/* [新增] 「右鍵選單」頁籤：左邊挑按鈕加入、右邊調整順序／移除，改完立刻生效 */
+	function renderCtxTab ( box ) {
+		box.appendChild ( el ('p', 'pk_tbl_hint', lt ('tbl.ctx_hint')) );
+		var cols = el ('div', 'pk_tbl_cols');
+
+		var left = el ('div', 'pk_tbl_col');
+		left.appendChild ( el ('div', 'pk_tbl_ct', lt ('tbl.catalog')) );
+		var q = el ('input', 'pk_tbl_q');
+		q.type = 'text'; q.placeholder = lt ('tbl.search'); q.value = dlgQ;
+		q.onkeydown = function ( ev ) { ev.stopPropagation (); if (ev.keyCode === 27) closeDlg (); };
+		left.appendChild ( q );
+		var list = el ('div', 'pk_tbl_list');
+		function fill () {
+			while (list.firstChild) list.removeChild ( list.firstChild );
+			var term = dlgQ.toLowerCase (), lastCat = '';
+			CATALOG.forEach ( function ( c ) {
+				var nm = ctxName ( c );
+				if (term && (nm + ' ' + c.id + ' ' + (c.face || '')).toLowerCase ().indexOf ( term ) < 0) return ;
+				if (c.cat !== lastCat) { lastCat = c.cat; list.appendChild ( el ('div', 'pk_tbl_cat', lt ( 'tbl.cat.' + c.cat )) ); }
+				var b = el ('button', 'pk_tbl_it');
+				b.type = 'button';
+				b.appendChild ( face ( c ) );
+				b.appendChild ( el ('span', '', nm) );
+				b.disabled = S.ctx.length >= MAXCTX;
+				b.onclick = function () { S.ctx.push ( c.id ); changedCtx (); renderDlg (); };
+				list.appendChild ( b );
+			});
+		}
+		q.oninput = function () { dlgQ = q.value; fill (); };
+		fill ();
+		left.appendChild ( list );
+		cols.appendChild ( left );
+
+		var right = el ('div', 'pk_tbl_col');
+		right.appendChild ( el ('div', 'pk_tbl_ct', lt ('tbl.ctx_current')) );
+		var cl = el ('div', 'pk_tbl_list');
+		if (!S.ctx.length) cl.appendChild ( el ('p', 'pk_tbl_hint', lt ('tbl.ctx_empty')) );
+		S.ctx.forEach ( function ( k, idx ) {
+			var c = CAT[ k ], r = el ('div', 'pk_tbl_cr');
+			r.appendChild ( face ( c ) );
+			r.appendChild ( el ('span', '', ctxName ( c )) );
+			function mk ( txt, lab, dis, fn ) {
+				var b = el ('button', 'pk_tbl_mini', txt);
+				b.type = 'button'; b.disabled = dis;
+				b.setAttribute ('aria-label', lab + ' ' + ctxName ( c ));
+				b.onclick = fn;
+				r.appendChild ( b );
+			}
+			mk ('\u2191', lt ('tbl.up'), idx === 0, function () { S.ctx.splice ( idx - 1, 0, S.ctx.splice ( idx, 1 )[0] ); changedCtx (); renderDlg (); });
+			mk ('\u2193', lt ('tbl.down'), idx === S.ctx.length - 1, function () { S.ctx.splice ( idx + 1, 0, S.ctx.splice ( idx, 1 )[0] ); changedCtx (); renderDlg (); });
+			mk ('\u2715', lt ('tbl.remove'), false, function () { S.ctx.splice ( idx, 1 ); changedCtx (); renderDlg (); });
+			cl.appendChild ( r );
+		});
+		right.appendChild ( cl );
+		var rs = el ('button', 'pk_tbl_b', lt ('tbl.ctx_reset'));
+		rs.type = 'button';
+		rs.style.marginTop = '8px';
+		rs.onclick = function () { S.ctx = DEFCTX.slice (); changedCtx (); renderDlg (); };
+		right.appendChild ( rs );
+		cols.appendChild ( right );
+		box.appendChild ( cols );
+	}
+
 	function renderDlg () {
 		if (!dlg) return ;
 		var box = dlg.firstChild, hadQ = d.activeElement && d.activeElement.className === 'pk_tbl_q';
@@ -869,6 +949,23 @@
 		var cur = customOf ( dlgSel ), i;
 
 		box.appendChild ( el ('h3', '', lt ('tbl.title')) );
+
+		/* [新增] 頁籤：工具列／右鍵選單 */
+		var tabs = el ('div', 'pk_tbl_tabs');
+		tabs.setAttribute ('role', 'tablist');
+		[ ['bars', 'tbl.tab.bars'], ['ctx', 'tbl.tab.ctx'] ].forEach ( function ( t ) {
+			var b = el ('button', 'pk_tbl_tab', lt ( t[1] ));
+			b.type = 'button';
+			b.setAttribute ('role', 'tab');
+			b.setAttribute ('aria-selected', dlgTab === t[0] ? 'true' : 'false');
+			b.onclick = function () { if (dlgTab === t[0]) return ; dlgTab = t[0]; renderDlg (); };
+			tabs.appendChild ( b );
+		});
+		box.appendChild ( tabs );
+
+		if (dlgTab === 'ctx') {
+			renderCtxTab ( box );
+		} else {	/* [新增] 以下是原本「工具列」頁籤的內容，程式沒動，只是包進 else */
 
 		/* 工具列選單 + 新增／刪除 */
 		var row = el ('div', 'pk_tbl_row');
@@ -991,6 +1088,8 @@
 			if (hadQ) q.focus ();
 		}
 
+		}	/* [新增] else 結束 */
+
 		var ft = el ('div', 'pk_tbl_ft');
 		var ok = el ('button', 'pk_tbl_b pk_tbl_ok', lt ('tbl.done'));
 		ok.type = 'button';
@@ -1087,6 +1186,20 @@
 				fr.readAsText ( f );
 			};
 			inp.click ();
+		},
+		/* [新增] 右鍵選單：回傳目前要顯示的項目（空的時候用預設） */
+		ctxList: function () {
+			var ids = S.ctx.length ? S.ctx : DEFCTX;
+			return ids.map ( function ( id ) {
+				var c = CAT[ id ];
+				return { id: id, label: ctxName ( c ), needSel: !!CTXSEL[ id ], needClip: id === 'paste' };
+			});
+		},
+		ctxRun: function ( id ) {
+			var c = CAT[ id ];
+			if (!c) return ;
+			if (c.run) c.run ( PKAE );
+			else if (c.ev) (UI || PKAE).fireEvent.apply ( UI || PKAE, c.ev );
 		},
 		openDialog: openDlg,
 		closeDialog: closeDlg,

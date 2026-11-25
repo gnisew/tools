@@ -317,3 +317,5 @@
 
 	root.PKF0 = { track: track, trackBuffer: trackBuffer, hzAt: hzAt, toMidi: toMidi, toHz: toHz, stats: stats, version: 1 };
 })( typeof self !== 'undefined' ? self : this );
+
+

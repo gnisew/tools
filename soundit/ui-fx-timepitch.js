@@ -1001,3 +1001,5 @@
 
 	w.PKTimePitchUI = { attach: attach, plan: planStages, retimeOn: retimeOn, defaults: spDefaults };      /* [修改 4-6] 多匯出三個純函式供測試 */
 })( window, document );
+
+

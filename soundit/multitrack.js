@@ -838,7 +838,7 @@
 			addRegionHandles ();
 			empty_el.getElementsByTagName ('a')[0].onclick = function ( e ) {
 				e.preventDefault ();
-				loadMultiSample ();
+				addURL ( (window.PKSampleURL ? window.PKSampleURL () : 'https://gnisew.github.io/holo/gisu/' + (1 + Math.floor (Math.random () * 14600)) + '.mp3'), 'Sample File' );
 			};
 			main.addEventListener ('wheel', wheelZoom, {passive:false});
 			el.addEventListener ('gesturestart', gestureStart, {passive:false,capture:true});
@@ -5861,7 +5861,7 @@
 				return true;
 			}
 			if (id === 'RequestLoadSampleFile') {
-				addURL ( 'test.mp3', 'Sample File' );
+				addURL ( (window.PKSampleURL ? window.PKSampleURL () : 'https://gnisew.github.io/holo/gisu/' + (1 + Math.floor (Math.random () * 14600)) + '.mp3'), 'Sample File' );
 				return true;
 			}
 			if (id === 'RequestLoadURL') {
@@ -6039,5 +6039,3 @@
 
 	PKAE._deps.multitrack = PKMultitrack;
 })( window, document, PKAudioEditor );
-
-

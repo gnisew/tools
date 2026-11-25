@@ -94,6 +94,21 @@
 						});
 					}
 				},
+				{
+					name: tf ('edit.repeat_last', '重複上一次動作', 'Repeat Last Action') + K ('repeat_last'),
+					clss: 'pk_inact',
+					action: function () { app.fireEvent ('RequestRepeatLastAction'); },
+					setup: function ( obj ) {
+						var base = tf ('edit.repeat_last', '重複上一次動作', 'Repeat Last Action');
+						app.listenFor ('DidSetRepeatLast', function ( desc ) {
+							if (!desc) { obj.innerHTML = base + K ('repeat_last'); obj.classList.add ('pk_inact'); }
+							else {
+								obj.innerHTML = base + '&nbsp;<i style="pointer-events:none">' + app.escapeHtml ( desc ) + '</i>' + K ('repeat_last');
+								obj.classList.remove ('pk_inact');
+							}
+						});
+					}
+				},
 				{ name: '---' },
 				{ name: t('edit.play') + K ('play_stop'), action: function () { app.fireEvent ('RequestPlay'); } },
 				{ name: t('edit.stop'), action: function () { app.fireEvent ('RequestStop'); } },
@@ -173,5 +188,3 @@
 	PKAE._deps._menuMarker = _menuMarker;
 
 })( window, document, PKAudioEditor );
-
-

@@ -50,6 +50,7 @@
 	<script src="lang-kasu.js"></script>
 
 	<script src="app.js"></script>
+	<script src="repeat-last.js"></script>
 	<script src="keys.js"></script>
 	<script src="shortcuts.js"></script>
 	<script src="markers.js"></script>
@@ -92,6 +93,8 @@
 	<script src="timepitch-f0-edit.js?v=tp6"></script>
 	<script src="timepitch-psola.js?v=tp7"></script>
 	<script src="timepitch-speech.js?v=tp8"></script>
+	<script src="tone-systems.js?v=tc1"></script>
+	<script src="tone-change.js?v=tc3"></script>
 	<script src="ui-pitch-contour.js?v=tp5"></script>
 	<script src="ui-pitch-contour-edit.js?v=tp8"></script>
 	<script src="ui-fx-timepitch.js?v=tp9"></script>
@@ -123,6 +126,7 @@
 		try { editor && window.PKPitchContourEditUI && PKPitchContourEditUI.attach (editor); } catch (e) { console.error (e); }
 		try { editor && window.PKPracticeLive && PKPracticeLive.attach (editor); } catch (e) { console.error (e); }
 		try { editor && window.PKPhoneticView && PKPhoneticView.attach (editor); } catch (e) { console.error (e); }
+		try { editor && window.PKToneChange && PKToneChange.attach (editor); } catch (e) { console.error (e); }
 
 		/* 以已安裝的 PWA 開啟音訊檔（manifest 的 file_handlers）：直接載入進編輯器 */
 		if (editor && 'launchQueue' in window && window.launchQueue.setConsumer) {
@@ -133,6 +137,18 @@
 				}).catch (function () {});
 			});
 		}
+		/* 網址參數載入：?url=https://example.com/a.mp3（也可用 ?src= 或 ?load=）；?sample=1 載入隨機範例 */
+		if (editor && editor.engine && window.URLSearchParams) {
+			try {
+				var qs = new URLSearchParams (location.search);
+				var au = qs.get ('url') || qs.get ('src') || qs.get ('load');
+				if (!au && qs.get ('sample') && window.PKSampleURL) au = window.PKSampleURL ();
+				if (au && /^(https?:)?\/\//i.test (au) || (au && !/^[a-z][a-z0-9+.-]*:/i.test (au))) {
+					if (editor.engine.LoadURL) editor.engine.LoadURL (au);
+				}
+			} catch (e) { console.error (e); }
+		}
+
 		if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 			window.addEventListener('load', function () {
 				try {

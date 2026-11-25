@@ -329,6 +329,7 @@
 					action: function () {
 						new PKSimpleModal({
 							title: t('export.title'),
+							clss: 'pk_exp_modal',	/* [新增] 讓匯出視窗內容區可捲動（CSS 在 main.css） */
 							ondestroy: function( q ) { if (q._asJob) q._asJob.cancel (); app.ui.InteractionHandler.on = false; app.ui.KeyHandler.removeCallback ('modalTemp'); },
 							buttons:[{
 								title: t('export.export_btn'), clss:'pk_modal_a_accpt',
@@ -352,6 +353,8 @@
 									var dither = !!(dither_chk && dither_chk.checked);
 									if (format === 'amss') { var mt = activeMultitrackFor ( app ); if (mt) mt.ExportSession ( value ); q.Destroy (); return ; }
 									if (format == 'flac') kbps = document.getElementById('flac-comp').value / 1;
+									/* [新增] mp3 位元率改由下拉選單讀取（原本的 rdslnc 單選已移除） */
+									if (format === 'mp3') kbps = document.getElementById('exp-mp3br').value / 1;
 									/* [新增] opus / aac 位元率；匯出取樣率（opus 固定 48000） */
 									if (format === 'opus' || format === 'aac') kbps = document.getElementById('exp-wcbr').value / 1;
 									/* [新增] 標籤欄位（mp3 → ID3v2、opus → Vorbis comment），演出者會記住 */
@@ -435,9 +438,8 @@
 								'<input type="radio" class="pk_check" id="kopus" name="frmtex" value="opus"><label for="kopus">opus</label>' +
 								'<input type="radio" class="pk_check" id="kaac" name="frmtex" value="aac"><label for="kaac">aac</label>' +
 								'<br class="pk_amss"><input type="radio" class="pk_check pk_amss" id="k04" name="frmtex" value="amss"><label class="pk_amss" for="k04">' + t('export.session_file') + '</label></div>' +
-								'<div class="pk_row" id="frmtex-mp3"><input type="radio" class="pk_check" id="k1" name="rdslnc" checked value="128"><label for="k1">128kbps</label>' +
-								'<input type="radio" class="pk_check" id="k2" name="rdslnc" value="192"><label for="k2">192kbps</label>'+
-								'<input type="radio" class="pk_check" id="k3" name="rdslnc" value="256"><label for="k3">256kbps</label></div>'+
+								'<div class="pk_row" id="frmtex-mp3"><label>' + t('export.bitrate') + '</label>' +
+								'<select id="exp-mp3br"><option value="64">64 kbps</option><option value="96">96 kbps</option><option value="128" selected>128 kbps</option><option value="192">192 kbps</option><option value="256">256 kbps</option><option value="320">320 kbps</option></select></div>'+
 								'<div class="pk_row" style="display:none" id="frmtex-flac"><label>' + t('export.compression_level') + '</label>'+
 								'<input type="range" class="pk_horiz" min="0" max="8" step="1" value="5" id="flac-comp"><span class="pk_val" style="float:left;margin-left:15px">5</span></div>' +
 								'<div class="pk_row" style="display:none" id="frmtex-wav">'+
@@ -575,5 +577,3 @@
 	PKAE._deps._menuFile = _menuFile;
 
 })( window, document, PKAudioEditor );
-
-

@@ -59,6 +59,14 @@
 			return tlItem ( t ('view.tb_' + id), function ( T ) { return T.isVis ( id ); }, function ( T ) { T.toggle ( id ); } );
 		}
 
+		function followPageSaved () { try { return window.localStorage.getItem ('pk_follow_page') === '1'; } catch (e) { return false; } }
+		function followPageTxt ( on ) {
+			var en = false, s = t('view.follow_page');
+			try { en = PKLocale.getLang () === 'en'; } catch (e) {}
+			if (!s || s === 'view.follow_page') s = en ? 'Follow by page' : '翻頁式跟隨';
+			return on ? s + ' &#10004;' : s;
+		}
+
 		return {
 			name: t('menu.view'),
 			children:[
@@ -70,6 +78,17 @@
 							var txt = t('view.follow_cursor');
 							obj.innerHTML = val ? txt + ' &#10004;' : txt;
 							if (!val) obj.textContent = txt;
+						});
+					}
+				},
+				{
+					/* [新增] 翻頁式跟隨：播放線走到右邊界再整頁翻過去（關閉＝播放線固定在中間） */
+					name: followPageTxt (),
+					action: function () { app.fireEvent ('RequestViewFollowModeToggle'); },
+					setup: function ( obj ) {
+						obj.innerHTML = followPageTxt ( followPageSaved () );
+						app.listenFor ('DidViewFollowModeToggle', function ( val ) {
+							obj.innerHTML = followPageTxt ( val );
 						});
 					}
 				},
@@ -218,3 +237,4 @@
 	PKAE._deps._menuView = _menuView;
 
 })( window, document, PKAudioEditor );
+

@@ -104,6 +104,7 @@ PKLocale.register ('zh-TW', {
 	'fx.repair': '音訊修復',
 	'fx.speed_pitch': '變速（連同音高）',
 	'fx.speed_rate': '時間與音高…',
+	'fx.tone_change': '聲調轉換…',
 	'tp.bpm_fold2': '偵測值可能只有實際的一半，已以 2 倍對齊',
 	'tp.bpm_fold05': '偵測值可能是實際的兩倍，已以 1/2 對齊',
 	'tp.key': '調性',
@@ -251,6 +252,14 @@ PKLocale.register ('zh-TW', {
 	'tbl.down': '下移',
 	'tbl.remove': '移除',
 	'tbl.done': '完成',
+	/* [新增] 自訂工具列對話框：頁籤與右鍵選單 */
+	'tbl.tab.bars': '工具列',
+	'tbl.tab.ctx': '右鍵選單',
+	'tbl.ctx_hint': '設定在波形上按右鍵（手機長按）時出現哪些項目，改完立刻生效。',
+	'tbl.ctx_current': '選單裡的項目（由上到下）',
+	'tbl.ctx_empty': '沒有挑選任何項目，會使用預設選單。',
+	'tbl.ctx_reset': '還原預設選單',
+	'tbl.btn.range_new': '以選取範圍建立區間標記',
 	'tbl.reset': '重設',
 	'tbl.confirm_reset': '重設會一併刪除你建立的自訂工具列，確定嗎？',
 	'tbl.bad_file': '這不是有效的工具列設定檔。',
@@ -1224,3 +1233,5 @@ PKLocale.register ('zh-TW', {
 
 	'lang.switch': '語言'
 }, { name: '繁體中文', match: ['zh'] });
+
+
